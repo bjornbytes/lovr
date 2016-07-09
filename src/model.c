@@ -174,15 +174,11 @@ int lovrModelGetVertex(lua_State* L) {
   Model* model = luax_checkmodel(L, 1);
   int index = luaL_checkint(L, 2);
 
-  lua_createtable(L, 3, 0);
   lua_pushnumber(L, model->mVertices[index].x);
-  lua_rawseti(L, -2, 1);
   lua_pushnumber(L, model->mVertices[index].y);
-  lua_rawseti(L, -2, 2);
   lua_pushnumber(L, model->mVertices[index].z);
-  lua_rawseti(L, -2, 3);
 
-  return 1;
+  return 3;
 }
 
 const luaL_Reg lovrModel[] = {
