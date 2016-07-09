@@ -78,16 +78,3 @@ void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions) 
   // Pop metatable
   lua_pop(L, 1);
 }
-
-void* luaPushType(lua_State* L, const char* type) {
-
-  // Allocate space for a single pointer
-  void* userdata = (void*) lua_newuserdata(L, sizeof(void*));
-
-  // Set the metatable of the userdata to the desired type
-  luaL_getmetatable(L, type);
-  lua_setmetatable(L, -2);
-
-  // Return the pointer to the object
-  return userdata;
-}

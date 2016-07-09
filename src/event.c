@@ -1,4 +1,5 @@
 #include "event.h"
+#include "lovr.h"
 #include <GLFW/glfw3.h>
 
 extern GLFWwindow* window;
@@ -10,8 +11,7 @@ int lovrEventPoll(lua_State* L) {
 }
 
 int lovrEventQuit(lua_State* L) {
-  glfwDestroyWindow(window);
-  glfwTerminate();
+  lovrDestroy();
 
   return 0;
 }
