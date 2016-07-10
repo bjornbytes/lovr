@@ -1,9 +1,11 @@
 #include "lovr.h"
 #include "util.h"
 
+#include "event.h"
+#include "device.h"
+#include "interface.h"
 #include "graphics.h"
 #include "model.h"
-#include "event.h"
 
 extern lua_State* L;
 
@@ -15,10 +17,13 @@ void lovrInit(lua_State* L) {
 
   // Register modules
   luaRegisterModule(L, "event", lovrEvent);
+  luaRegisterModule(L, "device", lovrDevice);
+  luaRegisterModule(L, "interface", lovrInterface);
   luaRegisterModule(L, "graphics", lovrGraphics);
 
   // Register types
   luaRegisterType(L, "Model", lovrModel);
+  luaRegisterType(L, "Interface", lovrInterface);
 
   // Run "main.lua" which will override/define pieces of lovr
   if (luaL_dofile(L, "main.lua")) {
