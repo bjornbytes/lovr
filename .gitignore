@@ -1,4 +1,5 @@
 .tup
 lovr
 build
+deps
 src/obj

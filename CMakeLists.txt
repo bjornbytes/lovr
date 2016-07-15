@@ -1,56 +1,61 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(lovr)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
-file(GLOB SOURCES src/*.c)
-if(APPLE)
-  set(LUAJIT_OSX_MAGIC "-pagezero_size 10000 -image_base 100000000")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LUAJIT_OSX_MAGIC}")
-endif()
+option(OSVR_PATH "The path to the osvr snapshot")
 
-add_executable(lovr ${SOURCES})
+add_executable(lovr
+  src/util.c
+  src/glfw.c
+  src/event.c
+  src/graphics.c
+  src/model.c
+  src/device.c
+  src/interface.c
+  src/lovr.c
+  src/main.c
+)
+
+function(move_dll ARG_TARGET)
+  add_custom_command(TARGET lovr POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+    $<TARGET_FILE:${ARG_TARGET}>
+    ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION>/$<TARGET_FILE_NAME:${ARG_TARGET}>
+  )
+endfunction()
 
 # LuaJIT
-find_package(LuaJIT REQUIRED)
-if(LuaJIT_FOUND)
-  include_directories(${LUA_INCLUDE_DIR})
-  target_link_libraries(lovr ${LUA_LIBRARIES})
-else()
-  message(STATUS "LuaJIT not found")
-endif()
-
-# Assimp
-find_package(assimp REQUIRED)
-if(assimp_FOUND)
-  include_directories(${assimp_INCLUDE_DIRS})
-  target_link_libraries(lovr ${assimp_LIBRARIES})
-else()
-  message(STATUS "assimp not found")
-endif()
+add_subdirectory(deps/luajit luajit)
+include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
+set(LOVR_LUA liblua)
 
 # GLFW
-find_package(GLFW REQUIRED)
-if(GLFW_FOUND)
-  include_directories(${GLFW_INCLUDE_DIR})
-  target_link_libraries(lovr ${GLFW_LIBRARIES})
-else()
-  message(STATUS "GLFW not found")
-endif()
+add_subdirectory(deps/glfw glfw)
+include_directories(deps/glfw/include)
+set(LOVR_GLFW glfw opengl32 ${GLFW_LIBRARIES})
 
-# OSVR FIXME
-find_library(OSVR_CLIENTKIT_LIBRARY NAMES osvrClientKit)
-find_library(OSVR_CLIENT_LIBRARY NAMES osvrClient)
-find_path(OSVR_INCLUDE_DIR NAMES osvr/ClientKit/ClientKit.h)
+# assimp
+add_subdirectory(deps/assimp assimp)
+include_directories(deps/assimp/include)
+set(LOVR_ASSIMP assimp)
 
-if(OSVR_INCLUDE_DIR AND OSVR_CLIENTKIT_LIBRARY AND OSVR_CLIENT_LIBRARY)
-  include_directories(${OSVR_INCLUDE_DIR})
-  target_link_libraries(lovr ${OSVR_CLIENT_LIBRARY})
-  target_link_libraries(lovr ${OSVR_CLIENTKIT_LIBRARY})
-endif()
+# osvr (todo)
+include(${OSVR_PATH}/lib/cmake/osvr/osvrConfig.cmake)
+include_directories(${OSVR_PATH}/include)
+target_link_libraries(lovr osvr::osvrClient)
+target_link_libraries(lovr osvr::osvrClientKit)
+move_dll(osvr::osvrCommon)
+move_dll(osvr::osvrUtil)
+move_dll(osvr::osvrClient)
+move_dll(osvr::osvrClientKit)
 
-# OpenGL
-find_package(OpenGL REQUIRED)
-if(OPENGL_FOUND)
-  include_directories(${OPENGL_INCLUDE_DIR})
-  target_link_libraries(lovr ${OPENGL_LIBRARIES})
-endif()
+set(LOVR_LIB
+  ${LOVR_LUA}
+  ${LOVR_GLFW}
+  ${LOVR_ASSIMP}
+)
+
+target_link_libraries(lovr ${LOVR_LIB})
+
+move_dll(${LOVR_LUA})
+move_dll(${LOVR_GLFW})
+move_dll(${LOVR_ASSIMP})

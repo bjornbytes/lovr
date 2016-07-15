@@ -4,7 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#ifdef __APPLE__
 #include <unistd.h>
+#else
+#include <io.h>
+#endif
 
 void error(const char* format, ...) {
   va_list args;
