@@ -3,9 +3,11 @@
 
 #include "event.h"
 #include "device.h"
-#include "interface.h"
 #include "graphics.h"
+
 #include "model.h"
+#include "buffer.h"
+#include "interface.h"
 
 extern lua_State* L;
 
@@ -23,6 +25,7 @@ void lovrInit(lua_State* L) {
 
   // Register types
   luaRegisterType(L, "Model", lovrModel);
+  luaRegisterType(L, "Buffer", lovrBuffer);
   luaRegisterType(L, "Interface", lovrInterface);
 
   // Run "main.lua" which will override/define pieces of lovr
