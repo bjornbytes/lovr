@@ -18,8 +18,8 @@ int main(int argc, char* argv[]) {
 
   //ctx = osvrClientInit("es.bjornbyt", 0);
 
-  lovrInit(L);
   initGlfw(lovrOnError, lovrOnClose);
+  lovrInit(L);
 
   /*if (osvrClientCheckStatus(ctx)) {
     osvrClientShutdown(ctx);

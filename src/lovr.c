@@ -28,6 +28,23 @@ void lovrInit(lua_State* L) {
   luaRegisterType(L, "Buffer", lovrBuffer);
   luaRegisterType(L, "Interface", lovrInterface);
 
+  // Default lovr.run
+  char buffer[512];
+  snprintf(buffer, sizeof(buffer), "%s",
+    "function lovr.run() "
+    "  if lovr.load then lovr.load() end "
+    "  while true do "
+    "    lovr.event.poll() "
+    "    if lovr.update then lovr.update() end "
+    "    lovr.graphics.clear() "
+    "    if lovr.draw then lovr.draw() end "
+    "    lovr.graphics.present() "
+    "  end "
+    "end"
+  );
+
+  luaL_dostring(L, buffer);
+
   // Run "main.lua" which will override/define pieces of lovr
   if (luaL_dofile(L, "main.lua")) {
     error("Failed to run main.lua");
@@ -59,7 +76,10 @@ void lovrOnClose(GLFWwindow* _window) {
     // lovr.quit()
     lua_getglobal(L, "lovr");
     lua_getfield(L, -1, "quit");
-    lua_call(L, 0, 0);
+
+    if (!lua_isnil(L, -1)) {
+      lua_call(L, 0, 0);
+    }
 
     if (glfwWindowShouldClose(window)) {
       glfwDestroyWindow(window);
