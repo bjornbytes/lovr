@@ -24,7 +24,22 @@ int lovrBufferDraw(lua_State* L) {
   return 0;
 }
 
+int lovrBufferSetVertex(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  int index = luaL_checkint(L, 2) - 1;
+  float x = luaL_checknumber(L, 3);
+  float y = luaL_checknumber(L, 4);
+  float z = luaL_checknumber(L, 5);
+
+  buffer->data[3 * index + 0] = x;
+  buffer->data[3 * index + 1] = y;
+  buffer->data[3 * index + 2] = z;
+
+  return 0;
+}
+
 const luaL_Reg lovrBuffer[] = {
   { "draw", lovrBufferDraw },
+  { "setVertex", lovrBufferSetVertex },
   { NULL, NULL }
 };

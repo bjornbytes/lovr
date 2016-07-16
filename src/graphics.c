@@ -44,21 +44,11 @@ int lovrGraphicsNewModel(lua_State* L) {
 }
 
 int lovrGraphicsNewBuffer(lua_State* L) {
+  int size = luaL_checkint(L, 1);
+
   Buffer* buffer = (Buffer*) malloc(sizeof(Buffer));
 
-  buffer->data = (GLfloat*) malloc(9 * sizeof(GLfloat));
-
-  buffer->data[0] = -0.5;
-  buffer->data[1] = -0.5;
-  buffer->data[2] = 0.0;
-
-  buffer->data[3] = 0.5;
-  buffer->data[4] = -0.5;
-  buffer->data[5] = 0.0;
-
-  buffer->data[6] = 0.0;
-  buffer->data[7] = 0.5;
-  buffer->data[8] = 0.0;
+  buffer->data = (GLfloat*) malloc(size * 3 * sizeof(GLfloat));
 
   luax_pushbuffer(L, buffer);
 
