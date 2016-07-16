@@ -16,14 +16,14 @@ int main(int argc, char* argv[]) {
   L = luaL_newstate();
   luaL_openlibs(L);
 
-  ctx = osvrClientInit("es.bjornbyt", 0);
+  //ctx = osvrClientInit("es.bjornbyt", 0);
 
   lovrInit(L);
-  initGlfw();
+  initGlfw(lovrOnError, lovrOnClose);
 
-  if (osvrClientCheckStatus(ctx)) {
+  /*if (osvrClientCheckStatus(ctx)) {
     osvrClientShutdown(ctx);
-  }
+  }*/
 
   lovrRun(L);
 

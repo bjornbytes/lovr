@@ -1,6 +1,7 @@
 #include "glfw.h"
 #include "graphics.h"
 #include "model.h"
+#include "shader.h"
 #include "util.h"
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
@@ -18,8 +19,16 @@ int lovrGraphicsPresent(lua_State* L) {
   return 0;
 }
 
+// TODO default shader
+int lovrGraphicsSetShader(lua_State* L) {
+  GLuint shader = (GLuint) luaL_checknumber(L, 1);
+  glUseProgram(shader);
+
+  return 0;
+}
+
 int lovrGraphicsNewModel(lua_State* L) {
-  const char* path = luaL_checkstring(L, -1);
+  const char* path = luaL_checkstring(L, 1);
   const struct aiScene* scene = aiImportFile(path, aiProcessPreset_TargetRealtime_MaxQuality);
 
   if (scene) {
@@ -32,9 +41,28 @@ int lovrGraphicsNewModel(lua_State* L) {
   return 1;
 }
 
+int lovrGraphicsNewShader(lua_State* L) {
+  const char* vertexShaderSource = luaL_checkstring(L, 1);
+  const char* fragmentShaderSource = luaL_checkstring(L, 2);
+
+  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
+  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
+  GLuint shader = linkShaders(vertexShader, fragmentShader);
+
+  if (shader) {
+    lua_pushnumber(L, shader);
+  } else {
+    lua_pushnil(L);
+  }
+
+  return 1;
+}
+
 const luaL_Reg lovrGraphics[] = {
   { "clear", lovrGraphicsClear },
   { "present", lovrGraphicsPresent },
+  { "setShader", lovrGraphicsSetShader },
   { "newModel", lovrGraphicsNewModel },
+  { "newShader", lovrGraphicsNewShader },
   { NULL, NULL }
 };

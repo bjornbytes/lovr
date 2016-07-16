@@ -1,10 +1,9 @@
 #include "glfw.h"
 #include <stdlib.h>
-#include "lovr.h"
 #include "util.h"
 
-void initGlfw() {
-  glfwSetErrorCallback(lovrOnError);
+void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose) {
+  glfwSetErrorCallback(onError);
 
   if (!glfwInit()) {
     error("Error initializing glfw");
@@ -20,9 +19,9 @@ void initGlfw() {
 
   if (!window) {
     glfwTerminate();
-    exit(EXIT_FAILURE);
+    error("Could not create window");
   }
 
-  glfwSetWindowCloseCallback(window, lovrOnClose);
+  glfwSetWindowCloseCallback(window, onClose);
   glfwMakeContextCurrent(window);
 }
