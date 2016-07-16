@@ -1,9 +1,10 @@
+#include <stdlib.h>
 #include "device.h"
 #include "interface.h"
 
 extern OSVR_ClientContext ctx;
 
-int lovrDeviceGetInterface(lua_State* L) {
+int lovrDeviceGetByName(lua_State* L) {
   const char* name = luaL_checkstring(L, 1);
 
   Interface* interface = (Interface*) malloc(sizeof(Interface));
@@ -18,7 +19,49 @@ int lovrDeviceGetInterface(lua_State* L) {
   return 1;
 }
 
+int lovrDeviceGetHeadset(lua_State* L) {
+  const char* name = "/me/head";
+
+  Interface* headset = (Interface*) malloc(sizeof(Interface));
+  osvrClientGetInterface(ctx, name, headset);
+
+  if (headset) {
+    luax_pushinterface(L, headset);
+  } else {
+    lua_pushnil(L);
+  }
+
+  return 1;
+}
+
+int lovrDeviceGetControllers(lua_State* L) {
+  const char* leftHandPath = "/me/hands/left";
+  const char* rightHandPath = "/me/hands/right";
+
+  Interface* leftHand = (Interface*) malloc(sizeof(Interface));
+  osvrClientGetInterface(ctx, leftHandPath, leftHand);
+
+  if (leftHand) {
+    luax_pushinterface(L, leftHand);
+  } else {
+    lua_pushnil(L);
+  }
+
+  Interface* rightHand = (Interface*) malloc(sizeof(Interface));
+  osvrClientGetInterface(ctx, rightHandPath, rightHand);
+
+  if (rightHand) {
+    luax_pushinterface(L, rightHand);
+  } else {
+    lua_pushnil(L);
+  }
+
+  return 2;
+}
+
 const luaL_Reg lovrDevice[] = {
-  { "getInterface", lovrDeviceGetInterface },
+  { "getByName", lovrDeviceGetByName },
+  { "getHeadset", lovrDeviceGetHeadset },
+  { "getControllers", lovrDeviceGetControllers },
   { NULL, NULL }
 };
