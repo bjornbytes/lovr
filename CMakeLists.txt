@@ -4,8 +4,9 @@ project(lovr)
 option(OSVR_PATH "The path to the osvr snapshot")
 
 add_executable(lovr
-  src/util.c
   src/glfw.c
+  src/util.c
+  src/shader.c
   src/event.c
   src/graphics.c
   src/model.c
@@ -28,10 +29,15 @@ add_subdirectory(deps/luajit luajit)
 include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
 set(LOVR_LUA liblua)
 
+# GLEW
+add_subdirectory(deps/glew/build/cmake glew)
+include_directories(deps/glew/include)
+set(LOVR_GLEW glew)
+
 # GLFW
 add_subdirectory(deps/glfw glfw)
 include_directories(deps/glfw/include)
-set(LOVR_GLFW glfw opengl32 ${GLFW_LIBRARIES})
+set(LOVR_GLFW glfw ${GLFW_LIBRARIES})
 
 # assimp
 add_subdirectory(deps/assimp assimp)
@@ -50,6 +56,7 @@ move_dll(osvr::osvrClientKit)
 
 set(LOVR_LIB
   ${LOVR_LUA}
+  ${LOVR_GLEW}
   ${LOVR_GLFW}
   ${LOVR_ASSIMP}
 )
@@ -57,5 +64,6 @@ set(LOVR_LIB
 target_link_libraries(lovr ${LOVR_LIB})
 
 move_dll(${LOVR_LUA})
+move_dll(${LOVR_GLEW})
 move_dll(${LOVR_GLFW})
 move_dll(${LOVR_ASSIMP})

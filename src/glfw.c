@@ -24,4 +24,11 @@ void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose) {
 
   glfwSetWindowCloseCallback(window, onClose);
   glfwMakeContextCurrent(window);
+
+  GLenum err = glewInit();
+  if (err != GLEW_OK) {
+    error("Could not initialize GLEW");
+  } else if (!GLEW_VERSION_2_1) {
+    error("Geez your OpenGL is old");
+  }
 }
