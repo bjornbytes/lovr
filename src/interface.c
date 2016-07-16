@@ -24,8 +24,6 @@ int lovrInterfaceGetPosition(lua_State* L) {
   OSVR_TimeValue t;
   OSVR_PositionState position;
 
-  osvrClientUpdate(ctx);
-
   OSVR_ReturnCode res = osvrGetPositionState(*interface, &t, &position);
 
   if (res != OSVR_RETURN_SUCCESS) {
