@@ -10,6 +10,7 @@ add_executable(lovr
   src/event.c
   src/graphics.c
   src/model.c
+  src/buffer.c
   src/device.c
   src/interface.c
   src/lovr.c

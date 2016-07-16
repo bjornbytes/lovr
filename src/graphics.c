@@ -46,7 +46,7 @@ int lovrGraphicsNewModel(lua_State* L) {
 int lovrGraphicsNewBuffer(lua_State* L) {
   Buffer* buffer = (Buffer*) malloc(sizeof(Buffer));
 
-  buffer->data = (GLfloat*) malloc(100);
+  buffer->data = (GLfloat*) malloc(9 * sizeof(GLfloat));
 
   buffer->data[0] = -0.5;
   buffer->data[1] = -0.5;
