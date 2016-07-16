@@ -17,7 +17,8 @@ Buffer* luax_checkbuffer(lua_State* L, int index) {
 int lovrBufferDraw(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
 
-  glBindVertexArray(buffer->vao);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, buffer->data);
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   return 0;
