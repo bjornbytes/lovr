@@ -26,6 +26,7 @@ void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose) {
   glfwMakeContextCurrent(window);
 
 #ifdef WIN32
+  glewExperimental = GL_TRUE;
   GLenum err = glewInit();
   if (err != GLEW_OK) {
     error("Could not initialize GLEW");
