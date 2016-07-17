@@ -1,10 +1,6 @@
-CFLAGS += -I /usr/local/Cellar/luajit/2.0.4/include/luajit-2.0
 CFLAGS += -O2
 CFLAGS += -Wall
-CFLAGS += -I /Users/bjorns/Documents/dev/openvr/headers
 
-LIBS += -L/usr/local/Cellar/luajit/2.0.4/lib
-LIBS += -L/Users/bjorns/Documents/dev/openvr/lib/osx32
 LIBS += -l luajit-5.1
 LIBS += -l glfw3
 LIBS += -l assimp
