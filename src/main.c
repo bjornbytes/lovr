@@ -21,10 +21,6 @@ int main(int argc, char* argv[]) {
   initGlfw(lovrOnError, lovrOnClose);
   lovrInit(L);
 
-  if (osvrClientCheckStatus(ctx)) {
-    osvrClientShutdown(ctx);
-  }
-
   lovrRun(L);
 
   exit(0);

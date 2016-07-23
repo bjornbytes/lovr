@@ -4,6 +4,7 @@
 #include "event.h"
 #include "device.h"
 #include "graphics.h"
+#include "timer.h"
 
 #include "model.h"
 #include "buffer.h"
@@ -20,8 +21,8 @@ void lovrInit(lua_State* L) {
   // Register modules
   luaRegisterModule(L, "event", lovrEvent);
   luaRegisterModule(L, "device", lovrDevice);
-  luaRegisterModule(L, "interface", lovrInterface);
   luaRegisterModule(L, "graphics", lovrGraphics);
+  luaRegisterModule(L, "timer", lovrTimer);
 
   // Register types
   luaRegisterType(L, "Model", lovrModel);
@@ -35,7 +36,8 @@ void lovrInit(lua_State* L) {
     "  if lovr.load then lovr.load() end "
     "  while true do "
     "    lovr.event.poll() "
-    "    if lovr.update then lovr.update() end "
+    "    local dt = lovr.timer.step() "
+    "    if lovr.update then lovr.update(dt) end "
     "    lovr.graphics.clear() "
     "    if lovr.draw then lovr.draw() end "
     "    lovr.graphics.present() "

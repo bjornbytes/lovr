@@ -3,11 +3,12 @@ CFLAGS += -Wall
 
 LIBS += -l luajit-5.1
 LIBS += -l glfw3
+LIBS += -l gl-matrix
 LIBS += -l assimp
 LIBS += -l osvrClient
 LIBS += -l osvrClientKit
 LIBS += -framework OpenGL
-LIBS += -pagezero_size 10000 -image_base 100000000 # OSX magic
+LIBS += -pagezero_size 10000 -image_base 100000000 # OSX magic for LuaJIT
 
 : foreach *.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
 : obj/*.o |> clang -o %o %f $(LIBS) |> ../lovr

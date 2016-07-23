@@ -32,4 +32,6 @@ void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose) {
     error("Geez your OpenGL is old");
   }
 #endif
+
+  glfwSetTime(0);
 }

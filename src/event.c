@@ -1,6 +1,6 @@
 #include "event.h"
 #include "lovr.h"
-#include <GLFW/glfw3.h>
+#include "glfw.h"
 #include <osvr/ClientKit/ContextC.h>
 #include <osvr/ClientKit/InterfaceC.h>
 #include <osvr/ClientKit/InterfaceStateC.h>
@@ -10,7 +10,10 @@ extern OSVR_ClientContext ctx;
 
 int lovrEventPoll(lua_State* L) {
   glfwPollEvents();
-  osvrClientUpdate(ctx);
+
+  if (osvrClientCheckStatus(ctx) != OSVR_RETURN_FAILURE) {
+    osvrClientUpdate(ctx);
+  }
 
   return 0;
 }
