@@ -50,6 +50,12 @@ int lovrGraphicsNewBuffer(lua_State* L) {
 
   buffer->data = (GLfloat*) malloc(size * 3 * sizeof(GLfloat));
 
+  glGenBuffers(1, &buffer->vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(buffer->data) * sizeof(GL_FLOAT), buffer->data, GL_STATIC_DRAW);
+
+  glGenVertexArrays(1, &buffer->vao);
+
   luax_pushbuffer(L, buffer);
 
   return 1;

@@ -6,6 +6,8 @@
 typedef struct {
   GLfloat* data;
   GLenum drawMode;
+  GLuint vao;
+  GLuint vbo;
 } Buffer;
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer);
