@@ -21,6 +21,33 @@ int lovrGraphicsPresent(lua_State* L) {
   return 0;
 }
 
+int lovrGraphicsGetClearColor(lua_State* L) {
+  GLfloat clearColor[4];
+  glGetFloatv(GL_COLOR_CLEAR_VALUE, clearColor);
+
+  lua_pushnumber(L, clearColor[0]);
+  lua_pushnumber(L, clearColor[1]);
+  lua_pushnumber(L, clearColor[2]);
+  lua_pushnumber(L, clearColor[3]);
+
+  return 4;
+}
+
+int lovrGraphicsSetClearColor(lua_State* L) {
+  float r = luaL_checknumber(L, 1);
+  float g = luaL_checknumber(L, 2);
+  float b = luaL_checknumber(L, 3);
+  float a = 1.0;
+
+  if (lua_gettop(L) == 4) {
+    a = luaL_checknumber(L, 4);
+  }
+
+  glClearColor(r, g, b, a);
+
+  return 0;
+}
+
 // TODO default shader
 int lovrGraphicsSetShader(lua_State* L) {
   GLuint shader = (GLuint) luaL_checknumber(L, 1);
@@ -81,6 +108,8 @@ int lovrGraphicsNewShader(lua_State* L) {
 const luaL_Reg lovrGraphics[] = {
   { "clear", lovrGraphicsClear },
   { "present", lovrGraphicsPresent },
+  { "getClearColor", lovrGraphicsGetClearColor },
+  { "setClearColor", lovrGraphicsSetClearColor },
   { "setShader", lovrGraphicsSetShader },
   { "newModel", lovrGraphicsNewModel },
   { "newBuffer", lovrGraphicsNewBuffer },
