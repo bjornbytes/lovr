@@ -1,4 +1,51 @@
 LÖVR
----
+===
 
 LÖVR is a framework for making VR games with Lua!  Inspired heavily by [LÖVE](http://love2d.org).  Still under heavy development.
+
+Example
+---
+
+In a directory called `myGame`, create a file called `main.lua`:
+
+```
+function lovr.load()
+  headset = lovr.device.getHeadset()
+end
+
+function lovr.update(dt)
+  print('Headset position:', headset:getPosition())
+end
+```
+
+Then, run your game:
+
+```
+$ cd path/to/myGame
+$ lovr .
+```
+
+Dependencies
+---
+
+- LuaJIT
+- GLFW and OpenGL 4
+- assimp
+- OSVR
+- gl-matrix
+
+Compiling (Tupfile, OSX only)
+---
+
+```
+tup
+```
+
+Compiling (CMake)
+---
+
+```
+mkdir build
+cd build
+cmake ..
+```
