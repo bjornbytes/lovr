@@ -3,3 +3,5 @@ lovr
 build
 deps
 src/obj
+main.lua
+conf.lua
