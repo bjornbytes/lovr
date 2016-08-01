@@ -2,25 +2,18 @@
 #include <luajit.h>
 #include <lua.h>
 
-#include <osvr/ClientKit/ContextC.h>
-#include <osvr/ClientKit/InterfaceC.h>
-#include <osvr/ClientKit/InterfaceStateC.h>
-
 #include "lovr.h"
 #include "glfw.h"
+#include "osvr.h"
 
 lua_State* L;
-OSVR_ClientContext ctx;
 
 int main(int argc, char* argv[]) {
   L = luaL_newstate();
   luaL_openlibs(L);
 
-  ctx = osvrClientInit("es.bjornbyt", 0);
-
-  initGlfw(lovrOnError, lovrOnClose);
   lovrInit(L);
-
+  initGlfw(lovrOnError, lovrOnClose);
   lovrRun(L);
 
   exit(0);

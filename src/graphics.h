@@ -8,4 +8,6 @@ int lovrGraphicsSetShader(lua_State* L);
 int lovrGraphicsNewModel(lua_State* L);
 int lovrGraphicsNewBuffer(lua_State* L);
 int lovrGraphicsShader(lua_State* L);
+
 extern const luaL_Reg lovrGraphics[];
+int lovrPushGraphics(lua_State* L);

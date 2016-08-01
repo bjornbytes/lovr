@@ -116,3 +116,11 @@ const luaL_Reg lovrGraphics[] = {
   { "newShader", lovrGraphicsNewShader },
   { NULL, NULL }
 };
+
+int lovrPushGraphics(lua_State* L) {
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrGraphics);
+  luaRegisterType(L, "Model", lovrModel);
+  luaRegisterType(L, "Buffer", lovrBuffer);
+  return 1;
+}

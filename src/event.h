@@ -7,3 +7,4 @@ int lovrEventPoll(lua_State* L);
 int lovrEventQuit(lua_State* L);
 
 extern const luaL_Reg lovrEvent[];
+int lovrPushEvent(lua_State* L);

@@ -6,10 +6,6 @@
 #include "graphics.h"
 #include "timer.h"
 
-#include "model.h"
-#include "buffer.h"
-#include "interface.h"
-
 extern lua_State* L;
 
 void lovrInit(lua_State* L) {
@@ -19,19 +15,39 @@ void lovrInit(lua_State* L) {
   lua_setglobal(L, "lovr");
 
   // Register modules
-  luaRegisterModule(L, "event", lovrEvent);
-  luaRegisterModule(L, "device", lovrDevice);
-  luaRegisterModule(L, "graphics", lovrGraphics);
-  luaRegisterModule(L, "timer", lovrTimer);
+  luaPreloadModule(L, "lovr.event", lovrPushEvent);
+  luaPreloadModule(L, "lovr.device", lovrPushDevice);
+  luaPreloadModule(L, "lovr.graphics", lovrPushGraphics);
+  luaPreloadModule(L, "lovr.timer", lovrPushTimer);
 
-  // Register types
-  luaRegisterType(L, "Model", lovrModel);
-  luaRegisterType(L, "Buffer", lovrBuffer);
-  luaRegisterType(L, "Interface", lovrInterface);
-
-  // Default lovr.run
-  char buffer[512];
+  // Bootstrap
+  char buffer[1024];
   snprintf(buffer, sizeof(buffer), "%s",
+    "local conf = { "
+    "  modules = { "
+    "    event = true, "
+    "    device = true, "
+    "    graphics = true, "
+    "    timer = true "
+    "  } "
+    "} "
+    " "
+    "local success, err = pcall(require, 'conf') "
+    "if lovr.conf then "
+    "  success, err = pcall(lovr.conf, conf) "
+    "end "
+    " "
+    "if not success and err then "
+    "  error(err, -1) "
+    "end "
+    " "
+    "local modules = { 'event', 'device', 'graphics', 'timer' } "
+    "for _, module in ipairs(modules) do "
+    "  if conf.modules[module] then "
+    "    lovr[module] = require('lovr.' .. module) "
+    "  end "
+    "end "
+    " "
     "function lovr.run() "
     "  if lovr.load then lovr.load() end "
     "  while true do "
@@ -45,13 +61,9 @@ void lovrInit(lua_State* L) {
     "end"
   );
 
-  luaL_dostring(L, buffer);
-
-  // Run "main.lua" which will override/define pieces of lovr
-  if (luaL_dofile(L, "main.lua")) {
-    error("Failed to run main.lua");
-    lua_pop(L, 1);
-    exit(EXIT_FAILURE);
+  if (luaL_dostring(L, buffer)) {
+    const char* message = luaL_checkstring(L, 1);
+    error("Unable to bootstrap LOVR: %s", message);
   }
 }
 
@@ -61,6 +73,13 @@ void lovrDestroy() {
 }
 
 void lovrRun(lua_State* L) {
+
+  // Run "main.lua" which will override/define pieces of lovr
+  if (luaL_dofile(L, "main.lua")) {
+    error("Failed to run main.lua");
+    lua_pop(L, 1);
+    exit(EXIT_FAILURE);
+  }
 
   // lovr.run()
   lua_getglobal(L, "lovr");

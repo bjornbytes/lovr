@@ -1,10 +1,6 @@
 #include "interface.h"
 #include "util.h"
-#include <osvr/ClientKit/ContextC.h>
-#include <osvr/ClientKit/InterfaceC.h>
-#include <osvr/ClientKit/InterfaceStateC.h>
-
-extern OSVR_ClientContext ctx;
+#include "osvr.h"
 
 void luax_pushinterface(lua_State* L, Interface* interface) {
   Interface** userdata = (Interface**) lua_newuserdata(L, sizeof(Interface*));

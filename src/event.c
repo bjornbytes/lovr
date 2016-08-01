@@ -1,12 +1,9 @@
 #include "event.h"
 #include "lovr.h"
 #include "glfw.h"
-#include <osvr/ClientKit/ContextC.h>
-#include <osvr/ClientKit/InterfaceC.h>
-#include <osvr/ClientKit/InterfaceStateC.h>
+#include "osvr.h"
 
 extern GLFWwindow* window;
-extern OSVR_ClientContext ctx;
 
 int lovrEventPoll(lua_State* L) {
   glfwPollEvents();
@@ -29,3 +26,9 @@ const luaL_Reg lovrEvent[] = {
   { "quit", lovrEventQuit },
   { NULL, NULL }
 };
+
+int lovrPushEvent(lua_State* L) {
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrEvent);
+  return 1;
+}

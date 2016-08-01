@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include "device.h"
 #include "interface.h"
+#include "osvr.h"
+#include "util.h"
 
 extern OSVR_ClientContext ctx;
 
@@ -65,3 +67,11 @@ const luaL_Reg lovrDevice[] = {
   { "getControllers", lovrDeviceGetControllers },
   { NULL, NULL }
 };
+
+int lovrPushDevice(lua_State* L) {
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrDevice);
+  luaRegisterType(L, "Interface", lovrInterface);
+  initOSVR();
+  return 1;
+}

@@ -43,6 +43,15 @@ char* loadFile(char* filename) {
   return buffer;
 }
 
+int luaPreloadModule(lua_State* L, const char* key, lua_CFunction f) {
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "preload");
+  lua_pushcfunction(L, f);
+  lua_setfield(L, -2, key);
+  lua_pop(L, 2);
+  return 0;
+}
+
 void luaRegisterModule(lua_State* L, const char* name, const luaL_Reg* module) {
 
   // Get reference to lovr
