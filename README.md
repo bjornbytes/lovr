@@ -18,7 +18,7 @@ function lovr.update(dt)
 end
 ```
 
-Then, run your game:
+Then, start the OSVR server and run your game:
 
 ```sh
 $ cd path/to/myGame
