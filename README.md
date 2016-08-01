@@ -34,13 +34,6 @@ Dependencies
 - OSVR
 - gl-matrix
 
-Compiling (Tupfile, OSX only)
----
-
-```sh
-tup
-```
-
 Compiling (CMake)
 ---
 
