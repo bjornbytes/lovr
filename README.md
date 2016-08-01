@@ -8,7 +8,7 @@ Example
 
 In a directory called `myGame`, create a file called `main.lua`:
 
-```
+```lua
 function lovr.load()
   headset = lovr.device.getHeadset()
 end
@@ -20,7 +20,7 @@ end
 
 Then, run your game:
 
-```
+```sh
 $ cd path/to/myGame
 $ lovr .
 ```
@@ -37,14 +37,14 @@ Dependencies
 Compiling (Tupfile, OSX only)
 ---
 
-```
+```sh
 tup
 ```
 
 Compiling (CMake)
 ---
 
-```
+```sh
 mkdir build
 cd build
 cmake ..
