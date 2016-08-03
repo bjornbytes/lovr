@@ -50,8 +50,8 @@ int lovrGraphicsSetClearColor(lua_State* L) {
 
 // TODO default shader
 int lovrGraphicsSetShader(lua_State* L) {
-  GLuint shader = (GLuint) luaL_checknumber(L, 1);
-  glUseProgram(shader);
+  Shader* shader = (Shader*) luax_checkshader(L, 1);
+  glUseProgram(shader->id);
 
   return 0;
 }
@@ -94,10 +94,13 @@ int lovrGraphicsNewShader(lua_State* L) {
 
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
-  GLuint shader = linkShaders(vertexShader, fragmentShader);
+  GLuint id = linkShaders(vertexShader, fragmentShader);
+
+  Shader* shader = (Shader*) malloc(sizeof(Shader));
+  shader->id = id;
 
   if (shader) {
-    lua_pushnumber(L, shader);
+    luax_pushshader(L, shader);
   } else {
     lua_pushnil(L);
   }
@@ -122,5 +125,6 @@ int lovrPushGraphics(lua_State* L) {
   luaL_register(L, NULL, lovrGraphics);
   luaRegisterType(L, "Model", lovrModel);
   luaRegisterType(L, "Buffer", lovrBuffer);
+  luaRegisterType(L, "Shader", lovrShader);
   return 1;
 }
