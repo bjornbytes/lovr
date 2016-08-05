@@ -14,7 +14,7 @@ const luaL_Reg lovrTimer[] = {
   { NULL, NULL }
 };
 
-int lovrPushTimer(lua_State* L) {
+int lovrInitTimer(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrTimer);
   return 1;

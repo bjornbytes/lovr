@@ -7,4 +7,4 @@ int lovrDeviceGetHeadset(lua_State* L);
 int lovrDeviceGetControllers(lua_State* L);
 
 extern const luaL_Reg lovrDevice[];
-int lovrPushDevice(lua_State* L);
+int lovrInitDevice(lua_State* L);

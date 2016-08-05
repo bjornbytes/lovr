@@ -12,8 +12,8 @@ int main(int argc, char* argv[]) {
   L = luaL_newstate();
   luaL_openlibs(L);
 
-  lovrInit(L);
   initGlfw(lovrOnError, lovrOnClose);
+  lovrInit(L);
   lovrRun(L);
 
   exit(0);

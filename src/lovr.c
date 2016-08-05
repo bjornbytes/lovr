@@ -4,21 +4,23 @@
 #include "event.h"
 #include "device.h"
 #include "graphics.h"
+#include "joysticks.h"
 #include "timer.h"
 
 extern lua_State* L;
 
 void lovrInit(lua_State* L) {
 
-  // Write top-level lovr global
+  // lovr = {}
   lua_newtable(L);
   lua_setglobal(L, "lovr");
 
-  // Register modules
-  luaPreloadModule(L, "lovr.event", lovrPushEvent);
-  luaPreloadModule(L, "lovr.device", lovrPushDevice);
-  luaPreloadModule(L, "lovr.graphics", lovrPushGraphics);
-  luaPreloadModule(L, "lovr.timer", lovrPushTimer);
+  // Preload modules
+  luaPreloadModule(L, "lovr.event", lovrInitEvent);
+  luaPreloadModule(L, "lovr.device", lovrInitDevice);
+  luaPreloadModule(L, "lovr.graphics", lovrInitGraphics);
+  luaPreloadModule(L, "lovr.joystick", lovrInitJoysticks);
+  luaPreloadModule(L, "lovr.timer", lovrInitTimer);
 
   // Bootstrap
   char buffer[1024];
@@ -28,6 +30,7 @@ void lovrInit(lua_State* L) {
     "    event = true, "
     "    device = true, "
     "    graphics = true, "
+    "    joystick = true, "
     "    timer = true "
     "  } "
     "} "
@@ -41,7 +44,7 @@ void lovrInit(lua_State* L) {
     "  error(err, -1) "
     "end "
     " "
-    "local modules = { 'event', 'device', 'graphics', 'timer' } "
+    "local modules = { 'event', 'device', 'graphics', 'joystick', 'timer' } "
     "for _, module in ipairs(modules) do "
     "  if conf.modules[module] then "
     "    lovr[module] = require('lovr.' .. module) "

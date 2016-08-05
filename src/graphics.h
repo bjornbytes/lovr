@@ -10,4 +10,4 @@ int lovrGraphicsNewBuffer(lua_State* L);
 int lovrGraphicsShader(lua_State* L);
 
 extern const luaL_Reg lovrGraphics[];
-int lovrPushGraphics(lua_State* L);
+int lovrInitGraphics(lua_State* L);

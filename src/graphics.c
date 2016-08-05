@@ -120,7 +120,7 @@ const luaL_Reg lovrGraphics[] = {
   { NULL, NULL }
 };
 
-int lovrPushGraphics(lua_State* L) {
+int lovrInitGraphics(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
   luaRegisterType(L, "Model", lovrModel);

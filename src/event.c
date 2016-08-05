@@ -27,7 +27,7 @@ const luaL_Reg lovrEvent[] = {
   { NULL, NULL }
 };
 
-int lovrPushEvent(lua_State* L) {
+int lovrInitEvent(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrEvent);
   return 1;
