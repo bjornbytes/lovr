@@ -37,13 +37,13 @@ int lovrGraphicsSetClearColor(lua_State* L) {
   float r = luaL_checknumber(L, 1);
   float g = luaL_checknumber(L, 2);
   float b = luaL_checknumber(L, 3);
-  float a = 1.0;
+  float a = 255.0;
 
   if (lua_gettop(L) == 4) {
     a = luaL_checknumber(L, 4);
   }
 
-  glClearColor(r, g, b, a);
+  glClearColor(r / 255, g / 255, b / 255, a / 255);
 
   return 0;
 }

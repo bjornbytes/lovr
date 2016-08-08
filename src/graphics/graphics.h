@@ -4,6 +4,8 @@
 
 int lovrGraphicsClear(lua_State* L);
 int lovrGraphicsPresent(lua_State* L);
+int lovrGraphicsGetClearColor(lua_State* L);
+int lovrGraphicsSetClearColor(lua_State* L);
 int lovrGraphicsSetShader(lua_State* L);
 int lovrGraphicsNewModel(lua_State* L);
 int lovrGraphicsNewBuffer(lua_State* L);

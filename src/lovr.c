@@ -74,10 +74,18 @@ void lovrDestroy() {
   exit(EXIT_SUCCESS);
 }
 
-void lovrRun(lua_State* L) {
+void lovrRun(lua_State* L, char* root) {
+
+  // Construct path to main.lua based on command line argument
+  char path[512];
+  if (root) {
+    snprintf(path, sizeof(path), "%s/main.lua", root);
+  } else {
+    snprintf(path, sizeof(path), "main.lua");
+  }
 
   // Run "main.lua" which will override/define pieces of lovr
-  if (luaL_dofile(L, "main.lua")) {
+  if (luaL_dofile(L, path)) {
     error("Failed to run main.lua");
     lua_pop(L, 1);
     exit(EXIT_FAILURE);
