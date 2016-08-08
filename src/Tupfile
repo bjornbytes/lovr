@@ -10,6 +10,8 @@ LIBS += -l osvrClientKit
 LIBS += -framework OpenGL
 LIBS += -pagezero_size 10000 -image_base 100000000 # OSX magic for LuaJIT
 
+: foreach vendor/map/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
+
 : foreach event/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
 : foreach graphics/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
 : foreach joystick/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o

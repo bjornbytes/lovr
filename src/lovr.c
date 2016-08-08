@@ -31,23 +31,23 @@ void lovrInit(lua_State* L) {
     "    timer = true "
     "  } "
     "} "
-    " "
+
     "local success, err = pcall(require, 'conf') "
     "if lovr.conf then "
     "  success, err = pcall(lovr.conf, conf) "
     "end "
-    " "
+
     "if not success and err then "
     "  error(err, -1) "
     "end "
-    " "
+
     "local modules = { 'event', 'graphics', 'joystick', 'timer' } "
     "for _, module in ipairs(modules) do "
     "  if conf.modules[module] then "
     "    lovr[module] = require('lovr.' .. module) "
     "  end "
     "end "
-    " "
+
     "function lovr.run() "
     "  if lovr.load then lovr.load() end "
     "  while true do "

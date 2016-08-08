@@ -10,51 +10,7 @@ typedef struct {
   int count;
 } JoystickState;
 
-JoystickState joystickState;
-
-void lovrJoysticksRefresh() {
-  for (int i = 0; i < 32; i++) {
-    if (joystickState.list[i] != NULL) {
-      free(joystickState.list[i]);
-    }
-
-    joystickState.list[i] = NULL;
-  }
-
-  int count = 0;
-
-  for (int i = GLFW_JOYSTICK_1; i <= GLFW_JOYSTICK_LAST; i++) {
-    if (glfwJoystickPresent(i)) {
-      Joystick* joystick = malloc(sizeof(Joystick));
-      joystick->type = JOYSTICK_TYPE_GLFW;
-      joystick->index = i;
-
-      joystickState.list[count++] = joystick;
-    }
-  }
-
-  // TODO handle OSVR joysticks
-  // /me/hands/left
-  // /me/hands/right
-
-  if (osvrClientCheckStatus(ctx) != OSVR_RETURN_FAILURE) {
-    const char* hands[2] = { "/me/hands/left", "/me/hands/right" };
-
-    for (int i = 0; i < sizeof(hands); i++) {
-      OSVR_ClientInterface* interface = (OSVR_ClientInterface*) malloc(sizeof(OSVR_ClientInterface));
-      osvrClientGetInterface(ctx, hands[i], interface);
-
-      if (interface != NULL) {
-        Joystick* joystick = malloc(sizeof(Joystick));
-        joystick->type = JOYSTICK_TYPE_OSVR;
-        joystick->index = -1;
-        joystick->interface = interface;
-      }
-    }
-  }
-
-  joystickState.count = count;
-}
+static JoystickState joystickState;
 
 int lovrJoysticksGetJoystickCount(lua_State* L) {
   lua_pushnumber(L, joystickState.count);
@@ -65,11 +21,9 @@ int lovrJoysticksGetJoystickCount(lua_State* L) {
 int lovrJoysticksGetJoysticks(lua_State* L) {
   lua_newtable(L);
 
-  int i = 0;
-
-  while (joystickState.list[i] != NULL) {
+  for (int i = 0; joystickState.list[i] != NULL && i < 32; i++) {
     luax_pushjoystick(L, joystickState.list[i]);
-    lua_rawseti(L, -2, ++i);
+    lua_rawseti(L, -2, i);
   }
 
   return 1;
@@ -85,6 +39,91 @@ int lovrInitJoysticks(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrJoysticks);
   luaRegisterType(L, "Joystick", lovrJoystick);
-  lovrJoysticksRefresh();
+
+  int i, j;
+
+  for (i = 0; i < 32; i++) {
+    if (joystickState.list[i] != NULL) {
+      lovrJoystickDestroy(joystickState.list[i]);
+      free(joystickState.list[i]);
+    }
+
+    joystickState.list[i] = NULL;
+  }
+
+  int count = 0;
+
+  for (i = GLFW_JOYSTICK_1; i <= GLFW_JOYSTICK_LAST; i++) {
+    if (glfwJoystickPresent(i)) {
+      Joystick* joystick = malloc(sizeof(Joystick));
+      joystick->type = JOYSTICK_TYPE_GLFW;
+      joystick->glfwIndex = i;
+
+      map_init(&joystick->axisMapping);
+      map_init(&joystick->buttonMapping);
+
+      joystickState.list[count++] = joystick;
+    }
+  }
+
+  if (osvrClientCheckStatus(ctx) != OSVR_RETURN_FAILURE) {
+    char buffer[128];
+    const char* hands[2] = {
+      "/me/hands/left",
+      "/me/hands/right"
+    };
+
+    for (i = 0; i < sizeof(hands); i++) {
+      OSVR_ClientInterface* trackerInterface = malloc(sizeof(OSVR_ClientInterface));
+      osvrClientGetInterface(ctx, hands[i], trackerInterface);
+
+      if (trackerInterface != NULL) {
+        Joystick* joystick = malloc(sizeof(Joystick));
+        joystick->type = JOYSTICK_TYPE_OSVR;
+        joystick->glfwIndex = -1;
+        joystick->osvrTrackerInterface = trackerInterface;
+
+        int buttonCount = 0;
+        const char* buttons[6] = {
+          "system",
+          "menu",
+          "grip",
+          "trackpad/touch",
+          "trackpad/button",
+          "trigger/button"
+        };
+
+        for (j = 0; i < sizeof(buttons); j++) {
+          snprintf(buffer, sizeof(buffer), "%s/%s", hands[i], buttons[j]);
+          OSVR_ClientInterface* buttonInterface = malloc(sizeof(OSVR_ClientInterface));
+
+          if (buttonInterface != NULL) {
+            joystick->osvrButtonInterfaces[buttonCount++] = buttonInterface;
+          }
+        }
+
+        int axisCount = 0;
+        const char* axes[3] = {
+          "trackpad/x",
+          "trackpad/y",
+          "trigger"
+        };
+
+        for (j = 0; j < sizeof(axes); j++) {
+          snprintf(buffer, sizeof(buffer), "%s/%s", hands[i], axes[j]);
+          OSVR_ClientInterface* axisInterface = malloc(sizeof(OSVR_ClientInterface));
+
+          if (axisInterface != NULL) {
+            joystick->osvrAxisInterfaces[axisCount++] = axisInterface;
+          }
+        }
+
+        joystickState.list[count++] = joystick;
+      }
+    }
+  }
+
+  joystickState.count = count;
+
   return 1;
 }
