@@ -75,11 +75,13 @@ int lovrGraphicsNewBuffer(lua_State* L) {
 
   Buffer* buffer = malloc(sizeof(Buffer));
 
-  buffer->data = malloc(size * 3 * sizeof(GLfloat));
+  buffer->drawMode = "fan";
+  buffer->size = size;
+  buffer->data = malloc(buffer->size * 3 * sizeof(GLfloat));
 
   glGenBuffers(1, &buffer->vbo);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(buffer->data) * sizeof(GL_FLOAT), buffer->data, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, buffer->size * 3 * sizeof(GLfloat), buffer->data, GL_STATIC_DRAW);
 
   glGenVertexArrays(1, &buffer->vao);
 
@@ -126,5 +128,12 @@ int lovrInitGraphics(lua_State* L) {
   luaRegisterType(L, "Model", lovrModel, NULL);
   luaRegisterType(L, "Buffer", lovrBuffer, luax_destroybuffer);
   luaRegisterType(L, "Shader", lovrShader, luax_destroyshader);
+
+  map_init(&BufferDrawModes);
+  map_set(&BufferDrawModes, "points", GL_POINTS);
+  map_set(&BufferDrawModes, "strip", GL_TRIANGLE_STRIP);
+  map_set(&BufferDrawModes, "triangles", GL_TRIANGLES);
+  map_set(&BufferDrawModes, "fan", GL_TRIANGLE_FAN);
+
   return 1;
 }

@@ -23,30 +23,35 @@ int luax_destroybuffer(lua_State* L) {
 
 int lovrBufferDraw(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
+  GLenum* drawMode = (GLenum*)map_get(&BufferDrawModes, buffer->drawMode);
+
+  if (drawMode == NULL) {
+    return luaL_error(L, "Invalid buffer draw mode '%s'", buffer->drawMode);
+  }
 
   glBindVertexArray(buffer->vao);
   glEnableVertexAttribArray(0);
-  glDrawArrays(GL_TRIANGLES, 0, 3);
+  glDrawArrays(*drawMode, 0, buffer->size);
   glDisableVertexAttribArray(0);
 
   return 0;
 }
 
-int lovrBufferSetVertex(lua_State* L) {
+int lovrBufferGetDrawMode(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
-  int index = luaL_checkint(L, 2) - 1;
-  float x = luaL_checknumber(L, 3);
-  float y = luaL_checknumber(L, 4);
-  float z = luaL_checknumber(L, 5);
+  lua_pushstring(L, buffer->drawMode);
+  return 1;
+}
 
-  buffer->data[3 * index + 0] = x;
-  buffer->data[3 * index + 1] = y;
-  buffer->data[3 * index + 2] = z;
+int lovrBufferSetDrawMode(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  const char* drawMode = luaL_checkstring(L, 2);
 
-  glBindVertexArray(buffer->vao);
-  glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(buffer->data) * sizeof(GL_FLOAT), buffer->data, GL_STATIC_DRAW);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+  if (!map_get(&BufferDrawModes, drawMode)) {
+    return luaL_error(L, "Invalid buffer draw mode '%s'", drawMode);
+  }
+
+  buffer->drawMode = drawMode;
 
   return 0;
 }
@@ -62,9 +67,30 @@ int lovrBufferGetVertex(lua_State* L) {
   return 3;
 }
 
+int lovrBufferSetVertex(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  int index = luaL_checkint(L, 2) - 1;
+  float x = luaL_checknumber(L, 3);
+  float y = luaL_checknumber(L, 4);
+  float z = luaL_checknumber(L, 5);
+
+  buffer->data[3 * index + 0] = x;
+  buffer->data[3 * index + 1] = y;
+  buffer->data[3 * index + 2] = z;
+
+  glBindVertexArray(buffer->vao);
+  glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
+  glBufferData(GL_ARRAY_BUFFER, buffer->size * 3 * sizeof(GLfloat), buffer->data, GL_STATIC_DRAW);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+  return 0;
+}
+
 const luaL_Reg lovrBuffer[] = {
   { "draw", lovrBufferDraw },
-  { "setVertex", lovrBufferSetVertex },
   { "getVertex", lovrBufferGetVertex },
+  { "setVertex", lovrBufferSetVertex },
+  { "getDrawMode", lovrBufferGetDrawMode },
+  { "setDrawMode", lovrBufferSetDrawMode },
   { NULL, NULL }
 };
