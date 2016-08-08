@@ -13,8 +13,8 @@ typedef struct {
 
 void luax_pushjoystick(lua_State* L, Joystick* joystick);
 Joystick* luax_checkjoystick(lua_State* L, int index);
+int luax_destroyjoystick(lua_State* L);
 
-void lovrJoystickDestroy(Joystick* joystick);
 int lovrJoystickIsConnected(Joystick* joystick);
 
 int lovrJoystickGetAngularAcceleration(lua_State* L);

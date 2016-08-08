@@ -67,7 +67,7 @@ const luaL_Reg lovrJoysticks[] = {
 int lovrInitJoysticks(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrJoysticks);
-  luaRegisterType(L, "Joystick", lovrJoystick);
+  luaRegisterType(L, "Joystick", lovrJoystick, luax_destroyjoystick);
   glfwSetJoystickCallback(lovrJoysticksOnJoystickChanged);
 
   for (int i = GLFW_JOYSTICK_1; i <= GLFW_JOYSTICK_LAST; i++) {

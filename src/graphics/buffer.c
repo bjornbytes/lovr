@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include <stdlib.h>
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer) {
   Buffer** userdata = (Buffer**) lua_newuserdata(L, sizeof(Buffer*));
@@ -9,6 +10,15 @@ void luax_pushbuffer(lua_State* L, Buffer* buffer) {
 
 Buffer* luax_checkbuffer(lua_State* L, int index) {
   return *(Buffer**) luaL_checkudata(L, index, "Buffer");
+}
+
+int luax_destroybuffer(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  glDeleteBuffers(1, &buffer->vbo);
+  glDeleteVertexArrays(1, &buffer->vao);
+  free(buffer->data);
+  free(buffer);
+  return 0;
 }
 
 int lovrBufferDraw(lua_State* L) {
@@ -41,8 +51,20 @@ int lovrBufferSetVertex(lua_State* L) {
   return 0;
 }
 
+int lovrBufferGetVertex(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  int index = luaL_checkint(L, 2) - 1;
+
+  lua_pushnumber(L, buffer->data[3 * index + 0]);
+  lua_pushnumber(L, buffer->data[3 * index + 1]);
+  lua_pushnumber(L, buffer->data[3 * index + 2]);
+
+  return 3;
+}
+
 const luaL_Reg lovrBuffer[] = {
   { "draw", lovrBufferDraw },
   { "setVertex", lovrBufferSetVertex },
+  { "getVertex", lovrBufferGetVertex },
   { NULL, NULL }
 };

@@ -13,6 +13,13 @@ Shader* luax_checkshader(lua_State* L, int index) {
   return *(Shader**) luaL_checkudata(L, index, "Shader");
 }
 
+int luax_destroyshader(lua_State* L) {
+  Shader* shader = luax_checkshader(L, 1);
+  glDeleteProgram(shader->id);
+  free(shader);
+  return 0;
+}
+
 GLuint compileShader(GLenum type, const char* source) {
   GLuint shader = glCreateShader(type);
 
@@ -57,7 +64,9 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
     error(log);
   }
 
+  glDetachShader(shader, vertexShader);
   glDeleteShader(vertexShader);
+  glDetachShader(shader, fragmentShader);
   glDeleteShader(fragmentShader);
 
   return shader;

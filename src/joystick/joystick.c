@@ -15,6 +15,24 @@ Joystick* luax_checkjoystick(lua_State* L, int index) {
   return *(Joystick**) luaL_checkudata(L, index, "Joystick");
 }
 
+int luax_destroyjoystick(lua_State* L) {
+  Joystick* joystick = luax_checkjoystick(L, 1);
+
+  if (joystick->isTracked) {
+    osvrClientFreeInterface(ctx, *joystick->osvrTrackerInterface);
+
+    for (int i = 0; i < sizeof(joystick->osvrButtonInterfaces); i++) {
+      osvrClientFreeInterface(ctx, *joystick->osvrButtonInterfaces[i]);
+    }
+
+    for (int i = 0; i < sizeof(joystick->osvrAxisInterfaces); i++) {
+      osvrClientFreeInterface(ctx, *joystick->osvrAxisInterfaces[i]);
+    }
+  }
+
+  // The joystick itself is never freed
+}
+
 static unsigned char lovrJoystickGetButtonState(Joystick* joystick, int buttonIndex) {
   if (joystick->isTracked) {
     OSVR_TimeValue timestamp;
@@ -40,20 +58,6 @@ static float lovrJoystickGetAxisState(Joystick* joystick, int axisIndex) {
     int axisCount;
     const float* axes = glfwGetJoystickAxes(joystick->glfwIndex, &axisCount);
     return axes[axisIndex];
-  }
-}
-
-void lovrJoystickDestroy(Joystick* joystick) {
-  if (joystick->isTracked) {
-    osvrClientFreeInterface(ctx, *joystick->osvrTrackerInterface);
-
-    for (int i = 0; i < sizeof(joystick->osvrButtonInterfaces); i++) {
-      osvrClientFreeInterface(ctx, *joystick->osvrButtonInterfaces[i]);
-    }
-
-    for (int i = 0; i < sizeof(joystick->osvrAxisInterfaces); i++) {
-      osvrClientFreeInterface(ctx, *joystick->osvrAxisInterfaces[i]);
-    }
   }
 }
 

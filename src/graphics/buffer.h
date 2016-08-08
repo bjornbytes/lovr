@@ -12,8 +12,10 @@ typedef struct {
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer);
 Buffer* luax_checkbuffer(lua_State* L, int index);
+int luax_destroybuffer(lua_State* L);
 
 int lovrBufferDraw(lua_State* L);
 int lovrBufferSetVertex(lua_State* L);
+int lovrBufferGetVertex(lua_State* L);
 
 extern const luaL_Reg lovrBuffer[];

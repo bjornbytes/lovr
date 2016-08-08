@@ -73,9 +73,9 @@ int lovrGraphicsNewModel(lua_State* L) {
 int lovrGraphicsNewBuffer(lua_State* L) {
   int size = luaL_checkint(L, 1);
 
-  Buffer* buffer = (Buffer*) malloc(sizeof(Buffer));
+  Buffer* buffer = malloc(sizeof(Buffer));
 
-  buffer->data = (GLfloat*) malloc(size * 3 * sizeof(GLfloat));
+  buffer->data = malloc(size * 3 * sizeof(GLfloat));
 
   glGenBuffers(1, &buffer->vbo);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
@@ -123,8 +123,8 @@ const luaL_Reg lovrGraphics[] = {
 int lovrInitGraphics(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
-  luaRegisterType(L, "Model", lovrModel);
-  luaRegisterType(L, "Buffer", lovrBuffer);
-  luaRegisterType(L, "Shader", lovrShader);
+  luaRegisterType(L, "Model", lovrModel, NULL);
+  luaRegisterType(L, "Buffer", lovrBuffer, luax_destroybuffer);
+  luaRegisterType(L, "Shader", lovrShader, luax_destroyshader);
   return 1;
 }

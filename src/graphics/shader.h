@@ -9,6 +9,7 @@ typedef struct {
 
 void luax_pushshader(lua_State* L, Shader* shader);
 Shader* luax_checkshader(lua_State* L, int index);
+int luax_destroyshader(lua_State* L);
 
 GLuint compileShader(GLuint type, const char* filename);
 GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader);

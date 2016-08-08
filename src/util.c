@@ -68,7 +68,7 @@ void luaRegisterModule(lua_State* L, const char* name, const luaL_Reg* module) {
   lua_pop(L, 1);
 }
 
-void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions) {
+void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions, lua_CFunction gc) {
 
   // Push metatable
   luaL_newmetatable(L, name);
@@ -78,10 +78,15 @@ void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions) 
   lua_pushvalue(L, -1);
   lua_setfield(L, -1, "__index");
 
+  // m.__gc = gc
+  if (gc) {
+    lua_pushcfunction(L, gc);
+    lua_setfield(L, -2, "__gc");
+  }
+
   // m.name = name
-  lua_pushstring(L, "name");
   lua_pushstring(L, name);
-  lua_settable(L, -3);
+  lua_setfield(L, -2, "name");
 
   // Register class functions
   if (functions) {
