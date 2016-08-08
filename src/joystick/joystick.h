@@ -1,6 +1,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+#include "../osvr.h"
 
 typedef enum {
   JOYSTICK_TYPE_GLFW,
@@ -10,6 +11,7 @@ typedef enum {
 typedef struct {
   JoystickType type;
   int index;
+  OSVR_ClientInterface* interface;
 } Joystick;
 
 void luax_pushjoystick(lua_State* L, Joystick* joystick);

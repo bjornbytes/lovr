@@ -1,7 +1,8 @@
 #include "joysticks.h"
-#include "glfw.h"
 #include "joystick.h"
-#include "util.h"
+#include "../glfw.h"
+#include "../util.h"
+#include "../osvr.h"
 #include <stdlib.h>
 
 typedef struct {
@@ -13,15 +14,42 @@ JoystickState joystickState;
 
 void lovrJoysticksRefresh() {
   for (int i = 0; i < 32; i++) {
+    if (joystickState.list[i] != NULL) {
+      free(joystickState.list[i]);
+    }
+
     joystickState.list[i] = NULL;
   }
 
   int count = 0;
+
   for (int i = GLFW_JOYSTICK_1; i <= GLFW_JOYSTICK_LAST; i++) {
     if (glfwJoystickPresent(i)) {
-      int index = count++;
-      joystickState.list[index] = malloc(sizeof(Joystick));
-      joystickState.list[index]->index = i;
+      Joystick* joystick = malloc(sizeof(Joystick));
+      joystick->type = JOYSTICK_TYPE_GLFW;
+      joystick->index = i;
+
+      joystickState.list[count++] = joystick;
+    }
+  }
+
+  // TODO handle OSVR joysticks
+  // /me/hands/left
+  // /me/hands/right
+
+  if (osvrClientCheckStatus(ctx) != OSVR_RETURN_FAILURE) {
+    const char* hands[2] = { "/me/hands/left", "/me/hands/right" };
+
+    for (int i = 0; i < sizeof(hands); i++) {
+      OSVR_ClientInterface* interface = (OSVR_ClientInterface*) malloc(sizeof(OSVR_ClientInterface));
+      osvrClientGetInterface(ctx, hands[i], interface);
+
+      if (interface != NULL) {
+        Joystick* joystick = malloc(sizeof(Joystick));
+        joystick->type = JOYSTICK_TYPE_OSVR;
+        joystick->index = -1;
+        joystick->interface = interface;
+      }
     }
   }
 

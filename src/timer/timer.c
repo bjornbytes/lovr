@@ -1,6 +1,6 @@
 #include "timer.h"
-#include "lovr.h"
-#include "glfw.h"
+#include "../lovr.h"
+#include "../glfw.h"
 
 int lovrTimerStep(lua_State* L) {
   lua_pushnumber(L, glfwGetTime());

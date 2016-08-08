@@ -1,11 +1,10 @@
 #include "lovr.h"
 #include "util.h"
 
-#include "event.h"
-#include "device.h"
-#include "graphics.h"
-#include "joysticks.h"
-#include "timer.h"
+#include "event/event.h"
+#include "graphics/graphics.h"
+#include "joystick/joysticks.h"
+#include "timer/timer.h"
 
 extern lua_State* L;
 
@@ -17,7 +16,6 @@ void lovrInit(lua_State* L) {
 
   // Preload modules
   luaPreloadModule(L, "lovr.event", lovrInitEvent);
-  luaPreloadModule(L, "lovr.device", lovrInitDevice);
   luaPreloadModule(L, "lovr.graphics", lovrInitGraphics);
   luaPreloadModule(L, "lovr.joystick", lovrInitJoysticks);
   luaPreloadModule(L, "lovr.timer", lovrInitTimer);
@@ -28,7 +26,6 @@ void lovrInit(lua_State* L) {
     "local conf = { "
     "  modules = { "
     "    event = true, "
-    "    device = true, "
     "    graphics = true, "
     "    joystick = true, "
     "    timer = true "
@@ -44,7 +41,7 @@ void lovrInit(lua_State* L) {
     "  error(err, -1) "
     "end "
     " "
-    "local modules = { 'event', 'device', 'graphics', 'joystick', 'timer' } "
+    "local modules = { 'event', 'graphics', 'joystick', 'timer' } "
     "for _, module in ipairs(modules) do "
     "  if conf.modules[module] then "
     "    lovr[module] = require('lovr.' .. module) "

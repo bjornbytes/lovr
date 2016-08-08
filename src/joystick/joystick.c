@@ -1,5 +1,5 @@
 #include "joystick.h"
-#include "glfw.h"
+#include "../glfw.h"
 
 void luax_pushjoystick(lua_State* L, Joystick* joystick) {
   Joystick** userdata = (Joystick**) lua_newuserdata(L, sizeof(Joystick*));

@@ -1,7 +1,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "glfw.h"
+#include "../glfw.h"
 
 typedef struct {
   GLfloat* data;

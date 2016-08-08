@@ -1,5 +1,4 @@
 #include "buffer.h"
-#include "glfw.h"
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer) {
   Buffer** userdata = (Buffer**) lua_newuserdata(L, sizeof(Buffer*));

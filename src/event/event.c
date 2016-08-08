@@ -1,7 +1,7 @@
 #include "event.h"
-#include "lovr.h"
-#include "glfw.h"
-#include "osvr.h"
+#include "../lovr.h"
+#include "../glfw.h"
+#include "../osvr.h"
 
 extern GLFWwindow* window;
 

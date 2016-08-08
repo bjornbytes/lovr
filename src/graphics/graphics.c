@@ -1,9 +1,9 @@
-#include "glfw.h"
 #include "graphics.h"
 #include "model.h"
 #include "buffer.h"
 #include "shader.h"
-#include "util.h"
+#include "../glfw.h"
+#include "../util.h"
 #include <stdlib.h>
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
