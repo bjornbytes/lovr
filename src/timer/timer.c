@@ -5,7 +5,6 @@
 int lovrTimerStep(lua_State* L) {
   lua_pushnumber(L, glfwGetTime());
   glfwSetTime(0);
-
   return 1;
 }
 

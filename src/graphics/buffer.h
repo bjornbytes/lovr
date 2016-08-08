@@ -15,4 +15,5 @@ Buffer* luax_checkbuffer(lua_State* L, int index);
 
 int lovrBufferDraw(lua_State* L);
 int lovrBufferSetVertex(lua_State* L);
+
 extern const luaL_Reg lovrBuffer[];

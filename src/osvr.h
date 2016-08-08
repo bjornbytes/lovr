@@ -4,4 +4,4 @@
 
 OSVR_ClientContext ctx;
 
-void initOSVR();
+void osvrInit();

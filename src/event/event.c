@@ -17,7 +17,6 @@ int lovrEventPoll(lua_State* L) {
 
 int lovrEventQuit(lua_State* L) {
   lovrDestroy();
-
   return 0;
 }
 

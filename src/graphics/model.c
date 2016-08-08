@@ -1,13 +1,10 @@
 #include "model.h"
-#include "util.h"
 #include <assimp/scene.h>
 
 void luax_pushmodel(lua_State* L, Model* model) {
   Model** userdata = (Model**) lua_newuserdata(L, sizeof(Model*));
-
   luaL_getmetatable(L, "Model");
   lua_setmetatable(L, -2);
-
   *userdata = model;
 }
 
@@ -31,9 +28,7 @@ int lovrModelDraw(lua_State* L) {
 
 int lovrModelGetVertexCount(lua_State* L) {
   Model* model = luax_checkmodel(L, 1);
-
   lua_pushinteger(L, model->mNumVertices);
-
   return 1;
 }
 
@@ -47,7 +42,6 @@ int lovrModelGetColors(lua_State* L) {
 
   if (colorSetIndex >= AI_MAX_NUMBER_OF_COLOR_SETS || !model->mColors[colorSetIndex]) {
     lua_pushnil(L);
-
     return 1;
   }
 
@@ -81,7 +75,6 @@ int lovrModelGetNormals(lua_State* L) {
 
   if (!model->mNormals) {
     lua_pushnil(L);
-
     return 1;
   }
 
@@ -110,7 +103,6 @@ int lovrModelGetTangents(lua_State* L) {
 
   if (!model->mTangents) {
     lua_pushnil(L);
-
     return 1;
   }
 
@@ -144,7 +136,6 @@ int lovrModelGetUVs(lua_State* L) {
 
   if (uvSetIndex >= AI_MAX_NUMBER_OF_TEXTURECOORDS || !model->mTextureCoords[uvSetIndex]) {
     lua_pushnil(L);
-
     return 1;
   }
 

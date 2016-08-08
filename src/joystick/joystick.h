@@ -29,4 +29,5 @@ int lovrJoystickGetOrientation(lua_State* L);
 int lovrJoystickGetPosition(lua_State* L);
 int lovrJoystickIsDown(lua_State* L);
 int lovrJoystickIsTracked(lua_State* L);
+
 extern const luaL_Reg lovrJoystick[];

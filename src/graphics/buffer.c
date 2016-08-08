@@ -2,10 +2,8 @@
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer) {
   Buffer** userdata = (Buffer**) lua_newuserdata(L, sizeof(Buffer*));
-
   luaL_getmetatable(L, "Buffer");
   lua_setmetatable(L, -2);
-
   *userdata = buffer;
 }
 

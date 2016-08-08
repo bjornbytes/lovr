@@ -1,13 +1,11 @@
 #include "shader.h"
+#include "../util.h"
 #include <stdlib.h>
-#include "util.h"
 
 void luax_pushshader(lua_State* L, Shader* shader) {
   Shader** userdata = (Shader**) lua_newuserdata(L, sizeof(Shader*));
-
   luaL_getmetatable(L, "Shader");
   lua_setmetatable(L, -2);
-
   *userdata = shader;
 }
 

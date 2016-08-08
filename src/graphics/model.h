@@ -9,4 +9,5 @@ Model* luax_checkmodel(lua_State* L, int index);
 int lovrModelDraw(lua_State* L);
 int lovrModelGetVertexCount(lua_State* L);
 int lovrModelGetVertexColors(lua_State* L);
+
 extern const luaL_Reg lovrModel[];

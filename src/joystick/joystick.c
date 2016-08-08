@@ -6,10 +6,8 @@ extern OSVR_ClientContext ctx;
 
 void luax_pushjoystick(lua_State* L, Joystick* joystick) {
   Joystick** userdata = (Joystick**) lua_newuserdata(L, sizeof(Joystick*));
-
   luaL_getmetatable(L, "Joystick");
   lua_setmetatable(L, -2);
-
   *userdata = joystick;
 }
 
