@@ -32,7 +32,6 @@ Dependencies
 - GLFW and OpenGL 4
 - assimp
 - OSVR
-- gl-matrix
 
 Compiling (CMake)
 ---
