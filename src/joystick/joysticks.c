@@ -20,9 +20,9 @@ int lovrJoysticksGetJoystickCount(lua_State* L) {
 int lovrJoysticksGetJoysticks(lua_State* L) {
   lua_newtable(L);
 
-  for (int i = 0; joystickState.list[i] != NULL && i < sizeof(joystickState.list); i++) {
+  for (int i = 0; joystickState.list[i] != NULL && i < sizeof(joystickState.list);) {
     luax_pushjoystick(L, joystickState.list[i]);
-    lua_rawseti(L, -2, i + 1);
+    lua_rawseti(L, -2, ++i);
   }
 
   return 1;
