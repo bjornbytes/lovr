@@ -46,15 +46,26 @@ static float lovrJoystickGetAxisState(Joystick* joystick, int axisIndex) {
 void lovrJoystickDestroy(Joystick* joystick) {
   if (joystick->isTracked) {
     osvrClientFreeInterface(ctx, *joystick->osvrTrackerInterface);
-    int i;
 
-    for (i = 0; i < sizeof(joystick->osvrButtonInterfaces); i++) {
+    for (int i = 0; i < sizeof(joystick->osvrButtonInterfaces); i++) {
       osvrClientFreeInterface(ctx, *joystick->osvrButtonInterfaces[i]);
     }
 
-    for (i = 0; i < sizeof(joystick->osvrAxisInterfaces); i++) {
+    for (int i = 0; i < sizeof(joystick->osvrAxisInterfaces); i++) {
       osvrClientFreeInterface(ctx, *joystick->osvrAxisInterfaces[i]);
     }
+  }
+}
+
+int lovrJoystickIsConnected(Joystick* joystick) {
+  if (joystick == NULL) {
+    return 0;
+  }
+
+  if (joystick->isTracked) {
+    return joystick->osvrTrackerInterface != NULL;
+  } else {
+    return glfwJoystickPresent(joystick->glfwIndex);
   }
 }
 

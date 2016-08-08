@@ -9,12 +9,8 @@ Example
 In a directory called `myGame`, create a file called `main.lua`:
 
 ```lua
-function lovr.load()
-  headset = lovr.device.getHeadset()
-end
-
 function lovr.update(dt)
-  print('Headset position:', headset:getPosition())
+  print(lovr.headset:getPosition())
 end
 ```
 
@@ -29,7 +25,7 @@ Dependencies
 ---
 
 - LuaJIT
-- GLFW and OpenGL 4
+- GLFW (3.2) and OpenGL 4
 - assimp
 - OSVR
 

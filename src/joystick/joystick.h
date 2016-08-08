@@ -15,6 +15,7 @@ void luax_pushjoystick(lua_State* L, Joystick* joystick);
 Joystick* luax_checkjoystick(lua_State* L, int index);
 
 void lovrJoystickDestroy(Joystick* joystick);
+int lovrJoystickIsConnected(Joystick* joystick);
 
 int lovrJoystickGetAngularAcceleration(lua_State* L);
 int lovrJoystickGetAngularVelocity(lua_State* L);
