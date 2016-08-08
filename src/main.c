@@ -4,7 +4,6 @@
 
 #include "lovr.h"
 #include "glfw.h"
-#include "osvr.h"
 
 lua_State* L;
 
