@@ -6,5 +6,6 @@
 void lovrInit(lua_State* L);
 void lovrDestroy();
 void lovrRun(lua_State* L);
-void lovrOnError(int code, const char* description);
+int lovrOnLuaError(lua_State* L);
+void lovrOnGlfwError(int code, const char* description);
 void lovrOnClose(GLFWwindow* window);

@@ -65,6 +65,8 @@ void lovrInit(lua_State* L) {
     const char* message = luaL_checkstring(L, 1);
     error("Unable to bootstrap LOVR: %s", message);
   }
+
+  lua_atpanic(L, lovrOnLuaError);
 }
 
 void lovrDestroy() {
@@ -87,7 +89,22 @@ void lovrRun(lua_State* L) {
   lua_call(L, 0, 0);
 }
 
-void lovrOnError(int code, const char* description) {
+int lovrOnLuaError(lua_State* L) {
+  const char* message = luaL_checkstring(L, -1);
+  lua_getglobal(L, "lovr");
+  lua_getfield(L, -1, "errhand");
+
+  if (lua_isfunction(L, -1)) {
+    lua_pushstring(L, message);
+    lua_call(L, 1, 0);
+  } else {
+    error(message);
+  }
+
+  return 0;
+}
+
+void lovrOnGlfwError(int code, const char* description) {
   error(description);
 }
 
