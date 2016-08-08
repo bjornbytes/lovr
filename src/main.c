@@ -1,7 +1,3 @@
-#include <stdlib.h>
-#include <luajit.h>
-#include <lua.h>
-
 #include "lovr.h"
 #include "glfw.h"
 
@@ -15,5 +11,5 @@ int main(int argc, char* argv[]) {
   lovrInit(L);
   lovrRun(L);
 
-  exit(0);
+  return 0;
 }
