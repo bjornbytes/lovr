@@ -38,7 +38,7 @@ void lovrInit(lua_State* L) {
     "end "
 
     "if not success and err then "
-    "  error(err, -1) "
+    "  print('Could not run conf.lua') "
     "end "
 
     "local modules = { 'event', 'graphics', 'joystick', 'timer' } "

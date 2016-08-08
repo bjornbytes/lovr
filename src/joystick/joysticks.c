@@ -14,16 +14,15 @@ static JoystickState joystickState;
 
 int lovrJoysticksGetJoystickCount(lua_State* L) {
   lua_pushnumber(L, joystickState.count);
-
   return 1;
 }
 
 int lovrJoysticksGetJoysticks(lua_State* L) {
   lua_newtable(L);
 
-  for (int i = 0; joystickState.list[i] != NULL && i < 32; i++) {
+  for (int i = 0; joystickState.list[i] != NULL && i < sizeof(joystickState.list); i++) {
     luax_pushjoystick(L, joystickState.list[i]);
-    lua_rawseti(L, -2, i);
+    lua_rawseti(L, -2, i + 1);
   }
 
   return 1;
@@ -56,11 +55,8 @@ int lovrInitJoysticks(lua_State* L) {
   for (i = GLFW_JOYSTICK_1; i <= GLFW_JOYSTICK_LAST; i++) {
     if (glfwJoystickPresent(i)) {
       Joystick* joystick = malloc(sizeof(Joystick));
-      joystick->type = JOYSTICK_TYPE_GLFW;
+      joystick->isTracked = 0;
       joystick->glfwIndex = i;
-
-      map_init(&joystick->axisMapping);
-      map_init(&joystick->buttonMapping);
 
       joystickState.list[count++] = joystick;
     }
@@ -79,7 +75,7 @@ int lovrInitJoysticks(lua_State* L) {
 
       if (trackerInterface != NULL) {
         Joystick* joystick = malloc(sizeof(Joystick));
-        joystick->type = JOYSTICK_TYPE_OSVR;
+        joystick->isTracked = 1;
         joystick->glfwIndex = -1;
         joystick->osvrTrackerInterface = trackerInterface;
 

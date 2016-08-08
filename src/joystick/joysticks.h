@@ -3,6 +3,7 @@
 #include <lualib.h>
 
 int lovrJoysticksGetJoystickCount(lua_State* L);
+int lovrJoysticksGetJoysticks(lua_State* L);
 
 extern const luaL_Reg lovrJoysticks[];
 int lovrInitJoysticks(lua_State* L);
