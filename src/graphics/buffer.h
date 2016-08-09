@@ -10,6 +10,8 @@ typedef struct {
   const char* drawMode;
   GLuint vao;
   GLuint vbo;
+  int rangeStart;
+  int rangeCount;
 } Buffer;
 
 map_int_t BufferDrawModes;
@@ -23,5 +25,7 @@ int lovrBufferGetVertex(lua_State* L);
 int lovrBufferSetVertex(lua_State* L);
 int lovrBufferGetDrawMode(lua_State* L);
 int lovrBufferSetDrawMode(lua_State* L);
+int lovrBufferGetDrawRange(lua_State* L);
+int lovrBufferSetDrawRange(lua_State* L);
 
 extern const luaL_Reg lovrBuffer[];

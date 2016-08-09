@@ -31,7 +31,7 @@ int lovrBufferDraw(lua_State* L) {
 
   glBindVertexArray(buffer->vao);
   glEnableVertexAttribArray(0);
-  glDrawArrays(*drawMode, 0, buffer->size);
+  glDrawArrays(*drawMode, buffer->rangeStart, buffer->rangeCount);
   glDisableVertexAttribArray(0);
 
   return 0;
@@ -86,11 +86,35 @@ int lovrBufferSetVertex(lua_State* L) {
   return 0;
 }
 
+int lovrBufferGetDrawRange(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  lua_pushnumber(L, buffer->rangeStart + 1);
+  lua_pushnumber(L, buffer->rangeStart + 1 + buffer->rangeCount);
+  return 2;
+}
+
+int lovrBufferSetDrawRange(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  int rangeStart = luaL_checknumber(L, 2);
+  int rangeEnd = luaL_checknumber(L, 3);
+
+  if (rangeStart <= 0 || rangeEnd <= 0 || rangeStart > rangeEnd) {
+    return luaL_error(L, "Invalid buffer draw range (%d, %d)", rangeStart, rangeEnd);
+  }
+
+  buffer->rangeStart = rangeStart - 1;
+  buffer->rangeCount = rangeEnd - rangeStart + 1;
+
+  return 0;
+}
+
 const luaL_Reg lovrBuffer[] = {
   { "draw", lovrBufferDraw },
   { "getVertex", lovrBufferGetVertex },
   { "setVertex", lovrBufferSetVertex },
   { "getDrawMode", lovrBufferGetDrawMode },
   { "setDrawMode", lovrBufferSetDrawMode },
+  { "getDrawRange", lovrBufferGetDrawRange },
+  { "setDrawRange", lovrBufferSetDrawRange },
   { NULL, NULL }
 };

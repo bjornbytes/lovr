@@ -78,6 +78,8 @@ int lovrGraphicsNewBuffer(lua_State* L) {
   buffer->drawMode = "fan";
   buffer->size = size;
   buffer->data = malloc(buffer->size * 3 * sizeof(GLfloat));
+  buffer->rangeStart = 0;
+  buffer->rangeCount = buffer->size;
 
   glGenBuffers(1, &buffer->vbo);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
