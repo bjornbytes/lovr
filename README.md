@@ -36,10 +36,11 @@ Compiling
 
 - Install [Boost 1.57](http://www.boost.org/users/history/version_1_57_0.html) to `C:\local\boost_1_57_0`.
 - Download and extract a pre-built [OSVR-Core](http://access.osvr.com/binary/osvr-core).
-- Install [lovr-deps](https://github.com/bjornbytes/lovr-deps) to the `deps` folder of the `lovr` repository:
+- Install [lovr-deps](https://github.com/bjornbytes/lovr-deps):
 
 ```sh
-git clone --recursive https://github.com/bjornbytes/lovr-deps
+cd lovr
+git clone --recursive https://github.com/bjornbytes/lovr-deps deps
 ```
 
 Finally, build using the CMake GUI or using the CMake command line.  Make sure you pass the `OSVR_PATH` option:
