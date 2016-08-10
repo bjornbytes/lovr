@@ -60,5 +60,7 @@ cmake --build .
 ### OSX (tup)
 
 ```sh
+brew tap OSVR/osvr
+brew install assimp glfw3 luajit osvr-core
 tup
 ```
