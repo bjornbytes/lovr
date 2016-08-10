@@ -25,14 +25,14 @@ Dependencies
 ---
 
 - LuaJIT
-- GLFW (3.2) and OpenGL (3.2)
+- GLFW (3.2+) and OpenGL (3.2+)
 - assimp
 - OSVR
 
 Compiling
 ---
 
-CMake:
+Windows (CMake, may be out of date):
 
 ```sh
 mkdir build
@@ -40,9 +40,8 @@ cd build
 cmake ..
 ```
 
-tup (OSX only):
+OSX (tup):
 
 ```sh
 tup
-./lovr
 ```
