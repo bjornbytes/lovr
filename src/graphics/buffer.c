@@ -66,4 +66,3 @@ int lovrBufferSetDrawRange(Buffer* buffer, int rangeStart, int rangeEnd) {
   buffer->rangeCount = rangeEnd - rangeStart + 1;
   return 0;
 }
-
