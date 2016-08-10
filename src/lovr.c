@@ -1,10 +1,11 @@
 #include "lovr.h"
 #include "util.h"
 
-#include "event/event.h"
-#include "graphics/graphics.h"
-#include "joystick/joysticks.h"
-#include "timer/timer.h"
+#include "lovr/event.h"
+#include "lovr/graphics.h"
+#include "lovr/joysticks.h"
+#include "lovr/joystick.h"
+#include "lovr/timer.h"
 
 extern lua_State* L;
 
@@ -15,10 +16,10 @@ void lovrInit(lua_State* L) {
   lua_setglobal(L, "lovr");
 
   // Preload modules
-  luaPreloadModule(L, "lovr.event", lovrInitEvent);
-  luaPreloadModule(L, "lovr.graphics", lovrInitGraphics);
-  luaPreloadModule(L, "lovr.joystick", lovrInitJoysticks);
-  luaPreloadModule(L, "lovr.timer", lovrInitTimer);
+  luaPreloadModule(L, "lovr.event", l_lovrEventInit);
+  luaPreloadModule(L, "lovr.graphics", l_lovrGraphicsInit);
+  luaPreloadModule(L, "lovr.joystick", l_lovrJoysticksInit);
+  luaPreloadModule(L, "lovr.timer", l_lovrTimerInit);
 
   // Bootstrap
   char buffer[1024];
@@ -131,5 +132,25 @@ void lovrOnClose(GLFWwindow* _window) {
       glfwDestroyWindow(window);
       lovrDestroy();
     }
+  }
+}
+
+void lovrOnJoystickAdded(Joystick* joystick) {
+  lua_getglobal(L, "lovr");
+  lua_getfield(L, -1, "joystickadded");
+
+  if (lua_isfunction(L, -1)) {
+    luax_pushjoystick(L, joystick);
+    lua_call(L, 1, 0);
+  }
+}
+
+void lovrOnJoystickRemoved(Joystick* joystick) {
+  lua_getglobal(L, "lovr");
+  lua_getfield(L, -1, "joystickremoved");
+
+  if (lua_isfunction(L, -1)) {
+    luax_pushjoystick(L, joystick);
+    lua_call(L, 1, 0);
   }
 }

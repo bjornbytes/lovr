@@ -1,10 +1,8 @@
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include "joystick.h"
+#include "../glfw.h"
+#include "../vendor/vec/vec.h"
 
-int lovrJoysticksGetJoystickCount(lua_State* L);
-int lovrJoysticksGetJoysticks(lua_State* L);
-
+void lovrJoysticksInit();
 void lovrJoysticksOnJoystickChanged();
-extern const luaL_Reg lovrJoysticks[];
-int lovrInitJoysticks(lua_State* L);
+int lovrJoysticksGetJoystickCount();
+void lovrJoysticksGetJoysticks(joystick_vec_t* joysticks);

@@ -4,295 +4,175 @@
 
 extern OSVR_ClientContext ctx;
 
-void luax_pushjoystick(lua_State* L, Joystick* joystick) {
-  Joystick** userdata = (Joystick**) lua_newuserdata(L, sizeof(Joystick*));
-  luaL_getmetatable(L, "Joystick");
-  lua_setmetatable(L, -2);
-  *userdata = joystick;
-}
-
-Joystick* luax_checkjoystick(lua_State* L, int index) {
-  return *(Joystick**) luaL_checkudata(L, index, "Joystick");
-}
-
-int luax_destroyjoystick(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-
+void lovrJoystickDestroy(Joystick* joystick) {
   if (joystick->isTracked) {
-    osvrClientFreeInterface(ctx, *joystick->osvrTrackerInterface);
+    int i;
+    OSVR_ClientInterface* interface;
 
-    for (int i = 0; i < sizeof(joystick->osvrButtonInterfaces); i++) {
-      osvrClientFreeInterface(ctx, *joystick->osvrButtonInterfaces[i]);
+    vec_foreach(&joystick->osvrButtonInterfaces, interface, i) {
+      osvrClientFreeInterface(ctx, *interface);
+      free(joystick->osvrButtonInterfaces.data[i]);
     }
 
-    for (int i = 0; i < sizeof(joystick->osvrAxisInterfaces); i++) {
-      osvrClientFreeInterface(ctx, *joystick->osvrAxisInterfaces[i]);
+    vec_foreach(&joystick->osvrAxisInterfaces, interface, i) {
+      osvrClientFreeInterface(ctx, *interface);
+      free(joystick->osvrAxisInterfaces.data[i]);
     }
   }
 
-  // The joystick itself is never freed
+  free(joystick);
 }
 
-static unsigned char lovrJoystickGetButtonState(Joystick* joystick, int buttonIndex) {
-  if (joystick->isTracked) {
-    OSVR_TimeValue timestamp;
-    OSVR_ButtonState state;
-    osvrGetButtonState(*joystick->osvrButtonInterfaces[buttonIndex], &timestamp, &state);
-    return state > 0;
-  } else {
-    int buttonCount;
-    const unsigned char* buttons = glfwGetJoystickButtons(joystick->glfwIndex, &buttonCount);
-    return buttons[buttonIndex];
-  }
-
-  return 0;
-}
-
-static float lovrJoystickGetAxisState(Joystick* joystick, int axisIndex) {
-  if (joystick->isTracked) {
-    OSVR_TimeValue timestamp;
-    OSVR_AnalogState state;
-    osvrGetAnalogState(*joystick->osvrAxisInterfaces[axisIndex], &timestamp, &state);
-    return (float)state;
-  } else {
-    int axisCount;
-    const float* axes = glfwGetJoystickAxes(joystick->glfwIndex, &axisCount);
-    return axes[axisIndex];
-  }
-}
-
-int lovrJoystickIsConnected(Joystick* joystick) {
-  if (joystick == NULL) {
-    return 0;
-  }
-
-  if (joystick->isTracked) {
-    return joystick->osvrTrackerInterface != NULL;
-  } else {
-    return glfwJoystickPresent(joystick->glfwIndex);
-  }
-}
-
-int lovrJoystickGetAngularAcceleration(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-
+void lovrJoystickGetAngularAcceleration(Joystick* joystick, float* w, float* x, float* y, float* z) {
   if (joystick->isTracked) {
     OSVR_TimeValue timestamp;
     OSVR_AngularAccelerationState state;
-    osvrGetAngularAccelerationState(*joystick->osvrTrackerInterface,  &timestamp, &state);
-    lua_pushnumber(L, osvrQuatGetW(&state.incrementalRotation));
-    lua_pushnumber(L, osvrQuatGetX(&state.incrementalRotation));
-    lua_pushnumber(L, osvrQuatGetY(&state.incrementalRotation));
-    lua_pushnumber(L, osvrQuatGetZ(&state.incrementalRotation));
-    lua_pushnumber(L, state.dt);
+    osvrGetAngularAccelerationState(joystick->osvrTrackerInterface,  &timestamp, &state);
+    *w = osvrQuatGetW(&state.incrementalRotation);
+    *x = osvrQuatGetX(&state.incrementalRotation);
+    *y = osvrQuatGetY(&state.incrementalRotation);
+    *z = osvrQuatGetZ(&state.incrementalRotation);
   } else {
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    *w = *x = *y = *z = 0.f;
   }
-
-  return 5;
 }
 
-int lovrJoystickGetAngularVelocity(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-
+void lovrJoystickGetAngularVelocity(Joystick* joystick, float* w, float* x, float* y, float* z) {
   if (joystick->isTracked) {
     OSVR_TimeValue timestamp;
     OSVR_AngularVelocityState state;
-    osvrGetAngularVelocityState(*joystick->osvrTrackerInterface,  &timestamp, &state);
-    lua_pushnumber(L, osvrQuatGetW(&state.incrementalRotation));
-    lua_pushnumber(L, osvrQuatGetX(&state.incrementalRotation));
-    lua_pushnumber(L, osvrQuatGetY(&state.incrementalRotation));
-    lua_pushnumber(L, osvrQuatGetZ(&state.incrementalRotation));
-    lua_pushnumber(L, state.dt);
+    osvrGetAngularVelocityState(joystick->osvrTrackerInterface,  &timestamp, &state);
+    *w = osvrQuatGetW(&state.incrementalRotation);
+    *x = osvrQuatGetX(&state.incrementalRotation);
+    *y = osvrQuatGetY(&state.incrementalRotation);
+    *z = osvrQuatGetZ(&state.incrementalRotation);
   } else {
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    *w = *x = *y = *z = 0.f;
   }
-
-  return 5;
 }
 
-int lovrJoystickGetAxes(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-  int axisCount = 0;
-
+void lovrJoystickGetAxes(Joystick* joystick, vec_float_t* result) {
   if (joystick->isTracked) {
-    OSVR_ClientInterface** axes = joystick->osvrAxisInterfaces;
-    for (; axisCount < sizeof(axes) && axes[axisCount] != NULL; axisCount++) {
-      lua_pushnumber(L, lovrJoystickGetAxisState(joystick, axisCount));
+    interface_vec_t axes = joystick->osvrAxisInterfaces;
+    for (int i = 0; i < axes.length; i++) {
+      OSVR_TimeValue timestamp;
+      OSVR_AnalogState state;
+      osvrGetAnalogState(*axes.data[i], &timestamp, &state);
+      vec_push(result, state);
     }
   } else {
-    const float* axes = glfwGetJoystickAxes(joystick->glfwIndex, &axisCount);
-    for (int i = 0; i < axisCount; i++) {
-      lua_pushnumber(L, axes[i]);
-    }
+    int count;
+    const float* axes = glfwGetJoystickAxes(joystick->glfwIndex, &count);
+    vec_pusharr(result, axes, count);
   }
-
-  return axisCount;
 }
 
-int lovrJoystickGetAxis(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-  int axisIndex = luaL_checkint(L, 2);
-  lua_pushnumber(L, lovrJoystickGetAxisState(joystick, axisIndex));
-  return 1;
-}
-
-int lovrJoystickGetAxisCount(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-  int axisCount = 0;
-
+float lovrJoystickGetAxis(Joystick* joystick, int index) {
   if (joystick->isTracked) {
-    OSVR_ClientInterface** axes = joystick->osvrAxisInterfaces;
-    for (; axisCount < sizeof(axes) && axes[axisCount] != NULL; axisCount++);
+    OSVR_TimeValue timestamp;
+    OSVR_AnalogState state;
+    OSVR_ClientInterface interface = *joystick->osvrAxisInterfaces.data[index];
+    osvrGetAnalogState(interface, &timestamp, &state);
+    return (float)state;
   } else {
-    glfwGetJoystickAxes(joystick->glfwIndex, &axisCount);
+    const float* axes = glfwGetJoystickAxes(joystick->glfwIndex, NULL);
+    return axes[index];
   }
-
-  lua_pushinteger(L, axisCount);
-
-  return 1;
 }
 
-int lovrJoystickGetButtonCount(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-  int buttonCount = 0;
-
+int lovrJoystickGetAxisCount(Joystick* joystick) {
   if (joystick->isTracked) {
-    OSVR_ClientInterface** buttons = joystick->osvrButtonInterfaces;
-    for (; buttonCount < sizeof(buttons) && buttons[buttonCount] != NULL; buttonCount++);
+    return joystick->osvrAxisInterfaces.length;
   } else {
-    glfwGetJoystickButtons(joystick->glfwIndex, &buttonCount);
+    int count;
+    glfwGetJoystickAxes(joystick->glfwIndex, &count);
+    return count;
   }
-
-  lua_pushinteger(L, buttonCount);
-
-  return 1;
 }
 
-int lovrJoystickGetLinearAcceleration(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
+int lovrJoystickGetButtonCount(Joystick* joystick) {
+  if (joystick->isTracked) {
+    return joystick->osvrButtonInterfaces.length;
+  } else {
+    int count;
+    glfwGetJoystickButtons(joystick->glfwIndex, &count);
+    return count;
+  }
+}
 
+void lovrJoystickGetLinearAcceleration(Joystick* joystick, float* x, float* y, float* z) {
   if (joystick->isTracked) {
     OSVR_TimeValue timestamp;
     OSVR_LinearAccelerationState state;
-    osvrGetLinearAccelerationState(*joystick->osvrTrackerInterface,  &timestamp, &state);
-    lua_pushnumber(L, osvrVec3GetX(&state));
-    lua_pushnumber(L, osvrVec3GetY(&state));
-    lua_pushnumber(L, osvrVec3GetZ(&state));
+    osvrGetLinearAccelerationState(joystick->osvrTrackerInterface,  &timestamp, &state);
+    *x = osvrVec3GetX(&state);
+    *y = osvrVec3GetY(&state);
+    *z = osvrVec3GetZ(&state);
   } else {
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    *x = *y = *z = 0.f;
   }
-
-  return 3;
 }
 
-int lovrJoystickGetLinearVelocity(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-
+void lovrJoystickGetLinearVelocity(Joystick* joystick, float* x, float* y, float* z) {
   if (joystick->isTracked) {
     OSVR_TimeValue timestamp;
     OSVR_LinearVelocityState state;
-    osvrGetLinearVelocityState(*joystick->osvrTrackerInterface,  &timestamp, &state);
-    lua_pushnumber(L, osvrVec3GetX(&state));
-    lua_pushnumber(L, osvrVec3GetY(&state));
-    lua_pushnumber(L, osvrVec3GetZ(&state));
+    osvrGetLinearVelocityState(joystick->osvrTrackerInterface,  &timestamp, &state);
+    *x = osvrVec3GetX(&state);
+    *y = osvrVec3GetY(&state);
+    *z = osvrVec3GetZ(&state);
   } else {
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    *x = *y = *z = 0.f;
   }
-
-  return 3;
 }
 
-int lovrJoystickGetName(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-
+const char* lovrJoystickGetName(Joystick* joystick) {
   if (joystick->isTracked) {
-    lua_pushstring(L, "Tracked controller");
+    return "Tracked controller";
   } else {
-    lua_pushstring(L, glfwGetJoystickName(joystick->glfwIndex));
+    return glfwGetJoystickName(joystick->glfwIndex);
   }
-
-  return 1;
 }
 
-int lovrJoystickGetOrientation(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-
+void lovrJoystickGetOrientation(Joystick* joystick, float* w, float* x, float* y, float* z) {
   if (joystick->isTracked) {
     OSVR_TimeValue timestamp;
     OSVR_OrientationState state;
-    osvrGetOrientationState(*joystick->osvrTrackerInterface,  &timestamp, &state);
-    lua_pushnumber(L, osvrQuatGetW(&state));
-    lua_pushnumber(L, osvrQuatGetX(&state));
-    lua_pushnumber(L, osvrQuatGetY(&state));
-    lua_pushnumber(L, osvrQuatGetZ(&state));
+    osvrGetOrientationState(joystick->osvrTrackerInterface,  &timestamp, &state);
+    *w = osvrQuatGetW(&state);
+    *x = osvrQuatGetX(&state);
+    *y = osvrQuatGetY(&state);
+    *z = osvrQuatGetZ(&state);
   } else {
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    *w = *x = *y = *z = 0.f;
   }
-
-  return 4;
 }
 
-int lovrJoystickGetPosition(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-
+void lovrJoystickGetPosition(Joystick* joystick, float* x, float* y, float* z) {
   if (joystick->isTracked) {
     OSVR_TimeValue timestamp;
     OSVR_PositionState state;
-    osvrGetPositionState(*joystick->osvrTrackerInterface,  &timestamp, &state);
-    lua_pushnumber(L, osvrVec3GetX(&state));
-    lua_pushnumber(L, osvrVec3GetY(&state));
-    lua_pushnumber(L, osvrVec3GetZ(&state));
+    osvrGetPositionState(joystick->osvrTrackerInterface,  &timestamp, &state);
+    *x = osvrVec3GetX(&state);
+    *y = osvrVec3GetY(&state);
+    *z = osvrVec3GetZ(&state);
   } else {
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    *x = *y = *z = 0.f;
   }
-
-  return 3;
 }
 
-int lovrJoystickIsDown(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-  int buttonIndex = luaL_checkint(L, 2);
-  lua_pushboolean(L, lovrJoystickGetButtonState(joystick, buttonIndex));
-  return 1;
+int lovrJoystickIsDown(Joystick* joystick, int index) {
+  if (joystick->isTracked) {
+    OSVR_TimeValue timestamp;
+    OSVR_ButtonState state;
+    osvrGetButtonState(*joystick->osvrButtonInterfaces.data[index], &timestamp, &state);
+    return state > 0;
+  } else {
+    const unsigned char* buttons = glfwGetJoystickButtons(joystick->glfwIndex, NULL);
+    return buttons[index];
+  }
 }
 
-int lovrJoystickIsTracked(lua_State* L) {
-  Joystick* joystick = luax_checkjoystick(L, 1);
-  lua_pushboolean(L, joystick->isTracked);
-  return 1;
+int lovrJoystickIsTracked(Joystick* joystick) {
+  return joystick->isTracked;
 }
-
-const luaL_Reg lovrJoystick[] = {
-  { "getAngularAcceleration", lovrJoystickGetAngularAcceleration },
-  { "getAngularVelocity", lovrJoystickGetAngularVelocity },
-  { "getAxes", lovrJoystickGetAxes },
-  { "getAxis", lovrJoystickGetAxis },
-  { "getAxisCount", lovrJoystickGetAxisCount },
-  { "getButtonCount", lovrJoystickGetButtonCount },
-  { "getLinearAcceleration", lovrJoystickGetLinearAcceleration },
-  { "getLinearVelocity", lovrJoystickGetLinearVelocity },
-  { "getName", lovrJoystickGetName },
-  { "getOrientation", lovrJoystickGetOrientation },
-  { "getPosition", lovrJoystickGetPosition },
-  { "isDown", lovrJoystickIsDown },
-  { "isTracked", lovrJoystickIsTracked },
-  { NULL, NULL }
-};

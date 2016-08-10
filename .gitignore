@@ -1,6 +1,6 @@
 .tup
-lovr
 build
+/lovr
 deps
 src/obj
 main.lua

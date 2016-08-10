@@ -1,17 +1,13 @@
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
 #include "../glfw.h"
 
+#ifndef LOVR_SHADER_TYPES
+#define LOVR_SHADER_TYPES
 typedef struct {
   GLuint id;
 } Shader;
-
-void luax_pushshader(lua_State* L, Shader* shader);
-Shader* luax_checkshader(lua_State* L, int index);
-int luax_destroyshader(lua_State* L);
+#endif
 
 GLuint compileShader(GLuint type, const char* filename);
 GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader);
 
-extern const luaL_Reg lovrShader[];
+void lovrShaderDestroy(Shader* shader);

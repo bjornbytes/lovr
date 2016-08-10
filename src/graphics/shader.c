@@ -2,24 +2,6 @@
 #include "../util.h"
 #include <stdlib.h>
 
-void luax_pushshader(lua_State* L, Shader* shader) {
-  Shader** userdata = (Shader**) lua_newuserdata(L, sizeof(Shader*));
-  luaL_getmetatable(L, "Shader");
-  lua_setmetatable(L, -2);
-  *userdata = shader;
-}
-
-Shader* luax_checkshader(lua_State* L, int index) {
-  return *(Shader**) luaL_checkudata(L, index, "Shader");
-}
-
-int luax_destroyshader(lua_State* L) {
-  Shader* shader = luax_checkshader(L, 1);
-  glDeleteProgram(shader->id);
-  free(shader);
-  return 0;
-}
-
 GLuint compileShader(GLenum type, const char* source) {
   GLuint shader = glCreateShader(type);
 
@@ -72,6 +54,7 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
   return shader;
 }
 
-const luaL_Reg lovrShader[] = {
-  { NULL, NULL }
-};
+void lovrShaderDestroy(Shader* shader) {
+  glDeleteProgram(shader->id);
+  free(shader);
+}

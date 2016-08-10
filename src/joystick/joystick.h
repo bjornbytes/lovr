@@ -1,34 +1,29 @@
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
 #include "../osvr.h"
+#include "../vendor/vec/vec.h"
 
+#ifndef LOVR_JOYSTICK_TYPES
+#define LOVR_JOYSTICK_TYPES
 typedef struct {
   int isTracked;
   int glfwIndex;
-  OSVR_ClientInterface* osvrTrackerInterface;
-  OSVR_ClientInterface* osvrAxisInterfaces[4];
-  OSVR_ClientInterface* osvrButtonInterfaces[8];
+  OSVR_ClientInterface osvrTrackerInterface;
+  interface_vec_t osvrAxisInterfaces;
+  interface_vec_t osvrButtonInterfaces;
 } Joystick;
+typedef vec_t(Joystick*) joystick_vec_t;
+#endif
 
-void luax_pushjoystick(lua_State* L, Joystick* joystick);
-Joystick* luax_checkjoystick(lua_State* L, int index);
-int luax_destroyjoystick(lua_State* L);
-
-int lovrJoystickIsConnected(Joystick* joystick);
-
-int lovrJoystickGetAngularAcceleration(lua_State* L);
-int lovrJoystickGetAngularVelocity(lua_State* L);
-int lovrJoystickGetAxes(lua_State* L);
-int lovrJoystickGetAxis(lua_State* L);
-int lovrJoystickGetAxisCount(lua_State* L);
-int lovrJoystickGetButtonCount(lua_State* L);
-int lovrJoystickGetLinearAcceleration(lua_State* L);
-int lovrJoystickGetLinearVelocity(lua_State* L);
-int lovrJoystickGetName(lua_State* L);
-int lovrJoystickGetOrientation(lua_State* L);
-int lovrJoystickGetPosition(lua_State* L);
-int lovrJoystickIsDown(lua_State* L);
-int lovrJoystickIsTracked(lua_State* L);
-
-extern const luaL_Reg lovrJoystick[];
+void lovrJoystickDestroy(Joystick* joystick);
+void lovrJoystickGetAngularAcceleration(Joystick* joystick, float* w, float* x, float* y, float* z);
+void lovrJoystickGetAngularVelocity(Joystick* joystick, float* w, float* x, float* y, float* z);
+void lovrJoystickGetAxes(Joystick* joystick, vec_float_t* result);
+float lovrJoystickGetAxis(Joystick* joystick, int index);
+int lovrJoystickGetAxisCount(Joystick* joystick);
+int lovrJoystickGetButtonCount(Joystick* joystick);
+void lovrJoystickGetLinearAcceleration(Joystick* joystick, float* x, float* y, float* z);
+void lovrJoystickGetLinearVelocity(Joystick* joystick, float* x, float* y, float* z);
+const char* lovrJoystickGetName(Joystick* joystick);
+void lovrJoystickGetOrientation(Joystick* joystick, float* w, float* x, float* y, float* z);
+void lovrJoystickGetPosition(Joystick* joystick, float* x, float* y, float* z);
+int lovrJoystickIsDown(Joystick* joystick, int index);
+int lovrJoystickIsTracked(Joystick* joystick);

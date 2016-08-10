@@ -1,15 +1,13 @@
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include "buffer.h"
+#include "model.h"
+#include "shader.h"
 
-int lovrGraphicsClear(lua_State* L);
-int lovrGraphicsPresent(lua_State* L);
-int lovrGraphicsGetClearColor(lua_State* L);
-int lovrGraphicsSetClearColor(lua_State* L);
-int lovrGraphicsSetShader(lua_State* L);
-int lovrGraphicsNewModel(lua_State* L);
-int lovrGraphicsNewBuffer(lua_State* L);
-int lovrGraphicsShader(lua_State* L);
-
-extern const luaL_Reg lovrGraphics[];
-int lovrInitGraphics(lua_State* L);
+void lovrGraphicsInit();
+void lovrGraphicsClear();
+void lovrGraphicsPresent();
+void lovrGraphicsGetClearColor(float* r, float* g, float* b, float* a);
+void lovrGraphicsSetClearColor(float r, float g, float b, float a);
+void lovrGraphicsSetShader(Shader* shader);
+Buffer* lovrGraphicsNewBuffer(int size);
+Model* lovrGraphicsNewModel(const char* path);
+Shader* lovrGraphicsNewShader(const char* vertexSource, const char* fragmentSource);
