@@ -6,6 +6,8 @@ extern OSVR_ClientContext ctx;
 
 void lovrJoystickDestroy(Joystick* joystick) {
   if (joystick->isTracked) {
+    osvrClientFreeInterface(ctx, joystick->osvrTrackerInterface);
+
     int i;
     OSVR_ClientInterface* interface;
 
