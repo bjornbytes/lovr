@@ -35,7 +35,7 @@ Compiling
 ### Windows (CMake)
 
 - Install [Boost 1.57](http://www.boost.org/users/history/version_1_57_0.html) to `C:\local\boost_1_57_0`.
-- Download an extract a pre-built [OSVR Core](http://access.osvr.com/binary/osvr-core).
+- Download and extract a pre-built [OSVR-Core](http://access.osvr.com/binary/osvr-core).
 - Install [lovr-deps](https://github.com/bjornbytes/lovr-deps) to the `deps` folder of the `lovr` repository:
 
 ```sh
