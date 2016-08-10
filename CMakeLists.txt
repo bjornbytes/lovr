@@ -3,19 +3,9 @@ project(lovr)
 
 option(OSVR_PATH "The path to the osvr snapshot")
 
-add_executable(lovr
-  src/glfw.c
-  src/util.c
-  src/shader.c
-  src/event.c
-  src/graphics.c
-  src/model.c
-  src/buffer.c
-  src/device.c
-  src/interface.c
-  src/lovr.c
-  src/main.c
-)
+file(GLOB_RECURSE LOVR_SRC src/*.c)
+
+add_executable(lovr ${LOVR_SRC})
 
 function(move_dll ARG_TARGET)
   add_custom_command(TARGET lovr POST_BUILD
@@ -31,7 +21,7 @@ include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
 set(LOVR_LUA liblua)
 
 # GLEW
-add_subdirectory(deps/glew/build/cmake glew)
+add_subdirectory(deps/glew glew)
 include_directories(deps/glew/include)
 set(LOVR_GLEW glew)
 
@@ -50,6 +40,8 @@ include(${OSVR_PATH}/lib/cmake/osvr/osvrConfig.cmake)
 include_directories(${OSVR_PATH}/include)
 target_link_libraries(lovr osvr::osvrClient)
 target_link_libraries(lovr osvr::osvrClientKit)
+target_link_libraries(lovr osvr::osvrCommon)
+target_link_libraries(lovr osvr::osvrUtil)
 move_dll(osvr::osvrCommon)
 move_dll(osvr::osvrUtil)
 move_dll(osvr::osvrClient)

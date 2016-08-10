@@ -27,20 +27,36 @@ Dependencies
 - LuaJIT
 - GLFW (3.2+) and OpenGL (3.2+)
 - assimp
-- OSVR
+- OSVR-Core
 
 Compiling
 ---
 
-Windows (CMake, may be out of date):
+### Windows (CMake)
+
+- Install [Boost 1.57](http://www.boost.org/users/history/version_1_57_0.html) to `C:\local\boost_1_57_0`.
+- Download an extract a pre-built [OSVR Core](http://access.osvr.com/binary/osvr-core).
+- Install [lovr-deps](https://github.com/bjornbytes/lovr-deps) to the `deps` folder of the `lovr` repository:
+
+```sh
+git clone --recursive https://github.com/bjornbytes/lovr-deps
+```
+
+Finally, build using the CMake GUI or using the CMake command line.  Make sure you pass the `OSVR_PATH` option:
 
 ```sh
 mkdir build
 cd build
-cmake ..
+cmake -DOSVR_PATH=/path/to/osvr-core ..
 ```
 
-OSX (tup):
+This should output a Visual Studio solution, which can be built using Visual Studio or by using CMake:
+
+```sh
+cmake --build .
+```
+
+### OSX (tup)
 
 ```sh
 tup
