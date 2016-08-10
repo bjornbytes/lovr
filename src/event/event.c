@@ -3,8 +3,6 @@
 #include "../glfw.h"
 #include "../osvr.h"
 
-extern GLFWwindow* window;
-
 void lovrEventPoll() {
   glfwPollEvents();
 
