@@ -3,6 +3,7 @@
 
 #include "lovr/event.h"
 #include "lovr/graphics.h"
+#include "lovr/headset.h"
 #include "lovr/joysticks.h"
 #include "lovr/joystick.h"
 #include "lovr/timer.h"
@@ -18,6 +19,7 @@ void lovrInit(lua_State* L) {
   // Preload modules
   luaPreloadModule(L, "lovr.event", l_lovrEventInit);
   luaPreloadModule(L, "lovr.graphics", l_lovrGraphicsInit);
+  luaPreloadModule(L, "lovr.headset", l_lovrHeadsetInit);
   luaPreloadModule(L, "lovr.joystick", l_lovrJoysticksInit);
   luaPreloadModule(L, "lovr.timer", l_lovrTimerInit);
 
@@ -28,6 +30,7 @@ void lovrInit(lua_State* L) {
     "  modules = { "
     "    event = true, "
     "    graphics = true, "
+    "    headset = true, "
     "    joystick = true, "
     "    timer = true "
     "  } "
@@ -42,7 +45,7 @@ void lovrInit(lua_State* L) {
     "  print('Could not run conf.lua') "
     "end "
 
-    "local modules = { 'event', 'graphics', 'joystick', 'timer' } "
+    "local modules = { 'event', 'graphics', 'headset', 'joystick', 'timer' } "
     "for _, module in ipairs(modules) do "
     "  if conf.modules[module] then "
     "    lovr[module] = require('lovr.' .. module) "

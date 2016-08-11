@@ -1,4 +1,5 @@
 #include <osvr/ClientKit/ContextC.h>
+#include <osvr/ClientKit/DisplayC.h>
 #include <osvr/ClientKit/InterfaceC.h>
 #include <osvr/ClientKit/InterfaceStateC.h>
 #include "vendor/vec/vec.h"
