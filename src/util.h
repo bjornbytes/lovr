@@ -3,6 +3,7 @@
 #include <lualib.h>
 
 void error(const char* format, ...);
+int fileExists(char* filename);
 char* loadFile(char* filename);
 void luaRegisterModule(lua_State* L, const char* name, const luaL_Reg* module);
 void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions, lua_CFunction gc);

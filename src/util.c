@@ -19,6 +19,10 @@ void error(const char* format, ...) {
   exit(EXIT_FAILURE);
 }
 
+int fileExists(char* filename) {
+  return access(filename, F_OK) != -1;
+}
+
 char* loadFile(char* filename) {
   struct stat info;
 

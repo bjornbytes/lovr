@@ -89,7 +89,7 @@ void lovrRun(lua_State* L, char* root) {
   }
 
   // Run "main.lua" which will override/define pieces of lovr
-  if (luaL_dofile(L, path)) {
+  if (fileExists(path) && luaL_dofile(L, path)) {
     error("Failed to run main.lua");
     lua_pop(L, 1);
     exit(EXIT_FAILURE);
