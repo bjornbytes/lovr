@@ -3,8 +3,9 @@
 
 void renderHelper(int eyeIndex, void* userdata) {
   lua_State* L = (lua_State*)userdata;
-  luaL_checktype(L, -1, LUA_TFUNCTION);
-  lua_pushinteger(L, 1);
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  lua_pushvalue(L, 1);
+  lua_pushinteger(L, eyeIndex);
   lua_call(L, 1, 0);
 }
 

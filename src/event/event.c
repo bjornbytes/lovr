@@ -3,10 +3,12 @@
 #include "../glfw.h"
 #include "../osvr.h"
 
+extern OSVR_ClientContext ctx;
+
 void lovrEventPoll() {
   glfwPollEvents();
 
-  if (osvrClientCheckStatus(ctx) != OSVR_RETURN_FAILURE) {
+  if (ctx != NULL && osvrClientCheckStatus(ctx) != OSVR_RETURN_FAILURE) {
     osvrClientUpdate(ctx);
   }
 }

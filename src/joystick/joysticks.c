@@ -61,7 +61,7 @@ void lovrJoysticksInit() {
 
         OSVR_ClientInterface* buttonInterface = NULL;
 
-        for (int j = 0; i < 6; j++) {
+        for (int j = 0; j < 6; j++) {
           if (buttonInterface == NULL) {
             buttonInterface = malloc(sizeof(buttonInterface));
           }
@@ -101,6 +101,8 @@ void lovrJoysticksInit() {
         }
 
         free(axisInterface);
+
+        joystick = NULL;
       }
     }
 

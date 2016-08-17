@@ -1,5 +1,5 @@
 #include "osvr.h"
 
-void initOSVR() {
+void initOsvr() {
   ctx = osvrClientInit("es.bjornbyt", 0);
 }

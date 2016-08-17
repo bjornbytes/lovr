@@ -1,4 +1,6 @@
 #include "headset.h"
+#include "../util.h"
+#include "../glfw.h"
 
 extern OSVR_ClientContext ctx;
 
@@ -10,13 +12,21 @@ typedef struct {
 static HeadsetState headsetState;
 
 void lovrHeadsetInit() {
+  initOsvr();
+
   if (ctx == NULL) {
     headsetState.interface = NULL;
     return;
   }
 
   osvrClientGetInterface(ctx, "/me/head", &headsetState.interface);
-  osvrClientGetDisplay(ctx, &headsetState.displayConfig);
+  if (osvrClientGetDisplay(ctx, &headsetState.displayConfig) != OSVR_RETURN_SUCCESS) {
+    error("Could not get headset display config");
+  }
+
+  while (osvrClientCheckDisplayStartup(headsetState.displayConfig) != OSVR_RETURN_SUCCESS) {
+    osvrClientUpdate(ctx);
+  }
 }
 
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
@@ -77,6 +87,8 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
         osvrClientGetRelativeViewportForViewerEyeSurface(
           displayConfig, viewer, eye, surface, &left, &bottom, &width, &height
         );
+
+        glViewport(left, bottom, width, height);
 
         double projectionMatrix[OSVR_MATRIX_SIZE];
         float near = 0.1f;

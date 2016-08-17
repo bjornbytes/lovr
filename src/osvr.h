@@ -11,4 +11,4 @@ typedef vec_t(OSVR_ClientInterface*) interface_vec_t;
 
 OSVR_ClientContext ctx;
 
-void osvrInit();
+void initOsvr();
