@@ -72,8 +72,14 @@ Model* lovrGraphicsNewModel(const char* path) {
 }
 
 Shader* lovrGraphicsNewShader(const char* vertexSource, const char* fragmentSource) {
-  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSource);
-  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSource);
+  char fullVertexSource[1024];
+  snprintf(fullVertexSource, sizeof(fullVertexSource), "%s\n%s", lovrShaderVertexPrefix, vertexSource);
+  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, fullVertexSource);
+
+  char fullFragmentSource[1024];
+  snprintf(fullFragmentSource, sizeof(fullFragmentSource), "%s\n%s", lovrShaderFragmentPrefix, fragmentSource);
+  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fullFragmentSource);
+
   GLuint id = linkShaders(vertexShader, fragmentShader);
   Shader* shader = (Shader*) malloc(sizeof(Shader));
   shader->id = id;

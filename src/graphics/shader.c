@@ -2,6 +2,16 @@
 #include "../util.h"
 #include <stdlib.h>
 
+const char* lovrShaderVertexPrefix = ""
+"#version 150 \n"
+"in vec3 position;"
+"";
+
+const char* lovrShaderFragmentPrefix = ""
+"#version 150 \n"
+"out vec4 color;"
+"";
+
 GLuint compileShader(GLenum type, const char* source) {
   GLuint shader = glCreateShader(type);
 
@@ -57,4 +67,40 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
 void lovrShaderDestroy(Shader* shader) {
   glDeleteProgram(shader->id);
   free(shader);
+}
+
+int lovrShaderGetUniformId(Shader* shader, const char* name) {
+  return glGetUniformLocation(shader->id, name);
+}
+
+void lovrShaderGetUniformType(Shader* shader, int id, GLenum* type, int* length) {
+  glGetActiveUniform(shader->id, id, 0, NULL, NULL, type, NULL);
+}
+
+void lovrShaderSendFloat(Shader* shader, int id, float value) {
+  glUniform1f(id, value);
+}
+
+void lovrShaderSendFloatVec2(Shader* shader, int id, float* vector) {
+  glUniform2fv(id, 1, vector);
+}
+
+void lovrShaderSendFloatVec3(Shader* shader, int id, float* vector) {
+  glUniform3fv(id, 1, vector);
+}
+
+void lovrShaderSendFloatVec4(Shader* shader, int id, float* vector) {
+  glUniform4fv(id, 1, vector);
+}
+
+void lovrShaderSendFloatMat2(Shader* shader, int id, float* matrix) {
+  glUniformMatrix2fv(id, 1, GL_FALSE, matrix);
+}
+
+void lovrShaderSendFloatMat3(Shader* shader, int id, float* matrix) {
+  glUniformMatrix3fv(id, 1, GL_FALSE, matrix);
+}
+
+void lovrShaderSendFloatMat4(Shader* shader, int id, float* matrix) {
+  glUniformMatrix4fv(id, 1, GL_FALSE, matrix);
 }
