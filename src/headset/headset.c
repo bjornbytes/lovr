@@ -24,7 +24,8 @@ void lovrHeadsetInit() {
     error("Could not get headset display config");
   }
 
-  while (osvrClientCheckDisplayStartup(headsetState.displayConfig) != OSVR_RETURN_SUCCESS) {
+  int i = 0;
+  while (osvrClientCheckDisplayStartup(headsetState.displayConfig) != OSVR_RETURN_SUCCESS && i++ < 1000) {
     osvrClientUpdate(ctx);
   }
 }
