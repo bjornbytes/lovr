@@ -73,8 +73,8 @@ int lovrShaderGetUniformId(Shader* shader, const char* name) {
   return glGetUniformLocation(shader->id, name);
 }
 
-void lovrShaderGetUniformType(Shader* shader, int id, GLenum* type, int* length) {
-  glGetActiveUniform(shader->id, id, 0, NULL, NULL, type, NULL);
+void lovrShaderGetUniformType(Shader* shader, int id, GLenum* type, int* size) {
+  glGetActiveUniform(shader->id, id, 0, NULL, size, type, NULL);
 }
 
 void lovrShaderSendFloat(Shader* shader, int id, float value) {
