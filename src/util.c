@@ -20,7 +20,7 @@ void error(const char* format, ...) {
 }
 
 int fileExists(char* filename) {
-  return access(filename, F_OK) != -1;
+  return access(filename, 0) != -1;
 }
 
 char* loadFile(char* filename) {
