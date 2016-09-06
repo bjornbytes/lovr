@@ -1,4 +1,5 @@
 #include "glfw.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include "util.h"
 
@@ -15,8 +16,20 @@ void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose) {
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   glfwWindowHint(GLFW_SAMPLES, 4);
 
-  // TODO make configurable
-  window = glfwCreateWindow(800, 600, "Window", NULL, NULL);
+  int count;
+  GLFWmonitor** monitors = glfwGetMonitors(&count);
+
+  for (int i = 0; i < count; i++) {
+    const GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
+    if (mode->refreshRate == 90) {
+      glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+      glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+      glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+      glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+      window = glfwCreateWindow(mode->width, mode->height, "Window", monitors[i], NULL);
+      break;
+    }
+  }
 
   if (!window) {
     glfwTerminate();

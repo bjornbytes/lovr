@@ -1,5 +1,3 @@
-#include "../osvr.h"
-
 #ifndef LOVR_HEADSET_TYPES
 typedef void (*headsetRenderCallback)(int eyeIndex, void* userdata);
 #endif

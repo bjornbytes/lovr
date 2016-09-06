@@ -1,109 +1,78 @@
 #include "headset.h"
 #include "../util.h"
 #include "../glfw.h"
+typedef char bool;
+#include <openvr_capi.h>
+#include <stdio.h>
 
-extern OSVR_ClientContext ctx;
+extern __declspec(dllimport) bool VR_IsHmdPresent();
+extern __declspec(dllimport) bool VR_IsRuntimeInstalled();
+extern __declspec(dllimport) intptr_t VR_InitInternal(EVRInitError *peError, EVRApplicationType eType);
+extern __declspec(dllimport) bool VR_IsInterfaceVersionValid(const char *pchInterfaceVersion);
+extern __declspec(dllimport) intptr_t VR_GetGenericInterface(const char *pchInterfaceVersion, EVRInitError *peError);
 
 typedef struct {
-  OSVR_ClientInterface interface;
-  OSVR_DisplayConfig displayConfig;
+  struct VR_IVRSystem_FnTable* vrSystem;
+  GLuint framebuffers[2];
+  GLuint renderbuffers[2];
+  GLuint textures[2];
 } HeadsetState;
 
 static HeadsetState headsetState;
 
 void lovrHeadsetInit() {
-  initOsvr();
+  if (!VR_IsHmdPresent()) {
+    error("Warning: HMD not found");
+  } else if (!VR_IsRuntimeInstalled()) {
+    error("Warning: SteamVR not found");
+  }
 
-  if (ctx == NULL) {
-    headsetState.interface = NULL;
+  EVRInitError vrError;
+  uint32_t vrHandle = VR_InitInternal(&vrError, EVRApplicationType_VRApplication_Scene);
+
+  if (vrError != EVRInitError_VRInitError_None) {
+    error("Problem initializing OpenVR");
     return;
   }
 
-  osvrClientGetInterface(ctx, "/me/head", &headsetState.interface);
-  if (osvrClientGetDisplay(ctx, &headsetState.displayConfig) != OSVR_RETURN_SUCCESS) {
-    error("Could not get headset display config");
+  if (!VR_IsInterfaceVersionValid(IVRSystem_Version)) {
+    error("Invalid OpenVR version");
+    return;
   }
 
-  int i = 0;
-  while (osvrClientCheckDisplayStartup(headsetState.displayConfig) != OSVR_RETURN_SUCCESS && i++ < 1000) {
-    osvrClientUpdate(ctx);
+  char fnTableName[128];
+  sprintf(fnTableName, "FnTable:%s", IVRSystem_Version);
+  headsetState.vrSystem = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
+  if (vrError != EVRInitError_VRInitError_None || headsetState.vrSystem == NULL) {
+    error("Problem initializing OpenVR");
+    return;
+  }
+
+  glGenFramebuffers(2, headsetState.framebuffers);
+  glGenRenderbuffers(2, headsetState.renderbuffers);
+
+  for (int i = 0; i < 2; i++) {
+    glBindFramebuffer(GL_FRAMEBUFFER, headsetState.framebuffers[i]);
+    glBindRenderbuffer(GL_RENDERBUFFER, headsetState.framebuffers[i]);
   }
 }
 
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
-  if (headsetState.interface) {
-    OSVR_TimeValue timestamp;
-    OSVR_PositionState state;
-    osvrGetPositionState(headsetState.interface,  &timestamp, &state);
-    *x = osvrVec3GetX(&state);
-    *y = osvrVec3GetY(&state);
-    *z = osvrVec3GetZ(&state);
-  } else {
-    *x = *y = *z = 0.f;
-  }
+  TrackedDevicePose_t poses[16];
+  headsetState.vrSystem->GetDeviceToAbsoluteTrackingPose(ETrackingUniverseOrigin_TrackingUniverseStanding, 0.f, poses, 16);
+  TrackedDevicePose_t hmdPose = poses[k_unTrackedDeviceIndex_Hmd];
+  *x = hmdPose.mDeviceToAbsoluteTracking.m[2][0];
+  *y = hmdPose.mDeviceToAbsoluteTracking.m[2][1];
+  *z = hmdPose.mDeviceToAbsoluteTracking.m[2][2];
 }
 
 void lovrHeadsetGetOrientation(float* w, float* x, float* y, float* z) {
-  if (headsetState.interface) {
-    OSVR_TimeValue timestamp;
-    OSVR_OrientationState state;
-    osvrGetOrientationState(headsetState.interface,  &timestamp, &state);
-    *w = osvrQuatGetW(&state);
-    *x = osvrQuatGetX(&state);
-    *y = osvrQuatGetY(&state);
-    *z = osvrQuatGetZ(&state);
-  } else {
-    *w = *x = *y = *z = 0.f;
-  }
+
 }
 
 int lovrHeadsetIsPresent() {
-  return headsetState.interface != NULL;
+  return 1;
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
-  if (!headsetState.interface) {
-    return;
-  }
-
-  OSVR_DisplayConfig displayConfig = headsetState.displayConfig;
-
-  OSVR_ViewerCount viewerCount;
-  osvrClientGetNumViewers(displayConfig, &viewerCount);
-
-  for (OSVR_ViewerCount viewer = 0; viewer < viewerCount; viewer++) {
-    OSVR_EyeCount eyeCount;
-    osvrClientGetNumEyesForViewer(displayConfig, viewer, &eyeCount);
-
-    for (OSVR_EyeCount eye = 0; eye < eyeCount; eye++) {
-      double viewMatrix[OSVR_MATRIX_SIZE];
-      osvrClientGetViewerEyeViewMatrixd(
-        displayConfig, viewer, eye, OSVR_MATRIX_COLMAJOR | OSVR_MATRIX_COLVECTORS, viewMatrix
-      );
-
-      OSVR_SurfaceCount surfaceCount;
-      osvrClientGetNumSurfacesForViewerEye(displayConfig, viewer, eye, &surfaceCount);
-      for (OSVR_SurfaceCount surface = 0; surface < surfaceCount; surface++) {
-        OSVR_ViewportDimension left, bottom, width, height;
-        osvrClientGetRelativeViewportForViewerEyeSurface(
-          displayConfig, viewer, eye, surface, &left, &bottom, &width, &height
-        );
-
-        glViewport(left, bottom, width, height);
-
-        double projectionMatrix[OSVR_MATRIX_SIZE];
-        float near = 0.1f;
-        float far = 100.0f;
-        osvrClientGetViewerEyeSurfaceProjectionMatrixd(
-          displayConfig, viewer, eye, surface, near, far,
-          OSVR_MATRIX_COLMAJOR | OSVR_MATRIX_COLVECTORS | OSVR_MATRIX_SIGNEDZ | OSVR_MATRIX_RHINPUT,
-          projectionMatrix
-        );
-
-        // Do something with viewMatrix, projectionMatrix, left, bottom, width, and height
-
-        callback(eye, userdata);
-      }
-    }
-  }
 }
