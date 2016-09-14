@@ -8,6 +8,13 @@
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include "../headset/headset.h"
+
+typedef struct {
+  Shader* activeShader;
+} GraphicsState;
+
+static GraphicsState graphicsState;
 
 void lovrGraphicsInit() {
   map_init(&BufferDrawModes);
@@ -38,8 +45,13 @@ void lovrGraphicsSetClearColor(float r, float g, float b, float a) {
   glClearColor(r / 255, g / 255, b / 255, a / 255);
 }
 
+Shader* lovrGraphicsGetShader() {
+  return graphicsState.activeShader;
+}
+
 // TODO default shader
 void lovrGraphicsSetShader(Shader* shader) {
+  graphicsState.activeShader = shader;
   glUseProgram(shader->id);
 }
 

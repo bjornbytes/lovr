@@ -4,6 +4,7 @@
 
 const char* lovrShaderVertexPrefix = ""
 "#version 150 \n"
+"uniform mat4 lovrTransform;"
 "in vec3 position;"
 "";
 

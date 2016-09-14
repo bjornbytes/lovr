@@ -59,6 +59,11 @@ int l_lovrGraphicsSetClearColor(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsGetShader(lua_State* L) {
+  luax_pushshader(L, lovrGraphicsGetShader());
+  return 1;
+}
+
 int l_lovrGraphicsSetShader(lua_State* L) {
   Shader* shader = luax_checkshader(L, 1);
   lovrGraphicsSetShader(shader);
