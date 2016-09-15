@@ -10,9 +10,9 @@ void renderHelper(int eyeIndex, void* userdata) {
 }
 
 const luaL_Reg lovrHeadset[] = {
-  { "getPosition", l_lovrHeadsetGetPosition },
-  { "getOrientation", l_lovrHeadsetGetOrientation },
-  { "isPresent", l_lovrHeadsetIsPresent },
+  { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
+  { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
+  { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
   { "renderTo", l_lovrHeadsetRenderTo },
   { NULL, NULL }
 };
@@ -24,28 +24,20 @@ int l_lovrHeadsetInit(lua_State* L) {
   return 1;
 }
 
-int l_lovrHeadsetGetPosition(lua_State* L) {
-  float x, y, z;
-  lovrHeadsetGetPosition(&x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 3;
-}
-
-int l_lovrHeadsetGetOrientation(lua_State* L) {
-  float w, x, y, z;
-  lovrHeadsetGetOrientation(&w, &x, &y, &z);
-  lua_pushnumber(L, w);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 4;
-}
-
-int l_lovrHeadsetIsPresent(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetIsPresent());
+int l_lovrHeadsetGetDisplayWidth(lua_State* L) {
+  lua_pushinteger(L, lovrHeadsetGetDisplayWidth());
   return 1;
+}
+
+int l_lovrHeadsetGetDisplayHeight(lua_State* L) {
+  lua_pushinteger(L, lovrHeadsetGetDisplayHeight());
+  return 1;
+}
+
+int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
+  lua_pushinteger(L, lovrHeadsetGetDisplayWidth());
+  lua_pushinteger(L, lovrHeadsetGetDisplayHeight());
+  return 2;
 }
 
 int l_lovrHeadsetRenderTo(lua_State* L) {

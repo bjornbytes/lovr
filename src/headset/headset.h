@@ -3,7 +3,6 @@ typedef void (*headsetRenderCallback)(int eyeIndex, void* userdata);
 #endif
 
 void lovrHeadsetInit();
-void lovrHeadsetGetPosition(float* x, float* y, float* z);
-void lovrHeadsetGetOrientation(float* w, float* x, float* y, float* z);
-int lovrHeadsetIsPresent();
+int lovrHeadsetGetDisplayWidth();
+int lovrHeadsetGetDisplayHeight();
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);

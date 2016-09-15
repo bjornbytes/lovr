@@ -20,7 +20,7 @@ typedef struct {
 
   GLuint framebuffer;
   GLuint depthbuffer;
-  GLuint colorTexture;
+  GLuint texture;
 
   uint32_t renderWidth;
   uint32_t renderHeight;
@@ -74,15 +74,15 @@ void lovrHeadsetInit() {
   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, headsetState.renderWidth, headsetState.renderHeight);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, headsetState.depthbuffer);
 
-  glGenTextures(1, &headsetState.colorTexture);
-  glBindTexture(GL_TEXTURE_2D, headsetState.colorTexture);
+  glGenTextures(1, &headsetState.texture);
+  glBindTexture(GL_TEXTURE_2D, headsetState.texture);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, headsetState.renderWidth, headsetState.renderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, headsetState.colorTexture, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, headsetState.texture, 0);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     error("framebuffer not complete");
@@ -91,16 +91,12 @@ void lovrHeadsetInit() {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void lovrHeadsetGetPosition(float* x, float* y, float* z) {
-  //
+int lovrHeadsetGetDisplayWidth() {
+  return headsetState.renderWidth;
 }
 
-void lovrHeadsetGetOrientation(float* w, float* x, float* y, float* z) {
-
-}
-
-int lovrHeadsetIsPresent() {
-  return 1;
+int lovrHeadsetGetDisplayHeight() {
+  return headsetState.renderHeight;
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
@@ -109,7 +105,7 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
 
   float (*m)[4];
   m = pose.mDeviceToAbsoluteTracking.m;
-  float hmdMatrix[16] = {
+  float viewMatrix[16] = {
     m[0][0], m[1][0], m[2][0], 0.0,
     m[0][1], m[1][1], m[2][1], 0.0,
     m[0][2], m[1][2], m[2][2], 0.0,
@@ -128,25 +124,27 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
     };
 
     m = headsetState.vrSystem->GetProjectionMatrix(eye, 0.1f, 30.0f, EGraphicsAPIConvention_API_OpenGL).m;
-    float lovrTransform[16] = {
+    float projectionMatrix[16] = {
       m[0][0], m[1][0], m[2][0], m[3][0],
       m[0][1], m[1][1], m[2][1], m[3][1],
       m[0][2], m[1][2], m[2][2], m[3][2],
       m[0][3], m[1][3], m[2][3], m[3][3]
     };
 
-    matrixMultiply(matrixMultiply(lovrTransform, eyeMatrix), hmdMatrix);
-
     Shader* shader = lovrGraphicsGetShader();
-    int id = lovrShaderGetUniformId(shader, "lovrTransform");
-    lovrShaderSendFloatMat4(shader, id, lovrTransform);
+    if (shader) {
+      int viewMatrixId = lovrShaderGetUniformId(shader, "viewMatrix");
+      int projectionMatrixId = lovrShaderGetUniformId(shader, "projectionMatrix");
+      lovrShaderSendFloatMat4(shader, viewMatrixId, viewMatrix);
+      lovrShaderSendFloatMat4(shader, projectionMatrixId, projectionMatrix);
+    }
 
     glBindFramebuffer(GL_FRAMEBUFFER, headsetState.framebuffer);
     glViewport(0, 0, headsetState.renderWidth, headsetState.renderHeight);
     callback(i, userdata);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    Texture_t eyeTexture = { (void*) headsetState.colorTexture, EGraphicsAPIConvention_API_OpenGL, EColorSpace_ColorSpace_Gamma };
+    Texture_t eyeTexture = { (void*) headsetState.texture, EGraphicsAPIConvention_API_OpenGL, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     headsetState.vrCompositor->Submit(eye, &eyeTexture, NULL, flags);
   }
