@@ -12,18 +12,18 @@ extern __declspec(dllimport) intptr_t VR_InitInternal(EVRInitError *peError, EVR
 extern __declspec(dllimport) bool VR_IsInterfaceVersionValid(const char *pchInterfaceVersion);
 extern __declspec(dllimport) intptr_t VR_GetGenericInterface(const char *pchInterfaceVersion, EVRInitError *peError);
 
-#define DEVICE_COUNT 16
-
 typedef struct {
   struct VR_IVRSystem_FnTable* vrSystem;
   struct VR_IVRCompositor_FnTable* vrCompositor;
 
-  GLuint framebuffer;
-  GLuint depthbuffer;
-  GLuint texture;
+  unsigned int deviceIndex;
 
   uint32_t renderWidth;
   uint32_t renderHeight;
+
+  GLuint framebuffer;
+  GLuint depthbuffer;
+  GLuint texture;
 } HeadsetState;
 
 static HeadsetState headsetState;
@@ -49,7 +49,7 @@ void lovrHeadsetInit() {
   }
 
   char fnTableName[128];
-  
+
   sprintf(fnTableName, "FnTable:%s", IVRSystem_Version);
   headsetState.vrSystem = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
   if (vrError != EVRInitError_VRInitError_None || headsetState.vrSystem == NULL) {
@@ -63,6 +63,8 @@ void lovrHeadsetInit() {
     error("Problem initializing VRCompositor");
     return;
   }
+
+  headsetState.deviceIndex = k_unTrackedDeviceIndex_Hmd;
 
   headsetState.vrSystem->GetRecommendedRenderTargetSize(&headsetState.renderWidth, &headsetState.renderHeight);
 
@@ -89,6 +91,10 @@ void lovrHeadsetInit() {
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  char prop[64];
+  headsetState.vrSystem->GetStringTrackedDeviceProperty(headsetState.deviceIndex, ETrackedDeviceProperty_Prop_ModelNumber_String, prop, 64, NULL);
+  printf("%s\n", prop);
 }
 
 int lovrHeadsetGetDisplayWidth() {
@@ -97,6 +103,34 @@ int lovrHeadsetGetDisplayWidth() {
 
 int lovrHeadsetGetDisplayHeight() {
   return headsetState.renderHeight;
+}
+
+int lovrHeadsetIsConnected() {
+  return (int) headsetState.vrSystem->IsTrackedDeviceConnected(headsetState.deviceIndex);
+}
+
+DeviceStatus lovrHeadsetGetStatus() {
+  EDeviceActivityLevel activityLevel = headsetState.vrSystem->GetTrackedDeviceActivityLevel(headsetState.deviceIndex);
+
+  switch (activityLevel) {
+    case EDeviceActivityLevel_k_EDeviceActivityLevel_Unknown:
+      return STATUS_UNKNOWN;
+
+    case EDeviceActivityLevel_k_EDeviceActivityLevel_Idle:
+      return STATUS_IDLE;
+
+    case EDeviceActivityLevel_k_EDeviceActivityLevel_UserInteraction:
+      return STATUS_USER_INTERACTION;
+
+    case EDeviceActivityLevel_k_EDeviceActivityLevel_UserInteraction_Timeout:
+      return STATUS_USER_INTERACTION_TIMEOUT;
+
+    case EDeviceActivityLevel_k_EDeviceActivityLevel_Standby:
+      return STATUS_STANDBY;
+
+    default:
+      return STATUS_UNKNOWN;
+  }
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {

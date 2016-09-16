@@ -13,6 +13,8 @@ const luaL_Reg lovrHeadset[] = {
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
+  { "getStatus", l_lovrHeadsetGetStatus },
+  { "isConnected", l_lovrHeadsetIsConnected },
   { "renderTo", l_lovrHeadsetRenderTo },
   { NULL, NULL }
 };
@@ -38,6 +40,37 @@ int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
   lua_pushinteger(L, lovrHeadsetGetDisplayWidth());
   lua_pushinteger(L, lovrHeadsetGetDisplayHeight());
   return 2;
+}
+
+int l_lovrHeadsetGetStatus(lua_State* L) {
+  DeviceStatus status = lovrHeadsetGetStatus();
+
+  switch (status) {
+    case STATUS_IDLE:
+      lua_pushstring(L, "idle");
+      break;
+
+    case STATUS_USER_INTERACTION:
+      lua_pushstring(L, "active");
+      break;
+
+    case STATUS_USER_INTERACTION_TIMEOUT:
+      lua_pushstring(L, "timeout");
+
+    case STATUS_STANDBY:
+      lua_pushstring(L, "standby");
+
+    default:
+      lua_pushstring(L, "unknown");
+      break;
+  }
+
+  return 1;
+}
+
+int l_lovrHeadsetIsConnected(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetIsConnected());
+  return 1;
 }
 
 int l_lovrHeadsetRenderTo(lua_State* L) {
