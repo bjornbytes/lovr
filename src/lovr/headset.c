@@ -26,9 +26,9 @@ int l_lovrHeadsetInit(lua_State* L) {
   return 1;
 }
 
-int l_lovrHeadsetGetPosition(lua_State* L) {
+int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   float x, y, z;
-  lovrHeadsetGetPosition(&x, &y, &z);
+  lovrHeadsetGetAngularVelocity(&x, &y, &z);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
@@ -45,18 +45,18 @@ int l_lovrHeadsetGetOrientation(lua_State* L) {
   return 4;
 }
 
-int l_lovrHeadsetGetVelocity(lua_State* L) {
+int l_lovrHeadsetGetPosition(lua_State* L) {
   float x, y, z;
-  lovrHeadsetGetVelocity(&x, &y, &z);
+  lovrHeadsetGetPosition(&x, &y, &z);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
   return 3;
 }
 
-int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
+int l_lovrHeadsetGetVelocity(lua_State* L) {
   float x, y, z;
-  lovrHeadsetGetAngularVelocity(&x, &y, &z);
+  lovrHeadsetGetVelocity(&x, &y, &z);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
