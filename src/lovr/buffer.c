@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include "graphics.h"
 #include "../graphics/buffer.h"
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer) {
@@ -41,16 +42,43 @@ int l_lovrBufferDraw(lua_State* L) {
 
 int l_lovrBufferGetDrawMode(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
-  lua_pushstring(L, lovrBufferGetDrawMode(buffer));
+  BufferDrawMode drawMode = lovrBufferGetDrawMode(buffer);
+
+  switch (drawMode) {
+    case BUFFER_POINTS:
+      lua_pushstring(L, "points");
+      break;
+
+    case BUFFER_TRIANGLE_STRIP:
+      lua_pushstring(L, "strip");
+      break;
+
+    case BUFFER_TRIANGLES:
+      lua_pushstring(L, "triangles");
+      break;
+
+    case BUFFER_TRIANGLE_FAN:
+      lua_pushstring(L, "fan");
+      break;
+
+    default:
+      lua_pushstring(L, "unknown");
+      break;
+  }
+
   return 1;
 }
 
 int l_lovrBufferSetDrawMode(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
-  const char* drawMode = luaL_checkstring(L, 2);
-  if (lovrBufferSetDrawMode(buffer, drawMode)) {
-    return luaL_error(L, "Invalid buffer draw mode '%s'", drawMode);
+
+  const char* userDrawMode = luaL_checkstring(L, 2);
+  BufferDrawMode* drawMode = (BufferDrawMode*) map_get(&BufferDrawModes, userDrawMode);
+  if (!drawMode) {
+    return luaL_error(L, "Invalid buffer draw mode: '%s'", userDrawMode);
   }
+
+  lovrBufferSetDrawMode(buffer, *drawMode);
 
   return 0;
 }
