@@ -21,5 +21,5 @@ export DYLD_LIBRARY_PATH;
 : foreach timer/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
 : foreach lovr/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/lovr_%B.o
 
-: foreach *.c |> clang -c %f -o %o $(CFLAGS) -v |> obj/%B.o
-: obj/*.o |> clang -o %o %f $(LIBS) -v |> ../lovr
+: foreach *.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
+: obj/*.o |> clang -o %o %f $(LIBS) |> ../lovr

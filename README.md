@@ -14,11 +14,10 @@ function lovr.update(dt)
 end
 ```
 
-Then, start the OSVR server and run your game:
+Then, run your game:
 
 ```sh
-$ cd path/to/myGame
-$ lovr .
+$ lovr path/to/myGame
 ```
 
 Dependencies
@@ -27,15 +26,13 @@ Dependencies
 - LuaJIT
 - GLFW (3.2+) and OpenGL (3.2+)
 - assimp
-- OSVR-Core
+- SteamVR (OpenVR)
 
 Compiling
 ---
 
 ### Windows (CMake)
 
-- Install [Boost 1.57](http://www.boost.org/users/history/version_1_57_0.html) to `C:\local\boost_1_57_0`.
-- Download and extract a pre-built [OSVR-Core](http://access.osvr.com/binary/osvr-core).
 - Install [lovr-deps](https://github.com/bjornbytes/lovr-deps):
 
 ```sh
@@ -43,12 +40,12 @@ cd lovr
 git clone --recursive https://github.com/bjornbytes/lovr-deps deps
 ```
 
-Finally, build using the CMake GUI or using the CMake command line.  Make sure you pass the `OSVR_PATH` option:
+Next, build using the CMake GUI or using the CMake command line.
 
 ```sh
 mkdir build
 cd build
-cmake -DOSVR_PATH=/path/to/osvr-core ..
+cmake ..
 ```
 
 This should output a Visual Studio solution, which can be built using Visual Studio or by using CMake:
@@ -57,10 +54,16 @@ This should output a Visual Studio solution, which can be built using Visual Stu
 cmake --build .
 ```
 
+The executable will then exist at `/path/to/lovr/build/Debug`.
+
 ### OSX (tup)
 
+Used for development, not generally recommended.
+
 ```sh
-brew tap OSVR/osvr
-brew install assimp glfw3 luajit osvr-core
+cd lovr
+git clone git@github.com:ValveSoftware/openvr ..
+export DYLD_LIBRARY_PATH=`pwd`/../openvr/lib/osx32
+brew install assimp glfw3 luajit
 tup
 ```
