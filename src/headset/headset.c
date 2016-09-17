@@ -1,5 +1,5 @@
 #include "headset.h"
-#include "./vive.h"
+#include "vive.h"
 
 static Headset* headset;
 
