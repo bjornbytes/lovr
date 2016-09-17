@@ -9,6 +9,7 @@ int luax_destroybuffer(lua_State* L);
 extern const luaL_Reg lovrBuffer[];
 
 int l_lovrBufferDraw(lua_State* L);
+int l_lovrBufferGetVertexCount(lua_State* L);
 int l_lovrBufferGetVertex(lua_State* L);
 int l_lovrBufferSetVertex(lua_State* L);
 int l_lovrBufferGetDrawMode(lua_State* L);

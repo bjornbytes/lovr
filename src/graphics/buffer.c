@@ -25,6 +25,10 @@ int lovrBufferSetDrawMode(Buffer* buffer, BufferDrawMode drawMode) {
   return 0;
 }
 
+int lovrBufferGetVertexCount(Buffer* buffer) {
+  return buffer->size;
+}
+
 void lovrBufferGetVertex(Buffer* buffer, int index, float* x, float* y, float* z) {
   *x = buffer->data[3 * index + 0];
   *y = buffer->data[3 * index + 1];

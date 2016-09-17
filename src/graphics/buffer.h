@@ -31,6 +31,7 @@ void lovrBufferDestroy(Buffer* buffer);
 void lovrBufferDraw(Buffer* buffer);
 BufferDrawMode lovrBufferGetDrawMode(Buffer* buffer);
 int lovrBufferSetDrawMode(Buffer* buffer, BufferDrawMode drawMode);
+int lovrBufferGetVertexCount(Buffer* buffer);
 void lovrBufferGetVertex(Buffer* buffer, int index, float* x, float* y, float* z);
 void lovrBufferSetVertex(Buffer* buffer, int index, float x, float y, float z);
 void lovrBufferGetDrawRange(Buffer* buffer, int* start, int* count);
