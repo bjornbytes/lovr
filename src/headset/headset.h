@@ -1,14 +1,20 @@
 #ifndef LOVR_HEADSET_TYPES
+#define LOVR_HEADSET_TYPES
 typedef void (*headsetRenderCallback)(int eyeIndex, void* userdata);
 
-typedef enum {
-  STATUS_IDLE,
-  STATUS_USER_INTERACTION,
-  STATUS_USER_INTERACTION_TIMEOUT,
-  STATUS_STANDBY,
-  STATUS_UNKNOWN,
-  STATUS_MAX_ENUM
-} DeviceStatus;
+typedef struct {
+  void (*getPosition)(void* headset, float* x, float* y, float* z);
+  void (*getOrientation)(void* headset, float* x, float* y, float* z, float* w);
+  void (*getVelocity)(void* headset, float* x, float* y, float* z);
+  void (*getAngularVelocity)(void* headset, float* x, float* y, float* z);
+  int (*isPresent)(void* headset);
+  void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
+} HeadsetInterface;
+
+typedef struct {
+  void* state;
+  HeadsetInterface* interface;
+} Headset;
 #endif
 
 void lovrHeadsetInit();
