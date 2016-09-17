@@ -1,13 +1,16 @@
 CFLAGS += -O2
 CFLAGS += -Wall
+CFLAGS += -isystem ../../openvr/headers
 
+LIBS += -L ../../openvr/lib/osx32
 LIBS += -l luajit-5.1
 LIBS += -l glfw3
 LIBS += -l assimp
-LIBS += -l osvrClient
-LIBS += -l osvrClientKit
+LIBS += -l openvr_api
 LIBS += -framework OpenGL
 LIBS += -pagezero_size 10000 -image_base 100000000 # OSX magic for LuaJIT
+
+export DYLD_LIBRARY_PATH;
 
 : foreach vendor/map/*.c |> clang -c %f -o %o |> obj/%B.o
 : foreach vendor/vec/*.c |> clang -c %f -o %o |> obj/%B.o
@@ -15,9 +18,8 @@ LIBS += -pagezero_size 10000 -image_base 100000000 # OSX magic for LuaJIT
 : foreach event/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
 : foreach graphics/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
 : foreach headset/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
-: foreach joystick/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
 : foreach timer/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
 : foreach lovr/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/lovr_%B.o
 
-: foreach *.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
-: obj/*.o |> clang -o %o %f $(LIBS) |> ../lovr
+: foreach *.c |> clang -c %f -o %o $(CFLAGS) -v |> obj/%B.o
+: obj/*.o |> clang -o %o %f $(LIBS) -v |> ../lovr

@@ -4,9 +4,9 @@
 
 extern const luaL_Reg lovrHeadset[];
 int l_lovrHeadsetInit(lua_State* L);
-int l_lovrHeadsetGetDisplayWidth(lua_State* L);
-int l_lovrHeadsetGetDisplayHeight(lua_State* L);
-int l_lovrHeadsetGetDisplayDimensions(lua_State* L);
-int l_lovrHeadsetGetStatus(lua_State* L);
-int l_lovrHeadsetIsConnected(lua_State* L);
+int l_lovrHeadsetGetPosition(lua_State* L);
+int l_lovrHeadsetGetOrientation(lua_State* L);
+int l_lovrHeadsetGetVelocity(lua_State* L);
+int l_lovrHeadsetGetAngularVelocity(lua_State* L);
+int l_lovrHeadsetIsPresent(lua_State* L);
 int l_lovrHeadsetRenderTo(lua_State* L);

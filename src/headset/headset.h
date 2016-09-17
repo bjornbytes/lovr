@@ -12,8 +12,9 @@ typedef enum {
 #endif
 
 void lovrHeadsetInit();
-int lovrHeadsetGetDisplayWidth();
-int lovrHeadsetGetDisplayHeight();
-int lovrHeadsetIsConnected();
-DeviceStatus lovrHeadsetGetStatus();
+void lovrHeadsetGetPosition(float* x, float* y, float* z);
+void lovrHeadsetGetOrientation(float* x, float* y, float* z, float* w);
+void lovrHeadsetGetVelocity(float* x, float* y, float* z);
+void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);
+int lovrHeadsetIsPresent();
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);

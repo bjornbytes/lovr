@@ -6,11 +6,13 @@ typedef char bool;
 #include <openvr_capi.h>
 #include <stdio.h>
 
+#ifdef __WIN32__
 extern __declspec(dllimport) bool VR_IsHmdPresent();
 extern __declspec(dllimport) bool VR_IsRuntimeInstalled();
 extern __declspec(dllimport) intptr_t VR_InitInternal(EVRInitError *peError, EVRApplicationType eType);
 extern __declspec(dllimport) bool VR_IsInterfaceVersionValid(const char *pchInterfaceVersion);
 extern __declspec(dllimport) intptr_t VR_GetGenericInterface(const char *pchInterfaceVersion, EVRInitError *peError);
+#endif
 
 typedef struct {
   struct VR_IVRSystem_FnTable* vrSystem;
@@ -97,40 +99,61 @@ void lovrHeadsetInit() {
   printf("%s\n", prop);
 }
 
-int lovrHeadsetGetDisplayWidth() {
-  return headsetState.renderWidth;
-}
+void lovrHeadsetGetPosition(float* x, float* y, float* z) {
+  ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
+  float secondsInFuture = 0.f;
+  TrackedDevicePose_t pose;
+  headsetState.vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, &pose, 1);
 
-int lovrHeadsetGetDisplayHeight() {
-  return headsetState.renderHeight;
-}
-
-int lovrHeadsetIsConnected() {
-  return (int) headsetState.vrSystem->IsTrackedDeviceConnected(headsetState.deviceIndex);
-}
-
-DeviceStatus lovrHeadsetGetStatus() {
-  EDeviceActivityLevel activityLevel = headsetState.vrSystem->GetTrackedDeviceActivityLevel(headsetState.deviceIndex);
-
-  switch (activityLevel) {
-    case EDeviceActivityLevel_k_EDeviceActivityLevel_Unknown:
-      return STATUS_UNKNOWN;
-
-    case EDeviceActivityLevel_k_EDeviceActivityLevel_Idle:
-      return STATUS_IDLE;
-
-    case EDeviceActivityLevel_k_EDeviceActivityLevel_UserInteraction:
-      return STATUS_USER_INTERACTION;
-
-    case EDeviceActivityLevel_k_EDeviceActivityLevel_UserInteraction_Timeout:
-      return STATUS_USER_INTERACTION_TIMEOUT;
-
-    case EDeviceActivityLevel_k_EDeviceActivityLevel_Standby:
-      return STATUS_STANDBY;
-
-    default:
-      return STATUS_UNKNOWN;
+  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+    *x = *y = *z = 0.f;
+    return;
   }
+
+  *x = pose.mDeviceToAbsoluteTracking.m[0][3];
+  *y = pose.mDeviceToAbsoluteTracking.m[1][3];
+  *z = pose.mDeviceToAbsoluteTracking.m[2][3];
+}
+
+// TODO convert matrix to quaternion!
+void lovrHeadsetGetOrientation(float* x, float* y, float *z, float* w) {
+  *x = *y = *z = *w = 0.f;
+}
+
+void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
+  ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
+  float secondsInFuture = 0.f;
+  TrackedDevicePose_t pose;
+  headsetState.vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, &pose, 1);
+
+  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+    *x = *y = *z = 0.f;
+    return;
+  }
+
+  *x = pose.vVelocity.v[0];
+  *y = pose.vVelocity.v[1];
+  *z = pose.vVelocity.v[2];
+}
+
+void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
+  ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
+  float secondsInFuture = 0.f;
+  TrackedDevicePose_t pose;
+  headsetState.vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, &pose, 1);
+
+  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+    *x = *y = *z = 0.f;
+    return;
+  }
+
+  *x = pose.vAngularVelocity.v[0];
+  *y = pose.vAngularVelocity.v[1];
+  *z = pose.vAngularVelocity.v[2];
+}
+
+int lovrHeadsetIsPresent() {
+  return (int) headsetState.vrSystem->IsTrackedDeviceConnected(headsetState.deviceIndex);
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {

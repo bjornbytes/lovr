@@ -10,11 +10,11 @@ void renderHelper(int eyeIndex, void* userdata) {
 }
 
 const luaL_Reg lovrHeadset[] = {
-  { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
-  { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
-  { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
-  { "getStatus", l_lovrHeadsetGetStatus },
-  { "isConnected", l_lovrHeadsetIsConnected },
+  { "getPosition", l_lovrHeadsetGetPosition },
+  { "getOrientation", l_lovrHeadsetGetPosition },
+  { "getVelocity", l_lovrHeadsetGetVelocity },
+  { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
+  { "isPresent", l_lovrHeadsetIsPresent },
   { "renderTo", l_lovrHeadsetRenderTo },
   { NULL, NULL }
 };
@@ -26,50 +26,45 @@ int l_lovrHeadsetInit(lua_State* L) {
   return 1;
 }
 
-int l_lovrHeadsetGetDisplayWidth(lua_State* L) {
-  lua_pushinteger(L, lovrHeadsetGetDisplayWidth());
-  return 1;
+int l_lovrHeadsetGetPosition(lua_State* L) {
+  float x, y, z;
+  lovrHeadsetGetPosition(&x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
 }
 
-int l_lovrHeadsetGetDisplayHeight(lua_State* L) {
-  lua_pushinteger(L, lovrHeadsetGetDisplayHeight());
-  return 1;
+int l_lovrHeadsetGetOrientation(lua_State* L) {
+  float x, y, z, w;
+  lovrHeadsetGetOrientation(&x, &y, &z, &w);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  lua_pushnumber(L, w);
+  return 4;
 }
 
-int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
-  lua_pushinteger(L, lovrHeadsetGetDisplayWidth());
-  lua_pushinteger(L, lovrHeadsetGetDisplayHeight());
-  return 2;
+int l_lovrHeadsetGetVelocity(lua_State* L) {
+  float x, y, z;
+  lovrHeadsetGetVelocity(&x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
 }
 
-int l_lovrHeadsetGetStatus(lua_State* L) {
-  DeviceStatus status = lovrHeadsetGetStatus();
-
-  switch (status) {
-    case STATUS_IDLE:
-      lua_pushstring(L, "idle");
-      break;
-
-    case STATUS_USER_INTERACTION:
-      lua_pushstring(L, "active");
-      break;
-
-    case STATUS_USER_INTERACTION_TIMEOUT:
-      lua_pushstring(L, "timeout");
-
-    case STATUS_STANDBY:
-      lua_pushstring(L, "standby");
-
-    default:
-      lua_pushstring(L, "unknown");
-      break;
-  }
-
-  return 1;
+int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
+  float x, y, z;
+  lovrHeadsetGetAngularVelocity(&x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
 }
 
-int l_lovrHeadsetIsConnected(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetIsConnected());
+int l_lovrHeadsetIsPresent(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetIsPresent());
   return 1;
 }
 
