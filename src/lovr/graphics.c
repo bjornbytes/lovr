@@ -28,7 +28,9 @@ int l_lovrGraphicsInit(lua_State* L) {
 }
 
 int l_lovrGraphicsClear(lua_State* L) {
-  lovrGraphicsClear();
+  int color = lua_gettop(L) < 1 || lua_toboolean(L, 1);
+  int depth = lua_gettop(L) < 2 || lua_toboolean(L, 2);
+  lovrGraphicsClear(color, depth);
   return 0;
 }
 

@@ -24,8 +24,18 @@ void lovrGraphicsInit() {
   map_set(&BufferDrawModes, "fan", GL_TRIANGLE_FAN);
 }
 
-void lovrGraphicsClear() {
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+void lovrGraphicsClear(int color, int depth) {
+  int bits = 0;
+
+  if (color) {
+    bits |= GL_COLOR_BUFFER_BIT;
+  }
+
+  if (depth) {
+    bits |= GL_DEPTH_BUFFER_BIT;
+  }
+
+  glClear(bits);
 }
 
 void lovrGraphicsPresent() {
