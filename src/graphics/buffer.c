@@ -10,27 +10,17 @@ void lovrBufferDestroy(Buffer* buffer) {
 }
 
 void lovrBufferDraw(Buffer* buffer) {
-  GLenum* drawMode = (GLenum*)map_get(&BufferDrawModes, buffer->drawMode);
-
-  if (drawMode == NULL) {
-    error("Invalid buffer draw mode '%s'", buffer->drawMode);
-  }
-
   glBindVertexArray(buffer->vao);
   glEnableVertexAttribArray(0);
-  glDrawArrays(*drawMode, buffer->rangeStart, buffer->rangeCount);
+  glDrawArrays(buffer->drawMode, buffer->rangeStart, buffer->rangeCount);
   glDisableVertexAttribArray(0);
 }
 
-const char* lovrBufferGetDrawMode(Buffer* buffer) {
+BufferDrawMode lovrBufferGetDrawMode(Buffer* buffer) {
   return buffer->drawMode;
 }
 
-int lovrBufferSetDrawMode(Buffer* buffer, const char* drawMode) {
-  if (!map_get(&BufferDrawModes, drawMode)) {
-    return 1;
-  }
-
+int lovrBufferSetDrawMode(Buffer* buffer, BufferDrawMode drawMode) {
   buffer->drawMode = drawMode;
   return 0;
 }
@@ -48,7 +38,7 @@ void lovrBufferSetVertex(Buffer* buffer, int index, float x, float y, float z) {
 
   glBindVertexArray(buffer->vao);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
-  glBufferData(GL_ARRAY_BUFFER, buffer->size * 3 * sizeof(GLfloat), buffer->data, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, buffer->size * 3 * sizeof(GLfloat), buffer->data, buffer->usage);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 }
 

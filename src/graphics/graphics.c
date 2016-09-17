@@ -17,11 +17,7 @@ typedef struct {
 static GraphicsState graphicsState;
 
 void lovrGraphicsInit() {
-  map_init(&BufferDrawModes);
-  map_set(&BufferDrawModes, "points", GL_POINTS);
-  map_set(&BufferDrawModes, "strip", GL_TRIANGLE_STRIP);
-  map_set(&BufferDrawModes, "triangles", GL_TRIANGLES);
-  map_set(&BufferDrawModes, "fan", GL_TRIANGLE_FAN);
+  //
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -65,10 +61,11 @@ void lovrGraphicsSetShader(Shader* shader) {
   glUseProgram(shader->id);
 }
 
-Buffer* lovrGraphicsNewBuffer(int size) {
+Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {
   Buffer* buffer = malloc(sizeof(Buffer));
 
-  buffer->drawMode = "fan";
+  buffer->drawMode = drawMode;
+  buffer->usage = usage;
   buffer->size = size;
   buffer->data = malloc(buffer->size * 3 * sizeof(GLfloat));
   buffer->rangeStart = 0;
@@ -76,7 +73,7 @@ Buffer* lovrGraphicsNewBuffer(int size) {
 
   glGenBuffers(1, &buffer->vbo);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
-  glBufferData(GL_ARRAY_BUFFER, buffer->size * 3 * sizeof(GLfloat), buffer->data, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, buffer->size * 3 * sizeof(GLfloat), buffer->data, buffer->usage);
 
   glGenVertexArrays(1, &buffer->vao);
 

@@ -23,6 +23,18 @@ int l_lovrGraphicsInit(lua_State* L) {
   luaRegisterType(L, "Buffer", lovrBuffer, luax_destroybuffer);
   luaRegisterType(L, "Model", lovrModel, NULL);
   luaRegisterType(L, "Shader", lovrShader, luax_destroyshader);
+
+  map_init(&BufferDrawModes);
+  map_set(&BufferDrawModes, "points", BUFFER_POINTS);
+  map_set(&BufferDrawModes, "strip", BUFFER_TRIANGLE_STRIP);
+  map_set(&BufferDrawModes, "triangles", BUFFER_TRIANGLES);
+  map_set(&BufferDrawModes, "fan", BUFFER_TRIANGLE_FAN);
+
+  map_init(&BufferUsages);
+  map_set(&BufferUsages, "static", BUFFER_STATIC);
+  map_set(&BufferUsages, "dynamic", BUFFER_DYNAMIC);
+  map_set(&BufferUsages, "stream", BUFFER_STREAM);
+
   lovrGraphicsInit();
   return 1;
 }
@@ -73,8 +85,47 @@ int l_lovrGraphicsSetShader(lua_State* L) {
 }
 
 int l_lovrGraphicsNewBuffer(lua_State* L) {
-  int size = luaL_checkint(L, 1);
-  luax_pushbuffer(L, lovrGraphicsNewBuffer(size));
+  const char* userDrawMode = luaL_optstring(L, 2, "fan");
+  BufferDrawMode* drawMode = (BufferDrawMode*) map_get(&BufferDrawModes, userDrawMode);
+  if (!drawMode) {
+    return luaL_error(L, "Invalid buffer draw mode: '%s'", userDrawMode);
+  }
+
+  const char* userUsage = luaL_optstring(L, 3, "dynamic");
+  BufferUsage* usage = (BufferUsage*) map_get(&BufferUsages, userUsage);
+  if (!usage) {
+    return luaL_error(L, "Invalid buffer usage: '%s'", userUsage);
+  }
+
+  int size;
+
+  if (lua_isnumber(L, 1)) {
+    size = lua_tonumber(L, 1);
+  } else if (lua_istable(L, 1)) {
+    size = lua_objlen(L, 1);
+  } else {
+    return luaL_argerror(L, 1, "table or number expected");
+  }
+
+  Buffer* buffer = lovrGraphicsNewBuffer(size, *drawMode, *usage);
+
+  if (lua_istable(L, 1)) {
+    float x, y, z;
+    for (int i = 0; i < size; i++) {
+      lua_rawgeti(L, 1, i + 1);
+      lua_rawgeti(L, -1, 1);
+      lua_rawgeti(L, -2, 2);
+      lua_rawgeti(L, -3, 3);
+      x = lua_tonumber(L, -3);
+      y = lua_tonumber(L, -2);
+      z = lua_tonumber(L, -1);
+      lovrBufferSetVertex(buffer, i, x, y, z);
+      lua_pop(L, 4);
+    }
+  }
+
+  luax_pushbuffer(L, buffer);
+
   return 1;
 }
 
