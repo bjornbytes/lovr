@@ -26,7 +26,7 @@ Dependencies
 - LuaJIT
 - GLFW (3.2+) and OpenGL (3.2+)
 - assimp
-- SteamVR (OpenVR)
+- SteamVR (OpenVR) or Oculus SDK
 
 Supported Hardware
 ---
