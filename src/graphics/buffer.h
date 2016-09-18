@@ -1,4 +1,5 @@
 #include "../glfw.h"
+#include "../vendor/vec/vec.h"
 
 #ifndef LOVR_BUFFER_TYPES
 #define LOVR_BUFFER_TYPES
@@ -15,6 +16,8 @@ typedef enum {
   BUFFER_STREAM = GL_STREAM_DRAW
 } BufferUsage;
 
+typedef vec_t(unsigned int) vec_uint_t;
+
 typedef struct {
   int size;
   GLfloat* data;
@@ -22,6 +25,9 @@ typedef struct {
   BufferUsage usage;
   GLuint vao;
   GLuint vbo;
+  GLuint ibo;
+  vec_uint_t map;
+  char isRangeEnabled;
   int rangeStart;
   int rangeCount;
 } Buffer;
@@ -34,5 +40,7 @@ int lovrBufferSetDrawMode(Buffer* buffer, BufferDrawMode drawMode);
 int lovrBufferGetVertexCount(Buffer* buffer);
 void lovrBufferGetVertex(Buffer* buffer, int index, float* x, float* y, float* z);
 void lovrBufferSetVertex(Buffer* buffer, int index, float x, float y, float z);
+unsigned int* lovrBufferGetVertexMap(Buffer* buffer, int* count);
+void lovrBufferSetVertexMap(Buffer* buffer, unsigned int* map, int count);
 void lovrBufferGetDrawRange(Buffer* buffer, int* start, int* count);
 int lovrBufferSetDrawRange(Buffer* buffer, int start, int count);

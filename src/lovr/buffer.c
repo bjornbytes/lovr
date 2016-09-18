@@ -28,6 +28,8 @@ const luaL_Reg lovrBuffer[] = {
   { "getVertexCount", l_lovrBufferGetVertexCount },
   { "getVertex", l_lovrBufferGetVertex },
   { "setVertex", l_lovrBufferSetVertex },
+  { "getVertexMap", l_lovrBufferGetVertexMap },
+  { "setVertexMap", l_lovrBufferSetVertexMap },
   { "getDrawMode", l_lovrBufferGetDrawMode },
   { "setDrawMode", l_lovrBufferSetDrawMode },
   { "getDrawRange", l_lovrBufferGetDrawRange },
@@ -111,19 +113,75 @@ int l_lovrBufferSetVertex(lua_State* L) {
   return 0;
 }
 
+int l_lovrBufferGetVertexMap(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  int count;
+  unsigned int* indices = lovrBufferGetVertexMap(buffer, &count);
+
+  if (count == 0) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  lua_newtable(L);
+  for (int i = 0; i < count; i++) {
+    lua_pushinteger(L, indices[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+
+  return 1;
+}
+
+int l_lovrBufferSetVertexMap(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+
+  if (lua_isnoneornil(L, 2)) {
+    lovrBufferSetVertexMap(buffer, NULL, 0);
+    return 0;
+  }
+
+  luaL_checktype(L, 2, LUA_TTABLE);
+  int count = lua_objlen(L, 2);
+  unsigned int* indices = malloc(count * sizeof(int));
+
+  for (int i = 0; i < count; i++) {
+    lua_rawgeti(L, 2, i + 1);
+    if (!lua_isnumber(L, -1)) {
+      return luaL_error(L, "Buffer vertex map index #%d must be numeric", i);
+    }
+    indices[i] = lua_tonumber(L, -1) - 1;
+    lua_pop(L, 1);
+  }
+
+  lovrBufferSetVertexMap(buffer, indices, count);
+  free(indices);
+  return 0;
+}
+
 int l_lovrBufferGetDrawRange(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
+  if (lovrBufferIsRangeEnabled(buffer)) {
+    lua_pushnil(L);
+    return 1;
+  }
+
   int start, end;
   lovrBufferGetDrawRange(buffer, &start, &end);
-  lua_pushinteger(L, start);
-  lua_pushinteger(L, end);
+  lua_pushinteger(L, start + 1);
+  lua_pushinteger(L, end + 1);
   return 2;
 }
 
 int l_lovrBufferSetDrawRange(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
-  int rangeStart = luaL_checkinteger(L, 2);
-  int rangeEnd = luaL_checkinteger(L, 3);
+  if (lua_isnoneornil(L, 2)) {
+    lovrBufferSetRangeEnabled(buffer, 0);
+    return 0;
+  }
+
+  lovrBufferSetRangeEnabled(buffer, 1);
+  int rangeStart = luaL_checkinteger(L, 2) - 1;
+  int rangeEnd = luaL_checkinteger(L, 3) - 1;
   if (lovrBufferSetDrawRange(buffer, rangeStart, rangeEnd)) {
     return luaL_error(L, "Invalid buffer draw range (%d, %d)", rangeStart, rangeEnd);
   }

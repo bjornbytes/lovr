@@ -12,6 +12,8 @@ int l_lovrBufferDraw(lua_State* L);
 int l_lovrBufferGetVertexCount(lua_State* L);
 int l_lovrBufferGetVertex(lua_State* L);
 int l_lovrBufferSetVertex(lua_State* L);
+int l_lovrBufferGetVertexMap(lua_State* L);
+int l_lovrBufferSetVertexMap(lua_State* L);
 int l_lovrBufferGetDrawMode(lua_State* L);
 int l_lovrBufferSetDrawMode(lua_State* L);
 int l_lovrBufferGetDrawRange(lua_State* L);

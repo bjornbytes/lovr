@@ -68,6 +68,10 @@ Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usa
   buffer->usage = usage;
   buffer->size = size;
   buffer->data = malloc(buffer->size * 3 * sizeof(GLfloat));
+  buffer->vao = 0;
+  buffer->vbo = 0;
+  buffer->ibo = 0;
+  buffer->isRangeEnabled = 0;
   buffer->rangeStart = 0;
   buffer->rangeCount = buffer->size;
 
@@ -76,6 +80,8 @@ Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usa
   glBufferData(GL_ARRAY_BUFFER, buffer->size * 3 * sizeof(GLfloat), buffer->data, buffer->usage);
 
   glGenVertexArrays(1, &buffer->vao);
+
+  vec_init(&buffer->map);
 
   return buffer;
 }
