@@ -28,6 +28,12 @@ Dependencies
 - assimp
 - SteamVR (OpenVR)
 
+Supported Hardware
+---
+
+- Oculus Rift (touch controllers or gamepad)
+- HTC Vive
+
 Compiling
 ---
 
