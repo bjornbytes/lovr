@@ -7,8 +7,6 @@
 #include "lovr/headset.h"
 #include "lovr/timer.h"
 
-extern lua_State* L;
-
 void lovrInit(lua_State* L) {
 
   // lovr = {}
@@ -122,6 +120,8 @@ void lovrOnGlfwError(int code, const char* description) {
 
 void lovrOnClose(GLFWwindow* _window) {
   if (_window == window) {
+
+    lua_State* L = (lua_State*) glfwGetWindowUserPointer(window);
 
     // lovr.quit()
     lua_getglobal(L, "lovr");

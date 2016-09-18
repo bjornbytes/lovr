@@ -1,13 +1,11 @@
 #include "lovr.h"
 #include "glfw.h"
 
-lua_State* L;
-
 int main(int argc, char** argv) {
-  L = luaL_newstate();
+  lua_State* L = luaL_newstate();
   luaL_openlibs(L);
 
-  initGlfw(lovrOnGlfwError, lovrOnClose);
+  initGlfw(lovrOnGlfwError, lovrOnClose, L);
   lovrInit(L);
   lovrRun(L, argc > 1 ? argv[1] : NULL);
 

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "util.h"
 
-void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose) {
+void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose, void* userPointer) {
   glfwSetErrorCallback(onError);
 
   if (!glfwInit()) {
@@ -24,6 +24,7 @@ void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose) {
   }
 
   glfwSetWindowCloseCallback(window, onClose);
+  glfwSetWindowUserPointer(window, userPointer);
   glfwMakeContextCurrent(window);
 
 #ifdef WIN32
