@@ -16,7 +16,7 @@ mat4 mat4_init() {
 
 mat4 mat4_copy(mat4 source) {
   mat4 matrix = mat4_init();
-  memcpy(matrix, source, 16);
+  memcpy(matrix, source, 16 * sizeof(float));
   return matrix;
 }
 
