@@ -19,6 +19,7 @@ static GraphicsState graphicsState;
 
 void lovrGraphicsInit() {
   vec_init(&graphicsState.transforms);
+  vec_push(&graphicsState.transforms, mat4_init());
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -64,16 +65,21 @@ void lovrGraphicsSetShader(Shader* shader) {
 
 int lovrGraphicsPush() {
   vec_mat4_t* transforms = &graphicsState.transforms;
-  if (transforms->length > 64) { return 1; }
-  vec_push(transforms, transforms->length > 0 ? mat4_copy(vec_last(transforms)) : mat4_init());
+  if (transforms->length >= 64) { return 1; }
+  vec_push(transforms, mat4_copy(vec_last(transforms)));
   return 0;
 }
 
 int lovrGraphicsPop() {
   vec_mat4_t* transforms = &graphicsState.transforms;
-  if (transforms->length == 0) { return 1; }
+  if (transforms->length <= 1) { return 1; }
   mat4_deinit(vec_pop(transforms));
   return 0;
+}
+
+void lovrGraphicsOrigin() {
+  vec_mat4_t* transforms = &graphicsState.transforms;
+  mat4_setIdentity(vec_last(transforms));
 }
 
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {

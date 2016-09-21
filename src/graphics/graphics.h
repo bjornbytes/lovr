@@ -17,6 +17,7 @@ Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 int lovrGraphicsPush();
 int lovrGraphicsPop();
+void lovrGraphicsOrigin();
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage);
 Model* lovrGraphicsNewModel(const char* path);
 Shader* lovrGraphicsNewShader(const char* vertexSource, const char* fragmentSource);
