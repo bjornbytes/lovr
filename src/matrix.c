@@ -10,8 +10,8 @@
 */
 
 mat4 mat4_init() {
-  mat4 matrix = calloc(16, sizeof(float));
-  return matrix;
+  mat4 matrix = malloc(16 * sizeof(float));
+  return mat4_setIdentity(matrix);
 }
 
 mat4 mat4_copy(mat4 source) {

@@ -11,6 +11,8 @@ const luaL_Reg lovrGraphics[] = {
   { "getClearColor", l_lovrGraphicsGetClearColor },
   { "setClearColor", l_lovrGraphicsSetClearColor },
   { "setShader", l_lovrGraphicsSetShader },
+  { "push", l_lovrGraphicsPush },
+  { "pop", l_lovrGraphicsPop },
   { "newModel", l_lovrGraphicsNewModel },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newShader", l_lovrGraphicsNewShader },
@@ -81,6 +83,22 @@ int l_lovrGraphicsGetShader(lua_State* L) {
 int l_lovrGraphicsSetShader(lua_State* L) {
   Shader* shader = luax_checkshader(L, 1);
   lovrGraphicsSetShader(shader);
+  return 0;
+}
+
+int l_lovrGraphicsPush(lua_State* L) {
+  if (lovrGraphicsPush()) {
+    return luaL_error(L, "Unbalanced matrix stack (more pushes than pops?)");
+  }
+
+  return 0;
+}
+
+int l_lovrGraphicsPop(lua_State* L) {
+  if (lovrGraphicsPop()) {
+    return luaL_error(L, "Unbalanced matrix stack (more pops than pushes?)");
+  }
+
   return 0;
 }
 
