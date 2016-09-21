@@ -15,7 +15,7 @@ typedef struct {
   vec_mat4_t transforms;
 } GraphicsState;
 
-GraphicsState graphicsState;
+static GraphicsState graphicsState;
 
 void lovrGraphicsInit() {
   vec_init(&graphicsState.transforms);
