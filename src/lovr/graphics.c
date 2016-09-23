@@ -14,6 +14,9 @@ const luaL_Reg lovrGraphics[] = {
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },
+  { "translate", l_lovrGraphicsTranslate },
+  { "rotate", l_lovrGraphicsRotate },
+  { "scale", l_lovrGraphicsScale },
   { "newModel", l_lovrGraphicsNewModel },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newShader", l_lovrGraphicsNewShader },
@@ -105,6 +108,31 @@ int l_lovrGraphicsPop(lua_State* L) {
 
 int l_lovrGraphicsOrigin(lua_State* L) {
   lovrGraphicsOrigin();
+  return 0;
+}
+
+int l_lovrGraphicsTranslate(lua_State* L) {
+  float x = luaL_checknumber(L, 1);
+  float y = luaL_checknumber(L, 2);
+  float z = luaL_checknumber(L, 3);
+  lovrGraphicsTranslate(x, y, z);
+  return 0;
+}
+
+int l_lovrGraphicsRotate(lua_State* L) {
+  float w = luaL_checknumber(L, 1);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrGraphicsRotate(w, x, y, z);
+  return 0;
+}
+
+int l_lovrGraphicsScale(lua_State* L) {
+  float x = luaL_checknumber(L, 1);
+  float y = luaL_checknumber(L, 2);
+  float z = luaL_checknumber(L, 3);
+  lovrGraphicsScale(x, y, z);
   return 0;
 }
 

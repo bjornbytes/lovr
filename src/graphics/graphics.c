@@ -82,6 +82,18 @@ void lovrGraphicsOrigin() {
   mat4_setIdentity(vec_last(transforms));
 }
 
+void lovrGraphicsTranslate(float x, float y, float z) {
+  mat4_translate(vec_last(&graphicsState.transforms), x, y, z);
+}
+
+void lovrGraphicsRotate(float w, float x, float y, float z) {
+  mat4_rotate(vec_last(&graphicsState.transforms), w, x, y, z);
+}
+
+void lovrGraphicsScale(float x, float y, float z) {
+  mat4_scale(vec_last(&graphicsState.transforms), x, y, z);
+}
+
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {
   Buffer* buffer = malloc(sizeof(Buffer));
 
