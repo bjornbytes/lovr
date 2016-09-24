@@ -1,4 +1,5 @@
 #include "matrix.h"
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -57,6 +58,22 @@ mat4 mat4_setScale(mat4 matrix, float x, float y, float z) {
   matrix[0] = x;
   matrix[5] = y;
   matrix[10] = z;
+  return matrix;
+}
+
+mat4 mat4_setProjection(mat4 matrix, float near, float far, float fov, float aspect) {
+  float range = tan(fov * .5f) * near;
+  float sx = (2.0f * near) / (range * aspect + range * aspect);
+  float sy = near / range;
+  float sz = -(far + near) / (far - near);
+  float pz = (-2.0f * far * near) / (far - near);
+  mat4_setIdentity(matrix);
+  matrix[0] = sx;
+  matrix[5] = sy;
+  matrix[10] = sz;
+  matrix[11] = -1.0f;
+  matrix[14] = pz;
+  matrix[15] = 0.0f;
   return matrix;
 }
 

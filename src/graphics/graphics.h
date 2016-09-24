@@ -16,6 +16,7 @@ void lovrGraphicsGetClearColor(float* r, float* g, float* b, float* a);
 void lovrGraphicsSetClearColor(float r, float g, float b, float a);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
+void lovrGraphicsSetProjection(float near, float far, float fov, float aspect);
 int lovrGraphicsPush();
 int lovrGraphicsPop();
 void lovrGraphicsOrigin();

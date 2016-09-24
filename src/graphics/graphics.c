@@ -14,6 +14,8 @@ typedef struct {
   Shader* activeShader;
   vec_mat4_t transforms;
   mat4 lastTransform;
+  mat4 projection;
+  mat4 lastProjection;
 } GraphicsState;
 
 static GraphicsState graphicsState;
@@ -23,6 +25,9 @@ void lovrGraphicsInit() {
   vec_push(&graphicsState.transforms, mat4_init());
   graphicsState.lastTransform = mat4_init();
   memset(graphicsState.lastTransform, 0, 16);
+  graphicsState.projection = mat4_init();
+  graphicsState.lastProjection = mat4_init();
+  memset(graphicsState.lastProjection, 0, 16);
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -53,13 +58,20 @@ void lovrGraphicsPrepare() {
   mat4 transform = vec_last(&graphicsState.transforms);
   mat4 lastTransform = graphicsState.lastTransform;
 
-  if (!memcmp(transform, lastTransform, 16 * sizeof(float))) {
-    return;
+  if (memcmp(transform, lastTransform, 16 * sizeof(float))) {
+    int uniformId = lovrShaderGetUniformId(shader, "lovrTransform");
+    lovrShaderSendFloatMat4(shader, uniformId, transform);
+    memcpy(lastTransform, transform, 16 * sizeof(float));
   }
 
-  int uniformId = lovrShaderGetUniformId(shader, "lovrTransform");
-  lovrShaderSendFloatMat4(shader, uniformId, transform);
-  memcpy(lastTransform, transform, 16 * sizeof(float));
+  mat4 projection = graphicsState.projection;
+  mat4 lastProjection = graphicsState.lastProjection;
+
+  if (memcmp(projection, lastProjection, 16 * sizeof(float))) {
+    int uniformId = lovrShaderGetUniformId(shader, "lovrProjection");
+    lovrShaderSendFloatMat4(shader, uniformId, projection);
+    memcpy(lastProjection, projection, 16 * sizeof(float));
+  }
 }
 
 void lovrGraphicsGetClearColor(float* r, float* g, float* b, float* a) {
@@ -83,6 +95,10 @@ Shader* lovrGraphicsGetShader() {
 void lovrGraphicsSetShader(Shader* shader) {
   graphicsState.activeShader = shader;
   glUseProgram(shader->id);
+}
+
+void lovrGraphicsSetProjection(float near, float far, float fov, float aspect) {
+  graphicsState.projection = mat4_setProjection(graphicsState.projection, near, far, fov, aspect);
 }
 
 int lovrGraphicsPush() {

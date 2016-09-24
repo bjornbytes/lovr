@@ -11,6 +11,7 @@ const luaL_Reg lovrGraphics[] = {
   { "getClearColor", l_lovrGraphicsGetClearColor },
   { "setClearColor", l_lovrGraphicsSetClearColor },
   { "setShader", l_lovrGraphicsSetShader },
+  { "setProjection", l_lovrGraphicsSetProjection },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },
@@ -87,6 +88,15 @@ int l_lovrGraphicsGetShader(lua_State* L) {
 int l_lovrGraphicsSetShader(lua_State* L) {
   Shader* shader = luax_checkshader(L, 1);
   lovrGraphicsSetShader(shader);
+  return 0;
+}
+
+int l_lovrGraphicsSetProjection(lua_State* L) {
+  float near = luaL_checknumber(L, 1);
+  float far = luaL_checknumber(L, 2);
+  float fov = luaL_checknumber(L, 3);
+  float aspect = luaL_checknumber(L, 4);
+  lovrGraphicsSetProjection(near, far, fov, aspect);
   return 0;
 }
 
