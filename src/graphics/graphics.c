@@ -13,6 +13,7 @@
 typedef struct {
   Shader* activeShader;
   vec_mat4_t transforms;
+  mat4 lastTransform;
 } GraphicsState;
 
 static GraphicsState graphicsState;
@@ -20,6 +21,8 @@ static GraphicsState graphicsState;
 void lovrGraphicsInit() {
   vec_init(&graphicsState.transforms);
   vec_push(&graphicsState.transforms, mat4_init());
+  graphicsState.lastTransform = mat4_init();
+  memset(graphicsState.lastTransform, 0, 16);
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -38,6 +41,25 @@ void lovrGraphicsClear(int color, int depth) {
 
 void lovrGraphicsPresent() {
   glfwSwapBuffers(window);
+}
+
+void lovrGraphicsPrepare() {
+  Shader* shader = lovrGraphicsGetShader();
+
+  if (!shader) {
+    return;
+  }
+
+  mat4 transform = vec_last(&graphicsState.transforms);
+  mat4 lastTransform = graphicsState.lastTransform;
+
+  if (!memcmp(transform, lastTransform, 16 * sizeof(float))) {
+    return;
+  }
+
+  int uniformId = lovrShaderGetUniformId(shader, "lovrTransform");
+  lovrShaderSendFloatMat4(shader, uniformId, transform);
+  memcpy(lastTransform, transform, 16 * sizeof(float));
 }
 
 void lovrGraphicsGetClearColor(float* r, float* g, float* b, float* a) {

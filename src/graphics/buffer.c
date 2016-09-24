@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include "graphics.h"
 #include "../util.h"
 #include <stdlib.h>
 
@@ -11,6 +12,7 @@ void lovrBufferDestroy(Buffer* buffer) {
 }
 
 void lovrBufferDraw(Buffer* buffer) {
+  lovrGraphicsPrepare();
   glBindVertexArray(buffer->vao);
   glEnableVertexAttribArray(0);
   int usingIbo = buffer->map.length > 0;
