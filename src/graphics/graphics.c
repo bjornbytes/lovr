@@ -98,7 +98,7 @@ void lovrGraphicsSetShader(Shader* shader) {
 }
 
 void lovrGraphicsSetProjection(float near, float far, float fov, float aspect) {
-  graphicsState.projection = mat4_setProjection(graphicsState.projection, near, far, fov, aspect);
+  mat4_setProjection(graphicsState.projection, near, far, fov, aspect);
 }
 
 int lovrGraphicsPush() {
