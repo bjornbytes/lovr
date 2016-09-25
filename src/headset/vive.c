@@ -32,7 +32,7 @@ Headset* viveInit() {
   Headset* this = malloc(sizeof(Headset));
   ViveState* state = malloc(sizeof(ViveState));
 
-  this->state = &state;
+  this->state = state;
   this->interface = &interface;
 
   if (!VR_IsHmdPresent()) {
