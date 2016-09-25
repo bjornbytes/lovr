@@ -28,7 +28,7 @@ void lovrBufferDraw(Buffer* buffer) {
 
   if (usingIbo) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->ibo);
-    glDrawElements(buffer->drawMode, count, GL_UNSIGNED_INT, (GLvoid*) NULL + start);
+    glDrawElements(buffer->drawMode, count, GL_UNSIGNED_INT, (GLvoid*) start);
   } else {
     glDrawArrays(buffer->drawMode, start, count);
   }
