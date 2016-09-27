@@ -16,6 +16,8 @@ typedef struct {
   GLuint framebuffer;
   GLuint depthbuffer;
   GLuint texture;
+  GLuint resolveFramebuffer;
+  GLuint resolveTexture;
 } ViveState;
 
 static HeadsetInterface interface = {
@@ -79,18 +81,23 @@ Headset* viveInit() {
 
   glGenRenderbuffers(1, &state->depthbuffer);
   glBindRenderbuffer(GL_RENDERBUFFER, state->depthbuffer);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, state->renderWidth, state->renderHeight);
+  glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, state->renderWidth, state->renderHeight);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, state->depthbuffer);
 
   glGenTextures(1, &state->texture);
-  glBindTexture(GL_TEXTURE_2D, state->texture);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, state->texture);
+  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, state->renderWidth, state->renderHeight, 1);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, state->texture, 0);
+
+  glGenFramebuffers(1, &state->resolveFramebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, state->resolveFramebuffer);
+
+  glGenTextures(1, &state->resolveTexture);
+  glBindTexture(GL_TEXTURE_2D, state->resolveTexture);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, state->renderWidth, state->renderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, state->texture, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, state->resolveTexture, 0);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     error("framebuffer not complete");
@@ -183,12 +190,14 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
 
   float (*m)[4];
   m = pose.mDeviceToAbsoluteTracking.m;
-  float viewMatrix[16] = {
+  float headMatrix[16] = {
     m[0][0], m[1][0], m[2][0], 0.0,
     m[0][1], m[1][1], m[2][1], 0.0,
     m[0][2], m[1][2], m[2][2], 0.0,
     m[0][3], m[1][3], m[2][3], 1.0
   };
+
+  mat4_invert(headMatrix);
 
   for (int i = 0; i < 2; i++) {
     EVREye eye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
@@ -211,18 +220,30 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
 
     Shader* shader = lovrGraphicsGetShader();
     if (shader) {
-      int viewMatrixId = lovrShaderGetUniformId(shader, "viewMatrix");
-      int projectionMatrixId = lovrShaderGetUniformId(shader, "projectionMatrix");
-      lovrShaderSendFloatMat4(shader, viewMatrixId, viewMatrix);
-      lovrShaderSendFloatMat4(shader, projectionMatrixId, projectionMatrix);
+      int lovrTransformId = lovrShaderGetUniformId(shader, "lovrTransform");
+      int lovrProjectionId = lovrShaderGetUniformId(shader, "lovrProjection");
+      mat4 m = mat4_multiply(mat4_multiply(projectionMatrix, mat4_invert(eyeMatrix)), headMatrix);
+      lovrShaderSendFloatMat4(shader, lovrTransformId, m);
+      lovrShaderSendFloatMat4(shader, lovrProjectionId, projectionMatrix);
     }
 
+    glEnable(GL_MULTISAMPLE);
     glBindFramebuffer(GL_FRAMEBUFFER, state->framebuffer);
     glViewport(0, 0, state->renderWidth, state->renderHeight);
-    callback(i, userdata);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    Texture_t eyeTexture = { (void*) state->texture, EGraphicsAPIConvention_API_OpenGL, EColorSpace_ColorSpace_Gamma };
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    callback(i, userdata);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_MULTISAMPLE);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, state->framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state->resolveFramebuffer);
+    glBlitFramebuffer(0, 0, state->renderWidth, state->renderHeight, 0, 0, state->renderWidth, state->renderHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    Texture_t eyeTexture = { (void*) state->renderTexture, EGraphicsAPIConvention_API_OpenGL, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     state->vrCompositor->Submit(eye, &eyeTexture, NULL, flags);
   }
