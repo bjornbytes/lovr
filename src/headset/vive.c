@@ -76,7 +76,8 @@ Headset* viveInit() {
   }
 
   state->deviceIndex = k_unTrackedDeviceIndex_Hmd;
-
+  state->clipNear = 0.1f;
+  state->clipFar = 30.f;
   state->vrSystem->GetRecommendedRenderTargetSize(&state->renderWidth, &state->renderHeight);
 
   glGenFramebuffers(1, &state->framebuffer);
@@ -213,14 +214,13 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     float far = state->clipFar;
     matrix = state->vrSystem->GetProjectionMatrix(eye, near, far, graphicsConvention).m;
     mat4_fromMat44(projectionMatrix, matrix);
+    lovrGraphicsSetProjectionRaw(projectionMatrix);
 
     Shader* shader = lovrGraphicsGetShader();
     if (shader) {
       int lovrTransformId = lovrShaderGetUniformId(shader, "lovrTransform");
-      int lovrProjectionId = lovrShaderGetUniformId(shader, "lovrProjection");
       mat4 transformMatrix = mat4_multiply(eyeMatrix, headMatrix);
       lovrShaderSendFloatMat4(shader, lovrTransformId, transformMatrix);
-      lovrShaderSendFloatMat4(shader, lovrProjectionId, projectionMatrix);
     }
 
     glEnable(GL_MULTISAMPLE);

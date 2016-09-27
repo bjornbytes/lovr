@@ -1,3 +1,4 @@
+#define _USE_MATH_DEFINES
 #include "graphics.h"
 #include "model.h"
 #include "buffer.h"
@@ -5,6 +6,7 @@
 #include "../glfw.h"
 #include "../util.h"
 #include <stdlib.h>
+#include <math.h>
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -103,6 +105,10 @@ void lovrGraphicsSetProjection(float near, float far, float fov) {
   int width, height;
   glfwGetWindowSize(window, &width, &height);
   mat4_setProjection(state.projection, near, far, fov, (float) width / height);
+}
+
+void lovrGraphicsSetProjectionRaw(mat4 projection) {
+  memcpy(state.projection, projection, 16 * sizeof(float));
 }
 
 int lovrGraphicsPush() {

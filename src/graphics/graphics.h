@@ -26,6 +26,7 @@ Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsGetProjection(float* near, float* far, float* fov);
 void lovrGraphicsSetProjection(float near, float far, float fov);
+void lovrGraphicsSetProjectionRaw(mat4 projection);
 int lovrGraphicsPush();
 int lovrGraphicsPop();
 void lovrGraphicsOrigin();
