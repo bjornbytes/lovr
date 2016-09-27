@@ -243,7 +243,7 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
-    Texture_t eyeTexture = { (void*) state->renderTexture, EGraphicsAPIConvention_API_OpenGL, EColorSpace_ColorSpace_Gamma };
+    Texture_t eyeTexture = { (void*) state->resolveTexture, EGraphicsAPIConvention_API_OpenGL, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     state->vrCompositor->Submit(eye, &eyeTexture, NULL, flags);
   }
