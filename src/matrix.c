@@ -21,6 +21,46 @@ mat4 mat4_copy(mat4 source) {
   return matrix;
 }
 
+mat4 mat4_fromMat34(mat4 matrix, float (*source)[4]) {
+  matrix[0] = source[0][0];
+  matrix[1] = source[1][0];
+  matrix[2] = source[2][0];
+  matrix[3] = 0.f;
+  matrix[4] = source[0][1];
+  matrix[5] = source[1][1];
+  matrix[6] = source[2][1];
+  matrix[7] = 0.f;
+  matrix[8] = source[0][2];
+  matrix[9] = source[1][2];
+  matrix[10] = source[2][2];
+  matrix[11] = 0.f;
+  matrix[12] = source[0][3];
+  matrix[13] = source[1][3];
+  matrix[14] = source[2][3];
+  matrix[15] = 1.f;
+  return matrix;
+}
+
+mat4 mat4_fromMat44(mat4 matrix, float (*source)[4]) {
+  matrix[0] = source[0][0];
+  matrix[1] = source[1][0];
+  matrix[2] = source[2][0];
+  matrix[3] = source[3][0];
+  matrix[4] = source[0][1];
+  matrix[5] = source[1][1];
+  matrix[6] = source[2][1];
+  matrix[7] = source[3][1];
+  matrix[8] = source[0][2];
+  matrix[9] = source[1][2];
+  matrix[10] = source[2][2];
+  matrix[11] = source[3][2];
+  matrix[12] = source[0][3];
+  matrix[13] = source[1][3];
+  matrix[14] = source[2][3];
+  matrix[15] = source[3][3];
+  return matrix;
+}
+
 void mat4_deinit(mat4 matrix) {
   free(matrix);
 }
@@ -75,6 +115,10 @@ mat4 mat4_setProjection(mat4 matrix, float near, float far, float fov, float asp
   matrix[14] = pz;
   matrix[15] = 0.0f;
   return matrix;
+}
+
+void mat4_getProjection(mat4 matrix, float* near, float* far, float* fov, float* aspect) {
+  *near = *far = *fov = *aspect = 0.f;
 }
 
 mat4 mat4_translate(mat4 matrix, float x, float y, float z) {

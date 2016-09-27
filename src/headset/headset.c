@@ -7,20 +7,24 @@ void lovrHeadsetInit() {
   headset = viveInit();
 }
 
-void lovrHeadsetGetPosition(float* x, float* y, float* z) {
-  headset->interface->getPosition(headset, x, y, z);
+void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
+  headset->interface->getAngularVelocity(headset, x, y, z);
+}
+
+void lovrHeadsetGetClipDistance(float* near, float* far) {
+  headset->interface->getClipDistance(headset, near, far);
 }
 
 void lovrHeadsetGetOrientation(float* x, float* y, float* z, float* w) {
   headset->interface->getOrientation(headset, x, y, z, w);
 }
 
-void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
-  headset->interface->getVelocity(headset, x, y, z);
+void lovrHeadsetGetPosition(float* x, float* y, float* z) {
+  headset->interface->getPosition(headset, x, y, z);
 }
 
-void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
-  headset->interface->getAngularVelocity(headset, x, y, z);
+void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
+  headset->interface->getVelocity(headset, x, y, z);
 }
 
 int lovrHeadsetIsPresent() {
@@ -29,4 +33,8 @@ int lovrHeadsetIsPresent() {
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   headset->interface->renderTo(headset, callback, userdata);
+}
+
+void lovrHeadsetSetClipDistance(float near, float far) {
+  headset->interface->setClipDistance(headset, near, far);
 }

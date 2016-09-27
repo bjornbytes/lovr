@@ -10,6 +10,9 @@ typedef struct {
 
   unsigned int deviceIndex;
 
+  float clipNear;
+  float clipFar;
+
   uint32_t renderWidth;
   uint32_t renderHeight;
 
@@ -44,7 +47,7 @@ Headset* viveInit() {
   }
 
   EVRInitError vrError;
-  uint32_t vrHandle = VR_InitInternal(&vrError, EVRApplicationType_VRApplication_Scene);
+  VR_InitInternal(&vrError, EVRApplicationType_VRApplication_Scene);
 
   if (vrError != EVRInitError_VRInitError_None) {
     error("Problem initializing OpenVR");
@@ -127,6 +130,13 @@ void viveGetAngularVelocity(void* headset, float* x, float* y, float* z) {
   *z = pose.vAngularVelocity.v[2];
 }
 
+void viveGetClipDistance(void* headset, float* near, float* far) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  *near = state->clipNear;
+  *far = state->clipFar;
+}
+
 // TODO convert matrix to quaternion!
 void viveGetOrientation(void* headset, float* x, float* y, float *z, float* w) {
   *x = *y = *z = *w = 0.f;
@@ -184,46 +194,32 @@ int viveIsPresent(void* headset) {
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
   Headset* this = headset;
   ViveState* state = this->state;
-
+  float headMatrix[16], eyeMatrix[16], projectionMatrix[16];
+  float (*matrix)[4];
+  EGraphicsAPIConvention graphicsConvention = EGraphicsAPIConvention_API_OpenGL;
   TrackedDevicePose_t pose;
+
   state->vrCompositor->WaitGetPoses(&pose, 1, NULL, 0);
-
-  float (*m)[4];
-  m = pose.mDeviceToAbsoluteTracking.m;
-  float headMatrix[16] = {
-    m[0][0], m[1][0], m[2][0], 0.0,
-    m[0][1], m[1][1], m[2][1], 0.0,
-    m[0][2], m[1][2], m[2][2], 0.0,
-    m[0][3], m[1][3], m[2][3], 1.0
-  };
-
-  mat4_invert(headMatrix);
+  matrix = pose.mDeviceToAbsoluteTracking.m;
+  mat4_invert(mat4_fromMat34(headMatrix, matrix));
 
   for (int i = 0; i < 2; i++) {
     EVREye eye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
 
-    m = state->vrSystem->GetEyeToHeadTransform(eye).m;
-    float eyeMatrix[16] = {
-      m[0][0], m[1][0], m[2][0], 0.0,
-      m[0][1], m[1][1], m[2][1], 0.0,
-      m[0][2], m[1][2], m[2][2], 0.0,
-      m[0][3], m[1][3], m[2][3], 1.0
-    };
+    matrix = state->vrSystem->GetEyeToHeadTransform(eye).m;
+    mat4_invert(mat4_fromMat34(eyeMatrix, matrix));
 
-    m = state->vrSystem->GetProjectionMatrix(eye, 0.1f, 30.0f, EGraphicsAPIConvention_API_OpenGL).m;
-    float projectionMatrix[16] = {
-      m[0][0], m[1][0], m[2][0], m[3][0],
-      m[0][1], m[1][1], m[2][1], m[3][1],
-      m[0][2], m[1][2], m[2][2], m[3][2],
-      m[0][3], m[1][3], m[2][3], m[3][3]
-    };
+    float near = state->clipNear;
+    float far = state->clipFar;
+    matrix = state->vrSystem->GetProjectionMatrix(eye, near, far, graphicsConvention).m;
+    mat4_fromMat44(projectionMatrix, matrix);
 
     Shader* shader = lovrGraphicsGetShader();
     if (shader) {
       int lovrTransformId = lovrShaderGetUniformId(shader, "lovrTransform");
       int lovrProjectionId = lovrShaderGetUniformId(shader, "lovrProjection");
-      mat4 m = mat4_multiply(mat4_multiply(projectionMatrix, mat4_invert(eyeMatrix)), headMatrix);
-      lovrShaderSendFloatMat4(shader, lovrTransformId, m);
+      mat4 transformMatrix = mat4_multiply(eyeMatrix, headMatrix);
+      lovrShaderSendFloatMat4(shader, lovrTransformId, transformMatrix);
       lovrShaderSendFloatMat4(shader, lovrProjectionId, projectionMatrix);
     }
 
@@ -243,8 +239,16 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
-    Texture_t eyeTexture = { (void*) state->resolveTexture, EGraphicsAPIConvention_API_OpenGL, EColorSpace_ColorSpace_Gamma };
+    Texture_t eyeTexture = { (void*) state->resolveTexture, graphicsConvention, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     state->vrCompositor->Submit(eye, &eyeTexture, NULL, flags);
   }
+}
+
+void viveSetClipDistance(void* headset, float near, float far) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  state->clipNear = near;
+  state->clipFar = far;
+  // TODO recompute matrix (only if we're rendering?)
 }

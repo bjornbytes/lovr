@@ -6,6 +6,14 @@
 #ifndef LOVR_GRAPHICS_TYPES
 #define LOVR_GRAPHICS_TYPES
 typedef vec_t(mat4) vec_mat4_t;
+
+typedef struct {
+  Shader* activeShader;
+  vec_mat4_t transforms;
+  mat4 lastTransform;
+  mat4 projection;
+  mat4 lastProjection;
+} GraphicsState;
 #endif
 
 void lovrGraphicsInit();
@@ -16,7 +24,8 @@ void lovrGraphicsGetClearColor(float* r, float* g, float* b, float* a);
 void lovrGraphicsSetClearColor(float r, float g, float b, float a);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
-void lovrGraphicsSetProjection(float near, float far, float fov, float aspect);
+void lovrGraphicsGetProjection(float* near, float* far, float* fov);
+void lovrGraphicsSetProjection(float near, float far, float fov);
 int lovrGraphicsPush();
 int lovrGraphicsPop();
 void lovrGraphicsOrigin();

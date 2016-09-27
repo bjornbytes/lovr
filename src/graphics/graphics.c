@@ -10,24 +10,21 @@
 #include <assimp/postprocess.h>
 #include "../headset/headset.h"
 
-typedef struct {
-  Shader* activeShader;
-  vec_mat4_t transforms;
-  mat4 lastTransform;
-  mat4 projection;
-  mat4 lastProjection;
-} GraphicsState;
-
-static GraphicsState graphicsState;
+static GraphicsState state;
 
 void lovrGraphicsInit() {
-  vec_init(&graphicsState.transforms);
-  vec_push(&graphicsState.transforms, mat4_init());
-  graphicsState.lastTransform = mat4_init();
-  memset(graphicsState.lastTransform, 0, 16);
-  graphicsState.projection = mat4_init();
-  graphicsState.lastProjection = mat4_init();
-  memset(graphicsState.lastProjection, 0, 16);
+  vec_init(&state.transforms);
+  vec_push(&state.transforms, mat4_init());
+
+  state.projection = mat4_init();
+  state.lastTransform = mat4_init();
+  state.lastProjection = mat4_init();
+
+  memset(state.lastTransform, 0, 16);
+  memset(state.lastProjection, 0, 16);
+
+  // TODO customize via lovr.conf
+  lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180);
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -55,8 +52,8 @@ void lovrGraphicsPrepare() {
     return;
   }
 
-  mat4 transform = vec_last(&graphicsState.transforms);
-  mat4 lastTransform = graphicsState.lastTransform;
+  mat4 transform = vec_last(&state.transforms);
+  mat4 lastTransform = state.lastTransform;
 
   if (memcmp(transform, lastTransform, 16 * sizeof(float))) {
     int uniformId = lovrShaderGetUniformId(shader, "lovrTransform");
@@ -64,8 +61,8 @@ void lovrGraphicsPrepare() {
     memcpy(lastTransform, transform, 16 * sizeof(float));
   }
 
-  mat4 projection = graphicsState.projection;
-  mat4 lastProjection = graphicsState.lastProjection;
+  mat4 projection = state.projection;
+  mat4 lastProjection = state.lastProjection;
 
   if (memcmp(projection, lastProjection, 16 * sizeof(float))) {
     int uniformId = lovrShaderGetUniformId(shader, "lovrProjection");
@@ -88,48 +85,55 @@ void lovrGraphicsSetClearColor(float r, float g, float b, float a) {
 }
 
 Shader* lovrGraphicsGetShader() {
-  return graphicsState.activeShader;
+  return state.activeShader;
 }
 
 // TODO default shader
 void lovrGraphicsSetShader(Shader* shader) {
-  graphicsState.activeShader = shader;
+  state.activeShader = shader;
   glUseProgram(shader->id);
 }
 
-void lovrGraphicsSetProjection(float near, float far, float fov, float aspect) {
-  mat4_setProjection(graphicsState.projection, near, far, fov, aspect);
+void lovrGraphicsGetProjection(float* near, float* far, float* fov) {
+  float aspect;
+  mat4_getProjection(state.projection, near, far, fov, &aspect);
+}
+
+void lovrGraphicsSetProjection(float near, float far, float fov) {
+  int width, height;
+  glfwGetWindowSize(window, &width, &height);
+  mat4_setProjection(state.projection, near, far, fov, (float) width / height);
 }
 
 int lovrGraphicsPush() {
-  vec_mat4_t* transforms = &graphicsState.transforms;
+  vec_mat4_t* transforms = &state.transforms;
   if (transforms->length >= 64) { return 1; }
   vec_push(transforms, mat4_copy(vec_last(transforms)));
   return 0;
 }
 
 int lovrGraphicsPop() {
-  vec_mat4_t* transforms = &graphicsState.transforms;
+  vec_mat4_t* transforms = &state.transforms;
   if (transforms->length <= 1) { return 1; }
   mat4_deinit(vec_pop(transforms));
   return 0;
 }
 
 void lovrGraphicsOrigin() {
-  vec_mat4_t* transforms = &graphicsState.transforms;
+  vec_mat4_t* transforms = &state.transforms;
   mat4_setIdentity(vec_last(transforms));
 }
 
 void lovrGraphicsTranslate(float x, float y, float z) {
-  mat4_translate(vec_last(&graphicsState.transforms), x, y, z);
+  mat4_translate(vec_last(&state.transforms), x, y, z);
 }
 
 void lovrGraphicsRotate(float w, float x, float y, float z) {
-  mat4_rotate(vec_last(&graphicsState.transforms), w, x, y, z);
+  mat4_rotate(vec_last(&state.transforms), w, x, y, z);
 }
 
 void lovrGraphicsScale(float x, float y, float z) {
-  mat4_scale(vec_last(&graphicsState.transforms), x, y, z);
+  mat4_scale(vec_last(&state.transforms), x, y, z);
 }
 
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {
