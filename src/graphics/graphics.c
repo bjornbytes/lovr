@@ -16,17 +16,9 @@ static GraphicsState state;
 
 void lovrGraphicsInit() {
   vec_init(&state.transforms);
-  vec_push(&state.transforms, mat4_init());
-
   state.projection = mat4_init();
   state.lastTransform = mat4_init();
   state.lastProjection = mat4_init();
-
-  memset(state.lastTransform, 0, 16);
-  memset(state.lastProjection, 0, 16);
-
-  // TODO customize via lovr.conf
-  lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180);
 
   char vertexShaderSource[128];
   snprintf(vertexShaderSource, sizeof(vertexShaderSource), "%s",
@@ -43,6 +35,27 @@ void lovrGraphicsInit() {
   );
 
   state.defaultShader = lovrGraphicsNewShader(vertexShaderSource, fragmentShaderSource);
+
+  lovrGraphicsReset();
+}
+
+void lovrGraphicsReset() {
+  int i;
+  mat4 matrix;
+
+  vec_foreach(&state.transforms, matrix, i) {
+    mat4_deinit(matrix);
+  }
+
+  vec_clear(&state.transforms);
+  vec_push(&state.transforms, mat4_init());
+
+  memset(state.lastTransform, 0, 16);
+  memset(state.lastProjection, 0, 16);
+
+  // TODO customize via lovr.conf
+  lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180);
+
   lovrGraphicsSetShader(state.defaultShader);
 }
 

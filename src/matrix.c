@@ -15,6 +15,10 @@ mat4 mat4_init() {
   return mat4_setIdentity(matrix);
 }
 
+void mat4_deinit(mat4 matrix) {
+  free(matrix);
+}
+
 mat4 mat4_copy(mat4 source) {
   mat4 matrix = mat4_init();
   memcpy(matrix, source, 16 * sizeof(float));
@@ -59,10 +63,6 @@ mat4 mat4_fromMat44(mat4 matrix, float (*source)[4]) {
   matrix[14] = source[2][3];
   matrix[15] = source[3][3];
   return matrix;
-}
-
-void mat4_deinit(mat4 matrix) {
-  free(matrix);
 }
 
 mat4 mat4_setIdentity(mat4 matrix) {

@@ -18,6 +18,7 @@ typedef struct {
 #endif
 
 void lovrGraphicsInit();
+void lovrGraphicsReset();
 void lovrGraphicsClear(int color, int depth);
 void lovrGraphicsPresent();
 void lovrGraphicsPrepare();

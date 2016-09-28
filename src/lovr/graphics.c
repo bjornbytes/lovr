@@ -6,6 +6,7 @@
 #include "../util.h"
 
 const luaL_Reg lovrGraphics[] = {
+  { "reset", l_lovrGraphicsReset },
   { "clear", l_lovrGraphicsClear },
   { "present", l_lovrGraphicsPresent },
   { "getClearColor", l_lovrGraphicsGetClearColor },
@@ -45,6 +46,11 @@ int l_lovrGraphicsInit(lua_State* L) {
 
   lovrGraphicsInit();
   return 1;
+}
+
+int l_lovrGraphicsReset(lua_State* L) {
+  lovrGraphicsReset();
+  return 0;
 }
 
 int l_lovrGraphicsClear(lua_State* L) {

@@ -8,6 +8,7 @@ map_int_t BufferUsages;
 
 extern const luaL_Reg lovrGraphics[];
 int l_lovrGraphicsInit(lua_State* L);
+int l_lovrGraphicsReset(lua_State* L);
 int l_lovrGraphicsClear(lua_State* L);
 int l_lovrGraphicsPresent(lua_State* L);
 int l_lovrGraphicsGetClearColor(lua_State* L);
