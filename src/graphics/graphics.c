@@ -57,6 +57,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180);
 
   lovrGraphicsSetShader(state.defaultShader);
+  lovrGraphicsSetColorMask(1, 1, 1, 1);
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -114,6 +115,19 @@ void lovrGraphicsGetClearColor(float* r, float* g, float* b, float* a) {
 
 void lovrGraphicsSetClearColor(float r, float g, float b, float a) {
   glClearColor(r / 255, g / 255, b / 255, a / 255);
+}
+
+void lovrGraphicsGetColorMask(char* r, char* g, char* b, char* a) {
+  char mask = state.colorMask;
+  *r = mask & 0x1;
+  *g = mask & 0x2;
+  *b = mask & 0x4;
+  *a = mask & 0x8;
+}
+
+void lovrGraphicsSetColorMask(char r, char g, char b, char a) {
+  state.colorMask = ((r & 1) << 0) | ((g & 1) << 1) | ((b & 1) << 2) | ((a & 1) << 3);
+  glColorMask(r, g, b, a);
 }
 
 Shader* lovrGraphicsGetShader() {

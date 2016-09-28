@@ -11,6 +11,8 @@ const luaL_Reg lovrGraphics[] = {
   { "present", l_lovrGraphicsPresent },
   { "getClearColor", l_lovrGraphicsGetClearColor },
   { "setClearColor", l_lovrGraphicsSetClearColor },
+  { "getColorMask", l_lovrGraphicsGetColorMask },
+  { "setColorMask", l_lovrGraphicsSetColorMask },
   { "setShader", l_lovrGraphicsSetShader },
   { "setProjection", l_lovrGraphicsSetProjection },
   { "push", l_lovrGraphicsPush },
@@ -83,6 +85,31 @@ int l_lovrGraphicsSetClearColor(lua_State* L) {
     a = luaL_checknumber(L, 4);
   }
   lovrGraphicsSetClearColor(r, g, b, a);
+  return 0;
+}
+
+int l_lovrGraphicsGetColorMask(lua_State* L) {
+  char r, g, b, a;
+  lovrGraphicsGetColorMask(&r, &g, &b, &a);
+  lua_pushboolean(L, r);
+  lua_pushboolean(L, g);
+  lua_pushboolean(L, b);
+  lua_pushboolean(L, a);
+  return 4;
+}
+
+int l_lovrGraphicsSetColorMask(lua_State* L) {
+  if (lua_gettop(L) <= 1 && lua_isnoneornil(L, 1)) {
+    lovrGraphicsSetColorMask(1, 1, 1, 1);
+    return 0;
+  }
+
+  char r = lua_toboolean(L, 1);
+  char g = lua_toboolean(L, 2);
+  char b = lua_toboolean(L, 3);
+  char a = lua_toboolean(L, 4);
+  lovrGraphicsSetColorMask(r, g, b, a);
+
   return 0;
 }
 
