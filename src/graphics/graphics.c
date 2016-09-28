@@ -129,11 +129,6 @@ void lovrGraphicsSetShader(Shader* shader) {
   glUseProgram(shader->id);
 }
 
-void lovrGraphicsGetProjection(float* near, float* far, float* fov) {
-  float aspect;
-  mat4_getProjection(state.projection, near, far, fov, &aspect);
-}
-
 void lovrGraphicsSetProjection(float near, float far, float fov) {
   int width, height;
   glfwGetWindowSize(window, &width, &height);

@@ -117,10 +117,6 @@ mat4 mat4_setProjection(mat4 matrix, float near, float far, float fov, float asp
   return matrix;
 }
 
-void mat4_getProjection(mat4 matrix, float* near, float* far, float* fov, float* aspect) {
-  *near = *far = *fov = *aspect = 0.f;
-}
-
 mat4 mat4_translate(mat4 matrix, float x, float y, float z) {
   float translation[16];
   mat4_setTranslation(translation, x, y, z);
