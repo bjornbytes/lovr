@@ -107,7 +107,6 @@ Shader* lovrGraphicsGetShader() {
   return state.activeShader;
 }
 
-// TODO default shader
 void lovrGraphicsSetShader(Shader* shader) {
   if (!shader) {
     shader = state.defaultShader;
