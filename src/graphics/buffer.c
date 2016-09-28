@@ -96,17 +96,18 @@ void lovrBufferSetRangeEnabled(Buffer* buffer, char isEnabled) {
   buffer->isRangeEnabled = isEnabled;
 }
 
-void lovrBufferGetDrawRange(Buffer* buffer, int* start, int* end) {
+void lovrBufferGetDrawRange(Buffer* buffer, int* start, int* count) {
   *start = buffer->rangeStart;
-  *end = buffer->rangeStart + buffer->rangeCount - 1;
+  *count = buffer->rangeCount;
 }
 
-int lovrBufferSetDrawRange(Buffer* buffer, int rangeStart, int rangeEnd) {
-  if (rangeStart < 0 || rangeEnd < 0 || rangeStart > rangeEnd) {
+int lovrBufferSetDrawRange(Buffer* buffer, int rangeStart, int rangeCount) {
+  if (rangeStart < 0 || rangeCount < 0 || rangeStart + rangeCount > buffer->size) {
     return 1;
   }
 
   buffer->rangeStart = rangeStart;
-  buffer->rangeCount = rangeEnd - rangeStart + 1;
+  buffer->rangeCount = rangeCount;
+
   return 0;
 }

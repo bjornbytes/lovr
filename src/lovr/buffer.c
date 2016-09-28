@@ -160,15 +160,15 @@ int l_lovrBufferSetVertexMap(lua_State* L) {
 
 int l_lovrBufferGetDrawRange(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
-  if (lovrBufferIsRangeEnabled(buffer)) {
+  if (!lovrBufferIsRangeEnabled(buffer)) {
     lua_pushnil(L);
     return 1;
   }
 
-  int start, end;
-  lovrBufferGetDrawRange(buffer, &start, &end);
+  int start, count;
+  lovrBufferGetDrawRange(buffer, &start, &count);
   lua_pushinteger(L, start + 1);
-  lua_pushinteger(L, end + 1);
+  lua_pushinteger(L, count);
   return 2;
 }
 
@@ -181,9 +181,10 @@ int l_lovrBufferSetDrawRange(lua_State* L) {
 
   lovrBufferSetRangeEnabled(buffer, 1);
   int rangeStart = luaL_checkinteger(L, 2) - 1;
-  int rangeEnd = luaL_checkinteger(L, 3) - 1;
-  if (lovrBufferSetDrawRange(buffer, rangeStart, rangeEnd)) {
-    return luaL_error(L, "Invalid buffer draw range (%d, %d)", rangeStart, rangeEnd);
+  int rangeCount = luaL_checkinteger(L, 3);
+  if (lovrBufferSetDrawRange(buffer, rangeStart, rangeCount)) {
+    return luaL_error(L, "Invalid buffer draw range (%d, %d)", rangeStart + 1, rangeCount);
   }
+
   return 0;
 }
