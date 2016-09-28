@@ -104,7 +104,7 @@ void lovrGraphicsPrepare() {
   }
 }
 
-void lovrGraphicsGetClearColor(float* r, float* g, float* b, float* a) {
+void lovrGraphicsGetBackgroundColor(float* r, float* g, float* b, float* a) {
   GLfloat clearColor[4];
   glGetFloatv(GL_COLOR_CLEAR_VALUE, clearColor);
   *r = clearColor[0];
@@ -113,7 +113,7 @@ void lovrGraphicsGetClearColor(float* r, float* g, float* b, float* a) {
   *a = clearColor[3];
 }
 
-void lovrGraphicsSetClearColor(float r, float g, float b, float a) {
+void lovrGraphicsSetBackgroundColor(float r, float g, float b, float a) {
   glClearColor(r / 255, g / 255, b / 255, a / 255);
 }
 

@@ -9,8 +9,8 @@ const luaL_Reg lovrGraphics[] = {
   { "reset", l_lovrGraphicsReset },
   { "clear", l_lovrGraphicsClear },
   { "present", l_lovrGraphicsPresent },
-  { "getClearColor", l_lovrGraphicsGetClearColor },
-  { "setClearColor", l_lovrGraphicsSetClearColor },
+  { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
+  { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
   { "getColorMask", l_lovrGraphicsGetColorMask },
   { "setColorMask", l_lovrGraphicsSetColorMask },
   { "setShader", l_lovrGraphicsSetShader },
@@ -66,9 +66,9 @@ int l_lovrGraphicsPresent(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsGetClearColor(lua_State* L) {
+int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
   float r, g, b, a;
-  lovrGraphicsGetClearColor(&r, &g, &b, &a);
+  lovrGraphicsGetBackgroundColor(&r, &g, &b, &a);
   lua_pushnumber(L, r);
   lua_pushnumber(L, g);
   lua_pushnumber(L, b);
@@ -76,7 +76,7 @@ int l_lovrGraphicsGetClearColor(lua_State* L) {
   return 4;
 }
 
-int l_lovrGraphicsSetClearColor(lua_State* L) {
+int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
   float r = luaL_checknumber(L, 1);
   float g = luaL_checknumber(L, 2);
   float b = luaL_checknumber(L, 3);
@@ -84,7 +84,7 @@ int l_lovrGraphicsSetClearColor(lua_State* L) {
   if (lua_gettop(L) > 3) {
     a = luaL_checknumber(L, 4);
   }
-  lovrGraphicsSetClearColor(r, g, b, a);
+  lovrGraphicsSetBackgroundColor(r, g, b, a);
   return 0;
 }
 
