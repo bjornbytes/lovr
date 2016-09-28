@@ -9,6 +9,7 @@ typedef vec_t(mat4) vec_mat4_t;
 
 typedef struct {
   Shader* activeShader;
+  Shader* defaultShader;
   vec_mat4_t transforms;
   mat4 lastTransform;
   mat4 projection;

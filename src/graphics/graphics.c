@@ -27,6 +27,23 @@ void lovrGraphicsInit() {
 
   // TODO customize via lovr.conf
   lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180);
+
+  char vertexShaderSource[128];
+  snprintf(vertexShaderSource, sizeof(vertexShaderSource), "%s",
+    "void main() { \n"
+    "  gl_Position = lovrProjection * lovrTransform * vec4(position.xyz, 1.0); \n"
+    "}"
+  );
+
+  char fragmentShaderSource[64];
+  snprintf(fragmentShaderSource, sizeof(fragmentShaderSource), "%s",
+    "void main() { \n"
+    "  color = vec4(1.0); \n"
+    "}"
+  );
+
+  state.defaultShader = lovrGraphicsNewShader(vertexShaderSource, fragmentShaderSource);
+  lovrGraphicsSetShader(state.defaultShader);
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -92,6 +109,10 @@ Shader* lovrGraphicsGetShader() {
 
 // TODO default shader
 void lovrGraphicsSetShader(Shader* shader) {
+  if (!shader) {
+    shader = state.defaultShader;
+  }
+
   state.activeShader = shader;
   glUseProgram(shader->id);
 }
