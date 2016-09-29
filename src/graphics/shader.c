@@ -4,14 +4,26 @@
 
 const char* lovrShaderVertexPrefix = ""
 "#version 150 \n"
-"uniform mat4 lovrTransform;"
-"uniform mat4 lovrProjection;"
+"uniform mat4 lovrTransform; \n"
+"uniform mat4 lovrProjection; \n"
 "in vec3 position;"
 "";
 
 const char* lovrShaderFragmentPrefix = ""
 "#version 150 \n"
 "out vec4 color;"
+"";
+
+const char* lovrDefaultVertexShader = ""
+"void main() { \n"
+"  gl_Position = lovrProjection * lovrTransform * vec4(position.xyz, 1.0); \n"
+"}"
+"";
+
+const char* lovrDefaultFragmentShader = ""
+"void main() { \n"
+"  color = vec4(1.0); \n"
+"}"
 "";
 
 GLuint compileShader(GLenum type, const char* source) {

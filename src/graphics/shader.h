@@ -9,6 +9,8 @@ typedef struct {
 
 extern const char* lovrShaderVertexPrefix;
 extern const char* lovrShaderFragmentPrefix;
+extern const char* lovrDefaultVertexShader;
+extern const char* lovrDefaultFragmentShader;
 
 GLuint compileShader(GLuint type, const char* filename);
 GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader);

@@ -20,21 +20,7 @@ void lovrGraphicsInit() {
   state.lastTransform = mat4_init();
   state.lastProjection = mat4_init();
 
-  char vertexShaderSource[128];
-  snprintf(vertexShaderSource, sizeof(vertexShaderSource), "%s",
-    "void main() { \n"
-    "  gl_Position = lovrProjection * lovrTransform * vec4(position.xyz, 1.0); \n"
-    "}"
-  );
-
-  char fragmentShaderSource[64];
-  snprintf(fragmentShaderSource, sizeof(fragmentShaderSource), "%s",
-    "void main() { \n"
-    "  color = vec4(1.0); \n"
-    "}"
-  );
-
-  state.defaultShader = lovrGraphicsNewShader(vertexShaderSource, fragmentShaderSource);
+  state.defaultShader = lovrGraphicsNewShader(lovrDefaultVertexShader, lovrDefaultFragmentShader);
 
   lovrGraphicsReset();
 }
