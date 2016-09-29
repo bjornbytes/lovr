@@ -14,6 +14,13 @@ typedef vec_t(mat4) vec_mat4_t;
 #define LOVR_COLOR_A(c) (c >> 0  & 0xff)
 
 typedef struct {
+  int x;
+  int y;
+  int width;
+  int height;
+} ScissorRectangle;
+
+typedef struct {
   Shader* activeShader;
   Shader* defaultShader;
   vec_mat4_t transforms;
@@ -23,6 +30,8 @@ typedef struct {
   unsigned int color;
   unsigned int lastColor;
   unsigned char colorMask;
+  char isScissorEnabled;
+  ScissorRectangle scissor;
 } GraphicsState;
 #endif
 
@@ -37,6 +46,10 @@ void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, 
 void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void lovrGraphicsGetColorMask(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
 void lovrGraphicsSetColorMask(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+char lovrGraphicsIsScissorEnabled();
+void lovrGraphicsSetScissorEnabled(char isEnabled);
+void lovrGraphicsGetScissor(int* x, int* y, int* width, int* height);
+void lovrGraphicsSetScissor(int x, int y, int width, int height);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsSetProjection(float near, float far, float fov);

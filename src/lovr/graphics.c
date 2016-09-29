@@ -15,6 +15,8 @@ const luaL_Reg lovrGraphics[] = {
   { "setColor", l_lovrGraphicsSetColor },
   { "getColorMask", l_lovrGraphicsGetColorMask },
   { "setColorMask", l_lovrGraphicsSetColorMask },
+  { "getScissor", l_lovrGraphicsGetScissor },
+  { "setScissor", l_lovrGraphicsSetScissor },
   { "setShader", l_lovrGraphicsSetShader },
   { "setProjection", l_lovrGraphicsSetProjection },
   { "push", l_lovrGraphicsPush },
@@ -136,6 +138,37 @@ int l_lovrGraphicsSetColorMask(lua_State* L) {
   unsigned char b = lua_toboolean(L, 3);
   unsigned char a = lua_toboolean(L, 4);
   lovrGraphicsSetColorMask(r, g, b, a);
+
+  return 0;
+}
+
+int l_lovrGraphicsGetScissor(lua_State* L) {
+  if (!lovrGraphicsIsScissorEnabled()) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  int x, y, width, height;
+  lovrGraphicsGetScissor(&x, &y, &width, &height);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, width);
+  lua_pushnumber(L, height);
+  return 4;
+}
+
+int l_lovrGraphicsSetScissor(lua_State* L) {
+  if (lua_gettop(L) <= 1 && lua_isnoneornil(L, 1)) {
+    lovrGraphicsSetScissorEnabled(0);
+    return 0;
+  }
+
+  int x = luaL_checkint(L, 1);
+  int y = luaL_checkint(L, 2);
+  int width = luaL_checkint(L, 3);
+  int height = luaL_checkint(L, 4);
+  lovrGraphicsSetScissor(x, y, width, height);
+  lovrGraphicsSetScissorEnabled(1);
 
   return 0;
 }
