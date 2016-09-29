@@ -226,6 +226,10 @@ void lovrGraphicsScale(float x, float y, float z) {
   mat4_scale(vec_last(&state.transforms), x, y, z);
 }
 
+void lovrGraphicsTransform(mat4 transform) {
+  mat4_multiply(vec_last(&state.transforms), transform);
+}
+
 void lovrGraphicsGetDimensions(int* width, int* height) {
   glfwGetFramebufferSize(window, width, height);
 }

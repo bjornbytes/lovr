@@ -63,6 +63,7 @@ void lovrGraphicsOrigin();
 void lovrGraphicsTranslate(float x, float y, float z);
 void lovrGraphicsRotate(float w, float x, float y, float z);
 void lovrGraphicsScale(float x, float y, float z);
+void lovrGraphicsTransform(mat4 transform);
 void lovrGraphicsGetDimensions(int* width, int* height);
 void lovrGraphicsSetShapeData(float* data, int count);
 void lovrGraphicsDrawShape();
