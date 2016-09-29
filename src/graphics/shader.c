@@ -11,6 +11,7 @@ const char* lovrShaderVertexPrefix = ""
 
 const char* lovrShaderFragmentPrefix = ""
 "#version 150 \n"
+"uniform vec4 lovrColor; \n"
 "out vec4 color;"
 "";
 
@@ -22,7 +23,7 @@ const char* lovrDefaultVertexShader = ""
 
 const char* lovrDefaultFragmentShader = ""
 "void main() { \n"
-"  color = vec4(1.0); \n"
+"  color = lovrColor; \n"
 "}"
 "";
 

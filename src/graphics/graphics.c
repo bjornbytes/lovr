@@ -103,15 +103,15 @@ void lovrGraphicsSetBackgroundColor(float r, float g, float b, float a) {
   glClearColor(r / 255, g / 255, b / 255, a / 255);
 }
 
-void lovrGraphicsGetColorMask(char* r, char* g, char* b, char* a) {
-  char mask = state.colorMask;
+void lovrGraphicsGetColorMask(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a) {
+  unsigned char mask = state.colorMask;
   *r = mask & 0x1;
   *g = mask & 0x2;
   *b = mask & 0x4;
   *a = mask & 0x8;
 }
 
-void lovrGraphicsSetColorMask(char r, char g, char b, char a) {
+void lovrGraphicsSetColorMask(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
   state.colorMask = ((r & 1) << 0) | ((g & 1) << 1) | ((b & 1) << 2) | ((a & 1) << 3);
   glColorMask(r, g, b, a);
 }

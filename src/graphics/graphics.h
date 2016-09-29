@@ -14,7 +14,7 @@ typedef struct {
   mat4 lastTransform;
   mat4 projection;
   mat4 lastProjection;
-  char colorMask;
+  unsigned char colorMask;
 } GraphicsState;
 #endif
 
@@ -25,8 +25,8 @@ void lovrGraphicsPresent();
 void lovrGraphicsPrepare();
 void lovrGraphicsGetBackgroundColor(float* r, float* g, float* b, float* a);
 void lovrGraphicsSetBackgroundColor(float r, float g, float b, float a);
-void lovrGraphicsGetColorMask(char* r, char* g, char* b, char* a);
-void lovrGraphicsSetColorMask(char r, char g, char b, char a);
+void lovrGraphicsGetColorMask(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
+void lovrGraphicsSetColorMask(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsSetProjection(float near, float far, float fov);
