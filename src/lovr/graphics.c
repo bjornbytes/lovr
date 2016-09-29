@@ -113,7 +113,6 @@ int l_lovrGraphicsSetColor(lua_State* L) {
   unsigned char b = lua_tointeger(L, 3);
   unsigned char a = lua_isnoneornil(L, 4) ? 255 : lua_tointeger(L, 4);
   lovrGraphicsSetColor(r, g, b, a);
-
   return 0;
 }
 
@@ -138,7 +137,6 @@ int l_lovrGraphicsSetColorMask(lua_State* L) {
   unsigned char b = lua_toboolean(L, 3);
   unsigned char a = lua_toboolean(L, 4);
   lovrGraphicsSetColorMask(r, g, b, a);
-
   return 0;
 }
 
@@ -169,7 +167,6 @@ int l_lovrGraphicsSetScissor(lua_State* L) {
   int height = luaL_checkint(L, 4);
   lovrGraphicsSetScissor(x, y, width, height);
   lovrGraphicsSetScissorEnabled(1);
-
   return 0;
 }
 
@@ -279,7 +276,6 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
   }
 
   luax_pushbuffer(L, buffer);
-
   return 1;
 }
 
