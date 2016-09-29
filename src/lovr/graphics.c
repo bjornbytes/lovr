@@ -25,6 +25,9 @@ const luaL_Reg lovrGraphics[] = {
   { "translate", l_lovrGraphicsTranslate },
   { "rotate", l_lovrGraphicsRotate },
   { "scale", l_lovrGraphicsScale },
+  { "getWidth", l_lovrGraphicsGetWidth },
+  { "getHeight", l_lovrGraphicsGetHeight },
+  { "getDimensions", l_lovrGraphicsGetDimensions },
   { "newModel", l_lovrGraphicsNewModel },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newShader", l_lovrGraphicsNewShader },
@@ -233,6 +236,28 @@ int l_lovrGraphicsScale(lua_State* L) {
   float z = luaL_checknumber(L, 3);
   lovrGraphicsScale(x, y, z);
   return 0;
+}
+
+int l_lovrGraphicsGetWidth(lua_State* L) {
+  int width;
+  lovrGraphicsGetDimensions(&width, NULL);
+  lua_pushnumber(L, width);
+  return 1;
+}
+
+int l_lovrGraphicsGetHeight(lua_State* L) {
+  int height;
+  lovrGraphicsGetDimensions(NULL, &height);
+  lua_pushnumber(L, height);
+  return 1;
+}
+
+int l_lovrGraphicsGetDimensions(lua_State* L) {
+  int width, height;
+  lovrGraphicsGetDimensions(&width, &height);
+  lua_pushnumber(L, width);
+  lua_pushnumber(L, height);
+  return 2;
 }
 
 int l_lovrGraphicsNewBuffer(lua_State* L) {

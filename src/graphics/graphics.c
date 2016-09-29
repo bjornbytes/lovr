@@ -223,6 +223,10 @@ void lovrGraphicsScale(float x, float y, float z) {
   mat4_scale(vec_last(&state.transforms), x, y, z);
 }
 
+void lovrGraphicsGetDimensions(int* width, int* height) {
+  glfwGetFramebufferSize(window, width, height);
+}
+
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {
   Buffer* buffer = malloc(sizeof(Buffer));
 

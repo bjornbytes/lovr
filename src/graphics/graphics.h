@@ -60,6 +60,7 @@ void lovrGraphicsOrigin();
 void lovrGraphicsTranslate(float x, float y, float z);
 void lovrGraphicsRotate(float w, float x, float y, float z);
 void lovrGraphicsScale(float x, float y, float z);
+void lovrGraphicsGetDimensions(int* width, int* height);
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage);
 Model* lovrGraphicsNewModel(const char* path);
 Shader* lovrGraphicsNewShader(const char* vertexSource, const char* fragmentSource);
