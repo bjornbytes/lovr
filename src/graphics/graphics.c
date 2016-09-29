@@ -161,7 +161,7 @@ void lovrGraphicsGetScissor(int* x, int* y, int* width, int* height) {
 
 void lovrGraphicsSetScissor(int x, int y, int width, int height) {
   int windowWidth, windowHeight;
-  glfwGetWindowSize(window, &windowWidth, &windowHeight);
+  glfwGetFramebufferSize(window, &windowWidth, &windowHeight);
   state.scissor.x = x;
   state.scissor.x = y;
   state.scissor.width = width;
