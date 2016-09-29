@@ -222,10 +222,16 @@ int l_lovrGraphicsTranslate(lua_State* L) {
 }
 
 int l_lovrGraphicsRotate(lua_State* L) {
-  float w = luaL_checknumber(L, 1);
-  float x = luaL_checknumber(L, 2);
-  float y = luaL_checknumber(L, 3);
-  float z = luaL_checknumber(L, 4);
+  float angle = luaL_checknumber(L, 1);
+  float axisX = luaL_checknumber(L, 2);
+  float axisY = luaL_checknumber(L, 3);
+  float axisZ = luaL_checknumber(L, 4);
+  float cos2 = cos(angle / 2);
+  float sin2 = sin(angle / 2);
+  float w = cos2;
+  float x = sin2 * axisX;
+  float y = sin2 * axisY;
+  float z = sin2 * axisZ;
   lovrGraphicsRotate(w, x, y, z);
   return 0;
 }
