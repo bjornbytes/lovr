@@ -21,6 +21,9 @@ void lovrGraphicsInit() {
   state.lastProjection = mat4_init();
   state.defaultShader = lovrGraphicsNewShader(lovrDefaultVertexShader, lovrDefaultFragmentShader);
   state.lastColor = LOVR_COLOR(255, 255, 255, 255);
+  glGenBuffers(1, &state.shapeBuffer);
+  glGenVertexArrays(1, &state.shapeArray);
+  vec_init(&state.shapeData);
   lovrGraphicsReset();
 }
 
@@ -225,6 +228,22 @@ void lovrGraphicsScale(float x, float y, float z) {
 
 void lovrGraphicsGetDimensions(int* width, int* height) {
   glfwGetFramebufferSize(window, width, height);
+}
+
+void lovrGraphicsSetShapeData(float* data, int count) {
+  vec_clear(&state.shapeData);
+  vec_pusharr(&state.shapeData, data, count);
+  glBindVertexArray(state.shapeArray);
+  glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
+  glBufferData(GL_ARRAY_BUFFER, count * sizeof(float), data, GL_STREAM_DRAW);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+}
+
+void lovrGraphicsDrawShape() {
+  lovrGraphicsPrepare();
+  glBindVertexArray(state.shapeArray);
+  glEnableVertexAttribArray(0);
+  glDrawArrays(GL_TRIANGLE_FAN, 0, state.shapeData.length / 3);
 }
 
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {

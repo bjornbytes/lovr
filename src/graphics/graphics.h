@@ -32,6 +32,9 @@ typedef struct {
   unsigned char colorMask;
   char isScissorEnabled;
   ScissorRectangle scissor;
+  GLuint shapeArray;
+  GLuint shapeBuffer;
+  vec_float_t shapeData;
 } GraphicsState;
 #endif
 
@@ -61,6 +64,8 @@ void lovrGraphicsTranslate(float x, float y, float z);
 void lovrGraphicsRotate(float w, float x, float y, float z);
 void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsGetDimensions(int* width, int* height);
+void lovrGraphicsSetShapeData(float* data, int count);
+void lovrGraphicsDrawShape();
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage);
 Model* lovrGraphicsNewModel(const char* path);
 Shader* lovrGraphicsNewShader(const char* vertexSource, const char* fragmentSource);
