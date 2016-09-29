@@ -11,6 +11,8 @@ const luaL_Reg lovrGraphics[] = {
   { "present", l_lovrGraphicsPresent },
   { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
   { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
+  { "getColor", l_lovrGraphicsGetColor },
+  { "setColor", l_lovrGraphicsSetColor },
   { "getColorMask", l_lovrGraphicsGetColorMask },
   { "setColorMask", l_lovrGraphicsSetColorMask },
   { "setShader", l_lovrGraphicsSetShader },
@@ -85,6 +87,31 @@ int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
     a = luaL_checknumber(L, 4);
   }
   lovrGraphicsSetBackgroundColor(r, g, b, a);
+  return 0;
+}
+
+int l_lovrGraphicsGetColor(lua_State* L) {
+  unsigned char r, g, b, a;
+  lovrGraphicsGetColor(&r, &g, &b, &a);
+  lua_pushinteger(L, r);
+  lua_pushinteger(L, g);
+  lua_pushinteger(L, b);
+  lua_pushinteger(L, a);
+  return 4;
+}
+
+int l_lovrGraphicsSetColor(lua_State* L) {
+  if (lua_gettop(L) <= 1 && lua_isnoneornil(L, 1)) {
+    lovrGraphicsSetColor(255, 255, 255, 255);
+    return 0;
+  }
+
+  unsigned char r = lua_tointeger(L, 1);
+  unsigned char g = lua_tointeger(L, 2);
+  unsigned char b = lua_tointeger(L, 3);
+  unsigned char a = lua_isnoneornil(L, 4) ? 255 : lua_tointeger(L, 4);
+  lovrGraphicsSetColor(r, g, b, a);
+
   return 0;
 }
 

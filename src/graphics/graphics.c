@@ -19,9 +19,8 @@ void lovrGraphicsInit() {
   state.projection = mat4_init();
   state.lastTransform = mat4_init();
   state.lastProjection = mat4_init();
-
   state.defaultShader = lovrGraphicsNewShader(lovrDefaultVertexShader, lovrDefaultFragmentShader);
-
+  state.lastColor = LOVR_COLOR(255, 255, 255, 255);
   lovrGraphicsReset();
 }
 
@@ -39,10 +38,10 @@ void lovrGraphicsReset() {
   memset(state.lastTransform, 0, 16);
   memset(state.lastProjection, 0, 16);
 
-  // TODO customize via lovr.conf
-  lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180);
-
+  lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180); // TODO customize via lovr.conf
   lovrGraphicsSetShader(state.defaultShader);
+  lovrGraphicsSetBackgroundColor(0, 0, 0, 0);
+  lovrGraphicsSetColor(255, 255, 255, 255);
   lovrGraphicsSetColorMask(1, 1, 1, 1);
 }
 
@@ -88,6 +87,18 @@ void lovrGraphicsPrepare() {
     lovrShaderSendFloatMat4(shader, uniformId, projection);
     memcpy(lastProjection, projection, 16 * sizeof(float));
   }
+
+  if (state.lastColor != state.color) {
+    int uniformId = lovrShaderGetUniformId(shader, "lovrColor");
+    float color[4] = {
+      LOVR_COLOR_R(state.color) / 255.f,
+      LOVR_COLOR_G(state.color) / 255.f,
+      LOVR_COLOR_B(state.color) / 255.f,
+      LOVR_COLOR_A(state.color) / 255.f
+    };
+    lovrShaderSendFloatVec4(shader, uniformId, color);
+    state.lastColor = state.color;
+  }
 }
 
 void lovrGraphicsGetBackgroundColor(float* r, float* g, float* b, float* a) {
@@ -101,6 +112,17 @@ void lovrGraphicsGetBackgroundColor(float* r, float* g, float* b, float* a) {
 
 void lovrGraphicsSetBackgroundColor(float r, float g, float b, float a) {
   glClearColor(r / 255, g / 255, b / 255, a / 255);
+}
+
+void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a) {
+  *r = LOVR_COLOR_R(state.color);
+  *g = LOVR_COLOR_G(state.color);
+  *b = LOVR_COLOR_B(state.color);
+  *a = LOVR_COLOR_A(state.color);
+}
+
+void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+  state.color = LOVR_COLOR(r, g, b, a);
 }
 
 void lovrGraphicsGetColorMask(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a) {

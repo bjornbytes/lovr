@@ -7,6 +7,12 @@
 #define LOVR_GRAPHICS_TYPES
 typedef vec_t(mat4) vec_mat4_t;
 
+#define LOVR_COLOR(r, g, b, a) ((a << 0) | (b << 8) | (g << 16) | (r << 24))
+#define LOVR_COLOR_R(c) (c >> 24 & 0xff)
+#define LOVR_COLOR_G(c) (c >> 16 & 0xff)
+#define LOVR_COLOR_B(c) (c >> 8  & 0xff)
+#define LOVR_COLOR_A(c) (c >> 0  & 0xff)
+
 typedef struct {
   Shader* activeShader;
   Shader* defaultShader;
@@ -14,6 +20,8 @@ typedef struct {
   mat4 lastTransform;
   mat4 projection;
   mat4 lastProjection;
+  unsigned int color;
+  unsigned int lastColor;
   unsigned char colorMask;
 } GraphicsState;
 #endif
@@ -25,6 +33,8 @@ void lovrGraphicsPresent();
 void lovrGraphicsPrepare();
 void lovrGraphicsGetBackgroundColor(float* r, float* g, float* b, float* a);
 void lovrGraphicsSetBackgroundColor(float r, float g, float b, float a);
+void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
+void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void lovrGraphicsGetColorMask(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
 void lovrGraphicsSetColorMask(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 Shader* lovrGraphicsGetShader();

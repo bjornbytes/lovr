@@ -13,6 +13,8 @@ int l_lovrGraphicsClear(lua_State* L);
 int l_lovrGraphicsPresent(lua_State* L);
 int l_lovrGraphicsGetBackgroundColor(lua_State* L);
 int l_lovrGraphicsSetBackgroundColor(lua_State* L);
+int l_lovrGraphicsGetColor(lua_State* L);
+int l_lovrGraphicsSetColor(lua_State* L);
 int l_lovrGraphicsGetColorMask(lua_State* L);
 int l_lovrGraphicsSetColorMask(lua_State* L);
 int l_lovrGraphicsGetShader(lua_State* L);
