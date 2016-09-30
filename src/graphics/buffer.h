@@ -1,5 +1,5 @@
 #include "../glfw.h"
-#include "../vendor/vec/vec.h"
+#include "../util.h"
 
 #ifndef LOVR_BUFFER_TYPES
 #define LOVR_BUFFER_TYPES
@@ -15,8 +15,6 @@ typedef enum {
   BUFFER_DYNAMIC = GL_DYNAMIC_DRAW,
   BUFFER_STREAM = GL_STREAM_DRAW
 } BufferUsage;
-
-typedef vec_t(unsigned int) vec_uint_t;
 
 typedef struct {
   int size;

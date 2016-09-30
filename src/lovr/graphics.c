@@ -26,6 +26,7 @@ const luaL_Reg lovrGraphics[] = {
   { "rotate", l_lovrGraphicsRotate },
   { "scale", l_lovrGraphicsScale },
   { "line", l_lovrGraphicsLine },
+  { "cube", l_lovrGraphicsCube },
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
@@ -274,9 +275,18 @@ int l_lovrGraphicsLine(lua_State* L) {
     }
   }
 
-  lovrGraphicsSetShapeData(points.data, count);
+  lovrGraphicsSetShapeData(points.data, count, NULL, 0);
   lovrGraphicsDrawShape(DRAW_MODE_LINE);
   vec_deinit(&points);
+  return 0;
+}
+
+int l_lovrGraphicsCube(lua_State* L) {
+  float x = luaL_optnumber(L, 1, 0.f);
+  float y = luaL_optnumber(L, 2, 0.f);
+  float z = luaL_optnumber(L, 3, 0.f);
+  float s = luaL_optnumber(L, 4, 1.f);
+  lovrGraphicsCube(x, y, z, s);
   return 0;
 }
 

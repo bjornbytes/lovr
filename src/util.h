@@ -1,6 +1,12 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+#include "vendor/vec/vec.h"
+
+#ifndef UTIL_TYPES
+#define UTIL_TYPES
+typedef vec_t(unsigned int) vec_uint_t;
+#endif
 
 void error(const char* format, ...);
 int fileExists(char* filename);

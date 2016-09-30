@@ -22,7 +22,8 @@ typedef struct {
 
 typedef enum {
   DRAW_MODE_FILL = GL_TRIANGLE_FAN,
-  DRAW_MODE_LINE = GL_LINE_STRIP
+  DRAW_MODE_LINE = GL_LINE_STRIP,
+  DRAW_MODE_LINES = GL_LINES
 } DrawMode;
 
 typedef struct {
@@ -39,7 +40,9 @@ typedef struct {
   ScissorRectangle scissor;
   GLuint shapeArray;
   GLuint shapeBuffer;
+  GLuint shapeIndexBuffer;
   vec_float_t shapeData;
+  vec_uint_t shapeIndices;
 } GraphicsState;
 #endif
 
@@ -70,9 +73,10 @@ void lovrGraphicsRotate(float w, float x, float y, float z);
 void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsTransform(mat4 transform);
 void lovrGraphicsGetDimensions(int* width, int* height);
-void lovrGraphicsSetShapeData(float* data, int count);
+void lovrGraphicsSetShapeData(float* data, int count, unsigned int* indices, int indexCount);
 void lovrGraphicsDrawShape();
 void lovrGraphicsLine(float* points, int count);
+void lovrGraphicsCube(float x, float y, float z, float size);
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage);
 Model* lovrGraphicsNewModel(const char* path);
 Shader* lovrGraphicsNewShader(const char* vertexSource, const char* fragmentSource);

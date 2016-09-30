@@ -22,8 +22,10 @@ void lovrGraphicsInit() {
   state.defaultShader = lovrGraphicsNewShader(lovrDefaultVertexShader, lovrDefaultFragmentShader);
   state.lastColor = LOVR_COLOR(255, 255, 255, 255);
   glGenBuffers(1, &state.shapeBuffer);
+  glGenBuffers(1, &state.shapeIndexBuffer);
   glGenVertexArrays(1, &state.shapeArray);
   vec_init(&state.shapeData);
+  vec_init(&state.shapeIndices);
   lovrGraphicsReset();
 }
 
@@ -234,25 +236,68 @@ void lovrGraphicsGetDimensions(int* width, int* height) {
   glfwGetFramebufferSize(window, width, height);
 }
 
-void lovrGraphicsSetShapeData(float* data, int count) {
+void lovrGraphicsSetShapeData(float* vertexData, int vertexLength, unsigned int* indexData, int indexLength) {
   vec_clear(&state.shapeData);
-  vec_pusharr(&state.shapeData, data, count);
+  vec_pusharr(&state.shapeData, vertexData, vertexLength);
   glBindVertexArray(state.shapeArray);
   glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
-  glBufferData(GL_ARRAY_BUFFER, count * sizeof(float), data, GL_STREAM_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, vertexLength * sizeof(float), vertexData, GL_STREAM_DRAW);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+  vec_clear(&state.shapeIndices);
+  if (indexData) {
+    vec_pusharr(&state.shapeIndices, indexData, indexLength);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state.shapeIndexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, state.shapeIndices.length * sizeof(unsigned int), state.shapeIndices.data, GL_STREAM_DRAW);
+  }
 }
 
 void lovrGraphicsDrawShape(DrawMode mode) {
+  int usingIbo = state.shapeIndices.length > 0;
   lovrGraphicsPrepare();
   glBindVertexArray(state.shapeArray);
   glEnableVertexAttribArray(0);
-  glDrawArrays(mode, 0, state.shapeData.length / 3);
+
+  if (usingIbo) {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state.shapeIndexBuffer);
+    glDrawElements(mode, state.shapeIndices.length, GL_UNSIGNED_INT, NULL);
+  } else {
+    glDrawArrays(mode, 0, state.shapeData.length / 3);
+  }
 }
 
 void lovrGraphicsLine(float* points, int count) {
-  lovrGraphicsSetShapeData(points, count);
+  lovrGraphicsSetShapeData(points, count, NULL, 0);
   lovrGraphicsDrawShape(DRAW_MODE_LINE);
+}
+
+void lovrGraphicsCube(float x, float y, float z, float size) {
+  float points[] = {
+    // Bottom
+    -.5, .5, -.5,
+    .5, .5, -.5,
+    .5, -.5, -.5,
+    -.5, -.5, -.5,
+
+    // Top
+    -.5, .5, .5,
+    .5, .5, .5,
+    .5, -.5, .5,
+    -.5, -.5, .5
+  };
+
+  unsigned int indices[] = {
+    0, 1, 1, 2, 2, 3, 3, 0, // Bottom
+    4, 5, 5, 6, 6, 7, 7, 4, // Top
+    0, 4, 1, 5, 2, 6, 3, 7  // Connections
+  };
+
+  lovrGraphicsPush();
+  lovrGraphicsScale(size, size, size);
+  lovrGraphicsTranslate(x, y, z);
+  lovrGraphicsSetShapeData(points, 24, indices, 24);
+  lovrGraphicsDrawShape(DRAW_MODE_LINES);
+  lovrGraphicsPop();
 }
 
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {

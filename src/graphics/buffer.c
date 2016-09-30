@@ -1,6 +1,5 @@
 #include "buffer.h"
 #include "graphics.h"
-#include "../util.h"
 #include <stdlib.h>
 
 void lovrBufferDestroy(Buffer* buffer) {
@@ -82,9 +81,7 @@ void lovrBufferSetVertexMap(Buffer* buffer, unsigned int* map, int count) {
   }
 
   vec_clear(&buffer->map);
-  vec_reserve(&buffer->map, count);
   vec_pusharr(&buffer->map, map, count);
-
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(unsigned int), buffer->map.data, GL_STATIC_DRAW);
 }
 
