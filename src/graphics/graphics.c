@@ -292,9 +292,11 @@ void lovrGraphicsCube(float x, float y, float z, float size) {
     0, 4, 1, 5, 2, 6, 3, 7  // Connections
   };
 
+  float transform[16];
+  mat4_setTranslation(transform, x, y, z);
+  mat4_scale(transform, size, size, size);
   lovrGraphicsPush();
-  lovrGraphicsScale(size, size, size);
-  lovrGraphicsTranslate(x, y, z);
+  lovrGraphicsTransform(transform);
   lovrGraphicsSetShapeData(points, 24, indices, 24);
   lovrGraphicsDrawShape(DRAW_MODE_LINES);
   lovrGraphicsPop();
