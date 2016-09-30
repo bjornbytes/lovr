@@ -77,15 +77,22 @@ The executable will then exist at `/path/to/lovr/build/Debug/lovr.exe`.  The rec
 
 Used for development, not generally recommended.
 
+One-time setup:
+
 ```sh
 cd lovr
 git clone git@github.com:ValveSoftware/openvr ..
 export DYLD_LIBRARY_PATH=`pwd`/../openvr/lib/osx32
 brew install assimp glfw3 luajit
+```
+
+Compiling:
+
+```sh
 tup
 ```
 
-To run a game, just do
+Running a game:
 
 ```sh
 $ ./lovr /path/to/game
