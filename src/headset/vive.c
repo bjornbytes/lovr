@@ -7,6 +7,7 @@
 typedef struct {
   struct VR_IVRSystem_FnTable* vrSystem;
   struct VR_IVRCompositor_FnTable* vrCompositor;
+  struct VR_IVRChaperone_FnTable* vrChaperone;
 
   unsigned int deviceIndex;
 
@@ -72,6 +73,13 @@ Headset* viveInit() {
   state->vrCompositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
   if (vrError != EVRInitError_VRInitError_None || state->vrCompositor == NULL) {
     error("Problem initializing VRCompositor");
+    return NULL;
+  }
+
+  sprintf(fnTableName, "FnTable:%s", IVRChaperone_Version);
+  state->vrChaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
+  if (vrError != EVRInitError_VRInitError_None || state->vrChaperone == NULL) {
+    error("Problem initializing VRChaperone");
     return NULL;
   }
 
