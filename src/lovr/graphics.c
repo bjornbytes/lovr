@@ -25,6 +25,7 @@ const luaL_Reg lovrGraphics[] = {
   { "translate", l_lovrGraphicsTranslate },
   { "rotate", l_lovrGraphicsRotate },
   { "scale", l_lovrGraphicsScale },
+  { "line", l_lovrGraphicsLine },
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
@@ -241,6 +242,41 @@ int l_lovrGraphicsScale(lua_State* L) {
   float y = luaL_checknumber(L, 2);
   float z = luaL_checknumber(L, 3);
   lovrGraphicsScale(x, y, z);
+  return 0;
+}
+
+int l_lovrGraphicsLine(lua_State* L) {
+  vec_float_t points;
+  vec_init(&points);
+  int isTable = lua_istable(L, 1);
+
+  if (!isTable && !lua_isnumber(L, 1)) {
+    return luaL_error(L, "Expected number or table, got '%s'", lua_typename(L, lua_type(L, 1)));
+  }
+
+  int count = isTable ? lua_objlen(L, 1) : lua_gettop(L);
+  if (count % 3 != 0) {
+    vec_deinit(&points);
+    return luaL_error(L, "Number of coordinates must be a multiple of 3, got '%d'", count);
+  }
+
+  vec_reserve(&points, count);
+
+  if (isTable) {
+    for (int i = 1; i <= count; i++) {
+      lua_rawgeti(L, 1, i);
+      vec_push(&points, lua_tonumber(L, -1));
+      lua_pop(L, 1);
+    }
+  } else {
+    for (int i = 1; i <= count; i++) {
+      vec_push(&points, lua_tonumber(L, i));
+    }
+  }
+
+  lovrGraphicsSetShapeData(points.data, count);
+  lovrGraphicsDrawShape(DRAW_MODE_LINE);
+  vec_deinit(&points);
   return 0;
 }
 

@@ -243,11 +243,16 @@ void lovrGraphicsSetShapeData(float* data, int count) {
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 }
 
-void lovrGraphicsDrawShape() {
+void lovrGraphicsDrawShape(DrawMode mode) {
   lovrGraphicsPrepare();
   glBindVertexArray(state.shapeArray);
   glEnableVertexAttribArray(0);
-  glDrawArrays(GL_TRIANGLE_FAN, 0, state.shapeData.length / 3);
+  glDrawArrays(mode, 0, state.shapeData.length / 3);
+}
+
+void lovrGraphicsLine(float* points, int count) {
+  lovrGraphicsSetShapeData(points, count);
+  lovrGraphicsDrawShape(DRAW_MODE_LINE);
 }
 
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {

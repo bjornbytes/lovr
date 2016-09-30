@@ -20,6 +20,11 @@ typedef struct {
   int height;
 } ScissorRectangle;
 
+typedef enum {
+  DRAW_MODE_FILL = GL_TRIANGLE_FAN,
+  DRAW_MODE_LINE = GL_LINE_STRIP
+} DrawMode;
+
 typedef struct {
   Shader* activeShader;
   Shader* defaultShader;
@@ -67,6 +72,7 @@ void lovrGraphicsTransform(mat4 transform);
 void lovrGraphicsGetDimensions(int* width, int* height);
 void lovrGraphicsSetShapeData(float* data, int count);
 void lovrGraphicsDrawShape();
+void lovrGraphicsLine(float* points, int count);
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage);
 Model* lovrGraphicsNewModel(const char* path);
 Shader* lovrGraphicsNewShader(const char* vertexSource, const char* fragmentSource);
