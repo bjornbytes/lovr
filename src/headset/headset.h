@@ -3,15 +3,15 @@
 typedef void (*headsetRenderCallback)(int eyeIndex, void* userdata);
 
 typedef struct {
-  void (*getAngularVelocity)(void* headset, float* x, float* y, float* z);
-  void (*getClipDistance)(void* headset, float* near, float* far);
-  void (*getOrientation)(void* headset, float* x, float* y, float* z, float* w);
-  void (*getPosition)(void* headset, float* x, float* y, float* z);
-  const char* (*getType)(void* headset);
-  void (*getVelocity)(void* headset, float* x, float* y, float* z);
   int (*isPresent)(void* headset);
-  void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
+  const char* (*getType)(void* headset);
+  void (*getClipDistance)(void* headset, float* near, float* far);
   void (*setClipDistance)(void* headset, float near, float far);
+  void (*getPosition)(void* headset, float* x, float* y, float* z);
+  void (*getOrientation)(void* headset, float* x, float* y, float* z, float* w);
+  void (*getVelocity)(void* headset, float* x, float* y, float* z);
+  void (*getAngularVelocity)(void* headset, float* x, float* y, float* z);
+  void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
 } HeadsetInterface;
 
 typedef struct {
@@ -21,12 +21,12 @@ typedef struct {
 #endif
 
 void lovrHeadsetInit();
-void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);
-void lovrHeadsetGetClipDistance(float* near, float* far);
-void lovrHeadsetGetOrientation(float* x, float* y, float* z, float* w);
-void lovrHeadsetGetPosition(float* x, float* y, float* z);
-const char* lovrHeadsetGetType();
-void lovrHeadsetGetVelocity(float* x, float* y, float* z);
 int lovrHeadsetIsPresent();
-void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
+const char* lovrHeadsetGetType();
+void lovrHeadsetGetClipDistance(float* near, float* far);
 void lovrHeadsetSetClipDistance(float near, float far);
+void lovrHeadsetGetPosition(float* x, float* y, float* z);
+void lovrHeadsetGetOrientation(float* x, float* y, float* z, float* w);
+void lovrHeadsetGetVelocity(float* x, float* y, float* z);
+void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);
+void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);

@@ -25,12 +25,14 @@ typedef struct {
 } ViveState;
 
 static HeadsetInterface interface = {
-  .getAngularVelocity = viveGetAngularVelocity,
-  .getOrientation = viveGetOrientation,
-  .getPosition = viveGetPosition,
-  .getType = viveGetType,
-  .getVelocity = viveGetVelocity,
   .isPresent = viveIsPresent,
+  .getType = viveGetType,
+  .getClipDistance = viveGetClipDistance,
+  .setClipDistance = viveSetClipDistance,
+  .getPosition = viveGetPosition,
+  .getOrientation = viveGetOrientation,
+  .getVelocity = viveGetVelocity,
+  .getAngularVelocity = viveGetAngularVelocity,
   .renderTo = viveRenderTo
 };
 
@@ -120,23 +122,15 @@ Headset* viveInit() {
   return this;
 }
 
-void viveGetAngularVelocity(void* headset, float* x, float* y, float* z) {
+int viveIsPresent(void* headset) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;
 
-  ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
-  float secondsInFuture = 0.f;
-  TrackedDevicePose_t pose;
-  state->vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, &pose, 1);
+  return (int) state->vrSystem->IsTrackedDeviceConnected(state->deviceIndex);
+}
 
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *x = *y = *z = 0.f;
-    return;
-  }
-
-  *x = pose.vAngularVelocity.v[0];
-  *y = pose.vAngularVelocity.v[1];
-  *z = pose.vAngularVelocity.v[2];
+const char* viveGetType(void* headset) {
+  return "Vive";
 }
 
 void viveGetClipDistance(void* headset, float* near, float* far) {
@@ -146,9 +140,11 @@ void viveGetClipDistance(void* headset, float* near, float* far) {
   *far = state->clipFar;
 }
 
-// TODO convert matrix to quaternion!
-void viveGetOrientation(void* headset, float* x, float* y, float *z, float* w) {
-  *x = *y = *z = *w = 0.f;
+void viveSetClipDistance(void* headset, float near, float far) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  state->clipNear = near;
+  state->clipFar = far;
 }
 
 void viveGetPosition(void* headset, float* x, float* y, float* z) {
@@ -170,8 +166,9 @@ void viveGetPosition(void* headset, float* x, float* y, float* z) {
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
 }
 
-const char* viveGetType(void* headset) {
-  return "Vive";
+// TODO convert matrix to quaternion!
+void viveGetOrientation(void* headset, float* x, float* y, float *z, float* w) {
+  *x = *y = *z = *w = 0.f;
 }
 
 void viveGetVelocity(void* headset, float* x, float* y, float* z) {
@@ -193,11 +190,23 @@ void viveGetVelocity(void* headset, float* x, float* y, float* z) {
   *z = pose.vVelocity.v[2];
 }
 
-int viveIsPresent(void* headset) {
+void viveGetAngularVelocity(void* headset, float* x, float* y, float* z) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;
 
-  return (int) state->vrSystem->IsTrackedDeviceConnected(state->deviceIndex);
+  ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
+  float secondsInFuture = 0.f;
+  TrackedDevicePose_t pose;
+  state->vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, &pose, 1);
+
+  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+    *x = *y = *z = 0.f;
+    return;
+  }
+
+  *x = pose.vAngularVelocity.v[0];
+  *y = pose.vAngularVelocity.v[1];
+  *z = pose.vAngularVelocity.v[2];
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
@@ -249,12 +258,4 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     state->vrCompositor->Submit(eye, &eyeTexture, NULL, flags);
   }
-}
-
-void viveSetClipDistance(void* headset, float near, float far) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  state->clipNear = near;
-  state->clipFar = far;
-  // TODO recompute matrix (only if we're rendering?)
 }

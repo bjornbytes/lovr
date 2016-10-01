@@ -3,12 +3,12 @@ typedef char bool;
 #include "headset.h"
 
 Headset* viveInit();
-void viveGetAngularVelocity(void* headset, float* x, float* y, float* z);
-void viveGetClipDistance(void* headset, float* near, float* far);
-void viveGetOrientation(void* headset, float* x, float* y, float* z, float* w);
-void viveGetPosition(void* headset, float* x, float* y, float* z);
-const char* viveGetType(void* headset);
-void viveGetVelocity(void* headset, float* x, float* y, float* z);
 int viveIsPresent(void* headset);
-void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata);
+const char* viveGetType(void* headset);
+void viveGetClipDistance(void* headset, float* near, float* far);
 void viveSetClipDistance(void* headset, float near, float far);
+void viveGetPosition(void* headset, float* x, float* y, float* z);
+void viveGetOrientation(void* headset, float* x, float* y, float* z, float* w);
+void viveGetVelocity(void* headset, float* x, float* y, float* z);
+void viveGetAngularVelocity(void* headset, float* x, float* y, float* z);
+void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata);
