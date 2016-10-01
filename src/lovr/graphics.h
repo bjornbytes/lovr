@@ -23,6 +23,8 @@ int l_lovrGraphicsSetScissor(lua_State* L);
 int l_lovrGraphicsGetShader(lua_State* L);
 int l_lovrGraphicsSetShader(lua_State* L);
 int l_lovrGraphicsSetProjection(lua_State* L);
+int l_lovrGraphicsGetLineWidth(lua_State* L);
+int l_lovrGraphicsSetLineWidth(lua_State* L);
 int l_lovrGraphicsPush(lua_State* L);
 int l_lovrGraphicsPop(lua_State* L);
 int l_lovrGraphicsOrigin(lua_State* L);

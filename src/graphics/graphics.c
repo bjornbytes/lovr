@@ -49,6 +49,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetColor(255, 255, 255, 255);
   lovrGraphicsSetColorMask(1, 1, 1, 1);
   lovrGraphicsSetScissorEnabled(0);
+  lovrGraphicsSetLineWidth(1);
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -195,6 +196,15 @@ void lovrGraphicsSetProjection(float near, float far, float fov) {
 
 void lovrGraphicsSetProjectionRaw(mat4 projection) {
   memcpy(state.projection, projection, 16 * sizeof(float));
+}
+
+float lovrGraphicsGetLineWidth() {
+  return state.lineWidth;
+}
+
+void lovrGraphicsSetLineWidth(float width) {
+  state.lineWidth = width;
+  glLineWidth(width);
 }
 
 int lovrGraphicsPush() {

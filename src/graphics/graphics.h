@@ -42,6 +42,7 @@ typedef struct {
   GLuint shapeIndexBuffer;
   vec_float_t shapeData;
   vec_uint_t shapeIndices;
+  float lineWidth;
 } GraphicsState;
 #endif
 
@@ -64,6 +65,8 @@ Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsSetProjection(float near, float far, float fov);
 void lovrGraphicsSetProjectionRaw(mat4 projection);
+float lovrGraphicsGetLineWidth();
+void lovrGraphicsSetLineWidth(float width);
 int lovrGraphicsPush();
 int lovrGraphicsPop();
 void lovrGraphicsOrigin();

@@ -20,6 +20,8 @@ const luaL_Reg lovrGraphics[] = {
   { "getShader", l_lovrGraphicsGetShader },
   { "setShader", l_lovrGraphicsSetShader },
   { "setProjection", l_lovrGraphicsSetProjection },
+  { "getLineWidth", l_lovrGraphicsGetLineWidth },
+  { "setLineWidth", l_lovrGraphicsSetLineWidth },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },
@@ -196,6 +198,17 @@ int l_lovrGraphicsSetProjection(lua_State* L) {
   float far = luaL_checknumber(L, 2);
   float fov = luaL_checknumber(L, 3);
   lovrGraphicsSetProjection(near, far, fov);
+  return 0;
+}
+
+int l_lovrGraphicsGetLineWidth(lua_State* L) {
+  lua_pushnumber(L, lovrGraphicsGetLineWidth());
+  return 1;
+}
+
+int l_lovrGraphicsSetLineWidth(lua_State* L) {
+  float width = luaL_optnumber(L, 1, 1.f);
+  lovrGraphicsSetLineWidth(width);
   return 0;
 }
 
