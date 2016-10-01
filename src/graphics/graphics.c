@@ -271,7 +271,7 @@ void lovrGraphicsLine(float* points, int count) {
   lovrGraphicsDrawShape(GL_LINE_STRIP);
 }
 
-void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size) {
+void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ) {
   float points[] = {
     // Front
     -.5, .5, -.5,
@@ -286,9 +286,17 @@ void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size) {
     -.5, -.5, .5
   };
 
+  float cos2 = cos(angle / 2);
+  float sin2 = sin(angle / 2);
+  float rw = cos2;
+  float rx = sin2 * axisX;
+  float ry = sin2 * axisY;
+  float rz = sin2 * axisZ;
+
   float transform[16];
   mat4_setTranslation(transform, x, y, z);
   mat4_scale(transform, size, size, size);
+  mat4_rotate(transform, rw, rx, ry, rz);
   lovrGraphicsPush();
   lovrGraphicsTransform(transform);
 

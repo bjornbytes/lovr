@@ -296,7 +296,11 @@ int l_lovrGraphicsCube(lua_State* L) {
   float y = luaL_optnumber(L, 3, 0.f);
   float z = luaL_optnumber(L, 4, 0.f);
   float s = luaL_optnumber(L, 5, 1.f);
-  lovrGraphicsCube(*drawMode, x, y, z, s);
+  float angle = luaL_optnumber(L, 6, 0.f);
+  float axisX = luaL_optnumber(L, 7, 0.f);
+  float axisY = luaL_optnumber(L, 8, 0.f);
+  float axisZ = luaL_optnumber(L, 9, 0.f);
+  lovrGraphicsCube(*drawMode, x, y, z, s, angle, axisX, axisY, axisZ);
   return 0;
 }
 

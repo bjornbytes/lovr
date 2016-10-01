@@ -75,7 +75,7 @@ void lovrGraphicsGetDimensions(int* width, int* height);
 void lovrGraphicsSetShapeData(float* data, int count, unsigned int* indices, int indexCount);
 void lovrGraphicsDrawShape();
 void lovrGraphicsLine(float* points, int count);
-void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size);
+void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ);
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage);
 Model* lovrGraphicsNewModel(const char* path);
 Shader* lovrGraphicsNewShader(const char* vertexSource, const char* fragmentSource);
