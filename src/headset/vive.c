@@ -57,11 +57,6 @@ Headset* viveInit() {
     return NULL;
   }
 
-  if (!VR_IsInterfaceVersionValid(IVRSystem_Version)) {
-    error("Invalid OpenVR version");
-    return NULL;
-  }
-
   char fnTableName[128];
 
   sprintf(fnTableName, "FnTable:%s", IVRSystem_Version);
@@ -272,7 +267,8 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
-    Texture_t eyeTexture = { (void*) state->resolveTexture, graphicsConvention, EColorSpace_ColorSpace_Gamma };
+    uintptr_t texture = (uintptr_t) state->resolveTexture;
+    Texture_t eyeTexture = { (void*) texture, graphicsConvention, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     state->vrCompositor->Submit(eye, &eyeTexture, NULL, flags);
   }
