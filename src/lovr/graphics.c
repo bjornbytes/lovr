@@ -17,6 +17,7 @@ const luaL_Reg lovrGraphics[] = {
   { "setColorMask", l_lovrGraphicsSetColorMask },
   { "getScissor", l_lovrGraphicsGetScissor },
   { "setScissor", l_lovrGraphicsSetScissor },
+  { "getShader", l_lovrGraphicsGetShader },
   { "setShader", l_lovrGraphicsSetShader },
   { "setProjection", l_lovrGraphicsSetProjection },
   { "push", l_lovrGraphicsPush },
