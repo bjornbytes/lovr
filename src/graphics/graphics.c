@@ -272,38 +272,51 @@ void lovrGraphicsLine(float* points, int count) {
 }
 
 void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size) {
+  float points[] = {
+    // Front
+    -.5, .5, -.5,
+    .5, .5, -.5,
+    .5, -.5, -.5,
+    -.5, -.5, -.5,
+
+    // Back
+    -.5, .5, .5,
+    .5, .5, .5,
+    .5, -.5, .5,
+    -.5, -.5, .5
+  };
+
+  float transform[16];
+  mat4_setTranslation(transform, x, y, z);
+  mat4_scale(transform, size, size, size);
+  lovrGraphicsPush();
+  lovrGraphicsTransform(transform);
+
   if (mode == DRAW_MODE_LINE) {
-    float points[] = {
-      // Bottom
-      -.5, .5, -.5,
-      .5, .5, -.5,
-      .5, -.5, -.5,
-      -.5, -.5, -.5,
-
-      // Top
-      -.5, .5, .5,
-      .5, .5, .5,
-      .5, -.5, .5,
-      -.5, -.5, .5
-    };
-
     unsigned int indices[] = {
-      0, 1, 1, 2, 2, 3, 3, 0, // Bottom
-      4, 5, 5, 6, 6, 7, 7, 4, // Top
+      0, 1, 1, 2, 2, 3, 3, 0, // Front
+      4, 5, 5, 6, 6, 7, 7, 4, // Back
       0, 4, 1, 5, 2, 6, 3, 7  // Connections
     };
 
-    float transform[16];
-    mat4_setTranslation(transform, x, y, z);
-    mat4_scale(transform, size, size, size);
-    lovrGraphicsPush();
-    lovrGraphicsTransform(transform);
     lovrGraphicsSetShapeData(points, 24, indices, 24);
     lovrGraphicsDrawShape(GL_LINES);
-    lovrGraphicsPop();
   } else {
-    return;
+    unsigned int indices[] = {
+      3, 2, 0, 1, // Front
+      1, 2, 5, 6, // Right
+      6, 7, 5, 4, // Back
+      4, 7, 0, 3, // Left
+      3, 7, 2, 6, // Bottom
+      6, 0,
+      0, 1, 4, 5 // Top
+    };
+
+    lovrGraphicsSetShapeData(points, 24, indices, 26);
+    lovrGraphicsDrawShape(GL_TRIANGLE_STRIP);
   }
+
+  lovrGraphicsPop();
 }
 
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {
