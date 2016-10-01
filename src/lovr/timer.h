@@ -5,3 +5,4 @@
 extern const luaL_Reg lovrTimer[];
 int l_lovrTimerInit(lua_State* L);
 int l_lovrTimerStep(lua_State* L);
+int l_lovrTimerSleep(lua_State* L);

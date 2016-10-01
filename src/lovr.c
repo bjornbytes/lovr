@@ -59,6 +59,7 @@ void lovrInit(lua_State* L) {
     "      else lovr.draw() end "
     "    end "
     "    lovr.graphics.present() "
+    "    lovr.timer.sleep(.001) "
     "  end "
     "end"
   );
