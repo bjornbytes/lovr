@@ -153,6 +153,18 @@ void viveGetTrackingSize(void* headset, float* width, float* depth) {
   state->vrChaperone->GetPlayAreaSize(width, depth);
 }
 
+char viveIsBoundsVisible(void* headset) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  return state->vrChaperone->AreBoundsVisible();
+}
+
+void viveSetBoundsVisible(void* headset, char visible) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  state->vrChaperone->ForceBoundsVisible(visible);
+}
+
 void viveGetPosition(void* headset, float* x, float* y, float* z) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;

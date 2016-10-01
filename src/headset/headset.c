@@ -27,6 +27,14 @@ void lovrHeadsetGetTrackingSize(float* width, float* depth) {
   headset->interface->getTrackingSize(headset, width, depth);
 }
 
+char lovrHeadsetIsBoundsVisible() {
+  return headset->interface->isBoundsVisible(headset);
+}
+
+void lovrHeadsetSetBoundsVisible(char visible) {
+  headset->interface->setBoundsVisible(headset, visible);
+}
+
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
   headset->interface->getPosition(headset, x, y, z);
 }

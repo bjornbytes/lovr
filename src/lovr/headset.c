@@ -63,6 +63,17 @@ int l_lovrHeadsetGetTrackingSize(lua_State* L) {
   return 2;
 }
 
+int l_lovrHeadsetIsBoundsVisible(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetIsBoundsVisible());
+  return 1;
+}
+
+int l_lovrHeadsetSetBoundsVisible(lua_State* L) {
+  char visible = lua_toboolean(L, 1);
+  lovrHeadsetSetBoundsVisible(visible);
+  return 0;
+}
+
 int l_lovrHeadsetGetPosition(lua_State* L) {
   float x, y, z;
   lovrHeadsetGetPosition(&x, &y, &z);

@@ -8,6 +8,8 @@ typedef struct {
   void (*getClipDistance)(void* headset, float* near, float* far);
   void (*setClipDistance)(void* headset, float near, float far);
   void (*getTrackingSize)(void* headset, float* width, float* depth);
+  char (*isBoundsVisible)(void* headset);
+  void (*setBoundsVisible)(void* headset, char visible);
   void (*getPosition)(void* headset, float* x, float* y, float* z);
   void (*getOrientation)(void* headset, float* x, float* y, float* z, float* w);
   void (*getVelocity)(void* headset, float* x, float* y, float* z);
@@ -27,6 +29,8 @@ const char* lovrHeadsetGetType();
 void lovrHeadsetGetClipDistance(float* near, float* far);
 void lovrHeadsetSetClipDistance(float near, float far);
 void lovrHeadsetGetTrackingSize(float* width, float* depth);
+char lovrHeadsetIsBoundsVisible();
+void lovrHeadsetSetBoundsVisible(char isVisible);
 void lovrHeadsetGetPosition(float* x, float* y, float* z);
 void lovrHeadsetGetOrientation(float* x, float* y, float* z, float* w);
 void lovrHeadsetGetVelocity(float* x, float* y, float* z);
