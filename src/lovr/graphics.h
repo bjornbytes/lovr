@@ -5,6 +5,7 @@
 
 map_int_t BufferDrawModes;
 map_int_t BufferUsages;
+map_int_t DrawModes;
 
 extern const luaL_Reg lovrGraphics[];
 int l_lovrGraphicsInit(lua_State* L);

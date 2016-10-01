@@ -252,7 +252,7 @@ void lovrGraphicsSetShapeData(float* vertexData, int vertexLength, unsigned int*
   }
 }
 
-void lovrGraphicsDrawShape(DrawMode mode) {
+void lovrGraphicsDrawShape(GLenum mode) {
   int usingIbo = state.shapeIndices.length > 0;
   lovrGraphicsPrepare();
   glBindVertexArray(state.shapeArray);
@@ -268,38 +268,42 @@ void lovrGraphicsDrawShape(DrawMode mode) {
 
 void lovrGraphicsLine(float* points, int count) {
   lovrGraphicsSetShapeData(points, count, NULL, 0);
-  lovrGraphicsDrawShape(DRAW_MODE_LINE);
+  lovrGraphicsDrawShape(GL_LINE_STRIP);
 }
 
-void lovrGraphicsCube(float x, float y, float z, float size) {
-  float points[] = {
-    // Bottom
-    -.5, .5, -.5,
-    .5, .5, -.5,
-    .5, -.5, -.5,
-    -.5, -.5, -.5,
+void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size) {
+  if (mode == DRAW_MODE_LINE) {
+    float points[] = {
+      // Bottom
+      -.5, .5, -.5,
+      .5, .5, -.5,
+      .5, -.5, -.5,
+      -.5, -.5, -.5,
 
-    // Top
-    -.5, .5, .5,
-    .5, .5, .5,
-    .5, -.5, .5,
-    -.5, -.5, .5
-  };
+      // Top
+      -.5, .5, .5,
+      .5, .5, .5,
+      .5, -.5, .5,
+      -.5, -.5, .5
+    };
 
-  unsigned int indices[] = {
-    0, 1, 1, 2, 2, 3, 3, 0, // Bottom
-    4, 5, 5, 6, 6, 7, 7, 4, // Top
-    0, 4, 1, 5, 2, 6, 3, 7  // Connections
-  };
+    unsigned int indices[] = {
+      0, 1, 1, 2, 2, 3, 3, 0, // Bottom
+      4, 5, 5, 6, 6, 7, 7, 4, // Top
+      0, 4, 1, 5, 2, 6, 3, 7  // Connections
+    };
 
-  float transform[16];
-  mat4_setTranslation(transform, x, y, z);
-  mat4_scale(transform, size, size, size);
-  lovrGraphicsPush();
-  lovrGraphicsTransform(transform);
-  lovrGraphicsSetShapeData(points, 24, indices, 24);
-  lovrGraphicsDrawShape(DRAW_MODE_LINES);
-  lovrGraphicsPop();
+    float transform[16];
+    mat4_setTranslation(transform, x, y, z);
+    mat4_scale(transform, size, size, size);
+    lovrGraphicsPush();
+    lovrGraphicsTransform(transform);
+    lovrGraphicsSetShapeData(points, 24, indices, 24);
+    lovrGraphicsDrawShape(GL_LINES);
+    lovrGraphicsPop();
+  } else {
+    return;
+  }
 }
 
 Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {

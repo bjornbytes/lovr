@@ -54,6 +54,10 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&BufferUsages, "dynamic", BUFFER_DYNAMIC);
   map_set(&BufferUsages, "stream", BUFFER_STREAM);
 
+  map_init(&DrawModes);
+  map_set(&DrawModes, "fill", DRAW_MODE_FILL);
+  map_set(&DrawModes, "line", DRAW_MODE_LINE);
+
   lovrGraphicsInit();
   return 1;
 }
@@ -282,11 +286,17 @@ int l_lovrGraphicsLine(lua_State* L) {
 }
 
 int l_lovrGraphicsCube(lua_State* L) {
-  float x = luaL_optnumber(L, 1, 0.f);
-  float y = luaL_optnumber(L, 2, 0.f);
-  float z = luaL_optnumber(L, 3, 0.f);
-  float s = luaL_optnumber(L, 4, 1.f);
-  lovrGraphicsCube(x, y, z, s);
+  const char* userDrawMode = luaL_checkstring(L, 1);
+  DrawMode* drawMode = (DrawMode*) map_get(&DrawModes, userDrawMode);
+  if (!drawMode) {
+    return luaL_error(L, "Invalid draw mode: '%s'", userDrawMode);
+  }
+
+  float x = luaL_optnumber(L, 2, 0.f);
+  float y = luaL_optnumber(L, 3, 0.f);
+  float z = luaL_optnumber(L, 4, 0.f);
+  float s = luaL_optnumber(L, 5, 1.f);
+  lovrGraphicsCube(*drawMode, x, y, z, s);
   return 0;
 }
 
