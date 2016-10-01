@@ -14,6 +14,7 @@ const luaL_Reg lovrHeadset[] = {
   { "getType", l_lovrHeadsetGetType },
   { "getClipDistance", l_lovrHeadsetGetClipDistance },
   { "setClipDistance", l_lovrHeadsetSetClipDistance },
+  { "getTrackingSize", l_lovrHeadsetGetTrackingSize },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetPosition },
   { "getVelocity", l_lovrHeadsetGetVelocity },
@@ -52,6 +53,14 @@ int l_lovrHeadsetSetClipDistance(lua_State* L) {
   float far = luaL_checknumber(L, 2);
   lovrHeadsetSetClipDistance(near, far);
   return 0;
+}
+
+int l_lovrHeadsetGetTrackingSize(lua_State* L) {
+  float width, depth;
+  lovrHeadsetGetClipDistance(&width, &depth);
+  lua_pushnumber(L, width);
+  lua_pushnumber(L, depth);
+  return 2;
 }
 
 int l_lovrHeadsetGetPosition(lua_State* L) {

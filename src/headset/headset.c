@@ -23,6 +23,10 @@ void lovrHeadsetSetClipDistance(float near, float far) {
   headset->interface->setClipDistance(headset, near, far);
 }
 
+void lovrHeadsetGetTrackingSize(float* width, float* depth) {
+  headset->interface->getTrackingSize(headset, width, depth);
+}
+
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
   headset->interface->getPosition(headset, x, y, z);
 }

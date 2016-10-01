@@ -147,6 +147,12 @@ void viveSetClipDistance(void* headset, float near, float far) {
   state->clipFar = far;
 }
 
+void viveGetTrackingSize(void* headset, float* width, float* depth) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  state->vrChaperone->GetPlayAreaSize(width, depth);
+}
+
 void viveGetPosition(void* headset, float* x, float* y, float* z) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;

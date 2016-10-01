@@ -8,6 +8,7 @@ int l_lovrHeadsetIsPresent(lua_State* L);
 int l_lovrHeadsetGetType(lua_State* L);
 int l_lovrHeadsetGetClipDistance(lua_State* L);
 int l_lovrHeadsetSetClipDistance(lua_State* L);
+int l_lovrHeadsetGetTrackingSize(lua_State* L);
 int l_lovrHeadsetGetPosition(lua_State* L);
 int l_lovrHeadsetGetOrientation(lua_State* L);
 int l_lovrHeadsetGetVelocity(lua_State* L);
