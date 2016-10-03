@@ -43,6 +43,15 @@ static HeadsetInterface interface = {
   .renderTo = viveRenderTo
 };
 
+static TrackedDevicePose_t viveGetPose(ViveState* state, unsigned int deviceIndex) {
+  ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
+  float secondsInFuture = 0.f;
+  unsigned int maxPoses = k_unMaxTrackedDeviceCount;
+  TrackedDevicePose_t poses[maxPoses];
+  state->vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, poses, maxPoses);
+  return poses[deviceIndex];
+}
+
 Headset* viveInit() {
   Headset* this = malloc(sizeof(Headset));
   ViveState* state = malloc(sizeof(ViveState));
@@ -179,11 +188,7 @@ void viveSetBoundsVisible(void* headset, char visible) {
 void viveGetPosition(void* headset, float* x, float* y, float* z) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;
-
-  ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
-  float secondsInFuture = 0.f;
-  TrackedDevicePose_t pose;
-  state->vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, &pose, 1);
+  TrackedDevicePose_t pose = viveGetPose(state, state->headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
@@ -203,11 +208,7 @@ void viveGetOrientation(void* headset, float* x, float* y, float *z, float* w) {
 void viveGetVelocity(void* headset, float* x, float* y, float* z) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;
-
-  ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
-  float secondsInFuture = 0.f;
-  TrackedDevicePose_t pose;
-  state->vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, &pose, 1);
+  TrackedDevicePose_t pose = viveGetPose(state, state->headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
@@ -222,11 +223,7 @@ void viveGetVelocity(void* headset, float* x, float* y, float* z) {
 void viveGetAngularVelocity(void* headset, float* x, float* y, float* z) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;
-
-  ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
-  float secondsInFuture = 0.f;
-  TrackedDevicePose_t pose;
-  state->vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, &pose, 1);
+  TrackedDevicePose_t pose = viveGetPose(state, state->headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
