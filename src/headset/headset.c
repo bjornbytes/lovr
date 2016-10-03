@@ -7,7 +7,7 @@ void lovrHeadsetInit() {
   headset = viveInit();
 }
 
-int lovrHeadsetIsPresent() {
+char lovrHeadsetIsPresent() {
   return headset->interface->isPresent(headset);
 }
 

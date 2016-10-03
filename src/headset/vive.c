@@ -147,10 +147,10 @@ Headset* viveInit() {
   return this;
 }
 
-int viveIsPresent(void* headset) {
+char viveIsPresent(void* headset) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;
-  return (int) state->vrSystem->IsTrackedDeviceConnected(state->headsetIndex);
+  return state->vrSystem->IsTrackedDeviceConnected(state->headsetIndex);
 }
 
 const char* viveGetType(void* headset) {

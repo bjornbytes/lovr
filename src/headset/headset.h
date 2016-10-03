@@ -12,7 +12,7 @@ typedef struct {
 } Controller;
 
 typedef struct {
-  int (*isPresent)(void* headset);
+  char (*isPresent)(void* headset);
   const char* (*getType)(void* headset);
   void (*getClipDistance)(void* headset, float* near, float* far);
   void (*setClipDistance)(void* headset, float near, float far);
@@ -37,7 +37,7 @@ typedef struct {
 #endif
 
 void lovrHeadsetInit();
-int lovrHeadsetIsPresent();
+char lovrHeadsetIsPresent();
 const char* lovrHeadsetGetType();
 void lovrHeadsetGetClipDistance(float* near, float* far);
 void lovrHeadsetSetClipDistance(float near, float far);
