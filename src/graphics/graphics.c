@@ -20,7 +20,7 @@ void lovrGraphicsInit() {
   state.lastTransform = mat4_init();
   state.lastProjection = mat4_init();
   state.defaultShader = lovrGraphicsNewShader(lovrDefaultVertexShader, lovrDefaultFragmentShader);
-  state.lastColor = LOVR_COLOR(255, 255, 255, 255);
+  state.lastColor = 0;
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
   glGenVertexArrays(1, &state.shapeArray);
