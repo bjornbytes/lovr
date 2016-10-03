@@ -51,6 +51,10 @@ void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
   headset->interface->getAngularVelocity(headset, x, y, z);
 }
 
+Controller* lovrHeadsetGetController(ControllerHand hand) {
+  return headset->interface->getController(headset, hand);
+}
+
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   headset->interface->renderTo(headset, callback, userdata);
 }

@@ -2,6 +2,15 @@
 #define LOVR_HEADSET_TYPES
 typedef void (*headsetRenderCallback)(int eyeIndex, void* userdata);
 
+typedef enum {
+  CONTROLLER_HAND_LEFT,
+  CONTROLLER_HAND_RIGHT
+} ControllerHand;
+
+typedef struct {
+  ControllerHand hand;
+} Controller;
+
 typedef struct {
   int (*isPresent)(void* headset);
   const char* (*getType)(void* headset);
@@ -14,6 +23,7 @@ typedef struct {
   void (*getOrientation)(void* headset, float* x, float* y, float* z, float* w);
   void (*getVelocity)(void* headset, float* x, float* y, float* z);
   void (*getAngularVelocity)(void* headset, float* x, float* y, float* z);
+  Controller* (*getController)(void* headset, ControllerHand hand);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
 } HeadsetInterface;
 
@@ -35,4 +45,5 @@ void lovrHeadsetGetPosition(float* x, float* y, float* z);
 void lovrHeadsetGetOrientation(float* x, float* y, float* z, float* w);
 void lovrHeadsetGetVelocity(float* x, float* y, float* z);
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);
+Controller* lovrHeadsetGetController(ControllerHand hand);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);

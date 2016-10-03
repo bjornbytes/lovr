@@ -9,7 +9,10 @@ typedef struct {
   struct VR_IVRCompositor_FnTable* vrCompositor;
   struct VR_IVRChaperone_FnTable* vrChaperone;
 
-  unsigned int deviceIndex;
+  unsigned int headsetIndex;
+  unsigned int controllerIndex[CONTROLLER_HAND_RIGHT + 1];
+
+  Controller* controllers[CONTROLLER_HAND_RIGHT + 1];
 
   float clipNear;
   float clipFar;
@@ -36,6 +39,7 @@ static HeadsetInterface interface = {
   .getOrientation = viveGetOrientation,
   .getVelocity = viveGetVelocity,
   .getAngularVelocity = viveGetAngularVelocity,
+  .getController = viveGetController,
   .renderTo = viveRenderTo
 };
 
@@ -83,10 +87,20 @@ Headset* viveInit() {
     return NULL;
   }
 
-  state->deviceIndex = k_unTrackedDeviceIndex_Hmd;
+  state->headsetIndex = k_unTrackedDeviceIndex_Hmd;
   state->clipNear = 0.1f;
   state->clipFar = 30.f;
   state->vrSystem->GetRecommendedRenderTargetSize(&state->renderWidth, &state->renderHeight);
+
+  Controller* leftController = malloc(sizeof(Controller));
+  leftController->hand = CONTROLLER_HAND_LEFT;
+  state->controllers[CONTROLLER_HAND_LEFT] = leftController;
+  state->controllerIndex[CONTROLLER_HAND_LEFT] = state->vrSystem->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
+
+  Controller* rightController = malloc(sizeof(Controller));
+  rightController->hand = CONTROLLER_HAND_RIGHT;
+  state->controllers[CONTROLLER_HAND_RIGHT] = rightController;
+  state->controllerIndex[CONTROLLER_HAND_RIGHT] = state->vrSystem->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
 
   glGenFramebuffers(1, &state->framebuffer);
   glBindFramebuffer(GL_FRAMEBUFFER, state->framebuffer);
@@ -123,8 +137,7 @@ Headset* viveInit() {
 int viveIsPresent(void* headset) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;
-
-  return (int) state->vrSystem->IsTrackedDeviceConnected(state->deviceIndex);
+  return (int) state->vrSystem->IsTrackedDeviceConnected(state->headsetIndex);
 }
 
 const char* viveGetType(void* headset) {
@@ -223,6 +236,12 @@ void viveGetAngularVelocity(void* headset, float* x, float* y, float* z) {
   *x = pose.vAngularVelocity.v[0];
   *y = pose.vAngularVelocity.v[1];
   *z = pose.vAngularVelocity.v[2];
+}
+
+Controller* viveGetController(void* headset, ControllerHand hand) {
+  Headset* this = headset;
+  ViveState* state = this->state;
+  return state->controllers[hand];
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
