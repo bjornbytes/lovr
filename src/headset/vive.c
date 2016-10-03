@@ -40,6 +40,7 @@ static HeadsetInterface interface = {
   .getVelocity = viveGetVelocity,
   .getAngularVelocity = viveGetAngularVelocity,
   .getController = viveGetController,
+  .isControllerPresent = viveIsControllerPresent,
   .renderTo = viveRenderTo
 };
 
@@ -239,6 +240,12 @@ Controller* viveGetController(void* headset, ControllerHand hand) {
   Headset* this = headset;
   ViveState* state = this->state;
   return state->controllers[hand];
+}
+
+char viveIsControllerPresent(void* headset, Controller* controller) {
+  Headset* this = headset;
+  ViveState* state = this->state;
+  return state->vrSystem->IsTrackedDeviceConnected(state->controllerIndex[controller->hand]);
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {

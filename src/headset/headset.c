@@ -55,6 +55,10 @@ Controller* lovrHeadsetGetController(ControllerHand hand) {
   return headset->interface->getController(headset, hand);
 }
 
+char lovrHeadsetIsControllerPresent(Controller* controller) {
+  return headset->interface->isControllerPresent(headset, controller);
+}
+
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   headset->interface->renderTo(headset, callback, userdata);
 }
