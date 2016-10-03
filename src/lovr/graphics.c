@@ -129,7 +129,7 @@ int l_lovrGraphicsSetColor(lua_State* L) {
 }
 
 int l_lovrGraphicsGetColorMask(lua_State* L) {
-  unsigned char r, g, b, a;
+  char r, g, b, a;
   lovrGraphicsGetColorMask(&r, &g, &b, &a);
   lua_pushboolean(L, r);
   lua_pushboolean(L, g);
@@ -144,10 +144,10 @@ int l_lovrGraphicsSetColorMask(lua_State* L) {
     return 0;
   }
 
-  unsigned char r = lua_toboolean(L, 1);
-  unsigned char g = lua_toboolean(L, 2);
-  unsigned char b = lua_toboolean(L, 3);
-  unsigned char a = lua_toboolean(L, 4);
+  char r = lua_toboolean(L, 1);
+  char g = lua_toboolean(L, 2);
+  char b = lua_toboolean(L, 3);
+  char a = lua_toboolean(L, 4);
   lovrGraphicsSetColorMask(r, g, b, a);
   return 0;
 }
