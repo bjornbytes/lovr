@@ -50,6 +50,8 @@ void lovrGraphicsReset() {
   lovrGraphicsSetColorMask(1, 1, 1, 1);
   lovrGraphicsSetScissorEnabled(0);
   lovrGraphicsSetLineWidth(1);
+  lovrGraphicsSetCullingEnabled(0);
+  lovrGraphicsSetPolygonWinding(POLYGON_WINDING_COUNTERCLOCKWISE);
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -205,6 +207,28 @@ float lovrGraphicsGetLineWidth() {
 void lovrGraphicsSetLineWidth(float width) {
   state.lineWidth = width;
   glLineWidth(width);
+}
+
+char lovrGraphicsIsCullingEnabled() {
+  return state.isCullingEnabled;
+}
+
+void lovrGraphicsSetCullingEnabled(char isEnabled) {
+  state.isCullingEnabled = isEnabled;
+  if (isEnabled) {
+    glEnable(GL_CULL_FACE);
+  } else {
+    glDisable(GL_CULL_FACE);
+  }
+}
+
+PolygonWinding lovrGraphicsGetPolygonWinding() {
+  return state.polygonWinding;
+}
+
+void lovrGraphicsSetPolygonWinding(PolygonWinding winding) {
+  state.polygonWinding = winding;
+  glFrontFace(winding);
 }
 
 int lovrGraphicsPush() {

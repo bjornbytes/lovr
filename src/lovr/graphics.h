@@ -6,6 +6,7 @@
 map_int_t BufferDrawModes;
 map_int_t BufferUsages;
 map_int_t DrawModes;
+map_int_t PolygonWindings;
 
 extern const luaL_Reg lovrGraphics[];
 int l_lovrGraphicsInit(lua_State* L);
@@ -25,6 +26,10 @@ int l_lovrGraphicsSetShader(lua_State* L);
 int l_lovrGraphicsSetProjection(lua_State* L);
 int l_lovrGraphicsGetLineWidth(lua_State* L);
 int l_lovrGraphicsSetLineWidth(lua_State* L);
+int l_lovrGraphicsIsCullingEnabled(lua_State* L);
+int l_lovrGraphicsSetCullingEnabled(lua_State* L);
+int l_lovrGraphicsGetPolygonWinding(lua_State* L);
+int l_lovrGraphicsSetPolygonWinding(lua_State* L);
 int l_lovrGraphicsPush(lua_State* L);
 int l_lovrGraphicsPop(lua_State* L);
 int l_lovrGraphicsOrigin(lua_State* L);

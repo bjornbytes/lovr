@@ -22,6 +22,10 @@ const luaL_Reg lovrGraphics[] = {
   { "setProjection", l_lovrGraphicsSetProjection },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
+  { "isCullingEnabled", l_lovrGraphicsIsCullingEnabled },
+  { "setCullingEnabled", l_lovrGraphicsSetCullingEnabled },
+  { "getPolygonWinding", l_lovrGraphicsGetPolygonWinding },
+  { "setPolygonWinding", l_lovrGraphicsSetPolygonWinding },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },
@@ -60,6 +64,10 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_init(&DrawModes);
   map_set(&DrawModes, "fill", DRAW_MODE_FILL);
   map_set(&DrawModes, "line", DRAW_MODE_LINE);
+
+  map_init(&PolygonWindings);
+  map_set(&PolygonWindings, "clockwise", POLYGON_WINDING_CLOCKWISE);
+  map_set(&PolygonWindings, "counterclockwise", POLYGON_WINDING_COUNTERCLOCKWISE);
 
   lovrGraphicsInit();
   return 1;
@@ -209,6 +217,41 @@ int l_lovrGraphicsGetLineWidth(lua_State* L) {
 int l_lovrGraphicsSetLineWidth(lua_State* L) {
   float width = luaL_optnumber(L, 1, 1.f);
   lovrGraphicsSetLineWidth(width);
+  return 0;
+}
+
+int l_lovrGraphicsIsCullingEnabled(lua_State* L) {
+  lua_pushboolean(L, lovrGraphicsIsCullingEnabled());
+  return 1;
+}
+
+int l_lovrGraphicsSetCullingEnabled(lua_State* L) {
+  lovrGraphicsSetCullingEnabled(lua_toboolean(L, 1));
+  return 0;
+}
+
+int l_lovrGraphicsGetPolygonWinding(lua_State* L) {
+  switch (lovrGraphicsGetPolygonWinding()) {
+    case POLYGON_WINDING_CLOCKWISE:
+      lua_pushstring(L, "clockwise");
+      return 1;
+
+    case POLYGON_WINDING_COUNTERCLOCKWISE:
+      lua_pushstring(L, "counterclockwise");
+      return 1;
+  }
+
+  return 0;
+}
+
+int l_lovrGraphicsSetPolygonWinding(lua_State* L) {
+  const char* userWinding = luaL_checkstring(L, 1);
+  PolygonWinding* winding = (PolygonWinding*) map_get(&PolygonWindings, userWinding);
+  if (!winding) {
+    return luaL_error(L, "Invalid winding: '%s'", userWinding);
+  }
+
+  lovrGraphicsSetPolygonWinding(*winding);
   return 0;
 }
 

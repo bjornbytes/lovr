@@ -25,6 +25,11 @@ typedef enum {
   DRAW_MODE_LINE
 } DrawMode;
 
+typedef enum {
+  POLYGON_WINDING_CLOCKWISE = GL_CW,
+  POLYGON_WINDING_COUNTERCLOCKWISE = GL_CCW
+} PolygonWinding;
+
 typedef struct {
   Shader* activeShader;
   Shader* defaultShader;
@@ -43,6 +48,8 @@ typedef struct {
   vec_float_t shapeData;
   vec_uint_t shapeIndices;
   float lineWidth;
+  char isCullingEnabled;
+  PolygonWinding polygonWinding;
 } GraphicsState;
 #endif
 
@@ -67,6 +74,10 @@ void lovrGraphicsSetProjection(float near, float far, float fov);
 void lovrGraphicsSetProjectionRaw(mat4 projection);
 float lovrGraphicsGetLineWidth();
 void lovrGraphicsSetLineWidth(float width);
+char lovrGraphicsIsCullingEnabled();
+void lovrGraphicsSetCullingEnabled(char isEnabled);
+PolygonWinding lovrGraphicsGetPolygonWinding();
+void lovrGraphicsSetPolygonWinding(PolygonWinding winding);
 int lovrGraphicsPush();
 int lovrGraphicsPop();
 void lovrGraphicsOrigin();
