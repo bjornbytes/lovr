@@ -1,4 +1,5 @@
 #include "vive.h"
+#include <stdbool.h>
 #include <openvr_capi.h>
 #include <stdlib.h>
 #include "../util.h"

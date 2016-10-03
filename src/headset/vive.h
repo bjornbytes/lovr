@@ -1,5 +1,3 @@
-typedef char bool;
-
 #include "headset.h"
 
 Headset* viveInit();
