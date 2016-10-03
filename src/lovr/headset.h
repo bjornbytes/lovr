@@ -1,6 +1,9 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+#include "../vendor/map/map.h"
+
+map_int_t ControllerHands;
 
 extern const luaL_Reg lovrHeadset[];
 int l_lovrHeadsetInit(lua_State* L);
@@ -15,4 +18,5 @@ int l_lovrHeadsetGetPosition(lua_State* L);
 int l_lovrHeadsetGetOrientation(lua_State* L);
 int l_lovrHeadsetGetVelocity(lua_State* L);
 int l_lovrHeadsetGetAngularVelocity(lua_State* L);
+int l_lovrHeadsetGetController(lua_State* L);
 int l_lovrHeadsetRenderTo(lua_State* L);

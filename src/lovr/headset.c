@@ -9,6 +9,21 @@ void renderHelper(int eyeIndex, void* userdata) {
   lua_call(L, 1, 0);
 }
 
+void luax_pushcontroller(lua_State* L, Controller* controller) {
+  if (controller == NULL) {
+    return lua_pushnil(L);
+  }
+
+  Controller** userdata = (Controller**) lua_newuserdata(L, sizeof(Controller*));
+  luaL_getmetatable(L, "Controller");
+  lua_setmetatable(L, -2);
+  *userdata = controller;
+}
+
+Controller* luax_checkcontroller(lua_State* L, int index) {
+  return *(Controller**) luaL_checkudata(L, index, "Controller");
+}
+
 const luaL_Reg lovrHeadset[] = {
   { "isPresent", l_lovrHeadsetIsPresent },
   { "getType", l_lovrHeadsetGetType },
@@ -19,6 +34,7 @@ const luaL_Reg lovrHeadset[] = {
   { "getOrientation", l_lovrHeadsetGetPosition },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
+  { "getController", l_lovrHeadsetGetController },
   { "renderTo", l_lovrHeadsetRenderTo },
   { NULL, NULL }
 };
@@ -26,7 +42,13 @@ const luaL_Reg lovrHeadset[] = {
 int l_lovrHeadsetInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
+
+  map_init(&ControllerHands);
+  map_set(&ControllerHands, "left", CONTROLLER_HAND_LEFT);
+  map_set(&ControllerHands, "right", CONTROLLER_HAND_RIGHT);
+
   lovrHeadsetInit();
+
   return 1;
 }
 
@@ -109,6 +131,17 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
   return 3;
+}
+
+int l_lovrHeadsetGetController(lua_State* L) {
+  const char* userHand = luaL_checkstring(L, 1);
+  ControllerHand* hand = (ControllerHand*) map_get(&ControllerHands, userHand);
+  if (!hand) {
+    return luaL_error(L, "Invalid controller hand: '%s'", userHand);
+  }
+
+  luax_pushcontroller(L, lovrHeadsetGetController(*hand));
+  return 1;
 }
 
 int l_lovrHeadsetRenderTo(lua_State* L) {
