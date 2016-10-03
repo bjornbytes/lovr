@@ -1,4 +1,5 @@
 #include "headset.h"
+#include "controller.h"
 #include "../headset/headset.h"
 
 void renderHelper(int eyeIndex, void* userdata) {
@@ -7,21 +8,6 @@ void renderHelper(int eyeIndex, void* userdata) {
   lua_pushvalue(L, 1);
   lua_pushinteger(L, eyeIndex);
   lua_call(L, 1, 0);
-}
-
-void luax_pushcontroller(lua_State* L, Controller* controller) {
-  if (controller == NULL) {
-    return lua_pushnil(L);
-  }
-
-  Controller** userdata = (Controller**) lua_newuserdata(L, sizeof(Controller*));
-  luaL_getmetatable(L, "Controller");
-  lua_setmetatable(L, -2);
-  *userdata = controller;
-}
-
-Controller* luax_checkcontroller(lua_State* L, int index) {
-  return *(Controller**) luaL_checkudata(L, index, "Controller");
 }
 
 const luaL_Reg lovrHeadset[] = {
@@ -42,6 +28,7 @@ const luaL_Reg lovrHeadset[] = {
 int l_lovrHeadsetInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
+  luaRegisterType(L, "Controller", lovrController, NULL);
 
   map_init(&ControllerHands);
   map_set(&ControllerHands, "left", CONTROLLER_HAND_LEFT);
