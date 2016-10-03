@@ -14,13 +14,13 @@ function lovr.update(dt)
 end
 
 function lovr.draw(eye)
-  lovr.graphics.setColor(80, 0, 160)
-  lovr.graphics.translate(0, 1, -1)
-  lovr.graphics.rotate(t * 2, .70, .70, 0)
-  lovr.graphics.translate(0, -1, 1)
-  lovr.graphics.cube(0, 1, -1, 1)
-end
+  local x, y, z = 0, .25, -2
+  local size = 1
+  local angle, rx, ry, rz = t * 2, 0, 1, 0
 
+  lovr.graphics.setColor(128, 0, 255)
+  lovr.graphics.cube('line', x, y, z, size, angle, rx, ry, rz)
+end
 ```
 
 Drag the `myGame` folder onto a shortcut to `lovr.exe`.  You should see a spinning purple cube!  See instructions below on compiling `lovr.exe`.
