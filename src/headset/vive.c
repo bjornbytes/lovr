@@ -42,6 +42,7 @@ static HeadsetInterface interface = {
   .getController = viveGetController,
   .isControllerPresent = viveIsControllerPresent,
   .getControllerPosition = viveGetControllerPosition,
+  .getControllerOrientation = viveGetControllerOrientation,
   .renderTo = viveRenderTo
 };
 
@@ -262,6 +263,19 @@ void viveGetControllerPosition(void* headset, Controller* controller, float* x, 
   *x = pose.mDeviceToAbsoluteTracking.m[0][3];
   *y = pose.mDeviceToAbsoluteTracking.m[1][3];
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
+}
+
+void viveGetControllerOrientation(void* headset, Controller* controller, float* w, float* x, float* y, float* z) {
+  Headset* this = headset;
+  ViveState* state = this->state;
+  TrackedDevicePose_t pose = viveGetPose(state, state->controllerIndex[controller->hand]);
+
+  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+    *w = *x = *y = *z = 0.f;
+    return;
+  }
+
+  *w = *x = *y = *z = 0.f; // TODO
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
