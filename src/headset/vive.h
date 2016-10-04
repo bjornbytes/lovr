@@ -1,6 +1,7 @@
 #include "headset.h"
 
 Headset* viveInit();
+void viveDestroy();
 char viveIsPresent(void* headset);
 const char* viveGetType(void* headset);
 void viveGetClipDistance(void* headset, float* near, float* far);

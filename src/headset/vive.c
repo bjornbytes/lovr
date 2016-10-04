@@ -146,6 +146,15 @@ Headset* viveInit() {
   return this;
 }
 
+void viveDestroy(void* headset) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  free(state->controllers[CONTROLLER_HAND_LEFT]);
+  free(state->controllers[CONTROLLER_HAND_RIGHT]);
+  free(state);
+  free(this);
+}
+
 char viveIsPresent(void* headset) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;

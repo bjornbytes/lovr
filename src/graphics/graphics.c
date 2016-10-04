@@ -29,6 +29,19 @@ void lovrGraphicsInit() {
   lovrGraphicsReset();
 }
 
+void lovrGraphicsDestroy() {
+  vec_deinit(&state.transforms);
+  mat4_deinit(state.projection);
+  mat4_deinit(state.lastTransform);
+  mat4_deinit(state.lastProjection);
+  lovrShaderDestroy(state.defaultShader);
+  glDeleteBuffers(1, &state.shapeBuffer);
+  glDeleteBuffers(1, &state.shapeIndexBuffer);
+  glDeleteVertexArrays(1, &state.shapeArray);
+  vec_deinit(&state.shapeData);
+  vec_deinit(&state.shapeIndices);
+}
+
 void lovrGraphicsReset() {
   int i;
   mat4 matrix;

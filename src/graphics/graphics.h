@@ -54,6 +54,7 @@ typedef struct {
 #endif
 
 void lovrGraphicsInit();
+void lovrGraphicsDestroy();
 void lovrGraphicsReset();
 void lovrGraphicsClear(int color, int depth);
 void lovrGraphicsPresent();
