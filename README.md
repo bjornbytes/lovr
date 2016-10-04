@@ -25,13 +25,10 @@ end
 
 Drag the `myGame` folder onto a shortcut to `lovr.exe`.  You should see a spinning purple cube!  See instructions below on compiling `lovr.exe`.
 
-Dependencies
+Documentation
 ---
 
-- LuaJIT
-- GLFW (3.2+) and OpenGL (3.2+)
-- assimp
-- SteamVR (OpenVR)
+Some rough reference documentation exists in [API.md](doc/API.md).
 
 Supported Hardware
 ---
@@ -42,6 +39,13 @@ Support for other hardware will happen eventually.
 
 Compiling
 ---
+
+### Dependencies
+
+- LuaJIT
+- GLFW (3.2+) and OpenGL (3.2+)
+- assimp
+- SteamVR (OpenVR)
 
 ### Windows (CMake)
 
