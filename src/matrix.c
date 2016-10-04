@@ -116,31 +116,23 @@ mat4 mat4_setProjection(mat4 matrix, float near, float far, float fov, float asp
   return matrix;
 }
 
+#define MAX(a, b) a > b ? a : b
+
 void mat4_getRotation(mat4 matrix, float* w, float* x, float* y, float* z) {
-  float qw = sqrt(1 + matrix[1] + matrix[5] + matrix[10]) / 2;
-  float scale = qw * 4;
-  float qx = matrix[9] - matrix[6] / scale;
-  float qy = matrix[2] - matrix[8] / scale;
-  float qz = matrix[4] - matrix[1] / scale;
-
-  float rlen = 1 / sqrt(qw * qw + qx * qx + qy * qy + qz * qz);
-  qw *= rlen;
-  qx *= rlen;
-  qy *= rlen;
-  qz *= rlen;
-
-  *w = 2 * acos(qw);
+  float qw = sqrt(MAX(0, 1 + matrix[0] + matrix[5] + matrix[10])) / 2;
+  float qx = sqrt(MAX(0, 1 + matrix[0] - matrix[5] - matrix[10])) / 2;
+  float qy = sqrt(MAX(0, 1 - matrix[0] + matrix[5] - matrix[10])) / 2;
+  float qz = sqrt(MAX(0, 1 - matrix[0] - matrix[5] + matrix[10])) / 2;
+  qx = (matrix[9] - matrix[6]) < 0 ? -qx : qx;
+  qy = (matrix[2] - matrix[8]) < 0 ? -qy : qy;
+  qz = (matrix[4] - matrix[1]) < 0 ? -qz : qz;
 
   float s = sqrt(1 - qw * qw);
-  if (s < .00000001) {
-    *x = qx;
-    *y = qy;
-    *z = qz;
-  } else {
-    *x = qx / s;
-    *y = qy / s;
-    *z = qz / s;
-  }
+  s = s < .001 ? 1 : s;
+  *w = 2 * acos(qw);
+  *x = qx / s;
+  *y = qy / s;
+  *z = qz / s;
 }
 
 mat4 mat4_translate(mat4 matrix, float x, float y, float z) {

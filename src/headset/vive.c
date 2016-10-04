@@ -214,8 +214,7 @@ void viveGetOrientation(void* headset, float* w, float* x, float* y, float *z) {
   }
 
   float matrix[16];
-  mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m);
-  mat4_getRotation(matrix, w, x, y, z);
+  mat4_getRotation(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), w, x, y, z);
 }
 
 void viveGetVelocity(void* headset, float* x, float* y, float* z) {
@@ -285,7 +284,8 @@ void viveGetControllerOrientation(void* headset, Controller* controller, float* 
     return;
   }
 
-  *w = *x = *y = *z = 0.f; // TODO
+  float matrix[16];
+  mat4_getRotation(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), w, x, y, z);
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
