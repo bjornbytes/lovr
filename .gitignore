@@ -5,3 +5,4 @@ deps
 src/obj
 main.lua
 conf.lua
+src/Tupfile
