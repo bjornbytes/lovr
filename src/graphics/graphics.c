@@ -305,6 +305,50 @@ void lovrGraphicsLine(float* points, int count) {
   lovrGraphicsDrawShape(GL_LINE_STRIP);
 }
 
+void lovrGraphicsPlane(DrawMode mode, float x, float y, float z, float size, float nx, float ny, float nz) {
+  float points[] = {
+    -.5, .5, 0,
+    .5, .5, 0,
+    .5, -.5, 0,
+    -.5, -.5, 0
+  };
+
+  // Normalize the normal vector
+  float len = sqrt(nx * nx + ny * ny + nz + nz);
+  if (len != 1) {
+    len = 1 / len;
+    nx *= len;
+    ny *= len;
+    nz *= len;
+  }
+
+  // Vector perpendicular to the normal vector and the vector of the default geometry (cross product)
+  float cx = -ny;
+  float cy = nx;
+  float cz = 0.f;
+
+  // Angle between normal vector and the normal vector of the default geometry (dot product)
+  float theta = acos(nz);
+
+  float transform[16];
+  mat4_setTranslation(transform, x, y, z);
+  mat4_scale(transform, size, size, size);
+  mat4_rotate(transform, theta, cx, cy, cz);
+  lovrGraphicsPush();
+  lovrGraphicsTransform(transform);
+
+  if (mode == DRAW_MODE_LINE) {
+    lovrGraphicsSetShapeData(points, 12, NULL, 0);
+    lovrGraphicsDrawShape(GL_LINE_LOOP);
+  } else if (mode == DRAW_MODE_FILL) {
+    unsigned int indices[] = { 0, 3, 1, 2 };
+    lovrGraphicsSetShapeData(points, 12, indices, 4);
+    lovrGraphicsDrawShape(GL_TRIANGLE_STRIP);
+  }
+
+  lovrGraphicsPop();
+}
+
 void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ) {
   float points[] = {
     // Front

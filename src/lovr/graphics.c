@@ -33,6 +33,7 @@ const luaL_Reg lovrGraphics[] = {
   { "rotate", l_lovrGraphicsRotate },
   { "scale", l_lovrGraphicsScale },
   { "line", l_lovrGraphicsLine },
+  { "plane", l_lovrGraphicsPlane },
   { "cube", l_lovrGraphicsCube },
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
@@ -339,6 +340,24 @@ int l_lovrGraphicsLine(lua_State* L) {
   lovrGraphicsSetShapeData(points.data, count, NULL, 0);
   lovrGraphicsDrawShape(DRAW_MODE_LINE);
   vec_deinit(&points);
+  return 0;
+}
+
+int l_lovrGraphicsPlane(lua_State* L) {
+  const char* userDrawMode = luaL_checkstring(L, 1);
+  DrawMode* drawMode = (DrawMode*) map_get(&DrawModes, userDrawMode);
+  if (!drawMode) {
+    return luaL_error(L, "Invalid draw mode: '%s'", userDrawMode);
+  }
+
+  float x = luaL_optnumber(L, 2, 0.f);
+  float y = luaL_optnumber(L, 3, 0.f);
+  float z = luaL_optnumber(L, 4, 0.f);
+  float s = luaL_optnumber(L, 5, 1.f);
+  float nx = luaL_optnumber(L, 6, 0.f);
+  float ny = luaL_optnumber(L, 7, 1.f);
+  float nz = luaL_optnumber(L, 8, 0.f);
+  lovrGraphicsPlane(*drawMode, x, y, z, s, nx, ny, nz);
   return 0;
 }
 
