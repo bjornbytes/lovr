@@ -8,51 +8,99 @@ function(move_dll ARG_TARGET)
   )
 endfunction()
 
+if(UNIX)
+  find_package(PkgConfig REQUIRED)
+endif()
+
 project(lovr)
 file(GLOB_RECURSE LOVR_SRC src/*.c)
 add_executable(lovr ${LOVR_SRC})
 
 # LuaJIT
-add_subdirectory(deps/luajit luajit)
-include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
-set(LOVR_LUA liblua)
+if(WIN32)
+  add_subdirectory(deps/luajit luajit)
+  include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
+  set(LOVR_LUA liblua)
+else()
+  if (APPLE)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pagezero_size 10000 -image_base 100000000")
+  endif()
 
-# GLEW
-add_subdirectory(deps/glew glew)
-include_directories(deps/glew/include)
-set(LOVR_GLEW glew)
+  pkg_search_module(LUAJIT REQUIRED luajit)
+  include_directories(${LUAJIT_INCLUDE_DIRS})
+  set(LOVR_LUA ${LUAJIT_LIBRARIES})
+endif()
+
+# GLEW / OpenGL
+if(WIN32)
+  add_subdirectory(deps/glew glew)
+  include_directories(deps/glew/include)
+  set(LOVR_GL glew)
+else()
+  find_package(OpenGL REQUIRED)
+  include_directories(${OPENGL_INCLUDE_DIRS})
+  set(LOVR_GL ${OPENGL_LIBRARIES})
+endif()
 
 # GLFW
-add_subdirectory(deps/glfw glfw)
-include_directories(deps/glfw/include)
-set(LOVR_GLFW glfw ${GLFW_LIBRARIES})
+if(WIN32)
+  add_subdirectory(deps/glfw glfw)
+  include_directories(deps/glfw/include)
+  set(LOVR_GLFW glfw ${GLFW_LIBRARIES})
+else()
+  pkg_search_module(GLFW REQUIRED glfw3)
+  include_directories(${GLFW_INCLUDE_DIRS})
+  set(LOVR_GLFW ${GLFW_LIBRARIES})
+endif()
 
 # assimp
 option(ASSIMP_BUILD_ASSIMP_TOOLS OFF)
 option(ASSIMP_BUILD_TESTS OFF)
-add_subdirectory(deps/assimp assimp)
-include_directories(deps/assimp/include)
-set(LOVR_ASSIMP assimp)
+if(WIN32)
+  add_subdirectory(deps/assimp assimp)
+  include_directories(deps/assimp/include)
+  set(LOVR_ASSIMP assimp)
+else()
+  pkg_search_module(ASSIMP REQUIRED assimp)
+  include_directories(${ASSIMP_INCLUDE_DIRS})
+  set(LOVR_ASSIMP ${ASSIMP_LIBRARIES})
+endif()
 
-# openvr (todo)
-include_directories(deps/openvr/headers)
-target_link_libraries(lovr ${CMAKE_SOURCE_DIR}/deps/openvr/lib/win32/openvr_api.lib)
-add_custom_command(TARGET lovr POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different
-  "${CMAKE_SOURCE_DIR}/deps/openvr/bin/win32/openvr_api.dll"
-  $<TARGET_FILE_DIR:lovr>
-)
+# openvr
+if(WIN32)
+  include_directories(deps/openvr/headers)
+  target_link_libraries(lovr ${CMAKE_SOURCE_DIR}/deps/openvr/lib/win32/openvr_api.lib)
+  add_custom_command(TARGET lovr POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/deps/openvr/bin/win32/openvr_api.dll"
+    $<TARGET_FILE_DIR:lovr>
+  )
+else()
+  if(EXISTS ${OPENVR_DIR})
+    include_directories(${OPENVR_DIR}/headers)
+    if(APPLE)
+      set(LOVR_OPENVR ${OPENVR_DIR}/lib/osx32/libopenvr_api.dylib)
+    else()
+      set(LOVR_OPENVR ${OPENVR_DIR}/lib/linux32/libopenvr_api.so)
+    endif()
+  else()
+    message(FATAL_ERROR "Please specify the location of OpenVR (-DOPENVR_DIR=/path/to/openvr)")
+  endif()
+endif()
 
 set(LOVR_LIB
   ${LOVR_LUA}
-  ${LOVR_GLEW}
+  ${LOVR_GL}
   ${LOVR_GLFW}
   ${LOVR_ASSIMP}
+  ${LOVR_OPENVR}
 )
 
 target_link_libraries(lovr ${LOVR_LIB})
 
-move_dll(${LOVR_LUA})
-move_dll(${LOVR_GLEW})
-move_dll(${LOVR_GLFW})
-move_dll(${LOVR_ASSIMP})
+if(WIN32)
+  move_dll(${LOVR_LUA})
+  move_dll(${LOVR_GL})
+  move_dll(${LOVR_GLFW})
+  move_dll(${LOVR_ASSIMP})
+endif()
