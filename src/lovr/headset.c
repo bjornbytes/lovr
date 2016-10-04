@@ -18,7 +18,7 @@ const luaL_Reg lovrHeadset[] = {
   { "setClipDistance", l_lovrHeadsetSetClipDistance },
   { "getTrackingSize", l_lovrHeadsetGetTrackingSize },
   { "getPosition", l_lovrHeadsetGetPosition },
-  { "getOrientation", l_lovrHeadsetGetPosition },
+  { "getOrientation", l_lovrHeadsetGetOrientation },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
   { "getController", l_lovrHeadsetGetController },
@@ -94,12 +94,12 @@ int l_lovrHeadsetGetPosition(lua_State* L) {
 }
 
 int l_lovrHeadsetGetOrientation(lua_State* L) {
-  float x, y, z, w;
-  lovrHeadsetGetOrientation(&x, &y, &z, &w);
+  float w, x, y, z;
+  lovrHeadsetGetOrientation(&w, &x, &y, &z);
+  lua_pushnumber(L, w);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
-  lua_pushnumber(L, w);
   return 4;
 }
 

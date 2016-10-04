@@ -50,9 +50,8 @@ static HeadsetInterface interface = {
 static TrackedDevicePose_t viveGetPose(ViveState* state, unsigned int deviceIndex) {
   ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
   float secondsInFuture = 0.f;
-  unsigned int maxPoses = k_unMaxTrackedDeviceCount;
-  TrackedDevicePose_t poses[maxPoses];
-  state->vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, poses, maxPoses);
+  TrackedDevicePose_t poses[16];
+  state->vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, poses, 16);
   return poses[deviceIndex];
 }
 
@@ -204,9 +203,19 @@ void viveGetPosition(void* headset, float* x, float* y, float* z) {
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
 }
 
-// TODO convert matrix to quaternion!
-void viveGetOrientation(void* headset, float* x, float* y, float *z, float* w) {
-  *x = *y = *z = *w = 0.f;
+void viveGetOrientation(void* headset, float* w, float* x, float* y, float *z) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  TrackedDevicePose_t pose = viveGetPose(state, state->headsetIndex);
+
+  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+    *w = *x = *y = *z = 0.f;
+    return;
+  }
+
+  float matrix[16];
+  mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m);
+  mat4_getRotation(matrix, w, x, y, z);
 }
 
 void viveGetVelocity(void* headset, float* x, float* y, float* z) {

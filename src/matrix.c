@@ -2,7 +2,6 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-
 /*
    m0 m4 m8  m12
    m1 m5 m9  m13
@@ -115,6 +114,33 @@ mat4 mat4_setProjection(mat4 matrix, float near, float far, float fov, float asp
   matrix[14] = pz;
   matrix[15] = 0.0f;
   return matrix;
+}
+
+void mat4_getRotation(mat4 matrix, float* w, float* x, float* y, float* z) {
+  float qw = sqrt(1 + matrix[1] + matrix[5] + matrix[10]) / 2;
+  float scale = qw * 4;
+  float qx = matrix[9] - matrix[6] / scale;
+  float qy = matrix[2] - matrix[8] / scale;
+  float qz = matrix[4] - matrix[1] / scale;
+
+  float rlen = 1 / sqrt(qw * qw + qx * qx + qy * qy + qz * qz);
+  qw *= rlen;
+  qx *= rlen;
+  qy *= rlen;
+  qz *= rlen;
+
+  *w = 2 * acos(qw);
+
+  float s = sqrt(1 - qw * qw);
+  if (s < .00000001) {
+    *x = qx;
+    *y = qy;
+    *z = qz;
+  } else {
+    *x = qx / s;
+    *y = qy / s;
+    *z = qz / s;
+  }
 }
 
 mat4 mat4_translate(mat4 matrix, float x, float y, float z) {

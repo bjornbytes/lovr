@@ -39,8 +39,8 @@ void lovrHeadsetGetPosition(float* x, float* y, float* z) {
   headset->interface->getPosition(headset, x, y, z);
 }
 
-void lovrHeadsetGetOrientation(float* x, float* y, float* z, float* w) {
-  headset->interface->getOrientation(headset, x, y, z, w);
+void lovrHeadsetGetOrientation(float* w, float* x, float* y, float* z) {
+  headset->interface->getOrientation(headset, w, x, y, z);
 }
 
 void lovrHeadsetGetVelocity(float* x, float* y, float* z) {

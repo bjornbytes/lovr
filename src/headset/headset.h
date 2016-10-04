@@ -20,7 +20,7 @@ typedef struct {
   char (*isBoundsVisible)(void* headset);
   void (*setBoundsVisible)(void* headset, char visible);
   void (*getPosition)(void* headset, float* x, float* y, float* z);
-  void (*getOrientation)(void* headset, float* x, float* y, float* z, float* w);
+  void (*getOrientation)(void* headset, float* w, float* x, float* y, float* z);
   void (*getVelocity)(void* headset, float* x, float* y, float* z);
   void (*getAngularVelocity)(void* headset, float* x, float* y, float* z);
   Controller* (*getController)(void* headset, ControllerHand hand);
@@ -45,7 +45,7 @@ void lovrHeadsetGetTrackingSize(float* width, float* depth);
 char lovrHeadsetIsBoundsVisible();
 void lovrHeadsetSetBoundsVisible(char isVisible);
 void lovrHeadsetGetPosition(float* x, float* y, float* z);
-void lovrHeadsetGetOrientation(float* x, float* y, float* z, float* w);
+void lovrHeadsetGetOrientation(float* w, float* x, float* y, float* z);
 void lovrHeadsetGetVelocity(float* x, float* y, float* z);
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);
 Controller* lovrHeadsetGetController(ControllerHand hand);
