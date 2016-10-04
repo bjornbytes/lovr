@@ -10,7 +10,7 @@
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-#include "../headset/headset.h"
+#include "../model/model.h"
 
 static GraphicsState state;
 
@@ -19,7 +19,7 @@ void lovrGraphicsInit() {
   state.projection = mat4_init();
   state.lastTransform = mat4_init();
   state.lastProjection = mat4_init();
-  state.defaultShader = lovrGraphicsNewShader(lovrDefaultVertexShader, lovrDefaultFragmentShader);
+  state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
   state.lastColor = 0;
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
@@ -403,54 +403,4 @@ void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, floa
   }
 
   lovrGraphicsPop();
-}
-
-Buffer* lovrGraphicsNewBuffer(int size, BufferDrawMode drawMode, BufferUsage usage) {
-  Buffer* buffer = malloc(sizeof(Buffer));
-
-  buffer->drawMode = drawMode;
-  buffer->usage = usage;
-  buffer->size = size;
-  buffer->data = malloc(buffer->size * 3 * sizeof(GLfloat));
-  buffer->vao = 0;
-  buffer->vbo = 0;
-  buffer->ibo = 0;
-  buffer->isRangeEnabled = 0;
-  buffer->rangeStart = 0;
-  buffer->rangeCount = buffer->size;
-
-  glGenBuffers(1, &buffer->vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
-  glBufferData(GL_ARRAY_BUFFER, buffer->size * 3 * sizeof(GLfloat), buffer->data, buffer->usage);
-
-  glGenVertexArrays(1, &buffer->vao);
-
-  vec_init(&buffer->map);
-
-  return buffer;
-}
-
-Model* lovrGraphicsNewModel(const char* path) {
-  const struct aiScene* scene = aiImportFile(path, aiProcessPreset_TargetRealtime_MaxQuality);
-
-  if (scene) {
-    return scene->mMeshes[0];
-  }
-
-  return NULL;
-}
-
-Shader* lovrGraphicsNewShader(const char* vertexSource, const char* fragmentSource) {
-  char fullVertexSource[1024];
-  snprintf(fullVertexSource, sizeof(fullVertexSource), "%s\n%s", lovrShaderVertexPrefix, vertexSource);
-  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, fullVertexSource);
-
-  char fullFragmentSource[1024];
-  snprintf(fullFragmentSource, sizeof(fullFragmentSource), "%s\n%s", lovrShaderFragmentPrefix, fragmentSource);
-  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fullFragmentSource);
-
-  GLuint id = linkShaders(vertexShader, fragmentShader);
-  Shader* shader = (Shader*) malloc(sizeof(Shader));
-  shader->id = id;
-  return shader;
 }

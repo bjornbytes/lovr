@@ -31,6 +31,7 @@ typedef struct {
 } Buffer;
 #endif
 
+Buffer* lovrBufferCreate(int size, BufferDrawMode drawMode, BufferUsage usage);
 void lovrBufferDestroy(Buffer* buffer);
 void lovrBufferDraw(Buffer* buffer);
 BufferDrawMode lovrBufferGetDrawMode(Buffer* buffer);

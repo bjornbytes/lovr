@@ -1,6 +1,11 @@
-#include <assimp/scene.h>
+#include "../model/modelData.h"
 
 #ifndef LOVR_MODEL_TYPES
 #define LOVR_MODEL_TYPES
-typedef const struct aiMesh Model;
+typedef struct {
+  ModelData* modelData;
+} Model;
 #endif
+
+Model* lovrModelCreate(const char* filename);
+void lovrModelDestroy(Model* model);

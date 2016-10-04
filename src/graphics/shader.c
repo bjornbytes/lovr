@@ -79,6 +79,21 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
   return shader;
 }
 
+Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
+  char fullVertexSource[1024];
+  snprintf(fullVertexSource, sizeof(fullVertexSource), "%s\n%s", lovrShaderVertexPrefix, vertexSource);
+  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, fullVertexSource);
+
+  char fullFragmentSource[1024];
+  snprintf(fullFragmentSource, sizeof(fullFragmentSource), "%s\n%s", lovrShaderFragmentPrefix, fragmentSource);
+  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fullFragmentSource);
+
+  GLuint id = linkShaders(vertexShader, fragmentShader);
+  Shader* shader = (Shader*) malloc(sizeof(Shader));
+  shader->id = id;
+  return shader;
+}
+
 void lovrShaderDestroy(Shader* shader) {
   glDeleteProgram(shader->id);
   free(shader);

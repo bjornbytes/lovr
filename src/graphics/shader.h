@@ -15,6 +15,7 @@ extern const char* lovrDefaultFragmentShader;
 GLuint compileShader(GLuint type, const char* filename);
 GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader);
 
+Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
 void lovrShaderDestroy(Shader* shader);
 int lovrShaderGetUniformId(Shader* shader, const char* name);
 void lovrShaderGetUniformType(Shader* shader, int id, GLenum* type, int* size);

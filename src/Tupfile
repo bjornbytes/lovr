@@ -12,13 +12,14 @@ LIBS += -pagezero_size 10000 -image_base 100000000 # OSX magic for LuaJIT
 
 export DYLD_LIBRARY_PATH;
 
-: foreach vendor/map/*.c |> clang -c %f -o %o |> obj/%B.o
-: foreach vendor/vec/*.c |> clang -c %f -o %o |> obj/%B.o
+: foreach vendor/map/*.c |> clang -c %f -o %o |> obj/vendor_%B.o
+: foreach vendor/vec/*.c |> clang -c %f -o %o |> obj/vendor_%B.o
 
-: foreach event/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
-: foreach graphics/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
-: foreach headset/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
-: foreach timer/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o
+: foreach event/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/event_%B.o
+: foreach graphics/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/graphics_%B.o
+: foreach headset/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/headset_%B.o
+: foreach model/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/model_%B.o
+: foreach timer/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/timer_%B.o
 : foreach lovr/*.c |> clang -c %f -o %o $(CFLAGS) |> obj/lovr_%B.o
 
 : foreach *.c |> clang -c %f -o %o $(CFLAGS) |> obj/%B.o

@@ -15,6 +15,10 @@ Model* luax_checkmodel(lua_State* L, int index) {
   return *(Model**) luaL_checkudata(L, index, "Model");
 }
 
+int luax_destroymodel(lua_State* L) {
+  return 0;
+}
+
 const luaL_Reg lovrModel[] = {
   { NULL, NULL }
 };

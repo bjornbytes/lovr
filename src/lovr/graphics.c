@@ -48,7 +48,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
   luaRegisterType(L, "Buffer", lovrBuffer, luax_destroybuffer);
-  luaRegisterType(L, "Model", lovrModel, NULL);
+  luaRegisterType(L, "Model", lovrModel, luax_destroymodel);
   luaRegisterType(L, "Shader", lovrShader, luax_destroyshader);
 
   map_init(&BufferDrawModes);
@@ -425,7 +425,7 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
     return luaL_argerror(L, 1, "table or number expected");
   }
 
-  Buffer* buffer = lovrGraphicsNewBuffer(size, *drawMode, *usage);
+  Buffer* buffer = lovrBufferCreate(size, *drawMode, *usage);
 
   if (lua_istable(L, 1)) {
     float x, y, z;
@@ -448,13 +448,13 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
 
 int l_lovrGraphicsNewModel(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  luax_pushmodel(L, lovrGraphicsNewModel(path));
+  luax_pushmodel(L, lovrModelCreate(path));
   return 1;
 }
 
 int l_lovrGraphicsNewShader(lua_State* L) {
   const char* vertexSource = luaL_checkstring(L, 1);
   const char* fragmentSource = luaL_checkstring(L, 2);
-  luax_pushshader(L, lovrGraphicsNewShader(vertexSource, fragmentSource));
+  luax_pushshader(L, lovrShaderCreate(vertexSource, fragmentSource));
   return 1;
 }
