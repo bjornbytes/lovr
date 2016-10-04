@@ -1,7 +1,9 @@
 #include "matrix.h"
+#include "util.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+
 /*
    m0 m4 m8  m12
    m1 m5 m9  m13
@@ -116,8 +118,6 @@ mat4 mat4_setProjection(mat4 matrix, float near, float far, float fov, float asp
   return matrix;
 }
 
-#define MAX(a, b) a > b ? a : b
-
 void mat4_getRotation(mat4 matrix, float* w, float* x, float* y, float* z) {
   float qw = sqrt(MAX(0, 1 + matrix[0] + matrix[5] + matrix[10])) / 2;
   float qx = sqrt(MAX(0, 1 + matrix[0] - matrix[5] - matrix[10])) / 2;
@@ -153,6 +153,7 @@ mat4 mat4_scale(mat4 matrix, float x, float y, float z) {
   return mat4_multiply(matrix, scale);
 }
 
+// Modified from gl-matrix.c
 mat4 mat4_multiply(mat4 a, mat4 b) {
   float a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3],
         a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7],
@@ -184,6 +185,7 @@ mat4 mat4_multiply(mat4 a, mat4 b) {
   return a;
 }
 
+// Modified from gl-matrix.c
 mat4 mat4_invert(mat4 m) {
   float a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3],
         a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7],

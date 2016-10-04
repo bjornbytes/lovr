@@ -5,6 +5,9 @@
 
 #ifndef UTIL_TYPES
 #define UTIL_TYPES
+#define MAX(a, b) a > b ? a : b
+#define MIN(a, b) a < b ? a : b
+
 typedef vec_t(unsigned int) vec_uint_t;
 #endif
 
