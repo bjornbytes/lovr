@@ -7,14 +7,13 @@
 - `renderTo(callback)` - Render to the headset using a function.  The callback function will be
   called twice, once for each eye.  This function sets the correct transformation and projection
   matrices before rendering.
-- `x, y, z = getPosition()` - Get the position of the headset in meters.
-- `angle, axisX, axisY, axisZ = getOrientation()` - Get the orientation of the headset returned in
+- `x, y, z = getPosition()` - Get the position of the headset, in meters.
+- `angle, axisX, axisY, axisZ = getOrientation()` - Get the orientation of the headset, returned in
   angle/axis format (radians).
 - `vx, vy, vz = getVelocity()` - Get the velocity of the headset.
 - `x, y, z = getAngularVelocity()` - Get the angular velocity of the headset.
-  `hand` is "left" or "right".
 - `setClipDistance(number near, number far)` - Set the clip distance of the virtual camera.
-- `near, far = getClipDistance()` - Retrieve the clip distance of the virutal camera.
+- `near, far = getClipDistance()` - Retrieve the clip distance of the virtual camera.
 - `width, depth = getTrackingSize()` - Dimensions for the rectangle enclosing the available play
   area, in meters.
 - `isVisible = isBoundsVisible()` - Whether or not the boundary grid is currently visible.
@@ -23,6 +22,7 @@
 Controllers:
 
 - `Controller = lovr.headset.getController(string hand)` - Return a controller object for the specified hand.
+  `hand` is "left" or "right".
 - `isPresent = Controller:isPresent` - Whether or not the controller is connected and available for
   use.
 - `x, y, z = Controller:getPosition()`
@@ -85,7 +85,7 @@ Shaders:
   - `lovrColor` is the color set by `lovr.graphics.setColor`.
   - Source for the default shader:
 
-```
+```lua
 shader = lovr.graphics.newShader([[
 void main() {
   gl_Position = lovrProjection * lovrTransform * vec4(position.xyz, 1.0);
@@ -113,7 +113,7 @@ Buffers:
 - `Buffer:setVertex(index, x, y, z)` - Set the value of a vertex.
 - `Buffer:setVertexMap(map)` - Set the draw order of the vertices.  It is possible to re-use
   indices.
-- `Buffer:setDrawRange(start, count)` - Limits the vertices draw to a subset of the total.
+- `Buffer:setDrawRange(start, count)` - Limits the vertices drawn to a subset of the total.
 - `Buffer:getVertexCount()` - Retrieve the number of vertices in the Buffer.
 
 `lovr.event`
