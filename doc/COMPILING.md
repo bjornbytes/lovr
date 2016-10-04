@@ -7,11 +7,12 @@ Dependencies
 ---
 
 - LuaJIT
-- GLFW (3.2+) and OpenGL (3.2+) and GLEW
-- assimp (`lovr.model` and `lovr.graphics.newModel`)
-- OpenVR (`lovr.headset`)
+- GLFW (3.2+)
+- OpenGL (Unix) or GLEW (Windows)
+- assimp (for `lovr.model` and `lovr.graphics.newModel`)
+- OpenVR (for `lovr.headset`)
 
-Windows (Using CMake)
+Windows (CMake)
 ---
 
 First, install [lovr-deps](https://github.com/bjornbytes/lovr-deps):
@@ -21,7 +22,7 @@ cd lovr
 git clone --recursive https://github.com/bjornbytes/lovr-deps deps
 ```
 
-Next, build using the CMake GUI or using the CMake command line.
+Next, use CMake to generate the build files:
 
 ```sh
 mkdir build
@@ -44,27 +45,27 @@ create and run a game from this point is:
 - Create a `main.lua` file in the folder and put your code in there.
 - Drag the `MySuperAwesomeGame` folder onto the shortcut to `lovr.exe`.
 
-### OSX (tup)
+Unix (CMake)
+---
 
-Used for development, not generally recommended.
-
-One-time setup:
+First, clone [OpenVR](https://github.com/ValveSoftware/openvr).
+Next, install the other dependencies above using your package manager of choice:
 
 ```sh
-cd lovr
-git clone git@github.com:ValveSoftware/openvr ..
-export DYLD_LIBRARY_PATH=`pwd`/../openvr/lib/osx32
-brew install assimp glfw3 luajit tup
+brew install assimp glfw3 luajit
 ```
 
-Compiling:
+Next, build using CMake:
 
 ```sh
-tup
+mkdir build
+cd build
+cmake .. -DOPENVR_DIR=/path/to/openvr
+cmake --build .
 ```
 
-Running a game:
+The `lovr` executable should exist in `lovr/build` now.  You can run a game like this:
 
 ```sh
-$ ./lovr /path/to/game
+./lovr /path/to/myGame
 ```
