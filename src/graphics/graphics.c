@@ -283,48 +283,50 @@ void lovrGraphicsGetDimensions(int* width, int* height) {
   glfwGetFramebufferSize(window, width, height);
 }
 
-void lovrGraphicsSetShapeData(float* vertexData, int vertexLength, unsigned int* indexData, int indexLength) {
-  vec_clear(&state.shapeData);
-  vec_pusharr(&state.shapeData, vertexData, vertexLength);
+void lovrGraphicsDrawLinedShape(GLenum mode) {
+  vec_float_t* vertices = &state.shapeData;
+  vec_uint_t* indices = &state.shapeIndices;
+
+  lovrGraphicsPrepare();
   glBindVertexArray(state.shapeArray);
   glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
-  glBufferData(GL_ARRAY_BUFFER, vertexLength * sizeof(float), vertexData, GL_STREAM_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, vertices->length * sizeof(float), vertices->data, GL_STREAM_DRAW);
+  glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-  vec_clear(&state.shapeIndices);
-  if (indexData) {
-    vec_pusharr(&state.shapeIndices, indexData, indexLength);
+  if (indices->length > 0) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state.shapeIndexBuffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, state.shapeIndices.length * sizeof(unsigned int), state.shapeIndices.data, GL_STREAM_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices->length * sizeof(unsigned int), indices->data, GL_STREAM_DRAW);
+    glDrawElements(mode, indices->length, GL_UNSIGNED_INT, NULL);
+  } else {
+    glDrawArrays(mode, 0, vertices->length / 3);
   }
 }
 
-void lovrGraphicsDrawShape(GLenum mode) {
-  int usingIbo = state.shapeIndices.length > 0;
+void lovrGraphicsDrawFilledShape() {
+  vec_float_t* vertices = &state.shapeData;
+  int stride = 6;
+
   lovrGraphicsPrepare();
   glBindVertexArray(state.shapeArray);
+  glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
+  glBufferData(GL_ARRAY_BUFFER, vertices->length * sizeof(float), vertices->data, GL_STREAM_DRAW);
   glEnableVertexAttribArray(0);
-
-  if (usingIbo) {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state.shapeIndexBuffer);
-    glDrawElements(mode, state.shapeIndices.length, GL_UNSIGNED_INT, NULL);
-  } else {
-    glDrawArrays(mode, 0, state.shapeData.length / 3);
-  }
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*) 0);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*) (3 * sizeof(float)));
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, vertices->length / 6);
+  glBindVertexArray(0);
 }
 
 void lovrGraphicsLine(float* points, int count) {
-  lovrGraphicsSetShapeData(points, count, NULL, 0);
-  lovrGraphicsDrawShape(GL_LINE_STRIP);
+  vec_clear(&state.shapeIndices);
+  vec_clear(&state.shapeData);
+  vec_pusharr(&state.shapeData, points, count);
+  lovrGraphicsDrawLinedShape(GL_LINE_STRIP);
 }
 
 void lovrGraphicsPlane(DrawMode mode, float x, float y, float z, float size, float nx, float ny, float nz) {
-  float points[] = {
-    -.5, .5, 0,
-    .5, .5, 0,
-    .5, -.5, 0,
-    -.5, -.5, 0
-  };
 
   // Normalize the normal vector
   float len = sqrt(nx * nx + ny * ny + nz + nz);
@@ -351,32 +353,34 @@ void lovrGraphicsPlane(DrawMode mode, float x, float y, float z, float size, flo
   lovrGraphicsTransform(transform);
 
   if (mode == DRAW_MODE_LINE) {
-    lovrGraphicsSetShapeData(points, 12, NULL, 0);
-    lovrGraphicsDrawShape(GL_LINE_LOOP);
+    float points[] = {
+      -.5, .5, 0,
+      .5, .5, 0,
+      .5, -.5, 0,
+      -.5, -.5, 0
+    };
+
+    vec_clear(&state.shapeIndices);
+    vec_clear(&state.shapeData);
+    vec_pusharr(&state.shapeData, points, 12);
+    lovrGraphicsDrawLinedShape(GL_LINE_LOOP);
   } else if (mode == DRAW_MODE_FILL) {
-    unsigned int indices[] = { 0, 3, 1, 2 };
-    lovrGraphicsSetShapeData(points, 12, indices, 4);
-    lovrGraphicsDrawShape(GL_TRIANGLE_STRIP);
+    float data[] = {
+      -.5, .5, 0,  0, 0, -1,
+      -.5, -.5, 0, 0, 0, -1,
+      .5, .5, 0,   0, 0, -1,
+      .5, -.5, 0,  0, 0, -1
+    };
+
+    vec_clear(&state.shapeData);
+    vec_pusharr(&state.shapeData, data, 24);
+    lovrGraphicsDrawFilledShape();
   }
 
   lovrGraphicsPop();
 }
 
 void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ) {
-  float points[] = {
-    // Front
-    -.5, .5, -.5,
-    .5, .5, -.5,
-    .5, -.5, -.5,
-    -.5, -.5, -.5,
-
-    // Back
-    -.5, .5, .5,
-    .5, .5, .5,
-    .5, -.5, .5,
-    -.5, -.5, .5
-  };
-
   float cos2 = cos(angle / 2);
   float sin2 = sin(angle / 2);
   float rw = cos2;
@@ -392,27 +396,77 @@ void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, floa
   lovrGraphicsTransform(transform);
 
   if (mode == DRAW_MODE_LINE) {
+    float points[] = {
+      // Front
+      -.5, .5, -.5,
+      .5, .5, -.5,
+      .5, -.5, -.5,
+      -.5, -.5, -.5,
+
+      // Back
+      -.5, .5, .5,
+      .5, .5, .5,
+      .5, -.5, .5,
+      -.5, -.5, .5
+    };
+
     unsigned int indices[] = {
       0, 1, 1, 2, 2, 3, 3, 0, // Front
       4, 5, 5, 6, 6, 7, 7, 4, // Back
       0, 4, 1, 5, 2, 6, 3, 7  // Connections
     };
 
-    lovrGraphicsSetShapeData(points, 24, indices, 24);
-    lovrGraphicsDrawShape(GL_LINES);
+    vec_clear(&state.shapeIndices);
+    vec_pusharr(&state.shapeIndices, indices, 24);
+    vec_clear(&state.shapeData);
+    vec_pusharr(&state.shapeData, points, 24);
+    lovrGraphicsDrawLinedShape(GL_LINES);
   } else {
-    unsigned int indices[] = {
-      3, 2, 0, 1, // Front
-      1, 2, 5, 6, // Right
-      6, 7, 5, 4, // Back
-      4, 7, 0, 3, // Left
-      3, 7, 2, 6, // Bottom
-      6, 0,
-      0, 1, 4, 5 // Top
+    float data[] = {
+      // Front
+      -.5, -.5, -.5,  0, 0, -1,
+      .5, -.5, -.5,   0, 0, -1,
+      -.5, .5, -.5,   0, 0, -1,
+      .5, .5, -.5,    0, 0, -1,
+
+      // Right
+      .5, .5, -.5,    1, 0, 0,
+      .5, -.5, -.5,   1, 0, 0,
+      .5, .5, .5,     1, 0, 0,
+      .5, -.5, .5,    1, 0, 0,
+
+      // Back
+      .5, -.5, .5,    0, 0, 1,
+      -.5, -.5, .5,   0, 0, 1,
+      .5, .5, .5,     0, 0, 1,
+      -.5, .5, .5,    0, 0, 1,
+
+      // Left
+      -.5, .5, .5,    -1, 0, 0,
+      -.5, -.5, .5,   -1, 0, 0,
+      -.5, .5, -.5,   -1, 0, 0,
+      -.5, -.5, -.5,  -1, 0, 0,
+
+      // Bottom
+      -.5, -.5, -.5,   0, -1, 0,
+      -.5, -.5, .5,    0, -1, 0,
+      .5, -.5, -.5,    0, -1, 0,
+      .5, -.5, .5,     0, -1, 0,
+
+      // Adjust
+      .5, -.5, .5,     0, 1, 0,
+      -.5, .5, -.5,    0, 1, 0,
+
+      // Top
+      -.5, .5, -.5,    0, 1, 0,
+      .5, .5, -.5,     0, 1, 0,
+      -.5, .5, .5,     0, 1, 0,
+      .5, .5, .5,      0, 1, 0
     };
 
-    lovrGraphicsSetShapeData(points, 24, indices, 26);
-    lovrGraphicsDrawShape(GL_TRIANGLE_STRIP);
+    vec_clear(&state.shapeData);
+    vec_pusharr(&state.shapeData, data, 156);
+    lovrGraphicsDrawFilledShape();
   }
 
   lovrGraphicsPop();

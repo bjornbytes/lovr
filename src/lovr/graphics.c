@@ -337,8 +337,7 @@ int l_lovrGraphicsLine(lua_State* L) {
     }
   }
 
-  lovrGraphicsSetShapeData(points.data, count, NULL, 0);
-  lovrGraphicsDrawShape(DRAW_MODE_LINE);
+  lovrGraphicsLine(points.data, count);
   vec_deinit(&points);
   return 0;
 }
