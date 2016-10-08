@@ -58,6 +58,9 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
     glAttachShader(shader, fragmentShader);
   }
 
+  glBindAttribLocation(shader, 0, "position");
+  glBindAttribLocation(shader, 1, "normal");
+
   glLinkProgram(shader);
 
   int isShaderLinked;
