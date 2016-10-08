@@ -2,6 +2,10 @@
 
 #ifndef LOVR_SHADER_TYPES
 #define LOVR_SHADER_TYPES
+
+#define LOVR_SHADER_POSITION 0
+#define LOVR_SHADER_NORMAL 1
+
 typedef struct {
   GLuint id;
 } Shader;

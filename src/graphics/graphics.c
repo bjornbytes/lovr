@@ -306,15 +306,16 @@ void lovrGraphicsDrawLinedShape(GLenum mode) {
 void lovrGraphicsDrawFilledShape() {
   vec_float_t* vertices = &state.shapeData;
   int stride = 6;
+  int strideBytes = stride * sizeof(float);
 
   lovrGraphicsPrepare();
   glBindVertexArray(state.shapeArray);
   glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
   glBufferData(GL_ARRAY_BUFFER, vertices->length * sizeof(float), vertices->data, GL_STREAM_DRAW);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*) 0);
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*) (3 * sizeof(float)));
+  glEnableVertexAttribArray(LOVR_SHADER_POSITION);
+  glVertexAttribPointer(LOVR_SHADER_POSITION, 3, GL_FLOAT, GL_FALSE, strideBytes, (void*) 0);
+  glEnableVertexAttribArray(LOVR_SHADER_NORMAL);
+  glVertexAttribPointer(LOVR_SHADER_NORMAL, 3, GL_FLOAT, GL_FALSE, strideBytes, (void*) (3 * sizeof(float)));
   glDrawArrays(GL_TRIANGLE_STRIP, 0, vertices->length / 6);
   glBindVertexArray(0);
 }
