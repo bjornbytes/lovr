@@ -4,7 +4,8 @@
 #ifndef LOVR_MODEL_DATA_TYPES
 #define LOVR_MODEL_DATA_TYPES
 typedef struct {
-  const struct aiScene* scene;
+  unsigned int vertexCount;
+  float* data;
 } ModelData;
 #endif
 
