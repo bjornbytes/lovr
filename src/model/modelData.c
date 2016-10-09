@@ -21,5 +21,6 @@ ModelData* lovrModelDataCreate(const char* filename) {
 }
 
 void lovrModelDataDestroy(ModelData* modelData) {
+  free(modelData->data);
   free(modelData);
 }
