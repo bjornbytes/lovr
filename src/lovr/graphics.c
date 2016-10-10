@@ -51,6 +51,10 @@ int l_lovrGraphicsInit(lua_State* L) {
   luaRegisterType(L, "Model", lovrModel, luax_destroymodel);
   luaRegisterType(L, "Shader", lovrShader, luax_destroyshader);
 
+  map_init(&BufferAttributeTypes);
+  map_set(&BufferAttributeTypes, "float", BUFFER_FLOAT);
+  map_set(&BufferAttributeTypes, "byte", BUFFER_BYTE);
+
   map_init(&BufferDrawModes);
   map_set(&BufferDrawModes, "points", BUFFER_POINTS);
   map_set(&BufferDrawModes, "strip", BUFFER_TRIANGLE_STRIP);
@@ -402,45 +406,96 @@ int l_lovrGraphicsGetDimensions(lua_State* L) {
 }
 
 int l_lovrGraphicsNewBuffer(lua_State* L) {
-  const char* userDrawMode = luaL_optstring(L, 2, "fan");
+  int size;
+  int dataIndex = 0;
+  int drawModeIndex = 2;
+  BufferFormat format;
+  vec_init(&format);
+
+  if (lua_isnumber(L, 1)) {
+    size = lua_tointeger(L, 1);
+  } else if (lua_istable(L, 1)) {
+    drawModeIndex++;
+    if (lua_isnumber(L, 2)) {
+      luax_checkbufferformat(L, 1, &format);
+      size = lua_tointeger(L, 2);
+      dataIndex = 0;
+    } else if (lua_istable(L, 2)) {
+      luax_checkbufferformat(L, 1, &format);
+      size = lua_objlen(L, 2);
+      dataIndex = 2;
+    } else {
+      size = lua_objlen(L, 1);
+      dataIndex = 1;
+    }
+  } else {
+    luaL_argerror(L, 1, "table or number expected");
+  }
+
+  const char* userDrawMode = luaL_optstring(L, drawModeIndex, "fan");
   BufferDrawMode* drawMode = (BufferDrawMode*) map_get(&BufferDrawModes, userDrawMode);
   if (!drawMode) {
     return luaL_error(L, "Invalid buffer draw mode: '%s'", userDrawMode);
   }
 
-  const char* userUsage = luaL_optstring(L, 3, "dynamic");
+  const char* userUsage = luaL_optstring(L, drawModeIndex + 1, "dynamic");
   BufferUsage* usage = (BufferUsage*) map_get(&BufferUsages, userUsage);
   if (!usage) {
     return luaL_error(L, "Invalid buffer usage: '%s'", userUsage);
   }
 
-  int size;
+  Buffer* buffer = lovrBufferCreate(size, format.length ? &format : NULL, *drawMode, *usage);
 
-  if (lua_isnumber(L, 1)) {
-    size = lua_tonumber(L, 1);
-  } else if (lua_istable(L, 1)) {
-    size = lua_objlen(L, 1);
-  } else {
-    return luaL_argerror(L, 1, "table or number expected");
-  }
+  if (dataIndex) {
+    void* vertex = lovrBufferGetScratchVertex(buffer);
+    int length = lua_objlen(L, dataIndex);
+    BufferFormat format = lovrBufferGetVertexFormat(buffer);
 
-  Buffer* buffer = lovrBufferCreate(size, *drawMode, *usage);
+    for (int i = 0; i < length; i++) {
+      lua_rawgeti(L, dataIndex, i + 1);
 
-  if (lua_istable(L, 1)) {
-    float x, y, z;
-    for (int i = 0; i < size; i++) {
-      lua_rawgeti(L, 1, i + 1);
-      lua_rawgeti(L, -1, 1);
-      lua_rawgeti(L, -2, 2);
-      lua_rawgeti(L, -3, 3);
-      x = lua_tonumber(L, -3);
-      y = lua_tonumber(L, -2);
-      z = lua_tonumber(L, -1);
-      lovrBufferSetVertex(buffer, i, x, y, z);
-      lua_pop(L, 4);
+      if (!lua_istable(L, -1)) {
+        return luaL_error(L, "Vertex information should be specified as a table");
+      }
+
+      int tableCount = lua_objlen(L, -1);
+      int tableIndex = 1;
+      void* v = vertex;
+      int j;
+      BufferAttribute attribute;
+
+      vec_foreach(&format, attribute, j) {
+        for (int k = 0; k < attribute.size; k++) {
+          if (attribute.type == BUFFER_FLOAT) {
+            float value = 0.f;
+            if (tableIndex <= tableCount) {
+              lua_rawgeti(L, -1, tableIndex++);
+              value = lua_tonumber(L, -1);
+              lua_pop(L, 1);
+            }
+
+            *((float*) v) = value;
+            v += sizeof(float);
+          } else if (attribute.type == BUFFER_BYTE) {
+            unsigned char value = 255;
+            if (tableIndex <= tableCount) {
+              lua_rawgeti(L, 3, tableIndex++);
+              value = lua_tointeger(L, -1);
+              lua_pop(L, 1);
+            }
+
+            *((unsigned char*) v) = value;
+            v += sizeof(unsigned char);
+          }
+        }
+      }
+
+      lovrBufferSetVertex(buffer, i, vertex);
+      lua_pop(L, 1);
     }
   }
 
+  vec_deinit(&format);
   luax_pushbuffer(L, buffer);
   return 1;
 }

@@ -3,6 +3,7 @@
 #include <lualib.h>
 #include "../vendor/map/map.h"
 
+map_int_t BufferAttributeTypes;
 map_int_t BufferDrawModes;
 map_int_t BufferUsages;
 map_int_t DrawModes;

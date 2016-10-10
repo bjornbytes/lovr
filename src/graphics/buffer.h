@@ -16,9 +16,25 @@ typedef enum {
   BUFFER_STREAM = GL_STREAM_DRAW
 } BufferUsage;
 
+typedef enum {
+  BUFFER_FLOAT = GL_FLOAT,
+  BUFFER_BYTE = GL_BYTE
+} BufferAttributeType;
+
+typedef struct {
+  const char* name;
+  BufferAttributeType type;
+  int size;
+} BufferAttribute;
+
+typedef vec_t(BufferAttribute) BufferFormat;
+
 typedef struct {
   int size;
-  GLfloat* data;
+  int stride;
+  void* data;
+  void* scratchVertex;
+  BufferFormat format;
   BufferDrawMode drawMode;
   BufferUsage usage;
   GLuint vao;
@@ -31,14 +47,17 @@ typedef struct {
 } Buffer;
 #endif
 
-Buffer* lovrBufferCreate(int size, BufferDrawMode drawMode, BufferUsage usage);
+Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode, BufferUsage usage);
 void lovrBufferDestroy(Buffer* buffer);
 void lovrBufferDraw(Buffer* buffer);
+BufferFormat lovrBufferGetVertexFormat(Buffer* buffer);
 BufferDrawMode lovrBufferGetDrawMode(Buffer* buffer);
 int lovrBufferSetDrawMode(Buffer* buffer, BufferDrawMode drawMode);
 int lovrBufferGetVertexCount(Buffer* buffer);
-void lovrBufferGetVertex(Buffer* buffer, int index, float* x, float* y, float* z);
-void lovrBufferSetVertex(Buffer* buffer, int index, float x, float y, float z);
+int lovrBufferGetVertexSize(Buffer* buffer);
+void* lovrBufferGetScratchVertex(Buffer* buffer);
+void lovrBufferGetVertex(Buffer* buffer, int index, void* dest);
+void lovrBufferSetVertex(Buffer* buffer, int index, void* vertex);
 unsigned int* lovrBufferGetVertexMap(Buffer* buffer, int* count);
 void lovrBufferSetVertexMap(Buffer* buffer, unsigned int* map, int count);
 char lovrBufferIsRangeEnabled(Buffer* buffer);

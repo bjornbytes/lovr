@@ -4,6 +4,8 @@
 #include "../graphics/buffer.h"
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer);
+int luax_pushvertex(lua_State* L, void* vertex, BufferFormat format);
+void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format);
 Buffer* luax_checkbuffer(lua_State* L, int index);
 int luax_destroybuffer(lua_State* L);
 extern const luaL_Reg lovrBuffer[];

@@ -2,13 +2,36 @@
 #include "graphics.h"
 #include <stdlib.h>
 
-Buffer* lovrBufferCreate(int size, BufferDrawMode drawMode, BufferUsage usage) {
+Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode, BufferUsage usage) {
   Buffer* buffer = malloc(sizeof(Buffer));
 
+  vec_init(&buffer->map);
+  vec_init(&buffer->format);
+
+  if (format) {
+    vec_extend(&buffer->format, format);
+  } else {
+    BufferAttribute position = { .name = "position", .type = BUFFER_FLOAT, .size = 3 };
+    BufferAttribute normal = { .name = "normal", .type = BUFFER_FLOAT, .size = 3 };
+    BufferAttribute texCoord = { .name = "texCoord", .type = BUFFER_FLOAT, .size = 2 };
+    vec_push(&buffer->format, position);
+    vec_push(&buffer->format, normal);
+    vec_push(&buffer->format, texCoord);
+  }
+
+  int stride = 0;
+  int i;
+  BufferAttribute attribute;
+  vec_foreach(&buffer->format, attribute, i) {
+    stride += attribute.size * sizeof(attribute.type);
+  }
+
+  buffer->size = size;
+  buffer->stride = stride;
+  buffer->data = malloc(buffer->size * buffer->stride);
+  buffer->scratchVertex = malloc(buffer->stride);
   buffer->drawMode = drawMode;
   buffer->usage = usage;
-  buffer->size = size;
-  buffer->data = malloc(buffer->size * 3 * sizeof(GLfloat));
   buffer->vao = 0;
   buffer->vbo = 0;
   buffer->ibo = 0;
@@ -18,11 +41,8 @@ Buffer* lovrBufferCreate(int size, BufferDrawMode drawMode, BufferUsage usage) {
 
   glGenBuffers(1, &buffer->vbo);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
-  glBufferData(GL_ARRAY_BUFFER, buffer->size * 3 * sizeof(GLfloat), buffer->data, buffer->usage);
-
+  glBufferData(GL_ARRAY_BUFFER, buffer->size * buffer->stride, buffer->data, buffer->usage);
   glGenVertexArrays(1, &buffer->vao);
-
-  vec_init(&buffer->map);
 
   return buffer;
 }
@@ -31,15 +51,20 @@ void lovrBufferDestroy(Buffer* buffer) {
   glDeleteBuffers(1, &buffer->vbo);
   glDeleteVertexArrays(1, &buffer->vao);
   vec_deinit(&buffer->map);
+  vec_deinit(&buffer->format);
+  free(buffer->scratchVertex);
   free(buffer->data);
   free(buffer);
 }
 
 void lovrBufferDraw(Buffer* buffer) {
+  int usingIbo = buffer->map.length > 0;
+
   lovrGraphicsPrepare();
   glBindVertexArray(buffer->vao);
-  glEnableVertexAttribArray(0);
-  int usingIbo = buffer->map.length > 0;
+  for (int i = 0; i < buffer->format.length; i++) {
+    glEnableVertexAttribArray(i);
+  }
 
   int start, count;
   if (buffer->isRangeEnabled) {
@@ -57,7 +82,10 @@ void lovrBufferDraw(Buffer* buffer) {
   } else {
     glDrawArrays(buffer->drawMode, start, count);
   }
-  glDisableVertexAttribArray(0);
+}
+
+BufferFormat lovrBufferGetVertexFormat(Buffer* buffer) {
+  return buffer->format;
 }
 
 BufferDrawMode lovrBufferGetDrawMode(Buffer* buffer) {
@@ -73,21 +101,36 @@ int lovrBufferGetVertexCount(Buffer* buffer) {
   return buffer->size;
 }
 
-void lovrBufferGetVertex(Buffer* buffer, int index, float* x, float* y, float* z) {
-  *x = buffer->data[3 * index + 0];
-  *y = buffer->data[3 * index + 1];
-  *z = buffer->data[3 * index + 2];
+int lovrBufferGetVertexSize(Buffer* buffer) {
+  return buffer->stride;
 }
 
-void lovrBufferSetVertex(Buffer* buffer, int index, float x, float y, float z) {
-  buffer->data[3 * index + 0] = x;
-  buffer->data[3 * index + 1] = y;
-  buffer->data[3 * index + 2] = z;
+void* lovrBufferGetScratchVertex(Buffer* buffer) {
+  return buffer->scratchVertex;
+}
+
+void lovrBufferGetVertex(Buffer* buffer, int index, void* dest) {
+  if (index >= buffer->size) {
+    return;
+  }
+
+  memcpy(dest, buffer->data + index * buffer->stride, buffer->stride);
+}
+
+void lovrBufferSetVertex(Buffer* buffer, int index, void* data) {
+  memcpy(buffer->data + index * buffer->stride, data, buffer->stride);
 
   glBindVertexArray(buffer->vao);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
-  glBufferData(GL_ARRAY_BUFFER, buffer->size * 3 * sizeof(GLfloat), buffer->data, buffer->usage);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+  glBufferData(GL_ARRAY_BUFFER, buffer->size * buffer->stride, buffer->data, buffer->usage);
+
+  int i;
+  BufferAttribute attribute;
+  size_t offset = 0;
+  vec_foreach(&buffer->format, attribute, i) {
+    glVertexAttribPointer(i, attribute.size, attribute.type, GL_FALSE, buffer->stride, (void*) offset);
+    offset += attribute.size + sizeof(attribute.type);
+  }
 }
 
 unsigned int* lovrBufferGetVertexMap(Buffer* buffer, int* count) {
