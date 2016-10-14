@@ -72,9 +72,9 @@ void lovrInit(lua_State* L) {
   lua_atpanic(L, lovrOnLuaError);
 }
 
-void lovrDestroy() {
+void lovrDestroy(int exitCode) {
   glfwTerminate();
-  exit(EXIT_SUCCESS);
+  exit(exitCode);
 }
 
 void lovrRun(lua_State* L, char* root) {
@@ -134,7 +134,7 @@ void lovrOnClose(GLFWwindow* _window) {
 
     if (glfwWindowShouldClose(window)) {
       glfwDestroyWindow(window);
-      lovrDestroy();
+      lovrDestroy(0);
     }
   }
 }

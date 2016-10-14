@@ -1,2 +1,2 @@
 void lovrEventPoll();
-void lovrEventQuit();
+void lovrEventQuit(int exitCode);

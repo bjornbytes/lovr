@@ -19,6 +19,7 @@ int l_lovrEventPoll(lua_State* L) {
 }
 
 int l_lovrEventQuit(lua_State* L) {
-  lovrEventQuit();
+  int exitCode = luaL_optint(L, 1, 0);
+  lovrEventQuit(exitCode);
   return 0;
 }

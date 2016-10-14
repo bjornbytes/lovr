@@ -6,6 +6,6 @@ void lovrEventPoll() {
   glfwPollEvents();
 }
 
-void lovrEventQuit() {
-  lovrDestroy();
+void lovrEventQuit(int exitCode) {
+  lovrDestroy(exitCode);
 }
