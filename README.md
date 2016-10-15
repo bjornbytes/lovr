@@ -1,7 +1,7 @@
 LÖVR
 ===
 
-LÖVR lets you make VR games with Lua!
+LÖVR lets you make VR games with Lua!  See <http://bjornbyt.es/lovr>.
 
 Example
 ---
@@ -24,11 +24,6 @@ end
 ```
 
 Drag the `myGame` folder onto a shortcut to `lovr.exe`.  You should see a spinning purple cube!
-
-Documentation
----
-
-Some basic reference documentation exists in [`API.md`](doc/API.md).
 
 Supported Hardware
 ---
