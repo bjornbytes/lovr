@@ -46,3 +46,4 @@ int l_lovrGraphicsGetDimensions(lua_State* L);
 int l_lovrGraphicsNewBuffer(lua_State* L);
 int l_lovrGraphicsNewModel(lua_State* L);
 int l_lovrGraphicsNewShader(lua_State* L);
+int l_lovrGraphicsNewSkybox(lua_State* L);

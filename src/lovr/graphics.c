@@ -2,6 +2,7 @@
 #include "buffer.h"
 #include "model.h"
 #include "shader.h"
+#include "skybox.h"
 #include "../graphics/graphics.h"
 #include "../util.h"
 
@@ -41,6 +42,7 @@ const luaL_Reg lovrGraphics[] = {
   { "newModel", l_lovrGraphicsNewModel },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newShader", l_lovrGraphicsNewShader },
+  { "newSkybox", l_lovrGraphicsNewSkybox },
   { NULL, NULL }
 };
 
@@ -50,6 +52,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   luaRegisterType(L, "Buffer", lovrBuffer, luax_destroybuffer);
   luaRegisterType(L, "Model", lovrModel, luax_destroymodel);
   luaRegisterType(L, "Shader", lovrShader, luax_destroyshader);
+  luaRegisterType(L, "Skybox", lovrSkybox, luax_destroyskybox);
 
   map_init(&BufferAttributeTypes);
   map_set(&BufferAttributeTypes, "float", BUFFER_FLOAT);
@@ -510,5 +513,16 @@ int l_lovrGraphicsNewShader(lua_State* L) {
   const char* vertexSource = luaL_checkstring(L, 1);
   const char* fragmentSource = luaL_checkstring(L, 2);
   luax_pushshader(L, lovrShaderCreate(vertexSource, fragmentSource));
+  return 1;
+}
+
+int l_lovrGraphicsNewSkybox(lua_State* L) {
+  const char* filenames[6];
+
+  for (int i = 0; i < 6; i++) {
+    filenames[i] = luaL_checkstring(L, i + 1);
+  }
+
+  luax_pushskybox(L, lovrSkyboxCreate(filenames));
   return 1;
 }
