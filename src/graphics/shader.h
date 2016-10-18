@@ -1,4 +1,5 @@
 #include "../glfw.h"
+#include "../vendor/map/map.h"
 
 #ifndef LOVR_SHADER_TYPES
 #define LOVR_SHADER_TYPES
@@ -6,8 +7,21 @@
 #define LOVR_SHADER_POSITION 0
 #define LOVR_SHADER_NORMAL 1
 
+#define LOVR_MAX_UNIFORM_LENGTH 256
+
+typedef struct {
+  GLchar name[LOVR_MAX_UNIFORM_LENGTH];
+  int index;
+  int location;
+  GLenum type;
+  int count;
+} Uniform;
+
+typedef map_t(Uniform) map_uniform_t;
+
 typedef struct {
   GLuint id;
+  map_uniform_t uniforms;
 } Shader;
 #endif
 
@@ -22,7 +36,7 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader);
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
 void lovrShaderDestroy(Shader* shader);
 int lovrShaderGetUniformId(Shader* shader, const char* name);
-void lovrShaderGetUniformType(Shader* shader, int id, GLenum* type, int* size);
+int lovrShaderGetUniformType(Shader* shader, const char* name, GLenum* type, int* count);
 void lovrShaderSendFloat(Shader* shader, int id, float value);
 void lovrShaderSendFloatVec2(Shader* shader, int id, float* vector);
 void lovrShaderSendFloatVec3(Shader* shader, int id, float* vector);

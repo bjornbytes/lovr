@@ -35,7 +35,7 @@ GLuint compileShader(GLenum type, const char* source) {
 
   int isShaderCompiled;
   glGetShaderiv(shader, GL_COMPILE_STATUS, &isShaderCompiled);
-  if(!isShaderCompiled) {
+  if (!isShaderCompiled) {
     int logLength;
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
 
@@ -65,7 +65,7 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
 
   int isShaderLinked;
   glGetProgramiv(shader, GL_LINK_STATUS, (int*)&isShaderLinked);
-  if(!isShaderLinked) {
+  if (!isShaderLinked) {
     int logLength;
     glGetProgramiv(shader, GL_INFO_LOG_LENGTH, &logLength);
 
@@ -94,6 +94,20 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   GLuint id = linkShaders(vertexShader, fragmentShader);
   Shader* shader = (Shader*) malloc(sizeof(Shader));
   shader->id = id;
+
+  GLint uniformCount;
+  GLsizei bufferSize = LOVR_MAX_UNIFORM_LENGTH / sizeof(GLchar);
+  map_init(&shader->uniforms);
+  glGetProgramiv(id, GL_ACTIVE_UNIFORMS, &uniformCount);
+
+  for (int i = 0; i < uniformCount; i++) {
+    Uniform uniform;
+    glGetActiveUniform(id, i, bufferSize, NULL, &uniform.count, &uniform.type, uniform.name);
+    uniform.location = glGetUniformLocation(id, uniform.name);
+    uniform.index = i;
+    map_set(&shader->uniforms, uniform.name, uniform);
+  }
+
   return shader;
 }
 
@@ -103,11 +117,25 @@ void lovrShaderDestroy(Shader* shader) {
 }
 
 int lovrShaderGetUniformId(Shader* shader, const char* name) {
-  return glGetUniformLocation(shader->id, name);
+  Uniform* uniform = map_get(&shader->uniforms, name);
+
+  if (!uniform) {
+    return -1;
+  }
+
+  return uniform->location;
 }
 
-void lovrShaderGetUniformType(Shader* shader, int id, GLenum* type, int* size) {
-  glGetActiveUniform(shader->id, id, 0, NULL, size, type, NULL);
+int lovrShaderGetUniformType(Shader* shader, const char* name, GLenum* type, int* count) {
+  Uniform* uniform = map_get(&shader->uniforms, name);
+
+  if (!uniform) {
+    return 1;
+  }
+
+  *type = uniform->type;
+  *count = uniform->count;
+  return 0;
 }
 
 void lovrShaderSendFloat(Shader* shader, int id, float value) {

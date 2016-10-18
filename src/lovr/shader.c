@@ -37,7 +37,7 @@ int l_lovrShaderSend(lua_State* L) {
 
   GLenum type;
   int size;
-  lovrShaderGetUniformType(shader, id, &type, &size);
+  lovrShaderGetUniformType(shader, name, &type, &size);
 
   float data[16];
 
