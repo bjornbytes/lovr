@@ -84,7 +84,7 @@ else()
       set(LOVR_OPENVR ${OPENVR_DIR}/lib/linux32/libopenvr_api.so)
     endif()
   else()
-    message(FATAL_ERROR "Please specify the location of OpenVR (-DOPENVR_DIR=/path/to/openvr)")
+    message(FATAL_ERROR "Please specify the absolute location of OpenVR (-DOPENVR_DIR=/path/to/openvr)")
   endif()
 endif()
 

@@ -55,6 +55,9 @@ Next, install the other dependencies above using your package manager of choice:
 brew install assimp glfw3 luajit
 ```
 
+On OSX, you'll need to set the `DYLD_LIBRARY_PATH` environment variable to be
+`/path/to/openvr/lib/osx32`.
+
 Next, build using CMake:
 
 ```sh
