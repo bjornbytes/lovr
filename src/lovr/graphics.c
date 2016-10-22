@@ -204,7 +204,7 @@ int l_lovrGraphicsGetShader(lua_State* L) {
 }
 
 int l_lovrGraphicsSetShader(lua_State* L) {
-  Shader* shader = luax_checkshader(L, 1);
+  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checkshader(L, 1);
   lovrGraphicsSetShader(shader);
   return 0;
 }
