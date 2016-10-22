@@ -36,10 +36,6 @@ void lovrInit(lua_State* L) {
     "  success, err = pcall(lovr.conf, conf) "
     "end "
 
-    "if not success and err then "
-    "  print('Could not run conf.lua') "
-    "end "
-
     "local modules = { 'event', 'graphics', 'headset', 'timer' } "
     "for _, module in ipairs(modules) do "
     "  if conf.modules[module] then "
