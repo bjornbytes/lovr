@@ -88,6 +88,7 @@ void lovrGraphicsRotate(float w, float x, float y, float z);
 void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsTransform(mat4 transform);
 void lovrGraphicsGetDimensions(int* width, int* height);
+void lovrGraphicsSetShapeData(float* data, int dataCount, unsigned int* indices, int indicesCount);
 void lovrGraphicsDrawLinedShape(GLenum mode);
 void lovrGraphicsDrawFilledShape();
 void lovrGraphicsLine(float* points, int count);
