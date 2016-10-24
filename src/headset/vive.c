@@ -63,16 +63,15 @@ Headset* viveInit() {
   this->interface = &interface;
 
   if (!VR_IsHmdPresent()) {
-    error("Warning: HMD not found");
+    return NULL;
   } else if (!VR_IsRuntimeInstalled()) {
-    error("Warning: SteamVR not found");
+    return NULL;
   }
 
   EVRInitError vrError;
   VR_InitInternal(&vrError, EVRApplicationType_VRApplication_Scene);
 
   if (vrError != EVRInitError_VRInitError_None) {
-    error("Problem initializing OpenVR");
     return NULL;
   }
 
@@ -81,21 +80,18 @@ Headset* viveInit() {
   sprintf(fnTableName, "FnTable:%s", IVRSystem_Version);
   state->vrSystem = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
   if (vrError != EVRInitError_VRInitError_None || state->vrSystem == NULL) {
-    error("Problem initializing VRSystem");
     return NULL;
   }
 
   sprintf(fnTableName, "FnTable:%s", IVRCompositor_Version);
   state->vrCompositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
   if (vrError != EVRInitError_VRInitError_None || state->vrCompositor == NULL) {
-    error("Problem initializing VRCompositor");
     return NULL;
   }
 
   sprintf(fnTableName, "FnTable:%s", IVRChaperone_Version);
   state->vrChaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
   if (vrError != EVRInitError_VRInitError_None || state->vrChaperone == NULL) {
-    error("Problem initializing VRChaperone");
     return NULL;
   }
 
@@ -138,7 +134,7 @@ Headset* viveInit() {
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, state->resolveTexture, 0);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    error("framebuffer not complete");
+    return NULL;
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);

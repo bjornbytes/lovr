@@ -8,6 +8,10 @@ void lovrHeadsetInit() {
 }
 
 char lovrHeadsetIsPresent() {
+  if (!headset) {
+    return 0;
+  }
+
   return headset->interface->isPresent(headset);
 }
 
