@@ -20,6 +20,7 @@ void lovrGraphicsInit() {
   state.lastTransform = mat4_init();
   state.lastProjection = mat4_init();
   state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
+  state.lastShader = NULL;
   state.lastColor = 0;
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
@@ -92,10 +93,13 @@ void lovrGraphicsPrepare() {
     return;
   }
 
+  int shaderChanged = shader != state.lastShader;
+  state.lastShader = shader;
+
   mat4 transform = vec_last(&state.transforms);
   mat4 lastTransform = state.lastTransform;
 
-  if (memcmp(transform, lastTransform, 16 * sizeof(float))) {
+  if (shaderChanged || memcmp(transform, lastTransform, 16 * sizeof(float))) {
     int uniformId = lovrShaderGetUniformId(shader, "lovrTransform");
     lovrShaderSendFloatMat4(shader, uniformId, transform);
     memcpy(lastTransform, transform, 16 * sizeof(float));
@@ -104,13 +108,13 @@ void lovrGraphicsPrepare() {
   mat4 projection = state.projection;
   mat4 lastProjection = state.lastProjection;
 
-  if (memcmp(projection, lastProjection, 16 * sizeof(float))) {
+  if (shaderChanged || memcmp(projection, lastProjection, 16 * sizeof(float))) {
     int uniformId = lovrShaderGetUniformId(shader, "lovrProjection");
     lovrShaderSendFloatMat4(shader, uniformId, projection);
     memcpy(lastProjection, projection, 16 * sizeof(float));
   }
 
-  if (state.lastColor != state.color) {
+  if (shaderChanged || state.lastColor != state.color) {
     int uniformId = lovrShaderGetUniformId(shader, "lovrColor");
     float color[4] = {
       LOVR_COLOR_R(state.color) / 255.f,

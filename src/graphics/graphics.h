@@ -32,6 +32,7 @@ typedef enum {
 
 typedef struct {
   Shader* activeShader;
+  Shader* lastShader;
   Shader* defaultShader;
   vec_mat4_t transforms;
   mat4 lastTransform;
