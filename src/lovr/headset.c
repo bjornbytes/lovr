@@ -14,6 +14,9 @@ void renderHelper(int eyeIndex, void* userdata) {
 const luaL_Reg lovrHeadset[] = {
   { "isPresent", l_lovrHeadsetIsPresent },
   { "getType", l_lovrHeadsetGetType },
+  { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
+  { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
+  { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
   { "getClipDistance", l_lovrHeadsetGetClipDistance },
   { "setClipDistance", l_lovrHeadsetSetClipDistance },
   { "getTrackingSize", l_lovrHeadsetGetTrackingSize },
@@ -48,6 +51,28 @@ int l_lovrHeadsetIsPresent(lua_State* L) {
 int l_lovrHeadsetGetType(lua_State* L) {
   lua_pushstring(L, lovrHeadsetGetType());
   return 1;
+}
+
+int l_lovrHeadsetGetDisplayWidth(lua_State* L) {
+  int width;
+  lovrHeadsetGetDisplayDimensions(&width, NULL);
+  lua_pushnumber(L, width);
+  return 1;
+}
+
+int l_lovrHeadsetGetDisplayHeight(lua_State* L) {
+  int height;
+  lovrHeadsetGetDisplayDimensions(NULL, &height);
+  lua_pushnumber(L, height);
+  return 1;
+}
+
+int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
+  int width, height;
+  lovrHeadsetGetDisplayDimensions(&width, &height);
+  lua_pushnumber(L, width);
+  lua_pushnumber(L, height);
+  return 2;
 }
 
 int l_lovrHeadsetGetClipDistance(lua_State* L) {

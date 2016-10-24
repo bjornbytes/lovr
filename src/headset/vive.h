@@ -4,6 +4,7 @@ Headset* viveInit();
 void viveDestroy();
 char viveIsPresent(void* headset);
 const char* viveGetType(void* headset);
+void viveGetDisplayDimensions(void* headset, int* width, int* height);
 void viveGetClipDistance(void* headset, float* near, float* far);
 void viveSetClipDistance(void* headset, float near, float far);
 void viveGetTrackingSize(void* headset, float* width, float* depth);

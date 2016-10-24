@@ -14,6 +14,7 @@ typedef struct {
 typedef struct {
   char (*isPresent)(void* headset);
   const char* (*getType)(void* headset);
+  void (*getDisplayDimensions)(void* headset, int* width, int* height);
   void (*getClipDistance)(void* headset, float* near, float* far);
   void (*setClipDistance)(void* headset, float near, float far);
   void (*getTrackingSize)(void* headset, float* width, float* depth);
@@ -40,6 +41,7 @@ typedef struct {
 void lovrHeadsetInit();
 char lovrHeadsetIsPresent();
 const char* lovrHeadsetGetType();
+void lovrHeadsetGetDisplayDimensions(int* width, int* height);
 void lovrHeadsetGetClipDistance(float* near, float* far);
 void lovrHeadsetSetClipDistance(float near, float far);
 void lovrHeadsetGetTrackingSize(float* width, float* depth);

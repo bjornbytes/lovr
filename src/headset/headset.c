@@ -19,6 +19,10 @@ const char* lovrHeadsetGetType() {
   return headset->interface->getType(headset);
 }
 
+void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
+  headset->interface->getDisplayDimensions(headset, width, height);
+}
+
 void lovrHeadsetGetClipDistance(float* near, float* far) {
   headset->interface->getClipDistance(headset, near, far);
 }

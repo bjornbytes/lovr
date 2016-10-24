@@ -34,6 +34,7 @@ typedef struct {
 static HeadsetInterface interface = {
   .isPresent = viveIsPresent,
   .getType = viveGetType,
+  .getDisplayDimensions = viveGetDisplayDimensions,
   .getClipDistance = viveGetClipDistance,
   .setClipDistance = viveSetClipDistance,
   .getTrackingSize = viveGetTrackingSize,
@@ -163,6 +164,13 @@ char viveIsPresent(void* headset) {
 
 const char* viveGetType(void* headset) {
   return "Vive";
+}
+
+void viveGetDisplayDimensions(void* headset, int* width, int* height) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  *width = state->renderWidth;
+  *height = state->renderHeight;
 }
 
 void viveGetClipDistance(void* headset, float* near, float* far) {
