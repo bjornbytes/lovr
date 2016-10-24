@@ -1,7 +1,5 @@
 #include "lovr.h"
 #include "glfw.h"
-#define STB_IMAGE_IMPLEMENTATION
-#include "vendor/stb_image.h"
 
 int main(int argc, char** argv) {
   lua_State* L = luaL_newstate();

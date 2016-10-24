@@ -9,4 +9,4 @@ typedef struct {
 
 Skybox* lovrSkyboxCreate();
 void lovrSkyboxDestroy(Skybox* skybox);
-void lovrSkyboxDraw(Skybox* skybox);
+void lovrSkyboxDraw(Skybox* skybox, float angle, float ax, float ay, float az);

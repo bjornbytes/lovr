@@ -28,6 +28,10 @@ const luaL_Reg lovrSkybox[] = {
 
 int l_lovrSkyboxDraw(lua_State* L) {
   Skybox* skybox = luax_checkskybox(L, 1);
-  lovrSkyboxDraw(skybox);
+  float angle = luaL_optnumber(L, 2, 0.f);
+  float ax = luaL_optnumber(L, 3, 0.f);
+  float ay = luaL_optnumber(L, 4, 0.f);
+  float az = luaL_optnumber(L, 5, 0.f);
+  lovrSkyboxDraw(skybox, angle, ax, ay, az);
   return 0;
 }
