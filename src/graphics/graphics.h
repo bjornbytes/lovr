@@ -1,6 +1,7 @@
 #include "buffer.h"
 #include "model.h"
 #include "shader.h"
+#include "skybox.h"
 #include "../matrix.h"
 
 #ifndef LOVR_GRAPHICS_TYPES
@@ -34,6 +35,7 @@ typedef struct {
   Shader* activeShader;
   Shader* lastShader;
   Shader* defaultShader;
+  Shader* skyboxShader;
   vec_mat4_t transforms;
   mat4 lastTransform;
   mat4 projection;
@@ -94,3 +96,4 @@ void lovrGraphicsDrawFilledShape();
 void lovrGraphicsLine(float* points, int count);
 void lovrGraphicsPlane(DrawMode mode, float x, float y, float z, float size, float nx, float ny, float nz);
 void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ);
+void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az);

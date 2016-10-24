@@ -1,8 +1,5 @@
 #define _USE_MATH_DEFINES
 #include "graphics.h"
-#include "model.h"
-#include "buffer.h"
-#include "shader.h"
 #include "../glfw.h"
 #include "../util.h"
 #include <stdlib.h>
@@ -20,6 +17,7 @@ void lovrGraphicsInit() {
   state.lastTransform = mat4_init();
   state.lastProjection = mat4_init();
   state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
+  state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
   state.lastShader = NULL;
   state.lastColor = 0;
   glGenBuffers(1, &state.shapeBuffer);
@@ -36,6 +34,7 @@ void lovrGraphicsDestroy() {
   mat4_deinit(state.lastTransform);
   mat4_deinit(state.lastProjection);
   lovrShaderDestroy(state.defaultShader);
+  lovrShaderDestroy(state.skyboxShader);
   glDeleteBuffers(1, &state.shapeBuffer);
   glDeleteBuffers(1, &state.shapeIndexBuffer);
   glDeleteVertexArrays(1, &state.shapeArray);
@@ -478,5 +477,81 @@ void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, floa
     lovrGraphicsDrawFilledShape();
   }
 
+  lovrGraphicsPop();
+}
+
+void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az) {
+  if (!skybox) {
+    return;
+  }
+
+  Shader* lastShader = lovrGraphicsGetShader();
+  lovrGraphicsSetShader(state.skyboxShader);
+
+  float cos2 = cos(angle / 2);
+  float sin2 = sin(angle / 2);
+  float rw = cos2;
+  float rx = sin2 * ax;
+  float ry = sin2 * ay;
+  float rz = sin2 * az;
+
+  lovrGraphicsPrepare();
+  lovrGraphicsPush();
+  lovrGraphicsOrigin();
+  lovrGraphicsRotate(rw, rx, ry, rz);
+
+  float cube[] = {
+    // Front
+    1.f, -1.f, -1.f,  0, 0, 0,
+    1.f, 1.f, -1.f,   0, 0, 0,
+    -1.f, -1.f, -1.f, 0, 0, 0,
+    -1.f, 1.f, -1.f,  0, 0, 0,
+
+    // Left
+    -1.f, 1.f, -1.f,  0, 0, 0,
+    -1.f, 1.f, 1.f,   0, 0, 0,
+    -1.f, -1.f, -1.f, 0, 0, 0,
+    -1.f, -1.f, 1.f,  0, 0, 0,
+
+    // Back
+    -1.f, -1.f, 1.f,  0, 0, 0,
+    1.f, -1.f, 1.f,   0, 0, 0,
+    -1.f, 1.f, 1.f,   0, 0, 0,
+    1.f, 1.f, 1.f,    0, 0, 0,
+
+    // Right
+    1.f, 1.f, 1.f,    0, 0, 0,
+    1.f, -1.f, 1.f,   0, 0, 0,
+    1.f, 1.f, -1.f,   0, 0, 0,
+    1.f, -1.f, -1.f,  0, 0, 0,
+
+    // Bottom
+    1.f, -1.f, -1.f,  0, 0, 0,
+    1.f, -1.f, 1.f,   0, 0, 0,
+    -1.f, -1.f, -1.f, 0, 0, 0,
+    -1.f, -1.f, 1.f,  0, 0, 0,
+
+    // Adjust
+    -1.f, -1.f, 1.f,  0, 0, 0,
+    -1.f, 1.f, -1.f,  0, 0, 0,
+
+    // Top
+    -1.f, 1.f, -1.f,  0, 0, 0,
+    -1.f, 1.f, 1.f,   0, 0, 0,
+    1.f, 1.f, -1.f,   0, 0, 0,
+    1.f, 1.f, 1.f,    0, 0, 0
+  };
+
+  glDepthMask(GL_FALSE);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, skybox->texture);
+
+  lovrGraphicsSetShapeData(cube, 156, NULL, 0);
+  lovrGraphicsDrawFilledShape();
+
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glDepthMask(GL_TRUE);
+
+  lovrGraphicsSetShader(lastShader);
   lovrGraphicsPop();
 }

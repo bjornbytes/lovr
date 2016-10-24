@@ -519,8 +519,25 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 int l_lovrGraphicsNewSkybox(lua_State* L) {
   const char* filenames[6];
 
-  for (int i = 0; i < 6; i++) {
-    filenames[i] = luaL_checkstring(L, i + 1);
+  if (lua_istable(L, 1)) {
+    if (lua_objlen(L, 1) != 6) {
+      return luaL_argerror(L, 1, "Expected 6 strings or a table containing 6 strings");
+    }
+
+    for (int i = 0; i < 6; i++) {
+      lua_rawgeti(L, 1, i + 1);
+
+      if (!lua_isstring(L, -1)) {
+        return luaL_argerror(L, 1, "Expected 6 strings or a table containing 6 strings");
+      }
+
+      filenames[i] = lua_tostring(L, -1);
+      lua_pop(L, 1);
+    }
+  } else {
+    for (int i = 0; i < 6; i++) {
+      filenames[i] = luaL_checkstring(L, i + 1);
+    }
   }
 
   luax_pushskybox(L, lovrSkyboxCreate(filenames));

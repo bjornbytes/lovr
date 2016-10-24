@@ -32,6 +32,6 @@ int l_lovrSkyboxDraw(lua_State* L) {
   float ax = luaL_optnumber(L, 3, 0.f);
   float ay = luaL_optnumber(L, 4, 0.f);
   float az = luaL_optnumber(L, 5, 0.f);
-  lovrSkyboxDraw(skybox, angle, ax, ay, az);
+  lovrGraphicsSkybox(skybox, angle, ax, ay, az);
   return 0;
 }

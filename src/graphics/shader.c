@@ -17,13 +17,29 @@ const char* lovrShaderFragmentPrefix = ""
 
 const char* lovrDefaultVertexShader = ""
 "void main() { \n"
-"  gl_Position = lovrProjection * lovrTransform * vec4(position.xyz, 1.0); \n"
+"  gl_Position = lovrProjection * lovrTransform * vec4(position, 1.0); \n"
 "}"
 "";
 
 const char* lovrDefaultFragmentShader = ""
 "void main() { \n"
 "  color = lovrColor; \n"
+"}"
+"";
+
+const char* lovrSkyboxVertexShader = ""
+"out vec3 texturePosition; \n"
+"void main() { \n"
+"  texturePosition = position; \n"
+"  gl_Position = lovrProjection * lovrTransform * vec4(position, 1.0); \n"
+"}"
+"";
+
+const char* lovrSkyboxFragmentShader = ""
+"in vec3 texturePosition; \n"
+"uniform samplerCube cube; \n"
+"void main() { \n"
+"  color = texture(cube, texturePosition) * lovrColor; \n"
 "}"
 "";
 
