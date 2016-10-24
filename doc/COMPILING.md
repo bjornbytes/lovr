@@ -48,8 +48,9 @@ create and run a game from this point is:
 Unix (CMake)
 ---
 
-First, clone [OpenVR](https://github.com/ValveSoftware/openvr).
-Next, install the other dependencies above using your package manager of choice:
+First, clone [OpenVR](https://github.com/ValveSoftware/openvr).  For this example, we'll clone
+`openvr` into the same directory that `lovr` was cloned into.  Next, install the other dependencies
+above using your package manager of choice:
 
 ```sh
 brew install assimp glfw3 luajit
@@ -63,7 +64,7 @@ Next, build using CMake:
 ```sh
 mkdir build
 cd build
-cmake .. -DOPENVR_DIR=/path/to/openvr
+cmake .. -DOPENVR_DIR=../../openvr
 cmake --build .
 ```
 
@@ -72,3 +73,6 @@ The `lovr` executable should exist in `lovr/build` now.  You can run a game like
 ```sh
 ./lovr /path/to/myGame
 ```
+
+You can also copy or symlink LÖVR into a directory on your `PATH` environment variable (e.g.
+`/usr/local/bin`) and run games from anywhere by just typing `lovr`.
