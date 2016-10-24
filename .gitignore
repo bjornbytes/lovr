@@ -2,6 +2,7 @@
 build
 /lovr
 deps
+data
 src/obj
 main.lua
 conf.lua
