@@ -47,6 +47,7 @@ static HeadsetInterface interface = {
   .isControllerPresent = viveIsControllerPresent,
   .getControllerPosition = viveGetControllerPosition,
   .getControllerOrientation = viveGetControllerOrientation,
+  .getControllerHand = viveGetControllerHand,
   .renderTo = viveRenderTo
 };
 
@@ -294,6 +295,10 @@ void viveGetControllerOrientation(void* headset, Controller* controller, float* 
 
   float matrix[16];
   mat4_getRotation(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), w, x, y, z);
+}
+
+ControllerHand viveGetControllerHand(void* headset, Controller* controller) {
+  return controller->hand;
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {

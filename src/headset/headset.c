@@ -71,6 +71,10 @@ void lovrHeadsetGetControllerOrientation(Controller* controller, float* w, float
   headset->interface->getControllerOrientation(headset, controller, w, x, y, z);
 }
 
+ControllerHand lovrHeadsetGetControllerHand(Controller* controller) {
+  return headset->interface->getControllerHand(headset, controller);
+}
+
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   headset->interface->renderTo(headset, callback, userdata);
 }
