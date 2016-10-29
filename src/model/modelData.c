@@ -1,4 +1,6 @@
 #include "modelData.h"
+#include <stdlib.h>
+#include <assimp/scene.h>
 #include <assimp/cimport.h>
 #include <assimp/postprocess.h>
 

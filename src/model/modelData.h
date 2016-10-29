@@ -1,6 +1,3 @@
-#include <stdlib.h>
-#include <assimp/scene.h>
-
 #ifndef LOVR_MODEL_DATA_TYPES
 #define LOVR_MODEL_DATA_TYPES
 typedef struct {
