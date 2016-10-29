@@ -5,6 +5,7 @@
 #include "skybox.h"
 #include "../graphics/graphics.h"
 #include "../util.h"
+#include <math.h>
 
 const luaL_Reg lovrGraphics[] = {
   { "reset", l_lovrGraphicsReset },
