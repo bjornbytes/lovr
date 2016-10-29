@@ -1,9 +1,42 @@
+#include "../vendor/vec/vec.h"
+#include "../util.h"
+#include "../matrix.h"
+
 #ifndef LOVR_MODEL_DATA_TYPES
 #define LOVR_MODEL_DATA_TYPES
+
 typedef struct {
-  unsigned int vertexCount;
-  float* data;
+  float x;
+  float y;
+  float z;
+} ModelVertex;
+
+typedef vec_t(ModelVertex) vec_model_vertex_t;
+
+typedef struct {
+  vec_uint_t indices;
+} ModelFace;
+
+typedef vec_t(ModelFace) vec_model_face_t;
+
+typedef struct {
+  vec_model_face_t faces;
+  vec_model_vertex_t vertices;
+} ModelMesh;
+
+typedef vec_t(ModelMesh*) vec_model_mesh_t;
+
+typedef struct ModelNode {
+  mat4 transform;
+  vec_uint_t meshes;
+  vec_void_t children;
+} ModelNode;
+
+typedef struct {
+  ModelNode* root;
+  vec_model_mesh_t meshes;
 } ModelData;
+
 #endif
 
 ModelData* lovrModelDataCreate(const char* filename);
