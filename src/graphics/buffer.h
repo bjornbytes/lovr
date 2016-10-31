@@ -58,6 +58,7 @@ int lovrBufferGetVertexSize(Buffer* buffer);
 void* lovrBufferGetScratchVertex(Buffer* buffer);
 void lovrBufferGetVertex(Buffer* buffer, int index, void* dest);
 void lovrBufferSetVertex(Buffer* buffer, int index, void* vertex);
+void lovrBufferSetVertices(Buffer* buffer, float* vertices, int count);
 unsigned int* lovrBufferGetVertexMap(Buffer* buffer, int* count);
 void lovrBufferSetVertexMap(Buffer* buffer, unsigned int* map, int count);
 char lovrBufferIsRangeEnabled(Buffer* buffer);

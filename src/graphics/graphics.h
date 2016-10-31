@@ -6,7 +6,6 @@
 
 #ifndef LOVR_GRAPHICS_TYPES
 #define LOVR_GRAPHICS_TYPES
-typedef vec_t(mat4) vec_mat4_t;
 
 #define LOVR_COLOR(r, g, b, a) ((a << 0) | (b << 8) | (g << 16) | (r << 24))
 #define LOVR_COLOR_R(c) (c >> 24 & 0xff)

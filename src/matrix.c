@@ -185,6 +185,17 @@ mat4 mat4_multiply(mat4 a, mat4 b) {
   return a;
 }
 
+void mat4_multiplyVector(mat4 m, float* v) {
+  float v0 = v[0];
+  float v1 = v[1];
+  float v2 = v[2];
+  float v3 = v[3];
+  v[0] = v0 * m[0] + v1 * m[4] + v2 * m[8] + v3 * m[12];
+  v[1] = v0 * m[1] + v1 * m[5] + v2 * m[9] + v3 * m[13];
+  v[2] = v0 * m[2] + v1 * m[6] + v2 * m[10] + v3 * m[14];
+  v[3] = v0 * m[3] + v1 * m[7] + v2 * m[11] + v3 * m[15];
+}
+
 // Modified from gl-matrix.c
 mat4 mat4_invert(mat4 m) {
   float a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3],

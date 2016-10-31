@@ -133,6 +133,22 @@ void lovrBufferSetVertex(Buffer* buffer, int index, void* data) {
   }
 }
 
+void lovrBufferSetVertices(Buffer* buffer, float* vertices, int count) {
+  memcpy(buffer->data, vertices, buffer->stride * count);
+
+  glBindVertexArray(buffer->vao);
+  glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
+  glBufferData(GL_ARRAY_BUFFER, buffer->size * buffer->stride, buffer->data, buffer->usage);
+
+  int i;
+  BufferAttribute attribute;
+  size_t offset = 0;
+  vec_foreach(&buffer->format, attribute, i) {
+    glVertexAttribPointer(i, attribute.size, attribute.type, GL_FALSE, buffer->stride, (void*) offset);
+    offset += attribute.size + sizeof(attribute.type);
+  }
+}
+
 unsigned int* lovrBufferGetVertexMap(Buffer* buffer, int* count) {
   *count = buffer->map.length;
   return buffer->map.data;

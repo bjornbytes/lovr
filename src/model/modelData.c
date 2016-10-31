@@ -3,7 +3,6 @@
 #include <assimp/scene.h>
 #include <assimp/cimport.h>
 #include <assimp/postprocess.h>
-#include <stdio.h>
 
 static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
 
@@ -27,18 +26,25 @@ static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
 
 ModelData* lovrModelDataCreate(const char* filename) {
   ModelData* modelData = malloc(sizeof(ModelData));
-  const struct aiScene* scene = aiImportFile(filename, aiProcessPreset_TargetRealtime_MaxQuality);
+  const struct aiScene* scene = aiImportFile(filename, aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph);
 
   // Meshes
   vec_init(&modelData->meshes);
   for (int m = 0; m < scene->mNumMeshes; m++) {
     struct aiMesh* assimpMesh = scene->mMeshes[m];
     ModelMesh* mesh = malloc(sizeof(ModelMesh));
+    vec_push(&modelData->meshes, mesh);
 
     // Faces
     vec_init(&mesh->faces);
     for (int f = 0; f < assimpMesh->mNumFaces; f++) {
       struct aiFace assimpFace = assimpMesh->mFaces[f];
+
+      // Skip lines and points, polygons are triangulated
+      if (assimpFace.mNumIndices != 3) {
+        continue;
+      }
+
       ModelFace face;
       vec_init(&face.indices);
 
@@ -57,6 +63,8 @@ ModelData* lovrModelDataCreate(const char* filename) {
       vertex.x = assimpMesh->mVertices[v].x;
       vertex.y = assimpMesh->mVertices[v].y;
       vertex.z = assimpMesh->mVertices[v].z;
+
+      vec_push(&mesh->vertices, vertex);
     }
   }
 

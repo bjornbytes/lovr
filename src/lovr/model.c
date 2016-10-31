@@ -20,5 +20,12 @@ int luax_destroymodel(lua_State* L) {
 }
 
 const luaL_Reg lovrModel[] = {
+  { "draw", l_lovrModelDraw },
   { NULL, NULL }
 };
+
+int l_lovrModelDraw(lua_State* L) {
+  Model* model = luax_checkmodel(L, 1);
+  lovrModelDraw(model);
+  return 0;
+}
