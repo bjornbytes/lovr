@@ -25,6 +25,20 @@ end
 
 Drag the `myGame` folder onto a shortcut to `lovr.exe`.  You should see a spinning purple cube!
 
+#### 3D Models
+
+LÖVR supports most 3D model file formats:
+
+```lua
+function lovr.load()
+  model = lovr.graphics.newModel('teapot.fbx')
+end
+
+function lovr.draw()
+  model:draw()
+end
+```
+
 Supported Hardware
 ---
 
