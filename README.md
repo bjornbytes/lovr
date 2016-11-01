@@ -58,6 +58,7 @@ How to compile LÖVR from source.
 - OpenGL (Unix) or GLEW (Windows)
 - assimp (for `lovr.model` and `lovr.graphics.newModel`)
 - OpenVR (for `lovr.headset`)
+- PhysicsFS
 
 #### Windows (CMake)
 
@@ -98,7 +99,7 @@ First, clone [OpenVR](https://github.com/ValveSoftware/openvr).  For this exampl
 above using your package manager of choice:
 
 ```sh
-brew install assimp glfw3 luajit
+brew install assimp glfw3 luajit physfs
 ```
 
 On OSX, you'll need to set the `DYLD_LIBRARY_PATH` environment variable to be

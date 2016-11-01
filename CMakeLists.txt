@@ -53,6 +53,17 @@ else()
   set(LOVR_GLFW ${GLFW_LIBRARIES})
 endif()
 
+# PhysicsFS
+if(WIN32)
+  add_subdirectory(deps/physfs physfs)
+  include_directories(deps/physfs/src)
+  set(LOVR_PHYSFS physfs)
+else()
+  find_package(PhysFS REQUIRED)
+  include_directories(${PHYSFS_INCLUDE_DIR})
+  set(LOVR_PHYSFS ${PHYSFS_LIBRARY})
+endif()
+
 # assimp
 option(ASSIMP_BUILD_ASSIMP_TOOLS OFF)
 option(ASSIMP_BUILD_TESTS OFF)
@@ -94,6 +105,7 @@ set(LOVR_LIB
   ${LOVR_LUA}
   ${LOVR_GL}
   ${LOVR_GLFW}
+  ${LOVR_PHYSFS}
   ${LOVR_ASSIMP}
   ${LOVR_OPENVR}
 )
@@ -104,5 +116,6 @@ if(WIN32)
   move_dll(${LOVR_LUA})
   move_dll(${LOVR_GL})
   move_dll(${LOVR_GLFW})
+  move_dll(${LOVR_PHYSFS})
   move_dll(${LOVR_ASSIMP})
 endif()
