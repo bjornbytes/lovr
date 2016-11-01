@@ -6,8 +6,8 @@ int main(int argc, char** argv) {
   luaL_openlibs(L);
 
   initGlfw(lovrOnGlfwError, lovrOnClose, L);
-  lovrInit(L);
-  lovrRun(L, argc > 1 ? argv[1] : NULL);
+  lovrInit(L, argc, argv);
+  lovrRun(L);
 
   return 0;
 }

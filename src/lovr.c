@@ -3,11 +3,28 @@
 #include <stdlib.h>
 
 #include "lovr/event.h"
+#include "lovr/filesystem.h"
 #include "lovr/graphics.h"
 #include "lovr/headset.h"
 #include "lovr/timer.h"
 
-void lovrInit(lua_State* L) {
+void lovrInit(lua_State* L, int argc, char** argv) {
+
+  // arg global
+  lua_newtable(L);
+  if (argc > 0) {
+    lua_pushstring(L, argv[0]);
+    lua_rawseti(L, -2, -2);
+  }
+
+  lua_pushstring(L, "lovr");
+  lua_rawseti(L, -2, -1);
+  for (int i = 1; i < argc; i++) {
+    lua_pushstring(L, argv[i]);
+    lua_rawseti(L, -2, i);
+  }
+
+  lua_setglobal(L, "arg");
 
   // lovr = {}
   lua_newtable(L);
@@ -15,12 +32,13 @@ void lovrInit(lua_State* L) {
 
   // Preload modules
   luaPreloadModule(L, "lovr.event", l_lovrEventInit);
+  luaPreloadModule(L, "lovr.filesystem", l_lovrFilesystemInit);
   luaPreloadModule(L, "lovr.graphics", l_lovrGraphicsInit);
   luaPreloadModule(L, "lovr.headset", l_lovrHeadsetInit);
   luaPreloadModule(L, "lovr.timer", l_lovrTimerInit);
 
   // Bootstrap
-  char buffer[1024];
+  char buffer[2048];
   snprintf(buffer, sizeof(buffer), "%s",
     "local conf = { "
     "  modules = { "
@@ -30,6 +48,12 @@ void lovrInit(lua_State* L) {
     "    timer = true "
     "  } "
     "} "
+
+    "lovr.filesystem = require('lovr.filesystem') "
+    "lovr.filesystem.init(arg[-2]) "
+    "if not lovr.filesystem.setSource(lovr.filesystem.getExecutablePath()) then "
+    "  lovr.filesystem.setSource(arg[1] or '.') "
+    "end "
 
     "local success, err = pcall(require, 'conf') "
     "if lovr.conf then "
@@ -76,18 +100,10 @@ void lovrDestroy(int exitCode) {
   exit(exitCode);
 }
 
-void lovrRun(lua_State* L, char* root) {
-
-  // Construct path to main.lua based on command line argument
-  char path[512];
-  if (root) {
-    snprintf(path, sizeof(path), "%s/main.lua", root);
-  } else {
-    snprintf(path, sizeof(path), "main.lua");
-  }
+void lovrRun(lua_State* L) {
 
   // Run "main.lua" which will override/define pieces of lovr
-  if (fileExists(path) && luaL_dofile(L, path)) {
+  if (fileExists("main.lua") && luaL_dofile(L, "main.lua")) {
     lovrOnLuaError(L);
     exit(EXIT_FAILURE);
   }
