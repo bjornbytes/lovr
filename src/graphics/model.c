@@ -76,6 +76,7 @@ Model* lovrModelCreate(const char* filename) {
 
 void lovrModelDestroy(Model* model) {
   lovrModelDataDestroy(model->modelData);
+  lovrBufferDestroy(model->buffer);
   free(model);
 }
 
