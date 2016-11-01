@@ -31,6 +31,14 @@ const char* lovrFilesystemGetExecutablePath() {
   return NULL;
 }
 
+int lovrFilesystemIsDirectory(const char* path) {
+  return PHYSFS_isDirectory(path);
+}
+
+int lovrFilesystemIsFile(const char* path) {
+  return lovrFilesystemExists(path) && !lovrFilesystemIsDirectory(path);
+}
+
 int lovrFilesystemSetSource(const char* source) {
   return PHYSFS_mount(source, NULL, 0);
 }
