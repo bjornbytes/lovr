@@ -23,15 +23,22 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
     for (int v = 0; v < mesh->vertices.length; v++) {
       ModelVertex vertex = mesh->vertices.data[v];
 
-      float v[4] = {
+      float transformedVertex[4] = {
         vertex.x,
         vertex.y,
         vertex.z,
         1.f
       };
 
-      mat4_multiplyVector(newTransform, v);
-      vec_pusharr(vertices, v, 3);
+      mat4_multiplyVector(newTransform, transformedVertex);
+      vec_pusharr(vertices, transformedVertex, 3);
+
+      if (modelData->hasNormals) {
+        ModelVertex normal = mesh->normals.data[v];
+        vec_push(vertices, normal.x);
+        vec_push(vertices, normal.y);
+        vec_push(vertices, normal.z);
+      }
     }
 
     // Face vertex indices
@@ -62,12 +69,20 @@ Model* lovrModelCreate(const char* filename) {
   visitNode(model->modelData, model->modelData->root, NULL, &vertices, &indices);
 
   BufferFormat format;
-  BufferAttribute position = { .name = "position", .type = BUFFER_FLOAT, .size = 3 };
   vec_init(&format);
+
+  BufferAttribute position = { .name = "position", .type = BUFFER_FLOAT, .size = 3 };
   vec_push(&format, position);
 
-  model->buffer = lovrBufferCreate(vertices.length / 3, &format, BUFFER_TRIANGLES, BUFFER_STATIC);
-  lovrBufferSetVertices(model->buffer, vertices.data, vertices.length / 3);
+  if (model->modelData->hasNormals) {
+    BufferAttribute normal = { .name = "normal", .type = BUFFER_FLOAT, .size = 3 };
+    vec_push(&format, normal);
+  }
+
+  int components = model->modelData->hasNormals ? 6 : 3;
+
+  model->buffer = lovrBufferCreate(vertices.length / components, &format, BUFFER_TRIANGLES, BUFFER_STATIC);
+  lovrBufferSetVertices(model->buffer, vertices.data, vertices.length / components);
   lovrBufferSetVertexMap(model->buffer, indices.data, indices.length);
 
   vec_deinit(&vertices);

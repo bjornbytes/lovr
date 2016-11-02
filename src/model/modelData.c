@@ -63,8 +63,22 @@ ModelData* lovrModelDataCreate(const char* filename) {
       vertex.x = assimpMesh->mVertices[v].x;
       vertex.y = assimpMesh->mVertices[v].y;
       vertex.z = assimpMesh->mVertices[v].z;
-
       vec_push(&mesh->vertices, vertex);
+    }
+
+    // Normals
+    if (!assimpMesh->mNormals) {
+      error("Model must have normals");
+    }
+
+    modelData->hasNormals = 1;
+    vec_init(&mesh->normals);
+    for (int n = 0; n < assimpMesh->mNumVertices; n++) {
+      ModelVertex normal;
+      normal.x = assimpMesh->mNormals[n].x;
+      normal.y = assimpMesh->mNormals[n].y;
+      normal.z = assimpMesh->mNormals[n].z;
+      vec_push(&mesh->normals, normal);
     }
   }
 
