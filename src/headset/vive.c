@@ -340,7 +340,7 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     lovrGraphicsClear(1, 1);
     lovrGraphicsPush();
     lovrGraphicsOrigin();
-    lovrGraphicsTransform(transformMatrix);
+    lovrGraphicsMatrixTransform(transformMatrix);
     lovrGraphicsSetProjectionRaw(projectionMatrix);
     callback(i, userdata);
     lovrGraphicsPop();

@@ -277,7 +277,22 @@ void lovrGraphicsScale(float x, float y, float z) {
   mat4_scale(vec_last(&state.transforms), x, y, z);
 }
 
-void lovrGraphicsTransform(mat4 transform) {
+void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
+  float cos2 = cos(angle / 2.f);
+  float sin2 = sin(angle / 2.f);
+  float qw = cos2;
+  float qx = sin2 * ax;
+  float qy = sin2 * ay;
+  float qz = sin2 * az;
+
+  float transform[16];
+  mat4_setTranslation(transform, tx, ty, tz);
+  mat4_scale(transform, sx, sy, sz);
+  mat4_rotate(transform, qw, qx, qy, qz);
+  lovrGraphicsMatrixTransform(transform);
+}
+
+void lovrGraphicsMatrixTransform(mat4 transform) {
   mat4_multiply(vec_last(&state.transforms), transform);
 }
 
@@ -359,12 +374,8 @@ void lovrGraphicsPlane(DrawMode mode, float x, float y, float z, float size, flo
   // Angle between normal vector and the normal vector of the default geometry (dot product)
   float theta = acos(nz);
 
-  float transform[16];
-  mat4_setTranslation(transform, x, y, z);
-  mat4_scale(transform, size, size, size);
-  mat4_rotate(transform, theta, cx, cy, cz);
   lovrGraphicsPush();
-  lovrGraphicsTransform(transform);
+  lovrGraphicsTransform(x, y, z, size, size, size, theta, cx, cy, cz);
 
   if (mode == DRAW_MODE_LINE) {
     float points[] = {
@@ -392,19 +403,8 @@ void lovrGraphicsPlane(DrawMode mode, float x, float y, float z, float size, flo
 }
 
 void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ) {
-  float cos2 = cos(angle / 2);
-  float sin2 = sin(angle / 2);
-  float rw = cos2;
-  float rx = sin2 * axisX;
-  float ry = sin2 * axisY;
-  float rz = sin2 * axisZ;
-
-  float transform[16];
-  mat4_setTranslation(transform, x, y, z);
-  mat4_scale(transform, size, size, size);
-  mat4_rotate(transform, rw, rx, ry, rz);
   lovrGraphicsPush();
-  lovrGraphicsTransform(transform);
+  lovrGraphicsTransform(x, y, z, size, size, size, angle, axisX, axisY, axisZ);
 
   if (mode == DRAW_MODE_LINE) {
     float points[] = {
