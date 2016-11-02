@@ -1,5 +1,51 @@
 #include "filesystem.h"
 #include "../filesystem/filesystem.h"
+#include <stdlib.h>
+#include <string.h>
+
+// Loader to help Lua's require understand PhysFS.
+static int filesystemLoader(lua_State* L) {
+  const char* module = luaL_checkstring(L, -1);
+  char* dot;
+
+  while ((dot = strchr(module, '.')) != NULL) {
+    *dot = '/';
+  }
+
+  const char* requirePath[] = {
+    "?.lua",
+    "?/init.lua"
+  };
+
+  for (int i = 0; i < sizeof(requirePath) / sizeof(char*); i++) {
+    char filename[256];
+    char* sub = strchr(requirePath[i], '?');
+
+    memset(filename, 0, 256);
+
+    if (sub) {
+      int index = (int) (sub - requirePath[i]);
+      strncat(filename, requirePath[i], index);
+      strncat(filename, module, strlen(module));
+      strncat(filename, requirePath[i] + index + 1, strlen(requirePath[i]) - index);
+
+      if (lovrFilesystemIsFile(filename)) {
+        int size;
+        char* data = lovrFilesystemRead(filename, &size);
+
+        if (data) {
+          if (!luaL_loadbuffer(L, data, size, filename)) {
+            return 1;
+          }
+
+          free(data);
+        }
+      }
+    }
+  }
+
+  return 0;
+}
 
 const luaL_Reg lovrFilesystem[] = {
   { "init", l_lovrFilesystemInitialize },
@@ -14,6 +60,17 @@ const luaL_Reg lovrFilesystem[] = {
 int l_lovrFilesystemInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrFilesystem);
+
+  // Add custom package loader
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "loaders");
+  if (lua_istable(L, -1)) {
+    lua_pushcfunction(L, filesystemLoader);
+    lua_rawseti(L, -2, lua_objlen(L, -2) + 1);
+  }
+
+  lua_pop(L, 2);
+
   return 1;
 }
 

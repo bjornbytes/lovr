@@ -39,6 +39,25 @@ int lovrFilesystemIsFile(const char* path) {
   return lovrFilesystemExists(path) && !lovrFilesystemIsDirectory(path);
 }
 
+char* lovrFilesystemRead(const char* path, int* size) {
+  PHYSFS_file* handle = PHYSFS_openRead(path);
+
+  if (!handle) {
+    return NULL;
+  }
+
+  int length = PHYSFS_fileLength(handle);
+
+  if (length < 0) {
+    return NULL;
+  }
+
+  char* data = malloc(length * sizeof(char));
+  *size = PHYSFS_read(handle, data, sizeof(char), length);
+  return data;
+}
+
 int lovrFilesystemSetSource(const char* source) {
-  return PHYSFS_mount(source, NULL, 0);
+  int res = PHYSFS_mount(source, NULL, 0);
+  return res;
 }

@@ -84,7 +84,9 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "    lovr.graphics.present() "
     "    lovr.timer.sleep(.001) "
     "  end "
-    "end"
+    "end "
+
+    "pcall(require, 'main')"
   );
 
   if (luaL_dostring(L, buffer)) {
@@ -101,12 +103,6 @@ void lovrDestroy(int exitCode) {
 }
 
 void lovrRun(lua_State* L) {
-
-  // Run "main.lua" which will override/define pieces of lovr
-  if (fileExists("main.lua") && luaL_dofile(L, "main.lua")) {
-    lovrOnLuaError(L);
-    exit(EXIT_FAILURE);
-  }
 
   // lovr.run()
   lua_getglobal(L, "lovr");
