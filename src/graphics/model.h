@@ -12,4 +12,4 @@ typedef struct {
 
 Model* lovrModelCreate(const char* filename);
 void lovrModelDestroy(Model* model);
-void lovrModelDraw(Model* model);
+void lovrModelDraw(Model* model, float x, float y, float z, float scale, float angle, float ax, float ay, float az);

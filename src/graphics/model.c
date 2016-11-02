@@ -1,4 +1,5 @@
 #include "model.h"
+#include "graphics.h"
 #include <stdlib.h>
 
 static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec_float_t* vertices, vec_uint_t* indices) {
@@ -80,6 +81,9 @@ void lovrModelDestroy(Model* model) {
   free(model);
 }
 
-void lovrModelDraw(Model* model) {
+void lovrModelDraw(Model* model, float x, float y, float z, float size, float angle, float ax, float ay, float az) {
+  lovrGraphicsPush();
+  lovrGraphicsTransform(x, y, z, size, size, size, angle, ax, ay, az);
   lovrBufferDraw(model->buffer);
+  lovrGraphicsPop();
 }
