@@ -31,36 +31,10 @@ typedef struct {
 
 typedef vec_t(Controller*) vec_controller_t;
 
-typedef struct {
-  char (*isPresent)(void* headset);
-  void (*poll)(void* headset);
-  const char* (*getType)(void* headset);
-  void (*getDisplayDimensions)(void* headset, int* width, int* height);
-  void (*getClipDistance)(void* headset, float* near, float* far);
-  void (*setClipDistance)(void* headset, float near, float far);
-  float (*getBoundsWidth)(void* headset);
-  float (*getBoundsDepth)(void* headset);
-  void (*getBoundsGeometry)(void* headset, float* geometry);
-  char (*isBoundsVisible)(void* headset);
-  void (*setBoundsVisible)(void* headset, char visible);
-  void (*getPosition)(void* headset, float* x, float* y, float* z);
-  void (*getOrientation)(void* headset, float* w, float* x, float* y, float* z);
-  void (*getVelocity)(void* headset, float* x, float* y, float* z);
-  void (*getAngularVelocity)(void* headset, float* x, float* y, float* z);
-  vec_controller_t* (*getControllers)(void* headset);
-  char (*controllerIsPresent)(void* headset, Controller* controller);
-  void (*controllerGetPosition)(void* headset, Controller* controller, float* x, float* y, float* z);
-  void (*controllerGetOrientation)(void* headset, Controller* controller, float* w, float* x, float* y, float* z);
-  float (*controllerGetAxis)(void* headset, Controller* controller, ControllerAxis axis);
-  int (*controllerIsDown)(void* headset, Controller* controller, ControllerButton button);
-  void (*controllerVibrate)(void* headset, Controller* controller, float duration);
-  void* (*controllerGetModel)(void* headset, Controller* controller, ControllerModelFormat* format);
-  void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
-} Headset;
-
 #endif
 
 void lovrHeadsetInit();
+void lovrHeadsetDestroy();
 void lovrHeadsetPoll();
 char lovrHeadsetIsPresent();
 const char* lovrHeadsetGetType();

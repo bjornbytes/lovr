@@ -38,7 +38,6 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
   buffer->scratchVertex = malloc(buffer->stride);
   buffer->drawMode = drawMode;
   buffer->usage = usage;
-  buffer->vao = 0;
   buffer->vbo = 0;
   buffer->ibo = 0;
   buffer->isRangeEnabled = 0;
@@ -49,7 +48,6 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
   glGenBuffers(1, &buffer->vbo);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
   glBufferData(GL_ARRAY_BUFFER, buffer->size * buffer->stride, buffer->data, buffer->usage);
-  glGenVertexArrays(1, &buffer->vao);
   glGenBuffers(1, &buffer->ibo);
 
   return buffer;
@@ -61,7 +59,6 @@ void lovrBufferDestroy(const Ref* ref) {
     lovrRelease(&buffer->texture->ref);
   }
   glDeleteBuffers(1, &buffer->vbo);
-  glDeleteVertexArrays(1, &buffer->vao);
   vec_deinit(&buffer->map);
   vec_deinit(&buffer->format);
   free(buffer->scratchVertex);
@@ -74,7 +71,7 @@ void lovrBufferDraw(Buffer* buffer) {
 
   lovrGraphicsPrepare();
   lovrGraphicsBindTexture(buffer->texture);
-  glBindVertexArray(buffer->vao);
+  glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
 
   // Figure out how many vertex attributes there are
   int vertexAttributeCount;
@@ -96,11 +93,7 @@ void lovrBufferDraw(Buffer* buffer) {
       int location = lovrShaderGetAttributeId(shader, attribute.name);
       if (location >= 0) {
         glEnableVertexAttribArray(location);
-        if (attribute.type == BUFFER_INT) {
-          glVertexAttribIPointer(location, attribute.count, attribute.type, buffer->stride, (void*) offset);
-        } else {
-          glVertexAttribPointer(location, attribute.count, attribute.type, GL_FALSE, buffer->stride, (void*) offset);
-        }
+        glVertexAttribPointer(location, attribute.count, attribute.type, GL_FALSE, buffer->stride, (void*) offset);
       }
       offset += sizeof(attribute.type) * attribute.count;
     }

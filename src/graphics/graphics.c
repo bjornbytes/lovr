@@ -22,10 +22,9 @@ void lovrGraphicsInit() {
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
   int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
   lovrShaderSendInt(state.skyboxShader, uniformId, 1);
-  state.defaultTexture = lovrTextureCreateFromData(lovrTextureDataGetEmpty());
+  state.defaultTexture = lovrTextureCreate(lovrTextureDataGetEmpty());
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
-  glGenVertexArrays(1, &state.shapeArray);
   vec_init(&state.shapeData);
   vec_init(&state.shapeIndices);
   state.depthTest = -1;
@@ -44,7 +43,6 @@ void lovrGraphicsDestroy() {
   lovrRelease(&state.defaultTexture->ref);
   glDeleteBuffers(1, &state.shapeBuffer);
   glDeleteBuffers(1, &state.shapeIndexBuffer);
-  glDeleteVertexArrays(1, &state.shapeArray);
   vec_deinit(&state.shapeData);
   vec_deinit(&state.shapeIndices);
 }
@@ -209,8 +207,10 @@ float lovrGraphicsGetPointSize() {
 }
 
 void lovrGraphicsSetPointSize(float size) {
+#ifndef EMSCRIPTEN
   state.pointSize = size;
   glPointSize(size);
+#endif
 }
 
 int lovrGraphicsIsCullingEnabled() {
@@ -256,10 +256,12 @@ int lovrGraphicsIsWireframe() {
 }
 
 void lovrGraphicsSetWireframe(int wireframe) {
+#ifndef EMSCRIPTEN
   if (state.isWireframe != wireframe) {
     state.isWireframe = wireframe;
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
   }
+#endif
 }
 
 int lovrGraphicsGetWidth() {
@@ -337,7 +339,6 @@ void lovrGraphicsDrawLinedShape(GLenum mode) {
 
   lovrGraphicsPrepare();
   lovrGraphicsBindTexture(NULL);
-  glBindVertexArray(state.shapeArray);
   glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
   glBufferData(GL_ARRAY_BUFFER, vertices->length * sizeof(float), vertices->data, GL_STREAM_DRAW);
   glEnableVertexAttribArray(0);
@@ -359,7 +360,6 @@ void lovrGraphicsDrawFilledShape() {
 
   lovrGraphicsPrepare();
   lovrGraphicsBindTexture(NULL);
-  glBindVertexArray(state.shapeArray);
   glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
   glBufferData(GL_ARRAY_BUFFER, vertices->length * sizeof(float), vertices->data, GL_STREAM_DRAW);
   glEnableVertexAttribArray(LOVR_SHADER_POSITION);
@@ -367,7 +367,6 @@ void lovrGraphicsDrawFilledShape() {
   glEnableVertexAttribArray(LOVR_SHADER_NORMAL);
   glVertexAttribPointer(LOVR_SHADER_NORMAL, 3, GL_FLOAT, GL_FALSE, strideBytes, (void*) (3 * sizeof(float)));
   glDrawArrays(GL_TRIANGLE_STRIP, 0, vertices->length / stride);
-  glBindVertexArray(0);
 }
 
 void lovrGraphicsPoints(float* points, int count) {

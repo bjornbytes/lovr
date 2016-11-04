@@ -13,13 +13,59 @@ if(UNIX)
 endif()
 
 project(lovr)
-file(GLOB_RECURSE LOVR_SRC src/*.c)
+set(LOVR_SRC
+  src/main.c
+  src/glfw.c
+  src/lovr.c
+  src/matrix.c
+  src/util.c
+  src/loaders/texture.c
+  src/loaders/model.c
+  src/event/event.c
+  src/filesystem/filesystem.c
+  src/graphics/graphics.c
+  src/graphics/buffer.c
+  src/graphics/model.c
+  src/graphics/shader.c
+  src/graphics/skybox.c
+  src/graphics/texture.c
+  src/headset/headset.c
+  src/timer/timer.c
+  src/vendor/map/map.c
+  src/vendor/vec/vec.c
+  src/lovr/event.c
+  src/lovr/filesystem.c
+  src/lovr/graphics.c
+  src/lovr/headset.c
+  src/lovr/timer.c
+  src/lovr/types/buffer.c
+  src/lovr/types/controller.c
+  src/lovr/types/model.c
+  src/lovr/types/shader.c
+  src/lovr/types/skybox.c
+  src/lovr/types/texture.c
+)
+
+if (EMSCRIPTEN)
+  set(CMAKE_EXECUTABLE_SUFFIX ".html")
+  add_definitions(-s USE_ZLIB=1)
+else()
+  set(LOVR_SRC ${LOVR_SRC} src/headset/vive.c)
+endif()
+
 add_executable(lovr ${LOVR_SRC})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# LuaJIT
-if(WIN32)
+# Lua
+if(EMSCRIPTEN)
+  option(LUA_USE_RELATIVE_LOADLIB OFF)
+  option(LUA_USE_ULONGJMP OFF)
+  option(LUA_USE_POSIX OFF)
+  add_subdirectory(deps/lua lua)
+  include_directories(deps/lua/src ${CMAKE_BINARY_DIR}/lua)
+  set(LOVR_LUA liblua)
+elseif(WIN32)
   add_subdirectory(deps/luajit luajit)
   include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
   set(LOVR_LUA liblua)
@@ -34,7 +80,11 @@ else()
 endif()
 
 # GLEW / OpenGL
-if(WIN32)
+if (EMSCRIPTEN)
+  find_package(OpenGL REQUIRED)
+  include_directories(${OPENGL_INCLUDE_DIR})
+  set(LOVR_GL ${OPENGL_LIBRARIES})
+elseif(WIN32)
   add_subdirectory(deps/glew glew)
   include_directories(deps/glew/include)
   set(LOVR_GL glew)
@@ -45,7 +95,9 @@ else()
 endif()
 
 # GLFW
-if(WIN32)
+if(EMSCRIPTEN)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_GLFW=3")
+elseif(WIN32)
   add_subdirectory(deps/glfw glfw)
   include_directories(deps/glfw/include)
   set(LOVR_GLFW glfw ${GLFW_LIBRARIES})
@@ -56,7 +108,12 @@ else()
 endif()
 
 # PhysicsFS
-if(WIN32)
+if(EMSCRIPTEN)
+  option(PHYSFS_ARCHIVE_ZIP OFF) # Ran into zlib duplicate symbol errors when this was enabled
+  add_subdirectory(deps/physfs physfs)
+  include_directories(deps/physfs)
+  set(LOVR_PHYSFS physfs)
+elseif(WIN32)
   add_subdirectory(deps/physfs physfs)
   include_directories(deps/physfs)
   set(LOVR_PHYSFS physfs)
@@ -69,7 +126,8 @@ endif()
 # assimp
 option(ASSIMP_BUILD_ASSIMP_TOOLS OFF)
 option(ASSIMP_BUILD_TESTS OFF)
-if(WIN32)
+option(ASSIMP_BUILD_ZIP OFF)
+if(WIN32 OR EMSCRIPTEN)
   add_subdirectory(deps/assimp assimp)
   include_directories(deps/assimp/include)
   set(LOVR_ASSIMP assimp)
@@ -88,7 +146,7 @@ if(WIN32)
     "${CMAKE_SOURCE_DIR}/deps/openvr/bin/win32/openvr_api.dll"
     $<TARGET_FILE_DIR:lovr>
   )
-else()
+elseif(NOT EMSCRIPTEN)
   if(DEFINED OPENVR_DIR)
     get_filename_component(FULL_OPENVR_DIR ${OPENVR_DIR} ABSOLUTE BASE_DIR ${CMAKE_BINARY_DIR})
     message(STATUS "Setting OpenVR root directory to ${FULL_OPENVR_DIR}")

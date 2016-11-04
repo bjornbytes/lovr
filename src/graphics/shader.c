@@ -3,21 +3,30 @@
 #include <stdlib.h>
 
 const char* lovrShaderVertexPrefix = ""
-"#version 150 \n"
+#ifdef EMSCRIPTEN
+"#version 100 \n"
+"precision mediump float; \n"
+#else
+"#version 120 \n"
+#endif
 "uniform mat4 lovrTransform; \n"
 "uniform mat4 lovrProjection; \n"
-"in vec3 lovrPosition; \n"
-"in vec3 lovrNormal; \n"
-"in vec2 lovrTexCoord; \n"
-"out vec2 texCoord; \n"
+"attribute vec3 lovrPosition; \n"
+"attribute vec3 lovrNormal; \n"
+"attribute vec2 lovrTexCoord; \n"
+"varying vec2 texCoord; \n"
 "";
 
 const char* lovrShaderFragmentPrefix = ""
-"#version 150 \n"
+#ifdef EMSCRIPTEN
+"#version 100 \n"
+"precision mediump float; \n"
+#else
+"#version 120 \n"
+#endif
 "uniform vec4 lovrColor; \n"
 "uniform sampler2D lovrTexture; \n"
-"in vec2 texCoord; \n"
-"out vec4 lovrFragColor; \n"
+"varying vec2 texCoord; \n"
 "";
 
 const char* lovrShaderVertexSuffix = ""
@@ -29,7 +38,7 @@ const char* lovrShaderVertexSuffix = ""
 
 const char* lovrShaderFragmentSuffix = ""
 "void main() { \n"
-"  lovrFragColor = color(lovrColor, lovrTexture, texCoord); \n"
+"  gl_FragColor = color(lovrColor, lovrTexture, texCoord); \n"
 "}"
 "";
 
@@ -41,12 +50,12 @@ const char* lovrDefaultVertexShader = ""
 
 const char* lovrDefaultFragmentShader = ""
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
-"  return graphicsColor * texture(image, uv); \n"
+"  return graphicsColor * texture2D(image, uv); \n"
 "}"
 "";
 
 const char* lovrSkyboxVertexShader = ""
-"out vec3 texturePosition; \n"
+"varying vec3 texturePosition; \n"
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  texturePosition = vertex.xyz; \n"
 "  return projection * transform * vertex; \n"
@@ -54,10 +63,10 @@ const char* lovrSkyboxVertexShader = ""
 "";
 
 const char* lovrSkyboxFragmentShader = ""
-"in vec3 texturePosition; \n"
+"varying vec3 texturePosition; \n"
 "uniform samplerCube cube; \n"
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
-"  return graphicsColor * texture(cube, texturePosition); \n"
+"  return graphicsColor * textureCube(cube, texturePosition); \n"
 "}"
 "";
 

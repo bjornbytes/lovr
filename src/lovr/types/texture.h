@@ -4,8 +4,6 @@
 #include <lualib.h>
 
 extern const luaL_Reg lovrTexture[];
-int l_lovrTextureBind(lua_State* L);
-int l_lovrTextureRefresh(lua_State* L);
 int l_lovrTextureGetDimensions(lua_State* L);
 int l_lovrTextureGetHeight(lua_State* L);
 int l_lovrTextureGetFilter(lua_State* L);

@@ -104,7 +104,6 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_init(&BufferAttributeTypes);
   map_set(&BufferAttributeTypes, "float", BUFFER_FLOAT);
   map_set(&BufferAttributeTypes, "byte", BUFFER_BYTE);
-  map_set(&BufferAttributeTypes, "int", BUFFER_INT);
 
   map_init(&BufferDrawModes);
   map_set(&BufferDrawModes, "points", BUFFER_POINTS);
@@ -141,7 +140,6 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&WrapModes, "clamp", WRAP_CLAMP);
   map_set(&WrapModes, "repeat", WRAP_REPEAT);
   map_set(&WrapModes, "mirroredrepeat", WRAP_MIRRORED_REPEAT);
-  map_set(&WrapModes, "clampzero", WRAP_CLAMP_ZERO);
 
   lovrGraphicsInit();
   return 1;
@@ -551,7 +549,6 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
           switch (attribute.type) {
             case BUFFER_FLOAT: *((float*) vertex) = luaL_optnumber(L, -1, 0.f); break;
             case BUFFER_BYTE: *((unsigned char*) vertex) = luaL_optint(L, -1, 255); break;
-            case BUFFER_INT: *((int*) vertex) = luaL_optint(L, -1, 0); break;
           }
           vertex += sizeof(attribute.type);
           lua_pop(L, 1);
@@ -640,23 +637,15 @@ int l_lovrGraphicsNewSkybox(lua_State* L) {
 }
 
 int l_lovrGraphicsNewTexture(lua_State* L) {
-  Texture* texture;
-
-  if (lua_isstring(L, 1)) {
-    const char* path = luaL_checkstring(L, 1);
-    int size;
-    void* data = lovrFilesystemRead(path, &size);
-    if (!data) {
-      return luaL_error(L, "Could not load texture file '%s'", path);
-    }
-    TextureData* textureData = lovrTextureDataFromFile(data, size);
-    texture = lovrTextureCreateFromData(textureData);
-    free(data);
-  } else {
-    Buffer* buffer = luax_checktype(L, 1, Buffer); // TODO don't error if it's not a buffer
-    texture = lovrTextureCreateFromBuffer(buffer);
+  const char* path = luaL_checkstring(L, 1);
+  int size;
+  void* data = lovrFilesystemRead(path, &size);
+  if (!data) {
+    return luaL_error(L, "Could not load texture file '%s'", path);
   }
-
+  TextureData* textureData = lovrTextureDataFromFile(data, size);
+  Texture* texture = lovrTextureCreate(textureData);
+  free(data);
   luax_pushtype(L, Texture, texture);
   return 1;
 }
