@@ -39,21 +39,36 @@ int lovrFilesystemIsFile(const char* path) {
   return lovrFilesystemExists(path) && !lovrFilesystemIsDirectory(path);
 }
 
-char* lovrFilesystemRead(const char* path, int* size) {
-  PHYSFS_file* handle = PHYSFS_openRead(path);
+void* lovrFilesystemRead(const char* path, int* bytesRead) {
 
+  // Open file
+  PHYSFS_file* handle = PHYSFS_openRead(path);
   if (!handle) {
     return NULL;
   }
 
-  int length = PHYSFS_fileLength(handle);
-
-  if (length < 0) {
+  // Get file size
+  int size = PHYSFS_fileLength(handle);
+  if (size < 0) {
     return NULL;
   }
 
-  char* data = malloc(length * sizeof(char));
-  *size = PHYSFS_read(handle, data, sizeof(char), length);
+  // Allocate buffer
+  void* data = malloc(size);
+  if (!data) {
+    return NULL;
+  }
+
+  // Perform read
+  *bytesRead = PHYSFS_read(handle, data, 1, size);
+  PHYSFS_close(handle);
+
+  // Make sure we got everything
+  if (*bytesRead != size) {
+    free(data);
+    return NULL;
+  }
+
   return data;
 }
 

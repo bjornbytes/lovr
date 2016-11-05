@@ -31,7 +31,7 @@ static int filesystemLoader(lua_State* L) {
 
       if (lovrFilesystemIsFile(filename)) {
         int size;
-        char* data = lovrFilesystemRead(filename, &size);
+        void* data = lovrFilesystemRead(filename, &size);
 
         if (data) {
           if (!luaL_loadbuffer(L, data, size, filename)) {
@@ -53,6 +53,7 @@ const luaL_Reg lovrFilesystem[] = {
   { "getExecutablePath", l_lovrFilesystemGetExecutablePath },
   { "isDirectory", l_lovrFilesystemIsDirectory },
   { "isFile", l_lovrFilesystemIsFile },
+  { "read", l_lovrFilesystemRead },
   { "setSource", l_lovrFilesystemSetSource },
   { NULL, NULL }
 };
@@ -107,6 +108,18 @@ int l_lovrFilesystemIsDirectory(lua_State* L) {
 int l_lovrFilesystemIsFile(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, lovrFilesystemIsFile(path));
+  return 1;
+}
+
+int l_lovrFilesystemRead(lua_State* L) {
+  const char* path = luaL_checkstring(L, 1);
+  int size;
+  char* contents = lovrFilesystemRead(path, &size);
+  if (!contents) {
+    return luaL_error(L, "Could not read file '%s'", path);
+  }
+
+  lua_pushlstring(L, contents, size);
   return 1;
 }
 
