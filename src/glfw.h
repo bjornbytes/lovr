@@ -8,4 +8,4 @@
 
 GLFWwindow* window;
 
-void initGlfw();
+void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose, void* userPointer);
