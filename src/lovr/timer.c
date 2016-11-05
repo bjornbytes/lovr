@@ -2,6 +2,8 @@
 #include "../timer/timer.h"
 
 const luaL_Reg lovrTimer[] = {
+  { "getDelta", l_lovrTimerGetDelta },
+  { "getTime", l_lovrTimerGetTime },
   { "step", l_lovrTimerStep },
   { "sleep", l_lovrTimerSleep },
   { NULL, NULL }
@@ -10,6 +12,17 @@ const luaL_Reg lovrTimer[] = {
 int l_lovrTimerInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrTimer);
+  lovrTimerInit();
+  return 1;
+}
+
+int l_lovrTimerGetDelta(lua_State* L) {
+  lua_pushnumber(L, lovrTimerGetDelta());
+  return 1;
+}
+
+int l_lovrTimerGetTime(lua_State* L) {
+  lua_pushnumber(L, lovrTimerGetTime());
   return 1;
 }
 

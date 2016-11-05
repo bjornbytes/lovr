@@ -6,10 +6,25 @@
 #include <unistd.h>
 #endif
 
+static TimerState timerState;
+
+void lovrTimerInit() {
+  lovrTimerStep();
+}
+
+double lovrTimerGetDelta() {
+  return timerState.dt;
+}
+
+double lovrTimerGetTime() {
+  return glfwGetTime();
+}
+
 double lovrTimerStep() {
-  double time = glfwGetTime();
-  glfwSetTime(0);
-  return time;
+  timerState.lastTime = timerState.time;
+  timerState.time = glfwGetTime();
+  timerState.dt = timerState.time - timerState.lastTime;
+  return timerState.dt;
 }
 
 void lovrTimerSleep(double seconds) {
