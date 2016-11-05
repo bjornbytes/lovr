@@ -7,5 +7,5 @@ typedef struct {
 } Skybox;
 #endif
 
-Skybox* lovrSkyboxCreate();
+Skybox* lovrSkyboxCreate(void** data, int* size);
 void lovrSkyboxDestroy(Skybox* skybox);

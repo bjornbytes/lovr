@@ -7,7 +7,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "../vendor/stb_image.h"
 
-Skybox* lovrSkyboxCreate(char** filenames) {
+Skybox* lovrSkyboxCreate(void** data, int* size) {
   Skybox* skybox = malloc(sizeof(Skybox));
 
   glGenTextures(1, &skybox->texture);
@@ -15,14 +15,14 @@ Skybox* lovrSkyboxCreate(char** filenames) {
 
   for (int i = 0; i < 6; i++) {
     int width, height, channels;
-    unsigned char* data = stbi_load(filenames[i], &width, &height, &channels, 3);
+    unsigned char* image = stbi_load_from_memory(data[i], size[i], &width, &height, &channels, 3);
 
-    if (data == NULL) {
-      error("Could not load image %s", filenames[i]);
+    if (image == NULL) {
+      error("Could not load skybox image %d", i);
     }
 
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-    free(data);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    free(image);
   }
 
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
