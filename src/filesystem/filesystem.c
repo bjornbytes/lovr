@@ -76,3 +76,17 @@ int lovrFilesystemSetSource(const char* source) {
   int res = PHYSFS_mount(source, NULL, 0);
   return res;
 }
+
+int lovrFilesystemWrite(const char* path, const char* contents, int size) {
+
+  // Open file
+  PHYSFS_file* handle = PHYSFS_openWrite(path);
+  if (!handle) {
+    return 0;
+  }
+
+  // Perform write
+  int bytesWritten = PHYSFS_write(handle, contents, 1, size);
+  PHYSFS_close(handle);
+  return bytesWritten;
+}
