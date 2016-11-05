@@ -73,8 +73,7 @@ void* lovrFilesystemRead(const char* path, int* bytesRead) {
 }
 
 int lovrFilesystemSetSource(const char* source) {
-  int res = PHYSFS_mount(source, NULL, 0);
-  return res;
+  return PHYSFS_mount(source, NULL, 0);
 }
 
 int lovrFilesystemWrite(const char* path, const char* contents, int size) {
