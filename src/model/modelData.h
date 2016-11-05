@@ -41,5 +41,5 @@ typedef struct {
 
 #endif
 
-ModelData* lovrModelDataCreate(const char* filename);
+ModelData* lovrModelDataCreate(void* data, int size);
 void lovrModelDataDestroy(ModelData* modelData);

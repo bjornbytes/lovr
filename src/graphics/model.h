@@ -10,6 +10,6 @@ typedef struct {
 } Model;
 #endif
 
-Model* lovrModelCreate(const char* filename);
+Model* lovrModelCreate(void* data, int size);
 void lovrModelDestroy(Model* model);
 void lovrModelDraw(Model* model, float x, float y, float z, float scale, float angle, float ax, float ay, float az);

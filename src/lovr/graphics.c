@@ -507,7 +507,10 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
 
 int l_lovrGraphicsNewModel(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  luax_pushmodel(L, lovrModelCreate(path));
+  int size;
+  void* data = lovrFilesystemRead(path, &size);
+  luax_pushmodel(L, lovrModelCreate(data, size));
+  free(data);
   return 1;
 }
 
