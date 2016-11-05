@@ -4,6 +4,7 @@
 #include "shader.h"
 #include "skybox.h"
 #include "../graphics/graphics.h"
+#include "../filesystem/filesystem.h"
 #include "../util.h"
 #include <math.h>
 
