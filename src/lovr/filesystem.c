@@ -51,9 +51,14 @@ const luaL_Reg lovrFilesystem[] = {
   { "init", l_lovrFilesystemInitialize },
   { "exists", l_lovrFilesystemExists },
   { "getExecutablePath", l_lovrFilesystemGetExecutablePath },
+  { "getIdentity", l_lovrFilesystemGetIdentity },
+  { "getRealDirectory", l_lovrFilesystemGetRealDirectory },
+  { "getSource", l_lovrFilesystemGetSource },
+  { "getUserDirectory", l_lovrFilesystemGetUserDirectory },
   { "isDirectory", l_lovrFilesystemIsDirectory },
   { "isFile", l_lovrFilesystemIsFile },
   { "read", l_lovrFilesystemRead },
+  { "setIdentity", l_lovrFilesystemSetIdentity },
   { "setSource", l_lovrFilesystemSetSource },
   { NULL, NULL }
 };
@@ -88,14 +93,56 @@ int l_lovrFilesystemExists(lua_State* L) {
 }
 
 int l_lovrFilesystemGetExecutablePath(lua_State* L) {
-  const char* exePath = lovrFilesystemGetExecutablePath();
+  char buffer[1024];
 
-  if (exePath) {
-    lua_pushstring(L, exePath);
+  if (lovrFilesystemGetExecutablePath(buffer, sizeof(buffer))) {
+    lua_pushnil(L);
+  } else {
+    lua_pushstring(L, buffer);
+  }
+
+  return 1;
+}
+
+int l_lovrFilesystemGetIdentity(lua_State* L) {
+  const char* identity = lovrFilesystemGetIdentity();
+
+  if (identity) {
+    lua_pushstring(L, identity);
   } else {
     lua_pushnil(L);
   }
 
+  return 1;
+}
+
+int l_lovrFilesystemGetRealDirectory(lua_State* L) {
+  const char* path = luaL_checkstring(L, 1);
+  const char* realDirectory = lovrFilesystemGetRealDirectory(path);
+
+  if (realDirectory) {
+    lua_pushstring(L, realDirectory);
+  } else {
+    lua_pushnil(L);
+  }
+
+  return 1;
+}
+
+int l_lovrFilesystemGetSource(lua_State* L) {
+  const char* source = lovrFilesystemGetSource();
+
+  if (source) {
+    lua_pushstring(L, source);
+  } else {
+    lua_pushnil(L);
+  }
+
+  return 1;
+}
+
+int l_lovrFilesystemGetUserDirectory(lua_State* L) {
+  lua_pushstring(L, lovrFilesystemGetUserDirectory());
   return 1;
 }
 
@@ -114,23 +161,27 @@ int l_lovrFilesystemIsFile(lua_State* L) {
 int l_lovrFilesystemRead(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   int size;
-  char* contents = lovrFilesystemRead(path, &size);
-  if (!contents) {
+  char* content = lovrFilesystemRead(path, &size);
+  if (!content) {
     return luaL_error(L, "Could not read file '%s'", path);
   }
 
-  lua_pushlstring(L, contents, size);
+  lua_pushlstring(L, content, size);
   return 1;
 }
 
-int l_lovrFilesystemSetSource(lua_State* L) {
-  const char* source = lua_tostring(L, 1);
+int l_lovrFilesystemSetIdentity(lua_State* L) {
+  const char* identity = luaL_checkstring(L, 1);
 
-  if (source) {
-    lua_pushboolean(L, lovrFilesystemSetSource(source));
-  } else {
-    lua_pushboolean(L, 0);
+  if (lovrFilesystemSetIdentity(identity)) {
+    return luaL_error(L, "Could not set the filesystem identity");
   }
 
+  return 0;
+}
+
+int l_lovrFilesystemSetSource(lua_State* L) {
+  const char* source = luaL_checkstring(L, 1);
+  lua_pushboolean(L, !lovrFilesystemSetSource(source));
   return 1;
 }

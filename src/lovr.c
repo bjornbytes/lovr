@@ -67,6 +67,8 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "  end "
     "end "
 
+    "lovr.filesystem.setIdentity(conf.identity or 'default') "
+
     "function lovr.run() "
     "  if lovr.load then lovr.load() end "
     "  while true do "
