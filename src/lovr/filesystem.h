@@ -16,3 +16,4 @@ int l_lovrFilesystemIsFile(lua_State* L);
 int l_lovrFilesystemRead(lua_State* L);
 int l_lovrFilesystemSetIdentity(lua_State* L);
 int l_lovrFilesystemSetSource(lua_State* L);
+int l_lovrFilesystemWrite(lua_State* L);

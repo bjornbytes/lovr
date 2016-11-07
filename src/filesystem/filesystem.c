@@ -144,3 +144,20 @@ int lovrFilesystemSetSource(const char* source) {
 
   return 1;
 }
+
+int lovrFilesystemWrite(const char* path, const char* content, int size) {
+  if (!PHYSFS_isInit() || !state.identity) {
+    error("Can not write files until lovr.filesystem.setIdentity is called");
+  }
+
+  // Open file
+  PHYSFS_file* handle = PHYSFS_openWrite(path);
+  if (!handle) {
+    return 0;
+  }
+
+  // Perform write
+  int bytesWritten = PHYSFS_write(handle, content, 1, size);
+  PHYSFS_close(handle);
+  return bytesWritten;
+}

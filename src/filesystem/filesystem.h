@@ -25,3 +25,4 @@ int lovrFilesystemIsFile(const char* path);
 void* lovrFilesystemRead(const char* path, int* bytesRead);
 int lovrFilesystemSetIdentity(const char* identity);
 int lovrFilesystemSetSource(const char* source);
+int lovrFilesystemWrite(const char* path, const char* content, int size);
