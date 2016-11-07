@@ -10,5 +10,4 @@ int l_lovrFilesystemGetExecutablePath(lua_State* L);
 int l_lovrFilesystemIsDirectory(lua_State* L);
 int l_lovrFilesystemIsFile(lua_State* L);
 int l_lovrFilesystemRead(lua_State* L);
-int l_lovrFilesystemWrite(lua_State* L);
 int l_lovrFilesystemSetSource(lua_State* L);

@@ -55,7 +55,6 @@ const luaL_Reg lovrFilesystem[] = {
   { "isFile", l_lovrFilesystemIsFile },
   { "read", l_lovrFilesystemRead },
   { "setSource", l_lovrFilesystemSetSource },
-  { "write", l_lovrFilesystemWrite },
   { NULL, NULL }
 };
 
@@ -133,13 +132,5 @@ int l_lovrFilesystemSetSource(lua_State* L) {
     lua_pushboolean(L, 0);
   }
 
-  return 1;
-}
-
-int l_lovrFilesystemWrite(lua_State* L) {
-  int size;
-  const char* path = luaL_checkstring(L, 1);
-  const char* contents = luaL_checklstring(L, 2, &size);
-  lua_pushnumber(L, lovrFilesystemWrite(path, contents, size));
   return 1;
 }

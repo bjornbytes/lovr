@@ -1,7 +1,7 @@
 #include "filesystem.h"
 #include "../util.h"
 #include <physfs.h>
-#ifdef APPLE
+#ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
 
@@ -20,8 +20,8 @@ int lovrFilesystemExists(const char* path) {
 }
 
 const char* lovrFilesystemGetExecutablePath() {
-#ifdef APPLE
-  char path[1024];
+#ifdef __APPLE__
+  char* path = malloc(1024);
   uint32_t size = sizeof(path);
   if (_NSGetExecutablePath(path, &size) == 0) {
     return path;
@@ -74,18 +74,4 @@ void* lovrFilesystemRead(const char* path, int* bytesRead) {
 
 int lovrFilesystemSetSource(const char* source) {
   return PHYSFS_mount(source, NULL, 0);
-}
-
-int lovrFilesystemWrite(const char* path, const char* contents, int size) {
-
-  // Open file
-  PHYSFS_file* handle = PHYSFS_openWrite(path);
-  if (!handle) {
-    return 0;
-  }
-
-  // Perform write
-  int bytesWritten = PHYSFS_write(handle, contents, 1, size);
-  PHYSFS_close(handle);
-  return bytesWritten;
 }
