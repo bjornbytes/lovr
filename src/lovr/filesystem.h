@@ -5,6 +5,7 @@
 extern const luaL_Reg lovrFilesystem[];
 int l_lovrFilesystemInit(lua_State* L);
 int l_lovrFilesystemInitialize(lua_State* L);
+int l_lovrFilesystemAppend(lua_State* L);
 int l_lovrFilesystemExists(lua_State* L);
 int l_lovrFilesystemGetExecutablePath(lua_State* L);
 int l_lovrFilesystemGetIdentity(lua_State* L);

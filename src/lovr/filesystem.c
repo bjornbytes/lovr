@@ -49,6 +49,7 @@ static int filesystemLoader(lua_State* L) {
 
 const luaL_Reg lovrFilesystem[] = {
   { "init", l_lovrFilesystemInitialize },
+  { "append", l_lovrFilesystemAppend },
   { "exists", l_lovrFilesystemExists },
   { "getExecutablePath", l_lovrFilesystemGetExecutablePath },
   { "getIdentity", l_lovrFilesystemGetIdentity },
@@ -85,6 +86,14 @@ int l_lovrFilesystemInitialize(lua_State* L) {
   const char* arg0 = luaL_checkstring(L, 1);
   lovrFilesystemInit(arg0);
   return 0;
+}
+
+int l_lovrFilesystemAppend(lua_State* L) {
+  size_t size;
+  const char* path = luaL_checkstring(L, 1);
+  const char* content = luaL_checklstring(L, 2, &size);
+  lua_pushnumber(L, lovrFilesystemAppend(path, content, size));
+  return 1;
 }
 
 int l_lovrFilesystemExists(lua_State* L) {

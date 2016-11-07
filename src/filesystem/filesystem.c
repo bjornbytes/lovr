@@ -21,6 +21,23 @@ void lovrFilesystemDestroy() {
   PHYSFS_deinit();
 }
 
+int lovrFilesystemAppend(const char* path, const char* content, int size) {
+  if (!PHYSFS_isInit() || !state.identity) {
+    error("Can not write files until lovr.filesystem.setIdentity is called");
+  }
+
+  // Open file
+  PHYSFS_file* handle = PHYSFS_openAppend(path);
+  if (!handle) {
+    return 0;
+  }
+
+  // Perform write
+  int bytesWritten = PHYSFS_write(handle, content, 1, size);
+  PHYSFS_close(handle);
+  return bytesWritten;
+}
+
 int lovrFilesystemExists(const char* path) {
   return PHYSFS_exists(path);
 }

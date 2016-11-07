@@ -14,6 +14,7 @@ typedef struct {
 
 void lovrFilesystemInit(const char* arg0);
 void lovrFilesystemDestroy();
+int lovrFilesystemAppend(const char* path, const char* content, int size);
 int lovrFilesystemExists(const char* path);
 int lovrFilesystemGetExecutablePath(char* dest, unsigned int size);
 const char* lovrFilesystemGetIdentity();
