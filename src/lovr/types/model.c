@@ -1,4 +1,5 @@
 #include "model.h"
+#include "texture.h"
 
 void luax_pushmodel(lua_State* L, Model* model) {
   if (model == NULL) {
