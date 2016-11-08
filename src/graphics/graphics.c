@@ -278,6 +278,17 @@ void lovrGraphicsScale(float x, float y, float z) {
 }
 
 void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
+
+  // Normalize rotation vector
+  float len = sqrtf(ax * ax + ay * ay + az * az);
+  if (len != 1 && len != 0) {
+    len = 1 / len;
+    ax *= len;
+    ay *= len;
+    az *= len;
+  }
+
+  // Convert angle-axis to quaternion
   float cos2 = cos(angle / 2.f);
   float sin2 = sin(angle / 2.f);
   float qw = cos2;
@@ -285,6 +296,7 @@ void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, flo
   float qy = sin2 * ay;
   float qz = sin2 * az;
 
+  // M *= T * S * R
   float transform[16];
   mat4_setTranslation(transform, tx, ty, tz);
   mat4_scale(transform, sx, sy, sz);
