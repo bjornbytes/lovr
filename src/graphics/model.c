@@ -88,6 +88,8 @@ Model* lovrModelCreate(void* data, int size) {
   lovrBufferSetVertices(model->buffer, vertices.data, vertices.length / components);
   lovrBufferSetVertexMap(model->buffer, indices.data, indices.length);
 
+  model->texture = NULL;
+
   vec_deinit(&vertices);
   vec_deinit(&indices);
   return model;
@@ -104,4 +106,12 @@ void lovrModelDraw(Model* model, float x, float y, float z, float size, float an
   lovrGraphicsTransform(x, y, z, size, size, size, angle, ax, ay, az);
   lovrBufferDraw(model->buffer);
   lovrGraphicsPop();
+}
+
+Texture* lovrModelGetTexture(Model* model) {
+  return model->texture;
+}
+
+void lovrModelSetTexture(Model* model, Texture* texture) {
+  model->texture = texture;
 }

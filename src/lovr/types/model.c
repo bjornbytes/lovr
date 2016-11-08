@@ -21,6 +21,8 @@ int luax_destroymodel(lua_State* L) {
 
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
+  { "getTexture", l_lovrModelGetTexture },
+  { "setTexture", l_lovrModelSetTexture },
   { NULL, NULL }
 };
 
@@ -35,5 +37,18 @@ int l_lovrModelDraw(lua_State* L) {
   float ay = luaL_optnumber(L, 8, 1.f);
   float az = luaL_optnumber(L, 9, 0.f);
   lovrModelDraw(model, x, y, z, scale, angle, ax, ay, az);
+  return 0;
+}
+
+int l_lovrModelGetTexture(lua_State* L) {
+  Model* model = luax_checkmodel(L, 1);
+  luax_pushtexture(L, lovrModelGetTexture(model));
+  return 1;
+}
+
+int l_lovrModelSetTexture(lua_State* L) {
+  Model* model = luax_checkmodel(L, 1);
+  Texture* texture = luax_checktexture(L, 2);
+  lovrModelSetTexture(model, texture);
   return 0;
 }

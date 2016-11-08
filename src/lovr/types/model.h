@@ -9,3 +9,5 @@ int luax_destroymodel(lua_State* L);
 extern const luaL_Reg lovrModel[];
 
 int l_lovrModelDraw(lua_State* L);
+int l_lovrModelGetTexture(lua_State* L);
+int l_lovrModelSetTexture(lua_State* L);
