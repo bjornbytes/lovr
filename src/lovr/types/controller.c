@@ -1,4 +1,6 @@
 #include "controller.h"
+#include "../headset.h"
+#include "../../util.h"
 
 void luax_pushcontroller(lua_State* L, Controller* controller) {
   if (controller == NULL) {
@@ -52,20 +54,6 @@ int l_lovrControllerGetOrientation(lua_State* L) {
 
 int l_lovrControllerGetHand(lua_State* L) {
   Controller* controller = luax_checkcontroller(L, 1);
-  ControllerHand hand = lovrHeadsetGetControllerHand(controller);
-
-  switch (hand) {
-    case CONTROLLER_HAND_LEFT:
-      lua_pushstring(L, "left");
-      break;
-
-    case CONTROLLER_HAND_RIGHT:
-      lua_pushstring(L, "right");
-      break;
-
-    default:
-      lua_pushnil(L);
-  }
-
+  lua_pushstring(L, map_int_find(&ControllerHands, lovrHeadsetGetControllerHand(controller)));
   return 1;
 }

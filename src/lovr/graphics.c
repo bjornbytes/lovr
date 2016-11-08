@@ -275,17 +275,8 @@ int l_lovrGraphicsSetCullingEnabled(lua_State* L) {
 }
 
 int l_lovrGraphicsGetPolygonWinding(lua_State* L) {
-  switch (lovrGraphicsGetPolygonWinding()) {
-    case POLYGON_WINDING_CLOCKWISE:
-      lua_pushstring(L, "clockwise");
-      return 1;
-
-    case POLYGON_WINDING_COUNTERCLOCKWISE:
-      lua_pushstring(L, "counterclockwise");
-      return 1;
-  }
-
-  return 0;
+  lua_pushstring(L, map_int_find(&PolygonWindings, lovrGraphicsGetPolygonWinding()));
+  return 1;
 }
 
 int l_lovrGraphicsSetPolygonWinding(lua_State* L) {
@@ -453,20 +444,11 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
     }
   } else {
     luaL_argerror(L, 1, "table or number expected");
+    return 0;
   }
 
-  const char* userDrawMode = luaL_optstring(L, drawModeIndex, "fan");
-  BufferDrawMode* drawMode = (BufferDrawMode*) map_get(&BufferDrawModes, userDrawMode);
-  if (!drawMode) {
-    return luaL_error(L, "Invalid buffer draw mode: '%s'", userDrawMode);
-  }
-
-  const char* userUsage = luaL_optstring(L, drawModeIndex + 1, "dynamic");
-  BufferUsage* usage = (BufferUsage*) map_get(&BufferUsages, userUsage);
-  if (!usage) {
-    return luaL_error(L, "Invalid buffer usage: '%s'", userUsage);
-  }
-
+  BufferDrawMode* drawMode = (BufferDrawMode*) luax_optenum(L, drawModeIndex, "fan", &BufferDrawModes, "buffer draw mode");
+  BufferUsage* usage = (BufferUsage*) luax_optenum(L, drawModeIndex + 1, "dynamic", &BufferUsages, "buffer usage");
   Buffer* buffer = lovrBufferCreate(size, format.length ? &format : NULL, *drawMode, *usage);
 
   if (dataIndex) {

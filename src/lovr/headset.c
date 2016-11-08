@@ -147,12 +147,7 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 }
 
 int l_lovrHeadsetGetController(lua_State* L) {
-  const char* userHand = luaL_checkstring(L, 1);
-  ControllerHand* hand = (ControllerHand*) map_get(&ControllerHands, userHand);
-  if (!hand) {
-    return luaL_error(L, "Invalid controller hand: '%s'", userHand);
-  }
-
+  ControllerHand* hand = (ControllerHand*) luax_checkenum(L, 1, &ControllerHands, "controller hand");
   luax_pushcontroller(L, lovrHeadsetGetController(*hand));
   return 1;
 }

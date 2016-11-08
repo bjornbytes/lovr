@@ -51,18 +51,10 @@ void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format) {
     lua_rawgeti(L, -3, 3);
 
     const char* name = lua_tostring(L, -3);
-    const char* userAttributeType = lua_tostring(L, -2);
+    BufferAttributeType* type = (BufferAttributeType*) luax_checkenum(L, -2, &BufferAttributeTypes, "buffer attribute type");
     int size = lua_tointeger(L, -1);
-
-    BufferAttributeType* type = (BufferAttributeType*) map_get(&BufferAttributeTypes, userAttributeType);
-    if (!type) {
-      luaL_error(L, "Invalid buffer attribute type: '%s'", userAttributeType);
-      return;
-    }
-
     BufferAttribute attribute = { .name = name, .type = *type, .size = size };
     vec_push(format, attribute);
-
     lua_pop(L, 4);
   }
 }
@@ -101,44 +93,14 @@ int l_lovrBufferDraw(lua_State* L) {
 
 int l_lovrBufferGetDrawMode(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
-  BufferDrawMode drawMode = lovrBufferGetDrawMode(buffer);
-
-  switch (drawMode) {
-    case BUFFER_POINTS:
-      lua_pushstring(L, "points");
-      break;
-
-    case BUFFER_TRIANGLE_STRIP:
-      lua_pushstring(L, "strip");
-      break;
-
-    case BUFFER_TRIANGLES:
-      lua_pushstring(L, "triangles");
-      break;
-
-    case BUFFER_TRIANGLE_FAN:
-      lua_pushstring(L, "fan");
-      break;
-
-    default:
-      lua_pushstring(L, "unknown");
-      break;
-  }
-
+  lua_pushstring(L, map_int_find(&BufferDrawModes, lovrBufferGetDrawMode(buffer)));
   return 1;
 }
 
 int l_lovrBufferSetDrawMode(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
-
-  const char* userDrawMode = luaL_checkstring(L, 2);
-  BufferDrawMode* drawMode = (BufferDrawMode*) map_get(&BufferDrawModes, userDrawMode);
-  if (!drawMode) {
-    return luaL_error(L, "Invalid buffer draw mode: '%s'", userDrawMode);
-  }
-
+  BufferDrawMode* drawMode = (BufferDrawMode*) luax_checkenum(L, 2, &BufferDrawModes, "buffer draw mode");
   lovrBufferSetDrawMode(buffer, *drawMode);
-
   return 0;
 }
 

@@ -71,3 +71,37 @@ void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions, 
   // Pop metatable
   lua_pop(L, 1);
 }
+
+// Returns a key that maps to value or NULL if the value is not in the map
+const char* map_int_find(map_int_t* map, int value) {
+  const char* key;
+  map_iter_t iter = map_iter(map);
+  while ((key = map_next(map, &iter))) {
+    if (*map_get(map, key) == value) {
+      return key;
+    }
+  }
+  return NULL;
+}
+
+void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName) {
+  const char* key = luaL_checkstring(L, index);
+  void* value = map_get(map, key);
+  if (!value) {
+    luaL_error(L, "Invalid %s '%s'", typeName, key);
+    return NULL;
+  }
+
+  return value;
+}
+
+void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map, const char* typeName) {
+  const char* key = luaL_optstring(L, index, fallback);
+  void* value = map_get(map, key);
+  if (!value) {
+    luaL_error(L, "Invalid %s '%s'", typeName, key);
+    return NULL;
+  }
+
+  return value;
+}
