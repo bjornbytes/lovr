@@ -3,6 +3,7 @@
 #include "types/model.h"
 #include "types/shader.h"
 #include "types/skybox.h"
+#include "types/texture.h"
 #include "../graphics/graphics.h"
 #include "../filesystem/filesystem.h"
 #include "../util.h"
@@ -76,6 +77,7 @@ const luaL_Reg lovrGraphics[] = {
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newShader", l_lovrGraphicsNewShader },
   { "newSkybox", l_lovrGraphicsNewSkybox },
+  { "newTexture", l_lovrGraphicsNewTexture },
   { NULL, NULL }
 };
 
@@ -86,6 +88,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   luaRegisterType(L, "Model", lovrModel, luax_destroymodel);
   luaRegisterType(L, "Shader", lovrShader, luax_destroyshader);
   luaRegisterType(L, "Skybox", lovrSkybox, luax_destroyskybox);
+  luaRegisterType(L, "Texture", lovrTexture, luax_destroytexture);
 
   map_init(&BufferAttributeTypes);
   map_set(&BufferAttributeTypes, "float", BUFFER_FLOAT);
@@ -575,3 +578,17 @@ int l_lovrGraphicsNewSkybox(lua_State* L) {
 
   return 1;
 }
+
+int l_lovrGraphicsNewTexture(lua_State* L) {
+  const char* path = luaL_checkstring(L, 1);
+  int size;
+  void* data = lovrFilesystemRead(path, &size);
+  if (!data) {
+    return luaL_error(L, "Could not load texture file '%s'", path);
+  }
+
+  luax_pushtexture(L, lovrTextureCreate(data, size));
+  free(data);
+  return 1;
+}
+
