@@ -1,5 +1,5 @@
 #include "headset.h"
-#include "controller.h"
+#include "types/controller.h"
 #include "../headset/headset.h"
 #include "../util.h"
 

@@ -1,6 +1,5 @@
 #include "buffer.h"
-#include "graphics.h"
-#include "../graphics/buffer.h"
+#include "../graphics.h"
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer) {
   if (buffer == NULL) {
