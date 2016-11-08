@@ -177,6 +177,7 @@ int l_lovrFilesystemRead(lua_State* L) {
   }
 
   lua_pushlstring(L, content, size);
+  free(content);
   return 1;
 }
 

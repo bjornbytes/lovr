@@ -18,6 +18,8 @@ void lovrFilesystemInit(const char* arg0) {
 }
 
 void lovrFilesystemDestroy() {
+  free(state.savePathFull);
+  free(state.savePathRelative);
   PHYSFS_deinit();
 }
 
