@@ -2,6 +2,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "vendor/stb_image.h"
 
 void error(const char* format, ...) {
   va_list args;
@@ -10,6 +12,10 @@ void error(const char* format, ...) {
   fputs("\n", stderr);
   va_end(args);
   exit(EXIT_FAILURE);
+}
+
+unsigned char* loadImage(void* data, size_t size, int* w, int* h, int* n, int channels) {
+  return stbi_load_from_memory(data, size, w, h, n, channels);
 }
 
 int luaPreloadModule(lua_State* L, const char* key, lua_CFunction f) {

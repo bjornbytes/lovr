@@ -1,11 +1,6 @@
 #include "skybox.h"
-#include "graphics.h"
 #include "../util.h"
 #include <stdlib.h>
-
-// For now
-#define STB_IMAGE_IMPLEMENTATION
-#include "../vendor/stb_image.h"
 
 Skybox* lovrSkyboxCreate(void** data, int* size) {
   Skybox* skybox = malloc(sizeof(Skybox));
@@ -15,9 +10,9 @@ Skybox* lovrSkyboxCreate(void** data, int* size) {
 
   for (int i = 0; i < 6; i++) {
     int width, height, channels;
-    unsigned char* image = stbi_load_from_memory(data[i], size[i], &width, &height, &channels, 3);
+    unsigned char* image = loadImage(data[i], size[i], &width, &height, &channels, 3);
 
-    if (image == NULL) {
+    if (!image) {
       error("Could not load skybox image %d", i);
     }
 
