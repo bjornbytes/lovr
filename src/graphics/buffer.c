@@ -129,7 +129,7 @@ void lovrBufferSetVertex(Buffer* buffer, int index, void* data) {
   size_t offset = 0;
   vec_foreach(&buffer->format, attribute, i) {
     glVertexAttribPointer(i, attribute.size, attribute.type, GL_FALSE, buffer->stride, (void*) offset);
-    offset += attribute.size + sizeof(attribute.type);
+    offset += attribute.size * sizeof(attribute.type);
   }
 }
 
