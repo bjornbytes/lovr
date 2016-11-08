@@ -1,14 +1,7 @@
 #include "util.h"
 #include <stdarg.h>
-#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
-#ifdef __APPLE__
-#include <unistd.h>
-#else
-#include <io.h>
-#endif
 
 void error(const char* format, ...) {
   va_list args;
@@ -17,34 +10,6 @@ void error(const char* format, ...) {
   fputs("\n", stderr);
   va_end(args);
   exit(EXIT_FAILURE);
-}
-
-int fileExists(char* filename) {
-  return access(filename, 0) != -1;
-}
-
-char* loadFile(char* filename) {
-  struct stat info;
-
-  if (stat(filename, &info)) {
-    error("Could not stat '%s'", filename);
-  }
-
-  int size = (int)info.st_size;
-  char* buffer = malloc(size + 1);
-
-  int fd = open(filename, O_RDONLY);
-
-  if (fd < 0) {
-    error("Could not open '%s'", filename);
-  }
-
-  if (read(fd, buffer, size) < 0) {
-    error("Could not read '%s'", filename);
-  }
-
-  buffer[size] = '\0';
-  return buffer;
 }
 
 int luaPreloadModule(lua_State* L, const char* key, lua_CFunction f) {
