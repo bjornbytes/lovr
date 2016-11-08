@@ -37,6 +37,7 @@ int l_lovrGraphicsOrigin(lua_State* L);
 int l_lovrGraphicsTranslate(lua_State* L);
 int l_lovrGraphicsRotate(lua_State* L);
 int l_lovrGraphicsScale(lua_State* L);
+int l_lovrGraphicsPoints(lua_State* L);
 int l_lovrGraphicsLine(lua_State* L);
 int l_lovrGraphicsPlane(lua_State* L);
 int l_lovrGraphicsCube(lua_State* L);

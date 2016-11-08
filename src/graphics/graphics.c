@@ -362,6 +362,11 @@ void lovrGraphicsDrawFilledShape() {
   glBindVertexArray(0);
 }
 
+void lovrGraphicsPoints(float* points, int count) {
+  lovrGraphicsSetShapeData(points, count, NULL, 0);
+  lovrGraphicsDrawLinedShape(GL_POINTS);
+}
+
 void lovrGraphicsLine(float* points, int count) {
   lovrGraphicsSetShapeData(points, count, NULL, 0);
   lovrGraphicsDrawLinedShape(GL_LINE_STRIP);

@@ -8,6 +8,36 @@
 #include "../util.h"
 #include <math.h>
 
+static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
+  int isTable = lua_istable(L, index);
+
+  if (!isTable && !lua_isnumber(L, index)) {
+    luaL_error(L, "Expected number or table, got '%s'", lua_typename(L, lua_type(L, 1)));
+    return;
+  }
+
+  int count = isTable ? lua_objlen(L, index) : lua_gettop(L);
+  if (count % 3 != 0) {
+    vec_deinit(points);
+    luaL_error(L, "Number of coordinates must be a multiple of 3, got '%d'", count);
+    return;
+  }
+
+  vec_reserve(points, count);
+
+  if (isTable) {
+    for (int i = 1; i <= count; i++) {
+      lua_rawgeti(L, index, i);
+      vec_push(points, lua_tonumber(L, -1));
+      lua_pop(L, 1);
+    }
+  } else {
+    for (int i = 0; i < count; i++) {
+      vec_push(points, lua_tonumber(L, index + i));
+    }
+  }
+}
+
 const luaL_Reg lovrGraphics[] = {
   { "reset", l_lovrGraphicsReset },
   { "clear", l_lovrGraphicsClear },
@@ -35,6 +65,7 @@ const luaL_Reg lovrGraphics[] = {
   { "translate", l_lovrGraphicsTranslate },
   { "rotate", l_lovrGraphicsRotate },
   { "scale", l_lovrGraphicsScale },
+  { "points", l_lovrGraphicsPoints },
   { "line", l_lovrGraphicsLine },
   { "plane", l_lovrGraphicsPlane },
   { "cube", l_lovrGraphicsCube },
@@ -317,36 +348,20 @@ int l_lovrGraphicsScale(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsPoints(lua_State* L) {
+  vec_float_t points;
+  vec_init(&points);
+  luax_readvertices(L, 1, &points);
+  lovrGraphicsPoints(points.data, points.length);
+  vec_deinit(&points);
+  return 0;
+}
+
 int l_lovrGraphicsLine(lua_State* L) {
   vec_float_t points;
   vec_init(&points);
-  int isTable = lua_istable(L, 1);
-
-  if (!isTable && !lua_isnumber(L, 1)) {
-    return luaL_error(L, "Expected number or table, got '%s'", lua_typename(L, lua_type(L, 1)));
-  }
-
-  int count = isTable ? lua_objlen(L, 1) : lua_gettop(L);
-  if (count % 3 != 0) {
-    vec_deinit(&points);
-    return luaL_error(L, "Number of coordinates must be a multiple of 3, got '%d'", count);
-  }
-
-  vec_reserve(&points, count);
-
-  if (isTable) {
-    for (int i = 1; i <= count; i++) {
-      lua_rawgeti(L, 1, i);
-      vec_push(&points, lua_tonumber(L, -1));
-      lua_pop(L, 1);
-    }
-  } else {
-    for (int i = 1; i <= count; i++) {
-      vec_push(&points, lua_tonumber(L, i));
-    }
-  }
-
-  lovrGraphicsLine(points.data, count);
+  luax_readvertices(L, 1, &points);
+  lovrGraphicsLine(points.data, points.length);
   vec_deinit(&points);
   return 0;
 }
