@@ -115,39 +115,18 @@ int l_lovrFilesystemGetExecutablePath(lua_State* L) {
 }
 
 int l_lovrFilesystemGetIdentity(lua_State* L) {
-  const char* identity = lovrFilesystemGetIdentity();
-
-  if (identity) {
-    lua_pushstring(L, identity);
-  } else {
-    lua_pushnil(L);
-  }
-
+  lua_pushstring(L, lovrFilesystemGetIdentity());
   return 1;
 }
 
 int l_lovrFilesystemGetRealDirectory(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  const char* realDirectory = lovrFilesystemGetRealDirectory(path);
-
-  if (realDirectory) {
-    lua_pushstring(L, realDirectory);
-  } else {
-    lua_pushnil(L);
-  }
-
+  lua_pushstring(L, lovrFilesystemGetRealDirectory(path));
   return 1;
 }
 
 int l_lovrFilesystemGetSource(lua_State* L) {
-  const char* source = lovrFilesystemGetSource();
-
-  if (source) {
-    lua_pushstring(L, source);
-  } else {
-    lua_pushnil(L);
-  }
-
+  lua_pushstring(L, lovrFilesystemGetSource());
   return 1;
 }
 
