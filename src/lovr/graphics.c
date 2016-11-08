@@ -509,6 +509,10 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   int size;
   void* data = lovrFilesystemRead(path, &size);
+  if (!data) {
+    return luaL_error(L, "Could not load model file '%s'", path);
+  }
+
   luax_pushmodel(L, lovrModelCreate(data, size));
   free(data);
   return 1;
