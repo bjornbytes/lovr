@@ -76,6 +76,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "    local dt = lovr.timer.step() "
     "    if lovr.update then lovr.update(dt) end "
     "    lovr.graphics.clear() "
+    "    lovr.graphics.origin() "
     "    if lovr.draw then "
     "      if lovr.headset and lovr.headset.isPresent() then "
     "        lovr.headset.renderTo(lovr.draw) "
