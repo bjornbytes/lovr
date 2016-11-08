@@ -20,3 +20,5 @@ int l_lovrBufferGetDrawMode(lua_State* L);
 int l_lovrBufferSetDrawMode(lua_State* L);
 int l_lovrBufferGetDrawRange(lua_State* L);
 int l_lovrBufferSetDrawRange(lua_State* L);
+int l_lovrBufferGetTexture(lua_State* L);
+int l_lovrBufferSetTexture(lua_State* L);

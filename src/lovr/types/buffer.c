@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include "texture.h"
 #include "../graphics.h"
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer) {
@@ -87,6 +88,8 @@ const luaL_Reg lovrBuffer[] = {
   { "setDrawMode", l_lovrBufferSetDrawMode },
   { "getDrawRange", l_lovrBufferGetDrawRange },
   { "setDrawRange", l_lovrBufferSetDrawRange },
+  { "getTexture", l_lovrBufferGetTexture },
+  { "setTexture", l_lovrBufferSetTexture },
   { NULL, NULL }
 };
 
@@ -289,5 +292,18 @@ int l_lovrBufferSetDrawRange(lua_State* L) {
     return luaL_error(L, "Invalid buffer draw range (%d, %d)", rangeStart + 1, rangeCount);
   }
 
+  return 0;
+}
+
+int l_lovrBufferGetTexture(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  luax_pushtexture(L, lovrBufferGetTexture(buffer));
+  return 1;
+}
+
+int l_lovrBufferSetTexture(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  Texture* texture = luax_checktexture(L, 2);
+  lovrBufferSetTexture(buffer, texture);
   return 0;
 }

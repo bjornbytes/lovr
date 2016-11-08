@@ -1,5 +1,6 @@
 #include "../glfw.h"
 #include "../util.h"
+#include "texture.h"
 
 #ifndef LOVR_BUFFER_TYPES
 #define LOVR_BUFFER_TYPES
@@ -44,6 +45,7 @@ typedef struct {
   char isRangeEnabled;
   int rangeStart;
   int rangeCount;
+  Texture* texture;
 } Buffer;
 #endif
 
@@ -65,3 +67,5 @@ char lovrBufferIsRangeEnabled(Buffer* buffer);
 void lovrBufferSetRangeEnabled(Buffer* buffer, char isEnabled);
 void lovrBufferGetDrawRange(Buffer* buffer, int* start, int* count);
 int lovrBufferSetDrawRange(Buffer* buffer, int start, int count);
+Texture* lovrBufferGetTexture(Buffer* buffer);
+void lovrBufferSetTexture(Buffer* buffer, Texture* texture);

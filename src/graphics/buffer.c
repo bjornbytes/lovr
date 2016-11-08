@@ -38,6 +38,7 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
   buffer->isRangeEnabled = 0;
   buffer->rangeStart = 0;
   buffer->rangeCount = buffer->size;
+  buffer->texture = NULL;
 
   glGenBuffers(1, &buffer->vbo);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
@@ -64,6 +65,10 @@ void lovrBufferDraw(Buffer* buffer) {
   glBindVertexArray(buffer->vao);
   for (int i = 0; i < buffer->format.length; i++) {
     glEnableVertexAttribArray(i);
+  }
+
+  if (buffer->texture) {
+    glBindTexture(GL_TEXTURE_2D, buffer->texture->id);
   }
 
   int start, count;
@@ -191,4 +196,12 @@ int lovrBufferSetDrawRange(Buffer* buffer, int rangeStart, int rangeCount) {
   buffer->rangeCount = rangeCount;
 
   return 0;
+}
+
+Texture* lovrBufferGetTexture(Buffer* buffer) {
+  return buffer->texture;
+}
+
+void lovrBufferSetTexture(Buffer* buffer, Texture* texture) {
+  buffer->texture = texture;
 }
