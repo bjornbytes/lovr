@@ -113,6 +113,16 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&PolygonWindings, "clockwise", POLYGON_WINDING_CLOCKWISE);
   map_set(&PolygonWindings, "counterclockwise", POLYGON_WINDING_COUNTERCLOCKWISE);
 
+  map_init(&FilterModes);
+  map_set(&FilterModes, "nearest", FILTER_NEAREST);
+  map_set(&FilterModes, "linear", FILTER_LINEAR);
+
+  map_init(&WrapModes);
+  map_set(&WrapModes, "clamp", WRAP_CLAMP);
+  map_set(&WrapModes, "repeat", WRAP_REPEAT);
+  map_set(&WrapModes, "mirroredrepeat", WRAP_MIRRORED_REPEAT);
+  map_set(&WrapModes, "clampzero", WRAP_CLAMP_ZERO);
+
   lovrGraphicsInit();
   return 1;
 }

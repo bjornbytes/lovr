@@ -8,6 +8,8 @@ map_int_t BufferDrawModes;
 map_int_t BufferUsages;
 map_int_t DrawModes;
 map_int_t PolygonWindings;
+map_int_t FilterModes;
+map_int_t WrapModes;
 
 extern const luaL_Reg lovrGraphics[];
 int l_lovrGraphicsInit(lua_State* L);
