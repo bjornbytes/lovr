@@ -109,6 +109,8 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 
   GLuint id = linkShaders(vertexShader, fragmentShader);
   Shader* shader = (Shader*) malloc(sizeof(Shader));
+  if (!shader) return NULL;
+
   shader->id = id;
 
   GLint uniformCount;

@@ -26,6 +26,8 @@ static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
 
 ModelData* lovrModelDataCreate(void* data, int size) {
   ModelData* modelData = malloc(sizeof(ModelData));
+  if (!modelData) return NULL;
+
   const struct aiScene* scene = aiImportFileFromMemory(data, size, aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph, NULL);
 
   // Meshes

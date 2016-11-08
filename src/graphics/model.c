@@ -58,7 +58,10 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
 
 Model* lovrModelCreate(void* data, int size) {
   Model* model = malloc(sizeof(model));
+  if (!model) return NULL;
+
   model->modelData = lovrModelDataCreate(data, size);
+  if (!model->modelData) return NULL;
 
   vec_float_t vertices;
   vec_init(&vertices);

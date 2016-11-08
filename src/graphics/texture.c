@@ -4,6 +4,7 @@
 
 Texture* lovrTextureCreate(void* data, int size) {
   Texture* texture = malloc(sizeof(Texture));
+  if (!texture) return NULL;
 
   glGenTextures(1, &texture->id);
 

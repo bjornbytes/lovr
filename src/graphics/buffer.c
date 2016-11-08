@@ -4,6 +4,7 @@
 
 Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode, BufferUsage usage) {
   Buffer* buffer = malloc(sizeof(Buffer));
+  if (!buffer) return NULL;
 
   vec_init(&buffer->map);
   vec_init(&buffer->format);

@@ -63,6 +63,7 @@ static TrackedDevicePose_t viveGetPose(ViveState* state, unsigned int deviceInde
 Headset* viveInit() {
   Headset* this = malloc(sizeof(Headset));
   ViveState* state = malloc(sizeof(ViveState));
+  if (!this || !state) return NULL;
 
   this->state = state;
   this->interface = &interface;

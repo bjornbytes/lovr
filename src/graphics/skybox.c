@@ -4,6 +4,7 @@
 
 Skybox* lovrSkyboxCreate(void** data, int* size) {
   Skybox* skybox = malloc(sizeof(Skybox));
+  if (!skybox) return NULL;
 
   glGenTextures(1, &skybox->texture);
   glBindTexture(GL_TEXTURE_CUBE_MAP, skybox->texture);
