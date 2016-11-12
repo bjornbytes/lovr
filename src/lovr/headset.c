@@ -20,6 +20,8 @@ const luaL_Reg lovrHeadset[] = {
   { "getClipDistance", l_lovrHeadsetGetClipDistance },
   { "setClipDistance", l_lovrHeadsetSetClipDistance },
   { "getTrackingSize", l_lovrHeadsetGetTrackingSize },
+  { "isBoundsVisible", l_lovrHeadsetIsBoundsVisible },
+  { "setBoundsVisible", l_lovrHeadsetSetBoundsVisible },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
   { "getVelocity", l_lovrHeadsetGetVelocity },
