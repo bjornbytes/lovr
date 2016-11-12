@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include "../util.h"
 #include "../graphics/graphics.h"
+#include <stdint.h>
 
 typedef struct {
   struct VR_IVRSystem_FnTable* vrSystem;
@@ -48,6 +49,7 @@ static HeadsetInterface interface = {
   .isControllerPresent = viveIsControllerPresent,
   .getControllerPosition = viveGetControllerPosition,
   .getControllerOrientation = viveGetControllerOrientation,
+  .getControllerAxis = viveGetControllerAxis,
   .getControllerHand = viveGetControllerHand,
   .renderTo = viveRenderTo
 };
@@ -305,6 +307,22 @@ void viveGetControllerOrientation(void* headset, Controller* controller, float* 
 
   float matrix[16];
   mat4_getRotation(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), w, x, y, z);
+}
+
+float viveGetControllerAxis(void* headset, Controller* controller) {
+  Headset* this = headset;
+  ViveState* state = this->state;
+  VRControllerState_t input;
+
+  struct VREvent_t event;
+  while (state->vrSystem->PollNextEvent(&event, sizeof(event))) {
+    printf("%d\n", event.eventType);
+  }
+
+  int i = state->vrSystem->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
+  printf("%d %d\n", i, state->controllerIndex[controller->hand]);
+  state->vrSystem->GetControllerState(i, &input);
+  return input.rAxis[1].x;
 }
 
 ControllerHand viveGetControllerHand(void* headset, Controller* controller) {

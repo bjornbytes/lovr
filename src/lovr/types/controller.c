@@ -22,6 +22,7 @@ const luaL_Reg lovrController[] = {
   { "isPresent", l_lovrControllerIsPresent },
   { "getPosition", l_lovrControllerGetPosition },
   { "getOrientation", l_lovrControllerGetOrientation },
+  { "getAxis", l_lovrControllerGetAxis },
   { "getHand", l_lovrControllerGetHand },
   { NULL, NULL }
 };
@@ -51,6 +52,12 @@ int l_lovrControllerGetOrientation(lua_State* L) {
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
   return 4;
+}
+
+int l_lovrControllerGetAxis(lua_State* L) {
+  Controller* controller = luax_checkcontroller(L, 1);
+  lua_pushnumber(L, lovrHeadsetGetControllerAxis(controller));
+  return 1;
 }
 
 int l_lovrControllerGetHand(lua_State* L) {

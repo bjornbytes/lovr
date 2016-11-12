@@ -12,4 +12,5 @@ extern const luaL_Reg lovrController[];
 int l_lovrControllerIsPresent(lua_State* L);
 int l_lovrControllerGetPosition(lua_State* L);
 int l_lovrControllerGetOrientation(lua_State* L);
+int l_lovrControllerGetAxis(lua_State* L);
 int l_lovrControllerGetHand(lua_State* L);
