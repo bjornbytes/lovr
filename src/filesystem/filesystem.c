@@ -158,7 +158,6 @@ int lovrFilesystemSetIdentity(const char* identity) {
   PWSTR appData = NULL;
   SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &appData);
   snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity);
-  printf("%s %ls\n", state.savePathRelative, appData);
   CoTaskMemFree(appData);
 #endif
 
