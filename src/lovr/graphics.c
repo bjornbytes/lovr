@@ -494,7 +494,7 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
           } else if (attribute.type == BUFFER_BYTE) {
             unsigned char value = 255;
             if (tableIndex <= tableCount) {
-              lua_rawgeti(L, 3, tableIndex++);
+              lua_rawgeti(L, -1, tableIndex++);
               value = lua_tointeger(L, -1);
               lua_pop(L, 1);
             }
