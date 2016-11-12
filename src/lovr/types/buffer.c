@@ -4,7 +4,8 @@
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer) {
   if (buffer == NULL) {
-    return lua_pushnil(L);
+    lua_pushnil(L);
+    return;
   }
 
   Buffer** userdata = (Buffer**) lua_newuserdata(L, sizeof(Buffer*));
@@ -21,10 +22,10 @@ int luax_pushbuffervertex(lua_State* L, void* vertex, BufferFormat format) {
     for (int j = 0; j < attribute.size; j++) {
       if (attribute.type == BUFFER_FLOAT) {
         lua_pushnumber(L, *((float*)vertex));
-        vertex += sizeof(float);
+        vertex = (char*) vertex + sizeof(float);
       } else if (attribute.type == BUFFER_BYTE) {
         lua_pushnumber(L, *((unsigned char*)vertex));
-        vertex += sizeof(unsigned char);
+        vertex = (char*) vertex + sizeof(unsigned char);
       }
       count++;
     }
@@ -143,7 +144,7 @@ int l_lovrBufferSetVertex(lua_State* L) {
           }
 
           *((float*) v) = value;
-          v += sizeof(float);
+          v = (char*) v + sizeof(float);
         } else if (attribute.type == BUFFER_BYTE) {
           unsigned char value = 255;
           if (tableIndex <= tableCount) {
@@ -153,7 +154,7 @@ int l_lovrBufferSetVertex(lua_State* L) {
           }
 
           *((unsigned char*) v) = value;
-          v += sizeof(unsigned char);
+          v = (char*) v + sizeof(unsigned char);
         }
       }
     }
@@ -168,10 +169,10 @@ int l_lovrBufferSetVertex(lua_State* L) {
       for (int j = 0; j < attribute.size; j++) {
         if (attribute.type == BUFFER_FLOAT) {
           *((float*) v) = argumentIndex <= argumentCount ? lua_tonumber(L, argumentIndex++) : 0.f;
-          v += sizeof(float);
+          v = (char*) v + sizeof(float);
         } else if (attribute.type == BUFFER_BYTE) {
           *((char*) v) = argumentIndex <= argumentCount ? lua_tointeger(L, argumentIndex++) : 255;
-          v += sizeof(char);
+          v = (char*) v + sizeof(char);
         }
       }
     }
@@ -217,7 +218,7 @@ int l_lovrBufferSetVertexMap(lua_State* L) {
     if (!lua_isnumber(L, -1)) {
       return luaL_error(L, "Buffer vertex map index #%d must be numeric", i);
     }
-    indices[i] = lua_tonumber(L, -1) - 1;
+    indices[i] = lua_tointeger(L, -1) - 1;
     lua_pop(L, 1);
   }
 

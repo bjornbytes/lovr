@@ -4,7 +4,8 @@
 
 void luax_pushtexture(lua_State* L, Texture* texture) {
   if (texture == NULL) {
-    return lua_pushnil(L);
+    lua_pushnil(L);
+    return;
   }
 
   Texture** userdata = (Texture**) lua_newuserdata(L, sizeof(Texture*));

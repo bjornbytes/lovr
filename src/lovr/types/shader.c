@@ -2,7 +2,8 @@
 
 void luax_pushshader(lua_State* L, Shader* shader) {
   if (shader == NULL) {
-    return lua_pushnil(L);
+    lua_pushnil(L);
+    return;
   }
 
   Shader** userdata = (Shader**) lua_newuserdata(L, sizeof(Shader*));

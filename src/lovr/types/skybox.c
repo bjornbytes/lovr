@@ -2,7 +2,8 @@
 
 void luax_pushskybox(lua_State* L, Skybox* skybox) {
   if (skybox == NULL) {
-    return lua_pushnil(L);
+    lua_pushnil(L);
+    return;
   }
 
   Skybox** userdata = (Skybox**) lua_newuserdata(L, sizeof(Skybox*));

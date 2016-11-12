@@ -78,6 +78,7 @@ Headset* viveInit() {
   VR_InitInternal(&vrError, EVRApplicationType_VRApplication_Scene);
 
   if (vrError != EVRInitError_VRInitError_None) {
+    printf("%d\n", vrError);
     return NULL;
   }
 

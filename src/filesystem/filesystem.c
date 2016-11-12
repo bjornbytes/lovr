@@ -4,6 +4,12 @@
 #include <stdio.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
+#elif defined(WIN32)
+#include <windows.h>
+#include <initguid.h>
+#include <KnownFolders.h>
+#include <ShlObj.h>
+#include <wchar.h>
 #endif
 
 static FilesystemState state;
@@ -49,6 +55,8 @@ int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
   if (_NSGetExecutablePath(dest, &size) == 0) {
     return 0;
   }
+#elif defined(WIN32)
+  return !GetModuleFileName(NULL, dest, size);
 #endif
 
   return 1;
@@ -146,6 +154,12 @@ int lovrFilesystemSetIdentity(const char* identity) {
     PHYSFS_mount(state.savePathFull, NULL, 0);
     return 0;
   }
+#elif defined(WIN32)
+  PWSTR appData = NULL;
+  SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &appData);
+  snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity);
+  printf("%s %ls\n", state.savePathRelative, appData);
+  CoTaskMemFree(appData);
 #endif
 
   return 1;

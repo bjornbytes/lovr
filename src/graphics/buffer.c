@@ -120,11 +120,11 @@ void lovrBufferGetVertex(Buffer* buffer, int index, void* dest) {
     return;
   }
 
-  memcpy(dest, buffer->data + index * buffer->stride, buffer->stride);
+  memcpy(dest, (char*) buffer->data + index * buffer->stride, buffer->stride);
 }
 
 void lovrBufferSetVertex(Buffer* buffer, int index, void* data) {
-  memcpy(buffer->data + index * buffer->stride, data, buffer->stride);
+  memcpy((char*) buffer->data + index * buffer->stride, data, buffer->stride);
 
   glBindVertexArray(buffer->vao);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);

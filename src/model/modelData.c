@@ -17,7 +17,7 @@ static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
 
   // Children
   vec_init(&node->children);
-  for (int n = 0; n < assimpNode->mNumChildren; n++) {
+  for (unsigned int n = 0; n < assimpNode->mNumChildren; n++) {
     ModelNode* child = malloc(sizeof(ModelNode));
     assimpNodeTraversal(child, assimpNode->mChildren[n]);
     vec_push(&node->children, child);
@@ -32,14 +32,14 @@ ModelData* lovrModelDataCreate(void* data, int size) {
 
   // Meshes
   vec_init(&modelData->meshes);
-  for (int m = 0; m < scene->mNumMeshes; m++) {
+  for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
     struct aiMesh* assimpMesh = scene->mMeshes[m];
     ModelMesh* mesh = malloc(sizeof(ModelMesh));
     vec_push(&modelData->meshes, mesh);
 
     // Faces
     vec_init(&mesh->faces);
-    for (int f = 0; f < assimpMesh->mNumFaces; f++) {
+    for (unsigned int f = 0; f < assimpMesh->mNumFaces; f++) {
       struct aiFace assimpFace = assimpMesh->mFaces[f];
 
       // Skip lines and points, polygons are triangulated
@@ -51,7 +51,7 @@ ModelData* lovrModelDataCreate(void* data, int size) {
       vec_init(&face.indices);
 
       // Indices
-      for (int i = 0; i < assimpFace.mNumIndices; i++) {
+      for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
         vec_push(&face.indices, assimpFace.mIndices[i]);
       }
 
@@ -60,7 +60,7 @@ ModelData* lovrModelDataCreate(void* data, int size) {
 
     // Vertices
     vec_init(&mesh->vertices);
-    for (int v = 0; v < assimpMesh->mNumVertices; v++) {
+    for (unsigned int v = 0; v < assimpMesh->mNumVertices; v++) {
       ModelVertex vertex;
       vertex.x = assimpMesh->mVertices[v].x;
       vertex.y = assimpMesh->mVertices[v].y;
@@ -75,7 +75,7 @@ ModelData* lovrModelDataCreate(void* data, int size) {
 
     modelData->hasNormals = 1;
     vec_init(&mesh->normals);
-    for (int n = 0; n < assimpMesh->mNumVertices; n++) {
+    for (unsigned int n = 0; n < assimpMesh->mNumVertices; n++) {
       ModelVertex normal;
       normal.x = assimpMesh->mNormals[n].x;
       normal.y = assimpMesh->mNormals[n].y;

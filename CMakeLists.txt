@@ -56,7 +56,7 @@ endif()
 # PhysicsFS
 if(WIN32)
   add_subdirectory(deps/physfs physfs)
-  include_directories(deps/physfs/src)
+  include_directories(deps/physfs)
   set(LOVR_PHYSFS physfs)
 else()
   find_package(PhysFS REQUIRED)

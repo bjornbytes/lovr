@@ -110,7 +110,7 @@ Next, build using CMake:
 ```sh
 mkdir build
 cd build
-cmake .. -DOPENVR_DIR=../../openvr
+cmake .. -DOPENVR_DIR=../openvr
 cmake --build .
 ```
 

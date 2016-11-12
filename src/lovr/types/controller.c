@@ -4,7 +4,8 @@
 
 void luax_pushcontroller(lua_State* L, Controller* controller) {
   if (controller == NULL) {
-    return lua_pushnil(L);
+    lua_pushnil(L);
+    return;
   }
 
   Controller** userdata = (Controller**) lua_newuserdata(L, sizeof(Controller*));

@@ -490,7 +490,7 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
             }
 
             *((float*) v) = value;
-            v += sizeof(float);
+            v = (char*) v + sizeof(float);
           } else if (attribute.type == BUFFER_BYTE) {
             unsigned char value = 255;
             if (tableIndex <= tableCount) {
@@ -500,7 +500,7 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
             }
 
             *((unsigned char*) v) = value;
-            v += sizeof(unsigned char);
+            v = (char*) v + sizeof(unsigned char);
           }
         }
       }

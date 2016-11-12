@@ -2,7 +2,8 @@
 
 void luax_pushmodel(lua_State* L, Model* model) {
   if (model == NULL) {
-    return lua_pushnil(L);
+    lua_pushnil(L);
+    return;
   }
 
   Model** userdata = (Model**) lua_newuserdata(L, sizeof(Model*));

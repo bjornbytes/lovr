@@ -164,7 +164,7 @@ int l_lovrFilesystemSetIdentity(lua_State* L) {
   const char* identity = luaL_checkstring(L, 1);
 
   if (lovrFilesystemSetIdentity(identity)) {
-    return luaL_error(L, "Could not set the filesystem identity");
+    return 0;
   }
 
   return 0;
