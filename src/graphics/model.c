@@ -57,7 +57,7 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
 }
 
 Model* lovrModelCreate(void* data, int size) {
-  Model* model = malloc(sizeof(model));
+  Model* model = malloc(sizeof(Model));
   if (!model) return NULL;
 
   model->modelData = lovrModelDataCreate(data, size);
