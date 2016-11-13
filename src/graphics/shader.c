@@ -134,6 +134,14 @@ void lovrShaderDestroy(Shader* shader) {
   free(shader);
 }
 
+int lovrShaderGetAttributeId(Shader* shader, const char* name) {
+  if (!shader) {
+    return -1;
+  }
+
+  return glGetAttribLocation(shader->id, name);
+}
+
 int lovrShaderGetUniformId(Shader* shader, const char* name) {
   Uniform* uniform = map_get(&shader->uniforms, name);
 

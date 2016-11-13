@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include "texture.h"
 #include "../model/modelData.h"
 #include "../glfw.h"
 

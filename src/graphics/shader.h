@@ -37,6 +37,7 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader);
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
 void lovrShaderDestroy(Shader* shader);
+int lovrShaderGetAttributeId(Shader* shader, const char* name);
 int lovrShaderGetUniformId(Shader* shader, const char* name);
 int lovrShaderGetUniformType(Shader* shader, const char* name, GLenum* type, int* count);
 void lovrShaderSendFloat(Shader* shader, int id, float value);

@@ -1,5 +1,6 @@
 #include "buffer.h"
 #include "graphics.h"
+#include "shader.h"
 #include <stdlib.h>
 
 Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode, BufferUsage usage) {
@@ -64,14 +65,39 @@ void lovrBufferDraw(Buffer* buffer) {
 
   lovrGraphicsPrepare();
   glBindVertexArray(buffer->vao);
-  for (int i = 0; i < buffer->format.length; i++) {
-    glEnableVertexAttribArray(i);
+
+  // Figure out how many vertex attributes there are
+  int vertexAttributeCount;
+  glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &vertexAttributeCount);
+
+  // Disable all vertex attributes
+  for (int i = 0; i < vertexAttributeCount; i++) {
+    glDisableVertexAttribArray(i);
   }
 
+  // Enable the vertex attributes in use and bind the correct data FIXME
+  Shader* shader = lovrGraphicsGetShader();
+  if (shader) {
+    glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
+    size_t offset = 0;
+    int i;
+    BufferAttribute attribute;
+    vec_foreach(&buffer->format, attribute, i) {
+      int location = lovrShaderGetAttributeId(shader, attribute.name);
+      if (location >= 0) {
+        glEnableVertexAttribArray(location);
+        glVertexAttribPointer(location, attribute.size, attribute.type, GL_FALSE, buffer->stride, (void*) offset);
+      }
+      offset += sizeof(attribute.type) * attribute.size;
+    }
+  }
+
+  // Set texture
   if (buffer->texture) {
     glBindTexture(GL_TEXTURE_2D, buffer->texture->id);
   }
 
+  // Determine range of vertices to be rendered and whether we're using an IBO or not
   int start, count;
   if (buffer->isRangeEnabled) {
     start = buffer->rangeStart;
@@ -81,6 +107,7 @@ void lovrBufferDraw(Buffer* buffer) {
     count = usingIbo ? buffer->map.length : buffer->size;
   }
 
+  // Render!  Use the IBO if a draw range is set
   if (usingIbo) {
     uintptr_t startAddress = (uintptr_t) start;
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->ibo);
@@ -125,18 +152,8 @@ void lovrBufferGetVertex(Buffer* buffer, int index, void* dest) {
 
 void lovrBufferSetVertex(Buffer* buffer, int index, void* data) {
   memcpy((char*) buffer->data + index * buffer->stride, data, buffer->stride);
-
-  glBindVertexArray(buffer->vao);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
   glBufferData(GL_ARRAY_BUFFER, buffer->size * buffer->stride, buffer->data, buffer->usage);
-
-  int i;
-  BufferAttribute attribute;
-  size_t offset = 0;
-  vec_foreach(&buffer->format, attribute, i) {
-    glVertexAttribPointer(i, attribute.size, attribute.type, GL_FALSE, buffer->stride, (void*) offset);
-    offset += attribute.size * sizeof(attribute.type);
-  }
 }
 
 void lovrBufferSetVertices(Buffer* buffer, void* vertices, int size) {
@@ -144,18 +161,9 @@ void lovrBufferSetVertices(Buffer* buffer, void* vertices, int size) {
     error("Buffer is not big enough");
   }
 
-  glBindVertexArray(buffer->vao);
   memcpy(buffer->data, vertices, size);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
   glBufferData(GL_ARRAY_BUFFER, buffer->size * buffer->stride, buffer->data, buffer->usage);
-
-  int i;
-  BufferAttribute attribute;
-  size_t offset = 0;
-  vec_foreach(&buffer->format, attribute, i) {
-    glVertexAttribPointer(i, attribute.size, attribute.type, GL_FALSE, buffer->stride, (void*) offset);
-    offset += attribute.size * sizeof(attribute.type);
-  }
 }
 
 unsigned int* lovrBufferGetVertexMap(Buffer* buffer, int* count) {
