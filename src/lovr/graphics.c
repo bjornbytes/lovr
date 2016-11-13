@@ -452,12 +452,13 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
   if (lua_isnumber(L, 1)) {
     size = lua_tointeger(L, 1);
   } else if (lua_istable(L, 1)) {
-    drawModeIndex++;
     if (lua_isnumber(L, 2)) {
+      drawModeIndex++;
       luax_checkbufferformat(L, 1, &format);
       size = lua_tointeger(L, 2);
       dataIndex = 0;
     } else if (lua_istable(L, 2)) {
+      drawModeIndex++;
       luax_checkbufferformat(L, 1, &format);
       size = lua_objlen(L, 2);
       dataIndex = 2;
