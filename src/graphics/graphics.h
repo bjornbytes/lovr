@@ -50,6 +50,7 @@ typedef struct {
   vec_float_t shapeData;
   vec_uint_t shapeIndices;
   float lineWidth;
+  float pointSize;
   char isCullingEnabled;
   PolygonWinding polygonWinding;
 } GraphicsState;
@@ -77,6 +78,8 @@ void lovrGraphicsSetProjection(float near, float far, float fov);
 void lovrGraphicsSetProjectionRaw(mat4 projection);
 float lovrGraphicsGetLineWidth();
 void lovrGraphicsSetLineWidth(float width);
+float lovrGraphicsGetPointSize();
+void lovrGraphicsSetPointSize(float size);
 char lovrGraphicsIsCullingEnabled();
 void lovrGraphicsSetCullingEnabled(char isEnabled);
 PolygonWinding lovrGraphicsGetPolygonWinding();

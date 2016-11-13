@@ -56,6 +56,8 @@ const luaL_Reg lovrGraphics[] = {
   { "setProjection", l_lovrGraphicsSetProjection },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
+  { "getPointSize", l_lovrGraphicsGetPointSize },
+  { "setPointSize", l_lovrGraphicsSetPointSize },
   { "isCullingEnabled", l_lovrGraphicsIsCullingEnabled },
   { "setCullingEnabled", l_lovrGraphicsSetCullingEnabled },
   { "getPolygonWinding", l_lovrGraphicsGetPolygonWinding },
@@ -271,6 +273,17 @@ int l_lovrGraphicsGetLineWidth(lua_State* L) {
 int l_lovrGraphicsSetLineWidth(lua_State* L) {
   float width = luaL_optnumber(L, 1, 1.f);
   lovrGraphicsSetLineWidth(width);
+  return 0;
+}
+
+int l_lovrGraphicsGetPointSize(lua_State* L) {
+  lua_pushnumber(L, lovrGraphicsGetPointSize());
+  return 1;
+}
+
+int l_lovrGraphicsSetPointSize(lua_State* L) {
+  float size = luaL_optnumber(L, 1, 1.f);
+  lovrGraphicsSetPointSize(size);
   return 0;
 }
 

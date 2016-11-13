@@ -29,6 +29,8 @@ int l_lovrGraphicsSetShader(lua_State* L);
 int l_lovrGraphicsSetProjection(lua_State* L);
 int l_lovrGraphicsGetLineWidth(lua_State* L);
 int l_lovrGraphicsSetLineWidth(lua_State* L);
+int l_lovrGraphicsGetPointSize(lua_State* L);
+int l_lovrGraphicsSetPointSize(lua_State* L);
 int l_lovrGraphicsIsCullingEnabled(lua_State* L);
 int l_lovrGraphicsSetCullingEnabled(lua_State* L);
 int l_lovrGraphicsGetPolygonWinding(lua_State* L);

@@ -62,6 +62,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetColorMask(1, 1, 1, 1);
   lovrGraphicsSetScissorEnabled(0);
   lovrGraphicsSetLineWidth(1);
+  lovrGraphicsSetPointSize(1);
   lovrGraphicsSetCullingEnabled(0);
   lovrGraphicsSetPolygonWinding(POLYGON_WINDING_COUNTERCLOCKWISE);
 }
@@ -222,6 +223,15 @@ float lovrGraphicsGetLineWidth() {
 void lovrGraphicsSetLineWidth(float width) {
   state.lineWidth = width;
   glLineWidth(width);
+}
+
+float lovrGraphicsGetPointSize() {
+  return state.pointSize;
+}
+
+void lovrGraphicsSetPointSize(float size) {
+  state.pointSize = size;
+  glPointSize(size);
 }
 
 char lovrGraphicsIsCullingEnabled() {
