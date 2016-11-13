@@ -75,6 +75,7 @@ const luaL_Reg lovrBuffer[] = {
   { "getVertexCount", l_lovrBufferGetVertexCount },
   { "getVertex", l_lovrBufferGetVertex },
   { "setVertex", l_lovrBufferSetVertex },
+  { "setVertices", l_lovrBufferSetVertices },
   { "getVertexMap", l_lovrBufferGetVertexMap },
   { "setVertexMap", l_lovrBufferSetVertexMap },
   { "getDrawMode", l_lovrBufferGetDrawMode },
@@ -179,6 +180,53 @@ int l_lovrBufferSetVertex(lua_State* L) {
   }
 
   lovrBufferSetVertex(buffer, index, vertex);
+  return 0;
+}
+
+int l_lovrBufferSetVertices(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  BufferFormat format = lovrBufferGetVertexFormat(buffer);
+  luaL_checktype(L, 2, LUA_TTABLE);
+  int vertexCount = lua_objlen(L, 2);
+  char vertices[buffer->stride * vertexCount];
+  char* v = vertices;
+
+  for (int i = 0; i < vertexCount; i++) {
+    lua_rawgeti(L, 2, i + 1);
+    int attributeCount = lua_objlen(L, -1);
+    int attributeIndex = 1;
+    int j;
+    BufferAttribute attribute;
+    vec_foreach(&format, attribute, j) {
+      for (int k = 0; k < attribute.size; k++) {
+        if (attribute.type == BUFFER_FLOAT) {
+          float value = 0.f;
+          if (attributeIndex <= attributeCount) {
+            lua_rawgeti(L, -1, attributeIndex++);
+            value = lua_tonumber(L, -1);
+            lua_pop(L, 1);
+          }
+
+          *((float*) v) = value;
+          v = (char*) v + sizeof(float);
+        } else if (attribute.type == BUFFER_BYTE) {
+          unsigned char value = 255;
+          if (attributeIndex <= attributeCount) {
+            lua_rawgeti(L, -1, attributeIndex++);
+            value = lua_tointeger(L, -1);
+            lua_pop(L, 1);
+          }
+
+          *((unsigned char*) v) = value;
+          v = (char*) v + sizeof(unsigned char);
+        }
+      }
+    }
+
+    lua_pop(L, 1);
+  }
+
+  lovrBufferSetVertices(buffer, vertices, buffer->stride * vertexCount);
   return 0;
 }
 

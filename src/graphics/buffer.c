@@ -139,10 +139,13 @@ void lovrBufferSetVertex(Buffer* buffer, int index, void* data) {
   }
 }
 
-void lovrBufferSetVertices(Buffer* buffer, float* vertices, int count) {
-  memcpy(buffer->data, vertices, buffer->stride * count);
+void lovrBufferSetVertices(Buffer* buffer, void* vertices, int size) {
+  if (size > buffer->size * buffer->stride) {
+    error("Buffer is not big enough");
+  }
 
   glBindVertexArray(buffer->vao);
+  memcpy(buffer->data, vertices, size);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
   glBufferData(GL_ARRAY_BUFFER, buffer->size * buffer->stride, buffer->data, buffer->usage);
 

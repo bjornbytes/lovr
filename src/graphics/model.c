@@ -85,7 +85,7 @@ Model* lovrModelCreate(void* data, int size) {
   int components = model->modelData->hasNormals ? 6 : 3;
 
   model->buffer = lovrBufferCreate(vertices.length / components, &format, BUFFER_TRIANGLES, BUFFER_STATIC);
-  lovrBufferSetVertices(model->buffer, vertices.data, vertices.length / components);
+  lovrBufferSetVertices(model->buffer, (void*) vertices.data, vertices.length * sizeof(float));
   lovrBufferSetVertexMap(model->buffer, indices.data, indices.length);
 
   model->texture = NULL;
