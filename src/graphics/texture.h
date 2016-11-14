@@ -1,5 +1,7 @@
 #include "../glfw.h"
 
+struct Buffer;
+
 #ifndef LOVR_TEXTURE_TYPES
 #define LOVR_TEXTURE_TYPES
 
@@ -17,6 +19,7 @@ typedef enum {
 
 typedef struct {
   GLuint id;
+  GLuint buffer;
   int width;
   int height;
   FilterMode filterMin;
@@ -28,6 +31,8 @@ typedef struct {
 #endif
 
 Texture* lovrTextureCreate(void* data, int size);
+Texture* lovrTextureCreateFromBuffer(struct Buffer* buffer);
+void lovrTextureBind(Texture* texture);
 void lovrTextureDestroy(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);
 int lovrTextureGetWidth(Texture* texture);

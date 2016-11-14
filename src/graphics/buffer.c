@@ -94,7 +94,7 @@ void lovrBufferDraw(Buffer* buffer) {
 
   // Set texture
   if (buffer->texture) {
-    glBindTexture(GL_TEXTURE_2D, buffer->texture->id);
+    lovrTextureBind(buffer->texture);
   }
 
   // Determine range of vertices to be rendered and whether we're using an IBO or not

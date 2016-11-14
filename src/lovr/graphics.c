@@ -586,15 +586,23 @@ int l_lovrGraphicsNewSkybox(lua_State* L) {
 }
 
 int l_lovrGraphicsNewTexture(lua_State* L) {
-  const char* path = luaL_checkstring(L, 1);
-  int size;
-  void* data = lovrFilesystemRead(path, &size);
-  if (!data) {
-    return luaL_error(L, "Could not load texture file '%s'", path);
+  Texture* texture;
+
+  if (lua_isstring(L, 1)) {
+    const char* path = luaL_checkstring(L, 1);
+    int size;
+    void* data = lovrFilesystemRead(path, &size);
+    if (!data) {
+      return luaL_error(L, "Could not load texture file '%s'", path);
+    }
+    texture = lovrTextureCreate(data, size);
+    free(data);
+  } else {
+    Buffer* buffer = luax_checkbuffer(L, 1); // TODO don't error if it's not a buffer
+    texture = lovrTextureCreateFromBuffer(buffer);
   }
 
-  luax_pushtexture(L, lovrTextureCreate(data, size));
-  free(data);
+  luax_pushtexture(L, texture);
   return 1;
 }
 

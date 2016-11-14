@@ -8,6 +8,7 @@ Texture* luax_checktexture(lua_State* L, int index);
 int luax_destroytexture(lua_State* L);
 extern const luaL_Reg lovrTexture[];
 
+int l_lovrTextureBind(lua_State* L);
 int l_lovrTextureGetDimensions(lua_State* L);
 int l_lovrTextureGetHeight(lua_State* L);
 int l_lovrTextureGetFilter(lua_State* L);

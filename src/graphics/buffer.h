@@ -30,7 +30,7 @@ typedef struct {
 
 typedef vec_t(BufferAttribute) BufferFormat;
 
-typedef struct {
+typedef struct Buffer {
   int size;
   int stride;
   void* data;
