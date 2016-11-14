@@ -99,27 +99,29 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
 }
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
+  Shader* shader = (Shader*) malloc(sizeof(Shader));
+  if (!shader) return NULL;
+
+  // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
   char fullVertexSource[1024];
   snprintf(fullVertexSource, sizeof(fullVertexSource), "%s\n%s", lovrShaderVertexPrefix, vertexSource);
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, fullVertexSource);
 
+  // Fragment
   fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
   char fullFragmentSource[1024];
   snprintf(fullFragmentSource, sizeof(fullFragmentSource), "%s\n%s", lovrShaderFragmentPrefix, fragmentSource);
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fullFragmentSource);
 
+  // Link
   GLuint id = linkShaders(vertexShader, fragmentShader);
-  Shader* shader = (Shader*) malloc(sizeof(Shader));
-  if (!shader) return NULL;
 
-  shader->id = id;
-
+  // Compute information about uniforms
   GLint uniformCount;
   GLsizei bufferSize = LOVR_MAX_UNIFORM_LENGTH / sizeof(GLchar);
   map_init(&shader->uniforms);
   glGetProgramiv(id, GL_ACTIVE_UNIFORMS, &uniformCount);
-
   for (int i = 0; i < uniformCount; i++) {
     Uniform uniform;
     glGetActiveUniform(id, i, bufferSize, NULL, &uniform.count, &uniform.type, uniform.name);
@@ -128,12 +130,58 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     map_set(&shader->uniforms, uniform.name, uniform);
   }
 
+  // Initial state
+  shader->id = id;
+  shader->transform = mat4_init();
+  shader->projection = mat4_init();
+  shader->color = 0;
+
+  // Send initial uniform values to shader
+  lovrShaderBind(shader, shader->transform, shader->projection, shader->color, 1);
+
   return shader;
 }
 
 void lovrShaderDestroy(Shader* shader) {
   glDeleteProgram(shader->id);
   free(shader);
+}
+
+void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, unsigned int color, int force) {
+
+  // Bind shader if necessary
+  int program;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+  if (program != shader->id) {
+    glUseProgram(shader->id);
+  }
+
+  // Update transform if necessary
+  if (force || memcmp(shader->transform, transform, 16 * sizeof(float))) {
+    int uniformId = lovrShaderGetUniformId(shader, "lovrTransform");
+    lovrShaderSendFloatMat4(shader, uniformId, transform);
+    memcpy(shader->transform, transform, 16 * sizeof(float));
+  }
+
+  // Update projection if necessary
+  if (force || memcmp(shader->projection, projection, 16 * sizeof(float))) {
+    int uniformId = lovrShaderGetUniformId(shader, "lovrProjection");
+    lovrShaderSendFloatMat4(shader, uniformId, projection);
+    memcpy(shader->projection, projection, 16 * sizeof(float));
+  }
+
+  // Update color if necessary
+  if (force || shader->color != color) {
+    int uniformId = lovrShaderGetUniformId(shader, "lovrColor");
+    float c[4] = {
+      LOVR_COLOR_R(color) / 255.f,
+      LOVR_COLOR_G(color) / 255.f,
+      LOVR_COLOR_B(color) / 255.f,
+      LOVR_COLOR_A(color) / 255.f
+    };
+    lovrShaderSendFloatVec4(shader, uniformId, c);
+    shader->color = color;
+  }
 }
 
 int lovrShaderGetAttributeId(Shader* shader, const char* name) {
@@ -146,12 +194,7 @@ int lovrShaderGetAttributeId(Shader* shader, const char* name) {
 
 int lovrShaderGetUniformId(Shader* shader, const char* name) {
   Uniform* uniform = map_get(&shader->uniforms, name);
-
-  if (!uniform) {
-    return -1;
-  }
-
-  return uniform->location;
+  return uniform ? uniform->location : -1;
 }
 
 int lovrShaderGetUniformType(Shader* shader, const char* name, GLenum* type, int* count) {
