@@ -1,6 +1,6 @@
 #include "vive.h"
 #include <stdbool.h>
-#ifndef WIN32
+#ifndef _WIN32
 #define __stdcall
 #endif
 #include <openvr_capi.h>

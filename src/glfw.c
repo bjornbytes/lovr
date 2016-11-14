@@ -27,7 +27,7 @@ void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose, void* userPointe
   glfwSetWindowUserPointer(window, userPointer);
   glfwMakeContextCurrent(window);
 
-#ifdef WIN32
+#ifdef _WIN32
   glewExperimental = GL_TRUE;
   GLenum err = glewInit();
   if (err != GLEW_OK) {
