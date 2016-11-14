@@ -89,7 +89,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "  end "
     "end "
 
-    "pcall(require, 'main')"
+    "require('main')"
   );
 
   if (luaL_dostring(L, buffer)) {
