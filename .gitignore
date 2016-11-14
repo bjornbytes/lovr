@@ -4,6 +4,6 @@ build
 deps
 data
 src/obj
-main.lua
-conf.lua
 src/Tupfile
+*.lua
+*.glsl
