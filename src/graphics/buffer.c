@@ -46,6 +46,7 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
   glBufferData(GL_ARRAY_BUFFER, buffer->size * buffer->stride, buffer->data, buffer->usage);
   glGenVertexArrays(1, &buffer->vao);
+  glGenBuffers(1, &buffer->ibo);
 
   return buffer;
 }
@@ -174,16 +175,12 @@ unsigned int* lovrBufferGetVertexMap(Buffer* buffer, int* count) {
 void lovrBufferSetVertexMap(Buffer* buffer, unsigned int* map, int count) {
   if (count == 0 || !map) {
     vec_clear(&buffer->map);
-    glDeleteBuffers(1, &buffer->ibo);
-    buffer->ibo = 0;
-  } else if (!buffer->ibo) {
-    glGenBuffers(1, &buffer->ibo);
+  } else {
+    vec_clear(&buffer->map);
+    vec_pusharr(&buffer->map, map, count);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(unsigned int), buffer->map.data, GL_STATIC_DRAW);
   }
-
-  vec_clear(&buffer->map);
-  vec_pusharr(&buffer->map, map, count);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(unsigned int), buffer->map.data, GL_STATIC_DRAW);
 }
 
 char lovrBufferIsRangeEnabled(Buffer* buffer) {
