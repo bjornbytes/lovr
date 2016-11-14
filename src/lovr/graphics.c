@@ -537,8 +537,22 @@ int l_lovrGraphicsNewModel(lua_State* L) {
 }
 
 int l_lovrGraphicsNewShader(lua_State* L) {
-  const char* vertexSource = luaL_checkstring(L, 1);
-  const char* fragmentSource = luaL_checkstring(L, 2);
+  for (int i = 0; i < 2; i++) {
+    if (lua_isnoneornil(L, i + 1)) continue;
+    const char* source = luaL_checkstring(L, i + 1);
+    if (!lovrFilesystemIsFile(source)) continue;
+    int bytesRead;
+    char* contents = lovrFilesystemRead(source, &bytesRead);
+    if (bytesRead <= 0) {
+      return luaL_error(L, "Could not read shader from file '%s'", source);
+    }
+    lua_pushlstring(L, contents, bytesRead);
+    lua_replace(L, i + 1);
+    free(contents);
+  }
+
+  const char* vertexSource = lua_tostring(L, 1);
+  const char* fragmentSource = lua_tostring(L, 2);
   luax_pushshader(L, lovrShaderCreate(vertexSource, fragmentSource));
   return 1;
 }
