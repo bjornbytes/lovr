@@ -4,7 +4,7 @@
 #include <stdio.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
-#elif defined(_WIN32)
+#elif _WIN32
 #include <windows.h>
 #include <initguid.h>
 #include <KnownFolders.h>
@@ -55,8 +55,10 @@ int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
   if (_NSGetExecutablePath(dest, &size) == 0) {
     return 0;
   }
-#elif defined(_WIN32)
+#elif _WIN32
   return !GetModuleFileName(NULL, dest, size);
+#else
+#error "This platform is missing an implementation for lovrFilesystemGetExecutablePath"
 #endif
 
   return 1;
@@ -154,11 +156,13 @@ int lovrFilesystemSetIdentity(const char* identity) {
     PHYSFS_mount(state.savePathFull, NULL, 0);
     return 0;
   }
-#elif defined(_WIN32)
+#elif _WIN32
   PWSTR appData = NULL;
   SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &appData);
   snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity);
   CoTaskMemFree(appData);
+#else
+#error "This platform is missing an implementation of lovrFilesystemSetIdentity"
 #endif
 
   return 1;

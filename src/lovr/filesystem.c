@@ -17,7 +17,7 @@ static int filesystemLoader(lua_State* L) {
     "?/init.lua"
   };
 
-  for (int i = 0; i < sizeof(requirePath) / sizeof(char*); i++) {
+  for (size_t i = 0; i < sizeof(requirePath) / sizeof(char*); i++) {
     char filename[256];
     char* sub = strchr(requirePath[i], '?');
 
