@@ -7,6 +7,7 @@ Texture* lovrTextureCreate(void* data, int size) {
   Texture* texture = malloc(sizeof(Texture));
   if (!texture) return NULL;
 
+  texture->buffer = 0;
   glGenTextures(1, &texture->id);
 
   if (data) {
@@ -23,8 +24,6 @@ Texture* lovrTextureCreate(void* data, int size) {
     lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
     free(image);
   }
-
-  texture->buffer = 0;
 
   return texture;
 }
