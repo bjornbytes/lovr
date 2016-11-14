@@ -421,24 +421,18 @@ int l_lovrGraphicsCube(lua_State* L) {
 }
 
 int l_lovrGraphicsGetWidth(lua_State* L) {
-  int width;
-  lovrGraphicsGetDimensions(&width, NULL);
-  lua_pushnumber(L, width);
+  lua_pushnumber(L, lovrGraphicsGetWidth());
   return 1;
 }
 
 int l_lovrGraphicsGetHeight(lua_State* L) {
-  int height;
-  lovrGraphicsGetDimensions(NULL, &height);
-  lua_pushnumber(L, height);
+  lua_pushnumber(L, lovrGraphicsGetHeight());
   return 1;
 }
 
 int l_lovrGraphicsGetDimensions(lua_State* L) {
-  int width, height;
-  lovrGraphicsGetDimensions(&width, &height);
-  lua_pushnumber(L, width);
-  lua_pushnumber(L, height);
+  lua_pushnumber(L, lovrGraphicsGetWidth());
+  lua_pushnumber(L, lovrGraphicsGetHeight());
   return 2;
 }
 

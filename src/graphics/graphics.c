@@ -318,8 +318,16 @@ void lovrGraphicsMatrixTransform(mat4 transform) {
   mat4_multiply(vec_last(&state.transforms), transform);
 }
 
-void lovrGraphicsGetDimensions(int* width, int* height) {
-  glfwGetFramebufferSize(window, width, height);
+int lovrGraphicsGetWidth() {
+  int width;
+  glfwGetFramebufferSize(window, &width, NULL);
+  return width;
+}
+
+int lovrGraphicsGetHeight() {
+  int height;
+  glfwGetFramebufferSize(window, NULL, &height);
+  return height;
 }
 
 void lovrGraphicsSetShapeData(float* data, int dataCount, unsigned int* indices, int indicesCount) {
