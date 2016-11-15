@@ -268,7 +268,7 @@ int l_lovrBufferSetVertexMap(lua_State* L) {
     }
 
     int index = lua_tointeger(L, -1);
-    if (index > buffer->size) {
+    if (index > buffer->size || index < 0) {
       return luaL_error(L, "Invalid vertex map value: %d", index);
     }
 
