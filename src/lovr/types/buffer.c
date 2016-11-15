@@ -127,6 +127,10 @@ int l_lovrBufferSetVertex(lua_State* L) {
   BufferFormat format = lovrBufferGetVertexFormat(buffer);
   void* vertex = lovrBufferGetScratchVertex(buffer);
 
+  if (index < 0 || index >= buffer->size) {
+    return luaL_error(L, "Invalid buffer vertex index: %d", index + 1);
+  }
+
   if (lua_istable(L, 3)) {
     int tableCount = lua_objlen(L, 3);
     int tableIndex = 1;
