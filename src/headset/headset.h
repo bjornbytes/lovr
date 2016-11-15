@@ -37,6 +37,7 @@ typedef struct {
   void (*getControllerOrientation)(void* headset, Controller* controller, float* w, float* x, float* y, float* z);
   float (*getControllerAxis)(void* headset, Controller* controller, ControllerAxis axis);
   ControllerHand (*getControllerHand)(void* headset, Controller* controller);
+  void (*controllerVibrate)(void* headset, Controller* controller, float duration);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
 } HeadsetInterface;
 
@@ -66,4 +67,5 @@ void lovrHeadsetGetControllerPosition(Controller* controller, float* x, float* y
 void lovrHeadsetGetControllerOrientation(Controller* controller, float* w, float* x, float* y, float* z);
 float lovrHeadsetGetControllerAxis(Controller* controller, ControllerAxis axis);
 ControllerHand lovrHeadsetGetControllerHand(Controller* controller);
+void lovrHeadsetControllerVibrate(Controller* controller, float duration);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);

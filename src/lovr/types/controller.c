@@ -24,6 +24,7 @@ const luaL_Reg lovrController[] = {
   { "getOrientation", l_lovrControllerGetOrientation },
   { "getAxis", l_lovrControllerGetAxis },
   { "getHand", l_lovrControllerGetHand },
+  { "vibrate", l_lovrControllerVibrate },
   { NULL, NULL }
 };
 
@@ -65,4 +66,11 @@ int l_lovrControllerGetHand(lua_State* L) {
   Controller* controller = luax_checkcontroller(L, 1);
   lua_pushstring(L, map_int_find(&ControllerHands, lovrHeadsetGetControllerHand(controller)));
   return 1;
+}
+
+int l_lovrControllerVibrate(lua_State* L) {
+  Controller* controller = luax_checkcontroller(L, 1);
+  float duration = luaL_optnumber(L, 2, .5);
+  lovrHeadsetControllerVibrate(controller, duration);
+  return 0;
 }

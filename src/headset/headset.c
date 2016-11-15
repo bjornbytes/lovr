@@ -83,6 +83,10 @@ ControllerHand lovrHeadsetGetControllerHand(Controller* controller) {
   return headset->interface->getControllerHand(headset, controller);
 }
 
+void lovrHeadsetControllerVibrate(Controller* controller, float duration) {
+  headset->interface->controllerVibrate(headset, controller, duration);
+}
+
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   headset->interface->renderTo(headset, callback, userdata);
 }
