@@ -89,6 +89,11 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "  end "
     "end "
 
+    "function lovr.errhand(message, layer) "
+    "  local stackTrace = debug.traceback('Error: ' .. tostring(message), 1 + (layer or 1)) "
+    "  print((stackTrace:gsub('\\n[^\\n]+$', ''))) "
+    "end "
+
     "require('main')"
   );
 
