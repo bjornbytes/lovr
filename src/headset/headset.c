@@ -79,6 +79,10 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
   return headset->interface->controllerGetAxis(headset, controller, axis);
 }
 
+int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
+  return headset->interface->controllerIsDown(headset, controller, button);
+}
+
 ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
   return headset->interface->controllerGetHand(headset, controller);
 }

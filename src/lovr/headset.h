@@ -5,6 +5,7 @@
 
 map_int_t ControllerHands;
 map_int_t ControllerAxes;
+map_int_t ControllerButtons;
 
 extern const luaL_Reg lovrHeadset[];
 int l_lovrHeadsetInit(lua_State* L);

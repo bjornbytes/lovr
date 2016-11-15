@@ -50,6 +50,7 @@ static HeadsetInterface interface = {
   .controllerGetPosition = viveControllerGetPosition,
   .controllerGetOrientation = viveControllerGetOrientation,
   .controllerGetAxis = viveControllerGetAxis,
+  .controllerIsDown = viveControllerIsDown,
   .controllerGetHand = viveControllerGetHand,
   .controllerVibrate = viveControllerVibrate,
   .renderTo = viveRenderTo
@@ -332,6 +333,33 @@ float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxi
   }
 
   return 0.;
+}
+
+int viveControllerIsDown(void* headset, Controller* controller, ControllerButton button) {
+  Headset* this = headset;
+  ViveState* state = this->state;
+  VRControllerState_t input;
+
+  state->vrSystem->GetControllerState(state->controllerIndex[controller->hand], &input);
+
+  switch (button) {
+    case CONTROLLER_BUTTON_SYSTEM:
+      return (input.ulButtonPressed >> EVRButtonId_k_EButton_System) & 1;
+
+    case CONTROLLER_BUTTON_MENU:
+      return (input.ulButtonPressed >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+
+    case CONTROLLER_BUTTON_GRIP:
+      return (input.ulButtonPressed >> EVRButtonId_k_EButton_Grip) & 1;
+
+    case CONTROLLER_BUTTON_TOUCHPAD:
+      return (input.ulButtonPressed >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1;
+
+    default:
+      error("Bad controller button");
+  }
+
+  return 0;
 }
 
 ControllerHand viveControllerGetHand(void* headset, Controller* controller) {

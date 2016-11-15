@@ -19,6 +19,7 @@ char viveControllerIsPresent(void* headset, Controller* controller);
 void viveControllerGetPosition(void* headset, Controller* controller, float* x, float* y, float* z);
 void viveControllerGetOrientation(void* headset, Controller* controller, float* w, float* x, float* y, float* z);
 float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxis axis);
+int viveControllerIsDown(void* headset, Controller* controller, ControllerButton button);
 ControllerHand viveControllerGetHand(void* headset, Controller* controller);
 void viveControllerVibrate(void* headset, Controller* controller, float duration);
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata);

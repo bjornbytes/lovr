@@ -14,6 +14,13 @@ typedef enum {
   CONTROLLER_AXIS_TOUCHPAD_Y
 } ControllerAxis;
 
+typedef enum {
+  CONTROLLER_BUTTON_SYSTEM,
+  CONTROLLER_BUTTON_MENU,
+  CONTROLLER_BUTTON_GRIP,
+  CONTROLLER_BUTTON_TOUCHPAD
+} ControllerButton;
+
 typedef struct {
   ControllerHand hand;
 } Controller;
@@ -36,6 +43,7 @@ typedef struct {
   void (*controllerGetPosition)(void* headset, Controller* controller, float* x, float* y, float* z);
   void (*controllerGetOrientation)(void* headset, Controller* controller, float* w, float* x, float* y, float* z);
   float (*controllerGetAxis)(void* headset, Controller* controller, ControllerAxis axis);
+  int (*controllerIsDown)(void* headset, Controller* controller, ControllerButton button);
   ControllerHand (*controllerGetHand)(void* headset, Controller* controller);
   void (*controllerVibrate)(void* headset, Controller* controller, float duration);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
@@ -66,6 +74,7 @@ char lovrHeadsetControllerIsPresent(Controller* controller);
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z);
 void lovrHeadsetControllerGetOrientation(Controller* controller, float* w, float* x, float* y, float* z);
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
+int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
 ControllerHand lovrHeadsetControllerGetHand(Controller* controller);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
