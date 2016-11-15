@@ -266,7 +266,13 @@ int l_lovrBufferSetVertexMap(lua_State* L) {
     if (!lua_isnumber(L, -1)) {
       return luaL_error(L, "Buffer vertex map index #%d must be numeric", i);
     }
-    indices[i] = lua_tointeger(L, -1) - 1;
+
+    int index = lua_tointeger(L, -1);
+    if (index > buffer->size) {
+      return luaL_error(L, "Invalid vertex map value: %d", index);
+    }
+
+    indices[i] = index - 1;
     lua_pop(L, 1);
   }
 
