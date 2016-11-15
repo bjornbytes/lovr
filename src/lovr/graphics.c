@@ -95,6 +95,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_init(&BufferAttributeTypes);
   map_set(&BufferAttributeTypes, "float", BUFFER_FLOAT);
   map_set(&BufferAttributeTypes, "byte", BUFFER_BYTE);
+  map_set(&BufferAttributeTypes, "int", BUFFER_INT);
 
   map_init(&BufferDrawModes);
   map_set(&BufferDrawModes, "points", BUFFER_POINTS);
@@ -509,6 +510,16 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
 
             *((unsigned char*) v) = value;
             v = (char*) v + sizeof(unsigned char);
+          } else if (attribute.type == BUFFER_INT) {
+            int value = 0;
+            if (tableIndex <= tableCount) {
+              lua_rawgeti(L, -1, tableIndex++);
+              value = lua_tointeger(L, -1);
+              lua_pop(L, 1);
+            }
+
+            *((int*) v) = value;
+            v = (int*) v + sizeof(int);
           }
         }
       }

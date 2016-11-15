@@ -26,6 +26,9 @@ int luax_pushbuffervertex(lua_State* L, void* vertex, BufferFormat format) {
       } else if (attribute.type == BUFFER_BYTE) {
         lua_pushnumber(L, *((unsigned char*)vertex));
         vertex = (char*) vertex + sizeof(unsigned char);
+      } else if (attribute.type == BUFFER_INT) {
+        lua_pushnumber(L, *((int*)vertex));
+        vertex = (char*) vertex + sizeof(int);
       }
       count++;
     }
@@ -160,6 +163,16 @@ int l_lovrBufferSetVertex(lua_State* L) {
 
           *((unsigned char*) v) = value;
           v = (char*) v + sizeof(unsigned char);
+        } else if (attribute.type == BUFFER_INT) {
+          unsigned char value = 0;
+          if (tableIndex <= tableCount) {
+            lua_rawgeti(L, 3, tableIndex++);
+            value = lua_tointeger(L, -1);
+            lua_pop(L, 1);
+          }
+
+          *((int*) v) = value;
+          v = (char*) v + sizeof(int);
         }
       }
     }
@@ -178,6 +191,9 @@ int l_lovrBufferSetVertex(lua_State* L) {
         } else if (attribute.type == BUFFER_BYTE) {
           *((char*) v) = argumentIndex <= argumentCount ? lua_tointeger(L, argumentIndex++) : 255;
           v = (char*) v + sizeof(char);
+        } else if (attribute.type == BUFFER_INT) {
+          *((int*) v) = argumentIndex <= argumentCount ? lua_tointeger(L, argumentIndex++) : 0;
+          v = (char*) v + sizeof(int);
         }
       }
     }
@@ -223,6 +239,16 @@ int l_lovrBufferSetVertices(lua_State* L) {
 
           *((unsigned char*) v) = value;
           v = (char*) v + sizeof(unsigned char);
+        } else if (attribute.type == BUFFER_INT) {
+          int value = 0;
+          if (attributeIndex <= attributeCount) {
+            lua_rawgeti(L, -1, attributeIndex++);
+            value = lua_tointeger(L, -1);
+            lua_pop(L, 1);
+          }
+
+          *((int*) v) = value;
+          v = (char*) v + sizeof(int);
         }
       }
     }
