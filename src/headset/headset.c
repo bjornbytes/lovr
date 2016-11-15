@@ -63,24 +63,24 @@ Controller* lovrHeadsetGetController(ControllerHand hand) {
   return headset->interface->getController(headset, hand);
 }
 
-char lovrHeadsetIsControllerPresent(Controller* controller) {
-  return headset->interface->isControllerPresent(headset, controller);
+char lovrHeadsetControllerIsPresent(Controller* controller) {
+  return headset->interface->controllerIsPresent(headset, controller);
 }
 
-void lovrHeadsetGetControllerPosition(Controller* controller, float* x, float* y, float* z) {
-  headset->interface->getControllerPosition(headset, controller, x, y, z);
+void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
+  headset->interface->controllerGetPosition(headset, controller, x, y, z);
 }
 
-void lovrHeadsetGetControllerOrientation(Controller* controller, float* w, float* x, float* y, float* z) {
-  headset->interface->getControllerOrientation(headset, controller, w, x, y, z);
+void lovrHeadsetControllerGetOrientation(Controller* controller, float* w, float* x, float* y, float* z) {
+  headset->interface->controllerGetOrientation(headset, controller, w, x, y, z);
 }
 
-float lovrHeadsetGetControllerAxis(Controller* controller, ControllerAxis axis) {
-  return headset->interface->getControllerAxis(headset, controller, axis);
+float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
+  return headset->interface->controllerGetAxis(headset, controller, axis);
 }
 
-ControllerHand lovrHeadsetGetControllerHand(Controller* controller) {
-  return headset->interface->getControllerHand(headset, controller);
+ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
+  return headset->interface->controllerGetHand(headset, controller);
 }
 
 void lovrHeadsetControllerVibrate(Controller* controller, float duration) {

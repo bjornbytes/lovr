@@ -46,11 +46,11 @@ static HeadsetInterface interface = {
   .getVelocity = viveGetVelocity,
   .getAngularVelocity = viveGetAngularVelocity,
   .getController = viveGetController,
-  .isControllerPresent = viveIsControllerPresent,
-  .getControllerPosition = viveGetControllerPosition,
-  .getControllerOrientation = viveGetControllerOrientation,
-  .getControllerAxis = viveGetControllerAxis,
-  .getControllerHand = viveGetControllerHand,
+  .controllerIsPresent = viveControllerIsPresent,
+  .controllerGetPosition = viveControllerGetPosition,
+  .controllerGetOrientation = viveControllerGetOrientation,
+  .controllerGetAxis = viveControllerGetAxis,
+  .controllerGetHand = viveControllerGetHand,
   .controllerVibrate = viveControllerVibrate,
   .renderTo = viveRenderTo
 };
@@ -275,13 +275,13 @@ Controller* viveGetController(void* headset, ControllerHand hand) {
   return state->controllers[hand];
 }
 
-char viveIsControllerPresent(void* headset, Controller* controller) {
+char viveControllerIsPresent(void* headset, Controller* controller) {
   Headset* this = headset;
   ViveState* state = this->state;
   return state->vrSystem->IsTrackedDeviceConnected(state->controllerIndex[controller->hand]);
 }
 
-void viveGetControllerPosition(void* headset, Controller* controller, float* x, float* y, float* z) {
+void viveControllerGetPosition(void* headset, Controller* controller, float* x, float* y, float* z) {
   Headset* this = headset;
   ViveState* state = this->state;
   TrackedDevicePose_t pose = viveGetPose(state, state->controllerIndex[controller->hand]);
@@ -296,7 +296,7 @@ void viveGetControllerPosition(void* headset, Controller* controller, float* x, 
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
 }
 
-void viveGetControllerOrientation(void* headset, Controller* controller, float* w, float* x, float* y, float* z) {
+void viveControllerGetOrientation(void* headset, Controller* controller, float* w, float* x, float* y, float* z) {
   Headset* this = headset;
   ViveState* state = this->state;
   TrackedDevicePose_t pose = viveGetPose(state, state->controllerIndex[controller->hand]);
@@ -310,7 +310,7 @@ void viveGetControllerOrientation(void* headset, Controller* controller, float* 
   mat4_getRotation(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), w, x, y, z);
 }
 
-float viveGetControllerAxis(void* headset, Controller* controller, ControllerAxis axis) {
+float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxis axis) {
   Headset* this = headset;
   ViveState* state = this->state;
   VRControllerState_t input;
@@ -334,7 +334,7 @@ float viveGetControllerAxis(void* headset, Controller* controller, ControllerAxi
   return 0.;
 }
 
-ControllerHand viveGetControllerHand(void* headset, Controller* controller) {
+ControllerHand viveControllerGetHand(void* headset, Controller* controller) {
   return controller->hand;
 }
 

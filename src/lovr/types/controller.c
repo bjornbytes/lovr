@@ -30,14 +30,14 @@ const luaL_Reg lovrController[] = {
 
 int l_lovrControllerIsPresent(lua_State* L) {
   Controller* controller = luax_checkcontroller(L, 1);
-  lua_pushboolean(L, lovrHeadsetIsControllerPresent(controller));
+  lua_pushboolean(L, lovrHeadsetControllerIsPresent(controller));
   return 1;
 }
 
 int l_lovrControllerGetPosition(lua_State* L) {
   Controller* controller = luax_checkcontroller(L, 1);
   float x, y, z;
-  lovrHeadsetGetControllerPosition(controller, &x, &y, &z);
+  lovrHeadsetControllerGetPosition(controller, &x, &y, &z);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
@@ -47,7 +47,7 @@ int l_lovrControllerGetPosition(lua_State* L) {
 int l_lovrControllerGetOrientation(lua_State* L) {
   Controller* controller = luax_checkcontroller(L, 1);
   float w, x, y, z;
-  lovrHeadsetGetControllerOrientation(controller, &w, &x, &y, &z);
+  lovrHeadsetControllerGetOrientation(controller, &w, &x, &y, &z);
   lua_pushnumber(L, w);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
@@ -58,13 +58,13 @@ int l_lovrControllerGetOrientation(lua_State* L) {
 int l_lovrControllerGetAxis(lua_State* L) {
   Controller* controller = luax_checkcontroller(L, 1);
   ControllerAxis* axis = (ControllerAxis*) luax_checkenum(L, 2, &ControllerAxes, "controller axis");
-  lua_pushnumber(L, lovrHeadsetGetControllerAxis(controller, *axis));
+  lua_pushnumber(L, lovrHeadsetControllerGetAxis(controller, *axis));
   return 1;
 }
 
 int l_lovrControllerGetHand(lua_State* L) {
   Controller* controller = luax_checkcontroller(L, 1);
-  lua_pushstring(L, map_int_find(&ControllerHands, lovrHeadsetGetControllerHand(controller)));
+  lua_pushstring(L, map_int_find(&ControllerHands, lovrHeadsetControllerGetHand(controller)));
   return 1;
 }
 
