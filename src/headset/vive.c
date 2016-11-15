@@ -309,20 +309,28 @@ void viveGetControllerOrientation(void* headset, Controller* controller, float* 
   mat4_getRotation(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), w, x, y, z);
 }
 
-float viveGetControllerAxis(void* headset, Controller* controller) {
+float viveGetControllerAxis(void* headset, Controller* controller, ControllerAxis axis) {
   Headset* this = headset;
   ViveState* state = this->state;
   VRControllerState_t input;
 
-  struct VREvent_t event;
-  while (state->vrSystem->PollNextEvent(&event, sizeof(event))) {
-    printf("%d\n", event.eventType);
+  state->vrSystem->GetControllerState(state->controllerIndex[controller->hand], &input);
+
+  switch (axis) {
+    case CONTROLLER_AXIS_TRIGGER:
+      return input.rAxis[1].x;
+
+    case CONTROLLER_AXIS_TOUCHPAD_X:
+      return input.rAxis[0].x;
+
+    case CONTROLLER_AXIS_TOUCHPAD_Y:
+      return input.rAxis[0].y;
+
+    default:
+      error("Bad controller axis");
   }
 
-  int i = state->vrSystem->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
-  printf("%d %d\n", i, state->controllerIndex[controller->hand]);
-  state->vrSystem->GetControllerState(i, &input);
-  return input.rAxis[1].x;
+  return 0.;
 }
 
 ControllerHand viveGetControllerHand(void* headset, Controller* controller) {

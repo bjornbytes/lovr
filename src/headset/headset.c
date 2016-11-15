@@ -75,8 +75,8 @@ void lovrHeadsetGetControllerOrientation(Controller* controller, float* w, float
   headset->interface->getControllerOrientation(headset, controller, w, x, y, z);
 }
 
-float lovrHeadsetGetControllerAxis(Controller* controller) {
-  return headset->interface->getControllerAxis(headset, controller);
+float lovrHeadsetGetControllerAxis(Controller* controller, ControllerAxis axis) {
+  return headset->interface->getControllerAxis(headset, controller, axis);
 }
 
 ControllerHand lovrHeadsetGetControllerHand(Controller* controller) {

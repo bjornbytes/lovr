@@ -1,11 +1,18 @@
 #ifndef LOVR_HEADSET_TYPES
 #define LOVR_HEADSET_TYPES
+
 typedef void (*headsetRenderCallback)(int eyeIndex, void* userdata);
 
 typedef enum {
   CONTROLLER_HAND_LEFT,
   CONTROLLER_HAND_RIGHT
 } ControllerHand;
+
+typedef enum {
+  CONTROLLER_AXIS_TRIGGER,
+  CONTROLLER_AXIS_TOUCHPAD_X,
+  CONTROLLER_AXIS_TOUCHPAD_Y
+} ControllerAxis;
 
 typedef struct {
   ControllerHand hand;
@@ -28,7 +35,7 @@ typedef struct {
   char (*isControllerPresent)(void* headset, Controller* controller);
   void (*getControllerPosition)(void* headset, Controller* controller, float* x, float* y, float* z);
   void (*getControllerOrientation)(void* headset, Controller* controller, float* w, float* x, float* y, float* z);
-  float (*getControllerAxis)(void* headset, Controller* controller);
+  float (*getControllerAxis)(void* headset, Controller* controller, ControllerAxis axis);
   ControllerHand (*getControllerHand)(void* headset, Controller* controller);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
 } HeadsetInterface;
@@ -37,6 +44,7 @@ typedef struct {
   void* state;
   HeadsetInterface* interface;
 } Headset;
+
 #endif
 
 void lovrHeadsetInit();
@@ -56,6 +64,6 @@ Controller* lovrHeadsetGetController(ControllerHand hand);
 char lovrHeadsetIsControllerPresent(Controller* controller);
 void lovrHeadsetGetControllerPosition(Controller* controller, float* x, float* y, float* z);
 void lovrHeadsetGetControllerOrientation(Controller* controller, float* w, float* x, float* y, float* z);
-float lovrHeadsetGetControllerAxis(Controller* controller);
+float lovrHeadsetGetControllerAxis(Controller* controller, ControllerAxis axis);
 ControllerHand lovrHeadsetGetControllerHand(Controller* controller);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);

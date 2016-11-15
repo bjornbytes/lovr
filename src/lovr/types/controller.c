@@ -56,7 +56,8 @@ int l_lovrControllerGetOrientation(lua_State* L) {
 
 int l_lovrControllerGetAxis(lua_State* L) {
   Controller* controller = luax_checkcontroller(L, 1);
-  lua_pushnumber(L, lovrHeadsetGetControllerAxis(controller));
+  ControllerAxis* axis = (ControllerAxis*) luax_checkenum(L, 2, &ControllerAxes, "controller axis");
+  lua_pushnumber(L, lovrHeadsetGetControllerAxis(controller, *axis));
   return 1;
 }
 

@@ -4,6 +4,7 @@
 #include "../vendor/map/map.h"
 
 map_int_t ControllerHands;
+map_int_t ControllerAxes;
 
 extern const luaL_Reg lovrHeadset[];
 int l_lovrHeadsetInit(lua_State* L);

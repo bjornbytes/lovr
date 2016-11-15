@@ -40,6 +40,11 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&ControllerHands, "left", CONTROLLER_HAND_LEFT);
   map_set(&ControllerHands, "right", CONTROLLER_HAND_RIGHT);
 
+  map_init(&ControllerAxes);
+  map_set(&ControllerAxes, "trigger", CONTROLLER_AXIS_TRIGGER);
+  map_set(&ControllerAxes, "touchx", CONTROLLER_AXIS_TOUCHPAD_X);
+  map_set(&ControllerAxes, "touchy", CONTROLLER_AXIS_TOUCHPAD_Y);
+
   lovrHeadsetInit();
 
   return 1;
