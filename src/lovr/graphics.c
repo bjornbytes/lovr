@@ -519,7 +519,7 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
             }
 
             *((int*) v) = value;
-            v = (int*) v + sizeof(int);
+            v = (char*) v + sizeof(int);
           }
         }
       }
