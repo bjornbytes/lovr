@@ -32,8 +32,9 @@ typedef struct {
 
 Texture* lovrTextureCreate(void* data, int size);
 Texture* lovrTextureCreateFromBuffer(struct Buffer* buffer);
-void lovrTextureBind(Texture* texture);
 void lovrTextureDestroy(Texture* texture);
+void lovrTextureBind(Texture* texture);
+void lovrTextureRefresh(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);
 int lovrTextureGetWidth(Texture* texture);
 void lovrTextureGetFilter(Texture* texture, FilterMode* min, FilterMode* mag);

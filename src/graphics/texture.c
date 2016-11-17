@@ -44,13 +44,22 @@ Texture* lovrTextureCreateFromBuffer(Buffer* buffer) {
   return texture;
 }
 
+void lovrTextureDestroy(Texture* texture) {
+  glDeleteTextures(1, &texture->id);
+  free(texture);
+}
+
 void lovrTextureBind(Texture* texture) {
   glBindTexture(texture->buffer ? GL_TEXTURE_BUFFER : GL_TEXTURE_2D, texture->id);
 }
 
-void lovrTextureDestroy(Texture* texture) {
-  glDeleteTextures(1, &texture->id);
-  free(texture);
+void lovrTextureRefresh(Texture* texture) {
+  if (!texture->buffer) {
+    return;
+  }
+
+  lovrTextureBind(texture);
+  glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, texture->buffer);
 }
 
 int lovrTextureGetHeight(Texture* texture) {
