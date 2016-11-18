@@ -104,13 +104,13 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 
   // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
-  char fullVertexSource[1024];
+  char fullVertexSource[4096];
   snprintf(fullVertexSource, sizeof(fullVertexSource), "%s\n%s", lovrShaderVertexPrefix, vertexSource);
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, fullVertexSource);
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
-  char fullFragmentSource[1024];
+  char fullFragmentSource[4096];
   snprintf(fullFragmentSource, sizeof(fullFragmentSource), "%s\n%s", lovrShaderFragmentPrefix, fragmentSource);
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fullFragmentSource);
 
