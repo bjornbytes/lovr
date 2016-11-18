@@ -51,8 +51,8 @@ void lovrInit(lua_State* L, int argc, char** argv) {
 
     "lovr.filesystem = require('lovr.filesystem') "
     "lovr.filesystem.init(arg[-2]) "
-    "if not lovr.filesystem.setSource(lovr.filesystem.getExecutablePath()) then "
-    "  lovr.filesystem.setSource(arg[1] or '.') "
+    "if not lovr.filesystem.setSource(lovr.filesystem.getExecutablePath()) and arg[1] then "
+    "  lovr.filesystem.setSource(arg[1]) "
     "end "
 
     "local success, err = pcall(require, 'conf') "
@@ -94,7 +94,9 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "  print((stackTrace:gsub('\\n[^\\n]+$', ''))) "
     "end "
 
-    "require('main')"
+    "if lovr.filesystem.isFile('main.lua') then "
+    "  require('main') "
+    "end"
   );
 
   if (luaL_dostring(L, buffer)) {
