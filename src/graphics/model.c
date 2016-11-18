@@ -54,6 +54,8 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
   for (int c = 0; c < node->children.length; c++) {
     visitNode(modelData, node->children.data[c], newTransform, vertices, indices);
   }
+
+  mat4_deinit(newTransform);
 }
 
 Model* lovrModelCreate(void* data, int size) {
@@ -90,6 +92,7 @@ Model* lovrModelCreate(void* data, int size) {
 
   model->texture = NULL;
 
+  vec_deinit(&format);
   vec_deinit(&vertices);
   vec_deinit(&indices);
   return model;

@@ -18,6 +18,8 @@ Model* luax_checkmodel(lua_State* L, int index) {
 }
 
 int luax_destroymodel(lua_State* L) {
+  Model* model = luax_checkmodel(L, 1);
+  lovrModelDestroy(model);
   return 0;
 }
 

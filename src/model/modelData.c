@@ -102,6 +102,7 @@ void lovrModelDataDestroy(ModelData* modelData) {
 
     vec_deinit(&mesh->faces);
     vec_deinit(&mesh->vertices);
+    vec_deinit(&mesh->normals);
     free(mesh);
   }
 
@@ -115,8 +116,10 @@ void lovrModelDataDestroy(ModelData* modelData) {
     vec_deinit(&node->meshes);
     vec_deinit(&node->children);
     vec_splice(&nodes, 0, 1);
+    free(node);
   }
 
   vec_deinit(&modelData->meshes);
+  vec_deinit(&nodes);
   free(modelData);
 }
