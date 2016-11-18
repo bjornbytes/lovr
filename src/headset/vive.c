@@ -9,29 +9,6 @@
 #include "../graphics/graphics.h"
 #include <stdint.h>
 
-typedef struct {
-  struct VR_IVRSystem_FnTable* vrSystem;
-  struct VR_IVRCompositor_FnTable* vrCompositor;
-  struct VR_IVRChaperone_FnTable* vrChaperone;
-
-  unsigned int headsetIndex;
-  unsigned int controllerIndex[CONTROLLER_HAND_RIGHT + 1];
-
-  Controller* controllers[CONTROLLER_HAND_RIGHT + 1];
-
-  float clipNear;
-  float clipFar;
-
-  uint32_t renderWidth;
-  uint32_t renderHeight;
-
-  GLuint framebuffer;
-  GLuint depthbuffer;
-  GLuint texture;
-  GLuint resolveFramebuffer;
-  GLuint resolveTexture;
-} ViveState;
-
 static HeadsetInterface interface = {
   .isPresent = viveIsPresent,
   .getType = viveGetType,
@@ -66,15 +43,23 @@ static TrackedDevicePose_t viveGetPose(ViveState* state, unsigned int deviceInde
 
 Headset* viveInit() {
   Headset* this = malloc(sizeof(Headset));
+  if (!this) return NULL;
+
   ViveState* state = malloc(sizeof(ViveState));
-  if (!this || !state) return NULL;
+  if (!state) return NULL;
 
   this->state = state;
   this->interface = &interface;
+  state->controllers[CONTROLLER_HAND_LEFT] = NULL;
+  state->controllers[CONTROLLER_HAND_RIGHT] = NULL;
+  state->framebuffer = 0;
+  state->depthbuffer = 0;
+  state->texture = 0;
+  state->resolveFramebuffer = 0;
+  state->resolveTexture = 0;
 
-  if (!VR_IsHmdPresent()) {
-    return NULL;
-  } else if (!VR_IsRuntimeInstalled()) {
+  if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
+    viveDestroy(this);
     return NULL;
   }
 
@@ -82,7 +67,7 @@ Headset* viveInit() {
   VR_InitInternal(&vrError, EVRApplicationType_VRApplication_Scene);
 
   if (vrError != EVRInitError_VRInitError_None) {
-    printf("%d\n", vrError);
+    viveDestroy(this);
     return NULL;
   }
 
@@ -91,18 +76,21 @@ Headset* viveInit() {
   sprintf(fnTableName, "FnTable:%s", IVRSystem_Version);
   state->vrSystem = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
   if (vrError != EVRInitError_VRInitError_None || state->vrSystem == NULL) {
+    viveDestroy(this);
     return NULL;
   }
 
   sprintf(fnTableName, "FnTable:%s", IVRCompositor_Version);
   state->vrCompositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
   if (vrError != EVRInitError_VRInitError_None || state->vrCompositor == NULL) {
+    viveDestroy(this);
     return NULL;
   }
 
   sprintf(fnTableName, "FnTable:%s", IVRChaperone_Version);
   state->vrChaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
   if (vrError != EVRInitError_VRInitError_None || state->vrChaperone == NULL) {
+    viveDestroy(this);
     return NULL;
   }
 
@@ -112,11 +100,19 @@ Headset* viveInit() {
   state->vrSystem->GetRecommendedRenderTargetSize(&state->renderWidth, &state->renderHeight);
 
   Controller* leftController = malloc(sizeof(Controller));
+  if (!leftController) {
+    viveDestroy(this);
+    return NULL;
+  }
   leftController->hand = CONTROLLER_HAND_LEFT;
   state->controllers[CONTROLLER_HAND_LEFT] = leftController;
   state->controllerIndex[CONTROLLER_HAND_LEFT] = state->vrSystem->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
 
   Controller* rightController = malloc(sizeof(Controller));
+  if (!rightController) {
+    viveDestroy(this);
+    return NULL;
+  }
   rightController->hand = CONTROLLER_HAND_RIGHT;
   state->controllers[CONTROLLER_HAND_RIGHT] = rightController;
   state->controllerIndex[CONTROLLER_HAND_RIGHT] = state->vrSystem->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
@@ -145,6 +141,7 @@ Headset* viveInit() {
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, state->resolveTexture, 0);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    viveDestroy(this);
     return NULL;
   }
 
@@ -156,6 +153,11 @@ Headset* viveInit() {
 void viveDestroy(void* headset) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;
+  glDeleteFramebuffers(1, &state->framebuffer);
+  glDeleteFramebuffers(1, &state->resolveFramebuffer);
+  glDeleteRenderbuffers(1, &state->depthbuffer);
+  glDeleteTextures(1, &state->texture);
+  glDeleteTextures(1, &state->resolveTexture);
   free(state->controllers[CONTROLLER_HAND_LEFT]);
   free(state->controllers[CONTROLLER_HAND_RIGHT]);
   free(state);

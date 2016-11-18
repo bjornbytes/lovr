@@ -1,7 +1,36 @@
 #include "headset.h"
+#include "../glfw.h"
+
+#ifndef LOVR_VIVE_TYPES
+#define LOVR_VIVE_TYPES
+
+typedef struct {
+  struct VR_IVRSystem_FnTable* vrSystem;
+  struct VR_IVRCompositor_FnTable* vrCompositor;
+  struct VR_IVRChaperone_FnTable* vrChaperone;
+
+  unsigned int headsetIndex;
+  unsigned int controllerIndex[CONTROLLER_HAND_RIGHT + 1];
+
+  Controller* controllers[CONTROLLER_HAND_RIGHT + 1];
+
+  float clipNear;
+  float clipFar;
+
+  uint32_t renderWidth;
+  uint32_t renderHeight;
+
+  GLuint framebuffer;
+  GLuint depthbuffer;
+  GLuint texture;
+  GLuint resolveFramebuffer;
+  GLuint resolveTexture;
+} ViveState;
+
+#endif
 
 Headset* viveInit();
-void viveDestroy();
+void viveDestroy(void* headset);
 char viveIsPresent(void* headset);
 const char* viveGetType(void* headset);
 void viveGetDisplayDimensions(void* headset, int* width, int* height);
