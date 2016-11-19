@@ -21,7 +21,7 @@ typedef enum {
 typedef struct {
   Ref ref;
   GLuint id;
-  GLuint buffer;
+  struct Buffer* buffer;
   int width;
   int height;
   FilterMode filterMin;
