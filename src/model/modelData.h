@@ -1,6 +1,6 @@
-#include "../vendor/vec/vec.h"
-#include "../util.h"
-#include "../matrix.h"
+#include "vendor/vec/vec.h"
+#include "util.h"
+#include "matrix.h"
 
 #ifndef LOVR_MODEL_DATA_TYPES
 #define LOVR_MODEL_DATA_TYPES

@@ -1,4 +1,4 @@
-#include "shader.h"
+#include "lovr/types/shader.h"
 
 void luax_pushshader(lua_State* L, Shader* shader) {
   if (shader == NULL) {

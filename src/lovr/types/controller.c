@@ -1,6 +1,6 @@
-#include "controller.h"
-#include "../headset.h"
-#include "../../util.h"
+#include "lovr/types/controller.h"
+#include "lovr/headset.h"
+#include "util.h"
 
 void luax_pushcontroller(lua_State* L, Controller* controller) {
   if (controller == NULL) {

@@ -1,6 +1,6 @@
-#include "buffer.h"
-#include "texture.h"
-#include "../graphics.h"
+#include "lovr/types/buffer.h"
+#include "lovr/types/texture.h"
+#include "lovr/graphics.h"
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer) {
   if (buffer == NULL) {

@@ -1,8 +1,8 @@
-#include "buffer.h"
-#include "model.h"
-#include "shader.h"
-#include "skybox.h"
-#include "../matrix.h"
+#include "graphics/buffer.h"
+#include "graphics/model.h"
+#include "graphics/shader.h"
+#include "graphics/skybox.h"
+#include "matrix.h"
 
 #ifndef LOVR_GRAPHICS_TYPES
 #define LOVR_GRAPHICS_TYPES

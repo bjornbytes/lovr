@@ -1,7 +1,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "../vendor/map/map.h"
+#include "vendor/map/map.h"
 
 map_int_t BufferAttributeTypes;
 map_int_t BufferDrawModes;

@@ -1,6 +1,6 @@
-#include "../glfw.h"
-#include "../util.h"
-#include "texture.h"
+#include "glfw.h"
+#include "util.h"
+#include "graphics/texture.h"
 
 #ifndef LOVR_BUFFER_TYPES
 #define LOVR_BUFFER_TYPES

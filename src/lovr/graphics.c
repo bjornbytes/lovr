@@ -1,12 +1,12 @@
-#include "graphics.h"
-#include "types/buffer.h"
-#include "types/model.h"
-#include "types/shader.h"
-#include "types/skybox.h"
-#include "types/texture.h"
-#include "../graphics/graphics.h"
-#include "../filesystem/filesystem.h"
-#include "../util.h"
+#include "lovr/graphics.h"
+#include "lovr/types/buffer.h"
+#include "lovr/types/model.h"
+#include "lovr/types/shader.h"
+#include "lovr/types/skybox.h"
+#include "lovr/types/texture.h"
+#include "graphics/graphics.h"
+#include "filesystem/filesystem.h"
+#include "util.h"
 #include <math.h>
 
 static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {

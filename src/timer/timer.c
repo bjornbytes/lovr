@@ -1,5 +1,5 @@
-#include "timer.h"
-#include "../glfw.h"
+#include "timer/timer.h"
+#include "glfw.h"
 #ifdef _WIN32
 #include <Windows.h>
 #else

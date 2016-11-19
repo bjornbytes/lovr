@@ -1,6 +1,6 @@
-#include "../glfw.h"
-#include "../vendor/map/map.h"
-#include "../matrix.h"
+#include "glfw.h"
+#include "matrix.h"
+#include "vendor/map/map.h"
 
 #ifndef LOVR_SHADER_TYPES
 #define LOVR_SHADER_TYPES

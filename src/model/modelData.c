@@ -1,4 +1,4 @@
-#include "modelData.h"
+#include "model/modelData.h"
 #include <stdlib.h>
 #include <assimp/scene.h>
 #include <assimp/cimport.h>

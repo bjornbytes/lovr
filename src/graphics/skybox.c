@@ -1,5 +1,5 @@
-#include "skybox.h"
-#include "../util.h"
+#include "graphics/skybox.h"
+#include "util.h"
 #include <stdlib.h>
 
 Skybox* lovrSkyboxCreate(void** data, int* size) {

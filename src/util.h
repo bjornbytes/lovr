@@ -1,8 +1,8 @@
+#include "vendor/vec/vec.h"
+#include "vendor/map/map.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "vendor/vec/vec.h"
-#include "vendor/map/map.h"
 
 #ifndef UTIL_TYPES
 #define UTIL_TYPES

@@ -1,5 +1,5 @@
-#include "filesystem.h"
-#include "../util.h"
+#include "filesystem/filesystem.h"
+#include "util.h"
 #include <physfs.h>
 #include <stdio.h>
 #ifdef __APPLE__

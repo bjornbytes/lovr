@@ -1,7 +1,7 @@
+#include "graphics/graphics.h"
+#include "util.h"
+#include "glfw.h"
 #define _USE_MATH_DEFINES
-#include "graphics.h"
-#include "../glfw.h"
-#include "../util.h"
 #include <stdlib.h>
 #include <math.h>
 #include <assimp/cimport.h>

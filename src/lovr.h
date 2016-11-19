@@ -1,7 +1,7 @@
+#include "glfw.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "glfw.h"
 
 void lovrInit(lua_State* L, int argc, char** argv);
 void lovrDestroy(int exitCode);

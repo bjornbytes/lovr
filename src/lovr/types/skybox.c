@@ -1,4 +1,4 @@
-#include "skybox.h"
+#include "lovr/types/skybox.h"
 
 void luax_pushskybox(lua_State* L, Skybox* skybox) {
   if (skybox == NULL) {

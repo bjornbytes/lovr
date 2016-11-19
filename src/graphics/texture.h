@@ -1,4 +1,4 @@
-#include "../glfw.h"
+#include "glfw.h"
 
 struct Buffer;
 

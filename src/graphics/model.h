@@ -1,7 +1,7 @@
-#include "buffer.h"
-#include "texture.h"
-#include "../model/modelData.h"
-#include "../glfw.h"
+#include "graphics/buffer.h"
+#include "graphics/texture.h"
+#include "model/modelData.h"
+#include "glfw.h"
 
 #ifndef LOVR_MODEL_TYPES
 #define LOVR_MODEL_TYPES

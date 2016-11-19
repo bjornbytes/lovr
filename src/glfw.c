@@ -1,7 +1,7 @@
 #include "glfw.h"
+#include "util.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "util.h"
 
 void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose, void* userPointer) {
   glfwSetErrorCallback(onError);

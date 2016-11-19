@@ -1,9 +1,9 @@
 #include "util.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "vendor/stb_image.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#define STB_IMAGE_IMPLEMENTATION
-#include "vendor/stb_image.h"
 
 void error(const char* format, ...) {
   va_list args;

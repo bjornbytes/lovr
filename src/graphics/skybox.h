@@ -1,4 +1,4 @@
-#include "../glfw.h"
+#include "glfw.h"
 
 #ifndef LOVR_SKYBOX_TYPES
 #define LOVR_SKYBOX_TYPES

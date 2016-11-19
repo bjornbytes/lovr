@@ -1,5 +1,5 @@
-#include "event.h"
-#include "../event/event.h"
+#include "lovr/event.h"
+#include "event/event.h"
 
 const luaL_Reg lovrEvent[] = {
   { "poll", l_lovrEventPoll },

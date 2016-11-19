@@ -1,5 +1,5 @@
-#include "headset.h"
-#include "../glfw.h"
+#include "headset/headset.h"
+#include "glfw.h"
 
 #ifndef LOVR_VIVE_TYPES
 #define LOVR_VIVE_TYPES

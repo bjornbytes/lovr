@@ -16,6 +16,8 @@ project(lovr)
 file(GLOB_RECURSE LOVR_SRC src/*.c)
 add_executable(lovr ${LOVR_SRC})
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 # LuaJIT
 if(WIN32)
   add_subdirectory(deps/luajit luajit)

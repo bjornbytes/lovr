@@ -1,6 +1,6 @@
-#include "event.h"
-#include "../lovr.h"
-#include "../glfw.h"
+#include "event/event.h"
+#include "lovr.h"
+#include "glfw.h"
 
 void lovrEventPoll() {
   glfwPollEvents();

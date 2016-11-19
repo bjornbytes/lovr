@@ -1,7 +1,7 @@
+#include "graphics/buffer.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "../../graphics/buffer.h"
 
 void luax_pushbuffer(lua_State* L, Buffer* buffer);
 int luax_pushvertex(lua_State* L, void* vertex, BufferFormat format);

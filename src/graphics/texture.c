@@ -1,6 +1,6 @@
-#include "texture.h"
-#include "buffer.h"
-#include "../util.h"
+#include "graphics/texture.h"
+#include "graphics/buffer.h"
+#include "util.h"
 #include <stdlib.h>
 
 Texture* lovrTextureCreate(void* data, int size) {

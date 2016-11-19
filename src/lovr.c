@@ -1,12 +1,11 @@
 #include "lovr.h"
-#include "util.h"
-#include <stdlib.h>
-
 #include "lovr/event.h"
 #include "lovr/filesystem.h"
 #include "lovr/graphics.h"
 #include "lovr/headset.h"
 #include "lovr/timer.h"
+#include "util.h"
+#include <stdlib.h>
 
 void lovrInit(lua_State* L, int argc, char** argv) {
 

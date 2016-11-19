@@ -1,12 +1,12 @@
-#include "vive.h"
+#include "headset/vive.h"
+#include "graphics/graphics.h"
+#include "util.h"
 #include <stdbool.h>
 #ifndef _WIN32
 #define __stdcall
 #endif
 #include <openvr_capi.h>
 #include <stdlib.h>
-#include "../util.h"
-#include "../graphics/graphics.h"
 #include <stdint.h>
 
 static HeadsetInterface interface = {

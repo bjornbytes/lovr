@@ -1,6 +1,6 @@
-#include "texture.h"
-#include "../graphics.h"
-#include "../../util.h"
+#include "lovr/types/texture.h"
+#include "lovr/graphics.h"
+#include "util.h"
 
 void luax_pushtexture(lua_State* L, Texture* texture) {
   if (texture == NULL) {

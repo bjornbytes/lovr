@@ -1,7 +1,7 @@
+#include "headset/headset.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "../../headset/headset.h"
 
 void luax_pushcontroller(lua_State* L, Controller* controller);
 Controller* luax_checkcontroller(lua_State* L, int index);

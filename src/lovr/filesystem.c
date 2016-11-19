@@ -1,5 +1,5 @@
-#include "filesystem.h"
-#include "../filesystem/filesystem.h"
+#include "lovr/filesystem.h"
+#include "filesystem/filesystem.h"
 #include <stdlib.h>
 #include <string.h>
 

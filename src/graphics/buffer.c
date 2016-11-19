@@ -1,6 +1,6 @@
-#include "buffer.h"
-#include "graphics.h"
-#include "shader.h"
+#include "graphics/buffer.h"
+#include "graphics/graphics.h"
+#include "graphics/shader.h"
 #include <stdlib.h>
 
 Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode, BufferUsage usage) {

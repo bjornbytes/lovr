@@ -1,5 +1,5 @@
-#include "timer.h"
-#include "../timer/timer.h"
+#include "lovr/timer.h"
+#include "timer/timer.h"
 
 const luaL_Reg lovrTimer[] = {
   { "getDelta", l_lovrTimerGetDelta },

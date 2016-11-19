@@ -1,5 +1,5 @@
-#include "model.h"
-#include "texture.h"
+#include "lovr/types/model.h"
+#include "lovr/types/texture.h"
 
 void luax_pushmodel(lua_State* L, Model* model) {
   if (model == NULL) {

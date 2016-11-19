@@ -1,5 +1,5 @@
-#include "shader.h"
-#include "../util.h"
+#include "graphics/shader.h"
+#include "util.h"
 #include <stdlib.h>
 
 const char* lovrShaderVertexPrefix = ""
