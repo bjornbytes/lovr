@@ -2,7 +2,7 @@
 #include "lovr/types/texture.h"
 #include "lovr/graphics.h"
 
-int luax_pushbuffervertex(lua_State* L, void* vertex, BufferFormat format) {
+static int luax_pushbuffervertex(lua_State* L, void* vertex, BufferFormat format) {
   int count = 0;
   int i;
   BufferAttribute attribute;
@@ -322,13 +322,13 @@ int l_lovrBufferSetDrawRange(lua_State* L) {
 
 int l_lovrBufferGetTexture(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  luax_pushtexture(L, lovrBufferGetTexture(buffer));
+  luax_pushtype(L, Texture, lovrBufferGetTexture(buffer));
   return 1;
 }
 
 int l_lovrBufferSetTexture(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  Texture* texture = luax_checktexture(L, 2);
+  Texture* texture = luax_checktype(L, 2, Texture);
   lovrBufferSetTexture(buffer, texture);
   return 0;
 }

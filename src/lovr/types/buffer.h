@@ -3,10 +3,9 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
-int luax_pushvertex(lua_State* L, void* vertex, BufferFormat format);
 void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format);
-extern const luaL_Reg lovrBuffer[];
 
+extern const luaL_Reg lovrBuffer[];
 int l_lovrBufferDraw(lua_State* L);
 int l_lovrBufferGetVertexCount(lua_State* L);
 int l_lovrBufferGetVertex(lua_State* L);

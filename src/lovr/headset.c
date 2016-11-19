@@ -161,7 +161,7 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 
 int l_lovrHeadsetGetController(lua_State* L) {
   ControllerHand* hand = (ControllerHand*) luax_checkenum(L, 1, &ControllerHands, "controller hand");
-  luax_pushcontroller(L, lovrHeadsetGetController(*hand));
+  luax_pushtype(L, Controller, lovrHeadsetGetController(*hand));
   return 1;
 }
 

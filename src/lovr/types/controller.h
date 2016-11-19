@@ -3,9 +3,6 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
-void luax_pushcontroller(lua_State* L, Controller* controller);
-extern const luaL_Reg lovrController[];
-
 extern const luaL_Reg lovrController[];
 int l_lovrControllerIsPresent(lua_State* L);
 int l_lovrControllerGetPosition(lua_State* L);

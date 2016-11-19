@@ -1,22 +1,6 @@
 #include "lovr/types/model.h"
 #include "lovr/types/texture.h"
 
-void luax_pushmodel(lua_State* L, Model* model) {
-  if (model == NULL) {
-    lua_pushnil(L);
-    return;
-  }
-
-  Model** userdata = (Model**) lua_newuserdata(L, sizeof(Model*));
-  luaL_getmetatable(L, "Model");
-  lua_setmetatable(L, -2);
-  *userdata = model;
-}
-
-Model* luax_checkmodel(lua_State* L, int index) {
-  return *(Model**) luaL_checkudata(L, index, "Model");
-}
-
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
   { "getTexture", l_lovrModelGetTexture },
@@ -25,7 +9,7 @@ const luaL_Reg lovrModel[] = {
 };
 
 int l_lovrModelDraw(lua_State* L) {
-  Model* model = luax_checkmodel(L, 1);
+  Model* model = luax_checktype(L, 1, Model);
   float x = luaL_optnumber(L, 2, 0.f);
   float y = luaL_optnumber(L, 3, 0.f);
   float z = luaL_optnumber(L, 4, 0.f);
@@ -39,14 +23,14 @@ int l_lovrModelDraw(lua_State* L) {
 }
 
 int l_lovrModelGetTexture(lua_State* L) {
-  Model* model = luax_checkmodel(L, 1);
-  luax_pushtexture(L, lovrModelGetTexture(model));
+  Model* model = luax_checktype(L, 1, Model);
+  luax_pushtype(L, Texture, lovrModelGetTexture(model));
   return 1;
 }
 
 int l_lovrModelSetTexture(lua_State* L) {
-  Model* model = luax_checkmodel(L, 1);
-  Texture* texture = luax_checktexture(L, 2);
+  Model* model = luax_checktype(L, 1, Model);
+  Texture* texture = luax_checktype(L, 2, Texture);
   lovrModelSetTexture(model, texture);
   return 0;
 }

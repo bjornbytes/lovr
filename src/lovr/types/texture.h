@@ -3,10 +3,7 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
-void luax_pushtexture(lua_State* L, Texture* texture);
-Texture* luax_checktexture(lua_State* L, int index);
 extern const luaL_Reg lovrTexture[];
-
 int l_lovrTextureBind(lua_State* L);
 int l_lovrTextureRefresh(lua_State* L);
 int l_lovrTextureGetDimensions(lua_State* L);
