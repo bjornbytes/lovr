@@ -217,5 +217,13 @@ Texture* lovrBufferGetTexture(Buffer* buffer) {
 }
 
 void lovrBufferSetTexture(Buffer* buffer, Texture* texture) {
+  if (buffer->texture) {
+    lovrRelease(&buffer->texture->ref);
+  }
+
   buffer->texture = texture;
+
+  if (buffer->texture) {
+    lovrRetain(&buffer->texture->ref);
+  }
 }

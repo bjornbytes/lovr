@@ -322,13 +322,20 @@ int l_lovrBufferSetDrawRange(lua_State* L) {
 
 int l_lovrBufferGetTexture(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  luax_pushtype(L, Texture, lovrBufferGetTexture(buffer));
+  Texture* texture = lovrBufferGetTexture(buffer);
+
+  if (texture) {
+    luax_pushtype(L, Texture, texture);
+  } else {
+    lua_pushnil(L);
+  }
+
   return 1;
 }
 
 int l_lovrBufferSetTexture(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  Texture* texture = luax_checktype(L, 2, Texture);
+  Texture* texture = lua_isnoneornil(L, 2) ? NULL : luax_checktype(L, 2, Texture);
   lovrBufferSetTexture(buffer, texture);
   return 0;
 }
