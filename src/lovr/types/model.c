@@ -17,12 +17,6 @@ Model* luax_checkmodel(lua_State* L, int index) {
   return *(Model**) luaL_checkudata(L, index, "Model");
 }
 
-int luax_destroymodel(lua_State* L) {
-  Model* model = luax_checkmodel(L, 1);
-  lovrModelDestroy(model);
-  return 0;
-}
-
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
   { "getTexture", l_lovrModelGetTexture },

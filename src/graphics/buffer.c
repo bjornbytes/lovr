@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode, BufferUsage usage) {
-  Buffer* buffer = malloc(sizeof(Buffer));
+  Buffer* buffer = lovrAlloc(sizeof(Buffer), lovrBufferDestroy);
   if (!buffer) return NULL;
 
   vec_init(&buffer->map);
@@ -51,7 +51,8 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
   return buffer;
 }
 
-void lovrBufferDestroy(Buffer* buffer) {
+void lovrBufferDestroy(const Ref* ref) {
+  Buffer* buffer = containerof(ref, Buffer);
   glDeleteBuffers(1, &buffer->vbo);
   glDeleteVertexArrays(1, &buffer->vao);
   vec_deinit(&buffer->map);

@@ -18,12 +18,6 @@ Texture* luax_checktexture(lua_State* L, int index) {
   return *(Texture**) luaL_checkudata(L, index, "Texture");
 }
 
-int luax_destroytexture(lua_State* L) {
-  Texture* texture = luax_checktexture(L, 1);
-  lovrTextureDestroy(texture);
-  return 0;
-}
-
 const luaL_Reg lovrTexture[] = {
   { "bind", l_lovrTextureBind },
   { "refresh", l_lovrTextureRefresh },

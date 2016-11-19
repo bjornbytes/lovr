@@ -43,7 +43,7 @@ void luaRegisterModule(lua_State* L, const char* name, const luaL_Reg* module) {
   lua_pop(L, 1);
 }
 
-void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions, lua_CFunction gc) {
+void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions) {
 
   // Push metatable
   luaL_newmetatable(L, name);
@@ -54,10 +54,8 @@ void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions, 
   lua_setfield(L, -1, "__index");
 
   // m.__gc = gc
-  if (gc) {
-    lua_pushcfunction(L, gc);
-    lua_setfield(L, -2, "__gc");
-  }
+  lua_pushcfunction(L, luax_destroylovrtype);
+  lua_setfield(L, -2, "__gc");
 
   // m.name = name
   lua_pushstring(L, name);
@@ -104,4 +102,24 @@ void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map
   }
 
   return value;
+}
+
+void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref)) {
+  void* object = malloc(size);
+  if (!object) return NULL;
+  *((Ref*) object) = (Ref) { destructor, 1 };
+  return object;
+}
+
+void lovrRetain(const Ref* ref) {
+  ((Ref*) ref)->count++;
+}
+
+void lovrRelease(const Ref* ref) {
+  if (--((Ref*) ref)->count == 0 && ref->free) ref->free(ref);
+}
+
+int luax_destroylovrtype(lua_State* L) {
+  lovrRelease(*(Ref**) lua_touserdata(L, 1));
+  return 0;
 }

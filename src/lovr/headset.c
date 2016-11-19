@@ -34,7 +34,7 @@ const luaL_Reg lovrHeadset[] = {
 int l_lovrHeadsetInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
-  luaRegisterType(L, "Controller", lovrController, NULL);
+  luaRegisterType(L, "Controller", lovrController);
 
   map_init(&ControllerHands);
   map_set(&ControllerHands, "left", CONTROLLER_HAND_LEFT);

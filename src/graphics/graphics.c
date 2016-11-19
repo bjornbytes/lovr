@@ -26,8 +26,8 @@ void lovrGraphicsInit() {
 void lovrGraphicsDestroy() {
   vec_deinit(&state.transforms);
   mat4_deinit(state.projection);
-  lovrShaderDestroy(state.defaultShader);
-  lovrShaderDestroy(state.skyboxShader);
+  lovrShaderDestroy(&state.defaultShader->ref);
+  lovrShaderDestroy(&state.skyboxShader->ref);
   glDeleteBuffers(1, &state.shapeBuffer);
   glDeleteBuffers(1, &state.shapeIndexBuffer);
   glDeleteVertexArrays(1, &state.shapeArray);

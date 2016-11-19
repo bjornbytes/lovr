@@ -5,7 +5,6 @@
 
 void luax_pushtexture(lua_State* L, Texture* texture);
 Texture* luax_checktexture(lua_State* L, int index);
-int luax_destroytexture(lua_State* L);
 extern const luaL_Reg lovrTexture[];
 
 int l_lovrTextureBind(lua_State* L);

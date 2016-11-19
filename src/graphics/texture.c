@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 Texture* lovrTextureCreate(void* data, int size) {
-  Texture* texture = malloc(sizeof(Texture));
+  Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
   texture->buffer = 0;
@@ -14,7 +14,7 @@ Texture* lovrTextureCreate(void* data, int size) {
     int channels;
     unsigned char* image = loadImage(data, size, &texture->width, &texture->height, &channels, 3);
     if (!image) {
-      lovrTextureDestroy(texture);
+      lovrTextureDestroy(&texture->ref);
       return NULL;
     }
 
@@ -44,7 +44,8 @@ Texture* lovrTextureCreateFromBuffer(Buffer* buffer) {
   return texture;
 }
 
-void lovrTextureDestroy(Texture* texture) {
+void lovrTextureDestroy(const Ref* ref) {
+  Texture* texture = containerof(ref, Texture);
   glDeleteTextures(1, &texture->id);
   free(texture);
 }

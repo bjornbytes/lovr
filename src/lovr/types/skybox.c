@@ -16,12 +16,6 @@ Skybox* luax_checkskybox(lua_State* L, int index) {
   return *(Skybox**) luaL_checkudata(L, index, "Skybox");
 }
 
-int luax_destroyskybox(lua_State* L) {
-  Skybox* skybox = luax_checkskybox(L, 1);
-  lovrSkyboxDestroy(skybox);
-  return 0;
-}
-
 const luaL_Reg lovrSkybox[] = {
   { "draw", l_lovrSkyboxDraw },
   { NULL, NULL }

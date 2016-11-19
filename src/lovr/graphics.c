@@ -86,11 +86,11 @@ const luaL_Reg lovrGraphics[] = {
 int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
-  luaRegisterType(L, "Buffer", lovrBuffer, luax_destroybuffer);
-  luaRegisterType(L, "Model", lovrModel, luax_destroymodel);
-  luaRegisterType(L, "Shader", lovrShader, luax_destroyshader);
-  luaRegisterType(L, "Skybox", lovrSkybox, luax_destroyskybox);
-  luaRegisterType(L, "Texture", lovrTexture, luax_destroytexture);
+  luaRegisterType(L, "Buffer", lovrBuffer);
+  luaRegisterType(L, "Model", lovrModel);
+  luaRegisterType(L, "Shader", lovrShader);
+  luaRegisterType(L, "Skybox", lovrSkybox);
+  luaRegisterType(L, "Texture", lovrTexture);
 
   map_init(&BufferAttributeTypes);
   map_set(&BufferAttributeTypes, "float", BUFFER_FLOAT);
@@ -530,7 +530,7 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
   }
 
   vec_deinit(&format);
-  luax_pushbuffer(L, buffer);
+  luax_pushlovrtype(L, Buffer, buffer);
   return 1;
 }
 
@@ -617,7 +617,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     texture = lovrTextureCreate(data, size);
     free(data);
   } else {
-    Buffer* buffer = luax_checkbuffer(L, 1); // TODO don't error if it's not a buffer
+    Buffer* buffer = luax_checklovrtype(L, 1, Buffer); // TODO don't error if it's not a buffer
     texture = lovrTextureCreateFromBuffer(buffer);
   }
 

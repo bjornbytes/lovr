@@ -99,7 +99,7 @@ Headset* viveInit() {
   state->clipFar = 30.f;
   state->vrSystem->GetRecommendedRenderTargetSize(&state->renderWidth, &state->renderHeight);
 
-  Controller* leftController = malloc(sizeof(Controller));
+  Controller* leftController = lovrAlloc(sizeof(Controller), NULL);
   if (!leftController) {
     viveDestroy(this);
     return NULL;
@@ -108,7 +108,7 @@ Headset* viveInit() {
   state->controllers[CONTROLLER_HAND_LEFT] = leftController;
   state->controllerIndex[CONTROLLER_HAND_LEFT] = state->vrSystem->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
 
-  Controller* rightController = malloc(sizeof(Controller));
+  Controller* rightController = lovrAlloc(sizeof(Controller), NULL);
   if (!rightController) {
     viveDestroy(this);
     return NULL;
