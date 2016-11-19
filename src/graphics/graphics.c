@@ -24,10 +24,13 @@ void lovrGraphicsInit() {
 }
 
 void lovrGraphicsDestroy() {
+  lovrGraphicsSetShader(NULL);
+  glUseProgram(0);
+  lovrRelease(&state.defaultShader->ref);
   vec_deinit(&state.transforms);
   mat4_deinit(state.projection);
-  lovrShaderDestroy(&state.defaultShader->ref);
-  lovrShaderDestroy(&state.skyboxShader->ref);
+  lovrRelease(&state.defaultShader->ref);
+  lovrRelease(&state.skyboxShader->ref);
   glDeleteBuffers(1, &state.shapeBuffer);
   glDeleteBuffers(1, &state.shapeIndexBuffer);
   glDeleteVertexArrays(1, &state.shapeArray);
@@ -157,7 +160,15 @@ void lovrGraphicsSetShader(Shader* shader) {
     shader = state.defaultShader;
   }
 
-  state.activeShader = shader;
+  if (shader != state.activeShader) {
+    if (state.activeShader) {
+      lovrRelease(&state.activeShader->ref);
+    }
+
+    state.activeShader = shader;
+
+    lovrRetain(&state.activeShader->ref);
+  }
 }
 
 void lovrGraphicsSetProjection(float near, float far, float fov) {
