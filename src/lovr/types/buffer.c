@@ -69,32 +69,32 @@ const luaL_Reg lovrBuffer[] = {
 };
 
 int l_lovrBufferDraw(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   lovrBufferDraw(buffer);
   return 0;
 }
 
 int l_lovrBufferGetDrawMode(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   lua_pushstring(L, map_int_find(&BufferDrawModes, lovrBufferGetDrawMode(buffer)));
   return 1;
 }
 
 int l_lovrBufferSetDrawMode(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   BufferDrawMode* drawMode = (BufferDrawMode*) luax_checkenum(L, 2, &BufferDrawModes, "buffer draw mode");
   lovrBufferSetDrawMode(buffer, *drawMode);
   return 0;
 }
 
 int l_lovrBufferGetVertexCount(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   lua_pushnumber(L, lovrBufferGetVertexCount(buffer));
   return 1;
 }
 
 int l_lovrBufferGetVertex(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   int index = luaL_checkint(L, 2) - 1;
   void* vertex = lovrBufferGetScratchVertex(buffer);
   lovrBufferGetVertex(buffer, index, vertex);
@@ -103,7 +103,7 @@ int l_lovrBufferGetVertex(lua_State* L) {
 }
 
 int l_lovrBufferSetVertex(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   int index = luaL_checkint(L, 2) - 1;
   BufferFormat format = lovrBufferGetVertexFormat(buffer);
   void* vertex = lovrBufferGetScratchVertex(buffer);
@@ -182,7 +182,7 @@ int l_lovrBufferSetVertex(lua_State* L) {
 }
 
 int l_lovrBufferSetVertices(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   BufferFormat format = lovrBufferGetVertexFormat(buffer);
   luaL_checktype(L, 2, LUA_TTABLE);
   int vertexCount = lua_objlen(L, 2);
@@ -239,7 +239,7 @@ int l_lovrBufferSetVertices(lua_State* L) {
 }
 
 int l_lovrBufferGetVertexMap(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   int count;
   unsigned int* indices = lovrBufferGetVertexMap(buffer, &count);
 
@@ -258,7 +258,7 @@ int l_lovrBufferGetVertexMap(lua_State* L) {
 }
 
 int l_lovrBufferSetVertexMap(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
 
   if (lua_isnoneornil(L, 2)) {
     lovrBufferSetVertexMap(buffer, NULL, 0);
@@ -290,7 +290,7 @@ int l_lovrBufferSetVertexMap(lua_State* L) {
 }
 
 int l_lovrBufferGetDrawRange(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   if (!lovrBufferIsRangeEnabled(buffer)) {
     lua_pushnil(L);
     return 1;
@@ -304,7 +304,7 @@ int l_lovrBufferGetDrawRange(lua_State* L) {
 }
 
 int l_lovrBufferSetDrawRange(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   if (lua_isnoneornil(L, 2)) {
     lovrBufferSetRangeEnabled(buffer, 0);
     return 0;
@@ -321,13 +321,13 @@ int l_lovrBufferSetDrawRange(lua_State* L) {
 }
 
 int l_lovrBufferGetTexture(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   luax_pushtexture(L, lovrBufferGetTexture(buffer));
   return 1;
 }
 
 int l_lovrBufferSetTexture(lua_State* L) {
-  Buffer* buffer = luax_checklovrtype(L, 1, Buffer);
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
   Texture* texture = luax_checktexture(L, 2);
   lovrBufferSetTexture(buffer, texture);
   return 0;

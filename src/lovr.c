@@ -30,11 +30,11 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   lua_setglobal(L, "lovr");
 
   // Preload modules
-  luaPreloadModule(L, "lovr.event", l_lovrEventInit);
-  luaPreloadModule(L, "lovr.filesystem", l_lovrFilesystemInit);
-  luaPreloadModule(L, "lovr.graphics", l_lovrGraphicsInit);
-  luaPreloadModule(L, "lovr.headset", l_lovrHeadsetInit);
-  luaPreloadModule(L, "lovr.timer", l_lovrTimerInit);
+  luax_preloadmodule(L, "lovr.event", l_lovrEventInit);
+  luax_preloadmodule(L, "lovr.filesystem", l_lovrFilesystemInit);
+  luax_preloadmodule(L, "lovr.graphics", l_lovrGraphicsInit);
+  luax_preloadmodule(L, "lovr.headset", l_lovrHeadsetInit);
+  luax_preloadmodule(L, "lovr.timer", l_lovrTimerInit);
 
   // Bootstrap
   char buffer[2048];
