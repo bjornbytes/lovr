@@ -485,6 +485,7 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
   }
 
   Shader* lastShader = lovrGraphicsGetShader();
+  lovrRetain(&lastShader->ref);
   lovrGraphicsSetShader(state.skyboxShader);
 
   float cos2 = cos(angle / 2);
@@ -552,5 +553,6 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
   glDepthMask(GL_TRUE);
 
   lovrGraphicsSetShader(lastShader);
+  lovrRelease(&lastShader->ref);
   lovrGraphicsPop();
 }

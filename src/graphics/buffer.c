@@ -53,6 +53,9 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
 
 void lovrBufferDestroy(const Ref* ref) {
   Buffer* buffer = containerof(ref, Buffer);
+  if (buffer->texture) {
+    lovrRelease(&buffer->texture->ref);
+  }
   glDeleteBuffers(1, &buffer->vbo);
   glDeleteVertexArrays(1, &buffer->vao);
   vec_deinit(&buffer->map);
@@ -101,6 +104,8 @@ void lovrBufferDraw(Buffer* buffer) {
   // Set texture
   if (buffer->texture) {
     lovrTextureBind(buffer->texture);
+  } else {
+    glBindTexture(GL_TEXTURE_2D, 0);
   }
 
   // Determine range of vertices to be rendered and whether we're using an IBO or not
