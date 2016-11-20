@@ -32,6 +32,7 @@ typedef struct {
 typedef vec_t(BufferAttribute) BufferFormat;
 
 typedef struct Buffer {
+  Ref ref;
   int size;
   int stride;
   void* data;
@@ -51,7 +52,7 @@ typedef struct Buffer {
 #endif
 
 Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode, BufferUsage usage);
-void lovrBufferDestroy(Buffer* buffer);
+void lovrBufferDestroy(const Ref* ref);
 void lovrBufferDraw(Buffer* buffer);
 BufferFormat lovrBufferGetVertexFormat(Buffer* buffer);
 BufferDrawMode lovrBufferGetDrawMode(Buffer* buffer);

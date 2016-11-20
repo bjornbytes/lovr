@@ -1,6 +1,7 @@
 #include "glfw.h"
 #include "matrix.h"
 #include "vendor/map/map.h"
+#include "util.h"
 
 #ifndef LOVR_SHADER_TYPES
 #define LOVR_SHADER_TYPES
@@ -21,6 +22,7 @@ typedef struct {
 typedef map_t(Uniform) map_uniform_t;
 
 typedef struct {
+  Ref ref;
   int id;
   map_uniform_t uniforms;
   mat4 transform;
@@ -40,7 +42,7 @@ GLuint compileShader(GLuint type, const char* filename);
 GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader);
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
-void lovrShaderDestroy(Shader* shader);
+void lovrShaderDestroy(const Ref* ref);
 void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, unsigned int color, int force);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 int lovrShaderGetUniformId(Shader* shader, const char* name);

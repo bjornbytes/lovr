@@ -34,6 +34,7 @@ typedef struct ModelNode {
 } ModelNode;
 
 typedef struct {
+  Ref ref;
   ModelNode* root;
   vec_model_mesh_t meshes;
   int hasNormals;
@@ -42,4 +43,4 @@ typedef struct {
 #endif
 
 ModelData* lovrModelDataCreate(void* data, int size);
-void lovrModelDataDestroy(ModelData* modelData);
+void lovrModelDataDestroy(const Ref* ref);

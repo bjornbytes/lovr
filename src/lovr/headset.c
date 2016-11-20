@@ -34,7 +34,7 @@ const luaL_Reg lovrHeadset[] = {
 int l_lovrHeadsetInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
-  luaRegisterType(L, "Controller", lovrController, NULL);
+  luax_registertype(L, "Controller", lovrController);
 
   map_init(&ControllerHands);
   map_set(&ControllerHands, "left", CONTROLLER_HAND_LEFT);
@@ -161,7 +161,7 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 
 int l_lovrHeadsetGetController(lua_State* L) {
   ControllerHand* hand = (ControllerHand*) luax_checkenum(L, 1, &ControllerHands, "controller hand");
-  luax_pushcontroller(L, lovrHeadsetGetController(*hand));
+  luax_pushtype(L, Controller, lovrHeadsetGetController(*hand));
   return 1;
 }
 

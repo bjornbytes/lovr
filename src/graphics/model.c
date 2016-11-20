@@ -59,7 +59,7 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
 }
 
 Model* lovrModelCreate(void* data, int size) {
-  Model* model = malloc(sizeof(Model));
+  Model* model = lovrAlloc(sizeof(Model), lovrModelDestroy);
   if (!model) return NULL;
 
   model->modelData = lovrModelDataCreate(data, size);
@@ -98,9 +98,10 @@ Model* lovrModelCreate(void* data, int size) {
   return model;
 }
 
-void lovrModelDestroy(Model* model) {
-  lovrModelDataDestroy(model->modelData);
-  lovrBufferDestroy(model->buffer);
+void lovrModelDestroy(const Ref* ref) {
+  Model* model = containerof(ref, Model);
+  lovrRelease(&model->modelData->ref);
+  lovrRelease(&model->buffer->ref);
   free(model);
 }
 

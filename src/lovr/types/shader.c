@@ -1,34 +1,12 @@
 #include "lovr/types/shader.h"
 
-void luax_pushshader(lua_State* L, Shader* shader) {
-  if (shader == NULL) {
-    lua_pushnil(L);
-    return;
-  }
-
-  Shader** userdata = (Shader**) lua_newuserdata(L, sizeof(Shader*));
-  luaL_getmetatable(L, "Shader");
-  lua_setmetatable(L, -2);
-  *userdata = shader;
-}
-
-Shader* luax_checkshader(lua_State* L, int index) {
-  return *(Shader**) luaL_checkudata(L, index, "Shader");
-}
-
-int luax_destroyshader(lua_State* L) {
-  Shader* shader = luax_checkshader(L, 1);
-  lovrShaderDestroy(shader);
-  return 0;
-}
-
 const luaL_Reg lovrShader[] = {
   { "send", l_lovrShaderSend },
   { NULL, NULL }
 };
 
 int l_lovrShaderSend(lua_State* L) {
-  Shader* shader = luax_checkshader(L, 1);
+  Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
 
   int id = lovrShaderGetUniformId(shader, name);

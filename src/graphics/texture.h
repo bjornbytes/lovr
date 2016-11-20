@@ -1,4 +1,5 @@
 #include "glfw.h"
+#include "util.h"
 
 struct Buffer;
 
@@ -18,8 +19,9 @@ typedef enum {
 } WrapMode;
 
 typedef struct {
+  Ref ref;
   GLuint id;
-  GLuint buffer;
+  struct Buffer* buffer;
   int width;
   int height;
   FilterMode filterMin;
@@ -32,7 +34,7 @@ typedef struct {
 
 Texture* lovrTextureCreate(void* data, int size);
 Texture* lovrTextureCreateFromBuffer(struct Buffer* buffer);
-void lovrTextureDestroy(Texture* texture);
+void lovrTextureDestroy(const Ref* ref);
 void lovrTextureBind(Texture* texture);
 void lovrTextureRefresh(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);

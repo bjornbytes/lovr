@@ -99,7 +99,7 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
 }
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
-  Shader* shader = (Shader*) malloc(sizeof(Shader));
+  Shader* shader = lovrAlloc(sizeof(Shader), lovrShaderDestroy);
   if (!shader) return NULL;
 
   // Vertex
@@ -142,7 +142,8 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   return shader;
 }
 
-void lovrShaderDestroy(Shader* shader) {
+void lovrShaderDestroy(const Ref* ref) {
+  Shader* shader = containerof(ref, Shader);
   glDeleteProgram(shader->id);
   mat4_deinit(shader->transform);
   mat4_deinit(shader->projection);

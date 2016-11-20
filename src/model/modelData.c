@@ -92,7 +92,9 @@ ModelData* lovrModelDataCreate(void* data, int size) {
   return modelData;
 }
 
-void lovrModelDataDestroy(ModelData* modelData) {
+void lovrModelDataDestroy(const Ref* ref) {
+  ModelData* modelData = containerof(ref, ModelData);
+
   for (int i = 0; i < modelData->meshes.length; i++) {
     ModelMesh* mesh = modelData->meshes.data[i];
 

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode, BufferUsage usage) {
-  Buffer* buffer = malloc(sizeof(Buffer));
+  Buffer* buffer = lovrAlloc(sizeof(Buffer), lovrBufferDestroy);
   if (!buffer) return NULL;
 
   vec_init(&buffer->map);
@@ -51,7 +51,11 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
   return buffer;
 }
 
-void lovrBufferDestroy(Buffer* buffer) {
+void lovrBufferDestroy(const Ref* ref) {
+  Buffer* buffer = containerof(ref, Buffer);
+  if (buffer->texture) {
+    lovrRelease(&buffer->texture->ref);
+  }
   glDeleteBuffers(1, &buffer->vbo);
   glDeleteVertexArrays(1, &buffer->vao);
   vec_deinit(&buffer->map);
@@ -100,6 +104,8 @@ void lovrBufferDraw(Buffer* buffer) {
   // Set texture
   if (buffer->texture) {
     lovrTextureBind(buffer->texture);
+  } else {
+    glBindTexture(GL_TEXTURE_2D, 0);
   }
 
   // Determine range of vertices to be rendered and whether we're using an IBO or not
@@ -216,5 +222,13 @@ Texture* lovrBufferGetTexture(Buffer* buffer) {
 }
 
 void lovrBufferSetTexture(Buffer* buffer, Texture* texture) {
+  if (buffer->texture) {
+    lovrRelease(&buffer->texture->ref);
+  }
+
   buffer->texture = texture;
+
+  if (buffer->texture) {
+    lovrRetain(&buffer->texture->ref);
+  }
 }

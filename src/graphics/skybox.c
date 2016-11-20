@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 Skybox* lovrSkyboxCreate(void** data, int* size) {
-  Skybox* skybox = malloc(sizeof(Skybox));
+  Skybox* skybox = lovrAlloc(sizeof(Skybox), lovrSkyboxDestroy);
   if (!skybox) return NULL;
 
   glGenTextures(1, &skybox->texture);
@@ -30,7 +30,8 @@ Skybox* lovrSkyboxCreate(void** data, int* size) {
   return skybox;
 }
 
-void lovrSkyboxDestroy(Skybox* skybox) {
+void lovrSkyboxDestroy(const Ref* ref) {
+  Skybox* skybox = containerof(ref, Skybox);
   glDeleteTextures(1, &skybox->texture);
   free(skybox);
 }

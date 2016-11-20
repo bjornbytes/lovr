@@ -18,7 +18,34 @@ unsigned char* loadImage(void* data, size_t size, int* w, int* h, int* n, int ch
   return stbi_load_from_memory(data, size, w, h, n, channels);
 }
 
-int luaPreloadModule(lua_State* L, const char* key, lua_CFunction f) {
+// Returns a key that maps to value or NULL if the value is not in the map
+const char* map_int_find(map_int_t* map, int value) {
+  const char* key;
+  map_iter_t iter = map_iter(map);
+  while ((key = map_next(map, &iter))) {
+    if (*map_get(map, key) == value) {
+      return key;
+    }
+  }
+  return NULL;
+}
+
+void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref)) {
+  void* object = malloc(size);
+  if (!object) return NULL;
+  *((Ref*) object) = (Ref) { destructor, 1 };
+  return object;
+}
+
+void lovrRetain(const Ref* ref) {
+  ((Ref*) ref)->count++;
+}
+
+void lovrRelease(const Ref* ref) {
+  if (--((Ref*) ref)->count == 0 && ref->free) ref->free(ref);
+}
+
+int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f) {
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "preload");
   lua_pushcfunction(L, f);
@@ -27,23 +54,7 @@ int luaPreloadModule(lua_State* L, const char* key, lua_CFunction f) {
   return 0;
 }
 
-void luaRegisterModule(lua_State* L, const char* name, const luaL_Reg* module) {
-
-  // Get reference to lovr
-  lua_getglobal(L, "lovr");
-
-  // Create a table and fill it with the module functions
-  lua_newtable(L);
-  luaL_register(L, NULL, module);
-
-  // lovr[name] = module
-  lua_setfield(L, -2, name);
-
-  // Pop lovr
-  lua_pop(L, 1);
-}
-
-void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions, lua_CFunction gc) {
+void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions) {
 
   // Push metatable
   luaL_newmetatable(L, name);
@@ -54,10 +65,8 @@ void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions, 
   lua_setfield(L, -1, "__index");
 
   // m.__gc = gc
-  if (gc) {
-    lua_pushcfunction(L, gc);
-    lua_setfield(L, -2, "__gc");
-  }
+  lua_pushcfunction(L, luax_releasetype);
+  lua_setfield(L, -2, "__gc");
 
   // m.name = name
   lua_pushstring(L, name);
@@ -72,16 +81,9 @@ void luaRegisterType(lua_State* L, const char* name, const luaL_Reg* functions, 
   lua_pop(L, 1);
 }
 
-// Returns a key that maps to value or NULL if the value is not in the map
-const char* map_int_find(map_int_t* map, int value) {
-  const char* key;
-  map_iter_t iter = map_iter(map);
-  while ((key = map_next(map, &iter))) {
-    if (*map_get(map, key) == value) {
-      return key;
-    }
-  }
-  return NULL;
+int luax_releasetype(lua_State* L) {
+  lovrRelease(*(Ref**) lua_touserdata(L, 1));
+  return 0;
 }
 
 void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName) {

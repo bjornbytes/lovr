@@ -86,11 +86,11 @@ const luaL_Reg lovrGraphics[] = {
 int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
-  luaRegisterType(L, "Buffer", lovrBuffer, luax_destroybuffer);
-  luaRegisterType(L, "Model", lovrModel, luax_destroymodel);
-  luaRegisterType(L, "Shader", lovrShader, luax_destroyshader);
-  luaRegisterType(L, "Skybox", lovrSkybox, luax_destroyskybox);
-  luaRegisterType(L, "Texture", lovrTexture, luax_destroytexture);
+  luax_registertype(L, "Buffer", lovrBuffer);
+  luax_registertype(L, "Model", lovrModel);
+  luax_registertype(L, "Shader", lovrShader);
+  luax_registertype(L, "Skybox", lovrSkybox);
+  luax_registertype(L, "Texture", lovrTexture);
 
   map_init(&BufferAttributeTypes);
   map_set(&BufferAttributeTypes, "float", BUFFER_FLOAT);
@@ -248,12 +248,12 @@ int l_lovrGraphicsSetScissor(lua_State* L) {
 }
 
 int l_lovrGraphicsGetShader(lua_State* L) {
-  luax_pushshader(L, lovrGraphicsGetShader());
+  luax_pushtype(L, Shader, lovrGraphicsGetShader());
   return 1;
 }
 
 int l_lovrGraphicsSetShader(lua_State* L) {
-  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checkshader(L, 1);
+  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Shader);
   lovrGraphicsSetShader(shader);
   return 0;
 }
@@ -530,7 +530,7 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
   }
 
   vec_deinit(&format);
-  luax_pushbuffer(L, buffer);
+  luax_pushtype(L, Buffer, buffer);
   return 1;
 }
 
@@ -542,7 +542,7 @@ int l_lovrGraphicsNewModel(lua_State* L) {
     return luaL_error(L, "Could not load model file '%s'", path);
   }
 
-  luax_pushmodel(L, lovrModelCreate(data, size));
+  luax_pushtype(L, Model, lovrModelCreate(data, size));
   free(data);
   return 1;
 }
@@ -564,7 +564,7 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 
   const char* vertexSource = lua_tostring(L, 1);
   const char* fragmentSource = lua_tostring(L, 2);
-  luax_pushshader(L, lovrShaderCreate(vertexSource, fragmentSource));
+  luax_pushtype(L, Shader, lovrShaderCreate(vertexSource, fragmentSource));
   return 1;
 }
 
@@ -595,7 +595,7 @@ int l_lovrGraphicsNewSkybox(lua_State* L) {
     }
   }
 
-  luax_pushskybox(L, lovrSkyboxCreate(data, size));
+  luax_pushtype(L, Skybox, lovrSkyboxCreate(data, size));
 
   for (int i = 0; i < 6; i++) {
     free(data[i]);
@@ -617,11 +617,11 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     texture = lovrTextureCreate(data, size);
     free(data);
   } else {
-    Buffer* buffer = luax_checkbuffer(L, 1); // TODO don't error if it's not a buffer
+    Buffer* buffer = luax_checktype(L, 1, Buffer); // TODO don't error if it's not a buffer
     texture = lovrTextureCreateFromBuffer(buffer);
   }
 
-  luax_pushtexture(L, texture);
+  luax_pushtype(L, Texture, texture);
   return 1;
 }
 
