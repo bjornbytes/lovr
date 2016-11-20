@@ -13,9 +13,9 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
   if (format) {
     vec_extend(&buffer->format, format);
   } else {
-    BufferAttribute position = { .name = "position", .type = BUFFER_FLOAT, .size = 3 };
-    BufferAttribute normal = { .name = "normal", .type = BUFFER_FLOAT, .size = 3 };
-    BufferAttribute texCoord = { .name = "texCoord", .type = BUFFER_FLOAT, .size = 2 };
+    BufferAttribute position = { .name = "position", .type = BUFFER_FLOAT, .count = 3 };
+    BufferAttribute normal = { .name = "normal", .type = BUFFER_FLOAT, .count = 3 };
+    BufferAttribute texCoord = { .name = "texCoord", .type = BUFFER_FLOAT, .count = 2 };
     vec_push(&buffer->format, position);
     vec_push(&buffer->format, normal);
     vec_push(&buffer->format, texCoord);
@@ -25,7 +25,7 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
   int i;
   BufferAttribute attribute;
   vec_foreach(&buffer->format, attribute, i) {
-    stride += attribute.size * sizeof(attribute.type);
+    stride += attribute.count * sizeof(attribute.type);
   }
 
   buffer->size = size;
@@ -92,12 +92,12 @@ void lovrBufferDraw(Buffer* buffer) {
       if (location >= 0) {
         glEnableVertexAttribArray(location);
         if (attribute.type == BUFFER_INT) {
-          glVertexAttribIPointer(location, attribute.size, attribute.type, buffer->stride, (void*) offset);
+          glVertexAttribIPointer(location, attribute.count, attribute.type, buffer->stride, (void*) offset);
         } else {
-          glVertexAttribPointer(location, attribute.size, attribute.type, GL_FALSE, buffer->stride, (void*) offset);
+          glVertexAttribPointer(location, attribute.count, attribute.type, GL_FALSE, buffer->stride, (void*) offset);
         }
       }
-      offset += sizeof(attribute.type) * attribute.size;
+      offset += sizeof(attribute.type) * attribute.count;
     }
   }
 

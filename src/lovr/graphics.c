@@ -489,7 +489,7 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
       BufferAttribute attribute;
 
       vec_foreach(&format, attribute, j) {
-        for (int k = 0; k < attribute.size; k++) {
+        for (int k = 0; k < attribute.count; k++) {
           if (attribute.type == BUFFER_FLOAT) {
             float value = 0.f;
             if (tableIndex <= tableCount) {

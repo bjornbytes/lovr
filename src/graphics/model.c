@@ -76,11 +76,11 @@ Model* lovrModelCreate(void* data, int size) {
   BufferFormat format;
   vec_init(&format);
 
-  BufferAttribute position = { .name = "position", .type = BUFFER_FLOAT, .size = 3 };
+  BufferAttribute position = { .name = "position", .type = BUFFER_FLOAT, .count = 3 };
   vec_push(&format, position);
 
   if (model->modelData->hasNormals) {
-    BufferAttribute normal = { .name = "normal", .type = BUFFER_FLOAT, .size = 3 };
+    BufferAttribute normal = { .name = "normal", .type = BUFFER_FLOAT, .count = 3 };
     vec_push(&format, normal);
   }
 

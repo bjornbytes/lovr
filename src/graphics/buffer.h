@@ -26,7 +26,7 @@ typedef enum {
 typedef struct {
   const char* name;
   BufferAttributeType type;
-  int size;
+  int count;
 } BufferAttribute;
 
 typedef vec_t(BufferAttribute) BufferFormat;

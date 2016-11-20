@@ -7,7 +7,7 @@ static int luax_pushbuffervertex(lua_State* L, void* vertex, BufferFormat format
   int i;
   BufferAttribute attribute;
   vec_foreach(&format, attribute, i) {
-    for (int j = 0; j < attribute.size; j++) {
+    for (int j = 0; j < attribute.count; j++) {
       if (attribute.type == BUFFER_FLOAT) {
         lua_pushnumber(L, *((float*)vertex));
         vertex = (char*) vertex + sizeof(float);
@@ -44,8 +44,8 @@ void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format) {
 
     const char* name = lua_tostring(L, -3);
     BufferAttributeType* type = (BufferAttributeType*) luax_checkenum(L, -2, &BufferAttributeTypes, "buffer attribute type");
-    int size = lua_tointeger(L, -1);
-    BufferAttribute attribute = { .name = name, .type = *type, .size = size };
+    int count = lua_tointeger(L, -1);
+    BufferAttribute attribute = { .name = name, .type = *type, .count = count };
     vec_push(format, attribute);
     lua_pop(L, 4);
   }
@@ -120,7 +120,7 @@ int l_lovrBufferSetVertex(lua_State* L) {
     BufferAttribute attribute;
 
     vec_foreach(&format, attribute, i) {
-      for (int j = 0; j < attribute.size; j++) {
+      for (int j = 0; j < attribute.count; j++) {
         if (attribute.type == BUFFER_FLOAT) {
           float value = 0.f;
           if (tableIndex <= tableCount) {
@@ -162,7 +162,7 @@ int l_lovrBufferSetVertex(lua_State* L) {
     BufferAttribute attribute;
 
     vec_foreach(&format, attribute, i) {
-      for (int j = 0; j < attribute.size; j++) {
+      for (int j = 0; j < attribute.count; j++) {
         if (attribute.type == BUFFER_FLOAT) {
           *((float*) v) = argumentIndex <= argumentCount ? lua_tonumber(L, argumentIndex++) : 0.f;
           v = (char*) v + sizeof(float);
@@ -196,7 +196,7 @@ int l_lovrBufferSetVertices(lua_State* L) {
     int j;
     BufferAttribute attribute;
     vec_foreach(&format, attribute, j) {
-      for (int k = 0; k < attribute.size; k++) {
+      for (int k = 0; k < attribute.count; k++) {
         if (attribute.type == BUFFER_FLOAT) {
           float value = 0.f;
           if (attributeIndex <= attributeCount) {
