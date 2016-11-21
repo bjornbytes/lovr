@@ -34,6 +34,8 @@ const luaL_Reg lovrBuffer[] = {
   { "getVertexCount", l_lovrBufferGetVertexCount },
   { "getVertex", l_lovrBufferGetVertex },
   { "setVertex", l_lovrBufferSetVertex },
+  { "getVertexAttribute", l_lovrBufferGetVertexAttribute },
+  { "setVertexAttribute", l_lovrBufferSetVertexAttribute },
   { "setVertices", l_lovrBufferSetVertices },
   { "getVertexMap", l_lovrBufferGetVertexMap },
   { "setVertexMap", l_lovrBufferSetVertexMap },
@@ -129,6 +131,75 @@ int l_lovrBufferSetVertex(lua_State* L) {
   }
 
   lovrBufferSetVertex(buffer, index, lovrBufferGetScratchVertex(buffer));
+  return 0;
+}
+
+int l_lovrBufferGetVertexAttribute(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  int vertexIndex = luaL_checkint(L, 2) - 1;
+  int attributeIndex = luaL_checkint(L, 3) - 1;
+  char* vertex = lovrBufferGetScratchVertex(buffer);
+  lovrBufferGetVertex(buffer, vertexIndex, vertex);
+  BufferFormat format = lovrBufferGetVertexFormat(buffer);
+
+  if (vertexIndex < 0 || vertexIndex >= buffer->size) {
+    return luaL_error(L, "Invalid buffer vertex index: %d", vertexIndex + 1);
+  } else if (attributeIndex < 0 || attributeIndex >= format.length) {
+    return luaL_error(L, "Invalid buffer attribute index: %d", attributeIndex + 1);
+  }
+
+  BufferAttribute attribute;
+  for (int i = 0; i <= attributeIndex; i++) {
+    attribute = format.data[i];
+    if (i == attributeIndex) {
+      for (int j = 0; j < attribute.count; j++) {
+        switch (attribute.type) {
+          case BUFFER_FLOAT: lua_pushnumber(L, *((float*) vertex)); break;
+          case BUFFER_BYTE: lua_pushinteger(L, *((unsigned char*) vertex)); break;
+          case BUFFER_INT: lua_pushinteger(L, *((int*) vertex)); break;
+        }
+        vertex += sizeof(attribute.type);
+      }
+    } else {
+      vertex += attribute.count * sizeof(attribute.type);
+    }
+  }
+
+  return attribute.count;
+}
+
+int l_lovrBufferSetVertexAttribute(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  int vertexIndex = luaL_checkint(L, 2) - 1;
+  int attributeIndex = luaL_checkint(L, 3) - 1;
+  char* vertex = lovrBufferGetScratchVertex(buffer);
+  lovrBufferGetVertex(buffer, vertexIndex, vertex);
+  BufferFormat format = lovrBufferGetVertexFormat(buffer);
+
+  if (vertexIndex < 0 || vertexIndex >= buffer->size) {
+    return luaL_error(L, "Invalid buffer vertex index: %d", vertexIndex + 1);
+  } else if (attributeIndex < 0 || attributeIndex >= format.length) {
+    return luaL_error(L, "Invalid buffer attribute index: %d", attributeIndex + 1);
+  }
+
+  int arg = 4;
+  for (int i = 0; i <= attributeIndex; i++) {
+    BufferAttribute attribute = format.data[i];
+    if (i == attributeIndex) {
+      for (int j = 0; j < attribute.count; j++) {
+        switch (attribute.type) {
+          case BUFFER_FLOAT: *((float*) vertex) = luaL_optnumber(L, arg++, 0.f); break;
+          case BUFFER_BYTE: *((unsigned char*) vertex) = luaL_optint(L, arg++, 255); break;
+          case BUFFER_INT: *((int*) vertex) = luaL_optint(L, arg++, 0); break;
+        }
+        vertex += sizeof(attribute.type);
+      }
+    } else {
+      vertex += attribute.count * sizeof(attribute.type);
+    }
+  }
+
+  lovrBufferSetVertex(buffer, vertexIndex, lovrBufferGetScratchVertex(buffer));
   return 0;
 }
 
