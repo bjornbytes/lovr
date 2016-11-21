@@ -2,28 +2,6 @@
 #include "lovr/types/texture.h"
 #include "lovr/graphics.h"
 
-static int luax_pushbuffervertex(lua_State* L, void* vertex, BufferFormat format) {
-  int count = 0;
-  int i;
-  BufferAttribute attribute;
-  vec_foreach(&format, attribute, i) {
-    for (int j = 0; j < attribute.count; j++) {
-      if (attribute.type == BUFFER_FLOAT) {
-        lua_pushnumber(L, *((float*)vertex));
-        vertex = (char*) vertex + sizeof(float);
-      } else if (attribute.type == BUFFER_BYTE) {
-        lua_pushnumber(L, *((unsigned char*)vertex));
-        vertex = (char*) vertex + sizeof(unsigned char);
-      } else if (attribute.type == BUFFER_INT) {
-        lua_pushnumber(L, *((int*)vertex));
-        vertex = (char*) vertex + sizeof(int);
-      }
-      count++;
-    }
-  }
-  return count;
-}
-
 void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format) {
   if (!lua_istable(L, index)) {
     return;
@@ -96,88 +74,61 @@ int l_lovrBufferGetVertexCount(lua_State* L) {
 int l_lovrBufferGetVertex(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   int index = luaL_checkint(L, 2) - 1;
-  void* vertex = lovrBufferGetScratchVertex(buffer);
+  char* vertex = lovrBufferGetScratchVertex(buffer);
   lovrBufferGetVertex(buffer, index, vertex);
   BufferFormat format = lovrBufferGetVertexFormat(buffer);
-  return luax_pushbuffervertex(L, vertex, format);
+
+  int total = 0;
+  for (int i = 0; i < format.length; i++) {
+    BufferAttribute attribute = format.data[i];
+    total += attribute.count;
+    for (int j = 0; j < attribute.count; j++) {
+      switch (attribute.type) {
+        case BUFFER_FLOAT: lua_pushnumber(L, *((float*) vertex)); break;
+        case BUFFER_BYTE: lua_pushnumber(L, *((unsigned char*) vertex)); break;
+        case BUFFER_INT: lua_pushnumber(L, *((int*) vertex)); break;
+      }
+
+      vertex += sizeof(attribute.type);
+    }
+  }
+
+  return total;
 }
 
 int l_lovrBufferSetVertex(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   int index = luaL_checkint(L, 2) - 1;
   BufferFormat format = lovrBufferGetVertexFormat(buffer);
-  void* vertex = lovrBufferGetScratchVertex(buffer);
+  char* vertex = lovrBufferGetScratchVertex(buffer);
 
   if (index < 0 || index >= buffer->size) {
     return luaL_error(L, "Invalid buffer vertex index: %d", index + 1);
   }
 
+  // Unwrap table
+  int arg = 3;
   if (lua_istable(L, 3)) {
-    int tableCount = lua_objlen(L, 3);
-    int tableIndex = 1;
-    void* v = vertex;
-    int i;
-    BufferAttribute attribute;
-
-    vec_foreach(&format, attribute, i) {
-      for (int j = 0; j < attribute.count; j++) {
-        if (attribute.type == BUFFER_FLOAT) {
-          float value = 0.f;
-          if (tableIndex <= tableCount) {
-            lua_rawgeti(L, 3, tableIndex++);
-            value = lua_tonumber(L, -1);
-            lua_pop(L, 1);
-          }
-
-          *((float*) v) = value;
-          v = (char*) v + sizeof(float);
-        } else if (attribute.type == BUFFER_BYTE) {
-          unsigned char value = 255;
-          if (tableIndex <= tableCount) {
-            lua_rawgeti(L, 3, tableIndex++);
-            value = lua_tointeger(L, -1);
-            lua_pop(L, 1);
-          }
-
-          *((unsigned char*) v) = value;
-          v = (char*) v + sizeof(unsigned char);
-        } else if (attribute.type == BUFFER_INT) {
-          unsigned char value = 0;
-          if (tableIndex <= tableCount) {
-            lua_rawgeti(L, 3, tableIndex++);
-            value = lua_tointeger(L, -1);
-            lua_pop(L, 1);
-          }
-
-          *((int*) v) = value;
-          v = (char*) v + sizeof(int);
-        }
-      }
-    }
-  } else {
-    int argumentCount = lua_gettop(L);
-    int argumentIndex = 3;
-    void* v = vertex;
-    int i;
-    BufferAttribute attribute;
-
-    vec_foreach(&format, attribute, i) {
-      for (int j = 0; j < attribute.count; j++) {
-        if (attribute.type == BUFFER_FLOAT) {
-          *((float*) v) = argumentIndex <= argumentCount ? lua_tonumber(L, argumentIndex++) : 0.f;
-          v = (char*) v + sizeof(float);
-        } else if (attribute.type == BUFFER_BYTE) {
-          *((char*) v) = argumentIndex <= argumentCount ? lua_tointeger(L, argumentIndex++) : 255;
-          v = (char*) v + sizeof(char);
-        } else if (attribute.type == BUFFER_INT) {
-          *((int*) v) = argumentIndex <= argumentCount ? lua_tointeger(L, argumentIndex++) : 0;
-          v = (char*) v + sizeof(int);
-        }
-      }
+    arg++;
+    for (size_t i = 0; i < lua_objlen(L, 3); i++) {
+      lua_rawgeti(L, 3, i + 1);
     }
   }
 
-  lovrBufferSetVertex(buffer, index, vertex);
+  for (int i = 0; i < format.length; i++) {
+    BufferAttribute attribute = format.data[i];
+    for (int j = 0; j < attribute.count; j++) {
+      switch (attribute.type) {
+        case BUFFER_FLOAT: *((float*) vertex) = luaL_optnumber(L, arg++, 0.f); break;
+        case BUFFER_BYTE: *((unsigned char*) vertex) = luaL_optint(L, arg++, 255); break;
+        case BUFFER_INT: *((int*) vertex) = luaL_optint(L, arg++, 0); break;
+      }
+
+      vertex += sizeof(attribute.type);
+    }
+  }
+
+  lovrBufferSetVertex(buffer, index, lovrBufferGetScratchVertex(buffer));
   return 0;
 }
 
@@ -186,55 +137,30 @@ int l_lovrBufferSetVertices(lua_State* L) {
   BufferFormat format = lovrBufferGetVertexFormat(buffer);
   luaL_checktype(L, 2, LUA_TTABLE);
   int vertexCount = lua_objlen(L, 2);
-  char vertices[buffer->stride * vertexCount];
-  char* v = vertices;
+  char* vertices = malloc(buffer->stride * vertexCount);
+  char* vertex = vertices;
 
   for (int i = 0; i < vertexCount; i++) {
     lua_rawgeti(L, 2, i + 1);
-    int attributeCount = lua_objlen(L, -1);
-    int attributeIndex = 1;
-    int j;
-    BufferAttribute attribute;
-    vec_foreach(&format, attribute, j) {
+    int component = 0;
+    for (int j = 0; j < format.length; j++) {
+      BufferAttribute attribute = format.data[j];
       for (int k = 0; k < attribute.count; k++) {
-        if (attribute.type == BUFFER_FLOAT) {
-          float value = 0.f;
-          if (attributeIndex <= attributeCount) {
-            lua_rawgeti(L, -1, attributeIndex++);
-            value = lua_tonumber(L, -1);
-            lua_pop(L, 1);
-          }
-
-          *((float*) v) = value;
-          v = (char*) v + sizeof(float);
-        } else if (attribute.type == BUFFER_BYTE) {
-          unsigned char value = 255;
-          if (attributeIndex <= attributeCount) {
-            lua_rawgeti(L, -1, attributeIndex++);
-            value = lua_tointeger(L, -1);
-            lua_pop(L, 1);
-          }
-
-          *((unsigned char*) v) = value;
-          v = (char*) v + sizeof(unsigned char);
-        } else if (attribute.type == BUFFER_INT) {
-          int value = 0;
-          if (attributeIndex <= attributeCount) {
-            lua_rawgeti(L, -1, attributeIndex++);
-            value = lua_tointeger(L, -1);
-            lua_pop(L, 1);
-          }
-
-          *((int*) v) = value;
-          v = (char*) v + sizeof(int);
+        lua_rawgeti(L, -1, ++component);
+        switch (attribute.type) {
+          case BUFFER_FLOAT: *((float*) vertex) = luaL_optnumber(L, -1, 0.f); break;
+          case BUFFER_BYTE: *((unsigned char*) vertex) = luaL_optint(L, -1, 255); break;
+          case BUFFER_INT: *((int*) vertex) = luaL_optint(L, -1, 0); break;
         }
+        vertex += sizeof(attribute.type);
+        lua_pop(L, 1);
       }
     }
-
     lua_pop(L, 1);
   }
 
   lovrBufferSetVertices(buffer, vertices, buffer->stride * vertexCount);
+  free(vertices);
   return 0;
 }
 
