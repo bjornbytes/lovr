@@ -305,12 +305,7 @@ int l_lovrGraphicsGetPolygonWinding(lua_State* L) {
 }
 
 int l_lovrGraphicsSetPolygonWinding(lua_State* L) {
-  const char* userWinding = luaL_checkstring(L, 1);
-  PolygonWinding* winding = (PolygonWinding*) map_get(&PolygonWindings, userWinding);
-  if (!winding) {
-    return luaL_error(L, "Invalid winding: '%s'", userWinding);
-  }
-
+  PolygonWinding* winding = (PolygonWinding*) luax_checkenum(L, 1, &PolygonWindings, "winding direction");
   lovrGraphicsSetPolygonWinding(*winding);
   return 0;
 }
@@ -400,12 +395,7 @@ int l_lovrGraphicsTriangle(lua_State* L) {
 }
 
 int l_lovrGraphicsPlane(lua_State* L) {
-  const char* userDrawMode = luaL_checkstring(L, 1);
-  DrawMode* drawMode = (DrawMode*) map_get(&DrawModes, userDrawMode);
-  if (!drawMode) {
-    return luaL_error(L, "Invalid draw mode: '%s'", userDrawMode);
-  }
-
+  DrawMode* drawMode = luax_checkenum(L, 1, &DrawModes, "draw mode");
   float x = luaL_optnumber(L, 2, 0.f);
   float y = luaL_optnumber(L, 3, 0.f);
   float z = luaL_optnumber(L, 4, 0.f);
@@ -418,12 +408,7 @@ int l_lovrGraphicsPlane(lua_State* L) {
 }
 
 int l_lovrGraphicsCube(lua_State* L) {
-  const char* userDrawMode = luaL_checkstring(L, 1);
-  DrawMode* drawMode = (DrawMode*) map_get(&DrawModes, userDrawMode);
-  if (!drawMode) {
-    return luaL_error(L, "Invalid draw mode: '%s'", userDrawMode);
-  }
-
+  DrawMode* drawMode = luax_checkenum(L, 1, &DrawModes, "draw mode");
   float x = luaL_optnumber(L, 2, 0.f);
   float y = luaL_optnumber(L, 3, 0.f);
   float z = luaL_optnumber(L, 4, 0.f);
