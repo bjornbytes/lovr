@@ -89,6 +89,7 @@ void lovrGraphicsDrawLinedShape(GLenum mode);
 void lovrGraphicsDrawFilledShape();
 void lovrGraphicsPoints(float* points, int count);
 void lovrGraphicsLine(float* points, int count);
+void lovrGraphicsTriangle(DrawMode mode, float* points);
 void lovrGraphicsPlane(DrawMode mode, float x, float y, float z, float size, float nx, float ny, float nz);
 void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ);
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az);

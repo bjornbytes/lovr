@@ -17,7 +17,7 @@ static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
     return;
   }
 
-  int count = isTable ? lua_objlen(L, index) : lua_gettop(L);
+  int count = isTable ? lua_objlen(L, index) : lua_gettop(L) - index + 1;
   if (count % 3 != 0) {
     vec_deinit(points);
     luaL_error(L, "Number of coordinates must be a multiple of 3, got '%d'", count);
@@ -70,6 +70,7 @@ const luaL_Reg lovrGraphics[] = {
   { "scale", l_lovrGraphicsScale },
   { "points", l_lovrGraphicsPoints },
   { "line", l_lovrGraphicsLine },
+  { "triangle", l_lovrGraphicsTriangle },
   { "plane", l_lovrGraphicsPlane },
   { "cube", l_lovrGraphicsCube },
   { "getWidth", l_lovrGraphicsGetWidth },
@@ -380,6 +381,20 @@ int l_lovrGraphicsLine(lua_State* L) {
   vec_init(&points);
   luax_readvertices(L, 1, &points);
   lovrGraphicsLine(points.data, points.length);
+  vec_deinit(&points);
+  return 0;
+}
+
+int l_lovrGraphicsTriangle(lua_State* L) {
+  DrawMode* drawMode = (DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  int top = lua_gettop(L);
+  if (top != 10) {
+    return luaL_error(L, "Expected 9 coordinates to make a triangle, got %d values", top - 1);
+  }
+  vec_float_t points;
+  vec_init(&points);
+  luax_readvertices(L, 2, &points);
+  lovrGraphicsTriangle(*drawMode, points.data);
   vec_deinit(&points);
   return 0;
 }

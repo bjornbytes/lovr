@@ -355,6 +355,28 @@ void lovrGraphicsLine(float* points, int count) {
   lovrGraphicsDrawLinedShape(GL_LINE_STRIP);
 }
 
+void lovrGraphicsTriangle(DrawMode mode, float* points) {
+  if (mode == DRAW_MODE_LINE) {
+    lovrGraphicsSetShapeData(points, 9, NULL, 0);
+    lovrGraphicsDrawLinedShape(GL_LINE_LOOP);
+  } else {
+    float n[3] = {
+      points[1] * points[5] - points[2] * points[4],
+      points[2] * points[3] - points[0] * points[5],
+      points[0] * points[4] - points[1] * points[3]
+    };
+
+    float data[18] = {
+      points[0], points[1], points[2], n[0], n[1], n[2],
+      points[3], points[4], points[5], n[0], n[1], n[2],
+      points[6], points[7], points[8], n[0], n[1], n[2]
+    };
+
+    lovrGraphicsSetShapeData(data, 18, NULL, 0);
+    lovrGraphicsDrawFilledShape();
+  }
+}
+
 void lovrGraphicsPlane(DrawMode mode, float x, float y, float z, float size, float nx, float ny, float nz) {
 
   // Normalize the normal vector
