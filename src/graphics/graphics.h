@@ -58,12 +58,15 @@ typedef struct {
 
 #endif
 
+// Base
 void lovrGraphicsInit();
 void lovrGraphicsDestroy();
 void lovrGraphicsReset();
 void lovrGraphicsClear(int color, int depth);
 void lovrGraphicsPresent();
 void lovrGraphicsPrepare();
+
+// State
 void lovrGraphicsGetBackgroundColor(float* r, float* g, float* b, float* a);
 void lovrGraphicsSetBackgroundColor(float r, float g, float b, float a);
 void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
@@ -90,6 +93,10 @@ CompareMode lovrGraphicsGetDepthTest();
 void lovrGraphicsSetDepthTest(CompareMode depthTest);
 int lovrGraphicsIsWireframe();
 void lovrGraphicsSetWireframe(int wireframe);
+int lovrGraphicsGetWidth();
+int lovrGraphicsGetHeight();
+
+// Transforms
 int lovrGraphicsPush();
 int lovrGraphicsPop();
 void lovrGraphicsOrigin();
@@ -98,8 +105,8 @@ void lovrGraphicsRotate(float w, float x, float y, float z);
 void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az);
 void lovrGraphicsMatrixTransform(mat4 transform);
-int lovrGraphicsGetWidth();
-int lovrGraphicsGetHeight();
+
+// Primitives
 void lovrGraphicsSetShapeData(float* data, int dataCount, unsigned int* indices, int indicesCount);
 void lovrGraphicsDrawLinedShape(GLenum mode);
 void lovrGraphicsDrawFilledShape();

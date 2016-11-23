@@ -10,6 +10,8 @@
 
 static GraphicsState state;
 
+// Base
+
 void lovrGraphicsInit() {
   vec_init(&state.transforms);
   state.projection = mat4_init();
@@ -85,6 +87,8 @@ void lovrGraphicsPrepare() {
   Shader* shader = lovrGraphicsGetShader();
   lovrShaderBind(shader, vec_last(&state.transforms), state.projection, state.color, 0);
 }
+
+// State
 
 void lovrGraphicsGetBackgroundColor(float* r, float* g, float* b, float* a) {
   GLfloat clearColor[4];
@@ -245,6 +249,20 @@ void lovrGraphicsSetWireframe(int wireframe) {
   }
 }
 
+int lovrGraphicsGetWidth() {
+  int width;
+  glfwGetFramebufferSize(window, &width, NULL);
+  return width;
+}
+
+int lovrGraphicsGetHeight() {
+  int height;
+  glfwGetFramebufferSize(window, NULL, &height);
+  return height;
+}
+
+// Transforms
+
 int lovrGraphicsPush() {
   vec_mat4_t* transforms = &state.transforms;
   if (transforms->length >= 64) { return 1; }
@@ -307,17 +325,7 @@ void lovrGraphicsMatrixTransform(mat4 transform) {
   mat4_multiply(vec_last(&state.transforms), transform);
 }
 
-int lovrGraphicsGetWidth() {
-  int width;
-  glfwGetFramebufferSize(window, &width, NULL);
-  return width;
-}
-
-int lovrGraphicsGetHeight() {
-  int height;
-  glfwGetFramebufferSize(window, NULL, &height);
-  return height;
-}
+// Primitives
 
 void lovrGraphicsSetShapeData(float* data, int dataCount, unsigned int* indices, int indicesCount) {
   vec_clear(&state.shapeIndices);

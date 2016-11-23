@@ -88,6 +88,8 @@ const luaL_Reg lovrGraphics[] = {
   { NULL, NULL }
 };
 
+// Base
+
 int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
@@ -159,6 +161,8 @@ int l_lovrGraphicsPresent(lua_State* L) {
   lovrGraphicsPresent();
   return 0;
 }
+
+// State
 
 int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
   float r, g, b, a;
@@ -343,6 +347,24 @@ int l_lovrGraphicsSetWireframe(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsGetWidth(lua_State* L) {
+  lua_pushnumber(L, lovrGraphicsGetWidth());
+  return 1;
+}
+
+int l_lovrGraphicsGetHeight(lua_State* L) {
+  lua_pushnumber(L, lovrGraphicsGetHeight());
+  return 1;
+}
+
+int l_lovrGraphicsGetDimensions(lua_State* L) {
+  lua_pushnumber(L, lovrGraphicsGetWidth());
+  lua_pushnumber(L, lovrGraphicsGetHeight());
+  return 2;
+}
+
+// Transforms
+
 int l_lovrGraphicsPush(lua_State* L) {
   if (lovrGraphicsPush()) {
     return luaL_error(L, "Unbalanced matrix stack (more pushes than pops?)");
@@ -394,6 +416,8 @@ int l_lovrGraphicsScale(lua_State* L) {
   lovrGraphicsScale(x, y, z);
   return 0;
 }
+
+// Primitives
 
 int l_lovrGraphicsPoints(lua_State* L) {
   vec_float_t points;
@@ -454,21 +478,7 @@ int l_lovrGraphicsCube(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsGetWidth(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetWidth());
-  return 1;
-}
-
-int l_lovrGraphicsGetHeight(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetHeight());
-  return 1;
-}
-
-int l_lovrGraphicsGetDimensions(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetWidth());
-  lua_pushnumber(L, lovrGraphicsGetHeight());
-  return 2;
-}
+// Types
 
 int l_lovrGraphicsNewBuffer(lua_State* L) {
   int size;

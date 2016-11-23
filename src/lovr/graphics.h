@@ -13,10 +13,14 @@ map_int_t FilterModes;
 map_int_t WrapModes;
 
 extern const luaL_Reg lovrGraphics[];
+
+// Base
 int l_lovrGraphicsInit(lua_State* L);
 int l_lovrGraphicsReset(lua_State* L);
 int l_lovrGraphicsClear(lua_State* L);
 int l_lovrGraphicsPresent(lua_State* L);
+
+// State
 int l_lovrGraphicsGetBackgroundColor(lua_State* L);
 int l_lovrGraphicsSetBackgroundColor(lua_State* L);
 int l_lovrGraphicsGetColor(lua_State* L);
@@ -40,20 +44,26 @@ int l_lovrGraphicsGetDepthTest(lua_State* L);
 int l_lovrGraphicsSetDepthTest(lua_State* L);
 int l_lovrGraphicsIsWireframe(lua_State* L);
 int l_lovrGraphicsSetWireframe(lua_State* L);
+int l_lovrGraphicsGetWidth(lua_State* L);
+int l_lovrGraphicsGetHeight(lua_State* L);
+int l_lovrGraphicsGetDimensions(lua_State* L);
+
+// Transforms
 int l_lovrGraphicsPush(lua_State* L);
 int l_lovrGraphicsPop(lua_State* L);
 int l_lovrGraphicsOrigin(lua_State* L);
 int l_lovrGraphicsTranslate(lua_State* L);
 int l_lovrGraphicsRotate(lua_State* L);
 int l_lovrGraphicsScale(lua_State* L);
+
+// Primitives
 int l_lovrGraphicsPoints(lua_State* L);
 int l_lovrGraphicsLine(lua_State* L);
 int l_lovrGraphicsTriangle(lua_State* L);
 int l_lovrGraphicsPlane(lua_State* L);
 int l_lovrGraphicsCube(lua_State* L);
-int l_lovrGraphicsGetWidth(lua_State* L);
-int l_lovrGraphicsGetHeight(lua_State* L);
-int l_lovrGraphicsGetDimensions(lua_State* L);
+
+// Types
 int l_lovrGraphicsNewBuffer(lua_State* L);
 int l_lovrGraphicsNewModel(lua_State* L);
 int l_lovrGraphicsNewShader(lua_State* L);
