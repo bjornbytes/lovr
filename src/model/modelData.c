@@ -28,7 +28,8 @@ ModelData* lovrModelDataCreate(void* data, int size) {
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
 
-  const struct aiScene* scene = aiImportFileFromMemory(data, size, aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph, NULL);
+  unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_FlipUVs;
+  const struct aiScene* scene = aiImportFileFromMemory(data, size, flags, NULL);
 
   // Meshes
   vec_init(&modelData->meshes);
@@ -82,6 +83,17 @@ ModelData* lovrModelDataCreate(void* data, int size) {
       normal.z = assimpMesh->mNormals[n].z;
       vec_push(&mesh->normals, normal);
     }
+
+    modelData->hasTexCoords = modelData->hasTexCoords || assimpMesh->mTextureCoords[0] != NULL;
+    if (assimpMesh->mTextureCoords[0]) {
+      vec_init(&mesh->texCoords);
+      for (unsigned int i = 0; i < assimpMesh->mNumVertices; i++) {
+        ModelVertex texCoord;
+        texCoord.x = assimpMesh->mTextureCoords[0][i].x;
+        texCoord.y = assimpMesh->mTextureCoords[0][i].y;
+        vec_push(&mesh->texCoords, texCoord);
+      }
+    }
   }
 
   // Nodes
@@ -105,6 +117,9 @@ void lovrModelDataDestroy(const Ref* ref) {
     vec_deinit(&mesh->faces);
     vec_deinit(&mesh->vertices);
     vec_deinit(&mesh->normals);
+    if (modelData->hasTexCoords) {
+      vec_deinit(&mesh->texCoords);
+    }
     free(mesh);
   }
 

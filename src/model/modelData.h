@@ -23,6 +23,7 @@ typedef struct {
   vec_model_face_t faces;
   vec_model_vertex_t vertices;
   vec_model_vertex_t normals;
+  vec_model_vertex_t texCoords;
 } ModelMesh;
 
 typedef vec_t(ModelMesh*) vec_model_mesh_t;
@@ -38,6 +39,7 @@ typedef struct {
   ModelNode* root;
   vec_model_mesh_t meshes;
   int hasNormals;
+  int hasTexCoords;
 } ModelData;
 
 #endif
