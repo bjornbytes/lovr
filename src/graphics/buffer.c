@@ -13,9 +13,9 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
   if (format) {
     vec_extend(&buffer->format, format);
   } else {
-    BufferAttribute position = { .name = "position", .type = BUFFER_FLOAT, .count = 3 };
-    BufferAttribute normal = { .name = "normal", .type = BUFFER_FLOAT, .count = 3 };
-    BufferAttribute texCoord = { .name = "texCoord", .type = BUFFER_FLOAT, .count = 2 };
+    BufferAttribute position = { .name = "lovrPosition", .type = BUFFER_FLOAT, .count = 3 };
+    BufferAttribute normal = { .name = "lovrNormal", .type = BUFFER_FLOAT, .count = 3 };
+    BufferAttribute texCoord = { .name = "lovrTexCoord", .type = BUFFER_FLOAT, .count = 2 };
     vec_push(&buffer->format, position);
     vec_push(&buffer->format, normal);
     vec_push(&buffer->format, texCoord);

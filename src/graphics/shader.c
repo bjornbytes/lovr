@@ -6,40 +6,54 @@ const char* lovrShaderVertexPrefix = ""
 "#version 150 \n"
 "uniform mat4 lovrTransform; \n"
 "uniform mat4 lovrProjection; \n"
-"in vec3 position;"
+"in vec3 lovrPosition;"
+"in vec3 lovrNormal;"
+"in vec2 lovrTexCoord;"
 "";
 
 const char* lovrShaderFragmentPrefix = ""
 "#version 150 \n"
 "uniform vec4 lovrColor; \n"
-"out vec4 color;"
+"out vec4 lovrFragColor;"
+"";
+
+const char* lovrShaderVertexSuffix = ""
+"void main() { \n"
+"  gl_Position = position(lovrProjection, lovrTransform, vec4(lovrPosition, 1.0)); \n"
+"}"
+"";
+
+const char* lovrShaderFragmentSuffix = ""
+"void main() { \n"
+"  lovrFragColor = color(lovrColor); \n"
+"}"
 "";
 
 const char* lovrDefaultVertexShader = ""
-"void main() { \n"
-"  gl_Position = lovrProjection * lovrTransform * vec4(position, 1.0); \n"
+"vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
+"  return projection * transform * vertex; \n"
 "}"
 "";
 
 const char* lovrDefaultFragmentShader = ""
-"void main() { \n"
-"  color = lovrColor; \n"
+"vec4 color(vec4 graphicsColor) { \n"
+"  return graphicsColor; \n"
 "}"
 "";
 
 const char* lovrSkyboxVertexShader = ""
 "out vec3 texturePosition; \n"
-"void main() { \n"
-"  texturePosition = position; \n"
-"  gl_Position = lovrProjection * lovrTransform * vec4(position, 1.0); \n"
+"vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
+"  texturePosition = vertex.xyz; \n"
+"  return projection * transform * vertex; \n"
 "}"
 "";
 
 const char* lovrSkyboxFragmentShader = ""
 "in vec3 texturePosition; \n"
 "uniform samplerCube cube; \n"
-"void main() { \n"
-"  color = texture(cube, texturePosition) * lovrColor; \n"
+"vec4 color(vec4 graphicsColor) { \n"
+"  return graphicsColor * texture(cube, texturePosition); \n"
 "}"
 "";
 
@@ -74,8 +88,9 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
     glAttachShader(shader, fragmentShader);
   }
 
-  glBindAttribLocation(shader, LOVR_SHADER_POSITION, "position");
-  glBindAttribLocation(shader, LOVR_SHADER_NORMAL, "normal");
+  glBindAttribLocation(shader, LOVR_SHADER_POSITION, "lovrPosition");
+  glBindAttribLocation(shader, LOVR_SHADER_NORMAL, "lovrNormal");
+  glBindAttribLocation(shader, LOVR_SHADER_TEX_COORD, "lovrTexCoord");
 
   glLinkProgram(shader);
 
@@ -105,13 +120,13 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
   char fullVertexSource[4096];
-  snprintf(fullVertexSource, sizeof(fullVertexSource), "%s\n%s", lovrShaderVertexPrefix, vertexSource);
+  snprintf(fullVertexSource, sizeof(fullVertexSource), "%s\n%s\n%s", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix);
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, fullVertexSource);
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
   char fullFragmentSource[4096];
-  snprintf(fullFragmentSource, sizeof(fullFragmentSource), "%s\n%s", lovrShaderFragmentPrefix, fragmentSource);
+  snprintf(fullFragmentSource, sizeof(fullFragmentSource), "%s\n%s\n%s", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix);
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fullFragmentSource);
 
   // Link
