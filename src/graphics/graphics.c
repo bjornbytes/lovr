@@ -59,6 +59,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetPointSize(1);
   lovrGraphicsSetCullingEnabled(0);
   lovrGraphicsSetPolygonWinding(POLYGON_WINDING_COUNTERCLOCKWISE);
+  lovrGraphicsSetDepthTest(COMPARE_LESS);
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -219,6 +220,17 @@ PolygonWinding lovrGraphicsGetPolygonWinding() {
 void lovrGraphicsSetPolygonWinding(PolygonWinding winding) {
   state.polygonWinding = winding;
   glFrontFace(winding);
+}
+
+CompareMode lovrGraphicsGetDepthTest() {
+  return state.depthTest;
+}
+
+void lovrGraphicsSetDepthTest(CompareMode depthTest) {
+  if (state.depthTest != depthTest) {
+    state.depthTest = depthTest;
+    glDepthFunc(depthTest);
+  }
 }
 
 int lovrGraphicsPush() {

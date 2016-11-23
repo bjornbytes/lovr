@@ -62,6 +62,8 @@ const luaL_Reg lovrGraphics[] = {
   { "setCullingEnabled", l_lovrGraphicsSetCullingEnabled },
   { "getPolygonWinding", l_lovrGraphicsGetPolygonWinding },
   { "setPolygonWinding", l_lovrGraphicsSetPolygonWinding },
+  { "getDepthTest", l_lovrGraphicsGetDepthTest },
+  { "setDepthTest", l_lovrGraphicsSetDepthTest },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },
@@ -116,6 +118,14 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_init(&PolygonWindings);
   map_set(&PolygonWindings, "clockwise", POLYGON_WINDING_CLOCKWISE);
   map_set(&PolygonWindings, "counterclockwise", POLYGON_WINDING_COUNTERCLOCKWISE);
+
+  map_init(&CompareModes);
+  map_set(&CompareModes, "equal", COMPARE_EQUAL);
+  map_set(&CompareModes, "notequal", COMPARE_NOT_EQUAL);
+  map_set(&CompareModes, "less", COMPARE_LESS);
+  map_set(&CompareModes, "lequal", COMPARE_LEQUAL);
+  map_set(&CompareModes, "gequal", COMPARE_GEQUAL);
+  map_set(&CompareModes, "greater", COMPARE_GREATER);
 
   map_init(&FilterModes);
   map_set(&FilterModes, "nearest", FILTER_NEAREST);
@@ -307,6 +317,17 @@ int l_lovrGraphicsGetPolygonWinding(lua_State* L) {
 int l_lovrGraphicsSetPolygonWinding(lua_State* L) {
   PolygonWinding* winding = (PolygonWinding*) luax_checkenum(L, 1, &PolygonWindings, "winding direction");
   lovrGraphicsSetPolygonWinding(*winding);
+  return 0;
+}
+
+int l_lovrGraphicsGetDepthTest(lua_State* L) {
+  lua_pushstring(L, map_int_find(&CompareModes, lovrGraphicsGetDepthTest()));
+  return 1;
+}
+
+int l_lovrGraphicsSetDepthTest(lua_State* L) {
+  CompareMode* depthTest = (CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
+  lovrGraphicsSetDepthTest(*depthTest);
   return 0;
 }
 

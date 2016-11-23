@@ -24,6 +24,15 @@ typedef enum {
   POLYGON_WINDING_COUNTERCLOCKWISE = GL_CCW
 } PolygonWinding;
 
+typedef enum {
+  COMPARE_EQUAL = GL_EQUAL,
+  COMPARE_NOT_EQUAL = GL_NOTEQUAL,
+  COMPARE_LESS = GL_LESS,
+  COMPARE_LEQUAL = GL_LEQUAL,
+  COMPARE_GEQUAL = GL_GEQUAL,
+  COMPARE_GREATER = GL_GREATER
+} CompareMode;
+
 typedef struct {
   Shader* activeShader;
   Shader* defaultShader;
@@ -43,6 +52,7 @@ typedef struct {
   float pointSize;
   char isCullingEnabled;
   PolygonWinding polygonWinding;
+  CompareMode depthTest;
 } GraphicsState;
 #endif
 
@@ -74,6 +84,8 @@ char lovrGraphicsIsCullingEnabled();
 void lovrGraphicsSetCullingEnabled(char isEnabled);
 PolygonWinding lovrGraphicsGetPolygonWinding();
 void lovrGraphicsSetPolygonWinding(PolygonWinding winding);
+CompareMode lovrGraphicsGetDepthTest();
+void lovrGraphicsSetDepthTest(CompareMode depthTest);
 int lovrGraphicsPush();
 int lovrGraphicsPop();
 void lovrGraphicsOrigin();

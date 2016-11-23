@@ -8,6 +8,7 @@ map_int_t BufferDrawModes;
 map_int_t BufferUsages;
 map_int_t DrawModes;
 map_int_t PolygonWindings;
+map_int_t CompareModes;
 map_int_t FilterModes;
 map_int_t WrapModes;
 
@@ -35,6 +36,8 @@ int l_lovrGraphicsIsCullingEnabled(lua_State* L);
 int l_lovrGraphicsSetCullingEnabled(lua_State* L);
 int l_lovrGraphicsGetPolygonWinding(lua_State* L);
 int l_lovrGraphicsSetPolygonWinding(lua_State* L);
+int l_lovrGraphicsGetDepthTest(lua_State* L);
+int l_lovrGraphicsSetDepthTest(lua_State* L);
 int l_lovrGraphicsPush(lua_State* L);
 int l_lovrGraphicsPop(lua_State* L);
 int l_lovrGraphicsOrigin(lua_State* L);
