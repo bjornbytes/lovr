@@ -41,7 +41,7 @@ typedef struct {
   mat4 projection;
   unsigned int color;
   char colorMask;
-  char isScissorEnabled;
+  int isScissorEnabled;
   ScissorRectangle scissor;
   GLuint shapeArray;
   GLuint shapeBuffer;
@@ -50,10 +50,12 @@ typedef struct {
   vec_uint_t shapeIndices;
   float lineWidth;
   float pointSize;
-  char isCullingEnabled;
+  int isCullingEnabled;
   PolygonWinding polygonWinding;
   CompareMode depthTest;
+  int isWireframe;
 } GraphicsState;
+
 #endif
 
 void lovrGraphicsInit();
@@ -68,8 +70,8 @@ void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, 
 void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void lovrGraphicsGetColorMask(char* r, char* g, char* b, char* a);
 void lovrGraphicsSetColorMask(char r, char g, char b, char a);
-char lovrGraphicsIsScissorEnabled();
-void lovrGraphicsSetScissorEnabled(char isEnabled);
+int lovrGraphicsIsScissorEnabled();
+void lovrGraphicsSetScissorEnabled(int isEnabled);
 void lovrGraphicsGetScissor(int* x, int* y, int* width, int* height);
 void lovrGraphicsSetScissor(int x, int y, int width, int height);
 Shader* lovrGraphicsGetShader();
@@ -80,12 +82,14 @@ float lovrGraphicsGetLineWidth();
 void lovrGraphicsSetLineWidth(float width);
 float lovrGraphicsGetPointSize();
 void lovrGraphicsSetPointSize(float size);
-char lovrGraphicsIsCullingEnabled();
-void lovrGraphicsSetCullingEnabled(char isEnabled);
+int lovrGraphicsIsCullingEnabled();
+void lovrGraphicsSetCullingEnabled(int isEnabled);
 PolygonWinding lovrGraphicsGetPolygonWinding();
 void lovrGraphicsSetPolygonWinding(PolygonWinding winding);
 CompareMode lovrGraphicsGetDepthTest();
 void lovrGraphicsSetDepthTest(CompareMode depthTest);
+int lovrGraphicsIsWireframe();
+void lovrGraphicsSetWireframe(int wireframe);
 int lovrGraphicsPush();
 int lovrGraphicsPop();
 void lovrGraphicsOrigin();

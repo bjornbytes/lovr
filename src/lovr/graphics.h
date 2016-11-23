@@ -38,6 +38,8 @@ int l_lovrGraphicsGetPolygonWinding(lua_State* L);
 int l_lovrGraphicsSetPolygonWinding(lua_State* L);
 int l_lovrGraphicsGetDepthTest(lua_State* L);
 int l_lovrGraphicsSetDepthTest(lua_State* L);
+int l_lovrGraphicsIsWireframe(lua_State* L);
+int l_lovrGraphicsSetWireframe(lua_State* L);
 int l_lovrGraphicsPush(lua_State* L);
 int l_lovrGraphicsPop(lua_State* L);
 int l_lovrGraphicsOrigin(lua_State* L);

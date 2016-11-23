@@ -64,6 +64,8 @@ const luaL_Reg lovrGraphics[] = {
   { "setPolygonWinding", l_lovrGraphicsSetPolygonWinding },
   { "getDepthTest", l_lovrGraphicsGetDepthTest },
   { "setDepthTest", l_lovrGraphicsSetDepthTest },
+  { "isWireframe", l_lovrGraphicsIsWireframe },
+  { "setWireframe", l_lovrGraphicsSetWireframe },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },
@@ -328,6 +330,16 @@ int l_lovrGraphicsGetDepthTest(lua_State* L) {
 int l_lovrGraphicsSetDepthTest(lua_State* L) {
   CompareMode* depthTest = (CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
   lovrGraphicsSetDepthTest(*depthTest);
+  return 0;
+}
+
+int l_lovrGraphicsIsWireframe(lua_State* L) {
+  lua_pushboolean(L, lovrGraphicsIsWireframe());
+  return 1;
+}
+
+int l_lovrGraphicsSetWireframe(lua_State* L) {
+  lovrGraphicsSetWireframe(lua_toboolean(L, 1));
   return 0;
 }
 

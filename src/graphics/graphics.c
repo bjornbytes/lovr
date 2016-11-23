@@ -60,6 +60,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetCullingEnabled(0);
   lovrGraphicsSetPolygonWinding(POLYGON_WINDING_COUNTERCLOCKWISE);
   lovrGraphicsSetDepthTest(COMPARE_LESS);
+  lovrGraphicsSetWireframe(0);
 }
 
 void lovrGraphicsClear(int color, int depth) {
@@ -122,11 +123,11 @@ void lovrGraphicsSetColorMask(char r, char g, char b, char a) {
   glColorMask(r, g, b, a);
 }
 
-char lovrGraphicsIsScissorEnabled() {
+int lovrGraphicsIsScissorEnabled() {
   return state.isScissorEnabled;
 }
 
-void lovrGraphicsSetScissorEnabled(char isEnabled) {
+void lovrGraphicsSetScissorEnabled(int isEnabled) {
   state.isScissorEnabled = isEnabled;
   if (isEnabled) {
     glEnable(GL_SCISSOR_TEST);
@@ -200,11 +201,11 @@ void lovrGraphicsSetPointSize(float size) {
   glPointSize(size);
 }
 
-char lovrGraphicsIsCullingEnabled() {
+int lovrGraphicsIsCullingEnabled() {
   return state.isCullingEnabled;
 }
 
-void lovrGraphicsSetCullingEnabled(char isEnabled) {
+void lovrGraphicsSetCullingEnabled(int isEnabled) {
   state.isCullingEnabled = isEnabled;
   if (isEnabled) {
     glEnable(GL_CULL_FACE);
@@ -230,6 +231,17 @@ void lovrGraphicsSetDepthTest(CompareMode depthTest) {
   if (state.depthTest != depthTest) {
     state.depthTest = depthTest;
     glDepthFunc(depthTest);
+  }
+}
+
+int lovrGraphicsIsWireframe() {
+  return state.isWireframe;
+}
+
+void lovrGraphicsSetWireframe(int wireframe) {
+  if (state.isWireframe != wireframe) {
+    state.isWireframe = wireframe;
+    glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
   }
 }
 
