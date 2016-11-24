@@ -54,6 +54,11 @@ int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f) {
   return 0;
 }
 
+static int luax_pushobjectname(lua_State* L) {
+  lua_getfield(L, -1, "name");
+  return 1;
+}
+
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions) {
 
   // Push metatable
@@ -71,6 +76,10 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   // m.name = name
   lua_pushstring(L, name);
   lua_setfield(L, -2, "name");
+
+  // m.__tostring
+  lua_pushcfunction(L, luax_pushobjectname);
+  lua_setfield(L, -2, "__tostring");
 
   // Register class functions
   if (functions) {
