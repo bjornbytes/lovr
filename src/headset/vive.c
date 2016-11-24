@@ -15,7 +15,9 @@ static HeadsetInterface interface = {
   .getDisplayDimensions = viveGetDisplayDimensions,
   .getClipDistance = viveGetClipDistance,
   .setClipDistance = viveSetClipDistance,
-  .getTrackingSize = viveGetTrackingSize,
+  .getBoundsWidth = viveGetBoundsWidth,
+  .getBoundsDepth = viveGetBoundsDepth,
+  .getBoundsGeometry = viveGetBoundsGeometry,
   .isBoundsVisible = viveIsBoundsVisible,
   .setBoundsVisible = viveSetBoundsVisible,
   .getPosition = viveGetPosition,
@@ -195,10 +197,32 @@ void viveSetClipDistance(void* headset, float near, float far) {
   state->clipFar = far;
 }
 
-void viveGetTrackingSize(void* headset, float* width, float* depth) {
+float viveGetBoundsWidth(void* headset) {
   Headset* this = (Headset*) headset;
   ViveState* state = this->state;
-  state->vrChaperone->GetPlayAreaSize(width, depth);
+  float width;
+  state->vrChaperone->GetPlayAreaSize(&width, NULL);
+  return width;
+}
+
+float viveGetBoundsDepth(void* headset) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  float depth;
+  state->vrChaperone->GetPlayAreaSize(NULL, &depth);
+  return depth;
+}
+
+void viveGetBoundsGeometry(void* headset, float* geometry) {
+  Headset* this = (Headset*) headset;
+  ViveState* state = this->state;
+  struct HmdQuad_t quad;
+  state->vrChaperone->GetPlayAreaRect(&quad);
+  for (int i = 0; i < 4; i++) {
+    geometry[3 * i + 0] = quad.vCorners[i].v[0];
+    geometry[3 * i + 1] = quad.vCorners[i].v[1];
+    geometry[3 * i + 2] = quad.vCorners[i].v[2];
+  }
 }
 
 char viveIsBoundsVisible(void* headset) {

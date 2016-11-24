@@ -31,8 +31,16 @@ void lovrHeadsetSetClipDistance(float near, float far) {
   headset->interface->setClipDistance(headset, near, far);
 }
 
-void lovrHeadsetGetTrackingSize(float* width, float* depth) {
-  headset->interface->getTrackingSize(headset, width, depth);
+float lovrHeadsetGetBoundsWidth() {
+  return headset->interface->getBoundsWidth(headset);
+}
+
+float lovrHeadsetGetBoundsDepth() {
+  return headset->interface->getBoundsDepth(headset);
+}
+
+void lovrHeadsetGetBoundsGeometry(float* geometry) {
+  headset->interface->getBoundsGeometry(headset, geometry);
 }
 
 char lovrHeadsetIsBoundsVisible() {

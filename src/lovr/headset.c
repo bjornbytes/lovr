@@ -19,7 +19,10 @@ const luaL_Reg lovrHeadset[] = {
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
   { "getClipDistance", l_lovrHeadsetGetClipDistance },
   { "setClipDistance", l_lovrHeadsetSetClipDistance },
-  { "getTrackingSize", l_lovrHeadsetGetTrackingSize },
+  { "getBoundsWidth", l_lovrHeadsetGetBoundsWidth },
+  { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
+  { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
+  { "getBoundsGeometry", l_lovrHeadsetGetBoundsGeometry },
   { "isBoundsVisible", l_lovrHeadsetIsBoundsVisible },
   { "setBoundsVisible", l_lovrHeadsetSetBoundsVisible },
   { "getPosition", l_lovrHeadsetGetPosition },
@@ -103,12 +106,35 @@ int l_lovrHeadsetSetClipDistance(lua_State* L) {
   return 0;
 }
 
-int l_lovrHeadsetGetTrackingSize(lua_State* L) {
-  float width, depth;
-  lovrHeadsetGetTrackingSize(&width, &depth);
-  lua_pushnumber(L, width);
-  lua_pushnumber(L, depth);
+int l_lovrHeadsetGetBoundsWidth(lua_State* L) {
+  lua_pushnumber(L, lovrHeadsetGetBoundsWidth());
+  return 1;
+}
+
+int l_lovrHeadsetGetBoundsDepth(lua_State* L) {
+  lua_pushnumber(L, lovrHeadsetGetBoundsDepth());
+  return 1;
+}
+
+int l_lovrHeadsetGetBoundsDimensions(lua_State* L) {
+  lua_pushnumber(L, lovrHeadsetGetBoundsWidth());
+  lua_pushnumber(L, lovrHeadsetGetBoundsDepth());
   return 2;
+}
+
+int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
+  float geometry[12];
+  lovrHeadsetGetBoundsGeometry(geometry);
+  lua_newtable(L);
+  for (int i = 0; i < 4; i++) {
+    lua_newtable(L);
+    for (int j = 0; j < 3; j++) {
+      lua_pushnumber(L, geometry[3 * i + j]);
+      lua_rawseti(L, -2, j + 1);
+    }
+    lua_pop(L, 1);
+  }
+  return 1;
 }
 
 int l_lovrHeadsetIsBoundsVisible(lua_State* L) {
