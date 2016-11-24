@@ -132,7 +132,7 @@ int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
       lua_pushnumber(L, geometry[3 * i + j]);
       lua_rawseti(L, -2, j + 1);
     }
-    lua_pop(L, 1);
+    lua_rawseti(L, -2, i + 1);
   }
   return 1;
 }
