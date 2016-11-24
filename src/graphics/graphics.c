@@ -22,6 +22,7 @@ void lovrGraphicsInit() {
   glGenVertexArrays(1, &state.shapeArray);
   vec_init(&state.shapeData);
   vec_init(&state.shapeIndices);
+  state.depthTest = -1;
   lovrGraphicsReset();
 }
 
@@ -235,6 +236,11 @@ void lovrGraphicsSetDepthTest(CompareMode depthTest) {
   if (state.depthTest != depthTest) {
     state.depthTest = depthTest;
     glDepthFunc(depthTest);
+    if (depthTest) {
+      glEnable(GL_DEPTH_TEST);
+    } else {
+      glDisable(GL_DEPTH_TEST);
+    }
   }
 }
 

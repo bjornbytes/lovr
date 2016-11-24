@@ -25,6 +25,7 @@ typedef enum {
 } PolygonWinding;
 
 typedef enum {
+  COMPARE_NONE = 0,
   COMPARE_EQUAL = GL_EQUAL,
   COMPARE_NOT_EQUAL = GL_NOTEQUAL,
   COMPARE_LESS = GL_LESS,

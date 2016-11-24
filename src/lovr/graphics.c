@@ -327,13 +327,22 @@ int l_lovrGraphicsSetPolygonWinding(lua_State* L) {
 }
 
 int l_lovrGraphicsGetDepthTest(lua_State* L) {
-  lua_pushstring(L, map_int_find(&CompareModes, lovrGraphicsGetDepthTest()));
+  CompareMode depthTest = lovrGraphicsGetDepthTest();
+  if (depthTest) {
+    lua_pushstring(L, map_int_find(&CompareModes, depthTest));
+  } else {
+    lua_pushnil(L);
+  }
   return 1;
 }
 
 int l_lovrGraphicsSetDepthTest(lua_State* L) {
-  CompareMode* depthTest = (CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
-  lovrGraphicsSetDepthTest(*depthTest);
+  if (lua_isnoneornil(L, 1)) {
+    lovrGraphicsSetDepthTest(COMPARE_NONE);
+  } else {
+    CompareMode* depthTest = (CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
+    lovrGraphicsSetDepthTest(*depthTest);
+  }
   return 0;
 }
 
