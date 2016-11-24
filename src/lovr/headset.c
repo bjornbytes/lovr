@@ -105,7 +105,7 @@ int l_lovrHeadsetSetClipDistance(lua_State* L) {
 
 int l_lovrHeadsetGetTrackingSize(lua_State* L) {
   float width, depth;
-  lovrHeadsetGetClipDistance(&width, &depth);
+  lovrHeadsetGetTrackingSize(&width, &depth);
   lua_pushnumber(L, width);
   lua_pushnumber(L, depth);
   return 2;
