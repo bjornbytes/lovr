@@ -19,7 +19,7 @@ typedef struct {
 typedef vec_t(ModelVertex) vec_model_vertex_t;
 
 typedef struct {
-  vec_uint_t indices;
+  unsigned int indices[3];
 } ModelFace;
 
 typedef vec_t(ModelFace) vec_model_face_t;

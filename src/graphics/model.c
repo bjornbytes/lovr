@@ -50,10 +50,9 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
     // Face vertex indices
     for (int f = 0; f < mesh->faces.length; f++) {
       ModelFace face = mesh->faces.data[f];
-
-      for (int v = 0; v < face.indices.length; v++) {
-        vec_push(indices, face.indices.data[v] + indexOffset);
-      }
+      vec_push(indices, face.indices[0] + indexOffset);
+      vec_push(indices, face.indices[1] + indexOffset);
+      vec_push(indices, face.indices[2] + indexOffset);
     }
   }
 

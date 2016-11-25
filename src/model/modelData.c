@@ -50,13 +50,9 @@ ModelData* lovrModelDataCreateFromFile(void* data, int size) {
       }
 
       ModelFace face;
-      vec_init(&face.indices);
-
-      // Indices
       for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
-        vec_push(&face.indices, assimpFace.mIndices[i]);
+        face.indices[i] = assimpFace.mIndices[i];
       }
-
       vec_push(&mesh->faces, face);
     }
 
@@ -114,11 +110,6 @@ void lovrModelDataDestroy(const Ref* ref) {
 
   for (int i = 0; i < modelData->meshes.length; i++) {
     ModelMesh* mesh = modelData->meshes.data[i];
-
-    for (int f = 0; f < mesh->faces.length; f++) {
-      vec_deinit(&mesh->faces.data[f].indices);
-    }
-
     vec_deinit(&mesh->faces);
     vec_deinit(&mesh->vertices);
     vec_deinit(&mesh->normals);
