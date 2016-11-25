@@ -564,7 +564,9 @@ int l_lovrGraphicsNewModel(lua_State* L) {
     return luaL_error(L, "Could not load model file '%s'", path);
   }
 
-  luax_pushtype(L, Model, lovrModelCreate(data, size));
+  ModelData* modelData = lovrModelDataCreate(data, size);
+  luax_pushtype(L, Model, lovrModelCreate(modelData));
+  lovrRelease(&modelData->ref);
   free(data);
   return 1;
 }

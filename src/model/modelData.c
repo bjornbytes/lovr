@@ -25,7 +25,7 @@ static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
 }
 
 ModelData* lovrModelDataCreate(void* data, int size) {
-  ModelData* modelData = malloc(sizeof(ModelData));
+  ModelData* modelData = lovrAlloc(sizeof(ModelData), lovrModelDataDestroy);
   if (!modelData) return NULL;
 
   unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_FlipUVs;

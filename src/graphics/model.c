@@ -64,12 +64,12 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
   mat4_deinit(newTransform);
 }
 
-Model* lovrModelCreate(void* data, int size) {
+Model* lovrModelCreate(ModelData* modelData) {
   Model* model = lovrAlloc(sizeof(Model), lovrModelDestroy);
   if (!model) return NULL;
 
-  model->modelData = lovrModelDataCreate(data, size);
-  if (!model->modelData) return NULL;
+  lovrRetain(&modelData->ref);
+  model->modelData = modelData;
 
   vec_float_t vertices;
   vec_init(&vertices);
@@ -77,7 +77,7 @@ Model* lovrModelCreate(void* data, int size) {
   vec_uint_t indices;
   vec_init(&indices);
 
-  visitNode(model->modelData, model->modelData->root, NULL, &vertices, &indices);
+  visitNode(modelData, modelData->root, NULL, &vertices, &indices);
 
   BufferFormat format;
   vec_init(&format);
@@ -86,13 +86,13 @@ Model* lovrModelCreate(void* data, int size) {
   BufferAttribute position = { .name = "lovrPosition", .type = BUFFER_FLOAT, .count = 3 };
   vec_push(&format, position);
 
-  if (model->modelData->hasNormals) {
+  if (modelData->hasNormals) {
     BufferAttribute normal = { .name = "lovrNormal", .type = BUFFER_FLOAT, .count = 3 };
     vec_push(&format, normal);
     components += 3;
   }
 
-  if (model->modelData->hasTexCoords) {
+  if (modelData->hasTexCoords) {
     BufferAttribute normal = { .name = "lovrTexCoord", .type = BUFFER_FLOAT, .count = 2 };
     vec_push(&format, normal);
     components += 2;

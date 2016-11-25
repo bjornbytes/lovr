@@ -14,7 +14,7 @@ typedef struct {
 } Model;
 #endif
 
-Model* lovrModelCreate(void* data, int size);
+Model* lovrModelCreate(ModelData* modelData);
 void lovrModelDestroy(const Ref* ref);
 void lovrModelDraw(Model* model, float x, float y, float z, float scale, float angle, float ax, float ay, float az);
 Texture* lovrModelGetTexture(Model* model);
