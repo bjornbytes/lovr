@@ -27,6 +27,7 @@ static HeadsetInterface interface = {
   .controllerIsDown = viveControllerIsDown,
   .controllerGetHand = viveControllerGetHand,
   .controllerVibrate = viveControllerVibrate,
+  .controllerNewModelData = viveControllerNewModelData,
   .renderTo = viveRenderTo
 };
 
@@ -402,6 +403,10 @@ void viveControllerVibrate(void* headset, Controller* controller, float duration
   uint32_t axis = 0;
   unsigned short uSeconds = (unsigned short) duration * 1e6;
   state->vrSystem->TriggerHapticPulse(state->controllerIndex[controller->hand], axis, uSeconds);
+}
+
+ModelData* viveControllerNewModelData(void* headset, Controller* controller) {
+  return lovrModelDataCreateFromOpenVRModel(NULL);
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {

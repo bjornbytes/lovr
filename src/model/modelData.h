@@ -1,6 +1,11 @@
 #include "vendor/vec/vec.h"
 #include "util.h"
 #include "matrix.h"
+#include <stdbool.h>
+#ifndef _WIN32
+#define __stdcall
+#endif
+#include <openvr_capi.h>
 
 #ifndef LOVR_MODEL_DATA_TYPES
 #define LOVR_MODEL_DATA_TYPES
@@ -44,5 +49,6 @@ typedef struct {
 
 #endif
 
-ModelData* lovrModelDataCreate(void* data, int size);
+ModelData* lovrModelDataCreateFromFile(void* data, int size);
+ModelData* lovrModelDataCreateFromOpenVRModel(RenderModel_t* renderModel);
 void lovrModelDataDestroy(const Ref* ref);

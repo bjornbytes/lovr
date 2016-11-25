@@ -1,5 +1,6 @@
 #include "lovr/types/controller.h"
 #include "lovr/headset.h"
+#include "model/modelData.h"
 #include "util.h"
 
 const luaL_Reg lovrController[] = {
@@ -65,4 +66,10 @@ int l_lovrControllerVibrate(lua_State* L) {
   float duration = luaL_optnumber(L, 2, .5);
   lovrHeadsetControllerVibrate(controller, duration);
   return 0;
+}
+
+int l_lovrControllerNewModelData(lua_State* L) {
+  Controller* controller = luax_checktype(L, 1, Controller);
+  luax_pushtype(L, ModelData, lovrHeadsetControllerNewModelData(controller));
+  return 1;
 }

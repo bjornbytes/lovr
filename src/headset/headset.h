@@ -1,3 +1,5 @@
+#include "model/modelData.h"
+
 #ifndef LOVR_HEADSET_TYPES
 #define LOVR_HEADSET_TYPES
 
@@ -48,6 +50,7 @@ typedef struct {
   int (*controllerIsDown)(void* headset, Controller* controller, ControllerButton button);
   ControllerHand (*controllerGetHand)(void* headset, Controller* controller);
   void (*controllerVibrate)(void* headset, Controller* controller, float duration);
+  ModelData* (*controllerNewModelData)(void* headset, Controller* controller);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
 } HeadsetInterface;
 
@@ -81,4 +84,5 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
 ControllerHand lovrHeadsetControllerGetHand(Controller* controller);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration);
+ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);

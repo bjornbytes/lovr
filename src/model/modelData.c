@@ -3,6 +3,7 @@
 #include <assimp/scene.h>
 #include <assimp/cimport.h>
 #include <assimp/postprocess.h>
+#include <openvr_capi.h>
 
 static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
 
@@ -24,7 +25,7 @@ static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
   }
 }
 
-ModelData* lovrModelDataCreate(void* data, int size) {
+ModelData* lovrModelDataCreateFromFile(void* data, int size) {
   ModelData* modelData = lovrAlloc(sizeof(ModelData), lovrModelDataDestroy);
   if (!modelData) return NULL;
 
@@ -102,6 +103,10 @@ ModelData* lovrModelDataCreate(void* data, int size) {
 
   aiReleaseImport(scene);
   return modelData;
+}
+
+ModelData* lovrModelDataCreateFromOpenVRModel(RenderModel_t* renderModel) {
+  return NULL;
 }
 
 void lovrModelDataDestroy(const Ref* ref) {

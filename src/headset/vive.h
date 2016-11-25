@@ -61,4 +61,5 @@ float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxi
 int viveControllerIsDown(void* headset, Controller* controller, ControllerButton button);
 ControllerHand viveControllerGetHand(void* headset, Controller* controller);
 void viveControllerVibrate(void* headset, Controller* controller, float duration);
+ModelData* viveControllerNewModelData(void* headset, Controller* controller);
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata);
