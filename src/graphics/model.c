@@ -93,8 +93,8 @@ Model* lovrModelCreate(ModelData* modelData) {
   }
 
   if (modelData->hasTexCoords) {
-    BufferAttribute normal = { .name = "lovrTexCoord", .type = BUFFER_FLOAT, .count = 2 };
-    vec_push(&format, normal);
+    BufferAttribute texCoord = { .name = "lovrTexCoord", .type = BUFFER_FLOAT, .count = 2 };
+    vec_push(&format, texCoord);
     components += 2;
   }
 
