@@ -1,11 +1,6 @@
 #include "headset/vive.h"
 #include "graphics/graphics.h"
 #include "util.h"
-#include <stdbool.h>
-#ifndef _WIN32
-#define __stdcall
-#endif
-#include <openvr_capi.h>
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -36,6 +31,10 @@ static HeadsetInterface interface = {
 };
 
 static TrackedDevicePose_t viveGetPose(ViveState* state, unsigned int deviceIndex) {
+  if (state->isRendering) {
+    return state->renderPoses[deviceIndex];
+  }
+
   ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
   float secondsInFuture = 0.f;
   TrackedDevicePose_t poses[16];
@@ -52,6 +51,7 @@ Headset* viveInit() {
 
   this->state = state;
   this->interface = &interface;
+  state->isRendering = 0;
   state->controllers[CONTROLLER_HAND_LEFT] = NULL;
   state->controllers[CONTROLLER_HAND_RIGHT] = NULL;
   state->framebuffer = 0;
@@ -410,10 +410,10 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
   float headMatrix[16], eyeMatrix[16], projectionMatrix[16];
   float (*matrix)[4];
   EGraphicsAPIConvention graphicsConvention = EGraphicsAPIConvention_API_OpenGL;
-  TrackedDevicePose_t pose;
 
-  state->vrCompositor->WaitGetPoses(&pose, 1, NULL, 0);
-  matrix = pose.mDeviceToAbsoluteTracking.m;
+  state->isRendering = 1;
+  state->vrCompositor->WaitGetPoses(state->renderPoses, 16, NULL, 0);
+  matrix = state->renderPoses[state->headsetIndex].mDeviceToAbsoluteTracking.m;
   mat4_invert(mat4_fromMat34(headMatrix, matrix));
 
   for (int i = 0; i < 2; i++) {
@@ -454,4 +454,6 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     state->vrCompositor->Submit(eye, &eyeTexture, NULL, flags);
   }
+
+  state->isRendering = 0;
 }
