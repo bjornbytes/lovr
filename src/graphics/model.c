@@ -123,7 +123,11 @@ void lovrModelDestroy(const Ref* ref) {
 void lovrModelDraw(Model* model, float x, float y, float z, float size, float angle, float ax, float ay, float az) {
   lovrGraphicsPush();
   lovrGraphicsTransform(x, y, z, size, size, size, angle, ax, ay, az);
-  lovrTextureBind(model->texture);
+  if (model->texture) {
+    lovrTextureBind(model->texture);
+  } else {
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
   lovrBufferDraw(model->buffer);
   lovrGraphicsPop();
 }
