@@ -97,6 +97,13 @@ Headset* viveInit() {
     return NULL;
   }
 
+  sprintf(fnTableName, "FnTable:%s", IVRRenderModels_Version);
+  state->vrRenderModels = (struct VR_IVRRenderModels_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
+  if (vrError != EVRInitError_VRInitError_None || state->vrRenderModels == NULL) {
+    viveDestroy(this);
+    return NULL;
+  }
+
   state->headsetIndex = k_unTrackedDeviceIndex_Hmd;
   state->clipNear = 0.1f;
   state->clipFar = 30.f;
@@ -406,7 +413,32 @@ void viveControllerVibrate(void* headset, Controller* controller, float duration
 }
 
 ModelData* viveControllerNewModelData(void* headset, Controller* controller) {
-  return lovrModelDataCreateFromOpenVRModel(NULL);
+  Headset* this = headset;
+  ViveState* state = this->state;
+
+  // Get render model name
+  unsigned int deviceIndex = state->controllerIndex[controller->hand];
+  if (deviceIndex < 0) {
+    return NULL;
+  }
+  char renderModelName[1024];
+  ETrackedDeviceProperty renderModelNameProperty = ETrackedDeviceProperty_Prop_RenderModelName_String;
+  ETrackedPropertyError err;
+  state->vrSystem->GetStringTrackedDeviceProperty(deviceIndex, renderModelNameProperty, renderModelName, 1024, &err);
+
+  // Load model
+  RenderModel_t* renderModel = NULL;
+  while (state->vrRenderModels->LoadRenderModel_Async(renderModelName, &renderModel) == EVRRenderModelError_VRRenderModelError_Loading) {
+    // TODO sleep
+  }
+
+  if (state->vrRenderModels->LoadRenderModel_Async(renderModelName, &renderModel) || renderModel == NULL) {
+    return NULL;
+  }
+
+  ModelData* modelData = lovrModelDataCreateFromOpenVRModel(renderModel);
+  state->vrRenderModels->FreeRenderModel(renderModel);
+  return modelData;
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {

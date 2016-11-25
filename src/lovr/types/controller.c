@@ -11,6 +11,7 @@ const luaL_Reg lovrController[] = {
   { "isDown", l_lovrControllerIsDown },
   { "getHand", l_lovrControllerGetHand },
   { "vibrate", l_lovrControllerVibrate },
+  { "newModelData", l_lovrControllerNewModelData },
   { NULL, NULL }
 };
 
@@ -70,6 +71,7 @@ int l_lovrControllerVibrate(lua_State* L) {
 
 int l_lovrControllerNewModelData(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  luax_pushtype(L, ModelData, lovrHeadsetControllerNewModelData(controller));
+  ModelData* modelData = lovrHeadsetControllerNewModelData(controller);
+  luax_pushtype(L, ModelData, modelData);
   return 1;
 }

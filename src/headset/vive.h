@@ -1,4 +1,5 @@
 #include "headset/headset.h"
+#include "model/modelData.h"
 #include "glfw.h"
 #include <stdbool.h>
 #ifndef _WIN32
@@ -13,6 +14,7 @@ typedef struct {
   struct VR_IVRSystem_FnTable* vrSystem;
   struct VR_IVRCompositor_FnTable* vrCompositor;
   struct VR_IVRChaperone_FnTable* vrChaperone;
+  struct VR_IVRRenderModels_FnTable* vrRenderModels;
 
   unsigned int headsetIndex;
   unsigned int controllerIndex[CONTROLLER_HAND_RIGHT + 1];
