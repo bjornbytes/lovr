@@ -4,6 +4,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef _WIN32
+#include <Windows.h>
+#else
+#include <unistd.h>
+#endif
 
 void error(const char* format, ...) {
   va_list args;
@@ -28,6 +33,14 @@ const char* map_int_find(map_int_t* map, int value) {
     }
   }
   return NULL;
+}
+
+void lovrSleep(double seconds) {
+#ifdef _WIN32
+  Sleep((unsigned int)(seconds * 1000));
+#else
+  usleep((unsigned int)(seconds * 1000000));
+#endif
 }
 
 void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref)) {

@@ -6,6 +6,13 @@ struct Buffer;
 #ifndef LOVR_TEXTURE_TYPES
 #define LOVR_TEXTURE_TYPES
 
+typedef struct {
+  void* data;
+  int width;
+  int height;
+  int channels;
+} TextureData;
+
 typedef enum {
   FILTER_NEAREST = GL_NEAREST,
   FILTER_LINEAR = GL_LINEAR
@@ -20,6 +27,7 @@ typedef enum {
 
 typedef struct {
   Ref ref;
+  TextureData* textureData;
   GLuint id;
   struct Buffer* buffer;
   int width;
@@ -32,9 +40,10 @@ typedef struct {
 
 #endif
 
-Texture* lovrTextureCreate(void* data, int size);
+Texture* lovrTextureCreate(TextureData* textureData);
 Texture* lovrTextureCreateFromBuffer(struct Buffer* buffer);
 void lovrTextureDestroy(const Ref* ref);
+void lovrTextureDataDestroy(TextureData* textureData);
 void lovrTextureBind(Texture* texture);
 void lovrTextureRefresh(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);

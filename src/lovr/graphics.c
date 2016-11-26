@@ -5,6 +5,8 @@
 #include "lovr/types/skybox.h"
 #include "lovr/types/texture.h"
 #include "graphics/graphics.h"
+#include "loaders/model.h"
+#include "loaders/texture.h"
 #include "filesystem/filesystem.h"
 #include "util.h"
 #include <math.h>
@@ -557,14 +559,15 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
 }
 
 int l_lovrGraphicsNewModel(lua_State* L) {
-  const char* path = luaL_checkstring(L, 1);
+  const char* path = lua_tostring(L, 1);
   int size;
   void* data = lovrFilesystemRead(path, &size);
   if (!data) {
     return luaL_error(L, "Could not load model file '%s'", path);
   }
 
-  luax_pushtype(L, Model, lovrModelCreate(data, size));
+  ModelData* modelData = lovrModelDataFromFile(data, size);
+  luax_pushtype(L, Model, lovrModelCreate(modelData));
   free(data);
   return 1;
 }
@@ -636,7 +639,8 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     if (!data) {
       return luaL_error(L, "Could not load texture file '%s'", path);
     }
-    texture = lovrTextureCreate(data, size);
+    TextureData* textureData = lovrTextureDataFromFile(data, size);
+    texture = lovrTextureCreate(textureData);
     free(data);
   } else {
     Buffer* buffer = luax_checktype(L, 1, Buffer); // TODO don't error if it's not a buffer

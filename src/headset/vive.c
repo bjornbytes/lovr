@@ -27,6 +27,7 @@ static HeadsetInterface interface = {
   .controllerIsDown = viveControllerIsDown,
   .controllerGetHand = viveControllerGetHand,
   .controllerVibrate = viveControllerVibrate,
+  .controllerGetModel = viveControllerGetModel,
   .renderTo = viveRenderTo
 };
 
@@ -60,6 +61,12 @@ Headset* viveInit() {
   state->resolveFramebuffer = 0;
   state->resolveTexture = 0;
 
+  for (int i = 0; i < 16; i++) {
+    state->deviceModels[i].isLoaded = 0;
+    state->deviceModels[i].model = NULL;
+    state->deviceModels[i].texture = NULL;
+  }
+
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
     viveDestroy(this);
     return NULL;
@@ -92,6 +99,13 @@ Headset* viveInit() {
   sprintf(fnTableName, "FnTable:%s", IVRChaperone_Version);
   state->vrChaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
   if (vrError != EVRInitError_VRInitError_None || state->vrChaperone == NULL) {
+    viveDestroy(this);
+    return NULL;
+  }
+
+  sprintf(fnTableName, "FnTable:%s", IVRRenderModels_Version);
+  state->vrRenderModels = (struct VR_IVRRenderModels_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
+  if (vrError != EVRInitError_VRInitError_None || state->vrRenderModels == NULL) {
     viveDestroy(this);
     return NULL;
   }
@@ -160,6 +174,11 @@ void viveDestroy(void* headset) {
   glDeleteRenderbuffers(1, &state->depthbuffer);
   glDeleteTextures(1, &state->texture);
   glDeleteTextures(1, &state->resolveTexture);
+  for (int i = 0; i < 16; i++) {
+    if (state->deviceModels[i].isLoaded) {
+      state->vrRenderModels->FreeRenderModel(state->deviceModels[i].model);
+    }
+  }
   free(state->controllers[CONTROLLER_HAND_LEFT]);
   free(state->controllers[CONTROLLER_HAND_RIGHT]);
   free(state);
@@ -402,6 +421,43 @@ void viveControllerVibrate(void* headset, Controller* controller, float duration
   uint32_t axis = 0;
   unsigned short uSeconds = (unsigned short) duration * 1e6;
   state->vrSystem->TriggerHapticPulse(state->controllerIndex[controller->hand], axis, uSeconds);
+}
+
+void* viveControllerGetModel(void* headset, Controller* controller, ControllerModelFormat* format) {
+  Headset* this = headset;
+  ViveState* state = this->state;
+
+  *format = CONTROLLER_MODEL_OPENVR;
+
+  // Return the model if it's already loaded
+  unsigned int deviceIndex = state->controllerIndex[controller->hand];
+  OpenVRModel* vrModel = &state->deviceModels[deviceIndex];
+  if (vrModel->isLoaded) {
+    return vrModel;
+  }
+
+  // Get model name
+  char renderModelName[1024];
+  ETrackedDeviceProperty renderModelNameProperty = ETrackedDeviceProperty_Prop_RenderModelName_String;
+  state->vrSystem->GetStringTrackedDeviceProperty(deviceIndex, renderModelNameProperty, renderModelName, 1024, NULL);
+
+  // Load model
+  RenderModel_t* model = NULL;
+  while (state->vrRenderModels->LoadRenderModel_Async(renderModelName, &model) == EVRRenderModelError_VRRenderModelError_Loading) {
+    lovrSleep(.001);
+  }
+
+  // Load texture
+  RenderModel_TextureMap_t* texture = NULL;
+  while (model && state->vrRenderModels->LoadTexture_Async(model->diffuseTextureId, &texture) == EVRRenderModelError_VRRenderModelError_Loading) {
+    lovrSleep(.001);
+  }
+
+  vrModel->isLoaded = 1;
+  vrModel->model = model;
+  vrModel->texture = texture;
+
+  return vrModel;
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {

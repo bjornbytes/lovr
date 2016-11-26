@@ -1,10 +1,6 @@
 #include "headset/headset.h"
 #include "glfw.h"
-#include <stdbool.h>
-#ifndef _WIN32
-#define __stdcall
-#endif
-#include <openvr_capi.h>
+#include "openvr.h"
 
 #ifndef LOVR_VIVE_TYPES
 #define LOVR_VIVE_TYPES
@@ -13,9 +9,12 @@ typedef struct {
   struct VR_IVRSystem_FnTable* vrSystem;
   struct VR_IVRCompositor_FnTable* vrCompositor;
   struct VR_IVRChaperone_FnTable* vrChaperone;
+  struct VR_IVRRenderModels_FnTable* vrRenderModels;
 
   unsigned int headsetIndex;
   unsigned int controllerIndex[CONTROLLER_HAND_RIGHT + 1];
+
+  OpenVRModel deviceModels[16];
 
   int isRendering;
   TrackedDevicePose_t renderPoses[16];
@@ -61,4 +60,5 @@ float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxi
 int viveControllerIsDown(void* headset, Controller* controller, ControllerButton button);
 ControllerHand viveControllerGetHand(void* headset, Controller* controller);
 void viveControllerVibrate(void* headset, Controller* controller, float duration);
+void* viveControllerGetModel(void* headset, Controller* controller, ControllerModelFormat* format);
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata);

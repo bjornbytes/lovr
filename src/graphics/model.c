@@ -50,10 +50,9 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
     // Face vertex indices
     for (int f = 0; f < mesh->faces.length; f++) {
       ModelFace face = mesh->faces.data[f];
-
-      for (int v = 0; v < face.indices.length; v++) {
-        vec_push(indices, face.indices.data[v] + indexOffset);
-      }
+      vec_push(indices, face.indices[0] + indexOffset);
+      vec_push(indices, face.indices[1] + indexOffset);
+      vec_push(indices, face.indices[2] + indexOffset);
     }
   }
 
@@ -64,12 +63,11 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
   mat4_deinit(newTransform);
 }
 
-Model* lovrModelCreate(void* data, int size) {
+Model* lovrModelCreate(ModelData* modelData) {
   Model* model = lovrAlloc(sizeof(Model), lovrModelDestroy);
   if (!model) return NULL;
 
-  model->modelData = lovrModelDataCreate(data, size);
-  if (!model->modelData) return NULL;
+  model->modelData = modelData;
 
   vec_float_t vertices;
   vec_init(&vertices);
@@ -77,7 +75,7 @@ Model* lovrModelCreate(void* data, int size) {
   vec_uint_t indices;
   vec_init(&indices);
 
-  visitNode(model->modelData, model->modelData->root, NULL, &vertices, &indices);
+  visitNode(modelData, modelData->root, NULL, &vertices, &indices);
 
   BufferFormat format;
   vec_init(&format);
@@ -86,15 +84,15 @@ Model* lovrModelCreate(void* data, int size) {
   BufferAttribute position = { .name = "lovrPosition", .type = BUFFER_FLOAT, .count = 3 };
   vec_push(&format, position);
 
-  if (model->modelData->hasNormals) {
+  if (modelData->hasNormals) {
     BufferAttribute normal = { .name = "lovrNormal", .type = BUFFER_FLOAT, .count = 3 };
     vec_push(&format, normal);
     components += 3;
   }
 
-  if (model->modelData->hasTexCoords) {
-    BufferAttribute normal = { .name = "lovrTexCoord", .type = BUFFER_FLOAT, .count = 2 };
-    vec_push(&format, normal);
+  if (modelData->hasTexCoords) {
+    BufferAttribute texCoord = { .name = "lovrTexCoord", .type = BUFFER_FLOAT, .count = 2 };
+    vec_push(&format, texCoord);
     components += 2;
   }
 
@@ -115,15 +113,49 @@ void lovrModelDestroy(const Ref* ref) {
   if (model->texture) {
     lovrRelease(&model->texture->ref);
   }
-  lovrRelease(&model->modelData->ref);
+  lovrModelDataDestroy(model->modelData);
   lovrRelease(&model->buffer->ref);
   free(model);
+}
+
+void lovrModelDataDestroy(ModelData* modelData) {
+  for (int i = 0; i < modelData->meshes.length; i++) {
+    ModelMesh* mesh = modelData->meshes.data[i];
+    vec_deinit(&mesh->faces);
+    vec_deinit(&mesh->vertices);
+    vec_deinit(&mesh->normals);
+    if (modelData->hasTexCoords) {
+      vec_deinit(&mesh->texCoords);
+    }
+    free(mesh);
+  }
+
+  vec_void_t nodes;
+  vec_init(&nodes);
+  vec_push(&nodes, modelData->root);
+  while (nodes.length > 0) {
+    ModelNode* node = vec_first(&nodes);
+    vec_extend(&nodes, &node->children);
+    mat4_deinit(node->transform);
+    vec_deinit(&node->meshes);
+    vec_deinit(&node->children);
+    vec_splice(&nodes, 0, 1);
+    free(node);
+  }
+
+  vec_deinit(&modelData->meshes);
+  vec_deinit(&nodes);
+  free(modelData);
 }
 
 void lovrModelDraw(Model* model, float x, float y, float z, float size, float angle, float ax, float ay, float az) {
   lovrGraphicsPush();
   lovrGraphicsTransform(x, y, z, size, size, size, angle, ax, ay, az);
-  lovrTextureBind(model->texture);
+  if (model->texture) {
+    lovrTextureBind(model->texture);
+  } else {
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
   lovrBufferDraw(model->buffer);
   lovrGraphicsPop();
 }

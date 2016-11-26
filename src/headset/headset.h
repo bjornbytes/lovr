@@ -21,6 +21,11 @@ typedef enum {
   CONTROLLER_BUTTON_TOUCHPAD
 } ControllerButton;
 
+typedef enum {
+  CONTROLLER_MODEL_NONE = 0,
+  CONTROLLER_MODEL_OPENVR
+} ControllerModelFormat;
+
 typedef struct {
   ControllerHand hand;
 } Controller;
@@ -48,6 +53,7 @@ typedef struct {
   int (*controllerIsDown)(void* headset, Controller* controller, ControllerButton button);
   ControllerHand (*controllerGetHand)(void* headset, Controller* controller);
   void (*controllerVibrate)(void* headset, Controller* controller, float duration);
+  void* (*controllerGetModel)(void* headset, Controller* controller, ControllerModelFormat* format);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
 } HeadsetInterface;
 
@@ -81,4 +87,5 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
 ControllerHand lovrHeadsetControllerGetHand(Controller* controller);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration);
+void* lovrHeadsetControllerGetModel(Controller* controller, ControllerModelFormat* format);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
