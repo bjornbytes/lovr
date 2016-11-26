@@ -417,7 +417,7 @@ ModelData* viveControllerNewModelData(void* headset, Controller* controller) {
   ViveState* state = this->state;
 
   // Get render model name
-  unsigned int deviceIndex = state->controllerIndex[controller->hand];
+  int deviceIndex = state->controllerIndex[controller->hand];
   if (deviceIndex < 0) {
     return NULL;
   }

@@ -1,4 +1,4 @@
-#include "model/modelData.h"
+#include "loaders/model.h"
 
 #ifndef LOVR_HEADSET_TYPES
 #define LOVR_HEADSET_TYPES

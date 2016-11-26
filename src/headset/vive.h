@@ -1,5 +1,5 @@
 #include "headset/headset.h"
-#include "model/modelData.h"
+#include "loaders/model.h"
 #include "glfw.h"
 #include <stdbool.h>
 #ifndef _WIN32

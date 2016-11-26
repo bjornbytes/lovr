@@ -1,6 +1,6 @@
 #include "graphics/buffer.h"
 #include "graphics/texture.h"
-#include "model/modelData.h"
+#include "loaders/model.h"
 #include "glfw.h"
 #include "util.h"
 
