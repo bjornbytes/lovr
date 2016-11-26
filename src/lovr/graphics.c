@@ -6,6 +6,7 @@
 #include "lovr/types/texture.h"
 #include "graphics/graphics.h"
 #include "loaders/model.h"
+#include "loaders/texture.h"
 #include "filesystem/filesystem.h"
 #include "util.h"
 #include <math.h>
@@ -650,7 +651,8 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     if (!data) {
       return luaL_error(L, "Could not load texture file '%s'", path);
     }
-    texture = lovrTextureCreate(data, size);
+    TextureData* textureData = lovrTextureDataFromFile(data, size);
+    texture = lovrTextureCreate(textureData);
     free(data);
   } else {
     Buffer* buffer = luax_checktype(L, 1, Buffer); // TODO don't error if it's not a buffer

@@ -3,26 +3,19 @@
 #include "util.h"
 #include <stdlib.h>
 
-Texture* lovrTextureCreate(void* data, int size) {
+Texture* lovrTextureCreate(TextureData* textureData) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
+  texture->textureData = textureData;
   texture->buffer = 0;
   glGenTextures(1, &texture->id);
 
-  if (data) {
-    int channels;
-    unsigned char* image = loadImage(data, size, &texture->width, &texture->height, &channels, 3);
-    if (!image) {
-      lovrTextureDestroy(&texture->ref);
-      return NULL;
-    }
-
+  if (textureData) {
     lovrTextureBind(texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texture->width, texture->height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureData->width, textureData->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData->data);
     lovrTextureSetFilter(texture, FILTER_LINEAR, FILTER_LINEAR);
     lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
-    free(image);
   }
 
   return texture;
@@ -50,8 +43,14 @@ void lovrTextureDestroy(const Ref* ref) {
   if (texture->buffer) {
     lovrRelease(&texture->buffer->ref);
   }
+  lovrTextureDataDestroy(texture->textureData);
   glDeleteTextures(1, &texture->id);
   free(texture);
+}
+
+void lovrTextureDataDestroy(TextureData* textureData) {
+  free(textureData->data);
+  free(textureData);
 }
 
 void lovrTextureBind(Texture* texture) {

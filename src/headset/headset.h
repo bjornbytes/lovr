@@ -23,7 +23,7 @@ typedef enum {
 
 typedef enum {
   CONTROLLER_MODEL_NONE = 0,
-  CONTROLLER_MODEL_OPENVR = 1
+  CONTROLLER_MODEL_OPENVR
 } ControllerModelFormat;
 
 typedef struct {
