@@ -81,7 +81,7 @@ int l_lovrControllerNewModel(lua_State* L) {
     Model* model = lovrModelCreate(modelData);
     Texture* texture = lovrTextureCreate(textureData);
     lovrModelSetTexture(model, texture);
-    luax_pushtype(L, ModelData, modelData);
+    luax_pushtype(L, Model, model);
   } else {
     lua_pushnil(L);
   }
