@@ -24,8 +24,8 @@ static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
   }
 }
 
-ModelData* lovrModelDataCreateFromFile(void* data, int size) {
-  ModelData* modelData = lovrAlloc(sizeof(ModelData), lovrModelDataDestroy);
+ModelData* lovrModelDataFromFile(void* data, int size) {
+  ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
 
   unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_FlipUVs;
@@ -100,8 +100,8 @@ ModelData* lovrModelDataCreateFromFile(void* data, int size) {
   return modelData;
 }
 
-ModelData* lovrModelDataCreateFromOpenVRModel(RenderModel_t* renderModel) {
-  ModelData* modelData = lovrAlloc(sizeof(ModelData), lovrModelDataDestroy);
+ModelData* lovrModelDataFromOpenVRModel(RenderModel_t* renderModel) {
+  ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
 
   ModelMesh* mesh = malloc(sizeof(ModelMesh));
@@ -153,36 +153,4 @@ ModelData* lovrModelDataCreateFromOpenVRModel(RenderModel_t* renderModel) {
   modelData->hasTexCoords = 1;
 
   return modelData;
-}
-
-void lovrModelDataDestroy(const Ref* ref) {
-  ModelData* modelData = containerof(ref, ModelData);
-
-  for (int i = 0; i < modelData->meshes.length; i++) {
-    ModelMesh* mesh = modelData->meshes.data[i];
-    vec_deinit(&mesh->faces);
-    vec_deinit(&mesh->vertices);
-    vec_deinit(&mesh->normals);
-    if (modelData->hasTexCoords) {
-      vec_deinit(&mesh->texCoords);
-    }
-    free(mesh);
-  }
-
-  vec_void_t nodes;
-  vec_init(&nodes);
-  vec_push(&nodes, modelData->root);
-  while (nodes.length > 0) {
-    ModelNode* node = vec_first(&nodes);
-    vec_extend(&nodes, &node->children);
-    mat4_deinit(node->transform);
-    vec_deinit(&node->meshes);
-    vec_deinit(&node->children);
-    vec_splice(&nodes, 0, 1);
-    free(node);
-  }
-
-  vec_deinit(&modelData->meshes);
-  vec_deinit(&nodes);
-  free(modelData);
 }

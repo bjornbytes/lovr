@@ -1,5 +1,6 @@
 #include "headset/vive.h"
 #include "graphics/graphics.h"
+#include "loaders/model.h"
 #include "util.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -436,7 +437,7 @@ ModelData* viveControllerNewModelData(void* headset, Controller* controller) {
     return NULL;
   }
 
-  ModelData* modelData = lovrModelDataCreateFromOpenVRModel(renderModel);
+  ModelData* modelData = lovrModelDataFromOpenVRModel(renderModel);
   state->vrRenderModels->FreeRenderModel(renderModel);
   return modelData;
 }

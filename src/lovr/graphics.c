@@ -5,6 +5,7 @@
 #include "lovr/types/skybox.h"
 #include "lovr/types/texture.h"
 #include "graphics/graphics.h"
+#include "loaders/model.h"
 #include "filesystem/filesystem.h"
 #include "util.h"
 #include <math.h>
@@ -567,7 +568,7 @@ int l_lovrGraphicsNewModel(lua_State* L) {
     if (!data) {
       return luaL_error(L, "Could not load model file '%s'", path);
     } else {
-      modelData = lovrModelDataCreateFromFile(data, size);
+      modelData = lovrModelDataFromFile(data, size);
       free(data);
     }
   } else {
@@ -579,11 +580,6 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   }
 
   luax_pushtype(L, Model, lovrModelCreate(modelData));
-
-  if (lua_isstring(L, 1)) {
-    lovrRelease(&modelData->ref);
-  }
-
   return 1;
 }
 

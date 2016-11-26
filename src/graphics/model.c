@@ -67,7 +67,6 @@ Model* lovrModelCreate(ModelData* modelData) {
   Model* model = lovrAlloc(sizeof(Model), lovrModelDestroy);
   if (!model) return NULL;
 
-  lovrRetain(&modelData->ref);
   model->modelData = modelData;
 
   vec_float_t vertices;
@@ -114,9 +113,39 @@ void lovrModelDestroy(const Ref* ref) {
   if (model->texture) {
     lovrRelease(&model->texture->ref);
   }
-  lovrRelease(&model->modelData->ref);
+  lovrModelDataDestroy(model->modelData);
   lovrRelease(&model->buffer->ref);
   free(model);
+}
+
+void lovrModelDataDestroy(ModelData* modelData) {
+  for (int i = 0; i < modelData->meshes.length; i++) {
+    ModelMesh* mesh = modelData->meshes.data[i];
+    vec_deinit(&mesh->faces);
+    vec_deinit(&mesh->vertices);
+    vec_deinit(&mesh->normals);
+    if (modelData->hasTexCoords) {
+      vec_deinit(&mesh->texCoords);
+    }
+    free(mesh);
+  }
+
+  vec_void_t nodes;
+  vec_init(&nodes);
+  vec_push(&nodes, modelData->root);
+  while (nodes.length > 0) {
+    ModelNode* node = vec_first(&nodes);
+    vec_extend(&nodes, &node->children);
+    mat4_deinit(node->transform);
+    vec_deinit(&node->meshes);
+    vec_deinit(&node->children);
+    vec_splice(&nodes, 0, 1);
+    free(node);
+  }
+
+  vec_deinit(&modelData->meshes);
+  vec_deinit(&nodes);
+  free(modelData);
 }
 
 void lovrModelDraw(Model* model, float x, float y, float z, float size, float angle, float ax, float ay, float az) {

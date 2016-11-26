@@ -1,6 +1,6 @@
 #include "lovr/types/controller.h"
 #include "lovr/headset.h"
-#include "loaders/model.h"
+#include "graphics/model.h"
 #include "util.h"
 
 const luaL_Reg lovrController[] = {
