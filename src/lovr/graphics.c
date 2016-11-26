@@ -97,7 +97,6 @@ int l_lovrGraphicsInit(lua_State* L) {
   luaL_register(L, NULL, lovrGraphics);
   luax_registertype(L, "Buffer", lovrBuffer);
   luax_registertype(L, "Model", lovrModel);
-  luax_registertype(L, "ModelData", NULL);
   luax_registertype(L, "Shader", lovrShader);
   luax_registertype(L, "Skybox", lovrSkybox);
   luax_registertype(L, "Texture", lovrTexture);
@@ -560,27 +559,16 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
 }
 
 int l_lovrGraphicsNewModel(lua_State* L) {
-  ModelData* modelData = NULL;
-
-  if (lua_isstring(L, 1)) {
-    const char* path = lua_tostring(L, 1);
-    int size;
-    void* data = lovrFilesystemRead(path, &size);
-    if (!data) {
-      return luaL_error(L, "Could not load model file '%s'", path);
-    } else {
-      modelData = lovrModelDataFromFile(data, size);
-      free(data);
-    }
-  } else {
-    modelData = luax_checktype(L, 1, ModelData);
+  const char* path = lua_tostring(L, 1);
+  int size;
+  void* data = lovrFilesystemRead(path, &size);
+  if (!data) {
+    return luaL_error(L, "Could not load model file '%s'", path);
   }
 
-  if (!modelData) {
-    return luaL_error(L, "Could not load model data");
-  }
-
+  ModelData* modelData = lovrModelDataFromFile(data, size);
   luax_pushtype(L, Model, lovrModelCreate(modelData));
+  free(data);
   return 1;
 }
 
