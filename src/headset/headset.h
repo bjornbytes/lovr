@@ -1,5 +1,3 @@
-#include "graphics/model.h"
-
 #ifndef LOVR_HEADSET_TYPES
 #define LOVR_HEADSET_TYPES
 
@@ -22,6 +20,11 @@ typedef enum {
   CONTROLLER_BUTTON_GRIP,
   CONTROLLER_BUTTON_TOUCHPAD
 } ControllerButton;
+
+typedef enum {
+  CONTROLLER_MODEL_NONE = 0,
+  CONTROLLER_MODEL_OPENVR = 1
+} ControllerModelFormat;
 
 typedef struct {
   ControllerHand hand;
@@ -50,7 +53,7 @@ typedef struct {
   int (*controllerIsDown)(void* headset, Controller* controller, ControllerButton button);
   ControllerHand (*controllerGetHand)(void* headset, Controller* controller);
   void (*controllerVibrate)(void* headset, Controller* controller, float duration);
-  ModelData* (*controllerNewModelData)(void* headset, Controller* controller);
+  void* (*controllerGetModel)(void* headset, Controller* controller, ControllerModelFormat* format);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
 } HeadsetInterface;
 
@@ -84,5 +87,5 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
 ControllerHand lovrHeadsetControllerGetHand(Controller* controller);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration);
-ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
+void* lovrHeadsetControllerGetModel(Controller* controller, ControllerModelFormat* format);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);

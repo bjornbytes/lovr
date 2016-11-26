@@ -1,6 +1,6 @@
 #include "lovr/types/controller.h"
 #include "lovr/headset.h"
-#include "graphics/model.h"
+#include "loaders/model.h"
 #include "util.h"
 
 const luaL_Reg lovrController[] = {
@@ -71,7 +71,13 @@ int l_lovrControllerVibrate(lua_State* L) {
 
 int l_lovrControllerNewModelData(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  ModelData* modelData = lovrHeadsetControllerNewModelData(controller);
-  luax_pushtype(L, ModelData, modelData);
+  ControllerModelFormat format;
+  void* rawData = lovrHeadsetControllerGetModel(controller, &format);
+  if (rawData && format == CONTROLLER_MODEL_OPENVR) {
+    ModelData* modelData = lovrModelDataFromOpenVRModel(rawData);
+    luax_pushtype(L, ModelData, modelData);
+  } else {
+    lua_pushnil(L);
+  }
   return 1;
 }

@@ -99,8 +99,8 @@ void lovrHeadsetControllerVibrate(Controller* controller, float duration) {
   headset->interface->controllerVibrate(headset, controller, duration);
 }
 
-ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
-  return headset->interface->controllerNewModelData(headset, controller);
+void* lovrHeadsetControllerGetModel(Controller* controller, ControllerModelFormat* format) {
+  return headset->interface->controllerGetModel(headset, controller, format);
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {

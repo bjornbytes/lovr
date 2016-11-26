@@ -1,6 +1,5 @@
 #include "headset/vive.h"
 #include "graphics/graphics.h"
-#include "loaders/model.h"
 #include "util.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -28,7 +27,7 @@ static HeadsetInterface interface = {
   .controllerIsDown = viveControllerIsDown,
   .controllerGetHand = viveControllerGetHand,
   .controllerVibrate = viveControllerVibrate,
-  .controllerNewModelData = viveControllerNewModelData,
+  .controllerGetModel = viveControllerGetModel,
   .renderTo = viveRenderTo
 };
 
@@ -61,6 +60,10 @@ Headset* viveInit() {
   state->texture = 0;
   state->resolveFramebuffer = 0;
   state->resolveTexture = 0;
+
+  for (int i = 0; i < 16; i++) {
+    state->renderModels[i] = NULL;
+  }
 
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
     viveDestroy(this);
@@ -169,6 +172,11 @@ void viveDestroy(void* headset) {
   glDeleteRenderbuffers(1, &state->depthbuffer);
   glDeleteTextures(1, &state->texture);
   glDeleteTextures(1, &state->resolveTexture);
+  for (int i = 0; i < 16; i++) {
+    if (state->renderModels[i]) {
+      state->vrRenderModels->FreeRenderModel(state->renderModels[i]);
+    }
+  }
   free(state->controllers[CONTROLLER_HAND_LEFT]);
   free(state->controllers[CONTROLLER_HAND_RIGHT]);
   free(state);
@@ -413,33 +421,31 @@ void viveControllerVibrate(void* headset, Controller* controller, float duration
   state->vrSystem->TriggerHapticPulse(state->controllerIndex[controller->hand], axis, uSeconds);
 }
 
-ModelData* viveControllerNewModelData(void* headset, Controller* controller) {
+void* viveControllerGetModel(void* headset, Controller* controller, ControllerModelFormat* format) {
   Headset* this = headset;
   ViveState* state = this->state;
 
-  // Get render model name
-  int deviceIndex = state->controllerIndex[controller->hand];
-  if (deviceIndex < 0) {
-    return NULL;
+  *format = CONTROLLER_MODEL_OPENVR;
+
+  // Return the model if it's already loaded
+  unsigned int deviceIndex = state->controllerIndex[controller->hand];
+  if (state->renderModels[deviceIndex]) {
+    return state->renderModels[deviceIndex];
   }
+
+  // Get model name
   char renderModelName[1024];
   ETrackedDeviceProperty renderModelNameProperty = ETrackedDeviceProperty_Prop_RenderModelName_String;
-  ETrackedPropertyError err;
-  state->vrSystem->GetStringTrackedDeviceProperty(deviceIndex, renderModelNameProperty, renderModelName, 1024, &err);
+  state->vrSystem->GetStringTrackedDeviceProperty(deviceIndex, renderModelNameProperty, renderModelName, 1024, NULL);
 
   // Load model
   RenderModel_t* renderModel = NULL;
   while (state->vrRenderModels->LoadRenderModel_Async(renderModelName, &renderModel) == EVRRenderModelError_VRRenderModelError_Loading) {
-    // TODO sleep
+    lovrSleep(.001);
   }
 
-  if (state->vrRenderModels->LoadRenderModel_Async(renderModelName, &renderModel) || renderModel == NULL) {
-    return NULL;
-  }
-
-  ModelData* modelData = lovrModelDataFromOpenVRModel(renderModel);
-  state->vrRenderModels->FreeRenderModel(renderModel);
-  return modelData;
+  state->renderModels[deviceIndex] = renderModel;
+  return renderModel;
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {

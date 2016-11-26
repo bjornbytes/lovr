@@ -1,5 +1,4 @@
 #include "headset/headset.h"
-#include "graphics/model.h"
 #include "glfw.h"
 #include <stdbool.h>
 #ifndef _WIN32
@@ -21,6 +20,7 @@ typedef struct {
 
   int isRendering;
   TrackedDevicePose_t renderPoses[16];
+  RenderModel_t* renderModels[16];
 
   Controller* controllers[CONTROLLER_HAND_RIGHT + 1];
 
@@ -63,5 +63,5 @@ float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxi
 int viveControllerIsDown(void* headset, Controller* controller, ControllerButton button);
 ControllerHand viveControllerGetHand(void* headset, Controller* controller);
 void viveControllerVibrate(void* headset, Controller* controller, float duration);
-ModelData* viveControllerNewModelData(void* headset, Controller* controller);
+void* viveControllerGetModel(void* headset, Controller* controller, ControllerModelFormat* format);
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata);

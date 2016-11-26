@@ -1,10 +1,6 @@
 #include "timer/timer.h"
 #include "glfw.h"
-#ifdef _WIN32
-#include <Windows.h>
-#else
-#include <unistd.h>
-#endif
+#include "util.h"
 
 static TimerState timerState;
 
@@ -28,9 +24,5 @@ double lovrTimerStep() {
 }
 
 void lovrTimerSleep(double seconds) {
-#ifdef _WIN32
-  Sleep((unsigned int)(seconds * 1000));
-#else
-  usleep((unsigned int)(seconds * 1000000));
-#endif
+  lovrSleep(seconds);
 }
