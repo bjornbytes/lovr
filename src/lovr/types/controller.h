@@ -11,4 +11,4 @@ int l_lovrControllerGetAxis(lua_State* L);
 int l_lovrControllerIsDown(lua_State* L);
 int l_lovrControllerGetHand(lua_State* L);
 int l_lovrControllerVibrate(lua_State* L);
-int l_lovrControllerNewModelData(lua_State* L);
+int l_lovrControllerNewModel(lua_State* L);

@@ -1,6 +1,8 @@
 #include "lovr/types/controller.h"
 #include "lovr/headset.h"
 #include "loaders/model.h"
+#include "loaders/texture.h"
+#include "graphics/model.h"
 #include "util.h"
 
 const luaL_Reg lovrController[] = {
@@ -11,7 +13,7 @@ const luaL_Reg lovrController[] = {
   { "isDown", l_lovrControllerIsDown },
   { "getHand", l_lovrControllerGetHand },
   { "vibrate", l_lovrControllerVibrate },
-  { "newModelData", l_lovrControllerNewModelData },
+  { "newModel", l_lovrControllerNewModel },
   { NULL, NULL }
 };
 
@@ -69,12 +71,16 @@ int l_lovrControllerVibrate(lua_State* L) {
   return 0;
 }
 
-int l_lovrControllerNewModelData(lua_State* L) {
+int l_lovrControllerNewModel(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   ControllerModelFormat format;
   void* rawData = lovrHeadsetControllerGetModel(controller, &format);
   if (rawData && format == CONTROLLER_MODEL_OPENVR) {
     ModelData* modelData = lovrModelDataFromOpenVRModel(rawData);
+    TextureData* textureData = lovrTextureDataFromOpenVRModel(rawData);
+    Model* model = lovrModelCreate(modelData);
+    Texture* texture = lovrTextureCreate(textureData);
+    lovrModelSetTexture(model, texture);
     luax_pushtype(L, ModelData, modelData);
   } else {
     lua_pushnil(L);

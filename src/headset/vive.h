@@ -1,10 +1,6 @@
 #include "headset/headset.h"
 #include "glfw.h"
-#include <stdbool.h>
-#ifndef _WIN32
-#define __stdcall
-#endif
-#include <openvr_capi.h>
+#include "openvr.h"
 
 #ifndef LOVR_VIVE_TYPES
 #define LOVR_VIVE_TYPES
@@ -18,9 +14,10 @@ typedef struct {
   unsigned int headsetIndex;
   unsigned int controllerIndex[CONTROLLER_HAND_RIGHT + 1];
 
+  OpenVRModel deviceModels[16];
+
   int isRendering;
   TrackedDevicePose_t renderPoses[16];
-  RenderModel_t* renderModels[16];
 
   Controller* controllers[CONTROLLER_HAND_RIGHT + 1];
 

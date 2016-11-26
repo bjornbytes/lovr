@@ -17,9 +17,13 @@ TextureData* lovrTextureDataFromFile(void* data, int size) {
   }
 }
 
-TextureData* lovrTextureDataFromOpenVRModel(RenderModel_t* renderModel) {
+TextureData* lovrTextureDataFromOpenVRModel(OpenVRModel* vrModel) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
+  RenderModel_TextureMap_t* texture = vrModel->texture;
+  textureData->width = texture->unWidth;
+  textureData->height = texture->unHeight;
+  textureData->data = texture->rubTextureMapData;
   return textureData;
 }

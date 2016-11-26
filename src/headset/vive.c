@@ -62,7 +62,9 @@ Headset* viveInit() {
   state->resolveTexture = 0;
 
   for (int i = 0; i < 16; i++) {
-    state->renderModels[i] = NULL;
+    state->deviceModels[i].isLoaded = 0;
+    state->deviceModels[i].model = NULL;
+    state->deviceModels[i].texture = NULL;
   }
 
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
@@ -173,8 +175,8 @@ void viveDestroy(void* headset) {
   glDeleteTextures(1, &state->texture);
   glDeleteTextures(1, &state->resolveTexture);
   for (int i = 0; i < 16; i++) {
-    if (state->renderModels[i]) {
-      state->vrRenderModels->FreeRenderModel(state->renderModels[i]);
+    if (state->deviceModels[i].isLoaded) {
+      state->vrRenderModels->FreeRenderModel(state->deviceModels[i].model);
     }
   }
   free(state->controllers[CONTROLLER_HAND_LEFT]);
@@ -429,8 +431,9 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
 
   // Return the model if it's already loaded
   unsigned int deviceIndex = state->controllerIndex[controller->hand];
-  if (state->renderModels[deviceIndex]) {
-    return state->renderModels[deviceIndex];
+  OpenVRModel* vrModel = &state->deviceModels[deviceIndex];
+  if (vrModel->isLoaded) {
+    return vrModel;
   }
 
   // Get model name
@@ -439,13 +442,22 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
   state->vrSystem->GetStringTrackedDeviceProperty(deviceIndex, renderModelNameProperty, renderModelName, 1024, NULL);
 
   // Load model
-  RenderModel_t* renderModel = NULL;
-  while (state->vrRenderModels->LoadRenderModel_Async(renderModelName, &renderModel) == EVRRenderModelError_VRRenderModelError_Loading) {
+  RenderModel_t* model = NULL;
+  while (state->vrRenderModels->LoadRenderModel_Async(renderModelName, &model) == EVRRenderModelError_VRRenderModelError_Loading) {
     lovrSleep(.001);
   }
 
-  state->renderModels[deviceIndex] = renderModel;
-  return renderModel;
+  // Load texture
+  RenderModel_TextureMap_t* texture = NULL;
+  while (model && state->vrRenderModels->LoadTexture_Async(model->diffuseTextureId, &texture) == EVRRenderModelError_VRRenderModelError_Loading) {
+    lovrSleep(.001);
+  }
+
+  vrModel->isLoaded = 1;
+  vrModel->model = model;
+  vrModel->texture = texture;
+
+  return vrModel;
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {

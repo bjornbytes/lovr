@@ -100,9 +100,11 @@ ModelData* lovrModelDataFromFile(void* data, int size) {
   return modelData;
 }
 
-ModelData* lovrModelDataFromOpenVRModel(RenderModel_t* renderModel) {
+ModelData* lovrModelDataFromOpenVRModel(OpenVRModel* vrModel) {
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
+
+  RenderModel_t* renderModel = vrModel->model;
 
   ModelMesh* mesh = malloc(sizeof(ModelMesh));
   vec_init(&modelData->meshes);
