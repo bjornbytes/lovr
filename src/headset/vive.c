@@ -4,71 +4,65 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-static HeadsetInterface interface = {
-  .isPresent = viveIsPresent,
-  .getType = viveGetType,
-  .getDisplayDimensions = viveGetDisplayDimensions,
-  .getClipDistance = viveGetClipDistance,
-  .setClipDistance = viveSetClipDistance,
-  .getBoundsWidth = viveGetBoundsWidth,
-  .getBoundsDepth = viveGetBoundsDepth,
-  .getBoundsGeometry = viveGetBoundsGeometry,
-  .isBoundsVisible = viveIsBoundsVisible,
-  .setBoundsVisible = viveSetBoundsVisible,
-  .getPosition = viveGetPosition,
-  .getOrientation = viveGetOrientation,
-  .getVelocity = viveGetVelocity,
-  .getAngularVelocity = viveGetAngularVelocity,
-  .getController = viveGetController,
-  .controllerIsPresent = viveControllerIsPresent,
-  .controllerGetPosition = viveControllerGetPosition,
-  .controllerGetOrientation = viveControllerGetOrientation,
-  .controllerGetAxis = viveControllerGetAxis,
-  .controllerIsDown = viveControllerIsDown,
-  .controllerGetHand = viveControllerGetHand,
-  .controllerVibrate = viveControllerVibrate,
-  .controllerGetModel = viveControllerGetModel,
-  .renderTo = viveRenderTo
-};
-
-static TrackedDevicePose_t viveGetPose(ViveState* state, unsigned int deviceIndex) {
-  if (state->isRendering) {
-    return state->renderPoses[deviceIndex];
+static TrackedDevicePose_t viveGetPose(Vive* vive, unsigned int deviceIndex) {
+  if (vive->isRendering) {
+    return vive->renderPoses[deviceIndex];
   }
 
   ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
   float secondsInFuture = 0.f;
   TrackedDevicePose_t poses[16];
-  state->vrSystem->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, poses, 16);
+  vive->system->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, poses, 16);
   return poses[deviceIndex];
 }
 
 Headset* viveInit() {
-  Headset* this = malloc(sizeof(Headset));
-  if (!this) return NULL;
+  Vive* vive = malloc(sizeof(Vive));
+  if (!vive) return NULL;
 
-  ViveState* state = malloc(sizeof(ViveState));
-  if (!state) return NULL;
+  Headset* headset = (Headset*) vive;
+  headset->isPresent = viveIsPresent;
+  headset->getType = viveGetType;
+  headset->getDisplayDimensions = viveGetDisplayDimensions;
+  headset->getClipDistance = viveGetClipDistance;
+  headset->setClipDistance = viveSetClipDistance;
+  headset->getBoundsWidth = viveGetBoundsWidth;
+  headset->getBoundsDepth = viveGetBoundsDepth;
+  headset->getBoundsGeometry = viveGetBoundsGeometry;
+  headset->isBoundsVisible = viveIsBoundsVisible;
+  headset->setBoundsVisible = viveSetBoundsVisible;
+  headset->getPosition = viveGetPosition;
+  headset->getOrientation = viveGetOrientation;
+  headset->getVelocity = viveGetVelocity;
+  headset->getAngularVelocity = viveGetAngularVelocity;
+  headset->getController = viveGetController;
+  headset->controllerIsPresent = viveControllerIsPresent;
+  headset->controllerGetPosition = viveControllerGetPosition;
+  headset->controllerGetOrientation = viveControllerGetOrientation;
+  headset->controllerGetAxis = viveControllerGetAxis;
+  headset->controllerIsDown = viveControllerIsDown;
+  headset->controllerGetHand = viveControllerGetHand;
+  headset->controllerVibrate = viveControllerVibrate;
+  headset->controllerGetModel = viveControllerGetModel;
+  headset->renderTo = viveRenderTo;
 
-  this->state = state;
-  this->interface = &interface;
-  state->isRendering = 0;
-  state->controllers[CONTROLLER_HAND_LEFT] = NULL;
-  state->controllers[CONTROLLER_HAND_RIGHT] = NULL;
-  state->framebuffer = 0;
-  state->depthbuffer = 0;
-  state->texture = 0;
-  state->resolveFramebuffer = 0;
-  state->resolveTexture = 0;
+  vive->isRendering = 0;
+  vive->controllers[CONTROLLER_HAND_LEFT] = NULL;
+  vive->controllers[CONTROLLER_HAND_RIGHT] = NULL;
+  vive->framebuffer = 0;
+  vive->depthbuffer = 0;
+  vive->texture = 0;
+  vive->resolveFramebuffer = 0;
+  vive->resolveTexture = 0;
 
   for (int i = 0; i < 16; i++) {
-    state->deviceModels[i].isLoaded = 0;
-    state->deviceModels[i].model = NULL;
-    state->deviceModels[i].texture = NULL;
+    vive->deviceModels[i].isLoaded = 0;
+    vive->deviceModels[i].model = NULL;
+    vive->deviceModels[i].texture = NULL;
   }
 
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
-    viveDestroy(this);
+    viveDestroy(vive);
     return NULL;
   }
 
@@ -76,119 +70,116 @@ Headset* viveInit() {
   VR_InitInternal(&vrError, EVRApplicationType_VRApplication_Scene);
 
   if (vrError != EVRInitError_VRInitError_None) {
-    viveDestroy(this);
+    viveDestroy(vive);
     return NULL;
   }
 
   char fnTableName[128];
 
   sprintf(fnTableName, "FnTable:%s", IVRSystem_Version);
-  state->vrSystem = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
-  if (vrError != EVRInitError_VRInitError_None || state->vrSystem == NULL) {
-    viveDestroy(this);
+  vive->system = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
+  if (vrError != EVRInitError_VRInitError_None || vive->system == NULL) {
+    viveDestroy(vive);
     return NULL;
   }
 
   sprintf(fnTableName, "FnTable:%s", IVRCompositor_Version);
-  state->vrCompositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
-  if (vrError != EVRInitError_VRInitError_None || state->vrCompositor == NULL) {
-    viveDestroy(this);
+  vive->compositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
+  if (vrError != EVRInitError_VRInitError_None || vive->compositor == NULL) {
+    viveDestroy(vive);
     return NULL;
   }
 
   sprintf(fnTableName, "FnTable:%s", IVRChaperone_Version);
-  state->vrChaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
-  if (vrError != EVRInitError_VRInitError_None || state->vrChaperone == NULL) {
-    viveDestroy(this);
+  vive->chaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
+  if (vrError != EVRInitError_VRInitError_None || vive->chaperone == NULL) {
+    viveDestroy(vive);
     return NULL;
   }
 
   sprintf(fnTableName, "FnTable:%s", IVRRenderModels_Version);
-  state->vrRenderModels = (struct VR_IVRRenderModels_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
-  if (vrError != EVRInitError_VRInitError_None || state->vrRenderModels == NULL) {
-    viveDestroy(this);
+  vive->renderModels = (struct VR_IVRRenderModels_FnTable*) VR_GetGenericInterface(fnTableName, &vrError);
+  if (vrError != EVRInitError_VRInitError_None || vive->renderModels == NULL) {
+    viveDestroy(vive);
     return NULL;
   }
 
-  state->headsetIndex = k_unTrackedDeviceIndex_Hmd;
-  state->clipNear = 0.1f;
-  state->clipFar = 30.f;
-  state->vrSystem->GetRecommendedRenderTargetSize(&state->renderWidth, &state->renderHeight);
+  vive->headsetIndex = k_unTrackedDeviceIndex_Hmd;
+  vive->clipNear = 0.1f;
+  vive->clipFar = 30.f;
+  vive->system->GetRecommendedRenderTargetSize(&vive->renderWidth, &vive->renderHeight);
 
   Controller* leftController = lovrAlloc(sizeof(Controller), NULL);
   if (!leftController) {
-    viveDestroy(this);
+    viveDestroy(vive);
     return NULL;
   }
   leftController->hand = CONTROLLER_HAND_LEFT;
-  state->controllers[CONTROLLER_HAND_LEFT] = leftController;
-  state->controllerIndex[CONTROLLER_HAND_LEFT] = state->vrSystem->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
+  vive->controllers[CONTROLLER_HAND_LEFT] = leftController;
+  vive->controllerIndex[CONTROLLER_HAND_LEFT] = vive->system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
 
   Controller* rightController = lovrAlloc(sizeof(Controller), NULL);
   if (!rightController) {
-    viveDestroy(this);
+    viveDestroy(vive);
     return NULL;
   }
   rightController->hand = CONTROLLER_HAND_RIGHT;
-  state->controllers[CONTROLLER_HAND_RIGHT] = rightController;
-  state->controllerIndex[CONTROLLER_HAND_RIGHT] = state->vrSystem->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
+  vive->controllers[CONTROLLER_HAND_RIGHT] = rightController;
+  vive->controllerIndex[CONTROLLER_HAND_RIGHT] = vive->system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
 
-  glGenFramebuffers(1, &state->framebuffer);
-  glBindFramebuffer(GL_FRAMEBUFFER, state->framebuffer);
+  glGenFramebuffers(1, &vive->framebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, vive->framebuffer);
 
-  glGenRenderbuffers(1, &state->depthbuffer);
-  glBindRenderbuffer(GL_RENDERBUFFER, state->depthbuffer);
-  glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, state->renderWidth, state->renderHeight);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, state->depthbuffer);
+  glGenRenderbuffers(1, &vive->depthbuffer);
+  glBindRenderbuffer(GL_RENDERBUFFER, vive->depthbuffer);
+  glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, vive->renderWidth, vive->renderHeight);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, vive->depthbuffer);
 
-  glGenTextures(1, &state->texture);
-  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, state->texture);
-  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, state->renderWidth, state->renderHeight, 1);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, state->texture, 0);
+  glGenTextures(1, &vive->texture);
+  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, vive->texture);
+  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, vive->renderWidth, vive->renderHeight, 1);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, vive->texture, 0);
 
-  glGenFramebuffers(1, &state->resolveFramebuffer);
-  glBindFramebuffer(GL_FRAMEBUFFER, state->resolveFramebuffer);
+  glGenFramebuffers(1, &vive->resolveFramebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, vive->resolveFramebuffer);
 
-  glGenTextures(1, &state->resolveTexture);
-  glBindTexture(GL_TEXTURE_2D, state->resolveTexture);
+  glGenTextures(1, &vive->resolveTexture);
+  glBindTexture(GL_TEXTURE_2D, vive->resolveTexture);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, state->renderWidth, state->renderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, state->resolveTexture, 0);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, vive->renderWidth, vive->renderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, vive->resolveTexture, 0);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    viveDestroy(this);
+    viveDestroy(vive);
     return NULL;
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-  return this;
+  return headset;
 }
 
 void viveDestroy(void* headset) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  glDeleteFramebuffers(1, &state->framebuffer);
-  glDeleteFramebuffers(1, &state->resolveFramebuffer);
-  glDeleteRenderbuffers(1, &state->depthbuffer);
-  glDeleteTextures(1, &state->texture);
-  glDeleteTextures(1, &state->resolveTexture);
+  Vive* vive = (Vive*) headset;
+  glDeleteFramebuffers(1, &vive->framebuffer);
+  glDeleteFramebuffers(1, &vive->resolveFramebuffer);
+  glDeleteRenderbuffers(1, &vive->depthbuffer);
+  glDeleteTextures(1, &vive->texture);
+  glDeleteTextures(1, &vive->resolveTexture);
   for (int i = 0; i < 16; i++) {
-    if (state->deviceModels[i].isLoaded) {
-      state->vrRenderModels->FreeRenderModel(state->deviceModels[i].model);
+    if (vive->deviceModels[i].isLoaded) {
+      vive->renderModels->FreeRenderModel(vive->deviceModels[i].model);
     }
   }
-  free(state->controllers[CONTROLLER_HAND_LEFT]);
-  free(state->controllers[CONTROLLER_HAND_RIGHT]);
-  free(state);
-  free(this);
+  free(vive->controllers[CONTROLLER_HAND_LEFT]);
+  free(vive->controllers[CONTROLLER_HAND_RIGHT]);
+  free(vive);
 }
 
 char viveIsPresent(void* headset) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  return state->vrSystem->IsTrackedDeviceConnected(state->headsetIndex);
+  Vive* vive = (Vive*) headset;
+  return vive->system->IsTrackedDeviceConnected(vive->headsetIndex);
 }
 
 const char* viveGetType(void* headset) {
@@ -196,47 +187,41 @@ const char* viveGetType(void* headset) {
 }
 
 void viveGetDisplayDimensions(void* headset, int* width, int* height) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  *width = state->renderWidth;
-  *height = state->renderHeight;
+  Vive* vive = (Vive*) headset;
+  *width = vive->renderWidth;
+  *height = vive->renderHeight;
 }
 
 void viveGetClipDistance(void* headset, float* near, float* far) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  *near = state->clipNear;
-  *far = state->clipFar;
+  Vive* vive = (Vive*) headset;
+  *near = vive->clipNear;
+  *far = vive->clipFar;
 }
 
 void viveSetClipDistance(void* headset, float near, float far) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  state->clipNear = near;
-  state->clipFar = far;
+  Vive* vive = (Vive*) headset;
+  vive->clipNear = near;
+  vive->clipFar = far;
 }
 
 float viveGetBoundsWidth(void* headset) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
+  Vive* vive = (Vive*) headset;
   float width;
-  state->vrChaperone->GetPlayAreaSize(&width, NULL);
+  vive->chaperone->GetPlayAreaSize(&width, NULL);
   return width;
 }
 
 float viveGetBoundsDepth(void* headset) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
+  Vive* vive = (Vive*) headset;
   float depth;
-  state->vrChaperone->GetPlayAreaSize(NULL, &depth);
+  vive->chaperone->GetPlayAreaSize(NULL, &depth);
   return depth;
 }
 
 void viveGetBoundsGeometry(void* headset, float* geometry) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
+  Vive* vive = (Vive*) headset;
   struct HmdQuad_t quad;
-  state->vrChaperone->GetPlayAreaRect(&quad);
+  vive->chaperone->GetPlayAreaRect(&quad);
   for (int i = 0; i < 4; i++) {
     geometry[3 * i + 0] = quad.vCorners[i].v[0];
     geometry[3 * i + 1] = quad.vCorners[i].v[1];
@@ -245,21 +230,18 @@ void viveGetBoundsGeometry(void* headset, float* geometry) {
 }
 
 char viveIsBoundsVisible(void* headset) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  return state->vrChaperone->AreBoundsVisible();
+  Vive* vive = (Vive*) headset;
+  return vive->chaperone->AreBoundsVisible();
 }
 
 void viveSetBoundsVisible(void* headset, char visible) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  state->vrChaperone->ForceBoundsVisible(visible);
+  Vive* vive = (Vive*) headset;
+  vive->chaperone->ForceBoundsVisible(visible);
 }
 
 void viveGetPosition(void* headset, float* x, float* y, float* z) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  TrackedDevicePose_t pose = viveGetPose(state, state->headsetIndex);
+  Vive* vive = (Vive*) headset;
+  TrackedDevicePose_t pose = viveGetPose(vive, vive->headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
@@ -272,9 +254,8 @@ void viveGetPosition(void* headset, float* x, float* y, float* z) {
 }
 
 void viveGetOrientation(void* headset, float* w, float* x, float* y, float *z) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  TrackedDevicePose_t pose = viveGetPose(state, state->headsetIndex);
+  Vive* vive = (Vive*) headset;
+  TrackedDevicePose_t pose = viveGetPose(vive, vive->headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *w = *x = *y = *z = 0.f;
@@ -286,9 +267,8 @@ void viveGetOrientation(void* headset, float* w, float* x, float* y, float *z) {
 }
 
 void viveGetVelocity(void* headset, float* x, float* y, float* z) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  TrackedDevicePose_t pose = viveGetPose(state, state->headsetIndex);
+  Vive* vive = (Vive*) headset;
+  TrackedDevicePose_t pose = viveGetPose(vive, vive->headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
@@ -301,9 +281,8 @@ void viveGetVelocity(void* headset, float* x, float* y, float* z) {
 }
 
 void viveGetAngularVelocity(void* headset, float* x, float* y, float* z) {
-  Headset* this = (Headset*) headset;
-  ViveState* state = this->state;
-  TrackedDevicePose_t pose = viveGetPose(state, state->headsetIndex);
+  Vive* vive = (Vive*) headset;
+  TrackedDevicePose_t pose = viveGetPose(vive, vive->headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
@@ -316,21 +295,18 @@ void viveGetAngularVelocity(void* headset, float* x, float* y, float* z) {
 }
 
 Controller* viveGetController(void* headset, ControllerHand hand) {
-  Headset* this = headset;
-  ViveState* state = this->state;
-  return state->controllers[hand];
+  Vive* vive = (Vive*) headset;
+  return vive->controllers[hand];
 }
 
 char viveControllerIsPresent(void* headset, Controller* controller) {
-  Headset* this = headset;
-  ViveState* state = this->state;
-  return state->vrSystem->IsTrackedDeviceConnected(state->controllerIndex[controller->hand]);
+  Vive* vive = (Vive*) headset;
+  return vive->system->IsTrackedDeviceConnected(vive->controllerIndex[controller->hand]);
 }
 
 void viveControllerGetPosition(void* headset, Controller* controller, float* x, float* y, float* z) {
-  Headset* this = headset;
-  ViveState* state = this->state;
-  TrackedDevicePose_t pose = viveGetPose(state, state->controllerIndex[controller->hand]);
+  Vive* vive = (Vive*) headset;
+  TrackedDevicePose_t pose = viveGetPose(vive, vive->controllerIndex[controller->hand]);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
@@ -343,9 +319,8 @@ void viveControllerGetPosition(void* headset, Controller* controller, float* x, 
 }
 
 void viveControllerGetOrientation(void* headset, Controller* controller, float* w, float* x, float* y, float* z) {
-  Headset* this = headset;
-  ViveState* state = this->state;
-  TrackedDevicePose_t pose = viveGetPose(state, state->controllerIndex[controller->hand]);
+  Vive* vive = (Vive*) headset;
+  TrackedDevicePose_t pose = viveGetPose(vive, vive->controllerIndex[controller->hand]);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *w = *x = *y = *z = 0.f;
@@ -357,11 +332,10 @@ void viveControllerGetOrientation(void* headset, Controller* controller, float* 
 }
 
 float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxis axis) {
-  Headset* this = headset;
-  ViveState* state = this->state;
+  Vive* vive = (Vive*) headset;
   VRControllerState_t input;
 
-  state->vrSystem->GetControllerState(state->controllerIndex[controller->hand], &input);
+  vive->system->GetControllerState(vive->controllerIndex[controller->hand], &input);
 
   switch (axis) {
     case CONTROLLER_AXIS_TRIGGER:
@@ -381,11 +355,10 @@ float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxi
 }
 
 int viveControllerIsDown(void* headset, Controller* controller, ControllerButton button) {
-  Headset* this = headset;
-  ViveState* state = this->state;
+  Vive* vive = (Vive*) headset;
   VRControllerState_t input;
 
-  state->vrSystem->GetControllerState(state->controllerIndex[controller->hand], &input);
+  vive->system->GetControllerState(vive->controllerIndex[controller->hand], &input);
 
   switch (button) {
     case CONTROLLER_BUTTON_SYSTEM:
@@ -416,22 +389,20 @@ void viveControllerVibrate(void* headset, Controller* controller, float duration
     return;
   }
 
-  Headset* this = headset;
-  ViveState* state = this->state;
+  Vive* vive = (Vive*) headset;
   uint32_t axis = 0;
   unsigned short uSeconds = (unsigned short) duration * 1e6;
-  state->vrSystem->TriggerHapticPulse(state->controllerIndex[controller->hand], axis, uSeconds);
+  vive->system->TriggerHapticPulse(vive->controllerIndex[controller->hand], axis, uSeconds);
 }
 
 void* viveControllerGetModel(void* headset, Controller* controller, ControllerModelFormat* format) {
-  Headset* this = headset;
-  ViveState* state = this->state;
+  Vive* vive = (Vive*) headset;
 
   *format = CONTROLLER_MODEL_OPENVR;
 
   // Return the model if it's already loaded
-  unsigned int deviceIndex = state->controllerIndex[controller->hand];
-  OpenVRModel* vrModel = &state->deviceModels[deviceIndex];
+  unsigned int deviceIndex = vive->controllerIndex[controller->hand];
+  OpenVRModel* vrModel = &vive->deviceModels[deviceIndex];
   if (vrModel->isLoaded) {
     return vrModel;
   }
@@ -439,17 +410,17 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
   // Get model name
   char renderModelName[1024];
   ETrackedDeviceProperty renderModelNameProperty = ETrackedDeviceProperty_Prop_RenderModelName_String;
-  state->vrSystem->GetStringTrackedDeviceProperty(deviceIndex, renderModelNameProperty, renderModelName, 1024, NULL);
+  vive->system->GetStringTrackedDeviceProperty(deviceIndex, renderModelNameProperty, renderModelName, 1024, NULL);
 
   // Load model
   RenderModel_t* model = NULL;
-  while (state->vrRenderModels->LoadRenderModel_Async(renderModelName, &model) == EVRRenderModelError_VRRenderModelError_Loading) {
+  while (vive->renderModels->LoadRenderModel_Async(renderModelName, &model) == EVRRenderModelError_VRRenderModelError_Loading) {
     lovrSleep(.001);
   }
 
   // Load texture
   RenderModel_TextureMap_t* texture = NULL;
-  while (model && state->vrRenderModels->LoadTexture_Async(model->diffuseTextureId, &texture) == EVRRenderModelError_VRRenderModelError_Loading) {
+  while (model && vive->renderModels->LoadTexture_Async(model->diffuseTextureId, &texture) == EVRRenderModelError_VRRenderModelError_Loading) {
     lovrSleep(.001);
   }
 
@@ -461,32 +432,31 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
-  Headset* this = headset;
-  ViveState* state = this->state;
+  Vive* vive = (Vive*) headset;
   float headMatrix[16], eyeMatrix[16], projectionMatrix[16];
   float (*matrix)[4];
   EGraphicsAPIConvention graphicsConvention = EGraphicsAPIConvention_API_OpenGL;
 
-  state->isRendering = 1;
-  state->vrCompositor->WaitGetPoses(state->renderPoses, 16, NULL, 0);
-  matrix = state->renderPoses[state->headsetIndex].mDeviceToAbsoluteTracking.m;
+  vive->isRendering = 1;
+  vive->compositor->WaitGetPoses(vive->renderPoses, 16, NULL, 0);
+  matrix = vive->renderPoses[vive->headsetIndex].mDeviceToAbsoluteTracking.m;
   mat4_invert(mat4_fromMat34(headMatrix, matrix));
 
   for (int i = 0; i < 2; i++) {
     EVREye eye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
 
-    matrix = state->vrSystem->GetEyeToHeadTransform(eye).m;
+    matrix = vive->system->GetEyeToHeadTransform(eye).m;
     mat4_invert(mat4_fromMat34(eyeMatrix, matrix));
     mat4 transformMatrix = mat4_multiply(eyeMatrix, headMatrix);
 
-    float near = state->clipNear;
-    float far = state->clipFar;
-    matrix = state->vrSystem->GetProjectionMatrix(eye, near, far, graphicsConvention).m;
+    float near = vive->clipNear;
+    float far = vive->clipFar;
+    matrix = vive->system->GetProjectionMatrix(eye, near, far, graphicsConvention).m;
     mat4_fromMat44(projectionMatrix, matrix);
 
     glEnable(GL_MULTISAMPLE);
-    glBindFramebuffer(GL_FRAMEBUFFER, state->framebuffer);
-    glViewport(0, 0, state->renderWidth, state->renderHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, vive->framebuffer);
+    glViewport(0, 0, vive->renderWidth, vive->renderHeight);
 
     lovrGraphicsClear(1, 1);
     lovrGraphicsPush();
@@ -499,17 +469,17 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_MULTISAMPLE);
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, state->framebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state->resolveFramebuffer);
-    glBlitFramebuffer(0, 0, state->renderWidth, state->renderHeight, 0, 0, state->renderWidth, state->renderHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, vive->framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, vive->resolveFramebuffer);
+    glBlitFramebuffer(0, 0, vive->renderWidth, vive->renderHeight, 0, 0, vive->renderWidth, vive->renderHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
-    uintptr_t texture = (uintptr_t) state->resolveTexture;
+    uintptr_t texture = (uintptr_t) vive->resolveTexture;
     Texture_t eyeTexture = { (void*) texture, graphicsConvention, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
-    state->vrCompositor->Submit(eye, &eyeTexture, NULL, flags);
+    vive->compositor->Submit(eye, &eyeTexture, NULL, flags);
   }
 
-  state->isRendering = 0;
+  vive->isRendering = 0;
 }

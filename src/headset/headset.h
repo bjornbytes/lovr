@@ -55,11 +55,6 @@ typedef struct {
   void (*controllerVibrate)(void* headset, Controller* controller, float duration);
   void* (*controllerGetModel)(void* headset, Controller* controller, ControllerModelFormat* format);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
-} HeadsetInterface;
-
-typedef struct {
-  void* state;
-  HeadsetInterface* interface;
 } Headset;
 
 #endif

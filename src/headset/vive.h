@@ -6,10 +6,12 @@
 #define LOVR_VIVE_TYPES
 
 typedef struct {
-  struct VR_IVRSystem_FnTable* vrSystem;
-  struct VR_IVRCompositor_FnTable* vrCompositor;
-  struct VR_IVRChaperone_FnTable* vrChaperone;
-  struct VR_IVRRenderModels_FnTable* vrRenderModels;
+  Headset headset;
+
+  struct VR_IVRSystem_FnTable* system;
+  struct VR_IVRCompositor_FnTable* compositor;
+  struct VR_IVRChaperone_FnTable* chaperone;
+  struct VR_IVRRenderModels_FnTable* renderModels;
 
   unsigned int headsetIndex;
   unsigned int controllerIndex[CONTROLLER_HAND_RIGHT + 1];
@@ -32,7 +34,7 @@ typedef struct {
   GLuint texture;
   GLuint resolveFramebuffer;
   GLuint resolveTexture;
-} ViveState;
+} Vive;
 
 #endif
 

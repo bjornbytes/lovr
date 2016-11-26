@@ -12,97 +12,97 @@ char lovrHeadsetIsPresent() {
     return 0;
   }
 
-  return headset->interface->isPresent(headset);
+  return headset->isPresent(headset);
 }
 
 const char* lovrHeadsetGetType() {
-  return headset->interface->getType(headset);
+  return headset->getType(headset);
 }
 
 void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
-  headset->interface->getDisplayDimensions(headset, width, height);
+  headset->getDisplayDimensions(headset, width, height);
 }
 
 void lovrHeadsetGetClipDistance(float* near, float* far) {
-  headset->interface->getClipDistance(headset, near, far);
+  headset->getClipDistance(headset, near, far);
 }
 
 void lovrHeadsetSetClipDistance(float near, float far) {
-  headset->interface->setClipDistance(headset, near, far);
+  headset->setClipDistance(headset, near, far);
 }
 
 float lovrHeadsetGetBoundsWidth() {
-  return headset->interface->getBoundsWidth(headset);
+  return headset->getBoundsWidth(headset);
 }
 
 float lovrHeadsetGetBoundsDepth() {
-  return headset->interface->getBoundsDepth(headset);
+  return headset->getBoundsDepth(headset);
 }
 
 void lovrHeadsetGetBoundsGeometry(float* geometry) {
-  headset->interface->getBoundsGeometry(headset, geometry);
+  headset->getBoundsGeometry(headset, geometry);
 }
 
 char lovrHeadsetIsBoundsVisible() {
-  return headset->interface->isBoundsVisible(headset);
+  return headset->isBoundsVisible(headset);
 }
 
 void lovrHeadsetSetBoundsVisible(char visible) {
-  headset->interface->setBoundsVisible(headset, visible);
+  headset->setBoundsVisible(headset, visible);
 }
 
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
-  headset->interface->getPosition(headset, x, y, z);
+  headset->getPosition(headset, x, y, z);
 }
 
 void lovrHeadsetGetOrientation(float* w, float* x, float* y, float* z) {
-  headset->interface->getOrientation(headset, w, x, y, z);
+  headset->getOrientation(headset, w, x, y, z);
 }
 
 void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
-  headset->interface->getVelocity(headset, x, y, z);
+  headset->getVelocity(headset, x, y, z);
 }
 
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
-  headset->interface->getAngularVelocity(headset, x, y, z);
+  headset->getAngularVelocity(headset, x, y, z);
 }
 
 Controller* lovrHeadsetGetController(ControllerHand hand) {
-  return headset->interface->getController(headset, hand);
+  return headset->getController(headset, hand);
 }
 
 char lovrHeadsetControllerIsPresent(Controller* controller) {
-  return headset->interface->controllerIsPresent(headset, controller);
+  return headset->controllerIsPresent(headset, controller);
 }
 
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
-  headset->interface->controllerGetPosition(headset, controller, x, y, z);
+  headset->controllerGetPosition(headset, controller, x, y, z);
 }
 
 void lovrHeadsetControllerGetOrientation(Controller* controller, float* w, float* x, float* y, float* z) {
-  headset->interface->controllerGetOrientation(headset, controller, w, x, y, z);
+  headset->controllerGetOrientation(headset, controller, w, x, y, z);
 }
 
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
-  return headset->interface->controllerGetAxis(headset, controller, axis);
+  return headset->controllerGetAxis(headset, controller, axis);
 }
 
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
-  return headset->interface->controllerIsDown(headset, controller, button);
+  return headset->controllerIsDown(headset, controller, button);
 }
 
 ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
-  return headset->interface->controllerGetHand(headset, controller);
+  return headset->controllerGetHand(headset, controller);
 }
 
 void lovrHeadsetControllerVibrate(Controller* controller, float duration) {
-  headset->interface->controllerVibrate(headset, controller, duration);
+  headset->controllerVibrate(headset, controller, duration);
 }
 
 void* lovrHeadsetControllerGetModel(Controller* controller, ControllerModelFormat* format) {
-  return headset->interface->controllerGetModel(headset, controller, format);
+  return headset->controllerGetModel(headset, controller, format);
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
-  headset->interface->renderTo(headset, callback, userdata);
+  headset->renderTo(headset, callback, userdata);
 }
