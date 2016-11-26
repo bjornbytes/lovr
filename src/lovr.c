@@ -9,6 +9,9 @@
 
 void lovrInit(lua_State* L, int argc, char** argv) {
 
+  // Set up GLFW
+  initGlfw(lovrOnGlfwError, lovrOnClose, L);
+
   // arg global
   lua_newtable(L);
   if (argc > 0) {
