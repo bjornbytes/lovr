@@ -79,7 +79,7 @@ int l_lovrControllerNewModel(lua_State* L) {
     ModelData* modelData = lovrModelDataFromOpenVRModel(rawData);
     TextureData* textureData = lovrTextureDataFromOpenVRModel(rawData);
     Model* model = lovrModelCreate(modelData);
-    Texture* texture = lovrTextureCreate(textureData);
+    Texture* texture = lovrTextureCreateFromData(textureData);
     lovrModelSetTexture(model, texture);
     luax_pushtype(L, Model, model);
   } else {

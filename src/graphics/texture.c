@@ -3,12 +3,13 @@
 #include "util.h"
 #include <stdlib.h>
 
-Texture* lovrTextureCreate(TextureData* textureData) {
+Texture* lovrTextureCreateFromData(TextureData* textureData) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
   texture->textureData = textureData;
-  texture->buffer = 0;
+  texture->type = TEXTURE_IMAGE;
+  texture->buffer = NULL;
   glGenTextures(1, &texture->id);
 
   if (textureData) {
@@ -30,6 +31,8 @@ Texture* lovrTextureCreateFromBuffer(Buffer* buffer) {
   if (!texture) return NULL;
 
   glGenTextures(1, &texture->id);
+  texture->textureData = NULL;
+  texture->type = TEXTURE_BUFFER;
   texture->buffer = buffer;
   lovrTextureBind(texture);
   glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, buffer->vbo);
@@ -54,7 +57,7 @@ void lovrTextureDataDestroy(TextureData* textureData) {
 }
 
 void lovrTextureBind(Texture* texture) {
-  glBindTexture(texture->buffer ? GL_TEXTURE_BUFFER : GL_TEXTURE_2D, texture->id);
+  glBindTexture(texture->type, texture->id);
 }
 
 void lovrTextureRefresh(Texture* texture) {
