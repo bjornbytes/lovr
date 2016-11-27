@@ -2,6 +2,7 @@
 #include "graphics/model.h"
 #include "graphics/shader.h"
 #include "graphics/skybox.h"
+#include "graphics/texture.h"
 #include "matrix.h"
 
 #ifndef LOVR_GRAPHICS_TYPES
@@ -38,6 +39,9 @@ typedef struct {
   Shader* activeShader;
   Shader* defaultShader;
   Shader* skyboxShader;
+  Texture* activeTexture;
+  Texture* lastTexture;
+  Texture* defaultTexture;
   vec_mat4_t transforms;
   mat4 projection;
   unsigned int color;
@@ -80,6 +84,8 @@ void lovrGraphicsGetScissor(int* x, int* y, int* width, int* height);
 void lovrGraphicsSetScissor(int x, int y, int width, int height);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
+Texture* lovrGraphicsGetTexture();
+void lovrGraphicsSetTexture(Texture* texture);
 void lovrGraphicsSetProjection(float near, float far, float fov);
 void lovrGraphicsSetProjectionRaw(mat4 projection);
 float lovrGraphicsGetLineWidth();

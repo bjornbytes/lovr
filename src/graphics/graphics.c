@@ -17,23 +17,37 @@ void lovrGraphicsInit() {
   state.projection = mat4_init();
   state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
+  int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
+  lovrShaderSendInt(state.skyboxShader, uniformId, 1);
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
   glGenVertexArrays(1, &state.shapeArray);
   vec_init(&state.shapeData);
   vec_init(&state.shapeIndices);
   state.depthTest = -1;
+
+  // Create default texture
+  TextureData* defaultTextureData = malloc(sizeof(TextureData));
+  defaultTextureData->width = 1;
+  defaultTextureData->height = 1;
+  uint8_t* data = malloc(4 * sizeof(uint8_t));
+  data[0] = data[1] = data[2] = data[3] = 0xff;
+  defaultTextureData->data = data;
+  state.defaultTexture = lovrTextureCreate(defaultTextureData);
+  state.lastTexture = NULL;
+  glActiveTexture(GL_TEXTURE0);
+
   lovrGraphicsReset();
 }
 
 void lovrGraphicsDestroy() {
   lovrGraphicsSetShader(NULL);
   glUseProgram(0);
-  lovrRelease(&state.defaultShader->ref);
   vec_deinit(&state.transforms);
   mat4_deinit(state.projection);
   lovrRelease(&state.defaultShader->ref);
   lovrRelease(&state.skyboxShader->ref);
+  lovrRelease(&state.defaultTexture->ref);
   glDeleteBuffers(1, &state.shapeBuffer);
   glDeleteBuffers(1, &state.shapeIndexBuffer);
   glDeleteVertexArrays(1, &state.shapeArray);
@@ -54,6 +68,7 @@ void lovrGraphicsReset() {
 
   lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180); // TODO customize via lovr.conf
   lovrGraphicsSetShader(state.defaultShader);
+  lovrGraphicsSetTexture(state.defaultTexture);
   lovrGraphicsSetBackgroundColor(0, 0, 0, 0);
   lovrGraphicsSetColor(255, 255, 255, 255);
   lovrGraphicsSetColorMask(1, 1, 1, 1);
@@ -87,6 +102,16 @@ void lovrGraphicsPresent() {
 void lovrGraphicsPrepare() {
   Shader* shader = lovrGraphicsGetShader();
   lovrShaderBind(shader, vec_last(&state.transforms), state.projection, state.color, 0);
+  Texture* texture = lovrGraphicsGetTexture();
+  if (texture) {
+    if (texture != state.lastTexture) {
+      lovrTextureBind(texture);
+      state.lastTexture = texture;
+    }
+  } else {
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
 }
 
 // State
@@ -173,8 +198,26 @@ void lovrGraphicsSetShader(Shader* shader) {
     }
 
     state.activeShader = shader;
-
     lovrRetain(&state.activeShader->ref);
+  }
+}
+
+Texture* lovrGraphicsGetTexture() {
+  return state.activeTexture;
+}
+
+void lovrGraphicsSetTexture(Texture* texture) {
+  if (!texture) {
+    texture = state.defaultTexture;
+  }
+
+  if (texture != state.activeTexture) {
+    if (state.activeTexture) {
+      lovrRelease(&state.activeTexture->ref);
+    }
+
+    state.activeTexture = texture;
+    lovrRetain(&state.activeTexture->ref);
   }
 }
 
@@ -603,7 +646,7 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
   };
 
   glDepthMask(GL_FALSE);
-  glActiveTexture(GL_TEXTURE0);
+  glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, skybox->texture);
 
   lovrGraphicsSetShapeData(cube, 156, NULL, 0);
@@ -612,6 +655,7 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
   glDepthMask(GL_TRUE);
 
+  glActiveTexture(GL_TEXTURE0);
   lovrGraphicsSetShader(lastShader);
   lovrRelease(&lastShader->ref);
   lovrGraphicsPop();

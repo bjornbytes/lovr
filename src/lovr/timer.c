@@ -3,6 +3,7 @@
 
 const luaL_Reg lovrTimer[] = {
   { "getDelta", l_lovrTimerGetDelta },
+  { "getFPS", l_lovrTimerGetFPS },
   { "getTime", l_lovrTimerGetTime },
   { "step", l_lovrTimerStep },
   { "sleep", l_lovrTimerSleep },
@@ -18,6 +19,11 @@ int l_lovrTimerInit(lua_State* L) {
 
 int l_lovrTimerGetDelta(lua_State* L) {
   lua_pushnumber(L, lovrTimerGetDelta());
+  return 1;
+}
+
+int l_lovrTimerGetFPS(lua_State* L) {
+  lua_pushnumber(L, lovrTimerGetFPS());
   return 1;
 }
 

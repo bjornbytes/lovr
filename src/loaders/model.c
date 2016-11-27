@@ -28,6 +28,9 @@ ModelData* lovrModelDataFromFile(void* data, int size) {
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
 
+  modelData->hasNormals = 0;
+  modelData->hasTexCoords = 0;
+
   unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_FlipUVs;
   const struct aiScene* scene = aiImportFileFromMemory(data, size, flags, NULL);
 

@@ -68,6 +68,7 @@ void lovrBufferDestroy(const Ref* ref) {
 void lovrBufferDraw(Buffer* buffer) {
   int usingIbo = buffer->map.length > 0;
 
+  lovrGraphicsSetTexture(buffer->texture);
   lovrGraphicsPrepare();
   glBindVertexArray(buffer->vao);
 
@@ -99,13 +100,6 @@ void lovrBufferDraw(Buffer* buffer) {
       }
       offset += sizeof(attribute.type) * attribute.count;
     }
-  }
-
-  // Set texture
-  if (buffer->texture) {
-    lovrTextureBind(buffer->texture);
-  } else {
-    glBindTexture(GL_TEXTURE_2D, 0);
   }
 
   // Determine range of vertices to be rendered and whether we're using an IBO or not

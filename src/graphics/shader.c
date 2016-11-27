@@ -6,26 +6,30 @@ const char* lovrShaderVertexPrefix = ""
 "#version 150 \n"
 "uniform mat4 lovrTransform; \n"
 "uniform mat4 lovrProjection; \n"
-"in vec3 lovrPosition;"
-"in vec3 lovrNormal;"
-"in vec2 lovrTexCoord;"
+"in vec3 lovrPosition; \n"
+"in vec3 lovrNormal; \n"
+"in vec2 lovrTexCoord; \n"
+"out vec2 texCoord; \n"
 "";
 
 const char* lovrShaderFragmentPrefix = ""
 "#version 150 \n"
 "uniform vec4 lovrColor; \n"
-"out vec4 lovrFragColor;"
+"uniform sampler2D lovrTexture; \n"
+"in vec2 texCoord; \n"
+"out vec4 lovrFragColor; \n"
 "";
 
 const char* lovrShaderVertexSuffix = ""
 "void main() { \n"
+"  texCoord = lovrTexCoord; \n"
 "  gl_Position = position(lovrProjection, lovrTransform, vec4(lovrPosition, 1.0)); \n"
 "}"
 "";
 
 const char* lovrShaderFragmentSuffix = ""
 "void main() { \n"
-"  lovrFragColor = color(lovrColor); \n"
+"  lovrFragColor = color(lovrColor, lovrTexture, texCoord); \n"
 "}"
 "";
 
@@ -36,8 +40,8 @@ const char* lovrDefaultVertexShader = ""
 "";
 
 const char* lovrDefaultFragmentShader = ""
-"vec4 color(vec4 graphicsColor) { \n"
-"  return graphicsColor; \n"
+"vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
+"  return graphicsColor * texture(image, uv); \n"
 "}"
 "";
 
@@ -52,7 +56,7 @@ const char* lovrSkyboxVertexShader = ""
 const char* lovrSkyboxFragmentShader = ""
 "in vec3 texturePosition; \n"
 "uniform samplerCube cube; \n"
-"vec4 color(vec4 graphicsColor) { \n"
+"vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  return graphicsColor * texture(cube, texturePosition); \n"
 "}"
 "";
@@ -226,6 +230,10 @@ int lovrShaderGetUniformType(Shader* shader, const char* name, GLenum* type, int
   *type = uniform->type;
   *count = uniform->count;
   return 0;
+}
+
+void lovrShaderSendInt(Shader* shader, int id, int value) {
+  glUniform1i(id, value);
 }
 
 void lovrShaderSendFloat(Shader* shader, int id, float value) {

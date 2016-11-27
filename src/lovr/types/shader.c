@@ -21,6 +21,10 @@ int l_lovrShaderSend(lua_State* L) {
   float data[16];
 
   switch (type) {
+    case GL_INT:
+      lovrShaderSendInt(shader, id, luaL_checkinteger(L, 3));
+      break;
+
     case GL_FLOAT:
       lovrShaderSendFloat(shader, id, luaL_checknumber(L, 3));
       break;

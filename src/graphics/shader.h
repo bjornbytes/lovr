@@ -48,6 +48,7 @@ void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, unsigned in
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 int lovrShaderGetUniformId(Shader* shader, const char* name);
 int lovrShaderGetUniformType(Shader* shader, const char* name, GLenum* type, int* count);
+void lovrShaderSendInt(Shader* shader, int id, int value);
 void lovrShaderSendFloat(Shader* shader, int id, float value);
 void lovrShaderSendFloatVec2(Shader* shader, int id, float* vector);
 void lovrShaderSendFloatVec3(Shader* shader, int id, float* vector);
