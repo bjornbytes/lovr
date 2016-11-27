@@ -14,7 +14,9 @@ static GraphicsState state;
 // Base
 
 void lovrGraphicsInit() {
-  vec_init(&state.transforms);
+  for (int i = 0; i < MAX_TRANSFORMS; i++) {
+    state.transforms[i] = mat4_init();
+  }
   state.projection = mat4_init();
   state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
@@ -33,7 +35,9 @@ void lovrGraphicsInit() {
 void lovrGraphicsDestroy() {
   lovrGraphicsSetShader(NULL);
   glUseProgram(0);
-  vec_deinit(&state.transforms);
+  for (int i = 0; i < MAX_TRANSFORMS; i++) {
+    mat4_deinit(state.transforms[i]);
+  }
   mat4_deinit(state.projection);
   lovrRelease(&state.defaultShader->ref);
   lovrRelease(&state.skyboxShader->ref);
@@ -46,16 +50,7 @@ void lovrGraphicsDestroy() {
 }
 
 void lovrGraphicsReset() {
-  int i;
-  mat4 matrix;
-
-  vec_foreach(&state.transforms, matrix, i) {
-    mat4_deinit(matrix);
-  }
-
-  vec_clear(&state.transforms);
-  vec_push(&state.transforms, mat4_init());
-
+  state.transform = 0;
   lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180); // TODO customize via lovr.conf
   lovrGraphicsSetShader(NULL);
   lovrGraphicsBindTexture(NULL);
@@ -91,7 +86,7 @@ void lovrGraphicsPresent() {
 
 void lovrGraphicsPrepare() {
   Shader* shader = lovrGraphicsGetShader();
-  lovrShaderBind(shader, vec_last(&state.transforms), state.projection, state.color, 0);
+  lovrShaderBind(shader, state.transforms[state.transform], state.projection, state.color, 0);
 }
 
 // State
@@ -282,34 +277,29 @@ int lovrGraphicsGetHeight() {
 // Transforms
 
 int lovrGraphicsPush() {
-  vec_mat4_t* transforms = &state.transforms;
-  if (transforms->length >= 64) { return 1; }
-  vec_push(transforms, mat4_copy(vec_last(transforms)));
+  if (++state.transform >= MAX_TRANSFORMS) { return 1; }
+  memcpy(state.transforms[state.transform], state.transforms[state.transform - 1], 16 * sizeof(float));
   return 0;
 }
 
 int lovrGraphicsPop() {
-  vec_mat4_t* transforms = &state.transforms;
-  if (transforms->length <= 1) { return 1; }
-  mat4_deinit(vec_pop(transforms));
-  return 0;
+  return --state.transform < 0;
 }
 
 void lovrGraphicsOrigin() {
-  vec_mat4_t* transforms = &state.transforms;
-  mat4_setIdentity(vec_last(transforms));
+  mat4_setIdentity(state.transforms[state.transform]);
 }
 
 void lovrGraphicsTranslate(float x, float y, float z) {
-  mat4_translate(vec_last(&state.transforms), x, y, z);
+  mat4_translate(state.transforms[state.transform], x, y, z);
 }
 
 void lovrGraphicsRotate(float w, float x, float y, float z) {
-  mat4_rotate(vec_last(&state.transforms), w, x, y, z);
+  mat4_rotate(state.transforms[state.transform], w, x, y, z);
 }
 
 void lovrGraphicsScale(float x, float y, float z) {
-  mat4_scale(vec_last(&state.transforms), x, y, z);
+  mat4_scale(state.transforms[state.transform], x, y, z);
 }
 
 void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
@@ -340,7 +330,7 @@ void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, flo
 }
 
 void lovrGraphicsMatrixTransform(mat4 transform) {
-  mat4_multiply(vec_last(&state.transforms), transform);
+  mat4_multiply(state.transforms[state.transform], transform);
 }
 
 // Primitives

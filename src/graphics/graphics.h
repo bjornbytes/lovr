@@ -8,6 +8,8 @@
 #ifndef LOVR_GRAPHICS_TYPES
 #define LOVR_GRAPHICS_TYPES
 
+#define MAX_TRANSFORMS 64
+
 typedef struct {
   int x;
   int y;
@@ -40,7 +42,8 @@ typedef struct {
   Shader* defaultShader;
   Shader* skyboxShader;
   Texture* defaultTexture;
-  vec_mat4_t transforms;
+  int transform;
+  mat4 transforms[MAX_TRANSFORMS];
   mat4 projection;
   unsigned int color;
   char colorMask;
