@@ -1,11 +1,13 @@
 #ifndef LOVR_TIMER_TYPES
+#define TICK_SAMPLES 60
 typedef struct {
   double lastTime;
   double time;
   double dt;
-  int frames;
+  int tickIndex;
+  double tickSum;
+  double tickBuffer[TICK_SAMPLES];
   int fps;
-  double lastFpsUpdate;
 } TimerState;
 #endif
 

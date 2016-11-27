@@ -5,9 +5,11 @@
 static TimerState timerState;
 
 void lovrTimerInit() {
-  timerState.frames = 0;
-  timerState.lastFpsUpdate = 0;
-  timerState.fps = 0;
+  timerState.tickIndex = 0;
+  for (int i = 0; i < TICK_SAMPLES; i++) {
+    timerState.tickBuffer[i] = 0.;
+  }
+
   lovrTimerStep();
 }
 
@@ -23,12 +25,12 @@ double lovrTimerStep() {
   timerState.lastTime = timerState.time;
   timerState.time = glfwGetTime();
   timerState.dt = timerState.time - timerState.lastTime;
-  timerState.frames++;
-  double fpsTimer = timerState.time - timerState.lastFpsUpdate;
-  if (fpsTimer > 1) {
-    timerState.fps = (int) timerState.frames / fpsTimer + .5;
-    timerState.lastFpsUpdate = timerState.time;
-    timerState.frames = 0;
+  timerState.tickSum -= timerState.tickBuffer[timerState.tickIndex];
+  timerState.tickSum += timerState.dt;
+  timerState.tickBuffer[timerState.tickIndex] = timerState.dt;
+  timerState.fps = (int) (1 / (timerState.tickSum / TICK_SAMPLES) + .5);
+  if (++timerState.tickIndex == TICK_SAMPLES) {
+    timerState.tickIndex = 0;
   }
   return timerState.dt;
 }
