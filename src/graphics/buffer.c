@@ -68,8 +68,8 @@ void lovrBufferDestroy(const Ref* ref) {
 void lovrBufferDraw(Buffer* buffer) {
   int usingIbo = buffer->map.length > 0;
 
-  lovrGraphicsSetTexture(buffer->texture);
   lovrGraphicsPrepare();
+  lovrGraphicsBindTexture(buffer->texture);
   glBindVertexArray(buffer->vao);
 
   // Figure out how many vertex attributes there are
