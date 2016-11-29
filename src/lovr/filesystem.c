@@ -70,14 +70,18 @@ int l_lovrFilesystemInit(lua_State* L) {
   luaL_register(L, NULL, lovrFilesystem);
 
   // Add custom package loader
+  lua_getglobal(L, "table");
+  lua_getfield(L, -1, "insert");
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "loaders");
+  lua_remove(L, -2);
   if (lua_istable(L, -1)) {
+    lua_pushinteger(L, 2); // Insert our loader after package.preload
     lua_pushcfunction(L, filesystemLoader);
-    lua_rawseti(L, -2, lua_objlen(L, -2) + 1);
+    lua_call(L, 3, 0);
   }
 
-  lua_pop(L, 2);
+  lua_pop(L, 1);
 
   return 1;
 }
