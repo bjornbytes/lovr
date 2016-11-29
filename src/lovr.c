@@ -42,8 +42,10 @@ void lovrInit(lua_State* L, int argc, char** argv) {
 
   lua_setglobal(L, "arg");
 
-  // lovr = {}
+  // lovr
   lua_newtable(L);
+  lua_pushstring(L, LOVR_VERSION);
+  lua_setfield(L, -2, "_version");
   lua_setglobal(L, "lovr");
 
   // Preload modules
