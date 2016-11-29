@@ -4,13 +4,27 @@
 #include "lovr/graphics.h"
 #include "lovr/headset.h"
 #include "lovr/timer.h"
+#include "glfw.h"
 #include "util.h"
 #include <stdlib.h>
 
-void lovrInit(lua_State* L, int argc, char** argv) {
+static int handleLuaError(lua_State* L) {
+  const char* message = luaL_checkstring(L, -1);
+  lua_getglobal(L, "lovr");
+  lua_getfield(L, -1, "errhand");
 
-  // Set up GLFW
-  initGlfw(lovrOnGlfwError, lovrOnClose, L);
+  if (lua_isfunction(L, -1)) {
+    lua_pushstring(L, message);
+    lua_call(L, 1, 0);
+  } else {
+    error(message);
+  }
+
+  return 0;
+}
+
+void lovrInit(lua_State* L, int argc, char** argv) {
+  initGlfw();
 
   // arg global
   lua_newtable(L);
@@ -71,10 +85,24 @@ void lovrInit(lua_State* L, int argc, char** argv) {
 
     "lovr.filesystem.setIdentity(conf.identity or 'default') "
 
+    "lovr.handlers = setmetatable({ "
+    "  quit = function() end "
+    "}, { "
+    "  __index = function(self, event) "
+    "    error('Unknown event: ', event) "
+    "  end "
+    "}) "
+
     "function lovr.run() "
     "  if lovr.load then lovr.load() end "
     "  while true do "
-    "    lovr.event.poll() "
+    "    lovr.event.pump() "
+    "    for name, a, b, c, d in lovr.event.poll() do "
+    "      if name == 'quit' and (not lovr.quit or not lovr.quit()) then "
+    "        return a "
+    "      end "
+    "      lovr.handlers[name](a, b, c, d) "
+    "    end "
     "    local dt = lovr.timer.step() "
     "    if lovr.update then lovr.update(dt) end "
     "    lovr.graphics.clear() "
@@ -93,7 +121,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
 
     "function lovr.errhand(message, layer) "
     "  local stackTrace = debug.traceback('Error: ' .. tostring(message), 1 + (layer or 1)) "
-    "  print((stackTrace:gsub('\\n[^\\n]+$', ''))) "
+    "  print((stackTrace:gsub('\\n[^\\n]+$', ''):gsub('stack traceback', 'Stack'))) "
     "end "
 
     "if lovr.filesystem.isFile('main.lua') then "
@@ -106,7 +134,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     error("Unable to bootstrap LOVR: %s", message);
   }
 
-  lua_atpanic(L, lovrOnLuaError);
+  lua_atpanic(L, handleLuaError);
 }
 
 void lovrDestroy(int exitCode) {
@@ -119,44 +147,9 @@ void lovrRun(lua_State* L) {
   // lovr.run()
   lua_getglobal(L, "lovr");
   lua_getfield(L, -1, "run");
-  lua_call(L, 0, 0);
-}
+  lua_call(L, 0, 1);
 
-int lovrOnLuaError(lua_State* L) {
-  const char* message = luaL_checkstring(L, -1);
-  lua_getglobal(L, "lovr");
-  lua_getfield(L, -1, "errhand");
-
-  if (lua_isfunction(L, -1)) {
-    lua_pushstring(L, message);
-    lua_call(L, 1, 0);
-  } else {
-    error(message);
-  }
-
-  return 0;
-}
-
-void lovrOnGlfwError(int code, const char* description) {
-  error(description);
-}
-
-void lovrOnClose(GLFWwindow* _window) {
-  if (_window == window) {
-
-    lua_State* L = (lua_State*) glfwGetWindowUserPointer(window);
-
-    // lovr.quit()
-    lua_getglobal(L, "lovr");
-    lua_getfield(L, -1, "quit");
-
-    if (!lua_isnil(L, -1)) {
-      lua_call(L, 0, 0);
-    }
-
-    if (glfwWindowShouldClose(window)) {
-      glfwDestroyWindow(window);
-      lovrDestroy(0);
-    }
-  }
+  // Exit with return value from lovr.run
+  int exitCode = luaL_optint(L, -1, 0);
+  lovrDestroy(exitCode);
 }

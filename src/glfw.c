@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose, void* userPointer) {
+static void onError(int code, const char* description) {
+  error(description);
+}
+
+void initGlfw() {
   glfwSetErrorCallback(onError);
 
   if (!glfwInit()) {
@@ -14,7 +18,6 @@ void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose, void* userPointe
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-  //glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
   window = glfwCreateWindow(800, 600, "Window", NULL, NULL);
 
@@ -23,8 +26,6 @@ void initGlfw(GLFWerrorfun onError, GLFWwindowclosefun onClose, void* userPointe
     error("Could not create window");
   }
 
-  glfwSetWindowCloseCallback(window, onClose);
-  glfwSetWindowUserPointer(window, userPointer);
   glfwMakeContextCurrent(window);
 
 #ifdef _WIN32
