@@ -1,5 +1,8 @@
 #ifndef LOVR_TIMER_TYPES
+#define LOVR_TIMER_TYPES
+
 #define TICK_SAMPLES 60
+
 typedef struct {
   double lastTime;
   double time;
@@ -9,6 +12,7 @@ typedef struct {
   double tickBuffer[TICK_SAMPLES];
   int fps;
 } TimerState;
+
 #endif
 
 void lovrTimerInit();
