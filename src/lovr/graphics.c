@@ -199,15 +199,31 @@ int l_lovrGraphicsGetColor(lua_State* L) {
 }
 
 int l_lovrGraphicsSetColor(lua_State* L) {
-  if (lua_gettop(L) <= 1 && lua_isnoneornil(L, 1)) {
-    lovrGraphicsSetColor(255, 255, 255, 255);
-    return 0;
+  unsigned char r, g, b, a;
+  r = g = b = a = 0xff;
+
+  if (lua_gettop(L) == 1 && lua_isnumber(L, 1)) {
+    unsigned int x = lua_tointeger(L, 1);
+    r = LOVR_COLOR_R(x);
+    g = LOVR_COLOR_G(x);
+    b = LOVR_COLOR_B(x);
+    a = LOVR_COLOR_A(x);
+  } else if (lua_istable(L, 1)) {
+    for (int i = 1; i <= 4; i++) {
+      lua_rawgeti(L, 1, i);
+    }
+    r = luaL_checknumber(L, -4);
+    g = luaL_checknumber(L, -3);
+    b = luaL_checknumber(L, -2);
+    a = lua_gettop(L) > 1 ? luaL_checknumber(L, 2) : luaL_optnumber(L, -1, 255);
+    lua_pop(L, 4);
+  } else if (lua_gettop(L) >= 3) {
+    r = lua_tointeger(L, 1);
+    g = lua_tointeger(L, 2);
+    b = lua_tointeger(L, 3);
+    a = lua_isnoneornil(L, 4) ? 255 : lua_tointeger(L, 4);
   }
 
-  unsigned char r = lua_tointeger(L, 1);
-  unsigned char g = lua_tointeger(L, 2);
-  unsigned char b = lua_tointeger(L, 3);
-  unsigned char a = lua_isnoneornil(L, 4) ? 255 : lua_tointeger(L, 4);
   lovrGraphicsSetColor(r, g, b, a);
   return 0;
 }
