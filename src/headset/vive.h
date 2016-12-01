@@ -54,8 +54,6 @@ void viveGetOrientation(void* headset, float* w, float* x, float* y, float* z);
 void viveGetVelocity(void* headset, float* x, float* y, float* z);
 void viveGetAngularVelocity(void* headset, float* x, float* y, float* z);
 Controller* viveAddController(void* headset, unsigned int deviceIndex);
-Controller* viveGetController(void* headset, unsigned int deviceIndex);
-void viveRemoveController(void* headset, unsigned int deviceIndex);
 vec_controller_t* viveGetControllers(void* headset);
 char viveControllerIsPresent(void* headset, Controller* controller);
 void viveControllerGetPosition(void* headset, Controller* controller, float* x, float* y, float* z);

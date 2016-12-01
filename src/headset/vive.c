@@ -17,6 +17,41 @@ static TrackedDevicePose_t viveGetPose(Vive* vive, unsigned int deviceIndex) {
   return poses[deviceIndex];
 }
 
+static void viveRefreshControllers(Vive* vive) {
+  unsigned int leftHand = ETrackedControllerRole_TrackedControllerRole_LeftHand;
+  int leftControllerId = vive->system->GetTrackedDeviceIndexForControllerRole(leftHand);
+
+  unsigned int rightHand = ETrackedControllerRole_TrackedControllerRole_RightHand;
+  int rightControllerId = vive->system->GetTrackedDeviceIndexForControllerRole(rightHand);
+
+  int controllerIds[2] = { leftControllerId, rightControllerId };
+
+  // Remove controllers that are no longer recognized as connected
+  Controller* controller; int i;
+  vec_foreach_rev(&vive->controllers, controller, i) {
+    if (controller->id != controllerIds[0] && controller->id != controllerIds[1]) {
+      EventType type = EVENT_CONTROLLER_REMOVED;
+      EventData data = { .controllerremoved = { controller } };
+      Event event = { .type = type, .data = data };
+      lovrEventPush(event);
+      lovrRelease(&controller->ref);
+      vec_splice(&vive->controllers, i, 1);
+    }
+  }
+
+  // Add connected controllers that aren't in the list yet
+  for (i = 0; i < 2; i++) {
+    if (controllerIds[i] != -1) {
+      controller = viveAddController((void*) vive, controllerIds[i]);
+      if (!controller) continue;
+      EventType type = EVENT_CONTROLLER_ADDED;
+      EventData data = { .controlleradded = { controller } };
+      Event event = { .type = type, .data = data };
+      lovrEventPush(event);
+    }
+  }
+}
+
 Headset* viveInit() {
   Vive* vive = malloc(sizeof(Vive));
   if (!vive) return NULL;
@@ -109,17 +144,7 @@ Headset* viveInit() {
   vive->clipFar = 30.f;
   vive->system->GetRecommendedRenderTargetSize(&vive->renderWidth, &vive->renderHeight);
 
-  unsigned int leftHand = ETrackedControllerRole_TrackedControllerRole_LeftHand;
-  int leftControllerId = vive->system->GetTrackedDeviceIndexForControllerRole(leftHand);
-  if (leftControllerId >= 0) {
-    viveAddController(vive, leftControllerId);
-  }
-
-  unsigned int rightHand = ETrackedControllerRole_TrackedControllerRole_RightHand;
-  int rightControllerId = vive->system->GetTrackedDeviceIndexForControllerRole(rightHand);
-  if (rightControllerId >= 0) {
-    viveAddController(vive, rightControllerId);
-  }
+  viveRefreshControllers(vive);
 
   glGenFramebuffers(1, &vive->framebuffer);
   glBindFramebuffer(GL_FRAMEBUFFER, vive->framebuffer);
@@ -159,37 +184,12 @@ void vivePoll(void* headset) {
 
   struct VREvent_t vrEvent;
   while (vive->system->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
-    unsigned int deviceId = vrEvent.trackedDeviceIndex;
-
     switch (vrEvent.eventType) {
-      case EVREventType_VREvent_TrackedDeviceActivated: {
-        ETrackedControllerRole role = vive->system->GetControllerRoleForTrackedDeviceIndex(deviceId);
-        if (role) {
-          Controller* controller = viveAddController(headset, deviceId);
-          if (controller) {
-            EventType type = EVENT_CONTROLLER_ADDED;
-            EventData data = { .controlleradded = { controller } };
-            Event event = { .type = type, .data = data };
-            lovrEventPush(event);
-          }
-        }
+      case EVREventType_VREvent_TrackedDeviceActivated:
+      case EVREventType_VREvent_TrackedDeviceDeactivated:
+      case EVREventType_VREvent_TrackedDeviceRoleChanged:
+        viveRefreshControllers(vive);
         break;
-      }
-
-      case EVREventType_VREvent_TrackedDeviceDeactivated: {
-        ETrackedControllerRole role = vive->system->GetControllerRoleForTrackedDeviceIndex(deviceId);
-        if (role) {
-          Controller* controller = viveGetController(headset, deviceId);
-          if (controller) {
-            EventType type = EVENT_CONTROLLER_REMOVED;
-            EventData data = { .controllerremoved = { controller } };
-            Event event = { .type = type, .data = data };
-            lovrEventPush(event);
-            viveRemoveController(headset, deviceId);
-          }
-        }
-        break;
-      }
     }
   }
 }
@@ -332,11 +332,15 @@ void viveGetAngularVelocity(void* headset, float* x, float* y, float* z) {
 }
 
 Controller* viveAddController(void* headset, unsigned int deviceIndex) {
+  if (deviceIndex == -1) {
+    return NULL;
+  }
+
   Vive* vive = (Vive*) headset;
   Controller* controller; int i;
   vec_foreach(&vive->controllers, controller, i) {
     if (controller->id == deviceIndex) {
-      return controller;
+      return NULL;
     }
   }
 
@@ -344,30 +348,6 @@ Controller* viveAddController(void* headset, unsigned int deviceIndex) {
   controller->id = deviceIndex;
   vec_push(&vive->controllers, controller);
   return controller;
-}
-
-Controller* viveGetController(void* headset, unsigned int deviceIndex) {
-  Vive* vive = (Vive*) headset;
-  Controller* controller; int i;
-  vec_foreach(&vive->controllers, controller, i) {
-    if (controller->id == deviceIndex) {
-      return controller;
-    }
-  }
-
-  return NULL;
-}
-
-void viveRemoveController(void* headset, unsigned int deviceIndex) {
-  Vive* vive = (Vive*) headset;
-  Controller* controller; int i;
-  vec_foreach(&vive->controllers, controller, i) {
-    if (controller->id == deviceIndex) {
-      lovrRelease(&controller->ref);
-      vec_splice(&vive->controllers, i, 1);
-      break;
-    }
-  }
 }
 
 vec_controller_t* viveGetControllers(void* headset) {
