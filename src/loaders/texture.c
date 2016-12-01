@@ -26,10 +26,10 @@ TextureData* lovrTextureDataFromFile(void* data, int size) {
   if (image) {
     textureData->data = image;
     return textureData;
-  } else {
-    free(textureData);
-    return NULL;
   }
+
+  free(textureData);
+  return NULL;
 }
 
 TextureData* lovrTextureDataFromOpenVRModel(OpenVRModel* vrModel) {

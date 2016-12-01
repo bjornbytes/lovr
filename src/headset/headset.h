@@ -1,3 +1,5 @@
+#include <vendor/vec/vec.h>
+
 #ifndef LOVR_HEADSET_TYPES
 #define LOVR_HEADSET_TYPES
 
@@ -29,6 +31,8 @@ typedef enum {
 typedef struct {
   ControllerHand hand;
 } Controller;
+
+typedef vec_t(Controller) vec_controller_t;
 
 typedef struct {
   char (*isPresent)(void* headset);
@@ -69,7 +73,7 @@ float lovrHeadsetGetBoundsWidth();
 float lovrHeadsetGetBoundsDepth();
 void lovrHeadsetGetBoundsGeometry(float* geometry);
 char lovrHeadsetIsBoundsVisible();
-void lovrHeadsetSetBoundsVisible(char isVisible);
+void lovrHeadsetSetBoundsVisible(char visible);
 void lovrHeadsetGetPosition(float* x, float* y, float* z);
 void lovrHeadsetGetOrientation(float* w, float* x, float* y, float* z);
 void lovrHeadsetGetVelocity(float* x, float* y, float* z);

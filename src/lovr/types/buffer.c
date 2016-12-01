@@ -264,16 +264,18 @@ int l_lovrBufferSetVertexMap(lua_State* L) {
 
   luaL_checktype(L, 2, LUA_TTABLE);
   int count = lua_objlen(L, 2);
-  unsigned int* indices = malloc(count * sizeof(int));
+  unsigned int* indices = malloc(count * sizeof(unsigned int));
 
   for (int i = 0; i < count; i++) {
     lua_rawgeti(L, 2, i + 1);
     if (!lua_isnumber(L, -1)) {
+      free(indices);
       return luaL_error(L, "Buffer vertex map index #%d must be numeric", i);
     }
 
     int index = lua_tointeger(L, -1);
     if (index > buffer->size || index < 0) {
+      free(indices);
       return luaL_error(L, "Invalid vertex map value: %d", index);
     }
 

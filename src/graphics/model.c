@@ -148,9 +148,9 @@ void lovrModelDataDestroy(ModelData* modelData) {
   free(modelData);
 }
 
-void lovrModelDraw(Model* model, float x, float y, float z, float size, float angle, float ax, float ay, float az) {
+void lovrModelDraw(Model* model, float x, float y, float z, float scale, float angle, float ax, float ay, float az) {
   lovrGraphicsPush();
-  lovrGraphicsTransform(x, y, z, size, size, size, angle, ax, ay, az);
+  lovrGraphicsTransform(x, y, z, scale, scale, scale, angle, ax, ay, az);
   lovrBufferDraw(model->buffer);
   lovrGraphicsPop();
 }

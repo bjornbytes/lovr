@@ -28,6 +28,10 @@ Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode
     stride += attribute.count * sizeof(attribute.type);
   }
 
+  if (stride == 0) {
+    return NULL;
+  }
+
   buffer->size = size;
   buffer->stride = stride;
   buffer->data = malloc(buffer->size * buffer->stride);
@@ -155,8 +159,8 @@ void lovrBufferGetVertex(Buffer* buffer, int index, void* dest) {
   memcpy(dest, (char*) buffer->data + index * buffer->stride, buffer->stride);
 }
 
-void lovrBufferSetVertex(Buffer* buffer, int index, void* data) {
-  memcpy((char*) buffer->data + index * buffer->stride, data, buffer->stride);
+void lovrBufferSetVertex(Buffer* buffer, int index, void* vertex) {
+  memcpy((char*) buffer->data + index * buffer->stride, vertex, buffer->stride);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
   glBufferData(GL_ARRAY_BUFFER, buffer->size * buffer->stride, buffer->data, buffer->usage);
 }
@@ -200,13 +204,13 @@ void lovrBufferGetDrawRange(Buffer* buffer, int* start, int* count) {
   *count = buffer->rangeCount;
 }
 
-int lovrBufferSetDrawRange(Buffer* buffer, int rangeStart, int rangeCount) {
-  if (rangeStart < 0 || rangeCount < 0 || rangeStart + rangeCount > buffer->size) {
+int lovrBufferSetDrawRange(Buffer* buffer, int start, int count) {
+  if (start < 0 || count < 0 || start + count > buffer->size) {
     return 1;
   }
 
-  buffer->rangeStart = rangeStart;
-  buffer->rangeCount = rangeCount;
+  buffer->rangeStart = start;
+  buffer->rangeCount = count;
 
   return 0;
 }

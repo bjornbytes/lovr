@@ -22,4 +22,4 @@ mat4 mat4_rotate(mat4 matrix, float w, float x, float y, float z);
 mat4 mat4_scale(mat4 matrix, float x, float y, float z);
 mat4 mat4_multiply(mat4 a, mat4 b);
 void mat4_multiplyVector(mat4 m, float* v);
-mat4 mat4_invert(mat4 matrix);
+mat4 mat4_invert(mat4 m);
