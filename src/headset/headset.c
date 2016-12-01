@@ -1,10 +1,19 @@
 #include "headset/headset.h"
 #include "headset/vive.h"
+#include "event/event.h"
 
 static Headset* headset;
 
 void lovrHeadsetInit() {
   headset = viveInit();
+
+  if (headset) {
+    lovrEventAddPump(lovrHeadsetPoll);
+  }
+}
+
+void lovrHeadsetPoll() {
+  headset->poll(headset);
 }
 
 char lovrHeadsetIsPresent() {
@@ -67,8 +76,8 @@ void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
   headset->getAngularVelocity(headset, x, y, z);
 }
 
-Controller* lovrHeadsetGetController(ControllerHand hand) {
-  return headset->getController(headset, hand);
+vec_controller_t* lovrHeadsetGetControllers() {
+  return headset->getControllers(headset);
 }
 
 char lovrHeadsetControllerIsPresent(Controller* controller) {
@@ -91,10 +100,6 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
   return headset->controllerIsDown(headset, controller, button);
 }
 
-ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
-  return headset->controllerGetHand(headset, controller);
-}
-
 void lovrHeadsetControllerVibrate(Controller* controller, float duration) {
   headset->controllerVibrate(headset, controller, duration);
 }
@@ -105,4 +110,9 @@ void* lovrHeadsetControllerGetModel(Controller* controller, ControllerModelForma
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   headset->renderTo(headset, callback, userdata);
+}
+
+void lovrControllerDestroy(const Ref* ref) {
+  Controller* controller = containerof(ref, Controller);
+  free(controller);
 }

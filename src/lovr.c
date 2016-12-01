@@ -88,7 +88,9 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "lovr.filesystem.setIdentity(conf.identity or 'default') "
 
     "lovr.handlers = setmetatable({ "
-    "  quit = function() end "
+    "  quit = function() end, "
+    "  controlleradded = function() end, "
+    "  controllerremoved = function() end "
     "}, { "
     "  __index = function(self, event) "
     "    error('Unknown event: ', event) "

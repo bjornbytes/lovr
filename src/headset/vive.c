@@ -1,4 +1,5 @@
 #include "headset/vive.h"
+#include "event/event.h"
 #include "graphics/graphics.h"
 #include "util.h"
 #include <stdlib.h>
@@ -21,6 +22,7 @@ Headset* viveInit() {
   if (!vive) return NULL;
 
   Headset* headset = (Headset*) vive;
+  headset->poll = vivePoll;
   headset->isPresent = viveIsPresent;
   headset->getType = viveGetType;
   headset->getDisplayDimensions = viveGetDisplayDimensions;
@@ -35,25 +37,23 @@ Headset* viveInit() {
   headset->getOrientation = viveGetOrientation;
   headset->getVelocity = viveGetVelocity;
   headset->getAngularVelocity = viveGetAngularVelocity;
-  headset->getController = viveGetController;
+  headset->getControllers = viveGetControllers;
   headset->controllerIsPresent = viveControllerIsPresent;
   headset->controllerGetPosition = viveControllerGetPosition;
   headset->controllerGetOrientation = viveControllerGetOrientation;
   headset->controllerGetAxis = viveControllerGetAxis;
   headset->controllerIsDown = viveControllerIsDown;
-  headset->controllerGetHand = viveControllerGetHand;
   headset->controllerVibrate = viveControllerVibrate;
   headset->controllerGetModel = viveControllerGetModel;
   headset->renderTo = viveRenderTo;
 
   vive->isRendering = 0;
-  vive->controllers[CONTROLLER_HAND_LEFT] = NULL;
-  vive->controllers[CONTROLLER_HAND_RIGHT] = NULL;
   vive->framebuffer = 0;
   vive->depthbuffer = 0;
   vive->texture = 0;
   vive->resolveFramebuffer = 0;
   vive->resolveTexture = 0;
+  vec_init(&vive->controllers);
 
   for (int i = 0; i < 16; i++) {
     vive->deviceModels[i].isLoaded = 0;
@@ -109,23 +109,17 @@ Headset* viveInit() {
   vive->clipFar = 30.f;
   vive->system->GetRecommendedRenderTargetSize(&vive->renderWidth, &vive->renderHeight);
 
-  Controller* leftController = lovrAlloc(sizeof(Controller), NULL);
-  if (!leftController) {
-    viveDestroy(vive);
-    return NULL;
+  unsigned int leftHand = ETrackedControllerRole_TrackedControllerRole_LeftHand;
+  int leftControllerId = vive->system->GetTrackedDeviceIndexForControllerRole(leftHand);
+  if (leftControllerId >= 0) {
+    viveAddController(vive, leftControllerId);
   }
-  leftController->hand = CONTROLLER_HAND_LEFT;
-  vive->controllers[CONTROLLER_HAND_LEFT] = leftController;
-  vive->controllerIndex[CONTROLLER_HAND_LEFT] = vive->system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
 
-  Controller* rightController = lovrAlloc(sizeof(Controller), NULL);
-  if (!rightController) {
-    viveDestroy(vive);
-    return NULL;
+  unsigned int rightHand = ETrackedControllerRole_TrackedControllerRole_RightHand;
+  int rightControllerId = vive->system->GetTrackedDeviceIndexForControllerRole(rightHand);
+  if (rightControllerId >= 0) {
+    viveAddController(vive, rightControllerId);
   }
-  rightController->hand = CONTROLLER_HAND_RIGHT;
-  vive->controllers[CONTROLLER_HAND_RIGHT] = rightController;
-  vive->controllerIndex[CONTROLLER_HAND_RIGHT] = vive->system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
 
   glGenFramebuffers(1, &vive->framebuffer);
   glBindFramebuffer(GL_FRAMEBUFFER, vive->framebuffer);
@@ -160,6 +154,46 @@ Headset* viveInit() {
   return headset;
 }
 
+void vivePoll(void* headset) {
+  Vive* vive = (Vive*) headset;
+
+  struct VREvent_t vrEvent;
+  while (vive->system->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
+    unsigned int deviceId = vrEvent.trackedDeviceIndex;
+
+    switch (vrEvent.eventType) {
+      case EVREventType_VREvent_TrackedDeviceActivated: {
+        ETrackedControllerRole role = vive->system->GetControllerRoleForTrackedDeviceIndex(deviceId);
+        if (role) {
+          Controller* controller = viveAddController(headset, deviceId);
+          if (controller) {
+            EventType type = EVENT_CONTROLLER_ADDED;
+            EventData data = { .controlleradded = { controller } };
+            Event event = { .type = type, .data = data };
+            lovrEventPush(event);
+          }
+        }
+        break;
+      }
+
+      case EVREventType_VREvent_TrackedDeviceDeactivated: {
+        ETrackedControllerRole role = vive->system->GetControllerRoleForTrackedDeviceIndex(deviceId);
+        if (role) {
+          Controller* controller = viveGetController(headset, deviceId);
+          if (controller) {
+            EventType type = EVENT_CONTROLLER_REMOVED;
+            EventData data = { .controllerremoved = { controller } };
+            Event event = { .type = type, .data = data };
+            lovrEventPush(event);
+            viveRemoveController(headset, deviceId);
+          }
+        }
+        break;
+      }
+    }
+  }
+}
+
 void viveDestroy(void* headset) {
   Vive* vive = (Vive*) headset;
   glDeleteFramebuffers(1, &vive->framebuffer);
@@ -172,8 +206,11 @@ void viveDestroy(void* headset) {
       vive->renderModels->FreeRenderModel(vive->deviceModels[i].model);
     }
   }
-  free(vive->controllers[CONTROLLER_HAND_LEFT]);
-  free(vive->controllers[CONTROLLER_HAND_RIGHT]);
+  Controller* controller; int i;
+  vec_foreach(&vive->controllers, controller, i) {
+    lovrRelease(&controller->ref);
+  }
+  vec_deinit(&vive->controllers);
   free(vive);
 }
 
@@ -294,19 +331,58 @@ void viveGetAngularVelocity(void* headset, float* x, float* y, float* z) {
   *z = pose.vAngularVelocity.v[2];
 }
 
-Controller* viveGetController(void* headset, ControllerHand hand) {
+Controller* viveAddController(void* headset, unsigned int deviceIndex) {
   Vive* vive = (Vive*) headset;
-  return vive->controllers[hand];
+  Controller* controller; int i;
+  vec_foreach(&vive->controllers, controller, i) {
+    if (controller->id == deviceIndex) {
+      return controller;
+    }
+  }
+
+  controller = lovrAlloc(sizeof(Controller), lovrControllerDestroy);
+  controller->id = deviceIndex;
+  vec_push(&vive->controllers, controller);
+  return controller;
+}
+
+Controller* viveGetController(void* headset, unsigned int deviceIndex) {
+  Vive* vive = (Vive*) headset;
+  Controller* controller; int i;
+  vec_foreach(&vive->controllers, controller, i) {
+    if (controller->id == deviceIndex) {
+      return controller;
+    }
+  }
+
+  return NULL;
+}
+
+void viveRemoveController(void* headset, unsigned int deviceIndex) {
+  Vive* vive = (Vive*) headset;
+  Controller* controller; int i;
+  vec_foreach(&vive->controllers, controller, i) {
+    if (controller->id == deviceIndex) {
+      lovrRelease(&controller->ref);
+      vec_splice(&vive->controllers, i, 1);
+      break;
+    }
+  }
+}
+
+vec_controller_t* viveGetControllers(void* headset) {
+  Vive* vive = (Vive*) headset;
+  return &vive->controllers;
 }
 
 char viveControllerIsPresent(void* headset, Controller* controller) {
   Vive* vive = (Vive*) headset;
-  return vive->system->IsTrackedDeviceConnected(vive->controllerIndex[controller->hand]);
+  return vive->system->IsTrackedDeviceConnected(controller->id);
 }
 
 void viveControllerGetPosition(void* headset, Controller* controller, float* x, float* y, float* z) {
   Vive* vive = (Vive*) headset;
-  TrackedDevicePose_t pose = viveGetPose(vive, vive->controllerIndex[controller->hand]);
+  TrackedDevicePose_t pose = viveGetPose(vive, controller->id);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
@@ -320,7 +396,7 @@ void viveControllerGetPosition(void* headset, Controller* controller, float* x, 
 
 void viveControllerGetOrientation(void* headset, Controller* controller, float* w, float* x, float* y, float* z) {
   Vive* vive = (Vive*) headset;
-  TrackedDevicePose_t pose = viveGetPose(vive, vive->controllerIndex[controller->hand]);
+  TrackedDevicePose_t pose = viveGetPose(vive, controller->id);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *w = *x = *y = *z = 0.f;
@@ -335,7 +411,7 @@ float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxi
   Vive* vive = (Vive*) headset;
   VRControllerState_t input;
 
-  vive->system->GetControllerState(vive->controllerIndex[controller->hand], &input);
+  vive->system->GetControllerState(controller->id, &input);
 
   switch (axis) {
     case CONTROLLER_AXIS_TRIGGER:
@@ -358,7 +434,7 @@ int viveControllerIsDown(void* headset, Controller* controller, ControllerButton
   Vive* vive = (Vive*) headset;
   VRControllerState_t input;
 
-  vive->system->GetControllerState(vive->controllerIndex[controller->hand], &input);
+  vive->system->GetControllerState(controller->id, &input);
 
   switch (button) {
     case CONTROLLER_BUTTON_SYSTEM:
@@ -380,10 +456,6 @@ int viveControllerIsDown(void* headset, Controller* controller, ControllerButton
   return 0;
 }
 
-ControllerHand viveControllerGetHand(void* headset, Controller* controller) {
-  return controller->hand;
-}
-
 void viveControllerVibrate(void* headset, Controller* controller, float duration) {
   if (duration <= 0) {
     return;
@@ -392,7 +464,7 @@ void viveControllerVibrate(void* headset, Controller* controller, float duration
   Vive* vive = (Vive*) headset;
   uint32_t axis = 0;
   unsigned short uSeconds = (unsigned short) duration * 1e6;
-  vive->system->TriggerHapticPulse(vive->controllerIndex[controller->hand], axis, uSeconds);
+  vive->system->TriggerHapticPulse(controller->id, axis, uSeconds);
 }
 
 void* viveControllerGetModel(void* headset, Controller* controller, ControllerModelFormat* format) {
@@ -401,8 +473,7 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
   *format = CONTROLLER_MODEL_OPENVR;
 
   // Return the model if it's already loaded
-  unsigned int deviceIndex = vive->controllerIndex[controller->hand];
-  OpenVRModel* vrModel = &vive->deviceModels[deviceIndex];
+  OpenVRModel* vrModel = &vive->deviceModels[controller->id];
   if (vrModel->isLoaded) {
     return vrModel;
   }
@@ -410,7 +481,7 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
   // Get model name
   char renderModelName[1024];
   ETrackedDeviceProperty renderModelNameProperty = ETrackedDeviceProperty_Prop_RenderModelName_String;
-  vive->system->GetStringTrackedDeviceProperty(deviceIndex, renderModelNameProperty, renderModelName, 1024, NULL);
+  vive->system->GetStringTrackedDeviceProperty(controller->id, renderModelNameProperty, renderModelName, 1024, NULL);
 
   // Load model
   RenderModel_t* model = NULL;

@@ -14,14 +14,12 @@ typedef struct {
   struct VR_IVRRenderModels_FnTable* renderModels;
 
   unsigned int headsetIndex;
-  unsigned int controllerIndex[CONTROLLER_HAND_RIGHT + 1];
-
-  OpenVRModel deviceModels[16];
 
   int isRendering;
   TrackedDevicePose_t renderPoses[16];
+  OpenVRModel deviceModels[16];
 
-  Controller* controllers[CONTROLLER_HAND_RIGHT + 1];
+  vec_controller_t controllers;
 
   float clipNear;
   float clipFar;
@@ -39,6 +37,7 @@ typedef struct {
 #endif
 
 Headset* viveInit();
+void vivePoll(void* headset);
 void viveDestroy(void* headset);
 char viveIsPresent(void* headset);
 const char* viveGetType(void* headset);
@@ -54,13 +53,15 @@ void viveGetPosition(void* headset, float* x, float* y, float* z);
 void viveGetOrientation(void* headset, float* w, float* x, float* y, float* z);
 void viveGetVelocity(void* headset, float* x, float* y, float* z);
 void viveGetAngularVelocity(void* headset, float* x, float* y, float* z);
-Controller* viveGetController(void* headset, ControllerHand hand);
+Controller* viveAddController(void* headset, unsigned int deviceIndex);
+Controller* viveGetController(void* headset, unsigned int deviceIndex);
+void viveRemoveController(void* headset, unsigned int deviceIndex);
+vec_controller_t* viveGetControllers(void* headset);
 char viveControllerIsPresent(void* headset, Controller* controller);
 void viveControllerGetPosition(void* headset, Controller* controller, float* x, float* y, float* z);
 void viveControllerGetOrientation(void* headset, Controller* controller, float* w, float* x, float* y, float* z);
 float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxis axis);
 int viveControllerIsDown(void* headset, Controller* controller, ControllerButton button);
-ControllerHand viveControllerGetHand(void* headset, Controller* controller);
 void viveControllerVibrate(void* headset, Controller* controller, float duration);
 void* viveControllerGetModel(void* headset, Controller* controller, ControllerModelFormat* format);
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata);
