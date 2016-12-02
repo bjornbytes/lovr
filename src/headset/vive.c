@@ -19,12 +19,12 @@ static TrackedDevicePose_t viveGetPose(Vive* vive, unsigned int deviceIndex) {
 
 static void viveRefreshControllers(Vive* vive) {
   unsigned int leftHand = ETrackedControllerRole_TrackedControllerRole_LeftHand;
-  int leftControllerId = vive->system->GetTrackedDeviceIndexForControllerRole(leftHand);
+  unsigned int leftControllerId = vive->system->GetTrackedDeviceIndexForControllerRole(leftHand);
 
   unsigned int rightHand = ETrackedControllerRole_TrackedControllerRole_RightHand;
-  int rightControllerId = vive->system->GetTrackedDeviceIndexForControllerRole(rightHand);
+  unsigned int rightControllerId = vive->system->GetTrackedDeviceIndexForControllerRole(rightHand);
 
-  int controllerIds[2] = { leftControllerId, rightControllerId };
+  unsigned int controllerIds[2] = { leftControllerId, rightControllerId };
 
   // Remove controllers that are no longer recognized as connected
   Controller* controller; int i;
@@ -41,7 +41,7 @@ static void viveRefreshControllers(Vive* vive) {
 
   // Add connected controllers that aren't in the list yet
   for (i = 0; i < 2; i++) {
-    if (controllerIds[i] != -1) {
+    if ((int) controllerIds[i] != -1) {
       controller = viveAddController((void*) vive, controllerIds[i]);
       if (!controller) continue;
       EventType type = EVENT_CONTROLLER_ADDED;
@@ -332,7 +332,7 @@ void viveGetAngularVelocity(void* headset, float* x, float* y, float* z) {
 }
 
 Controller* viveAddController(void* headset, unsigned int deviceIndex) {
-  if (deviceIndex == -1) {
+  if ((int) deviceIndex == -1) {
     return NULL;
   }
 
