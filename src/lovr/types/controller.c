@@ -11,7 +11,6 @@ const luaL_Reg lovrController[] = {
   { "getOrientation", l_lovrControllerGetOrientation },
   { "getAxis", l_lovrControllerGetAxis },
   { "isDown", l_lovrControllerIsDown },
-  { "getHand", l_lovrControllerGetHand },
   { "vibrate", l_lovrControllerVibrate },
   { "newModel", l_lovrControllerNewModel },
   { NULL, NULL }
@@ -55,12 +54,6 @@ int l_lovrControllerIsDown(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   ControllerButton* button = (ControllerButton*) luax_checkenum(L, 2, &ControllerButtons, "controller button");
   lua_pushboolean(L, lovrHeadsetControllerIsDown(controller, *button));
-  return 1;
-}
-
-int l_lovrControllerGetHand(lua_State* L) {
-  Controller* controller = luax_checktype(L, 1, Controller);
-  lua_pushstring(L, map_int_find(&ControllerHands, lovrHeadsetControllerGetHand(controller)));
   return 1;
 }
 

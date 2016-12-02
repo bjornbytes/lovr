@@ -26,5 +26,6 @@ int l_lovrHeadsetGetPosition(lua_State* L);
 int l_lovrHeadsetGetOrientation(lua_State* L);
 int l_lovrHeadsetGetVelocity(lua_State* L);
 int l_lovrHeadsetGetAngularVelocity(lua_State* L);
-int l_lovrHeadsetGetController(lua_State* L);
+int l_lovrHeadsetGetControllers(lua_State* L);
+int l_lovrHeadsetGetControllerCount(lua_State* L);
 int l_lovrHeadsetRenderTo(lua_State* L);

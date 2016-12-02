@@ -1,18 +1,31 @@
-#include <vendor/vec/vec.h>
+#include "headset/headset.h"
+#include "vendor/vec/vec.h"
 
 #ifndef LOVR_EVENT_TYPES
 #define LOVR_EVENT_TYPES
 
 typedef enum {
-  EVENT_QUIT
+  EVENT_QUIT,
+  EVENT_CONTROLLER_ADDED,
+  EVENT_CONTROLLER_REMOVED
 } EventType;
 
 typedef struct {
   int exitCode;
 } QuitEvent;
 
+typedef struct {
+  Controller* controller;
+} ControllerAddedEvent;
+
+typedef struct {
+  Controller* controller;
+} ControllerRemovedEvent;
+
 typedef union {
   QuitEvent quit;
+  ControllerAddedEvent controlleradded;
+  ControllerRemovedEvent controllerremoved;
 } EventData;
 
 typedef struct {

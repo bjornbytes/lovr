@@ -15,6 +15,18 @@ static int nextEvent(lua_State* L) {
       lua_pushnumber(L, event->data.quit.exitCode);
       return 2;
 
+    case EVENT_CONTROLLER_ADDED: {
+      lua_pushstring(L, "controlleradded");
+      luax_pushtype(L, Controller, event->data.controlleradded.controller);
+      return 2;
+   }
+
+    case EVENT_CONTROLLER_REMOVED: {
+      lua_pushstring(L, "controllerremoved");
+      luax_pushtype(L, Controller, event->data.controllerremoved.controller);
+      return 2;
+    }
+
     default:
       return 0;
   }
@@ -60,6 +72,14 @@ int l_lovrEventPush(lua_State* L) {
   switch (type) {
     case EVENT_QUIT:
       data.quit.exitCode = luaL_optint(L, 2, 0);
+      break;
+
+    case EVENT_CONTROLLER_ADDED:
+      data.controlleradded.controller = luax_checktype(L, 2, Controller);
+      break;
+
+    case EVENT_CONTROLLER_REMOVED:
+      data.controllerremoved.controller = luax_checktype(L, 2, Controller);
       break;
   }
 

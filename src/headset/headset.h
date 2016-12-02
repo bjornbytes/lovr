@@ -1,4 +1,5 @@
 #include <vendor/vec/vec.h>
+#include "util.h"
 
 #ifndef LOVR_HEADSET_TYPES
 #define LOVR_HEADSET_TYPES
@@ -29,13 +30,16 @@ typedef enum {
 } ControllerModelFormat;
 
 typedef struct {
+  Ref ref;
+  unsigned int id;
   ControllerHand hand;
 } Controller;
 
-typedef vec_t(Controller) vec_controller_t;
+typedef vec_t(Controller*) vec_controller_t;
 
 typedef struct {
   char (*isPresent)(void* headset);
+  void (*poll)(void* headset);
   const char* (*getType)(void* headset);
   void (*getDisplayDimensions)(void* headset, int* width, int* height);
   void (*getClipDistance)(void* headset, float* near, float* far);
@@ -49,13 +53,12 @@ typedef struct {
   void (*getOrientation)(void* headset, float* w, float* x, float* y, float* z);
   void (*getVelocity)(void* headset, float* x, float* y, float* z);
   void (*getAngularVelocity)(void* headset, float* x, float* y, float* z);
-  Controller* (*getController)(void* headset, ControllerHand hand);
+  vec_controller_t* (*getControllers)(void* headset);
   char (*controllerIsPresent)(void* headset, Controller* controller);
   void (*controllerGetPosition)(void* headset, Controller* controller, float* x, float* y, float* z);
   void (*controllerGetOrientation)(void* headset, Controller* controller, float* w, float* x, float* y, float* z);
   float (*controllerGetAxis)(void* headset, Controller* controller, ControllerAxis axis);
   int (*controllerIsDown)(void* headset, Controller* controller, ControllerButton button);
-  ControllerHand (*controllerGetHand)(void* headset, Controller* controller);
   void (*controllerVibrate)(void* headset, Controller* controller, float duration);
   void* (*controllerGetModel)(void* headset, Controller* controller, ControllerModelFormat* format);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
@@ -64,6 +67,7 @@ typedef struct {
 #endif
 
 void lovrHeadsetInit();
+void lovrHeadsetPoll();
 char lovrHeadsetIsPresent();
 const char* lovrHeadsetGetType();
 void lovrHeadsetGetDisplayDimensions(int* width, int* height);
@@ -78,13 +82,14 @@ void lovrHeadsetGetPosition(float* x, float* y, float* z);
 void lovrHeadsetGetOrientation(float* w, float* x, float* y, float* z);
 void lovrHeadsetGetVelocity(float* x, float* y, float* z);
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);
-Controller* lovrHeadsetGetController(ControllerHand hand);
+vec_controller_t* lovrHeadsetGetControllers();
 char lovrHeadsetControllerIsPresent(Controller* controller);
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z);
 void lovrHeadsetControllerGetOrientation(Controller* controller, float* w, float* x, float* y, float* z);
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
-ControllerHand lovrHeadsetControllerGetHand(Controller* controller);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration);
 void* lovrHeadsetControllerGetModel(Controller* controller, ControllerModelFormat* format);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
+
+void lovrControllerDestroy(const Ref* ref);

@@ -29,7 +29,8 @@ const luaL_Reg lovrHeadset[] = {
   { "getOrientation", l_lovrHeadsetGetOrientation },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
-  { "getController", l_lovrHeadsetGetController },
+  { "getControllers", l_lovrHeadsetGetControllers },
+  { "getControllerCount", l_lovrHeadsetGetControllerCount },
   { "renderTo", l_lovrHeadsetRenderTo },
   { NULL, NULL }
 };
@@ -185,9 +186,29 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   return 3;
 }
 
-int l_lovrHeadsetGetController(lua_State* L) {
-  ControllerHand* hand = (ControllerHand*) luax_checkenum(L, 1, &ControllerHands, "controller hand");
-  luax_pushtype(L, Controller, lovrHeadsetGetController(*hand));
+int l_lovrHeadsetGetControllers(lua_State* L) {
+  vec_controller_t* controllers = lovrHeadsetGetControllers();
+  if (!controllers) {
+    lua_newtable(L);
+    return 1;
+  }
+
+  lua_newtable(L);
+  Controller* controller; int i;
+  vec_foreach(controllers, controller, i) {
+    luax_pushtype(L, Controller, controller);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 1;
+}
+
+int l_lovrHeadsetGetControllerCount(lua_State* L) {
+  vec_controller_t* controllers = lovrHeadsetGetControllers();
+  if (controllers) {
+    lua_pushnumber(L, controllers->length);
+  } else {
+    lua_pushnumber(L, 0);
+  }
   return 1;
 }
 
