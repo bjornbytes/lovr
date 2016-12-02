@@ -23,6 +23,13 @@ static int handleLuaError(lua_State* L) {
   return 0;
 }
 
+static int lovrGetVersion(lua_State* L) {
+  lua_pushnumber(L, LOVR_VERSION_MAJOR);
+  lua_pushnumber(L, LOVR_VERSION_MINOR);
+  lua_pushnumber(L, LOVR_VERSION_PATCH);
+  return 3;
+}
+
 void lovrInit(lua_State* L, int argc, char** argv) {
   initGlfw();
 
@@ -44,8 +51,8 @@ void lovrInit(lua_State* L, int argc, char** argv) {
 
   // lovr
   lua_newtable(L);
-  lua_pushstring(L, LOVR_VERSION);
-  lua_setfield(L, -2, "_version");
+  lua_pushcfunction(L, lovrGetVersion);
+  lua_setfield(L, -2, "getVersion");
   lua_setglobal(L, "lovr");
 
   // Preload modules
