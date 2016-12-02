@@ -80,7 +80,25 @@ mat4 mat4_setTranslation(mat4 matrix, float x, float y, float z) {
   return matrix;
 }
 
-mat4 mat4_setRotation(mat4 matrix, float w, float x, float y, float z) {
+mat4 mat4_setRotation(mat4 matrix, float angle, float ax, float ay, float az) {
+
+  // Normalize rotation vector
+  float len = sqrtf(ax * ax + ay * ay + az * az);
+  if (len != 1 && len != 0) {
+    len = 1 / len;
+    ax *= len;
+    ay *= len;
+    az *= len;
+  }
+
+  // Convert angle-axis to quaternion
+  float cos2 = cos(angle / 2.f);
+  float sin2 = sin(angle / 2.f);
+  float w = cos2;
+  float x = sin2 * ax;
+  float y = sin2 * ay;
+  float z = sin2 * az;
+
   mat4_setIdentity(matrix);
   matrix[0] = 1 - 2 * y * y - 2 * z * z;
   matrix[1] = 2 * x * y + 2 * w * z;
@@ -141,9 +159,9 @@ mat4 mat4_translate(mat4 matrix, float x, float y, float z) {
   return mat4_multiply(matrix, translation);
 }
 
-mat4 mat4_rotate(mat4 matrix, float w, float x, float y, float z) {
+mat4 mat4_rotate(mat4 matrix, float angle, float ax, float ay, float az) {
   float rotation[16];
-  mat4_setRotation(rotation, w, x, y, z);
+  mat4_setRotation(rotation, angle, ax, ay, az);
   return mat4_multiply(matrix, rotation);
 }
 

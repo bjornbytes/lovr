@@ -294,8 +294,8 @@ void lovrGraphicsTranslate(float x, float y, float z) {
   mat4_translate(state.transforms[state.transform], x, y, z);
 }
 
-void lovrGraphicsRotate(float w, float x, float y, float z) {
-  mat4_rotate(state.transforms[state.transform], w, x, y, z);
+void lovrGraphicsRotate(float angle, float ax, float ay, float az) {
+  mat4_rotate(state.transforms[state.transform], angle, ax, ay, az);
 }
 
 void lovrGraphicsScale(float x, float y, float z) {
@@ -304,28 +304,11 @@ void lovrGraphicsScale(float x, float y, float z) {
 
 void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
 
-  // Normalize rotation vector
-  float len = sqrtf(ax * ax + ay * ay + az * az);
-  if (len != 1 && len != 0) {
-    len = 1 / len;
-    ax *= len;
-    ay *= len;
-    az *= len;
-  }
-
-  // Convert angle-axis to quaternion
-  float cos2 = cos(angle / 2.f);
-  float sin2 = sin(angle / 2.f);
-  float qw = cos2;
-  float qx = sin2 * ax;
-  float qy = sin2 * ay;
-  float qz = sin2 * az;
-
   // M *= T * S * R
   float transform[16];
   mat4_setTranslation(transform, tx, ty, tz);
   mat4_scale(transform, sx, sy, sz);
-  mat4_rotate(transform, qw, qx, qy, qz);
+  mat4_rotate(transform, angle, ax, ay, az);
   lovrGraphicsMatrixTransform(transform);
 }
 
@@ -552,17 +535,10 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
   lovrRetain(&lastShader->ref);
   lovrGraphicsSetShader(state.skyboxShader);
 
-  float cos2 = cos(angle / 2);
-  float sin2 = sin(angle / 2);
-  float rw = cos2;
-  float rx = sin2 * ax;
-  float ry = sin2 * ay;
-  float rz = sin2 * az;
-
   lovrGraphicsPrepare();
   lovrGraphicsPush();
   lovrGraphicsOrigin();
-  lovrGraphicsRotate(rw, rx, ry, rz);
+  lovrGraphicsRotate(angle, ax, ay, az);
 
   float cube[] = {
     // Front
