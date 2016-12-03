@@ -443,7 +443,7 @@ void viveControllerVibrate(void* headset, Controller* controller, float duration
 
   Vive* vive = (Vive*) headset;
   uint32_t axis = 0;
-  unsigned short uSeconds = (unsigned short) duration * 1e6;
+  unsigned short uSeconds = (unsigned short) (duration * 1e6);
   vive->system->TriggerHapticPulse(controller->id, axis, uSeconds);
 }
 
