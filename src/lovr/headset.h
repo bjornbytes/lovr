@@ -3,7 +3,6 @@
 #include <lualib.h>
 #include "vendor/map/map.h"
 
-map_int_t ControllerHands;
 map_int_t ControllerAxes;
 map_int_t ControllerButtons;
 

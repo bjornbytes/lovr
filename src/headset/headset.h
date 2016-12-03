@@ -7,11 +7,6 @@
 typedef void (*headsetRenderCallback)(int eyeIndex, void* userdata);
 
 typedef enum {
-  CONTROLLER_HAND_LEFT,
-  CONTROLLER_HAND_RIGHT
-} ControllerHand;
-
-typedef enum {
   CONTROLLER_AXIS_TRIGGER,
   CONTROLLER_AXIS_TOUCHPAD_X,
   CONTROLLER_AXIS_TOUCHPAD_Y
@@ -32,7 +27,6 @@ typedef enum {
 typedef struct {
   Ref ref;
   unsigned int id;
-  ControllerHand hand;
 } Controller;
 
 typedef vec_t(Controller*) vec_controller_t;

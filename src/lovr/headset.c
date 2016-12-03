@@ -40,10 +40,6 @@ int l_lovrHeadsetInit(lua_State* L) {
   luaL_register(L, NULL, lovrHeadset);
   luax_registertype(L, "Controller", lovrController);
 
-  map_init(&ControllerHands);
-  map_set(&ControllerHands, "left", CONTROLLER_HAND_LEFT);
-  map_set(&ControllerHands, "right", CONTROLLER_HAND_RIGHT);
-
   map_init(&ControllerAxes);
   map_set(&ControllerAxes, "trigger", CONTROLLER_AXIS_TRIGGER);
   map_set(&ControllerAxes, "touchx", CONTROLLER_AXIS_TOUCHPAD_X);
@@ -196,6 +192,7 @@ int l_lovrHeadsetGetControllers(lua_State* L) {
   lua_newtable(L);
   Controller* controller; int i;
   vec_foreach(controllers, controller, i) {
+    lovrRetain(&controller->ref);
     luax_pushtype(L, Controller, controller);
     lua_rawseti(L, -2, i + 1);
   }

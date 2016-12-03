@@ -34,8 +34,8 @@ static void viveRefreshControllers(Vive* vive) {
       EventData data = { .controllerremoved = { controller } };
       Event event = { .type = type, .data = data };
       lovrEventPush(event);
-      lovrRelease(&controller->ref);
       vec_splice(&vive->controllers, i, 1);
+      lovrRelease(&controller->ref);
     }
   }
 
