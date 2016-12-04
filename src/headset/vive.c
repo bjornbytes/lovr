@@ -418,10 +418,10 @@ int viveControllerIsDown(void* headset, Controller* controller, ControllerButton
 
   switch (button) {
     case CONTROLLER_BUTTON_SYSTEM:
-      return (input.ulButtonPressed >> EVRButtonId_k_EButton_System) & 1;
+      return (input.ulButtonPressed >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
 
     case CONTROLLER_BUTTON_MENU:
-      return (input.ulButtonPressed >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+      return (input.ulButtonPressed >> EVRButtonId_k_EButton_System) & 1;
 
     case CONTROLLER_BUTTON_GRIP:
       return (input.ulButtonPressed >> EVRButtonId_k_EButton_Grip) & 1;
