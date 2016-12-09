@@ -43,8 +43,8 @@ For more examples, check out the [`examples`](examples) folder.
 Supported Hardware
 ---
 
-- HTC Vive (full support)
-- Oculus Touch (partial support)
+- HTC Vive (full support via OpenVR)
+- Oculus Touch (partial support via OpenVR)
 - WebVR (partial support, see `emscripten` branch)
 - Mobile VR (no support currently)
 
@@ -57,7 +57,8 @@ and can be found [here](https://github.com/bjornbytes/lovr-docs).
 Compiling
 ---
 
-How to compile LÖVR from source, for other operating systems or custom builds.
+You might want to compile LÖVR from source so you can use LÖVR on other operating systems or create
+a custom build.
 
 ### Dependencies
 
