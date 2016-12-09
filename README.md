@@ -1,12 +1,15 @@
 LÖVR
 ===
 
-LÖVR lets you make VR games with Lua!  See <http://bjornbyt.es/lovr>.
+LÖVR is a simple framework for creating virtual reality experiences with Lua.  For more information,
+visit the [project page](http://bjornbyt.es/lovr).
 
-Example
+Getting Started
 ---
 
-In a folder called `myGame`, create a file called `main.lua` with this in it:
+You can visit the [LÖVR website](http://bjornbyt.es/lovr) to download precompiled binaries for
+windows.  Once you have `lovr.exe`, create a folder called `myGame` to hold the files for your game.
+Next, create a file called `main.lua` in `myGame` and put this in it:
 
 ```lua
 function lovr.draw(eye)
@@ -19,7 +22,7 @@ function lovr.draw(eye)
 end
 ```
 
-Drag the `myGame` folder onto a shortcut to `lovr.exe`.  You should see a spinning purple cube!
+Finally, drag the `myGame` folder onto `lovr.exe`.  You should see a spinning purple cube!
 
 #### 3D Models
 
@@ -35,17 +38,26 @@ function lovr.draw()
 end
 ```
 
+For more examples, check out the `examples` folder.
+
 Supported Hardware
 ---
 
-- HTC Vive
+- HTC Vive (full support)
+- Oculus Touch (partial support)
+- WebVR (partial support, see `emscripten` branch)
+- Mobile VR (no support currently)
 
-Support for other hardware will happen eventually.
+Documentation
+---
+
+See <http://bjornbyt.es/lovr/docs> for examples and API reference.  The documentation is open source
+and can be found at <https://github.com/bjornbytes/lovr-docs>.
 
 Compiling
 ---
 
-How to compile LÖVR from source.
+How to compile LÖVR from source, for other operating systems or custom builds.
 
 ### Dependencies
 
