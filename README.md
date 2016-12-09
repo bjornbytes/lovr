@@ -52,7 +52,7 @@ Documentation
 ---
 
 See <http://bjornbyt.es/lovr/docs> for examples and API reference.  The documentation is open source
-and can be found at <https://github.com/bjornbytes/lovr-docs>.
+and can be found [here](https://github.com/bjornbytes/lovr-docs).
 
 Compiling
 ---
