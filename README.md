@@ -2,7 +2,7 @@ LÖVR
 ===
 
 LÖVR is a simple framework for creating virtual reality experiences with Lua.  For more information,
-visit the [project page](http://bjornbyt.es/lovr).
+visit the [website](http://bjornbyt.es/lovr).
 
 Getting Started
 ---
