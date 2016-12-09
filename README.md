@@ -38,7 +38,7 @@ function lovr.draw()
 end
 ```
 
-For more examples, check out the `examples` folder.
+For more examples, check out the [`examples`](examples) folder.
 
 Supported Hardware
 ---
