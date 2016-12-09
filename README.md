@@ -22,7 +22,8 @@ function lovr.draw(eye)
 end
 ```
 
-Finally, drag the `myGame` folder onto `lovr.exe`.  You should see a spinning purple cube!
+Finally, start SteamVR and drag the `myGame` folder onto `lovr.exe`.  Put on your headset and you
+should see a spinning purple cube!
 
 #### 3D Models
 
