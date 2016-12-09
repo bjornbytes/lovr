@@ -118,3 +118,8 @@ The `lovr` executable should exist in `lovr/build` now.  You can run a game like
 
 You can also copy or symlink LÖVR into a directory on your `PATH` environment variable (e.g.
 `/usr/local/bin`) and run games from anywhere by just typing `lovr`.
+
+License
+---
+
+MIT, see [`LICENSE`](LICENSE) for details.
