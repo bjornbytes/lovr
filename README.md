@@ -7,9 +7,9 @@ visit the [website](http://bjornbyt.es/lovr).
 Getting Started
 ---
 
-You can visit the [LÖVR website](http://bjornbyt.es/lovr) to download precompiled binaries for
-windows.  Once you have `lovr.exe`, create a folder called `myGame` to hold the files for your game.
-Next, create a file called `main.lua` in `myGame` and put this in it:
+You can download LÖVR from the [LÖVR website](http://bjornbyt.es/lovr).  Once you have `lovr.exe`,
+create a folder called `myGame` to hold the files for your game.  Next, create a file called
+`main.lua` in `myGame` and put this in it:
 
 ```lua
 function lovr.draw(eye)
