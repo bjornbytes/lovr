@@ -41,7 +41,7 @@ end
 
 For more examples, check out the [`examples`](examples) folder.
 
-Supported Hardware
+Hardware Support
 ---
 
 - HTC Vive (full support via OpenVR)
