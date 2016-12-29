@@ -57,6 +57,9 @@ int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
   }
 #elif _WIN32
   return !GetModuleFileName(NULL, dest, size);
+#elif EMSCRIPTEN
+  dest = NULL;
+  return 0;
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetExecutablePath"
 #endif
@@ -161,6 +164,8 @@ int lovrFilesystemSetIdentity(const char* identity) {
   SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &appData);
   snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity);
   CoTaskMemFree(appData);
+#elif EMSCRIPTEN
+  return 0;
 #else
 #error "This platform is missing an implementation of lovrFilesystemSetIdentity"
 #endif

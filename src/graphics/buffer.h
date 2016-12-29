@@ -19,8 +19,7 @@ typedef enum {
 
 typedef enum {
   BUFFER_FLOAT = GL_FLOAT,
-  BUFFER_BYTE = GL_BYTE,
-  BUFFER_INT = GL_INT
+  BUFFER_BYTE = GL_BYTE
 } BufferAttributeType;
 
 typedef struct {
@@ -40,7 +39,6 @@ typedef struct Buffer {
   BufferFormat format;
   BufferDrawMode drawMode;
   BufferUsage usage;
-  GLuint vao;
   GLuint vbo;
   GLuint ibo;
   vec_uint_t map;

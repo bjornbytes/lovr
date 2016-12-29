@@ -3,10 +3,18 @@
 #include "headset/headset.h"
 #include "util.h"
 
+typedef struct RenderData {
+  lua_State* L;
+  int ref;
+} RenderData;
+
+static RenderData renderData;
+
 void renderHelper(int eyeIndex, void* userdata) {
-  lua_State* L = (lua_State*)userdata;
-  luaL_checktype(L, 1, LUA_TFUNCTION);
-  lua_pushvalue(L, 1);
+  RenderData* data = (RenderData*) userdata;
+  lua_State* L = data->L;
+  lua_rawgeti(L, LUA_REGISTRYINDEX, data->ref);
+  luaL_checktype(L, -1, LUA_TFUNCTION);
   lua_pushstring(L, eyeIndex == 0 ? "left" : "right");
   lua_call(L, 1, 0);
 }
@@ -211,6 +219,8 @@ int l_lovrHeadsetGetControllerCount(lua_State* L) {
 
 int l_lovrHeadsetRenderTo(lua_State* L) {
   luaL_checktype(L, 1, LUA_TFUNCTION);
-  lovrHeadsetRenderTo(renderHelper, L);
+  renderData.L = L;
+  renderData.ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  lovrHeadsetRenderTo(renderHelper, &renderData);
   return 0;
 }

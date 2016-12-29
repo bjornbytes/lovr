@@ -14,10 +14,8 @@ void initGlfw() {
     error("Error initializing glfw");
   }
 
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
   window = glfwCreateWindow(800, 600, "Window", NULL, NULL);
 
@@ -28,19 +26,21 @@ void initGlfw() {
 
   glfwMakeContextCurrent(window);
 
-#ifdef _WIN32
+#ifndef EMSCRIPTEN
   glewExperimental = GL_TRUE;
   GLenum err = glewInit();
   if (err != GLEW_OK) {
     error("Could not initialize GLEW");
-  } else if (!GLEW_VERSION_2_1) {
-    error("Geez your OpenGL is old");
+  } else if (!GLEW_VERSION_3_1) {
+    error("OpenGL 3 or above is required to use OpenVR functionality.");
   }
 #endif
 
   glfwSetTime(0);
-  glfwSwapInterval(0);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#ifndef EMSCRIPTEN
+  glfwSwapInterval(0);
   glEnable(GL_LINE_SMOOTH);
+#endif
 }

@@ -49,7 +49,6 @@ typedef struct {
   char colorMask;
   int isScissorEnabled;
   ScissorRectangle scissor;
-  GLuint shapeArray;
   GLuint shapeBuffer;
   GLuint shapeIndexBuffer;
   vec_float_t shapeData;

@@ -88,7 +88,6 @@ int l_lovrBufferGetVertex(lua_State* L) {
       switch (attribute.type) {
         case BUFFER_FLOAT: lua_pushnumber(L, *((float*) vertex)); break;
         case BUFFER_BYTE: lua_pushnumber(L, *((unsigned char*) vertex)); break;
-        case BUFFER_INT: lua_pushnumber(L, *((int*) vertex)); break;
       }
 
       vertex += sizeof(attribute.type);
@@ -123,7 +122,6 @@ int l_lovrBufferSetVertex(lua_State* L) {
       switch (attribute.type) {
         case BUFFER_FLOAT: *((float*) vertex) = luaL_optnumber(L, arg++, 0.f); break;
         case BUFFER_BYTE: *((unsigned char*) vertex) = luaL_optint(L, arg++, 255); break;
-        case BUFFER_INT: *((int*) vertex) = luaL_optint(L, arg++, 0); break;
       }
 
       vertex += sizeof(attribute.type);
@@ -156,7 +154,6 @@ int l_lovrBufferGetVertexAttribute(lua_State* L) {
         switch (attribute.type) {
           case BUFFER_FLOAT: lua_pushnumber(L, *((float*) vertex)); break;
           case BUFFER_BYTE: lua_pushinteger(L, *((unsigned char*) vertex)); break;
-          case BUFFER_INT: lua_pushinteger(L, *((int*) vertex)); break;
         }
         vertex += sizeof(attribute.type);
       }
@@ -190,7 +187,6 @@ int l_lovrBufferSetVertexAttribute(lua_State* L) {
         switch (attribute.type) {
           case BUFFER_FLOAT: *((float*) vertex) = luaL_optnumber(L, arg++, 0.f); break;
           case BUFFER_BYTE: *((unsigned char*) vertex) = luaL_optint(L, arg++, 255); break;
-          case BUFFER_INT: *((int*) vertex) = luaL_optint(L, arg++, 0); break;
         }
         vertex += sizeof(attribute.type);
       }
@@ -221,7 +217,6 @@ int l_lovrBufferSetVertices(lua_State* L) {
         switch (attribute.type) {
           case BUFFER_FLOAT: *((float*) vertex) = luaL_optnumber(L, -1, 0.f); break;
           case BUFFER_BYTE: *((unsigned char*) vertex) = luaL_optint(L, -1, 255); break;
-          case BUFFER_INT: *((int*) vertex) = luaL_optint(L, -1, 0); break;
         }
         vertex += sizeof(attribute.type);
         lua_pop(L, 1);

@@ -32,6 +32,7 @@ TextureData* lovrTextureDataFromFile(void* data, int size) {
   return NULL;
 }
 
+#ifndef EMSCRIPTEN
 TextureData* lovrTextureDataFromOpenVRModel(OpenVRModel* vrModel) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
@@ -42,3 +43,4 @@ TextureData* lovrTextureDataFromOpenVRModel(OpenVRModel* vrModel) {
   textureData->data = texture->rubTextureMapData;
   return textureData;
 }
+#endif

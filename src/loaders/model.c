@@ -103,6 +103,7 @@ ModelData* lovrModelDataFromFile(void* data, int size) {
   return modelData;
 }
 
+#ifndef EMSCRIPTEN
 ModelData* lovrModelDataFromOpenVRModel(OpenVRModel* vrModel) {
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
@@ -159,3 +160,4 @@ ModelData* lovrModelDataFromOpenVRModel(OpenVRModel* vrModel) {
 
   return modelData;
 }
+#endif

@@ -3,13 +3,12 @@
 #include "util.h"
 #include <stdlib.h>
 
-Texture* lovrTextureCreateFromData(TextureData* textureData) {
+Texture* lovrTextureCreate(TextureData* textureData) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
   texture->textureData = textureData;
   texture->type = TEXTURE_IMAGE;
-  texture->buffer = NULL;
   glGenTextures(1, &texture->id);
 
   if (textureData) {
@@ -22,30 +21,8 @@ Texture* lovrTextureCreateFromData(TextureData* textureData) {
   return texture;
 }
 
-Texture* lovrTextureCreateFromBuffer(Buffer* buffer) {
-  if (!buffer) {
-    return NULL;
-  }
-
-  Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
-  if (!texture) return NULL;
-
-  glGenTextures(1, &texture->id);
-  texture->textureData = NULL;
-  texture->type = TEXTURE_BUFFER;
-  texture->buffer = buffer;
-  lovrTextureBind(texture);
-  glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, buffer->vbo);
-  lovrRetain(&buffer->ref);
-
-  return texture;
-}
-
 void lovrTextureDestroy(const Ref* ref) {
   Texture* texture = containerof(ref, Texture);
-  if (texture->buffer) {
-    lovrRelease(&texture->buffer->ref);
-  }
   lovrTextureDataDestroy(texture->textureData);
   glDeleteTextures(1, &texture->id);
   free(texture);
@@ -58,15 +35,6 @@ void lovrTextureDataDestroy(TextureData* textureData) {
 
 void lovrTextureBind(Texture* texture) {
   glBindTexture(texture->type, texture->id);
-}
-
-void lovrTextureRefresh(Texture* texture) {
-  if (!texture->buffer) {
-    return;
-  }
-
-  lovrTextureBind(texture);
-  glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, texture->buffer->vbo);
 }
 
 int lovrTextureGetHeight(Texture* texture) {

@@ -14,8 +14,7 @@ typedef struct {
 } TextureData;
 
 typedef enum {
-  TEXTURE_IMAGE = GL_TEXTURE_2D,
-  TEXTURE_BUFFER = GL_TEXTURE_BUFFER
+  TEXTURE_IMAGE = GL_TEXTURE_2D
 } TextureType;
 
 typedef enum {
@@ -26,8 +25,7 @@ typedef enum {
 typedef enum {
   WRAP_CLAMP = GL_CLAMP_TO_EDGE,
   WRAP_REPEAT = GL_REPEAT,
-  WRAP_MIRRORED_REPEAT = GL_MIRRORED_REPEAT,
-  WRAP_CLAMP_ZERO = GL_CLAMP_TO_BORDER
+  WRAP_MIRRORED_REPEAT = GL_MIRRORED_REPEAT
 } WrapMode;
 
 typedef struct {
@@ -46,12 +44,10 @@ typedef struct {
 
 #endif
 
-Texture* lovrTextureCreateFromData(TextureData* textureData);
-Texture* lovrTextureCreateFromBuffer(struct Buffer* buffer);
+Texture* lovrTextureCreate(TextureData* textureData);
 void lovrTextureDestroy(const Ref* ref);
 void lovrTextureDataDestroy(TextureData* textureData);
 void lovrTextureBind(Texture* texture);
-void lovrTextureRefresh(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);
 int lovrTextureGetWidth(Texture* texture);
 void lovrTextureGetFilter(Texture* texture, FilterMode* min, FilterMode* mag);
