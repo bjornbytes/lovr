@@ -1,3 +1,4 @@
+#include "headset/headset.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "util.h"

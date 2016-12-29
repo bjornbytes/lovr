@@ -58,7 +58,7 @@ int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
 #elif _WIN32
   return !GetModuleFileName(NULL, dest, size);
 #elif EMSCRIPTEN
-  *dest = NULL;
+  dest = NULL;
   return 0;
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetExecutablePath"
