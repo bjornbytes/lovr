@@ -17,6 +17,7 @@ const char* lovrShaderFragmentPrefix = ""
 "uniform vec4 lovrColor; \n"
 "uniform sampler2D lovrTexture; \n"
 "in vec2 texCoord; \n"
+"in vec4 gl_FragCoord; \n"
 "out vec4 lovrFragColor; \n"
 "";
 
@@ -144,6 +145,10 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   for (int i = 0; i < uniformCount; i++) {
     Uniform uniform;
     glGetActiveUniform(id, i, bufferSize, NULL, &uniform.count, &uniform.type, uniform.name);
+    char* subscript = strchr(uniform.name, '[');
+    if (subscript) {
+      *subscript = '\0';
+    }
     uniform.location = glGetUniformLocation(id, uniform.name);
     uniform.index = i;
     map_set(&shader->uniforms, uniform.name, uniform);
@@ -202,7 +207,7 @@ void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, unsigned in
       LOVR_COLOR_B(color) / 255.f,
       LOVR_COLOR_A(color) / 255.f
     };
-    lovrShaderSendFloatVec4(shader, uniformId, c);
+    lovrShaderSendFloatVec4(shader, uniformId, 1, c);
     shader->color = color;
   }
 }
@@ -240,16 +245,16 @@ void lovrShaderSendFloat(Shader* shader, int id, float value) {
   glUniform1f(id, value);
 }
 
-void lovrShaderSendFloatVec2(Shader* shader, int id, float* vector) {
-  glUniform2fv(id, 1, vector);
+void lovrShaderSendFloatVec2(Shader* shader, int id, int count, float* vector) {
+  glUniform2fv(id, count, vector);
 }
 
-void lovrShaderSendFloatVec3(Shader* shader, int id, float* vector) {
-  glUniform3fv(id, 1, vector);
+void lovrShaderSendFloatVec3(Shader* shader, int id, int count, float* vector) {
+  glUniform3fv(id, count, vector);
 }
 
-void lovrShaderSendFloatVec4(Shader* shader, int id, float* vector) {
-  glUniform4fv(id, 1, vector);
+void lovrShaderSendFloatVec4(Shader* shader, int id, int count, float* vector) {
+  glUniform4fv(id, count, vector);
 }
 
 void lovrShaderSendFloatMat2(Shader* shader, int id, float* matrix) {
