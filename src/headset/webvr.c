@@ -14,12 +14,26 @@ typedef struct {
 
 static WebVRState state;
 
+static void onVRDisplayPresentChange() {
+  if (!state.isReady) {
+    return;
+  }
+
+  int width, height;
+  lovrHeadsetGetDisplayDimensions(&width, &height);
+  // EM_ASM(
+  //   Module.canvas.width = width;
+  //   Module.canvas.height = height;
+  // );
+}
+
 void lovrHeadsetInit() {
   state.isReady = 0;
   state.renderCallback = NULL;
   state.renderCallbackId = 0;
-  emscripten_vr_init();
   lovrEventAddPump(lovrHeadsetPoll);
+  emscripten_vr_init();
+  emscripten_vr_on_vr_display_present_change(onVRDisplayPresentChange);
 }
 
 void lovrHeadsetDestroy() {
