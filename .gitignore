@@ -7,3 +7,4 @@ src/obj
 src/Tupfile
 *.lua
 *.glsl
+.DS_Store
