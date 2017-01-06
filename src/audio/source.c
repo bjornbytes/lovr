@@ -58,6 +58,10 @@ ALenum lovrSourceGetFormat(Source* source) {
   return 0;
 }
 
+void lovrSourceGetOrientation(Source* source, float* x, float* y, float* z) {
+  alGetSource3f(source->id, AL_DIRECTION, x, y, z);
+}
+
 float lovrSourceGetPitch(Source* source) {
   float pitch;
   alGetSourcef(source->id, AL_PITCH, &pitch);
@@ -142,12 +146,16 @@ void lovrSourceSeek(Source* source, int sample) {
   }
 }
 
-void lovrSourceSetPitch(Source* source, float pitch) {
-  alSourcef(source->id, AL_PITCH, pitch);
-}
-
 void lovrSourceSetLooping(Source* source, int isLooping) {
   source->isLooping = isLooping;
+}
+
+void lovrSourceSetOrientation(Source* source, float dx, float dy, float dz) {
+  alSource3f(source->id, AL_DIRECTION, dx, dy, dz);
+}
+
+void lovrSourceSetPitch(Source* source, float pitch) {
+  alSourcef(source->id, AL_PITCH, pitch);
 }
 
 void lovrSourceSetPosition(Source* source, float x, float y, float z) {

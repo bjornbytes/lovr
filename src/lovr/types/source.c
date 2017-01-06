@@ -5,6 +5,7 @@ const luaL_Reg lovrSource[] = {
   { "getBitDepth", l_lovrSourceGetBitDepth },
   { "getChannels", l_lovrSourceGetChannels },
   { "getDuration", l_lovrSourceGetDuration },
+  { "getOrientation", l_lovrSourceGetOrientation },
   { "getPitch", l_lovrSourceGetPitch },
   { "getPosition", l_lovrSourceGetPosition },
   { "getSampleRate", l_lovrSourceGetSampleRate },
@@ -19,6 +20,7 @@ const luaL_Reg lovrSource[] = {
   { "rewind", l_lovrSourceRewind },
   { "seek", l_lovrSourceSeek },
   { "setLooping", l_lovrSourceSetLooping },
+  { "setOrientation", l_lovrSourceSetOrientation },
   { "setPitch", l_lovrSourceSetPitch },
   { "setPosition", l_lovrSourceSetPosition },
   { "setVolume", l_lovrSourceSetVolume },
@@ -51,6 +53,15 @@ int l_lovrSourceGetDuration(lua_State* L) {
   }
 
   return 1;
+}
+
+int l_lovrSourceGetOrientation(lua_State* L) {
+  float x, y, z;
+  lovrSourceGetOrientation(luax_checktype(L, 1, Source), &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
 }
 
 int l_lovrSourceGetPitch(lua_State* L) {
@@ -137,6 +148,15 @@ int l_lovrSourceSeek(lua_State* L) {
 
 int l_lovrSourceSetLooping(lua_State* L) {
   lovrSourceSetLooping(luax_checktype(L, 1, Source), lua_toboolean(L, 2));
+  return 0;
+}
+
+int l_lovrSourceSetOrientation(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrSourceSetOrientation(source, x, y, z);
   return 0;
 }
 
