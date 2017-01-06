@@ -7,6 +7,7 @@ const luaL_Reg lovrSource[] = {
   { "getDuration", l_lovrSourceGetDuration },
   { "getSampleCount", l_lovrSourceGetSampleCount },
   { "getSampleRate", l_lovrSourceGetSampleRate },
+  { "isLooping", l_lovrSourceIsLooping },
   { "isPaused", l_lovrSourceIsPaused },
   { "isPlaying", l_lovrSourceIsPlaying },
   { "isStopped", l_lovrSourceIsStopped },
@@ -14,6 +15,7 @@ const luaL_Reg lovrSource[] = {
   { "play", l_lovrSourcePlay },
   { "resume", l_lovrSourceResume },
   { "rewind", l_lovrSourceRewind },
+  { "setLooping", l_lovrSourceSetLooping },
   { "stop", l_lovrSourceStop },
   { NULL, NULL }
 };
@@ -45,6 +47,11 @@ int l_lovrSourceGetSampleCount(lua_State* L) {
 int l_lovrSourceGetSampleRate(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   lua_pushinteger(L, lovrSourceGetSampleRate(source));
+  return 1;
+}
+
+int l_lovrSourceIsLooping(lua_State* L) {
+  lua_pushboolean(L, lovrSourceIsLooping(luax_checktype(L, 1, Source)));
   return 1;
 }
 
@@ -80,6 +87,11 @@ int l_lovrSourceResume(lua_State* L) {
 
 int l_lovrSourceRewind(lua_State* L) {
   lovrSourceRewind(luax_checktype(L, 1, Source));
+  return 0;
+}
+
+int l_lovrSourceSetLooping(lua_State* L) {
+  lovrSourceSetLooping(luax_checktype(L, 1, Source), lua_toboolean(L, 2));
   return 0;
 }
 

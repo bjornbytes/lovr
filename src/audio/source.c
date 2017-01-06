@@ -13,6 +13,7 @@ Source* lovrSourceCreate(SoundData* soundData) {
   if (!source) return NULL;
 
   source->soundData = soundData;
+  source->isLooping = 0;
   alGenSources(1, &source->id);
   alGenBuffers(SOURCE_BUFFERS, source->buffers);
 
@@ -65,6 +66,10 @@ int lovrSourceGetSampleRate(Source* source) {
   return source->soundData->sampleRate;
 }
 
+int lovrSourceIsLooping(Source* source) {
+  return source->isLooping;
+}
+
 int lovrSourceIsPaused(Source* source) {
   return lovrSourceGetState(source) == AL_PAUSED;
 }
@@ -115,6 +120,10 @@ void lovrSourceRewind(Source* source) {
   }
 }
 
+void lovrSourceSetLooping(Source* source, int isLooping) {
+  source->isLooping = isLooping;
+}
+
 void lovrSourceStop(Source* source) {
   if (lovrSourceIsStopped(source)) {
     return;
@@ -147,4 +156,9 @@ void lovrSourceStream(Source* source, ALuint* buffers, int count) {
   }
 
   alSourceQueueBuffers(source->id, n, buffers);
+
+  if (samples == 0 && source->isLooping && n < count) {
+    lovrSoundDataRewind(soundData);
+    return lovrSourceStream(source, buffers + n, count - n);
+  }
 }

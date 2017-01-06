@@ -31,7 +31,7 @@ void lovrAudioDestroy() {
 void lovrAudioUpdate() {
   int i; Source* source;
   vec_foreach_rev(&state.sources, source, i) {
-    if (lovrSourceIsStopped(source)) {
+    if (lovrSourceIsStopped(source) && !source->isLooping) {
       vec_splice(&state.sources, i, 1);
       lovrRelease(&source->ref);
       continue;
