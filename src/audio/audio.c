@@ -47,7 +47,31 @@ void lovrAudioUpdate() {
   }
 }
 
+void lovrAudioGetOrientation(float* fx, float* fy, float* fz, float* ux, float* uy, float* uz) {
+  float v[6];
+  alGetListenerfv(AL_ORIENTATION, v);
+  *fx = v[0];
+  *fy = v[1];
+  *fz = v[2];
+  *ux = v[3];
+  *uy = v[4];
+  *uz = v[5];
+}
+
+void lovrAudioGetPosition(float* x, float* y, float* z) {
+  alGetListener3f(AL_POSITION, x, y, z);
+}
+
 void lovrAudioPlay(Source* source) {
   lovrRetain(&source->ref);
   vec_push(&state.sources, source);
+}
+
+void lovrAudioSetOrientation(float fx, float fy, float fz, float ux, float uy, float uz) {
+  ALfloat orientation[6] = { fx, fy, fz, ux, uy, uz };
+  alListenerfv(AL_ORIENTATION, orientation);
+}
+
+void lovrAudioSetPosition(float x, float y, float z) {
+  alListener3f(AL_POSITION, x, y, z);
 }
