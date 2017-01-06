@@ -9,12 +9,14 @@ const luaL_Reg lovrAudio[] = {
   { "update", l_lovrAudioUpdate },
   { "getOrientation", l_lovrAudioGetOrientation },
   { "getPosition", l_lovrAudioGetPosition },
+  { "getVolume", l_lovrAudioGetVolume },
   { "newSource", l_lovrAudioNewSource },
   { "pause", l_lovrAudioPause },
   { "resume", l_lovrAudioResume },
   { "rewind", l_lovrAudioRewind },
   { "setOrientation", l_lovrAudioSetOrientation },
   { "setPosition", l_lovrAudioSetPosition },
+  { "setVolume", l_lovrAudioSetVolume },
   { "stop", l_lovrAudioStop },
   { NULL, NULL }
 };
@@ -56,6 +58,11 @@ int l_lovrAudioGetPosition(lua_State* L) {
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
   return 3;
+}
+
+int l_lovrAudioGetVolume(lua_State* L) {
+  lua_pushnumber(L, lovrAudioGetVolume());
+  return 1;
 }
 
 int l_lovrAudioNewSource(lua_State* L) {
@@ -106,6 +113,12 @@ int l_lovrAudioSetPosition(lua_State* L) {
   float y = luaL_checknumber(L, 2);
   float z = luaL_checknumber(L, 3);
   lovrAudioSetPosition(x, y, z);
+  return 0;
+}
+
+int l_lovrAudioSetVolume(lua_State* L) {
+  float volume = luaL_checknumber(L, 1);
+  lovrAudioSetVolume(volume);
   return 0;
 }
 

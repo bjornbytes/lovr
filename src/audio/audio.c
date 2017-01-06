@@ -71,6 +71,12 @@ void lovrAudioGetPosition(float* x, float* y, float* z) {
   alGetListener3f(AL_POSITION, x, y, z);
 }
 
+float lovrAudioGetVolume() {
+  float volume;
+  alGetListenerf(AL_GAIN, &volume);
+  return volume;
+}
+
 int lovrAudioHas(Source* source) {
   int index;
   vec_find(&state.sources, source, index);
@@ -105,6 +111,10 @@ void lovrAudioSetOrientation(float fx, float fy, float fz, float ux, float uy, f
 
 void lovrAudioSetPosition(float x, float y, float z) {
   alListener3f(AL_POSITION, x, y, z);
+}
+
+void lovrAudioSetVolume(float volume) {
+  alListenerf(AL_GAIN, volume);
 }
 
 void lovrAudioStop() {
