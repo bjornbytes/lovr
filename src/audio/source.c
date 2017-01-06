@@ -62,6 +62,12 @@ int lovrSourceGetSampleRate(Source* source) {
   return source->soundData->sampleRate;
 }
 
+float lovrSourceGetVolume(Source* source) {
+  float volume;
+  alGetSourcef(source->id, AL_GAIN, &volume);
+  return volume;
+}
+
 int lovrSourceIsLooping(Source* source) {
   return source->isLooping;
 }
@@ -128,6 +134,10 @@ void lovrSourceSeek(Source* source, int sample) {
 
 void lovrSourceSetLooping(Source* source, int isLooping) {
   source->isLooping = isLooping;
+}
+
+void lovrSourceSetVolume(Source* source, float volume) {
+  alSourcef(source->id, AL_GAIN, volume);
 }
 
 void lovrSourceStop(Source* source) {
