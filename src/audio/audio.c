@@ -31,19 +31,28 @@ void lovrAudioDestroy() {
 void lovrAudioUpdate() {
   int i; Source* source;
   vec_foreach_rev(&state.sources, source, i) {
-    if (lovrSourceIsStopped(source) && !source->isLooping) {
+    int isStopped = lovrSourceIsStopped(source);
+    ALint processed;
+    alGetSourcei(source->id, AL_BUFFERS_PROCESSED, &processed);
+
+    if (processed) {
+      ALuint buffers[SOURCE_BUFFERS];
+      alSourceUnqueueBuffers(source->id, processed, buffers);
+      lovrSourceStream(source, buffers, processed);
+      if (isStopped) {
+        alSourcePlay(source->id);
+      }
+    } else if (isStopped) {
       vec_splice(&state.sources, i, 1);
       lovrRelease(&source->ref);
-      continue;
     }
+  }
+}
 
-    ALint count;
-    alGetSourcei(source->id, AL_BUFFERS_PROCESSED, &count);
-    if (count > 0) {
-      ALuint buffers[SOURCE_BUFFERS];
-      alSourceUnqueueBuffers(source->id, count, buffers);
-      lovrSourceStream(source, buffers, count);
-    }
+void lovrAudioAdd(Source* source) {
+  if (!lovrAudioHas(source)) {
+    lovrRetain(&source->ref);
+    vec_push(&state.sources, source);
   }
 }
 
@@ -62,9 +71,31 @@ void lovrAudioGetPosition(float* x, float* y, float* z) {
   alGetListener3f(AL_POSITION, x, y, z);
 }
 
-void lovrAudioPlay(Source* source) {
-  lovrRetain(&source->ref);
-  vec_push(&state.sources, source);
+int lovrAudioHas(Source* source) {
+  int index;
+  vec_find(&state.sources, source, index);
+  return index >= 0;
+}
+
+void lovrAudioPause() {
+  int i; Source* source;
+  vec_foreach(&state.sources, source, i) {
+    lovrSourcePause(source);
+  }
+}
+
+void lovrAudioResume() {
+  int i; Source* source;
+  vec_foreach(&state.sources, source, i) {
+    lovrSourceResume(source);
+  }
+}
+
+void lovrAudioRewind() {
+  int i; Source* source;
+  vec_foreach(&state.sources, source, i) {
+    lovrSourceRewind(source);
+  }
 }
 
 void lovrAudioSetOrientation(float fx, float fy, float fz, float ux, float uy, float uz) {
@@ -74,4 +105,11 @@ void lovrAudioSetOrientation(float fx, float fy, float fz, float ux, float uy, f
 
 void lovrAudioSetPosition(float x, float y, float z) {
   alListener3f(AL_POSITION, x, y, z);
+}
+
+void lovrAudioStop() {
+  int i; Source* source;
+  vec_foreach(&state.sources, source, i) {
+    lovrSourceStop(source);
+  }
 }

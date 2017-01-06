@@ -1,5 +1,6 @@
 #include "lovr/types/source.h"
 #include "lovr/audio.h"
+#include "audio/audio.h"
 
 const luaL_Reg lovrSource[] = {
   { "getBitDepth", l_lovrSourceGetBitDepth },
@@ -117,7 +118,9 @@ int l_lovrSourcePause(lua_State* L) {
 }
 
 int l_lovrSourcePlay(lua_State* L) {
-  lovrSourcePlay(luax_checktype(L, 1, Source));
+  Source* source = luax_checktype(L, 1, Source);
+  lovrSourcePlay(source);
+  lovrAudioAdd(source);
   return 0;
 }
 

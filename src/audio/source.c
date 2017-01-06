@@ -1,5 +1,4 @@
 #include "audio/source.h"
-#include "audio/audio.h"
 #include "loaders/source.h"
 
 static ALenum lovrSourceGetState(Source* source) {
@@ -111,7 +110,6 @@ void lovrSourcePlay(Source* source) {
 
   lovrSourceStream(source, source->buffers, SOURCE_BUFFERS);
   alSourcePlay(source->id);
-  lovrAudioPlay(source);
 }
 
 void lovrSourceResume(Source* source) {
