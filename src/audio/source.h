@@ -1,6 +1,6 @@
 #include "util.h"
-#include <OpenAL/al.h>
-#include <OpenAL/alc.h>
+#include <AL/al.h>
+#include <AL/alc.h>
 
 #ifndef LOVR_SOURCE_TYPES
 #define LOVR_SOURCE_TYPES

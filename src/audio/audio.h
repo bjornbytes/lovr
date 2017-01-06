@@ -1,7 +1,8 @@
 #include "audio/source.h"
 #include "vendor/vec/vec.h"
-#include <OpenAL/al.h>
-#include <OpenAL/alc.h>
+#include <AL/al.h>
+#include <AL/alc.h>
+#include <AL/alext.h>
 
 #ifndef LOVR_AUDIO_TYPES
 #define LOVR_AUDIO_TYPES

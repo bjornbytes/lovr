@@ -5,6 +5,8 @@
 
 static AudioState state;
 
+static LPALCRESETDEVICESOFT alcResetDeviceSOFT;
+
 void lovrAudioInit() {
   ALCdevice* device = alcOpenDevice(NULL);
   if (!device) {
@@ -14,6 +16,13 @@ void lovrAudioInit() {
   ALCcontext* context = alcCreateContext(device, NULL);
   if (!context || !alcMakeContextCurrent(context) || alcGetError(device) != ALC_NO_ERROR) {
     error("Unable to create OpenAL context");
+  }
+
+  alcResetDeviceSOFT = (LPALCRESETDEVICESOFT) alcGetProcAddress(device, "alcResetDeviceSOFT");
+
+  if (alcIsExtensionPresent(device, "ALC_SOFT_HRTF")) {
+    ALCint attrs[3] = { ALC_HRTF_SOFT, ALC_TRUE, 0 };
+    alcResetDeviceSOFT(device, attrs);
   }
 
   state.device = device;

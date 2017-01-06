@@ -105,7 +105,8 @@ void lovrSourcePlay(Source* source) {
   if (lovrSourceIsPlaying(source)) {
     return;
   } else if (lovrSourceIsPaused(source)) {
-    return lovrSourceResume(source);
+    lovrSourceResume(source);
+    return;
   }
 
   lovrSourceStream(source, source->buffers, SOURCE_BUFFERS);
@@ -199,7 +200,8 @@ void lovrSourceStream(Source* source, ALuint* buffers, int count) {
 
   if (samples == 0 && source->isLooping && n < count) {
     lovrSourceDataRewind(sourceData);
-    return lovrSourceStream(source, buffers + n, count - n);
+    lovrSourceStream(source, buffers + n, count - n);
+    return;
   }
 }
 
