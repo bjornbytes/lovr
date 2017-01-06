@@ -122,6 +122,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "      lovr.handlers[name](a, b, c, d) "
     "    end "
     "    local dt = lovr.timer.step() "
+    "    if lovr.audio then lovr.audio.update(dt) end "
     "    if lovr.update then lovr.update(dt) end "
     "    lovr.graphics.clear() "
     "    lovr.graphics.origin() "
