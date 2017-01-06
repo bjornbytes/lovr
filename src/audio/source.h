@@ -20,11 +20,11 @@ typedef struct {
   int bufferSize;
   void* buffer;
   void* decoder;
-} SoundData;
+} SourceData;
 
 typedef struct {
   Ref ref;
-  SoundData* soundData;
+  SourceData* sourceData;
   ALuint id;
   ALuint buffers[SOURCE_BUFFERS];
   int isLooping;
@@ -32,7 +32,7 @@ typedef struct {
 
 #endif
 
-Source* lovrSourceCreate(SoundData* soundData);
+Source* lovrSourceCreate(SourceData* sourceData);
 void lovrSourceDestroy(const Ref* ref);
 int lovrSourceGetBitDepth(Source* source);
 int lovrSourceGetChannels(Source* source);

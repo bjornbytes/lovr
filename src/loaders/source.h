@@ -1,8 +1,8 @@
 #include "audio/source.h"
 
-SoundData* lovrSoundDataFromFile(void* data, int size);
-void lovrSoundDataDestroy(SoundData* soundData);
-int lovrSoundDataDecode(SoundData* soundData);
-void lovrSoundDataRewind(SoundData* soundData);
-void lovrSoundDataSeek(SoundData* soundData, int sample);
-int lovrSoundDataTell(SoundData* soundData);
+SourceData* lovrSourceDataFromFile(void* data, int size);
+void lovrSourceDataDestroy(SourceData* sourceData);
+int lovrSourceDataDecode(SourceData* sourceData);
+void lovrSourceDataRewind(SourceData* sourceData);
+void lovrSourceDataSeek(SourceData* sourceData, int sample);
+int lovrSourceDataTell(SourceData* sourceData);

@@ -41,7 +41,7 @@ int l_lovrAudioNewSource(lua_State* L) {
     return luaL_error(L, "Could not load source from file '%s'", filename);
   }
 
-  SoundData* soundData = lovrSoundDataFromFile(data, size);
-  luax_pushtype(L, Source, lovrSourceCreate(soundData));
+  SourceData* sourceData = lovrSourceDataFromFile(data, size);
+  luax_pushtype(L, Source, lovrSourceCreate(sourceData));
   return 1;
 }

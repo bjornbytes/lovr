@@ -8,11 +8,11 @@ static ALenum lovrSourceGetState(Source* source) {
   return state;
 }
 
-Source* lovrSourceCreate(SoundData* soundData) {
+Source* lovrSourceCreate(SourceData* sourceData) {
   Source* source = lovrAlloc(sizeof(Source), lovrSourceDestroy);
   if (!source) return NULL;
 
-  source->soundData = soundData;
+  source->sourceData = sourceData;
   source->isLooping = 0;
   alGenSources(1, &source->id);
   alGenBuffers(SOURCE_BUFFERS, source->buffers);
@@ -24,26 +24,26 @@ void lovrSourceDestroy(const Ref* ref) {
   Source* source = containerof(ref, Source);
   alDeleteSources(1, &source->id);
   alDeleteBuffers(SOURCE_BUFFERS, source->buffers);
-  lovrSoundDataDestroy(source->soundData);
+  lovrSourceDataDestroy(source->sourceData);
   free(source);
 }
 
 int lovrSourceGetBitDepth(Source* source) {
-  return source->soundData->bitDepth;
+  return source->sourceData->bitDepth;
 }
 
 int lovrSourceGetChannels(Source* source) {
-  return source->soundData->channels;
+  return source->sourceData->channels;
 }
 
 int lovrSourceGetDuration(Source* source) {
-  return source->soundData->samples;
+  return source->sourceData->samples;
 }
 
 // Get the OpenAL sound format for the sound
 ALenum lovrSourceGetFormat(Source* source) {
-  int channels = source->soundData->channels;
-  int bitDepth = source->soundData->bitDepth;
+  int channels = source->sourceData->channels;
+  int bitDepth = source->sourceData->bitDepth;
 
   if (bitDepth == 8 && channels == 1) {
     return AL_FORMAT_MONO8;
@@ -69,7 +69,7 @@ void lovrSourceGetPosition(Source* source, float* x, float* y, float* z) {
 }
 
 int lovrSourceGetSampleRate(Source* source) {
-  return source->soundData->sampleRate;
+  return source->sourceData->sampleRate;
 }
 
 float lovrSourceGetVolume(Source* source) {
@@ -135,7 +135,7 @@ void lovrSourceRewind(Source* source) {
 void lovrSourceSeek(Source* source, int sample) {
   int wasPaused = lovrSourceIsPaused(source);
   lovrSourceStop(source);
-  lovrSoundDataSeek(source->soundData, sample);
+  lovrSourceDataSeek(source->sourceData, sample);
   lovrSourcePlay(source);
   if (wasPaused) {
     lovrSourcePause(source);
@@ -173,33 +173,33 @@ void lovrSourceStop(Source* source) {
   alSourcei(source->id, AL_BUFFER, AL_NONE);
 
   // Rewind the decoder
-  lovrSoundDataRewind(source->soundData);
+  lovrSourceDataRewind(source->sourceData);
 }
 
 // Fills buffers with data and queues them, called once initially and over time to stream more data
 void lovrSourceStream(Source* source, ALuint* buffers, int count) {
-  SoundData* soundData = source->soundData;
+  SourceData* sourceData = source->sourceData;
   ALenum format = lovrSourceGetFormat(source);
-  int frequency = soundData->sampleRate;
+  int frequency = sourceData->sampleRate;
   int samples = 0;
   int n = 0;
 
   // Keep decoding until there is nothing left to decode or all the buffers are filled
-  while (n < count && (samples = lovrSoundDataDecode(soundData)) != 0) {
-    alBufferData(buffers[n++], format, soundData->buffer, samples * sizeof(ALshort), frequency);
+  while (n < count && (samples = lovrSourceDataDecode(sourceData)) != 0) {
+    alBufferData(buffers[n++], format, sourceData->buffer, samples * sizeof(ALshort), frequency);
   }
 
   alSourceQueueBuffers(source->id, n, buffers);
 
   if (samples == 0 && source->isLooping && n < count) {
-    lovrSoundDataRewind(soundData);
+    lovrSourceDataRewind(sourceData);
     return lovrSourceStream(source, buffers + n, count - n);
   }
 }
 
 int lovrSourceTell(Source* source) {
-  int decoderOffset = lovrSoundDataTell(source->soundData);
-  int samplesPerBuffer = source->soundData->bufferSize / source->soundData->channels / sizeof(ALshort);
+  int decoderOffset = lovrSourceDataTell(source->sourceData);
+  int samplesPerBuffer = source->sourceData->bufferSize / source->sourceData->channels / sizeof(ALshort);
   int queuedBuffers, sampleOffset;
   alGetSourcei(source->id, AL_BUFFERS_QUEUED, &queuedBuffers);
   alGetSourcei(source->id, AL_SAMPLE_OFFSET, &sampleOffset);
@@ -207,7 +207,7 @@ int lovrSourceTell(Source* source) {
   int offset = decoderOffset - queuedBuffers * samplesPerBuffer + sampleOffset;
 
   if (offset < 0) {
-    return offset + source->soundData->samples;
+    return offset + source->sourceData->samples;
   } else {
     return offset;
   }
