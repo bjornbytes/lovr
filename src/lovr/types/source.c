@@ -5,6 +5,7 @@ const luaL_Reg lovrSource[] = {
   { "getBitDepth", l_lovrSourceGetBitDepth },
   { "getChannels", l_lovrSourceGetChannels },
   { "getDuration", l_lovrSourceGetDuration },
+  { "getPitch", l_lovrSourceGetPitch },
   { "getSampleRate", l_lovrSourceGetSampleRate },
   { "getVolume", l_lovrSourceGetVolume },
   { "isLooping", l_lovrSourceIsLooping },
@@ -17,6 +18,7 @@ const luaL_Reg lovrSource[] = {
   { "rewind", l_lovrSourceRewind },
   { "seek", l_lovrSourceSeek },
   { "setLooping", l_lovrSourceSetLooping },
+  { "setPitch", l_lovrSourceSetPitch },
   { "setVolume", l_lovrSourceSetVolume },
   { "stop", l_lovrSourceStop },
   { "tell", l_lovrSourceTell },
@@ -46,6 +48,12 @@ int l_lovrSourceGetDuration(lua_State* L) {
     lua_pushinteger(L, duration);
   }
 
+  return 1;
+}
+
+int l_lovrSourceGetPitch(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  lua_pushnumber(L, lovrSourceGetPitch(source));
   return 1;
 }
 
@@ -118,6 +126,11 @@ int l_lovrSourceSeek(lua_State* L) {
 
 int l_lovrSourceSetLooping(lua_State* L) {
   lovrSourceSetLooping(luax_checktype(L, 1, Source), lua_toboolean(L, 2));
+  return 0;
+}
+
+int l_lovrSourceSetPitch(lua_State* L) {
+  lovrSourceSetPitch(luax_checktype(L, 1, Source), luaL_checknumber(L, 2));
   return 0;
 }
 

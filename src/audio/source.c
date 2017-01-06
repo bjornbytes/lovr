@@ -58,6 +58,12 @@ ALenum lovrSourceGetFormat(Source* source) {
   return 0;
 }
 
+float lovrSourceGetPitch(Source* source) {
+  float pitch;
+  alGetSourcef(source->id, AL_PITCH, &pitch);
+  return pitch;
+}
+
 int lovrSourceGetSampleRate(Source* source) {
   return source->soundData->sampleRate;
 }
@@ -130,6 +136,10 @@ void lovrSourceSeek(Source* source, int sample) {
   if (wasPaused) {
     lovrSourcePause(source);
   }
+}
+
+void lovrSourceSetPitch(Source* source, float pitch) {
+  alSourcef(source->id, AL_PITCH, pitch);
 }
 
 void lovrSourceSetLooping(Source* source, int isLooping) {
