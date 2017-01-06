@@ -36,8 +36,8 @@ int lovrSourceGetChannels(Source* source) {
   return source->soundData->channels;
 }
 
-float lovrSourceGetDuration(Source* source) {
-  return (float) source->soundData->samples / source->soundData->sampleRate;
+int lovrSourceGetDuration(Source* source) {
+  return source->soundData->samples;
 }
 
 // Get the OpenAL sound format for the sound
@@ -56,10 +56,6 @@ ALenum lovrSourceGetFormat(Source* source) {
   }
 
   return 0;
-}
-
-int lovrSourceGetSampleCount(Source* source) {
-  return source->soundData->samples;
 }
 
 int lovrSourceGetSampleRate(Source* source) {
@@ -120,6 +116,16 @@ void lovrSourceRewind(Source* source) {
   }
 }
 
+void lovrSourceSeek(Source* source, int sample) {
+  int wasPaused = lovrSourceIsPaused(source);
+  lovrSourceStop(source);
+  lovrSoundDataSeek(source->soundData, sample);
+  lovrSourcePlay(source);
+  if (wasPaused) {
+    lovrSourcePause(source);
+  }
+}
+
 void lovrSourceSetLooping(Source* source, int isLooping) {
   source->isLooping = isLooping;
 }
@@ -160,5 +166,21 @@ void lovrSourceStream(Source* source, ALuint* buffers, int count) {
   if (samples == 0 && source->isLooping && n < count) {
     lovrSoundDataRewind(soundData);
     return lovrSourceStream(source, buffers + n, count - n);
+  }
+}
+
+int lovrSourceTell(Source* source) {
+  int decoderOffset = lovrSoundDataTell(source->soundData);
+  int samplesPerBuffer = source->soundData->bufferSize / source->soundData->channels / sizeof(ALshort);
+  int queuedBuffers, sampleOffset;
+  alGetSourcei(source->id, AL_BUFFERS_QUEUED, &queuedBuffers);
+  alGetSourcei(source->id, AL_SAMPLE_OFFSET, &sampleOffset);
+
+  int offset = decoderOffset - queuedBuffers * samplesPerBuffer + sampleOffset;
+
+  if (offset < 0) {
+    return offset + source->soundData->samples;
+  } else {
+    return offset;
   }
 }

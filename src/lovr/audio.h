@@ -1,6 +1,9 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+#include "vendor/map/map.h"
+
+map_int_t TimeUnits;
 
 extern const luaL_Reg lovrAudio[];
 int l_lovrAudioInit(lua_State* L);

@@ -5,7 +5,6 @@ const luaL_Reg lovrSource[] = {
   { "getBitDepth", l_lovrSourceGetBitDepth },
   { "getChannels", l_lovrSourceGetChannels },
   { "getDuration", l_lovrSourceGetDuration },
-  { "getSampleCount", l_lovrSourceGetSampleCount },
   { "getSampleRate", l_lovrSourceGetSampleRate },
   { "isLooping", l_lovrSourceIsLooping },
   { "isPaused", l_lovrSourceIsPaused },
@@ -15,8 +14,10 @@ const luaL_Reg lovrSource[] = {
   { "play", l_lovrSourcePlay },
   { "resume", l_lovrSourceResume },
   { "rewind", l_lovrSourceRewind },
+  { "seek", l_lovrSourceSeek },
   { "setLooping", l_lovrSourceSetLooping },
   { "stop", l_lovrSourceStop },
+  { "tell", l_lovrSourceTell },
   { NULL, NULL }
 };
 
@@ -34,13 +35,15 @@ int l_lovrSourceGetChannels(lua_State* L) {
 
 int l_lovrSourceGetDuration(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  lua_pushnumber(L, lovrSourceGetDuration(source));
-  return 1;
-}
+  TimeUnit* unit = luax_optenum(L, 2, "seconds", &TimeUnits, "unit");
+  int duration = lovrSourceGetDuration(source);
 
-int l_lovrSourceGetSampleCount(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  lua_pushinteger(L, lovrSourceGetSampleCount(source));
+  if (*unit == UNIT_SECONDS) {
+    lua_pushnumber(L, (float) duration / lovrSourceGetSampleRate(source));
+  } else {
+    lua_pushinteger(L, duration);
+  }
+
   return 1;
 }
 
@@ -90,6 +93,21 @@ int l_lovrSourceRewind(lua_State* L) {
   return 0;
 }
 
+int l_lovrSourceSeek(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  TimeUnit* unit = luax_optenum(L, 3, "seconds", &TimeUnits, "unit");
+
+  if (*unit == UNIT_SECONDS) {
+    float seconds = luaL_checknumber(L, 2);
+    int sampleRate = lovrSourceGetSampleRate(source);
+    lovrSourceSeek(source, (int) (seconds * sampleRate + .5f));
+  } else {
+    lovrSourceSeek(source, luaL_checkinteger(L, 2));
+  }
+
+  return 0;
+}
+
 int l_lovrSourceSetLooping(lua_State* L) {
   lovrSourceSetLooping(luax_checktype(L, 1, Source), lua_toboolean(L, 2));
   return 0;
@@ -98,4 +116,18 @@ int l_lovrSourceSetLooping(lua_State* L) {
 int l_lovrSourceStop(lua_State* L) {
   lovrSourceStop(luax_checktype(L, 1, Source));
   return 0;
+}
+
+int l_lovrSourceTell(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  TimeUnit* unit = luax_optenum(L, 2, "seconds", &TimeUnits, "unit");
+  int offset = lovrSourceTell(source);
+
+  if (*unit == UNIT_SECONDS) {
+    lua_pushnumber(L, (float) offset / lovrSourceGetSampleRate(source));
+  } else {
+    lua_pushinteger(L, offset);
+  }
+
+  return 1;
 }

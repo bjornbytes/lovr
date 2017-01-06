@@ -52,3 +52,13 @@ void lovrSoundDataRewind(SoundData* soundData) {
   stb_vorbis* decoder = (stb_vorbis*) soundData->decoder;
   stb_vorbis_seek_start(decoder);
 }
+
+void lovrSoundDataSeek(SoundData* soundData, int sample) {
+  stb_vorbis* decoder = (stb_vorbis*) soundData->decoder;
+  stb_vorbis_seek(decoder, sample);
+}
+
+int lovrSoundDataTell(SoundData* soundData) {
+  stb_vorbis* decoder = (stb_vorbis*) soundData->decoder;
+  return stb_vorbis_get_sample_offset(decoder);
+}
