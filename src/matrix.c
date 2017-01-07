@@ -141,9 +141,9 @@ void mat4_getRotation(mat4 matrix, float* w, float* x, float* y, float* z) {
   float qx = sqrt(MAX(0, 1 + matrix[0] - matrix[5] - matrix[10])) / 2;
   float qy = sqrt(MAX(0, 1 - matrix[0] + matrix[5] - matrix[10])) / 2;
   float qz = sqrt(MAX(0, 1 - matrix[0] - matrix[5] + matrix[10])) / 2;
-  qx = (matrix[9] - matrix[6]) < 0 ? -qx : qx;
-  qy = (matrix[2] - matrix[8]) < 0 ? -qy : qy;
-  qz = (matrix[4] - matrix[1]) < 0 ? -qz : qz;
+  qx = (matrix[9] - matrix[6]) > 0 ? -qx : qx;
+  qy = (matrix[2] - matrix[8]) > 0 ? -qy : qy;
+  qz = (matrix[4] - matrix[1]) > 0 ? -qz : qz;
 
   float s = sqrt(1 - qw * qw);
   s = s < .001 ? 1 : s;

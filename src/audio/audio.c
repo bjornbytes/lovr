@@ -78,9 +78,16 @@ void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az) {
   float cx, cy, cz;
   cross(v[0], v[1], v[2], v[3], v[4], v[5], &cx, &cy, &cz);
   float w = 1 + v[0] * v[3] + v[1] * v[4] + v[2] * v[5];
+  float len = sqrt(cx * cx + cy * cy + cz * cz + w * w);
+  if (len != 1) {
+    cx /= len;
+    cy /= len;
+    cz /= len;
+    w /= len;
+  }
   *angle = 2 * acos(w);
   float s = sqrt(1 - w * w);
-  if (w < .001) {
+  if (s < .001) {
     *ax = cx;
     *ay = cy;
     *az = cz;
