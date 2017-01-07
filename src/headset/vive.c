@@ -391,7 +391,7 @@ float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxi
   Vive* vive = (Vive*) headset;
   VRControllerState_t input;
 
-  vive->system->GetControllerState(controller->id, &input);
+  vive->system->GetControllerState(controller->id, &input, sizeof(input));
 
   switch (axis) {
     case CONTROLLER_AXIS_TRIGGER:
@@ -414,7 +414,7 @@ int viveControllerIsDown(void* headset, Controller* controller, ControllerButton
   Vive* vive = (Vive*) headset;
   VRControllerState_t input;
 
-  vive->system->GetControllerState(controller->id, &input);
+  vive->system->GetControllerState(controller->id, &input, sizeof(input));
 
   switch (button) {
     case CONTROLLER_BUTTON_SYSTEM:
@@ -486,7 +486,6 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
   Vive* vive = (Vive*) headset;
   float headMatrix[16], eyeMatrix[16], projectionMatrix[16];
   float (*matrix)[4];
-  EGraphicsAPIConvention graphicsConvention = EGraphicsAPIConvention_API_OpenGL;
 
   vive->isRendering = 1;
   vive->compositor->WaitGetPoses(vive->renderPoses, 16, NULL, 0);
@@ -502,7 +501,7 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
 
     float near = vive->clipNear;
     float far = vive->clipFar;
-    matrix = vive->system->GetProjectionMatrix(eye, near, far, graphicsConvention).m;
+    matrix = vive->system->GetProjectionMatrix(eye, near, far).m;
     mat4_fromMat44(projectionMatrix, matrix);
 
     glEnable(GL_MULTISAMPLE);
@@ -527,7 +526,8 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
     uintptr_t texture = (uintptr_t) vive->resolveTexture;
-    Texture_t eyeTexture = { (void*) texture, graphicsConvention, EColorSpace_ColorSpace_Gamma };
+    ETextureType textureType = ETextureType_TextureType_OpenGL;
+    Texture_t eyeTexture = { (void*) texture, textureType, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     vive->compositor->Submit(eye, &eyeTexture, NULL, flags);
   }

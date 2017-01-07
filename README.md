@@ -81,7 +81,7 @@ a custom build.
 - GLFW (3.2+)
 - OpenGL (Unix) or GLEW (Windows)
 - assimp (for `lovr.model` and `lovr.graphics.newModel`)
-- OpenVR (for `lovr.headset`)
+- OpenVR (1.0.5, for `lovr.headset`)
 - PhysicsFS
 - OpenAL (1.17+ recommended for HRTF support)
 
@@ -119,11 +119,11 @@ create and run a game from this point is:
 
 #### Unix (CMake)
 
-First, clone [OpenVR](https://github.com/ValveSoftware/openvr) (v1.0.3).  For this example, we'll clone
+First, clone [OpenVR](https://github.com/ValveSoftware/openvr).  For this example, we'll clone
 `openvr` into the same directory that `lovr` was cloned into.
 
 ```sh
-git clone --branch v1.0.3 https://github.com/ValveSoftware/openvr.git
+git clone --branch v1.0.5 https://github.com/ValveSoftware/openvr.git
 ```
 
 Next, install the other dependencies above using your package manager of choice:
