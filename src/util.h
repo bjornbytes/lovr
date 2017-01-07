@@ -17,7 +17,7 @@
 #define LOVR_COLOR_B(c) (c >> 8  & 0xff)
 #define LOVR_COLOR_A(c) (c >> 0  & 0xff)
 
-#define luax_checktype(L, i, T) *(T**) luaL_checkudata(L, i, #T);
+#define luax_checktype(L, i, T) *(T**) luaL_checkudata(L, i, #T)
 
 #define luax_pushtype(L, T, x) \
   T** u = (T**) lua_newuserdata(L, sizeof(T**)); \

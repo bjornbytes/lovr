@@ -79,6 +79,17 @@ else()
   set(LOVR_ASSIMP ${ASSIMP_LIBRARIES})
 endif()
 
+# OpenAL
+if (WIN32)
+  add_subdirectory(deps/openal-soft openal)
+  include_directories(deps/openal-soft/include)
+  set(LOVR_OPENAL OpenAL32)
+else()
+  pkg_search_module(OPENAL REQUIRED openal)
+  include_directories(${OPENAL_INCLUDE_DIRS})
+  set(LOVR_OPENAL ${OPENAL_LIBRARIES})
+endif()
+
 # openvr
 if(WIN32)
   include_directories(deps/openvr/headers)
@@ -109,6 +120,7 @@ set(LOVR_LIB
   ${LOVR_GLFW}
   ${LOVR_PHYSFS}
   ${LOVR_ASSIMP}
+  ${LOVR_OPENAL}
   ${LOVR_OPENVR}
 )
 
@@ -120,4 +132,5 @@ if(WIN32)
   move_dll(${LOVR_GLFW})
   move_dll(${LOVR_PHYSFS})
   move_dll(${LOVR_ASSIMP})
+  move_dll(${LOVR_OPENAL})
 endif()

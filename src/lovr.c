@@ -1,4 +1,5 @@
 #include "lovr.h"
+#include "lovr/audio.h"
 #include "lovr/event.h"
 #include "lovr/filesystem.h"
 #include "lovr/graphics.h"
@@ -56,6 +57,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   lua_setglobal(L, "lovr");
 
   // Preload modules
+  luax_preloadmodule(L, "lovr.audio", l_lovrAudioInit);
   luax_preloadmodule(L, "lovr.event", l_lovrEventInit);
   luax_preloadmodule(L, "lovr.filesystem", l_lovrFilesystemInit);
   luax_preloadmodule(L, "lovr.graphics", l_lovrGraphicsInit);
@@ -63,10 +65,11 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   luax_preloadmodule(L, "lovr.timer", l_lovrTimerInit);
 
   // Bootstrap
-  char buffer[2048];
+  char buffer[4096];
   snprintf(buffer, sizeof(buffer), "%s",
     "local conf = { "
     "  modules = { "
+    "    audio = true, "
     "    event = true, "
     "    graphics = true, "
     "    headset = true, "
@@ -85,7 +88,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "  success, err = pcall(lovr.conf, conf) "
     "end "
 
-    "local modules = { 'event', 'graphics', 'headset', 'timer' } "
+    "local modules = { 'audio', 'event', 'graphics', 'headset', 'timer' } "
     "for _, module in ipairs(modules) do "
     "  if conf.modules[module] then "
     "    lovr[module] = require('lovr.' .. module) "
@@ -119,6 +122,13 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "      lovr.handlers[name](a, b, c, d) "
     "    end "
     "    local dt = lovr.timer.step() "
+    "    if lovr.audio then "
+    "      lovr.audio.update() "
+    "      if lovr.headset and lovr.headset.isPresent() then "
+    "        lovr.audio.setPosition(lovr.headset.getPosition()) "
+    "        lovr.audio.setOrientation(lovr.headset.getOrientation()) "
+    "      end "
+    "    end "
     "    if lovr.update then lovr.update(dt) end "
     "    lovr.graphics.clear() "
     "    lovr.graphics.origin() "
