@@ -25,6 +25,20 @@ end
 Finally, start SteamVR and drag the `myGame` folder onto `lovr.exe`.  Put on your headset and you
 should see a spinning purple cube!
 
+#### Audio
+
+Play an ogg file:
+
+```
+function lovr.load()
+  local sound = lovr.audio.newSource('darudeSandstorm.ogg')
+  sound:play()
+end
+```
+
+Audio is spatialized using HRTFs, and the virtual audio listener is synchronized with the pose of
+the HMD.
+
 #### 3D Models
 
 LÖVR supports most 3D model file formats:
@@ -69,6 +83,7 @@ a custom build.
 - assimp (for `lovr.model` and `lovr.graphics.newModel`)
 - OpenVR (for `lovr.headset`)
 - PhysicsFS
+- OpenAL (1.17+ recommended for HRTF support)
 
 #### Windows (CMake)
 
