@@ -20,6 +20,7 @@ typedef struct {
   int bufferSize;
   void* buffer;
   void* decoder;
+  void* data;
 } SourceData;
 
 typedef struct {

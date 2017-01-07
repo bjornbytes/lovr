@@ -22,12 +22,14 @@ SourceData* lovrSourceDataFromFile(void* data, int size) {
   sourceData->decoder = decoder;
   sourceData->bufferSize = sourceData->channels * 4096 * sizeof(short);
   sourceData->buffer = malloc(sourceData->bufferSize);
+  sourceData->data = data;
 
   return sourceData;
 }
 
 void lovrSourceDataDestroy(SourceData* sourceData) {
   stb_vorbis_close(sourceData->decoder);
+  free(sourceData->data);
   free(sourceData->buffer);
   free(sourceData);
 }
