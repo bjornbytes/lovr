@@ -29,7 +29,7 @@ should see a spinning purple cube!
 
 Play an ogg file:
 
-```
+```lua
 function lovr.load()
   local sound = lovr.audio.newSource('darudeSandstorm.ogg')
   sound:play()
