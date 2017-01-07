@@ -21,8 +21,7 @@ end
 function lovr.draw()
   for controller, model in pairs(controllerModels) do
     local x, y, z = controller:getPosition()
-    local angle, axisX, axisY, axisZ = controller:getOrientation()
-    model:draw(x, y, z, 1, -angle, axisX, axisY, axisZ)
+    model:draw(x, y, z, 1, controller:getOrientation())
   end
 end
 
