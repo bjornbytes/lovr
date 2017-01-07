@@ -40,15 +40,13 @@ int l_lovrAudioUpdate(lua_State* L) {
 }
 
 int l_lovrAudioGetOrientation(lua_State* L) {
-  float fx, fy, fz, ux, uy, uz;
-  lovrAudioGetOrientation(&fx, &fy, &fz, &ux, &uy, &uz);
-  lua_pushnumber(L, fx);
-  lua_pushnumber(L, fy);
-  lua_pushnumber(L, fz);
-  lua_pushnumber(L, ux);
-  lua_pushnumber(L, uy);
-  lua_pushnumber(L, uz);
-  return 6;
+  float angle, ax, ay, az;
+  lovrAudioGetOrientation(&angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 4;
 }
 
 int l_lovrAudioGetPosition(lua_State* L) {
@@ -98,13 +96,11 @@ int l_lovrAudioRewind(lua_State* L) {
 }
 
 int l_lovrAudioSetOrientation(lua_State* L) {
-  float fx = luaL_checknumber(L, 1);
-  float fy = luaL_checknumber(L, 2);
-  float fz = luaL_checknumber(L, 3);
-  float ux = luaL_checknumber(L, 4);
-  float uy = luaL_checknumber(L, 5);
-  float uz = luaL_checknumber(L, 6);
-  lovrAudioSetOrientation(fx, fy, fz, ux, uy, uz);
+  float angle = luaL_checknumber(L, 1);
+  float ax = luaL_checknumber(L, 2);
+  float ay = luaL_checknumber(L, 3);
+  float az = luaL_checknumber(L, 4);
+  lovrAudioSetOrientation(angle, ax, ay, az);
   return 0;
 }
 

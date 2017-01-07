@@ -2,10 +2,17 @@
 #include "loaders/source.h"
 #include "util.h"
 #include <stdlib.h>
+#include <math.h>
 
 static AudioState state;
 
 static LPALCRESETDEVICESOFT alcResetDeviceSOFT;
+
+static void cross(float ux, float uy, float uz, float vx, float vy, float vz, float* x, float* y, float* z) {
+  *x = uy * vz - uz * vy;
+  *y = ux * vz - uz * vx;
+  *z = ux * vy - uy * vx;
+}
 
 void lovrAudioInit() {
   ALCdevice* device = alcOpenDevice(NULL);
@@ -65,15 +72,23 @@ void lovrAudioAdd(Source* source) {
   }
 }
 
-void lovrAudioGetOrientation(float* fx, float* fy, float* fz, float* ux, float* uy, float* uz) {
+void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az) {
   float v[6];
   alGetListenerfv(AL_ORIENTATION, v);
-  *fx = v[0];
-  *fy = v[1];
-  *fz = v[2];
-  *ux = v[3];
-  *uy = v[4];
-  *uz = v[5];
+  float cx, cy, cz;
+  cross(v[0], v[1], v[2], v[3], v[4], v[5], &cx, &cy, &cz);
+  float w = 1 + v[0] * v[3] + v[1] * v[4] + v[2] * v[5];
+  *angle = 2 * acos(w);
+  float s = sqrt(1 - w * w);
+  if (w < .001) {
+    *ax = cx;
+    *ay = cy;
+    *az = cz;
+  } else {
+    *ax = cx / s;
+    *ay = cy / s;
+    *az = cz / s;
+  }
 }
 
 void lovrAudioGetPosition(float* x, float* y, float* z) {
@@ -113,7 +128,47 @@ void lovrAudioRewind() {
   }
 }
 
-void lovrAudioSetOrientation(float fx, float fy, float fz, float ux, float uy, float uz) {
+// Help
+void lovrAudioSetOrientation(float angle, float ax, float ay, float az) {
+
+  // Quaternion
+  float cos2 = cos(angle / 2.f);
+  float sin2 = sin(angle / 2.f);
+  float qx = sin2 * ax;
+  float qy = sin2 * ay;
+  float qz = sin2 * az;
+  float s = cos2;
+
+  float vx, vy, vz, qdotv, qdotq, a, b, c, cx, cy, cz;
+
+  // Forward
+  vx = 0;
+  vy = 0;
+  vz = -1;
+  qdotv = qx * vx + qy * vy + qz * vz;
+  qdotq = qx * qx + qy * qy + qz * qz;
+  a = 2 * qdotv;
+  b = s * s - qdotq;
+  c = 2 * s;
+  cross(qx, qy, qz, vx, vy, vz, &cx, &cy, &cz);
+  float fx = a * qx + b * vx + c * cx;
+  float fy = a * qy + b * vy + c * cy;
+  float fz = a * qz + b * vz + c * cz;
+
+  // Up
+  vx = 0;
+  vy = 1;
+  vz = 0;
+  qdotv = qx * vx + qy * vy + qz * vz;
+  qdotq = qx * qx + qy * qy + qz * qz;
+  a = 2 * qdotv;
+  b = s * s - qdotq;
+  c = 2 * s;
+  cross(qx, qy, qz, vx, vy, vz, &cx, &cy, &cz);
+  float ux = a * qx + b * vx + c * cx;
+  float uy = a * qy + b * vy + c * cy;
+  float uz = a * qz + b * vz + c * cz;
+
   ALfloat orientation[6] = { fx, fy, fz, ux, uy, uz };
   alListenerfv(AL_ORIENTATION, orientation);
 }
