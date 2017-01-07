@@ -84,8 +84,11 @@ if (WIN32)
   add_subdirectory(deps/openal-soft openal)
   include_directories(deps/openal-soft/include)
   set(LOVR_OPENAL OpenAL32)
+else()
+  pkg_search_module(OPENAL REQUIRED openal)
+  include_directories(${OPENAL_INCLUDE_DIRS})
+  set(LOVR_OPENAL ${OPENAL_LIBRARIES})
 endif()
-
 
 # openvr
 if(WIN32)
