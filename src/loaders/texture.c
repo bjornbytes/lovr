@@ -2,17 +2,19 @@
 #include "util.h"
 #include <stdlib.h>
 
-TextureData* lovrTextureDataGetEmpty() {
+TextureData* lovrTextureDataGetEmpty(int width, int height, uint8_t value) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
-  uint8_t* pixel = malloc(4 * sizeof(uint8_t));
-  pixel[0] = pixel[1] = pixel[2] = pixel[3] = 0xff;
+  int channels = 4;
+  int size = sizeof(uint8_t) * width * height * channels;
+  uint8_t* data = malloc(size);
+  memset(data, value, size);
 
-  textureData->width = 1;
-  textureData->height = 1;
-  textureData->channels = 4;
-  textureData->data = pixel;
+  textureData->data = data;
+  textureData->width = width;
+  textureData->height = height;
+  textureData->channels = channels;
 
   return textureData;
 }

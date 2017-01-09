@@ -4,7 +4,6 @@
 
 const luaL_Reg lovrTexture[] = {
   { "bind", l_lovrTextureBind },
-  { "refresh", l_lovrTextureRefresh },
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getFilter", l_lovrTextureGetFilter },
   { "getHeight", l_lovrTextureGetHeight },
@@ -18,12 +17,6 @@ const luaL_Reg lovrTexture[] = {
 int l_lovrTextureBind(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lovrTextureBind(texture);
-  return 0;
-}
-
-int l_lovrTextureRefresh(lua_State* L) {
-  Texture* texture = luax_checktype(L, 1, Texture);
-  lovrTextureRefresh(texture);
   return 0;
 }
 

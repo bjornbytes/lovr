@@ -22,7 +22,7 @@ void lovrGraphicsInit() {
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
   int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
   lovrShaderSendInt(state.skyboxShader, uniformId, 1);
-  state.defaultTexture = lovrTextureCreateFromData(lovrTextureDataGetEmpty());
+  state.defaultTexture = lovrTextureCreate(lovrTextureDataGetEmpty(1, 1, 0xff));
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
   glGenVertexArrays(1, &state.shapeArray);
