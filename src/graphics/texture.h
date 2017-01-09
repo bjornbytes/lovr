@@ -6,6 +6,8 @@ struct Buffer;
 #ifndef LOVR_TEXTURE_TYPES
 #define LOVR_TEXTURE_TYPES
 
+typedef void (*textureRenderCallback)(void*);
+
 typedef struct {
   void* data;
   int width;
@@ -29,6 +31,7 @@ typedef struct {
   Ref ref;
   TextureData* textureData;
   GLuint id;
+  GLuint fbo;
   int width;
   int height;
   FilterMode filterMin;
@@ -39,13 +42,14 @@ typedef struct {
 
 #endif
 
-Texture* lovrTextureCreate(TextureData* textureData);
+Texture* lovrTextureCreate(TextureData* textureData, int hasFramebuffer);
 void lovrTextureDestroy(const Ref* ref);
 void lovrTextureDataDestroy(TextureData* textureData);
 void lovrTextureBind(Texture* texture);
 void lovrTextureRefresh(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);
 int lovrTextureGetWidth(Texture* texture);
+void lovrTextureRenderTo(Texture* texture, textureRenderCallback callback, void* userdata);
 void lovrTextureGetFilter(Texture* texture, FilterMode* min, FilterMode* mag);
 void lovrTextureSetFilter(Texture* texture, FilterMode min, FilterMode mag);
 void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertical);

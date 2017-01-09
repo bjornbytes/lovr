@@ -9,10 +9,17 @@ const luaL_Reg lovrTexture[] = {
   { "getHeight", l_lovrTextureGetHeight },
   { "getWidth", l_lovrTextureGetWidth },
   { "getWrap", l_lovrTextureGetWrap },
+  { "renderTo", l_lovrTextureRenderTo },
   { "setFilter", l_lovrTextureSetFilter },
   { "setWrap", l_lovrTextureSetWrap },
   { NULL, NULL }
 };
+
+static void renderHelper(void* userdata) {
+  lua_State* L = (lua_State*) userdata;
+  luaL_checktype(L, -1, LUA_TFUNCTION);
+  lua_call(L, 0, 0);
+}
 
 int l_lovrTextureBind(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
@@ -55,6 +62,13 @@ int l_lovrTextureGetWrap(lua_State* L) {
   lua_pushstring(L, map_int_find(&WrapModes, horizontal));
   lua_pushstring(L, map_int_find(&WrapModes, vertical));
   return 2;
+}
+
+int l_lovrTextureRenderTo(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  lua_settop(L, 2);
+  lovrTextureRenderTo(texture, renderHelper, L);
+  return 0;
 }
 
 int l_lovrTextureSetFilter(lua_State* L) {

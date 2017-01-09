@@ -2,7 +2,7 @@
 #include "util.h"
 #include <stdlib.h>
 
-Texture* lovrTextureCreate(TextureData* textureData) {
+Texture* lovrTextureCreate(TextureData* textureData, int hasFramebuffer) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
@@ -16,12 +16,24 @@ Texture* lovrTextureCreate(TextureData* textureData) {
     lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
   }
 
+  if (hasFramebuffer) {
+    glGenFramebuffers(1, &texture->fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, texture->fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->id, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  } else {
+    texture->fbo = 0;
+  }
+
   return texture;
 }
 
 void lovrTextureDestroy(const Ref* ref) {
   Texture* texture = containerof(ref, Texture);
   lovrTextureDataDestroy(texture->textureData);
+  if (texture->fbo) {
+    glDeleteFramebuffers(1, &texture->fbo);
+  }
   glDeleteTextures(1, &texture->id);
   free(texture);
 }
@@ -46,6 +58,20 @@ int lovrTextureGetWidth(Texture* texture) {
 void lovrTextureGetFilter(Texture* texture, FilterMode* min, FilterMode* mag) {
   *min = texture->filterMin;
   *mag = texture->filterMag;
+}
+
+void lovrTextureRenderTo(Texture* texture, textureRenderCallback callback, void* userdata) {
+  if (!texture->fbo) {
+    error("Texture does not have a framebuffer");
+  }
+
+  int oldViewport[4];
+  glGetIntegerv(GL_VIEWPORT, oldViewport);
+  glViewport(0, 0, texture->textureData->width, texture->textureData->height);
+  glBindFramebuffer(GL_FRAMEBUFFER, texture->fbo);
+  callback(userdata);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glViewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3]);
 }
 
 void lovrTextureSetFilter(Texture* texture, FilterMode min, FilterMode mag) {
