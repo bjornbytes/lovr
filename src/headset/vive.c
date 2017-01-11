@@ -484,7 +484,12 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
   Vive* vive = (Vive*) headset;
-  float headMatrix[16], eyeMatrix[16], projectionMatrix[16];
+  CanvasState canvasState = {
+    .framebuffer = vive->framebuffer,
+    .viewport = { 0, 0, vive->renderWidth, vive->renderHeight },
+    .isSystem = 1
+  };
+  float headMatrix[16], eyeMatrix[16];
   float (*matrix)[4];
 
   vive->isRendering = 1;
@@ -502,21 +507,19 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     float near = vive->clipNear;
     float far = vive->clipFar;
     matrix = vive->system->GetProjectionMatrix(eye, near, far).m;
-    mat4_fromMat44(projectionMatrix, matrix);
+    mat4_fromMat44(canvasState.projection, matrix);
 
     glEnable(GL_MULTISAMPLE);
-    glBindFramebuffer(GL_FRAMEBUFFER, vive->framebuffer);
-    glViewport(0, 0, vive->renderWidth, vive->renderHeight);
 
+    lovrGraphicsPushCanvas(canvasState);
     lovrGraphicsClear(1, 1);
     lovrGraphicsPush();
     lovrGraphicsOrigin();
     lovrGraphicsMatrixTransform(transformMatrix);
-    lovrGraphicsSetProjectionRaw(projectionMatrix);
     callback(i, userdata);
     lovrGraphicsPop();
+    lovrGraphicsPopCanvas();
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_MULTISAMPLE);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, vive->framebuffer);

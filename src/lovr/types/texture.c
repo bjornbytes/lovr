@@ -1,5 +1,6 @@
 #include "lovr/types/texture.h"
 #include "lovr/graphics.h"
+#include "graphics/graphics.h"
 #include "util.h"
 
 const luaL_Reg lovrTexture[] = {
@@ -14,12 +15,6 @@ const luaL_Reg lovrTexture[] = {
   { "setWrap", l_lovrTextureSetWrap },
   { NULL, NULL }
 };
-
-static void renderHelper(void* userdata) {
-  lua_State* L = (lua_State*) userdata;
-  luaL_checktype(L, -1, LUA_TFUNCTION);
-  lua_call(L, 0, 0);
-}
 
 int l_lovrTextureBind(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
@@ -66,8 +61,10 @@ int l_lovrTextureGetWrap(lua_State* L) {
 
 int l_lovrTextureRenderTo(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
+  lovrGraphicsPushCanvas(lovrTextureGetCanvasState(texture));
   lua_settop(L, 2);
-  lovrTextureRenderTo(texture, renderHelper, L);
+  lua_call(L, 0, 0);
+  lovrGraphicsPopCanvas();
   return 0;
 }
 

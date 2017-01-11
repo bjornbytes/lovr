@@ -9,13 +9,7 @@
 #define LOVR_GRAPHICS_TYPES
 
 #define MAX_TRANSFORMS 64
-
-typedef struct {
-  int x;
-  int y;
-  int width;
-  int height;
-} ScissorRectangle;
+#define MAX_CANVASES 4
 
 typedef enum {
   DRAW_MODE_FILL,
@@ -38,13 +32,28 @@ typedef enum {
 } CompareMode;
 
 typedef struct {
+  int x;
+  int y;
+  int width;
+  int height;
+} ScissorRectangle;
+
+typedef struct CanvasState {
+  int framebuffer;
+  float projection[16];
+  int viewport[4];
+  int isSystem;
+} CanvasState;
+
+typedef struct {
   Shader* activeShader;
   Shader* defaultShader;
   Shader* skyboxShader;
   Texture* defaultTexture;
   int transform;
   mat4 transforms[MAX_TRANSFORMS];
-  mat4 projection;
+  int canvas;
+  CanvasState canvases[MAX_CANVASES];
   unsigned int color;
   char colorMask;
   int isScissorEnabled;
@@ -87,7 +96,6 @@ Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsBindTexture(Texture* texture);
 void lovrGraphicsSetProjection(float near, float far, float fov);
-void lovrGraphicsSetProjectionRaw(mat4 projection);
 float lovrGraphicsGetLineWidth();
 void lovrGraphicsSetLineWidth(float width);
 float lovrGraphicsGetPointSize();
@@ -102,6 +110,8 @@ int lovrGraphicsIsWireframe();
 void lovrGraphicsSetWireframe(int wireframe);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
+void lovrGraphicsPushCanvas(CanvasState canvasState);
+void lovrGraphicsPopCanvas();
 
 // Transforms
 int lovrGraphicsPush();

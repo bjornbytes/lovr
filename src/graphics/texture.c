@@ -1,4 +1,5 @@
 #include "graphics/texture.h"
+#include "graphics/graphics.h"
 #include "util.h"
 #include <stdlib.h>
 
@@ -47,6 +48,22 @@ void lovrTextureBind(Texture* texture) {
   glBindTexture(GL_TEXTURE_2D, texture->id);
 }
 
+CanvasState lovrTextureGetCanvasState(Texture* texture) {
+  if (!texture->fbo) {
+    error("Texture cannot be used as a canvas");
+  }
+
+  CanvasState canvasState = {
+    .framebuffer = texture->fbo,
+    .viewport = { 0, 0, texture->width, texture->height },
+    .isSystem = 0
+  };
+
+  mat4_setIdentity(canvasState.projection); // TODO
+
+  return canvasState;
+}
+
 int lovrTextureGetHeight(Texture* texture) {
   return texture->height;
 }
@@ -58,20 +75,6 @@ int lovrTextureGetWidth(Texture* texture) {
 void lovrTextureGetFilter(Texture* texture, FilterMode* min, FilterMode* mag) {
   *min = texture->filterMin;
   *mag = texture->filterMag;
-}
-
-void lovrTextureRenderTo(Texture* texture, textureRenderCallback callback, void* userdata) {
-  if (!texture->fbo) {
-    error("Texture does not have a framebuffer");
-  }
-
-  int oldViewport[4];
-  glGetIntegerv(GL_VIEWPORT, oldViewport);
-  glViewport(0, 0, texture->textureData->width, texture->textureData->height);
-  glBindFramebuffer(GL_FRAMEBUFFER, texture->fbo);
-  callback(userdata);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  glViewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3]);
 }
 
 void lovrTextureSetFilter(Texture* texture, FilterMode min, FilterMode mag) {
