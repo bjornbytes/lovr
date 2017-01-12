@@ -25,19 +25,11 @@ typedef enum {
   WRAP_CLAMP_ZERO = GL_CLAMP_TO_BORDER
 } WrapMode;
 
-typedef enum {
-  PROJECTION_ORTHOGRAPHIC,
-  PROJECTION_PERSPECTIVE
-} ProjectionType;
-
 typedef struct {
   Ref ref;
   TextureData* textureData;
   GLuint id;
   GLuint fbo;
-  ProjectionType projectionType;
-  int width;
-  int height;
   FilterMode filterMin;
   FilterMode filterMag;
   WrapMode wrapHorizontal;

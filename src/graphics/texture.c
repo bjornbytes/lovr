@@ -55,7 +55,7 @@ CanvasState lovrTextureGetCanvasState(Texture* texture) {
 
   CanvasState canvasState = {
     .framebuffer = texture->fbo,
-    .viewport = { 0, 0, texture->width, texture->height },
+    .viewport = { 0, 0, texture->textureData->width, texture->textureData->height },
     .isSystem = 0
   };
 
@@ -65,11 +65,11 @@ CanvasState lovrTextureGetCanvasState(Texture* texture) {
 }
 
 int lovrTextureGetHeight(Texture* texture) {
-  return texture->height;
+  return texture->textureData->height;
 }
 
 int lovrTextureGetWidth(Texture* texture) {
-  return texture->width;
+  return texture->textureData->width;
 }
 
 void lovrTextureGetFilter(Texture* texture, FilterMode* min, FilterMode* mag) {
