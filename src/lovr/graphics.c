@@ -649,7 +649,6 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     if (!data) {
       return luaL_error(L, "Could not load texture file '%s'", path);
     }
-
     TextureData* textureData = lovrTextureDataFromFile(data, size);
     texture = lovrTextureCreate(textureData, 0);
     free(data);
@@ -661,7 +660,6 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   luax_pushtype(L, Texture, texture);
-
   return 1;
 }
 

@@ -484,10 +484,8 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
   Vive* vive = (Vive*) headset;
-  float projectionMatrix[16], headMatrix[16], eyeMatrix[16];
+  float headMatrix[16], eyeMatrix[16], projectionMatrix[16];
   float (*matrix)[4];
-  float near = vive->clipNear;
-  float far = vive->clipFar;
 
   lovrGraphicsPushCanvas();
   lovrGraphicsSetViewport(0, 0, vive->renderWidth, vive->renderHeight);
@@ -507,7 +505,7 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     mat4 transformMatrix = mat4_multiply(eyeMatrix, headMatrix);
 
     // Projection
-    matrix = vive->system->GetProjectionMatrix(eye, near, far).m;
+    matrix = vive->system->GetProjectionMatrix(eye, vive->clipNear, vive->clipFar).m;
     mat4_fromMat44(projectionMatrix, matrix);
 
     // Render
