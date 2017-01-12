@@ -17,9 +17,10 @@ void lovrGraphicsInit() {
   for (int i = 0; i < MAX_TRANSFORMS; i++) {
     state.transforms[i] = mat4_init();
   }
-  state.canvases[0].framebuffer = 0;
-  glGetIntegerv(GL_VIEWPORT, state.canvases[0].viewport);
-  state.canvases[0].isSystem = 1;
+  for (int i = 0; i < MAX_CANVASES; i++) {
+    state.canvases[i] = malloc(sizeof(CanvasState));
+    state.canvases[i]->projection = mat4_init();
+  }
   state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
   int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
@@ -40,6 +41,10 @@ void lovrGraphicsDestroy() {
   for (int i = 0; i < MAX_TRANSFORMS; i++) {
     mat4_deinit(state.transforms[i]);
   }
+  for (int i = 0; i < MAX_CANVASES; i++) {
+    mat4_deinit(state.canvases[i]->projection);
+    free(state.canvases[i]);
+  }
   lovrRelease(&state.defaultShader->ref);
   lovrRelease(&state.skyboxShader->ref);
   lovrRelease(&state.defaultTexture->ref);
@@ -53,7 +58,9 @@ void lovrGraphicsDestroy() {
 void lovrGraphicsReset() {
   state.transform = 0;
   state.canvas = 0;
+  lovrGraphicsSetViewport(0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight());
   lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180); // TODO customize via lovr.conf
+  lovrGraphicsBindFramebuffer(0);
   lovrGraphicsSetShader(NULL);
   lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetBackgroundColor(0, 0, 0, 0);
@@ -89,7 +96,7 @@ void lovrGraphicsPresent() {
 void lovrGraphicsPrepare() {
   Shader* shader = lovrGraphicsGetShader();
   mat4 transform = state.transforms[state.transform];
-  mat4 projection = state.canvases[state.canvas].projection;
+  mat4 projection = state.canvases[state.canvas]->projection;
   lovrShaderBind(shader, transform, projection, state.color, 0);
 }
 
@@ -192,7 +199,11 @@ void lovrGraphicsBindTexture(Texture* texture) {
 void lovrGraphicsSetProjection(float near, float far, float fov) {
   int width, height;
   glfwGetWindowSize(window, &width, &height);
-  mat4_setProjection(state.canvases[state.canvas].projection, near, far, fov, (float) width / height);
+  mat4_setProjection(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
+}
+
+void lovrGraphicsSetProjectionRaw(mat4 projection) {
+  memcpy(state.canvases[state.canvas]->projection, projection, 16 * sizeof(float));
 }
 
 float lovrGraphicsGetLineWidth() {
@@ -274,17 +285,12 @@ int lovrGraphicsGetHeight() {
   return height;
 }
 
-void lovrGraphicsPushCanvas(CanvasState canvasState) {
-  if (!canvasState.isSystem && !state.canvases[state.canvas].isSystem) {
-    lovrGraphicsPopCanvas();
-  } else if (++state.canvas >= MAX_CANVASES) {
+void lovrGraphicsPushCanvas() {
+  if (++state.canvas >= MAX_CANVASES) {
     error("Canvas overflow");
   }
 
-  int* viewport = canvasState.viewport;
-  glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  glBindFramebuffer(GL_FRAMEBUFFER, canvasState.framebuffer);
-  state.canvases[state.canvas] = canvasState;
+  memcpy(state.canvases[state.canvas], state.canvases[state.canvas - 1], sizeof(CanvasState));
 }
 
 void lovrGraphicsPopCanvas() {
@@ -292,10 +298,22 @@ void lovrGraphicsPopCanvas() {
     error("Canvas underflow");
   }
 
-  CanvasState* canvasState = &state.canvases[state.canvas];
-  int* viewport = canvasState->viewport;
-  glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  glBindFramebuffer(GL_FRAMEBUFFER, canvasState->framebuffer);
+  int* viewport = state.canvases[state.canvas]->viewport;
+  lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+  lovrGraphicsBindFramebuffer(state.canvases[state.canvas]->framebuffer);
+}
+
+void lovrGraphicsSetViewport(int x, int y, int w, int h) {
+  state.canvases[state.canvas]->viewport[0] = x;
+  state.canvases[state.canvas]->viewport[1] = y;
+  state.canvases[state.canvas]->viewport[2] = w;
+  state.canvases[state.canvas]->viewport[3] = h;
+  glViewport(x, y, w, h);
+}
+
+void lovrGraphicsBindFramebuffer(int framebuffer) {
+  state.canvases[state.canvas]->framebuffer = framebuffer;
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 }
 
 // Transforms

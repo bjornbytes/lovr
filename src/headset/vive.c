@@ -484,50 +484,53 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
   Vive* vive = (Vive*) headset;
-  CanvasState canvasState = {
-    .framebuffer = vive->framebuffer,
-    .viewport = { 0, 0, vive->renderWidth, vive->renderHeight },
-    .isSystem = 1
-  };
-  float headMatrix[16], eyeMatrix[16];
+  float projectionMatrix[16], headMatrix[16], eyeMatrix[16];
   float (*matrix)[4];
+  float near = vive->clipNear;
+  float far = vive->clipFar;
 
+  lovrGraphicsPushCanvas();
+  lovrGraphicsSetViewport(0, 0, vive->renderWidth, vive->renderHeight);
   vive->isRendering = 1;
   vive->compositor->WaitGetPoses(vive->renderPoses, 16, NULL, 0);
+
+  // Head transform
   matrix = vive->renderPoses[vive->headsetIndex].mDeviceToAbsoluteTracking.m;
   mat4_invert(mat4_fromMat34(headMatrix, matrix));
 
   for (int i = 0; i < 2; i++) {
     EVREye eye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
 
+    // Eye transform
     matrix = vive->system->GetEyeToHeadTransform(eye).m;
     mat4_invert(mat4_fromMat34(eyeMatrix, matrix));
     mat4 transformMatrix = mat4_multiply(eyeMatrix, headMatrix);
 
-    float near = vive->clipNear;
-    float far = vive->clipFar;
+    // Projection
     matrix = vive->system->GetProjectionMatrix(eye, near, far).m;
-    mat4_fromMat44(canvasState.projection, matrix);
+    mat4_fromMat44(projectionMatrix, matrix);
 
+    // Render
     glEnable(GL_MULTISAMPLE);
-
-    lovrGraphicsPushCanvas(canvasState);
+    lovrGraphicsBindFramebuffer(vive->framebuffer);
     lovrGraphicsClear(1, 1);
     lovrGraphicsPush();
     lovrGraphicsOrigin();
     lovrGraphicsMatrixTransform(transformMatrix);
+    lovrGraphicsSetProjectionRaw(projectionMatrix);
     callback(i, userdata);
     lovrGraphicsPop();
-    lovrGraphicsPopCanvas();
-
+    lovrGraphicsBindFramebuffer(0);
     glDisable(GL_MULTISAMPLE);
 
+    // Blit
     glBindFramebuffer(GL_READ_FRAMEBUFFER, vive->framebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, vive->resolveFramebuffer);
     glBlitFramebuffer(0, 0, vive->renderWidth, vive->renderHeight, 0, 0, vive->renderWidth, vive->renderHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
+    // Submit
     uintptr_t texture = (uintptr_t) vive->resolveTexture;
     ETextureType textureType = ETextureType_TextureType_OpenGL;
     Texture_t eyeTexture = { (void*) texture, textureType, EColorSpace_ColorSpace_Gamma };
@@ -536,4 +539,5 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
   }
 
   vive->isRendering = 0;
+  lovrGraphicsPopCanvas();
 }

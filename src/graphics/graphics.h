@@ -40,9 +40,8 @@ typedef struct {
 
 typedef struct CanvasState {
   int framebuffer;
-  float projection[16];
+  mat4 projection;
   int viewport[4];
-  int isSystem;
 } CanvasState;
 
 typedef struct {
@@ -53,7 +52,7 @@ typedef struct {
   int transform;
   mat4 transforms[MAX_TRANSFORMS];
   int canvas;
-  CanvasState canvases[MAX_CANVASES];
+  CanvasState* canvases[MAX_CANVASES];
   unsigned int color;
   char colorMask;
   int isScissorEnabled;
@@ -96,6 +95,7 @@ Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsBindTexture(Texture* texture);
 void lovrGraphicsSetProjection(float near, float far, float fov);
+void lovrGraphicsSetProjectionRaw(mat4 projection);
 float lovrGraphicsGetLineWidth();
 void lovrGraphicsSetLineWidth(float width);
 float lovrGraphicsGetPointSize();
@@ -110,8 +110,10 @@ int lovrGraphicsIsWireframe();
 void lovrGraphicsSetWireframe(int wireframe);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
-void lovrGraphicsPushCanvas(CanvasState canvasState);
+void lovrGraphicsPushCanvas();
 void lovrGraphicsPopCanvas();
+void lovrGraphicsSetViewport(int x, int y, int w, int h);
+void lovrGraphicsBindFramebuffer(int framebuffer);
 
 // Transforms
 int lovrGraphicsPush();

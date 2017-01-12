@@ -48,20 +48,16 @@ void lovrTextureBind(Texture* texture) {
   glBindTexture(GL_TEXTURE_2D, texture->id);
 }
 
-CanvasState lovrTextureGetCanvasState(Texture* texture) {
+void lovrTextureBindFramebuffer(Texture* texture) {
   if (!texture->fbo) {
     error("Texture cannot be used as a canvas");
   }
 
-  CanvasState canvasState = {
-    .framebuffer = texture->fbo,
-    .viewport = { 0, 0, texture->textureData->width, texture->textureData->height },
-    .isSystem = 0
-  };
-
-  mat4_setIdentity(canvasState.projection); // TODO
-
-  return canvasState;
+  lovrGraphicsBindFramebuffer(texture->fbo);
+  lovrGraphicsSetViewport(0, 0, texture->textureData->width, texture->textureData->height);
+  if (0) {
+    // lovrGraphicsSetProjection(); // TODO ortho
+  }
 }
 
 int lovrTextureGetHeight(Texture* texture) {

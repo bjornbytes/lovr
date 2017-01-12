@@ -42,7 +42,7 @@ Texture* lovrTextureCreate(TextureData* textureData, int hasFramebuffer);
 void lovrTextureDestroy(const Ref* ref);
 void lovrTextureDataDestroy(TextureData* textureData);
 void lovrTextureBind(Texture* texture);
-struct CanvasState lovrTextureGetCanvasState(Texture* texture);
+void lovrTextureBindFramebuffer(Texture* texture);
 void lovrTextureRefresh(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);
 int lovrTextureGetWidth(Texture* texture);
