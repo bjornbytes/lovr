@@ -25,11 +25,18 @@ typedef enum {
   WRAP_CLAMP_ZERO = GL_CLAMP_TO_BORDER
 } WrapMode;
 
+typedef enum {
+  PROJECTION_ORTHOGRAPHIC,
+  PROJECTION_PERSPECTIVE
+} TextureProjection;
+
 typedef struct {
   Ref ref;
   TextureData* textureData;
   GLuint id;
-  GLuint fbo;
+  GLuint framebuffer;
+  GLuint renderbuffer;
+  TextureProjection projection;
   FilterMode filterMin;
   FilterMode filterMag;
   WrapMode wrapHorizontal;
@@ -38,7 +45,8 @@ typedef struct {
 
 #endif
 
-Texture* lovrTextureCreate(TextureData* textureData, int hasFramebuffer);
+Texture* lovrTextureCreate(TextureData* textureData);
+Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection);
 void lovrTextureDestroy(const Ref* ref);
 void lovrTextureDataDestroy(TextureData* textureData);
 void lovrTextureBind(Texture* texture);

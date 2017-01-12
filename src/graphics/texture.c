@@ -3,28 +3,43 @@
 #include "util.h"
 #include <stdlib.h>
 
-Texture* lovrTextureCreate(TextureData* textureData, int hasFramebuffer) {
+Texture* lovrTextureCreate(TextureData* textureData) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
+  int w = textureData->width;
+  int h = textureData->height;
+
   texture->textureData = textureData;
   glGenTextures(1, &texture->id);
+  lovrTextureBind(texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData->data);
+  lovrTextureSetFilter(texture, FILTER_LINEAR, FILTER_LINEAR);
+  lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
 
-  if (textureData) {
-    lovrTextureBind(texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureData->width, textureData->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData->data);
-    lovrTextureSetFilter(texture, FILTER_LINEAR, FILTER_LINEAR);
-    lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
+  texture->framebuffer = 0;
+  texture->renderbuffer = 0;
+
+  return texture;
+}
+
+Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection) {
+  Texture* texture = lovrTextureCreate(textureData);
+  if (!texture) return NULL;
+
+  texture->projection = projection;
+  glGenFramebuffers(1, &texture->framebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, texture->framebuffer);
+
+  if (projection == PROJECTION_PERSPECTIVE) {
+    glGenRenderbuffers(1, &texture->renderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, texture->renderbuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, textureData->width, textureData->height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, texture->renderbuffer);
   }
 
-  if (hasFramebuffer) {
-    glGenFramebuffers(1, &texture->fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, texture->fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->id, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  } else {
-    texture->fbo = 0;
-  }
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->id, 0);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   return texture;
 }
@@ -32,8 +47,8 @@ Texture* lovrTextureCreate(TextureData* textureData, int hasFramebuffer) {
 void lovrTextureDestroy(const Ref* ref) {
   Texture* texture = containerof(ref, Texture);
   lovrTextureDataDestroy(texture->textureData);
-  if (texture->fbo) {
-    glDeleteFramebuffers(1, &texture->fbo);
+  if (texture->framebuffer) {
+    glDeleteFramebuffers(1, &texture->framebuffer);
   }
   glDeleteTextures(1, &texture->id);
   free(texture);
@@ -49,14 +64,22 @@ void lovrTextureBind(Texture* texture) {
 }
 
 void lovrTextureBindFramebuffer(Texture* texture) {
-  if (!texture->fbo) {
+  if (!texture->framebuffer) {
     error("Texture cannot be used as a canvas");
   }
 
-  lovrGraphicsBindFramebuffer(texture->fbo);
-  lovrGraphicsSetViewport(0, 0, texture->textureData->width, texture->textureData->height);
-  if (0) {
-    // lovrGraphicsSetProjection(); // TODO ortho
+  int w = texture->textureData->width;
+  int h = texture->textureData->height;
+
+  lovrGraphicsBindFramebuffer(texture->framebuffer);
+  lovrGraphicsSetViewport(0, 0, w, h);
+
+  if (texture->projection == PROJECTION_ORTHOGRAPHIC) {
+    float projection[16];
+    mat4_setOrthographic(projection, 0, w, 0, h, -1, 1);
+    lovrGraphicsSetProjectionRaw(projection);
+  } else if (texture->projection == PROJECTION_PERSPECTIVE) {
+    // lovrGraphicsSetProjection(); // TODO perspective
   }
 }
 

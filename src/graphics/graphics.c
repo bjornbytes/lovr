@@ -25,7 +25,7 @@ void lovrGraphicsInit() {
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
   int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
   lovrShaderSendInt(state.skyboxShader, uniformId, 1);
-  state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff), 0);
+  state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff));
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
   glGenVertexArrays(1, &state.shapeArray);
@@ -199,7 +199,7 @@ void lovrGraphicsBindTexture(Texture* texture) {
 void lovrGraphicsSetProjection(float near, float far, float fov) {
   int width, height;
   glfwGetWindowSize(window, &width, &height);
-  mat4_setProjection(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
+  mat4_setPerspective(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
 }
 
 void lovrGraphicsSetProjectionRaw(mat4 projection) {

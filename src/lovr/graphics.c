@@ -143,6 +143,10 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&WrapModes, "mirroredrepeat", WRAP_MIRRORED_REPEAT);
   map_set(&WrapModes, "clampzero", WRAP_CLAMP_ZERO);
 
+  map_init(&TextureProjections);
+  map_set(&TextureProjections, "2d", PROJECTION_ORTHOGRAPHIC);
+  map_set(&TextureProjections, "3d", PROJECTION_PERSPECTIVE);
+
   lovrGraphicsInit();
   return 1;
 }
@@ -650,13 +654,14 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
       return luaL_error(L, "Could not load texture file '%s'", path);
     }
     TextureData* textureData = lovrTextureDataFromFile(data, size);
-    texture = lovrTextureCreate(textureData, 0);
+    texture = lovrTextureCreate(textureData);
     free(data);
   } else {
     int width = luaL_checknumber(L, 1);
     int height = luaL_checknumber(L, 2);
+    TextureProjection* projection = luax_optenum(L, 3, "2d", &TextureProjections, "projection");
     TextureData* textureData = lovrTextureDataGetEmpty(width, height);
-    texture = lovrTextureCreate(textureData, 1);
+    texture = lovrTextureCreateWithFramebuffer(textureData, *projection);
   }
 
   luax_pushtype(L, Texture, texture);

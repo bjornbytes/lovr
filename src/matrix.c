@@ -120,7 +120,22 @@ mat4 mat4_setScale(mat4 matrix, float x, float y, float z) {
   return matrix;
 }
 
-mat4 mat4_setProjection(mat4 matrix, float near, float far, float fov, float aspect) {
+mat4 mat4_setOrthographic(mat4 matrix, float left, float right, float top, float bottom, float near, float far) {
+  float rl = right - left;
+  float tb = top - bottom;
+  float fn = far - near;
+  mat4_setIdentity(matrix);
+  matrix[0] = 2 / rl;
+  matrix[5] = 2 / tb;
+  matrix[10] = -2 / fn;
+  matrix[12] = -(left + right) / rl;
+  matrix[13] = -(top + bottom) / tb;
+  matrix[14] = -(far + near) / fn;
+  matrix[15] = 1;
+  return matrix;
+}
+
+mat4 mat4_setPerspective(mat4 matrix, float near, float far, float fov, float aspect) {
   float range = tan(fov * .5f) * near;
   float sx = (2.0f * near) / (range * aspect + range * aspect);
   float sy = near / range;

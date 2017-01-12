@@ -11,6 +11,7 @@ map_int_t PolygonWindings;
 map_int_t CompareModes;
 map_int_t FilterModes;
 map_int_t WrapModes;
+map_int_t TextureProjections;
 
 extern const luaL_Reg lovrGraphics[];
 
