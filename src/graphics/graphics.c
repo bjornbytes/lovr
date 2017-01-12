@@ -19,7 +19,6 @@ void lovrGraphicsInit() {
   }
   for (int i = 0; i < MAX_CANVASES; i++) {
     state.canvases[i] = malloc(sizeof(CanvasState));
-    state.canvases[i]->projection = mat4_init();
   }
   state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
@@ -42,7 +41,6 @@ void lovrGraphicsDestroy() {
     mat4_deinit(state.transforms[i]);
   }
   for (int i = 0; i < MAX_CANVASES; i++) {
-    mat4_deinit(state.canvases[i]->projection);
     free(state.canvases[i]);
   }
   lovrRelease(&state.defaultShader->ref);
@@ -194,6 +192,10 @@ void lovrGraphicsBindTexture(Texture* texture) {
   }
 
   lovrTextureBind(texture);
+}
+
+mat4 lovrGraphicsGetProjection() {
+  return state.canvases[state.canvas]->projection;
 }
 
 void lovrGraphicsSetProjection(float near, float far, float fov) {

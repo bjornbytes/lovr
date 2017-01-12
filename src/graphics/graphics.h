@@ -40,7 +40,7 @@ typedef struct {
 
 typedef struct CanvasState {
   int framebuffer;
-  mat4 projection;
+  float projection[16];
   int viewport[4];
 } CanvasState;
 
@@ -94,6 +94,7 @@ void lovrGraphicsSetScissor(int x, int y, int width, int height);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsBindTexture(Texture* texture);
+mat4 lovrGraphicsGetProjection(); 
 void lovrGraphicsSetProjection(float near, float far, float fov);
 void lovrGraphicsSetProjectionRaw(mat4 projection);
 float lovrGraphicsGetLineWidth();

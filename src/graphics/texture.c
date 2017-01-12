@@ -1,6 +1,7 @@
 #include "graphics/texture.h"
 #include "graphics/graphics.h"
 #include "util.h"
+#include <math.h>
 #include <stdlib.h>
 
 Texture* lovrTextureCreate(TextureData* textureData) {
@@ -79,7 +80,18 @@ void lovrTextureBindFramebuffer(Texture* texture) {
     mat4_setOrthographic(projection, 0, w, 0, h, -1, 1);
     lovrGraphicsSetProjectionRaw(projection);
   } else if (texture->projection == PROJECTION_PERSPECTIVE) {
-    // lovrGraphicsSetProjection(); // TODO perspective
+    mat4 projection = lovrGraphicsGetProjection();
+    float b = projection[5];
+    float c = projection[10];
+    float d = projection[14];
+    float aspect = (float) w / h;
+    float k = (c - 1.f) / (c + 1.f);
+    float near = (d * (1.f - k)) / (2.f * k);
+    float far = k * near;
+    float fov = 2.f * atan(1.f / b);
+    float newProjection[16];
+    mat4_setPerspective(newProjection, near, far, fov, aspect);
+    lovrGraphicsSetProjectionRaw(newProjection);
   }
 }
 
