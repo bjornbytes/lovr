@@ -1,7 +1,7 @@
 #include "glfw.h"
 #include "util.h"
 
-struct Buffer;
+struct CanvasState;
 
 #ifndef LOVR_TEXTURE_TYPES
 #define LOVR_TEXTURE_TYPES
@@ -12,11 +12,6 @@ typedef struct {
   int height;
   int channels;
 } TextureData;
-
-typedef enum {
-  TEXTURE_IMAGE = GL_TEXTURE_2D,
-  TEXTURE_BUFFER = GL_TEXTURE_BUFFER
-} TextureType;
 
 typedef enum {
   FILTER_NEAREST = GL_NEAREST,
@@ -30,27 +25,32 @@ typedef enum {
   WRAP_CLAMP_ZERO = GL_CLAMP_TO_BORDER
 } WrapMode;
 
+typedef enum {
+  PROJECTION_ORTHOGRAPHIC,
+  PROJECTION_PERSPECTIVE
+} TextureProjection;
+
 typedef struct {
   Ref ref;
   TextureData* textureData;
-  TextureType type;
   GLuint id;
-  int width;
-  int height;
+  GLuint framebuffer;
+  GLuint renderbuffer;
+  TextureProjection projection;
   FilterMode filterMin;
   FilterMode filterMag;
   WrapMode wrapHorizontal;
   WrapMode wrapVertical;
-  struct Buffer* buffer;
 } Texture;
 
 #endif
 
-Texture* lovrTextureCreateFromData(TextureData* textureData);
-Texture* lovrTextureCreateFromBuffer(struct Buffer* buffer);
+Texture* lovrTextureCreate(TextureData* textureData);
+Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection);
 void lovrTextureDestroy(const Ref* ref);
 void lovrTextureDataDestroy(TextureData* textureData);
 void lovrTextureBind(Texture* texture);
+void lovrTextureBindFramebuffer(Texture* texture);
 void lovrTextureRefresh(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);
 int lovrTextureGetWidth(Texture* texture);

@@ -143,6 +143,10 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&WrapModes, "mirroredrepeat", WRAP_MIRRORED_REPEAT);
   map_set(&WrapModes, "clampzero", WRAP_CLAMP_ZERO);
 
+  map_init(&TextureProjections);
+  map_set(&TextureProjections, "2d", PROJECTION_ORTHOGRAPHIC);
+  map_set(&TextureProjections, "3d", PROJECTION_PERSPECTIVE);
+
   lovrGraphicsInit();
   return 1;
 }
@@ -642,7 +646,7 @@ int l_lovrGraphicsNewSkybox(lua_State* L) {
 int l_lovrGraphicsNewTexture(lua_State* L) {
   Texture* texture;
 
-  if (lua_isstring(L, 1)) {
+  if (lua_type(L, 1) == LUA_TSTRING) {
     const char* path = luaL_checkstring(L, 1);
     int size;
     void* data = lovrFilesystemRead(path, &size);
@@ -650,11 +654,14 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
       return luaL_error(L, "Could not load texture file '%s'", path);
     }
     TextureData* textureData = lovrTextureDataFromFile(data, size);
-    texture = lovrTextureCreateFromData(textureData);
+    texture = lovrTextureCreate(textureData);
     free(data);
   } else {
-    Buffer* buffer = luax_checktype(L, 1, Buffer); // TODO don't error if it's not a buffer
-    texture = lovrTextureCreateFromBuffer(buffer);
+    int width = luaL_checknumber(L, 1);
+    int height = luaL_checknumber(L, 2);
+    TextureProjection* projection = luax_optenum(L, 3, "2d", &TextureProjections, "projection");
+    TextureData* textureData = lovrTextureDataGetEmpty(width, height);
+    texture = lovrTextureCreateWithFramebuffer(textureData, *projection);
   }
 
   luax_pushtype(L, Texture, texture);

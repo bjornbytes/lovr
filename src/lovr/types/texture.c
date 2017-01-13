@@ -1,15 +1,16 @@
 #include "lovr/types/texture.h"
 #include "lovr/graphics.h"
+#include "graphics/graphics.h"
 #include "util.h"
 
 const luaL_Reg lovrTexture[] = {
   { "bind", l_lovrTextureBind },
-  { "refresh", l_lovrTextureRefresh },
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getFilter", l_lovrTextureGetFilter },
   { "getHeight", l_lovrTextureGetHeight },
   { "getWidth", l_lovrTextureGetWidth },
   { "getWrap", l_lovrTextureGetWrap },
+  { "renderTo", l_lovrTextureRenderTo },
   { "setFilter", l_lovrTextureSetFilter },
   { "setWrap", l_lovrTextureSetWrap },
   { NULL, NULL }
@@ -18,12 +19,6 @@ const luaL_Reg lovrTexture[] = {
 int l_lovrTextureBind(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lovrTextureBind(texture);
-  return 0;
-}
-
-int l_lovrTextureRefresh(lua_State* L) {
-  Texture* texture = luax_checktype(L, 1, Texture);
-  lovrTextureRefresh(texture);
   return 0;
 }
 
@@ -62,6 +57,16 @@ int l_lovrTextureGetWrap(lua_State* L) {
   lua_pushstring(L, map_int_find(&WrapModes, horizontal));
   lua_pushstring(L, map_int_find(&WrapModes, vertical));
   return 2;
+}
+
+int l_lovrTextureRenderTo(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  lovrGraphicsPushCanvas();
+  lovrTextureBindFramebuffer(texture);
+  lua_settop(L, 2);
+  lua_call(L, 0, 0);
+  lovrGraphicsPopCanvas();
+  return 0;
 }
 
 int l_lovrTextureSetFilter(lua_State* L) {

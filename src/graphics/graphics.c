@@ -17,12 +17,14 @@ void lovrGraphicsInit() {
   for (int i = 0; i < MAX_TRANSFORMS; i++) {
     state.transforms[i] = mat4_init();
   }
-  state.projection = mat4_init();
+  for (int i = 0; i < MAX_CANVASES; i++) {
+    state.canvases[i] = malloc(sizeof(CanvasState));
+  }
   state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
   int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
   lovrShaderSendInt(state.skyboxShader, uniformId, 1);
-  state.defaultTexture = lovrTextureCreateFromData(lovrTextureDataGetEmpty());
+  state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff));
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
   glGenVertexArrays(1, &state.shapeArray);
@@ -38,7 +40,9 @@ void lovrGraphicsDestroy() {
   for (int i = 0; i < MAX_TRANSFORMS; i++) {
     mat4_deinit(state.transforms[i]);
   }
-  mat4_deinit(state.projection);
+  for (int i = 0; i < MAX_CANVASES; i++) {
+    free(state.canvases[i]);
+  }
   lovrRelease(&state.defaultShader->ref);
   lovrRelease(&state.skyboxShader->ref);
   lovrRelease(&state.defaultTexture->ref);
@@ -51,7 +55,10 @@ void lovrGraphicsDestroy() {
 
 void lovrGraphicsReset() {
   state.transform = 0;
+  state.canvas = 0;
+  lovrGraphicsSetViewport(0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight());
   lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180); // TODO customize via lovr.conf
+  lovrGraphicsBindFramebuffer(0);
   lovrGraphicsSetShader(NULL);
   lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetBackgroundColor(0, 0, 0, 0);
@@ -86,7 +93,9 @@ void lovrGraphicsPresent() {
 
 void lovrGraphicsPrepare() {
   Shader* shader = lovrGraphicsGetShader();
-  lovrShaderBind(shader, state.transforms[state.transform], state.projection, state.color, 0);
+  mat4 transform = state.transforms[state.transform];
+  mat4 projection = state.canvases[state.canvas]->projection;
+  lovrShaderBind(shader, transform, projection, state.color, 0);
 }
 
 // State
@@ -185,14 +194,18 @@ void lovrGraphicsBindTexture(Texture* texture) {
   lovrTextureBind(texture);
 }
 
+mat4 lovrGraphicsGetProjection() {
+  return state.canvases[state.canvas]->projection;
+}
+
 void lovrGraphicsSetProjection(float near, float far, float fov) {
   int width, height;
   glfwGetWindowSize(window, &width, &height);
-  mat4_setProjection(state.projection, near, far, fov, (float) width / height);
+  mat4_setPerspective(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
 }
 
 void lovrGraphicsSetProjectionRaw(mat4 projection) {
-  memcpy(state.projection, projection, 16 * sizeof(float));
+  memcpy(state.canvases[state.canvas]->projection, projection, 16 * sizeof(float));
 }
 
 float lovrGraphicsGetLineWidth() {
@@ -272,6 +285,37 @@ int lovrGraphicsGetHeight() {
   int height;
   glfwGetFramebufferSize(window, NULL, &height);
   return height;
+}
+
+void lovrGraphicsPushCanvas() {
+  if (++state.canvas >= MAX_CANVASES) {
+    error("Canvas overflow");
+  }
+
+  memcpy(state.canvases[state.canvas], state.canvases[state.canvas - 1], sizeof(CanvasState));
+}
+
+void lovrGraphicsPopCanvas() {
+  if (--state.canvas < 0) {
+    error("Canvas underflow");
+  }
+
+  int* viewport = state.canvases[state.canvas]->viewport;
+  lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+  lovrGraphicsBindFramebuffer(state.canvases[state.canvas]->framebuffer);
+}
+
+void lovrGraphicsSetViewport(int x, int y, int w, int h) {
+  state.canvases[state.canvas]->viewport[0] = x;
+  state.canvases[state.canvas]->viewport[1] = y;
+  state.canvases[state.canvas]->viewport[2] = w;
+  state.canvases[state.canvas]->viewport[3] = h;
+  glViewport(x, y, w, h);
+}
+
+void lovrGraphicsBindFramebuffer(int framebuffer) {
+  state.canvases[state.canvas]->framebuffer = framebuffer;
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 }
 
 // Transforms
