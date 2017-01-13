@@ -48,6 +48,7 @@ typedef struct {
   Shader* activeShader;
   Shader* defaultShader;
   Shader* skyboxShader;
+  Shader* fullscreenShader;
   Texture* defaultTexture;
   int transform;
   mat4 transforms[MAX_TRANSFORMS];
@@ -94,7 +95,7 @@ void lovrGraphicsSetScissor(int x, int y, int width, int height);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsBindTexture(Texture* texture);
-mat4 lovrGraphicsGetProjection(); 
+mat4 lovrGraphicsGetProjection();
 void lovrGraphicsSetProjection(float near, float far, float fov);
 void lovrGraphicsSetProjectionRaw(mat4 projection);
 float lovrGraphicsGetLineWidth();
@@ -127,12 +128,11 @@ void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, flo
 void lovrGraphicsMatrixTransform(mat4 transform);
 
 // Primitives
-void lovrGraphicsSetShapeData(float* data, int dataCount, unsigned int* indices, int indicesCount);
-void lovrGraphicsDrawLinedShape(GLenum mode);
-void lovrGraphicsDrawFilledShape();
+void lovrGraphicsDrawPrimitive(GLenum mode, Texture* texture, int hasNormals, int hasTexCoords, int useIndices);
 void lovrGraphicsPoints(float* points, int count);
 void lovrGraphicsLine(float* points, int count);
 void lovrGraphicsTriangle(DrawMode mode, float* points);
-void lovrGraphicsPlane(DrawMode mode, float x, float y, float z, float size, float nx, float ny, float nz);
-void lovrGraphicsCube(DrawMode mode, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ);
+void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float z, float size, float nx, float ny, float nz);
+void lovrGraphicsPlaneFullscreen(Texture* texture);
+void lovrGraphicsCube(DrawMode mode, Texture* texture, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ);
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az);

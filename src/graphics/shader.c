@@ -62,6 +62,12 @@ const char* lovrSkyboxFragmentShader = ""
 "}"
 "";
 
+const char* lovrNoopVertexShader = ""
+"vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
+"  return vertex; \n"
+"}"
+"";
+
 GLuint compileShader(GLenum type, const char* source) {
   GLuint shader = glCreateShader(type);
 

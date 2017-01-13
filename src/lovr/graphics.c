@@ -477,7 +477,18 @@ int l_lovrGraphicsTriangle(lua_State* L) {
 }
 
 int l_lovrGraphicsPlane(lua_State* L) {
-  DrawMode* drawMode = luax_checkenum(L, 1, &DrawModes, "draw mode");
+  Texture* texture = NULL;
+  DrawMode drawMode;
+  if (lua_isstring(L, 1)) {
+    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  } else {
+    drawMode = DRAW_MODE_FILL;
+    texture = luax_checktype(L, 1, Texture);
+    if (lua_gettop(L) == 1) {
+      lovrGraphicsPlaneFullscreen(texture);
+      return 0;
+    }
+  }
   float x = luaL_optnumber(L, 2, 0.f);
   float y = luaL_optnumber(L, 3, 0.f);
   float z = luaL_optnumber(L, 4, 0.f);
@@ -485,12 +496,19 @@ int l_lovrGraphicsPlane(lua_State* L) {
   float nx = luaL_optnumber(L, 6, 0.f);
   float ny = luaL_optnumber(L, 7, 1.f);
   float nz = luaL_optnumber(L, 8, 0.f);
-  lovrGraphicsPlane(*drawMode, x, y, z, s, nx, ny, nz);
+  lovrGraphicsPlane(drawMode, texture, x, y, z, s, nx, ny, nz);
   return 0;
 }
 
 int l_lovrGraphicsCube(lua_State* L) {
-  DrawMode* drawMode = luax_checkenum(L, 1, &DrawModes, "draw mode");
+  Texture* texture = NULL;
+  DrawMode drawMode;
+  if (lua_isstring(L, 1)) {
+    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  } else {
+    drawMode = DRAW_MODE_FILL;
+    texture = luax_checktype(L, 1, Texture);
+  }
   float x = luaL_optnumber(L, 2, 0.f);
   float y = luaL_optnumber(L, 3, 0.f);
   float z = luaL_optnumber(L, 4, 0.f);
@@ -499,7 +517,7 @@ int l_lovrGraphicsCube(lua_State* L) {
   float axisX = luaL_optnumber(L, 7, 0.f);
   float axisY = luaL_optnumber(L, 8, 1.f);
   float axisZ = luaL_optnumber(L, 9, 0.f);
-  lovrGraphicsCube(*drawMode, x, y, z, s, angle, axisX, axisY, axisZ);
+  lovrGraphicsCube(drawMode, texture, x, y, z, s, angle, axisX, axisY, axisZ);
   return 0;
 }
 

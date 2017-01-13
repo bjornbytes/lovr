@@ -38,6 +38,7 @@ extern const char* lovrDefaultVertexShader;
 extern const char* lovrDefaultFragmentShader;
 extern const char* lovrSkyboxVertexShader;
 extern const char* lovrSkyboxFragmentShader;
+extern const char* lovrNoopVertexShader;
 
 GLuint compileShader(GLuint type, const char* source);
 GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader);
