@@ -493,4 +493,6 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
 
   vive->isRendering = 0;
   lovrGraphicsPopCanvas();
+
+  lovrGraphicsPlaneFullscreen(vive->texture);
 }
