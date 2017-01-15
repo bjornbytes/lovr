@@ -19,28 +19,60 @@ Texture* lovrTextureCreate(TextureData* textureData) {
   lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
 
   texture->framebuffer = 0;
-  texture->renderbuffer = 0;
+  texture->depthBuffer = 0;
 
   return texture;
 }
 
-Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection) {
+Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa) {
   Texture* texture = lovrTextureCreate(textureData);
   if (!texture) return NULL;
 
+  int width = texture->textureData->width;
+  int height = texture->textureData->height;
   texture->projection = projection;
+  texture->msaa = msaa;
+
+  // Framebuffer
   glGenFramebuffers(1, &texture->framebuffer);
   glBindFramebuffer(GL_FRAMEBUFFER, texture->framebuffer);
 
-  if (projection == PROJECTION_PERSPECTIVE) {
-    glGenRenderbuffers(1, &texture->renderbuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, texture->renderbuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, textureData->width, textureData->height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, texture->renderbuffer);
+  // Color attachment
+  if (msaa) {
+    glGenRenderbuffers(1, &texture->msaaId);
+    glBindRenderbuffer(GL_RENDERBUFFER, texture->msaaId);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, GL_RGBA8, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, texture->msaaId);
+  } else {
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->id, 0);
   }
 
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->id, 0);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  // Depth attachment
+  if (projection == PROJECTION_PERSPECTIVE) {
+    glGenRenderbuffers(1, &texture->depthBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, texture->depthBuffer);
+    if (msaa) {
+      glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, GL_DEPTH_COMPONENT, width, height);
+    } else {
+      glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+    }
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, texture->depthBuffer);
+  }
+
+  // Resolve framebuffer
+  if (msaa) {
+    glGenFramebuffers(1, &texture->resolveFramebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, texture->resolveFramebuffer);
+    glBindTexture(GL_TEXTURE_2D, texture->id);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->id, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, texture->framebuffer);
+  }
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    error("Error creating texture\n");
+  } else {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  }
 
   return texture;
 }
@@ -93,6 +125,21 @@ void lovrTextureBindFramebuffer(Texture* texture) {
     mat4_setPerspective(newProjection, near, far, fov, aspect);
     lovrGraphicsSetProjectionRaw(newProjection);
   }
+}
+
+void lovrTextureResolveMSAA(Texture* texture) {
+  if (!texture->msaa) {
+    return;
+  }
+
+  int w = texture->textureData->width;
+  int h = texture->textureData->height;
+
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, texture->framebuffer);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, texture->resolveFramebuffer);
+  glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 int lovrTextureGetHeight(Texture* texture) {

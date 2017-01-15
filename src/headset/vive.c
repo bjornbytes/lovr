@@ -509,7 +509,6 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     mat4_fromMat44(projectionMatrix, matrix);
 
     // Render
-    glEnable(GL_MULTISAMPLE);
     lovrGraphicsBindFramebuffer(vive->framebuffer);
     lovrGraphicsClear(1, 1);
     lovrGraphicsPush();
@@ -519,7 +518,6 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     callback(i, userdata);
     lovrGraphicsPop();
     lovrGraphicsBindFramebuffer(0);
-    glDisable(GL_MULTISAMPLE);
 
     // Blit
     glBindFramebuffer(GL_READ_FRAMEBUFFER, vive->framebuffer);

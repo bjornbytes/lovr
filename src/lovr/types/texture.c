@@ -65,6 +65,7 @@ int l_lovrTextureRenderTo(lua_State* L) {
   lovrTextureBindFramebuffer(texture);
   lua_settop(L, 2);
   lua_call(L, 0, 0);
+  lovrTextureResolveMSAA(texture);
   lovrGraphicsPopCanvas();
   return 0;
 }

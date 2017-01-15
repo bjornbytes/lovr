@@ -678,8 +678,9 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     int width = luaL_checknumber(L, 1);
     int height = luaL_checknumber(L, 2);
     TextureProjection* projection = luax_optenum(L, 3, "2d", &TextureProjections, "projection");
+    int msaa = luaL_optnumber(L, 4, 0);
     TextureData* textureData = lovrTextureDataGetEmpty(width, height);
-    texture = lovrTextureCreateWithFramebuffer(textureData, *projection);
+    texture = lovrTextureCreateWithFramebuffer(textureData, *projection, msaa);
   }
 
   luax_pushtype(L, Texture, texture);

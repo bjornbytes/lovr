@@ -34,23 +34,27 @@ typedef struct {
   Ref ref;
   TextureData* textureData;
   GLuint id;
+  GLuint msaaId;
   GLuint framebuffer;
-  GLuint renderbuffer;
+  GLuint resolveFramebuffer;
+  GLuint depthBuffer;
   TextureProjection projection;
   FilterMode filterMin;
   FilterMode filterMag;
   WrapMode wrapHorizontal;
   WrapMode wrapVertical;
+  int msaa;
 } Texture;
 
 #endif
 
 Texture* lovrTextureCreate(TextureData* textureData);
-Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection);
+Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa);
 void lovrTextureDestroy(const Ref* ref);
 void lovrTextureDataDestroy(TextureData* textureData);
 void lovrTextureBind(Texture* texture);
 void lovrTextureBindFramebuffer(Texture* texture);
+void lovrTextureResolveMSAA(Texture* texture);
 void lovrTextureRefresh(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);
 int lovrTextureGetWidth(Texture* texture);
