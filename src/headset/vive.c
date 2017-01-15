@@ -453,7 +453,6 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
   float (*matrix)[4];
 
   lovrGraphicsPushCanvas();
-  lovrTextureBindFramebuffer(vive->texture);
   vive->isRendering = 1;
   vive->compositor->WaitGetPoses(vive->renderPoses, 16, NULL, 0);
 
@@ -474,6 +473,7 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     mat4_fromMat44(projectionMatrix, matrix);
 
     // Render
+    lovrTextureBindFramebuffer(vive->texture);
     lovrGraphicsPush();
     lovrGraphicsOrigin();
     lovrGraphicsMatrixTransform(transformMatrix);
