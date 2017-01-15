@@ -1,4 +1,5 @@
 #include "headset/headset.h"
+#include "graphics/texture.h"
 #include "glfw.h"
 #include "openvr.h"
 
@@ -27,11 +28,7 @@ typedef struct {
   uint32_t renderWidth;
   uint32_t renderHeight;
 
-  GLuint framebuffer;
-  GLuint depthbuffer;
-  GLuint texture;
-  GLuint resolveFramebuffer;
-  GLuint resolveTexture;
+  Texture* texture;
 } Vive;
 
 #endif

@@ -1,6 +1,7 @@
 #include "headset/vive.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
+#include "loaders/texture.h"
 #include "util.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -83,11 +84,6 @@ Headset* viveInit() {
   headset->renderTo = viveRenderTo;
 
   vive->isRendering = 0;
-  vive->framebuffer = 0;
-  vive->depthbuffer = 0;
-  vive->texture = 0;
-  vive->resolveFramebuffer = 0;
-  vive->resolveTexture = 0;
   vec_init(&vive->controllers);
 
   for (int i = 0; i < 16; i++) {
@@ -146,35 +142,8 @@ Headset* viveInit() {
 
   viveRefreshControllers(vive);
 
-  glGenFramebuffers(1, &vive->framebuffer);
-  glBindFramebuffer(GL_FRAMEBUFFER, vive->framebuffer);
-
-  glGenRenderbuffers(1, &vive->depthbuffer);
-  glBindRenderbuffer(GL_RENDERBUFFER, vive->depthbuffer);
-  glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, vive->renderWidth, vive->renderHeight);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, vive->depthbuffer);
-
-  glGenTextures(1, &vive->texture);
-  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, vive->texture);
-  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, vive->renderWidth, vive->renderHeight, 1);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, vive->texture, 0);
-
-  glGenFramebuffers(1, &vive->resolveFramebuffer);
-  glBindFramebuffer(GL_FRAMEBUFFER, vive->resolveFramebuffer);
-
-  glGenTextures(1, &vive->resolveTexture);
-  glBindTexture(GL_TEXTURE_2D, vive->resolveTexture);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, vive->renderWidth, vive->renderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, vive->resolveTexture, 0);
-
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    viveDestroy(vive);
-    return NULL;
-  }
-
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  TextureData* textureData = lovrTextureDataGetEmpty(vive->renderWidth, vive->renderHeight);
+  vive->texture = lovrTextureCreateWithFramebuffer(textureData, PROJECTION_PERSPECTIVE, 4);
 
   return headset;
 }
@@ -196,11 +165,7 @@ void vivePoll(void* headset) {
 
 void viveDestroy(void* headset) {
   Vive* vive = (Vive*) headset;
-  glDeleteFramebuffers(1, &vive->framebuffer);
-  glDeleteFramebuffers(1, &vive->resolveFramebuffer);
-  glDeleteRenderbuffers(1, &vive->depthbuffer);
-  glDeleteTextures(1, &vive->texture);
-  glDeleteTextures(1, &vive->resolveTexture);
+  lovrRelease(&vive->texture->ref);
   for (int i = 0; i < 16; i++) {
     if (vive->deviceModels[i].isLoaded) {
       vive->renderModels->FreeRenderModel(vive->deviceModels[i].model);
@@ -488,7 +453,7 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
   float (*matrix)[4];
 
   lovrGraphicsPushCanvas();
-  lovrGraphicsSetViewport(0, 0, vive->renderWidth, vive->renderHeight);
+  lovrTextureBindFramebuffer(vive->texture);
   vive->isRendering = 1;
   vive->compositor->WaitGetPoses(vive->renderPoses, 16, NULL, 0);
 
@@ -509,25 +474,17 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     mat4_fromMat44(projectionMatrix, matrix);
 
     // Render
-    lovrGraphicsBindFramebuffer(vive->framebuffer);
-    lovrGraphicsClear(1, 1);
     lovrGraphicsPush();
     lovrGraphicsOrigin();
     lovrGraphicsMatrixTransform(transformMatrix);
     lovrGraphicsSetProjectionRaw(projectionMatrix);
+    lovrGraphicsClear(1, 1);
     callback(i, userdata);
     lovrGraphicsPop();
-    lovrGraphicsBindFramebuffer(0);
-
-    // Blit
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, vive->framebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, vive->resolveFramebuffer);
-    glBlitFramebuffer(0, 0, vive->renderWidth, vive->renderHeight, 0, 0, vive->renderWidth, vive->renderHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    lovrTextureResolveMSAA(vive->texture);
 
     // Submit
-    uintptr_t texture = (uintptr_t) vive->resolveTexture;
+    uintptr_t texture = (uintptr_t) vive->texture->id;
     ETextureType textureType = ETextureType_TextureType_OpenGL;
     Texture_t eyeTexture = { (void*) texture, textureType, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
