@@ -31,7 +31,7 @@ ModelData* lovrModelDataFromFile(void* data, int size) {
   modelData->hasNormals = 0;
   modelData->hasTexCoords = 0;
 
-  unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_FlipUVs;
+  unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph;
   const struct aiScene* scene = aiImportFileFromMemory(data, size, flags, NULL);
 
   // Meshes
