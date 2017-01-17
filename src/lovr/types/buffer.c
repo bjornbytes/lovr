@@ -208,6 +208,11 @@ int l_lovrBufferSetVertices(lua_State* L) {
   BufferFormat format = lovrBufferGetVertexFormat(buffer);
   luaL_checktype(L, 2, LUA_TTABLE);
   int vertexCount = lua_objlen(L, 2);
+
+  if (vertexCount > lovrBufferGetVertexCount(buffer)) {
+    return luaL_error(L, "Too many vertices for Buffer\n", lovrBufferGetVertexCount(buffer));
+  }
+
   char* vertices = malloc(buffer->stride * vertexCount);
   char* vertex = vertices;
 
