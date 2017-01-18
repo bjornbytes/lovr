@@ -73,7 +73,7 @@ static int luax_pushobjectname(lua_State* L) {
   return 1;
 }
 
-void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions) {
+void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, lua_CFunction gc) {
 
   // Push metatable
   luaL_newmetatable(L, name);
@@ -84,8 +84,10 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   lua_setfield(L, -1, "__index");
 
   // m.__gc = gc
-  lua_pushcfunction(L, luax_releasetype);
-  lua_setfield(L, -2, "__gc");
+  if (gc) {
+    lua_pushcfunction(L, gc);
+    lua_setfield(L, -2, "__gc");
+  }
 
   // m.name = name
   lua_pushstring(L, name);

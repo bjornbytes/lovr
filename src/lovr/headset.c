@@ -38,7 +38,7 @@ const luaL_Reg lovrHeadset[] = {
 int l_lovrHeadsetInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
-  luax_registertype(L, "Controller", lovrController);
+  luax_registertype(L, "Controller", lovrController, luax_releasetype);
 
   map_init(&ControllerAxes);
   map_set(&ControllerAxes, "trigger", CONTROLLER_AXIS_TRIGGER);

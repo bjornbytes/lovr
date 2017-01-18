@@ -43,7 +43,7 @@ void lovrRetain(const Ref* ref);
 void lovrRelease(const Ref* ref);
 
 int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f);
-void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions);
+void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, lua_CFunction gc);
 int luax_releasetype(lua_State* L);
 void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName);
 void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map, const char* typeName);
