@@ -1,5 +1,5 @@
 #include "glfw.h"
-#include "matrix.h"
+#include "math/mat4.h"
 #include "vendor/map/map.h"
 #include "util.h"
 

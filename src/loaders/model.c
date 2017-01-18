@@ -9,7 +9,7 @@ static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
   // Transform
   struct aiMatrix4x4 m = assimpNode->mTransformation;
   aiTransposeMatrix4(&m);
-  node->transform = mat4_copy((float*) &m);
+  node->transform = mat4_set(mat4_init(), (float*) &m);
 
   // Meshes
   vec_init(&node->meshes);

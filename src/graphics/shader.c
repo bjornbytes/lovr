@@ -175,8 +175,8 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 void lovrShaderDestroy(const Ref* ref) {
   Shader* shader = containerof(ref, Shader);
   glDeleteProgram(shader->id);
-  mat4_deinit(shader->transform);
-  mat4_deinit(shader->projection);
+  free(shader->transform);
+  free(shader->projection);
   map_deinit(&shader->uniforms);
   free(shader);
 }

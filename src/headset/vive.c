@@ -2,6 +2,8 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "loaders/texture.h"
+#include "math/mat4.h"
+#include "math/quat.h"
 #include "util.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -265,7 +267,9 @@ void viveGetOrientation(void* headset, float* w, float* x, float* y, float *z) {
   }
 
   float matrix[16];
-  mat4_getRotation(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), w, x, y, z);
+  float rotation[4];
+  mat4_toQuat(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), rotation);
+  quat_toAngleAxis(rotation, w, x, y, z);
 }
 
 void viveGetVelocity(void* headset, float* x, float* y, float* z) {
@@ -349,7 +353,9 @@ void viveControllerGetOrientation(void* headset, Controller* controller, float* 
   }
 
   float matrix[16];
-  mat4_getRotation(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), w, x, y, z);
+  float rotation[4];
+  mat4_toQuat(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), rotation);
+  quat_toAngleAxis(rotation, w, x, y, z);
 }
 
 float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxis axis) {

@@ -109,7 +109,7 @@ void lovrTextureBindFramebuffer(Texture* texture) {
 
   if (texture->projection == PROJECTION_ORTHOGRAPHIC) {
     float projection[16];
-    mat4_setOrthographic(projection, 0, w, 0, h, -1, 1);
+    mat4_orthographic(projection, 0, w, 0, h, -1, 1);
     lovrGraphicsSetProjectionRaw(projection);
   } else if (texture->projection == PROJECTION_PERSPECTIVE) {
     mat4 projection = lovrGraphicsGetProjection();
@@ -122,7 +122,7 @@ void lovrTextureBindFramebuffer(Texture* texture) {
     float far = k * near;
     float fov = 2.f * atan(1.f / b);
     float newProjection[16];
-    mat4_setPerspective(newProjection, near, far, fov, aspect);
+    mat4_perspective(newProjection, near, far, fov, aspect);
     lovrGraphicsSetProjectionRaw(newProjection);
   }
 }

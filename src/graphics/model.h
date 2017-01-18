@@ -1,6 +1,7 @@
 #include "graphics/buffer.h"
 #include "graphics/texture.h"
-#include "matrix.h"
+#include "math/mat4.h"
+#include "math/vec3.h"
 #include "glfw.h"
 #include "util.h"
 #include "vendor/vec/vec.h"

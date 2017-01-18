@@ -1,5 +1,6 @@
 #include "graphics/graphics.h"
 #include "loaders/texture.h"
+#include "math/quat.h"
 #include "util.h"
 #include "glfw.h"
 #define _USE_MATH_DEFINES
@@ -39,7 +40,7 @@ void lovrGraphicsDestroy() {
   lovrGraphicsSetShader(NULL);
   glUseProgram(0);
   for (int i = 0; i < MAX_TRANSFORMS; i++) {
-    mat4_deinit(state.transforms[i]);
+    free(state.transforms[i]);
   }
   for (int i = 0; i < MAX_CANVASES; i++) {
     free(state.canvases[i]);
@@ -203,7 +204,7 @@ mat4 lovrGraphicsGetProjection() {
 void lovrGraphicsSetProjection(float near, float far, float fov) {
   int width, height;
   glfwGetWindowSize(window, &width, &height);
-  mat4_setPerspective(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
+  mat4_perspective(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
 }
 
 void lovrGraphicsSetProjectionRaw(mat4 projection) {
@@ -333,7 +334,7 @@ int lovrGraphicsPop() {
 }
 
 void lovrGraphicsOrigin() {
-  mat4_setIdentity(state.transforms[state.transform]);
+  mat4_identity(state.transforms[state.transform]);
 }
 
 void lovrGraphicsTranslate(float x, float y, float z) {
@@ -341,7 +342,10 @@ void lovrGraphicsTranslate(float x, float y, float z) {
 }
 
 void lovrGraphicsRotate(float angle, float ax, float ay, float az) {
-  mat4_rotate(state.transforms[state.transform], angle, ax, ay, az);
+  float rotation[4];
+  float axis[3] = { ax, ay, az };
+  quat_fromAngleAxis(rotation, angle, axis);
+  mat4_rotate(state.transforms[state.transform], rotation);
 }
 
 void lovrGraphicsScale(float x, float y, float z) {
@@ -349,12 +353,16 @@ void lovrGraphicsScale(float x, float y, float z) {
 }
 
 void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
+  float rotation[4];
+  float axis[3] = { ax, ay, az };
+  quat_fromAngleAxis(rotation, angle, axis);
 
   // M *= T * S * R
   float transform[16];
-  mat4_setTranslation(transform, tx, ty, tz);
+  mat4_identity(transform);
+  mat4_translate(transform, tx, ty, tz);
   mat4_scale(transform, sx, sy, sz);
-  mat4_rotate(transform, angle, ax, ay, az);
+  mat4_rotate(transform, rotation);
   lovrGraphicsMatrixTransform(transform);
 }
 

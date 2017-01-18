@@ -3,7 +3,7 @@
 #include "graphics/shader.h"
 #include "graphics/skybox.h"
 #include "graphics/texture.h"
-#include "matrix.h"
+#include "math/mat4.h"
 
 #ifndef LOVR_GRAPHICS_TYPES
 #define LOVR_GRAPHICS_TYPES

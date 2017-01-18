@@ -3,12 +3,10 @@
 #include <stdlib.h>
 
 static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec_float_t* vertices, vec_uint_t* indices) {
-  mat4 newTransform;
+  mat4 newTransform = mat4_init();
 
-  if (!transform) {
-    newTransform = mat4_init();
-  } else {
-    newTransform = mat4_copy(transform);
+  if (transform) {
+    mat4_set(newTransform, transform);
   }
 
   mat4_multiply(newTransform, node->transform);
@@ -23,15 +21,14 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
     for (int v = 0; v < mesh->vertices.length; v++) {
       ModelVertex vertex = mesh->vertices.data[v];
 
-      float transformedVertex[4] = {
+      float vec[3] = {
         vertex.x,
         vertex.y,
-        vertex.z,
-        1.f
+        vertex.z
       };
 
-      mat4_multiplyVector(newTransform, transformedVertex);
-      vec_pusharr(vertices, transformedVertex, 3);
+      vec3_transform(vec, newTransform);
+      vec_pusharr(vertices, vec, 3);
 
       if (modelData->hasNormals) {
         ModelVertex normal = mesh->normals.data[v];
@@ -60,7 +57,7 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
     visitNode(modelData, node->children.data[c], newTransform, vertices, indices);
   }
 
-  mat4_deinit(newTransform);
+  free(newTransform);
 }
 
 Model* lovrModelCreate(ModelData* modelData) {
@@ -136,7 +133,7 @@ void lovrModelDataDestroy(ModelData* modelData) {
   while (nodes.length > 0) {
     ModelNode* node = vec_first(&nodes);
     vec_extend(&nodes, &node->children);
-    mat4_deinit(node->transform);
+    free(node->transform);
     vec_deinit(&node->meshes);
     vec_deinit(&node->children);
     vec_splice(&nodes, 0, 1);
