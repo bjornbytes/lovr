@@ -172,22 +172,6 @@ mat4 mat4_translate(mat4 m, float x, float y, float z) {
   return m;
 }
 
-mat4 mat4_scale(mat4 m, float x, float y, float z) {
-  m[0] *= x;
-  m[1] *= x;
-  m[2] *= x;
-  m[3] *= x;
-  m[4] *= y;
-  m[5] *= y;
-  m[6] *= y;
-  m[7] *= y;
-  m[8] *= z;
-  m[9] *= z;
-  m[10] *= z;
-  m[11] *= z;
-  return m;
-}
-
 mat4 mat4_rotate(mat4 m, quat q) {
   float x = q[0];
   float y = q[1];
@@ -205,6 +189,22 @@ mat4 mat4_rotate(mat4 m, quat q) {
   rotation[9] = 2 * y * z - 2 * w * x;
   rotation[10] = 1 - 2 * x * x - 2 * y * y;
   return mat4_multiply(m, rotation);
+}
+
+mat4 mat4_scale(mat4 m, float x, float y, float z) {
+  m[0] *= x;
+  m[1] *= x;
+  m[2] *= x;
+  m[3] *= x;
+  m[4] *= y;
+  m[5] *= y;
+  m[6] *= y;
+  m[7] *= y;
+  m[8] *= z;
+  m[9] *= z;
+  m[10] *= z;
+  m[11] *= z;
+  return m;
 }
 
 mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float near, float far) {
