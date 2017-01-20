@@ -76,6 +76,7 @@ const luaL_Reg lovrGraphics[] = {
   { "translate", l_lovrGraphicsTranslate },
   { "rotate", l_lovrGraphicsRotate },
   { "scale", l_lovrGraphicsScale },
+  { "transform", l_lovrGraphicsTransform },
   { "points", l_lovrGraphicsPoints },
   { "line", l_lovrGraphicsLine },
   { "triangle", l_lovrGraphicsTriangle },
@@ -441,6 +442,13 @@ int l_lovrGraphicsScale(lua_State* L) {
   float y = luaL_checknumber(L, 2);
   float z = luaL_checknumber(L, 3);
   lovrGraphicsScale(x, y, z);
+  return 0;
+}
+
+int l_lovrGraphicsTransform(lua_State* L) {
+  float transform[16];
+  luax_readtransform(L, 1, transform);
+  lovrGraphicsMatrixTransform(transform);
   return 0;
 }
 

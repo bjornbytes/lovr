@@ -56,6 +56,7 @@ int l_lovrGraphicsOrigin(lua_State* L);
 int l_lovrGraphicsTranslate(lua_State* L);
 int l_lovrGraphicsRotate(lua_State* L);
 int l_lovrGraphicsScale(lua_State* L);
+int l_lovrGraphicsTransform(lua_State* L);
 
 // Primitives
 int l_lovrGraphicsPoints(lua_State* L);
