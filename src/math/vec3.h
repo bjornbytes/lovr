@@ -1,7 +1,7 @@
 #include "math/math.h"
 
-vec3 vec3_init(float x, float y, float z);
-vec3 vec3_set(vec3 v, vec3 u);
+vec3 vec3_init(vec3 v, vec3 u);
+vec3 vec3_set(vec3 v, float x, float y, float z);
 vec3 vec3_add(vec3 v, vec3 u);
 vec3 vec3_sub(vec3 v, vec3 u);
 vec3 vec3_mul(vec3 v, vec3 u);

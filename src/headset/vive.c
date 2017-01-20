@@ -257,19 +257,19 @@ void viveGetPosition(void* headset, float* x, float* y, float* z) {
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
 }
 
-void viveGetOrientation(void* headset, float* w, float* x, float* y, float *z) {
+void viveGetOrientation(void* headset, float* angle, float* x, float* y, float *z) {
   Vive* vive = (Vive*) headset;
   TrackedDevicePose_t pose = viveGetPose(vive, vive->headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *w = *x = *y = *z = 0.f;
+    *angle = *x = *y = *z = 0.f;
     return;
   }
 
   float matrix[16];
   float rotation[4];
-  mat4_toQuat(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), rotation);
-  quat_toAngleAxis(rotation, w, x, y, z);
+  quat_fromMat4(rotation, mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m));
+  quat_getAngleAxis(rotation, angle, x, y, z);
 }
 
 void viveGetVelocity(void* headset, float* x, float* y, float* z) {
@@ -343,19 +343,19 @@ void viveControllerGetPosition(void* headset, Controller* controller, float* x, 
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
 }
 
-void viveControllerGetOrientation(void* headset, Controller* controller, float* w, float* x, float* y, float* z) {
+void viveControllerGetOrientation(void* headset, Controller* controller, float* angle, float* x, float* y, float* z) {
   Vive* vive = (Vive*) headset;
   TrackedDevicePose_t pose = viveGetPose(vive, controller->id);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *w = *x = *y = *z = 0.f;
+    *angle = *x = *y = *z = 0.f;
     return;
   }
 
   float matrix[16];
   float rotation[4];
-  mat4_toQuat(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), rotation);
-  quat_toAngleAxis(rotation, w, x, y, z);
+  quat_fromMat4(rotation, mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m));
+  quat_getAngleAxis(rotation, angle, x, y, z);
 }
 
 float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxis axis) {

@@ -1,10 +1,14 @@
 #include "math/quat.h"
 #include "math/vec3.h"
+#include "util.h"
 #include <math.h>
 #include <stdlib.h>
 
-quat quat_init(float x, float y, float z, float w) {
-  quat q = malloc(4 * sizeof(float));
+quat quat_init(quat q, quat r) {
+  return quat_set(q, r[0], r[1], r[2], r[3]);
+}
+
+quat quat_set(quat q, float x, float y, float z, float w) {
   q[0] = x;
   q[1] = y;
   q[2] = z;
@@ -25,19 +29,28 @@ quat quat_fromAngleAxis(quat q, float angle, vec3 axis) {
 
 quat quat_fromDirection(quat q, vec3 forward, vec3 up) {
   vec3 qq = (vec3) q;
-  vec3_set(qq, forward);
+  vec3_init(qq, forward);
   vec3_normalize(qq);
-  vec3_normalize(up);
   q[3] = 1 + vec3_dot(qq, up);
   vec3_cross(qq, up);
   return q;
 }
 
-quat quat_set(quat q, quat r) {
-  q[0] = r[0];
-  q[1] = r[1];
-  q[2] = r[2];
-  q[3] = r[3];
+quat quat_fromMat4(quat q, mat4 m) {
+  float x = sqrt(MAX(0, 1 + m[0] - m[5] - m[10])) / 2;
+  float y = sqrt(MAX(0, 1 - m[0] + m[5] - m[10])) / 2;
+  float z = sqrt(MAX(0, 1 - m[0] - m[5] + m[10])) / 2;
+  float w = sqrt(MAX(0, 1 + m[0] + m[5] + m[10])) / 2;
+
+  x = (m[9] - m[6]) > 0 ? -x : x;
+  y = (m[2] - m[8]) > 0 ? -y : y;
+  z = (m[4] - m[1]) > 0 ? -z : z;
+
+  q[0] = x;
+  q[1] = y;
+  q[2] = z;
+  q[3] = w;
+
   return q;
 }
 
@@ -111,25 +124,22 @@ quat quat_between(quat q, vec3 u, vec3 v) {
     q[3] = 1.f;
     return q;
   } else if (dot < -.99999) {
-    float axis[3] = { 1, 0, 0 };
-    vec3_cross(axis, u);
+    float axis[3];
+    vec3_cross(vec3_set(axis, 1, 0, 0), u);
     if (vec3_length(axis) < .00001) {
-      axis[0] = 0;
-      axis[1] = 1;
-      axis[2] = 0;
-      vec3_cross(axis, u);
+      vec3_cross(vec3_set(axis, 0, 1, 0), u);
     }
     vec3_normalize(axis);
     quat_fromAngleAxis(q, M_PI, axis);
     return q;
   }
 
-  vec3_cross(vec3_set(q, u), v);
+  vec3_cross(vec3_init(q, u), v);
   q[3] = 1 + dot;
   return quat_normalize(q);
 }
 
-void quat_toAngleAxis(quat q, float* angle, float* x, float* y, float* z) {
+void quat_getAngleAxis(quat q, float* angle, float* x, float* y, float* z) {
   if (q[3] > 1 || q[3] < -1) {
     quat_normalize(q);
   }

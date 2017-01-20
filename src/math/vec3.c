@@ -3,18 +3,14 @@
 #include <math.h>
 #include <stdlib.h>
 
-vec3 vec3_init(float x, float y, float z) {
-  vec3 v = malloc(3 * sizeof(float));
+vec3 vec3_init(vec3 v, vec3 u) {
+  return vec3_set(v, u[0], u[1], u[2]);
+}
+
+vec3 vec3_set(vec3 v, float x, float y, float z) {
   v[0] = x;
   v[1] = y;
   v[2] = z;
-  return v;
-}
-
-vec3 vec3_set(vec3 v, vec3 u) {
-  v[0] = u[0];
-  v[1] = u[1];
-  v[2] = u[2];
   return v;
 }
 
@@ -55,15 +51,7 @@ vec3 vec3_scale(vec3 v, float s) {
 
 vec3 vec3_normalize(vec3 v) {
   float len = vec3_length(v);
-  if (len == 0) {
-    return v;
-  }
-
-  len = 1 / len;
-  v[0] *= len;
-  v[1] *= len;
-  v[2] *= len;
-  return v;
+  return len == 0 ? v : vec3_scale(v, 1 / len);
 }
 
 float vec3_length(vec3 v) {
@@ -86,21 +74,19 @@ float vec3_dot(vec3 v, vec3 u) {
 }
 
 vec3 vec3_cross(vec3 v, vec3 u) {
-  float v0 = v[0];
-  float v1 = v[1];
-  float v2 = v[2];
-  v[0] =  v1 * u[2] - v2 * u[1];
-  v[1] =  v0 * u[2] - v2 * u[0];
-  v[2] =  v0 * u[1] - v1 * u[0];
-  return v;
+  return vec3_set(v,
+    v[1] * u[2] - v[2] * u[1],
+    v[2] * u[0] - v[0] * u[2],
+    v[0] * u[1] - v[1] * u[0]
+  );
 }
 
 vec3 vec3_rotate(vec3 v, quat q) {
   float s = q[3];
   float u[3];
   float c[3];
-  vec3_set(u, q);
-  vec3_cross(vec3_set(c, u), v);
+  vec3_init(u, q);
+  vec3_cross(vec3_init(c, u), v);
   float uu = vec3_dot(u, u);
   float uv = vec3_dot(u, v);
   vec3_scale(u, 2 * uv);
@@ -110,13 +96,11 @@ vec3 vec3_rotate(vec3 v, quat q) {
 }
 
 vec3 vec3_transform(vec3 v, mat4 m) {
-  float v0 = v[0];
-  float v1 = v[1];
-  float v2 = v[2];
-  v[0] = v0 * m[0] + v1 * m[4] + v2 * m[8] + m[12];
-  v[1] = v0 * m[1] + v1 * m[5] + v2 * m[9] + m[13];
-  v[2] = v0 * m[2] + v1 * m[6] + v2 * m[10] + m[14];
-  return v;
+  return vec3_set(v,
+    v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12],
+    v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13],
+    v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14]
+  );
 }
 
 vec3 vec3_lerp(vec3 v, vec3 u, float t) {

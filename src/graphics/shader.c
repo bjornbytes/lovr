@@ -162,8 +162,8 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 
   // Initial state
   shader->id = id;
-  shader->transform = mat4_init();
-  shader->projection = mat4_init();
+  mat4_identity(shader->transform);
+  mat4_identity(shader->projection);
   shader->color = 0;
 
   // Send initial uniform values to shader
@@ -175,8 +175,6 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 void lovrShaderDestroy(const Ref* ref) {
   Shader* shader = containerof(ref, Shader);
   glDeleteProgram(shader->id);
-  free(shader->transform);
-  free(shader->projection);
   map_deinit(&shader->uniforms);
   free(shader);
 }

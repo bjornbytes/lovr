@@ -33,7 +33,7 @@ typedef struct {
 typedef vec_t(ModelMesh*) vec_model_mesh_t;
 
 typedef struct ModelNode {
-  mat4 transform;
+  float transform[16];
   vec_uint_t meshes;
   vec_void_t children;
 } ModelNode;

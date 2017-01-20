@@ -24,17 +24,18 @@ int l_lovrMathInit(lua_State* L) {
 }
 
 int l_lovrMathNewVector(lua_State* L) {
+  float x, y, z;
+
   if (lua_gettop(L) == 1) {
-    vec3 v = luax_newvector(L);
-    v[0] = v[1] = v[2] = luaL_checknumber(L, 1);
-    return 1;
+    x = y = z = luaL_checknumber(L, 1);
   } else {
-    vec3 v = luax_newvector(L);
-    v[0] = luaL_checknumber(L, 1);
-    v[1] = luaL_checknumber(L, 2);
-    v[2] = luaL_checknumber(L, 3);
-    return 1;
+    x = luaL_checknumber(L, 1);
+    y = luaL_checknumber(L, 2);
+    z = luaL_checknumber(L, 3);
   }
+
+  vec3_set(luax_newvector(L), x, y, z);
+  return 1;
 }
 
 int l_lovrMathNewRotation(lua_State* L) {
@@ -68,12 +69,9 @@ int l_lovrMathNewTransform(lua_State* L) {
     float ax = luaL_optnumber(L, 6, 0);
     float ay = luaL_optnumber(L, 7, 0);
     float az = luaL_optnumber(L, 8, 0);
-    float rotation[4];
-    float axis[3] = { ax, ay, az };
-    quat_fromAngleAxis(rotation, angle, axis);
     mat4_translate(m, x, y, z);
     mat4_scale(m, s, s, s);
-    mat4_rotate(m, rotation);
+    mat4_rotate(m, angle, ax, ay, az);
   }
 
   return 1;

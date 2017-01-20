@@ -15,9 +15,6 @@ static GraphicsState state;
 // Base
 
 void lovrGraphicsInit() {
-  for (int i = 0; i < MAX_TRANSFORMS; i++) {
-    state.transforms[i] = mat4_init();
-  }
   for (int i = 0; i < MAX_CANVASES; i++) {
     state.canvases[i] = malloc(sizeof(CanvasState));
   }
@@ -39,9 +36,6 @@ void lovrGraphicsInit() {
 void lovrGraphicsDestroy() {
   lovrGraphicsSetShader(NULL);
   glUseProgram(0);
-  for (int i = 0; i < MAX_TRANSFORMS; i++) {
-    free(state.transforms[i]);
-  }
   for (int i = 0; i < MAX_CANVASES; i++) {
     free(state.canvases[i]);
   }
@@ -342,27 +336,20 @@ void lovrGraphicsTranslate(float x, float y, float z) {
 }
 
 void lovrGraphicsRotate(float angle, float ax, float ay, float az) {
-  float rotation[4];
-  float axis[3] = { ax, ay, az };
-  quat_fromAngleAxis(rotation, angle, axis);
-  mat4_rotate(state.transforms[state.transform], rotation);
+  mat4_rotate(state.transforms[state.transform], angle, ax, ay, az);
 }
 
 void lovrGraphicsScale(float x, float y, float z) {
   mat4_scale(state.transforms[state.transform], x, y, z);
 }
 
+// M *= T * S * R
 void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
-  float rotation[4];
-  float axis[3] = { ax, ay, az };
-  quat_fromAngleAxis(rotation, angle, axis);
-
-  // M *= T * S * R
   float transform[16];
   mat4_identity(transform);
   mat4_translate(transform, tx, ty, tz);
   mat4_scale(transform, sx, sy, sz);
-  mat4_rotate(transform, rotation);
+  mat4_rotate(transform, angle, ax, ay, az);
   lovrGraphicsMatrixTransform(transform);
 }
 

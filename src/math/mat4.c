@@ -1,5 +1,6 @@
 #include "math/mat4.h"
-#include "util.h"
+#include "math/quat.h"
+#include "math/vec3.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,9 +10,8 @@
 // m2 m6 m10 m14
 // m3 m7 m11 m15
 
-mat4 mat4_init() {
-  mat4 m = malloc(16 * sizeof(float));
-  return mat4_identity(m);
+mat4 mat4_set(mat4 m, mat4 n) {
+  return memcpy(m, n, 16 * sizeof(float));
 }
 
 mat4 mat4_fromMat34(mat4 m, float (*n)[4]) {
@@ -52,10 +52,6 @@ mat4 mat4_fromMat44(mat4 m, float (*n)[4]) {
   m[14] = n[2][3];
   m[15] = n[3][3];
   return m;
-}
-
-mat4 mat4_set(mat4 m, mat4 n) {
-  return memcpy(m, n, 16 * sizeof(float));
 }
 
 mat4 mat4_identity(mat4 m) {
@@ -172,7 +168,14 @@ mat4 mat4_translate(mat4 m, float x, float y, float z) {
   return m;
 }
 
-mat4 mat4_rotate(mat4 m, quat q) {
+mat4 mat4_rotate(mat4 m, float angle, float x, float y, float z) {
+  float q[4];
+  float v[3];
+  quat_fromAngleAxis(q, angle, vec3_set(v, x, y, z));
+  return mat4_rotateQuat(m, q);
+}
+
+mat4 mat4_rotateQuat(mat4 m, quat q) {
   float x = q[0];
   float y = q[1];
   float z = q[2];
@@ -236,22 +239,4 @@ mat4 mat4_perspective(mat4 m, float near, float far, float fovy, float aspect) {
   m[14] = pz;
   m[15] = 0.0f;
   return m;
-}
-
-quat mat4_toQuat(mat4 m, quat q) {
-  float x = sqrt(MAX(0, 1 + m[0] - m[5] - m[10])) / 2;
-  float y = sqrt(MAX(0, 1 - m[0] + m[5] - m[10])) / 2;
-  float z = sqrt(MAX(0, 1 - m[0] - m[5] + m[10])) / 2;
-  float w = sqrt(MAX(0, 1 + m[0] + m[5] + m[10])) / 2;
-
-  x = (m[9] - m[6]) > 0 ? -x : x;
-  y = (m[2] - m[8]) > 0 ? -y : y;
-  z = (m[4] - m[1]) > 0 ? -z : z;
-
-  q[0] = x;
-  q[1] = y;
-  q[2] = z;
-  q[3] = w;
-
-  return q;
 }

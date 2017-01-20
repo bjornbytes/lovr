@@ -50,10 +50,10 @@ typedef struct {
   Shader* skyboxShader;
   Shader* fullscreenShader;
   Texture* defaultTexture;
-  int transform;
-  mat4 transforms[MAX_TRANSFORMS];
-  int canvas;
+  float transforms[MAX_TRANSFORMS][16];
   CanvasState* canvases[MAX_CANVASES];
+  int transform;
+  int canvas;
   unsigned int color;
   char colorMask;
   int isScissorEnabled;

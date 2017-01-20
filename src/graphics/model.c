@@ -3,10 +3,12 @@
 #include <stdlib.h>
 
 static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec_float_t* vertices, vec_uint_t* indices) {
-  mat4 newTransform = mat4_init();
+  float newTransform[16];
 
   if (transform) {
     mat4_set(newTransform, transform);
+  } else {
+    mat4_identity(newTransform);
   }
 
   mat4_multiply(newTransform, node->transform);
@@ -21,12 +23,8 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
     for (int v = 0; v < mesh->vertices.length; v++) {
       ModelVertex vertex = mesh->vertices.data[v];
 
-      float vec[3] = {
-        vertex.x,
-        vertex.y,
-        vertex.z
-      };
-
+      float vec[3];
+      vec3_set(vec, vertex.x, vertex.y, vertex.z);
       vec3_transform(vec, newTransform);
       vec_pusharr(vertices, vec, 3);
 
@@ -56,8 +54,6 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
   for (int c = 0; c < node->children.length; c++) {
     visitNode(modelData, node->children.data[c], newTransform, vertices, indices);
   }
-
-  free(newTransform);
 }
 
 Model* lovrModelCreate(ModelData* modelData) {
@@ -133,7 +129,6 @@ void lovrModelDataDestroy(ModelData* modelData) {
   while (nodes.length > 0) {
     ModelNode* node = vec_first(&nodes);
     vec_extend(&nodes, &node->children);
-    free(node->transform);
     vec_deinit(&node->meshes);
     vec_deinit(&node->children);
     vec_splice(&nodes, 0, 1);
