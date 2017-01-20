@@ -4,10 +4,12 @@
 #include "lovr/types/shader.h"
 #include "lovr/types/skybox.h"
 #include "lovr/types/texture.h"
+#include "lovr/types/transform.h"
 #include "graphics/graphics.h"
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "filesystem/filesystem.h"
+#include "math/mat4.h"
 #include "util.h"
 #include <math.h>
 
@@ -509,15 +511,9 @@ int l_lovrGraphicsCube(lua_State* L) {
     drawMode = DRAW_MODE_FILL;
     texture = luax_checktype(L, 1, Texture);
   }
-  float x = luaL_optnumber(L, 2, 0.f);
-  float y = luaL_optnumber(L, 3, 0.f);
-  float z = luaL_optnumber(L, 4, 0.f);
-  float s = luaL_optnumber(L, 5, 1.f);
-  float angle = luaL_optnumber(L, 6, 0.f);
-  float axisX = luaL_optnumber(L, 7, 0.f);
-  float axisY = luaL_optnumber(L, 8, 1.f);
-  float axisZ = luaL_optnumber(L, 9, 0.f);
-  lovrGraphicsCube(drawMode, texture, x, y, z, s, angle, axisX, axisY, axisZ);
+  float transform[16];
+  luax_readtransform(L, 2, transform);
+  lovrGraphicsCube(drawMode, texture, transform);
   return 0;
 }
 

@@ -58,6 +58,6 @@ typedef struct {
 Model* lovrModelCreate(ModelData* modelData);
 void lovrModelDestroy(const Ref* ref);
 void lovrModelDataDestroy(ModelData* modelData);
-void lovrModelDraw(Model* model, float x, float y, float z, float scale, float angle, float ax, float ay, float az);
+void lovrModelDraw(Model* model, mat4 transform);
 Texture* lovrModelGetTexture(Model* model);
 void lovrModelSetTexture(Model* model, Texture* texture);

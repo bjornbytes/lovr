@@ -5,6 +5,7 @@
 
 mat4 luax_newtransform(lua_State* L);
 mat4 luax_checktransform(lua_State* L, int i);
+void luax_readtransform(lua_State* L, int i, mat4 transform);
 
 extern const luaL_Reg lovrTransform[];
 int l_lovrTransformClone(lua_State* L);

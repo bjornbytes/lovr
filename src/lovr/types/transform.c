@@ -15,6 +15,25 @@ mat4 luax_checktransform(lua_State* L, int i) {
   return luaL_checkudata(L, i, "Transform");
 }
 
+void luax_readtransform(lua_State* L, int i, mat4 m) {
+  if (lua_isnumber(L, i)) {
+    float x = luaL_optnumber(L, i++, 0);
+    float y = luaL_optnumber(L, i++, 0);
+    float z = luaL_optnumber(L, i++, 0);
+    float s = luaL_optnumber(L, i++, 1);
+    float angle = luaL_optnumber(L, i++, 0);
+    float ax = luaL_optnumber(L, i++, 0);
+    float ay = luaL_optnumber(L, i++, 1);
+    float az = luaL_optnumber(L, i++, 0);
+    mat4_identity(m);
+    mat4_translate(m, x, y, z);
+    mat4_scale(m, s, s, s);
+    mat4_rotate(m, angle, ax, ay, az);
+  } else {
+    mat4_init(m, luax_checktransform(L, i));
+  }
+}
+
 const luaL_Reg lovrTransform[] = {
   { "clone", l_lovrTransformClone },
   { "unpack", l_lovrTransformUnpack },

@@ -499,9 +499,9 @@ void lovrGraphicsPlaneFullscreen(Texture* texture) {
   lovrRelease(&lastShader->ref);
 }
 
-void lovrGraphicsCube(DrawMode mode, Texture* texture, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ) {
+void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform) {
   lovrGraphicsPush();
-  lovrGraphicsTransform(x, y, z, size, size, size, angle, axisX, axisY, axisZ);
+  lovrGraphicsMatrixTransform(transform);
 
   if (mode == DRAW_MODE_LINE) {
     float points[] = {

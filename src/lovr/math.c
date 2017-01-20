@@ -59,20 +59,8 @@ int l_lovrMathNewTransform(lua_State* L) {
   int hasArgs = lua_gettop(L) > 0;
   mat4 m = luax_newtransform(L);
   mat4_identity(m);
-
   if (hasArgs) {
-    float x = luaL_checknumber(L, 1);
-    float y = luaL_checknumber(L, 2);
-    float z = luaL_checknumber(L, 3);
-    float s = luaL_optnumber(L, 4, 1);
-    float angle = luaL_optnumber(L, 5, 0);
-    float ax = luaL_optnumber(L, 6, 0);
-    float ay = luaL_optnumber(L, 7, 0);
-    float az = luaL_optnumber(L, 8, 0);
-    mat4_translate(m, x, y, z);
-    mat4_scale(m, s, s, s);
-    mat4_rotate(m, angle, ax, ay, az);
+    luax_readtransform(L, 1, m);
   }
-
   return 1;
 }
