@@ -415,16 +415,13 @@ void lovrGraphicsTriangle(DrawMode mode, float* points) {
     vec_pusharr(&state.shapeData, points, 9);
     lovrGraphicsDrawPrimitive(GL_LINE_LOOP, NULL, 0, 0, 0);
   } else {
-    float n[3] = {
-      points[1] * points[5] - points[2] * points[4],
-      points[2] * points[3] - points[0] * points[5],
-      points[0] * points[4] - points[1] * points[3]
-    };
+    float normal[3];
+    vec3_cross(vec3_init(normal, &points[0]), &points[3]);
 
     float data[18] = {
-      points[0], points[1], points[2], n[0], n[1], n[2],
-      points[3], points[4], points[5], n[0], n[1], n[2],
-      points[6], points[7], points[8], n[0], n[1], n[2]
+      points[0], points[1], points[2], normal[0], normal[1], normal[2],
+      points[3], points[4], points[5], normal[0], normal[1], normal[2],
+      points[6], points[7], points[8], normal[0], normal[1], normal[2]
     };
 
     vec_clear(&state.shapeData);
@@ -437,7 +434,7 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float 
 
   // Normalize the normal vector
   float len = sqrt(nx * nx + ny * ny + nz + nz);
-  if (len != 1) {
+  if (len != 0) {
     len = 1 / len;
     nx *= len;
     ny *= len;

@@ -1,5 +1,7 @@
 #include "audio/audio.h"
 #include "loaders/source.h"
+#include "math/vec3.h"
+#include "math/quat.h"
 #include "util.h"
 #include <stdlib.h>
 #include <math.h>
@@ -7,12 +9,6 @@
 static AudioState state;
 
 static LPALCRESETDEVICESOFT alcResetDeviceSOFT;
-
-static void cross(float ux, float uy, float uz, float vx, float vy, float vz, float* x, float* y, float* z) {
-  *x = uy * vz - uz * vy;
-  *y = ux * vz - uz * vx;
-  *z = ux * vy - uy * vx;
-}
 
 void lovrAudioInit() {
   ALCdevice* device = alcOpenDevice(NULL);
@@ -35,6 +31,9 @@ void lovrAudioInit() {
   state.device = device;
   state.context = context;
   vec_init(&state.sources);
+
+  vec3_set(state.position, 0, 0, 0);
+  quat_set(state.orientation, 0, 0, 0, -1);
 }
 
 void lovrAudioDestroy() {
@@ -73,29 +72,7 @@ void lovrAudioAdd(Source* source) {
 }
 
 void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az) {
-  float v[6];
-  alGetListenerfv(AL_ORIENTATION, v);
-  float cx, cy, cz;
-  cross(v[0], v[1], v[2], v[3], v[4], v[5], &cx, &cy, &cz);
-  float w = 1 + v[0] * v[3] + v[1] * v[4] + v[2] * v[5];
-  float len = sqrt(cx * cx + cy * cy + cz * cz + w * w);
-  if (len != 1) {
-    cx /= len;
-    cy /= len;
-    cz /= len;
-    w /= len;
-  }
-  *angle = 2 * acos(w);
-  float s = sqrt(1 - w * w);
-  if (s < .001) {
-    *ax = cx;
-    *ay = cy;
-    *az = cz;
-  } else {
-    *ax = cx / s;
-    *ay = cy / s;
-    *az = cz / s;
-  }
+  quat_getAngleAxis(state.orientation, angle, ax, ay, az);
 }
 
 void lovrAudioGetPosition(float* x, float* y, float* z) {
@@ -135,52 +112,23 @@ void lovrAudioRewind() {
   }
 }
 
-// Help
 void lovrAudioSetOrientation(float angle, float ax, float ay, float az) {
 
-  // Quaternion
-  float cos2 = cos(angle / 2.f);
-  float sin2 = sin(angle / 2.f);
-  float qx = sin2 * ax;
-  float qy = sin2 * ay;
-  float qz = sin2 * az;
-  float s = cos2;
+  // Rotate the unit forward/up vectors by the quaternion derived from the specified angle/axis
+  float f[3] = { 0, 0, -1 };
+  float u[3] = { 0, 1, 0 };
+  float axis[3] = { ax, ay, az };
+  quat_fromAngleAxis(state.orientation, angle, axis);
+  vec3_rotate(f, state.orientation);
+  vec3_rotate(u, state.orientation);
 
-  float vx, vy, vz, qdotv, qdotq, a, b, c, cx, cy, cz;
-
-  // Forward
-  vx = 0;
-  vy = 0;
-  vz = -1;
-  qdotv = qx * vx + qy * vy + qz * vz;
-  qdotq = qx * qx + qy * qy + qz * qz;
-  a = 2 * qdotv;
-  b = s * s - qdotq;
-  c = 2 * s;
-  cross(qx, qy, qz, vx, vy, vz, &cx, &cy, &cz);
-  float fx = a * qx + b * vx + c * cx;
-  float fy = a * qy + b * vy + c * cy;
-  float fz = a * qz + b * vz + c * cz;
-
-  // Up
-  vx = 0;
-  vy = 1;
-  vz = 0;
-  qdotv = qx * vx + qy * vy + qz * vz;
-  qdotq = qx * qx + qy * qy + qz * qz;
-  a = 2 * qdotv;
-  b = s * s - qdotq;
-  c = 2 * s;
-  cross(qx, qy, qz, vx, vy, vz, &cx, &cy, &cz);
-  float ux = a * qx + b * vx + c * cx;
-  float uy = a * qy + b * vy + c * cy;
-  float uz = a * qz + b * vz + c * cz;
-
-  ALfloat orientation[6] = { fx, fy, fz, ux, uy, uz };
+  // Pass the rotated orientation vectors to OpenAL
+  ALfloat orientation[6] = { f[0], f[1], f[2], u[0], u[1], u[2] };
   alListenerfv(AL_ORIENTATION, orientation);
 }
 
 void lovrAudioSetPosition(float x, float y, float z) {
+  vec3_set(state.position, x, y, z);
   alListener3f(AL_POSITION, x, y, z);
 }
 
