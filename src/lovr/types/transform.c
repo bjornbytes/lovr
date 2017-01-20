@@ -36,7 +36,6 @@ void luax_readtransform(lua_State* L, int i, mat4 m) {
 
 const luaL_Reg lovrTransform[] = {
   { "clone", l_lovrTransformClone },
-  { "unpack", l_lovrTransformUnpack },
   { "apply", l_lovrTransformApply },
   { "inverse", l_lovrTransformInverse },
   { "origin", l_lovrTransformOrigin },
@@ -52,10 +51,6 @@ int l_lovrTransformClone(lua_State* L) {
   mat4 m = luax_checktransform(L, 1);
   mat4_set(luax_newtransform(L), m);
   return 1;
-}
-
-int l_lovrTransformUnpack(lua_State* L) {
-  return 0;
 }
 
 int l_lovrTransformApply(lua_State* L) {

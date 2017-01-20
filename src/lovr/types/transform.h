@@ -9,7 +9,6 @@ void luax_readtransform(lua_State* L, int i, mat4 transform);
 
 extern const luaL_Reg lovrTransform[];
 int l_lovrTransformClone(lua_State* L);
-int l_lovrTransformUnpack(lua_State* L);
 int l_lovrTransformApply(lua_State* L);
 int l_lovrTransformInverse(lua_State* L);
 int l_lovrTransformOrigin(lua_State* L);
