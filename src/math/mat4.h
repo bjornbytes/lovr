@@ -5,7 +5,6 @@ mat4 mat4_set(mat4 m, mat4 n);
 mat4 mat4_fromMat34(mat4 m, float (*n)[4]);
 mat4 mat4_fromMat44(mat4 m, float (*n)[4]);
 mat4 mat4_identity(mat4 m);
-mat4 mat4_transpose(mat4 m);
 mat4 mat4_invert(mat4 m);
 mat4 mat4_multiply(mat4 m, mat4 n);
 mat4 mat4_translate(mat4 m, float x, float y, float z);

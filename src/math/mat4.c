@@ -60,28 +60,6 @@ mat4 mat4_identity(mat4 m) {
   return m;
 }
 
-mat4 mat4_transpose(mat4 m) {
-  float m1 = m[1];
-  float m2 = m[2];
-  float m3 = m[3];
-  float m6 = m[6];
-  float m7 = m[7];
-  float m11 = m[11];
-  m[1] = m[4];
-  m[2] = m[8];
-  m[3] = m[12];
-  m[4] = m1;
-  m[6] = m[9];
-  m[7] = m[13];
-  m[8] = m2;
-  m[9] = m6;
-  m[11] = m[14];
-  m[12] = m3;
-  m[13] = m7;
-  m[14] = m11;
-  return m;
-}
-
 // Modified from gl-matrix.c
 mat4 mat4_invert(mat4 m) {
   float a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3],

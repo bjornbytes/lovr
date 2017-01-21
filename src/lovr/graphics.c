@@ -9,7 +9,6 @@
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "filesystem/filesystem.h"
-#include "math/mat4.h"
 #include "util.h"
 #include <math.h>
 
