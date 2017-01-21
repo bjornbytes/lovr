@@ -1,6 +1,6 @@
 #include "graphics/buffer.h"
 #include "graphics/texture.h"
-#include "matrix.h"
+#include "math/math.h"
 #include "glfw.h"
 #include "util.h"
 #include "vendor/vec/vec.h"
@@ -32,7 +32,7 @@ typedef struct {
 typedef vec_t(ModelMesh*) vec_model_mesh_t;
 
 typedef struct ModelNode {
-  mat4 transform;
+  float transform[16];
   vec_uint_t meshes;
   vec_void_t children;
 } ModelNode;
@@ -57,6 +57,6 @@ typedef struct {
 Model* lovrModelCreate(ModelData* modelData);
 void lovrModelDestroy(const Ref* ref);
 void lovrModelDataDestroy(ModelData* modelData);
-void lovrModelDraw(Model* model, float x, float y, float z, float scale, float angle, float ax, float ay, float az);
+void lovrModelDraw(Model* model, mat4 transform);
 Texture* lovrModelGetTexture(Model* model);
 void lovrModelSetTexture(Model* model, Texture* texture);

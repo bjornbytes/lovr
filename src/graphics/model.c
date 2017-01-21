@@ -1,14 +1,16 @@
 #include "graphics/model.h"
 #include "graphics/graphics.h"
+#include "math/mat4.h"
+#include "math/vec3.h"
 #include <stdlib.h>
 
 static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec_float_t* vertices, vec_uint_t* indices) {
-  mat4 newTransform;
+  float newTransform[16];
 
-  if (!transform) {
-    newTransform = mat4_init();
+  if (transform) {
+    mat4_set(newTransform, transform);
   } else {
-    newTransform = mat4_copy(transform);
+    mat4_identity(newTransform);
   }
 
   mat4_multiply(newTransform, node->transform);
@@ -23,15 +25,9 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
     for (int v = 0; v < mesh->vertices.length; v++) {
       ModelVertex vertex = mesh->vertices.data[v];
 
-      float transformedVertex[4] = {
-        vertex.x,
-        vertex.y,
-        vertex.z,
-        1.f
-      };
-
-      mat4_multiplyVector(newTransform, transformedVertex);
-      vec_pusharr(vertices, transformedVertex, 3);
+      float vec[3] = { vertex.x, vertex.y, vertex.z };
+      mat4_transform(newTransform, vec);
+      vec_pusharr(vertices, vec, 3);
 
       if (modelData->hasNormals) {
         ModelVertex normal = mesh->normals.data[v];
@@ -59,8 +55,6 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
   for (int c = 0; c < node->children.length; c++) {
     visitNode(modelData, node->children.data[c], newTransform, vertices, indices);
   }
-
-  mat4_deinit(newTransform);
 }
 
 Model* lovrModelCreate(ModelData* modelData) {
@@ -136,7 +130,6 @@ void lovrModelDataDestroy(ModelData* modelData) {
   while (nodes.length > 0) {
     ModelNode* node = vec_first(&nodes);
     vec_extend(&nodes, &node->children);
-    mat4_deinit(node->transform);
     vec_deinit(&node->meshes);
     vec_deinit(&node->children);
     vec_splice(&nodes, 0, 1);
@@ -148,9 +141,9 @@ void lovrModelDataDestroy(ModelData* modelData) {
   free(modelData);
 }
 
-void lovrModelDraw(Model* model, float x, float y, float z, float scale, float angle, float ax, float ay, float az) {
+void lovrModelDraw(Model* model, mat4 transform) {
   lovrGraphicsPush();
-  lovrGraphicsTransform(x, y, z, scale, scale, scale, angle, ax, ay, az);
+  lovrGraphicsMatrixTransform(transform);
   lovrBufferDraw(model->buffer);
   lovrGraphicsPop();
 }

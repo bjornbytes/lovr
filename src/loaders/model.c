@@ -1,4 +1,5 @@
 #include "loaders/model.h"
+#include "math/mat4.h"
 #include <stdlib.h>
 #include <assimp/scene.h>
 #include <assimp/cimport.h>
@@ -9,7 +10,7 @@ static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
   // Transform
   struct aiMatrix4x4 m = assimpNode->mTransformation;
   aiTransposeMatrix4(&m);
-  node->transform = mat4_copy((float*) &m);
+  mat4_set(node->transform, (float*) &m);
 
   // Meshes
   vec_init(&node->meshes);
@@ -148,7 +149,6 @@ ModelData* lovrModelDataFromOpenVRModel(OpenVRModel* vrModel) {
   }
 
   ModelNode* root = malloc(sizeof(ModelNode));
-  root->transform = mat4_init();
   vec_init(&root->meshes);
   vec_push(&root->meshes, 0);
   vec_init(&root->children);

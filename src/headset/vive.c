@@ -2,6 +2,8 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "loaders/texture.h"
+#include "math/mat4.h"
+#include "math/quat.h"
 #include "util.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -255,17 +257,19 @@ void viveGetPosition(void* headset, float* x, float* y, float* z) {
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
 }
 
-void viveGetOrientation(void* headset, float* w, float* x, float* y, float *z) {
+void viveGetOrientation(void* headset, float* angle, float* x, float* y, float *z) {
   Vive* vive = (Vive*) headset;
   TrackedDevicePose_t pose = viveGetPose(vive, vive->headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *w = *x = *y = *z = 0.f;
+    *angle = *x = *y = *z = 0.f;
     return;
   }
 
   float matrix[16];
-  mat4_getRotation(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), w, x, y, z);
+  float rotation[4];
+  quat_fromMat4(rotation, mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m));
+  quat_getAngleAxis(rotation, angle, x, y, z);
 }
 
 void viveGetVelocity(void* headset, float* x, float* y, float* z) {
@@ -339,17 +343,19 @@ void viveControllerGetPosition(void* headset, Controller* controller, float* x, 
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
 }
 
-void viveControllerGetOrientation(void* headset, Controller* controller, float* w, float* x, float* y, float* z) {
+void viveControllerGetOrientation(void* headset, Controller* controller, float* angle, float* x, float* y, float* z) {
   Vive* vive = (Vive*) headset;
   TrackedDevicePose_t pose = viveGetPose(vive, controller->id);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *w = *x = *y = *z = 0.f;
+    *angle = *x = *y = *z = 0.f;
     return;
   }
 
   float matrix[16];
-  mat4_getRotation(mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m), w, x, y, z);
+  float rotation[4];
+  quat_fromMat4(rotation, mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m));
+  quat_getAngleAxis(rotation, angle, x, y, z);
 }
 
 float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxis axis) {
@@ -449,7 +455,7 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
   Vive* vive = (Vive*) headset;
-  float headMatrix[16], eyeMatrix[16], projectionMatrix[16];
+  float head[16], transform[16], projection[16];
   float (*matrix)[4];
 
   lovrGraphicsPushCanvas();
@@ -458,28 +464,27 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
 
   // Head transform
   matrix = vive->renderPoses[vive->headsetIndex].mDeviceToAbsoluteTracking.m;
-  mat4_invert(mat4_fromMat34(headMatrix, matrix));
+  mat4_invert(mat4_fromMat34(head, matrix));
 
-  for (int i = 0; i < 2; i++) {
-    EVREye eye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
+  for (EVREye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
 
     // Eye transform
     matrix = vive->system->GetEyeToHeadTransform(eye).m;
-    mat4_invert(mat4_fromMat34(eyeMatrix, matrix));
-    mat4 transformMatrix = mat4_multiply(eyeMatrix, headMatrix);
+    mat4_invert(mat4_fromMat34(transform, matrix));
+    mat4_multiply(transform, head);
 
     // Projection
     matrix = vive->system->GetProjectionMatrix(eye, vive->clipNear, vive->clipFar).m;
-    mat4_fromMat44(projectionMatrix, matrix);
+    mat4_fromMat44(projection, matrix);
 
     // Render
     lovrTextureBindFramebuffer(vive->texture);
     lovrGraphicsPush();
     lovrGraphicsOrigin();
-    lovrGraphicsMatrixTransform(transformMatrix);
-    lovrGraphicsSetProjectionRaw(projectionMatrix);
+    lovrGraphicsMatrixTransform(transform);
+    lovrGraphicsSetProjectionRaw(projection);
     lovrGraphicsClear(1, 1);
-    callback(i, userdata);
+    callback(eye - EYE_LEFT, userdata);
     lovrGraphicsPop();
     lovrTextureResolveMSAA(vive->texture);
 
@@ -493,6 +498,5 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
 
   vive->isRendering = 0;
   lovrGraphicsPopCanvas();
-
   lovrGraphicsPlaneFullscreen(vive->texture);
 }

@@ -3,7 +3,7 @@
 #include "graphics/shader.h"
 #include "graphics/skybox.h"
 #include "graphics/texture.h"
-#include "matrix.h"
+#include "math/math.h"
 
 #ifndef LOVR_GRAPHICS_TYPES
 #define LOVR_GRAPHICS_TYPES
@@ -50,10 +50,10 @@ typedef struct {
   Shader* skyboxShader;
   Shader* fullscreenShader;
   Texture* defaultTexture;
-  int transform;
-  mat4 transforms[MAX_TRANSFORMS];
-  int canvas;
+  float transforms[MAX_TRANSFORMS][16];
   CanvasState* canvases[MAX_CANVASES];
+  int transform;
+  int canvas;
   unsigned int color;
   char colorMask;
   int isScissorEnabled;
@@ -124,7 +124,6 @@ void lovrGraphicsOrigin();
 void lovrGraphicsTranslate(float x, float y, float z);
 void lovrGraphicsRotate(float angle, float ax, float ay, float az);
 void lovrGraphicsScale(float x, float y, float z);
-void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az);
 void lovrGraphicsMatrixTransform(mat4 transform);
 
 // Primitives
@@ -134,5 +133,5 @@ void lovrGraphicsLine(float* points, int count);
 void lovrGraphicsTriangle(DrawMode mode, float* points);
 void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float z, float size, float nx, float ny, float nz);
 void lovrGraphicsPlaneFullscreen(Texture* texture);
-void lovrGraphicsCube(DrawMode mode, Texture* texture, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ);
+void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform);
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az);

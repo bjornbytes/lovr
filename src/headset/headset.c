@@ -108,13 +108,13 @@ void lovrHeadsetGetPosition(float* x, float* y, float* z) {
   headset->getPosition(headset, x, y, z);
 }
 
-void lovrHeadsetGetOrientation(float* w, float* x, float* y, float* z) {
+void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
   if (!headset) {
-    *w = *x = *y = *z = 0.f;
+    *angle = *x = *y = *z = 0.f;
     return;
   }
 
-  headset->getOrientation(headset, w, x, y, z);
+  headset->getOrientation(headset, angle, x, y, z);
 }
 
 void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
@@ -160,13 +160,13 @@ void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y
   headset->controllerGetPosition(headset, controller, x, y, z);
 }
 
-void lovrHeadsetControllerGetOrientation(Controller* controller, float* w, float* x, float* y, float* z) {
+void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
   if (!headset || !controller) {
-    *w = *x = *y = *z = 0.f;
+    *angle = *x = *y = *z = 0.f;
     return;
   }
 
-  headset->controllerGetOrientation(headset, controller, w, x, y, z);
+  headset->controllerGetOrientation(headset, controller, angle, x, y, z);
 }
 
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {

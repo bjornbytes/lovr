@@ -1,4 +1,5 @@
 #include "graphics/shader.h"
+#include "math/mat4.h"
 #include "util.h"
 #include <stdlib.h>
 
@@ -162,8 +163,8 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 
   // Initial state
   shader->id = id;
-  shader->transform = mat4_init();
-  shader->projection = mat4_init();
+  mat4_identity(shader->transform);
+  mat4_identity(shader->projection);
   shader->color = 0;
 
   // Send initial uniform values to shader
@@ -175,8 +176,6 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 void lovrShaderDestroy(const Ref* ref) {
   Shader* shader = containerof(ref, Shader);
   glDeleteProgram(shader->id);
-  mat4_deinit(shader->transform);
-  mat4_deinit(shader->projection);
   map_deinit(&shader->uniforms);
   free(shader);
 }

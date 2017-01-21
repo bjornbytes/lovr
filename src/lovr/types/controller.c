@@ -34,9 +34,9 @@ int l_lovrControllerGetPosition(lua_State* L) {
 
 int l_lovrControllerGetOrientation(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  float w, x, y, z;
-  lovrHeadsetControllerGetOrientation(controller, &w, &x, &y, &z);
-  lua_pushnumber(L, w);
+  float angle, x, y, z;
+  lovrHeadsetControllerGetOrientation(controller, &angle, &x, &y, &z);
+  lua_pushnumber(L, angle);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);

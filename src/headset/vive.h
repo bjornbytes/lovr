@@ -6,6 +6,9 @@
 #ifndef LOVR_VIVE_TYPES
 #define LOVR_VIVE_TYPES
 
+#define EYE_LEFT EVREye_Eye_Left
+#define EYE_RIGHT EVREye_Eye_Right
+
 typedef struct {
   Headset headset;
 
@@ -47,14 +50,14 @@ void viveGetBoundsGeometry(void* headset, float* geometry);
 char viveIsBoundsVisible(void* headset);
 void viveSetBoundsVisible(void* headset, char visible);
 void viveGetPosition(void* headset, float* x, float* y, float* z);
-void viveGetOrientation(void* headset, float* w, float* x, float* y, float* z);
+void viveGetOrientation(void* headset, float* angle, float* x, float* y, float* z);
 void viveGetVelocity(void* headset, float* x, float* y, float* z);
 void viveGetAngularVelocity(void* headset, float* x, float* y, float* z);
 Controller* viveAddController(void* headset, unsigned int deviceIndex);
 vec_controller_t* viveGetControllers(void* headset);
 char viveControllerIsPresent(void* headset, Controller* controller);
 void viveControllerGetPosition(void* headset, Controller* controller, float* x, float* y, float* z);
-void viveControllerGetOrientation(void* headset, Controller* controller, float* w, float* x, float* y, float* z);
+void viveControllerGetOrientation(void* headset, Controller* controller, float* angle, float* x, float* y, float* z);
 float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxis axis);
 int viveControllerIsDown(void* headset, Controller* controller, ControllerButton button);
 void viveControllerVibrate(void* headset, Controller* controller, float duration);

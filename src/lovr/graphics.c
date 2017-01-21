@@ -4,6 +4,7 @@
 #include "lovr/types/shader.h"
 #include "lovr/types/skybox.h"
 #include "lovr/types/texture.h"
+#include "lovr/types/transform.h"
 #include "graphics/graphics.h"
 #include "loaders/model.h"
 #include "loaders/texture.h"
@@ -74,6 +75,7 @@ const luaL_Reg lovrGraphics[] = {
   { "translate", l_lovrGraphicsTranslate },
   { "rotate", l_lovrGraphicsRotate },
   { "scale", l_lovrGraphicsScale },
+  { "transform", l_lovrGraphicsTransform },
   { "points", l_lovrGraphicsPoints },
   { "line", l_lovrGraphicsLine },
   { "triangle", l_lovrGraphicsTriangle },
@@ -442,6 +444,13 @@ int l_lovrGraphicsScale(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsTransform(lua_State* L) {
+  float transform[16];
+  luax_readtransform(L, 1, transform);
+  lovrGraphicsMatrixTransform(transform);
+  return 0;
+}
+
 // Primitives
 
 int l_lovrGraphicsPoints(lua_State* L) {
@@ -509,15 +518,9 @@ int l_lovrGraphicsCube(lua_State* L) {
     drawMode = DRAW_MODE_FILL;
     texture = luax_checktype(L, 1, Texture);
   }
-  float x = luaL_optnumber(L, 2, 0.f);
-  float y = luaL_optnumber(L, 3, 0.f);
-  float z = luaL_optnumber(L, 4, 0.f);
-  float s = luaL_optnumber(L, 5, 1.f);
-  float angle = luaL_optnumber(L, 6, 0.f);
-  float axisX = luaL_optnumber(L, 7, 0.f);
-  float axisY = luaL_optnumber(L, 8, 1.f);
-  float axisZ = luaL_optnumber(L, 9, 0.f);
-  lovrGraphicsCube(drawMode, texture, x, y, z, s, angle, axisX, axisY, axisZ);
+  float transform[16];
+  luax_readtransform(L, 2, transform);
+  lovrGraphicsCube(drawMode, texture, transform);
   return 0;
 }
 

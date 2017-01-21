@@ -2,6 +2,8 @@
 #include "event/event.h"
 #include "util.h"
 
+static int pollRef;
+
 static int nextEvent(lua_State* L) {
   Event* event = lovrEventPoll();
 
@@ -44,6 +46,11 @@ const luaL_Reg lovrEvent[] = {
 int l_lovrEventInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrEvent);
+
+  // Store nextEvent in the registry to avoid creating a closure every time we poll for events.
+  lua_pushcfunction(L, nextEvent);
+  pollRef = luaL_ref(L, LUA_REGISTRYINDEX);
+
   map_init(&EventTypes);
   map_set(&EventTypes, "quit", EVENT_QUIT);
   lovrEventInit();
@@ -56,7 +63,7 @@ int l_lovrEventClear(lua_State* L) {
 }
 
 int l_lovrEventPoll(lua_State* L) {
-  lua_pushcclosure(L, nextEvent, 0);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, pollRef);
   return 1;
 }
 

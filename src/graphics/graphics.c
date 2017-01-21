@@ -1,5 +1,7 @@
 #include "graphics/graphics.h"
 #include "loaders/texture.h"
+#include "math/mat4.h"
+#include "math/vec3.h"
 #include "util.h"
 #include "glfw.h"
 #define _USE_MATH_DEFINES
@@ -14,9 +16,6 @@ static GraphicsState state;
 // Base
 
 void lovrGraphicsInit() {
-  for (int i = 0; i < MAX_TRANSFORMS; i++) {
-    state.transforms[i] = mat4_init();
-  }
   for (int i = 0; i < MAX_CANVASES; i++) {
     state.canvases[i] = malloc(sizeof(CanvasState));
   }
@@ -38,9 +37,6 @@ void lovrGraphicsInit() {
 void lovrGraphicsDestroy() {
   lovrGraphicsSetShader(NULL);
   glUseProgram(0);
-  for (int i = 0; i < MAX_TRANSFORMS; i++) {
-    mat4_deinit(state.transforms[i]);
-  }
   for (int i = 0; i < MAX_CANVASES; i++) {
     free(state.canvases[i]);
   }
@@ -203,7 +199,7 @@ mat4 lovrGraphicsGetProjection() {
 void lovrGraphicsSetProjection(float near, float far, float fov) {
   int width, height;
   glfwGetWindowSize(window, &width, &height);
-  mat4_setPerspective(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
+  mat4_perspective(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
 }
 
 void lovrGraphicsSetProjectionRaw(mat4 projection) {
@@ -333,7 +329,7 @@ int lovrGraphicsPop() {
 }
 
 void lovrGraphicsOrigin() {
-  mat4_setIdentity(state.transforms[state.transform]);
+  mat4_identity(state.transforms[state.transform]);
 }
 
 void lovrGraphicsTranslate(float x, float y, float z) {
@@ -346,16 +342,6 @@ void lovrGraphicsRotate(float angle, float ax, float ay, float az) {
 
 void lovrGraphicsScale(float x, float y, float z) {
   mat4_scale(state.transforms[state.transform], x, y, z);
-}
-
-void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
-
-  // M *= T * S * R
-  float transform[16];
-  mat4_setTranslation(transform, tx, ty, tz);
-  mat4_scale(transform, sx, sy, sz);
-  mat4_rotate(transform, angle, ax, ay, az);
-  lovrGraphicsMatrixTransform(transform);
 }
 
 void lovrGraphicsMatrixTransform(mat4 transform) {
@@ -420,16 +406,13 @@ void lovrGraphicsTriangle(DrawMode mode, float* points) {
     vec_pusharr(&state.shapeData, points, 9);
     lovrGraphicsDrawPrimitive(GL_LINE_LOOP, NULL, 0, 0, 0);
   } else {
-    float n[3] = {
-      points[1] * points[5] - points[2] * points[4],
-      points[2] * points[3] - points[0] * points[5],
-      points[0] * points[4] - points[1] * points[3]
-    };
+    float normal[3];
+    vec3_cross(vec3_init(normal, &points[0]), &points[3]);
 
     float data[18] = {
-      points[0], points[1], points[2], n[0], n[1], n[2],
-      points[3], points[4], points[5], n[0], n[1], n[2],
-      points[6], points[7], points[8], n[0], n[1], n[2]
+      points[0], points[1], points[2], normal[0], normal[1], normal[2],
+      points[3], points[4], points[5], normal[0], normal[1], normal[2],
+      points[6], points[7], points[8], normal[0], normal[1], normal[2]
     };
 
     vec_clear(&state.shapeData);
@@ -442,7 +425,7 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float 
 
   // Normalize the normal vector
   float len = sqrt(nx * nx + ny * ny + nz + nz);
-  if (len != 1) {
+  if (len != 0) {
     len = 1 / len;
     nx *= len;
     ny *= len;
@@ -457,8 +440,11 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float 
   // Angle between normal vector and the normal vector of the default geometry (dot product)
   float theta = acos(nz);
 
+  float transform[16];
+  mat4_setTransform(transform, x, y, z, size, theta, cx, cy, cz);
+
   lovrGraphicsPush();
-  lovrGraphicsTransform(x, y, z, size, size, size, theta, cx, cy, cz);
+  lovrGraphicsMatrixTransform(transform);
 
   if (mode == DRAW_MODE_LINE) {
     float points[] = {
@@ -507,9 +493,9 @@ void lovrGraphicsPlaneFullscreen(Texture* texture) {
   lovrRelease(&lastShader->ref);
 }
 
-void lovrGraphicsCube(DrawMode mode, Texture* texture, float x, float y, float z, float size, float angle, float axisX, float axisY, float axisZ) {
+void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform) {
   lovrGraphicsPush();
-  lovrGraphicsTransform(x, y, z, size, size, size, angle, axisX, axisY, axisZ);
+  lovrGraphicsMatrixTransform(transform);
 
   if (mode == DRAW_MODE_LINE) {
     float points[] = {

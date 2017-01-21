@@ -4,6 +4,7 @@
 #include "lovr/filesystem.h"
 #include "lovr/graphics.h"
 #include "lovr/headset.h"
+#include "lovr/math.h"
 #include "lovr/timer.h"
 #include "glfw.h"
 #include "util.h"
@@ -62,6 +63,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   luax_preloadmodule(L, "lovr.filesystem", l_lovrFilesystemInit);
   luax_preloadmodule(L, "lovr.graphics", l_lovrGraphicsInit);
   luax_preloadmodule(L, "lovr.headset", l_lovrHeadsetInit);
+  luax_preloadmodule(L, "lovr.math", l_lovrMathInit);
   luax_preloadmodule(L, "lovr.timer", l_lovrTimerInit);
 
   // Bootstrap
@@ -73,6 +75,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "    event = true, "
     "    graphics = true, "
     "    headset = true, "
+    "    math = true, "
     "    timer = true "
     "  } "
     "} "
@@ -88,7 +91,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "  success, err = pcall(lovr.conf, conf) "
     "end "
 
-    "local modules = { 'audio', 'event', 'graphics', 'headset', 'timer' } "
+    "local modules = { 'audio', 'event', 'graphics', 'headset', 'math', 'timer' } "
     "for _, module in ipairs(modules) do "
     "  if conf.modules[module] then "
     "    lovr[module] = require('lovr.' .. module) "

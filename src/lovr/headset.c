@@ -155,9 +155,9 @@ int l_lovrHeadsetGetPosition(lua_State* L) {
 }
 
 int l_lovrHeadsetGetOrientation(lua_State* L) {
-  float w, x, y, z;
-  lovrHeadsetGetOrientation(&w, &x, &y, &z);
-  lua_pushnumber(L, w);
+  float angle, x, y, z;
+  lovrHeadsetGetOrientation(&angle, &x, &y, &z);
+  lua_pushnumber(L, angle);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);

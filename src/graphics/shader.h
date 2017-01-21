@@ -1,5 +1,5 @@
 #include "glfw.h"
-#include "matrix.h"
+#include "math/math.h"
 #include "vendor/map/map.h"
 #include "util.h"
 
@@ -26,8 +26,8 @@ typedef struct {
   Ref ref;
   int id;
   map_uniform_t uniforms;
-  mat4 transform;
-  mat4 projection;
+  float transform[16];
+  float projection[16];
   unsigned int color;
 } Shader;
 #endif

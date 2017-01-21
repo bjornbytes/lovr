@@ -11,6 +11,8 @@ typedef struct {
   ALCdevice* device;
   ALCcontext* context;
   vec_void_t sources;
+  float position[3];
+  float orientation[4];
 } AudioState;
 
 #endif
