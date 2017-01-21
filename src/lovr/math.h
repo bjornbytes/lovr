@@ -4,6 +4,4 @@
 
 extern const luaL_Reg lovrMath[];
 int l_lovrMathInit(lua_State* L);
-int l_lovrMathNewVector(lua_State* L);
-int l_lovrMathNewRotation(lua_State* L);
 int l_lovrMathNewTransform(lua_State* L);

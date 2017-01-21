@@ -73,7 +73,7 @@ static int luax_pushobjectname(lua_State* L) {
   return 1;
 }
 
-void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, lua_CFunction gc) {
+void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions) {
 
   // Push metatable
   luaL_newmetatable(L, name);
@@ -84,10 +84,8 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   lua_setfield(L, -1, "__index");
 
   // m.__gc = gc
-  if (gc) {
-    lua_pushcfunction(L, gc);
-    lua_setfield(L, -2, "__gc");
-  }
+  lua_pushcfunction(L, luax_releasetype);
+  lua_setfield(L, -2, "__gc");
 
   // m.name = name
   lua_pushstring(L, name);
@@ -111,33 +109,22 @@ int luax_releasetype(lua_State* L) {
   return 0;
 }
 
-int luax_istype(lua_State* L, int index, const char* name) {
-  if (lua_getmetatable(L, index)) {
-    luaL_getmetatable(L, name);
-    int equal = lua_equal(L, -1, -2);
-    lua_pop(L, 2);
-    return equal;
-  }
-
-  return 0;
-}
-
-void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* debug) {
+void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName) {
   const char* key = luaL_checkstring(L, index);
   void* value = map_get(map, key);
   if (!value) {
-    luaL_error(L, "Invalid %s '%s'", debug, key);
+    luaL_error(L, "Invalid %s '%s'", typeName, key);
     return NULL;
   }
 
   return value;
 }
 
-void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map, const char* debug) {
+void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map, const char* typeName) {
   const char* key = luaL_optstring(L, index, fallback);
   void* value = map_get(map, key);
   if (!value) {
-    luaL_error(L, "Invalid %s '%s'", debug, key);
+    luaL_error(L, "Invalid %s '%s'", typeName, key);
     return NULL;
   }
 

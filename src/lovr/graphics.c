@@ -98,11 +98,11 @@ const luaL_Reg lovrGraphics[] = {
 int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
-  luax_registertype(L, "Buffer", lovrBuffer, luax_releasetype);
-  luax_registertype(L, "Model", lovrModel, luax_releasetype);
-  luax_registertype(L, "Shader", lovrShader, luax_releasetype);
-  luax_registertype(L, "Skybox", lovrSkybox, luax_releasetype);
-  luax_registertype(L, "Texture", lovrTexture, luax_releasetype);
+  luax_registertype(L, "Buffer", lovrBuffer);
+  luax_registertype(L, "Model", lovrModel);
+  luax_registertype(L, "Shader", lovrShader);
+  luax_registertype(L, "Skybox", lovrSkybox);
+  luax_registertype(L, "Texture", lovrTexture);
 
   map_init(&BufferAttributeTypes);
   map_set(&BufferAttributeTypes, "float", BUFFER_FLOAT);

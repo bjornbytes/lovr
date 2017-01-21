@@ -24,7 +24,7 @@ const luaL_Reg lovrAudio[] = {
 int l_lovrAudioInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrAudio);
-  luax_registertype(L, "Source", lovrSource, luax_releasetype);
+  luax_registertype(L, "Source", lovrSource);
 
   map_init(&TimeUnits);
   map_set(&TimeUnits, "seconds", UNIT_SECONDS);
