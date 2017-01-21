@@ -8,5 +8,3 @@ vec3 vec3_normalize(vec3 v);
 float vec3_length(vec3 v);
 float vec3_dot(vec3 v, vec3 u);
 vec3 vec3_cross(vec3 v, vec3 u);
-vec3 vec3_rotate(vec3 v, quat q);
-vec3 vec3_transform(vec3 v, mat4 m);

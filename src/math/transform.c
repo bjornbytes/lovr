@@ -1,6 +1,5 @@
 #include "transform.h"
 #include "math/mat4.h"
-#include "math/vec3.h"
 
 Transform* lovrTransformCreate(mat4 transfrom) {
   Transform* transform = lovrAlloc(sizeof(Transform), lovrTransformDestroy);
@@ -52,9 +51,9 @@ void lovrTransformScale(Transform* transform, float x, float y, float z) {
 }
 
 void lovrTransformTransformPoint(Transform* transform, vec3 point) {
-  vec3_transform(point, transform->matrix);
+  mat4_transform(transform->matrix, point);
 }
 
 void lovrTransformInverseTransformPoint(Transform* transform, vec3 point) {
-  vec3_transform(point, lovrTransformInverse(transform));
+  mat4_transform(lovrTransformInverse(transform), point);
 }

@@ -25,9 +25,8 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
     for (int v = 0; v < mesh->vertices.length; v++) {
       ModelVertex vertex = mesh->vertices.data[v];
 
-      float vec[3];
-      vec3_set(vec, vertex.x, vertex.y, vertex.z);
-      vec3_transform(vec, newTransform);
+      float vec[3] = { vertex.x, vertex.y, vertex.z };
+      mat4_transform(newTransform, vec);
       vec_pusharr(vertices, vec, 3);
 
       if (modelData->hasNormals) {

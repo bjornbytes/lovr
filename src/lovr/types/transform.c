@@ -1,5 +1,4 @@
 #include "lovr/types/transform.h"
-#include "math/vec3.h"
 #include "util.h"
 
 void luax_readtransform(lua_State* L, int i, mat4 m) {

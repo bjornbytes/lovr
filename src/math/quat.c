@@ -69,6 +69,20 @@ float quat_length(quat q) {
   return sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
 }
 
+void quat_rotate(quat q, vec3 v) {
+  float s = q[3];
+  float u[3];
+  float c[3];
+  vec3_init(u, q);
+  vec3_cross(vec3_init(c, u), v);
+  float uu = vec3_dot(u, u);
+  float uv = vec3_dot(u, v);
+  vec3_scale(u, 2 * uv);
+  vec3_scale(v, s * s - uu);
+  vec3_scale(c, 2 * s);
+  vec3_add(v, vec3_add(u, c));
+}
+
 void quat_getAngleAxis(quat q, float* angle, float* x, float* y, float* z) {
   if (q[3] > 1 || q[3] < -1) {
     quat_normalize(q);

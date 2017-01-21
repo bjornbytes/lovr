@@ -121,8 +121,8 @@ void lovrAudioSetOrientation(float angle, float ax, float ay, float az) {
   float u[3] = { 0, 1, 0 };
   float axis[3] = { ax, ay, az };
   quat_fromAngleAxis(state.orientation, angle, axis);
-  vec3_rotate(f, state.orientation);
-  vec3_rotate(u, state.orientation);
+  quat_rotate(state.orientation, f);
+  quat_rotate(state.orientation, u);
 
   // Pass the rotated orientation vectors to OpenAL
   ALfloat orientation[6] = { f[0], f[1], f[2], u[0], u[1], u[2] };
