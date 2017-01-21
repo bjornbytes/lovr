@@ -124,7 +124,6 @@ void lovrGraphicsOrigin();
 void lovrGraphicsTranslate(float x, float y, float z);
 void lovrGraphicsRotate(float angle, float ax, float ay, float az);
 void lovrGraphicsScale(float x, float y, float z);
-void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az);
 void lovrGraphicsMatrixTransform(mat4 transform);
 
 // Primitives

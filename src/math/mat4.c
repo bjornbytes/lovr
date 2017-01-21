@@ -188,6 +188,13 @@ mat4 mat4_scale(mat4 m, float x, float y, float z) {
   return m;
 }
 
+mat4 mat4_setTransform(mat4 m, float x, float y, float z, float s, float angle, float ax, float ay, float az) {
+  mat4_identity(m);
+  mat4_translate(m, x, y, z);
+  mat4_scale(m, s, s, s);
+  return mat4_rotate(m, angle, ax, ay, az);
+}
+
 mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float near, float far) {
   float rl = right - left;
   float tb = top - bottom;

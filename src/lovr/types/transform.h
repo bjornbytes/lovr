@@ -14,5 +14,6 @@ int l_lovrTransformOrigin(lua_State* L);
 int l_lovrTransformTranslate(lua_State* L);
 int l_lovrTransformRotate(lua_State* L);
 int l_lovrTransformScale(lua_State* L);
+int l_lovrTransformSetTransformation(lua_State* L);
 int l_lovrTransformTransformPoint(lua_State* L);
 int l_lovrTransformInverseTransformPoint(lua_State* L);

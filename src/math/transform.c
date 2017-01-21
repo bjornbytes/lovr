@@ -31,22 +31,27 @@ mat4 lovrTransformInverse(Transform* transform) {
 }
 
 void lovrTransformApply(Transform* transform, Transform* other) {
+  transform->isDirty = 1;
   mat4_multiply(transform->matrix, other->matrix);
 }
 
 void lovrTransformOrigin(Transform* transform) {
+  transform->isDirty = 1;
   mat4_identity(transform->matrix);
 }
 
 void lovrTransformTranslate(Transform* transform, float x, float y, float z) {
+  transform->isDirty = 1;
   mat4_translate(transform->matrix, x, y, z);
 }
 
 void lovrTransformRotate(Transform* transform, float angle, float x, float y, float z) {
+  transform->isDirty = 1;
   mat4_rotate(transform->matrix, angle, x, y, z);
 }
 
 void lovrTransformScale(Transform* transform, float x, float y, float z) {
+  transform->isDirty = 1;
   mat4_scale(transform->matrix, x, y, z);
 }
 

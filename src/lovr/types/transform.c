@@ -11,10 +11,7 @@ void luax_readtransform(lua_State* L, int i, mat4 m) {
     float ax = luaL_optnumber(L, i++, 0);
     float ay = luaL_optnumber(L, i++, 1);
     float az = luaL_optnumber(L, i++, 0);
-    mat4_identity(m);
-    mat4_translate(m, x, y, z);
-    mat4_scale(m, s, s, s);
-    mat4_rotate(m, angle, ax, ay, az);
+    mat4_setTransform(m, x, y, z, s, angle, ax, ay, az);
   } else if (lua_isnoneornil(L, i)) {
     mat4_identity(m);
   } else {
@@ -31,7 +28,9 @@ const luaL_Reg lovrTransform[] = {
   { "translate", l_lovrTransformTranslate },
   { "rotate", l_lovrTransformRotate },
   { "scale", l_lovrTransformScale },
-  { "transform", l_lovrTransformTransformPoint },
+  { "setTransformation", l_lovrTransformSetTransformation },
+  { "transformPoint", l_lovrTransformTransformPoint },
+  { "inverseTransformPoint", l_lovrTransformInverseTransformPoint },
   { NULL, NULL }
 };
 
@@ -89,6 +88,14 @@ int l_lovrTransformScale(lua_State* L) {
   float y = lua_gettop(L) > 2 ? luaL_checknumber(L, 3) : x;
   float z = lua_gettop(L) > 2 ? luaL_checknumber(L, 4) : x;
   lovrTransformScale(transform, x, y, z);
+  lua_pushvalue(L, 1);
+  return 1;
+}
+
+int l_lovrTransformSetTransformation(lua_State* L) {
+  Transform* transform = luax_checktype(L, 1, Transform);
+  lovrTransformOrigin(transform); // Dirty the Transform
+  luax_readtransform(L, 2, transform->matrix);
   lua_pushvalue(L, 1);
   return 1;
 }

@@ -344,17 +344,6 @@ void lovrGraphicsScale(float x, float y, float z) {
   mat4_scale(state.transforms[state.transform], x, y, z);
 }
 
-void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
-
-  // M *= T * S * R
-  float transform[16];
-  mat4_identity(transform);
-  mat4_translate(transform, tx, ty, tz);
-  mat4_scale(transform, sx, sy, sz);
-  mat4_rotate(transform, angle, ax, ay, az);
-  lovrGraphicsMatrixTransform(transform);
-}
-
 void lovrGraphicsMatrixTransform(mat4 transform) {
   mat4_multiply(state.transforms[state.transform], transform);
 }
@@ -451,8 +440,11 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float 
   // Angle between normal vector and the normal vector of the default geometry (dot product)
   float theta = acos(nz);
 
+  float transform[16];
+  mat4_setTransform(transform, x, y, z, size, theta, cx, cy, cz);
+
   lovrGraphicsPush();
-  lovrGraphicsTransform(x, y, z, size, size, size, theta, cx, cy, cz);
+  lovrGraphicsMatrixTransform(transform);
 
   if (mode == DRAW_MODE_LINE) {
     float points[] = {
