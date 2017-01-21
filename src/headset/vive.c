@@ -455,7 +455,7 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {
   Vive* vive = (Vive*) headset;
-  float headMatrix[16], eyeMatrix[16], projectionMatrix[16];
+  float head[16], transform[16], projection[16];
   float (*matrix)[4];
 
   lovrGraphicsPushCanvas();
@@ -464,28 +464,27 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
 
   // Head transform
   matrix = vive->renderPoses[vive->headsetIndex].mDeviceToAbsoluteTracking.m;
-  mat4_invert(mat4_fromMat34(headMatrix, matrix));
+  mat4_invert(mat4_fromMat34(head, matrix));
 
-  for (int i = 0; i < 2; i++) {
-    EVREye eye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
+  for (EVREye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
 
     // Eye transform
     matrix = vive->system->GetEyeToHeadTransform(eye).m;
-    mat4_invert(mat4_fromMat34(eyeMatrix, matrix));
-    mat4 transformMatrix = mat4_multiply(eyeMatrix, headMatrix);
+    mat4_invert(mat4_fromMat34(transform, matrix));
+    mat4_multiply(transform, head);
 
     // Projection
     matrix = vive->system->GetProjectionMatrix(eye, vive->clipNear, vive->clipFar).m;
-    mat4_fromMat44(projectionMatrix, matrix);
+    mat4_fromMat44(projection, matrix);
 
     // Render
     lovrTextureBindFramebuffer(vive->texture);
     lovrGraphicsPush();
     lovrGraphicsOrigin();
-    lovrGraphicsMatrixTransform(transformMatrix);
-    lovrGraphicsSetProjectionRaw(projectionMatrix);
+    lovrGraphicsMatrixTransform(transform);
+    lovrGraphicsSetProjectionRaw(projection);
     lovrGraphicsClear(1, 1);
-    callback(i, userdata);
+    callback(eye - EYE_LEFT, userdata);
     lovrGraphicsPop();
     lovrTextureResolveMSAA(vive->texture);
 
@@ -499,6 +498,5 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
 
   vive->isRendering = 0;
   lovrGraphicsPopCanvas();
-
   lovrGraphicsPlaneFullscreen(vive->texture);
 }

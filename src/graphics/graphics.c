@@ -1,6 +1,7 @@
 #include "graphics/graphics.h"
 #include "loaders/texture.h"
-#include "math/quat.h"
+#include "math/mat4.h"
+#include "math/vec3.h"
 #include "util.h"
 #include "glfw.h"
 #define _USE_MATH_DEFINES
@@ -343,8 +344,9 @@ void lovrGraphicsScale(float x, float y, float z) {
   mat4_scale(state.transforms[state.transform], x, y, z);
 }
 
-// M *= T * S * R
 void lovrGraphicsTransform(float tx, float ty, float tz, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
+
+  // M *= T * S * R
   float transform[16];
   mat4_identity(transform);
   mat4_translate(transform, tx, ty, tz);

@@ -76,7 +76,9 @@ void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az) {
 }
 
 void lovrAudioGetPosition(float* x, float* y, float* z) {
-  alGetListener3f(AL_POSITION, x, y, z);
+  *x = state.position[0];
+  *y = state.position[1];
+  *z = state.position[2];
 }
 
 float lovrAudioGetVolume() {

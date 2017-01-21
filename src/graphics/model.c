@@ -1,5 +1,7 @@
 #include "graphics/model.h"
 #include "graphics/graphics.h"
+#include "math/mat4.h"
+#include "math/vec3.h"
 #include <stdlib.h>
 
 static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec_float_t* vertices, vec_uint_t* indices) {

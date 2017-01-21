@@ -1,4 +1,5 @@
 #include "graphics/shader.h"
+#include "math/mat4.h"
 #include "util.h"
 #include <stdlib.h>
 

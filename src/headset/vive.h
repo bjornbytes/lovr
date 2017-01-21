@@ -6,6 +6,9 @@
 #ifndef LOVR_VIVE_TYPES
 #define LOVR_VIVE_TYPES
 
+#define EYE_LEFT EVREye_Eye_Left
+#define EYE_RIGHT EVREye_Eye_Right
+
 typedef struct {
   Headset headset;
 

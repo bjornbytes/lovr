@@ -1,5 +1,6 @@
 #include "graphics/texture.h"
 #include "graphics/graphics.h"
+#include "math/mat4.h"
 #include "util.h"
 #include <math.h>
 #include <stdlib.h>

@@ -1,4 +1,5 @@
 #include "loaders/model.h"
+#include "math/mat4.h"
 #include <stdlib.h>
 #include <assimp/scene.h>
 #include <assimp/cimport.h>
