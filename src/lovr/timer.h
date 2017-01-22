@@ -1,6 +1,4 @@
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include "luax.h"
 
 extern const luaL_Reg lovrTimer[];
 int l_lovrTimerInit(lua_State* L);

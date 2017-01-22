@@ -1,8 +1,6 @@
+#include "luax.h"
 #include "math/transform.h"
-#include "math/mat4.h"
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include "math/math.h"
 
 void luax_readtransform(lua_State* L, int i, mat4 transform);
 

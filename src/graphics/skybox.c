@@ -1,6 +1,5 @@
 #include "graphics/skybox.h"
 #include "vendor/stb/stb_image.h"
-#include "util.h"
 #include <stdlib.h>
 
 Skybox* lovrSkyboxCreate(void** data, int* size) {

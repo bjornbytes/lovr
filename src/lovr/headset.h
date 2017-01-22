@@ -1,6 +1,4 @@
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include "luax.h"
 #include "vendor/map/map.h"
 
 map_int_t ControllerAxes;

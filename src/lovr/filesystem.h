@@ -1,6 +1,4 @@
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include "luax.h"
 
 extern const luaL_Reg lovrFilesystem[];
 int l_lovrFilesystemInit(lua_State* L);

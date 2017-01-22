@@ -1,7 +1,5 @@
+#include "luax.h"
 #include "vendor/map/map.h"
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
 
 map_int_t EventTypes;
 

@@ -1,6 +1,4 @@
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include "luax.h"
 
 #define LOVR_VERSION_MAJOR 0
 #define LOVR_VERSION_MINOR 3

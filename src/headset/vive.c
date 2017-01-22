@@ -5,6 +5,7 @@
 #include "math/mat4.h"
 #include "math/quat.h"
 #include "util.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 

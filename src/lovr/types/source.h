@@ -1,7 +1,5 @@
+#include "luax.h"
 #include "audio/source.h"
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
 
 extern const luaL_Reg lovrSource[];
 int l_lovrSourceGetBitDepth(lua_State* L);

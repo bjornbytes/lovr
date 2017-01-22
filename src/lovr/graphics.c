@@ -9,7 +9,6 @@
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "filesystem/filesystem.h"
-#include "util.h"
 #include <math.h>
 
 static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {

@@ -1,7 +1,5 @@
 #include "graphics/texture.h"
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include "luax.h"
 
 extern const luaL_Reg lovrTexture[];
 int l_lovrTextureBind(lua_State* L);

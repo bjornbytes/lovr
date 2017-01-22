@@ -1,7 +1,6 @@
 #include "lovr/headset.h"
 #include "lovr/types/controller.h"
 #include "headset/headset.h"
-#include "util.h"
 
 void renderHelper(int eyeIndex, void* userdata) {
   lua_State* L = (lua_State*)userdata;

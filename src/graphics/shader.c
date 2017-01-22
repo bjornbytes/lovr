@@ -1,6 +1,6 @@
 #include "graphics/shader.h"
 #include "math/mat4.h"
-#include "util.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 const char* lovrShaderVertexPrefix = ""

@@ -1,7 +1,6 @@
 #include "lovr/types/buffer.h"
 #include "lovr/types/texture.h"
 #include "lovr/graphics.h"
-#include "util.h"
 
 void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format) {
   if (!lua_istable(L, index)) {

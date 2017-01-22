@@ -1,6 +1,5 @@
 #include "lovr/event.h"
 #include "event/event.h"
-#include "util.h"
 
 static int pollRef;
 

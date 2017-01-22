@@ -1,6 +1,5 @@
 #include "math/quat.h"
 #include "math/vec3.h"
-#include "util.h"
 #include <math.h>
 #include <stdlib.h>
 

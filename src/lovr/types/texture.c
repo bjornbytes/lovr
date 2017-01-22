@@ -1,7 +1,6 @@
 #include "lovr/types/texture.h"
 #include "lovr/graphics.h"
 #include "graphics/graphics.h"
-#include "util.h"
 
 const luaL_Reg lovrTexture[] = {
   { "bind", l_lovrTextureBind },

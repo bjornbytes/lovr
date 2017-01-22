@@ -1,7 +1,5 @@
+#include "luax.h"
 #include "graphics/buffer.h"
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
 
 void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format);
 

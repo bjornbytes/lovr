@@ -1,7 +1,6 @@
 #include "lovr/math.h"
 #include "lovr/types/transform.h"
 #include "math/mat4.h"
-#include "util.h"
 
 const luaL_Reg lovrMath[] = {
   { "newTransform", l_lovrMathNewTransform },

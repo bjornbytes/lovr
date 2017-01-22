@@ -3,7 +3,6 @@
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "graphics/model.h"
-#include "util.h"
 
 const luaL_Reg lovrController[] = {
   { "isPresent", l_lovrControllerIsPresent },
