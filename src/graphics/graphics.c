@@ -7,9 +7,6 @@
 #define _USE_MATH_DEFINES
 #include <stdlib.h>
 #include <math.h>
-#include <assimp/cimport.h>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 
 static GraphicsState state;
 
