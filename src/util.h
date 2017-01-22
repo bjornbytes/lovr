@@ -34,7 +34,6 @@ typedef vec_t(unsigned int) vec_uint_t;
 #endif
 
 void error(const char* format, ...);
-unsigned char* loadImage(void* data, size_t size, int* w, int* h, int* n, int channels);
 const char* map_int_find(map_int_t *map, int value);
 void lovrSleep(double seconds);
 

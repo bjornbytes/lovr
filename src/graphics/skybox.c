@@ -1,4 +1,5 @@
 #include "graphics/skybox.h"
+#include "vendor/stb/stb_image.h"
 #include "util.h"
 #include <stdlib.h>
 
@@ -11,7 +12,8 @@ Skybox* lovrSkyboxCreate(void** data, int* size) {
 
   for (int i = 0; i < 6; i++) {
     int width, height, channels;
-    unsigned char* image = loadImage(data[i], size[i], &width, &height, &channels, 3);
+    stbi_set_flip_vertically_on_load(0);
+    unsigned char* image = stbi_load_from_memory(data[i], size[i], &width, &height, &channels, 3);
 
     if (!image) {
       error("Could not load skybox image %d", i);

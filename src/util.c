@@ -1,5 +1,4 @@
 #include "util.h"
-#include "vendor/stb/stb_image.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,11 +15,6 @@ void error(const char* format, ...) {
   fputs("\n", stderr);
   va_end(args);
   exit(EXIT_FAILURE);
-}
-
-unsigned char* loadImage(void* data, size_t size, int* w, int* h, int* n, int channels) {
-  stbi_set_flip_vertically_on_load(1);
-  return stbi_load_from_memory(data, size, w, h, n, channels);
 }
 
 // Returns a key that maps to value or NULL if the value is not in the map
