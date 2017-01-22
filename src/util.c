@@ -1,5 +1,4 @@
 #include "util.h"
-#define STB_IMAGE_IMPLEMENTATION
 #include "vendor/stb/stb_image.h"
 #include <stdarg.h>
 #include <stdio.h>
