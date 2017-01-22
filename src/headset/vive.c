@@ -61,6 +61,7 @@ Headset* viveInit() {
   if (!vive) return NULL;
 
   Headset* headset = (Headset*) vive;
+  headset->destroy = viveDestroy;
   headset->poll = vivePoll;
   headset->isPresent = viveIsPresent;
   headset->getType = viveGetType;

@@ -2,6 +2,7 @@
 #include "util.h"
 #include <physfs.h>
 #include <stdio.h>
+#include <stdlib.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #elif _WIN32
@@ -21,6 +22,7 @@ void lovrFilesystemInit(const char* arg0) {
 
   state.gameSource = NULL;
   state.identity = NULL;
+  atexit(lovrFilesystemDestroy);
 }
 
 void lovrFilesystemDestroy() {

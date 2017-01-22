@@ -32,6 +32,7 @@ typedef struct {
 typedef vec_t(Controller*) vec_controller_t;
 
 typedef struct {
+  void (*destroy)(void* headset);
   char (*isPresent)(void* headset);
   void (*poll)(void* headset);
   const char* (*getType)(void* headset);
@@ -61,6 +62,7 @@ typedef struct {
 #endif
 
 void lovrHeadsetInit();
+void lovrHeadsetDestroy();
 void lovrHeadsetPoll();
 char lovrHeadsetIsPresent();
 const char* lovrHeadsetGetType();

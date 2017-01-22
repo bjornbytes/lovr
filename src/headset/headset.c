@@ -10,6 +10,14 @@ void lovrHeadsetInit() {
   if (headset) {
     lovrEventAddPump(lovrHeadsetPoll);
   }
+
+  atexit(lovrHeadsetDestroy);
+}
+
+void lovrHeadsetDestroy() {
+  if (headset) {
+    headset->destroy(headset);
+  }
 }
 
 void lovrHeadsetPoll() {

@@ -18,6 +18,7 @@ void lovrEventInit() {
   vec_init(&state.events);
   lovrEventAddPump(glfwPollEvents);
   glfwSetWindowCloseCallback(window, onClose);
+  atexit(lovrEventDestroy);
 }
 
 void lovrEventDestroy() {

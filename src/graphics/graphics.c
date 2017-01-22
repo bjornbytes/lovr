@@ -29,6 +29,7 @@ void lovrGraphicsInit() {
   vec_init(&state.shapeIndices);
   state.depthTest = -1;
   lovrGraphicsReset();
+  atexit(lovrGraphicsDestroy);
 }
 
 void lovrGraphicsDestroy() {

@@ -31,9 +31,10 @@ void lovrAudioInit() {
   state.device = device;
   state.context = context;
   vec_init(&state.sources);
-
   vec3_set(state.position, 0, 0, 0);
   quat_set(state.orientation, 0, 0, 0, -1);
+
+  atexit(lovrAudioDestroy);
 }
 
 void lovrAudioDestroy() {
