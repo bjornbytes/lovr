@@ -33,8 +33,8 @@ int l_lovrTextureGetFilter(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   FilterMode min, mag;
   lovrTextureGetFilter(texture, &min, &mag);
-  lua_pushstring(L, map_int_find(&FilterModes, min));
-  lua_pushstring(L, map_int_find(&FilterModes, mag));
+  luax_pushenum(L, &FilterModes, min);
+  luax_pushenum(L, &FilterModes, mag);
   return 2;
 }
 
@@ -54,8 +54,8 @@ int l_lovrTextureGetWrap(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   WrapMode horizontal, vertical;
   lovrTextureGetWrap(texture, &horizontal, &vertical);
-  lua_pushstring(L, map_int_find(&WrapModes, horizontal));
-  lua_pushstring(L, map_int_find(&WrapModes, vertical));
+  luax_pushenum(L, &WrapModes, horizontal);
+  luax_pushenum(L, &WrapModes, vertical);
   return 2;
 }
 

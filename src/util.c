@@ -17,18 +17,6 @@ void error(const char* format, ...) {
   exit(EXIT_FAILURE);
 }
 
-// Returns a key that maps to value or NULL if the value is not in the map
-const char* map_int_find(map_int_t* map, int value) {
-  const char* key;
-  map_iter_t iter = map_iter(map);
-  while ((key = map_next(map, &iter))) {
-    if (*map_get(map, key) == value) {
-      return key;
-    }
-  }
-  return NULL;
-}
-
 void lovrSleep(double seconds) {
 #ifdef _WIN32
   Sleep((unsigned int)(seconds * 1000));
@@ -100,6 +88,18 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
 int luax_releasetype(lua_State* L) {
   lovrRelease(*(Ref**) lua_touserdata(L, 1));
   return 0;
+}
+
+void luax_pushenum(lua_State* L, map_int_t* map, int value) {
+  const char* key;
+  map_iter_t iter = map_iter(map);
+  while ((key = map_next(map, &iter))) {
+    if (*map_get(map, key) == value) {
+      lua_pushstring(L, key);
+      return;
+    }
+  }
+  lua_pushnil(L);
 }
 
 void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName) {

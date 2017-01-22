@@ -1,6 +1,7 @@
 #include "lovr/types/buffer.h"
 #include "lovr/types/texture.h"
 #include "lovr/graphics.h"
+#include "util.h"
 
 void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format) {
   if (!lua_istable(L, index)) {
@@ -56,7 +57,7 @@ int l_lovrBufferDraw(lua_State* L) {
 
 int l_lovrBufferGetDrawMode(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  lua_pushstring(L, map_int_find(&BufferDrawModes, lovrBufferGetDrawMode(buffer)));
+  luax_pushenum(L, &BufferDrawModes, lovrBufferGetDrawMode(buffer));
   return 1;
 }
 

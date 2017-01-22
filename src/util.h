@@ -34,7 +34,6 @@ typedef vec_t(unsigned int) vec_uint_t;
 #endif
 
 void error(const char* format, ...);
-const char* map_int_find(map_int_t *map, int value);
 void lovrSleep(double seconds);
 
 void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref));
@@ -44,5 +43,6 @@ void lovrRelease(const Ref* ref);
 int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f);
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions);
 int luax_releasetype(lua_State* L);
+void luax_pushenum(lua_State* L, map_int_t* map, int value);
 void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName);
 void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map, const char* typeName);
