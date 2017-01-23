@@ -2,11 +2,11 @@
 #include "lovr/types/controller.h"
 #include "headset/headset.h"
 
-void renderHelper(int eyeIndex, void* userdata) {
+static void renderHelper(HeadsetEye eye, void* userdata) {
   lua_State* L = (lua_State*)userdata;
   luaL_checktype(L, 1, LUA_TFUNCTION);
   lua_pushvalue(L, 1);
-  lua_pushstring(L, eyeIndex == 0 ? "left" : "right");
+  luax_pushenum(L, &HeadsetEyes, eye);
   lua_call(L, 1, 0);
 }
 
@@ -25,6 +25,7 @@ const luaL_Reg lovrHeadset[] = {
   { "isBoundsVisible", l_lovrHeadsetIsBoundsVisible },
   { "setBoundsVisible", l_lovrHeadsetSetBoundsVisible },
   { "getPosition", l_lovrHeadsetGetPosition },
+  { "getEyePosition", l_lovrHeadsetGetEyePosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
@@ -38,6 +39,10 @@ int l_lovrHeadsetInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
   luax_registertype(L, "Controller", lovrController);
+
+  map_init(&HeadsetEyes);
+  map_set(&HeadsetEyes, "left", EYE_LEFT);
+  map_set(&HeadsetEyes, "right", EYE_RIGHT);
 
   map_init(&ControllerAxes);
   map_set(&ControllerAxes, "trigger", CONTROLLER_AXIS_TRIGGER);
@@ -147,6 +152,16 @@ int l_lovrHeadsetSetBoundsVisible(lua_State* L) {
 int l_lovrHeadsetGetPosition(lua_State* L) {
   float x, y, z;
   lovrHeadsetGetPosition(&x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
+}
+
+int l_lovrHeadsetGetEyePosition(lua_State* L) {
+  float x, y, z;
+  HeadsetEye eye = *(HeadsetEye*) luax_checkenum(L, 1, &HeadsetEyes, "eye");
+  lovrHeadsetGetEyePosition(eye, &x, &y, &z);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);

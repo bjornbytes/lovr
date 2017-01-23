@@ -116,6 +116,15 @@ void lovrHeadsetGetPosition(float* x, float* y, float* z) {
   headset->getPosition(headset, x, y, z);
 }
 
+void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
+  if (!headset) {
+    *x = *y = *z = 0.f;
+    return;
+  }
+
+  headset->getEyePosition(headset, eye, x, y, z);
+}
+
 void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
   if (!headset) {
     *angle = *x = *y = *z = 0.f;

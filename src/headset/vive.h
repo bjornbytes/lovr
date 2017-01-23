@@ -6,9 +6,6 @@
 #ifndef LOVR_VIVE_TYPES
 #define LOVR_VIVE_TYPES
 
-#define EYE_LEFT EVREye_Eye_Left
-#define EYE_RIGHT EVREye_Eye_Right
-
 typedef struct {
   Headset headset;
 
@@ -50,6 +47,7 @@ void viveGetBoundsGeometry(void* headset, float* geometry);
 char viveIsBoundsVisible(void* headset);
 void viveSetBoundsVisible(void* headset, char visible);
 void viveGetPosition(void* headset, float* x, float* y, float* z);
+void viveGetEyePosition(void* headset, HeadsetEye eye, float* x, float* y, float* z);
 void viveGetOrientation(void* headset, float* angle, float* x, float* y, float* z);
 void viveGetVelocity(void* headset, float* x, float* y, float* z);
 void viveGetAngularVelocity(void* headset, float* x, float* y, float* z);

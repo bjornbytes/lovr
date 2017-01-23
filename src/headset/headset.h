@@ -7,6 +7,11 @@
 typedef void (*headsetRenderCallback)(int eyeIndex, void* userdata);
 
 typedef enum {
+  EYE_LEFT,
+  EYE_RIGHT
+} HeadsetEye;
+
+typedef enum {
   CONTROLLER_AXIS_TRIGGER,
   CONTROLLER_AXIS_TOUCHPAD_X,
   CONTROLLER_AXIS_TOUCHPAD_Y
@@ -45,6 +50,7 @@ typedef struct {
   char (*isBoundsVisible)(void* headset);
   void (*setBoundsVisible)(void* headset, char visible);
   void (*getPosition)(void* headset, float* x, float* y, float* z);
+  void (*getEyePosition)(void* headset, HeadsetEye eye, float* x, float* y, float* z);
   void (*getOrientation)(void* headset, float* angle, float* x, float* y, float* z);
   void (*getVelocity)(void* headset, float* x, float* y, float* z);
   void (*getAngularVelocity)(void* headset, float* x, float* y, float* z);
@@ -75,6 +81,7 @@ void lovrHeadsetGetBoundsGeometry(float* geometry);
 char lovrHeadsetIsBoundsVisible();
 void lovrHeadsetSetBoundsVisible(char visible);
 void lovrHeadsetGetPosition(float* x, float* y, float* z);
+void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z);
 void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z);
 void lovrHeadsetGetVelocity(float* x, float* y, float* z);
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);

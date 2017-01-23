@@ -74,6 +74,7 @@ Headset* viveInit() {
   headset->isBoundsVisible = viveIsBoundsVisible;
   headset->setBoundsVisible = viveSetBoundsVisible;
   headset->getPosition = viveGetPosition;
+  headset->getEyePosition = viveGetEyePosition;
   headset->getOrientation = viveGetOrientation;
   headset->getVelocity = viveGetVelocity;
   headset->getAngularVelocity = viveGetAngularVelocity;
@@ -257,6 +258,27 @@ void viveGetPosition(void* headset, float* x, float* y, float* z) {
   *x = pose.mDeviceToAbsoluteTracking.m[0][3];
   *y = pose.mDeviceToAbsoluteTracking.m[1][3];
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
+}
+
+void viveGetEyePosition(void* headset, HeadsetEye eye, float* x, float* y, float* z) {
+  Vive* vive = (Vive*) headset;
+  TrackedDevicePose_t pose = viveGetPose(vive, vive->headsetIndex);
+
+  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+    *x = *y = *z = 0.f;
+    return;
+  }
+
+  float transform[16];
+  float eyeTransform[16];
+  EVREye vrEye = (eye == EYE_LEFT) ? EVREye_Eye_Left : EVREye_Eye_Right;
+  mat4_fromMat34(eyeTransform, vive->system->GetEyeToHeadTransform(vrEye).m);
+  mat4_fromMat44(transform, pose.mDeviceToAbsoluteTracking.m);
+  mat4_multiply(transform, eyeTransform);
+
+  *x = transform[12];
+  *y = transform[13];
+  *z = transform[14];
 }
 
 void viveGetOrientation(void* headset, float* angle, float* x, float* y, float *z) {
@@ -468,10 +490,11 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
   matrix = vive->renderPoses[vive->headsetIndex].mDeviceToAbsoluteTracking.m;
   mat4_invert(mat4_fromMat34(head, matrix));
 
-  for (EVREye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
+  for (HeadsetEye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
 
     // Eye transform
-    matrix = vive->system->GetEyeToHeadTransform(eye).m;
+    EVREye vrEye = (eye == EYE_LEFT) ? EVREye_Eye_Left : EVREye_Eye_Right;
+    matrix = vive->system->GetEyeToHeadTransform(vrEye).m;
     mat4_invert(mat4_fromMat34(transform, matrix));
     mat4_multiply(transform, head);
 
@@ -486,7 +509,7 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     lovrGraphicsMatrixTransform(transform);
     lovrGraphicsSetProjectionRaw(projection);
     lovrGraphicsClear(1, 1);
-    callback(eye - EYE_LEFT, userdata);
+    callback(eye, userdata);
     lovrGraphicsPop();
     lovrTextureResolveMSAA(vive->texture);
 

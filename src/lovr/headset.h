@@ -1,6 +1,7 @@
 #include "luax.h"
 #include "vendor/map/map.h"
 
+map_int_t HeadsetEyes;
 map_int_t ControllerAxes;
 map_int_t ControllerButtons;
 
@@ -20,6 +21,7 @@ int l_lovrHeadsetGetBoundsGeometry(lua_State* L);
 int l_lovrHeadsetIsBoundsVisible(lua_State* L);
 int l_lovrHeadsetSetBoundsVisible(lua_State* L);
 int l_lovrHeadsetGetPosition(lua_State* L);
+int l_lovrHeadsetGetEyePosition(lua_State* L);
 int l_lovrHeadsetGetOrientation(lua_State* L);
 int l_lovrHeadsetGetVelocity(lua_State* L);
 int l_lovrHeadsetGetAngularVelocity(lua_State* L);
