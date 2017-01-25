@@ -152,6 +152,7 @@ ModelData* lovrModelDataFromOpenVRModel(OpenVRModel* vrModel) {
   vec_init(&root->meshes);
   vec_push(&root->meshes, 0);
   vec_init(&root->children);
+  mat4_identity(root->transform);
 
   modelData->root = root;
   modelData->hasNormals = 1;
