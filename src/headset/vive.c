@@ -499,7 +499,7 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     mat4_multiply(transform, head);
 
     // Projection
-    matrix = vive->system->GetProjectionMatrix(eye, vive->clipNear, vive->clipFar).m;
+    matrix = vive->system->GetProjectionMatrix(vrEye, vive->clipNear, vive->clipFar).m;
     mat4_fromMat44(projection, matrix);
 
     // Render
@@ -518,7 +518,7 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     ETextureType textureType = ETextureType_TextureType_OpenGL;
     Texture_t eyeTexture = { (void*) texture, textureType, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
-    vive->compositor->Submit(eye, &eyeTexture, NULL, flags);
+    vive->compositor->Submit(vrEye, &eyeTexture, NULL, flags);
   }
 
   vive->isRendering = 0;

@@ -3,8 +3,6 @@
 
 #pragma once
 
-typedef void (*headsetRenderCallback)(int eyeIndex, void* userdata);
-
 typedef enum {
   EYE_LEFT,
   EYE_RIGHT
@@ -34,6 +32,7 @@ typedef struct {
 } Controller;
 
 typedef vec_t(Controller*) vec_controller_t;
+typedef void (*headsetRenderCallback)(HeadsetEye eye, void* userdata);
 
 typedef struct {
   void (*destroy)(void* headset);
