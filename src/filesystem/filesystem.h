@@ -1,5 +1,4 @@
-#ifndef LOVR_FILESYSTEM_TYPES
-#define LOVR_FILESYSTEM_TYPES
+#pragma once
 
 #define LOVR_PATH_MAX 1024
 
@@ -9,8 +8,6 @@ typedef struct {
   char* savePathRelative;
   char* savePathFull;
 } FilesystemState;
-
-#endif
 
 void lovrFilesystemInit(const char* arg0);
 void lovrFilesystemDestroy();

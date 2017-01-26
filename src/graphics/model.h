@@ -5,8 +5,7 @@
 #include "util.h"
 #include "vendor/vec/vec.h"
 
-#ifndef LOVR_MODEL_TYPES
-#define LOVR_MODEL_TYPES
+#pragma once
 
 typedef struct {
   float x;
@@ -51,8 +50,6 @@ typedef struct {
   Buffer* buffer;
   Texture* texture;
 } Model;
-
-#endif
 
 Model* lovrModelCreate(ModelData* modelData);
 void lovrModelDestroy(const Ref* ref);

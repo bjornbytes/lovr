@@ -5,8 +5,7 @@
 #include "graphics/texture.h"
 #include "math/math.h"
 
-#ifndef LOVR_GRAPHICS_TYPES
-#define LOVR_GRAPHICS_TYPES
+#pragma once
 
 #define MAX_TRANSFORMS 64
 #define MAX_CANVASES 4
@@ -70,8 +69,6 @@ typedef struct {
   CompareMode depthTest;
   int isWireframe;
 } GraphicsState;
-
-#endif
 
 // Base
 void lovrGraphicsInit();

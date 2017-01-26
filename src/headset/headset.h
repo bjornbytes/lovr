@@ -1,8 +1,7 @@
 #include <vendor/vec/vec.h>
 #include "util.h"
 
-#ifndef LOVR_HEADSET_TYPES
-#define LOVR_HEADSET_TYPES
+#pragma once
 
 typedef void (*headsetRenderCallback)(int eyeIndex, void* userdata);
 
@@ -64,8 +63,6 @@ typedef struct {
   void* (*controllerGetModel)(void* headset, Controller* controller, ControllerModelFormat* format);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
 } Headset;
-
-#endif
 
 void lovrHeadsetInit();
 void lovrHeadsetDestroy();

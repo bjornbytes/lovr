@@ -3,8 +3,7 @@
 #include "vendor/map/map.h"
 #include "util.h"
 
-#ifndef LOVR_SHADER_TYPES
-#define LOVR_SHADER_TYPES
+#pragma once
 
 #define LOVR_SHADER_POSITION 0
 #define LOVR_SHADER_NORMAL 1
@@ -30,7 +29,6 @@ typedef struct {
   float projection[16];
   unsigned int color;
 } Shader;
-#endif
 
 extern const char* lovrShaderVertexPrefix;
 extern const char* lovrShaderFragmentPrefix;

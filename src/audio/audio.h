@@ -4,8 +4,7 @@
 #include <AL/alc.h>
 #include <AL/alext.h>
 
-#ifndef LOVR_AUDIO_TYPES
-#define LOVR_AUDIO_TYPES
+#pragma once
 
 typedef struct {
   ALCdevice* device;
@@ -14,8 +13,6 @@ typedef struct {
   float position[3];
   float orientation[4];
 } AudioState;
-
-#endif
 
 void lovrAudioInit();
 void lovrAudioDestroy();

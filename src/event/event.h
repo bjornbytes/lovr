@@ -1,8 +1,7 @@
 #include "headset/headset.h"
 #include "vendor/vec/vec.h"
 
-#ifndef LOVR_EVENT_TYPES
-#define LOVR_EVENT_TYPES
+#pragma once
 
 typedef enum {
   EVENT_QUIT,
@@ -42,8 +41,6 @@ typedef struct {
   vec_pump_t pumps;
   vec_event_t events;
 } EventState;
-
-#endif
 
 void lovrEventInit();
 void lovrEventDestroy();

@@ -1,15 +1,14 @@
 #include "util.h"
 #include "math/math.h"
 
-#ifndef LOVR_TRANSFORM_TYPES
-#define LOVR_TRANSFORM_TYPES
+#pragma once
+
 typedef struct Transform {
   Ref ref;
   float matrix[16];
   float inverse[16];
   int isDirty;
 } Transform;
-#endif
 
 Transform* lovrTransformCreate(mat4 transfrom);
 void lovrTransformDestroy(const Ref* ref);

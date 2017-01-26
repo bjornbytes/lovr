@@ -2,8 +2,7 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 
-#ifndef LOVR_SOURCE_TYPES
-#define LOVR_SOURCE_TYPES
+#pragma once
 
 #define SOURCE_BUFFERS 4
 
@@ -30,8 +29,6 @@ typedef struct {
   ALuint buffers[SOURCE_BUFFERS];
   int isLooping;
 } Source;
-
-#endif
 
 Source* lovrSourceCreate(SourceData* sourceData);
 void lovrSourceDestroy(const Ref* ref);

@@ -2,8 +2,8 @@
 #include "util.h"
 #include "graphics/texture.h"
 
-#ifndef LOVR_BUFFER_TYPES
-#define LOVR_BUFFER_TYPES
+#pragma once
+
 typedef enum {
   BUFFER_POINTS = GL_POINTS,
   BUFFER_TRIANGLE_STRIP = GL_TRIANGLE_STRIP,
@@ -49,7 +49,6 @@ typedef struct Buffer {
   int rangeCount;
   Texture* texture;
 } Buffer;
-#endif
 
 Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode, BufferUsage usage);
 void lovrBufferDestroy(const Ref* ref);

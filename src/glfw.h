@@ -6,6 +6,8 @@
 
 #include <GLFW/glfw3.h>
 
+#pragma once
+
 GLFWwindow* window;
 
 void initGlfw();

@@ -3,8 +3,7 @@
 #include <lualib.h>
 #include "vendor/map/map.h"
 
-#ifndef LOVR_LUAX
-#define LOVR_LUAX
+#pragma once
 
 #define luax_checktype(L, i, T) *(T**) luaL_checkudata(L, i, #T)
 #define luax_pushtype(L, T, x) \
@@ -19,5 +18,3 @@ int luax_releasetype(lua_State* L);
 void luax_pushenum(lua_State* L, map_int_t* map, int value);
 void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName);
 void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map, const char* typeName);
-
-#endif

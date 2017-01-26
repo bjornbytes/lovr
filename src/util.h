@@ -1,8 +1,7 @@
 #include "vendor/vec/vec.h"
 #include <stddef.h>
 
-#ifndef LOVR_UTIL
-#define LOVR_UTIL
+#pragma once
 
 #define containerof(ptr, type) ((type*)((char*)(ptr) - offsetof(type, ref)))
 #define LOVR_COLOR(r, g, b, a) ((a << 0) | (b << 8) | (g << 16) | (r << 24))
@@ -23,5 +22,3 @@ void lovrSleep(double seconds);
 void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref));
 void lovrRetain(const Ref* ref);
 void lovrRelease(const Ref* ref);
-
-#endif

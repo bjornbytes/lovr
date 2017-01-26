@@ -3,8 +3,7 @@
 
 struct CanvasState;
 
-#ifndef LOVR_TEXTURE_TYPES
-#define LOVR_TEXTURE_TYPES
+#pragma once
 
 typedef struct {
   void* data;
@@ -45,8 +44,6 @@ typedef struct {
   WrapMode wrapVertical;
   int msaa;
 } Texture;
-
-#endif
 
 Texture* lovrTextureCreate(TextureData* textureData);
 Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa);

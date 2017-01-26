@@ -3,8 +3,7 @@
 #include "glfw.h"
 #include "openvr.h"
 
-#ifndef LOVR_VIVE_TYPES
-#define LOVR_VIVE_TYPES
+#pragma once
 
 typedef struct {
   Headset headset;
@@ -30,8 +29,6 @@ typedef struct {
 
   Texture* texture;
 } Vive;
-
-#endif
 
 Headset* viveInit();
 void vivePoll(void* headset);
