@@ -624,18 +624,22 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
     1.f, 1.f, 1.f
   };
 
+  vec_clear(&state.shapeData);
+  vec_pusharr(&state.shapeData, cube, 156);
+
   glDepthMask(GL_FALSE);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, skybox->texture);
 
-  vec_clear(&state.shapeData);
-  vec_pusharr(&state.shapeData, cube, 156);
+  int wasCulling = lovrGraphicsIsCullingEnabled();
+  lovrGraphicsSetCullingEnabled(0);
   lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, NULL, 0, 0, 0);
+  lovrGraphicsSetCullingEnabled(wasCulling);
 
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glActiveTexture(GL_TEXTURE0);
   glDepthMask(GL_TRUE);
 
-  glActiveTexture(GL_TEXTURE0);
   lovrGraphicsSetShader(lastShader);
   lovrRelease(&lastShader->ref);
   lovrGraphicsPop();
