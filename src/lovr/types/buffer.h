@@ -5,6 +5,7 @@ void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format);
 
 extern const luaL_Reg lovrBuffer[];
 int l_lovrBufferDraw(lua_State* L);
+int l_lovrBufferGetVertexFormat(lua_State* L);
 int l_lovrBufferGetVertexCount(lua_State* L);
 int l_lovrBufferGetVertex(lua_State* L);
 int l_lovrBufferSetVertex(lua_State* L);

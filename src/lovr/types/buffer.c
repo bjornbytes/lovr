@@ -32,6 +32,7 @@ void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format) {
 
 const luaL_Reg lovrBuffer[] = {
   { "draw", l_lovrBufferDraw },
+  { "getVertexFormat", l_lovrBufferGetVertexFormat },
   { "getVertexCount", l_lovrBufferGetVertexCount },
   { "getVertex", l_lovrBufferGetVertex },
   { "setVertex", l_lovrBufferSetVertex },
@@ -55,6 +56,31 @@ int l_lovrBufferDraw(lua_State* L) {
   luax_readtransform(L, 2, transform);
   lovrBufferDraw(buffer, transform);
   return 0;
+}
+
+int l_lovrBufferGetVertexFormat(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  BufferFormat format = lovrBufferGetVertexFormat(buffer);
+  lua_newtable(L);
+  for (int i = 0; i < format.length; i++) {
+    BufferAttribute attribute = format.data[i];
+    lua_newtable(L);
+
+    // Name
+    lua_pushstring(L, attribute.name);
+    lua_rawseti(L, -2, 1);
+
+    // Type
+    luax_pushenum(L, &BufferAttributeTypes, attribute.type);
+    lua_rawseti(L, -2, 2);
+
+    // Count
+    lua_pushinteger(L, attribute.count);
+    lua_rawseti(L, -2, 3);
+
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 1;
 }
 
 int l_lovrBufferGetDrawMode(lua_State* L) {
