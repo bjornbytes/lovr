@@ -1,5 +1,6 @@
 #include "lovr/types/buffer.h"
 #include "lovr/types/texture.h"
+#include "lovr/types/transform.h"
 #include "lovr/graphics.h"
 
 void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format) {
@@ -50,7 +51,9 @@ const luaL_Reg lovrBuffer[] = {
 
 int l_lovrBufferDraw(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  lovrBufferDraw(buffer);
+  float transform[16];
+  luax_readtransform(L, 2, transform);
+  lovrBufferDraw(buffer, transform);
   return 0;
 }
 

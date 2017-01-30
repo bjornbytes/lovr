@@ -69,11 +69,14 @@ void lovrBufferDestroy(const Ref* ref) {
   free(buffer);
 }
 
-void lovrBufferDraw(Buffer* buffer) {
+void lovrBufferDraw(Buffer* buffer, mat4 transform) {
   int usingIbo = buffer->map.length > 0;
 
-  lovrGraphicsPrepare();
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
   lovrGraphicsBindTexture(buffer->texture);
+  lovrGraphicsPrepare();
+
   glBindVertexArray(buffer->vao);
 
   // Figure out how many vertex attributes there are
@@ -124,6 +127,8 @@ void lovrBufferDraw(Buffer* buffer) {
   } else {
     glDrawArrays(buffer->drawMode, start, count);
   }
+
+  lovrGraphicsPop();
 }
 
 BufferFormat lovrBufferGetVertexFormat(Buffer* buffer) {

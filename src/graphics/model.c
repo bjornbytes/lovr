@@ -142,10 +142,7 @@ void lovrModelDataDestroy(ModelData* modelData) {
 }
 
 void lovrModelDraw(Model* model, mat4 transform) {
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
-  lovrBufferDraw(model->buffer);
-  lovrGraphicsPop();
+  lovrBufferDraw(model->buffer, transform);
 }
 
 Texture* lovrModelGetTexture(Model* model) {

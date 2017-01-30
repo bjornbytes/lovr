@@ -1,6 +1,7 @@
 #include "glfw.h"
 #include "util.h"
 #include "graphics/texture.h"
+#include "math/math.h"
 
 #pragma once
 
@@ -52,7 +53,7 @@ typedef struct Buffer {
 
 Buffer* lovrBufferCreate(int size, BufferFormat* format, BufferDrawMode drawMode, BufferUsage usage);
 void lovrBufferDestroy(const Ref* ref);
-void lovrBufferDraw(Buffer* buffer);
+void lovrBufferDraw(Buffer* buffer, mat4 transform);
 BufferFormat lovrBufferGetVertexFormat(Buffer* buffer);
 BufferDrawMode lovrBufferGetDrawMode(Buffer* buffer);
 int lovrBufferSetDrawMode(Buffer* buffer, BufferDrawMode drawMode);
