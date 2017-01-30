@@ -41,6 +41,19 @@ static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
   }
 }
 
+static Texture* luax_readtexture(lua_State* L, int index) {
+  const char* path = luaL_checkstring(L, index);
+  int size;
+  void* data = lovrFilesystemRead(path, &size);
+  if (!data) {
+    luaL_error(L, "Could not load texture file '%s'", path);
+  }
+  TextureData* textureData = lovrTextureDataFromFile(data, size);
+  Texture* texture = lovrTextureCreate(textureData);
+  free(data);
+  return texture;
+}
+
 const luaL_Reg lovrGraphics[] = {
   { "reset", l_lovrGraphicsReset },
   { "clear", l_lovrGraphicsClear },
@@ -596,7 +609,14 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   }
 
   ModelData* modelData = lovrModelDataFromFile(data, size);
-  luax_pushtype(L, Model, lovrModelCreate(modelData));
+  Model* model = lovrModelCreate(modelData);
+
+  if (lua_gettop(L) >= 2) {
+    Texture* texture = luax_readtexture(L, 2);
+    lovrModelSetTexture(model, texture);
+  }
+
+  luax_pushtype(L, Model, model);
   free(data);
   return 1;
 }
@@ -662,15 +682,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   Texture* texture;
 
   if (lua_type(L, 1) == LUA_TSTRING) {
-    const char* path = luaL_checkstring(L, 1);
-    int size;
-    void* data = lovrFilesystemRead(path, &size);
-    if (!data) {
-      return luaL_error(L, "Could not load texture file '%s'", path);
-    }
-    TextureData* textureData = lovrTextureDataFromFile(data, size);
-    texture = lovrTextureCreate(textureData);
-    free(data);
+    texture = luax_readtexture(L, 1);
   } else {
     int width = luaL_checknumber(L, 1);
     int height = luaL_checknumber(L, 2);
