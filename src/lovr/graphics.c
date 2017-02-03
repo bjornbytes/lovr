@@ -6,6 +6,7 @@
 #include "lovr/types/texture.h"
 #include "lovr/types/transform.h"
 #include "graphics/graphics.h"
+#include "loaders/font.h"
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "filesystem/filesystem.h"
@@ -68,6 +69,8 @@ const luaL_Reg lovrGraphics[] = {
   { "setScissor", l_lovrGraphicsSetScissor },
   { "getShader", l_lovrGraphicsGetShader },
   { "setShader", l_lovrGraphicsSetShader },
+  { "getFont", l_lovrGraphicsGetFont },
+  { "setFont", l_lovrGraphicsSetFont },
   { "setProjection", l_lovrGraphicsSetProjection },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
@@ -93,11 +96,13 @@ const luaL_Reg lovrGraphics[] = {
   { "triangle", l_lovrGraphicsTriangle },
   { "plane", l_lovrGraphicsPlane },
   { "cube", l_lovrGraphicsCube },
+  { "print", l_lovrGraphicsPrint },
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
-  { "newModel", l_lovrGraphicsNewModel },
   { "newBuffer", l_lovrGraphicsNewBuffer },
+  { "newFont", l_lovrGraphicsNewFont },
+  { "newModel", l_lovrGraphicsNewModel },
   { "newShader", l_lovrGraphicsNewShader },
   { "newSkybox", l_lovrGraphicsNewSkybox },
   { "newTexture", l_lovrGraphicsNewTexture },
@@ -110,6 +115,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
   luax_registertype(L, "Buffer", lovrBuffer);
+  luax_registertype(L, "Font", NULL);
   luax_registertype(L, "Model", lovrModel);
   luax_registertype(L, "Shader", lovrShader);
   luax_registertype(L, "Skybox", lovrSkybox);
@@ -308,6 +314,17 @@ int l_lovrGraphicsGetShader(lua_State* L) {
 int l_lovrGraphicsSetShader(lua_State* L) {
   Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Shader);
   lovrGraphicsSetShader(shader);
+  return 0;
+}
+
+int l_lovrGraphicsGetFont(lua_State* L) {
+  luax_pushtype(L, Font, lovrGraphicsGetFont());
+  return 1;
+}
+
+int l_lovrGraphicsSetFont(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  lovrGraphicsSetFont(font);
   return 0;
 }
 
@@ -531,6 +548,12 @@ int l_lovrGraphicsCube(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsPrint(lua_State* L) {
+  const char* str = luaL_checkstring(L, 1);
+  lovrGraphicsPrint(str);
+  return 0;
+}
+
 // Types
 
 int l_lovrGraphicsNewBuffer(lua_State* L) {
@@ -597,6 +620,20 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
 
   vec_deinit(&format);
   luax_pushtype(L, Buffer, buffer);
+  return 1;
+}
+
+int l_lovrGraphicsNewFont(lua_State* L) {
+  const char* path = luaL_checkstring(L, 1);
+  //float size = luaL_optnumber(L, 2, 16);
+  int fileSize;
+  void* data = lovrFilesystemRead(path, &fileSize);
+  if (!data) {
+    luaL_error(L, "Could not load font '%s'", path);
+  }
+  FontData* fontData = lovrFontDataCreate(data, fileSize);
+  Font* font = lovrFontCreate(fontData);
+  luax_pushtype(L, Font, font);
   return 1;
 }
 
@@ -695,4 +732,3 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   luax_pushtype(L, Texture, texture);
   return 1;
 }
-

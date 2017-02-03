@@ -1,4 +1,5 @@
 #include "graphics/buffer.h"
+#include "graphics/font.h"
 #include "graphics/model.h"
 #include "graphics/shader.h"
 #include "graphics/skybox.h"
@@ -48,6 +49,7 @@ typedef struct {
   Shader* defaultShader;
   Shader* skyboxShader;
   Shader* fullscreenShader;
+  Font* activeFont;
   Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS][16];
   CanvasState* canvases[MAX_CANVASES];
@@ -91,6 +93,8 @@ void lovrGraphicsGetScissor(int* x, int* y, int* width, int* height);
 void lovrGraphicsSetScissor(int x, int y, int width, int height);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
+Font* lovrGraphicsGetFont();
+void lovrGraphicsSetFont(Font* font);
 void lovrGraphicsBindTexture(Texture* texture);
 mat4 lovrGraphicsGetProjection();
 void lovrGraphicsSetProjection(float near, float far, float fov);
@@ -124,6 +128,8 @@ void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsMatrixTransform(mat4 transform);
 
 // Primitives
+void lovrGraphicsSetShapeData(float* data, int length);
+void lovrGraphicsSetIndexData(unsigned int* data, int length);
 void lovrGraphicsDrawPrimitive(GLenum mode, Texture* texture, int hasNormals, int hasTexCoords, int useIndices);
 void lovrGraphicsPoints(float* points, int count);
 void lovrGraphicsLine(float* points, int count);
@@ -132,3 +138,4 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float 
 void lovrGraphicsPlaneFullscreen(Texture* texture);
 void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform);
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az);
+void lovrGraphicsPrint(const char* str);

@@ -5,11 +5,19 @@ struct CanvasState;
 
 #pragma once
 
+typedef enum {
+  FORMAT_RED,
+  FORMAT_RG,
+  FORMAT_RGB,
+  FORMAT_RGBA
+} TextureFormat;
+
 typedef struct {
   void* data;
   int width;
   int height;
   int channels;
+  TextureFormat format;
 } TextureData;
 
 typedef enum {

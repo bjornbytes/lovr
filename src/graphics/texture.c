@@ -4,17 +4,29 @@
 #include <math.h>
 #include <stdlib.h>
 
+static GLenum getGLFormat(TextureFormat format) {
+  switch (format) {
+    case FORMAT_RED: return GL_RED;
+    case FORMAT_RG: return GL_RG;
+    case FORMAT_RGB: return GL_RGB;
+    case FORMAT_RGBA: return GL_RGBA;
+  }
+
+  return 0;
+}
+
 Texture* lovrTextureCreate(TextureData* textureData) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
   int w = textureData->width;
   int h = textureData->height;
+  GLenum format = getGLFormat(textureData->format);
 
   texture->textureData = textureData;
   glGenTextures(1, &texture->id);
   lovrTextureBind(texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData->data);
+  glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, textureData->data);
   lovrTextureSetFilter(texture, FILTER_LINEAR, FILTER_LINEAR);
   lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
 

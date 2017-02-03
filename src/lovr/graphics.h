@@ -30,6 +30,8 @@ int l_lovrGraphicsGetScissor(lua_State* L);
 int l_lovrGraphicsSetScissor(lua_State* L);
 int l_lovrGraphicsGetShader(lua_State* L);
 int l_lovrGraphicsSetShader(lua_State* L);
+int l_lovrGraphicsGetFont(lua_State* L);
+int l_lovrGraphicsSetFont(lua_State* L);
 int l_lovrGraphicsSetProjection(lua_State* L);
 int l_lovrGraphicsGetLineWidth(lua_State* L);
 int l_lovrGraphicsSetLineWidth(lua_State* L);
@@ -62,9 +64,11 @@ int l_lovrGraphicsLine(lua_State* L);
 int l_lovrGraphicsTriangle(lua_State* L);
 int l_lovrGraphicsPlane(lua_State* L);
 int l_lovrGraphicsCube(lua_State* L);
+int l_lovrGraphicsPrint(lua_State* L);
 
 // Types
 int l_lovrGraphicsNewBuffer(lua_State* L);
+int l_lovrGraphicsNewFont(lua_State* L);
 int l_lovrGraphicsNewModel(lua_State* L);
 int l_lovrGraphicsNewShader(lua_State* L);
 int l_lovrGraphicsNewSkybox(lua_State* L);
