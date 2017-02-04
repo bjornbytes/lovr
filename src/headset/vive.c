@@ -89,6 +89,7 @@ Headset* viveInit() {
   headset->renderTo = viveRenderTo;
 
   vive->isRendering = 0;
+  vive->texture = NULL;
   vec_init(&vive->controllers);
 
   for (int i = 0; i < 16; i++) {
@@ -170,7 +171,9 @@ void vivePoll(void* headset) {
 
 void viveDestroy(void* headset) {
   Vive* vive = (Vive*) headset;
-  lovrRelease(&vive->texture->ref);
+  if (vive->texture) {
+    lovrRelease(&vive->texture->ref);
+  }
   for (int i = 0; i < 16; i++) {
     if (vive->deviceModels[i].isLoaded) {
       vive->renderModels->FreeRenderModel(vive->deviceModels[i].model);
