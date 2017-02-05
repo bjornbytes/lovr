@@ -23,7 +23,7 @@ FontData* lovrFontDataCreate(void* data, int size) {
   return fontData;
 }
 
-GlyphData* lovrFontDataCreateGlyph(FontData* fontData, uint32_t character) {
+void lovrFontDataLoadGlyph(FontData* fontData, uint32_t character, Glyph* glyph) {
   FT_Face face = fontData->rasterizer;
   FT_Error err = FT_Err_Ok;
   FT_Glyph ftGlyph;
@@ -41,26 +41,25 @@ GlyphData* lovrFontDataCreateGlyph(FontData* fontData, uint32_t character) {
   ftBitmapGlyph = (FT_BitmapGlyph) ftGlyph;
   ftBitmap = ftBitmapGlyph->bitmap;
 
-  GlyphData* glyphData = malloc(sizeof(GlyphData));
   FT_Glyph_Metrics* metrics = &face->glyph->metrics;
-  glyphData->x = metrics->horiBearingX >> 6;
-  glyphData->y = metrics->horiBearingY >> 6;
-  glyphData->w = metrics->width >> 6;
-  glyphData->h = metrics->height >> 6;
-  glyphData->advance = metrics->horiAdvance >> 6;
-  glyphData->data = malloc(2 * glyphData->w * glyphData->h);
+  glyph->x = 0;
+  glyph->y = 0;
+  glyph->ox = metrics->horiBearingX >> 6;
+  glyph->oy = metrics->horiBearingY >> 6;
+  glyph->w = metrics->width >> 6;
+  glyph->h = metrics->height >> 6;
+  glyph->advance = metrics->horiAdvance >> 6;
+  glyph->data = malloc(2 * glyph->w * glyph->h);
 
   int i = 0;
   uint8_t* row = ftBitmap.buffer;
-  for (int y = 0; y < glyphData->h; y++) {
-    for (int x = 0; x < glyphData->w; x++) {
-      glyphData->data[i++] = 0xff;
-      glyphData->data[i++] = row[x];
+  for (int y = 0; y < glyph->h; y++) {
+    for (int x = 0; x < glyph->w; x++) {
+      glyph->data[i++] = 0xff;
+      glyph->data[i++] = row[x];
     }
-
     row += ftBitmap.pitch;
   }
 
   FT_Done_Glyph(ftGlyph);
-  return glyphData;
 }
