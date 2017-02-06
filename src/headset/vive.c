@@ -148,7 +148,7 @@ Headset* viveInit() {
 
   viveRefreshControllers(vive);
 
-  TextureData* textureData = lovrTextureDataGetEmpty(vive->renderWidth, vive->renderHeight);
+  TextureData* textureData = lovrTextureDataGetEmpty(vive->renderWidth, vive->renderHeight, FORMAT_RGBA);
   vive->texture = lovrTextureCreateWithFramebuffer(textureData, PROJECTION_PERSPECTIVE, 4);
 
   return headset;

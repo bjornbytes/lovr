@@ -28,15 +28,23 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, Textu
   return textureData;
 }
 
-TextureData* lovrTextureDataGetEmpty(int width, int height) {
+TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
+
+  int channels = 0;
+  switch (format) {
+    case FORMAT_RED: channels = 1; break;
+    case FORMAT_RG: channels = 2; break;
+    case FORMAT_RGB: channels = 3; break;
+    case FORMAT_RGBA: channels = 4; break;
+  }
 
   textureData->data = NULL;
   textureData->width = width;
   textureData->height = height;
-  textureData->channels = 4;
-  textureData->format = FORMAT_RGBA;
+  textureData->channels = channels;
+  textureData->format = format;
 
   return textureData;
 }
@@ -71,4 +79,12 @@ TextureData* lovrTextureDataFromOpenVRModel(OpenVRModel* vrModel) {
   textureData->data = texture->rubTextureMapData;
   textureData->format = FORMAT_RGBA;
   return textureData;
+}
+
+void lovrTextureDataResize(TextureData* textureData, int width, int height, uint8_t value) {
+  int size = sizeof(uint8_t) * width * height * textureData->channels;
+  textureData->width = width;
+  textureData->height = height;
+  textureData->data = realloc(textureData->data, size);
+  memset(textureData->data, value, size);
 }

@@ -57,7 +57,6 @@ Texture* lovrTextureCreate(TextureData* textureData);
 Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa);
 void lovrTextureDestroy(const Ref* ref);
 void lovrTextureDataDestroy(TextureData* textureData);
-void lovrTextureBind(Texture* texture);
 void lovrTextureBindFramebuffer(Texture* texture);
 void lovrTextureResolveMSAA(Texture* texture);
 void lovrTextureRefresh(Texture* texture);

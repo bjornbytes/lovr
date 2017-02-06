@@ -19,14 +19,9 @@ Texture* lovrTextureCreate(TextureData* textureData) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
-  int w = textureData->width;
-  int h = textureData->height;
-  GLenum format = getGLFormat(textureData->format);
-
   texture->textureData = textureData;
   glGenTextures(1, &texture->id);
-  lovrTextureBind(texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, textureData->data);
+  lovrTextureRefresh(texture);
   lovrTextureSetFilter(texture, FILTER_LINEAR, FILTER_LINEAR);
   lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
 
@@ -104,10 +99,6 @@ void lovrTextureDataDestroy(TextureData* textureData) {
   free(textureData);
 }
 
-void lovrTextureBind(Texture* texture) {
-  glBindTexture(GL_TEXTURE_2D, texture->id);
-}
-
 void lovrTextureBindFramebuffer(Texture* texture) {
   if (!texture->framebuffer) {
     error("Texture cannot be used as a canvas");
@@ -154,6 +145,15 @@ void lovrTextureResolveMSAA(Texture* texture) {
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
+void lovrTextureRefresh(Texture* texture) {
+  TextureData* textureData = texture->textureData;
+  int w = textureData->width;
+  int h = textureData->height;
+  GLenum format = getGLFormat(textureData->format);
+  lovrGraphicsBindTexture(texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, textureData->data);
+}
+
 int lovrTextureGetHeight(Texture* texture) {
   return texture->textureData->height;
 }
@@ -170,7 +170,7 @@ void lovrTextureGetFilter(Texture* texture, FilterMode* min, FilterMode* mag) {
 void lovrTextureSetFilter(Texture* texture, FilterMode min, FilterMode mag) {
   texture->filterMin = min;
   texture->filterMag = mag;
-  lovrTextureBind(texture);
+  lovrGraphicsBindTexture(texture);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, min);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag);
 }
@@ -183,7 +183,7 @@ void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertic
 void lovrTextureSetWrap(Texture* texture, WrapMode horizontal, WrapMode vertical) {
   texture->wrapHorizontal = horizontal;
   texture->wrapVertical = vertical;
-  lovrTextureBind(texture);
+  lovrGraphicsBindTexture(texture);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, horizontal);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, vertical);
 }

@@ -50,6 +50,7 @@ typedef struct {
   Shader* skyboxShader;
   Shader* fullscreenShader;
   Font* activeFont;
+  Texture* activeTexture;
   Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS][16];
   CanvasState* canvases[MAX_CANVASES];

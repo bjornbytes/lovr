@@ -625,13 +625,15 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
 
 int l_lovrGraphicsNewFont(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  //float size = luaL_optnumber(L, 2, 16);
+  float fontSize = luaL_optnumber(L, 2, 12);
+
   int fileSize;
   void* data = lovrFilesystemRead(path, &fileSize);
   if (!data) {
     luaL_error(L, "Could not load font '%s'", path);
   }
-  FontData* fontData = lovrFontDataCreate(data, fileSize);
+
+  FontData* fontData = lovrFontDataCreate(data, fileSize, fontSize);
   Font* font = lovrFontCreate(fontData);
   luax_pushtype(L, Font, font);
   return 1;
@@ -725,7 +727,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     int height = luaL_checknumber(L, 2);
     TextureProjection* projection = luax_optenum(L, 3, "2d", &TextureProjections, "projection");
     int msaa = luaL_optnumber(L, 4, 0);
-    TextureData* textureData = lovrTextureDataGetEmpty(width, height);
+    TextureData* textureData = lovrTextureDataGetEmpty(width, height, FORMAT_RGBA);
     texture = lovrTextureCreateWithFramebuffer(textureData, *projection, msaa);
   }
 

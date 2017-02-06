@@ -195,7 +195,10 @@ void lovrGraphicsBindTexture(Texture* texture) {
     texture = state.defaultTexture;
   }
 
-  lovrTextureBind(texture);
+  if (texture != state.activeTexture) {
+    state.activeTexture = texture;
+    glBindTexture(GL_TEXTURE_2D, texture->id);
+  }
 }
 
 mat4 lovrGraphicsGetProjection() {
