@@ -22,3 +22,4 @@ void lovrSleep(double seconds);
 void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref));
 void lovrRetain(const Ref* ref);
 void lovrRelease(const Ref* ref);
+size_t utf8_decode(const char *s, const char *e, unsigned *pch);

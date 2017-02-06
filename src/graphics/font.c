@@ -4,7 +4,10 @@
 #include "math/math.h"
 #include "loaders/font.h"
 #include "loaders/texture.h"
+#include "util.h"
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 Font* lovrFontCreate(FontData* fontData) {
   Font* font = lovrAlloc(sizeof(Font), lovrFontDestroy);
@@ -43,22 +46,29 @@ void lovrFontDestroy(const Ref* ref) {
 
 void lovrFontPrint(Font* font, const char* str) {
   FontAtlas* atlas = &font->atlas;
-  vec_reserve(&font->vertices, strlen(str) * 30);
-  vec_clear(&font->vertices);
 
   float x = 0;
   float y = 0;
   float u = atlas->width;
   float v = atlas->height;
 
-  for (unsigned int i = 0; i < strlen(str); i++) {
-    if (str[i] == '\n') {
+  int length = strlen(str);
+  const char* end = str + length;
+  size_t bytes;
+  unsigned int codepoint;
+
+  vec_reserve(&font->vertices, length * 30);
+  vec_clear(&font->vertices);
+
+  while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+    if (codepoint == '\n') {
       x = 0;
       y -= font->fontData->size;
+      str += bytes;
       continue;
     }
 
-    Glyph* glyph = lovrFontGetGlyph(font, str[i]);
+    Glyph* glyph = lovrFontGetGlyph(font, codepoint);
 
     int gx = glyph->x;
     int gy = glyph->y;
@@ -88,6 +98,7 @@ void lovrFontPrint(Font* font, const char* str) {
     }
 
     x += glyph->advance;
+    str += bytes;
   }
 
   lovrGraphicsSetShapeData(font->vertices.data, font->vertices.length);
@@ -106,8 +117,10 @@ int lovrFontGetDescent(Font* font) {
   return font->fontData->descent;
 }
 
-Glyph* lovrFontGetGlyph(Font* font, char character) {
-  char key[2] = { character, '\0' };
+Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
+  char key[6];
+  snprintf(key, 6, "%d", codepoint);
+
   FontAtlas* atlas = &font->atlas;
   vec_glyph_t* glyphs = &atlas->glyphs;
   Glyph* glyph = map_get(glyphs, key);
@@ -115,7 +128,7 @@ Glyph* lovrFontGetGlyph(Font* font, char character) {
   // Add the glyph to the atlas if it isn't there
   if (!glyph) {
     Glyph g;
-    lovrFontDataLoadGlyph(font->fontData, character, &g);
+    lovrFontDataLoadGlyph(font->fontData, codepoint, &g);
     map_set(glyphs, key, g);
     glyph = map_get(glyphs, key);
     lovrFontAddGlyph(font, glyph);

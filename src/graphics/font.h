@@ -51,6 +51,6 @@ void lovrFontPrint(Font* font, const char* str);
 int lovrFontGetHeight(Font* font);
 int lovrFontGetAscent(Font* font);
 int lovrFontGetDescent(Font* font);
-Glyph* lovrFontGetGlyph(Font* font, char character);
+Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint);
 void lovrFontAddGlyph(Font* font, Glyph* glyph);
 void lovrFontExpandTexture(Font* font);
