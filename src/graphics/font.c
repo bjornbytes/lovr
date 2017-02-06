@@ -94,6 +94,18 @@ void lovrFontPrint(Font* font, const char* str) {
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, font->texture, 0, 1, 0);
 }
 
+int lovrFontGetHeight(Font* font) {
+  return font->fontData->height;
+}
+
+int lovrFontGetAscent(Font* font) {
+  return font->fontData->ascent;
+}
+
+int lovrFontGetDescent(Font* font) {
+  return font->fontData->descent;
+}
+
 Glyph* lovrFontGetGlyph(Font* font, char character) {
   char key[2] = { character, '\0' };
   FontAtlas* atlas = &font->atlas;

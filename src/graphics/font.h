@@ -9,6 +9,9 @@
 typedef struct {
   void* rasterizer;
   int size;
+  int height;
+  int ascent;
+  int descent;
 } FontData;
 
 typedef struct {
@@ -45,6 +48,9 @@ typedef struct {
 Font* lovrFontCreate(FontData* fontData);
 void lovrFontDestroy(const Ref* ref);
 void lovrFontPrint(Font* font, const char* str);
+int lovrFontGetHeight(Font* font);
+int lovrFontGetAscent(Font* font);
+int lovrFontGetDescent(Font* font);
 Glyph* lovrFontGetGlyph(Font* font, char character);
 void lovrFontAddGlyph(Font* font, Glyph* glyph);
 void lovrFontExpandTexture(Font* font);

@@ -11,16 +11,23 @@ FontData* lovrFontDataCreate(void* data, int size, int height) {
     error("Error initializing FreeType");
   }
 
-  FontData* fontData = malloc(sizeof(FontData));
-  fontData->size = height;
-
+  FT_Face face = NULL;
   FT_Error err = FT_Err_Ok;
-  err = err || FT_New_Memory_Face(ft, data, size, 0, (FT_Face*)&fontData->rasterizer);
-  err = err || FT_Set_Pixel_Sizes(fontData->rasterizer, 0, height);
+  err = err || FT_New_Memory_Face(ft, data, size, 0, &face);
+  err = err || FT_Set_Pixel_Sizes(face, 0, height);
 
   if (err) {
     error("Problem loading font\n");
   }
+
+  FontData* fontData = malloc(sizeof(FontData));
+  fontData->rasterizer = face;
+  fontData->size = height;
+
+  FT_Size_Metrics metrics = face->size->metrics;
+  fontData->height = metrics.height >> 6;
+  fontData->ascent = metrics.ascender >> 6;
+  fontData->descent = metrics.descender >> 6;
 
   return fontData;
 }
@@ -38,7 +45,7 @@ void lovrFontDataLoadGlyph(FontData* fontData, uint32_t character, Glyph* glyph)
   FT_BitmapGlyph bmglyph;
   FT_Glyph_Metrics* metrics;
 
-  // FreeType stuff
+  // FreeType
   err = err || FT_Load_Glyph(face, FT_Get_Char_Index(face, character), FT_LOAD_DEFAULT);
   err = err || FT_Get_Glyph(face->glyph, &slot);
   err = err || FT_Glyph_To_Bitmap(&slot, FT_RENDER_MODE_NORMAL, 0, 1);

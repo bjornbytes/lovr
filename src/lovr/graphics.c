@@ -1,5 +1,6 @@
 #include "lovr/graphics.h"
 #include "lovr/types/buffer.h"
+#include "lovr/types/font.h"
 #include "lovr/types/model.h"
 #include "lovr/types/shader.h"
 #include "lovr/types/skybox.h"
@@ -115,7 +116,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
   luax_registertype(L, "Buffer", lovrBuffer);
-  luax_registertype(L, "Font", NULL);
+  luax_registertype(L, "Font", lovrFont);
   luax_registertype(L, "Model", lovrModel);
   luax_registertype(L, "Shader", lovrShader);
   luax_registertype(L, "Skybox", lovrSkybox);
