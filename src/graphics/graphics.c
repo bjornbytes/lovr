@@ -1,9 +1,11 @@
 #include "graphics/graphics.h"
 #include "loaders/texture.h"
+#include "loaders/font.h"
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "util.h"
 #include "glfw.h"
+#include "Cabin.ttf.h"
 #define _USE_MATH_DEFINES
 #include <stdlib.h>
 #include <math.h>
@@ -21,6 +23,9 @@ void lovrGraphicsInit() {
   state.fullscreenShader = lovrShaderCreate(lovrNoopVertexShader, lovrDefaultFragmentShader);
   int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
   lovrShaderSendInt(state.skyboxShader, uniformId, 1);
+  state.activeFont = NULL;
+  state.defaultFont = NULL;
+  state.activeTexture = NULL;
   state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA));
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
@@ -182,7 +187,16 @@ void lovrGraphicsSetShader(Shader* shader) {
   }
 }
 
+void lovrGraphicsEnsureFont() {
+  if (!state.activeFont && !state.defaultFont) {
+    FontData* fontData = lovrFontDataCreate(Cabin_ttf, Cabin_ttf_len, 32);
+    state.defaultFont = lovrFontCreate(fontData);
+    state.activeFont = state.defaultFont;
+  }
+}
+
 Font* lovrGraphicsGetFont() {
+  lovrGraphicsEnsureFont();
   return state.activeFont;
 }
 
@@ -656,5 +670,6 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
 }
 
 void lovrGraphicsPrint(const char* str) {
+  lovrGraphicsEnsureFont();
   lovrFontPrint(state.activeFont, str);
 }

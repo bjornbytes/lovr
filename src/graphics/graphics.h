@@ -50,6 +50,7 @@ typedef struct {
   Shader* skyboxShader;
   Shader* fullscreenShader;
   Font* activeFont;
+  Font* defaultFont;
   Texture* activeTexture;
   Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS][16];
@@ -94,6 +95,7 @@ void lovrGraphicsGetScissor(int* x, int* y, int* width, int* height);
 void lovrGraphicsSetScissor(int x, int y, int width, int height);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
+void lovrGraphicsEnsureFont();
 Font* lovrGraphicsGetFont();
 void lovrGraphicsSetFont(Font* font);
 void lovrGraphicsBindTexture(Texture* texture);
