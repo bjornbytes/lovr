@@ -90,6 +90,18 @@ else()
   set(LOVR_OPENAL ${OPENAL_LIBRARIES})
 endif()
 
+# FreeType
+if (WIN32)
+  set(BUILD_SHARED_LIBS OFF)
+  add_subdirectory(deps/freetype freetype)
+  include_directories(deps/freetype/include)
+  set(LOVR_FREETYPE freetype)
+else()
+  pkg_search_module(FREETYPE REQUIRED freetype)
+  include_directories(${FREETYPE_INCLUDE_DIRS})
+  set(LOVR_FREETYPE ${FREETYPE_LIBRARIES})
+endif()
+
 # openvr
 if(WIN32)
   include_directories(deps/openvr/headers)
@@ -121,6 +133,7 @@ set(LOVR_LIB
   ${LOVR_PHYSFS}
   ${LOVR_ASSIMP}
   ${LOVR_OPENAL}
+  ${LOVR_FREETYPE}
   ${LOVR_OPENVR}
 )
 
@@ -133,4 +146,5 @@ if(WIN32)
   move_dll(${LOVR_PHYSFS})
   move_dll(${LOVR_ASSIMP})
   move_dll(${LOVR_OPENAL})
+  move_dll(${LOVR_FREETYPE})
 endif()
