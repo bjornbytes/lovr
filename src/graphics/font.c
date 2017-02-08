@@ -15,6 +15,7 @@ Font* lovrFontCreate(FontData* fontData) {
 
   font->fontData = fontData;
   vec_init(&font->vertices);
+  map_init(&font->kerning);
 
   // Atlas
   int padding = 1;
@@ -40,6 +41,7 @@ void lovrFontDestroy(const Ref* ref) {
   lovrFontDataDestroy(font->fontData);
   lovrRelease(&font->texture->ref);
   map_deinit(&font->atlas.glyphs);
+  map_deinit(&font->kerning);
   vec_deinit(&font->vertices);
   free(font);
 }
@@ -55,29 +57,40 @@ void lovrFontPrint(Font* font, const char* str) {
   int length = strlen(str);
   const char* end = str + length;
   size_t bytes;
+  unsigned int previous = '\0';
   unsigned int codepoint;
 
   vec_reserve(&font->vertices, length * 30);
   vec_clear(&font->vertices);
 
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+
+    // Newlines
     if (codepoint == '\n') {
       x = 0;
       y -= font->fontData->size;
+      previous = '\0';
       str += bytes;
       continue;
     }
 
-    Glyph* glyph = lovrFontGetGlyph(font, codepoint);
+    // Kerning
+    x += lovrFontGetKerning(font, previous, codepoint);
+    previous = codepoint;
 
+    // Glyph geometry
+    Glyph* glyph = lovrFontGetGlyph(font, codepoint);
     int gx = glyph->x;
     int gy = glyph->y;
     int gw = glyph->w;
     int gh = glyph->h;
+    int dx = glyph->dx;
+    int dy = glyph->dy;
 
+    // Triangles
     if (gw > 0 && gh > 0) {
-      float x1 = x + glyph->dx;
-      float y1 = y + glyph->dy;
+      float x1 = x + dx;
+      float y1 = y + dy;
       float x2 = x1 + gw;
       float y2 = y1 - gh;
       float s1 = gx / u;
@@ -97,6 +110,7 @@ void lovrFontPrint(Font* font, const char* str) {
       vec_pusharr(&font->vertices, v, 30);
     }
 
+    // Advance cursor
     x += glyph->advance;
     str += bytes;
   }
@@ -115,6 +129,20 @@ int lovrFontGetAscent(Font* font) {
 
 int lovrFontGetDescent(Font* font) {
   return font->fontData->descent;
+}
+
+int lovrFontGetKerning(Font* font, unsigned int left, unsigned int right) {
+  char key[12];
+  snprintf(key, 12, "%d,%d", left, right);
+
+  int* entry = map_get(&font->kerning, key);
+  if (entry) {
+    return *entry;
+  }
+
+  int kerning = lovrFontDataGetKerning(font->fontData, left, right);
+  map_set(&font->kerning, key, kerning);
+  return kerning;
 }
 
 Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {

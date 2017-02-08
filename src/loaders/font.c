@@ -81,3 +81,12 @@ void lovrFontDataLoadGlyph(FontData* fontData, uint32_t character, Glyph* glyph)
 
   FT_Done_Glyph(slot);
 }
+
+int lovrFontDataGetKerning(FontData* fontData, uint32_t left, uint32_t right) {
+  FT_Face face = fontData->rasterizer;
+  FT_Vector kerning;
+  left = FT_Get_Char_Index(face, left);
+  right = FT_Get_Char_Index(face, right);
+  FT_Get_Kerning(face, left, right, FT_KERNING_DEFAULT, &kerning);
+  return kerning.x >> 6;
+}

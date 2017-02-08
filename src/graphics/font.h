@@ -42,6 +42,7 @@ typedef struct {
   FontData* fontData;
   Texture* texture;
   FontAtlas atlas;
+  map_int_t kerning;
   vec_float_t vertices;
 } Font;
 
@@ -51,6 +52,7 @@ void lovrFontPrint(Font* font, const char* str);
 int lovrFontGetHeight(Font* font);
 int lovrFontGetAscent(Font* font);
 int lovrFontGetDescent(Font* font);
+int lovrFontGetKerning(Font* font, unsigned int a, unsigned int b);
 Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint);
 void lovrFontAddGlyph(Font* font, Glyph* glyph);
 void lovrFontExpandTexture(Font* font);
