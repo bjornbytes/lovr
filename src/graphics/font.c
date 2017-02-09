@@ -21,10 +21,14 @@ Font* lovrFontCreate(FontData* fontData) {
   int padding = 1;
   font->atlas.x = padding;
   font->atlas.y = padding;
-  font->atlas.width = 64;
-  font->atlas.height = 64;
+  font->atlas.width = 256;
+  font->atlas.height = 256;
   font->atlas.padding = padding;
   map_init(&font->atlas.glyphs);
+
+  while (font->atlas.width < 4 * fontData->size) {
+    font->atlas.width <<= 1;
+  }
 
   // Texture
   TextureData* textureData = lovrTextureDataGetBlank(font->atlas.width, font->atlas.height, 0x0, FORMAT_RG);
