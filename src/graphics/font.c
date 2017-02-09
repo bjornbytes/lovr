@@ -119,8 +119,14 @@ void lovrFontPrint(Font* font, const char* str) {
     str += bytes;
   }
 
+  // Set depth test to LEQUAL to prevent blending issues with glyphs, not great
+  CompareMode oldCompareMode = lovrGraphicsGetDepthTest();
+  lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
+
   lovrGraphicsSetShapeData(font->vertices.data, font->vertices.length);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, font->texture, 0, 1, 0);
+
+  lovrGraphicsSetDepthTest(oldCompareMode);
 }
 
 int lovrFontGetHeight(Font* font) {
