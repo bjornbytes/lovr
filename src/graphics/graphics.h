@@ -141,4 +141,4 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float 
 void lovrGraphicsPlaneFullscreen(Texture* texture);
 void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform);
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az);
-void lovrGraphicsPrint(const char* str);
+void lovrGraphicsPrint(const char* str, mat4 transform);

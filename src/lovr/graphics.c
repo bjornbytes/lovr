@@ -551,7 +551,9 @@ int l_lovrGraphicsCube(lua_State* L) {
 
 int l_lovrGraphicsPrint(lua_State* L) {
   const char* str = luaL_checkstring(L, 1);
-  lovrGraphicsPrint(str);
+  float transform[16];
+  luax_readtransform(L, 2, transform);
+  lovrGraphicsPrint(str, transform);
   return 0;
 }
 

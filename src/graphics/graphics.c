@@ -38,10 +38,14 @@ void lovrGraphicsInit() {
 }
 
 void lovrGraphicsDestroy() {
+  lovrGraphicsSetFont(NULL);
   lovrGraphicsSetShader(NULL);
   glUseProgram(0);
   for (int i = 0; i < MAX_CANVASES; i++) {
     free(state.canvases[i]);
+  }
+  if (state.defaultFont) {
+    lovrRelease(&state.defaultFont->ref);
   }
   lovrRelease(&state.defaultShader->ref);
   lovrRelease(&state.skyboxShader->ref);
@@ -191,7 +195,8 @@ void lovrGraphicsEnsureFont() {
   if (!state.activeFont && !state.defaultFont) {
     FontData* fontData = lovrFontDataCreate(Cabin_ttf, Cabin_ttf_len, 32);
     state.defaultFont = lovrFontCreate(fontData);
-    state.activeFont = state.defaultFont;
+    lovrRetain(&state.defaultFont->ref);
+    lovrGraphicsSetFont(state.defaultFont);
   }
 }
 
@@ -201,7 +206,15 @@ Font* lovrGraphicsGetFont() {
 }
 
 void lovrGraphicsSetFont(Font* font) {
+  if (state.activeFont) {
+    lovrRelease(&state.activeFont->ref);
+  }
+
   state.activeFont = font;
+
+  if (font) {
+    lovrRetain(&state.activeFont->ref);
+  }
 }
 
 void lovrGraphicsBindTexture(Texture* texture) {
@@ -669,7 +682,10 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
   lovrGraphicsPop();
 }
 
-void lovrGraphicsPrint(const char* str) {
+void lovrGraphicsPrint(const char* str, mat4 transform) {
   lovrGraphicsEnsureFont();
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
   lovrFontPrint(state.activeFont, str);
+  lovrGraphicsPop();
 }
