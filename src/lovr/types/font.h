@@ -6,3 +6,4 @@ int l_lovrFontGetWidth(lua_State* L);
 int l_lovrFontGetHeight(lua_State* L);
 int l_lovrFontGetAscent(lua_State* L);
 int l_lovrFontGetDescent(lua_State* L);
+int l_lovrFontGetBaseline(lua_State* L);

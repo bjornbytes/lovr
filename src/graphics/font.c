@@ -169,6 +169,10 @@ int lovrFontGetDescent(Font* font) {
   return font->fontData->descent;
 }
 
+int lovrFontGetBaseline(Font* font) {
+  return font->fontData->height / 1.25f;
+}
+
 int lovrFontGetKerning(Font* font, unsigned int left, unsigned int right) {
   char key[12];
   snprintf(key, 12, "%d,%d", left, right);
