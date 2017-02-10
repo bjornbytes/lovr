@@ -54,7 +54,7 @@ void lovrFontPrint(Font* font, const char* str) {
   FontAtlas* atlas = &font->atlas;
 
   float x = 0;
-  float y = 0;
+  float y = -lovrFontGetHeight(font);
   float u = atlas->width;
   float v = atlas->height;
 
@@ -127,6 +127,34 @@ void lovrFontPrint(Font* font, const char* str) {
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, font->texture, 0, 1, 0);
 
   lovrGraphicsSetDepthTest(oldCompareMode);
+}
+
+int lovrFontGetWidth(Font* font, const char* str) {
+  float width = 0;
+  float x = 0;
+  const char* end = str + strlen(str);
+  size_t bytes;
+  unsigned int previous = '\0';
+  unsigned int codepoint;
+
+  while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+
+    // Newlines
+    if (codepoint == '\n') {
+      width = MAX(width, x);
+      x = 0;
+      previous = '\0';
+      str += bytes;
+      continue;
+    }
+
+    Glyph* glyph = lovrFontGetGlyph(font, codepoint);
+    x += glyph->advance + lovrFontGetKerning(font, previous, codepoint);
+    previous = codepoint;
+    str += bytes;
+  }
+
+  return MAX(x, width);
 }
 
 int lovrFontGetHeight(Font* font) {
