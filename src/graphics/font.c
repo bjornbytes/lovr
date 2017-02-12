@@ -14,6 +14,8 @@ Font* lovrFontCreate(FontData* fontData) {
   if (!font) return NULL;
 
   font->fontData = fontData;
+  font->texture = NULL;
+  font->lineHeight = 1.f;
   vec_init(&font->vertices);
   map_init(&font->kerning);
 
@@ -21,13 +23,14 @@ Font* lovrFontCreate(FontData* fontData) {
   int padding = 1;
   font->atlas.x = padding;
   font->atlas.y = padding;
-  font->atlas.width = 256;
-  font->atlas.height = 256;
+  font->atlas.width = 128;
+  font->atlas.height = 128;
   font->atlas.padding = padding;
   map_init(&font->atlas.glyphs);
 
-  while (font->atlas.width < 4 * fontData->size) {
-    font->atlas.width <<= 1;
+  // Set initial atlas size
+  while (font->atlas.height < 4 * fontData->size) {
+    lovrFontExpandTexture(font);
   }
 
   // Texture
@@ -59,6 +62,7 @@ void lovrFontPrint(Font* font, const char* str) {
   float v = atlas->height;
 
   int length = strlen(str);
+  const char* start = str;
   const char* end = str + length;
   size_t bytes;
   unsigned int previous = '\0';
@@ -72,7 +76,7 @@ void lovrFontPrint(Font* font, const char* str) {
     // Newlines
     if (codepoint == '\n') {
       x = 0;
-      y -= font->fontData->size;
+      y -= font->fontData->size * font->lineHeight;
       previous = '\0';
       str += bytes;
       continue;
@@ -82,8 +86,21 @@ void lovrFontPrint(Font* font, const char* str) {
     x += lovrFontGetKerning(font, previous, codepoint);
     previous = codepoint;
 
-    // Glyph geometry
+    // Get glyph
     Glyph* glyph = lovrFontGetGlyph(font, codepoint);
+
+    // Start over if texture was repacked
+    if (u != atlas->width || v != atlas->height) {
+      x = 0;
+      y = -lovrFontGetHeight(font);
+      u = atlas->width;
+      v = atlas->height;
+      str = start;
+      previous = '\0';
+      continue;
+    }
+
+    // Glyph geometry
     int gx = glyph->x;
     int gy = glyph->y;
     int gw = glyph->w;
@@ -173,6 +190,14 @@ int lovrFontGetBaseline(Font* font) {
   return font->fontData->height / 1.25f;
 }
 
+float lovrFontGetLineHeight(Font* font) {
+  return font->lineHeight;
+}
+
+void lovrFontSetLineHeight(Font* font, float lineHeight) {
+  font->lineHeight = lineHeight;
+}
+
 int lovrFontGetKerning(Font* font, unsigned int left, unsigned int right) {
   char key[12];
   snprintf(key, 12, "%d,%d", left, right);
@@ -224,11 +249,6 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
 
   // Expand the texture if needed. Expanding the texture re-adds all the glyphs, so we can return.
   if (atlas->y + glyph->h > atlas->height - 2 * atlas->padding) {
-    if (atlas->width == atlas->height) {
-      atlas->width <<= 1;
-    } else {
-      atlas->height <<= 1;
-    }
     lovrFontExpandTexture(font);
     return;
   }
@@ -249,9 +269,23 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
 void lovrFontExpandTexture(Font* font) {
   FontAtlas* atlas = &font->atlas;
 
+  if (atlas->width == atlas->height) {
+    atlas->width *= 2;
+  } else {
+    atlas->height *= 2;
+  }
+
+  if (!font->texture) {
+    return;
+  }
+
   // Resize the texture storage
+  while (glGetError());
   lovrTextureDataResize(font->texture->textureData, atlas->width, atlas->height, 0x0);
   lovrTextureRefresh(font->texture);
+  if (glGetError()) {
+    error("Problem expanding font texture (out of space?)");
+  }
 
   // Reset the cursor
   atlas->x = atlas->padding;
