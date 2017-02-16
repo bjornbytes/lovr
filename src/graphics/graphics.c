@@ -684,8 +684,5 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
 
 void lovrGraphicsPrint(const char* str, mat4 transform) {
   lovrGraphicsEnsureFont();
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
-  lovrFontPrint(state.activeFont, str);
-  lovrGraphicsPop();
+  lovrFontPrint(state.activeFont, str, transform);
 }

@@ -1,7 +1,7 @@
 #include "graphics/font.h"
 #include "graphics/graphics.h"
 #include "graphics/texture.h"
-#include "math/math.h"
+#include "math/mat4.h"
 #include "loaders/font.h"
 #include "loaders/texture.h"
 #include "util.h"
@@ -53,7 +53,7 @@ void lovrFontDestroy(const Ref* ref) {
   free(font);
 }
 
-void lovrFontPrint(Font* font, const char* str) {
+void lovrFontPrint(Font* font, const char* str, mat4 transform) {
   FontAtlas* atlas = &font->atlas;
 
   float x = 0;
@@ -61,20 +61,29 @@ void lovrFontPrint(Font* font, const char* str) {
   float u = atlas->width;
   float v = atlas->height;
 
-  int length = strlen(str);
+  int len = strlen(str);
   const char* start = str;
-  const char* end = str + length;
-  size_t bytes;
+  const char* end = str + len;
   unsigned int previous = '\0';
   unsigned int codepoint;
+  size_t bytes;
 
-  vec_reserve(&font->vertices, length * 30);
+  int lineX = 0;
+
+  vec_reserve(&font->vertices, len * 30);
   vec_clear(&font->vertices);
 
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
 
     // Newlines
     if (codepoint == '\n') {
+
+      // Center the line
+      while (lineX < font->vertices.length) {
+        font->vertices.data[lineX] -= x / 2;
+        lineX += 5;
+      }
+
       x = 0;
       y -= font->fontData->size * font->lineHeight;
       previous = '\0';
@@ -91,13 +100,8 @@ void lovrFontPrint(Font* font, const char* str) {
 
     // Start over if texture was repacked
     if (u != atlas->width || v != atlas->height) {
-      x = 0;
-      y = -lovrFontGetHeight(font);
-      u = atlas->width;
-      v = atlas->height;
-      str = start;
-      previous = '\0';
-      continue;
+      lovrFontPrint(font, start, transform);
+      return;
     }
 
     // Glyph geometry
@@ -136,14 +140,23 @@ void lovrFontPrint(Font* font, const char* str) {
     str += bytes;
   }
 
-  // Set depth test to LEQUAL to prevent blending issues with glyphs, not great
-  CompareMode oldCompareMode = lovrGraphicsGetDepthTest();
-  lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
+  // Center the last line
+  while (lineX < font->vertices.length) {
+    font->vertices.data[lineX] -= x / 2;
+    lineX += 5;
+  }
 
+  // We override the depth test to LEQUAL to prevent blending issues with glyphs, not great
+  CompareMode oldCompareMode = lovrGraphicsGetDepthTest();
+
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsTranslate(0, -y / 2, 0);
+  lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
   lovrGraphicsSetShapeData(font->vertices.data, font->vertices.length);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, font->texture, 0, 1, 0);
-
   lovrGraphicsSetDepthTest(oldCompareMode);
+  lovrGraphicsPop();
 }
 
 int lovrFontGetWidth(Font* font, const char* str) {
