@@ -7,23 +7,32 @@ visit the [website](http://bjornbyt.es/lovr).
 Getting Started
 ---
 
-You can download LÖVR from the [LÖVR website](http://bjornbyt.es/lovr).  Once you have `lovr.exe`,
-create a folder called `myGame` to hold the files for your game.  Next, create a file called
-`main.lua` in `myGame` and put this in it:
+You can download precompiled binaries from the [LÖVR website](http://bjornbyt.es/lovr).
+
+#### Hello World
+
+Create a folder called `myProject`.  In that folder, create a file called `main.lua` with the
+following in it:
 
 ```lua
-function lovr.draw(eye)
-  local x, y, z = 0, .25, -2
-  local size = 1
-  local angle = lovr.timer.getTime()
-
-  lovr.graphics.setColor(128, 0, 255)
-  lovr.graphics.cube('line', x, y, z, size, angle)
+function lovr.draw()
+  lovr.graphics.print('Hello World!', 0, 0, -1)
 end
 ```
 
-Finally, start SteamVR and drag the `myGame` folder onto `lovr.exe`.  Put on your headset and you
-should see a spinning purple cube!
+Finally, start SteamVR and drag the `myProject` folder onto `lovr.exe`.  Put on your headset and you
+should see the hello world text at the front of the play area.
+
+#### Cube
+
+You can draw a spinning cube using
+[`lovr.graphics.cube`](http://bjornbyt.es/lovr/docs/lovr.graphics.cube):
+
+```lua
+function lovr.draw()
+  lovr.graphics.cube('line', 0, 1, 0, .5, lovr.timer.getTime())
+end
+```
 
 #### Audio
 
@@ -45,7 +54,7 @@ LÖVR supports most 3D model file formats:
 
 ```lua
 function lovr.load()
-  model = lovr.graphics.newModel('teapot.fbx')
+  model = lovr.graphics.newModel('teapot.fbx', 'teapot.png')
 end
 
 function lovr.draw()
