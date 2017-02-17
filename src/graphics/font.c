@@ -56,9 +56,10 @@ void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float
   FontAtlas* atlas = &font->atlas;
 
   float cx = 0;
-  float cy = -lovrFontGetHeight(font);
+  float cy = -lovrFontGetHeight(font) / 2;
   float u = atlas->width;
   float v = atlas->height;
+  float scale = h / font->fontData->height;
 
   int len = strlen(str);
   const char* start = str;
@@ -75,7 +76,7 @@ void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
 
     // Newlines
-    if (codepoint == '\n') {
+    if (codepoint == '\n' || (w && cx > w / scale && codepoint == ' ')) {
 
       // Center the line
       while (linePtr < font->vertices.length) {
@@ -139,7 +140,6 @@ void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float
 
   // We override the depth test to LEQUAL to prevent blending issues with glyphs, not great
   CompareMode oldCompareMode = lovrGraphicsGetDepthTest();
-  float scale = h / font->fontData->height;
 
   lovrGraphicsPush();
   lovrGraphicsTranslate(x, y, z);
