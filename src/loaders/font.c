@@ -32,8 +32,6 @@ FontData* lovrFontDataCreate(void* data, int size, int height) {
 
   FT_Size_Metrics metrics = face->size->metrics;
   fontData->height = metrics.height >> 6;
-  fontData->ascent = metrics.ascender >> 6;
-  fontData->descent = metrics.descender >> 6;
 
   return fontData;
 }

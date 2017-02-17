@@ -56,7 +56,7 @@ void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float
   FontAtlas* atlas = &font->atlas;
 
   float cx = 0;
-  float cy = -lovrFontGetHeight(font) / 2;
+  float cy = -font->fontData->height * font->lineHeight / 2;
   float u = atlas->width;
   float v = atlas->height;
   float scale = h / font->fontData->height;
@@ -151,50 +151,6 @@ void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, font->texture, 0, 1, 0);
   lovrGraphicsSetDepthTest(oldCompareMode);
   lovrGraphicsPop();
-}
-
-int lovrFontGetWidth(Font* font, const char* str) {
-  float width = 0;
-  float x = 0;
-  const char* end = str + strlen(str);
-  size_t bytes;
-  unsigned int previous = '\0';
-  unsigned int codepoint;
-
-  while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
-
-    // Newlines
-    if (codepoint == '\n') {
-      width = MAX(width, x);
-      x = 0;
-      previous = '\0';
-      str += bytes;
-      continue;
-    }
-
-    Glyph* glyph = lovrFontGetGlyph(font, codepoint);
-    x += glyph->advance + lovrFontGetKerning(font, previous, codepoint);
-    previous = codepoint;
-    str += bytes;
-  }
-
-  return MAX(x, width);
-}
-
-int lovrFontGetHeight(Font* font) {
-  return font->fontData->height;
-}
-
-int lovrFontGetAscent(Font* font) {
-  return font->fontData->ascent;
-}
-
-int lovrFontGetDescent(Font* font) {
-  return font->fontData->descent;
-}
-
-int lovrFontGetBaseline(Font* font) {
-  return font->fontData->height / 1.25f;
 }
 
 float lovrFontGetLineHeight(Font* font) {

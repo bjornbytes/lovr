@@ -10,8 +10,6 @@ typedef struct {
   void* rasterizer;
   int size;
   int height;
-  int ascent;
-  int descent;
 } FontData;
 
 typedef struct {
@@ -50,11 +48,6 @@ typedef struct {
 Font* lovrFontCreate(FontData* fontData);
 void lovrFontDestroy(const Ref* ref);
 void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float w, float h, float angle, float ax, float ay, float az);
-int lovrFontGetWidth(Font* font, const char* str);
-int lovrFontGetHeight(Font* font);
-int lovrFontGetAscent(Font* font);
-int lovrFontGetDescent(Font* font);
-int lovrFontGetBaseline(Font* font);
 float lovrFontGetLineHeight(Font* font);
 void lovrFontSetLineHeight(Font* font, float lineHeight);
 int lovrFontGetKerning(Font* font, unsigned int a, unsigned int b);
