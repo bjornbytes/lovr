@@ -555,7 +555,7 @@ int l_lovrGraphicsPrint(lua_State* L) {
   float y = luaL_optnumber(L, 3, 0);
   float z = luaL_optnumber(L, 4, 0);
   float w = luaL_optnumber(L, 5, 0);
-  float h = luaL_optnumber(L, 6, 1);
+  float h = luaL_optnumber(L, 6, .1);
   float angle = luaL_optnumber(L, 7, 0);
   float ax = luaL_optnumber(L, 8, 0);
   float ay = luaL_optnumber(L, 9, 1);
