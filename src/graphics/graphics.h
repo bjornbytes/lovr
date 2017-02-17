@@ -98,6 +98,7 @@ void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsEnsureFont();
 Font* lovrGraphicsGetFont();
 void lovrGraphicsSetFont(Font* font);
+Texture* lovrGraphicsGetTexture();
 void lovrGraphicsBindTexture(Texture* texture);
 mat4 lovrGraphicsGetProjection();
 void lovrGraphicsSetProjection(float near, float far, float fov);

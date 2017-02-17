@@ -216,6 +216,10 @@ void lovrGraphicsSetFont(Font* font) {
   }
 }
 
+Texture* lovrGraphicsGetTexture() {
+  return state.activeTexture;
+}
+
 void lovrGraphicsBindTexture(Texture* texture) {
   if (!texture) {
     texture = state.defaultTexture;

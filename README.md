@@ -19,7 +19,7 @@ following in it:
 
 ```lua
 function lovr.draw()
-  lovr.graphics.print('Hello World!', 0, 0, -1)
+  lovr.graphics.print('Hello World!', 0, 1, -1)
 end
 ```
 
