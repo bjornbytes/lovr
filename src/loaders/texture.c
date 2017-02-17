@@ -3,11 +3,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value) {
+TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
-  int channels = 4;
+  int channels = 0;
+  switch (format) {
+    case FORMAT_RED: channels = 1; break;
+    case FORMAT_RG: channels = 2; break;
+    case FORMAT_RGB: channels = 3; break;
+    case FORMAT_RGBA: channels = 4; break;
+  }
+
   int size = sizeof(uint8_t) * width * height * channels;
   uint8_t* data = malloc(size);
   memset(data, value, size);
@@ -16,18 +23,28 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value) {
   textureData->width = width;
   textureData->height = height;
   textureData->channels = channels;
+  textureData->format = format;
 
   return textureData;
 }
 
-TextureData* lovrTextureDataGetEmpty(int width, int height) {
+TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
+
+  int channels = 0;
+  switch (format) {
+    case FORMAT_RED: channels = 1; break;
+    case FORMAT_RG: channels = 2; break;
+    case FORMAT_RGB: channels = 3; break;
+    case FORMAT_RGBA: channels = 4; break;
+  }
 
   textureData->data = NULL;
   textureData->width = width;
   textureData->height = height;
-  textureData->channels = 4;
+  textureData->channels = channels;
+  textureData->format = format;
 
   return textureData;
 }
@@ -44,6 +61,7 @@ TextureData* lovrTextureDataFromFile(void* data, int size) {
 
   if (image) {
     textureData->data = image;
+    textureData->format = FORMAT_RGBA;
     return textureData;
   }
 
@@ -59,5 +77,14 @@ TextureData* lovrTextureDataFromOpenVRModel(OpenVRModel* vrModel) {
   textureData->width = texture->unWidth;
   textureData->height = texture->unHeight;
   textureData->data = texture->rubTextureMapData;
+  textureData->format = FORMAT_RGBA;
   return textureData;
+}
+
+void lovrTextureDataResize(TextureData* textureData, int width, int height, uint8_t value) {
+  int size = sizeof(uint8_t) * width * height * textureData->channels;
+  textureData->width = width;
+  textureData->height = height;
+  textureData->data = realloc(textureData->data, size);
+  memset(textureData->data, value, size);
 }

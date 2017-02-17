@@ -17,7 +17,7 @@ const luaL_Reg lovrTexture[] = {
 
 int l_lovrTextureBind(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  lovrTextureBind(texture);
+  lovrGraphicsBindTexture(texture);
   return 0;
 }
 
