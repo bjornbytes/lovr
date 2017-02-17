@@ -5,7 +5,6 @@
 #include "math/vec3.h"
 #include "util.h"
 #include "glfw.h"
-#include "Cabin.ttf.h"
 #define _USE_MATH_DEFINES
 #include <stdlib.h>
 #include <math.h>
@@ -193,7 +192,7 @@ void lovrGraphicsSetShader(Shader* shader) {
 
 void lovrGraphicsEnsureFont() {
   if (!state.activeFont && !state.defaultFont) {
-    FontData* fontData = lovrFontDataCreate(Cabin_ttf, Cabin_ttf_len, 32);
+    FontData* fontData = lovrFontDataCreate(NULL, 0, 32);
     state.defaultFont = lovrFontCreate(fontData);
     lovrRetain(&state.defaultFont->ref);
     lovrGraphicsSetFont(state.defaultFont);

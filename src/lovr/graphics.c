@@ -634,16 +634,25 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
 }
 
 int l_lovrGraphicsNewFont(lua_State* L) {
-  const char* path = luaL_checkstring(L, 1);
-  float fontSize = luaL_optnumber(L, 2, 12);
+  void* data = NULL;
+  int size = 0;
+  float fontSize;
 
-  int fileSize;
-  void* data = lovrFilesystemRead(path, &fileSize);
-  if (!data) {
-    luaL_error(L, "Could not load font '%s'", path);
+  if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
+    data = NULL;
+    size = 0;
+    fontSize = luaL_optnumber(L, 1, 32);
+  } else {
+    const char* path = luaL_checkstring(L, 1);
+    fontSize = luaL_optnumber(L, 2, 32);
+
+    data = lovrFilesystemRead(path, &size);
+    if (!data) {
+      luaL_error(L, "Could not load font '%s'", path);
+    }
   }
 
-  FontData* fontData = lovrFontDataCreate(data, fileSize, fontSize);
+  FontData* fontData = lovrFontDataCreate(data, size, fontSize);
   Font* font = lovrFontCreate(fontData);
   luax_pushtype(L, Font, font);
   return 1;

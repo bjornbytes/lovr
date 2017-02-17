@@ -1,4 +1,5 @@
 #include "loaders/font.h"
+#include "loaders/Cabin.ttf.h"
 #include "util.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -9,6 +10,11 @@ static FT_Library ft = NULL;
 FontData* lovrFontDataCreate(void* data, int size, int height) {
   if (!ft && FT_Init_FreeType(&ft)) {
     error("Error initializing FreeType");
+  }
+
+  if (!data) {
+    data = Cabin_ttf;
+    size = Cabin_ttf_len;
   }
 
   FT_Face face = NULL;
