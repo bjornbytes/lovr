@@ -1,6 +1,5 @@
 #include "util.h"
 #include "graphics/texture.h"
-#include "math/math.h"
 #include "vendor/map/map.h"
 #include "vendor/vec/vec.h"
 #include <stdint.h>
@@ -50,7 +49,7 @@ typedef struct {
 
 Font* lovrFontCreate(FontData* fontData);
 void lovrFontDestroy(const Ref* ref);
-void lovrFontPrint(Font* font, const char* str, mat4 transform);
+void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float w, float h, float angle, float ax, float ay, float az);
 int lovrFontGetWidth(Font* font, const char* str);
 int lovrFontGetHeight(Font* font);
 int lovrFontGetAscent(Font* font);

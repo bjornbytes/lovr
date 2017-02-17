@@ -1,7 +1,6 @@
 #include "graphics/font.h"
 #include "graphics/graphics.h"
 #include "graphics/texture.h"
-#include "math/mat4.h"
 #include "loaders/font.h"
 #include "loaders/texture.h"
 #include "util.h"
@@ -53,11 +52,11 @@ void lovrFontDestroy(const Ref* ref) {
   free(font);
 }
 
-void lovrFontPrint(Font* font, const char* str, mat4 transform) {
+void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float w, float h, float angle, float ax, float ay, float az) {
   FontAtlas* atlas = &font->atlas;
 
-  float x = 0;
-  float y = -lovrFontGetHeight(font);
+  float cx = 0;
+  float cy = -lovrFontGetHeight(font);
   float u = atlas->width;
   float v = atlas->height;
 
@@ -68,7 +67,7 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform) {
   unsigned int codepoint;
   size_t bytes;
 
-  int lineX = 0;
+  int linePtr = 0;
 
   vec_reserve(&font->vertices, len * 30);
   vec_clear(&font->vertices);
@@ -79,20 +78,20 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform) {
     if (codepoint == '\n') {
 
       // Center the line
-      while (lineX < font->vertices.length) {
-        font->vertices.data[lineX] -= x / 2;
-        lineX += 5;
+      while (linePtr < font->vertices.length) {
+        font->vertices.data[linePtr] -= cx / 2;
+        linePtr += 5;
       }
 
-      x = 0;
-      y -= font->fontData->size * font->lineHeight;
+      cx = 0;
+      cy -= font->fontData->size * font->lineHeight;
       previous = '\0';
       str += bytes;
       continue;
     }
 
     // Kerning
-    x += lovrFontGetKerning(font, previous, codepoint);
+    cx += lovrFontGetKerning(font, previous, codepoint);
     previous = codepoint;
 
     // Get glyph
@@ -100,30 +99,22 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform) {
 
     // Start over if texture was repacked
     if (u != atlas->width || v != atlas->height) {
-      lovrFontPrint(font, start, transform);
+      lovrFontPrint(font, start, x, y, z, w, h, angle, ax, ay, az);
       return;
     }
 
-    // Glyph geometry
-    int gx = glyph->x;
-    int gy = glyph->y;
-    int gw = glyph->w;
-    int gh = glyph->h;
-    int dx = glyph->dx;
-    int dy = glyph->dy;
-
     // Triangles
-    if (gw > 0 && gh > 0) {
-      float x1 = x + dx;
-      float y1 = y + dy;
-      float x2 = x1 + gw;
-      float y2 = y1 - gh;
-      float s1 = gx / u;
-      float t1 = gy / v;
-      float s2 = (gx + gw) / u;
-      float t2 = (gy + gh) / v;
+    if (glyph->w > 0 && glyph->h > 0) {
+      float x1 = cx + glyph->dx;
+      float y1 = cy + glyph->dy;
+      float x2 = x1 + glyph->w;
+      float y2 = y1 - glyph->h;
+      float s1 = glyph->x / u;
+      float t1 = glyph->y / v;
+      float s2 = (glyph->x + glyph->w) / u;
+      float t2 = (glyph->y + glyph->h) / v;
 
-      float v[30] = {
+      float vertices[30] = {
         x1, y1, 0, s1, t1,
         x1, y2, 0, s1, t2,
         x2, y1, 0, s2, t1,
@@ -132,26 +123,29 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform) {
         x2, y2, 0, s2, t2
       };
 
-      vec_pusharr(&font->vertices, v, 30);
+      vec_pusharr(&font->vertices, vertices, 30);
     }
 
     // Advance cursor
-    x += glyph->advance;
+    cx += glyph->advance;
     str += bytes;
   }
 
   // Center the last line
-  while (lineX < font->vertices.length) {
-    font->vertices.data[lineX] -= x / 2;
-    lineX += 5;
+  while (linePtr < font->vertices.length) {
+    font->vertices.data[linePtr] -= cx / 2;
+    linePtr += 5;
   }
 
   // We override the depth test to LEQUAL to prevent blending issues with glyphs, not great
   CompareMode oldCompareMode = lovrGraphicsGetDepthTest();
+  float scale = h / font->fontData->height;
 
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
-  lovrGraphicsTranslate(0, -y / 2, 0);
+  lovrGraphicsTranslate(x, y, z);
+  lovrGraphicsScale(scale, scale, scale);
+  lovrGraphicsRotate(angle, ax, ay, az);
+  lovrGraphicsTranslate(0, -cy / 2, 0);
   lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
   lovrGraphicsSetShapeData(font->vertices.data, font->vertices.length);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, font->texture, 0, 1, 0);

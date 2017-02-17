@@ -551,9 +551,16 @@ int l_lovrGraphicsCube(lua_State* L) {
 
 int l_lovrGraphicsPrint(lua_State* L) {
   const char* str = luaL_checkstring(L, 1);
-  float transform[16];
-  luax_readtransform(L, 2, transform);
-  lovrGraphicsPrint(str, transform);
+  float x = luaL_optnumber(L, 2, 0);
+  float y = luaL_optnumber(L, 3, 0);
+  float z = luaL_optnumber(L, 4, 0);
+  float w = luaL_optnumber(L, 5, 0);
+  float h = luaL_optnumber(L, 6, 1);
+  float angle = luaL_optnumber(L, 7, 0);
+  float ax = luaL_optnumber(L, 8, 0);
+  float ay = luaL_optnumber(L, 9, 1);
+  float az = luaL_optnumber(L, 10, 0);
+  lovrGraphicsPrint(str, x, y, z, w, h, angle, ax, ay, az);
   return 0;
 }
 
