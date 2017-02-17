@@ -7,7 +7,10 @@ visit the [website](http://bjornbyt.es/lovr).
 Getting Started
 ---
 
-You can download precompiled binaries from the [LÖVR website](http://bjornbyt.es/lovr).
+You can download precompiled binaries from the [LÖVR website](http://bjornbyt.es/lovr).  The [LÖVR
+documentation](http://bjornbyt.es/lovr/docs) provides reference for all functionality as well as a
+series of tutorials and examples.  Here are a few short snippets so you can get an idea of what it
+looks like to use LÖVR:
 
 #### Hello World
 
