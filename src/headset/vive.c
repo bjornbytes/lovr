@@ -489,6 +489,9 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
   vive->isRendering = 1;
   vive->compositor->WaitGetPoses(vive->renderPoses, 16, NULL, 0);
 
+  // OpenVR changes the OpenGL texture binding, so we reset it after rendering
+  Texture* oldTexture = lovrGraphicsGetTexture();
+
   // Head transform
   matrix = vive->renderPoses[vive->headsetIndex].mDeviceToAbsoluteTracking.m;
   mat4_invert(mat4_fromMat34(head, matrix));
@@ -516,18 +519,15 @@ void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata)
     lovrGraphicsPop();
     lovrTextureResolveMSAA(vive->texture);
 
-    // OpenVR changes the OpenGL texture binding, so we reset it after submitting
-    Texture* oldTexture = lovrGraphicsGetTexture();
-
     // Submit
     uintptr_t texture = (uintptr_t) vive->texture->id;
     ETextureType textureType = ETextureType_TextureType_OpenGL;
     Texture_t eyeTexture = { (void*) texture, textureType, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     vive->compositor->Submit(vrEye, &eyeTexture, NULL, flags);
-
-    glBindTexture(GL_TEXTURE_2D, oldTexture->id);
   }
+
+  glBindTexture(GL_TEXTURE_2D, oldTexture->id);
 
   vive->isRendering = 0;
   lovrGraphicsPopCanvas();
