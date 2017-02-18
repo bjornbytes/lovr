@@ -33,6 +33,11 @@ static int lovrGetVersion(lua_State* L) {
 }
 
 void lovrInit(lua_State* L, int argc, char** argv) {
+  if (argc > 1 && strcmp(argv[1], "--version") == 0) {
+    printf("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
+    exit(0);
+  }
+
   initGlfw();
 
   // arg global
