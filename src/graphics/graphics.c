@@ -75,6 +75,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetPolygonWinding(POLYGON_WINDING_COUNTERCLOCKWISE);
   lovrGraphicsSetDepthTest(COMPARE_LESS);
   lovrGraphicsSetWireframe(0);
+  lovrGraphicsOrigin();
 }
 
 void lovrGraphicsClear(int color, int depth) {
