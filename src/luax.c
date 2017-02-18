@@ -26,6 +26,7 @@ static void luax_pushobjectregistry(lua_State* L) {
     lua_setmetatable(L, -2);
 
     // Write the table to the registry
+    lua_pushvalue(L, -1);
     lua_setfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
   }
 }
