@@ -630,6 +630,7 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
 
   vec_deinit(&format);
   luax_pushtype(L, Buffer, buffer);
+  lovrRelease(&buffer->ref);
   return 1;
 }
 
@@ -655,6 +656,7 @@ int l_lovrGraphicsNewFont(lua_State* L) {
   FontData* fontData = lovrFontDataCreate(data, size, fontSize);
   Font* font = lovrFontCreate(fontData);
   luax_pushtype(L, Font, font);
+  lovrRelease(&font->ref);
   return 1;
 }
 
@@ -672,10 +674,12 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   if (lua_gettop(L) >= 2) {
     Texture* texture = luax_readtexture(L, 2);
     lovrModelSetTexture(model, texture);
+    lovrRelease(&texture->ref);
   }
 
   luax_pushtype(L, Model, model);
   free(data);
+  lovrRelease(&model->ref);
   return 1;
 }
 
@@ -696,7 +700,9 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 
   const char* vertexSource = lua_tostring(L, 1);
   const char* fragmentSource = lua_tostring(L, 2);
-  luax_pushtype(L, Shader, lovrShaderCreate(vertexSource, fragmentSource));
+  Shader* shader = lovrShaderCreate(vertexSource, fragmentSource);
+  luax_pushtype(L, Shader, shader);
+  lovrRelease(&shader->ref);
   return 1;
 }
 
@@ -727,7 +733,9 @@ int l_lovrGraphicsNewSkybox(lua_State* L) {
     }
   }
 
-  luax_pushtype(L, Skybox, lovrSkyboxCreate(data, size));
+  Skybox* skybox = lovrSkyboxCreate(data, size);
+  luax_pushtype(L, Skybox, skybox);
+  lovrRelease(&skybox->ref);
 
   for (int i = 0; i < 6; i++) {
     free(data[i]);
@@ -751,5 +759,6 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   luax_pushtype(L, Texture, texture);
+  lovrRelease(&texture->ref);
   return 1;
 }

@@ -76,7 +76,9 @@ int l_lovrAudioNewSource(lua_State* L) {
   }
 
   SourceData* sourceData = lovrSourceDataFromFile(data, size);
-  luax_pushtype(L, Source, lovrSourceCreate(sourceData));
+  Source* source = lovrSourceCreate(sourceData);
+  luax_pushtype(L, Source, source);
+  lovrRelease(&source->ref);
   return 1;
 }
 

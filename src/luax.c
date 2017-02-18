@@ -7,6 +7,29 @@ static int luax_pushobjectname(lua_State* L) {
   return 1;
 }
 
+static void luax_pushobjectregistry(lua_State* L) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
+
+  // Create the registry if it doesn't exist yet
+  if (lua_isnil(L, -1)) {
+    lua_newtable(L);
+    lua_replace(L, -2);
+
+    // Create the metatable
+    lua_newtable(L);
+
+    // __mode = v
+    lua_pushstring(L, "v");
+    lua_setfield(L, -2, "__mode");
+
+    // Set the metatable
+    lua_setmetatable(L, -2);
+
+    // Write the table to the registry
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
+  }
+}
+
 int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f) {
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "preload");
@@ -50,6 +73,30 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
 int luax_releasetype(lua_State* L) {
   lovrRelease(*(Ref**) lua_touserdata(L, 1));
   return 0;
+}
+
+// Find an object, pushing it onto the stack if it's found or leaving the stack unchanged otherwise.
+int luax_getobject(lua_State* L, void* object) {
+  luax_pushobjectregistry(L);
+  lua_pushlightuserdata(L, object);
+  lua_gettable(L, -2);
+
+  if (lua_isnil(L, -1)) {
+    lua_pop(L, 1);
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+// Registers the userdata on the top of the stack in the object registry.
+void luax_registerobject(lua_State* L, void* object) {
+  luax_pushobjectregistry(L);
+  lua_pushlightuserdata(L, object);
+  lua_pushvalue(L, -3);
+  lua_settable(L, -3);
+  lua_pop(L, 1);
+  lovrRetain(object);
 }
 
 void luax_pushenum(lua_State* L, map_int_t* map, int value) {

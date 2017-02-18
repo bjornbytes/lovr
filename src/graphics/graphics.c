@@ -194,7 +194,6 @@ void lovrGraphicsEnsureFont() {
   if (!state.activeFont && !state.defaultFont) {
     FontData* fontData = lovrFontDataCreate(NULL, 0, 32);
     state.defaultFont = lovrFontCreate(fontData);
-    lovrRetain(&state.defaultFont->ref);
     lovrGraphicsSetFont(state.defaultFont);
   }
 }
