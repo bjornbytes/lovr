@@ -78,6 +78,7 @@ Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProje
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     error("Error creating texture\n");
   } else {
+    lovrGraphicsClear(1, 1);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
 
