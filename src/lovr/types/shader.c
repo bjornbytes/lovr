@@ -1,4 +1,5 @@
 #include "lovr/types/shader.h"
+#include "math/transform.h"
 
 const luaL_Reg lovrShader[] = {
   { "send", l_lovrShaderSend },
@@ -141,11 +142,16 @@ int l_lovrShaderSend(lua_State* L) {
       break;
 
     case GL_FLOAT_MAT4:
-      luaL_checktype(L, 3, LUA_TTABLE);
-      for (int i = 0; i < 16; i++) {
-        lua_rawgeti(L, 3, i + 1);
-        data[i] = lua_tonumber(L, -1);
-        lua_pop(L, 1);
+      if (lua_isuserdata(L, 3)) {
+        Transform* transform = luax_checktype(L, 3, Transform);
+        memcpy(data, transform->matrix, 16 * sizeof(float));
+      } else {
+        luaL_checktype(L, 3, LUA_TTABLE);
+        for (int i = 0; i < 16; i++) {
+          lua_rawgeti(L, 3, i + 1);
+          data[i] = lua_tonumber(L, -1);
+          lua_pop(L, 1);
+        }
       }
       lovrShaderSendFloatMat4(shader, id, data);
       break;
