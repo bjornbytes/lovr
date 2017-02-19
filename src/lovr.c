@@ -72,7 +72,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   luax_preloadmodule(L, "lovr.timer", l_lovrTimerInit);
 
   // Bootstrap
-  char buffer[4096];
+  char buffer[8192];
   snprintf(buffer, sizeof(buffer), "%s",
     "local conf = { "
     "  modules = { "
@@ -153,8 +153,29 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "end "
 
     "function lovr.errhand(message, layer) "
-    "  local stackTrace = debug.traceback('Error: ' .. tostring(message), 1 + (layer or 1)) "
-    "  print((stackTrace:gsub('\\n[^\\n]+$', ''):gsub('stack traceback', 'Stack'))) "
+    "  local stackTrace = debug.traceback('Error: ' .. tostring(message), 1 + (layer or 2)) "
+    "  local message = stackTrace:gsub('\\n[^\\n]+$', ''):gsub('\\t', ''):gsub('stack traceback', 'Stack') "
+    "  print(message) "
+    "  lovr.graphics.setBackgroundColor(26, 25, 28) "
+    "  lovr.graphics.setColor(220, 220, 220) "
+    "  local function render() "
+    "    lovr.graphics.origin() "
+    "    lovr.graphics.print(message, 0, 0, -2) "
+    "  end "
+    "  while true do "
+    "    lovr.event.pump() "
+    "    for name in lovr.event.poll() do "
+    "      if name == 'quit' then return end "
+    "    end "
+    "    lovr.graphics.clear() "
+    "    if lovr.headset and lovr.headset.isPresent() then "
+    "      lovr.headset.renderTo(render) "
+    "    else "
+    "      render() "
+    "    end "
+    "    lovr.graphics.present() "
+    "    lovr.timer.sleep(.01) "
+    "  end "
     "end "
 
     "if lovr.filesystem.isFile('main.lua') then "
