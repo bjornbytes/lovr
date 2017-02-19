@@ -1,3 +1,4 @@
+#include "loaders/font.h"
 #include "util.h"
 #include "graphics/texture.h"
 #include "vendor/map/map.h"
@@ -7,32 +8,13 @@
 #pragma once
 
 typedef struct {
-  void* rasterizer;
-  int size;
-  int height;
-} FontData;
-
-typedef struct {
-  int x;
-  int y;
-  int w;
-  int h;
-  int dx;
-  int dy;
-  int advance;
-  uint8_t* data;
-} Glyph;
-
-typedef map_t(Glyph) vec_glyph_t;
-
-typedef struct {
   int x;
   int y;
   int width;
   int height;
   int rowHeight;
   int padding;
-  vec_glyph_t glyphs;
+  map_glyph_t glyphs;
 } FontAtlas;
 
 typedef struct {

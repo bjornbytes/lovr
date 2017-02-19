@@ -1,24 +1,8 @@
+#include "loaders/texture.h"
 #include "glfw.h"
 #include "util.h"
 
-struct CanvasState;
-
 #pragma once
-
-typedef enum {
-  FORMAT_RED,
-  FORMAT_RG,
-  FORMAT_RGB,
-  FORMAT_RGBA
-} TextureFormat;
-
-typedef struct {
-  void* data;
-  int width;
-  int height;
-  int channels;
-  TextureFormat format;
-} TextureData;
 
 typedef enum {
   FILTER_NEAREST = GL_NEAREST,
@@ -56,7 +40,6 @@ typedef struct {
 Texture* lovrTextureCreate(TextureData* textureData);
 Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa);
 void lovrTextureDestroy(const Ref* ref);
-void lovrTextureDataDestroy(TextureData* textureData);
 void lovrTextureBindFramebuffer(Texture* texture);
 void lovrTextureResolveMSAA(Texture* texture);
 void lovrTextureRefresh(Texture* texture);

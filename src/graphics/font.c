@@ -180,7 +180,7 @@ Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
   snprintf(key, 6, "%d", codepoint);
 
   FontAtlas* atlas = &font->atlas;
-  vec_glyph_t* glyphs = &atlas->glyphs;
+  map_glyph_t* glyphs = &atlas->glyphs;
   Glyph* glyph = map_get(glyphs, key);
 
   // Add the glyph to the atlas if it isn't there

@@ -95,11 +95,6 @@ void lovrTextureDestroy(const Ref* ref) {
   free(texture);
 }
 
-void lovrTextureDataDestroy(TextureData* textureData) {
-  free(textureData->data);
-  free(textureData);
-}
-
 void lovrTextureBindFramebuffer(Texture* texture) {
   if (!texture->framebuffer) {
     error("Texture cannot be used as a canvas");

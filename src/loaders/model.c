@@ -160,3 +160,32 @@ ModelData* lovrModelDataFromOpenVRModel(OpenVRModel* vrModel) {
 
   return modelData;
 }
+
+void lovrModelDataDestroy(ModelData* modelData) {
+  for (int i = 0; i < modelData->meshes.length; i++) {
+    ModelMesh* mesh = modelData->meshes.data[i];
+    vec_deinit(&mesh->faces);
+    vec_deinit(&mesh->vertices);
+    vec_deinit(&mesh->normals);
+    if (modelData->hasTexCoords) {
+      vec_deinit(&mesh->texCoords);
+    }
+    free(mesh);
+  }
+
+  vec_void_t nodes;
+  vec_init(&nodes);
+  vec_push(&nodes, modelData->root);
+  while (nodes.length > 0) {
+    ModelNode* node = vec_first(&nodes);
+    vec_extend(&nodes, &node->children);
+    vec_deinit(&node->meshes);
+    vec_deinit(&node->children);
+    vec_splice(&nodes, 0, 1);
+    free(node);
+  }
+
+  vec_deinit(&modelData->meshes);
+  vec_deinit(&nodes);
+  free(modelData);
+}

@@ -1,3 +1,4 @@
+#include "loaders/source.h"
 #include "util.h"
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -10,17 +11,6 @@ typedef enum {
   UNIT_SECONDS,
   UNIT_SAMPLES
 } TimeUnit;
-
-typedef struct {
-  int bitDepth;
-  int channels;
-  int sampleRate;
-  int samples;
-  int bufferSize;
-  void* buffer;
-  void* decoder;
-  void* data;
-} SourceData;
 
 typedef struct {
   Ref ref;

@@ -88,3 +88,8 @@ void lovrTextureDataResize(TextureData* textureData, int width, int height, uint
   textureData->data = realloc(textureData->data, size);
   memset(textureData->data, value, size);
 }
+
+void lovrTextureDataDestroy(TextureData* textureData) {
+  free(textureData->data);
+  free(textureData);
+}
