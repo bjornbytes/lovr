@@ -210,12 +210,20 @@ void lovrHeadsetControllerVibrate(Controller* controller, float duration) {
   headset->controllerVibrate(headset, controller, duration);
 }
 
-void* lovrHeadsetControllerGetModel(Controller* controller, ControllerModelFormat* format) {
+ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
   if (!headset || !controller) {
     return NULL;
   }
 
-  return headset->controllerGetModel(headset, controller, format);
+  return headset->controllerNewModelData(headset, controller);
+}
+
+TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
+  if (!headset || !controller) {
+    return NULL;
+  }
+
+  return headset->controllerNewTextureData(headset, controller);
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {

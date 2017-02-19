@@ -1,7 +1,6 @@
 #include "headset/vive.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
-#include "loaders/texture.h"
 #include "math/mat4.h"
 #include "math/quat.h"
 #include "util.h"
@@ -85,7 +84,8 @@ Headset* viveInit() {
   headset->controllerGetAxis = viveControllerGetAxis;
   headset->controllerIsDown = viveControllerIsDown;
   headset->controllerVibrate = viveControllerVibrate;
-  headset->controllerGetModel = viveControllerGetModel;
+  headset->controllerNewModelData = viveControllerNewModelData;
+  headset->controllerNewTextureData = viveControllerNewTextureData;
   headset->renderTo = viveRenderTo;
 
   vive->isRendering = 0;
@@ -93,9 +93,8 @@ Headset* viveInit() {
   vec_init(&vive->controllers);
 
   for (int i = 0; i < 16; i++) {
-    vive->deviceModels[i].isLoaded = 0;
-    vive->deviceModels[i].model = NULL;
-    vive->deviceModels[i].texture = NULL;
+    vive->deviceModels[i] = NULL;
+    vive->deviceTextures[i] = NULL;
   }
 
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
@@ -175,9 +174,10 @@ void viveDestroy(void* headset) {
     lovrRelease(&vive->texture->ref);
   }
   for (int i = 0; i < 16; i++) {
-    if (vive->deviceModels[i].isLoaded) {
-      vive->renderModels->FreeRenderModel(vive->deviceModels[i].model);
-    }
+    free(vive->deviceModels[i]);
+    free(vive->deviceTextures[i]);
+    vive->deviceModels[i] = NULL;
+    vive->deviceTextures[i] = NULL;
   }
   Controller* controller; int i;
   vec_foreach(&vive->controllers, controller, i) {
@@ -445,15 +445,13 @@ void viveControllerVibrate(void* headset, Controller* controller, float duration
   vive->system->TriggerHapticPulse(controller->id, axis, uSeconds);
 }
 
-void* viveControllerGetModel(void* headset, Controller* controller, ControllerModelFormat* format) {
+ModelData* viveControllerNewModelData(void* headset, Controller* controller) {
   Vive* vive = (Vive*) headset;
-
-  *format = CONTROLLER_MODEL_OPENVR;
+  int id = controller->id;
 
   // Return the model if it's already loaded
-  OpenVRModel* vrModel = &vive->deviceModels[controller->id];
-  if (vrModel->isLoaded) {
-    return vrModel;
+  if (vive->deviceModels[id]) {
+    return vive->deviceModels[id];
   }
 
   // Get model name
@@ -462,22 +460,95 @@ void* viveControllerGetModel(void* headset, Controller* controller, ControllerMo
   vive->system->GetStringTrackedDeviceProperty(controller->id, renderModelNameProperty, renderModelName, 1024, NULL);
 
   // Load model
-  RenderModel_t* model = NULL;
-  while (vive->renderModels->LoadRenderModel_Async(renderModelName, &model) == EVRRenderModelError_VRRenderModelError_Loading) {
+  RenderModel_t* vrModel = NULL;
+  while (vive->renderModels->LoadRenderModel_Async(renderModelName, &vrModel) == EVRRenderModelError_VRRenderModelError_Loading) {
     lovrSleep(.001);
   }
 
-  // Load texture
-  RenderModel_TextureMap_t* texture = NULL;
-  while (model && vive->renderModels->LoadTexture_Async(model->diffuseTextureId, &texture) == EVRRenderModelError_VRRenderModelError_Loading) {
+  ModelData* modelData = malloc(sizeof(ModelData));
+  if (!modelData) return NULL;
+
+  vive->deviceModels[id] = modelData;
+
+  ModelMesh* mesh = malloc(sizeof(ModelMesh));
+  vec_init(&modelData->meshes);
+  vec_push(&modelData->meshes, mesh);
+
+  vec_init(&mesh->faces);
+  for (uint32_t i = 0; i < vrModel->unTriangleCount; i++) {
+    ModelFace face;
+    face.indices[0] = vrModel->rIndexData[3 * i + 0];
+    face.indices[1] = vrModel->rIndexData[3 * i + 1];
+    face.indices[2] = vrModel->rIndexData[3 * i + 2];
+    vec_push(&mesh->faces, face);
+  }
+
+  vec_init(&mesh->vertices);
+  vec_init(&mesh->normals);
+  vec_init(&mesh->texCoords);
+  for (size_t i = 0; i < vrModel->unVertexCount; i++) {
+    float* position = vrModel->rVertexData[i].vPosition.v;
+    float* normal = vrModel->rVertexData[i].vNormal.v;
+    ModelVertex v;
+
+    v.x = position[0];
+    v.y = position[1];
+    v.z = position[2];
+    vec_push(&mesh->vertices, v);
+
+    v.x = normal[0];
+    v.y = normal[1];
+    v.z = normal[2];
+    vec_push(&mesh->normals, v);
+
+    float* texCoords = vrModel->rVertexData[i].rfTextureCoord;
+    v.x = texCoords[0];
+    v.y = texCoords[1];
+    v.z = 0.f;
+    vec_push(&mesh->texCoords, v);
+  }
+
+  ModelNode* root = malloc(sizeof(ModelNode));
+  vec_init(&root->meshes);
+  vec_push(&root->meshes, 0);
+  vec_init(&root->children);
+  mat4_identity(root->transform);
+
+  modelData->root = root;
+  modelData->hasNormals = 1;
+  modelData->hasTexCoords = 1;
+
+  // We also load the texture, shh don't tell anyone
+  RenderModel_TextureMap_t* vrTexture = NULL;
+  while (vrModel && vive->renderModels->LoadTexture_Async(vrModel->diffuseTextureId, &vrTexture) == EVRRenderModelError_VRRenderModelError_Loading) {
     lovrSleep(.001);
   }
 
-  vrModel->isLoaded = 1;
-  vrModel->model = model;
-  vrModel->texture = texture;
+  TextureData* textureData = malloc(sizeof(TextureData));
+  if (!textureData) return NULL;
 
-  return vrModel;
+  vive->deviceTextures[id] = textureData;
+
+  textureData->width = vrTexture->unWidth;
+  textureData->height = vrTexture->unHeight;
+  textureData->data = vrTexture->rubTextureMapData;
+  textureData->format = FORMAT_RGBA;
+
+  vive->renderModels->FreeRenderModel(vrModel);
+
+  return modelData;
+}
+
+TextureData* viveControllerNewTextureData(void* headset, Controller* controller) {
+  Vive* vive = (Vive*) headset;
+  int id = controller->id;
+
+  // Textures are loaded alongside models to simplify the implementation.
+  if (!vive->deviceTextures[id]) {
+    viveControllerNewModelData(headset, controller);
+  }
+
+  return vive->deviceTextures[id];
 }
 
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata) {

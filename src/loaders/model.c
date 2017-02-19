@@ -104,63 +104,6 @@ ModelData* lovrModelDataFromFile(void* data, int size) {
   return modelData;
 }
 
-ModelData* lovrModelDataFromOpenVRModel(OpenVRModel* vrModel) {
-  ModelData* modelData = malloc(sizeof(ModelData));
-  if (!modelData) return NULL;
-
-  RenderModel_t* renderModel = vrModel->model;
-
-  ModelMesh* mesh = malloc(sizeof(ModelMesh));
-  vec_init(&modelData->meshes);
-  vec_push(&modelData->meshes, mesh);
-
-  vec_init(&mesh->faces);
-  for (uint32_t i = 0; i < renderModel->unTriangleCount; i++) {
-    ModelFace face;
-    face.indices[0] = renderModel->rIndexData[3 * i + 0];
-    face.indices[1] = renderModel->rIndexData[3 * i + 1];
-    face.indices[2] = renderModel->rIndexData[3 * i + 2];
-    vec_push(&mesh->faces, face);
-  }
-
-  vec_init(&mesh->vertices);
-  vec_init(&mesh->normals);
-  vec_init(&mesh->texCoords);
-  for (size_t i = 0; i < renderModel->unVertexCount; i++) {
-    float* position = renderModel->rVertexData[i].vPosition.v;
-    float* normal = renderModel->rVertexData[i].vNormal.v;
-    ModelVertex v;
-
-    v.x = position[0];
-    v.y = position[1];
-    v.z = position[2];
-    vec_push(&mesh->vertices, v);
-
-    v.x = normal[0];
-    v.y = normal[1];
-    v.z = normal[2];
-    vec_push(&mesh->normals, v);
-
-    float* texCoords = renderModel->rVertexData[i].rfTextureCoord;
-    v.x = texCoords[0];
-    v.y = texCoords[1];
-    v.z = 0.f;
-    vec_push(&mesh->texCoords, v);
-  }
-
-  ModelNode* root = malloc(sizeof(ModelNode));
-  vec_init(&root->meshes);
-  vec_push(&root->meshes, 0);
-  vec_init(&root->children);
-  mat4_identity(root->transform);
-
-  modelData->root = root;
-  modelData->hasNormals = 1;
-  modelData->hasTexCoords = 1;
-
-  return modelData;
-}
-
 void lovrModelDataDestroy(ModelData* modelData) {
   for (int i = 0; i < modelData->meshes.length; i++) {
     ModelMesh* mesh = modelData->meshes.data[i];

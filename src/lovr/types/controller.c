@@ -65,16 +65,16 @@ int l_lovrControllerVibrate(lua_State* L) {
 
 int l_lovrControllerNewModel(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  ControllerModelFormat format;
-  void* rawData = lovrHeadsetControllerGetModel(controller, &format);
-  if (rawData && format == CONTROLLER_MODEL_OPENVR) {
-    ModelData* modelData = lovrModelDataFromOpenVRModel(rawData);
-    TextureData* textureData = lovrTextureDataFromOpenVRModel(rawData);
+  ModelData* modelData = lovrHeadsetControllerNewModelData(controller);
+  TextureData* textureData = lovrHeadsetControllerNewTextureData(controller);
+  if (modelData) {
     Model* model = lovrModelCreate(modelData);
-    Texture* texture = lovrTextureCreate(textureData);
-    lovrModelSetTexture(model, texture);
+    if (textureData) {
+      Texture* texture = lovrTextureCreate(textureData);
+      lovrModelSetTexture(model, texture);
+      lovrRelease(&texture->ref);
+    }
     luax_pushtype(L, Model, model);
-    lovrRelease(&texture->ref);
     lovrRelease(&model->ref);
   } else {
     lua_pushnil(L);

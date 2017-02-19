@@ -1,4 +1,3 @@
-#include "openvr.h"
 #include "util.h"
 #include "vendor/vec/vec.h"
 
@@ -42,5 +41,4 @@ typedef struct {
 } ModelData;
 
 ModelData* lovrModelDataFromFile(void* data, int size);
-ModelData* lovrModelDataFromOpenVRModel(OpenVRModel* vrModel);
 void lovrModelDataDestroy(ModelData* modelData);

@@ -1,4 +1,6 @@
-#include <vendor/vec/vec.h>
+#include "loaders/model.h"
+#include "loaders/texture.h"
+#include "vendor/vec/vec.h"
 #include "util.h"
 
 #pragma once
@@ -20,11 +22,6 @@ typedef enum {
   CONTROLLER_BUTTON_GRIP,
   CONTROLLER_BUTTON_TOUCHPAD
 } ControllerButton;
-
-typedef enum {
-  CONTROLLER_MODEL_NONE = 0,
-  CONTROLLER_MODEL_OPENVR
-} ControllerModelFormat;
 
 typedef struct {
   Ref ref;
@@ -59,7 +56,8 @@ typedef struct {
   float (*controllerGetAxis)(void* headset, Controller* controller, ControllerAxis axis);
   int (*controllerIsDown)(void* headset, Controller* controller, ControllerButton button);
   void (*controllerVibrate)(void* headset, Controller* controller, float duration);
-  void* (*controllerGetModel)(void* headset, Controller* controller, ControllerModelFormat* format);
+  ModelData* (*controllerNewModelData)(void* headset, Controller* controller);
+  TextureData* (*controllerNewTextureData)(void* headset, Controller* controller);
   void (*renderTo)(void* headset, headsetRenderCallback callback, void* userdata);
 } Headset;
 
@@ -88,7 +86,8 @@ void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, f
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration);
-void* lovrHeadsetControllerGetModel(Controller* controller, ControllerModelFormat* format);
+ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
+TextureData* lovrHeadsetControllerNewTextureData(Controller* controller);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
 
 void lovrControllerDestroy(const Ref* ref);

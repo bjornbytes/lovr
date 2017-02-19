@@ -1,7 +1,11 @@
 #include "headset/headset.h"
 #include "graphics/texture.h"
 #include "glfw.h"
-#include "openvr.h"
+#include <stdbool.h>
+#ifndef _WIN32
+#define __stdcall
+#endif
+#include <openvr_capi.h>
 
 #pragma once
 
@@ -17,7 +21,8 @@ typedef struct {
 
   int isRendering;
   TrackedDevicePose_t renderPoses[16];
-  OpenVRModel deviceModels[16];
+  ModelData* deviceModels[16];
+  TextureData* deviceTextures[16];
 
   vec_controller_t controllers;
 
@@ -56,5 +61,6 @@ void viveControllerGetOrientation(void* headset, Controller* controller, float* 
 float viveControllerGetAxis(void* headset, Controller* controller, ControllerAxis axis);
 int viveControllerIsDown(void* headset, Controller* controller, ControllerButton button);
 void viveControllerVibrate(void* headset, Controller* controller, float duration);
-void* viveControllerGetModel(void* headset, Controller* controller, ControllerModelFormat* format);
+ModelData* viveControllerNewModelData(void* headset, Controller* controller);
+TextureData* viveControllerNewTextureData(void* headset, Controller* controller);
 void viveRenderTo(void* headset, headsetRenderCallback callback, void* userdata);
