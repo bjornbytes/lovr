@@ -85,9 +85,9 @@ if (WIN32)
   include_directories(deps/openal-soft/include)
   set(LOVR_OPENAL OpenAL32)
 else()
-  pkg_search_module(OPENAL REQUIRED openal)
-  include_directories(${OPENAL_INCLUDE_DIRS})
-  set(LOVR_OPENAL ${OPENAL_LIBRARIES})
+  find_package(OpenAL REQUIRED)
+  include_directories(${OPENAL_INCLUDE_DIR})
+  set(LOVR_OPENAL openal)
 endif()
 
 # FreeType
