@@ -76,6 +76,7 @@ void lovrHeadsetInit() {
     return;
   }
 
+  state.isInitialized = 1;
   state.headsetIndex = k_unTrackedDeviceIndex_Hmd;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
@@ -90,6 +91,7 @@ void lovrHeadsetInit() {
 }
 
 void lovrHeadsetDestroy() {
+  state.isInitialized = 0;
   if (state.texture) {
     lovrRelease(&state.texture->ref);
   }
