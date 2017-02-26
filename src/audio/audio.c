@@ -73,6 +73,11 @@ void lovrAudioAdd(Source* source) {
   }
 }
 
+void lovrAudioGetDopplerEffect(float* factor, float* speedOfSound) {
+  *factor = alGetFloat(AL_DOPPLER_FACTOR);
+  *speedOfSound = alGetFloat(AL_SPEED_OF_SOUND);
+}
+
 void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az) {
   quat_getAngleAxis(state.orientation, angle, ax, ay, az);
 }
@@ -120,6 +125,11 @@ void lovrAudioRewind() {
   vec_foreach(&state.sources, source, i) {
     lovrSourceRewind(source);
   }
+}
+
+void lovrAudioSetDopplerEffect(float scale, float speedOfSound) {
+  alDopplerFactor(scale);
+  alSpeedOfSound(speedOfSound);
 }
 
 void lovrAudioSetOrientation(float angle, float ax, float ay, float az) {
