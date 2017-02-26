@@ -90,6 +90,10 @@ int lovrSourceGetSampleRate(Source* source) {
   return source->sourceData->sampleRate;
 }
 
+void lovrSourceGetVelocity(Source* source, float* x, float* y, float* z) {
+  alGetSource3f(source->id, AL_VELOCITY, x, y, z);
+}
+
 float lovrSourceGetVolume(Source* source) {
   float volume;
   alGetSourcef(source->id, AL_GAIN, &volume);
@@ -186,6 +190,10 @@ void lovrSourceSetPitch(Source* source, float pitch) {
 
 void lovrSourceSetPosition(Source* source, float x, float y, float z) {
   alSource3f(source->id, AL_POSITION, x, y, z);
+}
+
+void lovrSourceSetVelocity(Source* source, float x, float y, float z) {
+  alSource3f(source->id, AL_VELOCITY, x, y, z);
 }
 
 void lovrSourceSetVolume(Source* source, float volume) {

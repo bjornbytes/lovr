@@ -12,6 +12,7 @@ const luaL_Reg lovrSource[] = {
   { "getPitch", l_lovrSourceGetPitch },
   { "getPosition", l_lovrSourceGetPosition },
   { "getSampleRate", l_lovrSourceGetSampleRate },
+  { "getVelocity", l_lovrSourceGetVelocity },
   { "getVolume", l_lovrSourceGetVolume },
   { "isLooping", l_lovrSourceIsLooping },
   { "isPaused", l_lovrSourceIsPaused },
@@ -28,6 +29,7 @@ const luaL_Reg lovrSource[] = {
   { "setLooping", l_lovrSourceSetLooping },
   { "setPitch", l_lovrSourceSetPitch },
   { "setPosition", l_lovrSourceSetPosition },
+  { "setVelocity", l_lovrSourceSetVelocity },
   { "setVolume", l_lovrSourceSetVolume },
   { "stop", l_lovrSourceStop },
   { "tell", l_lovrSourceTell },
@@ -108,6 +110,15 @@ int l_lovrSourceGetSampleRate(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   lua_pushinteger(L, lovrSourceGetSampleRate(source));
   return 1;
+}
+
+int l_lovrSourceGetVelocity(lua_State* L) {
+  float x, y, z;
+  lovrSourceGetVelocity(luax_checktype(L, 1, Source), &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
 }
 
 int l_lovrSourceGetVolume(lua_State* L) {
@@ -216,6 +227,15 @@ int l_lovrSourceSetPosition(lua_State* L) {
   float y = luaL_checknumber(L, 3);
   float z = luaL_checknumber(L, 4);
   lovrSourceSetPosition(source, x, y, z);
+  return 0;
+}
+
+int l_lovrSourceSetVelocity(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrSourceSetVelocity(source, x, y, z);
   return 0;
 }
 

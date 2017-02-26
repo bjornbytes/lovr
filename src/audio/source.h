@@ -30,6 +30,7 @@ int lovrSourceGetDuration(Source* source);
 void lovrSourceGetFalloff(Source* source, float* reference, float* max, float* rolloff);
 float lovrSourceGetPitch(Source* source);
 void lovrSourceGetPosition(Source* source, float* x, float* y, float* z);
+void lovrSourceGetVelocity(Source* source, float* x, float* y, float* z);
 int lovrSourceGetSampleRate(Source* source);
 float lovrSourceGetVolume(Source* source);
 int lovrSourceIsLooping(Source* source);
@@ -47,6 +48,7 @@ void lovrSourceSetFalloff(Source* source, float reference, float max, float roll
 void lovrSourceSetLooping(Source* source, int isLooping);
 void lovrSourceSetPitch(Source* source, float pitch);
 void lovrSourceSetPosition(Source* source, float x, float y, float z);
+void lovrSourceSetVelocity(Source* source, float x, float y, float z);
 void lovrSourceSetVolume(Source* source, float volume);
 void lovrSourceStop(Source* source);
 void lovrSourceStream(Source* source, ALuint* buffers, int count);
