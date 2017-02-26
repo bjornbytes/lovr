@@ -31,8 +31,9 @@ void lovrAudioInit() {
   state.device = device;
   state.context = context;
   vec_init(&state.sources);
-  vec3_set(state.position, 0, 0, 0);
   quat_set(state.orientation, 0, 0, 0, -1);
+  vec3_set(state.position, 0, 0, 0);
+  vec3_set(state.velocity, 0, 0, 0);
 
   atexit(lovrAudioDestroy);
 }
@@ -80,6 +81,12 @@ void lovrAudioGetPosition(float* x, float* y, float* z) {
   *x = state.position[0];
   *y = state.position[1];
   *z = state.position[2];
+}
+
+void lovrAudioGetVelocity(float* x, float* y, float* z) {
+  *x = state.velocity[0];
+  *y = state.velocity[1];
+  *z = state.velocity[2];
 }
 
 float lovrAudioGetVolume() {
@@ -133,6 +140,11 @@ void lovrAudioSetOrientation(float angle, float ax, float ay, float az) {
 void lovrAudioSetPosition(float x, float y, float z) {
   vec3_set(state.position, x, y, z);
   alListener3f(AL_POSITION, x, y, z);
+}
+
+void lovrAudioSetVelocity(float x, float y, float z) {
+  vec3_set(state.velocity, x, y, z);
+  alListener3f(AL_VELOCITY, x, y, z);
 }
 
 void lovrAudioSetVolume(float volume) {
