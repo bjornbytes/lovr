@@ -83,9 +83,10 @@ int luax_getobject(lua_State* L, void* object) {
   lua_gettable(L, -2);
 
   if (lua_isnil(L, -1)) {
-    lua_pop(L, 1);
+    lua_pop(L, 2);
     return 0;
   } else {
+    lua_remove(L, -2);
     return 1;
   }
 }
