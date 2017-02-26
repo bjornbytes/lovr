@@ -53,6 +53,10 @@ int lovrSourceGetChannels(Source* source) {
   return source->sourceData->channels;
 }
 
+void lovrSourceGetDirection(Source* source, float* x, float* y, float* z) {
+  alGetSource3f(source->id, AL_DIRECTION, x, y, z);
+}
+
 int lovrSourceGetDuration(Source* source) {
   return source->sourceData->samples;
 }
@@ -61,10 +65,6 @@ void lovrSourceGetFalloff(Source* source, float* reference, float* max, float* r
   alGetSourcef(source->id, AL_REFERENCE_DISTANCE, reference);
   alGetSourcef(source->id, AL_MAX_DISTANCE, max);
   alGetSourcef(source->id, AL_ROLLOFF_FACTOR, rolloff);
-}
-
-void lovrSourceGetOrientation(Source* source, float* x, float* y, float* z) {
-  alGetSource3f(source->id, AL_DIRECTION, x, y, z);
 }
 
 float lovrSourceGetPitch(Source* source) {
@@ -151,6 +151,10 @@ void lovrSourceSeek(Source* source, int sample) {
   }
 }
 
+void lovrSourceSetDirection(Source* source, float x, float y, float z) {
+  alSource3f(source->id, AL_DIRECTION, x, y, z);
+}
+
 void lovrSourceSetFalloff(Source* source, float reference, float max, float rolloff) {
   alSourcef(source->id, AL_REFERENCE_DISTANCE, reference);
   alSourcef(source->id, AL_MAX_DISTANCE, max);
@@ -159,10 +163,6 @@ void lovrSourceSetFalloff(Source* source, float reference, float max, float roll
 
 void lovrSourceSetLooping(Source* source, int isLooping) {
   source->isLooping = isLooping;
-}
-
-void lovrSourceSetOrientation(Source* source, float dx, float dy, float dz) {
-  alSource3f(source->id, AL_DIRECTION, dx, dy, dz);
 }
 
 void lovrSourceSetPitch(Source* source, float pitch) {

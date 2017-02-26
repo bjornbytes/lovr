@@ -5,9 +5,9 @@
 const luaL_Reg lovrSource[] = {
   { "getBitDepth", l_lovrSourceGetBitDepth },
   { "getChannels", l_lovrSourceGetChannels },
+  { "getDirection", l_lovrSourceGetDirection },
   { "getDuration", l_lovrSourceGetDuration },
   { "getFalloff", l_lovrSourceGetFalloff },
-  { "getOrientation", l_lovrSourceGetOrientation },
   { "getPitch", l_lovrSourceGetPitch },
   { "getPosition", l_lovrSourceGetPosition },
   { "getSampleRate", l_lovrSourceGetSampleRate },
@@ -21,9 +21,9 @@ const luaL_Reg lovrSource[] = {
   { "resume", l_lovrSourceResume },
   { "rewind", l_lovrSourceRewind },
   { "seek", l_lovrSourceSeek },
+  { "setDirection", l_lovrSourceSetDirection },
   { "setFalloff", l_lovrSourceSetFalloff },
   { "setLooping", l_lovrSourceSetLooping },
-  { "setOrientation", l_lovrSourceSetOrientation },
   { "setPitch", l_lovrSourceSetPitch },
   { "setPosition", l_lovrSourceSetPosition },
   { "setVolume", l_lovrSourceSetVolume },
@@ -42,6 +42,15 @@ int l_lovrSourceGetChannels(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   lua_pushinteger(L, lovrSourceGetChannels(source));
   return 1;
+}
+
+int l_lovrSourceGetDirection(lua_State* L) {
+  float x, y, z;
+  lovrSourceGetDirection(luax_checktype(L, 1, Source), &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
 }
 
 int l_lovrSourceGetDuration(lua_State* L) {
@@ -65,15 +74,6 @@ int l_lovrSourceGetFalloff(lua_State* L) {
   lua_pushnumber(L, reference);
   lua_pushnumber(L, max);
   lua_pushnumber(L, rolloff);
-  return 3;
-}
-
-int l_lovrSourceGetOrientation(lua_State* L) {
-  float x, y, z;
-  lovrSourceGetOrientation(luax_checktype(L, 1, Source), &x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
   return 3;
 }
 
@@ -175,12 +175,12 @@ int l_lovrSourceSetLooping(lua_State* L) {
   return 0;
 }
 
-int l_lovrSourceSetOrientation(lua_State* L) {
+int l_lovrSourceSetDirection(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   float x = luaL_checknumber(L, 2);
   float y = luaL_checknumber(L, 3);
   float z = luaL_checknumber(L, 4);
-  lovrSourceSetOrientation(source, x, y, z);
+  lovrSourceSetDirection(source, x, y, z);
   return 0;
 }
 
