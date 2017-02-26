@@ -11,6 +11,7 @@ int l_lovrAudioGetOrientation(lua_State* L);
 int l_lovrAudioGetPosition(lua_State* L);
 int l_lovrAudioGetVelocity(lua_State* L);
 int l_lovrAudioGetVolume(lua_State* L);
+int l_lovrAudioIsSpatialized(lua_State* L);
 int l_lovrAudioNewSource(lua_State* L);
 int l_lovrAudioPause(lua_State* L);
 int l_lovrAudioResume(lua_State* L);

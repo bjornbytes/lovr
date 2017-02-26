@@ -10,6 +10,7 @@ typedef struct {
   ALCdevice* device;
   ALCcontext* context;
   vec_void_t sources;
+  int isSpatialized;
   float orientation[4];
   float position[3];
   float velocity[4];
@@ -25,6 +26,7 @@ void lovrAudioGetPosition(float* x, float* y, float* z);
 void lovrAudioGetVelocity(float* x, float* y, float* z);
 float lovrAudioGetVolume();
 int lovrAudioHas(Source* source);
+int lovrAudioIsSpatialized();
 void lovrAudioPause();
 void lovrAudioResume();
 void lovrAudioRewind();

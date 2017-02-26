@@ -12,6 +12,7 @@ const luaL_Reg lovrAudio[] = {
   { "getPosition", l_lovrAudioGetPosition },
   { "getVelocity", l_lovrAudioGetVelocity },
   { "getVolume", l_lovrAudioGetVolume },
+  { "isSpatialized", l_lovrAudioIsSpatialized },
   { "newSource", l_lovrAudioNewSource },
   { "pause", l_lovrAudioPause },
   { "resume", l_lovrAudioResume },
@@ -81,6 +82,11 @@ int l_lovrAudioGetVelocity(lua_State* L) {
 
 int l_lovrAudioGetVolume(lua_State* L) {
   lua_pushnumber(L, lovrAudioGetVolume());
+  return 1;
+}
+
+int l_lovrAudioIsSpatialized(lua_State* L) {
+  lua_pushnumber(L, lovrAudioIsSpatialized());
   return 1;
 }
 

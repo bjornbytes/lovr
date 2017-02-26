@@ -22,8 +22,9 @@ void lovrAudioInit() {
   }
 
   alcResetDeviceSOFT = (LPALCRESETDEVICESOFT) alcGetProcAddress(device, "alcResetDeviceSOFT");
+  state.isSpatialized = alcIsExtensionPresent(device, "ALC_SOFT_HRTF");
 
-  if (alcIsExtensionPresent(device, "ALC_SOFT_HRTF")) {
+  if (state.isSpatialized) {
     ALCint attrs[3] = { ALC_HRTF_SOFT, ALC_TRUE, 0 };
     alcResetDeviceSOFT(device, attrs);
   }
@@ -104,6 +105,10 @@ int lovrAudioHas(Source* source) {
   int index;
   vec_find(&state.sources, source, index);
   return index >= 0;
+}
+
+int lovrAudioIsSpatialized(Source* source) {
+  return state.isSpatialized;
 }
 
 void lovrAudioPause() {
