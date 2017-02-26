@@ -1,5 +1,23 @@
 #include "audio/source.h"
 #include "loaders/source.h"
+#include <float.h>
+
+static ALenum lovrSourceGetFormat(Source* source) {
+  int channels = source->sourceData->channels;
+  int bitDepth = source->sourceData->bitDepth;
+
+  if (bitDepth == 8 && channels == 1) {
+    return AL_FORMAT_MONO8;
+  } else if (bitDepth == 8 && channels == 2) {
+    return AL_FORMAT_STEREO8;
+  } else if (bitDepth == 16 && channels == 1) {
+    return AL_FORMAT_MONO16;
+  } else if (bitDepth == 16 && channels == 2) {
+    return AL_FORMAT_STEREO16;
+  }
+
+  return 0;
+}
 
 static ALenum lovrSourceGetState(Source* source) {
   ALenum state;
@@ -39,22 +57,10 @@ int lovrSourceGetDuration(Source* source) {
   return source->sourceData->samples;
 }
 
-// Get the OpenAL sound format for the sound
-ALenum lovrSourceGetFormat(Source* source) {
-  int channels = source->sourceData->channels;
-  int bitDepth = source->sourceData->bitDepth;
-
-  if (bitDepth == 8 && channels == 1) {
-    return AL_FORMAT_MONO8;
-  } else if (bitDepth == 8 && channels == 2) {
-    return AL_FORMAT_STEREO8;
-  } else if (bitDepth == 16 && channels == 1) {
-    return AL_FORMAT_MONO16;
-  } else if (bitDepth == 16 && channels == 2) {
-    return AL_FORMAT_STEREO16;
-  }
-
-  return 0;
+void lovrSourceGetFalloff(Source* source, float* reference, float* max, float* rolloff) {
+  alGetSourcef(source->id, AL_REFERENCE_DISTANCE, reference);
+  alGetSourcef(source->id, AL_MAX_DISTANCE, max);
+  alGetSourcef(source->id, AL_ROLLOFF_FACTOR, rolloff);
 }
 
 void lovrSourceGetOrientation(Source* source, float* x, float* y, float* z) {
@@ -143,6 +149,12 @@ void lovrSourceSeek(Source* source, int sample) {
   if (wasPaused) {
     lovrSourcePause(source);
   }
+}
+
+void lovrSourceSetFalloff(Source* source, float reference, float max, float rolloff) {
+  alSourcef(source->id, AL_REFERENCE_DISTANCE, reference);
+  alSourcef(source->id, AL_MAX_DISTANCE, max);
+  alSourcef(source->id, AL_ROLLOFF_FACTOR, rolloff);
 }
 
 void lovrSourceSetLooping(Source* source, int isLooping) {
