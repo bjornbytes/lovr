@@ -115,7 +115,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "  end "
     "}, { "
     "  __index = function(self, event) "
-    "    error('Unknown event: ', event) "
+    "    error('Unknown event: ' .. tostring(event)) "
     "  end "
     "}) "
 
@@ -153,8 +153,8 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "  end "
     "end "
 
-    "function lovr.errhand(message, layer) "
-    "  local stackTrace = debug.traceback('Error: ' .. tostring(message), 1 + (layer or 2)) "
+    "function lovr.errhand(message) "
+    "  local stackTrace = debug.traceback('Error: ' .. tostring(message), 1) "
     "  local message = stackTrace:gsub('\\n[^\\n]+$', ''):gsub('\\t', ''):gsub('stack traceback', 'Stack') "
     "  print(message) "
     "  lovr.graphics.setBackgroundColor(26, 25, 28) "
