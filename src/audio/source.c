@@ -1,6 +1,7 @@
 #include "audio/source.h"
 #include "loaders/source.h"
 #include <float.h>
+#define _USE_MATH_DEFINES
 #include <math.h>
 
 static ALenum lovrSourceGetFormat(Source* source) {
