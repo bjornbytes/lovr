@@ -5,6 +5,7 @@
 const luaL_Reg lovrSource[] = {
   { "getBitDepth", l_lovrSourceGetBitDepth },
   { "getChannels", l_lovrSourceGetChannels },
+  { "getCone", l_lovrSourceGetCone },
   { "getDirection", l_lovrSourceGetDirection },
   { "getDuration", l_lovrSourceGetDuration },
   { "getFalloff", l_lovrSourceGetFalloff },
@@ -21,6 +22,7 @@ const luaL_Reg lovrSource[] = {
   { "resume", l_lovrSourceResume },
   { "rewind", l_lovrSourceRewind },
   { "seek", l_lovrSourceSeek },
+  { "setCone", l_lovrSourceSetCone },
   { "setDirection", l_lovrSourceSetDirection },
   { "setFalloff", l_lovrSourceSetFalloff },
   { "setLooping", l_lovrSourceSetLooping },
@@ -42,6 +44,16 @@ int l_lovrSourceGetChannels(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   lua_pushinteger(L, lovrSourceGetChannels(source));
   return 1;
+}
+
+int l_lovrSourceGetCone(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float innerAngle, outerAngle, outerGain;
+  lovrSourceGetCone(source, &innerAngle, &outerAngle, &outerGain);
+  lua_pushnumber(L, innerAngle);
+  lua_pushnumber(L, outerAngle);
+  lua_pushnumber(L, outerGain);
+  return 3;
 }
 
 int l_lovrSourceGetDirection(lua_State* L) {
@@ -158,6 +170,15 @@ int l_lovrSourceSeek(lua_State* L) {
     lovrSourceSeek(source, luaL_checkinteger(L, 2));
   }
 
+  return 0;
+}
+
+int l_lovrSourceSetCone(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float innerAngle = luaL_checknumber(L, 1);
+  float outerAngle = luaL_checknumber(L, 2);
+  float outerGain = luaL_checknumber(L, 3);
+  lovrSourceSetCone(source, innerAngle, outerAngle, outerGain);
   return 0;
 }
 

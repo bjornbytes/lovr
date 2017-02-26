@@ -1,6 +1,7 @@
 #include "audio/source.h"
 #include "loaders/source.h"
 #include <float.h>
+#include <math.h>
 
 static ALenum lovrSourceGetFormat(Source* source) {
   int channels = source->sourceData->channels;
@@ -47,6 +48,14 @@ void lovrSourceDestroy(const Ref* ref) {
 
 int lovrSourceGetBitDepth(Source* source) {
   return source->sourceData->bitDepth;
+}
+
+void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, float* outerGain) {
+  alGetSourcef(source->id, AL_CONE_INNER_ANGLE, innerAngle);
+  alGetSourcef(source->id, AL_CONE_OUTER_ANGLE, outerAngle);
+  alGetSourcef(source->id, AL_CONE_OUTER_GAIN, outerGain);
+  *innerAngle *= M_PI / 180.f;
+  *outerAngle *= M_PI / 180.f;
 }
 
 int lovrSourceGetChannels(Source* source) {
@@ -149,6 +158,12 @@ void lovrSourceSeek(Source* source, int sample) {
   if (wasPaused) {
     lovrSourcePause(source);
   }
+}
+
+void lovrSourceSetCone(Source* source, float innerAngle, float outerAngle, float outerGain) {
+  alSourcef(source->id, AL_CONE_INNER_ANGLE, innerAngle * 180.f / M_PI);
+  alSourcef(source->id, AL_CONE_OUTER_ANGLE, outerAngle * 180.f / M_PI);
+  alSourcef(source->id, AL_CONE_OUTER_GAIN, outerGain);
 }
 
 void lovrSourceSetDirection(Source* source, float x, float y, float z) {
