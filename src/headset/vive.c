@@ -308,6 +308,7 @@ void lovrHeadsetRefreshControllers() {
       EventType type = EVENT_CONTROLLER_REMOVED;
       EventData data = { .controllerremoved = { controller } };
       Event event = { .type = type, .data = data };
+      lovrRetain(&controller->ref);
       lovrEventPush(event);
       vec_splice(&state.controllers, i, 1);
       lovrRelease(&controller->ref);
@@ -322,6 +323,7 @@ void lovrHeadsetRefreshControllers() {
       EventType type = EVENT_CONTROLLER_ADDED;
       EventData data = { .controlleradded = { controller } };
       Event event = { .type = type, .data = data };
+      lovrRetain(&controller->ref);
       lovrEventPush(event);
     }
   }
@@ -353,12 +355,12 @@ vec_controller_t* lovrHeadsetGetControllers() {
 }
 
 int lovrHeadsetControllerIsPresent(Controller* controller) {
-  if (!state.isInitialized) return 0;
+  if (!state.isInitialized || !controller) return 0;
   return state.system->IsTrackedDeviceConnected(controller->id);
 }
 
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
-  if (!state.isInitialized) {
+  if (!state.isInitialized || !controller) {
     *x = *y = *z = 0.f;
   }
 
@@ -375,7 +377,7 @@ void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y
 }
 
 void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
-  if (!state.isInitialized) {
+  if (!state.isInitialized || !controller) {
     *angle = *x = *y = *z = 0.f;
   }
 

@@ -206,7 +206,6 @@ int l_lovrHeadsetGetControllers(lua_State* L) {
   lua_newtable(L);
   Controller* controller; int i;
   vec_foreach(controllers, controller, i) {
-    lovrRetain(&controller->ref);
     luax_pushtype(L, Controller, controller);
     lua_rawseti(L, -2, i + 1);
   }
