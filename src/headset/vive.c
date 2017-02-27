@@ -595,9 +595,10 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
     Texture_t eyeTexture = { (void*) texture, textureType, EColorSpace_ColorSpace_Gamma };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     state.compositor->Submit(vrEye, &eyeTexture, NULL, flags);
-  }
 
-  glBindTexture(GL_TEXTURE_2D, oldTexture->id);
+    // Reset to the correct texture
+    glBindTexture(GL_TEXTURE_2D, oldTexture->id);
+  }
 
   state.isRendering = 0;
   lovrGraphicsPopCanvas();
