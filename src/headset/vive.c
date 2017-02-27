@@ -393,6 +393,8 @@ void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, f
 }
 
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
+  if (!state.isInitialized || !controller) return 0.f;
+
   VRControllerState_t input;
   state.system->GetControllerState(controller->id, &input, sizeof(input));
 
@@ -414,6 +416,8 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
 }
 
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
+  if (!state.isInitialized || !controller) return 0;
+
   VRControllerState_t input;
   state.system->GetControllerState(controller->id, &input, sizeof(input));
 
@@ -438,9 +442,7 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
 }
 
 void lovrHeadsetControllerVibrate(Controller* controller, float duration) {
-  if (duration <= 0) {
-    return;
-  }
+  if (!state.isInitialized || !controller || duration <= 0) return;
 
   uint32_t axis = 0;
   unsigned short uSeconds = (unsigned short) (duration * 1e6);
@@ -448,6 +450,8 @@ void lovrHeadsetControllerVibrate(Controller* controller, float duration) {
 }
 
 ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
+  if (!state.isInitialized || !controller) return NULL;
+
   int id = controller->id;
 
   // Return the model if it's already loaded
@@ -541,6 +545,8 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
 }
 
 TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
+  if (!state.isInitialized || !controller) return NULL;
+
   int id = controller->id;
 
   // Textures are loaded alongside models to simplify the implementation.
@@ -552,6 +558,8 @@ TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
+  if (!state.isInitialized) return;
+
   float head[16], transform[16], projection[16];
   float (*matrix)[4];
 
