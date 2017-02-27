@@ -21,8 +21,8 @@ typedef struct {
   unsigned int headsetIndex;
 
   TrackedDevicePose_t renderPoses[16];
-  ModelData* deviceModels[16];
-  TextureData* deviceTextures[16];
+  RenderModel_t* deviceModels[16];
+  RenderModel_TextureMap_t* deviceTextures[16];
 
   vec_controller_t controllers;
 

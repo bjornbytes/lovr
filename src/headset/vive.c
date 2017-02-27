@@ -96,8 +96,9 @@ void lovrHeadsetDestroy() {
     lovrRelease(&state.texture->ref);
   }
   for (int i = 0; i < 16; i++) {
-    free(state.deviceModels[i]);
-    free(state.deviceTextures[i]);
+    if (state.deviceModels[i]) {
+      state.renderModels->FreeRenderModel(state.deviceModels[i]);
+    }
     state.deviceModels[i] = NULL;
     state.deviceTextures[i] = NULL;
   }
@@ -456,26 +457,22 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
 
   int id = controller->id;
 
-  // Return the model if it's already loaded
-  if (state.deviceModels[id]) {
-    return state.deviceModels[id];
-  }
-
   // Get model name
   char renderModelName[1024];
   ETrackedDeviceProperty renderModelNameProperty = ETrackedDeviceProperty_Prop_RenderModelName_String;
   state.system->GetStringTrackedDeviceProperty(controller->id, renderModelNameProperty, renderModelName, 1024, NULL);
 
   // Load model
-  RenderModel_t* vrModel = NULL;
-  while (state.renderModels->LoadRenderModel_Async(renderModelName, &vrModel) == EVRRenderModelError_VRRenderModelError_Loading) {
-    lovrSleep(.001);
+  if (!state.deviceModels[id]) {
+    while (state.renderModels->LoadRenderModel_Async(renderModelName, &state.deviceModels[id]) == EVRRenderModelError_VRRenderModelError_Loading) {
+      lovrSleep(.001);
+    }
   }
+
+  RenderModel_t* vrModel = state.deviceModels[id];
 
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
-
-  state.deviceModels[id] = modelData;
 
   ModelMesh* mesh = malloc(sizeof(ModelMesh));
   vec_init(&modelData->meshes);
@@ -525,24 +522,6 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
   modelData->hasNormals = 1;
   modelData->hasTexCoords = 1;
 
-  // We also load the texture, shh don't tell anyone
-  RenderModel_TextureMap_t* vrTexture = NULL;
-  while (vrModel && state.renderModels->LoadTexture_Async(vrModel->diffuseTextureId, &vrTexture) == EVRRenderModelError_VRRenderModelError_Loading) {
-    lovrSleep(.001);
-  }
-
-  TextureData* textureData = malloc(sizeof(TextureData));
-  if (!textureData) return NULL;
-
-  state.deviceTextures[id] = textureData;
-
-  textureData->width = vrTexture->unWidth;
-  textureData->height = vrTexture->unHeight;
-  textureData->data = vrTexture->rubTextureMapData;
-  textureData->format = FORMAT_RGBA;
-
-  state.renderModels->FreeRenderModel(vrModel);
-
   return modelData;
 }
 
@@ -551,12 +530,27 @@ TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
 
   int id = controller->id;
 
-  // Textures are loaded alongside models to simplify the implementation.
-  if (!state.deviceTextures[id]) {
-    lovrHeadsetControllerNewTextureData(controller);
+  if (!state.deviceModels[id]) {
+    lovrHeadsetControllerNewModelData(controller);
   }
 
-  return state.deviceTextures[id];
+  if (!state.deviceTextures[id]) {
+    while (state.renderModels->LoadTexture_Async(state.deviceModels[id]->diffuseTextureId, &state.deviceTextures[id]) == EVRRenderModelError_VRRenderModelError_Loading) {
+      lovrSleep(.001);
+    }
+  }
+
+  RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
+
+  TextureData* textureData = malloc(sizeof(TextureData));
+  if (!textureData) return NULL;
+
+  textureData->width = vrTexture->unWidth;
+  textureData->height = vrTexture->unHeight;
+  textureData->data = vrTexture->rubTextureMapData;
+  textureData->format = FORMAT_RGBA;
+
+  return textureData;
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
