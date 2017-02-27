@@ -547,8 +547,12 @@ TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
 
   textureData->width = vrTexture->unWidth;
   textureData->height = vrTexture->unHeight;
-  textureData->data = vrTexture->rubTextureMapData;
+  textureData->channels = 4;
   textureData->format = FORMAT_RGBA;
+
+  size_t size = textureData->width * textureData->height * textureData->channels * sizeof(uint8_t);
+  textureData->data = malloc(size);
+  memcpy(textureData->data, vrTexture->rubTextureMapData, size);
 
   return textureData;
 }
