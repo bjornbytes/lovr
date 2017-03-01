@@ -101,6 +101,11 @@ float lovrSourceGetVolume(Source* source) {
   return volume;
 }
 
+void lovrSourceGetVolumeLimits(Source* source, float* min, float* max) {
+  alGetSourcef(source->id, AL_MIN_GAIN, min);
+  alGetSourcef(source->id, AL_MAX_GAIN, max);
+}
+
 int lovrSourceIsLooping(Source* source) {
   return source->isLooping;
 }
@@ -111,6 +116,12 @@ int lovrSourceIsPaused(Source* source) {
 
 int lovrSourceIsPlaying(Source* source) {
   return lovrSourceGetState(source) == AL_PLAYING;
+}
+
+int lovrSourceIsRelative(Source* source) {
+  int isRelative;
+  alGetSourcei(source->id, AL_SOURCE_RELATIVE, &isRelative);
+  return isRelative == AL_TRUE;
 }
 
 int lovrSourceIsStopped(Source* source) {
@@ -201,12 +212,21 @@ void lovrSourceSetPosition(Source* source, float x, float y, float z) {
   alSource3f(source->id, AL_POSITION, x, y, z);
 }
 
+void lovrSourceSetRelative(Source* source, int isRelative) {
+  alSourcei(source->id, AL_SOURCE_RELATIVE, isRelative ? AL_TRUE : AL_FALSE);
+}
+
 void lovrSourceSetVelocity(Source* source, float x, float y, float z) {
   alSource3f(source->id, AL_VELOCITY, x, y, z);
 }
 
 void lovrSourceSetVolume(Source* source, float volume) {
   alSourcef(source->id, AL_GAIN, volume);
+}
+
+void lovrSourceSetVolumeLimits(Source* source, float min, float max) {
+  alSourcef(source->id, AL_MIN_GAIN, min);
+  alSourcef(source->id, AL_MAX_GAIN, max);
 }
 
 void lovrSourceStop(Source* source) {
