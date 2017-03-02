@@ -160,7 +160,7 @@ int l_lovrHeadsetGetPosition(lua_State* L) {
 
 int l_lovrHeadsetGetEyePosition(lua_State* L) {
   float x, y, z;
-  HeadsetEye eye = *(HeadsetEye*) luax_checkenum(L, 1, &HeadsetEyes, "eye");
+  HeadsetEye eye = *(HeadsetEye*) luax_optenum(L, 1, &HeadsetEyes, "eye", "left");
   lovrHeadsetGetEyePosition(eye, &x, &y, &z);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
