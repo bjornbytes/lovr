@@ -58,6 +58,7 @@ const luaL_Reg lovrFilesystem[] = {
   { "getUserDirectory", l_lovrFilesystemGetUserDirectory },
   { "isDirectory", l_lovrFilesystemIsDirectory },
   { "isFile", l_lovrFilesystemIsFile },
+  { "load", l_lovrFilesystemLoad },
   { "read", l_lovrFilesystemRead },
   { "setIdentity", l_lovrFilesystemSetIdentity },
   { "setSource", l_lovrFilesystemSetSource },
@@ -149,6 +150,19 @@ int l_lovrFilesystemIsFile(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, lovrFilesystemIsFile(path));
   return 1;
+}
+
+int l_lovrFilesystemLoad(lua_State* L) {
+  const char* path = luaL_checkstring(L, 1);
+  int size;
+  char* content = lovrFilesystemRead(path, &size);
+
+  int status = luaL_loadbuffer(L, content, size, path);
+  switch (status) {
+    case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1));
+    case LUA_ERRSYNTAX: return luaL_error(L, "Syntax error: %s", lua_tostring(L, -1));
+    default: return 1;
+  }
 }
 
 int l_lovrFilesystemRead(lua_State* L) {

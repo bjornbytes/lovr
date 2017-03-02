@@ -12,6 +12,7 @@ int l_lovrFilesystemGetSource(lua_State* L);
 int l_lovrFilesystemGetUserDirectory(lua_State* L);
 int l_lovrFilesystemIsDirectory(lua_State* L);
 int l_lovrFilesystemIsFile(lua_State* L);
+int l_lovrFilesystemLoad(lua_State* L);
 int l_lovrFilesystemRead(lua_State* L);
 int l_lovrFilesystemSetIdentity(lua_State* L);
 int l_lovrFilesystemSetSource(lua_State* L);
