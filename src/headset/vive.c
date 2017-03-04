@@ -567,9 +567,6 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   state.isRendering = 1;
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
 
-  // OpenVR changes the OpenGL texture binding, so we reset it after rendering
-  Texture* oldTexture = lovrGraphicsGetTexture();
-
   // Head transform
   matrix = state.renderPoses[state.headsetIndex].mDeviceToAbsoluteTracking.m;
   mat4_invert(mat4_fromMat34(head, matrix));
@@ -596,6 +593,9 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
     callback(eye, userdata);
     lovrGraphicsPop();
     lovrTextureResolveMSAA(state.texture);
+
+    // OpenVR changes the OpenGL texture binding, so we reset it after rendering
+    Texture* oldTexture = lovrGraphicsGetTexture();
 
     // Submit
     uintptr_t texture = (uintptr_t) state.texture->id;
