@@ -96,6 +96,7 @@ a custom build.
 - OpenVR (1.0.5, for `lovr.headset`)
 - PhysicsFS
 - OpenAL (1.17+ recommended for HRTF support)
+- FreeType
 
 #### Windows (CMake)
 
