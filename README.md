@@ -91,8 +91,8 @@ a custom build.
 
 - LuaJIT
 - GLFW (3.2+)
-- OpenGL (Unix) or GLEW (Windows)
-- assimp (for `lovr.model` and `lovr.graphics.newModel`)
+- OpenGL (3+)
+- assimp
 - OpenVR (1.0.5, for `lovr.headset`)
 - PhysicsFS
 - OpenAL (1.17+ recommended for HRTF support)
