@@ -98,6 +98,9 @@ a custom build.
 - OpenAL (1.17+ recommended for HRTF support)
 - FreeType
 
+See [lovr-deps](https://github.com/bjornbytes/lovr-deps) for a GitHub repo containing all of these
+as submodules.
+
 #### Windows (CMake)
 
 First, install [lovr-deps](https://github.com/bjornbytes/lovr-deps):
