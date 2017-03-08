@@ -17,7 +17,9 @@ static int handleLuaError(lua_State* L) {
 
   if (lua_isfunction(L, -1)) {
     lua_pushstring(L, message);
-    lua_call(L, 1, 0);
+    if (lua_pcall(L, 1, 0, 0)) {
+      error(lua_tostring(L, -1));
+    }
   } else {
     error(message);
   }
