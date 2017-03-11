@@ -1,5 +1,5 @@
 #include "luax.h"
-#include "vendor/map/map.h"
+#include "lib/map/map.h"
 
 map_int_t EventTypes;
 

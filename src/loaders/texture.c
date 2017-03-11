@@ -1,5 +1,5 @@
 #include "loaders/texture.h"
-#include "vendor/stb/stb_image.h"
+#include "lib/stb/stb_image.h"
 #include <stdlib.h>
 #include <string.h>
 

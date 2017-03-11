@@ -1,7 +1,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "vendor/map/map.h"
+#include "lib/map/map.h"
 
 #pragma once
 

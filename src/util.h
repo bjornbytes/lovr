@@ -1,4 +1,4 @@
-#include "vendor/vec/vec.h"
+#include "lib/vec/vec.h"
 #include <stddef.h>
 
 #pragma once

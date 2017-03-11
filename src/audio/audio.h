@@ -1,5 +1,5 @@
 #include "audio/source.h"
-#include "vendor/vec/vec.h"
+#include "lib/vec/vec.h"
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <AL/alext.h>

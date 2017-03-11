@@ -1,5 +1,5 @@
 #include "headset/headset.h"
-#include "vendor/vec/vec.h"
+#include "lib/vec/vec.h"
 
 #pragma once
 

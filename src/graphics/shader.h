@@ -1,6 +1,6 @@
 #include "glfw.h"
 #include "math/math.h"
-#include "vendor/map/map.h"
+#include "lib/map/map.h"
 #include "util.h"
 
 #pragma once

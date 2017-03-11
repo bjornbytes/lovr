@@ -1,8 +1,8 @@
 #include "loaders/font.h"
 #include "util.h"
 #include "graphics/texture.h"
-#include "vendor/map/map.h"
-#include "vendor/vec/vec.h"
+#include "lib/map/map.h"
+#include "lib/vec/vec.h"
 #include <stdint.h>
 
 #pragma once

@@ -1,6 +1,6 @@
 #include "loaders/model.h"
 #include "loaders/texture.h"
-#include "vendor/vec/vec.h"
+#include "lib/vec/vec.h"
 #include "util.h"
 
 #pragma once

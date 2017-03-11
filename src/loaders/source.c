@@ -1,5 +1,5 @@
 #include "loaders/source.h"
-#include "vendor/stb/stb_vorbis.h"
+#include "lib/stb/stb_vorbis.h"
 #include <stdlib.h>
 
 SourceData* lovrSourceDataFromFile(void* data, int size) {
