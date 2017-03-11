@@ -1,4 +1,4 @@
-#include "lovr/event.h"
+#include "api/event.h"
 #include "event/event.h"
 
 static int pollRef;

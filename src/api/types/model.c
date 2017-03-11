@@ -1,6 +1,6 @@
-#include "lovr/types/model.h"
-#include "lovr/types/texture.h"
-#include "lovr/types/transform.h"
+#include "api/types/model.h"
+#include "api/types/texture.h"
+#include "api/types/transform.h"
 
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },

@@ -1,4 +1,4 @@
-#include "lovr/types/shader.h"
+#include "api/types/shader.h"
 #include "math/transform.h"
 
 const luaL_Reg lovrShader[] = {

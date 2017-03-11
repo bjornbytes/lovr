@@ -1,5 +1,5 @@
-#include "lovr/audio.h"
-#include "lovr/types/source.h"
+#include "api/audio.h"
+#include "api/types/source.h"
 #include "audio/audio.h"
 #include "audio/source.h"
 #include "loaders/source.h"

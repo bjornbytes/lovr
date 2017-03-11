@@ -1,5 +1,5 @@
-#include "lovr/headset.h"
-#include "lovr/types/controller.h"
+#include "api/headset.h"
+#include "api/types/controller.h"
 #include "headset/headset.h"
 
 static void renderHelper(HeadsetEye eye, void* userdata) {

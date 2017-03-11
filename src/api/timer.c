@@ -1,4 +1,4 @@
-#include "lovr/timer.h"
+#include "api/timer.h"
 #include "timer/timer.h"
 
 const luaL_Reg lovrTimer[] = {

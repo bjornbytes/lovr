@@ -1,4 +1,4 @@
-#include "lovr/types/skybox.h"
+#include "api/types/skybox.h"
 #include "graphics/graphics.h"
 
 const luaL_Reg lovrSkybox[] = {

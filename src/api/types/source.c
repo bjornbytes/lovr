@@ -1,5 +1,5 @@
-#include "lovr/types/source.h"
-#include "lovr/audio.h"
+#include "api/types/source.h"
+#include "api/audio.h"
 #include "audio/audio.h"
 
 const luaL_Reg lovrSource[] = {

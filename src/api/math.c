@@ -1,5 +1,5 @@
-#include "lovr/math.h"
-#include "lovr/types/transform.h"
+#include "api/math.h"
+#include "api/types/transform.h"
 #include "math/mat4.h"
 
 const luaL_Reg lovrMath[] = {

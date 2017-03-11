@@ -1,5 +1,5 @@
-#include "lovr/types/controller.h"
-#include "lovr/headset.h"
+#include "api/types/controller.h"
+#include "api/headset.h"
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "graphics/model.h"
