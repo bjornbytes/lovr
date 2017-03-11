@@ -88,10 +88,6 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "} "
 
     "lovr.filesystem = require('lovr.filesystem') "
-    "lovr.filesystem.init(arg[-2]) "
-    "if not lovr.filesystem.setSource(lovr.filesystem.getExecutablePath()) and arg[1] then "
-    "  lovr.filesystem.setSource(arg[1]) "
-    "end "
 
     "local success, err = pcall(require, 'conf') "
     "if lovr.conf then "

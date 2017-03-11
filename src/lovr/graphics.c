@@ -45,7 +45,7 @@ static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
 
 static Texture* luax_readtexture(lua_State* L, int index) {
   const char* path = luaL_checkstring(L, index);
-  int size;
+  size_t size;
   void* data = lovrFilesystemRead(path, &size);
   if (!data) {
     luaL_error(L, "Could not load texture file '%s'", path);
@@ -636,7 +636,7 @@ int l_lovrGraphicsNewBuffer(lua_State* L) {
 
 int l_lovrGraphicsNewFont(lua_State* L) {
   void* data = NULL;
-  int size = 0;
+  size_t size = 0;
   float fontSize;
 
   if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
@@ -662,7 +662,7 @@ int l_lovrGraphicsNewFont(lua_State* L) {
 
 int l_lovrGraphicsNewModel(lua_State* L) {
   const char* path = lua_tostring(L, 1);
-  int size;
+  size_t size;
   void* data = lovrFilesystemRead(path, &size);
   if (!data) {
     return luaL_error(L, "Could not load model file '%s'", path);
@@ -688,7 +688,7 @@ int l_lovrGraphicsNewShader(lua_State* L) {
     if (lua_isnoneornil(L, i + 1)) continue;
     const char* source = luaL_checkstring(L, i + 1);
     if (!lovrFilesystemIsFile(source)) continue;
-    int bytesRead;
+    size_t bytesRead;
     char* contents = lovrFilesystemRead(source, &bytesRead);
     if (bytesRead <= 0) {
       return luaL_error(L, "Could not read shader from file '%s'", source);
@@ -708,7 +708,7 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 
 int l_lovrGraphicsNewSkybox(lua_State* L) {
   void* data[6];
-  int size[6];
+  size_t size[6];
 
   if (lua_istable(L, 1)) {
     if (lua_objlen(L, 1) != 6) {

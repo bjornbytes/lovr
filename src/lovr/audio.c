@@ -96,7 +96,7 @@ int l_lovrAudioNewSource(lua_State* L) {
     return luaL_error(L, "Only .ogg files are supported");
   }
 
-  int size;
+  size_t size;
   void* data = lovrFilesystemRead(filename, &size);
   if (!data) {
     return luaL_error(L, "Could not load source from file '%s'", filename);

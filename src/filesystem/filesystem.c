@@ -5,51 +5,82 @@
 #include <stdlib.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
-#elif _WIN32
+#endif
+#if _WIN32
 #include <windows.h>
 #include <initguid.h>
 #include <KnownFolders.h>
 #include <ShlObj.h>
 #include <wchar.h>
+#else
+#include <unistd.h>
+#include <pwd.h>
 #endif
 
 static FilesystemState state;
 
-void lovrFilesystemInit(const char* arg0) {
+void lovrFilesystemInit(const char* arg0, const char* arg1) {
   if (!PHYSFS_init(arg0)) {
     error("Could not initialize filesystem: %s", PHYSFS_getLastError());
   }
 
-  state.gameSource = NULL;
+  state.source = malloc(LOVR_PATH_MAX * sizeof(char));
   state.identity = NULL;
+  state.isFused = 1;
+
+  // Try to mount either an archive fused to the executable or an archive from the command line
+  lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
+  if (lovrFilesystemMount(state.source, NULL, 1)) {
+    state.isFused = 0;
+    strncpy(state.source, arg1, LOVR_PATH_MAX);
+    if (!state.source || lovrFilesystemMount(state.source, NULL, 1)) {
+      free(state.source);
+      state.source = NULL;
+    }
+  }
+
   atexit(lovrFilesystemDestroy);
 }
 
 void lovrFilesystemDestroy() {
+  free(state.source);
   free(state.savePathFull);
   free(state.savePathRelative);
   PHYSFS_deinit();
 }
 
-int lovrFilesystemAppend(const char* path, const char* content, int size) {
-  if (!PHYSFS_isInit() || !state.identity) {
-    error("Can not write files until lovr.filesystem.setIdentity is called");
-  }
-
-  // Open file
-  PHYSFS_file* handle = PHYSFS_openAppend(path);
-  if (!handle) {
-    return 0;
-  }
-
-  // Perform write
-  int bytesWritten = PHYSFS_write(handle, content, 1, size);
-  PHYSFS_close(handle);
-  return bytesWritten;
+int lovrFilesystemCreateDirectory(const char* path) {
+  return !PHYSFS_mkdir(path);
 }
 
 int lovrFilesystemExists(const char* path) {
   return PHYSFS_exists(path);
+}
+
+int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
+#ifdef __APPLE__
+  const char* home;
+  if ((home = getenv("HOME")) == NULL) {
+    home = getpwuid(getuid())->pw_dir;
+  }
+
+  snprintf(dest, size, "%s/Library/Application Support", home);
+  return 0;
+#elif _WIN32
+  PWSTR appData = NULL;
+  SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &appData);
+  wcstombs(dest, appData, size);
+  CoTaskMemFree(appData);
+  return 0;
+#else
+#error "This platform is missing an implementation for lovrFilesystemGetAppdataDirectory"
+#endif
+
+  return 1;
+}
+
+void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata) {
+  PHYSFS_enumerateFilesCallback(path, callback, userdata);
 }
 
 int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
@@ -70,23 +101,34 @@ const char* lovrFilesystemGetIdentity() {
   return state.identity;
 }
 
-const char* lovrFilesystemGetRealDirectory(const char* path) {
-  if (!PHYSFS_isInit()) {
-    return NULL;
-  }
+long lovrFilesystemGetLastModified(const char* path) {
+  return PHYSFS_getLastModTime(path);
+}
 
+const char* lovrFilesystemGetRealDirectory(const char* path) {
   return PHYSFS_getRealDir(path);
 }
 
+const char* lovrFilesystemGetSaveDirectory() {
+  return state.savePathFull;
+}
+
+int lovrFilesystemGetSize(const char* path) {
+  PHYSFS_file* handle = PHYSFS_openRead(path);
+  if (!handle) {
+    return 1;
+  }
+
+  int length = PHYSFS_fileLength(handle);
+  PHYSFS_close(handle);
+  return length;
+}
+
 const char* lovrFilesystemGetSource() {
-  return state.gameSource;
+  return state.source;
 }
 
 const char* lovrFilesystemGetUserDirectory() {
-  if (!PHYSFS_isInit()) {
-    return NULL;
-  }
-
   return PHYSFS_getUserDir();
 }
 
@@ -98,10 +140,15 @@ int lovrFilesystemIsFile(const char* path) {
   return lovrFilesystemExists(path) && !lovrFilesystemIsDirectory(path);
 }
 
-void* lovrFilesystemRead(const char* path, int* bytesRead) {
-  if (!PHYSFS_isInit()) {
-    return NULL;
-  }
+int lovrFilesystemIsFused() {
+  return state.isFused;
+}
+
+int lovrFilesystemMount(const char* path, const char* mountpoint, int append) {
+  return !PHYSFS_mount(path, mountpoint, append);
+}
+
+void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
 
   // Open file
   PHYSFS_file* handle = PHYSFS_openRead(path);
@@ -126,12 +173,16 @@ void* lovrFilesystemRead(const char* path, int* bytesRead) {
   PHYSFS_close(handle);
 
   // Make sure we got everything
-  if (*bytesRead != size) {
+  if (*bytesRead != (size_t) size) {
     free(data);
     return NULL;
   }
 
   return data;
+}
+
+int lovrFilesystemRemove(const char* path) {
+  return !PHYSFS_delete(path);
 }
 
 int lovrFilesystemSetIdentity(const char* identity) {
@@ -143,58 +194,32 @@ int lovrFilesystemSetIdentity(const char* identity) {
   } else {
     state.savePathRelative = malloc(LOVR_PATH_MAX);
     state.savePathFull = malloc(LOVR_PATH_MAX);
+    if (!state.savePathRelative || !state.savePathFull) {
+      return 1;
+    }
   }
 
-  // Set new write directory
-#ifdef __APPLE__
-  const char* userDir = PHYSFS_getUserDir();
-  PHYSFS_setWriteDir(userDir);
-
-  snprintf(state.savePathRelative, LOVR_PATH_MAX, "Library/Application Support/LOVR/%s", identity);
-  PHYSFS_mkdir(state.savePathRelative);
-
-  snprintf(state.savePathFull, LOVR_PATH_MAX, "%s%s", userDir, state.savePathRelative);
-  if (PHYSFS_setWriteDir(state.savePathFull)) {
-    PHYSFS_mount(state.savePathFull, NULL, 0);
-    return 0;
-  }
-#elif _WIN32
-  PWSTR appData = NULL;
-  SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &appData);
+  lovrFilesystemGetAppdataDirectory(state.savePathFull, LOVR_PATH_MAX);
+  PHYSFS_setWriteDir(state.savePathFull);
   snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity);
-  CoTaskMemFree(appData);
-#else
-#error "This platform is missing an implementation of lovrFilesystemSetIdentity"
-#endif
+  snprintf(state.savePathFull, LOVR_PATH_MAX, "%s/%s", state.savePathFull, state.savePathRelative);
+  PHYSFS_mkdir(state.savePathRelative);
+  PHYSFS_setWriteDir(state.savePathRelative);
+  PHYSFS_mount(state.savePathFull, NULL, 0);
 
-  return 1;
+  return 0;
 }
 
-int lovrFilesystemSetSource(const char* source) {
-  if (state.gameSource) {
-    return 1;
-  }
-
-  if (PHYSFS_mount(source, NULL, 0)) {
-    state.gameSource = source;
-    return 0;
-  }
-
-  return 1;
+int lovrFilesystemUnmount(const char* path) {
+  return !PHYSFS_removeFromSearchPath(path);
 }
 
-int lovrFilesystemWrite(const char* path, const char* content, int size) {
-  if (!PHYSFS_isInit() || !state.identity) {
-    error("Can not write files until lovr.filesystem.setIdentity is called");
-  }
-
-  // Open file
-  PHYSFS_file* handle = PHYSFS_openWrite(path);
+int lovrFilesystemWrite(const char* path, const char* content, size_t size, int append) {
+  PHYSFS_file* handle = append ? PHYSFS_openAppend(path) : PHYSFS_openWrite(path);
   if (!handle) {
     return 0;
   }
 
-  // Perform write
   int bytesWritten = PHYSFS_write(handle, content, 1, size);
   PHYSFS_close(handle);
   return bytesWritten;

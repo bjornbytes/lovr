@@ -2,7 +2,7 @@
 #include "vendor/stb/stb_image.h"
 #include <stdlib.h>
 
-Skybox* lovrSkyboxCreate(void** data, int* size) {
+Skybox* lovrSkyboxCreate(void** data, size_t* size) {
   Skybox* skybox = lovrAlloc(sizeof(Skybox), lovrSkyboxDestroy);
   if (!skybox) return NULL;
 
