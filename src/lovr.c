@@ -21,6 +21,18 @@ static int handleLuaError(lua_State* L) {
   return 0;
 }
 
+static int lovrGetOS(lua_State* L) {
+#ifdef _WIN32
+  lua_pushstring(L, "Windows");
+  return 1;
+#elif __APPLE__
+  lua_pushstring(L, "macOS");
+  return 1;
+#endif
+  lua_pushnil(L);
+  return 1;
+}
+
 static int lovrGetVersion(lua_State* L) {
   lua_pushnumber(L, LOVR_VERSION_MAJOR);
   lua_pushnumber(L, LOVR_VERSION_MINOR);
@@ -54,6 +66,8 @@ void lovrInit(lua_State* L, int argc, char** argv) {
 
   // lovr
   lua_newtable(L);
+  lua_pushcfunction(L, lovrGetOS);
+  lua_setfield(L, -2, "getOS");
   lua_pushcfunction(L, lovrGetVersion);
   lua_setfield(L, -2, "getVersion");
   lua_setglobal(L, "lovr");
