@@ -56,6 +56,15 @@ else()
 endif()
 
 # PhysicsFS
+set(PHYSFS_ARCHIVE_7Z OFF CACHE BOOL "")
+set(PHYSFS_ARCHIVE_GRP OFF CACHE BOOL "")
+set(PHYSFS_ARCHIVE_WAD OFF CACHE BOOL "")
+set(PHYSFS_ARCHIVE_HOG OFF CACHE BOOL "")
+set(PHYSFS_ARCHIVE_MVL OFF CACHE BOOL "")
+set(PHYSFS_ARCHIVE_QPAK OFF CACHE BOOL "")
+set(PHYSFS_BUILD_TEST OFF CACHE BOOL "")
+set(PHYSFS_BUILD_WX_TEST FALSE CACHE BOOL "")
+
 if(WIN32)
   add_subdirectory(deps/physfs physfs)
   include_directories(deps/physfs)
