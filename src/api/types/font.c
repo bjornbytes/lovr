@@ -1,10 +1,5 @@
-#include "api/types/font.h"
-
-const luaL_Reg lovrFont[] = {
-  { "getLineHeight", l_lovrFontGetLineHeight },
-  { "setLineHeight", l_lovrFontSetLineHeight },
-  { NULL, NULL }
-};
+#include "api/lovr.h"
+#include "graphics/font.h"
 
 int l_lovrFontGetLineHeight(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
@@ -18,3 +13,9 @@ int l_lovrFontSetLineHeight(lua_State* L) {
   lovrFontSetLineHeight(font, lineHeight);
   return 0;
 }
+
+const luaL_Reg lovrFont[] = {
+  { "getLineHeight", l_lovrFontGetLineHeight },
+  { "setLineHeight", l_lovrFontSetLineHeight },
+  { NULL, NULL }
+};

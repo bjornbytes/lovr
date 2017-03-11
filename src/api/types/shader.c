@@ -1,10 +1,6 @@
-#include "api/types/shader.h"
+#include "api/lovr.h"
+#include "graphics/shader.h"
 #include "math/transform.h"
-
-const luaL_Reg lovrShader[] = {
-  { "send", l_lovrShaderSend },
-  { NULL, NULL }
-};
 
 int l_lovrShaderSend(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
@@ -164,3 +160,8 @@ int l_lovrShaderSend(lua_State* L) {
 
   return 0;
 }
+
+const luaL_Reg lovrShader[] = {
+  { "send", l_lovrShaderSend },
+  { NULL, NULL }
+};

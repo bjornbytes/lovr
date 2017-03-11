@@ -1,4 +1,4 @@
-#include "api/filesystem.h"
+#include "api/lovr.h"
 #include "filesystem/filesystem.h"
 #include <stdlib.h>
 #include <string.h>
@@ -53,31 +53,6 @@ static int filesystemLoader(lua_State* L) {
 
   return 0;
 }
-
-const luaL_Reg lovrFilesystem[] = {
-  { "append", l_lovrFilesystemAppend },
-  { "exists", l_lovrFilesystemExists },
-  { "getAppdataDirectory", l_lovrFilesystemGetAppdataDirectory },
-  { "getDirectoryItems", l_lovrFilesystemGetDirectoryItems },
-  { "getExecutablePath", l_lovrFilesystemGetExecutablePath },
-  { "getIdentity", l_lovrFilesystemGetIdentity },
-  { "getLastModified", l_lovrFilesystemGetLastModified },
-  { "getRealDirectory", l_lovrFilesystemGetRealDirectory },
-  { "getSaveDirectory", l_lovrFilesystemGetSaveDirectory },
-  { "getSize", l_lovrFilesystemGetSize },
-  { "getSource", l_lovrFilesystemGetSource },
-  { "getUserDirectory", l_lovrFilesystemGetUserDirectory },
-  { "isDirectory", l_lovrFilesystemIsDirectory },
-  { "isFile", l_lovrFilesystemIsFile },
-  { "isFused", l_lovrFilesystemIsFused },
-  { "load", l_lovrFilesystemLoad },
-  { "mount", l_lovrFilesystemMount },
-  { "read", l_lovrFilesystemRead },
-  { "remove", l_lovrFilesystemRemove },
-  { "setIdentity", l_lovrFilesystemSetIdentity },
-  { "write", l_lovrFilesystemWrite },
-  { NULL, NULL }
-};
 
 int l_lovrFilesystemInit(lua_State* L) {
   lua_newtable(L);
@@ -278,3 +253,28 @@ int l_lovrFilesystemWrite(lua_State* L) {
   lua_pushnumber(L, lovrFilesystemWrite(path, content, size, 0));
   return 1;
 }
+
+const luaL_Reg lovrFilesystem[] = {
+  { "append", l_lovrFilesystemAppend },
+  { "exists", l_lovrFilesystemExists },
+  { "getAppdataDirectory", l_lovrFilesystemGetAppdataDirectory },
+  { "getDirectoryItems", l_lovrFilesystemGetDirectoryItems },
+  { "getExecutablePath", l_lovrFilesystemGetExecutablePath },
+  { "getIdentity", l_lovrFilesystemGetIdentity },
+  { "getLastModified", l_lovrFilesystemGetLastModified },
+  { "getRealDirectory", l_lovrFilesystemGetRealDirectory },
+  { "getSaveDirectory", l_lovrFilesystemGetSaveDirectory },
+  { "getSize", l_lovrFilesystemGetSize },
+  { "getSource", l_lovrFilesystemGetSource },
+  { "getUserDirectory", l_lovrFilesystemGetUserDirectory },
+  { "isDirectory", l_lovrFilesystemIsDirectory },
+  { "isFile", l_lovrFilesystemIsFile },
+  { "isFused", l_lovrFilesystemIsFused },
+  { "load", l_lovrFilesystemLoad },
+  { "mount", l_lovrFilesystemMount },
+  { "read", l_lovrFilesystemRead },
+  { "remove", l_lovrFilesystemRemove },
+  { "setIdentity", l_lovrFilesystemSetIdentity },
+  { "write", l_lovrFilesystemWrite },
+  { NULL, NULL }
+};

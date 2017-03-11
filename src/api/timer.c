@@ -1,14 +1,5 @@
-#include "api/timer.h"
+#include "api/lovr.h"
 #include "timer/timer.h"
-
-const luaL_Reg lovrTimer[] = {
-  { "getDelta", l_lovrTimerGetDelta },
-  { "getFPS", l_lovrTimerGetFPS },
-  { "getTime", l_lovrTimerGetTime },
-  { "step", l_lovrTimerStep },
-  { "sleep", l_lovrTimerSleep },
-  { NULL, NULL }
-};
 
 int l_lovrTimerInit(lua_State* L) {
   lua_newtable(L);
@@ -42,3 +33,12 @@ int l_lovrTimerSleep(lua_State* L) {
   lovrTimerSleep(duration);
   return 0;
 }
+
+const luaL_Reg lovrTimer[] = {
+  { "getDelta", l_lovrTimerGetDelta },
+  { "getFPS", l_lovrTimerGetFPS },
+  { "getTime", l_lovrTimerGetTime },
+  { "step", l_lovrTimerStep },
+  { "sleep", l_lovrTimerSleep },
+  { NULL, NULL }
+};

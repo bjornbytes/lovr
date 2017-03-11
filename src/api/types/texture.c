@@ -1,19 +1,5 @@
-#include "api/types/texture.h"
-#include "api/graphics.h"
+#include "api/lovr.h"
 #include "graphics/graphics.h"
-
-const luaL_Reg lovrTexture[] = {
-  { "bind", l_lovrTextureBind },
-  { "getDimensions", l_lovrTextureGetDimensions },
-  { "getFilter", l_lovrTextureGetFilter },
-  { "getHeight", l_lovrTextureGetHeight },
-  { "getWidth", l_lovrTextureGetWidth },
-  { "getWrap", l_lovrTextureGetWrap },
-  { "renderTo", l_lovrTextureRenderTo },
-  { "setFilter", l_lovrTextureSetFilter },
-  { "setWrap", l_lovrTextureSetWrap },
-  { NULL, NULL }
-};
 
 int l_lovrTextureBind(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
@@ -84,3 +70,16 @@ int l_lovrTextureSetWrap(lua_State* L) {
   lovrTextureSetWrap(texture, *horizontal, *vertical);
   return 0;
 }
+
+const luaL_Reg lovrTexture[] = {
+  { "bind", l_lovrTextureBind },
+  { "getDimensions", l_lovrTextureGetDimensions },
+  { "getFilter", l_lovrTextureGetFilter },
+  { "getHeight", l_lovrTextureGetHeight },
+  { "getWidth", l_lovrTextureGetWidth },
+  { "getWrap", l_lovrTextureGetWrap },
+  { "renderTo", l_lovrTextureRenderTo },
+  { "setFilter", l_lovrTextureSetFilter },
+  { "setWrap", l_lovrTextureSetWrap },
+  { NULL, NULL }
+};

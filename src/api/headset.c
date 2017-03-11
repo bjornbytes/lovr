@@ -1,6 +1,9 @@
-#include "api/headset.h"
-#include "api/types/controller.h"
+#include "api/lovr.h"
 #include "headset/headset.h"
+
+map_int_t ControllerAxes;
+map_int_t ControllerButtons;
+map_int_t HeadsetEyes;
 
 static void renderHelper(HeadsetEye eye, void* userdata) {
   lua_State* L = (lua_State*)userdata;
@@ -9,31 +12,6 @@ static void renderHelper(HeadsetEye eye, void* userdata) {
   luax_pushenum(L, &HeadsetEyes, eye);
   lua_call(L, 1, 0);
 }
-
-const luaL_Reg lovrHeadset[] = {
-  { "isPresent", l_lovrHeadsetIsPresent },
-  { "getType", l_lovrHeadsetGetType },
-  { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
-  { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
-  { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
-  { "getClipDistance", l_lovrHeadsetGetClipDistance },
-  { "setClipDistance", l_lovrHeadsetSetClipDistance },
-  { "getBoundsWidth", l_lovrHeadsetGetBoundsWidth },
-  { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
-  { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
-  { "getBoundsGeometry", l_lovrHeadsetGetBoundsGeometry },
-  { "isBoundsVisible", l_lovrHeadsetIsBoundsVisible },
-  { "setBoundsVisible", l_lovrHeadsetSetBoundsVisible },
-  { "getPosition", l_lovrHeadsetGetPosition },
-  { "getEyePosition", l_lovrHeadsetGetEyePosition },
-  { "getOrientation", l_lovrHeadsetGetOrientation },
-  { "getVelocity", l_lovrHeadsetGetVelocity },
-  { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
-  { "getControllers", l_lovrHeadsetGetControllers },
-  { "getControllerCount", l_lovrHeadsetGetControllerCount },
-  { "renderTo", l_lovrHeadsetRenderTo },
-  { NULL, NULL }
-};
 
 int l_lovrHeadsetInit(lua_State* L) {
   lua_newtable(L);
@@ -227,3 +205,28 @@ int l_lovrHeadsetRenderTo(lua_State* L) {
   lovrHeadsetRenderTo(renderHelper, L);
   return 0;
 }
+
+const luaL_Reg lovrHeadset[] = {
+  { "isPresent", l_lovrHeadsetIsPresent },
+  { "getType", l_lovrHeadsetGetType },
+  { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
+  { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
+  { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
+  { "getClipDistance", l_lovrHeadsetGetClipDistance },
+  { "setClipDistance", l_lovrHeadsetSetClipDistance },
+  { "getBoundsWidth", l_lovrHeadsetGetBoundsWidth },
+  { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
+  { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
+  { "getBoundsGeometry", l_lovrHeadsetGetBoundsGeometry },
+  { "isBoundsVisible", l_lovrHeadsetIsBoundsVisible },
+  { "setBoundsVisible", l_lovrHeadsetSetBoundsVisible },
+  { "getPosition", l_lovrHeadsetGetPosition },
+  { "getEyePosition", l_lovrHeadsetGetEyePosition },
+  { "getOrientation", l_lovrHeadsetGetOrientation },
+  { "getVelocity", l_lovrHeadsetGetVelocity },
+  { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
+  { "getControllers", l_lovrHeadsetGetControllers },
+  { "getControllerCount", l_lovrHeadsetGetControllerCount },
+  { "renderTo", l_lovrHeadsetRenderTo },
+  { NULL, NULL }
+};

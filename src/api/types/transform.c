@@ -1,5 +1,6 @@
-#include "api/types/transform.h"
+#include "api/lovr.h"
 #include "math/mat4.h"
+#include "math/transform.h"
 
 void luax_readtransform(lua_State* L, int i, mat4 m) {
   if (lua_isnumber(L, i)) {
@@ -19,20 +20,6 @@ void luax_readtransform(lua_State* L, int i, mat4 m) {
     mat4_init(m, transform->matrix);
   }
 }
-
-const luaL_Reg lovrTransform[] = {
-  { "clone", l_lovrTransformClone },
-  { "inverse", l_lovrTransformInverse },
-  { "apply", l_lovrTransformApply },
-  { "origin", l_lovrTransformOrigin },
-  { "translate", l_lovrTransformTranslate },
-  { "rotate", l_lovrTransformRotate },
-  { "scale", l_lovrTransformScale },
-  { "setTransformation", l_lovrTransformSetTransformation },
-  { "transformPoint", l_lovrTransformTransformPoint },
-  { "inverseTransformPoint", l_lovrTransformInverseTransformPoint },
-  { NULL, NULL }
-};
 
 int l_lovrTransformClone(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
@@ -130,3 +117,17 @@ int l_lovrTransformInverseTransformPoint(lua_State* L) {
   lua_pushnumber(L, point[2]);
   return 3;
 }
+
+const luaL_Reg lovrTransform[] = {
+  { "clone", l_lovrTransformClone },
+  { "inverse", l_lovrTransformInverse },
+  { "apply", l_lovrTransformApply },
+  { "origin", l_lovrTransformOrigin },
+  { "translate", l_lovrTransformTranslate },
+  { "rotate", l_lovrTransformRotate },
+  { "scale", l_lovrTransformScale },
+  { "setTransformation", l_lovrTransformSetTransformation },
+  { "transformPoint", l_lovrTransformTransformPoint },
+  { "inverseTransformPoint", l_lovrTransformInverseTransformPoint },
+  { NULL, NULL }
+};

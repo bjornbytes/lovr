@@ -1,30 +1,10 @@
-#include "api/audio.h"
-#include "api/types/source.h"
+#include "api/lovr.h"
 #include "audio/audio.h"
 #include "audio/source.h"
 #include "loaders/source.h"
 #include "filesystem/filesystem.h"
 
-const luaL_Reg lovrAudio[] = {
-  { "update", l_lovrAudioUpdate },
-  { "getDopplerEffect", l_lovrAudioGetDopplerEffect },
-  { "getOrientation", l_lovrAudioGetOrientation },
-  { "getPosition", l_lovrAudioGetPosition },
-  { "getVelocity", l_lovrAudioGetVelocity },
-  { "getVolume", l_lovrAudioGetVolume },
-  { "isSpatialized", l_lovrAudioIsSpatialized },
-  { "newSource", l_lovrAudioNewSource },
-  { "pause", l_lovrAudioPause },
-  { "resume", l_lovrAudioResume },
-  { "rewind", l_lovrAudioRewind },
-  { "setDopplerEffect", l_lovrAudioSetDopplerEffect },
-  { "setOrientation", l_lovrAudioSetOrientation },
-  { "setPosition", l_lovrAudioSetPosition },
-  { "setVelocity", l_lovrAudioSetVelocity },
-  { "setVolume", l_lovrAudioSetVolume },
-  { "stop", l_lovrAudioStop },
-  { NULL, NULL }
-};
+map_int_t TimeUnits;
 
 int l_lovrAudioInit(lua_State* L) {
   lua_newtable(L);
@@ -166,3 +146,24 @@ int l_lovrAudioStop(lua_State* L) {
   lovrAudioStop();
   return 0;
 }
+
+const luaL_Reg lovrAudio[] = {
+  { "update", l_lovrAudioUpdate },
+  { "getDopplerEffect", l_lovrAudioGetDopplerEffect },
+  { "getOrientation", l_lovrAudioGetOrientation },
+  { "getPosition", l_lovrAudioGetPosition },
+  { "getVelocity", l_lovrAudioGetVelocity },
+  { "getVolume", l_lovrAudioGetVolume },
+  { "isSpatialized", l_lovrAudioIsSpatialized },
+  { "newSource", l_lovrAudioNewSource },
+  { "pause", l_lovrAudioPause },
+  { "resume", l_lovrAudioResume },
+  { "rewind", l_lovrAudioRewind },
+  { "setDopplerEffect", l_lovrAudioSetDopplerEffect },
+  { "setOrientation", l_lovrAudioSetOrientation },
+  { "setPosition", l_lovrAudioSetPosition },
+  { "setVelocity", l_lovrAudioSetVelocity },
+  { "setVolume", l_lovrAudioSetVolume },
+  { "stop", l_lovrAudioStop },
+  { NULL, NULL }
+};

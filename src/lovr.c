@@ -1,11 +1,5 @@
 #include "lovr.h"
-#include "api/audio.h"
-#include "api/event.h"
-#include "api/filesystem.h"
-#include "api/graphics.h"
-#include "api/headset.h"
-#include "api/math.h"
-#include "api/timer.h"
+#include "api/lovr.h"
 #include "glfw.h"
 #include "util.h"
 #include <stdlib.h>

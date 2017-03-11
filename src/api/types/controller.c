@@ -1,19 +1,8 @@
-#include "api/types/controller.h"
-#include "api/headset.h"
+#include "api/lovr.h"
+#include "headset/headset.h"
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "graphics/model.h"
-
-const luaL_Reg lovrController[] = {
-  { "isPresent", l_lovrControllerIsPresent },
-  { "getPosition", l_lovrControllerGetPosition },
-  { "getOrientation", l_lovrControllerGetOrientation },
-  { "getAxis", l_lovrControllerGetAxis },
-  { "isDown", l_lovrControllerIsDown },
-  { "vibrate", l_lovrControllerVibrate },
-  { "newModel", l_lovrControllerNewModel },
-  { NULL, NULL }
-};
 
 int l_lovrControllerIsPresent(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
@@ -81,3 +70,14 @@ int l_lovrControllerNewModel(lua_State* L) {
   }
   return 1;
 }
+
+const luaL_Reg lovrController[] = {
+  { "isPresent", l_lovrControllerIsPresent },
+  { "getPosition", l_lovrControllerGetPosition },
+  { "getOrientation", l_lovrControllerGetOrientation },
+  { "getAxis", l_lovrControllerGetAxis },
+  { "isDown", l_lovrControllerIsDown },
+  { "vibrate", l_lovrControllerVibrate },
+  { "newModel", l_lovrControllerNewModel },
+  { NULL, NULL }
+};

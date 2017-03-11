@@ -1,7 +1,4 @@
-#include "api/types/buffer.h"
-#include "api/types/texture.h"
-#include "api/types/transform.h"
-#include "api/graphics.h"
+#include "api/lovr.h"
 
 void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format) {
   if (!lua_istable(L, index)) {
@@ -29,26 +26,6 @@ void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format) {
     lua_pop(L, 4);
   }
 }
-
-const luaL_Reg lovrBuffer[] = {
-  { "draw", l_lovrBufferDraw },
-  { "getVertexFormat", l_lovrBufferGetVertexFormat },
-  { "getVertexCount", l_lovrBufferGetVertexCount },
-  { "getVertex", l_lovrBufferGetVertex },
-  { "setVertex", l_lovrBufferSetVertex },
-  { "getVertexAttribute", l_lovrBufferGetVertexAttribute },
-  { "setVertexAttribute", l_lovrBufferSetVertexAttribute },
-  { "setVertices", l_lovrBufferSetVertices },
-  { "getVertexMap", l_lovrBufferGetVertexMap },
-  { "setVertexMap", l_lovrBufferSetVertexMap },
-  { "getDrawMode", l_lovrBufferGetDrawMode },
-  { "setDrawMode", l_lovrBufferSetDrawMode },
-  { "getDrawRange", l_lovrBufferGetDrawRange },
-  { "setDrawRange", l_lovrBufferSetDrawRange },
-  { "getTexture", l_lovrBufferGetTexture },
-  { "setTexture", l_lovrBufferSetTexture },
-  { NULL, NULL }
-};
 
 int l_lovrBufferDraw(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
@@ -372,3 +349,23 @@ int l_lovrBufferSetTexture(lua_State* L) {
   lovrBufferSetTexture(buffer, texture);
   return 0;
 }
+
+const luaL_Reg lovrBuffer[] = {
+  { "draw", l_lovrBufferDraw },
+  { "getVertexFormat", l_lovrBufferGetVertexFormat },
+  { "getVertexCount", l_lovrBufferGetVertexCount },
+  { "getVertex", l_lovrBufferGetVertex },
+  { "setVertex", l_lovrBufferSetVertex },
+  { "getVertexAttribute", l_lovrBufferGetVertexAttribute },
+  { "setVertexAttribute", l_lovrBufferSetVertexAttribute },
+  { "setVertices", l_lovrBufferSetVertices },
+  { "getVertexMap", l_lovrBufferGetVertexMap },
+  { "setVertexMap", l_lovrBufferSetVertexMap },
+  { "getDrawMode", l_lovrBufferGetDrawMode },
+  { "setDrawMode", l_lovrBufferSetDrawMode },
+  { "getDrawRange", l_lovrBufferGetDrawRange },
+  { "setDrawRange", l_lovrBufferSetDrawRange },
+  { "getTexture", l_lovrBufferGetTexture },
+  { "setTexture", l_lovrBufferSetTexture },
+  { NULL, NULL }
+};

@@ -1,5 +1,7 @@
-#include "api/event.h"
+#include "api/lovr.h"
 #include "event/event.h"
+
+map_int_t EventTypes;
 
 static int pollRef;
 
@@ -34,15 +36,6 @@ static int nextEvent(lua_State* L) {
       return 0;
   }
 }
-
-const luaL_Reg lovrEvent[] = {
-  { "clear", l_lovrEventClear },
-  { "poll", l_lovrEventPoll },
-  { "pump", l_lovrEventPump },
-  { "push", l_lovrEventPush },
-  { "quit", l_lovrEventQuit },
-  { NULL, NULL }
-};
 
 int l_lovrEventInit(lua_State* L) {
   lua_newtable(L);
@@ -103,3 +96,12 @@ int l_lovrEventQuit(lua_State* L) {
   lua_pushinteger(L, exitCode);
   return l_lovrEventPush(L);
 }
+
+const luaL_Reg lovrEvent[] = {
+  { "clear", l_lovrEventClear },
+  { "poll", l_lovrEventPoll },
+  { "pump", l_lovrEventPump },
+  { "push", l_lovrEventPush },
+  { "quit", l_lovrEventQuit },
+  { NULL, NULL }
+};

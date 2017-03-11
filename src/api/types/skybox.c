@@ -1,10 +1,5 @@
-#include "api/types/skybox.h"
+#include "api/lovr.h"
 #include "graphics/graphics.h"
-
-const luaL_Reg lovrSkybox[] = {
-  { "draw", l_lovrSkyboxDraw },
-  { NULL, NULL }
-};
 
 int l_lovrSkyboxDraw(lua_State* L) {
   Skybox* skybox = luax_checktype(L, 1, Skybox);
@@ -15,3 +10,8 @@ int l_lovrSkyboxDraw(lua_State* L) {
   lovrGraphicsSkybox(skybox, angle, ax, ay, az);
   return 0;
 }
+
+const luaL_Reg lovrSkybox[] = {
+  { "draw", l_lovrSkyboxDraw },
+  { NULL, NULL }
+};

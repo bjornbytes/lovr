@@ -1,13 +1,5 @@
-#include "api/types/model.h"
-#include "api/types/texture.h"
-#include "api/types/transform.h"
-
-const luaL_Reg lovrModel[] = {
-  { "draw", l_lovrModelDraw },
-  { "getTexture", l_lovrModelGetTexture },
-  { "setTexture", l_lovrModelSetTexture },
-  { NULL, NULL }
-};
+#include "api/lovr.h"
+#include "graphics/model.h"
 
 int l_lovrModelDraw(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
@@ -29,3 +21,10 @@ int l_lovrModelSetTexture(lua_State* L) {
   lovrModelSetTexture(model, texture);
   return 0;
 }
+
+const luaL_Reg lovrModel[] = {
+  { "draw", l_lovrModelDraw },
+  { "getTexture", l_lovrModelGetTexture },
+  { "setTexture", l_lovrModelSetTexture },
+  { NULL, NULL }
+};

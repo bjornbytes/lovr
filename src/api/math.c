@@ -1,11 +1,6 @@
-#include "api/math.h"
-#include "api/types/transform.h"
+#include "api/lovr.h"
 #include "math/mat4.h"
-
-const luaL_Reg lovrMath[] = {
-  { "newTransform", l_lovrMathNewTransform },
-  { NULL, NULL }
-};
+#include "math/transform.h"
 
 int l_lovrMathInit(lua_State* L) {
   lua_newtable(L);
@@ -22,3 +17,9 @@ int l_lovrMathNewTransform(lua_State* L) {
   lovrRelease(&transform->ref);
   return 1;
 }
+
+const luaL_Reg lovrMath[] = {
+  { "newTransform", l_lovrMathNewTransform },
+  { NULL, NULL }
+};
+

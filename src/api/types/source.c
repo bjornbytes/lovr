@@ -1,44 +1,5 @@
-#include "api/types/source.h"
-#include "api/audio.h"
+#include "api/lovr.h"
 #include "audio/audio.h"
-
-const luaL_Reg lovrSource[] = {
-  { "getBitDepth", l_lovrSourceGetBitDepth },
-  { "getChannels", l_lovrSourceGetChannels },
-  { "getCone", l_lovrSourceGetCone },
-  { "getDirection", l_lovrSourceGetDirection },
-  { "getDuration", l_lovrSourceGetDuration },
-  { "getFalloff", l_lovrSourceGetFalloff },
-  { "getPitch", l_lovrSourceGetPitch },
-  { "getPosition", l_lovrSourceGetPosition },
-  { "getSampleRate", l_lovrSourceGetSampleRate },
-  { "getVelocity", l_lovrSourceGetVelocity },
-  { "getVolume", l_lovrSourceGetVolume },
-  { "getVolumeLimits", l_lovrSourceGetVolumeLimits },
-  { "isLooping", l_lovrSourceIsLooping },
-  { "isPaused", l_lovrSourceIsPaused },
-  { "isPlaying", l_lovrSourceIsPlaying },
-  { "isRelative", l_lovrSourceIsRelative },
-  { "isStopped", l_lovrSourceIsStopped },
-  { "pause", l_lovrSourcePause },
-  { "play", l_lovrSourcePlay },
-  { "resume", l_lovrSourceResume },
-  { "rewind", l_lovrSourceRewind },
-  { "seek", l_lovrSourceSeek },
-  { "setCone", l_lovrSourceSetCone },
-  { "setDirection", l_lovrSourceSetDirection },
-  { "setFalloff", l_lovrSourceSetFalloff },
-  { "setLooping", l_lovrSourceSetLooping },
-  { "setPitch", l_lovrSourceSetPitch },
-  { "setPosition", l_lovrSourceSetPosition },
-  { "setRelative", l_lovrSourceSetRelative },
-  { "setVelocity", l_lovrSourceSetVelocity },
-  { "setVolume", l_lovrSourceSetVolume },
-  { "setVolumeLimits", l_lovrSourceSetVolumeLimits },
-  { "stop", l_lovrSourceStop },
-  { "tell", l_lovrSourceTell },
-  { NULL, NULL }
-};
 
 int l_lovrSourceGetBitDepth(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
@@ -292,3 +253,41 @@ int l_lovrSourceTell(lua_State* L) {
 
   return 1;
 }
+
+const luaL_Reg lovrSource[] = {
+  { "getBitDepth", l_lovrSourceGetBitDepth },
+  { "getChannels", l_lovrSourceGetChannels },
+  { "getCone", l_lovrSourceGetCone },
+  { "getDirection", l_lovrSourceGetDirection },
+  { "getDuration", l_lovrSourceGetDuration },
+  { "getFalloff", l_lovrSourceGetFalloff },
+  { "getPitch", l_lovrSourceGetPitch },
+  { "getPosition", l_lovrSourceGetPosition },
+  { "getSampleRate", l_lovrSourceGetSampleRate },
+  { "getVelocity", l_lovrSourceGetVelocity },
+  { "getVolume", l_lovrSourceGetVolume },
+  { "getVolumeLimits", l_lovrSourceGetVolumeLimits },
+  { "isLooping", l_lovrSourceIsLooping },
+  { "isPaused", l_lovrSourceIsPaused },
+  { "isPlaying", l_lovrSourceIsPlaying },
+  { "isRelative", l_lovrSourceIsRelative },
+  { "isStopped", l_lovrSourceIsStopped },
+  { "pause", l_lovrSourcePause },
+  { "play", l_lovrSourcePlay },
+  { "resume", l_lovrSourceResume },
+  { "rewind", l_lovrSourceRewind },
+  { "seek", l_lovrSourceSeek },
+  { "setCone", l_lovrSourceSetCone },
+  { "setDirection", l_lovrSourceSetDirection },
+  { "setFalloff", l_lovrSourceSetFalloff },
+  { "setLooping", l_lovrSourceSetLooping },
+  { "setPitch", l_lovrSourceSetPitch },
+  { "setPosition", l_lovrSourceSetPosition },
+  { "setRelative", l_lovrSourceSetRelative },
+  { "setVelocity", l_lovrSourceSetVelocity },
+  { "setVolume", l_lovrSourceSetVolume },
+  { "setVolumeLimits", l_lovrSourceSetVolumeLimits },
+  { "stop", l_lovrSourceStop },
+  { "tell", l_lovrSourceTell },
+  { NULL, NULL }
+};

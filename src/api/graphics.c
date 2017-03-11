@@ -1,17 +1,20 @@
-#include "api/graphics.h"
-#include "api/types/buffer.h"
-#include "api/types/font.h"
-#include "api/types/model.h"
-#include "api/types/shader.h"
-#include "api/types/skybox.h"
-#include "api/types/texture.h"
-#include "api/types/transform.h"
+#include "api/lovr.h"
 #include "graphics/graphics.h"
 #include "loaders/font.h"
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "filesystem/filesystem.h"
 #include <math.h>
+
+map_int_t BufferAttributeTypes;
+map_int_t BufferDrawModes;
+map_int_t BufferUsages;
+map_int_t CompareModes;
+map_int_t DrawModes;
+map_int_t FilterModes;
+map_int_t PolygonWindings;
+map_int_t TextureProjections;
+map_int_t WrapModes;
 
 static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
   int isTable = lua_istable(L, index);
@@ -55,60 +58,6 @@ static Texture* luax_readtexture(lua_State* L, int index) {
   free(data);
   return texture;
 }
-
-const luaL_Reg lovrGraphics[] = {
-  { "reset", l_lovrGraphicsReset },
-  { "clear", l_lovrGraphicsClear },
-  { "present", l_lovrGraphicsPresent },
-  { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
-  { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
-  { "getColor", l_lovrGraphicsGetColor },
-  { "setColor", l_lovrGraphicsSetColor },
-  { "getColorMask", l_lovrGraphicsGetColorMask },
-  { "setColorMask", l_lovrGraphicsSetColorMask },
-  { "getScissor", l_lovrGraphicsGetScissor },
-  { "setScissor", l_lovrGraphicsSetScissor },
-  { "getShader", l_lovrGraphicsGetShader },
-  { "setShader", l_lovrGraphicsSetShader },
-  { "getFont", l_lovrGraphicsGetFont },
-  { "setFont", l_lovrGraphicsSetFont },
-  { "setProjection", l_lovrGraphicsSetProjection },
-  { "getLineWidth", l_lovrGraphicsGetLineWidth },
-  { "setLineWidth", l_lovrGraphicsSetLineWidth },
-  { "getPointSize", l_lovrGraphicsGetPointSize },
-  { "setPointSize", l_lovrGraphicsSetPointSize },
-  { "isCullingEnabled", l_lovrGraphicsIsCullingEnabled },
-  { "setCullingEnabled", l_lovrGraphicsSetCullingEnabled },
-  { "getPolygonWinding", l_lovrGraphicsGetPolygonWinding },
-  { "setPolygonWinding", l_lovrGraphicsSetPolygonWinding },
-  { "getDepthTest", l_lovrGraphicsGetDepthTest },
-  { "setDepthTest", l_lovrGraphicsSetDepthTest },
-  { "isWireframe", l_lovrGraphicsIsWireframe },
-  { "setWireframe", l_lovrGraphicsSetWireframe },
-  { "push", l_lovrGraphicsPush },
-  { "pop", l_lovrGraphicsPop },
-  { "origin", l_lovrGraphicsOrigin },
-  { "translate", l_lovrGraphicsTranslate },
-  { "rotate", l_lovrGraphicsRotate },
-  { "scale", l_lovrGraphicsScale },
-  { "transform", l_lovrGraphicsTransform },
-  { "points", l_lovrGraphicsPoints },
-  { "line", l_lovrGraphicsLine },
-  { "triangle", l_lovrGraphicsTriangle },
-  { "plane", l_lovrGraphicsPlane },
-  { "cube", l_lovrGraphicsCube },
-  { "print", l_lovrGraphicsPrint },
-  { "getWidth", l_lovrGraphicsGetWidth },
-  { "getHeight", l_lovrGraphicsGetHeight },
-  { "getDimensions", l_lovrGraphicsGetDimensions },
-  { "newBuffer", l_lovrGraphicsNewBuffer },
-  { "newFont", l_lovrGraphicsNewFont },
-  { "newModel", l_lovrGraphicsNewModel },
-  { "newShader", l_lovrGraphicsNewShader },
-  { "newSkybox", l_lovrGraphicsNewSkybox },
-  { "newTexture", l_lovrGraphicsNewTexture },
-  { NULL, NULL }
-};
 
 // Base
 
@@ -762,3 +711,57 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   lovrRelease(&texture->ref);
   return 1;
 }
+
+const luaL_Reg lovrGraphics[] = {
+  { "reset", l_lovrGraphicsReset },
+  { "clear", l_lovrGraphicsClear },
+  { "present", l_lovrGraphicsPresent },
+  { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
+  { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
+  { "getColor", l_lovrGraphicsGetColor },
+  { "setColor", l_lovrGraphicsSetColor },
+  { "getColorMask", l_lovrGraphicsGetColorMask },
+  { "setColorMask", l_lovrGraphicsSetColorMask },
+  { "getScissor", l_lovrGraphicsGetScissor },
+  { "setScissor", l_lovrGraphicsSetScissor },
+  { "getShader", l_lovrGraphicsGetShader },
+  { "setShader", l_lovrGraphicsSetShader },
+  { "getFont", l_lovrGraphicsGetFont },
+  { "setFont", l_lovrGraphicsSetFont },
+  { "setProjection", l_lovrGraphicsSetProjection },
+  { "getLineWidth", l_lovrGraphicsGetLineWidth },
+  { "setLineWidth", l_lovrGraphicsSetLineWidth },
+  { "getPointSize", l_lovrGraphicsGetPointSize },
+  { "setPointSize", l_lovrGraphicsSetPointSize },
+  { "isCullingEnabled", l_lovrGraphicsIsCullingEnabled },
+  { "setCullingEnabled", l_lovrGraphicsSetCullingEnabled },
+  { "getPolygonWinding", l_lovrGraphicsGetPolygonWinding },
+  { "setPolygonWinding", l_lovrGraphicsSetPolygonWinding },
+  { "getDepthTest", l_lovrGraphicsGetDepthTest },
+  { "setDepthTest", l_lovrGraphicsSetDepthTest },
+  { "isWireframe", l_lovrGraphicsIsWireframe },
+  { "setWireframe", l_lovrGraphicsSetWireframe },
+  { "push", l_lovrGraphicsPush },
+  { "pop", l_lovrGraphicsPop },
+  { "origin", l_lovrGraphicsOrigin },
+  { "translate", l_lovrGraphicsTranslate },
+  { "rotate", l_lovrGraphicsRotate },
+  { "scale", l_lovrGraphicsScale },
+  { "transform", l_lovrGraphicsTransform },
+  { "points", l_lovrGraphicsPoints },
+  { "line", l_lovrGraphicsLine },
+  { "triangle", l_lovrGraphicsTriangle },
+  { "plane", l_lovrGraphicsPlane },
+  { "cube", l_lovrGraphicsCube },
+  { "print", l_lovrGraphicsPrint },
+  { "getWidth", l_lovrGraphicsGetWidth },
+  { "getHeight", l_lovrGraphicsGetHeight },
+  { "getDimensions", l_lovrGraphicsGetDimensions },
+  { "newBuffer", l_lovrGraphicsNewBuffer },
+  { "newFont", l_lovrGraphicsNewFont },
+  { "newModel", l_lovrGraphicsNewModel },
+  { "newShader", l_lovrGraphicsNewShader },
+  { "newSkybox", l_lovrGraphicsNewSkybox },
+  { "newTexture", l_lovrGraphicsNewTexture },
+  { NULL, NULL }
+};
