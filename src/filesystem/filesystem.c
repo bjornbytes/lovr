@@ -199,10 +199,12 @@ int lovrFilesystemSetIdentity(const char* identity) {
     }
   }
 
+  const char* sep = PHYSFS_getDirSeparator();
+
   lovrFilesystemGetAppdataDirectory(state.savePathFull, LOVR_PATH_MAX);
   PHYSFS_setWriteDir(state.savePathFull);
-  snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity);
-  snprintf(state.savePathFull, LOVR_PATH_MAX, "%s/%s", state.savePathFull, state.savePathRelative);
+  snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR%s%s", sep, identity);
+  snprintf(state.savePathFull, LOVR_PATH_MAX, "%s%s%s", state.savePathFull, sep, state.savePathRelative);
   PHYSFS_mkdir(state.savePathRelative);
   PHYSFS_setWriteDir(state.savePathRelative);
   PHYSFS_mount(state.savePathFull, NULL, 0);
