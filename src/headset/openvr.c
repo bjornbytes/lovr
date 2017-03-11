@@ -1,4 +1,4 @@
-#include "headset/vive.h"
+#include "headset/openvr.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "math/mat4.h"

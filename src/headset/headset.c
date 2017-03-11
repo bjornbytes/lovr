@@ -1,5 +1,5 @@
 #include "headset/headset.h"
-#include "headset/vive.h"
+#include "headset/openvr.h"
 #include "event/event.h"
 
 void lovrControllerDestroy(const Ref* ref) {
