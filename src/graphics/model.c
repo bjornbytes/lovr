@@ -71,28 +71,28 @@ Model* lovrModelCreate(ModelData* modelData) {
 
   visitNode(modelData, modelData->root, NULL, &vertices, &indices);
 
-  BufferFormat format;
+  MeshFormat format;
   vec_init(&format);
 
   int components = 3;
-  BufferAttribute position = { .name = "lovrPosition", .type = BUFFER_FLOAT, .count = 3 };
+  MeshAttribute position = { .name = "lovrPosition", .type = MESH_FLOAT, .count = 3 };
   vec_push(&format, position);
 
   if (modelData->hasNormals) {
-    BufferAttribute normal = { .name = "lovrNormal", .type = BUFFER_FLOAT, .count = 3 };
+    MeshAttribute normal = { .name = "lovrNormal", .type = MESH_FLOAT, .count = 3 };
     vec_push(&format, normal);
     components += 3;
   }
 
   if (modelData->hasTexCoords) {
-    BufferAttribute texCoord = { .name = "lovrTexCoord", .type = BUFFER_FLOAT, .count = 2 };
+    MeshAttribute texCoord = { .name = "lovrTexCoord", .type = MESH_FLOAT, .count = 2 };
     vec_push(&format, texCoord);
     components += 2;
   }
 
-  model->buffer = lovrBufferCreate(vertices.length / components, &format, BUFFER_TRIANGLES, BUFFER_STATIC);
-  lovrBufferSetVertices(model->buffer, (void*) vertices.data, vertices.length * sizeof(float));
-  lovrBufferSetVertexMap(model->buffer, indices.data, indices.length);
+  model->mesh = lovrMeshCreate(vertices.length / components, &format, MESH_TRIANGLES, MESH_STATIC);
+  lovrMeshSetVertices(model->mesh, (void*) vertices.data, vertices.length * sizeof(float));
+  lovrMeshSetVertexMap(model->mesh, indices.data, indices.length);
 
   model->texture = NULL;
 
@@ -108,12 +108,12 @@ void lovrModelDestroy(const Ref* ref) {
     lovrRelease(&model->texture->ref);
   }
   lovrModelDataDestroy(model->modelData);
-  lovrRelease(&model->buffer->ref);
+  lovrRelease(&model->mesh->ref);
   free(model);
 }
 
 void lovrModelDraw(Model* model, mat4 transform) {
-  lovrBufferDraw(model->buffer, transform);
+  lovrMeshDraw(model->mesh, transform);
 }
 
 Texture* lovrModelGetTexture(Model* model) {
@@ -126,7 +126,7 @@ void lovrModelSetTexture(Model* model, Texture* texture) {
   }
 
   model->texture = texture;
-  lovrBufferSetTexture(model->buffer, model->texture);
+  lovrMeshSetTexture(model->mesh, model->texture);
 
   if (model->texture) {
     lovrRetain(&model->texture->ref);

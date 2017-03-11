@@ -6,9 +6,9 @@
 #include "filesystem/filesystem.h"
 #include <math.h>
 
-map_int_t BufferAttributeTypes;
-map_int_t BufferDrawModes;
-map_int_t BufferUsages;
+map_int_t MeshAttributeTypes;
+map_int_t MeshDrawModes;
+map_int_t MeshUsages;
 map_int_t CompareModes;
 map_int_t DrawModes;
 map_int_t FilterModes;
@@ -64,28 +64,28 @@ static Texture* luax_readtexture(lua_State* L, int index) {
 int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
-  luax_registertype(L, "Buffer", lovrBuffer);
+  luax_registertype(L, "Mesh", lovrMesh);
   luax_registertype(L, "Font", lovrFont);
   luax_registertype(L, "Model", lovrModel);
   luax_registertype(L, "Shader", lovrShader);
   luax_registertype(L, "Skybox", lovrSkybox);
   luax_registertype(L, "Texture", lovrTexture);
 
-  map_init(&BufferAttributeTypes);
-  map_set(&BufferAttributeTypes, "float", BUFFER_FLOAT);
-  map_set(&BufferAttributeTypes, "byte", BUFFER_BYTE);
-  map_set(&BufferAttributeTypes, "int", BUFFER_INT);
+  map_init(&MeshAttributeTypes);
+  map_set(&MeshAttributeTypes, "float", MESH_FLOAT);
+  map_set(&MeshAttributeTypes, "byte", MESH_BYTE);
+  map_set(&MeshAttributeTypes, "int", MESH_INT);
 
-  map_init(&BufferDrawModes);
-  map_set(&BufferDrawModes, "points", BUFFER_POINTS);
-  map_set(&BufferDrawModes, "strip", BUFFER_TRIANGLE_STRIP);
-  map_set(&BufferDrawModes, "triangles", BUFFER_TRIANGLES);
-  map_set(&BufferDrawModes, "fan", BUFFER_TRIANGLE_FAN);
+  map_init(&MeshDrawModes);
+  map_set(&MeshDrawModes, "points", MESH_POINTS);
+  map_set(&MeshDrawModes, "strip", MESH_TRIANGLE_STRIP);
+  map_set(&MeshDrawModes, "triangles", MESH_TRIANGLES);
+  map_set(&MeshDrawModes, "fan", MESH_TRIANGLE_FAN);
 
-  map_init(&BufferUsages);
-  map_set(&BufferUsages, "static", BUFFER_STATIC);
-  map_set(&BufferUsages, "dynamic", BUFFER_DYNAMIC);
-  map_set(&BufferUsages, "stream", BUFFER_STREAM);
+  map_init(&MeshUsages);
+  map_set(&MeshUsages, "static", MESH_STATIC);
+  map_set(&MeshUsages, "dynamic", MESH_DYNAMIC);
+  map_set(&MeshUsages, "stream", MESH_STREAM);
 
   map_init(&DrawModes);
   map_set(&DrawModes, "fill", DRAW_MODE_FILL);
@@ -515,74 +515,6 @@ int l_lovrGraphicsPrint(lua_State* L) {
 
 // Types
 
-int l_lovrGraphicsNewBuffer(lua_State* L) {
-  int size;
-  int dataIndex = 0;
-  int drawModeIndex = 2;
-  BufferFormat format;
-  vec_init(&format);
-
-  if (lua_isnumber(L, 1)) {
-    size = lua_tointeger(L, 1);
-  } else if (lua_istable(L, 1)) {
-    if (lua_isnumber(L, 2)) {
-      drawModeIndex++;
-      luax_checkbufferformat(L, 1, &format);
-      size = lua_tointeger(L, 2);
-      dataIndex = 0;
-    } else if (lua_istable(L, 2)) {
-      drawModeIndex++;
-      luax_checkbufferformat(L, 1, &format);
-      size = lua_objlen(L, 2);
-      dataIndex = 2;
-    } else {
-      size = lua_objlen(L, 1);
-      dataIndex = 1;
-    }
-  } else {
-    luaL_argerror(L, 1, "table or number expected");
-    return 0;
-  }
-
-  BufferDrawMode* drawMode = (BufferDrawMode*) luax_optenum(L, drawModeIndex, "fan", &BufferDrawModes, "buffer draw mode");
-  BufferUsage* usage = (BufferUsage*) luax_optenum(L, drawModeIndex + 1, "dynamic", &BufferUsages, "buffer usage");
-  Buffer* buffer = lovrBufferCreate(size, format.length ? &format : NULL, *drawMode, *usage);
-
-  if (dataIndex) {
-    BufferFormat format = lovrBufferGetVertexFormat(buffer);
-    for (size_t i = 0; i < lua_objlen(L, dataIndex); i++) {
-      lua_rawgeti(L, dataIndex, i + 1);
-      if (!lua_istable(L, -1)) {
-        return luaL_error(L, "Vertex information should be specified as a table");
-      }
-
-      int component = 0;
-      char* vertex = lovrBufferGetScratchVertex(buffer);
-      for (int j = 0; j < format.length; j++) {
-        BufferAttribute attribute = format.data[j];
-        for (int k = 0; k < attribute.count; k++) {
-          lua_rawgeti(L, -1, ++component);
-          switch (attribute.type) {
-            case BUFFER_FLOAT: *((float*) vertex) = luaL_optnumber(L, -1, 0.f); break;
-            case BUFFER_BYTE: *((unsigned char*) vertex) = luaL_optint(L, -1, 255); break;
-            case BUFFER_INT: *((int*) vertex) = luaL_optint(L, -1, 0); break;
-          }
-          vertex += sizeof(attribute.type);
-          lua_pop(L, 1);
-        }
-      }
-
-      lovrBufferSetVertex(buffer, i, lovrBufferGetScratchVertex(buffer));
-      lua_pop(L, 1);
-    }
-  }
-
-  vec_deinit(&format);
-  luax_pushtype(L, Buffer, buffer);
-  lovrRelease(&buffer->ref);
-  return 1;
-}
-
 int l_lovrGraphicsNewFont(lua_State* L) {
   void* data = NULL;
   size_t size = 0;
@@ -606,6 +538,74 @@ int l_lovrGraphicsNewFont(lua_State* L) {
   Font* font = lovrFontCreate(fontData);
   luax_pushtype(L, Font, font);
   lovrRelease(&font->ref);
+  return 1;
+}
+
+int l_lovrGraphicsNewMesh(lua_State* L) {
+  int size;
+  int dataIndex = 0;
+  int drawModeIndex = 2;
+  MeshFormat format;
+  vec_init(&format);
+
+  if (lua_isnumber(L, 1)) {
+    size = lua_tointeger(L, 1);
+  } else if (lua_istable(L, 1)) {
+    if (lua_isnumber(L, 2)) {
+      drawModeIndex++;
+      luax_checkmeshformat(L, 1, &format);
+      size = lua_tointeger(L, 2);
+      dataIndex = 0;
+    } else if (lua_istable(L, 2)) {
+      drawModeIndex++;
+      luax_checkmeshformat(L, 1, &format);
+      size = lua_objlen(L, 2);
+      dataIndex = 2;
+    } else {
+      size = lua_objlen(L, 1);
+      dataIndex = 1;
+    }
+  } else {
+    luaL_argerror(L, 1, "table or number expected");
+    return 0;
+  }
+
+  MeshDrawMode* drawMode = (MeshDrawMode*) luax_optenum(L, drawModeIndex, "fan", &MeshDrawModes, "mesh draw mode");
+  MeshUsage* usage = (MeshUsage*) luax_optenum(L, drawModeIndex + 1, "dynamic", &MeshUsages, "mesh usage");
+  Mesh* mesh = lovrMeshCreate(size, format.length ? &format : NULL, *drawMode, *usage);
+
+  if (dataIndex) {
+    MeshFormat format = lovrMeshGetVertexFormat(mesh);
+    for (size_t i = 0; i < lua_objlen(L, dataIndex); i++) {
+      lua_rawgeti(L, dataIndex, i + 1);
+      if (!lua_istable(L, -1)) {
+        return luaL_error(L, "Vertex information should be specified as a table");
+      }
+
+      int component = 0;
+      char* vertex = lovrMeshGetScratchVertex(mesh);
+      for (int j = 0; j < format.length; j++) {
+        MeshAttribute attribute = format.data[j];
+        for (int k = 0; k < attribute.count; k++) {
+          lua_rawgeti(L, -1, ++component);
+          switch (attribute.type) {
+            case MESH_FLOAT: *((float*) vertex) = luaL_optnumber(L, -1, 0.f); break;
+            case MESH_BYTE: *((unsigned char*) vertex) = luaL_optint(L, -1, 255); break;
+            case MESH_INT: *((int*) vertex) = luaL_optint(L, -1, 0); break;
+          }
+          vertex += sizeof(attribute.type);
+          lua_pop(L, 1);
+        }
+      }
+
+      lovrMeshSetVertex(mesh, i, lovrMeshGetScratchVertex(mesh));
+      lua_pop(L, 1);
+    }
+  }
+
+  vec_deinit(&format);
+  luax_pushtype(L, Mesh, mesh);
+  lovrRelease(&mesh->ref);
   return 1;
 }
 
@@ -757,8 +757,8 @@ const luaL_Reg lovrGraphics[] = {
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
-  { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newFont", l_lovrGraphicsNewFont },
+  { "newMesh", l_lovrGraphicsNewMesh },
   { "newModel", l_lovrGraphicsNewModel },
   { "newShader", l_lovrGraphicsNewShader },
   { "newSkybox", l_lovrGraphicsNewSkybox },

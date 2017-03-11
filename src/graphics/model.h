@@ -1,5 +1,5 @@
 #include "loaders/model.h"
-#include "graphics/buffer.h"
+#include "graphics/mesh.h"
 #include "graphics/texture.h"
 #include "math/math.h"
 #include "glfw.h"
@@ -10,7 +10,7 @@
 typedef struct {
   Ref ref;
   ModelData* modelData;
-  Buffer* buffer;
+  Mesh* mesh;
   Texture* texture;
 } Model;
 
