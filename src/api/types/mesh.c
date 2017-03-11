@@ -216,7 +216,7 @@ int l_lovrMeshSetVertices(lua_State* L) {
   int vertexCount = lua_objlen(L, 2);
 
   if (vertexCount > lovrMeshGetVertexCount(mesh)) {
-    return luaL_error(L, "Too many vertices for Mesh\n", lovrMeshGetVertexCount(mesh));
+    return luaL_error(L, "Too many vertices for Mesh (max is %d, got %d)\n", lovrMeshGetVertexCount(mesh), vertexCount);
   }
 
   char* vertices = malloc(mesh->stride * vertexCount);
