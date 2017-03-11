@@ -38,6 +38,7 @@ typedef struct {
   int stride;
   void* data;
   void* scratchVertex;
+  int enabledAttributes;
   MeshFormat format;
   MeshDrawMode drawMode;
   MeshUsage usage;
@@ -65,6 +66,8 @@ void lovrMeshSetVertex(Mesh* mesh, int index, void* vertex);
 void lovrMeshSetVertices(Mesh* mesh, void* vertices, int size);
 unsigned int* lovrMeshGetVertexMap(Mesh* mesh, int* count);
 void lovrMeshSetVertexMap(Mesh* mesh, unsigned int* map, int count);
+int lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name);
+void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, int enabled);
 int lovrMeshIsRangeEnabled(Mesh* mesh);
 void lovrMeshSetRangeEnabled(Mesh* mesh, char isEnabled);
 void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count);

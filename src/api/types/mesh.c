@@ -299,6 +299,21 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
   return 0;
 }
 
+int l_lovrMeshIsAttributeEnabled(lua_State* L) {
+  Mesh* mesh = luax_checktype(L, 1, Mesh);
+  const char* attribute = luaL_checkstring(L, 2);
+  lua_pushboolean(L, lovrMeshIsAttributeEnabled(mesh, attribute));
+  return 1;
+}
+
+int l_lovrMeshSetAttributeEnabled(lua_State* L) {
+  Mesh* mesh = luax_checktype(L, 1, Mesh);
+  const char* attribute = luaL_checkstring(L, 2);
+  int enabled = lua_toboolean(L, 3);
+  lovrMeshSetAttributeEnabled(mesh, attribute, enabled);
+  return 0;
+}
+
 int l_lovrMeshGetDrawRange(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   if (!lovrMeshIsRangeEnabled(mesh)) {
@@ -361,6 +376,8 @@ const luaL_Reg lovrMesh[] = {
   { "setVertices", l_lovrMeshSetVertices },
   { "getVertexMap", l_lovrMeshGetVertexMap },
   { "setVertexMap", l_lovrMeshSetVertexMap },
+  { "isAttributeEnabled", l_lovrMeshIsAttributeEnabled },
+  { "setAttributeEnabled", l_lovrMeshSetAttributeEnabled },
   { "getDrawMode", l_lovrMeshGetDrawMode },
   { "setDrawMode", l_lovrMeshSetDrawMode },
   { "getDrawRange", l_lovrMeshGetDrawRange },
