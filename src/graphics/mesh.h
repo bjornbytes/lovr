@@ -1,5 +1,6 @@
 #include "glfw.h"
 #include "util.h"
+#include "graphics/shader.h"
 #include "graphics/texture.h"
 #include "math/math.h"
 
@@ -39,6 +40,7 @@ typedef struct {
   void* data;
   void* scratchVertex;
   int enabledAttributes;
+  int attributesDirty;
   MeshFormat format;
   MeshDrawMode drawMode;
   MeshUsage usage;
@@ -50,6 +52,7 @@ typedef struct {
   int rangeStart;
   int rangeCount;
   Texture* texture;
+  Shader* lastShader;
 } Mesh;
 
 Mesh* lovrMeshCreate(int size, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage);

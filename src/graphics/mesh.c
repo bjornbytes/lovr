@@ -1,7 +1,40 @@
 #include "graphics/mesh.h"
 #include "graphics/graphics.h"
-#include "graphics/shader.h"
 #include <stdlib.h>
+
+static void lovrMeshBindAttributes(Mesh* mesh) {
+  Shader* shader = lovrGraphicsGetShader();
+  if (!shader || (shader == mesh->lastShader && !mesh->attributesDirty)) {
+    return;
+  }
+
+  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+
+  size_t offset = 0;
+  int i;
+  MeshAttribute attribute;
+
+  vec_foreach(&mesh->format, attribute, i) {
+    int location = lovrShaderGetAttributeId(shader, attribute.name);
+
+    if (location >= 0 && (mesh->enabledAttributes & (1 << i))) {
+      glEnableVertexAttribArray(location);
+
+      if (attribute.type == MESH_INT) {
+        glVertexAttribIPointer(location, attribute.count, attribute.type, mesh->stride, (void*) offset);
+      } else {
+        glVertexAttribPointer(location, attribute.count, attribute.type, GL_FALSE, mesh->stride, (void*) offset);
+      }
+    } else {
+      glDisableVertexAttribArray(location);
+    }
+
+    offset += sizeof(attribute.type) * attribute.count;
+  }
+
+  mesh->lastShader = shader;
+  mesh->attributesDirty = 0;
+}
 
 Mesh* lovrMeshCreate(int size, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage) {
   Mesh* mesh = lovrAlloc(sizeof(Mesh), lovrMeshDestroy);
@@ -37,6 +70,7 @@ Mesh* lovrMeshCreate(int size, MeshFormat* format, MeshDrawMode drawMode, MeshUs
   mesh->data = malloc(mesh->size * mesh->stride);
   mesh->scratchVertex = malloc(mesh->stride);
   mesh->enabledAttributes = ~0;
+  mesh->attributesDirty = 1;
   mesh->drawMode = drawMode;
   mesh->usage = usage;
   mesh->vao = 0;
@@ -46,6 +80,7 @@ Mesh* lovrMeshCreate(int size, MeshFormat* format, MeshDrawMode drawMode, MeshUs
   mesh->rangeStart = 0;
   mesh->rangeCount = mesh->size;
   mesh->texture = NULL;
+  mesh->lastShader = NULL;
 
   glGenBuffers(1, &mesh->vbo);
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
@@ -79,38 +114,7 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
   lovrGraphicsPrepare();
 
   glBindVertexArray(mesh->vao);
-
-  // Figure out how many vertex attributes there are
-  int vertexAttributeCount;
-  glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &vertexAttributeCount);
-
-  // Disable all vertex attributes
-  for (int i = 0; i < vertexAttributeCount; i++) {
-    glDisableVertexAttribArray(i);
-  }
-
-  // Enable the vertex attributes in use and bind the correct data FIXME
-  Shader* shader = lovrGraphicsGetShader();
-  if (shader) {
-    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
-    size_t offset = 0;
-    int i;
-    MeshAttribute attribute;
-    vec_foreach(&mesh->format, attribute, i) {
-      if (mesh->enabledAttributes & (1 << i)) {
-        int location = lovrShaderGetAttributeId(shader, attribute.name);
-        if (location >= 0) {
-          glEnableVertexAttribArray(location);
-          if (attribute.type == MESH_INT) {
-            glVertexAttribIPointer(location, attribute.count, attribute.type, mesh->stride, (void*) offset);
-          } else {
-            glVertexAttribPointer(location, attribute.count, attribute.type, GL_FALSE, mesh->stride, (void*) offset);
-          }
-        }
-      }
-      offset += sizeof(attribute.type) * attribute.count;
-    }
-  }
+  lovrMeshBindAttributes(mesh);
 
   // Determine range of vertices to be rendered and whether we're using an IBO or not
   int start, count;
@@ -218,10 +222,13 @@ void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, int enable) {
 
   vec_foreach(&mesh->format, attribute, i) {
     if (!strcmp(attribute.name, name)) {
-      if (enable) {
-        mesh->enabledAttributes |= 1 << i;
-      } else {
+      int mask = 1 << i;
+      if (enable && !(mesh->enabledAttributes & mask)) {
+        mesh->enabledAttributes |= mask;
+        mesh->attributesDirty = 1;
+      } else if (!enable && (mesh->enabledAttributes & mask)) {
         mesh->enabledAttributes &= ~(1 << i);
+        mesh->attributesDirty = 1;
       }
     }
   }
