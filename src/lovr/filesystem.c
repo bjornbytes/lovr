@@ -125,7 +125,7 @@ int l_lovrFilesystemExists(lua_State* L) {
 int l_lovrFilesystemGetAppdataDirectory(lua_State* L) {
   char buffer[1024];
 
-  if (lovrFilesystemGetExecutablePath(buffer, sizeof(buffer))) {
+  if (lovrFilesystemGetAppdataDirectory(buffer, sizeof(buffer))) {
     lua_pushnil(L);
   } else {
     lua_pushstring(L, buffer);
