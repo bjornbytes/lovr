@@ -11,6 +11,7 @@ int l_lovrFilesystemGetIdentity(lua_State* L);
 int l_lovrFilesystemGetLastModified(lua_State* L);
 int l_lovrFilesystemGetRealDirectory(lua_State* L);
 int l_lovrFilesystemGetSaveDirectory(lua_State* L);
+int l_lovrFilesystemGetSize(lua_State* L);
 int l_lovrFilesystemGetSource(lua_State* L);
 int l_lovrFilesystemGetUserDirectory(lua_State* L);
 int l_lovrFilesystemIsDirectory(lua_State* L);
