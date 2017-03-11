@@ -45,7 +45,7 @@ typedef struct {
   GLuint vbo;
   GLuint ibo;
   vec_uint_t map;
-  char isRangeEnabled;
+  int isRangeEnabled;
   int rangeStart;
   int rangeCount;
   Texture* texture;
@@ -65,7 +65,7 @@ void lovrMeshSetVertex(Mesh* mesh, int index, void* vertex);
 void lovrMeshSetVertices(Mesh* mesh, void* vertices, int size);
 unsigned int* lovrMeshGetVertexMap(Mesh* mesh, int* count);
 void lovrMeshSetVertexMap(Mesh* mesh, unsigned int* map, int count);
-char lovrMeshIsRangeEnabled(Mesh* mesh);
+int lovrMeshIsRangeEnabled(Mesh* mesh);
 void lovrMeshSetRangeEnabled(Mesh* mesh, char isEnabled);
 void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count);
 int lovrMeshSetDrawRange(Mesh* mesh, int start, int count);

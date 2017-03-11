@@ -196,7 +196,7 @@ void lovrMeshSetVertexMap(Mesh* mesh, unsigned int* map, int count) {
   }
 }
 
-char lovrMeshIsRangeEnabled(Mesh* mesh) {
+int lovrMeshIsRangeEnabled(Mesh* mesh) {
   return mesh->isRangeEnabled;
 }
 
