@@ -206,7 +206,10 @@ int lovrFilesystemSetIdentity(const char* identity) {
   snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR%s%s", sep, identity);
   snprintf(state.savePathFull, LOVR_PATH_MAX, "%s%s%s", state.savePathFull, sep, state.savePathRelative);
   PHYSFS_mkdir(state.savePathRelative);
-  PHYSFS_setWriteDir(state.savePathRelative);
+  if (!PHYSFS_setWriteDir(state.savePathFull)) {
+    error("Could not set write directory");
+  }
+
   PHYSFS_mount(state.savePathFull, NULL, 0);
 
   return 0;
