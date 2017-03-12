@@ -2,14 +2,27 @@
 #include "lib/stb/stb_image.h"
 #include <stdlib.h>
 
-Skybox* lovrSkyboxCreate(void** data, size_t* size) {
+Skybox* lovrSkyboxCreate(void** data, size_t* size, SkyboxType type) {
   Skybox* skybox = lovrAlloc(sizeof(Skybox), lovrSkyboxDestroy);
   if (!skybox) return NULL;
 
-  glGenTextures(1, &skybox->texture);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, skybox->texture);
+  skybox->type = type;
 
-  for (int i = 0; i < 6; i++) {
+  GLenum binding;
+  int count;
+
+  if (type == SKYBOX_CUBE) {
+    binding = GL_TEXTURE_CUBE_MAP;
+    count = 6;
+  } else {
+    binding = GL_TEXTURE_2D;
+    count = 1;
+  }
+
+  glGenTextures(1, &skybox->texture);
+  glBindTexture(binding, skybox->texture);
+
+  for (int i = 0; i < count; i++) {
     int width, height, channels;
     stbi_set_flip_vertically_on_load(0);
     unsigned char* image = stbi_load_from_memory(data[i], size[i], &width, &height, &channels, 3);
@@ -18,15 +31,23 @@ Skybox* lovrSkyboxCreate(void** data, size_t* size) {
       error("Could not load skybox image %d", i);
     }
 
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    if (type == SKYBOX_CUBE) {
+      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    } else {
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    }
+
     free(image);
   }
 
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(binding, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(binding, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(binding, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(binding, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  if (type == SKYBOX_CUBE) {
+    glTexParameteri(binding, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  }
 
   return skybox;
 }

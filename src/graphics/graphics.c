@@ -677,62 +677,113 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
   lovrGraphicsOrigin();
   lovrGraphicsRotate(angle, ax, ay, az);
 
-  float cube[] = {
-    // Front
-    1.f, -1.f, -1.f,
-    1.f, 1.f, -1.f,
-    -1.f, -1.f, -1.f,
-    -1.f, 1.f, -1.f,
+  if (skybox->type == SKYBOX_CUBE) {
+    float cube[] = {
+      // Front
+      1.f, -1.f, -1.f,
+      1.f, 1.f, -1.f,
+      -1.f, -1.f, -1.f,
+      -1.f, 1.f, -1.f,
 
-    // Left
-    -1.f, 1.f, -1.f,
-    -1.f, 1.f, 1.f,
-    -1.f, -1.f, -1.f,
-    -1.f, -1.f, 1.f,
+      // Left
+      -1.f, 1.f, -1.f,
+      -1.f, 1.f, 1.f,
+      -1.f, -1.f, -1.f,
+      -1.f, -1.f, 1.f,
 
-    // Back
-    -1.f, -1.f, 1.f,
-    1.f, -1.f, 1.f,
-    -1.f, 1.f, 1.f,
-    1.f, 1.f, 1.f,
+      // Back
+      -1.f, -1.f, 1.f,
+      1.f, -1.f, 1.f,
+      -1.f, 1.f, 1.f,
+      1.f, 1.f, 1.f,
 
-    // Right
-    1.f, 1.f, 1.f,
-    1.f, -1.f, 1.f,
-    1.f, 1.f, -1.f,
-    1.f, -1.f, -1.f,
+      // Right
+      1.f, 1.f, 1.f,
+      1.f, -1.f, 1.f,
+      1.f, 1.f, -1.f,
+      1.f, -1.f, -1.f,
 
-    // Bottom
-    1.f, -1.f, -1.f,
-    1.f, -1.f, 1.f,
-    -1.f, -1.f, -1.f,
-    -1.f, -1.f, 1.f,
+      // Bottom
+      1.f, -1.f, -1.f,
+      1.f, -1.f, 1.f,
+      -1.f, -1.f, -1.f,
+      -1.f, -1.f, 1.f,
 
-    // Adjust
-    -1.f, -1.f, 1.f,
-    -1.f, 1.f, -1.f,
+      // Adjust
+      -1.f, -1.f, 1.f,
+      -1.f, 1.f, -1.f,
 
-    // Top
-    -1.f, 1.f, -1.f,
-    -1.f, 1.f, 1.f,
-    1.f, 1.f, -1.f,
-    1.f, 1.f, 1.f
-  };
+      // Top
+      -1.f, 1.f, -1.f,
+      -1.f, 1.f, 1.f,
+      1.f, 1.f, -1.f,
+      1.f, 1.f, 1.f
+    };
 
-  lovrGraphicsSetShapeData(cube, 156);
+    lovrGraphicsSetShapeData(cube, 156);
 
-  glDepthMask(GL_FALSE);
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, skybox->texture);
+    glDepthMask(GL_FALSE);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skybox->texture);
 
-  int wasCulling = lovrGraphicsIsCullingEnabled();
-  lovrGraphicsSetCullingEnabled(0);
-  lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, NULL, 0, 0, 0);
-  lovrGraphicsSetCullingEnabled(wasCulling);
+    int wasCulling = lovrGraphicsIsCullingEnabled();
+    lovrGraphicsSetCullingEnabled(0);
+    lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, NULL, 0, 0, 0);
+    lovrGraphicsSetCullingEnabled(wasCulling);
 
-  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-  glActiveTexture(GL_TEXTURE0);
-  glDepthMask(GL_TRUE);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glDepthMask(GL_TRUE);
+  } else if (skybox->type == SKYBOX_PANORAMA) {
+    int resolution = 40;
+    float sphere[8000]; // resolution * resolution * 5
+
+    for (int i = 0; i < resolution; i++) {
+      float theta = i * M_PI / resolution;
+      float sinTheta = sin(theta);
+      float cosTheta = cos(theta);
+
+      for (int j = 0; j < resolution; j++) {
+        float phi = j * 2 * M_PI / resolution;
+        float sinPhi = sin(phi);
+        float cosPhi = cos(phi);
+
+        float x = sinPhi * sinTheta;
+        float y = cosTheta;
+        float z = -cosPhi * sinTheta;
+        float u = j / resolution;
+        float v = i / resolution;
+
+        sphere[i * resolution + j * 5 + 0] = x;
+        sphere[i * resolution + j * 5 + 1] = y;
+        sphere[i * resolution + j * 5 + 2] = z;
+        sphere[i * resolution + j * 5 + 3] = u;
+        sphere[i * resolution + j * 5 + 4] = v;
+      }
+    }
+
+    int indices[9600]; // resolution * resolution * 6
+    for (int i = 0; i < resolution; i++) {
+      int offset0 = i * (resolution + 1);
+      int offset1 = (i + 1) * (resolution + 1);
+      for (int j = 0; j < resolution; j++) {
+        int index0 = offset0 + j;
+        int index1 = offset1 + j;
+        indices[i * resolution + j * 6 + 0] = index0;
+        indices[i * resolution + j * 6 + 1] = index1;
+        indices[i * resolution + j * 6 + 2] = index0 + 1;
+        indices[i * resolution + j * 6 + 3] = index1;
+        indices[i * resolution + j * 6 + 4] = index1 + 1;
+        indices[i * resolution + j * 6 + 5] = index0 + 1;
+      }
+    }
+
+    lovrGraphicsSetShapeData(sphere, 8000);
+    lovrGraphicsSetIndexData(indices, 9600);
+    glDepthMask(GL_FALSE);
+    lovrGraphicsDrawPrimitive(GL_TRIANGLES, skybox->texture, 0, 1, 1);
+    glDepthMask(GL_TRUE);
+  }
 
   lovrGraphicsSetShader(lastShader);
   lovrRelease(&lastShader->ref);

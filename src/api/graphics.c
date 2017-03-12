@@ -683,8 +683,13 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 int l_lovrGraphicsNewSkybox(lua_State* L) {
   void* data[6];
   size_t size[6];
+  SkyboxType type;
 
-  if (lua_istable(L, 1)) {
+  if (lua_gettop(L) == 1 && lua_type(L, 1) == LUA_TSTRING) {
+    const char* filename = lua_tostring(L, 1);
+    data[0] = lovrFilesystemRead(filename, size);
+    type = SKYBOX_PANORAMA;
+  } else if (lua_istable(L, 1)) {
     if (lua_objlen(L, 1) != 6) {
       return luaL_argerror(L, 1, "Expected 6 strings or a table containing 6 strings");
     }
@@ -700,14 +705,18 @@ int l_lovrGraphicsNewSkybox(lua_State* L) {
       data[i] = lovrFilesystemRead(filename, size + i);
       lua_pop(L, 1);
     }
+
+    type = SKYBOX_CUBE;
   } else {
     for (int i = 0; i < 6; i++) {
       const char* filename = luaL_checkstring(L, i + 1);
       data[i] = lovrFilesystemRead(filename, size + i);
     }
+
+    type = SKYBOX_CUBE;
   }
 
-  Skybox* skybox = lovrSkyboxCreate(data, size);
+  Skybox* skybox = lovrSkyboxCreate(data, size, type);
   luax_pushtype(L, Skybox, skybox);
   lovrRelease(&skybox->ref);
 
