@@ -6,7 +6,9 @@
 typedef enum {
   EVENT_QUIT,
   EVENT_CONTROLLER_ADDED,
-  EVENT_CONTROLLER_REMOVED
+  EVENT_CONTROLLER_REMOVED,
+  EVENT_CONTROLLER_PRESSED,
+  EVENT_CONTROLLER_RELEASED
 } EventType;
 
 typedef struct {
@@ -21,10 +23,22 @@ typedef struct {
   Controller* controller;
 } ControllerRemovedEvent;
 
+typedef struct {
+  Controller* controller;
+  ControllerButton button;
+} ControllerPressedEvent;
+
+typedef struct {
+  Controller* controller;
+  ControllerButton button;
+} ControllerReleasedEvent;
+
 typedef union {
   QuitEvent quit;
   ControllerAddedEvent controlleradded;
   ControllerRemovedEvent controllerremoved;
+  ControllerPressedEvent controllerpressed;
+  ControllerReleasedEvent controllerreleased;
 } EventData;
 
 typedef struct {

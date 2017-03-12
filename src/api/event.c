@@ -13,23 +13,38 @@ static int nextEvent(lua_State* L) {
   }
 
   switch (event->type) {
-    case EVENT_QUIT:
+    case EVENT_QUIT: {
       lua_pushstring(L, "quit");
       lua_pushnumber(L, event->data.quit.exitCode);
       return 2;
+    }
 
     case EVENT_CONTROLLER_ADDED: {
       lua_pushstring(L, "controlleradded");
       luax_pushtype(L, Controller, event->data.controlleradded.controller);
       lovrRelease(&event->data.controlleradded.controller->ref);
       return 2;
-   }
+    }
 
     case EVENT_CONTROLLER_REMOVED: {
       lua_pushstring(L, "controllerremoved");
       luax_pushtype(L, Controller, event->data.controllerremoved.controller);
       lovrRelease(&event->data.controlleradded.controller->ref);
       return 2;
+    }
+
+    case EVENT_CONTROLLER_PRESSED: {
+      lua_pushstring(L, "controllerpressed");
+      luax_pushtype(L, Controller, event->data.controllerpressed.controller);
+      luax_pushenum(L, &ControllerButtons, event->data.controllerpressed.button);
+      return 3;
+    }
+
+    case EVENT_CONTROLLER_RELEASED: {
+      lua_pushstring(L, "controllerreleased");
+      luax_pushtype(L, Controller, event->data.controllerreleased.controller);
+      luax_pushenum(L, &ControllerButtons, event->data.controllerreleased.button);
+      return 3;
     }
 
     default:
@@ -81,6 +96,16 @@ int l_lovrEventPush(lua_State* L) {
 
     case EVENT_CONTROLLER_REMOVED:
       data.controllerremoved.controller = luax_checktype(L, 2, Controller);
+      break;
+
+    case EVENT_CONTROLLER_PRESSED:
+      data.controllerpressed.controller = luax_checktype(L, 2, Controller);
+      data.controllerpressed.button = *(ControllerButton*) luax_checkenum(L, 3, &ControllerButtons, "button");
+      break;
+
+    case EVENT_CONTROLLER_RELEASED:
+      data.controllerreleased.controller = luax_checktype(L, 2, Controller);
+      data.controllerreleased.button = *(ControllerButton*) luax_checkenum(L, 3, &ControllerButtons, "button");
       break;
   }
 

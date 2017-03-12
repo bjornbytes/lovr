@@ -10,6 +10,16 @@
 
 static HeadsetState state;
 
+static ControllerButton getButton(uint32_t button) {
+  switch (button) {
+    case EVRButtonId_k_EButton_System: return CONTROLLER_BUTTON_SYSTEM;
+    case EVRButtonId_k_EButton_ApplicationMenu: return CONTROLLER_BUTTON_MENU;
+    case EVRButtonId_k_EButton_Grip: return CONTROLLER_BUTTON_GRIP;
+    case EVRButtonId_k_EButton_SteamVR_Touchpad: return CONTROLLER_BUTTON_TOUCHPAD;
+    default: return -1;
+  }
+}
+
 static TrackedDevicePose_t getPose(unsigned int deviceIndex) {
   if (state.isRendering) {
     return state.renderPoses[deviceIndex];
@@ -116,9 +126,34 @@ void lovrHeadsetPoll() {
     switch (vrEvent.eventType) {
       case EVREventType_VREvent_TrackedDeviceActivated:
       case EVREventType_VREvent_TrackedDeviceDeactivated:
-      case EVREventType_VREvent_TrackedDeviceRoleChanged:
+      case EVREventType_VREvent_TrackedDeviceRoleChanged: {
         lovrHeadsetRefreshControllers();
         break;
+      }
+
+      case EVREventType_VREvent_ButtonPress:
+      case EVREventType_VREvent_ButtonUnpress: {
+        int isPress = vrEvent.eventType == EVREventType_VREvent_ButtonPress;
+        Controller* controller;
+        int i;
+        vec_foreach(&state.controllers, controller, i) {
+          if (controller->id == vrEvent.trackedDeviceIndex) {
+            Event event;
+            if (isPress) {
+              event.type = EVENT_CONTROLLER_PRESSED;
+              event.data.controllerpressed.controller = controller;
+              event.data.controllerpressed.button = getButton(vrEvent.data.controller.button);
+            } else {
+              event.type = EVENT_CONTROLLER_RELEASED;
+              event.data.controllerreleased.controller = controller;
+              event.data.controllerreleased.button = getButton(vrEvent.data.controller.button);
+            }
+            lovrEventPush(event);
+            break;
+          }
+        }
+        break;
+      }
     }
   }
 }
@@ -171,7 +206,7 @@ float lovrHeadsetGetBoundsDepth() {
 
 void lovrHeadsetGetBoundsGeometry(float* geometry) {
   if (!state.isInitialized) {
-    memset(geometry, 0.f, 12 * sizeof(float));
+    memset(geometry, 0, 12 * sizeof(float));
   } else {
     struct HmdQuad_t quad;
     state.chaperone->GetPlayAreaRect(&quad);
@@ -402,17 +437,10 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
   state.system->GetControllerState(controller->id, &input, sizeof(input));
 
   switch (axis) {
-    case CONTROLLER_AXIS_TRIGGER:
-      return input.rAxis[1].x;
-
-    case CONTROLLER_AXIS_TOUCHPAD_X:
-      return input.rAxis[0].x;
-
-    case CONTROLLER_AXIS_TOUCHPAD_Y:
-      return input.rAxis[0].y;
-
-    default:
-      error("Bad controller axis");
+    case CONTROLLER_AXIS_TRIGGER: return input.rAxis[1].x;
+    case CONTROLLER_AXIS_TOUCHPAD_X: return input.rAxis[0].x;
+    case CONTROLLER_AXIS_TOUCHPAD_Y: return input.rAxis[0].y;
+    default: error("Bad controller axis");
   }
 
   return 0.;
@@ -426,10 +454,10 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
 
   switch (button) {
     case CONTROLLER_BUTTON_SYSTEM:
-      return (input.ulButtonPressed >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+      return (input.ulButtonPressed >> EVRButtonId_k_EButton_System) & 1;
 
     case CONTROLLER_BUTTON_MENU:
-      return (input.ulButtonPressed >> EVRButtonId_k_EButton_System) & 1;
+      return (input.ulButtonPressed >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
 
     case CONTROLLER_BUTTON_GRIP:
       return (input.ulButtonPressed >> EVRButtonId_k_EButton_Grip) & 1;
