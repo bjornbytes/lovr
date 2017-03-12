@@ -117,6 +117,61 @@ void lovrGraphicsSetBackgroundColor(float r, float g, float b, float a) {
   glClearColor(r / 255, g / 255, b / 255, a / 255);
 }
 
+void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
+  *mode =  state.blendMode;
+  *alphaMode = state.blendAlphaMode;
+}
+
+void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
+  GLenum srcRGB = mode == BLEND_MULTIPLY ? GL_DST_COLOR : GL_ONE;
+
+  if (srcRGB == GL_ONE && alphaMode == BLEND_ALPHA_MULTIPLY) {
+    srcRGB = GL_SRC_ALPHA;
+  }
+
+  switch (mode) {
+    case BLEND_ALPHA:
+      glBlendEquation(GL_FUNC_ADD);
+      glBlendFuncSeparate(srcRGB, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+      break;
+
+    case BLEND_ADD:
+      glBlendEquation(GL_FUNC_ADD);
+      glBlendFuncSeparate(srcRGB, GL_ONE, GL_ZERO, GL_ONE);
+      break;
+
+    case BLEND_SUBTRACT:
+      glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+      glBlendFuncSeparate(srcRGB, GL_ONE, GL_ZERO, GL_ONE);
+      break;
+
+    case BLEND_MULTIPLY:
+      glBlendEquation(GL_FUNC_ADD);
+      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_DST_COLOR, GL_ZERO);
+      break;
+
+    case BLEND_LIGHTEN:
+      glBlendEquation(GL_MAX);
+      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+      break;
+
+    case BLEND_DARKEN:
+      glBlendEquation(GL_MIN);
+      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+      break;
+
+    case BLEND_SCREEN:
+      glBlendEquation(GL_FUNC_ADD);
+      glBlendFuncSeparate(srcRGB, GL_ONE_MINUS_SRC_COLOR, GL_ONE, GL_ONE_MINUS_SRC_COLOR);
+      break;
+
+    case BLEND_REPLACE:
+      glBlendEquation(GL_FUNC_ADD);
+      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+      break;
+  }
+}
+
 void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a) {
   *r = LOVR_COLOR_R(state.color);
   *g = LOVR_COLOR_G(state.color);

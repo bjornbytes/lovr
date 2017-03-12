@@ -6,12 +6,14 @@
 #include "filesystem/filesystem.h"
 #include <math.h>
 
-map_int_t MeshAttributeTypes;
-map_int_t MeshDrawModes;
-map_int_t MeshUsages;
+map_int_t BlendAlphaModes;
+map_int_t BlendModes;
 map_int_t CompareModes;
 map_int_t DrawModes;
 map_int_t FilterModes;
+map_int_t MeshAttributeTypes;
+map_int_t MeshDrawModes;
+map_int_t MeshUsages;
 map_int_t PolygonWindings;
 map_int_t TextureProjections;
 map_int_t WrapModes;
@@ -71,21 +73,19 @@ int l_lovrGraphicsInit(lua_State* L) {
   luax_registertype(L, "Skybox", lovrSkybox);
   luax_registertype(L, "Texture", lovrTexture);
 
-  map_init(&MeshAttributeTypes);
-  map_set(&MeshAttributeTypes, "float", MESH_FLOAT);
-  map_set(&MeshAttributeTypes, "byte", MESH_BYTE);
-  map_set(&MeshAttributeTypes, "int", MESH_INT);
+  map_init(&BlendAlphaModes);
+  map_set(&BlendAlphaModes, "alphamultiply", BLEND_ALPHA_MULTIPLY);
+  map_set(&BlendAlphaModes, "premultiplied", BLEND_PREMULTIPLIED);
 
-  map_init(&MeshDrawModes);
-  map_set(&MeshDrawModes, "points", MESH_POINTS);
-  map_set(&MeshDrawModes, "strip", MESH_TRIANGLE_STRIP);
-  map_set(&MeshDrawModes, "triangles", MESH_TRIANGLES);
-  map_set(&MeshDrawModes, "fan", MESH_TRIANGLE_FAN);
-
-  map_init(&MeshUsages);
-  map_set(&MeshUsages, "static", MESH_STATIC);
-  map_set(&MeshUsages, "dynamic", MESH_DYNAMIC);
-  map_set(&MeshUsages, "stream", MESH_STREAM);
+  map_init(&BlendModes);
+  map_set(&BlendModes, "alpha", BLEND_ALPHA);
+  map_set(&BlendModes, "add", BLEND_ADD);
+  map_set(&BlendModes, "subtract", BLEND_SUBTRACT);
+  map_set(&BlendModes, "multiply", BLEND_MULTIPLY);
+  map_set(&BlendModes, "lighten", BLEND_LIGHTEN);
+  map_set(&BlendModes, "darken", BLEND_DARKEN);
+  map_set(&BlendModes, "screen", BLEND_SCREEN);
+  map_set(&BlendModes, "replace", BLEND_REPLACE);
 
   map_init(&DrawModes);
   map_set(&DrawModes, "fill", DRAW_MODE_FILL);
@@ -106,6 +106,22 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_init(&FilterModes);
   map_set(&FilterModes, "nearest", FILTER_NEAREST);
   map_set(&FilterModes, "linear", FILTER_LINEAR);
+
+  map_init(&MeshAttributeTypes);
+  map_set(&MeshAttributeTypes, "float", MESH_FLOAT);
+  map_set(&MeshAttributeTypes, "byte", MESH_BYTE);
+  map_set(&MeshAttributeTypes, "int", MESH_INT);
+
+  map_init(&MeshDrawModes);
+  map_set(&MeshDrawModes, "points", MESH_POINTS);
+  map_set(&MeshDrawModes, "strip", MESH_TRIANGLE_STRIP);
+  map_set(&MeshDrawModes, "triangles", MESH_TRIANGLES);
+  map_set(&MeshDrawModes, "fan", MESH_TRIANGLE_FAN);
+
+  map_init(&MeshUsages);
+  map_set(&MeshUsages, "static", MESH_STATIC);
+  map_set(&MeshUsages, "dynamic", MESH_DYNAMIC);
+  map_set(&MeshUsages, "stream", MESH_STREAM);
 
   map_init(&WrapModes);
   map_set(&WrapModes, "clamp", WRAP_CLAMP);
@@ -159,6 +175,22 @@ int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
     a = luaL_checknumber(L, 4);
   }
   lovrGraphicsSetBackgroundColor(r, g, b, a);
+  return 0;
+}
+
+int l_lovrGraphicsGetBlendMode(lua_State* L) {
+  BlendMode mode;
+  BlendAlphaMode alphaMode;
+  lovrGraphicsGetBlendMode(&mode, &alphaMode);
+  luax_pushenum(L, &BlendModes, mode);
+  luax_pushenum(L, &BlendAlphaModes, alphaMode);
+  return 2;
+}
+
+int l_lovrGraphicsSetBlendMode(lua_State* L) {
+  BlendMode mode = *(BlendMode*) luax_checkenum(L, 1, &BlendModes, "blend mode");
+  BlendAlphaMode alphaMode = *(BlendAlphaMode*) luax_optenum(L, 2, "alphamultiply", &BlendAlphaModes, "alpha blend mode");
+  lovrGraphicsSetBlendMode(mode, alphaMode);
   return 0;
 }
 
@@ -711,6 +743,8 @@ const luaL_Reg lovrGraphics[] = {
   { "present", l_lovrGraphicsPresent },
   { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
   { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
+  { "getBlendMode", l_lovrGraphicsGetBlendMode },
+  { "setBlendMode", l_lovrGraphicsSetBlendMode },
   { "getColor", l_lovrGraphicsGetColor },
   { "setColor", l_lovrGraphicsSetColor },
   { "getColorMask", l_lovrGraphicsGetColorMask },

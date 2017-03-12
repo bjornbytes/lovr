@@ -12,6 +12,22 @@
 #define MAX_CANVASES 4
 
 typedef enum {
+  BLEND_ALPHA,
+  BLEND_ADD,
+  BLEND_SUBTRACT,
+  BLEND_MULTIPLY,
+  BLEND_LIGHTEN,
+  BLEND_DARKEN,
+  BLEND_SCREEN,
+  BLEND_REPLACE
+} BlendMode;
+
+typedef enum {
+  BLEND_ALPHA_MULTIPLY,
+  BLEND_PREMULTIPLIED
+} BlendAlphaMode;
+
+typedef enum {
   DRAW_MODE_FILL,
   DRAW_MODE_LINE
 } DrawMode;
@@ -59,6 +75,8 @@ typedef struct {
   int canvas;
   unsigned int color;
   char colorMask;
+  BlendMode blendMode;
+  BlendAlphaMode blendAlphaMode;
   int isScissorEnabled;
   ScissorRectangle scissor;
   GLuint shapeArray;
@@ -85,6 +103,8 @@ void lovrGraphicsPrepare();
 // State
 void lovrGraphicsGetBackgroundColor(float* r, float* g, float* b, float* a);
 void lovrGraphicsSetBackgroundColor(float r, float g, float b, float a);
+void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
+void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
 void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
 void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void lovrGraphicsGetColorMask(char* r, char* g, char* b, char* a);
