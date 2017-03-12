@@ -539,6 +539,7 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
   for (size_t i = 0; i < vrModel->unVertexCount; i++) {
     float* position = vrModel->rVertexData[i].vPosition.v;
     float* normal = vrModel->rVertexData[i].vNormal.v;
+    float* texCoords = vrModel->rVertexData[i].rfTextureCoord;
     ModelVertex v;
 
     v.x = position[0];
@@ -551,7 +552,6 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
     v.z = normal[2];
     vec_push(&mesh->normals, v);
 
-    float* texCoords = vrModel->rVertexData[i].rfTextureCoord;
     v.x = texCoords[0];
     v.y = texCoords[1];
     v.z = 0.f;
