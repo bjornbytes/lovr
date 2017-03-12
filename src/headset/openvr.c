@@ -634,7 +634,7 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
     lovrGraphicsPush();
     lovrGraphicsOrigin();
     lovrGraphicsMatrixTransform(transform);
-    lovrGraphicsSetProjectionRaw(projection);
+    lovrGraphicsSetProjection(projection);
     lovrGraphicsClear(1, 1);
     callback(eye, userdata);
     lovrGraphicsPop();

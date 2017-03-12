@@ -278,14 +278,6 @@ int l_lovrGraphicsSetFont(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsSetProjection(lua_State* L) {
-  float near = luaL_checknumber(L, 1);
-  float far = luaL_checknumber(L, 2);
-  float fov = luaL_checknumber(L, 3);
-  lovrGraphicsSetProjection(near, far, fov);
-  return 0;
-}
-
 int l_lovrGraphicsGetLineWidth(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetLineWidth());
   return 1;
@@ -729,7 +721,6 @@ const luaL_Reg lovrGraphics[] = {
   { "setShader", l_lovrGraphicsSetShader },
   { "getFont", l_lovrGraphicsGetFont },
   { "setFont", l_lovrGraphicsSetFont },
-  { "setProjection", l_lovrGraphicsSetProjection },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
   { "getPointSize", l_lovrGraphicsGetPointSize },

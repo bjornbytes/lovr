@@ -61,8 +61,7 @@ void lovrGraphicsReset() {
   state.transform = 0;
   state.canvas = 0;
   lovrGraphicsSetViewport(0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight());
-  lovrGraphicsSetProjection(.1f, 100.f, 67 * M_PI / 180); // TODO customize via lovr.conf
-  lovrGraphicsBindFramebuffer(0);
+  lovrGraphicsSetPerspective(.1f, 100.f, 67 * M_PI / 180);
   lovrGraphicsSetShader(NULL);
   lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetBackgroundColor(0, 0, 0, 0);
@@ -235,14 +234,14 @@ mat4 lovrGraphicsGetProjection() {
   return state.canvases[state.canvas]->projection;
 }
 
-void lovrGraphicsSetProjection(float near, float far, float fov) {
+void lovrGraphicsSetProjection(mat4 projection) {
+  memcpy(state.canvases[state.canvas]->projection, projection, 16 * sizeof(float));
+}
+
+void lovrGraphicsSetPerspective(float near, float far, float fov) {
   int width, height;
   glfwGetWindowSize(window, &width, &height);
   mat4_perspective(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
-}
-
-void lovrGraphicsSetProjectionRaw(mat4 projection) {
-  memcpy(state.canvases[state.canvas]->projection, projection, 16 * sizeof(float));
 }
 
 float lovrGraphicsGetLineWidth() {
