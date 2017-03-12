@@ -453,12 +453,11 @@ void lovrGraphicsSetIndexData(unsigned int* data, int length) {
   vec_pusharr(&state.shapeIndices, data, length);
 }
 
-void lovrGraphicsDrawPrimitive(GLenum mode, Texture* texture, int hasNormals, int hasTexCoords, int useIndices) {
+void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, int useIndices) {
   int stride = 3 + (hasNormals ? 3 : 0) + (hasTexCoords ? 2 : 0);
   int strideBytes = stride * sizeof(float);
 
   lovrGraphicsPrepare();
-  lovrGraphicsBindTexture(texture);
   glBindVertexArray(state.shapeArray);
   glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
   glBufferData(GL_ARRAY_BUFFER, state.shapeData.length * sizeof(float), state.shapeData.data, GL_STREAM_DRAW);
@@ -492,19 +491,23 @@ void lovrGraphicsDrawPrimitive(GLenum mode, Texture* texture, int hasNormals, in
 }
 
 void lovrGraphicsPoints(float* points, int count) {
+  lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetShapeData(points, count);
-  lovrGraphicsDrawPrimitive(GL_POINTS, NULL, 0, 0, 0);
+  lovrGraphicsDrawPrimitive(GL_POINTS, 0, 0, 0);
 }
 
 void lovrGraphicsLine(float* points, int count) {
+  lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetShapeData(points, count);
-  lovrGraphicsDrawPrimitive(GL_LINE_STRIP, NULL, 0, 0, 0);
+  lovrGraphicsDrawPrimitive(GL_LINE_STRIP, 0, 0, 0);
 }
 
 void lovrGraphicsTriangle(DrawMode mode, float* points) {
+  lovrGraphicsBindTexture(NULL);
+
   if (mode == DRAW_MODE_LINE) {
     lovrGraphicsSetShapeData(points, 9);
-    lovrGraphicsDrawPrimitive(GL_LINE_LOOP, NULL, 0, 0, 0);
+    lovrGraphicsDrawPrimitive(GL_LINE_LOOP, 0, 0, 0);
   } else {
     float normal[3];
     vec3_cross(vec3_init(normal, &points[0]), &points[3]);
@@ -516,7 +519,7 @@ void lovrGraphicsTriangle(DrawMode mode, float* points) {
     };
 
     lovrGraphicsSetShapeData(data, 18);
-    lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, NULL, 1, 0, 0);
+    lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 1, 0, 0);
   }
 }
 
@@ -553,8 +556,9 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float 
       -.5, -.5, 0
     };
 
+    lovrGraphicsBindTexture(NULL);
     lovrGraphicsSetShapeData(points, 12);
-    lovrGraphicsDrawPrimitive(GL_LINE_LOOP, NULL, 0, 0, 0);
+    lovrGraphicsDrawPrimitive(GL_LINE_LOOP, 0, 0, 0);
   } else if (mode == DRAW_MODE_FILL) {
     float data[] = {
       -.5, .5, 0,  0, 0, -1, 0, 0,
@@ -563,8 +567,9 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float 
       .5, -.5, 0,  0, 0, -1, 1, 1
     };
 
+    lovrGraphicsBindTexture(texture);
     lovrGraphicsSetShapeData(data, 32);
-    lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, texture, 1, 1, 0);
+    lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 1, 1, 0);
   }
 
   lovrGraphicsPop();
@@ -582,8 +587,9 @@ void lovrGraphicsPlaneFullscreen(Texture* texture) {
   lovrRetain(&lastShader->ref);
   lovrGraphicsSetShader(state.fullscreenShader);
 
+  lovrGraphicsBindTexture(texture);
   lovrGraphicsSetShapeData(data, 20);
-  lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, texture, 0, 1, 0);
+  lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 0, 1, 0);
 
   lovrGraphicsSetShader(lastShader);
   lovrRelease(&lastShader->ref);
@@ -614,9 +620,10 @@ void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform) {
       0, 4, 1, 5, 2, 6, 3, 7  // Connections
     };
 
+    lovrGraphicsBindTexture(NULL);
     lovrGraphicsSetShapeData(points, 24);
     lovrGraphicsSetIndexData(indices, 24);
-    lovrGraphicsDrawPrimitive(GL_LINES, NULL, 0, 0, 1);
+    lovrGraphicsDrawPrimitive(GL_LINES, 0, 0, 1);
   } else {
     float data[] = {
       // Front
@@ -660,8 +667,9 @@ void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform) {
       .5, .5, .5,     0, 1, 0,  1, 0
     };
 
+    lovrGraphicsBindTexture(texture);
     lovrGraphicsSetShapeData(data, 208);
-    lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, texture, 1, 1, 0);
+    lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 1, 1, 0);
   }
 
   lovrGraphicsPop();
@@ -728,7 +736,7 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
 
     int wasCulling = lovrGraphicsIsCullingEnabled();
     lovrGraphicsSetCullingEnabled(0);
-    lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, NULL, 0, 0, 0);
+    lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 0, 0, 0);
     lovrGraphicsSetCullingEnabled(wasCulling);
 
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
@@ -762,7 +770,7 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
       }
     }
 
-    int indices[9600]; // resolution * resolution * 6
+    unsigned int indices[9600]; // resolution * resolution * 6
     for (int i = 0; i < resolution; i++) {
       int offset0 = i * (resolution + 1);
       int offset1 = (i + 1) * (resolution + 1);
@@ -778,11 +786,16 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
       }
     }
 
+    Texture* oldTexture = lovrGraphicsGetTexture();
+    glBindTexture(GL_TEXTURE_2D, skybox->texture);
+
     lovrGraphicsSetShapeData(sphere, 8000);
     lovrGraphicsSetIndexData(indices, 9600);
     glDepthMask(GL_FALSE);
-    lovrGraphicsDrawPrimitive(GL_TRIANGLES, skybox->texture, 0, 1, 1);
+    lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 1);
     glDepthMask(GL_TRUE);
+
+    glBindTexture(GL_TEXTURE_2D, oldTexture->id);
   }
 
   lovrGraphicsSetShader(lastShader);

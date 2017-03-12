@@ -14,5 +14,5 @@ typedef struct {
   GLuint texture;
 } Skybox;
 
-Skybox* lovrSkyboxCreate(void** data, size_t* size, int count);
+Skybox* lovrSkyboxCreate(void** data, size_t* size, SkyboxType type);
 void lovrSkyboxDestroy(const Ref* ref);
