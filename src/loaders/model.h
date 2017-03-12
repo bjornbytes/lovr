@@ -33,7 +33,6 @@ typedef struct ModelNode {
 } ModelNode;
 
 typedef struct {
-  Ref ref;
   ModelNode* root;
   vec_model_mesh_t meshes;
   int hasNormals;
