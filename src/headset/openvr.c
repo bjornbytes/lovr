@@ -157,12 +157,13 @@ void lovrHeadsetPoll() {
       }
 
       case EVREventType_VREvent_InputFocusCaptured:
-      case EVREventType_VREvent_InputFocusReleased:
+      case EVREventType_VREvent_InputFocusReleased: {
         int isFocused = vrEvent.eventType == EVREventType_VREvent_InputFocusReleased;
         EventData data = { .focus = { isFocused } };
         Event event = { .type = EVENT_FOCUS, .data = data };
         lovrEventPush(event);
         break;
+      }
     }
   }
 }
