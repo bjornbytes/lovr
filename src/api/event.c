@@ -19,6 +19,12 @@ static int nextEvent(lua_State* L) {
       return 2;
     }
 
+    case EVENT_FOCUS: {
+      lua_pushstring(L, "focus");
+      lua_pushboolean(L, event->data.focus.isFocused);
+      return 2;
+    };
+
     case EVENT_CONTROLLER_ADDED: {
       lua_pushstring(L, "controlleradded");
       luax_pushtype(L, Controller, event->data.controlleradded.controller);
@@ -88,6 +94,10 @@ int l_lovrEventPush(lua_State* L) {
   switch (type) {
     case EVENT_QUIT:
       data.quit.exitCode = luaL_optint(L, 2, 0);
+      break;
+
+    case EVENT_FOCUS:
+      data.focus.isFocused = lua_toboolean(L, 2);
       break;
 
     case EVENT_CONTROLLER_ADDED:

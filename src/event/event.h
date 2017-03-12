@@ -5,6 +5,7 @@
 
 typedef enum {
   EVENT_QUIT,
+  EVENT_FOCUS,
   EVENT_CONTROLLER_ADDED,
   EVENT_CONTROLLER_REMOVED,
   EVENT_CONTROLLER_PRESSED,
@@ -14,6 +15,10 @@ typedef enum {
 typedef struct {
   int exitCode;
 } QuitEvent;
+
+typedef struct {
+  int isFocused;
+} FocusEvent;
 
 typedef struct {
   Controller* controller;
@@ -35,6 +40,7 @@ typedef struct {
 
 typedef union {
   QuitEvent quit;
+  FocusEvent focus;
   ControllerAddedEvent controlleradded;
   ControllerRemovedEvent controllerremoved;
   ControllerPressedEvent controllerpressed;

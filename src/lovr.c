@@ -113,6 +113,9 @@ void lovrInit(lua_State* L, int argc, char** argv) {
 
     "lovr.handlers = setmetatable({ "
     "  quit = function() end, "
+    "  focus = function(f) "
+    "    if lovr.focus then lovr.focus(f) end "
+    "  end, "
     "  controlleradded = function(c) "
     "    if lovr.controlleradded then lovr.controlleradded(c) end "
     "  end, "
