@@ -91,7 +91,8 @@ Model* lovrModelCreate(ModelData* modelData) {
   }
 
   model->mesh = lovrMeshCreate(vertices.length / components, &format, MESH_TRIANGLES, MESH_STATIC);
-  lovrMeshSetVertices(model->mesh, (void*) vertices.data, vertices.length * sizeof(float));
+  void* data = lovrMeshMap(model->mesh, 0, vertices.length / components);
+  memcpy(data, vertices.data, vertices.length * sizeof(float));
   lovrMeshSetVertexMap(model->mesh, indices.data, indices.length);
 
   model->texture = NULL;

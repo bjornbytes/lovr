@@ -82,8 +82,7 @@ int l_lovrMeshGetVertexCount(lua_State* L) {
 int l_lovrMeshGetVertex(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int index = luaL_checkint(L, 2) - 1;
-  char* vertex = lovrMeshGetScratchVertex(mesh);
-  lovrMeshGetVertex(mesh, index, vertex);
+  char* vertex = lovrMeshMap(mesh, index, 1);
   MeshFormat format = lovrMeshGetVertexFormat(mesh);
 
   int total = 0;
@@ -107,12 +106,13 @@ int l_lovrMeshGetVertex(lua_State* L) {
 int l_lovrMeshSetVertex(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int index = luaL_checkint(L, 2) - 1;
-  MeshFormat format = lovrMeshGetVertexFormat(mesh);
-  char* vertex = lovrMeshGetScratchVertex(mesh);
 
-  if (index < 0 || index >= mesh->size) {
+  if (index < 0 || index >= lovrMeshGetVertexCount(mesh)) {
     return luaL_error(L, "Invalid mesh vertex index: %d", index + 1);
   }
+
+  MeshFormat format = lovrMeshGetVertexFormat(mesh);
+  char* vertex = lovrMeshMap(mesh, index, 1);
 
   // Unwrap table
   int arg = 3;
@@ -136,7 +136,6 @@ int l_lovrMeshSetVertex(lua_State* L) {
     }
   }
 
-  lovrMeshSetVertex(mesh, index, lovrMeshGetScratchVertex(mesh));
   return 0;
 }
 
@@ -144,15 +143,15 @@ int l_lovrMeshGetVertexAttribute(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int vertexIndex = luaL_checkint(L, 2) - 1;
   int attributeIndex = luaL_checkint(L, 3) - 1;
-  char* vertex = lovrMeshGetScratchVertex(mesh);
-  lovrMeshGetVertex(mesh, vertexIndex, vertex);
   MeshFormat format = lovrMeshGetVertexFormat(mesh);
 
-  if (vertexIndex < 0 || vertexIndex >= mesh->size) {
+  if (vertexIndex < 0 || vertexIndex >= lovrMeshGetVertexCount(mesh)) {
     return luaL_error(L, "Invalid mesh vertex index: %d", vertexIndex + 1);
   } else if (attributeIndex < 0 || attributeIndex >= format.length) {
     return luaL_error(L, "Invalid mesh attribute index: %d", attributeIndex + 1);
   }
+
+  char* vertex = lovrMeshMap(mesh, vertexIndex, 1);
 
   MeshAttribute attribute;
   for (int i = 0; i <= attributeIndex; i++) {
@@ -178,15 +177,15 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int vertexIndex = luaL_checkint(L, 2) - 1;
   int attributeIndex = luaL_checkint(L, 3) - 1;
-  char* vertex = lovrMeshGetScratchVertex(mesh);
-  lovrMeshGetVertex(mesh, vertexIndex, vertex);
   MeshFormat format = lovrMeshGetVertexFormat(mesh);
 
-  if (vertexIndex < 0 || vertexIndex >= mesh->size) {
+  if (vertexIndex < 0 || vertexIndex >= lovrMeshGetVertexCount(mesh)) {
     return luaL_error(L, "Invalid mesh vertex index: %d", vertexIndex + 1);
   } else if (attributeIndex < 0 || attributeIndex >= format.length) {
     return luaL_error(L, "Invalid mesh attribute index: %d", attributeIndex + 1);
   }
+
+  char* vertex = lovrMeshMap(mesh, vertexIndex, 1);
 
   int arg = 4;
   for (int i = 0; i <= attributeIndex; i++) {
@@ -205,7 +204,6 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
     }
   }
 
-  lovrMeshSetVertex(mesh, vertexIndex, lovrMeshGetScratchVertex(mesh));
   return 0;
 }
 
@@ -214,12 +212,9 @@ int l_lovrMeshSetVertices(lua_State* L) {
   MeshFormat format = lovrMeshGetVertexFormat(mesh);
   luaL_checktype(L, 2, LUA_TTABLE);
   int vertexCount = lua_objlen(L, 2);
+  int start = luaL_optnumber(L, 3, 1) - 1;
 
-  if (vertexCount > lovrMeshGetVertexCount(mesh)) {
-    return luaL_error(L, "Too many vertices for Mesh (max is %d, got %d)\n", lovrMeshGetVertexCount(mesh), vertexCount);
-  }
-
-  char* vertices = malloc(mesh->stride * vertexCount);
+  void* vertices = lovrMeshMap(mesh, start, vertexCount);
   char* vertex = vertices;
 
   for (int i = 0; i < vertexCount; i++) {
@@ -241,8 +236,6 @@ int l_lovrMeshSetVertices(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  lovrMeshSetVertices(mesh, vertices, mesh->stride * vertexCount);
-  free(vertices);
   return 0;
 }
 
@@ -285,7 +278,7 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
     }
 
     int index = lua_tointeger(L, -1);
-    if (index > mesh->size || index < 0) {
+    if (index > lovrMeshGetVertexCount(mesh) || index < 0) {
       free(indices);
       return luaL_error(L, "Invalid vertex map value: %d", index);
     }

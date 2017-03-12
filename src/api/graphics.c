@@ -575,15 +575,17 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   Mesh* mesh = lovrMeshCreate(size, format.length ? &format : NULL, *drawMode, *usage);
 
   if (dataIndex) {
+    int count = lua_objlen(L, dataIndex);
     MeshFormat format = lovrMeshGetVertexFormat(mesh);
-    for (size_t i = 0; i < lua_objlen(L, dataIndex); i++) {
+    char* vertex = lovrMeshMap(mesh, 0, count);
+
+    for (int i = 0; i < count; i++) {
       lua_rawgeti(L, dataIndex, i + 1);
       if (!lua_istable(L, -1)) {
         return luaL_error(L, "Vertex information should be specified as a table");
       }
 
       int component = 0;
-      char* vertex = lovrMeshGetScratchVertex(mesh);
       for (int j = 0; j < format.length; j++) {
         MeshAttribute attribute = format.data[j];
         for (int k = 0; k < attribute.count; k++) {
@@ -598,7 +600,6 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
         }
       }
 
-      lovrMeshSetVertex(mesh, i, lovrMeshGetScratchVertex(mesh));
       lua_pop(L, 1);
     }
   }

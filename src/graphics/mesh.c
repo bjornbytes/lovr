@@ -36,7 +36,7 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
   mesh->attributesDirty = 0;
 }
 
-Mesh* lovrMeshCreate(int size, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage) {
+Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage) {
   Mesh* mesh = lovrAlloc(sizeof(Mesh), lovrMeshDestroy);
   if (!mesh) return NULL;
 
@@ -65,10 +65,8 @@ Mesh* lovrMeshCreate(int size, MeshFormat* format, MeshDrawMode drawMode, MeshUs
     return NULL;
   }
 
-  mesh->size = size;
+  mesh->count = count;
   mesh->stride = stride;
-  mesh->data = malloc(mesh->size * mesh->stride);
-  mesh->scratchVertex = malloc(mesh->stride);
   mesh->enabledAttributes = ~0;
   mesh->attributesDirty = 1;
   mesh->drawMode = drawMode;
@@ -78,13 +76,13 @@ Mesh* lovrMeshCreate(int size, MeshFormat* format, MeshDrawMode drawMode, MeshUs
   mesh->ibo = 0;
   mesh->isRangeEnabled = 0;
   mesh->rangeStart = 0;
-  mesh->rangeCount = mesh->size;
+  mesh->rangeCount = mesh->count;
   mesh->texture = NULL;
   mesh->lastShader = NULL;
 
   glGenBuffers(1, &mesh->vbo);
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
-  glBufferData(GL_ARRAY_BUFFER, mesh->size * mesh->stride, mesh->data, mesh->usage);
+  glBufferData(GL_ARRAY_BUFFER, mesh->count * mesh->stride, NULL, mesh->usage);
   glGenVertexArrays(1, &mesh->vao);
   glGenBuffers(1, &mesh->ibo);
 
@@ -100,12 +98,14 @@ void lovrMeshDestroy(const Ref* ref) {
   glDeleteVertexArrays(1, &mesh->vao);
   vec_deinit(&mesh->map);
   vec_deinit(&mesh->format);
-  free(mesh->scratchVertex);
-  free(mesh->data);
   free(mesh);
 }
 
 void lovrMeshDraw(Mesh* mesh, mat4 transform) {
+  if (mesh->isMapped) {
+    lovrMeshUnmap(mesh);
+  }
+
   int usingIbo = mesh->map.length > 0;
 
   lovrGraphicsPush();
@@ -116,17 +116,15 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
   glBindVertexArray(mesh->vao);
   lovrMeshBindAttributes(mesh);
 
-  // Determine range of vertices to be rendered and whether we're using an IBO or not
   int start, count;
   if (mesh->isRangeEnabled) {
     start = mesh->rangeStart;
     count = mesh->rangeCount;
   } else {
     start = 0;
-    count = usingIbo ? mesh->map.length : mesh->size;
+    count = usingIbo ? mesh->map.length : mesh->count;
   }
 
-  // Render!  Use the IBO if a draw range is set
   if (usingIbo) {
     uintptr_t startAddress = (uintptr_t) start;
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
@@ -152,39 +150,11 @@ int lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode) {
 }
 
 int lovrMeshGetVertexCount(Mesh* mesh) {
-  return mesh->size;
+  return mesh->count;
 }
 
 int lovrMeshGetVertexSize(Mesh* mesh) {
   return mesh->stride;
-}
-
-void* lovrMeshGetScratchVertex(Mesh* mesh) {
-  return mesh->scratchVertex;
-}
-
-void lovrMeshGetVertex(Mesh* mesh, int index, void* dest) {
-  if (index >= mesh->size) {
-    return;
-  }
-
-  memcpy(dest, (char*) mesh->data + index * mesh->stride, mesh->stride);
-}
-
-void lovrMeshSetVertex(Mesh* mesh, int index, void* vertex) {
-  memcpy((char*) mesh->data + index * mesh->stride, vertex, mesh->stride);
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
-  glBufferData(GL_ARRAY_BUFFER, mesh->size * mesh->stride, mesh->data, mesh->usage);
-}
-
-void lovrMeshSetVertices(Mesh* mesh, void* vertices, int size) {
-  if (size > mesh->size * mesh->stride) {
-    error("Mesh is not big enough");
-  }
-
-  memcpy(mesh->data, vertices, size);
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
-  glBufferData(GL_ARRAY_BUFFER, mesh->size * mesh->stride, mesh->data, mesh->usage);
 }
 
 unsigned int* lovrMeshGetVertexMap(Mesh* mesh, int* count) {
@@ -248,7 +218,7 @@ void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count) {
 }
 
 int lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
-  if (start < 0 || count < 0 || start + count > mesh->size) {
+  if (start < 0 || count < 0 || start + count > mesh->count) {
     return 1;
   }
 
@@ -271,5 +241,27 @@ void lovrMeshSetTexture(Mesh* mesh, Texture* texture) {
 
   if (mesh->texture) {
     lovrRetain(&mesh->texture->ref);
+  }
+}
+
+void* lovrMeshMap(Mesh* mesh, int start, int count) {
+
+  // Unmap because the mapped ranges aren't necessarily the same.  Could be improved.
+  if (mesh->isMapped && (mesh->mapStart != start || mesh->mapCount != count)) {
+    lovrMeshUnmap(mesh);
+  }
+
+  mesh->isMapped = 1;
+  mesh->mapStart = start;
+  mesh->mapCount = count;
+  GLbitfield access = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT;
+  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+  return glMapBufferRange(GL_ARRAY_BUFFER, start * mesh->stride, count * mesh->stride, access);
+}
+
+void lovrMeshUnmap(Mesh* mesh) {
+  if (mesh->isMapped) {
+    mesh->isMapped = 0;
+    glUnmapBuffer(GL_ARRAY_BUFFER);
   }
 }

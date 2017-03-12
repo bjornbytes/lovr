@@ -35,12 +35,13 @@ typedef vec_t(MeshAttribute) MeshFormat;
 
 typedef struct {
   Ref ref;
-  int size;
+  int count;
   int stride;
-  void* data;
-  void* scratchVertex;
   int enabledAttributes;
   int attributesDirty;
+  int isMapped;
+  int mapStart;
+  int mapCount;
   MeshFormat format;
   MeshDrawMode drawMode;
   MeshUsage usage;
@@ -55,7 +56,7 @@ typedef struct {
   Shader* lastShader;
 } Mesh;
 
-Mesh* lovrMeshCreate(int size, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage);
+Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage);
 void lovrMeshDestroy(const Ref* ref);
 void lovrMeshDraw(Mesh* mesh, mat4 transform);
 MeshFormat lovrMeshGetVertexFormat(Mesh* mesh);
@@ -63,10 +64,6 @@ MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);
 int lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode);
 int lovrMeshGetVertexCount(Mesh* mesh);
 int lovrMeshGetVertexSize(Mesh* mesh);
-void* lovrMeshGetScratchVertex(Mesh* mesh);
-void lovrMeshGetVertex(Mesh* mesh, int index, void* dest);
-void lovrMeshSetVertex(Mesh* mesh, int index, void* vertex);
-void lovrMeshSetVertices(Mesh* mesh, void* vertices, int size);
 unsigned int* lovrMeshGetVertexMap(Mesh* mesh, int* count);
 void lovrMeshSetVertexMap(Mesh* mesh, unsigned int* map, int count);
 int lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name);
@@ -77,3 +74,5 @@ void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count);
 int lovrMeshSetDrawRange(Mesh* mesh, int start, int count);
 Texture* lovrMeshGetTexture(Mesh* mesh);
 void lovrMeshSetTexture(Mesh* mesh, Texture* texture);
+void* lovrMeshMap(Mesh* mesh, int start, int count);
+void lovrMeshUnmap(Mesh* mesh);
