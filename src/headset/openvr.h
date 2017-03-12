@@ -12,6 +12,7 @@
 typedef struct {
   int isInitialized;
   int isRendering;
+  int isMirrored;
 
   struct VR_IVRSystem_FnTable* system;
   struct VR_IVRCompositor_FnTable* compositor;

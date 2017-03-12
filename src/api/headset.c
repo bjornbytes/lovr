@@ -48,6 +48,17 @@ int l_lovrHeadsetGetType(lua_State* L) {
   return 1;
 }
 
+int l_lovrHeadsetIsMirrored(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetIsMirrored());
+  return 1;
+}
+
+int l_lovrHeadsetSetMirrored(lua_State* L) {
+  int mirror = lua_toboolean(L, 1);
+  lovrHeadsetSetMirrored(mirror);
+  return 0;
+}
+
 int l_lovrHeadsetGetDisplayWidth(lua_State* L) {
   int width;
   lovrHeadsetGetDisplayDimensions(&width, NULL);
@@ -209,6 +220,8 @@ int l_lovrHeadsetRenderTo(lua_State* L) {
 const luaL_Reg lovrHeadset[] = {
   { "isPresent", l_lovrHeadsetIsPresent },
   { "getType", l_lovrHeadsetGetType },
+  { "isMirrored", l_lovrHeadsetIsMirrored },
+  { "setMirrored", l_lovrHeadsetSetMirrored },
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },

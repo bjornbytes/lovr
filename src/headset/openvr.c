@@ -35,6 +35,7 @@ static TrackedDevicePose_t getPose(unsigned int deviceIndex) {
 void lovrHeadsetInit() {
   state.isInitialized = 0;
   state.isRendering = 0;
+  state.isMirrored = 1;
   state.texture = NULL;
   vec_init(&state.controllers);
 
@@ -172,6 +173,14 @@ int lovrHeadsetIsPresent() {
 
 const char* lovrHeadsetGetType() {
   return state.isInitialized ? "Vive" : NULL;
+}
+
+int lovrHeadsetIsMirrored() {
+  return state.isMirrored;
+}
+
+void lovrHeadsetSetMirrored(int mirror) {
+  state.isMirrored = mirror;
 }
 
 void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
@@ -646,5 +655,8 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
 
   state.isRendering = 0;
   lovrGraphicsPopCanvas();
-  lovrGraphicsPlaneFullscreen(state.texture);
+
+  if (state.isMirrored) {
+    lovrGraphicsPlaneFullscreen(state.texture);
+  }
 }

@@ -36,6 +36,8 @@ void lovrHeadsetDestroy();
 void lovrHeadsetPoll();
 int lovrHeadsetIsPresent();
 const char* lovrHeadsetGetType();
+int lovrHeadsetIsMirrored();
+void lovrHeadsetSetMirrored(int mirror);
 void lovrHeadsetGetDisplayDimensions(int* width, int* height);
 void lovrHeadsetGetClipDistance(float* near, float* far);
 void lovrHeadsetSetClipDistance(float near, float far);

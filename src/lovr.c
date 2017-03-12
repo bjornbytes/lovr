@@ -92,6 +92,9 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "    headset = true, "
     "    math = true, "
     "    timer = true "
+    "  }, "
+    "  headset = { "
+    "    mirror = true "
     "  } "
     "} "
 
@@ -110,6 +113,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "end "
 
     "lovr.filesystem.setIdentity(conf.identity or 'default') "
+    "if lovr.headset then lovr.headset.setMirrored(conf.headset and conf.headset.mirror) end "
 
     "lovr.handlers = setmetatable({ "
     "  quit = function() end, "
