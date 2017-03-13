@@ -681,8 +681,8 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 int l_lovrGraphicsNewSkybox(lua_State* L) {
-  void* data[6];
-  size_t size[6];
+  void* data[6] = { NULL };
+  size_t size[6] = { 0 };
   SkyboxType type;
 
   if (lua_gettop(L) == 1 && lua_type(L, 1) == LUA_TSTRING) {

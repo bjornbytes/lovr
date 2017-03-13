@@ -676,16 +676,16 @@ void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform) {
 }
 
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az) {
-  Shader* lastShader = lovrGraphicsGetShader();
-  lovrRetain(&lastShader->ref);
-  lovrGraphicsSetShader(state.skyboxShader);
-
   lovrGraphicsPrepare();
   lovrGraphicsPush();
   lovrGraphicsOrigin();
   lovrGraphicsRotate(angle, ax, ay, az);
 
   if (skybox->type == SKYBOX_CUBE) {
+    Shader* lastShader = lovrGraphicsGetShader();
+    lovrRetain(&lastShader->ref);
+    lovrGraphicsSetShader(state.skyboxShader);
+
     float cube[] = {
       // Front
       1.f, -1.f, -1.f,
@@ -742,47 +742,52 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
     glActiveTexture(GL_TEXTURE0);
     glDepthMask(GL_TRUE);
+
+    lovrGraphicsSetShader(lastShader);
+    lovrRelease(&lastShader->ref);
   } else if (skybox->type == SKYBOX_PANORAMA) {
     int resolution = 40;
-    float sphere[8000]; // resolution * resolution * 5
+    int idx = 0;
+    float sphere[8610]; // (resolution + 1) * (resolution + 1) * 5
 
-    for (int i = 0; i < resolution; i++) {
-      float theta = i * M_PI / resolution;
+    for (int i = 0; i <= resolution; i++) {
+      float theta = i * M_PI / (float) resolution;
       float sinTheta = sin(theta);
       float cosTheta = cos(theta);
 
-      for (int j = 0; j < resolution; j++) {
-        float phi = j * 2 * M_PI / resolution;
+      for (int j = 0; j <= resolution; j++) {
+        float phi = j * 2 * M_PI / (float) resolution;
         float sinPhi = sin(phi);
         float cosPhi = cos(phi);
 
         float x = sinPhi * sinTheta;
         float y = cosTheta;
         float z = -cosPhi * sinTheta;
-        float u = j / resolution;
-        float v = i / resolution;
+        float u = j / (float) resolution;
+        float v = i / (float) resolution;
 
-        sphere[i * resolution + j * 5 + 0] = x;
-        sphere[i * resolution + j * 5 + 1] = y;
-        sphere[i * resolution + j * 5 + 2] = z;
-        sphere[i * resolution + j * 5 + 3] = u;
-        sphere[i * resolution + j * 5 + 4] = v;
+        sphere[idx++] = x;
+        sphere[idx++] = y;
+        sphere[idx++] = z;
+        sphere[idx++] = u;
+        sphere[idx++] = v;
       }
     }
 
+    idx = 0;
     unsigned int indices[9600]; // resolution * resolution * 6
     for (int i = 0; i < resolution; i++) {
-      int offset0 = i * (resolution + 1);
-      int offset1 = (i + 1) * (resolution + 1);
+      unsigned int offset0 = i * (resolution + 1);
+      unsigned int offset1 = (i + 1) * (resolution + 1);
       for (int j = 0; j < resolution; j++) {
-        int index0 = offset0 + j;
-        int index1 = offset1 + j;
-        indices[i * resolution + j * 6 + 0] = index0;
-        indices[i * resolution + j * 6 + 1] = index1;
-        indices[i * resolution + j * 6 + 2] = index0 + 1;
-        indices[i * resolution + j * 6 + 3] = index1;
-        indices[i * resolution + j * 6 + 4] = index1 + 1;
-        indices[i * resolution + j * 6 + 5] = index0 + 1;
+        unsigned int index0 = offset0 + j;
+        unsigned int index1 = offset1 + j;
+        indices[idx++] = index0;
+        indices[idx++] = index1;
+        indices[idx++] = index0 + 1;
+        indices[idx++] = index1;
+        indices[idx++] = index1 + 1;
+        indices[idx++] = index0 + 1;
       }
     }
 
@@ -798,8 +803,6 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
     glBindTexture(GL_TEXTURE_2D, oldTexture->id);
   }
 
-  lovrGraphicsSetShader(lastShader);
-  lovrRelease(&lastShader->ref);
   lovrGraphicsPop();
 }
 
