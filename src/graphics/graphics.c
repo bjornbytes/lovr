@@ -794,7 +794,7 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
     Texture* oldTexture = lovrGraphicsGetTexture();
     glBindTexture(GL_TEXTURE_2D, skybox->texture);
 
-    lovrGraphicsSetShapeData(sphere, 8000);
+    lovrGraphicsSetShapeData(sphere, 8610);
     lovrGraphicsSetIndexData(indices, 9600);
     glDepthMask(GL_FALSE);
     lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 1);
