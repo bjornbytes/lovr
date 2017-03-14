@@ -147,7 +147,7 @@ void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float
   lovrGraphicsRotate(angle, ax, ay, az);
   lovrGraphicsTranslate(0, -cy / 2, 0);
   lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
-  lovrGraphicsBindTexture(NULL);
+  lovrGraphicsBindTexture(font->texture);
   lovrGraphicsSetShapeData(font->vertices.data, font->vertices.length);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 0);
   lovrGraphicsSetDepthTest(oldCompareMode);
