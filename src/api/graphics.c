@@ -66,8 +66,8 @@ static Texture* luax_readtexture(lua_State* L, int index) {
 int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
-  luax_registertype(L, "Mesh", lovrMesh);
   luax_registertype(L, "Font", lovrFont);
+  luax_registertype(L, "Mesh", lovrMesh);
   luax_registertype(L, "Model", lovrModel);
   luax_registertype(L, "Shader", lovrShader);
   luax_registertype(L, "Skybox", lovrSkybox);
@@ -87,14 +87,6 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&BlendModes, "screen", BLEND_SCREEN);
   map_set(&BlendModes, "replace", BLEND_REPLACE);
 
-  map_init(&DrawModes);
-  map_set(&DrawModes, "fill", DRAW_MODE_FILL);
-  map_set(&DrawModes, "line", DRAW_MODE_LINE);
-
-  map_init(&PolygonWindings);
-  map_set(&PolygonWindings, "clockwise", POLYGON_WINDING_CLOCKWISE);
-  map_set(&PolygonWindings, "counterclockwise", POLYGON_WINDING_COUNTERCLOCKWISE);
-
   map_init(&CompareModes);
   map_set(&CompareModes, "equal", COMPARE_EQUAL);
   map_set(&CompareModes, "notequal", COMPARE_NOT_EQUAL);
@@ -102,6 +94,10 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&CompareModes, "lequal", COMPARE_LEQUAL);
   map_set(&CompareModes, "gequal", COMPARE_GEQUAL);
   map_set(&CompareModes, "greater", COMPARE_GREATER);
+
+  map_init(&DrawModes);
+  map_set(&DrawModes, "fill", DRAW_MODE_FILL);
+  map_set(&DrawModes, "line", DRAW_MODE_LINE);
 
   map_init(&FilterModes);
   map_set(&FilterModes, "nearest", FILTER_NEAREST);
@@ -123,15 +119,19 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&MeshUsages, "dynamic", MESH_DYNAMIC);
   map_set(&MeshUsages, "stream", MESH_STREAM);
 
+  map_init(&PolygonWindings);
+  map_set(&PolygonWindings, "clockwise", POLYGON_WINDING_CLOCKWISE);
+  map_set(&PolygonWindings, "counterclockwise", POLYGON_WINDING_COUNTERCLOCKWISE);
+
+  map_init(&TextureProjections);
+  map_set(&TextureProjections, "2d", PROJECTION_ORTHOGRAPHIC);
+  map_set(&TextureProjections, "3d", PROJECTION_PERSPECTIVE);
+
   map_init(&WrapModes);
   map_set(&WrapModes, "clamp", WRAP_CLAMP);
   map_set(&WrapModes, "repeat", WRAP_REPEAT);
   map_set(&WrapModes, "mirroredrepeat", WRAP_MIRRORED_REPEAT);
   map_set(&WrapModes, "clampzero", WRAP_CLAMP_ZERO);
-
-  map_init(&TextureProjections);
-  map_set(&TextureProjections, "2d", PROJECTION_ORTHOGRAPHIC);
-  map_set(&TextureProjections, "3d", PROJECTION_PERSPECTIVE);
 
   lovrGraphicsInit();
   return 1;
