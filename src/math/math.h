@@ -2,8 +2,8 @@
 
 #pragma once
 
-#define MAX(a, b) a > b ? a : b
-#define MIN(a, b) a < b ? a : b
+#define MAX(a, b) (a > b ? a : b)
+#define MIN(a, b) (a < b ? a : b)
 
 typedef float* vec3;
 typedef float* quat;

@@ -1,6 +1,38 @@
 #include "api/lovr.h"
 #include "graphics/font.h"
 
+int l_lovrFontGetWidth(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  const char* string = luaL_checkstring(L, 2);
+  float wrap = luaL_optnumber(L, 3, 0);
+  lua_pushnumber(L, lovrFontGetWidth(font, string, wrap));
+  return 1;
+}
+
+int l_lovrFontGetHeight(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  lua_pushnumber(L, lovrFontGetHeight(font));
+  return 1;
+}
+
+int l_lovrFontGetAscent(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  lua_pushnumber(L, lovrFontGetAscent(font));
+  return 1;
+}
+
+int l_lovrFontGetDescent(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  lua_pushnumber(L, lovrFontGetDescent(font));
+  return 1;
+}
+
+int l_lovrFontGetBaseline(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  lua_pushnumber(L, lovrFontGetBaseline(font));
+  return 1;
+}
+
 int l_lovrFontGetLineHeight(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   lua_pushinteger(L, lovrFontGetLineHeight(font));
@@ -28,6 +60,11 @@ int l_lovrFontSetPixelDensity(lua_State* L) {
 }
 
 const luaL_Reg lovrFont[] = {
+  { "getWidth", l_lovrFontGetWidth },
+  { "getHeight", l_lovrFontGetHeight },
+  { "getAscent", l_lovrFontGetAscent },
+  { "getDescent", l_lovrFontGetDescent },
+  { "getBaseline", l_lovrFontGetBaseline },
   { "getLineHeight", l_lovrFontGetLineHeight },
   { "setLineHeight", l_lovrFontSetLineHeight },
   { "getPixelDensity", l_lovrFontGetPixelDensity },

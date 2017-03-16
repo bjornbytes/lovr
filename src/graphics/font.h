@@ -44,6 +44,11 @@ typedef struct {
 Font* lovrFontCreate(FontData* fontData);
 void lovrFontDestroy(const Ref* ref);
 void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+float lovrFontGetWidth(Font* font, const char* string, float wrap);
+float lovrFontGetHeight(Font* font);
+float lovrFontGetAscent(Font* font);
+float lovrFontGetDescent(Font* font);
+float lovrFontGetBaseline(Font* font);
 float lovrFontGetLineHeight(Font* font);
 void lovrFontSetLineHeight(Font* font, float lineHeight);
 int lovrFontGetKerning(Font* font, unsigned int a, unsigned int b);

@@ -170,6 +170,49 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
   lovrGraphicsPop();
 }
 
+float lovrFontGetWidth(Font* font, const char* str, float wrap) {
+  float width = 0;
+  float x = 0;
+  const char* end = str + strlen(str);
+  size_t bytes;
+  unsigned int previous = '\0';
+  unsigned int codepoint;
+  float scale = 1 / font->pixelDensity;
+
+  while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+    if (codepoint == '\n' || (wrap && x * scale > wrap && codepoint == ' ')) {
+      width = MAX(width, x) / font->pixelDensity;
+      x = 0;
+      previous = '\0';
+      str += bytes;
+      continue;
+    }
+
+    Glyph* glyph = lovrFontGetGlyph(font, codepoint);
+    x += glyph->advance + lovrFontGetKerning(font, previous, codepoint);
+    previous = codepoint;
+    str += bytes;
+  }
+
+  return MAX(x, width) * scale;
+}
+
+float lovrFontGetHeight(Font* font) {
+  return font->fontData->height / font->pixelDensity;
+}
+
+float lovrFontGetAscent(Font* font) {
+  return font->fontData->ascent / font->pixelDensity;
+}
+
+float lovrFontGetDescent(Font* font) {
+  return font->fontData->descent / font->pixelDensity;
+}
+
+float lovrFontGetBaseline(Font* font) {
+  return font->fontData->height * .8 / font->pixelDensity;
+}
+
 float lovrFontGetLineHeight(Font* font) {
   return font->lineHeight;
 }

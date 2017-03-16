@@ -7,6 +7,8 @@ typedef struct {
   void* rasterizer;
   int size;
   int height;
+  int ascent;
+  int descent;
 } FontData;
 
 typedef struct {
