@@ -11,11 +11,13 @@ map_int_t BlendModes;
 map_int_t CompareModes;
 map_int_t DrawModes;
 map_int_t FilterModes;
+map_int_t HorizontalAligns;
 map_int_t MeshAttributeTypes;
 map_int_t MeshDrawModes;
 map_int_t MeshUsages;
 map_int_t PolygonWindings;
 map_int_t TextureProjections;
+map_int_t VerticalAligns;
 map_int_t WrapModes;
 
 static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
@@ -103,6 +105,11 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&FilterModes, "nearest", FILTER_NEAREST);
   map_set(&FilterModes, "linear", FILTER_LINEAR);
 
+  map_init(&HorizontalAligns);
+  map_set(&HorizontalAligns, "left", ALIGN_LEFT);
+  map_set(&HorizontalAligns, "right", ALIGN_RIGHT);
+  map_set(&HorizontalAligns, "center", ALIGN_CENTER);
+
   map_init(&MeshAttributeTypes);
   map_set(&MeshAttributeTypes, "float", MESH_FLOAT);
   map_set(&MeshAttributeTypes, "byte", MESH_BYTE);
@@ -126,6 +133,11 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_init(&TextureProjections);
   map_set(&TextureProjections, "2d", PROJECTION_ORTHOGRAPHIC);
   map_set(&TextureProjections, "3d", PROJECTION_PERSPECTIVE);
+
+  map_init(&VerticalAligns);
+  map_set(&VerticalAligns, "top", ALIGN_TOP);
+  map_set(&VerticalAligns, "bottom", ALIGN_BOTTOM);
+  map_set(&VerticalAligns, "middle", ALIGN_MIDDLE);
 
   map_init(&WrapModes);
   map_set(&WrapModes, "clamp", WRAP_CLAMP);
@@ -524,16 +536,12 @@ int l_lovrGraphicsCube(lua_State* L) {
 
 int l_lovrGraphicsPrint(lua_State* L) {
   const char* str = luaL_checkstring(L, 1);
-  float x = luaL_optnumber(L, 2, 0);
-  float y = luaL_optnumber(L, 3, 0);
-  float z = luaL_optnumber(L, 4, 0);
-  float w = luaL_optnumber(L, 5, 0);
-  float h = luaL_optnumber(L, 6, .1);
-  float angle = luaL_optnumber(L, 7, 0);
-  float ax = luaL_optnumber(L, 8, 0);
-  float ay = luaL_optnumber(L, 9, 1);
-  float az = luaL_optnumber(L, 10, 0);
-  lovrGraphicsPrint(str, x, y, z, w, h, angle, ax, ay, az);
+  float transform[16];
+  int index = luax_readtransform(L, 2, transform);
+  float wrap = luaL_optnumber(L, index++, 0);
+  HorizontalAlign halign = *(HorizontalAlign*) luax_optenum(L, index++, "center", &HorizontalAligns, "alignment");
+  VerticalAlign valign = *(VerticalAlign*) luax_optenum(L, index++, "middle", &VerticalAligns, "alignment");
+  lovrGraphicsPrint(str, transform, wrap, halign, valign);
   return 0;
 }
 

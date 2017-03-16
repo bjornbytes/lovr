@@ -37,13 +37,15 @@ extern map_int_t DrawModes;
 extern map_int_t EventTypes;
 extern map_int_t FilterModes;
 extern map_int_t HeadsetEyes;
+extern map_int_t HorizontalAligns;
 extern map_int_t MeshAttributeTypes;
 extern map_int_t MeshDrawModes;
 extern map_int_t MeshUsages;
 extern map_int_t PolygonWindings;
 extern map_int_t TextureProjections;
 extern map_int_t TimeUnits;
+extern map_int_t VerticalAligns;
 extern map_int_t WrapModes;
 
 void luax_checkmeshformat(lua_State* L, int index, MeshFormat* format);
-void luax_readtransform(lua_State* L, int i, mat4 transform);
+int luax_readtransform(lua_State* L, int i, mat4 transform);

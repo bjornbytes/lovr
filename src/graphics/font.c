@@ -8,6 +8,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+static int lovrFontAlignLine(vec_float_t* vertices, int index, float width, HorizontalAlign halign) {
+  while (index < vertices->length) {
+    if (halign == ALIGN_CENTER) {
+      vertices->data[index] -= width / 2;
+    } else if (halign == ALIGN_RIGHT) {
+      vertices->data[index] -= width;
+    }
+
+    index += 5;
+  }
+
+  return index;
+}
+
 Font* lovrFontCreate(FontData* fontData) {
   Font* font = lovrAlloc(sizeof(Font), lovrFontDestroy);
   if (!font) return NULL;
@@ -52,14 +66,14 @@ void lovrFontDestroy(const Ref* ref) {
   free(font);
 }
 
-void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float w, float h, float angle, float ax, float ay, float az) {
+void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   FontAtlas* atlas = &font->atlas;
 
   float cx = 0;
-  float cy = -font->fontData->height * font->lineHeight / 2;
+  float cy = -font->fontData->height * .8;
   float u = atlas->width;
   float v = atlas->height;
-  float scale = h / font->fontData->height;
+  float scale = 1 / (float) font->fontData->height;
 
   int len = strlen(str);
   const char* start = str;
@@ -69,6 +83,7 @@ void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float
   size_t bytes;
 
   int linePtr = 0;
+  int lineCount = 1;
 
   vec_reserve(&font->vertices, len * 30);
   vec_clear(&font->vertices);
@@ -76,16 +91,11 @@ void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
 
     // Newlines
-    if (codepoint == '\n' || (w && cx > w / scale && codepoint == ' ')) {
-
-      // Center the line
-      while (linePtr < font->vertices.length) {
-        font->vertices.data[linePtr] -= cx / 2;
-        linePtr += 5;
-      }
-
+    if (codepoint == '\n' || (wrap && cx * scale > wrap && codepoint == ' ')) {
+      linePtr = lovrFontAlignLine(&font->vertices, linePtr, cx, halign);
+      lineCount++;
       cx = 0;
-      cy -= font->fontData->size * font->lineHeight;
+      cy -= font->fontData->height * font->lineHeight;
       previous = '\0';
       str += bytes;
       continue;
@@ -100,7 +110,7 @@ void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float
 
     // Start over if texture was repacked
     if (u != atlas->width || v != atlas->height) {
-      lovrFontPrint(font, start, x, y, z, w, h, angle, ax, ay, az);
+      lovrFontPrint(font, start, transform, wrap, halign, valign);
       return;
     }
 
@@ -132,20 +142,25 @@ void lovrFontPrint(Font* font, const char* str, float x, float y, float z, float
     str += bytes;
   }
 
-  // Center the last line
-  while (linePtr < font->vertices.length) {
-    font->vertices.data[linePtr] -= cx / 2;
-    linePtr += 5;
+  // Align the last line
+  lovrFontAlignLine(&font->vertices, linePtr, cx, halign);
+
+  // Calculate vertical offset
+  float offsety = 0;
+  if (valign == ALIGN_MIDDLE) {
+    offsety = lineCount * font->fontData->height * font->lineHeight * .5f;
+  } else if (valign == ALIGN_BOTTOM) {
+    offsety = lineCount * font->fontData->height * font->lineHeight;
   }
 
   // We override the depth test to LEQUAL to prevent blending issues with glyphs, not great
   CompareMode oldCompareMode = lovrGraphicsGetDepthTest();
 
+  // Render!
   lovrGraphicsPush();
-  lovrGraphicsTranslate(x, y, z);
+  lovrGraphicsMatrixTransform(transform);
   lovrGraphicsScale(scale, scale, scale);
-  lovrGraphicsRotate(angle, ax, ay, az);
-  lovrGraphicsTranslate(0, -cy / 2, 0);
+  lovrGraphicsTranslate(0, offsety, 0);
   lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
   lovrGraphicsBindTexture(font->texture);
   lovrGraphicsSetShapeData(font->vertices.data, font->vertices.length);

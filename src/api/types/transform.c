@@ -2,7 +2,7 @@
 #include "math/mat4.h"
 #include "math/transform.h"
 
-void luax_readtransform(lua_State* L, int i, mat4 m) {
+int luax_readtransform(lua_State* L, int i, mat4 m) {
   if (lua_isnumber(L, i)) {
     float x = luaL_optnumber(L, i++, 0);
     float y = luaL_optnumber(L, i++, 0);
@@ -13,11 +13,14 @@ void luax_readtransform(lua_State* L, int i, mat4 m) {
     float ay = luaL_optnumber(L, i++, 1);
     float az = luaL_optnumber(L, i++, 0);
     mat4_setTransform(m, x, y, z, s, angle, ax, ay, az);
+    return i;
   } else if (lua_isnoneornil(L, i)) {
     mat4_identity(m);
+    return i;
   } else {
     Transform* transform = luax_checktype(L, i, Transform);
     mat4_init(m, transform->matrix);
+    return ++i;
   }
 }
 
