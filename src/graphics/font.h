@@ -38,6 +38,7 @@ typedef struct {
   map_int_t kerning;
   vec_float_t vertices;
   float lineHeight;
+  float pixelDensity;
 } Font;
 
 Font* lovrFontCreate(FontData* fontData);
@@ -46,6 +47,8 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
 float lovrFontGetLineHeight(Font* font);
 void lovrFontSetLineHeight(Font* font, float lineHeight);
 int lovrFontGetKerning(Font* font, unsigned int a, unsigned int b);
+float lovrFontGetPixelDensity(Font* font);
+void lovrFontSetPixelDensity(Font* font, float pixelDensity);
 Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint);
 void lovrFontAddGlyph(Font* font, Glyph* glyph);
 void lovrFontExpandTexture(Font* font);

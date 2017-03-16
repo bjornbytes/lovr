@@ -29,6 +29,7 @@ Font* lovrFontCreate(FontData* fontData) {
   font->fontData = fontData;
   font->texture = NULL;
   font->lineHeight = 1.f;
+  font->pixelDensity = font->fontData->height;
   vec_init(&font->vertices);
   map_init(&font->kerning);
 
@@ -73,7 +74,7 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
   float cy = -font->fontData->height * .8;
   float u = atlas->width;
   float v = atlas->height;
-  float scale = 1 / (float) font->fontData->height;
+  float scale = 1 / font->pixelDensity;
 
   int len = strlen(str);
   const char* start = str;
@@ -189,6 +190,18 @@ int lovrFontGetKerning(Font* font, unsigned int left, unsigned int right) {
   int kerning = lovrFontDataGetKerning(font->fontData, left, right);
   map_set(&font->kerning, key, kerning);
   return kerning;
+}
+
+float lovrFontGetPixelDensity(Font* font) {
+  return font->pixelDensity;
+}
+
+void lovrFontSetPixelDensity(Font* font, float pixelDensity) {
+  if (pixelDensity <= 0) {
+    pixelDensity = font->fontData->height;
+  }
+
+  font->pixelDensity = pixelDensity;
 }
 
 Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
