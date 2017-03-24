@@ -1,16 +1,14 @@
 LÖVR
 ===
 
-LÖVR is a simple framework for creating virtual reality experiences with Lua.  For more information,
-visit the [website](http://bjornbyt.es/lovr).
+LÖVR is a simple framework for creating virtual reality experiences with Lua.
 
 Getting Started
 ---
 
-You can download precompiled binaries from the [LÖVR website](http://bjornbyt.es/lovr).  The [LÖVR
-documentation](http://bjornbyt.es/lovr/docs) provides API reference as well as a series of tutorials
-and examples.  Here are a few short snippets so you can get an idea of what it looks like to use
-LÖVR:
+You can download precompiled binaries from the [LÖVR website](http://bjornbyt.es/lovr).  There, you
+can also find documentation and a set of tutorials and examples.  Here are a few short snippets so
+you can get an idea of what it looks like to use LÖVR:
 
 #### Hello World
 
