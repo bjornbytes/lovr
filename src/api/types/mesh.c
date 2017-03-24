@@ -213,6 +213,11 @@ int l_lovrMeshSetVertices(lua_State* L) {
   luaL_checktype(L, 2, LUA_TTABLE);
   int vertexCount = lua_objlen(L, 2);
   int start = luaL_optnumber(L, 3, 1) - 1;
+  int maxVertices = lovrMeshGetVertexCount(mesh);
+
+  if (start + vertexCount > maxVertices) {
+    return luaL_error(L, "Mesh can only hold %d vertices", maxVertices);
+  }
 
   void* vertices = lovrMeshMap(mesh, start, vertexCount);
   char* vertex = vertices;
