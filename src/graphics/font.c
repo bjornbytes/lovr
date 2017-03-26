@@ -181,7 +181,7 @@ float lovrFontGetWidth(Font* font, const char* str, float wrap) {
 
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
     if (codepoint == '\n' || (wrap && x * scale > wrap && codepoint == ' ')) {
-      width = MAX(width, x) / font->pixelDensity;
+      width = MAX(width, x * scale);
       x = 0;
       previous = '\0';
       str += bytes;
@@ -194,7 +194,7 @@ float lovrFontGetWidth(Font* font, const char* str, float wrap) {
     str += bytes;
   }
 
-  return MAX(x, width) * scale;
+  return MAX(width, x * scale);
 }
 
 float lovrFontGetHeight(Font* font) {
