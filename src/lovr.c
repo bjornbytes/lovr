@@ -4,21 +4,14 @@
 #include "util.h"
 #include <stdlib.h>
 
-static int handleLuaError(lua_State* L) {
+static int getStackTrace(lua_State* L) {
   const char* message = luaL_checkstring(L, -1);
-  lua_getglobal(L, "lovr");
-  lua_getfield(L, -1, "errhand");
-
-  if (lua_isfunction(L, -1)) {
-    lua_pushstring(L, message);
-    if (lua_pcall(L, 1, 0, 0)) {
-      error(lua_tostring(L, -1));
-    }
-  } else {
-    error(message);
-  }
-
-  return 0;
+  lua_getglobal(L, "debug");
+  lua_getfield(L, -1, "traceback");
+  lua_pushstring(L, message);
+  lua_pushinteger(L, 3);
+  lua_call(L, 2, 1);
+  return 1;
 }
 
 static int lovrGetOS(lua_State* L) {
@@ -84,6 +77,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   // Bootstrap
   char buffer[8192];
   snprintf(buffer, sizeof(buffer), "%s",
+    "-- boot.lua\n"
     "local conf = { "
     "  modules = { "
     "    audio = true, "
@@ -173,16 +167,17 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "end "
 
     "function lovr.errhand(message) "
-    "  local stackTrace = debug.traceback('Error: ' .. tostring(message), 3) "
-    "  local message = stackTrace:gsub('\\n[^\\n]+$', ''):gsub('\\t', ''):gsub('stack traceback', 'Stack') "
+    "  message = 'Error:\\n' .. message:gsub('\\n[^\\n]+$', ''):gsub('\\t', ''):gsub('stack traceback', '\\nStack') "
     "  print(message) "
     "  lovr.graphics.reset() "
-    "  lovr.graphics.setBackgroundColor(26, 25, 28) "
+    "  lovr.graphics.setBackgroundColor(27, 25, 35) "
     "  lovr.graphics.setColor(220, 220, 220) "
+    "  local font = lovr.graphics.getFont() "
+    "  local pixelDensity = font:getPixelDensity() "
+    "  local width = font:getWidth(message, .55 * pixelDensity) "
     "  local function render() "
-    "    local z = lovr.headset.isPresent() and -2 or -20 "
-    "    local w = lovr.graphics:getFont():getWidth(message, 20) "
-    "    lovr.graphics.print(message, -w / 2, 0, z, 1, 0, 0, 0, 0, 20, 'left') "
+    "    lovr.graphics.origin() "
+    "    lovr.graphics.print(message, -width / 2, 0, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left') "
     "  end "
     "  while true do "
     "    lovr.event.pump() "
@@ -196,7 +191,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     "      render() "
     "    end "
     "    lovr.graphics.present() "
-    "    lovr.timer.sleep(.01) "
+    "    lovr.timer.sleep((lovr.headset and lovr.headset.isPresent()) and .001 or .1) "
     "  end "
     "end "
 
@@ -209,8 +204,6 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     const char* message = luaL_checkstring(L, 1);
     error("Unable to bootstrap LOVR: %s", message);
   }
-
-  lua_atpanic(L, handleLuaError);
 }
 
 void lovrDestroy(int exitCode) {
@@ -219,13 +212,27 @@ void lovrDestroy(int exitCode) {
 }
 
 void lovrRun(lua_State* L) {
+  lua_pushcfunction(L, getStackTrace);
 
   // lovr.run()
   lua_getglobal(L, "lovr");
   lua_getfield(L, -1, "run");
-  lua_call(L, 0, 1);
+  if (lua_pcall(L, 0, 1, -3)) {
+    lua_getfield(L, -2, "errhand");
+    if (lua_isfunction(L, -1)) {
+      lua_pushvalue(L, -2);
+      if (!lua_pcall(L, 1, 0, 0)) {
+        lovrDestroy(1);
+        return;
+      }
+    }
+
+    error(lua_tostring(L, -2));
+  }
 
   // Exit with return value from lovr.run
   int exitCode = luaL_optint(L, -1, 0);
+  lua_pop(L, 2);
+
   lovrDestroy(exitCode);
 }
