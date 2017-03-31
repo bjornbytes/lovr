@@ -584,15 +584,20 @@ void lovrGraphicsPlaneFullscreen(Texture* texture) {
   };
 
   Shader* lastShader = lovrGraphicsGetShader();
-  lovrRetain(&lastShader->ref);
-  lovrGraphicsSetShader(state.fullscreenShader);
+
+  if (lastShader == state.defaultShader) {
+    lovrRetain(&lastShader->ref);
+    lovrGraphicsSetShader(state.fullscreenShader);
+  }
 
   lovrGraphicsBindTexture(texture);
   lovrGraphicsSetShapeData(data, 20);
   lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 0, 1, 0);
 
-  lovrGraphicsSetShader(lastShader);
-  lovrRelease(&lastShader->ref);
+  if (lastShader == state.defaultShader) {
+    lovrGraphicsSetShader(lastShader);
+    lovrRelease(&lastShader->ref);
+  }
 }
 
 void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform) {
