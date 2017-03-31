@@ -45,6 +45,9 @@ else()
 endif()
 
 # GLFW
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
 if(WIN32)
   add_subdirectory(deps/glfw glfw)
   include_directories(deps/glfw/include)
@@ -97,6 +100,9 @@ else()
 endif()
 
 # OpenAL
+set(ALSOFT_UTILS OFF CACHE BOOL "")
+set(ALSOFT_EXAMPLES OFF CACHE BOOL "")
+set(ALSOFT_TESTS OFF CACHE BOOL "")
 if (WIN32)
   add_subdirectory(deps/openal-soft openal)
   include_directories(deps/openal-soft/include)
@@ -120,28 +126,19 @@ else()
 endif()
 
 # openvr
-if(WIN32)
-  include_directories(deps/openvr/headers)
-  target_link_libraries(lovr ${CMAKE_SOURCE_DIR}/deps/openvr/lib/win32/openvr_api.lib)
-  add_custom_command(TARGET lovr POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${CMAKE_SOURCE_DIR}/deps/openvr/bin/win32/openvr_api.dll"
-    $<TARGET_FILE_DIR:lovr>
-  )
+if(NOT DEFINED OPENVR_DIR AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/deps/openvr")
+  SET(OPENVR_DIR deps/openvr)
 else()
-  if(DEFINED OPENVR_DIR)
-    get_filename_component(FULL_OPENVR_DIR ${OPENVR_DIR} ABSOLUTE BASE_DIR ${CMAKE_BINARY_DIR})
-    message(STATUS "Setting OpenVR root directory to ${FULL_OPENVR_DIR}")
-    include_directories(${FULL_OPENVR_DIR}/headers)
-    if(APPLE)
-      set(LOVR_OPENVR ${FULL_OPENVR_DIR}/lib/osx32/libopenvr_api.dylib)
-    else()
-      set(LOVR_OPENVR ${FULL_OPENVR_DIR}/lib/linux32/libopenvr_api.so)
-    endif()
-  else()
-    message(FATAL_ERROR "Please specify the location of OpenVR (-DOPENVR_DIR=/path/to/openvr)")
-  endif()
+  message(FATAL_ERROR "Please specify the location of OpenVR (-DOPENVR_DIR=/path/to/openvr)")
 endif()
+
+set(BUILD_SHARED ON CACHE BOOL "")
+add_definitions(-DVR_API_PUBLIC)
+include_directories(${OPENVR_DIR}/headers)
+include_directories(${OPENVR_DIR}/src)
+include_directories(${OPENVR_DIR}/src/vrcommon)
+add_subdirectory(${OPENVR_DIR}/src openvr_api)
+set(LOVR_OPENVR openvr_api)
 
 set(LOVR_LIB
   ${LOVR_LUA}
@@ -150,6 +147,7 @@ set(LOVR_LIB
   ${LOVR_PHYSFS}
   ${LOVR_ASSIMP}
   ${LOVR_OPENAL}
+  ${LOVR_OPENVR}
   ${LOVR_FREETYPE}
   ${LOVR_OPENVR}
 )
@@ -163,5 +161,6 @@ if(WIN32)
   move_dll(${LOVR_PHYSFS})
   move_dll(${LOVR_ASSIMP})
   move_dll(${LOVR_OPENAL})
+  move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_FREETYPE})
 endif()
