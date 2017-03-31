@@ -152,7 +152,6 @@ set(LOVR_LIB
   ${LOVR_OPENAL}
   ${LOVR_OPENVR}
   ${LOVR_FREETYPE}
-  ${LOVR_OPENVR}
 )
 
 target_link_libraries(lovr ${LOVR_LIB})
