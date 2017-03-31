@@ -22,6 +22,8 @@ int l_lovrShaderSend(lua_State* L) {
   vec_init(&values);
 
   switch (type) {
+    case GL_SAMPLER_2D:
+    case GL_SAMPLER_CUBE:
     case GL_INT:
       lovrShaderSendInt(shader, id, luaL_checkinteger(L, 3));
       break;

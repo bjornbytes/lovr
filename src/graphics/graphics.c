@@ -683,8 +683,11 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
 
   if (skybox->type == SKYBOX_CUBE) {
     Shader* lastShader = lovrGraphicsGetShader();
-    lovrRetain(&lastShader->ref);
-    lovrGraphicsSetShader(state.skyboxShader);
+
+    if (lastShader == state.defaultShader) {
+      lovrRetain(&lastShader->ref);
+      lovrGraphicsSetShader(state.skyboxShader);
+    }
 
     float cube[] = {
       // Front
@@ -743,8 +746,10 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
     glActiveTexture(GL_TEXTURE0);
     glDepthMask(GL_TRUE);
 
-    lovrGraphicsSetShader(lastShader);
-    lovrRelease(&lastShader->ref);
+    if (lastShader == state.defaultShader) {
+      lovrGraphicsSetShader(lastShader);
+      lovrRelease(&lastShader->ref);
+    }
   } else if (skybox->type == SKYBOX_PANORAMA) {
     int resolution = 40;
     int idx = 0;
