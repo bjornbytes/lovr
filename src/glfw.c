@@ -14,8 +14,8 @@ void initGlfw() {
     error("Error initializing glfw");
   }
 
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
@@ -28,15 +28,7 @@ void initGlfw() {
 
   glfwMakeContextCurrent(window);
 
-#ifdef _WIN32
-  glewExperimental = GL_TRUE;
-  GLenum err = glewInit();
-  if (err != GLEW_OK) {
-    error("Could not initialize GLEW");
-  } else if (!GLEW_VERSION_2_1) {
-    error("Geez your OpenGL is old");
-  }
-#endif
+  gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
 
   glfwSetTime(0);
   glfwSwapInterval(0);
