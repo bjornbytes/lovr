@@ -406,6 +406,17 @@ int l_lovrGraphicsGetDimensions(lua_State* L) {
   return 2;
 }
 
+int l_lovrGraphicsGetSystemLimits(lua_State* L) {
+  lua_newtable(L);
+  lua_pushnumber(L, lovrGraphicsGetSystemLimit(LIMIT_POINT_SIZE));
+  lua_setfield(L, -2, "pointsize");
+  lua_pushinteger(L, lovrGraphicsGetSystemLimit(LIMIT_TEXTURE_SIZE));
+  lua_setfield(L, -2, "texturesize");
+  lua_pushinteger(L, lovrGraphicsGetSystemLimit(LIMIT_TEXTURE_MSAA));
+  lua_setfield(L, -2, "texturemsaa");
+  return 1;
+}
+
 // Transforms
 
 int l_lovrGraphicsPush(lua_State* L) {
@@ -800,6 +811,7 @@ const luaL_Reg lovrGraphics[] = {
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
+  { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "newFont", l_lovrGraphicsNewFont },
   { "newMesh", l_lovrGraphicsNewMesh },
   { "newModel", l_lovrGraphicsNewModel },

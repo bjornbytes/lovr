@@ -14,23 +14,36 @@ static GraphicsState state;
 // Base
 
 void lovrGraphicsInit() {
-  for (int i = 0; i < MAX_CANVASES; i++) {
-    state.canvases[i] = malloc(sizeof(CanvasState));
-  }
-  state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
-  state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
-  int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
-  lovrShaderSendInt(state.skyboxShader, uniformId, 1);
-  state.fullscreenShader = lovrShaderCreate(lovrNoopVertexShader, lovrDefaultFragmentShader);
+
+  // Allocations
   state.activeFont = NULL;
   state.defaultFont = NULL;
   state.activeTexture = NULL;
-  state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA));
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
   glGenVertexArrays(1, &state.shapeArray);
   vec_init(&state.shapeData);
   vec_init(&state.shapeIndices);
+  for (int i = 0; i < MAX_CANVASES; i++) {
+    state.canvases[i] = malloc(sizeof(CanvasState));
+  }
+
+  // Objects
+  state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
+  state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
+  int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
+  lovrShaderSendInt(state.skyboxShader, uniformId, 1);
+  state.fullscreenShader = lovrShaderCreate(lovrNoopVertexShader, lovrDefaultFragmentShader);
+  state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA));
+
+  // System Limits
+  float pointSizes[2];
+  glGetFloatv(GL_POINT_SIZE_RANGE, pointSizes);
+  state.maxPointSize = pointSizes[1];
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.maxTextureSize);
+  glGetIntegerv(GL_MAX_SAMPLES, &state.maxTextureMSAA);
+
+  // State
   state.depthTest = -1;
   lovrGraphicsReset();
   atexit(lovrGraphicsDestroy);
@@ -376,6 +389,15 @@ int lovrGraphicsGetHeight() {
   int height;
   glfwGetFramebufferSize(window, NULL, &height);
   return height;
+}
+
+float lovrGraphicsGetSystemLimit(GraphicsLimit limit) {
+  switch (limit) {
+    case LIMIT_POINT_SIZE: return state.maxPointSize;
+    case LIMIT_TEXTURE_SIZE: return state.maxTextureSize;
+    case LIMIT_TEXTURE_MSAA: return state.maxTextureMSAA;
+    default: error("Unknown limit %d\n", limit);
+  }
 }
 
 void lovrGraphicsPushCanvas() {

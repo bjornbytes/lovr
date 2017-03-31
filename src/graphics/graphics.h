@@ -47,6 +47,12 @@ typedef enum {
   COMPARE_GREATER = GL_GREATER
 } CompareMode;
 
+typedef enum {
+  LIMIT_POINT_SIZE,
+  LIMIT_TEXTURE_SIZE,
+  LIMIT_TEXTURE_MSAA
+} GraphicsLimit;
+
 typedef struct {
   int x;
   int y;
@@ -90,6 +96,9 @@ typedef struct {
   PolygonWinding polygonWinding;
   CompareMode depthTest;
   int isWireframe;
+  float maxPointSize;
+  int maxTextureSize;
+  int maxTextureMSAA;
 } GraphicsState;
 
 // Base
@@ -137,6 +146,7 @@ int lovrGraphicsIsWireframe();
 void lovrGraphicsSetWireframe(int wireframe);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
+float lovrGraphicsGetSystemLimit(GraphicsLimit limit);
 void lovrGraphicsPushCanvas();
 void lovrGraphicsPopCanvas();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);
