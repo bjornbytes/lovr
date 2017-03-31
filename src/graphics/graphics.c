@@ -19,9 +19,9 @@ void lovrGraphicsInit() {
   }
   state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
-  state.fullscreenShader = lovrShaderCreate(lovrNoopVertexShader, lovrDefaultFragmentShader);
   int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
   lovrShaderSendInt(state.skyboxShader, uniformId, 1);
+  state.fullscreenShader = lovrShaderCreate(lovrNoopVertexShader, lovrDefaultFragmentShader);
   state.activeFont = NULL;
   state.defaultFont = NULL;
   state.activeTexture = NULL;
@@ -728,7 +728,7 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
       1.f, 1.f, 1.f
     };
 
-    lovrGraphicsSetShapeData(cube, 156);
+    lovrGraphicsSetShapeData(cube, 78);
 
     glDepthMask(GL_FALSE);
     glActiveTexture(GL_TEXTURE1);
