@@ -33,12 +33,8 @@ else()
   set(LOVR_LUA ${LUAJIT_LIBRARIES})
 endif()
 
-# GLEW / OpenGL
-if(WIN32)
-  add_subdirectory(deps/glew glew)
-  include_directories(deps/glew/include)
-  set(LOVR_GL glew)
-else()
+# OpenGL
+if(NOT WIN32)
   find_package(OpenGL REQUIRED)
   include_directories(${OPENGL_INCLUDE_DIRS})
   set(LOVR_GL ${OPENGL_LIBRARIES})
@@ -163,7 +159,6 @@ target_link_libraries(lovr ${LOVR_LIB})
 
 if(WIN32)
   move_dll(${LOVR_LUA})
-  move_dll(${LOVR_GL})
   move_dll(${LOVR_GLFW})
   move_dll(${LOVR_PHYSFS})
   move_dll(${LOVR_ASSIMP})
