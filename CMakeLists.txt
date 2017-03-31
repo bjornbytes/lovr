@@ -110,7 +110,7 @@ if (WIN32)
 else()
   find_package(OpenAL REQUIRED)
   include_directories(${OPENAL_INCLUDE_DIR})
-  set(LOVR_OPENAL openal)
+  set(LOVR_OPENAL ${OPENAL_LIBRARY})
 endif()
 
 # FreeType
@@ -132,7 +132,14 @@ else()
   message(FATAL_ERROR "Please specify the location of OpenVR (-DOPENVR_DIR=/path/to/openvr)")
 endif()
 
+if(APPLE)
+  add_definitions(-DOSX -DPOSIX)
+elseif(UNIX)
+  add_definitions(-DLINUX -DPOSIX)
+endif()
+
 set(BUILD_SHARED ON CACHE BOOL "")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC -fvisibility=hidden")
 add_definitions(-DVR_API_PUBLIC)
 include_directories(${OPENVR_DIR}/headers)
 include_directories(${OPENVR_DIR}/src)
