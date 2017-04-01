@@ -56,7 +56,7 @@ TextureData* lovrTextureDataFromFile(void* data, int size) {
   int* w = &textureData->width;
   int* h = &textureData->height;
   int* c = &textureData->channels;
-  stbi_set_flip_vertically_on_load(1);
+  stbi_set_flip_vertically_on_load(0);
   void* image = stbi_load_from_memory(data, size, w, h, c, 4);
 
   if (image) {

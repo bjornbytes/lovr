@@ -78,6 +78,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetShader(NULL);
   lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetBackgroundColor(0, 0, 0, 0);
+  lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor(255, 255, 255, 255);
   lovrGraphicsSetColorMask(1, 1, 1, 1);
   lovrGraphicsSetScissorEnabled(0);

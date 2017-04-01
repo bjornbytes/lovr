@@ -11,7 +11,7 @@
 static int lovrFontAlignLine(vec_float_t* vertices, int index, float width, HorizontalAlign halign) {
   while (index < vertices->length) {
     if (halign == ALIGN_CENTER) {
-      vertices->data[index] -= width / 2;
+      vertices->data[index] -= width / 2.f;
     } else if (halign == ALIGN_RIGHT) {
       vertices->data[index] -= width;
     }
@@ -154,19 +154,14 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
     offsety = lineCount * font->fontData->height * font->lineHeight;
   }
 
-  // We override the depth test to LEQUAL to prevent blending issues with glyphs, not great
-  CompareMode oldCompareMode = lovrGraphicsGetDepthTest();
-
   // Render!
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(transform);
   lovrGraphicsScale(scale, scale, scale);
   lovrGraphicsTranslate(0, offsety, 0);
-  lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
   lovrGraphicsBindTexture(font->texture);
   lovrGraphicsSetShapeData(font->vertices.data, font->vertices.length);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 0);
-  lovrGraphicsSetDepthTest(oldCompareMode);
   lovrGraphicsPop();
 }
 
