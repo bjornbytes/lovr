@@ -1,5 +1,6 @@
 #include "api/lovr.h"
 #include "filesystem/filesystem.h"
+#include "filesystem/blob.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -57,6 +58,7 @@ static int filesystemLoader(lua_State* L) {
 int l_lovrFilesystemInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrFilesystem);
+  luax_registertype(L, "Blob", lovrBlob);
 
   lua_getglobal(L, "arg");
   lua_rawgeti(L, -1, -2);
@@ -211,6 +213,24 @@ int l_lovrFilesystemMount(lua_State* L) {
   return 1;
 }
 
+int l_lovrFilesystemNewBlob(lua_State* L) {
+  const char* path;
+  const char* data;
+  size_t size;
+
+  if (lua_gettop(L) == 1) {
+    path = luaL_checkstring(L, 1);
+    data = lovrFilesystemRead(path, &size);
+  } else {
+    data = luaL_checklstring(L, 1, &size);
+    path = luaL_checkstring(L, 2);
+  }
+
+  Blob* blob = lovrBlobCreate((void*) data, size, path);
+  luax_pushtype(L, Blob, blob);
+  return 1;
+}
+
 int l_lovrFilesystemRead(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   size_t size;
@@ -272,6 +292,7 @@ const luaL_Reg lovrFilesystem[] = {
   { "isFused", l_lovrFilesystemIsFused },
   { "load", l_lovrFilesystemLoad },
   { "mount", l_lovrFilesystemMount },
+  { "newBlob", l_lovrFilesystemNewBlob },
   { "read", l_lovrFilesystemRead },
   { "remove", l_lovrFilesystemRemove },
   { "setIdentity", l_lovrFilesystemSetIdentity },

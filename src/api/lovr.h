@@ -13,6 +13,7 @@ int l_lovrTimerInit(lua_State* L);
 
 extern const luaL_Reg lovrAudio[];
 extern const luaL_Reg lovrController[];
+extern const luaL_Reg lovrBlob[];
 extern const luaL_Reg lovrEvent[];
 extern const luaL_Reg lovrFilesystem[];
 extern const luaL_Reg lovrFont[];
