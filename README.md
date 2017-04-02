@@ -1,5 +1,6 @@
-LÖVR
-===
+<p align="center"><a href="http://bjornbyt.es/lovr"><img src="src/data/logo.png" width="128"></a></p>
+
+<h1 align="center">LÖVR</h1>
 
 LÖVR is a simple framework for creating virtual reality experiences with Lua.
 
