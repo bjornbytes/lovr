@@ -114,6 +114,12 @@ int l_lovrFilesystemAppend(lua_State* L) {
   return 1;
 }
 
+int l_lovrFilesystemCreateDirectory(lua_State* L) {
+  const char* path = luaL_checkstring(L, 1);
+  lua_pushboolean(L, !lovrFilesystemCreateDirectory(path));
+  return 1;
+}
+
 int l_lovrFilesystemExists(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, lovrFilesystemExists(path));
@@ -308,6 +314,7 @@ int l_lovrFilesystemWrite(lua_State* L) {
 
 const luaL_Reg lovrFilesystem[] = {
   { "append", l_lovrFilesystemAppend },
+  { "createDirectory", l_lovrFilesystemCreateDirectory },
   { "exists", l_lovrFilesystemExists },
   { "getAppdataDirectory", l_lovrFilesystemGetAppdataDirectory },
   { "getDirectoryItems", l_lovrFilesystemGetDirectoryItems },
