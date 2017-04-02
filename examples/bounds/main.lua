@@ -6,7 +6,7 @@ function lovr.load()
     error('This example needs a headset')
   end
 
-  bounds = lovr.graphics.newBuffer(lovr.headset.getBounds())
+  bounds = lovr.graphics.newMesh(lovr.headset.getBounds())
 end
 
 function lovr.draw()
