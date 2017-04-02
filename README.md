@@ -1,4 +1,4 @@
-<p align="center"><a href="http://bjornbyt.es/lovr"><img src="src/data/logo.png" width="128"></a></p>
+<p align="center"><a href="http://bjornbyt.es/lovr"><img src="src/data/logo.png" width="160"></a></p>
 
 <h1 align="center">LÖVR</h1>
 
