@@ -1,12 +1,13 @@
 #include "loaders/source.h"
 #include "lib/stb/stb_vorbis.h"
+#include "util.h"
 #include <stdlib.h>
 
-SourceData* lovrSourceDataFromFile(void* data, int size) {
+SourceData* lovrSourceDataCreate(Blob* blob) {
   SourceData* sourceData = malloc(sizeof(SourceData));
   if (!sourceData) return NULL;
 
-  stb_vorbis* decoder = stb_vorbis_open_memory(data, size, NULL, NULL);
+  stb_vorbis* decoder = stb_vorbis_open_memory(blob->data, blob->size, NULL, NULL);
 
   if (!decoder) {
     free(sourceData);
@@ -22,14 +23,15 @@ SourceData* lovrSourceDataFromFile(void* data, int size) {
   sourceData->decoder = decoder;
   sourceData->bufferSize = sourceData->channels * 4096 * sizeof(short);
   sourceData->buffer = malloc(sourceData->bufferSize);
-  sourceData->data = data;
+  sourceData->blob = blob;
+  lovrRetain(&blob->ref);
 
   return sourceData;
 }
 
 void lovrSourceDataDestroy(SourceData* sourceData) {
   stb_vorbis_close(sourceData->decoder);
-  free(sourceData->data);
+  lovrRelease(&sourceData->blob->ref);
   free(sourceData->buffer);
   free(sourceData);
 }

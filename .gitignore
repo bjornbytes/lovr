@@ -2,7 +2,7 @@
 build
 /lovr
 deps
-data
+/data
 src/obj
 src/Tupfile
 /watch.sh

@@ -51,15 +51,10 @@ static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
 }
 
 static Texture* luax_readtexture(lua_State* L, int index) {
-  const char* path = luaL_checkstring(L, index);
-  size_t size;
-  void* data = lovrFilesystemRead(path, &size);
-  if (!data) {
-    luaL_error(L, "Could not load texture file '%s'", path);
-  }
-  TextureData* textureData = lovrTextureDataFromFile(data, size);
+  Blob* blob = luax_readblob(L, index, "Texture");
+  TextureData* textureData = lovrTextureDataFromBlob(blob);
   Texture* texture = lovrTextureCreate(textureData);
-  free(data);
+  lovrRelease(&blob->ref);
   return texture;
 }
 
@@ -559,28 +554,25 @@ int l_lovrGraphicsPrint(lua_State* L) {
 // Types
 
 int l_lovrGraphicsNewFont(lua_State* L) {
-  void* data = NULL;
-  size_t size = 0;
-  float fontSize;
+  Blob* blob = NULL;
+  float size;
 
   if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
-    data = NULL;
-    size = 0;
-    fontSize = luaL_optnumber(L, 1, 32);
+    size = luaL_optnumber(L, 1, 32);
   } else {
-    const char* path = luaL_checkstring(L, 1);
-    fontSize = luaL_optnumber(L, 2, 32);
-
-    data = lovrFilesystemRead(path, &size);
-    if (!data) {
-      luaL_error(L, "Could not load font '%s'", path);
-    }
+    blob = luax_readblob(L, 1, "Font");
+    size = luaL_optnumber(L, 2, 32);
   }
 
-  FontData* fontData = lovrFontDataCreate(data, size, fontSize);
+  FontData* fontData = lovrFontDataCreate(blob, size);
   Font* font = lovrFontCreate(fontData);
   luax_pushtype(L, Font, font);
   lovrRelease(&font->ref);
+
+  if (blob) {
+    lovrRelease(&blob->ref);
+  }
+
   return 1;
 }
 
@@ -654,14 +646,8 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
 }
 
 int l_lovrGraphicsNewModel(lua_State* L) {
-  const char* path = lua_tostring(L, 1);
-  size_t size;
-  void* data = lovrFilesystemRead(path, &size);
-  if (!data) {
-    return luaL_error(L, "Could not load model file '%s'", path);
-  }
-
-  ModelData* modelData = lovrModelDataFromFile(data, size);
+  Blob* blob = luax_readblob(L, 1, "Model");
+  ModelData* modelData = lovrModelDataCreate(blob);
   Model* model = lovrModelCreate(modelData);
 
   if (lua_gettop(L) >= 2) {
@@ -671,8 +657,8 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   }
 
   luax_pushtype(L, Model, model);
-  free(data);
   lovrRelease(&model->ref);
+  lovrRelease(&blob->ref);
   return 1;
 }
 
@@ -700,14 +686,12 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 int l_lovrGraphicsNewSkybox(lua_State* L) {
-  void* data[6] = { NULL };
-  size_t size[6] = { 0 };
+  Blob* blobs[6];
   SkyboxType type;
 
   if (lua_gettop(L) == 1 && lua_type(L, 1) == LUA_TSTRING) {
-    const char* filename = lua_tostring(L, 1);
-    data[0] = lovrFilesystemRead(filename, size);
     type = SKYBOX_PANORAMA;
+    blobs[0] = luax_readblob(L, 1, "Skybox");
   } else if (lua_istable(L, 1)) {
     if (lua_objlen(L, 1) != 6) {
       return luaL_argerror(L, 1, "Expected 6 strings or a table containing 6 strings");
@@ -720,27 +704,25 @@ int l_lovrGraphicsNewSkybox(lua_State* L) {
         return luaL_argerror(L, 1, "Expected 6 strings or a table containing 6 strings");
       }
 
-      const char* filename = lua_tostring(L, -1);
-      data[i] = lovrFilesystemRead(filename, size + i);
+      blobs[i] = luax_readblob(L, -1, "Skybox");
       lua_pop(L, 1);
     }
 
     type = SKYBOX_CUBE;
   } else {
     for (int i = 0; i < 6; i++) {
-      const char* filename = luaL_checkstring(L, i + 1);
-      data[i] = lovrFilesystemRead(filename, size + i);
+      blobs[i] = luax_readblob(L, i + 1, "Skybox");
     }
 
     type = SKYBOX_CUBE;
   }
 
-  Skybox* skybox = lovrSkyboxCreate(data, size, type);
+  Skybox* skybox = lovrSkyboxCreate(blobs, type);
   luax_pushtype(L, Skybox, skybox);
   lovrRelease(&skybox->ref);
 
   for (int i = 0; i < 6; i++) {
-    free(data[i]);
+    lovrRelease(&blobs[i]->ref);
   }
 
   return 1;
@@ -749,15 +731,15 @@ int l_lovrGraphicsNewSkybox(lua_State* L) {
 int l_lovrGraphicsNewTexture(lua_State* L) {
   Texture* texture;
 
-  if (lua_type(L, 1) == LUA_TSTRING) {
-    texture = luax_readtexture(L, 1);
-  } else {
+  if (lua_type(L, 1) == LUA_TNUMBER) {
     int width = luaL_checknumber(L, 1);
     int height = luaL_checknumber(L, 2);
     TextureProjection* projection = luax_optenum(L, 3, "2d", &TextureProjections, "projection");
     int msaa = luaL_optnumber(L, 4, 0);
     TextureData* textureData = lovrTextureDataGetEmpty(width, height, FORMAT_RGBA);
     texture = lovrTextureCreateWithFramebuffer(textureData, *projection, msaa);
+  } else {
+    texture = luax_readtexture(L, 1);
   }
 
   luax_pushtype(L, Texture, texture);

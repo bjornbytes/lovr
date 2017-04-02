@@ -16,15 +16,3 @@ void lovrBlobDestroy(const Ref* ref) {
   free(blob->data);
   free(blob);
 }
-
-void* lovrBlobGetData(Blob* blob) {
-  return blob->data;
-}
-
-size_t lovrBlobGetSize(Blob* blob) {
-  return blob->size;
-}
-
-const char* lovrBlobGetName(Blob* blob) {
-  return blob->name;
-}

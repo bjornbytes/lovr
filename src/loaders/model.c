@@ -25,7 +25,7 @@ static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
   }
 }
 
-ModelData* lovrModelDataFromFile(void* data, int size) {
+ModelData* lovrModelDataCreate(Blob* blob) {
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
 
@@ -33,7 +33,7 @@ ModelData* lovrModelDataFromFile(void* data, int size) {
   modelData->hasTexCoords = 0;
 
   unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph;
-  const struct aiScene* scene = aiImportFileFromMemory(data, size, flags, NULL);
+  const struct aiScene* scene = aiImportFileFromMemory(blob->data, blob->size, flags, NULL);
 
   // Meshes
   vec_init(&modelData->meshes);

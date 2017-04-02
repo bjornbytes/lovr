@@ -1,3 +1,4 @@
+#include "filesystem/blob.h"
 #include "glfw.h"
 #include "util.h"
 
@@ -14,5 +15,5 @@ typedef struct {
   GLuint texture;
 } Skybox;
 
-Skybox* lovrSkyboxCreate(void** data, size_t* size, SkyboxType type);
+Skybox* lovrSkyboxCreate(Blob** blobs, SkyboxType type);
 void lovrSkyboxDestroy(const Ref* ref);

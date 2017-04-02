@@ -261,7 +261,7 @@ void lovrGraphicsSetShader(Shader* shader) {
 
 void lovrGraphicsEnsureFont() {
   if (!state.activeFont && !state.defaultFont) {
-    FontData* fontData = lovrFontDataCreate(NULL, 0, 32);
+    FontData* fontData = lovrFontDataCreate(NULL, 32);
     state.defaultFont = lovrFontCreate(fontData);
     lovrGraphicsSetFont(state.defaultFont);
   }

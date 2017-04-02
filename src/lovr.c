@@ -1,5 +1,7 @@
 #include "lovr.h"
 #include "api/lovr.h"
+#include "data/boot.lua.h"
+#include "data/logo.png.h"
 #include "glfw.h"
 #include "util.h"
 #include <stdlib.h>
@@ -63,6 +65,8 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   lua_setfield(L, -2, "getOS");
   lua_pushcfunction(L, lovrGetVersion);
   lua_setfield(L, -2, "getVersion");
+  lua_pushlstring(L, (const char*) logo_png, logo_png_len);
+  lua_setfield(L, -2, "_logo");
   lua_setglobal(L, "lovr");
 
   // Preload modules
@@ -74,133 +78,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   luax_preloadmodule(L, "lovr.math", l_lovrMathInit);
   luax_preloadmodule(L, "lovr.timer", l_lovrTimerInit);
 
-  // Bootstrap
-  char buffer[8192];
-  snprintf(buffer, sizeof(buffer), "%s",
-    "-- boot.lua\n"
-    "local conf = { "
-    "  modules = { "
-    "    audio = true, "
-    "    event = true, "
-    "    graphics = true, "
-    "    headset = true, "
-    "    math = true, "
-    "    timer = true "
-    "  }, "
-    "  headset = { "
-    "    mirror = true "
-    "  } "
-    "} "
-
-    "lovr.filesystem = require('lovr.filesystem') "
-
-    "local success, err = pcall(require, 'conf') "
-    "if lovr.conf then "
-    "  success, err = pcall(lovr.conf, conf) "
-    "end "
-
-    "local modules = { 'audio', 'event', 'graphics', 'headset', 'math', 'timer' } "
-    "for _, module in ipairs(modules) do "
-    "  if conf.modules[module] then "
-    "    lovr[module] = require('lovr.' .. module) "
-    "  end "
-    "end "
-
-    "lovr.filesystem.setIdentity(conf.identity or 'default') "
-    "if lovr.headset then lovr.headset.setMirrored(conf.headset and conf.headset.mirror) end "
-
-    "lovr.handlers = setmetatable({ "
-    "  quit = function() end, "
-    "  focus = function(f) "
-    "    if lovr.focus then lovr.focus(f) end "
-    "  end, "
-    "  controlleradded = function(c) "
-    "    if lovr.controlleradded then lovr.controlleradded(c) end "
-    "  end, "
-    "  controllerremoved = function(c) "
-    "    if lovr.controllerremoved then lovr.controllerremoved(c) end "
-    "  end, "
-    "  controllerpressed = function(c, b) "
-    "    if lovr.controllerpressed then lovr.controllerpressed(c, b) end "
-    "  end, "
-    "  controllerreleased = function(c, b) "
-    "    if lovr.controllerreleased then lovr.controllerreleased(c, b) end "
-    "  end "
-    "}, { "
-    "  __index = function(self, event) "
-    "    error('Unknown event: ' .. tostring(event)) "
-    "  end "
-    "}) "
-
-    "function lovr.run() "
-    "  if lovr.load then lovr.load() end "
-    "  while true do "
-    "    lovr.event.pump() "
-    "    for name, a, b, c, d in lovr.event.poll() do "
-    "      if name == 'quit' and (not lovr.quit or not lovr.quit()) then "
-    "        return a "
-    "      end "
-    "      lovr.handlers[name](a, b, c, d) "
-    "    end "
-    "    local dt = lovr.timer.step() "
-    "    if lovr.audio then "
-    "      lovr.audio.update() "
-    "      if lovr.headset and lovr.headset.isPresent() then "
-    "        lovr.audio.setOrientation(lovr.headset.getOrientation()) "
-    "        lovr.audio.setPosition(lovr.headset.getPosition()) "
-    "        lovr.audio.setVelocity(lovr.headset.getVelocity()) "
-    "      end "
-    "    end "
-    "    if lovr.update then lovr.update(dt) end "
-    "    lovr.graphics.clear() "
-    "    lovr.graphics.origin() "
-    "    if lovr.draw then "
-    "      if lovr.headset and lovr.headset.isPresent() then "
-    "        lovr.headset.renderTo(lovr.draw) "
-    "      else "
-    "        lovr.draw() "
-    "      end "
-    "    end "
-    "    lovr.graphics.present() "
-    "    lovr.timer.sleep(.001) "
-    "  end "
-    "end "
-
-    "function lovr.errhand(message) "
-    "  message = 'Error:\\n' .. message:gsub('\\n[^\\n]+$', ''):gsub('\\t', ''):gsub('stack traceback', '\\nStack') "
-    "  print(message) "
-    "  lovr.graphics.reset() "
-    "  lovr.graphics.setBackgroundColor(27, 25, 35) "
-    "  lovr.graphics.setColor(220, 220, 220) "
-    "  local font = lovr.graphics.getFont() "
-    "  local pixelDensity = font:getPixelDensity() "
-    "  local width = font:getWidth(message, .55 * pixelDensity) "
-    "  local function render() "
-    "    lovr.graphics.origin() "
-    "    lovr.graphics.print(message, -width / 2, 0, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left') "
-    "  end "
-    "  while true do "
-    "    lovr.event.pump() "
-    "    for name in lovr.event.poll() do "
-    "      if name == 'quit' then return end "
-    "    end "
-    "    lovr.graphics.clear() "
-    "    if lovr.headset and lovr.headset.isPresent() then "
-    "      lovr.headset.renderTo(render) "
-    "    else "
-    "      render() "
-    "    end "
-    "    lovr.graphics.present() "
-    "    lovr.timer.sleep((lovr.headset and lovr.headset.isPresent()) and .001 or .1) "
-    "  end "
-    "end "
-
-    "if lovr.filesystem.isFile('main.lua') then "
-    "  require('main') "
-    "end"
-  );
-
-  if (luaL_dostring(L, buffer)) {
+  if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 0, 0)) {
     const char* message = luaL_checkstring(L, 1);
     error("Unable to bootstrap LOVR: %s", message);
   }

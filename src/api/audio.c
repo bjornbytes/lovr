@@ -2,7 +2,6 @@
 #include "audio/audio.h"
 #include "audio/source.h"
 #include "loaders/source.h"
-#include "filesystem/filesystem.h"
 
 map_int_t TimeUnits;
 
@@ -71,21 +70,12 @@ int l_lovrAudioIsSpatialized(lua_State* L) {
 }
 
 int l_lovrAudioNewSource(lua_State* L) {
-  const char* filename = luaL_checkstring(L, 1);
-  if (!strstr(filename, ".ogg")) {
-    return luaL_error(L, "Only .ogg files are supported");
-  }
-
-  size_t size;
-  void* data = lovrFilesystemRead(filename, &size);
-  if (!data) {
-    return luaL_error(L, "Could not load source from file '%s'", filename);
-  }
-
-  SourceData* sourceData = lovrSourceDataFromFile(data, size);
+  Blob* blob = luax_readblob(L, 1, "Source");
+  SourceData* sourceData = lovrSourceDataCreate(blob);
   Source* source = lovrSourceCreate(sourceData);
   luax_pushtype(L, Source, source);
   lovrRelease(&source->ref);
+  lovrRelease(&blob->ref);
   return 1;
 }
 

@@ -1,3 +1,5 @@
+#include "filesystem/blob.h"
+
 #pragma once
 
 typedef struct {
@@ -8,10 +10,10 @@ typedef struct {
   int bufferSize;
   void* buffer;
   void* decoder;
-  void* data;
+  Blob* blob;
 } SourceData;
 
-SourceData* lovrSourceDataFromFile(void* data, int size);
+SourceData* lovrSourceDataCreate(Blob* blob);
 void lovrSourceDataDestroy(SourceData* sourceData);
 int lovrSourceDataDecode(SourceData* sourceData);
 void lovrSourceDataRewind(SourceData* sourceData);

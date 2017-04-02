@@ -1,4 +1,5 @@
 #include "luax.h"
+#include "filesystem/blob.h"
 #include "graphics/mesh.h"
 #include "math/math.h"
 #include "lib/map/map.h"
@@ -49,4 +50,5 @@ extern map_int_t VerticalAligns;
 extern map_int_t WrapModes;
 
 void luax_checkmeshformat(lua_State* L, int index, MeshFormat* format);
-int luax_readtransform(lua_State* L, int i, mat4 transform);
+int luax_readtransform(lua_State* L, int index, mat4 transform);
+Blob* luax_readblob(lua_State* L, int index, const char* debug);

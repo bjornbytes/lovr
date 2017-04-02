@@ -1,3 +1,4 @@
+#include "filesystem/blob.h"
 #include "util.h"
 #include "lib/vec/vec.h"
 
@@ -39,5 +40,5 @@ typedef struct {
   int hasTexCoords;
 } ModelData;
 
-ModelData* lovrModelDataFromFile(void* data, int size);
+ModelData* lovrModelDataCreate(Blob* blob);
 void lovrModelDataDestroy(ModelData* modelData);

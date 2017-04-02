@@ -1,3 +1,4 @@
+#include "filesystem/blob.h"
 #include "lib/map/map.h"
 #include <stdint.h>
 
@@ -24,7 +25,7 @@ typedef struct {
 
 typedef map_t(Glyph) map_glyph_t;
 
-FontData* lovrFontDataCreate(void* data, int size, int height);
+FontData* lovrFontDataCreate(Blob* blob, int size);
 void lovrFontDataDestroy(FontData* fontData);
 void lovrFontDataLoadGlyph(FontData* fontData, uint32_t character, Glyph* glyph);
 int lovrFontDataGetKerning(FontData* fontData, uint32_t left, uint32_t right);

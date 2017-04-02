@@ -4,6 +4,27 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
+Blob* luax_readblob(lua_State* L, int index, const char* debug) {
+  Blob* blob;
+
+  if (lua_type(L, index) == LUA_TUSERDATA) {
+    blob = luax_checktype(L, index, Blob);
+    lovrRetain(&blob->ref);
+    return blob;
+  } else {
+    const char* path = luaL_checkstring(L, index);
+
+    size_t size;
+    void* data = lovrFilesystemRead(path, &size);
+    if (!data) {
+      luaL_error(L, "Could not read %s from '%s'", debug, path);
+    }
+
+    return lovrBlobCreate(data, size, path);
+  }
+}
+
 static void pushDirectoryItem(void* userdata, const char* path, const char* filename) {
   lua_State* L = userdata;
   int n = lua_objlen(L, -1);
@@ -166,7 +187,14 @@ int l_lovrFilesystemGetSize(lua_State* L) {
 }
 
 int l_lovrFilesystemGetSource(lua_State* L) {
-  lua_pushstring(L, lovrFilesystemGetSource());
+  const char* source = lovrFilesystemGetSource();
+
+  if (source) {
+    lua_pushstring(L, source);
+  } else {
+    lua_pushnil(L);
+  }
+
   return 1;
 }
 
@@ -215,19 +243,23 @@ int l_lovrFilesystemMount(lua_State* L) {
 
 int l_lovrFilesystemNewBlob(lua_State* L) {
   const char* path;
-  const char* data;
+  char* data;
   size_t size;
 
   if (lua_gettop(L) == 1) {
     path = luaL_checkstring(L, 1);
     data = lovrFilesystemRead(path, &size);
   } else {
-    data = luaL_checklstring(L, 1, &size);
+    const char* str = luaL_checklstring(L, 1, &size);
+    data = malloc(size + 1); // Copy the Lua string so we can hold onto it
+    memcpy(data, str, size);
+    data[size] = '\0';
     path = luaL_checkstring(L, 2);
   }
 
   Blob* blob = lovrBlobCreate((void*) data, size, path);
   luax_pushtype(L, Blob, blob);
+  lovrRelease(&blob->ref);
   return 1;
 }
 

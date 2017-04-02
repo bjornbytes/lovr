@@ -30,15 +30,21 @@ void lovrFilesystemInit(const char* arg0, const char* arg1) {
 
   // Try to mount either an archive fused to the executable or an archive from the command line
   lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
-  if (lovrFilesystemMount(state.source, NULL, 1) && arg1) {
+  if (lovrFilesystemMount(state.source, NULL, 1)) {
     state.isFused = 0;
-    strncpy(state.source, arg1, LOVR_PATH_MAX);
-    if (!state.source || lovrFilesystemMount(state.source, NULL, 1)) {
-      free(state.source);
-      state.source = NULL;
+
+    if (arg1) {
+      strncpy(state.source, arg1, LOVR_PATH_MAX);
+      if (!lovrFilesystemMount(state.source, NULL, 1)) {
+        goto mounted;
+      }
     }
+
+    free(state.source);
+    state.source = NULL;
   }
 
+mounted:
   atexit(lovrFilesystemDestroy);
 }
 

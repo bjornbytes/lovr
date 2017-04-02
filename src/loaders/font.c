@@ -1,5 +1,5 @@
 #include "loaders/font.h"
-#include "loaders/Cabin.ttf.h"
+#include "data/Cabin.ttf.h"
 #include "util.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -7,20 +7,20 @@
 
 static FT_Library ft = NULL;
 
-FontData* lovrFontDataCreate(void* data, int size, int height) {
+FontData* lovrFontDataCreate(Blob* blob, int size) {
   if (!ft && FT_Init_FreeType(&ft)) {
     error("Error initializing FreeType");
   }
 
-  if (!data) {
-    data = Cabin_ttf;
-    size = Cabin_ttf_len;
-  }
-
   FT_Face face = NULL;
   FT_Error err = FT_Err_Ok;
-  err = err || FT_New_Memory_Face(ft, data, size, 0, &face);
-  err = err || FT_Set_Pixel_Sizes(face, 0, height);
+  if (blob) {
+    err = err || FT_New_Memory_Face(ft, blob->data, blob->size, 0, &face);
+  } else {
+    err = err || FT_New_Memory_Face(ft, Cabin_ttf, Cabin_ttf_len, 0, &face);
+  }
+
+  err = err || FT_Set_Pixel_Sizes(face, 0, size);
 
   if (err) {
     error("Problem loading font\n");
@@ -28,7 +28,7 @@ FontData* lovrFontDataCreate(void* data, int size, int height) {
 
   FontData* fontData = malloc(sizeof(FontData));
   fontData->rasterizer = face;
-  fontData->size = height;
+  fontData->size = size;
 
   FT_Size_Metrics metrics = face->size->metrics;
   fontData->height = metrics.height >> 6;

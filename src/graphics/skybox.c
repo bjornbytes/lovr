@@ -2,7 +2,7 @@
 #include "lib/stb/stb_image.h"
 #include <stdlib.h>
 
-Skybox* lovrSkyboxCreate(void** data, size_t* size, SkyboxType type) {
+Skybox* lovrSkyboxCreate(Blob** blobs, SkyboxType type) {
   Skybox* skybox = lovrAlloc(sizeof(Skybox), lovrSkyboxDestroy);
   if (!skybox) return NULL;
 
@@ -25,7 +25,7 @@ Skybox* lovrSkyboxCreate(void** data, size_t* size, SkyboxType type) {
   for (int i = 0; i < count; i++) {
     int width, height, channels;
     stbi_set_flip_vertically_on_load(0);
-    unsigned char* image = stbi_load_from_memory(data[i], size[i], &width, &height, &channels, 3);
+    unsigned char* image = stbi_load_from_memory(blobs[i]->data, blobs[i]->size, &width, &height, &channels, 3);
 
     if (!image) {
       error("Could not load skybox image %d", i);

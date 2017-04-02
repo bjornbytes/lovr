@@ -49,7 +49,7 @@ TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format
   return textureData;
 }
 
-TextureData* lovrTextureDataFromFile(void* data, int size) {
+TextureData* lovrTextureDataFromBlob(Blob* blob) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
@@ -57,7 +57,7 @@ TextureData* lovrTextureDataFromFile(void* data, int size) {
   int* h = &textureData->height;
   int* c = &textureData->channels;
   stbi_set_flip_vertically_on_load(0);
-  void* image = stbi_load_from_memory(data, size, w, h, c, 4);
+  void* image = stbi_load_from_memory(blob->data, blob->size, w, h, c, 4);
 
   if (image) {
     textureData->data = image;
@@ -65,6 +65,7 @@ TextureData* lovrTextureDataFromFile(void* data, int size) {
     return textureData;
   }
 
+  error("Could not load texture data from %s", blob->name);
   free(textureData);
   return NULL;
 }
