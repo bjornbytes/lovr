@@ -658,6 +658,10 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   lovrGraphicsPopCanvas();
 
   if (state.isMirrored) {
+    unsigned char r, g, b, a;
+    lovrGraphicsGetColor(&r, &g, &b, &a);
+    lovrGraphicsSetColor(255, 255, 255, 255);
     lovrGraphicsPlaneFullscreen(state.texture);
+    lovrGraphicsSetColor(r, g, b, a);
   }
 }
