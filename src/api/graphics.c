@@ -637,6 +637,8 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
 
       lua_pop(L, 1);
     }
+
+    lovrMeshUnmap(mesh);
   }
 
   vec_deinit(&format);
