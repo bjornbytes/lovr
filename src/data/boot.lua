@@ -22,7 +22,6 @@ if not lovr.filesystem.getSource() or not runnable then
   end
 
   function lovr.load()
-    lovr.filesystem.write('asdf.png', lovr._logo)
     logo = lovr.graphics.newTexture(lovr.filesystem.newBlob(lovr._logo, 'logo.png'))
     lovr.graphics.setBackgroundColor(245, 252, 255)
     refreshControllers()
