@@ -1,5 +1,5 @@
 #include "loaders/texture.h"
-#include "glfw.h"
+#include "lib/glfw.h"
 #include "util.h"
 
 #pragma once

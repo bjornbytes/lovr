@@ -1,19 +1,53 @@
 #include "graphics/graphics.h"
 #include "loaders/texture.h"
 #include "loaders/font.h"
+#include "event/event.h"
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "util.h"
-#include "glfw.h"
 #define _USE_MATH_DEFINES
 #include <stdlib.h>
 #include <math.h>
 
 static GraphicsState state;
 
+static void onCloseWindow(GLFWwindow* window) {
+  if (window == state.window) {
+    EventType type = EVENT_QUIT;
+    EventData data = { .quit = { 0 } };
+    Event event = { .type = type, .data = data };
+    lovrEventPush(event);
+  }
+}
+
 // Base
 
 void lovrGraphicsInit() {
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+  glfwWindowHint(GLFW_SAMPLES, 4);
+
+  state.window = glfwCreateWindow(800, 600, "Window", NULL, NULL);
+
+  if (!state.window) {
+    glfwTerminate();
+    error("Could not create window");
+  }
+
+  glfwMakeContextCurrent(state.window);
+  glfwSetWindowCloseCallback(state.window, onCloseWindow);
+
+  gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+
+  glfwSetTime(0);
+  glfwSwapInterval(0);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_LINE_SMOOTH);
+  glEnable(GL_MULTISAMPLE);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
 
   // Allocations
   state.activeFont = NULL;
@@ -106,7 +140,7 @@ void lovrGraphicsClear(int color, int depth) {
 }
 
 void lovrGraphicsPresent() {
-  glfwSwapBuffers(window);
+  glfwSwapBuffers(state.window);
 }
 
 void lovrGraphicsPrepare() {
@@ -232,7 +266,7 @@ void lovrGraphicsGetScissor(int* x, int* y, int* width, int* height) {
 
 void lovrGraphicsSetScissor(int x, int y, int width, int height) {
   int windowWidth, windowHeight;
-  glfwGetFramebufferSize(window, &windowWidth, &windowHeight);
+  glfwGetFramebufferSize(state.window, &windowWidth, &windowHeight);
   state.scissor.x = x;
   state.scissor.x = y;
   state.scissor.width = width;
@@ -309,7 +343,7 @@ void lovrGraphicsSetProjection(mat4 projection) {
 
 void lovrGraphicsSetPerspective(float near, float far, float fov) {
   int width, height;
-  glfwGetWindowSize(window, &width, &height);
+  glfwGetWindowSize(state.window, &width, &height);
   mat4_perspective(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
 }
 
@@ -382,13 +416,13 @@ void lovrGraphicsSetWireframe(int wireframe) {
 
 int lovrGraphicsGetWidth() {
   int width;
-  glfwGetFramebufferSize(window, &width, NULL);
+  glfwGetFramebufferSize(state.window, &width, NULL);
   return width;
 }
 
 int lovrGraphicsGetHeight() {
   int height;
-  glfwGetFramebufferSize(window, NULL, &height);
+  glfwGetFramebufferSize(state.window, NULL, &height);
   return height;
 }
 

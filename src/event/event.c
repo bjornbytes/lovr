@@ -1,23 +1,13 @@
 #include "event/event.h"
-#include "glfw.h"
+#include "lib/glfw.h"
 #include <stdlib.h>
 
 static EventState state;
-
-static void onClose(GLFWwindow* _window) {
-  if (_window == window) {
-    EventType type = EVENT_QUIT;
-    EventData data = { .quit = { 0 } };
-    Event event = { .type = type, .data = data };
-    lovrEventPush(event);
-  }
-}
 
 void lovrEventInit() {
   vec_init(&state.pumps);
   vec_init(&state.events);
   lovrEventAddPump(glfwPollEvents);
-  glfwSetWindowCloseCallback(window, onClose);
   atexit(lovrEventDestroy);
 }
 

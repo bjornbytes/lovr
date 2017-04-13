@@ -1,8 +1,8 @@
-#include "glfw.h"
 #include "util.h"
 #include "graphics/shader.h"
 #include "graphics/texture.h"
 #include "math/math.h"
+#include "lib/glfw.h"
 
 #pragma once
 

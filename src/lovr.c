@@ -1,10 +1,14 @@
 #include "lovr.h"
+#include "util.h"
 #include "api/lovr.h"
 #include "data/boot.lua.h"
 #include "data/logo.png.h"
-#include "glfw.h"
-#include "util.h"
+#include "lib/glfw.h"
 #include <stdlib.h>
+
+static void onGlfwError(int code, const char* description) {
+  error(description);
+}
 
 static int getStackTrace(lua_State* L) {
   const char* message = luaL_checkstring(L, -1);
@@ -41,7 +45,13 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     exit(0);
   }
 
-  initGlfw();
+  glfwSetErrorCallback(onGlfwError);
+
+  if (!glfwInit()) {
+    error("Error initializing glfw");
+  }
+
+  glfwSetTime(0);
 
   // arg global
   lua_newtable(L);

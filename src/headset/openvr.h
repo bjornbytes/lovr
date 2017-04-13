@@ -1,6 +1,6 @@
 #include "headset/headset.h"
 #include "graphics/texture.h"
-#include "glfw.h"
+#include "lib/glfw.h"
 #include <stdbool.h>
 #ifndef _WIN32
 #define __stdcall

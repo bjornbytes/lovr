@@ -1,5 +1,5 @@
 #include "timer/timer.h"
-#include "glfw.h"
+#include "lib/glfw.h"
 #include "util.h"
 
 static TimerState timerState;

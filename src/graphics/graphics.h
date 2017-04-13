@@ -5,6 +5,7 @@
 #include "graphics/skybox.h"
 #include "graphics/texture.h"
 #include "math/math.h"
+#include "lib/glfw.h"
 
 #pragma once
 
@@ -67,6 +68,7 @@ typedef struct CanvasState {
 } CanvasState;
 
 typedef struct {
+  GLFWwindow* window;
   Shader* activeShader;
   Shader* defaultShader;
   Shader* skyboxShader;

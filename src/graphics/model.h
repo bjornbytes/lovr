@@ -2,7 +2,7 @@
 #include "graphics/mesh.h"
 #include "graphics/texture.h"
 #include "math/math.h"
-#include "glfw.h"
+#include "lib/glfw.h"
 #include "util.h"
 
 #pragma once
