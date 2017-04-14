@@ -6,6 +6,8 @@
 #include "lib/glfw.h"
 #include <stdlib.h>
 
+int luaopen_cjson(lua_State* L);
+
 static void onGlfwError(int code, const char* description) {
   error(description);
 }
@@ -87,6 +89,9 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   luax_preloadmodule(L, "lovr.headset", l_lovrHeadsetInit);
   luax_preloadmodule(L, "lovr.math", l_lovrMathInit);
   luax_preloadmodule(L, "lovr.timer", l_lovrTimerInit);
+
+  // Preload libraries
+  luax_preloadmodule(L, "json", luaopen_cjson);
 
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 0, 0)) {
     const char* message = luaL_checkstring(L, 1);
