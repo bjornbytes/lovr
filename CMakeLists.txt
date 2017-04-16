@@ -13,13 +13,88 @@ if(UNIX)
 endif()
 
 project(lovr)
-file(GLOB_RECURSE LOVR_SRC src/*.c)
-add_executable(lovr ${LOVR_SRC})
+set(LOVR_SRC
+  src/api/audio.c
+  src/api/event.c
+  src/api/filesystem.c
+  src/api/graphics.c
+  src/api/headset.c
+  src/api/math.c
+  src/api/timer.c
+  src/api/types/blob.c
+  src/api/types/controller.c
+  src/api/types/font.c
+  src/api/types/mesh.c
+  src/api/types/model.c
+  src/api/types/shader.c
+  src/api/types/skybox.c
+  src/api/types/source.c
+  src/api/types/texture.c
+  src/api/types/transform.c
+  src/audio/audio.c
+  src/audio/source.c
+  src/event/event.c
+  src/filesystem/blob.c
+  src/filesystem/filesystem.c
+  src/graphics/font.c
+  src/graphics/graphics.c
+  src/graphics/mesh.c
+  src/graphics/model.c
+  src/graphics/shader.c
+  src/graphics/skybox.c
+  src/graphics/texture.c
+  src/headset/headset.c
+  src/lib/glad/glad.c
+  src/lib/lua-cjson/fpconv.c
+  src/lib/lua-cjson/lua_cjson.c
+  src/lib/lua-cjson/strbuf.c
+  src/lib/map/map.c
+  src/lib/stb/stb_image.c
+  src/lib/stb/stb_vorbis.c
+  src/lib/vec/vec.c
+  src/loaders/font.c
+  src/loaders/model.c
+  src/loaders/source.c
+  src/loaders/texture.c
+  src/lovr.c
+  src/luax.c
+  src/main.c
+  src/math/mat4.c
+  src/math/quat.c
+  src/math/transform.c
+  src/math/vec3.c
+  src/timer/timer.c
+  src/util.c
+)
+
+# Headset backends
+if(EMSCRIPTEN)
+  set(LOVR_HEADSET src/headset/webvr.c)
+else()
+  set(LOVR_HEADSET src/headset/openvr.c)
+endif()
+
+add_executable(lovr ${LOVR_SRC} ${LOVR_HEADSET})
+
+if(EMSCRIPTEN)
+  set(CMAKE_EXECUTABLE_SUFFIX ".html")
+  add_definitions(-s USE_ZLIB=1 -s ASSERTIONS=2 -s FULL_ES2=1)
+  set(ZLIB_FOUND 1)
+  set(ZLIB_LIBRARIES "-s USE_ZLIB=1")
+  set(ZLIB_INCLUDE_DIR .)
+endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# LuaJIT
-if(WIN32)
+# Lua
+if(EMSCRIPTEN)
+  option(LUA_USE_RELATIVE_LOADLIB OFF)
+  option(LUA_USE_ULONGJMP OFF)
+  add_subdirectory(deps/lua lua)
+  set_target_properties(lua luac liblua_static PROPERTIES EXCLUDE_FROM_ALL 1)
+  include_directories(deps/lua/src ${CMAKE_BINARY_DIR}/lua)
+  set(LOVR_LUA liblua)
+elseif(WIN32)
   add_subdirectory(deps/luajit luajit)
   include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
   set(LOVR_LUA liblua)
@@ -44,7 +119,9 @@ endif()
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
-if(WIN32)
+if(EMSCRIPTEN)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_GLFW=3")
+elseif(WIN32)
   add_subdirectory(deps/glfw glfw)
   include_directories(deps/glfw/include)
   set(LOVR_GLFW glfw ${GLFW_LIBRARIES})
@@ -65,7 +142,12 @@ set(PHYSFS_ARCHIVE_QPAK OFF CACHE BOOL "")
 set(PHYSFS_BUILD_TEST OFF CACHE BOOL "")
 set(PHYSFS_BUILD_WX_TEST FALSE CACHE BOOL "")
 
-if(WIN32)
+if(EMSCRIPTEN)
+  option(PHYSFS_ARCHIVE_ZIP OFF)
+  add_subdirectory(deps/physfs physfs)
+  include_directories(deps/physfs)
+  set(LOVR_PHYSFS physfs)
+elseif(WIN32)
   add_subdirectory(deps/physfs physfs)
   include_directories(deps/physfs)
   set(LOVR_PHYSFS physfs)
@@ -85,7 +167,11 @@ set(ASSIMP_BUILD_COLLADA_IMPORTER ON CACHE BOOL "")
 set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE BOOL "")
 set(ASSIMP_BUILD_FBX_IMPORTER ON CACHE BOOL "")
 
-if(WIN32)
+if(EMSCRIPTEN)
+  add_subdirectory(deps/assimp assimp)
+  include_directories(deps/assimp/include)
+  set(LOVR_ASSIMP assimp)
+elseif(WIN32)
   add_subdirectory(deps/assimp assimp)
   include_directories(deps/assimp/include)
   set(LOVR_ASSIMP assimp)
@@ -103,7 +189,7 @@ if (WIN32)
   add_subdirectory(deps/openal-soft openal)
   include_directories(deps/openal-soft/include)
   set(LOVR_OPENAL OpenAL32)
-else()
+elseif(NOT EMSCRIPTEN)
   pkg_search_module(OPENAL REQUIRED openal)
   include_directories(${OPENAL_INCLUDE_DIRS})
   string(REPLACE ";" " " OPENAL_LDFLAGS_STR "${OPENAL_LDFLAGS}")
@@ -112,8 +198,9 @@ else()
 endif()
 
 # FreeType
-if (WIN32)
+if (WIN32 OR EMSCRIPTEN)
   set(BUILD_SHARED_LIBS OFF)
+  set(FREETYPE_NO_DIST TRUE CACHE BOOL "")
   add_subdirectory(deps/freetype freetype)
   include_directories(deps/freetype/include)
   set(LOVR_FREETYPE freetype)
@@ -124,26 +211,28 @@ else()
 endif()
 
 # openvr
-if(NOT DEFINED OPENVR_DIR AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/deps/openvr")
-  SET(OPENVR_DIR deps/openvr)
-else()
-  message(FATAL_ERROR "Please specify the location of OpenVR (-DOPENVR_DIR=/path/to/openvr)")
-endif()
+if(NOT EMSCRIPTEN)
+  if(NOT DEFINED OPENVR_DIR AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/deps/openvr")
+    SET(OPENVR_DIR deps/openvr)
+  else()
+    message(FATAL_ERROR "Please specify the location of OpenVR (-DOPENVR_DIR=/path/to/openvr)")
+  endif()
 
-if(APPLE)
-  add_definitions(-DOSX -DPOSIX)
-elseif(UNIX)
-  add_definitions(-DLINUX -DPOSIX)
-endif()
+  if(APPLE)
+    add_definitions(-DOSX -DPOSIX)
+  elseif(UNIX)
+    add_definitions(-DLINUX -DPOSIX)
+  endif()
 
-set(BUILD_SHARED ON CACHE BOOL "")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC -fvisibility=hidden")
-add_definitions(-DVR_API_PUBLIC)
-include_directories(${OPENVR_DIR}/headers)
-include_directories(${OPENVR_DIR}/src)
-include_directories(${OPENVR_DIR}/src/vrcommon)
-add_subdirectory(${OPENVR_DIR}/src openvr_api)
-set(LOVR_OPENVR openvr_api)
+  set(BUILD_SHARED ON CACHE BOOL "")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC -fvisibility=hidden")
+  add_definitions(-DVR_API_PUBLIC)
+  include_directories(${OPENVR_DIR}/headers)
+  include_directories(${OPENVR_DIR}/src)
+  include_directories(${OPENVR_DIR}/src/vrcommon)
+  add_subdirectory(${OPENVR_DIR}/src openvr_api)
+  set(LOVR_OPENVR openvr_api)
+endif()
 
 set(LOVR_LIB
   ${LOVR_LUA}

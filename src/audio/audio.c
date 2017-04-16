@@ -8,8 +8,6 @@
 
 static AudioState state;
 
-static LPALCRESETDEVICESOFT alcResetDeviceSOFT;
-
 void lovrAudioInit() {
   ALCdevice* device = alcOpenDevice(NULL);
   if (!device) {
@@ -21,6 +19,8 @@ void lovrAudioInit() {
     error("Unable to create OpenAL context");
   }
 
+#ifndef EMSCRIPTEN
+  static LPALCRESETDEVICESOFT alcResetDeviceSOFT;
   alcResetDeviceSOFT = (LPALCRESETDEVICESOFT) alcGetProcAddress(device, "alcResetDeviceSOFT");
   state.isSpatialized = alcIsExtensionPresent(device, "ALC_SOFT_HRTF");
 
@@ -28,6 +28,7 @@ void lovrAudioInit() {
     ALCint attrs[3] = { ALC_HRTF_SOFT, ALC_TRUE, 0 };
     alcResetDeviceSOFT(device, attrs);
   }
+#endif
 
   state.device = device;
   state.context = context;
@@ -107,7 +108,7 @@ int lovrAudioHas(Source* source) {
   return index >= 0;
 }
 
-int lovrAudioIsSpatialized(Source* source) {
+int lovrAudioIsSpatialized() {
   return state.isSpatialized;
 }
 

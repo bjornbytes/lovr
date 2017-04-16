@@ -78,6 +78,8 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
   wcstombs(dest, appData, size);
   CoTaskMemFree(appData);
   return 0;
+#elif EMSCRIPTEN
+  return 0;
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetAppdataDirectory"
 #endif
@@ -96,6 +98,8 @@ int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
   }
 #elif _WIN32
   return !GetModuleFileName(NULL, dest, size);
+#elif EMSCRIPTEN
+  return 1;
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetExecutablePath"
 #endif
@@ -213,7 +217,7 @@ int lovrFilesystemSetIdentity(const char* identity) {
   snprintf(state.savePathFull, LOVR_PATH_MAX, "%s%s%s", state.savePathFull, sep, state.savePathRelative);
   PHYSFS_mkdir(state.savePathRelative);
   if (!PHYSFS_setWriteDir(state.savePathFull)) {
-    error("Could not set write directory");
+    //error("Could not set write directory");
   }
 
   PHYSFS_mount(state.savePathFull, NULL, 0);

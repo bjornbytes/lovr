@@ -1,4 +1,6 @@
-GL_ARB_vertex_array_object
 GL_ARB_framebuffer_object
 GL_ARB_map_buffer_range
 GL_ARB_texture_rg
+GL_EXT_texture_rg
+GL_EXT_blend_minmax
+GL_OES_texture_npot

@@ -2,7 +2,9 @@
 #include "lib/vec/vec.h"
 #include <AL/al.h>
 #include <AL/alc.h>
+#ifndef EMSCRIPTEN
 #include <AL/alext.h>
+#endif
 
 #pragma once
 

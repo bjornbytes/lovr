@@ -7,6 +7,7 @@
 #include "util.h"
 #define _USE_MATH_DEFINES
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 
 static GraphicsState state;
@@ -23,11 +24,15 @@ static void onCloseWindow(GLFWwindow* window) {
 // Base
 
 void lovrGraphicsInit() {
+#ifdef EMSCRIPTEN
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+#else
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   glfwWindowHint(GLFW_SAMPLES, 4);
+#endif
 
   state.window = glfwCreateWindow(800, 600, "Window", NULL, NULL);
 
@@ -39,15 +44,22 @@ void lovrGraphicsInit() {
   glfwMakeContextCurrent(state.window);
   glfwSetWindowCloseCallback(state.window, onCloseWindow);
 
+#ifdef EMSCRIPTEN
+  gladLoadGLES2Loader((GLADloadproc) glfwGetProcAddress);
+#else
   gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+#endif
 
   glfwSetTime(0);
-  glfwSwapInterval(0);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_LINE_SMOOTH);
-  glEnable(GL_MULTISAMPLE);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
+
+  if (GLAD_GL_VERSION_3_0) {
+    glfwSwapInterval(0);
+    glEnable(GL_LINE_SMOOTH);
+    glEnable(GL_MULTISAMPLE);
+  }
 
   // Allocations
   state.activeFont = NULL;
@@ -55,7 +67,9 @@ void lovrGraphicsInit() {
   state.activeTexture = NULL;
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
-  glGenVertexArrays(1, &state.shapeArray);
+  if (GLAD_GL_VERSION_3_0) {
+    glGenVertexArrays(1, &state.shapeArray);
+  }
   vec_init(&state.shapeData);
   vec_init(&state.shapeIndices);
   for (int i = 0; i < MAX_CANVASES; i++) {
@@ -71,11 +85,17 @@ void lovrGraphicsInit() {
   state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA));
 
   // System Limits
-  float pointSizes[2];
-  glGetFloatv(GL_POINT_SIZE_RANGE, pointSizes);
-  state.maxPointSize = pointSizes[1];
+  if (GLAD_GL_VERSION_2_0) {
+    float pointSizes[2];
+    glGetFloatv(GL_POINT_SIZE_RANGE, pointSizes);
+    state.maxPointSize = pointSizes[1];
+    glGetIntegerv(GL_MAX_SAMPLES, &state.maxTextureMSAA);
+  } else {
+    state.maxPointSize = 1.f;
+    state.maxTextureMSAA = 1;
+  }
+
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.maxTextureSize);
-  glGetIntegerv(GL_MAX_SAMPLES, &state.maxTextureMSAA);
 
   // State
   state.depthTest = -1;
@@ -99,7 +119,9 @@ void lovrGraphicsDestroy() {
   lovrRelease(&state.defaultTexture->ref);
   glDeleteBuffers(1, &state.shapeBuffer);
   glDeleteBuffers(1, &state.shapeIndexBuffer);
-  glDeleteVertexArrays(1, &state.shapeArray);
+  if (GLAD_GL_VERSION_3_0) {
+    glDeleteVertexArrays(1, &state.shapeArray);
+  }
   vec_deinit(&state.shapeData);
   vec_deinit(&state.shapeIndices);
 }
@@ -199,13 +221,21 @@ void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
       break;
 
     case BLEND_LIGHTEN:
-      glBlendEquation(GL_MAX);
-      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+      if (GLAD_GL_VERSION_2_0 || GLAD_GL_EXT_blend_minmax) {
+        glBlendEquation(GL_MAX);
+        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+      } else {
+        error("The lighten blend mode is not supported on this platform.");
+      }
       break;
 
     case BLEND_DARKEN:
-      glBlendEquation(GL_MIN);
-      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+      if (GLAD_GL_VERSION_2_0 || GLAD_GL_EXT_blend_minmax) {
+        glBlendEquation(GL_MIN);
+        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+      } else {
+        error("The darken blend mode is not supported on this platform.");
+      }
       break;
 
     case BLEND_SCREEN:
@@ -361,8 +391,10 @@ float lovrGraphicsGetPointSize() {
 }
 
 void lovrGraphicsSetPointSize(float size) {
-  state.pointSize = size;
-  glPointSize(size);
+  if (GLAD_GL_VERSION_2_0) {
+    state.pointSize = size;
+    glPointSize(size);
+  }
 }
 
 int lovrGraphicsIsCullingEnabled() {
@@ -408,21 +440,21 @@ int lovrGraphicsIsWireframe() {
 }
 
 void lovrGraphicsSetWireframe(int wireframe) {
-  if (state.isWireframe != wireframe) {
+  if (GLAD_GL_VERSION_3_0 && state.isWireframe != wireframe) {
     state.isWireframe = wireframe;
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
   }
 }
 
 int lovrGraphicsGetWidth() {
-  int width;
-  glfwGetFramebufferSize(state.window, &width, NULL);
+  int width, height;
+  glfwGetFramebufferSize(state.window, &width, &height);
   return width;
 }
 
 int lovrGraphicsGetHeight() {
-  int height;
-  glfwGetFramebufferSize(state.window, NULL, &height);
+  int width, height;
+  glfwGetFramebufferSize(state.window, &width, &height);
   return height;
 }
 
@@ -515,7 +547,9 @@ void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, in
   int strideBytes = stride * sizeof(float);
 
   lovrGraphicsPrepare();
-  glBindVertexArray(state.shapeArray);
+  if (GLAD_GL_VERSION_3_0) {
+    glBindVertexArray(state.shapeArray);
+  }
   glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
   glBufferData(GL_ARRAY_BUFFER, state.shapeData.length * sizeof(float), state.shapeData.data, GL_STREAM_DRAW);
   glEnableVertexAttribArray(LOVR_SHADER_POSITION);
@@ -544,7 +578,9 @@ void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, in
     glDrawArrays(mode, 0, state.shapeData.length / stride);
   }
 
-  glBindVertexArray(0);
+  if (GLAD_GL_VERSION_3_0) {
+    glBindVertexArray(0);
+  }
 }
 
 void lovrGraphicsPoints(float* points, int count) {
