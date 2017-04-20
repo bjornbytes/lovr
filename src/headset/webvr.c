@@ -1,22 +1,41 @@
 #include "headset/headset.h"
 #include "graphics/graphics.h"
+#include <math/mat4.h>
 #include <emscripten.h>
 #include <emscripten/vr.h>
 
 static headsetRenderCallback renderCallback;
 
 static void onRequestAnimationFrame(void* userdata) {
-  lovrGraphicsSetBackgroundColor(1, 0, 0, 1);
   lovrGraphicsClear(1, 1);
-  printf("Yay rendering!\n");
+
   int width = emscripten_vr_get_display_width();
   int height = emscripten_vr_get_display_height();
 
-  glViewport(0, 0, width, height);
-  renderCallback(EYE_LEFT, userdata);
+  float projection[16];
+  float transform[16];
 
-  glViewport(width, 0, width, height);
+  mat4_set(projection, emscripten_vr_get_projection_matrix(0));
+  mat4_set(transform, emscripten_vr_get_view_matrix(0));
+
+  lovrGraphicsPush();
+  lovrGraphicsOrigin();
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsSetProjection(projection);
+  lovrGraphicsSetViewport(0, 0, width / 2, height);
+  renderCallback(EYE_LEFT, userdata);
+  lovrGraphicsPop();
+
+  mat4_set(projection, emscripten_vr_get_projection_matrix(1));
+  mat4_set(transform, emscripten_vr_get_view_matrix(1));
+
+  lovrGraphicsPush();
+  lovrGraphicsOrigin();
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsSetProjection(projection);
+  lovrGraphicsSetViewport(width / 2, 0, width / 2, height);
   renderCallback(EYE_RIGHT, userdata);
+  lovrGraphicsPop();
 }
 
 void lovrHeadsetInit() {
@@ -48,7 +67,8 @@ void lovrHeadsetSetMirrored(int mirror) {
 }
 
 void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
-  *width = *height = 0;
+  *width = emscripten_vr_get_display_width();
+  *height = emscripten_vr_get_display_height();
 }
 
 void lovrHeadsetGetClipDistance(float* near, float* far) {
