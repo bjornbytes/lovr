@@ -20,7 +20,7 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
     if (location >= 0 && (mesh->enabledAttributes & (1 << i))) {
       glEnableVertexAttribArray(location);
 
-      if (attribute.type == MESH_INT ) {
+      if (attribute.type == MESH_INT) {
         if (GLAD_GL_ES_VERSION_2_0) {
           error("Integer attributes are not supported on this platform.");
         } else {
