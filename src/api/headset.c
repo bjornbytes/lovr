@@ -221,6 +221,11 @@ int l_lovrHeadsetGetControllerCount(lua_State* L) {
 int l_lovrHeadsetRenderTo(lua_State* L) {
   lua_settop(L, 1);
   luaL_checktype(L, 1, LUA_TFUNCTION);
+
+  if (headsetRenderData.ref) {
+    luaL_unref(L, LUA_REGISTRYINDEX, headsetRenderData.ref);
+  }
+
   headsetRenderData.ref = luaL_ref(L, LUA_REGISTRYINDEX);
   headsetRenderData.L = L;
   lovrHeadsetRenderTo(renderHelper, &headsetRenderData);
