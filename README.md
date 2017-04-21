@@ -1,4 +1,4 @@
-<p align="center"><a href="http://bjornbyt.es/lovr"><img src="src/data/logo.png" width="160"></a></p>
+<p align="center"><a href="http://lovr.org"><img src="src/data/logo.png" width="160"></a></p>
 
 <h1 align="center">LÖVR</h1>
 
@@ -7,7 +7,7 @@ LÖVR is a simple framework for creating virtual reality experiences with Lua.
 Getting Started
 ---
 
-You can download precompiled binaries from the [LÖVR website](http://bjornbyt.es/lovr).  There, you
+You can download precompiled binaries from the [LÖVR website](http://lovr.org).  There, you
 can also find documentation and a set of tutorials and examples.  Here are a few short snippets so
 you can get an idea of what it looks like to use LÖVR:
 
@@ -36,19 +36,17 @@ function lovr.draw()
 end
 ```
 
-#### Audio
-
-Play an ogg file:
+#### Detecting Hardware
 
 ```lua
 function lovr.load()
-  local sound = lovr.audio.newSource('darudeSandstorm.ogg')
-  sound:play()
+  if lovr.headset.isPresent() then
+    print('Woo!  We have a headset: ' .. lovr.headset.getType())
+  else
+    print('Boo!  No VR for us :(')
+  end
 end
 ```
-
-Audio is spatialized using HRTFs, and the virtual audio listener is synchronized with the pose of
-the HMD.
 
 #### 3D Models
 
@@ -64,6 +62,20 @@ function lovr.draw()
 end
 ```
 
+#### Audio
+
+Play an ogg file:
+
+```lua
+function lovr.load()
+  local sound = lovr.audio.newSource('darudeSandstorm.ogg')
+  sound:play()
+end
+```
+
+Audio is spatialized using HRTFs, and the virtual audio listener is synchronized with the pose of
+the HMD.
+
 For more examples, check out the [`examples`](examples) folder.
 
 Hardware Support
@@ -71,13 +83,13 @@ Hardware Support
 
 - HTC Vive (full support via OpenVR)
 - Oculus Touch (partial support via OpenVR)
-- WebVR (partial support, see `emscripten` branch)
+- WebVR (partial support, see `webvr` branch)
 - Mobile VR (no support currently)
 
 Documentation
 ---
 
-See <http://bjornbyt.es/lovr/docs> for examples and API reference.  The documentation is open source
+See <http://lovr.org/docs> for examples and API reference.  The documentation is open source
 and can be found [here](https://github.com/bjornbytes/lovr-docs).
 
 Compiling
