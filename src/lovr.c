@@ -29,6 +29,8 @@ static int lovrGetOS(lua_State* L) {
 #elif __APPLE__
   lua_pushstring(L, "macOS");
   return 1;
+#elif EMSCRIPTEN
+  lua_pushstring(L, "Web");
 #endif
   lua_pushnil(L);
   return 1;
