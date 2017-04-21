@@ -1,10 +1,15 @@
 #include "headset/headset.h"
 #include "graphics/graphics.h"
 #include <math/mat4.h>
+#include <math/quat.h>
 #include <emscripten.h>
 #include <emscripten/vr.h>
 
-static headsetRenderCallback renderCallback;
+typedef struct {
+  headsetRenderCallback renderCallback;
+} HeadsetState;
+
+static HeadsetState state;
 
 static void onRequestAnimationFrame(void* userdata) {
   lovrGraphicsClear(1, 1);
@@ -15,27 +20,26 @@ static void onRequestAnimationFrame(void* userdata) {
   float projection[16];
   float transform[16];
 
-  mat4_set(projection, emscripten_vr_get_projection_matrix(0));
-  mat4_set(transform, emscripten_vr_get_view_matrix(0));
+  for (HeadsetEye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
+    int isRight = eye == EYE_RIGHT;
 
-  lovrGraphicsPush();
-  lovrGraphicsOrigin();
-  lovrGraphicsMatrixTransform(transform);
-  lovrGraphicsSetProjection(projection);
-  lovrGraphicsSetViewport(0, 0, width / 2, height);
-  renderCallback(EYE_LEFT, userdata);
-  lovrGraphicsPop();
+    mat4_set(projection, emscripten_vr_get_projection_matrix(isRight));
+    mat4_set(transform, emscripten_vr_get_view_matrix(isRight));
 
-  mat4_set(projection, emscripten_vr_get_projection_matrix(1));
-  mat4_set(transform, emscripten_vr_get_view_matrix(1));
+    lovrGraphicsPush();
+    lovrGraphicsOrigin();
+    lovrGraphicsMatrixTransform(transform);
+    lovrGraphicsSetProjection(projection);
 
-  lovrGraphicsPush();
-  lovrGraphicsOrigin();
-  lovrGraphicsMatrixTransform(transform);
-  lovrGraphicsSetProjection(projection);
-  lovrGraphicsSetViewport(width / 2, 0, width / 2, height);
-  renderCallback(EYE_RIGHT, userdata);
-  lovrGraphicsPop();
+    if (isRight) {
+      lovrGraphicsSetViewport(width / 2, 0, width / 2, height);
+    } else {
+      lovrGraphicsSetViewport(0, 0, width / 2, height);
+    }
+
+    state.renderCallback(eye, userdata);
+    lovrGraphicsPop();
+  }
 }
 
 void lovrHeadsetInit() {
@@ -55,7 +59,7 @@ int lovrHeadsetIsPresent() {
 }
 
 const char* lovrHeadsetGetType() {
-  return "WebVR";
+  return emscripten_vr_get_display_name();
 }
 
 int lovrHeadsetIsMirrored() {
@@ -72,51 +76,62 @@ void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
 }
 
 void lovrHeadsetGetClipDistance(float* near, float* far) {
-  *near = *far = 0;
+  emscripten_vr_get_display_clip_distance(near, far);
 }
 
 void lovrHeadsetSetClipDistance(float near, float far) {
-  //
+  emscripten_vr_set_display_clip_distance(near, far);
 }
 
 float lovrHeadsetGetBoundsWidth() {
-  return 0;
+  return emscripten_vr_get_bounds_width();
 }
 
 float lovrHeadsetGetBoundsDepth() {
-  return 0;
+  return emscripten_vr_get_bounds_depth();
 }
 
 void lovrHeadsetGetBoundsGeometry(float* geometry) {
-  geometry = NULL;
+  // Not supported
 }
 
 char lovrHeadsetIsBoundsVisible() {
-  return 0;
+  return 0; // Not supported
 }
 
 void lovrHeadsetSetBoundsVisible(char visible) {
-  //
+  // Not supported
 }
 
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
-  *x = *y = *z = 0;
+  emscripten_vr_get_position(x, y, z);
 }
 
 void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
-  *x = *y = *z = 0;
+  int i = eye == EYE_LEFT ? 0 : 1;
+  emscripten_vr_get_eye_offset(i, x, y, z);
+  float m[16];
+  mat4_translate(mat4_identity(m), *x, *y, *z);
+  mat4_multiply(m, emscripten_vr_get_view_matrix(i));
+  float v[3] = { 0, 0, 0 };
+  mat4_transform(m, v);
+  *x = v[0];
+  *y = v[1];
+  *z = v[2];
 }
 
 void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
-  *angle = *x = *y = *z = 0;
+  float quat[4];
+  emscripten_vr_get_orientation(quat, quat + 1, quat + 2, quat + 3);
+  quat_getAngleAxis(quat, angle, x, y, z);
 }
 
 void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
-  *x = *y = *z = 0;
+  emscripten_vr_get_velocity(x, y, z);
 }
 
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
-  *x = *y = *z = 0;
+  emscripten_vr_get_angular_velocity(x, y, z);
 }
 
 vec_controller_t* lovrHeadsetGetControllers() {
@@ -156,6 +171,6 @@ TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
-  renderCallback = callback;
+  state.renderCallback = callback;
   emscripten_vr_set_render_callback(onRequestAnimationFrame, userdata);
 }
