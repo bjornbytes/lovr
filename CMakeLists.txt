@@ -199,7 +199,8 @@ endif()
 
 # FreeType
 if (EMSCRIPTEN)
-  add_definitions(-s USE_FREETYPE=1)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s USE_FREETYPE=1")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s USE_FREETYPE=1")
 elseif (WIN32)
   set(BUILD_SHARED_LIBS OFF)
   set(FREETYPE_NO_DIST TRUE CACHE BOOL "")
