@@ -290,7 +290,7 @@ void lovrMeshUnmap(Mesh* mesh) {
     mesh->isMapped = 0;
     int start = mesh->mapStart * mesh->stride;
     int count = mesh->mapCount * mesh->stride;
-    char* data = (char*) mesh->data + count;
+    char* data = (char*) mesh->data + start;
     glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
     glBufferSubData(GL_ARRAY_BUFFER, start, count, data);
     return;

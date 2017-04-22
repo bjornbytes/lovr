@@ -71,7 +71,7 @@ void lovrHeadsetSetMirrored(int mirror) {
 }
 
 void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
-  *width = emscripten_vr_get_display_width();
+  *width = emscripten_vr_get_display_width() / 2;
   *height = emscripten_vr_get_display_height();
 }
 
