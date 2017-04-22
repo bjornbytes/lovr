@@ -1,6 +1,7 @@
 #include "graphics/mesh.h"
 #include "graphics/graphics.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 static void lovrMeshBindAttributes(Mesh* mesh) {
   Shader* shader = lovrGraphicsGetShader();
@@ -17,20 +18,22 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
   vec_foreach(&mesh->format, attribute, i) {
     int location = lovrShaderGetAttributeId(shader, attribute.name);
 
-    if (location >= 0 && (mesh->enabledAttributes & (1 << i))) {
-      glEnableVertexAttribArray(location);
+    if (location >= 0) {
+      if (mesh->enabledAttributes & (1 << i)) {
+        glEnableVertexAttribArray(location);
 
-      if (attribute.type == MESH_INT) {
-        if (GLAD_GL_ES_VERSION_2_0) {
-          error("Integer attributes are not supported on this platform.");
+        if (attribute.type == MESH_INT) {
+          if (GLAD_GL_ES_VERSION_2_0) {
+            error("Integer attributes are not supported on this platform.");
+          } else {
+            glVertexAttribIPointer(location, attribute.count, attribute.type, mesh->stride, (void*) offset);
+          }
         } else {
-          glVertexAttribIPointer(location, attribute.count, attribute.type, mesh->stride, (void*) offset);
+          glVertexAttribPointer(location, attribute.count, attribute.type, GL_FALSE, mesh->stride, (void*) offset);
         }
       } else {
-        glVertexAttribPointer(location, attribute.count, attribute.type, GL_FALSE, mesh->stride, (void*) offset);
+        glDisableVertexAttribArray(location);
       }
-    } else {
-      glDisableVertexAttribArray(location);
     }
 
     offset += sizeof(attribute.type) * attribute.count;
