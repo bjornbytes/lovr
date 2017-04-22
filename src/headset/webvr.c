@@ -104,34 +104,51 @@ void lovrHeadsetSetBoundsVisible(char visible) {
 }
 
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
-  emscripten_vr_get_position(x, y, z);
+  float v[3];
+  emscripten_vr_get_position(&v[0], &v[1], &v[2]);
+  mat4_transform(emscripten_vr_get_sitting_to_standing_matrix(), v);
+  *x = v[0];
+  *y = v[1];
+  *z = v[2];
 }
 
 void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
   int i = eye == EYE_LEFT ? 0 : 1;
   emscripten_vr_get_eye_offset(i, x, y, z);
   float m[16];
-  mat4_translate(mat4_identity(m), *x, *y, *z);
-  mat4_multiply(m, emscripten_vr_get_view_matrix(i));
-  float v[3] = { 0, 0, 0 };
-  mat4_transform(m, v);
+  mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix(i));
+  mat4_multiply(m, mat4_invert(emscripten_vr_get_view_matrix(i)));
+  mat4_translate(m, *x, *y, *z);
+  *x = m[12];
+  *y = m[13];
+  *z = m[14];
+}
+
+void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
+  float quat[4];
+  float m[16];
+  emscripten_vr_get_orientation(&quat[0], &quat[1], &quat[2], &quat[3]);
+  mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix());
+  mat4_rotateQuat(m, quat);
+  quat_getAngleAxis(quat_fromMat4(quat, m), angle, x, y, z);
+}
+
+void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
+  float v[3];
+  emscripten_vr_get_velocity(&v[0], &v[1], &v[2]);
+  mat4_transformDirection(emscripten_vr_get_sitting_to_standing_matrix(), v);
   *x = v[0];
   *y = v[1];
   *z = v[2];
 }
 
-void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
-  float quat[4];
-  emscripten_vr_get_orientation(quat, quat + 1, quat + 2, quat + 3);
-  quat_getAngleAxis(quat, angle, x, y, z);
-}
-
-void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
-  emscripten_vr_get_velocity(x, y, z);
-}
-
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
-  emscripten_vr_get_angular_velocity(x, y, z);
+  float v[3];
+  emscripten_vr_get_angular_velocity(&v[0], &v[1], &v[2]);
+  mat4_transformDirection(emscripten_vr_get_sitting_to_standing_matrix(), v);
+  *x = v[0];
+  *y = v[1];
+  *z = v[2];
 }
 
 vec_controller_t* lovrHeadsetGetControllers() {
