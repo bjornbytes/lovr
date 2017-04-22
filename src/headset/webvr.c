@@ -1,5 +1,6 @@
 #include "headset/headset.h"
 #include "graphics/graphics.h"
+#include "lib/vec/vec.h"
 #include <math/mat4.h>
 #include <math/quat.h>
 #include <emscripten.h>
@@ -7,6 +8,7 @@
 
 typedef struct {
   headsetRenderCallback renderCallback;
+  vec_controller_t controllers;
 } HeadsetState;
 
 static HeadsetState state;
@@ -48,11 +50,19 @@ static void onRequestAnimationFrame(void* userdata) {
 }
 
 void lovrHeadsetInit() {
+  vec_init(&state.controllers);
   emscripten_vr_init();
+  atexit(lovrHeadsetDestroy);
 }
 
 void lovrHeadsetDestroy() {
-  //
+  Controller* controller;
+  int i;
+  vec_foreach(&state.controllers, controller, i) {
+    lovrRelease(&controller->ref);
+  }
+
+  vec_deinit(&state.controllers);
 }
 
 void lovrHeadsetPoll() {
@@ -157,7 +167,19 @@ void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
 }
 
 vec_controller_t* lovrHeadsetGetControllers() {
-  return NULL;
+  int controllerCount = emscripten_vr_get_controller_count();
+
+  while (state.controllers.length > controllerCount) {
+    lovrRelease(&state.controllers.data[i]->ref);
+    vec_pop(&state.controllers);
+  }
+
+  while (state.controllers.length < controllerCount) {
+    Controller* controller = lovrAlloc(sizeof(Controller), lovrControllerDestroy);
+    vec_push(&state.controllers, controller);
+  }
+
+  return &state.controllers;
 }
 
 int lovrHeadsetControllerIsPresent(Controller* controller) {
@@ -165,11 +187,21 @@ int lovrHeadsetControllerIsPresent(Controller* controller) {
 }
 
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
-  *x = *y = *z = 0;
+  float v[3];
+  emscripten_vr_get_controller_position(controller->id, &v[0], &v[1], &v[2]);
+  mat4_transform(emscripten_vr_get_sitting_to_standing_matrix(), v);
+  *x = v[0];
+  *y = v[1];
+  *z = v[2];
 }
 
 void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
-  *angle = *x = *y = *z = 0;
+  float quat[4];
+  float m[16];
+  emscripten_vr_get_controller_orientation(controller->id, &quat[0], &quat[1], &quat[2], &quat[3]);
+  mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix());
+  mat4_rotateQuat(m, quat);
+  quat_getAngleAxis(quat_fromMat4(quat, m), angle, x, y, z);
 }
 
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
