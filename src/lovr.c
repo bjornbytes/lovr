@@ -108,20 +108,13 @@ void lovrDestroy(int exitCode) {
 
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
+
+static int stepRef = 0;
+
 static void emscriptenLoop(void* arg) {
   lua_State* L = arg;
 
-  // lovr.step
-  lua_getglobal(L, "lovr");
-  if (lua_isnil(L, -1)) {
-    return;
-  }
-
-  lua_getfield(L, -1, "step");
-  if (lua_isnil(L, -1)) {
-    return;
-  }
-
+  lua_rawgeti(L, LUA_REGISTRYINDEX, stepRef);
   lua_call(L, 0, 0);
 }
 
@@ -133,7 +126,12 @@ void lovrRun(lua_State* L) {
     lua_getfield(L, -1, "load");
     if (!lua_isnil(L, -1)) {
       lua_call(L, 0, 0);
+    } else {
+      lua_pop(L, 1);
     }
+
+    lua_getfield(L, -1, "step");
+    stepRef = luaL_ref(L, LUA_REGISTRYINDEX);
   }
 
   emscripten_set_main_loop_arg(emscriptenLoop, (void*) L, 0, 1);

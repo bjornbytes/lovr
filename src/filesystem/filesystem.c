@@ -79,6 +79,7 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
   CoTaskMemFree(appData);
   return 0;
 #elif EMSCRIPTEN
+  strncpy(dest, "/home/web_user", size);
   return 0;
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetAppdataDirectory"
