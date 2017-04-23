@@ -21,17 +21,22 @@ static void onRequestAnimationFrame(void* userdata) {
 
   float projection[16];
   float transform[16];
-  float sittingToStanding[16];
 
-  mat4_set(sittingToStanding, emscripten_vr_get_sitting_to_standing_matrix());
-  mat4_invert(sittingToStanding);
+  mat4 sittingToStanding = emscripten_vr_get_sitting_to_standing_matrix();
+
+  if (sittingToStanding) {
+    mat4_invert(sittingToStanding);
+  }
 
   for (HeadsetEye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
     int isRight = eye == EYE_RIGHT;
 
     mat4_set(projection, emscripten_vr_get_projection_matrix(isRight));
     mat4_set(transform, emscripten_vr_get_view_matrix(isRight));
-    mat4_multiply(transform, sittingToStanding);
+
+    if (sittingToStanding) {
+      mat4_multiply(transform, sittingToStanding);
+    }
 
     lovrGraphicsPush();
     lovrGraphicsOrigin();
