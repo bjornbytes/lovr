@@ -170,12 +170,14 @@ vec_controller_t* lovrHeadsetGetControllers() {
   int controllerCount = emscripten_vr_get_controller_count();
 
   while (state.controllers.length > controllerCount) {
-    lovrRelease(&state.controllers.data[i]->ref);
+    Controller* controller = vec_last(&state.controllers);
+    lovrRelease(&controller->ref);
     vec_pop(&state.controllers);
   }
 
   while (state.controllers.length < controllerCount) {
     Controller* controller = lovrAlloc(sizeof(Controller), lovrControllerDestroy);
+    controller->id = state.controllers.length;
     vec_push(&state.controllers, controller);
   }
 
@@ -183,7 +185,7 @@ vec_controller_t* lovrHeadsetGetControllers() {
 }
 
 int lovrHeadsetControllerIsPresent(Controller* controller) {
-  return 0;
+  return emscripten_vr_controller_is_present(controller->id);
 }
 
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
@@ -205,15 +207,31 @@ void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, f
 }
 
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
-  return 0;
+  switch (axis) {
+    case CONTROLLER_AXIS_TRIGGER: return emscripten_vr_controller_get_axis(controller->id, -1);
+    case CONTROLLER_AXIS_TOUCHPAD_X: return emscripten_vr_controller_get_axis(controller->id, 0);
+    case CONTROLLER_AXIS_TOUCHPAD_Y: return emscripten_vr_controller_get_axis(controller->id, 1);
+    default: return 0;
+  }
 }
 
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
-  return 0;
+  switch (button) {
+    case CONTROLLER_BUTTON_TOUCHPAD:
+      return emscripten_vr_controller_is_down(controller->id, 0);
+
+    case CONTROLLER_BUTTON_GRIP:
+      return emscripten_vr_controller_is_down(controller->id, 2);
+
+    case CONTROLLER_BUTTON_MENU:
+      return emscripten_vr_controller_is_down(controller->id, 3);
+
+    default: return 0;
+  }
 }
 
-void lovrHeadsetControllerVibrate(Controller* controller, float duration) {
-  //
+void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {
+  emscripten_vr_controller_vibrate(controller->id, duration * 1000, power);
 }
 
 ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {

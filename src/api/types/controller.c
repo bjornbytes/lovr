@@ -48,7 +48,8 @@ int l_lovrControllerIsDown(lua_State* L) {
 int l_lovrControllerVibrate(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   float duration = luaL_optnumber(L, 2, .5);
-  lovrHeadsetControllerVibrate(controller, duration);
+  float power = luaL_optnumber(L, 3, 1);
+  lovrHeadsetControllerVibrate(controller, duration, power);
   return 0;
 }
 

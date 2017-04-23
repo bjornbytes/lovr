@@ -57,7 +57,7 @@ void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y
 void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z);
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
-void lovrHeadsetControllerVibrate(Controller* controller, float duration);
+void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power);
 ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
 TextureData* lovrHeadsetControllerNewTextureData(Controller* controller);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);

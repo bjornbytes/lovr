@@ -490,7 +490,7 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
   return 0;
 }
 
-void lovrHeadsetControllerVibrate(Controller* controller, float duration) {
+void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {
   if (!state.isInitialized || !controller || duration <= 0) return;
 
   uint32_t axis = 0;
