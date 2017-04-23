@@ -35,6 +35,7 @@ typedef vec_t(MeshAttribute) MeshFormat;
 
 typedef struct {
   Ref ref;
+  void* data;
   int count;
   int stride;
   int enabledAttributes;

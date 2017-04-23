@@ -5,10 +5,17 @@ map_int_t ControllerAxes;
 map_int_t ControllerButtons;
 map_int_t HeadsetEyes;
 
+typedef struct {
+  lua_State* L;
+  int ref;
+} HeadsetRenderData;
+
+static HeadsetRenderData headsetRenderData;
+
 static void renderHelper(HeadsetEye eye, void* userdata) {
-  lua_State* L = (lua_State*)userdata;
-  luaL_checktype(L, 1, LUA_TFUNCTION);
-  lua_pushvalue(L, 1);
+  HeadsetRenderData* renderData = userdata;
+  lua_State* L = renderData->L;
+  lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
   luax_pushenum(L, &HeadsetEyes, eye);
   lua_call(L, 1, 0);
 }
@@ -34,6 +41,8 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&ControllerButtons, "touchpad", CONTROLLER_BUTTON_TOUCHPAD);
 
   lovrHeadsetInit();
+
+  headsetRenderData.ref = LUA_NOREF;
 
   return 1;
 }
@@ -127,17 +136,6 @@ int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
   return 1;
 }
 
-int l_lovrHeadsetIsBoundsVisible(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetIsBoundsVisible());
-  return 1;
-}
-
-int l_lovrHeadsetSetBoundsVisible(lua_State* L) {
-  char visible = lua_toboolean(L, 1);
-  lovrHeadsetSetBoundsVisible(visible);
-  return 0;
-}
-
 int l_lovrHeadsetGetPosition(lua_State* L) {
   float x, y, z;
   lovrHeadsetGetPosition(&x, &y, &z);
@@ -212,8 +210,16 @@ int l_lovrHeadsetGetControllerCount(lua_State* L) {
 }
 
 int l_lovrHeadsetRenderTo(lua_State* L) {
+  lua_settop(L, 1);
   luaL_checktype(L, 1, LUA_TFUNCTION);
-  lovrHeadsetRenderTo(renderHelper, L);
+
+  if (headsetRenderData.ref != LUA_NOREF) {
+    luaL_unref(L, LUA_REGISTRYINDEX, headsetRenderData.ref);
+  }
+
+  headsetRenderData.ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  headsetRenderData.L = L;
+  lovrHeadsetRenderTo(renderHelper, &headsetRenderData);
   return 0;
 }
 
@@ -231,8 +237,6 @@ const luaL_Reg lovrHeadset[] = {
   { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
   { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
   { "getBoundsGeometry", l_lovrHeadsetGetBoundsGeometry },
-  { "isBoundsVisible", l_lovrHeadsetIsBoundsVisible },
-  { "setBoundsVisible", l_lovrHeadsetSetBoundsVisible },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getEyePosition", l_lovrHeadsetGetEyePosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },

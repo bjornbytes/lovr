@@ -236,16 +236,6 @@ void lovrHeadsetGetBoundsGeometry(float* geometry) {
   }
 }
 
-char lovrHeadsetIsBoundsVisible() {
-  if (!state.isInitialized) return 0;
-  return state.chaperone->AreBoundsVisible();
-}
-
-void lovrHeadsetSetBoundsVisible(char visible) {
-  if (!state.isInitialized) return;
-  state.chaperone->ForceBoundsVisible(visible);
-}
-
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
   if (!state.isInitialized) {
     *x = *y = *z = 0.f;
@@ -490,7 +480,7 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
   return 0;
 }
 
-void lovrHeadsetControllerVibrate(Controller* controller, float duration) {
+void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {
   if (!state.isInitialized || !controller || duration <= 0) return;
 
   uint32_t axis = 0;

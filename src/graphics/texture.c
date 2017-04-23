@@ -3,11 +3,24 @@
 #include "math/mat4.h"
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 static GLenum getGLFormat(TextureFormat format) {
   switch (format) {
-    case FORMAT_RED: return GL_RED;
-    case FORMAT_RG: return GL_RG;
+    case FORMAT_RED:
+      if (GLAD_GL_VERSION_3_0 || GLAD_GL_ARB_texture_rg || GLAD_GL_EXT_texture_rg) {
+        return GL_RED;
+      } else {
+        return GL_LUMINANCE;
+      }
+
+    case FORMAT_RG:
+      if (GLAD_GL_VERSION_3_0 || GLAD_GL_ARB_texture_rg || GLAD_GL_EXT_texture_rg) {
+        return GL_RG;
+      } else {
+        return GL_LUMINANCE_ALPHA;
+      }
+
     case FORMAT_RGB: return GL_RGB;
     case FORMAT_RGBA: return GL_RGBA;
   }
@@ -177,6 +190,10 @@ void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertic
 }
 
 void lovrTextureSetWrap(Texture* texture, WrapMode horizontal, WrapMode vertical) {
+  if (GLAD_GL_ES_VERSION_2_0) {
+    horizontal = vertical = WRAP_CLAMP;
+  }
+
   texture->wrapHorizontal = horizontal;
   texture->wrapVertical = vertical;
   lovrGraphicsBindTexture(texture);

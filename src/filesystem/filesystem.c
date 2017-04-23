@@ -78,6 +78,9 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
   wcstombs(dest, appData, size);
   CoTaskMemFree(appData);
   return 0;
+#elif EMSCRIPTEN
+  strncpy(dest, "/home/web_user", size);
+  return 0;
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetAppdataDirectory"
 #endif
@@ -96,6 +99,8 @@ int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
   }
 #elif _WIN32
   return !GetModuleFileName(NULL, dest, size);
+#elif EMSCRIPTEN
+  return 1;
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetExecutablePath"
 #endif

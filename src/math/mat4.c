@@ -233,3 +233,11 @@ void mat4_transform(mat4 m, vec3 v) {
     v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14]
   );
 }
+
+void mat4_transformDirection(mat4 m, vec3 v) {
+  vec3_set(v,
+    v[0] * m[0] + v[1] * m[4] + v[2] * m[8],
+    v[0] * m[1] + v[1] * m[5] + v[2] * m[9],
+    v[0] * m[2] + v[1] * m[6] + v[2] * m[10]
+  );
+}

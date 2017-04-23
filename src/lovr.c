@@ -29,6 +29,8 @@ static int lovrGetOS(lua_State* L) {
 #elif __APPLE__
   lua_pushstring(L, "macOS");
   return 1;
+#elif EMSCRIPTEN
+  lua_pushstring(L, "Web");
 #endif
   lua_pushnil(L);
   return 1;
@@ -104,6 +106,37 @@ void lovrDestroy(int exitCode) {
   exit(exitCode);
 }
 
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+
+static int stepRef = 0;
+
+static void emscriptenLoop(void* arg) {
+  lua_State* L = arg;
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, stepRef);
+  lua_call(L, 0, 0);
+}
+
+void lovrRun(lua_State* L) {
+
+  // lovr.load
+  lua_getglobal(L, "lovr");
+  if (!lua_isnil(L, -1)) {
+    lua_getfield(L, -1, "load");
+    if (!lua_isnil(L, -1)) {
+      lua_call(L, 0, 0);
+    } else {
+      lua_pop(L, 1);
+    }
+
+    lua_getfield(L, -1, "step");
+    stepRef = luaL_ref(L, LUA_REGISTRYINDEX);
+  }
+
+  emscripten_set_main_loop_arg(emscriptenLoop, (void*) L, 0, 1);
+}
+#else
 void lovrRun(lua_State* L) {
   lua_pushcfunction(L, getStackTrace);
 
@@ -129,3 +162,4 @@ void lovrRun(lua_State* L) {
 
   lovrDestroy(exitCode);
 }
+#endif

@@ -4,22 +4,37 @@
 #include <stdlib.h>
 
 const char* lovrShaderVertexPrefix = ""
+#ifdef EMSCRIPTEN
+"#version 100 \n"
+"precision mediump float; \n"
+"attribute vec3 lovrPosition; \n"
+"attribute vec3 lovrNormal; \n"
+"attribute vec2 lovrTexCoord; \n"
+"varying vec2 texCoord; \n"
+#else
 "#version 150 \n"
-"uniform mat4 lovrTransform; \n"
-"uniform mat4 lovrProjection; \n"
 "in vec3 lovrPosition; \n"
 "in vec3 lovrNormal; \n"
 "in vec2 lovrTexCoord; \n"
 "out vec2 texCoord; \n"
+#endif
+"uniform mat4 lovrTransform; \n"
+"uniform mat4 lovrProjection; \n"
 "";
 
 const char* lovrShaderFragmentPrefix = ""
+#ifdef EMSCRIPTEN
+"#version 100 \n"
+"precision mediump float; \n"
+"varying vec2 texCoord; \n"
+#else
 "#version 150 \n"
-"uniform vec4 lovrColor; \n"
-"uniform sampler2D lovrTexture; \n"
 "in vec2 texCoord; \n"
 "in vec4 gl_FragCoord; \n"
 "out vec4 lovrFragColor; \n"
+#endif
+"uniform vec4 lovrColor; \n"
+"uniform sampler2D lovrTexture; \n"
 "";
 
 const char* lovrShaderVertexSuffix = ""
@@ -31,7 +46,11 @@ const char* lovrShaderVertexSuffix = ""
 
 const char* lovrShaderFragmentSuffix = ""
 "void main() { \n"
+#ifdef EMSCRIPTEN
+"  gl_FragColor = color(lovrColor, lovrTexture, texCoord); \n"
+#else
 "  lovrFragColor = color(lovrColor, lovrTexture, texCoord); \n"
+#endif
 "}"
 "";
 
@@ -43,12 +62,20 @@ const char* lovrDefaultVertexShader = ""
 
 const char* lovrDefaultFragmentShader = ""
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
+#ifdef EMSCRIPTEN
+"  return graphicsColor * texture2D(image, uv); \n"
+#else
 "  return graphicsColor * texture(image, uv); \n"
+#endif
 "}"
 "";
 
 const char* lovrSkyboxVertexShader = ""
+#ifdef EMSCRIPTEN
+"varying vec3 texturePosition; \n"
+#else
 "out vec3 texturePosition; \n"
+#endif
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  texturePosition = vertex.xyz; \n"
 "  return projection * transform * vertex; \n"
@@ -56,11 +83,19 @@ const char* lovrSkyboxVertexShader = ""
 "";
 
 const char* lovrSkyboxFragmentShader = ""
+#ifdef EMSCRIPTEN
+"varying vec3 texturePosition; \n"
+"uniform samplerCube cube; \n"
+"vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
+"  return graphicsColor * textureCube(cube, texturePosition); \n"
+"}"
+#else
 "in vec3 texturePosition; \n"
 "uniform samplerCube cube; \n"
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  return graphicsColor * texture(cube, texturePosition); \n"
 "}"
+#endif
 "";
 
 const char* lovrNoopVertexShader = ""

@@ -17,3 +17,4 @@ mat4 mat4_setTransform(mat4 m, float x, float y, float z, float s, float angle, 
 mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float near, float far);
 mat4 mat4_perspective(mat4 m, float near, float far, float fov, float aspect);
 void mat4_transform(mat4 m, vec3 v);
+void mat4_transformDirection(mat4 m, vec3 v);
