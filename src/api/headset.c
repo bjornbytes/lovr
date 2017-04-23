@@ -42,6 +42,8 @@ int l_lovrHeadsetInit(lua_State* L) {
 
   lovrHeadsetInit();
 
+  headsetRenderData.ref = LUA_NOREF;
+
   return 1;
 }
 
@@ -121,12 +123,7 @@ int l_lovrHeadsetGetBoundsDimensions(lua_State* L) {
 
 int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
   float geometry[12];
-
-  if (lovrHeadsetGetBoundsGeometry(geometry)) {
-    lua_pushnil(L);
-    return 1;
-  }
-
+  lovrHeadsetGetBoundsGeometry(geometry);
   lua_newtable(L);
   for (int i = 0; i < 4; i++) {
     lua_newtable(L);
@@ -216,7 +213,7 @@ int l_lovrHeadsetRenderTo(lua_State* L) {
   lua_settop(L, 1);
   luaL_checktype(L, 1, LUA_TFUNCTION);
 
-  if (headsetRenderData.ref) {
+  if (headsetRenderData.ref != LUA_NOREF) {
     luaL_unref(L, LUA_REGISTRYINDEX, headsetRenderData.ref);
   }
 
