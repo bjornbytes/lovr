@@ -236,16 +236,6 @@ void lovrHeadsetGetBoundsGeometry(float* geometry) {
   }
 }
 
-char lovrHeadsetIsBoundsVisible() {
-  if (!state.isInitialized) return 0;
-  return state.chaperone->AreBoundsVisible();
-}
-
-void lovrHeadsetSetBoundsVisible(char visible) {
-  if (!state.isInitialized) return;
-  state.chaperone->ForceBoundsVisible(visible);
-}
-
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
   if (!state.isInitialized) {
     *x = *y = *z = 0.f;

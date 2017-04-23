@@ -121,7 +121,12 @@ int l_lovrHeadsetGetBoundsDimensions(lua_State* L) {
 
 int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
   float geometry[12];
-  lovrHeadsetGetBoundsGeometry(geometry);
+
+  if (lovrHeadsetGetBoundsGeometry(geometry)) {
+    lua_pushnil(L);
+    return 1;
+  }
+
   lua_newtable(L);
   for (int i = 0; i < 4; i++) {
     lua_newtable(L);
@@ -132,17 +137,6 @@ int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
-}
-
-int l_lovrHeadsetIsBoundsVisible(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetIsBoundsVisible());
-  return 1;
-}
-
-int l_lovrHeadsetSetBoundsVisible(lua_State* L) {
-  char visible = lua_toboolean(L, 1);
-  lovrHeadsetSetBoundsVisible(visible);
-  return 0;
 }
 
 int l_lovrHeadsetGetPosition(lua_State* L) {
@@ -246,8 +240,6 @@ const luaL_Reg lovrHeadset[] = {
   { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
   { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
   { "getBoundsGeometry", l_lovrHeadsetGetBoundsGeometry },
-  { "isBoundsVisible", l_lovrHeadsetIsBoundsVisible },
-  { "setBoundsVisible", l_lovrHeadsetSetBoundsVisible },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getEyePosition", l_lovrHeadsetGetEyePosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },

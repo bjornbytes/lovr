@@ -78,7 +78,7 @@ const char* lovrHeadsetGetType() {
 }
 
 int lovrHeadsetIsMirrored() {
-  return 0;
+  return 1;
 }
 
 void lovrHeadsetSetMirrored(int mirror) {
@@ -107,15 +107,7 @@ float lovrHeadsetGetBoundsDepth() {
 }
 
 void lovrHeadsetGetBoundsGeometry(float* geometry) {
-  // Not supported
-}
-
-char lovrHeadsetIsBoundsVisible() {
-  return 0; // Not supported
-}
-
-void lovrHeadsetSetBoundsVisible(char visible) {
-  // Not supported
+  memset(geometry, 0, 12 * sizeof(float));
 }
 
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {

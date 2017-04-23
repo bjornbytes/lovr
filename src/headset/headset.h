@@ -44,8 +44,6 @@ void lovrHeadsetSetClipDistance(float near, float far);
 float lovrHeadsetGetBoundsWidth();
 float lovrHeadsetGetBoundsDepth();
 void lovrHeadsetGetBoundsGeometry(float* geometry);
-char lovrHeadsetIsBoundsVisible();
-void lovrHeadsetSetBoundsVisible(char visible);
 void lovrHeadsetGetPosition(float* x, float* y, float* z);
 void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z);
 void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z);
