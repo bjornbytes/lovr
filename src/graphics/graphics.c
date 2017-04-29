@@ -133,7 +133,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetPerspective(.1f, 100.f, 67 * M_PI / 180);
   lovrGraphicsSetShader(NULL);
   lovrGraphicsBindTexture(NULL);
-  lovrGraphicsSetBackgroundColor(0, 0, 0, 0);
+  lovrGraphicsSetBackgroundColor(0, 0, 0, 255);
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor(255, 255, 255, 255);
   lovrGraphicsSetColorMask(1, 1, 1, 1);

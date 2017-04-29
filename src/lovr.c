@@ -31,8 +31,9 @@ static int lovrGetOS(lua_State* L) {
   return 1;
 #elif EMSCRIPTEN
   lua_pushstring(L, "Web");
-#endif
+#else
   lua_pushnil(L);
+#endif
   return 1;
 }
 

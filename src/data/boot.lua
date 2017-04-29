@@ -40,7 +40,11 @@ if not lovr.filesystem.getSource() or not runnable then
         model:draw(x, y, z, 1, controller:getOrientation())
       end
 
-      lovr.graphics.translate(0, 2, 0)
+      if lovr.getOS() == 'Web' then
+        lovr.graphics.translate(0, .2, 0)
+      else
+        lovr.graphics.translate(0, 2, 0)
+      end
     else
       lovr.graphics.translate(0, .2, 0)
     end
