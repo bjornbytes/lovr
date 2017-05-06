@@ -688,7 +688,7 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 int l_lovrGraphicsNewSkybox(lua_State* L) {
-  Blob* blobs[6];
+  Blob* blobs[6] = { NULL };
   SkyboxType type;
 
   if (lua_gettop(L) == 1 && lua_type(L, 1) == LUA_TSTRING) {
@@ -724,7 +724,9 @@ int l_lovrGraphicsNewSkybox(lua_State* L) {
   lovrRelease(&skybox->ref);
 
   for (int i = 0; i < 6; i++) {
-    lovrRelease(&blobs[i]->ref);
+    if (blobs[i]) {
+      lovrRelease(&blobs[i]->ref);
+    }
   }
 
   return 1;
