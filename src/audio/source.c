@@ -64,7 +64,11 @@ int lovrSourceGetChannels(Source* source) {
 }
 
 void lovrSourceGetDirection(Source* source, float* x, float* y, float* z) {
-  alGetSource3f(source->id, AL_DIRECTION, x, y, z);
+  float v[3];
+  alGetSourcefv(source->id, AL_DIRECTION, v);
+  *x = v[0];
+  *y = v[1];
+  *z = v[2];
 }
 
 int lovrSourceGetDuration(Source* source) {
@@ -84,7 +88,11 @@ float lovrSourceGetPitch(Source* source) {
 }
 
 void lovrSourceGetPosition(Source* source, float* x, float* y, float* z) {
-  alGetSource3f(source->id, AL_POSITION, x, y, z);
+  float v[3];
+  alGetSourcefv(source->id, AL_POSITION, v);
+  *x = v[0];
+  *y = v[1];
+  *z = v[2];
 }
 
 int lovrSourceGetSampleRate(Source* source) {
@@ -92,7 +100,11 @@ int lovrSourceGetSampleRate(Source* source) {
 }
 
 void lovrSourceGetVelocity(Source* source, float* x, float* y, float* z) {
-  alGetSource3f(source->id, AL_VELOCITY, x, y, z);
+  float v[3];
+  alGetSourcefv(source->id, AL_VELOCITY, v);
+  *x = v[0];
+  *y = v[1];
+  *z = v[2];
 }
 
 float lovrSourceGetVolume(Source* source) {

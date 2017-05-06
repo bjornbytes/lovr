@@ -76,8 +76,12 @@ void lovrAudioAdd(Source* source) {
 }
 
 void lovrAudioGetDopplerEffect(float* factor, float* speedOfSound) {
-  *factor = alGetFloat(AL_DOPPLER_FACTOR);
-  *speedOfSound = alGetFloat(AL_SPEED_OF_SOUND);
+#ifdef EMSCRIPTEN
+  *factor = *speedOfSound = 0;
+#else
+  alGetFloatv(AL_DOPPLER_FACTOR, factor);
+  alGetFloatv(AL_SPEED_OF_SOUND, speedOfSound);
+#endif
 }
 
 void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az) {
@@ -134,8 +138,10 @@ void lovrAudioRewind() {
 }
 
 void lovrAudioSetDopplerEffect(float scale, float speedOfSound) {
+#ifndef EMSCRIPTEN
   alDopplerFactor(scale);
   alSpeedOfSound(speedOfSound);
+#endif
 }
 
 void lovrAudioSetOrientation(float angle, float ax, float ay, float az) {
