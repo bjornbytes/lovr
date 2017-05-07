@@ -76,20 +76,17 @@ end
 Audio is spatialized using HRTFs, and the virtual audio listener is synchronized with the pose of
 the HMD.
 
-For more examples, check out the [`examples`](examples) folder.
+For more examples, see <http://lovr.org/examples>.
 
 Hardware Support
 ---
 
-- HTC Vive (full support via OpenVR)
-- Oculus Touch (partial support via OpenVR)
-- WebVR (partial support, see `webvr` branch)
-- Mobile VR (no support currently)
+LÖVR supports headsets compatible with OpenVR or WebVR.  Notably, the HTC Vive is well tested.
 
 Documentation
 ---
 
-See <http://lovr.org/docs> for examples and API reference.  The documentation is open source
+See <http://lovr.org/docs> for guides and API reference.  The documentation is open source
 and can be found [here](https://github.com/bjornbytes/lovr-docs).
 
 Compiling
@@ -108,6 +105,7 @@ a custom build.
 - PhysicsFS
 - OpenAL (1.17+ recommended for HRTF support)
 - FreeType
+- Emscripten (optional, for compiling for web)
 
 See [lovr-deps](https://github.com/bjornbytes/lovr-deps) for a GitHub repo containing all of these
 as submodules.
@@ -179,6 +177,27 @@ The `lovr` executable should exist in `lovr/build` now.  You can run a game like
 
 You can also copy or symlink LÖVR into a directory on your `PATH` environment variable (e.g.
 `/usr/local/bin`) and run games from anywhere by just typing `lovr`.
+
+#### WebVR
+
+First, install the Emscripten SDK.  Make sure you're running [this
+branch](https://github.com/bjornbytes/emscripten/tree/lovr) of Emscripten.
+
+```sh
+mkdir build
+cd build
+emcmake cmake -DCMAKE_BUILD_TYPE=Release ..
+emmake make -j2
+```
+
+The above commands will output `lovr.html`, `lovr.js`, and `lovr.js.mem`.  To package a game, run:
+
+```
+python /path/to/emscripten/tools/file_packager.py game.data --preload /path/to/game@/ --js-output=game.js
+```
+
+Which will output `game.js` and `game.data`.  The `lovr.html` file will need to be modified to
+include `game.js` in a script tag.
 
 License
 ---
