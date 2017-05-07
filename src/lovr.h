@@ -1,9 +1,9 @@
 #include "luax.h"
 
 #define LOVR_VERSION_MAJOR 0
-#define LOVR_VERSION_MINOR 5
+#define LOVR_VERSION_MINOR 6
 #define LOVR_VERSION_PATCH 0
-#define LOVR_VERSION_ALIAS "Psychotic Octopus"
+#define LOVR_VERSION_ALIAS "Unstoppable Okapi"
 
 void lovrInit(lua_State* L, int argc, char** argv);
 void lovrDestroy(int exitCode);
