@@ -44,3 +44,5 @@ void lovrBodySetAngularDamping(Body* body, float damping, float threshold);
 void lovrBodyApplyForce(Body* body, float x, float y, float z);
 void lovrBodyApplyForceAtPosition(Body* body, float x, float y, float z, float cx, float cy, float cz);
 void lovrBodyApplyTorque(Body* body, float x, float y, float z);
+int lovrBodyIsKinematic(Body* body);
+void lovrBodySetKinematic(Body* body, int kinematic);

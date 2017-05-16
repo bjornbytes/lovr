@@ -140,6 +140,19 @@ int l_lovrBodyApplyTorque(lua_State* L) {
   return 0;
 }
 
+int l_lovrBodyIsKinematic(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  lua_pushboolean(L, lovrBodyIsKinematic(body));
+  return 1;
+}
+
+int l_lovrBodySetKinematic(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  int kinematic = lua_toboolean(L, 2);
+  lovrBodySetKinematic(body, kinematic);
+  return 0;
+}
+
 const luaL_Reg lovrBody[] = {
   { "getPosition", l_lovrBodyGetPosition },
   { "setPosition", l_lovrBodySetPosition },
@@ -155,5 +168,7 @@ const luaL_Reg lovrBody[] = {
   { "setAngularDamping", l_lovrBodySetAngularDamping },
   { "applyForce", l_lovrBodyApplyForce },
   { "applyTorque", l_lovrBodyApplyForce },
+  { "isKinematic", l_lovrBodyIsKinematic },
+  { "setKinematic", l_lovrBodySetKinematic },
   { NULL, NULL }
 };

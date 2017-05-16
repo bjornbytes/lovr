@@ -172,3 +172,15 @@ void lovrBodyApplyForceAtPosition(Body* body, float x, float y, float z, float c
 void lovrBodyApplyTorque(Body* body, float x, float y, float z) {
   dBodyAddTorque(body->id, x, y, z);
 }
+
+int lovrBodyIsKinematic(Body* body) {
+  return dBodyIsKinematic(body->id);
+}
+
+void lovrBodySetKinematic(Body* body, int kinematic) {
+  if (kinematic) {
+    dBodySetKinematic(body->id);
+  } else {
+    dBodySetDynamic(body->id);
+  }
+}
