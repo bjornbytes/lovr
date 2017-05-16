@@ -135,3 +135,30 @@ int l_lovrShapeSetCategory(lua_State* L) {
   lovrShapeSetCategory(shape, category);
   return 0;
 }
+
+int l_lovrShapeGetMask(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  uint32_t mask = lovrShapeGetMask(shape);
+  int count = 0;
+
+  for (int i = 0; i < 32; i++) {
+    if (mask & (1 << i)) {
+      lua_pushinteger(L, i + 1);
+      count++;
+    }
+  }
+
+  return count;
+}
+
+int l_lovrShapeSetMask(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  uint32_t mask = 0;
+
+  for (int i = 2; i <= lua_gettop(L); i++) {
+    mask |= (1 << luaL_checkinteger(L, i));
+  }
+
+  lovrShapeSetMask(shape, ~mask);
+  return 0;
+}

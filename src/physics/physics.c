@@ -333,3 +333,11 @@ uint32_t lovrShapeGetCategory(Shape* shape) {
 void lovrShapeSetCategory(Shape* shape, uint32_t category) {
   dGeomSetCategoryBits(shape->id, category);
 }
+
+uint32_t lovrShapeGetMask(Shape* shape) {
+  return dGeomGetCollideBits(shape->id);
+}
+
+void lovrShapeSetMask(Shape* shape, uint32_t mask) {
+  dGeomSetCollideBits(shape->id, mask);
+}
