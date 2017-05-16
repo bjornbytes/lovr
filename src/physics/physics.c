@@ -160,3 +160,15 @@ void lovrBodySetAngularDamping(Body* body, float damping, float threshold) {
   dBodySetAngularDamping(body->id, damping);
   dBodySetAngularDampingThreshold(body->id, threshold);
 }
+
+void lovrBodyApplyForce(Body* body, float x, float y, float z) {
+  dBodyAddForce(body->id, x, y, z);
+}
+
+void lovrBodyApplyForceAtPosition(Body* body, float x, float y, float z, float cx, float cy, float cz) {
+  dBodyAddForceAtPos(body->id, x, y, z, cx, cy, cz);
+}
+
+void lovrBodyApplyTorque(Body* body, float x, float y, float z) {
+  dBodyAddTorque(body->id, x, y, z);
+}

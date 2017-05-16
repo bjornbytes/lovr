@@ -113,6 +113,33 @@ int l_lovrBodySetAngularDamping(lua_State* L) {
   return 0;
 }
 
+int l_lovrBodyApplyForce(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+
+  if (lua_gettop(L) > 4) {
+    float cx = luaL_checknumber(L, 5);
+    float cy = luaL_checknumber(L, 6);
+    float cz = luaL_checknumber(L, 7);
+    lovrBodyApplyForceAtPosition(body, x, y, z, cx, cy, cz);
+  } else {
+    lovrBodyApplyForce(body, x, y, z);
+  }
+
+  return 0;
+}
+
+int l_lovrBodyApplyTorque(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrBodyApplyTorque(body, x, y, z);
+  return 0;
+}
+
 const luaL_Reg lovrBody[] = {
   { "getPosition", l_lovrBodyGetPosition },
   { "setPosition", l_lovrBodySetPosition },
@@ -126,5 +153,7 @@ const luaL_Reg lovrBody[] = {
   { "setLinearDamping", l_lovrBodySetLinearDamping },
   { "getAngularDamping", l_lovrBodyGetAngularDamping },
   { "setAngularDamping", l_lovrBodySetAngularDamping },
+  { "applyForce", l_lovrBodyApplyForce },
+  { "applyTorque", l_lovrBodyApplyForce },
   { NULL, NULL }
 };
