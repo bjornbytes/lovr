@@ -153,6 +153,32 @@ int l_lovrBodySetKinematic(lua_State* L) {
   return 0;
 }
 
+int l_lovrBodyGetLocalPoint(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float wx = luaL_checknumber(L, 2);
+  float wy = luaL_checknumber(L, 3);
+  float wz = luaL_checknumber(L, 4);
+  float x, y, z;
+  lovrBodyGetLocalPoint(body, wx, wy, wz, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
+}
+
+int l_lovrBodyGetWorldPoint(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  float wx, wy, wz;
+  lovrBodyGetWorldPoint(body, x, y, z, &wx, &wy, &wz);
+  lua_pushnumber(L, wx);
+  lua_pushnumber(L, wy);
+  lua_pushnumber(L, wz);
+  return 3;
+}
+
 const luaL_Reg lovrBody[] = {
   { "getPosition", l_lovrBodyGetPosition },
   { "setPosition", l_lovrBodySetPosition },
@@ -170,5 +196,7 @@ const luaL_Reg lovrBody[] = {
   { "applyTorque", l_lovrBodyApplyForce },
   { "isKinematic", l_lovrBodyIsKinematic },
   { "setKinematic", l_lovrBodySetKinematic },
+  { "getLocalPoint", l_lovrBodyGetLocalPoint },
+  { "getWorldPoint", l_lovrBodyGetWorldPoint },
   { NULL, NULL }
 };

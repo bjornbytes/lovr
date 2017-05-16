@@ -46,3 +46,5 @@ void lovrBodyApplyForceAtPosition(Body* body, float x, float y, float z, float c
 void lovrBodyApplyTorque(Body* body, float x, float y, float z);
 int lovrBodyIsKinematic(Body* body);
 void lovrBodySetKinematic(Body* body, int kinematic);
+void lovrBodyGetLocalPoint(Body* body, float wx, float wy, float wz, float* x, float* y, float* z);
+void lovrBodyGetWorldPoint(Body* body, float x, float y, float z, float* wx, float* wy, float* wz);

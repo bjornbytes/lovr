@@ -184,3 +184,19 @@ void lovrBodySetKinematic(Body* body, int kinematic) {
     dBodySetDynamic(body->id);
   }
 }
+
+void lovrBodyGetLocalPoint(Body* body, float wx, float wy, float wz, float* x, float* y, float* z) {
+  dReal local[3];
+  dBodyGetPosRelPoint(body->id, wx, wy, wz, local);
+  *x = local[0];
+  *y = local[1];
+  *z = local[2];
+}
+
+void lovrBodyGetWorldPoint(Body* body, float x, float y, float z, float* wx, float* wy, float* wz) {
+  dReal world[3];
+  dBodyGetRelPointPos(body->id, x, y, z, world);
+  *wx = world[0];
+  *wy = world[1];
+  *wz = world[2];
+}
