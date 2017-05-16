@@ -150,3 +150,13 @@ void lovrBodySetLinearDamping(Body* body, float damping, float threshold) {
   dBodySetLinearDamping(body->id, damping);
   dBodySetLinearDampingThreshold(body->id, threshold);
 }
+
+void lovrBodyGetAngularDamping(Body* body, float* damping, float* threshold) {
+  *damping = dBodyGetAngularDamping(body->id);
+  *threshold = dBodyGetAngularDampingThreshold(body->id);
+}
+
+void lovrBodySetAngularDamping(Body* body, float damping, float threshold) {
+  dBodySetAngularDamping(body->id, damping);
+  dBodySetAngularDampingThreshold(body->id, threshold);
+}

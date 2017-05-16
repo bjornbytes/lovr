@@ -96,6 +96,23 @@ int l_lovrBodySetLinearDamping(lua_State* L) {
   return 0;
 }
 
+int l_lovrBodyGetAngularDamping(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float damping, threshold;
+  lovrBodyGetAngularDamping(body, &damping, &threshold);
+  lua_pushnumber(L, damping);
+  lua_pushnumber(L, threshold);
+  return 2;
+}
+
+int l_lovrBodySetAngularDamping(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float damping = luaL_checknumber(L, 2);
+  float threshold = luaL_optnumber(L, 3, .01);
+  lovrBodySetAngularDamping(body, damping, threshold);
+  return 0;
+}
+
 const luaL_Reg lovrBody[] = {
   { "getPosition", l_lovrBodyGetPosition },
   { "setPosition", l_lovrBodySetPosition },
@@ -107,5 +124,7 @@ const luaL_Reg lovrBody[] = {
   { "setAngularVelocity", l_lovrBodySetAngularVelocity },
   { "getLinearDamping", l_lovrBodyGetLinearDamping },
   { "setLinearDamping", l_lovrBodySetLinearDamping },
+  { "getAngularDamping", l_lovrBodyGetAngularDamping },
+  { "setAngularDamping", l_lovrBodySetAngularDamping },
   { NULL, NULL }
 };
