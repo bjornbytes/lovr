@@ -26,7 +26,7 @@
 
 int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f);
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions);
-void luax_extendtype(lua_State* L, const char* base, const char* name, const luaL_Reg* functions);
+void luax_extendtype(lua_State* L, const char* base, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions);
 int luax_releasetype(lua_State* L);
 int luax_getobject(lua_State* L, void* object);
 void luax_registerobject(lua_State* L, void* object);

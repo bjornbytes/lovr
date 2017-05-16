@@ -28,6 +28,7 @@ typedef struct {
 } Shape;
 
 typedef Shape SphereShape;
+typedef Shape BoxShape;
 
 void lovrPhysicsInit();
 void lovrPhysicsDestroy();
@@ -97,3 +98,7 @@ void lovrShapeSetMask(Shape* shape, uint32_t mask);
 SphereShape* lovrSphereShapeCreate(float radius);
 float lovrSphereShapeGetRadius(SphereShape* shape);
 void lovrSphereShapeSetRadius(SphereShape* shape, float radius);
+
+BoxShape* lovrBoxShapeCreate(float x, float y, float z);
+void lovrBoxShapeGetDimensions(BoxShape* shape, float* x, float* y, float* z);
+void lovrBoxShapeSetDimensions(BoxShape* shape, float x, float y, float z);

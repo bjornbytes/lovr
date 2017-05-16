@@ -163,20 +163,7 @@ int l_lovrShapeSetMask(lua_State* L) {
   return 0;
 }
 
-int l_lovrSphereShapeGetRadius(lua_State* L) {
-  SphereShape* sphere = luax_checktype(L, 1, SphereShape);
-  lua_pushnumber(L, lovrSphereShapeGetRadius(sphere));
-  return 1;
-}
-
-int l_lovrSphereShapeSetRadius(lua_State* L) {
-  SphereShape* sphere = luax_checktype(L, 1, SphereShape);
-  float radius = luaL_checknumber(L, 2);
-  lovrSphereShapeSetRadius(sphere, radius);
-  return 0;
-}
-
-const luaL_Reg lovrSphereShape[] = {
+const luaL_Reg lovrShape[] = {
   { "getType", l_lovrShapeGetType },
   { "getBody", l_lovrShapeGetBody },
   { "setBody", l_lovrShapeSetBody },
@@ -192,7 +179,49 @@ const luaL_Reg lovrSphereShape[] = {
   { "setCategory", l_lovrShapeSetCategory },
   { "getMask", l_lovrShapeGetMask },
   { "setMask", l_lovrShapeSetMask },
+  { NULL, NULL }
+};
+
+int l_lovrSphereShapeGetRadius(lua_State* L) {
+  SphereShape* sphere = luax_checktype(L, 1, SphereShape);
+  lua_pushnumber(L, lovrSphereShapeGetRadius(sphere));
+  return 1;
+}
+
+int l_lovrSphereShapeSetRadius(lua_State* L) {
+  SphereShape* sphere = luax_checktype(L, 1, SphereShape);
+  float radius = luaL_checknumber(L, 2);
+  lovrSphereShapeSetRadius(sphere, radius);
+  return 0;
+}
+
+const luaL_Reg lovrSphereShape[] = {
   { "getRadius", l_lovrSphereShapeGetRadius },
   { "setRadius", l_lovrSphereShapeSetRadius },
+  { NULL, NULL }
+};
+
+int l_lovrBoxShapeGetDimensions(lua_State* L) {
+  BoxShape* box = luax_checktype(L, 1, BoxShape);
+  float x, y, z;
+  lovrBoxShapeGetDimensions(box, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
+}
+
+int l_lovrBoxShapeSetDimensions(lua_State* L) {
+  BoxShape* box = luax_checktype(L, 1, BoxShape);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrBoxShapeSetDimensions(box, x, y, z);
+  return 0;
+}
+
+const luaL_Reg lovrBoxShape[] = {
+  { "getDimensions", l_lovrBoxShapeGetDimensions },
+  { "setDimensions", l_lovrBoxShapeSetDimensions },
   { NULL, NULL }
 };

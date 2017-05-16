@@ -8,7 +8,8 @@ int l_lovrPhysicsInit(lua_State* L) {
   luaL_register(L, NULL, lovrPhysics);
   luax_registertype(L, "World", lovrWorld);
   luax_registertype(L, "Body", lovrBody);
-  luax_extendtype(L, "Shape", "SphereShape", lovrSphereShape);
+  luax_extendtype(L, "Shape", "SphereShape", lovrShape, lovrSphereShape);
+  luax_extendtype(L, "Shape", "BoxShape", lovrShape, lovrBoxShape);
 
   map_init(&ShapeTypes);
   map_set(&ShapeTypes, "sphere", SHAPE_SPHERE);
@@ -37,9 +38,18 @@ int l_lovrPhysicsNewSphereShape(lua_State* L) {
   return 1;
 }
 
+int l_lovrPhysicsNewBoxShape(lua_State* L) {
+  float x = luaL_optnumber(L, 1, 1.f);
+  float y = luaL_optnumber(L, 2, x);
+  float z = luaL_optnumber(L, 3, x);
+  luax_pushtype(L, BoxShape, lovrBoxShapeCreate(x, y, z));
+  return 1;
+}
+
 const luaL_Reg lovrPhysics[] = {
   { "newWorld", l_lovrPhysicsNewWorld },
   { "newBody", l_lovrPhysicsNewBody },
   { "newSphereShape", l_lovrPhysicsNewSphereShape },
+  { "newBoxShape", l_lovrPhysicsNewBoxShape },
   { NULL, NULL }
 };

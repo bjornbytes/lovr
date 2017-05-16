@@ -14,6 +14,7 @@ int l_lovrPhysicsInit(lua_State* L);
 int l_lovrTimerInit(lua_State* L);
 
 extern const luaL_Reg lovrAudio[];
+extern const luaL_Reg lovrBoxShape[];
 extern const luaL_Reg lovrController[];
 extern const luaL_Reg lovrBlob[];
 extern const luaL_Reg lovrBody[];
@@ -27,6 +28,7 @@ extern const luaL_Reg lovrMesh[];
 extern const luaL_Reg lovrModel[];
 extern const luaL_Reg lovrPhysics[];
 extern const luaL_Reg lovrShader[];
+extern const luaL_Reg lovrShape[];
 extern const luaL_Reg lovrSkybox[];
 extern const luaL_Reg lovrSource[];
 extern const luaL_Reg lovrSphereShape[];

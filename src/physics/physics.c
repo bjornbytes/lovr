@@ -359,3 +359,25 @@ float lovrSphereShapeGetRadius(SphereShape* sphere) {
 void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
   dGeomSphereSetRadius(sphere->id, radius);
 }
+
+BoxShape* lovrBoxShapeCreate(float x, float y, float z) {
+  BoxShape* box = lovrAlloc(sizeof(BoxShape), lovrShapeDestroy);
+  if (!box) return NULL;
+
+  box->type = SHAPE_BOX;
+  box->id = dCreateBox(0, x, y, z);
+
+  return box;
+}
+
+void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z) {
+  float dimensions[3];
+  dGeomBoxGetLengths(box->id, dimensions);
+  *x = dimensions[0];
+  *y = dimensions[1];
+  *z = dimensions[2];
+}
+
+void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z) {
+  dGeomBoxSetLengths(box->id, x, y, z);
+}
