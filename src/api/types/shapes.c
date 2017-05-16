@@ -31,3 +31,16 @@ int l_lovrShapeSetBody(lua_State* L) {
 
   return 0;
 }
+
+int l_lovrShapeIsEnabled(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  lua_pushboolean(L, lovrShapeIsEnabled(shape));
+  return 1;
+}
+
+int l_lovrShapeSetEnabled(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  int enabled = lua_toboolean(L, 2);
+  lovrShapeSetEnabled(shape, enabled);
+  return 0;
+}

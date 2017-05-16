@@ -284,4 +284,14 @@ void lovrShapeSetBody(Shape* shape, Body* body) {
   dGeomSetBody(shape->id, body ? body->id : 0);
 }
 
+int lovrShapeIsEnabled(Shape* shape) {
+  return dGeomIsEnabled(shape->id);
+}
+
+void lovrShapeSetEnabled(Shape* shape, int enabled) {
+  if (enabled) {
+    dGeomEnable(shape->id);
+  } else {
+    dGeomDisable(shape->id);
+  }
 }
