@@ -1,4 +1,5 @@
 #include "util.h"
+#include <stdint.h>
 #include <ode/ode.h>
 
 typedef enum {
@@ -86,3 +87,5 @@ void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z);
 void lovrShapeSetPosition(Shape* shape, float x, float y, float z);
 void lovrShapeGetOrientation(Shape* shape, float* angle, float* x, float* y, float* z);
 void lovrShapeSetOrientation(Shape* shape, float angle, float x, float y, float z);
+uint32_t lovrShapeGetCategory(Shape* shape);
+void lovrShapeSetCategory(Shape* shape, uint32_t category);

@@ -108,3 +108,30 @@ int l_lovrShapeSetOrientation(lua_State* L) {
   lovrShapeSetOrientation(shape, angle, x, y, z);
   return 0;
 }
+
+int l_lovrShapeGetCategory(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  uint32_t category = lovrShapeGetCategory(shape);
+  int count = 0;
+
+  for (int i = 0; i < 32; i++) {
+    if (category & (1 << i)) {
+      lua_pushinteger(L, i + 1);
+      count++;
+    }
+  }
+
+  return count;
+}
+
+int l_lovrShapeSetCategory(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  uint32_t category = 0;
+
+  for (int i = 2; i <= lua_gettop(L); i++) {
+    category |= (1 << luaL_checkinteger(L, i));
+  }
+
+  lovrShapeSetCategory(shape, category);
+  return 0;
+}

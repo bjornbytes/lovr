@@ -325,3 +325,11 @@ void lovrShapeSetOrientation(Shape* shape, float angle, float x, float y, float 
   float axis[3] = { x, y, z };
   dGeomSetOffsetQuaternion(shape->id, quat_fromAngleAxis(quaternion, angle, axis));
 }
+
+uint32_t lovrShapeGetCategory(Shape* shape) {
+  return dGeomGetCategoryBits(shape->id);
+}
+
+void lovrShapeSetCategory(Shape* shape, uint32_t category) {
+  dGeomSetCategoryBits(shape->id, category);
+}
