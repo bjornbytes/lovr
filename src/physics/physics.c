@@ -113,10 +113,9 @@ void lovrBodyGetOrientation(Body* body, float* angle, float* x, float* y, float*
 }
 
 void lovrBodySetOrientation(Body* body, float angle, float x, float y, float z) {
-  float axis[3] = { x, y, z };
   float quaternion[4];
-  quat_fromAngleAxis(quaternion, angle, axis);
-  dBodySetQuaternion(body->id, quaternion);
+  float axis[3] = { x, y, z };
+  dBodySetQuaternion(body->id, quat_fromAngleAxis(quaternion, angle, axis));
 }
 
 void lovrBodyGetLinearVelocity(Body* body, float* x, float* y, float* z) {
@@ -313,4 +312,16 @@ void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z) {
 
 void lovrShapeSetPosition(Shape* shape, float x, float y, float z) {
   dGeomSetOffsetPosition(shape->id, x, y, z);
+}
+
+void lovrShapeGetOrientation(Shape* shape, float* angle, float* x, float* y, float* z) {
+  float quaternion[4];
+  dGeomGetOffsetQuaternion(shape->id, quaternion);
+  quat_getAngleAxis(quaternion, angle, x, y, z);
+}
+
+void lovrShapeSetOrientation(Shape* shape, float angle, float x, float y, float z) {
+  float quaternion[4];
+  float axis[3] = { x, y, z };
+  dGeomSetOffsetQuaternion(shape->id, quat_fromAngleAxis(quaternion, angle, axis));
 }

@@ -87,3 +87,24 @@ int l_lovrShapeSetPosition(lua_State* L) {
   lovrShapeSetPosition(shape, x, y, z);
   return 0;
 }
+
+int l_lovrShapeGetOrientation(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  float angle, x, y, z;
+  lovrShapeGetOrientation(shape, &angle, &x, &y, &z);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 4;
+}
+
+int l_lovrShapeSetOrientation(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  float angle = luaL_checknumber(L, 1);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrShapeSetOrientation(shape, angle, x, y, z);
+  return 0;
+}

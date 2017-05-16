@@ -84,3 +84,5 @@ void* lovrShapeGetUserData(Shape* shape);
 void lovrShapeSetUserData(Shape* shape, void* data);
 void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z);
 void lovrShapeSetPosition(Shape* shape, float x, float y, float z);
+void lovrShapeGetOrientation(Shape* shape, float* angle, float* x, float* y, float* z);
+void lovrShapeSetOrientation(Shape* shape, float angle, float x, float y, float z);
