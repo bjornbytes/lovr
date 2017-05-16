@@ -129,3 +129,14 @@ void lovrBodyGetLinearVelocity(Body* body, float* x, float* y, float* z) {
 void lovrBodySetLinearVelocity(Body* body, float x, float y, float z) {
   dBodySetLinearVel(body->id, x, y, z);
 }
+
+void lovrBodyGetAngularVelocity(Body* body, float* x, float* y, float* z) {
+  const dReal* velocity = dBodyGetAngularVel(body->id);
+  *x = velocity[0];
+  *y = velocity[1];
+  *z = velocity[2];
+}
+
+void lovrBodySetAngularVelocity(Body* body, float x, float y, float z) {
+  dBodySetAngularVel(body->id, x, y, z);
+}

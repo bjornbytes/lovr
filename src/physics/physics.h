@@ -35,3 +35,5 @@ void lovrBodyGetOrientation(Body* body, float* angle, float* x, float* y, float*
 void lovrBodySetOrientation(Body* body, float angle, float x, float y, float z);
 void lovrBodyGetLinearVelocity(Body* body, float* x, float* y, float* z);
 void lovrBodySetLinearVelocity(Body* body, float x, float y, float z);
+void lovrBodyGetAngularVelocity(Body* body, float* x, float* y, float* z);
+void lovrBodySetAngularVelocity(Body* body, float x, float y, float z);
