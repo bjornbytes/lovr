@@ -118,3 +118,14 @@ void lovrBodySetOrientation(Body* body, float angle, float x, float y, float z) 
   quat_fromAngleAxis(quaternion, angle, axis);
   dBodySetQuaternion(body->id, quaternion);
 }
+
+void lovrBodyGetLinearVelocity(Body* body, float* x, float* y, float* z) {
+  const dReal* velocity = dBodyGetLinearVel(body->id);
+  *x = velocity[0];
+  *y = velocity[1];
+  *z = velocity[2];
+}
+
+void lovrBodySetLinearVelocity(Body* body, float x, float y, float z) {
+  dBodySetLinearVel(body->id, x, y, z);
+}

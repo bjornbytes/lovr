@@ -41,10 +41,31 @@ int l_lovrBodySetOrientation(lua_State* L) {
   return 0;
 }
 
+int l_lovrBodyGetLinearVelocity(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float x, y, z;
+  lovrBodyGetLinearVelocity(body, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
+}
+
+int l_lovrBodySetLinearVelocity(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrBodySetLinearVelocity(body, x, y, z);
+  return 0;
+}
+
 const luaL_Reg lovrBody[] = {
   { "getPosition", l_lovrBodyGetPosition },
   { "setPosition", l_lovrBodySetPosition },
   { "getOrientation", l_lovrBodyGetOrientation },
   { "setOrientation", l_lovrBodySetOrientation },
+  { "getLinearVelocity", l_lovrBodyGetLinearVelocity },
+  { "setLinearVelocity", l_lovrBodySetLinearVelocity },
   { NULL, NULL }
 };
