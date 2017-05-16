@@ -303,3 +303,14 @@ void* lovrShapeGetUserData(Shape* shape) {
 void lovrShapeSetUserData(Shape* shape, void* data) {
   dGeomSetData(shape->id, data);
 }
+
+void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z) {
+  const dReal* position = dGeomGetOffsetPosition(shape->id);
+  *x = position[0];
+  *y = position[1];
+  *z = position[2];
+}
+
+void lovrShapeSetPosition(Shape* shape, float x, float y, float z) {
+  dGeomSetOffsetPosition(shape->id, x, y, z);
+}

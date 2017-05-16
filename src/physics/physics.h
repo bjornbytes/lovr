@@ -82,3 +82,5 @@ int lovrShapeIsEnabled(Shape* shape);
 void lovrShapeSetEnabled(Shape* shape, int enabled);
 void* lovrShapeGetUserData(Shape* shape);
 void lovrShapeSetUserData(Shape* shape, void* data);
+void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z);
+void lovrShapeSetPosition(Shape* shape, float x, float y, float z);

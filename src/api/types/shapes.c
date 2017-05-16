@@ -68,3 +68,22 @@ int l_lovrShapeSetUserData(lua_State* L) {
   lovrShapeSetUserData(shape, (void*) ref);
   return 0;
 }
+
+int l_lovrShapeGetPosition(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  float x, y, z;
+  lovrShapeGetPosition(shape, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
+}
+
+int l_lovrShapeSetPosition(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  float x = luaL_checknumber(L, 1);
+  float y = luaL_checknumber(L, 2);
+  float z = luaL_checknumber(L, 3);
+  lovrShapeSetPosition(shape, x, y, z);
+  return 0;
+}
