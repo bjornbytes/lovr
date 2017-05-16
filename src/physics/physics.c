@@ -73,3 +73,23 @@ void lovrWorldSetSleepingAllowed(World* world, int allowed) {
 void lovrWorldUpdate(World* world, float dt) {
   dWorldQuickStep(world->id, dt);
 }
+
+Body* lovrBodyCreate(World* world) {
+  if (!world) {
+    error("No world specified");
+  }
+
+  Body* body = lovrAlloc(sizeof(Body), lovrBodyDestroy);
+  if (!body) return NULL;
+
+  body->id = dBodyCreate(world->id);
+  body->world = world;
+
+  return body;
+}
+
+void lovrBodyDestroy(const Ref* ref) {
+  Body* body = containerof(ref, Body);
+  dBodyDestroy(body->id);
+  free(body);
+}

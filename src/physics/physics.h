@@ -6,6 +6,12 @@ typedef struct {
   dWorldID id;
 } World;
 
+typedef struct {
+  Ref ref;
+  dBodyID id;
+  World* world;
+} Body;
+
 void lovrPhysicsInit();
 void lovrPhysicsDestroy();
 
@@ -20,3 +26,6 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
 int lovrWorldIsSleepingAllowed(World* world);
 void lovrWorldSetSleepingAllowed(World* world, int allowed);
 void lovrWorldUpdate(World* world, float dt);
+
+Body* lovrBodyCreate();
+void lovrBodyDestroy(const Ref* ref);
