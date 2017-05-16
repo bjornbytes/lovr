@@ -162,3 +162,37 @@ int l_lovrShapeSetMask(lua_State* L) {
   lovrShapeSetMask(shape, ~mask);
   return 0;
 }
+
+int l_lovrSphereShapeGetRadius(lua_State* L) {
+  SphereShape* sphere = luax_checktype(L, 1, SphereShape);
+  lua_pushnumber(L, lovrSphereShapeGetRadius(sphere));
+  return 1;
+}
+
+int l_lovrSphereShapeSetRadius(lua_State* L) {
+  SphereShape* sphere = luax_checktype(L, 1, SphereShape);
+  float radius = luaL_checknumber(L, 2);
+  lovrSphereShapeSetRadius(sphere, radius);
+  return 0;
+}
+
+const luaL_Reg lovrSphereShape[] = {
+  { "getType", l_lovrShapeGetType },
+  { "getBody", l_lovrShapeGetBody },
+  { "setBody", l_lovrShapeSetBody },
+  { "isEnabled", l_lovrShapeIsEnabled },
+  { "setEnabled", l_lovrShapeSetEnabled },
+  { "getUserData", l_lovrShapeGetUserData },
+  { "setUserData", l_lovrShapeSetUserData },
+  { "getPosition", l_lovrShapeGetPosition },
+  { "setPosition", l_lovrShapeSetPosition },
+  { "getOrientation", l_lovrShapeGetOrientation },
+  { "setOrientation", l_lovrShapeSetOrientation },
+  { "getCategory", l_lovrShapeGetCategory },
+  { "setCategory", l_lovrShapeSetCategory },
+  { "getMask", l_lovrShapeGetMask },
+  { "setMask", l_lovrShapeSetMask },
+  { "getRadius", l_lovrSphereShapeGetRadius },
+  { "setRadius", l_lovrSphereShapeSetRadius },
+  { NULL, NULL }
+};

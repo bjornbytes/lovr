@@ -341,3 +341,21 @@ uint32_t lovrShapeGetMask(Shape* shape) {
 void lovrShapeSetMask(Shape* shape, uint32_t mask) {
   dGeomSetCollideBits(shape->id, mask);
 }
+
+SphereShape* lovrSphereShapeCreate(float radius) {
+  SphereShape* sphere = lovrAlloc(sizeof(SphereShape), lovrShapeDestroy);
+  if (!sphere) return NULL;
+
+  sphere->type = SHAPE_SPHERE;
+  sphere->id = dCreateSphere(0, radius);
+
+  return sphere;
+}
+
+float lovrSphereShapeGetRadius(SphereShape* sphere) {
+  return dGeomSphereGetRadius(sphere->id);
+}
+
+void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
+  dGeomSphereSetRadius(sphere->id, radius);
+}
