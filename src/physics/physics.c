@@ -269,6 +269,15 @@ ShapeType lovrShapeGetType(Shape* shape) {
   return shape->type;
 }
 
+Body* lovrShapeGetBody(Shape* shape) {
+  return shape->body;
+}
+
+void lovrShapeSetBody(Shape* shape, Body* body) {
+  shape->body = body;
+  dGeomSetBody(shape->id, body ? body->id : 0);
+}
+
 void lovrShapeDestroy(const Ref* ref) {
   Shape* shape = containerof(ref, Shape);
   dGeomDestroy(shape->id);

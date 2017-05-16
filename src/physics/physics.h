@@ -23,6 +23,7 @@ typedef struct {
   Ref ref;
   ShapeType type;
   dGeomID id;
+  Body* body;
 } Shape;
 
 void lovrPhysicsInit();
@@ -74,4 +75,6 @@ void lovrBodySetUserData(Body* body, void* data);
 World* lovrBodyGetWorld(Body* body);
 
 ShapeType lovrShapeGetType(Shape* shape);
+Body* lovrShapeGetBody(Shape* shape);
+void lovrShapeSetBody(Shape* shape, Body* body);
 void lovrShapeDestroy(const Ref* ref);
