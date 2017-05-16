@@ -200,3 +200,19 @@ void lovrBodyGetWorldPoint(Body* body, float x, float y, float z, float* wx, flo
   *wy = world[1];
   *wz = world[2];
 }
+
+void lovrBodyGetLinearVelocityFromLocalPoint(Body* body, float x, float y, float z, float* vx, float* vy, float* vz) {
+  dReal velocity[3];
+  dBodyGetRelPointVel(body->id, x, y, z, velocity);
+  *vx = velocity[0];
+  *vy = velocity[1];
+  *vz = velocity[2];
+}
+
+void lovrBodyGetLinearVelocityFromWorldPoint(Body* body, float wx, float wy, float wz, float* vx, float* vy, float* vz) {
+  dReal velocity[3];
+  dBodyGetPointVel(body->id, wx, wy, wz, velocity);
+  *vx = velocity[0];
+  *vy = velocity[1];
+  *vz = velocity[2];
+}
