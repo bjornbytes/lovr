@@ -10,6 +10,7 @@ int l_lovrFilesystemInit(lua_State* L);
 int l_lovrGraphicsInit(lua_State* L);
 int l_lovrHeadsetInit(lua_State* L);
 int l_lovrMathInit(lua_State* L);
+int l_lovrPhysicsInit(lua_State* L);
 int l_lovrTimerInit(lua_State* L);
 
 extern const luaL_Reg lovrAudio[];
@@ -23,6 +24,7 @@ extern const luaL_Reg lovrHeadset[];
 extern const luaL_Reg lovrMath[];
 extern const luaL_Reg lovrMesh[];
 extern const luaL_Reg lovrModel[];
+extern const luaL_Reg lovrPhysics[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrSkybox[];
 extern const luaL_Reg lovrSource[];

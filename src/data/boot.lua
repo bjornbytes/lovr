@@ -5,6 +5,7 @@ local conf = {
     graphics = true,
     headset = true,
     math = true,
+    physics = true,
     timer = true
   },
   headset = {
@@ -19,6 +20,7 @@ if not lovr.filesystem.getSource() or not runnable then
   function lovr.conf(t)
     t.modules.audio = false
     t.modules.math = false
+    t.modules.physics = false
   end
 
   function lovr.load()
@@ -82,7 +84,7 @@ if lovr.conf then
   success, err = pcall(lovr.conf, conf)
 end
 
-local modules = { 'audio', 'event', 'graphics', 'headset', 'math', 'timer' }
+local modules = { 'audio', 'event', 'graphics', 'headset', 'math', 'physics', 'timer' }
 for _, module in ipairs(modules) do
   if conf.modules[module] then
     lovr[module] = require('lovr.' .. module)
