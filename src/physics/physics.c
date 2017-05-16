@@ -41,3 +41,7 @@ void lovrWorldGetGravity(World* world, float* x, float* y, float* z) {
 void lovrWorldSetGravity(World* world, float x, float y, float z) {
   dWorldSetGravity(world->id, x, y, z);
 }
+
+void lovrWorldUpdate(World* world, float dt) {
+  dWorldQuickStep(world->id, dt);
+}

@@ -20,8 +20,16 @@ int l_lovrWorldSetGravity(lua_State* L) {
   return 0;
 }
 
+int l_lovrWorldUpdate(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float dt = luaL_checknumber(L, 2);
+  lovrWorldUpdate(world, dt);
+  return 0;
+}
+
 const luaL_Reg lovrWorld[] = {
   { "getGravity", l_lovrWorldGetGravity },
   { "setGravity", l_lovrWorldSetGravity },
+  { "update", l_lovrWorldUpdate },
   { NULL, NULL }
 };

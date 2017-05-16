@@ -13,3 +13,4 @@ World* lovrWorldCreate();
 void lovrWorldDestroy(const Ref* ref);
 void lovrWorldGetGravity(World* world, float* x, float* y, float* z);
 void lovrWorldSetGravity(World* world, float x, float y, float z);
+void lovrWorldUpdate(World* world, float dt);
