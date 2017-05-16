@@ -80,3 +80,5 @@ Body* lovrShapeGetBody(Shape* shape);
 void lovrShapeSetBody(Shape* shape, Body* body);
 int lovrShapeIsEnabled(Shape* shape);
 void lovrShapeSetEnabled(Shape* shape, int enabled);
+void* lovrShapeGetUserData(Shape* shape);
+void lovrShapeSetUserData(Shape* shape, void* data);

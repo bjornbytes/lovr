@@ -295,3 +295,11 @@ void lovrShapeSetEnabled(Shape* shape, int enabled) {
     dGeomDisable(shape->id);
   }
 }
+
+void* lovrShapeGetUserData(Shape* shape) {
+  return dGeomGetData(shape->id);
+}
+
+void lovrShapeSetUserData(Shape* shape, void* data) {
+  dGeomSetData(shape->id, data);
+}
