@@ -52,6 +52,16 @@ void lovrWorldSetLinearDamping(World* world, float damping, float threshold) {
   dWorldSetLinearDampingThreshold(world->id, threshold);
 }
 
+void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold) {
+  *damping = dWorldGetAngularDamping(world->id);
+  *threshold = dWorldGetAngularDampingThreshold(world->id);
+}
+
+void lovrWorldSetAngularDamping(World* world, float damping, float threshold) {
+  dWorldSetAngularDamping(world->id, damping);
+  dWorldSetAngularDampingThreshold(world->id, threshold);
+}
+
 void lovrWorldUpdate(World* world, float dt) {
   dWorldQuickStep(world->id, dt);
 }

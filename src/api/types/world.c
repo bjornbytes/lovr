@@ -37,6 +37,23 @@ int l_lovrWorldSetLinearDamping(lua_State* L) {
   return 0;
 }
 
+int l_lovrWorldGetAngularDamping(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float damping, threshold;
+  lovrWorldGetAngularDamping(world, &damping, &threshold);
+  lua_pushnumber(L, damping);
+  lua_pushnumber(L, threshold);
+  return 2;
+}
+
+int l_lovrWorldSetAngularDamping(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float damping = luaL_checknumber(L, 2);
+  float threshold = luaL_optnumber(L, 3, .01);
+  lovrWorldSetAngularDamping(world, damping, threshold);
+  return 0;
+}
+
 int l_lovrWorldUpdate(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float dt = luaL_checknumber(L, 2);
@@ -49,6 +66,8 @@ const luaL_Reg lovrWorld[] = {
   { "setGravity", l_lovrWorldSetGravity },
   { "getLinearDamping", l_lovrWorldGetLinearDamping },
   { "setLinearDamping", l_lovrWorldSetLinearDamping },
+  { "getAngularDamping", l_lovrWorldGetAngularDamping },
+  { "setAngularDamping", l_lovrWorldSetAngularDamping },
   { "update", l_lovrWorldUpdate },
   { NULL, NULL }
 };

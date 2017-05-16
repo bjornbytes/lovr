@@ -15,4 +15,6 @@ void lovrWorldGetGravity(World* world, float* x, float* y, float* z);
 void lovrWorldSetGravity(World* world, float x, float y, float z);
 void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold);
 void lovrWorldSetLinearDamping(World* world, float damping, float threshold);
+void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold);
+void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
 void lovrWorldUpdate(World* world, float dt);
