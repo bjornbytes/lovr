@@ -29,6 +29,7 @@ typedef struct {
 
 typedef Shape SphereShape;
 typedef Shape BoxShape;
+typedef Shape CapsuleShape;
 
 void lovrPhysicsInit();
 void lovrPhysicsDestroy();
@@ -96,9 +97,15 @@ uint32_t lovrShapeGetMask(Shape* shape);
 void lovrShapeSetMask(Shape* shape, uint32_t mask);
 
 SphereShape* lovrSphereShapeCreate(float radius);
-float lovrSphereShapeGetRadius(SphereShape* shape);
-void lovrSphereShapeSetRadius(SphereShape* shape, float radius);
+float lovrSphereShapeGetRadius(SphereShape* sphere);
+void lovrSphereShapeSetRadius(SphereShape* sphere, float radius);
 
 BoxShape* lovrBoxShapeCreate(float x, float y, float z);
-void lovrBoxShapeGetDimensions(BoxShape* shape, float* x, float* y, float* z);
-void lovrBoxShapeSetDimensions(BoxShape* shape, float x, float y, float z);
+void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z);
+void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z);
+
+CapsuleShape* lovrCapsuleShapeCreate(float radius, float length);
+float lovrCapsuleShapeGetRadius(CapsuleShape* capsule);
+void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius);
+float lovrCapsuleShapeGetLength(CapsuleShape* capsule);
+void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length);

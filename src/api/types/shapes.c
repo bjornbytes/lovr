@@ -225,3 +225,37 @@ const luaL_Reg lovrBoxShape[] = {
   { "setDimensions", l_lovrBoxShapeSetDimensions },
   { NULL, NULL }
 };
+
+int l_lovrCapsuleShapeGetRadius(lua_State* L) {
+  CapsuleShape* capsule = luax_checktype(L, 1, CapsuleShape);
+  lua_pushnumber(L, lovrCapsuleShapeGetRadius(capsule));
+  return 1;
+}
+
+int l_lovrCapsuleShapeSetRadius(lua_State* L) {
+  CapsuleShape* capsule = luax_checktype(L, 1, CapsuleShape);
+  float radius = luaL_checknumber(L, 2);
+  lovrCapsuleShapeSetRadius(capsule, radius);
+  return 0;
+}
+
+int l_lovrCapsuleShapeGetLength(lua_State* L) {
+  CapsuleShape* capsule = luax_checktype(L, 1, CapsuleShape);
+  lua_pushnumber(L, lovrCapsuleShapeGetLength(capsule));
+  return 1;
+}
+
+int l_lovrCapsuleShapeSetLength(lua_State* L) {
+  CapsuleShape* capsule = luax_checktype(L, 1, CapsuleShape);
+  float length = luaL_checknumber(L, 2);
+  lovrCapsuleShapeSetLength(capsule, length);
+  return 0;
+}
+
+const luaL_Reg lovrCapsuleShape[] = {
+  { "getRadius", l_lovrCapsuleShapeGetRadius },
+  { "setRadius", l_lovrCapsuleShapeSetRadius },
+  { "getLength", l_lovrCapsuleShapeGetLength },
+  { "setLength", l_lovrCapsuleShapeSetLength },
+  { NULL, NULL }
+};

@@ -381,3 +381,33 @@ void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z) {
 void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z) {
   dGeomBoxSetLengths(box->id, x, y, z);
 }
+
+CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
+  CapsuleShape* capsule = lovrAlloc(sizeof(CapsuleShape), lovrShapeDestroy);
+  if (!capsule) return NULL;
+
+  capsule->type = SHAPE_CAPSULE;
+  capsule->id = dCreateCapsule(0, radius, length);
+
+  return capsule;
+}
+
+float lovrCapsuleShapeGetRadius(CapsuleShape* capsule) {
+  float radius, length;
+  dGeomCapsuleGetParams(capsule->id, &radius, &length);
+  return radius;
+}
+
+void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius) {
+  dGeomCapsuleSetParams(capsule->id, radius, lovrCapsuleShapeGetLength(capsule));
+}
+
+float lovrCapsuleShapeGetLength(CapsuleShape* capsule) {
+  float radius, length;
+  dGeomCapsuleGetParams(capsule->id, &radius, &length);
+  return length;
+}
+
+void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
+  dGeomCapsuleSetParams(capsule->id, lovrCapsuleShapeGetRadius(capsule), length);
+}
