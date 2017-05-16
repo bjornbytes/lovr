@@ -37,3 +37,5 @@ void lovrBodyGetLinearVelocity(Body* body, float* x, float* y, float* z);
 void lovrBodySetLinearVelocity(Body* body, float x, float y, float z);
 void lovrBodyGetAngularVelocity(Body* body, float* x, float* y, float* z);
 void lovrBodySetAngularVelocity(Body* body, float x, float y, float z);
+void lovrBodyGetLinearDamping(Body* body, float* damping, float* threshold);
+void lovrBodySetLinearDamping(Body* body, float damping, float threshold);
