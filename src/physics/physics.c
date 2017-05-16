@@ -42,6 +42,16 @@ void lovrWorldSetGravity(World* world, float x, float y, float z) {
   dWorldSetGravity(world->id, x, y, z);
 }
 
+void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold) {
+  *damping = dWorldGetLinearDamping(world->id);
+  *threshold = dWorldGetLinearDampingThreshold(world->id);
+}
+
+void lovrWorldSetLinearDamping(World* world, float damping, float threshold) {
+  dWorldSetLinearDamping(world->id, damping);
+  dWorldSetLinearDampingThreshold(world->id, threshold);
+}
+
 void lovrWorldUpdate(World* world, float dt) {
   dWorldQuickStep(world->id, dt);
 }
