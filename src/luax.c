@@ -71,6 +71,16 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   lua_pop(L, 1);
 }
 
+void luax_extendtype(lua_State* L, const char* base, const char* name, const luaL_Reg* functions) {
+  luax_registertype(L, name, functions);
+  luaL_getmetatable(L, name);
+
+  lua_pushstring(L, base);
+  lua_setfield(L, -2, "super");
+
+  lua_pop(L, 1);
+}
+
 int luax_releasetype(lua_State* L) {
   lovrRelease(*(Ref**) lua_touserdata(L, 1));
   return 0;
