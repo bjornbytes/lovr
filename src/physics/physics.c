@@ -265,6 +265,12 @@ World* lovrBodyGetWorld(Body* body) {
   return body->world;
 }
 
+void lovrShapeDestroy(const Ref* ref) {
+  Shape* shape = containerof(ref, Shape);
+  dGeomDestroy(shape->id);
+  free(shape);
+}
+
 ShapeType lovrShapeGetType(Shape* shape) {
   return shape->type;
 }
@@ -278,8 +284,4 @@ void lovrShapeSetBody(Shape* shape, Body* body) {
   dGeomSetBody(shape->id, body ? body->id : 0);
 }
 
-void lovrShapeDestroy(const Ref* ref) {
-  Shape* shape = containerof(ref, Shape);
-  dGeomDestroy(shape->id);
-  free(shape);
 }
