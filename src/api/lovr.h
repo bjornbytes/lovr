@@ -31,6 +31,7 @@ extern const luaL_Reg lovrSource[];
 extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrTimer[];
 extern const luaL_Reg lovrTransform[];
+extern const luaL_Reg lovrWorld[];
 
 extern map_int_t BlendAlphaModes;
 extern map_int_t BlendModes;
