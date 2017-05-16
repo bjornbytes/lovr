@@ -252,3 +252,11 @@ void lovrBodySetAwake(Body* body, int awake) {
     dBodyDisable(body->id);
   }
 }
+
+void* lovrBodyGetUserData(Body* body) {
+  return dBodyGetData(body->id);
+}
+
+void lovrBodySetUserData(Body* body, void* data) {
+  dBodySetData(body->id, data);
+}

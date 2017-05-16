@@ -56,3 +56,5 @@ int lovrBodyIsSleepingAllowed(Body* body);
 void lovrBodySetSleepingAllowed(Body* body, int allowed);
 int lovrBodyIsAwake(Body* body);
 void lovrBodySetAwake(Body* body, int awake);
+void* lovrBodyGetUserData(Body* body);
+void lovrBodySetUserData(Body* body, void* data);

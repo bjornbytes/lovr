@@ -257,6 +257,30 @@ int l_lovrBodySetAwake(lua_State* L) {
   return 0;
 }
 
+int l_lovrBodyGetUserData(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  int ref = (int) lovrBodyGetUserData(body);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+  return 1;
+}
+
+int l_lovrBodySetUserData(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  uint64_t ref = (int) lovrBodyGetUserData(body);
+  if (ref) {
+    luaL_unref(L, LUA_REGISTRYINDEX, ref);
+  }
+
+  if (lua_gettop(L) < 2) {
+    lua_pushnil(L);
+  }
+
+  lua_settop(L, 2);
+  ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  lovrBodySetUserData(body, (void*) ref);
+  return 0;
+}
+
 const luaL_Reg lovrBody[] = {
   { "getPosition", l_lovrBodyGetPosition },
   { "setPosition", l_lovrBodySetPosition },
@@ -284,5 +308,7 @@ const luaL_Reg lovrBody[] = {
   { "setSleepingAllowed", l_lovrBodySetSleepingAllowed },
   { "isAwake", l_lovrBodyIsAwake },
   { "setAwake", l_lovrBodySetAwake },
+  { "getUserData", l_lovrBodyGetUserData },
+  { "setUserData", l_lovrBodySetUserData },
   { NULL, NULL }
 };
