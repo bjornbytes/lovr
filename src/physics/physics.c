@@ -93,3 +93,14 @@ void lovrBodyDestroy(const Ref* ref) {
   dBodyDestroy(body->id);
   free(body);
 }
+
+void lovrBodyGetPosition(Body* body, float* x, float* y, float* z) {
+  const dReal* position = dBodyGetPosition(body->id);
+  *x = position[0];
+  *y = position[1];
+  *z = position[2];
+}
+
+void lovrBodySetPosition(Body* body, float x, float y, float z) {
+  dBodySetPosition(body->id, x, y, z);
+}

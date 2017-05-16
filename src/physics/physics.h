@@ -29,3 +29,5 @@ void lovrWorldUpdate(World* world, float dt);
 
 Body* lovrBodyCreate();
 void lovrBodyDestroy(const Ref* ref);
+void lovrBodyGetPosition(Body* body, float* x, float* y, float* z);
+void lovrBodySetPosition(Body* body, float x, float y, float z);
