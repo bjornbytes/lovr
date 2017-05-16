@@ -17,4 +17,6 @@ void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold);
 void lovrWorldSetLinearDamping(World* world, float damping, float threshold);
 void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold);
 void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
+int lovrWorldIsSleepingAllowed(World* world);
+void lovrWorldSetSleepingAllowed(World* world, int allowed);
 void lovrWorldUpdate(World* world, float dt);

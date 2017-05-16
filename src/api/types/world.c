@@ -54,6 +54,19 @@ int l_lovrWorldSetAngularDamping(lua_State* L) {
   return 0;
 }
 
+int l_lovrWorldIsSleepingAllowed(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  lua_pushboolean(L, lovrWorldIsSleepingAllowed(world));
+  return 1;
+}
+
+int l_lovrWorldSetSleepingAllowed(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  int allowed = lua_toboolean(L, 2);
+  lovrWorldSetSleepingAllowed(world, allowed);
+  return 0;
+}
+
 int l_lovrWorldUpdate(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float dt = luaL_checknumber(L, 2);
@@ -68,6 +81,8 @@ const luaL_Reg lovrWorld[] = {
   { "setLinearDamping", l_lovrWorldSetLinearDamping },
   { "getAngularDamping", l_lovrWorldGetAngularDamping },
   { "setAngularDamping", l_lovrWorldSetAngularDamping },
+  { "isSleepingAllowed", l_lovrWorldIsSleepingAllowed },
+  { "setSleepingAllowed", l_lovrWorldSetSleepingAllowed },
   { "update", l_lovrWorldUpdate },
   { NULL, NULL }
 };

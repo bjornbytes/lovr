@@ -62,6 +62,14 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold) {
   dWorldSetAngularDampingThreshold(world->id, threshold);
 }
 
+int lovrWorldIsSleepingAllowed(World* world) {
+  return dWorldGetAutoDisableFlag(world->id);
+}
+
+void lovrWorldSetSleepingAllowed(World* world, int allowed) {
+  dWorldSetAutoDisableFlag(world->id, allowed);
+}
+
 void lovrWorldUpdate(World* world, float dt) {
   dWorldQuickStep(world->id, dt);
 }
