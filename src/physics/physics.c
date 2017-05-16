@@ -29,3 +29,15 @@ void lovrWorldDestroy(const Ref* ref) {
   dWorldDestroy(world->id);
   free(world);
 }
+
+void lovrWorldGetGravity(World* world, float* x, float* y, float* z) {
+  dReal gravity[3];
+  dWorldGetGravity(world->id, gravity);
+  *x = gravity[0];
+  *y = gravity[1];
+  *z = gravity[2];
+}
+
+void lovrWorldSetGravity(World* world, float x, float y, float z) {
+  dWorldSetGravity(world->id, x, y, z);
+}
