@@ -17,6 +17,7 @@ extern const luaL_Reg lovrAudio[];
 extern const luaL_Reg lovrBoxShape[];
 extern const luaL_Reg lovrCapsuleShape[];
 extern const luaL_Reg lovrController[];
+extern const luaL_Reg lovrCylinderShape[];
 extern const luaL_Reg lovrBlob[];
 extern const luaL_Reg lovrBody[];
 extern const luaL_Reg lovrEvent[];

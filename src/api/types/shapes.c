@@ -259,3 +259,37 @@ const luaL_Reg lovrCapsuleShape[] = {
   { "setLength", l_lovrCapsuleShapeSetLength },
   { NULL, NULL }
 };
+
+int l_lovrCylinderShapeGetRadius(lua_State* L) {
+  CylinderShape* cylinder = luax_checktype(L, 1, CylinderShape);
+  lua_pushnumber(L, lovrCylinderShapeGetRadius(cylinder));
+  return 1;
+}
+
+int l_lovrCylinderShapeSetRadius(lua_State* L) {
+  CylinderShape* cylinder = luax_checktype(L, 1, CylinderShape);
+  float radius = luaL_checknumber(L, 2);
+  lovrCylinderShapeSetRadius(cylinder, radius);
+  return 0;
+}
+
+int l_lovrCylinderShapeGetLength(lua_State* L) {
+  CylinderShape* cylinder = luax_checktype(L, 1, CylinderShape);
+  lua_pushnumber(L, lovrCylinderShapeGetLength(cylinder));
+  return 1;
+}
+
+int l_lovrCylinderShapeSetLength(lua_State* L) {
+  CylinderShape* cylinder = luax_checktype(L, 1, CylinderShape);
+  float length = luaL_checknumber(L, 2);
+  lovrCylinderShapeSetLength(cylinder, length);
+  return 0;
+}
+
+const luaL_Reg lovrCylinderShape[] = {
+  { "getRadius", l_lovrCylinderShapeGetRadius },
+  { "setRadius", l_lovrCylinderShapeSetRadius },
+  { "getLength", l_lovrCylinderShapeGetLength },
+  { "setLength", l_lovrCylinderShapeSetLength },
+  { NULL, NULL }
+};

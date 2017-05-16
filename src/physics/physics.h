@@ -30,6 +30,7 @@ typedef struct {
 typedef Shape SphereShape;
 typedef Shape BoxShape;
 typedef Shape CapsuleShape;
+typedef Shape CylinderShape;
 
 void lovrPhysicsInit();
 void lovrPhysicsDestroy();
@@ -109,3 +110,9 @@ float lovrCapsuleShapeGetRadius(CapsuleShape* capsule);
 void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius);
 float lovrCapsuleShapeGetLength(CapsuleShape* capsule);
 void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length);
+
+CylinderShape* lovrCylinderShapeCreate(float radius, float length);
+float lovrCylinderShapeGetRadius(CylinderShape* cylinder);
+void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius);
+float lovrCylinderShapeGetLength(CylinderShape* cylinder);
+void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length);

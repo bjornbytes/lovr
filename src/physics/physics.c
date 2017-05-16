@@ -411,3 +411,33 @@ float lovrCapsuleShapeGetLength(CapsuleShape* capsule) {
 void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
   dGeomCapsuleSetParams(capsule->id, lovrCapsuleShapeGetRadius(capsule), length);
 }
+
+CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
+  CylinderShape* cylinder = lovrAlloc(sizeof(CylinderShape), lovrShapeDestroy);
+  if (!cylinder) return NULL;
+
+  cylinder->type = SHAPE_CYLINDER;
+  cylinder->id = dCreateCylinder(0, radius, length);
+
+  return cylinder;
+}
+
+float lovrCylinderShapeGetRadius(CylinderShape* cylinder) {
+  float radius, length;
+  dGeomCylinderGetParams(cylinder->id, &radius, &length);
+  return radius;
+}
+
+void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius) {
+  dGeomCylinderSetParams(cylinder->id, radius, lovrCylinderShapeGetLength(cylinder));
+}
+
+float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
+  float radius, length;
+  dGeomCylinderGetParams(cylinder->id, &radius, &length);
+  return length;
+}
+
+void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
+  dGeomCylinderSetParams(cylinder->id, lovrCylinderShapeGetRadius(cylinder), length);
+}
