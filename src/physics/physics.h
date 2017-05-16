@@ -1,6 +1,13 @@
 #include "util.h"
 #include <ode/ode.h>
 
+typedef enum {
+  SHAPE_SPHERE,
+  SHAPE_BOX,
+  SHAPE_CAPSULE,
+  SHAPE_CYLINDER
+} ShapeType;
+
 typedef struct {
   Ref ref;
   dWorldID id;
@@ -11,6 +18,12 @@ typedef struct {
   dBodyID id;
   World* world;
 } Body;
+
+typedef struct {
+  Ref ref;
+  ShapeType type;
+  dGeomID id;
+} Shape;
 
 void lovrPhysicsInit();
 void lovrPhysicsDestroy();
@@ -59,3 +72,6 @@ void lovrBodySetAwake(Body* body, int awake);
 void* lovrBodyGetUserData(Body* body);
 void lovrBodySetUserData(Body* body, void* data);
 World* lovrBodyGetWorld(Body* body);
+
+ShapeType lovrShapeGetType(Shape* shape);
+void lovrShapeDestroy(const Ref* ref);

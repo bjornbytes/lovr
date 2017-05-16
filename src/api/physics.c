@@ -1,11 +1,20 @@
 #include "api/lovr.h"
 #include "physics/physics.h"
 
+map_int_t ShapeTypes;
+
 int l_lovrPhysicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrPhysics);
   luax_registertype(L, "World", lovrWorld);
   luax_registertype(L, "Body", lovrBody);
+
+  map_init(&ShapeTypes);
+  map_set(&ShapeTypes, "sphere", SHAPE_SPHERE);
+  map_set(&ShapeTypes, "box", SHAPE_BOX);
+  map_set(&ShapeTypes, "capsule", SHAPE_CAPSULE);
+  map_set(&ShapeTypes, "cylinder", SHAPE_CYLINDER);
+
   lovrPhysicsInit();
   return 1;
 }

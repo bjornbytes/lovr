@@ -264,3 +264,13 @@ void lovrBodySetUserData(Body* body, void* data) {
 World* lovrBodyGetWorld(Body* body) {
   return body->world;
 }
+
+ShapeType lovrShapeGetType(Shape* shape) {
+  return shape->type;
+}
+
+void lovrShapeDestroy(const Ref* ref) {
+  Shape* shape = containerof(ref, Shape);
+  dGeomDestroy(shape->id);
+  free(shape);
+}
