@@ -232,3 +232,11 @@ void lovrBodyGetLinearVelocityFromWorldPoint(Body* body, float wx, float wy, flo
   *vy = velocity[1];
   *vz = velocity[2];
 }
+
+int lovrBodyIsSleepingAllowed(Body* body) {
+  return dBodyGetAutoDisableFlag(body->id);
+}
+
+void lovrBodySetSleepingAllowed(Body* body, int allowed) {
+  dBodySetAutoDisableFlag(body->id, allowed);
+}
