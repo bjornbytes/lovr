@@ -31,3 +31,5 @@ Body* lovrBodyCreate();
 void lovrBodyDestroy(const Ref* ref);
 void lovrBodyGetPosition(Body* body, float* x, float* y, float* z);
 void lovrBodySetPosition(Body* body, float x, float y, float z);
+void lovrBodyGetOrientation(Body* body, float* angle, float* x, float* y, float* z);
+void lovrBodySetOrientation(Body* body, float angle, float x, float y, float z);

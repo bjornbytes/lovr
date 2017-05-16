@@ -1,4 +1,5 @@
 #include "physics.h"
+#include "math/quat.h"
 #include <stdlib.h>
 
 void lovrPhysicsInit() {
@@ -103,4 +104,17 @@ void lovrBodyGetPosition(Body* body, float* x, float* y, float* z) {
 
 void lovrBodySetPosition(Body* body, float x, float y, float z) {
   dBodySetPosition(body->id, x, y, z);
+}
+
+void lovrBodyGetOrientation(Body* body, float* angle, float* x, float* y, float* z) {
+  const dReal* q = dBodyGetQuaternion(body->id);
+  float quaternion[4] = { q[0], q[1], q[2], q[3] };
+  quat_getAngleAxis(quaternion, angle, x, y, z);
+}
+
+void lovrBodySetOrientation(Body* body, float angle, float x, float y, float z) {
+  float axis[3] = { x, y, z };
+  float quaternion[4];
+  quat_fromAngleAxis(quaternion, angle, axis);
+  dBodySetQuaternion(body->id, quaternion);
 }
