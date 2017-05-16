@@ -179,6 +179,32 @@ int l_lovrBodyGetWorldPoint(lua_State* L) {
   return 3;
 }
 
+int l_lovrBodyGetLocalVector(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float wx = luaL_checknumber(L, 2);
+  float wy = luaL_checknumber(L, 3);
+  float wz = luaL_checknumber(L, 4);
+  float x, y, z;
+  lovrBodyGetLocalVector(body, wx, wy, wz, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
+}
+
+int l_lovrBodyGetWorldVector(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  float wx, wy, wz;
+  lovrBodyGetWorldVector(body, x, y, z, &wx, &wy, &wz);
+  lua_pushnumber(L, wx);
+  lua_pushnumber(L, wy);
+  lua_pushnumber(L, wz);
+  return 3;
+}
+
 int l_lovrBodyGetLinearVelocityFromLocalPoint(lua_State* L) {
   Body* body = luax_checktype(L, 1, Body);
   float x = luaL_checknumber(L, 2);
@@ -224,6 +250,8 @@ const luaL_Reg lovrBody[] = {
   { "setKinematic", l_lovrBodySetKinematic },
   { "getLocalPoint", l_lovrBodyGetLocalPoint },
   { "getWorldPoint", l_lovrBodyGetWorldPoint },
+  { "getLocalVector", l_lovrBodyGetLocalVector },
+  { "getWorldVector", l_lovrBodyGetWorldVector },
   { "getLinearVelocityFromLocalPoint", l_lovrBodyGetLinearVelocityFromLocalPoint },
   { "getLinearVelocityFromWorldPoint", l_lovrBodyGetLinearVelocityFromWorldPoint },
   { NULL, NULL }

@@ -48,5 +48,7 @@ int lovrBodyIsKinematic(Body* body);
 void lovrBodySetKinematic(Body* body, int kinematic);
 void lovrBodyGetLocalPoint(Body* body, float wx, float wy, float wz, float* x, float* y, float* z);
 void lovrBodyGetWorldPoint(Body* body, float x, float y, float z, float* wx, float* wy, float* wz);
+void lovrBodyGetLocalVector(Body* body, float wx, float wy, float wz, float* x, float* y, float* z);
+void lovrBodyGetWorldVector(Body* body, float x, float y, float z, float* wx, float* wy, float* wz);
 void lovrBodyGetLinearVelocityFromLocalPoint(Body* body, float x, float y, float z, float* vx, float* vy, float* vz);
 void lovrBodyGetLinearVelocityFromWorldPoint(Body* body, float wx, float wy, float wz, float* vx, float* vy, float* vz);
