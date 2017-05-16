@@ -58,3 +58,4 @@ int lovrBodyIsAwake(Body* body);
 void lovrBodySetAwake(Body* body, int awake);
 void* lovrBodyGetUserData(Body* body);
 void lovrBodySetUserData(Body* body, void* data);
+World* lovrBodyGetWorld(Body* body);

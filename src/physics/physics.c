@@ -260,3 +260,7 @@ void* lovrBodyGetUserData(Body* body) {
 void lovrBodySetUserData(Body* body, void* data) {
   dBodySetData(body->id, data);
 }
+
+World* lovrBodyGetWorld(Body* body) {
+  return body->world;
+}

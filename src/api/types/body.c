@@ -281,6 +281,12 @@ int l_lovrBodySetUserData(lua_State* L) {
   return 0;
 }
 
+int l_lovrBodyGetWorld(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  luax_pushtype(L, World, lovrBodyGetWorld(body));
+  return 1;
+}
+
 const luaL_Reg lovrBody[] = {
   { "getPosition", l_lovrBodyGetPosition },
   { "setPosition", l_lovrBodySetPosition },
@@ -310,5 +316,6 @@ const luaL_Reg lovrBody[] = {
   { "setAwake", l_lovrBodySetAwake },
   { "getUserData", l_lovrBodyGetUserData },
   { "setUserData", l_lovrBodySetUserData },
+  { "getWorld", l_lovrBodyGetWorld },
   { NULL, NULL }
 };
