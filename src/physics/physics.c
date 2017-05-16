@@ -240,3 +240,15 @@ int lovrBodyIsSleepingAllowed(Body* body) {
 void lovrBodySetSleepingAllowed(Body* body, int allowed) {
   dBodySetAutoDisableFlag(body->id, allowed);
 }
+
+int lovrBodyIsAwake(Body* body) {
+  return dBodyIsEnabled(body->id);
+}
+
+void lovrBodySetAwake(Body* body, int awake) {
+  if (awake) {
+    dBodyEnable(body->id);
+  } else {
+    dBodyDisable(body->id);
+  }
+}

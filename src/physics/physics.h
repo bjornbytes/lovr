@@ -54,3 +54,5 @@ void lovrBodyGetLinearVelocityFromLocalPoint(Body* body, float x, float y, float
 void lovrBodyGetLinearVelocityFromWorldPoint(Body* body, float wx, float wy, float wz, float* vx, float* vy, float* vz);
 int lovrBodyIsSleepingAllowed(Body* body);
 void lovrBodySetSleepingAllowed(Body* body, int allowed);
+int lovrBodyIsAwake(Body* body);
+void lovrBodySetAwake(Body* body, int awake);

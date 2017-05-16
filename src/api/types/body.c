@@ -244,6 +244,19 @@ int l_lovrBodySetSleepingAllowed(lua_State* L) {
   return 0;
 }
 
+int l_lovrBodyIsAwake(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  lua_pushboolean(L, lovrBodyIsAwake(body));
+  return 1;
+}
+
+int l_lovrBodySetAwake(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  int awake = lua_toboolean(L, 2);
+  lovrBodySetAwake(body, awake);
+  return 0;
+}
+
 const luaL_Reg lovrBody[] = {
   { "getPosition", l_lovrBodyGetPosition },
   { "setPosition", l_lovrBodySetPosition },
@@ -269,5 +282,7 @@ const luaL_Reg lovrBody[] = {
   { "getLinearVelocityFromWorldPoint", l_lovrBodyGetLinearVelocityFromWorldPoint },
   { "isSleepingAllowed", l_lovrBodyIsSleepingAllowed },
   { "setSleepingAllowed", l_lovrBodySetSleepingAllowed },
+  { "isAwake", l_lovrBodyIsAwake },
+  { "setAwake", l_lovrBodySetAwake },
   { NULL, NULL }
 };
