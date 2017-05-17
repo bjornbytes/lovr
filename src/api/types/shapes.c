@@ -167,14 +167,14 @@ int l_lovrShapeComputeMass(lua_State* L) {
   Shape* shape = luax_checktypeof(L, 1, Shape);
   float density = luaL_checknumber(L, 2);
   float cx, cy, cz, mass;
-  float inertia[9];
+  float inertia[6];
   lovrShapeComputeMass(shape, density, &cx, &cy, &cz, &mass, inertia);
   lua_pushnumber(L, cx);
   lua_pushnumber(L, cy);
   lua_pushnumber(L, cz);
   lua_pushnumber(L, mass);
   lua_newtable(L);
-  for (int i = 0; i < 9; i++) {
+  for (int i = 0; i < 6; i++) {
     lua_pushnumber(L, inertia[i]);
     lua_rawseti(L, -2, i + 1);
   }

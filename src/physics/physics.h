@@ -81,6 +81,8 @@ void lovrBodySetUserData(Body* body, void* data);
 World* lovrBodyGetWorld(Body* body);
 float lovrBodyGetMass(Body* body);
 void lovrBodySetMass(Body* body, float mass);
+void lovrBodyGetMassData(Body* body, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
+void lovrBodySetMassData(Body* body, float cx, float cy, float cz, float mass, float inertia[6]);
 
 void lovrShapeDestroy(const Ref* ref);
 ShapeType lovrShapeGetType(Shape* shape);
@@ -98,7 +100,7 @@ uint32_t lovrShapeGetCategory(Shape* shape);
 void lovrShapeSetCategory(Shape* shape, uint32_t category);
 uint32_t lovrShapeGetMask(Shape* shape);
 void lovrShapeSetMask(Shape* shape, uint32_t mask);
-void lovrShapeComputeMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[9]);
+void lovrShapeComputeMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
 
 SphereShape* lovrSphereShapeCreate(float radius);
 float lovrSphereShapeGetRadius(SphereShape* sphere);

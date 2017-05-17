@@ -277,6 +277,32 @@ void lovrBodySetMass(Body* body, float mass) {
   dBodySetMass(body->id, &m);
 }
 
+void lovrBodyGetMassData(Body* body, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
+  dMass m;
+  dBodyGetMass(body->id, &m);
+  *cx = m.c[0];
+  *cy = m.c[1];
+  *cz = m.c[2];
+  *mass = m.mass;
+
+  // Diagonal
+  inertia[0] = m.I[0];
+  inertia[1] = m.I[5];
+  inertia[2] = m.I[10];
+
+  // Lower triangular
+  inertia[3] = m.I[4];
+  inertia[4] = m.I[8];
+  inertia[5] = m.I[9];
+}
+
+void lovrBodySetMassData(Body* body, float cx, float cy, float cz, float mass, float inertia[]) {
+  dMass m;
+  dBodyGetMass(body->id, &m);
+  dMassSetParameters(&m, mass, cx, cy, cz, inertia[0], inertia[1], inertia[2], inertia[3], inertia[4], inertia[5]);
+  dBodySetMass(body->id, &m);
+}
+
 void lovrShapeDestroy(const Ref* ref) {
   Shape* shape = containerof(ref, Shape);
   dGeomDestroy(shape->id);
@@ -355,7 +381,7 @@ void lovrShapeSetMask(Shape* shape, uint32_t mask) {
   dGeomSetCollideBits(shape->id, mask);
 }
 
-void lovrShapeComputeMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[9]) {
+void lovrShapeComputeMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
   dMass m;
   dMassSetZero(&m);
   switch (shape->type) {
@@ -395,15 +421,16 @@ void lovrShapeComputeMass(Shape* shape, float density, float* cx, float* cy, flo
   *cy = m.c[1];
   *cz = m.c[2];
   *mass = m.mass;
+
+  // Diagonal
   inertia[0] = m.I[0];
-  inertia[1] = m.I[4];
-  inertia[2] = m.I[8];
-  inertia[3] = m.I[1];
-  inertia[4] = m.I[5];
+  inertia[1] = m.I[5];
+  inertia[2] = m.I[10];
+
+  // Lower triangular
+  inertia[3] = m.I[4];
+  inertia[4] = m.I[8];
   inertia[5] = m.I[9];
-  inertia[6] = m.I[2];
-  inertia[7] = m.I[6];
-  inertia[8] = m.I[10];
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {

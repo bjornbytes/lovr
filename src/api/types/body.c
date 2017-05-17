@@ -300,6 +300,53 @@ int l_lovrBodySetMass(lua_State* L) {
   return 0;
 }
 
+int l_lovrBodyGetMassData(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float cx, cy, cz, mass;
+  float inertia[6];
+  lovrBodyGetMassData(body, &cx, &cy, &cz, &mass, inertia);
+  lua_pushnumber(L, cx);
+  lua_pushnumber(L, cy);
+  lua_pushnumber(L, cz);
+  lua_pushnumber(L, mass);
+  lua_newtable(L);
+  for (int i = 0; i < 6; i++) {
+    lua_pushnumber(L, inertia[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 5;
+}
+
+int l_lovrBodySetMassData(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float cx = luaL_checknumber(L, 2);
+  float cy = luaL_checknumber(L, 3);
+  float cz = luaL_checknumber(L, 4);
+  float mass = luaL_checknumber(L, 5);
+  float inertia[6];
+  if (lua_istable(L, 6) && lua_objlen(L, 6) >= 6) {
+    for (int i = 0; i < 6; i++) {
+      lua_rawgeti(L, 6, i + 1);
+      if (!lua_isnumber(L, -1)) {
+        return luaL_argerror(L, 6, "Expected 6 numbers or a table with 6 numbers");
+      }
+
+      inertia[i] = lua_tonumber(L, -1);
+      lua_pop(L, 1);
+    }
+  } else {
+    for (int i = 6; i < 12; i++) {
+      if (lua_isnumber(L, i)) {
+        inertia[i] = lua_tonumber(L, i);
+      } else {
+        return luaL_argerror(L, i, "Expected 6 numbers or a table with 6 numbers");
+      }
+    }
+  }
+  lovrBodySetMassData(body, cx, cy, cz, mass, inertia);
+  return 0;
+}
+
 const luaL_Reg lovrBody[] = {
   { "getPosition", l_lovrBodyGetPosition },
   { "setPosition", l_lovrBodySetPosition },
@@ -332,5 +379,7 @@ const luaL_Reg lovrBody[] = {
   { "getWorld", l_lovrBodyGetWorld },
   { "getMass", l_lovrBodyGetMass },
   { "setMass", l_lovrBodySetMass },
+  { "getMassData", l_lovrBodyGetMassData },
+  { "setMassData", l_lovrBodySetMassData },
   { NULL, NULL }
 };
