@@ -81,9 +81,9 @@ int l_lovrShapeGetPosition(lua_State* L) {
 
 int l_lovrShapeSetPosition(lua_State* L) {
   Shape* shape = luax_checktypeof(L, 1, Shape);
-  float x = luaL_checknumber(L, 1);
-  float y = luaL_checknumber(L, 2);
-  float z = luaL_checknumber(L, 3);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
   lovrShapeSetPosition(shape, x, y, z);
   return 0;
 }
@@ -101,10 +101,10 @@ int l_lovrShapeGetOrientation(lua_State* L) {
 
 int l_lovrShapeSetOrientation(lua_State* L) {
   Shape* shape = luax_checktypeof(L, 1, Shape);
-  float angle = luaL_checknumber(L, 1);
-  float x = luaL_checknumber(L, 2);
-  float y = luaL_checknumber(L, 3);
-  float z = luaL_checknumber(L, 4);
+  float angle = luaL_checknumber(L, 2);
+  float x = luaL_checknumber(L, 3);
+  float y = luaL_checknumber(L, 4);
+  float z = luaL_checknumber(L, 5);
   lovrShapeSetOrientation(shape, angle, x, y, z);
   return 0;
 }
@@ -163,6 +163,24 @@ int l_lovrShapeSetMask(lua_State* L) {
   return 0;
 }
 
+int l_lovrShapeComputeMass(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  float density = luaL_checknumber(L, 2);
+  float cx, cy, cz, mass;
+  float inertia[9];
+  lovrShapeComputeMass(shape, density, &cx, &cy, &cz, &mass, inertia);
+  lua_pushnumber(L, cx);
+  lua_pushnumber(L, cy);
+  lua_pushnumber(L, cz);
+  lua_pushnumber(L, mass);
+  lua_newtable(L);
+  for (int i = 0; i < 9; i++) {
+    lua_pushnumber(L, inertia[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 5;
+}
+
 const luaL_Reg lovrShape[] = {
   { "getType", l_lovrShapeGetType },
   { "getBody", l_lovrShapeGetBody },
@@ -179,6 +197,7 @@ const luaL_Reg lovrShape[] = {
   { "setCategory", l_lovrShapeSetCategory },
   { "getMask", l_lovrShapeGetMask },
   { "setMask", l_lovrShapeSetMask },
+  { "computeMass", l_lovrShapeComputeMass },
   { NULL, NULL }
 };
 

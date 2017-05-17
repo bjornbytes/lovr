@@ -342,6 +342,57 @@ void lovrShapeSetMask(Shape* shape, uint32_t mask) {
   dGeomSetCollideBits(shape->id, mask);
 }
 
+void lovrShapeComputeMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[9]) {
+  dMass m;
+  dMassSetZero(&m);
+  switch (shape->type) {
+    case SHAPE_SPHERE: {
+      dMassSetSphere(&m, density, dGeomSphereGetRadius(shape->id));
+      break;
+    }
+
+    case SHAPE_BOX: {
+      dReal lengths[3];
+      dGeomBoxGetLengths(shape->id, lengths);
+      dMassSetBox(&m, density, lengths[0], lengths[1], lengths[2]);
+      break;
+    }
+
+    case SHAPE_CAPSULE: {
+      dReal radius, length;
+      dGeomCapsuleGetParams(shape->id, &radius, &length);
+      dMassSetCapsule(&m, density, 3, radius, length);
+      break;
+    }
+
+    case SHAPE_CYLINDER: {
+      dReal radius, length;
+      dGeomCylinderGetParams(shape->id, &radius, &length);
+      dMassSetCylinder(&m, density, 3, radius, length);
+      break;
+    }
+  }
+
+  const dReal* position = dGeomGetOffsetPosition(shape->id);
+  dMassTranslate(&m, position[0], position[1], position[2]);
+  const dReal* rotation = dGeomGetOffsetRotation(shape->id);
+  dMassRotate(&m, rotation);
+
+  *cx = m.c[0];
+  *cy = m.c[1];
+  *cz = m.c[2];
+  *mass = m.mass;
+  inertia[0] = m.I[0];
+  inertia[1] = m.I[4];
+  inertia[2] = m.I[8];
+  inertia[3] = m.I[1];
+  inertia[4] = m.I[5];
+  inertia[5] = m.I[9];
+  inertia[6] = m.I[2];
+  inertia[7] = m.I[6];
+  inertia[8] = m.I[10];
+}
+
 SphereShape* lovrSphereShapeCreate(float radius) {
   SphereShape* sphere = lovrAlloc(sizeof(SphereShape), lovrShapeDestroy);
   if (!sphere) return NULL;
