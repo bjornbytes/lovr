@@ -2,6 +2,33 @@
 #include "math/quat.h"
 #include <stdlib.h>
 
+static void nearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
+  World* world = data;
+
+  dBodyID bodyA = dGeomGetBody(shapeA);
+  dBodyID bodyB = dGeomGetBody(shapeB);
+  if (bodyA && bodyB && dAreConnectedExcluding(bodyA, bodyB, dJointTypeContact)) {
+    return;
+  }
+
+  dContact contacts[8];
+
+  for (int i = 0; i < 8; i++) {
+    contacts[i].surface.mode = 0;
+    contacts[i].surface.mu = dInfinity;
+    contacts[i].surface.mu2 = 0;
+  }
+
+  int contactCount;
+
+  contactCount = dCollide(shapeA, shapeB, 8, &contacts[0].geom, sizeof(dContact));
+
+  for (int i = 0; i < contactCount; i++) {
+    dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[i]);
+    dJointAttach(joint, bodyA, bodyB);
+  }
+}
+
 void lovrPhysicsInit() {
   dInitODE();
 
@@ -21,6 +48,9 @@ World* lovrWorldCreate() {
   if (!world) return NULL;
 
   world->id = dWorldCreate();
+  world->space = dHashSpaceCreate(0);
+  dHashSpaceSetLevels(world->space, -4, 8);
+  world->contactGroup = dJointGroupCreate(0);
 
   return world;
 }
@@ -72,7 +102,9 @@ void lovrWorldSetSleepingAllowed(World* world, int allowed) {
 }
 
 void lovrWorldUpdate(World* world, float dt) {
+  dSpaceCollide(world->space, world, nearCallback);
   dWorldQuickStep(world->id, dt);
+  dJointGroupEmpty(world->contactGroup);
 }
 
 Body* lovrBodyCreate(World* world) {
@@ -322,6 +354,17 @@ Body* lovrShapeGetBody(Shape* shape) {
 void lovrShapeSetBody(Shape* shape, Body* body) {
   shape->body = body;
   dGeomSetBody(shape->id, body ? body->id : 0);
+
+  dSpaceID oldSpace = dGeomGetSpace(shape->id);
+  dSpaceID newSpace = body ? body->world->space : 0;
+
+  if (oldSpace && oldSpace != newSpace) {
+    dSpaceRemove(oldSpace, shape->id);
+  }
+
+  if (newSpace && newSpace != oldSpace) {
+    dSpaceAdd(newSpace, shape->id);
+  }
 }
 
 int lovrShapeIsEnabled(Shape* shape) {

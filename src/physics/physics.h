@@ -12,6 +12,8 @@ typedef enum {
 typedef struct {
   Ref ref;
   dWorldID id;
+  dSpaceID space;
+  dJointGroupID contactGroup;
 } World;
 
 typedef struct {
