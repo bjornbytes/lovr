@@ -64,6 +64,7 @@ static int filesystemLoader(lua_State* L) {
 
         if (data) {
           if (!luaL_loadbuffer(L, data, size, filename)) {
+            free(data);
             return 1;
           }
 
