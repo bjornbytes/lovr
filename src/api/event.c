@@ -6,50 +6,50 @@ map_int_t EventTypes;
 static int pollRef;
 
 static int nextEvent(lua_State* L) {
-  Event* event = lovrEventPoll();
+  Event event;
 
-  if (!event) {
+  if (!lovrEventPoll(&event)) {
     return 0;
   }
 
-  switch (event->type) {
+  switch (event.type) {
     case EVENT_QUIT: {
       lua_pushstring(L, "quit");
-      lua_pushnumber(L, event->data.quit.exitCode);
+      lua_pushnumber(L, event.data.quit.exitCode);
       return 2;
     }
 
     case EVENT_FOCUS: {
       lua_pushstring(L, "focus");
-      lua_pushboolean(L, event->data.focus.isFocused);
+      lua_pushboolean(L, event.data.focus.isFocused);
       return 2;
     };
 
     case EVENT_CONTROLLER_ADDED: {
       lua_pushstring(L, "controlleradded");
-      luax_pushtype(L, Controller, event->data.controlleradded.controller);
-      lovrRelease(&event->data.controlleradded.controller->ref);
+      luax_pushtype(L, Controller, event.data.controlleradded.controller);
+      lovrRelease(&event.data.controlleradded.controller->ref);
       return 2;
     }
 
     case EVENT_CONTROLLER_REMOVED: {
       lua_pushstring(L, "controllerremoved");
-      luax_pushtype(L, Controller, event->data.controllerremoved.controller);
-      lovrRelease(&event->data.controlleradded.controller->ref);
+      luax_pushtype(L, Controller, event.data.controllerremoved.controller);
+      lovrRelease(&event.data.controlleradded.controller->ref);
       return 2;
     }
 
     case EVENT_CONTROLLER_PRESSED: {
       lua_pushstring(L, "controllerpressed");
-      luax_pushtype(L, Controller, event->data.controllerpressed.controller);
-      luax_pushenum(L, &ControllerButtons, event->data.controllerpressed.button);
+      luax_pushtype(L, Controller, event.data.controllerpressed.controller);
+      luax_pushenum(L, &ControllerButtons, event.data.controllerpressed.button);
       return 3;
     }
 
     case EVENT_CONTROLLER_RELEASED: {
       lua_pushstring(L, "controllerreleased");
-      luax_pushtype(L, Controller, event->data.controllerreleased.controller);
-      luax_pushenum(L, &ControllerButtons, event->data.controllerreleased.button);
+      luax_pushtype(L, Controller, event.data.controllerreleased.controller);
+      luax_pushenum(L, &ControllerButtons, event.data.controllerreleased.button);
       return 3;
     }
 

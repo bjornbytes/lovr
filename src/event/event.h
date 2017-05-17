@@ -67,5 +67,5 @@ void lovrEventDestroy();
 void lovrEventAddPump(void (*pump)(void));
 void lovrEventPump();
 void lovrEventPush(Event event);
-Event* lovrEventPoll();
+int lovrEventPoll(Event* event);
 void lovrEventClear();
