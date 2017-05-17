@@ -264,6 +264,19 @@ World* lovrBodyGetWorld(Body* body) {
   return body->world;
 }
 
+float lovrBodyGetMass(Body* body) {
+  dMass m;
+  dBodyGetMass(body->id, &m);
+  return m.mass;
+}
+
+void lovrBodySetMass(Body* body, float mass) {
+  dMass m;
+  dBodyGetMass(body->id, &m);
+  dMassAdjust(&m, mass);
+  dBodySetMass(body->id, &m);
+}
+
 void lovrShapeDestroy(const Ref* ref) {
   Shape* shape = containerof(ref, Shape);
   dGeomDestroy(shape->id);

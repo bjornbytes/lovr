@@ -79,6 +79,8 @@ void lovrBodySetAwake(Body* body, int awake);
 void* lovrBodyGetUserData(Body* body);
 void lovrBodySetUserData(Body* body, void* data);
 World* lovrBodyGetWorld(Body* body);
+float lovrBodyGetMass(Body* body);
+void lovrBodySetMass(Body* body, float mass);
 
 void lovrShapeDestroy(const Ref* ref);
 ShapeType lovrShapeGetType(Shape* shape);

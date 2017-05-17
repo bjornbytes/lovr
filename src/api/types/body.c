@@ -287,6 +287,19 @@ int l_lovrBodyGetWorld(lua_State* L) {
   return 1;
 }
 
+int l_lovrBodyGetMass(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  lua_pushnumber(L, lovrBodyGetMass(body));
+  return 1;
+}
+
+int l_lovrBodySetMass(lua_State* L) {
+  Body* body = luax_checktype(L, 1, Body);
+  float mass = luaL_checknumber(L, 2);
+  lovrBodySetMass(body, mass);
+  return 0;
+}
+
 const luaL_Reg lovrBody[] = {
   { "getPosition", l_lovrBodyGetPosition },
   { "setPosition", l_lovrBodySetPosition },
@@ -317,5 +330,7 @@ const luaL_Reg lovrBody[] = {
   { "getUserData", l_lovrBodyGetUserData },
   { "setUserData", l_lovrBodySetUserData },
   { "getWorld", l_lovrBodyGetWorld },
+  { "getMass", l_lovrBodyGetMass },
+  { "setMass", l_lovrBodySetMass },
   { NULL, NULL }
 };
