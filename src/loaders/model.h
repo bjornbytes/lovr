@@ -27,7 +27,7 @@ typedef struct {
 
 typedef vec_t(ModelMesh*) vec_model_mesh_t;
 
-typedef struct ModelNode {
+typedef struct {
   float transform[16];
   vec_uint_t meshes;
   vec_void_t children;

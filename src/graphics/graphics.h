@@ -61,7 +61,7 @@ typedef struct {
   int height;
 } ScissorRectangle;
 
-typedef struct CanvasState {
+typedef struct {
   int framebuffer;
   float projection[16];
   int viewport[4];
