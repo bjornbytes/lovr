@@ -28,7 +28,7 @@ int l_lovrBodyGetOrientation(lua_State* L) {
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
-  return 3;
+  return 4;
 }
 
 int l_lovrBodySetOrientation(lua_State* L) {
