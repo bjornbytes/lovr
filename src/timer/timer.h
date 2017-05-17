@@ -9,6 +9,7 @@ typedef struct {
   int tickIndex;
   double tickSum;
   double tickBuffer[TICK_SAMPLES];
+  double averageDelta;
   int fps;
 } TimerState;
 
@@ -16,5 +17,6 @@ void lovrTimerInit();
 double lovrTimerGetDelta();
 double lovrTimerGetTime();
 double lovrTimerStep();
+double lovrTimerGetAverageDelta();
 int lovrTimerGetFPS();
 void lovrTimerSleep(double seconds);

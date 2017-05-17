@@ -28,11 +28,16 @@ double lovrTimerStep() {
   timerState.tickSum -= timerState.tickBuffer[timerState.tickIndex];
   timerState.tickSum += timerState.dt;
   timerState.tickBuffer[timerState.tickIndex] = timerState.dt;
+  timerState.averageDelta = timerState.tickSum / TICK_SAMPLES;
   timerState.fps = (int) (1 / (timerState.tickSum / TICK_SAMPLES) + .5);
   if (++timerState.tickIndex == TICK_SAMPLES) {
     timerState.tickIndex = 0;
   }
   return timerState.dt;
+}
+
+double lovrTimerGetAverageDelta() {
+  return timerState.averageDelta;
 }
 
 int lovrTimerGetFPS() {

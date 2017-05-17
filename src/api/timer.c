@@ -13,6 +13,11 @@ int l_lovrTimerGetDelta(lua_State* L) {
   return 1;
 }
 
+int l_lovrTimerGetAverageDelta(lua_State* L) {
+  lua_pushnumber(L, lovrTimerGetAverageDelta());
+  return 1;
+}
+
 int l_lovrTimerGetFPS(lua_State* L) {
   lua_pushnumber(L, lovrTimerGetFPS());
   return 1;
@@ -36,6 +41,7 @@ int l_lovrTimerSleep(lua_State* L) {
 
 const luaL_Reg lovrTimer[] = {
   { "getDelta", l_lovrTimerGetDelta },
+  { "getAverageDelta", l_lovrTimerGetAverageDelta },
   { "getFPS", l_lovrTimerGetFPS },
   { "getTime", l_lovrTimerGetTime },
   { "step", l_lovrTimerStep },
