@@ -158,7 +158,9 @@ void lovrGraphicsClear(int color, int depth) {
     bits |= GL_DEPTH_BUFFER_BIT;
   }
 
-  glClear(bits);
+  if (bits != 0) {
+    glClear(bits);
+  }
 }
 
 void lovrGraphicsPresent() {
