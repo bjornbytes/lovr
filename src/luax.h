@@ -22,7 +22,9 @@
   luaL_getmetatable(L, #T); \
   lua_setmetatable(L, -2); \
   *u = x;
-#define luax_pushtype(L, T, x) if (!luax_getobject(L, x)) { luax_newobject(L, T, x); }
+#define luax_pushtype(L, T, x) \
+  if (!x) { lua_pushnil(L); } \
+  else if (!luax_getobject(L, x)) { luax_newobject(L, T, x); }
 
 int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f);
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions);
