@@ -1,6 +1,15 @@
 #include "api/lovr.h"
 #include "physics/physics.h"
 
+int luax_pushshape(lua_State* L, Shape* shape) {
+  switch (lovrShapeGetType(shape)) {
+    case SHAPE_SPHERE: luax_pushtype(L, SphereShape, shape); return 1;
+    case SHAPE_BOX: luax_pushtype(L, BoxShape, shape); return 1;
+    case SHAPE_CAPSULE: luax_pushtype(L, CapsuleShape, shape); return 1;
+    case SHAPE_CYLINDER: luax_pushtype(L, CylinderShape, shape); return 1;
+  }
+}
+
 int l_lovrShapeGetType(lua_State* L) {
   Shape* shape = luax_checktypeof(L, 1, Shape);
   luax_pushenum(L, &ShapeTypes, lovrShapeGetType(shape));

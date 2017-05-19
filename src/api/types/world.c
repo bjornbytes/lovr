@@ -1,6 +1,27 @@
 #include "api/lovr.h"
 #include "physics/physics.h"
 
+static void collisionResolver(World* world, void* userdata) {
+  lua_State* L = userdata;
+  luaL_checktype(L, -1, LUA_TFUNCTION);
+  luax_pushtype(L, World, world);
+  lua_call(L, 1, 0);
+}
+
+static int nextOverlap(lua_State* L) {
+  World* world = luax_checktype(L, lua_upvalueindex(1), World);
+  Shape* a;
+  Shape* b;
+  if (lovrWorldGetNextOverlap(world, &a, &b)) {
+    luax_pushshape(L, a);
+    luax_pushshape(L, b);
+    return 2;
+  } else {
+    lua_pushnil(L);
+    return 1;
+  }
+}
+
 int l_lovrWorldGetGravity(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float x, y, z;
@@ -68,10 +89,33 @@ int l_lovrWorldSetSleepingAllowed(lua_State* L) {
 }
 
 int l_lovrWorldUpdate(lua_State* L) {
+  lua_settop(L, 3);
   World* world = luax_checktype(L, 1, World);
   float dt = luaL_checknumber(L, 2);
-  lovrWorldUpdate(world, dt);
+  CollisionResolver resolver = lua_type(L, 3) == LUA_TFUNCTION ? collisionResolver : NULL;
+  lovrWorldUpdate(world, dt, resolver, L);
   return 0;
+}
+
+int l_lovrWorldComputeOverlaps(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  lovrWorldComputeOverlaps(world);
+  return 0;
+}
+
+int l_lovrWorldOverlaps(lua_State* L) {
+  luax_checktype(L, 1, World);
+  lua_settop(L, 1);
+  lua_pushcclosure(L, nextOverlap, 1);
+  return 1;
+}
+
+int l_lovrWorldCollide(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  Shape* a = luax_checktypeof(L, 2, Shape);
+  Shape* b = luax_checktypeof(L, 3, Shape);
+  lua_pushboolean(L, lovrWorldCollide(world, a, b));
+  return 1;
 }
 
 const luaL_Reg lovrWorld[] = {
@@ -84,5 +128,8 @@ const luaL_Reg lovrWorld[] = {
   { "isSleepingAllowed", l_lovrWorldIsSleepingAllowed },
   { "setSleepingAllowed", l_lovrWorldSetSleepingAllowed },
   { "update", l_lovrWorldUpdate },
+  { "computeOverlaps", l_lovrWorldComputeOverlaps },
+  { "overlaps", l_lovrWorldOverlaps },
+  { "collide", l_lovrWorldCollide },
   { NULL, NULL }
 };

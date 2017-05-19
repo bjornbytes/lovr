@@ -2,6 +2,7 @@
 #include "filesystem/blob.h"
 #include "graphics/mesh.h"
 #include "math/math.h"
+#include "physics/physics.h"
 #include "lib/map/map.h"
 
 int l_lovrAudioInit(lua_State* L);
@@ -62,3 +63,4 @@ extern map_int_t WrapModes;
 void luax_checkmeshformat(lua_State* L, int index, MeshFormat* format);
 int luax_readtransform(lua_State* L, int index, mat4 transform);
 Blob* luax_readblob(lua_State* L, int index, const char* debug);
+int luax_pushshape(lua_State* L, Shape* shape);

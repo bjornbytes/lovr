@@ -2,31 +2,14 @@
 #include "math/quat.h"
 #include <stdlib.h>
 
-static void nearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
+static void defaultNearCallback(void* data, dGeomID a, dGeomID b) {
+  lovrWorldCollide((World*) data, dGeomGetData(a), dGeomGetData(b));
+}
+
+static void customNearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
   World* world = data;
-
-  dBodyID bodyA = dGeomGetBody(shapeA);
-  dBodyID bodyB = dGeomGetBody(shapeB);
-  if (bodyA && bodyB && dAreConnectedExcluding(bodyA, bodyB, dJointTypeContact)) {
-    return;
-  }
-
-  dContact contacts[8];
-
-  for (int i = 0; i < 8; i++) {
-    contacts[i].surface.mode = 0;
-    contacts[i].surface.mu = dInfinity;
-    contacts[i].surface.mu2 = 0;
-  }
-
-  int contactCount;
-
-  contactCount = dCollide(shapeA, shapeB, 8, &contacts[0].geom, sizeof(dContact));
-
-  for (int i = 0; i < contactCount; i++) {
-    dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[i]);
-    dJointAttach(joint, bodyA, bodyB);
-  }
+  vec_push(&world->overlaps, dGeomGetData(shapeA));
+  vec_push(&world->overlaps, dGeomGetData(shapeB));
 }
 
 void lovrPhysicsInit() {
@@ -51,6 +34,7 @@ World* lovrWorldCreate() {
   world->space = dHashSpaceCreate(0);
   dHashSpaceSetLevels(world->space, -4, 8);
   world->contactGroup = dJointGroupCreate(0);
+  vec_init(&world->overlaps);
 
   return world;
 }
@@ -58,6 +42,7 @@ World* lovrWorldCreate() {
 void lovrWorldDestroy(const Ref* ref) {
   World* world = containerof(ref, World);
   dWorldDestroy(world->id);
+  vec_deinit(&world->overlaps);
   free(world);
 }
 
@@ -101,10 +86,53 @@ void lovrWorldSetSleepingAllowed(World* world, int allowed) {
   dWorldSetAutoDisableFlag(world->id, allowed);
 }
 
-void lovrWorldUpdate(World* world, float dt) {
-  dSpaceCollide(world->space, world, nearCallback);
+void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata) {
+  if (resolver) {
+    resolver(world, userdata);
+  } else {
+    dSpaceCollide(world->space, world, defaultNearCallback);
+  }
+
   dWorldQuickStep(world->id, dt);
   dJointGroupEmpty(world->contactGroup);
+}
+
+void lovrWorldComputeOverlaps(World* world) {
+  vec_clear(&world->overlaps);
+  dSpaceCollide(world->space, world, customNearCallback);
+}
+
+int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b) {
+  if (world->overlaps.length == 0) {
+    *a = *b = NULL;
+    return 0;
+  }
+
+  *a = vec_pop(&world->overlaps);
+  *b = vec_pop(&world->overlaps);
+  return 1;
+}
+
+int lovrWorldCollide(World* world, Shape* a, Shape* b) {
+  if (!a || !b) {
+    return 0;
+  }
+
+  dContact contacts[MAX_CONTACTS];
+
+  for (int i = 0; i < MAX_CONTACTS; i++) {
+    contacts[i].surface.mode = 0;
+    contacts[i].surface.mu = dInfinity;
+  }
+
+  int contactCount = dCollide(a->id, b->id, MAX_CONTACTS, &contacts[0].geom, sizeof(dContact));
+
+  for (int i = 0; i < contactCount; i++) {
+    dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[i]);
+    dJointAttach(joint, a->body->id, b->body->id);
+  }
+
+  return contactCount;
 }
 
 Body* lovrBodyCreate(World* world) {
@@ -117,6 +145,7 @@ Body* lovrBodyCreate(World* world) {
 
   body->id = dBodyCreate(world->id);
   body->world = world;
+  dBodySetData(body->id, body);
 
   return body;
 }
@@ -287,11 +316,11 @@ void lovrBodySetAwake(Body* body, int awake) {
 }
 
 void* lovrBodyGetUserData(Body* body) {
-  return dBodyGetData(body->id);
+  return body->userdata;
 }
 
 void lovrBodySetUserData(Body* body, void* data) {
-  dBodySetData(body->id, data);
+  body->userdata = data;
 }
 
 World* lovrBodyGetWorld(Body* body) {
@@ -380,11 +409,11 @@ void lovrShapeSetEnabled(Shape* shape, int enabled) {
 }
 
 void* lovrShapeGetUserData(Shape* shape) {
-  return dGeomGetData(shape->id);
+  return shape->userdata;
 }
 
 void lovrShapeSetUserData(Shape* shape, void* data) {
-  dGeomSetData(shape->id, data);
+  shape->userdata = data;
 }
 
 void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z) {
@@ -487,6 +516,7 @@ SphereShape* lovrSphereShapeCreate(float radius) {
 
   sphere->type = SHAPE_SPHERE;
   sphere->id = dCreateSphere(0, radius);
+  dGeomSetData(sphere->id, sphere);
 
   return sphere;
 }
@@ -505,6 +535,7 @@ BoxShape* lovrBoxShapeCreate(float x, float y, float z) {
 
   box->type = SHAPE_BOX;
   box->id = dCreateBox(0, x, y, z);
+  dGeomSetData(box->id, box);
 
   return box;
 }
@@ -527,6 +558,7 @@ CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
 
   capsule->type = SHAPE_CAPSULE;
   capsule->id = dCreateCapsule(0, radius, length);
+  dGeomSetData(capsule->id, capsule);
 
   return capsule;
 }
@@ -557,6 +589,7 @@ CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
 
   cylinder->type = SHAPE_CYLINDER;
   cylinder->id = dCreateCylinder(0, radius, length);
+  dGeomSetData(cylinder->id, cylinder);
 
   return cylinder;
 }

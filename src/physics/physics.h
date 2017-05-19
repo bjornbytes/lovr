@@ -1,6 +1,11 @@
 #include "util.h"
+#include "lib/vec/vec.h"
 #include <stdint.h>
 #include <ode/ode.h>
+
+#pragma once
+
+#define MAX_CONTACTS 4
 
 typedef enum {
   SHAPE_SPHERE,
@@ -14,12 +19,14 @@ typedef struct {
   dWorldID id;
   dSpaceID space;
   dJointGroupID contactGroup;
+  vec_void_t overlaps;
 } World;
 
 typedef struct {
   Ref ref;
   dBodyID id;
   World* world;
+  void* userdata;
 } Body;
 
 typedef struct {
@@ -27,12 +34,15 @@ typedef struct {
   ShapeType type;
   dGeomID id;
   Body* body;
+  void* userdata;
 } Shape;
 
 typedef Shape SphereShape;
 typedef Shape BoxShape;
 typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
+
+typedef void (*CollisionResolver)(World* world, void* userdata);
 
 void lovrPhysicsInit();
 void lovrPhysicsDestroy();
@@ -47,7 +57,10 @@ void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold);
 void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
 int lovrWorldIsSleepingAllowed(World* world);
 void lovrWorldSetSleepingAllowed(World* world, int allowed);
-void lovrWorldUpdate(World* world, float dt);
+void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);
+void lovrWorldComputeOverlaps(World* world);
+int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
+int lovrWorldCollide(World* world, Shape* a, Shape* b);
 
 Body* lovrBodyCreate();
 void lovrBodyDestroy(const Ref* ref);
