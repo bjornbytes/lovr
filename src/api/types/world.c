@@ -69,6 +69,42 @@ int l_lovrWorldNewSphereCollider(lua_State* L) {
   return 1;
 }
 
+int l_lovrWorldDestroy(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  lovrWorldDestroyData(world);
+  return 0;
+}
+
+int l_lovrWorldUpdate(lua_State* L) {
+  lua_settop(L, 3);
+  World* world = luax_checktype(L, 1, World);
+  float dt = luaL_checknumber(L, 2);
+  CollisionResolver resolver = lua_type(L, 3) == LUA_TFUNCTION ? collisionResolver : NULL;
+  lovrWorldUpdate(world, dt, resolver, L);
+  return 0;
+}
+
+int l_lovrWorldComputeOverlaps(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  lovrWorldComputeOverlaps(world);
+  return 0;
+}
+
+int l_lovrWorldOverlaps(lua_State* L) {
+  luax_checktype(L, 1, World);
+  lua_settop(L, 1);
+  lua_pushcclosure(L, nextOverlap, 1);
+  return 1;
+}
+
+int l_lovrWorldCollide(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  Shape* a = luax_checktypeof(L, 2, Shape);
+  Shape* b = luax_checktypeof(L, 3, Shape);
+  lua_pushboolean(L, lovrWorldCollide(world, a, b));
+  return 1;
+}
+
 int l_lovrWorldGetGravity(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float x, y, z;
@@ -135,42 +171,17 @@ int l_lovrWorldSetSleepingAllowed(lua_State* L) {
   return 0;
 }
 
-int l_lovrWorldUpdate(lua_State* L) {
-  lua_settop(L, 3);
-  World* world = luax_checktype(L, 1, World);
-  float dt = luaL_checknumber(L, 2);
-  CollisionResolver resolver = lua_type(L, 3) == LUA_TFUNCTION ? collisionResolver : NULL;
-  lovrWorldUpdate(world, dt, resolver, L);
-  return 0;
-}
-
-int l_lovrWorldComputeOverlaps(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  lovrWorldComputeOverlaps(world);
-  return 0;
-}
-
-int l_lovrWorldOverlaps(lua_State* L) {
-  luax_checktype(L, 1, World);
-  lua_settop(L, 1);
-  lua_pushcclosure(L, nextOverlap, 1);
-  return 1;
-}
-
-int l_lovrWorldCollide(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  Shape* a = luax_checktypeof(L, 2, Shape);
-  Shape* b = luax_checktypeof(L, 3, Shape);
-  lua_pushboolean(L, lovrWorldCollide(world, a, b));
-  return 1;
-}
-
 const luaL_Reg lovrWorld[] = {
   { "newCollider", l_lovrWorldNewCollider },
   { "newBoxCollider", l_lovrWorldNewBoxCollider },
   { "newCapsuleCollider", l_lovrWorldNewCapsuleCollider },
   { "newCylinderCollider", l_lovrWorldNewCylinderCollider },
   { "newSphereCollider", l_lovrWorldNewSphereCollider },
+  { "destroy", l_lovrWorldDestroy },
+  { "update", l_lovrWorldUpdate },
+  { "computeOverlaps", l_lovrWorldComputeOverlaps },
+  { "overlaps", l_lovrWorldOverlaps },
+  { "collide", l_lovrWorldCollide },
   { "getGravity", l_lovrWorldGetGravity },
   { "setGravity", l_lovrWorldSetGravity },
   { "getLinearDamping", l_lovrWorldGetLinearDamping },
@@ -179,9 +190,5 @@ const luaL_Reg lovrWorld[] = {
   { "setAngularDamping", l_lovrWorldSetAngularDamping },
   { "isSleepingAllowed", l_lovrWorldIsSleepingAllowed },
   { "setSleepingAllowed", l_lovrWorldSetSleepingAllowed },
-  { "update", l_lovrWorldUpdate },
-  { "computeOverlaps", l_lovrWorldComputeOverlaps },
-  { "overlaps", l_lovrWorldOverlaps },
-  { "collide", l_lovrWorldCollide },
   { NULL, NULL }
 };

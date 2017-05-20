@@ -41,49 +41,26 @@ World* lovrWorldCreate() {
 
 void lovrWorldDestroy(const Ref* ref) {
   World* world = containerof(ref, World);
-  dWorldDestroy(world->id);
+  lovrWorldDestroyData(world);
   vec_deinit(&world->overlaps);
   free(world);
 }
 
-void lovrWorldGetGravity(World* world, float* x, float* y, float* z) {
-  dReal gravity[3];
-  dWorldGetGravity(world->id, gravity);
-  *x = gravity[0];
-  *y = gravity[1];
-  *z = gravity[2];
-}
+void lovrWorldDestroyData(World* world) {
+  if (world->contactGroup) {
+    dJointGroupEmpty(world->contactGroup);
+    world->contactGroup = NULL;
+  }
 
-void lovrWorldSetGravity(World* world, float x, float y, float z) {
-  dWorldSetGravity(world->id, x, y, z);
-}
+  if (world->space) {
+    dSpaceDestroy(world->space);
+    world->space = NULL;
+  }
 
-void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold) {
-  *damping = dWorldGetLinearDamping(world->id);
-  *threshold = dWorldGetLinearDampingThreshold(world->id);
-}
-
-void lovrWorldSetLinearDamping(World* world, float damping, float threshold) {
-  dWorldSetLinearDamping(world->id, damping);
-  dWorldSetLinearDampingThreshold(world->id, threshold);
-}
-
-void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold) {
-  *damping = dWorldGetAngularDamping(world->id);
-  *threshold = dWorldGetAngularDampingThreshold(world->id);
-}
-
-void lovrWorldSetAngularDamping(World* world, float damping, float threshold) {
-  dWorldSetAngularDamping(world->id, damping);
-  dWorldSetAngularDampingThreshold(world->id, threshold);
-}
-
-int lovrWorldIsSleepingAllowed(World* world) {
-  return dWorldGetAutoDisableFlag(world->id);
-}
-
-void lovrWorldSetSleepingAllowed(World* world, int allowed) {
-  dWorldSetAutoDisableFlag(world->id, allowed);
+  if (world->id) {
+    dWorldDestroy(world->id);
+    world->id = NULL;
+  }
 }
 
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata) {
@@ -133,6 +110,46 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b) {
   }
 
   return contactCount;
+}
+
+void lovrWorldGetGravity(World* world, float* x, float* y, float* z) {
+  dReal gravity[3];
+  dWorldGetGravity(world->id, gravity);
+  *x = gravity[0];
+  *y = gravity[1];
+  *z = gravity[2];
+}
+
+void lovrWorldSetGravity(World* world, float x, float y, float z) {
+  dWorldSetGravity(world->id, x, y, z);
+}
+
+void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold) {
+  *damping = dWorldGetLinearDamping(world->id);
+  *threshold = dWorldGetLinearDampingThreshold(world->id);
+}
+
+void lovrWorldSetLinearDamping(World* world, float damping, float threshold) {
+  dWorldSetLinearDamping(world->id, damping);
+  dWorldSetLinearDampingThreshold(world->id, threshold);
+}
+
+void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold) {
+  *damping = dWorldGetAngularDamping(world->id);
+  *threshold = dWorldGetAngularDampingThreshold(world->id);
+}
+
+void lovrWorldSetAngularDamping(World* world, float damping, float threshold) {
+  dWorldSetAngularDamping(world->id, damping);
+  dWorldSetAngularDampingThreshold(world->id, threshold);
+}
+
+int lovrWorldIsSleepingAllowed(World* world) {
+  return dWorldGetAutoDisableFlag(world->id);
+}
+
+void lovrWorldSetSleepingAllowed(World* world, int allowed) {
+  dWorldSetAutoDisableFlag(world->id, allowed);
 }
 
 Collider* lovrColliderCreate(World* world) {
