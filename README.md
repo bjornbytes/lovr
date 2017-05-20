@@ -4,17 +4,21 @@
 
 LÖVR is a simple framework for creating virtual reality experiences with Lua.
 
+Features
+---
+
+- Automatically detects and renders to connected VR headsets (works without a headset too!)
+- Simple graphics API supporting 3D primitives, 3D models, fonts, shaders, and skyboxes.
+- Export projects to standalone executables, or export to the web using WebVR.
+- Spatialized audio for more immersive experiences.
+- 3D physics system
+
 Getting Started
 ---
 
-You can download precompiled binaries from the [LÖVR website](http://lovr.org).  There, you
-can also find documentation and a set of tutorials and examples.  Here are a few short snippets so
-you can get an idea of what it looks like to use LÖVR:
-
-#### Hello World
-
-Create a folder called `myProject`.  In that folder, create a file called `main.lua` with the
-following in it:
+You can download precompiled binaries from the [website](http://lovr.org).  There, you
+can also find documentation and a set of tutorials and examples.  Here is the hello world example
+for LÖVR:
 
 ```lua
 function lovr.draw()
@@ -22,13 +26,10 @@ function lovr.draw()
 end
 ```
 
-Finally, start SteamVR and drag the `myProject` folder onto `lovr.exe`.  Put on your headset and you
-should see the hello world text at the front of the play area.
+Put that code in a file called `main.lua`, and drop the `main.lua` folder onto `lovr.exe`.  Put
+on your headset and you should see the text at the front of your play area!
 
-#### Cube
-
-You can draw a spinning cube using
-[`lovr.graphics.cube`](http://bjornbyt.es/lovr/docs/lovr.graphics.cube):
+#### Spinning Cube
 
 ```lua
 function lovr.draw()
@@ -36,21 +37,7 @@ function lovr.draw()
 end
 ```
 
-#### Detecting Hardware
-
-```lua
-function lovr.load()
-  if lovr.headset.isPresent() then
-    print('Woo!  We have a headset: ' .. lovr.headset.getType())
-  else
-    print('Boo!  No VR for us :(')
-  end
-end
-```
-
 #### 3D Models
-
-LÖVR supports most 3D model file formats:
 
 ```lua
 function lovr.load()
@@ -64,8 +51,6 @@ end
 
 #### Audio
 
-Play an ogg file:
-
 ```lua
 function lovr.load()
   local sound = lovr.audio.newSource('darudeSandstorm.ogg')
@@ -73,15 +58,7 @@ function lovr.load()
 end
 ```
 
-Audio is spatialized using HRTFs, and the virtual audio listener is synchronized with the pose of
-the HMD.
-
 For more examples, see <http://lovr.org/examples>.
-
-Hardware Support
----
-
-LÖVR supports headsets compatible with OpenVR or WebVR.  Notably, the HTC Vive is well tested.
 
 Documentation
 ---
