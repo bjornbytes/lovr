@@ -8,7 +8,7 @@ Features
 ---
 
 - Automatically detects and renders to connected VR headsets (works without a headset too!)
-- Simple 3D graphics API supporting primitives, 3D models, fonts, shaders, and skyboxes.
+- Simple 3D graphics API supporting primitives, 3D models, fonts, shaders, skyboxes, framebuffers, etc.
 - Export projects to standalone executables, or export to the web using WebVR.
 - Spatialized audio
 - 3D physics
