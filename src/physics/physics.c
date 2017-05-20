@@ -156,6 +156,10 @@ void lovrColliderDestroy(const Ref* ref) {
   free(collider);
 }
 
+World* lovrColliderGetWorld(Collider* collider) {
+  return collider->world;
+}
+
 void lovrColliderAddShape(Collider* collider, Shape* shape) {
   shape->collider = collider;
   dGeomSetBody(shape->id, collider->body);
@@ -175,6 +179,93 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
     dSpaceRemove(collider->world->space, shape->id);
     dGeomSetBody(shape->id, 0);
   }
+}
+
+void* lovrColliderGetUserData(Collider* collider) {
+  return collider->userdata;
+}
+
+void lovrColliderSetUserData(Collider* collider, void* data) {
+  collider->userdata = data;
+}
+
+int lovrColliderIsKinematic(Collider* collider) {
+  return dBodyIsKinematic(collider->body);
+}
+
+void lovrColliderSetKinematic(Collider* collider, int kinematic) {
+  if (kinematic) {
+    dBodySetKinematic(collider->body);
+  } else {
+    dBodySetDynamic(collider->body);
+  }
+}
+
+int lovrColliderIsGravityIgnored(Collider* collider) {
+  return !dBodyGetGravityMode(collider->body);
+}
+
+void lovrColliderSetGravityIgnored(Collider* collider, int ignored) {
+  dBodySetGravityMode(collider->body, !ignored);
+}
+
+int lovrColliderIsSleepingAllowed(Collider* collider) {
+  return dBodyGetAutoDisableFlag(collider->body);
+}
+
+void lovrColliderSetSleepingAllowed(Collider* collider, int allowed) {
+  dBodySetAutoDisableFlag(collider->body, allowed);
+}
+
+int lovrColliderIsAwake(Collider* collider) {
+  return dBodyIsEnabled(collider->body);
+}
+
+void lovrColliderSetAwake(Collider* collider, int awake) {
+  if (awake) {
+    dBodyEnable(collider->body);
+  } else {
+    dBodyDisable(collider->body);
+  }
+}
+
+float lovrColliderGetMass(Collider* collider) {
+  dMass m;
+  dBodyGetMass(collider->body, &m);
+  return m.mass;
+}
+
+void lovrColliderSetMass(Collider* collider, float mass) {
+  dMass m;
+  dBodyGetMass(collider->body, &m);
+  dMassAdjust(&m, mass);
+  dBodySetMass(collider->body, &m);
+}
+
+void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
+  dMass m;
+  dBodyGetMass(collider->body, &m);
+  *cx = m.c[0];
+  *cy = m.c[1];
+  *cz = m.c[2];
+  *mass = m.mass;
+
+  // Diagonal
+  inertia[0] = m.I[0];
+  inertia[1] = m.I[5];
+  inertia[2] = m.I[10];
+
+  // Lower triangular
+  inertia[3] = m.I[4];
+  inertia[4] = m.I[8];
+  inertia[5] = m.I[9];
+}
+
+void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, float mass, float inertia[]) {
+  dMass m;
+  dBodyGetMass(collider->body, &m);
+  dMassSetParameters(&m, mass, cx, cy, cz, inertia[0], inertia[1], inertia[2], inertia[3], inertia[4], inertia[5]);
+  dBodySetMass(collider->body, &m);
 }
 
 void lovrColliderGetPosition(Collider* collider, float* x, float* y, float* z) {
@@ -256,18 +347,6 @@ void lovrColliderApplyTorque(Collider* collider, float x, float y, float z) {
   dBodyAddTorque(collider->body, x, y, z);
 }
 
-int lovrColliderIsKinematic(Collider* collider) {
-  return dBodyIsKinematic(collider->body);
-}
-
-void lovrColliderSetKinematic(Collider* collider, int kinematic) {
-  if (kinematic) {
-    dBodySetKinematic(collider->body);
-  } else {
-    dBodySetDynamic(collider->body);
-  }
-}
-
 void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
   dReal local[3];
   dBodyGetPosRelPoint(collider->body, wx, wy, wz, local);
@@ -314,77 +393,6 @@ void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, f
   *vx = velocity[0];
   *vy = velocity[1];
   *vz = velocity[2];
-}
-
-int lovrColliderIsSleepingAllowed(Collider* collider) {
-  return dBodyGetAutoDisableFlag(collider->body);
-}
-
-void lovrColliderSetSleepingAllowed(Collider* collider, int allowed) {
-  dBodySetAutoDisableFlag(collider->body, allowed);
-}
-
-int lovrColliderIsAwake(Collider* collider) {
-  return dBodyIsEnabled(collider->body);
-}
-
-void lovrColliderSetAwake(Collider* collider, int awake) {
-  if (awake) {
-    dBodyEnable(collider->body);
-  } else {
-    dBodyDisable(collider->body);
-  }
-}
-
-void* lovrColliderGetUserData(Collider* collider) {
-  return collider->userdata;
-}
-
-void lovrColliderSetUserData(Collider* collider, void* data) {
-  collider->userdata = data;
-}
-
-World* lovrColliderGetWorld(Collider* collider) {
-  return collider->world;
-}
-
-float lovrColliderGetMass(Collider* collider) {
-  dMass m;
-  dBodyGetMass(collider->body, &m);
-  return m.mass;
-}
-
-void lovrColliderSetMass(Collider* collider, float mass) {
-  dMass m;
-  dBodyGetMass(collider->body, &m);
-  dMassAdjust(&m, mass);
-  dBodySetMass(collider->body, &m);
-}
-
-void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
-  dMass m;
-  dBodyGetMass(collider->body, &m);
-  *cx = m.c[0];
-  *cy = m.c[1];
-  *cz = m.c[2];
-  *mass = m.mass;
-
-  // Diagonal
-  inertia[0] = m.I[0];
-  inertia[1] = m.I[5];
-  inertia[2] = m.I[10];
-
-  // Lower triangular
-  inertia[3] = m.I[4];
-  inertia[4] = m.I[8];
-  inertia[5] = m.I[9];
-}
-
-void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, float mass, float inertia[]) {
-  dMass m;
-  dBodyGetMass(collider->body, &m);
-  dMassSetParameters(&m, mass, cx, cy, cz, inertia[0], inertia[1], inertia[2], inertia[3], inertia[4], inertia[5]);
-  dBodySetMass(collider->body, &m);
 }
 
 void lovrShapeDestroy(const Ref* ref) {

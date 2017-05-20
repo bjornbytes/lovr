@@ -1,6 +1,12 @@
 #include "api/lovr.h"
 #include "physics/physics.h"
 
+int l_lovrColliderGetWorld(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  luax_pushtype(L, World, lovrColliderGetWorld(collider));
+  return 1;
+}
+
 int l_lovrColliderAddShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   Shape* shape = luax_checktypeof(L, 2, Shape);
@@ -12,6 +18,142 @@ int l_lovrColliderRemoveShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   Shape* shape = luax_checktypeof(L, 2, Shape);
   lovrColliderRemoveShape(collider, shape);
+  return 0;
+}
+
+int l_lovrColliderGetUserData(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  int ref = (int) lovrColliderGetUserData(collider);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+  return 1;
+}
+
+int l_lovrColliderSetUserData(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  uint64_t ref = (int) lovrColliderGetUserData(collider);
+  if (ref) {
+    luaL_unref(L, LUA_REGISTRYINDEX, ref);
+  }
+
+  if (lua_gettop(L) < 2) {
+    lua_pushnil(L);
+  }
+
+  lua_settop(L, 2);
+  ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  lovrColliderSetUserData(collider, (void*) ref);
+  return 0;
+}
+
+int l_lovrColliderIsKinematic(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushboolean(L, lovrColliderIsKinematic(collider));
+  return 1;
+}
+
+int l_lovrColliderSetKinematic(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  int kinematic = lua_toboolean(L, 2);
+  lovrColliderSetKinematic(collider, kinematic);
+  return 0;
+}
+
+int l_lovrColliderIsGravityIgnored(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushboolean(L, lovrColliderIsGravityIgnored(collider));
+  return 1;
+}
+
+int l_lovrColliderSetGravityIgnored(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  int ignored = lua_toboolean(L, 2);
+  lovrColliderSetGravityIgnored(collider, ignored);
+  return 0;
+}
+
+int l_lovrColliderIsAwake(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushboolean(L, lovrColliderIsAwake(collider));
+  return 1;
+}
+
+int l_lovrColliderSetAwake(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  int awake = lua_toboolean(L, 2);
+  lovrColliderSetAwake(collider, awake);
+  return 0;
+}
+
+int l_lovrColliderIsSleepingAllowed(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushboolean(L, lovrColliderIsSleepingAllowed(collider));
+  return 1;
+}
+
+int l_lovrColliderSetSleepingAllowed(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  int allowed = lua_toboolean(L, 2);
+  lovrColliderSetSleepingAllowed(collider, allowed);
+  return 0;
+}
+
+int l_lovrColliderGetMass(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushnumber(L, lovrColliderGetMass(collider));
+  return 1;
+}
+
+int l_lovrColliderSetMass(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float mass = luaL_checknumber(L, 2);
+  lovrColliderSetMass(collider, mass);
+  return 0;
+}
+
+int l_lovrColliderGetMassData(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float cx, cy, cz, mass;
+  float inertia[6];
+  lovrColliderGetMassData(collider, &cx, &cy, &cz, &mass, inertia);
+  lua_pushnumber(L, cx);
+  lua_pushnumber(L, cy);
+  lua_pushnumber(L, cz);
+  lua_pushnumber(L, mass);
+  lua_newtable(L);
+  for (int i = 0; i < 6; i++) {
+    lua_pushnumber(L, inertia[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 5;
+}
+
+int l_lovrColliderSetMassData(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float cx = luaL_checknumber(L, 2);
+  float cy = luaL_checknumber(L, 3);
+  float cz = luaL_checknumber(L, 4);
+  float mass = luaL_checknumber(L, 5);
+  float inertia[6];
+  if (lua_istable(L, 6) && lua_objlen(L, 6) >= 6) {
+    for (int i = 0; i < 6; i++) {
+      lua_rawgeti(L, 6, i + 1);
+      if (!lua_isnumber(L, -1)) {
+        return luaL_argerror(L, 6, "Expected 6 numbers or a table with 6 numbers");
+      }
+
+      inertia[i] = lua_tonumber(L, -1);
+      lua_pop(L, 1);
+    }
+  } else {
+    for (int i = 6; i < 12; i++) {
+      if (lua_isnumber(L, i)) {
+        inertia[i] = lua_tonumber(L, i);
+      } else {
+        return luaL_argerror(L, i, "Expected 6 numbers or a table with 6 numbers");
+      }
+    }
+  }
+  lovrColliderSetMassData(collider, cx, cy, cz, mass, inertia);
   return 0;
 }
 
@@ -154,19 +296,6 @@ int l_lovrColliderApplyTorque(lua_State* L) {
   return 0;
 }
 
-int l_lovrColliderIsKinematic(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  lua_pushboolean(L, lovrColliderIsKinematic(collider));
-  return 1;
-}
-
-int l_lovrColliderSetKinematic(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  int kinematic = lua_toboolean(L, 2);
-  lovrColliderSetKinematic(collider, kinematic);
-  return 0;
-}
-
 int l_lovrColliderGetLocalPoint(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   float wx = luaL_checknumber(L, 2);
@@ -245,125 +374,24 @@ int l_lovrColliderGetLinearVelocityFromWorldPoint(lua_State* L) {
   return 3;
 }
 
-int l_lovrColliderIsSleepingAllowed(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  lua_pushboolean(L, lovrColliderIsSleepingAllowed(collider));
-  return 1;
-}
-
-int l_lovrColliderSetSleepingAllowed(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  int allowed = lua_toboolean(L, 2);
-  lovrColliderSetSleepingAllowed(collider, allowed);
-  return 0;
-}
-
-int l_lovrColliderIsAwake(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  lua_pushboolean(L, lovrColliderIsAwake(collider));
-  return 1;
-}
-
-int l_lovrColliderSetAwake(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  int awake = lua_toboolean(L, 2);
-  lovrColliderSetAwake(collider, awake);
-  return 0;
-}
-
-int l_lovrColliderGetUserData(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  int ref = (int) lovrColliderGetUserData(collider);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
-  return 1;
-}
-
-int l_lovrColliderSetUserData(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  uint64_t ref = (int) lovrColliderGetUserData(collider);
-  if (ref) {
-    luaL_unref(L, LUA_REGISTRYINDEX, ref);
-  }
-
-  if (lua_gettop(L) < 2) {
-    lua_pushnil(L);
-  }
-
-  lua_settop(L, 2);
-  ref = luaL_ref(L, LUA_REGISTRYINDEX);
-  lovrColliderSetUserData(collider, (void*) ref);
-  return 0;
-}
-
-int l_lovrColliderGetWorld(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  luax_pushtype(L, World, lovrColliderGetWorld(collider));
-  return 1;
-}
-
-int l_lovrColliderGetMass(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  lua_pushnumber(L, lovrColliderGetMass(collider));
-  return 1;
-}
-
-int l_lovrColliderSetMass(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  float mass = luaL_checknumber(L, 2);
-  lovrColliderSetMass(collider, mass);
-  return 0;
-}
-
-int l_lovrColliderGetMassData(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  float cx, cy, cz, mass;
-  float inertia[6];
-  lovrColliderGetMassData(collider, &cx, &cy, &cz, &mass, inertia);
-  lua_pushnumber(L, cx);
-  lua_pushnumber(L, cy);
-  lua_pushnumber(L, cz);
-  lua_pushnumber(L, mass);
-  lua_newtable(L);
-  for (int i = 0; i < 6; i++) {
-    lua_pushnumber(L, inertia[i]);
-    lua_rawseti(L, -2, i + 1);
-  }
-  return 5;
-}
-
-int l_lovrColliderSetMassData(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  float cx = luaL_checknumber(L, 2);
-  float cy = luaL_checknumber(L, 3);
-  float cz = luaL_checknumber(L, 4);
-  float mass = luaL_checknumber(L, 5);
-  float inertia[6];
-  if (lua_istable(L, 6) && lua_objlen(L, 6) >= 6) {
-    for (int i = 0; i < 6; i++) {
-      lua_rawgeti(L, 6, i + 1);
-      if (!lua_isnumber(L, -1)) {
-        return luaL_argerror(L, 6, "Expected 6 numbers or a table with 6 numbers");
-      }
-
-      inertia[i] = lua_tonumber(L, -1);
-      lua_pop(L, 1);
-    }
-  } else {
-    for (int i = 6; i < 12; i++) {
-      if (lua_isnumber(L, i)) {
-        inertia[i] = lua_tonumber(L, i);
-      } else {
-        return luaL_argerror(L, i, "Expected 6 numbers or a table with 6 numbers");
-      }
-    }
-  }
-  lovrColliderSetMassData(collider, cx, cy, cz, mass, inertia);
-  return 0;
-}
-
 const luaL_Reg lovrCollider[] = {
+  { "getWorld", l_lovrColliderGetWorld },
   { "addShape", l_lovrColliderAddShape },
   { "removeShape", l_lovrColliderRemoveShape },
+  { "getUserData", l_lovrColliderGetUserData },
+  { "setUserData", l_lovrColliderSetUserData },
+  { "isKinematic", l_lovrColliderIsKinematic },
+  { "setKinematic", l_lovrColliderSetKinematic },
+  { "isGravityIgnored", l_lovrColliderIsGravityIgnored },
+  { "setGravityIgnored", l_lovrColliderSetGravityIgnored },
+  { "isSleepingAllowed", l_lovrColliderIsSleepingAllowed },
+  { "setSleepingAllowed", l_lovrColliderSetSleepingAllowed },
+  { "isAwake", l_lovrColliderIsAwake },
+  { "setAwake", l_lovrColliderSetAwake },
+  { "getMass", l_lovrColliderGetMass },
+  { "setMass", l_lovrColliderSetMass },
+  { "getMassData", l_lovrColliderGetMassData },
+  { "setMassData", l_lovrColliderSetMassData },
   { "getPosition", l_lovrColliderGetPosition },
   { "setPosition", l_lovrColliderSetPosition },
   { "getOrientation", l_lovrColliderGetOrientation },
@@ -378,24 +406,11 @@ const luaL_Reg lovrCollider[] = {
   { "setAngularDamping", l_lovrColliderSetAngularDamping },
   { "applyForce", l_lovrColliderApplyForce },
   { "applyTorque", l_lovrColliderApplyForce },
-  { "isKinematic", l_lovrColliderIsKinematic },
-  { "setKinematic", l_lovrColliderSetKinematic },
   { "getLocalPoint", l_lovrColliderGetLocalPoint },
   { "getWorldPoint", l_lovrColliderGetWorldPoint },
   { "getLocalVector", l_lovrColliderGetLocalVector },
   { "getWorldVector", l_lovrColliderGetWorldVector },
   { "getLinearVelocityFromLocalPoint", l_lovrColliderGetLinearVelocityFromLocalPoint },
   { "getLinearVelocityFromWorldPoint", l_lovrColliderGetLinearVelocityFromWorldPoint },
-  { "isSleepingAllowed", l_lovrColliderIsSleepingAllowed },
-  { "setSleepingAllowed", l_lovrColliderSetSleepingAllowed },
-  { "isAwake", l_lovrColliderIsAwake },
-  { "setAwake", l_lovrColliderSetAwake },
-  { "getUserData", l_lovrColliderGetUserData },
-  { "setUserData", l_lovrColliderSetUserData },
-  { "getWorld", l_lovrColliderGetWorld },
-  { "getMass", l_lovrColliderGetMass },
-  { "setMass", l_lovrColliderSetMass },
-  { "getMassData", l_lovrColliderGetMassData },
-  { "setMassData", l_lovrColliderSetMassData },
   { NULL, NULL }
 };
