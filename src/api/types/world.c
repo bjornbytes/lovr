@@ -22,6 +22,53 @@ static int nextOverlap(lua_State* L) {
   }
 }
 
+int l_lovrWorldNewCollider(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  Collider* collider = lovrColliderCreate(world);
+  luax_pushtype(L, Collider, collider);
+  return 1;
+}
+
+int l_lovrWorldNewBoxCollider(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float x = luaL_optnumber(L, 2, 1.f);
+  float y = luaL_optnumber(L, 3, x);
+  float z = luaL_optnumber(L, 4, x);
+  Collider* collider = lovrColliderCreate(world);
+  lovrColliderAddShape(collider, lovrBoxShapeCreate(x, y, z));
+  luax_pushtype(L, Collider, collider);
+  return 1;
+}
+
+int l_lovrWorldNewCapsuleCollider(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float radius = luaL_optnumber(L, 2, 1.f);
+  float length = luaL_optnumber(L, 3, 1.f);
+  Collider* collider = lovrColliderCreate(world);
+  lovrColliderAddShape(collider, lovrCapsuleShapeCreate(radius, length));
+  luax_pushtype(L, Collider, collider);
+  return 1;
+}
+
+int l_lovrWorldNewCylinderCollider(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float radius = luaL_optnumber(L, 2, 1.f);
+  float length = luaL_optnumber(L, 3, 1.f);
+  Collider* collider = lovrColliderCreate(world);
+  lovrColliderAddShape(collider, lovrCylinderShapeCreate(radius, length));
+  luax_pushtype(L, Collider, collider);
+  return 1;
+}
+
+int l_lovrWorldNewSphereCollider(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float radius = luaL_optnumber(L, 2, 1.f);
+  Collider* collider = lovrColliderCreate(world);
+  lovrColliderAddShape(collider, lovrSphereShapeCreate(radius));
+  luax_pushtype(L, Collider, collider);
+  return 1;
+}
+
 int l_lovrWorldGetGravity(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float x, y, z;
@@ -119,6 +166,11 @@ int l_lovrWorldCollide(lua_State* L) {
 }
 
 const luaL_Reg lovrWorld[] = {
+  { "newCollider", l_lovrWorldNewCollider },
+  { "newBoxCollider", l_lovrWorldNewBoxCollider },
+  { "newCapsuleCollider", l_lovrWorldNewCapsuleCollider },
+  { "newCylinderCollider", l_lovrWorldNewCylinderCollider },
+  { "newSphereCollider", l_lovrWorldNewSphereCollider },
   { "getGravity", l_lovrWorldGetGravity },
   { "setGravity", l_lovrWorldSetGravity },
   { "getLinearDamping", l_lovrWorldGetLinearDamping },

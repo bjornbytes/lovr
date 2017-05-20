@@ -7,7 +7,7 @@ int l_lovrPhysicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrPhysics);
   luax_registertype(L, "World", lovrWorld);
-  luax_registertype(L, "Body", lovrBody);
+  luax_registertype(L, "Collider", lovrCollider);
   luax_extendtype(L, "Shape", "SphereShape", lovrShape, lovrSphereShape);
   luax_extendtype(L, "Shape", "BoxShape", lovrShape, lovrBoxShape);
   luax_extendtype(L, "Shape", "CapsuleShape", lovrShape, lovrCapsuleShape);
@@ -25,12 +25,6 @@ int l_lovrPhysicsInit(lua_State* L) {
 
 int l_lovrPhysicsNewWorld(lua_State* L) {
   luax_pushtype(L, World, lovrWorldCreate());
-  return 1;
-}
-
-int l_lovrPhysicsNewBody(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  luax_pushtype(L, Body, lovrBodyCreate(world));
   return 1;
 }
 
@@ -64,7 +58,6 @@ int l_lovrPhysicsNewCylinderShape(lua_State* L) {
 
 const luaL_Reg lovrPhysics[] = {
   { "newWorld", l_lovrPhysicsNewWorld },
-  { "newBody", l_lovrPhysicsNewBody },
   { "newSphereShape", l_lovrPhysicsNewSphereShape },
   { "newBoxShape", l_lovrPhysicsNewBoxShape },
   { "newCapsuleShape", l_lovrPhysicsNewCapsuleShape },

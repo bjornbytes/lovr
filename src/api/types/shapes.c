@@ -16,29 +16,10 @@ int l_lovrShapeGetType(lua_State* L) {
   return 1;
 }
 
-int l_lovrShapeGetBody(lua_State* L) {
+int l_lovrShapeGetCollider(lua_State* L) {
   Shape* shape = luax_checktypeof(L, 1, Shape);
-  Body* body = lovrShapeGetBody(shape);
-
-  if (body) {
-    luax_pushtype(L, Body, body);
-  } else {
-    lua_pushnil(L);
-  }
-
+  luax_pushtype(L, Collider, lovrShapeGetCollider(shape));
   return 1;
-}
-
-int l_lovrShapeSetBody(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
-  if (lua_isnoneornil(L, 2)) {
-    lovrShapeSetBody(shape, NULL);
-  } else {
-    Body* body = luax_checktype(L, 2, Body);
-    lovrShapeSetBody(shape, body);
-  }
-
-  return 0;
 }
 
 int l_lovrShapeIsEnabled(lua_State* L) {
@@ -192,8 +173,7 @@ int l_lovrShapeComputeMass(lua_State* L) {
 
 const luaL_Reg lovrShape[] = {
   { "getType", l_lovrShapeGetType },
-  { "getBody", l_lovrShapeGetBody },
-  { "setBody", l_lovrShapeSetBody },
+  { "getCollider", l_lovrShapeGetCollider },
   { "isEnabled", l_lovrShapeIsEnabled },
   { "setEnabled", l_lovrShapeSetEnabled },
   { "getUserData", l_lovrShapeGetUserData },
