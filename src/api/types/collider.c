@@ -296,6 +296,16 @@ int l_lovrColliderApplyTorque(lua_State* L) {
   return 0;
 }
 
+int l_lovrColliderGetLocalCenter(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float x, y, z;
+  lovrColliderGetLocalCenter(collider, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
+}
+
 int l_lovrColliderGetLocalPoint(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   float wx = luaL_checknumber(L, 2);
@@ -406,6 +416,7 @@ const luaL_Reg lovrCollider[] = {
   { "setAngularDamping", l_lovrColliderSetAngularDamping },
   { "applyForce", l_lovrColliderApplyForce },
   { "applyTorque", l_lovrColliderApplyForce },
+  { "getLocalCenter", l_lovrColliderGetLocalCenter },
   { "getLocalPoint", l_lovrColliderGetLocalPoint },
   { "getWorldPoint", l_lovrColliderGetWorldPoint },
   { "getLocalVector", l_lovrColliderGetLocalVector },

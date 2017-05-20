@@ -347,6 +347,14 @@ void lovrColliderApplyTorque(Collider* collider, float x, float y, float z) {
   dBodyAddTorque(collider->body, x, y, z);
 }
 
+void lovrColliderGetLocalCenter(Collider* collider, float* x, float* y, float* z) {
+  dMass m;
+  dBodyGetMass(collider->body, &m);
+  *x = m.c[0];
+  *y = m.c[1];
+  *z = m.c[2];
+}
+
 void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
   dReal local[3];
   dBodyGetPosRelPoint(collider->body, wx, wy, wz, local);
