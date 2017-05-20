@@ -65,6 +65,7 @@ void lovrWorldSetSleepingAllowed(World* world, int allowed);
 
 Collider* lovrColliderCreate();
 void lovrColliderDestroy(const Ref* ref);
+void lovrColliderDestroyData(Collider* collider);
 World* lovrColliderGetWorld(Collider* collider);
 void lovrColliderAddShape(Collider* collider, Shape* shape);
 void lovrColliderRemoveShape(Collider* collider, Shape* shape);

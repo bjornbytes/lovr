@@ -1,6 +1,12 @@
 #include "api/lovr.h"
 #include "physics/physics.h"
 
+int l_lovrColliderDestroy(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lovrColliderDestroyData(collider);
+  return 0;
+}
+
 int l_lovrColliderGetWorld(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   luax_pushtype(L, World, lovrColliderGetWorld(collider));
@@ -385,6 +391,7 @@ int l_lovrColliderGetLinearVelocityFromWorldPoint(lua_State* L) {
 }
 
 const luaL_Reg lovrCollider[] = {
+  { "destroy", l_lovrColliderDestroy },
   { "getWorld", l_lovrColliderGetWorld },
   { "addShape", l_lovrColliderAddShape },
   { "removeShape", l_lovrColliderRemoveShape },

@@ -169,8 +169,15 @@ Collider* lovrColliderCreate(World* world) {
 
 void lovrColliderDestroy(const Ref* ref) {
   Collider* collider = containerof(ref, Collider);
-  dBodyDestroy(collider->body);
+  lovrColliderDestroyData(collider);
   free(collider);
+}
+
+void lovrColliderDestroyData(Collider* collider) {
+  if (collider->body) {
+    dBodyDestroy(collider->body);
+    collider->body = NULL;
+  }
 }
 
 World* lovrColliderGetWorld(Collider* collider) {
