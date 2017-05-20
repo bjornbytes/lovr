@@ -2,7 +2,8 @@ Compiling LÖVR
 ===
 
 You might want to compile LÖVR from source so you can use LÖVR on other operating systems or create
-a custom build.  Below is a guide for setting up all the dependencies
+a custom build.  Below is a guide for setting up all the dependencies and compiling the code on
+various operating systems.
 
 Dependencies
 ---
