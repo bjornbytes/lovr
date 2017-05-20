@@ -107,6 +107,7 @@ void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, fl
 void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, float wy, float wz, float* vx, float* vy, float* vz);
 
 void lovrShapeDestroy(const Ref* ref);
+void lovrShapeDestroyData(Shape* shape);
 ShapeType lovrShapeGetType(Shape* shape);
 Collider* lovrShapeGetCollider(Shape* shape);
 int lovrShapeIsEnabled(Shape* shape);

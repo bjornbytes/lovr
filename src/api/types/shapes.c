@@ -10,6 +10,12 @@ int luax_pushshape(lua_State* L, Shape* shape) {
   }
 }
 
+int l_lovrShapeDestroy(lua_State* L) {
+  Shape* shape = luax_checktypeof(L, 1, Shape);
+  lovrShapeDestroyData(shape);
+  return 0;
+}
+
 int l_lovrShapeGetType(lua_State* L) {
   Shape* shape = luax_checktypeof(L, 1, Shape);
   luax_pushenum(L, &ShapeTypes, lovrShapeGetType(shape));
@@ -172,6 +178,7 @@ int l_lovrShapeComputeMass(lua_State* L) {
 }
 
 const luaL_Reg lovrShape[] = {
+  { "destroy", l_lovrShapeDestroy },
   { "getType", l_lovrShapeGetType },
   { "getCollider", l_lovrShapeGetCollider },
   { "isEnabled", l_lovrShapeIsEnabled },

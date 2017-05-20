@@ -429,8 +429,15 @@ void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, f
 
 void lovrShapeDestroy(const Ref* ref) {
   Shape* shape = containerof(ref, Shape);
-  dGeomDestroy(shape->id);
+  lovrShapeDestroyData(shape);
   free(shape);
+}
+
+void lovrShapeDestroyData(Shape* shape) {
+  if (shape->id) {
+    dGeomDestroy(shape->id);
+    shape->id = NULL;
+  }
 }
 
 ShapeType lovrShapeGetType(Shape* shape) {
