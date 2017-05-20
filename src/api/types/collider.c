@@ -27,6 +27,20 @@ int l_lovrColliderRemoveShape(lua_State* L) {
   return 0;
 }
 
+int l_lovrColliderGetShapeList(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_newtable(L);
+  int i;
+  Shape* shape;
+
+  for (i = 1, shape = lovrColliderGetFirstShape(collider); shape; shape = lovrColliderGetNextShape(collider, shape), i++) {
+    luax_pushshape(L, shape);
+    lua_rawseti(L, -2, i);
+  }
+
+  return 1;
+}
+
 int l_lovrColliderGetUserData(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   int ref = (int) lovrColliderGetUserData(collider);
@@ -395,6 +409,7 @@ const luaL_Reg lovrCollider[] = {
   { "getWorld", l_lovrColliderGetWorld },
   { "addShape", l_lovrColliderAddShape },
   { "removeShape", l_lovrColliderRemoveShape },
+  { "getShapeList", l_lovrColliderGetShapeList },
   { "getUserData", l_lovrColliderGetUserData },
   { "setUserData", l_lovrColliderSetUserData },
   { "isKinematic", l_lovrColliderIsKinematic },

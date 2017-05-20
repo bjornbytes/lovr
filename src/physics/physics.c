@@ -205,6 +205,16 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   }
 }
 
+Shape* lovrColliderGetFirstShape(Collider* collider) {
+  dGeomID geom = dBodyGetFirstGeom(collider->body);
+  return geom ? dGeomGetData(geom) : NULL;
+}
+
+Shape* lovrColliderGetNextShape(Collider* collider, Shape* shape) {
+  dGeomID geom = dBodyGetNextGeom(shape->id);
+  return geom ? dGeomGetData(geom) : NULL;
+}
+
 void* lovrColliderGetUserData(Collider* collider) {
   return collider->userdata;
 }

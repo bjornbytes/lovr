@@ -69,6 +69,8 @@ void lovrColliderDestroyData(Collider* collider);
 World* lovrColliderGetWorld(Collider* collider);
 void lovrColliderAddShape(Collider* collider, Shape* shape);
 void lovrColliderRemoveShape(Collider* collider, Shape* shape);
+Shape* lovrColliderGetFirstShape(Collider* collider);
+Shape* lovrColliderGetNextShape(Collider* collider, Shape* shape);
 void* lovrColliderGetUserData(Collider* collider);
 void lovrColliderSetUserData(Collider* collider, void* data);
 int lovrColliderIsKinematic(Collider* collider);
