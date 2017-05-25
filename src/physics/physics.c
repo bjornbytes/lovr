@@ -30,11 +30,6 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
 
 void lovrPhysicsInit() {
   dInitODE();
-
-  if (!dCheckConfiguration("ODE_single_precision")) {
-    error("lovr.physics must use single precision");
-  }
-
   atexit(lovrPhysicsDestroy);
 }
 
