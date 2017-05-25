@@ -423,6 +423,32 @@ int l_lovrColliderGetAABB(lua_State* L) {
   return 6;
 }
 
+int l_lovrColliderGetFriction(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushnumber(L, lovrColliderGetFriction(collider));
+  return 1;
+}
+
+int l_lovrColliderSetFriction(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float friction = luaL_checknumber(L, 2);
+  lovrColliderSetFriction(collider, friction);
+  return 0;
+}
+
+int l_lovrColliderGetRestitution(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushnumber(L, lovrColliderGetRestitution(collider));
+  return 1;
+}
+
+int l_lovrColliderSetRestitution(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float restitution = luaL_checknumber(L, 2);
+  lovrColliderSetRestitution(collider, restitution);
+  return 0;
+}
+
 const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
   { "getWorld", l_lovrColliderGetWorld },
@@ -465,5 +491,9 @@ const luaL_Reg lovrCollider[] = {
   { "getLinearVelocityFromLocalPoint", l_lovrColliderGetLinearVelocityFromLocalPoint },
   { "getLinearVelocityFromWorldPoint", l_lovrColliderGetLinearVelocityFromWorldPoint },
   { "getAABB", l_lovrColliderGetAABB },
+  { "getFriction", l_lovrColliderGetFriction },
+  { "setFriction", l_lovrColliderSetFriction },
+  { "getRestitution", l_lovrColliderGetRestitution },
+  { "setRestitution", l_lovrColliderSetRestitution },
   { NULL, NULL }
 };

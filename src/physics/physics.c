@@ -129,6 +129,10 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
     contacts[i].surface.mu = friction;
     contacts[i].surface.bounce = restitution;
     contacts[i].surface.mu = dInfinity;
+
+    if (restitution > 0) {
+      contacts[i].surface.mode |= dContactBounce;
+    }
   }
 
   int contactCount = dCollide(a->id, b->id, MAX_CONTACTS, &contacts[0].geom, sizeof(dContact));
@@ -203,6 +207,8 @@ Collider* lovrColliderCreate(World* world) {
 
   collider->body = dBodyCreate(world->id);
   collider->world = world;
+  collider->friction = 0;
+  collider->restitution = 0;
   dBodySetData(collider->body, collider);
   vec_init(&collider->shapes);
   vec_init(&collider->joints);
@@ -493,6 +499,22 @@ void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, f
   *vx = velocity[0];
   *vy = velocity[1];
   *vz = velocity[2];
+}
+
+float lovrColliderGetFriction(Collider* collider) {
+  return collider->friction;
+}
+
+void lovrColliderSetFriction(Collider* collider, float friction) {
+  collider->friction = friction;
+}
+
+float lovrColliderGetRestitution(Collider* collider) {
+  return collider->restitution;
+}
+
+void lovrColliderSetRestitution(Collider* collider, float restitution) {
+  collider->restitution = restitution;
 }
 
 void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
