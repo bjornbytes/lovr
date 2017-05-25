@@ -495,6 +495,28 @@ void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, f
   *vz = velocity[2];
 }
 
+void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
+  dGeomID shape = dBodyGetFirstGeom(collider->body);
+
+  if (!shape) {
+    memset(aabb, 0, 6 * sizeof(float));
+    return;
+  }
+
+  dGeomGetAABB(shape, aabb);
+
+  float otherAABB[6];
+  while ((shape = dBodyGetNextGeom(shape)) != NULL) {
+    dGeomGetAABB(shape, otherAABB);
+    aabb[0] = MIN(aabb[0], otherAABB[0]);
+    aabb[1] = MAX(aabb[0], otherAABB[0]);
+    aabb[2] = MIN(aabb[2], otherAABB[2]);
+    aabb[3] = MAX(aabb[3], otherAABB[3]);
+    aabb[4] = MIN(aabb[4], otherAABB[4]);
+    aabb[5] = MAX(aabb[5], otherAABB[5]);
+  }
+}
+
 void lovrShapeDestroy(const Ref* ref) {
   Shape* shape = containerof(ref, Shape);
   lovrShapeDestroyData(shape);

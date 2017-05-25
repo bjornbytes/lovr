@@ -413,6 +413,16 @@ int l_lovrColliderGetLinearVelocityFromWorldPoint(lua_State* L) {
   return 3;
 }
 
+int l_lovrColliderGetAABB(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float aabb[6];
+  lovrColliderGetAABB(collider, aabb);
+  for (int i = 0; i < 6; i++) {
+    lua_pushnumber(L, aabb[i]);
+  }
+  return 6;
+}
+
 const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
   { "getWorld", l_lovrColliderGetWorld },
@@ -454,5 +464,6 @@ const luaL_Reg lovrCollider[] = {
   { "getWorldVector", l_lovrColliderGetWorldVector },
   { "getLinearVelocityFromLocalPoint", l_lovrColliderGetLinearVelocityFromLocalPoint },
   { "getLinearVelocityFromWorldPoint", l_lovrColliderGetLinearVelocityFromWorldPoint },
+  { "getAABB", l_lovrColliderGetAABB },
   { NULL, NULL }
 };

@@ -131,6 +131,7 @@ void lovrColliderGetLocalVector(Collider* collider, float wx, float wy, float wz
 void lovrColliderGetWorldVector(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz);
 void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, float y, float z, float* vx, float* vy, float* vz);
 void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, float wy, float wz, float* vx, float* vy, float* vz);
+void lovrColliderGetAABB(Collider* collider, float aabb[6]);
 
 void lovrShapeDestroy(const Ref* ref);
 void lovrShapeDestroyData(Shape* shape);
