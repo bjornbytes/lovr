@@ -798,3 +798,19 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float
 
   return joint;
 }
+
+void lovrBallJointGetAnchors(BallJoint* ball, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+  float anchor[3];
+  dJointGetBallAnchor(ball->id, anchor);
+  *x1 = anchor[0];
+  *y1 = anchor[1];
+  *z1 = anchor[2];
+  dJointGetBallAnchor2(ball->id, anchor);
+  *x2 = anchor[0];
+  *y2 = anchor[1];
+  *z2 = anchor[2];
+}
+
+void lovrBallJointSetAnchor(BallJoint* ball, float x, float y, float z) {
+  dJointSetBallAnchor(ball->id, x, y, z);
+}

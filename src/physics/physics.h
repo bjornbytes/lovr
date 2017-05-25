@@ -180,3 +180,5 @@ void* lovrJointGetUserData(Joint* joint);
 void lovrJointSetUserData(Joint* joint, void* data);
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z);
+void lovrBallJointGetAnchors(BallJoint* ball, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
+void lovrBallJointSetAnchor(BallJoint* ball, float x, float y, float z);

@@ -63,6 +63,30 @@ const luaL_Reg lovrJoint[] = {
   { NULL, NULL }
 };
 
+int l_lovrBallJointGetAnchors(lua_State* L) {
+  BallJoint* ball = luax_checktype(L, 1, BallJoint);
+  float x1, y1, z1, x2, y2, z2;
+  lovrBallJointGetAnchors(ball, &x1, &y1, &z1, &x2, &y2, &z2);
+  lua_pushnumber(L, x1);
+  lua_pushnumber(L, y1);
+  lua_pushnumber(L, z1);
+  lua_pushnumber(L, x2);
+  lua_pushnumber(L, y2);
+  lua_pushnumber(L, z2);
+  return 6;
+}
+
+int l_lovrBallJointSetAnchor(lua_State* L) {
+  BallJoint* ball = luax_checktype(L, 1, BallJoint);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrBallJointSetAnchor(ball, x, y, z);
+  return 0;
+}
+
 const luaL_Reg lovrBallJoint[] = {
+  { "getAnchors", l_lovrBallJointGetAnchors },
+  { "setAnchor", l_lovrBallJointSetAnchor },
   { NULL, NULL }
 };
