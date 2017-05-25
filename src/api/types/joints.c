@@ -146,3 +146,35 @@ const luaL_Reg lovrHingeJoint[] = {
   { "getAngle", l_lovrHingeJointGetAngle },
   { NULL, NULL }
 };
+
+int l_lovrSliderJointGetAxis(lua_State* L) {
+  SliderJoint* slider = luax_checktype(L, 1, SliderJoint);
+  float x, y, z;
+  lovrSliderJointGetAxis(slider, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
+}
+
+int l_lovrSliderJointSetAxis(lua_State* L) {
+  SliderJoint* slider = luax_checktype(L, 1, SliderJoint);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrSliderJointSetAxis(slider, x, y, z);
+  return 0;
+}
+
+int l_lovrSliderJointGetPosition(lua_State* L) {
+  SliderJoint* slider = luax_checktype(L, 1, SliderJoint);
+  lua_pushnumber(L, lovrSliderJointGetPosition(slider));
+  return 1;
+}
+
+const luaL_Reg lovrSliderJoint[] = {
+  { "getAxis", l_lovrSliderJointGetAxis },
+  { "setAxis", l_lovrSliderJointSetAxis },
+  { "getPosition", l_lovrHingeJointGetAngle },
+  { NULL, NULL }
+};

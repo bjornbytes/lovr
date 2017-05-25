@@ -850,11 +850,11 @@ void lovrHingeJointSetAnchor(HingeJoint* hinge, float x, float y, float z) {
 }
 
 void lovrHingeJointGetAxis(HingeJoint* hinge, float* x, float* y, float* z) {
-  float anchor[3];
-  dJointGetHingeAxis(hinge->id, anchor);
-  *x = anchor[0];
-  *y = anchor[1];
-  *z = anchor[2];
+  float axis[3];
+  dJointGetHingeAxis(hinge->id, axis);
+  *x = axis[0];
+  *y = axis[1];
+  *z = axis[2];
 }
 
 void lovrHingeJointSetAxis(HingeJoint* hinge, float x, float y, float z) {
@@ -863,4 +863,37 @@ void lovrHingeJointSetAxis(HingeJoint* hinge, float x, float y, float z) {
 
 float lovrHingeJointGetAngle(HingeJoint* hinge) {
   return dJointGetHingeAngle(hinge->id);
+}
+
+SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az) {
+  if (a->world != b->world) {
+    error("Joint bodies must exist in same World");
+  }
+
+  SliderJoint* joint = lovrAlloc(sizeof(SliderJoint), lovrJointDestroy);
+  if (!joint) return NULL;
+
+  joint->type = JOINT_SLIDER;
+  joint->id = dJointCreateSlider(a->world->id, 0);
+  dJointSetData(joint->id, joint);
+  dJointAttach(joint->id, a->body, b->body);
+  dJointSetSliderAxis(joint->id, ax, ay, az);
+
+  return joint;
+}
+
+void lovrSliderJointGetAxis(SliderJoint* slider, float* x, float* y, float* z) {
+  float axis[3];
+  dJointGetSliderAxis(slider->id, axis);
+  *x = axis[0];
+  *y = axis[1];
+  *z = axis[2];
+}
+
+void lovrSliderJointSetAxis(SliderJoint* slider, float x, float y, float z) {
+  dJointSetSliderAxis(slider->id, x, y, z);
+}
+
+float lovrSliderJointGetPosition(SliderJoint* slider) {
+  return dJointGetSliderPosition(slider->id);
 }
