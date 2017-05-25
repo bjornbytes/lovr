@@ -160,12 +160,12 @@ int l_lovrShapeSetMask(lua_State* L) {
   return 0;
 }
 
-int l_lovrShapeComputeMass(lua_State* L) {
+int l_lovrShapeGetMass(lua_State* L) {
   Shape* shape = luax_checktypeof(L, 1, Shape);
   float density = luaL_checknumber(L, 2);
   float cx, cy, cz, mass;
   float inertia[6];
-  lovrShapeComputeMass(shape, density, &cx, &cy, &cz, &mass, inertia);
+  lovrShapeGetMass(shape, density, &cx, &cy, &cz, &mass, inertia);
   lua_pushnumber(L, cx);
   lua_pushnumber(L, cy);
   lua_pushnumber(L, cz);
@@ -176,6 +176,16 @@ int l_lovrShapeComputeMass(lua_State* L) {
     lua_rawseti(L, -2, i + 1);
   }
   return 5;
+}
+
+int l_lovrShapeGetAABB(lua_State* L) {
+  Shape* shape = luax_checktype(L, 1, Shape);
+  float aabb[6];
+  lovrShapeGetAABB(shape, aabb);
+  for (int i = 0; i < 6; i++) {
+    lua_pushnumber(L, aabb[i]);
+  }
+  return 6;
 }
 
 const luaL_Reg lovrShape[] = {
@@ -194,7 +204,8 @@ const luaL_Reg lovrShape[] = {
   { "setCategory", l_lovrShapeSetCategory },
   { "getMask", l_lovrShapeGetMask },
   { "setMask", l_lovrShapeSetMask },
-  { "computeMass", l_lovrShapeComputeMass },
+  { "getMass", l_lovrShapeGetMass },
+  { "getAABB", l_lovrShapeGetAABB },
   { NULL, NULL }
 };
 

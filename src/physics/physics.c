@@ -578,7 +578,7 @@ void lovrShapeSetMask(Shape* shape, uint32_t mask) {
   dGeomSetCollideBits(shape->id, mask);
 }
 
-void lovrShapeComputeMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
+void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
   dMass m;
   dMassSetZero(&m);
   switch (shape->type) {
@@ -628,6 +628,10 @@ void lovrShapeComputeMass(Shape* shape, float density, float* cx, float* cy, flo
   inertia[3] = m.I[4];
   inertia[4] = m.I[8];
   inertia[5] = m.I[9];
+}
+
+void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
+  dGeomGetAABB(shape->id, aabb);
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {
