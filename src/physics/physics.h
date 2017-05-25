@@ -33,6 +33,8 @@ typedef struct {
   void* userdata;
   vec_void_t shapes;
   vec_void_t joints;
+  float friction;
+  float restitution;
 } Collider;
 
 typedef struct {
@@ -68,7 +70,7 @@ void lovrWorldDestroyData(World* world);
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);
 void lovrWorldComputeOverlaps(World* world);
 int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
-int lovrWorldCollide(World* world, Shape* a, Shape* b);
+int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution);
 void lovrWorldGetGravity(World* world, float* x, float* y, float* z);
 void lovrWorldSetGravity(World* world, float x, float y, float z);
 void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold);

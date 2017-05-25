@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 static void defaultNearCallback(void* data, dGeomID a, dGeomID b) {
-  lovrWorldCollide((World*) data, dGeomGetData(a), dGeomGetData(b));
+  lovrWorldCollide((World*) data, dGeomGetData(a), dGeomGetData(b), -1, -1);
 }
 
 static void customNearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
@@ -90,15 +90,28 @@ int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b) {
   return 1;
 }
 
-int lovrWorldCollide(World* world, Shape* a, Shape* b) {
+int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution) {
   if (!a || !b) {
     return 0;
   }
 
   dContact contacts[MAX_CONTACTS];
 
+  Collider* colliderA = a->collider;
+  Collider* colliderB = b->collider;
+
+  if (friction < 0) {
+    friction = sqrt(colliderA->friction * colliderB->friction);
+  }
+
+  if (restitution < 0) {
+    restitution = MAX(colliderA->restitution, colliderB->restitution);
+  }
+
   for (int i = 0; i < MAX_CONTACTS; i++) {
     contacts[i].surface.mode = 0;
+    contacts[i].surface.mu = friction;
+    contacts[i].surface.bounce = restitution;
     contacts[i].surface.mu = dInfinity;
   }
 
@@ -106,7 +119,7 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b) {
 
   for (int i = 0; i < contactCount; i++) {
     dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[i]);
-    dJointAttach(joint, a->collider->body, b->collider->body);
+    dJointAttach(joint, colliderA->body, colliderB->body);
   }
 
   return contactCount;
