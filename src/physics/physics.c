@@ -973,6 +973,22 @@ float lovrHingeJointGetAngle(HingeJoint* hinge) {
   return dJointGetHingeAngle(hinge->id);
 }
 
+float lovrHingeJointGetLowerLimit(HingeJoint* hinge) {
+  return dJointGetHingeParam(hinge->id, dParamLoStop);
+}
+
+void lovrHingeJointSetLowerLimit(HingeJoint* hinge, float limit) {
+  dJointSetHingeParam(hinge->id, dParamLoStop, limit);
+}
+
+float lovrHingeJointGetUpperLimit(HingeJoint* hinge) {
+  return dJointGetHingeParam(hinge->id, dParamHiStop);
+}
+
+void lovrHingeJointSetUpperLimit(HingeJoint* hinge, float limit) {
+  dJointSetHingeParam(hinge->id, dParamHiStop, limit);
+}
+
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az) {
   if (a->world != b->world) {
     error("Joint bodies must exist in same World");
@@ -1004,4 +1020,20 @@ void lovrSliderJointSetAxis(SliderJoint* slider, float x, float y, float z) {
 
 float lovrSliderJointGetPosition(SliderJoint* slider) {
   return dJointGetSliderPosition(slider->id);
+}
+
+float lovrSliderJointGetLowerLimit(SliderJoint* slider) {
+  return dJointGetSliderParam(slider->id, dParamLoStop);
+}
+
+void lovrSliderJointSetLowerLimit(SliderJoint* slider, float limit) {
+  dJointSetSliderParam(slider->id, dParamLoStop, limit);
+}
+
+float lovrSliderJointGetUpperLimit(SliderJoint* slider) {
+  return dJointGetSliderParam(slider->id, dParamHiStop);
+}
+
+void lovrSliderJointSetUpperLimit(SliderJoint* slider, float limit) {
+  dJointSetSliderParam(slider->id, dParamHiStop, limit);
 }

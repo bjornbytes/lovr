@@ -205,8 +205,16 @@ void lovrHingeJointSetAnchor(HingeJoint* hinge, float x, float y, float z);
 void lovrHingeJointGetAxis(HingeJoint* hinge, float* x, float* y, float* z);
 void lovrHingeJointSetAxis(HingeJoint* hinge, float x, float y, float z);
 float lovrHingeJointGetAngle(HingeJoint* hinge);
+float lovrHingeJointGetLowerLimit(HingeJoint* hinge);
+void lovrHingeJointSetLowerLimit(HingeJoint* hinge, float limit);
+float lovrHingeJointGetUpperLimit(HingeJoint* hinge);
+void lovrHingeJointSetUpperLimit(HingeJoint* hinge, float limit);
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az);
 void lovrSliderJointGetAxis(SliderJoint* slider, float* x, float* y, float* z);
 void lovrSliderJointSetAxis(SliderJoint* slider, float x, float y, float z);
 float lovrSliderJointGetPosition(SliderJoint* slider);
+float lovrSliderJointGetLowerLimit(SliderJoint* slider);
+void lovrSliderJointSetLowerLimit(SliderJoint* slider, float limit);
+float lovrSliderJointGetUpperLimit(SliderJoint* slider);
+void lovrSliderJointSetUpperLimit(SliderJoint* slider, float limit);

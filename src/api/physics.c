@@ -64,7 +64,7 @@ int l_lovrPhysicsNewBallJoint(lua_State* L) {
   float x = luaL_checknumber(L, 3);
   float y = luaL_checknumber(L, 4);
   float z = luaL_checknumber(L, 5);
-  Joint* joint = lovrBallJointCreate(a, b, x, y, z);
+  BallJoint* joint = lovrBallJointCreate(a, b, x, y, z);
   luax_pushtype(L, BallJoint, joint);
   return 1;
 }
@@ -103,7 +103,7 @@ int l_lovrPhysicsNewHingeJoint(lua_State* L) {
   float ax = luaL_checknumber(L, 6);
   float ay = luaL_checknumber(L, 7);
   float az = luaL_checknumber(L, 8);
-  Joint* joint = lovrHingeJointCreate(a, b, x, y, z, ax, ay, az);
+  HingeJoint* joint = lovrHingeJointCreate(a, b, x, y, z, ax, ay, az);
   luax_pushtype(L, HingeJoint, joint);
   return 1;
 }
@@ -114,7 +114,7 @@ int l_lovrPhysicsNewSliderJoint(lua_State* L) {
   float ax = luaL_checknumber(L, 3);
   float ay = luaL_checknumber(L, 4);
   float az = luaL_checknumber(L, 5);
-  Joint* joint = lovrSliderJointCreate(a, b, ax, ay, az);
+  SliderJoint* joint = lovrSliderJointCreate(a, b, ax, ay, az);
   luax_pushtype(L, SliderJoint, joint);
   return 1;
 }
