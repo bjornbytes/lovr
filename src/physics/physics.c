@@ -584,22 +584,6 @@ void lovrShapeSetOrientation(Shape* shape, float angle, float x, float y, float 
   dGeomSetOffsetQuaternion(shape->id, q);
 }
 
-uint32_t lovrShapeGetCategory(Shape* shape) {
-  return dGeomGetCategoryBits(shape->id);
-}
-
-void lovrShapeSetCategory(Shape* shape, uint32_t category) {
-  dGeomSetCategoryBits(shape->id, category);
-}
-
-uint32_t lovrShapeGetMask(Shape* shape) {
-  return dGeomGetCollideBits(shape->id);
-}
-
-void lovrShapeSetMask(Shape* shape, uint32_t mask) {
-  dGeomSetCollideBits(shape->id, mask);
-}
-
 void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
   dMass m;
   dMassSetZero(&m);

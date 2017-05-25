@@ -106,60 +106,6 @@ int l_lovrShapeSetOrientation(lua_State* L) {
   return 0;
 }
 
-int l_lovrShapeGetCategory(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
-  uint32_t category = lovrShapeGetCategory(shape);
-  int count = 0;
-
-  for (int i = 0; i < 32; i++) {
-    if (category & (1 << i)) {
-      lua_pushinteger(L, i + 1);
-      count++;
-    }
-  }
-
-  return count;
-}
-
-int l_lovrShapeSetCategory(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
-  uint32_t category = 0;
-
-  for (int i = 2; i <= lua_gettop(L); i++) {
-    category |= (1 << luaL_checkinteger(L, i));
-  }
-
-  lovrShapeSetCategory(shape, category);
-  return 0;
-}
-
-int l_lovrShapeGetMask(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
-  uint32_t mask = lovrShapeGetMask(shape);
-  int count = 0;
-
-  for (int i = 0; i < 32; i++) {
-    if (mask & (1 << i)) {
-      lua_pushinteger(L, i + 1);
-      count++;
-    }
-  }
-
-  return count;
-}
-
-int l_lovrShapeSetMask(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
-  uint32_t mask = 0;
-
-  for (int i = 2; i <= lua_gettop(L); i++) {
-    mask |= (1 << luaL_checkinteger(L, i));
-  }
-
-  lovrShapeSetMask(shape, ~mask);
-  return 0;
-}
-
 int l_lovrShapeGetMass(lua_State* L) {
   Shape* shape = luax_checktypeof(L, 1, Shape);
   float density = luaL_checknumber(L, 2);
@@ -200,10 +146,6 @@ const luaL_Reg lovrShape[] = {
   { "setPosition", l_lovrShapeSetPosition },
   { "getOrientation", l_lovrShapeGetOrientation },
   { "setOrientation", l_lovrShapeSetOrientation },
-  { "getCategory", l_lovrShapeGetCategory },
-  { "setCategory", l_lovrShapeSetCategory },
-  { "getMask", l_lovrShapeGetMask },
-  { "setMask", l_lovrShapeSetMask },
   { "getMass", l_lovrShapeGetMass },
   { "getAABB", l_lovrShapeGetAABB },
   { NULL, NULL }
