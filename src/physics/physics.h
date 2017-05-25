@@ -16,6 +16,7 @@ typedef enum {
 
 typedef enum {
   JOINT_BALL,
+  JOINT_HINGE
 } JointType;
 
 typedef struct {
@@ -58,6 +59,7 @@ typedef struct {
 } Joint;
 
 typedef Joint BallJoint;
+typedef Joint HingeJoint;
 
 typedef void (*CollisionResolver)(World* world, void* userdata);
 typedef void (*RaycastCallback)(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata);
@@ -182,3 +184,10 @@ void lovrJointSetUserData(Joint* joint, void* data);
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z);
 void lovrBallJointGetAnchors(BallJoint* ball, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
 void lovrBallJointSetAnchor(BallJoint* ball, float x, float y, float z);
+
+HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az);
+void lovrHingeJointGetAnchors(HingeJoint* hinge, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
+void lovrHingeJointSetAnchor(HingeJoint* hinge, float x, float y, float z);
+void lovrHingeJointGetAxis(HingeJoint* hinge, float* x, float* y, float* z);
+void lovrHingeJointSetAxis(HingeJoint* hinge, float x, float y, float z);
+float lovrHingeJointGetAngle(HingeJoint* hinge);

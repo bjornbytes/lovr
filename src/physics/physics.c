@@ -814,3 +814,53 @@ void lovrBallJointGetAnchors(BallJoint* ball, float* x1, float* y1, float* z1, f
 void lovrBallJointSetAnchor(BallJoint* ball, float x, float y, float z) {
   dJointSetBallAnchor(ball->id, x, y, z);
 }
+
+HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az) {
+  if (a->world != b->world) {
+    error("Joint bodies must exist in same World");
+  }
+
+  HingeJoint* joint = lovrAlloc(sizeof(HingeJoint), lovrJointDestroy);
+  if (!joint) return NULL;
+
+  joint->type = JOINT_HINGE;
+  joint->id = dJointCreateHinge(a->world->id, 0);
+  dJointSetData(joint->id, joint);
+  dJointAttach(joint->id, a->body, b->body);
+  dJointSetHingeAnchor(joint->id, x, y, z);
+  dJointSetHingeAxis(joint->id, ax, ay, az);
+
+  return joint;
+}
+
+void lovrHingeJointGetAnchors(HingeJoint* hinge, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+  float anchor[3];
+  dJointGetHingeAnchor(hinge->id, anchor);
+  *x1 = anchor[0];
+  *y1 = anchor[1];
+  *z1 = anchor[2];
+  dJointGetHingeAnchor2(hinge->id, anchor);
+  *x2 = anchor[0];
+  *y2 = anchor[1];
+  *z2 = anchor[2];
+}
+
+void lovrHingeJointSetAnchor(HingeJoint* hinge, float x, float y, float z) {
+  dJointSetHingeAnchor(hinge->id, x, y, z);
+}
+
+void lovrHingeJointGetAxis(HingeJoint* hinge, float* x, float* y, float* z) {
+  float anchor[3];
+  dJointGetHingeAxis(hinge->id, anchor);
+  *x = anchor[0];
+  *y = anchor[1];
+  *z = anchor[2];
+}
+
+void lovrHingeJointSetAxis(HingeJoint* hinge, float x, float y, float z) {
+  dJointSetHingeAxis(hinge->id, x, y, z);
+}
+
+float lovrHingeJointGetAngle(HingeJoint* hinge) {
+  return dJointGetHingeAngle(hinge->id);
+}

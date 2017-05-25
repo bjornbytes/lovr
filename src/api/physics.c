@@ -16,7 +16,8 @@ int l_lovrPhysicsInit(lua_State* L) {
   luax_extendtype(L, "Shape", "CylinderShape", lovrShape, lovrCylinderShape);
 
   map_init(&JointTypes);
-  map_set(&ShapeTypes, "ball", JOINT_BALL);
+  map_set(&JointTypes, "ball", JOINT_BALL);
+  map_set(&JointTypes, "hinge", JOINT_HINGE);
 
   map_init(&ShapeTypes);
   map_set(&ShapeTypes, "sphere", SHAPE_SPHERE);
@@ -70,6 +71,20 @@ int l_lovrPhysicsNewCylinderShape(lua_State* L) {
   return 1;
 }
 
+int l_lovrPhysicsNewHingeJoint(lua_State* L) {
+  Collider* a = luax_checktype(L, 1, Collider);
+  Collider* b = luax_checktype(L, 2, Collider);
+  float x = luaL_optnumber(L, 3, 0.f);
+  float y = luaL_optnumber(L, 4, 0.f);
+  float z = luaL_optnumber(L, 5, 0.f);
+  float ax = luaL_optnumber(L, 6, 0.f);
+  float ay = luaL_optnumber(L, 7, 0.f);
+  float az = luaL_optnumber(L, 8, 0.f);
+  Joint* joint = lovrHingeJointCreate(a, b, x, y, z, ax, ay, az);
+  luax_pushtype(L, HingeJoint, joint);
+  return 1;
+}
+
 int l_lovrPhysicsNewSphereShape(lua_State* L) {
   float radius = luaL_optnumber(L, 1, 1.f);
   SphereShape* sphere = lovrSphereShapeCreate(radius);
@@ -83,6 +98,7 @@ const luaL_Reg lovrPhysics[] = {
   { "newBoxShape", l_lovrPhysicsNewBoxShape },
   { "newCapsuleShape", l_lovrPhysicsNewCapsuleShape },
   { "newCylinderShape", l_lovrPhysicsNewCylinderShape },
+  { "newHingeJoint", l_lovrPhysicsNewHingeJoint },
   { "newSphereShape", l_lovrPhysicsNewSphereShape },
   { NULL, NULL }
 };

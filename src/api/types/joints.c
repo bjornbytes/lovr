@@ -90,3 +90,59 @@ const luaL_Reg lovrBallJoint[] = {
   { "setAnchor", l_lovrBallJointSetAnchor },
   { NULL, NULL }
 };
+
+int l_lovrHingeJointGetAnchors(lua_State* L) {
+  HingeJoint* hinge = luax_checktype(L, 1, HingeJoint);
+  float x1, y1, z1, x2, y2, z2;
+  lovrHingeJointGetAnchors(hinge, &x1, &y1, &z1, &x2, &y2, &z2);
+  lua_pushnumber(L, x1);
+  lua_pushnumber(L, y1);
+  lua_pushnumber(L, z1);
+  lua_pushnumber(L, x2);
+  lua_pushnumber(L, y2);
+  lua_pushnumber(L, z2);
+  return 6;
+}
+
+int l_lovrHingeJointSetAnchor(lua_State* L) {
+  HingeJoint* hinge = luax_checktype(L, 1, HingeJoint);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrHingeJointSetAnchor(hinge, x, y, z);
+  return 0;
+}
+
+int l_lovrHingeJointGetAxis(lua_State* L) {
+  HingeJoint* hinge = luax_checktype(L, 1, HingeJoint);
+  float x, y, z;
+  lovrHingeJointGetAxis(hinge, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
+}
+
+int l_lovrHingeJointSetAxis(lua_State* L) {
+  HingeJoint* hinge = luax_checktype(L, 1, HingeJoint);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrHingeJointSetAxis(hinge, x, y, z);
+  return 0;
+}
+
+int l_lovrHingeJointGetAngle(lua_State* L) {
+  HingeJoint* hinge = luax_checktype(L, 1, HingeJoint);
+  lua_pushnumber(L, lovrHingeJointGetAngle(hinge));
+  return 1;
+}
+
+const luaL_Reg lovrHingeJoint[] = {
+  { "getAnchors", l_lovrHingeJointGetAnchors },
+  { "setAnchor", l_lovrHingeJointSetAnchor },
+  { "getAxis", l_lovrHingeJointGetAxis },
+  { "setAxis", l_lovrHingeJointSetAxis },
+  { "getAngle", l_lovrHingeJointGetAngle },
+  { NULL, NULL }
+};
