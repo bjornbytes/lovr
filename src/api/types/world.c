@@ -200,6 +200,30 @@ int l_lovrWorldRaycast(lua_State* L) {
   return 0;
 }
 
+int l_lovrWorldDisableCollisionBetween(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  const char* tag1 = luaL_checkstring(L, 2);
+  const char* tag2 = luaL_checkstring(L, 3);
+  lovrWorldDisableCollisionBetween(world, tag1, tag2);
+  return 0;
+}
+
+int l_lovrWorldEnableCollisionBetween(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  const char* tag1 = luaL_checkstring(L, 2);
+  const char* tag2 = luaL_checkstring(L, 3);
+  lovrWorldEnableCollisionBetween(world, tag1, tag2);
+  return 0;
+}
+
+int l_lovrWorldIsCollisionEnabledBetween(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  const char* tag1 = luaL_checkstring(L, 2);
+  const char* tag2 = luaL_checkstring(L, 3);
+  lua_pushboolean(L, lovrWorldIsCollisionEnabledBetween(world, tag1, tag2));
+  return 1;
+}
+
 const luaL_Reg lovrWorld[] = {
   { "newCollider", l_lovrWorldNewCollider },
   { "newBoxCollider", l_lovrWorldNewBoxCollider },
@@ -220,5 +244,8 @@ const luaL_Reg lovrWorld[] = {
   { "isSleepingAllowed", l_lovrWorldIsSleepingAllowed },
   { "setSleepingAllowed", l_lovrWorldSetSleepingAllowed },
   { "raycast", l_lovrWorldRaycast },
+  { "disableCollisionBetween", l_lovrWorldDisableCollisionBetween },
+  { "enableCollisionBetween", l_lovrWorldEnableCollisionBetween },
+  { "isCollisionEnabledBetween", l_lovrWorldIsCollisionEnabledBetween },
   { NULL, NULL }
 };

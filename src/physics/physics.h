@@ -1,11 +1,14 @@
 #include "util.h"
 #include "lib/vec/vec.h"
+#include "lib/map/map.h"
 #include <stdint.h>
 #include <ode/ode.h>
 
 #pragma once
 
 #define MAX_CONTACTS 4
+#define MAX_TAGS 16
+#define NO_TAG ~0
 
 typedef enum {
   SHAPE_SPHERE,
@@ -26,6 +29,8 @@ typedef struct {
   dSpaceID space;
   dJointGroupID contactGroup;
   vec_void_t overlaps;
+  map_int_t tags;
+  uint16_t masks[MAX_TAGS];
 } World;
 
 typedef struct {
@@ -33,6 +38,7 @@ typedef struct {
   dBodyID body;
   World* world;
   void* userdata;
+  int tag;
   vec_void_t shapes;
   vec_void_t joints;
   float friction;
@@ -74,7 +80,7 @@ typedef struct {
 void lovrPhysicsInit();
 void lovrPhysicsDestroy();
 
-World* lovrWorldCreate();
+World* lovrWorldCreate(float xg, float yg, float zg, int allowSleep, const char** tags, int tagCount);
 void lovrWorldDestroy(const Ref* ref);
 void lovrWorldDestroyData(World* world);
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);
@@ -90,6 +96,10 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
 int lovrWorldIsSleepingAllowed(World* world);
 void lovrWorldSetSleepingAllowed(World* world, int allowed);
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata);
+const char* lovrWorldGetTagName(World* world, int tag);
+int lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
+int lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
+int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
 
 Collider* lovrColliderCreate();
 void lovrColliderDestroy(const Ref* ref);
@@ -140,6 +150,8 @@ float lovrColliderGetFriction(Collider* collider);
 void lovrColliderSetFriction(Collider* collider, float friction);
 float lovrColliderGetRestitution(Collider* collider);
 void lovrColliderSetRestitution(Collider* collider, float restitution);
+const char* lovrColliderGetTag(Collider* collider);
+int lovrColliderSetTag(Collider* collider, const char* tag);
 
 void lovrShapeDestroy(const Ref* ref);
 void lovrShapeDestroyData(Shape* shape);

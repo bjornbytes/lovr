@@ -33,7 +33,27 @@ int l_lovrPhysicsInit(lua_State* L) {
 }
 
 int l_lovrPhysicsNewWorld(lua_State* L) {
-  World* world = lovrWorldCreate();
+  float xg = luaL_optnumber(L, 1, 0.f);
+  float yg = luaL_optnumber(L, 2, -9.81);
+  float zg = luaL_optnumber(L, 3, 0.f);
+  int allowSleep = lua_gettop(L) < 4 || lua_toboolean(L, 4);
+  const char* tags[16];
+  int tagCount;
+  if (lua_type(L, 5) == LUA_TTABLE) {
+    tagCount = lua_objlen(L, 5);
+    for (int i = 0; i < tagCount; i++) {
+      lua_rawgeti(L, -1, i + 1);
+      if (lua_isstring(L, -1)) {
+        tags[i] = lua_tostring(L, -1);
+      } else {
+        return luaL_error(L, "World tags must be a table of strings");
+      }
+      lua_pop(L, 1);
+    }
+  } else {
+    tagCount = 0;
+  }
+  World* world = lovrWorldCreate(xg, yg, zg, allowSleep, tags, tagCount);
   luax_pushtype(L, World, world);
   return 1;
 }

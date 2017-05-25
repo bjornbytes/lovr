@@ -449,6 +449,27 @@ int l_lovrColliderSetRestitution(lua_State* L) {
   return 0;
 }
 
+int l_lovrColliderGetTag(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushstring(L, lovrColliderGetTag(collider));
+  return 1;
+}
+
+int l_lovrColliderSetTag(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  if (lua_isnoneornil(L, 2)) {
+    lovrColliderSetTag(collider, NULL);
+    return 0;
+  }
+
+  const char* tag = luaL_checkstring(L, 2);
+  if (lovrColliderSetTag(collider, tag)) {
+    return luaL_error(L, "Invalid tag %s", tag);
+  }
+
+  return 0;
+}
+
 const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
   { "getWorld", l_lovrColliderGetWorld },
@@ -495,5 +516,7 @@ const luaL_Reg lovrCollider[] = {
   { "setFriction", l_lovrColliderSetFriction },
   { "getRestitution", l_lovrColliderGetRestitution },
   { "setRestitution", l_lovrColliderSetRestitution },
+  { "getTag", l_lovrColliderGetTag },
+  { "setTag", l_lovrColliderSetTag },
   { NULL, NULL }
 };

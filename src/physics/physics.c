@@ -42,7 +42,7 @@ void lovrPhysicsDestroy() {
   dCloseODE();
 }
 
-World* lovrWorldCreate() {
+World* lovrWorldCreate(float xg, float yg, float zg, int allowSleep, const char** tags, int tagCount) {
   World* world = lovrAlloc(sizeof(World), lovrWorldDestroy);
   if (!world) return NULL;
 
@@ -51,6 +51,16 @@ World* lovrWorldCreate() {
   dHashSpaceSetLevels(world->space, -4, 8);
   world->contactGroup = dJointGroupCreate(0);
   vec_init(&world->overlaps);
+  lovrWorldSetGravity(world, xg, yg, zg);
+  lovrWorldSetSleepingAllowed(world, allowSleep);
+  map_init(&world->tags);
+  for (int i = 0; i < tagCount; i++) {
+    map_set(&world->tags, tags[i], i);
+  }
+
+  for (int i = 0; i < MAX_TAGS; i++) {
+    world->masks[i] = ~0;
+  }
 
   return world;
 }
@@ -111,10 +121,14 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
     return 0;
   }
 
-  dContact contacts[MAX_CONTACTS];
-
   Collider* colliderA = a->collider;
   Collider* colliderB = b->collider;
+  int tag1 = colliderA->tag;
+  int tag2 = colliderB->tag;
+
+  if (tag1 != NO_TAG && tag2 != NO_TAG && !((world->masks[tag1] & (1 << tag2)) && (world->masks[tag2] & (1 << tag1)))) {
+    return 0;
+  }
 
   if (friction < 0) {
     friction = sqrt(colliderA->friction * colliderB->friction);
@@ -124,6 +138,7 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
     restitution = MAX(colliderA->restitution, colliderB->restitution);
   }
 
+  dContact contacts[MAX_CONTACTS];
   for (int i = 0; i < MAX_CONTACTS; i++) {
     contacts[i].surface.mode = 0;
     contacts[i].surface.mu = friction;
@@ -197,6 +212,56 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
   dGeomDestroy(ray);
 }
 
+const char* lovrWorldGetTagName(World* world, int tag) {
+  if (tag == NO_TAG) {
+    return NULL;
+  }
+
+  const char* key;
+  map_iter_t iter = map_iter(&world->tags);
+  while ((key = map_next(&world->tags, &iter))) {
+    if (*map_get(&world->tags, key) == tag) {
+      return key;
+    }
+  }
+
+  return NULL;
+}
+
+int lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2) {
+  int* index1 = map_get(&world->tags, tag1);
+  int* index2 = map_get(&world->tags, tag2);
+  if (!index1 || !index2) {
+    return NO_TAG;
+  }
+
+  world->masks[*index1] &= ~(1 << *index2);
+  world->masks[*index2] &= ~(1 << *index1);
+  return 0;
+}
+
+int lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2) {
+  int* index1 = map_get(&world->tags, tag1);
+  int* index2 = map_get(&world->tags, tag2);
+  if (!index1 || !index2) {
+    return NO_TAG;
+  }
+
+  world->masks[*index1] |= (1 << *index2);
+  world->masks[*index2] |= (1 << *index1);
+  return 0;
+}
+
+int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2) {
+  int* index1 = map_get(&world->tags, tag1);
+  int* index2 = map_get(&world->tags, tag2);
+  if (!index1 || !index2) {
+    return NO_TAG;
+  }
+
+  return (world->masks[*index1] & (1 << *index2)) && (world->masks[*index2] & (1 << *index1));
+}
+
 Collider* lovrColliderCreate(World* world) {
   if (!world) {
     error("No world specified");
@@ -209,6 +274,7 @@ Collider* lovrColliderCreate(World* world) {
   collider->world = world;
   collider->friction = 0;
   collider->restitution = 0;
+  collider->tag = NO_TAG;
   dBodySetData(collider->body, collider);
   vec_init(&collider->shapes);
   vec_init(&collider->joints);
@@ -537,6 +603,26 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
     aabb[4] = MIN(aabb[4], otherAABB[4]);
     aabb[5] = MAX(aabb[5], otherAABB[5]);
   }
+}
+
+const char* lovrColliderGetTag(Collider* collider) {
+  return lovrWorldGetTagName(collider->world, collider->tag);
+}
+
+int lovrColliderSetTag(Collider* collider, const char* tag) {
+  if (tag == NULL) {
+    collider->tag = NO_TAG;
+    return 0;
+  }
+
+  int* index = map_get(&collider->world->tags, tag);
+
+  if (!index) {
+    return NO_TAG;
+  }
+
+  collider->tag = *index;
+  return 0;
 }
 
 void lovrShapeDestroy(const Ref* ref) {
