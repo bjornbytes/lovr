@@ -14,6 +14,10 @@ typedef enum {
   SHAPE_CYLINDER
 } ShapeType;
 
+typedef enum {
+  JOINT_BALL,
+} JointType;
+
 typedef struct {
   Ref ref;
   dWorldID id;
@@ -27,6 +31,8 @@ typedef struct {
   dBodyID body;
   World* world;
   void* userdata;
+  vec_void_t shapes;
+  vec_void_t joints;
 } Collider;
 
 typedef struct {
@@ -41,6 +47,15 @@ typedef Shape SphereShape;
 typedef Shape BoxShape;
 typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
+
+typedef struct {
+  Ref ref;
+  JointType type;
+  dJointID id;
+  void* userdata;
+} Joint;
+
+typedef Joint BallJoint;
 
 typedef void (*CollisionResolver)(World* world, void* userdata);
 
@@ -69,8 +84,8 @@ void lovrColliderDestroyData(Collider* collider);
 World* lovrColliderGetWorld(Collider* collider);
 void lovrColliderAddShape(Collider* collider, Shape* shape);
 void lovrColliderRemoveShape(Collider* collider, Shape* shape);
-Shape* lovrColliderGetFirstShape(Collider* collider);
-Shape* lovrColliderGetNextShape(Collider* collider, Shape* shape);
+vec_void_t* lovrColliderGetShapes(Collider* collider);
+vec_void_t* lovrColliderGetJoints(Collider* collider);
 void* lovrColliderGetUserData(Collider* collider);
 void lovrColliderSetUserData(Collider* collider, void* data);
 int lovrColliderIsKinematic(Collider* collider);
@@ -145,3 +160,12 @@ float lovrCylinderShapeGetRadius(CylinderShape* cylinder);
 void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius);
 float lovrCylinderShapeGetLength(CylinderShape* cylinder);
 void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length);
+
+void lovrJointDestroy(const Ref* ref);
+void lovrJointDestroyData(Joint* joint);
+JointType lovrJointGetType(Joint* joint);
+void lovrJointGetColliders(Joint* joint, Collider** a, Collider** b);
+void* lovrJointGetUserData(Joint* joint);
+void lovrJointSetUserData(Joint* joint, void* data);
+
+BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z);

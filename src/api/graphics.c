@@ -296,7 +296,8 @@ int l_lovrGraphicsSetScissor(lua_State* L) {
 }
 
 int l_lovrGraphicsGetShader(lua_State* L) {
-  luax_pushtype(L, Shader, lovrGraphicsGetShader());
+  Shader* shader = lovrGraphicsGetShader();
+  luax_pushtype(L, Shader, shader);
   return 1;
 }
 
@@ -307,7 +308,8 @@ int l_lovrGraphicsSetShader(lua_State* L) {
 }
 
 int l_lovrGraphicsGetFont(lua_State* L) {
-  luax_pushtype(L, Font, lovrGraphicsGetFont());
+  Font* font = lovrGraphicsGetFont();
+  luax_pushtype(L, Font, font);
   return 1;
 }
 

@@ -7,6 +7,7 @@ int luax_pushshape(lua_State* L, Shape* shape) {
     case SHAPE_BOX: luax_pushtype(L, BoxShape, shape); return 1;
     case SHAPE_CAPSULE: luax_pushtype(L, CapsuleShape, shape); return 1;
     case SHAPE_CYLINDER: luax_pushtype(L, CylinderShape, shape); return 1;
+    default: return 0;
   }
 }
 

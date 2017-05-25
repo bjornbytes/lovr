@@ -11,7 +11,8 @@ int l_lovrModelDraw(lua_State* L) {
 
 int l_lovrModelGetTexture(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  luax_pushtype(L, Texture, lovrModelGetTexture(model));
+  Texture* texture = lovrModelGetTexture(model);
+  luax_pushtype(L, Texture, texture);
   return 1;
 }
 

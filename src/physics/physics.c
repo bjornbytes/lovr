@@ -163,12 +163,16 @@ Collider* lovrColliderCreate(World* world) {
   collider->body = dBodyCreate(world->id);
   collider->world = world;
   dBodySetData(collider->body, collider);
+  vec_init(&collider->shapes);
+  vec_init(&collider->joints);
 
   return collider;
 }
 
 void lovrColliderDestroy(const Ref* ref) {
   Collider* collider = containerof(ref, Collider);
+  vec_deinit(&collider->shapes);
+  vec_deinit(&collider->joints);
   lovrColliderDestroyData(collider);
   free(collider);
 }
@@ -205,14 +209,27 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   }
 }
 
-Shape* lovrColliderGetFirstShape(Collider* collider) {
-  dGeomID geom = dBodyGetFirstGeom(collider->body);
-  return geom ? dGeomGetData(geom) : NULL;
+vec_void_t* lovrColliderGetShapes(Collider* collider) {
+  vec_clear(&collider->shapes);
+  for (dGeomID geom = dBodyGetFirstGeom(collider->body); geom; geom = dBodyGetNextGeom(geom)) {
+    Shape* shape = dGeomGetData(geom);
+    if (shape) {
+      vec_push(&collider->shapes, shape);
+    }
+  }
+  return &collider->shapes;
 }
 
-Shape* lovrColliderGetNextShape(Collider* collider, Shape* shape) {
-  dGeomID geom = dBodyGetNextGeom(shape->id);
-  return geom ? dGeomGetData(geom) : NULL;
+vec_void_t* lovrColliderGetJoints(Collider* collider) {
+  vec_clear(&collider->joints);
+  int jointCount = dBodyGetNumJoints(collider->body);
+  for (int i = 0; i < jointCount; i++) {
+    Joint* joint = dJointGetData(dBodyGetJoint(collider->body, i));
+    if (joint) {
+      vec_push(&collider->joints, joint);
+    }
+  }
+  return &collider->joints;
 }
 
 void* lovrColliderGetUserData(Collider* collider) {
@@ -674,4 +691,59 @@ float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
 
 void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
   dGeomCylinderSetParams(cylinder->id, lovrCylinderShapeGetRadius(cylinder), length);
+}
+
+void lovrJointDestroy(const Ref* ref) {
+  Joint* joint = containerof(ref, Joint);
+  lovrJointDestroyData(joint);
+  free(joint);
+}
+
+void lovrJointDestroyData(Joint* joint) {
+  if (joint->id) {
+    dJointDestroy(joint->id);
+    joint->id = NULL;
+  }
+}
+
+JointType lovrJointGetType(Joint* joint) {
+  return joint->type;
+}
+
+void lovrJointGetColliders(Joint* joint, Collider** a, Collider** b) {
+  dBodyID bodyA = dJointGetBody(joint->id, 0);
+  dBodyID bodyB = dJointGetBody(joint->id, 1);
+
+  if (bodyA) {
+    *a = dBodyGetData(bodyA);
+  }
+
+  if (bodyB) {
+    *b = dBodyGetData(bodyB);
+  }
+}
+
+void* lovrJointGetUserData(Joint* joint) {
+  return joint->userdata;
+}
+
+void lovrJointSetUserData(Joint* joint, void* data) {
+  joint->userdata = data;
+}
+
+BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z) {
+  if (a->world != b->world) {
+    error("Joint bodies must exist in same World");
+  }
+
+  BallJoint* joint = lovrAlloc(sizeof(BallJoint), lovrJointDestroy);
+  if (!joint) return NULL;
+
+  joint->type = JOINT_BALL;
+  joint->id = dJointCreateBall(a->world->id, 0);
+  dJointSetData(joint->id, joint);
+  dJointAttach(joint->id, a->body, b->body);
+  dJointSetBallAnchor(joint->id, x, y, z);
+
+  return joint;
 }
