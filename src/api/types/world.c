@@ -22,6 +22,19 @@ static int nextOverlap(lua_State* L) {
   }
 }
 
+static void raycastCallback(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata) {
+  lua_State* L = userdata;
+  luaL_checktype(L, -1, LUA_TFUNCTION);
+  luax_pushshape(L, shape);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  lua_pushnumber(L, nx);
+  lua_pushnumber(L, ny);
+  lua_pushnumber(L, nz);
+  lua_call(L, 7, 0);
+}
+
 int l_lovrWorldNewCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   Collider* collider = lovrColliderCreate(world);
@@ -173,6 +186,20 @@ int l_lovrWorldSetSleepingAllowed(lua_State* L) {
   return 0;
 }
 
+int l_lovrWorldRaycast(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float x1 = luaL_checknumber(L, 2);
+  float y1 = luaL_checknumber(L, 3);
+  float z1 = luaL_checknumber(L, 4);
+  float x2 = luaL_checknumber(L, 5);
+  float y2 = luaL_checknumber(L, 6);
+  float z2 = luaL_checknumber(L, 7);
+  luaL_checktype(L, 8, LUA_TFUNCTION);
+  lua_settop(L, 8);
+  lovrWorldRaycast(world, x1, y1, z1, x2, y2, z2, raycastCallback, L);
+  return 0;
+}
+
 const luaL_Reg lovrWorld[] = {
   { "newCollider", l_lovrWorldNewCollider },
   { "newBoxCollider", l_lovrWorldNewBoxCollider },
@@ -192,5 +219,6 @@ const luaL_Reg lovrWorld[] = {
   { "setAngularDamping", l_lovrWorldSetAngularDamping },
   { "isSleepingAllowed", l_lovrWorldIsSleepingAllowed },
   { "setSleepingAllowed", l_lovrWorldSetSleepingAllowed },
+  { "raycast", l_lovrWorldRaycast },
   { NULL, NULL }
 };

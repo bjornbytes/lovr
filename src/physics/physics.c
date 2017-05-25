@@ -12,6 +12,22 @@ static void customNearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
   vec_push(&world->overlaps, dGeomGetData(shapeB));
 }
 
+static void raycastCallback(void* data, dGeomID a, dGeomID b) {
+  RaycastCallback callback = ((RaycastData*) data)->callback;
+  void* userdata = ((RaycastData*) data)->userdata;
+  Shape* shape = dGeomGetData(b);
+
+  if (!shape) {
+    return;
+  }
+
+  dContact contact;
+  if (dCollide(a, b, MAX_CONTACTS, &contact.geom, sizeof(dContact))) {
+    dContactGeom g = contact.geom;
+    callback(shape, g.pos[0], g.pos[1], g.pos[2], g.normal[0], g.normal[1], g.normal[2], userdata);
+  }
+}
+
 void lovrPhysicsInit() {
   dInitODE();
 
@@ -163,6 +179,18 @@ int lovrWorldIsSleepingAllowed(World* world) {
 
 void lovrWorldSetSleepingAllowed(World* world, int allowed) {
   dWorldSetAutoDisableFlag(world->id, allowed);
+}
+
+void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
+  RaycastData data = { .callback = callback, .userdata = userdata };
+  float dx = x2 - x1;
+  float dy = y2 - y1;
+  float dz = z2 - z1;
+  float length = sqrt(dx * dx + dy * dy + dz * dz);
+  dGeomID ray = dCreateRay(world->space, length);
+  dGeomRaySet(ray, x1, y1, z1, dx, dy, dz);
+  dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
+  dGeomDestroy(ray);
 }
 
 Collider* lovrColliderCreate(World* world) {

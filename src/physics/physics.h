@@ -60,6 +60,12 @@ typedef struct {
 typedef Joint BallJoint;
 
 typedef void (*CollisionResolver)(World* world, void* userdata);
+typedef void (*RaycastCallback)(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata);
+
+typedef struct {
+  RaycastCallback callback;
+  void* userdata;
+} RaycastData;
 
 void lovrPhysicsInit();
 void lovrPhysicsDestroy();
@@ -79,6 +85,7 @@ void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold);
 void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
 int lovrWorldIsSleepingAllowed(World* world);
 void lovrWorldSetSleepingAllowed(World* world, int allowed);
+void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata);
 
 Collider* lovrColliderCreate();
 void lovrColliderDestroy(const Ref* ref);
