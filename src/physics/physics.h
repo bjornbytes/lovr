@@ -153,10 +153,6 @@ void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z);
 void lovrShapeSetPosition(Shape* shape, float x, float y, float z);
 void lovrShapeGetOrientation(Shape* shape, float* angle, float* x, float* y, float* z);
 void lovrShapeSetOrientation(Shape* shape, float angle, float x, float y, float z);
-uint32_t lovrShapeGetCategory(Shape* shape);
-void lovrShapeSetCategory(Shape* shape, uint32_t category);
-uint32_t lovrShapeGetMask(Shape* shape);
-void lovrShapeSetMask(Shape* shape, uint32_t mask);
 void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
 void lovrShapeGetAABB(Shape* shape, float aabb[6]);
 
