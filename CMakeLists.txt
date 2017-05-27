@@ -20,17 +20,22 @@ set(LOVR_SRC
   src/api/graphics.c
   src/api/headset.c
   src/api/math.c
+  src/api/physics.c
   src/api/timer.c
   src/api/types/blob.c
+  src/api/types/collider.c
   src/api/types/controller.c
   src/api/types/font.c
+  src/api/types/joints.c
   src/api/types/mesh.c
   src/api/types/model.c
   src/api/types/shader.c
+  src/api/types/shapes.c
   src/api/types/skybox.c
   src/api/types/source.c
   src/api/types/texture.c
   src/api/types/transform.c
+  src/api/types/world.c
   src/audio/audio.c
   src/audio/source.c
   src/event/event.c
@@ -63,6 +68,7 @@ set(LOVR_SRC
   src/math/quat.c
   src/math/transform.c
   src/math/vec3.c
+  src/physics/physics.c
   src/timer/timer.c
   src/util.c
 )
@@ -214,6 +220,18 @@ else()
   set(LOVR_FREETYPE ${FREETYPE_LIBRARIES})
 endif()
 
+# ODE
+if (WIN32 OR EMSCRIPTEN)
+  add_subdirectory(deps/ode ode)
+  include_directories(deps/ode/include)
+  set(LOVR_ODE ode)
+elseif(APPLE)
+  pkg_search_module(ODE REQUIRED ode)
+  include_directories(${ODE_INCLUDE_DIRS})
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lstdc++")
+  set(LOVR_ODE ode)
+endif()
+
 # openvr
 if(NOT EMSCRIPTEN)
   if(NOT DEFINED OPENVR_DIR AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/deps/openvr")
@@ -247,6 +265,7 @@ set(LOVR_LIB
   ${LOVR_OPENAL}
   ${LOVR_OPENVR}
   ${LOVR_FREETYPE}
+  ${LOVR_ODE}
 )
 
 target_link_libraries(lovr ${LOVR_LIB})
