@@ -80,8 +80,6 @@ else()
   set(LOVR_HEADSET src/headset/openvr.c)
 endif()
 
-add_executable(lovr ${LOVR_SRC} ${LOVR_HEADSET})
-
 if(EMSCRIPTEN)
   set(CMAKE_EXECUTABLE_SUFFIX ".html")
   add_definitions(-s USE_ZLIB=1 -s ASSERTIONS=2 -s FULL_ES2=1 -O3 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 -s NO_EXIT_RUNTIME=1)
@@ -90,8 +88,6 @@ if(EMSCRIPTEN)
   set(ZLIB_LIBRARIES "-s USE_ZLIB=1")
   set(ZLIB_INCLUDE_DIR .)
 endif()
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Lua
 if(EMSCRIPTEN)
@@ -224,6 +220,8 @@ endif()
 if (WIN32 OR EMSCRIPTEN)
   add_subdirectory(deps/ode ode)
   include_directories(deps/ode/include)
+  include_directories("${CMAKE_CURRENT_BINARY_DIR}/ode/include")
+  add_definitions(-DdSINGLE)
   set(LOVR_ODE ode)
 elseif(APPLE)
   pkg_search_module(ODE REQUIRED ode)
@@ -255,6 +253,10 @@ if(NOT EMSCRIPTEN)
   add_subdirectory(${OPENVR_DIR}/src openvr_api)
   set(LOVR_OPENVR openvr_api)
 endif()
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+add_executable(lovr ${LOVR_SRC} ${LOVR_HEADSET})
 
 set(LOVR_LIB
   ${LOVR_LUA}
