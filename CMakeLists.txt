@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.0.0)
+project(lovr)
 
 function(move_dll ARG_TARGET)
   add_custom_command(TARGET lovr POST_BUILD
@@ -12,7 +13,6 @@ if(UNIX)
   find_package(PkgConfig REQUIRED)
 endif()
 
-project(lovr)
 set(LOVR_SRC
   src/api/audio.c
   src/api/event.c
@@ -164,12 +164,10 @@ endif()
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "")
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "")
 set(ASSIMP_NO_EXPORT ON OFF CACHE BOOL "")
-
 set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "")
 set(ASSIMP_BUILD_COLLADA_IMPORTER ON CACHE BOOL "")
 set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE BOOL "")
 set(ASSIMP_BUILD_FBX_IMPORTER ON CACHE BOOL "")
-
 if(EMSCRIPTEN)
   add_subdirectory(deps/assimp assimp)
   include_directories(deps/assimp/include)
@@ -219,18 +217,16 @@ endif()
 # ODE
 if (WIN32 OR EMSCRIPTEN)
   add_subdirectory(deps/ode ode)
-  include_directories(deps/ode/include)
-  include_directories("${CMAKE_CURRENT_BINARY_DIR}/ode/include")
-  add_definitions(-DdSINGLE)
+  include_directories(deps/ode/include "${CMAKE_CURRENT_BINARY_DIR}/ode/include")
   set(LOVR_ODE ode)
-elseif(APPLE)
+else()
   pkg_search_module(ODE REQUIRED ode)
   include_directories(${ODE_INCLUDE_DIRS})
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lstdc++")
   set(LOVR_ODE ode)
 endif()
 
-# openvr
+# OpenVR
 if(NOT EMSCRIPTEN)
   if(NOT DEFINED OPENVR_DIR AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/deps/openvr")
     SET(OPENVR_DIR deps/openvr)
