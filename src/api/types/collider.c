@@ -34,7 +34,7 @@ int l_lovrColliderGetShapeList(lua_State* L) {
   vec_void_t* shapes = lovrColliderGetShapes(collider);
   for (int i = 0; i < shapes->length; i++) {
     luax_pushshape(L, shapes->data[i]);
-    lua_rawseti(L, -2, i);
+    lua_rawseti(L, -2, i + 1);
   }
   return 1;
 }
@@ -45,7 +45,7 @@ int l_lovrColliderGetJointList(lua_State* L) {
   vec_void_t* joints = lovrColliderGetJoints(collider);
   for (int i = 0; i < joints->length; i++) {
     luax_pushshape(L, joints->data[i]);
-    lua_rawseti(L, -2, i);
+    lua_rawseti(L, -2, i + 1);
   }
   return 1;
 }
