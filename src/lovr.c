@@ -22,6 +22,18 @@ static int getStackTrace(lua_State* L) {
   return 1;
 }
 
+static void handleError(lua_State* L, const char* message) {
+  lua_getglobal(L, "lovr");
+  lua_getfield(L, -1, "errhand");
+  if (lua_isfunction(L, -1)) {
+    lua_pushstring(L, message);
+    lua_pcall(L, 1, 0, 0);
+  } else {
+    error(message);
+  }
+  lovrDestroy(1);
+}
+
 static int lovrGetOS(lua_State* L) {
 #ifdef _WIN32
   lua_pushstring(L, "Windows");
@@ -98,8 +110,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   luax_preloadmodule(L, "json", luaopen_cjson);
 
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 0, 0)) {
-    const char* message = luaL_checkstring(L, 1);
-    error("Unable to bootstrap LOVR: %s", message);
+    handleError(L, lua_tostring(L, -1));
   }
 }
 
@@ -146,16 +157,7 @@ void lovrRun(lua_State* L) {
   lua_getglobal(L, "lovr");
   lua_getfield(L, -1, "run");
   if (lua_pcall(L, 0, 1, -3)) {
-    lua_getfield(L, -2, "errhand");
-    if (lua_isfunction(L, -1)) {
-      lua_pushvalue(L, -2);
-      if (!lua_pcall(L, 1, 0, 0)) {
-        lovrDestroy(1);
-        return;
-      }
-    }
-
-    error(lua_tostring(L, -2));
+    handleError(L, lua_tostring(L, -1));
   }
 
   // Exit with return value from lovr.run

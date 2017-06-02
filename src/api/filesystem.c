@@ -47,10 +47,10 @@ static int filesystemLoader(lua_State* L) {
   };
 
   for (size_t i = 0; i < sizeof(requirePath) / sizeof(char*); i++) {
-    char filename[256];
+    char filename[LOVR_PATH_MAX];
     char* sub = strchr(requirePath[i], '?');
 
-    memset(filename, 0, 256);
+    memset(filename, 0, LOVR_PATH_MAX);
 
     if (sub) {
       int index = (int) (sub - requirePath[i]);
@@ -61,9 +61,12 @@ static int filesystemLoader(lua_State* L) {
       if (lovrFilesystemIsFile(filename)) {
         size_t size;
         void* data = lovrFilesystemRead(filename, &size);
+        char identifier[LOVR_PATH_MAX + 1];
+        strncpy(identifier, "@", 2);
+        strncat(identifier, filename, LOVR_PATH_MAX);
 
         if (data) {
-          if (!luaL_loadbuffer(L, data, size, filename)) {
+          if (!luaL_loadbuffer(L, data, size, identifier)) {
             free(data);
             return 1;
           }
