@@ -201,7 +201,6 @@ endif()
 # FreeType
 if (EMSCRIPTEN)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s USE_FREETYPE=1")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s USE_FREETYPE=1")
 elseif (WIN32)
   set(BUILD_SHARED_LIBS OFF)
   set(FREETYPE_NO_DIST TRUE CACHE BOOL "")
@@ -254,7 +253,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_executable(lovr ${LOVR_SRC} ${LOVR_HEADSET})
 
-set(LOVR_LIB
+target_link_libraries(lovr
   ${LOVR_LUA}
   ${LOVR_GL}
   ${LOVR_GLFW}
@@ -266,8 +265,6 @@ set(LOVR_LIB
   ${LOVR_ODE}
 )
 
-target_link_libraries(lovr ${LOVR_LIB})
-
 if(WIN32)
   move_dll(${LOVR_LUA})
   move_dll(${LOVR_GLFW})
@@ -275,5 +272,4 @@ if(WIN32)
   move_dll(${LOVR_ASSIMP})
   move_dll(${LOVR_OPENAL})
   move_dll(${LOVR_OPENVR})
-  move_dll(${LOVR_FREETYPE})
 endif()
