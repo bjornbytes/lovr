@@ -246,6 +246,7 @@ target_link_libraries(lovr
   ${LOVR_GLFW}
   ${LOVR_LUA}
   ${LOVR_ODE}
+  ${LOVR_OPENAL}
   ${LOVR_OPENGL}
   ${LOVR_OPENVR}
   ${LOVR_PHYSFS}
