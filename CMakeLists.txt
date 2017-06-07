@@ -94,12 +94,10 @@ endif()
 
 # ODE
 if (WIN32 OR EMSCRIPTEN)
-  add_definitions(-DdIDESINGLE)
   add_subdirectory(deps/ode ode)
   include_directories(deps/ode/include "${CMAKE_CURRENT_BINARY_DIR}/ode/include")
   set(LOVR_ODE ode)
 else()
-  add_definitions(-DdIDESINGLE)
   pkg_search_module(ODE REQUIRED ode)
   include_directories(${ODE_INCLUDE_DIRS})
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lstdc++")
