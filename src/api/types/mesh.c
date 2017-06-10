@@ -283,7 +283,7 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
     }
 
     int index = lua_tointeger(L, -1);
-    if (index > lovrMeshGetVertexCount(mesh) || index < 0) {
+    if (index > lovrMeshGetVertexCount(mesh) || index < 1) {
       free(indices);
       return luaL_error(L, "Invalid vertex map value: %d", index);
     }
