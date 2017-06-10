@@ -26,8 +26,10 @@ static void onCloseWindow(GLFWwindow* window) {
 
 void lovrGraphicsInit() {
 #ifdef EMSCRIPTEN
+#define loadGLLoader gladLoadGLES2Loader
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
 #else
+#define loadGLLoader gladLoadGLLoader
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -36,29 +38,22 @@ void lovrGraphicsInit() {
   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 #endif
 
+  // Create window
   const char* title = lovrFilesystemGetIdentity();
-  title = title ? title : "LÖVR";
-  state.window = glfwCreateWindow(800, 600, title, NULL, NULL);
-
+  state.window = glfwCreateWindow(800, 600, title ? title : "LÖVR", NULL, NULL);
   if (!state.window) {
     glfwTerminate();
     error("Could not create window");
   }
 
+  // Initialize all the things
   glfwMakeContextCurrent(state.window);
   glfwSetWindowCloseCallback(state.window, onCloseWindow);
-
-#ifdef EMSCRIPTEN
-  gladLoadGLES2Loader((GLADloadproc) glfwGetProcAddress);
-#else
-  gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
-#endif
-
   glfwSetTime(0);
+  loadGLLoader((GLADloadproc) glfwGetProcAddress);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
-
   if (GLAD_GL_VERSION_3_0) {
     glfwSwapInterval(0);
     glEnable(GL_LINE_SMOOTH);
@@ -71,7 +66,7 @@ void lovrGraphicsInit() {
   state.activeTexture = NULL;
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
-  if (GLAD_GL_VERSION_3_0) {
+  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
     glGenVertexArrays(1, &state.shapeArray);
   }
   vec_init(&state.shapeData);
@@ -89,6 +84,7 @@ void lovrGraphicsInit() {
   state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA));
 
   // System Limits
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.maxTextureSize);
   if (GLAD_GL_VERSION_2_0) {
     float pointSizes[2];
     glGetFloatv(GL_POINT_SIZE_RANGE, pointSizes);
@@ -98,8 +94,6 @@ void lovrGraphicsInit() {
     state.maxPointSize = 1.f;
     state.maxTextureMSAA = 1;
   }
-
-  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.maxTextureSize);
 
   // State
   state.depthTest = -1;
@@ -123,7 +117,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(&state.defaultTexture->ref);
   glDeleteBuffers(1, &state.shapeBuffer);
   glDeleteBuffers(1, &state.shapeIndexBuffer);
-  if (GLAD_GL_VERSION_3_0) {
+  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
     glDeleteVertexArrays(1, &state.shapeArray);
   }
   vec_deinit(&state.shapeData);
@@ -227,7 +221,7 @@ void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
       break;
 
     case BLEND_LIGHTEN:
-      if (GLAD_GL_VERSION_2_0 || GLAD_GL_EXT_blend_minmax) {
+      if (lovrGraphicsIsSupported(FEATURE_LIGHTEN)) {
         glBlendEquation(GL_MAX);
         glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
       } else {
@@ -236,7 +230,7 @@ void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
       break;
 
     case BLEND_DARKEN:
-      if (GLAD_GL_VERSION_2_0 || GLAD_GL_EXT_blend_minmax) {
+      if (lovrGraphicsIsSupported(FEATURE_LIGHTEN)) {
         glBlendEquation(GL_MIN);
         glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
       } else {
@@ -397,7 +391,7 @@ float lovrGraphicsGetPointSize() {
 }
 
 void lovrGraphicsSetPointSize(float size) {
-  if (GLAD_GL_VERSION_2_0) {
+  if (lovrGraphicsIsSupported(FEATURE_POINT_SIZE)) {
     state.pointSize = size;
     glPointSize(size);
   }
@@ -446,7 +440,7 @@ int lovrGraphicsIsWireframe() {
 }
 
 void lovrGraphicsSetWireframe(int wireframe) {
-  if (GLAD_GL_VERSION_3_0 && state.isWireframe != wireframe) {
+  if (lovrGraphicsIsSupported(FEATURE_WIREFRAME) && state.isWireframe != wireframe) {
     state.isWireframe = wireframe;
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
   }
@@ -470,6 +464,20 @@ float lovrGraphicsGetSystemLimit(GraphicsLimit limit) {
     case LIMIT_TEXTURE_SIZE: return state.maxTextureSize;
     case LIMIT_TEXTURE_MSAA: return state.maxTextureMSAA;
     default: error("Unknown limit %d\n", limit);
+  }
+}
+
+int lovrGraphicsIsSupported(GraphicsFeature feature) {
+  switch (feature) {
+    case FEATURE_LIGHTEN: return GLAD_GL_VERSION_2_0 || GLAD_GL_EXT_blend_minmax;
+    case FEATURE_MAPPED_BUFFERS: return GLAD_GL_VERSION_3_0 || GLAD_GL_ARB_map_buffer_range;
+    case FEATURE_POINT_SIZE: return GLAD_GL_VERSION_2_0;
+    case FEATURE_SHADER_INTS: return GLAD_GL_VERSION_2_0;
+    case FEATURE_SWIZZLE: return GLAD_GL_VERSION_3_0;
+    case FEATURE_TEXTURE_RG: return GLAD_GL_VERSION_3_0 || GLAD_GL_ARB_texture_rg || GLAD_GL_EXT_texture_rg;
+    case FEATURE_TEXTURE_FANCY_WRAPS: return !GLAD_GL_ES_VERSION_2_0;
+    case FEATURE_VAO: return GLAD_GL_VERSION_3_0;
+    case FEATURE_WIREFRAME: return GLAD_GL_VERSION_3_0;
   }
 }
 
@@ -553,7 +561,7 @@ void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, in
   int strideBytes = stride * sizeof(float);
 
   lovrGraphicsPrepare();
-  if (GLAD_GL_VERSION_3_0) {
+  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
     glBindVertexArray(state.shapeArray);
   }
   glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
@@ -584,7 +592,7 @@ void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, in
     glDrawArrays(mode, 0, state.shapeData.length / stride);
   }
 
-  if (GLAD_GL_VERSION_3_0) {
+  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
     glBindVertexArray(0);
   }
 }

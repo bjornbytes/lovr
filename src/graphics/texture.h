@@ -37,6 +37,8 @@ typedef struct {
   int msaa;
 } Texture;
 
+GLenum lovrTextureGetGLFormat(TextureFormat format);
+
 Texture* lovrTextureCreate(TextureData* textureData);
 Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa);
 void lovrTextureDestroy(const Ref* ref);

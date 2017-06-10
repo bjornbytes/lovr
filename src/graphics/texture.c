@@ -5,27 +5,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static GLenum getGLFormat(TextureFormat format) {
+GLenum lovrTextureGetGLFormat(TextureFormat format) {
   switch (format) {
-    case FORMAT_RED:
-      if (GLAD_GL_VERSION_3_0 || GLAD_GL_ARB_texture_rg || GLAD_GL_EXT_texture_rg) {
-        return GL_RED;
-      } else {
-        return GL_LUMINANCE;
-      }
-
-    case FORMAT_RG:
-      if (GLAD_GL_VERSION_3_0 || GLAD_GL_ARB_texture_rg || GLAD_GL_EXT_texture_rg) {
-        return GL_RG;
-      } else {
-        return GL_LUMINANCE_ALPHA;
-      }
-
+    case FORMAT_RED: return lovrGraphicsIsSupported(FEATURE_TEXTURE_RG) ? GL_RED : GL_LUMINANCE;
+    case FORMAT_RG: return lovrGraphicsIsSupported(FEATURE_TEXTURE_RG) ? GL_RG : GL_LUMINANCE_ALPHA;
     case FORMAT_RGB: return GL_RGB;
     case FORMAT_RGBA: return GL_RGBA;
   }
-
-  return 0;
 }
 
 Texture* lovrTextureCreate(TextureData* textureData) {
@@ -158,7 +144,7 @@ void lovrTextureRefresh(Texture* texture) {
   TextureData* textureData = texture->textureData;
   int w = textureData->width;
   int h = textureData->height;
-  GLenum format = getGLFormat(textureData->format);
+  GLenum format = lovrTextureGetGLFormat(textureData->format);
   lovrGraphicsBindTexture(texture);
   glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, textureData->data);
 }
@@ -190,7 +176,7 @@ void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertic
 }
 
 void lovrTextureSetWrap(Texture* texture, WrapMode horizontal, WrapMode vertical) {
-  if (GLAD_GL_ES_VERSION_2_0) {
+  if (!lovrGraphicsIsSupported(FEATURE_TEXTURE_FANCY_WRAPS)) {
     horizontal = vertical = WRAP_CLAMP;
   }
 

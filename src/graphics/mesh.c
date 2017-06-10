@@ -5,7 +5,7 @@
 
 static void lovrMeshBindAttributes(Mesh* mesh) {
   Shader* shader = lovrGraphicsGetShader();
-  if (!shader || (shader == mesh->lastShader && !mesh->attributesDirty && GLAD_GL_VERSION_3_0)) {
+  if (!shader || (shader == mesh->lastShader && !mesh->attributesDirty && lovrGraphicsIsSupported(FEATURE_VAO))) {
     return;
   }
 
@@ -23,7 +23,7 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
         glEnableVertexAttribArray(location);
 
         if (attribute.type == MESH_INT) {
-          if (GLAD_GL_ES_VERSION_2_0) {
+          if (lovrGraphicsIsSupported(FEATURE_SHADER_INTS)) {
             error("Integer attributes are not supported on this platform.");
           } else {
             glVertexAttribIPointer(location, attribute.count, attribute.type, mesh->stride, (void*) offset);
@@ -92,11 +92,11 @@ Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshU
   glGenBuffers(1, &mesh->ibo);
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
   glBufferData(GL_ARRAY_BUFFER, mesh->count * mesh->stride, NULL, mesh->usage);
-  if (GLAD_GL_VERSION_3_0) {
+  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
     glGenVertexArrays(1, &mesh->vao);
   }
 
-  if (!GLAD_GL_VERSION_3_0 && !GL_ARB_map_buffer_range) {
+  if (!lovrGraphicsIsSupported(FEATURE_MAPPED_BUFFERS)) {
     mesh->data = malloc(mesh->count * mesh->stride);
   }
 
@@ -110,7 +110,7 @@ void lovrMeshDestroy(const Ref* ref) {
   }
   glDeleteBuffers(1, &mesh->vbo);
   glDeleteBuffers(1, &mesh->ibo);
-  if (GLAD_GL_VERSION_3_0) {
+  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
     glDeleteVertexArrays(1, &mesh->vao);
   }
   vec_deinit(&mesh->map);
@@ -131,7 +131,7 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
   lovrGraphicsBindTexture(mesh->texture);
   lovrGraphicsPrepare();
 
-  if (GLAD_GL_VERSION_3_0) {
+  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
     glBindVertexArray(mesh->vao);
   }
 
@@ -266,7 +266,7 @@ void lovrMeshSetTexture(Mesh* mesh, Texture* texture) {
 }
 
 void* lovrMeshMap(Mesh* mesh, int start, int count) {
-  if (!GLAD_GL_VERSION_3_0 && !GLAD_GL_ARB_map_buffer_range) {
+  if (!lovrGraphicsIsSupported(FEATURE_MAPPED_BUFFERS)) {
     mesh->isMapped = 1;
     mesh->mapStart = start;
     mesh->mapCount = count;
@@ -287,7 +287,7 @@ void* lovrMeshMap(Mesh* mesh, int start, int count) {
 }
 
 void lovrMeshUnmap(Mesh* mesh) {
-  if (!GLAD_GL_VERSION_3_0 && !GLAD_GL_ARB_map_buffer_range) {
+  if (!lovrGraphicsIsSupported(FEATURE_MAPPED_BUFFERS)) {
     mesh->isMapped = 0;
     int start = mesh->mapStart * mesh->stride;
     int count = mesh->mapCount * mesh->stride;

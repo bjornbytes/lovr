@@ -52,7 +52,7 @@ Font* lovrFontCreate(FontData* fontData) {
   font->texture = lovrTextureCreate(textureData);
   lovrTextureSetWrap(font->texture, WRAP_CLAMP, WRAP_CLAMP);
 
-  if (GLAD_GL_VERSION_3_0) {
+  if (lovrGraphicsIsSupported(FEATURE_SWIZZLE)) {
     int swizzle[4] = { GL_RED, GL_RED, GL_RED, GL_GREEN };
     glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle);
   }
@@ -292,11 +292,7 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
 
   // Paste glyph into texture
   lovrGraphicsBindTexture(font->texture);
-  if (GLAD_GL_VERSION_3_0 || GLAD_GL_ARB_texture_rg || GLAD_GL_EXT_texture_rg) {
-    glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->w, glyph->h, GL_RG, GL_UNSIGNED_BYTE, glyph->data);
-  } else {
-    glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->w, glyph->h, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, glyph->data);
-  }
+  glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->w, glyph->h, lovrTextureGetGLFormat(FORMAT_RG), GL_UNSIGNED_BYTE, glyph->data);
 
   // Advance atlas cursor
   atlas->x += glyph->w + atlas->padding;
