@@ -1,3 +1,32 @@
+function lovr.errhand(message)
+  message = 'Error:\n' .. message:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
+  print(message)
+  lovr.graphics.reset()
+  lovr.graphics.setBackgroundColor(27, 25, 35)
+  lovr.graphics.setColor(220, 220, 220)
+  local font = lovr.graphics.getFont()
+  local pixelDensity = font:getPixelDensity()
+  local width = font:getWidth(message, .55 * pixelDensity)
+  local function render()
+    lovr.graphics.origin()
+    lovr.graphics.print(message, -width / 2, 0, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
+  end
+  while true do
+    lovr.event.pump()
+    for name in lovr.event.poll() do
+      if name == 'quit' then return end
+    end
+    lovr.graphics.clear()
+    if lovr.headset and lovr.headset.isPresent() then
+      lovr.headset.renderTo(render)
+    else
+      render()
+    end
+    lovr.graphics.present()
+    lovr.timer.sleep((lovr.headset and lovr.headset.isPresent()) and .001 or .1)
+  end
+end
+
 local conf = {
   modules = {
     audio = true,
@@ -84,6 +113,8 @@ if lovr.conf then
   success, err = pcall(lovr.conf, conf)
 end
 
+lovr.filesystem.setIdentity(conf.identity)
+
 local modules = { 'audio', 'event', 'graphics', 'headset', 'math', 'physics', 'timer' }
 for _, module in ipairs(modules) do
   if conf.modules[module] then
@@ -91,7 +122,11 @@ for _, module in ipairs(modules) do
   end
 end
 
-lovr.filesystem.setIdentity(conf.identity or 'default')
+-- Error after window is created
+if err then
+  error(err)
+end
+
 if lovr.headset then lovr.headset.setMirrored(conf.headset and conf.headset.mirror) end
 
 lovr.handlers = setmetatable({
@@ -153,35 +188,6 @@ function lovr.run()
   while true do
     local exit = lovr.step()
     if exit then return exit end
-  end
-end
-
-function lovr.errhand(message)
-  message = 'Error:\n' .. message:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
-  print(message)
-  lovr.graphics.reset()
-  lovr.graphics.setBackgroundColor(27, 25, 35)
-  lovr.graphics.setColor(220, 220, 220)
-  local font = lovr.graphics.getFont()
-  local pixelDensity = font:getPixelDensity()
-  local width = font:getWidth(message, .55 * pixelDensity)
-  local function render()
-    lovr.graphics.origin()
-    lovr.graphics.print(message, -width / 2, 0, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
-  end
-  while true do
-    lovr.event.pump()
-    for name in lovr.event.poll() do
-      if name == 'quit' then return end
-    end
-    lovr.graphics.clear()
-    if lovr.headset and lovr.headset.isPresent() then
-      lovr.headset.renderTo(render)
-    else
-      render()
-    end
-    lovr.graphics.present()
-    lovr.timer.sleep((lovr.headset and lovr.headset.isPresent()) and .001 or .1)
   end
 end
 

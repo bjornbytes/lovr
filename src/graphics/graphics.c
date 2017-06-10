@@ -2,6 +2,7 @@
 #include "loaders/texture.h"
 #include "loaders/font.h"
 #include "event/event.h"
+#include "filesystem/filesystem.h"
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "util.h"
@@ -35,7 +36,9 @@ void lovrGraphicsInit() {
   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 #endif
 
-  state.window = glfwCreateWindow(800, 600, "Window", NULL, NULL);
+  const char* title = lovrFilesystemGetIdentity();
+  title = title ? title : "LÖVR";
+  state.window = glfwCreateWindow(800, 600, title, NULL, NULL);
 
   if (!state.window) {
     glfwTerminate();

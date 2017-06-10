@@ -162,7 +162,12 @@ int l_lovrFilesystemGetExecutablePath(lua_State* L) {
 }
 
 int l_lovrFilesystemGetIdentity(lua_State* L) {
-  lua_pushstring(L, lovrFilesystemGetIdentity());
+  const char* identity = lovrFilesystemGetIdentity();
+  if (identity) {
+    lua_pushstring(L, identity);
+  } else {
+    lua_pushnil(L);
+  }
   return 1;
 }
 
@@ -293,12 +298,12 @@ int l_lovrFilesystemRemove(lua_State* L) {
 }
 
 int l_lovrFilesystemSetIdentity(lua_State* L) {
-  const char* identity = luaL_checkstring(L, 1);
-
-  if (lovrFilesystemSetIdentity(identity)) {
-    return 0;
+  if (lua_isnoneornil(L, 1)) {
+    lovrFilesystemSetIdentity(NULL);
+  } else {
+    const char* identity = luaL_checkstring(L, 1);
+    lovrFilesystemSetIdentity(identity);
   }
-
   return 0;
 }
 

@@ -212,7 +212,7 @@ int lovrFilesystemSetIdentity(const char* identity) {
 
   lovrFilesystemGetAppdataDirectory(state.savePathFull, LOVR_PATH_MAX);
   PHYSFS_setWriteDir(state.savePathFull);
-  snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity);
+  snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity ? identity : "default");
   snprintf(state.savePathFull, LOVR_PATH_MAX, "%s/%s", state.savePathFull, state.savePathRelative);
   PHYSFS_mkdir(state.savePathRelative);
   if (!PHYSFS_setWriteDir(state.savePathFull)) {
