@@ -22,6 +22,7 @@ extern const luaL_Reg lovrController[];
 extern const luaL_Reg lovrCylinderShape[];
 extern const luaL_Reg lovrBlob[];
 extern const luaL_Reg lovrCollider[];
+extern const luaL_Reg lovrDistanceJoint[];
 extern const luaL_Reg lovrEvent[];
 extern const luaL_Reg lovrFilesystem[];
 extern const luaL_Reg lovrFont[];

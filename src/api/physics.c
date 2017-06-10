@@ -10,6 +10,7 @@ int l_lovrPhysicsInit(lua_State* L) {
   luax_registertype(L, "World", lovrWorld);
   luax_registertype(L, "Collider", lovrCollider);
   luax_extendtype(L, "Joint", "BallJoint", lovrJoint, lovrBallJoint);
+  luax_extendtype(L, "Joint", "DistanceJoint", lovrJoint, lovrDistanceJoint);
   luax_extendtype(L, "Joint", "HingeJoint", lovrJoint, lovrHingeJoint);
   luax_extendtype(L, "Joint", "SliderJoint", lovrJoint, lovrSliderJoint);
   luax_extendtype(L, "Shape", "SphereShape", lovrShape, lovrSphereShape);
@@ -94,6 +95,20 @@ int l_lovrPhysicsNewCylinderShape(lua_State* L) {
   return 1;
 }
 
+int l_lovrPhysicsNewDistanceJoint(lua_State* L) {
+  Collider* a = luax_checktype(L, 1, Collider);
+  Collider* b = luax_checktype(L, 2, Collider);
+  float x1 = luaL_checknumber(L, 3);
+  float y1 = luaL_checknumber(L, 4);
+  float z1 = luaL_checknumber(L, 5);
+  float x2 = luaL_checknumber(L, 6);
+  float y2 = luaL_checknumber(L, 7);
+  float z2 = luaL_checknumber(L, 8);
+  DistanceJoint* joint = lovrDistanceJointCreate(a, b, x1, y1, z1, x2, y2, z2);
+  luax_pushtype(L, DistanceJoint, joint);
+  return 1;
+}
+
 int l_lovrPhysicsNewHingeJoint(lua_State* L) {
   Collider* a = luax_checktype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
@@ -132,6 +147,7 @@ const luaL_Reg lovrPhysics[] = {
   { "newBoxShape", l_lovrPhysicsNewBoxShape },
   { "newCapsuleShape", l_lovrPhysicsNewCapsuleShape },
   { "newCylinderShape", l_lovrPhysicsNewCylinderShape },
+  { "newDistanceJoint", l_lovrPhysicsNewDistanceJoint },
   { "newHingeJoint", l_lovrPhysicsNewHingeJoint },
   { "newSliderJoint", l_lovrPhysicsNewSliderJoint },
   { "newSphereShape", l_lovrPhysicsNewSphereShape },

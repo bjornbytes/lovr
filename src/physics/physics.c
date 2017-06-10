@@ -899,25 +899,67 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float
   joint->id = dJointCreateBall(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  dJointSetBallAnchor(joint->id, x, y, z);
+  lovrBallJointSetAnchor(joint, x, y, z);
 
   return joint;
 }
 
-void lovrBallJointGetAnchors(BallJoint* ball, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+void lovrBallJointGetAnchors(BallJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
   float anchor[3];
-  dJointGetBallAnchor(ball->id, anchor);
+  dJointGetBallAnchor(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
   *z1 = anchor[2];
-  dJointGetBallAnchor2(ball->id, anchor);
+  dJointGetBallAnchor2(joint->id, anchor);
   *x2 = anchor[0];
   *y2 = anchor[1];
   *z2 = anchor[2];
 }
 
-void lovrBallJointSetAnchor(BallJoint* ball, float x, float y, float z) {
-  dJointSetBallAnchor(ball->id, x, y, z);
+void lovrBallJointSetAnchor(BallJoint* joint, float x, float y, float z) {
+  dJointSetBallAnchor(joint->id, x, y, z);
+}
+
+DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2) {
+  if (a->world != b->world) {
+    error("Joint bodies must exist in same World");
+  }
+
+  DistanceJoint* joint = lovrAlloc(sizeof(DistanceJoint), lovrJointDestroy);
+  if (!joint) return NULL;
+
+  joint->type = JOINT_DISTANCE;
+  joint->id = dJointCreateDBall(a->world->id, 0);
+  dJointSetData(joint->id, joint);
+  dJointAttach(joint->id, a->body, b->body);
+  lovrDistanceJointSetAnchors(joint, x1, y1, z1, x2, y2, z2);
+
+  return joint;
+}
+
+void lovrDistanceJointGetAnchors(DistanceJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+  float anchor[3];
+  dJointGetDBallAnchor1(joint->id, anchor);
+  *x1 = anchor[0];
+  *y1 = anchor[1];
+  *z1 = anchor[2];
+  dJointGetDBallAnchor2(joint->id, anchor);
+  *x2 = anchor[0];
+  *y2 = anchor[1];
+  *z2 = anchor[2];
+}
+
+void lovrDistanceJointSetAnchors(DistanceJoint* joint, float x1, float y1, float z1, float x2, float y2, float z2) {
+  dJointSetDBallAnchor1(joint->id, x1, y1, z1);
+  dJointSetDBallAnchor2(joint->id, x2, y2, z2);
+}
+
+float lovrDistanceJointGetDistance(DistanceJoint* joint) {
+  return dJointGetDBallDistance(joint->id);
+}
+
+void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance) {
+  dJointSetDBallDistance(joint->id, distance);
 }
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az) {
@@ -932,58 +974,58 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, flo
   joint->id = dJointCreateHinge(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  dJointSetHingeAnchor(joint->id, x, y, z);
-  dJointSetHingeAxis(joint->id, ax, ay, az);
+  lovrHingeJointSetAnchor(joint, x, y, z);
+  lovrHingeJointSetAxis(joint, ax, ay, az);
 
   return joint;
 }
 
-void lovrHingeJointGetAnchors(HingeJoint* hinge, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+void lovrHingeJointGetAnchors(HingeJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
   float anchor[3];
-  dJointGetHingeAnchor(hinge->id, anchor);
+  dJointGetHingeAnchor(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
   *z1 = anchor[2];
-  dJointGetHingeAnchor2(hinge->id, anchor);
+  dJointGetHingeAnchor2(joint->id, anchor);
   *x2 = anchor[0];
   *y2 = anchor[1];
   *z2 = anchor[2];
 }
 
-void lovrHingeJointSetAnchor(HingeJoint* hinge, float x, float y, float z) {
-  dJointSetHingeAnchor(hinge->id, x, y, z);
+void lovrHingeJointSetAnchor(HingeJoint* joint, float x, float y, float z) {
+  dJointSetHingeAnchor(joint->id, x, y, z);
 }
 
-void lovrHingeJointGetAxis(HingeJoint* hinge, float* x, float* y, float* z) {
+void lovrHingeJointGetAxis(HingeJoint* joint, float* x, float* y, float* z) {
   float axis[3];
-  dJointGetHingeAxis(hinge->id, axis);
+  dJointGetHingeAxis(joint->id, axis);
   *x = axis[0];
   *y = axis[1];
   *z = axis[2];
 }
 
-void lovrHingeJointSetAxis(HingeJoint* hinge, float x, float y, float z) {
-  dJointSetHingeAxis(hinge->id, x, y, z);
+void lovrHingeJointSetAxis(HingeJoint* joint, float x, float y, float z) {
+  dJointSetHingeAxis(joint->id, x, y, z);
 }
 
-float lovrHingeJointGetAngle(HingeJoint* hinge) {
-  return dJointGetHingeAngle(hinge->id);
+float lovrHingeJointGetAngle(HingeJoint* joint) {
+  return dJointGetHingeAngle(joint->id);
 }
 
-float lovrHingeJointGetLowerLimit(HingeJoint* hinge) {
-  return dJointGetHingeParam(hinge->id, dParamLoStop);
+float lovrHingeJointGetLowerLimit(HingeJoint* joint) {
+  return dJointGetHingeParam(joint->id, dParamLoStop);
 }
 
-void lovrHingeJointSetLowerLimit(HingeJoint* hinge, float limit) {
-  dJointSetHingeParam(hinge->id, dParamLoStop, limit);
+void lovrHingeJointSetLowerLimit(HingeJoint* joint, float limit) {
+  dJointSetHingeParam(joint->id, dParamLoStop, limit);
 }
 
-float lovrHingeJointGetUpperLimit(HingeJoint* hinge) {
-  return dJointGetHingeParam(hinge->id, dParamHiStop);
+float lovrHingeJointGetUpperLimit(HingeJoint* joint) {
+  return dJointGetHingeParam(joint->id, dParamHiStop);
 }
 
-void lovrHingeJointSetUpperLimit(HingeJoint* hinge, float limit) {
-  dJointSetHingeParam(hinge->id, dParamHiStop, limit);
+void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
+  dJointSetHingeParam(joint->id, dParamHiStop, limit);
 }
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az) {
@@ -998,39 +1040,39 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay,
   joint->id = dJointCreateSlider(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  dJointSetSliderAxis(joint->id, ax, ay, az);
+  lovrSliderJointSetAxis(joint, ax, ay, az);
 
   return joint;
 }
 
-void lovrSliderJointGetAxis(SliderJoint* slider, float* x, float* y, float* z) {
+void lovrSliderJointGetAxis(SliderJoint* joint, float* x, float* y, float* z) {
   float axis[3];
-  dJointGetSliderAxis(slider->id, axis);
+  dJointGetSliderAxis(joint->id, axis);
   *x = axis[0];
   *y = axis[1];
   *z = axis[2];
 }
 
-void lovrSliderJointSetAxis(SliderJoint* slider, float x, float y, float z) {
-  dJointSetSliderAxis(slider->id, x, y, z);
+void lovrSliderJointSetAxis(SliderJoint* joint, float x, float y, float z) {
+  dJointSetSliderAxis(joint->id, x, y, z);
 }
 
-float lovrSliderJointGetPosition(SliderJoint* slider) {
-  return dJointGetSliderPosition(slider->id);
+float lovrSliderJointGetPosition(SliderJoint* joint) {
+  return dJointGetSliderPosition(joint->id);
 }
 
-float lovrSliderJointGetLowerLimit(SliderJoint* slider) {
-  return dJointGetSliderParam(slider->id, dParamLoStop);
+float lovrSliderJointGetLowerLimit(SliderJoint* joint) {
+  return dJointGetSliderParam(joint->id, dParamLoStop);
 }
 
-void lovrSliderJointSetLowerLimit(SliderJoint* slider, float limit) {
-  dJointSetSliderParam(slider->id, dParamLoStop, limit);
+void lovrSliderJointSetLowerLimit(SliderJoint* joint, float limit) {
+  dJointSetSliderParam(joint->id, dParamLoStop, limit);
 }
 
-float lovrSliderJointGetUpperLimit(SliderJoint* slider) {
-  return dJointGetSliderParam(slider->id, dParamHiStop);
+float lovrSliderJointGetUpperLimit(SliderJoint* joint) {
+  return dJointGetSliderParam(joint->id, dParamHiStop);
 }
 
-void lovrSliderJointSetUpperLimit(SliderJoint* slider, float limit) {
-  dJointSetSliderParam(slider->id, dParamHiStop, limit);
+void lovrSliderJointSetUpperLimit(SliderJoint* joint, float limit) {
+  dJointSetSliderParam(joint->id, dParamHiStop, limit);
 }

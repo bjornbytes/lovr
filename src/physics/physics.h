@@ -19,6 +19,7 @@ typedef enum {
 
 typedef enum {
   JOINT_BALL,
+  JOINT_DISTANCE,
   JOINT_HINGE,
   JOINT_SLIDER
 } JointType;
@@ -66,6 +67,7 @@ typedef struct {
 } Joint;
 
 typedef Joint BallJoint;
+typedef Joint DistanceJoint;
 typedef Joint HingeJoint;
 typedef Joint SliderJoint;
 
@@ -196,25 +198,31 @@ void* lovrJointGetUserData(Joint* joint);
 void lovrJointSetUserData(Joint* joint, void* data);
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z);
-void lovrBallJointGetAnchors(BallJoint* ball, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
-void lovrBallJointSetAnchor(BallJoint* ball, float x, float y, float z);
+void lovrBallJointGetAnchors(BallJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
+void lovrBallJointSetAnchor(BallJoint* joint, float x, float y, float z);
+
+DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2);
+void lovrDistanceJointGetAnchors(DistanceJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
+void lovrDistanceJointSetAnchors(DistanceJoint* joint, float x1, float y1, float z1, float x2, float y2, float z2);
+float lovrDistanceJointGetDistance(DistanceJoint* joint);
+void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance);
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az);
-void lovrHingeJointGetAnchors(HingeJoint* hinge, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
-void lovrHingeJointSetAnchor(HingeJoint* hinge, float x, float y, float z);
-void lovrHingeJointGetAxis(HingeJoint* hinge, float* x, float* y, float* z);
-void lovrHingeJointSetAxis(HingeJoint* hinge, float x, float y, float z);
-float lovrHingeJointGetAngle(HingeJoint* hinge);
-float lovrHingeJointGetLowerLimit(HingeJoint* hinge);
-void lovrHingeJointSetLowerLimit(HingeJoint* hinge, float limit);
-float lovrHingeJointGetUpperLimit(HingeJoint* hinge);
-void lovrHingeJointSetUpperLimit(HingeJoint* hinge, float limit);
+void lovrHingeJointGetAnchors(HingeJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
+void lovrHingeJointSetAnchor(HingeJoint* joint, float x, float y, float z);
+void lovrHingeJointGetAxis(HingeJoint* joint, float* x, float* y, float* z);
+void lovrHingeJointSetAxis(HingeJoint* joint, float x, float y, float z);
+float lovrHingeJointGetAngle(HingeJoint* joint);
+float lovrHingeJointGetLowerLimit(HingeJoint* joint);
+void lovrHingeJointSetLowerLimit(HingeJoint* joint, float limit);
+float lovrHingeJointGetUpperLimit(HingeJoint* joint);
+void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit);
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az);
-void lovrSliderJointGetAxis(SliderJoint* slider, float* x, float* y, float* z);
-void lovrSliderJointSetAxis(SliderJoint* slider, float x, float y, float z);
-float lovrSliderJointGetPosition(SliderJoint* slider);
-float lovrSliderJointGetLowerLimit(SliderJoint* slider);
-void lovrSliderJointSetLowerLimit(SliderJoint* slider, float limit);
-float lovrSliderJointGetUpperLimit(SliderJoint* slider);
-void lovrSliderJointSetUpperLimit(SliderJoint* slider, float limit);
+void lovrSliderJointGetAxis(SliderJoint* joint, float* x, float* y, float* z);
+void lovrSliderJointSetAxis(SliderJoint* joint, float x, float y, float z);
+float lovrSliderJointGetPosition(SliderJoint* joint);
+float lovrSliderJointGetLowerLimit(SliderJoint* joint);
+void lovrSliderJointSetLowerLimit(SliderJoint* joint, float limit);
+float lovrSliderJointGetUpperLimit(SliderJoint* joint);
+void lovrSliderJointSetUpperLimit(SliderJoint* joint, float limit);
