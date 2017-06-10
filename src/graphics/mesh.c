@@ -89,12 +89,12 @@ Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshU
   mesh->lastShader = NULL;
 
   glGenBuffers(1, &mesh->vbo);
+  glGenBuffers(1, &mesh->ibo);
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
   glBufferData(GL_ARRAY_BUFFER, mesh->count * mesh->stride, NULL, mesh->usage);
   if (GLAD_GL_VERSION_3_0) {
     glGenVertexArrays(1, &mesh->vao);
   }
-  glGenBuffers(1, &mesh->ibo);
 
   if (!GLAD_GL_VERSION_3_0 && !GL_ARB_map_buffer_range) {
     mesh->data = malloc(mesh->count * mesh->stride);
@@ -109,6 +109,7 @@ void lovrMeshDestroy(const Ref* ref) {
     lovrRelease(&mesh->texture->ref);
   }
   glDeleteBuffers(1, &mesh->vbo);
+  glDeleteBuffers(1, &mesh->ibo);
   if (GLAD_GL_VERSION_3_0) {
     glDeleteVertexArrays(1, &mesh->vao);
   }
