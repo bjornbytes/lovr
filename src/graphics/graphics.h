@@ -9,8 +9,9 @@
 
 #pragma once
 
-#define MAX_TRANSFORMS 64
 #define MAX_CANVASES 4
+#define MAX_TRANSFORMS 60
+#define INTERNAL_TRANSFORMS 4
 
 typedef enum {
   BLEND_ALPHA,
@@ -77,7 +78,7 @@ typedef struct {
   Font* defaultFont;
   Texture* activeTexture;
   Texture* defaultTexture;
-  float transforms[MAX_TRANSFORMS][16];
+  float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
   CanvasState* canvases[MAX_CANVASES];
   int transform;
   int canvas;
