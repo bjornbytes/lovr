@@ -348,6 +348,42 @@ void lovrColliderSetUserData(Collider* collider, void* data) {
   collider->userdata = data;
 }
 
+const char* lovrColliderGetTag(Collider* collider) {
+  return lovrWorldGetTagName(collider->world, collider->tag);
+}
+
+int lovrColliderSetTag(Collider* collider, const char* tag) {
+  if (tag == NULL) {
+    collider->tag = NO_TAG;
+    return 0;
+  }
+
+  int* index = map_get(&collider->world->tags, tag);
+
+  if (!index) {
+    return NO_TAG;
+  }
+
+  collider->tag = *index;
+  return 0;
+}
+
+float lovrColliderGetFriction(Collider* collider) {
+  return collider->friction;
+}
+
+void lovrColliderSetFriction(Collider* collider, float friction) {
+  collider->friction = friction;
+}
+
+float lovrColliderGetRestitution(Collider* collider) {
+  return collider->restitution;
+}
+
+void lovrColliderSetRestitution(Collider* collider, float restitution) {
+  collider->restitution = restitution;
+}
+
 int lovrColliderIsKinematic(Collider* collider) {
   return dBodyIsKinematic(collider->body);
 }
@@ -562,22 +598,6 @@ void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, f
   *vz = velocity[2];
 }
 
-float lovrColliderGetFriction(Collider* collider) {
-  return collider->friction;
-}
-
-void lovrColliderSetFriction(Collider* collider, float friction) {
-  collider->friction = friction;
-}
-
-float lovrColliderGetRestitution(Collider* collider) {
-  return collider->restitution;
-}
-
-void lovrColliderSetRestitution(Collider* collider, float restitution) {
-  collider->restitution = restitution;
-}
-
 void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
   dGeomID shape = dBodyGetFirstGeom(collider->body);
 
@@ -598,26 +618,6 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
     aabb[4] = MIN(aabb[4], otherAABB[4]);
     aabb[5] = MAX(aabb[5], otherAABB[5]);
   }
-}
-
-const char* lovrColliderGetTag(Collider* collider) {
-  return lovrWorldGetTagName(collider->world, collider->tag);
-}
-
-int lovrColliderSetTag(Collider* collider, const char* tag) {
-  if (tag == NULL) {
-    collider->tag = NO_TAG;
-    return 0;
-  }
-
-  int* index = map_get(&collider->world->tags, tag);
-
-  if (!index) {
-    return NO_TAG;
-  }
-
-  collider->tag = *index;
-  return 0;
 }
 
 void lovrShapeDestroy(const Ref* ref) {

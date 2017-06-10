@@ -80,27 +80,6 @@ typedef struct {
 void lovrPhysicsInit();
 void lovrPhysicsDestroy();
 
-World* lovrWorldCreate(float xg, float yg, float zg, int allowSleep, const char** tags, int tagCount);
-void lovrWorldDestroy(const Ref* ref);
-void lovrWorldDestroyData(World* world);
-void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);
-void lovrWorldComputeOverlaps(World* world);
-int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
-int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution);
-void lovrWorldGetGravity(World* world, float* x, float* y, float* z);
-void lovrWorldSetGravity(World* world, float x, float y, float z);
-void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold);
-void lovrWorldSetLinearDamping(World* world, float damping, float threshold);
-void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold);
-void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
-int lovrWorldIsSleepingAllowed(World* world);
-void lovrWorldSetSleepingAllowed(World* world, int allowed);
-void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata);
-const char* lovrWorldGetTagName(World* world, int tag);
-int lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
-int lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
-int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
-
 Collider* lovrColliderCreate();
 void lovrColliderDestroy(const Ref* ref);
 void lovrColliderDestroyData(Collider* collider);
@@ -111,6 +90,12 @@ vec_void_t* lovrColliderGetShapes(Collider* collider);
 vec_void_t* lovrColliderGetJoints(Collider* collider);
 void* lovrColliderGetUserData(Collider* collider);
 void lovrColliderSetUserData(Collider* collider, void* data);
+const char* lovrColliderGetTag(Collider* collider);
+int lovrColliderSetTag(Collider* collider, const char* tag);
+float lovrColliderGetFriction(Collider* collider);
+void lovrColliderSetFriction(Collider* collider, float friction);
+float lovrColliderGetRestitution(Collider* collider);
+void lovrColliderSetRestitution(Collider* collider, float restitution);
 int lovrColliderIsKinematic(Collider* collider);
 void lovrColliderSetKinematic(Collider* collider, int kinematic);
 int lovrColliderIsGravityIgnored(Collider* collider);
@@ -146,12 +131,6 @@ void lovrColliderGetWorldVector(Collider* collider, float x, float y, float z, f
 void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, float y, float z, float* vx, float* vy, float* vz);
 void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, float wy, float wz, float* vx, float* vy, float* vz);
 void lovrColliderGetAABB(Collider* collider, float aabb[6]);
-float lovrColliderGetFriction(Collider* collider);
-void lovrColliderSetFriction(Collider* collider, float friction);
-float lovrColliderGetRestitution(Collider* collider);
-void lovrColliderSetRestitution(Collider* collider, float restitution);
-const char* lovrColliderGetTag(Collider* collider);
-int lovrColliderSetTag(Collider* collider, const char* tag);
 
 void lovrShapeDestroy(const Ref* ref);
 void lovrShapeDestroyData(Shape* shape);
