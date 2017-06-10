@@ -101,7 +101,7 @@ int lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char*
 int lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
 int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
 
-Collider* lovrColliderCreate();
+Collider* lovrColliderCreate(World* world, float x, float y, float z);
 void lovrColliderDestroy(const Ref* ref);
 void lovrColliderDestroyData(Collider* collider);
 World* lovrColliderGetWorld(Collider* collider);
