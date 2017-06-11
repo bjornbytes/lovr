@@ -109,7 +109,8 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   // Preload libraries
   luax_preloadmodule(L, "json", luaopen_cjson);
 
-  if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 0, 0)) {
+  lua_pushcfunction(L, getStackTrace);
+  if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 0, -2)) {
     handleError(L, lua_tostring(L, -1));
   }
 }
