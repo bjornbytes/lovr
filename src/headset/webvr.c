@@ -21,8 +21,9 @@ static void onRequestAnimationFrame(void* userdata) {
 
   float projection[16];
   float transform[16];
+  float sittingToStanding[16];
 
-  mat4 sittingToStanding = emscripten_vr_get_sitting_to_standing_matrix();
+  mat4_set(sittingToStanding, emscripten_vr_get_sitting_to_standing_matrix());
   mat4_invert(sittingToStanding);
 
   for (HeadsetEye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
