@@ -109,8 +109,9 @@ if not lovr.filesystem.getSource() or not runnable then
 end
 
 local success, err = pcall(require, 'conf')
+local conferr
 if lovr.conf then
-  success, err = pcall(lovr.conf, conf)
+  success, conferr = pcall(lovr.conf, conf)
 end
 
 lovr.filesystem.setIdentity(conf.identity)
@@ -123,8 +124,8 @@ for _, module in ipairs(modules) do
 end
 
 -- Error after window is created
-if err then
-  error(err)
+if conferr then
+  error(conferr)
 end
 
 if lovr.headset then lovr.headset.setMirrored(conf.headset and conf.headset.mirror) end
