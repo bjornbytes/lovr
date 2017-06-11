@@ -97,11 +97,22 @@ WebVR
 First, install the Emscripten SDK.  Make sure you're running [this
 branch](https://github.com/bjornbytes/emscripten/tree/lovr) of Emscripten.
 
+Unix:
+
 ```sh
 mkdir build
 cd build
 emcmake cmake -DCMAKE_BUILD_TYPE=Release ..
 emmake make -j2
+```
+
+Windows (from a Visual Studio Command Prompt, make sure the Emscripten SDK is on PATH):
+
+```sh
+mkdir build
+cd build
+emcmake cmake -G "NMake Makefiles" ..
+emmake nmake
 ```
 
 The above commands will output `lovr.html`, `lovr.js`, and `lovr.js.mem`.  To package a game, run:
