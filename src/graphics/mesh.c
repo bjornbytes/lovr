@@ -23,7 +23,7 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
         glEnableVertexAttribArray(location);
 
         if (attribute.type == MESH_INT) {
-          if (lovrGraphicsIsSupported(FEATURE_SHADER_INTS)) {
+          if (!lovrGraphicsIsSupported(FEATURE_SHADER_INTS)) {
             error("Integer attributes are not supported on this platform.");
           } else {
             glVertexAttribIPointer(location, attribute.count, attribute.type, mesh->stride, (void*) offset);
