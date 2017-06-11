@@ -123,3 +123,10 @@ python /path/to/emscripten/tools/file_packager.py game.data --preload /path/to/g
 
 Which will output `game.js` and `game.data`.  The `lovr.html` file will need to be modified to
 include `game.js` in a script tag.
+
+Troubleshooting
+---
+
+- If you get "CMake no CMAKE_CXX_COMPILER found" on Windows, then install Visual Studio and create a
+  blank C++ project, which will prompt you to install the compilers and tools necessary to compile
+  LÖVR.
