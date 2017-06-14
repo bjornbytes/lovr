@@ -106,6 +106,26 @@ mat4 mat4_invert(mat4 m) {
   return m;
 }
 
+mat4 mat4_transpose(mat4 m) {
+  float a01 = m[1], a02 = m[2], a03 = m[3],
+        a12 = m[6], a13 = m[7],
+        a23 = m[11];
+
+  m[1] = m[4];
+  m[2] = m[8];
+  m[3] = m[12];
+  m[4] = a01;
+  m[6] = m[9];
+  m[7] = m[13];
+  m[8] = a02;
+  m[9] = a12;
+  m[11] = m[14];
+  m[12] = a03;
+  m[13] = a13;
+  m[14] = a23;
+  return m;
+}
+
 // Modified from gl-matrix.c
 mat4 mat4_multiply(mat4 m, mat4 n) {
   float m00 = m[0], m01 = m[1], m02 = m[2], m03 = m[3],

@@ -19,6 +19,7 @@ const char* lovrShaderVertexPrefix = ""
 "out vec2 texCoord; \n"
 #endif
 "uniform mat4 lovrTransform; \n"
+"uniform mat3 lovrNormalMatrix; \n"
 "uniform mat4 lovrProjection; \n"
 "";
 
@@ -229,6 +230,19 @@ void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, unsigned in
     int uniformId = lovrShaderGetUniformId(shader, "lovrTransform");
     lovrShaderSendFloatMat4(shader, uniformId, transform);
     memcpy(shader->transform, transform, 16 * sizeof(float));
+
+    float normalMatrix[16];
+    mat4_set(normalMatrix, transform);
+    normalMatrix[12] = normalMatrix[13] = normalMatrix[14] = 0;
+    normalMatrix[15] = 1;
+    mat4_transpose(mat4_invert(normalMatrix));
+    float normalMatrix3x3[9] = {
+      normalMatrix[0], normalMatrix[1], normalMatrix[2],
+      normalMatrix[4], normalMatrix[5], normalMatrix[6],
+      normalMatrix[8], normalMatrix[9], normalMatrix[10]
+    };
+    uniformId = lovrShaderGetUniformId(shader, "lovrNormalMatrix");
+    lovrShaderSendFloatMat3(shader, uniformId, normalMatrix3x3);
   }
 
   // Update projection if necessary
