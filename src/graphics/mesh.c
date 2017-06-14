@@ -281,7 +281,7 @@ void* lovrMeshMap(Mesh* mesh, int start, int count) {
   mesh->isMapped = 1;
   mesh->mapStart = start;
   mesh->mapCount = count;
-  GLbitfield access = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT;
+  GLbitfield access = GL_MAP_READ_BIT | GL_MAP_WRITE_BIT;
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
   return glMapBufferRange(GL_ARRAY_BUFFER, start * mesh->stride, count * mesh->stride, access);
 }
@@ -299,6 +299,7 @@ void lovrMeshUnmap(Mesh* mesh) {
 
   if (mesh->isMapped) {
     mesh->isMapped = 0;
+    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
     glUnmapBuffer(GL_ARRAY_BUFFER);
   }
 }
