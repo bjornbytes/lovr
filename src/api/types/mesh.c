@@ -256,7 +256,7 @@ int l_lovrMeshGetVertexMap(lua_State* L) {
 
   lua_newtable(L);
   for (int i = 0; i < count; i++) {
-    lua_pushinteger(L, indices[i]);
+    lua_pushinteger(L, indices[i] + 1);
     lua_rawseti(L, -2, i + 1);
   }
 
