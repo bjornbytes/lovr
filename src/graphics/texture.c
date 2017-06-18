@@ -7,8 +7,12 @@
 
 GLenum lovrTextureGetGLFormat(TextureFormat format) {
   switch (format) {
-    case FORMAT_RED: return lovrGraphicsIsSupported(FEATURE_TEXTURE_RG) ? GL_RED : GL_LUMINANCE;
-    case FORMAT_RG: return lovrGraphicsIsSupported(FEATURE_TEXTURE_RG) ? GL_RG : GL_LUMINANCE_ALPHA;
+    case FORMAT_RED: return GL_RED;
+#ifdef LOVR_WEB
+    case FORMAT_RG: return GL_LUMINANCE_ALPHA;
+#else
+    case FORMAT_RG: return GL_RG;
+#endif
     case FORMAT_RGB: return GL_RGB;
     case FORMAT_RGBA: return GL_RGBA;
   }
@@ -176,10 +180,6 @@ void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertic
 }
 
 void lovrTextureSetWrap(Texture* texture, WrapMode horizontal, WrapMode vertical) {
-  if (!lovrGraphicsIsSupported(FEATURE_TEXTURE_FANCY_WRAPS)) {
-    horizontal = vertical = WRAP_CLAMP;
-  }
-
   texture->wrapHorizontal = horizontal;
   texture->wrapVertical = vertical;
   lovrGraphicsBindTexture(texture);

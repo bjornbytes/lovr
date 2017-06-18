@@ -52,10 +52,12 @@ Font* lovrFontCreate(FontData* fontData) {
   font->texture = lovrTextureCreate(textureData);
   lovrTextureSetWrap(font->texture, WRAP_CLAMP, WRAP_CLAMP);
 
-  if (lovrGraphicsIsSupported(FEATURE_SWIZZLE)) {
-    int swizzle[4] = { GL_RED, GL_RED, GL_RED, GL_GREEN };
-    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle);
-  }
+#ifndef LOVR_WEB
+  glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_RED);
+  glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_G, GL_RED);
+  glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
+  glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_GREEN);
+#endif
 
   return font;
 }

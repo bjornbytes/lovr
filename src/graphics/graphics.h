@@ -55,18 +55,6 @@ typedef enum {
   LIMIT_TEXTURE_MSAA
 } GraphicsLimit;
 
-typedef enum {
-  FEATURE_LIGHTEN,
-  FEATURE_MAPPED_BUFFERS,
-  FEATURE_POINT_SIZE,
-  FEATURE_SHADER_INTS,
-  FEATURE_SWIZZLE,
-  FEATURE_TEXTURE_RG,
-  FEATURE_TEXTURE_FANCY_WRAPS,
-  FEATURE_VAO,
-  FEATURE_WIREFRAME
-} GraphicsFeature;
-
 typedef struct {
   int x;
   int y;
@@ -162,7 +150,6 @@ void lovrGraphicsSetWireframe(int wireframe);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
 float lovrGraphicsGetSystemLimit(GraphicsLimit limit);
-int lovrGraphicsIsSupported(GraphicsFeature feature);
 void lovrGraphicsPushCanvas();
 void lovrGraphicsPopCanvas();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);

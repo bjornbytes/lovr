@@ -25,11 +25,11 @@ static void onCloseWindow(GLFWwindow* window) {
 // Base
 
 void lovrGraphicsInit() {
-#ifdef EMSCRIPTEN
-#define loadGLLoader gladLoadGLES2Loader
+#ifdef LOVR_WEB
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 #else
-#define loadGLLoader gladLoadGLLoader
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -50,15 +50,13 @@ void lovrGraphicsInit() {
   glfwMakeContextCurrent(state.window);
   glfwSetWindowCloseCallback(state.window, onCloseWindow);
   glfwSetTime(0);
-  loadGLLoader((GLADloadproc) glfwGetProcAddress);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
-  if (GLAD_GL_VERSION_3_0) {
-    glfwSwapInterval(0);
-    glEnable(GL_LINE_SMOOTH);
-    glEnable(GL_MULTISAMPLE);
-  }
+#ifndef LOVR_WEB
+  glfwSwapInterval(0);
+  glEnable(GL_LINE_SMOOTH);
+#endif
 
   // Allocations
   state.activeFont = NULL;
@@ -66,9 +64,7 @@ void lovrGraphicsInit() {
   state.activeTexture = NULL;
   glGenBuffers(1, &state.shapeBuffer);
   glGenBuffers(1, &state.shapeIndexBuffer);
-  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
-    glGenVertexArrays(1, &state.shapeArray);
-  }
+  glGenVertexArrays(1, &state.shapeArray);
   vec_init(&state.shapeData);
   vec_init(&state.shapeIndices);
   for (int i = 0; i < MAX_CANVASES; i++) {
@@ -85,15 +81,15 @@ void lovrGraphicsInit() {
 
   // System Limits
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.maxTextureSize);
-  if (GLAD_GL_VERSION_2_0) {
-    float pointSizes[2];
-    glGetFloatv(GL_POINT_SIZE_RANGE, pointSizes);
-    state.maxPointSize = pointSizes[1];
-    glGetIntegerv(GL_MAX_SAMPLES, &state.maxTextureMSAA);
-  } else {
-    state.maxPointSize = 1.f;
-    state.maxTextureMSAA = 1;
-  }
+#ifdef LOVR_WEB
+  state.maxPointSize = 1.f;
+  state.maxTextureMSAA = 1;
+#else
+  float pointSizes[2];
+  glGetFloatv(GL_POINT_SIZE_RANGE, pointSizes);
+  state.maxPointSize = pointSizes[1];
+  glGetIntegerv(GL_MAX_SAMPLES, &state.maxTextureMSAA);
+#endif
 
   // State
   state.depthTest = -1;
@@ -117,9 +113,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(&state.defaultTexture->ref);
   glDeleteBuffers(1, &state.shapeBuffer);
   glDeleteBuffers(1, &state.shapeIndexBuffer);
-  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
-    glDeleteVertexArrays(1, &state.shapeArray);
-  }
+  glDeleteVertexArrays(1, &state.shapeArray);
   vec_deinit(&state.shapeData);
   vec_deinit(&state.shapeIndices);
 }
@@ -221,21 +215,13 @@ void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
       break;
 
     case BLEND_LIGHTEN:
-      if (lovrGraphicsIsSupported(FEATURE_LIGHTEN)) {
-        glBlendEquation(GL_MAX);
-        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
-      } else {
-        error("The lighten blend mode is not supported on this platform.");
-      }
+      glBlendEquation(GL_MAX);
+      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
       break;
 
     case BLEND_DARKEN:
-      if (lovrGraphicsIsSupported(FEATURE_LIGHTEN)) {
-        glBlendEquation(GL_MIN);
-        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
-      } else {
-        error("The darken blend mode is not supported on this platform.");
-      }
+      glBlendEquation(GL_MIN);
+      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
       break;
 
     case BLEND_SCREEN:
@@ -391,10 +377,10 @@ float lovrGraphicsGetPointSize() {
 }
 
 void lovrGraphicsSetPointSize(float size) {
-  if (lovrGraphicsIsSupported(FEATURE_POINT_SIZE)) {
-    state.pointSize = size;
-    glPointSize(size);
-  }
+#ifndef LOVR_WEB
+  state.pointSize = size;
+  glPointSize(size);
+#endif
 }
 
 int lovrGraphicsIsCullingEnabled() {
@@ -440,10 +426,12 @@ int lovrGraphicsIsWireframe() {
 }
 
 void lovrGraphicsSetWireframe(int wireframe) {
-  if (lovrGraphicsIsSupported(FEATURE_WIREFRAME) && state.isWireframe != wireframe) {
+#ifndef LOVR_WEB
+  if (state.isWireframe != wireframe) {
     state.isWireframe = wireframe;
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
   }
+#endif
 }
 
 int lovrGraphicsGetWidth() {
@@ -464,20 +452,6 @@ float lovrGraphicsGetSystemLimit(GraphicsLimit limit) {
     case LIMIT_TEXTURE_SIZE: return state.maxTextureSize;
     case LIMIT_TEXTURE_MSAA: return state.maxTextureMSAA;
     default: error("Unknown limit %d\n", limit);
-  }
-}
-
-int lovrGraphicsIsSupported(GraphicsFeature feature) {
-  switch (feature) {
-    case FEATURE_LIGHTEN: return GLAD_GL_VERSION_2_0 || GLAD_GL_EXT_blend_minmax;
-    case FEATURE_MAPPED_BUFFERS: return GLAD_GL_VERSION_3_0 || GLAD_GL_ARB_map_buffer_range;
-    case FEATURE_POINT_SIZE: return GLAD_GL_VERSION_2_0;
-    case FEATURE_SHADER_INTS: return GLAD_GL_VERSION_2_0;
-    case FEATURE_SWIZZLE: return GLAD_GL_VERSION_3_0;
-    case FEATURE_TEXTURE_RG: return GLAD_GL_VERSION_3_0 || GLAD_GL_ARB_texture_rg || GLAD_GL_EXT_texture_rg;
-    case FEATURE_TEXTURE_FANCY_WRAPS: return !GLAD_GL_ES_VERSION_2_0;
-    case FEATURE_VAO: return GLAD_GL_VERSION_3_0;
-    case FEATURE_WIREFRAME: return GLAD_GL_VERSION_3_0;
   }
 }
 
@@ -561,9 +535,7 @@ void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, in
   int strideBytes = stride * sizeof(float);
 
   lovrGraphicsPrepare();
-  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
-    glBindVertexArray(state.shapeArray);
-  }
+  glBindVertexArray(state.shapeArray);
   glBindBuffer(GL_ARRAY_BUFFER, state.shapeBuffer);
   glBufferData(GL_ARRAY_BUFFER, state.shapeData.length * sizeof(float), state.shapeData.data, GL_STREAM_DRAW);
   glEnableVertexAttribArray(LOVR_SHADER_POSITION);
@@ -592,9 +564,7 @@ void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, in
     glDrawArrays(mode, 0, state.shapeData.length / stride);
   }
 
-  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
-    glBindVertexArray(0);
-  }
+  glBindVertexArray(0);
 }
 
 void lovrGraphicsPoints(float* points, int count) {

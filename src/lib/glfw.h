@@ -2,9 +2,8 @@
 
 #ifdef _WIN32
 #define APIENTRY __stdcall
-#elif EMSCRIPTEN
-#define GLFW_INCLUDE_ES2
+#elif LOVR_WEB
+#define GLFW_INCLUDE_ES3
 #endif
 
-#include "lib/glad/glad.h"
 #include <GLFW/glfw3.h>

@@ -5,7 +5,7 @@
 
 static void lovrMeshBindAttributes(Mesh* mesh) {
   Shader* shader = lovrGraphicsGetShader();
-  if (!shader || (shader == mesh->lastShader && !mesh->attributesDirty && lovrGraphicsIsSupported(FEATURE_VAO))) {
+  if (!shader || (shader == mesh->lastShader && !mesh->attributesDirty)) {
     return;
   }
 
@@ -23,11 +23,7 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
         glEnableVertexAttribArray(location);
 
         if (attribute.type == MESH_INT) {
-          if (!lovrGraphicsIsSupported(FEATURE_SHADER_INTS)) {
-            error("Integer attributes are not supported on this platform.");
-          } else {
-            glVertexAttribIPointer(location, attribute.count, attribute.type, mesh->stride, (void*) offset);
-          }
+          glVertexAttribIPointer(location, attribute.count, attribute.type, mesh->stride, (void*) offset);
         } else {
           glVertexAttribPointer(location, attribute.count, attribute.type, GL_FALSE, mesh->stride, (void*) offset);
         }
@@ -72,7 +68,6 @@ Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshU
     return NULL;
   }
 
-  mesh->data = NULL;
   mesh->count = count;
   mesh->stride = stride;
   mesh->enabledAttributes = ~0;
@@ -92,13 +87,7 @@ Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshU
   glGenBuffers(1, &mesh->ibo);
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
   glBufferData(GL_ARRAY_BUFFER, mesh->count * mesh->stride, NULL, mesh->usage);
-  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
-    glGenVertexArrays(1, &mesh->vao);
-  }
-
-  if (!lovrGraphicsIsSupported(FEATURE_MAPPED_BUFFERS)) {
-    mesh->data = malloc(mesh->count * mesh->stride);
-  }
+  glGenVertexArrays(1, &mesh->vao);
 
   return mesh;
 }
@@ -110,12 +99,9 @@ void lovrMeshDestroy(const Ref* ref) {
   }
   glDeleteBuffers(1, &mesh->vbo);
   glDeleteBuffers(1, &mesh->ibo);
-  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
-    glDeleteVertexArrays(1, &mesh->vao);
-  }
+  glDeleteVertexArrays(1, &mesh->vao);
   vec_deinit(&mesh->map);
   vec_deinit(&mesh->format);
-  free(mesh->data);
   free(mesh);
 }
 
@@ -131,9 +117,7 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
   lovrGraphicsBindTexture(mesh->texture);
   lovrGraphicsPrepare();
 
-  if (lovrGraphicsIsSupported(FEATURE_VAO)) {
-    glBindVertexArray(mesh->vao);
-  }
+  glBindVertexArray(mesh->vao);
 
   lovrMeshBindAttributes(mesh);
 
@@ -266,12 +250,6 @@ void lovrMeshSetTexture(Mesh* mesh, Texture* texture) {
 }
 
 void* lovrMeshMap(Mesh* mesh, int start, int count) {
-  if (!lovrGraphicsIsSupported(FEATURE_MAPPED_BUFFERS)) {
-    mesh->isMapped = 1;
-    mesh->mapStart = start;
-    mesh->mapCount = count;
-    return (char*) mesh->data + start * mesh->stride;
-  }
 
   // Unmap because the mapped ranges aren't necessarily the same.  Could be improved.
   if (mesh->isMapped && (mesh->mapStart != start || mesh->mapCount != count)) {
@@ -287,16 +265,6 @@ void* lovrMeshMap(Mesh* mesh, int start, int count) {
 }
 
 void lovrMeshUnmap(Mesh* mesh) {
-  if (!lovrGraphicsIsSupported(FEATURE_MAPPED_BUFFERS)) {
-    mesh->isMapped = 0;
-    int start = mesh->mapStart * mesh->stride;
-    int count = mesh->mapCount * mesh->stride;
-    char* data = (char*) mesh->data + start;
-    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, start, count, data);
-    return;
-  }
-
   if (mesh->isMapped) {
     mesh->isMapped = 0;
     glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);

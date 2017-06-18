@@ -19,7 +19,7 @@ void lovrAudioInit() {
     error("Unable to create OpenAL context");
   }
 
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEB
   static LPALCRESETDEVICESOFT alcResetDeviceSOFT;
   alcResetDeviceSOFT = (LPALCRESETDEVICESOFT) alcGetProcAddress(device, "alcResetDeviceSOFT");
   state.isSpatialized = alcIsExtensionPresent(device, "ALC_SOFT_HRTF");
@@ -76,7 +76,7 @@ void lovrAudioAdd(Source* source) {
 }
 
 void lovrAudioGetDopplerEffect(float* factor, float* speedOfSound) {
-#ifdef EMSCRIPTEN
+#ifdef LOVR_WEB
   *factor = *speedOfSound = 0;
 #else
   alGetFloatv(AL_DOPPLER_FACTOR, factor);
@@ -138,7 +138,7 @@ void lovrAudioRewind() {
 }
 
 void lovrAudioSetDopplerEffect(float scale, float speedOfSound) {
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEB
   alDopplerFactor(scale);
   alSpeedOfSound(speedOfSound);
 #endif

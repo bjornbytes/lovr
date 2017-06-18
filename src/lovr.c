@@ -41,7 +41,7 @@ static int lovrGetOS(lua_State* L) {
 #elif __APPLE__
   lua_pushstring(L, "macOS");
   return 1;
-#elif EMSCRIPTEN
+#elif LOVR_WEB
   lua_pushstring(L, "Web");
 #else
   lua_pushnil(L);
@@ -120,7 +120,7 @@ void lovrDestroy(int exitCode) {
   exit(exitCode);
 }
 
-#ifdef EMSCRIPTEN
+#ifdef LOVR_WEB
 #include <emscripten.h>
 
 static int stepRef = 0;

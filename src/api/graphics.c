@@ -138,7 +138,6 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&WrapModes, "clamp", WRAP_CLAMP);
   map_set(&WrapModes, "repeat", WRAP_REPEAT);
   map_set(&WrapModes, "mirroredrepeat", WRAP_MIRRORED_REPEAT);
-  map_set(&WrapModes, "clampzero", WRAP_CLAMP_ZERO);
 
   lovrGraphicsInit();
   return 1;

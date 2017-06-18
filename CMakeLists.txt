@@ -3,14 +3,11 @@ project(lovr)
 
 # Setup
 if(EMSCRIPTEN)
+  add_definitions(-DLOVR_WEB=1)
   set(CMAKE_EXECUTABLE_SUFFIX ".html")
-  add_definitions(-O3)
-  add_definitions(-s USE_ZLIB=1)
-  add_definitions(-s ASSERTIONS=1)
-  add_definitions(-s FULL_ES2=1)
-  add_definitions(-s AGGRESSIVE_VARIABLE_ELIMINATION=1)
-  add_definitions(-s NO_EXIT_RUNTIME=1)
-  add_definitions(-s TOTAL_MEMORY=134217728)
+  set(LOVR_EMSCRIPTEN_FLAGS "-O3 -s USE_WEBGL2=1 -s FULL_ES3=1 -s USE_FREETYPE=1 -s USE_GLFW=3 -s USE_ZLIB=1 -s ASSERTIONS=1 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 -s NO_EXIT_RUNTIME=1 -s TOTAL_MEMORY=134217728 -s ELIMINATE_DUPLICATE_FUNCTIONS=1")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   include_directories("${EMSCRIPTEN_ROOT_PATH}/tests/zlib")
 elseif(UNIX)
   find_package(PkgConfig REQUIRED)
@@ -61,13 +58,11 @@ endif()
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
-if(EMSCRIPTEN)
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_GLFW=3")
-elseif(WIN32)
+if(WIN32)
   add_subdirectory(deps/glfw glfw)
   include_directories(deps/glfw/include)
   set(LOVR_GLFW glfw ${GLFW_LIBRARIES})
-else()
+elseif(NOT EMSCRIPTEN)
   pkg_search_module(GLFW REQUIRED glfw3)
   include_directories(${GLFW_INCLUDE_DIRS})
   set(LOVR_GLFW ${GLFW_LIBRARIES})
@@ -78,6 +73,7 @@ if(EMSCRIPTEN)
   option(LUA_USE_RELATIVE_LOADLIB OFF)
   option(LUA_USE_ULONGJMP OFF)
   add_subdirectory(deps/lua lua)
+  set_target_properties(lua luac liblua liblua_static PROPERTIES EXCLUDE_FROM_ALL 1)
   include_directories(deps/lua/src ${CMAKE_BINARY_DIR}/lua)
   set(LOVR_LUA liblua_static)
 elseif(WIN32)
@@ -94,7 +90,12 @@ else()
 endif()
 
 # ODE
-if (WIN32 OR EMSCRIPTEN)
+if(EMSCRIPTEN)
+  set(ODE_BUILD_SHARED OFF CACHE BOOL "")
+  add_subdirectory(deps/ode ode)
+  include_directories(deps/ode/include "${CMAKE_CURRENT_BINARY_DIR}/ode/include")
+  set(LOVR_ODE ode)
+elseif(WIN32)
   set(ODE_BUILD_SHARED ON CACHE BOOL "")
   add_subdirectory(deps/ode ode)
   include_directories(deps/ode/include "${CMAKE_CURRENT_BINARY_DIR}/ode/include")
@@ -213,7 +214,6 @@ set(LOVR_SRC
   src/graphics/skybox.c
   src/graphics/texture.c
   src/headset/headset.c
-  src/lib/glad/glad.c
   src/lib/lua-cjson/fpconv.c
   src/lib/lua-cjson/lua_cjson.c
   src/lib/lua-cjson/strbuf.c
@@ -255,6 +255,8 @@ target_link_libraries(lovr
   ${LOVR_OPENGL}
   ${LOVR_OPENVR}
   ${LOVR_PHYSFS}
+
+  ${LOVR_EMSCRIPTEN_FLAGS}
 )
 
 if(WIN32)
