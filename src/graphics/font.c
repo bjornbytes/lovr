@@ -53,10 +53,8 @@ Font* lovrFontCreate(FontData* fontData) {
   lovrTextureSetWrap(font->texture, WRAP_CLAMP, WRAP_CLAMP);
 
 #ifndef LOVR_WEB
-  glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_RED);
-  glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_G, GL_RED);
-  glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
-  glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_GREEN);
+  GLint swizzle[4] = { GL_RED, GL_RED, GL_RED, GL_GREEN };
+  glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle);
 #endif
 
   return font;

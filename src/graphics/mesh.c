@@ -68,10 +68,12 @@ Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshU
     return NULL;
   }
 
+  mesh->data = NULL;
   mesh->count = count;
   mesh->stride = stride;
   mesh->enabledAttributes = ~0;
   mesh->attributesDirty = 1;
+  mesh->isMapped = 0;
   mesh->drawMode = drawMode;
   mesh->usage = usage;
   mesh->vao = 0;
@@ -89,6 +91,10 @@ Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshU
   glBufferData(GL_ARRAY_BUFFER, mesh->count * mesh->stride, NULL, mesh->usage);
   glGenVertexArrays(1, &mesh->vao);
 
+#ifdef LOVR_WEB
+  mesh->mappedData = malloc(mesh->count * mesh->stride);
+#endif
+
   return mesh;
 }
 
@@ -102,6 +108,9 @@ void lovrMeshDestroy(const Ref* ref) {
   glDeleteVertexArrays(1, &mesh->vao);
   vec_deinit(&mesh->map);
   vec_deinit(&mesh->format);
+#ifdef LOVR_WEB
+  free(mesh->mappedData);
+#endif
   free(mesh);
 }
 
@@ -250,8 +259,12 @@ void lovrMeshSetTexture(Mesh* mesh, Texture* texture) {
 }
 
 void* lovrMeshMap(Mesh* mesh, int start, int count) {
-
-  // Unmap because the mapped ranges aren't necessarily the same.  Could be improved.
+#ifdef LOVR_WEB
+  mesh->isMapped = 1;
+  mesh->mapStart = start;
+  mesh->mapCount = count;
+  return (char*) mesh->data + start * mesh->stride;
+#else
   if (mesh->isMapped && (mesh->mapStart != start || mesh->mapCount != count)) {
     lovrMeshUnmap(mesh);
   }
@@ -262,12 +275,22 @@ void* lovrMeshMap(Mesh* mesh, int start, int count) {
   GLbitfield access = GL_MAP_READ_BIT | GL_MAP_WRITE_BIT;
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
   return glMapBufferRange(GL_ARRAY_BUFFER, start * mesh->stride, count * mesh->stride, access);
+#endif
 }
 
 void lovrMeshUnmap(Mesh* mesh) {
-  if (mesh->isMapped) {
-    mesh->isMapped = 0;
-    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
-    glUnmapBuffer(GL_ARRAY_BUFFER);
+  if (!mesh->isMapped) {
+    return;
   }
+
+  mesh->isMapped = 0;
+  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+
+#ifdef LOVR_WEB
+  int start = mesh->mapStart * mesh->stride;
+  int count = mesh->mapCount * mesh->stride;
+  glBufferSubData(GL_ARRAY_BUFFER, start, count, (char*) mesh->data + start);
+#else
+  glUnmapBuffer(GL_ARRAY_BUFFER);
+#endif
 }
