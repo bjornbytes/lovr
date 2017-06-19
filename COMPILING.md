@@ -10,12 +10,13 @@ Dependencies
 
 - LuaJIT
 - GLFW (3.2+)
-- OpenGL (3+)
+- OpenGL (3.3, ES3, or WebGL 2)
 - assimp
 - OpenVR (1.0.5, for `lovr.headset`)
 - PhysicsFS
 - OpenAL (1.17+ recommended for HRTF support)
 - FreeType
+- ODE (for `lovr.physics`)
 - Emscripten (optional, for compiling for web)
 
 See [lovr-deps](https://github.com/bjornbytes/lovr-deps) for a GitHub repo containing all of these
