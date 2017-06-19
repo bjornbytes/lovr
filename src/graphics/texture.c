@@ -5,31 +5,23 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-GLenum lovrTextureGetGLFormat(TextureFormat format) {
-  switch (format) {
-    case FORMAT_RED: return GL_RED;
-#ifdef LOVR_WEB
-    case FORMAT_RG: return GL_LUMINANCE_ALPHA;
-#else
-    case FORMAT_RG: return GL_RG;
-#endif
-    case FORMAT_RGB: return GL_RGB;
-    case FORMAT_RGBA: return GL_RGBA;
-  }
-}
-
 Texture* lovrTextureCreate(TextureData* textureData) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
+  texture->framebuffer = 0;
+  texture->depthBuffer = 0;
   texture->textureData = textureData;
   glGenTextures(1, &texture->id);
   lovrTextureRefresh(texture);
   lovrTextureSetFilter(texture, FILTER_LINEAR, FILTER_LINEAR);
   lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
 
-  texture->framebuffer = 0;
-  texture->depthBuffer = 0;
+#ifndef LOVR_WEB
+  if (lovrTextureFormats[textureData->format].swizzled) {
+    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, lovrTextureFormats[textureData->format].swizzle);
+  }
+#endif
 
   return texture;
 }
@@ -148,9 +140,10 @@ void lovrTextureRefresh(Texture* texture) {
   TextureData* textureData = texture->textureData;
   int w = textureData->width;
   int h = textureData->height;
-  GLenum format = lovrTextureGetGLFormat(textureData->format);
+  GLenum internalFormat = lovrTextureFormats[textureData->format].internalFormat;
+  GLenum format = lovrTextureFormats[textureData->format].format;
   lovrGraphicsBindTexture(texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, textureData->data);
+  glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, w, h, 0, format, GL_UNSIGNED_BYTE, textureData->data);
 }
 
 int lovrTextureGetHeight(Texture* texture) {

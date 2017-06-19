@@ -92,7 +92,7 @@ Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshU
   glGenVertexArrays(1, &mesh->vao);
 
 #ifdef LOVR_WEB
-  mesh->mappedData = malloc(mesh->count * mesh->stride);
+  mesh->data = malloc(mesh->count * mesh->stride);
 #endif
 
   return mesh;
@@ -109,7 +109,7 @@ void lovrMeshDestroy(const Ref* ref) {
   vec_deinit(&mesh->map);
   vec_deinit(&mesh->format);
 #ifdef LOVR_WEB
-  free(mesh->mappedData);
+  free(mesh->data);
 #endif
   free(mesh);
 }

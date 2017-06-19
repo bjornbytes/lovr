@@ -581,12 +581,14 @@ TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
-  textureData->width = vrTexture->unWidth;
-  textureData->height = vrTexture->unHeight;
-  textureData->channels = 4;
-  textureData->format = FORMAT_RGBA;
+  int width = vrTexture->unWidth;
+  int height = vrTexture->unHeight;
+  TextureFormat format = FORMAT_RGBA;
+  size_t size = width * height * lovrTextureFormats[format].channels * sizeof(uint8_t);
 
-  size_t size = textureData->width * textureData->height * textureData->channels * sizeof(uint8_t);
+  textureData->width = width;
+  textureData->height = height;
+  textureData->format = format;
   textureData->data = malloc(size);
   memcpy(textureData->data, vrTexture->rubTextureMapData, size);
 

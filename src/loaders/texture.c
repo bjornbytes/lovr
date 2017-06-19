@@ -3,28 +3,39 @@
 #include <stdlib.h>
 #include <string.h>
 
+TextureFormatInfo lovrTextureFormats[] = {
+  {
+#ifdef LOVR_WEB
+    .internalFormat = GL_LUMINANCE_ALPHA,
+    .format = GL_LUMINANCE_ALPHA,
+    .channels = 2,
+    .swizzled = 0
+#else
+    .internalFormat = GL_RG,
+    .format = GL_RG,
+    .channels = 2,
+    .swizzled = 1,
+    .swizzle = { GL_RED, GL_RED, GL_RED, GL_GREEN }
+#endif
+  },
+  {
+    .internalFormat = GL_RGBA,
+    .format = GL_RGBA,
+    .channels = 4,
+    .swizzled = 0
+  }
+};
+
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
-  int channels = 0;
-  switch (format) {
-    case FORMAT_RED: channels = 1; break;
-    case FORMAT_RG: channels = 2; break;
-    case FORMAT_RGB: channels = 3; break;
-    case FORMAT_RGBA: channels = 4; break;
-  }
-
-  int size = sizeof(uint8_t) * width * height * channels;
-  uint8_t* data = malloc(size);
-  memset(data, value, size);
-
-  textureData->data = data;
+  size_t size = width * height * lovrTextureFormats[format].channels * sizeof(uint8_t);
   textureData->width = width;
   textureData->height = height;
-  textureData->channels = channels;
   textureData->format = format;
-
+  textureData->data = malloc(size);
+  memset(textureData->data, value, size);
   return textureData;
 }
 
@@ -32,20 +43,10 @@ TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
-  int channels = 0;
-  switch (format) {
-    case FORMAT_RED: channels = 1; break;
-    case FORMAT_RG: channels = 2; break;
-    case FORMAT_RGB: channels = 3; break;
-    case FORMAT_RGBA: channels = 4; break;
-  }
-
-  textureData->data = NULL;
   textureData->width = width;
   textureData->height = height;
-  textureData->channels = channels;
   textureData->format = format;
-
+  textureData->data = NULL;
   return textureData;
 }
 
@@ -53,25 +54,21 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
-  int* w = &textureData->width;
-  int* h = &textureData->height;
-  int* c = &textureData->channels;
   stbi_set_flip_vertically_on_load(0);
-  void* image = stbi_load_from_memory(blob->data, blob->size, w, h, c, 4);
+  textureData->format = FORMAT_RGBA;
+  textureData->data = stbi_load_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
 
-  if (image) {
-    textureData->data = image;
-    textureData->format = FORMAT_RGBA;
-    return textureData;
+  if (!textureData->data) {
+    error("Could not load texture data from '%s'", blob->name);
+    free(textureData);
+    return NULL;
   }
 
-  error("Could not load texture data from %s", blob->name);
-  free(textureData);
-  return NULL;
+  return textureData;
 }
 
 void lovrTextureDataResize(TextureData* textureData, int width, int height, uint8_t value) {
-  int size = sizeof(uint8_t) * width * height * textureData->channels;
+  int size = sizeof(uint8_t) * width * height * lovrTextureFormats[textureData->format].channels;
   textureData->width = width;
   textureData->height = height;
   textureData->data = realloc(textureData->data, size);

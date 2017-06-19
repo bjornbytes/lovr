@@ -1,21 +1,29 @@
 #include "filesystem/blob.h"
+#include "lib/glfw.h"
 #include <stdint.h>
 
 #pragma once
 
 typedef enum {
-  FORMAT_RED,
-  FORMAT_RG,
-  FORMAT_RGB,
+  FORMAT_LUMINANCE_ALPHA,
   FORMAT_RGBA
 } TextureFormat;
 
 typedef struct {
-  void* data;
+  GLenum internalFormat;
+  GLenum format;
+  int channels;
+  int swizzled;
+  int swizzle[4];
+} TextureFormatInfo;
+
+extern TextureFormatInfo lovrTextureFormats[];
+
+typedef struct {
   int width;
   int height;
-  int channels;
   TextureFormat format;
+  void* data;
 } TextureData;
 
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format);
