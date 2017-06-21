@@ -210,7 +210,11 @@ void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, unsigned in
     mat4_set(normalMatrix, transform);
     normalMatrix[12] = normalMatrix[13] = normalMatrix[14] = 0;
     normalMatrix[15] = 1;
-    mat4_transpose(mat4_invert(normalMatrix));
+    if (mat4_invert(normalMatrix)) {
+      mat4_transpose(normalMatrix);
+    } else {
+      mat4_identity(normalMatrix);
+    }
     float normalMatrix3x3[9] = {
       normalMatrix[0], normalMatrix[1], normalMatrix[2],
       normalMatrix[4], normalMatrix[5], normalMatrix[6],
