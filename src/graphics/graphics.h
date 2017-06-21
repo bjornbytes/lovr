@@ -174,5 +174,6 @@ void lovrGraphicsTriangle(DrawMode mode, float* points);
 void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float z, float size, float nx, float ny, float nz);
 void lovrGraphicsPlaneFullscreen(Texture* texture);
 void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform);
+void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, int capped, int segments);
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap,  HorizontalAlign halign, VerticalAlign valign);

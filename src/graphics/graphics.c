@@ -757,6 +757,110 @@ void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform) {
   lovrGraphicsPop();
 }
 
+void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, int capped, int segments) {
+  float axis[3] = { x1 - x2, y1 - y2, z1 - z2 };
+  float n[3] = { x1 - x2, y1 - y2, z1 - z2 };
+  float p[3];
+  float q[3];
+
+  int stride = 6;
+  int dataSize = stride * ((capped && r1) * (segments + 2) + (capped && r2) * (segments + 2) + 2 * (segments + 1));
+  int indexSize = 3 * segments * ((capped && r1) + (capped && r2) + 2);
+
+  vec_clear(&state.shapeData);
+  vec_reserve(&state.shapeData, dataSize);
+  state.shapeData.length = 0;
+  float* data = state.shapeData.data;
+
+  vec_clear(&state.shapeIndices);
+  vec_reserve(&state.shapeIndices, indexSize);
+  state.shapeIndices.length = 0;
+  unsigned int* indices = state.shapeIndices.data;
+
+  vec3_init(p, n);
+
+  if (n[0] == 0 && n[2] == 0) {
+    p[0] += 1;
+  } else {
+    p[1] += 1;
+  }
+
+  vec3_init(q, p);
+  vec3_cross(q, n);
+  vec3_cross(n, q);
+  vec3_init(p, n);
+  vec3_normalize(p);
+  vec3_normalize(q);
+  vec3_normalize(axis);
+
+#define PUSH_CYLINDER_VERTEX(x, y, z, nx, ny, nz) \
+  data[state.shapeData.length++] = x; \
+  data[state.shapeData.length++] = y; \
+  data[state.shapeData.length++] = z; \
+  data[state.shapeData.length++] = nx; \
+  data[state.shapeData.length++] = ny; \
+  data[state.shapeData.length++] = nz;
+
+#define PUSH_CYLINDER_TRIANGLE(i1, i2, i3) \
+  indices[state.shapeIndices.length++] = i1; \
+  indices[state.shapeIndices.length++] = i2; \
+  indices[state.shapeIndices.length++] = i3;
+
+  // Ring
+  int ringOffset = state.shapeData.length / 6;
+  for (int i = 0; i <= segments; i++) {
+    float theta = i * (2 * M_PI) / segments;
+
+    n[0] = cos(theta) * p[0] + sin(theta) * q[0];
+    n[1] = cos(theta) * p[1] + sin(theta) * q[1];
+    n[2] = cos(theta) * p[2] + sin(theta) * q[2];
+
+    PUSH_CYLINDER_VERTEX(x1 + r1 * n[0], y1 + r1 * n[1], z1 + r1 * n[2], n[0], n[1], n[2]);
+    PUSH_CYLINDER_VERTEX(x2 + r2 * n[0], y2 + r2 * n[1], z2 + r2 * n[2], n[0], n[1], n[2]);
+  }
+
+  // Top
+  int topOffset = state.shapeData.length / 6;
+  if (capped && r1 != 0) {
+    PUSH_CYLINDER_VERTEX(x1, y1, z1, axis[0], axis[1], axis[2]);
+
+    for (int i = 0; i <= segments; i++) {
+      int j = i * 2 * stride;
+      PUSH_CYLINDER_VERTEX(data[j + 0], data[j + 1], data[j + 2], axis[0], axis[1], axis[2]);
+    }
+  }
+
+  // Bottom
+  int bottomOffset = state.shapeData.length / 6;
+  if (capped && r2 != 0) {
+    PUSH_CYLINDER_VERTEX(x2, y2, z2, -axis[0], -axis[1], -axis[2]);
+
+    for (int i = 0; i <= segments; i++) {
+      int j = i * 2 * stride + stride;
+      PUSH_CYLINDER_VERTEX(data[j + 0], data[j + 1], data[j + 2], -axis[0], -axis[1], -axis[2]);
+    }
+  }
+
+  // Indices
+  for (int i = 0; i < segments; i++) {
+    int j = ringOffset + 2 * i;
+    PUSH_CYLINDER_TRIANGLE(j, j + 1, j + 2);
+    PUSH_CYLINDER_TRIANGLE(j + 1, j + 3, j + 2);
+
+    if (capped && r1 != 0) {
+      PUSH_CYLINDER_TRIANGLE(topOffset, topOffset + i + 1, topOffset + i + 2);
+    }
+
+    if (capped && r2 != 0) {
+      PUSH_CYLINDER_TRIANGLE(bottomOffset, bottomOffset + i + 1, bottomOffset + i + 2);
+    }
+  }
+
+  lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 0, 1);
+#undef PUSH_CYLINDER_VERTEX
+#undef PUSH_CYLINDER_TRIANGLE
+}
+
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az) {
   lovrGraphicsPrepare();
   lovrGraphicsPush();

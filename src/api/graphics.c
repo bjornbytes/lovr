@@ -552,6 +552,21 @@ int l_lovrGraphicsPrint(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsCylinder(lua_State* L) {
+  float x1 = luaL_checknumber(L, 1);
+  float y1 = luaL_checknumber(L, 2);
+  float z1 = luaL_checknumber(L, 3);
+  float x2 = luaL_checknumber(L, 4);
+  float y2 = luaL_checknumber(L, 5);
+  float z2 = luaL_checknumber(L, 6);
+  float r1 = luaL_optnumber(L, 7, 1);
+  float r2 = luaL_optnumber(L, 8, 1);
+  int capped = lua_isnoneornil(L, 9) ? 1 : lua_toboolean(L, 9);
+  int segments = luaL_optnumber(L, 10, floorf(16 + 16 * MAX(r1, r2)));
+  lovrGraphicsCylinder(x1, y1, z1, x2, y2, z2, r1, r2, capped, segments);
+  return 0;
+}
+
 // Types
 
 int l_lovrGraphicsNewFont(lua_State* L) {
@@ -795,6 +810,7 @@ const luaL_Reg lovrGraphics[] = {
   { "plane", l_lovrGraphicsPlane },
   { "cube", l_lovrGraphicsCube },
   { "print", l_lovrGraphicsPrint },
+  { "cylinder", l_lovrGraphicsCylinder },
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
