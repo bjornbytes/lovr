@@ -614,7 +614,7 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
   while ((shape = dBodyGetNextGeom(shape)) != NULL) {
     dGeomGetAABB(shape, otherAABB);
     aabb[0] = MIN(aabb[0], otherAABB[0]);
-    aabb[1] = MAX(aabb[0], otherAABB[0]);
+    aabb[1] = MAX(aabb[1], otherAABB[1]);
     aabb[2] = MIN(aabb[2], otherAABB[2]);
     aabb[3] = MAX(aabb[3], otherAABB[3]);
     aabb[4] = MIN(aabb[4], otherAABB[4]);
