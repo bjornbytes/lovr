@@ -3,8 +3,9 @@
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include <stdlib.h>
+#include <float.h>
 
-static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec_float_t* vertices, vec_uint_t* indices) {
+static void visitNode(Model* model, ModelData* modelData, ModelNode* node, mat4 transform, vec_float_t* vertices, vec_uint_t* indices) {
   float newTransform[16];
 
   if (transform) {
@@ -24,6 +25,13 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
     // Transformed vertices
     for (int v = 0; v < mesh->vertices.length; v++) {
       ModelVertex vertex = mesh->vertices.data[v];
+
+      model->aabb[0] = MIN(model->aabb[0], vertex.x);
+      model->aabb[1] = MAX(model->aabb[1], vertex.x);
+      model->aabb[2] = MIN(model->aabb[2], vertex.y);
+      model->aabb[3] = MAX(model->aabb[3], vertex.y);
+      model->aabb[4] = MIN(model->aabb[4], vertex.z);
+      model->aabb[5] = MIN(model->aabb[5], vertex.z);
 
       float vec[3] = { vertex.x, vertex.y, vertex.z };
       mat4_transform(newTransform, vec);
@@ -53,7 +61,7 @@ static void visitNode(ModelData* modelData, ModelNode* node, mat4 transform, vec
   }
 
   for (int c = 0; c < node->children.length; c++) {
-    visitNode(modelData, node->children.data[c], newTransform, vertices, indices);
+    visitNode(model, modelData, node->children.data[c], newTransform, vertices, indices);
   }
 }
 
@@ -62,6 +70,12 @@ Model* lovrModelCreate(ModelData* modelData) {
   if (!model) return NULL;
 
   model->modelData = modelData;
+  model->aabb[0] = FLT_MAX;
+  model->aabb[1] = FLT_MIN;
+  model->aabb[2] = FLT_MAX;
+  model->aabb[3] = FLT_MIN;
+  model->aabb[4] = FLT_MAX;
+  model->aabb[5] = FLT_MIN;
 
   vec_float_t vertices;
   vec_init(&vertices);
@@ -69,7 +83,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   vec_uint_t indices;
   vec_init(&indices);
 
-  visitNode(modelData, modelData->root, NULL, &vertices, &indices);
+  visitNode(model, modelData, modelData->root, NULL, &vertices, &indices);
 
   MeshFormat format;
   vec_init(&format);
@@ -133,4 +147,8 @@ void lovrModelSetTexture(Model* model, Texture* texture) {
   if (model->texture) {
     lovrRetain(&model->texture->ref);
   }
+}
+
+float* lovrModelGetAABB(Model* model) {
+  return model->aabb;
 }
