@@ -620,7 +620,7 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float 
   float theta = acos(nz);
 
   float transform[16];
-  mat4_setTransform(transform, x, y, z, size, theta, cx, cy, cz);
+  mat4_setTransform(transform, x, y, z, size, size, size, theta, cx, cy, cz);
 
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(transform);
@@ -677,7 +677,7 @@ void lovrGraphicsPlaneFullscreen(Texture* texture) {
   }
 }
 
-void lovrGraphicsCube(DrawMode mode, Texture* texture, mat4 transform) {
+void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(transform);
 

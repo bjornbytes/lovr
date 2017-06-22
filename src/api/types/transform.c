@@ -2,17 +2,24 @@
 #include "math/mat4.h"
 #include "math/transform.h"
 
-int luax_readtransform(lua_State* L, int index, mat4 m) {
+int luax_readtransform(lua_State* L, int index, mat4 m, int uniformScale) {
   if (lua_isnumber(L, index)) {
     float x = luaL_optnumber(L, index++, 0);
     float y = luaL_optnumber(L, index++, 0);
     float z = luaL_optnumber(L, index++, 0);
-    float s = luaL_optnumber(L, index++, 1);
+    float sx, sy, sz;
+    if (uniformScale) {
+      sx = sy = sz = luaL_optnumber(L, index++, 1);
+    } else {
+      sx = luaL_optnumber(L, index++, 1);
+      sy = luaL_optnumber(L, index++, 1);
+      sz = luaL_optnumber(L, index++, 1);
+    }
     float angle = luaL_optnumber(L, index++, 0);
     float ax = luaL_optnumber(L, index++, 0);
     float ay = luaL_optnumber(L, index++, 1);
     float az = luaL_optnumber(L, index++, 0);
-    mat4_setTransform(m, x, y, z, s, angle, ax, ay, az);
+    mat4_setTransform(m, x, y, z, sx, sy, sz, angle, ax, ay, az);
     return index;
   } else if (lua_isnoneornil(L, index)) {
     mat4_identity(m);
@@ -88,7 +95,7 @@ int l_lovrTransformScale(lua_State* L) {
 int l_lovrTransformSetTransformation(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
   lovrTransformOrigin(transform); // Dirty the Transform
-  luax_readtransform(L, 2, transform->matrix);
+  luax_readtransform(L, 2, transform->matrix, 0);
   lua_pushvalue(L, 1);
   return 1;
 }

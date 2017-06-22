@@ -463,7 +463,7 @@ int l_lovrGraphicsScale(lua_State* L) {
 
 int l_lovrGraphicsTransform(lua_State* L) {
   float transform[16];
-  luax_readtransform(L, 1, transform);
+  luax_readtransform(L, 1, transform, 0);
   lovrGraphicsMatrixTransform(transform);
   return 0;
 }
@@ -526,7 +526,7 @@ int l_lovrGraphicsPlane(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsCube(lua_State* L) {
+static int luax_rectangularprism(lua_State* L, int uniformScale) {
   Texture* texture = NULL;
   DrawMode drawMode;
   if (lua_isstring(L, 1)) {
@@ -536,15 +536,23 @@ int l_lovrGraphicsCube(lua_State* L) {
     texture = luax_checktype(L, 1, Texture);
   }
   float transform[16];
-  luax_readtransform(L, 2, transform);
-  lovrGraphicsCube(drawMode, texture, transform);
+  luax_readtransform(L, 2, transform, uniformScale);
+  lovrGraphicsBox(drawMode, texture, transform);
   return 0;
+}
+
+int l_lovrGraphicsCube(lua_State* L) {
+  return luax_rectangularprism(L, 1);
+}
+
+int l_lovrGraphicsBox(lua_State* L) {
+  return luax_rectangularprism(L, 0);
 }
 
 int l_lovrGraphicsPrint(lua_State* L) {
   const char* str = luaL_checkstring(L, 1);
   float transform[16];
-  int index = luax_readtransform(L, 2, transform);
+  int index = luax_readtransform(L, 2, transform, 1);
   float wrap = luaL_optnumber(L, index++, 0);
   HorizontalAlign halign = *(HorizontalAlign*) luax_optenum(L, index++, "center", &HorizontalAligns, "alignment");
   VerticalAlign valign = *(VerticalAlign*) luax_optenum(L, index++, "middle", &VerticalAligns, "alignment");
@@ -809,6 +817,7 @@ const luaL_Reg lovrGraphics[] = {
   { "triangle", l_lovrGraphicsTriangle },
   { "plane", l_lovrGraphicsPlane },
   { "cube", l_lovrGraphicsCube },
+  { "box", l_lovrGraphicsBox },
   { "print", l_lovrGraphicsPrint },
   { "cylinder", l_lovrGraphicsCylinder },
   { "getWidth", l_lovrGraphicsGetWidth },

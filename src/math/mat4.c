@@ -208,10 +208,10 @@ mat4 mat4_scale(mat4 m, float x, float y, float z) {
   return m;
 }
 
-mat4 mat4_setTransform(mat4 m, float x, float y, float z, float s, float angle, float ax, float ay, float az) {
+mat4 mat4_setTransform(mat4 m, float x, float y, float z, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
   mat4_identity(m);
   mat4_translate(m, x, y, z);
-  mat4_scale(m, s, s, s);
+  mat4_scale(m, sx, sy, sz);
   return mat4_rotate(m, angle, ax, ay, az);
 }
 

@@ -30,7 +30,7 @@ void luax_checkmeshformat(lua_State* L, int index, MeshFormat* format) {
 int l_lovrMeshDraw(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   float transform[16];
-  luax_readtransform(L, 2, transform);
+  luax_readtransform(L, 2, transform, 1);
   lovrMeshDraw(mesh, transform);
   return 0;
 }
