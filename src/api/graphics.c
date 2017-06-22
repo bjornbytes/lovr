@@ -549,17 +549,6 @@ int l_lovrGraphicsBox(lua_State* L) {
   return luax_rectangularprism(L, 0);
 }
 
-int l_lovrGraphicsPrint(lua_State* L) {
-  const char* str = luaL_checkstring(L, 1);
-  float transform[16];
-  int index = luax_readtransform(L, 2, transform, 1);
-  float wrap = luaL_optnumber(L, index++, 0);
-  HorizontalAlign halign = *(HorizontalAlign*) luax_optenum(L, index++, "center", &HorizontalAligns, "alignment");
-  VerticalAlign valign = *(VerticalAlign*) luax_optenum(L, index++, "middle", &VerticalAligns, "alignment");
-  lovrGraphicsPrint(str, transform, wrap, halign, valign);
-  return 0;
-}
-
 int l_lovrGraphicsCylinder(lua_State* L) {
   float x1 = luaL_checknumber(L, 1);
   float y1 = luaL_checknumber(L, 2);
@@ -572,6 +561,17 @@ int l_lovrGraphicsCylinder(lua_State* L) {
   int capped = lua_isnoneornil(L, 9) ? 1 : lua_toboolean(L, 9);
   int segments = luaL_optnumber(L, 10, floorf(16 + 16 * MAX(r1, r2)));
   lovrGraphicsCylinder(x1, y1, z1, x2, y2, z2, r1, r2, capped, segments);
+  return 0;
+}
+
+int l_lovrGraphicsPrint(lua_State* L) {
+  const char* str = luaL_checkstring(L, 1);
+  float transform[16];
+  int index = luax_readtransform(L, 2, transform, 1);
+  float wrap = luaL_optnumber(L, index++, 0);
+  HorizontalAlign halign = *(HorizontalAlign*) luax_optenum(L, index++, "center", &HorizontalAligns, "alignment");
+  VerticalAlign valign = *(VerticalAlign*) luax_optenum(L, index++, "middle", &VerticalAligns, "alignment");
+  lovrGraphicsPrint(str, transform, wrap, halign, valign);
   return 0;
 }
 
@@ -818,8 +818,8 @@ const luaL_Reg lovrGraphics[] = {
   { "plane", l_lovrGraphicsPlane },
   { "cube", l_lovrGraphicsCube },
   { "box", l_lovrGraphicsBox },
-  { "print", l_lovrGraphicsPrint },
   { "cylinder", l_lovrGraphicsCylinder },
+  { "print", l_lovrGraphicsPrint },
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
