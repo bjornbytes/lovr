@@ -564,6 +564,19 @@ int l_lovrGraphicsCylinder(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsSphere(lua_State* L) {
+  Texture* texture = NULL;
+  float transform[16];
+  int index = 1;
+  if (lua_isuserdata(L, 1) && (lua_isuserdata(L, 2) || lua_isnumber(L, 2))) {
+    texture = luax_checktype(L, index++, Texture);
+  }
+  index = luax_readtransform(L, index, transform, 1);
+  int segments = luaL_optnumber(L, index, 30);
+  lovrGraphicsSphere(texture, transform, segments);
+  return 0;
+}
+
 int l_lovrGraphicsPrint(lua_State* L) {
   const char* str = luaL_checkstring(L, 1);
   float transform[16];
@@ -819,6 +832,7 @@ const luaL_Reg lovrGraphics[] = {
   { "cube", l_lovrGraphicsCube },
   { "box", l_lovrGraphicsBox },
   { "cylinder", l_lovrGraphicsCylinder },
+  { "sphere", l_lovrGraphicsSphere },
   { "print", l_lovrGraphicsPrint },
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },

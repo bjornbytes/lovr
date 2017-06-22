@@ -856,9 +856,58 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
     }
   }
 
+  lovrGraphicsBindTexture(NULL);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 0, 1);
 #undef PUSH_CYLINDER_VERTEX
 #undef PUSH_CYLINDER_TRIANGLE
+}
+
+void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments) {
+  vec_clear(&state.shapeData);
+  vec_clear(&state.shapeIndices);
+
+  for (int i = 0; i <= segments; i++) {
+    float v = i / (float) segments;
+    for (int j = 0; j <= segments; j++) {
+      float u = j / (float) segments;
+
+      float x = -cos(u * 2 * M_PI) * sin(v * M_PI);
+      float y = cos(v * M_PI);
+      float z = sin(u * 2 * M_PI) * sin(v * M_PI);
+
+      vec_push(&state.shapeData, x);
+      vec_push(&state.shapeData, y);
+      vec_push(&state.shapeData, z);
+
+      vec_push(&state.shapeData, x);
+      vec_push(&state.shapeData, y);
+      vec_push(&state.shapeData, z);
+
+      vec_push(&state.shapeData, u);
+      vec_push(&state.shapeData, v);
+    }
+  }
+
+  for (int i = 0; i < segments; i++) {
+    unsigned int offset0 = i * (segments + 1);
+    unsigned int offset1 = (i + 1) * (segments + 1);
+    for (int j = 0; j < segments; j++) {
+      unsigned int index0 = offset0 + j;
+      unsigned int index1 = offset1 + j;
+      vec_push(&state.shapeIndices, index0);
+      vec_push(&state.shapeIndices, index1);
+      vec_push(&state.shapeIndices, index0 + 1);
+      vec_push(&state.shapeIndices, index1);
+      vec_push(&state.shapeIndices, index1 + 1);
+      vec_push(&state.shapeIndices, index0 + 1);
+    }
+  }
+
+  lovrGraphicsBindTexture(texture);
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 1, 1);
+  lovrGraphicsPop();
 }
 
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az) {
