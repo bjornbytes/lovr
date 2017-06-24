@@ -503,7 +503,7 @@ const luaL_Reg lovrCollider[] = {
   { "getAngularDamping", l_lovrColliderGetAngularDamping },
   { "setAngularDamping", l_lovrColliderSetAngularDamping },
   { "applyForce", l_lovrColliderApplyForce },
-  { "applyTorque", l_lovrColliderApplyForce },
+  { "applyTorque", l_lovrColliderApplyTorque },
   { "getLocalCenter", l_lovrColliderGetLocalCenter },
   { "getLocalPoint", l_lovrColliderGetLocalPoint },
   { "getWorldPoint", l_lovrColliderGetWorldPoint },
