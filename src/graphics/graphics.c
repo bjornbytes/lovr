@@ -49,6 +49,9 @@ void lovrGraphicsInit() {
   // Initialize all the things
   glfwMakeContextCurrent(state.window);
   glfwSetWindowCloseCallback(state.window, onCloseWindow);
+#ifdef _WIN32
+  gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+#endif
   glfwSetTime(0);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
