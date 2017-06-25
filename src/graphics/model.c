@@ -26,16 +26,16 @@ static void visitNode(Model* model, ModelData* modelData, ModelNode* node, mat4 
     for (int v = 0; v < mesh->vertices.length; v++) {
       ModelVertex vertex = mesh->vertices.data[v];
 
-      model->aabb[0] = MIN(model->aabb[0], vertex.x);
-      model->aabb[1] = MAX(model->aabb[1], vertex.x);
-      model->aabb[2] = MIN(model->aabb[2], vertex.y);
-      model->aabb[3] = MAX(model->aabb[3], vertex.y);
-      model->aabb[4] = MIN(model->aabb[4], vertex.z);
-      model->aabb[5] = MAX(model->aabb[5], vertex.z);
-
       float vec[3] = { vertex.x, vertex.y, vertex.z };
       mat4_transform(newTransform, vec);
       vec_pusharr(vertices, vec, 3);
+
+      model->aabb[0] = MIN(model->aabb[0], vec[0]);
+      model->aabb[1] = MAX(model->aabb[1], vec[0]);
+      model->aabb[2] = MIN(model->aabb[2], vec[1]);
+      model->aabb[3] = MAX(model->aabb[3], vec[1]);
+      model->aabb[4] = MIN(model->aabb[4], vec[2]);
+      model->aabb[5] = MAX(model->aabb[5], vec[2]);
 
       if (modelData->hasNormals) {
         ModelVertex normal = mesh->normals.data[v];
