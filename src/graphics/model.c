@@ -31,7 +31,7 @@ static void visitNode(Model* model, ModelData* modelData, ModelNode* node, mat4 
       model->aabb[2] = MIN(model->aabb[2], vertex.y);
       model->aabb[3] = MAX(model->aabb[3], vertex.y);
       model->aabb[4] = MIN(model->aabb[4], vertex.z);
-      model->aabb[5] = MIN(model->aabb[5], vertex.z);
+      model->aabb[5] = MAX(model->aabb[5], vertex.z);
 
       float vec[3] = { vertex.x, vertex.y, vertex.z };
       mat4_transform(newTransform, vec);
