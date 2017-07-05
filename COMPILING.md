@@ -68,7 +68,7 @@ git clone --branch v1.0.5 https://github.com/ValveSoftware/openvr.git
 Next, install the other dependencies above using your package manager of choice:
 
 ```sh
-brew install assimp glfw3 luajit physfs freetype openal-soft
+brew install assimp glfw3 luajit physfs freetype openal-soft ode
 ```
 
 On OSX, you'll need to set the `DYLD_LIBRARY_PATH` environment variable to be
