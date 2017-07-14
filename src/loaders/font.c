@@ -128,15 +128,19 @@ void lovrFontDataLoadGlyph(FontData* fontData, uint32_t character, Glyph* glyph)
   glyph->y = 0;
   glyph->w = metrics->width >> 6;
   glyph->h = metrics->height >> 6;
+  glyph->tw = glyph->w + 2 * GLYPH_PADDING;
+  glyph->th = glyph->h + 2 * GLYPH_PADDING;
   glyph->dx = metrics->horiBearingX >> 6;
   glyph->dy = metrics->horiBearingY >> 6;
   glyph->advance = metrics->horiAdvance >> 6;
-  glyph->data = malloc(glyph->w * glyph->h * 3 * sizeof(uint8_t));
+  glyph->data = malloc(glyph->tw * glyph->th * 3 * sizeof(uint8_t));
 
   // Render SDF
+  float tx = GLYPH_PADDING + -glyph->dx;
+  float ty = GLYPH_PADDING + glyph->h - glyph->dy;
   msShapeNormalize(shape);
   msEdgeColoringSimple(shape, 3.0, 0);
-  msGenerateMSDF(glyph->data, glyph->w, glyph->h, shape, fontData->size / 8., 1, 1, -glyph->dx, glyph->h - glyph->dy);
+  msGenerateMSDF(glyph->data, glyph->tw, glyph->th, shape, 4., 1, 1, tx, ty);
   msShapeDestroy(shape);
 }
 

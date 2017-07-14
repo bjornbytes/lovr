@@ -115,13 +115,13 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
 
     // Triangles
     if (glyph->w > 0 && glyph->h > 0) {
-      float x1 = cx + glyph->dx;
-      float y1 = cy + glyph->dy;
-      float x2 = x1 + glyph->w;
-      float y2 = y1 - glyph->h;
+      float x1 = cx + glyph->dx - GLYPH_PADDING;
+      float y1 = cy + glyph->dy + GLYPH_PADDING;
+      float x2 = x1 + glyph->tw;
+      float y2 = y1 - glyph->th;
       float s1 = glyph->x / u;
-      float t1 = (glyph->y + glyph->h) / v;
-      float s2 = (glyph->x + glyph->w) / u;
+      float t1 = (glyph->y + glyph->th) / v;
+      float s2 = (glyph->x + glyph->tw) / u;
       float t2 = glyph->y / v;
 
       float vertices[30] = {
@@ -269,14 +269,14 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
   }
 
   // If the glyph does not fit, you must acquit (new row)
-  if (atlas->x + glyph->w > atlas->width - 2 * atlas->padding) {
+  if (atlas->x + glyph->tw > atlas->width - 2 * atlas->padding) {
     atlas->x = atlas->padding;
     atlas->y += atlas->rowHeight + atlas->padding;
     atlas->rowHeight = 0;
   }
 
   // Expand the texture if needed. Expanding the texture re-adds all the glyphs, so we can return.
-  if (atlas->y + glyph->h > atlas->height - 2 * atlas->padding) {
+  if (atlas->y + glyph->th > atlas->height - 2 * atlas->padding) {
     lovrFontExpandTexture(font);
     return;
   }
@@ -287,11 +287,11 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
 
   // Paste glyph into texture
   lovrGraphicsBindTexture(font->texture);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->w, glyph->h, lovrTextureFormats[FORMAT_RGB].format, GL_UNSIGNED_BYTE, glyph->data);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->tw, glyph->th, lovrTextureFormats[FORMAT_RGB].format, GL_UNSIGNED_BYTE, glyph->data);
 
   // Advance atlas cursor
-  atlas->x += glyph->w + atlas->padding;
-  atlas->rowHeight = MAX(atlas->rowHeight, glyph->h);
+  atlas->x += glyph->tw + atlas->padding;
+  atlas->rowHeight = MAX(atlas->rowHeight, glyph->th);
 }
 
 void lovrFontExpandTexture(Font* font) {

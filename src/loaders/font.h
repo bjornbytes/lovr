@@ -4,6 +4,8 @@
 
 #pragma once
 
+#define GLYPH_PADDING 1
+
 typedef struct {
   void* rasterizer;
   Blob* blob;
@@ -18,6 +20,8 @@ typedef struct {
   int y;
   int w;
   int h;
+  int tw;
+  int th;
   int dx;
   int dy;
   int advance;
