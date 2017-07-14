@@ -48,7 +48,7 @@ Font* lovrFontCreate(FontData* fontData) {
   }
 
   // Texture
-  TextureData* textureData = lovrTextureDataGetBlank(font->atlas.width, font->atlas.height, 0x0, FORMAT_LUMINANCE_ALPHA);
+  TextureData* textureData = lovrTextureDataGetBlank(font->atlas.width, font->atlas.height, 0x0, FORMAT_RGB);
   font->texture = lovrTextureCreate(textureData);
   lovrTextureSetWrap(font->texture, WRAP_CLAMP, WRAP_CLAMP);
 
@@ -120,9 +120,9 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
       float x2 = x1 + glyph->w;
       float y2 = y1 - glyph->h;
       float s1 = glyph->x / u;
-      float t1 = glyph->y / v;
+      float t1 = (glyph->y + glyph->h) / v;
       float s2 = (glyph->x + glyph->w) / u;
-      float t2 = (glyph->y + glyph->h) / v;
+      float t2 = glyph->y / v;
 
       float vertices[30] = {
         x1, y1, 0, s1, t1,
@@ -287,7 +287,7 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
 
   // Paste glyph into texture
   lovrGraphicsBindTexture(font->texture);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->w, glyph->h, lovrTextureFormats[FORMAT_LUMINANCE_ALPHA].format, GL_UNSIGNED_BYTE, glyph->data);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->w, glyph->h, lovrTextureFormats[FORMAT_RGB].format, GL_UNSIGNED_BYTE, glyph->data);
 
   // Advance atlas cursor
   atlas->x += glyph->w + atlas->padding;
