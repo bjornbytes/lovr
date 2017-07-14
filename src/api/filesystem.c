@@ -6,10 +6,8 @@
 
 // Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
 Blob* luax_readblob(lua_State* L, int index, const char* debug) {
-  Blob* blob;
-
   if (lua_type(L, index) == LUA_TUSERDATA) {
-    blob = luax_checktype(L, index, Blob);
+    Blob* blob = luax_checktype(L, index, Blob);
     lovrRetain(&blob->ref);
     return blob;
   } else {
