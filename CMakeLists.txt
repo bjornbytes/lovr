@@ -89,6 +89,11 @@ else()
   set(LOVR_LUA ${LUAJIT_LIBRARIES})
 endif()
 
+# MSDF
+add_subdirectory(deps/msdfgen lib_msdfgen)
+include_directories(deps/msdfgen)
+set(LOVR_MSDF lib_msdfgen)
+
 # ODE
 if(EMSCRIPTEN)
   set(ODE_BUILD_SHARED OFF CACHE BOOL "")
@@ -251,6 +256,7 @@ target_link_libraries(lovr
   ${LOVR_FREETYPE}
   ${LOVR_GLFW}
   ${LOVR_LUA}
+  ${LOVR_MSDF}
   ${LOVR_ODE}
   ${LOVR_OPENAL}
   ${LOVR_OPENGL}
