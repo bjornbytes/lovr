@@ -6,6 +6,7 @@
 
 typedef struct {
   void* rasterizer;
+  Blob* blob;
   int size;
   int height;
   int ascent;

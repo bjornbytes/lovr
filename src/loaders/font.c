@@ -16,6 +16,7 @@ FontData* lovrFontDataCreate(Blob* blob, int size) {
   FT_Error err = FT_Err_Ok;
   if (blob) {
     err = err || FT_New_Memory_Face(ft, blob->data, blob->size, 0, &face);
+    lovrRetain(&blob->ref);
   } else {
     err = err || FT_New_Memory_Face(ft, Cabin_ttf, Cabin_ttf_len, 0, &face);
   }
@@ -28,6 +29,7 @@ FontData* lovrFontDataCreate(Blob* blob, int size) {
 
   FontData* fontData = malloc(sizeof(FontData));
   fontData->rasterizer = face;
+  fontData->blob = blob;
   fontData->size = size;
 
   FT_Size_Metrics metrics = face->size->metrics;
@@ -39,6 +41,9 @@ FontData* lovrFontDataCreate(Blob* blob, int size) {
 }
 
 void lovrFontDataDestroy(FontData* fontData) {
+  if (fontData->blob) {
+    lovrRelease(&fontData->blob->ref);
+  }
   FT_Done_Face(fontData->rasterizer);
   free(fontData);
 }
