@@ -74,6 +74,19 @@ const char* lovrSkyboxFragmentShader = ""
 "}"
 "";
 
+const char* lovrFontFragmentShader = ""
+"float median(float r, float g, float b) { \n"
+"  return max(min(r, g), min(max(r, g), b)); \n"
+"} \n"
+"vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
+"  vec3 sample = texture(image, uv).rgb; \n"
+"  float sdf = median(sample.r, sample.g, sample.b); \n"
+"  float w = fwidth(sdf); \n"
+"  float alpha = smoothstep(.5 - w, .5 + w, sdf); \n"
+"  return vec4(graphicsColor.rgb, alpha); \n"
+"}"
+"";
+
 const char* lovrNoopVertexShader = ""
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  return vertex; \n"

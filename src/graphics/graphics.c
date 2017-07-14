@@ -79,6 +79,7 @@ void lovrGraphicsInit() {
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
   int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
   lovrShaderSendInt(state.skyboxShader, uniformId, 1);
+  state.fontShader = lovrShaderCreate(lovrDefaultVertexShader, lovrFontFragmentShader);
   state.fullscreenShader = lovrShaderCreate(lovrNoopVertexShader, lovrDefaultFragmentShader);
   state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA));
 
@@ -1029,6 +1030,17 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
 }
 
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+  Shader* lastShader = lovrGraphicsGetShader();
+  if (lastShader == state.defaultShader) {
+    lovrRetain(&lastShader->ref);
+    lovrGraphicsSetShader(state.fontShader);
+  }
+
   lovrGraphicsEnsureFont();
   lovrFontPrint(state.activeFont, str, transform, wrap, halign, valign);
+
+  if (lastShader == state.defaultShader) {
+    lovrGraphicsSetShader(lastShader);
+    lovrRelease(&lastShader->ref);
+  }
 }

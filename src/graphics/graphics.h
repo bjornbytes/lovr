@@ -73,6 +73,7 @@ typedef struct {
   Shader* activeShader;
   Shader* defaultShader;
   Shader* skyboxShader;
+  Shader* fontShader;
   Shader* fullscreenShader;
   Font* activeFont;
   Font* defaultFont;
