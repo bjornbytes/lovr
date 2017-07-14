@@ -5,7 +5,6 @@
 #pragma once
 
 typedef enum {
-  FORMAT_LUMINANCE_ALPHA,
   FORMAT_RGB,
   FORMAT_RGBA
 } TextureFormat;
@@ -14,8 +13,6 @@ typedef struct {
   GLenum internalFormat;
   GLenum format;
   int channels;
-  int swizzled;
-  int swizzle[4];
 } TextureFormatInfo;
 
 extern TextureFormatInfo lovrTextureFormats[];

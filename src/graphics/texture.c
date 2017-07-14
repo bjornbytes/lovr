@@ -17,12 +17,6 @@ Texture* lovrTextureCreate(TextureData* textureData) {
   lovrTextureSetFilter(texture, FILTER_LINEAR, FILTER_LINEAR);
   lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
 
-#ifndef LOVR_WEB
-  if (lovrTextureFormats[textureData->format].swizzled) {
-    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, lovrTextureFormats[textureData->format].swizzle);
-  }
-#endif
-
   return texture;
 }
 

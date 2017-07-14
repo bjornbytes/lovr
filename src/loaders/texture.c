@@ -5,30 +5,14 @@
 
 TextureFormatInfo lovrTextureFormats[] = {
   {
-#ifdef LOVR_WEB
-    .internalFormat = GL_LUMINANCE_ALPHA,
-    .format = GL_LUMINANCE_ALPHA,
-    .channels = 2,
-    .swizzled = 0
-#else
-    .internalFormat = GL_RG,
-    .format = GL_RG,
-    .channels = 2,
-    .swizzled = 1,
-    .swizzle = { GL_RED, GL_RED, GL_RED, GL_GREEN }
-#endif
-  },
-  {
     .internalFormat = GL_RGB,
     .format = GL_RGB,
-    .channels = 3,
-    .swizzled = 0
+    .channels = 3
   },
   {
     .internalFormat = GL_RGBA,
     .format = GL_RGBA,
-    .channels = 4,
-    .swizzled = 0
+    .channels = 4
   }
 };
 
