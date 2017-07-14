@@ -19,6 +19,12 @@ TextureFormatInfo lovrTextureFormats[] = {
 #endif
   },
   {
+    .internalFormat = GL_RGB,
+    .format = GL_RGB,
+    .channels = 3,
+    .swizzled = 0
+  },
+  {
     .internalFormat = GL_RGBA,
     .format = GL_RGBA,
     .channels = 4,

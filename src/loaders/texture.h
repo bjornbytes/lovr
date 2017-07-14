@@ -6,6 +6,7 @@
 
 typedef enum {
   FORMAT_LUMINANCE_ALPHA,
+  FORMAT_RGB,
   FORMAT_RGBA
 } TextureFormat;
 
