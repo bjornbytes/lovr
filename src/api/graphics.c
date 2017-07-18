@@ -515,14 +515,9 @@ int l_lovrGraphicsPlane(lua_State* L) {
       return 0;
     }
   }
-  float x = luaL_optnumber(L, 2, 0.f);
-  float y = luaL_optnumber(L, 3, 0.f);
-  float z = luaL_optnumber(L, 4, 0.f);
-  float s = luaL_optnumber(L, 5, 1.f);
-  float nx = luaL_optnumber(L, 6, 0.f);
-  float ny = luaL_optnumber(L, 7, 1.f);
-  float nz = luaL_optnumber(L, 8, 0.f);
-  lovrGraphicsPlane(drawMode, texture, x, y, z, s, nx, ny, nz);
+  float transform[16];
+  luax_readtransform(L, 2, transform, 1);
+  lovrGraphicsPlane(drawMode, texture, transform);
   return 0;
 }
 

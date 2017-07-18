@@ -603,28 +603,7 @@ void lovrGraphicsTriangle(DrawMode mode, float* points) {
   }
 }
 
-void lovrGraphicsPlane(DrawMode mode, Texture* texture, float x, float y, float z, float size, float nx, float ny, float nz) {
-
-  // Normalize the normal vector
-  float len = sqrt(nx * nx + ny * ny + nz + nz);
-  if (len != 0) {
-    len = 1 / len;
-    nx *= len;
-    ny *= len;
-    nz *= len;
-  }
-
-  // Vector perpendicular to the normal vector and the vector of the default geometry (cross product)
-  float cx = -ny;
-  float cy = nx;
-  float cz = 0.f;
-
-  // Angle between normal vector and the normal vector of the default geometry (dot product)
-  float theta = acos(nz);
-
-  float transform[16];
-  mat4_setTransform(transform, x, y, z, size, size, size, theta, cx, cy, cz);
-
+void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(transform);
 
