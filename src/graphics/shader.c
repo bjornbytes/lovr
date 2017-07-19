@@ -75,6 +75,7 @@ const char* lovrFontFragmentShader = ""
 "  float sdf = median(sample.r, sample.g, sample.b); \n"
 "  float w = fwidth(sdf); \n"
 "  float alpha = smoothstep(.5 - w, .5 + w, sdf); \n"
+"  if (alpha < .001) { discard; } \n"
 "  return vec4(graphicsColor.rgb, alpha); \n"
 "}";
 
