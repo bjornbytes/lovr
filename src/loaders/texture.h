@@ -14,13 +14,21 @@ typedef struct {
 extern const TextureFormat FORMAT_RGB, FORMAT_RGBA, FORMAT_DXT1, FORMAT_DXT3, FORMAT_DXT5;
 
 typedef struct {
+  int width;
+  int height;
+  void* data;
+  size_t size;
+} Mipmap;
 
+typedef vec_t(Mipmap) vec_mipmap_t;
 
 typedef struct {
   int width;
   int height;
   TextureFormat format;
   void* data;
+  vec_mipmap_t mipmaps;
+  Blob* blob;
 } TextureData;
 
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format);
