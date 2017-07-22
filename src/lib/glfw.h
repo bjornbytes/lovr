@@ -6,7 +6,7 @@
 #define GLFW_INCLUDE_GLCOREARB
 #elif _WIN32
 #define APIENTRY __stdcall
-#include "glad/glad.h"
 #endif
 
+#include "glad/glad.h"
 #include <GLFW/glfw3.h>

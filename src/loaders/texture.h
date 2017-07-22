@@ -11,7 +11,7 @@ typedef struct {
   int compressed;
 } TextureFormat;
 
-extern const TextureFormat FORMAT_RGB, FORMAT_RGBA;
+extern const TextureFormat FORMAT_RGB, FORMAT_RGBA, FORMAT_DXT1, FORMAT_DXT3, FORMAT_DXT5;
 
 typedef struct {
 

@@ -17,6 +17,27 @@ const TextureFormat FORMAT_RGBA = {
   .blockBytes = 4
 };
 
+const TextureFormat FORMAT_DXT1 = {
+  .glInternalFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
+  .glFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
+  .compressed = 1,
+  .blockBytes = 8
+};
+
+const TextureFormat FORMAT_DXT3 = {
+  .glInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
+  .glFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
+  .compressed = 1,
+  .blockBytes = 16
+};
+
+const TextureFormat FORMAT_DXT5 = {
+  .glInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+  .glFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+  .compressed = 1,
+  .blockBytes = 16
+};
+
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;

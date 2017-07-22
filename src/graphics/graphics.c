@@ -49,7 +49,7 @@ void lovrGraphicsInit() {
   // Initialize all the things
   glfwMakeContextCurrent(state.window);
   glfwSetWindowCloseCallback(state.window, onCloseWindow);
-#ifdef _WIN32
+#ifndef LOVR_WEB
   gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
 #endif
   glfwSetTime(0);
