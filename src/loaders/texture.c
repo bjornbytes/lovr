@@ -3,24 +3,25 @@
 #include <stdlib.h>
 #include <string.h>
 
-TextureFormatInfo lovrTextureFormats[] = {
-  {
-    .internalFormat = GL_RGB,
-    .format = GL_RGB,
-    .channels = 3
-  },
-  {
-    .internalFormat = GL_RGBA,
-    .format = GL_RGBA,
-    .channels = 4
-  }
+const TextureFormat FORMAT_RGB = {
+  .glInternalFormat = GL_RGB,
+  .glFormat = GL_RGB,
+  .compressed = 0,
+  .blockBytes = 2
+};
+
+const TextureFormat FORMAT_RGBA = {
+  .glInternalFormat = GL_RGBA,
+  .glFormat = GL_RGBA,
+  .compressed = 0,
+  .blockBytes = 4
 };
 
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
-  size_t size = width * height * lovrTextureFormats[format].channels * sizeof(uint8_t);
+  size_t size = width * height * format.blockBytes;
   textureData->width = width;
   textureData->height = height;
   textureData->format = format;
@@ -58,7 +59,7 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
 }
 
 void lovrTextureDataResize(TextureData* textureData, int width, int height, uint8_t value) {
-  int size = sizeof(uint8_t) * width * height * lovrTextureFormats[textureData->format].channels;
+  int size = width * height * textureData->format.blockBytes;
   textureData->width = width;
   textureData->height = height;
   textureData->data = realloc(textureData->data, size);

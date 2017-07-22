@@ -134,10 +134,10 @@ void lovrTextureRefresh(Texture* texture) {
   TextureData* textureData = texture->textureData;
   int w = textureData->width;
   int h = textureData->height;
-  GLenum internalFormat = lovrTextureFormats[textureData->format].internalFormat;
-  GLenum format = lovrTextureFormats[textureData->format].format;
+  GLenum glInternalFormat = textureData->format.glInternalFormat;
+  GLenum glFormat = textureData->format.glFormat;
   lovrGraphicsBindTexture(texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, w, h, 0, format, GL_UNSIGNED_BYTE, textureData->data);
+  glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, textureData->data);
 }
 
 int lovrTextureGetHeight(Texture* texture) {

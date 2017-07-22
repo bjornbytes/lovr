@@ -287,7 +287,7 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
 
   // Paste glyph into texture
   lovrGraphicsBindTexture(font->texture);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->tw, glyph->th, lovrTextureFormats[FORMAT_RGB].format, GL_UNSIGNED_BYTE, glyph->data);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->tw, glyph->th, FORMAT_RGB.glFormat, GL_UNSIGNED_BYTE, glyph->data);
 
   // Advance atlas cursor
   atlas->x += glyph->tw + atlas->padding;

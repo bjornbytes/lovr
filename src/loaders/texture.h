@@ -4,18 +4,17 @@
 
 #pragma once
 
-typedef enum {
-  FORMAT_RGB,
-  FORMAT_RGBA
+typedef struct {
+  GLenum glInternalFormat;
+  GLenum glFormat;
+  int blockBytes;
+  int compressed;
 } TextureFormat;
 
-typedef struct {
-  GLenum internalFormat;
-  GLenum format;
-  int channels;
-} TextureFormatInfo;
+extern const TextureFormat FORMAT_RGB, FORMAT_RGBA;
 
-extern TextureFormatInfo lovrTextureFormats[];
+typedef struct {
+
 
 typedef struct {
   int width;
