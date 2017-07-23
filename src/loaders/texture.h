@@ -27,7 +27,10 @@ typedef struct {
   int height;
   TextureFormat format;
   void* data;
-  vec_mipmap_t mipmaps;
+  union MipmapType {
+    vec_mipmap_t list;
+    int generated;
+  } mipmaps;
   Blob* blob;
 } TextureData;
 

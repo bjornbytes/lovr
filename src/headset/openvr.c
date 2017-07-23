@@ -589,9 +589,9 @@ TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
   textureData->width = width;
   textureData->height = height;
   textureData->format = format;
-  textureData->data = malloc(size);
-  memcpy(textureData->data, vrTexture->rubTextureMapData, size);
-
+  textureData->data = memcpy(malloc(size), vrTexture->rubTextureMapData, size);;
+  textureData->mipmaps.generated = 1;
+  textureData->blob = NULL;
   return textureData;
 }
 

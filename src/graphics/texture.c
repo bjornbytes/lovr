@@ -5,6 +5,29 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+static void lovrTextureCreateStorage(Texture* texture) {
+  TextureData* textureData = texture->textureData;
+
+  if (textureData->format.compressed || !textureData->mipmaps.generated) {
+    return;
+  }
+
+  int w = textureData->width;
+  int h = textureData->height;
+  int mipmapCount = log2(MAX(w, h)) + 1;
+  GLenum internalFormat = textureData->format.glInternalFormat;
+  GLenum format = textureData->format.glFormat;
+  if (GLAD_GL_ARB_texture_storage) {
+    glTexStorage2D(GL_TEXTURE_2D, mipmapCount, internalFormat, w, h);
+  } else {
+    for (int i = 0; i < mipmapCount; i++) {
+      glTexImage2D(GL_TEXTURE_2D, i, internalFormat, w, h, 0, format, GL_UNSIGNED_BYTE, NULL);
+      w = MAX(w >> 1, 1);
+      h = MAX(h >> 1, 1);
+    }
+  }
+}
+
 Texture* lovrTextureCreate(TextureData* textureData) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
@@ -13,6 +36,8 @@ Texture* lovrTextureCreate(TextureData* textureData) {
   texture->depthBuffer = 0;
   texture->textureData = textureData;
   glGenTextures(1, &texture->id);
+  lovrGraphicsBindTexture(texture);
+  lovrTextureCreateStorage(texture);
   lovrTextureRefresh(texture);
   lovrTextureSetFilter(texture, FILTER_LINEAR, FILTER_LINEAR);
   lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
@@ -132,12 +157,23 @@ void lovrTextureResolveMSAA(Texture* texture) {
 
 void lovrTextureRefresh(Texture* texture) {
   TextureData* textureData = texture->textureData;
-  int w = textureData->width;
-  int h = textureData->height;
   GLenum glInternalFormat = textureData->format.glInternalFormat;
   GLenum glFormat = textureData->format.glFormat;
   lovrGraphicsBindTexture(texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+
+  if (textureData->format.compressed) {
+    Mipmap m; int i;
+    vec_foreach(&textureData->mipmaps.list, m, i) {
+      glCompressedTexImage2D(GL_TEXTURE_2D, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
+    }
+  } else {
+    int w = textureData->width;
+    int h = textureData->height;
+    glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+    if (textureData->mipmaps.generated) {
+      glGenerateMipmap(GL_TEXTURE_2D);
+    }
+  }
 }
 
 int lovrTextureGetHeight(Texture* texture) {

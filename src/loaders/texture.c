@@ -121,7 +121,7 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
   int mipmapCount = header->mipMapCount;
 
   // Load mipmaps
-  vec_init(&textureData->mipmaps);
+  vec_init(&textureData->mipmaps.list);
   for (int i = 0; i < mipmapCount; i++) {
     size_t numBlocksWide = width ? MAX(1, (width + 3) / 4) : 0;
     size_t numBlocksHigh = height ? MAX(1, (height + 3) / 4) : 0;
@@ -129,15 +129,15 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 
     // Overflow check
     if (mipmapSize == 0 || (offset + mipmapSize) > size) {
-      vec_deinit(&textureData->mipmaps);
+      vec_deinit(&textureData->mipmaps.list);
       return 1;
     }
 
     Mipmap mipmap = { .width = width, .height = height, .data = &data[offset], .size = mipmapSize };
-    vec_push(&textureData->mipmaps, mipmap);
+    vec_push(&textureData->mipmaps.list, mipmap);
     offset += mipmapSize;
-    width >>= 1;
-    height >>= 1;
+    width = MAX(width >> 1, 1);
+    height = MAX(height >> 1, 1);
   }
 
   textureData->data = NULL;
@@ -153,8 +153,9 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, Textu
   textureData->width = width;
   textureData->height = height;
   textureData->format = format;
-  textureData->data = malloc(size);
-  memset(textureData->data, value, size);
+  textureData->data = memset(malloc(size), value, size);
+  textureData->mipmaps.generated = 0;
+  textureData->blob = NULL;
   return textureData;
 }
 
@@ -166,6 +167,8 @@ TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format
   textureData->height = height;
   textureData->format = format;
   textureData->data = NULL;
+  textureData->mipmaps.generated = 0;
+  textureData->blob = NULL;
   return textureData;
 }
 
@@ -182,6 +185,8 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
   stbi_set_flip_vertically_on_load(0);
   textureData->format = FORMAT_RGBA;
   textureData->data = stbi_load_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
+  textureData->mipmaps.generated = 1;
+  textureData->blob = NULL;
 
   if (!textureData->data) {
     error("Could not load texture data from '%s'", blob->name);
@@ -193,6 +198,10 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
 }
 
 void lovrTextureDataResize(TextureData* textureData, int width, int height, uint8_t value) {
+  if (textureData->format.compressed || textureData->mipmaps.generated) {
+    error("Can't resize a compressed texture or a texture with generated mipmaps.");
+  }
+
   int size = width * height * textureData->format.blockBytes;
   textureData->width = width;
   textureData->height = height;
@@ -201,6 +210,12 @@ void lovrTextureDataResize(TextureData* textureData, int width, int height, uint
 }
 
 void lovrTextureDataDestroy(TextureData* textureData) {
+  if (textureData->blob) {
+    lovrRelease(&textureData->blob->ref);
+  }
+  if (textureData->format.compressed) {
+    vec_deinit(&textureData->mipmaps.list);
+  }
   free(textureData->data);
   free(textureData);
 }
