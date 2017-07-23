@@ -188,12 +188,3 @@ typedef struct DDSHeader10 {
   uint32_t arraySize;
   uint32_t reserved;
 } DDSHeader10;
-
-typedef enum {
-	DDS_FORMAT_DXT1,
-	DDS_FORMAT_DXT3,
-	DDS_FORMAT_DXT5,
-	DDS_FORMAT_UNKNOWN
-} DDSFormat;
-
-int ddsParse(uint8_t* data, size_t size, ptrdiff_t* offset, DDSHeader* header, DDSHeader10* header10, DDSFormat* format);

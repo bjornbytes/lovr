@@ -104,7 +104,7 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
     switch (header->format.fourCC) {
       case FOUR_CC('D', 'X', 'T', '1'):
         textureData->format = FORMAT_DXT1;
-        return DDS_FORMAT_DXT1;
+        break;
       case FOUR_CC('D', 'X', 'T', '3'):
         textureData->format = FORMAT_DXT3;
         break;
