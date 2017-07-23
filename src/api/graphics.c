@@ -431,6 +431,8 @@ int l_lovrGraphicsGetSystemLimits(lua_State* L) {
   lua_setfield(L, -2, "texturesize");
   lua_pushinteger(L, lovrGraphicsGetSystemLimit(LIMIT_TEXTURE_MSAA));
   lua_setfield(L, -2, "texturemsaa");
+  lua_pushinteger(L, lovrGraphicsGetSystemLimit(LIMIT_TEXTURE_ANISOTROPY));
+  lua_setfield(L, -2, "anisotropy");
   return 1;
 }
 

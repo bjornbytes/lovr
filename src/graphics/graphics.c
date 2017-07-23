@@ -85,6 +85,11 @@ void lovrGraphicsInit() {
 
   // System Limits
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.maxTextureSize);
+  if (GLAD_GL_EXT_texture_filter_anisotropic) {
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.maxTextureAnisotropy);
+  } else {
+    state.maxTextureAnisotropy = 1.;
+  }
 #ifdef LOVR_WEB
   state.maxPointSize = 1.f;
   state.maxTextureMSAA = 1;
@@ -471,6 +476,7 @@ float lovrGraphicsGetSystemLimit(GraphicsLimit limit) {
     case LIMIT_POINT_SIZE: return state.maxPointSize;
     case LIMIT_TEXTURE_SIZE: return state.maxTextureSize;
     case LIMIT_TEXTURE_MSAA: return state.maxTextureMSAA;
+    case LIMIT_TEXTURE_ANISOTROPY: return state.maxTextureAnisotropy;
     default: error("Unknown limit %d\n", limit);
   }
 }

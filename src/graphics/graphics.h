@@ -52,7 +52,8 @@ typedef enum {
 typedef enum {
   LIMIT_POINT_SIZE,
   LIMIT_TEXTURE_SIZE,
-  LIMIT_TEXTURE_MSAA
+  LIMIT_TEXTURE_MSAA,
+  LIMIT_TEXTURE_ANISOTROPY
 } GraphicsLimit;
 
 typedef struct {
@@ -105,6 +106,7 @@ typedef struct {
   float maxPointSize;
   int maxTextureSize;
   int maxTextureMSAA;
+  float maxTextureAnisotropy;
 } GraphicsState;
 
 // Base
