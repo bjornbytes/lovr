@@ -102,17 +102,10 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 
     // Ensure DXT 1/3/5
     switch (header->format.fourCC) {
-      case FOUR_CC('D', 'X', 'T', '1'):
-        textureData->format = FORMAT_DXT1;
-        break;
-      case FOUR_CC('D', 'X', 'T', '3'):
-        textureData->format = FORMAT_DXT3;
-        break;
-      case FOUR_CC('D', 'X', 'T', '5'):
-        textureData->format = FORMAT_DXT5;
-        break;
-      default:
-        return 1;
+      case FOUR_CC('D', 'X', 'T', '1'): textureData->format = FORMAT_DXT1; break;
+      case FOUR_CC('D', 'X', 'T', '3'): textureData->format = FORMAT_DXT3; break;
+      case FOUR_CC('D', 'X', 'T', '5'): textureData->format = FORMAT_DXT5; break;
+      default: return 1;
     }
   }
 
