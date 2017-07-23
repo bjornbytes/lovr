@@ -5,8 +5,10 @@
 #pragma once
 
 typedef enum {
-  FILTER_NEAREST = GL_NEAREST,
-  FILTER_LINEAR = GL_LINEAR
+  FILTER_NEAREST,
+  FILTER_BILINEAR,
+  FILTER_TRILINEAR,
+  FILTER_ANISOTROPIC
 } FilterMode;
 
 typedef enum {
@@ -29,8 +31,8 @@ typedef struct {
   GLuint resolveFramebuffer;
   GLuint depthBuffer;
   TextureProjection projection;
-  FilterMode filterMin;
-  FilterMode filterMag;
+  FilterMode filter;
+  float anisotropy;
   WrapMode wrapHorizontal;
   WrapMode wrapVertical;
   int msaa;
@@ -46,7 +48,7 @@ void lovrTextureResolveMSAA(Texture* texture);
 void lovrTextureRefresh(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);
 int lovrTextureGetWidth(Texture* texture);
-void lovrTextureGetFilter(Texture* texture, FilterMode* min, FilterMode* mag);
-void lovrTextureSetFilter(Texture* texture, FilterMode min, FilterMode mag);
+void lovrTextureGetFilter(Texture* texture, FilterMode* filter, float* anisotropy);
+void lovrTextureSetFilter(Texture* texture, FilterMode filter, float anisotropy);
 void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertical);
 void lovrTextureSetWrap(Texture* texture, WrapMode horizontal, WrapMode vertical);

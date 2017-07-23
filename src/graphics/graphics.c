@@ -97,6 +97,8 @@ void lovrGraphicsInit() {
 
   // State
   state.depthTest = -1;
+  state.defaultFilter = FILTER_TRILINEAR;
+  state.defaultAnisotropy = 1.;
   lovrGraphicsReset();
   atexit(lovrGraphicsDestroy);
 }
@@ -436,6 +438,20 @@ void lovrGraphicsSetWireframe(int wireframe) {
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
   }
 #endif
+}
+
+void lovrGraphicsGetDefaultFilter(FilterMode* filter, float* anisotropy) {
+  *filter = state.defaultFilter;
+  if (state.defaultFilter == FILTER_ANISOTROPIC) {
+    *anisotropy = state.defaultAnisotropy;
+  }
+}
+
+void lovrGraphicsSetDefaultFilter(FilterMode filter, float anisotropy) {
+  state.defaultFilter = filter;
+  if (filter == FILTER_ANISOTROPIC) {
+    state.defaultAnisotropy = anisotropy;
+  }
 }
 
 int lovrGraphicsGetWidth() {

@@ -98,7 +98,9 @@ int l_lovrGraphicsInit(lua_State* L) {
 
   map_init(&FilterModes);
   map_set(&FilterModes, "nearest", FILTER_NEAREST);
-  map_set(&FilterModes, "linear", FILTER_LINEAR);
+  map_set(&FilterModes, "bilinear", FILTER_BILINEAR);
+  map_set(&FilterModes, "trilinear", FILTER_TRILINEAR);
+  map_set(&FilterModes, "anisotropic", FILTER_ANISOTROPIC);
 
   map_init(&HorizontalAligns);
   map_set(&HorizontalAligns, "left", ALIGN_LEFT);
@@ -383,6 +385,25 @@ int l_lovrGraphicsIsWireframe(lua_State* L) {
 
 int l_lovrGraphicsSetWireframe(lua_State* L) {
   lovrGraphicsSetWireframe(lua_toboolean(L, 1));
+  return 0;
+}
+
+int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
+  FilterMode filter;
+  float anisotropy;
+  lovrGraphicsGetDefaultFilter(&filter, &anisotropy);
+  luax_pushenum(L, &FilterModes, filter);
+  if (filter == FILTER_ANISOTROPIC) {
+    lua_pushnumber(L, anisotropy);
+    return 2;
+  }
+  return 1;
+}
+
+int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
+  FilterMode filter = *(FilterMode*) luax_checkenum(L, 1, &FilterModes, "filter mode");
+  float anisotropy = luaL_optnumber(L, 2, 1.);
+  lovrGraphicsSetDefaultFilter(filter, anisotropy);
   return 0;
 }
 
@@ -813,6 +834,8 @@ const luaL_Reg lovrGraphics[] = {
   { "setDepthTest", l_lovrGraphicsSetDepthTest },
   { "isWireframe", l_lovrGraphicsIsWireframe },
   { "setWireframe", l_lovrGraphicsSetWireframe },
+  { "getDefaultFilter", l_lovrGraphicsGetDefaultFilter },
+  { "setDefaultFilter", l_lovrGraphicsSetDefaultFilter },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },

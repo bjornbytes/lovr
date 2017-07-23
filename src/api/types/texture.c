@@ -16,11 +16,15 @@ int l_lovrTextureGetDimensions(lua_State* L) {
 
 int l_lovrTextureGetFilter(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  FilterMode min, mag;
-  lovrTextureGetFilter(texture, &min, &mag);
-  luax_pushenum(L, &FilterModes, min);
-  luax_pushenum(L, &FilterModes, mag);
-  return 2;
+  FilterMode filter;
+  float anisotropy;
+  lovrTextureGetFilter(texture, &filter, &anisotropy);
+  luax_pushenum(L, &FilterModes, filter);
+  if (filter == FILTER_ANISOTROPIC) {
+    lua_pushnumber(L, anisotropy);
+    return 2;
+  }
+  return 1;
 }
 
 int l_lovrTextureGetHeight(lua_State* L) {
@@ -57,9 +61,9 @@ int l_lovrTextureRenderTo(lua_State* L) {
 
 int l_lovrTextureSetFilter(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  FilterMode* min = (FilterMode*) luax_checkenum(L, 2, &FilterModes, "filter mode");
-  FilterMode* mag = (FilterMode*) luax_optenum(L, 3, luaL_checkstring(L, 2), &FilterModes, "filter mode");
-  lovrTextureSetFilter(texture, *min, *mag);
+  FilterMode filter = *(FilterMode*) luax_checkenum(L, 2, &FilterModes, "filter mode");
+  float anisotropy = luaL_optnumber(L, 3, 1.);
+  lovrTextureSetFilter(texture, filter, anisotropy);
   return 0;
 }
 

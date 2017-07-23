@@ -39,7 +39,8 @@ Texture* lovrTextureCreate(TextureData* textureData) {
   lovrGraphicsBindTexture(texture);
   lovrTextureCreateStorage(texture);
   lovrTextureRefresh(texture);
-  lovrTextureSetFilter(texture, FILTER_LINEAR, FILTER_LINEAR);
+  lovrGraphicsGetDefaultFilter(&texture->filter, &texture->anisotropy);
+  lovrTextureSetFilter(texture, texture->filter, texture->anisotropy);
   lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
 
   return texture;
@@ -184,17 +185,39 @@ int lovrTextureGetWidth(Texture* texture) {
   return texture->textureData->width;
 }
 
-void lovrTextureGetFilter(Texture* texture, FilterMode* min, FilterMode* mag) {
-  *min = texture->filterMin;
-  *mag = texture->filterMag;
+void lovrTextureGetFilter(Texture* texture, FilterMode* filter, float* anisotropy) {
+  *filter = texture->filter;
+  if (texture->filter == FILTER_ANISOTROPIC) {
+    *anisotropy = texture->anisotropy;
+  }
 }
 
-void lovrTextureSetFilter(Texture* texture, FilterMode min, FilterMode mag) {
-  texture->filterMin = min;
-  texture->filterMag = mag;
+void lovrTextureSetFilter(Texture* texture, FilterMode filter, float anisotropy) {
   lovrGraphicsBindTexture(texture);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, min);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag);
+  texture->filter = filter;
+  texture->anisotropy = filter == FILTER_ANISOTROPIC ? anisotropy : 1;
+
+  switch (filter) {
+    case FILTER_NEAREST:
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      break;
+
+    case FILTER_BILINEAR:
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      break;
+
+    case FILTER_TRILINEAR:
+    case FILTER_ANISOTROPIC:
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      break;
+  }
+
+  if (GLAD_GL_EXT_texture_filter_anisotropic) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
+  }
 }
 
 void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertical) {
