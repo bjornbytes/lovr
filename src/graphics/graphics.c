@@ -85,11 +85,7 @@ void lovrGraphicsInit() {
 
   // System Limits
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.maxTextureSize);
-  if (GLAD_GL_EXT_texture_filter_anisotropic) {
-    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.maxTextureAnisotropy);
-  } else {
-    state.maxTextureAnisotropy = 1.;
-  }
+  glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.maxTextureAnisotropy);
 #ifdef LOVR_WEB
   state.maxPointSize = 1.f;
   state.maxTextureMSAA = 1;

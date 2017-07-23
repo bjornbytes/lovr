@@ -215,9 +215,7 @@ void lovrTextureSetFilter(Texture* texture, FilterMode filter, float anisotropy)
       break;
   }
 
-  if (GLAD_GL_EXT_texture_filter_anisotropic) {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
-  }
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
 }
 
 void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertical) {
