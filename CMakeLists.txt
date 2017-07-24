@@ -49,6 +49,9 @@ else()
   add_subdirectory(deps/enet enet)
   include_directories(deps/enet/include)
   set(LOVR_ENET enet)
+  if(WIN32)
+    set(LOVR_ENET ${LOVR_ENET} ws2_32 winmm)
+  endif()
 endif()
 
 # FreeType
