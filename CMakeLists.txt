@@ -67,6 +67,7 @@ elseif(NOT EMSCRIPTEN)
   include_directories(${GLFW_INCLUDE_DIRS})
   set(LOVR_GLFW ${GLFW_LIBRARIES})
 endif()
+unset(LIB_SUFFIX CACHE)
 
 # Lua
 if(EMSCRIPTEN)
