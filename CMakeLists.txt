@@ -239,6 +239,7 @@ set(LOVR_SRC
   src/lib/lua-cjson/fpconv.c
   src/lib/lua-cjson/lua_cjson.c
   src/lib/lua-cjson/strbuf.c
+  src/lib/lua-enet/enet.c
   src/lib/map/map.c
   src/lib/stb/stb_image.c
   src/lib/stb/stb_vorbis.c

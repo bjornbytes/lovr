@@ -1,5 +1,6 @@
 #include "api/lovr.h"
 #include "math/mat4.h"
+#include "math/quat.h"
 #include "math/transform.h"
 
 int l_lovrMathInit(lua_State* L) {
