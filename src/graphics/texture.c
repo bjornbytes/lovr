@@ -193,6 +193,7 @@ void lovrTextureGetFilter(Texture* texture, FilterMode* filter, float* anisotrop
 }
 
 void lovrTextureSetFilter(Texture* texture, FilterMode filter, float anisotropy) {
+  int hasMipmaps = texture->textureData->format.compressed || texture->textureData->mipmaps.generated;
   lovrGraphicsBindTexture(texture);
   texture->filter = filter;
   texture->anisotropy = filter == FILTER_ANISOTROPIC ? anisotropy : 1;
@@ -204,14 +205,24 @@ void lovrTextureSetFilter(Texture* texture, FilterMode filter, float anisotropy)
       break;
 
     case FILTER_BILINEAR:
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      if (hasMipmaps) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      } else {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      }
       break;
 
     case FILTER_TRILINEAR:
     case FILTER_ANISOTROPIC:
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      if (hasMipmaps) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      } else {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      }
       break;
   }
 
