@@ -39,9 +39,17 @@ else()
 endif()
 
 # enet
-add_subdirectory(deps/enet enet)
-include_directories(deps/enet/include)
-set(LOVR_ENET enet)
+if(EMSCRIPTEN)
+  add_definitions(-D__APPLE__)
+  add_subdirectory(deps/enet enet)
+  set(ZLIB_INCLUDE_DIR "${EMSCRIPTEN_ROOT_PATH}/tests/enet")
+  set(LOVR_ENET enet)
+  remove_definitions(-D__APPLE__)
+else()
+  add_subdirectory(deps/enet enet)
+  include_directories(deps/enet/include)
+  set(LOVR_ENET enet)
+endif()
 
 # FreeType
 if (EMSCRIPTEN)
