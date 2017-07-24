@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 int luaopen_cjson(lua_State* L);
+int luaopen_enet(lua_State* L);
 
 static void onGlfwError(int code, const char* description) {
   error(description);
@@ -108,6 +109,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
 
   // Preload libraries
   luax_preloadmodule(L, "json", luaopen_cjson);
+  luax_preloadmodule(L, "enet", luaopen_enet);
 
   lua_pushcfunction(L, getStackTrace);
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 0, -2)) {

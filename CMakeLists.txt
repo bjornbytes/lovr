@@ -38,6 +38,11 @@ else()
   set(LOVR_ASSIMP ${ASSIMP_LIBRARIES})
 endif()
 
+# enet
+add_subdirectory(deps/enet enet)
+include_directories(deps/enet/include)
+set(LOVR_ENET enet)
+
 # FreeType
 if (EMSCRIPTEN)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s USE_FREETYPE=1")
@@ -256,6 +261,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_executable(lovr ${LOVR_SRC} ${LOVR_HEADSET})
 target_link_libraries(lovr
   ${LOVR_ASSIMP}
+  ${LOVR_ENET}
   ${LOVR_FREETYPE}
   ${LOVR_GLFW}
   ${LOVR_LUA}
