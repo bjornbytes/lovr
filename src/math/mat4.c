@@ -246,6 +246,74 @@ mat4 mat4_perspective(mat4 m, float near, float far, float fovy, float aspect) {
   return m;
 }
 
+// Modified from gl-matrix.c
+mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
+  float x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
+
+  if (from[0] == to[0] && from[1] == to[1] && from[2] == to[2]) {
+    return mat4_identity(m);
+  }
+
+  z0 = from[0] - to[0];
+  z1 = from[1] - to[1];
+  z2 = from[2] - to[2];
+
+  len = 1 / sqrt(z0 * z0 + z1 * z1 + z2 * z2);
+  z0 *= len;
+  z1 *= len;
+  z2 *= len;
+
+  x0 = up[1] * z2 - up[2] * z1;
+  x1 = up[2] * z0 - up[0] * z2;
+  x2 = up[0] * z1 - up[1] * z0;
+  len = sqrt(x0 * x0 + x1 * x1 + x2 * x2);
+  if (!len) {
+    x0 = 0;
+    x1 = 0;
+    x2 = 0;
+  } else {
+    len = 1 / len;
+    x0 *= len;
+    x1 *= len;
+    x2 *= len;
+  }
+
+  y0 = z1 * x2 - z2 * x1;
+  y1 = z2 * x0 - z0 * x2;
+  y2 = z0 * x1 - z1 * x0;
+
+  len = sqrt(y0 * y0 + y1 * y1 + y2 * y2);
+  if (!len) {
+    y0 = 0;
+    y1 = 0;
+    y2 = 0;
+  } else {
+    len = 1 / len;
+    y0 *= len;
+    y1 *= len;
+    y2 *= len;
+  }
+
+  m[0] = x0;
+  m[1] = y0;
+  m[2] = z0;
+  m[3] = 0;
+  m[4] = x1;
+  m[5] = y1;
+  m[6] = z1;
+  m[7] = 0;
+  m[8] = x2;
+  m[9] = y2;
+  m[10] = z2;
+  m[11] = 0;
+  m[12] = -(x0 * from[0] + x1 * from[1] + x2 * from[2]);
+  m[13] = -(y0 * from[0] + y1 * from[1] + y2 * from[2]);
+  m[14] = -(z0 * from[0] + z1 * from[1] + z2 * from[2]);
+  m[15] = 1;
+
+  return m;
+}
+
 void mat4_transform(mat4 m, vec3 v) {
   vec3_set(v,
     v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12],

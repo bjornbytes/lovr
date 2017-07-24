@@ -26,15 +26,6 @@ quat quat_fromAngleAxis(quat q, float angle, vec3 axis) {
   return q;
 }
 
-quat quat_fromDirection(quat q, vec3 forward, vec3 up) {
-  vec3 qq = (vec3) q;
-  vec3_init(qq, forward);
-  vec3_normalize(qq);
-  q[3] = 1 + vec3_dot(qq, up);
-  vec3_cross(qq, up);
-  return q;
-}
-
 quat quat_fromMat4(quat q, mat4 m) {
   float x = sqrt(MAX(0, 1 + m[0] - m[5] - m[10])) / 2;
   float y = sqrt(MAX(0, 1 - m[0] + m[5] - m[10])) / 2;
