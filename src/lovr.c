@@ -3,11 +3,10 @@
 #include "api/lovr.h"
 #include "data/boot.lua.h"
 #include "data/logo.png.h"
+#include "lib/lua-cjson/lua_cjson.h"
+#include "lib/lua-enet/enet.h"
 #include "lib/glfw.h"
 #include <stdlib.h>
-
-int luaopen_cjson(lua_State* L);
-int luaopen_enet(lua_State* L);
 
 static void onGlfwError(int code, const char* description) {
   error(description);
