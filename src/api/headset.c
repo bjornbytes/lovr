@@ -39,6 +39,7 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&ControllerButtons, "menu", CONTROLLER_BUTTON_MENU);
   map_set(&ControllerButtons, "grip", CONTROLLER_BUTTON_GRIP);
   map_set(&ControllerButtons, "touchpad", CONTROLLER_BUTTON_TOUCHPAD);
+  map_set(&ControllerButtons, "trigger", CONTROLLER_BUTTON_TRIGGER);
 
   lovrHeadsetInit();
 

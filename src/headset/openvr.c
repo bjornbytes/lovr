@@ -16,6 +16,7 @@ static ControllerButton getButton(uint32_t button) {
     case EVRButtonId_k_EButton_ApplicationMenu: return CONTROLLER_BUTTON_MENU;
     case EVRButtonId_k_EButton_Grip: return CONTROLLER_BUTTON_GRIP;
     case EVRButtonId_k_EButton_SteamVR_Touchpad: return CONTROLLER_BUTTON_TOUCHPAD;
+    case EVRButtonId_k_EButton_SteamVR_Trigger: return CONTROLLER_BUTTON_TRIGGER;
     default: return -1;
   }
 }
