@@ -2,6 +2,7 @@
 #include "filesystem/blob.h"
 #include "graphics/mesh.h"
 #include "math/math.h"
+#include "math/randomGenerator.h"
 #include "physics/physics.h"
 #include "lib/map/map.h"
 
@@ -34,6 +35,7 @@ extern const luaL_Reg lovrMath[];
 extern const luaL_Reg lovrMesh[];
 extern const luaL_Reg lovrModel[];
 extern const luaL_Reg lovrPhysics[];
+extern const luaL_Reg lovrRandomGenerator[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrShape[];
 extern const luaL_Reg lovrSkybox[];
@@ -71,3 +73,4 @@ int luax_readtransform(lua_State* L, int index, mat4 transform, int uniformScale
 Blob* luax_readblob(lua_State* L, int index, const char* debug);
 int luax_pushshape(lua_State* L, Shape* shape);
 int luax_pushjoint(lua_State* L, Joint* joint);
+Seed luax_checkrandomseed(lua_State* L, int index);

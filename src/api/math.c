@@ -1,12 +1,25 @@
 #include "api/lovr.h"
 #include "math/mat4.h"
 #include "math/quat.h"
+#include "math/randomGenerator.h"
 #include "math/transform.h"
 
 int l_lovrMathInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrMath);
+  luax_registertype(L, "RandomGenerator", lovrRandomGenerator);
   luax_registertype(L, "Transform", lovrTransform);
+  return 1;
+}
+
+int l_lovrMathNewRandomGenerator(lua_State* L) {
+  RandomGenerator* generator = lovrRandomGeneratorCreate();
+  if (lua_gettop(L) > 0){
+    Seed seed = luax_checkrandomseed(L, 1);
+    lovrRandomGeneratorSetSeed(generator, seed);
+  }
+  luax_pushtype(L, RandomGenerator, generator);
+  lovrRelease(&generator->ref);
   return 1;
 }
 
@@ -35,6 +48,7 @@ int l_lovrMathLookAt(lua_State* L) {
 }
 
 const luaL_Reg lovrMath[] = {
+  { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "newTransform", l_lovrMathNewTransform },
   { "lookAt", l_lovrMathLookAt },
   { NULL, NULL }
