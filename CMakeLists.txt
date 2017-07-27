@@ -218,6 +218,7 @@ set(LOVR_SRC
   src/api/types/joints.c
   src/api/types/mesh.c
   src/api/types/model.c
+  src/api/types/randomGenerator.c
   src/api/types/shader.c
   src/api/types/shapes.c
   src/api/types/skybox.c
@@ -255,7 +256,9 @@ set(LOVR_SRC
   src/luax.c
   src/main.c
   src/math/mat4.c
+  src/math/math.c
   src/math/quat.c
+  src/math/randomGenerator.c
   src/math/transform.c
   src/math/vec3.c
   src/physics/physics.c
