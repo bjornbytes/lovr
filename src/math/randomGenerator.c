@@ -70,7 +70,7 @@ double lovrRandomGeneratorRandom(RandomGenerator* generator) {
   generator->state.b64 ^= (generator->state.b64 >> 12);
   generator->state.b64 ^= (generator->state.b64 << 25);
   generator->state.b64 ^= (generator->state.b64 >> 27);
-  uint64_t r =  generator->state.b64 * 2685821657736338717ULL;
+  uint64_t r = generator->state.b64 * 2685821657736338717ULL;
   union { uint64_t i; double d; } u;
   u.i = ((0x3FFULL) << 52) | (r >> 12);
   return u.d - 1.;

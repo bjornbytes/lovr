@@ -60,14 +60,14 @@ int l_lovrRandomGeneratorSetState(lua_State* L) {
 
 int l_lovrRandomGeneratorRandom(lua_State* L) {
   RandomGenerator* generator = luax_checktype(L, 1, RandomGenerator);
-  float r = lovrRandomGeneratorRandom(generator);
+  double r = lovrRandomGeneratorRandom(generator);
 
   if (lua_gettop(L) >= 3) {
-    float lower = luaL_checknumber(L, 2);
-    float upper = luaL_checknumber(L, 3);
+    double lower = luaL_checknumber(L, 2);
+    double upper = luaL_checknumber(L, 3);
     lua_pushnumber(L, floor(r * (upper - lower + 1)) + lower);
   } else if (lua_gettop(L) >= 2) {
-    float upper = luaL_checknumber(L, 2);
+    double upper = luaL_checknumber(L, 2);
     lua_pushnumber(L, floor(r * upper) + 1);
   } else {
     lua_pushnumber(L, r);

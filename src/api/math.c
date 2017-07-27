@@ -1,14 +1,21 @@
 #include "api/lovr.h"
+#include "math/math.h"
 #include "math/mat4.h"
 #include "math/quat.h"
 #include "math/randomGenerator.h"
 #include "math/transform.h"
+
+extern int l_lovrRandomGeneratorRandom(lua_State* L);
+extern int l_lovrRandomGeneratorRandomNormal(lua_State* L);
+extern int l_lovrRandomGeneratorGetSeed(lua_State* L);
+extern int l_lovrRandomGeneratorSetSeed(lua_State* L);
 
 int l_lovrMathInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrMath);
   luax_registertype(L, "RandomGenerator", lovrRandomGenerator);
   luax_registertype(L, "Transform", lovrTransform);
+  lovrMathInit();
   return 1;
 }
 
@@ -47,10 +54,38 @@ int l_lovrMathLookAt(lua_State* L) {
   return 4;
 }
 
+int l_lovrMathRandom(lua_State* L) {
+  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+  lua_insert(L, 1);
+  return l_lovrRandomGeneratorRandom(L);
+}
+
+int l_lovrMathRandomNormal(lua_State* L) {
+  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+  lua_insert(L, 1);
+  return l_lovrRandomGeneratorRandomNormal(L);
+}
+
+int l_lovrMathGetRandomSeed(lua_State* L) {
+  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+  lua_insert(L, 1);
+  return l_lovrRandomGeneratorGetSeed(L);
+}
+
+int l_lovrMathSetRandomSeed(lua_State* L) {
+  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+  lua_insert(L, 1);
+  return l_lovrRandomGeneratorSetSeed(L);
+}
+
 const luaL_Reg lovrMath[] = {
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "newTransform", l_lovrMathNewTransform },
   { "lookAt", l_lovrMathLookAt },
+  { "random", l_lovrMathRandom },
+  { "randomNormal", l_lovrMathRandomNormal },
+  { "getRandomSeed", l_lovrMathGetRandomSeed },
+  { "setRandomSeed", l_lovrMathSetRandomSeed },
   { NULL, NULL }
 };
 

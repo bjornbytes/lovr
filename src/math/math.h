@@ -1,4 +1,5 @@
 #include "lib/vec/vec.h"
+#include "randomGenerator.h"
 
 #pragma once
 
@@ -9,3 +10,7 @@ typedef float* vec3;
 typedef float* quat;
 typedef float* mat4;
 typedef vec_t(mat4) vec_mat4_t;
+
+void lovrMathInit();
+void lovrMathDestroy();
+RandomGenerator* lovrMathGetRandomGenerator();
