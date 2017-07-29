@@ -156,23 +156,16 @@ endif()
 
 # OpenVR
 if(NOT EMSCRIPTEN)
-  if(NOT DEFINED OPENVR_DIR AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/deps/openvr")
-    SET(OPENVR_DIR deps/openvr)
-  else()
-    message(FATAL_ERROR "Please specify the location of OpenVR (-DOPENVR_DIR=/path/to/openvr)")
-  endif()
-  if(APPLE)
-    add_definitions(-DOSX -DPOSIX)
-  elseif(UNIX)
-    add_definitions(-DLINUX -DPOSIX)
-  endif()
   set(BUILD_SHARED ON CACHE BOOL "")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC -fvisibility=hidden")
-  add_definitions(-DVR_API_PUBLIC)
-  include_directories(${OPENVR_DIR}/headers)
-  include_directories(${OPENVR_DIR}/src)
-  include_directories(${OPENVR_DIR}/src/vrcommon)
-  add_subdirectory(${OPENVR_DIR}/src openvr_api)
+  set(BUILD_UNIVERSAL OFF CACHE BOOL "")
+  include_directories(deps/openvr/headers)
+  include_directories(deps/openvr/src)
+  include_directories(deps/openvr/src/vrcommon)
+  add_subdirectory(deps/openvr openvr_api)
+  set_target_properties(openvr_api PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
+  )
   set(LOVR_OPENVR openvr_api)
 endif()
 
