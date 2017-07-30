@@ -8,89 +8,67 @@ various operating systems.
 Dependencies
 ---
 
-- LuaJIT
+- Lua or LuaJIT
 - GLFW (3.2+)
 - OpenGL (3.3, ES3, or WebGL 2)
 - assimp
-- OpenVR (1.0.5, for `lovr.headset`)
+- OpenVR (1.0.9, for `lovr.headset`)
 - PhysicsFS
 - OpenAL (1.17+ recommended for HRTF support)
 - FreeType
+- msdfgen
 - ODE (for `lovr.physics`)
 - Emscripten (optional, for compiling for web)
 
-See [lovr-deps](https://github.com/bjornbytes/lovr-deps) for a GitHub repo containing all of these
-as submodules.
-
-Windows (CMake)
----
-
-First, install [lovr-deps](https://github.com/bjornbytes/lovr-deps):
+The [lovr-deps](https://github.com/bjornbytes/lovr-deps) repository contains all dependencies as
+git submodules.  The build script expects this repository to exist under `lovr/deps`:
 
 ```sh
 cd lovr
 git clone --recursive https://github.com/bjornbytes/lovr-deps deps
 ```
 
-Next, use CMake to generate the build files:
+Windows (CMake)
+---
+
+From the `lovr` folder, run these commands to create a build folder and compile the project using
+CMake:
 
 ```sh
 mkdir build
 cd build
 cmake ..
-```
-
-This should output a Visual Studio solution, which can be built using Visual Studio.  Or you can
-just build it with CMake:
-
-```sh
 cmake --build .
 ```
 
-The executable will then exist at `/path/to/lovr/build/Debug/lovr.exe`.  The recommended way to
-create and run a game from this point is:
-
-- Create a shortcut to the `lovr.exe` executable somewhere convenient.
-- Create a folder for your game: `MySuperAwesomeGame`.
-- Create a `main.lua` file in the folder and put your code in there.
-- Drag the `MySuperAwesomeGame` folder onto the shortcut to `lovr.exe`.
+The executable will then exist at `/path/to/lovr/build/Debug/lovr.exe`.  A LÖVR project (a folder
+containing a `main.lua` script) can then be dropped onto `lovr.exe` to run it, or it can be run
+via the command line as `lovr.exe path/to/project`.
 
 Unix (CMake)
 ---
 
-First, clone [OpenVR](https://github.com/ValveSoftware/openvr).  For this example, we'll clone
-`openvr` into the same directory that `lovr` was cloned into.
-
-```sh
-git clone --branch v1.0.5 https://github.com/ValveSoftware/openvr.git
-```
-
-Next, install the other dependencies above using your package manager of choice:
+Install the dependencies using your package manager of choice:
 
 ```sh
 brew install assimp glfw3 luajit physfs freetype openal-soft ode
 ```
 
-On OSX, you'll need to set the `DYLD_LIBRARY_PATH` environment variable to be
-`/path/to/openvr/lib/osx32`.
-
-Next, build using CMake:
+Next, build using CMake, as above:
 
 ```sh
 mkdir build
 cd build
-cmake .. -DOPENVR_DIR=../../openvr
+cmake ..
 cmake --build .
 ```
 
-The `lovr` executable should exist in `lovr/build` now.  You can run a game like this:
+The `lovr` executable should exist in `lovr/build` now.  It's recommended to set up an alias or
+symlink so that this executable exists on your path.  Once that's done, you can run a game like this:
 
 ```sh
-./lovr /path/to/myGame
+lovr /path/to/myGame
 ```
-
-You can also copy or symlink LÖVR into a directory on your `PATH` environment variable (e.g.
-`/usr/local/bin`) and run games from anywhere by just typing `lovr`.
 
 WebVR
 ---
