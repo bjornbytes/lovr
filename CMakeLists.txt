@@ -3,6 +3,7 @@ project(lovr)
 
 # Setup
 if(EMSCRIPTEN)
+  message(STATUS "${EMSCRIPTEN_ROOT_PATH}")
   add_definitions(-DLOVR_WEB=1)
   set(CMAKE_EXECUTABLE_SUFFIX ".html")
   set(LOVR_EMSCRIPTEN_FLAGS "-O3 -s USE_WEBGL2=1 -s FULL_ES3=1 -s USE_FREETYPE=1 -s USE_GLFW=3 -s USE_ZLIB=1 -s ASSERTIONS=1 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 -s NO_EXIT_RUNTIME=1 -s TOTAL_MEMORY=134217728 -s ELIMINATE_DUPLICATE_FUNCTIONS=1")
@@ -39,10 +40,11 @@ else()
 endif()
 
 # enet
+set(HAVE_HAS_SOCKLEN_T TRUE CACHE BOOL "")
 if(EMSCRIPTEN)
   add_definitions(-D__APPLE__)
   add_subdirectory(deps/enet enet)
-  set(ZLIB_INCLUDE_DIR "${EMSCRIPTEN_ROOT_PATH}/tests/enet")
+  include_directories(deps/enet/include)
   set(LOVR_ENET enet)
   remove_definitions(-D__APPLE__)
 else()
