@@ -123,7 +123,7 @@ void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
   int i = eye == EYE_LEFT ? 0 : 1;
   emscripten_vr_get_eye_offset(i, x, y, z);
   float m[16];
-  mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix(i));
+  mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix());
   mat4_multiply(m, mat4_invert(emscripten_vr_get_view_matrix(i)));
   mat4_translate(m, *x, *y, *z);
   *x = m[12];
