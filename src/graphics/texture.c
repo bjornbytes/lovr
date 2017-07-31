@@ -17,8 +17,11 @@ static void lovrTextureCreateStorage(Texture* texture) {
   int mipmapCount = log2(MAX(w, h)) + 1;
   GLenum internalFormat = textureData->format.glInternalFormat;
   GLenum format = textureData->format.glFormat;
+#ifndef LOVR_WEB
   if (GLAD_GL_ARB_texture_storage) {
+#endif
     glTexStorage2D(GL_TEXTURE_2D, mipmapCount, internalFormat, w, h);
+#ifndef LOVR_WEB
   } else {
     for (int i = 0; i < mipmapCount; i++) {
       glTexImage2D(GL_TEXTURE_2D, i, internalFormat, w, h, 0, format, GL_UNSIGNED_BYTE, NULL);
@@ -26,6 +29,7 @@ static void lovrTextureCreateStorage(Texture* texture) {
       h = MAX(h >> 1, 1);
     }
   }
+#endif
 }
 
 Texture* lovrTextureCreate(TextureData* textureData) {
@@ -226,7 +230,7 @@ void lovrTextureSetFilter(Texture* texture, FilterMode filter, float anisotropy)
       break;
   }
 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, MAX(anisotropy, 1.0));
 }
 
 void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertical) {
