@@ -75,6 +75,9 @@ void lovrGraphicsInit() {
   }
 
   // Objects
+  state.depthTest = -1;
+  state.defaultFilter = FILTER_TRILINEAR;
+  state.defaultAnisotropy = 1.;
   state.defaultShader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader);
   state.skyboxShader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
   int uniformId = lovrShaderGetUniformId(state.skyboxShader, "cube");
@@ -97,9 +100,6 @@ void lovrGraphicsInit() {
 #endif
 
   // State
-  state.depthTest = -1;
-  state.defaultFilter = FILTER_TRILINEAR;
-  state.defaultAnisotropy = 1.;
   lovrGraphicsReset();
   atexit(lovrGraphicsDestroy);
 }
