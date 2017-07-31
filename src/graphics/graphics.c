@@ -141,7 +141,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetPointSize(1);
   lovrGraphicsSetCullingEnabled(0);
   lovrGraphicsSetPolygonWinding(POLYGON_WINDING_COUNTERCLOCKWISE);
-  lovrGraphicsSetDepthTest(COMPARE_LESS);
+  lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
   lovrGraphicsSetWireframe(0);
   lovrGraphicsOrigin();
 }
