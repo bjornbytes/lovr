@@ -91,7 +91,7 @@ Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshU
   glBufferData(GL_ARRAY_BUFFER, mesh->count * mesh->stride, NULL, mesh->usage);
   glGenVertexArrays(1, &mesh->vao);
 
-#ifdef LOVR_WEB
+#ifdef EMSCRIPTEN
   mesh->data = malloc(mesh->count * mesh->stride);
 #endif
 
@@ -108,7 +108,7 @@ void lovrMeshDestroy(const Ref* ref) {
   glDeleteVertexArrays(1, &mesh->vao);
   vec_deinit(&mesh->map);
   vec_deinit(&mesh->format);
-#ifdef LOVR_WEB
+#ifdef EMSCRIPTEN
   free(mesh->data);
 #endif
   free(mesh);
@@ -259,7 +259,7 @@ void lovrMeshSetTexture(Mesh* mesh, Texture* texture) {
 }
 
 void* lovrMeshMap(Mesh* mesh, int start, int count) {
-#ifdef LOVR_WEB
+#ifdef EMSCRIPTEN
   mesh->isMapped = 1;
   mesh->mapStart = start;
   mesh->mapCount = count;
@@ -286,7 +286,7 @@ void lovrMeshUnmap(Mesh* mesh) {
   mesh->isMapped = 0;
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
 
-#ifdef LOVR_WEB
+#ifdef EMSCRIPTEN
   int start = mesh->mapStart * mesh->stride;
   int count = mesh->mapCount * mesh->stride;
   glBufferSubData(GL_ARRAY_BUFFER, start, count, (char*) mesh->data + start);

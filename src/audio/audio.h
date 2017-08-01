@@ -2,7 +2,7 @@
 #include "lib/vec/vec.h"
 #include <AL/al.h>
 #include <AL/alc.h>
-#ifndef LOVR_WEB
+#ifndef EMSCRIPTEN
 #include <AL/alext.h>
 #endif
 

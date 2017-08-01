@@ -1,6 +1,6 @@
 #pragma once
 
-#if LOVR_WEB
+#if EMSCRIPTEN
 #define GLFW_INCLUDE_ES3
 #define GLFW_INCLUDE_GLEXT
 #elif __APPLE__

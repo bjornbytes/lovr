@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 const char* lovrShaderVertexPrefix = ""
-#ifdef LOVR_WEB
+#ifdef EMSCRIPTEN
 "#version 300 es \n"
 "precision mediump float; \n"
 #else
@@ -19,7 +19,7 @@ const char* lovrShaderVertexPrefix = ""
 "uniform mat4 lovrProjection; \n";
 
 const char* lovrShaderFragmentPrefix = ""
-#ifdef LOVR_WEB
+#ifdef EMSCRIPTEN
 "#version 300 es \n"
 "precision mediump float; \n"
 #else

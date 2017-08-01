@@ -17,11 +17,11 @@ static void lovrTextureCreateStorage(Texture* texture) {
   int mipmapCount = log2(MAX(w, h)) + 1;
   GLenum internalFormat = textureData->format.glInternalFormat;
   GLenum format = textureData->format.glFormat;
-#ifndef LOVR_WEB
+#ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_texture_storage) {
 #endif
     glTexStorage2D(GL_TEXTURE_2D, mipmapCount, internalFormat, w, h);
-#ifndef LOVR_WEB
+#ifndef EMSCRIPTEN
   } else {
     for (int i = 0; i < mipmapCount; i++) {
       glTexImage2D(GL_TEXTURE_2D, i, internalFormat, w, h, 0, format, GL_UNSIGNED_BYTE, NULL);

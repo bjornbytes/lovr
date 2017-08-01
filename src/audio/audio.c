@@ -19,7 +19,7 @@ void lovrAudioInit() {
     error("Unable to create OpenAL context");
   }
 
-#ifndef LOVR_WEB
+#ifndef EMSCRIPTEN
   static LPALCRESETDEVICESOFT alcResetDeviceSOFT;
   alcResetDeviceSOFT = (LPALCRESETDEVICESOFT) alcGetProcAddress(device, "alcResetDeviceSOFT");
   state.isSpatialized = alcIsExtensionPresent(device, "ALC_SOFT_HRTF");

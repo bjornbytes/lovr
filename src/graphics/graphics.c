@@ -25,7 +25,7 @@ static void onCloseWindow(GLFWwindow* window) {
 // Base
 
 void lovrGraphicsInit() {
-#ifdef LOVR_WEB
+#ifdef EMSCRIPTEN
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
@@ -49,14 +49,14 @@ void lovrGraphicsInit() {
   // Initialize all the things
   glfwMakeContextCurrent(state.window);
   glfwSetWindowCloseCallback(state.window, onCloseWindow);
-#ifndef LOVR_WEB
+#ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
 #endif
   glfwSetTime(0);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-#ifndef LOVR_WEB
+#ifndef EMSCRIPTEN
   glfwSwapInterval(0);
   glEnable(GL_LINE_SMOOTH);
 #endif
@@ -89,7 +89,7 @@ void lovrGraphicsInit() {
   // System Limits
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.maxTextureSize);
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.maxTextureAnisotropy);
-#ifdef LOVR_WEB
+#ifdef EMSCRIPTEN
   state.maxPointSize = 1.f;
   state.maxTextureMSAA = 1;
 #else
@@ -384,7 +384,7 @@ float lovrGraphicsGetPointSize() {
 }
 
 void lovrGraphicsSetPointSize(float size) {
-#ifndef LOVR_WEB
+#ifndef EMSCRIPTEN
   state.pointSize = size;
   glPointSize(size);
 #endif
@@ -433,7 +433,7 @@ int lovrGraphicsIsWireframe() {
 }
 
 void lovrGraphicsSetWireframe(int wireframe) {
-#ifndef LOVR_WEB
+#ifndef EMSCRIPTEN
   if (state.isWireframe != wireframe) {
     state.isWireframe = wireframe;
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
