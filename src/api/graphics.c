@@ -178,10 +178,7 @@ int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
   float r = luaL_checknumber(L, 1);
   float g = luaL_checknumber(L, 2);
   float b = luaL_checknumber(L, 3);
-  float a = 255.0;
-  if (lua_gettop(L) > 3) {
-    a = luaL_checknumber(L, 4);
-  }
+  float a = luaL_optnumber(L, 4, 255.0);
   lovrGraphicsSetBackgroundColor(r, g, b, a);
   return 0;
 }
