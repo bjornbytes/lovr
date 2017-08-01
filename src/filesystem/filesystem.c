@@ -81,6 +81,13 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
 #elif EMSCRIPTEN
   strncpy(dest, "/home/web_user", size);
   return 0;
+#elif __linux__
+  const char* home;
+  if ((home = getenv("HOME")) == NULL) {
+    home = getpwuid(getuid())->pw_dir;
+  }
+
+  snprintf(dest, size, "%s/.config", home);
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetAppdataDirectory"
 #endif
@@ -101,6 +108,11 @@ int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
   return !GetModuleFileName(NULL, dest, size);
 #elif EMSCRIPTEN
   return 1;
+#elif __linux__
+  memset(dest, 0, size);
+  if (readlink("/proc/self/exe", dest, size) == -1) {
+    perror("readlink");
+  }
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetExecutablePath"
 #endif
@@ -213,10 +225,12 @@ int lovrFilesystemSetIdentity(const char* identity) {
   lovrFilesystemGetAppdataDirectory(state.savePathFull, LOVR_PATH_MAX);
   PHYSFS_setWriteDir(state.savePathFull);
   snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity ? identity : "default");
-  snprintf(state.savePathFull, LOVR_PATH_MAX, "%s/%s", state.savePathFull, state.savePathRelative);
+  char fullPathBuffer[LOVR_PATH_MAX];
+  snprintf(fullPathBuffer, LOVR_PATH_MAX, "%s/%s", state.savePathFull, state.savePathRelative);
+  strncpy(state.savePathFull, fullPathBuffer, LOVR_PATH_MAX);
   PHYSFS_mkdir(state.savePathRelative);
   if (!PHYSFS_setWriteDir(state.savePathFull)) {
-    error("Could not set write directory");
+    error("Could not set write directory: %s (%s)", PHYSFS_getLastError(), state.savePathRelative);
   }
 
   PHYSFS_mount(state.savePathFull, NULL, 0);
