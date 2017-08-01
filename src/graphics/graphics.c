@@ -147,19 +147,8 @@ void lovrGraphicsReset() {
 }
 
 void lovrGraphicsClear(int color, int depth) {
-  int bits = 0;
-
-  if (color) {
-    bits |= GL_COLOR_BUFFER_BIT;
-  }
-
-  if (depth) {
-    bits |= GL_DEPTH_BUFFER_BIT;
-  }
-
-  if (bits != 0) {
-    glClear(bits);
-  }
+  if (!color && !depth) return;
+  glClear((color ? GL_COLOR_BUFFER_BIT : 0) | (depth ? GL_DEPTH_BUFFER_BIT : 0));
 }
 
 void lovrGraphicsPresent() {
