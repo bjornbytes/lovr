@@ -119,34 +119,20 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
     lovrMeshUnmap(mesh);
   }
 
-  int usingIbo = mesh->map.length > 0;
-
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(transform);
   lovrGraphicsBindTexture(mesh->texture);
   lovrGraphicsPrepare();
-
   glBindVertexArray(mesh->vao);
-
   lovrMeshBindAttributes(mesh);
-
-  int start, count;
-  if (mesh->isRangeEnabled) {
-    start = mesh->rangeStart;
-    count = mesh->rangeCount;
-  } else {
-    start = 0;
-    count = usingIbo ? mesh->map.length : mesh->count;
-  }
-
-  if (usingIbo) {
-    uintptr_t startAddress = (uintptr_t) start;
+  size_t start = mesh->rangeStart;
+  size_t count = mesh->rangeCount;
+  if (mesh->map.length > 0) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
-    glDrawElements(mesh->drawMode, count, GL_UNSIGNED_INT, (GLvoid*) startAddress);
+    glDrawElements(mesh->drawMode, mesh->map.length, GL_UNSIGNED_INT, (GLvoid*) start);
   } else {
     glDrawArrays(mesh->drawMode, start, count);
   }
-
   lovrGraphicsPop();
 }
 
@@ -224,6 +210,11 @@ int lovrMeshIsRangeEnabled(Mesh* mesh) {
 
 void lovrMeshSetRangeEnabled(Mesh* mesh, char isEnabled) {
   mesh->isRangeEnabled = isEnabled;
+
+  if (!isEnabled) {
+    mesh->rangeStart = 0;
+    mesh->rangeCount = mesh->count;
+  }
 }
 
 void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count) {
@@ -238,7 +229,6 @@ int lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
 
   mesh->rangeStart = start;
   mesh->rangeCount = count;
-
   return 0;
 }
 
