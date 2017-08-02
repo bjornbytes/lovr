@@ -39,7 +39,7 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
   mesh->attributesDirty = 0;
 }
 
-Mesh* lovrMeshCreate(int count, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage) {
+Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage) {
   Mesh* mesh = lovrAlloc(sizeof(Mesh), lovrMeshDestroy);
   if (!mesh) return NULL;
 
@@ -157,12 +157,12 @@ int lovrMeshGetVertexSize(Mesh* mesh) {
   return mesh->stride;
 }
 
-unsigned int* lovrMeshGetVertexMap(Mesh* mesh, int* count) {
+unsigned int* lovrMeshGetVertexMap(Mesh* mesh, size_t* count) {
   *count = mesh->map.length;
   return mesh->map.data;
 }
 
-void lovrMeshSetVertexMap(Mesh* mesh, unsigned int* map, int count) {
+void lovrMeshSetVertexMap(Mesh* mesh, unsigned int* map, size_t count) {
   if (count == 0 || !map) {
     vec_clear(&mesh->map);
   } else {
@@ -223,7 +223,7 @@ void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count) {
 }
 
 int lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
-  if (start < 0 || count < 0 || start + count > mesh->count) {
+  if (start < 0 || count < 0 || (size_t) start + count > mesh->count) {
     return 1;
   }
 
@@ -250,7 +250,7 @@ void lovrMeshSetTexture(Mesh* mesh, Texture* texture) {
   }
 }
 
-void* lovrMeshMap(Mesh* mesh, int start, int count) {
+void* lovrMeshMap(Mesh* mesh, int start, size_t count, int read, int write) {
 #ifdef EMSCRIPTEN
   mesh->isMapped = 1;
   mesh->mapStart = start;
@@ -264,7 +264,10 @@ void* lovrMeshMap(Mesh* mesh, int start, int count) {
   mesh->isMapped = 1;
   mesh->mapStart = start;
   mesh->mapCount = count;
-  GLbitfield access = GL_MAP_READ_BIT | GL_MAP_WRITE_BIT;
+  GLbitfield access = 0;
+  access |= read ? GL_MAP_READ_BIT : 0;
+  access |= write ? GL_MAP_WRITE_BIT : 0;
+  access |= (write && start == 0 && count == mesh->count) ? GL_MAP_INVALIDATE_BUFFER_BIT : 0;
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
   return glMapBufferRange(GL_ARRAY_BUFFER, start * mesh->stride, count * mesh->stride, access);
 #endif
@@ -280,7 +283,7 @@ void lovrMeshUnmap(Mesh* mesh) {
 
 #ifdef EMSCRIPTEN
   int start = mesh->mapStart * mesh->stride;
-  int count = mesh->mapCount * mesh->stride;
+  size_t count = mesh->mapCount * mesh->stride;
   glBufferSubData(GL_ARRAY_BUFFER, start, count, (char*) mesh->data + start);
 #else
   glUnmapBuffer(GL_ARRAY_BUFFER);

@@ -604,7 +604,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   if (dataIndex) {
     int count = lua_objlen(L, dataIndex);
     MeshFormat format = lovrMeshGetVertexFormat(mesh);
-    char* vertex = lovrMeshMap(mesh, 0, count);
+    char* vertex = lovrMeshMap(mesh, 0, count, 0, 1);
 
     for (int i = 0; i < count; i++) {
       lua_rawgeti(L, dataIndex, i + 1);
@@ -629,8 +629,6 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
 
       lua_pop(L, 1);
     }
-
-    lovrMeshUnmap(mesh);
   }
 
   vec_deinit(&format);

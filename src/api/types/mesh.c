@@ -82,7 +82,7 @@ int l_lovrMeshGetVertexCount(lua_State* L) {
 int l_lovrMeshGetVertex(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int index = luaL_checkint(L, 2) - 1;
-  char* vertex = lovrMeshMap(mesh, index, 1);
+  char* vertex = lovrMeshMap(mesh, index, 1, 1, 0);
   MeshFormat format = lovrMeshGetVertexFormat(mesh);
 
   int total = 0;
@@ -112,7 +112,7 @@ int l_lovrMeshSetVertex(lua_State* L) {
   }
 
   MeshFormat format = lovrMeshGetVertexFormat(mesh);
-  char* vertex = lovrMeshMap(mesh, index, 1);
+  char* vertex = lovrMeshMap(mesh, index, 1, 0, 1);
 
   // Unwrap table
   int arg = 3;
@@ -151,7 +151,7 @@ int l_lovrMeshGetVertexAttribute(lua_State* L) {
     return luaL_error(L, "Invalid mesh attribute index: %d", attributeIndex + 1);
   }
 
-  char* vertex = lovrMeshMap(mesh, vertexIndex, 1);
+  char* vertex = lovrMeshMap(mesh, vertexIndex, 1, 1, 0);
 
   MeshAttribute attribute;
   for (int i = 0; i <= attributeIndex; i++) {
@@ -185,7 +185,7 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
     return luaL_error(L, "Invalid mesh attribute index: %d", attributeIndex + 1);
   }
 
-  char* vertex = lovrMeshMap(mesh, vertexIndex, 1);
+  char* vertex = lovrMeshMap(mesh, vertexIndex, 1, 0, 1);
 
   int arg = 4;
   for (int i = 0; i <= attributeIndex; i++) {
@@ -219,7 +219,7 @@ int l_lovrMeshSetVertices(lua_State* L) {
     return luaL_error(L, "Mesh can only hold %d vertices", maxVertices);
   }
 
-  void* vertices = lovrMeshMap(mesh, start, vertexCount);
+  void* vertices = lovrMeshMap(mesh, start, vertexCount, 0, 1);
   char* vertex = vertices;
 
   for (int i = 0; i < vertexCount; i++) {
@@ -246,7 +246,7 @@ int l_lovrMeshSetVertices(lua_State* L) {
 
 int l_lovrMeshGetVertexMap(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  int count;
+  size_t count;
   unsigned int* indices = lovrMeshGetVertexMap(mesh, &count);
 
   if (count == 0) {
@@ -255,7 +255,7 @@ int l_lovrMeshGetVertexMap(lua_State* L) {
   }
 
   lua_newtable(L);
-  for (int i = 0; i < count; i++) {
+  for (size_t i = 0; i < count; i++) {
     lua_pushinteger(L, indices[i] + 1);
     lua_rawseti(L, -2, i + 1);
   }
