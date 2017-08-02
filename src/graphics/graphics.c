@@ -999,7 +999,18 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   }
 
   lovrGraphicsEnsureFont();
-  lovrFontPrint(state.activeFont, str, transform, wrap, halign, valign);
+  Font* font = state.activeFont;
+  float scale = 1 / font->pixelDensity;
+  float offsety;
+  lovrFontRender(font, str, wrap, halign, valign, &state.shapeData, &offsety);
+
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsScale(scale, scale, scale);
+  lovrGraphicsTranslate(0, offsety, 0);
+  lovrGraphicsBindTexture(font->texture);
+  lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 0);
+  lovrGraphicsPop();
 
   if (lastShader == state.defaultShader) {
     lovrGraphicsSetShader(lastShader);

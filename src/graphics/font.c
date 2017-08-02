@@ -30,7 +30,6 @@ Font* lovrFontCreate(FontData* fontData) {
   font->texture = NULL;
   font->lineHeight = 1.f;
   font->pixelDensity = font->fontData->height;
-  vec_init(&font->vertices);
   map_init(&font->kerning);
 
   // Atlas
@@ -62,11 +61,10 @@ void lovrFontDestroy(const Ref* ref) {
   lovrRelease(&font->texture->ref);
   map_deinit(&font->atlas.glyphs);
   map_deinit(&font->kerning);
-  vec_deinit(&font->vertices);
   free(font);
 }
 
-void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, vec_float_t* vertices, float* offsety) {
   FontAtlas* atlas = &font->atlas;
 
   float cx = 0;
@@ -85,14 +83,14 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
   int linePtr = 0;
   int lineCount = 1;
 
-  vec_reserve(&font->vertices, len * 30);
-  vec_clear(&font->vertices);
+  vec_reserve(vertices, len * 30);
+  vec_clear(vertices);
 
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
 
     // Newlines
     if (codepoint == '\n' || (wrap && cx * scale > wrap && codepoint == ' ')) {
-      linePtr = lovrFontAlignLine(&font->vertices, linePtr, cx, halign);
+      linePtr = lovrFontAlignLine(vertices, linePtr, cx, halign);
       lineCount++;
       cx = 0;
       cy -= font->fontData->height * font->lineHeight;
@@ -110,7 +108,7 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
 
     // Start over if texture was repacked
     if (u != atlas->width || v != atlas->height) {
-      lovrFontPrint(font, start, transform, wrap, halign, valign);
+      lovrFontRender(font, start, wrap, halign, valign, vertices, offsety);
       return;
     }
 
@@ -125,7 +123,7 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
       float s2 = (glyph->x + glyph->tw) / u;
       float t2 = glyph->y / v;
 
-      float vertices[30] = {
+      float quad[30] = {
         x1, y1, 0, s1, t1,
         x1, y2, 0, s1, t2,
         x2, y1, 0, s2, t1,
@@ -134,7 +132,7 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
         x2, y2, 0, s2, t2
       };
 
-      vec_pusharr(&font->vertices, vertices, 30);
+      vec_pusharr(vertices, quad, 30);
     }
 
     // Advance cursor
@@ -143,25 +141,14 @@ void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, Hori
   }
 
   // Align the last line
-  lovrFontAlignLine(&font->vertices, linePtr, cx, halign);
+  lovrFontAlignLine(vertices, linePtr, cx, halign);
 
   // Calculate vertical offset
-  float offsety = 0;
   if (valign == ALIGN_MIDDLE) {
-    offsety = lineCount * font->fontData->height * font->lineHeight * .5f;
+    *offsety = lineCount * font->fontData->height * font->lineHeight * .5f;
   } else if (valign == ALIGN_BOTTOM) {
-    offsety = lineCount * font->fontData->height * font->lineHeight;
+    *offsety = lineCount * font->fontData->height * font->lineHeight;
   }
-
-  // Render!
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
-  lovrGraphicsScale(scale, scale, scale);
-  lovrGraphicsTranslate(0, offsety, 0);
-  lovrGraphicsBindTexture(font->texture);
-  lovrGraphicsSetShapeData(font->vertices.data, font->vertices.length);
-  lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 0);
-  lovrGraphicsPop();
 }
 
 float lovrFontGetWidth(Font* font, const char* str, float wrap) {

@@ -36,14 +36,13 @@ typedef struct {
   Texture* texture;
   FontAtlas atlas;
   map_int_t kerning;
-  vec_float_t vertices;
   float lineHeight;
   float pixelDensity;
 } Font;
 
 Font* lovrFontCreate(FontData* fontData);
 void lovrFontDestroy(const Ref* ref);
-void lovrFontPrint(Font* font, const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, vec_float_t* vertices, float* offsety);
 float lovrFontGetWidth(Font* font, const char* string, float wrap);
 float lovrFontGetHeight(Font* font);
 float lovrFontGetAscent(Font* font);
