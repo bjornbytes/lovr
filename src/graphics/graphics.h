@@ -84,10 +84,10 @@ typedef struct {
   vec_float_t shapeData;
   vec_uint_t shapeIndices;
 
-  unsigned int backgroundColor;
+  Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
-  unsigned int color;
+  Color color;
   int culling;
   TextureFilter defaultFilter;
   CompareMode depthTest;
@@ -107,12 +107,12 @@ void lovrGraphicsPresent();
 void lovrGraphicsPrepare();
 
 // State
-void lovrGraphicsGetBackgroundColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
-void lovrGraphicsSetBackgroundColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+Color lovrGraphicsGetBackgroundColor();
+void lovrGraphicsSetBackgroundColor(Color color);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
-void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
-void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+Color lovrGraphicsGetColor();
+void lovrGraphicsSetColor(Color color);
 int lovrGraphicsIsCullingEnabled();
 void lovrGraphicsSetCullingEnabled(int culling);
 TextureFilter lovrGraphicsGetDefaultFilter();

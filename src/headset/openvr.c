@@ -662,13 +662,12 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   lovrGraphicsPopCanvas();
 
   if (state.isMirrored) {
-    unsigned char r, g, b, a;
-    lovrGraphicsGetColor(&r, &g, &b, &a);
-    lovrGraphicsSetColor(255, 255, 255, 255);
+    Color oldColor = lovrGraphicsGetColor();
+    lovrGraphicsSetColor((Color) { 255, 255, 255, 255 });
     Shader* lastShader = lovrGraphicsGetShader();
     lovrGraphicsSetShader(NULL);
     lovrGraphicsPlaneFullscreen(state.texture);
     lovrGraphicsSetShader(lastShader);
-    lovrGraphicsSetColor(r, g, b, a);
+    lovrGraphicsSetColor(oldColor);
   }
 }

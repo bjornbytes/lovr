@@ -27,7 +27,7 @@ typedef struct {
   map_uniform_t uniforms;
   float transform[16];
   float projection[16];
-  unsigned int color;
+  Color color;
 } Shader;
 
 extern const char* lovrShaderVertexPrefix;
@@ -44,7 +44,7 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader);
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
 void lovrShaderDestroy(const Ref* ref);
-void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, unsigned int color, int force);
+void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, Color color, int force);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 int lovrShaderGetUniformId(Shader* shader, const char* name);
 int lovrShaderGetUniformType(Shader* shader, const char* name, GLenum* type, int* count);

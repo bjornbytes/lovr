@@ -165,22 +165,21 @@ int l_lovrGraphicsPresent(lua_State* L) {
 // State
 
 int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
-  unsigned char r, g, b, a;
-  lovrGraphicsGetBackgroundColor(&r, &g, &b, &a);
-  lua_pushnumber(L, r);
-  lua_pushnumber(L, g);
-  lua_pushnumber(L, b);
-  lua_pushnumber(L, a);
+  Color color = lovrGraphicsGetBackgroundColor();
+  lua_pushnumber(L, color.r);
+  lua_pushnumber(L, color.g);
+  lua_pushnumber(L, color.b);
+  lua_pushnumber(L, color.a);
   return 4;
 }
 
 int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
-  unsigned char r, g, b, a;
-  r = luaL_checknumber(L, 1);
-  g = luaL_checknumber(L, 2);
-  b = luaL_checknumber(L, 3);
-  a = luaL_optnumber(L, 4, 255.0);
-  lovrGraphicsSetBackgroundColor(r, g, b, a);
+  Color color;
+  color.r = luaL_checknumber(L, 1);
+  color.g = luaL_checknumber(L, 2);
+  color.b = luaL_checknumber(L, 3);
+  color.a = luaL_optnumber(L, 4, 255.0);
+  lovrGraphicsSetBackgroundColor(color);
   return 0;
 }
 
@@ -201,42 +200,36 @@ int l_lovrGraphicsSetBlendMode(lua_State* L) {
 }
 
 int l_lovrGraphicsGetColor(lua_State* L) {
-  unsigned char r, g, b, a;
-  lovrGraphicsGetColor(&r, &g, &b, &a);
-  lua_pushinteger(L, r);
-  lua_pushinteger(L, g);
-  lua_pushinteger(L, b);
-  lua_pushinteger(L, a);
+  Color color = lovrGraphicsGetColor();
+  lua_pushinteger(L, color.r);
+  lua_pushinteger(L, color.g);
+  lua_pushinteger(L, color.b);
+  lua_pushinteger(L, color.a);
   return 4;
 }
 
 int l_lovrGraphicsSetColor(lua_State* L) {
-  unsigned char r, g, b, a;
-  r = g = b = a = 0xff;
+  Color color = { 0xff, 0xff, 0xff, 0xff };
 
-  if (lua_gettop(L) == 1 && lua_isnumber(L, 1)) {
-    unsigned int x = lua_tointeger(L, 1);
-    r = LOVR_COLOR_R(x);
-    g = LOVR_COLOR_G(x);
-    b = LOVR_COLOR_B(x);
-    a = LOVR_COLOR_A(x);
-  } else if (lua_istable(L, 1)) {
+  if (lua_istable(L, 1)) {
     for (int i = 1; i <= 4; i++) {
       lua_rawgeti(L, 1, i);
     }
-    r = luaL_checknumber(L, -4);
-    g = luaL_checknumber(L, -3);
-    b = luaL_checknumber(L, -2);
-    a = lua_gettop(L) > 1 ? luaL_checknumber(L, 2) : luaL_optnumber(L, -1, 255);
+    color.r = luaL_checknumber(L, -4);
+    color.g = luaL_checknumber(L, -3);
+    color.b = luaL_checknumber(L, -2);
+    color.a = luaL_optnumber(L, -1, 255);
     lua_pop(L, 4);
   } else if (lua_gettop(L) >= 3) {
-    r = lua_tointeger(L, 1);
-    g = lua_tointeger(L, 2);
-    b = lua_tointeger(L, 3);
-    a = lua_isnoneornil(L, 4) ? 255 : lua_tointeger(L, 4);
+    color.r = lua_tointeger(L, 1);
+    color.g = lua_tointeger(L, 2);
+    color.b = lua_tointeger(L, 3);
+    color.a = lua_isnoneornil(L, 4) ? 255 : lua_tointeger(L, 4);
+  } else {
+    return luaL_error(L, "Invalid color, expected 3 numbers, 4 numbers, or a table");
   }
 
-  lovrGraphicsSetColor(r, g, b, a);
+  lovrGraphicsSetColor(color);
   return 0;
 }
 

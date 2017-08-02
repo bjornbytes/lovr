@@ -1,4 +1,5 @@
 #include "lib/vec/vec.h"
+#include <stdint.h>
 #include <stddef.h>
 
 #pragma once
@@ -16,6 +17,10 @@ typedef struct ref {
   void (*free)(const struct ref* ref);
   int count;
 } Ref;
+
+typedef struct {
+  uint8_t r, g, b, a;
+} Color;
 
 void error(const char* format, ...);
 void lovrSleep(double seconds);

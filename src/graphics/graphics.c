@@ -123,9 +123,9 @@ void lovrGraphicsReset() {
   lovrGraphicsSetProjection(mat4_perspective(projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h));
   lovrGraphicsSetShader(NULL);
   lovrGraphicsBindTexture(NULL);
-  lovrGraphicsSetBackgroundColor(0, 0, 0, 255);
+  lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 0 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
-  lovrGraphicsSetColor(255, 255, 255, 255);
+  lovrGraphicsSetColor((Color) { 255, 255, 255, 255 });
   lovrGraphicsSetLineWidth(1);
   lovrGraphicsSetPointSize(1);
   lovrGraphicsSetCullingEnabled(0);
@@ -153,16 +153,13 @@ void lovrGraphicsPrepare() {
 
 // State
 
-void lovrGraphicsGetBackgroundColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a) {
-  *r = LOVR_COLOR_R(state.backgroundColor);
-  *g = LOVR_COLOR_G(state.backgroundColor);
-  *b = LOVR_COLOR_B(state.backgroundColor);
-  *a = LOVR_COLOR_A(state.backgroundColor);
+Color lovrGraphicsGetBackgroundColor() {
+  return state.backgroundColor;
 }
 
-void lovrGraphicsSetBackgroundColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
-  state.backgroundColor = LOVR_COLOR(r, g, b, a);
-  glClearColor(r / 255., g / 255., b / 255., a / 255.);
+void lovrGraphicsSetBackgroundColor(Color color) {
+  state.backgroundColor = color;
+  glClearColor(color.r / 255., color.g / 255., color.b / 255., color.a / 255.);
 }
 
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
@@ -220,15 +217,12 @@ void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
   }
 }
 
-void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a) {
-  *r = LOVR_COLOR_R(state.color);
-  *g = LOVR_COLOR_G(state.color);
-  *b = LOVR_COLOR_B(state.color);
-  *a = LOVR_COLOR_A(state.color);
+Color lovrGraphicsGetColor() {
+  return state.color;
 }
 
-void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
-  state.color = LOVR_COLOR(r, g, b, a);
+void lovrGraphicsSetColor(Color color) {
+  state.color = color;
 }
 
 int lovrGraphicsIsCullingEnabled() {

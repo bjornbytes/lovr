@@ -179,7 +179,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   shader->id = id;
   mat4_identity(shader->transform);
   mat4_identity(shader->projection);
-  shader->color = 0;
+  shader->color = (Color) { 0, 0, 0, 0 };
 
   // Send initial uniform values to shader
   lovrShaderBind(shader, shader->transform, shader->projection, shader->color, 1);
@@ -194,7 +194,7 @@ void lovrShaderDestroy(const Ref* ref) {
   free(shader);
 }
 
-void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, unsigned int color, int force) {
+void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, Color color, int force) {
 
   // Bind shader if necessary
   int program;
@@ -235,14 +235,9 @@ void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, unsigned in
   }
 
   // Update color if necessary
-  if (force || shader->color != color) {
+  if (force || memcmp(&shader->color, &color, 4 * sizeof(uint8_t))) {
     int uniformId = lovrShaderGetUniformId(shader, "lovrColor");
-    float c[4] = {
-      LOVR_COLOR_R(color) / 255.f,
-      LOVR_COLOR_G(color) / 255.f,
-      LOVR_COLOR_B(color) / 255.f,
-      LOVR_COLOR_A(color) / 255.f
-    };
+    float c[4] = { color.r / 255., color.g / 255., color.b / 255., color.a / 255. };
     lovrShaderSendFloatVec4(shader, uniformId, 1, c);
     shader->color = color;
   }
