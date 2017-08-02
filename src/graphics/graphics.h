@@ -75,7 +75,7 @@ typedef struct {
   Texture* activeTexture;
   Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
-  CanvasState* canvases[MAX_CANVASES];
+  CanvasState canvases[MAX_CANVASES];
   int transform;
   int canvas;
   unsigned int color;

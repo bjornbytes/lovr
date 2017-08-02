@@ -78,9 +78,6 @@ void lovrGraphicsInit() {
   glGenVertexArrays(1, &state.shapeArray);
   vec_init(&state.shapeData);
   vec_init(&state.shapeIndices);
-  for (int i = 0; i < MAX_CANVASES; i++) {
-    state.canvases[i] = malloc(sizeof(CanvasState));
-  }
 
   // Objects
   state.depthTest = -1;
@@ -103,9 +100,6 @@ void lovrGraphicsDestroy() {
   lovrGraphicsSetFont(NULL);
   lovrGraphicsSetShader(NULL);
   glUseProgram(0);
-  for (int i = 0; i < MAX_CANVASES; i++) {
-    free(state.canvases[i]);
-  }
   if (state.defaultFont) {
     lovrRelease(&state.defaultFont->ref);
   }
@@ -154,7 +148,7 @@ void lovrGraphicsPresent() {
 void lovrGraphicsPrepare() {
   Shader* shader = lovrGraphicsGetShader();
   mat4 transform = state.transforms[state.transform];
-  mat4 projection = state.canvases[state.canvas]->projection;
+  mat4 projection = state.canvases[state.canvas].projection;
   lovrShaderBind(shader, transform, projection, state.color, 0);
 }
 
@@ -291,11 +285,11 @@ void lovrGraphicsBindTexture(Texture* texture) {
 }
 
 mat4 lovrGraphicsGetProjection() {
-  return state.canvases[state.canvas]->projection;
+  return state.canvases[state.canvas].projection;
 }
 
 void lovrGraphicsSetProjection(mat4 projection) {
-  memcpy(state.canvases[state.canvas]->projection, projection, 16 * sizeof(float));
+  memcpy(state.canvases[state.canvas].projection, projection, 16 * sizeof(float));
 }
 
 float lovrGraphicsGetLineWidth() {
@@ -412,7 +406,7 @@ void lovrGraphicsPushCanvas() {
     error("Canvas overflow");
   }
 
-  memcpy(state.canvases[state.canvas], state.canvases[state.canvas - 1], sizeof(CanvasState));
+  memcpy(&state.canvases[state.canvas], &state.canvases[state.canvas - 1], sizeof(CanvasState));
 }
 
 void lovrGraphicsPopCanvas() {
@@ -420,21 +414,21 @@ void lovrGraphicsPopCanvas() {
     error("Canvas underflow");
   }
 
-  int* viewport = state.canvases[state.canvas]->viewport;
+  int* viewport = state.canvases[state.canvas].viewport;
   lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  lovrGraphicsBindFramebuffer(state.canvases[state.canvas]->framebuffer);
+  lovrGraphicsBindFramebuffer(state.canvases[state.canvas].framebuffer);
 }
 
 void lovrGraphicsSetViewport(int x, int y, int w, int h) {
-  state.canvases[state.canvas]->viewport[0] = x;
-  state.canvases[state.canvas]->viewport[1] = y;
-  state.canvases[state.canvas]->viewport[2] = w;
-  state.canvases[state.canvas]->viewport[3] = h;
+  state.canvases[state.canvas].viewport[0] = x;
+  state.canvases[state.canvas].viewport[1] = y;
+  state.canvases[state.canvas].viewport[2] = w;
+  state.canvases[state.canvas].viewport[3] = h;
   glViewport(x, y, w, h);
 }
 
 void lovrGraphicsBindFramebuffer(int framebuffer) {
-  state.canvases[state.canvas]->framebuffer = framebuffer;
+  state.canvases[state.canvas].framebuffer = framebuffer;
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 }
 
