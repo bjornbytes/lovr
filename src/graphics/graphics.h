@@ -78,11 +78,14 @@ typedef struct {
   CanvasState canvases[MAX_CANVASES];
   int transform;
   int canvas;
-  GLuint shapeArray;
-  GLuint shapeBuffer;
-  GLuint shapeIndexBuffer;
-  vec_float_t shapeData;
-  vec_uint_t shapeIndices;
+
+  struct {
+    GLuint vao;
+    GLuint vbo;
+    GLuint ibo;
+    vec_float_t data;
+    vec_uint_t indices;
+  } buffer;
 
   Color backgroundColor;
   BlendMode blendMode;
