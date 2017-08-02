@@ -247,14 +247,16 @@ Texture* lovrMeshGetTexture(Mesh* mesh) {
 }
 
 void lovrMeshSetTexture(Mesh* mesh, Texture* texture) {
-  if (mesh->texture) {
-    lovrRelease(&mesh->texture->ref);
-  }
+  if (mesh->texture != texture) {
+    if (mesh->texture) {
+      lovrRelease(&mesh->texture->ref);
+    }
 
-  mesh->texture = texture;
+    mesh->texture = texture;
 
-  if (mesh->texture) {
-    lovrRetain(&mesh->texture->ref);
+    if (mesh->texture) {
+      lovrRetain(&mesh->texture->ref);
+    }
   }
 }
 
