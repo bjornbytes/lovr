@@ -120,7 +120,6 @@ Texture* lovrGraphicsGetTexture();
 void lovrGraphicsBindTexture(Texture* texture);
 mat4 lovrGraphicsGetProjection();
 void lovrGraphicsSetProjection(mat4 projection);
-void lovrGraphicsSetPerspective(float near, float far, float fov);
 float lovrGraphicsGetLineWidth();
 void lovrGraphicsSetLineWidth(float width);
 float lovrGraphicsGetPointSize();

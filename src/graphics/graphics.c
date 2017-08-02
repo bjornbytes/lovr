@@ -121,10 +121,13 @@ void lovrGraphicsDestroy() {
 }
 
 void lovrGraphicsReset() {
+  int w = lovrGraphicsGetWidth();
+  int h = lovrGraphicsGetHeight();
+  float projection[16];
   state.transform = 0;
   state.canvas = 0;
-  lovrGraphicsSetViewport(0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight());
-  lovrGraphicsSetPerspective(.1f, 100.f, 67 * M_PI / 180);
+  lovrGraphicsSetViewport(0, 0, w, h);
+  lovrGraphicsSetProjection(mat4_perspective(projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h));
   lovrGraphicsSetShader(NULL);
   lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetBackgroundColor(0, 0, 0, 255);
@@ -293,12 +296,6 @@ mat4 lovrGraphicsGetProjection() {
 
 void lovrGraphicsSetProjection(mat4 projection) {
   memcpy(state.canvases[state.canvas]->projection, projection, 16 * sizeof(float));
-}
-
-void lovrGraphicsSetPerspective(float near, float far, float fov) {
-  int width, height;
-  glfwGetWindowSize(state.window, &width, &height);
-  mat4_perspective(state.canvases[state.canvas]->projection, near, far, fov, (float) width / height);
 }
 
 float lovrGraphicsGetLineWidth() {
