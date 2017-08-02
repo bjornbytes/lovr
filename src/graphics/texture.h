@@ -11,6 +11,11 @@ typedef enum {
   FILTER_ANISOTROPIC
 } FilterMode;
 
+typedef struct {
+  FilterMode mode;
+  float anisotropy;
+} TextureFilter;
+
 typedef enum {
   WRAP_CLAMP = GL_CLAMP_TO_EDGE,
   WRAP_REPEAT = GL_REPEAT,
@@ -31,8 +36,7 @@ typedef struct {
   GLuint resolveFramebuffer;
   GLuint depthBuffer;
   TextureProjection projection;
-  FilterMode filter;
-  float anisotropy;
+  TextureFilter filter;
   WrapMode wrapHorizontal;
   WrapMode wrapVertical;
   int msaa;
@@ -48,7 +52,7 @@ void lovrTextureResolveMSAA(Texture* texture);
 void lovrTextureRefresh(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);
 int lovrTextureGetWidth(Texture* texture);
-void lovrTextureGetFilter(Texture* texture, FilterMode* filter, float* anisotropy);
-void lovrTextureSetFilter(Texture* texture, FilterMode filter, float anisotropy);
+TextureFilter lovrTextureGetFilter(Texture* texture);
+void lovrTextureSetFilter(Texture* texture, TextureFilter filter);
 void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertical);
 void lovrTextureSetWrap(Texture* texture, WrapMode horizontal, WrapMode vertical);

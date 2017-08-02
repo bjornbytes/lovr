@@ -332,21 +332,20 @@ int l_lovrGraphicsSetWireframe(lua_State* L) {
 }
 
 int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
-  FilterMode filter;
-  float anisotropy;
-  lovrGraphicsGetDefaultFilter(&filter, &anisotropy);
-  luax_pushenum(L, &FilterModes, filter);
-  if (filter == FILTER_ANISOTROPIC) {
-    lua_pushnumber(L, anisotropy);
+  TextureFilter filter = lovrGraphicsGetDefaultFilter();
+  luax_pushenum(L, &FilterModes, filter.mode);
+  if (filter.mode == FILTER_ANISOTROPIC) {
+    lua_pushnumber(L, filter.anisotropy);
     return 2;
   }
   return 1;
 }
 
 int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
-  FilterMode filter = *(FilterMode*) luax_checkenum(L, 1, &FilterModes, "filter mode");
+  FilterMode mode = *(FilterMode*) luax_checkenum(L, 1, &FilterModes, "filter mode");
   float anisotropy = luaL_optnumber(L, 2, 1.);
-  lovrGraphicsSetDefaultFilter(filter, anisotropy);
+  TextureFilter filter = { .mode = mode, .anisotropy = anisotropy };
+  lovrGraphicsSetDefaultFilter(filter);
   return 0;
 }
 

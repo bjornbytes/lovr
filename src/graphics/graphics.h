@@ -92,8 +92,7 @@ typedef struct {
   PolygonWinding polygonWinding;
   CompareMode depthTest;
   int isWireframe;
-  FilterMode defaultFilter;
-  float defaultAnisotropy;
+  TextureFilter defaultFilter;
   GraphicsLimits limits;
 } GraphicsState;
 
@@ -132,8 +131,8 @@ CompareMode lovrGraphicsGetDepthTest();
 void lovrGraphicsSetDepthTest(CompareMode depthTest);
 int lovrGraphicsIsWireframe();
 void lovrGraphicsSetWireframe(int wireframe);
-void lovrGraphicsGetDefaultFilter(FilterMode* filter, float* anisotropy);
-void lovrGraphicsSetDefaultFilter(FilterMode filter, float anisotropy);
+TextureFilter lovrGraphicsGetDefaultFilter();
+void lovrGraphicsSetDefaultFilter(TextureFilter filter);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
 GraphicsLimits lovrGraphicsGetLimits();

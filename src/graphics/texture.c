@@ -43,8 +43,7 @@ Texture* lovrTextureCreate(TextureData* textureData) {
   lovrGraphicsBindTexture(texture);
   lovrTextureCreateStorage(texture);
   lovrTextureRefresh(texture);
-  lovrGraphicsGetDefaultFilter(&texture->filter, &texture->anisotropy);
-  lovrTextureSetFilter(texture, texture->filter, texture->anisotropy);
+  lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
   lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
 
   return texture;
@@ -189,20 +188,17 @@ int lovrTextureGetWidth(Texture* texture) {
   return texture->textureData->width;
 }
 
-void lovrTextureGetFilter(Texture* texture, FilterMode* filter, float* anisotropy) {
-  *filter = texture->filter;
-  if (texture->filter == FILTER_ANISOTROPIC) {
-    *anisotropy = texture->anisotropy;
-  }
+TextureFilter lovrTextureGetFilter(Texture* texture) {
+  return texture->filter;
 }
 
-void lovrTextureSetFilter(Texture* texture, FilterMode filter, float anisotropy) {
+void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
   int hasMipmaps = texture->textureData->format.compressed || texture->textureData->mipmaps.generated;
+  float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
   lovrGraphicsBindTexture(texture);
   texture->filter = filter;
-  texture->anisotropy = filter == FILTER_ANISOTROPIC ? anisotropy : 1;
 
-  switch (filter) {
+  switch (filter.mode) {
     case FILTER_NEAREST:
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -230,7 +226,7 @@ void lovrTextureSetFilter(Texture* texture, FilterMode filter, float anisotropy)
       break;
   }
 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, MAX(anisotropy, 1.0));
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
 }
 
 void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertical) {
