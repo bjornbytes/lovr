@@ -486,17 +486,17 @@ void lovrGraphicsMatrixTransform(mat4 transform) {
 
 // Primitives
 
-void lovrGraphicsSetShapeData(float* data, int length) {
+static void lovrGraphicsSetShapeData(float* data, int length) {
   vec_clear(&state.shapeData);
   vec_pusharr(&state.shapeData, data, length);
 }
 
-void lovrGraphicsSetIndexData(unsigned int* data, int length) {
+static void lovrGraphicsSetIndexData(unsigned int* data, int length) {
   vec_clear(&state.shapeIndices);
   vec_pusharr(&state.shapeIndices, data, length);
 }
 
-void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, int useIndices) {
+static void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, int useIndices) {
   int stride = 3 + (hasNormals ? 3 : 0) + (hasTexCoords ? 2 : 0);
   int strideBytes = stride * sizeof(float);
 

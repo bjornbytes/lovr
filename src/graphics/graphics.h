@@ -156,9 +156,6 @@ void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsMatrixTransform(mat4 transform);
 
 // Primitives
-void lovrGraphicsSetShapeData(float* data, int length);
-void lovrGraphicsSetIndexData(unsigned int* data, int length);
-void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, int useIndices);
 void lovrGraphicsPoints(float* points, int count);
 void lovrGraphicsLine(float* points, int count);
 void lovrGraphicsTriangle(DrawMode mode, float* points);
