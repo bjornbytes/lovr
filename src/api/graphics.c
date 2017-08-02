@@ -263,36 +263,6 @@ int l_lovrGraphicsSetColorMask(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsGetScissor(lua_State* L) {
-  if (!lovrGraphicsIsScissorEnabled()) {
-    lua_pushnil(L);
-    return 1;
-  }
-
-  int x, y, width, height;
-  lovrGraphicsGetScissor(&x, &y, &width, &height);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, width);
-  lua_pushnumber(L, height);
-  return 4;
-}
-
-int l_lovrGraphicsSetScissor(lua_State* L) {
-  if (lua_gettop(L) <= 1 && lua_isnoneornil(L, 1)) {
-    lovrGraphicsSetScissorEnabled(0);
-    return 0;
-  }
-
-  int x = luaL_checkint(L, 1);
-  int y = luaL_checkint(L, 2);
-  int width = luaL_checkint(L, 3);
-  int height = luaL_checkint(L, 4);
-  lovrGraphicsSetScissor(x, y, width, height);
-  lovrGraphicsSetScissorEnabled(1);
-  return 0;
-}
-
 int l_lovrGraphicsGetShader(lua_State* L) {
   Shader* shader = lovrGraphicsGetShader();
   luax_pushtype(L, Shader, shader);
@@ -815,8 +785,6 @@ const luaL_Reg lovrGraphics[] = {
   { "setColor", l_lovrGraphicsSetColor },
   { "getColorMask", l_lovrGraphicsGetColorMask },
   { "setColorMask", l_lovrGraphicsSetColorMask },
-  { "getScissor", l_lovrGraphicsGetScissor },
-  { "setScissor", l_lovrGraphicsSetScissor },
   { "getShader", l_lovrGraphicsGetShader },
   { "setShader", l_lovrGraphicsSetShader },
   { "getFont", l_lovrGraphicsGetFont },

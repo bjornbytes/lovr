@@ -136,7 +136,6 @@ void lovrGraphicsReset() {
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor(255, 255, 255, 255);
   lovrGraphicsSetColorMask(1, 1, 1, 1);
-  lovrGraphicsSetScissorEnabled(0);
   lovrGraphicsSetLineWidth(1);
   lovrGraphicsSetPointSize(1);
   lovrGraphicsSetCullingEnabled(0);
@@ -254,36 +253,6 @@ void lovrGraphicsGetColorMask(char* r, char* g, char* b, char* a) {
 void lovrGraphicsSetColorMask(char r, char g, char b, char a) {
   state.colorMask = ((r & 1) << 0) | ((g & 1) << 1) | ((b & 1) << 2) | ((a & 1) << 3);
   glColorMask(r, g, b, a);
-}
-
-int lovrGraphicsIsScissorEnabled() {
-  return state.isScissorEnabled;
-}
-
-void lovrGraphicsSetScissorEnabled(int isEnabled) {
-  state.isScissorEnabled = isEnabled;
-  if (isEnabled) {
-    glEnable(GL_SCISSOR_TEST);
-  } else {
-    glDisable(GL_SCISSOR_TEST);
-  }
-}
-
-void lovrGraphicsGetScissor(int* x, int* y, int* width, int* height) {
-  *x = state.scissor.x;
-  *y = state.scissor.x;
-  *width = state.scissor.width;
-  *height = state.scissor.height;
-}
-
-void lovrGraphicsSetScissor(int x, int y, int width, int height) {
-  int windowWidth, windowHeight;
-  glfwGetFramebufferSize(state.window, &windowWidth, &windowHeight);
-  state.scissor.x = x;
-  state.scissor.x = y;
-  state.scissor.width = width;
-  state.scissor.height = height;
-  glScissor(x, windowHeight - y, width, height);
 }
 
 Shader* lovrGraphicsGetShader() {

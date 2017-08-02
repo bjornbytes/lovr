@@ -57,13 +57,6 @@ typedef enum {
 } GraphicsLimit;
 
 typedef struct {
-  int x;
-  int y;
-  int width;
-  int height;
-} ScissorRectangle;
-
-typedef struct {
   int framebuffer;
   float projection[16];
   int viewport[4];
@@ -88,8 +81,6 @@ typedef struct {
   char colorMask;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
-  int isScissorEnabled;
-  ScissorRectangle scissor;
   GLuint shapeArray;
   GLuint shapeBuffer;
   GLuint shapeIndexBuffer;
@@ -126,10 +117,6 @@ void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, 
 void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void lovrGraphicsGetColorMask(char* r, char* g, char* b, char* a);
 void lovrGraphicsSetColorMask(char r, char g, char b, char a);
-int lovrGraphicsIsScissorEnabled();
-void lovrGraphicsSetScissorEnabled(int isEnabled);
-void lovrGraphicsGetScissor(int* x, int* y, int* width, int* height);
-void lovrGraphicsSetScissor(int x, int y, int width, int height);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsEnsureFont();
