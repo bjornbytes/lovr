@@ -15,9 +15,9 @@ map_int_t HorizontalAligns;
 map_int_t MeshAttributeTypes;
 map_int_t MeshDrawModes;
 map_int_t MeshUsages;
-map_int_t PolygonWindings;
 map_int_t TextureProjections;
 map_int_t VerticalAligns;
+map_int_t Windings;
 map_int_t WrapModes;
 
 static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
@@ -123,10 +123,6 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&MeshUsages, "dynamic", MESH_DYNAMIC);
   map_set(&MeshUsages, "stream", MESH_STREAM);
 
-  map_init(&PolygonWindings);
-  map_set(&PolygonWindings, "clockwise", POLYGON_WINDING_CLOCKWISE);
-  map_set(&PolygonWindings, "counterclockwise", POLYGON_WINDING_COUNTERCLOCKWISE);
-
   map_init(&TextureProjections);
   map_set(&TextureProjections, "2d", PROJECTION_ORTHOGRAPHIC);
   map_set(&TextureProjections, "3d", PROJECTION_PERSPECTIVE);
@@ -135,6 +131,10 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&VerticalAligns, "top", ALIGN_TOP);
   map_set(&VerticalAligns, "bottom", ALIGN_BOTTOM);
   map_set(&VerticalAligns, "middle", ALIGN_MIDDLE);
+
+  map_init(&Windings);
+  map_set(&Windings, "clockwise", WINDING_CLOCKWISE);
+  map_set(&Windings, "counterclockwise", WINDING_COUNTERCLOCKWISE);
 
   map_init(&WrapModes);
   map_set(&WrapModes, "clamp", WRAP_CLAMP);
@@ -165,7 +165,7 @@ int l_lovrGraphicsPresent(lua_State* L) {
 // State
 
 int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
-  float r, g, b, a;
+  unsigned char r, g, b, a;
   lovrGraphicsGetBackgroundColor(&r, &g, &b, &a);
   lua_pushnumber(L, r);
   lua_pushnumber(L, g);
@@ -175,10 +175,11 @@ int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
 }
 
 int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
-  float r = luaL_checknumber(L, 1);
-  float g = luaL_checknumber(L, 2);
-  float b = luaL_checknumber(L, 3);
-  float a = luaL_optnumber(L, 4, 255.0);
+  unsigned char r, g, b, a;
+  r = luaL_checknumber(L, 1);
+  g = luaL_checknumber(L, 2);
+  b = luaL_checknumber(L, 3);
+  a = luaL_optnumber(L, 4, 255.0);
   lovrGraphicsSetBackgroundColor(r, g, b, a);
   return 0;
 }
@@ -239,28 +240,61 @@ int l_lovrGraphicsSetColor(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsGetShader(lua_State* L) {
-  Shader* shader = lovrGraphicsGetShader();
-  luax_pushtype(L, Shader, shader);
+int l_lovrGraphicsIsCullingEnabled(lua_State* L) {
+  lua_pushboolean(L, lovrGraphicsIsCullingEnabled());
   return 1;
 }
 
-int l_lovrGraphicsSetShader(lua_State* L) {
-  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Shader);
-  lovrGraphicsSetShader(shader);
+int l_lovrGraphicsSetCullingEnabled(lua_State* L) {
+  lovrGraphicsSetCullingEnabled(lua_toboolean(L, 1));
   return 0;
 }
 
-int l_lovrGraphicsGetFont(lua_State* L) {
-  Font* font = lovrGraphicsGetFont();
-  luax_pushtype(L, Font, font);
+int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
+  TextureFilter filter = lovrGraphicsGetDefaultFilter();
+  luax_pushenum(L, &FilterModes, filter.mode);
+  if (filter.mode == FILTER_ANISOTROPIC) {
+    lua_pushnumber(L, filter.anisotropy);
+    return 2;
+  }
   return 1;
 }
 
-int l_lovrGraphicsSetFont(lua_State* L) {
-  Font* font = luax_checktype(L, 1, Font);
-  lovrGraphicsSetFont(font);
+int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
+  FilterMode mode = *(FilterMode*) luax_checkenum(L, 1, &FilterModes, "filter mode");
+  float anisotropy = luaL_optnumber(L, 2, 1.);
+  TextureFilter filter = { .mode = mode, .anisotropy = anisotropy };
+  lovrGraphicsSetDefaultFilter(filter);
   return 0;
+}
+
+int l_lovrGraphicsGetDepthTest(lua_State* L) {
+  luax_pushenum(L, &CompareModes, lovrGraphicsGetDepthTest());
+  return 1;
+}
+
+int l_lovrGraphicsSetDepthTest(lua_State* L) {
+  if (lua_isnoneornil(L, 1)) {
+    lovrGraphicsSetDepthTest(COMPARE_NONE);
+  } else {
+    CompareMode* depthTest = (CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
+    lovrGraphicsSetDepthTest(*depthTest);
+  }
+  return 0;
+}
+
+int l_lovrGraphicsGetSystemLimits(lua_State* L) {
+  GraphicsLimits limits = lovrGraphicsGetLimits();
+  lua_newtable(L);
+  lua_pushnumber(L, limits.pointSizes[1]);
+  lua_setfield(L, -2, "pointsize");
+  lua_pushinteger(L, limits.textureSize);
+  lua_setfield(L, -2, "texturesize");
+  lua_pushinteger(L, limits.textureMSAA);
+  lua_setfield(L, -2, "texturemsaa");
+  lua_pushinteger(L, limits.textureAnisotropy);
+  lua_setfield(L, -2, "anisotropy");
+  return 1;
 }
 
 int l_lovrGraphicsGetLineWidth(lua_State* L) {
@@ -285,39 +319,14 @@ int l_lovrGraphicsSetPointSize(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsIsCullingEnabled(lua_State* L) {
-  lua_pushboolean(L, lovrGraphicsIsCullingEnabled());
+int l_lovrGraphicsGetWinding(lua_State* L) {
+  luax_pushenum(L, &Windings, lovrGraphicsGetWinding());
   return 1;
 }
 
-int l_lovrGraphicsSetCullingEnabled(lua_State* L) {
-  lovrGraphicsSetCullingEnabled(lua_toboolean(L, 1));
-  return 0;
-}
-
-int l_lovrGraphicsGetPolygonWinding(lua_State* L) {
-  luax_pushenum(L, &PolygonWindings, lovrGraphicsGetPolygonWinding());
-  return 1;
-}
-
-int l_lovrGraphicsSetPolygonWinding(lua_State* L) {
-  PolygonWinding* winding = (PolygonWinding*) luax_checkenum(L, 1, &PolygonWindings, "winding direction");
-  lovrGraphicsSetPolygonWinding(*winding);
-  return 0;
-}
-
-int l_lovrGraphicsGetDepthTest(lua_State* L) {
-  luax_pushenum(L, &CompareModes, lovrGraphicsGetDepthTest());
-  return 1;
-}
-
-int l_lovrGraphicsSetDepthTest(lua_State* L) {
-  if (lua_isnoneornil(L, 1)) {
-    lovrGraphicsSetDepthTest(COMPARE_NONE);
-  } else {
-    CompareMode* depthTest = (CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
-    lovrGraphicsSetDepthTest(*depthTest);
-  }
+int l_lovrGraphicsSetWinding(lua_State* L) {
+  Winding* winding = (Winding*) luax_checkenum(L, 1, &Windings, "winding");
+  lovrGraphicsSetWinding(*winding);
   return 0;
 }
 
@@ -331,21 +340,27 @@ int l_lovrGraphicsSetWireframe(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
-  TextureFilter filter = lovrGraphicsGetDefaultFilter();
-  luax_pushenum(L, &FilterModes, filter.mode);
-  if (filter.mode == FILTER_ANISOTROPIC) {
-    lua_pushnumber(L, filter.anisotropy);
-    return 2;
-  }
+int l_lovrGraphicsGetShader(lua_State* L) {
+  Shader* shader = lovrGraphicsGetShader();
+  luax_pushtype(L, Shader, shader);
   return 1;
 }
 
-int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
-  FilterMode mode = *(FilterMode*) luax_checkenum(L, 1, &FilterModes, "filter mode");
-  float anisotropy = luaL_optnumber(L, 2, 1.);
-  TextureFilter filter = { .mode = mode, .anisotropy = anisotropy };
-  lovrGraphicsSetDefaultFilter(filter);
+int l_lovrGraphicsSetShader(lua_State* L) {
+  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Shader);
+  lovrGraphicsSetShader(shader);
+  return 0;
+}
+
+int l_lovrGraphicsGetFont(lua_State* L) {
+  Font* font = lovrGraphicsGetFont();
+  luax_pushtype(L, Font, font);
+  return 1;
+}
+
+int l_lovrGraphicsSetFont(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  lovrGraphicsSetFont(font);
   return 0;
 }
 
@@ -363,20 +378,6 @@ int l_lovrGraphicsGetDimensions(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetWidth());
   lua_pushnumber(L, lovrGraphicsGetHeight());
   return 2;
-}
-
-int l_lovrGraphicsGetSystemLimits(lua_State* L) {
-  GraphicsLimits limits = lovrGraphicsGetLimits();
-  lua_newtable(L);
-  lua_pushnumber(L, limits.pointSizes[1]);
-  lua_setfield(L, -2, "pointsize");
-  lua_pushinteger(L, limits.textureSize);
-  lua_setfield(L, -2, "texturesize");
-  lua_pushinteger(L, limits.textureMSAA);
-  lua_setfield(L, -2, "texturemsaa");
-  lua_pushinteger(L, limits.textureAnisotropy);
-  lua_setfield(L, -2, "anisotropy");
-  return 1;
 }
 
 // Transforms
@@ -759,24 +760,28 @@ const luaL_Reg lovrGraphics[] = {
   { "setBlendMode", l_lovrGraphicsSetBlendMode },
   { "getColor", l_lovrGraphicsGetColor },
   { "setColor", l_lovrGraphicsSetColor },
-  { "getShader", l_lovrGraphicsGetShader },
-  { "setShader", l_lovrGraphicsSetShader },
-  { "getFont", l_lovrGraphicsGetFont },
-  { "setFont", l_lovrGraphicsSetFont },
+  { "isCullingEnabled", l_lovrGraphicsIsCullingEnabled },
+  { "setCullingEnabled", l_lovrGraphicsSetCullingEnabled },
+  { "getDepthTest", l_lovrGraphicsGetDepthTest },
+  { "setDepthTest", l_lovrGraphicsSetDepthTest },
+  { "getDefaultFilter", l_lovrGraphicsGetDefaultFilter },
+  { "setDefaultFilter", l_lovrGraphicsSetDefaultFilter },
+  { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
   { "getPointSize", l_lovrGraphicsGetPointSize },
   { "setPointSize", l_lovrGraphicsSetPointSize },
-  { "isCullingEnabled", l_lovrGraphicsIsCullingEnabled },
-  { "setCullingEnabled", l_lovrGraphicsSetCullingEnabled },
-  { "getPolygonWinding", l_lovrGraphicsGetPolygonWinding },
-  { "setPolygonWinding", l_lovrGraphicsSetPolygonWinding },
-  { "getDepthTest", l_lovrGraphicsGetDepthTest },
-  { "setDepthTest", l_lovrGraphicsSetDepthTest },
+  { "getWinding", l_lovrGraphicsGetWinding },
+  { "setWinding", l_lovrGraphicsSetWinding },
   { "isWireframe", l_lovrGraphicsIsWireframe },
   { "setWireframe", l_lovrGraphicsSetWireframe },
-  { "getDefaultFilter", l_lovrGraphicsGetDefaultFilter },
-  { "setDefaultFilter", l_lovrGraphicsSetDefaultFilter },
+  { "getShader", l_lovrGraphicsGetShader },
+  { "setShader", l_lovrGraphicsSetShader },
+  { "getFont", l_lovrGraphicsGetFont },
+  { "setFont", l_lovrGraphicsSetFont },
+  { "getWidth", l_lovrGraphicsGetWidth },
+  { "getHeight", l_lovrGraphicsGetHeight },
+  { "getDimensions", l_lovrGraphicsGetDimensions },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },
@@ -793,10 +798,6 @@ const luaL_Reg lovrGraphics[] = {
   { "cylinder", l_lovrGraphicsCylinder },
   { "sphere", l_lovrGraphicsSphere },
   { "print", l_lovrGraphicsPrint },
-  { "getWidth", l_lovrGraphicsGetWidth },
-  { "getHeight", l_lovrGraphicsGetHeight },
-  { "getDimensions", l_lovrGraphicsGetDimensions },
-  { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "newFont", l_lovrGraphicsNewFont },
   { "newMesh", l_lovrGraphicsNewMesh },
   { "newModel", l_lovrGraphicsNewModel },

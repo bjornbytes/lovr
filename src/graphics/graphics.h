@@ -35,9 +35,9 @@ typedef enum {
 } DrawMode;
 
 typedef enum {
-  POLYGON_WINDING_CLOCKWISE = GL_CW,
-  POLYGON_WINDING_COUNTERCLOCKWISE = GL_CCW
-} PolygonWinding;
+  WINDING_CLOCKWISE = GL_CW,
+  WINDING_COUNTERCLOCKWISE = GL_CCW
+} Winding;
 
 typedef enum {
   COMPARE_NONE = 0,
@@ -78,22 +78,24 @@ typedef struct {
   CanvasState canvases[MAX_CANVASES];
   int transform;
   int canvas;
-  unsigned int color;
-  BlendMode blendMode;
-  BlendAlphaMode blendAlphaMode;
   GLuint shapeArray;
   GLuint shapeBuffer;
   GLuint shapeIndexBuffer;
   vec_float_t shapeData;
   vec_uint_t shapeIndices;
+
+  unsigned int backgroundColor;
+  BlendMode blendMode;
+  BlendAlphaMode blendAlphaMode;
+  unsigned int color;
+  int culling;
+  TextureFilter defaultFilter;
+  CompareMode depthTest;
+  GraphicsLimits limits;
   float lineWidth;
   float pointSize;
-  int isCullingEnabled;
-  PolygonWinding polygonWinding;
-  CompareMode depthTest;
-  int isWireframe;
-  TextureFilter defaultFilter;
-  GraphicsLimits limits;
+  Winding winding;
+  int wireframe;
 } GraphicsState;
 
 // Base
@@ -105,12 +107,27 @@ void lovrGraphicsPresent();
 void lovrGraphicsPrepare();
 
 // State
-void lovrGraphicsGetBackgroundColor(float* r, float* g, float* b, float* a);
-void lovrGraphicsSetBackgroundColor(float r, float g, float b, float a);
+void lovrGraphicsGetBackgroundColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
+void lovrGraphicsSetBackgroundColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
 void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
 void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+int lovrGraphicsIsCullingEnabled();
+void lovrGraphicsSetCullingEnabled(int culling);
+TextureFilter lovrGraphicsGetDefaultFilter();
+void lovrGraphicsSetDefaultFilter(TextureFilter filter);
+CompareMode lovrGraphicsGetDepthTest();
+void lovrGraphicsSetDepthTest(CompareMode depthTest);
+GraphicsLimits lovrGraphicsGetLimits();
+float lovrGraphicsGetLineWidth();
+void lovrGraphicsSetLineWidth(float width);
+float lovrGraphicsGetPointSize();
+void lovrGraphicsSetPointSize(float size);
+Winding lovrGraphicsGetWinding();
+void lovrGraphicsSetWinding(Winding winding);
+int lovrGraphicsIsWireframe();
+void lovrGraphicsSetWireframe(int wireframe);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 Font* lovrGraphicsGetFont();
@@ -119,23 +136,8 @@ Texture* lovrGraphicsGetTexture();
 void lovrGraphicsBindTexture(Texture* texture);
 mat4 lovrGraphicsGetProjection();
 void lovrGraphicsSetProjection(mat4 projection);
-float lovrGraphicsGetLineWidth();
-void lovrGraphicsSetLineWidth(float width);
-float lovrGraphicsGetPointSize();
-void lovrGraphicsSetPointSize(float size);
-int lovrGraphicsIsCullingEnabled();
-void lovrGraphicsSetCullingEnabled(int isEnabled);
-PolygonWinding lovrGraphicsGetPolygonWinding();
-void lovrGraphicsSetPolygonWinding(PolygonWinding winding);
-CompareMode lovrGraphicsGetDepthTest();
-void lovrGraphicsSetDepthTest(CompareMode depthTest);
-int lovrGraphicsIsWireframe();
-void lovrGraphicsSetWireframe(int wireframe);
-TextureFilter lovrGraphicsGetDefaultFilter();
-void lovrGraphicsSetDefaultFilter(TextureFilter filter);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
-GraphicsLimits lovrGraphicsGetLimits();
 void lovrGraphicsPushCanvas();
 void lovrGraphicsPopCanvas();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);

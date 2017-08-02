@@ -129,7 +129,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetLineWidth(1);
   lovrGraphicsSetPointSize(1);
   lovrGraphicsSetCullingEnabled(0);
-  lovrGraphicsSetPolygonWinding(POLYGON_WINDING_COUNTERCLOCKWISE);
+  lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
   lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
   lovrGraphicsSetWireframe(0);
   lovrGraphicsOrigin();
@@ -153,17 +153,16 @@ void lovrGraphicsPrepare() {
 
 // State
 
-void lovrGraphicsGetBackgroundColor(float* r, float* g, float* b, float* a) {
-  GLfloat clearColor[4];
-  glGetFloatv(GL_COLOR_CLEAR_VALUE, clearColor);
-  *r = clearColor[0];
-  *g = clearColor[1];
-  *b = clearColor[2];
-  *a = clearColor[3];
+void lovrGraphicsGetBackgroundColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a) {
+  *r = LOVR_COLOR_R(state.backgroundColor);
+  *g = LOVR_COLOR_G(state.backgroundColor);
+  *b = LOVR_COLOR_B(state.backgroundColor);
+  *a = LOVR_COLOR_A(state.backgroundColor);
 }
 
-void lovrGraphicsSetBackgroundColor(float r, float g, float b, float a) {
-  glClearColor(r / 255, g / 255, b / 255, a / 255);
+void lovrGraphicsSetBackgroundColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+  state.backgroundColor = LOVR_COLOR(r, g, b, a);
+  glClearColor(r / 255., g / 255., b / 255., a / 255.);
 }
 
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
@@ -232,6 +231,99 @@ void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, uns
   state.color = LOVR_COLOR(r, g, b, a);
 }
 
+int lovrGraphicsIsCullingEnabled() {
+  return state.culling;
+}
+
+void lovrGraphicsSetCullingEnabled(int culling) {
+  if (culling != state.culling) {
+    state.culling = culling;
+    if (culling) {
+      glEnable(GL_CULL_FACE);
+    } else {
+      glDisable(GL_CULL_FACE);
+    }
+  }
+}
+
+TextureFilter lovrGraphicsGetDefaultFilter() {
+  return state.defaultFilter;
+}
+
+void lovrGraphicsSetDefaultFilter(TextureFilter filter) {
+  state.defaultFilter = filter;
+}
+
+CompareMode lovrGraphicsGetDepthTest() {
+  return state.depthTest;
+}
+
+void lovrGraphicsSetDepthTest(CompareMode depthTest) {
+  if (state.depthTest != depthTest) {
+    state.depthTest = depthTest;
+    glDepthFunc(depthTest);
+    if (depthTest) {
+      glEnable(GL_DEPTH_TEST);
+    } else {
+      glDisable(GL_DEPTH_TEST);
+    }
+  }
+}
+
+GraphicsLimits lovrGraphicsGetLimits() {
+  if (!state.limits.initialized) {
+    glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.limits.textureSize);
+    glGetIntegerv(GL_MAX_SAMPLES, &state.limits.textureMSAA);
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
+    state.limits.initialized = 1;
+  }
+
+  return state.limits;
+}
+
+float lovrGraphicsGetLineWidth() {
+  return state.lineWidth;
+}
+
+void lovrGraphicsSetLineWidth(float width) {
+  state.lineWidth = width;
+  glLineWidth(width);
+}
+
+float lovrGraphicsGetPointSize() {
+  return state.pointSize;
+}
+
+void lovrGraphicsSetPointSize(float size) {
+#ifndef EMSCRIPTEN
+  state.pointSize = size;
+  glPointSize(size);
+#endif
+}
+
+Winding lovrGraphicsGetWinding() {
+  return state.winding;
+}
+
+void lovrGraphicsSetWinding(Winding winding) {
+  state.winding = winding;
+  glFrontFace(winding);
+}
+
+int lovrGraphicsIsWireframe() {
+  return state.wireframe;
+}
+
+void lovrGraphicsSetWireframe(int wireframe) {
+#ifndef EMSCRIPTEN
+  if (state.wireframe != wireframe) {
+    state.wireframe = wireframe;
+    glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
+  }
+#endif
+}
+
 Shader* lovrGraphicsGetShader() {
   return state.activeShader;
 }
@@ -291,85 +383,6 @@ void lovrGraphicsSetProjection(mat4 projection) {
   memcpy(state.canvases[state.canvas].projection, projection, 16 * sizeof(float));
 }
 
-float lovrGraphicsGetLineWidth() {
-  return state.lineWidth;
-}
-
-void lovrGraphicsSetLineWidth(float width) {
-  state.lineWidth = width;
-  glLineWidth(width);
-}
-
-float lovrGraphicsGetPointSize() {
-  return state.pointSize;
-}
-
-void lovrGraphicsSetPointSize(float size) {
-#ifndef EMSCRIPTEN
-  state.pointSize = size;
-  glPointSize(size);
-#endif
-}
-
-int lovrGraphicsIsCullingEnabled() {
-  return state.isCullingEnabled;
-}
-
-void lovrGraphicsSetCullingEnabled(int isEnabled) {
-  state.isCullingEnabled = isEnabled;
-  if (isEnabled) {
-    glEnable(GL_CULL_FACE);
-  } else {
-    glDisable(GL_CULL_FACE);
-  }
-}
-
-PolygonWinding lovrGraphicsGetPolygonWinding() {
-  return state.polygonWinding;
-}
-
-void lovrGraphicsSetPolygonWinding(PolygonWinding winding) {
-  state.polygonWinding = winding;
-  glFrontFace(winding);
-}
-
-CompareMode lovrGraphicsGetDepthTest() {
-  return state.depthTest;
-}
-
-void lovrGraphicsSetDepthTest(CompareMode depthTest) {
-  if (state.depthTest != depthTest) {
-    state.depthTest = depthTest;
-    glDepthFunc(depthTest);
-    if (depthTest) {
-      glEnable(GL_DEPTH_TEST);
-    } else {
-      glDisable(GL_DEPTH_TEST);
-    }
-  }
-}
-
-int lovrGraphicsIsWireframe() {
-  return state.isWireframe;
-}
-
-void lovrGraphicsSetWireframe(int wireframe) {
-#ifndef EMSCRIPTEN
-  if (state.isWireframe != wireframe) {
-    state.isWireframe = wireframe;
-    glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
-  }
-#endif
-}
-
-TextureFilter lovrGraphicsGetDefaultFilter() {
-  return state.defaultFilter;
-}
-
-void lovrGraphicsSetDefaultFilter(TextureFilter filter) {
-  state.defaultFilter = filter;
-}
-
 int lovrGraphicsGetWidth() {
   int width, height;
   glfwGetFramebufferSize(state.window, &width, &height);
@@ -380,18 +393,6 @@ int lovrGraphicsGetHeight() {
   int width, height;
   glfwGetFramebufferSize(state.window, &width, &height);
   return height;
-}
-
-GraphicsLimits lovrGraphicsGetLimits() {
-  if (!state.limits.initialized) {
-    glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.limits.textureSize);
-    glGetIntegerv(GL_MAX_SAMPLES, &state.limits.textureMSAA);
-    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
-    state.limits.initialized = 1;
-  }
-
-  return state.limits;
 }
 
 void lovrGraphicsPushCanvas() {
