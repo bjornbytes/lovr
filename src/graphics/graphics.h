@@ -78,7 +78,6 @@ typedef struct {
   int transform;
   int canvas;
   unsigned int color;
-  char colorMask;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
   GLuint shapeArray;
@@ -115,8 +114,6 @@ void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
 void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a);
 void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
-void lovrGraphicsGetColorMask(char* r, char* g, char* b, char* a);
-void lovrGraphicsSetColorMask(char r, char g, char b, char a);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsEnsureFont();

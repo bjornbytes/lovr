@@ -239,30 +239,6 @@ int l_lovrGraphicsSetColor(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsGetColorMask(lua_State* L) {
-  char r, g, b, a;
-  lovrGraphicsGetColorMask(&r, &g, &b, &a);
-  lua_pushboolean(L, r);
-  lua_pushboolean(L, g);
-  lua_pushboolean(L, b);
-  lua_pushboolean(L, a);
-  return 4;
-}
-
-int l_lovrGraphicsSetColorMask(lua_State* L) {
-  if (lua_gettop(L) <= 1 && lua_isnoneornil(L, 1)) {
-    lovrGraphicsSetColorMask(1, 1, 1, 1);
-    return 0;
-  }
-
-  char r = lua_toboolean(L, 1);
-  char g = lua_toboolean(L, 2);
-  char b = lua_toboolean(L, 3);
-  char a = lua_toboolean(L, 4);
-  lovrGraphicsSetColorMask(r, g, b, a);
-  return 0;
-}
-
 int l_lovrGraphicsGetShader(lua_State* L) {
   Shader* shader = lovrGraphicsGetShader();
   luax_pushtype(L, Shader, shader);
@@ -783,8 +759,6 @@ const luaL_Reg lovrGraphics[] = {
   { "setBlendMode", l_lovrGraphicsSetBlendMode },
   { "getColor", l_lovrGraphicsGetColor },
   { "setColor", l_lovrGraphicsSetColor },
-  { "getColorMask", l_lovrGraphicsGetColorMask },
-  { "setColorMask", l_lovrGraphicsSetColorMask },
   { "getShader", l_lovrGraphicsGetShader },
   { "setShader", l_lovrGraphicsSetShader },
   { "getFont", l_lovrGraphicsGetFont },
