@@ -22,6 +22,14 @@ static void onCloseWindow(GLFWwindow* window) {
   }
 }
 
+static void lovrGraphicsEnsureFont() {
+  if (!state.activeFont && !state.defaultFont) {
+    FontData* fontData = lovrFontDataCreate(NULL, 32);
+    state.defaultFont = lovrFontCreate(fontData);
+    lovrGraphicsSetFont(state.defaultFont);
+  }
+}
+
 // Base
 
 void lovrGraphicsInit() {
@@ -244,14 +252,6 @@ void lovrGraphicsSetShader(Shader* shader) {
 
     state.activeShader = shader;
     lovrRetain(&state.activeShader->ref);
-  }
-}
-
-void lovrGraphicsEnsureFont() {
-  if (!state.activeFont && !state.defaultFont) {
-    FontData* fontData = lovrFontDataCreate(NULL, 32);
-    state.defaultFont = lovrFontCreate(fontData);
-    lovrGraphicsSetFont(state.defaultFont);
   }
 }
 

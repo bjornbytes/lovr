@@ -114,7 +114,6 @@ void lovrGraphicsGetColor(unsigned char* r, unsigned char* g, unsigned char* b, 
 void lovrGraphicsSetColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
-void lovrGraphicsEnsureFont();
 Font* lovrGraphicsGetFont();
 void lovrGraphicsSetFont(Font* font);
 Texture* lovrGraphicsGetTexture();
