@@ -367,14 +367,15 @@ int l_lovrGraphicsGetDimensions(lua_State* L) {
 }
 
 int l_lovrGraphicsGetSystemLimits(lua_State* L) {
+  GraphicsLimits limits = lovrGraphicsGetLimits();
   lua_newtable(L);
-  lua_pushnumber(L, lovrGraphicsGetSystemLimit(LIMIT_POINT_SIZE));
+  lua_pushnumber(L, limits.pointSizes[1]);
   lua_setfield(L, -2, "pointsize");
-  lua_pushinteger(L, lovrGraphicsGetSystemLimit(LIMIT_TEXTURE_SIZE));
+  lua_pushinteger(L, limits.textureSize);
   lua_setfield(L, -2, "texturesize");
-  lua_pushinteger(L, lovrGraphicsGetSystemLimit(LIMIT_TEXTURE_MSAA));
+  lua_pushinteger(L, limits.textureMSAA);
   lua_setfield(L, -2, "texturemsaa");
-  lua_pushinteger(L, lovrGraphicsGetSystemLimit(LIMIT_TEXTURE_ANISOTROPY));
+  lua_pushinteger(L, limits.textureAnisotropy);
   lua_setfield(L, -2, "anisotropy");
   return 1;
 }

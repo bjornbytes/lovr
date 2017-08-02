@@ -49,12 +49,13 @@ typedef enum {
   COMPARE_GREATER = GL_GREATER
 } CompareMode;
 
-typedef enum {
-  LIMIT_POINT_SIZE,
-  LIMIT_TEXTURE_SIZE,
-  LIMIT_TEXTURE_MSAA,
-  LIMIT_TEXTURE_ANISOTROPY
-} GraphicsLimit;
+typedef struct {
+  int initialized;
+  float pointSizes[2];
+  int textureSize;
+  int textureMSAA;
+  float textureAnisotropy;
+} GraphicsLimits;
 
 typedef struct {
   int framebuffer;
@@ -93,10 +94,7 @@ typedef struct {
   int isWireframe;
   FilterMode defaultFilter;
   float defaultAnisotropy;
-  float maxPointSize;
-  int maxTextureSize;
-  int maxTextureMSAA;
-  float maxTextureAnisotropy;
+  GraphicsLimits limits;
 } GraphicsState;
 
 // Base
@@ -140,7 +138,7 @@ void lovrGraphicsGetDefaultFilter(FilterMode* filter, float* anisotropy);
 void lovrGraphicsSetDefaultFilter(FilterMode filter, float anisotropy);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
-float lovrGraphicsGetSystemLimit(GraphicsLimit limit);
+GraphicsLimits lovrGraphicsGetLimits();
 void lovrGraphicsPushCanvas();
 void lovrGraphicsPopCanvas();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);

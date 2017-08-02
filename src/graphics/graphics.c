@@ -86,19 +86,6 @@ void lovrGraphicsInit() {
   state.fullscreenShader = lovrShaderCreate(lovrNoopVertexShader, lovrDefaultFragmentShader);
   state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA));
 
-  // System Limits
-  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.maxTextureSize);
-  glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.maxTextureAnisotropy);
-#ifdef EMSCRIPTEN
-  state.maxPointSize = 1.f;
-  state.maxTextureMSAA = 1;
-#else
-  float pointSizes[2];
-  glGetFloatv(GL_POINT_SIZE_RANGE, pointSizes);
-  state.maxPointSize = pointSizes[1];
-  glGetIntegerv(GL_MAX_SAMPLES, &state.maxTextureMSAA);
-#endif
-
   // State
   lovrGraphicsReset();
   atexit(lovrGraphicsDestroy);
@@ -411,14 +398,16 @@ int lovrGraphicsGetHeight() {
   return height;
 }
 
-float lovrGraphicsGetSystemLimit(GraphicsLimit limit) {
-  switch (limit) {
-    case LIMIT_POINT_SIZE: return state.maxPointSize;
-    case LIMIT_TEXTURE_SIZE: return state.maxTextureSize;
-    case LIMIT_TEXTURE_MSAA: return state.maxTextureMSAA;
-    case LIMIT_TEXTURE_ANISOTROPY: return state.maxTextureAnisotropy;
-    default: error("Unknown limit %d\n", limit);
+GraphicsLimits lovrGraphicsGetLimits() {
+  if (!state.limits.initialized) {
+    glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.limits.textureSize);
+    glGetIntegerv(GL_MAX_SAMPLES, &state.limits.textureMSAA);
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
+    state.limits.initialized = 1;
   }
+
+  return state.limits;
 }
 
 void lovrGraphicsPushCanvas() {
