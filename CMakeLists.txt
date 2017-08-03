@@ -48,8 +48,8 @@ else()
 endif()
 
 # enet
-set(HAVE_HAS_SOCKLEN_T TRUE CACHE BOOL "")
 if(EMSCRIPTEN)
+  set(HAVE_HAS_SOCKLEN_T TRUE CACHE BOOL "")
   add_definitions(-D__APPLE__)
   add_subdirectory(deps/enet enet)
   include_directories(deps/enet/include)
