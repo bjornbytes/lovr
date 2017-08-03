@@ -28,7 +28,7 @@ cd lovr
 git clone --recursive https://github.com/bjornbytes/lovr-deps deps
 ```
 
-Windows (CMake)
+Windows
 ---
 
 From the `lovr` folder, run these commands to create a build folder and compile the project using
@@ -45,7 +45,7 @@ The executable will then exist at `/path/to/lovr/build/Debug/lovr.exe`.  A LÖVR
 containing a `main.lua` script) can then be dropped onto `lovr.exe` to run it, or it can be run
 via the command line as `lovr.exe path/to/project`.
 
-Unix (CMake)
+Unix
 ---
 
 Install the dependencies using your package manager of choice:
@@ -69,6 +69,43 @@ symlink so that this executable exists on your path.  Once that's done, you can 
 ```sh
 lovr /path/to/myGame
 ```
+
+Linux
+---
+
+On Arch Linux, first install necessary dependencies:
+
+```sh
+pacman -S assimp glfw-x11 luajit physfs freetype2 openal ode
+```
+
+Then, build with CMake:
+
+```sh
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
+
+On Linux, LÖVR needs to run within the Steam Runtime.  To do this, first [install
+Steam](https://wiki.archlinux.org/index.php/Steam#Installation).  Next, [install the Steam udev
+rules](https://github.com/ValveSoftware/SteamVR-for-Linux#usb-device-requirements).  Then, run LÖVR
+within the Steam runtime:
+
+```sh
+~/.steam/steam/ubuntu12_32/steam-runtime/run.sh lovr
+```
+
+If you receive errors related to `libstdc++`, set the `LD_PRELOAD` environment variable when running
+the command:
+
+```sh
+LD_PRELOAD='/usr/$LIB/libstdc++.so.6 /usr/$LIB/libgcc_s.so.1' ~/.steam/steam/ubuntu12_32/steam-runtime/run.sh lovr
+```
+
+Currently, there are performance issues between SteamVR and OpenGL apps.  These are being rapidly
+resolved with newer versions of graphics drivers and SteamVR.
 
 WebVR
 ---
