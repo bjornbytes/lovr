@@ -177,6 +177,18 @@ const char* lovrHeadsetGetType() {
   return state.isInitialized ? "Vive" : NULL;
 }
 
+HeadsetOrigin lovrHeadsetGetOriginType() {
+  if (state.isInitialized) {
+    return ORIGIN_HEAD;
+  }
+
+  switch (state.compositor->GetTrackingSpace()) {
+    case ETrackingUniverseOrigin_TrackingUniverseSeated: return ORIGIN_HEAD;
+    case ETrackingUniverseOrigin_TrackingUniverseStanding: return ORIGIN_FLOOR;
+    default: return ORIGIN_HEAD;
+  }
+}
+
 int lovrHeadsetIsMirrored() {
   return state.isMirrored;
 }
@@ -625,7 +637,6 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
     // Render
     lovrTextureBindFramebuffer(state.texture);
     lovrGraphicsPush();
-    lovrGraphicsOrigin();
     lovrGraphicsMatrixTransform(transform);
     lovrGraphicsSetProjection(projection);
     lovrGraphicsClear(1, 1);

@@ -4,6 +4,7 @@
 map_int_t ControllerAxes;
 map_int_t ControllerButtons;
 map_int_t HeadsetEyes;
+map_int_t HeadsetOrigins;
 
 typedef struct {
   lua_State* L;
@@ -25,10 +26,6 @@ int l_lovrHeadsetInit(lua_State* L) {
   luaL_register(L, NULL, lovrHeadset);
   luax_registertype(L, "Controller", lovrController);
 
-  map_init(&HeadsetEyes);
-  map_set(&HeadsetEyes, "left", EYE_LEFT);
-  map_set(&HeadsetEyes, "right", EYE_RIGHT);
-
   map_init(&ControllerAxes);
   map_set(&ControllerAxes, "trigger", CONTROLLER_AXIS_TRIGGER);
   map_set(&ControllerAxes, "touchx", CONTROLLER_AXIS_TOUCHPAD_X);
@@ -40,6 +37,14 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&ControllerButtons, "grip", CONTROLLER_BUTTON_GRIP);
   map_set(&ControllerButtons, "touchpad", CONTROLLER_BUTTON_TOUCHPAD);
   map_set(&ControllerButtons, "trigger", CONTROLLER_BUTTON_TRIGGER);
+
+  map_init(&HeadsetEyes);
+  map_set(&HeadsetEyes, "left", EYE_LEFT);
+  map_set(&HeadsetEyes, "right", EYE_RIGHT);
+
+  map_init(&HeadsetOrigins);
+  map_set(&HeadsetOrigins, "head", ORIGIN_HEAD);
+  map_set(&HeadsetOrigins, "floor", ORIGIN_FLOOR);
 
   lovrHeadsetInit();
 
@@ -55,6 +60,11 @@ int l_lovrHeadsetIsPresent(lua_State* L) {
 
 int l_lovrHeadsetGetType(lua_State* L) {
   lua_pushstring(L, lovrHeadsetGetType());
+  return 1;
+}
+
+int l_lovrHeadsetGetOriginType(lua_State* L) {
+  luax_pushenum(L, &HeadsetOrigins, lovrHeadsetGetOriginType());
   return 1;
 }
 

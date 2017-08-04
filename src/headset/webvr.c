@@ -77,6 +77,10 @@ const char* lovrHeadsetGetType() {
   return emscripten_vr_get_display_name();
 }
 
+HeadsetOrigin lovrHeadsetGetOriginType() {
+  return emscripten_vr_has_stage() ? ORIGIN_FLOOR : ORIGIN_HEAD;
+}
+
 int lovrHeadsetIsMirrored() {
   return 1;
 }

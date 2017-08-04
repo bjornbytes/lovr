@@ -1,33 +1,3 @@
-function lovr.errhand(message)
-  message = 'Error:\n' .. message:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
-  print(message)
-  if not lovr.graphics then return end
-  lovr.graphics.reset()
-  lovr.graphics.setBackgroundColor(27, 25, 35)
-  lovr.graphics.setColor(220, 220, 220)
-  local font = lovr.graphics.getFont()
-  local pixelDensity = font:getPixelDensity()
-  local width = font:getWidth(message, .55 * pixelDensity)
-  local function render()
-    lovr.graphics.origin()
-    lovr.graphics.print(message, -width / 2, 0, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
-  end
-  while true do
-    lovr.event.pump()
-    for name in lovr.event.poll() do
-      if name == 'quit' then return end
-    end
-    lovr.graphics.clear()
-    if lovr.headset and lovr.headset.isPresent() then
-      lovr.headset.renderTo(render)
-    else
-      render()
-    end
-    lovr.graphics.present()
-    lovr.timer.sleep((lovr.headset and lovr.headset.isPresent()) and .001 or .1)
-  end
-end
-
 local conf = {
   modules = {
     audio = true,
@@ -39,9 +9,45 @@ local conf = {
     timer = true
   },
   headset = {
-    mirror = true
+    mirror = true,
+    offset = 1.6
   }
 }
+
+function lovr.errhand(message)
+  message = 'Error:\n' .. message:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
+  print(message)
+  if not lovr.graphics then return end
+  lovr.graphics.reset()
+  lovr.graphics.setBackgroundColor(27, 25, 35)
+  lovr.graphics.setColor(220, 220, 220)
+  if lovr.headset then
+    lovr.headset.setMirrored(false)
+  end
+  local font = lovr.graphics.getFont()
+  local pixelDensity = font:getPixelDensity()
+  local width = font:getWidth(message, .55 * pixelDensity)
+  local function render()
+    lovr.graphics.print(message, -width / 2, 1.6, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
+  end
+  while true do
+    lovr.event.pump()
+    for name in lovr.event.poll() do
+      if name == 'quit' then return end
+    end
+    lovr.graphics.clear()
+    lovr.graphics.origin()
+    if not lovr.headset or not lovr.headset.isPresent() or lovr.headset.getOriginType() == 'head' then
+      lovr.graphics.translate(0, -conf.headset.offset, 0)
+    end
+    if lovr.headset and lovr.headset.isPresent() and lovr.getOS() ~= 'Web' then
+      lovr.headset.renderTo(render)
+    end
+    render()
+    lovr.graphics.present()
+    lovr.timer.sleep((lovr.headset and lovr.headset.isPresent()) and .001 or .1)
+  end
+end
 
 lovr.filesystem = require('lovr.filesystem')
 
@@ -53,6 +59,8 @@ if not lovr.filesystem.getSource() or not runnable then
     t.modules.physics = false
   end
 
+  local logo, controllers
+
   function lovr.load()
     logo = lovr.graphics.newTexture(lovr.filesystem.newBlob(lovr._logo, 'logo.png'))
     lovr.graphics.setBackgroundColor(245, 252, 255)
@@ -60,35 +68,20 @@ if not lovr.filesystem.getSource() or not runnable then
   end
 
   function lovr.draw()
-    if lovr.headset and lovr.headset.isPresent() then
-      ground = ground or lovr.graphics.newMesh(lovr.headset.getBoundsGeometry())
+    lovr.graphics.setColor(255, 255, 255)
 
-      lovr.graphics.setColor(255, 255, 255)
-      ground:draw()
-
-      lovr.graphics.setColor(255, 255, 255)
-      for controller, model in pairs(controllers) do
-        local x, y, z = controller:getPosition()
-        model:draw(x, y, z, 1, controller:getOrientation())
-      end
-
-      if lovr.getOS() == 'Web' then
-        lovr.graphics.translate(0, .2, 0)
-      else
-        lovr.graphics.translate(0, 2, 0)
-      end
-    else
-      lovr.graphics.translate(0, .2, 0)
+    for controller, model in pairs(controllers) do
+      local x, y, z = controller:getPosition()
+      model:draw(x, y, z, 1, controller:getOrientation())
     end
 
     local padding = .1
     local font = lovr.graphics.getFont()
     local fade = 80 + 150 * math.abs(math.sin(lovr.timer.getTime() * 2))
-    local titlePosition = -.5 - padding
+    local titlePosition = 1.3 - padding
     local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
 
-    lovr.graphics.setColor(255, 255, 255)
-    lovr.graphics.plane(logo, 0, 0, -3, 1, 0, 0, 1)
+    lovr.graphics.plane(logo, 0, 1.8, -3, 1, 0, 0, 1)
     lovr.graphics.setColor(15, 15, 15)
     lovr.graphics.print('LÖVR', -.01, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
     lovr.graphics.setColor(15, 15, 15, fade)
@@ -96,9 +89,9 @@ if not lovr.filesystem.getSource() or not runnable then
   end
 
   function refreshControllers()
-    if not lovr.headset then return end
-
     controllers = {}
+
+    if not lovr.headset then return end
 
     for _, controller in pairs(lovr.headset.getControllers()) do
       controllers[controller] = controller:newModel()
@@ -176,6 +169,10 @@ function lovr.step()
     lovr.graphics.clear()
     lovr.graphics.origin()
     if lovr.draw then
+      if not lovr.headset or not lovr.headset.isPresent() or lovr.headset.getOriginType() == 'head' then
+        lovr.graphics.translate(0, -conf.headset.offset, 0)
+      end
+
       if lovr.headset and lovr.headset.isPresent() then
         lovr.headset.renderTo(lovr.draw)
       else
