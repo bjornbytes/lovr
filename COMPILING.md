@@ -45,7 +45,7 @@ The executable will then exist at `/path/to/lovr/build/Debug/lovr.exe`.  A LÖVR
 containing a `main.lua` script) can then be dropped onto `lovr.exe` to run it, or it can be run
 via the command line as `lovr.exe path/to/project`.
 
-Unix
+macOS
 ---
 
 Install the dependencies using your package manager of choice:
