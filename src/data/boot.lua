@@ -1,6 +1,7 @@
 function lovr.errhand(message)
   message = 'Error:\n' .. message:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
   print(message)
+  if not lovr.graphics then return end
   lovr.graphics.reset()
   lovr.graphics.setBackgroundColor(27, 25, 35)
   lovr.graphics.setColor(220, 220, 220)
@@ -171,16 +172,18 @@ function lovr.step()
     end
   end
   if lovr.update then lovr.update(dt) end
-  lovr.graphics.clear()
-  lovr.graphics.origin()
-  if lovr.draw then
-    if lovr.headset and lovr.headset.isPresent() then
-      lovr.headset.renderTo(lovr.draw)
-    else
-      lovr.draw()
+  if lovr.graphics then
+    lovr.graphics.clear()
+    lovr.graphics.origin()
+    if lovr.draw then
+      if lovr.headset and lovr.headset.isPresent() then
+        lovr.headset.renderTo(lovr.draw)
+      else
+        lovr.draw()
+      end
     end
+    lovr.graphics.present()
   end
-  lovr.graphics.present()
   lovr.timer.sleep(.001)
 end
 
