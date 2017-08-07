@@ -34,7 +34,6 @@ static void onRequestAnimationFrame(void* userdata) {
     mat4_multiply(transform, sittingToStanding);
 
     lovrGraphicsPush();
-    lovrGraphicsOrigin();
     lovrGraphicsMatrixTransform(transform);
     lovrGraphicsSetProjection(projection);
 
