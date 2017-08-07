@@ -28,7 +28,7 @@ function lovr.errhand(message)
   local pixelDensity = font:getPixelDensity()
   local width = font:getWidth(message, .55 * pixelDensity)
   local function render()
-    lovr.graphics.print(message, -width / 2, 1.6, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
+    lovr.graphics.print(message, -width / 2, conf.headset.offset, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
   end
   while true do
     lovr.event.pump()
