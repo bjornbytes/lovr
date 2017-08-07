@@ -178,7 +178,7 @@ const char* lovrHeadsetGetType() {
 }
 
 HeadsetOrigin lovrHeadsetGetOriginType() {
-  if (state.isInitialized) {
+  if (!state.isInitialized) {
     return ORIGIN_HEAD;
   }
 
