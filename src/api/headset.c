@@ -237,6 +237,7 @@ int l_lovrHeadsetRenderTo(lua_State* L) {
 const luaL_Reg lovrHeadset[] = {
   { "isPresent", l_lovrHeadsetIsPresent },
   { "getType", l_lovrHeadsetGetType },
+  { "getOriginType", l_lovrHeadsetGetOriginType },
   { "isMirrored", l_lovrHeadsetIsMirrored },
   { "setMirrored", l_lovrHeadsetSetMirrored },
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
