@@ -10,7 +10,7 @@ local conf = {
   },
   headset = {
     mirror = true,
-    offset = 1.6
+    offset = 1.7
   }
 }
 
