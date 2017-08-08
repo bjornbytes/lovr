@@ -349,21 +349,6 @@ void lovrGraphicsSetWireframe(int wireframe) {
 #endif
 }
 
-Texture* lovrGraphicsGetTexture() {
-  return state.activeTexture;
-}
-
-void lovrGraphicsBindTexture(Texture* texture) {
-  if (!texture) {
-    texture = state.defaultTexture;
-  }
-
-  if (texture != state.activeTexture) {
-    state.activeTexture = texture;
-    glBindTexture(GL_TEXTURE_2D, texture->id);
-  }
-}
-
 int lovrGraphicsGetWidth() {
   int width, height;
   glfwGetFramebufferSize(state.window, &width, &height);
@@ -983,6 +968,21 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 }
 
 // Internal State
+Texture* lovrGraphicsGetTexture() {
+  return state.texture;
+}
+
+void lovrGraphicsBindTexture(Texture* texture) {
+  if (!texture) {
+    texture = state.defaultTexture;
+  }
+
+  if (texture != state.texture) {
+    state.texture = texture;
+    glBindTexture(GL_TEXTURE_2D, texture->id);
+  }
+}
+
 void lovrGraphicsBindVertexArray(uint32_t vertexArray) {
   if (state.vertexArray != vertexArray) {
     state.vertexArray = vertexArray;

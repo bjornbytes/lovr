@@ -70,7 +70,6 @@ typedef struct {
   Shader* fontShader;
   Shader* fullscreenShader;
   Font* defaultFont;
-  Texture* activeTexture;
   Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
   CanvasState canvases[MAX_CANVASES];
@@ -100,6 +99,7 @@ typedef struct {
     vec_uint_t indices;
   } buffer;
 
+  Texture* texture;
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   uint32_t indexBuffer;
@@ -139,8 +139,6 @@ Winding lovrGraphicsGetWinding();
 void lovrGraphicsSetWinding(Winding winding);
 int lovrGraphicsIsWireframe();
 void lovrGraphicsSetWireframe(int wireframe);
-Texture* lovrGraphicsGetTexture();
-void lovrGraphicsBindTexture(Texture* texture);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
 void lovrGraphicsPushCanvas();
@@ -172,6 +170,8 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 
 // Internal State
+Texture* lovrGraphicsGetTexture();
+void lovrGraphicsBindTexture(Texture* texture);
 void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
 void lovrGraphicsBindIndexBuffer(uint32_t ibo);
