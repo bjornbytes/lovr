@@ -364,14 +364,6 @@ void lovrGraphicsBindTexture(Texture* texture) {
   }
 }
 
-mat4 lovrGraphicsGetProjection() {
-  return state.canvases[state.canvas].projection;
-}
-
-void lovrGraphicsSetProjection(mat4 projection) {
-  memcpy(state.canvases[state.canvas].projection, projection, 16 * sizeof(float));
-}
-
 int lovrGraphicsGetWidth() {
   int width, height;
   glfwGetFramebufferSize(state.window, &width, &height);
@@ -445,6 +437,14 @@ void lovrGraphicsScale(float x, float y, float z) {
 
 void lovrGraphicsMatrixTransform(mat4 transform) {
   mat4_multiply(state.transforms[state.transform], transform);
+}
+
+mat4 lovrGraphicsGetProjection() {
+  return state.canvases[state.canvas].projection;
+}
+
+void lovrGraphicsSetProjection(mat4 projection) {
+  memcpy(state.canvases[state.canvas].projection, projection, 16 * sizeof(float));
 }
 
 // Primitives

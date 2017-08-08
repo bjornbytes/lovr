@@ -137,8 +137,6 @@ int lovrGraphicsIsWireframe();
 void lovrGraphicsSetWireframe(int wireframe);
 Texture* lovrGraphicsGetTexture();
 void lovrGraphicsBindTexture(Texture* texture);
-mat4 lovrGraphicsGetProjection();
-void lovrGraphicsSetProjection(mat4 projection);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
 void lovrGraphicsPushCanvas();
@@ -154,6 +152,8 @@ void lovrGraphicsTranslate(float x, float y, float z);
 void lovrGraphicsRotate(float angle, float ax, float ay, float az);
 void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsMatrixTransform(mat4 transform);
+mat4 lovrGraphicsGetProjection();
+void lovrGraphicsSetProjection(mat4 projection);
 
 // Primitives
 void lovrGraphicsPoints(float* points, int count);
