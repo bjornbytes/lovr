@@ -403,8 +403,10 @@ void lovrGraphicsSetViewport(int x, int y, int w, int h) {
 }
 
 void lovrGraphicsBindFramebuffer(int framebuffer) {
-  state.canvases[state.canvas].framebuffer = framebuffer;
-  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+  if (state.canvases[state.canvas].framebuffer != framebuffer) {
+    state.canvases[state.canvas].framebuffer = framebuffer;
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+  }
 }
 
 // Transforms
