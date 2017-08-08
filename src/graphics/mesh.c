@@ -9,7 +9,7 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
     return;
   }
 
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+  lovrGraphicsBindVertexBuffer(mesh->vbo);
 
   size_t offset = 0;
   int i;
@@ -87,7 +87,7 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+  lovrGraphicsBindVertexBuffer(mesh->vbo);
   glBufferData(GL_ARRAY_BUFFER, mesh->count * mesh->stride, NULL, mesh->usage);
   glGenVertexArrays(1, &mesh->vao);
 
@@ -123,12 +123,12 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
   lovrGraphicsMatrixTransform(transform);
   lovrGraphicsBindTexture(mesh->texture);
   lovrGraphicsPrepare();
-  glBindVertexArray(mesh->vao);
+  lovrGraphicsBindVertexArray(mesh->vao);
   lovrMeshBindAttributes(mesh);
   size_t start = mesh->rangeStart;
   size_t count = mesh->rangeCount;
   if (mesh->map.length > 0) {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
+    lovrGraphicsBindIndexBuffer(mesh->ibo);
     glDrawElements(mesh->drawMode, mesh->map.length, GL_UNSIGNED_INT, (GLvoid*) start);
   } else {
     glDrawArrays(mesh->drawMode, start, count);
@@ -168,7 +168,7 @@ void lovrMeshSetVertexMap(Mesh* mesh, unsigned int* map, size_t count) {
   } else {
     vec_clear(&mesh->map);
     vec_pusharr(&mesh->map, map, count);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
+    lovrGraphicsBindIndexBuffer(mesh->ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(unsigned int), mesh->map.data, GL_STATIC_DRAW);
   }
 }
@@ -268,7 +268,7 @@ void* lovrMeshMap(Mesh* mesh, int start, size_t count, int read, int write) {
   access |= read ? GL_MAP_READ_BIT : 0;
   access |= write ? GL_MAP_WRITE_BIT : 0;
   access |= (write && start == 0 && count == mesh->count) ? GL_MAP_INVALIDATE_BUFFER_BIT : 0;
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+  lovrGraphicsBindVertexBuffer(mesh->vbo);
   return glMapBufferRange(GL_ARRAY_BUFFER, start * mesh->stride, count * mesh->stride, access);
 #endif
 }
@@ -279,7 +279,7 @@ void lovrMeshUnmap(Mesh* mesh) {
   }
 
   mesh->isMapped = 0;
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+  lovrGraphicsBindVertexBuffer(mesh->vbo);
 
 #ifdef EMSCRIPTEN
   int start = mesh->mapStart * mesh->stride;

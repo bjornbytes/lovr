@@ -468,8 +468,8 @@ static void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoo
   unsigned int* indices = state.buffer.indices.data;
 
   lovrGraphicsPrepare();
-  glBindVertexArray(state.buffer.vao);
-  glBindBuffer(GL_ARRAY_BUFFER, state.buffer.vbo);
+  lovrGraphicsBindVertexArray(state.buffer.vao);
+  lovrGraphicsBindVertexBuffer(state.buffer.vbo);
   glBufferData(GL_ARRAY_BUFFER, state.buffer.data.length * sizeof(float), data, GL_STREAM_DRAW);
   glEnableVertexAttribArray(LOVR_SHADER_POSITION);
   glVertexAttribPointer(LOVR_SHADER_POSITION, 3, GL_FLOAT, GL_FALSE, strideBytes, (void*) 0);
@@ -490,14 +490,12 @@ static void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoo
   }
 
   if (useIndices) {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state.buffer.ibo);
+    lovrGraphicsBindIndexBuffer(state.buffer.ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, state.buffer.indices.length * sizeof(unsigned int), indices, GL_STREAM_DRAW);
     glDrawElements(mode, state.buffer.indices.length, GL_UNSIGNED_INT, NULL);
   } else {
     glDrawArrays(mode, 0, state.buffer.data.length / stride);
   }
-
-  glBindVertexArray(0);
 }
 
 void lovrGraphicsPoints(float* points, int count) {
@@ -981,5 +979,27 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   if (lastShader == state.defaultShader) {
     lovrGraphicsSetShader(lastShader);
     lovrRelease(&lastShader->ref);
+  }
+}
+
+// Internal State
+void lovrGraphicsBindVertexArray(uint32_t vertexArray) {
+  if (state.vertexArray != vertexArray) {
+    state.vertexArray = vertexArray;
+    glBindVertexArray(vertexArray);
+  }
+}
+
+void lovrGraphicsBindVertexBuffer(uint32_t vertexBuffer) {
+  if (state.vertexBuffer != vertexBuffer) {
+    state.vertexBuffer = vertexBuffer;
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+  }
+}
+
+void lovrGraphicsBindIndexBuffer(uint32_t indexBuffer) {
+  if (state.indexBuffer != indexBuffer) {
+    state.indexBuffer = indexBuffer;
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
   }
 }

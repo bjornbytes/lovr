@@ -77,14 +77,6 @@ typedef struct {
   int transform;
   int canvas;
 
-  struct {
-    GLuint vao;
-    GLuint vbo;
-    GLuint ibo;
-    vec_float_t data;
-    vec_uint_t indices;
-  } buffer;
-
   Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
@@ -99,6 +91,18 @@ typedef struct {
   Shader* shader;
   Winding winding;
   int wireframe;
+
+  struct {
+    GLuint vao;
+    GLuint vbo;
+    GLuint ibo;
+    vec_float_t data;
+    vec_uint_t indices;
+  } buffer;
+
+  uint32_t vertexArray;
+  uint32_t vertexBuffer;
+  uint32_t indexBuffer;
 } GraphicsState;
 
 // Base
@@ -166,3 +170,8 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
 void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments);
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+
+// Internal State
+void lovrGraphicsBindVertexArray(uint32_t vao);
+void lovrGraphicsBindVertexBuffer(uint32_t vbo);
+void lovrGraphicsBindIndexBuffer(uint32_t ibo);
