@@ -1,12 +1,6 @@
 #include "api/lovr.h"
 #include "graphics/graphics.h"
 
-int l_lovrTextureBind(lua_State* L) {
-  Texture* texture = luax_checktype(L, 1, Texture);
-  lovrGraphicsBindTexture(texture);
-  return 0;
-}
-
 int l_lovrTextureGetDimensions(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lua_pushnumber(L, lovrTextureGetWidth(texture));
@@ -75,7 +69,6 @@ int l_lovrTextureSetWrap(lua_State* L) {
 }
 
 const luaL_Reg lovrTexture[] = {
-  { "bind", l_lovrTextureBind },
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getFilter", l_lovrTextureGetFilter },
   { "getHeight", l_lovrTextureGetHeight },
