@@ -296,6 +296,26 @@ void lovrGraphicsSetPointSize(float size) {
 #endif
 }
 
+Shader* lovrGraphicsGetShader() {
+  return state.shader;
+}
+
+void lovrGraphicsSetShader(Shader* shader) {
+  if (!shader) {
+    shader = state.defaultShader;
+  }
+
+  if (shader != state.shader) {
+    if (state.shader) {
+      lovrRelease(&state.shader->ref);
+    }
+
+    state.shader = shader;
+    glUseProgram(shader->id);
+    lovrRetain(&state.shader->ref);
+  }
+}
+
 Winding lovrGraphicsGetWinding() {
   return state.winding;
 }
@@ -316,25 +336,6 @@ void lovrGraphicsSetWireframe(int wireframe) {
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
   }
 #endif
-}
-
-Shader* lovrGraphicsGetShader() {
-  return state.activeShader;
-}
-
-void lovrGraphicsSetShader(Shader* shader) {
-  if (!shader) {
-    shader = state.defaultShader;
-  }
-
-  if (shader != state.activeShader) {
-    if (state.activeShader) {
-      lovrRelease(&state.activeShader->ref);
-    }
-
-    state.activeShader = shader;
-    lovrRetain(&state.activeShader->ref);
-  }
 }
 
 Font* lovrGraphicsGetFont() {

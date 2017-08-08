@@ -196,13 +196,6 @@ void lovrShaderDestroy(const Ref* ref) {
 
 void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, Color color, int force) {
 
-  // Bind shader if necessary
-  int program;
-  glGetIntegerv(GL_CURRENT_PROGRAM, &program);
-  if (program != shader->id) {
-    glUseProgram(shader->id);
-  }
-
   // Update transform if necessary
   if (force || memcmp(shader->transform, transform, 16 * sizeof(float))) {
     int uniformId = lovrShaderGetUniformId(shader, "lovrTransform");

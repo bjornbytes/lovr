@@ -65,7 +65,6 @@ typedef struct {
 
 typedef struct {
   GLFWwindow* window;
-  Shader* activeShader;
   Shader* defaultShader;
   Shader* skyboxShader;
   Shader* fontShader;
@@ -97,6 +96,7 @@ typedef struct {
   GraphicsLimits limits;
   float lineWidth;
   float pointSize;
+  Shader* shader;
   Winding winding;
   int wireframe;
 } GraphicsState;
