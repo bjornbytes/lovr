@@ -22,14 +22,6 @@ static void onCloseWindow(GLFWwindow* window) {
   }
 }
 
-static void lovrGraphicsEnsureFont() {
-  if (!state.activeFont && !state.defaultFont) {
-    FontData* fontData = lovrFontDataCreate(NULL, 32);
-    state.defaultFont = lovrFontCreate(fontData);
-    lovrGraphicsSetFont(state.defaultFont);
-  }
-}
-
 // Base
 
 void lovrGraphicsInit() {
@@ -70,9 +62,6 @@ void lovrGraphicsInit() {
 #endif
 
   // Allocations
-  state.activeFont = NULL;
-  state.defaultFont = NULL;
-  state.activeTexture = NULL;
   glGenBuffers(1, &state.buffer.vbo);
   glGenBuffers(1, &state.buffer.ibo);
   glGenVertexArrays(1, &state.buffer.vao);
@@ -264,6 +253,28 @@ void lovrGraphicsSetDepthTest(CompareMode depthTest) {
   }
 }
 
+Font* lovrGraphicsGetFont() {
+  if (!state.font && !state.defaultFont) {
+    FontData* fontData = lovrFontDataCreate(NULL, 32);
+    state.defaultFont = lovrFontCreate(fontData);
+    lovrGraphicsSetFont(state.defaultFont);
+  }
+
+  return state.font;
+}
+
+void lovrGraphicsSetFont(Font* font) {
+  if (state.font) {
+    lovrRelease(&state.font->ref);
+  }
+
+  state.font = font;
+
+  if (font) {
+    lovrRetain(&state.font->ref);
+  }
+}
+
 GraphicsLimits lovrGraphicsGetLimits() {
   if (!state.limits.initialized) {
     glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
@@ -336,23 +347,6 @@ void lovrGraphicsSetWireframe(int wireframe) {
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
   }
 #endif
-}
-
-Font* lovrGraphicsGetFont() {
-  lovrGraphicsEnsureFont();
-  return state.activeFont;
-}
-
-void lovrGraphicsSetFont(Font* font) {
-  if (state.activeFont) {
-    lovrRelease(&state.activeFont->ref);
-  }
-
-  state.activeFont = font;
-
-  if (font) {
-    lovrRetain(&state.activeFont->ref);
-  }
 }
 
 Texture* lovrGraphicsGetTexture() {
@@ -969,8 +963,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
     lovrGraphicsSetShader(state.fontShader);
   }
 
-  lovrGraphicsEnsureFont();
-  Font* font = state.activeFont;
+  Font* font = lovrGraphicsGetFont();
   float scale = 1 / font->pixelDensity;
   float offsety;
   lovrFontRender(font, str, wrap, halign, valign, &state.buffer.data, &offsety);
