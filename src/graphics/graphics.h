@@ -72,9 +72,7 @@ typedef struct {
   Font* defaultFont;
   Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
-  CanvasState canvases[MAX_CANVASES];
   int transform;
-  int canvas;
 
   Color backgroundColor;
   BlendMode blendMode;
@@ -99,6 +97,8 @@ typedef struct {
     vec_uint_t indices;
   } buffer;
 
+  CanvasState canvases[MAX_CANVASES];
+  int canvas;
   Texture* texture;
   uint32_t vertexArray;
   uint32_t vertexBuffer;
@@ -141,10 +141,6 @@ int lovrGraphicsIsWireframe();
 void lovrGraphicsSetWireframe(int wireframe);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
-void lovrGraphicsPushCanvas();
-void lovrGraphicsPopCanvas();
-void lovrGraphicsSetViewport(int x, int y, int w, int h);
-void lovrGraphicsBindFramebuffer(int framebuffer);
 
 // Transforms
 int lovrGraphicsPush();
@@ -154,8 +150,6 @@ void lovrGraphicsTranslate(float x, float y, float z);
 void lovrGraphicsRotate(float angle, float ax, float ay, float az);
 void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsMatrixTransform(mat4 transform);
-mat4 lovrGraphicsGetProjection();
-void lovrGraphicsSetProjection(mat4 projection);
 
 // Primitives
 void lovrGraphicsPoints(float* points, int count);
@@ -170,6 +164,12 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 
 // Internal State
+void lovrGraphicsPushCanvas();
+void lovrGraphicsPopCanvas();
+mat4 lovrGraphicsGetProjection();
+void lovrGraphicsSetProjection(mat4 projection);
+void lovrGraphicsSetViewport(int x, int y, int w, int h);
+void lovrGraphicsBindFramebuffer(int framebuffer);
 Texture* lovrGraphicsGetTexture();
 void lovrGraphicsBindTexture(Texture* texture);
 void lovrGraphicsBindVertexArray(uint32_t vao);

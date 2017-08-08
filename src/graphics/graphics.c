@@ -361,39 +361,6 @@ int lovrGraphicsGetHeight() {
   return height;
 }
 
-void lovrGraphicsPushCanvas() {
-  if (++state.canvas >= MAX_CANVASES) {
-    error("Canvas overflow");
-  }
-
-  memcpy(&state.canvases[state.canvas], &state.canvases[state.canvas - 1], sizeof(CanvasState));
-}
-
-void lovrGraphicsPopCanvas() {
-  if (--state.canvas < 0) {
-    error("Canvas underflow");
-  }
-
-  int* viewport = state.canvases[state.canvas].viewport;
-  lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  lovrGraphicsBindFramebuffer(state.canvases[state.canvas].framebuffer);
-}
-
-void lovrGraphicsSetViewport(int x, int y, int w, int h) {
-  state.canvases[state.canvas].viewport[0] = x;
-  state.canvases[state.canvas].viewport[1] = y;
-  state.canvases[state.canvas].viewport[2] = w;
-  state.canvases[state.canvas].viewport[3] = h;
-  glViewport(x, y, w, h);
-}
-
-void lovrGraphicsBindFramebuffer(int framebuffer) {
-  if (state.canvases[state.canvas].framebuffer != framebuffer) {
-    state.canvases[state.canvas].framebuffer = framebuffer;
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-  }
-}
-
 // Transforms
 
 int lovrGraphicsPush() {
@@ -424,14 +391,6 @@ void lovrGraphicsScale(float x, float y, float z) {
 
 void lovrGraphicsMatrixTransform(mat4 transform) {
   mat4_multiply(state.transforms[state.transform], transform);
-}
-
-mat4 lovrGraphicsGetProjection() {
-  return state.canvases[state.canvas].projection;
-}
-
-void lovrGraphicsSetProjection(mat4 projection) {
-  memcpy(state.canvases[state.canvas].projection, projection, 16 * sizeof(float));
 }
 
 // Primitives
@@ -968,6 +927,47 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 }
 
 // Internal State
+void lovrGraphicsPushCanvas() {
+  if (++state.canvas >= MAX_CANVASES) {
+    error("Canvas overflow");
+  }
+
+  memcpy(&state.canvases[state.canvas], &state.canvases[state.canvas - 1], sizeof(CanvasState));
+}
+
+void lovrGraphicsPopCanvas() {
+  if (--state.canvas < 0) {
+    error("Canvas underflow");
+  }
+
+  int* viewport = state.canvases[state.canvas].viewport;
+  lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+  lovrGraphicsBindFramebuffer(state.canvases[state.canvas].framebuffer);
+}
+
+mat4 lovrGraphicsGetProjection() {
+  return state.canvases[state.canvas].projection;
+}
+
+void lovrGraphicsSetProjection(mat4 projection) {
+  memcpy(state.canvases[state.canvas].projection, projection, 16 * sizeof(float));
+}
+
+void lovrGraphicsSetViewport(int x, int y, int w, int h) {
+  state.canvases[state.canvas].viewport[0] = x;
+  state.canvases[state.canvas].viewport[1] = y;
+  state.canvases[state.canvas].viewport[2] = w;
+  state.canvases[state.canvas].viewport[3] = h;
+  glViewport(x, y, w, h);
+}
+
+void lovrGraphicsBindFramebuffer(int framebuffer) {
+  if (state.canvases[state.canvas].framebuffer != framebuffer) {
+    state.canvases[state.canvas].framebuffer = framebuffer;
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+  }
+}
+
 Texture* lovrGraphicsGetTexture() {
   return state.texture;
 }
