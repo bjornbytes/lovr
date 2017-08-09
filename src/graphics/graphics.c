@@ -85,8 +85,8 @@ void lovrGraphicsInit() {
 }
 
 void lovrGraphicsDestroy() {
-  lovrGraphicsSetFont(NULL);
   lovrGraphicsSetShader(NULL);
+  lovrGraphicsSetFont(NULL);
   glUseProgram(0);
   if (state.defaultFont) {
     lovrRelease(&state.defaultFont->ref);
@@ -134,10 +134,9 @@ void lovrGraphicsPresent() {
 }
 
 void lovrGraphicsPrepare() {
-  Shader* shader = lovrGraphicsGetShader();
   mat4 transform = state.transforms[state.transform];
   mat4 projection = state.canvases[state.canvas].projection;
-  lovrShaderBind(shader, transform, projection, state.color, 0);
+  lovrShaderBind(state.shader, transform, projection, state.color, 0);
 }
 
 // State

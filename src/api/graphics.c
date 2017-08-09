@@ -352,7 +352,7 @@ int l_lovrGraphicsGetFont(lua_State* L) {
 }
 
 int l_lovrGraphicsSetFont(lua_State* L) {
-  Font* font = luax_checktype(L, 1, Font);
+  Font* font = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Font);
   lovrGraphicsSetFont(font);
   return 0;
 }
