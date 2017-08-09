@@ -149,6 +149,8 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
     *offsety = lineCount * font->fontData->height * font->lineHeight * .5f;
   } else if (valign == ALIGN_BOTTOM) {
     *offsety = lineCount * font->fontData->height * font->lineHeight;
+  } else {
+    *offsety = 0;
   }
 }
 

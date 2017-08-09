@@ -1,4 +1,5 @@
 #include "graphics/shader.h"
+#include "graphics/graphics.h"
 #include "math/mat4.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,7 +62,7 @@ const char* lovrSkyboxVertexShader = ""
 
 const char* lovrSkyboxFragmentShader = ""
 "in vec3 texturePosition; \n"
-"uniform samplerCube cube; \n"
+"uniform samplerCube cube = 1; \n"
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  return graphicsColor * texture(cube, texturePosition); \n"
 "}";
@@ -139,7 +140,7 @@ GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
   return shader;
 }
 
-Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
+Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource, int isDefault) {
   Shader* shader = lovrAlloc(sizeof(Shader), lovrShaderDestroy);
   if (!shader) return NULL;
 
@@ -180,6 +181,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   mat4_identity(shader->transform);
   mat4_identity(shader->projection);
   shader->color = (Color) { 0, 0, 0, 0 };
+  shader->isDefault = isDefault;
 
   // Send initial uniform values to shader
   lovrGraphicsSetShader(shader);

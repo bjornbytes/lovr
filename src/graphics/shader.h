@@ -28,6 +28,7 @@ typedef struct {
   float transform[16];
   float projection[16];
   Color color;
+  int isDefault;
 } Shader;
 
 extern const char* lovrShaderVertexPrefix;
@@ -42,7 +43,7 @@ extern const char* lovrNoopVertexShader;
 GLuint compileShader(GLuint type, const char* source);
 GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader);
 
-Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
+Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource, int isDefault);
 void lovrShaderDestroy(const Ref* ref);
 void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, Color color, int force);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
