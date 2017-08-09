@@ -81,6 +81,7 @@ static const char* lovrFontFragmentShader = ""
 
 static const char* lovrNoopVertexShader = ""
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
+"  texCoord.y = 1 - texCoord.y; \n"
 "  return vertex; \n"
 "}";
 
