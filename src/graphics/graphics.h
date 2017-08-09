@@ -73,7 +73,6 @@ typedef struct {
   Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
   int transform;
-
   Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
@@ -88,15 +87,11 @@ typedef struct {
   Shader* shader;
   Winding winding;
   int wireframe;
-
-  struct {
-    GLuint vao;
-    GLuint vbo;
-    GLuint ibo;
-    vec_float_t data;
-    vec_uint_t indices;
-  } buffer;
-
+  uint32_t streamVAO;
+  uint32_t streamVBO;
+  uint32_t streamIBO;
+  vec_float_t streamData;
+  vec_uint_t streamIndices;
   CanvasState canvases[MAX_CANVASES];
   int canvas;
   Texture* texture;

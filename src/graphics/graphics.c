@@ -62,11 +62,11 @@ void lovrGraphicsInit() {
 #endif
 
   // Allocations
-  glGenBuffers(1, &state.buffer.vbo);
-  glGenBuffers(1, &state.buffer.ibo);
-  glGenVertexArrays(1, &state.buffer.vao);
-  vec_init(&state.buffer.data);
-  vec_init(&state.buffer.indices);
+  glGenBuffers(1, &state.streamVBO);
+  glGenBuffers(1, &state.streamIBO);
+  glGenVertexArrays(1, &state.streamVAO);
+  vec_init(&state.streamData);
+  vec_init(&state.streamIndices);
 
   // Objects
   state.depthTest = -1;
@@ -95,11 +95,11 @@ void lovrGraphicsDestroy() {
   lovrRelease(&state.skyboxShader->ref);
   lovrRelease(&state.fullscreenShader->ref);
   lovrRelease(&state.defaultTexture->ref);
-  glDeleteBuffers(1, &state.buffer.vbo);
-  glDeleteBuffers(1, &state.buffer.ibo);
-  glDeleteVertexArrays(1, &state.buffer.vao);
-  vec_deinit(&state.buffer.data);
-  vec_deinit(&state.buffer.indices);
+  glDeleteBuffers(1, &state.streamVBO);
+  glDeleteBuffers(1, &state.streamIBO);
+  glDeleteVertexArrays(1, &state.streamVAO);
+  vec_deinit(&state.streamData);
+  vec_deinit(&state.streamIndices);
 }
 
 void lovrGraphicsReset() {
@@ -395,25 +395,25 @@ void lovrGraphicsMatrixTransform(mat4 transform) {
 // Primitives
 
 static void lovrGraphicsSetShapeData(float* data, int length) {
-  vec_clear(&state.buffer.data);
-  vec_pusharr(&state.buffer.data, data, length);
+  vec_clear(&state.streamData);
+  vec_pusharr(&state.streamData, data, length);
 }
 
 static void lovrGraphicsSetIndexData(unsigned int* data, int length) {
-  vec_clear(&state.buffer.indices);
-  vec_pusharr(&state.buffer.indices, data, length);
+  vec_clear(&state.streamIndices);
+  vec_pusharr(&state.streamIndices, data, length);
 }
 
 static void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoords, int useIndices) {
   int stride = 3 + (hasNormals ? 3 : 0) + (hasTexCoords ? 2 : 0);
   int strideBytes = stride * sizeof(float);
-  float* data = state.buffer.data.data;
-  unsigned int* indices = state.buffer.indices.data;
+  float* data = state.streamData.data;
+  unsigned int* indices = state.streamIndices.data;
 
   lovrGraphicsPrepare();
-  lovrGraphicsBindVertexArray(state.buffer.vao);
-  lovrGraphicsBindVertexBuffer(state.buffer.vbo);
-  glBufferData(GL_ARRAY_BUFFER, state.buffer.data.length * sizeof(float), data, GL_STREAM_DRAW);
+  lovrGraphicsBindVertexArray(state.streamVAO);
+  lovrGraphicsBindVertexBuffer(state.streamVBO);
+  glBufferData(GL_ARRAY_BUFFER, state.streamData.length * sizeof(float), data, GL_STREAM_DRAW);
   glEnableVertexAttribArray(LOVR_SHADER_POSITION);
   glVertexAttribPointer(LOVR_SHADER_POSITION, 3, GL_FLOAT, GL_FALSE, strideBytes, (void*) 0);
 
@@ -433,11 +433,11 @@ static void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoo
   }
 
   if (useIndices) {
-    lovrGraphicsBindIndexBuffer(state.buffer.ibo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, state.buffer.indices.length * sizeof(unsigned int), indices, GL_STREAM_DRAW);
-    glDrawElements(mode, state.buffer.indices.length, GL_UNSIGNED_INT, NULL);
+    lovrGraphicsBindIndexBuffer(state.streamIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, state.streamIndices.length * sizeof(unsigned int), indices, GL_STREAM_DRAW);
+    glDrawElements(mode, state.streamIndices.length, GL_UNSIGNED_INT, NULL);
   } else {
-    glDrawArrays(mode, 0, state.buffer.data.length / stride);
+    glDrawArrays(mode, 0, state.streamData.length / stride);
   }
 }
 
@@ -620,15 +620,15 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
   int dataSize = stride * ((capped && r1) * (segments + 2) + (capped && r2) * (segments + 2) + 2 * (segments + 1));
   int indexSize = 3 * segments * ((capped && r1) + (capped && r2) + 2);
 
-  vec_clear(&state.buffer.data);
-  vec_reserve(&state.buffer.data, dataSize);
-  state.buffer.data.length = 0;
-  float* data = state.buffer.data.data;
+  vec_clear(&state.streamData);
+  vec_reserve(&state.streamData, dataSize);
+  state.streamData.length = 0;
+  float* data = state.streamData.data;
 
-  vec_clear(&state.buffer.indices);
-  vec_reserve(&state.buffer.indices, indexSize);
-  state.buffer.indices.length = 0;
-  unsigned int* indices = state.buffer.indices.data;
+  vec_clear(&state.streamIndices);
+  vec_reserve(&state.streamIndices, indexSize);
+  state.streamIndices.length = 0;
+  unsigned int* indices = state.streamIndices.data;
 
   vec3_init(p, n);
 
@@ -647,20 +647,20 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
   vec3_normalize(axis);
 
 #define PUSH_CYLINDER_VERTEX(x, y, z, nx, ny, nz) \
-  data[state.buffer.data.length++] = x; \
-  data[state.buffer.data.length++] = y; \
-  data[state.buffer.data.length++] = z; \
-  data[state.buffer.data.length++] = nx; \
-  data[state.buffer.data.length++] = ny; \
-  data[state.buffer.data.length++] = nz;
+  data[state.streamData.length++] = x; \
+  data[state.streamData.length++] = y; \
+  data[state.streamData.length++] = z; \
+  data[state.streamData.length++] = nx; \
+  data[state.streamData.length++] = ny; \
+  data[state.streamData.length++] = nz;
 
 #define PUSH_CYLINDER_TRIANGLE(i1, i2, i3) \
-  indices[state.buffer.indices.length++] = i1; \
-  indices[state.buffer.indices.length++] = i2; \
-  indices[state.buffer.indices.length++] = i3;
+  indices[state.streamIndices.length++] = i1; \
+  indices[state.streamIndices.length++] = i2; \
+  indices[state.streamIndices.length++] = i3;
 
   // Ring
-  int ringOffset = state.buffer.data.length / 6;
+  int ringOffset = state.streamData.length / 6;
   for (int i = 0; i <= segments; i++) {
     float theta = i * (2 * M_PI) / segments;
 
@@ -673,7 +673,7 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
   }
 
   // Top
-  int topOffset = state.buffer.data.length / 6;
+  int topOffset = state.streamData.length / 6;
   if (capped && r1 != 0) {
     PUSH_CYLINDER_VERTEX(x1, y1, z1, axis[0], axis[1], axis[2]);
 
@@ -684,7 +684,7 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
   }
 
   // Bottom
-  int bottomOffset = state.buffer.data.length / 6;
+  int bottomOffset = state.streamData.length / 6;
   if (capped && r2 != 0) {
     PUSH_CYLINDER_VERTEX(x2, y2, z2, -axis[0], -axis[1], -axis[2]);
 
@@ -716,8 +716,8 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
 }
 
 void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* skybox) {
-  vec_clear(&state.buffer.data);
-  vec_clear(&state.buffer.indices);
+  vec_clear(&state.streamData);
+  vec_clear(&state.streamIndices);
 
   for (int i = 0; i <= segments; i++) {
     float v = i / (float) segments;
@@ -728,18 +728,18 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* 
       float y = cos(v * M_PI);
       float z = sin(u * 2 * M_PI) * sin(v * M_PI);
 
-      vec_push(&state.buffer.data, x);
-      vec_push(&state.buffer.data, y);
-      vec_push(&state.buffer.data, z);
+      vec_push(&state.streamData, x);
+      vec_push(&state.streamData, y);
+      vec_push(&state.streamData, z);
 
       if (!skybox) {
-        vec_push(&state.buffer.data, x);
-        vec_push(&state.buffer.data, y);
-        vec_push(&state.buffer.data, z);
+        vec_push(&state.streamData, x);
+        vec_push(&state.streamData, y);
+        vec_push(&state.streamData, z);
       }
 
-      vec_push(&state.buffer.data, u);
-      vec_push(&state.buffer.data, v);
+      vec_push(&state.streamData, u);
+      vec_push(&state.streamData, v);
     }
   }
 
@@ -749,12 +749,12 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* 
     for (int j = 0; j < segments; j++) {
       unsigned int index0 = offset0 + j;
       unsigned int index1 = offset1 + j;
-      vec_push(&state.buffer.indices, index0);
-      vec_push(&state.buffer.indices, index1);
-      vec_push(&state.buffer.indices, index0 + 1);
-      vec_push(&state.buffer.indices, index1);
-      vec_push(&state.buffer.indices, index1 + 1);
-      vec_push(&state.buffer.indices, index0 + 1);
+      vec_push(&state.streamIndices, index0);
+      vec_push(&state.streamIndices, index1);
+      vec_push(&state.streamIndices, index0 + 1);
+      vec_push(&state.streamIndices, index1);
+      vec_push(&state.streamIndices, index1 + 1);
+      vec_push(&state.streamIndices, index0 + 1);
     }
   }
 
@@ -859,7 +859,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   Font* font = lovrGraphicsGetFont();
   float scale = 1 / font->pixelDensity;
   float offsety;
-  lovrFontRender(font, str, wrap, halign, valign, &state.buffer.data, &offsety);
+  lovrFontRender(font, str, wrap, halign, valign, &state.streamData, &offsety);
 
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(transform);
