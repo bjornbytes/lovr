@@ -122,6 +122,7 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(transform);
   lovrGraphicsBindTexture(mesh->texture);
+  lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsPrepare();
   lovrGraphicsBindVertexArray(mesh->vao);
   lovrMeshBindAttributes(mesh);
