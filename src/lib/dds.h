@@ -4,6 +4,8 @@
 
 #pragma once
 
+// Modified from ddsparse (https://bitbucket.org/slime73/ddsparse)
+
 typedef enum DDPF {
   DDPF_ALPHAPIXELS = 0x000001,
   DDPF_ALPHA       = 0x000002,

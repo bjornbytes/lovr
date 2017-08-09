@@ -42,6 +42,7 @@ const TextureFormat FORMAT_DXT5 = {
 
 #define FOUR_CC(a, b, c, d) ((uint32_t) (((d)<<24) | ((c)<<16) | ((b)<<8) | (a)))
 
+// Modified from ddsparse (https://bitbucket.org/slime73/ddsparse)
 static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
   if (size < sizeof(uint32_t) + sizeof(DDSHeader) || *(uint32_t*) data != FOUR_CC('D', 'D', 'S', ' ')) {
     return 1;
