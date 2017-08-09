@@ -764,7 +764,6 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments) {
 }
 
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az) {
-  lovrGraphicsPrepare();
   lovrGraphicsPush();
   lovrGraphicsOrigin();
   lovrGraphicsRotate(angle, ax, ay, az);

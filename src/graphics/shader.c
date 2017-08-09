@@ -182,6 +182,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   shader->color = (Color) { 0, 0, 0, 0 };
 
   // Send initial uniform values to shader
+  lovrGraphicsSetShader(shader);
   lovrShaderBind(shader, shader->transform, shader->projection, shader->color, 1);
 
   return shader;
