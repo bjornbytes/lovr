@@ -4,8 +4,8 @@
 #include <stdio.h>
 
 static void lovrMeshBindAttributes(Mesh* mesh) {
-  Shader* shader = lovrGraphicsGetShader();
-  if (!shader || (shader == mesh->lastShader && !mesh->attributesDirty)) {
+  Shader* shader = lovrGraphicsGetActiveShader();
+  if (shader == mesh->lastShader && !mesh->attributesDirty) {
     return;
   }
 

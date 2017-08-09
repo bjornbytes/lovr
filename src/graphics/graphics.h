@@ -62,16 +62,10 @@ typedef struct {
   int viewport[4];
 } CanvasState;
 
-typedef enum {
-  SHADER_DEFAULT,
-  SHADER_SKYBOX,
-  SHADER_FONT,
-  SHADER_FULLSCREEN
-} DefaultShader;
-
 typedef struct {
   GLFWwindow* window;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
+  DefaultShader defaultShader;
   Font* defaultFont;
   Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
@@ -97,8 +91,8 @@ typedef struct {
   vec_uint_t streamIndices;
   CanvasState canvases[MAX_CANVASES];
   int canvas;
-  DefaultShader defaultShader;
   Texture* texture;
+  uint32_t program;
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   uint32_t indexBuffer;
@@ -171,7 +165,9 @@ void lovrGraphicsSetViewport(int x, int y, int w, int h);
 void lovrGraphicsBindFramebuffer(int framebuffer);
 Texture* lovrGraphicsGetTexture();
 void lovrGraphicsBindTexture(Texture* texture);
+void lovrGraphicsSetDefaultShader(DefaultShader defaultShader);
+Shader* lovrGraphicsGetActiveShader();
+void lovrGraphicsBindProgram(uint32_t program);
 void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
 void lovrGraphicsBindIndexBuffer(uint32_t ibo);
-void lovrGraphicsSetDefaultShader(DefaultShader defaultShader);

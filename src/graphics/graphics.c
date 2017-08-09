@@ -122,9 +122,16 @@ void lovrGraphicsPresent() {
 }
 
 void lovrGraphicsPrepare() {
+  Shader* shader = lovrGraphicsGetActiveShader();
+
+  if (!shader) {
+    shader = state.defaultShaders[state.defaultShader] = lovrShaderCreateDefault(state.defaultShader);
+  }
+
   mat4 transform = state.transforms[state.transform];
   mat4 projection = state.canvases[state.canvas].projection;
-  lovrShaderBind(state.shader, transform, projection, state.color, 0);
+  lovrGraphicsBindProgram(shader->id);
+  lovrShaderBind(shader, transform, projection, state.color, 0);
 }
 
 // State
@@ -310,10 +317,7 @@ void lovrGraphicsSetShader(Shader* shader) {
     state.shader = shader;
 
     if (shader) {
-      glUseProgram(shader->id);
       lovrRetain(&state.shader->ref);
-    } else {
-      glUseProgram(0);
     }
   }
 }
@@ -470,7 +474,6 @@ void lovrGraphicsTriangle(DrawMode mode, float* points) {
 }
 
 void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
-  lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(transform);
 
@@ -483,6 +486,7 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
     };
 
     lovrGraphicsBindTexture(NULL);
+    lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetShapeData(points, 12);
     lovrGraphicsDrawPrimitive(GL_LINE_LOOP, 0, 0, 0);
   } else if (mode == DRAW_MODE_FILL) {
@@ -494,6 +498,7 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
     };
 
     lovrGraphicsBindTexture(texture);
+    lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetShapeData(data, 32);
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 1, 1, 0);
   }
@@ -542,6 +547,7 @@ void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
     };
 
     lovrGraphicsBindTexture(NULL);
+    lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetShapeData(points, 24);
     lovrGraphicsSetIndexData(indices, 24);
     lovrGraphicsDrawPrimitive(GL_LINES, 0, 0, 1);
@@ -589,6 +595,7 @@ void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
     };
 
     lovrGraphicsBindTexture(texture);
+    lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetShapeData(data, 208);
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 1, 1, 0);
   }
@@ -597,7 +604,6 @@ void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
 }
 
 void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, int capped, int segments) {
-  lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   float axis[3] = { x1 - x2, y1 - y2, z1 - z2 };
   float n[3] = { x1 - x2, y1 - y2, z1 - z2 };
   float p[3];
@@ -697,13 +703,13 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
   }
 
   lovrGraphicsBindTexture(NULL);
+  lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 0, 1);
 #undef PUSH_CYLINDER_VERTEX
 #undef PUSH_CYLINDER_TRIANGLE
 }
 
 void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* skybox) {
-  lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   vec_clear(&state.streamData);
   vec_clear(&state.streamIndices);
 
@@ -745,6 +751,8 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* 
       vec_push(&state.streamIndices, index0 + 1);
     }
   }
+
+  lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
 
   if (skybox) {
     Texture* oldTexture = lovrGraphicsGetTexture();
@@ -885,26 +893,6 @@ void lovrGraphicsBindFramebuffer(int framebuffer) {
   }
 }
 
-void lovrGraphicsSetDefaultShader(DefaultShader defaultShader) {
-  if (state.defaultShader == defaultShader || (state.shader && !state.shader->isDefault)) {
-    return;
-  }
-
-  if (!state.defaultShaders[defaultShader]) {
-    Shader* shader;
-    switch (defaultShader) {
-      case SHADER_DEFAULT: shader = lovrShaderCreate(lovrDefaultVertexShader, lovrDefaultFragmentShader, 1); break;
-      case SHADER_SKYBOX: shader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader, 1); break;
-      case SHADER_FONT: shader = lovrShaderCreate(lovrDefaultVertexShader, lovrFontFragmentShader, 1); break;
-      case SHADER_FULLSCREEN: shader = lovrShaderCreate(lovrNoopVertexShader, lovrDefaultFragmentShader, 1); break;
-    }
-    state.defaultShaders[defaultShader] = shader;
-  }
-
-  state.defaultShader = defaultShader;
-  lovrGraphicsSetShader(state.defaultShaders[defaultShader]);
-}
-
 Texture* lovrGraphicsGetTexture() {
   return state.texture;
 }
@@ -921,6 +909,21 @@ void lovrGraphicsBindTexture(Texture* texture) {
   if (texture != state.texture) {
     state.texture = texture;
     glBindTexture(GL_TEXTURE_2D, texture->id);
+  }
+}
+
+void lovrGraphicsSetDefaultShader(DefaultShader shader) {
+  state.defaultShader = shader;
+}
+
+Shader* lovrGraphicsGetActiveShader() {
+  return state.shader ? state.shader : state.defaultShaders[state.defaultShader];
+}
+
+void lovrGraphicsBindProgram(uint32_t program) {
+  if (state.program != program) {
+    state.program = program;
+    glUseProgram(program);
   }
 }
 
