@@ -137,7 +137,7 @@ void lovrTextureBindFramebuffer(Texture* texture) {
     float k = (c - 1.f) / (c + 1.f);
     float near = (d * (1.f - k)) / (2.f * k);
     float far = k * near;
-    float fov = 2.f * atan(1.f / b);
+    float fov = -2.f * atan(1.f / b);
     float newProjection[16];
     mat4_perspective(newProjection, near, far, fov, aspect);
     lovrGraphicsSetProjection(newProjection);
@@ -146,6 +146,7 @@ void lovrTextureBindFramebuffer(Texture* texture) {
 
 void lovrTextureResolveMSAA(Texture* texture) {
   if (!texture->msaa) {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return;
   }
 
