@@ -129,7 +129,6 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
   size_t start = mesh->rangeStart;
   size_t count = mesh->rangeCount;
   if (mesh->map.length > 0) {
-    lovrGraphicsBindIndexBuffer(mesh->ibo);
     glDrawElements(mesh->drawMode, mesh->map.length, GL_UNSIGNED_INT, (GLvoid*) start);
   } else {
     glDrawArrays(mesh->drawMode, start, count);
@@ -169,6 +168,7 @@ void lovrMeshSetVertexMap(Mesh* mesh, unsigned int* map, size_t count) {
   } else {
     vec_clear(&mesh->map);
     vec_pusharr(&mesh->map, map, count);
+    lovrGraphicsBindVertexArray(mesh->vao);
     lovrGraphicsBindIndexBuffer(mesh->ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(unsigned int), mesh->map.data, GL_STATIC_DRAW);
   }
