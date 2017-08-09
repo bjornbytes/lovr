@@ -715,7 +715,7 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
 #undef PUSH_CYLINDER_TRIANGLE
 }
 
-void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments) {
+void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* skybox) {
   vec_clear(&state.buffer.data);
   vec_clear(&state.buffer.indices);
 
@@ -732,9 +732,11 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments) {
       vec_push(&state.buffer.data, y);
       vec_push(&state.buffer.data, z);
 
-      vec_push(&state.buffer.data, x);
-      vec_push(&state.buffer.data, y);
-      vec_push(&state.buffer.data, z);
+      if (!skybox) {
+        vec_push(&state.buffer.data, x);
+        vec_push(&state.buffer.data, y);
+        vec_push(&state.buffer.data, z);
+      }
 
       vec_push(&state.buffer.data, u);
       vec_push(&state.buffer.data, v);
@@ -756,21 +758,30 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments) {
     }
   }
 
-  lovrGraphicsBindTexture(texture);
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
-  lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 1, 1);
-  lovrGraphicsPop();
+  if (skybox) {
+    Texture* oldTexture = lovrGraphicsGetTexture();
+    glBindTexture(GL_TEXTURE_2D, skybox->texture);
+    lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 1);
+    glBindTexture(GL_TEXTURE_2D, oldTexture->id);
+  } else {
+    lovrGraphicsBindTexture(texture);
+    lovrGraphicsPush();
+    lovrGraphicsMatrixTransform(transform);
+    lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 1, 1);
+    lovrGraphicsPop();
+  }
 }
 
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az) {
   lovrGraphicsPush();
   lovrGraphicsOrigin();
   lovrGraphicsRotate(angle, ax, ay, az);
+  glDepthMask(GL_FALSE);
+  int wasCulling = lovrGraphicsIsCullingEnabled();
+  lovrGraphicsSetCullingEnabled(0);
 
   if (skybox->type == SKYBOX_CUBE) {
     Shader* lastShader = lovrGraphicsGetShader();
-
     if (lastShader == state.defaultShader) {
       lovrRetain(&lastShader->ref);
       lovrGraphicsSetShader(state.skyboxShader);
@@ -819,82 +830,22 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
     };
 
     lovrGraphicsSetShapeData(cube, 78);
-
-    glDepthMask(GL_FALSE);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_CUBE_MAP, skybox->texture);
-
-    int wasCulling = lovrGraphicsIsCullingEnabled();
-    lovrGraphicsSetCullingEnabled(0);
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 0, 0, 0);
-    lovrGraphicsSetCullingEnabled(wasCulling);
-
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
     glActiveTexture(GL_TEXTURE0);
-    glDepthMask(GL_TRUE);
 
     if (lastShader == state.defaultShader) {
       lovrGraphicsSetShader(lastShader);
       lovrRelease(&lastShader->ref);
     }
   } else if (skybox->type == SKYBOX_PANORAMA) {
-    int resolution = 40;
-    int idx = 0;
-    float sphere[8610]; // (resolution + 1) * (resolution + 1) * 5
-
-    for (int i = 0; i <= resolution; i++) {
-      float theta = i * M_PI / (float) resolution;
-      float sinTheta = sin(theta);
-      float cosTheta = cos(theta);
-
-      for (int j = 0; j <= resolution; j++) {
-        float phi = j * 2 * M_PI / (float) resolution;
-        float sinPhi = sin(phi);
-        float cosPhi = cos(phi);
-
-        float x = sinPhi * sinTheta;
-        float y = cosTheta;
-        float z = -cosPhi * sinTheta;
-        float u = j / (float) resolution;
-        float v = i / (float) resolution;
-
-        sphere[idx++] = x;
-        sphere[idx++] = y;
-        sphere[idx++] = z;
-        sphere[idx++] = u;
-        sphere[idx++] = v;
-      }
-    }
-
-    idx = 0;
-    unsigned int indices[9600]; // resolution * resolution * 6
-    for (int i = 0; i < resolution; i++) {
-      unsigned int offset0 = i * (resolution + 1);
-      unsigned int offset1 = (i + 1) * (resolution + 1);
-      for (int j = 0; j < resolution; j++) {
-        unsigned int index0 = offset0 + j;
-        unsigned int index1 = offset1 + j;
-        indices[idx++] = index0;
-        indices[idx++] = index1;
-        indices[idx++] = index0 + 1;
-        indices[idx++] = index1;
-        indices[idx++] = index1 + 1;
-        indices[idx++] = index0 + 1;
-      }
-    }
-
-    Texture* oldTexture = lovrGraphicsGetTexture();
-    glBindTexture(GL_TEXTURE_2D, skybox->texture);
-
-    lovrGraphicsSetShapeData(sphere, 8610);
-    lovrGraphicsSetIndexData(indices, 9600);
-    glDepthMask(GL_FALSE);
-    lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 1);
-    glDepthMask(GL_TRUE);
-
-    glBindTexture(GL_TEXTURE_2D, oldTexture->id);
+    lovrGraphicsSphere(NULL, NULL, 30, skybox);
   }
 
+  lovrGraphicsSetCullingEnabled(wasCulling);
+  glDepthMask(GL_TRUE);
   lovrGraphicsPop();
 }
 

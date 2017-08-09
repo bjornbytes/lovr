@@ -528,7 +528,7 @@ int l_lovrGraphicsSphere(lua_State* L) {
   }
   index = luax_readtransform(L, index, transform, 1);
   int segments = luaL_optnumber(L, index, 30);
-  lovrGraphicsSphere(texture, transform, segments);
+  lovrGraphicsSphere(texture, transform, segments, NULL);
   return 0;
 }
 
