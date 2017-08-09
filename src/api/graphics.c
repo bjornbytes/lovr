@@ -1,5 +1,7 @@
 #include "api/lovr.h"
 #include "graphics/graphics.h"
+#include "graphics/mesh.h"
+#include "graphics/model.h"
 #include "loaders/font.h"
 #include "loaders/model.h"
 #include "loaders/texture.h"
