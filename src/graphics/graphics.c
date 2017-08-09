@@ -241,9 +241,12 @@ void lovrGraphicsSetDepthTest(CompareMode depthTest) {
 }
 
 Font* lovrGraphicsGetFont() {
-  if (!state.font && !state.defaultFont) {
-    FontData* fontData = lovrFontDataCreate(NULL, 32);
-    state.defaultFont = lovrFontCreate(fontData);
+  if (!state.font) {
+    if (!state.defaultFont) {
+      FontData* fontData = lovrFontDataCreate(NULL, 32);
+      state.defaultFont = lovrFontCreate(fontData);
+    }
+
     lovrGraphicsSetFont(state.defaultFont);
   }
 
