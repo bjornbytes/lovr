@@ -95,19 +95,20 @@ void lovrGraphicsReset() {
   state.transform = 0;
   state.canvas = 0;
   state.defaultShader = -1;
-  lovrGraphicsSetViewport(0, 0, w, h);
-  lovrGraphicsSetProjection(mat4_perspective(projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h));
-  lovrGraphicsSetShader(NULL);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 0 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor((Color) { 255, 255, 255, 255 });
+  lovrGraphicsSetCullingEnabled(0);
+  lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = FILTER_TRILINEAR });
+  lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
+  lovrGraphicsSetFont(NULL);
   lovrGraphicsSetLineWidth(1);
   lovrGraphicsSetPointSize(1);
-  lovrGraphicsSetCullingEnabled(0);
+  lovrGraphicsSetShader(NULL);
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
-  lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
-  lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = FILTER_TRILINEAR });
   lovrGraphicsSetWireframe(0);
+  lovrGraphicsSetViewport(0, 0, w, h);
+  lovrGraphicsSetProjection(mat4_perspective(projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h));
   lovrGraphicsOrigin();
 }
 
