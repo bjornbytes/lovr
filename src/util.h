@@ -1,10 +1,12 @@
 #include "lib/vec/vec.h"
 #include <stdint.h>
 #include <stddef.h>
+#include <setjmp.h>
 
 #pragma once
 
 #define containerof(ptr, type) ((type*)((char*)(ptr) - offsetof(type, ref)))
+#define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 
 typedef vec_t(unsigned int) vec_uint_t;
 
@@ -17,7 +19,11 @@ typedef struct {
   uint8_t r, g, b, a;
 } Color;
 
+extern char lovrErrorMessage[];
+extern jmp_buf* lovrCatch;
+
 void error(const char* format, ...);
+void lovrThrow(const char* format, ...);
 void lovrSleep(double seconds);
 void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref));
 void lovrRetain(const Ref* ref);

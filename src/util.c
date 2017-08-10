@@ -8,6 +8,11 @@
 #include <unistd.h>
 #endif
 
+#define MAX_ERROR_LENGTH 1024
+
+char lovrErrorMessage[MAX_ERROR_LENGTH];
+jmp_buf* lovrCatch;
+
 void error(const char* format, ...) {
   va_list args;
   va_start(args, format);
@@ -15,6 +20,19 @@ void error(const char* format, ...) {
   fputs("\n", stderr);
   va_end(args);
   exit(EXIT_FAILURE);
+}
+
+void lovrThrow(const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+  vsnprintf(lovrErrorMessage, MAX_ERROR_LENGTH, format, args);
+  va_end(args);
+  if (lovrCatch) {
+    longjmp(*lovrCatch, 0);
+  } else {
+    fprintf(stderr, "Error: %s\n", lovrErrorMessage);
+    exit(EXIT_FAILURE);
+  }
 }
 
 void lovrSleep(double seconds) {

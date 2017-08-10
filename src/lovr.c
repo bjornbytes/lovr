@@ -8,6 +8,8 @@
 #include "lib/glfw.h"
 #include <stdlib.h>
 
+static int hasErrored = 0;
+
 static void onGlfwError(int code, const char* description) {
   error(description);
 }
@@ -17,7 +19,7 @@ static int getStackTrace(lua_State* L) {
   lua_getglobal(L, "debug");
   lua_getfield(L, -1, "traceback");
   lua_pushstring(L, message);
-  lua_pushinteger(L, 3);
+  lua_pushinteger(L, 2);
   lua_call(L, 2, 1);
   return 1;
 }
@@ -153,9 +155,25 @@ void lovrRun(lua_State* L) {
 #else
 void lovrRun(lua_State* L) {
   glfwSetTime(0);
-  lua_pushcfunction(L, getStackTrace);
+  lovrCatch = malloc(sizeof(jmp_buf));
+
+  // Global error handler
+  if (setjmp(*lovrCatch)) {
+
+    // Failsafe in event that errhand throws
+    if (hasErrored++) {
+      lovrDestroy(1);
+    }
+
+    lua_pushcfunction(L, getStackTrace);
+    lua_pushstring(L, lovrErrorMessage);
+    lua_pcall(L, 1, 1, 0);
+    handleError(L, lua_tostring(L, -1));
+    return;
+  }
 
   // lovr.run()
+  lua_pushcfunction(L, getStackTrace);
   lua_getglobal(L, "lovr");
   lua_getfield(L, -1, "run");
   if (lua_pcall(L, 0, 1, -3)) {
@@ -165,7 +183,7 @@ void lovrRun(lua_State* L) {
   // Exit with return value from lovr.run
   int exitCode = luaL_optint(L, -1, 0);
   lua_pop(L, 2);
-
+  free(lovrCatch);
   lovrDestroy(exitCode);
 }
 #endif
