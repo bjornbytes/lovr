@@ -199,10 +199,7 @@ void lovrSourceSetDirection(Source* source, float x, float y, float z) {
 }
 
 void lovrSourceSetFalloff(Source* source, float reference, float max, float rolloff) {
-  if (lovrSourceGetChannels(source) != 1) {
-    error("Positional audio is only supported for mono sources.");
-  }
-
+  lovrAssert(lovrSourceGetChannels(source) == 1, "Positional audio is only supported for mono sources");
   alSourcef(source->id, AL_REFERENCE_DISTANCE, reference);
   alSourcef(source->id, AL_MAX_DISTANCE, max);
   alSourcef(source->id, AL_ROLLOFF_FACTOR, rolloff);
@@ -217,10 +214,7 @@ void lovrSourceSetPitch(Source* source, float pitch) {
 }
 
 void lovrSourceSetPosition(Source* source, float x, float y, float z) {
-  if (lovrSourceGetChannels(source) != 1) {
-    error("Positional audio is only supported for mono sources.");
-  }
-
+  lovrAssert(lovrSourceGetChannels(source) == 1, "Positional audio is only supported for mono sources");
   alSource3f(source->id, AL_POSITION, x, y, z);
 }
 

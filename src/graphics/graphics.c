@@ -91,9 +91,7 @@ void lovrGraphicsPrepare() {
 }
 
 void lovrGraphicsCreateWindow(int w, int h, int fullscreen, int msaa, const char* title, const char* icon) {
-  if (state.window) {
-    error("Window is already created");
-  }
+  lovrAssert(!state.window, "Window is already created");
 
 #ifdef EMSCRIPTEN
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
@@ -120,7 +118,7 @@ void lovrGraphicsCreateWindow(int w, int h, int fullscreen, int msaa, const char
   state.window = glfwCreateWindow(w ? w : mode->width, h ? h : mode->height, title, fullscreen ? monitor : NULL, NULL);
   if (!state.window) {
     glfwTerminate();
-    error("Could not create window");
+    lovrThrow("Could not create window");
   }
 
   if (icon) {
@@ -374,14 +372,18 @@ void lovrGraphicsSetWireframe(int wireframe) {
 
 // Transforms
 
-int lovrGraphicsPush() {
-  if (++state.transform >= MAX_TRANSFORMS) { return 1; }
+void lovrGraphicsPush() {
+  if (++state.transform >= MAX_TRANSFORMS) {
+    lovrThrow("Unbalanced matrix stack (more pushes than pops?)");
+  }
+
   memcpy(state.transforms[state.transform], state.transforms[state.transform - 1], 16 * sizeof(float));
-  return 0;
 }
 
-int lovrGraphicsPop() {
-  return --state.transform < 0;
+void lovrGraphicsPop() {
+  if (--state.transform < 0) {
+    lovrThrow("Unbalanced matrix stack (more pops than pushes?)");
+  }
 }
 
 void lovrGraphicsOrigin() {
@@ -870,7 +872,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 // Internal State
 void lovrGraphicsPushCanvas() {
   if (++state.canvas >= MAX_CANVASES) {
-    error("Canvas overflow");
+    lovrThrow("Canvas overflow");
   }
 
   memcpy(&state.canvases[state.canvas], &state.canvases[state.canvas - 1], sizeof(CanvasState));
@@ -878,7 +880,7 @@ void lovrGraphicsPushCanvas() {
 
 void lovrGraphicsPopCanvas() {
   if (--state.canvas < 0) {
-    error("Canvas underflow");
+    lovrThrow("Canvas underflow");
   }
 
   int* viewport = state.canvases[state.canvas].viewport;

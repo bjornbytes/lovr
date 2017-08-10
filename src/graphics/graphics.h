@@ -137,8 +137,8 @@ int lovrGraphicsIsWireframe();
 void lovrGraphicsSetWireframe(int wireframe);
 
 // Transforms
-int lovrGraphicsPush();
-int lovrGraphicsPop();
+void lovrGraphicsPush();
+void lovrGraphicsPop();
 void lovrGraphicsOrigin();
 void lovrGraphicsTranslate(float x, float y, float z);
 void lovrGraphicsRotate(float angle, float ax, float ay, float az);

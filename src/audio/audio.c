@@ -10,13 +10,11 @@ static AudioState state;
 
 void lovrAudioInit() {
   ALCdevice* device = alcOpenDevice(NULL);
-  if (!device) {
-    error("Unable to open default audio device");
-  }
+  lovrAssert(device, "Unable to open default audio device");
 
   ALCcontext* context = alcCreateContext(device, NULL);
   if (!context || !alcMakeContextCurrent(context) || alcGetError(device) != ALC_NO_ERROR) {
-    error("Unable to create OpenAL context");
+    lovrThrow("Unable to create OpenAL context");
   }
 
 #ifndef EMSCRIPTEN

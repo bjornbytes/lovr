@@ -26,10 +26,7 @@ Skybox* lovrSkyboxCreate(Blob** blobs, SkyboxType type) {
     int width, height, channels;
     stbi_set_flip_vertically_on_load(0);
     unsigned char* image = stbi_load_from_memory(blobs[i]->data, blobs[i]->size, &width, &height, &channels, 3);
-
-    if (!image) {
-      error("Could not load skybox image %d", i);
-    }
+    lovrAssert(image, "Could not load skybox image %d", i);
 
     if (type == SKYBOX_CUBE) {
       glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);

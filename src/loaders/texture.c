@@ -183,7 +183,7 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
   textureData->blob = NULL;
 
   if (!textureData->data) {
-    error("Could not load texture data from '%s'", blob->name);
+    lovrThrow("Could not load texture data from '%s'", blob->name);
     free(textureData);
     return NULL;
   }
@@ -193,7 +193,7 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
 
 void lovrTextureDataResize(TextureData* textureData, int width, int height, uint8_t value) {
   if (textureData->format.compressed || textureData->mipmaps.generated) {
-    error("Can't resize a compressed texture or a texture with generated mipmaps.");
+    lovrThrow("Can't resize a compressed texture or a texture with generated mipmaps.");
   }
 
   int size = width * height * textureData->format.blockBytes;

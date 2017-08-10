@@ -70,9 +70,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     }
 
     // Normals
-    if (!assimpMesh->mNormals) {
-      error("Model must have normals");
-    }
+    lovrAssert(assimpMesh->mNormals, "Model must have normals");
 
     modelData->hasNormals = 1;
     vec_init(&mesh->normals);

@@ -21,7 +21,7 @@ static FilesystemState state;
 
 void lovrFilesystemInit(const char* arg0, const char* arg1) {
   if (!PHYSFS_init(arg0)) {
-    error("Could not initialize filesystem: %s", PHYSFS_getLastError());
+    lovrThrow("Could not initialize filesystem: %s", PHYSFS_getLastError());
   }
 
   state.source = malloc(LOVR_PATH_MAX * sizeof(char));
@@ -111,7 +111,7 @@ int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
 #elif __linux__
   memset(dest, 0, size);
   if (readlink("/proc/self/exe", dest, size) == -1) {
-    perror("readlink");
+    return 1;
   }
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetExecutablePath"
@@ -230,7 +230,7 @@ int lovrFilesystemSetIdentity(const char* identity) {
   strncpy(state.savePathFull, fullPathBuffer, LOVR_PATH_MAX);
   PHYSFS_mkdir(state.savePathRelative);
   if (!PHYSFS_setWriteDir(state.savePathFull)) {
-    error("Could not set write directory: %s (%s)", PHYSFS_getLastError(), state.savePathRelative);
+    lovrThrow("Could not set write directory: %s (%s)", PHYSFS_getLastError(), state.savePathRelative);
   }
 
   PHYSFS_mount(state.savePathFull, NULL, 0);

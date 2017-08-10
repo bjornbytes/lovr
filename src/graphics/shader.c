@@ -99,7 +99,7 @@ static GLuint compileShader(GLenum type, const char* source) {
 
     char* log = (char*) malloc(logLength);
     glGetShaderInfoLog(shader, logLength, &logLength, log);
-    error(log);
+    lovrThrow("Could not compile shader %s", log);
   }
 
   return shader;
@@ -130,7 +130,7 @@ static GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
 
     char* log = (char*) malloc(logLength);
     glGetProgramInfoLog(shader, logLength, &logLength, log);
-    error(log);
+    lovrThrow("Could not link shader %s", log);
   }
 
   glDetachShader(shader, vertexShader);
@@ -196,7 +196,7 @@ Shader* lovrShaderCreateDefault(DefaultShader type) {
     case SHADER_SKYBOX: return lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
     case SHADER_FONT: return lovrShaderCreate(NULL, lovrFontFragmentShader);
     case SHADER_FULLSCREEN: return lovrShaderCreate(lovrNoopVertexShader, NULL);
-    default: error("Unknown default shader type");
+    default: lovrThrow("Unknown default shader type");
   }
 }
 

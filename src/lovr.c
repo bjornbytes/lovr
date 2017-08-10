@@ -11,7 +11,7 @@
 static int hasErrored = 0;
 
 static void onGlfwError(int code, const char* description) {
-  error(description);
+  lovrThrow(description);
 }
 
 static int getStackTrace(lua_State* L) {
@@ -31,7 +31,7 @@ static void handleError(lua_State* L, const char* message) {
     lua_pushstring(L, message);
     lua_pcall(L, 1, 0, 0);
   } else {
-    error(message);
+    fprintf(stderr, "%s\n", message);
   }
   lovrDestroy(1);
 }
@@ -67,7 +67,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   glfwSetErrorCallback(onGlfwError);
 
   if (!glfwInit()) {
-    error("Error initializing glfw");
+    lovrThrow("Error initializing glfw");
   }
 
   // arg global

@@ -93,13 +93,9 @@ Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProje
     glBindFramebuffer(GL_FRAMEBUFFER, texture->framebuffer);
   }
 
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    error("Error creating texture\n");
-  } else {
-    lovrGraphicsClear(1, 1);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  }
-
+  lovrAssert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "Error creating texture");
+  lovrGraphicsClear(1, 1);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
   return texture;
 }
 
@@ -114,9 +110,7 @@ void lovrTextureDestroy(const Ref* ref) {
 }
 
 void lovrTextureBindFramebuffer(Texture* texture) {
-  if (!texture->framebuffer) {
-    error("Texture cannot be used as a canvas");
-  }
+  lovrAssert(texture->framebuffer, "Texture cannot be used as a canvas");
 
   int w = texture->textureData->width;
   int h = texture->textureData->height;

@@ -258,10 +258,7 @@ int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const cha
 }
 
 Collider* lovrColliderCreate(World* world, float x, float y, float z) {
-  if (!world) {
-    error("No world specified");
-  }
-
+  lovrAssert(world, "No world specified");
   Collider* collider = lovrAlloc(sizeof(Collider), lovrColliderDestroy);
   if (!collider) return NULL;
 
@@ -888,10 +885,7 @@ void lovrJointSetUserData(Joint* joint, void* data) {
 }
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z) {
-  if (a->world != b->world) {
-    error("Joint bodies must exist in same World");
-  }
-
+  lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   BallJoint* joint = lovrAlloc(sizeof(BallJoint), lovrJointDestroy);
   if (!joint) return NULL;
 
@@ -921,10 +915,7 @@ void lovrBallJointSetAnchor(BallJoint* joint, float x, float y, float z) {
 }
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2) {
-  if (a->world != b->world) {
-    error("Joint bodies must exist in same World");
-  }
-
+  lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   DistanceJoint* joint = lovrAlloc(sizeof(DistanceJoint), lovrJointDestroy);
   if (!joint) return NULL;
 
@@ -963,10 +954,7 @@ void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance) {
 }
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az) {
-  if (a->world != b->world) {
-    error("Joint bodies must exist in same World");
-  }
-
+  lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   HingeJoint* joint = lovrAlloc(sizeof(HingeJoint), lovrJointDestroy);
   if (!joint) return NULL;
 
@@ -1029,10 +1017,7 @@ void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
 }
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az) {
-  if (a->world != b->world) {
-    error("Joint bodies must exist in same World");
-  }
-
+  lovrAssert(a->world == b->world, "Joint bodies must exist in the same world");
   SliderJoint* joint = lovrAlloc(sizeof(SliderJoint), lovrJointDestroy);
   if (!joint) return NULL;
 

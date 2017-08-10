@@ -22,7 +22,6 @@ typedef struct {
 extern char lovrErrorMessage[];
 extern jmp_buf* lovrCatch;
 
-void error(const char* format, ...);
 void lovrThrow(const char* format, ...);
 void lovrSleep(double seconds);
 void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref));

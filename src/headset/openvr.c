@@ -461,7 +461,7 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
     case CONTROLLER_AXIS_TRIGGER: return input.rAxis[1].x;
     case CONTROLLER_AXIS_TOUCHPAD_X: return input.rAxis[0].x;
     case CONTROLLER_AXIS_TOUCHPAD_Y: return input.rAxis[0].y;
-    default: error("Bad controller axis");
+    default: lovrThrow("Bad controller axis");
   }
 
   return 0.;
@@ -487,7 +487,7 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
       return (input.ulButtonPressed >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1;
 
     default:
-      error("Bad controller button");
+      lovrThrow("Bad controller button");
   }
 
   return 0;

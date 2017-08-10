@@ -62,7 +62,7 @@ static int ftCubicTo(const FT_Vector* control1, const FT_Vector* control2, const
 
 FontData* lovrFontDataCreate(Blob* blob, int size) {
   if (!ft && FT_Init_FreeType(&ft)) {
-    error("Error initializing FreeType");
+    lovrThrow("Error initializing FreeType");
   }
 
   FT_Face face = NULL;
@@ -75,10 +75,7 @@ FontData* lovrFontDataCreate(Blob* blob, int size) {
   }
 
   err = err || FT_Set_Pixel_Sizes(face, 0, size);
-
-  if (err) {
-    error("Problem loading font");
-  }
+  lovrAssert(!err, "Problem loading font");
 
   FontData* fontData = malloc(sizeof(FontData));
   fontData->rasterizer = face;
@@ -117,9 +114,7 @@ void lovrFontDataLoadGlyph(FontData* fontData, uint32_t character, Glyph* glyph)
 
   err = err || FT_Load_Glyph(face, FT_Get_Char_Index(face, character), FT_LOAD_DEFAULT);
   err = err || FT_Outline_Decompose(&face->glyph->outline, &callbacks, &context);
-  if (err) {
-    error("Error loading glyph");
-  }
+  lovrAssert(!err, "Error loading glyph");
 
   metrics = &face->glyph->metrics;
 

@@ -389,18 +389,12 @@ int l_lovrGraphicsSetWireframe(lua_State* L) {
 // Transforms
 
 int l_lovrGraphicsPush(lua_State* L) {
-  if (lovrGraphicsPush()) {
-    return luaL_error(L, "Unbalanced matrix stack (more pushes than pops?)");
-  }
-
+  lovrGraphicsPush();
   return 0;
 }
 
 int l_lovrGraphicsPop(lua_State* L) {
-  if (lovrGraphicsPop()) {
-    return luaL_error(L, "Unbalanced matrix stack (more pops than pushes?)");
-  }
-
+  lovrGraphicsPop();
   return 0;
 }
 
