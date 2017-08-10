@@ -105,6 +105,9 @@ void lovrGraphicsReset();
 void lovrGraphicsClear(int color, int depth);
 void lovrGraphicsPresent();
 void lovrGraphicsPrepare();
+void lovrGraphicsCreateWindow(int w, int h, int fullscreen, int msaa, const char* title, const char* icon);
+int lovrGraphicsGetWidth();
+int lovrGraphicsGetHeight();
 
 // State
 Color lovrGraphicsGetBackgroundColor();
@@ -132,8 +135,6 @@ Winding lovrGraphicsGetWinding();
 void lovrGraphicsSetWinding(Winding winding);
 int lovrGraphicsIsWireframe();
 void lovrGraphicsSetWireframe(int wireframe);
-int lovrGraphicsGetWidth();
-int lovrGraphicsGetHeight();
 
 // Transforms
 int lovrGraphicsPush();

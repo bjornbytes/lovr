@@ -164,6 +164,33 @@ int l_lovrGraphicsPresent(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsCreateWindow(lua_State* L) {
+  int width = luaL_optnumber(L, 1, 800);
+  int height = luaL_optnumber(L, 2, 600);
+  int fullscreen = !lua_isnoneornil(L, 3) && lua_toboolean(L, 3);
+  int msaa = luaL_optnumber(L, 4, 0);
+  const char* title = luaL_optstring(L, 5, "LÖVR");
+  const char* icon = luaL_optstring(L, 6, NULL);
+  lovrGraphicsCreateWindow(width, height, fullscreen, msaa, title, icon);
+  return 0;
+}
+
+int l_lovrGraphicsGetWidth(lua_State* L) {
+  lua_pushnumber(L, lovrGraphicsGetWidth());
+  return 1;
+}
+
+int l_lovrGraphicsGetHeight(lua_State* L) {
+  lua_pushnumber(L, lovrGraphicsGetHeight());
+  return 1;
+}
+
+int l_lovrGraphicsGetDimensions(lua_State* L) {
+  lua_pushnumber(L, lovrGraphicsGetWidth());
+  lua_pushnumber(L, lovrGraphicsGetHeight());
+  return 2;
+}
+
 // State
 
 int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
@@ -278,6 +305,18 @@ int l_lovrGraphicsSetDepthTest(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsGetFont(lua_State* L) {
+  Font* font = lovrGraphicsGetFont();
+  luax_pushtype(L, Font, font);
+  return 1;
+}
+
+int l_lovrGraphicsSetFont(lua_State* L) {
+  Font* font = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Font);
+  lovrGraphicsSetFont(font);
+  return 0;
+}
+
 int l_lovrGraphicsGetSystemLimits(lua_State* L) {
   GraphicsLimits limits = lovrGraphicsGetLimits();
   lua_newtable(L);
@@ -314,6 +353,18 @@ int l_lovrGraphicsSetPointSize(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsGetShader(lua_State* L) {
+  Shader* shader = lovrGraphicsGetShader();
+  luax_pushtype(L, Shader, shader);
+  return 1;
+}
+
+int l_lovrGraphicsSetShader(lua_State* L) {
+  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Shader);
+  lovrGraphicsSetShader(shader);
+  return 0;
+}
+
 int l_lovrGraphicsGetWinding(lua_State* L) {
   luax_pushenum(L, &Windings, lovrGraphicsGetWinding());
   return 1;
@@ -333,46 +384,6 @@ int l_lovrGraphicsIsWireframe(lua_State* L) {
 int l_lovrGraphicsSetWireframe(lua_State* L) {
   lovrGraphicsSetWireframe(lua_toboolean(L, 1));
   return 0;
-}
-
-int l_lovrGraphicsGetShader(lua_State* L) {
-  Shader* shader = lovrGraphicsGetShader();
-  luax_pushtype(L, Shader, shader);
-  return 1;
-}
-
-int l_lovrGraphicsSetShader(lua_State* L) {
-  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Shader);
-  lovrGraphicsSetShader(shader);
-  return 0;
-}
-
-int l_lovrGraphicsGetFont(lua_State* L) {
-  Font* font = lovrGraphicsGetFont();
-  luax_pushtype(L, Font, font);
-  return 1;
-}
-
-int l_lovrGraphicsSetFont(lua_State* L) {
-  Font* font = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Font);
-  lovrGraphicsSetFont(font);
-  return 0;
-}
-
-int l_lovrGraphicsGetWidth(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetWidth());
-  return 1;
-}
-
-int l_lovrGraphicsGetHeight(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetHeight());
-  return 1;
-}
-
-int l_lovrGraphicsGetDimensions(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetWidth());
-  lua_pushnumber(L, lovrGraphicsGetHeight());
-  return 2;
 }
 
 // Transforms
@@ -747,6 +758,10 @@ const luaL_Reg lovrGraphics[] = {
   { "reset", l_lovrGraphicsReset },
   { "clear", l_lovrGraphicsClear },
   { "present", l_lovrGraphicsPresent },
+  { "createWindow", l_lovrGraphicsCreateWindow },
+  { "getWidth", l_lovrGraphicsGetWidth },
+  { "getHeight", l_lovrGraphicsGetHeight },
+  { "getDimensions", l_lovrGraphicsGetDimensions },
   { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
   { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
   { "getBlendMode", l_lovrGraphicsGetBlendMode },
@@ -759,22 +774,19 @@ const luaL_Reg lovrGraphics[] = {
   { "setDepthTest", l_lovrGraphicsSetDepthTest },
   { "getDefaultFilter", l_lovrGraphicsGetDefaultFilter },
   { "setDefaultFilter", l_lovrGraphicsSetDefaultFilter },
+  { "getFont", l_lovrGraphicsGetFont },
+  { "setFont", l_lovrGraphicsSetFont },
   { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
   { "getPointSize", l_lovrGraphicsGetPointSize },
   { "setPointSize", l_lovrGraphicsSetPointSize },
+  { "getShader", l_lovrGraphicsGetShader },
+  { "setShader", l_lovrGraphicsSetShader },
   { "getWinding", l_lovrGraphicsGetWinding },
   { "setWinding", l_lovrGraphicsSetWinding },
   { "isWireframe", l_lovrGraphicsIsWireframe },
   { "setWireframe", l_lovrGraphicsSetWireframe },
-  { "getShader", l_lovrGraphicsGetShader },
-  { "setShader", l_lovrGraphicsSetShader },
-  { "getFont", l_lovrGraphicsGetFont },
-  { "setFont", l_lovrGraphicsSetFont },
-  { "getWidth", l_lovrGraphicsGetWidth },
-  { "getHeight", l_lovrGraphicsGetHeight },
-  { "getDimensions", l_lovrGraphicsGetDimensions },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },

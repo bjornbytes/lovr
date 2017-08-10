@@ -11,6 +11,14 @@ local conf = {
   headset = {
     mirror = true,
     offset = 1.7
+  },
+  window = {
+    width = 800,
+    height = 600,
+    fullscreen = false,
+    msaa = 0,
+    title = 'LÖVR',
+    icon = nil
   }
 }
 
@@ -115,6 +123,11 @@ for _, module in ipairs(modules) do
   if conf.modules[module] then
     lovr[module] = require('lovr.' .. module)
   end
+end
+
+if conf.window then
+  local w = conf.window
+  lovr.graphics.createWindow(w.width, w.height, w.fullscreen, w.msaa, w.title, w.icon)
 end
 
 -- Error after window is created

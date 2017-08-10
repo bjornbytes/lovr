@@ -68,8 +68,6 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     error("Error initializing glfw");
   }
 
-  glfwSetTime(0);
-
   // arg global
   lua_newtable(L);
   if (argc > 0) {
@@ -134,6 +132,7 @@ static void emscriptenLoop(void* arg) {
 }
 
 void lovrRun(lua_State* L) {
+  glfwSetTime(0);
 
   // lovr.load
   lua_getglobal(L, "lovr");
@@ -153,6 +152,7 @@ void lovrRun(lua_State* L) {
 }
 #else
 void lovrRun(lua_State* L) {
+  glfwSetTime(0);
   lua_pushcfunction(L, getStackTrace);
 
   // lovr.run()

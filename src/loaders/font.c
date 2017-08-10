@@ -77,7 +77,7 @@ FontData* lovrFontDataCreate(Blob* blob, int size) {
   err = err || FT_Set_Pixel_Sizes(face, 0, size);
 
   if (err) {
-    error("Problem loading font\n");
+    error("Problem loading font");
   }
 
   FontData* fontData = malloc(sizeof(FontData));
@@ -118,7 +118,7 @@ void lovrFontDataLoadGlyph(FontData* fontData, uint32_t character, Glyph* glyph)
   err = err || FT_Load_Glyph(face, FT_Get_Char_Index(face, character), FT_LOAD_DEFAULT);
   err = err || FT_Outline_Decompose(&face->glyph->outline, &callbacks, &context);
   if (err) {
-    error("Error loading glyph\n");
+    error("Error loading glyph");
   }
 
   metrics = &face->glyph->metrics;

@@ -6,6 +6,7 @@
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "util.h"
+#include "lib/stb/stb_image.h"
 #define _USE_MATH_DEFINES
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,52 +26,7 @@ static void onCloseWindow(GLFWwindow* window) {
 // Base
 
 void lovrGraphicsInit() {
-#ifdef EMSCRIPTEN
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-#else
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-  glfwWindowHint(GLFW_SAMPLES, 4);
-  glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-#endif
-
-  // Create window
-  const char* title = lovrFilesystemGetIdentity();
-  state.window = glfwCreateWindow(800, 600, title ? title : "LÖVR", NULL, NULL);
-  if (!state.window) {
-    glfwTerminate();
-    error("Could not create window");
-  }
-
-  // Initialize all the things
-  glfwMakeContextCurrent(state.window);
-  glfwSetWindowCloseCallback(state.window, onCloseWindow);
-#ifndef EMSCRIPTEN
-  gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
-#endif
-  glfwSetTime(0);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-#ifndef EMSCRIPTEN
-  glfwSwapInterval(0);
-  glEnable(GL_LINE_SMOOTH);
-#endif
-
-  // Allocations
-  glGenBuffers(1, &state.streamVBO);
-  glGenBuffers(1, &state.streamIBO);
-  glGenVertexArrays(1, &state.streamVAO);
-  vec_init(&state.streamData);
-  vec_init(&state.streamIndices);
-
-  // State
-  lovrGraphicsReset();
-  atexit(lovrGraphicsDestroy);
+  //
 }
 
 void lovrGraphicsDestroy() {
@@ -81,9 +37,9 @@ void lovrGraphicsDestroy() {
   }
   if (state.defaultFont) lovrRelease(&state.defaultFont->ref);
   if (state.defaultTexture) lovrRelease(&state.defaultTexture->ref);
+  glDeleteVertexArrays(1, &state.streamVAO);
   glDeleteBuffers(1, &state.streamVBO);
   glDeleteBuffers(1, &state.streamIBO);
-  glDeleteVertexArrays(1, &state.streamVAO);
   vec_deinit(&state.streamData);
   vec_deinit(&state.streamIndices);
 }
@@ -132,6 +88,78 @@ void lovrGraphicsPrepare() {
   mat4 projection = state.canvases[state.canvas].projection;
   lovrGraphicsBindProgram(shader->id);
   lovrShaderBind(shader, transform, projection, state.color, 0);
+}
+
+void lovrGraphicsCreateWindow(int w, int h, int fullscreen, int msaa, const char* title, const char* icon) {
+  if (state.window) {
+    error("Window is already created");
+  }
+
+#ifdef EMSCRIPTEN
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+#else
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+  glfwWindowHint(GLFW_SAMPLES, msaa);
+  glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+#endif
+
+  GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+  const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+  if (fullscreen) {
+    glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+    glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+  }
+
+  state.window = glfwCreateWindow(w ? w : mode->width, h ? h : mode->height, title, fullscreen ? monitor : NULL, NULL);
+  if (!state.window) {
+    glfwTerminate();
+    error("Could not create window");
+  }
+
+  if (icon) {
+    GLFWimage image;
+    image.pixels = stbi_load(icon, &image.width, &image.height, NULL, 3);
+    glfwSetWindowIcon(state.window, 1, &image);
+    free(image.pixels);
+  }
+
+  glfwMakeContextCurrent(state.window);
+  glfwSetWindowCloseCallback(state.window, onCloseWindow);
+
+#ifndef EMSCRIPTEN
+  gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+  glfwSwapInterval(0);
+  glEnable(GL_LINE_SMOOTH);
+#endif
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glGenVertexArrays(1, &state.streamVAO);
+  glGenBuffers(1, &state.streamVBO);
+  glGenBuffers(1, &state.streamIBO);
+  vec_init(&state.streamData);
+  vec_init(&state.streamIndices);
+  lovrGraphicsReset();
+  atexit(lovrGraphicsDestroy);
+}
+
+int lovrGraphicsGetWidth() {
+  int width, height;
+  glfwGetFramebufferSize(state.window, &width, &height);
+  return width;
+}
+
+int lovrGraphicsGetHeight() {
+  int width, height;
+  glfwGetFramebufferSize(state.window, &width, &height);
+  return height;
 }
 
 // State
@@ -342,18 +370,6 @@ void lovrGraphicsSetWireframe(int wireframe) {
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
   }
 #endif
-}
-
-int lovrGraphicsGetWidth() {
-  int width, height;
-  glfwGetFramebufferSize(state.window, &width, &height);
-  return width;
-}
-
-int lovrGraphicsGetHeight() {
-  int width, height;
-  glfwGetFramebufferSize(state.window, &width, &height);
-  return height;
 }
 
 // Transforms

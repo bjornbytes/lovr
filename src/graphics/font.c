@@ -299,12 +299,8 @@ void lovrFontExpandTexture(Font* font) {
   }
 
   // Resize the texture storage
-  while (glGetError());
   lovrTextureDataResize(font->texture->textureData, atlas->width, atlas->height, 0x0);
   lovrTextureRefresh(font->texture);
-  if (glGetError()) {
-    error("Problem expanding font texture (out of space?)");
-  }
 
   // Reset the cursor
   atlas->x = atlas->padding;
