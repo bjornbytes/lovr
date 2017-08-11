@@ -46,7 +46,7 @@ function lovr.errhand(message)
     lovr.graphics.clear()
     lovr.graphics.origin()
     if not lovr.headset or not lovr.headset.isPresent() or lovr.headset.getOriginType() == 'head' then
-      lovr.graphics.translate(0, -conf.headset.offset, 0)
+      lovr.graphics.translate('view', 0, -conf.headset.offset, 0)
     end
     if lovr.headset and lovr.headset.isPresent() and lovr.getOS() ~= 'Web' then
       lovr.headset.renderTo(render)
@@ -183,7 +183,7 @@ function lovr.step()
     lovr.graphics.origin()
     if lovr.draw then
       if not lovr.headset or not lovr.headset.isPresent() or lovr.headset.getOriginType() == 'head' then
-        lovr.graphics.translate(0, -conf.headset.offset, 0)
+        lovr.graphics.translate('view', 0, -conf.headset.offset, 0)
       end
 
       if lovr.headset and lovr.headset.isPresent() then

@@ -31,7 +31,8 @@ typedef struct {
   Ref ref;
   int id;
   map_uniform_t uniforms;
-  float transform[16];
+  float model[16];
+  float view[16];
   float projection[16];
   Color color;
 } Shader;
@@ -39,7 +40,7 @@ typedef struct {
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
 Shader* lovrShaderCreateDefault(DefaultShader type);
 void lovrShaderDestroy(const Ref* ref);
-void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, Color color, int force);
+void lovrShaderBind(Shader* shader, mat4 model, mat4 view, mat4 projection, Color color, int force);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 int lovrShaderGetUniformId(Shader* shader, const char* name);
 int lovrShaderGetUniformType(Shader* shader, const char* name, GLenum* type, int* count);

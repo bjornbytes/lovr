@@ -14,6 +14,7 @@ map_int_t CompareModes;
 map_int_t DrawModes;
 map_int_t FilterModes;
 map_int_t HorizontalAligns;
+map_int_t MatrixTypes;
 map_int_t MeshAttributeTypes;
 map_int_t MeshDrawModes;
 map_int_t MeshUsages;
@@ -21,6 +22,16 @@ map_int_t TextureProjections;
 map_int_t VerticalAligns;
 map_int_t Windings;
 map_int_t WrapModes;
+
+static int luax_optmatrixtype(lua_State* L, int index, MatrixType* type) {
+  if (lua_type(L, index) == LUA_TSTRING) {
+    *type = *(MatrixType*) luax_checkenum(L, index++, &MatrixTypes, "matrix type");
+  } else {
+    *type = MATRIX_MODEL;
+  }
+
+  return index;
+}
 
 static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
   int isTable = lua_istable(L, index);
@@ -108,6 +119,10 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&HorizontalAligns, "left", ALIGN_LEFT);
   map_set(&HorizontalAligns, "right", ALIGN_RIGHT);
   map_set(&HorizontalAligns, "center", ALIGN_CENTER);
+
+  map_init(&MatrixTypes);
+  map_set(&MatrixTypes, "model", MATRIX_MODEL);
+  map_set(&MatrixTypes, "view", MATRIX_VIEW);
 
   map_init(&MeshAttributeTypes);
   map_set(&MeshAttributeTypes, "float", MESH_FLOAT);
@@ -404,34 +419,42 @@ int l_lovrGraphicsOrigin(lua_State* L) {
 }
 
 int l_lovrGraphicsTranslate(lua_State* L) {
-  float x = luaL_checknumber(L, 1);
-  float y = luaL_checknumber(L, 2);
-  float z = luaL_checknumber(L, 3);
-  lovrGraphicsTranslate(x, y, z);
+  MatrixType type;
+  int i = luax_optmatrixtype(L, 1, &type);
+  float x = luaL_checknumber(L, i++);
+  float y = luaL_checknumber(L, i++);
+  float z = luaL_checknumber(L, i++);
+  lovrGraphicsTranslate(type, x, y, z);
   return 0;
 }
 
 int l_lovrGraphicsRotate(lua_State* L) {
-  float angle = luaL_checknumber(L, 1);
-  float axisX = luaL_optnumber(L, 2, 0);
-  float axisY = luaL_optnumber(L, 3, 1);
-  float axisZ = luaL_optnumber(L, 4, 0);
-  lovrGraphicsRotate(angle, axisX, axisY, axisZ);
+  MatrixType type;
+  int i = luax_optmatrixtype(L, 1, &type);
+  float angle = luaL_checknumber(L, i++);
+  float axisX = luaL_optnumber(L, i++, 0);
+  float axisY = luaL_optnumber(L, i++, 1);
+  float axisZ = luaL_optnumber(L, i++, 0);
+  lovrGraphicsRotate(type, angle, axisX, axisY, axisZ);
   return 0;
 }
 
 int l_lovrGraphicsScale(lua_State* L) {
-  float x = luaL_checknumber(L, 1);
-  float y = luaL_optnumber(L, 2, x);
-  float z = luaL_optnumber(L, 3, x);
-  lovrGraphicsScale(x, y, z);
+  MatrixType type;
+  int i = luax_optmatrixtype(L, 1, &type);
+  float x = luaL_checknumber(L, i++);
+  float y = luaL_optnumber(L, i++, x);
+  float z = luaL_optnumber(L, i++, x);
+  lovrGraphicsScale(type, x, y, z);
   return 0;
 }
 
 int l_lovrGraphicsTransform(lua_State* L) {
+  MatrixType type;
+  int i = luax_optmatrixtype(L, 1, &type);
   float transform[16];
-  luax_readtransform(L, 1, transform, 0);
-  lovrGraphicsMatrixTransform(transform);
+  luax_readtransform(L, i++, transform, 0);
+  lovrGraphicsMatrixTransform(type, transform);
   return 0;
 }
 

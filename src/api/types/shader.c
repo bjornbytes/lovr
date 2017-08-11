@@ -1,4 +1,5 @@
 #include "api/lovr.h"
+#include "graphics/graphics.h"
 #include "graphics/shader.h"
 #include "math/transform.h"
 
@@ -15,7 +16,7 @@ int l_lovrShaderSend(lua_State* L) {
   GLenum type;
   int size;
   lovrShaderGetUniformType(shader, name, &type, &size);
-  lovrShaderBind(shader, shader->transform, shader->projection, shader->color, 0); // Hmm
+  lovrGraphicsBindProgram(shader->id);
   float data[16];
   int n;
   vec_float_t values;

@@ -84,10 +84,11 @@ void lovrGraphicsPrepare() {
     shader = state.defaultShaders[state.defaultShader] = lovrShaderCreateDefault(state.defaultShader);
   }
 
-  mat4 transform = state.transforms[state.transform];
+  mat4 model = state.transforms[state.transform][MATRIX_MODEL];
+  mat4 view = state.transforms[state.transform][MATRIX_VIEW];
   mat4 projection = state.canvases[state.canvas].projection;
   lovrGraphicsBindProgram(shader->id);
-  lovrShaderBind(shader, transform, projection, state.color, 0);
+  lovrShaderBind(shader, model, view, projection, state.color, 0);
 }
 
 void lovrGraphicsCreateWindow(int w, int h, int fullscreen, int msaa, const char* title, const char* icon) {
@@ -377,7 +378,7 @@ void lovrGraphicsPush() {
     lovrThrow("Unbalanced matrix stack (more pushes than pops?)");
   }
 
-  memcpy(state.transforms[state.transform], state.transforms[state.transform - 1], 16 * sizeof(float));
+  memcpy(state.transforms[state.transform], state.transforms[state.transform - 1], 2 * 16 * sizeof(float));
 }
 
 void lovrGraphicsPop() {
@@ -387,23 +388,24 @@ void lovrGraphicsPop() {
 }
 
 void lovrGraphicsOrigin() {
-  mat4_identity(state.transforms[state.transform]);
+  mat4_identity(state.transforms[state.transform][MATRIX_MODEL]);
+  mat4_identity(state.transforms[state.transform][MATRIX_VIEW]);
 }
 
-void lovrGraphicsTranslate(float x, float y, float z) {
-  mat4_translate(state.transforms[state.transform], x, y, z);
+void lovrGraphicsTranslate(MatrixType type, float x, float y, float z) {
+  mat4_translate(state.transforms[state.transform][type], x, y, z);
 }
 
-void lovrGraphicsRotate(float angle, float ax, float ay, float az) {
-  mat4_rotate(state.transforms[state.transform], angle, ax, ay, az);
+void lovrGraphicsRotate(MatrixType type, float angle, float ax, float ay, float az) {
+  mat4_rotate(state.transforms[state.transform][type], angle, ax, ay, az);
 }
 
-void lovrGraphicsScale(float x, float y, float z) {
-  mat4_scale(state.transforms[state.transform], x, y, z);
+void lovrGraphicsScale(MatrixType type, float x, float y, float z) {
+  mat4_scale(state.transforms[state.transform][type], x, y, z);
 }
 
-void lovrGraphicsMatrixTransform(mat4 transform) {
-  mat4_multiply(state.transforms[state.transform], transform);
+void lovrGraphicsMatrixTransform(MatrixType type, mat4 transform) {
+  mat4_multiply(state.transforms[state.transform][type], transform);
 }
 
 // Primitives
@@ -493,7 +495,7 @@ void lovrGraphicsTriangle(DrawMode mode, float* points) {
 
 void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
 
   if (mode == DRAW_MODE_LINE) {
     float points[] = {
@@ -541,7 +543,7 @@ void lovrGraphicsPlaneFullscreen(Texture* texture) {
 void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
 
   if (mode == DRAW_MODE_LINE) {
     float points[] = {
@@ -780,7 +782,7 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* 
   } else {
     lovrGraphicsBindTexture(texture);
     lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(transform);
+    lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
     lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 1, 1);
     lovrGraphicsPop();
   }
@@ -789,7 +791,7 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* 
 void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az) {
   lovrGraphicsPush();
   lovrGraphicsOrigin();
-  lovrGraphicsRotate(angle, ax, ay, az);
+  lovrGraphicsRotate(MATRIX_MODEL, angle, ax, ay, az);
   glDepthMask(GL_FALSE);
   int wasCulling = lovrGraphicsIsCullingEnabled();
   lovrGraphicsSetCullingEnabled(0);
@@ -860,9 +862,9 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrFontRender(font, str, wrap, halign, valign, &state.streamData, &offsety);
 
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
-  lovrGraphicsScale(scale, scale, scale);
-  lovrGraphicsTranslate(0, offsety, 0);
+  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
+  lovrGraphicsScale(MATRIX_MODEL, scale, scale, scale);
+  lovrGraphicsTranslate(MATRIX_MODEL, 0, offsety, 0);
   lovrGraphicsBindTexture(font->texture);
   lovrGraphicsSetDefaultShader(SHADER_FONT);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 0);

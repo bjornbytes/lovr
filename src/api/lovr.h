@@ -59,6 +59,7 @@ extern map_int_t HeadsetEyes;
 extern map_int_t HeadsetOrigins;
 extern map_int_t HorizontalAligns;
 extern map_int_t JointTypes;
+extern map_int_t MatrixTypes;
 extern map_int_t MeshAttributeTypes;
 extern map_int_t MeshDrawModes;
 extern map_int_t MeshUsages;

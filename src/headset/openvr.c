@@ -637,7 +637,7 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
     // Render
     lovrTextureBindFramebuffer(state.texture);
     lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(transform);
+    lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
     lovrGraphicsSetProjection(projection);
     lovrGraphicsClear(1, 1);
     callback(eye, userdata);

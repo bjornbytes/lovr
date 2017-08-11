@@ -62,13 +62,18 @@ typedef struct {
   int viewport[4];
 } CanvasState;
 
+typedef enum {
+  MATRIX_MODEL,
+  MATRIX_VIEW
+} MatrixType;
+
 typedef struct {
   GLFWwindow* window;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   DefaultShader defaultShader;
   Font* defaultFont;
   Texture* defaultTexture;
-  float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
+  float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][2][16];
   int transform;
   Color backgroundColor;
   BlendMode blendMode;
@@ -140,10 +145,10 @@ void lovrGraphicsSetWireframe(int wireframe);
 void lovrGraphicsPush();
 void lovrGraphicsPop();
 void lovrGraphicsOrigin();
-void lovrGraphicsTranslate(float x, float y, float z);
-void lovrGraphicsRotate(float angle, float ax, float ay, float az);
-void lovrGraphicsScale(float x, float y, float z);
-void lovrGraphicsMatrixTransform(mat4 transform);
+void lovrGraphicsTranslate(MatrixType type, float x, float y, float z);
+void lovrGraphicsRotate(MatrixType type, float angle, float ax, float ay, float az);
+void lovrGraphicsScale(MatrixType type, float x, float y, float z);
+void lovrGraphicsMatrixTransform(MatrixType type, mat4 transform);
 
 // Primitives
 void lovrGraphicsPoints(float* points, int count);

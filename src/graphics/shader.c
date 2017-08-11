@@ -15,9 +15,11 @@ static const char* lovrShaderVertexPrefix = ""
 "in vec3 lovrNormal; \n"
 "in vec2 lovrTexCoord; \n"
 "out vec2 texCoord; \n"
+"uniform mat4 lovrModel; \n"
+"uniform mat4 lovrView; \n"
+"uniform mat4 lovrProjection; \n"
 "uniform mat4 lovrTransform; \n"
-"uniform mat3 lovrNormalMatrix; \n"
-"uniform mat4 lovrProjection; \n";
+"uniform mat3 lovrNormalMatrix; \n";
 
 static const char* lovrShaderFragmentPrefix = ""
 #ifdef EMSCRIPTEN
@@ -179,13 +181,14 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 
   // Initial state
   shader->id = id;
-  mat4_identity(shader->transform);
+  mat4_identity(shader->model);
+  mat4_identity(shader->view);
   mat4_identity(shader->projection);
   shader->color = (Color) { 0, 0, 0, 0 };
 
   // Send initial uniform values to shader
   lovrGraphicsBindProgram(id);
-  lovrShaderBind(shader, shader->transform, shader->projection, shader->color, 1);
+  lovrShaderBind(shader, shader->model, shader->view, shader->projection, shader->color, 1);
 
   return shader;
 }
@@ -207,41 +210,56 @@ void lovrShaderDestroy(const Ref* ref) {
   free(shader);
 }
 
-void lovrShaderBind(Shader* shader, mat4 transform, mat4 projection, Color color, int force) {
+void lovrShaderBind(Shader* shader, mat4 model, mat4 view, mat4 projection, Color color, int force) {
+  int dirtyModel = force || memcmp(shader->model, model, 16 * sizeof(float));
+  int dirtyView = force || memcmp(shader->view, view, 16 * sizeof(float));
+  int dirtyTransform = dirtyModel || dirtyView;
+  int dirtyProjection = force || memcmp(shader->projection, projection, 16 * sizeof(float));
+  int dirtyColor = force || memcmp(&shader->color, &color, 4 * sizeof(uint8_t));
 
-  // Update transform if necessary
-  if (force || memcmp(shader->transform, transform, 16 * sizeof(float))) {
+  if (dirtyModel) {
+    int uniformId = lovrShaderGetUniformId(shader, "lovrModel");
+    lovrShaderSendFloatMat4(shader, uniformId, model);
+    memcpy(shader->model, model, 16 * sizeof(float));
+  }
+
+  if (dirtyView) {
+    int uniformId = lovrShaderGetUniformId(shader, "lovrView");
+    lovrShaderSendFloatMat4(shader, uniformId, view);
+    memcpy(shader->view, view, 16 * sizeof(float));
+  }
+
+  if (dirtyTransform) {
+    float matrix[16];
+    mat4_multiply(mat4_set(matrix, view), model);
     int uniformId = lovrShaderGetUniformId(shader, "lovrTransform");
-    lovrShaderSendFloatMat4(shader, uniformId, transform);
-    memcpy(shader->transform, transform, 16 * sizeof(float));
+    lovrShaderSendFloatMat4(shader, uniformId, matrix);
 
-    float normalMatrix[16];
-    mat4_set(normalMatrix, transform);
-    normalMatrix[12] = normalMatrix[13] = normalMatrix[14] = 0;
-    normalMatrix[15] = 1;
-    if (mat4_invert(normalMatrix)) {
-      mat4_transpose(normalMatrix);
+    matrix[12] = matrix[13] = matrix[14] = 0;
+    matrix[15] = 1;
+    if (mat4_invert(matrix)) {
+      mat4_transpose(matrix);
     } else {
-      mat4_identity(normalMatrix);
+      mat4_identity(matrix);
     }
-    float normalMatrix3x3[9] = {
+
+    float normalMatrix[9] = {
       normalMatrix[0], normalMatrix[1], normalMatrix[2],
       normalMatrix[4], normalMatrix[5], normalMatrix[6],
       normalMatrix[8], normalMatrix[9], normalMatrix[10]
     };
+
     uniformId = lovrShaderGetUniformId(shader, "lovrNormalMatrix");
-    lovrShaderSendFloatMat3(shader, uniformId, normalMatrix3x3);
+    lovrShaderSendFloatMat3(shader, uniformId, normalMatrix);
   }
 
-  // Update projection if necessary
-  if (force || memcmp(shader->projection, projection, 16 * sizeof(float))) {
+  if (dirtyProjection) {
     int uniformId = lovrShaderGetUniformId(shader, "lovrProjection");
     lovrShaderSendFloatMat4(shader, uniformId, projection);
     memcpy(shader->projection, projection, 16 * sizeof(float));
   }
 
-  // Update color if necessary
-  if (force || memcmp(&shader->color, &color, 4 * sizeof(uint8_t))) {
+  if (dirtyColor) {
     int uniformId = lovrShaderGetUniformId(shader, "lovrColor");
     float c[4] = { color.r / 255., color.g / 255., color.b / 255., color.a / 255. };
     lovrShaderSendFloatVec4(shader, uniformId, 1, c);
