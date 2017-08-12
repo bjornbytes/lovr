@@ -3,7 +3,6 @@ project(lovr)
 
 # Setup
 if(EMSCRIPTEN)
-  message(STATUS "${EMSCRIPTEN_ROOT_PATH}")
   string(CONCAT LOVR_EMSCRIPTEN_FLAGS
     "-O3 "
     "-s USE_WEBGL2=1 "
