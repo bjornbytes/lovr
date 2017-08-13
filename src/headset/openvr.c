@@ -58,31 +58,31 @@ void lovrHeadsetInit() {
     return;
   }
 
-  char fnTable[128];
+  char buffer[128];
 
-  sprintf(fnTable, "FnTable:%s", IVRSystem_Version);
-  state.system = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(fnTable, &vrError);
+  sprintf(buffer, "FnTable:%s", IVRSystem_Version);
+  state.system = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(buffer, &vrError);
   if (vrError != EVRInitError_VRInitError_None || !state.system) {
     lovrHeadsetDestroy();
     return;
   }
 
-  sprintf(fnTable, "FnTable:%s", IVRCompositor_Version);
-  state.compositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(fnTable, &vrError);
+  sprintf(buffer, "FnTable:%s", IVRCompositor_Version);
+  state.compositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(buffer, &vrError);
   if (vrError != EVRInitError_VRInitError_None || !state.compositor) {
     lovrHeadsetDestroy();
     return;
   }
 
-  sprintf(fnTable, "FnTable:%s", IVRChaperone_Version);
-  state.chaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(fnTable, &vrError);
+  sprintf(buffer, "FnTable:%s", IVRChaperone_Version);
+  state.chaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(buffer, &vrError);
   if (vrError != EVRInitError_VRInitError_None || !state.chaperone) {
     lovrHeadsetDestroy();
     return;
   }
 
-  sprintf(fnTable, "FnTable:%s", IVRRenderModels_Version);
-  state.renderModels = (struct VR_IVRRenderModels_FnTable*) VR_GetGenericInterface(fnTable, &vrError);
+  sprintf(buffer, "FnTable:%s", IVRRenderModels_Version);
+  state.renderModels = (struct VR_IVRRenderModels_FnTable*) VR_GetGenericInterface(buffer, &vrError);
   if (vrError != EVRInitError_VRInitError_None || !state.renderModels) {
     lovrHeadsetDestroy();
     return;
@@ -90,7 +90,16 @@ void lovrHeadsetInit() {
 
   state.isInitialized = 1;
   state.headsetIndex = k_unTrackedDeviceIndex_Hmd;
-  state.system->GetStringTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_ModelNumber_String, state.type, 128, NULL);
+
+  state.system->GetStringTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_ManufacturerName_String, buffer, 128, NULL);
+  if (strncmp(buffer, "HTC", 128)) {
+    state.type = HEADSET_VIVE;
+  } else if (strncmp(buffer, "Oculus", 128)) {
+    state.type = HEADSET_RIFT;
+  } else {
+    state.type = HEADSET_UNKNOWN;
+  }
+
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
   lovrHeadsetRefreshControllers();
@@ -169,7 +178,7 @@ int lovrHeadsetIsPresent() {
   return state.isInitialized && state.system->IsTrackedDeviceConnected(state.headsetIndex);
 }
 
-const char* lovrHeadsetGetType() {
+HeadsetType lovrHeadsetGetType() {
   return state.type;
 }
 

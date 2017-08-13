@@ -72,8 +72,8 @@ int lovrHeadsetIsPresent() {
   return emscripten_vr_is_present();
 }
 
-const char* lovrHeadsetGetType() {
-  return emscripten_vr_get_display_name();
+HeadsetType lovrHeadsetGetType() {
+  return HEADSET_UNKNOWN;
 }
 
 HeadsetOrigin lovrHeadsetGetOriginType() {

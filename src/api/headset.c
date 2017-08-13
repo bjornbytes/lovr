@@ -5,6 +5,7 @@ map_int_t ControllerAxes;
 map_int_t ControllerButtons;
 map_int_t HeadsetEyes;
 map_int_t HeadsetOrigins;
+map_int_t HeadsetTypes;
 
 typedef struct {
   lua_State* L;
@@ -46,6 +47,11 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&HeadsetOrigins, "head", ORIGIN_HEAD);
   map_set(&HeadsetOrigins, "floor", ORIGIN_FLOOR);
 
+  map_init(&HeadsetTypes);
+  map_set(&HeadsetTypes, "unknown", HEADSET_UNKNOWN);
+  map_set(&HeadsetTypes, "vive", HEADSET_VIVE);
+  map_set(&HeadsetTypes, "rift", HEADSET_RIFT);
+
   lovrHeadsetInit();
 
   headsetRenderData.ref = LUA_NOREF;
@@ -59,7 +65,7 @@ int l_lovrHeadsetIsPresent(lua_State* L) {
 }
 
 int l_lovrHeadsetGetType(lua_State* L) {
-  lua_pushstring(L, lovrHeadsetGetType());
+  luax_pushenum(L, &HeadsetTypes, lovrHeadsetGetType());
   return 1;
 }
 

@@ -16,6 +16,12 @@ typedef enum {
 } HeadsetOrigin;
 
 typedef enum {
+  HEADSET_UNKNOWN,
+  HEADSET_VIVE,
+  HEADSET_RIFT
+} HeadsetType;
+
+typedef enum {
   CONTROLLER_AXIS_TRIGGER,
   CONTROLLER_AXIS_TOUCHPAD_X,
   CONTROLLER_AXIS_TOUCHPAD_Y
@@ -41,7 +47,7 @@ void lovrHeadsetInit();
 void lovrHeadsetDestroy();
 void lovrHeadsetPoll();
 int lovrHeadsetIsPresent();
-const char* lovrHeadsetGetType();
+HeadsetType lovrHeadsetGetType();
 HeadsetOrigin lovrHeadsetGetOriginType();
 int lovrHeadsetIsMirrored();
 void lovrHeadsetSetMirrored(int mirror);
