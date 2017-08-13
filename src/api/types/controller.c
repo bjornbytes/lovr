@@ -10,6 +10,13 @@ int l_lovrControllerIsPresent(lua_State* L) {
   return 1;
 }
 
+int l_lovrControllerGetHand(lua_State* L) {
+  Controller* controller = luax_checktype(L, 1, Controller);
+  ControllerHand hand = lovrHeadsetControllerGetHand(controller);
+  luax_pushenum(L, &ControllerHands, hand);
+  return 1;
+}
+
 int l_lovrControllerGetPosition(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   float x, y, z;
@@ -45,6 +52,13 @@ int l_lovrControllerIsDown(lua_State* L) {
   return 1;
 }
 
+int l_lovrControllerIsTouched(lua_State* L) {
+  Controller* controller = luax_checktype(L, 1, Controller);
+  ControllerButton* button = (ControllerButton*) luax_checkenum(L, 2, &ControllerButtons, "controller button");
+  lua_pushboolean(L, lovrHeadsetControllerIsTouched(controller, *button));
+  return 1;
+}
+
 int l_lovrControllerVibrate(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   float duration = luaL_optnumber(L, 2, .5);
@@ -74,10 +88,12 @@ int l_lovrControllerNewModel(lua_State* L) {
 
 const luaL_Reg lovrController[] = {
   { "isPresent", l_lovrControllerIsPresent },
+  { "getHand", l_lovrControllerGetHand },
   { "getPosition", l_lovrControllerGetPosition },
   { "getOrientation", l_lovrControllerGetOrientation },
   { "getAxis", l_lovrControllerGetAxis },
   { "isDown", l_lovrControllerIsDown },
+  { "isTouched", l_lovrControllerIsTouched },
   { "vibrate", l_lovrControllerVibrate },
   { "newModel", l_lovrControllerNewModel },
   { NULL, NULL }

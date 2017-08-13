@@ -183,6 +183,10 @@ int lovrHeadsetControllerIsPresent(Controller* controller) {
   return emscripten_vr_controller_is_present(controller->id);
 }
 
+ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
+  return HAND_UNKNOWN;
+}
+
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
   float v[3];
   emscripten_vr_get_controller_position(controller->id, &v[0], &v[1], &v[2]);
@@ -223,6 +227,10 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
 
     default: return 0;
   }
+}
+
+int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
+  return 0;
 }
 
 void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {

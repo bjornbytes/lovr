@@ -10,14 +10,66 @@
 
 static HeadsetState state;
 
-static ControllerButton getButton(uint32_t button) {
-  switch (button) {
-    case EVRButtonId_k_EButton_System: return CONTROLLER_BUTTON_SYSTEM;
-    case EVRButtonId_k_EButton_ApplicationMenu: return CONTROLLER_BUTTON_MENU;
-    case EVRButtonId_k_EButton_Grip: return CONTROLLER_BUTTON_GRIP;
-    case EVRButtonId_k_EButton_SteamVR_Touchpad: return CONTROLLER_BUTTON_TOUCHPAD;
-    case EVRButtonId_k_EButton_SteamVR_Trigger: return CONTROLLER_BUTTON_TRIGGER;
-    default: return -1;
+static ControllerButton getButton(uint32_t button, ControllerHand hand) {
+  switch (state.type) {
+    case HEADSET_RIFT:
+      switch (button) {
+        case EVRButtonId_k_EButton_Axis1: return CONTROLLER_BUTTON_TRIGGER;
+        case EVRButtonId_k_EButton_Axis2: return CONTROLLER_BUTTON_GRIP;
+        case EVRButtonId_k_EButton_Axis0: return CONTROLLER_BUTTON_JOYSTICK;
+        case EVRButtonId_k_EButton_A:
+          switch (hand) {
+            case HAND_LEFT: return CONTROLLER_BUTTON_X;
+            case HAND_RIGHT: return CONTROLLER_BUTTON_A;
+            default: return CONTROLLER_BUTTON_UNKNOWN;
+          }
+        case EVRButtonId_k_EButton_ApplicationMenu:
+          switch (hand) {
+            case HAND_LEFT: return CONTROLLER_BUTTON_Y;
+            case HAND_RIGHT: return CONTROLLER_BUTTON_B;
+            default: return CONTROLLER_BUTTON_UNKNOWN;
+          }
+        default: return CONTROLLER_BUTTON_UNKNOWN;
+      }
+      break;
+
+    default:
+      switch (button) {
+        case EVRButtonId_k_EButton_System: return CONTROLLER_BUTTON_SYSTEM;
+        case EVRButtonId_k_EButton_ApplicationMenu: return CONTROLLER_BUTTON_MENU;
+        case EVRButtonId_k_EButton_SteamVR_Trigger: return CONTROLLER_BUTTON_TRIGGER;
+        case EVRButtonId_k_EButton_Grip: return CONTROLLER_BUTTON_GRIP;
+        case EVRButtonId_k_EButton_SteamVR_Touchpad: return CONTROLLER_BUTTON_TOUCHPAD;
+        default: return CONTROLLER_BUTTON_UNKNOWN;
+      }
+  }
+
+  return CONTROLLER_BUTTON_UNKNOWN;
+}
+
+static int getButtonState(uint64_t mask, ControllerButton button, ControllerHand hand) {
+  switch (state.type) {
+    case HEADSET_RIFT:
+      switch (button) {
+        case CONTROLLER_BUTTON_TRIGGER: return (mask >> EVRButtonId_k_EButton_Axis1) & 1;
+        case CONTROLLER_BUTTON_GRIP: return (mask >> EVRButtonId_k_EButton_Axis2) & 1;
+        case CONTROLLER_BUTTON_JOYSTICK: return (mask >> EVRButtonId_k_EButton_Axis0) & 1;
+        case CONTROLLER_BUTTON_A: return hand == HAND_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
+        case CONTROLLER_BUTTON_B: return hand == HAND_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+        case CONTROLLER_BUTTON_X: return hand == HAND_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
+        case CONTROLLER_BUTTON_Y: return hand == HAND_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+        default: return 0;
+      }
+
+    default:
+      switch (button) {
+        case CONTROLLER_BUTTON_SYSTEM: return (mask >> EVRButtonId_k_EButton_System) & 1;
+        case CONTROLLER_BUTTON_MENU: return (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+        case CONTROLLER_BUTTON_TRIGGER: return (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1;
+        case CONTROLLER_BUTTON_GRIP: return (mask >> EVRButtonId_k_EButton_Grip) & 1;
+        case CONTROLLER_BUTTON_TOUCHPAD: return (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1;
+        default: return 0;
+      }
   }
 }
 
@@ -92,9 +144,9 @@ void lovrHeadsetInit() {
   state.headsetIndex = k_unTrackedDeviceIndex_Hmd;
 
   state.system->GetStringTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_ManufacturerName_String, buffer, 128, NULL);
-  if (strncmp(buffer, "HTC", 128)) {
+  if (!strncmp(buffer, "HTC", 128)) {
     state.type = HEADSET_VIVE;
-  } else if (strncmp(buffer, "Oculus", 128)) {
+  } else if (!strncmp(buffer, "Oculus", 128)) {
     state.type = HEADSET_RIFT;
   } else {
     state.type = HEADSET_UNKNOWN;
@@ -145,15 +197,16 @@ void lovrHeadsetPoll() {
         int i;
         vec_foreach(&state.controllers, controller, i) {
           if (controller->id == vrEvent.trackedDeviceIndex) {
+            ControllerHand hand = lovrHeadsetControllerGetHand(controller);
             Event event;
             if (isPress) {
               event.type = EVENT_CONTROLLER_PRESSED;
               event.data.controllerpressed.controller = controller;
-              event.data.controllerpressed.button = getButton(vrEvent.data.controller.button);
+              event.data.controllerpressed.button = getButton(vrEvent.data.controller.button, hand);
             } else {
               event.type = EVENT_CONTROLLER_RELEASED;
               event.data.controllerreleased.controller = controller;
-              event.data.controllerreleased.button = getButton(vrEvent.data.controller.button);
+              event.data.controllerreleased.button = getButton(vrEvent.data.controller.button, hand);
             }
             lovrEventPush(event);
             break;
@@ -421,6 +474,15 @@ int lovrHeadsetControllerIsPresent(Controller* controller) {
   return state.system->IsTrackedDeviceConnected(controller->id);
 }
 
+ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
+  if (!state.isInitialized || !controller) return HAND_UNKNOWN;
+  switch (state.system->GetControllerRoleForTrackedDeviceIndex(controller->id)) {
+    case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
+    case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
+    default: return HAND_UNKNOWN;
+  }
+}
+
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
   if (!state.isInitialized || !controller) {
     *x = *y = *z = 0.f;
@@ -462,14 +524,26 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
   VRControllerState_t input;
   state.system->GetControllerState(controller->id, &input, sizeof(input));
 
-  switch (axis) {
-    case CONTROLLER_AXIS_TRIGGER: return input.rAxis[1].x;
-    case CONTROLLER_AXIS_TOUCHPAD_X: return input.rAxis[0].x;
-    case CONTROLLER_AXIS_TOUCHPAD_Y: return input.rAxis[0].y;
-    default: lovrThrow("Bad controller axis");
+  switch (state.type) {
+    case HEADSET_RIFT:
+      switch (axis) {
+        case CONTROLLER_AXIS_TRIGGER: return input.rAxis[1].x;
+        case CONTROLLER_AXIS_GRIP: return input.rAxis[2].x;
+        case CONTROLLER_AXIS_JOYSTICK_X: return input.rAxis[0].x;
+        case CONTROLLER_AXIS_JOYSTICK_Y: return input.rAxis[0].y;
+        default: return 0;
+      }
+
+    default:
+      switch (axis) {
+        case CONTROLLER_AXIS_TRIGGER: return input.rAxis[1].x;
+        case CONTROLLER_AXIS_TOUCHPAD_X: return input.rAxis[0].x;
+        case CONTROLLER_AXIS_TOUCHPAD_Y: return input.rAxis[0].y;
+        default: return 0;
+      }
   }
 
-  return 0.;
+  return 0;
 }
 
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
@@ -477,25 +551,17 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
 
   VRControllerState_t input;
   state.system->GetControllerState(controller->id, &input, sizeof(input));
+  ControllerHand hand = lovrHeadsetControllerGetHand(controller);
+  return getButtonState(input.ulButtonPressed, button, hand);
+}
 
-  switch (button) {
-    case CONTROLLER_BUTTON_SYSTEM:
-      return (input.ulButtonPressed >> EVRButtonId_k_EButton_System) & 1;
+int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
+  if (!state.isInitialized || !controller) return 0;
 
-    case CONTROLLER_BUTTON_MENU:
-      return (input.ulButtonPressed >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
-
-    case CONTROLLER_BUTTON_GRIP:
-      return (input.ulButtonPressed >> EVRButtonId_k_EButton_Grip) & 1;
-
-    case CONTROLLER_BUTTON_TOUCHPAD:
-      return (input.ulButtonPressed >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1;
-
-    default:
-      lovrThrow("Bad controller button");
-  }
-
-  return 0;
+  VRControllerState_t input;
+  state.system->GetControllerState(controller->id, &input, sizeof(input));
+  ControllerHand hand = lovrHeadsetControllerGetHand(controller);
+  return getButtonState(input.ulButtonTouched, button, hand);
 }
 
 void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {

@@ -23,17 +23,32 @@ typedef enum {
 
 typedef enum {
   CONTROLLER_AXIS_TRIGGER,
+  CONTROLLER_AXIS_GRIP,
   CONTROLLER_AXIS_TOUCHPAD_X,
-  CONTROLLER_AXIS_TOUCHPAD_Y
+  CONTROLLER_AXIS_TOUCHPAD_Y,
+  CONTROLLER_AXIS_JOYSTICK_X,
+  CONTROLLER_AXIS_JOYSTICK_Y
 } ControllerAxis;
 
 typedef enum {
+  CONTROLLER_BUTTON_UNKNOWN,
   CONTROLLER_BUTTON_SYSTEM,
   CONTROLLER_BUTTON_MENU,
+  CONTROLLER_BUTTON_TRIGGER,
   CONTROLLER_BUTTON_GRIP,
   CONTROLLER_BUTTON_TOUCHPAD,
-  CONTROLLER_BUTTON_TRIGGER
+  CONTROLLER_BUTTON_JOYSTICK,
+  CONTROLLER_BUTTON_A,
+  CONTROLLER_BUTTON_B,
+  CONTROLLER_BUTTON_X,
+  CONTROLLER_BUTTON_Y
 } ControllerButton;
+
+typedef enum {
+  HAND_UNKNOWN,
+  HAND_LEFT,
+  HAND_RIGHT
+} ControllerHand;
 
 typedef struct {
   Ref ref;
@@ -64,10 +79,12 @@ void lovrHeadsetGetVelocity(float* x, float* y, float* z);
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);
 vec_controller_t* lovrHeadsetGetControllers();
 int lovrHeadsetControllerIsPresent(Controller* controller);
+ControllerHand lovrHeadsetControllerGetHand(Controller* controller);
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z);
 void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z);
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
+int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power);
 ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
 TextureData* lovrHeadsetControllerNewTextureData(Controller* controller);
