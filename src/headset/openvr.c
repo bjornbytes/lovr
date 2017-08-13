@@ -90,6 +90,7 @@ void lovrHeadsetInit() {
 
   state.isInitialized = 1;
   state.headsetIndex = k_unTrackedDeviceIndex_Hmd;
+  state.system->GetStringTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_ModelNumber_String, state.type, 128, NULL);
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
   lovrHeadsetRefreshControllers();
@@ -169,7 +170,7 @@ int lovrHeadsetIsPresent() {
 }
 
 const char* lovrHeadsetGetType() {
-  return state.isInitialized ? "Vive" : NULL;
+  return state.type;
 }
 
 HeadsetOrigin lovrHeadsetGetOriginType() {

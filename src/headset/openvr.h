@@ -29,6 +29,7 @@ typedef struct {
   struct VR_IVRRenderModels_FnTable* renderModels;
 
   unsigned int headsetIndex;
+  char type[128];
 
   TrackedDevicePose_t renderPoses[16];
   RenderModel_t* deviceModels[16];
