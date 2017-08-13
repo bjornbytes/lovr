@@ -39,12 +39,12 @@ static void handleError(lua_State* L, const char* message) {
 static int lovrGetOS(lua_State* L) {
 #ifdef _WIN32
   lua_pushstring(L, "Windows");
-  return 1;
 #elif __APPLE__
   lua_pushstring(L, "macOS");
-  return 1;
 #elif EMSCRIPTEN
   lua_pushstring(L, "Web");
+#elif __linux__
+  lua_pushstring(L, "Linux");
 #else
   lua_pushnil(L);
 #endif
