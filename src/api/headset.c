@@ -33,8 +33,6 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&ControllerAxes, "grip", CONTROLLER_AXIS_GRIP);
   map_set(&ControllerAxes, "touchx", CONTROLLER_AXIS_TOUCHPAD_X);
   map_set(&ControllerAxes, "touchy", CONTROLLER_AXIS_TOUCHPAD_Y);
-  map_set(&ControllerAxes, "joystickx", CONTROLLER_AXIS_JOYSTICK_X);
-  map_set(&ControllerAxes, "joysticky", CONTROLLER_AXIS_JOYSTICK_Y);
 
   map_init(&ControllerButtons);
   map_set(&ControllerButtons, "unknown", CONTROLLER_BUTTON_UNKNOWN);
@@ -43,7 +41,6 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&ControllerButtons, "trigger", CONTROLLER_BUTTON_TRIGGER);
   map_set(&ControllerButtons, "grip", CONTROLLER_BUTTON_GRIP);
   map_set(&ControllerButtons, "touchpad", CONTROLLER_BUTTON_TOUCHPAD);
-  map_set(&ControllerButtons, "joystick", CONTROLLER_BUTTON_JOYSTICK);
   map_set(&ControllerButtons, "a", CONTROLLER_BUTTON_A);
   map_set(&ControllerButtons, "b", CONTROLLER_BUTTON_B);
   map_set(&ControllerButtons, "x", CONTROLLER_BUTTON_X);

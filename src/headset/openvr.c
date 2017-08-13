@@ -16,7 +16,7 @@ static ControllerButton getButton(uint32_t button, ControllerHand hand) {
       switch (button) {
         case EVRButtonId_k_EButton_Axis1: return CONTROLLER_BUTTON_TRIGGER;
         case EVRButtonId_k_EButton_Axis2: return CONTROLLER_BUTTON_GRIP;
-        case EVRButtonId_k_EButton_Axis0: return CONTROLLER_BUTTON_JOYSTICK;
+        case EVRButtonId_k_EButton_Axis0: return CONTROLLER_BUTTON_TOUCHPAD;
         case EVRButtonId_k_EButton_A:
           switch (hand) {
             case HAND_LEFT: return CONTROLLER_BUTTON_X;
@@ -53,7 +53,7 @@ static int getButtonState(uint64_t mask, ControllerButton button, ControllerHand
       switch (button) {
         case CONTROLLER_BUTTON_TRIGGER: return (mask >> EVRButtonId_k_EButton_Axis1) & 1;
         case CONTROLLER_BUTTON_GRIP: return (mask >> EVRButtonId_k_EButton_Axis2) & 1;
-        case CONTROLLER_BUTTON_JOYSTICK: return (mask >> EVRButtonId_k_EButton_Axis0) & 1;
+        case CONTROLLER_BUTTON_TOUCHPAD: return (mask >> EVRButtonId_k_EButton_Axis0) & 1;
         case CONTROLLER_BUTTON_A: return hand == HAND_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
         case CONTROLLER_BUTTON_B: return hand == HAND_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
         case CONTROLLER_BUTTON_X: return hand == HAND_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
@@ -529,8 +529,8 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
       switch (axis) {
         case CONTROLLER_AXIS_TRIGGER: return input.rAxis[1].x;
         case CONTROLLER_AXIS_GRIP: return input.rAxis[2].x;
-        case CONTROLLER_AXIS_JOYSTICK_X: return input.rAxis[0].x;
-        case CONTROLLER_AXIS_JOYSTICK_Y: return input.rAxis[0].y;
+        case CONTROLLER_AXIS_TOUCHPAD_X: return input.rAxis[0].x;
+        case CONTROLLER_AXIS_TOUCHPAD_Y: return input.rAxis[0].y;
         default: return 0;
       }
 
