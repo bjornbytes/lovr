@@ -125,7 +125,7 @@ for _, module in ipairs(modules) do
   end
 end
 
-if conf.window then
+if lovr.graphics and conf.window then
   local w = conf.window
   lovr.graphics.createWindow(w.width, w.height, w.fullscreen, w.msaa, w.title, w.icon)
 end

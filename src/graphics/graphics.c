@@ -907,10 +907,8 @@ void lovrGraphicsSetViewport(int x, int y, int w, int h) {
 }
 
 void lovrGraphicsBindFramebuffer(int framebuffer) {
-  if (state.canvases[state.canvas].framebuffer != framebuffer) {
-    state.canvases[state.canvas].framebuffer = framebuffer;
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-  }
+  state.canvases[state.canvas].framebuffer = framebuffer;
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 }
 
 Texture* lovrGraphicsGetTexture() {

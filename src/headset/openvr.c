@@ -92,11 +92,6 @@ void lovrHeadsetInit() {
   state.headsetIndex = k_unTrackedDeviceIndex_Hmd;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
-  state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
-
-  TextureData* textureData = lovrTextureDataGetEmpty(state.renderWidth, state.renderHeight, FORMAT_RGBA);
-  state.texture = lovrTextureCreateWithFramebuffer(textureData, PROJECTION_PERSPECTIVE, 4);
-
   lovrHeadsetRefreshControllers();
   lovrEventAddPump(lovrHeadsetPoll);
   atexit(lovrHeadsetDestroy);
@@ -610,6 +605,12 @@ TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   if (!state.isInitialized) return;
+
+  if (!state.texture) {
+    state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
+    TextureData* textureData = lovrTextureDataGetEmpty(state.renderWidth, state.renderHeight, FORMAT_RGBA);
+    state.texture = lovrTextureCreateWithFramebuffer(textureData, PROJECTION_PERSPECTIVE, 4);
+  }
 
   float head[16], transform[16], projection[16];
   float (*matrix)[4];
