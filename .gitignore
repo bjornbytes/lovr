@@ -1,7 +1,6 @@
 .tup
 build
 /lovr
-deps
 /data
 src/obj
 src/Tupfile
