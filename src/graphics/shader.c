@@ -64,7 +64,7 @@ static const char* lovrSkyboxVertexShader = ""
 
 static const char* lovrSkyboxFragmentShader = ""
 "in vec3 texturePosition; \n"
-"uniform samplerCube cube = 1; \n"
+"uniform samplerCube cube; \n"
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  return graphicsColor * texture(cube, texturePosition); \n"
 "}";
@@ -83,7 +83,6 @@ static const char* lovrFontFragmentShader = ""
 
 static const char* lovrNoopVertexShader = ""
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
-"  texCoord.y = 1 - texCoord.y; \n"
 "  return vertex; \n"
 "}";
 
@@ -196,7 +195,11 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 Shader* lovrShaderCreateDefault(DefaultShader type) {
   switch (type) {
     case SHADER_DEFAULT: return lovrShaderCreate(NULL, NULL);
-    case SHADER_SKYBOX: return lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
+    case SHADER_SKYBOX: {
+      Shader* shader = lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader);
+      lovrShaderSendInt(shader, lovrShaderGetUniformId(shader, "cube"), 1);
+      return shader;
+    }
     case SHADER_FONT: return lovrShaderCreate(NULL, lovrFontFragmentShader);
     case SHADER_FULLSCREEN: return lovrShaderCreate(lovrNoopVertexShader, NULL);
     default: lovrThrow("Unknown default shader type");
