@@ -20,12 +20,11 @@ Dependencies
 - ODE (for `lovr.physics`)
 - Emscripten (optional, for compiling for web)
 
-The [lovr-deps](https://github.com/bjornbytes/lovr-deps) repository contains all dependencies as
-git submodules.  The build script expects this repository to exist under `lovr/deps`:
+These can be found as submodules in the `deps` directory of the repository.  To initialize the
+submodules, clone LÖVR with the `--recursive` option or run this command in an existing repo:
 
 ```sh
-cd lovr
-git clone --recursive https://github.com/bjornbytes/lovr-deps deps
+git submodule update --init
 ```
 
 Windows
