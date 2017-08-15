@@ -51,7 +51,7 @@ void lovrGraphicsReset() {
   state.transform = 0;
   state.canvas = 0;
   state.defaultShader = -1;
-  lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 0 });
+  lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 255 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor((Color) { 255, 255, 255, 255 });
   lovrGraphicsSetCullingEnabled(0);
@@ -301,7 +301,11 @@ void lovrGraphicsSetFont(Font* font) {
 
 GraphicsLimits lovrGraphicsGetLimits() {
   if (!state.limits.initialized) {
+#ifdef EMSCRIPTEN
+    state.limits.pointSizes[0] = state.limits.pointSizes[1] = 1.f;
+#else
     glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
+#endif
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.limits.textureSize);
     glGetIntegerv(GL_MAX_SAMPLES, &state.limits.textureMSAA);
     glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
