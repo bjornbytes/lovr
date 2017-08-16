@@ -742,9 +742,9 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* 
     for (int j = 0; j <= segments; j++) {
       float u = j / (float) segments;
 
-      float x = -cos(u * 2 * M_PI) * sin(v * M_PI);
+      float x = sin(u * 2 * M_PI) * sin(v * M_PI);
       float y = cos(v * M_PI);
-      float z = sin(u * 2 * M_PI) * sin(v * M_PI);
+      float z = -cos(u * 2 * M_PI) * sin(v * M_PI);
 
       vec_push(&state.streamData, x);
       vec_push(&state.streamData, y);
