@@ -258,7 +258,7 @@ void* lovrMeshMap(Mesh* mesh, int start, size_t count, int read, int write) {
   mesh->mapCount = count;
   return (char*) mesh->data + start * mesh->stride;
 #else
-  if (mesh->isMapped && (mesh->mapStart != start || mesh->mapCount != count)) {
+  if (mesh->isMapped) {
     lovrMeshUnmap(mesh);
   }
 
