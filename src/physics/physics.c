@@ -85,6 +85,10 @@ void lovrWorldDestroyData(World* world) {
 }
 
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata) {
+	if (dt == 0.) {
+		return;
+	}
+
   if (resolver) {
     resolver(world, userdata);
   } else {
