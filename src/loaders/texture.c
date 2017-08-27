@@ -9,7 +9,7 @@ const TextureFormat FORMAT_RGB = {
   .glInternalFormat = GL_RGB,
   .glFormat = GL_RGB,
   .compressed = 0,
-  .blockBytes = 2
+  .blockBytes = 3
 };
 
 const TextureFormat FORMAT_RGBA = {

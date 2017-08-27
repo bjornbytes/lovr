@@ -44,6 +44,7 @@ Texture* lovrTextureCreate(TextureData* textureData) {
   lovrTextureCreateStorage(texture);
   lovrTextureRefresh(texture);
   lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
+
   lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
 
   return texture;

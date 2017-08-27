@@ -98,7 +98,7 @@ static GLuint compileShader(GLenum type, const char* source) {
     int logLength;
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
 
-    char* log = (char*) malloc(logLength);
+    char* log = malloc(logLength);
     glGetShaderInfoLog(shader, logLength, &logLength, log);
     lovrThrow("Could not compile shader %s", log);
   }
@@ -129,7 +129,7 @@ static GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
     int logLength;
     glGetProgramiv(shader, GL_INFO_LOG_LENGTH, &logLength);
 
-    char* log = (char*) malloc(logLength);
+    char* log = malloc(logLength);
     glGetProgramInfoLog(shader, logLength, &logLength, log);
     lovrThrow("Could not link shader %s", log);
   }
