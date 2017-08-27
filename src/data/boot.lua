@@ -22,6 +22,10 @@ local conf = {
   }
 }
 
+local function applyHeadsetOffset()
+  lovr.graphics.translate('view', 0, -conf.headset.offset, 0)
+end
+
 function lovr.errhand(message)
   message = 'Error:\n' .. message:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
   print(message)
@@ -38,6 +42,12 @@ function lovr.errhand(message)
   local function render()
     lovr.graphics.print(message, -width / 2, conf.headset.offset, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
   end
+  local function headsetRender()
+    if lovr.headset.getOriginType() == 'head' then
+      applyHeadsetOffset()
+    end
+    render()
+  end
   while true do
     lovr.event.pump()
     for name in lovr.event.poll() do
@@ -45,12 +55,10 @@ function lovr.errhand(message)
     end
     lovr.graphics.clear()
     lovr.graphics.origin()
-    if not lovr.headset or not lovr.headset.isPresent() or lovr.headset.getOriginType() == 'head' then
-      lovr.graphics.translate('view', 0, -conf.headset.offset, 0)
-    end
     if lovr.headset and lovr.headset.isPresent() and lovr.getOS() ~= 'Web' then
-      lovr.headset.renderTo(render)
+      lovr.headset.renderTo(headsetRender)
     end
+    applyHeadsetOffset()
     render()
     lovr.graphics.present()
     lovr.timer.sleep((lovr.headset and lovr.headset.isPresent()) and .001 or .1)
@@ -160,6 +168,12 @@ lovr.handlers = setmetatable({
   end
 })
 
+local function headsetRenderCallback()
+  if lovr.headset.getOriginType() == 'head' then
+    applyHeadsetOffset()
+  end
+  lovr.draw()
+end
 function lovr.step()
   lovr.event.pump()
   for name, a, b, c, d in lovr.event.poll() do
@@ -182,13 +196,10 @@ function lovr.step()
     lovr.graphics.clear()
     lovr.graphics.origin()
     if lovr.draw then
-      if not lovr.headset or not lovr.headset.isPresent() or lovr.headset.getOriginType() == 'head' then
-        lovr.graphics.translate('view', 0, -conf.headset.offset, 0)
-      end
-
       if lovr.headset and lovr.headset.isPresent() then
-        lovr.headset.renderTo(lovr.draw)
+        lovr.headset.renderTo(headsetRenderCallback)
       else
+        applyHeadsetOffset()
         lovr.draw()
       end
     end
