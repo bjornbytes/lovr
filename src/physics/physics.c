@@ -85,17 +85,16 @@ void lovrWorldDestroyData(World* world) {
 }
 
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata) {
-	if (dt == 0.) {
-		return;
-	}
-
   if (resolver) {
     resolver(world, userdata);
   } else {
     dSpaceCollide(world->space, world, defaultNearCallback);
   }
 
-  dWorldQuickStep(world->id, dt);
+  if (dt > 0) {
+    dWorldQuickStep(world->id, dt);
+  }
+
   dJointGroupEmpty(world->contactGroup);
 }
 
