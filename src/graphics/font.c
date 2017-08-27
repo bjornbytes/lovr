@@ -29,7 +29,7 @@ Font* lovrFontCreate(FontData* fontData) {
   font->fontData = fontData;
   font->texture = NULL;
   font->lineHeight = 1.f;
-  font->pixelDensity = font->fontData->height;
+  font->pixelDensity = (float) font->fontData->height;
   map_init(&font->kerning);
 
   // Atlas
