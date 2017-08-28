@@ -6,13 +6,13 @@ You want to contribute to LÖVR?  That's awesome!
 Submitting Issues
 ---
 
-Feel free to file an issue if you notice a bug.  Make sure you search before filing an issue, it may
-have already been asked!
+Feel free to file an issue if you notice a bug.  Make sure you search before filing an issue, as it
+may have already been asked.
 
 Issues are okay for feature requests and questions about the development of LÖVR as well, but
 usually you'll get a better response by asking in
 [Slack](https://join.slack.com/ifyouwannabemylovr/shared_invite/MTc5ODk2MjE0NDM3LTE0OTQxMTIyMDEtMzdhOGVlODFhYg).
-Questions about using LÖVR belong in Slack.
+Questions about how to use LÖVR belong in Slack.
 
 Contributing Documentation
 ---
