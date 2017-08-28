@@ -15,6 +15,15 @@ Features
 - Spatialized audio
 - 3D physics
 
+Screenshots
+---
+
+<p align="center">
+  <span><img src="http://lovr.org/static/img/wattle.jpg" width="32%"/></span>
+  <span><img src="http://lovr.org/static/img/levrage.jpg" width="32%"/></span>
+  <span><img src="http://lovr.org/static/img/planets.jpg" width="32%"/></span>
+</p>
+
 Getting Started
 ---
 
@@ -24,7 +33,7 @@ for LÖVR:
 
 ```lua
 function lovr.draw()
-  lovr.graphics.print('Hello World!', 0, 1, -1)
+  lovr.graphics.print('Hello World!', 0, 1.7, -3, .5)
 end
 ```
 
@@ -61,19 +70,29 @@ function lovr.load()
 end
 ```
 
-For more examples, see <http://lovr.org/examples>.
-
 Documentation
 ---
 
-See <http://lovr.org/docs> for guides and API reference.  The documentation is open source
-and can be found [here](https://github.com/bjornbytes/lovr-docs).
+Documentation and examples are available on the website [here](http://lovr.org/docs).  The website is also [open source](https://github.com/bjornbytes/lovr-docs) if you want to add or edit documentation.
+
+Community
+---
+
+> If you wanna be my LÖVR, you gotta get with my friends
+> *- Spice Girls*
+
+Feel free to join the [LÖVR Slack](https://join.slack.com/ifyouwannabemylovr/shared_invite/MTc5ODk2MjE0NDM3LTE0OTQxMTIyMDEtMzdhOGVlODFhYg) for questions, info, and other discussion.
 
 Compiling
 ---
 
 To compile from source to create a custom build or contribute to LÖVR, see
-[`COMPILING.md`](COMPILING.md).
+[`COMPILING`](COMPILING.md).
+
+Contributing
+---
+
+Contributions are welcome!  See [`CONTRIBUTING`](CONTRIBUTING.md) for more information.
 
 License
 ---
