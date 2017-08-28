@@ -10,7 +10,7 @@ Feel free to file an issue if you notice a bug.  Make sure you search before fil
 have already been asked!
 
 Issues are okay for feature requests and questions about the development of LÖVR as well, but
-usually you'll get a better response by asking in [Slack]().  Quesetions about using LÖVR belong
+usually you'll get a better response by asking in [Slack](https://join.slack.com/ifyouwannabemylovr/shared_invite/MTc5ODk2MjE0NDM3LTE0OTQxMTIyMDEtMzdhOGVlODFhYg).  Quesetions about using LÖVR belong
 in Slack.
 
 Contributing Documentation
