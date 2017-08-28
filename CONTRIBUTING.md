@@ -10,8 +10,9 @@ Feel free to file an issue if you notice a bug.  Make sure you search before fil
 have already been asked!
 
 Issues are okay for feature requests and questions about the development of LÖVR as well, but
-usually you'll get a better response by asking in [Slack](https://join.slack.com/ifyouwannabemylovr/shared_invite/MTc5ODk2MjE0NDM3LTE0OTQxMTIyMDEtMzdhOGVlODFhYg).  Quesetions about using LÖVR belong
-in Slack.
+usually you'll get a better response by asking in
+[Slack](https://join.slack.com/ifyouwannabemylovr/shared_invite/MTc5ODk2MjE0NDM3LTE0OTQxMTIyMDEtMzdhOGVlODFhYg).
+Questions about using LÖVR belong in Slack.
 
 Contributing Documentation
 ---
@@ -37,3 +38,16 @@ If you modify the embedded `boot.lua` script, you can compile it into a C header
 ```sh
 pushd src/data; xxd -i boot.lua > boot.lua.h; popd
 ```
+
+Organization
+---
+
+An overview of the folder structure:
+
+- `deps` contains submodules for external dependencies.  Some smaller dependencies are also included
+in the `src/lib` folder.
+- `src/api` contains Lua bindings.  There's a file for each module in there, and a `types` folder
+with a file for each type of object.
+- `src/data` contains embedded resources.  These are compiled to binary headers using `xxd`.
+- `src/loaders` has stuff for loading various file formats into LÖVR data structures.
+- Each module has a folder in `src`.
