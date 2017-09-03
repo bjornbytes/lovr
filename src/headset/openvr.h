@@ -42,6 +42,8 @@ typedef struct {
 
   uint32_t renderWidth;
   uint32_t renderHeight;
+  float refreshRate;
+  float vsyncToPhotons;
 
   Texture* texture;
 } HeadsetState;

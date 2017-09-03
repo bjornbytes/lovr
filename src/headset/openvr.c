@@ -79,7 +79,10 @@ static TrackedDevicePose_t getPose(unsigned int deviceIndex) {
   }
 
   ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
-  float secondsInFuture = 0.f;
+  float timeSinceVsync;
+  state.system->GetTimeSinceLastVsync(&timeSinceVsync, NULL);
+  float frameDuration = 1.f / state.refreshRate;
+  float secondsInFuture = frameDuration - timeSinceVsync + state.vsyncToPhotons;
   TrackedDevicePose_t poses[16];
   state.system->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, poses, 16);
   return poses[deviceIndex];
@@ -151,6 +154,9 @@ void lovrHeadsetInit() {
   } else {
     state.type = HEADSET_UNKNOWN;
   }
+
+  state.refreshRate = state.system->GetFloatTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_DisplayFrequency_Float, NULL);
+  state.vsyncToPhotons = state.system->GetFloatTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_SecondsFromVsyncToPhotons_Float, NULL);
 
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
