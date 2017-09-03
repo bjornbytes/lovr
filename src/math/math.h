@@ -14,3 +14,4 @@ typedef vec_t(mat4) vec_mat4_t;
 void lovrMathInit();
 void lovrMathDestroy();
 RandomGenerator* lovrMathGetRandomGenerator();
+void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, vec3 v);

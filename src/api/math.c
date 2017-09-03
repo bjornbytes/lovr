@@ -54,6 +54,19 @@ int l_lovrMathLookAt(lua_State* L) {
   return 4;
 }
 
+int l_lovrMathOrientationToDirection(lua_State* L) {
+  float angle = luaL_checknumber(L, 1);
+  float ax = luaL_optnumber(L, 2, 0);
+  float ay = luaL_optnumber(L, 3, 1);
+  float az = luaL_optnumber(L, 4, 0);
+  float v[3];
+  lovrMathOrientationToDirection(angle, ax, ay, az, v);
+  lua_pushnumber(L, v[0]);
+  lua_pushnumber(L, v[1]);
+  lua_pushnumber(L, v[2]);
+  return 3;
+}
+
 int l_lovrMathRandom(lua_State* L) {
   luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
@@ -81,6 +94,7 @@ int l_lovrMathSetRandomSeed(lua_State* L) {
 const luaL_Reg lovrMath[] = {
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "newTransform", l_lovrMathNewTransform },
+  { "orientationToDirection", l_lovrMathOrientationToDirection },
   { "lookAt", l_lovrMathLookAt },
   { "random", l_lovrMathRandom },
   { "randomNormal", l_lovrMathRandomNormal },
