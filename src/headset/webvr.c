@@ -184,7 +184,12 @@ int lovrHeadsetControllerIsPresent(Controller* controller) {
 }
 
 ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
-  return HAND_UNKNOWN;
+  switch (emscripten_vr_controller_get_hand(controller->id)) {
+    case 0: return HAND_UNKNOWN;
+    case 1: return HAND_LEFT;
+    case 2: return HAND_RIGHT;
+    default: return HAND_UNKNOWN;
+  }
 }
 
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
