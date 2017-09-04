@@ -25,6 +25,7 @@ static int nextOverlap(lua_State* L) {
 static void raycastCallback(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata) {
   lua_State* L = userdata;
   luaL_checktype(L, -1, LUA_TFUNCTION);
+  lua_pushvalue(L, -1);
   luax_pushshape(L, shape);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
