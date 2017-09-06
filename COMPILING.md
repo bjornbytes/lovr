@@ -53,6 +53,9 @@ Install the dependencies using your package manager of choice:
 brew install assimp glfw3 luajit physfs freetype openal-soft ode
 ```
 
+You may need to set the `PKG_CONFIG_PATH` environment variable for OpenAL to be located properly.
+If you run into this, see [Troubleshooting](#troubleshooting) below for more info.
+
 Next, build using CMake, as above:
 
 ```sh
@@ -145,3 +148,7 @@ Troubleshooting
 - If you get "CMake no CMAKE_CXX_COMPILER found" on Windows, then install Visual Studio and create a
   blank C++ project, which will prompt you to install the compilers and tools necessary to compile
   LÖVR.
+- On macOS, if you run into an error message about not being able to find OpenAL, make sure you've
+  added the proper OpenAL directory (usually something like
+  `/usr/local/opt/openal-soft/lib/pkgconfig`) to your `PKG_CONFIG_PATH` environment variable.
+  Installing openal-soft with brew will print out a message telling you how to do this.
