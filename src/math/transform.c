@@ -21,6 +21,15 @@ void lovrTransformDestroy(const Ref* ref) {
   free(transform);
 }
 
+void lovrTransformGetMatrix(Transform* transform, mat4 m) {
+  mat4_set(m, transform->matrix);
+}
+
+void lovrTransformSetMatrix(Transform* transform, mat4 m) {
+  transform->isDirty = 1;
+  mat4_set(transform->matrix, m);
+}
+
 mat4 lovrTransformInverse(Transform* transform) {
   if (transform->isDirty) {
     transform->isDirty = 0;

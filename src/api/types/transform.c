@@ -31,6 +31,39 @@ int luax_readtransform(lua_State* L, int index, mat4 m, int uniformScale) {
   }
 }
 
+int l_lovrTransformGetMatrix(lua_State* L) {
+  Transform* transform = luax_checktype(L, 1, Transform);
+
+  float matrix[16];
+  lovrTransformGetMatrix(transform, matrix);
+
+  for (int i = 0; i < 16; i++) {
+    lua_pushnumber(L, matrix[i]);
+  }
+
+  return 16;
+}
+
+int l_lovrTransformSetMatrix(lua_State* L) {
+  Transform* transform = luax_checktype(L, 1, Transform);
+
+  float matrix[16];
+  if (lua_istable(L, 2)) {
+    for (int i = 0; i < 16; i++) {
+      lua_rawgeti(L, 2, i + 1);
+      matrix[i] = luaL_checknumber(L, -1);
+      lua_pop(L, 1);
+    }
+  } else {
+    for (int i = 0; i < 16; i++) {
+      matrix[i] = luaL_checknumber(L, 2 + i);
+    }
+  }
+
+  lovrTransformSetMatrix(transform, matrix);
+  return 0;
+}
+
 int l_lovrTransformClone(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
   Transform* clone = lovrTransformCreate(transform->matrix);
@@ -129,6 +162,8 @@ int l_lovrTransformInverseTransformPoint(lua_State* L) {
 }
 
 const luaL_Reg lovrTransform[] = {
+  { "getMatrix", l_lovrTransformGetMatrix },
+  { "setMatrix", l_lovrTransformSetMatrix },
   { "clone", l_lovrTransformClone },
   { "inverse", l_lovrTransformInverse },
   { "apply", l_lovrTransformApply },
