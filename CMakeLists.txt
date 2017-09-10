@@ -280,6 +280,11 @@ else()
   set(LOVR_HEADSET src/headset/openvr.c)
 endif()
 
+if (MSVC_VERSION VERSION_LESS 1900)
+  add_definitions(-Dinline=__inline)
+  add_definitions(-Dsnprintf=_snprintf)
+endif()
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_executable(lovr ${LOVR_SRC} ${LOVR_HEADSET})
 target_link_libraries(lovr
