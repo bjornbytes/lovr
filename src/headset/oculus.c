@@ -21,7 +21,6 @@ typedef struct {
   ovrGraphicsLuid luid;
   ovrTrackingState ts;
   ovrInputState is;
-  int frameIndex;
   float clipNear;
   float clipFar;
   int lastButtonState;
@@ -102,7 +101,6 @@ void lovrHeadsetDestroy() {
   ovr_Shutdown();
 
   state.isInitialized = false;
-  state.frameIndex = 0;
 }
 
 static void checkInput(Controller *controller, int diff, int state, ovrButton button, ControllerButton target) {
@@ -123,7 +121,10 @@ static void checkInput(Controller *controller, int diff, int state, ovrButton bu
 }
 
 void lovrHeadsetPoll() {
-  state.ts = ovr_GetTrackingState(state.session, 0, true);
+  // get the state head and controllers are predicted to be in at display time,
+  // per the manual (frame timing section).
+  double predicted = ovr_GetPredictedDisplayTime(state.session, 0);
+  state.ts = ovr_GetTrackingState(state.session, predicted, true);
   ovr_GetInputState(state.session, ovrControllerType_Touch, &state.is);
 
   ovrSessionStatus status;
@@ -387,7 +388,6 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
           glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
           glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
           glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-          glBindTexture(GL_TEXTURE_2D, 0);
         }
       }
       else {
@@ -436,7 +436,7 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   };
   ovrPosef EyeRenderPose[2];
   double sensorSampleTime;
-  ovr_GetEyePoses(state.session, state.frameIndex, ovrTrue, HmdToEyeOffset, EyeRenderPose, &sensorSampleTime);
+  ovr_GetEyePoses(state.session, 0, ovrTrue, HmdToEyeOffset, EyeRenderPose, &sensorSampleTime);
 
   float transform[16];
   float projection[16];
@@ -508,13 +508,12 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   }
 
   ovrLayerHeader* layers = &ld.Header;
-  ovr_SubmitFrame(state.session, state.frameIndex, NULL, &layers, 1);
+  ovr_SubmitFrame(state.session, 0, NULL, &layers, 1);
   // apparently if this happens we should kill the session and reinit as long as we're getting ovrError_DisplayLost,
   // lest oculus get upset should you try to get anything on the store.
   // if (!OVR_SUCCESS(result))
   //   goto Done;
 
-  state.frameIndex++;
   state.isRendering = false;
   lovrGraphicsPopCanvas();
 
