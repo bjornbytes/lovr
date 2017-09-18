@@ -238,9 +238,9 @@ void lovrShaderBind(Shader* shader, mat4 model, mat4 view, mat4 projection, Colo
 
     mat4_multiply(mat4_set(matrix, view), model);
 
-		if (uniformId > -1) {
-			lovrShaderSendFloatMat4(shader, uniformId, matrix);
-		}
+    if (uniformId > -1) {
+      lovrShaderSendFloatMat4(shader, uniformId, matrix);
+    }
 
     if (mat4_invert(matrix)) {
       mat4_transpose(matrix);
@@ -255,9 +255,9 @@ void lovrShaderBind(Shader* shader, mat4 model, mat4 view, mat4 projection, Colo
     };
 
     uniformId = lovrShaderGetUniformId(shader, "lovrNormalMatrix");
-		if (uniformId > -1) {
-			lovrShaderSendFloatMat3(shader, uniformId, normalMatrix);
-		}
+    if (uniformId > -1) {
+      lovrShaderSendFloatMat3(shader, uniformId, normalMatrix);
+    }
   }
 
   if (dirtyProjection) {
