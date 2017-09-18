@@ -218,7 +218,7 @@ void lovrShaderBind(Shader* shader, mat4 model, mat4 view, mat4 projection, Colo
   int dirtyView = force || memcmp(shader->view, view, 16 * sizeof(float));
   int dirtyTransform = dirtyModel || dirtyView;
   int dirtyProjection = force || memcmp(shader->projection, projection, 16 * sizeof(float));
-  int dirtyColor = force || memcmp(&shader->color, &color, 4 * sizeof(uint8_t));
+  int dirtyColor = force || memcmp(&shader->color, &color, sizeof(Color));
 
   if (dirtyModel) {
     int uniformId = lovrShaderGetUniformId(shader, "lovrModel");

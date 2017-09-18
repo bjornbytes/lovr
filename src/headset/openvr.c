@@ -748,9 +748,19 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
     Color oldColor = lovrGraphicsGetColor();
     lovrGraphicsSetColor((Color) { 255, 255, 255, 255 });
     Shader* lastShader = lovrGraphicsGetShader();
+
+    if (lastShader) {
+      lovrRetain(&lastShader->ref);
+    }
+
     lovrGraphicsSetShader(NULL);
     lovrGraphicsPlaneFullscreen(state.texture);
     lovrGraphicsSetShader(lastShader);
+
+    if (lastShader) {
+      lovrRelease(&lastShader->ref);
+    }
+
     lovrGraphicsSetColor(oldColor);
   }
 }
