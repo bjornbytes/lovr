@@ -15,12 +15,12 @@ typedef struct {
   bool isRendering;
   bool isMirrored;
   bool hmdPresent;
+  bool needRefreshTracking;
+  bool needRefreshButtons;
   headsetRenderCallback renderCallback;
   vec_controller_t controllers;
   ovrSession session;
   ovrGraphicsLuid luid;
-  ovrTrackingState ts;
-  ovrInputState is;
   float clipNear;
   float clipFar;
   int lastButtonState;
@@ -120,20 +120,43 @@ static void checkInput(Controller *controller, int diff, int state, ovrButton bu
   }
 }
 
-void lovrHeadsetPoll() {
-  // get the state head and controllers are predicted to be in at display time,
-  // per the manual (frame timing section).
-  double predicted = ovr_GetPredictedDisplayTime(state.session, 0);
-  state.ts = ovr_GetTrackingState(state.session, predicted, true);
-  ovr_GetInputState(state.session, ovrControllerType_Touch, &state.is);
+static ovrTrackingState *refreshTracking() {
+  static ovrTrackingState ts;
+  if (!state.needRefreshTracking) {
+    return &ts;
+  }
 
   ovrSessionStatus status;
   ovr_GetSessionStatus(state.session, &status);
 
   if (status.ShouldRecenter) {
     ovr_RecenterTrackingOrigin(state.session);
-    ovr_ClearShouldRecenterFlag(state.session);
   }
+
+  // get the state head and controllers are predicted to be in at display time,
+  // per the manual (frame timing section).
+  double predicted = ovr_GetPredictedDisplayTime(state.session, 0);
+  ts = ovr_GetTrackingState(state.session, predicted, true);
+  state.needRefreshTracking = false;
+  return &ts;
+}
+
+static ovrInputState *refreshButtons() {
+  static ovrInputState is;
+  if (!state.needRefreshButtons) {
+    return &is;
+  }
+
+  ovr_GetInputState(state.session, ovrControllerType_Touch, &is);
+  state.needRefreshButtons = false;
+  return &is;
+}
+
+void lovrHeadsetPoll() {
+  ovrInputState *is = refreshButtons();
+
+  ovrSessionStatus status;
+  ovr_GetSessionStatus(state.session, &status);
 
   if (status.ShouldQuit) {
     Event e;
@@ -148,8 +171,8 @@ void lovrHeadsetPoll() {
 
   Controller* left = state.controllers.data[ovrHand_Left];
   Controller* right = state.controllers.data[ovrHand_Right];
-  int diff = state.is.Buttons ^ state.lastButtonState;
-  int istate = state.is.Buttons;
+  int diff = is->Buttons ^ state.lastButtonState;
+  int istate = is->Buttons;
   checkInput(right, diff, istate, ovrButton_A, CONTROLLER_BUTTON_A);
   checkInput(right, diff, istate, ovrButton_B, CONTROLLER_BUTTON_B);
   checkInput(right, diff, istate, ovrButton_RShoulder, CONTROLLER_BUTTON_TRIGGER);
@@ -161,7 +184,7 @@ void lovrHeadsetPoll() {
   checkInput(left, diff, istate, ovrButton_LThumb, CONTROLLER_BUTTON_JOYSTICK);
   checkInput(left, diff, istate, ovrButton_Enter, CONTROLLER_BUTTON_MENU);
 
-  state.lastButtonState = state.is.Buttons;
+  state.lastButtonState = is->Buttons;
 }
 
 int lovrHeadsetIsPresent() {
@@ -225,7 +248,8 @@ void lovrHeadsetGetBoundsGeometry(float* geometry) {
 }
 
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
-  ovrVector3f pos = state.ts.HeadPose.ThePose.Position;
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f pos = ts->HeadPose.ThePose.Position;
   *x = pos.x;
   *y = pos.y;
   *z = pos.z;
@@ -239,20 +263,23 @@ void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
 }
 
 void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
-  ovrQuatf oq = state.ts.HeadPose.ThePose.Orientation;
+  ovrTrackingState *ts = refreshTracking();
+  ovrQuatf oq = ts->HeadPose.ThePose.Orientation;
   float quat[] = { oq.x, oq.y, oq.z, oq.w };
   quat_getAngleAxis(quat, angle, x, y, z);
 }
 
 void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
-  ovrVector3f vel = state.ts.HeadPose.LinearVelocity;
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f vel = ts->HeadPose.LinearVelocity;
   *x = vel.x;
   *y = vel.y;
   *z = vel.z;
 }
 
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
-  ovrVector3f vel = state.ts.HeadPose.AngularVelocity;
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f vel = ts->HeadPose.AngularVelocity;
   *x = vel.x;
   *y = vel.y;
   *z = vel.z;
@@ -263,9 +290,10 @@ vec_controller_t* lovrHeadsetGetControllers() {
 }
 
 int lovrHeadsetControllerIsPresent(Controller* controller) {
+  ovrInputState *is = refreshButtons();
   switch (controller->id) {
-    case ovrHand_Left: return (state.is.ControllerType & ovrControllerType_LTouch) == ovrControllerType_LTouch;
-    case ovrHand_Right: return (state.is.ControllerType & ovrControllerType_RTouch) == ovrControllerType_RTouch;
+    case ovrHand_Left: return (is->ControllerType & ovrControllerType_LTouch) == ovrControllerType_LTouch;
+    case ovrHand_Right: return (is->ControllerType & ovrControllerType_RTouch) == ovrControllerType_RTouch;
     default: return 0;
   }
   return 0;
@@ -281,31 +309,35 @@ ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
 }
 
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
-  ovrVector3f pos = state.ts.HandPoses[controller->id].ThePose.Position;
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f pos = ts->HandPoses[controller->id].ThePose.Position;
   *x = pos.x;
   *y = pos.y;
   *z = pos.z;
 }
 
 void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
-  ovrQuatf orient = state.ts.HandPoses[controller->id].ThePose.Orientation;
+  ovrTrackingState *ts = refreshTracking();
+  ovrQuatf orient = ts->HandPoses[controller->id].ThePose.Orientation;
   float quat[4] = { orient.x, orient.y, orient.z, orient.w };
   quat_getAngleAxis(quat, angle, x, y, z);
 }
 
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
+  ovrInputState *is = refreshButtons();
   switch (axis) {
-    case CONTROLLER_AXIS_GRIP: return state.is.HandTriggerNoDeadzone[controller->id];
-    case CONTROLLER_AXIS_TRIGGER: return state.is.IndexTriggerNoDeadzone[controller->id];
-    case CONTROLLER_AXIS_TOUCHPAD_X: return state.is.ThumbstickNoDeadzone[controller->id].x;
-    case CONTROLLER_AXIS_TOUCHPAD_Y: return state.is.ThumbstickNoDeadzone[controller->id].y;
+    case CONTROLLER_AXIS_GRIP: return is->HandTriggerNoDeadzone[controller->id];
+    case CONTROLLER_AXIS_TRIGGER: return is->IndexTriggerNoDeadzone[controller->id];
+    case CONTROLLER_AXIS_TOUCHPAD_X: return is->ThumbstickNoDeadzone[controller->id].x;
+    case CONTROLLER_AXIS_TOUCHPAD_Y: return is->ThumbstickNoDeadzone[controller->id].y;
     default: return 0.0f;
   }
   return 0.0f;
 }
 
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
-  int relevant = state.is.Buttons & ((controller->id == ovrHand_Left) ? ovrButton_LMask : ovrButton_RMask);
+  ovrInputState *is = refreshButtons();
+  int relevant = is->Buttons & ((controller->id == ovrHand_Left) ? ovrButton_LMask : ovrButton_RMask);
   switch (button) {
     case CONTROLLER_BUTTON_A: return (relevant & ovrButton_A) > 0;
     case CONTROLLER_BUTTON_B: return (relevant & ovrButton_B) > 0;
@@ -315,14 +347,15 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
     case CONTROLLER_BUTTON_TRIGGER: return (relevant & (ovrButton_LShoulder | ovrButton_RShoulder)) > 0;
     case CONTROLLER_BUTTON_TOUCHPAD:
     case CONTROLLER_BUTTON_JOYSTICK: return (relevant & (ovrButton_LThumb | ovrButton_RThumb)) > 0;
-    case CONTROLLER_BUTTON_GRIP: return state.is.HandTrigger[controller->id] > 0.0f;
+    case CONTROLLER_BUTTON_GRIP: return is->HandTrigger[controller->id] > 0.0f;
     default: return 0;
   }
   return 0;
 }
 
 int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
-  int relevant = state.is.Touches & ((controller->id == ovrHand_Left) ? ovrTouch_LButtonMask : ovrTouch_RButtonMask);
+  ovrInputState *is = refreshButtons();
+  int relevant = is->Touches & ((controller->id == ovrHand_Left) ? ovrTouch_LButtonMask : ovrTouch_RButtonMask);
   switch (button) {
     case CONTROLLER_BUTTON_A: return (relevant & ovrTouch_A) > 0;
     case CONTROLLER_BUTTON_B: return (relevant & ovrTouch_B) > 0;
@@ -515,6 +548,8 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   //   goto Done;
 
   state.isRendering = false;
+  state.needRefreshTracking = true;
+  state.needRefreshButtons = true;
   lovrGraphicsPopCanvas();
 
   if (state.isMirrored || 1) {
