@@ -47,6 +47,8 @@ void lovrHeadsetInit() {
     return;
   }
 
+  state.needRefreshTracking = true;
+  state.needRefreshButtons = true;
   state.lastButtonState = 0;
   state.isInitialized = true;
   state.isMirrored = true;
