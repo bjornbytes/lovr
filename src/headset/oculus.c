@@ -38,7 +38,6 @@ typedef struct {
 static HeadsetState state;
 
 void lovrHeadsetInit() {
-  vec_init(&state.controllers);
   ovrResult result = ovr_Initialize(NULL);
   if (OVR_FAILURE(result))
     return;
@@ -66,12 +65,14 @@ void lovrHeadsetInit() {
 
   vec_init(&state.controllers);
 
-  for (i = 0; i < 2; i++) {
+  // per the docs, ovrHand* is intended as array indices - so we use it directly.
+  for (i = ovrHand_Left; i < ovrHand_Count; i++) {
     Controller *controller = lovrAlloc(sizeof(Controller), lovrControllerDestroy);
     controller->id = ovrHand_Left+i;
     vec_push(&state.controllers, controller);
   }
 
+  ovr_SetTrackingOriginType(state.session, ovrTrackingOrigin_FloorLevel);
   lovrEventAddPump(lovrHeadsetPoll);
   atexit(lovrHeadsetDestroy);
 }
@@ -122,7 +123,6 @@ static void checkInput(Controller *controller, int diff, int state, ovrButton bu
 }
 
 void lovrHeadsetPoll() {
-  ovr_SetTrackingOriginType(state.session, ovrTrackingOrigin_FloorLevel);
   state.ts = ovr_GetTrackingState(state.session, 0, true);
   ovr_GetInputState(state.session, ovrControllerType_Touch, &state.is);
 
@@ -141,8 +141,7 @@ void lovrHeadsetPoll() {
     lovrEventPush(e);
   }
 
-  //if (!status.HmdMounted) // update mirror only?
-  //ovr_SetInt(state.session, OVR_PERF_HUD_MODE, (int)ovrPerfHud_PerfSummary);
+  //if (!status.HmdMounted) // TODO: update mirror only?
 
   state.hmdPresent = (status.HmdPresent == ovrTrue)? true : false;
 
@@ -473,7 +472,6 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, curTexId, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, state.eyeTextures[eye].depthId, 0);
     glViewport(0, 0, state.eyeTextures[eye].size.w, state.eyeTextures[eye].size.h);
-    //glEnable(GL_FRAMEBUFFER_SRGB);
 
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
@@ -496,7 +494,7 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   ovrLayerEyeFov ld;
   ld.Header.Type = ovrLayerType_EyeFov;
   ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;
-  for (int eye = 0; eye < 2; ++eye) {
+  for (int eye = 0; eye < 2; eye++) {
     ld.ColorTexture[eye] = state.eyeTextures[eye].chain;
     ovrRecti vp;
     vp.Pos.x = 0;
