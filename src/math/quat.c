@@ -1,7 +1,6 @@
 #include "math/quat.h"
 #include "math/vec3.h"
 #include <math.h>
-#include <stdlib.h>
 
 quat quat_init(quat q, quat r) {
   return quat_set(q, r[0], r[1], r[2], r[3]);

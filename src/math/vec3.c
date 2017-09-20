@@ -1,6 +1,5 @@
 #include "math/vec3.h"
 #include <math.h>
-#include <stdlib.h>
 
 vec3 vec3_init(vec3 v, vec3 u) {
   return vec3_set(v, u[0], u[1], u[2]);

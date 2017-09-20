@@ -1,10 +1,8 @@
 #include "audio/audio.h"
-#include "loaders/source.h"
 #include "math/vec3.h"
 #include "math/quat.h"
 #include "util.h"
 #include <stdlib.h>
-#include <math.h>
 
 static AudioState state;
 

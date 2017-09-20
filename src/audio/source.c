@@ -1,8 +1,8 @@
 #include "audio/source.h"
 #include "loaders/source.h"
-#include <float.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include <stdlib.h>
 
 static ALenum lovrSourceGetFormat(Source* source) {
   int channels = source->sourceData->channels;

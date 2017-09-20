@@ -1,8 +1,11 @@
 #include "loaders/model.h"
 #include "math/mat4.h"
 #include <stdlib.h>
-#include <assimp/scene.h>
 #include <assimp/cimport.h>
+#include <assimp/scene.h>
+#include <assimp/mesh.h>
+#include <assimp/matrix4x4.h>
+#include <assimp/vector3.h>
 #include <assimp/postprocess.h>
 
 static void assimpNodeTraversal(ModelNode* node, struct aiNode* assimpNode) {
