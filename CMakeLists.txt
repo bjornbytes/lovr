@@ -280,7 +280,7 @@ else()
   set(LOVR_HEADSET src/headset/openvr.c)
 endif()
 
-if (MSVC_VERSION VERSION_LESS 1900)
+if ((WIN32) AND (MSVC_VERSION VERSION_LESS 1900))
   add_definitions(-Dinline=__inline)
   add_definitions(-Dsnprintf=_snprintf)
 endif()
