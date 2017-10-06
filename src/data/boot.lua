@@ -4,6 +4,7 @@ local conf = {
     event = true,
     graphics = true,
     headset = true,
+    input = true,
     math = true,
     physics = true,
     timer = true
@@ -126,7 +127,7 @@ end
 
 lovr.filesystem.setIdentity(conf.identity)
 
-local modules = { 'audio', 'event', 'graphics', 'headset', 'math', 'physics', 'timer' }
+local modules = { 'audio', 'event', 'graphics', 'headset', 'input', 'math', 'physics', 'timer' }
 for _, module in ipairs(modules) do
   if conf.modules[module] then
     lovr[module] = require('lovr.' .. module)

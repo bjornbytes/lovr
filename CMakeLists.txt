@@ -216,6 +216,7 @@ set(LOVR_SRC
   src/api/filesystem.c
   src/api/graphics.c
   src/api/headset.c
+  src/api/input.c
   src/api/math.c
   src/api/physics.c
   src/api/timer.c
@@ -247,6 +248,7 @@ set(LOVR_SRC
   src/graphics/skybox.c
   src/graphics/texture.c
   src/headset/headset.c
+  src/input/input.c
   src/lib/glad/glad.c
   src/lib/lua-cjson/fpconv.c
   src/lib/lua-cjson/lua_cjson.c

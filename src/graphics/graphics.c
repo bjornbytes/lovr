@@ -970,3 +970,7 @@ void lovrGraphicsBindIndexBuffer(uint32_t indexBuffer) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
   }
 }
+
+GLFWwindow *lovrGraphicsPrivateGetWindow() {
+    return state.window;
+}
