@@ -123,12 +123,14 @@ void lovrGraphicsCreateWindow(int w, int h, int fullscreen, int msaa, const char
     lovrThrow("Could not create window");
   }
 
+#if 0
   if (icon) {
     GLFWimage image;
     image.pixels = stbi_load(icon, &image.width, &image.height, NULL, 3);
     glfwSetWindowIcon(state.window, 1, &image);
     free(image.pixels);
   }
+#endif
 
   glfwMakeContextCurrent(state.window);
   glfwSetWindowCloseCallback(state.window, onCloseWindow);
@@ -970,3 +972,8 @@ void lovrGraphicsBindIndexBuffer(uint32_t indexBuffer) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
   }
 }
+
+GLFWwindow* lovrGraphicsGetWindow() {
+  return state.window;
+}
+

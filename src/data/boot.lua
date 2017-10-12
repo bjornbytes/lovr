@@ -126,7 +126,7 @@ end
 
 lovr.filesystem.setIdentity(conf.identity)
 
-local modules = { 'audio', 'event', 'graphics', 'headset', 'math', 'physics', 'timer' }
+local modules = { 'audio', 'event', 'graphics', 'math', 'physics', 'timer' }
 for _, module in ipairs(modules) do
   if conf.modules[module] then
     lovr[module] = require('lovr.' .. module)
@@ -136,6 +136,11 @@ end
 if lovr.graphics and conf.window then
   local w = conf.window
   lovr.graphics.createWindow(w.width, w.height, w.fullscreen, w.msaa, w.title, w.icon)
+end
+
+-- cheesy, temporary hack - fake headset requires a valid window TODO: fix!
+if conf.modules['headset'] then
+  lovr['headset'] = require('lovr.headset')
 end
 
 -- Error after window is created

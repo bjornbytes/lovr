@@ -1,12 +1,15 @@
+/* vim: set ts=2 sts=2 sw=2: */
 #include "headset/fake.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "math/mat4.h"
+#include "math/vec3.h"
 #include "math/quat.h"
 #include "util.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 
 typedef struct {
   int isInitialized;
@@ -86,10 +89,17 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
 
 }
 
+static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+//    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+//        popup_menu();
+}
+
+
 void lovrHeadsetInit() {
   vec_init(&state.controllers);
   state.isInitialized = 1;
-  state.window = lovrGraphicsPrivateGetWindow();
+  state.window = lovrGraphicsGetWindow();
 
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
@@ -98,17 +108,17 @@ void lovrHeadsetInit() {
 
   state.pitch = 0.0;
   state.yaw = 0.0;
+  quat_set( state.orientation, 0,0,0,1);
+
   vec3_set( state.vel, 0,0,0);
   vec3_set( state.pos, 0,0,0);
-  quat_set( state.angularVel, 0,0,0,1);
-  quat_set( state.orientation, 0,0,0,1);
 
   lovrHeadsetRefreshControllers();
   lovrEventAddPump(lovrHeadsetPoll);
 
   glfwSetCursorEnterCallback(state.window, cursor_enter_callback);
   glfwSetMouseButtonCallback(state.window, mouse_button_callback);
-  glfwSetCursorPosCallback(state.window, cursor_pos_callback);
+  glfwSetCursorPosCallback(state.window, cursor_position_callback);
   glfwSetWindowFocusCallback(state.window, window_focus_callback);
   glfwSetKeyCallback(state.window, key_callback);
 
@@ -120,6 +130,8 @@ void lovrHeadsetInit() {
 }
 
 void lovrHeadsetDestroy() {
+  int i;
+  Controller *controller;
   state.isInitialized = 0;
 
   glfwSetKeyCallback(state.window, NULL);
@@ -149,7 +161,6 @@ HeadsetType lovrHeadsetGetType() {
 HeadsetOrigin lovrHeadsetGetOriginType() {
     return ORIGIN_HEAD; // seated
     //return ORIGIN_FLOOR;  // standing
-  }
 }
 
 int lovrHeadsetIsMirrored() {
@@ -160,13 +171,9 @@ void lovrHeadsetSetMirrored(int mirror) {
 }
 
 void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
-  if (!state.isInitialized) {
-    *width = *height = 0;
-  } else {
-    *width = state.renderWidth;
-    *height = state.renderHeight;
-  }
+  glfwGetWindowSize(state.window,width,height);
 }
+
 
 void lovrHeadsetGetClipDistance(float* near, float* far) {
   *near = state.clipNear;
@@ -180,32 +187,15 @@ void lovrHeadsetSetClipDistance(float near, float far) {
 }
 
 float lovrHeadsetGetBoundsWidth() {
-  return 0,0f;
-  if (!state.isInitialized) return 0.f;
-  float width;
-  state.chaperone->GetPlayAreaSize(&width, NULL);
-  return width;
+  return 0.0f;
 }
 
 float lovrHeadsetGetBoundsDepth() {
-  if (!state.isInitialized) return 0.f;
-  float depth;
-  state.chaperone->GetPlayAreaSize(NULL, &depth);
-  return depth;
+  return 0.0f;
 }
 
 void lovrHeadsetGetBoundsGeometry(float* geometry) {
-  if (!state.isInitialized) {
-    memset(geometry, 0, 12 * sizeof(float));
-  } else {
-    struct HmdQuad_t quad;
-    state.chaperone->GetPlayAreaRect(&quad);
-    for (int i = 0; i < 4; i++) {
-      geometry[3 * i + 0] = quad.vCorners[i].v[0];
-      geometry[3 * i + 1] = quad.vCorners[i].v[1];
-      geometry[3 * i + 2] = quad.vCorners[i].v[2];
-    }
-  }
+  memset(geometry, 0, 12 * sizeof(float));
 }
 
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
@@ -347,15 +337,15 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   // Projection
  
   int w,h; 
-  GLFWGetWindowSize(state.window, &w, &h); 
+  glfwGetWindowSize(state.window, &w, &h); 
 
-  mat4_perspective(projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float)w/h);
-
+  float transform[16];
+  mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float)w/h);
 
   // render
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
-  lovrGraphicsSetProjection(projection);
+  //lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
+  lovrGraphicsSetProjection(state.projection);
   lovrGraphicsClear(1, 1);
   callback(EYE_LEFT, userdata);
   lovrGraphicsPop();
