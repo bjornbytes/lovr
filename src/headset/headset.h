@@ -18,7 +18,8 @@ typedef enum {
 typedef enum {
   HEADSET_UNKNOWN,
   HEADSET_VIVE,
-  HEADSET_RIFT
+  HEADSET_RIFT,
+  HEADSET_FAKE
 } HeadsetType;
 
 typedef enum {
