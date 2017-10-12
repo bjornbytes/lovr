@@ -175,14 +175,14 @@ void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
 }
 
 
-void lovrHeadsetGetClipDistance(float* near, float* far) {
-  *near = state.clipNear;
-  *far = state.clipFar;
+void lovrHeadsetGetClipDistance(float* clipNear, float* clipFar) {
+  *clipNear = state.clipNear;
+  *clipFar = state.clipFar;
 }
 
-void lovrHeadsetSetClipDistance(float near, float far) {
-  state.clipNear = near;
-  state.clipFar = far;
+void lovrHeadsetSetClipDistance(float clipNear, float clipFar) {
+  state.clipNear = clipNear;
+  state.clipFar = clipFar;
 
 }
 
