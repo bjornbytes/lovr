@@ -252,6 +252,11 @@ int l_lovrHeadsetRenderTo(lua_State* L) {
   return 0;
 }
 
+int l_lovrHeadsetUpdate(lua_State* L) {
+  float dt = luaL_checknumber(L, 1);
+  lovrHeadsetUpdate(dt);
+  return 0;
+}
 const luaL_Reg lovrHeadset[] = {
   { "isPresent", l_lovrHeadsetIsPresent },
   { "getType", l_lovrHeadsetGetType },
@@ -275,5 +280,6 @@ const luaL_Reg lovrHeadset[] = {
   { "getControllers", l_lovrHeadsetGetControllers },
   { "getControllerCount", l_lovrHeadsetGetControllerCount },
   { "renderTo", l_lovrHeadsetRenderTo },
+  { "update", l_lovrHeadsetUpdate },
   { NULL, NULL }
 };

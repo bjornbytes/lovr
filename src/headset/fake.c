@@ -38,11 +38,14 @@ typedef struct {
 
   float projection[16]; // projection matrix
 
+  float transform[16];
   //
   GLFWwindow* window;
 
   double prevCursorX;
   double prevCursorY;
+
+
 } FakeHeadsetState;
 
 static FakeHeadsetState state;
@@ -68,6 +71,18 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
   if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   }
+  /*
+  const float spd=0.2f;
+  float* pos = state.pos;
+  if (action == GLFW_PRESS) {
+    switch(key) {
+      case GLFW_KEY_W: pos[2] -= spd; break;
+      case GLFW_KEY_A: pos[0] -= spd; break;
+      case GLFW_KEY_S: pos[2] += spd; break;
+      case GLFW_KEY_D: pos[0] += spd; break;
+    }
+  }
+  */
 }
 
 static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
@@ -77,8 +92,11 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
   state.prevCursorX = xpos;
   state.prevCursorY = ypos;
 
-  state.yaw += dx;
-  state.pitch += dy;
+  const double k = 0.01;
+  const double l = 0.01;
+
+  state.yaw -= dx*k;
+  state.pitch -= dy*l;
 
   if(state.pitch < -M_PI/2.0) {
     state.pitch = -M_PI/2.0;
@@ -105,6 +123,8 @@ void lovrHeadsetInit() {
   state.clipFar = 100.f;
   state.FOV = 67.0f * M_PI / 100.0f;
   // TODO: aspect here too?
+
+  mat4_identity(state.transform);
 
   state.pitch = 0.0;
   state.yaw = 0.0;
@@ -199,54 +219,27 @@ void lovrHeadsetGetBoundsGeometry(float* geometry) {
 }
 
 void lovrHeadsetGetPosition(float* x, float* y, float* z) {
-/*
-  float v[3];
-  emscripten_vr_get_position(&v[0], &v[1], &v[2]);
-  mat4_transform(emscripten_vr_get_sitting_to_standing_matrix(), v);
-  *x = v[0];
-  *y = v[1];
-  *z = v[2];
-*/
-//TODO
+  // TODO: sit->stand transform?
+  *x = state.pos[0];
+  *y = state.pos[1];
+  *z = state.pos[2];
 }
 
 void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
-/*
-  int i = eye == EYE_LEFT ? 0 : 1;
-  emscripten_vr_get_eye_offset(i, x, y, z);
-  float m[16];
-  mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix());
-  mat4_multiply(m, mat4_invert(emscripten_vr_get_view_matrix(i)));
-  mat4_translate(m, *x, *y, *z);
-  *x = m[12];
-  *y = m[13];
-  *z = m[14];
-*/
-// TODO
+    lovrHeadsetGetPosition(x,y,z);
 }
 
 void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
-#if 0
-  float quat[4];
-  float m[16];
-  emscripten_vr_get_orientation(&quat[0], &quat[1], &quat[2], &quat[3]);
-  mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix());
-  mat4_rotateQuat(m, quat);
-  quat_getAngleAxis(quat_fromMat4(quat, m), angle, x, y, z);
-#endif
-// TODO
+  float q[4];
+  quat_fromMat4(q, state.transform);
+  quat_getAngleAxis(q, angle, x, y, z);
 }
 
 void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
-#if 0
-  float v[3];
-  emscripten_vr_get_velocity(&v[0], &v[1], &v[2]);
-  mat4_transformDirection(emscripten_vr_get_sitting_to_standing_matrix(), v);
-  *x = v[0];
-  *y = v[1];
-  *z = v[2];
-#endif
-// TODO
+  // TODO: sit->stand transform?
+  *x = state.vel[0];
+  *y = state.vel[1];
+  *z = state.vel[2];
 }
 
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
@@ -329,6 +322,7 @@ TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
   return NULL;
 }
 
+
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
 //  float head[16], transform[16], projection[16];
 
@@ -344,10 +338,51 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
 
   // render
   lovrGraphicsPush();
-  //lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
+  float inv[16];
+  mat4_set(inv,state.transform);
+  mat4_invert(inv);
+  lovrGraphicsMatrixTransform(MATRIX_VIEW, inv);
+
   lovrGraphicsSetProjection(state.projection);
   lovrGraphicsClear(1, 1);
   callback(EYE_LEFT, userdata);
   lovrGraphicsPop();
+}
+
+
+void lovrHeadsetUpdate(float dt)
+{
+  float k = 4.0f;
+  GLFWwindow* w = state.window;
+  float v[3] = {0.0f,0.0f,0.0f};
+  if (glfwGetKey(w, GLFW_KEY_W) == GLFW_PRESS) {
+    v[2] = -k;
+  }
+  if (glfwGetKey(w, GLFW_KEY_S) == GLFW_PRESS) {
+    v[2] = k;
+  }
+  if (glfwGetKey(w, GLFW_KEY_A) == GLFW_PRESS) {
+    v[0] = -k;
+  }
+  if (glfwGetKey(w, GLFW_KEY_D) == GLFW_PRESS) {
+    v[0] = k;
+  }
+  if (glfwGetKey(w, GLFW_KEY_SPACE) == GLFW_PRESS) {
+    v[1] = -k;
+  }
+  if (glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+    v[1] = k;
+  }
+
+  // move
+  vec3_scale(v,dt);
+  mat4_transformDirection(state.transform, v);
+  vec3_add(state.pos, v);
+
+  // update transform
+  mat4_identity(state.transform);
+  mat4_translate(state.transform, state.pos[0], state.pos[1], state.pos[2]);
+  mat4_rotate(state.transform, state.yaw, 0,1,0);
+  mat4_rotate(state.transform, state.pitch, 1,0,0);
 }
 

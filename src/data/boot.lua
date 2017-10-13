@@ -189,6 +189,9 @@ function lovr.step()
   end
   local dt = lovr.timer.step()
   if lovr.audio then
+    if lovr.headset and lovr.headset.isPresent() then
+      lovr.headset.update(dt)
+    end
     lovr.audio.update()
     if lovr.headset and lovr.headset.isPresent() then
       lovr.audio.setOrientation(lovr.headset.getOrientation())
