@@ -122,8 +122,6 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
 
 void lovrHeadsetInit() {
-  vec_init(&state.controllers);
-  state.isInitialized = 1;
   state.window = lovrGraphicsGetWindow();
 
   state.clipNear = 0.1f;
@@ -140,7 +138,12 @@ void lovrHeadsetInit() {
   vec3_set( state.vel, 0,0,0);
   vec3_set( state.pos, 0,0,0);
 
-  lovrHeadsetRefreshControllers();
+  // set up controller(s)
+  vec_init(&state.controllers);
+  Controller* controller = lovrAlloc(sizeof(Controller), lovrControllerDestroy);
+  controller->id = state.controllers.length;
+  vec_push(&state.controllers, controller);
+
   lovrEventAddPump(lovrHeadsetPoll);
 
   glfwSetCursorEnterCallback(state.window, cursor_enter_callback);
@@ -150,6 +153,7 @@ void lovrHeadsetInit() {
   glfwSetKeyCallback(state.window, key_callback);
 
   enableMouselook();
+  state.isInitialized = 1;
 
   atexit(lovrHeadsetDestroy);
 }
@@ -261,18 +265,13 @@ void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
 
 
 
-void lovrHeadsetRefreshControllers() {
-}
-
-Controller* lovrHeadsetAddController(unsigned int deviceIndex) {
-}
 
 vec_controller_t* lovrHeadsetGetControllers() {
   return &state.controllers;
 }
 
 int lovrHeadsetControllerIsPresent(Controller* controller) {
-    return 0;
+    return 1;
 }
 
 ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
@@ -280,27 +279,15 @@ ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
 }
 
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
-#if 0
-  float v[3];
-  emscripten_vr_get_controller_position(controller->id, &v[0], &v[1], &v[2]);
-  mat4_transform(emscripten_vr_get_sitting_to_standing_matrix(), v);
-  *x = v[0];
-  *y = v[1];
-  *z = v[2];
-#endif
-// TODO
+  // for now, locked to headset
+  lovrHeadsetGetPosition(x,y,z);
 }
 
 void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
-#if 0
-  float quat[4];
-  float m[16];
-  emscripten_vr_get_controller_orientation(controller->id, &quat[0], &quat[1], &quat[2], &quat[3]);
-  mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix());
-  mat4_rotateQuat(m, quat);
-  quat_getAngleAxis(quat_fromMat4(quat, m), angle, x, y, z);
-#endif
-// TODO
+  // for now, locked to headset
+  float q[4];
+  quat_fromMat4(q, state.transform);
+  quat_getAngleAxis(q, angle, x, y, z);
 }
 
 
@@ -309,7 +296,9 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
 }
 
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
-  return 0;
+  // TODO
+  int b = glfwGetMouseButton( state.window, GLFW_MOUSE_BUTTON_LEFT);
+  return (b == GLFW_PRESS) ? CONTROLLER_BUTTON_TRIGGER : 0;
 }
 
 int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
