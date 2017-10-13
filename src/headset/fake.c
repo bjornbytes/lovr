@@ -42,6 +42,7 @@ typedef struct {
   //
   GLFWwindow* window;
 
+  int mouselook;      //
   double prevCursorX;
   double prevCursorY;
 
@@ -51,42 +52,45 @@ typedef struct {
 static FakeHeadsetState state;
 
 
+static void enableMouselook() {
+  glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  glfwGetCursorPos(state.window, &state.prevCursorX, &state.prevCursorY);
+  state.mouselook = 1;
+}
+
+static void disableMouselook() {
+  glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+  state.mouselook = 0;
+}
+
 static void cursor_enter_callback( GLFWwindow *window, int entered) {
   if (entered) {
-  } else {
+    if( !state.mouselook) {
+      enableMouselook();
+    }
   }
 }
 
 
 static void window_focus_callback(GLFWwindow* window, int focused) {
   if (focused) {
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glfwGetCursorPos(state.window, &state.prevCursorX, &state.prevCursorY);
+    //enableMouselook();
   } else {
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    disableMouselook();
   }
 }
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    disableMouselook();
   }
-  /*
-  const float spd=0.2f;
-  float* pos = state.pos;
-  if (action == GLFW_PRESS) {
-    switch(key) {
-      case GLFW_KEY_W: pos[2] -= spd; break;
-      case GLFW_KEY_A: pos[0] -= spd; break;
-      case GLFW_KEY_S: pos[2] += spd; break;
-      case GLFW_KEY_D: pos[0] += spd; break;
-    }
-  }
-  */
 }
 
 static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
+  if (!state.mouselook) {
+    return;
+  }
   double dx = xpos - state.prevCursorX;
   double dy = ypos - state.prevCursorY;
   state.prevCursorX = xpos;
@@ -98,10 +102,10 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
   state.yaw -= dx*k;
   state.pitch -= dy*l;
 
-  if(state.pitch < -M_PI/2.0) {
+  if (state.pitch < -M_PI/2.0) {
     state.pitch = -M_PI/2.0;
   }
-  if(state.pitch > M_PI/2.0) {
+  if (state.pitch > M_PI/2.0) {
     state.pitch = M_PI/2.0;
   }
 
@@ -109,8 +113,11 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-//    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
-//        popup_menu();
+  if (!state.mouselook) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+      enableMouselook();
+    }
+  }
 }
 
 
@@ -142,9 +149,7 @@ void lovrHeadsetInit() {
   glfwSetWindowFocusCallback(state.window, window_focus_callback);
   glfwSetKeyCallback(state.window, key_callback);
 
-  // capture the mouse cursor
-  glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-  glfwGetCursorPos(state.window, &state.prevCursorX, &state.prevCursorY);
+  enableMouselook();
 
   atexit(lovrHeadsetDestroy);
 }
