@@ -360,16 +360,16 @@ void lovrHeadsetUpdate(float dt)
   float k = 4.0f;
   GLFWwindow* w = state.window;
   float v[3] = {0.0f,0.0f,0.0f};
-  if (glfwGetKey(w, GLFW_KEY_W) == GLFW_PRESS) {
+  if (glfwGetKey(w, GLFW_KEY_W)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_UP)==GLFW_PRESS) {
     v[2] = -k;
   }
-  if (glfwGetKey(w, GLFW_KEY_S) == GLFW_PRESS) {
+  if (glfwGetKey(w, GLFW_KEY_S)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_DOWN)==GLFW_PRESS) {
     v[2] = k;
   }
-  if (glfwGetKey(w, GLFW_KEY_A) == GLFW_PRESS) {
+  if (glfwGetKey(w, GLFW_KEY_A)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_LEFT)==GLFW_PRESS) {
     v[0] = -k;
   }
-  if (glfwGetKey(w, GLFW_KEY_D) == GLFW_PRESS) {
+  if (glfwGetKey(w, GLFW_KEY_D)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT)==GLFW_PRESS) {
     v[0] = k;
   }
   if (glfwGetKey(w, GLFW_KEY_SPACE) == GLFW_PRESS) {

@@ -9,5 +9,11 @@
 
 #pragma once
 
+
+/* A default fake headset to stand in for a missing VR one.
+ * uses mouse to look around, WASD or cursor keys to move.
+ * Left shift and Space move up and down.
+ */
+
 void lovrHeadsetRefreshControllers();
 Controller* lovrHeadsetAddController(unsigned int id);
