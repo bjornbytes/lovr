@@ -53,7 +53,6 @@ typedef struct {
   int isRangeEnabled;
   int rangeStart;
   int rangeCount;
-  Texture* texture;
   Shader* lastShader;
 } Mesh;
 

@@ -671,13 +671,6 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
   ModelData* modelData = lovrModelDataCreate(blob);
   Model* model = lovrModelCreate(modelData);
-
-  if (lua_gettop(L) >= 2) {
-    Texture* texture = luax_readtexture(L, 2);
-    lovrModelSetTexture(model, texture);
-    lovrRelease(&texture->ref);
-  }
-
   luax_pushtype(L, Model, model);
   lovrRelease(&model->ref);
   lovrRelease(&blob->ref);

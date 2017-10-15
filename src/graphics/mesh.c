@@ -82,7 +82,6 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
   mesh->isRangeEnabled = 0;
   mesh->rangeStart = 0;
   mesh->rangeCount = mesh->count;
-  mesh->texture = NULL;
   mesh->lastShader = NULL;
 
   glGenBuffers(1, &mesh->vbo);
@@ -100,9 +99,6 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
 
 void lovrMeshDestroy(const Ref* ref) {
   Mesh* mesh = containerof(ref, Mesh);
-  if (mesh->texture) {
-    lovrRelease(&mesh->texture->ref);
-  }
   glDeleteBuffers(1, &mesh->vbo);
   glDeleteBuffers(1, &mesh->ibo);
   glDeleteVertexArrays(1, &mesh->vao);
@@ -124,7 +120,6 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
     lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
   }
 
-  lovrGraphicsBindTexture(mesh->texture);
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsPrepare();
   lovrGraphicsBindVertexArray(mesh->vao);
@@ -240,24 +235,6 @@ int lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
   mesh->rangeStart = start;
   mesh->rangeCount = count;
   return 0;
-}
-
-Texture* lovrMeshGetTexture(Mesh* mesh) {
-  return mesh->texture;
-}
-
-void lovrMeshSetTexture(Mesh* mesh, Texture* texture) {
-  if (mesh->texture != texture) {
-    if (mesh->texture) {
-      lovrRelease(&mesh->texture->ref);
-    }
-
-    mesh->texture = texture;
-
-    if (mesh->texture) {
-      lovrRetain(&mesh->texture->ref);
-    }
-  }
 }
 
 void* lovrMeshMap(Mesh* mesh, int start, size_t count, int read, int write) {

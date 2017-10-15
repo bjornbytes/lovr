@@ -52,17 +52,12 @@ Model* lovrModelCreate(ModelData* modelData) {
   lovrMeshSetVertexMap(model->mesh, modelData->indices, modelData->indexCount);
   lovrMeshSetRangeEnabled(model->mesh, 1);
 
-  model->texture = NULL;
-
   vec_deinit(&format);
   return model;
 }
 
 void lovrModelDestroy(const Ref* ref) {
   Model* model = containerof(ref, Model);
-  if (model->texture) {
-    lovrRelease(&model->texture->ref);
-  }
   lovrModelDataDestroy(model->modelData);
   lovrRelease(&model->mesh->ref);
   free(model);
@@ -81,21 +76,4 @@ void lovrModelDraw(Model* model, mat4 transform) {
 
 Mesh* lovrModelGetMesh(Model* model) {
   return model->mesh;
-}
-
-Texture* lovrModelGetTexture(Model* model) {
-  return model->texture;
-}
-
-void lovrModelSetTexture(Model* model, Texture* texture) {
-  if (model->texture) {
-    lovrRelease(&model->texture->ref);
-  }
-
-  model->texture = texture;
-  lovrMeshSetTexture(model->mesh, model->texture);
-
-  if (model->texture) {
-    lovrRetain(&model->texture->ref);
-  }
 }

@@ -343,26 +343,6 @@ int l_lovrMeshSetDrawRange(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshGetTexture(lua_State* L) {
-  Mesh* mesh = luax_checktype(L, 1, Mesh);
-  Texture* texture = lovrMeshGetTexture(mesh);
-
-  if (texture) {
-    luax_pushtype(L, Texture, texture);
-  } else {
-    lua_pushnil(L);
-  }
-
-  return 1;
-}
-
-int l_lovrMeshSetTexture(lua_State* L) {
-  Mesh* mesh = luax_checktype(L, 1, Mesh);
-  Texture* texture = lua_isnoneornil(L, 2) ? NULL : luax_checktype(L, 2, Texture);
-  lovrMeshSetTexture(mesh, texture);
-  return 0;
-}
-
 const luaL_Reg lovrMesh[] = {
   { "draw", l_lovrMeshDraw },
   { "getVertexFormat", l_lovrMeshGetVertexFormat },
@@ -380,7 +360,5 @@ const luaL_Reg lovrMesh[] = {
   { "setDrawMode", l_lovrMeshSetDrawMode },
   { "getDrawRange", l_lovrMeshGetDrawRange },
   { "setDrawRange", l_lovrMeshSetDrawRange },
-  { "getTexture", l_lovrMeshGetTexture },
-  { "setTexture", l_lovrMeshSetTexture },
   { NULL, NULL }
 };
