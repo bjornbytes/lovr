@@ -9,6 +9,13 @@ int l_lovrModelDraw(lua_State* L) {
   return 0;
 }
 
+int l_lovrModelGetMesh(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  Mesh* mesh = lovrModelGetMesh(model);
+  luax_pushtype(L, Mesh, mesh);
+  return 1;
+}
+
 int l_lovrModelGetTexture(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Texture* texture = lovrModelGetTexture(model);
@@ -25,6 +32,7 @@ int l_lovrModelSetTexture(lua_State* L) {
 
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
+  { "getMesh", l_lovrModelGetMesh },
   { "getTexture", l_lovrModelGetTexture },
   { "setTexture", l_lovrModelSetTexture },
   { NULL, NULL }

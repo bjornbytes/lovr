@@ -79,6 +79,10 @@ void lovrModelDraw(Model* model, mat4 transform) {
   lovrGraphicsPop();
 }
 
+Mesh* lovrModelGetMesh(Model* model) {
+  return model->mesh;
+}
+
 Texture* lovrModelGetTexture(Model* model) {
   return model->texture;
 }
