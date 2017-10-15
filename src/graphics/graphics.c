@@ -872,7 +872,9 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsTranslate(MATRIX_MODEL, 0, offsety, 0);
   lovrGraphicsBindTexture(font->texture);
   lovrGraphicsSetDefaultShader(SHADER_FONT);
+  glDepthMask(GL_FALSE);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 0);
+  glDepthMask(GL_TRUE);
   lovrGraphicsPop();
 }
 
