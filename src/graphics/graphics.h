@@ -1,6 +1,5 @@
 #include "graphics/font.h"
 #include "graphics/shader.h"
-#include "graphics/skybox.h"
 #include "graphics/texture.h"
 #include "math/math.h"
 #include "lib/glfw.h"
@@ -158,8 +157,8 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform);
 void lovrGraphicsPlaneFullscreen(Texture* texture);
 void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform);
 void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, int capped, int segments);
-void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* skybox);
-void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az);
+void lovrGraphicsSphere(mat4 transform, int segments);
+void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 
 // Internal State

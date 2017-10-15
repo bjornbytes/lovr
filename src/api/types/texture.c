@@ -3,8 +3,8 @@
 
 int l_lovrTextureGetDimensions(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  lua_pushnumber(L, lovrTextureGetWidth(texture));
-  lua_pushnumber(L, lovrTextureGetHeight(texture));
+  lua_pushnumber(L, texture->width);
+  lua_pushnumber(L, texture->height);
   return 2;
 }
 
@@ -21,22 +21,25 @@ int l_lovrTextureGetFilter(lua_State* L) {
 
 int l_lovrTextureGetHeight(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  lua_pushnumber(L, lovrTextureGetHeight(texture));
+  lua_pushnumber(L, texture->height);
   return 1;
 }
 
 int l_lovrTextureGetWidth(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  lua_pushnumber(L, lovrTextureGetWidth(texture));
+  lua_pushnumber(L, texture->width);
   return 1;
 }
 
 int l_lovrTextureGetWrap(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  WrapMode horizontal, vertical;
-  lovrTextureGetWrap(texture, &horizontal, &vertical);
-  luax_pushenum(L, &WrapModes, horizontal);
-  luax_pushenum(L, &WrapModes, vertical);
+  TextureWrap wrap = lovrTextureGetWrap(texture);
+  luax_pushenum(L, &WrapModes, wrap.s);
+  luax_pushenum(L, &WrapModes, wrap.t);
+  if (texture->type == TEXTURE_CUBE) {
+    luax_pushenum(L, &WrapModes, wrap.r);
+    return 3;
+  }
   return 2;
 }
 
@@ -62,9 +65,11 @@ int l_lovrTextureSetFilter(lua_State* L) {
 
 int l_lovrTextureSetWrap(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  WrapMode* horizontal = (WrapMode*) luax_checkenum(L, 2, &WrapModes, "wrap mode");
-  WrapMode* vertical = (WrapMode*) luax_optenum(L, 3, luaL_checkstring(L, 2), &WrapModes, "wrap mode");
-  lovrTextureSetWrap(texture, *horizontal, *vertical);
+  TextureWrap wrap;
+  wrap.s = *(WrapMode*) luax_checkenum(L, 2, &WrapModes, "wrap mode");
+  wrap.t = *(WrapMode*) luax_optenum(L, 3, luaL_checkstring(L, 2), &WrapModes, "wrap mode");
+  wrap.r = *(WrapMode*) luax_optenum(L, 4, luaL_checkstring(L, 2), &WrapModes, "wrap mode");
+  lovrTextureSetWrap(texture, wrap);
   return 0;
 }
 

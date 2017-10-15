@@ -6,9 +6,9 @@
 #include <stdio.h>
 
 static void lovrTextureCreateStorage(Texture* texture) {
-  TextureData* textureData = texture->textureData;
+  TextureData* textureData = texture->slices[0];
 
-  if (textureData->format.compressed || !textureData->mipmaps.generated) {
+  if (textureData->format.compressed || !textureData->mipmaps.generated || texture->type == TEXTURE_CUBE) {
     return;
   }
 
@@ -32,30 +32,50 @@ static void lovrTextureCreateStorage(Texture* texture) {
 #endif
 }
 
-Texture* lovrTextureCreate(TextureData* textureData) {
+static void validateSlices(TextureType type, TextureData* slices[6], int sliceCount) {
+  if (type == TEXTURE_CUBE) {
+    lovrAssert(sliceCount == 6, "Cube textures must have 6 images");
+    int width = slices[0]->width;
+    int height = slices[0]->height;
+    lovrAssert(width == height, "Cube textures must be square");
+    for (int i = 1; i < sliceCount; i++) {
+      int hasSameDimensions = slices[i]->width == width && slices[i]->height == height;
+      lovrAssert(hasSameDimensions, "All textures in a cube texture must have the same dimensions");
+    }
+  } else if (type == TEXTURE_2D) {
+    lovrAssert(sliceCount == 1, "2D textures can only contain a single image");
+  } else {
+    lovrThrow("Unknown texture type");
+  }
+}
+
+Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCount) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
+  texture->type = type;
+  validateSlices(type, slices, sliceCount);
+  texture->sliceCount = sliceCount;
+  memcpy(texture->slices, slices, sliceCount * sizeof(TextureData*));
   texture->framebuffer = 0;
   texture->depthBuffer = 0;
-  texture->textureData = textureData;
   glGenTextures(1, &texture->id);
   lovrGraphicsBindTexture(texture);
   lovrTextureCreateStorage(texture);
   lovrTextureRefresh(texture);
   lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
-
-  lovrTextureSetWrap(texture, WRAP_REPEAT, WRAP_REPEAT);
+  WrapMode wrapMode = (type == TEXTURE_CUBE) ? WRAP_CLAMP : WRAP_REPEAT;
+  lovrTextureSetWrap(texture, (TextureWrap) { .s = wrapMode, .t = wrapMode, .r = wrapMode });
 
   return texture;
 }
 
 Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa) {
-  Texture* texture = lovrTextureCreate(textureData);
+  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1);
   if (!texture) return NULL;
 
-  int width = texture->textureData->width;
-  int height = texture->textureData->height;
+  int width = texture->width;
+  int height = texture->height;
   texture->projection = projection;
   texture->msaa = msaa;
 
@@ -102,7 +122,9 @@ Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProje
 
 void lovrTextureDestroy(const Ref* ref) {
   Texture* texture = containerof(ref, Texture);
-  lovrTextureDataDestroy(texture->textureData);
+  for (int i = 0; i < texture->sliceCount; i++) {
+    lovrTextureDataDestroy(texture->slices[i]);
+  }
   if (texture->framebuffer) {
     glDeleteFramebuffers(1, &texture->framebuffer);
   }
@@ -112,23 +134,19 @@ void lovrTextureDestroy(const Ref* ref) {
 
 void lovrTextureBindFramebuffer(Texture* texture) {
   lovrAssert(texture->framebuffer, "Texture cannot be used as a canvas");
-
-  int w = texture->textureData->width;
-  int h = texture->textureData->height;
-
   lovrGraphicsBindFramebuffer(texture->framebuffer);
-  lovrGraphicsSetViewport(0, 0, w, h);
+  lovrGraphicsSetViewport(0, 0, texture->width, texture->height);
 
   if (texture->projection == PROJECTION_ORTHOGRAPHIC) {
     float projection[16];
-    mat4_orthographic(projection, 0, w, 0, h, -1, 1);
+    mat4_orthographic(projection, 0, texture->width, 0, texture->height, -1, 1);
     lovrGraphicsSetProjection(projection);
   } else if (texture->projection == PROJECTION_PERSPECTIVE) {
     mat4 projection = lovrGraphicsGetProjection();
     float b = projection[5];
     float c = projection[10];
     float d = projection[14];
-    float aspect = (float) w / h;
+    float aspect = (float) texture->width / texture->height;
     float k = (c - 1.f) / (c + 1.f);
     float near = (d * (1.f - k)) / (2.f * k);
     float far = k * near;
@@ -145,43 +163,42 @@ void lovrTextureResolveMSAA(Texture* texture) {
     return;
   }
 
-  int w = texture->textureData->width;
-  int h = texture->textureData->height;
-
+  int width = texture->width;
+  int height = texture->height;
   glBindFramebuffer(GL_READ_FRAMEBUFFER, texture->framebuffer);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, texture->resolveFramebuffer);
-  glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void lovrTextureRefresh(Texture* texture) {
-  TextureData* textureData = texture->textureData;
-  GLenum glInternalFormat = textureData->format.glInternalFormat;
-  GLenum glFormat = textureData->format.glFormat;
   lovrGraphicsBindTexture(texture);
 
-  if (textureData->format.compressed) {
-    Mipmap m; int i;
-    vec_foreach(&textureData->mipmaps.list, m, i) {
-      glCompressedTexImage2D(GL_TEXTURE_2D, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
-    }
-  } else {
-    int w = textureData->width;
-    int h = textureData->height;
-    glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, textureData->data);
-    if (textureData->mipmaps.generated) {
-      glGenerateMipmap(GL_TEXTURE_2D);
+  validateSlices(texture->type, texture->slices, texture->sliceCount);
+  texture->width = texture->slices[0]->width;
+  texture->height = texture->slices[0]->height;
+
+  for (int i = 0; i < texture->sliceCount; i++) {
+    TextureData* textureData = texture->slices[i];
+    GLenum glInternalFormat = textureData->format.glInternalFormat;
+    GLenum glFormat = textureData->format.glFormat;
+    GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + i : GL_TEXTURE_2D;
+
+    if (textureData->format.compressed) {
+      Mipmap m; int i;
+      vec_foreach(&textureData->mipmaps.list, m, i) {
+        glCompressedTexImage2D(binding, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
+      }
+    } else {
+      int w = textureData->width;
+      int h = textureData->height;
+      glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+      if (textureData->mipmaps.generated) {
+        glGenerateMipmap(GL_TEXTURE_2D); // TODO
+      }
     }
   }
-}
-
-int lovrTextureGetHeight(Texture* texture) {
-  return texture->textureData->height;
-}
-
-int lovrTextureGetWidth(Texture* texture) {
-  return texture->textureData->width;
 }
 
 TextureFilter lovrTextureGetFilter(Texture* texture) {
@@ -189,7 +206,7 @@ TextureFilter lovrTextureGetFilter(Texture* texture) {
 }
 
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
-  int hasMipmaps = texture->textureData->format.compressed || texture->textureData->mipmaps.generated;
+  int hasMipmaps = texture->slices[0]->format.compressed || texture->slices[0]->mipmaps.generated;
   float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
   lovrGraphicsBindTexture(texture);
   texture->filter = filter;
@@ -225,15 +242,16 @@ void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
 }
 
-void lovrTextureGetWrap(Texture* texture, WrapMode* horizontal, WrapMode* vertical) {
-  *horizontal = texture->wrapHorizontal;
-  *vertical = texture->wrapVertical;
+TextureWrap lovrTextureGetWrap(Texture* texture) {
+  return texture->wrap;
 }
 
-void lovrTextureSetWrap(Texture* texture, WrapMode horizontal, WrapMode vertical) {
-  texture->wrapHorizontal = horizontal;
-  texture->wrapVertical = vertical;
+void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
+  texture->wrap = wrap;
   lovrGraphicsBindTexture(texture);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, horizontal);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, vertical);
+  glTexParameteri(texture->type, GL_TEXTURE_WRAP_S, wrap.s);
+  glTexParameteri(texture->type, GL_TEXTURE_WRAP_T, wrap.t);
+  if (texture->type == TEXTURE_CUBE) {
+    glTexParameteri(texture->type, GL_TEXTURE_WRAP_R, wrap.r);
+  }
 }

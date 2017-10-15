@@ -38,7 +38,6 @@ extern const luaL_Reg lovrPhysics[];
 extern const luaL_Reg lovrRandomGenerator[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrShape[];
-extern const luaL_Reg lovrSkybox[];
 extern const luaL_Reg lovrSliderJoint[];
 extern const luaL_Reg lovrSource[];
 extern const luaL_Reg lovrSphereShape[];

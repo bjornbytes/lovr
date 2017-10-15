@@ -229,7 +229,6 @@ set(LOVR_SRC
   src/api/types/randomGenerator.c
   src/api/types/shader.c
   src/api/types/shapes.c
-  src/api/types/skybox.c
   src/api/types/source.c
   src/api/types/texture.c
   src/api/types/transform.c
@@ -244,7 +243,6 @@ set(LOVR_SRC
   src/graphics/mesh.c
   src/graphics/model.c
   src/graphics/shader.c
-  src/graphics/skybox.c
   src/graphics/texture.c
   src/headset/headset.c
   src/lib/glad/glad.c
