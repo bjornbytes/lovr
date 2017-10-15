@@ -23,19 +23,9 @@ int l_lovrModelSetTexture(lua_State* L) {
   return 0;
 }
 
-int l_lovrModelGetAABB(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  float* aabb = lovrModelGetAABB(model);
-  for (int i = 0; i < 6; i++) {
-    lua_pushnumber(L, aabb[i]);
-  }
-  return 6;
-}
-
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
   { "getTexture", l_lovrModelGetTexture },
   { "setTexture", l_lovrModelSetTexture },
-  { "getAABB", l_lovrModelGetAABB },
   { NULL, NULL }
 };

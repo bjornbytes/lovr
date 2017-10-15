@@ -600,53 +600,49 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
 
-  ModelMesh* mesh = malloc(sizeof(ModelMesh));
-  vec_init(&modelData->meshes);
-  vec_push(&modelData->meshes, mesh);
+  modelData->indexCount = vrModel->unTriangleCount;
+  modelData->indices = malloc(modelData->indexCount * sizeof(unsigned int));
+  memcpy(modelData->indices, vrModel->rIndexData, modelData->indexCount * sizeof(unsigned int));
 
-  vec_init(&mesh->faces);
-  for (uint32_t i = 0; i < vrModel->unTriangleCount; i++) {
-    ModelFace face;
-    face.indices[0] = vrModel->rIndexData[3 * i + 0];
-    face.indices[1] = vrModel->rIndexData[3 * i + 1];
-    face.indices[2] = vrModel->rIndexData[3 * i + 2];
-    vec_push(&mesh->faces, face);
-  }
+  modelData->vertexCount = vrModel->unVertexCount;
+  modelData->vertexSize = 8;
+  modelData->vertices = malloc(modelData->vertexCount * modelData->vertexSize * sizeof(float));
 
-  vec_init(&mesh->vertices);
-  vec_init(&mesh->normals);
-  vec_init(&mesh->texCoords);
+  int vertex = 0;
   for (size_t i = 0; i < vrModel->unVertexCount; i++) {
     float* position = vrModel->rVertexData[i].vPosition.v;
     float* normal = vrModel->rVertexData[i].vNormal.v;
     float* texCoords = vrModel->rVertexData[i].rfTextureCoord;
-    ModelVertex v;
 
-    v.x = position[0];
-    v.y = position[1];
-    v.z = position[2];
-    vec_push(&mesh->vertices, v);
+    modelData->vertices[vertex++] = position[0];
+    modelData->vertices[vertex++] = position[1];
+    modelData->vertices[vertex++] = position[2];
 
-    v.x = normal[0];
-    v.y = normal[1];
-    v.z = normal[2];
-    vec_push(&mesh->normals, v);
+    modelData->vertices[vertex++] = normal[0];
+    modelData->vertices[vertex++] = normal[1];
+    modelData->vertices[vertex++] = normal[2];
 
-    v.x = texCoords[0];
-    v.y = texCoords[1];
-    v.z = 0.f;
-    vec_push(&mesh->texCoords, v);
+    modelData->vertices[vertex++] = texCoords[0];
+    modelData->vertices[vertex++] = texCoords[1];
   }
 
-  ModelNode* root = malloc(sizeof(ModelNode));
-  vec_init(&root->meshes);
-  vec_push(&root->meshes, 0);
-  vec_init(&root->children);
-  mat4_identity(root->transform);
+  modelData->nodeCount = 1;
+  modelData->primitiveCount = 1;
 
-  modelData->root = root;
+  modelData->nodes = malloc(1 * sizeof(ModelNode));
+  modelData->primitives = malloc(1 * sizeof(ModelPrimitive));
+
+  ModelNode* root = &modelData->nodes[0];
+  root->parent = -1;
+  mat4_identity(root->transform);
+  vec_init(&root->children);
+  vec_init(&root->primitives);
+  vec_push(&root->primitives, 0);
+  modelData->primitives[0].drawStart = 0;
+  modelData->primitives[0].drawCount = modelData->vertexCount;
+
   modelData->hasNormals = 1;
-  modelData->hasTexCoords = 1;
+  modelData->hasUVs = 1;
 
   return modelData;
 }
