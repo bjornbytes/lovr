@@ -86,7 +86,7 @@ pacman -S assimp glfw-x11 luajit physfs freetype2 openal ode
 #### Debian/Ubuntu
 
 ```sh
-sudo apt-get install build-essential cmake libassimp-dev libglfw-dev libphysfs-dev libfreetype6-dev libopenal-dev libode-dev luajit
+sudo apt-get install build-essential cmake libassimp-dev libglfw3-dev libluajit-5.1-dev libphysfs-dev libfreetype6-dev libopenal-dev libode-dev
 ```
 
 Then, build with CMake:
