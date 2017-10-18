@@ -75,10 +75,18 @@ lovr /path/to/myGame
 Linux
 ---
 
-On Arch Linux, first install necessary dependencies:
+First, install the dependencies using your package manager of choice.
+
+#### Arch Linux
 
 ```sh
 pacman -S assimp glfw-x11 luajit physfs freetype2 openal ode
+```
+
+#### Debian/Ubuntu
+
+```sh
+sudo apt-get install build-essential cmake libassimp-dev libglfw-dev libphysfs-dev libfreetype6-dev libopenal-dev libode-dev luajit
 ```
 
 Then, build with CMake:
