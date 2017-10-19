@@ -39,8 +39,9 @@ typedef struct {
   float projection[16]; // projection matrix
 
   float transform[16];
-  //
-  GLFWwindow* window;
+
+  // keep track of currently hooked window, if any
+  GLFWwindow* hookedWindow;
 
   int mouselook;      //
   double prevCursorX;
@@ -52,21 +53,26 @@ typedef struct {
 static FakeHeadsetState state;
 
 
-static void enableMouselook() {
-  glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-  glfwGetCursorPos(state.window, &state.prevCursorX, &state.prevCursorY);
+static void enableMouselook(GLFWwindow* window) {
+  if (window) {
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwGetCursorPos(window, &state.prevCursorX, &state.prevCursorY);
+  }
+  // track the intent for mouselook, even if no window yet. One might come along ;-)
   state.mouselook = 1;
 }
 
-static void disableMouselook() {
-  glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+static void disableMouselook(GLFWwindow* window) {
+  if(window) {
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+  }
   state.mouselook = 0;
 }
 
 static void cursor_enter_callback( GLFWwindow *window, int entered) {
   if (entered) {
     if( !state.mouselook) {
-      enableMouselook();
+      enableMouselook(window);
     }
   }
 }
@@ -74,15 +80,15 @@ static void cursor_enter_callback( GLFWwindow *window, int entered) {
 
 static void window_focus_callback(GLFWwindow* window, int focused) {
   if (focused) {
-    //enableMouselook();
+    //enableMouselook(window);
   } else {
-    disableMouselook();
+    disableMouselook(window);
   }
 }
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-    disableMouselook();
+    disableMouselook(window);
   }
 }
 
@@ -115,14 +121,44 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 {
   if (!state.mouselook) {
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-      enableMouselook();
+      enableMouselook(window);
+    }
+  }
+}
+
+// headset can start up without a window, so we poll window existance here
+static void check_window_existance()
+{
+  GLFWwindow *window = lovrGraphicsGetWindow();
+
+  if (window == state.hookedWindow) {
+    // no change
+    return;
+  }
+
+  state.hookedWindow = window;
+  // window might be coming or going.
+  // If it's coming we'll install our event hooks.
+  // If it's going, it's already gone, so no way to uninstall our hooks.
+  if( window ) {
+    glfwSetCursorEnterCallback(window, cursor_enter_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetWindowFocusCallback(window, window_focus_callback);
+    glfwSetKeyCallback(window, key_callback);
+
+    // can now actually do mouselook!
+    if (state.mouselook ) {
+      enableMouselook(window);
+    } else {
+      disableMouselook(window);
     }
   }
 }
 
 
+
 void lovrHeadsetInit() {
-  state.window = lovrGraphicsGetWindow();
 
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
@@ -146,28 +182,33 @@ void lovrHeadsetInit() {
 
   lovrEventAddPump(lovrHeadsetPoll);
 
-  glfwSetCursorEnterCallback(state.window, cursor_enter_callback);
-  glfwSetMouseButtonCallback(state.window, mouse_button_callback);
-  glfwSetCursorPosCallback(state.window, cursor_position_callback);
-  glfwSetWindowFocusCallback(state.window, window_focus_callback);
-  glfwSetKeyCallback(state.window, key_callback);
-
-  enableMouselook();
+  state.mouselook = 1;
+  state.hookedWindow = NULL;
   state.isInitialized = 1;
 
   atexit(lovrHeadsetDestroy);
 }
+
 
 void lovrHeadsetDestroy() {
   int i;
   Controller *controller;
   state.isInitialized = 0;
 
-  glfwSetKeyCallback(state.window, NULL);
-  glfwSetWindowFocusCallback(state.window, NULL);
-  glfwSetCursorPosCallback(state.window, NULL);
-  glfwSetMouseButtonCallback(state.window, NULL);
-  glfwSetCursorEnterCallback(state.window, NULL);
+  // would be polite to unhook gracefully, but we're likely
+  // being called after glfw is already lone gone...
+  // not a big deal in practice.
+#if 0
+  GLFWwindow *window = lovrGraphicsGetWindow();
+  if( window && window ==state.hookedWindow) {
+    glfwSetKeyCallback(window, NULL);
+    glfwSetWindowFocusCallback(window, NULL);
+    glfwSetCursorPosCallback(window, NULL);
+    glfwSetMouseButtonCallback(window, NULL);
+    glfwSetCursorEnterCallback(window, NULL);
+    state.hookedWindow = NULL;
+  }
+#endif
 
   vec_foreach(&state.controllers, controller, i) {
     lovrRelease(&controller->ref);
@@ -176,7 +217,7 @@ void lovrHeadsetDestroy() {
 }
 
 void lovrHeadsetPoll() {
-  //
+  //state.
 }
 
 int lovrHeadsetIsPresent() {
@@ -200,7 +241,10 @@ void lovrHeadsetSetMirrored(int mirror) {
 }
 
 void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
-  glfwGetWindowSize(state.window,width,height);
+  GLFWwindow* window = lovrGraphicsGetWindow();
+  if(window) {
+    glfwGetWindowSize(window,width,height);
+  }
 }
 
 
@@ -296,8 +340,11 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
 }
 
 int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
-  // TODO
-  int b = glfwGetMouseButton( state.window, GLFW_MOUSE_BUTTON_LEFT);
+  GLFWwindow* window = lovrGraphicsGetWindow();
+  if(!window) {
+    return 0;
+  }
+  int b = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT);
   return (b == GLFW_PRESS) ? CONTROLLER_BUTTON_TRIGGER : 0;
 }
 
@@ -325,7 +372,12 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   // Projection
  
   int w,h; 
-  glfwGetWindowSize(state.window, &w, &h); 
+  GLFWwindow* window = lovrGraphicsGetWindow();
+  if(!window) {
+    return;
+  }
+
+  glfwGetWindowSize(window, &w, &h); 
 
   float transform[16];
   mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float)w/h);
@@ -347,7 +399,11 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
 void lovrHeadsetUpdate(float dt)
 {
   float k = 4.0f;
-  GLFWwindow* w = state.window;
+  check_window_existance();
+  GLFWwindow* w = lovrGraphicsGetWindow();
+  if(!w) {
+    return;
+  }
   float v[3] = {0.0f,0.0f,0.0f};
   if (glfwGetKey(w, GLFW_KEY_W)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_UP)==GLFW_PRESS) {
     v[2] = -k;
