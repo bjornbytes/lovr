@@ -418,10 +418,10 @@ void lovrHeadsetUpdate(float dt)
     v[0] = k;
   }
   if (glfwGetKey(w, GLFW_KEY_SPACE) == GLFW_PRESS) {
-    v[1] = -k;
+    v[1] = k;
   }
   if (glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-    v[1] = k;
+    v[1] = -k;
   }
 
   // move
