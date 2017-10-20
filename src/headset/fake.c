@@ -11,6 +11,10 @@
 #include <stdint.h>
 #include <math.h>
 
+
+
+
+
 typedef struct {
   int isInitialized;
 //  int isRendering;
@@ -52,6 +56,13 @@ typedef struct {
 
 static FakeHeadsetState state;
 
+
+// fwd declarations
+static void fakePoll();
+
+/*
+ * callback handlers
+ */
 
 static void enableMouselook(GLFWwindow* window) {
   if (window) {
@@ -158,7 +169,18 @@ static void check_window_existance()
 
 
 
-void lovrHeadsetInit() {
+/*
+ * headset implementation fns
+ */
+
+
+static int fakeIsAvailable()
+{
+  return 1;
+}
+
+
+static void fakeInit() {
 
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
@@ -180,20 +202,21 @@ void lovrHeadsetInit() {
   controller->id = state.controllers.length;
   vec_push(&state.controllers, controller);
 
-  lovrEventAddPump(lovrHeadsetPoll);
+  lovrEventAddPump(fakePoll);
 
   state.mouselook = 1;
   state.hookedWindow = NULL;
   state.isInitialized = 1;
 
-  atexit(lovrHeadsetDestroy);
 }
 
 
-void lovrHeadsetDestroy() {
+static void fakeDestroy() {
   int i;
   Controller *controller;
   state.isInitialized = 0;
+
+  // TODO: unhook lovrEventAddPump ?
 
   // would be polite to unhook gracefully, but we're likely
   // being called after glfw is already lone gone...
@@ -216,31 +239,30 @@ void lovrHeadsetDestroy() {
   vec_deinit(&state.controllers);
 }
 
-void lovrHeadsetPoll() {
-  //state.
+static void fakePoll() {
 }
 
-int lovrHeadsetIsPresent() {
+static int fakeIsPresent() {
     return 1;
 }
 
-HeadsetType lovrHeadsetGetType() {
+static HeadsetType fakeGetType() {
   return HEADSET_FAKE;
 }
 
-HeadsetOrigin lovrHeadsetGetOriginType() {
+static HeadsetOrigin fakeGetOriginType() {
     return ORIGIN_HEAD; // seated
     //return ORIGIN_FLOOR;  // standing
 }
 
-int lovrHeadsetIsMirrored() {
+static int fakeIsMirrored() {
   return 0;
 }
 
-void lovrHeadsetSetMirrored(int mirror) {
+static void fakeSetMirrored(int mirror) {
 }
 
-void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
+static void fakeGetDisplayDimensions(int* width, int* height) {
   GLFWwindow* window = lovrGraphicsGetWindow();
   if(window) {
     glfwGetWindowSize(window,width,height);
@@ -248,54 +270,54 @@ void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
 }
 
 
-void lovrHeadsetGetClipDistance(float* clipNear, float* clipFar) {
+static void fakeGetClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
 }
 
-void lovrHeadsetSetClipDistance(float clipNear, float clipFar) {
+static void fakeSetClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
 
 }
 
-float lovrHeadsetGetBoundsWidth() {
+static float fakeGetBoundsWidth() {
   return 0.0f;
 }
 
-float lovrHeadsetGetBoundsDepth() {
+static float fakeGetBoundsDepth() {
   return 0.0f;
 }
 
-void lovrHeadsetGetBoundsGeometry(float* geometry) {
+static void fakeGetBoundsGeometry(float* geometry) {
   memset(geometry, 0, 12 * sizeof(float));
 }
 
-void lovrHeadsetGetPosition(float* x, float* y, float* z) {
+static void fakeGetPosition(float* x, float* y, float* z) {
   // TODO: sit->stand transform?
   *x = state.pos[0];
   *y = state.pos[1];
   *z = state.pos[2];
 }
 
-void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
-    lovrHeadsetGetPosition(x,y,z);
+static void fakeGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
+    fakeGetPosition(x,y,z);
 }
 
-void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
+static void fakeGetOrientation(float* angle, float* x, float* y, float* z) {
   float q[4];
   quat_fromMat4(q, state.transform);
   quat_getAngleAxis(q, angle, x, y, z);
 }
 
-void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
+static void fakeGetVelocity(float* x, float* y, float* z) {
   // TODO: sit->stand transform?
   *x = state.vel[0];
   *y = state.vel[1];
   *z = state.vel[2];
 }
 
-void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
+static void fakeGetAngularVelocity(float* x, float* y, float* z) {
 #if 0
   float v[3];
   emscripten_vr_get_angular_velocity(&v[0], &v[1], &v[2]);
@@ -310,24 +332,24 @@ void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
 
 
 
-vec_controller_t* lovrHeadsetGetControllers() {
+static vec_controller_t* fakeGetControllers() {
   return &state.controllers;
 }
 
-int lovrHeadsetControllerIsPresent(Controller* controller) {
+static int fakeControllerIsPresent(Controller* controller) {
     return 1;
 }
 
-ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
+static ControllerHand fakeControllerGetHand(Controller* controller) {
   return HAND_UNKNOWN;
 }
 
-void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
+static void fakeControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
   // for now, locked to headset
-  lovrHeadsetGetPosition(x,y,z);
+  fakeGetPosition(x,y,z);
 }
 
-void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
+static void fakeControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
   // for now, locked to headset
   float q[4];
   quat_fromMat4(q, state.transform);
@@ -335,11 +357,11 @@ void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, f
 }
 
 
-float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
+static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) {
   return 0.0f;
 }
 
-int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
+static int fakeControllerIsDown(Controller* controller, ControllerButton button) {
   GLFWwindow* window = lovrGraphicsGetWindow();
   if(!window) {
     return 0;
@@ -348,23 +370,23 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
   return (b == GLFW_PRESS) ? CONTROLLER_BUTTON_TRIGGER : 0;
 }
 
-int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
+static int fakeControllerIsTouched(Controller* controller, ControllerButton button) {
   return 0;
 }
 
-void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {
+static void fakeControllerVibrate(Controller* controller, float duration, float power) {
 }
 
-ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
+static ModelData* fakeControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
+static TextureData* fakeControllerNewTextureData(Controller* controller) {
   return NULL;
 }
 
 
-void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
+static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
 //  float head[16], transform[16], projection[16];
 
   // TODO: Head transform
@@ -396,7 +418,7 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
 }
 
 
-void lovrHeadsetUpdate(float dt)
+static void fakeUpdate(float dt)
 {
   float k = 4.0f;
   check_window_existance();
@@ -435,4 +457,40 @@ void lovrHeadsetUpdate(float dt)
   mat4_rotate(state.transform, state.yaw, 0,1,0);
   mat4_rotate(state.transform, state.pitch, 1,0,0);
 }
+
+HeadsetImpl lovrHeadsetFakeDriver = {
+  fakeIsAvailable,
+  fakeInit,
+  fakeDestroy,
+  fakePoll,
+  fakeIsPresent,
+  fakeGetType,
+  fakeGetOriginType,
+  fakeIsMirrored,
+  fakeSetMirrored,
+  fakeGetDisplayDimensions,
+  fakeGetClipDistance,
+  fakeSetClipDistance,
+  fakeGetBoundsWidth,
+  fakeGetBoundsDepth,
+  fakeGetBoundsGeometry,
+  fakeGetPosition,
+  fakeGetEyePosition,
+  fakeGetOrientation,
+  fakeGetVelocity,
+  fakeGetAngularVelocity,
+  fakeGetControllers,
+  fakeControllerIsPresent,
+  fakeControllerGetHand,
+  fakeControllerGetPosition,
+  fakeControllerGetOrientation,
+  fakeControllerGetAxis,
+  fakeControllerIsDown,
+  fakeControllerIsTouched,
+  fakeControllerVibrate,
+  fakeControllerNewModelData,
+  fakeControllerNewTextureData,
+  fakeRenderTo,
+  fakeUpdate,
+};
 

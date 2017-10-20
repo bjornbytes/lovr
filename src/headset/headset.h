@@ -1,3 +1,4 @@
+/* vim: set ts=2 sts=2 sw=2: */
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "lib/vec/vec.h"
@@ -14,6 +15,15 @@ typedef enum {
   ORIGIN_HEAD,
   ORIGIN_FLOOR
 } HeadsetOrigin;
+
+#if 0
+// not needed yet, but if we expose driver selection to lua...
+typedef enum {
+  HEADSET_DRIVER_FAKE,
+  HEADSET_DRIVER_OPENVR,
+  HEADSET_DRIVER_WEBVR
+} HeadsetDriver;
+#endif
 
 typedef enum {
   HEADSET_UNKNOWN,
@@ -57,6 +67,45 @@ typedef struct {
 typedef vec_t(Controller*) vec_controller_t;
 typedef void (*headsetRenderCallback)(HeadsetEye eye, void* userdata);
 
+
+
+typedef struct  {
+    int (*isAvailable)();
+    void (*init)();
+    void (*destroy)();
+    void (*poll)();
+    int (*isPresent)();
+    HeadsetType (*getType)();
+    HeadsetOrigin (*getOriginType)();
+    int (*isMirrored)();
+    void (*setMirrored)(int mirror);
+    void (*getDisplayDimensions)(int* width, int* height);
+    void (*getClipDistance)(float* clipNear, float* clipFar);
+    void (*setClipDistance)(float clipNear, float clipFar);
+    float (*getBoundsWidth)();
+    float (*getBoundsDepth)();
+    void (*getBoundsGeometry)(float* geometry);
+    void (*getPosition)(float* x, float* y, float* z);
+    void (*getEyePosition)(HeadsetEye eye, float* x, float* y, float* z);
+    void (*getOrientation)(float* angle, float* x, float* y, float* z);
+    void (*getVelocity)(float* x, float* y, float* z);
+    void (*getAngularVelocity)(float* x, float* y, float* z);
+    vec_controller_t* (*getControllers)();
+    int (*controllerIsPresent)(Controller* controller);
+    ControllerHand (*controllerGetHand)(Controller* controller);
+    void (*controllerGetPosition)(Controller* controller, float* x, float* y, float* z);
+    void (*controllerGetOrientation)(Controller* controller, float* angle, float* x, float* y, float* z);
+    float (*controllerGetAxis)(Controller* controller, ControllerAxis axis);
+    int (*controllerIsDown)(Controller* controller, ControllerButton button);
+    int (*controllerIsTouched)(Controller* controller, ControllerButton button);
+    void (*controllerVibrate)(Controller* controller, float duration, float power);
+    ModelData* (*controllerNewModelData)(Controller* controller);
+    TextureData* (*controllerNewTextureData)(Controller* controller);
+    void (*renderTo)(headsetRenderCallback callback, void* userdata);
+    void (*update)(float dt);
+} HeadsetImpl;
+
+
 void lovrHeadsetInit();
 void lovrHeadsetDestroy();
 void lovrHeadsetPoll();
@@ -89,5 +138,6 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
 TextureData* lovrHeadsetControllerNewTextureData(Controller* controller);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
 void lovrHeadsetUpdate(float dt);
+
 
 void lovrControllerDestroy(const Ref* ref);

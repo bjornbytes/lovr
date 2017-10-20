@@ -64,6 +64,14 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&HeadsetTypes, "vive", HEADSET_VIVE);
   map_set(&HeadsetTypes, "rift", HEADSET_RIFT);
 
+#if 0
+  // not needed yet, but if we expose driver selection to lua...
+  map_init(&HeadsetDrivers);
+  map_set(&HeadsetDrivers, "unknown", HEADSET_DRIVER_FAKE);
+  map_set(&HeadsetDrivers, "openvr", HEADSET_DRIVER_OPENVR);
+  map_set(&HeadsetDrivers, "webvr", HEADSET_DRIVER_WEBVR);
+#endif
+
   lovrHeadsetInit();
 
   headsetRenderData.ref = LUA_NOREF;

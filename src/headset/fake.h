@@ -15,5 +15,5 @@
  * Left shift and Space move up and down.
  */
 
-void lovrHeadsetRefreshControllers();
-Controller* lovrHeadsetAddController(unsigned int id);
+HeadsetImpl lovrHeadsetFakeDriver;
+
