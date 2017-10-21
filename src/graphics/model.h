@@ -1,4 +1,5 @@
 #include "loaders/model.h"
+#include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/texture.h"
 #include "math/math.h"
@@ -11,6 +12,7 @@ typedef struct {
   Ref ref;
   ModelData* modelData;
   Mesh* mesh;
+  Material** materials;
 } Model;
 
 Model* lovrModelCreate(ModelData* modelData);

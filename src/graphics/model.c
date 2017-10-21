@@ -6,12 +6,17 @@
 
 static void renderNode(Model* model, int nodeIndex) {
   ModelNode* node = &model->modelData->nodes[nodeIndex];
+  Material* currentMaterial = lovrGraphicsGetMaterial();
+  int useMaterials = currentMaterial->isDefault;
 
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(MATRIX_MODEL, node->transform);
 
   for (int i = 0; i < node->primitives.length; i++) {
     ModelPrimitive* primitive = &model->modelData->primitives[node->primitives.data[i]];
+    if (useMaterials) {
+      lovrGraphicsSetMaterial(model->materials[primitive->material]);
+    }
     lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
     lovrMeshDraw(model->mesh, NULL);
   }
@@ -21,6 +26,9 @@ static void renderNode(Model* model, int nodeIndex) {
   }
 
   lovrGraphicsPop();
+  if (useMaterials) {
+    lovrGraphicsSetMaterial(currentMaterial);
+  }
 }
 
 Model* lovrModelCreate(ModelData* modelData) {
@@ -52,12 +60,21 @@ Model* lovrModelCreate(ModelData* modelData) {
   lovrMeshSetVertexMap(model->mesh, modelData->indices, modelData->indexCount);
   lovrMeshSetRangeEnabled(model->mesh, 1);
 
+  model->materials = malloc(modelData->materialCount * sizeof(Material*));
+  for (int i = 0; i < modelData->materialCount; i++) {
+    model->materials[i] = lovrMaterialCreate(&modelData->materials[i], 0);
+  }
+
   vec_deinit(&format);
   return model;
 }
 
 void lovrModelDestroy(const Ref* ref) {
   Model* model = containerof(ref, Model);
+  for (int i = 0; i < model->modelData->materialCount; i++) {
+    lovrRelease(&model->materials[i]->ref);
+  }
+  free(model->materials);
   lovrModelDataDestroy(model->modelData);
   lovrRelease(&model->mesh->ref);
   free(model);

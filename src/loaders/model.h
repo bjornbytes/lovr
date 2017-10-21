@@ -1,10 +1,12 @@
 #include "filesystem/blob.h"
+#include "loaders/material.h"
 #include "util.h"
 #include "lib/vec/vec.h"
 
 #pragma once
 
 typedef struct {
+  int material;
   int drawStart;
   int drawCount;
 } ModelPrimitive;
@@ -19,10 +21,12 @@ typedef struct ModelNode {
 typedef struct {
   ModelNode* nodes;
   ModelPrimitive* primitives;
+  MaterialData* materials;
   float* vertices;
   uint32_t* indices;
   int nodeCount;
   int primitiveCount;
+  int materialCount;
   int vertexCount;
   int vertexSize;
   int indexCount;

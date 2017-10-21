@@ -1,6 +1,7 @@
 #include "loaders/model.h"
 #include "filesystem/filesystem.h"
 #include "math/mat4.h"
+#include <libgen.h>
 #include <stdlib.h>
 #include <assimp/cfileio.h>
 #include <assimp/cimport.h>
@@ -151,6 +152,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   int index = 0;
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
     struct aiMesh* assimpMesh = scene->mMeshes[m];
+    modelData->primitives[m].material = assimpMesh->mMaterialIndex;
     modelData->primitives[m].drawStart = index;
     modelData->primitives[m].drawCount = 0;
 
@@ -196,6 +198,46 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     }
   }
 
+  // Materials
+  modelData->materialCount = scene->mNumMaterials;
+  modelData->materials = malloc(modelData->materialCount * sizeof(MaterialData));
+  for (unsigned int m = 0; m < scene->mNumMaterials; m++) {
+    MaterialData* materialData = lovrMaterialDataCreateEmpty();
+    struct aiMaterial* material = scene->mMaterials[m];
+    struct aiColor4D color;
+    struct aiString str;
+
+    if (aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE, &color) == aiReturn_SUCCESS) {
+      materialData->colors[COLOR_DIFFUSE].r = color.r * 255;
+      materialData->colors[COLOR_DIFFUSE].g = color.g * 255;
+      materialData->colors[COLOR_DIFFUSE].b = color.b * 255;
+      materialData->colors[COLOR_DIFFUSE].a = color.a * 255;
+    }
+
+    if (aiGetMaterialTexture(material, aiTextureType_DIFFUSE, 0, &str, NULL, NULL, NULL, NULL, NULL, NULL) == aiReturn_SUCCESS) {
+      char* path = str.data;
+
+      if (strstr(path, "./") == path) {
+        path += 2;
+      } else if (path[0] == '/') {
+        lovrThrow("Absolute paths are not supported");
+      }
+
+      char fullpath[LOVR_PATH_MAX];
+      char* dir = dirname((char*) blob->name);
+      snprintf(fullpath, LOVR_PATH_MAX, "%s/%s", dir, path);
+
+      size_t size;
+      void* data = lovrFilesystemRead(fullpath, &size);
+      if (data) {
+        Blob* blob = lovrBlobCreate(data, size, path);
+        materialData->textures[TEXTURE_DIFFUSE] = lovrTextureDataFromBlob(blob);
+      }
+    }
+
+    modelData->materials[m] = *materialData;
+  }
+
   // Nodes
   modelData->nodeCount = 0;
   assimpSumChildren(scene->mRootNode, &modelData->nodeCount);
@@ -209,13 +251,18 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 }
 
 void lovrModelDataDestroy(ModelData* modelData) {
-for (int i = 0; i < modelData->nodeCount; i++) {
+  for (int i = 0; i < modelData->nodeCount; i++) {
     vec_deinit(&modelData->nodes[i].children);
     vec_deinit(&modelData->nodes[i].primitives);
   }
 
+  for (int i = 0; i < modelData->materialCount; i++) {
+    lovrMaterialDataDestroy(&modelData->materials[i]);
+  }
+
   free(modelData->nodes);
   free(modelData->primitives);
+  free(modelData->materials);
   free(modelData->vertices);
   free(modelData->indices);
   free(modelData);
