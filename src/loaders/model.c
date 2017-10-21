@@ -1,6 +1,8 @@
 #include "loaders/model.h"
+#include "filesystem/filesystem.h"
 #include "math/mat4.h"
 #include <stdlib.h>
+#include <assimp/cfileio.h>
 #include <assimp/cimport.h>
 #include <assimp/config.h>
 #include <assimp/scene.h>
@@ -8,6 +10,74 @@
 #include <assimp/matrix4x4.h>
 #include <assimp/vector3.h>
 #include <assimp/postprocess.h>
+
+// Blob IO (to avoid reading data twice)
+static unsigned long assimpBlobRead(struct aiFile* file, char* buffer, size_t size, size_t count) {
+  Blob* blob = (Blob*) file->UserData;
+  char* data = blob->data;
+  memcpy(buffer, data, count * size * sizeof(char));
+  return count * size * sizeof(char);
+}
+
+static size_t assimpBlobGetSize(struct aiFile* file) {
+  Blob* blob = (Blob*) file->UserData;
+  return blob->size;
+}
+
+static aiReturn assimpBlobSeek(struct aiFile* file, unsigned long position, enum aiOrigin origin) {
+  lovrThrow("Seek is not implemented for Blobs");
+  return aiReturn_FAILURE;
+}
+
+static unsigned long assimpBlobTell(struct aiFile* file) {
+  lovrThrow("Tell is not implemented for Blobs");
+  return 0;
+}
+
+// File IO (for reading referenced materials/textures)
+static unsigned long assimpFileRead(struct aiFile* file, char* buffer, size_t size, size_t count) {
+  size_t bytesRead;
+  lovrFilesystemFileRead(file->UserData, buffer, count, size, &bytesRead);
+  return bytesRead;
+}
+
+static size_t assimpFileGetSize(struct aiFile* file) {
+  return lovrFilesystemGetSize(file->UserData);
+}
+
+static aiReturn assimpFileSeek(struct aiFile* file, unsigned long position, enum aiOrigin origin) {
+  return lovrFilesystemSeek(file->UserData, position) ? aiReturn_FAILURE : aiReturn_SUCCESS;
+}
+
+static unsigned long assimpFileTell(struct aiFile* file) {
+  return lovrFilesystemTell(file->UserData);
+}
+
+static struct aiFile* assimpFileOpen(struct aiFileIO* io, const char* path, const char* mode) {
+  struct aiFile* file = malloc(sizeof(struct aiFile));
+  Blob* blob = (Blob*) io->UserData;
+  if (!strcmp(blob->name, path)) {
+    file->ReadProc = assimpBlobRead;
+    file->FileSizeProc = assimpBlobGetSize;
+    file->SeekProc = assimpBlobSeek;
+    file->TellProc = assimpBlobTell;
+    file->UserData = (void*) blob;
+  } else {
+    file->ReadProc = assimpFileRead;
+    file->FileSizeProc = assimpFileGetSize;
+    file->SeekProc = assimpFileSeek;
+    file->TellProc = assimpFileTell;
+    file->UserData = lovrFilesystemOpen(path, OPEN_READ);
+  }
+  return file;
+}
+
+static void assimpFileClose(struct aiFileIO* io, struct aiFile* file) {
+  void* blob = io->UserData;
+  if (file->UserData != blob) {
+    lovrFilesystemClose(file->UserData);
+  }
+}
 
 static void assimpSumChildren(struct aiNode* assimpNode, int* totalChildren) {
   (*totalChildren)++;
@@ -44,10 +114,15 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
 
+  struct aiFileIO assimpIO;
+  assimpIO.OpenProc = assimpFileOpen;
+  assimpIO.CloseProc = assimpFileClose;
+  assimpIO.UserData = (void*) blob;
+
   struct aiPropertyStore* propertyStore = aiCreatePropertyStore();
   aiSetImportPropertyInteger(propertyStore, AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_POINT | aiPrimitiveType_LINE);
   unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_FlipUVs;
-  const struct aiScene* scene = aiImportFileFromMemoryWithProperties(blob->data, blob->size, flags, NULL, propertyStore);
+  const struct aiScene* scene = aiImportFileExWithProperties(blob->name, flags, &assimpIO, propertyStore);
   aiReleasePropertyStore(propertyStore);
 
   modelData->nodeCount = 0;

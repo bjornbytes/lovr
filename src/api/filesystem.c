@@ -195,7 +195,9 @@ int l_lovrFilesystemGetSaveDirectory(lua_State* L) {
 
 int l_lovrFilesystemGetSize(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  lua_pushinteger(L, lovrFilesystemGetSize(path));
+  File* file = lovrFilesystemOpen(path, OPEN_READ);
+  lua_pushinteger(L, lovrFilesystemGetSize(file));
+  lovrFilesystemClose(file);
   return 1;
 }
 

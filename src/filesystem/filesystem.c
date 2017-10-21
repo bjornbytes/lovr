@@ -55,12 +55,20 @@ void lovrFilesystemDestroy() {
   PHYSFS_deinit();
 }
 
+void lovrFilesystemClose(File* file) {
+  PHYSFS_close(file);
+}
+
 int lovrFilesystemCreateDirectory(const char* path) {
   return !PHYSFS_mkdir(path);
 }
 
 int lovrFilesystemExists(const char* path) {
   return PHYSFS_exists(path);
+}
+
+void lovrFilesystemFileRead(File* file, void* data, size_t size, size_t count, size_t* bytesRead) {
+  *bytesRead = PHYSFS_read(file, data, size, count);
 }
 
 int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
@@ -136,15 +144,8 @@ const char* lovrFilesystemGetSaveDirectory() {
   return state.savePathFull;
 }
 
-int lovrFilesystemGetSize(const char* path) {
-  PHYSFS_file* handle = PHYSFS_openRead(path);
-  if (!handle) {
-    return -1;
-  }
-
-  int length = PHYSFS_fileLength(handle);
-  PHYSFS_close(handle);
-  return length;
+size_t lovrFilesystemGetSize(File* file) {
+  return PHYSFS_fileLength(file);
 }
 
 const char* lovrFilesystemGetSource() {
@@ -171,16 +172,24 @@ int lovrFilesystemMount(const char* path, const char* mountpoint, int append) {
   return !PHYSFS_mount(path, mountpoint, append);
 }
 
+void* lovrFilesystemOpen(const char* path, FileMode mode) {
+  switch (mode) {
+    case OPEN_READ: return PHYSFS_openRead(path);
+    case OPEN_WRITE: return PHYSFS_openWrite(path);
+    case OPEN_APPEND: return PHYSFS_openAppend(path);
+  }
+}
+
 void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
 
   // Open file
-  PHYSFS_file* handle = PHYSFS_openRead(path);
-  if (!handle) {
+  PHYSFS_file* file = lovrFilesystemOpen(path, OPEN_READ);
+  if (!file) {
     return NULL;
   }
 
   // Get file size
-  int size = PHYSFS_fileLength(handle);
+  int size = PHYSFS_fileLength(file);
   if (size < 0) {
     return NULL;
   }
@@ -192,8 +201,8 @@ void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
   }
 
   // Perform read
-  *bytesRead = PHYSFS_read(handle, data, 1, size);
-  PHYSFS_close(handle);
+  lovrFilesystemFileRead(file, data, 1, size, bytesRead);
+  lovrFilesystemClose(file);
 
   // Make sure we got everything
   if (*bytesRead != (size_t) size) {
@@ -206,6 +215,10 @@ void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
 
 int lovrFilesystemRemove(const char* path) {
   return !PHYSFS_delete(path);
+}
+
+int lovrFilesystemSeek(File* file, size_t position) {
+  return !PHYSFS_seek(file, position);
 }
 
 int lovrFilesystemSetIdentity(const char* identity) {
@@ -238,17 +251,21 @@ int lovrFilesystemSetIdentity(const char* identity) {
   return 0;
 }
 
+size_t lovrFilesystemTell(File* file) {
+  return PHYSFS_tell(file);
+}
+
 int lovrFilesystemUnmount(const char* path) {
   return !PHYSFS_removeFromSearchPath(path);
 }
 
 int lovrFilesystemWrite(const char* path, const char* content, size_t size, int append) {
-  PHYSFS_file* handle = append ? PHYSFS_openAppend(path) : PHYSFS_openWrite(path);
-  if (!handle) {
+  PHYSFS_file* file = lovrFilesystemOpen(path, append ? OPEN_APPEND : OPEN_WRITE);
+  if (!file) {
     return 0;
   }
 
-  int bytesWritten = PHYSFS_write(handle, content, 1, size);
-  PHYSFS_close(handle);
+  int bytesWritten = PHYSFS_write(file, content, 1, size);
+  lovrFilesystemClose(file);
   return bytesWritten;
 }
