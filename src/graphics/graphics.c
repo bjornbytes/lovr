@@ -1,4 +1,5 @@
 #include "graphics/graphics.h"
+#include "graphics/shaders.h"
 #include "loaders/texture.h"
 #include "loaders/font.h"
 #include "event/event.h"
@@ -35,6 +36,7 @@ void lovrGraphicsDestroy() {
   for (int i = 0; i < DEFAULT_SHADER_COUNT; i++) {
     if (state.defaultShaders[i]) lovrRelease(&state.defaultShaders[i]->ref);
   }
+  if (state.defaultMaterial) lovrRelease(&state.defaultMaterial->ref);
   if (state.defaultFont) lovrRelease(&state.defaultFont->ref);
   if (state.defaultTexture) lovrRelease(&state.defaultTexture->ref);
   glDeleteVertexArrays(1, &state.streamVAO);
@@ -114,6 +116,20 @@ void lovrGraphicsPrepare() {
   // Color
   float color[4] = { state.color.r / 255., state.color.g / 255., state.color.b / 255., state.color.a / 255. };
   lovrShaderSetFloat(shader, "lovrColor", color, 4);
+
+  // Material
+  Material* material = lovrGraphicsGetMaterial();
+
+  for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
+    Color color = lovrMaterialGetColor(material, i);
+    float data[4] = { color.r / 255., color.g / 255., color.b / 255., color.a / 255. };
+    lovrShaderSetFloat(shader, lovrShaderColorUniforms[i], data, 4);
+  }
+
+  for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
+    Texture* texture = lovrMaterialGetTexture(material, i);
+    lovrShaderSetTexture(shader, lovrShaderTextureUniforms[i], &texture, 1);
+  }
 
   lovrGraphicsBindProgram(shader->id);
   lovrShaderBind(shader);
@@ -351,6 +367,31 @@ float lovrGraphicsGetLineWidth() {
 void lovrGraphicsSetLineWidth(float width) {
   state.lineWidth = width;
   glLineWidth(width);
+}
+
+Material* lovrGraphicsGetMaterial() {
+  if (!state.material) {
+    if (!state.defaultMaterial) {
+      MaterialData* materialData = lovrMaterialDataCreateEmpty();
+      state.defaultMaterial = lovrMaterialCreate(materialData, 1);
+    }
+
+    lovrGraphicsSetMaterial(state.defaultMaterial);
+  }
+
+  return state.material;
+}
+
+void lovrGraphicsSetMaterial(Material* material) {
+  if (state.material) {
+    lovrRelease(&state.material->ref);
+  }
+
+  state.material = material;
+
+  if (material) {
+    lovrRetain(&material->ref);
+  }
 }
 
 float lovrGraphicsGetPointSize() {

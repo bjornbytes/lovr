@@ -1,5 +1,13 @@
 #include "graphics/shaders.h"
 
+const char* lovrShaderColorUniforms[] = {
+  "lovrDiffuseColor"
+};
+
+const char* lovrShaderTextureUniforms[] = {
+  "lovrDiffuseTexture"
+};
+
 const char* lovrShaderVertexPrefix = ""
 #ifdef EMSCRIPTEN
 "#version 300 es \n"
@@ -28,7 +36,8 @@ const char* lovrShaderFragmentPrefix = ""
 "in vec2 texCoord; \n"
 "out vec4 lovrFragColor; \n"
 "uniform vec4 lovrColor; \n"
-"uniform sampler2D lovrTexture; \n";
+"uniform vec4 lovrDiffuseColor; \n"
+"uniform sampler2D lovrDiffuseTexture; \n";
 
 const char* lovrShaderVertexSuffix = ""
 "void main() { \n"
@@ -38,7 +47,7 @@ const char* lovrShaderVertexSuffix = ""
 
 const char* lovrShaderFragmentSuffix = ""
 "void main() { \n"
-"  lovrFragColor = color(lovrColor, lovrTexture, texCoord); \n"
+"  lovrFragColor = color(lovrColor, lovrDiffuseTexture, texCoord); \n"
 "}";
 
 const char* lovrDefaultVertexShader = ""
@@ -48,7 +57,7 @@ const char* lovrDefaultVertexShader = ""
 
 const char* lovrDefaultFragmentShader = ""
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
-"  return graphicsColor * texture(image, uv); \n"
+"  return graphicsColor * lovrDiffuseColor * texture(image, uv); \n"
 "}";
 
 const char* lovrSkyboxVertexShader = ""

@@ -1,4 +1,5 @@
 #include "graphics/font.h"
+#include "graphics/material.h"
 #include "graphics/shader.h"
 #include "graphics/texture.h"
 #include "math/math.h"
@@ -71,6 +72,7 @@ typedef struct {
   GLFWwindow* window;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   DefaultShader defaultShader;
+  Material* defaultMaterial;
   Font* defaultFont;
   Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][2][16];
@@ -85,6 +87,7 @@ typedef struct {
   Font* font;
   GraphicsLimits limits;
   float lineWidth;
+  Material* material;
   float pointSize;
   Shader* shader;
   Winding winding;
@@ -132,6 +135,8 @@ void lovrGraphicsSetFont(Font* font);
 GraphicsLimits lovrGraphicsGetLimits();
 float lovrGraphicsGetLineWidth();
 void lovrGraphicsSetLineWidth(float width);
+Material* lovrGraphicsGetMaterial();
+void lovrGraphicsSetMaterial(Material* material);
 float lovrGraphicsGetPointSize();
 void lovrGraphicsSetPointSize(float size);
 Shader* lovrGraphicsGetShader();

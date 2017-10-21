@@ -340,6 +340,22 @@ int l_lovrGraphicsSetLineWidth(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsGetMaterial(lua_State* L) {
+  Material* material = lovrGraphicsGetMaterial();
+  if (material && !material->isDefault) {
+    luax_pushtype(L, Material, material);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+int l_lovrGraphicsSetMaterial(lua_State* L) {
+  Material* material = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Material);
+  lovrGraphicsSetMaterial(material);
+  return 0;
+}
+
 int l_lovrGraphicsGetPointSize(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetPointSize());
   return 1;
@@ -755,6 +771,8 @@ const luaL_Reg lovrGraphics[] = {
   { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
+  { "getMaterial", l_lovrGraphicsGetMaterial },
+  { "setMaterial", l_lovrGraphicsSetMaterial },
   { "getPointSize", l_lovrGraphicsGetPointSize },
   { "setPointSize", l_lovrGraphicsSetPointSize },
   { "getShader", l_lovrGraphicsGetShader },

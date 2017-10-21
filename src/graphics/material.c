@@ -11,6 +11,8 @@ Material* lovrMaterialCreate(MaterialData* materialData, int isDefault) {
   for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
     if (materialData->textures[i]) {
       material->textures[i] = lovrTextureCreate(TEXTURE_2D, &materialData->textures[i], 1);
+    } else {
+      material->textures[i] = NULL;
     }
   }
 
