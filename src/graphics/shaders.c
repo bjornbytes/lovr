@@ -5,7 +5,8 @@ const char* lovrShaderColorUniforms[] = {
 };
 
 const char* lovrShaderTextureUniforms[] = {
-  "lovrDiffuseTexture"
+  "lovrDiffuseTexture",
+  "lovrEnvironmentTexture"
 };
 
 const char* lovrShaderVertexPrefix = ""
@@ -37,7 +38,8 @@ const char* lovrShaderFragmentPrefix = ""
 "out vec4 lovrFragColor; \n"
 "uniform vec4 lovrColor; \n"
 "uniform vec4 lovrDiffuseColor; \n"
-"uniform sampler2D lovrDiffuseTexture; \n";
+"uniform sampler2D lovrDiffuseTexture; \n"
+"uniform samplerCube lovrEnvironmentTexture; \n";
 
 const char* lovrShaderVertexSuffix = ""
 "void main() { \n"
@@ -69,9 +71,8 @@ const char* lovrSkyboxVertexShader = ""
 
 const char* lovrSkyboxFragmentShader = ""
 "in vec3 texturePosition; \n"
-"uniform samplerCube cube; \n"
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
-"  return graphicsColor * texture(cube, texturePosition); \n"
+"  return graphicsColor * texture(lovrEnvironmentTexture, texturePosition); \n"
 "}";
 
 const char* lovrFontFragmentShader = ""

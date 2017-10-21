@@ -121,6 +121,7 @@ int l_lovrGraphicsInit(lua_State* L) {
 
   map_init(&MaterialTextures);
   map_set(&MaterialTextures, "diffuse", TEXTURE_DIFFUSE);
+  map_set(&MaterialTextures, "environment", TEXTURE_ENVIRONMENT_MAP);
 
   map_init(&MatrixTypes);
   map_set(&MatrixTypes, "model", MATRIX_MODEL);

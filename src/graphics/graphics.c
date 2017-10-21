@@ -900,10 +900,18 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
     };
 
     lovrGraphicsSetShapeData(cube, 78);
-    lovrGraphicsPrepare();
+    lovrGraphicsSetDefaultShader(SHADER_SKYBOX);
+    Material* material = lovrGraphicsGetMaterial();
+    Texture* lastTexture = lovrMaterialGetTexture(material, TEXTURE_ENVIRONMENT_MAP);
+    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, texture);
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 0, 0, 0);
+    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, lastTexture);
   } else if (texture->type == TEXTURE_2D) {
+    Material* material = lovrGraphicsGetMaterial();
+    Texture* lastTexture = lovrMaterialGetTexture(material, TEXTURE_DIFFUSE);
+    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     lovrGraphicsSphere(NULL, 30);
+    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, lastTexture);
   }
 
   lovrGraphicsSetCullingEnabled(wasCulling);
@@ -922,9 +930,13 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsScale(MATRIX_MODEL, scale, scale, scale);
   lovrGraphicsTranslate(MATRIX_MODEL, 0, offsety, 0);
   lovrGraphicsSetDefaultShader(SHADER_FONT);
+  Material* material = lovrGraphicsGetMaterial();
+  Texture* lastTexture = lovrMaterialGetTexture(material, TEXTURE_DIFFUSE);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, font->texture);
   glDepthMask(GL_FALSE);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 0);
   glDepthMask(GL_TRUE);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, lastTexture);
   lovrGraphicsPop();
 }
 

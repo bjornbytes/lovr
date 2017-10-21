@@ -9,6 +9,7 @@ typedef enum {
 
 typedef enum {
   TEXTURE_DIFFUSE,
+  TEXTURE_ENVIRONMENT_MAP,
   MAX_MATERIAL_TEXTURES
 } MaterialTexture;
 
