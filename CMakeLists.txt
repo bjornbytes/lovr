@@ -243,6 +243,7 @@ set(LOVR_SRC
   src/graphics/mesh.c
   src/graphics/model.c
   src/graphics/shader.c
+  src/graphics/shaders.c
   src/graphics/texture.c
   src/headset/headset.c
   src/lib/glad/glad.c
