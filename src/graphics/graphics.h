@@ -10,6 +10,7 @@
 #define MAX_TRANSFORMS 60
 #define INTERNAL_TRANSFORMS 4
 #define DEFAULT_SHADER_COUNT 4
+#define MAX_TEXTURES 16
 
 typedef enum {
   BLEND_ALPHA,
@@ -95,7 +96,7 @@ typedef struct {
   vec_uint_t streamIndices;
   CanvasState canvases[MAX_CANVASES];
   int canvas;
-  Texture* texture;
+  Texture* textures[MAX_TEXTURES];
   uint32_t program;
   uint32_t vertexArray;
   uint32_t vertexBuffer;
@@ -169,7 +170,7 @@ void lovrGraphicsSetProjection(mat4 projection);
 void lovrGraphicsSetViewport(int x, int y, int w, int h);
 void lovrGraphicsBindFramebuffer(int framebuffer);
 Texture* lovrGraphicsGetTexture();
-void lovrGraphicsBindTexture(Texture* texture);
+void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot);
 void lovrGraphicsSetDefaultShader(DefaultShader defaultShader);
 Shader* lovrGraphicsGetActiveShader();
 void lovrGraphicsBindProgram(uint32_t program);

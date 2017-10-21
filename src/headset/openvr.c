@@ -724,7 +724,8 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
     lovrTextureResolveMSAA(state.texture);
 
     // OpenVR changes the OpenGL texture binding, so we reset it after rendering
-    Texture* oldTexture = lovrGraphicsGetTexture();
+    glActiveTexture(GL_TEXTURE0);
+    Texture* oldTexture = lovrGraphicsGetTexture(0);
 
     // Submit
     uintptr_t texture = (uintptr_t) state.texture->id;

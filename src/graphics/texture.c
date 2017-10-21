@@ -60,7 +60,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCo
   texture->framebuffer = 0;
   texture->depthBuffer = 0;
   glGenTextures(1, &texture->id);
-  lovrGraphicsBindTexture(texture);
+  lovrGraphicsBindTexture(texture, type, 0);
   lovrTextureCreateStorage(texture);
   lovrTextureRefresh(texture);
   lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
@@ -173,7 +173,7 @@ void lovrTextureResolveMSAA(Texture* texture) {
 }
 
 void lovrTextureRefresh(Texture* texture) {
-  lovrGraphicsBindTexture(texture);
+  lovrGraphicsBindTexture(texture, texture->type, 0);
 
   validateSlices(texture->type, texture->slices, texture->sliceCount);
   texture->width = texture->slices[0]->width;
@@ -208,7 +208,7 @@ TextureFilter lovrTextureGetFilter(Texture* texture) {
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
   int hasMipmaps = texture->slices[0]->format.compressed || texture->slices[0]->mipmaps.generated;
   float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
-  lovrGraphicsBindTexture(texture);
+  lovrGraphicsBindTexture(texture, texture->type, 0);
   texture->filter = filter;
 
   switch (filter.mode) {
@@ -248,7 +248,7 @@ TextureWrap lovrTextureGetWrap(Texture* texture) {
 
 void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
   texture->wrap = wrap;
-  lovrGraphicsBindTexture(texture);
+  lovrGraphicsBindTexture(texture, texture->type, 0);
   glTexParameteri(texture->type, GL_TEXTURE_WRAP_S, wrap.s);
   glTexParameteri(texture->type, GL_TEXTURE_WRAP_T, wrap.t);
   if (texture->type == TEXTURE_CUBE) {
