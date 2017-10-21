@@ -1,8 +1,10 @@
 #include "api/lovr.h"
 #include "graphics/graphics.h"
+#include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
 #include "loaders/font.h"
+#include "loaders/material.h"
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "filesystem/filesystem.h"
@@ -14,6 +16,8 @@ map_int_t CompareModes;
 map_int_t DrawModes;
 map_int_t FilterModes;
 map_int_t HorizontalAligns;
+map_int_t MaterialColors;
+map_int_t MaterialTextures;
 map_int_t MatrixTypes;
 map_int_t MeshAttributeTypes;
 map_int_t MeshDrawModes;
@@ -69,6 +73,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
   luax_registertype(L, "Font", lovrFont);
+  luax_registertype(L, "Material", lovrMaterial);
   luax_registertype(L, "Mesh", lovrMesh);
   luax_registertype(L, "Model", lovrModel);
   luax_registertype(L, "Shader", lovrShader);
@@ -110,6 +115,12 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&HorizontalAligns, "left", ALIGN_LEFT);
   map_set(&HorizontalAligns, "right", ALIGN_RIGHT);
   map_set(&HorizontalAligns, "center", ALIGN_CENTER);
+
+  map_init(&MaterialColors);
+  map_set(&MaterialColors, "diffuse", COLOR_DIFFUSE);
+
+  map_init(&MaterialTextures);
+  map_set(&MaterialTextures, "diffuse", TEXTURE_DIFFUSE);
 
   map_init(&MatrixTypes);
   map_set(&MatrixTypes, "model", MATRIX_MODEL);
@@ -564,6 +575,13 @@ int l_lovrGraphicsNewFont(lua_State* L) {
   return 1;
 }
 
+int l_lovrGraphicsNewMaterial(lua_State* L) {
+  MaterialData* materialData = lovrMaterialDataCreateEmpty();
+  Material* material = lovrMaterialCreate(materialData, 0);
+  luax_pushtype(L, Material, material);
+  return 1;
+}
+
 int l_lovrGraphicsNewMesh(lua_State* L) {
   int size;
   int dataIndex = 0;
@@ -763,6 +781,7 @@ const luaL_Reg lovrGraphics[] = {
   { "skybox", l_lovrGraphicsSkybox },
   { "print", l_lovrGraphicsPrint },
   { "newFont", l_lovrGraphicsNewFont },
+  { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newMesh", l_lovrGraphicsNewMesh },
   { "newModel", l_lovrGraphicsNewModel },
   { "newShader", l_lovrGraphicsNewShader },
