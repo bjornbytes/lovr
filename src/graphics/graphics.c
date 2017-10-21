@@ -87,8 +87,36 @@ void lovrGraphicsPrepare() {
   mat4 model = state.transforms[state.transform][MATRIX_MODEL];
   mat4 view = state.transforms[state.transform][MATRIX_VIEW];
   mat4 projection = state.canvases[state.canvas].projection;
+  lovrShaderSetMatrix(shader, "lovrModel", model, 16);
+  lovrShaderSetMatrix(shader, "lovrView", view, 16);
+  lovrShaderSetMatrix(shader, "lovrProjection", projection, 16);
+
+  float transform[16];
+  mat4_multiply(mat4_set(transform, view), model);
+  lovrShaderSetMatrix(shader, "lovrTransform", transform, 16);
+
+  if (lovrShaderGetUniform(shader, "lovrNormalMatrix")) {
+    if (mat4_invert(transform)) {
+      mat4_transpose(transform);
+    } else {
+      mat4_identity(transform);
+    }
+
+    float normalMatrix[9] = {
+      transform[0], transform[1], transform[2],
+      transform[4], transform[5], transform[6],
+      transform[8], transform[9], transform[10]
+    };
+
+    lovrShaderSetMatrix(shader, "lovrNormalMatrix", normalMatrix, 9);
+  }
+
+  // Color
+  float color[4] = { state.color.r / 255., state.color.g / 255., state.color.b / 255., state.color.a / 255. };
+  lovrShaderSetFloat(shader, "lovrColor", color, 4);
+
   lovrGraphicsBindProgram(shader->id);
-  lovrShaderBind(shader, model, view, projection, state.color, 0);
+  lovrShaderBind(shader);
 }
 
 void lovrGraphicsCreateWindow(int w, int h, int fullscreen, int msaa, const char* title, const char* icon) {
