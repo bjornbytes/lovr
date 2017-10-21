@@ -491,21 +491,18 @@ static void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoo
 }
 
 void lovrGraphicsPoints(float* points, int count) {
-  lovrGraphicsBindTexture(NULL, TEXTURE_2D, 0);
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsSetShapeData(points, count);
   lovrGraphicsDrawPrimitive(GL_POINTS, 0, 0, 0);
 }
 
 void lovrGraphicsLine(float* points, int count) {
-  lovrGraphicsBindTexture(NULL, TEXTURE_2D, 0);
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsSetShapeData(points, count);
   lovrGraphicsDrawPrimitive(GL_LINE_STRIP, 0, 0, 0);
 }
 
 void lovrGraphicsTriangle(DrawMode mode, float* points) {
-  lovrGraphicsBindTexture(NULL, TEXTURE_2D, 0);
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
 
   if (mode == DRAW_MODE_LINE) {
@@ -526,7 +523,7 @@ void lovrGraphicsTriangle(DrawMode mode, float* points) {
   }
 }
 
-void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
+void lovrGraphicsPlane(DrawMode mode, mat4 transform) {
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
 
@@ -538,7 +535,6 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
       -.5, -.5, 0
     };
 
-    lovrGraphicsBindTexture(NULL, TEXTURE_2D, 0);
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetShapeData(points, 12);
     lovrGraphicsDrawPrimitive(GL_LINE_LOOP, 0, 0, 0);
@@ -550,7 +546,6 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
       .5, -.5, 0,  0, 0, -1, 1, 1
     };
 
-    lovrGraphicsBindTexture(texture, TEXTURE_2D, 0);
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetShapeData(data, 32);
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 1, 1, 0);
@@ -567,13 +562,12 @@ void lovrGraphicsPlaneFullscreen(Texture* texture) {
     1, -1, 0,  1, 0
   };
 
-  lovrGraphicsBindTexture(texture, TEXTURE_2D, 0);
   lovrGraphicsSetDefaultShader(SHADER_FULLSCREEN);
   lovrGraphicsSetShapeData(data, 20);
   lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 0, 1, 0);
 }
 
-void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
+void lovrGraphicsBox(DrawMode mode, mat4 transform) {
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
@@ -599,7 +593,6 @@ void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
       0, 4, 1, 5, 2, 6, 3, 7  // Connections
     };
 
-    lovrGraphicsBindTexture(NULL, TEXTURE_2D, 0);
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetShapeData(points, 24);
     lovrGraphicsSetIndexData(indices, 24);
@@ -647,7 +640,6 @@ void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
       .5, .5, .5,     0, 1, 0,  1, 0
     };
 
-    lovrGraphicsBindTexture(texture, TEXTURE_2D, 0);
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetShapeData(data, 208);
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 1, 1, 0);
@@ -755,7 +747,6 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
     }
   }
 
-  lovrGraphicsBindTexture(NULL, TEXTURE_2D, 0);
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 0, 1);
 #undef PUSH_CYLINDER_VERTEX
@@ -868,7 +859,6 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
     };
 
     lovrGraphicsSetShapeData(cube, 78);
-    lovrGraphicsBindTexture(texture, TEXTURE_CUBE, 1);
     lovrGraphicsPrepare();
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 0, 0, 0);
   } else if (texture->type == TEXTURE_2D) {
@@ -890,7 +880,6 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
   lovrGraphicsScale(MATRIX_MODEL, scale, scale, scale);
   lovrGraphicsTranslate(MATRIX_MODEL, 0, offsety, 0);
-  lovrGraphicsBindTexture(font->texture, TEXTURE_2D, 0);
   lovrGraphicsSetDefaultShader(SHADER_FONT);
   glDepthMask(GL_FALSE);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 0);

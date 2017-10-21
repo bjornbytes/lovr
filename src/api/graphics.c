@@ -465,36 +465,24 @@ int l_lovrGraphicsTriangle(lua_State* L) {
 }
 
 int l_lovrGraphicsPlane(lua_State* L) {
-  Texture* texture = NULL;
-  DrawMode drawMode;
-  if (lua_isstring(L, 1)) {
-    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
-  } else {
-    drawMode = DRAW_MODE_FILL;
-    texture = luax_checktype(L, 1, Texture);
-    if (lua_gettop(L) == 1) {
-      lovrGraphicsPlaneFullscreen(texture);
-      return 0;
-    }
+  if (lua_isuserdata(L, 1)) {
+    Texture* texture = luax_checktype(L, 1, Texture);
+    lovrGraphicsPlaneFullscreen(texture);
+    return 0;
   }
+
+  DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
   float transform[16];
   luax_readtransform(L, 2, transform, 1);
-  lovrGraphicsPlane(drawMode, texture, transform);
+  lovrGraphicsPlane(drawMode, transform);
   return 0;
 }
 
 static int luax_rectangularprism(lua_State* L, int uniformScale) {
-  Texture* texture = NULL;
-  DrawMode drawMode;
-  if (lua_isstring(L, 1)) {
-    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
-  } else {
-    drawMode = DRAW_MODE_FILL;
-    texture = luax_checktype(L, 1, Texture);
-  }
+  DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
   float transform[16];
   luax_readtransform(L, 2, transform, uniformScale);
-  lovrGraphicsBox(drawMode, texture, transform);
+  lovrGraphicsBox(drawMode, transform);
   return 0;
 }
 
