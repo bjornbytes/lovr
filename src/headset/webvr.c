@@ -246,10 +246,6 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
-  return NULL;
-}
-
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   state.renderCallback = callback;
   emscripten_vr_set_render_callback(onRequestAnimationFrame, userdata);

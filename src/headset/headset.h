@@ -85,7 +85,6 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
 int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power);
 ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
-TextureData* lovrHeadsetControllerNewTextureData(Controller* controller);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
 
 void lovrControllerDestroy(const Ref* ref);

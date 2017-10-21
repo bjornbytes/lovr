@@ -595,6 +595,13 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
     }
   }
 
+  // Load texture
+  if (!state.deviceTextures[id]) {
+    while (state.renderModels->LoadTexture_Async(state.deviceModels[id]->diffuseTextureId, &state.deviceTextures[id]) == EVRRenderModelError_VRRenderModelError_Loading) {
+      lovrSleep(.001);
+    }
+  }
+
   RenderModel_t* vrModel = state.deviceModels[id];
 
   ModelData* modelData = malloc(sizeof(ModelData));
@@ -628,40 +635,24 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
 
   modelData->nodeCount = 1;
   modelData->primitiveCount = 1;
+  modelData->materialCount = 1;
 
   modelData->nodes = malloc(1 * sizeof(ModelNode));
   modelData->primitives = malloc(1 * sizeof(ModelPrimitive));
+  modelData->materials = malloc(1 * sizeof(MaterialData));
 
+  // Geometry
   ModelNode* root = &modelData->nodes[0];
   root->parent = -1;
   mat4_identity(root->transform);
   vec_init(&root->children);
   vec_init(&root->primitives);
   vec_push(&root->primitives, 0);
+  modelData->primitives[0].material = 0;
   modelData->primitives[0].drawStart = 0;
   modelData->primitives[0].drawCount = modelData->vertexCount;
 
-  modelData->hasNormals = 1;
-  modelData->hasUVs = 1;
-
-  return modelData;
-}
-
-TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
-  if (!state.isInitialized || !controller) return NULL;
-
-  int id = controller->id;
-
-  if (!state.deviceModels[id]) {
-    lovrHeadsetControllerNewModelData(controller);
-  }
-
-  if (!state.deviceTextures[id]) {
-    while (state.renderModels->LoadTexture_Async(state.deviceModels[id]->diffuseTextureId, &state.deviceTextures[id]) == EVRRenderModelError_VRRenderModelError_Loading) {
-      lovrSleep(.001);
-    }
-  }
-
+  // Material
   RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
 
   TextureData* textureData = malloc(sizeof(TextureData));
@@ -678,7 +669,14 @@ TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
   textureData->data = memcpy(malloc(size), vrTexture->rubTextureMapData, size);;
   textureData->mipmaps.generated = 1;
   textureData->blob = NULL;
-  return textureData;
+
+  modelData->materials[0] = *lovrMaterialDataCreateEmpty();
+  modelData->materials[0].textures[TEXTURE_DIFFUSE] = textureData;
+
+  modelData->hasNormals = 1;
+  modelData->hasUVs = 1;
+
+  return modelData;
 }
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
