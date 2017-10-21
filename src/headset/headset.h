@@ -68,7 +68,6 @@ typedef vec_t(Controller*) vec_controller_t;
 typedef void (*headsetRenderCallback)(HeadsetEye eye, void* userdata);
 
 
-
 typedef struct  {
     int (*isAvailable)();
     void (*init)();
@@ -104,6 +103,11 @@ typedef struct  {
     void (*renderTo)(headsetRenderCallback callback, void* userdata);
     void (*update)(float dt);
 } HeadsetImpl;
+
+
+// headset implementations
+extern HeadsetImpl lovrHeadsetOpenVRDriver;
+extern HeadsetImpl lovrHeadsetFakeDriver;
 
 
 void lovrHeadsetInit();

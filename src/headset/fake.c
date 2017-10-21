@@ -6,6 +6,9 @@
 #include "math/vec3.h"
 #include "math/quat.h"
 #include "util.h"
+//#include "graphics/texture.h"
+//#include "lib/glfw.h"
+//#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>

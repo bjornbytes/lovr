@@ -246,7 +246,9 @@ set(LOVR_SRC
   src/graphics/shader.c
   src/graphics/skybox.c
   src/graphics/texture.c
+  src/headset/fake.c
   src/headset/headset.c
+  src/headset/openvr.c
   src/lib/glad/glad.c
   src/lib/lua-cjson/fpconv.c
   src/lib/lua-cjson/lua_cjson.c
@@ -275,10 +277,7 @@ set(LOVR_SRC
 )
 
 if(EMSCRIPTEN)
-  set(LOVR_HEADSET src/headset/webvr.c)
-else()
-    #  set(LOVR_HEADSET src/headset/openvr.c)
-  set(LOVR_HEADSET src/headset/fake.c)
+    set(LOVR_SRC, ${LOVR_SRC} "src/headset/webvr.c")
 endif()
 
 if(WIN32)
@@ -289,7 +288,7 @@ if(WIN32)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-add_executable(lovr ${LOVR_SRC} ${LOVR_HEADSET})
+add_executable(lovr ${LOVR_SRC})
 target_link_libraries(lovr
   ${LOVR_ASSIMP}
   ${LOVR_ENET}

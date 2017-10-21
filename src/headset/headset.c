@@ -11,25 +11,12 @@ void lovrControllerDestroy(const Ref* ref) {
 
 static HeadsetImpl* headset = NULL;
 
-#if 0
-// not needed yet, but if we expose driver selection to lua...
-int lovrHeadsetIsDriverAvailable(HeadsetDriver driver) {
-  switch(driver) {
-    case HEADSET_DRIVER_FAKE:
-      return lovrHeadsetFakeImpl->isAvailable();
-    case HEADSET_DRIVER_OPENVR:
-    case HEADSET_DRIVER_WEBVR:
-    default:
-      return 0;
-  }
-}
-#endif 
 
 void lovrHeadsetInit() {
   // assert(headset==NULL)
   // TODO: should expose driver selection to lua, so conf can express a preference?
   
-  HeadsetImpl* drivers[] = { &lovrHeadsetFakeDriver, NULL };
+  HeadsetImpl* drivers[] = { &lovrHeadsetOpenVRDriver, &lovrHeadsetFakeDriver, NULL };
 
   int i;
   for (i=0; drivers[i]; ++i ) {

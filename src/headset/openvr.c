@@ -1,14 +1,77 @@
+/* vim: set ts=2 sts=2 sw=2: */
 #include "headset/openvr.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "math/mat4.h"
 #include "math/quat.h"
 #include "util.h"
+#include "graphics/texture.h"
+//#include "lib/glfw.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <openvr_capi.h>
+
+// From openvr_capi.h
+extern intptr_t VR_InitInternal(EVRInitError *peError, EVRApplicationType eType);
+//extern void VR_ShutdownInternal();
+extern bool VR_IsHmdPresent();
+extern intptr_t VR_GetGenericInterface(const char* pchInterfaceVersion, EVRInitError* peError);
+extern bool VR_IsRuntimeInstalled();
+//extern const char* VR_GetVRInitErrorAsSymbol(EVRInitError error);
+//extern const char* VR_GetVRInitErrorAsEnglishDescription(EVRInitError error);
+
+static void openvrDestroy();
+static void openvrPoll();
+static void openvrRefreshControllers();
+static ControllerHand openvrControllerGetHand(Controller* controller);
+static Controller* openvrAddController(unsigned int deviceIndex);
+static ControllerHand openvrControllerGetHand(Controller* controller);
+
+
+
+
+typedef struct {
+  int isInitialized;
+  int isRendering;
+  int isMirrored;
+
+  struct VR_IVRSystem_FnTable* system;
+  struct VR_IVRCompositor_FnTable* compositor;
+  struct VR_IVRChaperone_FnTable* chaperone;
+  struct VR_IVRRenderModels_FnTable* renderModels;
+
+  unsigned int headsetIndex;
+  HeadsetType type;
+
+  TrackedDevicePose_t renderPoses[16];
+  RenderModel_t* deviceModels[16];
+  RenderModel_TextureMap_t* deviceTextures[16];
+
+  vec_controller_t controllers;
+
+  float clipNear;
+  float clipFar;
+
+  uint32_t renderWidth;
+  uint32_t renderHeight;
+  float refreshRate;
+  float vsyncToPhotons;
+
+  Texture* texture;
+} HeadsetState;
 
 static HeadsetState state;
+
+
+static int openvrIsAvailable() {
+  if (VR_IsHmdPresent() && VR_IsRuntimeInstalled()) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
 
 static ControllerButton getButton(uint32_t button, ControllerHand hand) {
   switch (state.type) {
@@ -88,7 +151,7 @@ static TrackedDevicePose_t getPose(unsigned int deviceIndex) {
   return poses[deviceIndex];
 }
 
-void lovrHeadsetInit() {
+static void openvrInit() {
   state.isInitialized = 0;
   state.isRendering = 0;
   state.isMirrored = 1;
@@ -101,7 +164,7 @@ void lovrHeadsetInit() {
   }
 
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
-    lovrHeadsetDestroy();
+    openvrDestroy();
     return;
   }
 
@@ -109,7 +172,7 @@ void lovrHeadsetInit() {
   VR_InitInternal(&vrError, EVRApplicationType_VRApplication_Scene);
 
   if (vrError != EVRInitError_VRInitError_None) {
-    lovrHeadsetDestroy();
+    openvrDestroy();
     return;
   }
 
@@ -118,28 +181,28 @@ void lovrHeadsetInit() {
   sprintf(buffer, "FnTable:%s", IVRSystem_Version);
   state.system = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(buffer, &vrError);
   if (vrError != EVRInitError_VRInitError_None || !state.system) {
-    lovrHeadsetDestroy();
+    openvrDestroy();
     return;
   }
 
   sprintf(buffer, "FnTable:%s", IVRCompositor_Version);
   state.compositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(buffer, &vrError);
   if (vrError != EVRInitError_VRInitError_None || !state.compositor) {
-    lovrHeadsetDestroy();
+    openvrDestroy();
     return;
   }
 
   sprintf(buffer, "FnTable:%s", IVRChaperone_Version);
   state.chaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(buffer, &vrError);
   if (vrError != EVRInitError_VRInitError_None || !state.chaperone) {
-    lovrHeadsetDestroy();
+    openvrDestroy();
     return;
   }
 
   sprintf(buffer, "FnTable:%s", IVRRenderModels_Version);
   state.renderModels = (struct VR_IVRRenderModels_FnTable*) VR_GetGenericInterface(buffer, &vrError);
   if (vrError != EVRInitError_VRInitError_None || !state.renderModels) {
-    lovrHeadsetDestroy();
+    openvrDestroy();
     return;
   }
 
@@ -160,12 +223,11 @@ void lovrHeadsetInit() {
 
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
-  lovrHeadsetRefreshControllers();
-  lovrEventAddPump(lovrHeadsetPoll);
-  atexit(lovrHeadsetDestroy);
+  openvrRefreshControllers();
+  lovrEventAddPump(openvrPoll);
 }
 
-void lovrHeadsetDestroy() {
+static void openvrDestroy() {
   state.isInitialized = 0;
   if (state.texture) {
     lovrRelease(&state.texture->ref);
@@ -184,7 +246,7 @@ void lovrHeadsetDestroy() {
   vec_deinit(&state.controllers);
 }
 
-void lovrHeadsetPoll() {
+static void openvrPoll() {
   if (!state.isInitialized) return;
   struct VREvent_t vrEvent;
   while (state.system->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
@@ -192,7 +254,7 @@ void lovrHeadsetPoll() {
       case EVREventType_VREvent_TrackedDeviceActivated:
       case EVREventType_VREvent_TrackedDeviceDeactivated:
       case EVREventType_VREvent_TrackedDeviceRoleChanged: {
-        lovrHeadsetRefreshControllers();
+        openvrRefreshControllers();
         break;
       }
 
@@ -203,7 +265,7 @@ void lovrHeadsetPoll() {
         int i;
         vec_foreach(&state.controllers, controller, i) {
           if (controller->id == vrEvent.trackedDeviceIndex) {
-            ControllerHand hand = lovrHeadsetControllerGetHand(controller);
+            ControllerHand hand = openvrControllerGetHand(controller);
             Event event;
             if (isPress) {
               event.type = EVENT_CONTROLLER_PRESSED;
@@ -233,15 +295,15 @@ void lovrHeadsetPoll() {
   }
 }
 
-int lovrHeadsetIsPresent() {
+static int openvrIsPresent() {
   return state.isInitialized && state.system->IsTrackedDeviceConnected(state.headsetIndex);
 }
 
-HeadsetType lovrHeadsetGetType() {
+static HeadsetType openvrGetType() {
   return state.type;
 }
 
-HeadsetOrigin lovrHeadsetGetOriginType() {
+static HeadsetOrigin openvrGetOriginType() {
   if (!state.isInitialized) {
     return ORIGIN_HEAD;
   }
@@ -253,15 +315,15 @@ HeadsetOrigin lovrHeadsetGetOriginType() {
   }
 }
 
-int lovrHeadsetIsMirrored() {
+static int openvrIsMirrored() {
   return state.isMirrored;
 }
 
-void lovrHeadsetSetMirrored(int mirror) {
+static void openvrSetMirrored(int mirror) {
   state.isMirrored = mirror;
 }
 
-void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
+static void openvrGetDisplayDimensions(int* width, int* height) {
   if (!state.isInitialized) {
     *width = *height = 0;
   } else {
@@ -270,7 +332,7 @@ void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
   }
 }
 
-void lovrHeadsetGetClipDistance(float* near, float* far) {
+static void openvrGetClipDistance(float* near, float* far) {
   if (!state.isInitialized) {
     *near = *far = 0.f;
   } else {
@@ -279,27 +341,27 @@ void lovrHeadsetGetClipDistance(float* near, float* far) {
   }
 }
 
-void lovrHeadsetSetClipDistance(float near, float far) {
+static void openvrSetClipDistance(float near, float far) {
   if (!state.isInitialized) return;
   state.clipNear = near;
   state.clipFar = far;
 }
 
-float lovrHeadsetGetBoundsWidth() {
+static float openvrGetBoundsWidth() {
   if (!state.isInitialized) return 0.f;
   float width;
   state.chaperone->GetPlayAreaSize(&width, NULL);
   return width;
 }
 
-float lovrHeadsetGetBoundsDepth() {
+static float openvrGetBoundsDepth() {
   if (!state.isInitialized) return 0.f;
   float depth;
   state.chaperone->GetPlayAreaSize(NULL, &depth);
   return depth;
 }
 
-void lovrHeadsetGetBoundsGeometry(float* geometry) {
+static void openvrGetBoundsGeometry(float* geometry) {
   if (!state.isInitialized) {
     memset(geometry, 0, 12 * sizeof(float));
   } else {
@@ -313,7 +375,7 @@ void lovrHeadsetGetBoundsGeometry(float* geometry) {
   }
 }
 
-void lovrHeadsetGetPosition(float* x, float* y, float* z) {
+static void openvrGetPosition(float* x, float* y, float* z) {
   if (!state.isInitialized) {
     *x = *y = *z = 0.f;
     return;
@@ -331,7 +393,7 @@ void lovrHeadsetGetPosition(float* x, float* y, float* z) {
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
 }
 
-void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
+static void openvrGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
   if (!state.isInitialized) {
     *x = *y = *z = 0.f;
     return;
@@ -356,7 +418,7 @@ void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
   *z = transform[14];
 }
 
-void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float *z) {
+static void openvrGetOrientation(float* angle, float* x, float* y, float *z) {
   if (!state.isInitialized) {
     *angle = *x = *y = *z = 0.f;
     return;
@@ -375,7 +437,7 @@ void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float *z) {
   quat_getAngleAxis(rotation, angle, x, y, z);
 }
 
-void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
+static void openvrGetVelocity(float* x, float* y, float* z) {
   if (!state.isInitialized) {
     *x = *y = *z = 0.f;
     return;
@@ -393,7 +455,7 @@ void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
   *z = pose.vVelocity.v[2];
 }
 
-void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
+static void openvrGetAngularVelocity(float* x, float* y, float* z) {
   if (!state.isInitialized) {
     *x = *y = *z = 0.f;
     return;
@@ -411,7 +473,7 @@ void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
   *z = pose.vAngularVelocity.v[2];
 }
 
-void lovrHeadsetRefreshControllers() {
+static void openvrRefreshControllers() {
   if (!state.isInitialized) return;
 
   unsigned int leftHand = ETrackedControllerRole_TrackedControllerRole_LeftHand;
@@ -439,7 +501,7 @@ void lovrHeadsetRefreshControllers() {
   // Add connected controllers that aren't in the list yet
   for (i = 0; i < 2; i++) {
     if ((int) controllerIds[i] != -1) {
-      controller = lovrHeadsetAddController(controllerIds[i]);
+      controller = openvrAddController(controllerIds[i]);
       if (!controller) continue;
       EventType type = EVENT_CONTROLLER_ADDED;
       EventData data = { .controlleradded = { controller } };
@@ -450,7 +512,7 @@ void lovrHeadsetRefreshControllers() {
   }
 }
 
-Controller* lovrHeadsetAddController(unsigned int deviceIndex) {
+static Controller* openvrAddController(unsigned int deviceIndex) {
   if (!state.isInitialized) return NULL;
 
   if ((int) deviceIndex == -1) {
@@ -470,17 +532,17 @@ Controller* lovrHeadsetAddController(unsigned int deviceIndex) {
   return controller;
 }
 
-vec_controller_t* lovrHeadsetGetControllers() {
+static vec_controller_t* openvrGetControllers() {
   if (!state.isInitialized) return NULL;
   return &state.controllers;
 }
 
-int lovrHeadsetControllerIsPresent(Controller* controller) {
+static int openvrControllerIsPresent(Controller* controller) {
   if (!state.isInitialized || !controller) return 0;
   return state.system->IsTrackedDeviceConnected(controller->id);
 }
 
-ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
+static ControllerHand openvrControllerGetHand(Controller* controller) {
   if (!state.isInitialized || !controller) return HAND_UNKNOWN;
   switch (state.system->GetControllerRoleForTrackedDeviceIndex(controller->id)) {
     case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
@@ -489,7 +551,7 @@ ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
   }
 }
 
-void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
+static void openvrControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
   if (!state.isInitialized || !controller) {
     *x = *y = *z = 0.f;
   }
@@ -506,7 +568,7 @@ void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y
   *z = pose.mDeviceToAbsoluteTracking.m[2][3];
 }
 
-void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
+static void openvrControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
   if (!state.isInitialized || !controller) {
     *angle = *x = *y = *z = 0.f;
   }
@@ -524,7 +586,7 @@ void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, f
   quat_getAngleAxis(rotation, angle, x, y, z);
 }
 
-float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
+static float openvrControllerGetAxis(Controller* controller, ControllerAxis axis) {
   if (!state.isInitialized || !controller) return 0.f;
 
   VRControllerState_t input;
@@ -552,25 +614,25 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
   return 0;
 }
 
-int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
+static int openvrControllerIsDown(Controller* controller, ControllerButton button) {
   if (!state.isInitialized || !controller) return 0;
 
   VRControllerState_t input;
   state.system->GetControllerState(controller->id, &input, sizeof(input));
-  ControllerHand hand = lovrHeadsetControllerGetHand(controller);
+  ControllerHand hand = openvrControllerGetHand(controller);
   return getButtonState(input.ulButtonPressed, button, hand);
 }
 
-int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
+static int openvrControllerIsTouched(Controller* controller, ControllerButton button) {
   if (!state.isInitialized || !controller) return 0;
 
   VRControllerState_t input;
   state.system->GetControllerState(controller->id, &input, sizeof(input));
-  ControllerHand hand = lovrHeadsetControllerGetHand(controller);
+  ControllerHand hand = openvrControllerGetHand(controller);
   return getButtonState(input.ulButtonTouched, button, hand);
 }
 
-void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {
+static void openvrControllerVibrate(Controller* controller, float duration, float power) {
   if (!state.isInitialized || !controller || duration <= 0) return;
 
   uint32_t axis = 0;
@@ -578,7 +640,7 @@ void lovrHeadsetControllerVibrate(Controller* controller, float duration, float 
   state.system->TriggerHapticPulse(controller->id, axis, uSeconds);
 }
 
-ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
+static ModelData* openvrControllerNewModelData(Controller* controller) {
   if (!state.isInitialized || !controller) return NULL;
 
   int id = controller->id;
@@ -651,13 +713,13 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
   return modelData;
 }
 
-TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
+static TextureData* openvrControllerNewTextureData(Controller* controller) {
   if (!state.isInitialized || !controller) return NULL;
 
   int id = controller->id;
 
   if (!state.deviceModels[id]) {
-    lovrHeadsetControllerNewModelData(controller);
+    openvrControllerNewModelData(controller);
   }
 
   if (!state.deviceTextures[id]) {
@@ -685,7 +747,7 @@ TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
   return textureData;
 }
 
-void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
+static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   if (!state.isInitialized) return;
 
   if (!state.texture) {
@@ -764,3 +826,44 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
     lovrGraphicsSetColor(oldColor);
   }
 }
+
+static void openvrUpdate(float dt) {
+}
+
+
+HeadsetImpl lovrHeadsetOpenVRDriver = {
+  openvrIsAvailable,
+  openvrInit,
+  openvrDestroy,
+  openvrPoll,
+  openvrIsPresent,
+  openvrGetType,
+  openvrGetOriginType,
+  openvrIsMirrored,
+  openvrSetMirrored,
+  openvrGetDisplayDimensions,
+  openvrGetClipDistance,
+  openvrSetClipDistance,
+  openvrGetBoundsWidth,
+  openvrGetBoundsDepth,
+  openvrGetBoundsGeometry,
+  openvrGetPosition,
+  openvrGetEyePosition,
+  openvrGetOrientation,
+  openvrGetVelocity,
+  openvrGetAngularVelocity,
+  openvrGetControllers,
+  openvrControllerIsPresent,
+  openvrControllerGetHand,
+  openvrControllerGetPosition,
+  openvrControllerGetOrientation,
+  openvrControllerGetAxis,
+  openvrControllerIsDown,
+  openvrControllerIsTouched,
+  openvrControllerVibrate,
+  openvrControllerNewModelData,
+  openvrControllerNewTextureData,
+  openvrRenderTo,
+  openvrUpdate,
+};
+
