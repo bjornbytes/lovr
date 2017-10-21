@@ -224,6 +224,7 @@ set(LOVR_SRC
   src/api/types/controller.c
   src/api/types/font.c
   src/api/types/joints.c
+  src/api/types/material.c
   src/api/types/mesh.c
   src/api/types/model.c
   src/api/types/randomGenerator.c
@@ -240,6 +241,7 @@ set(LOVR_SRC
   src/filesystem/filesystem.c
   src/graphics/font.c
   src/graphics/graphics.c
+  src/graphics/material.c
   src/graphics/mesh.c
   src/graphics/model.c
   src/graphics/shader.c
@@ -256,6 +258,7 @@ set(LOVR_SRC
   src/lib/stb/stb_vorbis.c
   src/lib/vec/vec.c
   src/loaders/font.c
+  src/loaders/material.c
   src/loaders/model.c
   src/loaders/source.c
   src/loaders/texture.c
