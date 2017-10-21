@@ -1,5 +1,4 @@
 /* vim: set ts=2 sts=2 sw=2: */
-#include "headset/fake.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "math/mat4.h"

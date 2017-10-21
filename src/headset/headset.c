@@ -1,6 +1,5 @@
 /* vim: set ts=2 sts=2 sw=2: */
 #include "headset/headset.h"
-#include "headset/fake.h"
 #include "event/event.h"
 
 void lovrControllerDestroy(const Ref* ref) {
@@ -15,9 +14,12 @@ static HeadsetImpl* headset = NULL;
 void lovrHeadsetInit() {
   // assert(headset==NULL)
   // TODO: should expose driver selection to lua, so conf can express a preference?
-  
-  HeadsetImpl* drivers[] = { &lovrHeadsetOpenVRDriver, &lovrHeadsetFakeDriver, NULL };
 
+#if EMSCRIPTEN
+  HeadsetImpl* drivers[] = { &lovrHeadsetWebVRDriver, &lovrHeadsetFakeDriver, NULL };
+#else
+  HeadsetImpl* drivers[] = { &lovrHeadsetOpenVRDriver, &lovrHeadsetFakeDriver, NULL };
+#endif
   int i;
   for (i=0; drivers[i]; ++i ) {
     if (drivers[i]->isAvailable()) {

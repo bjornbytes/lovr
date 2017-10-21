@@ -16,15 +16,6 @@ typedef enum {
   ORIGIN_FLOOR
 } HeadsetOrigin;
 
-#if 0
-// not needed yet, but if we expose driver selection to lua...
-typedef enum {
-  HEADSET_DRIVER_FAKE,
-  HEADSET_DRIVER_OPENVR,
-  HEADSET_DRIVER_WEBVR
-} HeadsetDriver;
-#endif
-
 typedef enum {
   HEADSET_UNKNOWN,
   HEADSET_VIVE,

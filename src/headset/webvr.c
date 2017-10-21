@@ -48,13 +48,16 @@ static void onRequestAnimationFrame(void* userdata) {
   }
 }
 
-void lovrHeadsetInit() {
-  vec_init(&state.controllers);
-  emscripten_vr_init();
-  atexit(lovrHeadsetDestroy);
+static int webvrIsAvailable() {
+  return emscripten_vr_is_present();
 }
 
-void lovrHeadsetDestroy() {
+static void webvrInit() {
+  vec_init(&state.controllers);
+  emscripten_vr_init();
+}
+
+static void webvrDestroy() {
   Controller* controller;
   int i;
   vec_foreach(&state.controllers, controller, i) {
@@ -64,56 +67,56 @@ void lovrHeadsetDestroy() {
   vec_deinit(&state.controllers);
 }
 
-void lovrHeadsetPoll() {
+static void webvrPoll() {
   //
 }
 
-int lovrHeadsetIsPresent() {
+static int webvrIsPresent() {
   return emscripten_vr_is_present();
 }
 
-HeadsetType lovrHeadsetGetType() {
+static HeadsetType webvrGetType() {
   return HEADSET_UNKNOWN;
 }
 
-HeadsetOrigin lovrHeadsetGetOriginType() {
+static HeadsetOrigin webvrGetOriginType() {
   return emscripten_vr_has_stage() ? ORIGIN_FLOOR : ORIGIN_HEAD;
 }
 
-int lovrHeadsetIsMirrored() {
+static int webvrIsMirrored() {
   return 1;
 }
 
-void lovrHeadsetSetMirrored(int mirror) {
+static void webvrSetMirrored(int mirror) {
   //
 }
 
-void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
+static void webvrGetDisplayDimensions(int* width, int* height) {
   *width = emscripten_vr_get_display_width() / 2;
   *height = emscripten_vr_get_display_height();
 }
 
-void lovrHeadsetGetClipDistance(float* near, float* far) {
+static void webvrGetClipDistance(float* near, float* far) {
   emscripten_vr_get_display_clip_distance(near, far);
 }
 
-void lovrHeadsetSetClipDistance(float near, float far) {
+static void webvrSetClipDistance(float near, float far) {
   emscripten_vr_set_display_clip_distance(near, far);
 }
 
-float lovrHeadsetGetBoundsWidth() {
+static float webvrGetBoundsWidth() {
   return emscripten_vr_get_bounds_width();
 }
 
-float lovrHeadsetGetBoundsDepth() {
+static float webvrGetBoundsDepth() {
   return emscripten_vr_get_bounds_depth();
 }
 
-void lovrHeadsetGetBoundsGeometry(float* geometry) {
+static void webvrGetBoundsGeometry(float* geometry) {
   memset(geometry, 0, 12 * sizeof(float));
 }
 
-void lovrHeadsetGetPosition(float* x, float* y, float* z) {
+static void webvrGetPosition(float* x, float* y, float* z) {
   float v[3];
   emscripten_vr_get_position(&v[0], &v[1], &v[2]);
   mat4_transform(emscripten_vr_get_sitting_to_standing_matrix(), v);
@@ -122,7 +125,7 @@ void lovrHeadsetGetPosition(float* x, float* y, float* z) {
   *z = v[2];
 }
 
-void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
+static void webvrGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
   int i = eye == EYE_LEFT ? 0 : 1;
   emscripten_vr_get_eye_offset(i, x, y, z);
   float m[16];
@@ -134,7 +137,7 @@ void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
   *z = m[14];
 }
 
-void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
+static void webvrGetOrientation(float* angle, float* x, float* y, float* z) {
   float quat[4];
   float m[16];
   emscripten_vr_get_orientation(&quat[0], &quat[1], &quat[2], &quat[3]);
@@ -143,7 +146,7 @@ void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
   quat_getAngleAxis(quat_fromMat4(quat, m), angle, x, y, z);
 }
 
-void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
+static void webvrGetVelocity(float* x, float* y, float* z) {
   float v[3];
   emscripten_vr_get_velocity(&v[0], &v[1], &v[2]);
   mat4_transformDirection(emscripten_vr_get_sitting_to_standing_matrix(), v);
@@ -152,7 +155,7 @@ void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
   *z = v[2];
 }
 
-void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
+static void webvrGetAngularVelocity(float* x, float* y, float* z) {
   float v[3];
   emscripten_vr_get_angular_velocity(&v[0], &v[1], &v[2]);
   mat4_transformDirection(emscripten_vr_get_sitting_to_standing_matrix(), v);
@@ -161,7 +164,7 @@ void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
   *z = v[2];
 }
 
-vec_controller_t* lovrHeadsetGetControllers() {
+static vec_controller_t* webvrGetControllers() {
   int controllerCount = emscripten_vr_get_controller_count();
 
   while (state.controllers.length > controllerCount) {
@@ -179,11 +182,11 @@ vec_controller_t* lovrHeadsetGetControllers() {
   return &state.controllers;
 }
 
-int lovrHeadsetControllerIsPresent(Controller* controller) {
+static int webvrControllerIsPresent(Controller* controller) {
   return emscripten_vr_controller_is_present(controller->id);
 }
 
-ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
+static ControllerHand webvrControllerGetHand(Controller* controller) {
   switch (emscripten_vr_controller_get_hand(controller->id)) {
     case 0: return HAND_UNKNOWN;
     case 1: return HAND_LEFT;
@@ -192,7 +195,7 @@ ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
   }
 }
 
-void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
+static void webvrControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
   float v[3];
   emscripten_vr_get_controller_position(controller->id, &v[0], &v[1], &v[2]);
   mat4_transform(emscripten_vr_get_sitting_to_standing_matrix(), v);
@@ -201,7 +204,7 @@ void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y
   *z = v[2];
 }
 
-void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
+static void webvrControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
   float quat[4];
   float m[16];
   emscripten_vr_get_controller_orientation(controller->id, &quat[0], &quat[1], &quat[2], &quat[3]);
@@ -210,7 +213,7 @@ void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, f
   quat_getAngleAxis(quat_fromMat4(quat, m), angle, x, y, z);
 }
 
-float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
+static float webvrControllerGetAxis(Controller* controller, ControllerAxis axis) {
   switch (axis) {
     case CONTROLLER_AXIS_TRIGGER: return emscripten_vr_controller_get_axis(controller->id, -1);
     case CONTROLLER_AXIS_TOUCHPAD_X: return emscripten_vr_controller_get_axis(controller->id, 0);
@@ -219,7 +222,7 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
   }
 }
 
-int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
+static int webvrControllerIsDown(Controller* controller, ControllerButton button) {
   switch (button) {
     case CONTROLLER_BUTTON_TOUCHPAD:
       return emscripten_vr_controller_is_down(controller->id, 0);
@@ -234,23 +237,64 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
   }
 }
 
-int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
+static int webvrControllerIsTouched(Controller* controller, ControllerButton button) {
   return 0;
 }
 
-void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {
+static void webvrControllerVibrate(Controller* controller, float duration, float power) {
   emscripten_vr_controller_vibrate(controller->id, duration * 1000, power);
 }
 
-ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
+static ModelData* webvrControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
+static TextureData* webvrControllerNewTextureData(Controller* controller) {
   return NULL;
 }
 
-void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
+static void webvrRenderTo(headsetRenderCallback callback, void* userdata) {
   state.renderCallback = callback;
   emscripten_vr_set_render_callback(onRequestAnimationFrame, userdata);
 }
+
+static void webvrUpdate(float dt) {
+}
+
+
+HeadsetImpl lovrHeadsetWebVRDriver = {
+  webvrIsAvailable,
+  webvrInit,
+  webvrDestroy,
+  webvrPoll,
+  webvrIsPresent,
+  webvrGetType,
+  webvrGetOriginType,
+  webvrIsMirrored,
+  webvrSetMirrored,
+  webvrGetDisplayDimensions,
+  webvrGetClipDistance,
+  webvrSetClipDistance,
+  webvrGetBoundsWidth,
+  webvrGetBoundsDepth,
+  webvrGetBoundsGeometry,
+  webvrGetPosition,
+  webvrGetEyePosition,
+  webvrGetOrientation,
+  webvrGetVelocity,
+  webvrGetAngularVelocity,
+  webvrGetControllers,
+  webvrControllerIsPresent,
+  webvrControllerGetHand,
+  webvrControllerGetPosition,
+  webvrControllerGetOrientation,
+  webvrControllerGetAxis,
+  webvrControllerIsDown,
+  webvrControllerIsTouched,
+  webvrControllerVibrate,
+  webvrControllerNewModelData,
+  webvrControllerNewTextureData,
+  webvrRenderTo,
+  webvrUpdate,
+};
+
