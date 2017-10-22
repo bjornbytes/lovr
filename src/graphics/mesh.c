@@ -150,9 +150,8 @@ MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh) {
   return mesh->drawMode;
 }
 
-int lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode) {
+void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode) {
   mesh->drawMode = drawMode;
-  return 0;
 }
 
 int lovrMeshGetVertexCount(Mesh* mesh) {
@@ -230,16 +229,12 @@ void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count) {
   *count = mesh->rangeCount;
 }
 
-int lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
+void lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
   size_t limit = mesh->indexCount > 0 ? mesh->indexCount : mesh->count;
-
-  if (start < 0 || count < 0 || (size_t) start + count > limit) {
-    return 1;
-  }
-
+  int isValidRange = start >= 0 && count >= 0 && (size_t) start + count <= limit;
+  lovrAssert(isValidRange, "Invalid mesh draw range [%d, %d]", start + 1, start + count + 1);
   mesh->rangeStart = start;
   mesh->rangeCount = count;
-  return 0;
 }
 
 void* lovrMeshMap(Mesh* mesh, int start, size_t count, int read, int write) {

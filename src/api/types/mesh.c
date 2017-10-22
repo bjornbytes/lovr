@@ -339,10 +339,7 @@ int l_lovrMeshSetDrawRange(lua_State* L) {
   lovrMeshSetRangeEnabled(mesh, 1);
   int rangeStart = luaL_checkinteger(L, 2) - 1;
   int rangeCount = luaL_checkinteger(L, 3);
-  if (lovrMeshSetDrawRange(mesh, rangeStart, rangeCount)) {
-    return luaL_error(L, "Invalid mesh draw range (%d, %d)", rangeStart + 1, rangeCount);
-  }
-
+  lovrMeshSetDrawRange(mesh, rangeStart, rangeCount);
   return 0;
 }
 
