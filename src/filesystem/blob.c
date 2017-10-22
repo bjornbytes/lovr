@@ -7,6 +7,7 @@ Blob* lovrBlobCreate(void* data, size_t size, const char* name) {
   blob->data = data;
   blob->size = size;
   blob->name = name;
+  blob->seek = 0;
 
   return blob;
 }

@@ -1,8 +1,11 @@
 #include "loaders/model.h"
 #include "filesystem/filesystem.h"
+#include "filesystem/file.h"
+#include "math/math.h"
 #include "math/mat4.h"
 #include <libgen.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <assimp/cfileio.h>
 #include <assimp/cimport.h>
 #include <assimp/config.h>
@@ -12,72 +15,127 @@
 #include <assimp/vector3.h>
 #include <assimp/postprocess.h>
 
-// Blob IO (to avoid reading data twice)
-static unsigned long assimpBlobRead(struct aiFile* file, char* buffer, size_t size, size_t count) {
-  Blob* blob = (Blob*) file->UserData;
-  char* data = blob->data;
-  memcpy(buffer, data, count * size * sizeof(char));
-  return count * size * sizeof(char);
+static void normalizePath(const char* path, char* dst, size_t size) {
+  if (path[0] == '/') {
+    strncpy(dst, path, size);
+    return;
+  }
+
+  memset(dst, 0, size);
+
+  while (*path != '\0') {
+    if (*path == '/') {
+      path++;
+      continue;
+    }
+    if (*path == '.') {
+      if (path[1] == '\0' || path[1] == '/') {
+        path++;
+        continue;
+      }
+      if (path[1] == '.' && (path[2] == '\0' || path[2] == '/')) {
+        path += 2;
+        while ((--dst)[-1] != '/');
+        continue;
+      }
+    }
+    while (*path != '\0' && *path != '/') {
+      *dst++ = *path++;
+    }
+    *dst++ = '/';
+  }
+
+  *--dst = '\0';
 }
 
-static size_t assimpBlobGetSize(struct aiFile* file) {
-  Blob* blob = (Blob*) file->UserData;
+// Blob IO (to avoid reading data twice)
+static unsigned long assimpBlobRead(struct aiFile* assimpFile, char* buffer, size_t size, size_t count) {
+  Blob* blob = (Blob*) assimpFile->UserData;
+  char* data = blob->data;
+  size_t bytes = MIN(count * size * sizeof(char), blob->size - blob->seek);
+  memcpy(buffer, data + blob->seek, bytes);
+  return bytes;
+}
+
+static size_t assimpBlobGetSize(struct aiFile* assimpFile) {
+  Blob* blob = (Blob*) assimpFile->UserData;
   return blob->size;
 }
 
-static aiReturn assimpBlobSeek(struct aiFile* file, unsigned long position, enum aiOrigin origin) {
-  lovrThrow("Seek is not implemented for Blobs");
-  return aiReturn_FAILURE;
+static aiReturn assimpBlobSeek(struct aiFile* assimpFile, unsigned long position, enum aiOrigin origin) {
+  Blob* blob = (Blob*) assimpFile->UserData;
+  switch (origin) {
+    case aiOrigin_SET: blob->seek = position; break;
+    case aiOrigin_CUR: blob->seek += position; break;
+    case aiOrigin_END: blob->seek = blob->size - position; break;
+    default: return aiReturn_FAILURE;
+  }
+  return blob->seek < blob->size ? aiReturn_SUCCESS : aiReturn_FAILURE;
 }
 
-static unsigned long assimpBlobTell(struct aiFile* file) {
-  lovrThrow("Tell is not implemented for Blobs");
-  return 0;
+static unsigned long assimpBlobTell(struct aiFile* assimpFile) {
+  Blob* blob = (Blob*) assimpFile->UserData;
+  return blob->seek;
 }
 
 // File IO (for reading referenced materials/textures)
-static unsigned long assimpFileRead(struct aiFile* file, char* buffer, size_t size, size_t count) {
-  size_t bytesRead;
-  lovrFilesystemFileRead(file->UserData, buffer, count, size, &bytesRead);
-  return bytesRead;
+static unsigned long assimpFileRead(struct aiFile* assimpFile, char* buffer, size_t size, size_t count) {
+  File* file = (File*) assimpFile->UserData;
+  unsigned long bytes =  lovrFileRead(file, buffer, size, count);
+  return bytes;
 }
 
-static size_t assimpFileGetSize(struct aiFile* file) {
-  return lovrFilesystemGetSize(file->UserData);
+static size_t assimpFileGetSize(struct aiFile* assimpFile) {
+  File* file = (File*) assimpFile->UserData;
+  return lovrFileGetSize(file);
 }
 
-static aiReturn assimpFileSeek(struct aiFile* file, unsigned long position, enum aiOrigin origin) {
-  return lovrFilesystemSeek(file->UserData, position) ? aiReturn_FAILURE : aiReturn_SUCCESS;
+static aiReturn assimpFileSeek(struct aiFile* assimpFile, unsigned long position, enum aiOrigin origin) {
+  File* file = (File*) assimpFile->UserData;
+  return lovrFileSeek(file, position) ? aiReturn_FAILURE : aiReturn_SUCCESS;
 }
 
-static unsigned long assimpFileTell(struct aiFile* file) {
-  return lovrFilesystemTell(file->UserData);
+static unsigned long assimpFileTell(struct aiFile* assimpFile) {
+  File* file = (File*) assimpFile->UserData;
+  return lovrFileTell(file);
 }
 
 static struct aiFile* assimpFileOpen(struct aiFileIO* io, const char* path, const char* mode) {
-  struct aiFile* file = malloc(sizeof(struct aiFile));
+  struct aiFile* assimpFile = malloc(sizeof(struct aiFile));
   Blob* blob = (Blob*) io->UserData;
   if (!strcmp(blob->name, path)) {
-    file->ReadProc = assimpBlobRead;
-    file->FileSizeProc = assimpBlobGetSize;
-    file->SeekProc = assimpBlobSeek;
-    file->TellProc = assimpBlobTell;
-    file->UserData = (void*) blob;
+    assimpFile->ReadProc = assimpBlobRead;
+    assimpFile->FileSizeProc = assimpBlobGetSize;
+    assimpFile->SeekProc = assimpBlobSeek;
+    assimpFile->TellProc = assimpBlobTell;
+    assimpFile->UserData = (void*) blob;
   } else {
-    file->ReadProc = assimpFileRead;
-    file->FileSizeProc = assimpFileGetSize;
-    file->SeekProc = assimpFileSeek;
-    file->TellProc = assimpFileTell;
-    file->UserData = lovrFilesystemOpen(path, OPEN_READ);
+    char normalizedPath[LOVR_PATH_MAX];
+    normalizePath(path, normalizedPath, LOVR_PATH_MAX);
+
+    File* file = lovrFileCreate(path);
+    if (lovrFileOpen(file, OPEN_READ)) {
+      return NULL;
+    }
+
+    assimpFile->ReadProc = assimpFileRead;
+    assimpFile->FileSizeProc = assimpFileGetSize;
+    assimpFile->SeekProc = assimpFileSeek;
+    assimpFile->TellProc = assimpFileTell;
+    assimpFile->UserData = (void*) file;
   }
-  return file;
+
+  return assimpFile;
 }
 
-static void assimpFileClose(struct aiFileIO* io, struct aiFile* file) {
+static void assimpFileClose(struct aiFileIO* io, struct aiFile* assimpFile) {
   void* blob = io->UserData;
-  if (file->UserData != blob) {
-    lovrFilesystemClose(file->UserData);
+  if (assimpFile->UserData != blob) {
+    File* file = (File*) assimpFile->UserData;
+    lovrFileClose(file);
+    lovrRelease(&file->ref);
   }
+  free(assimpFile);
 }
 
 static void assimpSumChildren(struct aiNode* assimpNode, int* totalChildren) {
@@ -125,6 +183,10 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_FlipUVs;
   const struct aiScene* scene = aiImportFileExWithProperties(blob->name, flags, &assimpIO, propertyStore);
   aiReleasePropertyStore(propertyStore);
+
+  if (!scene) {
+    lovrThrow("Unable to load model from '%s': %s\n", blob->name, aiGetErrorString());
+  }
 
   modelData->nodeCount = 0;
   modelData->vertexCount = 0;
@@ -216,19 +278,11 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
     if (aiGetMaterialTexture(material, aiTextureType_DIFFUSE, 0, &str, NULL, NULL, NULL, NULL, NULL, NULL) == aiReturn_SUCCESS) {
       char* path = str.data;
-
-      if (strstr(path, "./") == path) {
-        path += 2;
-      } else if (path[0] == '/') {
-        lovrThrow("Absolute paths are not supported");
-      }
-
-      char fullpath[LOVR_PATH_MAX];
-      char* dir = dirname((char*) blob->name);
-      snprintf(fullpath, LOVR_PATH_MAX, "%s/%s", dir, path);
+      char normalizedPath[LOVR_PATH_MAX];
+      normalizePath(path, normalizedPath, LOVR_PATH_MAX);
 
       size_t size;
-      void* data = lovrFilesystemRead(fullpath, &size);
+      void* data = lovrFilesystemRead(path, &size);
       if (data) {
         Blob* blob = lovrBlobCreate(data, size, path);
         materialData->textures[TEXTURE_DIFFUSE] = lovrTextureDataFromBlob(blob);
