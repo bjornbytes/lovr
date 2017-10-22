@@ -25,6 +25,7 @@ const char* lovrShaderVertexPrefix = ""
 "uniform mat4 lovrProjection; \n"
 "uniform mat4 lovrTransform; \n"
 "uniform mat3 lovrNormalMatrix; \n"
+"uniform float lovrPointSize; \n"
 "#line 0 \n";
 
 const char* lovrShaderFragmentPrefix = ""
@@ -46,6 +47,7 @@ const char* lovrShaderFragmentPrefix = ""
 const char* lovrShaderVertexSuffix = ""
 "void main() { \n"
 "  texCoord = lovrTexCoord; \n"
+"  gl_PointSize = lovrPointSize; \n"
 "  gl_Position = position(lovrProjection, lovrTransform, vec4(lovrPosition, 1.0)); \n"
 "}";
 

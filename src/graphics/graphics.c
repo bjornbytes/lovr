@@ -118,6 +118,9 @@ void lovrGraphicsPrepare() {
   float color[4] = { state.color.r / 255., state.color.g / 255., state.color.b / 255., state.color.a / 255. };
   lovrShaderSetFloat(shader, "lovrColor", color, 4);
 
+  // Point size
+  lovrShaderSetFloat(shader, "lovrPointSize", &state.pointSize, 1);
+
   // Material
   Material* material = lovrGraphicsGetMaterial();
 
@@ -182,6 +185,7 @@ void lovrGraphicsCreateWindow(int w, int h, int fullscreen, int msaa, const char
   gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
   glfwSwapInterval(0);
   glEnable(GL_LINE_SMOOTH);
+  glEnable(GL_PROGRAM_POINT_SIZE);
 #endif
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -400,10 +404,7 @@ float lovrGraphicsGetPointSize() {
 }
 
 void lovrGraphicsSetPointSize(float size) {
-#ifndef EMSCRIPTEN
   state.pointSize = size;
-  glPointSize(size);
-#endif
 }
 
 Shader* lovrGraphicsGetShader() {
