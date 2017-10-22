@@ -251,7 +251,6 @@ set(LOVR_SRC
   src/graphics/texture.c
   src/headset/fake.c
   src/headset/headset.c
-  src/headset/openvr.c
   src/lib/glad/glad.c
   src/lib/lua-cjson/fpconv.c
   src/lib/lua-cjson/lua_cjson.c
@@ -281,7 +280,9 @@ set(LOVR_SRC
 )
 
 if(EMSCRIPTEN)
-    set(LOVR_SRC, ${LOVR_SRC} "src/headset/webvr.c")
+  set(LOVR_SRC ${LOVR_SRC} src/headset/webvr.c)
+else()
+  set(LOVR_SRC ${LOVR_SRC} src/headset/openvr.c)
 endif()
 
 if(WIN32)
