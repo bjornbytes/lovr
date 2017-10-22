@@ -604,8 +604,12 @@ void lovrGraphicsPlaneFullscreen(Texture* texture) {
   };
 
   lovrGraphicsSetDefaultShader(SHADER_FULLSCREEN);
+  Material* material = lovrGraphicsGetMaterial();
+  Texture* lastTexture = lovrMaterialGetTexture(material, TEXTURE_DIFFUSE);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
   lovrGraphicsSetShapeData(data, 20);
   lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 0, 1, 0);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, lastTexture);
 }
 
 void lovrGraphicsBox(DrawMode mode, mat4 transform) {
