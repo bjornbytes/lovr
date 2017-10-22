@@ -60,6 +60,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = FILTER_TRILINEAR });
   lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
   lovrGraphicsSetFont(NULL);
+  lovrGraphicsSetMaterial(NULL);
   lovrGraphicsSetLineWidth(1);
   lovrGraphicsSetPointSize(1);
   lovrGraphicsSetShader(NULL);
