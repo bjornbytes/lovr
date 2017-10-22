@@ -3,6 +3,7 @@
 #include "filesystem/file.h"
 #include "math/math.h"
 #include "math/mat4.h"
+#include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assimp/cfileio.h>
@@ -202,11 +203,12 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   }
 
   // Allocate
+  int indexSize = modelData->vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
   modelData->primitiveCount = scene->mNumMeshes;
   modelData->primitives = malloc(modelData->primitiveCount * sizeof(ModelPrimitive));
   modelData->vertexSize = 3 + (modelData->hasNormals ? 3 : 0) + (modelData->hasUVs ? 2 : 0);
   modelData->vertices = malloc(modelData->vertexSize * modelData->vertexCount * sizeof(float));
-  modelData->indices = malloc(modelData->indexCount * sizeof(uint32_t));
+  modelData->indices = malloc(modelData->indexCount * indexSize);
 
   // Load
   int vertex = 0;
@@ -224,8 +226,16 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
       modelData->primitives[m].drawCount += assimpFace.mNumIndices;
 
-      for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
-        modelData->indices[index++] = (vertex / modelData->vertexSize) + assimpFace.mIndices[i];
+      if (indexSize == sizeof(uint16_t)) {
+        uint16_t* indices = modelData->indices;
+        for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
+          indices[index++] = (vertex / modelData->vertexSize) + assimpFace.mIndices[i];
+        }
+      } else if (indexSize == sizeof(uint32_t)) {
+        uint32_t* indices = modelData->indices;
+        for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
+          indices[index++] = (vertex / modelData->vertexSize) + assimpFace.mIndices[i];
+        }
       }
     }
 

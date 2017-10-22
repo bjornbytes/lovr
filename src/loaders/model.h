@@ -23,7 +23,7 @@ typedef struct {
   ModelPrimitive* primitives;
   MaterialData* materials;
   float* vertices;
-  uint32_t* indices;
+  void* indices;
   int nodeCount;
   int primitiveCount;
   int materialCount;

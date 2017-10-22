@@ -273,27 +273,30 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
 
   luaL_checktype(L, 2, LUA_TTABLE);
   int count = lua_objlen(L, 2);
-  unsigned int* indices = malloc(count * sizeof(unsigned int));
+  int indexSize = mesh->indexSize;
+  void* indices = realloc(lovrMeshGetVertexMap(mesh, NULL), indexSize * count);
 
   for (int i = 0; i < count; i++) {
     lua_rawgeti(L, 2, i + 1);
     if (!lua_isnumber(L, -1)) {
-      free(indices);
       return luaL_error(L, "Mesh vertex map index #%d must be numeric", i);
     }
 
     int index = lua_tointeger(L, -1);
     if (index > lovrMeshGetVertexCount(mesh) || index < 1) {
-      free(indices);
       return luaL_error(L, "Invalid vertex map value: %d", index);
     }
 
-    indices[i] = index - 1;
+    if (indexSize == sizeof(uint16_t)) {
+      *(((uint16_t*) indices) + i) = index - 1;
+    } else if (indexSize == sizeof(uint32_t)) {
+      *(((uint32_t*) indices) + i) = index - 1;
+    }
+
     lua_pop(L, 1);
   }
 
   lovrMeshSetVertexMap(mesh, indices, count);
-  free(indices);
   return 0;
 }
 
