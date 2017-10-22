@@ -11,8 +11,8 @@
 #include <stdint.h>
 
 
-
-
+// implements a fake headset, with mouselook and keyboard-driven movement.
+// for use when a real headset isn't available.
 
 typedef struct {
   int isInitialized;
@@ -425,10 +425,10 @@ static void fakeUpdate(float dt)
   if (glfwGetKey(w, GLFW_KEY_D)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT)==GLFW_PRESS) {
     v[0] = k;
   }
-  if (glfwGetKey(w, GLFW_KEY_SPACE) == GLFW_PRESS) {
+  if (glfwGetKey(w, GLFW_KEY_Q) == GLFW_PRESS) {
     v[1] = k;
   }
-  if (glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+  if (glfwGetKey(w, GLFW_KEY_E) == GLFW_PRESS) {
     v[1] = -k;
   }
 
