@@ -4,7 +4,6 @@
 #include "math/quat.h"
 #include "util.h"
 #include "graphics/texture.h"
-//#include "lib/glfw.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -821,7 +820,7 @@ static void openvrUpdate(float dt) {
 }
 
 
-HeadsetImpl lovrHeadsetOpenVRDriver = {
+HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrIsAvailable,
   openvrInit,
   openvrDestroy,

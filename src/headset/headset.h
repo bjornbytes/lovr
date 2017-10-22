@@ -91,12 +91,12 @@ typedef struct  {
     ModelData* (*controllerNewModelData)(Controller* controller);
     void (*renderTo)(headsetRenderCallback callback, void* userdata);
     void (*update)(float dt);
-} HeadsetImpl;
+} HeadsetInterface;
 
 
 // headset implementations
-extern HeadsetImpl lovrHeadsetOpenVRDriver;
-extern HeadsetImpl lovrHeadsetFakeDriver;
+extern HeadsetInterface lovrHeadsetOpenVRDriver;
+extern HeadsetInterface lovrHeadsetFakeDriver;
 
 
 void lovrHeadsetInit();

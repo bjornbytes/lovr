@@ -258,7 +258,7 @@ static void webvrUpdate(float dt) {
 }
 
 
-HeadsetImpl lovrHeadsetWebVRDriver = {
+HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrIsAvailable,
   webvrInit,
   webvrDestroy,

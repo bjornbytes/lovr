@@ -7,7 +7,7 @@ void lovrControllerDestroy(const Ref* ref) {
 }
 
 
-static HeadsetImpl* headset = NULL;
+static HeadsetInterface* headset = NULL;
 
 
 void lovrHeadsetInit() {
@@ -15,9 +15,9 @@ void lovrHeadsetInit() {
   // TODO: should expose driver selection to lua, so conf can express a preference?
 
 #if EMSCRIPTEN
-  HeadsetImpl* drivers[] = { &lovrHeadsetWebVRDriver, &lovrHeadsetFakeDriver, NULL };
+  HeadsetInterface* drivers[] = { &lovrHeadsetWebVRDriver, &lovrHeadsetFakeDriver, NULL };
 #else
-  HeadsetImpl* drivers[] = { &lovrHeadsetOpenVRDriver, &lovrHeadsetFakeDriver, NULL };
+  HeadsetInterface* drivers[] = { &lovrHeadsetOpenVRDriver, &lovrHeadsetFakeDriver, NULL };
 #endif
   int i;
   for (i=0; drivers[i]; ++i ) {

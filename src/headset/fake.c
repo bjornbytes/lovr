@@ -444,7 +444,7 @@ static void fakeUpdate(float dt)
   mat4_rotate(state.transform, state.pitch, 1,0,0);
 }
 
-HeadsetImpl lovrHeadsetFakeDriver = {
+HeadsetInterface lovrHeadsetFakeDriver = {
   fakeIsAvailable,
   fakeInit,
   fakeDestroy,
