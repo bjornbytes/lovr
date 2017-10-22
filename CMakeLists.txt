@@ -309,6 +309,9 @@ target_link_libraries(lovr
 )
 
 if(WIN32)
+  # Disable warnings about loss of precision for lua_Number
+  set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
+
   function(move_dll ARG_TARGET)
     add_custom_command(TARGET lovr POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy
