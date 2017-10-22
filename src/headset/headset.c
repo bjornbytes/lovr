@@ -1,4 +1,3 @@
-/* vim: set ts=2 sts=2 sw=2: */
 #include "headset/headset.h"
 #include "event/event.h"
 
