@@ -4,7 +4,7 @@
 
 #define LOVR_PATH_MAX 1024
 
-typedef void getDirectoryItemsCallback(void* userdata, const char* dir, const char* file);
+typedef int getDirectoryItemsCallback(void* userdata, const char* dir, const char* file);
 
 typedef struct {
   char* source;
@@ -17,7 +17,6 @@ typedef struct {
 void lovrFilesystemInit(const char* arg0, const char* arg1);
 void lovrFilesystemDestroy();
 int lovrFilesystemCreateDirectory(const char* path);
-int lovrFilesystemExists(const char* path);
 int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size);
 void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata);
 int lovrFilesystemGetExecutablePath(char* dest, unsigned int size);

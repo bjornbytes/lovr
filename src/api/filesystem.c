@@ -23,11 +23,12 @@ Blob* luax_readblob(lua_State* L, int index, const char* debug) {
   }
 }
 
-static void pushDirectoryItem(void* userdata, const char* path, const char* filename) {
+static int pushDirectoryItem(void* userdata, const char* path, const char* filename) {
   lua_State* L = userdata;
   int n = lua_objlen(L, -1);
   lua_pushstring(L, filename);
   lua_rawseti(L, -2, n + 1);
+  return 1;
 }
 
 // Loader to help Lua's require understand PhysFS.
@@ -122,12 +123,6 @@ int l_lovrFilesystemCreateDirectory(lua_State* L) {
   return 1;
 }
 
-int l_lovrFilesystemExists(lua_State* L) {
-  const char* path = luaL_checkstring(L, 1);
-  lua_pushboolean(L, lovrFilesystemExists(path));
-  return 1;
-}
-
 int l_lovrFilesystemGetAppdataDirectory(lua_State* L) {
   char buffer[1024];
 
@@ -195,7 +190,11 @@ int l_lovrFilesystemGetSaveDirectory(lua_State* L) {
 
 int l_lovrFilesystemGetSize(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  lua_pushinteger(L, lovrFilesystemGetSize(path));
+  size_t size = lovrFilesystemGetSize(path);
+  if ((int) size == -1) {
+    return luaL_error(L, "File does not exist");
+  }
+  lua_pushinteger(L, size);
   return 1;
 }
 
@@ -322,7 +321,6 @@ int l_lovrFilesystemWrite(lua_State* L) {
 const luaL_Reg lovrFilesystem[] = {
   { "append", l_lovrFilesystemAppend },
   { "createDirectory", l_lovrFilesystemCreateDirectory },
-  { "exists", l_lovrFilesystemExists },
   { "getAppdataDirectory", l_lovrFilesystemGetAppdataDirectory },
   { "getDirectoryItems", l_lovrFilesystemGetDirectoryItems },
   { "getExecutablePath", l_lovrFilesystemGetExecutablePath },
