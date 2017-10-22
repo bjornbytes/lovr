@@ -691,7 +691,7 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   float head[16], transform[16], projection[16];
   float (*matrix)[4];
 
-  lovrGraphicsPushCanvas();
+  lovrGraphicsPushView();
   state.isRendering = 1;
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
 
@@ -737,7 +737,7 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   }
 
   state.isRendering = 0;
-  lovrGraphicsPopCanvas();
+  lovrGraphicsPopView();
 
   if (state.isMirrored) {
     Color oldColor = lovrGraphicsGetColor();

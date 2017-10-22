@@ -51,7 +51,7 @@ void lovrGraphicsReset() {
   int h = lovrGraphicsGetHeight();
   float projection[16];
   state.transform = 0;
-  state.canvas = 0;
+  state.view = 0;
   state.defaultShader = -1;
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 255 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
@@ -88,7 +88,7 @@ void lovrGraphicsPrepare() {
 
   mat4 model = state.transforms[state.transform][MATRIX_MODEL];
   mat4 view = state.transforms[state.transform][MATRIX_VIEW];
-  mat4 projection = state.canvases[state.canvas].projection;
+  mat4 projection = state.views[state.view].projection;
   lovrShaderSetMatrix(shader, "lovrModel", model, 16);
   lovrShaderSetMatrix(shader, "lovrView", view, 16);
   lovrShaderSetMatrix(shader, "lovrProjection", projection, 16);
@@ -945,42 +945,42 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 }
 
 // Internal State
-void lovrGraphicsPushCanvas() {
-  if (++state.canvas >= MAX_CANVASES) {
-    lovrThrow("Canvas overflow");
+void lovrGraphicsPushView() {
+  if (++state.view >= MAX_VIEWS) {
+    lovrThrow("View overflow");
   }
 
-  memcpy(&state.canvases[state.canvas], &state.canvases[state.canvas - 1], sizeof(CanvasState));
+  memcpy(&state.views[state.view], &state.views[state.view - 1], sizeof(View));
 }
 
-void lovrGraphicsPopCanvas() {
-  if (--state.canvas < 0) {
-    lovrThrow("Canvas underflow");
+void lovrGraphicsPopView() {
+  if (--state.view < 0) {
+    lovrThrow("View underflow");
   }
 
-  int* viewport = state.canvases[state.canvas].viewport;
+  int* viewport = state.views[state.view].viewport;
   lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  lovrGraphicsBindFramebuffer(state.canvases[state.canvas].framebuffer);
+  lovrGraphicsBindFramebuffer(state.views[state.view].framebuffer);
 }
 
 mat4 lovrGraphicsGetProjection() {
-  return state.canvases[state.canvas].projection;
+  return state.views[state.view].projection;
 }
 
 void lovrGraphicsSetProjection(mat4 projection) {
-  memcpy(state.canvases[state.canvas].projection, projection, 16 * sizeof(float));
+  memcpy(state.views[state.view].projection, projection, 16 * sizeof(float));
 }
 
 void lovrGraphicsSetViewport(int x, int y, int w, int h) {
-  state.canvases[state.canvas].viewport[0] = x;
-  state.canvases[state.canvas].viewport[1] = y;
-  state.canvases[state.canvas].viewport[2] = w;
-  state.canvases[state.canvas].viewport[3] = h;
+  state.views[state.view].viewport[0] = x;
+  state.views[state.view].viewport[1] = y;
+  state.views[state.view].viewport[2] = w;
+  state.views[state.view].viewport[3] = h;
   glViewport(x, y, w, h);
 }
 
 void lovrGraphicsBindFramebuffer(int framebuffer) {
-  state.canvases[state.canvas].framebuffer = framebuffer;
+  state.views[state.view].framebuffer = framebuffer;
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 }
 

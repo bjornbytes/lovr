@@ -7,7 +7,7 @@
 
 #pragma once
 
-#define MAX_CANVASES 4
+#define MAX_VIEWS 4
 #define MAX_TRANSFORMS 60
 #define INTERNAL_TRANSFORMS 4
 #define DEFAULT_SHADER_COUNT 4
@@ -49,6 +49,11 @@ typedef enum {
   COMPARE_GREATER = GL_GREATER
 } CompareMode;
 
+typedef enum {
+  MATRIX_MODEL,
+  MATRIX_VIEW
+} MatrixType;
+
 typedef struct {
   int initialized;
   float pointSizes[2];
@@ -61,12 +66,7 @@ typedef struct {
   int framebuffer;
   float projection[16];
   int viewport[4];
-} CanvasState;
-
-typedef enum {
-  MATRIX_MODEL,
-  MATRIX_VIEW
-} MatrixType;
+} View;
 
 typedef struct {
   GLFWwindow* window;
@@ -97,8 +97,8 @@ typedef struct {
   uint32_t streamIBO;
   vec_float_t streamData;
   vec_uint_t streamIndices;
-  CanvasState canvases[MAX_CANVASES];
-  int canvas;
+  View views[MAX_VIEWS];
+  int view;
   Texture* textures[MAX_TEXTURES];
   uint32_t program;
   uint32_t vertexArray;
@@ -168,8 +168,8 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 
 // Internal State
-void lovrGraphicsPushCanvas();
-void lovrGraphicsPopCanvas();
+void lovrGraphicsPushView();
+void lovrGraphicsPopView();
 mat4 lovrGraphicsGetProjection();
 void lovrGraphicsSetProjection(mat4 projection);
 void lovrGraphicsSetViewport(int x, int y, int w, int h);

@@ -45,12 +45,12 @@ int l_lovrTextureGetWrap(lua_State* L) {
 
 int l_lovrTextureRenderTo(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  lovrGraphicsPushCanvas();
+  lovrGraphicsPushView();
   lovrTextureBindFramebuffer(texture);
   lua_settop(L, 2);
   lua_call(L, 0, 0);
   lovrTextureResolveMSAA(texture);
-  lovrGraphicsPopCanvas();
+  lovrGraphicsPopView();
   return 0;
 }
 
