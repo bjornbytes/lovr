@@ -179,7 +179,9 @@ void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
   }
 
   // Open it
-  lovrFileOpen(file, OPEN_READ);
+  if (lovrFileOpen(file, OPEN_READ)) {
+    return NULL;
+  }
 
   // Get file size
   size_t size = lovrFileGetSize(file);
