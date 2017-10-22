@@ -239,6 +239,7 @@ set(LOVR_SRC
   src/audio/source.c
   src/event/event.c
   src/filesystem/blob.c
+  src/filesystem/file.c
   src/filesystem/filesystem.c
   src/graphics/font.c
   src/graphics/graphics.c

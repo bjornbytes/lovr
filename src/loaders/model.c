@@ -3,7 +3,6 @@
 #include "filesystem/file.h"
 #include "math/math.h"
 #include "math/mat4.h"
-#include <libgen.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assimp/cfileio.h>
