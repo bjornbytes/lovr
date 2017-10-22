@@ -310,8 +310,9 @@ target_link_libraries(lovr
 )
 
 if(WIN32)
-  # Disable warnings about loss of precision for lua_Number
   set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
+  set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+  set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 
   function(move_dll ARG_TARGET)
     add_custom_command(TARGET lovr POST_BUILD
