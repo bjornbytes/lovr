@@ -352,7 +352,7 @@ void lovrGraphicsSetFont(Font* font) {
 GraphicsLimits lovrGraphicsGetLimits() {
   if (!state.limits.initialized) {
 #ifdef EMSCRIPTEN
-    state.limits.pointSizes[0] = state.limits.pointSizes[1] = 1.f;
+    glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, state.limits.pointSizes);
 #else
     glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
 #endif
