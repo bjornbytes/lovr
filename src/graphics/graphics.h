@@ -178,7 +178,7 @@ Texture* lovrGraphicsGetTexture();
 void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot);
 void lovrGraphicsSetDefaultShader(DefaultShader defaultShader);
 Shader* lovrGraphicsGetActiveShader();
-void lovrGraphicsBindProgram(uint32_t program);
+void lovrGraphicsUseProgram(uint32_t program);
 void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
 void lovrGraphicsBindIndexBuffer(uint32_t ibo);

@@ -50,7 +50,7 @@ typedef map_t(Uniform) map_uniform_t;
 
 typedef struct {
   Ref ref;
-  int id;
+  uint32_t program;
   map_uniform_t uniforms;
   float model[16];
   float view[16];

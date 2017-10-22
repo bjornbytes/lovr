@@ -24,7 +24,8 @@ const char* lovrShaderVertexPrefix = ""
 "uniform mat4 lovrView; \n"
 "uniform mat4 lovrProjection; \n"
 "uniform mat4 lovrTransform; \n"
-"uniform mat3 lovrNormalMatrix; \n";
+"uniform mat3 lovrNormalMatrix; \n"
+"#line 0 \n";
 
 const char* lovrShaderFragmentPrefix = ""
 #ifdef EMSCRIPTEN
@@ -39,7 +40,8 @@ const char* lovrShaderFragmentPrefix = ""
 "uniform vec4 lovrColor; \n"
 "uniform vec4 lovrDiffuseColor; \n"
 "uniform sampler2D lovrDiffuseTexture; \n"
-"uniform samplerCube lovrEnvironmentTexture; \n";
+"uniform samplerCube lovrEnvironmentTexture; \n"
+"#line 0 \n";
 
 const char* lovrShaderVertexSuffix = ""
 "void main() { \n"

@@ -65,7 +65,7 @@ static int getUniformComponents(GLenum type) {
 static GLuint compileShader(GLenum type, const char* source) {
   GLuint shader = glCreateShader(type);
 
-  glShaderSource(shader, 1, (const GLchar**)&source, NULL);
+  glShaderSource(shader, 1, (const GLchar**) &source, NULL);
   glCompileShader(shader);
 
   int isShaderCompiled;
@@ -83,72 +83,71 @@ static GLuint compileShader(GLenum type, const char* source) {
 }
 
 static GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
-  GLuint shader = glCreateProgram();
+  GLuint program = glCreateProgram();
 
   if (vertexShader) {
-    glAttachShader(shader, vertexShader);
+    glAttachShader(program, vertexShader);
   }
 
   if (fragmentShader) {
-    glAttachShader(shader, fragmentShader);
+    glAttachShader(program, fragmentShader);
   }
 
-  glBindAttribLocation(shader, LOVR_SHADER_POSITION, "lovrPosition");
-  glBindAttribLocation(shader, LOVR_SHADER_NORMAL, "lovrNormal");
-  glBindAttribLocation(shader, LOVR_SHADER_TEX_COORD, "lovrTexCoord");
+  glBindAttribLocation(program, LOVR_SHADER_POSITION, "lovrPosition");
+  glBindAttribLocation(program, LOVR_SHADER_NORMAL, "lovrNormal");
+  glBindAttribLocation(program, LOVR_SHADER_TEX_COORD, "lovrTexCoord");
+  glLinkProgram(program);
 
-  glLinkProgram(shader);
-
-  int isShaderLinked;
-  glGetProgramiv(shader, GL_LINK_STATUS, (int*)&isShaderLinked);
-  if (!isShaderLinked) {
+  int isLinked;
+  glGetProgramiv(program, GL_LINK_STATUS, &isLinked);
+  if (!isLinked) {
     int logLength;
-    glGetProgramiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
 
     char* log = malloc(logLength);
-    glGetProgramInfoLog(shader, logLength, &logLength, log);
+    glGetProgramInfoLog(program, logLength, &logLength, log);
     lovrThrow("Could not link shader %s", log);
   }
 
-  glDetachShader(shader, vertexShader);
+  glDetachShader(program, vertexShader);
   glDeleteShader(vertexShader);
-  glDetachShader(shader, fragmentShader);
+  glDetachShader(program, fragmentShader);
   glDeleteShader(fragmentShader);
 
-  return shader;
+  return program;
 }
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   Shader* shader = lovrAlloc(sizeof(Shader), lovrShaderDestroy);
   if (!shader) return NULL;
 
+  char source[8192];
+
   // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
-  char fullVertexSource[4096];
-  snprintf(fullVertexSource, sizeof(fullVertexSource), "%s\n%s\n%s", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix);
-  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, fullVertexSource);
+  snprintf(source, sizeof(source), "%s%s\n%s", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix);
+  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, source);
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
-  char fullFragmentSource[4096];
-  snprintf(fullFragmentSource, sizeof(fullFragmentSource), "%s\n%s\n%s", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix);
-  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fullFragmentSource);
+  snprintf(source, sizeof(source), "%s%s\n%s", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix);
+  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, source);
 
   // Link
-  GLuint id = linkShaders(vertexShader, fragmentShader);
-  shader->id = id;
+  uint32_t program = linkShaders(vertexShader, fragmentShader);
+  shader->program = program;
 
-  lovrGraphicsBindProgram(id);
+  lovrGraphicsUseProgram(program);
 
   // Uniform introspection
   GLint uniformCount;
   int textureSlot = 0;
   GLsizei bufferSize = LOVR_MAX_UNIFORM_LENGTH / sizeof(GLchar);
   map_init(&shader->uniforms);
-  glGetProgramiv(id, GL_ACTIVE_UNIFORMS, &uniformCount);
+  glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &uniformCount);
   for (int i = 0; i < uniformCount; i++) {
     Uniform uniform;
-    glGetActiveUniform(id, i, bufferSize, NULL, &uniform.count, &uniform.glType, uniform.name);
+    glGetActiveUniform(program, i, bufferSize, NULL, &uniform.count, &uniform.glType, uniform.name);
 
     char* subscript = strchr(uniform.name, '[');
     if (subscript) {
@@ -156,7 +155,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     }
 
     uniform.index = i;
-    uniform.location = glGetUniformLocation(id, uniform.name);
+    uniform.location = glGetUniformLocation(program, uniform.name);
     uniform.type = getUniformType(uniform.glType, uniform.name);
     uniform.components = getUniformComponents(uniform.glType);
     uniform.baseTextureSlot = (uniform.type == UNIFORM_SAMPLER) ? textureSlot : -1;
@@ -198,22 +197,22 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
       if (uniform.count > 1) {
         char name[LOVR_MAX_UNIFORM_LENGTH];
         snprintf(name, LOVR_MAX_UNIFORM_LENGTH, "%s[%d]", uniform.name, j);
-        location = glGetUniformLocation(id, name);
+        location = glGetUniformLocation(program, name);
       }
 
       switch (uniform.type) {
         case UNIFORM_FLOAT:
-          glGetUniformfv(id, location, &uniform.value.floats[offset]);
+          glGetUniformfv(program, location, &uniform.value.floats[offset]);
           offset += uniform.components;
           break;
 
         case UNIFORM_INT:
-          glGetUniformiv(id, location, &uniform.value.ints[offset]);
+          glGetUniformiv(program, location, &uniform.value.ints[offset]);
           offset += uniform.components;
           break;
 
         case UNIFORM_MATRIX:
-          glGetUniformfv(id, location, &uniform.value.floats[offset]);
+          glGetUniformfv(program, location, &uniform.value.floats[offset]);
           offset += uniform.components * uniform.components;
           break;
 
@@ -241,7 +240,7 @@ Shader* lovrShaderCreateDefault(DefaultShader type) {
 
 void lovrShaderDestroy(const Ref* ref) {
   Shader* shader = containerof(ref, Shader);
-  glDeleteProgram(shader->id);
+  glDeleteProgram(shader->program);
   map_deinit(&shader->uniforms);
   free(shader);
 }
@@ -302,7 +301,7 @@ int lovrShaderGetAttributeId(Shader* shader, const char* name) {
     return -1;
   }
 
-  return glGetAttribLocation(shader->id, name);
+  return glGetAttribLocation(shader->program, name);
 }
 
 Uniform* lovrShaderGetUniform(Shader* shader, const char* name) {

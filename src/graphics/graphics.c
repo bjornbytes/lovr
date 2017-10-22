@@ -132,7 +132,7 @@ void lovrGraphicsPrepare() {
     lovrShaderSetTexture(shader, lovrShaderTextureUniforms[i], &texture, 1);
   }
 
-  lovrGraphicsBindProgram(shader->id);
+  lovrGraphicsUseProgram(shader->program);
   lovrShaderBind(shader);
 }
 
@@ -1019,7 +1019,7 @@ Shader* lovrGraphicsGetActiveShader() {
   return state.shader ? state.shader : state.defaultShaders[state.defaultShader];
 }
 
-void lovrGraphicsBindProgram(uint32_t program) {
+void lovrGraphicsUseProgram(uint32_t program) {
   if (state.program != program) {
     state.program = program;
     glUseProgram(program);
