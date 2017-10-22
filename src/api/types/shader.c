@@ -10,6 +10,13 @@ struct TempData {
 
 static struct TempData tempData;
 
+int l_lovrShaderHasUniform(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  const char* name = luaL_checkstring(L, 2);
+  lua_pushboolean(L, lovrShaderGetUniform(shader, name) != NULL);
+  return 1;
+}
+
 int l_lovrShaderSend(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
@@ -21,9 +28,7 @@ int l_lovrShaderSend(lua_State* L) {
     return luaL_error(L, "Unknown shader variable '%s'", name);
   }
 
-  if (!tempData.data) {
-    tempData.data = malloc(uniform->size);
-  } else if (tempData.size < uniform->size) {
+  if (tempData.size < uniform->size) {
     tempData.size = uniform->size;
     tempData.data = realloc(tempData.data, tempData.size);
   }
@@ -136,6 +141,7 @@ int l_lovrShaderSend(lua_State* L) {
 }
 
 const luaL_Reg lovrShader[] = {
+  { "hasUniform", l_lovrShaderHasUniform },
   { "send", l_lovrShaderSend },
   { NULL, NULL }
 };
