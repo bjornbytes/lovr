@@ -249,10 +249,6 @@ static ModelData* webvrControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-static TextureData* webvrControllerNewTextureData(Controller* controller) {
-  return NULL;
-}
-
 static void webvrRenderTo(headsetRenderCallback callback, void* userdata) {
   state.renderCallback = callback;
   emscripten_vr_set_render_callback(onRequestAnimationFrame, userdata);
@@ -293,7 +289,6 @@ HeadsetImpl lovrHeadsetWebVRDriver = {
   webvrControllerIsTouched,
   webvrControllerVibrate,
   webvrControllerNewModelData,
-  webvrControllerNewTextureData,
   webvrRenderTo,
   webvrUpdate,
 };

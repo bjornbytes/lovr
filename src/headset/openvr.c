@@ -656,77 +656,64 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
     }
   }
 
-  RenderModel_t* vrModel = state.deviceModels[id];
-
-  ModelData* modelData = malloc(sizeof(ModelData));
-  if (!modelData) return NULL;
-
-  ModelMesh* mesh = malloc(sizeof(ModelMesh));
-  vec_init(&modelData->meshes);
-  vec_push(&modelData->meshes, mesh);
-
-  vec_init(&mesh->faces);
-  for (uint32_t i = 0; i < vrModel->unTriangleCount; i++) {
-    ModelFace face;
-    face.indices[0] = vrModel->rIndexData[3 * i + 0];
-    face.indices[1] = vrModel->rIndexData[3 * i + 1];
-    face.indices[2] = vrModel->rIndexData[3 * i + 2];
-    vec_push(&mesh->faces, face);
-  }
-
-  vec_init(&mesh->vertices);
-  vec_init(&mesh->normals);
-  vec_init(&mesh->texCoords);
-  for (size_t i = 0; i < vrModel->unVertexCount; i++) {
-    float* position = vrModel->rVertexData[i].vPosition.v;
-    float* normal = vrModel->rVertexData[i].vNormal.v;
-    float* texCoords = vrModel->rVertexData[i].rfTextureCoord;
-    ModelVertex v;
-
-    v.x = position[0];
-    v.y = position[1];
-    v.z = position[2];
-    vec_push(&mesh->vertices, v);
-
-    v.x = normal[0];
-    v.y = normal[1];
-    v.z = normal[2];
-    vec_push(&mesh->normals, v);
-
-    v.x = texCoords[0];
-    v.y = texCoords[1];
-    v.z = 0.f;
-    vec_push(&mesh->texCoords, v);
-  }
-
-  ModelNode* root = malloc(sizeof(ModelNode));
-  vec_init(&root->meshes);
-  vec_push(&root->meshes, 0);
-  vec_init(&root->children);
-  mat4_identity(root->transform);
-
-  modelData->root = root;
-  modelData->hasNormals = 1;
-  modelData->hasTexCoords = 1;
-
-  return modelData;
-}
-
-static TextureData* openvrControllerNewTextureData(Controller* controller) {
-  if (!state.isInitialized || !controller) return NULL;
-
-  int id = controller->id;
-
-  if (!state.deviceModels[id]) {
-    openvrControllerNewModelData(controller);
-  }
-
+  // Load texture
   if (!state.deviceTextures[id]) {
     while (state.renderModels->LoadTexture_Async(state.deviceModels[id]->diffuseTextureId, &state.deviceTextures[id]) == EVRRenderModelError_VRRenderModelError_Loading) {
       lovrSleep(.001);
     }
   }
 
+  RenderModel_t* vrModel = state.deviceModels[id];
+
+  ModelData* modelData = malloc(sizeof(ModelData));
+  if (!modelData) return NULL;
+
+  modelData->indexCount = vrModel->unTriangleCount;
+  modelData->indices = malloc(modelData->indexCount * sizeof(unsigned int));
+  memcpy(modelData->indices, vrModel->rIndexData, modelData->indexCount * sizeof(unsigned int));
+
+  modelData->vertexCount = vrModel->unVertexCount;
+  modelData->vertexSize = 8;
+  modelData->vertices = malloc(modelData->vertexCount * modelData->vertexSize * sizeof(float));
+
+  int vertex = 0;
+  for (size_t i = 0; i < vrModel->unVertexCount; i++) {
+    float* position = vrModel->rVertexData[i].vPosition.v;
+    float* normal = vrModel->rVertexData[i].vNormal.v;
+    float* texCoords = vrModel->rVertexData[i].rfTextureCoord;
+
+    modelData->vertices[vertex++] = position[0];
+    modelData->vertices[vertex++] = position[1];
+    modelData->vertices[vertex++] = position[2];
+
+    modelData->vertices[vertex++] = normal[0];
+    modelData->vertices[vertex++] = normal[1];
+    modelData->vertices[vertex++] = normal[2];
+
+    modelData->vertices[vertex++] = texCoords[0];
+    modelData->vertices[vertex++] = texCoords[1];
+  }
+
+  modelData->nodeCount = 1;
+  modelData->primitiveCount = 1;
+  modelData->materialCount = 1;
+
+  modelData->nodes = malloc(1 * sizeof(ModelNode));
+  modelData->primitives = malloc(1 * sizeof(ModelPrimitive));
+  modelData->materials = malloc(1 * sizeof(MaterialData));
+
+  // Geometry
+  ModelNode* root = &modelData->nodes[0];
+  root->parent = -1;
+  mat4_identity(root->transform);
+  vec_init(&root->children);
+  vec_init(&root->primitives);
+  vec_push(&root->primitives, 0);
+  modelData->primitives[0].material = 0;
+  modelData->primitives[0].drawStart = 0;
+  modelData->primitives[0].drawCount = modelData->vertexCount;
+
+  // Material
   RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
 
   TextureData* textureData = malloc(sizeof(TextureData));
@@ -743,7 +730,14 @@ static TextureData* openvrControllerNewTextureData(Controller* controller) {
   textureData->data = memcpy(malloc(size), vrTexture->rubTextureMapData, size);;
   textureData->mipmaps.generated = 1;
   textureData->blob = NULL;
-  return textureData;
+
+  modelData->materials[0] = *lovrMaterialDataCreateEmpty();
+  modelData->materials[0].textures[TEXTURE_DIFFUSE] = textureData;
+
+  modelData->hasNormals = 1;
+  modelData->hasUVs = 1;
+
+  return modelData;
 }
 
 static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
@@ -758,7 +752,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   float head[16], transform[16], projection[16];
   float (*matrix)[4];
 
-  lovrGraphicsPushCanvas();
+  lovrGraphicsPushView();
   state.isRendering = 1;
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
 
@@ -789,7 +783,8 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     lovrTextureResolveMSAA(state.texture);
 
     // OpenVR changes the OpenGL texture binding, so we reset it after rendering
-    Texture* oldTexture = lovrGraphicsGetTexture();
+    glActiveTexture(GL_TEXTURE0);
+    Texture* oldTexture = lovrGraphicsGetTexture(0);
 
     // Submit
     uintptr_t texture = (uintptr_t) state.texture->id;
@@ -803,7 +798,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   }
 
   state.isRendering = 0;
-  lovrGraphicsPopCanvas();
+  lovrGraphicsPopView();
 
   if (state.isMirrored) {
     Color oldColor = lovrGraphicsGetColor();
@@ -861,7 +856,6 @@ HeadsetImpl lovrHeadsetOpenVRDriver = {
   openvrControllerIsTouched,
   openvrControllerVibrate,
   openvrControllerNewModelData,
-  openvrControllerNewTextureData,
   openvrRenderTo,
   openvrUpdate,
 };

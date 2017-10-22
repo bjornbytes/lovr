@@ -148,3 +148,27 @@ void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map
 
   return value;
 }
+
+Color luax_checkcolor(lua_State* L, int index) {
+  Color color = { 0xff, 0xff, 0xff, 0xff };
+
+  if (lua_istable(L, 1)) {
+    for (int i = 1; i <= 4; i++) {
+      lua_rawgeti(L, 1, i);
+    }
+    color.r = luaL_checknumber(L, -4);
+    color.g = luaL_checknumber(L, -3);
+    color.b = luaL_checknumber(L, -2);
+    color.a = luaL_optnumber(L, -1, 255);
+    lua_pop(L, 4);
+  } else if (lua_gettop(L) >= index + 2) {
+    color.r = lua_tointeger(L, index);
+    color.g = lua_tointeger(L, index + 1);
+    color.b = lua_tointeger(L, index + 2);
+    color.a = lua_isnoneornil(L, index + 3) ? 255 : lua_tointeger(L, index + 3);
+  } else {
+    luaL_error(L, "Invalid color, expected 3 numbers, 4 numbers, or a table");
+  }
+
+  return color;
+}

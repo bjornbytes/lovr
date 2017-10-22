@@ -1,6 +1,5 @@
 #include "filesystem/blob.h"
-#include "lib/glad/glad.h"
-#include <stddef.h>
+#include "lib/glfw.h"
 #include <stdint.h>
 
 #pragma once

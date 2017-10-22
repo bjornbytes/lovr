@@ -90,7 +90,6 @@ typedef struct  {
     int (*controllerIsTouched)(Controller* controller, ControllerButton button);
     void (*controllerVibrate)(Controller* controller, float duration, float power);
     ModelData* (*controllerNewModelData)(Controller* controller);
-    TextureData* (*controllerNewTextureData)(Controller* controller);
     void (*renderTo)(headsetRenderCallback callback, void* userdata);
     void (*update)(float dt);
 } HeadsetImpl;
@@ -130,7 +129,6 @@ int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button)
 int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power);
 ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
-TextureData* lovrHeadsetControllerNewTextureData(Controller* controller);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
 void lovrHeadsetUpdate(float dt);
 

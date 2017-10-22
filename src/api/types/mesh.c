@@ -273,27 +273,30 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
 
   luaL_checktype(L, 2, LUA_TTABLE);
   int count = lua_objlen(L, 2);
-  unsigned int* indices = malloc(count * sizeof(unsigned int));
+  int indexSize = mesh->indexSize;
+  void* indices = realloc(lovrMeshGetVertexMap(mesh, NULL), indexSize * count);
 
   for (int i = 0; i < count; i++) {
     lua_rawgeti(L, 2, i + 1);
     if (!lua_isnumber(L, -1)) {
-      free(indices);
       return luaL_error(L, "Mesh vertex map index #%d must be numeric", i);
     }
 
     int index = lua_tointeger(L, -1);
     if (index > lovrMeshGetVertexCount(mesh) || index < 1) {
-      free(indices);
       return luaL_error(L, "Invalid vertex map value: %d", index);
     }
 
-    indices[i] = index - 1;
+    if (indexSize == sizeof(uint16_t)) {
+      *(((uint16_t*) indices) + i) = index - 1;
+    } else if (indexSize == sizeof(uint32_t)) {
+      *(((uint32_t*) indices) + i) = index - 1;
+    }
+
     lua_pop(L, 1);
   }
 
   lovrMeshSetVertexMap(mesh, indices, count);
-  free(indices);
   return 0;
 }
 
@@ -336,30 +339,7 @@ int l_lovrMeshSetDrawRange(lua_State* L) {
   lovrMeshSetRangeEnabled(mesh, 1);
   int rangeStart = luaL_checkinteger(L, 2) - 1;
   int rangeCount = luaL_checkinteger(L, 3);
-  if (lovrMeshSetDrawRange(mesh, rangeStart, rangeCount)) {
-    return luaL_error(L, "Invalid mesh draw range (%d, %d)", rangeStart + 1, rangeCount);
-  }
-
-  return 0;
-}
-
-int l_lovrMeshGetTexture(lua_State* L) {
-  Mesh* mesh = luax_checktype(L, 1, Mesh);
-  Texture* texture = lovrMeshGetTexture(mesh);
-
-  if (texture) {
-    luax_pushtype(L, Texture, texture);
-  } else {
-    lua_pushnil(L);
-  }
-
-  return 1;
-}
-
-int l_lovrMeshSetTexture(lua_State* L) {
-  Mesh* mesh = luax_checktype(L, 1, Mesh);
-  Texture* texture = lua_isnoneornil(L, 2) ? NULL : luax_checktype(L, 2, Texture);
-  lovrMeshSetTexture(mesh, texture);
+  lovrMeshSetDrawRange(mesh, rangeStart, rangeCount);
   return 0;
 }
 
@@ -380,7 +360,5 @@ const luaL_Reg lovrMesh[] = {
   { "setDrawMode", l_lovrMeshSetDrawMode },
   { "getDrawRange", l_lovrMeshGetDrawRange },
   { "setDrawRange", l_lovrMeshSetDrawRange },
-  { "getTexture", l_lovrMeshGetTexture },
-  { "setTexture", l_lovrMeshSetTexture },
   { NULL, NULL }
 };

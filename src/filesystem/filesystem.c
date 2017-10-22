@@ -1,9 +1,9 @@
 #include "filesystem/filesystem.h"
+#include "filesystem/file.h"
 #include "util.h"
 #include <physfs.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
@@ -22,7 +22,7 @@ static FilesystemState state;
 
 void lovrFilesystemInit(const char* arg0, const char* arg1) {
   if (!PHYSFS_init(arg0)) {
-    lovrThrow("Could not initialize filesystem: %s", PHYSFS_getLastError());
+    lovrThrow("Could not initialize filesystem: %s", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
   }
 
   state.source = malloc(LOVR_PATH_MAX * sizeof(char));
@@ -60,10 +60,6 @@ int lovrFilesystemCreateDirectory(const char* path) {
   return !PHYSFS_mkdir(path);
 }
 
-int lovrFilesystemExists(const char* path) {
-  return PHYSFS_exists(path);
-}
-
 int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
 #ifdef __APPLE__
   const char* home;
@@ -97,7 +93,7 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
 }
 
 void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata) {
-  PHYSFS_enumerateFilesCallback(path, callback, userdata);
+  PHYSFS_enumerate(path, callback, userdata);
 }
 
 int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
@@ -126,7 +122,8 @@ const char* lovrFilesystemGetIdentity() {
 }
 
 long lovrFilesystemGetLastModified(const char* path) {
-  return PHYSFS_getLastModTime(path);
+  PHYSFS_Stat stat;
+  return PHYSFS_stat(path, &stat) ? stat.modtime : -1;
 }
 
 const char* lovrFilesystemGetRealDirectory(const char* path) {
@@ -137,15 +134,9 @@ const char* lovrFilesystemGetSaveDirectory() {
   return state.savePathFull;
 }
 
-int lovrFilesystemGetSize(const char* path) {
-  PHYSFS_file* handle = PHYSFS_openRead(path);
-  if (!handle) {
-    return -1;
-  }
-
-  int length = PHYSFS_fileLength(handle);
-  PHYSFS_close(handle);
-  return length;
+size_t lovrFilesystemGetSize(const char* path) {
+  PHYSFS_Stat stat;
+  return PHYSFS_stat(path, &stat) ? stat.filesize : -1;
 }
 
 const char* lovrFilesystemGetSource() {
@@ -153,15 +144,29 @@ const char* lovrFilesystemGetSource() {
 }
 
 const char* lovrFilesystemGetUserDirectory() {
-  return PHYSFS_getUserDir();
+#if defined(__APPLE__) || defined(__linux__)
+  const char* home;
+  if ((home = getenv("HOME")) == NULL) {
+    home = getpwuid(getuid())->pw_dir;
+  }
+  return home;
+#elif _WIN32
+  return getenv("USERPROFILE");
+#elif EMSCRIPTEN
+  return "/home/web_user";
+#else
+#error "This platform is missing an implementation for lovrFilesystemGetUserDirectory"
+#endif
 }
 
 int lovrFilesystemIsDirectory(const char* path) {
-  return PHYSFS_isDirectory(path);
+  PHYSFS_Stat stat;
+  return PHYSFS_stat(path, &stat) ? stat.filetype == PHYSFS_FILETYPE_DIRECTORY : 0;
 }
 
 int lovrFilesystemIsFile(const char* path) {
-  return lovrFilesystemExists(path) && !lovrFilesystemIsDirectory(path);
+  PHYSFS_Stat stat;
+  return PHYSFS_stat(path, &stat) ? stat.filetype == PHYSFS_FILETYPE_REGULAR : 0;
 }
 
 int lovrFilesystemIsFused() {
@@ -174,15 +179,20 @@ int lovrFilesystemMount(const char* path, const char* mountpoint, int append) {
 
 void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
 
-  // Open file
-  PHYSFS_file* handle = PHYSFS_openRead(path);
-  if (!handle) {
+  // Create file
+  File* file = lovrFileCreate(path);
+  if (!file) {
+    return NULL;
+  }
+
+  // Open it
+  if (lovrFileOpen(file, OPEN_READ)) {
     return NULL;
   }
 
   // Get file size
-  int size = PHYSFS_fileLength(handle);
-  if (size < 0) {
+  size_t size = lovrFileGetSize(file);
+  if (size == (unsigned int) -1) {
     return NULL;
   }
 
@@ -193,8 +203,8 @@ void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
   }
 
   // Perform read
-  *bytesRead = PHYSFS_read(handle, data, 1, size);
-  PHYSFS_close(handle);
+  *bytesRead = lovrFileRead(file, data, 1, size);
+  lovrFileClose(file);
 
   // Make sure we got everything
   if (*bytesRead != (size_t) size) {
@@ -214,7 +224,7 @@ int lovrFilesystemSetIdentity(const char* identity) {
 
   // Unmount old write directory
   if (state.savePathFull && state.savePathRelative) {
-    PHYSFS_removeFromSearchPath(state.savePathRelative);
+    PHYSFS_unmount(state.savePathRelative);
   } else {
     state.savePathRelative = malloc(LOVR_PATH_MAX);
     state.savePathFull = malloc(LOVR_PATH_MAX);
@@ -231,7 +241,8 @@ int lovrFilesystemSetIdentity(const char* identity) {
   strncpy(state.savePathFull, fullPathBuffer, LOVR_PATH_MAX);
   PHYSFS_mkdir(state.savePathRelative);
   if (!PHYSFS_setWriteDir(state.savePathFull)) {
-    lovrThrow("Could not set write directory: %s (%s)", PHYSFS_getLastError(), state.savePathRelative);
+    const char* error = PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode());
+    lovrThrow("Could not set write directory: %s (%s)", error, state.savePathRelative);
   }
 
   PHYSFS_mount(state.savePathFull, NULL, 0);
@@ -240,16 +251,18 @@ int lovrFilesystemSetIdentity(const char* identity) {
 }
 
 int lovrFilesystemUnmount(const char* path) {
-  return !PHYSFS_removeFromSearchPath(path);
+  return !PHYSFS_unmount(path);
 }
 
-int lovrFilesystemWrite(const char* path, const char* content, size_t size, int append) {
-  PHYSFS_file* handle = append ? PHYSFS_openAppend(path) : PHYSFS_openWrite(path);
-  if (!handle) {
+size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, int append) {
+  File* file = lovrFileCreate(path);
+  if (!file) {
     return 0;
   }
 
-  int bytesWritten = PHYSFS_write(handle, content, 1, size);
-  PHYSFS_close(handle);
+  lovrFileOpen(file, append ? OPEN_APPEND : OPEN_WRITE);
+  size_t bytesWritten = lovrFileWrite(file, (void*) content, 1, size);
+  lovrFileClose(file);
+  lovrRelease(&file->ref);
   return bytesWritten;
 }

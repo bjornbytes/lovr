@@ -1,8 +1,10 @@
 #include "api/lovr.h"
 #include "graphics/graphics.h"
+#include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
 #include "loaders/font.h"
+#include "loaders/material.h"
 #include "loaders/model.h"
 #include "loaders/texture.h"
 #include "filesystem/filesystem.h"
@@ -14,6 +16,8 @@ map_int_t CompareModes;
 map_int_t DrawModes;
 map_int_t FilterModes;
 map_int_t HorizontalAligns;
+map_int_t MaterialColors;
+map_int_t MaterialTextures;
 map_int_t MatrixTypes;
 map_int_t MeshAttributeTypes;
 map_int_t MeshDrawModes;
@@ -63,24 +67,16 @@ static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
   }
 }
 
-static Texture* luax_readtexture(lua_State* L, int index) {
-  Blob* blob = luax_readblob(L, index, "Texture");
-  TextureData* textureData = lovrTextureDataFromBlob(blob);
-  Texture* texture = lovrTextureCreate(textureData);
-  lovrRelease(&blob->ref);
-  return texture;
-}
-
 // Base
 
 int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
   luax_registertype(L, "Font", lovrFont);
+  luax_registertype(L, "Material", lovrMaterial);
   luax_registertype(L, "Mesh", lovrMesh);
   luax_registertype(L, "Model", lovrModel);
   luax_registertype(L, "Shader", lovrShader);
-  luax_registertype(L, "Skybox", lovrSkybox);
   luax_registertype(L, "Texture", lovrTexture);
 
   map_init(&BlendAlphaModes);
@@ -119,6 +115,13 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&HorizontalAligns, "left", ALIGN_LEFT);
   map_set(&HorizontalAligns, "right", ALIGN_RIGHT);
   map_set(&HorizontalAligns, "center", ALIGN_CENTER);
+
+  map_init(&MaterialColors);
+  map_set(&MaterialColors, "diffuse", COLOR_DIFFUSE);
+
+  map_init(&MaterialTextures);
+  map_set(&MaterialTextures, "diffuse", TEXTURE_DIFFUSE);
+  map_set(&MaterialTextures, "environment", TEXTURE_ENVIRONMENT_MAP);
 
   map_init(&MatrixTypes);
   map_set(&MatrixTypes, "model", MATRIX_MODEL);
@@ -253,26 +256,7 @@ int l_lovrGraphicsGetColor(lua_State* L) {
 }
 
 int l_lovrGraphicsSetColor(lua_State* L) {
-  Color color = { 0xff, 0xff, 0xff, 0xff };
-
-  if (lua_istable(L, 1)) {
-    for (int i = 1; i <= 4; i++) {
-      lua_rawgeti(L, 1, i);
-    }
-    color.r = luaL_checknumber(L, -4);
-    color.g = luaL_checknumber(L, -3);
-    color.b = luaL_checknumber(L, -2);
-    color.a = luaL_optnumber(L, -1, 255);
-    lua_pop(L, 4);
-  } else if (lua_gettop(L) >= 3) {
-    color.r = lua_tointeger(L, 1);
-    color.g = lua_tointeger(L, 2);
-    color.b = lua_tointeger(L, 3);
-    color.a = lua_isnoneornil(L, 4) ? 255 : lua_tointeger(L, 4);
-  } else {
-    return luaL_error(L, "Invalid color, expected 3 numbers, 4 numbers, or a table");
-  }
-
+  Color color = luax_checkcolor(L, 1);
   lovrGraphicsSetColor(color);
   return 0;
 }
@@ -354,6 +338,22 @@ int l_lovrGraphicsGetLineWidth(lua_State* L) {
 int l_lovrGraphicsSetLineWidth(lua_State* L) {
   float width = luaL_optnumber(L, 1, 1.f);
   lovrGraphicsSetLineWidth(width);
+  return 0;
+}
+
+int l_lovrGraphicsGetMaterial(lua_State* L) {
+  Material* material = lovrGraphicsGetMaterial();
+  if (material && !material->isDefault) {
+    luax_pushtype(L, Material, material);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+int l_lovrGraphicsSetMaterial(lua_State* L) {
+  Material* material = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Material);
+  lovrGraphicsSetMaterial(material);
   return 0;
 }
 
@@ -493,36 +493,24 @@ int l_lovrGraphicsTriangle(lua_State* L) {
 }
 
 int l_lovrGraphicsPlane(lua_State* L) {
-  Texture* texture = NULL;
-  DrawMode drawMode;
-  if (lua_isstring(L, 1)) {
-    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
-  } else {
-    drawMode = DRAW_MODE_FILL;
-    texture = luax_checktype(L, 1, Texture);
-    if (lua_gettop(L) == 1) {
-      lovrGraphicsPlaneFullscreen(texture);
-      return 0;
-    }
+  if (lua_isuserdata(L, 1)) {
+    Texture* texture = luax_checktype(L, 1, Texture);
+    lovrGraphicsPlaneFullscreen(texture);
+    return 0;
   }
+
+  DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
   float transform[16];
   luax_readtransform(L, 2, transform, 1);
-  lovrGraphicsPlane(drawMode, texture, transform);
+  lovrGraphicsPlane(drawMode, transform);
   return 0;
 }
 
 static int luax_rectangularprism(lua_State* L, int uniformScale) {
-  Texture* texture = NULL;
-  DrawMode drawMode;
-  if (lua_isstring(L, 1)) {
-    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
-  } else {
-    drawMode = DRAW_MODE_FILL;
-    texture = luax_checktype(L, 1, Texture);
-  }
+  DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
   float transform[16];
   luax_readtransform(L, 2, transform, uniformScale);
-  lovrGraphicsBox(drawMode, texture, transform);
+  lovrGraphicsBox(drawMode, transform);
   return 0;
 }
 
@@ -550,15 +538,21 @@ int l_lovrGraphicsCylinder(lua_State* L) {
 }
 
 int l_lovrGraphicsSphere(lua_State* L) {
-  Texture* texture = NULL;
   float transform[16];
   int index = 1;
-  if (lua_isuserdata(L, 1) && (lua_isuserdata(L, 2) || lua_isnumber(L, 2))) {
-    texture = luax_checktype(L, index++, Texture);
-  }
   index = luax_readtransform(L, index, transform, 1);
   int segments = luaL_optnumber(L, index, 30);
-  lovrGraphicsSphere(texture, transform, segments, NULL);
+  lovrGraphicsSphere(transform, segments);
+  return 0;
+}
+
+int l_lovrGraphicsSkybox(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  float angle = luaL_optnumber(L, 2, 0);
+  float ax = luaL_optnumber(L, 3, 0);
+  float ay = luaL_optnumber(L, 4, 1);
+  float az = luaL_optnumber(L, 5, 0);
+  lovrGraphicsSkybox(texture, angle, ax, ay, az);
   return 0;
 }
 
@@ -595,6 +589,13 @@ int l_lovrGraphicsNewFont(lua_State* L) {
     lovrRelease(&blob->ref);
   }
 
+  return 1;
+}
+
+int l_lovrGraphicsNewMaterial(lua_State* L) {
+  MaterialData* materialData = lovrMaterialDataCreateEmpty();
+  Material* material = lovrMaterialCreate(materialData, 0);
+  luax_pushtype(L, Material, material);
   return 1;
 }
 
@@ -671,13 +672,6 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
   ModelData* modelData = lovrModelDataCreate(blob);
   Model* model = lovrModelCreate(modelData);
-
-  if (lua_gettop(L) >= 2) {
-    Texture* texture = luax_readtexture(L, 2);
-    lovrModelSetTexture(model, texture);
-    lovrRelease(&texture->ref);
-  }
-
   luax_pushtype(L, Model, model);
   lovrRelease(&model->ref);
   lovrRelease(&blob->ref);
@@ -707,51 +701,6 @@ int l_lovrGraphicsNewShader(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsNewSkybox(lua_State* L) {
-  Blob* blobs[6] = { NULL };
-  SkyboxType type;
-
-  if (lua_gettop(L) == 1 && lua_type(L, 1) == LUA_TSTRING) {
-    type = SKYBOX_PANORAMA;
-    blobs[0] = luax_readblob(L, 1, "Skybox");
-  } else if (lua_istable(L, 1)) {
-    if (lua_objlen(L, 1) != 6) {
-      return luaL_argerror(L, 1, "Expected 6 strings or a table containing 6 strings");
-    }
-
-    for (int i = 0; i < 6; i++) {
-      lua_rawgeti(L, 1, i + 1);
-
-      if (!lua_isstring(L, -1)) {
-        return luaL_argerror(L, 1, "Expected 6 strings or a table containing 6 strings");
-      }
-
-      blobs[i] = luax_readblob(L, -1, "Skybox");
-      lua_pop(L, 1);
-    }
-
-    type = SKYBOX_CUBE;
-  } else {
-    for (int i = 0; i < 6; i++) {
-      blobs[i] = luax_readblob(L, i + 1, "Skybox");
-    }
-
-    type = SKYBOX_CUBE;
-  }
-
-  Skybox* skybox = lovrSkyboxCreate(blobs, type);
-  luax_pushtype(L, Skybox, skybox);
-  lovrRelease(&skybox->ref);
-
-  for (int i = 0; i < 6; i++) {
-    if (blobs[i]) {
-      lovrRelease(&blobs[i]->ref);
-    }
-  }
-
-  return 1;
-}
-
 int l_lovrGraphicsNewTexture(lua_State* L) {
   Texture* texture;
 
@@ -763,7 +712,34 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     TextureData* textureData = lovrTextureDataGetEmpty(width, height, FORMAT_RGBA);
     texture = lovrTextureCreateWithFramebuffer(textureData, *projection, msaa);
   } else {
-    texture = luax_readtexture(L, 1);
+    Blob* blobs[6];
+    int isTable = lua_istable(L, 1);
+    int count = isTable ? lua_objlen(L, 1) : lua_gettop(L);
+
+    if (count != 1 && count != 6) {
+      return luaL_error(L, "Expected 1 image for a 2D texture or 6 images for a cube texture, got %d", count);
+    }
+
+    if (isTable) {
+      for (int i = 0; i < count; i++) {
+        lua_rawgeti(L, -1, i + 1);
+        blobs[i] = luax_readblob(L, -1, "Texture");
+        lua_pop(L, 1);
+      }
+    } else {
+      for (int i = 0; i < count; i++) {
+        blobs[i] = luax_readblob(L, i + 1, "Texture");
+      }
+    }
+
+    TextureData* slices[6];
+    for (int i = 0; i < count; i++) {
+      slices[i] = lovrTextureDataFromBlob(blobs[i]);
+      lovrRelease(&blobs[i]->ref);
+    }
+
+    TextureType type = (count == 1) ? TEXTURE_2D : TEXTURE_CUBE;
+    texture = lovrTextureCreate(type, slices, count);
   }
 
   luax_pushtype(L, Texture, texture);
@@ -796,6 +772,8 @@ const luaL_Reg lovrGraphics[] = {
   { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
+  { "getMaterial", l_lovrGraphicsGetMaterial },
+  { "setMaterial", l_lovrGraphicsSetMaterial },
   { "getPointSize", l_lovrGraphicsGetPointSize },
   { "setPointSize", l_lovrGraphicsSetPointSize },
   { "getShader", l_lovrGraphicsGetShader },
@@ -819,12 +797,13 @@ const luaL_Reg lovrGraphics[] = {
   { "box", l_lovrGraphicsBox },
   { "cylinder", l_lovrGraphicsCylinder },
   { "sphere", l_lovrGraphicsSphere },
+  { "skybox", l_lovrGraphicsSkybox },
   { "print", l_lovrGraphicsPrint },
   { "newFont", l_lovrGraphicsNewFont },
+  { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newMesh", l_lovrGraphicsNewMesh },
   { "newModel", l_lovrGraphicsNewModel },
   { "newShader", l_lovrGraphicsNewShader },
-  { "newSkybox", l_lovrGraphicsNewSkybox },
   { "newTexture", l_lovrGraphicsNewTexture },
   { NULL, NULL }
 };

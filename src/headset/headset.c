@@ -229,13 +229,6 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller)
   }
 }
 
-TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
-  if( headset && controller) {
-    return headset->controllerNewTextureData(controller);
-  } else {
-    return NULL;
-  }
-}
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   if (headset) {

@@ -7,6 +7,7 @@ typedef struct {
   void* data;
   size_t size;
   const char* name;
+  size_t seek;
 } Blob;
 
 Blob* lovrBlobCreate(void* data, size_t size, const char* name);

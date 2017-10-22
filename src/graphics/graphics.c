@@ -1,4 +1,5 @@
 #include "graphics/graphics.h"
+#include "graphics/shaders.h"
 #include "loaders/texture.h"
 #include "loaders/font.h"
 #include "event/event.h"
@@ -35,6 +36,7 @@ void lovrGraphicsDestroy() {
   for (int i = 0; i < DEFAULT_SHADER_COUNT; i++) {
     if (state.defaultShaders[i]) lovrRelease(&state.defaultShaders[i]->ref);
   }
+  if (state.defaultMaterial) lovrRelease(&state.defaultMaterial->ref);
   if (state.defaultFont) lovrRelease(&state.defaultFont->ref);
   if (state.defaultTexture) lovrRelease(&state.defaultTexture->ref);
   glDeleteVertexArrays(1, &state.streamVAO);
@@ -49,7 +51,7 @@ void lovrGraphicsReset() {
   int h = lovrGraphicsGetHeight();
   float projection[16];
   state.transform = 0;
-  state.canvas = 0;
+  state.view = 0;
   state.defaultShader = -1;
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 255 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
@@ -58,6 +60,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = FILTER_TRILINEAR });
   lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
   lovrGraphicsSetFont(NULL);
+  lovrGraphicsSetMaterial(NULL);
   lovrGraphicsSetLineWidth(1);
   lovrGraphicsSetPointSize(1);
   lovrGraphicsSetShader(NULL);
@@ -86,9 +89,51 @@ void lovrGraphicsPrepare() {
 
   mat4 model = state.transforms[state.transform][MATRIX_MODEL];
   mat4 view = state.transforms[state.transform][MATRIX_VIEW];
-  mat4 projection = state.canvases[state.canvas].projection;
+  mat4 projection = state.views[state.view].projection;
+  lovrShaderSetMatrix(shader, "lovrModel", model, 16);
+  lovrShaderSetMatrix(shader, "lovrView", view, 16);
+  lovrShaderSetMatrix(shader, "lovrProjection", projection, 16);
+
+  float transform[16];
+  mat4_multiply(mat4_set(transform, view), model);
+  lovrShaderSetMatrix(shader, "lovrTransform", transform, 16);
+
+  if (lovrShaderGetUniform(shader, "lovrNormalMatrix")) {
+    if (mat4_invert(transform)) {
+      mat4_transpose(transform);
+    } else {
+      mat4_identity(transform);
+    }
+
+    float normalMatrix[9] = {
+      transform[0], transform[1], transform[2],
+      transform[4], transform[5], transform[6],
+      transform[8], transform[9], transform[10]
+    };
+
+    lovrShaderSetMatrix(shader, "lovrNormalMatrix", normalMatrix, 9);
+  }
+
+  // Color
+  float color[4] = { state.color.r / 255., state.color.g / 255., state.color.b / 255., state.color.a / 255. };
+  lovrShaderSetFloat(shader, "lovrColor", color, 4);
+
+  // Material
+  Material* material = lovrGraphicsGetMaterial();
+
+  for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
+    Color color = lovrMaterialGetColor(material, i);
+    float data[4] = { color.r / 255., color.g / 255., color.b / 255., color.a / 255. };
+    lovrShaderSetFloat(shader, lovrShaderColorUniforms[i], data, 4);
+  }
+
+  for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
+    Texture* texture = lovrMaterialGetTexture(material, i);
+    lovrShaderSetTexture(shader, lovrShaderTextureUniforms[i], &texture, 1);
+  }
+
   lovrGraphicsBindProgram(shader->id);
-  lovrShaderBind(shader, model, view, projection, state.color, 0);
+  lovrShaderBind(shader);
 }
 
 void lovrGraphicsCreateWindow(int w, int h, int fullscreen, int msaa, const char* title, const char* icon) {
@@ -327,6 +372,31 @@ void lovrGraphicsSetLineWidth(float width) {
   glLineWidth(width);
 }
 
+Material* lovrGraphicsGetMaterial() {
+  if (!state.material) {
+    if (!state.defaultMaterial) {
+      MaterialData* materialData = lovrMaterialDataCreateEmpty();
+      state.defaultMaterial = lovrMaterialCreate(materialData, 1);
+    }
+
+    lovrGraphicsSetMaterial(state.defaultMaterial);
+  }
+
+  return state.material;
+}
+
+void lovrGraphicsSetMaterial(Material* material) {
+  if (state.material) {
+    lovrRelease(&state.material->ref);
+  }
+
+  state.material = material;
+
+  if (material) {
+    lovrRetain(&material->ref);
+  }
+}
+
 float lovrGraphicsGetPointSize() {
   return state.pointSize;
 }
@@ -417,7 +487,7 @@ void lovrGraphicsMatrixTransform(MatrixType type, mat4 transform) {
 
 // Primitives
 
-static void lovrGraphicsSetShapeData(float* data, int length) {
+static void lovrGraphicsSetStreamData(float* data, int length) {
   vec_clear(&state.streamData);
   vec_pusharr(&state.streamData, data, length);
 }
@@ -465,25 +535,22 @@ static void lovrGraphicsDrawPrimitive(GLenum mode, int hasNormals, int hasTexCoo
 }
 
 void lovrGraphicsPoints(float* points, int count) {
-  lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-  lovrGraphicsSetShapeData(points, count);
+  lovrGraphicsSetStreamData(points, count);
   lovrGraphicsDrawPrimitive(GL_POINTS, 0, 0, 0);
 }
 
 void lovrGraphicsLine(float* points, int count) {
-  lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-  lovrGraphicsSetShapeData(points, count);
+  lovrGraphicsSetStreamData(points, count);
   lovrGraphicsDrawPrimitive(GL_LINE_STRIP, 0, 0, 0);
 }
 
 void lovrGraphicsTriangle(DrawMode mode, float* points) {
-  lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
 
   if (mode == DRAW_MODE_LINE) {
-    lovrGraphicsSetShapeData(points, 9);
+    lovrGraphicsSetStreamData(points, 9);
     lovrGraphicsDrawPrimitive(GL_LINE_LOOP, 0, 0, 0);
   } else {
     float normal[3];
@@ -495,12 +562,12 @@ void lovrGraphicsTriangle(DrawMode mode, float* points) {
       points[6], points[7], points[8], normal[0], normal[1], normal[2]
     };
 
-    lovrGraphicsSetShapeData(data, 18);
+    lovrGraphicsSetStreamData(data, 18);
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 1, 0, 0);
   }
 }
 
-void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
+void lovrGraphicsPlane(DrawMode mode, mat4 transform) {
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
 
@@ -512,9 +579,8 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
       -.5, -.5, 0
     };
 
-    lovrGraphicsBindTexture(NULL);
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-    lovrGraphicsSetShapeData(points, 12);
+    lovrGraphicsSetStreamData(points, 12);
     lovrGraphicsDrawPrimitive(GL_LINE_LOOP, 0, 0, 0);
   } else if (mode == DRAW_MODE_FILL) {
     float data[] = {
@@ -524,9 +590,8 @@ void lovrGraphicsPlane(DrawMode mode, Texture* texture, mat4 transform) {
       .5, -.5, 0,  0, 0, -1, 1, 1
     };
 
-    lovrGraphicsBindTexture(texture);
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-    lovrGraphicsSetShapeData(data, 32);
+    lovrGraphicsSetStreamData(data, 32);
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 1, 1, 0);
   }
 
@@ -541,13 +606,16 @@ void lovrGraphicsPlaneFullscreen(Texture* texture) {
     1, -1, 0,  1, 0
   };
 
-  lovrGraphicsBindTexture(texture);
   lovrGraphicsSetDefaultShader(SHADER_FULLSCREEN);
-  lovrGraphicsSetShapeData(data, 20);
+  Material* material = lovrGraphicsGetMaterial();
+  Texture* lastTexture = lovrMaterialGetTexture(material, TEXTURE_DIFFUSE);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
+  lovrGraphicsSetStreamData(data, 20);
   lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 0, 1, 0);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, lastTexture);
 }
 
-void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
+void lovrGraphicsBox(DrawMode mode, mat4 transform) {
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
@@ -573,9 +641,8 @@ void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
       0, 4, 1, 5, 2, 6, 3, 7  // Connections
     };
 
-    lovrGraphicsBindTexture(NULL);
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-    lovrGraphicsSetShapeData(points, 24);
+    lovrGraphicsSetStreamData(points, 24);
     lovrGraphicsSetIndexData(indices, 24);
     lovrGraphicsDrawPrimitive(GL_LINES, 0, 0, 1);
   } else {
@@ -621,9 +688,8 @@ void lovrGraphicsBox(DrawMode mode, Texture* texture, mat4 transform) {
       .5, .5, .5,     0, 1, 0,  1, 0
     };
 
-    lovrGraphicsBindTexture(texture);
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-    lovrGraphicsSetShapeData(data, 208);
+    lovrGraphicsSetStreamData(data, 208);
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 1, 1, 0);
   }
 
@@ -729,14 +795,13 @@ void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, floa
     }
   }
 
-  lovrGraphicsBindTexture(NULL);
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 0, 1);
 #undef PUSH_CYLINDER_VERTEX
 #undef PUSH_CYLINDER_TRIANGLE
 }
 
-void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* skybox) {
+void lovrGraphicsSphere(mat4 transform, int segments) {
   vec_clear(&state.streamData);
   vec_clear(&state.streamIndices);
 
@@ -753,11 +818,9 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* 
       vec_push(&state.streamData, y);
       vec_push(&state.streamData, z);
 
-      if (!skybox) {
-        vec_push(&state.streamData, x);
-        vec_push(&state.streamData, y);
-        vec_push(&state.streamData, z);
-      }
+      vec_push(&state.streamData, x);
+      vec_push(&state.streamData, y);
+      vec_push(&state.streamData, z);
 
       vec_push(&state.streamData, u);
       vec_push(&state.streamData, v);
@@ -779,23 +842,20 @@ void lovrGraphicsSphere(Texture* texture, mat4 transform, int segments, Skybox* 
     }
   }
 
-  lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-
-  if (skybox) {
-    Texture* oldTexture = lovrGraphicsGetTexture();
-    glBindTexture(GL_TEXTURE_2D, skybox->texture);
-    lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 1);
-    glBindTexture(GL_TEXTURE_2D, oldTexture->id);
-  } else {
-    lovrGraphicsBindTexture(texture);
+  if (transform) {
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
-    lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 1, 1);
+  }
+
+  lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
+  lovrGraphicsDrawPrimitive(GL_TRIANGLES, 1, 1, 1);
+
+  if (transform) {
     lovrGraphicsPop();
   }
 }
 
-void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float az) {
+void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az) {
   lovrGraphicsPush();
   lovrGraphicsOrigin();
   lovrGraphicsRotate(MATRIX_MODEL, angle, ax, ay, az);
@@ -803,7 +863,7 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
   int wasCulling = lovrGraphicsIsCullingEnabled();
   lovrGraphicsSetCullingEnabled(0);
 
-  if (skybox->type == SKYBOX_CUBE) {
+  if (texture->type == TEXTURE_CUBE) {
     float cube[] = {
       // Front
       1.f, -1.f, -1.f,
@@ -846,15 +906,19 @@ void lovrGraphicsSkybox(Skybox* skybox, float angle, float ax, float ay, float a
       1.f, 1.f, 1.f
     };
 
-    lovrGraphicsSetShapeData(cube, 78);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, skybox->texture);
+    lovrGraphicsSetStreamData(cube, 78);
     lovrGraphicsSetDefaultShader(SHADER_SKYBOX);
+    Material* material = lovrGraphicsGetMaterial();
+    Texture* lastTexture = lovrMaterialGetTexture(material, TEXTURE_ENVIRONMENT_MAP);
+    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, texture);
     lovrGraphicsDrawPrimitive(GL_TRIANGLE_STRIP, 0, 0, 0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-    glActiveTexture(GL_TEXTURE0);
-  } else if (skybox->type == SKYBOX_PANORAMA) {
-    lovrGraphicsSphere(NULL, NULL, 30, skybox);
+    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, lastTexture);
+  } else if (texture->type == TEXTURE_2D) {
+    Material* material = lovrGraphicsGetMaterial();
+    Texture* lastTexture = lovrMaterialGetTexture(material, TEXTURE_DIFFUSE);
+    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
+    lovrGraphicsSphere(NULL, 30);
+    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, lastTexture);
   }
 
   lovrGraphicsSetCullingEnabled(wasCulling);
@@ -872,68 +936,80 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
   lovrGraphicsScale(MATRIX_MODEL, scale, scale, scale);
   lovrGraphicsTranslate(MATRIX_MODEL, 0, offsety, 0);
-  lovrGraphicsBindTexture(font->texture);
   lovrGraphicsSetDefaultShader(SHADER_FONT);
+  Material* material = lovrGraphicsGetMaterial();
+  Texture* lastTexture = lovrMaterialGetTexture(material, TEXTURE_DIFFUSE);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, font->texture);
+  glDepthMask(GL_FALSE);
   lovrGraphicsDrawPrimitive(GL_TRIANGLES, 0, 1, 0);
+  glDepthMask(GL_TRUE);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, lastTexture);
   lovrGraphicsPop();
 }
 
 // Internal State
-void lovrGraphicsPushCanvas() {
-  if (++state.canvas >= MAX_CANVASES) {
-    lovrThrow("Canvas overflow");
+void lovrGraphicsPushView() {
+  if (++state.view >= MAX_VIEWS) {
+    lovrThrow("View overflow");
   }
 
-  memcpy(&state.canvases[state.canvas], &state.canvases[state.canvas - 1], sizeof(CanvasState));
+  memcpy(&state.views[state.view], &state.views[state.view - 1], sizeof(View));
 }
 
-void lovrGraphicsPopCanvas() {
-  if (--state.canvas < 0) {
-    lovrThrow("Canvas underflow");
+void lovrGraphicsPopView() {
+  if (--state.view < 0) {
+    lovrThrow("View underflow");
   }
 
-  int* viewport = state.canvases[state.canvas].viewport;
+  int* viewport = state.views[state.view].viewport;
   lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  lovrGraphicsBindFramebuffer(state.canvases[state.canvas].framebuffer);
+  lovrGraphicsBindFramebuffer(state.views[state.view].framebuffer);
 }
 
 mat4 lovrGraphicsGetProjection() {
-  return state.canvases[state.canvas].projection;
+  return state.views[state.view].projection;
 }
 
 void lovrGraphicsSetProjection(mat4 projection) {
-  memcpy(state.canvases[state.canvas].projection, projection, 16 * sizeof(float));
+  memcpy(state.views[state.view].projection, projection, 16 * sizeof(float));
 }
 
 void lovrGraphicsSetViewport(int x, int y, int w, int h) {
-  state.canvases[state.canvas].viewport[0] = x;
-  state.canvases[state.canvas].viewport[1] = y;
-  state.canvases[state.canvas].viewport[2] = w;
-  state.canvases[state.canvas].viewport[3] = h;
+  state.views[state.view].viewport[0] = x;
+  state.views[state.view].viewport[1] = y;
+  state.views[state.view].viewport[2] = w;
+  state.views[state.view].viewport[3] = h;
   glViewport(x, y, w, h);
 }
 
 void lovrGraphicsBindFramebuffer(int framebuffer) {
-  state.canvases[state.canvas].framebuffer = framebuffer;
+  state.views[state.view].framebuffer = framebuffer;
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 }
 
-Texture* lovrGraphicsGetTexture() {
-  return state.texture;
+Texture* lovrGraphicsGetTexture(int slot) {
+  return state.textures[slot];
 }
 
-void lovrGraphicsBindTexture(Texture* texture) {
+void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot) {
   if (!texture) {
     if (!state.defaultTexture) {
-      state.defaultTexture = lovrTextureCreate(lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA));
+      TextureData* textureData = lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA);
+      state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1);
     }
 
     texture = state.defaultTexture;
   }
 
-  if (texture != state.texture) {
-    state.texture = texture;
-    glBindTexture(GL_TEXTURE_2D, texture->id);
+  if (texture != state.textures[slot]) {
+    if (state.textures[slot]) {
+      lovrRelease(&state.textures[slot]->ref);
+    }
+
+    state.textures[slot] = texture;
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(type, texture->id);
+    lovrRetain(&texture->ref);
   }
 }
 

@@ -27,8 +27,9 @@ set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "")
 set(ASSIMP_NO_EXPORT ON OFF CACHE BOOL "")
 set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "")
 set(ASSIMP_BUILD_COLLADA_IMPORTER ON CACHE BOOL "")
-set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE BOOL "")
 set(ASSIMP_BUILD_FBX_IMPORTER ON CACHE BOOL "")
+set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE BOOL "")
+set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE BOOL "")
 if(EMSCRIPTEN)
   set(ZLIB_FOUND 1)
   set(ZLIB_LIBRARIES "-s USE_ZLIB=1")
@@ -197,11 +198,11 @@ set(PHYSFS_BUILD_WX_TEST FALSE CACHE BOOL "")
 if(EMSCRIPTEN)
   option(PHYSFS_ARCHIVE_ZIP OFF)
   add_subdirectory(deps/physfs physfs)
-  include_directories(deps/physfs)
+  include_directories(deps/physfs/src)
   set(LOVR_PHYSFS physfs)
 elseif(WIN32)
   add_subdirectory(deps/physfs physfs)
-  include_directories(deps/physfs)
+  include_directories(deps/physfs/src)
   set(LOVR_PHYSFS physfs)
 else()
   find_package(PhysFS REQUIRED)
@@ -224,12 +225,12 @@ set(LOVR_SRC
   src/api/types/controller.c
   src/api/types/font.c
   src/api/types/joints.c
+  src/api/types/material.c
   src/api/types/mesh.c
   src/api/types/model.c
   src/api/types/randomGenerator.c
   src/api/types/shader.c
   src/api/types/shapes.c
-  src/api/types/skybox.c
   src/api/types/source.c
   src/api/types/texture.c
   src/api/types/transform.c
@@ -238,13 +239,15 @@ set(LOVR_SRC
   src/audio/source.c
   src/event/event.c
   src/filesystem/blob.c
+  src/filesystem/file.c
   src/filesystem/filesystem.c
   src/graphics/font.c
   src/graphics/graphics.c
+  src/graphics/material.c
   src/graphics/mesh.c
   src/graphics/model.c
   src/graphics/shader.c
-  src/graphics/skybox.c
+  src/graphics/shaders.c
   src/graphics/texture.c
   src/headset/fake.c
   src/headset/headset.c
@@ -259,6 +262,7 @@ set(LOVR_SRC
   src/lib/stb/stb_vorbis.c
   src/lib/vec/vec.c
   src/loaders/font.c
+  src/loaders/material.c
   src/loaders/model.c
   src/loaders/source.c
   src/loaders/texture.c
@@ -306,6 +310,10 @@ target_link_libraries(lovr
 )
 
 if(WIN32)
+  set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
+  set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+  set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+
   function(move_dll ARG_TARGET)
     add_custom_command(TARGET lovr POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy

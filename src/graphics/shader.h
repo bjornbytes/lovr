@@ -1,3 +1,4 @@
+#include "graphics/texture.h"
 #include "math/math.h"
 #include "lib/map/map.h"
 #include "lib/glfw.h"
@@ -11,6 +12,20 @@
 #define LOVR_MAX_UNIFORM_LENGTH 256
 
 typedef enum {
+  UNIFORM_FLOAT,
+  UNIFORM_MATRIX,
+  UNIFORM_INT,
+  UNIFORM_SAMPLER
+} UniformType;
+
+typedef union {
+  void* data;
+  int* ints;
+  float* floats;
+  Texture** textures;
+} UniformValue;
+
+typedef enum {
   SHADER_DEFAULT,
   SHADER_SKYBOX,
   SHADER_FONT,
@@ -19,10 +34,16 @@ typedef enum {
 
 typedef struct {
   GLchar name[LOVR_MAX_UNIFORM_LENGTH];
+  GLenum glType;
   int index;
   int location;
-  GLenum type;
   int count;
+  int components;
+  size_t size;
+  UniformType type;
+  UniformValue value;
+  int baseTextureSlot;
+  int dirty;
 } Uniform;
 
 typedef map_t(Uniform) map_uniform_t;
@@ -40,15 +61,10 @@ typedef struct {
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
 Shader* lovrShaderCreateDefault(DefaultShader type);
 void lovrShaderDestroy(const Ref* ref);
-void lovrShaderBind(Shader* shader, mat4 model, mat4 view, mat4 projection, Color color, int force);
+void lovrShaderBind(Shader* shader);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
-int lovrShaderGetUniformId(Shader* shader, const char* name);
-int lovrShaderGetUniformType(Shader* shader, const char* name, GLenum* type, int* count);
-void lovrShaderSendInt(Shader* shader, int id, int value);
-void lovrShaderSendFloat(Shader* shader, int id, float value);
-void lovrShaderSendFloatVec2(Shader* shader, int id, int count, float* vector);
-void lovrShaderSendFloatVec3(Shader* shader, int id, int count,float* vector);
-void lovrShaderSendFloatVec4(Shader* shader, int id, int count, float* vector);
-void lovrShaderSendFloatMat2(Shader* shader, int id, float* matrix);
-void lovrShaderSendFloatMat3(Shader* shader, int id, float* matrix);
-void lovrShaderSendFloatMat4(Shader* shader, int id, float* matrix);
+Uniform* lovrShaderGetUniform(Shader* shader, const char* name);
+void lovrShaderSetFloat(Shader* shader, const char* name, float* data, int count);
+void lovrShaderSetInt(Shader* shader, const char* name, int* data, int count);
+void lovrShaderSetMatrix(Shader* shader, const char* name, float* data, int count);
+void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int count);

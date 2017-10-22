@@ -1,5 +1,6 @@
 #include "graphics/mesh.h"
 #include "graphics/graphics.h"
+#include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -43,7 +44,6 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
   Mesh* mesh = lovrAlloc(sizeof(Mesh), lovrMeshDestroy);
   if (!mesh) return NULL;
 
-  vec_init(&mesh->map);
   vec_init(&mesh->format);
 
   if (format) {
@@ -79,10 +79,12 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
   mesh->vao = 0;
   mesh->vbo = 0;
   mesh->ibo = 0;
+  mesh->indices = NULL;
+  mesh->indexCount = 0;
+  mesh->indexSize = count > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
   mesh->isRangeEnabled = 0;
   mesh->rangeStart = 0;
   mesh->rangeCount = mesh->count;
-  mesh->texture = NULL;
   mesh->lastShader = NULL;
 
   glGenBuffers(1, &mesh->vbo);
@@ -100,14 +102,11 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
 
 void lovrMeshDestroy(const Ref* ref) {
   Mesh* mesh = containerof(ref, Mesh);
-  if (mesh->texture) {
-    lovrRelease(&mesh->texture->ref);
-  }
   glDeleteBuffers(1, &mesh->vbo);
   glDeleteBuffers(1, &mesh->ibo);
   glDeleteVertexArrays(1, &mesh->vao);
-  vec_deinit(&mesh->map);
   vec_deinit(&mesh->format);
+  free(mesh->indices);
 #ifdef EMSCRIPTEN
   free(mesh->data);
 #endif
@@ -119,21 +118,28 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
     lovrMeshUnmap(mesh);
   }
 
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
-  lovrGraphicsBindTexture(mesh->texture);
+  if (transform) {
+    lovrGraphicsPush();
+    lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
+  }
+
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsPrepare();
   lovrGraphicsBindVertexArray(mesh->vao);
   lovrMeshBindAttributes(mesh);
   size_t start = mesh->rangeStart;
   size_t count = mesh->rangeCount;
-  if (mesh->map.length > 0) {
-    glDrawElements(mesh->drawMode, mesh->map.length, GL_UNSIGNED_INT, (GLvoid*) start);
+  if (mesh->indexCount > 0) {
+    count = mesh->isRangeEnabled ? mesh->rangeCount : mesh->indexCount;
+    GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+    glDrawElements(mesh->drawMode, count, indexType, (GLvoid*) (start * mesh->indexSize));
   } else {
     glDrawArrays(mesh->drawMode, start, count);
   }
-  lovrGraphicsPop();
+
+  if (transform) {
+    lovrGraphicsPop();
+  }
 }
 
 MeshFormat lovrMeshGetVertexFormat(Mesh* mesh) {
@@ -144,9 +150,8 @@ MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh) {
   return mesh->drawMode;
 }
 
-int lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode) {
+void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode) {
   mesh->drawMode = drawMode;
-  return 0;
 }
 
 int lovrMeshGetVertexCount(Mesh* mesh) {
@@ -157,21 +162,22 @@ int lovrMeshGetVertexSize(Mesh* mesh) {
   return mesh->stride;
 }
 
-unsigned int* lovrMeshGetVertexMap(Mesh* mesh, size_t* count) {
-  *count = mesh->map.length;
-  return mesh->map.data;
+void* lovrMeshGetVertexMap(Mesh* mesh, size_t* count) {
+  *count = mesh->indexCount;
+  return mesh->indices;
 }
 
-void lovrMeshSetVertexMap(Mesh* mesh, unsigned int* map, size_t count) {
-  if (count == 0 || !map) {
-    vec_clear(&mesh->map);
-  } else {
-    vec_clear(&mesh->map);
-    vec_pusharr(&mesh->map, map, count);
-    lovrGraphicsBindVertexArray(mesh->vao);
-    lovrGraphicsBindIndexBuffer(mesh->ibo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(unsigned int), mesh->map.data, GL_STATIC_DRAW);
+void lovrMeshSetVertexMap(Mesh* mesh, void* data, size_t count) {
+  if (!data || count == 0) {
+    mesh->indexCount = 0;
+    return;
   }
+
+  mesh->indices = data;
+  mesh->indexCount = count;
+  lovrGraphicsBindVertexArray(mesh->vao);
+  lovrGraphicsBindIndexBuffer(mesh->ibo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCount * mesh->indexSize, mesh->indices, GL_STATIC_DRAW);
 }
 
 int lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
@@ -223,32 +229,12 @@ void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count) {
   *count = mesh->rangeCount;
 }
 
-int lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
-  if (start < 0 || count < 0 || (size_t) start + count > mesh->count) {
-    return 1;
-  }
-
+void lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
+  size_t limit = mesh->indexCount > 0 ? mesh->indexCount : mesh->count;
+  int isValidRange = start >= 0 && count >= 0 && (size_t) start + count <= limit;
+  lovrAssert(isValidRange, "Invalid mesh draw range [%d, %d]", start + 1, start + count + 1);
   mesh->rangeStart = start;
   mesh->rangeCount = count;
-  return 0;
-}
-
-Texture* lovrMeshGetTexture(Mesh* mesh) {
-  return mesh->texture;
-}
-
-void lovrMeshSetTexture(Mesh* mesh, Texture* texture) {
-  if (mesh->texture != texture) {
-    if (mesh->texture) {
-      lovrRelease(&mesh->texture->ref);
-    }
-
-    mesh->texture = texture;
-
-    if (mesh->texture) {
-      lovrRetain(&mesh->texture->ref);
-    }
-  }
 }
 
 void* lovrMeshMap(Mesh* mesh, int start, size_t count, int read, int write) {

@@ -383,10 +383,6 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-static TextureData* fakeControllerNewTextureData(Controller* controller) {
-  return NULL;
-}
-
 
 static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
 //  float head[16], transform[16], projection[16];
@@ -491,7 +487,6 @@ HeadsetImpl lovrHeadsetFakeDriver = {
   fakeControllerIsTouched,
   fakeControllerVibrate,
   fakeControllerNewModelData,
-  fakeControllerNewTextureData,
   fakeRenderTo,
   fakeUpdate,
 };
