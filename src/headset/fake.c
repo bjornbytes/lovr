@@ -4,9 +4,6 @@
 #include "math/vec3.h"
 #include "math/quat.h"
 #include "util.h"
-//#include "graphics/texture.h"
-//#include "lib/glfw.h"
-//#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -18,10 +15,6 @@
 
 typedef struct {
   int isInitialized;
-//  int isRendering;
-//  int isMirrored;
-
-//  unsigned int headsetIndex;
   HeadsetType type;
 
   vec_controller_t controllers;
@@ -29,9 +22,6 @@ typedef struct {
   float clipNear;
   float clipFar;
   float FOV;
-
-//  uint32_t renderWidth;
-//  uint32_t renderHeight;
 
   float vel[3];
   float pos[3];
@@ -48,7 +38,7 @@ typedef struct {
   // keep track of currently hooked window, if any
   GLFWwindow* hookedWindow;
 
-  int mouselook;      //
+  int mouselook;
   double prevCursorX;
   double prevCursorY;
 
@@ -91,9 +81,7 @@ static void cursor_enter_callback( GLFWwindow *window, int entered) {
 
 
 static void window_focus_callback(GLFWwindow* window, int focused) {
-  if (focused) {
-    //enableMouselook(window);
-  } else {
+  if (!focused) {
     disableMouselook(window);
   }
 }
