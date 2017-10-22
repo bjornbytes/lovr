@@ -93,9 +93,6 @@ elseif(NOT EMSCRIPTEN)
   include_directories(${GLFW_INCLUDE_DIRS})
   set(LOVR_GLFW ${GLFW_LIBRARIES})
 endif()
-if(GLFW_VERSION VERSION_LESS "3.2")
-  message(FATAL_ERROR "GLFW 3.2 is required")
-endif()
 unset(LIB_SUFFIX CACHE)
 
 # Lua
