@@ -280,8 +280,11 @@ set(LOVR_SRC
   src/util.c
 )
 
+set(LOVR_USE_OCULUS OFF CACHE BOOL "")
 if(EMSCRIPTEN)
   set(LOVR_HEADSET src/headset/webvr.c)
+elseif(LOVR_USE_OCULUS)
+  set(LOVR_HEADSET src/headset/oculus.c)
 else()
   set(LOVR_HEADSET src/headset/openvr.c)
 endif()
@@ -295,6 +298,7 @@ endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_executable(lovr ${LOVR_SRC} ${LOVR_HEADSET})
+
 target_link_libraries(lovr
   ${LOVR_ASSIMP}
   ${LOVR_ENET}
@@ -310,6 +314,11 @@ target_link_libraries(lovr
 
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
+
+if (WIN32)
+  set_target_properties(lovr PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
+  set_target_properties(lovr PROPERTIES LINK_FLAGS "/ENTRY:mainCRTStartup")
+endif()
 
 if(WIN32)
   set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
