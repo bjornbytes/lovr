@@ -52,9 +52,11 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
     MeshAttribute position = { .name = "lovrPosition", .type = MESH_FLOAT, .count = 3 };
     MeshAttribute normal = { .name = "lovrNormal", .type = MESH_FLOAT, .count = 3 };
     MeshAttribute texCoord = { .name = "lovrTexCoord", .type = MESH_FLOAT, .count = 2 };
+    MeshAttribute vertexColor = { .name = "lovrVertexColor", .type = MESH_BYTE, .count = 4 };
     vec_push(&mesh->format, position);
     vec_push(&mesh->format, normal);
     vec_push(&mesh->format, texCoord);
+    vec_push(&mesh->format, vertexColor);
   }
 
   int stride = 0;
