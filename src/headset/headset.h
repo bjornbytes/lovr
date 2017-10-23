@@ -18,7 +18,8 @@ typedef enum {
 typedef enum {
   HEADSET_UNKNOWN,
   HEADSET_VIVE,
-  HEADSET_RIFT
+  HEADSET_RIFT,
+  HEADSET_FAKE
 } HeadsetType;
 
 typedef enum {
@@ -56,6 +57,48 @@ typedef struct {
 typedef vec_t(Controller*) vec_controller_t;
 typedef void (*headsetRenderCallback)(HeadsetEye eye, void* userdata);
 
+
+typedef struct  {
+    int (*isAvailable)();
+    void (*init)();
+    void (*destroy)();
+    void (*poll)();
+    int (*isPresent)();
+    HeadsetType (*getType)();
+    HeadsetOrigin (*getOriginType)();
+    int (*isMirrored)();
+    void (*setMirrored)(int mirror);
+    void (*getDisplayDimensions)(int* width, int* height);
+    void (*getClipDistance)(float* clipNear, float* clipFar);
+    void (*setClipDistance)(float clipNear, float clipFar);
+    float (*getBoundsWidth)();
+    float (*getBoundsDepth)();
+    void (*getBoundsGeometry)(float* geometry);
+    void (*getPosition)(float* x, float* y, float* z);
+    void (*getEyePosition)(HeadsetEye eye, float* x, float* y, float* z);
+    void (*getOrientation)(float* angle, float* x, float* y, float* z);
+    void (*getVelocity)(float* x, float* y, float* z);
+    void (*getAngularVelocity)(float* x, float* y, float* z);
+    vec_controller_t* (*getControllers)();
+    int (*controllerIsPresent)(Controller* controller);
+    ControllerHand (*controllerGetHand)(Controller* controller);
+    void (*controllerGetPosition)(Controller* controller, float* x, float* y, float* z);
+    void (*controllerGetOrientation)(Controller* controller, float* angle, float* x, float* y, float* z);
+    float (*controllerGetAxis)(Controller* controller, ControllerAxis axis);
+    int (*controllerIsDown)(Controller* controller, ControllerButton button);
+    int (*controllerIsTouched)(Controller* controller, ControllerButton button);
+    void (*controllerVibrate)(Controller* controller, float duration, float power);
+    ModelData* (*controllerNewModelData)(Controller* controller);
+    void (*renderTo)(headsetRenderCallback callback, void* userdata);
+    void (*update)(float dt);
+} HeadsetInterface;
+
+
+// headset implementations
+extern HeadsetInterface lovrHeadsetOpenVRDriver;
+extern HeadsetInterface lovrHeadsetFakeDriver;
+
+
 void lovrHeadsetInit();
 void lovrHeadsetDestroy();
 void lovrHeadsetPoll();
@@ -65,8 +108,8 @@ HeadsetOrigin lovrHeadsetGetOriginType();
 int lovrHeadsetIsMirrored();
 void lovrHeadsetSetMirrored(int mirror);
 void lovrHeadsetGetDisplayDimensions(int* width, int* height);
-void lovrHeadsetGetClipDistance(float* near, float* far);
-void lovrHeadsetSetClipDistance(float near, float far);
+void lovrHeadsetGetClipDistance(float* clipNear, float* clipFar);
+void lovrHeadsetSetClipDistance(float clipNear, float clipFar);
 float lovrHeadsetGetBoundsWidth();
 float lovrHeadsetGetBoundsDepth();
 void lovrHeadsetGetBoundsGeometry(float* geometry);
@@ -86,5 +129,7 @@ int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton butt
 void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power);
 ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
+void lovrHeadsetUpdate(float dt);
+
 
 void lovrControllerDestroy(const Ref* ref);

@@ -201,7 +201,7 @@ endif()
 if(NOT EMSCRIPTEN)
   set(BUILD_SHARED ON CACHE BOOL "")
   set(BUILD_UNIVERSAL OFF CACHE BOOL "")
-  include_directories(deps/openvr/headers)
+    include_directories(deps/openvr/headers)
   include_directories(deps/openvr/src)
   include_directories(deps/openvr/src/vrcommon)
   add_subdirectory(deps/openvr openvr_api)
@@ -251,6 +251,7 @@ set(LOVR_SRC
   src/graphics/shader.c
   src/graphics/shaders.c
   src/graphics/texture.c
+  src/headset/fake.c
   src/headset/headset.c
   src/lib/glad/glad.c
   src/lib/lua-cjson/fpconv.c
@@ -281,9 +282,9 @@ set(LOVR_SRC
 )
 
 if(EMSCRIPTEN)
-  set(LOVR_HEADSET src/headset/webvr.c)
+  set(LOVR_SRC ${LOVR_SRC} src/headset/webvr.c)
 else()
-  set(LOVR_HEADSET src/headset/openvr.c)
+  set(LOVR_SRC ${LOVR_SRC} src/headset/openvr.c)
 endif()
 
 if(WIN32)
@@ -294,7 +295,7 @@ if(WIN32)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-add_executable(lovr ${LOVR_SRC} ${LOVR_HEADSET})
+add_executable(lovr ${LOVR_SRC})
 target_link_libraries(lovr
   ${LOVR_ASSIMP}
   ${LOVR_ENET}

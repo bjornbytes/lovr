@@ -1047,3 +1047,8 @@ void lovrGraphicsBindIndexBuffer(uint32_t indexBuffer) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
   }
 }
+
+GLFWwindow* lovrGraphicsGetWindow() {
+  return state.window;
+}
+
