@@ -4,6 +4,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+static size_t getAttributeTypeSize(MeshAttributeType type) {
+  switch (type) {
+    case MESH_FLOAT:
+    case MESH_INT:
+      return 4;
+    case MESH_BYTE:
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 static void lovrMeshBindAttributes(Mesh* mesh) {
   Shader* shader = lovrGraphicsGetActiveShader();
   if (shader == mesh->lastShader && !mesh->attributesDirty) {
@@ -26,14 +38,14 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
         if (attribute.type == MESH_INT) {
           glVertexAttribIPointer(location, attribute.count, attribute.type, mesh->stride, (void*) offset);
         } else {
-          glVertexAttribPointer(location, attribute.count, attribute.type, GL_FALSE, mesh->stride, (void*) offset);
+          glVertexAttribPointer(location, attribute.count, attribute.type, GL_TRUE, mesh->stride, (void*) offset);
         }
       } else {
         glDisableVertexAttribArray(location);
       }
     }
 
-    offset += sizeof(attribute.type) * attribute.count;
+    offset += getAttributeTypeSize(attribute.type) * attribute.count;
   }
 
   mesh->lastShader = shader;
@@ -63,7 +75,7 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
   int i;
   MeshAttribute attribute;
   vec_foreach(&mesh->format, attribute, i) {
-    stride += attribute.count * sizeof(attribute.type);
+    stride += attribute.count * getAttributeTypeSize(attribute.type);
   }
 
   if (stride == 0) {

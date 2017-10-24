@@ -193,6 +193,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   modelData->indexCount = 0;
   modelData->hasNormals = 0;
   modelData->hasUVs = 0;
+  modelData->hasVertexColors = 0;
 
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
     struct aiMesh* assimpMesh = scene->mMeshes[m];
@@ -200,17 +201,29 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     modelData->indexCount += assimpMesh->mNumFaces * 3;
     modelData->hasNormals |= assimpMesh->mNormals != NULL;
     modelData->hasUVs |= assimpMesh->mTextureCoords[0] != NULL;
+    modelData->hasVertexColors |= assimpMesh->mColors[0] != NULL;
   }
 
   // Allocate
   int indexSize = modelData->vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
   modelData->primitiveCount = scene->mNumMeshes;
   modelData->primitives = malloc(modelData->primitiveCount * sizeof(ModelPrimitive));
-  modelData->vertexSize = 3 + (modelData->hasNormals ? 3 : 0) + (modelData->hasUVs ? 2 : 0);
-  modelData->vertices = malloc(modelData->vertexSize * modelData->vertexCount * sizeof(float));
+  modelData->stride = 3 * sizeof(float);
+  modelData->stride += (modelData->hasNormals ? 3 : 0) * sizeof(float);
+  modelData->stride += (modelData->hasUVs ? 2 : 0) * sizeof(float);
+  modelData->stride += (modelData->hasVertexColors ? 4 : 0) * sizeof(uint8_t);
+  modelData->vertices = malloc(modelData->stride * modelData->vertexCount);
   modelData->indices = malloc(modelData->indexCount * indexSize);
 
-  // Load
+  // Load vertices
+  union {
+    void* data;
+    float* floats;
+    uint8_t* bytes;
+  } vertices;
+
+  vertices.data = modelData->vertices;
+
   int vertex = 0;
   int index = 0;
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
@@ -229,43 +242,58 @@ ModelData* lovrModelDataCreate(Blob* blob) {
       if (indexSize == sizeof(uint16_t)) {
         uint16_t* indices = modelData->indices;
         for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
-          indices[index++] = (vertex / modelData->vertexSize) + assimpFace.mIndices[i];
+          indices[index++] = vertex + assimpFace.mIndices[i];
         }
       } else if (indexSize == sizeof(uint32_t)) {
         uint32_t* indices = modelData->indices;
         for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
-          indices[index++] = (vertex / modelData->vertexSize) + assimpFace.mIndices[i];
+          indices[index++] = vertex + assimpFace.mIndices[i];
         }
       }
     }
 
-    // Vertices
     for (unsigned int v = 0; v < assimpMesh->mNumVertices; v++) {
-      modelData->vertices[vertex++] = assimpMesh->mVertices[v].x;
-      modelData->vertices[vertex++] = assimpMesh->mVertices[v].y;
-      modelData->vertices[vertex++] = assimpMesh->mVertices[v].z;
+      *vertices.floats++ = assimpMesh->mVertices[v].x;
+      *vertices.floats++ = assimpMesh->mVertices[v].y;
+      *vertices.floats++ = assimpMesh->mVertices[v].z;
 
       if (modelData->hasNormals) {
         if (assimpMesh->mNormals) {
-          modelData->vertices[vertex++] = assimpMesh->mNormals[v].x;
-          modelData->vertices[vertex++] = assimpMesh->mNormals[v].y;
-          modelData->vertices[vertex++] = assimpMesh->mNormals[v].z;
+          *vertices.floats++ = assimpMesh->mNormals[v].x;
+          *vertices.floats++ = assimpMesh->mNormals[v].y;
+          *vertices.floats++ = assimpMesh->mNormals[v].z;
         } else {
-          modelData->vertices[vertex++] = 0;
-          modelData->vertices[vertex++] = 0;
-          modelData->vertices[vertex++] = 0;
+          *vertices.floats++ = 0;
+          *vertices.floats++ = 0;
+          *vertices.floats++ = 0;
         }
       }
 
       if (modelData->hasUVs) {
         if (assimpMesh->mTextureCoords[0]) {
-          modelData->vertices[vertex++] = assimpMesh->mTextureCoords[0][v].x;
-          modelData->vertices[vertex++] = assimpMesh->mTextureCoords[0][v].y;
+          *vertices.floats++ = assimpMesh->mTextureCoords[0][v].x;
+          *vertices.floats++ = assimpMesh->mTextureCoords[0][v].y;
         } else {
-          modelData->vertices[vertex++] = 0;
-          modelData->vertices[vertex++] = 0;
+          *vertices.floats++ = 0;
+          *vertices.floats++ = 0;
         }
       }
+
+      if (modelData->hasVertexColors) {
+        if (assimpMesh->mColors[0]) {
+          *vertices.bytes++ = assimpMesh->mColors[0][v].r * 255;
+          *vertices.bytes++ = assimpMesh->mColors[0][v].g * 255;
+          *vertices.bytes++ = assimpMesh->mColors[0][v].b * 255;
+          *vertices.bytes++ = assimpMesh->mColors[0][v].a * 255;
+        } else {
+          *vertices.bytes++ = 255;
+          *vertices.bytes++ = 255;
+          *vertices.bytes++ = 255;
+          *vertices.bytes++ = 255;
+        }
+      }
+
+      vertex++;
     }
   }
 

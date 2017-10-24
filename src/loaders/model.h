@@ -22,16 +22,17 @@ typedef struct {
   ModelNode* nodes;
   ModelPrimitive* primitives;
   MaterialData* materials;
-  float* vertices;
+  void* vertices;
   void* indices;
   int nodeCount;
   int primitiveCount;
   int materialCount;
   int vertexCount;
-  int vertexSize;
   int indexCount;
   int hasNormals;
   int hasUVs;
+  int hasVertexColors;
+  int stride;
 } ModelData;
 
 ModelData* lovrModelDataCreate(Blob* blob);

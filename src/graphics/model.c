@@ -53,9 +53,14 @@ Model* lovrModelCreate(ModelData* modelData) {
     vec_push(&format, attribute);
   }
 
+  if (modelData->hasVertexColors) {
+    MeshAttribute attribute = { .name = "lovrVertexColor", .type = MESH_BYTE, .count = 4 };
+    vec_push(&format, attribute);
+  }
+
   model->mesh = lovrMeshCreate(modelData->vertexCount, &format, MESH_TRIANGLES, MESH_STATIC);
   void* data = lovrMeshMap(model->mesh, 0, modelData->vertexCount, 0, 1);
-  memcpy(data, modelData->vertices, modelData->vertexCount * modelData->vertexSize * sizeof(float));
+  memcpy(data, modelData->vertices, modelData->vertexCount * modelData->stride);
   lovrMeshUnmap(model->mesh);
   lovrMeshSetVertexMap(model->mesh, modelData->indices, modelData->indexCount);
   lovrMeshSetRangeEnabled(model->mesh, 1);

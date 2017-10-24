@@ -21,7 +21,7 @@ typedef enum {
 
 typedef enum {
   MESH_FLOAT = GL_FLOAT,
-  MESH_BYTE = GL_BYTE,
+  MESH_BYTE = GL_UNSIGNED_BYTE,
   MESH_INT = GL_INT
 } MeshAttributeType;
 

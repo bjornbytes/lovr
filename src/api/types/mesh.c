@@ -91,12 +91,21 @@ int l_lovrMeshGetVertex(lua_State* L) {
     total += attribute.count;
     for (int j = 0; j < attribute.count; j++) {
       switch (attribute.type) {
-        case MESH_FLOAT: lua_pushnumber(L, *((float*) vertex)); break;
-        case MESH_BYTE: lua_pushnumber(L, *((unsigned char*) vertex)); break;
-        case MESH_INT: lua_pushnumber(L, *((int*) vertex)); break;
-      }
+        case MESH_FLOAT:
+          lua_pushnumber(L, *((float*) vertex));
+          vertex += sizeof(float);
+          break;
 
-      vertex += sizeof(attribute.type);
+        case MESH_BYTE:
+          lua_pushnumber(L, *((uint8_t*) vertex));
+          vertex += sizeof(uint8_t);
+          break;
+
+        case MESH_INT:
+          lua_pushnumber(L, *((int*) vertex));
+          vertex += sizeof(int);
+          break;
+      }
     }
   }
 
@@ -127,12 +136,21 @@ int l_lovrMeshSetVertex(lua_State* L) {
     MeshAttribute attribute = format.data[i];
     for (int j = 0; j < attribute.count; j++) {
       switch (attribute.type) {
-        case MESH_FLOAT: *((float*) vertex) = luaL_optnumber(L, arg++, 0.f); break;
-        case MESH_BYTE: *((unsigned char*) vertex) = luaL_optint(L, arg++, 255); break;
-        case MESH_INT: *((int*) vertex) = luaL_optint(L, arg++, 0); break;
-      }
+        case MESH_FLOAT:
+          *((float*) vertex) = luaL_optnumber(L, arg++, 0.f);
+          vertex += sizeof(float);
+          break;
 
-      vertex += sizeof(attribute.type);
+        case MESH_BYTE:
+          *((uint8_t*) vertex) = luaL_optint(L, arg++, 255);
+          vertex += sizeof(uint8_t);
+          break;
+
+        case MESH_INT:
+          *((int*) vertex) = luaL_optint(L, arg++, 0);
+          vertex += sizeof(int);
+          break;
+      }
     }
   }
 
@@ -160,13 +178,16 @@ int l_lovrMeshGetVertexAttribute(lua_State* L) {
       for (int j = 0; j < attribute.count; j++) {
         switch (attribute.type) {
           case MESH_FLOAT: lua_pushnumber(L, *((float*) vertex)); break;
-          case MESH_BYTE: lua_pushinteger(L, *((unsigned char*) vertex)); break;
+          case MESH_BYTE: lua_pushinteger(L, *((uint8_t*) vertex)); break;
           case MESH_INT: lua_pushinteger(L, *((int*) vertex)); break;
         }
-        vertex += sizeof(attribute.type);
       }
-    } else {
-      vertex += attribute.count * sizeof(attribute.type);
+    }
+
+    switch (attribute.type) {
+      case MESH_FLOAT: vertex += attribute.count * sizeof(float); break;
+      case MESH_BYTE: vertex += attribute.count * sizeof(uint8_t); break;
+      case MESH_INT: vertex += attribute.count * sizeof(int); break;
     }
   }
 
@@ -197,10 +218,13 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
           case MESH_BYTE: *((unsigned char*) vertex) = luaL_optint(L, arg++, 255); break;
           case MESH_INT: *((int*) vertex) = luaL_optint(L, arg++, 0); break;
         }
-        vertex += sizeof(attribute.type);
       }
-    } else {
-      vertex += attribute.count * sizeof(attribute.type);
+    }
+
+    switch (attribute.type) {
+      case MESH_FLOAT: vertex += attribute.count * sizeof(float); break;
+      case MESH_BYTE: vertex += attribute.count * sizeof(uint8_t); break;
+      case MESH_INT: vertex += attribute.count * sizeof(int); break;
     }
   }
 
@@ -230,11 +254,21 @@ int l_lovrMeshSetVertices(lua_State* L) {
       for (int k = 0; k < attribute.count; k++) {
         lua_rawgeti(L, -1, ++component);
         switch (attribute.type) {
-          case MESH_FLOAT: *((float*) vertex) = luaL_optnumber(L, -1, 0.f); break;
-          case MESH_BYTE: *((unsigned char*) vertex) = luaL_optint(L, -1, 255); break;
-          case MESH_INT: *((int*) vertex) = luaL_optint(L, -1, 0); break;
+          case MESH_FLOAT:
+            *((float*) vertex) = luaL_optnumber(L, -1, 0.f);
+            vertex += sizeof(float);
+            break;
+
+          case MESH_BYTE:
+            *((uint8_t*) vertex) = luaL_optint(L, -1, 255);
+            vertex += sizeof(uint8_t);
+            break;
+
+          case MESH_INT:
+            *((int*) vertex) = luaL_optint(L, -1, 0);
+            vertex += sizeof(int);
+            break;
         }
-        vertex += sizeof(attribute.type);
         lua_pop(L, 1);
       }
     }

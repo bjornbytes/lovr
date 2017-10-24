@@ -649,11 +649,21 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
         for (int k = 0; k < attribute.count; k++) {
           lua_rawgeti(L, -1, ++component);
           switch (attribute.type) {
-            case MESH_FLOAT: *((float*) vertex) = luaL_optnumber(L, -1, 0.f); break;
-            case MESH_BYTE: *((unsigned char*) vertex) = luaL_optint(L, -1, 255); break;
-            case MESH_INT: *((int*) vertex) = luaL_optint(L, -1, 0); break;
+            case MESH_FLOAT:
+              *((float*) vertex) = luaL_optnumber(L, -1, 0.f);
+              vertex += sizeof(float);
+              break;
+
+            case MESH_BYTE:
+              *((uint8_t*) vertex) = luaL_optint(L, -1, 255);
+              vertex += sizeof(uint8_t);
+              break;
+
+            case MESH_INT:
+              *((int*) vertex) = luaL_optint(L, -1, 0);
+              vertex += sizeof(int);
+              break;
           }
-          vertex += sizeof(attribute.type);
           lua_pop(L, 1);
         }
       }

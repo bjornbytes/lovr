@@ -668,25 +668,26 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   memcpy(modelData->indices, vrModel->rIndexData, modelData->indexCount * sizeof(unsigned int));
 
   modelData->vertexCount = vrModel->unVertexCount;
-  modelData->vertexSize = 8;
-  modelData->vertices = malloc(modelData->vertexCount * modelData->vertexSize * sizeof(float));
+  modelData->stride = 8 * sizeof(float);
+  modelData->vertices = malloc(modelData->vertexCount * modelData->stride);
 
+  float* vertices = modelData->vertices;
   int vertex = 0;
   for (size_t i = 0; i < vrModel->unVertexCount; i++) {
     float* position = vrModel->rVertexData[i].vPosition.v;
     float* normal = vrModel->rVertexData[i].vNormal.v;
     float* texCoords = vrModel->rVertexData[i].rfTextureCoord;
 
-    modelData->vertices[vertex++] = position[0];
-    modelData->vertices[vertex++] = position[1];
-    modelData->vertices[vertex++] = position[2];
+    vertices[vertex++] = position[0];
+    vertices[vertex++] = position[1];
+    vertices[vertex++] = position[2];
 
-    modelData->vertices[vertex++] = normal[0];
-    modelData->vertices[vertex++] = normal[1];
-    modelData->vertices[vertex++] = normal[2];
+    vertices[vertex++] = normal[0];
+    vertices[vertex++] = normal[1];
+    vertices[vertex++] = normal[2];
 
-    modelData->vertices[vertex++] = texCoords[0];
-    modelData->vertices[vertex++] = texCoords[1];
+    vertices[vertex++] = texCoords[0];
+    vertices[vertex++] = texCoords[1];
   }
 
   modelData->nodeCount = 1;
