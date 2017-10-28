@@ -118,11 +118,41 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
 
 }
 
+
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
+
+  // clicking in window grabs mouse
   if (!state.mouselook) {
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
       enableMouselook(window);
+    }
+  }
+
+  // now generate events on fake controllers
+  {
+    Event ev;
+    Controller* controller;
+    int i;
+    switch (action) {
+      case GLFW_PRESS:
+        ev.type = EVENT_CONTROLLER_PRESSED;
+        break;
+      case GLFW_RELEASE:
+        ev.type = EVENT_CONTROLLER_RELEASED;
+        break;
+      default:
+        return;
+    }
+
+    vec_foreach(&state.controllers, controller, i) {
+      if (controller->id == 0) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+          ev.data.controllerpressed.controller = controller;
+          ev.data.controllerpressed.button = CONTROLLER_BUTTON_TRIGGER;
+          lovrEventPush(ev);
+        }
+      }
     }
   }
 }
