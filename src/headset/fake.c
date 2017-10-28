@@ -271,8 +271,8 @@ static HeadsetType fakeGetType() {
 }
 
 static HeadsetOrigin fakeGetOriginType() {
-    return ORIGIN_HEAD; // seated
-    //return ORIGIN_FLOOR;  // standing
+    //return ORIGIN_HEAD; // seated
+    return ORIGIN_FLOOR;  // standing
 }
 
 static int fakeIsMirrored() {
@@ -366,7 +366,14 @@ static ControllerHand fakeControllerGetHand(Controller* controller) {
 
 static void fakeControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
   // for now, locked to headset
-  fakeGetPosition(x,y,z);
+  
+  float offset[3];
+  vec3_set(offset, 0, 0,-1.0f);
+
+  mat4_transform(state.transform, offset);
+  *x = offset[0];
+  *y = offset[1];
+  *z = offset[2];
 }
 
 static void fakeControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
