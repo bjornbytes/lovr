@@ -52,7 +52,7 @@ void lovrGraphicsReset() {
   float projection[16];
   state.transform = 0;
   state.view = 0;
-  state.defaultShader = -1;
+  state.defaultShader = SHADER_DEFAULT;
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 255 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor((Color) { 255, 255, 255, 255 });
