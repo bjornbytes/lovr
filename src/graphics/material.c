@@ -1,7 +1,7 @@
 #include "graphics/graphics.h"
 #include "graphics/material.h"
 
-Material* lovrMaterialCreate(MaterialData* materialData, int isDefault) {
+Material* lovrMaterialCreate(MaterialData* materialData, bool isDefault) {
   Material* material = lovrAlloc(sizeof(Material), lovrMaterialDestroy);
   if (!material) return NULL;
 

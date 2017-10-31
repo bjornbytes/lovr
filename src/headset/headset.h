@@ -2,6 +2,7 @@
 #include "loaders/texture.h"
 #include "lib/vec/vec.h"
 #include "util.h"
+#include <stdbool.h>
 
 #pragma once
 
@@ -59,15 +60,15 @@ typedef void (*headsetRenderCallback)(HeadsetEye eye, void* userdata);
 
 
 typedef struct  {
-    int (*isAvailable)();
+    bool (*isAvailable)();
     void (*init)();
     void (*destroy)();
     void (*poll)();
-    int (*isPresent)();
+    bool (*isPresent)();
     HeadsetType (*getType)();
     HeadsetOrigin (*getOriginType)();
-    int (*isMirrored)();
-    void (*setMirrored)(int mirror);
+    bool (*isMirrored)();
+    void (*setMirrored)(bool mirror);
     void (*getDisplayDimensions)(int* width, int* height);
     void (*getClipDistance)(float* clipNear, float* clipFar);
     void (*setClipDistance)(float clipNear, float clipFar);
@@ -80,13 +81,13 @@ typedef struct  {
     void (*getVelocity)(float* x, float* y, float* z);
     void (*getAngularVelocity)(float* x, float* y, float* z);
     vec_controller_t* (*getControllers)();
-    int (*controllerIsPresent)(Controller* controller);
+    bool (*controllerIsPresent)(Controller* controller);
     ControllerHand (*controllerGetHand)(Controller* controller);
     void (*controllerGetPosition)(Controller* controller, float* x, float* y, float* z);
     void (*controllerGetOrientation)(Controller* controller, float* angle, float* x, float* y, float* z);
     float (*controllerGetAxis)(Controller* controller, ControllerAxis axis);
-    int (*controllerIsDown)(Controller* controller, ControllerButton button);
-    int (*controllerIsTouched)(Controller* controller, ControllerButton button);
+    bool (*controllerIsDown)(Controller* controller, ControllerButton button);
+    bool (*controllerIsTouched)(Controller* controller, ControllerButton button);
     void (*controllerVibrate)(Controller* controller, float duration, float power);
     ModelData* (*controllerNewModelData)(Controller* controller);
     void (*renderTo)(headsetRenderCallback callback, void* userdata);
@@ -102,11 +103,11 @@ extern HeadsetInterface lovrHeadsetFakeDriver;
 void lovrHeadsetInit();
 void lovrHeadsetDestroy();
 void lovrHeadsetPoll();
-int lovrHeadsetIsPresent();
+bool lovrHeadsetIsPresent();
 HeadsetType lovrHeadsetGetType();
 HeadsetOrigin lovrHeadsetGetOriginType();
-int lovrHeadsetIsMirrored();
-void lovrHeadsetSetMirrored(int mirror);
+bool lovrHeadsetIsMirrored();
+void lovrHeadsetSetMirrored(bool mirror);
 void lovrHeadsetGetDisplayDimensions(int* width, int* height);
 void lovrHeadsetGetClipDistance(float* clipNear, float* clipFar);
 void lovrHeadsetSetClipDistance(float clipNear, float clipFar);
@@ -119,13 +120,13 @@ void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z);
 void lovrHeadsetGetVelocity(float* x, float* y, float* z);
 void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);
 vec_controller_t* lovrHeadsetGetControllers();
-int lovrHeadsetControllerIsPresent(Controller* controller);
+bool lovrHeadsetControllerIsPresent(Controller* controller);
 ControllerHand lovrHeadsetControllerGetHand(Controller* controller);
 void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z);
 void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z);
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
-int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
-int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button);
+bool lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
+bool lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power);
 ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);

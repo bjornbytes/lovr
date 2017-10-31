@@ -248,7 +248,7 @@ int l_lovrFilesystemLoad(lua_State* L) {
 int l_lovrFilesystemMount(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   const char* mountpoint = luaL_optstring(L, 2, NULL);
-  int append = lua_isnoneornil(L, 3) ? 0 : lua_toboolean(L, 3);
+  bool append = lua_isnoneornil(L, 3) ? 0 : lua_toboolean(L, 3);
   lua_pushboolean(L, !lovrFilesystemMount(path, mountpoint, append));
   return 1;
 }

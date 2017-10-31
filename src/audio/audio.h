@@ -3,6 +3,7 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <AL/alext.h>
+#include <stdbool.h>
 
 #pragma once
 
@@ -10,7 +11,7 @@ typedef struct {
   ALCdevice* device;
   ALCcontext* context;
   vec_void_t sources;
-  int isSpatialized;
+  bool isSpatialized;
   float orientation[4];
   float position[3];
   float velocity[4];
@@ -24,8 +25,8 @@ void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az);
 void lovrAudioGetPosition(float* x, float* y, float* z);
 void lovrAudioGetVelocity(float* x, float* y, float* z);
 float lovrAudioGetVolume();
-int lovrAudioHas(Source* source);
-int lovrAudioIsSpatialized();
+bool lovrAudioHas(Source* source);
+bool lovrAudioIsSpatialized();
 void lovrAudioPause();
 void lovrAudioResume();
 void lovrAudioRewind();

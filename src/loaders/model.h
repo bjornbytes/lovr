@@ -29,9 +29,9 @@ typedef struct {
   int materialCount;
   int vertexCount;
   int indexCount;
-  int hasNormals;
-  int hasUVs;
-  int hasVertexColors;
+  bool hasNormals;
+  bool hasUVs;
+  bool hasVertexColors;
   int stride;
 } ModelData;
 

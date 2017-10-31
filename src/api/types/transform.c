@@ -2,7 +2,7 @@
 #include "math/mat4.h"
 #include "math/transform.h"
 
-int luax_readtransform(lua_State* L, int index, mat4 m, int uniformScale) {
+int luax_readtransform(lua_State* L, int index, mat4 m, bool uniformScale) {
   if (lua_isnumber(L, index)) {
     float x = luaL_optnumber(L, index++, 0);
     float y = luaL_optnumber(L, index++, 0);

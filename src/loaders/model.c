@@ -191,9 +191,9 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   modelData->nodeCount = 0;
   modelData->vertexCount = 0;
   modelData->indexCount = 0;
-  modelData->hasNormals = 0;
-  modelData->hasUVs = 0;
-  modelData->hasVertexColors = 0;
+  modelData->hasNormals = false;
+  modelData->hasUVs = false;
+  modelData->hasVertexColors = false;
 
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
     struct aiMesh* assimpMesh = scene->mMeshes[m];

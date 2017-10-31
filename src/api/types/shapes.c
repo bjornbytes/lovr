@@ -37,7 +37,7 @@ int l_lovrShapeIsEnabled(lua_State* L) {
 
 int l_lovrShapeSetEnabled(lua_State* L) {
   Shape* shape = luax_checktypeof(L, 1, Shape);
-  int enabled = lua_toboolean(L, 2);
+  bool enabled = lua_toboolean(L, 2);
   lovrShapeSetEnabled(shape, enabled);
   return 0;
 }

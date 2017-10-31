@@ -115,7 +115,7 @@ Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProje
   }
 
   lovrAssert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "Error creating texture");
-  lovrGraphicsClear(1, 1);
+  lovrGraphicsClear(true, true);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   return texture;
 }
@@ -206,7 +206,7 @@ TextureFilter lovrTextureGetFilter(Texture* texture) {
 }
 
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
-  int hasMipmaps = texture->slices[0]->format.compressed || texture->slices[0]->mipmaps.generated;
+  bool hasMipmaps = texture->slices[0]->format.compressed || texture->slices[0]->mipmaps.generated;
   float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
   lovrGraphicsBindTexture(texture, texture->type, 0);
   texture->filter = filter;

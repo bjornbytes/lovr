@@ -37,7 +37,7 @@ int l_lovrPhysicsNewWorld(lua_State* L) {
   float xg = luaL_optnumber(L, 1, 0.f);
   float yg = luaL_optnumber(L, 2, -9.81);
   float zg = luaL_optnumber(L, 3, 0.f);
-  int allowSleep = lua_gettop(L) < 4 || lua_toboolean(L, 4);
+  bool allowSleep = lua_gettop(L) < 4 || lua_toboolean(L, 4);
   const char* tags[16];
   int tagCount;
   if (lua_type(L, 5) == LUA_TTABLE) {

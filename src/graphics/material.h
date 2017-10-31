@@ -1,6 +1,7 @@
 #include "util.h"
 #include "graphics/texture.h"
 #include "loaders/material.h"
+#include <stdbool.h>
 
 #pragma once
 
@@ -8,10 +9,10 @@ typedef struct {
   Ref ref;
   MaterialData* materialData;
   Texture* textures[MAX_MATERIAL_TEXTURES];
-  int isDefault;
+  bool isDefault;
 } Material;
 
-Material* lovrMaterialCreate(MaterialData* materialData, int isDefault);
+Material* lovrMaterialCreate(MaterialData* materialData, bool isDefault);
 void lovrMaterialDestroy(const Ref* ref);
 Color lovrMaterialGetColor(Material* material, MaterialColor colorType);
 void lovrMaterialSetColor(Material* material, MaterialColor colorType, Color color);

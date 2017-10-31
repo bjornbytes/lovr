@@ -9,6 +9,7 @@
 #include "loaders/texture.h"
 #include "filesystem/filesystem.h"
 #include <math.h>
+#include <stdbool.h>
 
 map_int_t BlendAlphaModes;
 map_int_t BlendModes;
@@ -38,7 +39,7 @@ static int luax_optmatrixtype(lua_State* L, int index, MatrixType* type) {
 }
 
 static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
-  int isTable = lua_istable(L, index);
+  bool isTable = lua_istable(L, index);
 
   if (!isTable && !lua_isnumber(L, index)) {
     luaL_error(L, "Expected number or table, got '%s'", lua_typename(L, lua_type(L, 1)));
@@ -171,8 +172,8 @@ int l_lovrGraphicsReset(lua_State* L) {
 }
 
 int l_lovrGraphicsClear(lua_State* L) {
-  int color = lua_gettop(L) < 1 || lua_toboolean(L, 1);
-  int depth = lua_gettop(L) < 2 || lua_toboolean(L, 2);
+  bool color = lua_gettop(L) < 1 || lua_toboolean(L, 1);
+  bool depth = lua_gettop(L) < 2 || lua_toboolean(L, 2);
   lovrGraphicsClear(color, depth);
   return 0;
 }
@@ -185,7 +186,7 @@ int l_lovrGraphicsPresent(lua_State* L) {
 int l_lovrGraphicsCreateWindow(lua_State* L) {
   int width = luaL_optnumber(L, 1, 800);
   int height = luaL_optnumber(L, 2, 600);
-  int fullscreen = !lua_isnoneornil(L, 3) && lua_toboolean(L, 3);
+  bool fullscreen = !lua_isnoneornil(L, 3) && lua_toboolean(L, 3);
   int msaa = luaL_optnumber(L, 4, 0);
   const char* title = luaL_optstring(L, 5, "LÖVR");
   const char* icon = luaL_optstring(L, 6, NULL);
@@ -506,7 +507,7 @@ int l_lovrGraphicsPlane(lua_State* L) {
   return 0;
 }
 
-static int luax_rectangularprism(lua_State* L, int uniformScale) {
+static int luax_rectangularprism(lua_State* L, bool uniformScale) {
   DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
   float transform[16];
   luax_readtransform(L, 2, transform, uniformScale);
@@ -515,11 +516,11 @@ static int luax_rectangularprism(lua_State* L, int uniformScale) {
 }
 
 int l_lovrGraphicsCube(lua_State* L) {
-  return luax_rectangularprism(L, 1);
+  return luax_rectangularprism(L, true);
 }
 
 int l_lovrGraphicsBox(lua_State* L) {
-  return luax_rectangularprism(L, 0);
+  return luax_rectangularprism(L, false);
 }
 
 int l_lovrGraphicsCylinder(lua_State* L) {
@@ -531,7 +532,7 @@ int l_lovrGraphicsCylinder(lua_State* L) {
   float z2 = luaL_checknumber(L, 6);
   float r1 = luaL_optnumber(L, 7, 1);
   float r2 = luaL_optnumber(L, 8, 1);
-  int capped = lua_isnoneornil(L, 9) ? 1 : lua_toboolean(L, 9);
+  bool capped = lua_isnoneornil(L, 9) ? true : lua_toboolean(L, 9);
   int segments = luaL_optnumber(L, 10, floorf(16 + 16 * MAX(r1, r2)));
   lovrGraphicsCylinder(x1, y1, z1, x2, y2, z2, r1, r2, capped, segments);
   return 0;
@@ -594,7 +595,7 @@ int l_lovrGraphicsNewFont(lua_State* L) {
 
 int l_lovrGraphicsNewMaterial(lua_State* L) {
   MaterialData* materialData = lovrMaterialDataCreateEmpty();
-  Material* material = lovrMaterialCreate(materialData, 0);
+  Material* material = lovrMaterialCreate(materialData, false);
   luax_pushtype(L, Material, material);
   return 1;
 }
@@ -635,7 +636,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   if (dataIndex) {
     int count = lua_objlen(L, dataIndex);
     MeshFormat format = lovrMeshGetVertexFormat(mesh);
-    char* vertex = lovrMeshMap(mesh, 0, count, 0, 1);
+    char* vertex = lovrMeshMap(mesh, 0, count, false, true);
 
     for (int i = 0; i < count; i++) {
       lua_rawgeti(L, dataIndex, i + 1);
@@ -723,7 +724,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     texture = lovrTextureCreateWithFramebuffer(textureData, *projection, msaa);
   } else {
     Blob* blobs[6];
-    int isTable = lua_istable(L, 1);
+    bool isTable = lua_istable(L, 1);
     int count = isTable ? lua_objlen(L, 1) : lua_gettop(L);
 
     if (count != 1 && count != 6) {

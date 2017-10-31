@@ -1,5 +1,6 @@
 #include "api/lovr.h"
 #include "physics/physics.h"
+#include <stdbool.h>
 
 static void collisionResolver(World* world, void* userdata) {
   lua_State* L = userdata;
@@ -197,7 +198,7 @@ int l_lovrWorldIsSleepingAllowed(lua_State* L) {
 
 int l_lovrWorldSetSleepingAllowed(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  int allowed = lua_toboolean(L, 2);
+  bool allowed = lua_toboolean(L, 2);
   lovrWorldSetSleepingAllowed(world, allowed);
   return 0;
 }

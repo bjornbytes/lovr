@@ -2,6 +2,7 @@
 #include "util.h"
 #include <AL/al.h>
 #include <AL/alc.h>
+#include <stdbool.h>
 
 #pragma once
 
@@ -17,7 +18,7 @@ typedef struct {
   SourceData* sourceData;
   ALuint id;
   ALuint buffers[SOURCE_BUFFERS];
-  int isLooping;
+  bool isLooping;
 } Source;
 
 Source* lovrSourceCreate(SourceData* sourceData);
@@ -34,11 +35,11 @@ void lovrSourceGetVelocity(Source* source, float* x, float* y, float* z);
 int lovrSourceGetSampleRate(Source* source);
 float lovrSourceGetVolume(Source* source);
 void lovrSourceGetVolumeLimits(Source* source, float* min, float* max);
-int lovrSourceIsLooping(Source* source);
-int lovrSourceIsPaused(Source* source);
-int lovrSourceIsPlaying(Source* source);
-int lovrSourceIsRelative(Source* source);
-int lovrSourceIsStopped(Source* source);
+bool lovrSourceIsLooping(Source* source);
+bool lovrSourceIsPaused(Source* source);
+bool lovrSourceIsPlaying(Source* source);
+bool lovrSourceIsRelative(Source* source);
+bool lovrSourceIsStopped(Source* source);
 void lovrSourcePause(Source* source);
 void lovrSourcePlay(Source* source);
 void lovrSourceResume(Source* source);
@@ -47,10 +48,10 @@ void lovrSourceSeek(Source* source, int sample);
 void lovrSourceSetCone(Source* source, float inner, float outer, float outerGain);
 void lovrSourceSetDirection(Source* source, float x, float y, float z);
 void lovrSourceSetFalloff(Source* source, float reference, float max, float rolloff);
-void lovrSourceSetLooping(Source* source, int isLooping);
+void lovrSourceSetLooping(Source* source, bool isLooping);
 void lovrSourceSetPitch(Source* source, float pitch);
 void lovrSourceSetPosition(Source* source, float x, float y, float z);
-void lovrSourceSetRelative(Source* source, int isRelative);
+void lovrSourceSetRelative(Source* source, bool isRelative);
 void lovrSourceSetVelocity(Source* source, float x, float y, float z);
 void lovrSourceSetVolume(Source* source, float volume);
 void lovrSourceSetVolumeLimits(Source* source, float min, float max);

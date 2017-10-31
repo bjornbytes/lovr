@@ -1,6 +1,7 @@
 #include "filesystem/blob.h"
 #include "lib/glfw.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 #pragma once
 
@@ -8,7 +9,7 @@ typedef struct {
   GLenum glInternalFormat;
   GLenum glFormat;
   int blockBytes;
-  int compressed;
+  bool compressed;
 } TextureFormat;
 
 extern const TextureFormat FORMAT_RGB, FORMAT_RGBA, FORMAT_DXT1, FORMAT_DXT3, FORMAT_DXT5;
@@ -29,7 +30,7 @@ typedef struct {
   void* data;
   union MipmapType {
     vec_mipmap_t list;
-    int generated;
+    bool generated;
   } mipmaps;
   Blob* blob;
 } TextureData;

@@ -6,7 +6,7 @@ Transform* lovrTransformCreate(mat4 transfrom) {
   Transform* transform = lovrAlloc(sizeof(Transform), lovrTransformDestroy);
   if (!transform) return NULL;
 
-  transform->isDirty = 1;
+  transform->isDirty = true;
 
   if (transfrom) {
     mat4_set(transform->matrix, transfrom);
@@ -27,13 +27,13 @@ void lovrTransformGetMatrix(Transform* transform, mat4 m) {
 }
 
 void lovrTransformSetMatrix(Transform* transform, mat4 m) {
-  transform->isDirty = 1;
+  transform->isDirty = true;
   mat4_set(transform->matrix, m);
 }
 
 mat4 lovrTransformInverse(Transform* transform) {
   if (transform->isDirty) {
-    transform->isDirty = 0;
+    transform->isDirty = false;
     mat4_invert(mat4_set(transform->inverse, transform->matrix));
   }
 
@@ -41,27 +41,27 @@ mat4 lovrTransformInverse(Transform* transform) {
 }
 
 void lovrTransformApply(Transform* transform, Transform* other) {
-  transform->isDirty = 1;
+  transform->isDirty = true;
   mat4_multiply(transform->matrix, other->matrix);
 }
 
 void lovrTransformOrigin(Transform* transform) {
-  transform->isDirty = 1;
+  transform->isDirty = true;
   mat4_identity(transform->matrix);
 }
 
 void lovrTransformTranslate(Transform* transform, float x, float y, float z) {
-  transform->isDirty = 1;
+  transform->isDirty = true;
   mat4_translate(transform->matrix, x, y, z);
 }
 
 void lovrTransformRotate(Transform* transform, float angle, float x, float y, float z) {
-  transform->isDirty = 1;
+  transform->isDirty = true;
   mat4_rotate(transform->matrix, angle, x, y, z);
 }
 
 void lovrTransformScale(Transform* transform, float x, float y, float z) {
-  transform->isDirty = 1;
+  transform->isDirty = true;
   mat4_scale(transform->matrix, x, y, z);
 }
 

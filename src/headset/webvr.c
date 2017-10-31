@@ -5,6 +5,7 @@
 #include <math/quat.h>
 #include <emscripten.h>
 #include <emscripten/vr.h>
+#include <stdbool.h>
 
 typedef struct {
   headsetRenderCallback renderCallback;
@@ -14,7 +15,7 @@ typedef struct {
 static HeadsetState state;
 
 static void onRequestAnimationFrame(void* userdata) {
-  lovrGraphicsClear(1, 1);
+  lovrGraphicsClear(true, true);
 
   int width = emscripten_vr_get_display_width();
   int height = emscripten_vr_get_display_height();
@@ -27,7 +28,7 @@ static void onRequestAnimationFrame(void* userdata) {
   mat4_invert(sittingToStanding);
 
   for (HeadsetEye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
-    int isRight = eye == EYE_RIGHT;
+    bool isRight = eye == EYE_RIGHT;
 
     mat4_set(projection, emscripten_vr_get_projection_matrix(isRight));
     mat4_set(transform, emscripten_vr_get_view_matrix(isRight));
@@ -48,7 +49,7 @@ static void onRequestAnimationFrame(void* userdata) {
   }
 }
 
-static int webvrIsAvailable() {
+static bool webvrIsAvailable() {
   return emscripten_vr_is_present();
 }
 
@@ -71,7 +72,7 @@ static void webvrPoll() {
   //
 }
 
-static int webvrIsPresent() {
+static bool webvrIsPresent() {
   return emscripten_vr_is_present();
 }
 
@@ -83,11 +84,11 @@ static HeadsetOrigin webvrGetOriginType() {
   return emscripten_vr_has_stage() ? ORIGIN_FLOOR : ORIGIN_HEAD;
 }
 
-static int webvrIsMirrored() {
-  return 1;
+static bool webvrIsMirrored() {
+  return true;
 }
 
-static void webvrSetMirrored(int mirror) {
+static void webvrSetMirrored(bool mirror) {
   //
 }
 
@@ -182,7 +183,7 @@ static vec_controller_t* webvrGetControllers() {
   return &state.controllers;
 }
 
-static int webvrControllerIsPresent(Controller* controller) {
+static bool webvrControllerIsPresent(Controller* controller) {
   return emscripten_vr_controller_is_present(controller->id);
 }
 
@@ -222,7 +223,7 @@ static float webvrControllerGetAxis(Controller* controller, ControllerAxis axis)
   }
 }
 
-static int webvrControllerIsDown(Controller* controller, ControllerButton button) {
+static bool webvrControllerIsDown(Controller* controller, ControllerButton button) {
   switch (button) {
     case CONTROLLER_BUTTON_TOUCHPAD:
       return emscripten_vr_controller_is_down(controller->id, 0);
@@ -237,8 +238,8 @@ static int webvrControllerIsDown(Controller* controller, ControllerButton button
   }
 }
 
-static int webvrControllerIsTouched(Controller* controller, ControllerButton button) {
-  return 0;
+static bool webvrControllerIsTouched(Controller* controller, ControllerButton button) {
+  return false;
 }
 
 static void webvrControllerVibrate(Controller* controller, float duration, float power) {

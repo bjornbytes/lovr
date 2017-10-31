@@ -44,7 +44,7 @@ void lovrAudioDestroy() {
 void lovrAudioUpdate() {
   int i; Source* source;
   vec_foreach_rev(&state.sources, source, i) {
-    int isStopped = lovrSourceIsStopped(source);
+    bool isStopped = lovrSourceIsStopped(source);
     ALint processed;
     alGetSourcei(source->id, AL_BUFFERS_PROCESSED, &processed);
 
@@ -91,13 +91,13 @@ float lovrAudioGetVolume() {
   return volume;
 }
 
-int lovrAudioHas(Source* source) {
+bool lovrAudioHas(Source* source) {
   int index;
   vec_find(&state.sources, source, index);
   return index >= 0;
 }
 
-int lovrAudioIsSpatialized() {
+bool lovrAudioIsSpatialized() {
   return state.isSpatialized;
 }
 

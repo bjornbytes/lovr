@@ -45,8 +45,8 @@ void lovrHeadsetPoll() {
   headset->poll();
 }
 
-int lovrHeadsetIsPresent() {
-  return headset ? headset->isPresent() : 0;
+bool lovrHeadsetIsPresent() {
+  return headset ? headset->isPresent() : false;
 }
 
 HeadsetType lovrHeadsetGetType() {
@@ -57,11 +57,11 @@ HeadsetOrigin lovrHeadsetGetOriginType() {
   return headset ? headset->getOriginType() : ORIGIN_HEAD;
 }
 
-int lovrHeadsetIsMirrored() {
-  return headset ? headset->isMirrored() : 0;
+bool lovrHeadsetIsMirrored() {
+  return headset ? headset->isMirrored() : false;
 }
 
-void lovrHeadsetSetMirrored(int mirror) {
+void lovrHeadsetSetMirrored(bool mirror) {
   if (headset) {
     headset->setMirrored(mirror);
   }
@@ -161,9 +161,9 @@ vec_controller_t* lovrHeadsetGetControllers() {
   return headset->getControllers();
 }
 
-int lovrHeadsetControllerIsPresent(Controller* controller) {
+bool lovrHeadsetControllerIsPresent(Controller* controller) {
   if (!headset || !controller) {
-    return 0;
+    return false;
   }
 
   return headset->controllerIsPresent(controller);
@@ -199,16 +199,16 @@ float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) 
   return headset->controllerGetAxis(controller, axis);
 }
 
-int lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
+bool lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
   if (!headset || !controller) {
-    return 0;
+    return false;
   }
 
   return headset->controllerIsDown(controller, button);
 }
 
-int lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
-  return (headset && controller) ? headset->controllerIsTouched(controller,button) : 0;
+bool lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
+  return (headset && controller) ? headset->controllerIsTouched(controller,button) : false;
 }
 
 void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {

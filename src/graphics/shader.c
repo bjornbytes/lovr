@@ -260,7 +260,7 @@ void lovrShaderBind(Shader* shader) {
       continue;
     }
 
-    uniform->dirty = 0;
+    uniform->dirty = false;
     int count = uniform->count;
     void* data = uniform->value.data;
 
@@ -327,7 +327,7 @@ static void lovrShaderSetUniform(Shader* shader, const char* name, UniformType t
   }
 
   memcpy(uniform->value.data, data, count * size);
-  uniform->dirty = 1;
+  uniform->dirty = true;
 }
 
 void lovrShaderSetFloat(Shader* shader, const char* name, float* data, int count) {

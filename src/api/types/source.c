@@ -1,5 +1,6 @@
 #include "api/lovr.h"
 #include "audio/audio.h"
+#include <stdbool.h>
 
 int l_lovrSourceGetBitDepth(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
@@ -211,7 +212,7 @@ int l_lovrSourceSetPosition(lua_State* L) {
 
 int l_lovrSourceSetRelative(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  int isRelative = lua_toboolean(L, 2);
+  bool isRelative = lua_toboolean(L, 2);
   lovrSourceSetRelative(source, isRelative);
   return 0;
 }

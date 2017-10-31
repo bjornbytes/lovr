@@ -4,6 +4,7 @@
 #include "graphics/texture.h"
 #include "math/math.h"
 #include "lib/glfw.h"
+#include <stdbool.h>
 
 #pragma once
 
@@ -55,7 +56,7 @@ typedef enum {
 } MatrixType;
 
 typedef struct {
-  int initialized;
+  bool initialized;
   float pointSizes[2];
   int textureSize;
   int textureMSAA;
@@ -81,7 +82,7 @@ typedef struct {
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
   Color color;
-  int culling;
+  bool culling;
   TextureFilter defaultFilter;
   CompareMode depthTest;
   Font* font;
@@ -91,7 +92,7 @@ typedef struct {
   float pointSize;
   Shader* shader;
   Winding winding;
-  int wireframe;
+  bool wireframe;
   uint32_t streamVAO;
   uint32_t streamVBO;
   uint32_t streamIBO;
@@ -110,10 +111,10 @@ typedef struct {
 void lovrGraphicsInit();
 void lovrGraphicsDestroy();
 void lovrGraphicsReset();
-void lovrGraphicsClear(int color, int depth);
+void lovrGraphicsClear(bool color, bool depth);
 void lovrGraphicsPresent();
 void lovrGraphicsPrepare();
-void lovrGraphicsCreateWindow(int w, int h, int fullscreen, int msaa, const char* title, const char* icon);
+void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
 
@@ -124,8 +125,8 @@ void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
 Color lovrGraphicsGetColor();
 void lovrGraphicsSetColor(Color color);
-int lovrGraphicsIsCullingEnabled();
-void lovrGraphicsSetCullingEnabled(int culling);
+bool lovrGraphicsIsCullingEnabled();
+void lovrGraphicsSetCullingEnabled(bool culling);
 TextureFilter lovrGraphicsGetDefaultFilter();
 void lovrGraphicsSetDefaultFilter(TextureFilter filter);
 CompareMode lovrGraphicsGetDepthTest();
@@ -143,8 +144,8 @@ Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
 Winding lovrGraphicsGetWinding();
 void lovrGraphicsSetWinding(Winding winding);
-int lovrGraphicsIsWireframe();
-void lovrGraphicsSetWireframe(int wireframe);
+bool lovrGraphicsIsWireframe();
+void lovrGraphicsSetWireframe(bool wireframe);
 
 // Transforms
 void lovrGraphicsPush();
@@ -162,7 +163,7 @@ void lovrGraphicsTriangle(DrawMode mode, float* points);
 void lovrGraphicsPlane(DrawMode mode, mat4 transform);
 void lovrGraphicsPlaneFullscreen(Texture* texture);
 void lovrGraphicsBox(DrawMode mode, mat4 transform);
-void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, int capped, int segments);
+void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments);
 void lovrGraphicsSphere(mat4 transform, int segments);
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
@@ -183,4 +184,3 @@ void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
 void lovrGraphicsBindIndexBuffer(uint32_t ibo);
 GLFWwindow* lovrGraphicsGetWindow();
-

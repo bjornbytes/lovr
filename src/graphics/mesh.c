@@ -49,7 +49,7 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
   }
 
   mesh->lastShader = shader;
-  mesh->attributesDirty = 0;
+  mesh->attributesDirty = false;
 }
 
 Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage) {
@@ -86,8 +86,8 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
   mesh->count = count;
   mesh->stride = stride;
   mesh->enabledAttributes = ~0;
-  mesh->attributesDirty = 1;
-  mesh->isMapped = 0;
+  mesh->attributesDirty = true;
+  mesh->isMapped = false;
   mesh->drawMode = drawMode;
   mesh->usage = usage;
   mesh->vao = 0;
@@ -96,7 +96,7 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
   mesh->indices = NULL;
   mesh->indexCount = 0;
   mesh->indexSize = count > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
-  mesh->isRangeEnabled = 0;
+  mesh->isRangeEnabled = false;
   mesh->rangeStart = 0;
   mesh->rangeCount = mesh->count;
   mesh->lastShader = NULL;
@@ -194,7 +194,7 @@ void lovrMeshSetVertexMap(Mesh* mesh, void* data, size_t count) {
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCount * mesh->indexSize, mesh->indices, GL_STATIC_DRAW);
 }
 
-int lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
+bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
   int i;
   MeshAttribute attribute;
 
@@ -204,10 +204,10 @@ int lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
     }
   }
 
-  return 0;
+  return false;
 }
 
-void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, int enable) {
+void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enable) {
   int i;
   MeshAttribute attribute;
 
@@ -216,16 +216,16 @@ void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, int enable) {
       int mask = 1 << i;
       if (enable && !(mesh->enabledAttributes & mask)) {
         mesh->enabledAttributes |= mask;
-        mesh->attributesDirty = 1;
+        mesh->attributesDirty = true;
       } else if (!enable && (mesh->enabledAttributes & mask)) {
         mesh->enabledAttributes &= ~(1 << i);
-        mesh->attributesDirty = 1;
+        mesh->attributesDirty = true;
       }
     }
   }
 }
 
-int lovrMeshIsRangeEnabled(Mesh* mesh) {
+bool lovrMeshIsRangeEnabled(Mesh* mesh) {
   return mesh->isRangeEnabled;
 }
 
@@ -245,15 +245,15 @@ void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count) {
 
 void lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
   size_t limit = mesh->indexCount > 0 ? mesh->indexCount : mesh->count;
-  int isValidRange = start >= 0 && count >= 0 && (size_t) start + count <= limit;
+  bool isValidRange = start >= 0 && count >= 0 && (size_t) start + count <= limit;
   lovrAssert(isValidRange, "Invalid mesh draw range [%d, %d]", start + 1, start + count + 1);
   mesh->rangeStart = start;
   mesh->rangeCount = count;
 }
 
-void* lovrMeshMap(Mesh* mesh, int start, size_t count, int read, int write) {
+void* lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool write) {
 #ifdef EMSCRIPTEN
-  mesh->isMapped = 1;
+  mesh->isMapped = true;
   mesh->mapStart = start;
   mesh->mapCount = count;
   return (char*) mesh->data + start * mesh->stride;
@@ -262,7 +262,7 @@ void* lovrMeshMap(Mesh* mesh, int start, size_t count, int read, int write) {
     lovrMeshUnmap(mesh);
   }
 
-  mesh->isMapped = 1;
+  mesh->isMapped = true;
   mesh->mapStart = start;
   mesh->mapCount = count;
   GLbitfield access = 0;
@@ -279,7 +279,7 @@ void lovrMeshUnmap(Mesh* mesh) {
     return;
   }
 
-  mesh->isMapped = 0;
+  mesh->isMapped = false;
   lovrGraphicsBindVertexBuffer(mesh->vbo);
 
 #ifdef EMSCRIPTEN

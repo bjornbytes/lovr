@@ -3,6 +3,7 @@
 #include "lib/map/map.h"
 #include "lib/glfw.h"
 #include "util.h"
+#include <stdbool.h>
 
 #pragma once
 
@@ -44,7 +45,7 @@ typedef struct {
   UniformType type;
   UniformValue value;
   int baseTextureSlot;
-  int dirty;
+  bool dirty;
 } Uniform;
 
 typedef map_t(Uniform) map_uniform_t;

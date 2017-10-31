@@ -57,7 +57,7 @@ int l_lovrAudioGetVolume(lua_State* L) {
 }
 
 int l_lovrAudioIsSpatialized(lua_State* L) {
-  lua_pushnumber(L, lovrAudioIsSpatialized());
+  lua_pushboolean(L, lovrAudioIsSpatialized());
   return 1;
 }
 

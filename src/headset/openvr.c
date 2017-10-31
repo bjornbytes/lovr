@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <openvr_capi.h>
 
 // From openvr_capi.h
@@ -27,9 +28,9 @@ static ControllerHand openvrControllerGetHand(Controller* controller);
 
 
 typedef struct {
-  int isInitialized;
-  int isRendering;
-  int isMirrored;
+  bool isInitialized;
+  bool isRendering;
+  bool isMirrored;
 
   struct VR_IVRSystem_FnTable* system;
   struct VR_IVRCompositor_FnTable* compositor;
@@ -59,11 +60,11 @@ typedef struct {
 static HeadsetState state;
 
 
-static int openvrIsAvailable() {
+static bool openvrIsAvailable() {
   if (VR_IsHmdPresent() && VR_IsRuntimeInstalled()) {
-    return 1;
+    return true;
   } else {
-    return 0;
+    return false;
   }
 }
 
@@ -146,9 +147,9 @@ static TrackedDevicePose_t getPose(unsigned int deviceIndex) {
 }
 
 static void openvrInit() {
-  state.isInitialized = 0;
-  state.isRendering = 0;
-  state.isMirrored = 1;
+  state.isInitialized = false;
+  state.isRendering = false;
+  state.isMirrored = true;
   state.texture = NULL;
   vec_init(&state.controllers);
 
@@ -222,7 +223,7 @@ static void openvrInit() {
 }
 
 static void openvrDestroy() {
-  state.isInitialized = 0;
+  state.isInitialized = false;
   if (state.texture) {
     lovrRelease(&state.texture->ref);
   }
@@ -254,7 +255,7 @@ static void openvrPoll() {
 
       case EVREventType_VREvent_ButtonPress:
       case EVREventType_VREvent_ButtonUnpress: {
-        int isPress = vrEvent.eventType == EVREventType_VREvent_ButtonPress;
+        bool isPress = vrEvent.eventType == EVREventType_VREvent_ButtonPress;
         Controller* controller;
         int i;
         vec_foreach(&state.controllers, controller, i) {
@@ -279,7 +280,7 @@ static void openvrPoll() {
 
       case EVREventType_VREvent_InputFocusCaptured:
       case EVREventType_VREvent_InputFocusReleased: {
-        int isFocused = vrEvent.eventType == EVREventType_VREvent_InputFocusReleased;
+        bool isFocused = vrEvent.eventType == EVREventType_VREvent_InputFocusReleased;
         EventData data = { .focus = { isFocused } };
         Event event = { .type = EVENT_FOCUS, .data = data };
         lovrEventPush(event);
@@ -289,7 +290,7 @@ static void openvrPoll() {
   }
 }
 
-static int openvrIsPresent() {
+static bool openvrIsPresent() {
   return state.isInitialized && state.system->IsTrackedDeviceConnected(state.headsetIndex);
 }
 
@@ -309,11 +310,11 @@ static HeadsetOrigin openvrGetOriginType() {
   }
 }
 
-static int openvrIsMirrored() {
+static bool openvrIsMirrored() {
   return state.isMirrored;
 }
 
-static void openvrSetMirrored(int mirror) {
+static void openvrSetMirrored(bool mirror) {
   state.isMirrored = mirror;
 }
 
@@ -531,8 +532,8 @@ static vec_controller_t* openvrGetControllers() {
   return &state.controllers;
 }
 
-static int openvrControllerIsPresent(Controller* controller) {
-  if (!state.isInitialized || !controller) return 0;
+static bool openvrControllerIsPresent(Controller* controller) {
+  if (!state.isInitialized || !controller) return false;
   return state.system->IsTrackedDeviceConnected(controller->id);
 }
 
@@ -608,8 +609,8 @@ static float openvrControllerGetAxis(Controller* controller, ControllerAxis axis
   return 0;
 }
 
-static int openvrControllerIsDown(Controller* controller, ControllerButton button) {
-  if (!state.isInitialized || !controller) return 0;
+static bool openvrControllerIsDown(Controller* controller, ControllerButton button) {
+  if (!state.isInitialized || !controller) return false;
 
   VRControllerState_t input;
   state.system->GetControllerState(controller->id, &input, sizeof(input));
@@ -617,8 +618,8 @@ static int openvrControllerIsDown(Controller* controller, ControllerButton butto
   return getButtonState(input.ulButtonPressed, button, hand);
 }
 
-static int openvrControllerIsTouched(Controller* controller, ControllerButton button) {
-  if (!state.isInitialized || !controller) return 0;
+static bool openvrControllerIsTouched(Controller* controller, ControllerButton button) {
+  if (!state.isInitialized || !controller) return false;
 
   VRControllerState_t input;
   state.system->GetControllerState(controller->id, &input, sizeof(input));
@@ -730,8 +731,8 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   modelData->materials[0] = *lovrMaterialDataCreateEmpty();
   modelData->materials[0].textures[TEXTURE_DIFFUSE] = textureData;
 
-  modelData->hasNormals = 1;
-  modelData->hasUVs = 1;
+  modelData->hasNormals = true;
+  modelData->hasUVs = true;
 
   return modelData;
 }
@@ -749,7 +750,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   float (*matrix)[4];
 
   lovrGraphicsPushView();
-  state.isRendering = 1;
+  state.isRendering = true;
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
 
   // Head transform
@@ -773,7 +774,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
     lovrGraphicsSetProjection(projection);
-    lovrGraphicsClear(1, 1);
+    lovrGraphicsClear(true, true);
     callback(eye, userdata);
     lovrGraphicsPop();
     lovrTextureResolveMSAA(state.texture);
@@ -793,7 +794,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     glBindTexture(GL_TEXTURE_2D, oldTexture->id);
   }
 
-  state.isRendering = 0;
+  state.isRendering = false;
   lovrGraphicsPopView();
 
   if (state.isMirrored) {
@@ -819,7 +820,6 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
 
 static void openvrUpdate(float dt) {
 }
-
 
 HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrIsAvailable,
@@ -855,4 +855,3 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrRenderTo,
   openvrUpdate,
 };
-

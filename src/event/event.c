@@ -31,13 +31,13 @@ void lovrEventPush(Event event) {
   vec_insert(&state.events, 0, event);
 }
 
-int lovrEventPoll(Event* event) {
+bool lovrEventPoll(Event* event) {
   if (state.events.length == 0) {
-    return 0;
+    return false;
   }
 
   *event = vec_pop(&state.events);
-  return 1;
+  return true;
 }
 
 void lovrEventClear() {

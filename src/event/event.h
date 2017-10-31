@@ -1,5 +1,6 @@
 #include "headset/headset.h"
 #include "lib/vec/vec.h"
+#include <stdbool.h>
 
 #pragma once
 
@@ -17,7 +18,7 @@ typedef struct {
 } QuitEvent;
 
 typedef struct {
-  int isFocused;
+  bool isFocused;
 } FocusEvent;
 
 typedef struct {
@@ -67,5 +68,5 @@ void lovrEventDestroy();
 void lovrEventAddPump(void (*pump)(void));
 void lovrEventPump();
 void lovrEventPush(Event event);
-int lovrEventPoll(Event* event);
+bool lovrEventPoll(Event* event);
 void lovrEventClear();

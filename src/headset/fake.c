@@ -9,13 +9,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-
+#include <stdbool.h>
 
 // implements a fake headset, with mouselook and keyboard-driven movement.
 // for use when a real headset isn't available.
 
 typedef struct {
-  int isInitialized;
+  bool isInitialized;
   HeadsetType type;
 
   vec_controller_t controllers;
@@ -39,7 +39,7 @@ typedef struct {
   // keep track of currently hooked window, if any
   GLFWwindow* hookedWindow;
 
-  int mouselook;
+  bool mouselook;
   double prevCursorX;
   double prevCursorY;
 
@@ -62,14 +62,14 @@ static void enableMouselook(GLFWwindow* window) {
     glfwGetCursorPos(window, &state.prevCursorX, &state.prevCursorY);
   }
   // track the intent for mouselook, even if no window yet. One might come along ;-)
-  state.mouselook = 1;
+  state.mouselook = true;
 }
 
 static void disableMouselook(GLFWwindow* window) {
   if(window) {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   }
-  state.mouselook = 0;
+  state.mouselook = false;
 }
 
 static void cursor_enter_callback( GLFWwindow *window, int entered) {
@@ -164,9 +164,9 @@ static void check_window_existance()
  */
 
 
-static int fakeIsAvailable()
+static bool fakeIsAvailable()
 {
-  return 1;
+  return true;
 }
 
 
@@ -194,9 +194,9 @@ static void fakeInit() {
 
   lovrEventAddPump(fakePoll);
 
-  state.mouselook = 1;
+  state.mouselook = true;
   state.hookedWindow = NULL;
-  state.isInitialized = 1;
+  state.isInitialized = true;
 
 }
 
@@ -204,7 +204,7 @@ static void fakeInit() {
 static void fakeDestroy() {
   int i;
   Controller *controller;
-  state.isInitialized = 0;
+  state.isInitialized = false;
 
   // TODO: unhook lovrEventAddPump ?
 
@@ -232,8 +232,8 @@ static void fakeDestroy() {
 static void fakePoll() {
 }
 
-static int fakeIsPresent() {
-    return 1;
+static bool fakeIsPresent() {
+    return true;
 }
 
 static HeadsetType fakeGetType() {
@@ -245,11 +245,11 @@ static HeadsetOrigin fakeGetOriginType() {
     //return ORIGIN_FLOOR;  // standing
 }
 
-static int fakeIsMirrored() {
-  return 0;
+static bool fakeIsMirrored() {
+  return false;
 }
 
-static void fakeSetMirrored(int mirror) {
+static void fakeSetMirrored(bool mirror) {
 }
 
 static void fakeGetDisplayDimensions(int* width, int* height) {
@@ -326,8 +326,8 @@ static vec_controller_t* fakeGetControllers() {
   return &state.controllers;
 }
 
-static int fakeControllerIsPresent(Controller* controller) {
-    return 1;
+static bool fakeControllerIsPresent(Controller* controller) {
+    return true;
 }
 
 static ControllerHand fakeControllerGetHand(Controller* controller) {
@@ -351,17 +351,17 @@ static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) 
   return 0.0f;
 }
 
-static int fakeControllerIsDown(Controller* controller, ControllerButton button) {
+static bool fakeControllerIsDown(Controller* controller, ControllerButton button) {
   GLFWwindow* window = lovrGraphicsGetWindow();
   if(!window) {
-    return 0;
+    return false;
   }
   int b = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT);
-  return (b == GLFW_PRESS) ? CONTROLLER_BUTTON_TRIGGER : 0;
+  return (b == GLFW_PRESS) ? CONTROLLER_BUTTON_TRIGGER : false;
 }
 
-static int fakeControllerIsTouched(Controller* controller, ControllerButton button) {
-  return 0;
+static bool fakeControllerIsTouched(Controller* controller, ControllerButton button) {
+  return false;
 }
 
 static void fakeControllerVibrate(Controller* controller, float duration, float power) {
@@ -398,7 +398,7 @@ static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
   lovrGraphicsMatrixTransform(MATRIX_VIEW, inv);
 
   lovrGraphicsSetProjection(state.projection);
-  lovrGraphicsClear(1, 1);
+  lovrGraphicsClear(true, true);
   callback(EYE_LEFT, userdata);
   lovrGraphicsPop();
 }
@@ -478,4 +478,3 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeRenderTo,
   fakeUpdate,
 };
-

@@ -7,7 +7,7 @@
 static void renderNode(Model* model, int nodeIndex) {
   ModelNode* node = &model->modelData->nodes[nodeIndex];
   Material* currentMaterial = lovrGraphicsGetMaterial();
-  int useMaterials = currentMaterial->isDefault;
+  bool useMaterials = currentMaterial->isDefault;
 
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(MATRIX_MODEL, node->transform);
@@ -59,15 +59,15 @@ Model* lovrModelCreate(ModelData* modelData) {
   }
 
   model->mesh = lovrMeshCreate(modelData->vertexCount, &format, MESH_TRIANGLES, MESH_STATIC);
-  void* data = lovrMeshMap(model->mesh, 0, modelData->vertexCount, 0, 1);
+  void* data = lovrMeshMap(model->mesh, 0, modelData->vertexCount, false, true);
   memcpy(data, modelData->vertices, modelData->vertexCount * modelData->stride);
   lovrMeshUnmap(model->mesh);
   lovrMeshSetVertexMap(model->mesh, modelData->indices, modelData->indexCount);
-  lovrMeshSetRangeEnabled(model->mesh, 1);
+  lovrMeshSetRangeEnabled(model->mesh, true);
 
   model->materials = malloc(modelData->materialCount * sizeof(Material*));
   for (int i = 0; i < modelData->materialCount; i++) {
-    model->materials[i] = lovrMaterialCreate(&modelData->materials[i], 0);
+    model->materials[i] = lovrMaterialCreate(&modelData->materials[i], false);
   }
 
   vec_deinit(&format);

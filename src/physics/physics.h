@@ -2,6 +2,7 @@
 #include "lib/vec/vec.h"
 #include "lib/map/map.h"
 #include <stdint.h>
+#include <stdbool.h>
 #include <ode/ode.h>
 
 #pragma once
@@ -82,7 +83,7 @@ typedef struct {
 void lovrPhysicsInit();
 void lovrPhysicsDestroy();
 
-World* lovrWorldCreate(float xg, float yg, float zg, int allowSleep, const char** tags, int tagCount);
+World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, int tagCount);
 void lovrWorldDestroy(const Ref* ref);
 void lovrWorldDestroyData(World* world);
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);
@@ -95,8 +96,8 @@ void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold);
 void lovrWorldSetLinearDamping(World* world, float damping, float threshold);
 void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold);
 void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
-int lovrWorldIsSleepingAllowed(World* world);
-void lovrWorldSetSleepingAllowed(World* world, int allowed);
+bool lovrWorldIsSleepingAllowed(World* world);
+void lovrWorldSetSleepingAllowed(World* world, bool allowed);
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata);
 const char* lovrWorldGetTagName(World* world, int tag);
 int lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
@@ -119,14 +120,14 @@ float lovrColliderGetFriction(Collider* collider);
 void lovrColliderSetFriction(Collider* collider, float friction);
 float lovrColliderGetRestitution(Collider* collider);
 void lovrColliderSetRestitution(Collider* collider, float restitution);
-int lovrColliderIsKinematic(Collider* collider);
-void lovrColliderSetKinematic(Collider* collider, int kinematic);
-int lovrColliderIsGravityIgnored(Collider* collider);
-void lovrColliderSetGravityIgnored(Collider* collider, int ignored);
-int lovrColliderIsSleepingAllowed(Collider* collider);
-void lovrColliderSetSleepingAllowed(Collider* collider, int allowed);
-int lovrColliderIsAwake(Collider* collider);
-void lovrColliderSetAwake(Collider* collider, int awake);
+bool lovrColliderIsKinematic(Collider* collider);
+void lovrColliderSetKinematic(Collider* collider, bool kinematic);
+bool lovrColliderIsGravityIgnored(Collider* collider);
+void lovrColliderSetGravityIgnored(Collider* collider, bool ignored);
+bool lovrColliderIsSleepingAllowed(Collider* collider);
+void lovrColliderSetSleepingAllowed(Collider* collider, bool allowed);
+bool lovrColliderIsAwake(Collider* collider);
+void lovrColliderSetAwake(Collider* collider, bool awake);
 float lovrColliderGetMass(Collider* collider);
 void lovrColliderSetMass(Collider* collider, float mass);
 void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
@@ -159,8 +160,8 @@ void lovrShapeDestroy(const Ref* ref);
 void lovrShapeDestroyData(Shape* shape);
 ShapeType lovrShapeGetType(Shape* shape);
 Collider* lovrShapeGetCollider(Shape* shape);
-int lovrShapeIsEnabled(Shape* shape);
-void lovrShapeSetEnabled(Shape* shape, int enabled);
+bool lovrShapeIsEnabled(Shape* shape);
+void lovrShapeSetEnabled(Shape* shape, bool enabled);
 void* lovrShapeGetUserData(Shape* shape);
 void lovrShapeSetUserData(Shape* shape, void* data);
 void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z);

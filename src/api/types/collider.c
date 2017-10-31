@@ -1,5 +1,6 @@
 #include "api/lovr.h"
 #include "physics/physics.h"
+#include <stdbool.h>
 
 int l_lovrColliderDestroy(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
@@ -82,7 +83,7 @@ int l_lovrColliderIsKinematic(lua_State* L) {
 
 int l_lovrColliderSetKinematic(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  int kinematic = lua_toboolean(L, 2);
+  bool kinematic = lua_toboolean(L, 2);
   lovrColliderSetKinematic(collider, kinematic);
   return 0;
 }
@@ -95,7 +96,7 @@ int l_lovrColliderIsGravityIgnored(lua_State* L) {
 
 int l_lovrColliderSetGravityIgnored(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  int ignored = lua_toboolean(L, 2);
+  bool ignored = lua_toboolean(L, 2);
   lovrColliderSetGravityIgnored(collider, ignored);
   return 0;
 }
@@ -108,7 +109,7 @@ int l_lovrColliderIsAwake(lua_State* L) {
 
 int l_lovrColliderSetAwake(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  int awake = lua_toboolean(L, 2);
+  bool awake = lua_toboolean(L, 2);
   lovrColliderSetAwake(collider, awake);
   return 0;
 }
@@ -121,7 +122,7 @@ int l_lovrColliderIsSleepingAllowed(lua_State* L) {
 
 int l_lovrColliderSetSleepingAllowed(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  int allowed = lua_toboolean(L, 2);
+  bool allowed = lua_toboolean(L, 2);
   lovrColliderSetSleepingAllowed(collider, allowed);
   return 0;
 }

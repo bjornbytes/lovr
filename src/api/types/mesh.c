@@ -82,7 +82,7 @@ int l_lovrMeshGetVertexCount(lua_State* L) {
 int l_lovrMeshGetVertex(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int index = luaL_checkint(L, 2) - 1;
-  char* vertex = lovrMeshMap(mesh, index, 1, 1, 0);
+  char* vertex = lovrMeshMap(mesh, index, 1, true, false);
   MeshFormat format = lovrMeshGetVertexFormat(mesh);
 
   int total = 0;
@@ -121,7 +121,7 @@ int l_lovrMeshSetVertex(lua_State* L) {
   }
 
   MeshFormat format = lovrMeshGetVertexFormat(mesh);
-  char* vertex = lovrMeshMap(mesh, index, 1, 0, 1);
+  char* vertex = lovrMeshMap(mesh, index, 1, false, true);
 
   // Unwrap table
   int arg = 3;
@@ -169,7 +169,7 @@ int l_lovrMeshGetVertexAttribute(lua_State* L) {
     return luaL_error(L, "Invalid mesh attribute index: %d", attributeIndex + 1);
   }
 
-  char* vertex = lovrMeshMap(mesh, vertexIndex, 1, 1, 0);
+  char* vertex = lovrMeshMap(mesh, vertexIndex, 1, true, false);
 
   MeshAttribute attribute;
   for (int i = 0; i <= attributeIndex; i++) {
@@ -206,7 +206,7 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
     return luaL_error(L, "Invalid mesh attribute index: %d", attributeIndex + 1);
   }
 
-  char* vertex = lovrMeshMap(mesh, vertexIndex, 1, 0, 1);
+  char* vertex = lovrMeshMap(mesh, vertexIndex, 1, false, true);
 
   int arg = 4;
   for (int i = 0; i <= attributeIndex; i++) {
@@ -243,7 +243,7 @@ int l_lovrMeshSetVertices(lua_State* L) {
     return luaL_error(L, "Mesh can only hold %d vertices", maxVertices);
   }
 
-  void* vertices = lovrMeshMap(mesh, start, vertexCount, 0, 1);
+  void* vertices = lovrMeshMap(mesh, start, vertexCount, false, true);
   char* vertex = vertices;
 
   for (int i = 0; i < vertexCount; i++) {
@@ -344,7 +344,7 @@ int l_lovrMeshIsAttributeEnabled(lua_State* L) {
 int l_lovrMeshSetAttributeEnabled(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   const char* attribute = luaL_checkstring(L, 2);
-  int enabled = lua_toboolean(L, 3);
+  bool enabled = lua_toboolean(L, 3);
   lovrMeshSetAttributeEnabled(mesh, attribute, enabled);
   return 0;
 }

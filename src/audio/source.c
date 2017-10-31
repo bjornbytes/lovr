@@ -32,7 +32,7 @@ Source* lovrSourceCreate(SourceData* sourceData) {
   if (!source) return NULL;
 
   source->sourceData = sourceData;
-  source->isLooping = 0;
+  source->isLooping = false;
   alGenSources(1, &source->id);
   alGenBuffers(SOURCE_BUFFERS, source->buffers);
 
@@ -118,25 +118,25 @@ void lovrSourceGetVolumeLimits(Source* source, float* min, float* max) {
   alGetSourcef(source->id, AL_MAX_GAIN, max);
 }
 
-int lovrSourceIsLooping(Source* source) {
+bool lovrSourceIsLooping(Source* source) {
   return source->isLooping;
 }
 
-int lovrSourceIsPaused(Source* source) {
+bool lovrSourceIsPaused(Source* source) {
   return lovrSourceGetState(source) == AL_PAUSED;
 }
 
-int lovrSourceIsPlaying(Source* source) {
+bool lovrSourceIsPlaying(Source* source) {
   return lovrSourceGetState(source) == AL_PLAYING;
 }
 
-int lovrSourceIsRelative(Source* source) {
+bool lovrSourceIsRelative(Source* source) {
   int isRelative;
   alGetSourcei(source->id, AL_SOURCE_RELATIVE, &isRelative);
   return isRelative == AL_TRUE;
 }
 
-int lovrSourceIsStopped(Source* source) {
+bool lovrSourceIsStopped(Source* source) {
   return lovrSourceGetState(source) == AL_STOPPED;
 }
 
@@ -169,7 +169,7 @@ void lovrSourceRewind(Source* source) {
     return;
   }
 
-  int wasPaused = lovrSourceIsPaused(source);
+  bool wasPaused = lovrSourceIsPaused(source);
   alSourceRewind(source->id);
   lovrSourceStop(source);
   lovrSourcePlay(source);
@@ -179,7 +179,7 @@ void lovrSourceRewind(Source* source) {
 }
 
 void lovrSourceSeek(Source* source, int sample) {
-  int wasPaused = lovrSourceIsPaused(source);
+  bool wasPaused = lovrSourceIsPaused(source);
   lovrSourceStop(source);
   lovrSourceDataSeek(source->sourceData, sample);
   lovrSourcePlay(source);
@@ -205,7 +205,7 @@ void lovrSourceSetFalloff(Source* source, float reference, float max, float roll
   alSourcef(source->id, AL_ROLLOFF_FACTOR, rolloff);
 }
 
-void lovrSourceSetLooping(Source* source, int isLooping) {
+void lovrSourceSetLooping(Source* source, bool isLooping) {
   source->isLooping = isLooping;
 }
 
@@ -218,7 +218,7 @@ void lovrSourceSetPosition(Source* source, float x, float y, float z) {
   alSource3f(source->id, AL_POSITION, x, y, z);
 }
 
-void lovrSourceSetRelative(Source* source, int isRelative) {
+void lovrSourceSetRelative(Source* source, bool isRelative) {
   alSourcei(source->id, AL_SOURCE_RELATIVE, isRelative ? AL_TRUE : AL_FALSE);
 }
 

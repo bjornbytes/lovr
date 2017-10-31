@@ -1,5 +1,6 @@
 #include "util.h"
 #include "math/math.h"
+#include <stdbool.h>
 
 #pragma once
 
@@ -7,7 +8,7 @@ typedef struct Transform {
   Ref ref;
   float matrix[16];
   float inverse[16];
-  int isDirty;
+  bool isDirty;
 } Transform;
 
 Transform* lovrTransformCreate(mat4 transfrom);

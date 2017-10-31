@@ -37,7 +37,7 @@ void lovrPhysicsDestroy() {
   dCloseODE();
 }
 
-World* lovrWorldCreate(float xg, float yg, float zg, int allowSleep, const char** tags, int tagCount) {
+World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, int tagCount) {
   World* world = lovrAlloc(sizeof(World), lovrWorldDestroy);
   if (!world) return NULL;
 
@@ -116,7 +116,7 @@ int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b) {
 
 int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution) {
   if (!a || !b) {
-    return 0;
+    return false;
   }
 
   Collider* colliderA = a->collider;
@@ -125,7 +125,7 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
   int tag2 = colliderB->tag;
 
   if (tag1 != NO_TAG && tag2 != NO_TAG && !((world->masks[tag1] & (1 << tag2)) && (world->masks[tag2] & (1 << tag1)))) {
-    return 0;
+    return false;
   }
 
   if (friction < 0) {
@@ -190,11 +190,11 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold) {
   dWorldSetAngularDampingThreshold(world->id, threshold);
 }
 
-int lovrWorldIsSleepingAllowed(World* world) {
+bool lovrWorldIsSleepingAllowed(World* world) {
   return dWorldGetAutoDisableFlag(world->id);
 }
 
-void lovrWorldSetSleepingAllowed(World* world, int allowed) {
+void lovrWorldSetSleepingAllowed(World* world, bool allowed) {
   dWorldSetAutoDisableFlag(world->id, allowed);
 }
 
@@ -386,11 +386,11 @@ void lovrColliderSetRestitution(Collider* collider, float restitution) {
   collider->restitution = restitution;
 }
 
-int lovrColliderIsKinematic(Collider* collider) {
+bool lovrColliderIsKinematic(Collider* collider) {
   return dBodyIsKinematic(collider->body);
 }
 
-void lovrColliderSetKinematic(Collider* collider, int kinematic) {
+void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
   if (kinematic) {
     dBodySetKinematic(collider->body);
   } else {
@@ -398,27 +398,27 @@ void lovrColliderSetKinematic(Collider* collider, int kinematic) {
   }
 }
 
-int lovrColliderIsGravityIgnored(Collider* collider) {
+bool lovrColliderIsGravityIgnored(Collider* collider) {
   return !dBodyGetGravityMode(collider->body);
 }
 
-void lovrColliderSetGravityIgnored(Collider* collider, int ignored) {
+void lovrColliderSetGravityIgnored(Collider* collider, bool ignored) {
   dBodySetGravityMode(collider->body, !ignored);
 }
 
-int lovrColliderIsSleepingAllowed(Collider* collider) {
+bool lovrColliderIsSleepingAllowed(Collider* collider) {
   return dBodyGetAutoDisableFlag(collider->body);
 }
 
-void lovrColliderSetSleepingAllowed(Collider* collider, int allowed) {
+void lovrColliderSetSleepingAllowed(Collider* collider, bool allowed) {
   dBodySetAutoDisableFlag(collider->body, allowed);
 }
 
-int lovrColliderIsAwake(Collider* collider) {
+bool lovrColliderIsAwake(Collider* collider) {
   return dBodyIsEnabled(collider->body);
 }
 
-void lovrColliderSetAwake(Collider* collider, int awake) {
+void lovrColliderSetAwake(Collider* collider, bool awake) {
   if (awake) {
     dBodyEnable(collider->body);
   } else {
@@ -643,11 +643,11 @@ Collider* lovrShapeGetCollider(Shape* shape) {
   return shape->collider;
 }
 
-int lovrShapeIsEnabled(Shape* shape) {
+bool lovrShapeIsEnabled(Shape* shape) {
   return dGeomIsEnabled(shape->id);
 }
 
-void lovrShapeSetEnabled(Shape* shape, int enabled) {
+void lovrShapeSetEnabled(Shape* shape, bool enabled) {
   if (enabled) {
     dGeomEnable(shape->id);
   } else {

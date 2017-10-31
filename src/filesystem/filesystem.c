@@ -27,12 +27,12 @@ void lovrFilesystemInit(const char* arg0, const char* arg1) {
 
   state.source = malloc(LOVR_PATH_MAX * sizeof(char));
   state.identity = NULL;
-  state.isFused = 1;
+  state.isFused = true;
 
   // Try to mount either an archive fused to the executable or an archive from the command line
   lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
   if (lovrFilesystemMount(state.source, NULL, 1)) {
-    state.isFused = 0;
+    state.isFused = false;
 
     if (arg1) {
       strncpy(state.source, arg1, LOVR_PATH_MAX);
@@ -159,21 +159,21 @@ const char* lovrFilesystemGetUserDirectory() {
 #endif
 }
 
-int lovrFilesystemIsDirectory(const char* path) {
+bool lovrFilesystemIsDirectory(const char* path) {
   PHYSFS_Stat stat;
-  return PHYSFS_stat(path, &stat) ? stat.filetype == PHYSFS_FILETYPE_DIRECTORY : 0;
+  return PHYSFS_stat(path, &stat) ? stat.filetype == PHYSFS_FILETYPE_DIRECTORY : false;
 }
 
-int lovrFilesystemIsFile(const char* path) {
+bool lovrFilesystemIsFile(const char* path) {
   PHYSFS_Stat stat;
-  return PHYSFS_stat(path, &stat) ? stat.filetype == PHYSFS_FILETYPE_REGULAR : 0;
+  return PHYSFS_stat(path, &stat) ? stat.filetype == PHYSFS_FILETYPE_REGULAR : false;
 }
 
-int lovrFilesystemIsFused() {
+bool lovrFilesystemIsFused() {
   return state.isFused;
 }
 
-int lovrFilesystemMount(const char* path, const char* mountpoint, int append) {
+int lovrFilesystemMount(const char* path, const char* mountpoint, bool append) {
   return !PHYSFS_mount(path, mountpoint, append);
 }
 
@@ -254,7 +254,7 @@ int lovrFilesystemUnmount(const char* path) {
   return !PHYSFS_unmount(path);
 }
 
-size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, int append) {
+size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append) {
   File* file = lovrFileCreate(path);
   if (!file) {
     return 0;

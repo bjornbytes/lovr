@@ -3,40 +3,41 @@
 #include "lib/dds.h"
 #include "lib/stb/stb_image.h"
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 
 const TextureFormat FORMAT_RGB = {
   .glInternalFormat = GL_RGB,
   .glFormat = GL_RGB,
-  .compressed = 0,
+  .compressed = false,
   .blockBytes = 3
 };
 
 const TextureFormat FORMAT_RGBA = {
   .glInternalFormat = GL_RGBA,
   .glFormat = GL_RGBA,
-  .compressed = 0,
+  .compressed = false,
   .blockBytes = 4
 };
 
 const TextureFormat FORMAT_DXT1 = {
   .glInternalFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
   .glFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
-  .compressed = 1,
+  .compressed = true,
   .blockBytes = 8
 };
 
 const TextureFormat FORMAT_DXT3 = {
   .glInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
   .glFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
-  .compressed = 1,
+  .compressed = true,
   .blockBytes = 16
 };
 
 const TextureFormat FORMAT_DXT5 = {
   .glInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
   .glFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-  .compressed = 1,
+  .compressed = true,
   .blockBytes = 16
 };
 
@@ -148,7 +149,7 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, Textu
   textureData->height = height;
   textureData->format = format;
   textureData->data = memset(malloc(size), value, size);
-  textureData->mipmaps.generated = 0;
+  textureData->mipmaps.generated = false;
   textureData->blob = NULL;
   return textureData;
 }
@@ -161,7 +162,7 @@ TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format
   textureData->height = height;
   textureData->format = format;
   textureData->data = NULL;
-  textureData->mipmaps.generated = 0;
+  textureData->mipmaps.generated = false;
   textureData->blob = NULL;
   return textureData;
 }
@@ -179,7 +180,7 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
   stbi_set_flip_vertically_on_load(0);
   textureData->format = FORMAT_RGBA;
   textureData->data = stbi_load_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
-  textureData->mipmaps.generated = 1;
+  textureData->mipmaps.generated = true;
   textureData->blob = NULL;
 
   if (!textureData->data) {

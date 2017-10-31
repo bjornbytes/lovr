@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 
 #pragma once
 
@@ -11,7 +12,7 @@ typedef struct {
   const char* identity;
   char* savePathRelative;
   char* savePathFull;
-  int isFused;
+  bool isFused;
 } FilesystemState;
 
 void lovrFilesystemInit(const char* arg0, const char* arg1);
@@ -27,13 +28,13 @@ const char* lovrFilesystemGetSaveDirectory();
 size_t lovrFilesystemGetSize(const char* path);
 const char* lovrFilesystemGetSource();
 const char* lovrFilesystemGetUserDirectory();
-int lovrFilesystemIsDirectory(const char* path);
-int lovrFilesystemIsFile(const char* path);
-int lovrFilesystemIsFused();
-int lovrFilesystemMount(const char* path, const char* mountpoint, int append);
+bool lovrFilesystemIsDirectory(const char* path);
+bool lovrFilesystemIsFile(const char* path);
+bool lovrFilesystemIsFused();
+int lovrFilesystemMount(const char* path, const char* mountpoint, bool append);
 void* lovrFilesystemRead(const char* path, size_t* bytesRead);
 int lovrFilesystemRemove(const char* path);
 int lovrFilesystemSetIdentity(const char* identity);
 int lovrFilesystemSetSource(const char* source);
 int lovrFilesystemUnmount(const char* path);
-size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, int append);
+size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append);
