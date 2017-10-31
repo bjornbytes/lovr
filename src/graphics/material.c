@@ -42,5 +42,15 @@ Texture* lovrMaterialGetTexture(Material* material, MaterialTexture textureType)
 }
 
 void lovrMaterialSetTexture(Material* material, MaterialTexture textureType, Texture* texture) {
-  material->textures[textureType] = texture;
+  if (texture != material->textures[textureType]) {
+    if (material->textures[textureType]) {
+      lovrRelease(&material->textures[textureType]->ref);
+    }
+
+    material->textures[textureType] = texture;
+
+    if (texture) {
+      lovrRetain(&texture->ref);
+    }
+  }
 }
