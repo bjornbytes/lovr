@@ -48,7 +48,7 @@ typedef struct {
   vec_bone_t bones;
   map_int_t boneMap;
   AnimationData** animations;
-  MaterialData* materials;
+  MaterialData** materials;
   ModelVertices vertices;
   ModelIndices indices;
   int nodeCount;

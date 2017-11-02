@@ -728,8 +728,8 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   textureData->mipmaps.generated = 1;
   textureData->blob = NULL;
 
-  modelData->materials[0] = *lovrMaterialDataCreateEmpty();
-  modelData->materials[0].textures[TEXTURE_DIFFUSE] = textureData;
+  modelData->materials[0] = lovrMaterialDataCreateEmpty();
+  modelData->materials[0]->textures[TEXTURE_DIFFUSE] = textureData;
 
   modelData->hasNormals = true;
   modelData->hasUVs = true;

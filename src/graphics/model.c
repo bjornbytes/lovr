@@ -68,7 +68,7 @@ Model* lovrModelCreate(ModelData* modelData) {
 
   model->materials = malloc(modelData->materialCount * sizeof(Material*));
   for (int i = 0; i < modelData->materialCount; i++) {
-    model->materials[i] = lovrMaterialCreate(&modelData->materials[i], false);
+    model->materials[i] = lovrMaterialCreate(modelData->materials[i], false);
   }
 
   vec_deinit(&format);

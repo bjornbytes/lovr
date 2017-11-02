@@ -368,7 +368,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
       }
     }
 
-    modelData->materials[m] = *materialData;
+    modelData->materials[m] = materialData;
   }
 
   // Nodes
@@ -444,7 +444,7 @@ void lovrModelDataDestroy(ModelData* modelData) {
   }
 
   for (int i = 0; i < modelData->materialCount; i++) {
-    lovrMaterialDataDestroy(&modelData->materials[i]);
+    lovrMaterialDataDestroy(modelData->materials[i]);
   }
 
   free(modelData->nodes);
