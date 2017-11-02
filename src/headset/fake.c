@@ -118,11 +118,41 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
 
 }
 
+
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
+
+  // clicking in window grabs mouse
   if (!state.mouselook) {
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
       enableMouselook(window);
+    }
+  }
+
+  // now generate events on fake controllers
+  {
+    Event ev;
+    Controller* controller;
+    int i;
+    switch (action) {
+      case GLFW_PRESS:
+        ev.type = EVENT_CONTROLLER_PRESSED;
+        break;
+      case GLFW_RELEASE:
+        ev.type = EVENT_CONTROLLER_RELEASED;
+        break;
+      default:
+        return;
+    }
+
+    vec_foreach(&state.controllers, controller, i) {
+      if (controller->id == 0) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+          ev.data.controllerpressed.controller = controller;
+          ev.data.controllerpressed.button = CONTROLLER_BUTTON_TRIGGER;
+          lovrEventPush(ev);
+        }
+      }
     }
   }
 }
@@ -241,8 +271,8 @@ static HeadsetType fakeGetType() {
 }
 
 static HeadsetOrigin fakeGetOriginType() {
-    return ORIGIN_HEAD; // seated
-    //return ORIGIN_FLOOR;  // standing
+    //return ORIGIN_HEAD; // seated
+    return ORIGIN_FLOOR;  // standing
 }
 
 static bool fakeIsMirrored() {
@@ -336,7 +366,14 @@ static ControllerHand fakeControllerGetHand(Controller* controller) {
 
 static void fakeControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
   // for now, locked to headset
-  fakeGetPosition(x,y,z);
+  
+  float offset[3];
+  vec3_set(offset, 0, 0,-1.0f);
+
+  mat4_transform(state.transform, offset);
+  *x = offset[0];
+  *y = offset[1];
+  *z = offset[2];
 }
 
 static void fakeControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
