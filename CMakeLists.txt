@@ -261,6 +261,7 @@ set(LOVR_SRC
   src/lib/stb/stb_image.c
   src/lib/stb/stb_vorbis.c
   src/lib/vec/vec.c
+  src/loaders/animation.c
   src/loaders/font.c
   src/loaders/material.c
   src/loaders/model.c
