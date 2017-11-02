@@ -5,6 +5,7 @@
 #include "math/math.h"
 #include "lib/glfw.h"
 #include "util.h"
+#include <stdbool.h>
 
 #pragma once
 
@@ -13,9 +14,12 @@ typedef struct {
   ModelData* modelData;
   Mesh* mesh;
   Material** materials;
+  float aabb[6];
+  bool aabbDirty;
 } Model;
 
 Model* lovrModelCreate(ModelData* modelData);
 void lovrModelDestroy(const Ref* ref);
 void lovrModelDraw(Model* model, mat4 transform);
 Mesh* lovrModelGetMesh(Model* model);
+const float* lovrModelGetAABB(Model* model);

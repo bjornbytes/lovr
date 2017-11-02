@@ -3,6 +3,7 @@
 #include "filesystem/file.h"
 #include "math/math.h"
 #include "math/mat4.h"
+#include "math/vec3.h"
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -205,25 +206,19 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   }
 
   // Allocate
-  int indexSize = modelData->vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
   modelData->primitiveCount = scene->mNumMeshes;
   modelData->primitives = malloc(modelData->primitiveCount * sizeof(ModelPrimitive));
+  modelData->indexSize = modelData->vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
   modelData->stride = 3 * sizeof(float);
   modelData->stride += (modelData->hasNormals ? 3 : 0) * sizeof(float);
   modelData->stride += (modelData->hasUVs ? 2 : 0) * sizeof(float);
   modelData->stride += (modelData->hasVertexColors ? 4 : 0) * sizeof(uint8_t);
-  modelData->vertices = malloc(modelData->stride * modelData->vertexCount);
-  modelData->indices = malloc(modelData->indexCount * indexSize);
+  modelData->vertices.data = malloc(modelData->stride * modelData->vertexCount);
+  modelData->indices.data = malloc(modelData->indexCount * modelData->indexSize);
 
   // Load vertices
-  union {
-    void* data;
-    float* floats;
-    uint8_t* bytes;
-  } vertices;
-
-  vertices.data = modelData->vertices;
-
+  ModelVertices vertices = modelData->vertices;
+  ModelIndices indices = modelData->indices;
   int vertex = 0;
   int index = 0;
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
@@ -239,15 +234,13 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
       modelData->primitives[m].drawCount += assimpFace.mNumIndices;
 
-      if (indexSize == sizeof(uint16_t)) {
-        uint16_t* indices = modelData->indices;
+      if (modelData->indexSize == sizeof(uint16_t)) {
         for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
-          indices[index++] = vertex + assimpFace.mIndices[i];
+          indices.shorts[index++] = vertex + assimpFace.mIndices[i];
         }
-      } else if (indexSize == sizeof(uint32_t)) {
-        uint32_t* indices = modelData->indices;
+      } else {
         for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
-          indices[index++] = vertex + assimpFace.mIndices[i];
+          indices.ints[index++] = vertex + assimpFace.mIndices[i];
         }
       }
     }
@@ -354,7 +347,41 @@ void lovrModelDataDestroy(ModelData* modelData) {
   free(modelData->nodes);
   free(modelData->primitives);
   free(modelData->materials);
-  free(modelData->vertices);
-  free(modelData->indices);
+  free(modelData->vertices.data);
+  free(modelData->indices.data);
   free(modelData);
+}
+
+static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6], float* transform) {
+  mat4_multiply(transform, node->transform);
+
+  for (int i = 0; i < node->primitives.length; i++) {
+    ModelPrimitive* primitive = &modelData->primitives[node->primitives.data[i]];
+    float vertex[3];
+    uint32_t index;
+    if (modelData->indexSize == sizeof(uint16_t)) {
+      index = modelData->indices.shorts[primitive->drawStart];
+    } else {
+      index = modelData->indices.ints[primitive->drawStart];
+    }
+    vec3_init(vertex, (float*) (modelData->vertices.bytes + index * modelData->stride));
+    mat4_transform(transform, vertex);
+    aabb[0] = MIN(aabb[0], vertex[0]);
+    aabb[1] = MAX(aabb[1], vertex[0]);
+    aabb[2] = MIN(aabb[2], vertex[1]);
+    aabb[3] = MAX(aabb[3], vertex[1]);
+    aabb[4] = MIN(aabb[4], vertex[2]);
+    aabb[5] = MAX(aabb[5], vertex[2]);
+  }
+
+  for (int i = 0; i < node->children.length; i++) {
+    ModelNode* child = &modelData->nodes[node->children.data[i]];
+    aabbIterator(modelData, child, aabb, transform);
+  }
+}
+
+void lovrModelDataGetAABB(ModelData* modelData, float aabb[6]) {
+  float transform[16];
+  mat4_identity(transform);
+  aabbIterator(modelData, &modelData->nodes[0], aabb, transform);
 }

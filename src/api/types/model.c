@@ -9,6 +9,15 @@ int l_lovrModelDraw(lua_State* L) {
   return 0;
 }
 
+int l_lovrModelGetAABB(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  const float* aabb = lovrModelGetAABB(model);
+  for (int i = 0; i < 6; i++) {
+    lua_pushnumber(L, aabb[i]);
+  }
+  return 6;
+}
+
 int l_lovrModelGetMesh(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Mesh* mesh = lovrModelGetMesh(model);
@@ -18,6 +27,7 @@ int l_lovrModelGetMesh(lua_State* L) {
 
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
+  { "getAABB", l_lovrModelGetAABB },
   { "getMesh", l_lovrModelGetMesh },
   { NULL, NULL }
 };

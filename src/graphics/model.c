@@ -36,6 +36,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   if (!model) return NULL;
 
   model->modelData = modelData;
+  model->aabbDirty = true;
 
   MeshFormat format;
   vec_init(&format);
@@ -60,9 +61,9 @@ Model* lovrModelCreate(ModelData* modelData) {
 
   model->mesh = lovrMeshCreate(modelData->vertexCount, &format, MESH_TRIANGLES, MESH_STATIC);
   void* data = lovrMeshMap(model->mesh, 0, modelData->vertexCount, false, true);
-  memcpy(data, modelData->vertices, modelData->vertexCount * modelData->stride);
+  memcpy(data, modelData->vertices.data, modelData->vertexCount * modelData->stride);
   lovrMeshUnmap(model->mesh);
-  lovrMeshSetVertexMap(model->mesh, modelData->indices, modelData->indexCount);
+  lovrMeshSetVertexMap(model->mesh, modelData->indices.data, modelData->indexCount);
   lovrMeshSetRangeEnabled(model->mesh, true);
 
   model->materials = malloc(modelData->materialCount * sizeof(Material*));
@@ -98,4 +99,13 @@ void lovrModelDraw(Model* model, mat4 transform) {
 
 Mesh* lovrModelGetMesh(Model* model) {
   return model->mesh;
+}
+
+const float* lovrModelGetAABB(Model* model) {
+  if (model->aabbDirty) {
+    lovrModelDataGetAABB(model->modelData, model->aabb);
+    model->aabbDirty = false;
+  }
+
+  return model->aabb;
 }

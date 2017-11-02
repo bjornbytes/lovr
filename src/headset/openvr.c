@@ -665,14 +665,14 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   if (!modelData) return NULL;
 
   modelData->indexCount = vrModel->unTriangleCount;
-  modelData->indices = malloc(modelData->indexCount * sizeof(unsigned int));
-  memcpy(modelData->indices, vrModel->rIndexData, modelData->indexCount * sizeof(unsigned int));
+  modelData->indices.data = malloc(modelData->indexCount * sizeof(unsigned int));
+  memcpy(modelData->indices.ints, vrModel->rIndexData, modelData->indexCount * sizeof(uint32_t));
 
   modelData->vertexCount = vrModel->unVertexCount;
   modelData->stride = 8 * sizeof(float);
-  modelData->vertices = malloc(modelData->vertexCount * modelData->stride);
+  modelData->vertices.data = malloc(modelData->vertexCount * modelData->stride);
 
-  float* vertices = modelData->vertices;
+  float* vertices = modelData->vertices.floats;
   int vertex = 0;
   for (size_t i = 0; i < vrModel->unVertexCount; i++) {
     float* position = vrModel->rVertexData[i].vPosition.v;
