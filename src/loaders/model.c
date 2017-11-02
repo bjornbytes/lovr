@@ -357,11 +357,16 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
     if (aiGetMaterialTexture(material, aiTextureType_DIFFUSE, 0, &str, NULL, NULL, NULL, NULL, NULL, NULL) == aiReturn_SUCCESS) {
       char* path = str.data;
+      char fullPath[LOVR_PATH_MAX];
       char normalizedPath[LOVR_PATH_MAX];
-      normalizePath(path, normalizedPath, LOVR_PATH_MAX);
+      strncpy(fullPath, blob->name, LOVR_PATH_MAX);
+      char* lastSlash = strrchr(fullPath, '/');
+      if (lastSlash) lastSlash[1] = '\0';
+      strncat(fullPath, path, LOVR_PATH_MAX);
+      normalizePath(fullPath, normalizedPath, LOVR_PATH_MAX);
 
       size_t size;
-      void* data = lovrFilesystemRead(path, &size);
+      void* data = lovrFilesystemRead(normalizedPath, &size);
       if (data) {
         Blob* blob = lovrBlobCreate(data, size, path);
         materialData->textures[TEXTURE_DIFFUSE] = lovrTextureDataFromBlob(blob);
