@@ -1,9 +1,12 @@
 #include "filesystem/blob.h"
+#include "loaders/animation.h"
 #include "loaders/material.h"
 #include "util.h"
 #include "lib/vec/vec.h"
 
 #pragma once
+
+#define MAX_BONES_PER_VERTEX 4
 
 typedef union {
   void* data;
@@ -25,6 +28,7 @@ typedef struct {
 } ModelPrimitive;
 
 typedef struct ModelNode {
+  const char* name;
   float transform[16];
   int parent;
   vec_uint_t children;
@@ -32,13 +36,24 @@ typedef struct ModelNode {
 } ModelNode;
 
 typedef struct {
+  const char* name;
+  float offset[16];
+} Bone;
+
+typedef vec_t(Bone) vec_bone_t;
+
+typedef struct {
   ModelNode* nodes;
   ModelPrimitive* primitives;
+  vec_bone_t bones;
+  map_int_t boneMap;
+  AnimationData** animations;
   MaterialData* materials;
   ModelVertices vertices;
   ModelIndices indices;
   int nodeCount;
   int primitiveCount;
+  int animationCount;
   int materialCount;
   int vertexCount;
   int indexCount;
@@ -46,6 +61,8 @@ typedef struct {
   bool hasNormals;
   bool hasUVs;
   bool hasVertexColors;
+  bool hasBones;
+  size_t boneOffset;
   size_t stride;
 } ModelData;
 

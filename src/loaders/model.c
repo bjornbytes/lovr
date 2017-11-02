@@ -3,6 +3,7 @@
 #include "filesystem/file.h"
 #include "math/math.h"
 #include "math/mat4.h"
+#include "math/quat.h"
 #include "math/vec3.h"
 #include <limits.h>
 #include <stdlib.h>
@@ -149,6 +150,7 @@ static void assimpSumChildren(struct aiNode* assimpNode, int* totalChildren) {
 static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode, int* nodeId) {
   int currentIndex = *nodeId;
   ModelNode* node = &modelData->nodes[currentIndex];
+  node->name = strndup(assimpNode->mName.data, assimpNode->mName.length);
 
   // Transform
   struct aiMatrix4x4 m = assimpNode->mTransformation;
@@ -195,6 +197,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   modelData->hasNormals = false;
   modelData->hasUVs = false;
   modelData->hasVertexColors = false;
+  modelData->hasBones = false;
 
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
     struct aiMesh* assimpMesh = scene->mMeshes[m];
@@ -203,6 +206,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     modelData->hasNormals |= assimpMesh->mNormals != NULL;
     modelData->hasUVs |= assimpMesh->mTextureCoords[0] != NULL;
     modelData->hasVertexColors |= assimpMesh->mColors[0] != NULL;
+    modelData->hasBones |= assimpMesh->mNumBones > 0;
   }
 
   // Allocate
@@ -213,19 +217,25 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   modelData->stride += (modelData->hasNormals ? 3 : 0) * sizeof(float);
   modelData->stride += (modelData->hasUVs ? 2 : 0) * sizeof(float);
   modelData->stride += (modelData->hasVertexColors ? 4 : 0) * sizeof(uint8_t);
+  modelData->boneOffset = modelData->stride;
+  modelData->stride += (modelData->hasBones ? 4 : 0) * sizeof(uint8_t);
+  modelData->stride += (modelData->hasBones ? 4 : 0) * sizeof(float);
   modelData->vertices.data = malloc(modelData->stride * modelData->vertexCount);
   modelData->indices.data = malloc(modelData->indexCount * modelData->indexSize);
 
+  vec_init(&modelData->bones);
+  map_init(&modelData->boneMap);
+
   // Load vertices
-  ModelVertices vertices = modelData->vertices;
   ModelIndices indices = modelData->indices;
-  int vertex = 0;
-  int index = 0;
+  uint32_t vertex = 0;
+  uint32_t index = 0;
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
     struct aiMesh* assimpMesh = scene->mMeshes[m];
     modelData->primitives[m].material = assimpMesh->mMaterialIndex;
     modelData->primitives[m].drawStart = index;
     modelData->primitives[m].drawCount = 0;
+    uint32_t baseVertex = vertex;
 
     // Indices
     for (unsigned int f = 0; f < assimpMesh->mNumFaces; f++) {
@@ -236,16 +246,20 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
       if (modelData->indexSize == sizeof(uint16_t)) {
         for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
-          indices.shorts[index++] = vertex + assimpFace.mIndices[i];
+          indices.shorts[index++] = baseVertex + assimpFace.mIndices[i];
         }
       } else {
         for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
-          indices.ints[index++] = vertex + assimpFace.mIndices[i];
+          indices.ints[index++] = baseVertex + assimpFace.mIndices[i];
         }
       }
     }
 
+    // Vertices
     for (unsigned int v = 0; v < assimpMesh->mNumVertices; v++) {
+      ModelVertices vertices = modelData->vertices;
+      vertices.bytes += vertex * modelData->stride;
+
       *vertices.floats++ = assimpMesh->mVertices[v].x;
       *vertices.floats++ = assimpMesh->mVertices[v].y;
       *vertices.floats++ = assimpMesh->mVertices[v].z;
@@ -287,6 +301,41 @@ ModelData* lovrModelDataCreate(Blob* blob) {
       }
 
       vertex++;
+    }
+
+    // Bones
+    for (unsigned int b = 0; b < assimpMesh->mNumBones; b++) {
+      struct aiBone* assimpBone = assimpMesh->mBones[b];
+      const char* boneName = assimpBone->mName.data;
+
+      if (!map_get(&modelData->boneMap, boneName)) {
+        Bone bone;
+        bone.name = strndup(boneName, assimpBone->mName.length);
+        aiTransposeMatrix4(&assimpBone->mOffsetMatrix);
+        mat4_set(bone.offset, (float*) &assimpBone->mOffsetMatrix);
+        map_set(&modelData->boneMap, bone.name, modelData->bones.length);
+        vec_push(&modelData->bones, bone);
+      }
+
+      uint32_t boneIndex = *map_get(&modelData->boneMap, boneName);
+
+      for (unsigned int w = 0; w < assimpBone->mNumWeights; w++) {
+        uint32_t vertexIndex = baseVertex + assimpBone->mWeights[w].mVertexId;
+        float weight = assimpBone->mWeights[w].mWeight;
+        ModelVertices vertices = modelData->vertices;
+        vertices.bytes += vertexIndex * modelData->stride;
+        uint32_t* bones = (uint32_t*) (vertices.bytes + modelData->boneOffset);
+        float* weights = (float*) (bones + MAX_BONES_PER_VERTEX);
+
+        int boneSlot = 0;
+        while (weights[boneSlot] > 0) {
+          boneSlot++;
+          lovrAssert(boneSlot < MAX_BONES_PER_VERTEX, "Too many bones for vertex %d", vertexIndex);
+        }
+
+        bones[boneSlot] = boneIndex;
+        weights[boneSlot] = weight;
+      }
     }
   }
 
@@ -330,6 +379,56 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   int nodeIndex = 0;
   assimpNodeTraversal(modelData, scene->mRootNode, &nodeIndex);
 
+  // Animations
+  modelData->animationCount = scene->mNumAnimations;
+  modelData->animations = malloc(modelData->animationCount * sizeof(AnimationData*));
+  for (int i = 0; i < modelData->animationCount; i++) {
+    struct aiAnimation* assimpAnimation = scene->mAnimations[i];
+    AnimationData* animationData = lovrAnimationDataCreate(assimpAnimation->mName.data);
+    animationData->channelCount = assimpAnimation->mNumChannels;
+
+    for (int j = 0; j < animationData->channelCount; j++) {
+      struct aiNodeAnim* assimpChannel = assimpAnimation->mChannels[j];
+      AnimationChannel channel;
+
+      channel.node = strndup(assimpChannel->mNodeName.data, assimpChannel->mNodeName.length);
+      vec_init(&channel.positionKeyframes);
+      vec_init(&channel.rotationKeyframes);
+      vec_init(&channel.scaleKeyframes);
+
+      for (unsigned int k = 0; k < assimpChannel->mNumPositionKeys; k++) {
+        struct aiVectorKey assimpKeyframe = assimpChannel->mPositionKeys[k];
+        struct aiVector3D position = assimpKeyframe.mValue;
+        Keyframe keyframe;
+        keyframe.time = assimpKeyframe.mTime;
+        vec3_set(keyframe.data, position.x, position.y, position.z);
+        vec_push(&channel.positionKeyframes, keyframe);
+      }
+
+      for (unsigned int k = 0; k < assimpChannel->mNumRotationKeys; k++) {
+        struct aiQuatKey assimpKeyframe = assimpChannel->mRotationKeys[k];
+        struct aiQuaternion quaternion = assimpKeyframe.mValue;
+        Keyframe keyframe;
+        keyframe.time = assimpKeyframe.mTime;
+        quat_set(keyframe.data, quaternion.x, quaternion.y, quaternion.z, quaternion.w);
+        vec_push(&channel.rotationKeyframes, keyframe);
+      }
+
+      for (unsigned int k = 0; k < assimpChannel->mNumScalingKeys; k++) {
+        struct aiVectorKey assimpKeyframe = assimpChannel->mScalingKeys[k];
+        struct aiVector3D scale = assimpKeyframe.mValue;
+        Keyframe keyframe;
+        keyframe.time = assimpKeyframe.mTime;
+        vec3_set(keyframe.data, scale.x, scale.y, scale.z);
+        vec_push(&channel.scaleKeyframes, keyframe);
+      }
+
+      map_set(&animationData->channels, channel.node, channel);
+    }
+
+    modelData->animations[i] = animationData;
+  }
+
   aiReleaseImport(scene);
   return modelData;
 }
@@ -338,6 +437,10 @@ void lovrModelDataDestroy(ModelData* modelData) {
   for (int i = 0; i < modelData->nodeCount; i++) {
     vec_deinit(&modelData->nodes[i].children);
     vec_deinit(&modelData->nodes[i].primitives);
+  }
+
+  for (int i = 0; i < modelData->animationCount; i++) {
+    lovrAnimationDataDestroy(modelData->animations[i]);
   }
 
   for (int i = 0; i < modelData->materialCount; i++) {
