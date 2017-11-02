@@ -177,7 +177,10 @@ int lovrMeshGetVertexSize(Mesh* mesh) {
 }
 
 void* lovrMeshGetVertexMap(Mesh* mesh, size_t* count) {
-  *count = mesh->indexCount;
+  if (count) {
+    *count = mesh->indexCount;
+  }
+
   return mesh->indices;
 }
 
