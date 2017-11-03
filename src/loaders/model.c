@@ -150,7 +150,7 @@ static void assimpSumChildren(struct aiNode* assimpNode, int* totalChildren) {
 static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode, int* nodeId) {
   int currentIndex = *nodeId;
   ModelNode* node = &modelData->nodes[currentIndex];
-  node->name = strndup(assimpNode->mName.data, assimpNode->mName.length);
+  node->name = strdup(assimpNode->mName.data);
 
   // Transform
   struct aiMatrix4x4 m = assimpNode->mTransformation;
@@ -310,7 +310,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
       if (!map_get(&modelData->boneMap, boneName)) {
         Bone bone;
-        bone.name = strndup(boneName, assimpBone->mName.length);
+        bone.name = strdup(boneName);
         aiTransposeMatrix4(&assimpBone->mOffsetMatrix);
         mat4_set(bone.offset, (float*) &assimpBone->mOffsetMatrix);
         map_set(&modelData->boneMap, bone.name, modelData->bones.length);
@@ -396,7 +396,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
       struct aiNodeAnim* assimpChannel = assimpAnimation->mChannels[j];
       AnimationChannel channel;
 
-      channel.node = strndup(assimpChannel->mNodeName.data, assimpChannel->mNodeName.length);
+      channel.node = strdup(assimpChannel->mNodeName.data);
       vec_init(&channel.positionKeyframes);
       vec_init(&channel.rotationKeyframes);
       vec_init(&channel.scaleKeyframes);

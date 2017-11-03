@@ -72,7 +72,7 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
 #elif _WIN32
   PWSTR appData = NULL;
   SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &appData);
-  wcstombs(dest, appData, size);
+  PHYSFS_utf8FromUtf16(appData, dest, size);
   CoTaskMemFree(appData);
   return 0;
 #elif EMSCRIPTEN
@@ -234,7 +234,11 @@ int lovrFilesystemSetIdentity(const char* identity) {
   }
 
   lovrFilesystemGetAppdataDirectory(state.savePathFull, LOVR_PATH_MAX);
-  PHYSFS_setWriteDir(state.savePathFull);
+  if (!PHYSFS_setWriteDir(state.savePathFull)) {
+    const char* error = PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode());
+    lovrThrow("Could not set write directory: %s (%s)", error, state.savePathFull);
+  }
+
   snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity ? identity : "default");
   char fullPathBuffer[LOVR_PATH_MAX];
   snprintf(fullPathBuffer, LOVR_PATH_MAX, "%s/%s", state.savePathFull, state.savePathRelative);
