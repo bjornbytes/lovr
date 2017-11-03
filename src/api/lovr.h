@@ -15,6 +15,7 @@ int l_lovrMathInit(lua_State* L);
 int l_lovrPhysicsInit(lua_State* L);
 int l_lovrTimerInit(lua_State* L);
 
+extern const luaL_Reg lovrAnimator[];
 extern const luaL_Reg lovrAudio[];
 extern const luaL_Reg lovrBallJoint[];
 extern const luaL_Reg lovrBoxShape[];

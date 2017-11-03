@@ -23,7 +23,13 @@ typedef struct {
   const char* name;
   map_channel_t channels;
   int channelCount;
+} Animation;
+
+typedef vec_t(Animation) vec_animation_t;
+
+typedef struct {
+  vec_animation_t animations;
 } AnimationData;
 
-AnimationData* lovrAnimationDataCreate(const char* name);
+AnimationData* lovrAnimationDataCreate();
 void lovrAnimationDataDestroy(AnimationData* animationData);

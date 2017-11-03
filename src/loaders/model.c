@@ -385,14 +385,16 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   assimpNodeTraversal(modelData, scene->mRootNode, &nodeIndex);
 
   // Animations
-  modelData->animationCount = scene->mNumAnimations;
-  modelData->animations = malloc(modelData->animationCount * sizeof(AnimationData*));
-  for (int i = 0; i < modelData->animationCount; i++) {
+  modelData->animationData = lovrAnimationDataCreate();
+  for (unsigned int i = 0; i < scene->mNumAnimations; i++) {
     struct aiAnimation* assimpAnimation = scene->mAnimations[i];
-    AnimationData* animationData = lovrAnimationDataCreate(assimpAnimation->mName.data);
-    animationData->channelCount = assimpAnimation->mNumChannels;
 
-    for (int j = 0; j < animationData->channelCount; j++) {
+    Animation animation;
+    animation.name = strdup(assimpAnimation->mName.data);
+    animation.channelCount = assimpAnimation->mNumChannels;
+    map_init(&animation.channels);
+
+    for (int j = 0; j < animation.channelCount; j++) {
       struct aiNodeAnim* assimpChannel = assimpAnimation->mChannels[j];
       AnimationChannel channel;
 
@@ -428,10 +430,10 @@ ModelData* lovrModelDataCreate(Blob* blob) {
         vec_push(&channel.scaleKeyframes, keyframe);
       }
 
-      map_set(&animationData->channels, channel.node, channel);
+      map_set(&animation.channels, channel.node, channel);
     }
 
-    modelData->animations[i] = animationData;
+    vec_push(&modelData->animationData->animations, animation);
   }
 
   aiReleaseImport(scene);
@@ -444,9 +446,7 @@ void lovrModelDataDestroy(ModelData* modelData) {
     vec_deinit(&modelData->nodes[i].primitives);
   }
 
-  for (int i = 0; i < modelData->animationCount; i++) {
-    lovrAnimationDataDestroy(modelData->animations[i]);
-  }
+  lovrAnimationDataDestroy(modelData->animationData);
 
   for (int i = 0; i < modelData->materialCount; i++) {
     lovrMaterialDataDestroy(modelData->materials[i]);

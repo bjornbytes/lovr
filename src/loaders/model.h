@@ -47,7 +47,7 @@ typedef struct {
   ModelPrimitive* primitives;
   vec_bone_t bones;
   map_int_t boneMap;
-  AnimationData** animations;
+  AnimationData* animationData;
   MaterialData** materials;
   ModelVertices vertices;
   ModelIndices indices;

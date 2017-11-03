@@ -5,13 +5,12 @@ AnimationData* lovrAnimationDataCreate(const char* name) {
   AnimationData* animationData = malloc(sizeof(AnimationData));
   if (!animationData) return NULL;
 
-  animationData->name = name;
-  map_init(&animationData->channels);
+  vec_init(&animationData->animations);
 
   return animationData;
 }
 
 void lovrAnimationDataDestroy(AnimationData* animationData) {
-  map_deinit(&animationData->channels);
+  vec_deinit(&animationData->animations);
   free(animationData);
 }

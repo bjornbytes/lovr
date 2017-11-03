@@ -1,5 +1,6 @@
 #include "api/lovr.h"
 #include "graphics/graphics.h"
+#include "graphics/animator.h"
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
@@ -73,6 +74,7 @@ static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
 int l_lovrGraphicsInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
+  luax_registertype(L, "Animator", lovrAnimator);
   luax_registertype(L, "Font", lovrFont);
   luax_registertype(L, "Material", lovrMaterial);
   luax_registertype(L, "Mesh", lovrMesh);
@@ -570,6 +572,13 @@ int l_lovrGraphicsPrint(lua_State* L) {
 
 // Types
 
+int l_lovrGraphicsNewAnimator(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  Animator* animator = lovrAnimatorCreate(model->modelData->animationData);
+  luax_pushtype(L, Animator, animator);
+  return 1;
+}
+
 int l_lovrGraphicsNewFont(lua_State* L) {
   Blob* blob = NULL;
   float size;
@@ -810,6 +819,7 @@ const luaL_Reg lovrGraphics[] = {
   { "sphere", l_lovrGraphicsSphere },
   { "skybox", l_lovrGraphicsSkybox },
   { "print", l_lovrGraphicsPrint },
+  { "newAnimator", l_lovrGraphicsNewAnimator },
   { "newFont", l_lovrGraphicsNewFont },
   { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newMesh", l_lovrGraphicsNewMesh },
