@@ -10,6 +10,7 @@ typedef struct {
   float time;
   float speed;
   float alpha;
+  int priority;
   bool playing;
   bool looping;
 } Track;
@@ -41,5 +42,7 @@ float lovrAnimatorGetDuration(Animator* animator, const char* animation);
 bool lovrAnimatorIsPlaying(Animator* animator, const char* animation);
 bool lovrAnimatorIsLooping(Animator* animator, const char* animation);
 void lovrAnimatorSetLooping(Animator* animator, const char* animation, bool looping);
+int lovrAnimatorGetPriority(Animator* animator, const char* animation);
+void lovrAnimatorSetPriority(Animator* animator, const char* animation, int priority);
 float lovrAnimatorGetSpeed(Animator* animator, const char* animation);
 void lovrAnimatorSetSpeed(Animator* animator, const char* animation, float speed);

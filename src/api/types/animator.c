@@ -131,6 +131,22 @@ int l_lovrAnimatorSetLooping(lua_State* L) {
   return 0;
 }
 
+int l_lovrAnimatorGetPriority(lua_State* L) {
+  Animator* animator = luax_checktype(L, 1, Animator);
+  const char* animation = luaL_checkstring(L, 2);
+  int priority = lovrAnimatorGetPriority(animator, animation);
+  lua_pushinteger(L, priority);
+  return 1;
+}
+
+int l_lovrAnimatorSetPriority(lua_State* L) {
+  Animator* animator = luax_checktype(L, 1, Animator);
+  const char* animation = luaL_checkstring(L, 2);
+  int priority = luaL_checkinteger(L, 3);
+  lovrAnimatorSetPriority(animator, animation, priority);
+  return 0;
+}
+
 int l_lovrAnimatorGetSpeed(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   if (lua_type(L, 2) == LUA_TSTRING) {
@@ -174,6 +190,8 @@ const luaL_Reg lovrAnimator[] = {
   { "isPlaying", l_lovrAnimatorIsPlaying },
   { "isLooping", l_lovrAnimatorIsLooping },
   { "setLooping", l_lovrAnimatorSetLooping },
+  { "getPriority", l_lovrAnimatorGetPriority },
+  { "setPriority", l_lovrAnimatorSetPriority },
   { "getSpeed", l_lovrAnimatorGetSpeed },
   { "setSpeed", l_lovrAnimatorSetSpeed },
   { NULL, NULL }

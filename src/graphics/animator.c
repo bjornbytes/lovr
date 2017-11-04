@@ -21,6 +21,7 @@ Animator* lovrAnimatorCreate(AnimationData* animationData) {
       .animation = &animationData->animations.data[i],
       .time = 0,
       .speed = 1,
+      .priority = 0,
       .playing = false,
       .looping = false
     };
@@ -142,6 +143,16 @@ bool lovrAnimatorIsLooping(Animator* animator, const char* animation) {
 void lovrAnimatorSetLooping(Animator* animator, const char* animation, bool looping) {
   Track* track = lovrAnimatorEnsureTrack(animator, animation);
   track->looping = looping;
+}
+
+int lovrAnimatorGetPriority(Animator* animator, const char* animation) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  return track->priority;
+}
+
+void lovrAnimatorSetPriority(Animator* animator, const char* animation, int priority) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  track->priority = priority;
 }
 
 float lovrAnimatorGetSpeed(Animator* animator, const char* animation) {
