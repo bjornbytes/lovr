@@ -68,3 +68,13 @@ void lovrAnimatorResume(Animator* animator, const char* animation) {
   Track* track = lovrAnimatorEnsureTrack(animator, animation);
   track->playing = true;
 }
+
+void lovrAnimatorSeek(Animator* animator, const char* animation, float time) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  track->time = time;
+}
+
+float lovrAnimatorTell(Animator* animator, const char* animation) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  return track->time;
+}

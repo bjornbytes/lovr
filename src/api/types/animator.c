@@ -42,6 +42,22 @@ int l_lovrAnimatorResume(lua_State* L) {
   return 0;
 }
 
+int l_lovrAnimatorSeek(lua_State* L) {
+  Animator* animator = luax_checktype(L, 1, Animator);
+  const char* animation = luaL_checkstring(L, 2);
+  float time = luaL_checknumber(L, 3);
+  lovrAnimatorSeek(animator, animation, time);
+  return 0;
+}
+
+int l_lovrAnimatorTell(lua_State* L) {
+  Animator* animator = luax_checktype(L, 1, Animator);
+  const char* animation = luaL_checkstring(L, 2);
+  float time = lovrAnimatorTell(animator, animation);
+  lua_pushnumber(L, time);
+  return 1;
+}
+
 const luaL_Reg lovrAnimator[] = {
   { "getAnimationCount", l_lovrAnimatorGetAnimationCount },
   { "update", l_lovrAnimatorUpdate },
@@ -49,5 +65,7 @@ const luaL_Reg lovrAnimator[] = {
   { "stop", l_lovrAnimatorStop },
   { "pause", l_lovrAnimatorPause },
   { "resume", l_lovrAnimatorResume },
+  { "seek", l_lovrAnimatorSeek },
+  { "tell", l_lovrAnimatorTell },
   { NULL, NULL }
 };

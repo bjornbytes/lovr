@@ -29,3 +29,5 @@ void lovrAnimatorPlay(Animator* animator, const char* animation);
 void lovrAnimatorStop(Animator* animator, const char* animation);
 void lovrAnimatorPause(Animator* animator, const char* animation);
 void lovrAnimatorResume(Animator* animator, const char* animation);
+void lovrAnimatorSeek(Animator* animator, const char* animation, float time);
+float lovrAnimatorTell(Animator* animator, const char* animation);
