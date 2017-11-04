@@ -6,6 +6,7 @@
 #pragma once
 
 typedef struct {
+  Animation* animation;
   float time;
   float speed;
   bool playing;
@@ -23,8 +24,10 @@ typedef struct {
 
 Animator* lovrAnimatorCreate(AnimationData* animationData);
 void lovrAnimatorDestroy(const Ref* ref);
-int lovrAnimatorGetAnimationCount(Animator* animator);
 void lovrAnimatorUpdate(Animator* animator, float dt);
+int lovrAnimatorGetAnimationCount(Animator* animator);
+const char* lovrAnimatorGetAnimationName(Animator* animator, int index);
+float lovrAnimatorGetDuration(Animator* animator, const char* animation);
 void lovrAnimatorPlay(Animator* animator, const char* animation);
 void lovrAnimatorStop(Animator* animator, const char* animation);
 void lovrAnimatorPause(Animator* animator, const char* animation);

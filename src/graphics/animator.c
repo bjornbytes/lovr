@@ -16,6 +16,7 @@ Animator* lovrAnimatorCreate(AnimationData* animationData) {
 
   for (int i = 0; i < animationData->animations.length; i++) {
     Track track = {
+      .animation = &animationData->animations.data[i],
       .time = 0,
       .speed = 1,
       .playing = false,
@@ -34,10 +35,6 @@ void lovrAnimatorDestroy(const Ref* ref) {
   free(animator);
 }
 
-int lovrAnimatorGetAnimationCount(Animator* animator) {
-  return animator->animationData->animations.length;
-}
-
 void lovrAnimatorUpdate(Animator* animator, float dt) {
   map_iter_t iter = map_iter(&animator->timeline);
   const char* key;
@@ -45,6 +42,18 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
     Track* track = map_get(&animator->timeline, key);
     track->time += dt * track->speed * animator->speed;
   }
+}
+
+int lovrAnimatorGetAnimationCount(Animator* animator) {
+  return animator->animationData->animations.length;
+}
+
+const char* lovrAnimatorGetAnimationName(Animator* animator, int index) {
+  if (index < 0 || index >= animator->animationData->animations.length) {
+    return NULL;
+  }
+
+  return animator->animationData->animations.data[index].name;
 }
 
 void lovrAnimatorPlay(Animator* animator, const char* animation) {
@@ -77,6 +86,11 @@ void lovrAnimatorSeek(Animator* animator, const char* animation, float time) {
 float lovrAnimatorTell(Animator* animator, const char* animation) {
   Track* track = lovrAnimatorEnsureTrack(animator, animation);
   return track->time;
+}
+
+float lovrAnimatorGetDuration(Animator* animator, const char* animation) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  return track->animation->duration;
 }
 
 float lovrAnimatorGetSpeed(Animator* animator, const char* animation) {
