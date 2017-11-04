@@ -391,6 +391,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
     Animation animation;
     animation.name = strdup(assimpAnimation->mName.data);
+    animation.duration = assimpAnimation->mDuration / (float) assimpAnimation->mTicksPerSecond;
     animation.channelCount = assimpAnimation->mNumChannels;
     map_init(&animation.channels);
 

@@ -21,6 +21,7 @@ typedef map_t(AnimationChannel) map_channel_t;
 
 typedef struct {
   const char* name;
+  float duration;
   map_channel_t channels;
   int channelCount;
 } Animation;
