@@ -114,6 +114,16 @@ float lovrAnimatorTell(Animator* animator, const char* animation) {
   return track->time;
 }
 
+float lovrAnimatorGetAlpha(Animator* animator, const char* animation) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  return track->alpha;
+}
+
+void lovrAnimatorSetAlpha(Animator* animator, const char* animation, float alpha) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  track->alpha = alpha;
+}
+
 float lovrAnimatorGetDuration(Animator* animator, const char* animation) {
   Track* track = lovrAnimatorEnsureTrack(animator, animation);
   return track->animation->duration;
