@@ -1,5 +1,11 @@
 #include "graphics/animator.h"
 
+static Track* lovrAnimatorEnsureTrack(Animator* animator, const char* animation) {
+  Track* track = map_get(&animator->timeline, animation);
+  lovrAssert(track, "Animation '%s' does not exist", animation);
+  return track;
+}
+
 Animator* lovrAnimatorCreate(AnimationData* animationData) {
   Animator* animator = lovrAlloc(sizeof(Animator), lovrAnimatorDestroy);
   if (!animator) return NULL;
@@ -39,4 +45,26 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
     Track* track = map_get(&animator->timeline, key);
     track->time += dt * track->speed * animator->speed;
   }
+}
+
+void lovrAnimatorPlay(Animator* animator, const char* animation) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  track->playing = true;
+  track->time = 0;
+}
+
+void lovrAnimatorStop(Animator* animator, const char* animation) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  track->playing = false;
+  track->time = 0;
+}
+
+void lovrAnimatorPause(Animator* animator, const char* animation) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  track->playing = false;
+}
+
+void lovrAnimatorResume(Animator* animator, const char* animation) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  track->playing = true;
 }
