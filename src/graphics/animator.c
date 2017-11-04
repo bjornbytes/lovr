@@ -78,3 +78,21 @@ float lovrAnimatorTell(Animator* animator, const char* animation) {
   Track* track = lovrAnimatorEnsureTrack(animator, animation);
   return track->time;
 }
+
+float lovrAnimatorGetSpeed(Animator* animator, const char* animation) {
+  if (!animation) {
+    return animator->speed;
+  }
+
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  return track->speed;
+}
+
+void lovrAnimatorSetSpeed(Animator* animator, const char* animation, float speed) {
+  if (!animation) {
+    animator->speed = speed;
+  }
+
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  track->speed = speed;
+}

@@ -58,6 +58,32 @@ int l_lovrAnimatorTell(lua_State* L) {
   return 1;
 }
 
+int l_lovrAnimatorGetSpeed(lua_State* L) {
+  Animator* animator = luax_checktype(L, 1, Animator);
+  if (lua_type(L, 2) == LUA_TSTRING) {
+    const char* animation = luaL_checkstring(L, 2);
+    float speed = lovrAnimatorGetSpeed(animator, animation);
+    lua_pushnumber(L, speed);
+  } else {
+    float speed = lovrAnimatorGetSpeed(animator, NULL);
+    lua_pushnumber(L, speed);
+  }
+  return 1;
+}
+
+int l_lovrAnimatorSetSpeed(lua_State* L) {
+  Animator* animator = luax_checktype(L, 1, Animator);
+  if (lua_type(L, 2) == LUA_TSTRING) {
+    const char* animation = luaL_checkstring(L, 2);
+    float speed = luaL_checknumber(L, 3);
+    lovrAnimatorSetSpeed(animator, animation, speed);
+  } else {
+    float speed = luaL_checknumber(L, 2);
+    lovrAnimatorSetSpeed(animator, NULL, speed);
+  }
+  return 0;
+}
+
 const luaL_Reg lovrAnimator[] = {
   { "getAnimationCount", l_lovrAnimatorGetAnimationCount },
   { "update", l_lovrAnimatorUpdate },
@@ -67,5 +93,7 @@ const luaL_Reg lovrAnimator[] = {
   { "resume", l_lovrAnimatorResume },
   { "seek", l_lovrAnimatorSeek },
   { "tell", l_lovrAnimatorTell },
+  { "getSpeed", l_lovrAnimatorGetSpeed },
+  { "setSpeed", l_lovrAnimatorSetSpeed },
   { NULL, NULL }
 };
