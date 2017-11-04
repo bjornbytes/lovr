@@ -1,4 +1,5 @@
 #include "graphics/animator.h"
+#include "math/math.h"
 #include <math.h>
 
 static Track* lovrAnimatorEnsureTrack(Animator* animator, const char* animation) {
@@ -45,6 +46,9 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
 
     if (track->looping) {
       track->time = fmodf(track->time, track->animation->duration);
+    } else if (track->time > track->animation->duration) {
+      track->time = 0;
+      track->playing = false;
     }
   }
 }
@@ -99,6 +103,10 @@ void lovrAnimatorResume(Animator* animator, const char* animation) {
 void lovrAnimatorSeek(Animator* animator, const char* animation, float time) {
   Track* track = lovrAnimatorEnsureTrack(animator, animation);
   track->time = time;
+  if (!track->looping) {
+    track->time = MIN(track->time, track->animation->duration);
+    track->time = MAX(track->time, 0);
+  }
 }
 
 float lovrAnimatorTell(Animator* animator, const char* animation) {
@@ -109,6 +117,11 @@ float lovrAnimatorTell(Animator* animator, const char* animation) {
 float lovrAnimatorGetDuration(Animator* animator, const char* animation) {
   Track* track = lovrAnimatorEnsureTrack(animator, animation);
   return track->animation->duration;
+}
+
+bool lovrAnimatorIsPlaying(Animator* animator, const char* animation) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  return track->playing;
 }
 
 bool lovrAnimatorIsLooping(Animator* animator, const char* animation) {
