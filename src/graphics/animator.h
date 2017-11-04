@@ -25,6 +25,7 @@ typedef struct {
 Animator* lovrAnimatorCreate(AnimationData* animationData);
 void lovrAnimatorDestroy(const Ref* ref);
 void lovrAnimatorUpdate(Animator* animator, float dt);
+void lovrAnimatorReset(Animator* animator);
 int lovrAnimatorGetAnimationCount(Animator* animator);
 const char* lovrAnimatorGetAnimationName(Animator* animator, int index);
 float lovrAnimatorGetDuration(Animator* animator, const char* animation);
