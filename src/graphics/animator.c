@@ -1,4 +1,5 @@
 #include "graphics/animator.h"
+#include <math.h>
 
 static Track* lovrAnimatorEnsureTrack(Animator* animator, const char* animation) {
   Track* track = map_get(&animator->timeline, animation);
@@ -41,6 +42,10 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
   while ((key = map_next(&animator->timeline, &iter)) != NULL) {
     Track* track = map_get(&animator->timeline, key);
     track->time += dt * track->speed * animator->speed;
+
+    if (track->looping) {
+      track->time = fmodf(track->time, track->animation->duration);
+    }
   }
 }
 
@@ -104,6 +109,16 @@ float lovrAnimatorTell(Animator* animator, const char* animation) {
 float lovrAnimatorGetDuration(Animator* animator, const char* animation) {
   Track* track = lovrAnimatorEnsureTrack(animator, animation);
   return track->animation->duration;
+}
+
+bool lovrAnimatorIsLooping(Animator* animator, const char* animation) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  return track->looping;
+}
+
+void lovrAnimatorSetLooping(Animator* animator, const char* animation, bool looping) {
+  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  track->looping = looping;
 }
 
 float lovrAnimatorGetSpeed(Animator* animator, const char* animation) {

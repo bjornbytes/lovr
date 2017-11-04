@@ -91,6 +91,22 @@ int l_lovrAnimatorGetDuration(lua_State* L) {
   return 1;
 }
 
+int l_lovrAnimatorIsLooping(lua_State* L) {
+  Animator* animator = luax_checktype(L, 1, Animator);
+  const char* animation = luaL_checkstring(L, 2);
+  bool looping = lovrAnimatorIsLooping(animator, animation);
+  lua_pushboolean(L, looping);
+  return 1;
+}
+
+int l_lovrAnimatorSetLooping(lua_State* L) {
+  Animator* animator = luax_checktype(L, 1, Animator);
+  const char* animation = luaL_checkstring(L, 2);
+  bool looping = lua_toboolean(L, 3);
+  lovrAnimatorSetLooping(animator, animation, looping);
+  return 0;
+}
+
 int l_lovrAnimatorGetSpeed(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   if (lua_type(L, 2) == LUA_TSTRING) {
@@ -129,6 +145,8 @@ const luaL_Reg lovrAnimator[] = {
   { "seek", l_lovrAnimatorSeek },
   { "tell", l_lovrAnimatorTell },
   { "getDuration", l_lovrAnimatorGetDuration },
+  { "isLooping", l_lovrAnimatorIsLooping },
+  { "setLooping", l_lovrAnimatorSetLooping },
   { "getSpeed", l_lovrAnimatorGetSpeed },
   { "setSpeed", l_lovrAnimatorSetSpeed },
   { NULL, NULL }

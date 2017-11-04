@@ -35,5 +35,7 @@ void lovrAnimatorPause(Animator* animator, const char* animation);
 void lovrAnimatorResume(Animator* animator, const char* animation);
 void lovrAnimatorSeek(Animator* animator, const char* animation, float time);
 float lovrAnimatorTell(Animator* animator, const char* animation);
+bool lovrAnimatorIsLooping(Animator* animator, const char* animation);
+void lovrAnimatorSetLooping(Animator* animator, const char* animation, bool looping);
 float lovrAnimatorGetSpeed(Animator* animator, const char* animation);
 void lovrAnimatorSetSpeed(Animator* animator, const char* animation, float speed);
