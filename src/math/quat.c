@@ -58,6 +58,34 @@ float quat_length(quat q) {
   return sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
 }
 
+quat quat_slerp(quat q, quat r, float t) {
+  float dot = q[0] * r[0] + q[1] * r[1] + q[2] * r[2] + q[3] * r[3];
+  if (fabs(dot) >= 1.f) {
+    return q;
+  }
+
+  float halfTheta = acos(dot);
+  float sinHalfTheta = sqrt(1.f - dot * dot);
+
+  if (fabs(sinHalfTheta) < .001) {
+    q[0] = q[0] * .5 + r[0] * .5;
+    q[1] = q[1] * .5 + r[1] * .5;
+    q[2] = q[2] * .5 + r[2] * .5;
+    q[3] = q[3] * .5 + r[3] * .5;
+    return q;
+  }
+
+  float a = sin((1 - t) * halfTheta) / sinHalfTheta;
+  float b = sin(t * halfTheta) / sinHalfTheta;
+
+  q[0] = q[0] * a + r[0] * b;
+  q[1] = q[1] * a + r[1] * b;
+  q[2] = q[2] * a + r[2] * b;
+  q[3] = q[3] * a + r[3] * b;
+
+  return q;
+}
+
 void quat_rotate(quat q, vec3 v) {
   float s = q[3];
   float u[3];
