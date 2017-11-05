@@ -97,6 +97,14 @@ void lovrModelDraw(Model* model, mat4 transform) {
   lovrGraphicsPop();
 }
 
+Animator* lovrModelGetAnimator(Model* model) {
+  return model->animator;
+}
+
+void lovrModelSetAnimator(Model* model, Animator* animator) {
+  model->animator = animator;
+}
+
 Mesh* lovrModelGetMesh(Model* model) {
   return model->mesh;
 }

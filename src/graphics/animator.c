@@ -38,6 +38,19 @@ void lovrAnimatorDestroy(const Ref* ref) {
   free(animator);
 }
 
+void lovrAnimatorReset(Animator* animator) {
+  map_iter_t iter = map_iter(&animator->timeline);
+  const char* key;
+  while ((key = map_next(&animator->timeline, &iter)) != NULL) {
+    Track* track = map_get(&animator->timeline, key);
+    track->time = 0;
+    track->speed = 1;
+    track->playing = true;
+    track->looping = false;
+  }
+  animator->speed = 1;
+}
+
 void lovrAnimatorUpdate(Animator* animator, float dt) {
   map_iter_t iter = map_iter(&animator->timeline);
   const char* key;
@@ -52,19 +65,6 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
       track->playing = false;
     }
   }
-}
-
-void lovrAnimatorReset(Animator* animator) {
-  map_iter_t iter = map_iter(&animator->timeline);
-  const char* key;
-  while ((key = map_next(&animator->timeline, &iter)) != NULL) {
-    Track* track = map_get(&animator->timeline, key);
-    track->time = 0;
-    track->speed = 1;
-    track->playing = true;
-    track->looping = false;
-  }
-  animator->speed = 1;
 }
 
 int lovrAnimatorGetAnimationCount(Animator* animator) {

@@ -1,4 +1,5 @@
 #include "loaders/model.h"
+#include "graphics/animator.h"
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/texture.h"
@@ -14,6 +15,7 @@ typedef struct {
   ModelData* modelData;
   Mesh* mesh;
   Material** materials;
+  Animator* animator;
   float aabb[6];
   bool aabbDirty;
 } Model;
@@ -21,5 +23,7 @@ typedef struct {
 Model* lovrModelCreate(ModelData* modelData);
 void lovrModelDestroy(const Ref* ref);
 void lovrModelDraw(Model* model, mat4 transform);
+Animator* lovrModelGetAnimator(Model* model);
+void lovrModelSetAnimator(Model* model, Animator* animator);
 Mesh* lovrModelGetMesh(Model* model);
 const float* lovrModelGetAABB(Model* model);

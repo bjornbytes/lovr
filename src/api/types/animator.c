@@ -1,16 +1,16 @@
 #include "api/lovr.h"
 #include "graphics/animator.h"
 
+int l_lovrAnimatorReset(lua_State* L) {
+  Animator* animator = luax_checktype(L, 1, Animator);
+  lovrAnimatorReset(animator);
+  return 0;
+}
+
 int l_lovrAnimatorUpdate(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   float dt = luaL_checknumber(L, 2);
   lovrAnimatorUpdate(animator, dt);
-  return 0;
-}
-
-int l_lovrAnimatorReset(lua_State* L) {
-  Animator* animator = luax_checktype(L, 1, Animator);
-  lovrAnimatorReset(animator);
   return 0;
 }
 
@@ -174,8 +174,8 @@ int l_lovrAnimatorSetSpeed(lua_State* L) {
 }
 
 const luaL_Reg lovrAnimator[] = {
-  { "update", l_lovrAnimatorUpdate },
   { "reset", l_lovrAnimatorReset },
+  { "update", l_lovrAnimatorUpdate },
   { "getAnimationCount", l_lovrAnimatorGetAnimationCount },
   { "getAnimationNames", l_lovrAnimatorGetAnimationNames },
   { "play", l_lovrAnimatorPlay },

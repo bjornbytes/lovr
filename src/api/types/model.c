@@ -18,6 +18,24 @@ int l_lovrModelGetAABB(lua_State* L) {
   return 6;
 }
 
+int l_lovrModelGetAnimator(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  Animator* animator = lovrModelGetAnimator(model);
+  luax_pushtype(L, Animator, animator);
+  return 1;
+}
+
+int l_lovrModelSetAnimator(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  if (lua_isnil(L, 2)) {
+    lovrModelSetAnimator(model, NULL);
+  } else {
+    Animator* animator = luax_checktype(L, 2, Animator);
+    lovrModelSetAnimator(model, animator);
+  }
+  return 0;
+}
+
 int l_lovrModelGetMesh(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Mesh* mesh = lovrModelGetMesh(model);
@@ -28,6 +46,8 @@ int l_lovrModelGetMesh(lua_State* L) {
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
   { "getAABB", l_lovrModelGetAABB },
+  { "getAnimator", l_lovrModelGetAnimator },
+  { "setAnimator", l_lovrModelGetAnimator },
   { "getMesh", l_lovrModelGetMesh },
   { NULL, NULL }
 };
