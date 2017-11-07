@@ -97,6 +97,8 @@ static GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
   glBindAttribLocation(program, LOVR_SHADER_NORMAL, "lovrNormal");
   glBindAttribLocation(program, LOVR_SHADER_TEX_COORD, "lovrTexCoord");
   glBindAttribLocation(program, LOVR_SHADER_VERTEX_COLOR, "lovrVertexColor");
+  glBindAttribLocation(program, LOVR_SHADER_BONES, "lovrBones");
+  glBindAttribLocation(program, LOVR_SHADER_BONE_WEIGHTS, "lovrBoneWeights");
   glLinkProgram(program);
 
   int isLinked;
@@ -143,6 +145,10 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   // Set default vertex color
   float defaultVertexColor[4] = { 1., 1., 1., 1. };
   glVertexAttrib4fv(LOVR_SHADER_VERTEX_COLOR, defaultVertexColor);
+
+  // Set default bone weights
+  float defaultBoneWeights[4] = { 1., 0., 0., 0. };
+  glVertexAttrib4fv(LOVR_SHADER_BONE_WEIGHTS, defaultBoneWeights);
 
   // Uniform introspection
   GLint uniformCount;

@@ -1,4 +1,5 @@
 #include "loaders/model.h"
+#include "loaders/animation.h"
 #include "graphics/animator.h"
 #include "graphics/material.h"
 #include "graphics/mesh.h"
@@ -16,6 +17,7 @@ typedef struct {
   Mesh* mesh;
   Material** materials;
   Animator* animator;
+  float pose[MAX_BONES * 16];
   float aabb[6];
   bool aabbDirty;
 } Model;

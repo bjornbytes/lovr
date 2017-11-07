@@ -62,8 +62,9 @@ typedef struct {
   bool hasUVs;
   bool hasVertexColors;
   bool hasBones;
-  size_t boneOffset;
+  size_t boneByteOffset;
   size_t stride;
+  float inverseRootTransform[16];
 } ModelData;
 
 ModelData* lovrModelDataCreate(Blob* blob);

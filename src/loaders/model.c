@@ -157,6 +157,10 @@ static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode,
   aiTransposeMatrix4(&m);
   mat4_set(node->transform, (float*) &m);
 
+  if (currentIndex == 0) {
+    mat4_invert(mat4_set(modelData->inverseRootTransform, node->transform));
+  }
+
   // Primitives
   vec_init(&node->primitives);
   vec_pusharr(&node->primitives, assimpNode->mMeshes, assimpNode->mNumMeshes);
@@ -217,14 +221,15 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   modelData->stride += (modelData->hasNormals ? 3 : 0) * sizeof(float);
   modelData->stride += (modelData->hasUVs ? 2 : 0) * sizeof(float);
   modelData->stride += (modelData->hasVertexColors ? 4 : 0) * sizeof(uint8_t);
-  modelData->boneOffset = modelData->stride;
-  modelData->stride += (modelData->hasBones ? 4 : 0) * sizeof(uint8_t);
+  modelData->boneByteOffset = modelData->stride;
+  modelData->stride += (modelData->hasBones ? 4 : 0) * sizeof(uint32_t);
   modelData->stride += (modelData->hasBones ? 4 : 0) * sizeof(float);
   modelData->vertices.data = malloc(modelData->stride * modelData->vertexCount);
   modelData->indices.data = malloc(modelData->indexCount * modelData->indexSize);
 
   vec_init(&modelData->bones);
   map_init(&modelData->boneMap);
+  memset(modelData->vertices.data, 0, modelData->stride * modelData->vertexCount);
 
   // Load vertices
   ModelIndices indices = modelData->indices;
@@ -324,7 +329,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
         float weight = assimpBone->mWeights[w].mWeight;
         ModelVertices vertices = modelData->vertices;
         vertices.bytes += vertexIndex * modelData->stride;
-        uint32_t* bones = (uint32_t*) (vertices.bytes + modelData->boneOffset);
+        uint32_t* bones = (uint32_t*) (vertices.bytes + modelData->boneByteOffset);
         float* weights = (float*) (bones + MAX_BONES_PER_VERTEX);
 
         int boneSlot = 0;
@@ -388,10 +393,11 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   modelData->animationData = lovrAnimationDataCreate();
   for (unsigned int i = 0; i < scene->mNumAnimations; i++) {
     struct aiAnimation* assimpAnimation = scene->mAnimations[i];
+    float ticksPerSecond = assimpAnimation->mTicksPerSecond;
 
     Animation animation;
     animation.name = strdup(assimpAnimation->mName.data);
-    animation.duration = assimpAnimation->mDuration / (float) assimpAnimation->mTicksPerSecond;
+    animation.duration = assimpAnimation->mDuration / ticksPerSecond;
     animation.channelCount = assimpAnimation->mNumChannels;
     map_init(&animation.channels);
 
@@ -408,7 +414,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
         struct aiVectorKey assimpKeyframe = assimpChannel->mPositionKeys[k];
         struct aiVector3D position = assimpKeyframe.mValue;
         Keyframe keyframe;
-        keyframe.time = assimpKeyframe.mTime;
+        keyframe.time = assimpKeyframe.mTime / ticksPerSecond;
         vec3_set(keyframe.data, position.x, position.y, position.z);
         vec_push(&channel.positionKeyframes, keyframe);
       }
@@ -417,7 +423,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
         struct aiQuatKey assimpKeyframe = assimpChannel->mRotationKeys[k];
         struct aiQuaternion quaternion = assimpKeyframe.mValue;
         Keyframe keyframe;
-        keyframe.time = assimpKeyframe.mTime;
+        keyframe.time = assimpKeyframe.mTime / ticksPerSecond;
         quat_set(keyframe.data, quaternion.x, quaternion.y, quaternion.z, quaternion.w);
         vec_push(&channel.rotationKeyframes, keyframe);
       }
@@ -426,7 +432,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
         struct aiVectorKey assimpKeyframe = assimpChannel->mScalingKeys[k];
         struct aiVector3D scale = assimpKeyframe.mValue;
         Keyframe keyframe;
-        keyframe.time = assimpKeyframe.mTime;
+        keyframe.time = assimpKeyframe.mTime / ticksPerSecond;
         vec3_set(keyframe.data, scale.x, scale.y, scale.z);
         vec_push(&channel.scaleKeyframes, keyframe);
       }

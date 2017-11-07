@@ -3,6 +3,8 @@
 
 #pragma once
 
+#define MAX_BONES 64
+
 typedef struct {
   double time;
   float data[4];

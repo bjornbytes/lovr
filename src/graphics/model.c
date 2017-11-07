@@ -4,6 +4,36 @@
 #include "math/vec3.h"
 #include <stdlib.h>
 
+static void poseNode(Model* model, int nodeIndex, mat4 transform) {
+  ModelNode* node = &model->modelData->nodes[nodeIndex];
+
+  float globalTransform[16];
+  mat4_set(globalTransform, transform);
+
+  int* boneIndex = map_get(&model->modelData->boneMap, node->name);
+  if (!boneIndex) {
+    mat4_multiply(globalTransform, node->transform);
+  } else {
+    Bone* bone = &model->modelData->bones.data[*boneIndex];
+    mat4 finalTransform = model->pose + (*boneIndex * 16);
+
+    float localTransform[16];
+    mat4_identity(localTransform);
+    lovrAnimatorEvaluate(model->animator, node->name, localTransform);
+
+    mat4_multiply(globalTransform, localTransform);
+
+    mat4_identity(finalTransform);
+    mat4_multiply(finalTransform, model->modelData->inverseRootTransform);
+    mat4_multiply(finalTransform, globalTransform);
+    mat4_multiply(finalTransform, bone->offset);
+  }
+
+  for (int i = 0; i < node->children.length; i++) {
+    poseNode(model, node->children.data[i], globalTransform);
+  }
+}
+
 static void renderNode(Model* model, int nodeIndex) {
   ModelNode* node = &model->modelData->nodes[nodeIndex];
   Material* currentMaterial = lovrGraphicsGetMaterial();
@@ -59,6 +89,14 @@ Model* lovrModelCreate(ModelData* modelData) {
     vec_push(&format, attribute);
   }
 
+  if (modelData->hasBones) {
+    MeshAttribute bones = { .name = "lovrBones", .type = MESH_INT, .count = 4 };
+    vec_push(&format, bones);
+
+    MeshAttribute weights = { .name = "lovrBoneWeights", .type = MESH_FLOAT, .count = 4 };
+    vec_push(&format, weights);
+  }
+
   model->mesh = lovrMeshCreate(modelData->vertexCount, &format, MESH_TRIANGLES, MESH_STATIC);
   void* data = lovrMeshMap(model->mesh, 0, modelData->vertexCount, false, true);
   memcpy(data, modelData->vertices.data, modelData->vertexCount * modelData->stride);
@@ -69,6 +107,10 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->materials = malloc(modelData->materialCount * sizeof(Material*));
   for (int i = 0; i < modelData->materialCount; i++) {
     model->materials[i] = lovrMaterialCreate(modelData->materials[i], false);
+  }
+
+  for (int i = 0; i < MAX_BONES; i++) {
+    mat4_identity(model->pose + (16 * i));
   }
 
   vec_deinit(&format);
@@ -89,6 +131,16 @@ void lovrModelDestroy(const Ref* ref) {
 void lovrModelDraw(Model* model, mat4 transform) {
   if (model->modelData->nodeCount == 0) {
     return;
+  }
+
+  if (model->animator) {
+    float transform[16];
+    mat4_identity(transform);
+    poseNode(model, 0, transform);
+    Shader* shader = lovrGraphicsGetActiveShader();
+    if (shader) {
+      lovrShaderSetMatrix(shader, "lovrBoneTransforms", model->pose, MAX_BONES * 16);
+    }
   }
 
   lovrGraphicsPush();
