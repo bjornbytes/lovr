@@ -10,3 +10,4 @@ vec3 vec3_normalize(vec3 v);
 float vec3_length(vec3 v);
 float vec3_dot(vec3 v, vec3 u);
 vec3 vec3_cross(vec3 v, vec3 u);
+vec3 vec3_lerp(vec3 v, vec3 u, float t);

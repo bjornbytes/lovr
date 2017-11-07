@@ -46,3 +46,10 @@ vec3 vec3_cross(vec3 v, vec3 u) {
     v[0] * u[1] - v[1] * u[0]
   );
 }
+
+vec3 vec3_lerp(vec3 v, vec3 u, float t) {
+  v[0] = v[0] + (u[0] - v[0]) * t;
+  v[1] = v[1] + (u[1] - v[1]) * t;
+  v[2] = v[2] + (u[2] - v[2]) * t;
+  return v;
+}
