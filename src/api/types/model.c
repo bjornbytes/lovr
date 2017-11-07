@@ -47,7 +47,7 @@ const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
   { "getAABB", l_lovrModelGetAABB },
   { "getAnimator", l_lovrModelGetAnimator },
-  { "setAnimator", l_lovrModelGetAnimator },
+  { "setAnimator", l_lovrModelSetAnimator },
   { "getMesh", l_lovrModelGetMesh },
   { NULL, NULL }
 };

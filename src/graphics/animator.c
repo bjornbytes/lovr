@@ -1,5 +1,6 @@
 #include "graphics/animator.h"
-#include "math/math.h"
+#include "math/vec3.h"
+#include "math/quat.h"
 #include <math.h>
 
 static Track* lovrAnimatorEnsureTrack(Animator* animator, const char* animation) {
@@ -56,13 +57,120 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
   const char* key;
   while ((key = map_next(&animator->timeline, &iter)) != NULL) {
     Track* track = map_get(&animator->timeline, key);
-    track->time += dt * track->speed * animator->speed;
 
-    if (track->looping) {
-      track->time = fmodf(track->time, track->animation->duration);
-    } else if (track->time > track->animation->duration) {
-      track->time = 0;
-      track->playing = false;
+    if (track->playing) {
+      track->time += dt * track->speed * animator->speed;
+
+      if (track->looping) {
+        track->time = fmodf(track->time, track->animation->duration);
+      } else if (track->time > track->animation->duration) {
+        track->time = 0;
+        track->playing = false;
+      }
+    }
+  }
+}
+
+void lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) {
+  map_iter_t iter = map_iter(&animator->timeline);
+  const char* key;
+  while ((key = map_next(&animator->timeline, &iter)) != NULL) {
+    Track* track = map_get(&animator->timeline, key);
+    Animation* animation = track->animation;
+    AnimationChannel* channel = map_get(&animation->channels, bone);
+
+    if (!channel || !track->playing) {
+      continue;
+    }
+
+    float time = fmodf(track->time, animation->duration);
+    int i;
+
+    // Position
+    if (channel->positionKeyframes.length > 0) {
+      i = 0;
+      while (i < channel->positionKeyframes.length) {
+        if (channel->positionKeyframes.data[i].time >= time) {
+          break;
+        } else {
+          i++;
+        }
+      }
+
+      float translation[3];
+      if (i == 0) {
+        Keyframe keyframe = channel->positionKeyframes.data[0];
+        vec3_init(translation, keyframe.data);
+      } else if (i >= channel->positionKeyframes.length) {
+        Keyframe keyframe = channel->positionKeyframes.data[channel->positionKeyframes.length - 1];
+        vec3_init(translation, keyframe.data);
+      } else {
+        Keyframe before, after;
+        before = channel->positionKeyframes.data[i - 1];
+        after = channel->positionKeyframes.data[i];
+        float t = (time - before.time) / (after.time - before.time);
+        vec3_lerp(vec3_init(translation, before.data), after.data, t);
+      }
+
+      mat4_translate(transform, translation[0], translation[1], translation[2]);
+    }
+
+    // Rotation
+    if (channel->rotationKeyframes.length > 0) {
+      i = 0;
+      while (i < channel->rotationKeyframes.length) {
+        if (channel->rotationKeyframes.data[i].time >= time) {
+          break;
+        } else {
+          i++;
+        }
+      }
+
+      float rotation[4];
+      if (i == 0) {
+        Keyframe keyframe = channel->rotationKeyframes.data[0];
+        quat_init(rotation, keyframe.data);
+      } else if (i >= channel->rotationKeyframes.length) {
+        Keyframe keyframe = channel->rotationKeyframes.data[channel->rotationKeyframes.length - 1];
+        quat_init(rotation, keyframe.data);
+      } else {
+        Keyframe before, after;
+        before = channel->rotationKeyframes.data[i - 1];
+        after = channel->rotationKeyframes.data[i];
+        float t = (time - before.time) / (after.time - before.time);
+        quat_slerp(quat_init(rotation, before.data), after.data, t);
+      }
+
+      mat4_rotateQuat(transform, rotation);
+    }
+
+    // Scale
+    if (channel->scaleKeyframes.length > 0) {
+      i = 0;
+      while (i < channel->scaleKeyframes.length) {
+        if (channel->scaleKeyframes.data[i].time >= time) {
+          break;
+        } else {
+          i++;
+        }
+      }
+
+      float scale[3];
+      if (i == 0) {
+        Keyframe keyframe = channel->scaleKeyframes.data[0];
+        vec3_init(scale, keyframe.data);
+      } else if (i >= channel->scaleKeyframes.length) {
+        Keyframe keyframe = channel->scaleKeyframes.data[channel->scaleKeyframes.length - 1];
+        vec3_init(scale, keyframe.data);
+      } else {
+        Keyframe before, after;
+        before = channel->scaleKeyframes.data[i - 1];
+        after = channel->scaleKeyframes.data[i];
+        float t = (time - before.time) / (after.time - before.time);
+        vec3_lerp(vec3_init(scale, before.data), after.data, t);
+      }
+
+      mat4_scale(transform, scale[0], scale[1], scale[2]);
     }
   }
 }

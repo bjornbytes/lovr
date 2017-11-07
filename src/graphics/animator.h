@@ -1,6 +1,7 @@
 #include "loaders/animation.h"
-#include "lib/map/map.h"
+#include "math/mat4.h"
 #include "util.h"
+#include "lib/map/map.h"
 #include <stdbool.h>
 
 #pragma once
@@ -28,6 +29,7 @@ Animator* lovrAnimatorCreate(AnimationData* animationData);
 void lovrAnimatorDestroy(const Ref* ref);
 void lovrAnimatorReset(Animator* animator);
 void lovrAnimatorUpdate(Animator* animator, float dt);
+void lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform);
 int lovrAnimatorGetAnimationCount(Animator* animator);
 const char* lovrAnimatorGetAnimationName(Animator* animator, int index);
 void lovrAnimatorPlay(Animator* animator, const char* animation);
