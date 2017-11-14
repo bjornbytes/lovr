@@ -10,16 +10,19 @@ static void poseNode(Model* model, int nodeIndex, mat4 transform) {
   float globalTransform[16];
   mat4_set(globalTransform, transform);
 
+  float localTransform[16];
+  mat4_identity(localTransform);
+  lovrAnimatorEvaluate(model->animator, node->name, localTransform);
+
+  mat4_set(model->nodeTransforms[nodeIndex], localTransform);
+
   int* boneIndex = map_get(&model->modelData->boneMap, node->name);
   if (!boneIndex) {
     mat4_multiply(globalTransform, node->transform);
+    mat4_multiply(globalTransform, localTransform);
   } else {
     Bone* bone = &model->modelData->bones.data[*boneIndex];
     mat4 finalTransform = model->pose + (*boneIndex * 16);
-
-    float localTransform[16];
-    mat4_identity(localTransform);
-    lovrAnimatorEvaluate(model->animator, node->name, localTransform);
 
     mat4_multiply(globalTransform, localTransform);
 
@@ -41,6 +44,7 @@ static void renderNode(Model* model, int nodeIndex) {
 
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(MATRIX_MODEL, node->transform);
+  lovrGraphicsMatrixTransform(MATRIX_MODEL, model->nodeTransforms[nodeIndex]);
 
   for (int i = 0; i < node->primitives.length; i++) {
     ModelPrimitive* primitive = &model->modelData->primitives[node->primitives.data[i]];
@@ -111,6 +115,10 @@ Model* lovrModelCreate(ModelData* modelData) {
 
   for (int i = 0; i < MAX_BONES; i++) {
     mat4_identity(model->pose + (16 * i));
+  }
+
+  for (int i = 0; i < 640; i++) {
+    mat4_identity(model->nodeTransforms[i]);
   }
 
   vec_deinit(&format);
