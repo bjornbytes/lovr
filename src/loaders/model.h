@@ -37,6 +37,7 @@ typedef struct ModelNode {
 
 typedef struct {
   const char* name;
+  int nodeIndex;
   float offset[16];
 } Bone;
 

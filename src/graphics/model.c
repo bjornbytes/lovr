@@ -4,47 +4,40 @@
 #include "math/vec3.h"
 #include <stdlib.h>
 
-static void poseNode(Model* model, int nodeIndex, mat4 transform) {
-  ModelNode* node = &model->modelData->nodes[nodeIndex];
-
-  float globalTransform[16];
-  mat4_set(globalTransform, transform);
-
-  float localTransform[16];
-  mat4_identity(localTransform);
-  lovrAnimatorEvaluate(model->animator, node->name, localTransform);
-
-  mat4_set(model->nodeTransforms[nodeIndex], localTransform);
-
-  int* boneIndex = map_get(&model->modelData->boneMap, node->name);
-  if (!boneIndex) {
-    mat4_multiply(globalTransform, node->transform);
-    mat4_multiply(globalTransform, localTransform);
-  } else {
-    Bone* bone = &model->modelData->bones.data[*boneIndex];
-    mat4 finalTransform = model->pose + (*boneIndex * 16);
-
-    mat4_multiply(globalTransform, localTransform);
-
-    mat4_identity(finalTransform);
-    mat4_multiply(finalTransform, model->modelData->inverseRootTransform);
-    mat4_multiply(finalTransform, globalTransform);
-    mat4_multiply(finalTransform, bone->offset);
-  }
-
-  for (int i = 0; i < node->children.length; i++) {
-    poseNode(model, node->children.data[i], globalTransform);
-  }
-}
-
 static void renderNode(Model* model, int nodeIndex) {
   ModelNode* node = &model->modelData->nodes[nodeIndex];
   Material* currentMaterial = lovrGraphicsGetMaterial();
   bool useMaterials = currentMaterial->isDefault;
 
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, node->transform);
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, model->nodeTransforms[nodeIndex]);
+  lovrGraphicsMatrixTransform(MATRIX_MODEL, model->localNodeTransforms + 16 * nodeIndex);
+
+  float globalInverse[16];
+  mat4_set(globalInverse, model->globalNodeTransforms + nodeIndex * 16);
+  mat4_invert(globalInverse);
+
+  for (int i = 0; i < model->modelData->bones.length; i++) {
+    Bone* bone = &model->modelData->bones.data[i];
+
+    int nodeIndex = -1;
+    for (int j = 0; j < model->modelData->nodeCount; j++) {
+      if (!strcmp(model->modelData->nodes[j].name, bone->name)) {
+        nodeIndex = j;
+        break;
+      }
+    }
+
+    mat4 bonePose = model->pose + 16 * i;
+    mat4_identity(bonePose);
+    mat4_set(bonePose, globalInverse);
+    mat4_multiply(bonePose, &model->globalNodeTransforms[16 * nodeIndex]);
+    mat4_multiply(bonePose, bone->offset);
+  }
+
+  Shader* shader = lovrGraphicsGetActiveShader();
+  if (shader) {
+    lovrShaderSetMatrix(shader, "lovrBoneTransforms", model->pose, MAX_BONES * 16);
+  }
 
   for (int i = 0; i < node->primitives.length; i++) {
     ModelPrimitive* primitive = &model->modelData->primitives[node->primitives.data[i]];
@@ -117,8 +110,16 @@ Model* lovrModelCreate(ModelData* modelData) {
     mat4_identity(model->pose + (16 * i));
   }
 
-  for (int i = 0; i < 640; i++) {
-    mat4_identity(model->nodeTransforms[i]);
+  model->localNodeTransforms = malloc(16 * modelData->nodeCount * sizeof(float));
+  for (int i = 0; i < modelData->nodeCount; i++) {
+    mat4 transform = model->localNodeTransforms + 16 * i;
+    mat4_identity(transform);
+  }
+
+  model->globalNodeTransforms = malloc(16 * modelData->nodeCount * sizeof(float));
+  for (int i = 0; i < modelData->nodeCount; i++) {
+    mat4 transform = &model->globalNodeTransforms[16 * i];
+    mat4_identity(transform);
   }
 
   vec_deinit(&format);
@@ -142,12 +143,27 @@ void lovrModelDraw(Model* model, mat4 transform) {
   }
 
   if (model->animator) {
-    float transform[16];
-    mat4_identity(transform);
-    poseNode(model, 0, transform);
-    Shader* shader = lovrGraphicsGetActiveShader();
-    if (shader) {
-      lovrShaderSetMatrix(shader, "lovrBoneTransforms", model->pose, MAX_BONES * 16);
+
+    // Compute local bone transform info (should be done once in animator prolly)
+    for (int i = 0; i < model->modelData->nodeCount; i++) {
+      ModelNode* node = &model->modelData->nodes[i];
+      mat4 transform = &model->localNodeTransforms[16 * i];
+      mat4_identity(transform);
+      if (!lovrAnimatorEvaluate(model->animator, node->name, transform)) {
+        mat4_set(transform, node->transform);
+      }
+    }
+
+    // Compute global transforms
+    for (int i = 0; i < model->modelData->nodeCount; i++) {
+      ModelNode* node = &model->modelData->nodes[i];
+      mat4 transform = &model->globalNodeTransforms[16 * i];
+      if (node->parent >= 0) {
+        mat4_set(transform, model->globalNodeTransforms + 16 * node->parent);
+        mat4_multiply(transform, model->localNodeTransforms + 16 * i);
+      } else {
+        mat4_set(transform, model->localNodeTransforms + 16 * i);
+      }
     }
   }
 

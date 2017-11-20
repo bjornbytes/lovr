@@ -71,9 +71,10 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
   }
 }
 
-void lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) {
+bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) {
   map_iter_t iter = map_iter(&animator->timeline);
   const char* key;
+  bool touched = false;
   while ((key = map_next(&animator->timeline, &iter)) != NULL) {
     Track* track = map_get(&animator->timeline, key);
     Animation* animation = track->animation;
@@ -113,6 +114,7 @@ void lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) 
       }
 
       mat4_translate(transform, translation[0], translation[1], translation[2]);
+      touched = true;
     }
 
     // Rotation
@@ -142,6 +144,7 @@ void lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) 
       }
 
       mat4_rotateQuat(transform, rotation);
+      touched = true;
     }
 
     // Scale
@@ -171,8 +174,11 @@ void lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) 
       }
 
       mat4_scale(transform, scale[0], scale[1], scale[2]);
+      touched = true;
     }
   }
+
+  return touched;
 }
 
 int lovrAnimatorGetAnimationCount(Animator* animator) {
