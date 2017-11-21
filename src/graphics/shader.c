@@ -327,7 +327,7 @@ static void lovrShaderSetUniform(Shader* shader, const char* name, UniformType t
 
   const char* plural = (uniform->size / size) > 1 ? "s" : "";
   lovrAssert(uniform->type == type, "Unable to send %ss to uniform %s", debug, uniform->name);
-  lovrAssert(count * size == uniform->size, "Expected %d %s%s for uniform %s, got %d", uniform->size / size, debug, plural, uniform->name, count);
+  lovrAssert(count * size <= uniform->size, "Expected at most %d %s%s for uniform %s, got %d", uniform->size / size, debug, plural, uniform->name, count);
 
   if (!uniform->dirty && !memcmp(uniform->value.data, data, count * size)) {
     return;
