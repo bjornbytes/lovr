@@ -36,7 +36,7 @@ static void renderNode(Model* model, int nodeIndex) {
 
   Shader* shader = lovrGraphicsGetActiveShader();
   if (shader) {
-    lovrShaderSetMatrix(shader, "lovrBoneTransforms", model->pose, MAX_BONES * 16);
+    lovrShaderSetMatrix(shader, "lovrPose", model->pose, MAX_BONES * 16);
   }
 
   for (int i = 0; i < node->primitives.length; i++) {
