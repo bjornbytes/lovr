@@ -424,7 +424,6 @@ static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
 
   glfwGetWindowSize(window, &w, &h); 
 
-  float transform[16];
   mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float)w/h);
 
   // render
