@@ -28,7 +28,7 @@ static void renderNode(Model* model, int nodeIndex) {
         }
       }
 
-      mat4 bonePose = model->pose + 16 * i;
+      mat4 bonePose = model->pose[i];
       mat4_identity(bonePose);
       mat4_set(bonePose, globalInverse);
       mat4_multiply(bonePose, &model->globalNodeTransforms[16 * nodeIndex]);
@@ -37,7 +37,7 @@ static void renderNode(Model* model, int nodeIndex) {
 
     Shader* shader = lovrGraphicsGetActiveShader();
     if (shader) {
-      lovrShaderSetMatrix(shader, "lovrPose", model->pose, MAX_BONES * 16);
+      lovrShaderSetMatrix(shader, "lovrPose", (float*) model->pose, MAX_BONES * 16);
     }
 
     for (int i = 0; i < node->primitives.length; i++) {
@@ -110,7 +110,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   }
 
   for (int i = 0; i < MAX_BONES; i++) {
-    mat4_identity(model->pose + (16 * i));
+    mat4_identity(model->pose[i]);
   }
 
   model->localNodeTransforms = malloc(16 * modelData->nodeCount * sizeof(float));
@@ -137,6 +137,8 @@ void lovrModelDestroy(const Ref* ref) {
   free(model->materials);
   lovrModelDataDestroy(model->modelData);
   lovrRelease(&model->mesh->ref);
+  free(model->localNodeTransforms);
+  free(model->globalNodeTransforms);
   free(model);
 }
 
