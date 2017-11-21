@@ -80,7 +80,7 @@ void lovrGraphicsPresent() {
   glfwSwapBuffers(state.window);
 }
 
-void lovrGraphicsPrepare() {
+void lovrGraphicsPrepare(float* pose) {
   Shader* shader = lovrGraphicsGetActiveShader();
 
   if (!shader) {
@@ -120,6 +120,15 @@ void lovrGraphicsPrepare() {
 
   // Point size
   lovrShaderSetFloat(shader, "lovrPointSize", &state.pointSize, 1);
+
+  // Pose
+  if (pose) {
+    lovrShaderSetMatrix(shader, "lovrPose", pose, MAX_BONES * 16);
+  } else {
+    float identity[16];
+    mat4_identity(identity);
+    lovrShaderSetMatrix(shader, "lovrPose", identity, 16);
+  }
 
   // Material
   Material* material = lovrGraphicsGetMaterial();
@@ -502,7 +511,7 @@ static void lovrGraphicsDrawPrimitive(GLenum mode, bool hasNormals, bool hasTexC
   float* data = state.streamData.data;
   unsigned int* indices = state.streamIndices.data;
 
-  lovrGraphicsPrepare();
+  lovrGraphicsPrepare(NULL);
   lovrGraphicsBindVertexArray(state.streamVAO);
   lovrGraphicsBindVertexBuffer(state.streamVBO);
   glBufferData(GL_ARRAY_BUFFER, state.streamData.length * sizeof(float), data, GL_STREAM_DRAW);
@@ -523,6 +532,9 @@ static void lovrGraphicsDrawPrimitive(GLenum mode, bool hasNormals, bool hasTexC
   } else {
     glDisableVertexAttribArray(LOVR_SHADER_TEX_COORD);
   }
+
+  glDisableVertexAttribArray(LOVR_SHADER_BONES);
+  glDisableVertexAttribArray(LOVR_SHADER_BONE_WEIGHTS);
 
   if (useIndices) {
     lovrGraphicsBindIndexBuffer(state.streamIBO);

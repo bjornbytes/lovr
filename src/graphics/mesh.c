@@ -127,7 +127,7 @@ void lovrMeshDestroy(const Ref* ref) {
   free(mesh);
 }
 
-void lovrMeshDraw(Mesh* mesh, mat4 transform) {
+void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose) {
   if (mesh->isMapped) {
     lovrMeshUnmap(mesh);
   }
@@ -138,7 +138,7 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform) {
   }
 
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-  lovrGraphicsPrepare();
+  lovrGraphicsPrepare(pose);
   lovrGraphicsBindVertexArray(mesh->vao);
   lovrMeshBindAttributes(mesh);
   size_t start = mesh->rangeStart;

@@ -31,7 +31,7 @@ int l_lovrMeshDraw(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   float transform[16];
   luax_readtransform(L, 2, transform, 1);
-  lovrMeshDraw(mesh, transform);
+  lovrMeshDraw(mesh, transform, NULL);
   return 0;
 }
 

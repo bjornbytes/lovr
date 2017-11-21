@@ -13,31 +13,28 @@ static void renderNode(Model* model, int nodeIndex) {
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_MODEL, model->nodeTransforms[nodeIndex]);
 
-    float globalInverse[16];
-    mat4_set(globalInverse, model->nodeTransforms[nodeIndex]);
-    mat4_invert(globalInverse);
+    if (model->animator) {
+      float globalInverse[16];
+      mat4_set(globalInverse, model->nodeTransforms[nodeIndex]);
+      mat4_invert(globalInverse);
 
-    for (int i = 0; i < model->modelData->bones.length; i++) {
-      Bone* bone = &model->modelData->bones.data[i];
+      for (int i = 0; i < model->modelData->bones.length; i++) {
+        Bone* bone = &model->modelData->bones.data[i];
 
-      int nodeIndex = -1;
-      for (int j = 0; j < model->modelData->nodeCount; j++) {
-        if (!strcmp(model->modelData->nodes[j].name, bone->name)) {
-          nodeIndex = j;
-          break;
+        int nodeIndex = -1;
+        for (int j = 0; j < model->modelData->nodeCount; j++) {
+          if (!strcmp(model->modelData->nodes[j].name, bone->name)) {
+            nodeIndex = j;
+            break;
+          }
         }
+
+        mat4 bonePose = model->pose[i];
+        mat4_identity(bonePose);
+        mat4_set(bonePose, globalInverse);
+        mat4_multiply(bonePose, model->nodeTransforms[nodeIndex]);
+        mat4_multiply(bonePose, bone->offset);
       }
-
-      mat4 bonePose = model->pose[i];
-      mat4_identity(bonePose);
-      mat4_set(bonePose, globalInverse);
-      mat4_multiply(bonePose, model->nodeTransforms[nodeIndex]);
-      mat4_multiply(bonePose, bone->offset);
-    }
-
-    Shader* shader = lovrGraphicsGetActiveShader();
-    if (shader) {
-      lovrShaderSetMatrix(shader, "lovrPose", (float*) model->pose, MAX_BONES * 16);
     }
 
     for (int i = 0; i < node->primitives.length; i++) {
@@ -46,7 +43,7 @@ static void renderNode(Model* model, int nodeIndex) {
         lovrGraphicsSetMaterial(model->materials[primitive->material]);
       }
       lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
-      lovrMeshDraw(model->mesh, NULL);
+      lovrMeshDraw(model->mesh, NULL, (float*) model->pose);
     }
 
     lovrGraphicsPop();

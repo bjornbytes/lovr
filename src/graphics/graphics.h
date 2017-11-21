@@ -113,7 +113,7 @@ void lovrGraphicsDestroy();
 void lovrGraphicsReset();
 void lovrGraphicsClear(bool color, bool depth);
 void lovrGraphicsPresent();
-void lovrGraphicsPrepare();
+void lovrGraphicsPrepare(float* pose);
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
