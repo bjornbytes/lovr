@@ -8,3 +8,4 @@ src/Tupfile
 *.lua
 *.glsl
 .DS_Store
+bin
