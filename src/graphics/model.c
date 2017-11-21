@@ -181,6 +181,10 @@ void lovrModelSetAnimator(Model* model, Animator* animator) {
   model->animator = animator;
 }
 
+int lovrModelGetAnimationCount(Model* model) {
+  return model->modelData->animationCount;
+}
+
 Mesh* lovrModelGetMesh(Model* model) {
   return model->mesh;
 }

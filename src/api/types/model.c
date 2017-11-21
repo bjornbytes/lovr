@@ -36,6 +36,12 @@ int l_lovrModelSetAnimator(lua_State* L) {
   return 0;
 }
 
+int l_lovrModelGetAnimationCount(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  lua_pushinteger(L, lovrModelGetAnimationCount(model));
+  return 1;
+}
+
 int l_lovrModelGetMesh(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Mesh* mesh = lovrModelGetMesh(model);
@@ -48,6 +54,7 @@ const luaL_Reg lovrModel[] = {
   { "getAABB", l_lovrModelGetAABB },
   { "getAnimator", l_lovrModelGetAnimator },
   { "setAnimator", l_lovrModelSetAnimator },
+  { "getAnimationCount", l_lovrModelGetAnimationCount },
   { "getMesh", l_lovrModelGetMesh },
   { NULL, NULL }
 };

@@ -29,5 +29,6 @@ void lovrModelDestroy(const Ref* ref);
 void lovrModelDraw(Model* model, mat4 transform);
 Animator* lovrModelGetAnimator(Model* model);
 void lovrModelSetAnimator(Model* model, Animator* animator);
+int lovrModelGetAnimationCount(Model* model);
 Mesh* lovrModelGetMesh(Model* model);
 const float* lovrModelGetAABB(Model* model);
