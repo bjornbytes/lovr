@@ -11,10 +11,10 @@ static void renderNode(Model* model, int nodeIndex) {
 
   if (node->primitives.length > 0) {
     lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(MATRIX_MODEL, model->globalNodeTransforms + 16 * nodeIndex);
+    lovrGraphicsMatrixTransform(MATRIX_MODEL, model->nodeTransforms[nodeIndex]);
 
     float globalInverse[16];
-    mat4_set(globalInverse, model->globalNodeTransforms + nodeIndex * 16);
+    mat4_set(globalInverse, model->nodeTransforms[nodeIndex]);
     mat4_invert(globalInverse);
 
     for (int i = 0; i < model->modelData->bones.length; i++) {
@@ -31,7 +31,7 @@ static void renderNode(Model* model, int nodeIndex) {
       mat4 bonePose = model->pose[i];
       mat4_identity(bonePose);
       mat4_set(bonePose, globalInverse);
-      mat4_multiply(bonePose, &model->globalNodeTransforms[16 * nodeIndex]);
+      mat4_multiply(bonePose, model->nodeTransforms[nodeIndex]);
       mat4_multiply(bonePose, bone->offset);
     }
 
@@ -113,15 +113,9 @@ Model* lovrModelCreate(ModelData* modelData) {
     mat4_identity(model->pose[i]);
   }
 
-  model->localNodeTransforms = malloc(16 * modelData->nodeCount * sizeof(float));
+  model->nodeTransforms = malloc(16 * modelData->nodeCount * sizeof(float));
   for (int i = 0; i < modelData->nodeCount; i++) {
-    mat4 transform = model->localNodeTransforms + 16 * i;
-    mat4_identity(transform);
-  }
-
-  model->globalNodeTransforms = malloc(16 * modelData->nodeCount * sizeof(float));
-  for (int i = 0; i < modelData->nodeCount; i++) {
-    mat4 transform = &model->globalNodeTransforms[16 * i];
+    mat4 transform = model->nodeTransforms[i];
     mat4_identity(transform);
   }
 
@@ -137,8 +131,7 @@ void lovrModelDestroy(const Ref* ref) {
   free(model->materials);
   lovrModelDataDestroy(model->modelData);
   lovrRelease(&model->mesh->ref);
-  free(model->localNodeTransforms);
-  free(model->globalNodeTransforms);
+  free(model->nodeTransforms);
   free(model);
 }
 
@@ -148,26 +141,21 @@ void lovrModelDraw(Model* model, mat4 transform) {
   }
 
   if (model->animator) {
-
-    // Compute local bone transform info (should be done once in animator prolly)
     for (int i = 0; i < model->modelData->nodeCount; i++) {
       ModelNode* node = &model->modelData->nodes[i];
-      mat4 transform = &model->localNodeTransforms[16 * i];
-      mat4_identity(transform);
-      if (!lovrAnimatorEvaluate(model->animator, node->name, transform)) {
-        mat4_set(transform, node->transform);
+
+      float localTransform[16];
+      mat4_identity(localTransform);
+      if (!lovrAnimatorEvaluate(model->animator, node->name, localTransform)) {
+        mat4_set(localTransform, node->transform);
       }
-    }
 
-    // Compute global transforms
-    for (int i = 0; i < model->modelData->nodeCount; i++) {
-      ModelNode* node = &model->modelData->nodes[i];
-      mat4 transform = &model->globalNodeTransforms[16 * i];
+      mat4 globalTransform = model->nodeTransforms[i];
       if (node->parent >= 0) {
-        mat4_set(transform, model->globalNodeTransforms + 16 * node->parent);
-        mat4_multiply(transform, model->localNodeTransforms + 16 * i);
+        mat4_set(globalTransform, model->nodeTransforms[node->parent]);
+        mat4_multiply(globalTransform, localTransform);
       } else {
-        mat4_set(transform, model->localNodeTransforms + 16 * i);
+        mat4_set(globalTransform, localTransform);
       }
     }
   }

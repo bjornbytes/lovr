@@ -18,8 +18,7 @@ typedef struct {
   Material** materials;
   Animator* animator;
   float pose[MAX_BONES][16];
-  float* localNodeTransforms;
-  float* globalNodeTransforms;
+  float (*nodeTransforms)[16];
   float aabb[6];
   bool aabbDirty;
 } Model;
