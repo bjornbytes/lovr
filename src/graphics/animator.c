@@ -4,9 +4,13 @@
 #include <math.h>
 
 static Track* lovrAnimatorEnsureTrack(Animator* animator, const char* animation) {
-  Track* track = map_get(&animator->timeline, animation);
+  Track* track = map_get(&animator->trackMap, animation);
   lovrAssert(track, "Animation '%s' does not exist", animation);
   return track;
+}
+
+static int trackSortCallback(const void* a, const void* b) {
+  return ((Track*) a)->priority < ((Track*) b)->priority;
 }
 
 Animator* lovrAnimatorCreate(AnimationData* animationData) {
@@ -14,12 +18,15 @@ Animator* lovrAnimatorCreate(AnimationData* animationData) {
   if (!animator) return NULL;
 
   animator->animationData = animationData;
-  map_init(&animator->timeline);
+  map_init(&animator->trackMap);
+  vec_init(&animator->trackList);
   animator->speed = 1;
 
   for (int i = 0; i < animationData->animations.length; i++) {
+    Animation* animation = &animationData->animations.data[i];
+
     Track track = {
-      .animation = &animationData->animations.data[i],
+      .animation = animation,
       .time = 0,
       .speed = 1,
       .priority = 0,
@@ -27,7 +34,8 @@ Animator* lovrAnimatorCreate(AnimationData* animationData) {
       .looping = false
     };
 
-    map_set(&animator->timeline, animationData->animations.data[i].name, track);
+    map_set(&animator->trackMap, animation->name, track);
+    vec_push(&animator->trackList, map_get(&animator->trackMap, animation->name));
   }
 
   return animator;
@@ -35,15 +43,14 @@ Animator* lovrAnimatorCreate(AnimationData* animationData) {
 
 void lovrAnimatorDestroy(const Ref* ref) {
   Animator* animator = containerof(ref, Animator);
-  map_deinit(&animator->timeline);
+  map_deinit(&animator->trackMap);
+  vec_deinit(&animator->trackList);
   free(animator);
 }
 
 void lovrAnimatorReset(Animator* animator) {
-  map_iter_t iter = map_iter(&animator->timeline);
-  const char* key;
-  while ((key = map_next(&animator->timeline, &iter)) != NULL) {
-    Track* track = map_get(&animator->timeline, key);
+  Track* track; int i;
+  vec_foreach(&animator->trackList, track, i) {
     track->time = 0;
     track->speed = 1;
     track->playing = true;
@@ -53,11 +60,8 @@ void lovrAnimatorReset(Animator* animator) {
 }
 
 void lovrAnimatorUpdate(Animator* animator, float dt) {
-  map_iter_t iter = map_iter(&animator->timeline);
-  const char* key;
-  while ((key = map_next(&animator->timeline, &iter)) != NULL) {
-    Track* track = map_get(&animator->timeline, key);
-
+  Track* track; int i;
+  vec_foreach(&animator->trackList, track, i) {
     if (track->playing) {
       track->time += dt * track->speed * animator->speed;
 
@@ -72,11 +76,9 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
 }
 
 bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) {
-  map_iter_t iter = map_iter(&animator->timeline);
-  const char* key;
   bool touched = false;
-  while ((key = map_next(&animator->timeline, &iter)) != NULL) {
-    Track* track = map_get(&animator->timeline, key);
+  Track* track; int i;
+  vec_foreach(&animator->trackList, track, i) {
     Animation* animation = track->animation;
     AnimationChannel* channel = map_get(&animation->channels, bone);
 
@@ -267,6 +269,7 @@ int lovrAnimatorGetPriority(Animator* animator, const char* animation) {
 void lovrAnimatorSetPriority(Animator* animator, const char* animation, int priority) {
   Track* track = lovrAnimatorEnsureTrack(animator, animation);
   track->priority = priority;
+  vec_sort(&animator->trackList, trackSortCallback);
 }
 
 float lovrAnimatorGetSpeed(Animator* animator, const char* animation) {

@@ -21,7 +21,8 @@ typedef map_t(Track) map_track_t;
 typedef struct {
   Ref ref;
   AnimationData* animationData;
-  map_track_t timeline;
+  map_track_t trackMap;
+  vec_void_t trackList;
   float speed;
 } Animator;
 
