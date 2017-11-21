@@ -9,46 +9,48 @@ static void renderNode(Model* model, int nodeIndex) {
   Material* currentMaterial = lovrGraphicsGetMaterial();
   bool useMaterials = currentMaterial->isDefault;
 
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, model->globalNodeTransforms + 16 * nodeIndex);
+  if (node->primitives.length > 0) {
+    lovrGraphicsPush();
+    lovrGraphicsMatrixTransform(MATRIX_MODEL, model->globalNodeTransforms + 16 * nodeIndex);
 
-  float globalInverse[16];
-  mat4_set(globalInverse, model->globalNodeTransforms + nodeIndex * 16);
-  mat4_invert(globalInverse);
+    float globalInverse[16];
+    mat4_set(globalInverse, model->globalNodeTransforms + nodeIndex * 16);
+    mat4_invert(globalInverse);
 
-  for (int i = 0; i < model->modelData->bones.length; i++) {
-    Bone* bone = &model->modelData->bones.data[i];
+    for (int i = 0; i < model->modelData->bones.length; i++) {
+      Bone* bone = &model->modelData->bones.data[i];
 
-    int nodeIndex = -1;
-    for (int j = 0; j < model->modelData->nodeCount; j++) {
-      if (!strcmp(model->modelData->nodes[j].name, bone->name)) {
-        nodeIndex = j;
-        break;
+      int nodeIndex = -1;
+      for (int j = 0; j < model->modelData->nodeCount; j++) {
+        if (!strcmp(model->modelData->nodes[j].name, bone->name)) {
+          nodeIndex = j;
+          break;
+        }
       }
+
+      mat4 bonePose = model->pose + 16 * i;
+      mat4_identity(bonePose);
+      mat4_set(bonePose, globalInverse);
+      mat4_multiply(bonePose, &model->globalNodeTransforms[16 * nodeIndex]);
+      mat4_multiply(bonePose, bone->offset);
     }
 
-    mat4 bonePose = model->pose + 16 * i;
-    mat4_identity(bonePose);
-    mat4_set(bonePose, globalInverse);
-    mat4_multiply(bonePose, &model->globalNodeTransforms[16 * nodeIndex]);
-    mat4_multiply(bonePose, bone->offset);
-  }
-
-  Shader* shader = lovrGraphicsGetActiveShader();
-  if (shader) {
-    lovrShaderSetMatrix(shader, "lovrPose", model->pose, MAX_BONES * 16);
-  }
-
-  for (int i = 0; i < node->primitives.length; i++) {
-    ModelPrimitive* primitive = &model->modelData->primitives[node->primitives.data[i]];
-    if (useMaterials) {
-      lovrGraphicsSetMaterial(model->materials[primitive->material]);
+    Shader* shader = lovrGraphicsGetActiveShader();
+    if (shader) {
+      lovrShaderSetMatrix(shader, "lovrPose", model->pose, MAX_BONES * 16);
     }
-    lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
-    lovrMeshDraw(model->mesh, NULL);
-  }
 
-  lovrGraphicsPop();
+    for (int i = 0; i < node->primitives.length; i++) {
+      ModelPrimitive* primitive = &model->modelData->primitives[node->primitives.data[i]];
+      if (useMaterials) {
+        lovrGraphicsSetMaterial(model->materials[primitive->material]);
+      }
+      lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
+      lovrMeshDraw(model->mesh, NULL);
+    }
+
+    lovrGraphicsPop();
+  }
 
   for (int i = 0; i < node->children.length; i++) {
     renderNode(model, node->children.data[i]);
