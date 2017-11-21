@@ -157,10 +157,6 @@ static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode,
   aiTransposeMatrix4(&m);
   mat4_set(node->transform, (float*) &m);
 
-  if (currentIndex == 0) {
-    mat4_invert(mat4_set(modelData->inverseRootTransform, node->transform));
-  }
-
   // Primitives
   vec_init(&node->primitives);
   vec_pusharr(&node->primitives, assimpNode->mMeshes, assimpNode->mNumMeshes);

@@ -37,7 +37,6 @@ typedef struct ModelNode {
 
 typedef struct {
   const char* name;
-  int nodeIndex;
   float offset[16];
 } Bone;
 
@@ -65,7 +64,6 @@ typedef struct {
   bool hasBones;
   size_t boneByteOffset;
   size_t stride;
-  float inverseRootTransform[16];
 } ModelData;
 
 ModelData* lovrModelDataCreate(Blob* blob);
