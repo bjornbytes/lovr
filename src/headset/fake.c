@@ -260,10 +260,11 @@ static void fakeDestroy() {
 }
 
 static void fakePoll() {
+  //
 }
 
 static bool fakeIsPresent() {
-    return true;
+  return true;
 }
 
 static HeadsetType fakeGetType() {
@@ -271,20 +272,20 @@ static HeadsetType fakeGetType() {
 }
 
 static HeadsetOrigin fakeGetOriginType() {
-    //return ORIGIN_HEAD; // seated
-    return ORIGIN_FLOOR;  // standing
+  return ORIGIN_HEAD;
 }
 
 static bool fakeIsMirrored() {
-  return false;
+  return true;
 }
 
 static void fakeSetMirrored(bool mirror) {
+  //
 }
 
 static void fakeGetDisplayDimensions(int* width, int* height) {
   GLFWwindow* window = lovrGraphicsGetWindow();
-  if(window) {
+  if (window) {
     glfwGetWindowSize(window,width,height);
   }
 }
