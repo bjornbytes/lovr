@@ -10,7 +10,7 @@ static void renderNode(Model* model, int nodeIndex) {
   bool useMaterials = currentMaterial->isDefault;
 
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, model->localNodeTransforms + 16 * nodeIndex);
+  lovrGraphicsMatrixTransform(MATRIX_MODEL, model->globalNodeTransforms + 16 * nodeIndex);
 
   float globalInverse[16];
   mat4_set(globalInverse, model->globalNodeTransforms + nodeIndex * 16);
@@ -48,11 +48,12 @@ static void renderNode(Model* model, int nodeIndex) {
     lovrMeshDraw(model->mesh, NULL);
   }
 
+  lovrGraphicsPop();
+
   for (int i = 0; i < node->children.length; i++) {
     renderNode(model, node->children.data[i]);
   }
 
-  lovrGraphicsPop();
   if (useMaterials) {
     lovrGraphicsSetMaterial(currentMaterial);
   }
