@@ -44,6 +44,7 @@ typedef vec_t(Bone) vec_bone_t;
 
 typedef struct {
   ModelNode* nodes;
+  map_int_t nodeMap;
   ModelPrimitive* primitives;
   vec_bone_t bones;
   map_int_t boneMap;

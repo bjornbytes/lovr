@@ -17,6 +17,39 @@
 #include <assimp/vector3.h>
 #include <assimp/postprocess.h>
 
+static void assimpSumChildren(struct aiNode* assimpNode, int* totalChildren) {
+  (*totalChildren)++;
+  for (unsigned int i = 0; i < assimpNode->mNumChildren; i++) {
+    assimpSumChildren(assimpNode->mChildren[i], totalChildren);
+  }
+}
+
+static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode, int* nodeId) {
+  int currentIndex = *nodeId;
+  ModelNode* node = &modelData->nodes[currentIndex];
+  node->name = strdup(assimpNode->mName.data);
+  map_set(&modelData->nodeMap, node->name, currentIndex);
+
+  // Transform
+  struct aiMatrix4x4 m = assimpNode->mTransformation;
+  aiTransposeMatrix4(&m);
+  mat4_set(node->transform, (float*) &m);
+
+  // Primitives
+  vec_init(&node->primitives);
+  vec_pusharr(&node->primitives, assimpNode->mMeshes, assimpNode->mNumMeshes);
+
+  // Children
+  vec_init(&node->children);
+  for (unsigned int n = 0; n < assimpNode->mNumChildren; n++) {
+    (*nodeId)++;
+    vec_push(&node->children, *nodeId);
+    ModelNode* child = &modelData->nodes[*nodeId];
+    child->parent = currentIndex;
+    assimpNodeTraversal(modelData, assimpNode->mChildren[n], nodeId);
+  }
+}
+
 static void normalizePath(const char* path, char* dst, size_t size) {
   if (path[0] == '/') {
     strncpy(dst, path, size);
@@ -138,38 +171,6 @@ static void assimpFileClose(struct aiFileIO* io, struct aiFile* assimpFile) {
     lovrRelease(&file->ref);
   }
   free(assimpFile);
-}
-
-static void assimpSumChildren(struct aiNode* assimpNode, int* totalChildren) {
-  (*totalChildren)++;
-  for (unsigned int i = 0; i < assimpNode->mNumChildren; i++) {
-    assimpSumChildren(assimpNode->mChildren[i], totalChildren);
-  }
-}
-
-static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode, int* nodeId) {
-  int currentIndex = *nodeId;
-  ModelNode* node = &modelData->nodes[currentIndex];
-  node->name = strdup(assimpNode->mName.data);
-
-  // Transform
-  struct aiMatrix4x4 m = assimpNode->mTransformation;
-  aiTransposeMatrix4(&m);
-  mat4_set(node->transform, (float*) &m);
-
-  // Primitives
-  vec_init(&node->primitives);
-  vec_pusharr(&node->primitives, assimpNode->mMeshes, assimpNode->mNumMeshes);
-
-  // Children
-  vec_init(&node->children);
-  for (unsigned int n = 0; n < assimpNode->mNumChildren; n++) {
-    (*nodeId)++;
-    vec_push(&node->children, *nodeId);
-    ModelNode* child = &modelData->nodes[*nodeId];
-    child->parent = currentIndex;
-    assimpNodeTraversal(modelData, assimpNode->mChildren[n], nodeId);
-  }
 }
 
 ModelData* lovrModelDataCreate(Blob* blob) {
@@ -382,6 +383,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   assimpSumChildren(scene->mRootNode, &modelData->nodeCount);
   modelData->nodes = malloc(modelData->nodeCount * sizeof(ModelNode));
   modelData->nodes[0].parent = -1;
+  map_init(&modelData->nodeMap);
   int nodeIndex = 0;
   assimpNodeTraversal(modelData, scene->mRootNode, &nodeIndex);
 
@@ -454,6 +456,8 @@ void lovrModelDataDestroy(ModelData* modelData) {
   for (int i = 0; i < modelData->materialCount; i++) {
     lovrMaterialDataDestroy(modelData->materials[i]);
   }
+
+  map_deinit(&modelData->nodeMap);
 
   free(modelData->nodes);
   free(modelData->primitives);

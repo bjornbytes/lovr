@@ -20,14 +20,7 @@ static void renderNode(Model* model, int nodeIndex) {
 
       for (int i = 0; i < model->modelData->bones.length; i++) {
         Bone* bone = &model->modelData->bones.data[i];
-
-        int nodeIndex = -1;
-        for (int j = 0; j < model->modelData->nodeCount; j++) {
-          if (!strcmp(model->modelData->nodes[j].name, bone->name)) {
-            nodeIndex = j;
-            break;
-          }
-        }
+        int nodeIndex = *(int*) map_get(&model->modelData->nodeMap, bone->name);
 
         mat4 bonePose = model->pose[i];
         mat4_identity(bonePose);
