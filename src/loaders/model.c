@@ -351,10 +351,10 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     struct aiString str;
 
     if (aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE, &color) == aiReturn_SUCCESS) {
-      materialData->colors[COLOR_DIFFUSE].r = color.r * 255;
-      materialData->colors[COLOR_DIFFUSE].g = color.g * 255;
-      materialData->colors[COLOR_DIFFUSE].b = color.b * 255;
-      materialData->colors[COLOR_DIFFUSE].a = color.a * 255;
+      materialData->colors[COLOR_DIFFUSE].r = color.r;
+      materialData->colors[COLOR_DIFFUSE].g = color.g;
+      materialData->colors[COLOR_DIFFUSE].b = color.b;
+      materialData->colors[COLOR_DIFFUSE].a = color.a;
     }
 
     if (aiGetMaterialTexture(material, aiTextureType_DIFFUSE, 0, &str, NULL, NULL, NULL, NULL, NULL, NULL) == aiReturn_SUCCESS) {

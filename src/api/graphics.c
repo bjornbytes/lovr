@@ -228,7 +228,7 @@ int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
   color.r = luaL_checknumber(L, 1);
   color.g = luaL_checknumber(L, 2);
   color.b = luaL_checknumber(L, 3);
-  color.a = luaL_optnumber(L, 4, 255.0);
+  color.a = luaL_optnumber(L, 4, 1.);
   lovrGraphicsSetBackgroundColor(color);
   return 0;
 }
@@ -251,10 +251,10 @@ int l_lovrGraphicsSetBlendMode(lua_State* L) {
 
 int l_lovrGraphicsGetColor(lua_State* L) {
   Color color = lovrGraphicsGetColor();
-  lua_pushinteger(L, color.r);
-  lua_pushinteger(L, color.g);
-  lua_pushinteger(L, color.b);
-  lua_pushinteger(L, color.a);
+  lua_pushnumber(L, color.r);
+  lua_pushnumber(L, color.g);
+  lua_pushnumber(L, color.b);
+  lua_pushnumber(L, color.a);
   return 4;
 }
 

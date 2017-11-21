@@ -799,7 +799,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
 
   if (state.isMirrored) {
     Color oldColor = lovrGraphicsGetColor();
-    lovrGraphicsSetColor((Color) { 255, 255, 255, 255 });
+    lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
     Shader* lastShader = lovrGraphicsGetShader();
 
     if (lastShader) {

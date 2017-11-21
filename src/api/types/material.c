@@ -5,10 +5,10 @@ int l_lovrMaterialGetColor(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   MaterialColor colorType = *(MaterialColor*) luax_optenum(L, 2, "diffuse", &MaterialColors, "color");
   Color color = lovrMaterialGetColor(material, colorType);
-  lua_pushinteger(L, color.r);
-  lua_pushinteger(L, color.g);
-  lua_pushinteger(L, color.b);
-  lua_pushinteger(L, color.a);
+  lua_pushnumber(L, color.r);
+  lua_pushnumber(L, color.g);
+  lua_pushnumber(L, color.b);
+  lua_pushnumber(L, color.a);
   return 4;
 }
 

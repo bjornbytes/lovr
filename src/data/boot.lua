@@ -31,8 +31,8 @@ function lovr.errhand(message)
   print(message)
   if not lovr.graphics then return end
   lovr.graphics.reset()
-  lovr.graphics.setBackgroundColor(27, 25, 35)
-  lovr.graphics.setColor(220, 220, 220)
+  lovr.graphics.setBackgroundColor(.105, .098, .137)
+  lovr.graphics.setColor(.863, .863, .863)
   if lovr.headset then
     lovr.headset.setMirrored(false)
   end
@@ -80,12 +80,12 @@ if not lovr.filesystem.getSource() or not runnable then
   function lovr.load()
     logo = lovr.graphics.newMaterial()
     logo:setTexture(lovr.graphics.newTexture(lovr.filesystem.newBlob(lovr._logo, 'logo.png')))
-    lovr.graphics.setBackgroundColor(245, 252, 255)
+    lovr.graphics.setBackgroundColor(.960, .988, 1.0)
     refreshControllers()
   end
 
   function lovr.draw()
-    lovr.graphics.setColor(255, 255, 255)
+    lovr.graphics.setColor(1.0, 1.0, 1.0)
 
     for controller, model in pairs(controllers) do
       local x, y, z = controller:getPosition()
@@ -94,16 +94,16 @@ if not lovr.filesystem.getSource() or not runnable then
 
     local padding = .1
     local font = lovr.graphics.getFont()
-    local fade = 80 + 150 * math.abs(math.sin(lovr.timer.getTime() * 2))
+    local fade = .315 + .685 * math.abs(math.sin(lovr.timer.getTime() * 2))
     local titlePosition = 1.3 - padding
     local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
 
     lovr.graphics.setMaterial(logo)
     lovr.graphics.plane('fill', 0, 1.8, -3, 1, 0, 0, 1)
     lovr.graphics.setMaterial()
-    lovr.graphics.setColor(15, 15, 15)
+    lovr.graphics.setColor(.059, .059, .059)
     lovr.graphics.print('LÖVR', -.01, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
-    lovr.graphics.setColor(15, 15, 15, fade)
+    lovr.graphics.setColor(.059, .059, .059, fade)
     lovr.graphics.print('No game :(', -.01, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
   end
 

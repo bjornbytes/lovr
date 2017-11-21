@@ -53,9 +53,9 @@ void lovrGraphicsReset() {
   state.transform = 0;
   state.view = 0;
   state.defaultShader = SHADER_DEFAULT;
-  lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 255 });
+  lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1. });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
-  lovrGraphicsSetColor((Color) { 255, 255, 255, 255 });
+  lovrGraphicsSetColor((Color) { 1., 1., 1., 1. });
   lovrGraphicsSetCullingEnabled(false);
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = FILTER_TRILINEAR });
   lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
@@ -115,7 +115,7 @@ void lovrGraphicsPrepare(float* pose) {
   }
 
   // Color
-  float color[4] = { state.color.r / 255., state.color.g / 255., state.color.b / 255., state.color.a / 255. };
+  float color[4] = { state.color.r, state.color.g, state.color.b, state.color.a };
   lovrShaderSetFloat(shader, "lovrColor", color, 4);
 
   // Point size
@@ -135,7 +135,7 @@ void lovrGraphicsPrepare(float* pose) {
 
   for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
     Color color = lovrMaterialGetColor(material, i);
-    float data[4] = { color.r / 255., color.g / 255., color.b / 255., color.a / 255. };
+    float data[4] = { color.r, color.g, color.b, color.a };
     lovrShaderSetFloat(shader, lovrShaderColorUniforms[i], data, 4);
   }
 
@@ -228,7 +228,7 @@ Color lovrGraphicsGetBackgroundColor() {
 
 void lovrGraphicsSetBackgroundColor(Color color) {
   state.backgroundColor = color;
-  glClearColor(color.r / 255., color.g / 255., color.b / 255., color.a / 255.);
+  glClearColor(color.r, color.g, color.b, color.a);
 }
 
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {

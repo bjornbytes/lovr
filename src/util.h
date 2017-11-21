@@ -16,7 +16,7 @@ typedef struct ref {
 } Ref;
 
 typedef struct {
-  uint8_t r, g, b, a;
+  float r, g, b, a;
 } Color;
 
 extern char lovrErrorMessage[];
