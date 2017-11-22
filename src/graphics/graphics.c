@@ -707,6 +707,48 @@ void lovrGraphicsBox(DrawMode mode, mat4 transform) {
   lovrGraphicsPop();
 }
 
+void lovrGraphicsCircle(DrawMode mode, mat4 transform, int segments) {
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
+
+  vec_clear(&state.streamData);
+
+  if (mode == DRAW_MODE_LINE) {
+  } else if (mode == DRAW_MODE_FILL) {
+    vec_push(&state.streamData, 0);
+    vec_push(&state.streamData, 0);
+    vec_push(&state.streamData, 0);
+
+    vec_push(&state.streamData, 0);
+    vec_push(&state.streamData, 0);
+    vec_push(&state.streamData, 1);
+
+    vec_push(&state.streamData, .5);
+    vec_push(&state.streamData, .5);
+
+    for (int i = 0; i <= segments; i++) {
+      float theta = i / (float) segments * 2 * M_PI;
+      float x = cos(theta) * .5;
+      float y = sin(theta) * .5;
+      vec_push(&state.streamData, x);
+      vec_push(&state.streamData, y);
+      vec_push(&state.streamData, 0);
+
+      vec_push(&state.streamData, 0);
+      vec_push(&state.streamData, 0);
+      vec_push(&state.streamData, 1);
+
+      vec_push(&state.streamData, x + .5);
+      vec_push(&state.streamData, 1 - (y + .5));
+    }
+
+    lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
+    lovrGraphicsDrawPrimitive(GL_TRIANGLE_FAN, true, true, false);
+  }
+
+  lovrGraphicsPop();
+}
+
 void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments) {
   float axis[3] = { x1 - x2, y1 - y2, z1 - z2 };
   float n[3] = { x1 - x2, y1 - y2, z1 - z2 };

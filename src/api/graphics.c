@@ -525,6 +525,15 @@ int l_lovrGraphicsBox(lua_State* L) {
   return luax_rectangularprism(L, false);
 }
 
+int l_lovrGraphicsCircle(lua_State* L) {
+  DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  float transform[16];
+  int index = luax_readtransform(L, 2, transform, true);
+  int segments = luaL_optnumber(L, index, 32);
+  lovrGraphicsCircle(drawMode, transform, segments);
+  return 0;
+}
+
 int l_lovrGraphicsCylinder(lua_State* L) {
   float x1 = luaL_checknumber(L, 1);
   float y1 = luaL_checknumber(L, 2);
@@ -815,6 +824,7 @@ const luaL_Reg lovrGraphics[] = {
   { "plane", l_lovrGraphicsPlane },
   { "cube", l_lovrGraphicsCube },
   { "box", l_lovrGraphicsBox },
+  { "circle", l_lovrGraphicsCircle },
   { "cylinder", l_lovrGraphicsCylinder },
   { "sphere", l_lovrGraphicsSphere },
   { "skybox", l_lovrGraphicsSkybox },
