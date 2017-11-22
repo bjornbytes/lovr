@@ -36,6 +36,12 @@ typedef enum {
 } DrawMode;
 
 typedef enum {
+  ARC_MODE_PIE,
+  ARC_MODE_OPEN,
+  ARC_MODE_CLOSED
+} ArcMode;
+
+typedef enum {
   WINDING_CLOCKWISE = GL_CW,
   WINDING_COUNTERCLOCKWISE = GL_CCW
 } Winding;
@@ -163,6 +169,7 @@ void lovrGraphicsTriangle(DrawMode mode, float* points);
 void lovrGraphicsPlane(DrawMode mode, mat4 transform);
 void lovrGraphicsPlaneFullscreen(Texture* texture);
 void lovrGraphicsBox(DrawMode mode, mat4 transform);
+void lovrGraphicsArc(DrawMode mode, ArcMode, mat4 transform, float theta1, float theta2, int segments);
 void lovrGraphicsCircle(DrawMode mode, mat4 transform, int segments);
 void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments);
 void lovrGraphicsSphere(mat4 transform, int segments);

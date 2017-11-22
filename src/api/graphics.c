@@ -12,6 +12,7 @@
 #include <math.h>
 #include <stdbool.h>
 
+map_int_t ArcModes;
 map_int_t BlendAlphaModes;
 map_int_t BlendModes;
 map_int_t CompareModes;
@@ -81,6 +82,11 @@ int l_lovrGraphicsInit(lua_State* L) {
   luax_registertype(L, "Model", lovrModel);
   luax_registertype(L, "Shader", lovrShader);
   luax_registertype(L, "Texture", lovrTexture);
+
+  map_init(&ArcModes);
+  map_set(&ArcModes, "pie", ARC_MODE_PIE);
+  map_set(&ArcModes, "open", ARC_MODE_OPEN);
+  map_set(&ArcModes, "closed", ARC_MODE_CLOSED);
 
   map_init(&BlendAlphaModes);
   map_set(&BlendAlphaModes, "alphamultiply", BLEND_ALPHA_MULTIPLY);
@@ -525,6 +531,22 @@ int l_lovrGraphicsBox(lua_State* L) {
   return luax_rectangularprism(L, false);
 }
 
+int l_lovrGraphicsArc(lua_State* L) {
+  DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  ArcMode arcMode = ARC_MODE_PIE;
+  int index = 2;
+  if (lua_type(L, 2) == LUA_TSTRING) {
+    arcMode = *(ArcMode*) luax_checkenum(L, index++, &ArcModes, "arc mode");
+  }
+  float transform[16];
+  index = luax_readtransform(L, index, transform, true);
+  float theta1 = luaL_optnumber(L, index++, 0);
+  float theta2 = luaL_optnumber(L, index++, 2 * M_PI);
+  int segments = luaL_optinteger(L, index, 32) * fabsf(theta2 - theta1) * 2 * M_PI + .5f;
+  lovrGraphicsArc(drawMode, arcMode, transform, theta1, theta2, segments);
+  return 0;
+}
+
 int l_lovrGraphicsCircle(lua_State* L) {
   DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
   float transform[16];
@@ -824,6 +846,7 @@ const luaL_Reg lovrGraphics[] = {
   { "plane", l_lovrGraphicsPlane },
   { "cube", l_lovrGraphicsCube },
   { "box", l_lovrGraphicsBox },
+  { "arc", l_lovrGraphicsArc },
   { "circle", l_lovrGraphicsCircle },
   { "cylinder", l_lovrGraphicsCylinder },
   { "sphere", l_lovrGraphicsSphere },

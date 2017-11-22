@@ -707,38 +707,49 @@ void lovrGraphicsBox(DrawMode mode, mat4 transform) {
   lovrGraphicsPop();
 }
 
-void lovrGraphicsCircle(DrawMode mode, mat4 transform, int segments) {
+void lovrGraphicsArc(DrawMode mode, ArcMode arcMode, mat4 transform, float theta1, float theta2, int segments) {
+  if (fabsf(theta1 - theta2) >= 2 * M_PI) {
+    theta1 = 0;
+    theta2 = 2 * M_PI;
+  }
+
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
 
   vec_clear(&state.streamData);
 
+  if (arcMode == ARC_MODE_PIE && fabsf(theta1 - theta2) < 2 * M_PI) {
+    vec_push(&state.streamData, 0);
+    vec_push(&state.streamData, 0);
+    vec_push(&state.streamData, 0);
+
+    if (mode == DRAW_MODE_FILL) {
+      vec_push(&state.streamData, 0);
+      vec_push(&state.streamData, 0);
+      vec_push(&state.streamData, 1);
+
+      vec_push(&state.streamData, .5);
+      vec_push(&state.streamData, .5);
+    }
+  }
+
+  float theta = theta1;
+  float angleShift = (theta2 - theta1) / (float) segments;
+
   if (mode == DRAW_MODE_LINE) {
-    for (int i = 0; i < segments; i++) {
-      float theta = i / (float) segments * 2 * M_PI;
+    for (int i = 0; i <= segments; i++) {
       float x = cos(theta) * .5;
       float y = sin(theta) * .5;
       vec_push(&state.streamData, x);
       vec_push(&state.streamData, y);
       vec_push(&state.streamData, 0);
+      theta += angleShift;
     }
 
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-    lovrGraphicsDrawPrimitive(GL_LINE_LOOP, false, false, false);
+    lovrGraphicsDrawPrimitive(arcMode == ARC_MODE_OPEN ? GL_LINE_STRIP : GL_LINE_LOOP, false, false, false);
   } else if (mode == DRAW_MODE_FILL) {
-    vec_push(&state.streamData, 0);
-    vec_push(&state.streamData, 0);
-    vec_push(&state.streamData, 0);
-
-    vec_push(&state.streamData, 0);
-    vec_push(&state.streamData, 0);
-    vec_push(&state.streamData, 1);
-
-    vec_push(&state.streamData, .5);
-    vec_push(&state.streamData, .5);
-
     for (int i = 0; i <= segments; i++) {
-      float theta = i / (float) segments * 2 * M_PI;
       float x = cos(theta) * .5;
       float y = sin(theta) * .5;
       vec_push(&state.streamData, x);
@@ -751,6 +762,7 @@ void lovrGraphicsCircle(DrawMode mode, mat4 transform, int segments) {
 
       vec_push(&state.streamData, x + .5);
       vec_push(&state.streamData, 1 - (y + .5));
+      theta += angleShift;
     }
 
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
@@ -758,6 +770,10 @@ void lovrGraphicsCircle(DrawMode mode, mat4 transform, int segments) {
   }
 
   lovrGraphicsPop();
+}
+
+void lovrGraphicsCircle(DrawMode mode, mat4 transform, int segments) {
+  lovrGraphicsArc(mode, ARC_MODE_OPEN, transform, 0, 2 * M_PI, segments);
 }
 
 void lovrGraphicsCylinder(float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments) {
