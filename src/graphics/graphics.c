@@ -714,6 +714,17 @@ void lovrGraphicsCircle(DrawMode mode, mat4 transform, int segments) {
   vec_clear(&state.streamData);
 
   if (mode == DRAW_MODE_LINE) {
+    for (int i = 0; i < segments; i++) {
+      float theta = i / (float) segments * 2 * M_PI;
+      float x = cos(theta) * .5;
+      float y = sin(theta) * .5;
+      vec_push(&state.streamData, x);
+      vec_push(&state.streamData, y);
+      vec_push(&state.streamData, 0);
+    }
+
+    lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
+    lovrGraphicsDrawPrimitive(GL_LINE_LOOP, false, false, false);
   } else if (mode == DRAW_MODE_FILL) {
     vec_push(&state.streamData, 0);
     vec_push(&state.streamData, 0);
