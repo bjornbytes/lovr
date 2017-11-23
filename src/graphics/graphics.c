@@ -196,6 +196,11 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PROGRAM_POINT_SIZE);
 #endif
+  if (state.gammaCorrect) {
+    glEnable(GL_FRAMEBUFFER_SRGB);
+  } else {
+    glDisable(GL_FRAMEBUFFER_SRGB);
+  }
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -356,6 +361,14 @@ void lovrGraphicsSetFont(Font* font) {
   if (font) {
     lovrRetain(&state.font->ref);
   }
+}
+
+bool lovrGraphicsIsGammaCorrect() {
+  return state.gammaCorrect;
+}
+
+void lovrGraphicsSetGammaCorrect(bool gammaCorrect) {
+  state.gammaCorrect = gammaCorrect;
 }
 
 GraphicsLimits lovrGraphicsGetLimits() {

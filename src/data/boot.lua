@@ -8,6 +8,7 @@ local conf = {
     physics = true,
     timer = true
   },
+  gammacorrect = false,
   headset = {
     mirror = true,
     offset = 1.7

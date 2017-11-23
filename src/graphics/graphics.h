@@ -92,6 +92,7 @@ typedef struct {
   TextureFilter defaultFilter;
   CompareMode depthTest;
   Font* font;
+  bool gammaCorrect;
   GraphicsLimits limits;
   float lineWidth;
   Material* material;
@@ -139,6 +140,8 @@ CompareMode lovrGraphicsGetDepthTest();
 void lovrGraphicsSetDepthTest(CompareMode depthTest);
 Font* lovrGraphicsGetFont();
 void lovrGraphicsSetFont(Font* font);
+bool lovrGraphicsIsGammaCorrect();
+void lovrGraphicsSetGammaCorrect(bool gammaCorrect);
 GraphicsLimits lovrGraphicsGetLimits();
 float lovrGraphicsGetLineWidth();
 void lovrGraphicsSetLineWidth(float width);

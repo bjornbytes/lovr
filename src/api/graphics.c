@@ -172,10 +172,16 @@ int l_lovrGraphicsInit(lua_State* L) {
 
   lovrGraphicsInit();
 
-  // Create window
   luax_pushconf(L);
-  lua_getfield(L, -1, "window");
 
+  // Set gamma correct
+  lua_getfield(L, -1, "gammacorrect");
+  bool gammaCorrect = lua_toboolean(L, -1);
+  lovrGraphicsSetGammaCorrect(gammaCorrect);
+  lua_pop(L, 1);
+
+  // Create window if needed
+  lua_getfield(L, -1, "window");
   if (!lua_isnil(L, -1)) {
     lua_getfield(L, -1, "width");
     int width = luaL_checkinteger(L, -1);
@@ -358,6 +364,12 @@ int l_lovrGraphicsSetFont(lua_State* L) {
   Font* font = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Font);
   lovrGraphicsSetFont(font);
   return 0;
+}
+
+int l_lovrGraphicsIsGammaCorrect(lua_State* L) {
+  bool gammaCorrect = lovrGraphicsIsGammaCorrect();
+  lua_pushboolean(L, gammaCorrect);
+  return 1;
 }
 
 int l_lovrGraphicsGetSystemLimits(lua_State* L) {
@@ -855,6 +867,7 @@ const luaL_Reg lovrGraphics[] = {
   { "setDepthTest", l_lovrGraphicsSetDepthTest },
   { "getFont", l_lovrGraphicsGetFont },
   { "setFont", l_lovrGraphicsSetFont },
+  { "isGammaCorrect", l_lovrGraphicsIsGammaCorrect },
   { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
