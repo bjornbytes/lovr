@@ -205,7 +205,6 @@ void lovrTextureRefresh(Texture* texture) {
       int w = textureData->width;
       int h = textureData->height;
       glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, textureData->data);
-    printf("%d %d\n", glGetError(), GL_INVALID_OPERATION);
       if (textureData->mipmaps.generated) {
         glGenerateMipmap(GL_TEXTURE_2D); // TODO
       }
