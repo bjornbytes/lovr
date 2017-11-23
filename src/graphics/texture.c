@@ -8,7 +8,7 @@
 static void lovrTextureCreateStorage(Texture* texture) {
   TextureData* textureData = texture->slices[0];
 
-  if (textureData->format.compressed || !textureData->mipmaps.generated || texture->type == TEXTURE_CUBE) {
+  if (textureData->format.compressed || texture->type == TEXTURE_CUBE) {
     return;
   }
 
@@ -204,7 +204,7 @@ void lovrTextureRefresh(Texture* texture) {
     } else {
       int w = textureData->width;
       int h = textureData->height;
-      glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, glFormat, GL_UNSIGNED_BYTE, textureData->data);
       if (textureData->mipmaps.generated) {
         glGenerateMipmap(GL_TEXTURE_2D); // TODO
       }

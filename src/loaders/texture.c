@@ -7,14 +7,14 @@
 #include <string.h>
 
 const TextureFormat FORMAT_RGB = {
-  .glInternalFormat = { GL_RGB, GL_SRGB },
+  .glInternalFormat = { GL_RGB8, GL_SRGB8 },
   .glFormat = GL_RGB,
   .compressed = false,
   .blockBytes = 3
 };
 
 const TextureFormat FORMAT_RGBA = {
-  .glInternalFormat = { GL_RGBA, GL_SRGB_ALPHA },
+  .glInternalFormat = { GL_RGBA8, GL_SRGB8_ALPHA8 },
   .glFormat = GL_RGBA,
   .compressed = false,
   .blockBytes = 4
