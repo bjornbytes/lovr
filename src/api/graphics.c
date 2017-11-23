@@ -683,6 +683,19 @@ int l_lovrGraphicsNewFont(lua_State* L) {
 int l_lovrGraphicsNewMaterial(lua_State* L) {
   MaterialData* materialData = lovrMaterialDataCreateEmpty();
   Material* material = lovrMaterialCreate(materialData, false);
+
+  int index = 1;
+
+  if (lua_isuserdata(L, index)) {
+    Texture* texture = luax_checktype(L, index++, Texture);
+    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
+  }
+
+  if (lua_isnumber(L, index)) {
+    Color color = luax_checkcolor(L, index);
+    lovrMaterialSetColor(material, COLOR_DIFFUSE, color);
+  }
+
   luax_pushtype(L, Material, material);
   return 1;
 }
