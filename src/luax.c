@@ -115,6 +115,22 @@ void luax_registerobject(lua_State* L, void* object) {
   lovrRetain(object);
 }
 
+void luax_pushconf(lua_State* L) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrconf");
+}
+
+void luax_setconf(lua_State* L) {
+  luax_pushconf(L);
+
+  if (!lua_isnil(L, -1)) {
+    lovrThrow("Unable to set lovr.conf multiple times");
+    return;
+  }
+
+  lua_pop(L, 1);
+  lua_setfield(L, LUA_REGISTRYINDEX, "_lovrconf");
+}
+
 void luax_pushenum(lua_State* L, map_int_t* map, int value) {
   const char* key;
   map_iter_t iter = map_iter(map);

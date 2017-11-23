@@ -58,6 +58,11 @@ static int lovrGetVersion(lua_State* L) {
   return 3;
 }
 
+static int lovrSetConf(lua_State* L) {
+  luax_setconf(L);
+  return 0;
+}
+
 void lovrInit(lua_State* L, int argc, char** argv) {
   if (argc > 1 && strcmp(argv[1], "--version") == 0) {
     printf("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
@@ -88,6 +93,8 @@ void lovrInit(lua_State* L, int argc, char** argv) {
 
   // lovr
   lua_newtable(L);
+  lua_pushcfunction(L, lovrSetConf);
+  lua_setfield(L, -2, "_setConf");
   lua_pushcfunction(L, lovrGetOS);
   lua_setfield(L, -2, "getOS");
   lua_pushcfunction(L, lovrGetVersion);

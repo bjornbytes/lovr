@@ -127,6 +127,8 @@ if lovr.conf then
   success, conferr = pcall(lovr.conf, conf)
 end
 
+lovr._setConf(conf)
+
 lovr.filesystem.setIdentity(conf.identity)
 
 local modules = { 'audio', 'event', 'graphics', 'headset', 'math', 'physics', 'timer' }
@@ -136,17 +138,10 @@ for _, module in ipairs(modules) do
   end
 end
 
-if lovr.graphics and conf.window then
-  local w = conf.window
-  lovr.graphics.createWindow(w.width, w.height, w.fullscreen, w.msaa, w.title, w.icon)
-end
-
 -- Error after window is created
 if conferr then
   error(conferr)
 end
-
-if lovr.headset then lovr.headset.setMirrored(conf.headset and conf.headset.mirror) end
 
 lovr.handlers = setmetatable({
   quit = function() end,
@@ -177,6 +172,7 @@ local function headsetRenderCallback()
   end
   lovr.draw()
 end
+
 function lovr.step()
   lovr.event.pump()
   for name, a, b, c, d in lovr.event.poll() do

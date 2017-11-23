@@ -72,6 +72,20 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&HeadsetDrivers, "webvr", HEADSET_DRIVER_WEBVR);
 #endif
 
+  luax_pushconf(L);
+  lua_getfield(L, -1, "headset");
+
+  // Set mirror state
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "mirror");
+    bool mirror = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lovrHeadsetSetMirrored(mirror);
+  }
+
+  lua_pop(L, 2);
+
   lovrHeadsetInit();
 
   headsetRenderData.ref = LUA_NOREF;

@@ -171,6 +171,40 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&WrapModes, "mirroredrepeat", WRAP_MIRRORED_REPEAT);
 
   lovrGraphicsInit();
+
+  // Create window
+  luax_pushconf(L);
+
+  lua_getfield(L, -1, "window");
+  if (!lua_isnil(L, -1)) {
+    lua_getfield(L, -1, "width");
+    int width = luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "height");
+    int height = luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "fullscreen");
+    bool fullscreen = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "msaa");
+    int msaa = luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "title");
+    const char* title = luaL_checkstring(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "icon");
+    const char* icon = luaL_optstring(L, -1, NULL);
+    lua_pop(L, 1);
+
+    lovrGraphicsCreateWindow(width, height, fullscreen, msaa, title, icon);
+  }
+  lua_pop(L, 2);
+
   return 1;
 }
 

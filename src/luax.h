@@ -33,6 +33,8 @@ void luax_extendtype(lua_State* L, const char* base, const char* name, const lua
 int luax_releasetype(lua_State* L);
 int luax_getobject(lua_State* L, void* object);
 void luax_registerobject(lua_State* L, void* object);
+void luax_pushconf(lua_State* L);
+void luax_setconf(lua_State* L);
 void luax_pushenum(lua_State* L, map_int_t* map, int value);
 void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName);
 void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map, const char* typeName);
