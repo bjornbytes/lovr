@@ -9,14 +9,12 @@ if(EMSCRIPTEN)
     "-s FULL_ES3=1 "
     "-s USE_FREETYPE=1 "
     "-s USE_GLFW=3 "
-    "-s USE_ZLIB=1 "
     "-s ALLOW_MEMORY_GROWTH=1 "
     "-s NO_EXIT_RUNTIME=1 "
     "-s WASM=1"
   )
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
-  include_directories("${EMSCRIPTEN_ROOT_PATH}/tests/zlib")
 elseif(UNIX)
   find_package(PkgConfig REQUIRED)
 endif()
@@ -48,6 +46,7 @@ endif()
 # Assimp
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "")
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "")
+set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "")
 set(ASSIMP_NO_EXPORT ON OFF CACHE BOOL "")
 set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "")
 set(ASSIMP_BUILD_COLLADA_IMPORTER ON CACHE BOOL "")
@@ -55,9 +54,6 @@ set(ASSIMP_BUILD_FBX_IMPORTER ON CACHE BOOL "")
 set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE BOOL "")
 set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE BOOL "")
 if(EMSCRIPTEN)
-  set(ZLIB_FOUND 1)
-  set(ZLIB_LIBRARIES "-s USE_ZLIB=1")
-  set(ZLIB_INCLUDE_DIR "${EMSCRIPTEN_ROOT_PATH}/tests/zlib")
   add_subdirectory(deps/assimp assimp)
   include_directories(deps/assimp/include ${CMAKE_BINARY_DIR}/assimp/include)
   set(LOVR_ASSIMP assimp)
