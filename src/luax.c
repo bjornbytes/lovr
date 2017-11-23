@@ -121,12 +121,7 @@ void luax_pushconf(lua_State* L) {
 
 void luax_setconf(lua_State* L) {
   luax_pushconf(L);
-
-  if (!lua_isnil(L, -1)) {
-    lovrThrow("Unable to set lovr.conf multiple times");
-    return;
-  }
-
+  lovrAssert(lua_isnil(L, -1), "Unable to set lovr.conf multiple times");
   lua_pop(L, 1);
   lua_setfield(L, LUA_REGISTRYINDEX, "_lovrconf");
 }

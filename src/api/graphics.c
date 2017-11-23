@@ -174,8 +174,8 @@ int l_lovrGraphicsInit(lua_State* L) {
 
   // Create window
   luax_pushconf(L);
-
   lua_getfield(L, -1, "window");
+
   if (!lua_isnil(L, -1)) {
     lua_getfield(L, -1, "width");
     int width = luaL_checkinteger(L, -1);
@@ -203,6 +203,7 @@ int l_lovrGraphicsInit(lua_State* L) {
 
     lovrGraphicsCreateWindow(width, height, fullscreen, msaa, title, icon);
   }
+
   lua_pop(L, 2);
 
   return 1;
