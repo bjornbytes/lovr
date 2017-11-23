@@ -7,35 +7,35 @@
 #include <string.h>
 
 const TextureFormat FORMAT_RGB = {
-  .glInternalFormat = GL_RGB,
+  .glInternalFormat = { GL_RGB, GL_SRGB },
   .glFormat = GL_RGB,
   .compressed = false,
   .blockBytes = 3
 };
 
 const TextureFormat FORMAT_RGBA = {
-  .glInternalFormat = GL_RGBA,
+  .glInternalFormat = { GL_RGBA, GL_SRGB_ALPHA },
   .glFormat = GL_RGBA,
   .compressed = false,
   .blockBytes = 4
 };
 
 const TextureFormat FORMAT_DXT1 = {
-  .glInternalFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
+  .glInternalFormat = { GL_COMPRESSED_RGB_S3TC_DXT1_EXT, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT },
   .glFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
   .compressed = true,
   .blockBytes = 8
 };
 
 const TextureFormat FORMAT_DXT3 = {
-  .glInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
+  .glInternalFormat = { GL_COMPRESSED_RGBA_S3TC_DXT3_EXT, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT },
   .glFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
   .compressed = true,
   .blockBytes = 16
 };
 
 const TextureFormat FORMAT_DXT5 = {
-  .glInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+  .glInternalFormat = { GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT },
   .glFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
   .compressed = true,
   .blockBytes = 16

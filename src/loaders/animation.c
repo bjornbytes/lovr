@@ -1,7 +1,7 @@
 #include "loaders/animation.h"
 #include <stdlib.h>
 
-AnimationData* lovrAnimationDataCreate(const char* name) {
+AnimationData* lovrAnimationDataCreate() {
   AnimationData* animationData = malloc(sizeof(AnimationData));
   if (!animationData) return NULL;
 

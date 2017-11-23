@@ -10,7 +10,7 @@ Material* lovrMaterialCreate(MaterialData* materialData, bool isDefault) {
 
   for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
     if (materialData->textures[i]) {
-      material->textures[i] = lovrTextureCreate(TEXTURE_2D, &materialData->textures[i], 1);
+      material->textures[i] = lovrTextureCreate(TEXTURE_2D, &materialData->textures[i], 1, true);
     } else {
       material->textures[i] = NULL;
     }

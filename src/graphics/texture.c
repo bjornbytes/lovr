@@ -15,7 +15,12 @@ static void lovrTextureCreateStorage(Texture* texture) {
   int w = textureData->width;
   int h = textureData->height;
   int mipmapCount = log2(MAX(w, h)) + 1;
-  GLenum internalFormat = textureData->format.glInternalFormat;
+  GLenum internalFormat;
+  if (lovrGraphicsIsGammaCorrect() && texture->srgb) {
+    internalFormat = textureData->format.glInternalFormat.srgb;
+  } else {
+    internalFormat = textureData->format.glInternalFormat.linear;
+  }
   GLenum format = textureData->format.glFormat;
 #ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_texture_storage) {
@@ -49,7 +54,7 @@ static void validateSlices(TextureType type, TextureData* slices[6], int sliceCo
   }
 }
 
-Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCount) {
+Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCount, bool srgb) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
@@ -59,6 +64,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCo
   memcpy(texture->slices, slices, sliceCount * sizeof(TextureData*));
   texture->framebuffer = 0;
   texture->depthBuffer = 0;
+  texture->srgb = srgb;
   glGenTextures(1, &texture->id);
   lovrGraphicsBindTexture(texture, type, 0);
   lovrTextureCreateStorage(texture);
@@ -71,7 +77,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCo
 }
 
 Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa) {
-  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1);
+  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
   if (!texture) return NULL;
 
   int width = texture->width;
@@ -181,7 +187,12 @@ void lovrTextureRefresh(Texture* texture) {
 
   for (int i = 0; i < texture->sliceCount; i++) {
     TextureData* textureData = texture->slices[i];
-    GLenum glInternalFormat = textureData->format.glInternalFormat;
+    GLenum glInternalFormat;
+    if (lovrGraphicsIsGammaCorrect() && texture->srgb) {
+      glInternalFormat = textureData->format.glInternalFormat.srgb;
+    } else {
+      glInternalFormat = textureData->format.glInternalFormat.linear;
+    }
     GLenum glFormat = textureData->format.glFormat;
     GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + i : GL_TEXTURE_2D;
 
@@ -194,6 +205,7 @@ void lovrTextureRefresh(Texture* texture) {
       int w = textureData->width;
       int h = textureData->height;
       glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+    printf("%d %d\n", glGetError(), GL_INVALID_OPERATION);
       if (textureData->mipmaps.generated) {
         glGenerateMipmap(GL_TEXTURE_2D); // TODO
       }

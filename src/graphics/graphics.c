@@ -195,12 +195,18 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   glfwSwapInterval(0);
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PROGRAM_POINT_SIZE);
-#endif
   if (state.gammaCorrect) {
     glEnable(GL_FRAMEBUFFER_SRGB);
   } else {
     glDisable(GL_FRAMEBUFFER_SRGB);
   }
+#else
+  if (state.gammaCorrect) {
+    glEnable(GL_FRAMEBUFFER_SRGB_EXT);
+  } else {
+    glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+  }
+#endif
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -1088,7 +1094,7 @@ void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot) {
   if (!texture) {
     if (!state.defaultTexture) {
       TextureData* textureData = lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA);
-      state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1);
+      state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
     }
 
     texture = state.defaultTexture;

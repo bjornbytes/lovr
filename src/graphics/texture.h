@@ -54,11 +54,12 @@ typedef struct {
   TextureFilter filter;
   TextureWrap wrap;
   int msaa;
+  bool srgb;
 } Texture;
 
 GLenum lovrTextureGetGLFormat(TextureFormat format);
 
-Texture* lovrTextureCreate(TextureType type, TextureData* data[6], int count);
+Texture* lovrTextureCreate(TextureType type, TextureData* data[6], int count, bool srgb);
 Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa);
 void lovrTextureDestroy(const Ref* ref);
 void lovrTextureBindFramebuffer(Texture* texture);

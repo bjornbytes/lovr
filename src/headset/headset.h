@@ -97,6 +97,7 @@ typedef struct  {
 
 // headset implementations
 extern HeadsetInterface lovrHeadsetOpenVRDriver;
+extern HeadsetInterface lovrHeadsetWebVRDriver;
 extern HeadsetInterface lovrHeadsetFakeDriver;
 
 

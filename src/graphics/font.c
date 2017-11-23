@@ -49,7 +49,7 @@ Font* lovrFontCreate(FontData* fontData) {
   // Texture
   TextureData* textureData = lovrTextureDataGetBlank(font->atlas.width, font->atlas.height, 0x0, FORMAT_RGB);
   TextureFilter filter = { .mode = FILTER_BILINEAR };
-  font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1);
+  font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false);
   lovrTextureSetFilter(font->texture, filter);
   lovrTextureSetWrap(font->texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP });
 

@@ -830,6 +830,13 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
       }
     }
 
+    bool srgb = true;
+    if (lua_istable(L, count + 1)) {
+      lua_getfield(L, count + 1, "linear");
+      srgb = !lua_toboolean(L, -1);
+      lua_pop(L, 1);
+    }
+
     TextureData* slices[6];
     for (int i = 0; i < count; i++) {
       slices[i] = lovrTextureDataFromBlob(blobs[i]);
@@ -837,7 +844,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     }
 
     TextureType type = (count == 1) ? TEXTURE_2D : TEXTURE_CUBE;
-    texture = lovrTextureCreate(type, slices, count);
+    texture = lovrTextureCreate(type, slices, count, srgb);
   }
 
   luax_pushtype(L, Texture, texture);
