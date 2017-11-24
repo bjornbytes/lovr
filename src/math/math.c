@@ -28,3 +28,19 @@ void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, v
   v[1] = sinTheta * ax + (1 - cosTheta) * -az * ay;
   v[2] = -cosTheta + (1 - cosTheta) * -az * az;
 }
+
+float lovrMathGammaToLinear(float x) {
+  if (x <= .04045) {
+    return x / 12.92;
+  } else {
+    return powf((x + .055) / 1.055, 2.4);
+  }
+}
+
+float lovrMathLinearToGamma(float x) {
+  if (x <= .0031308) {
+    return x * 12.92;
+  } else {
+    return 1.055 * powf(x, 1. / 2.4) - .055;
+  }
+}

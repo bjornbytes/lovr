@@ -91,6 +91,40 @@ int l_lovrMathSetRandomSeed(lua_State* L) {
   return l_lovrRandomGeneratorSetSeed(L);
 }
 
+int l_lovrMathGammaToLinear(lua_State* L) {
+  if (lua_istable(L, 1)) {
+    for (int i = 0; i < 3; i++) {
+      lua_rawgeti(L, 1, i + 1);
+      lua_pushnumber(L, lovrMathGammaToLinear(luaL_checknumber(L, -1)));
+    }
+    lua_pop(L, 3);
+    return 3;
+  } else {
+    int n = CLAMP(lua_gettop(L), 1, 3);
+    for (int i = 0; i < n; i++) {
+      lua_pushnumber(L, lovrMathGammaToLinear(luaL_checknumber(L, i + 1)));
+    }
+    return n;
+  }
+}
+
+int l_lovrMathLinearToGamma(lua_State* L) {
+  if (lua_istable(L, 1)) {
+    for (int i = 0; i < 3; i++) {
+      lua_rawgeti(L, 1, i + 1);
+      lua_pushnumber(L, lovrMathLinearToGamma(luaL_checknumber(L, -1)));
+    }
+    lua_pop(L, 3);
+    return 3;
+  } else {
+    int n = CLAMP(lua_gettop(L), 1, 3);
+    for (int i = 0; i < n; i++) {
+      lua_pushnumber(L, lovrMathLinearToGamma(luaL_checknumber(L, i + 1)));
+    }
+    return n;
+  }
+}
+
 const luaL_Reg lovrMath[] = {
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "newTransform", l_lovrMathNewTransform },
@@ -100,6 +134,8 @@ const luaL_Reg lovrMath[] = {
   { "randomNormal", l_lovrMathRandomNormal },
   { "getRandomSeed", l_lovrMathGetRandomSeed },
   { "setRandomSeed", l_lovrMathSetRandomSeed },
+  { "gammaToLinear", l_lovrMathGammaToLinear },
+  { "linearToGamma", l_lovrMathLinearToGamma },
   { NULL, NULL }
 };
 
