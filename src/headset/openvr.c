@@ -786,7 +786,8 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     // Submit
     uintptr_t texture = (uintptr_t) state.texture->id;
     ETextureType textureType = ETextureType_TextureType_OpenGL;
-    Texture_t eyeTexture = { (void*) texture, textureType, EColorSpace_ColorSpace_Gamma };
+    EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
+    Texture_t eyeTexture = { (void*) texture, textureType, colorSpace };
     EVRSubmitFlags flags = EVRSubmitFlags_Submit_Default;
     state.compositor->Submit(vrEye, &eyeTexture, NULL, flags);
 
@@ -819,6 +820,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
 }
 
 static void openvrUpdate(float dt) {
+  //
 }
 
 HeadsetInterface lovrHeadsetOpenVRDriver = {

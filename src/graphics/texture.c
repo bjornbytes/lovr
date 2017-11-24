@@ -77,7 +77,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCo
 }
 
 Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa) {
-  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
+  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false);
   if (!texture) return NULL;
 
   int width = texture->width;
