@@ -99,6 +99,7 @@ Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProje
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->id, 0);
   }
 
+
   // Depth attachment
   if (projection == PROJECTION_PERSPECTIVE) {
     glGenRenderbuffers(1, &texture->depthBuffer);
@@ -204,7 +205,11 @@ void lovrTextureRefresh(Texture* texture) {
     } else {
       int w = textureData->width;
       int h = textureData->height;
-      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+
+      if (textureData->data) {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+      }
+
       if (textureData->mipmaps.generated) {
         glGenerateMipmap(GL_TEXTURE_2D); // TODO
       }
