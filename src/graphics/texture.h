@@ -64,7 +64,6 @@ Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProje
 void lovrTextureDestroy(const Ref* ref);
 void lovrTextureBindFramebuffer(Texture* texture);
 void lovrTextureResolveMSAA(Texture* texture);
-void lovrTextureRefresh(Texture* texture);
 TextureFilter lovrTextureGetFilter(Texture* texture);
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter);
 TextureWrap lovrTextureGetWrap(Texture* texture);

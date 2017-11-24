@@ -46,12 +46,8 @@ Font* lovrFontCreate(FontData* fontData) {
     lovrFontExpandTexture(font);
   }
 
-  // Texture
-  TextureData* textureData = lovrTextureDataGetBlank(font->atlas.width, font->atlas.height, 0x0, FORMAT_RGB);
-  TextureFilter filter = { .mode = FILTER_BILINEAR };
-  font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false);
-  lovrTextureSetFilter(font->texture, filter);
-  lovrTextureSetWrap(font->texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP });
+  // Create the texture
+  lovrFontCreateTexture(font);
 
   return font;
 }
@@ -298,9 +294,8 @@ void lovrFontExpandTexture(Font* font) {
     return;
   }
 
-  // Resize the texture storage
-  lovrTextureDataResize(font->texture->slices[0], atlas->width, atlas->height, 0x0);
-  lovrTextureRefresh(font->texture);
+  // Recreate the texture
+  lovrFontCreateTexture(font);
 
   // Reset the cursor
   atlas->x = atlas->padding;
@@ -314,4 +309,16 @@ void lovrFontExpandTexture(Font* font) {
     Glyph* glyph = map_get(&atlas->glyphs, key);
     lovrFontAddGlyph(font, glyph);
   }
+}
+
+void lovrFontCreateTexture(Font* font) {
+  if (font->texture) {
+    lovrRelease(&font->texture->ref);
+  }
+
+  TextureData* textureData = lovrTextureDataGetBlank(font->atlas.width, font->atlas.height, 0x0, FORMAT_RGB);
+  TextureFilter filter = { .mode = FILTER_BILINEAR };
+  font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false);
+  lovrTextureSetFilter(font->texture, filter);
+  lovrTextureSetWrap(font->texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP });
 }

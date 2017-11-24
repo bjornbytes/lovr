@@ -192,18 +192,6 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
   return textureData;
 }
 
-void lovrTextureDataResize(TextureData* textureData, int width, int height, uint8_t value) {
-  if (textureData->format.compressed || textureData->mipmaps.generated) {
-    lovrThrow("Can't resize a compressed texture or a texture with generated mipmaps.");
-  }
-
-  int size = width * height * textureData->format.blockBytes;
-  textureData->width = width;
-  textureData->height = height;
-  textureData->data = realloc(textureData->data, size);
-  memset(textureData->data, value, size);
-}
-
 void lovrTextureDataDestroy(TextureData* textureData) {
   if (textureData->blob) {
     lovrRelease(&textureData->blob->ref);

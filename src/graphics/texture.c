@@ -5,36 +5,70 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static void lovrTextureCreateStorage(Texture* texture) {
+static void lovrTextureUpload(Texture* texture) {
   TextureData* textureData = texture->slices[0];
+  texture->width = textureData->width;
+  texture->height = textureData->height;
 
-  if (textureData->format.compressed || texture->type == TEXTURE_CUBE) {
-    return;
-  }
-
-  int w = textureData->width;
-  int h = textureData->height;
-  int mipmapCount = log2(MAX(w, h)) + 1;
-  GLenum internalFormat;
-  if (lovrGraphicsIsGammaCorrect() && texture->srgb) {
-    internalFormat = textureData->format.glInternalFormat.srgb;
-  } else {
-    internalFormat = textureData->format.glInternalFormat.linear;
-  }
-  GLenum format = textureData->format.glFormat;
+  // Allocate storage
+  if (!textureData->format.compressed && texture->type != TEXTURE_CUBE) {
+    int w = textureData->width;
+    int h = textureData->height;
+    int mipmapCount = log2(MAX(w, h)) + 1;
+    GLenum internalFormat;
+    if (lovrGraphicsIsGammaCorrect() && texture->srgb) {
+      internalFormat = textureData->format.glInternalFormat.srgb;
+    } else {
+      internalFormat = textureData->format.glInternalFormat.linear;
+    }
+    GLenum format = textureData->format.glFormat;
 #ifndef EMSCRIPTEN
-  if (GLAD_GL_ARB_texture_storage) {
+    if (GLAD_GL_ARB_texture_storage) {
 #endif
-    glTexStorage2D(GL_TEXTURE_2D, mipmapCount, internalFormat, w, h);
+      glTexStorage2D(GL_TEXTURE_2D, mipmapCount, internalFormat, w, h);
 #ifndef EMSCRIPTEN
-  } else {
-    for (int i = 0; i < mipmapCount; i++) {
-      glTexImage2D(GL_TEXTURE_2D, i, internalFormat, w, h, 0, format, GL_UNSIGNED_BYTE, NULL);
-      w = MAX(w >> 1, 1);
-      h = MAX(h >> 1, 1);
+    } else {
+      for (int i = 0; i < mipmapCount; i++) {
+        glTexImage2D(GL_TEXTURE_2D, i, internalFormat, w, h, 0, format, GL_UNSIGNED_BYTE, NULL);
+        w = MAX(w >> 1, 1);
+        h = MAX(h >> 1, 1);
+      }
+    }
+#endif
+  }
+
+  // Upload data
+  for (int i = 0; i < texture->sliceCount; i++) {
+    TextureData* textureData = texture->slices[i];
+    GLenum glInternalFormat;
+    if (lovrGraphicsIsGammaCorrect() && texture->srgb) {
+      glInternalFormat = textureData->format.glInternalFormat.srgb;
+    } else {
+      glInternalFormat = textureData->format.glInternalFormat.linear;
+    }
+    GLenum glFormat = textureData->format.glFormat;
+    GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + i : GL_TEXTURE_2D;
+
+    if (textureData->format.compressed) {
+      Mipmap m; int i;
+      vec_foreach(&textureData->mipmaps.list, m, i) {
+        glCompressedTexImage2D(binding, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
+      }
+    } else {
+      int w = textureData->width;
+      int h = textureData->height;
+
+      if (texture->type == TEXTURE_CUBE) {
+        glTexImage2D(binding, 0, glInternalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+      } else if (textureData->data) {
+        glTexSubImage2D(binding, 0, 0, 0, w, h, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+      }
+
+      if (textureData->mipmaps.generated) {
+        glGenerateMipmap(texture->type);
+      }
     }
   }
-#endif
 }
 
 static void validateSlices(TextureType type, TextureData* slices[6], int sliceCount) {
@@ -67,8 +101,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCo
   texture->srgb = srgb;
   glGenTextures(1, &texture->id);
   lovrGraphicsBindTexture(texture, type, 0);
-  lovrTextureCreateStorage(texture);
-  lovrTextureRefresh(texture);
+  lovrTextureUpload(texture);
   lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
   WrapMode wrapMode = (type == TEXTURE_CUBE) ? WRAP_CLAMP : WRAP_REPEAT;
   lovrTextureSetWrap(texture, (TextureWrap) { .s = wrapMode, .t = wrapMode, .r = wrapMode });
@@ -177,44 +210,6 @@ void lovrTextureResolveMSAA(Texture* texture) {
   glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-}
-
-void lovrTextureRefresh(Texture* texture) {
-  lovrGraphicsBindTexture(texture, texture->type, 0);
-
-  validateSlices(texture->type, texture->slices, texture->sliceCount);
-  texture->width = texture->slices[0]->width;
-  texture->height = texture->slices[0]->height;
-
-  for (int i = 0; i < texture->sliceCount; i++) {
-    TextureData* textureData = texture->slices[i];
-    GLenum glInternalFormat;
-    if (lovrGraphicsIsGammaCorrect() && texture->srgb) {
-      glInternalFormat = textureData->format.glInternalFormat.srgb;
-    } else {
-      glInternalFormat = textureData->format.glInternalFormat.linear;
-    }
-    GLenum glFormat = textureData->format.glFormat;
-    GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + i : GL_TEXTURE_2D;
-
-    if (textureData->format.compressed) {
-      Mipmap m; int i;
-      vec_foreach(&textureData->mipmaps.list, m, i) {
-        glCompressedTexImage2D(binding, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
-      }
-    } else {
-      int w = textureData->width;
-      int h = textureData->height;
-
-      if (textureData->data) {
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, glFormat, GL_UNSIGNED_BYTE, textureData->data);
-      }
-
-      if (textureData->mipmaps.generated) {
-        glGenerateMipmap(GL_TEXTURE_2D); // TODO
-      }
-    }
-  }
 }
 
 TextureFilter lovrTextureGetFilter(Texture* texture) {

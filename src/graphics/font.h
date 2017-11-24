@@ -56,3 +56,4 @@ void lovrFontSetPixelDensity(Font* font, float pixelDensity);
 Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint);
 void lovrFontAddGlyph(Font* font, Glyph* glyph);
 void lovrFontExpandTexture(Font* font);
+void lovrFontCreateTexture(Font* font);
