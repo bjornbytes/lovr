@@ -7,7 +7,7 @@
 #pragma once
 
 #define MAX_BONES_PER_VERTEX 4
-#define MAX_BONES 60
+#define MAX_BONES 48
 
 typedef union {
   void* data;

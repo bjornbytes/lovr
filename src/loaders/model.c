@@ -184,6 +184,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
   struct aiPropertyStore* propertyStore = aiCreatePropertyStore();
   aiSetImportPropertyInteger(propertyStore, AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_POINT | aiPrimitiveType_LINE);
+  aiSetImportPropertyInteger(propertyStore, AI_CONFIG_PP_SBBC_MAX_BONES, 48);
   unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_FlipUVs | aiProcess_SplitByBoneCount;
   const struct aiScene* scene = aiImportFileExWithProperties(blob->name, flags, &assimpIO, propertyStore);
   aiReleasePropertyStore(propertyStore);

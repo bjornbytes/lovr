@@ -16,7 +16,7 @@ const char* lovrShaderVertexPrefix = ""
 #else
 "#version 150 \n"
 #endif
-"#define MAX_BONES 60 \n"
+"#define MAX_BONES 48 \n"
 "in vec3 lovrPosition; \n"
 "in vec3 lovrNormal; \n"
 "in vec2 lovrTexCoord; \n"
