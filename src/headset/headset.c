@@ -6,38 +6,31 @@ void lovrControllerDestroy(const Ref* ref) {
   free(controller);
 }
 
-
 static HeadsetInterface* headset = NULL;
 
-
 void lovrHeadsetInit() {
-  // assert(headset==NULL)
-  // TODO: should expose driver selection to lua, so conf can express a preference?
-
 #if EMSCRIPTEN
   HeadsetInterface* drivers[] = { &lovrHeadsetWebVRDriver, &lovrHeadsetFakeDriver, NULL };
 #else
   HeadsetInterface* drivers[] = { &lovrHeadsetOpenVRDriver, &lovrHeadsetFakeDriver, NULL };
 #endif
-  int i;
-  for (i=0; drivers[i]; ++i ) {
+  for (int i = 0; drivers[i]; ++i) {
     if (drivers[i]->isAvailable()) {
       headset = drivers[i];
       break;
     }
   }
 
-  if( headset) {
+  if (headset) {
     headset->init();
     atexit(lovrHeadsetDestroy);
   }
 }
 
-
 void lovrHeadsetDestroy() {
   if (headset) {
     headset->destroy();
-    headset = NULL;    
+    headset = NULL;
   }
 }
 
@@ -91,11 +84,11 @@ void lovrHeadsetSetClipDistance(float near, float far) {
 }
 
 float lovrHeadsetGetBoundsWidth() {
-  return headset ? headset->getBoundsWidth() : 0.0f;
+  return headset ? headset->getBoundsWidth() : 0.f;
 }
 
 float lovrHeadsetGetBoundsDepth() {
-  return headset ? headset->getBoundsDepth() : 0.0f;
+  return headset ? headset->getBoundsDepth() : 0.f;
 }
 
 void lovrHeadsetGetBoundsGeometry(float* geometry) {
@@ -219,15 +212,13 @@ void lovrHeadsetControllerVibrate(Controller* controller, float duration, float 
   headset->controllerVibrate(controller, duration, power);
 }
 
-ModelData* lovrHeadsetControllerNewModelData(Controller* controller)
-{
-  if( headset && controller) {
+ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
+  if (headset && controller) {
     return headset->controllerNewModelData(controller);
   } else {
     return NULL;
   }
 }
-
 
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
   if (headset) {
@@ -236,7 +227,7 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
 }
 
 void lovrHeadsetUpdate(float dt) {
-  if(headset) {
+  if (headset) {
     headset->update(dt);
   }
 }
