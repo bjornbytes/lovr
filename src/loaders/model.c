@@ -50,7 +50,10 @@ static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode,
   }
 }
 
-static void normalizePath(const char* path, char* dst, size_t size) {
+static void normalizePath(char* path, char* dst, size_t size) {
+  char* slash = path;
+  while ((slash = strchr(path, '\\')) != NULL) { *slash++ = '/'; }
+
   if (path[0] == '/') {
     strncpy(dst, path, size);
     return;
@@ -145,10 +148,12 @@ static struct aiFile* assimpFileOpen(struct aiFileIO* io, const char* path, cons
     assimpFile->TellProc = assimpBlobTell;
     assimpFile->UserData = (void*) blob;
   } else {
+    char tempPath[LOVR_PATH_MAX];
     char normalizedPath[LOVR_PATH_MAX];
-    normalizePath(path, normalizedPath, LOVR_PATH_MAX);
+    strncpy(tempPath, path, LOVR_PATH_MAX);
+    normalizePath(tempPath, normalizedPath, LOVR_PATH_MAX);
 
-    File* file = lovrFileCreate(path);
+    File* file = lovrFileCreate(normalizedPath);
     if (lovrFileOpen(file, OPEN_READ)) {
       return NULL;
     }
