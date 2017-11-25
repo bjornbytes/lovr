@@ -84,7 +84,7 @@ static void normalizePath(const char* path, char* dst, size_t size) {
 }
 
 // Blob IO (to avoid reading data twice)
-static unsigned long assimpBlobRead(struct aiFile* assimpFile, char* buffer, size_t size, size_t count) {
+static size_t assimpBlobRead(struct aiFile* assimpFile, char* buffer, size_t size, size_t count) {
   Blob* blob = (Blob*) assimpFile->UserData;
   char* data = blob->data;
   size_t bytes = MIN(count * size * sizeof(char), blob->size - blob->seek);
@@ -97,7 +97,7 @@ static size_t assimpBlobGetSize(struct aiFile* assimpFile) {
   return blob->size;
 }
 
-static aiReturn assimpBlobSeek(struct aiFile* assimpFile, unsigned long position, enum aiOrigin origin) {
+static aiReturn assimpBlobSeek(struct aiFile* assimpFile, size_t position, enum aiOrigin origin) {
   Blob* blob = (Blob*) assimpFile->UserData;
   switch (origin) {
     case aiOrigin_SET: blob->seek = position; break;
@@ -108,13 +108,13 @@ static aiReturn assimpBlobSeek(struct aiFile* assimpFile, unsigned long position
   return blob->seek < blob->size ? aiReturn_SUCCESS : aiReturn_FAILURE;
 }
 
-static unsigned long assimpBlobTell(struct aiFile* assimpFile) {
+static size_t assimpBlobTell(struct aiFile* assimpFile) {
   Blob* blob = (Blob*) assimpFile->UserData;
   return blob->seek;
 }
 
 // File IO (for reading referenced materials/textures)
-static unsigned long assimpFileRead(struct aiFile* assimpFile, char* buffer, size_t size, size_t count) {
+static size_t assimpFileRead(struct aiFile* assimpFile, char* buffer, size_t size, size_t count) {
   File* file = (File*) assimpFile->UserData;
   unsigned long bytes =  lovrFileRead(file, buffer, size, count);
   return bytes;
@@ -125,7 +125,7 @@ static size_t assimpFileGetSize(struct aiFile* assimpFile) {
   return lovrFileGetSize(file);
 }
 
-static aiReturn assimpFileSeek(struct aiFile* assimpFile, unsigned long position, enum aiOrigin origin) {
+static aiReturn assimpFileSeek(struct aiFile* assimpFile, size_t position, enum aiOrigin origin) {
   File* file = (File*) assimpFile->UserData;
   return lovrFileSeek(file, position) ? aiReturn_FAILURE : aiReturn_SUCCESS;
 }
