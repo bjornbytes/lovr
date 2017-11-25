@@ -184,7 +184,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
   struct aiPropertyStore* propertyStore = aiCreatePropertyStore();
   aiSetImportPropertyInteger(propertyStore, AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_POINT | aiPrimitiveType_LINE);
-  unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_FlipUVs;
+  unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_FlipUVs | aiProcess_SplitByBoneCount;
   const struct aiScene* scene = aiImportFileExWithProperties(blob->name, flags, &assimpIO, propertyStore);
   aiReleasePropertyStore(propertyStore);
 
@@ -198,7 +198,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   modelData->hasNormals = false;
   modelData->hasUVs = false;
   modelData->hasVertexColors = false;
-  modelData->hasBones = false;
+  modelData->skinned = false;
 
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
     struct aiMesh* assimpMesh = scene->mMeshes[m];
@@ -207,7 +207,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     modelData->hasNormals |= assimpMesh->mNormals != NULL;
     modelData->hasUVs |= assimpMesh->mTextureCoords[0] != NULL;
     modelData->hasVertexColors |= assimpMesh->mColors[0] != NULL;
-    modelData->hasBones |= assimpMesh->mNumBones > 0;
+    modelData->skinned |= assimpMesh->mNumBones > 0;
   }
 
   // Allocate
@@ -218,14 +218,10 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   modelData->stride += (modelData->hasNormals ? 3 : 0) * sizeof(float);
   modelData->stride += (modelData->hasUVs ? 2 : 0) * sizeof(float);
   modelData->stride += (modelData->hasVertexColors ? 4 : 0) * sizeof(uint8_t);
-  modelData->boneByteOffset = modelData->stride;
-  modelData->stride += (modelData->hasBones ? 4 : 0) * sizeof(uint32_t);
-  modelData->stride += (modelData->hasBones ? 4 : 0) * sizeof(float);
+  size_t boneByteOffset = modelData->stride;
+  modelData->stride += (modelData->skinned ? (4 * sizeof(uint32_t) + 4 * sizeof(float)) : 0);
   modelData->vertices.data = malloc(modelData->stride * modelData->vertexCount);
   modelData->indices.data = malloc(modelData->indexCount * modelData->indexSize);
-
-  vec_init(&modelData->bones);
-  map_init(&modelData->boneMap);
   memset(modelData->vertices.data, 0, modelData->stride * modelData->vertexCount);
 
   // Load vertices
@@ -234,9 +230,10 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   uint32_t index = 0;
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
     struct aiMesh* assimpMesh = scene->mMeshes[m];
-    modelData->primitives[m].material = assimpMesh->mMaterialIndex;
-    modelData->primitives[m].drawStart = index;
-    modelData->primitives[m].drawCount = 0;
+    ModelPrimitive* primitive = &modelData->primitives[m];
+    primitive->material = assimpMesh->mMaterialIndex;
+    primitive->drawStart = index;
+    primitive->drawCount = 0;
     uint32_t baseVertex = vertex;
 
     // Indices
@@ -244,7 +241,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
       struct aiFace assimpFace = assimpMesh->mFaces[f];
       lovrAssert(assimpFace.mNumIndices == 3, "Only triangular faces are supported");
 
-      modelData->primitives[m].drawCount += assimpFace.mNumIndices;
+      primitive->drawCount += assimpFace.mNumIndices;
 
       if (modelData->indexSize == sizeof(uint16_t)) {
         for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
@@ -306,27 +303,23 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     }
 
     // Bones
+    primitive->boneCount = assimpMesh->mNumBones;
+    map_init(&primitive->boneMap);
     for (unsigned int b = 0; b < assimpMesh->mNumBones; b++) {
       struct aiBone* assimpBone = assimpMesh->mBones[b];
-      const char* boneName = assimpBone->mName.data;
+      Bone* bone = &primitive->bones[b];
 
-      if (!map_get(&modelData->boneMap, boneName)) {
-        Bone bone;
-        bone.name = strdup(boneName);
-        aiTransposeMatrix4(&assimpBone->mOffsetMatrix);
-        mat4_set(bone.offset, (float*) &assimpBone->mOffsetMatrix);
-        map_set(&modelData->boneMap, bone.name, modelData->bones.length);
-        vec_push(&modelData->bones, bone);
-      }
-
-      uint32_t boneIndex = *map_get(&modelData->boneMap, boneName);
+      bone->name = strdup(assimpBone->mName.data);
+      aiTransposeMatrix4(&assimpBone->mOffsetMatrix);
+      mat4_set(bone->offset, (float*) &assimpBone->mOffsetMatrix);
+      map_set(&primitive->boneMap, bone->name, b);
 
       for (unsigned int w = 0; w < assimpBone->mNumWeights; w++) {
         uint32_t vertexIndex = baseVertex + assimpBone->mWeights[w].mVertexId;
         float weight = assimpBone->mWeights[w].mWeight;
         ModelVertices vertices = modelData->vertices;
         vertices.bytes += vertexIndex * modelData->stride;
-        uint32_t* bones = (uint32_t*) (vertices.bytes + modelData->boneByteOffset);
+        uint32_t* bones = (uint32_t*) (vertices.bytes + boneByteOffset);
         float* weights = (float*) (bones + MAX_BONES_PER_VERTEX);
 
         int boneSlot = 0;
@@ -335,7 +328,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
           lovrAssert(boneSlot < MAX_BONES_PER_VERTEX, "Too many bones for vertex %d", vertexIndex);
         }
 
-        bones[boneSlot] = boneIndex;
+        bones[boneSlot] = b;
         weights[boneSlot] = weight;
       }
     }
@@ -449,6 +442,10 @@ void lovrModelDataDestroy(ModelData* modelData) {
   for (int i = 0; i < modelData->nodeCount; i++) {
     vec_deinit(&modelData->nodes[i].children);
     vec_deinit(&modelData->nodes[i].primitives);
+  }
+
+  for (int i = 0; i < modelData->primitiveCount; i++) {
+    map_deinit(&modelData->primitives[i].boneMap);
   }
 
   lovrAnimationDataDestroy(modelData->animationData);

@@ -7,6 +7,7 @@
 #pragma once
 
 #define MAX_BONES_PER_VERTEX 4
+#define MAX_BONES 60
 
 typedef union {
   void* data;
@@ -22,9 +23,17 @@ typedef union {
 } ModelIndices;
 
 typedef struct {
+  const char* name;
+  float offset[16];
+} Bone;
+
+typedef struct {
   int material;
   int drawStart;
   int drawCount;
+  Bone bones[MAX_BONES];
+  map_int_t boneMap;
+  int boneCount;
 } ModelPrimitive;
 
 typedef struct ModelNode {
@@ -36,18 +45,9 @@ typedef struct ModelNode {
 } ModelNode;
 
 typedef struct {
-  const char* name;
-  float offset[16];
-} Bone;
-
-typedef vec_t(Bone) vec_bone_t;
-
-typedef struct {
   ModelNode* nodes;
   map_int_t nodeMap;
   ModelPrimitive* primitives;
-  vec_bone_t bones;
-  map_int_t boneMap;
   AnimationData* animationData;
   MaterialData** materials;
   ModelVertices vertices;
@@ -62,8 +62,7 @@ typedef struct {
   bool hasNormals;
   bool hasUVs;
   bool hasVertexColors;
-  bool hasBones;
-  size_t boneByteOffset;
+  bool skinned;
   size_t stride;
 } ModelData;
 

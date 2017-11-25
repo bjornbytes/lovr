@@ -13,28 +13,32 @@ static void renderNode(Model* model, int nodeIndex) {
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_MODEL, model->nodeTransforms[nodeIndex]);
 
+    float globalInverse[16];
     if (model->animator) {
-      float globalInverse[16];
       mat4_set(globalInverse, model->nodeTransforms[nodeIndex]);
       mat4_invert(globalInverse);
-
-      for (int i = 0; i < model->modelData->bones.length; i++) {
-        Bone* bone = &model->modelData->bones.data[i];
-        int nodeIndex = *(int*) map_get(&model->modelData->nodeMap, bone->name);
-
-        mat4 bonePose = model->pose[i];
-        mat4_identity(bonePose);
-        mat4_set(bonePose, globalInverse);
-        mat4_multiply(bonePose, model->nodeTransforms[nodeIndex]);
-        mat4_multiply(bonePose, bone->offset);
-      }
     }
 
     for (int i = 0; i < node->primitives.length; i++) {
       ModelPrimitive* primitive = &model->modelData->primitives[node->primitives.data[i]];
+
+      if (model->animator) {
+        for (int i = 0; i < primitive->boneCount; i++) {
+          Bone* bone = &primitive->bones[i];
+          int nodeIndex = *(int*) map_get(&model->modelData->nodeMap, bone->name);
+
+          mat4 bonePose = model->pose[i];
+          mat4_identity(bonePose);
+          mat4_set(bonePose, globalInverse);
+          mat4_multiply(bonePose, model->nodeTransforms[nodeIndex]);
+          mat4_multiply(bonePose, bone->offset);
+        }
+      }
+
       if (useMaterials) {
         lovrGraphicsSetMaterial(model->materials[primitive->material]);
       }
+
       lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
       lovrMeshDraw(model->mesh, NULL, (float*) model->pose);
     }
@@ -79,7 +83,7 @@ Model* lovrModelCreate(ModelData* modelData) {
     vec_push(&format, attribute);
   }
 
-  if (modelData->hasBones) {
+  if (modelData->skinned) {
     MeshAttribute bones = { .name = "lovrBones", .type = MESH_INT, .count = 4 };
     vec_push(&format, bones);
 
