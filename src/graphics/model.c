@@ -61,6 +61,7 @@ Model* lovrModelCreate(ModelData* modelData) {
 
   model->modelData = modelData;
   model->aabbDirty = true;
+  model->animator = NULL;
 
   MeshFormat format;
   vec_init(&format);
