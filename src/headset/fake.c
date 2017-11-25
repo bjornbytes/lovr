@@ -482,6 +482,7 @@ static void fakeUpdate(float dt)
 }
 
 HeadsetInterface lovrHeadsetFakeDriver = {
+  DRIVER_FAKE,
   fakeIsAvailable,
   fakeInit,
   fakeDestroy,
@@ -513,5 +514,5 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeControllerVibrate,
   fakeControllerNewModelData,
   fakeRenderTo,
-  fakeUpdate,
+  fakeUpdate
 };

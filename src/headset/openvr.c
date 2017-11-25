@@ -824,6 +824,7 @@ static void openvrUpdate(float dt) {
 }
 
 HeadsetInterface lovrHeadsetOpenVRDriver = {
+  DRIVER_OPENVR,
   openvrIsAvailable,
   openvrInit,
   openvrDestroy,
@@ -855,5 +856,5 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrControllerVibrate,
   openvrControllerNewModelData,
   openvrRenderTo,
-  openvrUpdate,
+  openvrUpdate
 };

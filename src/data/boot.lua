@@ -10,6 +10,7 @@ local conf = {
   },
   gammacorrect = false,
   headset = {
+    drivers = { 'openvr', 'webvr', 'fake' },
     mirror = true,
     offset = 1.7
   },

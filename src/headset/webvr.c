@@ -258,8 +258,8 @@ static void webvrRenderTo(headsetRenderCallback callback, void* userdata) {
 static void webvrUpdate(float dt) {
 }
 
-
 HeadsetInterface lovrHeadsetWebVRDriver = {
+  DRIVER_WEBVR,
   webvrIsAvailable,
   webvrInit,
   webvrDestroy,
@@ -291,6 +291,5 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrControllerVibrate,
   webvrControllerNewModelData,
   webvrRenderTo,
-  webvrUpdate,
+  webvrUpdate
 };
-

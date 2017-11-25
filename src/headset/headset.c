@@ -8,15 +8,22 @@ void lovrControllerDestroy(const Ref* ref) {
 
 static HeadsetInterface* headset = NULL;
 
-void lovrHeadsetInit() {
-#if EMSCRIPTEN
-  HeadsetInterface* drivers[] = { &lovrHeadsetWebVRDriver, &lovrHeadsetFakeDriver, NULL };
+void lovrHeadsetInit(HeadsetDriver* drivers, int count) {
+  for (int i = 0; i < count; i++) {
+    HeadsetInterface* interface = NULL;
+
+    switch (drivers[i]) {
+      case DRIVER_FAKE: interface = &lovrHeadsetFakeDriver; break;
+#ifndef EMSCRIPTEN
+      case DRIVER_OPENVR: interface = &lovrHeadsetOpenVRDriver; break;
 #else
-  HeadsetInterface* drivers[] = { &lovrHeadsetOpenVRDriver, &lovrHeadsetFakeDriver, NULL };
+      case DRIVER_WEBVR: interface = &lovrHeadsetWebVRDriver; break;
 #endif
-  for (int i = 0; drivers[i]; ++i) {
-    if (drivers[i]->isAvailable()) {
-      headset = drivers[i];
+      default: break;
+    }
+
+    if (interface && interface->isAvailable()) {
+      headset = interface;
       break;
     }
   }
@@ -32,6 +39,14 @@ void lovrHeadsetDestroy() {
     headset->destroy();
     headset = NULL;
   }
+}
+
+const HeadsetDriver* lovrHeadsetGetDriver() {
+  if (!headset) {
+    lovrThrow("Headset is not initialized");
+  }
+
+  return &headset->driverType;
 }
 
 void lovrHeadsetPoll() {

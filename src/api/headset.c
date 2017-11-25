@@ -4,6 +4,7 @@
 map_int_t ControllerAxes;
 map_int_t ControllerButtons;
 map_int_t ControllerHands;
+map_int_t HeadsetDrivers;
 map_int_t HeadsetEyes;
 map_int_t HeadsetOrigins;
 map_int_t HeadsetTypes;
@@ -64,29 +65,42 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&HeadsetTypes, "vive", HEADSET_VIVE);
   map_set(&HeadsetTypes, "rift", HEADSET_RIFT);
 
-#if 0
-  // not needed yet, but if we expose driver selection to lua...
   map_init(&HeadsetDrivers);
-  map_set(&HeadsetDrivers, "unknown", HEADSET_DRIVER_FAKE);
-  map_set(&HeadsetDrivers, "openvr", HEADSET_DRIVER_OPENVR);
-  map_set(&HeadsetDrivers, "webvr", HEADSET_DRIVER_WEBVR);
-#endif
+  map_set(&HeadsetDrivers, "fake", DRIVER_FAKE);
+  map_set(&HeadsetDrivers, "openvr", DRIVER_OPENVR);
+  map_set(&HeadsetDrivers, "webvr", DRIVER_WEBVR);
 
   luax_pushconf(L);
   lua_getfield(L, -1, "headset");
 
-  // Set mirror state
+  vec_t(HeadsetDriver) drivers;
+  vec_init(&drivers);
+
+  bool mirror = false;
+
   if (lua_istable(L, -1)) {
-    lua_getfield(L, -1, "mirror");
-    bool mirror = lua_toboolean(L, -1);
+
+    // Drivers
+    lua_getfield(L, -1, "drivers");
+    int n = lua_objlen(L, -1);
+    for (int i = 0; i < n; i++) {
+      lua_rawgeti(L, -1, i + 1);
+      vec_push(&drivers, *(HeadsetDriver*) luax_checkenum(L, -1, &HeadsetDrivers, "headset driver"));
+      lua_pop(L, 1);
+    }
     lua_pop(L, 1);
 
-    lovrHeadsetSetMirrored(mirror);
+    // Mirror
+    lua_getfield(L, -1, "mirror");
+    mirror = lua_toboolean(L, -1);
+    lua_pop(L, 1);
   }
 
-  lua_pop(L, 2);
+  lovrHeadsetInit(drivers.data, drivers.length);
+  lovrHeadsetSetMirrored(mirror);
 
-  lovrHeadsetInit();
+  vec_deinit(&drivers);
+  lua_pop(L, 2);
 
   headsetRenderData.ref = LUA_NOREF;
 
@@ -95,6 +109,16 @@ int l_lovrHeadsetInit(lua_State* L) {
 
 int l_lovrHeadsetIsPresent(lua_State* L) {
   lua_pushboolean(L, lovrHeadsetIsPresent());
+  return 1;
+}
+
+int l_lovrHeadsetGetDriver(lua_State* L) {
+  const HeadsetDriver* driver = lovrHeadsetGetDriver();
+  if (driver) {
+    luax_pushenum(L, &HeadsetDrivers, *driver);
+  } else {
+    lua_pushnil(L);
+  }
   return 1;
 }
 
@@ -281,6 +305,7 @@ int l_lovrHeadsetUpdate(lua_State* L) {
 }
 const luaL_Reg lovrHeadset[] = {
   { "isPresent", l_lovrHeadsetIsPresent },
+  { "getDriver", l_lovrHeadsetGetDriver },
   { "getType", l_lovrHeadsetGetType },
   { "getOriginType", l_lovrHeadsetGetOriginType },
   { "isMirrored", l_lovrHeadsetIsMirrored },
