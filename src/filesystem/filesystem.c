@@ -203,7 +203,7 @@ void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
   }
 
   // Perform read
-  *bytesRead = lovrFileRead(file, data, 1, size);
+  *bytesRead = lovrFileRead(file, data, size);
   lovrFileClose(file);
 
   // Make sure we got everything
@@ -265,7 +265,7 @@ size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, b
   }
 
   lovrFileOpen(file, append ? OPEN_APPEND : OPEN_WRITE);
-  size_t bytesWritten = lovrFileWrite(file, (void*) content, 1, size);
+  size_t bytesWritten = lovrFileWrite(file, (void*) content, size);
   lovrFileClose(file);
   lovrRelease(&file->ref);
   return bytesWritten;

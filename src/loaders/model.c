@@ -116,7 +116,7 @@ static size_t assimpBlobTell(struct aiFile* assimpFile) {
 // File IO (for reading referenced materials/textures)
 static size_t assimpFileRead(struct aiFile* assimpFile, char* buffer, size_t size, size_t count) {
   File* file = (File*) assimpFile->UserData;
-  unsigned long bytes =  lovrFileRead(file, buffer, size, count);
+  unsigned long bytes = lovrFileRead(file, buffer, size * count);
   return bytes;
 }
 

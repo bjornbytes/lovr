@@ -38,14 +38,14 @@ void lovrFileClose(File* file) {
   file->handle = NULL;
 }
 
-size_t lovrFileRead(File* file, void* data, size_t size, size_t count) {
+size_t lovrFileRead(File* file, void* data, size_t bytes) {
   lovrAssert(file->handle && file->mode == OPEN_READ, "File must be open for reading");
-  return PHYSFS_read(file->handle, data, size, count);
+  return PHYSFS_readBytes(file->handle, data, bytes);
 }
 
-size_t lovrFileWrite(File* file, void* data, size_t size, size_t count) {
+size_t lovrFileWrite(File* file, void* data, size_t bytes) {
   lovrAssert(file->handle && (file->mode == OPEN_READ || file->mode == OPEN_WRITE), "File must be open for writing");
-  return PHYSFS_write(file->handle, data, size, count);
+  return PHYSFS_writeBytes(file->handle, data, bytes);
 }
 
 size_t lovrFileGetSize(File* file) {
