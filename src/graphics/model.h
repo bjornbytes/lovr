@@ -26,7 +26,7 @@ typedef struct {
 
 Model* lovrModelCreate(ModelData* modelData);
 void lovrModelDestroy(const Ref* ref);
-void lovrModelDraw(Model* model, mat4 transform);
+void lovrModelDraw(Model* model, mat4 transform, int instances);
 Animator* lovrModelGetAnimator(Model* model);
 void lovrModelSetAnimator(Model* model, Animator* animator);
 int lovrModelGetAnimationCount(Model* model);

@@ -4,7 +4,7 @@
 #include "math/vec3.h"
 #include <stdlib.h>
 
-static void renderNode(Model* model, int nodeIndex) {
+static void renderNode(Model* model, int nodeIndex, int instances) {
   ModelNode* node = &model->modelData->nodes[nodeIndex];
 
   if (node->primitives.length > 0) {
@@ -38,14 +38,14 @@ static void renderNode(Model* model, int nodeIndex) {
       }
 
       lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
-      lovrMeshDraw(model->mesh, NULL, (float*) model->pose);
+      lovrMeshDraw(model->mesh, NULL, (float*) model->pose, instances);
     }
 
     lovrGraphicsPop();
   }
 
   for (int i = 0; i < node->children.length; i++) {
-    renderNode(model, node->children.data[i]);
+    renderNode(model, node->children.data[i], instances);
   }
 }
 
@@ -131,7 +131,7 @@ void lovrModelDestroy(const Ref* ref) {
   free(model);
 }
 
-void lovrModelDraw(Model* model, mat4 transform) {
+void lovrModelDraw(Model* model, mat4 transform, int instances) {
   if (model->modelData->nodeCount == 0) {
     return;
   }
@@ -162,7 +162,7 @@ void lovrModelDraw(Model* model, mat4 transform) {
 
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
-  renderNode(model, 0);
+  renderNode(model, 0, instances);
   lovrGraphicsPop();
 }
 
