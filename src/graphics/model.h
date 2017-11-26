@@ -16,6 +16,7 @@ typedef struct {
   ModelData* modelData;
   Mesh* mesh;
   Material** materials;
+  Material* material;
   Animator* animator;
   float pose[MAX_BONES][16];
   float (*nodeTransforms)[16];
@@ -29,5 +30,7 @@ void lovrModelDraw(Model* model, mat4 transform);
 Animator* lovrModelGetAnimator(Model* model);
 void lovrModelSetAnimator(Model* model, Animator* animator);
 int lovrModelGetAnimationCount(Model* model);
+Material* lovrModelGetMaterial(Model* model);
+void lovrModelSetMaterial(Model* model, Material* material);
 Mesh* lovrModelGetMesh(Model* model);
 const float* lovrModelGetAABB(Model* model);

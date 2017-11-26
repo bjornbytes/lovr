@@ -1,6 +1,6 @@
 #include "util.h"
 #include "graphics/shader.h"
-#include "graphics/texture.h"
+#include "graphics/material.h"
 #include "math/math.h"
 #include "lib/glfw.h"
 
@@ -55,6 +55,7 @@ typedef struct {
   bool isRangeEnabled;
   int rangeStart;
   int rangeCount;
+  Material* material;
   Shader* lastShader;
 } Mesh;
 
@@ -74,7 +75,7 @@ bool lovrMeshIsRangeEnabled(Mesh* mesh);
 void lovrMeshSetRangeEnabled(Mesh* mesh, char isEnabled);
 void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count);
 void lovrMeshSetDrawRange(Mesh* mesh, int start, int count);
-Texture* lovrMeshGetTexture(Mesh* mesh);
-void lovrMeshSetTexture(Mesh* mesh, Texture* texture);
+Material* lovrMeshGetMaterial(Mesh* mesh);
+void lovrMeshSetMaterial(Mesh* mesh, Material* material);
 void* lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool write);
 void lovrMeshUnmap(Mesh* mesh);

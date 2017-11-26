@@ -6,8 +6,6 @@
 
 static void renderNode(Model* model, int nodeIndex) {
   ModelNode* node = &model->modelData->nodes[nodeIndex];
-  Material* currentMaterial = lovrGraphicsGetMaterial();
-  bool useMaterials = currentMaterial->isDefault;
 
   if (node->primitives.length > 0) {
     lovrGraphicsPush();
@@ -35,8 +33,8 @@ static void renderNode(Model* model, int nodeIndex) {
         }
       }
 
-      if (useMaterials) {
-        lovrGraphicsSetMaterial(model->materials[primitive->material]);
+      if (!model->material) {
+        lovrMeshSetMaterial(model->mesh, model->materials[primitive->material]);
       }
 
       lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
@@ -49,10 +47,6 @@ static void renderNode(Model* model, int nodeIndex) {
   for (int i = 0; i < node->children.length; i++) {
     renderNode(model, node->children.data[i]);
   }
-
-  if (useMaterials) {
-    lovrGraphicsSetMaterial(currentMaterial);
-  }
 }
 
 Model* lovrModelCreate(ModelData* modelData) {
@@ -62,6 +56,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->modelData = modelData;
   model->aabbDirty = true;
   model->animator = NULL;
+  model->material = NULL;
 
   MeshFormat format;
   vec_init(&format);
@@ -123,6 +118,12 @@ void lovrModelDestroy(const Ref* ref) {
   for (int i = 0; i < model->modelData->materialCount; i++) {
     lovrRelease(&model->materials[i]->ref);
   }
+  if (model->animator) {
+    lovrRelease(&model->animator->ref);
+  }
+  if (model->material) {
+    lovrRelease(&model->material->ref);
+  }
   free(model->materials);
   lovrModelDataDestroy(model->modelData);
   lovrRelease(&model->mesh->ref);
@@ -155,6 +156,10 @@ void lovrModelDraw(Model* model, mat4 transform) {
     }
   }
 
+  if (model->material) {
+    lovrMeshSetMaterial(model->mesh, model->material);
+  }
+
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
   renderNode(model, 0);
@@ -166,11 +171,39 @@ Animator* lovrModelGetAnimator(Model* model) {
 }
 
 void lovrModelSetAnimator(Model* model, Animator* animator) {
-  model->animator = animator;
+  if (model->animator != animator) {
+    if (model->animator) {
+      lovrRelease(&model->animator->ref);
+    }
+
+    model->animator = animator;
+
+    if (animator) {
+      lovrRetain(&animator->ref);
+    }
+  }
 }
 
 int lovrModelGetAnimationCount(Model* model) {
   return model->modelData->animationCount;
+}
+
+Material* lovrModelGetMaterial(Model* model) {
+  return model->material;
+}
+
+void lovrModelSetMaterial(Model* model, Material* material) {
+  if (model->material != material) {
+    if (model->material) {
+      lovrRelease(&model->material->ref);
+    }
+
+    model->material = material;
+
+    if (material) {
+      lovrRetain(&material->ref);
+    }
+  }
 }
 
 Mesh* lovrModelGetMesh(Model* model) {

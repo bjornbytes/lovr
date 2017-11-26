@@ -377,6 +377,28 @@ int l_lovrMeshSetDrawRange(lua_State* L) {
   return 0;
 }
 
+int l_lovrMeshGetMaterial(lua_State* L) {
+  Mesh* mesh = luax_checktype(L, 1, Mesh);
+  Material* material = lovrMeshGetMaterial(mesh);
+  if (material) {
+    luax_pushtype(L, Material, material);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+int l_lovrMeshSetMaterial(lua_State* L) {
+  Mesh* mesh = luax_checktype(L, 1, Mesh);
+  if (lua_isnoneornil(L, 2)) {
+    lovrMeshSetMaterial(mesh, NULL);
+  } else {
+    Material* material = luax_checktype(L, 2, Material);
+    lovrMeshSetMaterial(mesh, material);
+  }
+  return 0;
+}
+
 const luaL_Reg lovrMesh[] = {
   { "draw", l_lovrMeshDraw },
   { "getVertexFormat", l_lovrMeshGetVertexFormat },
@@ -394,5 +416,7 @@ const luaL_Reg lovrMesh[] = {
   { "setDrawMode", l_lovrMeshSetDrawMode },
   { "getDrawRange", l_lovrMeshGetDrawRange },
   { "setDrawRange", l_lovrMeshSetDrawRange },
+  { "getMaterial", l_lovrMeshGetMaterial },
+  { "setMaterial", l_lovrMeshSetMaterial },
   { NULL, NULL }
 };

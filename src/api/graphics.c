@@ -397,22 +397,6 @@ int l_lovrGraphicsSetLineWidth(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsGetMaterial(lua_State* L) {
-  Material* material = lovrGraphicsGetMaterial();
-  if (material && !material->isDefault) {
-    luax_pushtype(L, Material, material);
-  } else {
-    lua_pushnil(L);
-  }
-  return 1;
-}
-
-int l_lovrGraphicsSetMaterial(lua_State* L) {
-  Material* material = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Material);
-  lovrGraphicsSetMaterial(material);
-  return 0;
-}
-
 int l_lovrGraphicsGetPointSize(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetPointSize());
   return 1;
@@ -535,7 +519,14 @@ int l_lovrGraphicsLine(lua_State* L) {
 }
 
 int l_lovrGraphicsTriangle(lua_State* L) {
-  DrawMode* drawMode = (DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  DrawMode drawMode = DRAW_MODE_FILL;
+  Material* material = NULL;
+  if (lua_isuserdata(L, 1)) {
+    material = luax_checktype(L, 1, Material);
+  } else {
+    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  }
+
   int top = lua_gettop(L);
   if (top != 10) {
     return luaL_error(L, "Expected 9 coordinates to make a triangle, got %d values", top - 1);
@@ -543,30 +534,42 @@ int l_lovrGraphicsTriangle(lua_State* L) {
   vec_float_t points;
   vec_init(&points);
   luax_readvertices(L, 2, &points);
-  lovrGraphicsTriangle(*drawMode, points.data);
+  lovrGraphicsTriangle(drawMode, material, points.data);
   vec_deinit(&points);
   return 0;
 }
 
 int l_lovrGraphicsPlane(lua_State* L) {
-  if (lua_isuserdata(L, 1)) {
+  if (lua_isuserdata(L, 1) && lua_gettop(L) == 1) {
     Texture* texture = luax_checktype(L, 1, Texture);
     lovrGraphicsPlaneFullscreen(texture);
     return 0;
   }
 
-  DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  DrawMode drawMode = DRAW_MODE_FILL;
+  Material* material = NULL;
+  if (lua_isuserdata(L, 1)) {
+    material = luax_checktype(L, 1, Material);
+  } else {
+    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  }
   float transform[16];
   luax_readtransform(L, 2, transform, 1);
-  lovrGraphicsPlane(drawMode, transform);
+  lovrGraphicsPlane(drawMode, material, transform);
   return 0;
 }
 
 static int luax_rectangularprism(lua_State* L, bool uniformScale) {
-  DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  DrawMode drawMode = DRAW_MODE_FILL;
+  Material* material = NULL;
+  if (lua_isuserdata(L, 1)) {
+    material = luax_checktype(L, 1, Material);
+  } else {
+    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  }
   float transform[16];
   luax_readtransform(L, 2, transform, uniformScale);
-  lovrGraphicsBox(drawMode, transform);
+  lovrGraphicsBox(drawMode, material, transform);
   return 0;
 }
 
@@ -579,10 +582,16 @@ int l_lovrGraphicsBox(lua_State* L) {
 }
 
 int l_lovrGraphicsArc(lua_State* L) {
-  DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  DrawMode drawMode = DRAW_MODE_FILL;
+  Material* material = NULL;
+  if (lua_isuserdata(L, 1)) {
+    material = luax_checktype(L, 1, Material);
+  } else {
+    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  }
   ArcMode arcMode = ARC_MODE_PIE;
   int index = 2;
-  if (lua_type(L, 2) == LUA_TSTRING) {
+  if (lua_type(L, index) == LUA_TSTRING) {
     arcMode = *(ArcMode*) luax_checkenum(L, index++, &ArcModes, "arc mode");
   }
   float transform[16];
@@ -590,40 +599,49 @@ int l_lovrGraphicsArc(lua_State* L) {
   float theta1 = luaL_optnumber(L, index++, 0);
   float theta2 = luaL_optnumber(L, index++, 2 * M_PI);
   int segments = luaL_optinteger(L, index, 32) * fabsf(theta2 - theta1) * 2 * M_PI + .5f;
-  lovrGraphicsArc(drawMode, arcMode, transform, theta1, theta2, segments);
+  lovrGraphicsArc(drawMode, arcMode, material, transform, theta1, theta2, segments);
   return 0;
 }
 
 int l_lovrGraphicsCircle(lua_State* L) {
-  DrawMode drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  DrawMode drawMode = DRAW_MODE_FILL;
+  Material* material = NULL;
+  if (lua_isuserdata(L, 1)) {
+    material = luax_checktype(L, 1, Material);
+  } else {
+    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+  }
   float transform[16];
   int index = luax_readtransform(L, 2, transform, true);
   int segments = luaL_optnumber(L, index, 32);
-  lovrGraphicsCircle(drawMode, transform, segments);
+  lovrGraphicsCircle(drawMode, material, transform, segments);
   return 0;
 }
 
 int l_lovrGraphicsCylinder(lua_State* L) {
-  float x1 = luaL_checknumber(L, 1);
-  float y1 = luaL_checknumber(L, 2);
-  float z1 = luaL_checknumber(L, 3);
-  float x2 = luaL_checknumber(L, 4);
-  float y2 = luaL_checknumber(L, 5);
-  float z2 = luaL_checknumber(L, 6);
-  float r1 = luaL_optnumber(L, 7, 1);
-  float r2 = luaL_optnumber(L, 8, 1);
-  bool capped = lua_isnoneornil(L, 9) ? true : lua_toboolean(L, 9);
-  int segments = luaL_optnumber(L, 10, floorf(16 + 16 * MAX(r1, r2)));
-  lovrGraphicsCylinder(x1, y1, z1, x2, y2, z2, r1, r2, capped, segments);
+  int index = 1;
+  Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
+  float x1 = luaL_checknumber(L, index++);
+  float y1 = luaL_checknumber(L, index++);
+  float z1 = luaL_checknumber(L, index++);
+  float x2 = luaL_checknumber(L, index++);
+  float y2 = luaL_checknumber(L, index++);
+  float z2 = luaL_checknumber(L, index++);
+  float r1 = luaL_optnumber(L, index++, 1);
+  float r2 = luaL_optnumber(L, index++, 1);
+  bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
+  int segments = luaL_optnumber(L, index, floorf(16 + 16 * MAX(r1, r2)));
+  lovrGraphicsCylinder(material, x1, y1, z1, x2, y2, z2, r1, r2, capped, segments);
   return 0;
 }
 
 int l_lovrGraphicsSphere(lua_State* L) {
   float transform[16];
   int index = 1;
+  Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
   index = luax_readtransform(L, index, transform, 1);
   int segments = luaL_optnumber(L, index, 30);
-  lovrGraphicsSphere(transform, segments);
+  lovrGraphicsSphere(material, transform, segments);
   return 0;
 }
 
@@ -891,8 +909,6 @@ const luaL_Reg lovrGraphics[] = {
   { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
-  { "getMaterial", l_lovrGraphicsGetMaterial },
-  { "setMaterial", l_lovrGraphicsSetMaterial },
   { "getPointSize", l_lovrGraphicsGetPointSize },
   { "setPointSize", l_lovrGraphicsSetPointSize },
   { "getShader", l_lovrGraphicsGetShader },

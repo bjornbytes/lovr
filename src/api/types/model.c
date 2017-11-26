@@ -42,6 +42,28 @@ int l_lovrModelGetAnimationCount(lua_State* L) {
   return 1;
 }
 
+int l_lovrModelGetMaterial(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  Material* material = lovrModelGetMaterial(model);
+  if (material) {
+    luax_pushtype(L, Material, material);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+int l_lovrModelSetMaterial(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  if (lua_isnoneornil(L, 2)) {
+    lovrModelSetMaterial(model, NULL);
+  } else {
+    Material* material = luax_checktype(L, 2, Material);
+    lovrModelSetMaterial(model, material);
+  }
+  return 0;
+}
+
 int l_lovrModelGetMesh(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Mesh* mesh = lovrModelGetMesh(model);
@@ -55,6 +77,8 @@ const luaL_Reg lovrModel[] = {
   { "getAnimator", l_lovrModelGetAnimator },
   { "setAnimator", l_lovrModelSetAnimator },
   { "getAnimationCount", l_lovrModelGetAnimationCount },
+  { "getMaterial", l_lovrModelGetMaterial },
+  { "setMaterial", l_lovrModelSetMaterial },
   { "getMesh", l_lovrModelGetMesh },
   { NULL, NULL }
 };

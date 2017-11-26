@@ -99,6 +99,7 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
   mesh->isRangeEnabled = false;
   mesh->rangeStart = 0;
   mesh->rangeCount = mesh->count;
+  mesh->material = NULL;
   mesh->lastShader = NULL;
 
   glGenBuffers(1, &mesh->vbo);
@@ -138,7 +139,7 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose) {
   }
 
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-  lovrGraphicsPrepare(pose);
+  lovrGraphicsPrepare(mesh->material, pose);
   lovrGraphicsBindVertexArray(mesh->vao);
   lovrMeshBindAttributes(mesh);
   size_t start = mesh->rangeStart;
@@ -252,6 +253,24 @@ void lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
   lovrAssert(isValidRange, "Invalid mesh draw range [%d, %d]", start + 1, start + count + 1);
   mesh->rangeStart = start;
   mesh->rangeCount = count;
+}
+
+Material* lovrMeshGetMaterial(Mesh* mesh) {
+  return mesh->material;
+}
+
+void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
+  if (mesh->material != material) {
+    if (mesh->material) {
+      lovrRelease(&mesh->material->ref);
+    }
+
+    mesh->material = material;
+
+    if (material) {
+      lovrRetain(&material->ref);
+    }
+  }
 }
 
 void* lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool write) {

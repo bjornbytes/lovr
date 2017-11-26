@@ -80,8 +80,8 @@ if not lovr.filesystem.getSource() or not runnable then
   local logo, controllers
 
   function lovr.load()
-    logo = lovr.graphics.newMaterial()
-    logo:setTexture(lovr.graphics.newTexture(lovr.filesystem.newBlob(lovr._logo, 'logo.png')))
+    local texture = lovr.graphics.newTexture(lovr.filesystem.newBlob(lovr._logo, 'logo.png'))
+    logo = lovr.graphics.newMaterial(texture)
     lovr.graphics.setBackgroundColor(.960, .988, 1.0)
     refreshControllers()
   end
@@ -100,9 +100,7 @@ if not lovr.filesystem.getSource() or not runnable then
     local titlePosition = 1.3 - padding
     local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
 
-    lovr.graphics.setMaterial(logo)
-    lovr.graphics.plane('fill', 0, 1.8, -3, 1, 0, 0, 1)
-    lovr.graphics.setMaterial()
+    lovr.graphics.plane(logo, 0, 1.8, -3, 1, 0, 0, 1)
     lovr.graphics.setColor(.059, .059, .059)
     lovr.graphics.print('LÖVR', -.01, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
     lovr.graphics.setColor(.059, .059, .059, fade)
