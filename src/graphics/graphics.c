@@ -4,6 +4,7 @@
 #include "loaders/font.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
+#include "math/math.h"
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "util.h"
@@ -21,6 +22,14 @@ static void onCloseWindow(GLFWwindow* window) {
     EventData data = { .quit = { 0 } };
     Event event = { .type = type, .data = data };
     lovrEventPush(event);
+  }
+}
+
+static void gammaCorrectColor(Color* color) {
+  if (state.gammaCorrect) {
+    color->r = lovrMathGammaToLinear(color->r);
+    color->g = lovrMathGammaToLinear(color->g);
+    color->b = lovrMathGammaToLinear(color->b);
   }
 }
 
@@ -115,8 +124,10 @@ void lovrGraphicsPrepare(float* pose) {
   }
 
   // Color
-  float color[4] = { state.color.r, state.color.g, state.color.b, state.color.a };
-  lovrShaderSetFloat(shader, "lovrColor", color, 4);
+  Color color = state.color;
+  gammaCorrectColor(&color);
+  float data[4] = { color.r, color.g, color.b, color.a };
+  lovrShaderSetFloat(shader, "lovrColor", data, 4);
 
   // Point size
   lovrShaderSetFloat(shader, "lovrPointSize", &state.pointSize, 1);
@@ -135,6 +146,7 @@ void lovrGraphicsPrepare(float* pose) {
 
   for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
     Color color = lovrMaterialGetColor(material, i);
+    gammaCorrectColor(&color);
     float data[4] = { color.r, color.g, color.b, color.a };
     lovrShaderSetFloat(shader, lovrShaderColorUniforms[i], data, 4);
   }
@@ -241,6 +253,7 @@ Color lovrGraphicsGetBackgroundColor() {
 
 void lovrGraphicsSetBackgroundColor(Color color) {
   state.backgroundColor = color;
+  gammaCorrectColor(&color);
   glClearColor(color.r, color.g, color.b, color.a);
 }
 
