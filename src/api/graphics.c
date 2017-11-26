@@ -143,6 +143,8 @@ int l_lovrGraphicsInit(lua_State* L) {
 
   map_init(&MeshDrawModes);
   map_set(&MeshDrawModes, "points", MESH_POINTS);
+  map_set(&MeshDrawModes, "lines", MESH_LINES);
+  map_set(&MeshDrawModes, "linestrip", MESH_LINE_STRIP);
   map_set(&MeshDrawModes, "strip", MESH_TRIANGLE_STRIP);
   map_set(&MeshDrawModes, "triangles", MESH_TRIANGLES);
   map_set(&MeshDrawModes, "fan", MESH_TRIANGLE_FAN);
