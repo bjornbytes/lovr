@@ -53,7 +53,7 @@ void lovrAnimatorReset(Animator* animator) {
   vec_foreach(&animator->trackList, track, i) {
     track->time = 0;
     track->speed = 1;
-    track->playing = true;
+    track->playing = false;
     track->looping = false;
   }
   animator->speed = 1;
