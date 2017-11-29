@@ -706,7 +706,14 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
 
   int index = 1;
 
-  if (lua_isuserdata(L, index)) {
+  if (lua_type(L, index) == LUA_TSTRING) {
+    Blob* blob = luax_readblob(L, index++, "Texture");
+    TextureData* textureData = lovrTextureDataFromBlob(blob);
+    lovrRelease(&blob->ref);
+    Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
+    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
+    lovrRelease(&texture->ref);
+  } else if (lua_isuserdata(L, index)) {
     Texture* texture = luax_checktype(L, index++, Texture);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
   }
@@ -803,6 +810,24 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
   ModelData* modelData = lovrModelDataCreate(blob);
   Model* model = lovrModelCreate(modelData);
+
+  if (lua_gettop(L) >= 2) {
+    if (lua_type(L, 2) == LUA_TSTRING) {
+      Blob* blob = luax_readblob(L, 2, "Texture");
+      TextureData* textureData = lovrTextureDataFromBlob(blob);
+      Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
+      MaterialData* materialData = lovrMaterialDataCreateEmpty();
+      Material* material = lovrMaterialCreate(materialData, false);
+      lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
+      lovrModelSetMaterial(model, material);
+      lovrRelease(&blob->ref);
+      lovrRelease(&texture->ref);
+      lovrRelease(&material->ref);
+    } else {
+      lovrModelSetMaterial(model, luax_checktype(L, 2, Material));
+    }
+  }
+
   luax_pushtype(L, Model, model);
   lovrRelease(&model->ref);
   lovrRelease(&blob->ref);
