@@ -219,7 +219,18 @@ void lovrAnimatorResume(Animator* animator, const char* animation) {
 
 void lovrAnimatorSeek(Animator* animator, const char* animation, float time) {
   Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  float duration = track->animation->duration;
+
+  while (time > duration) {
+    time -= duration;
+  }
+
+  while (time < 0) {
+    time += duration;
+  }
+
   track->time = time;
+
   if (!track->looping) {
     track->time = MIN(track->time, track->animation->duration);
     track->time = MAX(track->time, 0);
