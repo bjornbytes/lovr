@@ -67,7 +67,7 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
 
       if (track->looping) {
         track->time = fmodf(track->time, track->animation->duration);
-      } else if (track->time > track->animation->duration) {
+      } else if (track->time > track->animation->duration || track->time < 0) {
         track->time = 0;
         track->playing = false;
       }
