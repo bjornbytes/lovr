@@ -76,8 +76,12 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
 }
 
 bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) {
-  bool touched = false;
+  float mixedTranslation[3] = { 0, 0, 0 };
+  float mixedRotation[4] = { 0, 0, 0, 1 };
+  float mixedScale[3] = { 1, 1, 1 };
+
   Track* track; int i;
+  bool touched = false;
   vec_foreach(&animator->trackList, track, i) {
     Animation* animation = track->animation;
     AnimationChannel* channel = map_get(&animation->channels, bone);
@@ -115,7 +119,7 @@ bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) 
         vec3_lerp(vec3_init(translation, before.data), after.data, t);
       }
 
-      mat4_translate(transform, translation[0], translation[1], translation[2]);
+      vec3_lerp(mixedTranslation, translation, track->alpha);
       touched = true;
     }
 
@@ -145,7 +149,7 @@ bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) 
         quat_slerp(quat_init(rotation, before.data), after.data, t);
       }
 
-      mat4_rotateQuat(transform, rotation);
+      quat_slerp(mixedRotation, rotation, track->alpha);
       touched = true;
     }
 
@@ -175,10 +179,14 @@ bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) 
         vec3_lerp(vec3_init(scale, before.data), after.data, t);
       }
 
-      mat4_scale(transform, scale[0], scale[1], scale[2]);
+      vec3_lerp(mixedScale, scale, track->alpha);
       touched = true;
     }
   }
+
+  mat4_translate(transform, mixedTranslation[0], mixedTranslation[1], mixedTranslation[2]);
+  mat4_rotateQuat(transform, mixedRotation);
+  mat4_scale(transform, mixedScale[0], mixedScale[1], mixedScale[2]);
 
   return touched;
 }
