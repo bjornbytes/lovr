@@ -92,7 +92,8 @@ static size_t assimpBlobRead(struct aiFile* assimpFile, char* buffer, size_t siz
   char* data = blob->data;
   size_t bytes = MIN(count * size * sizeof(char), blob->size - blob->seek);
   memcpy(buffer, data + blob->seek, bytes);
-  return bytes;
+  blob->seek += bytes;
+  return bytes / size;
 }
 
 static size_t assimpBlobGetSize(struct aiFile* assimpFile) {
@@ -120,7 +121,7 @@ static size_t assimpBlobTell(struct aiFile* assimpFile) {
 static size_t assimpFileRead(struct aiFile* assimpFile, char* buffer, size_t size, size_t count) {
   File* file = (File*) assimpFile->UserData;
   unsigned long bytes = lovrFileRead(file, buffer, size * count);
-  return bytes;
+  return bytes / size;
 }
 
 static size_t assimpFileGetSize(struct aiFile* assimpFile) {
@@ -142,6 +143,7 @@ static struct aiFile* assimpFileOpen(struct aiFileIO* io, const char* path, cons
   struct aiFile* assimpFile = malloc(sizeof(struct aiFile));
   Blob* blob = (Blob*) io->UserData;
   if (!strcmp(blob->name, path)) {
+    blob->seek = 0;
     assimpFile->ReadProc = assimpBlobRead;
     assimpFile->FileSizeProc = assimpBlobGetSize;
     assimpFile->SeekProc = assimpBlobSeek;
