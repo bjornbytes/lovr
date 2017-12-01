@@ -110,7 +110,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCo
 }
 
 Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa) {
-  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false);
+  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
   if (!texture) return NULL;
 
   int width = texture->width;
@@ -124,14 +124,14 @@ Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProje
 
   // Color attachment
   if (msaa) {
+    GLenum format = lovrGraphicsIsGammaCorrect() ? GL_SRGB8_ALPHA8 : GL_RGBA8;
     glGenRenderbuffers(1, &texture->msaaId);
     glBindRenderbuffer(GL_RENDERBUFFER, texture->msaaId);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, GL_RGBA8, width, height);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, format, width, height);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, texture->msaaId);
   } else {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->id, 0);
   }
-
 
   // Depth attachment
   if (projection == PROJECTION_PERSPECTIVE) {

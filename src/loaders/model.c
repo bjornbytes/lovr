@@ -5,6 +5,7 @@
 #include "math/mat4.h"
 #include "math/quat.h"
 #include "math/vec3.h"
+#include <float.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -472,26 +473,28 @@ void lovrModelDataDestroy(ModelData* modelData) {
   free(modelData);
 }
 
-static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6], float* transform) {
+static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6], mat4 transform) {
   mat4_multiply(transform, node->transform);
 
   for (int i = 0; i < node->primitives.length; i++) {
     ModelPrimitive* primitive = &modelData->primitives[node->primitives.data[i]];
-    float vertex[3];
-    uint32_t index;
-    if (modelData->indexSize == sizeof(uint16_t)) {
-      index = modelData->indices.shorts[primitive->drawStart];
-    } else {
-      index = modelData->indices.ints[primitive->drawStart];
+    for (int j = 0; j < primitive->drawCount; j++) {
+      float vertex[3];
+      uint32_t index;
+      if (modelData->indexSize == sizeof(uint16_t)) {
+        index = modelData->indices.shorts[primitive->drawStart + j];
+      } else {
+        index = modelData->indices.ints[primitive->drawStart + j];
+      }
+      vec3_init(vertex, (float*) (modelData->vertices.bytes + index * modelData->stride));
+      mat4_transform(transform, vertex);
+      aabb[0] = MIN(aabb[0], vertex[0]);
+      aabb[1] = MAX(aabb[1], vertex[0]);
+      aabb[2] = MIN(aabb[2], vertex[1]);
+      aabb[3] = MAX(aabb[3], vertex[1]);
+      aabb[4] = MIN(aabb[4], vertex[2]);
+      aabb[5] = MAX(aabb[5], vertex[2]);
     }
-    vec3_init(vertex, (float*) (modelData->vertices.bytes + index * modelData->stride));
-    mat4_transform(transform, vertex);
-    aabb[0] = MIN(aabb[0], vertex[0]);
-    aabb[1] = MAX(aabb[1], vertex[0]);
-    aabb[2] = MIN(aabb[2], vertex[1]);
-    aabb[3] = MAX(aabb[3], vertex[1]);
-    aabb[4] = MIN(aabb[4], vertex[2]);
-    aabb[5] = MAX(aabb[5], vertex[2]);
   }
 
   for (int i = 0; i < node->children.length; i++) {
@@ -503,5 +506,11 @@ static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6], f
 void lovrModelDataGetAABB(ModelData* modelData, float aabb[6]) {
   float transform[16];
   mat4_identity(transform);
+  aabb[0] = FLT_MAX;
+  aabb[1] = -FLT_MAX;
+  aabb[2] = FLT_MAX;
+  aabb[3] = -FLT_MAX;
+  aabb[4] = FLT_MAX;
+  aabb[5] = -FLT_MAX;
   aabbIterator(modelData, &modelData->nodes[0], aabb, transform);
 }

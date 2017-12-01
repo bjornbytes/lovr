@@ -24,9 +24,6 @@ static ControllerHand openvrControllerGetHand(Controller* controller);
 static Controller* openvrAddController(unsigned int deviceIndex);
 static ControllerHand openvrControllerGetHand(Controller* controller);
 
-
-
-
 typedef struct {
   bool isInitialized;
   bool isRendering;

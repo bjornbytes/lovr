@@ -117,6 +117,9 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
 
 void lovrMeshDestroy(const Ref* ref) {
   Mesh* mesh = containerof(ref, Mesh);
+  if (mesh->material) {
+    lovrRelease(&mesh->material->ref);
+  }
   glDeleteBuffers(1, &mesh->vbo);
   glDeleteBuffers(1, &mesh->ibo);
   glDeleteVertexArrays(1, &mesh->vao);
@@ -199,8 +202,12 @@ void lovrMeshSetVertexMap(Mesh* mesh, void* data, size_t count) {
     return;
   }
 
-  mesh->indices = data;
+  if (mesh->indexCount < count) {
+    mesh->indices = realloc(mesh->indices, count * mesh->indexSize);
+  }
+
   mesh->indexCount = count;
+  memcpy(mesh->indices, data, mesh->indexCount * mesh->indexSize);
   lovrGraphicsBindVertexArray(mesh->vao);
   lovrGraphicsBindIndexBuffer(mesh->ibo);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCount * mesh->indexSize, mesh->indices, GL_STATIC_DRAW);
