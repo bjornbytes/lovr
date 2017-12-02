@@ -215,12 +215,6 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   } else {
     glDisable(GL_FRAMEBUFFER_SRGB);
   }
-#else
-  if (state.gammaCorrect) {
-    glEnable(GL_FRAMEBUFFER_SRGB_EXT);
-  } else {
-    glDisable(GL_FRAMEBUFFER_SRGB_EXT);
-  }
 #endif
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
