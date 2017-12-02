@@ -42,12 +42,9 @@ typedef struct {
   bool mouselook;
   double prevCursorX;
   double prevCursorY;
-
-
 } FakeHeadsetState;
 
 static FakeHeadsetState state;
-
 
 // fwd declarations
 static void fakePoll();
@@ -58,7 +55,7 @@ static void fakePoll();
 
 static void enableMouselook(GLFWwindow* window) {
   if (window) {
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwGetCursorPos(window, &state.prevCursorX, &state.prevCursorY);
   }
   // track the intent for mouselook, even if no window yet. One might come along ;-)
@@ -66,20 +63,12 @@ static void enableMouselook(GLFWwindow* window) {
 }
 
 static void disableMouselook(GLFWwindow* window) {
-  if(window) {
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+  if (window) {
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   }
+
   state.mouselook = false;
 }
-
-static void cursor_enter_callback( GLFWwindow *window, int entered) {
-  if (entered) {
-    if( !state.mouselook) {
-      enableMouselook(window);
-    }
-  }
-}
-
 
 static void window_focus_callback(GLFWwindow* window, int focused) {
   if (!focused) {
@@ -87,17 +76,11 @@ static void window_focus_callback(GLFWwindow* window, int focused) {
   }
 }
 
-static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-    disableMouselook(window);
-  }
-}
-
-static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
-{
+static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
   if (!state.mouselook) {
     return;
   }
+
   double dx = xpos - state.prevCursorX;
   double dy = ypos - state.prevCursorY;
   state.prevCursorX = xpos;
@@ -106,27 +89,23 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
   const double k = 0.01;
   const double l = 0.01;
 
-  state.yaw -= dx*k;
-  state.pitch -= dy*l;
+  state.yaw -= dx * k;
+  state.pitch -= dy * l;
 
-  if (state.pitch < -M_PI/2.0) {
-    state.pitch = -M_PI/2.0;
+  if (state.pitch < -M_PI / 2.0) {
+    state.pitch = -M_PI / 2.0;
   }
-  if (state.pitch > M_PI/2.0) {
-    state.pitch = M_PI/2.0;
+ 
+  if (state.pitch > M_PI / 2.0) {
+    state.pitch = M_PI / 2.0;
   }
-
 }
 
-
-static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
-{
-
-  // clicking in window grabs mouse
-  if (!state.mouselook) {
-    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-      enableMouselook(window);
-    }
+static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+  if (!state.mouselook && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+    enableMouselook(window);
+  } else if (state.mouselook && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+    disableMouselook(window);
   }
 
   // now generate events on fake controllers
@@ -158,9 +137,8 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 }
 
 // headset can start up without a window, so we poll window existance here
-static void check_window_existance()
-{
-  GLFWwindow *window = lovrGraphicsGetWindow();
+static void check_window_existance() {
+  GLFWwindow* window = lovrGraphicsGetWindow();
 
   if (window == state.hookedWindow) {
     // no change
@@ -171,15 +149,13 @@ static void check_window_existance()
   // window might be coming or going.
   // If it's coming we'll install our event hooks.
   // If it's going, it's already gone, so no way to uninstall our hooks.
-  if( window ) {
-    glfwSetCursorEnterCallback(window, cursor_enter_callback);
+  if (window) {
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
     glfwSetWindowFocusCallback(window, window_focus_callback);
-    glfwSetKeyCallback(window, key_callback);
 
     // can now actually do mouselook!
-    if (state.mouselook ) {
+    if (state.mouselook) {
       enableMouselook(window);
     } else {
       disableMouselook(window);
@@ -187,21 +163,11 @@ static void check_window_existance()
   }
 }
 
-
-
-/*
- * headset implementation fns
- */
-
-
-static bool fakeIsAvailable()
-{
+static bool fakeIsAvailable() {
   return true;
 }
 
-
 static void fakeInit() {
-
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
   state.FOV = 67.0f * M_PI / 100.0f;
@@ -211,10 +177,10 @@ static void fakeInit() {
 
   state.pitch = 0.0;
   state.yaw = 0.0;
-  quat_set( state.orientation, 0,0,0,1);
+  quat_set(state.orientation, 0, 0, 0, 1);
 
-  vec3_set( state.vel, 0,0,0);
-  vec3_set( state.pos, 0,0,0);
+  vec3_set(state.vel, 0, 0, 0);
+  vec3_set(state.pos, 0, 0, 0);
 
   // set up controller(s)
   vec_init(&state.controllers);
@@ -224,39 +190,21 @@ static void fakeInit() {
 
   lovrEventAddPump(fakePoll);
 
-  state.mouselook = true;
+  state.mouselook = false;
   state.hookedWindow = NULL;
   state.isInitialized = true;
-
 }
-
 
 static void fakeDestroy() {
   int i;
   Controller *controller;
-  state.isInitialized = false;
-
-  // TODO: unhook lovrEventAddPump ?
-
-  // would be polite to unhook gracefully, but we're likely
-  // being called after glfw is already lone gone...
-  // not a big deal in practice.
-#if 0
-  GLFWwindow *window = lovrGraphicsGetWindow();
-  if( window && window ==state.hookedWindow) {
-    glfwSetKeyCallback(window, NULL);
-    glfwSetWindowFocusCallback(window, NULL);
-    glfwSetCursorPosCallback(window, NULL);
-    glfwSetMouseButtonCallback(window, NULL);
-    glfwSetCursorEnterCallback(window, NULL);
-    state.hookedWindow = NULL;
-  }
-#endif
 
   vec_foreach(&state.controllers, controller, i) {
     lovrRelease(&controller->ref);
   }
+
   vec_deinit(&state.controllers);
+  state.isInitialized = false;
 }
 
 static void fakePoll() {
@@ -290,7 +238,6 @@ static void fakeGetDisplayDimensions(int* width, int* height) {
   }
 }
 
-
 static void fakeGetClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
@@ -299,7 +246,6 @@ static void fakeGetClipDistance(float* clipNear, float* clipFar) {
 static void fakeSetClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
-
 }
 
 static float fakeGetBoundsWidth() {
@@ -322,7 +268,7 @@ static void fakeGetPosition(float* x, float* y, float* z) {
 }
 
 static void fakeGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
-    fakeGetPosition(x,y,z);
+  fakeGetPosition(x,y,z);
 }
 
 static void fakeGetOrientation(float* angle, float* x, float* y, float* z) {
@@ -339,26 +285,15 @@ static void fakeGetVelocity(float* x, float* y, float* z) {
 }
 
 static void fakeGetAngularVelocity(float* x, float* y, float* z) {
-#if 0
-  float v[3];
-  emscripten_vr_get_angular_velocity(&v[0], &v[1], &v[2]);
-  mat4_transformDirection(emscripten_vr_get_sitting_to_standing_matrix(), v);
-  *x = v[0];
-  *y = v[1];
-  *z = v[2];
-#endif
-// TODO
+  *x = *y = *z = 0;
 }
-
-
-
 
 static vec_controller_t* fakeGetControllers() {
   return &state.controllers;
 }
 
 static bool fakeControllerIsPresent(Controller* controller) {
-    return true;
+  return true;
 }
 
 static ControllerHand fakeControllerGetHand(Controller* controller) {
@@ -369,7 +304,7 @@ static void fakeControllerGetPosition(Controller* controller, float* x, float* y
   // for now, locked to headset
   
   float offset[3];
-  vec3_set(offset, 0, 0,-1.0f);
+  vec3_set(offset, 0, 0, -1.0f);
 
   mat4_transform(state.transform, offset);
   *x = offset[0];
@@ -383,7 +318,6 @@ static void fakeControllerGetOrientation(Controller* controller, float* angle, f
   quat_fromMat4(q, state.transform);
   quat_getAngleAxis(q, angle, x, y, z);
 }
-
 
 static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) {
   return 0.0f;
@@ -408,7 +342,6 @@ static void fakeControllerVibrate(Controller* controller, float duration, float 
 static ModelData* fakeControllerNewModelData(Controller* controller) {
   return NULL;
 }
-
 
 static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
 //  float head[16], transform[16], projection[16];
