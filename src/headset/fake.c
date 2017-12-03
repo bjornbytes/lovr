@@ -138,7 +138,7 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
 // headset can start up without a window, so we poll window existance here
 static void check_window_existance() {
-  GLFWwindow* window = lovrGraphicsGetWindow();
+  GLFWwindow* window = glfwGetCurrentContext();
 
   if (window == state.hookedWindow) {
     // no change
@@ -232,7 +232,7 @@ static void fakeSetMirrored(bool mirror) {
 }
 
 static void fakeGetDisplayDimensions(int* width, int* height) {
-  GLFWwindow* window = lovrGraphicsGetWindow();
+  GLFWwindow* window = glfwGetCurrentContext();
   if (window) {
     glfwGetWindowSize(window,width,height);
   }
@@ -324,7 +324,7 @@ static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) 
 }
 
 static bool fakeControllerIsDown(Controller* controller, ControllerButton button) {
-  GLFWwindow* window = lovrGraphicsGetWindow();
+  GLFWwindow* window = glfwGetCurrentContext();
   if(!window) {
     return false;
   }
@@ -349,14 +349,14 @@ static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
   // TODO: Head transform
   // TODO: Eye transform
   // Projection
- 
-  int w,h; 
-  GLFWwindow* window = lovrGraphicsGetWindow();
+
+  int w,h;
+  GLFWwindow* window = glfwGetCurrentContext();
   if(!window) {
     return;
   }
 
-  glfwGetWindowSize(window, &w, &h); 
+  glfwGetWindowSize(window, &w, &h);
 
   mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float)w/h);
 
@@ -373,12 +373,10 @@ static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
   lovrGraphicsPop();
 }
 
-
-static void fakeUpdate(float dt)
-{
+static void fakeUpdate(float dt) {
   float k = 4.0f;
   check_window_existance();
-  GLFWwindow* w = lovrGraphicsGetWindow();
+  GLFWwindow* w = glfwGetCurrentContext();
   if(!w) {
     return;
   }

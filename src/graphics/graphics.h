@@ -192,4 +192,3 @@ void lovrGraphicsUseProgram(uint32_t program);
 void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
 void lovrGraphicsBindIndexBuffer(uint32_t ibo);
-GLFWwindow* lovrGraphicsGetWindow();
