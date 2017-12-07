@@ -3,7 +3,7 @@
 #include "math/mat4.h"
 #include "math/quat.h"
 #include "util.h"
-#include "graphics/texture.h"
+#include "graphics/canvas.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,11 +51,10 @@ typedef struct {
   float refreshRate;
   float vsyncToPhotons;
 
-  Texture* texture;
+  Canvas* canvas;
 } HeadsetState;
 
 static HeadsetState state;
-
 
 static bool openvrIsAvailable() {
   if (VR_IsHmdPresent() && VR_IsRuntimeInstalled()) {
@@ -147,7 +146,7 @@ static void openvrInit() {
   state.isInitialized = false;
   state.isRendering = false;
   state.isMirrored = true;
-  state.texture = NULL;
+  state.canvas = NULL;
   vec_init(&state.controllers);
 
   for (int i = 0; i < 16; i++) {
@@ -221,8 +220,8 @@ static void openvrInit() {
 
 static void openvrDestroy() {
   state.isInitialized = false;
-  if (state.texture) {
-    lovrRelease(&state.texture->ref);
+  if (state.canvas) {
+    lovrRelease(&state.canvas->texture.ref);
   }
   for (int i = 0; i < 16; i++) {
     if (state.deviceModels[i]) {
@@ -737,10 +736,9 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   if (!state.isInitialized) return;
 
-  if (!state.texture) {
+  if (!state.canvas) {
     state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
-    TextureData* textureData = lovrTextureDataGetEmpty(state.renderWidth, state.renderHeight, FORMAT_RGBA);
-    state.texture = lovrTextureCreateWithFramebuffer(textureData, PROJECTION_PERSPECTIVE, 4);
+    state.canvas = lovrCanvasCreate(CANVAS_3D, state.renderWidth, state.renderHeight, 4);
   }
 
   float head[16], transform[16], projection[16];
@@ -767,21 +765,21 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     mat4_fromMat44(projection, matrix);
 
     // Render
-    lovrTextureBindFramebuffer(state.texture);
+    lovrCanvasBind(state.canvas);
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
     lovrGraphicsSetProjection(projection);
     lovrGraphicsClear(true, true);
     callback(eye, userdata);
     lovrGraphicsPop();
-    lovrTextureResolveMSAA(state.texture);
+    lovrCanvasResolveMSAA(state.canvas);
 
     // OpenVR changes the OpenGL texture binding, so we reset it after rendering
     glActiveTexture(GL_TEXTURE0);
     Texture* oldTexture = lovrGraphicsGetTexture(0);
 
     // Submit
-    uintptr_t texture = (uintptr_t) state.texture->id;
+    uintptr_t texture = (uintptr_t) state.canvas->texture.id;
     ETextureType textureType = ETextureType_TextureType_OpenGL;
     EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
     Texture_t eyeTexture = { (void*) texture, textureType, colorSpace };
@@ -805,7 +803,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     }
 
     lovrGraphicsSetShader(NULL);
-    lovrGraphicsPlaneFullscreen(state.texture);
+    lovrGraphicsPlaneFullscreen(&state.canvas->texture);
     lovrGraphicsSetShader(lastShader);
 
     if (lastShader) {

@@ -33,11 +33,6 @@ typedef struct {
   WrapMode r;
 } TextureWrap;
 
-typedef enum {
-  PROJECTION_ORTHOGRAPHIC,
-  PROJECTION_PERSPECTIVE
-} TextureProjection;
-
 typedef struct {
   Ref ref;
   TextureType type;
@@ -46,24 +41,15 @@ typedef struct {
   int width;
   int height;
   GLuint id;
-  GLuint msaaId;
-  GLuint framebuffer;
-  GLuint resolveFramebuffer;
-  GLuint depthBuffer;
-  TextureProjection projection;
   TextureFilter filter;
   TextureWrap wrap;
-  int msaa;
   bool srgb;
 } Texture;
 
 GLenum lovrTextureGetGLFormat(TextureFormat format);
 
 Texture* lovrTextureCreate(TextureType type, TextureData* data[6], int count, bool srgb);
-Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa);
 void lovrTextureDestroy(const Ref* ref);
-void lovrTextureBindFramebuffer(Texture* texture);
-void lovrTextureResolveMSAA(Texture* texture);
 TextureFilter lovrTextureGetFilter(Texture* texture);
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter);
 TextureWrap lovrTextureGetWrap(Texture* texture);

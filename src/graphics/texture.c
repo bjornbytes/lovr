@@ -1,7 +1,5 @@
 #include "graphics/texture.h"
 #include "graphics/graphics.h"
-#include "math/mat4.h"
-#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -96,8 +94,6 @@ Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCo
   validateSlices(type, slices, sliceCount);
   texture->sliceCount = sliceCount;
   memcpy(texture->slices, slices, sliceCount * sizeof(TextureData*));
-  texture->framebuffer = 0;
-  texture->depthBuffer = 0;
   texture->srgb = srgb;
   glGenTextures(1, &texture->id);
   lovrGraphicsBindTexture(texture, type, 0);
@@ -109,107 +105,13 @@ Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCo
   return texture;
 }
 
-Texture* lovrTextureCreateWithFramebuffer(TextureData* textureData, TextureProjection projection, int msaa) {
-  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
-  if (!texture) return NULL;
-
-  int width = texture->width;
-  int height = texture->height;
-  texture->projection = projection;
-  texture->msaa = msaa;
-
-  // Framebuffer
-  glGenFramebuffers(1, &texture->framebuffer);
-  glBindFramebuffer(GL_FRAMEBUFFER, texture->framebuffer);
-
-  // Color attachment
-  if (msaa) {
-    GLenum format = lovrGraphicsIsGammaCorrect() ? GL_SRGB8_ALPHA8 : GL_RGBA8;
-    glGenRenderbuffers(1, &texture->msaaId);
-    glBindRenderbuffer(GL_RENDERBUFFER, texture->msaaId);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, format, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, texture->msaaId);
-  } else {
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->id, 0);
-  }
-
-  // Depth attachment
-  if (projection == PROJECTION_PERSPECTIVE) {
-    glGenRenderbuffers(1, &texture->depthBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, texture->depthBuffer);
-    if (msaa) {
-      glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, GL_DEPTH_COMPONENT, width, height);
-    } else {
-      glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
-    }
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, texture->depthBuffer);
-  }
-
-  // Resolve framebuffer
-  if (msaa) {
-    glGenFramebuffers(1, &texture->resolveFramebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, texture->resolveFramebuffer);
-    glBindTexture(GL_TEXTURE_2D, texture->id);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->id, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, texture->framebuffer);
-  }
-
-  lovrAssert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "Error creating texture");
-  lovrGraphicsClear(true, true);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  return texture;
-}
-
 void lovrTextureDestroy(const Ref* ref) {
   Texture* texture = containerof(ref, Texture);
   for (int i = 0; i < texture->sliceCount; i++) {
     lovrTextureDataDestroy(texture->slices[i]);
   }
-  if (texture->framebuffer) {
-    glDeleteFramebuffers(1, &texture->framebuffer);
-  }
   glDeleteTextures(1, &texture->id);
   free(texture);
-}
-
-void lovrTextureBindFramebuffer(Texture* texture) {
-  lovrAssert(texture->framebuffer, "Texture cannot be used as a canvas");
-  lovrGraphicsBindFramebuffer(texture->framebuffer);
-  lovrGraphicsSetViewport(0, 0, texture->width, texture->height);
-
-  if (texture->projection == PROJECTION_ORTHOGRAPHIC) {
-    float projection[16];
-    mat4_orthographic(projection, 0, texture->width, 0, texture->height, -1, 1);
-    lovrGraphicsSetProjection(projection);
-  } else if (texture->projection == PROJECTION_PERSPECTIVE) {
-    mat4 projection = lovrGraphicsGetProjection();
-    float b = projection[5];
-    float c = projection[10];
-    float d = projection[14];
-    float aspect = (float) texture->width / texture->height;
-    float k = (c - 1.f) / (c + 1.f);
-    float near = (d * (1.f - k)) / (2.f * k);
-    float far = k * near;
-    float fov = -2.f * atan(1.f / b);
-    float newProjection[16];
-    mat4_perspective(newProjection, near, far, fov, aspect);
-    lovrGraphicsSetProjection(newProjection);
-  }
-}
-
-void lovrTextureResolveMSAA(Texture* texture) {
-  if (!texture->msaa) {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    return;
-  }
-
-  int width = texture->width;
-  int height = texture->height;
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, texture->framebuffer);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, texture->resolveFramebuffer);
-  glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 TextureFilter lovrTextureGetFilter(Texture* texture) {
