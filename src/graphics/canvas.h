@@ -20,3 +20,4 @@ Canvas* lovrCanvasCreate(CanvasType, int width, int height, int msaa);
 void lovrCanvasDestroy(const Ref* ref);
 void lovrCanvasBind(Canvas* canvas);
 void lovrCanvasResolveMSAA(Canvas* canvas);
+int lovrCanvasGetMSAA(Canvas* canvas);

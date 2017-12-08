@@ -116,3 +116,7 @@ void lovrCanvasResolveMSAA(Canvas* canvas) {
   glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
+
+int lovrCanvasGetMSAA(Canvas* canvas) {
+  return canvas->msaa;
+}

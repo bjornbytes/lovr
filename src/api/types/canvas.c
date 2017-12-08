@@ -13,7 +13,14 @@ int l_lovrCanvasRenderTo(lua_State* L) {
   return 0;
 }
 
+int l_lovrCanvasGetMSAA(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  lua_pushinteger(L, lovrCanvasGetMSAA(canvas));
+  return 1;
+}
+
 const luaL_Reg lovrCanvas[] = {
-  { "renderto", l_lovrCanvasRenderTo },
+  { "renderTo", l_lovrCanvasRenderTo },
+  { "getMSAA", l_lovrCanvasGetMSAA },
   { NULL, NULL }
 };
