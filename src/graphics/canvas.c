@@ -88,7 +88,7 @@ void lovrCanvasBind(Canvas* canvas) {
     lovrGraphicsSetProjection(projection);
   } else {
     mat4 projection = lovrGraphicsGetProjection();
-    float b = projection[5];
+    float b = -projection[5];
     float c = projection[10];
     float d = projection[14];
     float aspect = (float) width / height;
