@@ -77,7 +77,7 @@ int l_lovrShaderSend(lua_State* L) {
           lua_pop(L, 1);
         }
       }
-      lovrShaderSetFloat(shader, name, floats, n);
+      lovrShaderSetFloat(shader, name, floats, n * components);
       break;
 
     case UNIFORM_INT:
@@ -98,7 +98,7 @@ int l_lovrShaderSend(lua_State* L) {
           lua_pop(L, 1);
         }
       }
-      lovrShaderSetInt(shader, name, ints, n);
+      lovrShaderSetInt(shader, name, ints, n * components);
       break;
 
     case UNIFORM_MATRIX:
@@ -117,7 +117,7 @@ int l_lovrShaderSend(lua_State* L) {
           lua_pop(L, 1);
         }
       }
-      lovrShaderSetMatrix(shader, name, floats, n);
+      lovrShaderSetMatrix(shader, name, floats, n * components * components);
       break;
 
     case UNIFORM_SAMPLER:
