@@ -41,7 +41,7 @@ int l_lovrMaterialSetTexture(lua_State* L) {
     textureType = *(MaterialTexture*) luax_checkenum(L, index, &MaterialTextures, "texture");
     index++;
   }
-  Texture* texture = lua_isnoneornil(L, index) ? NULL : luax_checktype(L, index, Texture);
+  Texture* texture = lua_isnoneornil(L, index) ? NULL : luax_checktypeof(L, index, Texture);
   lovrMaterialSetTexture(material, textureType, texture);
   return 0;
 }

@@ -564,7 +564,7 @@ int l_lovrGraphicsTriangle(lua_State* L) {
 
 int l_lovrGraphicsPlane(lua_State* L) {
   if (lua_isuserdata(L, 1) && lua_gettop(L) == 1) {
-    Texture* texture = luax_checktype(L, 1, Texture);
+    Texture* texture = luax_checktypeof(L, 1, Texture);
     lovrGraphicsPlaneFullscreen(texture);
     return 0;
   }
@@ -669,7 +669,7 @@ int l_lovrGraphicsSphere(lua_State* L) {
 }
 
 int l_lovrGraphicsSkybox(lua_State* L) {
-  Texture* texture = luax_checktype(L, 1, Texture);
+  Texture* texture = luax_checktypeof(L, 1, Texture);
   float angle = luaL_optnumber(L, 2, 0);
   float ax = luaL_optnumber(L, 3, 0);
   float ay = luaL_optnumber(L, 4, 1);

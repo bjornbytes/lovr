@@ -122,12 +122,12 @@ int l_lovrShaderSend(lua_State* L) {
 
     case UNIFORM_SAMPLER:
       if (components == 1) {
-        textures[0] = luax_checktype(L, 3, Texture);
+        textures[0] = luax_checktypeof(L, 3, Texture);
       } else {
         luaL_checktype(L, 3, LUA_TTABLE);
         for (int i = 0; i < n; i++) {
           lua_rawgeti(L, -1, i + 1);
-          textures[i] = luax_checktype(L, -1, Texture);
+          textures[i] = luax_checktypeof(L, -1, Texture);
           lua_pop(L, 1);
         }
       }
