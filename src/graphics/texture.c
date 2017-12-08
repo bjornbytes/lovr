@@ -1,25 +1,54 @@
 #include "graphics/texture.h"
 #include "graphics/graphics.h"
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+static GLenum getGLFormat(TextureFormat format) {
+  switch (format) {
+    case FORMAT_RGB: return GL_RGB;
+    case FORMAT_RGBA: return GL_RGBA;
+    case FORMAT_DXT1: return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+    case FORMAT_DXT3: return GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+    case FORMAT_DXT5: return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+  }
+}
+
+static GLenum getGLInternalFormat(TextureFormat format, bool srgb) {
+  switch (format) {
+    case FORMAT_RGB: return srgb ? GL_SRGB8 : GL_RGB8;
+    case FORMAT_RGBA: return srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+    case FORMAT_DXT1: return srgb ? GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+    case FORMAT_DXT3: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+    case FORMAT_DXT5: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+  }
+}
+
+static bool isFormatCompressed(TextureFormat format) {
+  switch (format) {
+    case FORMAT_RGB:
+    case FORMAT_RGBA:
+      return false;
+    case FORMAT_DXT1:
+    case FORMAT_DXT3:
+    case FORMAT_DXT5:
+      return true;
+  }
+}
 
 static void lovrTextureUpload(Texture* texture) {
   TextureData* textureData = texture->slices[0];
   texture->width = textureData->width;
   texture->height = textureData->height;
+  bool srgb = lovrGraphicsIsGammaCorrect() && texture->srgb;
 
   // Allocate storage
-  if (!textureData->format.compressed && texture->type != TEXTURE_CUBE) {
+  if (!isFormatCompressed(textureData->format) && texture->type != TEXTURE_CUBE) {
     int w = textureData->width;
     int h = textureData->height;
     int mipmapCount = log2(MAX(w, h)) + 1;
-    GLenum internalFormat;
-    if (lovrGraphicsIsGammaCorrect() && texture->srgb) {
-      internalFormat = textureData->format.glInternalFormat.srgb;
-    } else {
-      internalFormat = textureData->format.glInternalFormat.linear;
-    }
-    GLenum format = textureData->format.glFormat;
+    GLenum glFormat = getGLFormat(textureData->format);
+    GLenum internalFormat = getGLInternalFormat(textureData->format, srgb);
 #ifndef EMSCRIPTEN
     if (GLAD_GL_ARB_texture_storage) {
 #endif
@@ -27,7 +56,7 @@ static void lovrTextureUpload(Texture* texture) {
 #ifndef EMSCRIPTEN
     } else {
       for (int i = 0; i < mipmapCount; i++) {
-        glTexImage2D(GL_TEXTURE_2D, i, internalFormat, w, h, 0, format, GL_UNSIGNED_BYTE, NULL);
+        glTexImage2D(GL_TEXTURE_2D, i, internalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
         w = MAX(w >> 1, 1);
         h = MAX(h >> 1, 1);
       }
@@ -38,16 +67,11 @@ static void lovrTextureUpload(Texture* texture) {
   // Upload data
   for (int i = 0; i < texture->sliceCount; i++) {
     TextureData* textureData = texture->slices[i];
-    GLenum glInternalFormat;
-    if (lovrGraphicsIsGammaCorrect() && texture->srgb) {
-      glInternalFormat = textureData->format.glInternalFormat.srgb;
-    } else {
-      glInternalFormat = textureData->format.glInternalFormat.linear;
-    }
-    GLenum glFormat = textureData->format.glFormat;
+    GLenum glFormat = getGLFormat(textureData->format);
+    GLenum glInternalFormat = getGLInternalFormat(textureData->format, srgb);
     GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + i : GL_TEXTURE_2D;
 
-    if (textureData->format.compressed) {
+    if (isFormatCompressed(textureData->format)) {
       Mipmap m; int i;
       vec_foreach(&textureData->mipmaps.list, m, i) {
         glCompressedTexImage2D(binding, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
@@ -119,7 +143,7 @@ TextureFilter lovrTextureGetFilter(Texture* texture) {
 }
 
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
-  bool hasMipmaps = texture->slices[0]->format.compressed || texture->slices[0]->mipmaps.generated;
+  bool hasMipmaps = isFormatCompressed(texture->slices[0]->format) || texture->slices[0]->mipmaps.generated;
   float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
   lovrGraphicsBindTexture(texture, texture->type, 0);
   texture->filter = filter;

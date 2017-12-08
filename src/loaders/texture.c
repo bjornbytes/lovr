@@ -6,41 +6,6 @@
 #include <stdbool.h>
 #include <string.h>
 
-const TextureFormat FORMAT_RGB = {
-  .glInternalFormat = { GL_RGB8, GL_SRGB8 },
-  .glFormat = GL_RGB,
-  .compressed = false,
-  .blockBytes = 3
-};
-
-const TextureFormat FORMAT_RGBA = {
-  .glInternalFormat = { GL_RGBA8, GL_SRGB8_ALPHA8 },
-  .glFormat = GL_RGBA,
-  .compressed = false,
-  .blockBytes = 4
-};
-
-const TextureFormat FORMAT_DXT1 = {
-  .glInternalFormat = { GL_COMPRESSED_RGB_S3TC_DXT1_EXT, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT },
-  .glFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
-  .compressed = true,
-  .blockBytes = 8
-};
-
-const TextureFormat FORMAT_DXT3 = {
-  .glInternalFormat = { GL_COMPRESSED_RGBA_S3TC_DXT3_EXT, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT },
-  .glFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
-  .compressed = true,
-  .blockBytes = 16
-};
-
-const TextureFormat FORMAT_DXT5 = {
-  .glInternalFormat = { GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT },
-  .glFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-  .compressed = true,
-  .blockBytes = 16
-};
-
 #define FOUR_CC(a, b, c, d) ((uint32_t) (((d)<<24) | ((c)<<16) | ((b)<<8) | (a)))
 
 // Modified from ddsparse (https://bitbucket.org/slime73/ddsparse)
@@ -114,13 +79,20 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
   int width = textureData->width = header->width;
   int height = textureData->height = header->height;
   int mipmapCount = header->mipMapCount;
+  int blockBytes = 0;
+
+  switch (textureData->format) {
+    case FORMAT_DXT1: blockBytes = 8; break;
+    case FORMAT_DXT3: blockBytes = 16; break;
+    case FORMAT_DXT5: blockBytes = 16; break;
+    default: break;
+  }
 
   // Load mipmaps
-  vec_init(&textureData->mipmaps.list);
   for (int i = 0; i < mipmapCount; i++) {
     size_t numBlocksWide = width ? MAX(1, (width + 3) / 4) : 0;
     size_t numBlocksHigh = height ? MAX(1, (height + 3) / 4) : 0;
-    size_t mipmapSize = numBlocksWide * numBlocksHigh * textureData->format.blockBytes;
+    size_t mipmapSize = numBlocksWide * numBlocksHigh * blockBytes;
 
     // Overflow check
     if (mipmapSize == 0 || (offset + mipmapSize) > size) {
@@ -144,13 +116,21 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, Textu
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
-  size_t size = width * height * format.blockBytes;
+  size_t pixelSize = 0;
+  switch (format) {
+    case FORMAT_RGB: pixelSize = 3; break;
+    case FORMAT_RGBA: pixelSize = 4; break;
+    default: lovrThrow("Unable to create a blank compressed texture");
+  }
+
+  size_t size = width * height * pixelSize;
   textureData->width = width;
   textureData->height = height;
   textureData->format = format;
   textureData->data = memset(malloc(size), value, size);
-  textureData->mipmaps.generated = false;
   textureData->blob = NULL;
+  vec_init(&textureData->mipmaps.list);
+  textureData->mipmaps.generated = false;
   return textureData;
 }
 
@@ -162,14 +142,17 @@ TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format
   textureData->height = height;
   textureData->format = format;
   textureData->data = NULL;
-  textureData->mipmaps.generated = false;
   textureData->blob = NULL;
+  vec_init(&textureData->mipmaps.list);
+  textureData->mipmaps.generated = false;
   return textureData;
 }
 
 TextureData* lovrTextureDataFromBlob(Blob* blob) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
+
+  vec_init(&textureData->mipmaps.list);
 
   if (!parseDDS(blob->data, blob->size, textureData)) {
     textureData->blob = blob;
@@ -180,8 +163,8 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
   stbi_set_flip_vertically_on_load(0);
   textureData->format = FORMAT_RGBA;
   textureData->data = stbi_load_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
-  textureData->mipmaps.generated = true;
   textureData->blob = NULL;
+  textureData->mipmaps.generated = true;
 
   if (!textureData->data) {
     lovrThrow("Could not load texture data from '%s'", blob->name);
@@ -196,9 +179,7 @@ void lovrTextureDataDestroy(TextureData* textureData) {
   if (textureData->blob) {
     lovrRelease(&textureData->blob->ref);
   }
-  if (textureData->format.compressed) {
-    vec_deinit(&textureData->mipmaps.list);
-  }
+  vec_deinit(&textureData->mipmaps.list);
   free(textureData->data);
   free(textureData);
 }

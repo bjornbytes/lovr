@@ -714,12 +714,11 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   int width = vrTexture->unWidth;
   int height = vrTexture->unHeight;
-  TextureFormat format = FORMAT_RGBA;
-  size_t size = width * height * format.blockBytes;
+  size_t size = width * height * 4;
 
   textureData->width = width;
   textureData->height = height;
-  textureData->format = format;
+  textureData->format = FORMAT_RGBA;
   textureData->data = memcpy(malloc(size), vrTexture->rubTextureMapData, size);;
   textureData->mipmaps.generated = 1;
   textureData->blob = NULL;

@@ -1,5 +1,4 @@
 #include "filesystem/blob.h"
-#include "lib/glfw.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -13,17 +12,13 @@
 #define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT 0x8C4F
 #endif
 
-typedef struct {
-  struct {
-    GLenum linear;
-    GLenum srgb;
-  } glInternalFormat;
-  GLenum glFormat;
-  int blockBytes;
-  bool compressed;
+typedef enum {
+  FORMAT_RGB,
+  FORMAT_RGBA,
+  FORMAT_DXT1,
+  FORMAT_DXT3,
+  FORMAT_DXT5
 } TextureFormat;
-
-extern const TextureFormat FORMAT_RGB, FORMAT_RGBA, FORMAT_DXT1, FORMAT_DXT3, FORMAT_DXT5;
 
 typedef struct {
   int width;
@@ -37,13 +32,13 @@ typedef vec_t(Mipmap) vec_mipmap_t;
 typedef struct {
   int width;
   int height;
-  TextureFormat format;
   void* data;
+  Blob* blob;
+  TextureFormat format;
   union MipmapType {
     vec_mipmap_t list;
     bool generated;
   } mipmaps;
-  Blob* blob;
 } TextureData;
 
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format);
