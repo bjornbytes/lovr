@@ -699,15 +699,22 @@ int l_lovrGraphicsNewAnimator(lua_State* L) {
 }
 
 int l_lovrGraphicsNewCanvas(lua_State* L) {
+  int width = luaL_checkinteger(L, 1);
+  int height = luaL_checkinteger(L, 2);
   CanvasType type = CANVAS_3D;
-  int index = 1;
-  if (lua_type(L, index) == LUA_TSTRING) {
-    type = *(CanvasType*) luax_checkenum(L, index++, &CanvasTypes, "canvas type");
+  int msaa = 0;
+
+  if (lua_istable(L, 3)) {
+    lua_getfield(L, 3, "type");
+    type = *(CanvasType*) luax_optenum(L, -1, "3d", &CanvasTypes, "canvas type");
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "msaa");
+    msaa = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
   }
-  int width = luaL_checkinteger(L, index++);
-  int height = luaL_checkinteger(L, index++);
-  int msaa = luaL_optinteger(L, index++, 0);
-  Canvas* canvas = lovrCanvasCreate(type, width, height, msaa);
+
+  Canvas* canvas = lovrCanvasCreate(width, height, type, msaa);
   luax_pushtype(L, Canvas, canvas);
   return 1;
 }

@@ -4,7 +4,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-Canvas* lovrCanvasCreate(CanvasType type, int width, int height, int msaa) {
+Canvas* lovrCanvasCreate(int width, int height, CanvasType type, int msaa) {
   TextureData* textureData = lovrTextureDataGetEmpty(width, height, FORMAT_RGBA);
   Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
   if (!texture) return NULL;
@@ -38,9 +38,9 @@ Canvas* lovrCanvasCreate(CanvasType type, int width, int height, int msaa) {
     glGenRenderbuffers(1, &canvas->depthBuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, canvas->depthBuffer);
     if (msaa > 0) {
-      glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, GL_DEPTH_COMPONENT, width, height);
+      glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, GL_DEPTH_COMPONENT16, width, height);
     } else {
-      glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+      glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
     }
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, canvas->depthBuffer);
   }

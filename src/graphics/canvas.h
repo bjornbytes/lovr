@@ -16,7 +16,7 @@ typedef struct {
   int msaa;
 } Canvas;
 
-Canvas* lovrCanvasCreate(CanvasType, int width, int height, int msaa);
+Canvas* lovrCanvasCreate(int width, int height, CanvasType type, int msaa);
 void lovrCanvasDestroy(const Ref* ref);
 void lovrCanvasBind(Canvas* canvas);
 void lovrCanvasResolveMSAA(Canvas* canvas);
