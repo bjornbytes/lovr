@@ -22,4 +22,5 @@ Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasType
 void lovrCanvasDestroy(const Ref* ref);
 void lovrCanvasBind(Canvas* canvas);
 void lovrCanvasResolveMSAA(Canvas* canvas);
+TextureFormat lovrCanvasGetFormat(Canvas* canvas);
 int lovrCanvasGetMSAA(Canvas* canvas);

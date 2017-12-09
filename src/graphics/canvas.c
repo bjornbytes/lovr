@@ -140,6 +140,10 @@ void lovrCanvasResolveMSAA(Canvas* canvas) {
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
+TextureFormat lovrCanvasGetFormat(Canvas* canvas) {
+  return canvas->texture.slices[0]->format;
+}
+
 int lovrCanvasGetMSAA(Canvas* canvas) {
   return canvas->msaa;
 }
