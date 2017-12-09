@@ -11,12 +11,14 @@ typedef struct {
   CanvasType type;
   GLuint framebuffer;
   GLuint resolveFramebuffer;
-  GLuint depthBuffer;
+  GLuint depthStencilBuffer;
   GLuint msaaTexture;
   int msaa;
 } Canvas;
 
-Canvas* lovrCanvasCreate(int width, int height, CanvasType type, int msaa);
+bool lovrCanvasSupportsFormat(TextureFormat format);
+
+Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasType type, int msaa, bool depth, bool stencil);
 void lovrCanvasDestroy(const Ref* ref);
 void lovrCanvasBind(Canvas* canvas);
 void lovrCanvasResolveMSAA(Canvas* canvas);

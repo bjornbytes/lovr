@@ -46,7 +46,9 @@ typedef struct {
   bool srgb;
 } Texture;
 
-GLenum lovrTextureGetGLFormat(TextureFormat format);
+GLenum lovrTextureFormatGetGLFormat(TextureFormat format);
+GLenum lovrTextureFormatGetGLInternalFormat(TextureFormat format, bool srgb);
+bool lovrTextureFormatIsCompressed(TextureFormat format);
 
 Texture* lovrTextureCreate(TextureType type, TextureData* data[6], int count, bool srgb);
 void lovrTextureDestroy(const Ref* ref);

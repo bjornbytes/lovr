@@ -27,6 +27,7 @@ map_int_t MatrixTypes;
 map_int_t MeshAttributeTypes;
 map_int_t MeshDrawModes;
 map_int_t MeshUsages;
+map_int_t TextureFormats;
 map_int_t VerticalAligns;
 map_int_t Windings;
 map_int_t WrapModes;
@@ -159,6 +160,16 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&MeshUsages, "static", MESH_STATIC);
   map_set(&MeshUsages, "dynamic", MESH_DYNAMIC);
   map_set(&MeshUsages, "stream", MESH_STREAM);
+
+  map_init(&TextureFormats);
+  map_set(&TextureFormats, "rgb", FORMAT_RGB);
+  map_set(&TextureFormats, "rgba", FORMAT_RGBA);
+  map_set(&TextureFormats, "rgba16f", FORMAT_RGBA16F);
+  map_set(&TextureFormats, "rgba32f", FORMAT_RGBA32F);
+  map_set(&TextureFormats, "rg11b10f", FORMAT_RG11B10F);
+  map_set(&TextureFormats, "dxt1", FORMAT_DXT1);
+  map_set(&TextureFormats, "dxt3", FORMAT_DXT3);
+  map_set(&TextureFormats, "dxt5", FORMAT_DXT5);
 
   map_init(&VerticalAligns);
   map_set(&VerticalAligns, "top", ALIGN_TOP);
@@ -701,10 +712,17 @@ int l_lovrGraphicsNewAnimator(lua_State* L) {
 int l_lovrGraphicsNewCanvas(lua_State* L) {
   int width = luaL_checkinteger(L, 1);
   int height = luaL_checkinteger(L, 2);
+  TextureFormat format = FORMAT_RGBA;
   CanvasType type = CANVAS_3D;
   int msaa = 0;
+  bool depth = true;
+  bool stencil = false;
 
   if (lua_istable(L, 3)) {
+    lua_getfield(L, 3, "format");
+    format = *(TextureFormat*) luax_optenum(L, -1, "rgba", &TextureFormats, "canvas format");
+    lua_pop(L, 1);
+
     lua_getfield(L, 3, "type");
     type = *(CanvasType*) luax_optenum(L, -1, "3d", &CanvasTypes, "canvas type");
     lua_pop(L, 1);
@@ -712,9 +730,21 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
     lua_getfield(L, 3, "msaa");
     msaa = luaL_optinteger(L, -1, 0);
     lua_pop(L, 1);
+
+    lua_getfield(L, 3, "depth");
+    depth = lua_isnil(L, -1) ? (type == CANVAS_3D) : lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "stencil");
+    stencil = lua_toboolean(L, -1);
+    lua_pop(L, 1);
   }
 
-  Canvas* canvas = lovrCanvasCreate(width, height, type, msaa);
+  if (!lovrCanvasSupportsFormat(format)) {
+    return luaL_error(L, "Unsupported texture format for canvas");
+  }
+
+  Canvas* canvas = lovrCanvasCreate(width, height, format, type, msaa, depth, stencil);
   luax_pushtype(L, Canvas, canvas);
   return 1;
 }

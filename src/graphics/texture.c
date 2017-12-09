@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static GLenum getGLFormat(TextureFormat format) {
+GLenum lovrTextureFormatGetGLFormat(TextureFormat format) {
   switch (format) {
     case FORMAT_RGB: return GL_RGB;
     case FORMAT_RGBA: return GL_RGBA;
@@ -17,7 +17,7 @@ static GLenum getGLFormat(TextureFormat format) {
   }
 }
 
-static GLenum getGLInternalFormat(TextureFormat format, bool srgb) {
+GLenum lovrTextureFormatGetGLInternalFormat(TextureFormat format, bool srgb) {
   switch (format) {
     case FORMAT_RGB: return srgb ? GL_SRGB8 : GL_RGB8;
     case FORMAT_RGBA: return srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
@@ -30,7 +30,7 @@ static GLenum getGLInternalFormat(TextureFormat format, bool srgb) {
   }
 }
 
-static bool isFormatCompressed(TextureFormat format) {
+bool lovrTextureFormatIsCompressed(TextureFormat format) {
   switch (format) {
     case FORMAT_DXT1:
     case FORMAT_DXT3:
@@ -48,12 +48,12 @@ static void lovrTextureUpload(Texture* texture) {
   bool srgb = lovrGraphicsIsGammaCorrect() && texture->srgb;
 
   // Allocate storage
-  if (!isFormatCompressed(textureData->format) && texture->type != TEXTURE_CUBE) {
+  if (!lovrTextureFormatIsCompressed(textureData->format) && texture->type != TEXTURE_CUBE) {
     int w = textureData->width;
     int h = textureData->height;
     int mipmapCount = log2(MAX(w, h)) + 1;
-    GLenum glFormat = getGLFormat(textureData->format);
-    GLenum internalFormat = getGLInternalFormat(textureData->format, srgb);
+    GLenum glFormat = lovrTextureFormatGetGLFormat(textureData->format);
+    GLenum internalFormat = lovrTextureFormatGetGLInternalFormat(textureData->format, srgb);
 #ifndef EMSCRIPTEN
     if (GLAD_GL_ARB_texture_storage) {
 #endif
@@ -72,11 +72,11 @@ static void lovrTextureUpload(Texture* texture) {
   // Upload data
   for (int i = 0; i < texture->sliceCount; i++) {
     TextureData* textureData = texture->slices[i];
-    GLenum glFormat = getGLFormat(textureData->format);
-    GLenum glInternalFormat = getGLInternalFormat(textureData->format, srgb);
+    GLenum glFormat = lovrTextureFormatGetGLFormat(textureData->format);
+    GLenum glInternalFormat = lovrTextureFormatGetGLInternalFormat(textureData->format, srgb);
     GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + i : GL_TEXTURE_2D;
 
-    if (isFormatCompressed(textureData->format)) {
+    if (lovrTextureFormatIsCompressed(textureData->format)) {
       Mipmap m; int i;
       vec_foreach(&textureData->mipmaps.list, m, i) {
         glCompressedTexImage2D(binding, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
@@ -148,7 +148,7 @@ TextureFilter lovrTextureGetFilter(Texture* texture) {
 }
 
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
-  bool hasMipmaps = isFormatCompressed(texture->slices[0]->format) || texture->slices[0]->mipmaps.generated;
+  bool hasMipmaps = lovrTextureFormatIsCompressed(texture->slices[0]->format) || texture->slices[0]->mipmaps.generated;
   float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
   lovrGraphicsBindTexture(texture, texture->type, 0);
   texture->filter = filter;

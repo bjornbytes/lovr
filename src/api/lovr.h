@@ -72,6 +72,7 @@ extern map_int_t MeshDrawModes;
 extern map_int_t MeshUsages;
 extern map_int_t PolygonWindings;
 extern map_int_t ShapeTypes;
+extern map_int_t TextureFormats;
 extern map_int_t TimeUnits;
 extern map_int_t VerticalAligns;
 extern map_int_t WrapModes;
