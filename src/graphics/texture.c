@@ -8,6 +8,9 @@ static GLenum getGLFormat(TextureFormat format) {
   switch (format) {
     case FORMAT_RGB: return GL_RGB;
     case FORMAT_RGBA: return GL_RGBA;
+    case FORMAT_RGBA16F: return GL_RGBA;
+    case FORMAT_RGBA32F: return GL_RGBA;
+    case FORMAT_RG11B10F: return GL_RGB;
     case FORMAT_DXT1: return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
@@ -18,6 +21,9 @@ static GLenum getGLInternalFormat(TextureFormat format, bool srgb) {
   switch (format) {
     case FORMAT_RGB: return srgb ? GL_SRGB8 : GL_RGB8;
     case FORMAT_RGBA: return srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+    case FORMAT_RGBA16F: return GL_RGBA16F;
+    case FORMAT_RGBA32F: return GL_RGBA32F;
+    case FORMAT_RG11B10F: return GL_R11F_G11F_B10F;
     case FORMAT_DXT1: return srgb ? GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
@@ -26,13 +32,12 @@ static GLenum getGLInternalFormat(TextureFormat format, bool srgb) {
 
 static bool isFormatCompressed(TextureFormat format) {
   switch (format) {
-    case FORMAT_RGB:
-    case FORMAT_RGBA:
-      return false;
     case FORMAT_DXT1:
     case FORMAT_DXT3:
     case FORMAT_DXT5:
       return true;
+    default:
+      return false;
   }
 }
 
