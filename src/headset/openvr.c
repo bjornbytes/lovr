@@ -737,7 +737,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
 
   if (!state.canvas) {
     state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
-    state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, CANVAS_3D, 4, false, false);
+    state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, CANVAS_3D, 4, true, false);
   }
 
   float head[16], transform[16], projection[16];
