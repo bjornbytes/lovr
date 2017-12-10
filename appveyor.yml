@@ -1,0 +1,4 @@
+only_commits:
+  files:
+    - src/
+    - deps/
