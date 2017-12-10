@@ -148,19 +148,11 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances) {
   size_t start = mesh->rangeStart;
   size_t count = mesh->rangeCount;
   if (mesh->indexCount > 0) {
+    size_t offset = start * mesh->indexSize;
     count = mesh->isRangeEnabled ? mesh->rangeCount : mesh->indexCount;
-    GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-    if (instances > 1) {
-      glDrawElementsInstanced(mesh->drawMode, count, indexType, (GLvoid*) (start * mesh->indexSize), instances);
-    } else {
-      glDrawElements(mesh->drawMode, count, indexType, (GLvoid*) (start * mesh->indexSize));
-    }
+    lovrGraphicsDrawElements(mesh->drawMode, count, mesh->indexSize, offset, instances);
   } else {
-    if (instances > 1) {
-      glDrawArraysInstanced(mesh->drawMode, start, count, instances);
-    } else {
-      glDrawArrays(mesh->drawMode, start, count);
-    }
+    lovrGraphicsDrawArrays(mesh->drawMode, start, count, instances);
   }
 
   if (transform) {

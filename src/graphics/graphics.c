@@ -86,6 +86,8 @@ void lovrGraphicsClear(bool color, bool depth) {
 
 void lovrGraphicsPresent() {
   glfwSwapBuffers(state.window);
+  state.stats.drawCalls = 0;
+  state.stats.shaderSwitches = 0;
 }
 
 void lovrGraphicsPrepare(Material* material, float* pose) {
@@ -238,6 +240,10 @@ int lovrGraphicsGetHeight() {
   int width, height;
   glfwGetFramebufferSize(state.window, &width, &height);
   return height;
+}
+
+GraphicsStats lovrGraphicsGetStats() {
+  return state.stats;
 }
 
 // State
@@ -543,16 +549,16 @@ static void lovrGraphicsDrawPrimitive(Material* material, GLenum mode, bool hasN
   if (useIndices) {
     lovrGraphicsBindIndexBuffer(state.streamIBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, state.streamIndices.length * sizeof(unsigned int), indices, GL_STREAM_DRAW);
-    glDrawElements(mode, state.streamIndices.length, GL_UNSIGNED_INT, NULL);
+    lovrGraphicsDrawElements(mode, state.streamIndices.length, sizeof(uint32_t), 0, 1);
   } else {
-    glDrawArrays(mode, 0, state.streamData.length / stride);
+    lovrGraphicsDrawArrays(mode, 0, state.streamData.length / stride, 1);
   }
 }
 
 void lovrGraphicsPoints(float* points, int count) {
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsSetStreamData(points, count);
-  lovrGraphicsDrawPrimitive(NULL, GL_POINTS, false, false, false);
+  lovrGraphicsDrawPrimitive(NULL, MESH_POINTS, false, false, false);
 }
 
 void lovrGraphicsLine(float* points, int count) {
@@ -1114,6 +1120,7 @@ void lovrGraphicsUseProgram(uint32_t program) {
   if (state.program != program) {
     state.program = program;
     glUseProgram(program);
+    state.stats.shaderSwitches++;
   }
 }
 
@@ -1136,4 +1143,26 @@ void lovrGraphicsBindIndexBuffer(uint32_t indexBuffer) {
     state.indexBuffer = indexBuffer;
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
   }
+}
+
+void lovrGraphicsDrawArrays(GLenum mode, size_t start, size_t count, int instances) {
+  if (instances > 1) {
+    glDrawArraysInstanced(mode, start, count, instances);
+  } else {
+    glDrawArrays(mode, start, count);
+  }
+
+  state.stats.drawCalls++;
+}
+
+void lovrGraphicsDrawElements(GLenum mode, size_t count, size_t indexSize, size_t offset, int instances) {
+  GLenum indexType = indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+
+  if (instances > 1) {
+    glDrawElementsInstanced(mode, count, indexType, (GLvoid*) offset, instances);
+  } else {
+    glDrawElements(mode, count, indexType, (GLvoid*) offset);
+  }
+
+  state.stats.drawCalls++;
 }

@@ -261,6 +261,25 @@ int l_lovrGraphicsGetDimensions(lua_State* L) {
   return 2;
 }
 
+int l_lovrGraphicsGetStats(lua_State* L) {
+  if (lua_gettop(L) > 0) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    lua_settop(L, 1);
+  } else {
+    lua_createtable(L, 0, 2);
+  }
+
+  GraphicsStats stats = lovrGraphicsGetStats();
+
+  lua_pushinteger(L, stats.drawCalls);
+  lua_setfield(L, 1, "drawcalls");
+
+  lua_pushinteger(L, stats.shaderSwitches);
+  lua_setfield(L, 1, "shaderswitches");
+
+  return 1;
+}
+
 // State
 
 int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
@@ -918,6 +937,7 @@ const luaL_Reg lovrGraphics[] = {
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
+  { "getStats", l_lovrGraphicsGetStats },
   { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
   { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
   { "getBlendMode", l_lovrGraphicsGetBlendMode },

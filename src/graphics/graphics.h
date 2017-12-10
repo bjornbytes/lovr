@@ -1,5 +1,6 @@
 #include "graphics/font.h"
 #include "graphics/material.h"
+#include "graphics/mesh.h"
 #include "graphics/shader.h"
 #include "graphics/texture.h"
 #include "math/math.h"
@@ -76,6 +77,11 @@ typedef struct {
 } View;
 
 typedef struct {
+  int drawCalls;
+  int shaderSwitches;
+} GraphicsStats;
+
+typedef struct {
   GLFWwindow* window;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   DefaultShader defaultShader;
@@ -111,6 +117,7 @@ typedef struct {
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   uint32_t indexBuffer;
+  GraphicsStats stats;
 } GraphicsState;
 
 // Base
@@ -123,6 +130,7 @@ void lovrGraphicsPrepare(Material* material, float* pose);
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
+GraphicsStats lovrGraphicsGetStats();
 
 // State
 Color lovrGraphicsGetBackgroundColor();
@@ -192,3 +200,5 @@ void lovrGraphicsUseProgram(uint32_t program);
 void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
 void lovrGraphicsBindIndexBuffer(uint32_t ibo);
+void lovrGraphicsDrawArrays(GLenum mode, size_t start, size_t count, int instances);
+void lovrGraphicsDrawElements(GLenum mode, size_t count, size_t indexSize, size_t offset, int instances);
