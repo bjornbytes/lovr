@@ -220,6 +220,7 @@ set(LOVR_SRC
   src/api/timer.c
   src/api/types/animator.c
   src/api/types/blob.c
+  src/api/types/canvas.c
   src/api/types/collider.c
   src/api/types/controller.c
   src/api/types/font.c
@@ -241,6 +242,7 @@ set(LOVR_SRC
   src/filesystem/file.c
   src/filesystem/filesystem.c
   src/graphics/animator.c
+  src/graphics/canvas.c
   src/graphics/font.c
   src/graphics/graphics.c
   src/graphics/material.c
