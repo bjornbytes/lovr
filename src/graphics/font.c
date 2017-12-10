@@ -1,8 +1,8 @@
 #include "graphics/font.h"
 #include "graphics/graphics.h"
 #include "graphics/texture.h"
-#include "loaders/font.h"
-#include "loaders/texture.h"
+#include "data/font.h"
+#include "data/texture.h"
 #include "util.h"
 #include <string.h>
 #include <stdlib.h>

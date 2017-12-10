@@ -1,6 +1,6 @@
 #include "graphics/graphics.h"
-#include "loaders/texture.h"
-#include "loaders/font.h"
+#include "data/texture.h"
+#include "data/font.h"
 #include "resources/shaders.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"

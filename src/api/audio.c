@@ -1,7 +1,7 @@
 #include "api/lovr.h"
 #include "audio/audio.h"
 #include "audio/source.h"
-#include "loaders/source.h"
+#include "data/source.h"
 
 map_int_t TimeUnits;
 

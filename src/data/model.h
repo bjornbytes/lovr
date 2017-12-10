@@ -1,6 +1,6 @@
 #include "filesystem/blob.h"
-#include "loaders/animation.h"
-#include "loaders/material.h"
+#include "data/animation.h"
+#include "data/material.h"
 #include "util.h"
 #include "lib/vec/vec.h"
 

@@ -1,4 +1,4 @@
-#include "loaders/animation.h"
+#include "data/animation.h"
 #include <stdlib.h>
 
 AnimationData* lovrAnimationDataCreate() {

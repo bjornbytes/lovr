@@ -1,4 +1,4 @@
-#include "loaders/material.h"
+#include "data/material.h"
 
 MaterialData* lovrMaterialDataCreateEmpty() {
   MaterialData* materialData = malloc(sizeof(MaterialData));

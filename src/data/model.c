@@ -1,4 +1,4 @@
-#include "loaders/model.h"
+#include "data/model.h"
 #include "filesystem/filesystem.h"
 #include "filesystem/file.h"
 #include "math/math.h"

@@ -1,4 +1,4 @@
-#include "loaders/texture.h"
+#include "data/texture.h"
 
 #pragma once
 

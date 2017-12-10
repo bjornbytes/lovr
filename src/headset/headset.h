@@ -1,5 +1,4 @@
-#include "loaders/model.h"
-#include "loaders/texture.h"
+#include "data/model.h"
 #include "lib/vec/vec.h"
 #include "util.h"
 #include <stdbool.h>

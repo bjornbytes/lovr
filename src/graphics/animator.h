@@ -1,4 +1,4 @@
-#include "loaders/animation.h"
+#include "data/animation.h"
 #include "math/mat4.h"
 #include "util.h"
 #include "lib/map/map.h"

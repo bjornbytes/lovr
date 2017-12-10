@@ -5,10 +5,10 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
-#include "loaders/font.h"
-#include "loaders/material.h"
-#include "loaders/model.h"
-#include "loaders/texture.h"
+#include "data/font.h"
+#include "data/material.h"
+#include "data/model.h"
+#include "data/texture.h"
 #include "filesystem/filesystem.h"
 #include <math.h>
 #include <stdbool.h>

@@ -1,6 +1,6 @@
 #include "util.h"
 #include "graphics/texture.h"
-#include "loaders/material.h"
+#include "data/material.h"
 #include <stdbool.h>
 
 #pragma once

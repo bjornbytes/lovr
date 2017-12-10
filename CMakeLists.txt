@@ -237,6 +237,12 @@ set(LOVR_SRC
   src/api/types/world.c
   src/audio/audio.c
   src/audio/source.c
+  src/data/animation.c
+  src/data/font.c
+  src/data/material.c
+  src/data/model.c
+  src/data/source.c
+  src/data/texture.c
   src/event/event.c
   src/filesystem/blob.c
   src/filesystem/file.c
@@ -261,12 +267,6 @@ set(LOVR_SRC
   src/lib/stb/stb_image.c
   src/lib/stb/stb_vorbis.c
   src/lib/vec/vec.c
-  src/loaders/animation.c
-  src/loaders/font.c
-  src/loaders/material.c
-  src/loaders/model.c
-  src/loaders/source.c
-  src/loaders/texture.c
   src/lovr.c
   src/luax.c
   src/main.c

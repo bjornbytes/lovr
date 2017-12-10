@@ -1,4 +1,4 @@
-#include "loaders/texture.h"
+#include "data/texture.h"
 #include "math/math.h"
 #include "lib/dds.h"
 #include "lib/stb/stb_image.h"

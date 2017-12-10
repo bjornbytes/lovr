@@ -49,5 +49,5 @@ in the `src/lib` folder.
 - `src/api` contains Lua bindings.  There's a file for each module in there, and a `types` folder
 with a file for each type of object.
 - `src/resources` contains embedded resources.  These are compiled to binary headers using `xxd`.
-- `src/loaders` has stuff for loading various file formats into LÖVR data structures.
+- `src/data` has stuff for loading various file formats into LÖVR data structures.
 - Each module has a folder in `src`.
