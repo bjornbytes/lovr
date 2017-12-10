@@ -249,7 +249,6 @@ set(LOVR_SRC
   src/graphics/mesh.c
   src/graphics/model.c
   src/graphics/shader.c
-  src/graphics/shaders.c
   src/graphics/texture.c
   src/headset/fake.c
   src/headset/headset.c
@@ -278,6 +277,7 @@ set(LOVR_SRC
   src/math/transform.c
   src/math/vec3.c
   src/physics/physics.c
+  src/resources/shaders.c
   src/timer/timer.c
   src/util.c
 )

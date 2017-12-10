@@ -1,6 +1,6 @@
 #include "graphics/shader.h"
-#include "graphics/shaders.h"
 #include "graphics/graphics.h"
+#include "resources/shaders.h"
 #include "math/mat4.h"
 #include <stdio.h>
 #include <stdlib.h>

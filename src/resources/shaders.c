@@ -1,4 +1,4 @@
-#include "graphics/shaders.h"
+#include "resources/shaders.h"
 
 const char* lovrShaderColorUniforms[] = {
   "lovrDiffuseColor"

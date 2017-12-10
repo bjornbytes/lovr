@@ -1,7 +1,7 @@
 #include "graphics/graphics.h"
-#include "graphics/shaders.h"
 #include "loaders/texture.h"
 #include "loaders/font.h"
+#include "resources/shaders.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
 #include "math/math.h"
