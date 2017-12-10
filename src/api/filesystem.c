@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "filesystem/filesystem.h"
 #include "filesystem/blob.h"
 #include <stdlib.h>

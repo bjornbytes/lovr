@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "filesystem/blob.h"
 
 int l_lovrBlobGetFilename(lua_State* L) {

@@ -1,6 +1,6 @@
 #include "lovr.h"
 #include "util.h"
-#include "api/lovr.h"
+#include "api.h"
 #include "resources/boot.lua.h"
 #include "resources/logo.png.h"
 #include "lib/lua-cjson/lua_cjson.h"

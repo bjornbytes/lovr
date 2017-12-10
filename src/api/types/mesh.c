@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 
 void luax_checkmeshformat(lua_State* L, int index, MeshFormat* format) {
   if (!lua_istable(L, index)) {

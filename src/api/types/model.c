@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "graphics/model.h"
 
 int l_lovrModelDrawInstanced(lua_State* L) {

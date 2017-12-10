@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "audio/audio.h"
 #include <stdbool.h>
 

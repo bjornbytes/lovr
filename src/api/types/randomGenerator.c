@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "math/randomGenerator.h"
 
 static double luax_checkrandomseedpart(lua_State* L, int index) {

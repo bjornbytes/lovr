@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "graphics/font.h"
 
 int l_lovrFontGetWidth(lua_State* L) {

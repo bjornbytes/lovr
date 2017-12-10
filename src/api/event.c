@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "event/event.h"
 
 map_int_t EventTypes;

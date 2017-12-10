@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "headset/headset.h"
 #include "data/model.h"
 #include "graphics/model.h"

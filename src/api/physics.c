@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "physics/physics.h"
 
 map_int_t ShapeTypes;

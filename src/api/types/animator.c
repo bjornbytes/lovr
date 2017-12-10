@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "graphics/animator.h"
 
 int l_lovrAnimatorReset(lua_State* L) {

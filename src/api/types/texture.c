@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "graphics/graphics.h"
 
 int l_lovrTextureGetDimensions(lua_State* L) {

@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "timer/timer.h"
 
 int l_lovrTimerInit(lua_State* L) {

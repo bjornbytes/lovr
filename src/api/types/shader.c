@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "graphics/graphics.h"
 #include "graphics/shader.h"
 #include "math/transform.h"

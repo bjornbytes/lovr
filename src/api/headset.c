@@ -1,4 +1,4 @@
-#include "api/lovr.h"
+#include "api.h"
 #include "headset/headset.h"
 
 map_int_t ControllerAxes;
