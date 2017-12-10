@@ -786,7 +786,7 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     lovrRelease(&texture->ref);
   } else if (lua_isuserdata(L, index)) {
-    Texture* texture = luax_checktype(L, index++, Texture);
+    Texture* texture = luax_checktypeof(L, index++, Texture);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
   }
 

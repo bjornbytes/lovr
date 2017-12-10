@@ -163,7 +163,7 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
     return textureData;
   }
 
-  stbi_set_flip_vertically_on_load(0);
+  stbi_set_flip_vertically_on_load(1);
   textureData->format = FORMAT_RGBA;
   textureData->data = stbi_load_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
   textureData->blob = NULL;

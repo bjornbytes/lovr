@@ -605,10 +605,10 @@ void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
     lovrGraphicsDrawPrimitive(material, GL_LINE_LOOP, false, false, false);
   } else if (mode == DRAW_MODE_FILL) {
     float data[] = {
-      -.5, .5, 0,  0, 0, -1, 0, 0,
-      -.5, -.5, 0, 0, 0, -1, 0, 1,
-      .5, .5, 0,   0, 0, -1, 1, 0,
-      .5, -.5, 0,  0, 0, -1, 1, 1
+      -.5, .5, 0,  0, 0, -1, 0, 1,
+      -.5, -.5, 0, 0, 0, -1, 0, 0,
+      .5, .5, 0,   0, 0, -1, 1, 1,
+      .5, -.5, 0,  0, 0, -1, 1, 0
     };
 
     lovrGraphicsSetDefaultShader(SHADER_DEFAULT);

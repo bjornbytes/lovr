@@ -111,14 +111,14 @@ void lovrCanvasBind(Canvas* canvas) {
     lovrGraphicsSetProjection(projection);
   } else {
     mat4 projection = lovrGraphicsGetProjection();
-    float b = -projection[5];
+    float b = projection[5];
     float c = projection[10];
     float d = projection[14];
     float aspect = (float) width / height;
     float k = (c - 1.f) / (c + 1.f);
     float near = (d * (1.f - k)) / (2.f * k);
     float far = k * near;
-    float fov = -2.f * atan(1.f / b);
+    float fov = 2.f * atan(1.f / b);
     float newProjection[16];
     mat4_perspective(newProjection, near, far, fov, aspect);
     lovrGraphicsSetProjection(newProjection);

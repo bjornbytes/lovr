@@ -12,10 +12,11 @@
 #define luax_checktypeof(L, i, T) \
   *(T**) (luaL_argcheck(L, lua_touserdata(L, i), i, "Expected " STRINGIFY(T)), \
   lua_getmetatable(L, i), \
-  lua_getfield(L, -1, "super"), \
+  lua_getfield(L, -1, "name"), \
+  lua_getfield(L, -2, "super"), \
   lua_pushstring(L, #T), \
-  luaL_argcheck(L, lua_equal(L, -1, -2), i, "Expected " STRINGIFY(T)), \
-  lua_pop(L, 3), \
+  luaL_argcheck(L, lua_equal(L, -1, -2) || lua_equal(L, -1, -3), i, "Expected " STRINGIFY(T)), \
+  lua_pop(L, 4), \
   lua_touserdata(L, i))
 #define luax_newobject(L, T, x) \
   T** u = (T**) lua_newuserdata(L, sizeof(T**)); \
