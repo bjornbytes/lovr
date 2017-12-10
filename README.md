@@ -2,7 +2,7 @@
 
 <h1 align="center">LÖVR</h1>
 
-LÖVR is a simple framework for creating virtual reality experiences with Lua.
+LÖVR is a simple framework for creating virtual reality experiences with Lua, based on [LÖVE](http://love2d.org).
 
 [![Build status](https://ci.appveyor.com/api/projects/status/alx3kdi35bmxka8c/branch/master?svg=true)](https://ci.appveyor.com/project/bjornbytes/lovr/branch/master)
 [![Version](https://img.shields.io/github/release/bjornbytes/lovr.svg?label=version)](https://github.com/bjornbytes/lovr/releases)
