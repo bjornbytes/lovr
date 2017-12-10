@@ -1,5 +1,5 @@
 #include "loaders/font.h"
-#include "data/Cabin.ttf.h"
+#include "resources/Cabin.ttf.h"
 #include "util.h"
 #include "msdfgen-c.h"
 #include <ft2build.h>

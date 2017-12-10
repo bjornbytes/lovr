@@ -36,7 +36,7 @@ submitting.  Try to stick to the existing coding style:
 If you modify the embedded `boot.lua` script, you can compile it into a C header by doing this:
 
 ```sh
-pushd src/data; xxd -i boot.lua > boot.lua.h; popd
+pushd src/resources; xxd -i boot.lua > boot.lua.h; popd
 ```
 
 Organization
@@ -48,6 +48,6 @@ An overview of the folder structure:
 in the `src/lib` folder.
 - `src/api` contains Lua bindings.  There's a file for each module in there, and a `types` folder
 with a file for each type of object.
-- `src/data` contains embedded resources.  These are compiled to binary headers using `xxd`.
+- `src/resources` contains embedded resources.  These are compiled to binary headers using `xxd`.
 - `src/loaders` has stuff for loading various file formats into LÖVR data structures.
 - Each module has a folder in `src`.
