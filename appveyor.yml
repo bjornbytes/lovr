@@ -1,4 +1,15 @@
+shallow_clone: true
+
 only_commits:
   files:
     - src/
     - deps/
+
+before_build:
+  - cd C:\projects\lovr
+  - md build
+  - cd build
+  - cmake -DCMAKE_BUILD_TYPE=%configuration% ..
+
+build:
+  verbosity: quiet
