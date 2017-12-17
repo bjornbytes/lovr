@@ -13,4 +13,5 @@ before_build:
   - cmake -DCMAKE_BUILD_TYPE=%configuration% ..
 
 build:
+  project: build\lovr.sln
   verbosity: quiet
