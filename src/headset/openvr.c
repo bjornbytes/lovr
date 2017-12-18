@@ -721,15 +721,19 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   if (!state.isInitialized) return;
 
+  lovrGraphicsPushView();
+
   if (!state.canvas) {
+    glBindFramebuffer(0);
+    int msaa = 0;
+    glGetIntegerv(GL_SAMPLES, &msaa);
     state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
-    state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, CANVAS_3D, 4, true, false);
+    state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, CANVAS_3D, msaa, true, false);
   }
 
   float head[16], transform[16], projection[16];
   float (*matrix)[4];
 
-  lovrGraphicsPushView();
   state.isRendering = true;
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
 
