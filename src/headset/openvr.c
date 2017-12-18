@@ -660,9 +660,10 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
 
-  modelData->indexCount = vrModel->unTriangleCount;
-  modelData->indices.data = malloc(modelData->indexCount * sizeof(unsigned int));
-  memcpy(modelData->indices.ints, vrModel->rIndexData, modelData->indexCount * sizeof(uint32_t));
+  modelData->indexCount = vrModel->unTriangleCount * 3;
+  modelData->indexSize = sizeof(uint16_t);
+  modelData->indices.data = malloc(modelData->indexCount * modelData->indexSize);
+  memcpy(modelData->indices.data, vrModel->rIndexData, modelData->indexCount * modelData->indexSize);
 
   modelData->vertexCount = vrModel->unVertexCount;
   modelData->stride = 8 * sizeof(float);
@@ -689,6 +690,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   modelData->nodeCount = 1;
   modelData->primitiveCount = 1;
+  modelData->animationCount = 0;
   modelData->materialCount = 1;
 
   modelData->nodes = malloc(1 * sizeof(ModelNode));
@@ -704,7 +706,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   vec_push(&root->primitives, 0);
   modelData->primitives[0].material = 0;
   modelData->primitives[0].drawStart = 0;
-  modelData->primitives[0].drawCount = modelData->vertexCount;
+  modelData->primitives[0].drawCount = modelData->indexCount;
 
   // Material
   RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
@@ -719,7 +721,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   textureData->width = width;
   textureData->height = height;
   textureData->format = FORMAT_RGBA;
-  textureData->data = memcpy(malloc(size), vrTexture->rubTextureMapData, size);;
+  textureData->data = memcpy(malloc(size), vrTexture->rubTextureMapData, size);
   textureData->mipmaps.generated = 1;
   textureData->blob = NULL;
 
@@ -728,6 +730,8 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   modelData->hasNormals = true;
   modelData->hasUVs = true;
+  modelData->hasVertexColors = false;
+  modelData->skinned = false;
 
   return modelData;
 }
