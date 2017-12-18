@@ -316,6 +316,11 @@ void lovrFontCreateTexture(Font* font) {
     lovrRelease(&font->texture->ref);
   }
 
+  int maxTextureSize = lovrGraphicsGetLimits().textureSize;
+  if (font->atlas.width > maxTextureSize || font->atlas.height > maxTextureSize) {
+    lovrThrow("Font texture atlas overflow: exceeded %d x %d", maxTextureSize, maxTextureSize);
+  }
+
   TextureData* textureData = lovrTextureDataGetBlank(font->atlas.width, font->atlas.height, 0x0, FORMAT_RGB);
   TextureFilter filter = { .mode = FILTER_BILINEAR };
   font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false);
