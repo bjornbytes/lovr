@@ -30,6 +30,7 @@ Animator* lovrAnimatorCreate(AnimationData* animationData) {
       .time = 0,
       .speed = 1,
       .priority = 0,
+      .alpha = 1,
       .playing = false,
       .looping = false
     };
@@ -184,9 +185,11 @@ bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) 
     }
   }
 
-  mat4_translate(transform, mixedTranslation[0], mixedTranslation[1], mixedTranslation[2]);
-  mat4_rotateQuat(transform, mixedRotation);
-  mat4_scale(transform, mixedScale[0], mixedScale[1], mixedScale[2]);
+  if (touched) {
+    mat4_translate(transform, mixedTranslation[0], mixedTranslation[1], mixedTranslation[2]);
+    mat4_rotateQuat(transform, mixedRotation);
+    mat4_scale(transform, mixedScale[0], mixedScale[1], mixedScale[2]);
+  }
 
   return touched;
 }
