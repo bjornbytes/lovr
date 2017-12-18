@@ -366,34 +366,41 @@ static void openvrGetBoundsGeometry(float* geometry) {
   }
 }
 
-static void openvrGetPosition(float* x, float* y, float* z) {
+static void openvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (!state.isInitialized) {
-    *x = *y = *z = 0.f;
+    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
     return;
   }
 
   TrackedDevicePose_t pose = getPose(state.headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *x = *y = *z = 0.f;
+    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
     return;
   }
 
-  *x = pose.mDeviceToAbsoluteTracking.m[0][3];
-  *y = pose.mDeviceToAbsoluteTracking.m[1][3];
-  *z = pose.mDeviceToAbsoluteTracking.m[2][3];
+  float transform[16];
+  mat4_fromMat44(transform, pose.mDeviceToAbsoluteTracking.m);
+
+  *x = transform[12];
+  *y = transform[13];
+  *z = transform[14];
+
+  float rotation[4];
+  quat_fromMat4(rotation, transform);
+  quat_getAngleAxis(rotation, angle, ax, ay, az);
 }
 
-static void openvrGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
+static void openvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (!state.isInitialized) {
-    *x = *y = *z = 0.f;
+    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
     return;
   }
 
   TrackedDevicePose_t pose = getPose(state.headsetIndex);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *x = *y = *z = 0.f;
+    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
     return;
   }
 
@@ -407,25 +414,10 @@ static void openvrGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
   *x = transform[12];
   *y = transform[13];
   *z = transform[14];
-}
 
-static void openvrGetOrientation(float* angle, float* x, float* y, float *z) {
-  if (!state.isInitialized) {
-    *angle = *x = *y = *z = 0.f;
-    return;
-  }
-
-  TrackedDevicePose_t pose = getPose(state.headsetIndex);
-
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *angle = *x = *y = *z = 0.f;
-    return;
-  }
-
-  float matrix[16];
   float rotation[4];
-  quat_fromMat4(rotation, mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m));
-  quat_getAngleAxis(rotation, angle, x, y, z);
+  quat_fromMat4(rotation, transform);
+  quat_getAngleAxis(rotation, angle, ax, ay, az);
 }
 
 static void openvrGetVelocity(float* x, float* y, float* z) {
@@ -542,39 +534,29 @@ static ControllerHand openvrControllerGetHand(Controller* controller) {
   }
 }
 
-static void openvrControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
+static void openvrControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (!state.isInitialized || !controller) {
-    *x = *y = *z = 0.f;
+    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
+    return;
   }
 
   TrackedDevicePose_t pose = getPose(controller->id);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *x = *y = *z = 0.f;
+    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
     return;
   }
 
-  *x = pose.mDeviceToAbsoluteTracking.m[0][3];
-  *y = pose.mDeviceToAbsoluteTracking.m[1][3];
-  *z = pose.mDeviceToAbsoluteTracking.m[2][3];
-}
+  float transform[16];
+  mat4_fromMat44(transform, pose.mDeviceToAbsoluteTracking.m);
 
-static void openvrControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
-  if (!state.isInitialized || !controller) {
-    *angle = *x = *y = *z = 0.f;
-  }
+  *x = transform[12];
+  *y = transform[13];
+  *z = transform[14];
 
-  TrackedDevicePose_t pose = getPose(controller->id);
-
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *angle = *x = *y = *z = 0.f;
-    return;
-  }
-
-  float matrix[16];
   float rotation[4];
-  quat_fromMat4(rotation, mat4_fromMat44(matrix, pose.mDeviceToAbsoluteTracking.m));
-  quat_getAngleAxis(rotation, angle, x, y, z);
+  quat_fromMat4(rotation, transform);
+  quat_getAngleAxis(rotation, angle, ax, ay, az);
 }
 
 static float openvrControllerGetAxis(Controller* controller, ControllerAxis axis) {
@@ -838,16 +820,14 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrGetBoundsWidth,
   openvrGetBoundsDepth,
   openvrGetBoundsGeometry,
-  openvrGetPosition,
-  openvrGetEyePosition,
-  openvrGetOrientation,
+  openvrGetPose,
+  openvrGetEyePose,
   openvrGetVelocity,
   openvrGetAngularVelocity,
   openvrGetControllers,
   openvrControllerIsPresent,
   openvrControllerGetHand,
-  openvrControllerGetPosition,
-  openvrControllerGetOrientation,
+  openvrControllerGetPose,
   openvrControllerGetAxis,
   openvrControllerIsDown,
   openvrControllerIsTouched,

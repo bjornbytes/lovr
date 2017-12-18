@@ -117,16 +117,23 @@ static void webvrGetBoundsGeometry(float* geometry) {
   memset(geometry, 0, 12 * sizeof(float));
 }
 
-static void webvrGetPosition(float* x, float* y, float* z) {
+static void webvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   float v[3];
   emscripten_vr_get_position(&v[0], &v[1], &v[2]);
   mat4_transform(emscripten_vr_get_sitting_to_standing_matrix(), v);
   *x = v[0];
   *y = v[1];
   *z = v[2];
+
+  float quat[4];
+  float m[16];
+  emscripten_vr_get_orientation(&quat[0], &quat[1], &quat[2], &quat[3]);
+  mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix());
+  mat4_rotateQuat(m, quat);
+  quat_getAngleAxis(quat_fromMat4(quat, m), angle, ax, ay, az);
 }
 
-static void webvrGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
+static void webvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   int i = eye == EYE_LEFT ? 0 : 1;
   emscripten_vr_get_eye_offset(i, x, y, z);
   float m[16];
@@ -136,15 +143,10 @@ static void webvrGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
   *x = m[12];
   *y = m[13];
   *z = m[14];
-}
 
-static void webvrGetOrientation(float* angle, float* x, float* y, float* z) {
   float quat[4];
-  float m[16];
-  emscripten_vr_get_orientation(&quat[0], &quat[1], &quat[2], &quat[3]);
-  mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix());
-  mat4_rotateQuat(m, quat);
-  quat_getAngleAxis(quat_fromMat4(quat, m), angle, x, y, z);
+  mat4_rotateQuat(m, quat_identity(quat));
+  quat_getAngleAxis(quat_fromMat4(quat, m), angle, ax, ay, az);
 }
 
 static void webvrGetVelocity(float* x, float* y, float* z) {
@@ -196,22 +198,20 @@ static ControllerHand webvrControllerGetHand(Controller* controller) {
   }
 }
 
-static void webvrControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
+static void webvrControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   float v[3];
   emscripten_vr_get_controller_position(controller->id, &v[0], &v[1], &v[2]);
   mat4_transform(emscripten_vr_get_sitting_to_standing_matrix(), v);
   *x = v[0];
   *y = v[1];
   *z = v[2];
-}
 
-static void webvrControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
   float quat[4];
   float m[16];
   emscripten_vr_get_controller_orientation(controller->id, &quat[0], &quat[1], &quat[2], &quat[3]);
   mat4_multiply(mat4_identity(m), emscripten_vr_get_sitting_to_standing_matrix());
   mat4_rotateQuat(m, quat);
-  quat_getAngleAxis(quat_fromMat4(quat, m), angle, x, y, z);
+  quat_getAngleAxis(quat_fromMat4(quat, m), angle, ax, ay, az);
 }
 
 static float webvrControllerGetAxis(Controller* controller, ControllerAxis axis) {
@@ -275,16 +275,14 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrGetBoundsWidth,
   webvrGetBoundsDepth,
   webvrGetBoundsGeometry,
-  webvrGetPosition,
-  webvrGetEyePosition,
-  webvrGetOrientation,
+  webvrGetPose,
+  webvrGetEyePose,
   webvrGetVelocity,
   webvrGetAngularVelocity,
   webvrGetControllers,
   webvrControllerIsPresent,
   webvrControllerGetHand,
-  webvrControllerGetPosition,
-  webvrControllerGetOrientation,
+  webvrControllerGetPose,
   webvrControllerGetAxis,
   webvrControllerIsDown,
   webvrControllerIsTouched,

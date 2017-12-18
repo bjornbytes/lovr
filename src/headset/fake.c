@@ -11,9 +11,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// implements a fake headset, with mouselook and keyboard-driven movement.
-// for use when a real headset isn't available.
-
 typedef struct {
   bool isInitialized;
   HeadsetType type;
@@ -55,18 +52,13 @@ static void fakePoll();
 
 static void enableMouselook(GLFWwindow* window) {
   if (window) {
-    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwGetCursorPos(window, &state.prevCursorX, &state.prevCursorY);
   }
-  // track the intent for mouselook, even if no window yet. One might come along ;-)
+
   state.mouselook = true;
 }
 
 static void disableMouselook(GLFWwindow* window) {
-  if (window) {
-    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-  }
-
   state.mouselook = false;
 }
 
@@ -95,7 +87,7 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
   if (state.pitch < -M_PI / 2.0) {
     state.pitch = -M_PI / 2.0;
   }
- 
+
   if (state.pitch > M_PI / 2.0) {
     state.pitch = M_PI / 2.0;
   }
@@ -260,25 +252,20 @@ static void fakeGetBoundsGeometry(float* geometry) {
   memset(geometry, 0, 12 * sizeof(float));
 }
 
-static void fakeGetPosition(float* x, float* y, float* z) {
-  // TODO: sit->stand transform?
+static void fakeGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = state.pos[0];
   *y = state.pos[1];
   *z = state.pos[2];
-}
-
-static void fakeGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
-  fakeGetPosition(x,y,z);
-}
-
-static void fakeGetOrientation(float* angle, float* x, float* y, float* z) {
   float q[4];
   quat_fromMat4(q, state.transform);
-  quat_getAngleAxis(q, angle, x, y, z);
+  quat_getAngleAxis(q, angle, ax, ay, az);
+}
+
+static void fakeGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  fakeGetPose(x, y, z, angle, ax, ay, az);
 }
 
 static void fakeGetVelocity(float* x, float* y, float* z) {
-  // TODO: sit->stand transform?
   *x = state.vel[0];
   *y = state.vel[1];
   *z = state.vel[2];
@@ -300,9 +287,9 @@ static ControllerHand fakeControllerGetHand(Controller* controller) {
   return HAND_UNKNOWN;
 }
 
-static void fakeControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
+static void fakeControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   // for now, locked to headset
-  
+
   float offset[3];
   vec3_set(offset, 0, 0, -1.0f);
 
@@ -310,17 +297,14 @@ static void fakeControllerGetPosition(Controller* controller, float* x, float* y
   *x = offset[0];
   *y = offset[1];
   *z = offset[2];
-}
 
-static void fakeControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
-  // for now, locked to headset
   float q[4];
   quat_fromMat4(q, state.transform);
-  quat_getAngleAxis(q, angle, x, y, z);
+  quat_getAngleAxis(q, angle, ax, ay, az);
 }
 
 static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) {
-  return 0.0f;
+  return 0.f;
 }
 
 static bool fakeControllerIsDown(Controller* controller, ControllerButton button) {
@@ -429,16 +413,14 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeGetBoundsWidth,
   fakeGetBoundsDepth,
   fakeGetBoundsGeometry,
-  fakeGetPosition,
-  fakeGetEyePosition,
-  fakeGetOrientation,
+  fakeGetPose,
+  fakeGetEyePose,
   fakeGetVelocity,
   fakeGetAngularVelocity,
   fakeGetControllers,
   fakeControllerIsPresent,
   fakeControllerGetHand,
-  fakeControllerGetPosition,
-  fakeControllerGetOrientation,
+  fakeControllerGetPose,
   fakeControllerGetAxis,
   fakeControllerIsDown,
   fakeControllerIsTouched,

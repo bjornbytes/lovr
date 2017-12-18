@@ -211,19 +211,31 @@ int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
   return 1;
 }
 
-int l_lovrHeadsetGetPosition(lua_State* L) {
-  float x, y, z;
-  lovrHeadsetGetPosition(&x, &y, &z);
+static void luax_getPose(lua_State* L, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  if (lua_type(L, 1) == LUA_TSTRING) {
+    HeadsetEye eye = *(HeadsetEye*) luax_checkenum(L, 1, &HeadsetEyes, "eye");
+    lovrHeadsetGetEyePose(eye, x, y, z, angle, ax, ay, az);
+  } else {
+    lovrHeadsetGetPose(x, y, z, angle, ax, ay, az);
+  }
+}
+
+int l_lovrHeadsetGetPose(lua_State* L) {
+  float x, y, z, angle, ax, ay, az;
+  luax_getPose(L, &x, &y, &z, &angle, &ax, &ay, &az);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
-  return 3;
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
 }
 
-int l_lovrHeadsetGetEyePosition(lua_State* L) {
-  float x, y, z;
-  HeadsetEye eye = *(HeadsetEye*) luax_optenum(L, 1, "left", &HeadsetEyes, "eye");
-  lovrHeadsetGetEyePosition(eye, &x, &y, &z);
+int l_lovrHeadsetGetPosition(lua_State* L) {
+  float x, y, z, angle, ax, ay, az;
+  luax_getPose(L, &x, &y, &z, &angle, &ax, &ay, &az);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
@@ -231,12 +243,12 @@ int l_lovrHeadsetGetEyePosition(lua_State* L) {
 }
 
 int l_lovrHeadsetGetOrientation(lua_State* L) {
-  float angle, x, y, z;
-  lovrHeadsetGetOrientation(&angle, &x, &y, &z);
+  float x, y, z, angle, ax, ay, az;
+  luax_getPose(L, &x, &y, &z, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
   return 4;
 }
 
@@ -319,8 +331,8 @@ const luaL_Reg lovrHeadset[] = {
   { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
   { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
   { "getBoundsGeometry", l_lovrHeadsetGetBoundsGeometry },
+  { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
-  { "getEyePosition", l_lovrHeadsetGetEyePosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },

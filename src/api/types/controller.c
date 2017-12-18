@@ -16,10 +16,24 @@ int l_lovrControllerGetHand(lua_State* L) {
   return 1;
 }
 
+int l_lovrControllerGetPose(lua_State* L) {
+  Controller* controller = luax_checktype(L, 1, Controller);
+  float x, y, z, angle, ax, ay, az;
+  lovrHeadsetControllerGetPose(controller, &x, &y, &z, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
+}
+
 int l_lovrControllerGetPosition(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  float x, y, z;
-  lovrHeadsetControllerGetPosition(controller, &x, &y, &z);
+  float x, y, z, angle, ax, ay, az;
+  lovrHeadsetControllerGetPose(controller, &x, &y, &z, &angle, &ax, &ay, &az);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
@@ -28,12 +42,12 @@ int l_lovrControllerGetPosition(lua_State* L) {
 
 int l_lovrControllerGetOrientation(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  float angle, x, y, z;
-  lovrHeadsetControllerGetOrientation(controller, &angle, &x, &y, &z);
+  float x, y, z, angle, ax, ay, az;
+  lovrHeadsetControllerGetPose(controller, &x, &y, &z, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
   return 4;
 }
 
@@ -82,6 +96,7 @@ int l_lovrControllerNewModel(lua_State* L) {
 const luaL_Reg lovrController[] = {
   { "isPresent", l_lovrControllerIsPresent },
   { "getHand", l_lovrControllerGetHand },
+  { "getPose", l_lovrControllerGetPose },
   { "getPosition", l_lovrControllerGetPosition },
   { "getOrientation", l_lovrControllerGetOrientation },
   { "getAxis", l_lovrControllerGetAxis },

@@ -116,31 +116,22 @@ void lovrHeadsetGetBoundsGeometry(float* geometry) {
 }
 
 
-void lovrHeadsetGetPosition(float* x, float* y, float* z) {
+void lovrHeadsetGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (!headset) {
-    *x = *y = *z = 0.f;
+    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
     return;
   }
 
-  headset->getPosition(x, y, z);
+  headset->getPose(x, y, z, angle, ax, ay, az);
 }
 
-void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
+void lovrHeadsetGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (!headset) {
-    *x = *y = *z = 0.f;
+    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
     return;
   }
 
-  headset->getEyePosition(eye,x, y, z);
-}
-
-void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
-  if (!headset) {
-    *angle = *x = *y = *z = 0.f;
-    return;
-  }
-
-  headset->getOrientation(angle,x,y,z);
+  headset->getEyePose(eye, x, y, z, angle, ax, ay, az);
 }
 
 void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
@@ -181,22 +172,13 @@ ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
   return headset ? headset->controllerGetHand(controller) : HAND_UNKNOWN;
 }
 
-void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
+void lovrHeadsetControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (!headset || !controller) {
-    *x = *y = *z = 0.f;
+    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
     return;
   }
 
-  headset->controllerGetPosition(controller, x, y, z);
-}
-
-void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
-  if (!headset || !controller) {
-    *angle = *x = *y = *z = 0.f;
-    return;
-  }
-
-  headset->controllerGetOrientation(controller, angle, x, y, z);
+  headset->controllerGetPose(controller, x, y, z, angle, ax, ay, az);
 }
 
 float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
