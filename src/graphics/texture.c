@@ -99,10 +99,15 @@ static void lovrTextureUpload(Texture* texture) {
 }
 
 static void validateSlices(TextureType type, TextureData* slices[6], int sliceCount) {
+  lovrAssert(sliceCount > 0, "At least one layer must be provided to create a texture");
+  int maxSize = lovrGraphicsGetLimits().textureSize;
+  int width = slices[0]->width;
+  int height = slices[0]->height;
+  bool oversized = width > maxSize || height > maxSize;
+  lovrAssert(!oversized, "Texture is too big, max size is %d x %d", maxSize, maxSize);
+
   if (type == TEXTURE_CUBE) {
     lovrAssert(sliceCount == 6, "Cube textures must have 6 images");
-    int width = slices[0]->width;
-    int height = slices[0]->height;
     lovrAssert(width == height, "Cube textures must be square");
     for (int i = 1; i < sliceCount; i++) {
       int hasSameDimensions = slices[i]->width == width && slices[i]->height == height;
