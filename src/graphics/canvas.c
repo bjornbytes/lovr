@@ -78,7 +78,7 @@ Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasType
   }
 
   lovrAssert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "Error creating Canvas");
-  lovrGraphicsClear(true, true);
+  lovrGraphicsClear(true, true, true);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   return canvas;

@@ -15,6 +15,8 @@
 #define DEFAULT_SHADER_COUNT 4
 #define MAX_TEXTURES 16
 
+typedef void (*StencilCallback)(void* userdata);
+
 typedef enum {
   BLEND_ALPHA,
   BLEND_ADD,
@@ -56,6 +58,15 @@ typedef enum {
   COMPARE_GEQUAL = GL_GEQUAL,
   COMPARE_GREATER = GL_GREATER
 } CompareMode;
+
+typedef enum {
+  STENCIL_REPLACE = GL_REPLACE,
+  STENCIL_INCREMENT = GL_INCR,
+  STENCIL_DECREMENT = GL_DECR,
+  STENCIL_INCREMENT_WRAP = GL_INCR_WRAP,
+  STENCIL_DECREMENT_WRAP = GL_DECR_WRAP,
+  STENCIL_INVERT = GL_INVERT
+} StencilAction;
 
 typedef enum {
   MATRIX_MODEL,
@@ -115,6 +126,8 @@ typedef struct {
   View views[MAX_VIEWS];
   int view;
   Texture* textures[MAX_TEXTURES];
+  bool stencilEnabled;
+  bool stencilWriting;
   uint32_t program;
   uint32_t vertexArray;
   uint32_t vertexBuffer;
@@ -126,7 +139,7 @@ typedef struct {
 void lovrGraphicsInit();
 void lovrGraphicsDestroy();
 void lovrGraphicsReset();
-void lovrGraphicsClear(bool color, bool depth);
+void lovrGraphicsClear(bool color, bool depth, bool stencil);
 void lovrGraphicsPresent();
 void lovrGraphicsPrepare(Material* material, float* pose);
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
@@ -187,6 +200,7 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
 void lovrGraphicsSphere(Material* material, mat4 transform, int segments);
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 
 // Internal State
 void lovrGraphicsPushView();

@@ -27,6 +27,7 @@ map_int_t MatrixTypes;
 map_int_t MeshAttributeTypes;
 map_int_t MeshDrawModes;
 map_int_t MeshUsages;
+map_int_t StencilActions;
 map_int_t TextureFormats;
 map_int_t VerticalAligns;
 map_int_t Windings;
@@ -70,6 +71,12 @@ static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
       vec_push(points, lua_tonumber(L, index + i));
     }
   }
+}
+
+static void stencilCallback(void* userdata) {
+  lua_State* L = userdata;
+  luaL_checktype(L, -1, LUA_TFUNCTION);
+  lua_call(L, 0, 0);
 }
 
 // Base
@@ -161,6 +168,14 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&MeshUsages, "dynamic", MESH_DYNAMIC);
   map_set(&MeshUsages, "stream", MESH_STREAM);
 
+  map_init(&StencilActions);
+  map_set(&StencilActions, "replace", STENCIL_REPLACE);
+  map_set(&StencilActions, "increment", STENCIL_INCREMENT);
+  map_set(&StencilActions, "decrement", STENCIL_DECREMENT);
+  map_set(&StencilActions, "incrementwrap", STENCIL_INCREMENT_WRAP);
+  map_set(&StencilActions, "decrementwrap", STENCIL_DECREMENT_WRAP);
+  map_set(&StencilActions, "invert", STENCIL_INVERT);
+
   map_init(&TextureFormats);
   map_set(&TextureFormats, "rgb", FORMAT_RGB);
   map_set(&TextureFormats, "rgba", FORMAT_RGBA);
@@ -238,7 +253,8 @@ int l_lovrGraphicsReset(lua_State* L) {
 int l_lovrGraphicsClear(lua_State* L) {
   bool color = lua_gettop(L) < 1 || lua_toboolean(L, 1);
   bool depth = lua_gettop(L) < 2 || lua_toboolean(L, 2);
-  lovrGraphicsClear(color, depth);
+  bool stencil = lua_gettop(L) < 3 || lua_toboolean(L, 3);
+  lovrGraphicsClear(color, depth, stencil);
   return 0;
 }
 
@@ -726,6 +742,19 @@ int l_lovrGraphicsPrint(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsStencil(lua_State* L) {
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  StencilAction action = *(StencilAction*) luax_optenum(L, 2, "replace", &StencilActions, "stencil action");
+  int replaceValue = luaL_optinteger(L, 3, 1);
+  bool keepValues = lua_toboolean(L, 4);
+  if (!keepValues) {
+    lovrGraphicsClear(false, false, true);
+  }
+  lua_settop(L, 1);
+  lovrGraphicsStencil(action, replaceValue, stencilCallback, L);
+  return 0;
+}
+
 // Types
 
 int l_lovrGraphicsNewAnimator(lua_State* L) {
@@ -1054,6 +1083,7 @@ const luaL_Reg lovrGraphics[] = {
   { "sphere", l_lovrGraphicsSphere },
   { "skybox", l_lovrGraphicsSkybox },
   { "print", l_lovrGraphicsPrint },
+  { "stencil", l_lovrGraphicsStencil },
   { "newAnimator", l_lovrGraphicsNewAnimator },
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newFont", l_lovrGraphicsNewFont },

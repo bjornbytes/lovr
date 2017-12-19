@@ -80,9 +80,9 @@ void lovrGraphicsReset() {
   lovrGraphicsOrigin();
 }
 
-void lovrGraphicsClear(bool color, bool depth) {
-  if (!color && !depth) return;
-  glClear((color ? GL_COLOR_BUFFER_BIT : 0) | (depth ? GL_DEPTH_BUFFER_BIT : 0));
+void lovrGraphicsClear(bool color, bool depth, bool stencil) {
+  if (!color && !depth && !stencil) return;
+  glClear((color ? GL_COLOR_BUFFER_BIT : 0) | (depth ? GL_DEPTH_BUFFER_BIT : 0) | (stencil ? GL_STENCIL_BUFFER_BIT : 0));
 }
 
 void lovrGraphicsPresent() {
@@ -451,26 +451,33 @@ void lovrGraphicsGetStencilTest(CompareMode* mode, int* value) {
 }
 
 void lovrGraphicsSetStencilTest(CompareMode mode, int value) {
-  if (mode != state.stencilMode || value != state.stencilValue) {
-    state.stencilMode = mode;
-    state.stencilValue = value;
-    if (mode != COMPARE_NONE) {
+  state.stencilMode = mode;
+  state.stencilValue = value;
+
+  if (state.stencilWriting) {
+    return;
+  }
+
+  if (mode != COMPARE_NONE) {
+    if (!state.stencilEnabled) {
       glEnable(GL_STENCIL_TEST);
-
-      GLenum glMode = mode;
-      switch (mode) {
-        case COMPARE_LESS: glMode = GL_GREATER; break;
-        case COMPARE_LEQUAL: glMode = GL_GEQUAL; break;
-        case COMPARE_GEQUAL: glMode = GL_LEQUAL; break;
-        case COMPARE_GREATER: glMode = GL_LESS; break;
-        default: break;
-      }
-
-      glStencilFunc(glMode, value, 0xff);
-      glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    } else {
-      glDisable(GL_STENCIL_TEST);
+      state.stencilEnabled = true;
     }
+
+    GLenum glMode = mode;
+    switch (mode) {
+      case COMPARE_LESS: glMode = GL_GREATER; break;
+      case COMPARE_LEQUAL: glMode = GL_GEQUAL; break;
+      case COMPARE_GEQUAL: glMode = GL_LEQUAL; break;
+      case COMPARE_GREATER: glMode = GL_LESS; break;
+      default: break;
+    }
+
+    glStencilFunc(glMode, value, 0xff);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+  } else if (state.stencilEnabled) {
+    glDisable(GL_STENCIL_TEST);
+    state.stencilEnabled = false;
   }
 }
 
@@ -1061,6 +1068,28 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   glDepthMask(GL_TRUE);
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   lovrGraphicsPop();
+}
+
+void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+  glDepthMask(GL_FALSE);
+
+  if (!state.stencilEnabled) {
+    glEnable(GL_STENCIL_TEST);
+    state.stencilEnabled = true;
+  }
+
+  glStencilFunc(GL_ALWAYS, replaceValue, 0xff);
+  glStencilOp(GL_KEEP, GL_KEEP, action);
+
+  state.stencilWriting = true;
+  callback(userdata);
+  state.stencilWriting = false;
+
+  glDepthMask(GL_TRUE);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+  lovrGraphicsSetStencilTest(state.stencilMode, state.stencilValue);
 }
 
 // Internal State

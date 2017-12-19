@@ -754,7 +754,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
     lovrGraphicsSetProjection(projection);
-    lovrGraphicsClear(true, true);
+    lovrGraphicsClear(true, true, false);
     callback(eye, userdata);
     lovrGraphicsPop();
     lovrCanvasResolveMSAA(state.canvas);
