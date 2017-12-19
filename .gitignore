@@ -5,7 +5,6 @@ build
 src/obj
 src/Tupfile
 /watch.sh
-*.lua
 *.glsl
 .DS_Store
 bin
