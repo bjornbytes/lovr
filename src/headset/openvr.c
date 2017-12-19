@@ -724,7 +724,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   lovrGraphicsPushView();
 
   if (!state.canvas) {
-    glBindFramebuffer(0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     int msaa = 0;
     glGetIntegerv(GL_SAMPLES, &msaa);
     state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
