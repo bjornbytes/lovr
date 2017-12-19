@@ -72,6 +72,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetLineWidth(1);
   lovrGraphicsSetPointSize(1);
   lovrGraphicsSetShader(NULL);
+  lovrGraphicsSetStencilTest(COMPARE_NONE, 0);
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
   lovrGraphicsSetWireframe(false);
   lovrGraphicsSetViewport(0, 0, w, h);
@@ -351,8 +352,8 @@ CompareMode lovrGraphicsGetDepthTest() {
 void lovrGraphicsSetDepthTest(CompareMode depthTest) {
   if (state.depthTest != depthTest) {
     state.depthTest = depthTest;
-    glDepthFunc(depthTest);
-    if (depthTest) {
+    if (depthTest != COMPARE_NONE) {
+      glDepthFunc(depthTest);
       glEnable(GL_DEPTH_TEST);
     } else {
       glDisable(GL_DEPTH_TEST);
@@ -440,6 +441,35 @@ void lovrGraphicsSetShader(Shader* shader) {
 
     if (shader) {
       lovrRetain(&state.shader->ref);
+    }
+  }
+}
+
+void lovrGraphicsGetStencilTest(CompareMode* mode, int* value) {
+  *mode = state.stencilMode;
+  *value = state.stencilValue;
+}
+
+void lovrGraphicsSetStencilTest(CompareMode mode, int value) {
+  if (mode != state.stencilMode || value != state.stencilValue) {
+    state.stencilMode = mode;
+    state.stencilValue = value;
+    if (mode != COMPARE_NONE) {
+      glEnable(GL_STENCIL_TEST);
+
+      GLenum glMode = mode;
+      switch (mode) {
+        case COMPARE_LESS: glMode = GL_GREATER; break;
+        case COMPARE_LEQUAL: glMode = GL_GEQUAL; break;
+        case COMPARE_GEQUAL: glMode = GL_LEQUAL; break;
+        case COMPARE_GREATER: glMode = GL_LESS; break;
+        default: break;
+      }
+
+      glStencilFunc(glMode, value, 0xff);
+      glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    } else {
+      glDisable(GL_STENCIL_TEST);
     }
   }
 }

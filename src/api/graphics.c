@@ -382,8 +382,8 @@ int l_lovrGraphicsSetDepthTest(lua_State* L) {
   if (lua_isnoneornil(L, 1)) {
     lovrGraphicsSetDepthTest(COMPARE_NONE);
   } else {
-    CompareMode* depthTest = (CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
-    lovrGraphicsSetDepthTest(*depthTest);
+    CompareMode depthTest = *(CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
+    lovrGraphicsSetDepthTest(depthTest);
   }
   return 0;
 }
@@ -451,6 +451,32 @@ int l_lovrGraphicsGetShader(lua_State* L) {
 int l_lovrGraphicsSetShader(lua_State* L) {
   Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Shader);
   lovrGraphicsSetShader(shader);
+  return 0;
+}
+
+int l_lovrGraphicsGetStencilTest(lua_State* L) {
+  CompareMode mode;
+  int value;
+  lovrGraphicsGetStencilTest(&mode, &value);
+
+  if (mode == COMPARE_NONE) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  luax_pushenum(L, &CompareModes, mode);
+  lua_pushinteger(L, value);
+  return 2;
+}
+
+int l_lovrGraphicsSetStencilTest(lua_State* L) {
+  if (lua_isnoneornil(L, 1)) {
+    lovrGraphicsSetStencilTest(COMPARE_NONE, 0);
+  } else {
+    CompareMode mode = *(CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
+    int value = luaL_checkinteger(L, 2);
+    lovrGraphicsSetStencilTest(mode, value);
+  }
   return 0;
 }
 
@@ -1003,6 +1029,8 @@ const luaL_Reg lovrGraphics[] = {
   { "setPointSize", l_lovrGraphicsSetPointSize },
   { "getShader", l_lovrGraphicsGetShader },
   { "setShader", l_lovrGraphicsSetShader },
+  { "getStencilTest", l_lovrGraphicsGetStencilTest },
+  { "setStencilTest", l_lovrGraphicsSetStencilTest },
   { "getWinding", l_lovrGraphicsGetWinding },
   { "setWinding", l_lovrGraphicsSetWinding },
   { "isWireframe", l_lovrGraphicsIsWireframe },

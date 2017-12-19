@@ -103,6 +103,8 @@ typedef struct {
   float lineWidth;
   float pointSize;
   Shader* shader;
+  CompareMode stencilMode;
+  int stencilValue;
   Winding winding;
   bool wireframe;
   uint32_t streamVAO;
@@ -156,6 +158,8 @@ float lovrGraphicsGetPointSize();
 void lovrGraphicsSetPointSize(float size);
 Shader* lovrGraphicsGetShader();
 void lovrGraphicsSetShader(Shader* shader);
+void lovrGraphicsGetStencilTest(CompareMode* mode, int* value);
+void lovrGraphicsSetStencilTest(CompareMode mode, int value);
 Winding lovrGraphicsGetWinding();
 void lovrGraphicsSetWinding(Winding winding);
 bool lovrGraphicsIsWireframe();
