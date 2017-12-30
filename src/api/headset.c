@@ -64,6 +64,7 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_set(&HeadsetTypes, "unknown", HEADSET_UNKNOWN);
   map_set(&HeadsetTypes, "vive", HEADSET_VIVE);
   map_set(&HeadsetTypes, "rift", HEADSET_RIFT);
+  map_set(&HeadsetTypes, "windowsmr", HEADSET_WINDOWS_MR);
 
   map_init(&HeadsetDrivers);
   map_set(&HeadsetDrivers, "fake", DRIVER_FAKE);

@@ -25,6 +25,7 @@ typedef enum {
   HEADSET_UNKNOWN,
   HEADSET_VIVE,
   HEADSET_RIFT,
+  HEADSET_WINDOWS_MR,
   HEADSET_FAKE
 } HeadsetType;
 

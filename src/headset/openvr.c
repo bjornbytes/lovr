@@ -205,6 +205,8 @@ static void openvrInit() {
     state.type = HEADSET_VIVE;
   } else if (!strncmp(buffer, "Oculus", 128)) {
     state.type = HEADSET_RIFT;
+  } else if (!strncmp(buffer, "WindowsMR", 128)) {
+    state.type = HEADSET_WINDOWS_MR;
   } else {
     state.type = HEADSET_UNKNOWN;
   }
