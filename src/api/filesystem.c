@@ -31,6 +31,8 @@ static int pushDirectoryItem(void* userdata, const char* path, const char* filen
   return 1;
 }
 
+int l_lovrFilesystemLoad(lua_State* L);
+
 // Loader to help Lua's require understand PhysFS.
 static int filesystemLoader(lua_State* L) {
   const char* module = luaL_checkstring(L, -1);
@@ -58,20 +60,9 @@ static int filesystemLoader(lua_State* L) {
       strncat(filename, requirePath[i] + index + 1, strlen(requirePath[i]) - index);
 
       if (lovrFilesystemIsFile(filename)) {
-        size_t size;
-        void* data = lovrFilesystemRead(filename, &size);
-        char identifier[LOVR_PATH_MAX + 1];
-        strncpy(identifier, "@", 2);
-        strncat(identifier, filename, LOVR_PATH_MAX);
-
-        if (data) {
-          if (!luaL_loadbuffer(L, data, size, identifier)) {
-            free(data);
-            return 1;
-          }
-
-          free(data);
-        }
+        lua_pop(L, 1);
+        lua_pushstring(L, filename);
+        return l_lovrFilesystemLoad(L);
       }
     }
   }
@@ -237,7 +228,12 @@ int l_lovrFilesystemLoad(lua_State* L) {
   size_t size;
   char* content = lovrFilesystemRead(path, &size);
 
+  if (!content) {
+    return luaL_error(L, "Could not read file '%s'", path);
+  }
+
   int status = luaL_loadbuffer(L, content, size, path);
+  free(content);
   switch (status) {
     case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1));
     case LUA_ERRSYNTAX: return luaL_error(L, "Syntax error: %s", lua_tostring(L, -1));
