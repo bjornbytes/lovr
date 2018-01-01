@@ -730,7 +730,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     int msaa = 0;
     glGetIntegerv(GL_SAMPLES, &msaa);
     state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
-    state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, CANVAS_3D, msaa, true, false);
+    state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, CANVAS_3D, msaa, true, true);
   }
 
   float head[16], transform[16], projection[16];
