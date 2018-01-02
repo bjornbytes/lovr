@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include "lovr.h"
 
 static GraphicsState state;
 
@@ -165,7 +166,12 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
 }
 
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon) {
-  lovrAssert(!state.window, "Window is already created");
+  if (lovrReloadPending) {
+    lovrGraphicsReset();
+    return;
+  } else {
+    lovrAssert(!state.window, "Window is already created");
+  }
 
 #ifdef EMSCRIPTEN
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);

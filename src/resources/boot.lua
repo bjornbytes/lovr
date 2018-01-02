@@ -173,6 +173,19 @@ local function headsetRenderCallback()
   lovr.draw()
 end
 
+local reloadLast = 0
+local reloadLastUpdated = nil
+local function reloadHandle(dt)
+  reloadLast = reloadLast + dt
+  if not reloadLastUpdated or math.floor(reloadLast) > reloadLastUpdated then
+    if lovr.filesystem.reloadCheck() then
+      lovr.filesystem.reloadReset()
+      return true
+    end
+    reloadLastUpdated = reloadLast
+  end
+end
+
 function lovr.step()
   lovr.event.pump()
   for name, a, b, c, d in lovr.event.poll() do
@@ -206,6 +219,11 @@ function lovr.step()
       end
     end
     lovr.graphics.present()
+  end
+  if lovr.filesystem.reloadEnabled() then
+    if reloadHandle(dt) then
+      return 0
+    end
   end
   lovr.timer.sleep(.001)
 end
