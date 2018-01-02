@@ -949,7 +949,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
       vec_push(&state.streamData, z);
 
       vec_push(&state.streamData, u);
-      vec_push(&state.streamData, v);
+      vec_push(&state.streamData, 1 - v);
     }
   }
 
