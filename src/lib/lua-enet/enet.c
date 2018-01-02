@@ -31,6 +31,7 @@
 #include "lualib.h"
 #include "lauxlib.h"
 #include <enet/enet.h>
+#include <stdbool.h>
 
 #define check_host(l, idx)\
 	*(ENetHost**)luaL_checkudata(l, idx, "enet_host")
@@ -768,9 +769,14 @@ static const struct luaL_Reg enet_peer_funcs [] = {
 	{NULL, NULL}
 };
 
+static bool enitAlreadyInit = false;
+
 int luaopen_enet(lua_State *l) {
 	enet_initialize();
-	atexit(enet_deinitialize);
+	if (!enitAlreadyInit) {
+		atexit(enet_deinitialize);
+		enitAlreadyInit = true;
+	}
 
 	// create metatables
 	luaL_newmetatable(l, "enet_host");
