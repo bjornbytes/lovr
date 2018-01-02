@@ -114,9 +114,6 @@ the command:
 LD_PRELOAD='/usr/$LIB/libstdc++.so.6 /usr/$LIB/libgcc_s.so.1' ~/.steam/steam/ubuntu12_32/steam-runtime/run.sh lovr
 ```
 
-Currently, there are performance issues between SteamVR and OpenGL apps.  These are being rapidly
-resolved with newer versions of graphics drivers and SteamVR.
-
 WebVR
 ---
 
@@ -128,7 +125,7 @@ Unix:
 ```sh
 mkdir build
 cd build
-emcmake cmake -DCMAKE_BUILD_TYPE=Release ..
+emcmake cmake ..
 emmake make -j2
 ```
 
@@ -141,14 +138,14 @@ emcmake cmake -G "NMake Makefiles" ..
 emmake nmake
 ```
 
-The above commands will output `lovr.html`, `lovr.js`, and `lovr.js.mem`.  To package a game, run:
+The above commands will output `lovr.js` and `lovr.wasm`.  To package a game, run:
 
 ```
 python /path/to/emscripten/tools/file_packager.py game.data --preload /path/to/game@/ --js-output=game.js
 ```
 
-Which will output `game.js` and `game.data`.  The `lovr.html` file will need to be modified to
-include `game.js` in a script tag.
+Which will output `game.js` and `game.data`.  You can then include `lovr.js` and `game.js` on an
+HTML page with a canvas element.  Check out [`lovr-webvr-server`](https://github.com/bjornbytes/lovr-webvr-server/blob/master/views/index.ejs) for an example.
 
 Troubleshooting
 ---

@@ -10,8 +10,10 @@ LÖVR is a simple framework for creating virtual reality experiences with Lua, b
 Features
 ---
 
+- Easily create VR using simple Lua scripts
 - Automatically detects and renders to connected VR headsets (works without a headset too!)
-- Simple 3D graphics API supporting primitives, 3D models, fonts, shaders, skyboxes, framebuffers, etc.
+- 3D graphics API supporting primitives, fonts, shaders, skyboxes, framebuffers, etc.
+- Import 3D models from obj, fbx, collada, or glTF files, including materials and animations.
 - Create projects for Windows, macOS, Linux, or WebVR
 - Spatialized audio
 - 3D physics
@@ -28,7 +30,7 @@ Screenshots
 Getting Started
 ---
 
-You can download precompiled binaries from the [website](http://lovr.org).  There, you
+You can download precompiled binaries from the [website](https://lovr.org).  There, you
 can also find documentation and a set of tutorials and examples.  Here is the hello world example
 for LÖVR:
 
@@ -46,7 +48,7 @@ command line).  Put on your headset and you should see the text at the front of 
 
 ```lua
 function lovr.draw()
-  lovr.graphics.cube('line', 0, 1, 0, .5, lovr.timer.getTime())
+  lovr.graphics.cube('line', 0, 1.7, -1, .5, lovr.timer.getTime())
 end
 ```
 
@@ -74,7 +76,7 @@ end
 Documentation
 ---
 
-Documentation and examples are available on the website [here](http://lovr.org/docs).  The website is also [open source](https://github.com/bjornbytes/lovr-docs) if you want to add or edit documentation.
+Documentation and examples are available on the website [here](https://lovr.org/docs).  The website is also [open source](https://github.com/bjornbytes/lovr-docs) if you want to add or edit documentation.
 
 Community
 ---
