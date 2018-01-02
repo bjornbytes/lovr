@@ -1,8 +1,8 @@
 #include "headset/headset.h"
 #include "graphics/graphics.h"
 #include "lib/vec/vec.h"
-#include <math/mat4.h>
-#include <math/quat.h>
+#include "math/mat4.h"
+#include "math/quat.h"
 #include <emscripten.h>
 #include <emscripten/vr.h>
 #include <stdbool.h>
@@ -15,7 +15,7 @@ typedef struct {
 static HeadsetState state;
 
 static void onRequestAnimationFrame(void* userdata) {
-  lovrGraphicsClear(true, true);
+  lovrGraphicsClear(true, true, true);
 
   int width = emscripten_vr_get_display_width();
   int height = emscripten_vr_get_display_height();
@@ -145,7 +145,6 @@ static void webvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float*
   *z = m[14];
 
   float quat[4];
-  mat4_rotateQuat(m, quat_identity(quat));
   quat_getAngleAxis(quat_fromMat4(quat, m), angle, ax, ay, az);
 }
 
