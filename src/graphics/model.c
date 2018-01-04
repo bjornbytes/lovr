@@ -105,8 +105,15 @@ Model* lovrModelCreate(ModelData* modelData) {
 
   model->nodeTransforms = malloc(16 * modelData->nodeCount * sizeof(float));
   for (int i = 0; i < modelData->nodeCount; i++) {
+    ModelNode* node = &model->modelData->nodes[i];
     mat4 transform = model->nodeTransforms[i];
-    mat4_identity(transform);
+
+    if (node->parent >= 0) {
+      mat4_set(transform, model->nodeTransforms[node->parent]);
+      mat4_multiply(transform, node->transform);
+    } else {
+      mat4_set(transform, node->transform);
+    }
   }
 
   vec_deinit(&format);
