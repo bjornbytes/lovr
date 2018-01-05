@@ -38,7 +38,10 @@ static int filesystemLoader(lua_State* L) {
   const char* module = luaL_checkstring(L, -1);
   char* dot;
 
-  while ((dot = strchr(module, '.')) != NULL) {
+  char path[LOVR_PATH_MAX];
+  strncpy(path, module, LOVR_PATH_MAX);
+
+  while ((dot = strchr(path, '.')) != NULL) {
     *dot = '/';
   }
 
@@ -56,7 +59,7 @@ static int filesystemLoader(lua_State* L) {
     if (sub) {
       int index = (int) (sub - requirePath[i]);
       strncat(filename, requirePath[i], index);
-      strncat(filename, module, strlen(module));
+      strncat(filename, path, strlen(path));
       strncat(filename, requirePath[i] + index + 1, strlen(requirePath[i]) - index);
 
       if (lovrFilesystemIsFile(filename)) {
