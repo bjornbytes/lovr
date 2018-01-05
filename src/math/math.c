@@ -3,14 +3,19 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdbool.h>
 
 static RandomGenerator* generator;
+bool mathAlreadyInit = false;
 
 void lovrMathInit() {
   generator = lovrRandomGeneratorCreate();
   Seed seed = { .b64 = (uint64_t) time(0) };
 	lovrRandomGeneratorSetSeed(generator, seed);
-  atexit(lovrMathDestroy);
+  if (!mathAlreadyInit) {
+    atexit(lovrMathDestroy);
+    mathAlreadyInit = true;
+  }
 }
 
 void lovrMathDestroy() {

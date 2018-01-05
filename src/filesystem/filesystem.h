@@ -37,4 +37,5 @@ int lovrFilesystemRemove(const char* path);
 int lovrFilesystemSetIdentity(const char* identity);
 int lovrFilesystemSetSource(const char* source);
 int lovrFilesystemUnmount(const char* path);
+bool lovrCheckReload();
 size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append);

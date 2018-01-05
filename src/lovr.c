@@ -8,6 +8,9 @@
 #include "lib/glfw.h"
 #include <stdlib.h>
 
+bool lovrReloadEnable = false;
+bool lovrReloadPending = false;
+
 static int hasErrored = 0;
 
 static void onGlfwError(int code, const char* description) {
@@ -64,14 +67,26 @@ static int lovrSetConf(lua_State* L) {
 }
 
 void lovrInit(lua_State* L, int argc, char** argv) {
-  if (argc > 1 && strcmp(argv[1], "--version") == 0) {
-    printf("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
-    exit(0);
+  bool checkingArgs = true;
+  while (checkingArgs) {
+    checkingArgs = false; // Set true to loop again
+    if (argc > 1 && strcmp(argv[1], "--version") == 0) {
+      printf("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
+      exit(0);
+    }
+
+    if (!lovrReloadPending && argc > 1 && strcmp(argv[1], "--live") == 0) {
+      printf("Running LOVR in live-reload mode: lua files on disk will be watched.\n");
+      lovrReloadEnable = true;
+      argc--;
+      argv++;
+      checkingArgs = true;
+    }
   }
 
   glfwSetErrorCallback(onGlfwError);
 
-  if (!glfwInit()) {
+  if (!lovrReloadPending && !glfwInit()) {
     lovrThrow("Error initializing glfw");
   }
 
@@ -163,6 +178,7 @@ void lovrRun(lua_State* L) {
 void lovrRun(lua_State* L) {
   glfwSetTime(0);
   lovrCatch = malloc(sizeof(jmp_buf));
+  lovrReloadPending = false; // TODO: Set after notifying code of reload
 
   // Global error handler
   if (setjmp(*lovrCatch)) {
@@ -191,6 +207,8 @@ void lovrRun(lua_State* L) {
   int exitCode = luaL_optint(L, -1, 0);
   lua_pop(L, 2);
   free(lovrCatch);
-  lovrDestroy(exitCode);
+  lovrCatch = NULL;
+  if (!lovrReloadPending)
+    lovrDestroy(exitCode);
 }
 #endif
