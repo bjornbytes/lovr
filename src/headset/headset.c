@@ -106,16 +106,6 @@ float lovrHeadsetGetBoundsDepth() {
   return headset ? headset->getBoundsDepth() : 0.f;
 }
 
-void lovrHeadsetGetBoundsGeometry(float* geometry) {
-  if (!headset) {
-    *geometry = 0.f;
-    return;
-  }
-
-  headset->getBoundsGeometry(geometry);
-}
-
-
 void lovrHeadsetGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (!headset) {
     *x = *y = *z = *angle = *ax = *ay = *az = 0.f;

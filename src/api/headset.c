@@ -197,21 +197,6 @@ int l_lovrHeadsetGetBoundsDimensions(lua_State* L) {
   return 2;
 }
 
-int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
-  float geometry[12];
-  lovrHeadsetGetBoundsGeometry(geometry);
-  lua_newtable(L);
-  for (int i = 0; i < 4; i++) {
-    lua_newtable(L);
-    for (int j = 0; j < 3; j++) {
-      lua_pushnumber(L, geometry[3 * i + j]);
-      lua_rawseti(L, -2, j + 1);
-    }
-    lua_rawseti(L, -2, i + 1);
-  }
-  return 1;
-}
-
 static void luax_getPose(lua_State* L, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (lua_type(L, 1) == LUA_TSTRING) {
     HeadsetEye eye = *(HeadsetEye*) luax_checkenum(L, 1, &HeadsetEyes, "eye");
@@ -331,7 +316,6 @@ const luaL_Reg lovrHeadset[] = {
   { "getBoundsWidth", l_lovrHeadsetGetBoundsWidth },
   { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
   { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
-  { "getBoundsGeometry", l_lovrHeadsetGetBoundsGeometry },
   { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },

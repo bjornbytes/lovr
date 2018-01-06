@@ -80,7 +80,6 @@ typedef struct {
   void (*setClipDistance)(float clipNear, float clipFar);
   float (*getBoundsWidth)();
   float (*getBoundsDepth)();
-  void (*getBoundsGeometry)(float* geometry);
   void (*getPose)(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void (*getEyePose)(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void (*getVelocity)(float* x, float* y, float* z);
@@ -117,7 +116,6 @@ void lovrHeadsetGetClipDistance(float* clipNear, float* clipFar);
 void lovrHeadsetSetClipDistance(float clipNear, float clipFar);
 float lovrHeadsetGetBoundsWidth();
 float lovrHeadsetGetBoundsDepth();
-void lovrHeadsetGetBoundsGeometry(float* geometry);
 void lovrHeadsetGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
 void lovrHeadsetGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
 void lovrHeadsetGetVelocity(float* x, float* y, float* z);

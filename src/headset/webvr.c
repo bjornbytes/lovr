@@ -113,10 +113,6 @@ static float webvrGetBoundsDepth() {
   return emscripten_vr_get_bounds_depth();
 }
 
-static void webvrGetBoundsGeometry(float* geometry) {
-  memset(geometry, 0, 12 * sizeof(float));
-}
-
 static void webvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   float v[3];
   emscripten_vr_get_position(&v[0], &v[1], &v[2]);

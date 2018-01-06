@@ -354,20 +354,6 @@ static float openvrGetBoundsDepth() {
   return depth;
 }
 
-static void openvrGetBoundsGeometry(float* geometry) {
-  if (!state.isInitialized) {
-    memset(geometry, 0, 12 * sizeof(float));
-  } else {
-    struct HmdQuad_t quad;
-    state.chaperone->GetPlayAreaRect(&quad);
-    for (int i = 0; i < 4; i++) {
-      geometry[3 * i + 0] = quad.vCorners[i].v[0];
-      geometry[3 * i + 1] = quad.vCorners[i].v[1];
-      geometry[3 * i + 2] = quad.vCorners[i].v[2];
-    }
-  }
-}
-
 static void openvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (!state.isInitialized) {
     *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
@@ -829,7 +815,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrSetClipDistance,
   openvrGetBoundsWidth,
   openvrGetBoundsDepth,
-  openvrGetBoundsGeometry,
   openvrGetPose,
   openvrGetEyePose,
   openvrGetVelocity,

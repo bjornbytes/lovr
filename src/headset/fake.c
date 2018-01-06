@@ -248,10 +248,6 @@ static float fakeGetBoundsDepth() {
   return 0.0f;
 }
 
-static void fakeGetBoundsGeometry(float* geometry) {
-  memset(geometry, 0, 12 * sizeof(float));
-}
-
 static void fakeGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = state.pos[0];
   *y = state.pos[1];
@@ -412,7 +408,6 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeSetClipDistance,
   fakeGetBoundsWidth,
   fakeGetBoundsDepth,
-  fakeGetBoundsGeometry,
   fakeGetPose,
   fakeGetEyePose,
   fakeGetVelocity,
