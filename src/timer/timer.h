@@ -1,6 +1,6 @@
 #pragma once
 
-#define TICK_SAMPLES 60
+#define TICK_SAMPLES 90
 
 typedef struct {
   double lastTime;
