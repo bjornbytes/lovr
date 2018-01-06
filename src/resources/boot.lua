@@ -121,10 +121,12 @@ if not lovr.filesystem.getSource() or not runnable then
   lovr.controllerremoved = refreshControllers
 end
 
-local success, err = pcall(require, 'conf')
-local conferr
-if lovr.conf then
-  success, conferr = pcall(lovr.conf, conf)
+local confOk, confError
+if lovr.filesystem.isFile('conf.lua') then
+  confOk, confError = pcall(require, 'conf')
+  if lovr.conf then
+    confOk, confError = pcall(lovr.conf, conf)
+  end
 end
 
 lovr._setConf(conf)
@@ -139,8 +141,8 @@ for _, module in ipairs(modules) do
 end
 
 -- Error after window is created
-if conferr then
-  error(conferr)
+if confError then
+  error(confError)
 end
 
 lovr.handlers = setmetatable({
