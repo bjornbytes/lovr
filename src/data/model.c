@@ -345,7 +345,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
   // Materials
   modelData->materialCount = scene->mNumMaterials;
-  modelData->materials = malloc(modelData->materialCount * sizeof(MaterialData));
+  modelData->materials = malloc(modelData->materialCount * sizeof(MaterialData*));
   for (unsigned int m = 0; m < scene->mNumMaterials; m++) {
     MaterialData* materialData = lovrMaterialDataCreateEmpty();
     struct aiMaterial* material = scene->mMaterials[m];
@@ -457,7 +457,9 @@ void lovrModelDataDestroy(ModelData* modelData) {
     map_deinit(&modelData->primitives[i].boneMap);
   }
 
-  lovrAnimationDataDestroy(modelData->animationData);
+  if (modelData->animationData) {
+    lovrAnimationDataDestroy(modelData->animationData);
+  }
 
   for (int i = 0; i < modelData->materialCount; i++) {
     lovrMaterialDataDestroy(modelData->materials[i]);

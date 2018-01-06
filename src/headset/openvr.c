@@ -679,9 +679,11 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   modelData->nodes = malloc(1 * sizeof(ModelNode));
   modelData->primitives = malloc(1 * sizeof(ModelPrimitive));
-  modelData->materials = malloc(1 * sizeof(MaterialData));
+  modelData->materials = malloc(1 * sizeof(MaterialData*));
+  modelData->animationData = NULL;
 
   // Geometry
+  map_init(&modelData->nodeMap);
   ModelNode* root = &modelData->nodes[0];
   root->parent = -1;
   mat4_identity(root->transform);
@@ -691,6 +693,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   modelData->primitives[0].material = 0;
   modelData->primitives[0].drawStart = 0;
   modelData->primitives[0].drawCount = modelData->indexCount;
+  map_init(&modelData->primitives[0].boneMap);
 
   // Material
   RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
@@ -706,8 +709,9 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   textureData->height = height;
   textureData->format = FORMAT_RGBA;
   textureData->data = memcpy(malloc(size), vrTexture->rubTextureMapData, size);
-  textureData->mipmaps.generated = 1;
+  textureData->mipmaps.generated = true;
   textureData->blob = NULL;
+  vec_init(&textureData->mipmaps.list);
 
   modelData->materials[0] = lovrMaterialDataCreateEmpty();
   modelData->materials[0]->textures[TEXTURE_DIFFUSE] = textureData;
