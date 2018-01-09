@@ -4,6 +4,7 @@
 
 int l_lovrCanvasRenderTo(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
+  luaL_checktype(L, 2, LUA_TFUNCTION);
   lovrGraphicsPushView();
   lovrCanvasBind(canvas);
   lua_settop(L, 2);
