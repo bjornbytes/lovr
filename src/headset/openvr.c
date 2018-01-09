@@ -142,6 +142,14 @@ static TrackedDevicePose_t getPose(unsigned int deviceIndex) {
   return poses[deviceIndex];
 }
 
+static void initializeCanvas() {
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  int msaa = 0;
+  glGetIntegerv(GL_SAMPLES, &msaa);
+  state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
+  state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, CANVAS_3D, msaa, true, true);
+}
+
 static void openvrInit() {
   state.isInitialized = false;
   state.isRendering = false;
@@ -320,6 +328,7 @@ static void openvrGetDisplayDimensions(int* width, int* height) {
   if (!state.isInitialized) {
     *width = *height = 0;
   } else {
+    initializeCanvas();
     *width = state.renderWidth;
     *height = state.renderHeight;
   }
@@ -716,11 +725,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   lovrGraphicsPushView();
 
   if (!state.canvas) {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    int msaa = 0;
-    glGetIntegerv(GL_SAMPLES, &msaa);
-    state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
-    state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, CANVAS_3D, msaa, true, true);
+    initializeCanvas();
   }
 
   float head[16], transform[16], projection[16];
