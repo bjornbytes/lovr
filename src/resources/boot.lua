@@ -168,11 +168,11 @@ lovr.handlers = setmetatable({
   end
 })
 
-local function headsetRenderCallback()
+local function headsetRenderCallback(eye)
   if lovr.headset.getOriginType() == 'head' then
     applyHeadsetOffset()
   end
-  lovr.draw()
+  lovr.draw(eye)
 end
 
 function lovr.step()

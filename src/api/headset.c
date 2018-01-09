@@ -301,6 +301,7 @@ int l_lovrHeadsetUpdate(lua_State* L) {
   lovrHeadsetUpdate(dt);
   return 0;
 }
+
 const luaL_Reg lovrHeadset[] = {
   { "isPresent", l_lovrHeadsetIsPresent },
   { "getDriver", l_lovrHeadsetGetDriver },
