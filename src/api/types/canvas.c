@@ -5,10 +5,10 @@
 int l_lovrCanvasRenderTo(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   luaL_checktype(L, 2, LUA_TFUNCTION);
+  int nargs = lua_gettop(L) - 2;
   lovrGraphicsPushView();
   lovrCanvasBind(canvas);
-  lua_settop(L, 2);
-  lua_call(L, 0, 0);
+  lua_call(L, nargs, 0);
   lovrCanvasResolveMSAA(canvas);
   lovrGraphicsPopView();
   return 0;
