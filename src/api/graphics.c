@@ -767,6 +767,9 @@ int l_lovrGraphicsNewAnimator(lua_State* L) {
 int l_lovrGraphicsNewCanvas(lua_State* L) {
   int width = luaL_checkinteger(L, 1);
   int height = luaL_checkinteger(L, 2);
+  luaL_argcheck(L, width > 0, 1, "width must be positive");
+  luaL_argcheck(L, height > 0, 2, "height must be positive");
+
   TextureFormat format = FORMAT_RGBA;
   CanvasType type = CANVAS_3D;
   int msaa = 0;
