@@ -61,7 +61,7 @@ int l_lovrShaderSend(lua_State* L) {
   switch (uniform->type) {
     case UNIFORM_FLOAT:
       if (components == 1) {
-        floats[0] = luaL_checkinteger(L, 3);
+        floats[0] = luaL_checknumber(L, 3);
       } else {
         luaL_checktype(L, 3, LUA_TTABLE);
         for (int i = 0; i < n; i++) {
