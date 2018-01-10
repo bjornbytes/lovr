@@ -20,6 +20,7 @@ int l_lovrPhysicsInit(lua_State* L) {
 
   map_init(&JointTypes);
   map_set(&JointTypes, "ball", JOINT_BALL);
+  map_set(&JointTypes, "distance", JOINT_DISTANCE);
   map_set(&JointTypes, "hinge", JOINT_HINGE);
   map_set(&JointTypes, "slider", JOINT_SLIDER);
 
