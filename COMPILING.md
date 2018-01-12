@@ -53,9 +53,6 @@ Install the dependencies using your package manager of choice:
 brew install assimp glfw3 luajit physfs freetype openal-soft ode
 ```
 
-You may need to set the `PKG_CONFIG_PATH` environment variable for OpenAL to be located properly.
-If you run into this, see [Troubleshooting](#troubleshooting) below for more info.
-
 Next, build using CMake, as above:
 
 ```sh
@@ -71,6 +68,9 @@ symlink so that this executable exists on your path.  Once that's done, you can 
 ```sh
 lovr /path/to/myGame
 ```
+
+You may need to set the `PKG_CONFIG_PATH` environment variable for OpenAL to be located properly.
+If you run into this, see [Troubleshooting](#troubleshooting) below for more info.
 
 Linux
 ---
@@ -141,7 +141,7 @@ emmake nmake
 The above commands will output `lovr.js` and `lovr.wasm`.  To package a game, run:
 
 ```
-python /path/to/emscripten/tools/file_packager.py game.data --preload /path/to/game@/ --js-output=game.js
+python /path/to/emscripten/tools/file_packager.py game.data --no-heap-copy --preload /path/to/game@/ --js-output=game.js
 ```
 
 Which will output `game.js` and `game.data`.  You can then include `lovr.js` and `game.js` on an
