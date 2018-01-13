@@ -160,33 +160,33 @@ void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
 
   switch (filter.mode) {
     case FILTER_NEAREST:
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(texture->type, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(texture->type, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       break;
 
     case FILTER_BILINEAR:
       if (hasMipmaps) {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->type, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+        glTexParameteri(texture->type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       } else {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(texture->type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       }
       break;
 
     case FILTER_TRILINEAR:
     case FILTER_ANISOTROPIC:
       if (hasMipmaps) {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->type, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(texture->type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       } else {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(texture->type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       }
       break;
   }
 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
+  glTexParameteri(texture->type, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
 }
 
 TextureWrap lovrTextureGetWrap(Texture* texture) {
