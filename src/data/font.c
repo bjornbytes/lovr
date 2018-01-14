@@ -91,10 +91,10 @@ FontData* lovrFontDataCreate(Blob* blob, int size) {
 }
 
 void lovrFontDataDestroy(FontData* fontData) {
+  FT_Done_Face(fontData->rasterizer);
   if (fontData->blob) {
     lovrRelease(&fontData->blob->ref);
   }
-  FT_Done_Face(fontData->rasterizer);
   free(fontData);
 }
 
