@@ -704,9 +704,9 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   textureData->height = height;
   textureData->format = FORMAT_RGBA;
   textureData->data = memcpy(malloc(size), vrTexture->rubTextureMapData, size);
-  textureData->mipmaps.generated = true;
   textureData->blob = NULL;
-  vec_init(&textureData->mipmaps.list);
+  textureData->generateMipmaps = true;
+  vec_init(&textureData->mipmaps);
 
   modelData->materials[0] = lovrMaterialDataCreateEmpty();
   modelData->materials[0]->textures[TEXTURE_DIFFUSE] = textureData;

@@ -38,10 +38,8 @@ typedef struct {
   void* data;
   Blob* blob;
   TextureFormat format;
-  union MipmapType {
-    vec_mipmap_t list;
-    bool generated;
-  } mipmaps;
+  bool generateMipmaps;
+  vec_mipmap_t mipmaps;
 } TextureData;
 
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format);

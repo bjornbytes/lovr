@@ -78,7 +78,7 @@ static void lovrTextureUpload(Texture* texture) {
 
     if (lovrTextureFormatIsCompressed(textureData->format)) {
       Mipmap m; int i;
-      vec_foreach(&textureData->mipmaps.list, m, i) {
+      vec_foreach(&textureData->mipmaps, m, i) {
         glCompressedTexImage2D(binding, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
       }
     } else {
@@ -91,7 +91,7 @@ static void lovrTextureUpload(Texture* texture) {
         glTexSubImage2D(binding, 0, 0, 0, w, h, glFormat, GL_UNSIGNED_BYTE, textureData->data);
       }
 
-      if (textureData->mipmaps.generated) {
+      if (textureData->generateMipmaps) {
         glGenerateMipmap(texture->type);
       }
     }
@@ -153,7 +153,7 @@ TextureFilter lovrTextureGetFilter(Texture* texture) {
 }
 
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
-  bool hasMipmaps = lovrTextureFormatIsCompressed(texture->slices[0]->format) || texture->slices[0]->mipmaps.generated;
+  bool hasMipmaps = lovrTextureFormatIsCompressed(texture->slices[0]->format) || texture->slices[0]->generateMipmaps;
   float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
   lovrGraphicsBindTexture(texture, texture->type, 0);
   texture->filter = filter;
