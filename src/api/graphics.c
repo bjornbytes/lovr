@@ -990,16 +990,15 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 
 int l_lovrGraphicsNewTexture(lua_State* L) {
   Blob* blobs[6];
+  int top = lua_gettop(L);
   bool isTable = lua_istable(L, 1);
-  int count = isTable ? lua_objlen(L, 1) : lua_gettop(L);
-
-  if (count != 1 && count != 6) {
-    return luaL_error(L, "Expected 1 image for a 2D texture or 6 images for a cube texture, got %d", count);
-  }
+  bool hasFlags = isTable ? lua_istable(L, 2) : lua_istable(L, top);
+  int count = isTable ? lua_objlen(L, 1) : (top - (hasFlags ? 1 : 0));
+  lovrAssert(count == 1 || count == 6, "Expected 1 image for a 2d texture or 6 images for a cubemap, got %d", count);
 
   if (isTable) {
     for (int i = 0; i < count; i++) {
-      lua_rawgeti(L, -1, i + 1);
+      lua_rawgeti(L, 1, i + 1);
       blobs[i] = luax_readblob(L, -1, "Texture");
       lua_pop(L, 1);
     }
@@ -1010,8 +1009,8 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   bool srgb = true;
-  if (lua_istable(L, count + 1)) {
-    lua_getfield(L, count + 1, "linear");
+  if (hasFlags) {
+    lua_getfield(L, top, "linear");
     srgb = !lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
