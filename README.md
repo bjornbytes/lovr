@@ -78,7 +78,7 @@ end
 Documentation
 ---
 
-Documentation and examples are available on the website [here](https://lovr.org/docs).  The website is also [open source](https://github.com/bjornbytes/lovr-docs) if you want to add or edit documentation.
+Documentation and examples are available on the [website](https://lovr.org/docs).
 
 Community
 ---

@@ -18,8 +18,8 @@ Contributing Documentation
 ---
 
 If you see any typos or inconsistencies in the docs, submitting an issue or pull request in the
-[lovr-docs repo](https://github.com/bjornbytes/lovr-docs) would be greatly appreciated!  There,
-each documentation page is a markdown file in the `docs` folder, and examples can be found in the
+[lovr.org repo](https://github.com/bjornbytes/lovr.org) would be greatly appreciated!  There, each
+documentation page is a markdown file in the `docs` folder, and examples can be found in the
 `examples` folder.
 
 Contributing Code
