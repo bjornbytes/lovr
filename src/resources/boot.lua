@@ -213,6 +213,7 @@ function lovr.step()
 end
 
 function lovr.run()
+  lovr.timer.step()
   if lovr.load then lovr.load() end
   while true do
     local exit = lovr.step()

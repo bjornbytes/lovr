@@ -9,8 +9,6 @@ void lovrTimerInit() {
   for (int i = 0; i < TICK_SAMPLES; i++) {
     timerState.tickBuffer[i] = 0.;
   }
-
-  lovrTimerStep();
 }
 
 double lovrTimerGetDelta() {

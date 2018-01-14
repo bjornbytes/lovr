@@ -69,6 +69,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
     exit(0);
   }
 
+  glfwSetTime(0);
   glfwSetErrorCallback(onGlfwError);
 
   if (!glfwInit()) {
@@ -141,7 +142,6 @@ static void emscriptenLoop(void* arg) {
 }
 
 void lovrRun(lua_State* L) {
-  glfwSetTime(0);
 
   // lovr.load
   lua_getglobal(L, "lovr");
@@ -161,7 +161,6 @@ void lovrRun(lua_State* L) {
 }
 #else
 void lovrRun(lua_State* L) {
-  glfwSetTime(0);
   lovrCatch = malloc(sizeof(jmp_buf));
 
   // Global error handler
