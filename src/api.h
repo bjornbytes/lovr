@@ -7,6 +7,7 @@
 #include "lib/map/map.h"
 
 int l_lovrAudioInit(lua_State* L);
+int l_lovrDataInit(lua_State* L);
 int l_lovrEventInit(lua_State* L);
 int l_lovrFilesystemInit(lua_State* L);
 int l_lovrGraphicsInit(lua_State* L);
@@ -25,6 +26,7 @@ extern const luaL_Reg lovrCapsuleShape[];
 extern const luaL_Reg lovrController[];
 extern const luaL_Reg lovrCylinderShape[];
 extern const luaL_Reg lovrCollider[];
+extern const luaL_Reg lovrData[];
 extern const luaL_Reg lovrDistanceJoint[];
 extern const luaL_Reg lovrEvent[];
 extern const luaL_Reg lovrFilesystem[];

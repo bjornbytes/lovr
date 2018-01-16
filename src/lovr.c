@@ -106,6 +106,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
 
   // Preload modules
   luax_preloadmodule(L, "lovr.audio", l_lovrAudioInit);
+  luax_preloadmodule(L, "lovr.data", l_lovrDataInit);
   luax_preloadmodule(L, "lovr.event", l_lovrEventInit);
   luax_preloadmodule(L, "lovr.filesystem", l_lovrFilesystemInit);
   luax_preloadmodule(L, "lovr.graphics", l_lovrGraphicsInit);
