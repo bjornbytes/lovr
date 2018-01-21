@@ -1,8 +1,10 @@
 #include "filesystem/blob.h"
+#include "util.h"
 
 #pragma once
 
 typedef struct {
+  Ref ref;
   int bitDepth;
   int channelCount;
   int sampleRate;
@@ -14,7 +16,7 @@ typedef struct {
 } AudioStream;
 
 AudioStream* lovrAudioStreamCreate(Blob* blob);
-void lovrAudioStreamDestroy(AudioStream* stream);
+void lovrAudioStreamDestroy(const Ref* ref);
 int lovrAudioStreamDecode(AudioStream* stream);
 void lovrAudioStreamRewind(AudioStream* stream);
 void lovrAudioStreamSeek(AudioStream* stream, int sample);

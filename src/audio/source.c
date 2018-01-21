@@ -43,7 +43,7 @@ void lovrSourceDestroy(const Ref* ref) {
   Source* source = containerof(ref, Source);
   alDeleteSources(1, &source->id);
   alDeleteBuffers(SOURCE_BUFFERS, source->buffers);
-  lovrAudioStreamDestroy(source->stream);
+  lovrRelease(&source->stream->ref);
   free(source);
 }
 
