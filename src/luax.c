@@ -90,6 +90,19 @@ int luax_releasetype(lua_State* L) {
   return 0;
 }
 
+void* luax_testudata(lua_State* L, int index, const char* type) {
+  void* p = lua_touserdata(L, index);
+
+  if (!p || !lua_getmetatable(L, index)) {
+    return NULL;
+  }
+
+  luaL_getmetatable(L, type);
+  int equal = lua_rawequal(L, -1, -2);
+  lua_pop(L, 2);
+  return equal ? p : NULL;
+}
+
 // Find an object, pushing it onto the stack if it's found or leaving the stack unchanged otherwise.
 int luax_getobject(lua_State* L, void* object) {
   luax_pushobjectregistry(L);

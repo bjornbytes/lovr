@@ -8,6 +8,7 @@
 
 #define STRINGIFY(x) #x
 
+#define luax_totype(L, i, T) (luax_testudata(L, i, #T))
 #define luax_checktype(L, i, T) *(T**) luaL_checkudata(L, i, #T)
 #define luax_checktypeof(L, i, T) \
   *(T**) (luaL_argcheck(L, lua_touserdata(L, i), i, "Expected " STRINGIFY(T)), \
@@ -32,6 +33,7 @@ int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f);
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions);
 void luax_extendtype(lua_State* L, const char* base, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions);
 int luax_releasetype(lua_State* L);
+void* luax_testudata(lua_State* L, int index, const char* type);
 int luax_getobject(lua_State* L, void* object);
 void luax_registerobject(lua_State* L, void* object);
 void luax_pushconf(lua_State* L);
