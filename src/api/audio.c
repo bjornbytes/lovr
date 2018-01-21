@@ -63,7 +63,7 @@ int l_lovrAudioIsSpatialized(lua_State* L) {
 
 int l_lovrAudioNewSource(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Source");
-  AudioStream* stream = lovrAudioStreamCreate(blob);
+  AudioStream* stream = lovrAudioStreamCreate(blob, 4096);
   Source* source = lovrSourceCreate(stream);
   luax_pushtype(L, Source, source);
   lovrRelease(&source->ref);

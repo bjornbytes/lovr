@@ -3,7 +3,7 @@
 #include "util.h"
 #include <stdlib.h>
 
-AudioStream* lovrAudioStreamCreate(Blob* blob) {
+AudioStream* lovrAudioStreamCreate(Blob* blob, size_t bufferSize) {
   AudioStream* stream = lovrAlloc(sizeof(AudioStream), lovrAudioStreamDestroy);
   if (!stream) return NULL;
 
@@ -21,7 +21,7 @@ AudioStream* lovrAudioStreamCreate(Blob* blob) {
   stream->sampleRate = info.sample_rate;
   stream->samples = stb_vorbis_stream_length_in_samples(decoder);
   stream->decoder = decoder;
-  stream->bufferSize = stream->channelCount * 4096 * sizeof(short);
+  stream->bufferSize = stream->channelCount * bufferSize * sizeof(short);
   stream->buffer = malloc(stream->bufferSize);
   stream->blob = blob;
   lovrRetain(&blob->ref);
