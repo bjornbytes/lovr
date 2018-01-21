@@ -215,6 +215,7 @@ endif()
 # LÖVR
 set(LOVR_SRC
   src/api/audio.c
+  src/api/data.c
   src/api/event.c
   src/api/filesystem.c
   src/api/graphics.c
@@ -237,11 +238,13 @@ set(LOVR_SRC
   src/api/types/shapes.c
   src/api/types/source.c
   src/api/types/texture.c
+  src/api/types/textureData.c
   src/api/types/transform.c
   src/api/types/world.c
   src/audio/audio.c
   src/audio/source.c
   src/data/animation.c
+  src/data/data.c
   src/data/font.c
   src/data/material.c
   src/data/model.c
