@@ -4,7 +4,7 @@
 
 typedef struct {
   int bitDepth;
-  int channels;
+  int channelCount;
   int sampleRate;
   int samples;
   int bufferSize;

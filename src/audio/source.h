@@ -24,7 +24,7 @@ typedef struct {
 Source* lovrSourceCreate(SourceData* sourceData);
 void lovrSourceDestroy(const Ref* ref);
 int lovrSourceGetBitDepth(Source* source);
-int lovrSourceGetChannels(Source* source);
+int lovrSourceGetChannelCount(Source* source);
 void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, float* outerGain);
 void lovrSourceGetDirection(Source* source, float* x, float* y, float* z);
 int lovrSourceGetDuration(Source* source);

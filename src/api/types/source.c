@@ -8,9 +8,9 @@ int l_lovrSourceGetBitDepth(lua_State* L) {
   return 1;
 }
 
-int l_lovrSourceGetChannels(lua_State* L) {
+int l_lovrSourceGetChannelCount(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  lua_pushinteger(L, lovrSourceGetChannels(source));
+  lua_pushinteger(L, lovrSourceGetChannelCount(source));
   return 1;
 }
 
@@ -257,7 +257,7 @@ int l_lovrSourceTell(lua_State* L) {
 
 const luaL_Reg lovrSource[] = {
   { "getBitDepth", l_lovrSourceGetBitDepth },
-  { "getChannels", l_lovrSourceGetChannels },
+  { "getChannelCount", l_lovrSourceGetChannelCount },
   { "getCone", l_lovrSourceGetCone },
   { "getDirection", l_lovrSourceGetDirection },
   { "getDuration", l_lovrSourceGetDuration },

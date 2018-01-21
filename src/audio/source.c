@@ -5,16 +5,16 @@
 #include <stdlib.h>
 
 static ALenum lovrSourceGetFormat(Source* source) {
-  int channels = source->sourceData->channels;
+  int channelCount = source->sourceData->channelCount;
   int bitDepth = source->sourceData->bitDepth;
 
-  if (bitDepth == 8 && channels == 1) {
+  if (bitDepth == 8 && channelCount == 1) {
     return AL_FORMAT_MONO8;
-  } else if (bitDepth == 8 && channels == 2) {
+  } else if (bitDepth == 8 && channelCount == 2) {
     return AL_FORMAT_STEREO8;
-  } else if (bitDepth == 16 && channels == 1) {
+  } else if (bitDepth == 16 && channelCount == 1) {
     return AL_FORMAT_MONO16;
-  } else if (bitDepth == 16 && channels == 2) {
+  } else if (bitDepth == 16 && channelCount == 2) {
     return AL_FORMAT_STEREO16;
   }
 
@@ -59,8 +59,8 @@ void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, flo
   *outerAngle *= M_PI / 180.f;
 }
 
-int lovrSourceGetChannels(Source* source) {
-  return source->sourceData->channels;
+int lovrSourceGetChannelCount(Source* source) {
+  return source->sourceData->channelCount;
 }
 
 void lovrSourceGetDirection(Source* source, float* x, float* y, float* z) {
@@ -199,7 +199,7 @@ void lovrSourceSetDirection(Source* source, float x, float y, float z) {
 }
 
 void lovrSourceSetFalloff(Source* source, float reference, float max, float rolloff) {
-  lovrAssert(lovrSourceGetChannels(source) == 1, "Positional audio is only supported for mono sources");
+  lovrAssert(lovrSourceGetChannelCount(source) == 1, "Positional audio is only supported for mono sources");
   alSourcef(source->id, AL_REFERENCE_DISTANCE, reference);
   alSourcef(source->id, AL_MAX_DISTANCE, max);
   alSourcef(source->id, AL_ROLLOFF_FACTOR, rolloff);
@@ -214,7 +214,7 @@ void lovrSourceSetPitch(Source* source, float pitch) {
 }
 
 void lovrSourceSetPosition(Source* source, float x, float y, float z) {
-  lovrAssert(lovrSourceGetChannels(source) == 1, "Positional audio is only supported for mono sources");
+  lovrAssert(lovrSourceGetChannelCount(source) == 1, "Positional audio is only supported for mono sources");
   alSource3f(source->id, AL_POSITION, x, y, z);
 }
 
@@ -277,7 +277,7 @@ void lovrSourceStream(Source* source, ALuint* buffers, int count) {
 
 int lovrSourceTell(Source* source) {
   int decoderOffset = lovrSourceDataTell(source->sourceData);
-  int samplesPerBuffer = source->sourceData->bufferSize / source->sourceData->channels / sizeof(ALshort);
+  int samplesPerBuffer = source->sourceData->bufferSize / source->sourceData->channelCount / sizeof(ALshort);
   int queuedBuffers, sampleOffset;
   alGetSourcei(source->id, AL_BUFFERS_QUEUED, &queuedBuffers);
   alGetSourcei(source->id, AL_SAMPLE_OFFSET, &sampleOffset);

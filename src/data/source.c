@@ -17,11 +17,11 @@ SourceData* lovrSourceDataCreate(Blob* blob) {
   stb_vorbis_info info = stb_vorbis_get_info(decoder);
 
   sourceData->bitDepth = 16;
-  sourceData->channels = info.channels;
+  sourceData->channelCount = info.channels;
   sourceData->sampleRate = info.sample_rate;
   sourceData->samples = stb_vorbis_stream_length_in_samples(decoder);
   sourceData->decoder = decoder;
-  sourceData->bufferSize = sourceData->channels * 4096 * sizeof(short);
+  sourceData->bufferSize = sourceData->channelCount * 4096 * sizeof(short);
   sourceData->buffer = malloc(sourceData->bufferSize);
   sourceData->blob = blob;
   lovrRetain(&blob->ref);
@@ -39,14 +39,14 @@ void lovrSourceDataDestroy(SourceData* sourceData) {
 int lovrSourceDataDecode(SourceData* sourceData) {
   stb_vorbis* decoder = (stb_vorbis*) sourceData->decoder;
   short* buffer = (short*) sourceData->buffer;
-  int channels = sourceData->channels;
+  int channelCount = sourceData->channelCount;
   int capacity = sourceData->bufferSize / sizeof(short);
   int samples = 0;
 
   while (samples < capacity) {
-    int count = stb_vorbis_get_samples_short_interleaved(decoder, channels, buffer + samples, capacity - samples);
+    int count = stb_vorbis_get_samples_short_interleaved(decoder, channelCount, buffer + samples, capacity - samples);
     if (count == 0) break;
-    samples += count * channels;
+    samples += count * channelCount;
   }
 
   return samples;
