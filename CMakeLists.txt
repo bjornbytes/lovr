@@ -248,7 +248,7 @@ set(LOVR_SRC
   src/data/font.c
   src/data/material.c
   src/data/model.c
-  src/data/source.c
+  src/data/audioStream.c
   src/data/texture.c
   src/event/event.c
   src/filesystem/blob.c
