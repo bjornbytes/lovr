@@ -113,7 +113,7 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 }
 
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format) {
-  TextureData* textureData = malloc(sizeof(TextureData));
+  TextureData* textureData = lovrAlloc(sizeof(TextureData), lovrTextureDataDestroy);
   if (!textureData) return NULL;
 
   size_t pixelSize = 0;
@@ -138,7 +138,7 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, Textu
 }
 
 TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format) {
-  TextureData* textureData = malloc(sizeof(TextureData));
+  TextureData* textureData = lovrAlloc(sizeof(TextureData), lovrTextureDataDestroy);
   if (!textureData) return NULL;
 
   textureData->width = width;
@@ -152,7 +152,7 @@ TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format
 }
 
 TextureData* lovrTextureDataFromBlob(Blob* blob) {
-  TextureData* textureData = malloc(sizeof(TextureData));
+  TextureData* textureData = lovrAlloc(sizeof(TextureData), lovrTextureDataDestroy);
   if (!textureData) return NULL;
 
   vec_init(&textureData->mipmaps);
@@ -178,7 +178,8 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
   return textureData;
 }
 
-void lovrTextureDataDestroy(TextureData* textureData) {
+void lovrTextureDataDestroy(const Ref* ref) {
+  TextureData* textureData = containerof(ref, TextureData);
   if (textureData->blob) {
     lovrRelease(&textureData->blob->ref);
   }

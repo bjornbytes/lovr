@@ -1,4 +1,5 @@
 #include "filesystem/blob.h"
+#include "util.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -33,6 +34,7 @@ typedef struct {
 typedef vec_t(Mipmap) vec_mipmap_t;
 
 typedef struct {
+  Ref ref;
   int width;
   int height;
   void* data;
@@ -45,4 +47,4 @@ typedef struct {
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format);
 TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format);
 TextureData* lovrTextureDataFromBlob(Blob* blob);
-void lovrTextureDataDestroy(TextureData* textureData);
+void lovrTextureDataDestroy(const Ref* ref);

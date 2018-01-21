@@ -142,7 +142,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCo
 void lovrTextureDestroy(const Ref* ref) {
   Texture* texture = containerof(ref, Texture);
   for (int i = 0; i < texture->sliceCount; i++) {
-    lovrTextureDataDestroy(texture->slices[i]);
+    lovrRelease(&texture->slices[i]->ref);
   }
   glDeleteTextures(1, &texture->id);
   free(texture);
