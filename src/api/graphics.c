@@ -820,25 +820,31 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
 }
 
 int l_lovrGraphicsNewFont(lua_State* L) {
-  Blob* blob = NULL;
-  float size;
-
-  if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
-    size = luaL_optnumber(L, 1, 32);
+  Rasterizer* rasterizer;
+  void** type;
+  if ((type = luax_totype(L, 1, Rasterizer)) != NULL) {
+    rasterizer = *type;
   } else {
-    blob = luax_readblob(L, 1, "Font");
-    size = luaL_optnumber(L, 2, 32);
+    Blob* blob = NULL;
+    float size;
+
+    if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
+      size = luaL_optnumber(L, 1, 32);
+    } else {
+      blob = luax_readblob(L, 1, "Font");
+      size = luaL_optnumber(L, 2, 32);
+    }
+
+    rasterizer = lovrRasterizerCreate(blob, size);
+
+    if (blob) {
+      lovrRelease(&blob->ref);
+    }
   }
 
-  Rasterizer* rasterizer = lovrRasterizerCreate(blob, size);
   Font* font = lovrFontCreate(rasterizer);
   luax_pushtype(L, Font, font);
   lovrRelease(&font->ref);
-
-  if (blob) {
-    lovrRelease(&blob->ref);
-  }
-
   return 1;
 }
 
