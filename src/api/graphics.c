@@ -79,6 +79,18 @@ static void stencilCallback(void* userdata) {
   lua_call(L, 0, 0);
 }
 
+static TextureData* luax_checktexturedata(lua_State* L, int index) {
+  void** type;
+  if ((type = luax_totype(L, index, TextureData)) != NULL) {
+    return *type;
+  } else {
+    Blob* blob = luax_readblob(L, index, "Texture");
+    TextureData* textureData = lovrTextureDataFromBlob(blob);
+    lovrRelease(&blob->ref);
+    return textureData;
+  }
+}
+
 // Base
 
 int l_lovrGraphicsInit(lua_State* L) {
@@ -989,22 +1001,22 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 int l_lovrGraphicsNewTexture(lua_State* L) {
-  Blob* blobs[6];
   int top = lua_gettop(L);
   bool isTable = lua_istable(L, 1);
   bool hasFlags = isTable ? lua_istable(L, 2) : lua_istable(L, top);
   int count = isTable ? lua_objlen(L, 1) : (top - (hasFlags ? 1 : 0));
   lovrAssert(count == 1 || count == 6, "Expected 1 image for a 2d texture or 6 images for a cubemap, got %d", count);
 
+  TextureData* slices[6];
   if (isTable) {
     for (int i = 0; i < count; i++) {
       lua_rawgeti(L, 1, i + 1);
-      blobs[i] = luax_readblob(L, -1, "Texture");
+      slices[i] = luax_checktexturedata(L, -1);
       lua_pop(L, 1);
     }
   } else {
     for (int i = 0; i < count; i++) {
-      blobs[i] = luax_readblob(L, i + 1, "Texture");
+      slices[i] = luax_checktexturedata(L, i + 1);
     }
   }
 
@@ -1015,15 +1027,8 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  TextureData* slices[6];
-  for (int i = 0; i < count; i++) {
-    slices[i] = lovrTextureDataFromBlob(blobs[i]);
-    lovrRelease(&blobs[i]->ref);
-  }
-
   TextureType type = (count == 1) ? TEXTURE_2D : TEXTURE_CUBE;
   Texture* texture = lovrTextureCreate(type, slices, count, srgb);
-
   luax_pushtype(L, Texture, texture);
   lovrRelease(&texture->ref);
   return 1;
