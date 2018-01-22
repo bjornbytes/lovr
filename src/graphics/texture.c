@@ -136,6 +136,10 @@ Texture* lovrTextureCreate(TextureType type, TextureData* slices[6], int sliceCo
   WrapMode wrapMode = (type == TEXTURE_CUBE) ? WRAP_CLAMP : WRAP_REPEAT;
   lovrTextureSetWrap(texture, (TextureWrap) { .s = wrapMode, .t = wrapMode, .r = wrapMode });
 
+  for (int i = 0; i < sliceCount; i++) {
+    lovrRetain(&slices[i]->ref);
+  }
+
   return texture;
 }
 

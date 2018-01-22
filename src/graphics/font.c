@@ -26,6 +26,7 @@ Font* lovrFontCreate(Rasterizer* rasterizer) {
   Font* font = lovrAlloc(sizeof(Font), lovrFontDestroy);
   if (!font) return NULL;
 
+  lovrRetain(&rasterizer->ref);
   font->rasterizer = rasterizer;
   font->texture = NULL;
   font->lineHeight = 1.f;

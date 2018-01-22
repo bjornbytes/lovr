@@ -35,6 +35,7 @@ Source* lovrSourceCreate(AudioStream* stream) {
   source->isLooping = false;
   alGenSources(1, &source->id);
   alGenBuffers(SOURCE_BUFFERS, source->buffers);
+  lovrRetain(&stream->ref);
 
   return source;
 }
