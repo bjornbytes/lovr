@@ -1,6 +1,6 @@
 #include "graphics/graphics.h"
 #include "data/texture.h"
-#include "data/font.h"
+#include "data/rasterizer.h"
 #include "resources/shaders.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
@@ -364,8 +364,8 @@ void lovrGraphicsSetDepthTest(CompareMode depthTest) {
 Font* lovrGraphicsGetFont() {
   if (!state.font) {
     if (!state.defaultFont) {
-      FontData* fontData = lovrFontDataCreate(NULL, 32);
-      state.defaultFont = lovrFontCreate(fontData);
+      Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
+      state.defaultFont = lovrFontCreate(rasterizer);
     }
 
     lovrGraphicsSetFont(state.defaultFont);

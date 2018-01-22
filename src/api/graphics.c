@@ -5,9 +5,9 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
-#include "data/font.h"
 #include "data/material.h"
 #include "data/model.h"
+#include "data/rasterizer.h"
 #include "data/texture.h"
 #include "filesystem/filesystem.h"
 #include <math.h>
@@ -830,8 +830,8 @@ int l_lovrGraphicsNewFont(lua_State* L) {
     size = luaL_optnumber(L, 2, 32);
   }
 
-  FontData* fontData = lovrFontDataCreate(blob, size);
-  Font* font = lovrFontCreate(fontData);
+  Rasterizer* rasterizer = lovrRasterizerCreate(blob, size);
+  Font* font = lovrFontCreate(rasterizer);
   luax_pushtype(L, Font, font);
   lovrRelease(&font->ref);
 

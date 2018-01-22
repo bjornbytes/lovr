@@ -1,4 +1,4 @@
-#include "data/font.h"
+#include "data/rasterizer.h"
 #include "util.h"
 #include "graphics/texture.h"
 #include "math/math.h"
@@ -32,7 +32,7 @@ typedef struct {
 
 typedef struct {
   Ref ref;
-  FontData* fontData;
+  Rasterizer* rasterizer;
   Texture* texture;
   FontAtlas atlas;
   map_int_t kerning;
@@ -40,7 +40,7 @@ typedef struct {
   float pixelDensity;
 } Font;
 
-Font* lovrFontCreate(FontData* fontData);
+Font* lovrFontCreate(Rasterizer* rasterizer);
 void lovrFontDestroy(const Ref* ref);
 void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, vec_float_t* vertices, float* offsety);
 float lovrFontGetWidth(Font* font, const char* string, float wrap);

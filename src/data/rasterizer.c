@@ -1,4 +1,4 @@
-#include "data/font.h"
+#include "data/rasterizer.h"
 #include "resources/Cabin.ttf.h"
 #include "util.h"
 #include "msdfgen-c.h"
@@ -60,7 +60,7 @@ static int ftCubicTo(const FT_Vector* control1, const FT_Vector* control2, const
   return 0;
 }
 
-FontData* lovrFontDataCreate(Blob* blob, int size) {
+Rasterizer* lovrRasterizerCreate(Blob* blob, int size) {
   if (!ft && FT_Init_FreeType(&ft)) {
     lovrThrow("Error initializing FreeType");
   }
@@ -77,29 +77,30 @@ FontData* lovrFontDataCreate(Blob* blob, int size) {
   err = err || FT_Set_Pixel_Sizes(face, 0, size);
   lovrAssert(!err, "Problem loading font");
 
-  FontData* fontData = malloc(sizeof(FontData));
-  fontData->rasterizer = face;
-  fontData->blob = blob;
-  fontData->size = size;
+  Rasterizer* rasterizer = lovrAlloc(sizeof(Rasterizer), lovrRasterizerDestroy);
+  rasterizer->ftHandle = face;
+  rasterizer->blob = blob;
+  rasterizer->size = size;
 
   FT_Size_Metrics metrics = face->size->metrics;
-  fontData->height = metrics.height >> 6;
-  fontData->ascent = metrics.ascender >> 6;
-  fontData->descent = metrics.descender >> 6;
+  rasterizer->height = metrics.height >> 6;
+  rasterizer->ascent = metrics.ascender >> 6;
+  rasterizer->descent = metrics.descender >> 6;
 
-  return fontData;
+  return rasterizer;
 }
 
-void lovrFontDataDestroy(FontData* fontData) {
-  FT_Done_Face(fontData->rasterizer);
-  if (fontData->blob) {
-    lovrRelease(&fontData->blob->ref);
+void lovrRasterizerDestroy(const Ref* ref) {
+  Rasterizer* rasterizer = containerof(ref, Rasterizer);
+  FT_Done_Face(rasterizer->ftHandle);
+  if (rasterizer->blob) {
+    lovrRelease(&rasterizer->blob->ref);
   }
-  free(fontData);
+  free(rasterizer);
 }
 
-void lovrFontDataLoadGlyph(FontData* fontData, uint32_t character, Glyph* glyph) {
-  FT_Face face = fontData->rasterizer;
+void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, Glyph* glyph) {
+  FT_Face face = rasterizer->ftHandle;
   FT_Error err = FT_Err_Ok;
   FT_Glyph_Metrics* metrics;
   FT_Outline_Funcs callbacks = {
@@ -139,8 +140,8 @@ void lovrFontDataLoadGlyph(FontData* fontData, uint32_t character, Glyph* glyph)
   msShapeDestroy(shape);
 }
 
-int lovrFontDataGetKerning(FontData* fontData, uint32_t left, uint32_t right) {
-  FT_Face face = fontData->rasterizer;
+int lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t left, uint32_t right) {
+  FT_Face face = rasterizer->ftHandle;
   FT_Vector kerning;
   left = FT_Get_Char_Index(face, left);
   right = FT_Get_Char_Index(face, right);

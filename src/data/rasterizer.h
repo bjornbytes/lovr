@@ -1,5 +1,6 @@
 #include "filesystem/blob.h"
 #include "lib/map/map.h"
+#include "util.h"
 #include <stdint.h>
 
 #pragma once
@@ -7,13 +8,14 @@
 #define GLYPH_PADDING 1
 
 typedef struct {
-  void* rasterizer;
+  Ref ref;
+  void* ftHandle;
   Blob* blob;
   int size;
   int height;
   int ascent;
   int descent;
-} FontData;
+} Rasterizer;
 
 typedef struct {
   int x;
@@ -30,7 +32,7 @@ typedef struct {
 
 typedef map_t(Glyph) map_glyph_t;
 
-FontData* lovrFontDataCreate(Blob* blob, int size);
-void lovrFontDataDestroy(FontData* fontData);
-void lovrFontDataLoadGlyph(FontData* fontData, uint32_t character, Glyph* glyph);
-int lovrFontDataGetKerning(FontData* fontData, uint32_t left, uint32_t right);
+Rasterizer* lovrRasterizerCreate(Blob* blob, int size);
+void lovrRasterizerDestroy(const Ref* ref);
+void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, Glyph* glyph);
+int lovrRasterizerGetKerning(Rasterizer* fontData, uint32_t left, uint32_t right);

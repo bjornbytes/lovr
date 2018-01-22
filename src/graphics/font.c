@@ -1,7 +1,7 @@
 #include "graphics/font.h"
 #include "graphics/graphics.h"
 #include "graphics/texture.h"
-#include "data/font.h"
+#include "data/rasterizer.h"
 #include "data/texture.h"
 #include "util.h"
 #include <string.h>
@@ -22,14 +22,14 @@ static int lovrFontAlignLine(vec_float_t* vertices, int index, float width, Hori
   return index;
 }
 
-Font* lovrFontCreate(FontData* fontData) {
+Font* lovrFontCreate(Rasterizer* rasterizer) {
   Font* font = lovrAlloc(sizeof(Font), lovrFontDestroy);
   if (!font) return NULL;
 
-  font->fontData = fontData;
+  font->rasterizer = rasterizer;
   font->texture = NULL;
   font->lineHeight = 1.f;
-  font->pixelDensity = (float) font->fontData->height;
+  font->pixelDensity = (float) font->rasterizer->height;
   map_init(&font->kerning);
 
   // Atlas
@@ -42,7 +42,7 @@ Font* lovrFontCreate(FontData* fontData) {
   map_init(&font->atlas.glyphs);
 
   // Set initial atlas size
-  while (font->atlas.height < 4 * fontData->size) {
+  while (font->atlas.height < 4 * rasterizer->size) {
     lovrFontExpandTexture(font);
   }
 
@@ -54,7 +54,7 @@ Font* lovrFontCreate(FontData* fontData) {
 
 void lovrFontDestroy(const Ref* ref) {
   Font* font = containerof(ref, Font);
-  lovrFontDataDestroy(font->fontData);
+  lovrRelease(&font->rasterizer->ref);
   lovrRelease(&font->texture->ref);
   map_deinit(&font->atlas.glyphs);
   map_deinit(&font->kerning);
@@ -65,7 +65,7 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
   FontAtlas* atlas = &font->atlas;
 
   float cx = 0;
-  float cy = -font->fontData->height * .8;
+  float cy = -font->rasterizer->height * .8;
   float u = atlas->width;
   float v = atlas->height;
   float scale = 1 / font->pixelDensity;
@@ -90,7 +90,7 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
       linePtr = lovrFontAlignLine(vertices, linePtr, cx, halign);
       lineCount++;
       cx = 0;
-      cy -= font->fontData->height * font->lineHeight;
+      cy -= font->rasterizer->height * font->lineHeight;
       previous = '\0';
       str += bytes;
       continue;
@@ -142,9 +142,9 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
 
   // Calculate vertical offset
   if (valign == ALIGN_MIDDLE) {
-    *offsety = lineCount * font->fontData->height * font->lineHeight * .5f;
+    *offsety = lineCount * font->rasterizer->height * font->lineHeight * .5f;
   } else if (valign == ALIGN_BOTTOM) {
-    *offsety = lineCount * font->fontData->height * font->lineHeight;
+    *offsety = lineCount * font->rasterizer->height * font->lineHeight;
   } else {
     *offsety = 0;
   }
@@ -178,19 +178,19 @@ float lovrFontGetWidth(Font* font, const char* str, float wrap) {
 }
 
 float lovrFontGetHeight(Font* font) {
-  return font->fontData->height / font->pixelDensity;
+  return font->rasterizer->height / font->pixelDensity;
 }
 
 float lovrFontGetAscent(Font* font) {
-  return font->fontData->ascent / font->pixelDensity;
+  return font->rasterizer->ascent / font->pixelDensity;
 }
 
 float lovrFontGetDescent(Font* font) {
-  return font->fontData->descent / font->pixelDensity;
+  return font->rasterizer->descent / font->pixelDensity;
 }
 
 float lovrFontGetBaseline(Font* font) {
-  return font->fontData->height * .8 / font->pixelDensity;
+  return font->rasterizer->height * .8 / font->pixelDensity;
 }
 
 float lovrFontGetLineHeight(Font* font) {
@@ -210,7 +210,7 @@ int lovrFontGetKerning(Font* font, unsigned int left, unsigned int right) {
     return *entry;
   }
 
-  int kerning = lovrFontDataGetKerning(font->fontData, left, right);
+  int kerning = lovrRasterizerGetKerning(font->rasterizer, left, right);
   map_set(&font->kerning, key, kerning);
   return kerning;
 }
@@ -221,7 +221,7 @@ float lovrFontGetPixelDensity(Font* font) {
 
 void lovrFontSetPixelDensity(Font* font, float pixelDensity) {
   if (pixelDensity <= 0) {
-    pixelDensity = font->fontData->height;
+    pixelDensity = font->rasterizer->height;
   }
 
   font->pixelDensity = pixelDensity;
@@ -238,7 +238,7 @@ Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
   // Add the glyph to the atlas if it isn't there
   if (!glyph) {
     Glyph g;
-    lovrFontDataLoadGlyph(font->fontData, codepoint, &g);
+    lovrRasterizerLoadGlyph(font->rasterizer, codepoint, &g);
     map_set(glyphs, key, g);
     glyph = map_get(glyphs, key);
     lovrFontAddGlyph(font, glyph);
