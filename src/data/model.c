@@ -182,7 +182,7 @@ static void assimpFileClose(struct aiFileIO* io, struct aiFile* assimpFile) {
 }
 
 ModelData* lovrModelDataCreate(Blob* blob) {
-  ModelData* modelData = malloc(sizeof(ModelData));
+  ModelData* modelData = lovrAlloc(sizeof(ModelData), lovrModelDataDestroy);
   if (!modelData) return NULL;
 
   struct aiFileIO assimpIO;
@@ -447,7 +447,9 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   return modelData;
 }
 
-void lovrModelDataDestroy(ModelData* modelData) {
+void lovrModelDataDestroy(const Ref* ref) {
+  ModelData* modelData = containerof(ref, ModelData);
+
   for (int i = 0; i < modelData->nodeCount; i++) {
     vec_deinit(&modelData->nodes[i].children);
     vec_deinit(&modelData->nodes[i].primitives);

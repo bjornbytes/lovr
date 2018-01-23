@@ -45,6 +45,7 @@ typedef struct ModelNode {
 } ModelNode;
 
 typedef struct {
+  Ref ref;
   ModelNode* nodes;
   map_int_t nodeMap;
   ModelPrimitive* primitives;
@@ -67,5 +68,5 @@ typedef struct {
 } ModelData;
 
 ModelData* lovrModelDataCreate(Blob* blob);
-void lovrModelDataDestroy(ModelData* modelData);
+void lovrModelDataDestroy(const Ref* ref);
 void lovrModelDataGetAABB(ModelData* modelData, float aabb[6]);

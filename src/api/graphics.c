@@ -956,8 +956,16 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
 }
 
 int l_lovrGraphicsNewModel(lua_State* L) {
-  Blob* blob = luax_readblob(L, 1, "Model");
-  ModelData* modelData = lovrModelDataCreate(blob);
+  ModelData* modelData;
+  void** type;
+  if ((type = luax_totype(L, 1, ModelData)) != NULL) {
+    modelData = *type;
+  } else {
+    Blob* blob = luax_readblob(L, 1, "Model");
+    modelData = lovrModelDataCreate(blob);
+    lovrRelease(&blob->ref);
+  }
+
   Model* model = lovrModelCreate(modelData);
 
   if (lua_gettop(L) >= 2) {
@@ -979,7 +987,6 @@ int l_lovrGraphicsNewModel(lua_State* L) {
 
   luax_pushtype(L, Model, model);
   lovrRelease(&model->ref);
-  lovrRelease(&blob->ref);
   return 1;
 }
 

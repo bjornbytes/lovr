@@ -53,6 +53,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   Model* model = lovrAlloc(sizeof(Model), lovrModelDestroy);
   if (!model) return NULL;
 
+  lovrRetain(&modelData->ref);
   model->modelData = modelData;
   model->aabbDirty = true;
   model->animator = NULL;
@@ -132,7 +133,7 @@ void lovrModelDestroy(const Ref* ref) {
     lovrRelease(&model->material->ref);
   }
   free(model->materials);
-  lovrModelDataDestroy(model->modelData);
+  lovrRelease(&model->modelData->ref);
   lovrRelease(&model->mesh->ref);
   free(model->nodeTransforms);
   free(model);
