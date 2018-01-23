@@ -81,9 +81,11 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, int size) {
   rasterizer->ftHandle = face;
   rasterizer->blob = blob;
   rasterizer->size = size;
+  rasterizer->glyphCount = face->num_glyphs;
 
   FT_Size_Metrics metrics = face->size->metrics;
   rasterizer->height = metrics.height >> 6;
+  rasterizer->advance = metrics.max_advance >> 6;
   rasterizer->ascent = metrics.ascender >> 6;
   rasterizer->descent = metrics.descender >> 6;
 
@@ -97,6 +99,25 @@ void lovrRasterizerDestroy(const Ref* ref) {
     lovrRelease(&rasterizer->blob->ref);
   }
   free(rasterizer);
+}
+
+bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t character) {
+  FT_Face face = rasterizer->ftHandle;
+  return FT_Get_Char_Index(face, character) != 0;
+}
+
+bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str) {
+  int len = strlen(str);
+  const char* end = str + len;
+  unsigned int codepoint;
+  size_t bytes;
+
+  bool hasGlyphs = true;
+  while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+    hasGlyphs &= lovrRasterizerHasGlyph(rasterizer, codepoint);
+    str += bytes;
+  }
+  return hasGlyphs;
 }
 
 void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, Glyph* glyph) {

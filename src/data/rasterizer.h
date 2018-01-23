@@ -2,6 +2,7 @@
 #include "lib/map/map.h"
 #include "util.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 #pragma once
 
@@ -12,7 +13,9 @@ typedef struct {
   void* ftHandle;
   Blob* blob;
   int size;
+  int glyphCount;
   int height;
+  int advance;
   int ascent;
   int descent;
 } Rasterizer;
@@ -34,5 +37,7 @@ typedef map_t(Glyph) map_glyph_t;
 
 Rasterizer* lovrRasterizerCreate(Blob* blob, int size);
 void lovrRasterizerDestroy(const Ref* ref);
+bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
+bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);
 void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, Glyph* glyph);
 int lovrRasterizerGetKerning(Rasterizer* fontData, uint32_t left, uint32_t right);
