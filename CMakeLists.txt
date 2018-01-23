@@ -234,6 +234,7 @@ set(LOVR_SRC
   src/api/types/material.c
   src/api/types/mesh.c
   src/api/types/model.c
+  src/api/types/modelData.c
   src/api/types/randomGenerator.c
   src/api/types/rasterizer.c
   src/api/types/shader.c
