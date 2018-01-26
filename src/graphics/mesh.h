@@ -3,6 +3,7 @@
 #include "graphics/material.h"
 #include "math/math.h"
 #include "lib/glfw.h"
+#include "lib/vertex.h"
 
 #pragma once
 
@@ -21,20 +22,6 @@ typedef enum {
   MESH_STREAM = GL_STREAM_DRAW
 } MeshUsage;
 
-typedef enum {
-  MESH_FLOAT = GL_FLOAT,
-  MESH_BYTE = GL_UNSIGNED_BYTE,
-  MESH_INT = GL_INT
-} MeshAttributeType;
-
-typedef struct {
-  const char* name;
-  MeshAttributeType type;
-  int count;
-} MeshAttribute;
-
-typedef vec_t(MeshAttribute) MeshFormat;
-
 typedef struct {
   Ref ref;
   void* data;
@@ -45,7 +32,7 @@ typedef struct {
   bool isMapped;
   int mapStart;
   size_t mapCount;
-  MeshFormat format;
+  VertexFormat format;
   MeshDrawMode drawMode;
   MeshUsage usage;
   GLuint vao;
@@ -61,10 +48,10 @@ typedef struct {
   Shader* lastShader;
 } Mesh;
 
-Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage);
+Mesh* lovrMeshCreate(size_t count, VertexFormat* format, MeshDrawMode drawMode, MeshUsage usage);
 void lovrMeshDestroy(const Ref* ref);
 void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances);
-MeshFormat lovrMeshGetVertexFormat(Mesh* mesh);
+VertexFormat lovrMeshGetVertexFormat(Mesh* mesh);
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);
 void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode);
 int lovrMeshGetVertexCount(Mesh* mesh);

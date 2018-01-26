@@ -59,32 +59,32 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->animator = NULL;
   model->material = NULL;
 
-  MeshFormat format;
+  VertexFormat format;
   vec_init(&format);
 
-  MeshAttribute attribute = { .name = "lovrPosition", .type = MESH_FLOAT, .count = 3 };
+  Attribute attribute = { .name = "lovrPosition", .type = ATTR_FLOAT, .count = 3 };
   vec_push(&format, attribute);
 
   if (modelData->hasNormals) {
-    MeshAttribute attribute = { .name = "lovrNormal", .type = MESH_FLOAT, .count = 3 };
+    Attribute attribute = { .name = "lovrNormal", .type = ATTR_FLOAT, .count = 3 };
     vec_push(&format, attribute);
   }
 
   if (modelData->hasUVs) {
-    MeshAttribute attribute = { .name = "lovrTexCoord", .type = MESH_FLOAT, .count = 2 };
+    Attribute attribute = { .name = "lovrTexCoord", .type = ATTR_FLOAT, .count = 2 };
     vec_push(&format, attribute);
   }
 
   if (modelData->hasVertexColors) {
-    MeshAttribute attribute = { .name = "lovrVertexColor", .type = MESH_BYTE, .count = 4 };
+    Attribute attribute = { .name = "lovrVertexColor", .type = ATTR_BYTE, .count = 4 };
     vec_push(&format, attribute);
   }
 
   if (modelData->skinned) {
-    MeshAttribute bones = { .name = "lovrBones", .type = MESH_INT, .count = 4 };
+    Attribute bones = { .name = "lovrBones", .type = ATTR_INT, .count = 4 };
     vec_push(&format, bones);
 
-    MeshAttribute weights = { .name = "lovrBoneWeights", .type = MESH_FLOAT, .count = 4 };
+    Attribute weights = { .name = "lovrBoneWeights", .type = ATTR_FLOAT, .count = 4 };
     vec_push(&format, weights);
   }
 

@@ -4,18 +4,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static size_t getAttributeTypeSize(MeshAttributeType type) {
-  switch (type) {
-    case MESH_FLOAT:
-    case MESH_INT:
-      return 4;
-    case MESH_BYTE:
-      return 1;
-    default:
-      return 0;
-  }
-}
-
 static void lovrMeshBindAttributes(Mesh* mesh) {
   Shader* shader = lovrGraphicsGetActiveShader();
   if (shader == mesh->lastShader && !mesh->attributesDirty) {
@@ -26,7 +14,7 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
 
   size_t offset = 0;
   int i;
-  MeshAttribute attribute;
+  Attribute attribute;
 
   vec_foreach(&mesh->format, attribute, i) {
     int location = lovrShaderGetAttributeId(shader, attribute.name);
@@ -34,25 +22,26 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
     if (location >= 0) {
       if (mesh->enabledAttributes & (1 << i)) {
         glEnableVertexAttribArray(location);
+        GLenum attributeType = AttributeConstants[attribute.type];
 
-        if (attribute.type == MESH_INT) {
-          glVertexAttribIPointer(location, attribute.count, attribute.type, mesh->stride, (void*) offset);
+        if (attribute.type == ATTR_INT) {
+          glVertexAttribIPointer(location, attribute.count, attributeType, mesh->stride, (void*) offset);
         } else {
-          glVertexAttribPointer(location, attribute.count, attribute.type, GL_TRUE, mesh->stride, (void*) offset);
+          glVertexAttribPointer(location, attribute.count, attributeType, GL_TRUE, mesh->stride, (void*) offset);
         }
       } else {
         glDisableVertexAttribArray(location);
       }
     }
 
-    offset += getAttributeTypeSize(attribute.type) * attribute.count;
+    offset += AttributeSizes[attribute.type] * attribute.count;
   }
 
   mesh->lastShader = shader;
   mesh->attributesDirty = false;
 }
 
-Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, MeshUsage usage) {
+Mesh* lovrMeshCreate(size_t count, VertexFormat* format, MeshDrawMode drawMode, MeshUsage usage) {
   Mesh* mesh = lovrAlloc(sizeof(Mesh), lovrMeshDestroy);
   if (!mesh) return NULL;
 
@@ -61,10 +50,10 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
   if (format) {
     vec_extend(&mesh->format, format);
   } else {
-    MeshAttribute position = { .name = "lovrPosition", .type = MESH_FLOAT, .count = 3 };
-    MeshAttribute normal = { .name = "lovrNormal", .type = MESH_FLOAT, .count = 3 };
-    MeshAttribute texCoord = { .name = "lovrTexCoord", .type = MESH_FLOAT, .count = 2 };
-    MeshAttribute vertexColor = { .name = "lovrVertexColor", .type = MESH_BYTE, .count = 4 };
+    Attribute position = { .name = "lovrPosition", .type = ATTR_FLOAT, .count = 3 };
+    Attribute normal = { .name = "lovrNormal", .type = ATTR_FLOAT, .count = 3 };
+    Attribute texCoord = { .name = "lovrTexCoord", .type = ATTR_FLOAT, .count = 2 };
+    Attribute vertexColor = { .name = "lovrVertexColor", .type = ATTR_BYTE, .count = 4 };
     vec_push(&mesh->format, position);
     vec_push(&mesh->format, normal);
     vec_push(&mesh->format, texCoord);
@@ -73,9 +62,9 @@ Mesh* lovrMeshCreate(size_t count, MeshFormat* format, MeshDrawMode drawMode, Me
 
   int stride = 0;
   int i;
-  MeshAttribute attribute;
+  Attribute attribute;
   vec_foreach(&mesh->format, attribute, i) {
-    stride += attribute.count * getAttributeTypeSize(attribute.type);
+    stride += attribute.count * AttributeSizes[attribute.type];
   }
 
   if (stride == 0) {
@@ -160,7 +149,7 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances) {
   }
 }
 
-MeshFormat lovrMeshGetVertexFormat(Mesh* mesh) {
+VertexFormat lovrMeshGetVertexFormat(Mesh* mesh) {
   return mesh->format;
 }
 
@@ -207,7 +196,7 @@ void lovrMeshSetVertexMap(Mesh* mesh, void* data, size_t count) {
 
 bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
   int i;
-  MeshAttribute attribute;
+  Attribute attribute;
 
   vec_foreach(&mesh->format, attribute, i) {
     if (!strcmp(attribute.name, name)) {
@@ -220,7 +209,7 @@ bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
 
 void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enable) {
   int i;
-  MeshAttribute attribute;
+  Attribute attribute;
 
   vec_foreach(&mesh->format, attribute, i) {
     if (!strcmp(attribute.name, name)) {
