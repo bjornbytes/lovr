@@ -15,7 +15,10 @@ static int nextEvent(lua_State* L) {
   switch (event.type) {
     case EVENT_QUIT: {
       lua_pushstring(L, "quit");
-      lua_pushnumber(L, event.data.quit.exitCode);
+      if (event.data.quit.restart)
+        lua_pushliteral(L, "restart");
+      else
+        lua_pushnumber(L, event.data.quit.exitCode);
       return 2;
     }
 
@@ -125,11 +128,22 @@ int l_lovrEventPush(lua_State* L) {
 }
 
 int l_lovrEventQuit(lua_State* L) {
-  int exitCode = luaL_optint(L, 1, 0);
-  lua_settop(L, 0);
-  lua_pushliteral(L, "quit");
-  lua_pushinteger(L, exitCode);
-  return l_lovrEventPush(L);
+  EventData data;
+
+  int argType = lua_type(L, 1);
+  if (argType == LUA_TSTRING && 0 == strcmp("restart", lua_tostring(L, 1))) {
+    data.quit.restart = true;
+    data.quit.exitCode = 0;
+  } else if (argType == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
+    data.quit.restart = false;
+    data.quit.exitCode = luaL_optint(L, 1, 0);
+  } else {
+    return luaL_argerror (L, 1, "number, nil or the exact string 'restart' expected");
+  }
+
+  EventType type = EVENT_QUIT;
+  Event event = { .type = type, .data = data };
+  lovrEventPush(event);
 }
 
 const luaL_Reg lovrEvent[] = {

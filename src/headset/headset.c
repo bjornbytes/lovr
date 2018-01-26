@@ -7,6 +7,7 @@ void lovrControllerDestroy(const Ref* ref) {
 }
 
 static HeadsetInterface* headset = NULL;
+static bool headsetAlreadyInit = false;
 
 void lovrHeadsetInit(HeadsetDriver* drivers, int count) {
   for (int i = 0; i < count; i++) {
@@ -28,9 +29,10 @@ void lovrHeadsetInit(HeadsetDriver* drivers, int count) {
     }
   }
 
-  if (headset) {
+  if (!headsetAlreadyInit && headset) {
     headset->init();
     atexit(lovrHeadsetDestroy);
+    headsetAlreadyInit = true;
   }
 }
 

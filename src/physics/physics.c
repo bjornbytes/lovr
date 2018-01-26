@@ -28,9 +28,15 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
   }
 }
 
+static bool odeAlreadyInit = false;
+
 void lovrPhysicsInit() {
+  if (odeAlreadyInit)
+    return;
+
   dInitODE();
   atexit(lovrPhysicsDestroy);
+  odeAlreadyInit = true;
 }
 
 void lovrPhysicsDestroy() {

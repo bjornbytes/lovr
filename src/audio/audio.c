@@ -3,10 +3,16 @@
 #include "math/quat.h"
 #include "util.h"
 #include <stdlib.h>
+#include "lovr.h"
 
 static AudioState state;
+static bool audioAlreadyInit = false;
 
 void lovrAudioInit() {
+  if (audioAlreadyInit) { // During a reload, bring down the audio device then recreate it
+    lovrAudioDestroy();
+  }
+
   ALCdevice* device = alcOpenDevice(NULL);
   lovrAssert(device, "Unable to open default audio device");
 
@@ -31,7 +37,10 @@ void lovrAudioInit() {
   vec3_set(state.position, 0, 0, 0);
   vec3_set(state.velocity, 0, 0, 0);
 
-  atexit(lovrAudioDestroy);
+  if (!audioAlreadyInit) {
+    atexit(lovrAudioDestroy);
+    audioAlreadyInit = true;
+  }
 }
 
 void lovrAudioDestroy() {
