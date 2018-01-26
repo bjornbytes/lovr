@@ -14,6 +14,7 @@ typedef enum {
 } EventType;
 
 typedef struct {
+  bool restart;
   int exitCode;
 } QuitEvent;
 

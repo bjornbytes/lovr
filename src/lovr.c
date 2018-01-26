@@ -63,6 +63,8 @@ static int lovrSetConf(lua_State* L) {
   return 0;
 }
 
+static bool glfwAlreadyInit = false;
+
 void lovrInit(lua_State* L, int argc, char** argv) {
   if (argc > 1 && strcmp(argv[1], "--version") == 0) {
     printf("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
@@ -72,9 +74,10 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   glfwSetTime(0);
   glfwSetErrorCallback(onGlfwError);
 
-  if (!glfwInit()) {
+  if (!glfwAlreadyInit && !glfwInit()) {
     lovrThrow("Error initializing glfw");
   }
+  glfwAlreadyInit = true;
 
   // arg global
   lua_newtable(L);
@@ -141,7 +144,7 @@ static void emscriptenLoop(void* arg) {
   lua_call(L, 0, 0);
 }
 
-void lovrRun(lua_State* L) {
+bool lovrRun(lua_State* L) {
 
   // lovr.load
   lua_getglobal(L, "lovr");
@@ -158,9 +161,10 @@ void lovrRun(lua_State* L) {
   }
 
   emscripten_set_main_loop_arg(emscriptenLoop, (void*) L, 0, 1);
+  return false;
 }
 #else
-void lovrRun(lua_State* L) {
+bool lovrRun(lua_State* L) {
   lovrCatch = malloc(sizeof(jmp_buf));
 
   // Global error handler
@@ -175,7 +179,7 @@ void lovrRun(lua_State* L) {
     lua_pushstring(L, lovrErrorMessage);
     lua_pcall(L, 1, 1, 0);
     handleError(L, lua_tostring(L, -1));
-    return;
+    return false;
   }
 
   // lovr.run()
@@ -187,9 +191,21 @@ void lovrRun(lua_State* L) {
   }
 
   // Exit with return value from lovr.run
-  int exitCode = luaL_optint(L, -1, 0);
-  lua_pop(L, 2);
+  int exitCode = 0;
+  int returnType = lua_type(L, -1);
+  bool reloading = false;
+  if (returnType == LUA_TSTRING && 0 == strcmp("restart", lua_tostring(L, -1))) {
+    reloading = true; // Treat "restart" as special
+  } else if (returnType == LUA_TNUMBER || lua_isnoneornil(L, -1)) {
+    exitCode = luaL_optint(L, -1, 0);
+  } else {
+    luaL_argerror (L, -1, "number or the exact string 'restart' expected");
+  }
+
   free(lovrCatch);
-  lovrDestroy(exitCode);
+  lovrCatch = NULL;
+  if (!reloading)
+    lovrDestroy(exitCode);
+  return reloading;
 }
 #endif

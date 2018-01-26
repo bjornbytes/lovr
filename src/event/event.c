@@ -3,12 +3,18 @@
 #include <stdlib.h>
 
 static EventState state;
+bool eventAlreadyInit = false;
 
 void lovrEventInit() {
+  if (eventAlreadyInit)
+    lovrEventDestroy();
   vec_init(&state.pumps);
   vec_init(&state.events);
   lovrEventAddPump(glfwPollEvents);
-  atexit(lovrEventDestroy);
+  if (!eventAlreadyInit) {
+    atexit(lovrEventDestroy);
+    eventAlreadyInit = true;
+  }
 }
 
 void lovrEventDestroy() {

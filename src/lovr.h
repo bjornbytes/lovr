@@ -1,4 +1,5 @@
 #include "luax.h"
+#include <stdbool.h>
 
 #define LOVR_VERSION_MAJOR 0
 #define LOVR_VERSION_MINOR 9
@@ -7,4 +8,4 @@
 
 void lovrInit(lua_State* L, int argc, char** argv);
 void lovrDestroy(int exitCode);
-void lovrRun(lua_State* L);
+bool lovrRun(lua_State* L); // Returns true to request continue

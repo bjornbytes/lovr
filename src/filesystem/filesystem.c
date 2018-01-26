@@ -4,6 +4,7 @@
 #include <physfs.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "lovr.h"
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
@@ -20,7 +21,13 @@
 
 static FilesystemState state;
 
+bool filesystemAlreadyInit = false;
+
 void lovrFilesystemInit(const char* arg0, const char* arg1) {
+  if (filesystemAlreadyInit) // Do not change settings during a reload, and don't try to initialize PhysFS twice
+    return;
+  filesystemAlreadyInit = true;
+
   if (!PHYSFS_init(arg0)) {
     lovrThrow("Could not initialize filesystem: %s", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
   }
