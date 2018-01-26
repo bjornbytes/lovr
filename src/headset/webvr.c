@@ -269,7 +269,6 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrSetClipDistance,
   webvrGetBoundsWidth,
   webvrGetBoundsDepth,
-  webvrGetBoundsGeometry,
   webvrGetPose,
   webvrGetEyePose,
   webvrGetVelocity,
