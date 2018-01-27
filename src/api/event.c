@@ -144,6 +144,7 @@ int l_lovrEventQuit(lua_State* L) {
   EventType type = EVENT_QUIT;
   Event event = { .type = type, .data = data };
   lovrEventPush(event);
+  return 0;
 }
 
 const luaL_Reg lovrEvent[] = {
