@@ -90,6 +90,8 @@ extern map_int_t VerticalAligns;
 extern map_int_t WrapModes;
 
 // Shared helpers
+int luax_pushvertexformat(lua_State* L, VertexFormat* format);
+int luax_pushvertex(lua_State* L, VertexData* vertex, VertexFormat* format);
 int luax_readtransform(lua_State* L, int index, mat4 transform, bool uniformScale);
 Blob* luax_readblob(lua_State* L, int index, const char* debug);
 int luax_pushshape(lua_State* L, Shape* shape);
