@@ -1,13 +1,6 @@
 #include <stdlib.h>
-#include "lib/glfw.h"
-#include "lib/vec/vec.h"
 
 #pragma once
-
-#define ATTRIBUTE_COUNT 3
-
-size_t AttributeSizes[ATTRIBUTE_COUNT];
-GLenum AttributeConstants[ATTRIBUTE_COUNT];
 
 typedef enum {
   ATTR_FLOAT,
@@ -19,6 +12,22 @@ typedef struct {
   const char* name;
   AttributeType type;
   int count;
+  size_t size;
+  size_t offset;
 } Attribute;
 
-typedef vec_t(Attribute) VertexFormat;
+typedef struct {
+  Attribute attributes[8];
+  size_t stride;
+  int count;
+} VertexFormat;
+
+typedef union {
+  void* raw;
+  float* floats;
+  uint8_t* bytes;
+  int* ints;
+} VertexData;
+
+void vertexFormatInit(VertexFormat* format);
+void vertexFormatAppend(VertexFormat* format, const char* name, AttributeType type, int count);

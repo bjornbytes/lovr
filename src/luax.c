@@ -196,22 +196,3 @@ Color luax_checkcolor(lua_State* L, int index) {
 
   return color;
 }
-
-int luax_pushvertex(lua_State* L, uint8_t* vertex, VertexFormat format) {
-  int count = 0;
-
-  for (int i = 0; i < format.length; i++) {
-    Attribute attribute = format.data[i];
-    count += attribute.count;
-    for (int j = 0; j < attribute.count; j++) {
-      switch (attribute.type) {
-        case ATTR_FLOAT: lua_pushnumber(L, *((float*) vertex)); break;
-        case ATTR_BYTE: lua_pushnumber(L, *((uint8_t*) vertex)); break;
-        case ATTR_INT: lua_pushnumber(L, *((int*) vertex)); break;
-      }
-      vertex += AttributeSizes[attribute.type];
-    }
-  }
-
-  return count;
-}

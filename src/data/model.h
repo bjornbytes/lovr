@@ -2,6 +2,7 @@
 #include "data/animation.h"
 #include "data/material.h"
 #include "util.h"
+#include "lib/vertex.h"
 #include "lib/vec/vec.h"
 
 #pragma once
@@ -51,6 +52,7 @@ typedef struct {
   ModelPrimitive* primitives;
   AnimationData* animationData;
   MaterialData** materials;
+  VertexFormat format;
   ModelVertices vertices;
   ModelIndices indices;
   int nodeCount;
@@ -60,11 +62,6 @@ typedef struct {
   int vertexCount;
   int indexCount;
   size_t indexSize;
-  bool hasNormals;
-  bool hasUVs;
-  bool hasVertexColors;
-  bool skinned;
-  size_t stride;
 } ModelData;
 
 ModelData* lovrModelDataCreate(Blob* blob);

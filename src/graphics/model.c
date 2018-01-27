@@ -59,38 +59,9 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->animator = NULL;
   model->material = NULL;
 
-  VertexFormat format;
-  vec_init(&format);
-
-  Attribute attribute = { .name = "lovrPosition", .type = ATTR_FLOAT, .count = 3 };
-  vec_push(&format, attribute);
-
-  if (modelData->hasNormals) {
-    Attribute attribute = { .name = "lovrNormal", .type = ATTR_FLOAT, .count = 3 };
-    vec_push(&format, attribute);
-  }
-
-  if (modelData->hasUVs) {
-    Attribute attribute = { .name = "lovrTexCoord", .type = ATTR_FLOAT, .count = 2 };
-    vec_push(&format, attribute);
-  }
-
-  if (modelData->hasVertexColors) {
-    Attribute attribute = { .name = "lovrVertexColor", .type = ATTR_BYTE, .count = 4 };
-    vec_push(&format, attribute);
-  }
-
-  if (modelData->skinned) {
-    Attribute bones = { .name = "lovrBones", .type = ATTR_INT, .count = 4 };
-    vec_push(&format, bones);
-
-    Attribute weights = { .name = "lovrBoneWeights", .type = ATTR_FLOAT, .count = 4 };
-    vec_push(&format, weights);
-  }
-
-  model->mesh = lovrMeshCreate(modelData->vertexCount, &format, MESH_TRIANGLES, MESH_STATIC);
+  model->mesh = lovrMeshCreate(modelData->vertexCount, &modelData->format, MESH_TRIANGLES, MESH_STATIC);
   void* data = lovrMeshMap(model->mesh, 0, modelData->vertexCount, false, true);
-  memcpy(data, modelData->vertices.data, modelData->vertexCount * modelData->stride);
+  memcpy(data, modelData->vertices.data, modelData->vertexCount * modelData->format.stride);
   lovrMeshUnmap(model->mesh);
   lovrMeshSetVertexMap(model->mesh, modelData->indices.data, modelData->indexCount);
   lovrMeshSetRangeEnabled(model->mesh, true);
@@ -117,7 +88,6 @@ Model* lovrModelCreate(ModelData* modelData) {
     }
   }
 
-  vec_deinit(&format);
   return model;
 }
 

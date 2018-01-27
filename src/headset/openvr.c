@@ -639,14 +639,18 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
 
+  vertexFormatInit(&modelData->format);
+  vertexFormatAppend(&modelData->format, "lovrPosition", ATTR_FLOAT, 3);
+  vertexFormatAppend(&modelData->format, "lovrNormal", ATTR_FLOAT, 3);
+  vertexFormatAppend(&modelData->format, "lovrTexCoord", ATTR_FLOAT, 2);
+
+  modelData->vertexCount = vrModel->unVertexCount;
+  modelData->vertices.data = malloc(modelData->vertexCount * modelData->format.stride);
+
   modelData->indexCount = vrModel->unTriangleCount * 3;
   modelData->indexSize = sizeof(uint16_t);
   modelData->indices.data = malloc(modelData->indexCount * modelData->indexSize);
   memcpy(modelData->indices.data, vrModel->rIndexData, modelData->indexCount * modelData->indexSize);
-
-  modelData->vertexCount = vrModel->unVertexCount;
-  modelData->stride = 8 * sizeof(float);
-  modelData->vertices.data = malloc(modelData->vertexCount * modelData->stride);
 
   float* vertices = modelData->vertices.floats;
   int vertex = 0;
@@ -710,11 +714,6 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   modelData->materials[0] = lovrMaterialDataCreateEmpty();
   modelData->materials[0]->textures[TEXTURE_DIFFUSE] = textureData;
-
-  modelData->hasNormals = true;
-  modelData->hasUVs = true;
-  modelData->hasVertexColors = false;
-  modelData->skinned = false;
 
   return modelData;
 }

@@ -43,4 +43,3 @@ void luax_pushenum(lua_State* L, map_int_t* map, int value);
 void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName);
 void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map, const char* typeName);
 Color luax_checkcolor(lua_State* L, int index);
-int luax_pushvertex(lua_State* L, uint8_t* vertex, VertexFormat format);

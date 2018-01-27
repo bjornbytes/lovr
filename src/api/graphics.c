@@ -86,6 +86,7 @@ static void luax_checkvertexformat(lua_State* L, int index, VertexFormat* format
   }
 
   int length = lua_objlen(L, index);
+  lovrAssert(length <= 8, "Only 8 vertex attributes are supported");
   for (int i = 0; i < length; i++) {
     lua_rawgeti(L, index, i + 1);
 
@@ -101,8 +102,7 @@ static void luax_checkvertexformat(lua_State* L, int index, VertexFormat* format
     const char* name = lua_tostring(L, -3);
     AttributeType* type = (AttributeType*) luax_checkenum(L, -2, &AttributeTypes, "mesh attribute type");
     int count = lua_tointeger(L, -1);
-    Attribute attribute = { .name = name, .type = *type, .count = count };
-    vec_push(format, attribute);
+    vertexFormatAppend(format, name, *type, count);
     lua_pop(L, 4);
   }
 }
@@ -909,7 +909,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   int dataIndex = 0;
   int drawModeIndex = 2;
   VertexFormat format;
-  vec_init(&format);
+  vertexFormatInit(&format);
 
   if (lua_isnumber(L, 1)) {
     size = lua_tointeger(L, 1);
@@ -935,11 +935,11 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
 
   MeshDrawMode* drawMode = (MeshDrawMode*) luax_optenum(L, drawModeIndex, "fan", &MeshDrawModes, "mesh draw mode");
   MeshUsage* usage = (MeshUsage*) luax_optenum(L, drawModeIndex + 1, "dynamic", &MeshUsages, "mesh usage");
-  Mesh* mesh = lovrMeshCreate(size, format.length ? &format : NULL, *drawMode, *usage);
+  Mesh* mesh = lovrMeshCreate(size, format.count > 0 ? &format : NULL, *drawMode, *usage);
 
   if (dataIndex) {
     int count = lua_objlen(L, dataIndex);
-    VertexFormat format = lovrMeshGetVertexFormat(mesh);
+    format = *lovrMeshGetVertexFormat(mesh);
     char* vertex = lovrMeshMap(mesh, 0, count, false, true);
 
     for (int i = 0; i < count; i++) {
@@ -949,8 +949,8 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
       }
 
       int component = 0;
-      for (int j = 0; j < format.length; j++) {
-        Attribute attribute = format.data[j];
+      for (int j = 0; j < format.count; j++) {
+        Attribute attribute = format.attributes[j];
         for (int k = 0; k < attribute.count; k++) {
           lua_rawgeti(L, -1, ++component);
           switch (attribute.type) {
@@ -958,7 +958,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
             case ATTR_BYTE: *((uint8_t*) vertex) = luaL_optint(L, -1, 255); break;
             case ATTR_INT: *((int*) vertex) = luaL_optint(L, -1, 0); break;
           }
-          vertex += AttributeSizes[attribute.type];
+          vertex += attribute.size;
           lua_pop(L, 1);
         }
       }
@@ -967,7 +967,6 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
     }
   }
 
-  vec_deinit(&format);
   luax_pushtype(L, Mesh, mesh);
   lovrRelease(&mesh->ref);
   return 1;

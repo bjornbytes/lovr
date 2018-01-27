@@ -24,15 +24,14 @@ typedef enum {
 
 typedef struct {
   Ref ref;
-  void* data;
   size_t count;
-  int stride;
+  void* data;
+  VertexFormat format;
   int enabledAttributes;
   bool attributesDirty;
   bool isMapped;
   int mapStart;
   size_t mapCount;
-  VertexFormat format;
   MeshDrawMode drawMode;
   MeshUsage usage;
   GLuint vao;
@@ -51,11 +50,10 @@ typedef struct {
 Mesh* lovrMeshCreate(size_t count, VertexFormat* format, MeshDrawMode drawMode, MeshUsage usage);
 void lovrMeshDestroy(const Ref* ref);
 void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances);
-VertexFormat lovrMeshGetVertexFormat(Mesh* mesh);
+VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);
 void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode);
 int lovrMeshGetVertexCount(Mesh* mesh);
-int lovrMeshGetVertexSize(Mesh* mesh);
 void* lovrMeshGetVertexMap(Mesh* mesh, size_t* count);
 void lovrMeshSetVertexMap(Mesh* mesh, void* data, size_t count);
 bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name);
