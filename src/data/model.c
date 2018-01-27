@@ -239,7 +239,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   memset(modelData->vertices.data, 0, modelData->format.stride * modelData->vertexCount);
 
   // Load vertices
-  ModelIndices indices = modelData->indices;
+  IndexData indices = modelData->indices;
   uint32_t vertex = 0;
   uint32_t index = 0;
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
@@ -270,7 +270,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
     // Vertices
     for (unsigned int v = 0; v < assimpMesh->mNumVertices; v++) {
-      ModelVertices vertices = modelData->vertices;
+      VertexData vertices = modelData->vertices;
       vertices.bytes += vertex * modelData->format.stride;
 
       *vertices.floats++ = assimpMesh->mVertices[v].x;
@@ -331,7 +331,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
       for (unsigned int w = 0; w < assimpBone->mNumWeights; w++) {
         uint32_t vertexIndex = baseVertex + assimpBone->mWeights[w].mVertexId;
         float weight = assimpBone->mWeights[w].mWeight;
-        ModelVertices vertices = modelData->vertices;
+        VertexData vertices = modelData->vertices;
         vertices.bytes += vertexIndex * modelData->format.stride;
         uint32_t* bones = (uint32_t*) (vertices.bytes + boneByteOffset);
         float* weights = (float*) (bones + MAX_BONES_PER_VERTEX);

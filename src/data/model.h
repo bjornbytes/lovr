@@ -10,19 +10,6 @@
 #define MAX_BONES_PER_VERTEX 4
 #define MAX_BONES 48
 
-typedef union {
-  void* data;
-  uint8_t* bytes;
-  uint32_t* ints;
-  float* floats;
-} ModelVertices;
-
-typedef union {
-  void* data;
-  uint16_t* shorts;
-  uint32_t* ints;
-} ModelIndices;
-
 typedef struct {
   const char* name;
   float offset[16];
@@ -53,8 +40,8 @@ typedef struct {
   AnimationData* animationData;
   MaterialData** materials;
   VertexFormat format;
-  ModelVertices vertices;
-  ModelIndices indices;
+  VertexData vertices;
+  IndexData indices;
   int nodeCount;
   int primitiveCount;
   int animationCount;

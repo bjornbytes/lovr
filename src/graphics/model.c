@@ -60,8 +60,8 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->material = NULL;
 
   model->mesh = lovrMeshCreate(modelData->vertexCount, &modelData->format, MESH_TRIANGLES, MESH_STATIC);
-  void* data = lovrMeshMap(model->mesh, 0, modelData->vertexCount, false, true);
-  memcpy(data, modelData->vertices.data, modelData->vertexCount * modelData->format.stride);
+  VertexData vertices = lovrMeshMap(model->mesh, 0, modelData->vertexCount, false, true);
+  memcpy(vertices.data, modelData->vertices.data, modelData->vertexCount * modelData->format.stride);
   lovrMeshUnmap(model->mesh);
   lovrMeshSetVertexMap(model->mesh, modelData->indices.data, modelData->indexCount);
   lovrMeshSetRangeEnabled(model->mesh, true);

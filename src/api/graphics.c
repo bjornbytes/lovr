@@ -940,7 +940,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   if (dataIndex) {
     int count = lua_objlen(L, dataIndex);
     format = *lovrMeshGetVertexFormat(mesh);
-    char* vertex = lovrMeshMap(mesh, 0, count, false, true);
+    VertexData vertices = lovrMeshMap(mesh, 0, count, false, true);
 
     for (int i = 0; i < count; i++) {
       lua_rawgeti(L, dataIndex, i + 1);
@@ -954,11 +954,10 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
         for (int k = 0; k < attribute.count; k++) {
           lua_rawgeti(L, -1, ++component);
           switch (attribute.type) {
-            case ATTR_FLOAT: *((float*) vertex) = luaL_optnumber(L, -1, 0.f); break;
-            case ATTR_BYTE: *((uint8_t*) vertex) = luaL_optint(L, -1, 255); break;
-            case ATTR_INT: *((int*) vertex) = luaL_optint(L, -1, 0); break;
+            case ATTR_FLOAT: *vertices.floats++ = luaL_optnumber(L, -1, 0.f); break;
+            case ATTR_BYTE: *vertices.bytes++ = luaL_optint(L, -1, 255); break;
+            case ATTR_INT: *vertices.ints++ = luaL_optint(L, -1, 0); break;
           }
-          vertex += attribute.size;
           lua_pop(L, 1);
         }
       }

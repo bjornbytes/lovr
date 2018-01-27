@@ -23,11 +23,17 @@ typedef struct {
 } VertexFormat;
 
 typedef union {
-  void* raw;
+  void* data;
   float* floats;
   uint8_t* bytes;
   int* ints;
 } VertexData;
+
+typedef union {
+  void* data;
+  uint16_t* shorts;
+  uint32_t* ints;
+} IndexData;
 
 void vertexFormatInit(VertexFormat* format);
 void vertexFormatAppend(VertexFormat* format, const char* name, AttributeType type, int count);
