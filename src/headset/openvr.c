@@ -678,8 +678,8 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   modelData->nodes = malloc(1 * sizeof(ModelNode));
   modelData->primitives = malloc(1 * sizeof(ModelPrimitive));
+  modelData->animations = NULL;
   modelData->materials = malloc(1 * sizeof(MaterialData*));
-  modelData->animationData = NULL;
 
   // Geometry
   map_init(&modelData->nodeMap);

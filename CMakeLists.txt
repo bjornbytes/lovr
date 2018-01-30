@@ -246,7 +246,6 @@ set(LOVR_SRC
   src/api/types/world.c
   src/audio/audio.c
   src/audio/source.c
-  src/data/animation.c
   src/data/audioStream.c
   src/data/data.c
   src/data/material.c

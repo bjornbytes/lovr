@@ -1,4 +1,4 @@
-#include "data/animation.h"
+#include "data/model.h"
 #include "math/mat4.h"
 #include "util.h"
 #include "lib/map/map.h"
@@ -20,13 +20,13 @@ typedef map_t(Track) map_track_t;
 
 typedef struct {
   Ref ref;
-  AnimationData* animationData;
+  ModelData* modelData;
   map_track_t trackMap;
   vec_void_t trackList;
   float speed;
 } Animator;
 
-Animator* lovrAnimatorCreate(AnimationData* animationData);
+Animator* lovrAnimatorCreate(ModelData* modelData);
 void lovrAnimatorDestroy(const Ref* ref);
 void lovrAnimatorReset(Animator* animator);
 void lovrAnimatorUpdate(Animator* animator, float dt);

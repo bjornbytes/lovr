@@ -1,8 +1,8 @@
 #include "filesystem/blob.h"
-#include "data/animation.h"
 #include "data/material.h"
 #include "util.h"
 #include "lib/vertex.h"
+#include "lib/map/map.h"
 #include "lib/vec/vec.h"
 
 #pragma once
@@ -33,11 +33,39 @@ typedef struct ModelNode {
 } ModelNode;
 
 typedef struct {
+  Color diffuseColor;
+  int diffuseTexture;
+} ModelMaterial;
+
+typedef struct {
+  double time;
+  float data[4];
+} Keyframe;
+
+typedef vec_t(Keyframe) vec_keyframe_t;
+
+typedef struct {
+  const char* node;
+  vec_keyframe_t positionKeyframes;
+  vec_keyframe_t rotationKeyframes;
+  vec_keyframe_t scaleKeyframes;
+} AnimationChannel;
+
+typedef map_t(AnimationChannel) map_channel_t;
+
+typedef struct {
+  const char* name;
+  float duration;
+  map_channel_t channels;
+  int channelCount;
+} Animation;
+
+typedef struct {
   Ref ref;
   ModelNode* nodes;
   map_int_t nodeMap;
   ModelPrimitive* primitives;
-  AnimationData* animationData;
+  Animation* animations;
   MaterialData** materials;
   VertexFormat format;
   VertexData vertices;

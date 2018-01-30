@@ -799,7 +799,7 @@ int l_lovrGraphicsStencil(lua_State* L) {
 
 int l_lovrGraphicsNewAnimator(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  Animator* animator = lovrAnimatorCreate(model->modelData->animationData);
+  Animator* animator = lovrAnimatorCreate(model->modelData);
   luax_pushtype(L, Animator, animator);
   return 1;
 }

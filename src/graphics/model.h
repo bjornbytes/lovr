@@ -1,5 +1,4 @@
 #include "data/model.h"
-#include "data/animation.h"
 #include "graphics/animator.h"
 #include "graphics/material.h"
 #include "graphics/mesh.h"

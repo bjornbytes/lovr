@@ -13,17 +13,18 @@ static int trackSortCallback(const void* a, const void* b) {
   return ((Track*) a)->priority < ((Track*) b)->priority;
 }
 
-Animator* lovrAnimatorCreate(AnimationData* animationData) {
+Animator* lovrAnimatorCreate(ModelData* modelData) {
   Animator* animator = lovrAlloc(sizeof(Animator), lovrAnimatorDestroy);
   if (!animator) return NULL;
 
-  animator->animationData = animationData;
+  lovrRetain(&modelData->ref);
+  animator->modelData = modelData;
   map_init(&animator->trackMap);
   vec_init(&animator->trackList);
   animator->speed = 1;
 
-  for (int i = 0; i < animationData->animations.length; i++) {
-    Animation* animation = &animationData->animations.data[i];
+  for (int i = 0; i < modelData->animationCount; i++) {
+    Animation* animation = &modelData->animations[i];
 
     Track track = {
       .animation = animation,
@@ -44,6 +45,7 @@ Animator* lovrAnimatorCreate(AnimationData* animationData) {
 
 void lovrAnimatorDestroy(const Ref* ref) {
   Animator* animator = containerof(ref, Animator);
+  lovrRelease(&animator->modelData->ref);
   map_deinit(&animator->trackMap);
   vec_deinit(&animator->trackList);
   free(animator);
@@ -195,15 +197,15 @@ bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) 
 }
 
 int lovrAnimatorGetAnimationCount(Animator* animator) {
-  return animator->animationData->animations.length;
+  return animator->modelData->animationCount;
 }
 
 const char* lovrAnimatorGetAnimationName(Animator* animator, int index) {
-  if (index < 0 || index >= animator->animationData->animations.length) {
+  if (index < 0 || index >= animator->modelData->animationCount) {
     return NULL;
   }
 
-  return animator->animationData->animations.data[index].name;
+  return animator->modelData->animations[index].name;
 }
 
 void lovrAnimatorPlay(Animator* animator, const char* animation) {

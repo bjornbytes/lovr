@@ -395,18 +395,19 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   assimpNodeTraversal(modelData, scene->mRootNode, &nodeIndex);
 
   // Animations
-  modelData->animationData = lovrAnimationDataCreate();
-  for (unsigned int i = 0; i < scene->mNumAnimations; i++) {
+  modelData->animationCount = scene->mNumAnimations;
+  modelData->animations = malloc(modelData->animationCount * sizeof(Animation));
+  for (int i = 0; i < modelData->animationCount; i++) {
     struct aiAnimation* assimpAnimation = scene->mAnimations[i];
     float ticksPerSecond = assimpAnimation->mTicksPerSecond;
 
-    Animation animation;
-    animation.name = strdup(assimpAnimation->mName.data);
-    animation.duration = assimpAnimation->mDuration / ticksPerSecond;
-    animation.channelCount = assimpAnimation->mNumChannels;
-    map_init(&animation.channels);
+    Animation* animation = &modelData->animations[i];
+    animation->name = strdup(assimpAnimation->mName.data);
+    animation->duration = assimpAnimation->mDuration / ticksPerSecond;
+    animation->channelCount = assimpAnimation->mNumChannels;
+    map_init(&animation->channels);
 
-    for (int j = 0; j < animation.channelCount; j++) {
+    for (int j = 0; j < animation->channelCount; j++) {
       struct aiNodeAnim* assimpChannel = assimpAnimation->mChannels[j];
       AnimationChannel channel;
 
@@ -442,10 +443,8 @@ ModelData* lovrModelDataCreate(Blob* blob) {
         vec_push(&channel.scaleKeyframes, keyframe);
       }
 
-      map_set(&animation.channels, channel.node, channel);
+      map_set(&animation->channels, channel.node, channel);
     }
-
-    vec_push(&modelData->animationData->animations, animation);
   }
 
   aiReleaseImport(scene);
@@ -464,8 +463,17 @@ void lovrModelDataDestroy(const Ref* ref) {
     map_deinit(&modelData->primitives[i].boneMap);
   }
 
-  if (modelData->animationData) {
-    lovrAnimationDataDestroy(modelData->animationData);
+  for (int i = 0; i < modelData->animationCount; i++) {
+    Animation* animation = &modelData->animations[i];
+    const char* key;
+    map_iter_t iter = map_iter(&animation->channels);
+    while ((key = map_next(&animation->channels, &iter)) != NULL) {
+      AnimationChannel* channel = map_get(&animation->channels, key);
+      vec_deinit(&channel->positionKeyframes);
+      vec_deinit(&channel->rotationKeyframes);
+      vec_deinit(&channel->scaleKeyframes);
+    }
+    map_deinit(&animation->channels);
   }
 
   for (int i = 0; i < modelData->materialCount; i++) {
@@ -476,6 +484,7 @@ void lovrModelDataDestroy(const Ref* ref) {
 
   free(modelData->nodes);
   free(modelData->primitives);
+  free(modelData->animations);
   free(modelData->materials);
   free(modelData->vertices.data);
   free(modelData->indices.data);
