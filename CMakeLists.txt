@@ -266,6 +266,7 @@ set(LOVR_SRC
   src/graphics/texture.c
   src/headset/fake.c
   src/headset/headset.c
+  src/lib/vertex.c
   src/lib/glad/glad.c
   src/lib/lua-cjson/fpconv.c
   src/lib/lua-cjson/lua_cjson.c
