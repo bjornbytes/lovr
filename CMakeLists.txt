@@ -248,7 +248,6 @@ set(LOVR_SRC
   src/audio/source.c
   src/data/audioStream.c
   src/data/data.c
-  src/data/material.c
   src/data/model.c
   src/data/rasterizer.c
   src/data/texture.c

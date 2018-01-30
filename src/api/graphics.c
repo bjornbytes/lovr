@@ -5,7 +5,6 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
-#include "data/material.h"
 #include "data/model.h"
 #include "data/rasterizer.h"
 #include "data/texture.h"
@@ -877,8 +876,7 @@ int l_lovrGraphicsNewFont(lua_State* L) {
 }
 
 int l_lovrGraphicsNewMaterial(lua_State* L) {
-  MaterialData* materialData = lovrMaterialDataCreateEmpty();
-  Material* material = lovrMaterialCreate(materialData, false);
+  Material* material = lovrMaterialCreate(false);
 
   int index = 1;
 
@@ -989,8 +987,7 @@ int l_lovrGraphicsNewModel(lua_State* L) {
       Blob* blob = luax_readblob(L, 2, "Texture");
       TextureData* textureData = lovrTextureDataFromBlob(blob);
       Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
-      MaterialData* materialData = lovrMaterialDataCreateEmpty();
-      Material* material = lovrMaterialCreate(materialData, false);
+      Material* material = lovrMaterialCreate(false);
       lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
       lovrModelSetMaterial(model, material);
       lovrRelease(&blob->ref);

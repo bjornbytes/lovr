@@ -1,5 +1,4 @@
 #include "filesystem/blob.h"
-#include "data/material.h"
 #include "util.h"
 #include "lib/vertex.h"
 #include "lib/map/map.h"
@@ -66,7 +65,8 @@ typedef struct {
   map_int_t nodeMap;
   ModelPrimitive* primitives;
   Animation* animations;
-  MaterialData** materials;
+  ModelMaterial* materials;
+  vec_void_t textures;
   VertexFormat format;
   VertexData vertices;
   IndexData indices;

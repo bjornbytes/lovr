@@ -1,19 +1,18 @@
 #include "graphics/graphics.h"
 #include "graphics/material.h"
 
-Material* lovrMaterialCreate(MaterialData* materialData, bool isDefault) {
+Material* lovrMaterialCreate(bool isDefault) {
   Material* material = lovrAlloc(sizeof(Material), lovrMaterialDestroy);
   if (!material) return NULL;
 
-  material->materialData = materialData;
   material->isDefault = isDefault;
 
+  for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
+    material->colors[i] = (Color) { 1, 1, 1, 1 };
+  }
+
   for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
-    if (materialData->textures[i]) {
-      material->textures[i] = lovrTextureCreate(TEXTURE_2D, &materialData->textures[i], 1, true);
-    } else {
-      material->textures[i] = NULL;
-    }
+    material->textures[i] = NULL;
   }
 
   return material;
@@ -30,11 +29,11 @@ void lovrMaterialDestroy(const Ref* ref) {
 }
 
 Color lovrMaterialGetColor(Material* material, MaterialColor colorType) {
-  return material->materialData->colors[colorType];
+  return material->colors[colorType];
 }
 
 void lovrMaterialSetColor(Material* material, MaterialColor colorType, Color color) {
-  material->materialData->colors[colorType] = color;
+  material->colors[colorType] = color;
 }
 
 Texture* lovrMaterialGetTexture(Material* material, MaterialTexture textureType) {

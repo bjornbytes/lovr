@@ -1169,8 +1169,7 @@ void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot) {
 
 Material* lovrGraphicsGetDefaultMaterial() {
   if (!state.defaultMaterial) {
-    MaterialData* materialData = lovrMaterialDataCreateEmpty();
-    state.defaultMaterial = lovrMaterialCreate(materialData, true);
+    state.defaultMaterial = lovrMaterialCreate(true);
   }
 
   return state.defaultMaterial;

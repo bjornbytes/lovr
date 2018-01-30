@@ -13,10 +13,11 @@
 typedef struct {
   Ref ref;
   ModelData* modelData;
-  Mesh* mesh;
+  Texture** textures;
   Material** materials;
   Material* material;
   Animator* animator;
+  Mesh* mesh;
   float pose[MAX_BONES][16];
   float (*nodeTransforms)[16];
   float aabb[6];
