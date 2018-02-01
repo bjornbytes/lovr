@@ -343,3 +343,11 @@ if(WIN32)
   move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_PHYSFS})
 endif()
+
+# 3DConnexion SpaceMouse support-- build if you want to locally debug with the fake-movement simulator using a SpaceMouse
+# Currently this requires you to be on Mac OS X, and to have installed the SpaceMouse drivers before you build.
+if(SPACEMOUSE_SUPPORT)
+  add_definitions(-DSPACEMOUSE_SUPPORT)
+  FIND_LIBRARY(SPACEMOUSE_LIBRARY 3DconnexionClient)
+  target_link_libraries(lovr ${SPACEMOUSE_LIBRARY})
+endif()

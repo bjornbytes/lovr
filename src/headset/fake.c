@@ -43,6 +43,11 @@ typedef struct {
 
 static FakeHeadsetState state;
 
+#ifdef SPACEMOUSE_SUPPORT
+// Do this after declaring state
+#include "headset/spacemouse.c"
+#endif
+
 // fwd declarations
 static void fakePoll();
 
@@ -185,6 +190,10 @@ static void fakeInit() {
   state.mouselook = false;
   state.hookedWindow = NULL;
   state.isInitialized = true;
+
+#ifdef SPACEMOUSE_SUPPORT
+  spacemouseInit();
+#endif
 }
 
 static void fakeDestroy() {
@@ -197,6 +206,10 @@ static void fakeDestroy() {
 
   vec_deinit(&state.controllers);
   state.isInitialized = false;
+
+#ifdef SPACEMOUSE_SUPPORT
+  spacemouseDestroy();
+#endif
 }
 
 static void fakePoll() {
@@ -379,6 +392,10 @@ static void fakeUpdate(float dt) {
   if (glfwGetKey(w, GLFW_KEY_E) == GLFW_PRESS) {
     v[1] = -k;
   }
+
+#ifdef SPACEMOUSE_SUPPORT
+  spacemouseUpdate(v);
+#endif
 
   // move
   vec3_scale(v,dt);
