@@ -65,6 +65,7 @@ void lovrAudioUpdate() {
         alSourcePlay(source->id);
       }
     } else if (isStopped) {
+      lovrAudioStreamRewind(source->stream);
       vec_splice(&state.sources, i, 1);
       lovrRelease(&source->ref);
     }
