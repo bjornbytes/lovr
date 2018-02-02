@@ -62,6 +62,14 @@ int l_lovrTextureSetWrap(lua_State* L) {
   return 0;
 }
 
+int l_lovrTextureExportFile(lua_State* L) {
+  Texture* texture = luax_checktypeof(L, 1, Texture);
+  const char *str = luaL_checkstring(L, 2);
+  if (!lovrTextureExportFile(texture, str))
+    luaL_error(L, "Failed to write PNG file");
+  return 0;
+}
+
 const luaL_Reg lovrTexture[] = {
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getFilter", l_lovrTextureGetFilter },
@@ -70,5 +78,6 @@ const luaL_Reg lovrTexture[] = {
   { "getWrap", l_lovrTextureGetWrap },
   { "setFilter", l_lovrTextureSetFilter },
   { "setWrap", l_lovrTextureSetWrap },
+  { "exportFile", l_lovrTextureExportFile },
   { NULL, NULL }
 };
