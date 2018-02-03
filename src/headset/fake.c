@@ -118,7 +118,7 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
     vec_foreach(&state.controllers, controller, i) {
       if (controller->id == 0) {
-        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
           ev.data.controllerpressed.controller = controller;
           ev.data.controllerpressed.button = CONTROLLER_BUTTON_TRIGGER;
           lovrEventPush(ev);
@@ -308,7 +308,7 @@ static bool fakeControllerIsDown(Controller* controller, ControllerButton button
   if(!window) {
     return false;
   }
-  int b = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT);
+  int b = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_RIGHT);
   return (b == GLFW_PRESS) ? CONTROLLER_BUTTON_TRIGGER : false;
 }
 
