@@ -47,4 +47,6 @@ typedef struct {
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format);
 TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format);
 TextureData* lovrTextureDataFromBlob(Blob* blob);
+Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y);
+void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color);
 void lovrTextureDataDestroy(const Ref* ref);

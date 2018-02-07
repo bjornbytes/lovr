@@ -178,6 +178,29 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
   return textureData;
 }
 
+Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y) {
+  if (!textureData->data || textureData->format != FORMAT_RGBA) {
+    return (Color) { 0, 0, 0, 0 };
+  }
+
+  size_t offset = 4 * ((textureData->height - (y + 1)) * textureData->width + x);
+  uint8_t* data = (uint8_t*) textureData->data + offset;
+  return (Color) { data[0] / 255.f, data[1] / 255.f, data[2] / 255.f, data[3] / 255.f };
+}
+
+void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color) {
+  if (!textureData->data || textureData->format != FORMAT_RGBA) {
+    return;
+  }
+
+  size_t offset = 4 * ((textureData->height - (y + 1)) * textureData->width + x);
+  uint8_t* data = (uint8_t*) textureData->data + offset;
+  data[0] = (uint8_t) (color.r * 255.f + .5);
+  data[1] = (uint8_t) (color.g * 255.f + .5);
+  data[2] = (uint8_t) (color.b * 255.f + .5);
+  data[3] = (uint8_t) (color.a * 255.f + .5);
+}
+
 void lovrTextureDataDestroy(const Ref* ref) {
   TextureData* textureData = containerof(ref, TextureData);
   if (textureData->blob) {
