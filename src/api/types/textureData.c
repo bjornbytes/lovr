@@ -1,5 +1,13 @@
 #include "api.h"
 
+int l_lovrTextureDataEncode(lua_State* L) {
+  TextureData* textureData = luax_checktype(L, 1, TextureData);
+  const char* filename = luaL_checkstring(L, 2);
+  bool success = lovrTextureDataEncode(textureData, filename);
+  lua_pushboolean(L, success);
+  return 1;
+}
+
 int l_lovrTextureDataGetWidth(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
   lua_pushinteger(L, textureData->width);
@@ -46,6 +54,7 @@ int l_lovrTextureDataSetPixel(lua_State* L) {
 }
 
 const luaL_Reg lovrTextureData[] = {
+  { "encode", l_lovrTextureDataEncode },
   { "getWidth", l_lovrTextureDataGetWidth },
   { "getHeight", l_lovrTextureDataGetHeight },
   { "getDimensions", l_lovrTextureDataGetDimensions },
