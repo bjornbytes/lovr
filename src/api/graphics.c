@@ -463,16 +463,21 @@ int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
 }
 
 int l_lovrGraphicsGetDepthTest(lua_State* L) {
-  luax_pushenum(L, &CompareModes, lovrGraphicsGetDepthTest());
-  return 1;
+  CompareMode mode;
+  bool write;
+  lovrGraphicsGetDepthTest(&mode, &write);
+  luax_pushenum(L, &CompareModes, mode);
+  lua_pushboolean(L, write);
+  return 2;
 }
 
 int l_lovrGraphicsSetDepthTest(lua_State* L) {
-  if (lua_isnoneornil(L, 1)) {
-    lovrGraphicsSetDepthTest(COMPARE_NONE);
+  if (lua_isnoneornil(L, 1) && lua_isnoneornil(L, 2)) {
+    lovrGraphicsSetDepthTest(COMPARE_NONE, false);
   } else {
-    CompareMode depthTest = *(CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
-    lovrGraphicsSetDepthTest(depthTest);
+    CompareMode mode = *(CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
+    bool write = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
+    lovrGraphicsSetDepthTest(mode, write);
   }
   return 0;
 }

@@ -68,7 +68,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetColor((Color) { 1., 1., 1., 1. });
   lovrGraphicsSetCullingEnabled(false);
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = FILTER_TRILINEAR });
-  lovrGraphicsSetDepthTest(COMPARE_LEQUAL);
+  lovrGraphicsSetDepthTest(COMPARE_LEQUAL, true);
   lovrGraphicsSetFont(NULL);
   lovrGraphicsSetLineWidth(1);
   lovrGraphicsSetPointSize(1);
@@ -364,11 +364,12 @@ void lovrGraphicsSetDefaultFilter(TextureFilter filter) {
   state.defaultFilter = filter;
 }
 
-CompareMode lovrGraphicsGetDepthTest() {
-  return state.depthTest;
+void lovrGraphicsGetDepthTest(CompareMode* mode, bool* write) {
+  *mode = state.depthTest;
+  *write = state.depthWrite;
 }
 
-void lovrGraphicsSetDepthTest(CompareMode depthTest) {
+void lovrGraphicsSetDepthTest(CompareMode depthTest, bool write) {
   if (state.depthTest != depthTest) {
     state.depthTest = depthTest;
     if (depthTest != COMPARE_NONE) {
@@ -377,6 +378,11 @@ void lovrGraphicsSetDepthTest(CompareMode depthTest) {
     } else {
       glDisable(GL_DEPTH_TEST);
     }
+  }
+
+  if (state.depthWrite != write) {
+    state.depthWrite = write;
+    glDepthMask(write);
   }
 }
 
@@ -1004,9 +1010,14 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   lovrGraphicsPush();
   lovrGraphicsOrigin();
   lovrGraphicsRotate(MATRIX_MODEL, angle, ax, ay, az);
-  glDepthMask(GL_FALSE);
+
   bool wasCulling = lovrGraphicsIsCullingEnabled();
   lovrGraphicsSetCullingEnabled(false);
+
+  CompareMode mode;
+  bool write;
+  lovrGraphicsGetDepthTest(&mode, &write);
+  lovrGraphicsSetDepthTest(mode, false);
 
   if (texture->type == TEXTURE_CUBE) {
     float cube[] = {
@@ -1064,8 +1075,8 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   }
 
+  lovrGraphicsSetDepthTest(mode, write);
   lovrGraphicsSetCullingEnabled(wasCulling);
-  glDepthMask(GL_TRUE);
   lovrGraphicsPop();
 }
 
@@ -1082,16 +1093,22 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsSetDefaultShader(SHADER_FONT);
   Material* material = lovrGraphicsGetDefaultMaterial();
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, font->texture);
-  glDepthMask(GL_FALSE);
+  CompareMode mode;
+  bool write;
+  lovrGraphicsGetDepthTest(&mode, &write);
+  lovrGraphicsSetDepthTest(mode, false);
   lovrGraphicsDrawPrimitive(NULL, GL_TRIANGLES, false, true, false);
-  glDepthMask(GL_TRUE);
+  lovrGraphicsSetDepthTest(mode, write);
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   lovrGraphicsPop();
 }
 
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
+  CompareMode mode;
+  bool write;
+  lovrGraphicsGetDepthTest(&mode, &write);
+  lovrGraphicsSetDepthTest(mode, false);
   glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-  glDepthMask(GL_FALSE);
 
   if (!state.stencilEnabled) {
     glEnable(GL_STENCIL_TEST);
@@ -1105,9 +1122,8 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
   callback(userdata);
   state.stencilWriting = false;
 
-  glDepthMask(GL_TRUE);
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
+  lovrGraphicsSetDepthTest(mode, write);
   lovrGraphicsSetStencilTest(state.stencilMode, state.stencilValue);
 }
 

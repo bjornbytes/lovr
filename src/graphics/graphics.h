@@ -108,6 +108,7 @@ typedef struct {
   bool culling;
   TextureFilter defaultFilter;
   CompareMode depthTest;
+  bool depthWrite;
   Font* font;
   bool gammaCorrect;
   GraphicsLimits limits;
@@ -158,8 +159,8 @@ bool lovrGraphicsIsCullingEnabled();
 void lovrGraphicsSetCullingEnabled(bool culling);
 TextureFilter lovrGraphicsGetDefaultFilter();
 void lovrGraphicsSetDefaultFilter(TextureFilter filter);
-CompareMode lovrGraphicsGetDepthTest();
-void lovrGraphicsSetDepthTest(CompareMode depthTest);
+void lovrGraphicsGetDepthTest(CompareMode* mode, bool* write);
+void lovrGraphicsSetDepthTest(CompareMode depthTest, bool write);
 Font* lovrGraphicsGetFont();
 void lovrGraphicsSetFont(Font* font);
 bool lovrGraphicsIsGammaCorrect();
