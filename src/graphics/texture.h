@@ -52,6 +52,7 @@ bool lovrTextureFormatIsCompressed(TextureFormat format);
 
 Texture* lovrTextureCreate(TextureType type, TextureData* data[6], int count, bool srgb);
 void lovrTextureDestroy(const Ref* ref);
+void lovrTextureReplacePixels(Texture* texture, TextureData* data, int slice);
 TextureFilter lovrTextureGetFilter(Texture* texture);
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter);
 TextureWrap lovrTextureGetWrap(Texture* texture);

@@ -43,6 +43,14 @@ int l_lovrTextureGetWrap(lua_State* L) {
   return 2;
 }
 
+int l_lovrTextureReplacePixels(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  TextureData* textureData = luax_checktype(L, 2, TextureData);
+  int slice = luaL_optinteger(L, 3, 1);
+  lovrTextureReplacePixels(texture, textureData, slice - 1);
+  return 0;
+}
+
 int l_lovrTextureSetFilter(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
   FilterMode mode = *(FilterMode*) luax_checkenum(L, 2, &FilterModes, "filter mode");
@@ -68,6 +76,7 @@ const luaL_Reg lovrTexture[] = {
   { "getHeight", l_lovrTextureGetHeight },
   { "getWidth", l_lovrTextureGetWidth },
   { "getWrap", l_lovrTextureGetWrap },
+  { "replacePixels", l_lovrTextureReplacePixels },
   { "setFilter", l_lovrTextureSetFilter },
   { "setWrap", l_lovrTextureSetWrap },
   { NULL, NULL }

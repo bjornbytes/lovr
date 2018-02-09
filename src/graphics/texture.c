@@ -152,6 +152,13 @@ void lovrTextureDestroy(const Ref* ref) {
   free(texture);
 }
 
+void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int slice) {
+  lovrAssert(slice >= 0 && slice < texture->sliceCount, "Invalid texture slice to replace: %d", slice);
+  lovrAssert(textureData->width == texture->width && textureData->height == texture->height, "Texture dimensions must match");
+  lovrAssert(textureData->format == texture->slices[0]->format, "Texture formats must match");
+  lovrTextureUpload(texture);
+}
+
 TextureFilter lovrTextureGetFilter(Texture* texture) {
   return texture->filter;
 }
