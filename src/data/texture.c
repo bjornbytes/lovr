@@ -126,6 +126,7 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, Textu
     default: lovrThrow("Unable to create a blank compressed texture");
   }
 
+  lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");
   size_t size = width * height * pixelSize;
   textureData->width = width;
   textureData->height = height;
@@ -141,6 +142,7 @@ TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format
   TextureData* textureData = lovrAlloc(sizeof(TextureData), lovrTextureDataDestroy);
   if (!textureData) return NULL;
 
+  lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");
   textureData->width = width;
   textureData->height = height;
   textureData->format = format;
