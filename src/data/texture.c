@@ -185,6 +185,8 @@ Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y) {
     return (Color) { 0, 0, 0, 0 };
   }
 
+  bool inside = x >= 0 && y >= 0 && x <= (textureData->width - 1) && y <= (textureData->height - 1);
+  lovrAssert(inside, "getPixel coordinates must be in TextureData bounds");
   size_t offset = 4 * ((textureData->height - (y + 1)) * textureData->width + x);
   uint8_t* data = (uint8_t*) textureData->data + offset;
   return (Color) { data[0] / 255.f, data[1] / 255.f, data[2] / 255.f, data[3] / 255.f };
@@ -195,6 +197,8 @@ void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color
     return;
   }
 
+  bool inside = x >= 0 && y >= 0 && x <= (textureData->width - 1) && y <= (textureData->height - 1);
+  lovrAssert(inside, "setPixel coordinates must be in TextureData bounds");
   size_t offset = 4 * ((textureData->height - (y + 1)) * textureData->width + x);
   uint8_t* data = (uint8_t*) textureData->data + offset;
   data[0] = (uint8_t) (color.r * 255.f + .5);
