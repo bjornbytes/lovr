@@ -290,10 +290,44 @@ int l_lovrGraphicsReset(lua_State* L) {
 }
 
 int l_lovrGraphicsClear(lua_State* L) {
-  bool color = lua_gettop(L) < 1 || lua_toboolean(L, 1);
-  bool depth = lua_gettop(L) < 2 || lua_toboolean(L, 2);
-  bool stencil = lua_gettop(L) < 3 || lua_toboolean(L, 3);
-  lovrGraphicsClear(color, depth, stencil);
+  int index = 1;
+  int top = lua_gettop(L);
+
+  bool clearColor = true;
+  bool clearDepth = true;
+  bool clearStencil = true;
+  Color color = lovrGraphicsGetBackgroundColor();
+  float depth = 1.0;
+  int stencil = 0;
+
+  if (top >= index) {
+    if (lua_type(L, index) == LUA_TNUMBER) {
+      color.r = luaL_checknumber(L, index++);
+      color.g = luaL_checknumber(L, index++);
+      color.b = luaL_checknumber(L, index++);
+      color.a = luaL_optnumber(L, index++, 1.);
+    } else {
+      clearColor = lua_toboolean(L, index++);
+    }
+  }
+
+  if (top >= index) {
+    if (lua_type(L, index) == LUA_TNUMBER) {
+      depth = luaL_checknumber(L, index++);
+    } else {
+      clearDepth = lua_toboolean(L, index++);
+    }
+  }
+
+  if (top >= index) {
+    if (lua_type(L, index) == LUA_TNUMBER) {
+      stencil = luaL_checkinteger(L, index++);
+    } else {
+      clearStencil = lua_toboolean(L, index++);
+    }
+  }
+
+  lovrGraphicsClear(clearColor, clearDepth, clearStencil, color, depth, stencil);
   return 0;
 }
 
@@ -787,7 +821,8 @@ int l_lovrGraphicsStencil(lua_State* L) {
   int replaceValue = luaL_optinteger(L, 3, 1);
   bool keepValues = lua_toboolean(L, 4);
   if (!keepValues) {
-    lovrGraphicsClear(false, false, true);
+    int clearTo = lua_isnumber(L, 4) ? lua_tonumber(L, 4) : 0;
+    lovrGraphicsClear(false, false, true, (Color) { 0, 0, 0, 0 }, 0, clearTo);
   }
   lua_settop(L, 1);
   lovrGraphicsStencil(action, replaceValue, stencilCallback, L);

@@ -348,7 +348,7 @@ static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
   lovrGraphicsMatrixTransform(MATRIX_VIEW, inv);
 
   lovrGraphicsSetProjection(state.projection);
-  lovrGraphicsClear(true, true, true);
+  lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
   callback(EYE_LEFT, userdata);
   lovrGraphicsPop();
 }

@@ -139,7 +139,7 @@ typedef struct {
 void lovrGraphicsInit();
 void lovrGraphicsDestroy();
 void lovrGraphicsReset();
-void lovrGraphicsClear(bool color, bool depth, bool stencil);
+void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Color color, float depth, int stencil);
 void lovrGraphicsPresent();
 void lovrGraphicsPrepare(Material* material, float* pose);
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);

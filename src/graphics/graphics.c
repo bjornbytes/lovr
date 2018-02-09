@@ -81,9 +81,19 @@ void lovrGraphicsReset() {
   lovrGraphicsOrigin();
 }
 
-void lovrGraphicsClear(bool color, bool depth, bool stencil) {
-  if (!color && !depth && !stencil) return;
-  glClear((color ? GL_COLOR_BUFFER_BIT : 0) | (depth ? GL_DEPTH_BUFFER_BIT : 0) | (stencil ? GL_STENCIL_BUFFER_BIT : 0));
+void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Color color, float depth, int stencil) {
+  if (clearColor) {
+    float c[4] = { color.r, color.g, color.b, color.a };
+    glClearBufferfv(GL_COLOR, 0, c);
+  }
+
+  if (clearDepth) {
+    glClearBufferfv(GL_DEPTH, 0, &depth);
+  }
+
+  if (clearStencil) {
+    glClearBufferiv(GL_STENCIL, 0, &stencil);
+  }
 }
 
 void lovrGraphicsPresent() {
