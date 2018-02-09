@@ -213,3 +213,28 @@ void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
     glTexParameteri(texture->type, GL_TEXTURE_WRAP_R, wrap.r);
   }
 }
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <unistd.h>
+#include <filesystem/filesystem.h>
+#include <graphics/stb_image_write.h>
+
+bool lovrTextureExportFile(Texture* texture, const char *basename) {
+  char filename[LOVR_PATH_MAX];
+  for(int c = 0;; c++) { // Find unoccupied filename
+    if (c)
+      snprintf(filename, LOVR_PATH_MAX, "%s-%d.png", basename, c);
+    else
+      snprintf(filename, LOVR_PATH_MAX, "%s.png", basename);
+
+    if( access( filename, F_OK ) == -1 )
+      break;
+  }
+
+  void *pixels = malloc(texture->width*texture->height*3);
+  glBindTexture(GL_TEXTURE_2D, texture->id);
+  glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+  bool success = stbi_write_png(filename, texture->width, texture->height, 3, pixels, texture->width*3);
+  free(pixels);
+  return success;
+}
