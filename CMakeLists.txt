@@ -274,6 +274,7 @@ set(LOVR_SRC
   src/lib/lua-enet/enet.c
   src/lib/map/map.c
   src/lib/stb/stb_image.c
+  src/lib/stb/stb_image_write.c
   src/lib/stb/stb_vorbis.c
   src/lib/vec/vec.c
   src/lovr.c
