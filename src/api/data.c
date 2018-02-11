@@ -12,6 +12,7 @@ int l_lovrDataInit(lua_State* L) {
   luax_registertype(L, "ModelData", lovrModelData);
   luax_registertype(L, "Rasterizer", lovrRasterizer);
   luax_registertype(L, "TextureData", lovrTextureData);
+  luax_registertype(L, "VertexData", lovrVertexData);
   return 1;
 }
 
@@ -31,23 +32,6 @@ int l_lovrDataNewModelData(lua_State* L) {
   luax_pushtype(L, ModelData, modelData);
   lovrRelease(&blob->ref);
   lovrRelease(&modelData->ref);
-  return 1;
-}
-
-int l_lovrDataNewTextureData(lua_State* L) {
-  TextureData* textureData = NULL;
-  if (lua_type(L, 1) == LUA_TNUMBER) {
-    int width = luaL_checknumber(L, 1);
-    int height = luaL_checknumber(L, 2);
-    textureData = lovrTextureDataGetBlank(width, height, 0x0, FORMAT_RGBA);
-  } else {
-    Blob* blob = luax_readblob(L, 1, "Texture");
-    textureData = lovrTextureDataFromBlob(blob);
-    lovrRelease(&blob->ref);
-  }
-
-  luax_pushtype(L, TextureData, textureData);
-  lovrRelease(&textureData->ref);
   return 1;
 }
 
@@ -73,10 +57,39 @@ int l_lovrDataNewRasterizer(lua_State* L) {
   return 1;
 }
 
+int l_lovrDataNewTextureData(lua_State* L) {
+  TextureData* textureData = NULL;
+  if (lua_type(L, 1) == LUA_TNUMBER) {
+    int width = luaL_checknumber(L, 1);
+    int height = luaL_checknumber(L, 2);
+    textureData = lovrTextureDataGetBlank(width, height, 0x0, FORMAT_RGBA);
+  } else {
+    Blob* blob = luax_readblob(L, 1, "Texture");
+    textureData = lovrTextureDataFromBlob(blob);
+    lovrRelease(&blob->ref);
+  }
+
+  luax_pushtype(L, TextureData, textureData);
+  lovrRelease(&textureData->ref);
+  return 1;
+}
+
+int l_lovrDataNewVertexData(lua_State* L) {
+  uint32_t count = luaL_checkinteger(L, 1);
+  VertexFormat format;
+  vertexFormatInit(&format);
+  luax_checkvertexformat(L, 2, &format);
+  VertexData* vertexData = lovrVertexDataCreate(count, format.count > 0 ? &format : NULL, true);
+  luax_pushtype(L, VertexData, vertexData);
+  lovrRelease(&vertexData->ref);
+  return 1;
+}
+
 const luaL_Reg lovrData[] = {
   { "newAudioStream", l_lovrDataNewAudioStream },
   { "newModelData", l_lovrDataNewModelData },
   { "newRasterizer", l_lovrDataNewRasterizer },
   { "newTextureData", l_lovrDataNewTextureData },
+  { "newVertexData", l_lovrDataNewVertexData },
   { NULL, NULL }
 };

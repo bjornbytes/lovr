@@ -1,9 +1,9 @@
-#include "util.h"
 #include "graphics/shader.h"
 #include "graphics/material.h"
+#include "data/vertexData.h"
 #include "math/math.h"
 #include "lib/glfw.h"
-#include "lib/vertex.h"
+#include "util.h"
 
 #pragma once
 
@@ -24,10 +24,8 @@ typedef enum {
 
 typedef struct {
   Ref ref;
-  size_t vertexCount;
-  VertexFormat format;
-  VertexData vertices;
-  IndexData indices;
+  VertexData* vertexData;
+  IndexPointer indices;
   size_t indexCount;
   size_t indexSize;
   int enabledAttributes;
@@ -47,14 +45,14 @@ typedef struct {
   Shader* lastShader;
 } Mesh;
 
-Mesh* lovrMeshCreate(size_t count, VertexFormat* format, MeshDrawMode drawMode, MeshUsage usage);
+Mesh* lovrMeshCreate(uint32_t count, VertexFormat* format, MeshDrawMode drawMode, MeshUsage usage);
 void lovrMeshDestroy(const Ref* ref);
 void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);
 void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode);
 int lovrMeshGetVertexCount(Mesh* mesh);
-IndexData lovrMeshGetVertexMap(Mesh* mesh, size_t* count);
+IndexPointer lovrMeshGetVertexMap(Mesh* mesh, size_t* count);
 void lovrMeshSetVertexMap(Mesh* mesh, void* data, size_t count);
 bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name);
 void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enabled);
@@ -64,5 +62,5 @@ void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count);
 void lovrMeshSetDrawRange(Mesh* mesh, int start, int count);
 Material* lovrMeshGetMaterial(Mesh* mesh);
 void lovrMeshSetMaterial(Mesh* mesh, Material* material);
-VertexData lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool write);
+VertexPointer lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool write);
 void lovrMeshUnmap(Mesh* mesh);

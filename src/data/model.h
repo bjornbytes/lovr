@@ -1,6 +1,6 @@
 #include "filesystem/blob.h"
+#include "data/vertexData.h"
 #include "util.h"
-#include "lib/vertex.h"
 #include "lib/map/map.h"
 #include "lib/vec/vec.h"
 
@@ -61,22 +61,20 @@ typedef struct {
 
 typedef struct {
   Ref ref;
+  VertexData* vertexData;
+  IndexPointer indices;
+  int indexCount;
+  size_t indexSize;
   ModelNode* nodes;
   map_int_t nodeMap;
   ModelPrimitive* primitives;
   Animation* animations;
   ModelMaterial* materials;
   vec_void_t textures;
-  VertexFormat format;
-  VertexData vertices;
-  IndexData indices;
   int nodeCount;
   int primitiveCount;
   int animationCount;
   int materialCount;
-  int vertexCount;
-  int indexCount;
-  size_t indexSize;
 } ModelData;
 
 ModelData* lovrModelDataCreate(Blob* blob);

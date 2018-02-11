@@ -1,46 +1,5 @@
 #include "api.h"
 
-int luax_pushvertexformat(lua_State* L, VertexFormat* format) {
-  lua_newtable(L);
-  for (int i = 0; i < format->count; i++) {
-    Attribute attribute = format->attributes[i];
-    lua_newtable(L);
-
-    // Name
-    lua_pushstring(L, attribute.name);
-    lua_rawseti(L, -2, 1);
-
-    // Type
-    luax_pushenum(L, &AttributeTypes, attribute.type);
-    lua_rawseti(L, -2, 2);
-
-    // Count
-    lua_pushinteger(L, attribute.count);
-    lua_rawseti(L, -2, 3);
-
-    lua_rawseti(L, -2, i + 1);
-  }
-  return 1;
-}
-
-int luax_pushvertex(lua_State* L, VertexData* vertex, VertexFormat* format) {
-  int count = 0;
-
-  for (int i = 0; i < format->count; i++) {
-    Attribute attribute = format->attributes[i];
-    count += attribute.count;
-    for (int j = 0; j < attribute.count; j++) {
-      switch (attribute.type) {
-        case ATTR_FLOAT: lua_pushnumber(L, *vertex->floats++); break;
-        case ATTR_BYTE: lua_pushnumber(L, *vertex->bytes++); break;
-        case ATTR_INT: lua_pushnumber(L, *vertex->ints++); break;
-      }
-    }
-  }
-
-  return count;
-}
-
 int l_lovrMeshDrawInstanced(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int instances = luaL_checkinteger(L, 2);
@@ -56,12 +15,6 @@ int l_lovrMeshDraw(lua_State* L) {
   return l_lovrMeshDrawInstanced(L);
 }
 
-int l_lovrMeshGetVertexFormat(lua_State* L) {
-  Mesh* mesh = luax_checktype(L, 1, Mesh);
-  VertexFormat* format = lovrMeshGetVertexFormat(mesh);
-  return luax_pushvertexformat(L, format);
-}
-
 int l_lovrMeshGetDrawMode(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   luax_pushenum(L, &MeshDrawModes, lovrMeshGetDrawMode(mesh));
@@ -75,16 +28,22 @@ int l_lovrMeshSetDrawMode(lua_State* L) {
   return 0;
 }
 
+int l_lovrMeshGetVertexFormat(lua_State* L) {
+  Mesh* mesh = luax_checktype(L, 1, Mesh);
+  VertexFormat* format = lovrMeshGetVertexFormat(mesh);
+  return luax_pushvertexformat(L, format);
+}
+
 int l_lovrMeshGetVertexCount(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  lua_pushnumber(L, lovrMeshGetVertexCount(mesh));
+  lua_pushinteger(L, lovrMeshGetVertexCount(mesh));
   return 1;
 }
 
 int l_lovrMeshGetVertex(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int index = luaL_checkint(L, 2) - 1;
-  VertexData vertex = lovrMeshMap(mesh, index, 1, true, false);
+  VertexPointer vertex = lovrMeshMap(mesh, index, 1, true, false);
   VertexFormat* format = lovrMeshGetVertexFormat(mesh);
   return luax_pushvertex(L, &vertex, format);
 }
@@ -92,34 +51,10 @@ int l_lovrMeshGetVertex(lua_State* L) {
 int l_lovrMeshSetVertex(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int index = luaL_checkint(L, 2) - 1;
-
-  if (index < 0 || index >= lovrMeshGetVertexCount(mesh)) {
-    return luaL_error(L, "Invalid mesh vertex index: %d", index + 1);
-  }
-
+  lovrAssert(index >= 0 && index < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex index: %d", index + 1);
   VertexFormat* format = lovrMeshGetVertexFormat(mesh);
-  VertexData vertex = lovrMeshMap(mesh, index, 1, false, true);
-
-  // Unwrap table
-  int arg = 3;
-  if (lua_istable(L, 3)) {
-    arg++;
-    for (size_t i = 0; i < lua_objlen(L, 3); i++) {
-      lua_rawgeti(L, 3, i + 1);
-    }
-  }
-
-  for (int i = 0; i < format->count; i++) {
-    Attribute attribute = format->attributes[i];
-    for (int j = 0; j < attribute.count; j++) {
-      switch (attribute.type) {
-        case ATTR_FLOAT: *vertex.floats++ = luaL_optnumber(L, arg++, 0.f); break;
-        case ATTR_BYTE: *vertex.bytes++ = luaL_optint(L, arg++, 255); break;
-        case ATTR_INT: *vertex.ints++ = luaL_optint(L, arg++, 0); break;
-      }
-    }
-  }
-
+  VertexPointer vertex = lovrMeshMap(mesh, index, 1, false, true);
+  luax_setvertex(L, 3, &vertex, format);
   return 0;
 }
 
@@ -128,25 +63,12 @@ int l_lovrMeshGetVertexAttribute(lua_State* L) {
   int vertexIndex = luaL_checkint(L, 2) - 1;
   int attributeIndex = luaL_checkint(L, 3) - 1;
   VertexFormat* format = lovrMeshGetVertexFormat(mesh);
-
-  if (vertexIndex < 0 || vertexIndex >= lovrMeshGetVertexCount(mesh)) {
-    return luaL_error(L, "Invalid mesh vertex index: %d", vertexIndex + 1);
-  } else if (attributeIndex < 0 || attributeIndex >= format->count) {
-    return luaL_error(L, "Invalid mesh attribute index: %d", attributeIndex + 1);
-  }
-
+  lovrAssert(vertexIndex >= 0 && vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
+  lovrAssert(attributeIndex >= 0 && attributeIndex < format->count, "Invalid mesh attribute: %d", attributeIndex + 1);
   Attribute attribute = format->attributes[attributeIndex];
-  VertexData vertex = lovrMeshMap(mesh, vertexIndex, 1, true, false);
+  VertexPointer vertex = lovrMeshMap(mesh, vertexIndex, 1, true, false);
   vertex.bytes += attribute.offset;
-  for (int i = 0; i < attribute.count; i++) {
-    switch (attribute.type) {
-      case ATTR_FLOAT: lua_pushnumber(L, *vertex.floats++); break;
-      case ATTR_BYTE: lua_pushinteger(L, *vertex.bytes++); break;
-      case ATTR_INT: lua_pushinteger(L, *vertex.ints++); break;
-    }
-  }
-
-  return attribute.count;
+  return luax_pushvertexattribute(L, &vertex, attribute);
 }
 
 int l_lovrMeshSetVertexAttribute(lua_State* L) {
@@ -154,25 +76,12 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
   int vertexIndex = luaL_checkint(L, 2) - 1;
   int attributeIndex = luaL_checkint(L, 3) - 1;
   VertexFormat* format = lovrMeshGetVertexFormat(mesh);
-
-  if (vertexIndex < 0 || vertexIndex >= lovrMeshGetVertexCount(mesh)) {
-    return luaL_error(L, "Invalid mesh vertex index: %d", vertexIndex + 1);
-  } else if (attributeIndex < 0 || attributeIndex >= format->count) {
-    return luaL_error(L, "Invalid mesh attribute index: %d", attributeIndex + 1);
-  }
-
-  int arg = 4;
-  VertexData vertex = lovrMeshMap(mesh, vertexIndex, 1, false, true);
+  lovrAssert(vertexIndex >= 0 && vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
+  lovrAssert(attributeIndex >= 0 && attributeIndex < format->count, "Invalid mesh attribute: %d", attributeIndex + 1);
   Attribute attribute = format->attributes[attributeIndex];
+  VertexPointer vertex = lovrMeshMap(mesh, vertexIndex, 1, false, true);
   vertex.bytes += attribute.offset;
-  for (int i = 0; i < attribute.count; i++) {
-    switch (attribute.type) {
-      case ATTR_FLOAT: *vertex.floats++ = luaL_optnumber(L, arg++, 0.f); break;
-      case ATTR_BYTE: *vertex.bytes++ = luaL_optint(L, arg++, 255); break;
-      case ATTR_INT: *vertex.ints++ = luaL_optint(L, arg++, 0); break;
-    }
-  }
-
+  luax_setvertexattribute(L, 4, &vertex, attribute);
   return 0;
 }
 
@@ -183,28 +92,13 @@ int l_lovrMeshSetVertices(lua_State* L) {
   int vertexCount = lua_objlen(L, 2);
   int start = luaL_optnumber(L, 3, 1) - 1;
   int maxVertices = lovrMeshGetVertexCount(mesh);
-
-  if (start + vertexCount > maxVertices) {
-    return luaL_error(L, "Mesh can only hold %d vertices", maxVertices);
-  }
-
-  VertexData vertices = lovrMeshMap(mesh, start, vertexCount, false, true);
+  lovrAssert(start + vertexCount <= maxVertices, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", maxVertices);
+  VertexPointer vertices = lovrMeshMap(mesh, start, vertexCount, false, true);
 
   for (int i = 0; i < vertexCount; i++) {
     lua_rawgeti(L, 2, i + 1);
-    int component = 0;
-    for (int j = 0; j < format->count; j++) {
-      Attribute attribute = format->attributes[j];
-      for (int k = 0; k < attribute.count; k++) {
-        lua_rawgeti(L, -1, ++component);
-        switch (attribute.type) {
-          case ATTR_FLOAT: *vertices.floats++ = luaL_optnumber(L, -1, 0.f); break;
-          case ATTR_BYTE: *vertices.bytes++ = luaL_optint(L, -1, 255); break;
-          case ATTR_INT: *vertices.ints++ = luaL_optint(L, -1, 0); break;
-        }
-        lua_pop(L, 1);
-      }
-    }
+    luaL_checktype(L, -1, LUA_TTABLE);
+    luax_setvertex(L, -1, &vertices, format);
     lua_pop(L, 1);
   }
 
@@ -214,7 +108,7 @@ int l_lovrMeshSetVertices(lua_State* L) {
 int l_lovrMeshGetVertexMap(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   size_t count;
-  IndexData indices = lovrMeshGetVertexMap(mesh, &count);
+  IndexPointer indices = lovrMeshGetVertexMap(mesh, &count);
 
   if (count == 0) {
     lua_pushnil(L);
@@ -243,8 +137,8 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
   int count = lua_objlen(L, 2);
   int vertexCount = lovrMeshGetVertexCount(mesh);
   int indexSize = mesh->indexSize;
-  IndexData indices = lovrMeshGetVertexMap(mesh, NULL);
-  indices.data = realloc(indices.data, indexSize * count);
+  IndexPointer indices = lovrMeshGetVertexMap(mesh, NULL);
+  indices.raw = realloc(indices.raw, indexSize * count);
 
   for (int i = 0; i < count; i++) {
     lua_rawgeti(L, 2, i + 1);
@@ -266,7 +160,7 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  lovrMeshSetVertexMap(mesh, indices.data, count);
+  lovrMeshSetVertexMap(mesh, indices.raw, count);
   return 0;
 }
 

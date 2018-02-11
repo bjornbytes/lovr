@@ -21,21 +21,13 @@ int l_lovrModelDataGetMaterialCount(lua_State* L) {
 
 int l_lovrModelDataGetVertexCount(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
-  lua_pushinteger(L, modelData->vertexCount);
+  lua_pushinteger(L, modelData->vertexData->count);
   return 1;
 }
 
 int l_lovrModelDataGetVertexFormat(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
-  return luax_pushvertexformat(L, &modelData->format);
-}
-
-int l_lovrModelDataGetVertex(lua_State* L) {
-  ModelData* modelData = luax_checktype(L, 1, ModelData);
-  int index = luaL_checkint(L, 2) - 1;
-  VertexData vertex = modelData->vertices;
-  vertex.bytes += index * modelData->format.stride;
-  return luax_pushvertex(L, &vertex, &modelData->format);
+  return luax_pushvertexformat(L, &modelData->vertexData->format);
 }
 
 int l_lovrModelDataGetTriangleCount(lua_State* L) {

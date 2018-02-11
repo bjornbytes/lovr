@@ -255,9 +255,9 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   }
 
   modelData->nodeCount = 0;
-  modelData->vertexCount = 0;
   modelData->indexCount = 0;
 
+  uint32_t vertexCount = 0;
   bool hasNormals = false;
   bool hasUVs = false;
   bool hasVertexColors = false;
@@ -265,7 +265,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
     struct aiMesh* assimpMesh = scene->mMeshes[m];
-    modelData->vertexCount += assimpMesh->mNumVertices;
+    vertexCount += assimpMesh->mNumVertices;
     modelData->indexCount += assimpMesh->mNumFaces * 3;
     hasNormals |= assimpMesh->mNormals != NULL;
     hasUVs |= assimpMesh->mTextureCoords[0] != NULL;
@@ -273,26 +273,26 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     isSkinned |= assimpMesh->mNumBones > 0;
   }
 
-  vertexFormatInit(&modelData->format);
-  vertexFormatAppend(&modelData->format, "lovrPosition", ATTR_FLOAT, 3);
+  VertexFormat format;
+  vertexFormatInit(&format);
+  vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
 
-  if (hasNormals) vertexFormatAppend(&modelData->format, "lovrNormal", ATTR_FLOAT, 3);
-  if (hasUVs) vertexFormatAppend(&modelData->format, "lovrTexCoord", ATTR_FLOAT, 2);
-  if (hasVertexColors) vertexFormatAppend(&modelData->format, "lovrVertexColor", ATTR_BYTE, 4);
-  size_t boneByteOffset = modelData->format.stride;
-  if (isSkinned) vertexFormatAppend(&modelData->format, "lovrBones", ATTR_INT, 4);
-  if (isSkinned) vertexFormatAppend(&modelData->format, "lovrBoneWeights", ATTR_FLOAT, 4);
+  if (hasNormals) vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
+  if (hasUVs) vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
+  if (hasVertexColors) vertexFormatAppend(&format, "lovrVertexColor", ATTR_BYTE, 4);
+  size_t boneByteOffset = format.stride;
+  if (isSkinned) vertexFormatAppend(&format, "lovrBones", ATTR_INT, 4);
+  if (isSkinned) vertexFormatAppend(&format, "lovrBoneWeights", ATTR_FLOAT, 4);
 
   // Allocate
+  modelData->vertexData = lovrVertexDataCreate(vertexCount, &format, true);
+  modelData->indexSize = vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
+  modelData->indices.raw = malloc(modelData->indexCount * modelData->indexSize);
   modelData->primitiveCount = scene->mNumMeshes;
   modelData->primitives = malloc(modelData->primitiveCount * sizeof(ModelPrimitive));
-  modelData->indexSize = modelData->vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
-  modelData->vertices.data = malloc(modelData->format.stride * modelData->vertexCount);
-  modelData->indices.data = malloc(modelData->indexCount * modelData->indexSize);
-  memset(modelData->vertices.data, 0, modelData->format.stride * modelData->vertexCount);
 
   // Load vertices
-  IndexData indices = modelData->indices;
+  IndexPointer indices = modelData->indices;
   uint32_t vertex = 0;
   uint32_t index = 0;
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
@@ -323,8 +323,8 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
     // Vertices
     for (unsigned int v = 0; v < assimpMesh->mNumVertices; v++) {
-      VertexData vertices = modelData->vertices;
-      vertices.bytes += vertex * modelData->format.stride;
+      VertexPointer vertices = modelData->vertexData->data;
+      vertices.bytes += vertex * modelData->vertexData->format.stride;
 
       *vertices.floats++ = assimpMesh->mVertices[v].x;
       *vertices.floats++ = assimpMesh->mVertices[v].y;
@@ -384,8 +384,8 @@ ModelData* lovrModelDataCreate(Blob* blob) {
       for (unsigned int w = 0; w < assimpBone->mNumWeights; w++) {
         uint32_t vertexIndex = baseVertex + assimpBone->mWeights[w].mVertexId;
         float weight = assimpBone->mWeights[w].mWeight;
-        VertexData vertices = modelData->vertices;
-        vertices.bytes += vertexIndex * modelData->format.stride;
+        VertexPointer vertices = modelData->vertexData->data;
+        vertices.bytes += vertexIndex * modelData->vertexData->format.stride;
         uint32_t* bones = (uint32_t*) (vertices.bytes + boneByteOffset);
         float* weights = (float*) (bones + MAX_BONES_PER_VERTEX);
 
@@ -515,12 +515,13 @@ void lovrModelDataDestroy(const Ref* ref) {
   vec_deinit(&modelData->textures);
   map_deinit(&modelData->nodeMap);
 
+  lovrRelease(&modelData->vertexData->ref);
+
   free(modelData->nodes);
   free(modelData->primitives);
   free(modelData->animations);
   free(modelData->materials);
-  free(modelData->vertices.data);
-  free(modelData->indices.data);
+  free(modelData->indices.raw);
   free(modelData);
 }
 
@@ -537,7 +538,7 @@ static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6], m
       } else {
         index = modelData->indices.ints[primitive->drawStart + j];
       }
-      vec3_init(vertex, (float*) (modelData->vertices.bytes + index * modelData->format.stride));
+      vec3_init(vertex, (float*) (modelData->vertexData->data.bytes + index * modelData->vertexData->format.stride));
       mat4_transform(transform, vertex);
       aabb[0] = MIN(aabb[0], vertex[0]);
       aabb[1] = MAX(aabb[1], vertex[0]);

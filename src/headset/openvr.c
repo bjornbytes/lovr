@@ -639,20 +639,15 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   ModelData* modelData = malloc(sizeof(ModelData));
   if (!modelData) return NULL;
 
-  vertexFormatInit(&modelData->format);
-  vertexFormatAppend(&modelData->format, "lovrPosition", ATTR_FLOAT, 3);
-  vertexFormatAppend(&modelData->format, "lovrNormal", ATTR_FLOAT, 3);
-  vertexFormatAppend(&modelData->format, "lovrTexCoord", ATTR_FLOAT, 2);
+  VertexFormat format;
+  vertexFormatInit(&format);
+  vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
+  vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
+  vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
 
-  modelData->vertexCount = vrModel->unVertexCount;
-  modelData->vertices.data = malloc(modelData->vertexCount * modelData->format.stride);
+  modelData->vertexData = lovrVertexDataCreate(vrModel->unVertexCount, &format, true);
 
-  modelData->indexCount = vrModel->unTriangleCount * 3;
-  modelData->indexSize = sizeof(uint16_t);
-  modelData->indices.data = malloc(modelData->indexCount * modelData->indexSize);
-  memcpy(modelData->indices.data, vrModel->rIndexData, modelData->indexCount * modelData->indexSize);
-
-  float* vertices = modelData->vertices.floats;
+  float* vertices = modelData->vertexData->data.floats;
   int vertex = 0;
   for (size_t i = 0; i < vrModel->unVertexCount; i++) {
     float* position = vrModel->rVertexData[i].vPosition.v;
@@ -671,6 +666,11 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
     vertices[vertex++] = texCoords[1];
   }
 
+  modelData->indexCount = vrModel->unTriangleCount * 3;
+  modelData->indexSize = sizeof(uint16_t);
+  modelData->indices.raw = malloc(modelData->indexCount * modelData->indexSize);
+  memcpy(modelData->indices.raw, vrModel->rIndexData, modelData->indexCount * modelData->indexSize);
+
   modelData->nodeCount = 1;
   modelData->primitiveCount = 1;
   modelData->animationCount = 0;
@@ -681,7 +681,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   modelData->animations = NULL;
   modelData->materials = malloc(1 * sizeof(ModelMaterial));
 
-  // Geometry
+  // Nodes
   map_init(&modelData->nodeMap);
   ModelNode* root = &modelData->nodes[0];
   root->parent = -1;

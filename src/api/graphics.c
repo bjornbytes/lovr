@@ -8,8 +8,8 @@
 #include "data/model.h"
 #include "data/rasterizer.h"
 #include "data/texture.h"
+#include "data/vertexData.h"
 #include "filesystem/filesystem.h"
-#include "lib/vertex.h"
 #include <math.h>
 #include <stdbool.h>
 
@@ -77,33 +77,6 @@ static void stencilCallback(void* userdata) {
   lua_State* L = userdata;
   luaL_checktype(L, -1, LUA_TFUNCTION);
   lua_call(L, 0, 0);
-}
-
-static void luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
-  if (!lua_istable(L, index)) {
-    return;
-  }
-
-  int length = lua_objlen(L, index);
-  lovrAssert(length <= 8, "Only 8 vertex attributes are supported");
-  for (int i = 0; i < length; i++) {
-    lua_rawgeti(L, index, i + 1);
-
-    if (!lua_istable(L, -1) || lua_objlen(L, -1) != 3) {
-      luaL_error(L, "Expected vertex format specified as tables containing name, data type, and size");
-      return;
-    }
-
-    lua_rawgeti(L, -1, 1);
-    lua_rawgeti(L, -2, 2);
-    lua_rawgeti(L, -3, 3);
-
-    const char* name = lua_tostring(L, -3);
-    AttributeType* type = (AttributeType*) luax_checkenum(L, -2, &AttributeTypes, "mesh attribute type");
-    int count = lua_tointeger(L, -1);
-    vertexFormatAppend(format, name, *type, count);
-    lua_pop(L, 4);
-  }
 }
 
 static TextureData* luax_checktexturedata(lua_State* L, int index) {
@@ -978,7 +951,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   if (dataIndex) {
     int count = lua_objlen(L, dataIndex);
     format = *lovrMeshGetVertexFormat(mesh);
-    VertexData vertices = lovrMeshMap(mesh, 0, count, false, true);
+    VertexPointer vertices = lovrMeshMap(mesh, 0, count, false, true);
 
     for (int i = 0; i < count; i++) {
       lua_rawgeti(L, dataIndex, i + 1);

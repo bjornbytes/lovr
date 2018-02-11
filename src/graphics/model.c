@@ -59,11 +59,11 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->animator = NULL;
   model->material = NULL;
 
-  model->mesh = lovrMeshCreate(modelData->vertexCount, &modelData->format, MESH_TRIANGLES, MESH_STATIC);
-  VertexData vertices = lovrMeshMap(model->mesh, 0, modelData->vertexCount, false, true);
-  memcpy(vertices.data, modelData->vertices.data, modelData->vertexCount * modelData->format.stride);
+  model->mesh = lovrMeshCreate(modelData->vertexData->count, &modelData->vertexData->format, MESH_TRIANGLES, MESH_STATIC);
+  VertexPointer vertices = lovrMeshMap(model->mesh, 0, modelData->vertexData->count, false, true);
+  memcpy(vertices.raw, modelData->vertexData->data.raw, modelData->vertexData->count * modelData->vertexData->format.stride);
   lovrMeshUnmap(model->mesh);
-  lovrMeshSetVertexMap(model->mesh, modelData->indices.data, modelData->indexCount);
+  lovrMeshSetVertexMap(model->mesh, modelData->indices.raw, modelData->indexCount);
   lovrMeshSetRangeEnabled(model->mesh, true);
 
   if (modelData->textures.length > 0) {

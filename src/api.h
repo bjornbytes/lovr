@@ -57,6 +57,7 @@ extern const luaL_Reg lovrSphereShape[];
 extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrTextureData[];
 extern const luaL_Reg lovrTransform[];
+extern const luaL_Reg lovrVertexData[];
 extern const luaL_Reg lovrWorld[];
 
 // Enums
@@ -90,8 +91,12 @@ extern map_int_t VerticalAligns;
 extern map_int_t WrapModes;
 
 // Shared helpers
+void luax_checkvertexformat(lua_State* L, int index, VertexFormat* format);
 int luax_pushvertexformat(lua_State* L, VertexFormat* format);
-int luax_pushvertex(lua_State* L, VertexData* vertex, VertexFormat* format);
+int luax_pushvertexattribute(lua_State* L, VertexPointer* vertex, Attribute attribute);
+int luax_pushvertex(lua_State* L, VertexPointer* vertex, VertexFormat* format);
+void luax_setvertexattribute(lua_State* L, int index, VertexPointer* vertex, Attribute attribute);
+void luax_setvertex(lua_State* L, int index, VertexPointer* vertex, VertexFormat* format);
 int luax_readtransform(lua_State* L, int index, mat4 transform, bool uniformScale);
 Blob* luax_readblob(lua_State* L, int index, const char* debug);
 int luax_pushshape(lua_State* L, Shape* shape);
