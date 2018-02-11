@@ -14,6 +14,7 @@ mat4 mat4_translate(mat4 m, float x, float y, float z);
 mat4 mat4_rotate(mat4 m, float angle, float x, float y, float z);
 mat4 mat4_rotateQuat(mat4 m, quat q);
 mat4 mat4_scale(mat4 m, float x, float y, float z);
+void mat4_getTransform(mat4 m, float* x, float* y, float* z, float* sx, float* sy, float* sz, float* angle, float* ax, float* ay, float* az);
 mat4 mat4_setTransform(mat4 m, float x, float y, float z, float sx, float sy, float sz, float angle, float ax, float ay, float az);
 mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float near, float far);
 mat4 mat4_perspective(mat4 m, float near, float far, float fov, float aspect);

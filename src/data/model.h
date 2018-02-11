@@ -26,6 +26,7 @@ typedef struct {
 typedef struct ModelNode {
   const char* name;
   float transform[16];
+  float globalTransform[16];
   int parent;
   vec_uint_t children;
   vec_uint_t primitives;

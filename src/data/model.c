@@ -72,6 +72,12 @@ static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode,
   struct aiMatrix4x4 m = assimpNode->mTransformation;
   aiTransposeMatrix4(&m);
   mat4_set(node->transform, (float*) &m);
+  if (node->parent == -1) {
+    mat4_set(node->globalTransform, node->transform);
+  } else {
+    mat4_set(node->globalTransform, modelData->nodes[node->parent].globalTransform);
+    mat4_multiply(node->globalTransform, node->transform);
+  }
 
   // Primitives
   vec_init(&node->primitives);
