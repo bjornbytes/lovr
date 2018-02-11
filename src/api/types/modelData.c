@@ -1,6 +1,18 @@
 #include "api.h"
 #include "data/model.h"
 
+int l_lovrModelDataGetVertexData(lua_State* L) {
+  ModelData* modelData = luax_checktype(L, 1, ModelData);
+  luax_pushtype(L, VertexData, modelData->vertexData);
+  return 1;
+}
+
+int l_lovrModelDataGetTriangleCount(lua_State* L) {
+  ModelData* modelData = luax_checktype(L, 1, ModelData);
+  lua_pushinteger(L, modelData->indexCount / 3);
+  return 1;
+}
+
 int l_lovrModelDataGetNodeCount(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   lua_pushinteger(L, modelData->nodeCount);
@@ -30,18 +42,11 @@ int l_lovrModelDataGetVertexFormat(lua_State* L) {
   return luax_pushvertexformat(L, &modelData->vertexData->format);
 }
 
-int l_lovrModelDataGetTriangleCount(lua_State* L) {
-  ModelData* modelData = luax_checktype(L, 1, ModelData);
-  lua_pushinteger(L, modelData->indexCount / 3);
-  return 1;
-}
-
 const luaL_Reg lovrModelData[] = {
+  { "getVertexData", l_lovrModelDataGetVertexData },
+  { "getTriangleCount", l_lovrModelDataGetTriangleCount },
   { "getNodeCount", l_lovrModelDataGetNodeCount },
   { "getAnimationCount", l_lovrModelDataGetAnimationCount },
   { "getMaterialCount", l_lovrModelDataGetMaterialCount },
-  { "getVertexFormat", l_lovrModelDataGetVertexFormat },
-  { "getVertexCount", l_lovrModelDataGetVertexCount },
-  { "getTriangleCount", l_lovrModelDataGetTriangleCount },
   { NULL, NULL }
 };
