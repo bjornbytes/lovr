@@ -1,4 +1,4 @@
-#include "data/model.h"
+#include "data/modelData.h"
 #include "lib/vec/vec.h"
 #include "util.h"
 #include <stdbool.h>

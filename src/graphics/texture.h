@@ -1,4 +1,4 @@
-#include "data/texture.h"
+#include "data/textureData.h"
 #include "lib/glfw.h"
 #include "util.h"
 

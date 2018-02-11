@@ -2,7 +2,7 @@
 #include "graphics/graphics.h"
 #include "graphics/texture.h"
 #include "data/rasterizer.h"
-#include "data/texture.h"
+#include "data/textureData.h"
 #include "util.h"
 #include <string.h>
 #include <stdlib.h>

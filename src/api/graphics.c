@@ -5,9 +5,9 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
-#include "data/model.h"
+#include "data/modelData.h"
 #include "data/rasterizer.h"
-#include "data/texture.h"
+#include "data/textureData.h"
 #include "data/vertexData.h"
 #include "filesystem/filesystem.h"
 #include <math.h>

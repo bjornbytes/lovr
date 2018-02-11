@@ -1,4 +1,4 @@
-#include "data/texture.h"
+#include "data/textureData.h"
 #include "filesystem/file.h"
 #include "math/math.h"
 #include "lib/dds.h"

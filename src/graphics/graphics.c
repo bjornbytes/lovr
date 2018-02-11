@@ -1,5 +1,5 @@
 #include "graphics/graphics.h"
-#include "data/texture.h"
+#include "data/textureData.h"
 #include "data/rasterizer.h"
 #include "resources/shaders.h"
 #include "event/event.h"

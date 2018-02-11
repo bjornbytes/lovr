@@ -1,5 +1,5 @@
-#include "data/model.h"
-#include "data/texture.h"
+#include "data/modelData.h"
+#include "data/textureData.h"
 #include "filesystem/filesystem.h"
 #include "filesystem/file.h"
 #include "math/math.h"

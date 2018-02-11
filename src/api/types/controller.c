@@ -1,6 +1,6 @@
 #include "api.h"
 #include "headset/headset.h"
-#include "data/model.h"
+#include "data/modelData.h"
 #include "graphics/model.h"
 
 int l_lovrControllerIsPresent(lua_State* L) {

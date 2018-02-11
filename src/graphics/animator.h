@@ -1,4 +1,4 @@
-#include "data/model.h"
+#include "data/modelData.h"
 #include "math/mat4.h"
 #include "util.h"
 #include "lib/map/map.h"

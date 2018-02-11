@@ -1,9 +1,9 @@
 #include "api.h"
 #include "data/data.h"
 #include "data/audioStream.h"
-#include "data/model.h"
+#include "data/modelData.h"
 #include "data/rasterizer.h"
-#include "data/texture.h"
+#include "data/textureData.h"
 
 int l_lovrDataInit(lua_State* L) {
   lua_newtable(L);
