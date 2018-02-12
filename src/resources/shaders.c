@@ -1,11 +1,22 @@
 #include "resources/shaders.h"
 
+const char* lovrShaderScalarUniforms[] = {
+  "lovrMetalness",
+  "lovrRoughness"
+};
+
 const char* lovrShaderColorUniforms[] = {
-  "lovrDiffuseColor"
+  "lovrDiffuseColor",
+  "lovrEmissiveColor"
 };
 
 const char* lovrShaderTextureUniforms[] = {
   "lovrDiffuseTexture",
+  "lovrEmissiveTexture",
+  "lovrMetalnessTexture",
+  "lovrRoughnessTexture",
+  "lovrOcclusionTexture",
+  "lovrNormalTexture",
   "lovrEnvironmentTexture"
 };
 
@@ -45,9 +56,17 @@ const char* lovrShaderFragmentPrefix = ""
 "in vec2 texCoord; \n"
 "in vec4 vertexColor; \n"
 "out vec4 lovrFragColor; \n"
+"uniform float lovrMetalness; \n"
+"uniform float lovrRoughness; \n"
 "uniform vec4 lovrColor; \n"
 "uniform vec4 lovrDiffuseColor; \n"
+"uniform vec4 lovrEmissiveColor; \n"
 "uniform sampler2D lovrDiffuseTexture; \n"
+"uniform sampler2D lovrEmissiveTexture; \n"
+"uniform sampler2D lovrMetalnessTexture; \n"
+"uniform sampler2D lovrRoughnessTexture; \n"
+"uniform sampler2D lovrOcclusionTexture; \n"
+"uniform sampler2D lovrNormalTexture; \n"
 "uniform samplerCube lovrEnvironmentTexture; \n"
 "#line 0 \n";
 

@@ -94,6 +94,15 @@ static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode,
   }
 }
 
+static float readMaterialScalar(struct aiMaterial* assimpMaterial, const char* key, unsigned int type, unsigned int index) {
+  float scalar;
+  if (aiGetMaterialFloatArray(assimpMaterial, key, type, index, &scalar, NULL) == aiReturn_SUCCESS) {
+    return scalar;
+  } else {
+    return 1.f;
+  }
+}
+
 static Color readMaterialColor(struct aiMaterial* assimpMaterial, const char* key, unsigned int type, unsigned int index) {
   struct aiColor4D assimpColor;
   if (aiGetMaterialColor(assimpMaterial, key, type, index, &assimpColor) == aiReturn_SUCCESS) {
@@ -418,7 +427,15 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     struct aiMaterial* assimpMaterial = scene->mMaterials[m];
 
     material->diffuseColor = readMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE);
+    material->emissiveColor = readMaterialColor(assimpMaterial, AI_MATKEY_COLOR_EMISSIVE);
     material->diffuseTexture = readMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, modelData, &textureCache, blob->name);
+    material->emissiveTexture = readMaterialTexture(assimpMaterial, aiTextureType_EMISSIVE, modelData, &textureCache, blob->name);
+    material->metalnessTexture = readMaterialTexture(assimpMaterial, aiTextureType_UNKNOWN, modelData, &textureCache, blob->name);
+    material->roughnessTexture = material->metalnessTexture;
+    material->occlusionTexture = readMaterialTexture(assimpMaterial, aiTextureType_LIGHTMAP, modelData, &textureCache, blob->name);
+    material->normalTexture = readMaterialTexture(assimpMaterial, aiTextureType_NORMALS, modelData, &textureCache, blob->name);
+    material->metalness = readMaterialScalar(assimpMaterial, "$mat.gltf.pbrMetallicRoughness.metallicFactor", 0, 0);
+    material->roughness = readMaterialScalar(assimpMaterial, "$mat.gltf.pbrMetallicRoughness.roughnessFactor", 0, 0);
   }
   map_deinit(&textureCache);
 

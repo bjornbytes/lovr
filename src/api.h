@@ -79,6 +79,7 @@ extern map_int_t HeadsetTypes;
 extern map_int_t HorizontalAligns;
 extern map_int_t JointTypes;
 extern map_int_t MaterialColors;
+extern map_int_t MaterialScalars;
 extern map_int_t MaterialTextures;
 extern map_int_t MatrixTypes;
 extern map_int_t MeshDrawModes;

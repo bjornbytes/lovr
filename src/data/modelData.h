@@ -34,7 +34,15 @@ typedef struct ModelNode {
 
 typedef struct {
   Color diffuseColor;
+  Color emissiveColor;
   int diffuseTexture;
+  int emissiveTexture;
+  int metalnessTexture;
+  int roughnessTexture;
+  int occlusionTexture;
+  int normalTexture;
+  float metalness;
+  float roughness;
 } ModelMaterial;
 
 typedef struct {

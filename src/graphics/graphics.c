@@ -159,6 +159,11 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
     material = lovrGraphicsGetDefaultMaterial();
   }
 
+  for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
+    float value = lovrMaterialGetScalar(material, i);
+    lovrShaderSetFloat(shader, lovrShaderScalarUniforms[i], &value, 1);
+  }
+
   for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
     Color color = lovrMaterialGetColor(material, i);
     gammaCorrectColor(&color);

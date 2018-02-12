@@ -140,12 +140,38 @@ int l_lovrModelDataGetMaterialCount(lua_State* L) {
   return 1;
 }
 
-int l_lovrModelDataGetDiffuseColor(lua_State* L) {
-  ModelData* modelData = luax_checktype(L, 1, ModelData);
-  int materialIndex = luaL_checkint(L, 2) - 1;
+static ModelMaterial* luax_checkmodelmaterial(lua_State* L, int index) {
+  ModelData* modelData = luax_checktype(L, index, ModelData);
+  int materialIndex = luaL_checkint(L, index + 1) - 1;
   lovrAssert(materialIndex >= 0 && materialIndex < modelData->materialCount, "Invalid material index: %d", materialIndex + 1);
-  ModelMaterial* material = &modelData->materials[materialIndex];
+  return &modelData->materials[materialIndex];
+}
+
+int l_lovrModelDataGetMetalness(lua_State* L) {
+  ModelMaterial* material = luax_checkmodelmaterial(L, 1);
+  lua_pushnumber(L, material->metalness);
+  return 1;
+}
+
+int l_lovrModelDataGetRoughness(lua_State* L) {
+  ModelMaterial* material = luax_checkmodelmaterial(L, 1);
+  lua_pushnumber(L, material->roughness);
+  return 1;
+}
+
+int l_lovrModelDataGetDiffuseColor(lua_State* L) {
+  ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   Color color = material->diffuseColor;
+  lua_pushnumber(L, color.r);
+  lua_pushnumber(L, color.g);
+  lua_pushnumber(L, color.b);
+  lua_pushnumber(L, color.a);
+  return 4;
+}
+
+int l_lovrModelDataGetEmissiveColor(lua_State* L) {
+  ModelMaterial* material = luax_checkmodelmaterial(L, 1);
+  Color color = material->emissiveColor;
   lua_pushnumber(L, color.r);
   lua_pushnumber(L, color.g);
   lua_pushnumber(L, color.b);
@@ -155,10 +181,48 @@ int l_lovrModelDataGetDiffuseColor(lua_State* L) {
 
 int l_lovrModelDataGetDiffuseTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
-  int materialIndex = luaL_checkint(L, 2) - 1;
-  lovrAssert(materialIndex >= 0 && materialIndex < modelData->materialCount, "Invalid material index: %d", materialIndex + 1);
-  ModelMaterial* material = &modelData->materials[materialIndex];
+  ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->diffuseTexture];
+  luax_pushtype(L, TextureData, textureData);
+  return 1;
+}
+
+int l_lovrModelDataGetEmissiveTexture(lua_State* L) {
+  ModelData* modelData = luax_checktype(L, 1, ModelData);
+  ModelMaterial* material = luax_checkmodelmaterial(L, 1);
+  TextureData* textureData = modelData->textures.data[material->emissiveTexture];
+  luax_pushtype(L, TextureData, textureData);
+  return 1;
+}
+
+int l_lovrModelDataGetMetalnessTexture(lua_State* L) {
+  ModelData* modelData = luax_checktype(L, 1, ModelData);
+  ModelMaterial* material = luax_checkmodelmaterial(L, 1);
+  TextureData* textureData = modelData->textures.data[material->metalnessTexture];
+  luax_pushtype(L, TextureData, textureData);
+  return 1;
+}
+
+int l_lovrModelDataGetRoughnessTexture(lua_State* L) {
+  ModelData* modelData = luax_checktype(L, 1, ModelData);
+  ModelMaterial* material = luax_checkmodelmaterial(L, 1);
+  TextureData* textureData = modelData->textures.data[material->roughnessTexture];
+  luax_pushtype(L, TextureData, textureData);
+  return 1;
+}
+
+int l_lovrModelDataGetOcclusionTexture(lua_State* L) {
+  ModelData* modelData = luax_checktype(L, 1, ModelData);
+  ModelMaterial* material = luax_checkmodelmaterial(L, 1);
+  TextureData* textureData = modelData->textures.data[material->occlusionTexture];
+  luax_pushtype(L, TextureData, textureData);
+  return 1;
+}
+
+int l_lovrModelDataGetNormalTexture(lua_State* L) {
+  ModelData* modelData = luax_checktype(L, 1, ModelData);
+  ModelMaterial* material = luax_checkmodelmaterial(L, 1);
+  TextureData* textureData = modelData->textures.data[material->normalTexture];
   luax_pushtype(L, TextureData, textureData);
   return 1;
 }
@@ -176,7 +240,15 @@ const luaL_Reg lovrModelData[] = {
   { "getNodeComponent", l_lovrModelDataGetNodeComponent },
   { "getAnimationCount", l_lovrModelDataGetAnimationCount },
   { "getMaterialCount", l_lovrModelDataGetMaterialCount },
+  { "getMetalness", l_lovrModelDataGetMetalness },
+  { "getRoughness", l_lovrModelDataGetRoughness },
   { "getDiffuseColor", l_lovrModelDataGetDiffuseColor },
+  { "getEmissiveColor", l_lovrModelDataGetEmissiveColor },
   { "getDiffuseTexture", l_lovrModelDataGetDiffuseTexture },
+  { "getEmissiveTexture", l_lovrModelDataGetEmissiveTexture },
+  { "getMetalnessTexture", l_lovrModelDataGetMetalnessTexture },
+  { "getRoughnessTexture", l_lovrModelDataGetRoughnessTexture },
+  { "getOcclusionTexture", l_lovrModelDataGetOcclusionTexture },
+  { "getNormalTexture", l_lovrModelDataGetNormalTexture },
   { NULL, NULL }
 };

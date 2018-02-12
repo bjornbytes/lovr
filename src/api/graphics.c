@@ -23,6 +23,7 @@ map_int_t DrawModes;
 map_int_t FilterModes;
 map_int_t HorizontalAligns;
 map_int_t MaterialColors;
+map_int_t MaterialScalars;
 map_int_t MaterialTextures;
 map_int_t MatrixTypes;
 map_int_t MeshDrawModes;
@@ -158,9 +159,19 @@ int l_lovrGraphicsInit(lua_State* L) {
 
   map_init(&MaterialColors);
   map_set(&MaterialColors, "diffuse", COLOR_DIFFUSE);
+  map_set(&MaterialColors, "emissive", COLOR_EMISSIVE);
+
+  map_init(&MaterialScalars);
+  map_set(&MaterialScalars, "metalness", SCALAR_METALNESS);
+  map_set(&MaterialScalars, "roughness", SCALAR_ROUGHNESS);
 
   map_init(&MaterialTextures);
   map_set(&MaterialTextures, "diffuse", TEXTURE_DIFFUSE);
+  map_set(&MaterialTextures, "emissive", TEXTURE_EMISSIVE);
+  map_set(&MaterialTextures, "metalness", TEXTURE_METALNESS);
+  map_set(&MaterialTextures, "roughness", TEXTURE_ROUGHNESS);
+  map_set(&MaterialTextures, "occlusion", TEXTURE_OCCLUSION);
+  map_set(&MaterialTextures, "normal", TEXTURE_NORMAL);
   map_set(&MaterialTextures, "environment", TEXTURE_ENVIRONMENT_MAP);
 
   map_init(&MatrixTypes);

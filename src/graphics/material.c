@@ -7,6 +7,10 @@ Material* lovrMaterialCreate(bool isDefault) {
 
   material->isDefault = isDefault;
 
+  for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
+    material->scalars[i] = 1.f;
+  }
+
   for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
     material->colors[i] = (Color) { 1, 1, 1, 1 };
   }
@@ -26,6 +30,14 @@ void lovrMaterialDestroy(const Ref* ref) {
     }
   }
   free(material);
+}
+
+float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType) {
+  return material->scalars[scalarType];
+}
+
+void lovrMaterialSetScalar(Material* material, MaterialScalar scalarType, float value) {
+  material->scalars[scalarType] = value;
 }
 
 Color lovrMaterialGetColor(Material* material, MaterialColor colorType) {

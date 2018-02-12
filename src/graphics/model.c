@@ -84,8 +84,16 @@ Model* lovrModelCreate(ModelData* modelData) {
     for (int i = 0; i < modelData->materialCount; i++) {
       ModelMaterial* materialData = &modelData->materials[i];
       Material* material = lovrMaterialCreate(false);
+      lovrMaterialSetScalar(material, SCALAR_METALNESS, materialData->metalness);
+      lovrMaterialSetScalar(material, SCALAR_ROUGHNESS, materialData->roughness);
       lovrMaterialSetColor(material, COLOR_DIFFUSE, materialData->diffuseColor);
+      lovrMaterialSetColor(material, COLOR_EMISSIVE, materialData->emissiveColor);
       lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, model->textures[materialData->diffuseTexture]);
+      lovrMaterialSetTexture(material, TEXTURE_EMISSIVE, model->textures[materialData->emissiveTexture]);
+      lovrMaterialSetTexture(material, TEXTURE_METALNESS, model->textures[materialData->metalnessTexture]);
+      lovrMaterialSetTexture(material, TEXTURE_ROUGHNESS, model->textures[materialData->roughnessTexture]);
+      lovrMaterialSetTexture(material, TEXTURE_OCCLUSION, model->textures[materialData->occlusionTexture]);
+      lovrMaterialSetTexture(material, TEXTURE_NORMAL, model->textures[materialData->normalTexture]);
       model->materials[i] = material;
     }
   } else {

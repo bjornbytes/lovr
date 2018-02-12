@@ -1,5 +1,6 @@
 #pragma once
 
+extern const char* lovrShaderScalarUniforms[];
 extern const char* lovrShaderColorUniforms[];
 extern const char* lovrShaderTextureUniforms[];
 extern const char* lovrShaderVertexPrefix;
