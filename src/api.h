@@ -15,6 +15,7 @@ int l_lovrGraphicsInit(lua_State* L);
 int l_lovrHeadsetInit(lua_State* L);
 int l_lovrMathInit(lua_State* L);
 int l_lovrPhysicsInit(lua_State* L);
+int l_lovrThreadInit(lua_State* L);
 int l_lovrTimerInit(lua_State* L);
 
 // Modules
@@ -26,6 +27,7 @@ extern const luaL_Reg lovrGraphics[];
 extern const luaL_Reg lovrHeadset[];
 extern const luaL_Reg lovrMath[];
 extern const luaL_Reg lovrPhysics[];
+extern const luaL_Reg lovrThreadModule[];
 extern const luaL_Reg lovrTimer[];
 
 // Objects

@@ -116,6 +116,7 @@ void lovrInit(lua_State* L, int argc, char** argv) {
   luax_preloadmodule(L, "lovr.headset", l_lovrHeadsetInit);
   luax_preloadmodule(L, "lovr.math", l_lovrMathInit);
   luax_preloadmodule(L, "lovr.physics", l_lovrPhysicsInit);
+  luax_preloadmodule(L, "lovr.thread", l_lovrThreadInit);
   luax_preloadmodule(L, "lovr.timer", l_lovrTimerInit);
 
   // Preload libraries
