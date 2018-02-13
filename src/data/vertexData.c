@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 
-static size_t attributeTypeSizes[3] = { 4, 1, 4 };
+static const size_t attributeTypeSizes[3] = { 4, 1, 4 };
 
 void vertexFormatInit(VertexFormat* format) {
   memset(format, 0, sizeof(*format));
