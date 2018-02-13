@@ -6,6 +6,12 @@
 static int runner(void* data) {
   Thread* thread = (Thread*) data;
 
+  lovrRetain(&thread->ref);
+  mtx_lock(&thread->lock);
+  thread->running = true;
+  thread->error = NULL;
+  mtx_unlock(&thread->lock);
+
   // Lua state
 	lua_State* L = luaL_newstate();
 	luaL_openlibs(L);
@@ -35,10 +41,16 @@ static int runner(void* data) {
   //luax_preloadmodule(L, "enet", luaopen_enet);
 
   if (luaL_loadbuffer(L, thread->body, strlen(thread->body), "thread") || lua_pcall(L, 0, 0, 0)) {
-    printf("error running thread\n");
+    thread->error = lua_tostring(L, -1);
+    //lua_getglobal(lovr, "threaderror");
+    lovrRelease(&thread->ref);
     return 1;
   }
 
+  mtx_lock(&thread->lock);
+  thread->running = false;
+  mtx_unlock(&thread->lock);
+  lovrRelease(&thread->ref);
   return 0;
 }
 
@@ -47,17 +59,44 @@ Thread* lovrThreadCreate(const char* body) {
   if (!thread) return NULL;
 
   thread->body = body;
+  thread->error = NULL;
+  thread->running = false;
+  mtx_init(&thread->lock, mtx_plain);
 
   return thread;
 }
 
 void lovrThreadDestroy(const Ref* ref) {
   Thread* thread = containerof(ref, Thread);
+  mtx_destroy(&thread->lock);
+  thrd_detach(thread->handle);
   free(thread);
 }
 
 void lovrThreadStart(Thread* thread) {
-  if (thrd_create(&thread->handle, runner, thread)) {
-    //
+  bool running = lovrThreadIsRunning(thread);
+
+  if (running) {
+    return;
   }
+
+  if (thrd_create(&thread->handle, runner, thread) != thrd_success) {
+    lovrThrow("Could not create thread...sorry");
+    return;
+  }
+}
+
+void lovrThreadWait(Thread* thread) {
+  thrd_join(thread->handle, NULL);
+}
+
+bool lovrThreadIsRunning(Thread* thread) {
+  mtx_lock(&thread->lock);
+  bool running = thread->running;
+  mtx_unlock(&thread->lock);
+  return running;
+}
+
+const char* lovrThreadGetError(Thread* thread) {
+  return thread->error;
 }
