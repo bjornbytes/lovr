@@ -700,6 +700,8 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   TextureData* textureData = malloc(sizeof(TextureData));
   if (!textureData) return NULL;
 
+  vec_init(&modelData->textures);
+  vec_push(&modelData->textures, NULL);
   vec_push(&modelData->textures, textureData);
 
   int width = vrTexture->unWidth;
@@ -715,7 +717,15 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   vec_init(&textureData->mipmaps);
 
   modelData->materials[0].diffuseColor = (Color) { 1, 1, 1, 1 };
-  modelData->materials[0].diffuseTexture = 0;
+  modelData->materials[0].emissiveColor = (Color) { 0, 0, 0, 1 };
+  modelData->materials[0].diffuseTexture = 1;
+  modelData->materials[0].emissiveTexture = 0;
+  modelData->materials[0].metalnessTexture = 0;
+  modelData->materials[0].roughnessTexture = 0;
+  modelData->materials[0].occlusionTexture = 0;
+  modelData->materials[0].normalTexture = 0;
+  modelData->materials[0].metalness = 0;
+  modelData->materials[0].roughness = 0;
 
   return modelData;
 }

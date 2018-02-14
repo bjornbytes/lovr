@@ -1,4 +1,5 @@
 #include "filesystem/blob.h"
+#include "data/textureData.h"
 #include "data/vertexData.h"
 #include "util.h"
 #include "lib/map/map.h"

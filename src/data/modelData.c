@@ -1,5 +1,4 @@
 #include "data/modelData.h"
-#include "data/textureData.h"
 #include "filesystem/filesystem.h"
 #include "filesystem/file.h"
 #include "math/math.h"
@@ -117,42 +116,40 @@ static Color readMaterialColor(struct aiMaterial* assimpMaterial, const char* ke
   }
 }
 
-static int readMaterialTexture(struct aiMaterial* assimpMaterial, enum aiTextureType type, ModelData* modelData, map_int_t* textureCache, const char* dirname) {
+static TextureData* readMaterialTexture(struct aiMaterial* assimpMaterial, enum aiTextureType type, ModelData* modelData, map_int_t* textureCache, const char* dirname) {
   struct aiString str;
-  if (aiGetMaterialTexture(assimpMaterial, type, 0, &str, NULL, NULL, NULL, NULL, NULL, NULL) == aiReturn_SUCCESS) {
-    char* path = str.data;
 
-    int* cachedTexture = map_get(textureCache, path);
-    if (cachedTexture) {
-      return *cachedTexture;
-    }
-
-    int textureIndex = modelData->textures.length;
-
-    char fullPath[LOVR_PATH_MAX];
-    char normalizedPath[LOVR_PATH_MAX];
-    strncpy(fullPath, dirname, LOVR_PATH_MAX);
-    char* lastSlash = strrchr(fullPath, '/');
-    if (lastSlash) lastSlash[1] = '\0';
-    strncat(fullPath, path, LOVR_PATH_MAX);
-    normalizePath(fullPath, normalizedPath, LOVR_PATH_MAX);
-
-    size_t size;
-    void* data = lovrFilesystemRead(normalizedPath, &size);
-    if (data) {
-      Blob* blob = lovrBlobCreate(data, size, path);
-      vec_push(&modelData->textures, lovrTextureDataFromBlob(blob));
-    } else {
-      vec_push(&modelData->textures, NULL);
-    }
-
-    map_set(textureCache, path, textureIndex);
-    return textureIndex;
-  } else {
-    int textureIndex = modelData->textures.length;
-    vec_push(&modelData->textures, NULL);
-    return textureIndex;
+  if (aiGetMaterialTexture(assimpMaterial, type, 0, &str, NULL, NULL, NULL, NULL, NULL, NULL) != aiReturn_SUCCESS) {
+    return 0;
   }
+
+  char* path = str.data;
+
+  int* cachedTexture = (TextureData**) map_get(textureCache, path);
+  if (cachedTexture) {
+    return *cachedTexture;
+  }
+
+  char fullPath[LOVR_PATH_MAX];
+  char normalizedPath[LOVR_PATH_MAX];
+  strncpy(fullPath, dirname, LOVR_PATH_MAX);
+  char* lastSlash = strrchr(fullPath, '/');
+  if (lastSlash) lastSlash[1] = '\0';
+  strncat(fullPath, path, LOVR_PATH_MAX);
+  normalizePath(fullPath, normalizedPath, LOVR_PATH_MAX);
+
+  size_t size;
+  void* data = lovrFilesystemRead(normalizedPath, &size);
+  if (!data) {
+    return 0;
+  }
+
+  Blob* blob = lovrBlobCreate(data, size, path);
+  TextureData* textureData = lovrTextureDataFromBlob(blob);
+  int textureIndex = modelData->textures.length;
+  vec_push(&modelData->textures, textureData);
+  map_set(textureCache, path, textureIndex);
+  return textureIndex;
 }
 
 // Blob IO (to avoid reading data twice)
@@ -420,6 +417,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   map_int_t textureCache;
   map_init(&textureCache);
   vec_init(&modelData->textures);
+  vec_push(&modelData->textures, NULL);
   modelData->materialCount = scene->mNumMaterials;
   modelData->materials = malloc(modelData->materialCount * sizeof(ModelMaterial));
   for (unsigned int m = 0; m < scene->mNumMaterials; m++) {
@@ -532,7 +530,9 @@ void lovrModelDataDestroy(const Ref* ref) {
 
   for (int i = 0; i < modelData->textures.length; i++) {
     TextureData* textureData = modelData->textures.data[i];
-    lovrRelease(&textureData->ref);
+    if (textureData) {
+      lovrRelease(&textureData->ref);
+    }
   }
 
   vec_deinit(&modelData->textures);
