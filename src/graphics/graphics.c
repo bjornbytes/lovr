@@ -59,10 +59,14 @@ void lovrGraphicsDestroy() {
 void lovrGraphicsReset() {
   int w = lovrGraphicsGetWidth();
   int h = lovrGraphicsGetHeight();
-  float projection[16];
   state.transform = 0;
-  state.view = 0;
+  state.display = 0;
   state.defaultShader = SHADER_DEFAULT;
+  mat4_perspective(state.displays[state.display].projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h);
+  state.displays[state.display].viewport[0] = 0;
+  state.displays[state.display].viewport[1] = 0;
+  state.displays[state.display].viewport[2] = w;
+  state.displays[state.display].viewport[3] = h;
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1. });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor((Color) { 1., 1., 1., 1. });
@@ -77,7 +81,6 @@ void lovrGraphicsReset() {
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
   lovrGraphicsSetWireframe(false);
   lovrGraphicsSetViewport(0, 0, w, h);
-  lovrGraphicsSetProjection(mat4_perspective(projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h));
   lovrGraphicsOrigin();
 }
 
@@ -85,6 +88,9 @@ void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Colo
   if (clearColor) {
     float c[4] = { color.r, color.g, color.b, color.a };
     glClearBufferfv(GL_COLOR, 0, c);
+    for (int i = 1; i < state.canvasCount; i++) {
+      glClearBufferfv(GL_COLOR, i, c);
+    }
   }
 
   if (clearDepth) {
@@ -111,7 +117,7 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
 
   mat4 model = state.transforms[state.transform][MATRIX_MODEL];
   mat4 view = state.transforms[state.transform][MATRIX_VIEW];
-  mat4 projection = state.views[state.view].projection;
+  mat4 projection = state.displays[state.display].projection;
   lovrShaderSetMatrix(shader, "lovrModel", model, 16);
   lovrShaderSetMatrix(shader, "lovrView", view, 16);
   lovrShaderSetMatrix(shader, "lovrProjection", projection, 16);
@@ -336,6 +342,58 @@ void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
       glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
       break;
   }
+}
+
+void lovrGraphicsGetCanvas(Canvas** canvas, int* count) {
+  *count = state.canvasCount;
+  memcpy(canvas, state.canvas, state.canvasCount * sizeof(Canvas*));
+}
+
+void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
+  if (count == state.canvasCount && !memcmp(state.canvas, canvas, count * sizeof(Canvas*))) {
+    return;
+  }
+
+  lovrAssert(count <= MAX_CANVASES, "Attempt to simultaneously render to %d canvases (the maximum is %d)", count, MAX_CANVASES);
+
+  if (state.canvasCount > 0 && state.canvas[0]->msaa > 0) {
+    int width = state.canvas[0]->texture.width;
+    int height = state.canvas[0]->texture.height;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, state.canvas[0]->framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.canvas[0]->resolveFramebuffer);
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  }
+
+  for (int i = 0; i < count; i++) {
+    lovrRetain(&canvas[i]->texture.ref);
+  }
+
+  for (int i = 0; i < state.canvasCount; i++) {
+    lovrRelease(&state.canvas[i]->texture.ref);
+  }
+
+  if (count == 0) {
+    lovrGraphicsBindFramebuffer(state.displays[state.display].framebuffer);
+    int* viewport = state.displays[state.display].viewport;
+    lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+  } else {
+    memcpy(state.canvas, canvas, count * sizeof(Canvas*));
+    lovrGraphicsBindFramebuffer(canvas[0]->framebuffer);
+    lovrGraphicsSetViewport(0, 0, canvas[0]->texture.width, canvas[0]->texture.height);
+
+    GLenum buffers[MAX_CANVASES];
+    for (int i = 0; i < count; i++) {
+      buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+      glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, canvas[i]->texture.id, 0);
+    }
+    glDrawBuffers(count, buffers);
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    lovrAssert(status != GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS, "All multicanvas canvases must have the same dimensions");
+    lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
+  }
+
+  state.canvasCount = count;
 }
 
 Color lovrGraphicsGetColor() {
@@ -1133,42 +1191,33 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 }
 
 // Internal State
-void lovrGraphicsPushView() {
-  if (++state.view >= MAX_VIEWS) {
-    lovrThrow("View overflow");
+void lovrGraphicsPushDisplay(int framebuffer, mat4 projection, int* viewport) {
+  if (++state.display >= MAX_DISPLAYS) {
+    lovrThrow("Display overflow");
   }
 
-  memcpy(&state.views[state.view], &state.views[state.view - 1], sizeof(View));
+  state.displays[state.display].framebuffer = framebuffer;
+  memcpy(state.displays[state.display].projection, projection, 16 * sizeof(float));
+  memcpy(state.displays[state.display].viewport, viewport, 4 * sizeof(int));
 }
 
-void lovrGraphicsPopView() {
-  if (--state.view < 0) {
-    lovrThrow("View underflow");
+void lovrGraphicsPopDisplay() {
+  if (--state.display < 0) {
+    lovrThrow("Display underflow");
   }
 
-  int* viewport = state.views[state.view].viewport;
-  lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  lovrGraphicsBindFramebuffer(state.views[state.view].framebuffer);
-}
-
-mat4 lovrGraphicsGetProjection() {
-  return state.views[state.view].projection;
-}
-
-void lovrGraphicsSetProjection(mat4 projection) {
-  memcpy(state.views[state.view].projection, projection, 16 * sizeof(float));
+  if (state.canvasCount == 0) {
+    lovrGraphicsBindFramebuffer(state.displays[state.display].framebuffer);
+    int* viewport = state.displays[state.display].viewport;
+    lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+  }
 }
 
 void lovrGraphicsSetViewport(int x, int y, int w, int h) {
-  state.views[state.view].viewport[0] = x;
-  state.views[state.view].viewport[1] = y;
-  state.views[state.view].viewport[2] = w;
-  state.views[state.view].viewport[3] = h;
   glViewport(x, y, w, h);
 }
 
 void lovrGraphicsBindFramebuffer(int framebuffer) {
-  state.views[state.view].framebuffer = framebuffer;
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 }
 

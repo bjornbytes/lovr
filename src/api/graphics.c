@@ -17,7 +17,6 @@ map_int_t ArcModes;
 map_int_t AttributeTypes;
 map_int_t BlendAlphaModes;
 map_int_t BlendModes;
-map_int_t CanvasTypes;
 map_int_t CompareModes;
 map_int_t DrawModes;
 map_int_t FilterModes;
@@ -129,10 +128,6 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&BlendModes, "darken", BLEND_DARKEN);
   map_set(&BlendModes, "screen", BLEND_SCREEN);
   map_set(&BlendModes, "replace", BLEND_REPLACE);
-
-  map_init(&CanvasTypes);
-  map_set(&CanvasTypes, "3d", CANVAS_3D);
-  map_set(&CanvasTypes, "2d", CANVAS_2D);
 
   map_init(&CompareModes);
   map_set(&CompareModes, "equal", COMPARE_EQUAL);
@@ -400,6 +395,26 @@ int l_lovrGraphicsSetBlendMode(lua_State* L) {
   BlendMode mode = *(BlendMode*) luax_checkenum(L, 1, &BlendModes, "blend mode");
   BlendAlphaMode alphaMode = *(BlendAlphaMode*) luax_optenum(L, 2, "alphamultiply", &BlendAlphaModes, "alpha blend mode");
   lovrGraphicsSetBlendMode(mode, alphaMode);
+  return 0;
+}
+
+int l_lovrGraphicsGetCanvas(lua_State* L) {
+  Canvas* canvas[MAX_CANVASES];
+  int count;
+  lovrGraphicsGetCanvas(canvas, &count);
+  for (int i = 0; i < count; i++) {
+    luax_pushtype(L, Canvas, canvas[i]);
+  }
+  return count;
+}
+
+int l_lovrGraphicsSetCanvas(lua_State* L) {
+  Canvas* canvas[MAX_CANVASES];
+  int count = MIN(lua_gettop(L), MAX_CANVASES);
+  for (int i = 0; i < count; i++) {
+    canvas[i] = luax_checktype(L, i + 1, Canvas);
+  }
+  lovrGraphicsSetCanvas(canvas, count);
   return 0;
 }
 
@@ -834,7 +849,6 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
   luaL_argcheck(L, height > 0, 2, "height must be positive");
 
   TextureFormat format = FORMAT_RGBA;
-  CanvasType type = CANVAS_3D;
   int msaa = 0;
   bool depth = true;
   bool stencil = false;
@@ -844,16 +858,12 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
     format = *(TextureFormat*) luax_optenum(L, -1, "rgba", &TextureFormats, "canvas format");
     lua_pop(L, 1);
 
-    lua_getfield(L, 3, "type");
-    type = *(CanvasType*) luax_optenum(L, -1, "3d", &CanvasTypes, "canvas type");
-    lua_pop(L, 1);
-
     lua_getfield(L, 3, "msaa");
     msaa = luaL_optinteger(L, -1, 0);
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "depth");
-    depth = lua_isnil(L, -1) ? (type == CANVAS_3D) : lua_toboolean(L, -1);
+    depth = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "stencil");
@@ -865,7 +875,7 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
     return luaL_error(L, "Unsupported texture format for canvas");
   }
 
-  Canvas* canvas = lovrCanvasCreate(width, height, format, type, msaa, depth, stencil);
+  Canvas* canvas = lovrCanvasCreate(width, height, format, msaa, depth, stencil);
   luax_pushtype(L, Canvas, canvas);
   return 1;
 }
@@ -1097,6 +1107,8 @@ const luaL_Reg lovrGraphics[] = {
   { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
   { "getBlendMode", l_lovrGraphicsGetBlendMode },
   { "setBlendMode", l_lovrGraphicsSetBlendMode },
+  { "getCanvas", l_lovrGraphicsGetCanvas },
+  { "setCanvas", l_lovrGraphicsSetCanvas },
   { "getColor", l_lovrGraphicsGetColor },
   { "setColor", l_lovrGraphicsSetColor },
   { "isCullingEnabled", l_lovrGraphicsIsCullingEnabled },

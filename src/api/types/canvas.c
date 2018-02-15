@@ -6,11 +6,13 @@ int l_lovrCanvasRenderTo(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   luaL_checktype(L, 2, LUA_TFUNCTION);
   int nargs = lua_gettop(L) - 2;
-  lovrGraphicsPushView();
-  lovrCanvasBind(canvas);
+
+  Canvas* old[MAX_CANVASES];
+  int count;
+  lovrGraphicsGetCanvas(old, &count);
+  lovrGraphicsSetCanvas(&canvas, 1);
   lua_call(L, nargs, 0);
-  lovrCanvasResolveMSAA(canvas);
-  lovrGraphicsPopView();
+  lovrGraphicsSetCanvas(old, count);
   return 0;
 }
 

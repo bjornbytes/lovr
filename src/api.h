@@ -65,7 +65,6 @@ extern map_int_t ArcModes;
 extern map_int_t AttributeTypes;
 extern map_int_t BlendAlphaModes;
 extern map_int_t BlendModes;
-extern map_int_t CanvasTypes;
 extern map_int_t CompareModes;
 extern map_int_t ControllerAxes;
 extern map_int_t ControllerButtons;

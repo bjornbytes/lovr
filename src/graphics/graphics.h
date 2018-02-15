@@ -1,3 +1,4 @@
+#include "graphics/canvas.h"
 #include "graphics/font.h"
 #include "graphics/material.h"
 #include "graphics/mesh.h"
@@ -9,7 +10,8 @@
 
 #pragma once
 
-#define MAX_VIEWS 4
+#define MAX_CANVASES 4
+#define MAX_DISPLAYS 4
 #define MAX_TRANSFORMS 60
 #define INTERNAL_TRANSFORMS 4
 #define DEFAULT_SHADER_COUNT 4
@@ -74,18 +76,18 @@ typedef enum {
 } MatrixType;
 
 typedef struct {
+  int framebuffer;
+  float projection[16];
+  int viewport[4];
+} Display;
+
+typedef struct {
   bool initialized;
   float pointSizes[2];
   int textureSize;
   int textureMSAA;
   float textureAnisotropy;
 } GraphicsLimits;
-
-typedef struct {
-  int framebuffer;
-  float projection[16];
-  int viewport[4];
-} View;
 
 typedef struct {
   int drawCalls;
@@ -104,6 +106,8 @@ typedef struct {
   Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
+  Canvas* canvas[MAX_CANVASES];
+  int canvasCount;
   Color color;
   bool culling;
   TextureFilter defaultFilter;
@@ -124,8 +128,8 @@ typedef struct {
   uint32_t streamIBO;
   vec_float_t streamData;
   vec_uint_t streamIndices;
-  View views[MAX_VIEWS];
-  int view;
+  Display displays[MAX_DISPLAYS];
+  int display;
   Texture* textures[MAX_TEXTURES];
   bool stencilEnabled;
   bool stencilWriting;
@@ -153,6 +157,8 @@ Color lovrGraphicsGetBackgroundColor();
 void lovrGraphicsSetBackgroundColor(Color color);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
+void lovrGraphicsGetCanvas(Canvas** canvas, int* count);
+void lovrGraphicsSetCanvas(Canvas** canvas, int count);
 Color lovrGraphicsGetColor();
 void lovrGraphicsSetColor(Color color);
 bool lovrGraphicsIsCullingEnabled();
@@ -204,10 +210,8 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 
 // Internal State
-void lovrGraphicsPushView();
-void lovrGraphicsPopView();
-mat4 lovrGraphicsGetProjection();
-void lovrGraphicsSetProjection(mat4 projection);
+void lovrGraphicsPushDisplay(int framebuffer, mat4 projection, int* viewport);
+void lovrGraphicsPopDisplay();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);
 void lovrGraphicsBindFramebuffer(int framebuffer);
 Texture* lovrGraphicsGetTexture(int slot);

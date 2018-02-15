@@ -55,7 +55,7 @@ const char* lovrShaderFragmentPrefix = ""
 #endif
 "in vec2 texCoord; \n"
 "in vec4 vertexColor; \n"
-"out vec4 lovrFragColor; \n"
+"out vec4 lovrCanvas[gl_MaxDrawBuffers]; \n"
 "uniform float lovrMetalness; \n"
 "uniform float lovrRoughness; \n"
 "uniform vec4 lovrColor; \n"
@@ -85,7 +85,11 @@ const char* lovrShaderVertexSuffix = ""
 
 const char* lovrShaderFragmentSuffix = ""
 "void main() { \n"
-"  lovrFragColor = color(lovrColor, lovrDiffuseTexture, texCoord); \n"
+"#ifdef MULTICANVAS \n"
+"  colors(lovrColor, lovrDiffuseTexture, texCoord); \n"
+"#else \n"
+"  lovrCanvas[0] = color(lovrColor, lovrDiffuseTexture, texCoord); \n"
+"#endif \n"
 "}";
 
 const char* lovrDefaultVertexShader = ""

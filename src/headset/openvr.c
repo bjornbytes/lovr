@@ -147,7 +147,7 @@ static void initializeCanvas() {
   int msaa = 0;
   glGetIntegerv(GL_SAMPLES, &msaa);
   state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
-  state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, CANVAS_3D, msaa, true, true);
+  state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, msaa, true, true);
 }
 
 static void openvrInit() {
@@ -733,8 +733,6 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   if (!state.isInitialized) return;
 
-  lovrGraphicsPushView();
-
   if (!state.canvas) {
     initializeCanvas();
   }
@@ -762,14 +760,14 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     mat4_fromMat44(projection, matrix);
 
     // Render
-    lovrCanvasBind(state.canvas);
+    int viewport[4] = { 0, 0, state.canvas->texture.width, state.canvas->texture.height };
+    lovrGraphicsPushDisplay(state.canvas->texture.id, projection, viewport);
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
-    lovrGraphicsSetProjection(projection);
     lovrGraphicsClear(true, true, false, (Color) { 0, 0, 0, 0 }, 1., 0);
     callback(eye, userdata);
     lovrGraphicsPop();
-    lovrCanvasResolveMSAA(state.canvas);
+    lovrGraphicsPopDisplay();
 
     // OpenVR changes the OpenGL texture binding, so we reset it after rendering
     glActiveTexture(GL_TEXTURE0);
@@ -788,7 +786,6 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   }
 
   state.isRendering = false;
-  lovrGraphicsPopView();
 
   if (state.isMirrored) {
     Color oldColor = lovrGraphicsGetColor();

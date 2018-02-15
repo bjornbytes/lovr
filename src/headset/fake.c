@@ -324,33 +324,27 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
 }
 
 static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
-//  float head[16], transform[16], projection[16];
-
-  // TODO: Head transform
-  // TODO: Eye transform
-  // Projection
-
-  int w,h;
   GLFWwindow* window = glfwGetCurrentContext();
   if(!window) {
     return;
   }
 
+  int w, h;
   glfwGetWindowSize(window, &w, &h);
+  mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float) w / h);
 
-  mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float)w/h);
+  float transform[16];
+  mat4_set(transform, state.transform);
+  mat4_invert(transform);
 
-  // render
+  int viewport[4] = { 0, 0, w, h };
+  lovrGraphicsPushDisplay(0, state.projection, viewport);
   lovrGraphicsPush();
-  float inv[16];
-  mat4_set(inv,state.transform);
-  mat4_invert(inv);
-  lovrGraphicsMatrixTransform(MATRIX_VIEW, inv);
-
-  lovrGraphicsSetProjection(state.projection);
+  lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
   lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
   callback(EYE_LEFT, userdata);
   lovrGraphicsPop();
+  lovrGraphicsPopDisplay();
 }
 
 static void fakeUpdate(float dt) {
