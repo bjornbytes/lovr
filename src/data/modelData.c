@@ -116,7 +116,7 @@ static Color readMaterialColor(struct aiMaterial* assimpMaterial, const char* ke
   }
 }
 
-static TextureData* readMaterialTexture(struct aiMaterial* assimpMaterial, enum aiTextureType type, ModelData* modelData, map_int_t* textureCache, const char* dirname) {
+static int readMaterialTexture(struct aiMaterial* assimpMaterial, enum aiTextureType type, ModelData* modelData, map_int_t* textureCache, const char* dirname) {
   struct aiString str;
 
   if (aiGetMaterialTexture(assimpMaterial, type, 0, &str, NULL, NULL, NULL, NULL, NULL, NULL) != aiReturn_SUCCESS) {
@@ -125,7 +125,7 @@ static TextureData* readMaterialTexture(struct aiMaterial* assimpMaterial, enum 
 
   char* path = str.data;
 
-  int* cachedTexture = (TextureData**) map_get(textureCache, path);
+  int* cachedTexture = map_get(textureCache, path);
   if (cachedTexture) {
     return *cachedTexture;
   }
