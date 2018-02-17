@@ -3,7 +3,6 @@
 #include "math/quat.h"
 #include "util.h"
 #include <stdlib.h>
-#include "lovr.h"
 
 static AudioState state;
 static bool audioAlreadyInit = false;
