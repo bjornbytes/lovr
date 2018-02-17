@@ -128,15 +128,26 @@ void luax_registerobject(lua_State* L, void* object) {
   lovrRetain(object);
 }
 
+int luax_getstack(lua_State* L) {
+  const char* message = luaL_checkstring(L, -1);
+  lua_getglobal(L, "debug");
+  lua_getfield(L, -1, "traceback");
+  lua_pushstring(L, message);
+  lua_pushinteger(L, 2);
+  lua_call(L, 2, 1);
+  return 1;
+}
+
 void luax_pushconf(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrconf");
 }
 
-void luax_setconf(lua_State* L) {
+int luax_setconf(lua_State* L) {
   luax_pushconf(L);
   lovrAssert(lua_isnil(L, -1), "Unable to set lovr.conf multiple times");
   lua_pop(L, 1);
   lua_setfield(L, LUA_REGISTRYINDEX, "_lovrconf");
+  return 0;
 }
 
 void luax_pushenum(lua_State* L, map_int_t* map, int value) {

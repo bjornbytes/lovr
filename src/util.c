@@ -10,8 +10,8 @@
 
 #define MAX_ERROR_LENGTH 1024
 
-char lovrErrorMessage[MAX_ERROR_LENGTH];
-jmp_buf* lovrCatch = NULL;
+_Thread_local char lovrErrorMessage[MAX_ERROR_LENGTH];
+_Thread_local jmp_buf* lovrCatch = NULL;
 
 void lovrThrow(const char* format, ...) {
   va_list args;

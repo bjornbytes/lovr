@@ -7,6 +7,7 @@
 #include "lib/map/map.h"
 
 // Module loaders
+int l_lovrInit(lua_State* L);
 int l_lovrAudioInit(lua_State* L);
 int l_lovrDataInit(lua_State* L);
 int l_lovrEventInit(lua_State* L);
@@ -19,6 +20,7 @@ int l_lovrThreadInit(lua_State* L);
 int l_lovrTimerInit(lua_State* L);
 
 // Modules
+extern const luaL_Reg lovr[];
 extern const luaL_Reg lovrAudio[];
 extern const luaL_Reg lovrData[];
 extern const luaL_Reg lovrEvent[];
