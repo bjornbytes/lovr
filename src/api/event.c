@@ -28,6 +28,13 @@ static int nextEvent(lua_State* L) {
       return 2;
     };
 
+    case EVENT_THREAD_ERROR: {
+      lua_pushstring(L, "threaderror");
+      luax_pushtype(L, Thread, event.data.threaderror.thread);
+      lua_pushstring(L, event.data.threaderror.error);
+      return 3;
+    };
+
     case EVENT_CONTROLLER_ADDED: {
       lua_pushstring(L, "controlleradded");
       luax_pushtype(L, Controller, event.data.controlleradded.controller);
@@ -101,6 +108,11 @@ int l_lovrEventPush(lua_State* L) {
 
     case EVENT_FOCUS:
       data.focus.isFocused = lua_toboolean(L, 2);
+      break;
+
+    case EVENT_THREAD_ERROR:
+      data.threaderror.thread = luax_checktype(L, 2, Thread);
+      data.threaderror.error = luaL_checkstring(L, 3);
       break;
 
     case EVENT_CONTROLLER_ADDED:

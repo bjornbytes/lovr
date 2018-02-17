@@ -152,6 +152,9 @@ lovr.handlers = setmetatable({
   focus = function(f)
     if lovr.focus then lovr.focus(f) end
   end,
+  threaderror = function(t, e)
+    if lovr.threaderror then lovr.threaderror(t, e) end
+  end,
   controlleradded = function(c)
     if lovr.controlleradded then lovr.controlleradded(c) end
   end,

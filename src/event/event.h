@@ -1,4 +1,5 @@
 #include "headset/headset.h"
+#include "thread/thread.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
 
@@ -7,6 +8,7 @@
 typedef enum {
   EVENT_QUIT,
   EVENT_FOCUS,
+  EVENT_THREAD_ERROR,
   EVENT_CONTROLLER_ADDED,
   EVENT_CONTROLLER_REMOVED,
   EVENT_CONTROLLER_PRESSED,
@@ -21,6 +23,11 @@ typedef struct {
 typedef struct {
   bool isFocused;
 } FocusEvent;
+
+typedef struct {
+  Thread* thread;
+  const char* error;
+} ThreadErrorEvent;
 
 typedef struct {
   Controller* controller;
@@ -43,6 +50,7 @@ typedef struct {
 typedef union {
   QuitEvent quit;
   FocusEvent focus;
+  ThreadErrorEvent threaderror;
   ControllerAddedEvent controlleradded;
   ControllerRemovedEvent controllerremoved;
   ControllerPressedEvent controllerpressed;

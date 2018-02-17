@@ -1,5 +1,6 @@
 #include "api.h"
 #include "thread/thread.h"
+#include "event/event.h"
 
 static int threadRunner(void* data) {
   Thread* thread = (Thread*) data;
@@ -18,15 +19,22 @@ static int threadRunner(void* data) {
 
   if (luaL_loadbuffer(L, thread->body, strlen(thread->body), "thread") || lua_pcall(L, 0, 0, 0)) {
     thread->error = lua_tostring(L, -1);
-    //lua_getglobal(lovr, "threaderror");
-    lovrRelease(&thread->ref);
-    return 1;
   }
 
   mtx_lock(&thread->lock);
   thread->running = false;
   mtx_unlock(&thread->lock);
   lovrRelease(&thread->ref);
+
+  if (thread->error) {
+    Event event;
+    event.type = EVENT_THREAD_ERROR;
+    event.data.threaderror.thread = thread;
+    event.data.threaderror.error = thread->error;
+    lovrEventPush(event);
+    return 1;
+  }
+
   return 0;
 }
 
