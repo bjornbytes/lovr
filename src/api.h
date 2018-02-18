@@ -40,6 +40,7 @@ extern const luaL_Reg lovrBlob[];
 extern const luaL_Reg lovrBoxShape[];
 extern const luaL_Reg lovrCanvas[];
 extern const luaL_Reg lovrCapsuleShape[];
+extern const luaL_Reg lovrChannel[];
 extern const luaL_Reg lovrController[];
 extern const luaL_Reg lovrCylinderShape[];
 extern const luaL_Reg lovrCollider[];

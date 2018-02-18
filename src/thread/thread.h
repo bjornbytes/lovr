@@ -1,8 +1,14 @@
+#include "thread/channel.h"
 #include "util.h"
 #include "lib/tinycthread/tinycthread.h"
+#include "lib/map/map.h"
 #include <stdbool.h>
 
 #pragma once
+
+typedef struct {
+  map_void_t channels;
+} ThreadState;
 
 typedef struct {
   Ref ref;
@@ -13,6 +19,10 @@ typedef struct {
   const char* error;
   bool running;
 } Thread;
+
+void lovrThreadInit();
+void lovrThreadDeinit();
+Channel* lovrThreadGetChannel(const char* name);
 
 Thread* lovrThreadCreate(int (*runner)(void*), const char* body);
 void lovrThreadDestroy(const Ref* ref);

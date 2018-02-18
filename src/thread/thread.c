@@ -3,6 +3,22 @@
 #include "api.h"
 #include <string.h>
 
+static ThreadState state;
+
+void lovrThreadInit() {
+  map_init(&state.channels);
+  atexit(lovrThreadDeinit);
+}
+
+void lovrThreadDeinit() {
+  map_deinit(&state.channels);
+}
+
+Channel* lovrThreadGetChannel(const char* name) {
+  Channel** channel = (Channel**) map_get(&state.channels, name);
+  return channel ? *channel : NULL;
+}
+
 Thread* lovrThreadCreate(int (*runner)(void*), const char* body) {
   Thread* thread = lovrAlloc(sizeof(Thread), lovrThreadDestroy);
   if (!thread) return NULL;
