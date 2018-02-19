@@ -60,6 +60,7 @@ int l_lovrThreadGetChannel(lua_State* L) {
   const char* name = luaL_checkstring(L, 1);
   Channel* channel = lovrThreadGetChannel(name);
   luax_pushtype(L, Channel, channel);
+  lovrRelease(&channel->ref);
   return 1;
 }
 
