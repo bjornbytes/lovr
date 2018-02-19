@@ -1199,6 +1199,11 @@ void lovrGraphicsPushDisplay(int framebuffer, mat4 projection, int* viewport) {
   state.displays[state.display].framebuffer = framebuffer;
   memcpy(state.displays[state.display].projection, projection, 16 * sizeof(float));
   memcpy(state.displays[state.display].viewport, viewport, 4 * sizeof(int));
+
+  if (state.canvasCount == 0) {
+    lovrGraphicsBindFramebuffer(framebuffer);
+    lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+  }
 }
 
 void lovrGraphicsPopDisplay() {

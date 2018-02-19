@@ -764,7 +764,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     lovrGraphicsPushDisplay(state.canvas->texture.id, projection, viewport);
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
-    lovrGraphicsClear(true, true, false, (Color) { 0, 0, 0, 0 }, 1., 0);
+    lovrGraphicsClear(true, true, false, lovrGraphicsGetBackgroundColor(), 1., 0);
     callback(eye, userdata);
     lovrGraphicsPop();
     lovrGraphicsPopDisplay();

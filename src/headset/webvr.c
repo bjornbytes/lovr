@@ -15,7 +15,7 @@ typedef struct {
 static HeadsetState state;
 
 static void onRequestAnimationFrame(void* userdata) {
-  lovrGraphicsClear(true, true, true);
+  lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
 
   int width = emscripten_vr_get_display_width();
   int height = emscripten_vr_get_display_height();
