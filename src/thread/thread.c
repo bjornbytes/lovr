@@ -16,7 +16,14 @@ void lovrThreadDeinit() {
 
 Channel* lovrThreadGetChannel(const char* name) {
   Channel** channel = (Channel**) map_get(&state.channels, name);
-  return channel ? *channel : NULL;
+
+  if (channel) {
+    return *channel;
+  } else {
+    Channel* channel = lovrChannelCreate();
+    map_set(&state.channels, name, channel);
+    return channel;
+  }
 }
 
 Thread* lovrThreadCreate(int (*runner)(void*), const char* body) {
