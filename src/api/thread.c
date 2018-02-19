@@ -32,9 +32,11 @@ static int threadRunner(void* data) {
     event.data.threaderror.thread = thread;
     event.data.threaderror.error = thread->error;
     lovrEventPush(event);
+    lua_close(L);
     return 1;
   }
 
+  lua_close(L);
   return 0;
 }
 
