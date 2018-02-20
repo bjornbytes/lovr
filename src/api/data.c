@@ -16,6 +16,26 @@ int l_lovrDataInit(lua_State* L) {
   return 1;
 }
 
+int l_lovrDataNewBlob(lua_State* L) {
+  size_t size;
+  uint8_t* data = NULL;
+  int type = lua_type(L, 1);
+  if (type == LUA_TNUMBER) {
+    size = lua_tonumber(L, 1);
+    data = calloc(1, size);
+  } else {
+    const char* str = luaL_checklstring(L, 1, &size);
+    data = malloc(size + 1);
+    memcpy(data, str, size);
+    data[size] = '\0';
+  }
+  const char* name = luaL_optstring(L, 2, "");
+  Blob* blob = lovrBlobCreate(data, size, name);
+  luax_pushtype(L, Blob, blob);
+  lovrRelease(&blob->ref);
+  return 1;
+}
+
 int l_lovrDataNewAudioStream(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Sound");
   size_t bufferSize = luaL_optinteger(L, 2, 4096);
@@ -86,6 +106,7 @@ int l_lovrDataNewVertexData(lua_State* L) {
 }
 
 const luaL_Reg lovrData[] = {
+  { "newBlob", l_lovrDataNewBlob },
   { "newAudioStream", l_lovrDataNewAudioStream },
   { "newModelData", l_lovrDataNewModelData },
   { "newRasterizer", l_lovrDataNewRasterizer },

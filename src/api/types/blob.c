@@ -1,5 +1,5 @@
 #include "api.h"
-#include "filesystem/blob.h"
+#include "data/blob.h"
 
 int l_lovrBlobGetFilename(lua_State* L) {
   Blob* blob = luax_checktype(L, 1, Blob);

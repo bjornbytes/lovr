@@ -1,4 +1,4 @@
-#include "filesystem/blob.h"
+#include "data/blob.h"
 
 Blob* lovrBlobCreate(void* data, size_t size, const char* name) {
   Blob* blob = lovrAlloc(sizeof(Blob), lovrBlobDestroy);

@@ -1,5 +1,5 @@
 #include "luax.h"
-#include "filesystem/blob.h"
+#include "data/blob.h"
 #include "graphics/mesh.h"
 #include "math/math.h"
 #include "math/randomGenerator.h"

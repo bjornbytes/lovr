@@ -81,7 +81,7 @@ if not lovr.filesystem.getSource() or not runnable then
   local logo, controllers
 
   function lovr.load()
-    local texture = lovr.graphics.newTexture(lovr.filesystem.newBlob(lovr._logo, 'logo.png'))
+    local texture = lovr.graphics.newTexture(lovr.data.newBlob(lovr._logo, 'logo.png'))
     logo = lovr.graphics.newMaterial(texture)
     lovr.graphics.setBackgroundColor(.960, .988, 1.0)
     refreshControllers()

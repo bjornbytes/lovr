@@ -1,6 +1,6 @@
 #include "api.h"
 #include "filesystem/filesystem.h"
-#include "filesystem/blob.h"
+#include "data/blob.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -253,21 +253,10 @@ int l_lovrFilesystemMount(lua_State* L) {
 }
 
 int l_lovrFilesystemNewBlob(lua_State* L) {
-  const char* path;
-  char* data;
   size_t size;
-
-  if (lua_gettop(L) == 1) {
-    path = luaL_checkstring(L, 1);
-    data = lovrFilesystemRead(path, &size);
-  } else {
-    const char* str = luaL_checklstring(L, 1, &size);
-    data = malloc(size + 1); // Copy the Lua string so we can hold onto it
-    memcpy(data, str, size);
-    data[size] = '\0';
-    path = luaL_checkstring(L, 2);
-  }
-
+  const char* path = luaL_checkstring(L, 1);
+  uint8_t* data = lovrFilesystemRead(path, &size);
+  lovrAssert(data, "Could not load file '%s'", path);
   Blob* blob = lovrBlobCreate((void*) data, size, path);
   luax_pushtype(L, Blob, blob);
   lovrRelease(&blob->ref);
@@ -278,10 +267,7 @@ int l_lovrFilesystemRead(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   size_t size;
   char* content = lovrFilesystemRead(path, &size);
-  if (!content) {
-    return luaL_error(L, "Could not read file '%s'", path);
-  }
-
+  lovrAssert(content, "Could not read file '%s'", path);
   lua_pushlstring(L, content, size);
   free(content);
   return 1;
