@@ -209,6 +209,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&TextureTypes, "2d", TEXTURE_2D);
   map_set(&TextureTypes, "array", TEXTURE_ARRAY);
   map_set(&TextureTypes, "cube", TEXTURE_CUBE);
+  map_set(&TextureTypes, "volume", TEXTURE_VOLUME);
 
   map_init(&VerticalAligns);
   map_set(&VerticalAligns, "top", ALIGN_TOP);

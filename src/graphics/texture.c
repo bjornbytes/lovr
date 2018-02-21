@@ -72,6 +72,7 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
           break;
 
         case TEXTURE_ARRAY:
+        case TEXTURE_VOLUME:
           glTexImage3D(texture->type, i, internalFormat, w, h, texture->sliceCount, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
           break;
       }
@@ -151,6 +152,7 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
           glCompressedTexImage2D(binding, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
           break;
         case TEXTURE_ARRAY:
+        case TEXTURE_VOLUME:
           glCompressedTexSubImage3D(binding, i, 0, 0, slice, m.width, m.height, 1, glInternalFormat, m.size, m.data);
           break;
       }
@@ -162,6 +164,7 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
         glTexSubImage2D(binding, 0, 0, 0, textureData->width, textureData->height, glFormat, GL_UNSIGNED_BYTE, textureData->data);
         break;
       case TEXTURE_ARRAY:
+      case TEXTURE_VOLUME:
         glTexSubImage3D(binding, 0, 0, 0, slice, textureData->width, textureData->height, 1, glFormat, GL_UNSIGNED_BYTE, textureData->data);
         break;
     }
@@ -221,7 +224,7 @@ void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
   lovrGraphicsBindTexture(texture, texture->type, 0);
   glTexParameteri(texture->type, GL_TEXTURE_WRAP_S, wrap.s);
   glTexParameteri(texture->type, GL_TEXTURE_WRAP_T, wrap.t);
-  if (texture->type == TEXTURE_CUBE) {
+  if (texture->type == TEXTURE_CUBE || texture->type == TEXTURE_VOLUME) {
     glTexParameteri(texture->type, GL_TEXTURE_WRAP_R, wrap.r);
   }
 }

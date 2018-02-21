@@ -25,6 +25,7 @@ static UniformType getUniformType(GLenum type, const char* debug) {
       return UNIFORM_MATRIX;
 
     case GL_SAMPLER_2D:
+    case GL_SAMPLER_3D:
     case GL_SAMPLER_CUBE:
     case GL_SAMPLER_2D_ARRAY:
       return UNIFORM_SAMPLER;
@@ -40,6 +41,7 @@ static int getUniformComponents(GLenum type) {
     case GL_FLOAT:
     case GL_INT:
     case GL_SAMPLER_2D:
+    case GL_SAMPLER_3D:
     case GL_SAMPLER_CUBE:
     case GL_SAMPLER_2D_ARRAY:
       return 1;
@@ -308,6 +310,7 @@ void lovrShaderBind(Shader* shader) {
           TextureType type;
           switch (uniform->glType) {
             case GL_SAMPLER_2D: type = TEXTURE_2D; break;
+            case GL_SAMPLER_3D: type = TEXTURE_VOLUME; break;
             case GL_SAMPLER_CUBE: type = TEXTURE_CUBE; break;
             case GL_SAMPLER_2D_ARRAY: type = TEXTURE_ARRAY; break;
           }
