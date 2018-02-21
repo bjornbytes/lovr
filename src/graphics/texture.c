@@ -52,16 +52,28 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
 #ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_texture_storage) {
 #endif
+  if (texture->type == TEXTURE_ARRAY) {
+    glTexStorage3D(texture->type, mipmapCount, internalFormat, w, h, texture->sliceCount);
+  } else {
     glTexStorage2D(texture->type, mipmapCount, internalFormat, w, h);
+  }
 #ifndef EMSCRIPTEN
   } else {
     for (int i = 0; i < mipmapCount; i++) {
-      if (texture->type == TEXTURE_CUBE) {
-        for (int face = 0; face < 6; face++) {
-          glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, i, internalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
-        }
-      } else {
-        glTexImage2D(texture->type, i, internalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+      switch (texture->type) {
+        case TEXTURE_2D:
+          glTexImage2D(texture->type, i, internalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+          break;
+
+        case TEXTURE_CUBE:
+          for (int face = 0; face < 6; face++) {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, i, internalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+          }
+          break;
+
+        case TEXTURE_ARRAY:
+          glTexImage3D(texture->type, i, internalFormat, w, h, texture->sliceCount, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+          break;
       }
       w = MAX(w >> 1, 1);
       h = MAX(h >> 1, 1);
@@ -133,10 +145,27 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
   if (lovrTextureFormatIsCompressed(textureData->format)) {
     Mipmap m; int i;
     vec_foreach(&textureData->mipmaps, m, i) {
-      glCompressedTexImage2D(binding, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
+      switch (texture->type) {
+        case TEXTURE_2D:
+        case TEXTURE_CUBE:
+          glCompressedTexImage2D(binding, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
+          break;
+        case TEXTURE_ARRAY:
+          glCompressedTexSubImage3D(binding, i, 0, 0, slice, m.width, m.height, 1, glInternalFormat, m.size, m.data);
+          break;
+      }
     }
   } else {
-    glTexSubImage2D(binding, 0, 0, 0, textureData->width, textureData->height, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+    switch (texture->type) {
+      case TEXTURE_2D:
+      case TEXTURE_CUBE:
+        glTexSubImage2D(binding, 0, 0, 0, textureData->width, textureData->height, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+        break;
+      case TEXTURE_ARRAY:
+        glTexSubImage3D(binding, 0, 0, 0, slice, textureData->width, textureData->height, 1, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+        break;
+    }
+
     if (texture->mipmaps) {
       glGenerateMipmap(texture->type);
     }
