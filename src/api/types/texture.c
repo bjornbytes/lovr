@@ -25,6 +25,12 @@ int l_lovrTextureGetHeight(lua_State* L) {
   return 1;
 }
 
+int l_lovrTextureGetType(lua_State* L) {
+  Texture* texture = luax_checktypeof(L, 1, Texture);
+  luax_pushenum(L, &TextureTypes, lovrTextureGetType(texture));
+  return 1;
+}
+
 int l_lovrTextureGetWidth(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
   lua_pushnumber(L, texture->width);
@@ -74,6 +80,7 @@ const luaL_Reg lovrTexture[] = {
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getFilter", l_lovrTextureGetFilter },
   { "getHeight", l_lovrTextureGetHeight },
+  { "getType", l_lovrTextureGetType },
   { "getWidth", l_lovrTextureGetWidth },
   { "getWrap", l_lovrTextureGetWrap },
   { "replacePixels", l_lovrTextureReplacePixels },

@@ -108,6 +108,10 @@ void lovrTextureDestroy(const Ref* ref) {
   free(texture);
 }
 
+TextureType lovrTextureGetType(Texture* texture) {
+  return texture->type;
+}
+
 void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int slice) {
   lovrRetain(&textureData->ref);
   if (texture->slices[slice]) {
