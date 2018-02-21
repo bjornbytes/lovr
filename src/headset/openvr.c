@@ -760,7 +760,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
 
     // Render
     int viewport[4] = { 0, 0, state.canvas->texture.width, state.canvas->texture.height };
-    lovrGraphicsPushDisplay(state.canvas->texture.id, projection, viewport);
+    lovrGraphicsPushDisplay(state.canvas->framebuffer, projection, viewport);
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
     lovrGraphicsClear(true, true, false, lovrGraphicsGetBackgroundColor(), 1., 0);
