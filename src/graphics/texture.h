@@ -6,6 +6,7 @@
 
 typedef enum {
   TEXTURE_2D = GL_TEXTURE_2D,
+  TEXTURE_ARRAY = GL_TEXTURE_2D_ARRAY,
   TEXTURE_CUBE = GL_TEXTURE_CUBE_MAP
 } TextureType;
 
@@ -36,7 +37,7 @@ typedef struct {
 typedef struct {
   Ref ref;
   TextureType type;
-  TextureData* slices[6];
+  TextureData** slices;
   int sliceCount;
   int width;
   int height;
@@ -44,13 +45,15 @@ typedef struct {
   TextureFilter filter;
   TextureWrap wrap;
   bool srgb;
+  bool mipmaps;
+  bool allocated;
 } Texture;
 
 GLenum lovrTextureFormatGetGLFormat(TextureFormat format);
 GLenum lovrTextureFormatGetGLInternalFormat(TextureFormat format, bool srgb);
 bool lovrTextureFormatIsCompressed(TextureFormat format);
 
-Texture* lovrTextureCreate(TextureType type, TextureData* data[6], int count, bool srgb);
+Texture* lovrTextureCreate(TextureType type, TextureData** slices, int count, bool srgb, bool mipmaps);
 void lovrTextureDestroy(const Ref* ref);
 void lovrTextureReplacePixels(Texture* texture, TextureData* data, int slice);
 TextureFilter lovrTextureGetFilter(Texture* texture);

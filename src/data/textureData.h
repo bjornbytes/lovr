@@ -40,7 +40,6 @@ typedef struct {
   void* data;
   Blob* blob;
   TextureFormat format;
-  bool generateMipmaps;
   vec_mipmap_t mipmaps;
 } TextureData;
 

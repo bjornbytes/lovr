@@ -21,7 +21,7 @@ bool lovrCanvasSupportsFormat(TextureFormat format) {
 
 Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, int msaa, bool depth, bool stencil) {
   TextureData* textureData = lovrTextureDataGetEmpty(width, height, format);
-  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
+  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true);
   if (!texture) return NULL;
 
   Canvas* canvas = lovrAlloc(sizeof(Canvas), lovrCanvasDestroy);

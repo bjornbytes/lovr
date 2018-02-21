@@ -713,7 +713,6 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   textureData->format = FORMAT_RGBA;
   textureData->data = memcpy(malloc(size), vrTexture->rubTextureMapData, size);
   textureData->blob = NULL;
-  textureData->generateMipmaps = true;
   vec_init(&textureData->mipmaps);
 
   modelData->materials[0].diffuseColor = (Color) { 1, 1, 1, 1 };

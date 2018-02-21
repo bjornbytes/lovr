@@ -106,6 +106,7 @@ const char* lovrSkyboxVertexShader = ""
 "out vec3 texturePosition; \n"
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  texturePosition = vertex.xyz; \n"
+"  texturePosition.y *= -1; \n"
 "  return projection * transform * vertex; \n"
 "}";
 

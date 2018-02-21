@@ -26,6 +26,7 @@ static UniformType getUniformType(GLenum type, const char* debug) {
 
     case GL_SAMPLER_2D:
     case GL_SAMPLER_CUBE:
+    case GL_SAMPLER_2D_ARRAY:
       return UNIFORM_SAMPLER;
 
     default:
@@ -40,6 +41,7 @@ static int getUniformComponents(GLenum type) {
     case GL_INT:
     case GL_SAMPLER_2D:
     case GL_SAMPLER_CUBE:
+    case GL_SAMPLER_2D_ARRAY:
       return 1;
 
     case GL_FLOAT_VEC2:
@@ -303,7 +305,12 @@ void lovrShaderBind(Shader* shader) {
 
       case UNIFORM_SAMPLER:
         for (int i = 0; i < count; i++) {
-          TextureType type = uniform->glType == GL_SAMPLER_2D ? TEXTURE_2D : TEXTURE_CUBE;
+          TextureType type;
+          switch (uniform->glType) {
+            case GL_SAMPLER_2D: type = TEXTURE_2D; break;
+            case GL_SAMPLER_CUBE: type = TEXTURE_CUBE; break;
+            case GL_SAMPLER_2D_ARRAY: type = TEXTURE_ARRAY; break;
+          }
           lovrGraphicsBindTexture(uniform->value.textures[i], type, uniform->baseTextureSlot + i);
         }
         break;

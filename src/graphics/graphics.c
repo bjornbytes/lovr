@@ -1136,6 +1136,8 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     lovrGraphicsSphere(material, NULL, 30);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
+  } else {
+    lovrThrow("lovr.graphics.skybox only accepts 2d and cube Textures");
   }
 
   lovrGraphicsSetDepthTest(mode, write);
@@ -1234,7 +1236,7 @@ void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot) {
   if (!texture) {
     if (!state.defaultTexture) {
       TextureData* textureData = lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA);
-      state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
+      state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false);
     }
 
     texture = state.defaultTexture;

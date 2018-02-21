@@ -29,6 +29,7 @@ map_int_t MeshDrawModes;
 map_int_t MeshUsages;
 map_int_t StencilActions;
 map_int_t TextureFormats;
+map_int_t TextureTypes;
 map_int_t VerticalAligns;
 map_int_t Windings;
 map_int_t WrapModes;
@@ -203,6 +204,11 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&TextureFormats, "dxt1", FORMAT_DXT1);
   map_set(&TextureFormats, "dxt3", FORMAT_DXT3);
   map_set(&TextureFormats, "dxt5", FORMAT_DXT5);
+
+  map_init(&TextureTypes);
+  map_set(&TextureTypes, "2d", TEXTURE_2D);
+  map_set(&TextureTypes, "array", TEXTURE_ARRAY);
+  map_set(&TextureTypes, "cube", TEXTURE_CUBE);
 
   map_init(&VerticalAligns);
   map_set(&VerticalAligns, "top", ALIGN_TOP);
@@ -918,7 +924,7 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
     Blob* blob = luax_readblob(L, index++, "Texture");
     TextureData* textureData = lovrTextureDataFromBlob(blob);
     lovrRelease(&blob->ref);
-    Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
+    Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     lovrRelease(&texture->ref);
   } else if (lua_isuserdata(L, index)) {
@@ -1020,7 +1026,7 @@ int l_lovrGraphicsNewModel(lua_State* L) {
     if (lua_type(L, 2) == LUA_TSTRING) {
       Blob* blob = luax_readblob(L, 2, "Texture");
       TextureData* textureData = lovrTextureDataFromBlob(blob);
-      Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true);
+      Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true);
       Material* material = lovrMaterialCreate(false);
       lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
       lovrModelSetMaterial(model, material);
@@ -1061,34 +1067,57 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 int l_lovrGraphicsNewTexture(lua_State* L) {
-  int top = lua_gettop(L);
   bool isTable = lua_istable(L, 1);
-  bool hasFlags = isTable ? lua_istable(L, 2) : lua_istable(L, top);
-  int count = isTable ? lua_objlen(L, 1) : (top - (hasFlags ? 1 : 0));
-  lovrAssert(count == 1 || count == 6, "Expected 1 image for a 2d texture or 6 images for a cubemap, got %d", count);
 
-  TextureData* slices[6];
-  if (isTable) {
-    for (int i = 0; i < count; i++) {
-      lua_rawgeti(L, 1, i + 1);
-      slices[i] = luax_checktexturedata(L, -1);
-      lua_pop(L, 1);
-    }
-  } else {
-    for (int i = 0; i < count; i++) {
-      slices[i] = luax_checktexturedata(L, i + 1);
-    }
+  if (!isTable) {
+    lua_newtable(L);
+    lua_pushvalue(L, 1);
+    lua_rawseti(L, -2, 1);
+    lua_replace(L, 1);
   }
 
+  int sliceCount = lua_objlen(L, 1);
+  TextureType type = isTable ? (sliceCount > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE) : TEXTURE_2D;
+
+  bool hasFlags = lua_istable(L, 2);
   bool srgb = true;
+  bool mipmaps = true;
+
   if (hasFlags) {
-    lua_getfield(L, top, "linear");
+    lua_getfield(L, 2, "linear");
     srgb = !lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "mipmaps");
+    mipmaps = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "type");
+    if (!lua_isnil(L, -1)) {
+      type = *(TextureType*) luax_checkenum(L, -1, &TextureTypes, "texture type");
+    }
     lua_pop(L, 1);
   }
 
-  TextureType type = (count == 1) ? TEXTURE_2D : TEXTURE_CUBE;
-  Texture* texture = lovrTextureCreate(type, slices, count, srgb);
+  if (type == TEXTURE_CUBE && sliceCount == 0) {
+    sliceCount = 6;
+    const char* faces[6] = { "left", "right", "top", "bottom", "front", "back" };
+    for (int i = 0; i < 6; i++) {
+      lua_pushstring(L, faces[i]);
+      lua_rawget(L, 1);
+      lua_rawseti(L, 1, i + 1);
+    }
+  }
+
+  Texture* texture = lovrTextureCreate(type, NULL, sliceCount, srgb, mipmaps);
+
+  for (int i = 0; i < sliceCount; i++) {
+    lua_rawgeti(L, 1, i + 1);
+    TextureData* textureData = luax_checktexturedata(L, -1);
+    lovrTextureReplacePixels(texture, textureData, i);
+    lua_pop(L, 1);
+  }
+
   luax_pushtype(L, Texture, texture);
   lovrRelease(&texture->ref);
   return 1;

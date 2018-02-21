@@ -136,7 +136,6 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, Textu
   textureData->data = memset(malloc(size), value, size);
   textureData->blob = NULL;
   vec_init(&textureData->mipmaps);
-  textureData->generateMipmaps = false;
   return textureData;
 }
 
@@ -151,7 +150,6 @@ TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format
   textureData->data = NULL;
   textureData->blob = NULL;
   vec_init(&textureData->mipmaps);
-  textureData->generateMipmaps = false;
   return textureData;
 }
 
@@ -171,7 +169,6 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
   textureData->format = FORMAT_RGBA;
   textureData->data = stbi_load_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
   textureData->blob = NULL;
-  textureData->generateMipmaps = true;
 
   if (!textureData->data) {
     lovrThrow("Could not load texture data from '%s'", blob->name);

@@ -70,7 +70,7 @@ Model* lovrModelCreate(ModelData* modelData) {
     model->textures = malloc(modelData->textures.length * sizeof(Texture*));
     for (int i = 0; i < modelData->textures.length; i++) {
       if (modelData->textures.data[i]) {
-        model->textures[i] = lovrTextureCreate(TEXTURE_2D, (TextureData**) &modelData->textures.data[i], 1, true);
+        model->textures[i] = lovrTextureCreate(TEXTURE_2D, (TextureData**) &modelData->textures.data[i], 1, true, true);
       } else {
         model->textures[i] = NULL;
       }
