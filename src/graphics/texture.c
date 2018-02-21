@@ -139,6 +139,10 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
     // validation
   }
 
+  if (!textureData->data) {
+    return;
+  }
+
   GLenum glFormat = lovrTextureFormatGetGLFormat(textureData->format);
   GLenum glInternalFormat = lovrTextureFormatGetGLInternalFormat(textureData->format, texture->srgb);
   GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice : texture->type;
