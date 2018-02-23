@@ -75,7 +75,8 @@ typedef struct {
 
 void lovrEventInit();
 void lovrEventDestroy();
-void lovrEventAddPump(void (*pump)(void));
+void lovrEventAddPump(EventPump pump);
+void lovrEventRemovePump(EventPump pump);
 void lovrEventPump();
 void lovrEventPush(Event event);
 bool lovrEventPoll(Event* event);

@@ -13,6 +13,7 @@
 
 // From openvr_capi.h
 extern intptr_t VR_InitInternal(EVRInitError *peError, EVRApplicationType eType);
+extern void VR_ShutdownInternal();
 extern bool VR_IsHmdPresent();
 extern intptr_t VR_GetGenericInterface(const char* pchInterfaceVersion, EVRInitError* peError);
 extern bool VR_IsRuntimeInstalled();
@@ -151,6 +152,7 @@ static void initializeCanvas() {
 }
 
 static void openvrInit() {
+  if (state.isInitialized) return;
   state.isInitialized = false;
   state.isRendering = false;
   state.isMirrored = true;
@@ -229,6 +231,7 @@ static void openvrInit() {
 }
 
 static void openvrDestroy() {
+  if (!state.isInitialized) return;
   state.isInitialized = false;
   if (state.canvas) {
     lovrRelease(&state.canvas->texture.ref);
@@ -245,6 +248,9 @@ static void openvrDestroy() {
     lovrRelease(&controller->ref);
   }
   vec_deinit(&state.controllers);
+  lovrEventRemovePump(openvrPoll);
+  VR_ShutdownInternal();
+  memset(&state, 0, sizeof(HeadsetState));
 }
 
 static void openvrPoll() {

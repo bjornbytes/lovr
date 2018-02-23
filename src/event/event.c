@@ -24,6 +24,10 @@ void lovrEventAddPump(EventPump pump) {
   vec_push(&state.pumps, pump);
 }
 
+void lovrEventRemovePump(EventPump pump) {
+  vec_remove(&state.pumps, pump);
+}
+
 void lovrEventPump() {
   int i; EventPump pump;
   vec_foreach(&state.pumps, pump, i) {

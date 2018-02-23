@@ -190,52 +190,48 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon) {
   lovrAssert(!state.window, "Window is already created");
 
-  if (!state.initialized && (state.window = glfwGetCurrentContext()) != NULL) {
-    lovrGraphicsReset();
-    state.initialized = true;
-    return;
-  }
-
+  if ((state.window = glfwGetCurrentContext()) == NULL) {
 #ifdef EMSCRIPTEN
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  glfwWindowHint(GLFW_SAMPLES, msaa);
-  glfwWindowHint(GLFW_SRGB_CAPABLE, state.gammaCorrect);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_SAMPLES, msaa);
+    glfwWindowHint(GLFW_SRGB_CAPABLE, state.gammaCorrect);
 #else
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-  glfwWindowHint(GLFW_SAMPLES, msaa);
-  glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-  glfwWindowHint(GLFW_SRGB_CAPABLE, state.gammaCorrect);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_SAMPLES, msaa);
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+    glfwWindowHint(GLFW_SRGB_CAPABLE, state.gammaCorrect);
 #endif
 
-  GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-  const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-  if (fullscreen) {
-    glfwWindowHint(GLFW_RED_BITS, mode->redBits);
-    glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
-    glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-    glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-  }
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    if (fullscreen) {
+      glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+      glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+      glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+      glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+    }
 
-  state.window = glfwCreateWindow(w ? w : mode->width, h ? h : mode->height, title, fullscreen ? monitor : NULL, NULL);
-  if (!state.window) {
-    glfwTerminate();
-    lovrThrow("Could not create window");
-  }
+    state.window = glfwCreateWindow(w ? w : mode->width, h ? h : mode->height, title, fullscreen ? monitor : NULL, NULL);
+    if (!state.window) {
+      glfwTerminate();
+      lovrThrow("Could not create window");
+    }
 
-  if (icon) {
-    GLFWimage image;
-    image.pixels = stbi_load(icon, &image.width, &image.height, NULL, 3);
-    glfwSetWindowIcon(state.window, 1, &image);
-    free(image.pixels);
-  }
+    if (icon) {
+      GLFWimage image;
+      image.pixels = stbi_load(icon, &image.width, &image.height, NULL, 3);
+      glfwSetWindowIcon(state.window, 1, &image);
+      free(image.pixels);
+    }
 
-  glfwMakeContextCurrent(state.window);
-  glfwSetWindowCloseCallback(state.window, onCloseWindow);
+    glfwMakeContextCurrent(state.window);
+    glfwSetWindowCloseCallback(state.window, onCloseWindow);
+  }
 
 #ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);

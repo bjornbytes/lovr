@@ -12,6 +12,7 @@ void lovrDestroy() {
   lovrEventDestroy();
   lovrFilesystemDestroy();
   lovrGraphicsDestroy();
+  lovrHeadsetDestroy();
   lovrMathDestroy();
   lovrPhysicsDestroy();
   lovrTimerDestroy();
