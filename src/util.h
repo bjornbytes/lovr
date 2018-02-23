@@ -1,4 +1,5 @@
 #include "lib/vec/vec.h"
+#include "lib/tinycthread/tinycthread.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <setjmp.h>

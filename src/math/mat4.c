@@ -230,27 +230,27 @@ mat4 mat4_setTransform(mat4 m, float x, float y, float z, float sx, float sy, fl
   return mat4_scale(m, sx, sy, sz);
 }
 
-mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float near, float far) {
+mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float clipNear, float clipFar) {
   float rl = right - left;
   float tb = top - bottom;
-  float fn = far - near;
+  float fn = clipFar - clipNear;
   mat4_identity(m);
   m[0] = 2 / rl;
   m[5] = 2 / tb;
   m[10] = -2 / fn;
   m[12] = -(left + right) / rl;
   m[13] = -(top + bottom) / tb;
-  m[14] = -(far + near) / fn;
+  m[14] = -(clipFar + clipNear) / fn;
   m[15] = 1;
   return m;
 }
 
-mat4 mat4_perspective(mat4 m, float near, float far, float fovy, float aspect) {
-  float range = tan(fovy * .5f) * near;
-  float sx = (2.0f * near) / (range * aspect + range * aspect);
-  float sy = near / range;
-  float sz = -(far + near) / (far - near);
-  float pz = (-2.0f * far * near) / (far - near);
+mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, float aspect) {
+  float range = tan(fovy * .5f) * clipNear;
+  float sx = (2.0f * clipNear) / (range * aspect + range * aspect);
+  float sy = clipNear / range;
+  float sz = -(clipFar + clipNear) / (clipFar - clipNear);
+  float pz = (-2.0f * clipFar * clipNear) / (clipFar - clipNear);
   mat4_identity(m);
   m[0] = sx;
   m[5] = sy;

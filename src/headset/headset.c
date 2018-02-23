@@ -86,17 +86,17 @@ void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
   headset->getDisplayDimensions(width, height);
 }
 
-void lovrHeadsetGetClipDistance(float* near, float* far) {
+void lovrHeadsetGetClipDistance(float* clipNear, float* clipFar) {
   if (!headset) {
-    *near = *far = 0.f;
+    *clipNear = *clipFar = 0.f;
     return;
   }
-  headset->getClipDistance(near, far);
+  headset->getClipDistance(clipNear, clipFar);
 }
 
-void lovrHeadsetSetClipDistance(float near, float far) {
+void lovrHeadsetSetClipDistance(float clipNear, float clipFar) {
   if (headset) {
-    headset->setClipDistance(near, far);
+    headset->setClipDistance(clipNear, clipFar);
   }
 }
 

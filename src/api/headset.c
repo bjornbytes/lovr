@@ -166,17 +166,17 @@ int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
 }
 
 int l_lovrHeadsetGetClipDistance(lua_State* L) {
-  float near, far;
-  lovrHeadsetGetClipDistance(&near, &far);
-  lua_pushnumber(L, near);
-  lua_pushnumber(L, far);
+  float clipNear, clipFar;
+  lovrHeadsetGetClipDistance(&clipNear, &clipFar);
+  lua_pushnumber(L, clipNear);
+  lua_pushnumber(L, clipFar);
   return 2;
 }
 
 int l_lovrHeadsetSetClipDistance(lua_State* L) {
-  float near = luaL_checknumber(L, 1);
-  float far = luaL_checknumber(L, 2);
-  lovrHeadsetSetClipDistance(near, far);
+  float clipNear = luaL_checknumber(L, 1);
+  float clipFar = luaL_checknumber(L, 2);
+  lovrHeadsetSetClipDistance(clipNear, clipFar);
   return 0;
 }
 

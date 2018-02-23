@@ -334,19 +334,19 @@ static void openvrGetDisplayDimensions(int* width, int* height) {
   }
 }
 
-static void openvrGetClipDistance(float* near, float* far) {
+static void openvrGetClipDistance(float* clipNear, float* clipFar) {
   if (!state.isInitialized) {
-    *near = *far = 0.f;
+    *clipNear = *clipFar = 0.f;
   } else {
-    *near = state.clipNear;
-    *far = state.clipFar;
+    *clipNear = state.clipNear;
+    *clipFar = state.clipFar;
   }
 }
 
-static void openvrSetClipDistance(float near, float far) {
+static void openvrSetClipDistance(float clipNear, float clipFar) {
   if (!state.isInitialized) return;
-  state.clipNear = near;
-  state.clipFar = far;
+  state.clipNear = clipNear;
+  state.clipFar = clipFar;
 }
 
 static float openvrGetBoundsWidth() {
