@@ -20,12 +20,9 @@
 
 static FilesystemState state;
 
-bool filesystemAlreadyInit = false;
-
 void lovrFilesystemInit(const char* arg0, const char* arg1) {
-  if (filesystemAlreadyInit) // Do not change settings during a reload, and don't try to initialize PhysFS twice
-    return;
-  filesystemAlreadyInit = true;
+  if (state.initialized) return;
+  state.initialized = true;
 
   if (!PHYSFS_init(arg0)) {
     lovrThrow("Could not initialize filesystem: %s", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
@@ -43,23 +40,22 @@ void lovrFilesystemInit(const char* arg0, const char* arg1) {
     if (arg1) {
       strncpy(state.source, arg1, LOVR_PATH_MAX);
       if (!lovrFilesystemMount(state.source, NULL, 1)) {
-        goto mounted;
+        return;
       }
     }
 
     free(state.source);
     state.source = NULL;
   }
-
-mounted:
-  atexit(lovrFilesystemDestroy);
 }
 
 void lovrFilesystemDestroy() {
+  if (!state.initialized) return;
   free(state.source);
   free(state.savePathFull);
   free(state.savePathRelative);
   PHYSFS_deinit();
+  memset(&state, 0, sizeof(FilesystemState));
 }
 
 int lovrFilesystemCreateDirectory(const char* path) {

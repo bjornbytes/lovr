@@ -5,12 +5,9 @@
 #include <stdlib.h>
 
 static AudioState state;
-static bool audioAlreadyInit = false;
 
 void lovrAudioInit() {
-  if (audioAlreadyInit) { // During a reload, bring down the audio device then recreate it
-    lovrAudioDestroy();
-  }
+  if (state.initialized) return;
 
   ALCdevice* device = alcOpenDevice(NULL);
   lovrAssert(device, "Unable to open default audio device");
@@ -35,18 +32,16 @@ void lovrAudioInit() {
   quat_set(state.orientation, 0, 0, 0, -1);
   vec3_set(state.position, 0, 0, 0);
   vec3_set(state.velocity, 0, 0, 0);
-
-  if (!audioAlreadyInit) {
-    atexit(lovrAudioDestroy);
-    audioAlreadyInit = true;
-  }
+  state.initialized = true;
 }
 
 void lovrAudioDestroy() {
+  if (!state.initialized) return;
   alcMakeContextCurrent(NULL);
   alcDestroyContext(state.context);
   alcCloseDevice(state.device);
   vec_deinit(&state.sources);
+  memset(&state, 0, sizeof(AudioState));
 }
 
 void lovrAudioUpdate() {

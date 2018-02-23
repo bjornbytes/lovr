@@ -8,6 +8,7 @@
 typedef int getDirectoryItemsCallback(void* userdata, const char* dir, const char* file);
 
 typedef struct {
+  bool initialized;
   char* source;
   const char* identity;
   char* savePathRelative;

@@ -1,5 +1,6 @@
 #include "lib/vec/vec.h"
 #include "randomGenerator.h"
+#include <stdbool.h>
 
 #pragma once
 
@@ -11,6 +12,11 @@ typedef float* vec3;
 typedef float* quat;
 typedef float* mat4;
 typedef vec_t(mat4) vec_mat4_t;
+
+typedef struct {
+  bool initialized;
+  RandomGenerator* generator;
+} MathState;
 
 void lovrMathInit();
 void lovrMathDestroy();

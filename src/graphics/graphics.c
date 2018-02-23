@@ -40,6 +40,7 @@ void lovrGraphicsInit() {
 }
 
 void lovrGraphicsDestroy() {
+  if (!state.initialized) return;
   lovrGraphicsSetShader(NULL);
   lovrGraphicsSetFont(NULL);
   for (int i = 0; i < DEFAULT_SHADER_COUNT; i++) {
@@ -53,6 +54,7 @@ void lovrGraphicsDestroy() {
   glDeleteBuffers(1, &state.streamIBO);
   vec_deinit(&state.streamData);
   vec_deinit(&state.streamIndices);
+  memset(&state, 0, sizeof(GraphicsState));
 }
 
 void lovrGraphicsReset() {
@@ -185,15 +187,13 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
   lovrShaderBind(shader);
 }
 
-static bool graphicsAlreadyInit = false;
-
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon) {
-  if (graphicsAlreadyInit) {
+  lovrAssert(!state.window, "Window is already created");
+
+  if (!state.initialized && (state.window = glfwGetCurrentContext()) != NULL) {
     lovrGraphicsReset();
+    state.initialized = true;
     return;
-  } else {
-    lovrAssert(!state.window, "Window is already created");
-    graphicsAlreadyInit = true;
   }
 
 #ifdef EMSCRIPTEN
@@ -257,7 +257,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   vec_init(&state.streamData);
   vec_init(&state.streamIndices);
   lovrGraphicsReset();
-  atexit(lovrGraphicsDestroy);
+  state.initialized = true;
 }
 
 int lovrGraphicsGetWidth() {

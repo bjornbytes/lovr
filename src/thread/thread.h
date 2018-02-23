@@ -7,6 +7,7 @@
 #pragma once
 
 typedef struct {
+  bool initialized;
   map_void_t channels;
 } ThreadState;
 

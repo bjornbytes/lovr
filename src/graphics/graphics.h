@@ -95,6 +95,7 @@ typedef struct {
 } GraphicsStats;
 
 typedef struct {
+  bool initialized;
   GLFWwindow* window;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   DefaultShader defaultShader;

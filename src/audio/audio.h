@@ -8,6 +8,7 @@
 #pragma once
 
 typedef struct {
+  bool initialized;
   ALCdevice* device;
   ALCcontext* context;
   vec_void_t sources;

@@ -1,6 +1,7 @@
 #include "physics.h"
 #include "math/quat.h"
 #include <stdlib.h>
+#include <stdbool.h>
 
 static void defaultNearCallback(void* data, dGeomID a, dGeomID b) {
   lovrWorldCollide((World*) data, dGeomGetData(a), dGeomGetData(b), -1, -1);
@@ -28,19 +29,18 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
   }
 }
 
-static bool odeAlreadyInit = false;
+static bool initialized = false;
 
 void lovrPhysicsInit() {
-  if (odeAlreadyInit)
-    return;
-
+  if (initialized) return;
   dInitODE();
-  atexit(lovrPhysicsDestroy);
-  odeAlreadyInit = true;
+  initialized = true;
 }
 
 void lovrPhysicsDestroy() {
+  if (!initialized) return;
   dCloseODE();
+  initialized = false;
 }
 
 World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, int tagCount) {

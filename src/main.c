@@ -12,6 +12,7 @@
 static int errorCount = 0;
 
 static void destroy(int exitCode) {
+  lovrDestroy();
   glfwTerminate();
   exit(exitCode);
 }
@@ -131,6 +132,7 @@ int main(int argc, char** argv) {
   int exitCode = 0;
   int returnType = lua_type(L, -1);
   if (returnType == LUA_TSTRING && 0 == strcmp("restart", lua_tostring(L, -1))) {
+    lovrDestroy();
     continue;
   }
 

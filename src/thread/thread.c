@@ -6,12 +6,15 @@
 static ThreadState state;
 
 void lovrThreadInit() {
+  if (state.initialized) return;
   map_init(&state.channels);
-  atexit(lovrThreadDeinit);
+  state.initialized = true;
 }
 
 void lovrThreadDeinit() {
+  if (!state.initialized) return;
   map_deinit(&state.channels);
+  state.initialized = false;
 }
 
 Channel* lovrThreadGetChannel(const char* name) {

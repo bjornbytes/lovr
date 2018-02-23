@@ -3,5 +3,6 @@
 #define LOVR_VERSION_PATCH 1
 #define LOVR_VERSION_ALIAS "Fluffy Cuttlefish"
 
+void lovrDestroy();
 const char* lovrGetOS();
 void lovrGetVersion(int* major, int* minor, int* patch);

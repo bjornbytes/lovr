@@ -2,17 +2,21 @@
 #include "lib/glfw.h"
 #include "util.h"
 
-static TimerState timerState;
+static TimerState state;
 
 void lovrTimerInit() {
-  timerState.tickIndex = 0;
-  for (int i = 0; i < TICK_SAMPLES; i++) {
-    timerState.tickBuffer[i] = 0.;
-  }
+  if (state.initialized) return;
+  lovrTimerDestroy();
+  state.initialized = true;
+}
+
+void lovrTimerDestroy() {
+  if (!state.initialized) return;
+  memset(&state, 0, sizeof(TimerState));
 }
 
 double lovrTimerGetDelta() {
-  return timerState.dt;
+  return state.dt;
 }
 
 double lovrTimerGetTime() {
@@ -20,26 +24,26 @@ double lovrTimerGetTime() {
 }
 
 double lovrTimerStep() {
-  timerState.lastTime = timerState.time;
-  timerState.time = glfwGetTime();
-  timerState.dt = timerState.time - timerState.lastTime;
-  timerState.tickSum -= timerState.tickBuffer[timerState.tickIndex];
-  timerState.tickSum += timerState.dt;
-  timerState.tickBuffer[timerState.tickIndex] = timerState.dt;
-  timerState.averageDelta = timerState.tickSum / TICK_SAMPLES;
-  timerState.fps = (int) (1 / (timerState.tickSum / TICK_SAMPLES) + .5);
-  if (++timerState.tickIndex == TICK_SAMPLES) {
-    timerState.tickIndex = 0;
+  state.lastTime = state.time;
+  state.time = glfwGetTime();
+  state.dt = state.time - state.lastTime;
+  state.tickSum -= state.tickBuffer[state.tickIndex];
+  state.tickSum += state.dt;
+  state.tickBuffer[state.tickIndex] = state.dt;
+  state.averageDelta = state.tickSum / TICK_SAMPLES;
+  state.fps = (int) (1 / (state.tickSum / TICK_SAMPLES) + .5);
+  if (++state.tickIndex == TICK_SAMPLES) {
+    state.tickIndex = 0;
   }
-  return timerState.dt;
+  return state.dt;
 }
 
 double lovrTimerGetAverageDelta() {
-  return timerState.averageDelta;
+  return state.averageDelta;
 }
 
 int lovrTimerGetFPS() {
-  return timerState.fps;
+  return state.fps;
 }
 
 void lovrTimerSleep(double seconds) {

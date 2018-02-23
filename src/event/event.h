@@ -68,6 +68,7 @@ typedef vec_t(EventPump) vec_pump_t;
 typedef vec_t(Event) vec_event_t;
 
 typedef struct {
+  bool initialized;
   vec_pump_t pumps;
   vec_event_t events;
 } EventState;

@@ -1,4 +1,21 @@
 #include "lovr.h"
+#include "audio/audio.h"
+#include "event/event.h"
+#include "filesystem/filesystem.h"
+#include "graphics/graphics.h"
+#include "math/math.h"
+#include "physics/physics.h"
+#include "timer/timer.h"
+
+void lovrDestroy() {
+  lovrAudioDestroy();
+  lovrEventDestroy();
+  lovrFilesystemDestroy();
+  lovrGraphicsDestroy();
+  lovrMathDestroy();
+  lovrPhysicsDestroy();
+  lovrTimerDestroy();
+}
 
 const char* lovrGetOS() {
 #ifdef _WIN32

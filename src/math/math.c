@@ -3,27 +3,25 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
-#include <stdbool.h>
 
-static RandomGenerator* generator;
-bool mathAlreadyInit = false;
+static MathState state;
 
 void lovrMathInit() {
-  generator = lovrRandomGeneratorCreate();
+  if (state.initialized) return;
+  state.generator = lovrRandomGeneratorCreate();
   Seed seed = { .b64 = (uint64_t) time(0) };
-	lovrRandomGeneratorSetSeed(generator, seed);
-  if (!mathAlreadyInit) {
-    atexit(lovrMathDestroy);
-    mathAlreadyInit = true;
-  }
+	lovrRandomGeneratorSetSeed(state.generator, seed);
+  state.initialized = true;
 }
 
 void lovrMathDestroy() {
-  lovrRandomGeneratorDestroy(&generator->ref);
+  if (!state.initialized) return;
+  lovrRandomGeneratorDestroy(&state.generator->ref);
+  memset(&state, 0, sizeof(MathState));
 }
 
 RandomGenerator* lovrMathGetRandomGenerator() {
-  return generator;
+  return state.generator;
 }
 
 void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, vec3 v) {
