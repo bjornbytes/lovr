@@ -12,14 +12,14 @@
 #include <stdbool.h>
 
 typedef struct {
-  bool isInitialized;
+  bool initialized;
   HeadsetType type;
 
   vec_controller_t controllers;
 
   float clipNear;
   float clipFar;
-  float FOV;
+  float fov;
 
   float vel[3];
   float pos[3];
@@ -27,13 +27,10 @@ typedef struct {
   double yaw;
   double pitch;
 
-  float orientation[4]; // derived from pitch and yaw
-
-  float projection[16]; // projection matrix
-
+  float orientation[4];
+  float projection[16];
   float transform[16];
 
-  // keep track of currently hooked window, if any
   GLFWwindow* hookedWindow;
 
   bool mouselook;
@@ -43,7 +40,6 @@ typedef struct {
 
 static FakeHeadsetState state;
 
-// fwd declarations
 static void fakePoll();
 
 /*
@@ -155,15 +151,11 @@ static void check_window_existance() {
   }
 }
 
-static bool fakeIsAvailable() {
-  return true;
-}
-
-static void fakeInit() {
+static bool fakeInit() {
+  if (state.initialized) return true;
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
-  state.FOV = 67.0f * M_PI / 100.0f;
-  // TODO: aspect here too?
+  state.fov = 67.0f * M_PI / 100.0f;
 
   mat4_identity(state.transform);
 
@@ -174,33 +166,29 @@ static void fakeInit() {
   vec3_set(state.vel, 0, 0, 0);
   vec3_set(state.pos, 0, 0, 0);
 
-  // set up controller(s)
   vec_init(&state.controllers);
   Controller* controller = lovrAlloc(sizeof(Controller), lovrControllerDestroy);
-  controller->id = state.controllers.length;
+  controller->id = 0;
   vec_push(&state.controllers, controller);
-
-  lovrEventAddPump(fakePoll);
 
   state.mouselook = false;
   state.hookedWindow = NULL;
-  state.isInitialized = true;
+  state.initialized = true;
+  return true;
 }
 
 static void fakeDestroy() {
+  if (!state.initialized) return;
+
   int i;
   Controller *controller;
-
   vec_foreach(&state.controllers, controller, i) {
     lovrRelease(&controller->ref);
   }
-
   vec_deinit(&state.controllers);
-  state.isInitialized = false;
-}
 
-static void fakePoll() {
-  //
+  state.initialized = false;
+  memset(&state, 0, sizeof(FakeHeadsetState));
 }
 
 static bool fakeIsPresent() {
@@ -388,10 +376,8 @@ static void fakeUpdate(float dt) {
 
 HeadsetInterface lovrHeadsetFakeDriver = {
   DRIVER_FAKE,
-  fakeIsAvailable,
   fakeInit,
   fakeDestroy,
-  fakePoll,
   fakeIsPresent,
   fakeGetType,
   fakeGetOriginType,

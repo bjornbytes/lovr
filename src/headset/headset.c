@@ -12,6 +12,7 @@ static bool initialized = false;
 void lovrHeadsetInit(HeadsetDriver* drivers, int count) {
   if (initialized) return;
   initialized = true;
+  headset = NULL;
 
   for (int i = 0; i < count; i++) {
     HeadsetInterface* interface = NULL;
@@ -26,14 +27,10 @@ void lovrHeadsetInit(HeadsetDriver* drivers, int count) {
       default: break;
     }
 
-    if (interface && interface->isAvailable()) {
+    if (interface && interface->init()) {
       headset = interface;
       break;
     }
-  }
-
-  if (headset) {
-    headset->init();
   }
 }
 
@@ -53,10 +50,6 @@ const HeadsetDriver* lovrHeadsetGetDriver() {
   }
 
   return &headset->driverType;
-}
-
-void lovrHeadsetPoll() {
-  headset->poll();
 }
 
 bool lovrHeadsetIsPresent() {
@@ -220,7 +213,7 @@ void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
 }
 
 void lovrHeadsetUpdate(float dt) {
-  if (headset) {
+  if (headset && headset->update) {
     headset->update(dt);
   }
 }
