@@ -2,6 +2,7 @@
 build
 /lovr
 /data
+/*.lua
 src/obj
 src/Tupfile
 /watch.sh
