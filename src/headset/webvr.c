@@ -34,28 +34,32 @@ static void onRequestAnimationFrame(void* userdata) {
     mat4_set(transform, emscripten_vr_get_view_matrix(isRight));
     mat4_multiply(transform, sittingToStanding);
 
+    if (isRight) {
+      int viewport[4] = { width / 2, 0, width / 2, height };
+      lovrGraphicsPushDisplay(0, projection, viewport);
+    } else {
+      int viewport[4] = { 0, 0, width / 2, height };
+      lovrGraphicsPushDisplay(0, projection, viewport);
+    }
+
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
     lovrGraphicsSetProjection(projection);
 
-    if (isRight) {
-      lovrGraphicsSetViewport(width / 2, 0, width / 2, height);
-    } else {
-      lovrGraphicsSetViewport(0, 0, width / 2, height);
-    }
-
     state.renderCallback(eye, userdata);
     lovrGraphicsPop();
+    lovrGraphicsPopDisplay();
   }
 }
 
-static bool webvrIsAvailable() {
-  return emscripten_vr_is_present();
-}
+static bool webvrInit() {
+  if (!emscripten_vr_is_present()) {
+    return false;
+  }
 
-static void webvrInit() {
   vec_init(&state.controllers);
   emscripten_vr_init();
+  return true;
 }
 
 static void webvrDestroy() {
@@ -66,10 +70,6 @@ static void webvrDestroy() {
   }
 
   vec_deinit(&state.controllers);
-}
-
-static void webvrPoll() {
-  //
 }
 
 static bool webvrIsPresent() {
@@ -255,10 +255,8 @@ static void webvrUpdate(float dt) {
 
 HeadsetInterface lovrHeadsetWebVRDriver = {
   DRIVER_WEBVR,
-  webvrIsAvailable,
   webvrInit,
   webvrDestroy,
-  webvrPoll,
   webvrIsPresent,
   webvrGetType,
   webvrGetOriginType,
