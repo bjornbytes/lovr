@@ -1099,7 +1099,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
 
   if (type == TEXTURE_CUBE && sliceCount == 0) {
     sliceCount = 6;
-    const char* faces[6] = { "left", "right", "top", "bottom", "front", "back" };
+    const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
     for (int i = 0; i < 6; i++) {
       lua_pushstring(L, faces[i]);
       lua_rawget(L, 1);

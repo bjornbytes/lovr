@@ -557,8 +557,10 @@ Winding lovrGraphicsGetWinding() {
 }
 
 void lovrGraphicsSetWinding(Winding winding) {
-  state.winding = winding;
-  glFrontFace(winding);
+  if (winding != state.winding) {
+    state.winding = winding;
+    glFrontFace(winding);
+  }
 }
 
 bool lovrGraphicsIsWireframe() {
@@ -1053,17 +1055,12 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
 }
 
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az) {
+  Winding winding = state.winding;
+
   lovrGraphicsPush();
   lovrGraphicsOrigin();
   lovrGraphicsRotate(MATRIX_MODEL, angle, ax, ay, az);
-
-  bool wasCulling = lovrGraphicsIsCullingEnabled();
-  lovrGraphicsSetCullingEnabled(false);
-
-  CompareMode mode;
-  bool write;
-  lovrGraphicsGetDepthTest(&mode, &write);
-  lovrGraphicsSetDepthTest(mode, false);
+  lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
 
   if (texture->type == TEXTURE_CUBE) {
     float cube[] = {
@@ -1081,20 +1078,20 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 
       // Back
       -1.f, -1.f, 1.f,
-      1.f, -1.f, 1.f,
       -1.f, 1.f, 1.f,
+      1.f, -1.f, 1.f,
       1.f, 1.f, 1.f,
 
       // Right
       1.f, 1.f, 1.f,
-      1.f, -1.f, 1.f,
       1.f, 1.f, -1.f,
+      1.f, -1.f, 1.f,
       1.f, -1.f, -1.f,
 
       // Bottom
       1.f, -1.f, -1.f,
-      1.f, -1.f, 1.f,
       -1.f, -1.f, -1.f,
+      1.f, -1.f, 1.f,
       -1.f, -1.f, 1.f,
 
       // Adjust
@@ -1103,8 +1100,8 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 
       // Top
       -1.f, 1.f, -1.f,
-      -1.f, 1.f, 1.f,
       1.f, 1.f, -1.f,
+      -1.f, 1.f, 1.f,
       1.f, 1.f, 1.f
     };
 
@@ -1115,16 +1112,20 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
     lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, false, false, false);
     lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, NULL);
   } else if (texture->type == TEXTURE_2D) {
+    CompareMode mode;
+    bool write;
+    lovrGraphicsGetDepthTest(&mode, &write);
+    lovrGraphicsSetDepthTest(COMPARE_LEQUAL, false);
     Material* material = lovrGraphicsGetDefaultMaterial();
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     lovrGraphicsSphere(material, NULL, 30);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
+    lovrGraphicsSetDepthTest(mode, write);
   } else {
     lovrThrow("lovr.graphics.skybox only accepts 2d and cube Textures");
   }
 
-  lovrGraphicsSetDepthTest(mode, write);
-  lovrGraphicsSetCullingEnabled(wasCulling);
+  lovrGraphicsSetWinding(winding);
   lovrGraphicsPop();
 }
 
