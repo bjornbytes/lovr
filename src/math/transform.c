@@ -18,7 +18,7 @@ Transform* lovrTransformCreate(mat4 transfrom) {
 }
 
 void lovrTransformDestroy(const Ref* ref) {
-  Transform* transform = containerof(ref, Transform);
+  Transform* transform = (Transform*) ref;
   free(transform);
 }
 

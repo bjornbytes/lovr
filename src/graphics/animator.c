@@ -44,7 +44,7 @@ Animator* lovrAnimatorCreate(ModelData* modelData) {
 }
 
 void lovrAnimatorDestroy(const Ref* ref) {
-  Animator* animator = containerof(ref, Animator);
+  Animator* animator = (Animator*) ref;
   lovrRelease(&animator->modelData->ref);
   map_deinit(&animator->trackMap);
   vec_deinit(&animator->trackList);

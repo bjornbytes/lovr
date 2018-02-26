@@ -110,7 +110,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
 }
 
 void lovrTextureDestroy(const Ref* ref) {
-  Texture* texture = containerof(ref, Texture);
+  Texture* texture = (Texture*) ref;
   for (int i = 0; i < texture->sliceCount; i++) {
     if (&texture->slices[i]) {
       lovrRelease(&texture->slices[i]->ref);

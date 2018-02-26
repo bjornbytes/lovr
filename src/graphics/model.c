@@ -121,7 +121,7 @@ Model* lovrModelCreate(ModelData* modelData) {
 }
 
 void lovrModelDestroy(const Ref* ref) {
-  Model* model = containerof(ref, Model);
+  Model* model = (Model*) ref;
   for (int i = 0; i < model->modelData->textures.length; i++) {
     if (model->textures[i]) {
       lovrRelease(&model->textures[i]->ref);

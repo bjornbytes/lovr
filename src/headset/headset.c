@@ -2,7 +2,7 @@
 #include "event/event.h"
 
 void lovrControllerDestroy(const Ref* ref) {
-  Controller* controller = containerof(ref, Controller);
+  Controller* controller = (Controller*) ref;
   free(controller);
 }
 

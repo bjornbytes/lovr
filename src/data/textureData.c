@@ -228,7 +228,7 @@ bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
 }
 
 void lovrTextureDataDestroy(const Ref* ref) {
-  TextureData* textureData = containerof(ref, TextureData);
+  TextureData* textureData = (TextureData*) ref;
   if (textureData->blob) {
     lovrRelease(&textureData->blob->ref);
   }

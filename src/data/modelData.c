@@ -504,7 +504,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 }
 
 void lovrModelDataDestroy(const Ref* ref) {
-  ModelData* modelData = containerof(ref, ModelData);
+  ModelData* modelData = (ModelData*) ref;
 
   for (int i = 0; i < modelData->nodeCount; i++) {
     vec_deinit(&modelData->nodes[i].children);

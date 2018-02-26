@@ -17,7 +17,7 @@ Channel* lovrChannelCreate() {
 }
 
 void lovrChannelDestroy(const Ref* ref) {
-  Channel* channel = containerof(ref, Channel);
+  Channel* channel = (Channel*) ref;
   lovrChannelClear(channel);
   vec_deinit(&channel->messages);
   mtx_destroy(&channel->lock);

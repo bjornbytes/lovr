@@ -6,7 +6,6 @@
 
 #pragma once
 
-#define containerof(ptr, type) ((type*)((char*)(ptr) - offsetof(type, ref)))
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 
 typedef vec_t(unsigned int) vec_uint_t;

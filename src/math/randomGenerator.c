@@ -33,7 +33,7 @@ RandomGenerator* lovrRandomGeneratorCreate() {
 }
 
 void lovrRandomGeneratorDestroy(const Ref* ref) {
-  RandomGenerator* generator = containerof(ref, RandomGenerator);
+  RandomGenerator* generator = (RandomGenerator*) ref;
   free(generator);
 }
 

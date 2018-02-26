@@ -30,7 +30,7 @@ AudioStream* lovrAudioStreamCreate(Blob* blob, size_t bufferSize) {
 }
 
 void lovrAudioStreamDestroy(const Ref* ref) {
-  AudioStream* stream = containerof(ref, AudioStream);
+  AudioStream* stream = (AudioStream*) ref;
   stb_vorbis_close(stream->decoder);
   lovrRelease(&stream->blob->ref);
   free(stream->buffer);

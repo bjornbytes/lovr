@@ -67,7 +67,7 @@ World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char
 }
 
 void lovrWorldDestroy(const Ref* ref) {
-  World* world = containerof(ref, World);
+  World* world = (World*) ref;
   lovrWorldDestroyData(world);
   vec_deinit(&world->overlaps);
   free(world);
@@ -286,7 +286,7 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
 }
 
 void lovrColliderDestroy(const Ref* ref) {
-  Collider* collider = containerof(ref, Collider);
+  Collider* collider = (Collider*) ref;
   vec_deinit(&collider->shapes);
   vec_deinit(&collider->joints);
   lovrColliderDestroyData(collider);
@@ -629,7 +629,7 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
 }
 
 void lovrShapeDestroy(const Ref* ref) {
-  Shape* shape = containerof(ref, Shape);
+  Shape* shape = (Shape*) ref;
   lovrShapeDestroyData(shape);
   free(shape);
 }
@@ -856,7 +856,7 @@ void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
 }
 
 void lovrJointDestroy(const Ref* ref) {
-  Joint* joint = containerof(ref, Joint);
+  Joint* joint = (Joint*) ref;
   lovrJointDestroyData(joint);
   free(joint);
 }

@@ -93,7 +93,7 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, int size) {
 }
 
 void lovrRasterizerDestroy(const Ref* ref) {
-  Rasterizer* rasterizer = containerof(ref, Rasterizer);
+  Rasterizer* rasterizer = (Rasterizer*) ref;
   FT_Done_Face(rasterizer->ftHandle);
   if (rasterizer->blob) {
     lovrRelease(&rasterizer->blob->ref);

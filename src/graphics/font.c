@@ -54,7 +54,7 @@ Font* lovrFontCreate(Rasterizer* rasterizer) {
 }
 
 void lovrFontDestroy(const Ref* ref) {
-  Font* font = containerof(ref, Font);
+  Font* font = (Font*) ref;
   lovrRelease(&font->rasterizer->ref);
   lovrRelease(&font->texture->ref);
   map_deinit(&font->atlas.glyphs);

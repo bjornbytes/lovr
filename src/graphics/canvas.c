@@ -84,7 +84,7 @@ Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, int msaa, 
 }
 
 void lovrCanvasDestroy(const Ref* ref) {
-  Canvas* canvas = (Canvas*) containerof(ref, Texture);
+  Canvas* canvas = (Canvas*) ref;
   glDeleteFramebuffers(1, &canvas->framebuffer);
   if (canvas->resolveFramebuffer) {
     glDeleteFramebuffers(1, &canvas->resolveFramebuffer);

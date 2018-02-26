@@ -23,7 +23,7 @@ Material* lovrMaterialCreate(bool isDefault) {
 }
 
 void lovrMaterialDestroy(const Ref* ref) {
-  Material* material = containerof(ref, Material);
+  Material* material = (Material*) ref;
   for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
     if (material->textures[i]) {
       lovrRelease(&material->textures[i]->ref);

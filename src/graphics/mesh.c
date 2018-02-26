@@ -82,7 +82,7 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat* format, MeshDrawMode drawMode
 }
 
 void lovrMeshDestroy(const Ref* ref) {
-  Mesh* mesh = containerof(ref, Mesh);
+  Mesh* mesh = (Mesh*) ref;
   if (mesh->material) {
     lovrRelease(&mesh->material->ref);
   }

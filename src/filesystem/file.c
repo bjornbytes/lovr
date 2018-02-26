@@ -12,7 +12,7 @@ File* lovrFileCreate(const char* path) {
 }
 
 void lovrFileDestroy(const Ref* ref) {
-  File* file = containerof(ref, File);
+  File* file = (File*) ref;
   if (file->handle) {
     PHYSFS_close(file->handle);
   }

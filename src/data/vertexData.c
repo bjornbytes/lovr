@@ -42,7 +42,7 @@ VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format, bool allo
 }
 
 void lovrVertexDataDestroy(const Ref* ref) {
-  VertexData* vertexData = containerof(ref, VertexData);
+  VertexData* vertexData = (VertexData*) ref;
   if (vertexData->data.raw) {
     free(vertexData->data.raw);
   }
