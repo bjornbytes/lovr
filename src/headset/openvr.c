@@ -179,26 +179,33 @@ static void openvrPoll() {
         break;
 
       case EVREventType_VREvent_ButtonPress:
-      case EVREventType_VREvent_ButtonUnpress:
+      case EVREventType_VREvent_ButtonUnpress: {
+        bool isPress = vrEvent.eventType == EVREventType_VREvent_ButtonPress;
+
+        if (vrEvent.trackedDeviceIndex == state.headsetIndex && vrEvent.data.controller.button == EVRButtonId_k_EButton_ProximitySensor) {
+          Event event = { .type = EVENT_MOUNT, .data = { .mount = { isPress } } };
+          lovrEventPush(event);
+          break;
+        }
+
         for (int i = 0; i < state.controllers.length; i++) {
           Controller* controller = state.controllers.data[i];
           if (controller->id == vrEvent.trackedDeviceIndex) {
-            bool isPress = vrEvent.eventType == EVREventType_VREvent_ButtonPress;
             ControllerButton button = getButton(vrEvent.data.controller.button, openvrControllerGetHand(controller));
             if (isPress) {
               EventData data = { .controllerpressed = { controller, button } };
               Event event = { .type = EVENT_CONTROLLER_PRESSED, .data = data };
               lovrEventPush(event);
-              break;
             } else {
               EventData data = { .controllerreleased = { controller, button } };
               Event event = { .type = EVENT_CONTROLLER_RELEASED, .data = data };
               lovrEventPush(event);
-              break;
             }
+            break;
           }
         }
         break;
+      }
 
       case EVREventType_VREvent_InputFocusCaptured:
       case EVREventType_VREvent_InputFocusReleased:
@@ -344,10 +351,6 @@ static void openvrDestroy() {
   memset(&state, 0, sizeof(HeadsetState));
 }
 
-static bool openvrIsPresent() {
-  return state.system->IsTrackedDeviceConnected(state.headsetIndex);
-}
-
 static HeadsetType openvrGetType() {
   return state.type;
 }
@@ -358,6 +361,12 @@ static HeadsetOrigin openvrGetOriginType() {
     case ETrackingUniverseOrigin_TrackingUniverseStanding: return ORIGIN_FLOOR;
     default: return ORIGIN_HEAD;
   }
+}
+
+static bool openvrIsMounted() {
+  VRControllerState_t input;
+  state.system->GetControllerState(state.headsetIndex, &input, sizeof(input));
+  return (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
 }
 
 static bool openvrIsMirrored() {
@@ -470,13 +479,11 @@ static vec_controller_t* openvrGetControllers() {
   return &state.controllers;
 }
 
-static bool openvrControllerIsPresent(Controller* controller) {
-  if (!controller) return false;
+static bool openvrControllerIsConnected(Controller* controller) {
   return state.system->IsTrackedDeviceConnected(controller->id);
 }
 
 static ControllerHand openvrControllerGetHand(Controller* controller) {
-  if (!controller) return HAND_UNKNOWN;
   switch (state.system->GetControllerRoleForTrackedDeviceIndex(controller->id)) {
     case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
     case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
@@ -485,11 +492,6 @@ static ControllerHand openvrControllerGetHand(Controller* controller) {
 }
 
 static void openvrControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  if (!controller) {
-    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
-    return;
-  }
-
   TrackedDevicePose_t pose = getPose(controller->id);
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
@@ -538,8 +540,6 @@ static float openvrControllerGetAxis(Controller* controller, ControllerAxis axis
 }
 
 static bool openvrControllerIsDown(Controller* controller, ControllerButton button) {
-  if (!controller) return false;
-
   VRControllerState_t input;
   state.system->GetControllerState(controller->id, &input, sizeof(input));
   ControllerHand hand = openvrControllerGetHand(controller);
@@ -547,8 +547,6 @@ static bool openvrControllerIsDown(Controller* controller, ControllerButton butt
 }
 
 static bool openvrControllerIsTouched(Controller* controller, ControllerButton button) {
-  if (!controller) return false;
-
   VRControllerState_t input;
   state.system->GetControllerState(controller->id, &input, sizeof(input));
   ControllerHand hand = openvrControllerGetHand(controller);
@@ -556,7 +554,7 @@ static bool openvrControllerIsTouched(Controller* controller, ControllerButton b
 }
 
 static void openvrControllerVibrate(Controller* controller, float duration, float power) {
-  if (!controller || duration <= 0) return;
+  if (duration <= 0) return;
 
   uint32_t axis = 0;
   unsigned short uSeconds = (unsigned short) (duration * 1e6);
@@ -749,9 +747,9 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   DRIVER_OPENVR,
   openvrInit,
   openvrDestroy,
-  openvrIsPresent,
   openvrGetType,
   openvrGetOriginType,
+  openvrIsMounted,
   openvrIsMirrored,
   openvrSetMirrored,
   openvrGetDisplayDimensions,
@@ -764,7 +762,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrGetVelocity,
   openvrGetAngularVelocity,
   openvrGetControllers,
-  openvrControllerIsPresent,
+  openvrControllerIsConnected,
   openvrControllerGetHand,
   openvrControllerGetPose,
   openvrControllerGetAxis,

@@ -59,13 +59,13 @@ function lovr.errhand(message)
     end
     lovr.graphics.clear()
     lovr.graphics.origin()
-    if lovr.headset and lovr.headset.isPresent() and lovr.getOS() ~= 'Web' then
+    if lovr.headset and lovr.getOS() ~= 'Web' then
       lovr.headset.renderTo(headsetRender)
     end
     applyHeadsetOffset()
     render()
     lovr.graphics.present()
-    lovr.timer.sleep((lovr.headset and lovr.headset.isPresent()) and .001 or .1)
+    lovr.timer.sleep(lovr.headset and .001 or .1)
   end
 end
 
@@ -147,31 +147,7 @@ if confError then
   error(confError)
 end
 
-lovr.handlers = setmetatable({
-  quit = function() end,
-  focus = function(f)
-    if lovr.focus then lovr.focus(f) end
-  end,
-  threaderror = function(t, e)
-    if lovr.threaderror then lovr.threaderror(t, e) end
-  end,
-  controlleradded = function(c)
-    if lovr.controlleradded then lovr.controlleradded(c) end
-  end,
-  controllerremoved = function(c)
-    if lovr.controllerremoved then lovr.controllerremoved(c) end
-  end,
-  controllerpressed = function(c, b)
-    if lovr.controllerpressed then lovr.controllerpressed(c, b) end
-  end,
-  controllerreleased = function(c, b)
-    if lovr.controllerreleased then lovr.controllerreleased(c, b) end
-  end
-}, {
-  __index = function(self, event)
-    error('Unknown event: ' .. tostring(event))
-  end
-})
+lovr.handlers = setmetatable({}, { __index = lovr })
 
 local function headsetRenderCallback(eye)
   if lovr.headset.getOriginType() == 'head' then
@@ -186,7 +162,7 @@ function lovr.step()
     if name == 'quit' and (not lovr.quit or not lovr.quit()) then
       return a
     end
-    lovr.handlers[name](a, b, c, d)
+    if lovr.handlers[name] then lovr.handlers[name](a, b, c, d) end
   end
   local dt = lovr.timer.step()
   if lovr.headset then
@@ -194,7 +170,7 @@ function lovr.step()
   end
   if lovr.audio then
     lovr.audio.update()
-    if lovr.headset and lovr.headset.isPresent() then
+    if lovr.headset then
       lovr.audio.setOrientation(lovr.headset.getOrientation())
       lovr.audio.setPosition(lovr.headset.getPosition())
       lovr.audio.setVelocity(lovr.headset.getVelocity())
@@ -205,7 +181,7 @@ function lovr.step()
     lovr.graphics.clear()
     lovr.graphics.origin()
     if lovr.draw then
-      if lovr.headset and lovr.headset.isPresent() then
+      if lovr.headset then
         lovr.headset.renderTo(headsetRenderCallback)
       else
         applyHeadsetOffset()

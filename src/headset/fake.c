@@ -191,16 +191,16 @@ static void fakeDestroy() {
   memset(&state, 0, sizeof(FakeHeadsetState));
 }
 
-static bool fakeIsPresent() {
-  return true;
-}
-
 static HeadsetType fakeGetType() {
   return HEADSET_FAKE;
 }
 
 static HeadsetOrigin fakeGetOriginType() {
   return ORIGIN_HEAD;
+}
+
+static bool fakeIsMounted() {
+  return true;
 }
 
 static bool fakeIsMirrored() {
@@ -263,7 +263,7 @@ static vec_controller_t* fakeGetControllers() {
   return &state.controllers;
 }
 
-static bool fakeControllerIsPresent(Controller* controller) {
+static bool fakeControllerIsConnected(Controller* controller) {
   return true;
 }
 
@@ -378,9 +378,9 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   DRIVER_FAKE,
   fakeInit,
   fakeDestroy,
-  fakeIsPresent,
   fakeGetType,
   fakeGetOriginType,
+  fakeIsMounted,
   fakeIsMirrored,
   fakeSetMirrored,
   fakeGetDisplayDimensions,
@@ -393,7 +393,7 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeGetVelocity,
   fakeGetAngularVelocity,
   fakeGetControllers,
-  fakeControllerIsPresent,
+  fakeControllerIsConnected,
   fakeControllerGetHand,
   fakeControllerGetPose,
   fakeControllerGetAxis,

@@ -107,11 +107,6 @@ int l_lovrHeadsetInit(lua_State* L) {
   return 1;
 }
 
-int l_lovrHeadsetIsPresent(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetIsPresent());
-  return 1;
-}
-
 int l_lovrHeadsetGetDriver(lua_State* L) {
   const HeadsetDriver* driver = lovrHeadsetGetDriver();
   if (driver) {
@@ -129,6 +124,11 @@ int l_lovrHeadsetGetType(lua_State* L) {
 
 int l_lovrHeadsetGetOriginType(lua_State* L) {
   luax_pushenum(L, &HeadsetOrigins, lovrHeadsetGetOriginType());
+  return 1;
+}
+
+int l_lovrHeadsetIsMounted(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetIsMounted());
   return 1;
 }
 
@@ -302,10 +302,10 @@ int l_lovrHeadsetUpdate(lua_State* L) {
 }
 
 const luaL_Reg lovrHeadset[] = {
-  { "isPresent", l_lovrHeadsetIsPresent },
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getType", l_lovrHeadsetGetType },
   { "getOriginType", l_lovrHeadsetGetOriginType },
+  { "isMounted", l_lovrHeadsetIsMounted },
   { "isMirrored", l_lovrHeadsetIsMirrored },
   { "setMirrored", l_lovrHeadsetSetMirrored },
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },

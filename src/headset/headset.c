@@ -52,16 +52,16 @@ const HeadsetDriver* lovrHeadsetGetDriver() {
   return &headset->driverType;
 }
 
-bool lovrHeadsetIsPresent() {
-  return headset ? headset->isPresent() : false;
-}
-
 HeadsetType lovrHeadsetGetType() {
   return headset ? headset->getType() : HEADSET_UNKNOWN;
 }
 
 HeadsetOrigin lovrHeadsetGetOriginType() {
   return headset ? headset->getOriginType() : ORIGIN_HEAD;
+}
+
+bool lovrHeadsetIsMounted() {
+  return headset ? headset->isMounted() : false;
 }
 
 bool lovrHeadsetIsMirrored() {
@@ -149,12 +149,12 @@ vec_controller_t* lovrHeadsetGetControllers() {
   return headset->getControllers();
 }
 
-bool lovrHeadsetControllerIsPresent(Controller* controller) {
+bool lovrHeadsetControllerIsConnected(Controller* controller) {
   if (!headset || !controller) {
     return false;
   }
 
-  return headset->controllerIsPresent(controller);
+  return headset->controllerIsConnected(controller);
 }
 
 ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {

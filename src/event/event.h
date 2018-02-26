@@ -8,6 +8,7 @@
 typedef enum {
   EVENT_QUIT,
   EVENT_FOCUS,
+  EVENT_MOUNT,
   EVENT_THREAD_ERROR,
   EVENT_CONTROLLER_ADDED,
   EVENT_CONTROLLER_REMOVED,
@@ -21,8 +22,12 @@ typedef struct {
 } QuitEvent;
 
 typedef struct {
-  bool isFocused;
+  bool focused;
 } FocusEvent;
+
+typedef struct {
+  bool mounted;
+} MountEvent;
 
 typedef struct {
   Thread* thread;
@@ -50,6 +55,7 @@ typedef struct {
 typedef union {
   QuitEvent quit;
   FocusEvent focus;
+  MountEvent mount;
   ThreadErrorEvent threaderror;
   ControllerAddedEvent controlleradded;
   ControllerRemovedEvent controllerremoved;

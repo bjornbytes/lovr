@@ -72,16 +72,16 @@ static void webvrDestroy() {
   vec_deinit(&state.controllers);
 }
 
-static bool webvrIsPresent() {
-  return emscripten_vr_is_present();
-}
-
 static HeadsetType webvrGetType() {
   return HEADSET_UNKNOWN;
 }
 
 static HeadsetOrigin webvrGetOriginType() {
   return emscripten_vr_has_stage() ? ORIGIN_FLOOR : ORIGIN_HEAD;
+}
+
+static bool webvrIsMounted() {
+  return true;
 }
 
 static bool webvrIsMirrored() {
@@ -180,7 +180,7 @@ static vec_controller_t* webvrGetControllers() {
   return &state.controllers;
 }
 
-static bool webvrControllerIsPresent(Controller* controller) {
+static bool webvrControllerIsConnected(Controller* controller) {
   return emscripten_vr_controller_is_present(controller->id);
 }
 
@@ -257,9 +257,9 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   DRIVER_WEBVR,
   webvrInit,
   webvrDestroy,
-  webvrIsPresent,
   webvrGetType,
   webvrGetOriginType,
+  webvrIsMounted,
   webvrIsMirrored,
   webvrSetMirrored,
   webvrGetDisplayDimensions,
@@ -272,7 +272,7 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrGetVelocity,
   webvrGetAngularVelocity,
   webvrGetControllers,
-  webvrControllerIsPresent,
+  webvrControllerIsConnected,
   webvrControllerGetHand,
   webvrControllerGetPose,
   webvrControllerGetAxis,
