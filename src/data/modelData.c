@@ -273,6 +273,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   bool hasNormals = false;
   bool hasUVs = false;
   bool hasVertexColors = false;
+  bool hasTangents = false;
   bool isSkinned = false;
 
   for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
@@ -282,6 +283,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     hasNormals |= assimpMesh->mNormals != NULL;
     hasUVs |= assimpMesh->mTextureCoords[0] != NULL;
     hasVertexColors |= assimpMesh->mColors[0] != NULL;
+    hasTangents |= assimpMesh->mTangents != NULL;
     isSkinned |= assimpMesh->mNumBones > 0;
   }
 
@@ -292,6 +294,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   if (hasNormals) vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
   if (hasUVs) vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
   if (hasVertexColors) vertexFormatAppend(&format, "lovrVertexColor", ATTR_BYTE, 4);
+  if (hasTangents) vertexFormatAppend(&format, "lovrTangent", ATTR_FLOAT, 3);
   size_t boneByteOffset = format.stride;
   if (isSkinned) vertexFormatAppend(&format, "lovrBones", ATTR_INT, 4);
   if (isSkinned) vertexFormatAppend(&format, "lovrBoneWeights", ATTR_FLOAT, 4);
@@ -375,6 +378,18 @@ ModelData* lovrModelDataCreate(Blob* blob) {
           *vertices.bytes++ = 255;
           *vertices.bytes++ = 255;
           *vertices.bytes++ = 255;
+        }
+      }
+
+      if (hasTangents) {
+        if (assimpMesh->mTangents) {
+          *vertices.floats++ = assimpMesh->mTangents[v].x;
+          *vertices.floats++ = assimpMesh->mTangents[v].y;
+          *vertices.floats++ = assimpMesh->mTangents[v].z;
+        } else {
+          *vertices.floats++ = 0;
+          *vertices.floats++ = 0;
+          *vertices.floats++ = 0;
         }
       }
 

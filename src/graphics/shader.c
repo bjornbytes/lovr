@@ -101,6 +101,7 @@ static GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
   glBindAttribLocation(program, LOVR_SHADER_NORMAL, "lovrNormal");
   glBindAttribLocation(program, LOVR_SHADER_TEX_COORD, "lovrTexCoord");
   glBindAttribLocation(program, LOVR_SHADER_VERTEX_COLOR, "lovrVertexColor");
+  glBindAttribLocation(program, LOVR_SHADER_TANGENT, "lovrTangent");
   glBindAttribLocation(program, LOVR_SHADER_BONES, "lovrBones");
   glBindAttribLocation(program, LOVR_SHADER_BONE_WEIGHTS, "lovrBoneWeights");
   glLinkProgram(program);
