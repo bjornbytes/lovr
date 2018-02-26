@@ -23,6 +23,14 @@ int l_lovrAudioUpdate(lua_State* L) {
   return 0;
 }
 
+int l_lovrAudioGetDopplerEffect(lua_State* L) {
+  float factor, speedOfSound;
+  lovrAudioGetDopplerEffect(&factor, &speedOfSound);
+  lua_pushnumber(L, factor);
+  lua_pushnumber(L, speedOfSound);
+  return 2;
+}
+
 int l_lovrAudioGetOrientation(lua_State* L) {
   float angle, ax, ay, az;
   lovrAudioGetOrientation(&angle, &ax, &ay, &az);
@@ -97,6 +105,13 @@ int l_lovrAudioRewind(lua_State* L) {
   return 0;
 }
 
+int l_lovrAudioSetDopplerEffect(lua_State* L) {
+  float factor = luaL_optnumber(L, 1, 1.);
+  float speedOfSound = luaL_optnumber(L, 2, 343.29);
+  lovrAudioSetDopplerEffect(factor, speedOfSound);
+  return 0;
+}
+
 int l_lovrAudioSetOrientation(lua_State* L) {
   float angle = luaL_checknumber(L, 1);
   float ax = luaL_checknumber(L, 2);
@@ -135,6 +150,7 @@ int l_lovrAudioStop(lua_State* L) {
 
 const luaL_Reg lovrAudio[] = {
   { "update", l_lovrAudioUpdate },
+  { "getDopplerEffect", l_lovrAudioGetDopplerEffect },
   { "getOrientation", l_lovrAudioGetOrientation },
   { "getPosition", l_lovrAudioGetPosition },
   { "getVelocity", l_lovrAudioGetVelocity },
@@ -144,6 +160,7 @@ const luaL_Reg lovrAudio[] = {
   { "pause", l_lovrAudioPause },
   { "resume", l_lovrAudioResume },
   { "rewind", l_lovrAudioRewind },
+  { "setDopplerEffect", l_lovrAudioSetDopplerEffect },
   { "setOrientation", l_lovrAudioSetOrientation },
   { "setPosition", l_lovrAudioSetPosition },
   { "setVelocity", l_lovrAudioSetVelocity },
