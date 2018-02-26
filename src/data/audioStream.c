@@ -24,15 +24,15 @@ AudioStream* lovrAudioStreamCreate(Blob* blob, size_t bufferSize) {
   stream->bufferSize = stream->channelCount * bufferSize * sizeof(short);
   stream->buffer = malloc(stream->bufferSize);
   stream->blob = blob;
-  lovrRetain(&blob->ref);
+  lovrRetain(blob);
 
   return stream;
 }
 
-void lovrAudioStreamDestroy(const Ref* ref) {
-  AudioStream* stream = (AudioStream*) ref;
+void lovrAudioStreamDestroy(void* ref) {
+  AudioStream* stream = ref;
   stb_vorbis_close(stream->decoder);
-  lovrRelease(&stream->blob->ref);
+  lovrRelease(stream->blob);
   free(stream->buffer);
   free(stream);
 }

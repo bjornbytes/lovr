@@ -87,7 +87,7 @@ static TextureData* luax_checktexturedata(lua_State* L, int index) {
   } else {
     Blob* blob = luax_readblob(L, index, "Texture");
     TextureData* textureData = lovrTextureDataFromBlob(blob);
-    lovrRelease(&blob->ref);
+    lovrRelease(blob);
     return textureData;
   }
 }
@@ -904,15 +904,12 @@ int l_lovrGraphicsNewFont(lua_State* L) {
     }
 
     rasterizer = lovrRasterizerCreate(blob, size);
-
-    if (blob) {
-      lovrRelease(&blob->ref);
-    }
+    lovrRelease(blob);
   }
 
   Font* font = lovrFontCreate(rasterizer);
   luax_pushtype(L, Font, font);
-  lovrRelease(&font->ref);
+  lovrRelease(font);
   return 1;
 }
 
@@ -924,10 +921,10 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
   if (lua_type(L, index) == LUA_TSTRING) {
     Blob* blob = luax_readblob(L, index++, "Texture");
     TextureData* textureData = lovrTextureDataFromBlob(blob);
-    lovrRelease(&blob->ref);
+    lovrRelease(blob);
     Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
-    lovrRelease(&texture->ref);
+    lovrRelease(texture);
   } else if (lua_isuserdata(L, index)) {
     Texture* texture = luax_checktypeof(L, index, Texture);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
@@ -1006,7 +1003,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   }
 
   luax_pushtype(L, Mesh, mesh);
-  lovrRelease(&mesh->ref);
+  lovrRelease(mesh);
   return 1;
 }
 
@@ -1018,7 +1015,7 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   } else {
     Blob* blob = luax_readblob(L, 1, "Model");
     modelData = lovrModelDataCreate(blob);
-    lovrRelease(&blob->ref);
+    lovrRelease(blob);
   }
 
   Model* model = lovrModelCreate(modelData);
@@ -1031,16 +1028,16 @@ int l_lovrGraphicsNewModel(lua_State* L) {
       Material* material = lovrMaterialCreate(false);
       lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
       lovrModelSetMaterial(model, material);
-      lovrRelease(&blob->ref);
-      lovrRelease(&texture->ref);
-      lovrRelease(&material->ref);
+      lovrRelease(blob);
+      lovrRelease(texture);
+      lovrRelease(material);
     } else {
       lovrModelSetMaterial(model, luax_checktype(L, 2, Material));
     }
   }
 
   luax_pushtype(L, Model, model);
-  lovrRelease(&model->ref);
+  lovrRelease(model);
   return 1;
 }
 
@@ -1063,7 +1060,7 @@ int l_lovrGraphicsNewShader(lua_State* L) {
   const char* fragmentSource = lua_tostring(L, 2);
   Shader* shader = lovrShaderCreate(vertexSource, fragmentSource);
   luax_pushtype(L, Shader, shader);
-  lovrRelease(&shader->ref);
+  lovrRelease(shader);
   return 1;
 }
 
@@ -1120,7 +1117,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   luax_pushtype(L, Texture, texture);
-  lovrRelease(&texture->ref);
+  lovrRelease(texture);
   return 1;
 }
 

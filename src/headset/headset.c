@@ -1,11 +1,6 @@
 #include "headset/headset.h"
 #include "event/event.h"
 
-void lovrControllerDestroy(const Ref* ref) {
-  Controller* controller = (Controller*) ref;
-  free(controller);
-}
-
 static HeadsetInterface* headset = NULL;
 static bool initialized = false;
 

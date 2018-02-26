@@ -68,7 +68,7 @@ int l_lovrTransformClone(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
   Transform* clone = lovrTransformCreate(transform->matrix);
   luax_pushtype(L, Transform, clone);
-  lovrRelease(&clone->ref);
+  lovrRelease(clone);
   return 1;
 }
 
@@ -76,7 +76,7 @@ int l_lovrTransformInverse(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
   Transform* inverse = lovrTransformCreate(lovrTransformInverse(transform));
   luax_pushtype(L, Transform, inverse);
-  lovrRelease(&inverse->ref);
+  lovrRelease(inverse);
   return 1;
 }
 

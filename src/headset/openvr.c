@@ -64,7 +64,7 @@ static Controller* openvrAddController(unsigned int deviceIndex) {
     }
   }
 
-  controller = lovrAlloc(sizeof(Controller), lovrControllerDestroy);
+  controller = lovrAlloc(sizeof(Controller), free);
   controller->id = deviceIndex;
   vec_push(&state.controllers, controller);
   return controller;
@@ -84,10 +84,10 @@ static void openvrRefreshControllers() {
       EventType type = EVENT_CONTROLLER_REMOVED;
       EventData data = { .controllerremoved = { controller } };
       Event event = { .type = type, .data = data };
-      lovrRetain(&controller->ref);
+      lovrRetain(controller);
       lovrEventPush(event);
       vec_splice(&state.controllers, i, 1);
-      lovrRelease(&controller->ref);
+      lovrRelease(controller);
     }
   }
 
@@ -99,7 +99,7 @@ static void openvrRefreshControllers() {
       EventType type = EVENT_CONTROLLER_ADDED;
       EventData data = { .controlleradded = { controller } };
       Event event = { .type = type, .data = data };
-      lovrRetain(&controller->ref);
+      lovrRetain(controller);
       lovrEventPush(event);
     }
   }
@@ -329,9 +329,7 @@ static bool openvrInit() {
 static void openvrDestroy() {
   if (!state.initialized) return;
   state.initialized = false;
-  if (state.canvas) {
-    lovrRelease(&state.canvas->texture.ref);
-  }
+  lovrRelease(&state.canvas->texture);
   for (int i = 0; i < 16; i++) {
     if (state.deviceModels[i]) {
       state.renderModels->FreeRenderModel(state.deviceModels[i]);
@@ -344,7 +342,7 @@ static void openvrDestroy() {
   }
   Controller* controller; int i;
   vec_foreach(&state.controllers, controller, i) {
-    lovrRelease(&controller->ref);
+    lovrRelease(controller);
   }
   vec_deinit(&state.controllers);
   lovrEventRemovePump(openvrPoll);
@@ -727,19 +725,11 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     Color oldColor = lovrGraphicsGetColor();
     lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
     Shader* lastShader = lovrGraphicsGetShader();
-
-    if (lastShader) {
-      lovrRetain(&lastShader->ref);
-    }
-
+    lovrRetain(lastShader);
     lovrGraphicsSetShader(NULL);
     lovrGraphicsPlaneFullscreen(&state.canvas->texture);
     lovrGraphicsSetShader(lastShader);
-
-    if (lastShader) {
-      lovrRelease(&lastShader->ref);
-    }
-
+    lovrRelease(lastShader);
     lovrGraphicsSetColor(oldColor);
   }
 }

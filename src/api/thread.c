@@ -5,7 +5,7 @@
 static int threadRunner(void* data) {
   Thread* thread = (Thread*) data;
 
-  lovrRetain(&thread->ref);
+  lovrRetain(thread);
   mtx_lock(&thread->lock);
   thread->running = true;
   thread->error = NULL;
@@ -24,7 +24,7 @@ static int threadRunner(void* data) {
   mtx_lock(&thread->lock);
   thread->running = false;
   mtx_unlock(&thread->lock);
-  lovrRelease(&thread->ref);
+  lovrRelease(thread);
 
   if (thread->error) {
     Event event;
@@ -52,7 +52,7 @@ int l_lovrThreadNewThread(lua_State* L) {
   const char* body = luaL_checkstring(L, 1);
   Thread* thread = lovrThreadCreate(threadRunner, body);
   luax_pushtype(L, Thread, thread);
-  lovrRelease(&thread->ref);
+  lovrRelease(thread);
   return 1;
 }
 
@@ -60,7 +60,7 @@ int l_lovrThreadGetChannel(lua_State* L) {
   const char* name = luaL_checkstring(L, 1);
   Channel* channel = lovrThreadGetChannel(name);
   luax_pushtype(L, Channel, channel);
-  lovrRelease(&channel->ref);
+  lovrRelease(channel);
   return 1;
 }
 

@@ -84,7 +84,7 @@ void lovrPhysicsInit();
 void lovrPhysicsDestroy();
 
 World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, int tagCount);
-void lovrWorldDestroy(const Ref* ref);
+void lovrWorldDestroy(void* ref);
 void lovrWorldDestroyData(World* world);
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);
 void lovrWorldComputeOverlaps(World* world);
@@ -105,7 +105,7 @@ int lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* 
 int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
 
 Collider* lovrColliderCreate(World* world, float x, float y, float z);
-void lovrColliderDestroy(const Ref* ref);
+void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
 World* lovrColliderGetWorld(Collider* collider);
 void lovrColliderAddShape(Collider* collider, Shape* shape);
@@ -156,7 +156,7 @@ void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, fl
 void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, float wy, float wz, float* vx, float* vy, float* vz);
 void lovrColliderGetAABB(Collider* collider, float aabb[6]);
 
-void lovrShapeDestroy(const Ref* ref);
+void lovrShapeDestroy(void* ref);
 void lovrShapeDestroyData(Shape* shape);
 ShapeType lovrShapeGetType(Shape* shape);
 Collider* lovrShapeGetCollider(Shape* shape);
@@ -191,7 +191,7 @@ void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius);
 float lovrCylinderShapeGetLength(CylinderShape* cylinder);
 void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length);
 
-void lovrJointDestroy(const Ref* ref);
+void lovrJointDestroy(void* ref);
 void lovrJointDestroyData(Joint* joint);
 JointType lovrJointGetType(Joint* joint);
 void lovrJointGetColliders(Joint* joint, Collider** a, Collider** b);

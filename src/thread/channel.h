@@ -39,7 +39,7 @@ typedef struct {
 } Channel;
 
 Channel* lovrChannelCreate();
-void lovrChannelDestroy(const Ref* ref);
+void lovrChannelDestroy(void* ref);
 bool lovrChannelPush(Channel* channel, Variant variant, double timeout, uint64_t* id);
 bool lovrChannelPop(Channel* channel, Variant* variant, double timeout);
 bool lovrChannelPeek(Channel* channel, Variant* variant);

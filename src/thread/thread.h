@@ -26,7 +26,7 @@ void lovrThreadDeinit();
 Channel* lovrThreadGetChannel(const char* name);
 
 Thread* lovrThreadCreate(int (*runner)(void*), const char* body);
-void lovrThreadDestroy(const Ref* ref);
+void lovrThreadDestroy(void* ref);
 void lovrThreadStart(Thread* thread);
 void lovrThreadWait(Thread* thread);
 const char* lovrThreadGetError(Thread* thread);

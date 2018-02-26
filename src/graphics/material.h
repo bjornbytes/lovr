@@ -36,7 +36,7 @@ typedef struct {
 } Material;
 
 Material* lovrMaterialCreate(bool isDefault);
-void lovrMaterialDestroy(const Ref* ref);
+void lovrMaterialDestroy(void* ref);
 float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType);
 void lovrMaterialSetScalar(Material* material, MaterialScalar scalarType, float value);
 Color lovrMaterialGetColor(Material* material, MaterialColor colorType);

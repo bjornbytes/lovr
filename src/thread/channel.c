@@ -16,8 +16,8 @@ Channel* lovrChannelCreate() {
   return channel;
 }
 
-void lovrChannelDestroy(const Ref* ref) {
-  Channel* channel = (Channel*) ref;
+void lovrChannelDestroy(void* ref) {
+  Channel* channel = ref;
   lovrChannelClear(channel);
   vec_deinit(&channel->messages);
   mtx_destroy(&channel->lock);
@@ -28,7 +28,7 @@ void lovrChannelDestroy(const Ref* ref) {
 bool lovrChannelPush(Channel* channel, Variant variant, double timeout, uint64_t* id) {
   mtx_lock(&channel->lock);
   if (channel->messages.length == 0) {
-    lovrRetain(&channel->ref);
+    lovrRetain(channel);
   }
   vec_insert(&channel->messages, 0, variant);
   *id = ++channel->sent;
@@ -69,7 +69,7 @@ bool lovrChannelPop(Channel* channel, Variant* variant, double timeout) {
     if (channel->messages.length > 0) {
       *variant = vec_pop(&channel->messages);
       if (channel->messages.length == 0) {
-        lovrRelease(&channel->ref);
+        lovrRelease(channel);
       }
       channel->received++;
       cnd_broadcast(&channel->cond);

@@ -17,7 +17,7 @@ Animator* lovrAnimatorCreate(ModelData* modelData) {
   Animator* animator = lovrAlloc(sizeof(Animator), lovrAnimatorDestroy);
   if (!animator) return NULL;
 
-  lovrRetain(&modelData->ref);
+  lovrRetain(modelData);
   animator->modelData = modelData;
   map_init(&animator->trackMap);
   vec_init(&animator->trackList);
@@ -43,9 +43,9 @@ Animator* lovrAnimatorCreate(ModelData* modelData) {
   return animator;
 }
 
-void lovrAnimatorDestroy(const Ref* ref) {
-  Animator* animator = (Animator*) ref;
-  lovrRelease(&animator->modelData->ref);
+void lovrAnimatorDestroy(void* ref) {
+  Animator* animator = ref;
+  lovrRelease(animator->modelData);
   map_deinit(&animator->trackMap);
   vec_deinit(&animator->trackList);
   free(animator);

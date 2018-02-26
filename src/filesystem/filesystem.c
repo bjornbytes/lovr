@@ -269,6 +269,6 @@ size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, b
   lovrFileOpen(file, append ? OPEN_APPEND : OPEN_WRITE);
   size_t bytesWritten = lovrFileWrite(file, (void*) content, size);
   lovrFileClose(file);
-  lovrRelease(&file->ref);
+  lovrRelease(file);
   return bytesWritten;
 }

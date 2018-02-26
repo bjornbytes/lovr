@@ -22,12 +22,10 @@ Material* lovrMaterialCreate(bool isDefault) {
   return material;
 }
 
-void lovrMaterialDestroy(const Ref* ref) {
-  Material* material = (Material*) ref;
+void lovrMaterialDestroy(void* ref) {
+  Material* material = ref;
   for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
-    if (material->textures[i]) {
-      lovrRelease(&material->textures[i]->ref);
-    }
+    lovrRelease(material->textures[i]);
   }
   free(material);
 }
@@ -54,14 +52,8 @@ Texture* lovrMaterialGetTexture(Material* material, MaterialTexture textureType)
 
 void lovrMaterialSetTexture(Material* material, MaterialTexture textureType, Texture* texture) {
   if (texture != material->textures[textureType]) {
-    if (material->textures[textureType]) {
-      lovrRelease(&material->textures[textureType]->ref);
-    }
-
+    lovrRetain(texture);
+    lovrRelease(material->textures[textureType]);
     material->textures[textureType] = texture;
-
-    if (texture) {
-      lovrRetain(&texture->ref);
-    }
   }
 }

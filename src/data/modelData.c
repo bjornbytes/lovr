@@ -241,7 +241,7 @@ static void assimpFileClose(struct aiFileIO* io, struct aiFile* assimpFile) {
   if (assimpFile->UserData != blob) {
     File* file = (File*) assimpFile->UserData;
     lovrFileClose(file);
-    lovrRelease(&file->ref);
+    lovrRelease(file);
   }
   free(assimpFile);
 }
@@ -503,8 +503,8 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   return modelData;
 }
 
-void lovrModelDataDestroy(const Ref* ref) {
-  ModelData* modelData = (ModelData*) ref;
+void lovrModelDataDestroy(void* ref) {
+  ModelData* modelData = ref;
 
   for (int i = 0; i < modelData->nodeCount; i++) {
     vec_deinit(&modelData->nodes[i].children);
@@ -529,16 +529,13 @@ void lovrModelDataDestroy(const Ref* ref) {
   }
 
   for (int i = 0; i < modelData->textures.length; i++) {
-    TextureData* textureData = modelData->textures.data[i];
-    if (textureData) {
-      lovrRelease(&textureData->ref);
-    }
+    lovrRelease(modelData->textures.data[i]);
   }
 
   vec_deinit(&modelData->textures);
   map_deinit(&modelData->nodeMap);
 
-  lovrRelease(&modelData->vertexData->ref);
+  lovrRelease(modelData->vertexData);
 
   free(modelData->nodes);
   free(modelData->primitives);

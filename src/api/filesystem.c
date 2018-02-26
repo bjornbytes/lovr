@@ -8,7 +8,7 @@
 Blob* luax_readblob(lua_State* L, int index, const char* debug) {
   if (lua_type(L, index) == LUA_TUSERDATA) {
     Blob* blob = luax_checktype(L, index, Blob);
-    lovrRetain(&blob->ref);
+    lovrRetain(blob);
     return blob;
   } else {
     const char* path = luaL_checkstring(L, index);
@@ -259,7 +259,7 @@ int l_lovrFilesystemNewBlob(lua_State* L) {
   lovrAssert(data, "Could not load file '%s'", path);
   Blob* blob = lovrBlobCreate((void*) data, size, path);
   luax_pushtype(L, Blob, blob);
-  lovrRelease(&blob->ref);
+  lovrRelease(blob);
   return 1;
 }
 

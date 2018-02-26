@@ -44,11 +44,11 @@ void lovrGraphicsDestroy() {
   lovrGraphicsSetShader(NULL);
   lovrGraphicsSetFont(NULL);
   for (int i = 0; i < DEFAULT_SHADER_COUNT; i++) {
-    if (state.defaultShaders[i]) lovrRelease(&state.defaultShaders[i]->ref);
+    lovrRelease(state.defaultShaders[i]);
   }
-  if (state.defaultMaterial) lovrRelease(&state.defaultMaterial->ref);
-  if (state.defaultFont) lovrRelease(&state.defaultFont->ref);
-  if (state.defaultTexture) lovrRelease(&state.defaultTexture->ref);
+  lovrRelease(state.defaultMaterial);
+  lovrRelease(state.defaultFont);
+  lovrRelease(state.defaultTexture);
   glDeleteVertexArrays(1, &state.streamVAO);
   glDeleteBuffers(1, &state.streamVBO);
   glDeleteBuffers(1, &state.streamIBO);
@@ -360,11 +360,11 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
   }
 
   for (int i = 0; i < count; i++) {
-    lovrRetain(&canvas[i]->texture.ref);
+    lovrRetain(&canvas[i]->texture);
   }
 
   for (int i = 0; i < state.canvasCount; i++) {
-    lovrRelease(&state.canvas[i]->texture.ref);
+    lovrRelease(&state.canvas[i]->texture);
   }
 
   if (count == 0) {
@@ -458,15 +458,9 @@ Font* lovrGraphicsGetFont() {
 }
 
 void lovrGraphicsSetFont(Font* font) {
-  if (state.font) {
-    lovrRelease(&state.font->ref);
-  }
-
+  lovrRetain(font);
+  lovrRelease(state.font);
   state.font = font;
-
-  if (font) {
-    lovrRetain(&state.font->ref);
-  }
 }
 
 bool lovrGraphicsIsGammaCorrect() {
@@ -516,15 +510,9 @@ Shader* lovrGraphicsGetShader() {
 
 void lovrGraphicsSetShader(Shader* shader) {
   if (shader != state.shader) {
-    if (state.shader) {
-      lovrRelease(&state.shader->ref);
-    }
-
+    lovrRetain(shader);
+    lovrRelease(state.shader);
     state.shader = shader;
-
-    if (shader) {
-      lovrRetain(&state.shader->ref);
-    }
   }
 }
 
@@ -1238,14 +1226,11 @@ void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot) {
   }
 
   if (texture != state.textures[slot]) {
-    if (state.textures[slot]) {
-      lovrRelease(&state.textures[slot]->ref);
-    }
-
+    lovrRetain(texture);
+    lovrRelease(state.textures[slot]);
     state.textures[slot] = texture;
     glActiveTexture(GL_TEXTURE0 + slot);
     glBindTexture(type, texture->id);
-    lovrRetain(&texture->ref);
   }
 }
 

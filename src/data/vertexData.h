@@ -49,4 +49,4 @@ void vertexFormatInit(VertexFormat* format);
 void vertexFormatAppend(VertexFormat* format, const char* name, AttributeType type, int count);
 
 VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format, bool allocate);
-void lovrVertexDataDestroy(const Ref* ref);
+void lovrVertexDataDestroy(void* ref);

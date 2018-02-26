@@ -77,7 +77,7 @@ int l_lovrAudioNewSource(lua_State* L) {
   } else {
     Blob* blob = luax_readblob(L, 1, "Source");
     stream = lovrAudioStreamCreate(blob, 4096);
-    lovrRelease(&blob->ref);
+    lovrRelease(blob);
     if (!stream) {
       luaL_error(L, "Could not decode Ogg audio source at '%s'", luaL_checkstring(L, 1));
       return 0;
@@ -86,7 +86,7 @@ int l_lovrAudioNewSource(lua_State* L) {
 
   Source* source = lovrSourceCreate(stream);
   luax_pushtype(L, Source, source);
-  lovrRelease(&source->ref);
+  lovrRelease(source);
   return 1;
 }
 

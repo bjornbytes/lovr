@@ -26,7 +26,7 @@ int l_lovrMathNewRandomGenerator(lua_State* L) {
     lovrRandomGeneratorSetSeed(generator, seed);
   }
   luax_pushtype(L, RandomGenerator, generator);
-  lovrRelease(&generator->ref);
+  lovrRelease(generator);
   return 1;
 }
 
@@ -35,7 +35,7 @@ int l_lovrMathNewTransform(lua_State* L) {
   luax_readtransform(L, 1, matrix, 0);
   Transform* transform = lovrTransformCreate(matrix);
   luax_pushtype(L, Transform, transform);
-  lovrRelease(&transform->ref);
+  lovrRelease(transform);
   return 1;
 }
 

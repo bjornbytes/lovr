@@ -128,5 +128,3 @@ void lovrHeadsetControllerVibrate(Controller* controller, float duration, float 
 ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
 void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
 void lovrHeadsetUpdate(float dt);
-
-void lovrControllerDestroy(const Ref* ref);

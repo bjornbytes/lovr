@@ -35,16 +35,16 @@ Source* lovrSourceCreate(AudioStream* stream) {
   source->isLooping = false;
   alGenSources(1, &source->id);
   alGenBuffers(SOURCE_BUFFERS, source->buffers);
-  lovrRetain(&stream->ref);
+  lovrRetain(stream);
 
   return source;
 }
 
-void lovrSourceDestroy(const Ref* ref) {
-  Source* source = (Source*) ref;
+void lovrSourceDestroy(void* ref) {
+  Source* source = ref;
   alDeleteSources(1, &source->id);
   alDeleteBuffers(SOURCE_BUFFERS, source->buffers);
-  lovrRelease(&source->stream->ref);
+  lovrRelease(source->stream);
   free(source);
 }
 

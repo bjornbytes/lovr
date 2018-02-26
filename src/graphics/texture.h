@@ -55,7 +55,7 @@ GLenum lovrTextureFormatGetGLInternalFormat(TextureFormat format, bool srgb);
 bool lovrTextureFormatIsCompressed(TextureFormat format);
 
 Texture* lovrTextureCreate(TextureType type, TextureData** slices, int count, bool srgb, bool mipmaps);
-void lovrTextureDestroy(const Ref* ref);
+void lovrTextureDestroy(void* ref);
 TextureType lovrTextureGetType(Texture* texture);
 void lovrTextureReplacePixels(Texture* texture, TextureData* data, int slice);
 TextureFilter lovrTextureGetFilter(Texture* texture);

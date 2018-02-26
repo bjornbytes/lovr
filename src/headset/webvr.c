@@ -66,7 +66,7 @@ static void webvrDestroy() {
   Controller* controller;
   int i;
   vec_foreach(&state.controllers, controller, i) {
-    lovrRelease(&controller->ref);
+    lovrRelease(controller);
   }
 
   vec_deinit(&state.controllers);
@@ -167,12 +167,12 @@ static vec_controller_t* webvrGetControllers() {
 
   while (state.controllers.length > controllerCount) {
     Controller* controller = vec_last(&state.controllers);
-    lovrRelease(&controller->ref);
+    lovrRelease(controller);
     vec_pop(&state.controllers);
   }
 
   while (state.controllers.length < controllerCount) {
-    Controller* controller = lovrAlloc(sizeof(Controller), lovrControllerDestroy);
+    Controller* controller = lovrAlloc(sizeof(Controller), free);
     controller->id = state.controllers.length;
     vec_push(&state.controllers, controller);
   }

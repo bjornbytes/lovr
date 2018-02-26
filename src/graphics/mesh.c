@@ -81,12 +81,10 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat* format, MeshDrawMode drawMode
   return mesh;
 }
 
-void lovrMeshDestroy(const Ref* ref) {
-  Mesh* mesh = (Mesh*) ref;
-  if (mesh->material) {
-    lovrRelease(&mesh->material->ref);
-  }
-  lovrRelease(&mesh->vertexData->ref);
+void lovrMeshDestroy(void* ref) {
+  Mesh* mesh = ref;
+  lovrRelease(mesh->material);
+  lovrRelease(mesh->vertexData);
   glDeleteBuffers(1, &mesh->vbo);
   glDeleteBuffers(1, &mesh->ibo);
   glDeleteVertexArrays(1, &mesh->vao);
@@ -221,15 +219,9 @@ Material* lovrMeshGetMaterial(Mesh* mesh) {
 
 void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
   if (mesh->material != material) {
-    if (mesh->material) {
-      lovrRelease(&mesh->material->ref);
-    }
-
+    lovrRetain(material);
+    lovrRelease(mesh->material);
     mesh->material = material;
-
-    if (material) {
-      lovrRetain(&material->ref);
-    }
   }
 }
 

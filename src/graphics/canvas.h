@@ -15,6 +15,6 @@ typedef struct {
 bool lovrCanvasSupportsFormat(TextureFormat format);
 
 Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, int msaa, bool depth, bool stencil);
-void lovrCanvasDestroy(const Ref* ref);
+void lovrCanvasDestroy(void* ref);
 TextureFormat lovrCanvasGetFormat(Canvas* canvas);
 int lovrCanvasGetMSAA(Canvas* canvas);

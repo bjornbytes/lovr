@@ -22,7 +22,7 @@ typedef struct {
 } Source;
 
 Source* lovrSourceCreate(AudioStream* stream);
-void lovrSourceDestroy(const Ref* ref);
+void lovrSourceDestroy(void* ref);
 int lovrSourceGetBitDepth(Source* source);
 int lovrSourceGetChannelCount(Source* source);
 void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, float* outerGain);

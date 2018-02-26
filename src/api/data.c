@@ -32,7 +32,7 @@ int l_lovrDataNewBlob(lua_State* L) {
   const char* name = luaL_optstring(L, 2, "");
   Blob* blob = lovrBlobCreate(data, size, name);
   luax_pushtype(L, Blob, blob);
-  lovrRelease(&blob->ref);
+  lovrRelease(blob);
   return 1;
 }
 
@@ -41,8 +41,8 @@ int l_lovrDataNewAudioStream(lua_State* L) {
   size_t bufferSize = luaL_optinteger(L, 2, 4096);
   AudioStream* stream = lovrAudioStreamCreate(blob, bufferSize);
   luax_pushtype(L, AudioStream, stream);
-  lovrRelease(&blob->ref);
-  lovrRelease(&stream->ref);
+  lovrRelease(blob);
+  lovrRelease(stream);
   return 1;
 }
 
@@ -50,8 +50,8 @@ int l_lovrDataNewModelData(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
   ModelData* modelData = lovrModelDataCreate(blob);
   luax_pushtype(L, ModelData, modelData);
-  lovrRelease(&blob->ref);
-  lovrRelease(&modelData->ref);
+  lovrRelease(blob);
+  lovrRelease(modelData);
   return 1;
 }
 
@@ -68,12 +68,8 @@ int l_lovrDataNewRasterizer(lua_State* L) {
 
   Rasterizer* rasterizer = lovrRasterizerCreate(blob, size);
   luax_pushtype(L, Rasterizer, rasterizer);
-
-  if (blob) {
-    lovrRelease(&blob->ref);
-  }
-
-  lovrRelease(&rasterizer->ref);
+  lovrRelease(blob);
+  lovrRelease(rasterizer);
   return 1;
 }
 
@@ -86,11 +82,11 @@ int l_lovrDataNewTextureData(lua_State* L) {
   } else {
     Blob* blob = luax_readblob(L, 1, "Texture");
     textureData = lovrTextureDataFromBlob(blob);
-    lovrRelease(&blob->ref);
+    lovrRelease(blob);
   }
 
   luax_pushtype(L, TextureData, textureData);
-  lovrRelease(&textureData->ref);
+  lovrRelease(textureData);
   return 1;
 }
 
@@ -101,7 +97,7 @@ int l_lovrDataNewVertexData(lua_State* L) {
   luax_checkvertexformat(L, 2, &format);
   VertexData* vertexData = lovrVertexDataCreate(count, format.count > 0 ? &format : NULL, true);
   luax_pushtype(L, VertexData, vertexData);
-  lovrRelease(&vertexData->ref);
+  lovrRelease(vertexData);
   return 1;
 }
 

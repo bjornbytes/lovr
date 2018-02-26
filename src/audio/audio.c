@@ -61,14 +61,14 @@ void lovrAudioUpdate() {
     } else if (isStopped) {
       lovrAudioStreamRewind(source->stream);
       vec_splice(&state.sources, i, 1);
-      lovrRelease(&source->ref);
+      lovrRelease(source);
     }
   }
 }
 
 void lovrAudioAdd(Source* source) {
   if (!lovrAudioHas(source)) {
-    lovrRetain(&source->ref);
+    lovrRetain(source);
     vec_push(&state.sources, source);
   }
 }

@@ -69,7 +69,7 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, int size) {
   FT_Error err = FT_Err_Ok;
   if (blob) {
     err = err || FT_New_Memory_Face(ft, blob->data, blob->size, 0, &face);
-    lovrRetain(&blob->ref);
+    lovrRetain(blob);
   } else {
     err = err || FT_New_Memory_Face(ft, Cabin_ttf, Cabin_ttf_len, 0, &face);
   }
@@ -92,12 +92,10 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, int size) {
   return rasterizer;
 }
 
-void lovrRasterizerDestroy(const Ref* ref) {
-  Rasterizer* rasterizer = (Rasterizer*) ref;
+void lovrRasterizerDestroy(void* ref) {
+  Rasterizer* rasterizer = ref;
   FT_Done_Face(rasterizer->ftHandle);
-  if (rasterizer->blob) {
-    lovrRelease(&rasterizer->blob->ref);
-  }
+  lovrRelease(rasterizer->blob);
   free(rasterizer);
 }
 

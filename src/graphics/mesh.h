@@ -46,7 +46,7 @@ typedef struct {
 } Mesh;
 
 Mesh* lovrMeshCreate(uint32_t count, VertexFormat* format, MeshDrawMode drawMode, MeshUsage usage);
-void lovrMeshDestroy(const Ref* ref);
+void lovrMeshDestroy(void* ref);
 void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);

@@ -26,7 +26,7 @@ Font* lovrFontCreate(Rasterizer* rasterizer) {
   Font* font = lovrAlloc(sizeof(Font), lovrFontDestroy);
   if (!font) return NULL;
 
-  lovrRetain(&rasterizer->ref);
+  lovrRetain(rasterizer);
   font->rasterizer = rasterizer;
   font->texture = NULL;
   font->lineHeight = 1.f;
@@ -53,10 +53,10 @@ Font* lovrFontCreate(Rasterizer* rasterizer) {
   return font;
 }
 
-void lovrFontDestroy(const Ref* ref) {
-  Font* font = (Font*) ref;
-  lovrRelease(&font->rasterizer->ref);
-  lovrRelease(&font->texture->ref);
+void lovrFontDestroy(void* ref) {
+  Font* font = ref;
+  lovrRelease(font->rasterizer);
+  lovrRelease(font->texture);
   map_deinit(&font->atlas.glyphs);
   map_deinit(&font->kerning);
   free(font);
@@ -313,10 +313,7 @@ void lovrFontExpandTexture(Font* font) {
 }
 
 void lovrFontCreateTexture(Font* font) {
-  if (font->texture) {
-    lovrRelease(&font->texture->ref);
-  }
-
+  lovrRelease(font->texture);
   int maxTextureSize = lovrGraphicsGetLimits().textureSize;
   if (font->atlas.width > maxTextureSize || font->atlas.height > maxTextureSize) {
     lovrThrow("Font texture atlas overflow: exceeded %d x %d", maxTextureSize, maxTextureSize);

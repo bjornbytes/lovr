@@ -161,7 +161,7 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
 
   if (!parseDDS(blob->data, blob->size, textureData)) {
     textureData->blob = blob;
-    lovrRetain(&blob->ref);
+    lovrRetain(blob);
     return textureData;
   }
 
@@ -227,11 +227,9 @@ bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
   return success;
 }
 
-void lovrTextureDataDestroy(const Ref* ref) {
-  TextureData* textureData = (TextureData*) ref;
-  if (textureData->blob) {
-    lovrRelease(&textureData->blob->ref);
-  }
+void lovrTextureDataDestroy(void* ref) {
+  TextureData* textureData = ref;
+  lovrRelease(textureData->blob);
   vec_deinit(&textureData->mipmaps);
   free(textureData->data);
   free(textureData);

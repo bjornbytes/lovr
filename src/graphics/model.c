@@ -53,7 +53,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   Model* model = lovrAlloc(sizeof(Model), lovrModelDestroy);
   if (!model) return NULL;
 
-  lovrRetain(&modelData->ref);
+  lovrRetain(modelData);
   model->modelData = modelData;
   model->aabbDirty = true;
   model->animator = NULL;
@@ -120,26 +120,20 @@ Model* lovrModelCreate(ModelData* modelData) {
   return model;
 }
 
-void lovrModelDestroy(const Ref* ref) {
-  Model* model = (Model*) ref;
+void lovrModelDestroy(void* ref) {
+  Model* model = ref;
   for (int i = 0; i < model->modelData->textures.length; i++) {
-    if (model->textures[i]) {
-      lovrRelease(&model->textures[i]->ref);
-    }
+    lovrRelease(model->textures[i]);
   }
   for (int i = 0; i < model->modelData->materialCount; i++) {
-    lovrRelease(&model->materials[i]->ref);
+    lovrRelease(model->materials[i]);
   }
-  if (model->animator) {
-    lovrRelease(&model->animator->ref);
-  }
-  if (model->material) {
-    lovrRelease(&model->material->ref);
-  }
+  lovrRelease(model->animator);
+  lovrRelease(model->material);
   free(model->textures);
   free(model->materials);
-  lovrRelease(&model->modelData->ref);
-  lovrRelease(&model->mesh->ref);
+  lovrRelease(model->modelData);
+  lovrRelease(model->mesh);
   free(model->nodeTransforms);
   free(model);
 }
@@ -185,15 +179,9 @@ Animator* lovrModelGetAnimator(Model* model) {
 
 void lovrModelSetAnimator(Model* model, Animator* animator) {
   if (model->animator != animator) {
-    if (model->animator) {
-      lovrRelease(&model->animator->ref);
-    }
-
+    lovrRetain(animator);
+    lovrRelease(model->animator);
     model->animator = animator;
-
-    if (animator) {
-      lovrRetain(&animator->ref);
-    }
   }
 }
 
@@ -207,15 +195,9 @@ Material* lovrModelGetMaterial(Model* model) {
 
 void lovrModelSetMaterial(Model* model, Material* material) {
   if (model->material != material) {
-    if (model->material) {
-      lovrRelease(&model->material->ref);
-    }
-
+    lovrRetain(material);
+    lovrRelease(model->material);
     model->material = material;
-
-    if (material) {
-      lovrRetain(&material->ref);
-    }
   }
 }
 

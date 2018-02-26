@@ -38,12 +38,12 @@ static int nextEvent(lua_State* L) {
 
     case EVENT_CONTROLLER_ADDED:
       luax_pushtype(L, Controller, event.data.controlleradded.controller);
-      lovrRelease(&event.data.controlleradded.controller->ref);
+      lovrRelease(event.data.controlleradded.controller);
       return 2;
 
     case EVENT_CONTROLLER_REMOVED:
       luax_pushtype(L, Controller, event.data.controllerremoved.controller);
-      lovrRelease(&event.data.controlleradded.controller->ref);
+      lovrRelease(event.data.controlleradded.controller);
       return 2;
 
     case EVENT_CONTROLLER_PRESSED:

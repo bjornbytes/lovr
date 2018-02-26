@@ -16,7 +16,7 @@ void lovrMathInit() {
 
 void lovrMathDestroy() {
   if (!state.initialized) return;
-  lovrRandomGeneratorDestroy(&state.generator->ref);
+  lovrRelease(state.generator);
   memset(&state, 0, sizeof(MathState));
 }
 

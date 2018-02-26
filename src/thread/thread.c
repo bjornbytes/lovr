@@ -42,8 +42,8 @@ Thread* lovrThreadCreate(int (*runner)(void*), const char* body) {
   return thread;
 }
 
-void lovrThreadDestroy(const Ref* ref) {
-  Thread* thread = (Thread*) ref;
+void lovrThreadDestroy(void* ref) {
+  Thread* thread = ref;
   mtx_destroy(&thread->lock);
   thrd_detach(thread->handle);
   free(thread);

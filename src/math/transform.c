@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 Transform* lovrTransformCreate(mat4 transfrom) {
-  Transform* transform = lovrAlloc(sizeof(Transform), lovrTransformDestroy);
+  Transform* transform = lovrAlloc(sizeof(Transform), free);
   if (!transform) return NULL;
 
   transform->isDirty = true;
@@ -15,11 +15,6 @@ Transform* lovrTransformCreate(mat4 transfrom) {
   }
 
   return transform;
-}
-
-void lovrTransformDestroy(const Ref* ref) {
-  Transform* transform = (Transform*) ref;
-  free(transform);
 }
 
 void lovrTransformGetMatrix(Transform* transform, mat4 m) {

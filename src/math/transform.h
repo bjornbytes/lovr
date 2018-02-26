@@ -12,7 +12,6 @@ typedef struct Transform {
 } Transform;
 
 Transform* lovrTransformCreate(mat4 transfrom);
-void lovrTransformDestroy(const Ref* ref);
 void lovrTransformGetMatrix(Transform* transform, mat4 m);
 void lovrTransformSetMatrix(Transform* transform, mat4 m);
 void lovrTransformApply(Transform* transform, Transform* other);

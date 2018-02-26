@@ -165,7 +165,7 @@ static bool fakeInit() {
   vec3_set(state.pos, 0, 0, 0);
 
   vec_init(&state.controllers);
-  Controller* controller = lovrAlloc(sizeof(Controller), lovrControllerDestroy);
+  Controller* controller = lovrAlloc(sizeof(Controller), free);
   controller->id = 0;
   vec_push(&state.controllers, controller);
 
@@ -181,7 +181,7 @@ static void fakeDestroy() {
   int i;
   Controller *controller;
   vec_foreach(&state.controllers, controller, i) {
-    lovrRelease(&controller->ref);
+    lovrRelease(controller);
   }
   vec_deinit(&state.controllers);
 

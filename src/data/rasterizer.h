@@ -36,7 +36,7 @@ typedef struct {
 typedef map_t(Glyph) map_glyph_t;
 
 Rasterizer* lovrRasterizerCreate(Blob* blob, int size);
-void lovrRasterizerDestroy(const Ref* ref);
+void lovrRasterizerDestroy(void* ref);
 bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
 bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);
 void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, Glyph* glyph);

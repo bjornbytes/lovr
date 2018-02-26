@@ -109,12 +109,10 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
   return texture;
 }
 
-void lovrTextureDestroy(const Ref* ref) {
-  Texture* texture = (Texture*) ref;
+void lovrTextureDestroy(void* ref) {
+  Texture* texture = ref;
   for (int i = 0; i < texture->sliceCount; i++) {
-    if (&texture->slices[i]) {
-      lovrRelease(&texture->slices[i]->ref);
-    }
+    lovrRelease(texture->slices[i]);
   }
   glDeleteTextures(1, &texture->id);
   free(texture->slices);
@@ -126,11 +124,8 @@ TextureType lovrTextureGetType(Texture* texture) {
 }
 
 void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int slice) {
-  lovrRetain(&textureData->ref);
-  if (texture->slices[slice]) {
-    lovrRelease(&texture->slices[slice]->ref);
-  }
-
+  lovrRetain(textureData);
+  lovrRelease(texture->slices[slice]);
   texture->slices[slice] = textureData;
 
   if (!texture->allocated) {

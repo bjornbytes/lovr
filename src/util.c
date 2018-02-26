@@ -34,19 +34,20 @@ void lovrSleep(double seconds) {
 #endif
 }
 
-void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref)) {
+void* lovrAlloc(size_t size, void (*destructor)(void* object)) {
   void* object = malloc(size);
   if (!object) return NULL;
   *((Ref*) object) = (Ref) { destructor, 1 };
   return object;
 }
 
-void lovrRetain(const Ref* ref) {
-  ((Ref*) ref)->count++;
+void lovrRetain(void* object) {
+  if (object) ((Ref*) object)->count++;
 }
 
-void lovrRelease(const Ref* ref) {
-  if (--((Ref*) ref)->count == 0 && ref->free) ref->free(ref);
+void lovrRelease(void* object) {
+  Ref* ref = object;
+  if (ref && --ref->count == 0) ref->free(object);
 }
 
 // https://github.com/starwing/luautf8

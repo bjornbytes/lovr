@@ -64,7 +64,7 @@ typedef struct {
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
 Shader* lovrShaderCreateDefault(DefaultShader type);
-void lovrShaderDestroy(const Ref* ref);
+void lovrShaderDestroy(void* ref);
 void lovrShaderBind(Shader* shader);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 Uniform* lovrShaderGetUniform(Shader* shader, const char* name);

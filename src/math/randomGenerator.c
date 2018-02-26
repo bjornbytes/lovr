@@ -22,7 +22,7 @@ static uint64_t wangHash64(uint64_t key) {
 // Use an 'Xorshift*' variant, as shown here: http://xorshift.di.unimi.it
 
 RandomGenerator* lovrRandomGeneratorCreate() {
-  RandomGenerator* generator = lovrAlloc(sizeof(RandomGenerator), lovrRandomGeneratorDestroy);
+  RandomGenerator* generator = lovrAlloc(sizeof(RandomGenerator), free);
   if (!generator) return NULL;
 
   Seed seed = { .b32 = { .lo = 0xCBBF7A44, .hi = 0x0139408D } };
@@ -30,11 +30,6 @@ RandomGenerator* lovrRandomGeneratorCreate() {
   generator->lastRandomNormal = INFINITY;
 
   return generator;
-}
-
-void lovrRandomGeneratorDestroy(const Ref* ref) {
-  RandomGenerator* generator = (RandomGenerator*) ref;
-  free(generator);
 }
 
 Seed lovrRandomGeneratorGetSeed(RandomGenerator* generator) {

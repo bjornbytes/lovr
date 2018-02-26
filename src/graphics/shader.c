@@ -257,8 +257,8 @@ Shader* lovrShaderCreateDefault(DefaultShader type) {
   }
 }
 
-void lovrShaderDestroy(const Ref* ref) {
-  Shader* shader = (Shader*) ref;
+void lovrShaderDestroy(void* ref) {
+  Shader* shader = ref;
   glDeleteProgram(shader->program);
   map_deinit(&shader->uniforms);
   free(shader);

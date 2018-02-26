@@ -49,4 +49,4 @@ TextureData* lovrTextureDataFromBlob(Blob* blob);
 Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y);
 void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color);
 bool lovrTextureDataEncode(TextureData* textureData, const char* filename);
-void lovrTextureDataDestroy(const Ref* ref);
+void lovrTextureDataDestroy(void* ref);
