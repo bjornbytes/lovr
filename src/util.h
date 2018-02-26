@@ -20,8 +20,8 @@ typedef struct {
   float r, g, b, a;
 } Color;
 
-_Thread_local extern char lovrErrorMessage[];
-_Thread_local extern jmp_buf* lovrCatch;
+extern _Thread_local char lovrErrorMessage[];
+extern _Thread_local jmp_buf* lovrCatch;
 
 void lovrThrow(const char* format, ...);
 void lovrSleep(double seconds);

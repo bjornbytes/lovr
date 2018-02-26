@@ -208,12 +208,13 @@ static void openvrPoll() {
       }
 
       case EVREventType_VREvent_InputFocusCaptured:
-      case EVREventType_VREvent_InputFocusReleased:
+      case EVREventType_VREvent_InputFocusReleased: {
         bool isFocused = vrEvent.eventType == EVREventType_VREvent_InputFocusReleased;
         EventData data = { .focus = { isFocused } };
         Event event = { .type = EVENT_FOCUS, .data = data };
         lovrEventPush(event);
         break;
+      }
 
       default:
         break;
@@ -248,7 +249,7 @@ static void ensureCanvas() {
   state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, msaa, true, true);
 }
 
-static void openvrInit() {
+static bool openvrInit() {
   if (state.initialized) return true;
 
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
@@ -770,5 +771,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrControllerIsTouched,
   openvrControllerVibrate,
   openvrControllerNewModelData,
-  openvrRenderTo
+  openvrRenderTo,
+  NULL
 };

@@ -12,7 +12,7 @@ static int nextEvent(lua_State* L) {
     return 0;
   }
 
-  luax_pushenum(L, &EventTypes, event.type, "event type");
+  luax_pushenum(L, &EventTypes, event.type);
 
   switch (event.type) {
     case EVENT_QUIT:

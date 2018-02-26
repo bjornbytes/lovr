@@ -40,8 +40,6 @@ typedef struct {
 
 static FakeHeadsetState state;
 
-static void fakePoll();
-
 /*
  * callback handlers
  */
@@ -214,7 +212,7 @@ static void fakeSetMirrored(bool mirror) {
 static void fakeGetDisplayDimensions(int* width, int* height) {
   GLFWwindow* window = glfwGetCurrentContext();
   if (window) {
-    glfwGetWindowSize(window,width,height);
+    glfwGetFramebufferSize(window, width, height);
   }
 }
 
@@ -313,12 +311,12 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
 
 static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
   GLFWwindow* window = glfwGetCurrentContext();
-  if(!window) {
+  if (!window) {
     return;
   }
 
   int w, h;
-  glfwGetWindowSize(window, &w, &h);
+  glfwGetFramebufferSize(window, &w, &h);
   mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float) w / h);
 
   float transform[16];

@@ -200,7 +200,7 @@ static aiReturn assimpFileSeek(struct aiFile* assimpFile, size_t position, enum 
   return lovrFileSeek(file, position) ? aiReturn_FAILURE : aiReturn_SUCCESS;
 }
 
-static unsigned int assimpFileTell(struct aiFile* assimpFile) {
+static unsigned long assimpFileTell(struct aiFile* assimpFile) {
   File* file = (File*) assimpFile->UserData;
   return lovrFileTell(file);
 }
