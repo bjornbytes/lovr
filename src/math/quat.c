@@ -64,6 +64,14 @@ quat quat_slerp(quat q, quat r, float t) {
     return q;
   }
 
+  if (dot < 0) {
+    q[0] *= -1;
+    q[1] *= -1;
+    q[2] *= -1;
+    q[3] *= -1;
+    dot *= -1;
+  }
+
   float halfTheta = acos(dot);
   float sinHalfTheta = sqrt(1.f - dot * dot);
 
