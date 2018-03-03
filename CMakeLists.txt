@@ -161,7 +161,7 @@ elseif(WIN32)
 else()
   pkg_search_module(ODE REQUIRED ode)
   include_directories(${ODE_INCLUDE_DIRS})
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lstdc++")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lstdc++ -lpthread")
   set(LOVR_ODE ode)
 endif()
 
