@@ -331,7 +331,7 @@ int l_lovrGraphicsPresent(lua_State* L) {
 }
 
 int l_lovrGraphicsCreateWindow(lua_State* L) {
-  int width = luaL_optnumber(L, 1, 800);
+  int width = luaL_optnumber(L, 1, 1080);
   int height = luaL_optnumber(L, 2, 600);
   bool fullscreen = !lua_isnoneornil(L, 3) && lua_toboolean(L, 3);
   int msaa = luaL_optnumber(L, 4, 0);
