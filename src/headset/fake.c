@@ -291,11 +291,11 @@ static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) 
 
 static bool fakeControllerIsDown(Controller* controller, ControllerButton button) {
   GLFWwindow* window = glfwGetCurrentContext();
-  if(!window) {
+  if (!window) {
     return false;
   }
-  int b = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_RIGHT);
-  return (b == GLFW_PRESS) ? CONTROLLER_BUTTON_TRIGGER : false;
+  int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
+  return state == GLFW_PRESS;
 }
 
 static bool fakeControllerIsTouched(Controller* controller, ControllerButton button) {
@@ -317,7 +317,7 @@ static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
 
   int w, h;
   glfwGetFramebufferSize(window, &w, &h);
-  mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float) w / h);
+  mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float) (w / 2) / h);
 
   float transform[16];
   mat4_set(transform, state.transform);

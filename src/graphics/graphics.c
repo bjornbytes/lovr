@@ -120,25 +120,29 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
   mat4 model = state.transforms[state.transform][MATRIX_MODEL];
   mat4 view = state.transforms[state.transform][MATRIX_VIEW];
   mat4 projection = state.displays[state.display].projection;
+  float projections[32];
+  memcpy(projections, projection, 16 * sizeof(float));
+  memcpy(projections + 16, projection, 16 * sizeof(float));
   lovrShaderSetMatrix(shader, "lovrModel", model, 16);
-  lovrShaderSetMatrix(shader, "lovrView", view, 16);
-  lovrShaderSetMatrix(shader, "lovrProjection", projection, 16);
+  lovrShaderSetMatrix(shader, "lovrViews", view, 16);
+  lovrShaderSetMatrix(shader, "lovrProjections", projections, 32);
 
-  float transform[16];
-  mat4_multiply(mat4_set(transform, view), model);
-  lovrShaderSetMatrix(shader, "lovrTransform", transform, 16);
+  float transforms[32];
+  mat4_multiply(mat4_set(transforms, view), model);
+  memcpy(transforms + 16, transforms, 16 * sizeof(float));
+  lovrShaderSetMatrix(shader, "lovrTransforms", transforms, 32);
 
   if (lovrShaderGetUniform(shader, "lovrNormalMatrix")) {
-    if (mat4_invert(transform)) {
-      mat4_transpose(transform);
+    if (mat4_invert(transforms)) {
+      mat4_transpose(transforms);
     } else {
-      mat4_identity(transform);
+      mat4_identity(transforms);
     }
 
     float normalMatrix[9] = {
-      transform[0], transform[1], transform[2],
-      transform[4], transform[5], transform[6],
-      transform[8], transform[9], transform[10]
+      transforms[0], transforms[1], transforms[2],
+      transforms[4], transforms[5], transforms[6],
+      transforms[8], transforms[9], transforms[10]
     };
 
     lovrShaderSetMatrix(shader, "lovrNormalMatrix", normalMatrix, 9);
@@ -239,6 +243,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   glfwSwapInterval(0);
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PROGRAM_POINT_SIZE);
+  glEnable(GL_CLIP_DISTANCE0);
   if (state.gammaCorrect) {
     glEnable(GL_FRAMEBUFFER_SRGB);
   } else {
@@ -1282,23 +1287,12 @@ void lovrGraphicsBindIndexBuffer(uint32_t indexBuffer) {
 }
 
 void lovrGraphicsDrawArrays(GLenum mode, size_t start, size_t count, int instances) {
-  if (instances > 1) {
-    glDrawArraysInstanced(mode, start, count, instances);
-  } else {
-    glDrawArrays(mode, start, count);
-  }
-
+  glDrawArraysInstanced(mode, start, count, instances * 2);
   state.stats.drawCalls++;
 }
 
 void lovrGraphicsDrawElements(GLenum mode, size_t count, size_t indexSize, size_t offset, int instances) {
   GLenum indexType = indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-
-  if (instances > 1) {
-    glDrawElementsInstanced(mode, count, indexType, (GLvoid*) offset, instances);
-  } else {
-    glDrawElements(mode, count, indexType, (GLvoid*) offset);
-  }
-
+  glDrawElementsInstanced(mode, count, indexType, (GLvoid*) offset, instances * 2);
   state.stats.drawCalls++;
 }
