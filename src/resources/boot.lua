@@ -17,7 +17,7 @@ local conf = {
     offset = 1.7
   },
   window = {
-    width = 800,
+    width = 1080,
     height = 600,
     fullscreen = false,
     msaa = 0,
