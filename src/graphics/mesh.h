@@ -22,7 +22,17 @@ typedef enum {
   MESH_STREAM = GL_STREAM_DRAW
 } MeshUsage;
 
+typedef struct Mesh Mesh;
+
 typedef struct {
+  Mesh *mesh;
+  int attribute;
+  int instanceDivisor;
+} MeshAttachment;
+
+typedef vec_t(MeshAttachment) vec_meshattachment_t;
+
+struct Mesh {
   Ref ref;
   VertexData* vertexData;
   IndexPointer indices;
@@ -43,7 +53,9 @@ typedef struct {
   GLuint ibo;
   Material* material;
   Shader* lastShader;
-} Mesh;
+  vec_meshattachment_t attachments;
+  bool isAnAttachment;
+};
 
 Mesh* lovrMeshCreate(uint32_t count, VertexFormat* format, MeshDrawMode drawMode, MeshUsage usage);
 void lovrMeshDestroy(void* ref);
@@ -64,3 +76,4 @@ Material* lovrMeshGetMaterial(Mesh* mesh);
 void lovrMeshSetMaterial(Mesh* mesh, Material* material);
 VertexPointer lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool write);
 void lovrMeshUnmap(Mesh* mesh);
+void lovrMeshAttach(Mesh *attachTo, Mesh* attachThis, int attribute, int instanceDivisor);
