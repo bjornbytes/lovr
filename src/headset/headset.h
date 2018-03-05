@@ -66,7 +66,7 @@ typedef void (*headsetRenderCallback)(HeadsetEye eye, void* userdata);
 
 typedef struct {
   HeadsetDriver driverType;
-  bool (*init)();
+  bool (*init)(float offset);
   void (*destroy)();
   HeadsetType (*getType)();
   HeadsetOrigin (*getOriginType)();
@@ -100,7 +100,7 @@ extern HeadsetInterface lovrHeadsetOpenVRDriver;
 extern HeadsetInterface lovrHeadsetWebVRDriver;
 extern HeadsetInterface lovrHeadsetFakeDriver;
 
-void lovrHeadsetInit(HeadsetDriver* drivers, int count);
+void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset);
 void lovrHeadsetDestroy();
 const HeadsetDriver* lovrHeadsetGetDriver();
 HeadsetType lovrHeadsetGetType();

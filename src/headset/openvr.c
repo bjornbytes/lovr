@@ -24,6 +24,7 @@ typedef struct {
   bool initialized;
   bool isRendering;
   bool isMirrored;
+  float offset;
 
   struct VR_IVRSystem_FnTable* system;
   struct VR_IVRCompositor_FnTable* compositor;
@@ -249,7 +250,7 @@ static void ensureCanvas() {
   state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, msaa, true, true);
 }
 
-static bool openvrInit() {
+static bool openvrInit(float offset) {
   if (state.initialized) return true;
 
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
@@ -310,6 +311,7 @@ static bool openvrInit() {
   state.vsyncToPhotons = state.system->GetFloatTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_SecondsFromVsyncToPhotons_Float, NULL);
   state.isRendering = false;
   state.isMirrored = true;
+  state.offset = offset;
   state.canvas = NULL;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
@@ -694,14 +696,14 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     mat4_fromMat44(projection, matrix);
 
     // Render
-    int viewport[4] = { 0, 0, state.canvas->texture.width, state.canvas->texture.height };
-    lovrGraphicsPushDisplay(state.canvas->framebuffer, projection, viewport);
+    //int viewport[4] = { 0, 0, state.canvas->texture.width, state.canvas->texture.height };
+    //lovrGraphicsPushDisplay(state.canvas->framebuffer, projection, viewport);
     lovrGraphicsPush();
     lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
     lovrGraphicsClear(true, true, false, lovrGraphicsGetBackgroundColor(), 1., 0);
     callback(eye, userdata);
     lovrGraphicsPop();
-    lovrGraphicsPopDisplay();
+    //lovrGraphicsPopDisplay();
 
     // OpenVR changes the OpenGL texture binding, so we reset it after rendering
     glActiveTexture(GL_TEXTURE0);
