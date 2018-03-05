@@ -716,8 +716,8 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   uintptr_t texture = (uintptr_t) state.canvas->texture.id;
   EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
   Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
-  VRTextureBounds_t left = { 0, 0, state.renderWidth, state.renderHeight };
-  VRTextureBounds_t right = { state.renderWidth, 0, state.renderWidth, state.renderHeight };
+  VRTextureBounds_t left = { 0, 0, .5, 1. };
+  VRTextureBounds_t right = { .5, 0, 1., 1. };
   state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
   state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
 

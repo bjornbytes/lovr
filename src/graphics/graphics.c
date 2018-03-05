@@ -376,7 +376,7 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
   if (count == 0) {
     Layer layer = state.layers[state.layer];
     int* viewport = layer.viewport;
-    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->texture.id : 0);
+    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->framebuffer : 0);
     lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
   } else {
     memcpy(state.canvas, canvas, count * sizeof(Canvas*));
@@ -1142,7 +1142,7 @@ void lovrGraphicsPushLayer(Layer layer) {
 
   if (state.canvasCount == 0) {
     int* viewport = layer.viewport;
-    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->texture.id : 0);
+    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->framebuffer : 0);
     lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
   }
 }
@@ -1155,7 +1155,7 @@ void lovrGraphicsPopLayer() {
   if (state.canvasCount == 0) {
     Layer layer = state.layers[state.layer];
     int* viewport = layer.viewport;
-    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->texture.id : 0);
+    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->framebuffer : 0);
     lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
   }
 }
