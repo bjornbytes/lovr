@@ -11,5 +11,6 @@ extern const char* lovrDefaultVertexShader;
 extern const char* lovrDefaultFragmentShader;
 extern const char* lovrSkyboxVertexShader;
 extern const char* lovrSkyboxFragmentShader;
+extern const char* lovrPanoFragmentShader;
 extern const char* lovrFontFragmentShader;
 extern const char* lovrNoopVertexShader;

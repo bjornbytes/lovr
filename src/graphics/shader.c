@@ -265,6 +265,7 @@ Shader* lovrShaderCreateDefault(DefaultShader type) {
   switch (type) {
     case SHADER_DEFAULT: return lovrShaderCreate(NULL, NULL);
     case SHADER_SKYBOX: return lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader); break;
+    case SHADER_PANO: return lovrShaderCreate(lovrSkyboxVertexShader, lovrPanoFragmentShader); break;
     case SHADER_FONT: return lovrShaderCreate(NULL, lovrFontFragmentShader);
     case SHADER_FULLSCREEN: return lovrShaderCreate(lovrNoopVertexShader, NULL);
     default: lovrThrow("Unknown default shader type");

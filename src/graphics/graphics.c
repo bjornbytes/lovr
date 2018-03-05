@@ -1010,47 +1010,30 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
 }
 
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az) {
+  float vertices[] = {
+    -1, 1, 1,  0, 0, 0, 0, 0,
+    -1, -1, 1, 0, 0, 0, 0, 0,
+    1, 1, 1,   0, 0, 0, 0, 0,
+    1, -1, 1,  0, 0, 0, 0, 0
+  };
+
+  TextureType type = texture->type;
+  lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
+  MaterialTexture materialTexture = type == TEXTURE_CUBE ? TEXTURE_ENVIRONMENT_MAP : TEXTURE_DIFFUSE;
   Winding winding = state.winding;
-
-  lovrGraphicsPush();
-  lovrGraphicsOrigin();
-  lovrGraphicsRotate(angle, ax, ay, az);
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
-
-  if (texture->type == TEXTURE_CUBE) {
-    float vertices[] = {
-      -1, 1, 1,  0, 0, 0, 0, 0,
-      -1, -1, 1, 0, 0, 0, 0, 0,
-      1, 1, 1,   0, 0, 0, 0, 0,
-      1, -1, 1,  0, 0, 0, 0, 0
-    };
-
-    VertexPointer vertexPointer = lovrGraphicsGetVertexPointer(4);
-    memcpy(vertexPointer.raw, vertices, 4 * 8 * sizeof(float));
-    Material* material = lovrGraphicsGetDefaultMaterial();
-    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, texture);
-    lovrGraphicsSetDefaultShader(SHADER_SKYBOX);
-    lovrMeshWriteIndices(state.mesh, 0, 0);
-    lovrMeshSetMaterial(state.mesh, material);
-    lovrMeshSetDrawMode(state.mesh, MESH_TRIANGLE_STRIP);
-    lovrMeshSetDrawRange(state.mesh, 0, 26);
-    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, NULL);
-  } else if (texture->type == TEXTURE_2D) {
-    CompareMode mode;
-    bool write;
-    lovrGraphicsGetDepthTest(&mode, &write);
-    lovrGraphicsSetDepthTest(COMPARE_LEQUAL, false);
-    Material* material = lovrGraphicsGetDefaultMaterial();
-    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
-    lovrGraphicsSphere(material, NULL, 30);
-    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
-    lovrGraphicsSetDepthTest(mode, write);
-  } else {
-    lovrThrow("lovr.graphics.skybox only accepts 2d and cube Textures");
-  }
-
+  lovrGraphicsSetDefaultShader(type == TEXTURE_CUBE ? SHADER_SKYBOX : SHADER_PANO);
+  Material* material = lovrGraphicsGetDefaultMaterial();
+  lovrMaterialSetTexture(material, materialTexture, texture);
+  VertexPointer vertexPointer = lovrGraphicsGetVertexPointer(4);
+  memcpy(vertexPointer.raw, vertices, 4 * 8 * sizeof(float));
+  lovrMeshWriteIndices(state.mesh, 0, 0);
+  lovrMeshSetMaterial(state.mesh, material);
+  lovrMeshSetDrawMode(state.mesh, MESH_TRIANGLE_STRIP);
+  lovrMeshSetDrawRange(state.mesh, 0, 4);
+  lovrMeshDraw(state.mesh, NULL, NULL, 1);
+  lovrMaterialSetTexture(material, materialTexture, NULL);
   lovrGraphicsSetWinding(winding);
-  lovrGraphicsPop();
 }
 
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
