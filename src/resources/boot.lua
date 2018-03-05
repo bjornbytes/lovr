@@ -88,10 +88,10 @@ if not lovr.filesystem.getSource() or not runnable then
     local padding = .1
     local font = lovr.graphics.getFont()
     local fade = .315 + .685 * math.abs(math.sin(lovr.timer.getTime() * 2))
-    local titlePosition = 1.3 - padding
+    local titlePosition = 1.4 - padding
     local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
 
-    lovr.graphics.plane(logo, 0, 1.8, -3, 1, 0, 0, 1)
+    lovr.graphics.plane(logo, 0, 1.9, -3, 1, 0, 0, 1)
     lovr.graphics.setColor(.059, .059, .059)
     lovr.graphics.print('LÖVR', -.01, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
     lovr.graphics.setColor(.059, .059, .059, fade)
