@@ -1069,52 +1069,17 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
 
   if (texture->type == TEXTURE_CUBE) {
-    float cube[] = {
-      // Front
-      1.f, -1.f, -1.f,
-      1.f, 1.f, -1.f,
-      -1.f, -1.f, -1.f,
-      -1.f, 1.f, -1.f,
-
-      // Left
-      -1.f, 1.f, -1.f,
-      -1.f, 1.f, 1.f,
-      -1.f, -1.f, -1.f,
-      -1.f, -1.f, 1.f,
-
-      // Back
-      -1.f, -1.f, 1.f,
-      -1.f, 1.f, 1.f,
-      1.f, -1.f, 1.f,
-      1.f, 1.f, 1.f,
-
-      // Right
-      1.f, 1.f, 1.f,
-      1.f, 1.f, -1.f,
-      1.f, -1.f, 1.f,
-      1.f, -1.f, -1.f,
-
-      // Bottom
-      1.f, -1.f, -1.f,
-      -1.f, -1.f, -1.f,
-      1.f, -1.f, 1.f,
-      -1.f, -1.f, 1.f,
-
-      // Adjust
-      -1.f, -1.f, 1.f,
-      -1.f, 1.f, -1.f,
-
-      // Top
-      -1.f, 1.f, -1.f,
-      1.f, 1.f, -1.f,
-      -1.f, 1.f, 1.f,
-      1.f, 1.f, 1.f
+    float quad[] = {
+      -1, 1, 1,
+      -1, -1, 1,
+      1, 1, 1,
+      1, -1, 1
     };
 
-    lovrGraphicsSetStreamData(cube, 78);
     lovrGraphicsSetDefaultShader(SHADER_SKYBOX);
     Material* material = lovrGraphicsGetDefaultMaterial();
     lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, texture);
+    lovrGraphicsSetStreamData(quad, 12);
     lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, false, false, false);
     lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, NULL);
   } else if (texture->type == TEXTURE_2D) {
