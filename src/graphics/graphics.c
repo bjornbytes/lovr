@@ -49,11 +49,12 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultMaterial);
   lovrRelease(state.defaultFont);
   lovrRelease(state.defaultTexture);
+  vec_deinit(&state.streamData);
+  vec_deinit(&state.streamIndices);
   glDeleteVertexArrays(1, &state.streamVAO);
   glDeleteBuffers(1, &state.streamVBO);
   glDeleteBuffers(1, &state.streamIBO);
-  vec_deinit(&state.streamData);
-  vec_deinit(&state.streamIndices);
+  glDeleteBuffers(1, &state.cameraUBO);
   memset(&state, 0, sizeof(GraphicsState));
 }
 
@@ -63,7 +64,8 @@ void lovrGraphicsReset() {
   state.transform = 0;
   state.display = 0;
   state.defaultShader = SHADER_DEFAULT;
-  mat4_perspective(state.displays[state.display].projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h);
+  mat4_perspective(state.displays[state.display].projections, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
+  mat4_perspective(state.displays[state.display].projections + 16, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
   state.displays[state.display].viewport[0] = 0;
   state.displays[state.display].viewport[1] = 0;
   state.displays[state.display].viewport[2] = w;
@@ -118,18 +120,12 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
   }
 
   mat4 model = state.transforms[state.transform][MATRIX_MODEL];
-  mat4 view = state.transforms[state.transform][MATRIX_VIEW];
-  mat4 projection = state.displays[state.display].projection;
-  float projections[32];
-  memcpy(projections, projection, 16 * sizeof(float));
-  memcpy(projections + 16, projection, 16 * sizeof(float));
   lovrShaderSetMatrix(shader, "lovrModel", model, 16);
-  lovrShaderSetMatrix(shader, "lovrViews", view, 16);
-  lovrShaderSetMatrix(shader, "lovrProjections", projections, 32);
 
+  float* views = state.displays[state.display].views;
   float transforms[32];
-  mat4_multiply(mat4_set(transforms, view), model);
-  memcpy(transforms + 16, transforms, 16 * sizeof(float));
+  mat4_multiply(mat4_set(transforms + 0, views + 0), model);
+  mat4_multiply(mat4_set(transforms + 16, views + 16), model);
   lovrShaderSetMatrix(shader, "lovrTransforms", transforms, 32);
 
   if (lovrShaderGetUniform(shader, "lovrNormalMatrix")) {
@@ -253,11 +249,15 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  vec_init(&state.streamData);
+  vec_init(&state.streamIndices);
   glGenVertexArrays(1, &state.streamVAO);
   glGenBuffers(1, &state.streamVBO);
   glGenBuffers(1, &state.streamIBO);
-  vec_init(&state.streamData);
-  vec_init(&state.streamIndices);
+  glGenBuffers(1, &state.cameraUBO);
+  glBindBuffer(GL_UNIFORM_BUFFER, state.cameraUBO);
+  glBufferData(GL_UNIFORM_BUFFER, 4 * 16 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
+  glBindBufferBase(GL_UNIFORM_BUFFER, LOVR_SHADER_BLOCK_CAMERA, state.cameraUBO);
   lovrGraphicsReset();
   state.initialized = true;
 }
@@ -1183,14 +1183,26 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 }
 
 // Internal State
-void lovrGraphicsPushDisplay(int framebuffer, mat4 projection, int* viewport) {
+void lovrGraphicsPushDisplay(int framebuffer, float* projections, float* views, int* viewport) {
   if (++state.display >= MAX_DISPLAYS) {
     lovrThrow("Display overflow");
   }
 
   state.displays[state.display].framebuffer = framebuffer;
-  memcpy(state.displays[state.display].projection, projection, 16 * sizeof(float));
+  memcpy(state.displays[state.display].projections, projections, 32 * sizeof(float));
+  memcpy(state.displays[state.display].views, views, 32 * sizeof(float));
   memcpy(state.displays[state.display].viewport, viewport, 4 * sizeof(int));
+
+  struct {
+    float projections[32];
+    float views[32];
+  } cameraBlock;
+
+  memcpy(cameraBlock.projections, projections, 32 * sizeof(float));
+  memcpy(cameraBlock.views, views, 32 * sizeof(float));
+
+  glBindBuffer(GL_UNIFORM_BUFFER, state.cameraUBO);
+  glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), &cameraBlock);
 
   if (state.canvasCount == 0) {
     lovrGraphicsBindFramebuffer(framebuffer);

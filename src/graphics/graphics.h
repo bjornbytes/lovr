@@ -77,7 +77,8 @@ typedef enum {
 
 typedef struct {
   int framebuffer;
-  float projection[16];
+  float projections[32];
+  float views[32];
   int viewport[4];
 } Display;
 
@@ -124,11 +125,12 @@ typedef struct {
   int stencilValue;
   Winding winding;
   bool wireframe;
+  vec_float_t streamData;
+  vec_uint_t streamIndices;
   uint32_t streamVAO;
   uint32_t streamVBO;
   uint32_t streamIBO;
-  vec_float_t streamData;
-  vec_uint_t streamIndices;
+  uint32_t cameraUBO;
   Display displays[MAX_DISPLAYS];
   int display;
   Texture* textures[MAX_TEXTURES];
@@ -211,7 +213,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 
 // Internal State
-void lovrGraphicsPushDisplay(int framebuffer, mat4 projection, int* viewport);
+void lovrGraphicsPushDisplay(int framebuffer, float* projections, float* views, int* viewport);
 void lovrGraphicsPopDisplay();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);
 void lovrGraphicsBindFramebuffer(int framebuffer);

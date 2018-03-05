@@ -245,6 +245,10 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     textureSlot += (uniform.type == UNIFORM_SAMPLER) ? uniform.count : 0;
   }
 
+  // Uniform block binding
+  uint32_t cameraBlockIndex = glGetUniformBlockIndex(program, "lovrCamera");
+  glUniformBlockBinding(program, cameraBlockIndex, LOVR_SHADER_BLOCK_CAMERA);
+
   return shader;
 }
 
