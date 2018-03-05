@@ -14,7 +14,7 @@
 #define MAX_LAYERS 4
 #define MAX_TRANSFORMS 60
 #define INTERNAL_TRANSFORMS 4
-#define DEFAULT_SHADER_COUNT 4
+#define DEFAULT_SHADER_COUNT 5
 #define MAX_TEXTURES 16
 
 typedef void (*StencilCallback)(void* userdata);

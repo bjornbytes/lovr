@@ -1061,43 +1061,26 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
 }
 
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az) {
+  float quad[] = {
+    -1, 1, 1,
+    -1, -1, 1,
+    1, 1, 1,
+    1, -1, 1
+  };
+
+  TextureType type = texture->type;
+  lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
+  MaterialTexture materialTexture = type == TEXTURE_CUBE ? TEXTURE_ENVIRONMENT_MAP : TEXTURE_DIFFUSE;
+  DefaultShader shader = type == TEXTURE_CUBE ? SHADER_SKYBOX : SHADER_PANO;
   Winding winding = state.winding;
-
-  lovrGraphicsPush();
-  lovrGraphicsOrigin();
-  lovrGraphicsRotate(angle, ax, ay, az);
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
-
-  if (texture->type == TEXTURE_CUBE) {
-    float quad[] = {
-      -1, 1, 1,
-      -1, -1, 1,
-      1, 1, 1,
-      1, -1, 1
-    };
-
-    lovrGraphicsSetDefaultShader(SHADER_SKYBOX);
-    Material* material = lovrGraphicsGetDefaultMaterial();
-    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, texture);
-    lovrGraphicsSetStreamData(quad, 12);
-    lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, false, false, false);
-    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, NULL);
-  } else if (texture->type == TEXTURE_2D) {
-    CompareMode mode;
-    bool write;
-    lovrGraphicsGetDepthTest(&mode, &write);
-    lovrGraphicsSetDepthTest(COMPARE_LEQUAL, false);
-    Material* material = lovrGraphicsGetDefaultMaterial();
-    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
-    lovrGraphicsSphere(material, NULL, 30);
-    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
-    lovrGraphicsSetDepthTest(mode, write);
-  } else {
-    lovrThrow("lovr.graphics.skybox only accepts 2d and cube Textures");
-  }
-
+  lovrGraphicsSetDefaultShader(shader);
+  Material* material = lovrGraphicsGetDefaultMaterial();
+  lovrMaterialSetTexture(material, materialTexture, texture);
+  lovrGraphicsSetStreamData(quad, 12);
+  lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, false, false, false);
+  lovrMaterialSetTexture(material, materialTexture, NULL);
   lovrGraphicsSetWinding(winding);
-  lovrGraphicsPop();
 }
 
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
