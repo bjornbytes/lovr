@@ -16,5 +16,6 @@ bool lovrCanvasSupportsFormat(TextureFormat format);
 
 Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, int msaa, bool depth, bool stencil);
 void lovrCanvasDestroy(void* ref);
+void lovrCanvasResolve(Canvas* canvas);
 TextureFormat lovrCanvasGetFormat(Canvas* canvas);
 int lovrCanvasGetMSAA(Canvas* canvas);

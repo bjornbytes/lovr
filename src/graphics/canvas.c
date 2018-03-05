@@ -98,6 +98,14 @@ void lovrCanvasDestroy(void* ref) {
   lovrTextureDestroy(ref);
 }
 
+void lovrCanvasResolve(Canvas* canvas) {
+  int width = canvas->texture.width;
+  int height = canvas->texture.height;
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, canvas->resolveFramebuffer);
+  glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+}
+
 TextureFormat lovrCanvasGetFormat(Canvas* canvas) {
   return canvas->texture.slices[0]->format;
 }
