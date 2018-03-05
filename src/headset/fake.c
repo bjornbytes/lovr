@@ -306,22 +306,21 @@ static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
   int width, height;
   fakeGetDisplayDimensions(&width, &height);
 
-  float projections[32];
-  mat4_perspective(projections, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height / 2.);
-  mat4_set(projections + 16, projections);
+  Layer layer = { .canvas = NULL, .viewport = { 0, 0, width, height } };
 
-  float views[32];
-  mat4_identity(views);
-  mat4_translate(views, 0, state.offset, 0);
-  mat4_multiply(views, state.transform);
-  mat4_invert(views);
-  mat4_set(views + 16, views);
+  mat4_perspective(layer.projections, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height / 2.);
+  mat4_set(layer.projections + 16, layer.projections);
 
-  int viewport[4] = { 0, 0, width, height };
-  lovrGraphicsPushDisplay(0, projections, views, viewport);
+  mat4_identity(layer.views);
+  mat4_translate(layer.views, 0, state.offset, 0);
+  mat4_multiply(layer.views, state.transform);
+  mat4_invert(layer.views);
+  mat4_set(layer.views + 16, layer.views);
+
+  lovrGraphicsPushLayer(layer);
   lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
   callback(EYE_LEFT, userdata);
-  lovrGraphicsPopDisplay();
+  lovrGraphicsPopLayer();
 }
 
 static void fakeUpdate(float dt) {

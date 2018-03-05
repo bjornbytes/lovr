@@ -62,14 +62,14 @@ void lovrGraphicsReset() {
   int w = lovrGraphicsGetWidth();
   int h = lovrGraphicsGetHeight();
   state.transform = 0;
-  state.display = 0;
+  state.layer = 0;
   state.defaultShader = SHADER_DEFAULT;
-  mat4_perspective(state.displays[state.display].projections, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
-  mat4_perspective(state.displays[state.display].projections + 16, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
-  state.displays[state.display].viewport[0] = 0;
-  state.displays[state.display].viewport[1] = 0;
-  state.displays[state.display].viewport[2] = w;
-  state.displays[state.display].viewport[3] = h;
+  mat4_perspective(state.layers[state.layer].projections, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
+  mat4_perspective(state.layers[state.layer].projections + 16, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
+  state.layers[state.layer].viewport[0] = 0;
+  state.layers[state.layer].viewport[1] = 0;
+  state.layers[state.layer].viewport[2] = w;
+  state.layers[state.layer].viewport[3] = h;
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1. });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor((Color) { 1., 1., 1., 1. });
@@ -122,7 +122,7 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
   mat4 model = state.transforms[state.transform][MATRIX_MODEL];
   lovrShaderSetMatrix(shader, "lovrModel", model, 16);
 
-  float* views = state.displays[state.display].views;
+  float* views = state.layers[state.layer].views;
   float transforms[32];
   mat4_multiply(mat4_set(transforms + 0, views + 0), model);
   mat4_multiply(mat4_set(transforms + 16, views + 16), model);
@@ -374,8 +374,9 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
   }
 
   if (count == 0) {
-    lovrGraphicsBindFramebuffer(state.displays[state.display].framebuffer);
-    int* viewport = state.displays[state.display].viewport;
+    Layer layer = state.layers[state.layer];
+    int* viewport = layer.viewport;
+    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->texture.id : 0);
     lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
   } else {
     memcpy(state.canvas, canvas, count * sizeof(Canvas*));
@@ -1183,41 +1184,32 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 }
 
 // Internal State
-void lovrGraphicsPushDisplay(int framebuffer, float* projections, float* views, int* viewport) {
-  if (++state.display >= MAX_DISPLAYS) {
-    lovrThrow("Display overflow");
+void lovrGraphicsPushLayer(Layer layer) {
+  if (++state.layer >= MAX_LAYERS) {
+    lovrThrow("Layer overflow");
   }
 
-  state.displays[state.display].framebuffer = framebuffer;
-  memcpy(state.displays[state.display].projections, projections, 32 * sizeof(float));
-  memcpy(state.displays[state.display].views, views, 32 * sizeof(float));
-  memcpy(state.displays[state.display].viewport, viewport, 4 * sizeof(int));
-
-  struct {
-    float projections[32];
-    float views[32];
-  } cameraBlock;
-
-  memcpy(cameraBlock.projections, projections, 32 * sizeof(float));
-  memcpy(cameraBlock.views, views, 32 * sizeof(float));
+  memcpy(&state.layers[state.layer], &layer, sizeof(Layer));
 
   glBindBuffer(GL_UNIFORM_BUFFER, state.cameraUBO);
-  glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), &cameraBlock);
+  glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), &layer);
 
   if (state.canvasCount == 0) {
-    lovrGraphicsBindFramebuffer(framebuffer);
+    int* viewport = layer.viewport;
+    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->texture.id : 0);
     lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
   }
 }
 
-void lovrGraphicsPopDisplay() {
-  if (--state.display < 0) {
-    lovrThrow("Display underflow");
+void lovrGraphicsPopLayer() {
+  if (--state.layer < 0) {
+    lovrThrow("Layer underflow");
   }
 
   if (state.canvasCount == 0) {
-    lovrGraphicsBindFramebuffer(state.displays[state.display].framebuffer);
-    int* viewport = state.displays[state.display].viewport;
+    Layer layer = state.layers[state.layer];
+    int* viewport = layer.viewport;
+    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->texture.id : 0);
     lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
   }
 }

@@ -11,7 +11,7 @@
 #pragma once
 
 #define MAX_CANVASES 4
-#define MAX_DISPLAYS 4
+#define MAX_LAYERS 4
 #define MAX_TRANSFORMS 60
 #define INTERNAL_TRANSFORMS 4
 #define DEFAULT_SHADER_COUNT 4
@@ -76,11 +76,11 @@ typedef enum {
 } MatrixType;
 
 typedef struct {
-  int framebuffer;
   float projections[32];
   float views[32];
+  Canvas* canvas;
   int viewport[4];
-} Display;
+} Layer;
 
 typedef struct {
   bool initialized;
@@ -131,8 +131,8 @@ typedef struct {
   uint32_t streamVBO;
   uint32_t streamIBO;
   uint32_t cameraUBO;
-  Display displays[MAX_DISPLAYS];
-  int display;
+  Layer layers[MAX_LAYERS];
+  int layer;
   Texture* textures[MAX_TEXTURES];
   bool stencilEnabled;
   bool stencilWriting;
@@ -213,8 +213,8 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 
 // Internal State
-void lovrGraphicsPushDisplay(int framebuffer, float* projections, float* views, int* viewport);
-void lovrGraphicsPopDisplay();
+void lovrGraphicsPushLayer(Layer layer);
+void lovrGraphicsPopLayer();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);
 void lovrGraphicsBindFramebuffer(int framebuffer);
 Texture* lovrGraphicsGetTexture(int slot);
