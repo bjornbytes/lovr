@@ -139,6 +139,7 @@ typedef struct {
   uint32_t program;
   uint32_t vertexArray;
   uint32_t vertexBuffer;
+  uint32_t uniformBuffer;
   uint32_t indexBuffer;
   GraphicsStats stats;
 } GraphicsState;
@@ -225,6 +226,7 @@ Shader* lovrGraphicsGetActiveShader();
 void lovrGraphicsUseProgram(uint32_t program);
 void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
+void lovrGraphicsBindUniformBuffer(uint32_t ubo);
 void lovrGraphicsBindIndexBuffer(uint32_t ibo);
 void lovrGraphicsDrawArrays(GLenum mode, size_t start, size_t count, int instances);
 void lovrGraphicsDrawElements(GLenum mode, size_t count, size_t indexSize, size_t offset, int instances);
