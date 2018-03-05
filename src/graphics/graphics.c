@@ -115,7 +115,7 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
     shader = state.defaultShaders[state.defaultShader] = lovrShaderCreateDefault(state.defaultShader);
   }
 
-  mat4 model = state.transforms[state.transform][MATRIX_MODEL];
+  mat4 model = state.transforms[state.transform];
   lovrShaderSetMatrix(shader, "lovrModel", model, 16);
 
   float* views = state.layers[state.layer].views;
@@ -597,24 +597,23 @@ void lovrGraphicsPop() {
 }
 
 void lovrGraphicsOrigin() {
-  mat4_identity(state.transforms[state.transform][MATRIX_MODEL]);
-  mat4_identity(state.transforms[state.transform][MATRIX_VIEW]);
+  mat4_identity(state.transforms[state.transform]);
 }
 
-void lovrGraphicsTranslate(MatrixType type, float x, float y, float z) {
-  mat4_translate(state.transforms[state.transform][type], x, y, z);
+void lovrGraphicsTranslate(float x, float y, float z) {
+  mat4_translate(state.transforms[state.transform], x, y, z);
 }
 
-void lovrGraphicsRotate(MatrixType type, float angle, float ax, float ay, float az) {
-  mat4_rotate(state.transforms[state.transform][type], angle, ax, ay, az);
+void lovrGraphicsRotate(float angle, float ax, float ay, float az) {
+  mat4_rotate(state.transforms[state.transform], angle, ax, ay, az);
 }
 
-void lovrGraphicsScale(MatrixType type, float x, float y, float z) {
-  mat4_scale(state.transforms[state.transform][type], x, y, z);
+void lovrGraphicsScale(float x, float y, float z) {
+  mat4_scale(state.transforms[state.transform], x, y, z);
 }
 
-void lovrGraphicsMatrixTransform(MatrixType type, mat4 transform) {
-  mat4_multiply(state.transforms[state.transform][type], transform);
+void lovrGraphicsMatrixTransform(mat4 transform) {
+  mat4_multiply(state.transforms[state.transform], transform);
 }
 
 // Primitives
@@ -1015,7 +1014,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 
   lovrGraphicsPush();
   lovrGraphicsOrigin();
-  lovrGraphicsRotate(MATRIX_MODEL, angle, ax, ay, az);
+  lovrGraphicsRotate(angle, ax, ay, az);
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
 
   if (texture->type == TEXTURE_CUBE) {
@@ -1100,9 +1099,9 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrMeshWriteIndices(state.mesh, 0, 0);
 
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
-  lovrGraphicsScale(MATRIX_MODEL, scale, scale, scale);
-  lovrGraphicsTranslate(MATRIX_MODEL, 0, offsety, 0);
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsScale(scale, scale, scale);
+  lovrGraphicsTranslate(0, offsety, 0);
   lovrGraphicsSetDefaultShader(SHADER_FONT);
   Material* material = lovrGraphicsGetDefaultMaterial();
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, font->texture);

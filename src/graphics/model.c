@@ -9,7 +9,7 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
 
   if (node->primitives.length > 0) {
     lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(MATRIX_MODEL, model->nodeTransforms[nodeIndex]);
+    lovrGraphicsMatrixTransform(model->nodeTransforms[nodeIndex]);
 
     float globalInverse[16];
     if (model->animator) {
@@ -160,7 +160,7 @@ void lovrModelDraw(Model* model, mat4 transform, int instances) {
   }
 
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
+  lovrGraphicsMatrixTransform(transform);
   renderNode(model, 0, instances);
   lovrGraphicsPop();
 }
