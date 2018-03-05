@@ -26,10 +26,6 @@ local conf = {
   }
 }
 
-local function applyHeadsetOffset()
-  lovr.graphics.translate('view', 0, -conf.headset.offset, 0)
-end
-
 function lovr.errhand(message)
   message = 'Error:\n' .. message:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
   print(message)
@@ -46,12 +42,6 @@ function lovr.errhand(message)
   local function render()
     lovr.graphics.print(message, -width / 2, conf.headset.offset, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
   end
-  local function headsetRender()
-    if lovr.headset.getOriginType() == 'head' then
-      applyHeadsetOffset()
-    end
-    render()
-  end
   while true do
     lovr.event.pump()
     for name in lovr.event.poll() do
@@ -60,9 +50,8 @@ function lovr.errhand(message)
     lovr.graphics.clear()
     lovr.graphics.origin()
     if lovr.headset and lovr.getOS() ~= 'Web' then
-      lovr.headset.renderTo(headsetRender)
+      lovr.headset.renderTo(render)
     end
-    applyHeadsetOffset()
     render()
     lovr.graphics.present()
     lovr.timer.sleep(lovr.headset and .001 or .1)
@@ -149,13 +138,6 @@ end
 
 lovr.handlers = setmetatable({}, { __index = lovr })
 
-local function headsetRenderCallback(eye)
-  if lovr.headset.getOriginType() == 'head' then
-    applyHeadsetOffset()
-  end
-  lovr.draw(eye)
-end
-
 function lovr.step()
   lovr.event.pump()
   for name, a, b, c, d in lovr.event.poll() do
@@ -182,9 +164,8 @@ function lovr.step()
     lovr.graphics.origin()
     if lovr.draw then
       if lovr.headset then
-        lovr.headset.renderTo(headsetRenderCallback)
+        lovr.headset.renderTo(lovr.draw)
       else
-        applyHeadsetOffset()
         lovr.draw()
       end
     end

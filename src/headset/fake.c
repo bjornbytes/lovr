@@ -13,7 +13,7 @@
 
 typedef struct {
   bool initialized;
-  HeadsetType type;
+  float offset;
 
   vec_controller_t controllers;
 
@@ -140,8 +140,10 @@ static void check_window_existance() {
   }
 }
 
-static bool fakeInit() {
+static bool fakeInit(float offset) {
   if (state.initialized) return true;
+  state.offset = offset;
+
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
   state.fov = 67.0f * M_PI / 100.0f;
@@ -309,7 +311,9 @@ static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
   mat4_set(projections + 16, projections);
 
   float views[32];
-  mat4_set(views, state.transform);
+  mat4_identity(views);
+  mat4_translate(views, 0, state.offset, 0);
+  mat4_multiply(views, state.transform);
   mat4_invert(views);
   mat4_set(views + 16, views);
 
