@@ -29,7 +29,6 @@ typedef struct {
   double pitch;
 
   float orientation[4];
-  float projection[16];
   float transform[16];
 
   GLFWwindow* hookedWindow;
@@ -77,15 +76,7 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
   const double l = 0.01;
 
   state.yaw -= dx * k;
-  state.pitch -= dy * l;
-
-  if (state.pitch < -M_PI / 2.0) {
-    state.pitch = -M_PI / 2.0;
-  }
-
-  if (state.pitch > M_PI / 2.0) {
-    state.pitch = M_PI / 2.0;
-  }
+  state.pitch -= CLAMP(dy * l, -M_PI / 2., M_PI / 2.);
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -312,26 +303,26 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
 }
 
 static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
-  GLFWwindow* window = glfwGetCurrentContext();
-  if (!window || !state.mirrored) {
+  if (!state.mirrored) {
     return;
   }
 
-  int w, h;
-  glfwGetFramebufferSize(window, &w, &h);
-  mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float) (w / 2) / h);
+  int width, height;
+  fakeGetDisplayDimensions(&width, &height);
 
-  float transform[16];
-  mat4_set(transform, state.transform);
-  mat4_invert(transform);
+  float projections[32];
+  mat4_perspective(projections, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height / 2.);
+  mat4_set(projections + 16, projections);
 
-  int viewport[4] = { 0, 0, w, h };
-  lovrGraphicsPushDisplay(0, state.projection, viewport);
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
+  float views[32];
+  mat4_set(views, state.transform);
+  mat4_invert(views);
+  mat4_set(views + 16, views);
+
+  int viewport[4] = { 0, 0, width, height };
+  lovrGraphicsPushDisplay(0, projections, views, viewport);
   lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
   callback(EYE_LEFT, userdata);
-  lovrGraphicsPop();
   lovrGraphicsPopDisplay();
 }
 

@@ -254,6 +254,10 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     map_set(&shader->attributes, name, glGetAttribLocation(program, name));
   }
 
+  // Uniform block binding
+  uint32_t cameraBlockIndex = glGetUniformBlockIndex(program, "lovrCamera");
+  glUniformBlockBinding(program, cameraBlockIndex, LOVR_SHADER_BLOCK_CAMERA);
+
   return shader;
 }
 

@@ -77,7 +77,8 @@ typedef enum {
 
 typedef struct {
   int framebuffer;
-  float projection[16];
+  float projections[32];
+  float views[32];
   int viewport[4];
 } Display;
 
@@ -125,6 +126,7 @@ typedef struct {
   Winding winding;
   bool wireframe;
   Mesh* mesh;
+  uint32_t cameraUBO;
   Display displays[MAX_DISPLAYS];
   int display;
   Texture* textures[MAX_TEXTURES];
@@ -208,7 +210,7 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 
 // Internal State
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
-void lovrGraphicsPushDisplay(int framebuffer, mat4 projection, int* viewport);
+void lovrGraphicsPushDisplay(int framebuffer, float* projections, float* views, int* viewport);
 void lovrGraphicsPopDisplay();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);
 void lovrGraphicsBindFramebuffer(int framebuffer);
