@@ -1019,49 +1019,14 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 
   if (texture->type == TEXTURE_CUBE) {
     float vertices[] = {
-      // Front
-      1.f, -1.f, -1.f,  0, 0, 0, 0, 0,
-      1.f, 1.f, -1.f,   0, 0, 0, 0, 0,
-      -1.f, -1.f, -1.f, 0, 0, 0, 0, 0,
-      -1.f, 1.f, -1.f,  0, 0, 0, 0, 0,
-
-      // Left
-      -1.f, 1.f, -1.f,  0, 0, 0, 0, 0,
-      -1.f, 1.f, 1.f,   0, 0, 0, 0, 0,
-      -1.f, -1.f, -1.f, 0, 0, 0, 0, 0,
-      -1.f, -1.f, 1.f,  0, 0, 0, 0, 0,
-
-      // Back
-      -1.f, -1.f, 1.f,  0, 0, 0, 0, 0,
-      -1.f, 1.f, 1.f,   0, 0, 0, 0, 0,
-      1.f, -1.f, 1.f,   0, 0, 0, 0, 0,
-      1.f, 1.f, 1.f,    0, 0, 0, 0, 0,
-
-      // Right
-      1.f, 1.f, 1.f,    0, 0, 0, 0, 0,
-      1.f, 1.f, -1.f,   0, 0, 0, 0, 0,
-      1.f, -1.f, 1.f,   0, 0, 0, 0, 0,
-      1.f, -1.f, -1.f,  0, 0, 0, 0, 0,
-
-      // Bottom
-      1.f, -1.f, -1.f,  0, 0, 0, 0, 0,
-      -1.f, -1.f, -1.f, 0, 0, 0, 0, 0,
-      1.f, -1.f, 1.f,   0, 0, 0, 0, 0,
-      -1.f, -1.f, 1.f,  0, 0, 0, 0, 0,
-
-      // Adjust
-      -1.f, -1.f, 1.f,  0, 0, 0, 0, 0,
-      -1.f, 1.f, -1.f,  0, 0, 0, 0, 0,
-
-      // Top
-      -1.f, 1.f, -1.f,  0, 0, 0, 0, 0,
-      1.f, 1.f, -1.f,   0, 0, 0, 0, 0,
-      -1.f, 1.f, 1.f,   0, 0, 0, 0, 0,
-      1.f, 1.f, 1.f,    0, 0, 0, 0, 0
+      -1, 1, 1,  0, 0, 0, 0, 0,
+      -1, -1, 1, 0, 0, 0, 0, 0,
+      1, 1, 1,   0, 0, 0, 0, 0,
+      1, -1, 1,  0, 0, 0, 0, 0
     };
 
-    VertexPointer vertexPointer = lovrGraphicsGetVertexPointer(26);
-    memcpy(vertexPointer.raw, vertices, 26 * 8 * sizeof(float));
+    VertexPointer vertexPointer = lovrGraphicsGetVertexPointer(4);
+    memcpy(vertexPointer.raw, vertices, 4 * 8 * sizeof(float));
     Material* material = lovrGraphicsGetDefaultMaterial();
     lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, texture);
     lovrGraphicsSetDefaultShader(SHADER_SKYBOX);

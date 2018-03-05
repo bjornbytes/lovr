@@ -118,9 +118,9 @@ const char* lovrDefaultFragmentShader = ""
 const char* lovrSkyboxVertexShader = ""
 "out vec3 texturePosition; \n"
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
-"  texturePosition = vertex.xyz; \n"
+"  texturePosition = (inverse(mat3(transform)) * (inverse(projection) * vertex).xyz); \n"
 "  texturePosition.y *= -1; \n"
-"  return (projection * transform * vertex).xyww; \n"
+"  return vertex; \n"
 "}";
 
 const char* lovrSkyboxFragmentShader = ""
