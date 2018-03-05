@@ -252,7 +252,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
   state.mesh = lovrMeshCreate(64, format, MESH_TRIANGLES, MESH_STREAM);
   glGenBuffers(1, &state.cameraUBO);
-  glBindBuffer(GL_UNIFORM_BUFFER, state.cameraUBO);
+  lovrGraphicsBindUniformBuffer(state.cameraUBO);
   glBufferData(GL_UNIFORM_BUFFER, 4 * 16 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
   glBindBufferBase(GL_UNIFORM_BUFFER, LOVR_SHADER_BLOCK_CAMERA, state.cameraUBO);
   lovrGraphicsReset();
@@ -1150,8 +1150,7 @@ void lovrGraphicsPushLayer(Layer layer) {
   }
 
   memcpy(&state.layers[state.layer], &layer, sizeof(Layer));
-
-  glBindBuffer(GL_UNIFORM_BUFFER, state.cameraUBO);
+  lovrGraphicsBindUniformBuffer(state.cameraUBO);
   glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), &layer);
 
   if (state.canvasCount == 0) {
@@ -1240,6 +1239,13 @@ void lovrGraphicsBindVertexBuffer(uint32_t vertexBuffer) {
   if (state.vertexBuffer != vertexBuffer) {
     state.vertexBuffer = vertexBuffer;
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+  }
+}
+
+void lovrGraphicsBindUniformBuffer(uint32_t uniformBuffer) {
+  if (state.uniformBuffer != uniformBuffer) {
+    state.uniformBuffer = uniformBuffer;
+    glBindBuffer(GL_UNIFORM_BUFFER, uniformBuffer);
   }
 }
 
