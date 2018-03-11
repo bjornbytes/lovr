@@ -88,18 +88,35 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
 int l_lovrMeshSetVertices(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   VertexFormat* format = lovrMeshGetVertexFormat(mesh);
-  luaL_checktype(L, 2, LUA_TTABLE);
-  int vertexCount = lua_objlen(L, 2);
-  int start = luaL_optnumber(L, 3, 1) - 1;
-  int maxVertices = lovrMeshGetVertexCount(mesh);
-  lovrAssert(start + vertexCount <= maxVertices, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", maxVertices);
-  VertexPointer vertices = lovrMeshMap(mesh, start, vertexCount, false, true);
+  uint32_t capacity = lovrMeshGetVertexCount(mesh);
 
-  for (int i = 0; i < vertexCount; i++) {
-    lua_rawgeti(L, 2, i + 1);
-    luaL_checktype(L, -1, LUA_TTABLE);
-    luax_setvertex(L, -1, &vertices, format);
-    lua_pop(L, 1);
+  VertexData* vertexData = NULL;
+  uint32_t sourceSize;
+  if (lua_istable(L, 2)) {
+    sourceSize = lua_objlen(L, 2);
+  } else {
+    vertexData = luax_checktype(L, 2, VertexData);
+    sourceSize = vertexData->count;
+    bool sameFormat = !memcmp(&vertexData->format, format, sizeof(VertexFormat));
+    lovrAssert(sameFormat, "Mesh and VertexData must have the same format to copy vertices");
+  }
+
+  uint32_t start = luaL_optnumber(L, 3, 1) - 1;
+  uint32_t count = luaL_optinteger(L, 4, sourceSize);
+  lovrAssert(start + count <= capacity, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", capacity);
+  lovrAssert(count <= sourceSize, "Cannot set %d vertices on Mesh: source only has %d vertices", count, sourceSize);
+
+  VertexPointer vertices = lovrMeshMap(mesh, start, count, false, true);
+
+  if (vertexData) {
+    memcpy(vertices.raw, vertexData->blob.data, count * format->stride);
+  } else {
+    for (uint32_t i = 0; i < count; i++) {
+      lua_rawgeti(L, 2, i + 1);
+      luaL_checktype(L, -1, LUA_TTABLE);
+      luax_setvertex(L, -1, &vertices, format);
+      lua_pop(L, 1);
+    }
   }
 
   return 0;
