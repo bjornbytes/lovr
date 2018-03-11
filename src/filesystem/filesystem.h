@@ -1,3 +1,4 @@
+#include "lib/vec/vec.h"
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -14,10 +15,13 @@ typedef struct {
   char* savePathRelative;
   char* savePathFull;
   bool isFused;
+  vec_str_t requirePath;
 } FilesystemState;
 
 void lovrFilesystemInit(const char* arg0, const char* arg1);
 void lovrFilesystemDestroy();
+void lovrFilesystemAddRequirePath(const char* path);
+void lovrFilesystemClearRequirePath();
 int lovrFilesystemCreateDirectory(const char* path);
 int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size);
 void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata);
@@ -25,6 +29,7 @@ int lovrFilesystemGetExecutablePath(char* dest, unsigned int size);
 const char* lovrFilesystemGetIdentity();
 long lovrFilesystemGetLastModified(const char* path);
 const char* lovrFilesystemGetRealDirectory(const char* path);
+vec_str_t* lovrFilesystemGetRequirePath();
 const char* lovrFilesystemGetSaveDirectory();
 size_t lovrFilesystemGetSize(const char* path);
 const char* lovrFilesystemGetSource();

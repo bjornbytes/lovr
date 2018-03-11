@@ -31,6 +31,9 @@ void lovrFilesystemInit(const char* arg0, const char* arg1) {
   state.source = malloc(LOVR_PATH_MAX * sizeof(char));
   state.identity = NULL;
   state.isFused = true;
+  vec_init(&state.requirePath);
+  vec_push(&state.requirePath, "?.lua");
+  vec_push(&state.requirePath, "?/init.lua");
 
   // Try to mount either an archive fused to the executable or an archive from the command line
   lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
@@ -54,8 +57,17 @@ void lovrFilesystemDestroy() {
   free(state.source);
   free(state.savePathFull);
   free(state.savePathRelative);
+  vec_deinit(&state.requirePath);
   PHYSFS_deinit();
   memset(&state, 0, sizeof(FilesystemState));
+}
+
+void lovrFilesystemAddRequirePath(const char* path) {
+  vec_push(&state.requirePath, path);
+}
+
+void lovrFilesystemClearRequirePath() {
+  vec_clear(&state.requirePath);
 }
 
 int lovrFilesystemCreateDirectory(const char* path) {
@@ -130,6 +142,10 @@ long lovrFilesystemGetLastModified(const char* path) {
 
 const char* lovrFilesystemGetRealDirectory(const char* path) {
   return PHYSFS_getRealDir(path);
+}
+
+vec_str_t* lovrFilesystemGetRequirePath() {
+  return &state.requirePath;
 }
 
 const char* lovrFilesystemGetSaveDirectory() {
