@@ -198,7 +198,6 @@ void lovrGraphicsPoints(float* points, int count);
 void lovrGraphicsLine(float* points, int count);
 void lovrGraphicsTriangle(DrawMode mode, Material* material, float* points);
 void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform);
-void lovrGraphicsPlaneFullscreen(Texture* texture);
 void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform);
 void lovrGraphicsArc(DrawMode mode, ArcMode, Material* material, mat4 transform, float theta1, float theta2, int segments);
 void lovrGraphicsCircle(DrawMode mode, Material* material, mat4 transform, int segments);
@@ -207,6 +206,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments);
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
+void lovrGraphicsBlit(Texture* texture);
 
 // Internal State
 void lovrGraphicsPushLayer(Layer layer);

@@ -732,7 +732,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
     Shader* lastShader = lovrGraphicsGetShader();
     lovrRetain(lastShader);
     lovrGraphicsSetShader(NULL);
-    lovrGraphicsPlaneFullscreen(&state.canvas->texture);
+    lovrGraphicsBlit(&state.canvas->texture);
     lovrGraphicsSetShader(lastShader);
     lovrRelease(lastShader);
     lovrGraphicsSetColor(oldColor);

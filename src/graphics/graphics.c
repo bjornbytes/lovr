@@ -731,22 +731,6 @@ void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
   lovrGraphicsPop();
 }
 
-void lovrGraphicsPlaneFullscreen(Texture* texture) {
-  float data[] = {
-    -1, 1, 0,  0, 1,
-    -1, -1, 0, 0, 0,
-    1, 1, 0,   1, 1,
-    1, -1, 0,  1, 0
-  };
-
-  lovrGraphicsSetDefaultShader(SHADER_FULLSCREEN);
-  Material* material = lovrGraphicsGetDefaultMaterial();
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
-  lovrGraphicsSetStreamData(data, 20);
-  lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, false, true, false);
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
-}
-
 void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsPush();
@@ -1067,7 +1051,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   TextureType type = texture->type;
   lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
   MaterialTexture materialTexture = type == TEXTURE_CUBE ? TEXTURE_ENVIRONMENT_MAP : TEXTURE_DIFFUSE;
-  DefaultShader shader = type == TEXTURE_CUBE ? SHADER_SKYBOX : SHADER_PANO;
+  DefaultShader shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO;
   Winding winding = state.winding;
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
   lovrGraphicsSetDefaultShader(shader);
@@ -1124,6 +1108,22 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   lovrGraphicsSetDepthTest(mode, write);
   lovrGraphicsSetStencilTest(state.stencilMode, state.stencilValue);
+}
+
+void lovrGraphicsBlit(Texture* texture) {
+  float quad[] = {
+    -1, 1, 0,  0, 1,
+    -1, -1, 0, 0, 0,
+    1, 1, 0,   1, 1,
+    1, -1, 0,  1, 0
+  };
+
+  lovrGraphicsSetDefaultShader(SHADER_BLIT);
+  Material* material = lovrGraphicsGetDefaultMaterial();
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
+  lovrGraphicsSetStreamData(quad, 20);
+  lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, false, true, false);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
 }
 
 // Internal State

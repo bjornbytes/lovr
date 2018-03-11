@@ -255,10 +255,10 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 Shader* lovrShaderCreateDefault(DefaultShader type) {
   switch (type) {
     case SHADER_DEFAULT: return lovrShaderCreate(NULL, NULL);
-    case SHADER_SKYBOX: return lovrShaderCreate(lovrSkyboxVertexShader, lovrSkyboxFragmentShader); break;
-    case SHADER_PANO: return lovrShaderCreate(lovrSkyboxVertexShader, lovrPanoFragmentShader); break;
+    case SHADER_CUBE: return lovrShaderCreate(lovrCubeVertexShader, lovrCubeFragmentShader); break;
+    case SHADER_PANO: return lovrShaderCreate(lovrCubeVertexShader, lovrPanoFragmentShader); break;
     case SHADER_FONT: return lovrShaderCreate(NULL, lovrFontFragmentShader);
-    case SHADER_FULLSCREEN: return lovrShaderCreate(lovrNoopVertexShader, NULL);
+    case SHADER_BLIT: return lovrShaderCreate(lovrBlitVertexShader, NULL);
     default: lovrThrow("Unknown default shader type");
   }
 }

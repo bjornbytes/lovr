@@ -677,12 +677,6 @@ int l_lovrGraphicsTriangle(lua_State* L) {
 }
 
 int l_lovrGraphicsPlane(lua_State* L) {
-  if (lua_isuserdata(L, 1) && lua_gettop(L) == 1) {
-    Texture* texture = luax_checktypeof(L, 1, Texture);
-    lovrGraphicsPlaneFullscreen(texture);
-    return 0;
-  }
-
   DrawMode drawMode = DRAW_MODE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
@@ -814,6 +808,12 @@ int l_lovrGraphicsStencil(lua_State* L) {
   }
   lua_settop(L, 1);
   lovrGraphicsStencil(action, replaceValue, stencilCallback, L);
+  return 0;
+}
+
+int l_lovrGraphicsBlit(lua_State* L) {
+  Texture* texture = luax_checktypeof(L, 1, Texture);
+  lovrGraphicsBlit(texture);
   return 0;
 }
 
@@ -1172,6 +1172,7 @@ const luaL_Reg lovrGraphics[] = {
   { "skybox", l_lovrGraphicsSkybox },
   { "print", l_lovrGraphicsPrint },
   { "stencil", l_lovrGraphicsStencil },
+  { "blit", l_lovrGraphicsBlit },
   { "newAnimator", l_lovrGraphicsNewAnimator },
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newFont", l_lovrGraphicsNewFont },
