@@ -63,7 +63,7 @@ void lovrFilesystemDestroy() {
 }
 
 void lovrFilesystemAddRequirePath(const char* path) {
-  vec_push(&state.requirePath, path);
+  vec_push(&state.requirePath, (char*) path);
 }
 
 void lovrFilesystemClearRequirePath() {
