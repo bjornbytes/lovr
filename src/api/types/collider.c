@@ -45,7 +45,7 @@ int l_lovrColliderGetJointList(lua_State* L) {
   lua_newtable(L);
   vec_void_t* joints = lovrColliderGetJoints(collider);
   for (int i = 0; i < joints->length; i++) {
-    luax_pushshape(L, joints->data[i]);
+    luax_pushjoint(L, joints->data[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
