@@ -4,6 +4,36 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+static void lovrMeshBindAttribute(Shader* shader, Mesh *mesh, VertexFormat *format, int i, bool enabled, int divisor) {
+  Attribute attribute = format->attributes[i];
+  int location = lovrShaderGetAttributeId(shader, attribute.name);
+
+  if (location >= 0) {
+    if (enabled) {
+      glEnableVertexAttribArray(location);
+
+      GLenum glType;
+      switch (attribute.type) {
+        case ATTR_FLOAT: glType = GL_FLOAT; break;
+        case ATTR_BYTE: glType = GL_UNSIGNED_BYTE; break;
+        case ATTR_INT: glType = GL_UNSIGNED_INT; break;
+      }
+
+      // Divisor lives in the VAO and the VAO is per-mesh, so the only reason we would need to set a zero divisor for an attribute is if a nonzero divisor attribute is attached then disabled, and a zero divisor attribute is enabled afterward in its place. Nonzero attachments length is used to determine there is a risk this has happened.
+      if (divisor || mesh->attachments.length)
+        glVertexAttribDivisor(location, divisor);
+
+      if (attribute.type == ATTR_INT) {
+        glVertexAttribIPointer(location, attribute.count, glType, format->stride, (void*) attribute.offset);
+      } else {
+        glVertexAttribPointer(location, attribute.count, glType, GL_TRUE, format->stride, (void*) attribute.offset);
+      }
+    } else {
+      glDisableVertexAttribArray(location);
+    }
+  }
+}
+
 static void lovrMeshBindAttributes(Mesh* mesh) {
   Shader* shader = lovrGraphicsGetActiveShader();
   if (shader == mesh->lastShader && !mesh->attributesDirty) {
@@ -14,28 +44,15 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
 
   VertexFormat* format = &mesh->vertexData->format;
   for (int i = 0; i < format->count; i++) {
-    Attribute attribute = format->attributes[i];
-    int location = lovrShaderGetAttributeId(shader, attribute.name);
+    lovrMeshBindAttribute(shader, mesh, format, i, mesh->enabledAttributes & (1 << i), 0);
+  }
 
-    if (location >= 0) {
-      if (mesh->enabledAttributes & (1 << i)) {
-        glEnableVertexAttribArray(location);
-
-        GLenum glType;
-        switch (attribute.type) {
-          case ATTR_FLOAT: glType = GL_FLOAT; break;
-          case ATTR_BYTE: glType = GL_UNSIGNED_BYTE; break;
-          case ATTR_INT: glType = GL_UNSIGNED_INT; break;
-        }
-
-        if (attribute.type == ATTR_INT) {
-          glVertexAttribIPointer(location, attribute.count, glType, format->stride, (void*) attribute.offset);
-        } else {
-          glVertexAttribPointer(location, attribute.count, glType, GL_TRUE, format->stride, (void*) attribute.offset);
-        }
-      } else {
-        glDisableVertexAttribArray(location);
-      }
+  {
+    int i; MeshAttachment attachment;
+    vec_foreach(&mesh->attachments, attachment, i) {
+      lovrGraphicsBindVertexBuffer(attachment.mesh->vbo);
+      // TODO: Allow disabling of attached attributes?
+      lovrMeshBindAttribute(shader, attachment.mesh, &attachment.mesh->vertexData->format, attachment.attribute, true, attachment.instanceDivisor);
     }
   }
 
@@ -70,7 +87,10 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat* format, MeshDrawMode drawMode
   mesh->vbo = 0;
   mesh->ibo = 0;
   mesh->material = NULL;
+  vec_init(&mesh->attachments);
   mesh->lastShader = NULL;
+
+  mesh->isAnAttachment = false;
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);
@@ -88,6 +108,15 @@ void lovrMeshDestroy(void* ref) {
   glDeleteBuffers(1, &mesh->vbo);
   glDeleteBuffers(1, &mesh->ibo);
   glDeleteVertexArrays(1, &mesh->vao);
+
+  {
+    int i; MeshAttachment attachment;
+    vec_foreach(&mesh->attachments, attachment, i) {
+      lovrRelease(attachment.mesh);
+    }
+  }
+  vec_deinit(&mesh->attachments);
+  
   free(mesh->indices.raw);
   free(mesh);
 }
@@ -270,4 +299,15 @@ void lovrMeshUnmap(Mesh* mesh) {
 #else
   glUnmapBuffer(GL_ARRAY_BUFFER);
 #endif
+}
+
+void lovrMeshAttach(Mesh *attachTo, Mesh* attachThis, int attribute, int instanceDivisor)
+{
+  lovrAssert(!attachTo->isAnAttachment, "Attempted to attach to a mesh which is an attachment itself");
+  lovrAssert(!attachThis->attachments.length, "Attempted to attach a mesh which has attachments itself");
+
+  MeshAttachment attachment = {attachThis, attribute, instanceDivisor};
+  attachThis->isAnAttachment = true;
+  lovrRetain(attachThis);
+  vec_push(&attachTo->attachments, attachment);
 }

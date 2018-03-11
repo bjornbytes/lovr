@@ -229,6 +229,20 @@ int l_lovrMeshSetMaterial(lua_State* L) {
   return 0;
 }
 
+int l_lovrMeshAttachAttributes(lua_State* L) {
+  Mesh* attachTo = luax_checktype(L, 1, Mesh);
+  Mesh* attachThis = luax_checktype(L, 2, Mesh);
+  int instanceDivisor = luaL_optnumber(L, 3, 0);
+  // TODO: Check attribute name(s) in 4th argument and if present only attach those
+
+  VertexFormat* format = &attachThis->vertexData->format;
+  for(int c = 0; c < format->count; c++) {
+    lovrMeshAttach(attachTo, attachThis, c, instanceDivisor);
+  }
+
+  return 0;
+}
+
 const luaL_Reg lovrMesh[] = {
   { "drawInstanced", l_lovrMeshDrawInstanced },
   { "draw", l_lovrMeshDraw },
@@ -249,5 +263,6 @@ const luaL_Reg lovrMesh[] = {
   { "setDrawRange", l_lovrMeshSetDrawRange },
   { "getMaterial", l_lovrMeshGetMaterial },
   { "setMaterial", l_lovrMeshSetMaterial },
+  { "attachAttributes", l_lovrMeshAttachAttributes },
   { NULL, NULL }
 };
