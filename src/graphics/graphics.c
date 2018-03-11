@@ -66,6 +66,8 @@ void lovrGraphicsReset() {
   state.defaultShader = SHADER_DEFAULT;
   mat4_perspective(state.layers[state.layer].projections, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
   mat4_perspective(state.layers[state.layer].projections + 16, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
+  mat4_identity(state.layers[state.layer].views);
+  mat4_identity(state.layers[state.layer].views + 16);
   state.layers[state.layer].viewport[0] = 0;
   state.layers[state.layer].viewport[1] = 0;
   state.layers[state.layer].viewport[2] = w;
@@ -1127,20 +1129,21 @@ void lovrGraphicsBlit(Texture* texture) {
 }
 
 // Internal State
+static void bindLayer(Layer* layer) {
+  int* viewport = layer->viewport;
+  lovrGraphicsBindUniformBuffer(state.cameraUBO);
+  glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), layer);
+  lovrGraphicsBindFramebuffer(layer->canvas ? layer->canvas->framebuffer : 0);
+  lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+}
+
 void lovrGraphicsPushLayer(Layer layer) {
   if (++state.layer >= MAX_LAYERS) {
     lovrThrow("Layer overflow");
   }
 
   memcpy(&state.layers[state.layer], &layer, sizeof(Layer));
-  lovrGraphicsBindUniformBuffer(state.cameraUBO);
-  glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), &layer);
-
-  if (state.canvasCount == 0) {
-    int* viewport = layer.viewport;
-    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->framebuffer : 0);
-    lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  }
+  bindLayer(&state.layers[state.layer]);
 }
 
 void lovrGraphicsPopLayer() {
@@ -1152,12 +1155,7 @@ void lovrGraphicsPopLayer() {
     lovrThrow("Layer underflow");
   }
 
-  if (state.canvasCount == 0) {
-    Layer layer = state.layers[state.layer];
-    int* viewport = layer.viewport;
-    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->framebuffer : 0);
-    lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  }
+  bindLayer(&state.layers[state.layer]);
 }
 
 void lovrGraphicsSetViewport(int x, int y, int w, int h) {
