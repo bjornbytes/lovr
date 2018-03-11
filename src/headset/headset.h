@@ -62,7 +62,6 @@ typedef struct {
 } Controller;
 
 typedef vec_t(Controller*) vec_controller_t;
-typedef void (*headsetRenderCallback)(HeadsetEye eye, void* userdata);
 
 typedef struct {
   HeadsetDriver driverType;
@@ -91,7 +90,7 @@ typedef struct {
   bool (*controllerIsTouched)(Controller* controller, ControllerButton button);
   void (*controllerVibrate)(Controller* controller, float duration, float power);
   ModelData* (*controllerNewModelData)(Controller* controller);
-  void (*renderTo)(headsetRenderCallback callback, void* userdata);
+  void (*renderTo)(void (*callback)(void*), void* userdata);
   void (*update)(float dt);
 } HeadsetInterface;
 
@@ -126,5 +125,5 @@ bool lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button
 bool lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button);
 void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power);
 ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
-void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
+void lovrHeadsetRenderTo(void (*callback)(void*), void* userdata);
 void lovrHeadsetUpdate(float dt);

@@ -670,7 +670,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   return modelData;
 }
 
-static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
+static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   ensureCanvas();
   state.isRendering = true;
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
@@ -705,7 +705,7 @@ static void openvrRenderTo(headsetRenderCallback callback, void* userdata) {
   // Render
   lovrGraphicsPushLayer(layer);
   lovrGraphicsClear(true, true, false, lovrGraphicsGetBackgroundColor(), 1., 0);
-  callback(EYE_LEFT, userdata);
+  callback(userdata);
   lovrGraphicsPopLayer();
 
   // OpenVR changes the OpenGL texture binding, so we reset it after rendering

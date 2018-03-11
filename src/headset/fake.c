@@ -302,7 +302,7 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
+static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   int width, height;
   fakeGetDisplayDimensions(&width, &height);
 
@@ -319,7 +319,7 @@ static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
 
   lovrGraphicsPushLayer(layer);
   lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
-  callback(EYE_LEFT, userdata);
+  callback(userdata);
   lovrGraphicsPopLayer();
 }
 

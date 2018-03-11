@@ -201,7 +201,7 @@ ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
   }
 }
 
-void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
+void lovrHeadsetRenderTo(void (*callback)(void*), void* userdata) {
   if (headset) {
     headset->renderTo(callback, userdata);
   }
