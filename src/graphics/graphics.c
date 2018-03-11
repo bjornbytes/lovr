@@ -706,27 +706,6 @@ void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
   lovrMeshDraw(state.mesh, transform, NULL, 1);
 }
 
-void lovrGraphicsPlaneFullscreen(Texture* texture) {
-  float vertices[] = {
-    -1, 1, 0,  0, 0, 0, 0, 1,
-    -1, -1, 0, 0, 0, 0, 0, 0,
-    1, 1, 0,   0, 0, 0, 1, 1,
-    1, -1, 0,  0, 0, 0, 1, 0
-  };
-
-  lovrGraphicsSetDefaultShader(SHADER_FULLSCREEN);
-  Material* material = lovrGraphicsGetDefaultMaterial();
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
-  VertexPointer vertexPointer = lovrGraphicsGetVertexPointer(4);
-  memcpy(vertexPointer.raw, vertices, 4 * 8 * sizeof(float));
-  lovrMeshWriteIndices(state.mesh, 0, 0);
-  lovrMeshSetMaterial(state.mesh, material);
-  lovrMeshSetDrawMode(state.mesh, MESH_TRIANGLE_STRIP);
-  lovrMeshSetDrawRange(state.mesh, 0, 4);
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
-  lovrMeshDraw(state.mesh, NULL, NULL, 1);
-}
-
 void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
   if (mode == DRAW_MODE_LINE) {
     float vertices[] = {
@@ -1018,7 +997,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   MaterialTexture materialTexture = type == TEXTURE_CUBE ? TEXTURE_ENVIRONMENT_MAP : TEXTURE_DIFFUSE;
   Winding winding = state.winding;
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
-  lovrGraphicsSetDefaultShader(type == TEXTURE_CUBE ? SHADER_SKYBOX : SHADER_PANO);
+  lovrGraphicsSetDefaultShader(type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO);
   Material* material = lovrGraphicsGetDefaultMaterial();
   lovrMaterialSetTexture(material, materialTexture, texture);
   VertexPointer vertexPointer = lovrGraphicsGetVertexPointer(4);
@@ -1084,6 +1063,27 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   lovrGraphicsSetDepthTest(mode, write);
   lovrGraphicsSetStencilTest(state.stencilMode, state.stencilValue);
+}
+
+void lovrGraphicsBlit(Texture* texture) {
+  float vertices[] = {
+    -1, 1, 0,  0, 0, 0, 0, 1,
+    -1, -1, 0, 0, 0, 0, 0, 0,
+    1, 1, 0,   0, 0, 0, 1, 1,
+    1, -1, 0,  0, 0, 0, 1, 0
+  };
+
+  lovrGraphicsSetDefaultShader(SHADER_BLIT);
+  Material* material = lovrGraphicsGetDefaultMaterial();
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
+  VertexPointer vertexPointer = lovrGraphicsGetVertexPointer(4);
+  memcpy(vertexPointer.raw, vertices, 4 * 8 * sizeof(float));
+  lovrMeshWriteIndices(state.mesh, 0, 0);
+  lovrMeshSetMaterial(state.mesh, material);
+  lovrMeshSetDrawMode(state.mesh, MESH_TRIANGLE_STRIP);
+  lovrMeshSetDrawRange(state.mesh, 0, 4);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
+  lovrMeshDraw(state.mesh, NULL, NULL, 1);
 }
 
 // Internal State

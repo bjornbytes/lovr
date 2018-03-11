@@ -90,9 +90,11 @@ const char* lovrShaderVertexSuffix = ""
 "    lovrPose[lovrBones[3]] * lovrBoneWeights[3]; \n"
 "  gl_PointSize = lovrPointSize; \n"
 "  vec4 projected = position(lovrProjection, lovrTransform, pose * vec4(lovrPosition, 1.0)); \n"
+"#ifndef MONOSCOPIC \n"
 "  gl_ClipDistance[0] = dot(projected, lovrClipPlane[lovrEye]); \n"
 "  projected.x *= .5; \n"
 "  projected.x += lovrEyeOffset[lovrEye] * projected.w; \n"
+"#endif \n"
 "  gl_Position = projected; \n"
 "}";
 
@@ -115,7 +117,7 @@ const char* lovrDefaultFragmentShader = ""
 "  return graphicsColor * lovrDiffuseColor * vertexColor * texture(image, uv); \n"
 "}";
 
-const char* lovrSkyboxVertexShader = ""
+const char* lovrCubeVertexShader = ""
 "out vec3 texturePosition; \n"
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  texturePosition = inverse(mat3(transform)) * (inverse(projection) * vertex).xyz; \n"
@@ -123,7 +125,7 @@ const char* lovrSkyboxVertexShader = ""
 "  return vertex; \n"
 "}";
 
-const char* lovrSkyboxFragmentShader = ""
+const char* lovrCubeFragmentShader = ""
 "in vec3 texturePosition; \n"
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  return graphicsColor * texture(lovrEnvironmentTexture, texturePosition); \n"
@@ -151,7 +153,8 @@ const char* lovrFontFragmentShader = ""
 "  return vec4(graphicsColor.rgb, graphicsColor.a * alpha); \n"
 "}";
 
-const char* lovrNoopVertexShader = ""
+const char* lovrBlitVertexShader = ""
+"#define MONOSCOPIC \n"
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  return vertex; \n"
 "}";

@@ -34,10 +34,10 @@ typedef union {
 
 typedef enum {
   SHADER_DEFAULT,
-  SHADER_SKYBOX,
+  SHADER_CUBE,
   SHADER_PANO,
   SHADER_FONT,
-  SHADER_FULLSCREEN
+  SHADER_BLIT
 } DefaultShader;
 
 typedef struct {
