@@ -76,7 +76,6 @@ static int filesystemLoader(lua_State* L) {
 int l_lovrFilesystemInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrFilesystem);
-  luax_registertype(L, "Blob", lovrBlob);
 
   lua_getglobal(L, "arg");
   lua_rawgeti(L, -1, -2);

@@ -597,7 +597,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   modelData->vertexData = lovrVertexDataCreate(vrModel->unVertexCount, &format, true);
 
-  float* vertices = modelData->vertexData->data.floats;
+  float* vertices = (float*) modelData->vertexData->blob.data;
   int vertex = 0;
   for (size_t i = 0; i < vrModel->unVertexCount; i++) {
     float* position = vrModel->rVertexData[i].vPosition.v;
@@ -647,7 +647,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   // Material
   RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
   TextureData* textureData = lovrTextureDataGetBlank(vrTexture->unWidth, vrTexture->unHeight, 0, FORMAT_RGBA);
-  memcpy(textureData->data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
+  memcpy(textureData->blob.data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
 
   vec_init(&modelData->textures);
   vec_push(&modelData->textures, NULL);

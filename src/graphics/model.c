@@ -61,7 +61,7 @@ Model* lovrModelCreate(ModelData* modelData) {
 
   model->mesh = lovrMeshCreate(modelData->vertexData->count, &modelData->vertexData->format, MESH_TRIANGLES, MESH_STATIC);
   VertexPointer vertices = lovrMeshMap(model->mesh, 0, modelData->vertexData->count, false, true);
-  memcpy(vertices.raw, modelData->vertexData->data.raw, modelData->vertexData->count * modelData->vertexData->format.stride);
+  memcpy(vertices.raw, modelData->vertexData->blob.data, modelData->vertexData->count * modelData->vertexData->format.stride);
   lovrMeshUnmap(model->mesh);
   lovrMeshSetVertexMap(model->mesh, modelData->indices.raw, modelData->indexCount);
   lovrMeshSetRangeEnabled(model->mesh, true);

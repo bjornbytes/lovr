@@ -16,7 +16,7 @@ void vertexFormatAppend(VertexFormat* format, const char* name, AttributeType ty
 }
 
 VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format, bool allocate) {
-  VertexData* vertexData = lovrAlloc(sizeof(VertexData), lovrVertexDataDestroy);
+  VertexData* vertexData = lovrAlloc(sizeof(VertexData), lovrBlobDestroy);
   if (!vertexData) return NULL;
 
   if (format) {
@@ -31,20 +31,13 @@ VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format, bool allo
   }
 
   vertexData->count = count;
-  vertexData->data.raw = NULL;
+  vertexData->blob.data = NULL;
 
   if (allocate) {
-    vertexData->data.raw = malloc(format->stride * count);
-    memset(vertexData->data.raw, 0, format->stride * count);
+    size_t size = format->stride * count;
+    vertexData->blob.data = calloc(1, size);
+    vertexData->blob.size = size;
   }
 
   return vertexData;
-}
-
-void lovrVertexDataDestroy(void* ref) {
-  VertexData* vertexData = ref;
-  if (vertexData->data.raw) {
-    free(vertexData->data.raw);
-  }
-  free(vertexData);
 }

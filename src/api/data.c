@@ -8,11 +8,12 @@
 int l_lovrDataInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrData);
+  luax_registertype(L, "Blob", lovrBlob);
   luax_registertype(L, "AudioStream", lovrAudioStream);
   luax_registertype(L, "ModelData", lovrModelData);
   luax_registertype(L, "Rasterizer", lovrRasterizer);
-  luax_registertype(L, "TextureData", lovrTextureData);
-  luax_registertype(L, "VertexData", lovrVertexData);
+  luax_extendtype(L, "Blob", "TextureData", lovrBlob, lovrTextureData);
+  luax_extendtype(L, "Blob", "VertexData", lovrBlob, lovrVertexData);
   return 1;
 }
 

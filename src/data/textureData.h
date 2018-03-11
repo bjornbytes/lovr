@@ -34,11 +34,10 @@ typedef struct {
 typedef vec_t(Mipmap) vec_mipmap_t;
 
 typedef struct {
-  Ref ref;
+  Blob blob;
   int width;
   int height;
-  void* data;
-  Blob* blob;
+  Blob* source;
   TextureFormat format;
   vec_mipmap_t mipmaps;
 } TextureData;

@@ -230,8 +230,9 @@ VertexPointer lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool w
   mesh->isMapped = true;
   mesh->mapStart = start;
   mesh->mapCount = count;
-  void* p = mesh->vertexData->data.bytes + start * mesh->vertexData->format.stride;
-  return (VertexPointer) { .raw = p };
+  VertexPointer pointer = { .raw = mesh->vertexData->blob.data };
+  pointer.bytes += start * mesh->vertexData->format.stride;
+  return pointer;
 #else
   if (mesh->isMapped) {
     lovrMeshUnmap(mesh);
@@ -246,8 +247,9 @@ VertexPointer lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool w
   access |= write ? GL_MAP_WRITE_BIT : 0;
   access |= (write && start == 0 && count == mesh->vertexData->count) ? GL_MAP_INVALIDATE_BUFFER_BIT : 0;
   lovrGraphicsBindVertexBuffer(mesh->vbo);
-  mesh->vertexData->data.raw = glMapBufferRange(GL_ARRAY_BUFFER, start * stride, count * stride, access);
-  return mesh->vertexData->data;
+  VertexPointer pointer;
+  pointer.raw = glMapBufferRange(GL_ARRAY_BUFFER, start * stride, count * stride, access);
+  return pointer;
 #endif
 }
 
@@ -263,7 +265,8 @@ void lovrMeshUnmap(Mesh* mesh) {
   size_t stride = mesh->vertexData->format.stride;
   size_t start = mesh->mapStart * stride;
   size_t count = mesh->mapCount * stride;
-  glBufferSubData(GL_ARRAY_BUFFER, start, count, mesh->vertexData->data.bytes + start);
+  VertexPointer vertices = { .raw = mesh->vertexData->blob.data };
+  glBufferSubData(GL_ARRAY_BUFFER, start, count, vertices.bytes + start);
 #else
   glUnmapBuffer(GL_ARRAY_BUFFER);
 #endif

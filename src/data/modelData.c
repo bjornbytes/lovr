@@ -338,7 +338,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 
     // Vertices
     for (unsigned int v = 0; v < assimpMesh->mNumVertices; v++) {
-      VertexPointer vertices = modelData->vertexData->data;
+      VertexPointer vertices = { .raw = modelData->vertexData->blob.data };
       vertices.bytes += vertex * modelData->vertexData->format.stride;
 
       *vertices.floats++ = assimpMesh->mVertices[v].x;
@@ -411,7 +411,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
       for (unsigned int w = 0; w < assimpBone->mNumWeights; w++) {
         uint32_t vertexIndex = baseVertex + assimpBone->mWeights[w].mVertexId;
         float weight = assimpBone->mWeights[w].mWeight;
-        VertexPointer vertices = modelData->vertexData->data;
+        VertexPointer vertices = { .raw = modelData->vertexData->blob.data };
         vertices.bytes += vertexIndex * modelData->vertexData->format.stride;
         uint32_t* bones = (uint32_t*) (vertices.bytes + boneByteOffset);
         float* weights = (float*) (bones + MAX_BONES_PER_VERTEX);
@@ -571,7 +571,8 @@ static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6]) {
       } else {
         index = modelData->indices.ints[primitive->drawStart + j];
       }
-      vec3_init(vertex, (float*) (modelData->vertexData->data.bytes + index * modelData->vertexData->format.stride));
+      VertexPointer vertices = { .raw = modelData->vertexData->blob.data };
+      vec3_init(vertex, (float*) (vertices.bytes + index * modelData->vertexData->format.stride));
       mat4_transform(node->globalTransform, vertex);
       aabb[0] = MIN(aabb[0], vertex[0]);
       aabb[1] = MAX(aabb[1], vertex[0]);

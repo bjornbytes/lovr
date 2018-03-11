@@ -134,7 +134,7 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
     // validation
   }
 
-  if (!textureData->data) {
+  if (!textureData->blob.data) {
     return;
   }
 
@@ -160,11 +160,11 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
     switch (texture->type) {
       case TEXTURE_2D:
       case TEXTURE_CUBE:
-        glTexSubImage2D(binding, 0, 0, 0, textureData->width, textureData->height, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+        glTexSubImage2D(binding, 0, 0, 0, textureData->width, textureData->height, glFormat, GL_UNSIGNED_BYTE, textureData->blob.data);
         break;
       case TEXTURE_ARRAY:
       case TEXTURE_VOLUME:
-        glTexSubImage3D(binding, 0, 0, 0, slice, textureData->width, textureData->height, 1, glFormat, GL_UNSIGNED_BYTE, textureData->data);
+        glTexSubImage3D(binding, 0, 0, 0, slice, textureData->width, textureData->height, 1, glFormat, GL_UNSIGNED_BYTE, textureData->blob.data);
         break;
     }
 
