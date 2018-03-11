@@ -87,6 +87,7 @@ void lovrGraphicsReset() {
 
 void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Color color, float depth, int stencil) {
   if (clearColor) {
+    gammaCorrectColor(&color);
     float c[4] = { color.r, color.g, color.b, color.a };
     glClearBufferfv(GL_COLOR, 0, c);
     for (int i = 1; i < state.canvasCount; i++) {
