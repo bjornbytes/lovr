@@ -16,12 +16,11 @@ typedef struct {
 
 static HeadsetRenderData headsetRenderData;
 
-static void renderHelper(HeadsetEye eye, void* userdata) {
+static void renderHelper(void* userdata) {
   HeadsetRenderData* renderData = userdata;
   lua_State* L = renderData->L;
   lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
-  luax_pushenum(L, &HeadsetEyes, eye);
-  lua_call(L, 1, 0);
+  lua_call(L, 0, 0);
 }
 
 int l_lovrHeadsetInit(lua_State* L) {
