@@ -269,7 +269,6 @@ VertexPointer lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool w
   GLbitfield access = 0;
   access |= read ? GL_MAP_READ_BIT : 0;
   access |= write ? GL_MAP_WRITE_BIT : 0;
-  access |= (write && start == 0 && count == mesh->vertexData->count) ? GL_MAP_INVALIDATE_BUFFER_BIT : 0;
   lovrGraphicsBindVertexBuffer(mesh->vbo);
   VertexPointer pointer;
   pointer.raw = glMapBufferRange(GL_ARRAY_BUFFER, start * stride, count * stride, access);
