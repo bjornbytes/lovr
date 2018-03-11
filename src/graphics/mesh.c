@@ -65,9 +65,9 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat* format, MeshDrawMode drawMode
   if (!mesh) return NULL;
 
 #ifdef EMSCRIPTEN
-  mesh->vertexData = lovrVertexDataCreate(count, format, false);
-#else
   mesh->vertexData = lovrVertexDataCreate(count, format, true);
+#else
+  mesh->vertexData = lovrVertexDataCreate(count, format, false);
 #endif
 
   mesh->indices.raw = NULL;
