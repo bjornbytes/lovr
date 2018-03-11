@@ -60,16 +60,12 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
   mesh->attributesDirty = false;
 }
 
-Mesh* lovrMeshCreate(uint32_t count, VertexFormat* format, MeshDrawMode drawMode, MeshUsage usage) {
+Mesh* lovrMeshCreate(VertexData* vertexData, MeshDrawMode drawMode, MeshUsage usage) {
   Mesh* mesh = lovrAlloc(sizeof(Mesh), lovrMeshDestroy);
   if (!mesh) return NULL;
 
-#ifdef EMSCRIPTEN
-  mesh->vertexData = lovrVertexDataCreate(count, format, true);
-#else
-  mesh->vertexData = lovrVertexDataCreate(count, format, false);
-#endif
-
+  uint32_t count = vertexData->count;
+  mesh->vertexData = vertexData;
   mesh->indices.raw = NULL;
   mesh->indexCount = 0;
   mesh->indexSize = count > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
@@ -89,13 +85,12 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat* format, MeshDrawMode drawMode
   mesh->material = NULL;
   vec_init(&mesh->attachments);
   mesh->lastShader = NULL;
-
   mesh->isAnAttachment = false;
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);
   lovrGraphicsBindVertexBuffer(mesh->vbo);
-  glBufferData(GL_ARRAY_BUFFER, count * mesh->vertexData->format.stride, NULL, mesh->usage);
+  glBufferData(GL_ARRAY_BUFFER, count * mesh->vertexData->format.stride, vertexData->blob.data, mesh->usage);
   glGenVertexArrays(1, &mesh->vao);
 
   return mesh;

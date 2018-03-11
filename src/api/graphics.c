@@ -941,44 +941,57 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
 }
 
 int l_lovrGraphicsNewMesh(lua_State* L) {
-  int size;
+  uint32_t count;
   int dataIndex = 0;
   int drawModeIndex = 2;
+  VertexData* vertexData = NULL;
   VertexFormat format;
   vertexFormatInit(&format);
 
   if (lua_isnumber(L, 1)) {
-    size = lua_tointeger(L, 1);
+    count = lua_tointeger(L, 1);
   } else if (lua_istable(L, 1)) {
     if (lua_isnumber(L, 2)) {
       drawModeIndex++;
       luax_checkvertexformat(L, 1, &format);
-      size = lua_tointeger(L, 2);
+      count = lua_tointeger(L, 2);
       dataIndex = 0;
     } else if (lua_istable(L, 2)) {
       drawModeIndex++;
       luax_checkvertexformat(L, 1, &format);
-      size = lua_objlen(L, 2);
+      count = lua_objlen(L, 2);
       dataIndex = 2;
     } else {
-      size = lua_objlen(L, 1);
+      count = lua_objlen(L, 1);
       dataIndex = 1;
     }
+  } else if (lua_isuserdata(L, 1)) {
+    vertexData = luax_checktype(L, 1, VertexData);
+    format = vertexData->format;
+    count = vertexData->count;
   } else {
     luaL_argerror(L, 1, "table or number expected");
     return 0;
   }
 
+  if (!vertexData) {
+#ifdef EMSCRIPTEN
+    vertexData = lovrVertexDataCreate(count, format.count > 0 ? &format : NULL, true);
+#else
+    vertexData = lovrVertexDataCreate(count, format.count > 0 ? &format : NULL, false);
+#endif
+  }
+
   MeshDrawMode* drawMode = (MeshDrawMode*) luax_optenum(L, drawModeIndex, "fan", &MeshDrawModes, "mesh draw mode");
   MeshUsage* usage = (MeshUsage*) luax_optenum(L, drawModeIndex + 1, "dynamic", &MeshUsages, "mesh usage");
-  Mesh* mesh = lovrMeshCreate(size, format.count > 0 ? &format : NULL, *drawMode, *usage);
+  Mesh* mesh = lovrMeshCreate(vertexData, *drawMode, *usage);
 
   if (dataIndex) {
-    int count = lua_objlen(L, dataIndex);
+    uint32_t dataCount = lua_objlen(L, dataIndex);
     format = *lovrMeshGetVertexFormat(mesh);
-    VertexPointer vertices = lovrMeshMap(mesh, 0, count, false, true);
+    VertexPointer vertices = lovrMeshMap(mesh, 0, dataCount, false, true);
 
-    for (int i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < dataCount; i++) {
       lua_rawgeti(L, dataIndex, i + 1);
       if (!lua_istable(L, -1)) {
         return luaL_error(L, "Vertex information should be specified as a table");

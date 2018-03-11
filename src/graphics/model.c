@@ -59,7 +59,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->animator = NULL;
   model->material = NULL;
 
-  model->mesh = lovrMeshCreate(modelData->vertexData->count, &modelData->vertexData->format, MESH_TRIANGLES, MESH_STATIC);
+  model->mesh = lovrMeshCreate(modelData->vertexData, MESH_TRIANGLES, MESH_STATIC);
   VertexPointer vertices = lovrMeshMap(model->mesh, 0, modelData->vertexData->count, false, true);
   memcpy(vertices.raw, modelData->vertexData->blob.data, modelData->vertexData->count * modelData->vertexData->format.stride);
   lovrMeshUnmap(model->mesh);

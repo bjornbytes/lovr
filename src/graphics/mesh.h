@@ -57,7 +57,7 @@ struct Mesh {
   bool isAnAttachment;
 };
 
-Mesh* lovrMeshCreate(uint32_t count, VertexFormat* format, MeshDrawMode drawMode, MeshUsage usage);
+Mesh* lovrMeshCreate(VertexData* vertexData, MeshDrawMode drawMode, MeshUsage usage);
 void lovrMeshDestroy(void* ref);
 void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
