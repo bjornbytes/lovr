@@ -40,8 +40,7 @@ int l_lovrShaderSend(lua_State* L) {
   int n = 1;
   int components = uniform->components;
 
-  if (components > 1) {
-    luaL_checktype(L, 3, LUA_TTABLE);
+  if (components > 1 && lua_istable(L, 3)) {
     lua_rawgeti(L, 3, 1);
     if (!lua_istable(L, -1)) {
       lua_newtable(L);
@@ -58,9 +57,13 @@ int l_lovrShaderSend(lua_State* L) {
     }
   }
 
+  Blob** blob = luax_totype(L, 3, Blob);
+
   switch (uniform->type) {
     case UNIFORM_FLOAT:
-      if (components == 1) {
+      if (blob) {
+        floats = (float*) (*blob)->data;
+      } else if (components == 1) {
         floats[0] = luaL_checknumber(L, 3);
       } else {
         luaL_checktype(L, 3, LUA_TTABLE);
@@ -81,7 +84,9 @@ int l_lovrShaderSend(lua_State* L) {
       break;
 
     case UNIFORM_INT:
-      if (components == 1) {
+      if (blob) {
+        ints = (int*) (*blob)->data;
+      } else if (components == 1) {
         ints[0] = luaL_checkinteger(L, 3);
       } else {
         luaL_checktype(L, 3, LUA_TTABLE);
@@ -102,7 +107,9 @@ int l_lovrShaderSend(lua_State* L) {
       break;
 
     case UNIFORM_MATRIX:
-      if (components == 4 && lua_isuserdata(L, 3)) {
+      if (blob) {
+        floats = (float*) (*blob)->data;
+      } else if (components == 4 && lua_isuserdata(L, 3)) {
         Transform* transform = luax_checktype(L, 3, Transform);
         memcpy(floats, transform->matrix, 16 * sizeof(float));
       } else {
