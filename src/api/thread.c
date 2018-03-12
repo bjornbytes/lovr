@@ -30,7 +30,7 @@ static int threadRunner(void* data) {
     Event event;
     event.type = EVENT_THREAD_ERROR;
     event.data.threaderror.thread = thread;
-    event.data.threaderror.error = thread->error;
+    event.data.threaderror.error = strdup(thread->error);
     lovrEventPush(event);
     lua_close(L);
     return 1;

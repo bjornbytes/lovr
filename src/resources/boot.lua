@@ -202,6 +202,10 @@ function lovr.run()
   end
 end
 
+function lovr.threaderror(thread, err)
+  error('Thread error\n\n' .. err)
+end
+
 if lovr.filesystem.isFile('main.lua') then
   require('main')
 end

@@ -34,6 +34,7 @@ static int nextEvent(lua_State* L) {
     case EVENT_THREAD_ERROR:
       luax_pushtype(L, Thread, event.data.threaderror.thread);
       lua_pushstring(L, event.data.threaderror.error);
+      free((void*) event.data.threaderror.error);
       return 3;
 
     case EVENT_CONTROLLER_ADDED:
