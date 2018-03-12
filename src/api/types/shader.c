@@ -62,7 +62,12 @@ int l_lovrShaderSend(lua_State* L) {
   switch (uniform->type) {
     case UNIFORM_FLOAT:
       if (blob) {
+        n = uniform->count;
         floats = (float*) (*blob)->data;
+        size_t count = n * components;
+        size_t capacity = (*blob)->size / sizeof(float);
+        const char* s = capacity == 1 ? "" : "s";
+        lovrAssert(capacity >= count, "Blob can only hold %d float%s, at least %d needed", capacity, s, count);
       } else if (components == 1) {
         floats[0] = luaL_checknumber(L, 3);
       } else {
@@ -85,7 +90,12 @@ int l_lovrShaderSend(lua_State* L) {
 
     case UNIFORM_INT:
       if (blob) {
+        n = uniform->count;
         ints = (int*) (*blob)->data;
+        size_t count = n * components;
+        size_t capacity = (*blob)->size / sizeof(int);
+        const char* s = capacity == 1 ? "" : "s";
+        lovrAssert(capacity >= count, "Blob can only hold %d int%s, at least %d needed", capacity, s, count);
       } else if (components == 1) {
         ints[0] = luaL_checkinteger(L, 3);
       } else {
@@ -108,7 +118,12 @@ int l_lovrShaderSend(lua_State* L) {
 
     case UNIFORM_MATRIX:
       if (blob) {
+        n = uniform->count;
         floats = (float*) (*blob)->data;
+        size_t count = n * components * components;
+        size_t capacity = (*blob)->size / sizeof(float);
+        const char* s = capacity == 1 ? "x" : "ces";
+        lovrAssert(capacity >= count, "Blob can only hold %d matri%s, at least %d needed", capacity, s, count);
       } else if (components == 4 && lua_isuserdata(L, 3)) {
         Transform* transform = luax_checktype(L, 3, Transform);
         memcpy(floats, transform->matrix, 16 * sizeof(float));
