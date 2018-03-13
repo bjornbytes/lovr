@@ -1,11 +1,13 @@
-#include "graphics/shader.h"
 #include "graphics/material.h"
 #include "data/vertexData.h"
 #include "math/math.h"
 #include "lib/glfw.h"
+#include "lib/map/map.h"
 #include "util.h"
 
 #pragma once
+
+#define MAX_ATTACHMENTS 16
 
 typedef enum {
   MESH_POINTS = GL_POINTS,
@@ -25,12 +27,13 @@ typedef enum {
 typedef struct Mesh Mesh;
 
 typedef struct {
-  Mesh *mesh;
-  int attribute;
-  int instanceDivisor;
+  Mesh* mesh;
+  int attributeIndex;
+  int divisor;
+  bool enabled;
 } MeshAttachment;
 
-typedef vec_t(MeshAttachment) vec_meshattachment_t;
+typedef map_t(MeshAttachment) map_attachment_t;
 
 struct Mesh {
   Ref ref;
@@ -38,8 +41,6 @@ struct Mesh {
   IndexPointer indices;
   size_t indexCount;
   size_t indexSize;
-  int enabledAttributes;
-  bool attributesDirty;
   bool isMapped;
   int mapStart;
   size_t mapCount;
@@ -52,13 +53,15 @@ struct Mesh {
   GLuint vbo;
   GLuint ibo;
   Material* material;
-  Shader* lastShader;
-  vec_meshattachment_t attachments;
-  bool isAnAttachment;
+  map_attachment_t attachments;
+  MeshAttachment layout[16];
+  bool isAttachment;
 };
 
 Mesh* lovrMeshCreate(VertexData* vertexData, MeshDrawMode drawMode, MeshUsage usage);
 void lovrMeshDestroy(void* ref);
+void lovrMeshAttachAttribute(Mesh* mesh, Mesh* other, const char* name, int divisor);
+void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
 void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);
@@ -76,4 +79,3 @@ Material* lovrMeshGetMaterial(Mesh* mesh);
 void lovrMeshSetMaterial(Mesh* mesh, Material* material);
 VertexPointer lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool write);
 void lovrMeshUnmap(Mesh* mesh);
-void lovrMeshAttach(Mesh *attachTo, Mesh* attachThis, int attribute, int instanceDivisor);

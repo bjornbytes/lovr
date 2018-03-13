@@ -4,60 +4,66 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static void lovrMeshBindAttribute(Shader* shader, Mesh *mesh, VertexFormat *format, int i, bool enabled, int divisor) {
-  Attribute attribute = format->attributes[i];
-  int location = lovrShaderGetAttributeId(shader, attribute.name);
-
-  if (location >= 0) {
-    if (enabled) {
-      glEnableVertexAttribArray(location);
-
-      GLenum glType;
-      switch (attribute.type) {
-        case ATTR_FLOAT: glType = GL_FLOAT; break;
-        case ATTR_BYTE: glType = GL_UNSIGNED_BYTE; break;
-        case ATTR_INT: glType = GL_UNSIGNED_INT; break;
-      }
-
-      // Divisor lives in the VAO and the VAO is per-mesh, so the only reason we would need to set a zero divisor for an attribute is if a nonzero divisor attribute is attached then disabled, and a zero divisor attribute is enabled afterward in its place. Nonzero attachments length is used to determine there is a risk this has happened.
-      if (divisor || mesh->attachments.length)
-        glVertexAttribDivisor(location, divisor);
-
-      if (attribute.type == ATTR_INT) {
-        glVertexAttribIPointer(location, attribute.count, glType, format->stride, (void*) attribute.offset);
-      } else {
-        glVertexAttribPointer(location, attribute.count, glType, GL_TRUE, format->stride, (void*) attribute.offset);
-      }
-    } else {
-      glDisableVertexAttribArray(location);
-    }
-  }
-}
-
 static void lovrMeshBindAttributes(Mesh* mesh) {
+  const char* key;
+  map_iter_t iter = map_iter(&mesh->attachments);
   Shader* shader = lovrGraphicsGetActiveShader();
-  if (shader == mesh->lastShader && !mesh->attributesDirty) {
-    return;
-  }
 
-  lovrGraphicsBindVertexBuffer(mesh->vbo);
+  MeshAttachment layout[MAX_ATTACHMENTS];
+  memset(layout, 0, MAX_ATTACHMENTS * sizeof(MeshAttachment));
 
-  VertexFormat* format = &mesh->vertexData->format;
-  for (int i = 0; i < format->count; i++) {
-    lovrMeshBindAttribute(shader, mesh, format, i, mesh->enabledAttributes & (1 << i), 0);
-  }
+  while ((key = map_next(&mesh->attachments, &iter)) != NULL) {
+    int location = lovrShaderGetAttributeId(shader, key);
 
-  {
-    int i; MeshAttachment attachment;
-    vec_foreach(&mesh->attachments, attachment, i) {
-      lovrGraphicsBindVertexBuffer(attachment.mesh->vbo);
-      // TODO: Allow disabling of attached attributes?
-      lovrMeshBindAttribute(shader, attachment.mesh, &attachment.mesh->vertexData->format, attachment.attribute, true, attachment.instanceDivisor);
+    if (location >= 0) {
+      MeshAttachment* attachment = map_get(&mesh->attachments, key);
+      layout[location] = *attachment;
     }
   }
 
-  mesh->lastShader = shader;
-  mesh->attributesDirty = false;
+  for (int i = 0; i < MAX_ATTACHMENTS; i++) {
+    MeshAttachment previous = mesh->layout[i];
+    MeshAttachment current = layout[i];
+
+    if (!memcmp(&previous, &current, sizeof(MeshAttachment))) {
+      continue;
+    }
+
+    if (previous.enabled != current.enabled) {
+      if (current.enabled) {
+        glEnableVertexAttribArray(i);
+      } else {
+        glDisableVertexAttribArray(i);
+        mesh->layout[i] = current;
+        continue;
+      }
+    }
+
+    if (previous.divisor != current.divisor) {
+      glVertexAttribDivisor(i, current.divisor);
+    }
+
+    if (previous.mesh != current.mesh || previous.attributeIndex != current.attributeIndex) {
+      lovrGraphicsBindVertexBuffer(current.mesh->vbo);
+      VertexFormat* format = &current.mesh->vertexData->format;
+      Attribute attribute = format->attributes[current.attributeIndex];
+      switch (attribute.type) {
+        case ATTR_FLOAT:
+          glVertexAttribPointer(i, attribute.count, GL_FLOAT, GL_TRUE, format->stride, (void*) attribute.offset);
+          break;
+
+        case ATTR_BYTE:
+          glVertexAttribPointer(i, attribute.count, GL_UNSIGNED_BYTE, GL_TRUE, format->stride, (void*) attribute.offset);
+          break;
+
+        case ATTR_INT:
+          glVertexAttribIPointer(i, attribute.count, GL_UNSIGNED_INT, format->stride, (void*) attribute.offset);
+          break;
+      }
+    }
+
+    mesh->layout[i] = current;
+  }
 }
 
 Mesh* lovrMeshCreate(VertexData* vertexData, MeshDrawMode drawMode, MeshUsage usage) {
@@ -69,8 +75,6 @@ Mesh* lovrMeshCreate(VertexData* vertexData, MeshDrawMode drawMode, MeshUsage us
   mesh->indices.raw = NULL;
   mesh->indexCount = 0;
   mesh->indexSize = count > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
-  mesh->enabledAttributes = ~0;
-  mesh->attributesDirty = true;
   mesh->isMapped = false;
   mesh->mapStart = 0;
   mesh->mapCount = 0;
@@ -83,15 +87,21 @@ Mesh* lovrMeshCreate(VertexData* vertexData, MeshDrawMode drawMode, MeshUsage us
   mesh->vbo = 0;
   mesh->ibo = 0;
   mesh->material = NULL;
-  vec_init(&mesh->attachments);
-  mesh->lastShader = NULL;
-  mesh->isAnAttachment = false;
+  mesh->isAttachment = false;
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);
   lovrGraphicsBindVertexBuffer(mesh->vbo);
   glBufferData(GL_ARRAY_BUFFER, count * mesh->vertexData->format.stride, vertexData->blob.data, mesh->usage);
   glGenVertexArrays(1, &mesh->vao);
+
+  map_init(&mesh->attachments);
+  for (int i = 0; i < vertexData->format.count; i++) {
+    MeshAttachment attachment = { mesh, i, 0, true };
+    map_set(&mesh->attachments, vertexData->format.attributes[i].name, attachment);
+  }
+
+  memset(mesh->layout, 0, MAX_ATTACHMENTS * sizeof(MeshAttachment));
 
   return mesh;
 }
@@ -103,17 +113,38 @@ void lovrMeshDestroy(void* ref) {
   glDeleteBuffers(1, &mesh->vbo);
   glDeleteBuffers(1, &mesh->ibo);
   glDeleteVertexArrays(1, &mesh->vao);
-
-  {
-    int i; MeshAttachment attachment;
-    vec_foreach(&mesh->attachments, attachment, i) {
-      lovrRelease(attachment.mesh);
+  const char* key;
+  map_iter_t iter = map_iter(&mesh->attachments);
+  while ((key = map_next(&mesh->attachments, &iter)) != NULL) {
+    MeshAttachment* attachment = map_get(&mesh->attachments, key);
+    if (attachment->mesh != mesh) {
+      lovrRelease(attachment->mesh);
     }
   }
-  vec_deinit(&mesh->attachments);
-  
+  map_deinit(&mesh->attachments);
   free(mesh->indices.raw);
   free(mesh);
+}
+
+void lovrMeshAttachAttribute(Mesh* mesh, Mesh* other, const char* name, int divisor) {
+  MeshAttachment* otherAttachment = map_get(&other->attachments, name);
+  lovrAssert(!mesh->isAttachment, "Attempted to attach to a mesh which is an attachment itself");
+  lovrAssert(otherAttachment, "No attribute named '%s' exists", name);
+  lovrAssert(!map_get(&mesh->attachments, name), "Mesh already has an attribute named '%s'", name);
+  lovrAssert(divisor >= 0, "Divisor can't be negative");
+
+  MeshAttachment attachment = { other, otherAttachment->attributeIndex, divisor, true };
+  map_set(&mesh->attachments, name, attachment);
+  other->isAttachment = true;
+  lovrRetain(other);
+}
+
+void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
+  MeshAttachment* attachment = map_get(&mesh->attachments, name);
+  lovrAssert(attachment, "No attached attribute '%s' was found", name);
+  lovrAssert(attachment->mesh != mesh, "Attribute '%s' was not attached from another Mesh", name);
+  lovrRelease(attachment->mesh);
+  map_remove(&mesh->attachments, name);
 }
 
 void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances) {
@@ -187,28 +218,15 @@ void lovrMeshSetVertexMap(Mesh* mesh, void* data, size_t count) {
 }
 
 bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
-  for (int i = 0; i < mesh->vertexData->format.count; i++) {
-    if (!strcmp(mesh->vertexData->format.attributes[i].name, name)) {
-      return mesh->enabledAttributes & (1 << i);
-    }
-  }
-
-  return false;
+  MeshAttachment* attachment = map_get(&mesh->attachments, name);
+  lovrAssert(attachment, "Mesh does not have an attribute named '%s'", name);
+  return attachment->enabled;
 }
 
 void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enable) {
-  for (int i = 0; i < mesh->vertexData->format.count; i++) {
-    if (!strcmp(mesh->vertexData->format.attributes[i].name, name)) {
-      int mask = 1 << i;
-      if (enable && !(mesh->enabledAttributes & mask)) {
-        mesh->enabledAttributes |= mask;
-        mesh->attributesDirty = true;
-      } else if (!enable && (mesh->enabledAttributes & mask)) {
-        mesh->enabledAttributes &= ~(1 << i);
-        mesh->attributesDirty = true;
-      }
-    }
-  }
+  MeshAttachment* attachment = map_get(&mesh->attachments, name);
+  lovrAssert(attachment, "Mesh does not have an attribute named '%s'", name);
+  attachment->enabled = enable;
 }
 
 bool lovrMeshIsRangeEnabled(Mesh* mesh) {
@@ -293,15 +311,4 @@ void lovrMeshUnmap(Mesh* mesh) {
 #else
   glUnmapBuffer(GL_ARRAY_BUFFER);
 #endif
-}
-
-void lovrMeshAttach(Mesh *attachTo, Mesh* attachThis, int attribute, int instanceDivisor)
-{
-  lovrAssert(!attachTo->isAnAttachment, "Attempted to attach to a mesh which is an attachment itself");
-  lovrAssert(!attachThis->attachments.length, "Attempted to attach a mesh which has attachments itself");
-
-  MeshAttachment attachment = {attachThis, attribute, instanceDivisor};
-  attachThis->isAnAttachment = true;
-  lovrRetain(attachThis);
-  vec_push(&attachTo->attachments, attachment);
 }

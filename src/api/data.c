@@ -99,8 +99,8 @@ int l_lovrDataNewVertexData(lua_State* L) {
   uint32_t count = luaL_checkinteger(L, 1);
   VertexFormat format;
   vertexFormatInit(&format);
-  luax_checkvertexformat(L, 2, &format);
-  VertexData* vertexData = lovrVertexDataCreate(count, format.count > 0 ? &format : NULL, true);
+  bool hasFormat = luax_checkvertexformat(L, 2, &format);
+  VertexData* vertexData = lovrVertexDataCreate(count, hasFormat ? &format : NULL, true);
   luax_pushtype(L, VertexData, vertexData);
   lovrRelease(vertexData);
   return 1;

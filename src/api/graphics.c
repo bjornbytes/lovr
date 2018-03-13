@@ -945,6 +945,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   int dataIndex = 0;
   int drawModeIndex = 2;
   VertexData* vertexData = NULL;
+  bool hasFormat = false;
   VertexFormat format;
   vertexFormatInit(&format);
 
@@ -953,12 +954,12 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   } else if (lua_istable(L, 1)) {
     if (lua_isnumber(L, 2)) {
       drawModeIndex++;
-      luax_checkvertexformat(L, 1, &format);
+      hasFormat = luax_checkvertexformat(L, 1, &format);
       count = lua_tointeger(L, 2);
       dataIndex = 0;
     } else if (lua_istable(L, 2)) {
       drawModeIndex++;
-      luax_checkvertexformat(L, 1, &format);
+      hasFormat = luax_checkvertexformat(L, 1, &format);
       count = lua_objlen(L, 2);
       dataIndex = 2;
     } else {
@@ -969,6 +970,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
     vertexData = luax_checktype(L, 1, VertexData);
     format = vertexData->format;
     count = vertexData->count;
+    hasFormat = true;
   } else {
     luaL_argerror(L, 1, "table or number expected");
     return 0;
@@ -976,9 +978,9 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
 
   if (!vertexData) {
 #ifdef EMSCRIPTEN
-    vertexData = lovrVertexDataCreate(count, format.count > 0 ? &format : NULL, true);
+    vertexData = lovrVertexDataCreate(count, hasFormat ? &format : NULL, true);
 #else
-    vertexData = lovrVertexDataCreate(count, format.count > 0 ? &format : NULL, false);
+    vertexData = lovrVertexDataCreate(count, hasFormat ? &format : NULL, false);
 #endif
   }
 

@@ -1,5 +1,38 @@
 #include "api.h"
 
+int l_lovrMeshAttachAttributes(lua_State* L) {
+  Mesh* mesh = luax_checktype(L, 1, Mesh);
+  Mesh* other = luax_checktype(L, 2, Mesh);
+  int instanceDivisor = luaL_optinteger(L, 3, 0);
+  if (lua_isnoneornil(L, 4)) {
+    VertexFormat* format = lovrMeshGetVertexFormat(other);
+    for (int i = 0; i < format->count; i++) {
+      lovrMeshAttachAttribute(mesh, other, format->attributes[i].name, instanceDivisor);
+    }
+  } else if (lua_istable(L, 4)) {
+    int length = lua_objlen(L, 4);
+    for (int i = 0; i < length; i++) {
+      lua_rawgeti(L, -1, i + 1);
+      lovrMeshAttachAttribute(mesh, other, lua_tostring(L, -1), instanceDivisor);
+      lua_pop(L, 1);
+    }
+  } else {
+    int top = lua_gettop(L);
+    for (int i = 4; i <= top; i++) {
+      lovrMeshAttachAttribute(mesh, other, lua_tostring(L, i), instanceDivisor);
+    }
+  }
+
+  return 0;
+}
+
+int l_lovrMeshDetachAttribute(lua_State* L) {
+  Mesh* mesh = luax_checktype(L, 1, Mesh);
+  const char* name = luaL_checkstring(L, 2);
+  lovrMeshDetachAttribute(mesh, name);
+  return 0;
+}
+
 int l_lovrMeshDrawInstanced(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int instances = luaL_checkinteger(L, 2);
@@ -246,21 +279,9 @@ int l_lovrMeshSetMaterial(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshAttachAttributes(lua_State* L) {
-  Mesh* attachTo = luax_checktype(L, 1, Mesh);
-  Mesh* attachThis = luax_checktype(L, 2, Mesh);
-  int instanceDivisor = luaL_optnumber(L, 3, 0);
-  // TODO: Check attribute name(s) in 4th argument and if present only attach those
-
-  VertexFormat* format = &attachThis->vertexData->format;
-  for(int c = 0; c < format->count; c++) {
-    lovrMeshAttach(attachTo, attachThis, c, instanceDivisor);
-  }
-
-  return 0;
-}
-
 const luaL_Reg lovrMesh[] = {
+  { "attachAttributes", l_lovrMeshAttachAttributes },
+  { "detachAttribute", l_lovrMeshDetachAttribute },
   { "drawInstanced", l_lovrMeshDrawInstanced },
   { "draw", l_lovrMeshDraw },
   { "getVertexFormat", l_lovrMeshGetVertexFormat },
@@ -280,6 +301,5 @@ const luaL_Reg lovrMesh[] = {
   { "setDrawRange", l_lovrMeshSetDrawRange },
   { "getMaterial", l_lovrMeshGetMaterial },
   { "setMaterial", l_lovrMeshSetMaterial },
-  { "attachAttributes", l_lovrMeshAttachAttributes },
   { NULL, NULL }
 };

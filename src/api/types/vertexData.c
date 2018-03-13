@@ -1,8 +1,8 @@
 #include "api.h"
 
-void luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
+bool luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
   if (!lua_istable(L, index)) {
-    return;
+    return false;
   }
 
   int length = lua_objlen(L, index);
@@ -12,7 +12,7 @@ void luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
 
     if (!lua_istable(L, -1) || lua_objlen(L, -1) != 3) {
       luaL_error(L, "Expected vertex format specified as tables containing name, data type, and size");
-      return;
+      return false;
     }
 
     lua_rawgeti(L, -1, 1);
@@ -25,6 +25,8 @@ void luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
     vertexFormatAppend(format, name, *type, count);
     lua_pop(L, 4);
   }
+
+  return true;
 }
 
 int luax_pushvertexformat(lua_State* L, VertexFormat* format) {

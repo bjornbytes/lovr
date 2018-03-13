@@ -98,7 +98,7 @@ extern map_int_t VerticalAligns;
 extern map_int_t WrapModes;
 
 // Shared helpers
-void luax_checkvertexformat(lua_State* L, int index, VertexFormat* format);
+bool luax_checkvertexformat(lua_State* L, int index, VertexFormat* format);
 int luax_pushvertexformat(lua_State* L, VertexFormat* format);
 int luax_pushvertexattribute(lua_State* L, VertexPointer* vertex, Attribute attribute);
 int luax_pushvertex(lua_State* L, VertexPointer* vertex, VertexFormat* format);
