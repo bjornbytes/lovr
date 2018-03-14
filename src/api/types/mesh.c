@@ -12,7 +12,7 @@ int l_lovrMeshAttachAttributes(lua_State* L) {
   } else if (lua_istable(L, 4)) {
     int length = lua_objlen(L, 4);
     for (int i = 0; i < length; i++) {
-      lua_rawgeti(L, -1, i + 1);
+      lua_rawgeti(L, 4, i + 1);
       lovrMeshAttachAttribute(mesh, other, lua_tostring(L, -1), instanceDivisor);
       lua_pop(L, 1);
     }
@@ -26,10 +26,27 @@ int l_lovrMeshAttachAttributes(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshDetachAttribute(lua_State* L) {
+int l_lovrMeshDetachAttributes(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  const char* name = luaL_checkstring(L, 2);
-  lovrMeshDetachAttribute(mesh, name);
+  if (lua_isuserdata(L, 2)) {
+    Mesh* other = luax_checktype(L, 2, Mesh);
+    VertexFormat* format = lovrMeshGetVertexFormat(other);
+    for (int i = 0; i < format->count; i++) {
+      lovrMeshDetachAttribute(mesh, format->attributes[i].name);
+    }
+  } else if (lua_istable(L, 2)) {
+    int length = lua_objlen(L, 2);
+    for (int i = 0; i < length; i++) {
+      lua_rawgeti(L, 2, i + 1);
+      lovrMeshDetachAttribute(mesh, lua_tostring(L, -1));
+      lua_pop(L, 1);
+    }
+  } else {
+    int top = lua_gettop(L);
+    for (int i = 2; i <= top; i++) {
+      lovrMeshDetachAttribute(mesh, lua_tostring(L, i));
+    }
+  }
   return 0;
 }
 
@@ -281,7 +298,7 @@ int l_lovrMeshSetMaterial(lua_State* L) {
 
 const luaL_Reg lovrMesh[] = {
   { "attachAttributes", l_lovrMeshAttachAttributes },
-  { "detachAttribute", l_lovrMeshDetachAttribute },
+  { "detachAttributes", l_lovrMeshDetachAttributes },
   { "drawInstanced", l_lovrMeshDrawInstanced },
   { "draw", l_lovrMeshDraw },
   { "getVertexFormat", l_lovrMeshGetVertexFormat },
