@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.1.0)
 project(lovr)
 
 # Setup
@@ -316,6 +316,7 @@ endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_executable(lovr ${LOVR_SRC})
+set_property(TARGET lovr PROPERTY C_STANDARD 99)
 target_link_libraries(lovr
   ${LOVR_ASSIMP}
   ${LOVR_ENET}
