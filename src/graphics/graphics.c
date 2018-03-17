@@ -759,7 +759,6 @@ void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
       0, 4, 1, 5, 2, 6, 3, 7  // Connections
     };
 
-    lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetStreamData(points, 24);
     lovrGraphicsSetIndexData(indices, 24);
     lovrGraphicsDrawPrimitive(material, GL_LINES, false, false, true);
@@ -806,7 +805,6 @@ void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
       .5, .5, .5,     0, 1, 0,  1, 0
     };
 
-    lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetStreamData(data, 208);
     lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, true, true, false);
   }
