@@ -40,7 +40,7 @@ function lovr.errhand(message)
   local pixelDensity = font:getPixelDensity()
   local width = font:getWidth(message, .55 * pixelDensity)
   local function render()
-    lovr.graphics.print(message, -width / 2, conf.headset.offset, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
+    lovr.graphics.print(message, -width / 2, 0, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
   end
   while true do
     lovr.event.pump()
@@ -50,7 +50,10 @@ function lovr.errhand(message)
     lovr.graphics.clear()
     lovr.graphics.origin()
     if lovr.headset and lovr.getOS() ~= 'Web' then
+      lovr.graphics.push()
+      lovr.graphics.translate(0, conf.headset.offset, 0)
       lovr.headset.renderTo(render)
+      lovr.graphics.pop()
     end
     render()
     lovr.graphics.present()
