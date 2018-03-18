@@ -179,6 +179,10 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     uniform.components = getUniformComponents(uniform.glType);
     uniform.baseTextureSlot = (uniform.type == UNIFORM_SAMPLER) ? textureSlot : -1;
 
+    if (uniform.location == -1) {
+      continue;
+    }
+
     switch (uniform.type) {
       case UNIFORM_FLOAT:
         uniform.size = uniform.components * uniform.count * sizeof(float);
