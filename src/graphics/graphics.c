@@ -112,6 +112,7 @@ void lovrGraphicsPresent() {
   glfwSwapBuffers(state.window);
   state.stats.drawCalls = 0;
   state.stats.shaderSwitches = 0;
+  state.program = -1;
 }
 
 void lovrGraphicsPrepare(Material* material, float* pose) {
