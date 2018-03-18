@@ -13,7 +13,7 @@
 
 typedef struct {
   bool initialized;
-  HeadsetType type;
+  float offset;
 
   vec_controller_t controllers;
 
@@ -28,7 +28,6 @@ typedef struct {
   double pitch;
 
   float orientation[4];
-  float projection[16];
   float transform[16];
 
   GLFWwindow* hookedWindow;
@@ -76,15 +75,7 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
   const double l = 0.01;
 
   state.yaw -= dx * k;
-  state.pitch -= dy * l;
-
-  if (state.pitch < -M_PI / 2.0) {
-    state.pitch = -M_PI / 2.0;
-  }
-
-  if (state.pitch > M_PI / 2.0) {
-    state.pitch = M_PI / 2.0;
-  }
+  state.pitch -= CLAMP(dy * l, -M_PI / 2., M_PI / 2.);
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -149,8 +140,10 @@ static void check_window_existance() {
   }
 }
 
-static bool fakeInit() {
+static bool fakeInit(float offset) {
   if (state.initialized) return true;
+  state.offset = offset;
+
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
   state.fov = 67.0f * M_PI / 100.0f;
@@ -291,11 +284,11 @@ static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) 
 
 static bool fakeControllerIsDown(Controller* controller, ControllerButton button) {
   GLFWwindow* window = glfwGetCurrentContext();
-  if(!window) {
+  if (!window) {
     return false;
   }
-  int b = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_RIGHT);
-  return (b == GLFW_PRESS) ? CONTROLLER_BUTTON_TRIGGER : false;
+  int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
+  return state == GLFW_PRESS;
 }
 
 static bool fakeControllerIsTouched(Controller* controller, ControllerButton button) {
@@ -309,28 +302,25 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
-  GLFWwindow* window = glfwGetCurrentContext();
-  if (!window) {
-    return;
-  }
+static void fakeRenderTo(void (*callback)(void*), void* userdata) {
+  int width, height;
+  fakeGetDisplayDimensions(&width, &height);
 
-  int w, h;
-  glfwGetFramebufferSize(window, &w, &h);
-  mat4_perspective(state.projection, state.clipNear, state.clipFar, 67 * M_PI / 180.0, (float) w / h);
+  Layer layer = { .canvas = NULL, .viewport = { 0, 0, width, height } };
 
-  float transform[16];
-  mat4_set(transform, state.transform);
-  mat4_invert(transform);
+  mat4_perspective(layer.projections, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height / 2.);
+  mat4_set(layer.projections + 16, layer.projections);
 
-  int viewport[4] = { 0, 0, w, h };
-  lovrGraphicsPushDisplay(0, state.projection, viewport);
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
+  mat4_identity(layer.views);
+  mat4_translate(layer.views, 0, state.offset, 0);
+  mat4_multiply(layer.views, state.transform);
+  mat4_invert(layer.views);
+  mat4_set(layer.views + 16, layer.views);
+
+  lovrGraphicsPushLayer(layer);
   lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
-  callback(EYE_LEFT, userdata);
-  lovrGraphicsPop();
-  lovrGraphicsPopDisplay();
+  callback(userdata);
+  lovrGraphicsPopLayer();
 }
 
 static void fakeUpdate(float dt) {

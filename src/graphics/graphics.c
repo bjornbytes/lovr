@@ -49,11 +49,12 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultMaterial);
   lovrRelease(state.defaultFont);
   lovrRelease(state.defaultTexture);
+  vec_deinit(&state.streamData);
+  vec_deinit(&state.streamIndices);
   glDeleteVertexArrays(1, &state.streamVAO);
   glDeleteBuffers(1, &state.streamVBO);
   glDeleteBuffers(1, &state.streamIBO);
-  vec_deinit(&state.streamData);
-  vec_deinit(&state.streamIndices);
+  glDeleteBuffers(1, &state.cameraUBO);
   memset(&state, 0, sizeof(GraphicsState));
 }
 
@@ -61,13 +62,16 @@ void lovrGraphicsReset() {
   int w = lovrGraphicsGetWidth();
   int h = lovrGraphicsGetHeight();
   state.transform = 0;
-  state.display = 0;
+  state.layer = 0;
   state.defaultShader = SHADER_DEFAULT;
-  mat4_perspective(state.displays[state.display].projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h);
-  state.displays[state.display].viewport[0] = 0;
-  state.displays[state.display].viewport[1] = 0;
-  state.displays[state.display].viewport[2] = w;
-  state.displays[state.display].viewport[3] = h;
+  mat4_perspective(state.layers[state.layer].projections, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
+  mat4_perspective(state.layers[state.layer].projections + 16, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
+  mat4_identity(state.layers[state.layer].views);
+  mat4_identity(state.layers[state.layer].views + 16);
+  state.layers[state.layer].viewport[0] = 0;
+  state.layers[state.layer].viewport[1] = 0;
+  state.layers[state.layer].viewport[2] = w;
+  state.layers[state.layer].viewport[3] = h;
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1. });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor((Color) { 1., 1., 1., 1. });
@@ -108,6 +112,7 @@ void lovrGraphicsPresent() {
   glfwSwapBuffers(state.window);
   state.stats.drawCalls = 0;
   state.stats.shaderSwitches = 0;
+  state.program = -1; // Fixes a driver bug with instancing seen on macOS
 }
 
 void lovrGraphicsPrepare(Material* material, float* pose) {
@@ -117,28 +122,26 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
     shader = state.defaultShaders[state.defaultShader] = lovrShaderCreateDefault(state.defaultShader);
   }
 
-  mat4 model = state.transforms[state.transform][MATRIX_MODEL];
-  mat4 view = state.transforms[state.transform][MATRIX_VIEW];
-  mat4 projection = state.displays[state.display].projection;
+  mat4 model = state.transforms[state.transform];
   lovrShaderSetMatrix(shader, "lovrModel", model, 16);
-  lovrShaderSetMatrix(shader, "lovrView", view, 16);
-  lovrShaderSetMatrix(shader, "lovrProjection", projection, 16);
 
-  float transform[16];
-  mat4_multiply(mat4_set(transform, view), model);
-  lovrShaderSetMatrix(shader, "lovrTransform", transform, 16);
+  float* views = state.layers[state.layer].views;
+  float transforms[32];
+  mat4_multiply(mat4_set(transforms + 0, views + 0), model);
+  mat4_multiply(mat4_set(transforms + 16, views + 16), model);
+  lovrShaderSetMatrix(shader, "lovrTransforms", transforms, 32);
 
   if (lovrShaderGetUniform(shader, "lovrNormalMatrix")) {
-    if (mat4_invert(transform)) {
-      mat4_transpose(transform);
+    if (mat4_invert(transforms)) {
+      mat4_transpose(transforms);
     } else {
-      mat4_identity(transform);
+      mat4_identity(transforms);
     }
 
     float normalMatrix[9] = {
-      transform[0], transform[1], transform[2],
-      transform[4], transform[5], transform[6],
-      transform[8], transform[9], transform[10]
+      transforms[0], transforms[1], transforms[2],
+      transforms[4], transforms[5], transforms[6],
+      transforms[8], transforms[9], transforms[10]
     };
 
     lovrShaderSetMatrix(shader, "lovrNormalMatrix", normalMatrix, 9);
@@ -239,6 +242,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   glfwSwapInterval(0);
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PROGRAM_POINT_SIZE);
+  glEnable(GL_CLIP_DISTANCE0);
   if (state.gammaCorrect) {
     glEnable(GL_FRAMEBUFFER_SRGB);
   } else {
@@ -248,11 +252,15 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  vec_init(&state.streamData);
+  vec_init(&state.streamIndices);
   glGenVertexArrays(1, &state.streamVAO);
   glGenBuffers(1, &state.streamVBO);
   glGenBuffers(1, &state.streamIBO);
-  vec_init(&state.streamData);
-  vec_init(&state.streamIndices);
+  glGenBuffers(1, &state.cameraUBO);
+  lovrGraphicsBindUniformBuffer(state.cameraUBO);
+  glBufferData(GL_UNIFORM_BUFFER, 4 * 16 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
+  glBindBufferBase(GL_UNIFORM_BUFFER, LOVR_SHADER_BLOCK_CAMERA, state.cameraUBO);
   lovrGraphicsReset();
   state.initialized = true;
 }
@@ -353,11 +361,7 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
   lovrAssert(count <= MAX_CANVASES, "Attempt to simultaneously render to %d canvases (the maximum is %d)", count, MAX_CANVASES);
 
   if (state.canvasCount > 0 && state.canvas[0]->msaa > 0) {
-    int width = state.canvas[0]->texture.width;
-    int height = state.canvas[0]->texture.height;
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, state.canvas[0]->framebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.canvas[0]->resolveFramebuffer);
-    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    lovrCanvasResolve(state.canvas[0]);
   }
 
   for (int i = 0; i < count; i++) {
@@ -369,8 +373,9 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
   }
 
   if (count == 0) {
-    lovrGraphicsBindFramebuffer(state.displays[state.display].framebuffer);
-    int* viewport = state.displays[state.display].viewport;
+    Layer layer = state.layers[state.layer];
+    int* viewport = layer.viewport;
+    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->framebuffer : 0);
     lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
   } else {
     memcpy(state.canvas, canvas, count * sizeof(Canvas*));
@@ -594,24 +599,23 @@ void lovrGraphicsPop() {
 }
 
 void lovrGraphicsOrigin() {
-  mat4_identity(state.transforms[state.transform][MATRIX_MODEL]);
-  mat4_identity(state.transforms[state.transform][MATRIX_VIEW]);
+  mat4_identity(state.transforms[state.transform]);
 }
 
-void lovrGraphicsTranslate(MatrixType type, float x, float y, float z) {
-  mat4_translate(state.transforms[state.transform][type], x, y, z);
+void lovrGraphicsTranslate(float x, float y, float z) {
+  mat4_translate(state.transforms[state.transform], x, y, z);
 }
 
-void lovrGraphicsRotate(MatrixType type, float angle, float ax, float ay, float az) {
-  mat4_rotate(state.transforms[state.transform][type], angle, ax, ay, az);
+void lovrGraphicsRotate(float angle, float ax, float ay, float az) {
+  mat4_rotate(state.transforms[state.transform], angle, ax, ay, az);
 }
 
-void lovrGraphicsScale(MatrixType type, float x, float y, float z) {
-  mat4_scale(state.transforms[state.transform][type], x, y, z);
+void lovrGraphicsScale(float x, float y, float z) {
+  mat4_scale(state.transforms[state.transform], x, y, z);
 }
 
-void lovrGraphicsMatrixTransform(MatrixType type, mat4 transform) {
-  mat4_multiply(state.transforms[state.transform][type], transform);
+void lovrGraphicsMatrixTransform(mat4 transform) {
+  mat4_multiply(state.transforms[state.transform], transform);
 }
 
 // Primitives
@@ -701,7 +705,7 @@ void lovrGraphicsTriangle(DrawMode mode, Material* material, float* points) {
 
 void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
+  lovrGraphicsMatrixTransform(transform);
 
   if (mode == DRAW_MODE_LINE) {
     float points[] = {
@@ -730,26 +734,10 @@ void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
   lovrGraphicsPop();
 }
 
-void lovrGraphicsPlaneFullscreen(Texture* texture) {
-  float data[] = {
-    -1, 1, 0,  0, 1,
-    -1, -1, 0, 0, 0,
-    1, 1, 0,   1, 1,
-    1, -1, 0,  1, 0
-  };
-
-  lovrGraphicsSetDefaultShader(SHADER_FULLSCREEN);
-  Material* material = lovrGraphicsGetDefaultMaterial();
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
-  lovrGraphicsSetStreamData(data, 20);
-  lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, false, true, false);
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
-}
-
 void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
+  lovrGraphicsMatrixTransform(transform);
 
   if (mode == DRAW_MODE_LINE) {
     float points[] = {
@@ -772,7 +760,6 @@ void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
       0, 4, 1, 5, 2, 6, 3, 7  // Connections
     };
 
-    lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetStreamData(points, 24);
     lovrGraphicsSetIndexData(indices, 24);
     lovrGraphicsDrawPrimitive(material, GL_LINES, false, false, true);
@@ -819,7 +806,6 @@ void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
       .5, .5, .5,     0, 1, 0,  1, 0
     };
 
-    lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
     lovrGraphicsSetStreamData(data, 208);
     lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, true, true, false);
   }
@@ -834,7 +820,7 @@ void lovrGraphicsArc(DrawMode mode, ArcMode arcMode, Material* material, mat4 tr
   }
 
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
+  lovrGraphicsMatrixTransform(transform);
 
   vec_clear(&state.streamData);
 
@@ -1044,7 +1030,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
 
   if (transform) {
     lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
+    lovrGraphicsMatrixTransform(transform);
   }
 
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
@@ -1056,78 +1042,26 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
 }
 
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az) {
+  float quad[] = {
+    -1, 1, 1,
+    -1, -1, 1,
+    1, 1, 1,
+    1, -1, 1
+  };
+
+  TextureType type = texture->type;
+  lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
+  MaterialTexture materialTexture = type == TEXTURE_CUBE ? TEXTURE_ENVIRONMENT_MAP : TEXTURE_DIFFUSE;
+  DefaultShader shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO;
   Winding winding = state.winding;
-
-  lovrGraphicsPush();
-  lovrGraphicsOrigin();
-  lovrGraphicsRotate(MATRIX_MODEL, angle, ax, ay, az);
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
-
-  if (texture->type == TEXTURE_CUBE) {
-    float cube[] = {
-      // Front
-      1.f, -1.f, -1.f,
-      1.f, 1.f, -1.f,
-      -1.f, -1.f, -1.f,
-      -1.f, 1.f, -1.f,
-
-      // Left
-      -1.f, 1.f, -1.f,
-      -1.f, 1.f, 1.f,
-      -1.f, -1.f, -1.f,
-      -1.f, -1.f, 1.f,
-
-      // Back
-      -1.f, -1.f, 1.f,
-      -1.f, 1.f, 1.f,
-      1.f, -1.f, 1.f,
-      1.f, 1.f, 1.f,
-
-      // Right
-      1.f, 1.f, 1.f,
-      1.f, 1.f, -1.f,
-      1.f, -1.f, 1.f,
-      1.f, -1.f, -1.f,
-
-      // Bottom
-      1.f, -1.f, -1.f,
-      -1.f, -1.f, -1.f,
-      1.f, -1.f, 1.f,
-      -1.f, -1.f, 1.f,
-
-      // Adjust
-      -1.f, -1.f, 1.f,
-      -1.f, 1.f, -1.f,
-
-      // Top
-      -1.f, 1.f, -1.f,
-      1.f, 1.f, -1.f,
-      -1.f, 1.f, 1.f,
-      1.f, 1.f, 1.f
-    };
-
-    lovrGraphicsSetStreamData(cube, 78);
-    lovrGraphicsSetDefaultShader(SHADER_SKYBOX);
-    Material* material = lovrGraphicsGetDefaultMaterial();
-    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, texture);
-    lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, false, false, false);
-    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, NULL);
-  } else if (texture->type == TEXTURE_2D) {
-    CompareMode mode;
-    bool write;
-    lovrGraphicsGetDepthTest(&mode, &write);
-    lovrGraphicsSetDepthTest(COMPARE_LEQUAL, false);
-    Material* material = lovrGraphicsGetDefaultMaterial();
-    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
-    lovrGraphicsSphere(material, NULL, 30);
-    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
-    lovrGraphicsSetDepthTest(mode, write);
-  } else {
-    lovrThrow("lovr.graphics.skybox only accepts 2d and cube Textures");
-  }
-
+  lovrGraphicsSetDefaultShader(shader);
+  Material* material = lovrGraphicsGetDefaultMaterial();
+  lovrMaterialSetTexture(material, materialTexture, texture);
+  lovrGraphicsSetStreamData(quad, 12);
+  lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, false, false, false);
+  lovrMaterialSetTexture(material, materialTexture, NULL);
   lovrGraphicsSetWinding(winding);
-  lovrGraphicsPop();
 }
 
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
@@ -1137,9 +1071,9 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrFontRender(font, str, wrap, halign, valign, &state.streamData, &offsety);
 
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
-  lovrGraphicsScale(MATRIX_MODEL, scale, scale, scale);
-  lovrGraphicsTranslate(MATRIX_MODEL, 0, offsety, 0);
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsScale(scale, scale, scale);
+  lovrGraphicsTranslate(0, offsety, 0);
   lovrGraphicsSetDefaultShader(SHADER_FONT);
   Material* material = lovrGraphicsGetDefaultMaterial();
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, font->texture);
@@ -1177,32 +1111,50 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
   lovrGraphicsSetStencilTest(state.stencilMode, state.stencilValue);
 }
 
-// Internal State
-void lovrGraphicsPushDisplay(int framebuffer, mat4 projection, int* viewport) {
-  if (++state.display >= MAX_DISPLAYS) {
-    lovrThrow("Display overflow");
-  }
+void lovrGraphicsBlit(Texture* texture) {
+  float quad[] = {
+    -1, 1, 0,  0, 1,
+    -1, -1, 0, 0, 0,
+    1, 1, 0,   1, 1,
+    1, -1, 0,  1, 0
+  };
 
-  state.displays[state.display].framebuffer = framebuffer;
-  memcpy(state.displays[state.display].projection, projection, 16 * sizeof(float));
-  memcpy(state.displays[state.display].viewport, viewport, 4 * sizeof(int));
-
-  if (state.canvasCount == 0) {
-    lovrGraphicsBindFramebuffer(framebuffer);
-    lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  }
+  lovrGraphicsSetDefaultShader(SHADER_BLIT);
+  Material* material = lovrGraphicsGetDefaultMaterial();
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
+  lovrGraphicsSetStreamData(quad, 20);
+  lovrGraphicsDrawPrimitive(material, GL_TRIANGLE_STRIP, false, true, false);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
 }
 
-void lovrGraphicsPopDisplay() {
-  if (--state.display < 0) {
-    lovrThrow("Display underflow");
+// Internal State
+static void bindLayer(Layer* layer) {
+  int* viewport = layer->viewport;
+  lovrGraphicsBindUniformBuffer(state.cameraUBO);
+  glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), layer);
+  lovrGraphicsBindFramebuffer(layer->canvas ? layer->canvas->framebuffer : 0);
+  lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+}
+
+void lovrGraphicsPushLayer(Layer layer) {
+  if (++state.layer >= MAX_LAYERS) {
+    lovrThrow("Layer overflow");
   }
 
-  if (state.canvasCount == 0) {
-    lovrGraphicsBindFramebuffer(state.displays[state.display].framebuffer);
-    int* viewport = state.displays[state.display].viewport;
-    lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+  memcpy(&state.layers[state.layer], &layer, sizeof(Layer));
+  bindLayer(&state.layers[state.layer]);
+}
+
+void lovrGraphicsPopLayer() {
+  if (state.canvasCount == 0 && state.layers[state.layer].canvas) {
+    lovrCanvasResolve(state.layers[state.layer].canvas);
   }
+
+  if (--state.layer < 0) {
+    lovrThrow("Layer underflow");
+  }
+
+  bindLayer(&state.layers[state.layer]);
 }
 
 void lovrGraphicsSetViewport(int x, int y, int w, int h) {
@@ -1274,6 +1226,13 @@ void lovrGraphicsBindVertexBuffer(uint32_t vertexBuffer) {
   }
 }
 
+void lovrGraphicsBindUniformBuffer(uint32_t uniformBuffer) {
+  if (state.uniformBuffer != uniformBuffer) {
+    state.uniformBuffer = uniformBuffer;
+    glBindBuffer(GL_UNIFORM_BUFFER, uniformBuffer);
+  }
+}
+
 void lovrGraphicsBindIndexBuffer(uint32_t indexBuffer) {
   if (state.indexBuffer != indexBuffer) {
     state.indexBuffer = indexBuffer;
@@ -1282,23 +1241,12 @@ void lovrGraphicsBindIndexBuffer(uint32_t indexBuffer) {
 }
 
 void lovrGraphicsDrawArrays(GLenum mode, size_t start, size_t count, int instances) {
-  if (instances > 1) {
-    glDrawArraysInstanced(mode, start, count, instances);
-  } else {
-    glDrawArrays(mode, start, count);
-  }
-
+  glDrawArraysInstanced(mode, start, count, instances * 2);
   state.stats.drawCalls++;
 }
 
 void lovrGraphicsDrawElements(GLenum mode, size_t count, size_t indexSize, size_t offset, int instances) {
   GLenum indexType = indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-
-  if (instances > 1) {
-    glDrawElementsInstanced(mode, count, indexType, (GLvoid*) offset, instances);
-  } else {
-    glDrawElements(mode, count, indexType, (GLvoid*) offset);
-  }
-
+  glDrawElementsInstanced(mode, count, indexType, (GLvoid*) offset, instances * 2);
   state.stats.drawCalls++;
 }

@@ -154,7 +154,7 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances) {
 
   if (transform) {
     lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
+    lovrGraphicsMatrixTransform(transform);
   }
 
   lovrGraphicsSetDefaultShader(SHADER_DEFAULT);

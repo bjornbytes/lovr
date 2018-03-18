@@ -14,6 +14,7 @@
 #define LOVR_SHADER_TANGENT 4
 #define LOVR_SHADER_BONES 5
 #define LOVR_SHADER_BONE_WEIGHTS 6
+#define LOVR_SHADER_BLOCK_CAMERA 0
 #define LOVR_MAX_UNIFORM_LENGTH 256
 
 typedef enum {
@@ -32,9 +33,10 @@ typedef union {
 
 typedef enum {
   SHADER_DEFAULT,
-  SHADER_SKYBOX,
+  SHADER_CUBE,
+  SHADER_PANO,
   SHADER_FONT,
-  SHADER_FULLSCREEN
+  SHADER_BLIT
 } DefaultShader;
 
 typedef struct {

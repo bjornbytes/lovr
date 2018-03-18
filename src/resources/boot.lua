@@ -17,7 +17,7 @@ local conf = {
     offset = 1.7
   },
   window = {
-    width = 800,
+    width = 1080,
     height = 600,
     fullscreen = false,
     msaa = 0,
@@ -25,10 +25,6 @@ local conf = {
     icon = nil
   }
 }
-
-local function applyHeadsetOffset()
-  lovr.graphics.translate('view', 0, -conf.headset.offset, 0)
-end
 
 function lovr.errhand(message)
   message = 'Error:\n' .. message:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
@@ -44,13 +40,7 @@ function lovr.errhand(message)
   local pixelDensity = font:getPixelDensity()
   local width = font:getWidth(message, .55 * pixelDensity)
   local function render()
-    lovr.graphics.print(message, -width / 2, conf.headset.offset, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
-  end
-  local function headsetRender()
-    if lovr.headset.getOriginType() == 'head' then
-      applyHeadsetOffset()
-    end
-    render()
+    lovr.graphics.print(message, -width / 2, 0, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
   end
   while true do
     lovr.event.pump()
@@ -60,9 +50,11 @@ function lovr.errhand(message)
     lovr.graphics.clear()
     lovr.graphics.origin()
     if lovr.headset and lovr.getOS() ~= 'Web' then
-      lovr.headset.renderTo(headsetRender)
+      lovr.graphics.push()
+      lovr.graphics.translate(0, conf.headset.offset, 0)
+      lovr.headset.renderTo(render)
+      lovr.graphics.pop()
     end
-    applyHeadsetOffset()
     render()
     lovr.graphics.present()
     lovr.timer.sleep(lovr.headset and .001 or .1)
@@ -99,10 +91,10 @@ if not lovr.filesystem.getSource() or not runnable then
     local padding = .1
     local font = lovr.graphics.getFont()
     local fade = .315 + .685 * math.abs(math.sin(lovr.timer.getTime() * 2))
-    local titlePosition = 1.3 - padding
+    local titlePosition = 1.4 - padding
     local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
 
-    lovr.graphics.plane(logo, 0, 1.8, -3, 1, 0, 0, 1)
+    lovr.graphics.plane(logo, 0, 1.9, -3, 1, 0, 0, 1)
     lovr.graphics.setColor(.059, .059, .059)
     lovr.graphics.print('LÖVR', -.01, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
     lovr.graphics.setColor(.059, .059, .059, fade)
@@ -149,13 +141,6 @@ end
 
 lovr.handlers = setmetatable({}, { __index = lovr })
 
-local function headsetRenderCallback(eye)
-  if lovr.headset.getOriginType() == 'head' then
-    applyHeadsetOffset()
-  end
-  lovr.draw(eye)
-end
-
 function lovr.step()
   lovr.event.pump()
   for name, a, b, c, d in lovr.event.poll() do
@@ -182,9 +167,8 @@ function lovr.step()
     lovr.graphics.origin()
     if lovr.draw then
       if lovr.headset then
-        lovr.headset.renderTo(headsetRenderCallback)
+        lovr.headset.renderTo(lovr.draw)
       else
-        applyHeadsetOffset()
         lovr.draw()
       end
     end

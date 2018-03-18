@@ -16,12 +16,11 @@ typedef struct {
 
 static HeadsetRenderData headsetRenderData;
 
-static void renderHelper(HeadsetEye eye, void* userdata) {
+static void renderHelper(void* userdata) {
   HeadsetRenderData* renderData = userdata;
   lua_State* L = renderData->L;
   lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
-  luax_pushenum(L, &HeadsetEyes, eye);
-  lua_call(L, 1, 0);
+  lua_call(L, 0, 0);
 }
 
 int l_lovrHeadsetInit(lua_State* L) {
@@ -75,8 +74,8 @@ int l_lovrHeadsetInit(lua_State* L) {
 
   vec_t(HeadsetDriver) drivers;
   vec_init(&drivers);
-
   bool mirror = false;
+  float offset = 1.7;
 
   if (lua_istable(L, -1)) {
 
@@ -94,9 +93,14 @@ int l_lovrHeadsetInit(lua_State* L) {
     lua_getfield(L, -1, "mirror");
     mirror = lua_toboolean(L, -1);
     lua_pop(L, 1);
+
+    // Offset
+    lua_getfield(L, -1, "offset");
+    offset = luaL_optnumber(L, -1, 1.7);
+    lua_pop(L, 1);
   }
 
-  lovrHeadsetInit(drivers.data, drivers.length);
+  lovrHeadsetInit(drivers.data, drivers.length, offset);
   lovrHeadsetSetMirrored(mirror);
 
   vec_deinit(&drivers);

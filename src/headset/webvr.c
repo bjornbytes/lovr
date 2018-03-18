@@ -245,7 +245,7 @@ static ModelData* webvrControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-static void webvrRenderTo(headsetRenderCallback callback, void* userdata) {
+static void webvrRenderTo(void (*callback)(void*), void* userdata) {
   state.renderCallback = callback;
   emscripten_vr_set_render_callback(onRequestAnimationFrame, userdata);
 }

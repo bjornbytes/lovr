@@ -24,7 +24,6 @@ map_int_t HorizontalAligns;
 map_int_t MaterialColors;
 map_int_t MaterialScalars;
 map_int_t MaterialTextures;
-map_int_t MatrixTypes;
 map_int_t MeshDrawModes;
 map_int_t MeshUsages;
 map_int_t StencilActions;
@@ -33,16 +32,6 @@ map_int_t TextureTypes;
 map_int_t VerticalAligns;
 map_int_t Windings;
 map_int_t WrapModes;
-
-static int luax_optmatrixtype(lua_State* L, int index, MatrixType* type) {
-  if (lua_type(L, index) == LUA_TSTRING) {
-    *type = *(MatrixType*) luax_checkenum(L, index++, &MatrixTypes, "matrix type");
-  } else {
-    *type = MATRIX_MODEL;
-  }
-
-  return index;
-}
 
 static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
   bool isTable = lua_istable(L, index);
@@ -169,10 +158,6 @@ int l_lovrGraphicsInit(lua_State* L) {
   map_set(&MaterialTextures, "occlusion", TEXTURE_OCCLUSION);
   map_set(&MaterialTextures, "normal", TEXTURE_NORMAL);
   map_set(&MaterialTextures, "environment", TEXTURE_ENVIRONMENT_MAP);
-
-  map_init(&MatrixTypes);
-  map_set(&MatrixTypes, "model", MATRIX_MODEL);
-  map_set(&MatrixTypes, "view", MATRIX_VIEW);
 
   map_init(&MeshDrawModes);
   map_set(&MeshDrawModes, "points", MESH_POINTS);
@@ -323,7 +308,7 @@ int l_lovrGraphicsPresent(lua_State* L) {
 }
 
 int l_lovrGraphicsCreateWindow(lua_State* L) {
-  int width = luaL_optnumber(L, 1, 800);
+  int width = luaL_optnumber(L, 1, 1080);
   int height = luaL_optnumber(L, 2, 600);
   bool fullscreen = !lua_isnoneornil(L, 3) && lua_toboolean(L, 3);
   int msaa = luaL_optnumber(L, 4, 0);
@@ -619,42 +604,34 @@ int l_lovrGraphicsOrigin(lua_State* L) {
 }
 
 int l_lovrGraphicsTranslate(lua_State* L) {
-  MatrixType type;
-  int i = luax_optmatrixtype(L, 1, &type);
-  float x = luaL_checknumber(L, i++);
-  float y = luaL_checknumber(L, i++);
-  float z = luaL_checknumber(L, i++);
-  lovrGraphicsTranslate(type, x, y, z);
+  float x = luaL_checknumber(L, 1);
+  float y = luaL_checknumber(L, 2);
+  float z = luaL_checknumber(L, 3);
+  lovrGraphicsTranslate(x, y, z);
   return 0;
 }
 
 int l_lovrGraphicsRotate(lua_State* L) {
-  MatrixType type;
-  int i = luax_optmatrixtype(L, 1, &type);
-  float angle = luaL_checknumber(L, i++);
-  float axisX = luaL_optnumber(L, i++, 0);
-  float axisY = luaL_optnumber(L, i++, 1);
-  float axisZ = luaL_optnumber(L, i++, 0);
-  lovrGraphicsRotate(type, angle, axisX, axisY, axisZ);
+  float angle = luaL_checknumber(L, 1);
+  float axisX = luaL_optnumber(L, 2, 0);
+  float axisY = luaL_optnumber(L, 3, 1);
+  float axisZ = luaL_optnumber(L, 4, 0);
+  lovrGraphicsRotate(angle, axisX, axisY, axisZ);
   return 0;
 }
 
 int l_lovrGraphicsScale(lua_State* L) {
-  MatrixType type;
-  int i = luax_optmatrixtype(L, 1, &type);
-  float x = luaL_checknumber(L, i++);
-  float y = luaL_optnumber(L, i++, x);
-  float z = luaL_optnumber(L, i++, x);
-  lovrGraphicsScale(type, x, y, z);
+  float x = luaL_checknumber(L, 1);
+  float y = luaL_optnumber(L, 2, x);
+  float z = luaL_optnumber(L, 3, x);
+  lovrGraphicsScale(x, y, z);
   return 0;
 }
 
 int l_lovrGraphicsTransform(lua_State* L) {
-  MatrixType type;
-  int i = luax_optmatrixtype(L, 1, &type);
   float transform[16];
-  luax_readtransform(L, i++, transform, 0);
-  lovrGraphicsMatrixTransform(type, transform);
+  luax_readtransform(L, 1, transform, 0);
+  lovrGraphicsMatrixTransform(transform);
   return 0;
 }
 
@@ -700,12 +677,6 @@ int l_lovrGraphicsTriangle(lua_State* L) {
 }
 
 int l_lovrGraphicsPlane(lua_State* L) {
-  if (lua_isuserdata(L, 1) && lua_gettop(L) == 1) {
-    Texture* texture = luax_checktypeof(L, 1, Texture);
-    lovrGraphicsPlaneFullscreen(texture);
-    return 0;
-  }
-
   DrawMode drawMode = DRAW_MODE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
@@ -837,6 +808,12 @@ int l_lovrGraphicsStencil(lua_State* L) {
   }
   lua_settop(L, 1);
   lovrGraphicsStencil(action, replaceValue, stencilCallback, L);
+  return 0;
+}
+
+int l_lovrGraphicsBlit(lua_State* L) {
+  Texture* texture = luax_checktypeof(L, 1, Texture);
+  lovrGraphicsBlit(texture);
   return 0;
 }
 
@@ -1195,6 +1172,7 @@ const luaL_Reg lovrGraphics[] = {
   { "skybox", l_lovrGraphicsSkybox },
   { "print", l_lovrGraphicsPrint },
   { "stencil", l_lovrGraphicsStencil },
+  { "blit", l_lovrGraphicsBlit },
   { "newAnimator", l_lovrGraphicsNewAnimator },
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newFont", l_lovrGraphicsNewFont },

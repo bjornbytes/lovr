@@ -11,10 +11,10 @@
 #pragma once
 
 #define MAX_CANVASES 4
-#define MAX_DISPLAYS 4
+#define MAX_LAYERS 4
 #define MAX_TRANSFORMS 60
 #define INTERNAL_TRANSFORMS 4
-#define DEFAULT_SHADER_COUNT 4
+#define DEFAULT_SHADER_COUNT 5
 #define MAX_TEXTURES 16
 
 typedef void (*StencilCallback)(void* userdata);
@@ -70,16 +70,12 @@ typedef enum {
   STENCIL_INVERT = GL_INVERT
 } StencilAction;
 
-typedef enum {
-  MATRIX_MODEL,
-  MATRIX_VIEW
-} MatrixType;
-
 typedef struct {
-  int framebuffer;
-  float projection[16];
+  float projections[32];
+  float views[32];
+  Canvas* canvas;
   int viewport[4];
-} Display;
+} Layer;
 
 typedef struct {
   bool initialized;
@@ -102,7 +98,7 @@ typedef struct {
   Material* defaultMaterial;
   Font* defaultFont;
   Texture* defaultTexture;
-  float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][2][16];
+  float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
   int transform;
   Color backgroundColor;
   BlendMode blendMode;
@@ -124,19 +120,21 @@ typedef struct {
   int stencilValue;
   Winding winding;
   bool wireframe;
+  vec_float_t streamData;
+  vec_uint_t streamIndices;
   uint32_t streamVAO;
   uint32_t streamVBO;
   uint32_t streamIBO;
-  vec_float_t streamData;
-  vec_uint_t streamIndices;
-  Display displays[MAX_DISPLAYS];
-  int display;
+  uint32_t cameraUBO;
+  Layer layers[MAX_LAYERS];
+  int layer;
   Texture* textures[MAX_TEXTURES];
   bool stencilEnabled;
   bool stencilWriting;
   uint32_t program;
   uint32_t vertexArray;
   uint32_t vertexBuffer;
+  uint32_t uniformBuffer;
   uint32_t indexBuffer;
   GraphicsStats stats;
 } GraphicsState;
@@ -190,17 +188,16 @@ void lovrGraphicsSetWireframe(bool wireframe);
 void lovrGraphicsPush();
 void lovrGraphicsPop();
 void lovrGraphicsOrigin();
-void lovrGraphicsTranslate(MatrixType type, float x, float y, float z);
-void lovrGraphicsRotate(MatrixType type, float angle, float ax, float ay, float az);
-void lovrGraphicsScale(MatrixType type, float x, float y, float z);
-void lovrGraphicsMatrixTransform(MatrixType type, mat4 transform);
+void lovrGraphicsTranslate(float x, float y, float z);
+void lovrGraphicsRotate(float angle, float ax, float ay, float az);
+void lovrGraphicsScale(float x, float y, float z);
+void lovrGraphicsMatrixTransform(mat4 transform);
 
 // Primitives
 void lovrGraphicsPoints(float* points, int count);
 void lovrGraphicsLine(float* points, int count);
 void lovrGraphicsTriangle(DrawMode mode, Material* material, float* points);
 void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform);
-void lovrGraphicsPlaneFullscreen(Texture* texture);
 void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform);
 void lovrGraphicsArc(DrawMode mode, ArcMode, Material* material, mat4 transform, float theta1, float theta2, int segments);
 void lovrGraphicsCircle(DrawMode mode, Material* material, mat4 transform, int segments);
@@ -209,10 +206,11 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments);
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
+void lovrGraphicsBlit(Texture* texture);
 
 // Internal State
-void lovrGraphicsPushDisplay(int framebuffer, mat4 projection, int* viewport);
-void lovrGraphicsPopDisplay();
+void lovrGraphicsPushLayer(Layer layer);
+void lovrGraphicsPopLayer();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);
 void lovrGraphicsBindFramebuffer(int framebuffer);
 Texture* lovrGraphicsGetTexture(int slot);
@@ -223,6 +221,7 @@ Shader* lovrGraphicsGetActiveShader();
 void lovrGraphicsUseProgram(uint32_t program);
 void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
+void lovrGraphicsBindUniformBuffer(uint32_t ubo);
 void lovrGraphicsBindIndexBuffer(uint32_t ibo);
 void lovrGraphicsDrawArrays(GLenum mode, size_t start, size_t count, int instances);
 void lovrGraphicsDrawElements(GLenum mode, size_t count, size_t indexSize, size_t offset, int instances);
