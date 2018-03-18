@@ -108,7 +108,7 @@ void lovrGraphicsPresent() {
   glfwSwapBuffers(state.window);
   state.stats.drawCalls = 0;
   state.stats.shaderSwitches = 0;
-  state.program = -1;
+  state.program = -1; // Fixes a driver bug with instancing seen on macOS
 }
 
 void lovrGraphicsPrepare(Material* material, float* pose) {
