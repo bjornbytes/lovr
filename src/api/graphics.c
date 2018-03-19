@@ -653,7 +653,7 @@ int l_lovrGraphicsTransform(lua_State* L) {
   MatrixType type;
   int i = luax_optmatrixtype(L, 1, &type);
   float transform[16];
-  luax_readtransform(L, i++, transform, 0);
+  luax_readtransform(L, i++, transform, 3);
   lovrGraphicsMatrixTransform(type, transform);
   return 0;
 }
@@ -714,12 +714,12 @@ int l_lovrGraphicsPlane(lua_State* L) {
     drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
   }
   float transform[16];
-  luax_readtransform(L, 2, transform, 1);
+  luax_readtransform(L, 2, transform, 2);
   lovrGraphicsPlane(drawMode, material, transform);
   return 0;
 }
 
-static int luax_rectangularprism(lua_State* L, bool uniformScale) {
+static int luax_rectangularprism(lua_State* L, int scaleComponents) {
   DrawMode drawMode = DRAW_MODE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
@@ -728,17 +728,17 @@ static int luax_rectangularprism(lua_State* L, bool uniformScale) {
     drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
   }
   float transform[16];
-  luax_readtransform(L, 2, transform, uniformScale);
+  luax_readtransform(L, 2, transform, scaleComponents);
   lovrGraphicsBox(drawMode, material, transform);
   return 0;
 }
 
 int l_lovrGraphicsCube(lua_State* L) {
-  return luax_rectangularprism(L, true);
+  return luax_rectangularprism(L, 1);
 }
 
 int l_lovrGraphicsBox(lua_State* L) {
-  return luax_rectangularprism(L, false);
+  return luax_rectangularprism(L, 3);
 }
 
 int l_lovrGraphicsArc(lua_State* L) {
@@ -755,7 +755,7 @@ int l_lovrGraphicsArc(lua_State* L) {
     arcMode = *(ArcMode*) luax_checkenum(L, index++, &ArcModes, "arc mode");
   }
   float transform[16];
-  index = luax_readtransform(L, index, transform, true);
+  index = luax_readtransform(L, index, transform, 1);
   float theta1 = luaL_optnumber(L, index++, 0);
   float theta2 = luaL_optnumber(L, index++, 2 * M_PI);
   int segments = luaL_optinteger(L, index, 32) * fabsf(theta2 - theta1) * 2 * M_PI + .5f;
@@ -772,7 +772,7 @@ int l_lovrGraphicsCircle(lua_State* L) {
     drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
   }
   float transform[16];
-  int index = luax_readtransform(L, 2, transform, true);
+  int index = luax_readtransform(L, 2, transform, 1);
   int segments = luaL_optnumber(L, index, 32);
   lovrGraphicsCircle(drawMode, material, transform, segments);
   return 0;
