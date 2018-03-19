@@ -132,20 +132,30 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
   mat4_multiply(mat4_set(transforms + 16, layer.views + 16), model);
   lovrShaderSetMatrix(shader, "lovrTransforms", transforms, 32);
 
-  if (lovrShaderGetUniform(shader, "lovrNormalMatrix")) {
+  if (lovrShaderGetUniform(shader, "lovrNormalMatrices")) {
     if (mat4_invert(transforms)) {
       mat4_transpose(transforms);
     } else {
       mat4_identity(transforms);
     }
 
-    float normalMatrix[9] = {
+    if (mat4_invert(transforms + 16)) {
+      mat4_transpose(transforms + 16);
+    } else {
+      mat4_identity(transforms + 16);
+    }
+
+    float normalMatrix[18] = {
       transforms[0], transforms[1], transforms[2],
       transforms[4], transforms[5], transforms[6],
-      transforms[8], transforms[9], transforms[10]
+      transforms[8], transforms[9], transforms[10],
+
+      transforms[16], transforms[17], transforms[18],
+      transforms[20], transforms[21], transforms[22],
+      transforms[24], transforms[25], transforms[26]
     };
 
-    lovrShaderSetMatrix(shader, "lovrNormalMatrix", normalMatrix, 9);
+    lovrShaderSetMatrix(shader, "lovrNormalMatrices", normalMatrix, 18);
   }
 
   // Color
