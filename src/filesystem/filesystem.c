@@ -121,8 +121,8 @@ int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
   return 1;
 #elif __linux__
   memset(dest, 0, size);
-  if (readlink("/proc/self/exe", dest, size) == -1) {
-    return 1;
+  if (readlink("/proc/self/exe", dest, size) != -1) {
+    return 0;
   }
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetExecutablePath"
@@ -175,6 +175,20 @@ const char* lovrFilesystemGetUserDirectory() {
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetUserDirectory"
 #endif
+}
+
+int lovrFilesystemGetWorkingDirectory(char* dest, unsigned int size) {
+#ifdef _WIN32
+  WCHAR w_cwd[LOVR_PATH_MAX];
+  _wgetcwd(w_cwd, LOVR_PATH_MAX);
+  PHYSFS_utf8FromUtf16(w_cwd, dest, size);
+  return 0;
+#else
+  if (getcwd(dest, size)) {
+    return 0;
+  }
+#endif
+  return 1;
 }
 
 bool lovrFilesystemIsDirectory(const char* path) {

@@ -34,6 +34,7 @@ const char* lovrFilesystemGetSaveDirectory();
 size_t lovrFilesystemGetSize(const char* path);
 const char* lovrFilesystemGetSource();
 const char* lovrFilesystemGetUserDirectory();
+int lovrFilesystemGetWorkingDirectory(char* dest, unsigned int size);
 bool lovrFilesystemIsDirectory(const char* path);
 bool lovrFilesystemIsFile(const char* path);
 bool lovrFilesystemIsFused();

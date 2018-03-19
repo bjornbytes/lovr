@@ -94,7 +94,7 @@ int l_lovrFilesystemCreateDirectory(lua_State* L) {
 }
 
 int l_lovrFilesystemGetAppdataDirectory(lua_State* L) {
-  char buffer[1024];
+  char buffer[LOVR_PATH_MAX];
 
   if (lovrFilesystemGetAppdataDirectory(buffer, sizeof(buffer))) {
     lua_pushnil(L);
@@ -113,7 +113,7 @@ int l_lovrFilesystemGetDirectoryItems(lua_State* L) {
 }
 
 int l_lovrFilesystemGetExecutablePath(lua_State* L) {
-  char buffer[1024];
+  char buffer[LOVR_PATH_MAX];
 
   if (lovrFilesystemGetExecutablePath(buffer, sizeof(buffer))) {
     lua_pushnil(L);
@@ -194,6 +194,18 @@ int l_lovrFilesystemGetSource(lua_State* L) {
 
 int l_lovrFilesystemGetUserDirectory(lua_State* L) {
   lua_pushstring(L, lovrFilesystemGetUserDirectory());
+  return 1;
+}
+
+int l_lovrFilesystemGetWorkingDirectory(lua_State* L) {
+  char buffer[LOVR_PATH_MAX];
+
+  if (lovrFilesystemGetWorkingDirectory(buffer, sizeof(buffer))) {
+    lua_pushnil(L);
+  } else {
+    lua_pushstring(L, buffer);
+  }
+
   return 1;
 }
 
@@ -316,6 +328,7 @@ const luaL_Reg lovrFilesystem[] = {
   { "getSize", l_lovrFilesystemGetSize },
   { "getSource", l_lovrFilesystemGetSource },
   { "getUserDirectory", l_lovrFilesystemGetUserDirectory },
+  { "getWorkingDirectory", l_lovrFilesystemGetWorkingDirectory },
   { "isDirectory", l_lovrFilesystemIsDirectory },
   { "isFile", l_lovrFilesystemIsFile },
   { "isFused", l_lovrFilesystemIsFused },
