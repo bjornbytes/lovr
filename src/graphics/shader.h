@@ -37,7 +37,7 @@ typedef enum {
   SHADER_CUBE,
   SHADER_PANO,
   SHADER_FONT,
-  SHADER_BLIT
+  SHADER_FILL
 } DefaultShader;
 
 typedef struct {

@@ -155,7 +155,7 @@ const char* lovrFontFragmentShader = ""
 "  return vec4(graphicsColor.rgb, graphicsColor.a * alpha); \n"
 "}";
 
-const char* lovrBlitVertexShader = ""
+const char* lovrFillVertexShader = ""
 "#define MONOSCOPIC \n"
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  return vertex; \n"

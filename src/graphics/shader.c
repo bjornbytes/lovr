@@ -271,7 +271,7 @@ Shader* lovrShaderCreateDefault(DefaultShader type) {
     case SHADER_CUBE: return lovrShaderCreate(lovrCubeVertexShader, lovrCubeFragmentShader); break;
     case SHADER_PANO: return lovrShaderCreate(lovrCubeVertexShader, lovrPanoFragmentShader); break;
     case SHADER_FONT: return lovrShaderCreate(NULL, lovrFontFragmentShader);
-    case SHADER_BLIT: return lovrShaderCreate(lovrBlitVertexShader, NULL);
+    case SHADER_FILL: return lovrShaderCreate(lovrFillVertexShader, NULL);
     default: lovrThrow("Unknown default shader type");
   }
 }

@@ -811,9 +811,9 @@ int l_lovrGraphicsStencil(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsBlit(lua_State* L) {
+int l_lovrGraphicsFill(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  lovrGraphicsBlit(texture);
+  lovrGraphicsFill(texture);
   return 0;
 }
 
@@ -1173,7 +1173,7 @@ const luaL_Reg lovrGraphics[] = {
   { "skybox", l_lovrGraphicsSkybox },
   { "print", l_lovrGraphicsPrint },
   { "stencil", l_lovrGraphicsStencil },
-  { "blit", l_lovrGraphicsBlit },
+  { "fill", l_lovrGraphicsFill },
   { "newAnimator", l_lovrGraphicsNewAnimator },
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newFont", l_lovrGraphicsNewFont },

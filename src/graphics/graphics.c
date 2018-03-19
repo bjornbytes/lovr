@@ -1068,7 +1068,7 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
   lovrGraphicsSetStencilTest(state.stencilMode, state.stencilValue);
 }
 
-void lovrGraphicsBlit(Texture* texture) {
+void lovrGraphicsFill(Texture* texture) {
   float vertices[] = {
     -1, 1, 0,  0, 0, 0, 0, 1,
     -1, -1, 0, 0, 0, 0, 0, 0,
@@ -1076,7 +1076,7 @@ void lovrGraphicsBlit(Texture* texture) {
     1, -1, 0,  0, 0, 0, 1, 0
   };
 
-  lovrGraphicsSetDefaultShader(SHADER_BLIT);
+  lovrGraphicsSetDefaultShader(SHADER_FILL);
   Material* material = lovrGraphicsGetDefaultMaterial();
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
   VertexPointer vertexPointer = lovrGraphicsGetVertexPointer(4);

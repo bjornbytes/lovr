@@ -202,7 +202,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments);
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
-void lovrGraphicsBlit(Texture* texture);
+void lovrGraphicsFill(Texture* texture);
 
 // Internal State
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);

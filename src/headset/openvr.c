@@ -732,7 +732,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     Shader* lastShader = lovrGraphicsGetShader();
     lovrRetain(lastShader);
     lovrGraphicsSetShader(NULL);
-    lovrGraphicsBlit(&state.canvas->texture);
+    lovrGraphicsFill(&state.canvas->texture);
     lovrGraphicsSetShader(lastShader);
     lovrRelease(lastShader);
     lovrGraphicsSetColor(oldColor);
