@@ -1084,6 +1084,10 @@ void lovrGraphicsFill(Texture* texture) {
     1, -1, 0,  0, 0, 0, 1, 0
   };
 
+  CompareMode mode;
+  bool write;
+  lovrGraphicsGetDepthTest(&mode, &write);
+  lovrGraphicsSetDepthTest(COMPARE_NONE, false);
   lovrGraphicsSetDefaultShader(SHADER_FILL);
   Material* material = lovrGraphicsGetDefaultMaterial();
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
@@ -1095,6 +1099,7 @@ void lovrGraphicsFill(Texture* texture) {
   lovrMeshSetDrawRange(state.mesh, 0, 4);
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   lovrMeshDraw(state.mesh, NULL, NULL, 1);
+  lovrGraphicsSetDepthTest(mode, write);
 }
 
 // Internal State
