@@ -14,6 +14,7 @@
 typedef struct {
   bool initialized;
   HeadsetType type;
+  bool mirrored;
 
   vec_controller_t controllers;
 
@@ -151,6 +152,7 @@ static void check_window_existance() {
 
 static bool fakeInit() {
   if (state.initialized) return true;
+  state.mirrored = true;
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
   state.fov = 67.0f * M_PI / 100.0f;
@@ -202,11 +204,11 @@ static bool fakeIsMounted() {
 }
 
 static bool fakeIsMirrored() {
-  return true;
+  return state.mirrored;
 }
 
 static void fakeSetMirrored(bool mirror) {
-  //
+  state.mirrored = mirror;
 }
 
 static void fakeGetDisplayDimensions(int* width, int* height) {
@@ -311,7 +313,7 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
 
 static void fakeRenderTo(headsetRenderCallback callback, void* userdata) {
   GLFWwindow* window = glfwGetCurrentContext();
-  if (!window) {
+  if (!window || !state.mirrored) {
     return;
   }
 
