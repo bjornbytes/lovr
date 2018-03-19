@@ -313,11 +313,9 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   int width, height;
   fakeGetDisplayDimensions(&width, &height);
 
-  Layer layer = { .canvas = NULL, .viewport = { 0, 0, width, height } };
-
+  Layer layer = { .canvas = NULL };
   mat4_perspective(layer.projections, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height / 2.);
   mat4_set(layer.projections + 16, layer.projections);
-
   mat4_identity(layer.views);
   mat4_translate(layer.views, 0, state.offset, 0);
   mat4_multiply(layer.views, state.transform);

@@ -64,10 +64,6 @@ void lovrGraphicsReset() {
   mat4_perspective(state.layers[state.layer].projections + 16, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
   mat4_identity(state.layers[state.layer].views);
   mat4_identity(state.layers[state.layer].views + 16);
-  state.layers[state.layer].viewport[0] = 0;
-  state.layers[state.layer].viewport[1] = 0;
-  state.layers[state.layer].viewport[2] = w;
-  state.layers[state.layer].viewport[3] = h;
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1. });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor((Color) { 1., 1., 1., 1. });
@@ -81,7 +77,6 @@ void lovrGraphicsReset() {
   lovrGraphicsSetStencilTest(COMPARE_NONE, 0);
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
   lovrGraphicsSetWireframe(false);
-  lovrGraphicsSetViewport(0, 0, w, h);
   lovrGraphicsOrigin();
 }
 
@@ -118,13 +113,23 @@ void lovrGraphicsPrepare(Material* material, float* pose) {
     shader = state.defaultShaders[state.defaultShader] = lovrShaderCreateDefault(state.defaultShader);
   }
 
+  // Layer
+  Layer layer = state.layers[state.layer];
+  Canvas* canvas = state.canvasCount > 0 ? state.canvas[0] : layer.canvas;
+  int w = canvas ? canvas->texture.width : lovrGraphicsGetWidth();
+  int h = canvas ? canvas->texture.height : lovrGraphicsGetHeight();
+  lovrGraphicsBindFramebuffer(canvas ? canvas->framebuffer : 0);
+  lovrGraphicsSetViewport(0, 0, w, h);
+  lovrGraphicsBindUniformBuffer(state.cameraUBO);
+  glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), &layer); // TODO
+
+  // Transforms
   mat4 model = state.transforms[state.transform];
   lovrShaderSetMatrix(shader, "lovrModel", model, 16);
 
-  float* views = state.layers[state.layer].views;
   float transforms[32];
-  mat4_multiply(mat4_set(transforms + 0, views + 0), model);
-  mat4_multiply(mat4_set(transforms + 16, views + 16), model);
+  mat4_multiply(mat4_set(transforms + 0, layer.views + 0), model);
+  mat4_multiply(mat4_set(transforms + 16, layer.views + 16), model);
   lovrShaderSetMatrix(shader, "lovrTransforms", transforms, 32);
 
   if (lovrShaderGetUniform(shader, "lovrNormalMatrix")) {
@@ -369,15 +374,8 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
     lovrRelease(&state.canvas[i]->texture);
   }
 
-  if (count == 0) {
-    Layer layer = state.layers[state.layer];
-    int* viewport = layer.viewport;
-    lovrGraphicsBindFramebuffer(layer.canvas ? layer.canvas->framebuffer : 0);
-    lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  } else {
+  if (count > 0) {
     memcpy(state.canvas, canvas, count * sizeof(Canvas*));
-    lovrGraphicsBindFramebuffer(canvas[0]->framebuffer);
-    lovrGraphicsSetViewport(0, 0, canvas[0]->texture.width, canvas[0]->texture.height);
 
     GLenum buffers[MAX_CANVASES];
     for (int i = 0; i < count; i++) {
@@ -1090,21 +1088,12 @@ void lovrGraphicsFill(Texture* texture) {
 }
 
 // Internal State
-static void bindLayer(Layer* layer) {
-  int* viewport = layer->viewport;
-  lovrGraphicsBindUniformBuffer(state.cameraUBO);
-  glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), layer);
-  lovrGraphicsBindFramebuffer(layer->canvas ? layer->canvas->framebuffer : 0);
-  lovrGraphicsSetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-}
-
 void lovrGraphicsPushLayer(Layer layer) {
   if (++state.layer >= MAX_LAYERS) {
     lovrThrow("Layer overflow");
   }
 
   memcpy(&state.layers[state.layer], &layer, sizeof(Layer));
-  bindLayer(&state.layers[state.layer]);
 }
 
 void lovrGraphicsPopLayer() {
@@ -1112,19 +1101,11 @@ void lovrGraphicsPopLayer() {
     lovrCanvasResolve(state.layers[state.layer].canvas);
   }
 
-  if (--state.layer < 0) {
-    lovrThrow("Layer underflow");
-  }
-
-  bindLayer(&state.layers[state.layer]);
+  lovrAssert(--state.layer >= 0, "Layer underflow");
 }
 
 void lovrGraphicsSetViewport(int x, int y, int w, int h) {
   glViewport(x, y, w, h);
-}
-
-void lovrGraphicsBindFramebuffer(int framebuffer) {
-  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 }
 
 Texture* lovrGraphicsGetTexture(int slot) {
@@ -1171,6 +1152,13 @@ void lovrGraphicsUseProgram(uint32_t program) {
     state.program = program;
     glUseProgram(program);
     state.stats.shaderSwitches++;
+  }
+}
+
+void lovrGraphicsBindFramebuffer(uint32_t framebuffer) {
+  if (state.framebuffer != framebuffer) {
+    state.framebuffer = framebuffer;
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
   }
 }
 

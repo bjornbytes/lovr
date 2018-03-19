@@ -74,7 +74,6 @@ typedef struct {
   float projections[32];
   float views[32];
   Canvas* canvas;
-  int viewport[4];
 } Layer;
 
 typedef struct {
@@ -128,6 +127,7 @@ typedef struct {
   bool stencilEnabled;
   bool stencilWriting;
   uint32_t program;
+  uint32_t framebuffer;
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   uint32_t uniformBuffer;
@@ -209,13 +209,13 @@ VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsPushLayer(Layer layer);
 void lovrGraphicsPopLayer();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);
-void lovrGraphicsBindFramebuffer(int framebuffer);
 Texture* lovrGraphicsGetTexture(int slot);
 void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot);
 Material* lovrGraphicsGetDefaultMaterial();
 void lovrGraphicsSetDefaultShader(DefaultShader defaultShader);
 Shader* lovrGraphicsGetActiveShader();
 void lovrGraphicsUseProgram(uint32_t program);
+void lovrGraphicsBindFramebuffer(uint32_t framebuffer);
 void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
 void lovrGraphicsBindUniformBuffer(uint32_t ubo);

@@ -676,7 +676,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
 
   // Layer setup
-  Layer layer = { .canvas = state.canvas, .viewport = { 0, 0, state.renderWidth * 2, state.renderHeight } };
+  Layer layer = { .canvas = state.canvas };
   float eye[16];
   float head[16];
   float (*matrix)[4];
