@@ -35,7 +35,7 @@ void lovrSleep(double seconds) {
 }
 
 void* lovrAlloc(size_t size, void (*destructor)(void* object)) {
-  void* object = malloc(size);
+  void* object = calloc(1, size);
   if (!object) return NULL;
   *((Ref*) object) = (Ref) { destructor, 1 };
   return object;

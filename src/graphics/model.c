@@ -56,8 +56,6 @@ Model* lovrModelCreate(ModelData* modelData) {
   lovrRetain(modelData);
   model->modelData = modelData;
   model->aabbDirty = true;
-  model->animator = NULL;
-  model->material = NULL;
 
   model->mesh = lovrMeshCreate(modelData->vertexData, MESH_TRIANGLES, MESH_STATIC);
   VertexPointer vertices = lovrMeshMap(model->mesh, 0, modelData->vertexData->count, false, true);
@@ -71,12 +69,8 @@ Model* lovrModelCreate(ModelData* modelData) {
     for (int i = 0; i < modelData->textures.length; i++) {
       if (modelData->textures.data[i]) {
         model->textures[i] = lovrTextureCreate(TEXTURE_2D, (TextureData**) &modelData->textures.data[i], 1, i == 2, true);
-      } else {
-        model->textures[i] = NULL;
       }
     }
-  } else {
-    model->textures = NULL;
   }
 
   if (modelData->materialCount > 0) {
@@ -96,8 +90,6 @@ Model* lovrModelCreate(ModelData* modelData) {
       lovrMaterialSetTexture(material, TEXTURE_NORMAL, model->textures[materialData->normalTexture]);
       model->materials[i] = material;
     }
-  } else {
-    model->materials = NULL;
   }
 
   for (int i = 0; i < MAX_BONES; i++) {

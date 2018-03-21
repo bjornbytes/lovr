@@ -266,9 +266,6 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     lovrThrow("Unable to load model from '%s': %s\n", blob->name, aiGetErrorString());
   }
 
-  modelData->nodeCount = 0;
-  modelData->indexCount = 0;
-
   uint32_t vertexCount = 0;
   bool hasNormals = false;
   bool hasUVs = false;

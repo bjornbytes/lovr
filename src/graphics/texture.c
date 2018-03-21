@@ -92,7 +92,6 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
   texture->sliceCount = sliceCount;
   texture->srgb = srgb;
   texture->mipmaps = mipmaps;
-  texture->allocated = false;
 
   WrapMode wrap = type == TEXTURE_CUBE ? WRAP_CLAMP : WRAP_REPEAT;
   glGenTextures(1, &texture->id);

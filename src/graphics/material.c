@@ -15,10 +15,6 @@ Material* lovrMaterialCreate(bool isDefault) {
     material->colors[i] = (Color) { 1, 1, 1, 1 };
   }
 
-  for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
-    material->textures[i] = NULL;
-  }
-
   return material;
 }
 

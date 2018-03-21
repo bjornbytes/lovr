@@ -6,7 +6,6 @@ File* lovrFileCreate(const char* path) {
   if (!file) return NULL;
 
   file->path = path;
-  file->handle = NULL;
 
   return file;
 }

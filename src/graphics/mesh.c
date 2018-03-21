@@ -72,22 +72,9 @@ Mesh* lovrMeshCreate(VertexData* vertexData, MeshDrawMode drawMode, MeshUsage us
 
   uint32_t count = vertexData->count;
   mesh->vertexData = vertexData;
-  mesh->indices.raw = NULL;
-  mesh->indexCount = 0;
   mesh->indexSize = count > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
-  mesh->isMapped = false;
-  mesh->mapStart = 0;
-  mesh->mapCount = 0;
-  mesh->isRangeEnabled = false;
-  mesh->rangeStart = 0;
-  mesh->rangeCount = count;
   mesh->drawMode = drawMode;
   mesh->usage = usage;
-  mesh->vao = 0;
-  mesh->vbo = 0;
-  mesh->ibo = 0;
-  mesh->material = NULL;
-  mesh->isAttachment = false;
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);
@@ -100,8 +87,6 @@ Mesh* lovrMeshCreate(VertexData* vertexData, MeshDrawMode drawMode, MeshUsage us
     MeshAttachment attachment = { mesh, i, 0, true };
     map_set(&mesh->attachments, vertexData->format.attributes[i].name, attachment);
   }
-
-  memset(mesh->layout, 0, MAX_ATTACHMENTS * sizeof(MeshAttachment));
 
   return mesh;
 }

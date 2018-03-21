@@ -27,10 +27,6 @@ Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, int msaa, 
   Canvas* canvas = lovrAlloc(sizeof(Canvas), lovrCanvasDestroy);
   canvas->texture = *texture;
   canvas->msaa = msaa;
-  canvas->framebuffer = 0;
-  canvas->resolveFramebuffer = 0;
-  canvas->depthStencilBuffer = 0;
-  canvas->msaaTexture = 0;
 
   // Framebuffer
   glGenFramebuffers(1, &canvas->framebuffer);

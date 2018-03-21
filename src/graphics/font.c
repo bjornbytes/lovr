@@ -28,7 +28,6 @@ Font* lovrFontCreate(Rasterizer* rasterizer) {
 
   lovrRetain(rasterizer);
   font->rasterizer = rasterizer;
-  font->texture = NULL;
   font->lineHeight = 1.f;
   font->pixelDensity = (float) font->rasterizer->height;
   map_init(&font->kerning);

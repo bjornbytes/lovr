@@ -10,8 +10,6 @@ Channel* lovrChannelCreate() {
   vec_init(&channel->messages);
   mtx_init(&channel->lock, mtx_plain | mtx_timed);
   cnd_init(&channel->cond);
-  channel->sent = 0;
-  channel->received = 0;
 
   return channel;
 }

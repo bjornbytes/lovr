@@ -19,6 +19,8 @@ VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format, bool allo
   VertexData* vertexData = lovrAlloc(sizeof(VertexData), lovrBlobDestroy);
   if (!vertexData) return NULL;
 
+  vertexData->count = count;
+
   if (format) {
     vertexData->format = *format;
   } else {
@@ -29,9 +31,6 @@ VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format, bool allo
     vertexFormatAppend(&vertexData->format, "lovrTexCoord", ATTR_FLOAT, 2);
     vertexFormatAppend(&vertexData->format, "lovrVertexColor", ATTR_BYTE, 4);
   }
-
-  vertexData->count = count;
-  vertexData->blob.data = NULL;
 
   if (allocate) {
     size_t size = format->stride * count;
