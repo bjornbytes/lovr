@@ -160,14 +160,13 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   glVertexAttrib4fv(LOVR_SHADER_BONE_WEIGHTS, defaultBoneWeights);
 
   // Uniform introspection
-  GLint uniformCount;
+  int32_t uniformCount;
   int textureSlot = 0;
-  GLsizei bufferSize = LOVR_MAX_UNIFORM_LENGTH / sizeof(GLchar);
   map_init(&shader->uniforms);
   glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &uniformCount);
   for (int i = 0; i < uniformCount; i++) {
     Uniform uniform;
-    glGetActiveUniform(program, i, bufferSize, NULL, &uniform.count, &uniform.glType, uniform.name);
+    glGetActiveUniform(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, &uniform.count, &uniform.glType, uniform.name);
 
     char* subscript = strchr(uniform.name, '[');
     if (subscript) {
@@ -245,6 +244,16 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     textureSlot += (uniform.type == UNIFORM_SAMPLER) ? uniform.count : 0;
   }
 
+  // Attribute cache
+  int32_t attributeCount;
+  glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &attributeCount);
+  map_init(&shader->attributes);
+  for (int i = 0; i < attributeCount; i++) {
+    char name[LOVR_MAX_ATTRIBUTE_LENGTH];
+    glGetActiveAttrib(program, i, LOVR_MAX_ATTRIBUTE_LENGTH, NULL, NULL, NULL, name);
+    map_set(&shader->attributes, name, glGetAttribLocation(program, name));
+  }
+
   return shader;
 }
 
@@ -262,6 +271,7 @@ void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
   glDeleteProgram(shader->program);
   map_deinit(&shader->uniforms);
+  map_deinit(&shader->attributes);
   free(shader);
 }
 
@@ -323,11 +333,8 @@ void lovrShaderBind(Shader* shader) {
 }
 
 int lovrShaderGetAttributeId(Shader* shader, const char* name) {
-  if (!shader) {
-    return -1;
-  }
-
-  return glGetAttribLocation(shader->program, name);
+  int* id = map_get(&shader->attributes, name);
+  return id ? *id : -1;
 }
 
 Uniform* lovrShaderGetUniform(Shader* shader, const char* name) {

@@ -15,6 +15,7 @@
 #define LOVR_SHADER_BONES 5
 #define LOVR_SHADER_BONE_WEIGHTS 6
 #define LOVR_MAX_UNIFORM_LENGTH 256
+#define LOVR_MAX_ATTRIBUTE_LENGTH 256
 
 typedef enum {
   UNIFORM_FLOAT,
@@ -57,6 +58,7 @@ typedef struct {
   Ref ref;
   uint32_t program;
   map_uniform_t uniforms;
+  map_int_t attributes;
   float model[16];
   float view[16];
   float projection[16];
