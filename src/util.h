@@ -28,3 +28,4 @@ void* lovrAlloc(size_t size, void (*destructor)(void* object));
 void lovrRetain(void* object);
 void lovrRelease(void* object);
 size_t utf8_decode(const char *s, const char *e, unsigned *pch);
+uint32_t nextPo2(uint32_t x);

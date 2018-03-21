@@ -297,7 +297,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   if (isSkinned) vertexFormatAppend(&format, "lovrBoneWeights", ATTR_FLOAT, 4);
 
   // Allocate
-  modelData->vertexData = lovrVertexDataCreate(vertexCount, &format, true);
+  modelData->vertexData = lovrVertexDataCreate(vertexCount, &format);
   modelData->indexSize = vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
   modelData->indices.raw = malloc(modelData->indexCount * modelData->indexSize);
   modelData->primitiveCount = scene->mNumMeshes;

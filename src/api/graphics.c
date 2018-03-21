@@ -976,22 +976,20 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
     return 0;
   }
 
-  if (!vertexData) {
-#ifdef EMSCRIPTEN
-    vertexData = lovrVertexDataCreate(count, hasFormat ? &format : NULL, true);
-#else
-    vertexData = lovrVertexDataCreate(count, hasFormat ? &format : NULL, false);
-#endif
+  if (!hasFormat) {
+    vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
+    vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
+    vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
   }
 
   MeshDrawMode* drawMode = (MeshDrawMode*) luax_optenum(L, drawModeIndex, "fan", &MeshDrawModes, "mesh draw mode");
   MeshUsage* usage = (MeshUsage*) luax_optenum(L, drawModeIndex + 1, "dynamic", &MeshUsages, "mesh usage");
-  Mesh* mesh = lovrMeshCreate(vertexData, *drawMode, *usage);
+  Mesh* mesh = lovrMeshCreate(count, format, *drawMode, *usage);
 
   if (dataIndex) {
     uint32_t dataCount = lua_objlen(L, dataIndex);
     format = *lovrMeshGetVertexFormat(mesh);
-    VertexPointer vertices = lovrMeshMap(mesh, 0, dataCount, false, true);
+    VertexPointer vertices = lovrMeshMapVertices(mesh, 0, dataCount, false, true);
 
     for (uint32_t i = 0; i < dataCount; i++) {
       lua_rawgeti(L, dataIndex, i + 1);
@@ -1015,6 +1013,9 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
 
       lua_pop(L, 1);
     }
+  } else if (vertexData) {
+    VertexPointer vertices = lovrMeshMapVertices(mesh, 0, count, false, true);
+    memcpy(vertices.raw, vertexData->blob.data, vertexData->count * vertexData->format.stride);
   }
 
   luax_pushtype(L, Mesh, mesh);

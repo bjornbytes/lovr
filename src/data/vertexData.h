@@ -48,4 +48,4 @@ typedef struct {
 void vertexFormatInit(VertexFormat* format);
 void vertexFormatAppend(VertexFormat* format, const char* name, AttributeType type, int count);
 
-VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format, bool allocate);
+VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format);

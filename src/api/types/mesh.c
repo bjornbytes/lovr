@@ -1,4 +1,5 @@
 #include "api.h"
+#include <limits.h>
 
 int l_lovrMeshAttachAttributes(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
@@ -93,7 +94,7 @@ int l_lovrMeshGetVertexCount(lua_State* L) {
 int l_lovrMeshGetVertex(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int index = luaL_checkint(L, 2) - 1;
-  VertexPointer vertex = lovrMeshMap(mesh, index, 1, true, false);
+  VertexPointer vertex = lovrMeshMapVertices(mesh, index, 1, true, false);
   VertexFormat* format = lovrMeshGetVertexFormat(mesh);
   return luax_pushvertex(L, &vertex, format);
 }
@@ -103,7 +104,7 @@ int l_lovrMeshSetVertex(lua_State* L) {
   int index = luaL_checkint(L, 2) - 1;
   lovrAssert(index >= 0 && index < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex index: %d", index + 1);
   VertexFormat* format = lovrMeshGetVertexFormat(mesh);
-  VertexPointer vertex = lovrMeshMap(mesh, index, 1, false, true);
+  VertexPointer vertex = lovrMeshMapVertices(mesh, index, 1, false, true);
   luax_setvertex(L, 3, &vertex, format);
   return 0;
 }
@@ -116,7 +117,7 @@ int l_lovrMeshGetVertexAttribute(lua_State* L) {
   lovrAssert(vertexIndex >= 0 && vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
   lovrAssert(attributeIndex >= 0 && attributeIndex < format->count, "Invalid mesh attribute: %d", attributeIndex + 1);
   Attribute attribute = format->attributes[attributeIndex];
-  VertexPointer vertex = lovrMeshMap(mesh, vertexIndex, 1, true, false);
+  VertexPointer vertex = lovrMeshMapVertices(mesh, vertexIndex, 1, true, false);
   vertex.bytes += attribute.offset;
   return luax_pushvertexattribute(L, &vertex, attribute);
 }
@@ -129,7 +130,7 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
   lovrAssert(vertexIndex >= 0 && vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
   lovrAssert(attributeIndex >= 0 && attributeIndex < format->count, "Invalid mesh attribute: %d", attributeIndex + 1);
   Attribute attribute = format->attributes[attributeIndex];
-  VertexPointer vertex = lovrMeshMap(mesh, vertexIndex, 1, false, true);
+  VertexPointer vertex = lovrMeshMapVertices(mesh, vertexIndex, 1, false, true);
   vertex.bytes += attribute.offset;
   luax_setvertexattribute(L, 4, &vertex, attribute);
   return 0;
@@ -156,7 +157,7 @@ int l_lovrMeshSetVertices(lua_State* L) {
   lovrAssert(start + count <= capacity, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", capacity);
   lovrAssert(count <= sourceSize, "Cannot set %d vertices on Mesh: source only has %d vertices", count, sourceSize);
 
-  VertexPointer vertices = lovrMeshMap(mesh, start, count, false, true);
+  VertexPointer vertices = lovrMeshMapVertices(mesh, start, count, false, true);
 
   if (vertexData) {
     memcpy(vertices.raw, vertexData->blob.data, count * format->stride);
@@ -174,17 +175,18 @@ int l_lovrMeshSetVertices(lua_State* L) {
 
 int l_lovrMeshGetVertexMap(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  size_t count;
-  IndexPointer indices = lovrMeshGetVertexMap(mesh, &count);
+  uint32_t count;
+  size_t size;
+  IndexPointer indices = lovrMeshReadIndices(mesh, &count, &size);
 
-  if (count == 0) {
+  if (count == 0 || !indices.raw) {
     lua_pushnil(L);
     return 1;
   }
 
   lua_newtable(L);
   for (size_t i = 0; i < count; i++) {
-    uint32_t index = mesh->indexSize == sizeof(uint32_t) ? indices.ints[i] : indices.shorts[i];
+    uint32_t index = size == sizeof(uint32_t) ? indices.ints[i] : indices.shorts[i];
     lua_pushinteger(L, index + 1);
     lua_rawseti(L, -2, i + 1);
   }
@@ -196,38 +198,36 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
 
   if (lua_isnoneornil(L, 2)) {
-    lovrMeshSetVertexMap(mesh, NULL, 0);
+    lovrMeshWriteIndices(mesh, 0, 0);
     return 0;
   }
 
   luaL_checktype(L, 2, LUA_TTABLE);
-  int count = lua_objlen(L, 2);
-  int vertexCount = lovrMeshGetVertexCount(mesh);
-  int indexSize = mesh->indexSize;
-  IndexPointer indices = lovrMeshGetVertexMap(mesh, NULL);
-  indices.raw = realloc(indices.raw, indexSize * count);
+  uint32_t count = lua_objlen(L, 2);
+  uint32_t vertexCount = lovrMeshGetVertexCount(mesh);
+  size_t size = vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
+  IndexPointer indices = lovrMeshWriteIndices(mesh, count, size);
 
-  for (int i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < count; i++) {
     lua_rawgeti(L, 2, i + 1);
     if (!lua_isnumber(L, -1)) {
       return luaL_error(L, "Mesh vertex map index #%d must be numeric", i);
     }
 
-    int index = lua_tointeger(L, -1);
+    uint32_t index = lua_tointeger(L, -1);
     if (index > vertexCount || index < 1) {
       return luaL_error(L, "Invalid vertex map value: %d", index);
     }
 
-    if (indexSize == sizeof(uint16_t)) {
+    if (size == sizeof(uint16_t)) {
       indices.shorts[i] = index - 1;
-    } else if (indexSize == sizeof(uint32_t)) {
+    } else {
       indices.ints[i] = index - 1;
     }
 
     lua_pop(L, 1);
   }
 
-  lovrMeshSetVertexMap(mesh, indices.raw, count);
   return 0;
 }
 
@@ -248,13 +248,14 @@ int l_lovrMeshSetAttributeEnabled(lua_State* L) {
 
 int l_lovrMeshGetDrawRange(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  if (!lovrMeshIsRangeEnabled(mesh)) {
+  int start, count;
+  lovrMeshGetDrawRange(mesh, &start, &count);
+
+  if (count == 0) {
     lua_pushnil(L);
     return 1;
   }
 
-  int start, count;
-  lovrMeshGetDrawRange(mesh, &start, &count);
   lua_pushinteger(L, start + 1);
   lua_pushinteger(L, count);
   return 2;
@@ -263,11 +264,10 @@ int l_lovrMeshGetDrawRange(lua_State* L) {
 int l_lovrMeshSetDrawRange(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   if (lua_isnoneornil(L, 2)) {
-    lovrMeshSetRangeEnabled(mesh, 0);
+    lovrMeshSetDrawRange(mesh, 0, 0);
     return 0;
   }
 
-  lovrMeshSetRangeEnabled(mesh, 1);
   int rangeStart = luaL_checkinteger(L, 2) - 1;
   int rangeCount = luaL_checkinteger(L, 3);
   lovrMeshSetDrawRange(mesh, rangeStart, rangeCount);

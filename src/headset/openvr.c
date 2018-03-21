@@ -595,7 +595,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
   vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
 
-  modelData->vertexData = lovrVertexDataCreate(vrModel->unVertexCount, &format, true);
+  modelData->vertexData = lovrVertexDataCreate(vrModel->unVertexCount, &format);
 
   float* vertices = (float*) modelData->vertexData->blob.data;
   int vertex = 0;

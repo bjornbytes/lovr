@@ -1,6 +1,5 @@
 #include "graphics/mesh.h"
 #include "graphics/graphics.h"
-#include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -45,7 +44,7 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
 
     if (previous.mesh != current.mesh || previous.attributeIndex != current.attributeIndex) {
       lovrGraphicsBindVertexBuffer(current.mesh->vbo);
-      VertexFormat* format = &current.mesh->vertexData->format;
+      VertexFormat* format = &current.mesh->format;
       Attribute attribute = format->attributes[current.attributeIndex];
       switch (attribute.type) {
         case ATTR_FLOAT:
@@ -66,26 +65,24 @@ static void lovrMeshBindAttributes(Mesh* mesh) {
   }
 }
 
-Mesh* lovrMeshCreate(VertexData* vertexData, MeshDrawMode drawMode, MeshUsage usage) {
+Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, MeshUsage usage) {
   Mesh* mesh = lovrAlloc(sizeof(Mesh), lovrMeshDestroy);
   if (!mesh) return NULL;
 
-  uint32_t count = vertexData->count;
-  mesh->vertexData = vertexData;
-  mesh->indexSize = count > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
+  mesh->count = count;
+  mesh->format = format;
   mesh->drawMode = drawMode;
   mesh->usage = usage;
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);
   lovrGraphicsBindVertexBuffer(mesh->vbo);
-  glBufferData(GL_ARRAY_BUFFER, count * mesh->vertexData->format.stride, vertexData->blob.data, mesh->usage);
+  glBufferData(GL_ARRAY_BUFFER, count * format.stride, NULL, mesh->usage);
   glGenVertexArrays(1, &mesh->vao);
 
   map_init(&mesh->attachments);
-  for (int i = 0; i < vertexData->format.count; i++) {
-    MeshAttachment attachment = { mesh, i, 0, true };
-    map_set(&mesh->attachments, vertexData->format.attributes[i].name, attachment);
+  for (int i = 0; i < format.count; i++) {
+    map_set(&mesh->attachments, format.attributes[i].name, ((MeshAttachment) { mesh, i, 0, true }));
   }
 
   return mesh;
@@ -94,7 +91,10 @@ Mesh* lovrMeshCreate(VertexData* vertexData, MeshDrawMode drawMode, MeshUsage us
 void lovrMeshDestroy(void* ref) {
   Mesh* mesh = ref;
   lovrRelease(mesh->material);
-  lovrRelease(mesh->vertexData);
+#ifdef EMSCRIPTEN
+  free(mesh->data.raw);
+  free(mesh->indices.raw);
+#endif
   glDeleteBuffers(1, &mesh->vbo);
   glDeleteBuffers(1, &mesh->ibo);
   glDeleteVertexArrays(1, &mesh->vao);
@@ -107,7 +107,6 @@ void lovrMeshDestroy(void* ref) {
     }
   }
   map_deinit(&mesh->attachments);
-  free(mesh->indices.raw);
   free(mesh);
 }
 
@@ -133,9 +132,8 @@ void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
 }
 
 void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances) {
-  if (mesh->isMapped) {
-    lovrMeshUnmap(mesh);
-  }
+  lovrMeshUnmapVertices(mesh);
+  lovrMeshUnmapIndices(mesh);
 
   if (transform) {
     lovrGraphicsPush();
@@ -147,10 +145,10 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances) {
   lovrGraphicsBindVertexArray(mesh->vao);
   lovrMeshBindAttributes(mesh);
   size_t start = mesh->rangeStart;
-  size_t count = mesh->rangeCount;
+  size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->count;
   if (mesh->indexCount > 0) {
     size_t offset = start * mesh->indexSize;
-    count = mesh->isRangeEnabled ? mesh->rangeCount : mesh->indexCount;
+    count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
     lovrGraphicsDrawElements(mesh->drawMode, count, mesh->indexSize, offset, instances);
   } else {
     lovrGraphicsDrawArrays(mesh->drawMode, start, count, instances);
@@ -162,7 +160,7 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances) {
 }
 
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh) {
-  return &mesh->vertexData->format;
+  return &mesh->format;
 }
 
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh) {
@@ -174,32 +172,7 @@ void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode) {
 }
 
 int lovrMeshGetVertexCount(Mesh* mesh) {
-  return mesh->vertexData->count;
-}
-
-IndexPointer lovrMeshGetVertexMap(Mesh* mesh, size_t* count) {
-  if (count) {
-    *count = mesh->indexCount;
-  }
-
-  return mesh->indices;
-}
-
-void lovrMeshSetVertexMap(Mesh* mesh, void* data, size_t count) {
-  if (!data || count == 0) {
-    mesh->indexCount = 0;
-    return;
-  }
-
-  if (mesh->indexCount < count) {
-    mesh->indices.raw = realloc(mesh->indices.raw, count * mesh->indexSize);
-  }
-
-  mesh->indexCount = count;
-  memcpy(mesh->indices.raw, data, mesh->indexCount * mesh->indexSize);
-  lovrGraphicsBindVertexArray(mesh->vao);
-  lovrGraphicsBindIndexBuffer(mesh->ibo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCount * mesh->indexSize, mesh->indices.raw, GL_STATIC_DRAW);
+  return mesh->count;
 }
 
 bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
@@ -214,26 +187,13 @@ void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enable) {
   attachment->enabled = enable;
 }
 
-bool lovrMeshIsRangeEnabled(Mesh* mesh) {
-  return mesh->isRangeEnabled;
-}
-
-void lovrMeshSetRangeEnabled(Mesh* mesh, char isEnabled) {
-  mesh->isRangeEnabled = isEnabled;
-
-  if (!isEnabled) {
-    mesh->rangeStart = 0;
-    mesh->rangeCount = mesh->vertexData->count;
-  }
-}
-
 void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count) {
   *start = mesh->rangeStart;
   *count = mesh->rangeCount;
 }
 
 void lovrMeshSetDrawRange(Mesh* mesh, int start, int count) {
-  size_t limit = mesh->indexCount > 0 ? mesh->indexCount : mesh->vertexData->count;
+  size_t limit = mesh->indexCount > 0 ? mesh->indexCount : mesh->count;
   bool isValidRange = start >= 0 && count >= 0 && (size_t) start + count <= limit;
   lovrAssert(isValidRange, "Invalid mesh draw range [%d, %d]", start + 1, start + count + 1);
   mesh->rangeStart = start;
@@ -252,48 +212,100 @@ void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
   }
 }
 
-VertexPointer lovrMeshMap(Mesh* mesh, int start, size_t count, bool read, bool write) {
+VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write) {
 #ifdef EMSCRIPTEN
-  mesh->isMapped = true;
+  mesh->mappedVertices = true;
   mesh->mapStart = start;
   mesh->mapCount = count;
-  VertexPointer pointer = { .raw = mesh->vertexData->blob.data };
-  pointer.bytes += start * mesh->vertexData->format.stride;
-  return pointer;
+  return (VertexPointer) { .bytes = mesh->data.bytes + start * mesh->format.stride };
 #else
-  if (mesh->isMapped) {
-    lovrMeshUnmap(mesh);
+  if (mesh->mappedVertices) {
+    lovrMeshUnmapVertices(mesh);
   }
 
-  mesh->isMapped = true;
+  mesh->mappedVertices = true;
   mesh->mapStart = start;
   mesh->mapCount = count;
-  size_t stride = mesh->vertexData->format.stride;
-  GLbitfield access = 0;
-  access |= read ? GL_MAP_READ_BIT : 0;
-  access |= write ? GL_MAP_WRITE_BIT : 0;
+  size_t stride = mesh->format.stride;
+  GLbitfield access = (read ? GL_MAP_READ_BIT : 0) | (write ? GL_MAP_WRITE_BIT : 0);
   lovrGraphicsBindVertexBuffer(mesh->vbo);
-  VertexPointer pointer;
-  pointer.raw = glMapBufferRange(GL_ARRAY_BUFFER, start * stride, count * stride, access);
-  return pointer;
+  return (VertexPointer) { .raw = glMapBufferRange(GL_ARRAY_BUFFER, start * stride, count * stride, access) };
 #endif
 }
 
-void lovrMeshUnmap(Mesh* mesh) {
-  if (!mesh->isMapped) {
+void lovrMeshUnmapVertices(Mesh* mesh) {
+  if (!mesh->mappedVertices) {
     return;
   }
 
-  mesh->isMapped = false;
+  mesh->mappedVertices = false;
   lovrGraphicsBindVertexBuffer(mesh->vbo);
 
 #ifdef EMSCRIPTEN
-  size_t stride = mesh->vertexData->format.stride;
+  size_t stride = mesh->format.stride;
   size_t start = mesh->mapStart * stride;
   size_t count = mesh->mapCount * stride;
-  VertexPointer vertices = { .raw = mesh->vertexData->blob.data };
-  glBufferSubData(GL_ARRAY_BUFFER, start, count, vertices.bytes + start);
+  glBufferSubData(GL_ARRAY_BUFFER, start, count, mesh->data.bytes + start);
 #else
   glUnmapBuffer(GL_ARRAY_BUFFER);
+#endif
+}
+
+IndexPointer lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* size) {
+  if (mesh->indexCount == 0) {
+    return (IndexPointer) { .raw = NULL };
+  }
+
+  *size = mesh->indexSize;
+  *count = mesh->indexCount;
+
+#ifdef EMSCRIPTEN
+  return mesh->indices;
+#endif
+
+  lovrGraphicsBindIndexBuffer(mesh->ibo);
+  mesh->mappedIndices = true;
+  return (IndexPointer) { .raw = glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->indexCount * mesh->indexSize, GL_MAP_READ_BIT) };
+}
+
+IndexPointer lovrMeshWriteIndices(Mesh* mesh, uint32_t count, size_t size) {
+  mesh->indexSize = size;
+  mesh->indexCount = count;
+
+  if (count == 0) {
+    return (IndexPointer) { .raw = NULL };
+  }
+
+  lovrGraphicsBindVertexArray(mesh->vao);
+  lovrGraphicsBindIndexBuffer(mesh->ibo);
+  mesh->mappedIndices = true;
+
+  if (mesh->indexCapacity < size * count) {
+    mesh->indexCapacity = nextPo2(size * count);
+#ifdef EMSCRIPTEN
+    mesh->indices = realloc(mesh->indices.raw, mesh->indexCapacity);
+#else
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCapacity, NULL, mesh->usage);
+#endif
+  }
+
+#ifdef EMSCRIPTEN
+  return mesh->indices;
+#else
+  return (IndexPointer) { .raw = glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, size * count, GL_MAP_WRITE_BIT) };
+#endif
+}
+
+void lovrMeshUnmapIndices(Mesh* mesh) {
+  if (!mesh->mappedIndices) {
+    return;
+  }
+
+  mesh->mappedIndices = false;
+  lovrGraphicsBindIndexBuffer(mesh->ibo);
+#ifdef EMSCRIPTEN
+  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->indexCount * mesh->indexSize, mesh->indices.raw);
+#else
+  glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 #endif
 }

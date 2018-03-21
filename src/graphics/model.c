@@ -57,12 +57,12 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->modelData = modelData;
   model->aabbDirty = true;
 
-  model->mesh = lovrMeshCreate(modelData->vertexData, MESH_TRIANGLES, MESH_STATIC);
-  VertexPointer vertices = lovrMeshMap(model->mesh, 0, modelData->vertexData->count, false, true);
+  model->mesh = lovrMeshCreate(modelData->vertexData->count, modelData->vertexData->format, MESH_TRIANGLES, MESH_STATIC);
+  VertexPointer vertices = lovrMeshMapVertices(model->mesh, 0, modelData->vertexData->count, false, true);
   memcpy(vertices.raw, modelData->vertexData->blob.data, modelData->vertexData->count * modelData->vertexData->format.stride);
-  lovrMeshUnmap(model->mesh);
-  lovrMeshSetVertexMap(model->mesh, modelData->indices.raw, modelData->indexCount);
-  lovrMeshSetRangeEnabled(model->mesh, true);
+
+  IndexPointer indices = lovrMeshWriteIndices(model->mesh, modelData->indexCount, modelData->indexSize);
+  memcpy(indices.raw, modelData->indices.raw, modelData->indexCount * modelData->indexSize);
 
   if (modelData->textures.length > 0) {
     model->textures = malloc(modelData->textures.length * sizeof(Texture*));

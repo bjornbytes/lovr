@@ -100,7 +100,7 @@ int l_lovrDataNewVertexData(lua_State* L) {
   VertexFormat format;
   vertexFormatInit(&format);
   bool hasFormat = luax_checkvertexformat(L, 2, &format);
-  VertexData* vertexData = lovrVertexDataCreate(count, hasFormat ? &format : NULL, true);
+  VertexData* vertexData = lovrVertexDataCreate(count, hasFormat ? &format : NULL);
   luax_pushtype(L, VertexData, vertexData);
   lovrRelease(vertexData);
   return 1;
