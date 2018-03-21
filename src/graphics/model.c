@@ -65,7 +65,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   memcpy(indices.raw, modelData->indices.raw, modelData->indexCount * modelData->indexSize);
 
   if (modelData->textures.length > 0) {
-    model->textures = malloc(modelData->textures.length * sizeof(Texture*));
+    model->textures = calloc(modelData->textures.length, sizeof(Texture*));
     for (int i = 0; i < modelData->textures.length; i++) {
       if (modelData->textures.data[i]) {
         model->textures[i] = lovrTextureCreate(TEXTURE_2D, (TextureData**) &modelData->textures.data[i], 1, i == 2, true);
@@ -74,7 +74,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   }
 
   if (modelData->materialCount > 0) {
-    model->materials = malloc(modelData->materialCount * sizeof(Material*));
+    model->materials = calloc(modelData->materialCount, sizeof(Material*));
     for (int i = 0; i < modelData->materialCount; i++) {
       ModelMaterial* materialData = &modelData->materials[i];
       Material* material = lovrMaterialCreate(false);
