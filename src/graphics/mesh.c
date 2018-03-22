@@ -85,6 +85,10 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode,
     map_set(&mesh->attachments, format.attributes[i].name, ((MeshAttachment) { mesh, i, 0, true }));
   }
 
+#ifdef EMSCRIPTEN
+  mesh->data.raw = calloc(count, format.stride);
+#endif
+
   return mesh;
 }
 
@@ -140,7 +144,6 @@ void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances) {
     lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
   }
 
-  lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
   lovrGraphicsPrepare(mesh->material, pose);
   lovrGraphicsBindVertexArray(mesh->vao);
   lovrMeshBindAttributes(mesh);
@@ -307,5 +310,17 @@ void lovrMeshUnmapIndices(Mesh* mesh) {
   glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->indexCount * mesh->indexSize, mesh->indices.raw);
 #else
   glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+#endif
+}
+
+void lovrMeshResize(Mesh* mesh, uint32_t count) {
+  mesh->count = count;
+  mesh->mappedVertices = false;
+  lovrGraphicsBindVertexBuffer(mesh->vbo);
+#ifdef EMSCRIPTEN
+  mesh->data.raw = realloc(mesh->data.raw, count * mesh->format.stride);
+  glBufferData(GL_ARRAY_BUFFER, count * mesh->format.stride, mesh->data.raw, mesh->usage);
+#else
+  glBufferData(GL_ARRAY_BUFFER, count * mesh->format.stride, NULL, mesh->usage);
 #endif
 }

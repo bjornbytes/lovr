@@ -8,18 +8,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static int lovrFontAlignLine(vec_float_t* vertices, int index, float width, HorizontalAlign halign) {
-  while (index < vertices->length) {
+static float* lovrFontAlignLine(float* x, float* lineEnd, float width, HorizontalAlign halign) {
+  while(x < lineEnd) {
     if (halign == ALIGN_CENTER) {
-      vertices->data[index] -= width / 2.f;
+      *x -= width / 2.f;
     } else if (halign == ALIGN_RIGHT) {
-      vertices->data[index] -= width;
+      *x -= width;
     }
 
-    index += 5;
+    x += 8;
   }
 
-  return index;
+  return x;
 }
 
 Font* lovrFontCreate(Rasterizer* rasterizer) {
@@ -61,7 +61,7 @@ void lovrFontDestroy(void* ref) {
   free(font);
 }
 
-void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, vec_float_t* vertices, float* offsety) {
+void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, VertexPointer vertices, float* offsety, uint32_t* vertexCount) {
   FontAtlas* atlas = &font->atlas;
 
   float cx = 0;
@@ -77,17 +77,15 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
   unsigned int codepoint;
   size_t bytes;
 
-  int linePtr = 0;
+  float* lineStart = vertices.floats;
   int lineCount = 1;
-
-  vec_reserve(vertices, len * 30);
-  vec_clear(vertices);
+  *vertexCount = 0;
 
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
 
     // Newlines
     if (codepoint == '\n' || (wrap && cx * scale > wrap && codepoint == ' ')) {
-      linePtr = lovrFontAlignLine(vertices, linePtr, cx, halign);
+      lineStart = lovrFontAlignLine(lineStart, vertices.floats, cx, halign);
       lineCount++;
       cx = 0;
       cy -= font->rasterizer->height * font->lineHeight;
@@ -105,7 +103,7 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
 
     // Start over if texture was repacked
     if (u != atlas->width || v != atlas->height) {
-      lovrFontRender(font, start, wrap, halign, valign, vertices, offsety);
+      lovrFontRender(font, start, wrap, halign, valign, vertices, offsety, vertexCount);
       return;
     }
 
@@ -120,16 +118,18 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
       float s2 = (glyph->x + glyph->tw) / u;
       float t2 = glyph->y / v;
 
-      float quad[30] = {
-        x1, y1, 0, s1, t1,
-        x1, y2, 0, s1, t2,
-        x2, y1, 0, s2, t1,
-        x2, y1, 0, s2, t1,
-        x1, y2, 0, s1, t2,
-        x2, y2, 0, s2, t2
+      float quad[48] = {
+        x1, y1, 0, 0, 0, 0, s1, t1,
+        x1, y2, 0, 0, 0, 0, s1, t2,
+        x2, y1, 0, 0, 0, 0, s2, t1,
+        x2, y1, 0, 0, 0, 0, s2, t1,
+        x1, y2, 0, 0, 0, 0, s1, t2,
+        x2, y2, 0, 0, 0, 0, s2, t2
       };
 
-      vec_pusharr(vertices, quad, 30);
+      memcpy(vertices.floats, quad, 6 * 8 * sizeof(float));
+      vertices.floats += 48;
+      *vertexCount += 6;
     }
 
     // Advance cursor
@@ -138,7 +138,7 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
   }
 
   // Align the last line
-  lovrFontAlignLine(vertices, linePtr, cx, halign);
+  lovrFontAlignLine(lineStart, vertices.floats, cx, halign);
 
   // Calculate vertical offset
   if (valign == ALIGN_MIDDLE) {

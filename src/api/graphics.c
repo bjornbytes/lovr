@@ -44,34 +44,42 @@ static int luax_optmatrixtype(lua_State* L, int index, MatrixType* type) {
   return index;
 }
 
-static void luax_readvertices(lua_State* L, int index, vec_float_t* points) {
+static uint32_t luax_readvertices(lua_State* L, int index) {
   bool isTable = lua_istable(L, index);
 
   if (!isTable && !lua_isnumber(L, index)) {
     luaL_error(L, "Expected number or table, got '%s'", lua_typename(L, lua_type(L, 1)));
-    return;
+    return 0;
   }
 
-  int count = isTable ? lua_objlen(L, index) : lua_gettop(L) - index + 1;
+  uint32_t count = isTable ? lua_objlen(L, index) : lua_gettop(L) - index + 1;
   if (count % 3 != 0) {
-    vec_deinit(points);
     luaL_error(L, "Number of coordinates must be a multiple of 3, got '%d'", count);
-    return;
+    return 0;
   }
 
-  vec_reserve(points, count);
+  VertexPointer pointer = lovrGraphicsGetVertexPointer(count / 3);
 
   if (isTable) {
-    for (int i = 1; i <= count; i++) {
-      lua_rawgeti(L, index, i);
-      vec_push(points, lua_tonumber(L, -1));
-      lua_pop(L, 1);
+    for (uint32_t i = 1; i <= count; i += 3) {
+      for (int j = 0; j < 3; j++) {
+        lua_rawgeti(L, index, i + j);
+        pointer.floats[j] = lua_tonumber(L, -1);
+        lua_pop(L, 1);
+      }
+
+      pointer.floats += 8;
     }
   } else {
-    for (int i = 0; i < count; i++) {
-      vec_push(points, lua_tonumber(L, index + i));
+    for (uint32_t i = 0; i < count; i += 3) {
+      pointer.floats[0] = lua_tonumber(L, index + i + 0);
+      pointer.floats[1] = lua_tonumber(L, index + i + 1);
+      pointer.floats[2] = lua_tonumber(L, index + i + 2);
+      pointer.floats += 8;
     }
   }
+
+  return count;
 }
 
 static void stencilCallback(void* userdata) {
@@ -661,20 +669,14 @@ int l_lovrGraphicsTransform(lua_State* L) {
 // Primitives
 
 int l_lovrGraphicsPoints(lua_State* L) {
-  vec_float_t points;
-  vec_init(&points);
-  luax_readvertices(L, 1, &points);
-  lovrGraphicsPoints(points.data, points.length);
-  vec_deinit(&points);
+  uint32_t count = luax_readvertices(L, 1);
+  lovrGraphicsPoints(count);
   return 0;
 }
 
 int l_lovrGraphicsLine(lua_State* L) {
-  vec_float_t points;
-  vec_init(&points);
-  luax_readvertices(L, 1, &points);
-  lovrGraphicsLine(points.data, points.length);
-  vec_deinit(&points);
+  uint32_t count = luax_readvertices(L, 1);
+  lovrGraphicsLine(count);
   return 0;
 }
 
@@ -687,15 +689,13 @@ int l_lovrGraphicsTriangle(lua_State* L) {
     drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
   }
 
+  float points[9];
   int top = lua_gettop(L);
-  if (top != 10) {
-    return luaL_error(L, "Expected 9 coordinates to make a triangle, got %d values", top - 1);
+  lovrAssert(top >= 10, "Expected 3 points to make a triangle, got %d\n", (top - 1) / 3);
+  for (int i = 0; i < 9; i++) {
+    points[i] = luaL_checknumber(L, i + 2);
   }
-  vec_float_t points;
-  vec_init(&points);
-  luax_readvertices(L, 2, &points);
-  lovrGraphicsTriangle(drawMode, material, points.data);
-  vec_deinit(&points);
+  lovrGraphicsTriangle(drawMode, material, points);
   return 0;
 }
 
@@ -758,7 +758,7 @@ int l_lovrGraphicsArc(lua_State* L) {
   index = luax_readtransform(L, index, transform, 1);
   float theta1 = luaL_optnumber(L, index++, 0);
   float theta2 = luaL_optnumber(L, index++, 2 * M_PI);
-  int segments = luaL_optinteger(L, index, 32) * fabsf(theta2 - theta1) * 2 * M_PI + .5f;
+  int segments = luaL_optinteger(L, index, 64) * (MIN(fabsf(theta2 - theta1), 2 * M_PI) / (2 * M_PI));
   lovrGraphicsArc(drawMode, arcMode, material, transform, theta1, theta2, segments);
   return 0;
 }

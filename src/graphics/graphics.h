@@ -124,11 +124,7 @@ typedef struct {
   int stencilValue;
   Winding winding;
   bool wireframe;
-  uint32_t streamVAO;
-  uint32_t streamVBO;
-  uint32_t streamIBO;
-  vec_float_t streamData;
-  vec_uint_t streamIndices;
+  Mesh* mesh;
   Display displays[MAX_DISPLAYS];
   int display;
   Texture* textures[MAX_TEXTURES];
@@ -196,9 +192,9 @@ void lovrGraphicsScale(MatrixType type, float x, float y, float z);
 void lovrGraphicsMatrixTransform(MatrixType type, mat4 transform);
 
 // Primitives
-void lovrGraphicsPoints(float* points, int count);
-void lovrGraphicsLine(float* points, int count);
-void lovrGraphicsTriangle(DrawMode mode, Material* material, float* points);
+void lovrGraphicsPoints(uint32_t count);
+void lovrGraphicsLine(uint32_t count);
+void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]);
 void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform);
 void lovrGraphicsPlaneFullscreen(Texture* texture);
 void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform);
@@ -211,6 +207,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 
 // Internal State
+VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsPushDisplay(int framebuffer, mat4 projection, int* viewport);
 void lovrGraphicsPopDisplay();
 void lovrGraphicsSetViewport(int x, int y, int w, int h);

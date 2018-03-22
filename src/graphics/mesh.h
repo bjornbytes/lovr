@@ -13,6 +13,7 @@ typedef enum {
   MESH_POINTS = GL_POINTS,
   MESH_LINES = GL_LINES,
   MESH_LINE_STRIP = GL_LINE_STRIP,
+  MESH_LINE_LOOP = GL_LINE_LOOP,
   MESH_TRIANGLE_STRIP = GL_TRIANGLE_STRIP,
   MESH_TRIANGLES = GL_TRIANGLES,
   MESH_TRIANGLE_FAN = GL_TRIANGLE_FAN
@@ -83,3 +84,4 @@ void lovrMeshUnmapVertices(Mesh* mesh);
 IndexPointer lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* size);
 IndexPointer lovrMeshWriteIndices(Mesh* mesh, uint32_t count, size_t size);
 void lovrMeshUnmapIndices(Mesh* mesh);
+void lovrMeshResize(Mesh* mesh, uint32_t count);
