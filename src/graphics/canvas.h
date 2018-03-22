@@ -1,4 +1,5 @@
 #include "graphics/texture.h"
+#include "data/textureData.h"
 #include "util.h"
 #include <stdbool.h>
 
@@ -28,3 +29,4 @@ void lovrCanvasDestroy(void* ref);
 void lovrCanvasResolve(Canvas* canvas);
 TextureFormat lovrCanvasGetFormat(Canvas* canvas);
 int lovrCanvasGetMSAA(Canvas* canvas);
+TextureData* lovrCanvasNewTextureData(Canvas* canvas);

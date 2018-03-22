@@ -114,3 +114,13 @@ TextureFormat lovrCanvasGetFormat(Canvas* canvas) {
 int lovrCanvasGetMSAA(Canvas* canvas) {
   return canvas->flags.msaa;
 }
+
+TextureData* lovrCanvasNewTextureData(Canvas* canvas) {
+  TextureData* textureData = lovrTextureDataGetBlank(canvas->texture.width, canvas->texture.height, 0, FORMAT_RGBA);
+  if (!textureData) return NULL;
+
+  lovrGraphicsBindFramebuffer(canvas->framebuffer);
+  glReadPixels(0, 0, canvas->texture.width, canvas->texture.height, GL_RGBA, GL_UNSIGNED_BYTE, textureData->blob.data);
+
+  return textureData;
+}

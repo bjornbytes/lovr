@@ -29,9 +29,18 @@ int l_lovrCanvasGetMSAA(lua_State* L) {
   return 1;
 }
 
+int l_lovrCanvasNewTextureData(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  TextureData* textureData = lovrCanvasNewTextureData(canvas);
+  luax_pushtype(L, TextureData, textureData);
+  lovrRelease(textureData);
+  return 1;
+}
+
 const luaL_Reg lovrCanvas[] = {
   { "renderTo", l_lovrCanvasRenderTo },
   { "getFormat", l_lovrCanvasGetFormat },
   { "getMSAA", l_lovrCanvasGetMSAA },
+  { "newTextureData", l_lovrCanvasNewTextureData },
   { NULL, NULL }
 };
