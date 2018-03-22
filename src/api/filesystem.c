@@ -290,13 +290,7 @@ int l_lovrFilesystemSetIdentity(lua_State* L) {
 }
 
 int l_lovrFilesystemSetRequirePath(lua_State* L) {
-  char* requirePath = strdup(luaL_checkstring(L, 1));
-  char* pattern;
-  lovrFilesystemClearRequirePath();
-  while ((pattern = strsep(&requirePath, ";")) != NULL) {
-    lovrFilesystemAddRequirePath(pattern);
-  }
-  free(requirePath);
+  lovrFilesystemSetRequirePath(luaL_checkstring(L, 1));
   return 0;
 }
 

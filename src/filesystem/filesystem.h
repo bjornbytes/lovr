@@ -15,13 +15,12 @@ typedef struct {
   char* savePathRelative;
   char* savePathFull;
   bool isFused;
-  vec_str_t requirePath;
+  char* requirePath;
+  vec_str_t requirePatterns;
 } FilesystemState;
 
 void lovrFilesystemInit(const char* arg0, const char* arg1);
 void lovrFilesystemDestroy();
-void lovrFilesystemAddRequirePath(const char* path);
-void lovrFilesystemClearRequirePath();
 int lovrFilesystemCreateDirectory(const char* path);
 int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size);
 void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata);
@@ -42,6 +41,6 @@ int lovrFilesystemMount(const char* path, const char* mountpoint, bool append);
 void* lovrFilesystemRead(const char* path, size_t* bytesRead);
 int lovrFilesystemRemove(const char* path);
 int lovrFilesystemSetIdentity(const char* identity);
-int lovrFilesystemSetSource(const char* source);
+void lovrFilesystemSetRequirePath(const char* requirePath);
 int lovrFilesystemUnmount(const char* path);
 size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append);

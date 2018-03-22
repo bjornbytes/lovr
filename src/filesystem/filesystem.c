@@ -31,9 +31,8 @@ void lovrFilesystemInit(const char* arg0, const char* arg1) {
   state.source = malloc(LOVR_PATH_MAX * sizeof(char));
   state.identity = NULL;
   state.isFused = true;
-  vec_init(&state.requirePath);
-  vec_push(&state.requirePath, "?.lua");
-  vec_push(&state.requirePath, "?/init.lua");
+  vec_init(&state.requirePatterns);
+  lovrFilesystemSetRequirePath("?.lua;?/init.lua");
 
   // Try to mount either an archive fused to the executable or an archive from the command line
   lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
@@ -57,17 +56,10 @@ void lovrFilesystemDestroy() {
   free(state.source);
   free(state.savePathFull);
   free(state.savePathRelative);
-  vec_deinit(&state.requirePath);
+  free(state.requirePath);
+  vec_deinit(&state.requirePatterns);
   PHYSFS_deinit();
   memset(&state, 0, sizeof(FilesystemState));
-}
-
-void lovrFilesystemAddRequirePath(const char* path) {
-  vec_push(&state.requirePath, (char*) path);
-}
-
-void lovrFilesystemClearRequirePath() {
-  vec_clear(&state.requirePath);
 }
 
 int lovrFilesystemCreateDirectory(const char* path) {
@@ -145,7 +137,7 @@ const char* lovrFilesystemGetRealDirectory(const char* path) {
 }
 
 vec_str_t* lovrFilesystemGetRequirePath() {
-  return &state.requirePath;
+  return &state.requirePatterns;
 }
 
 const char* lovrFilesystemGetSaveDirectory() {
@@ -284,6 +276,25 @@ int lovrFilesystemSetIdentity(const char* identity) {
   PHYSFS_mount(state.savePathFull, NULL, 0);
 
   return 0;
+}
+
+void lovrFilesystemSetRequirePath(const char* requirePath) {
+  if (state.requirePath) {
+    free(state.requirePath);
+    vec_clear(&state.requirePatterns);
+  }
+
+  state.requirePath = strdup(requirePath);
+  char* p = state.requirePath;
+
+  while (1) {
+    vec_push(&state.requirePatterns, p);
+    if ((p = strchr(p, ';')) != NULL) {
+      *p++ = '\0';
+    } else {
+      break;
+    }
+  }
 }
 
 int lovrFilesystemUnmount(const char* path) {
