@@ -35,7 +35,7 @@ int l_lovrFilesystemLoad(lua_State* L);
 
 // Loader to help Lua's require understand PhysFS.
 static int filesystemLoader(lua_State* L) {
-  const char* module = luaL_gsub(L, lua_tostring(L, -1), ".", "?");
+  const char* module = luaL_gsub(L, lua_tostring(L, -1), ".", "/");
   lua_pop(L, 2);
 
   char* path; int i;
