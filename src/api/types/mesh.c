@@ -203,30 +203,39 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
     return 0;
   }
 
-  luaL_checktype(L, 2, LUA_TTABLE);
-  uint32_t count = lua_objlen(L, 2);
-  uint32_t vertexCount = lovrMeshGetVertexCount(mesh);
-  size_t size = vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
-  IndexPointer indices = lovrMeshWriteIndices(mesh, count, size);
+  if (lua_type(L, 2) == LUA_TUSERDATA) {
+    Blob* blob = luax_checktypeof(L, 2, Blob);
+    size_t size = luaL_optinteger(L, 3, 4);
+    lovrAssert(size == 2 || size == 4, "Size of Mesh indices should be 2 bytes or 4 bytes");
+    uint32_t count = blob->size / size;
+    IndexPointer indices = lovrMeshWriteIndices(mesh, count, size);
+    memcpy(indices.raw, blob->data, blob->size);
+  } else {
+    luaL_checktype(L, 2, LUA_TTABLE);
+    uint32_t count = lua_objlen(L, 2);
+    uint32_t vertexCount = lovrMeshGetVertexCount(mesh);
+    size_t size = vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
+    IndexPointer indices = lovrMeshWriteIndices(mesh, count, size);
 
-  for (uint32_t i = 0; i < count; i++) {
-    lua_rawgeti(L, 2, i + 1);
-    if (!lua_isnumber(L, -1)) {
-      return luaL_error(L, "Mesh vertex map index #%d must be numeric", i);
+    for (uint32_t i = 0; i < count; i++) {
+      lua_rawgeti(L, 2, i + 1);
+      if (!lua_isnumber(L, -1)) {
+        return luaL_error(L, "Mesh vertex map index #%d must be numeric", i);
+      }
+
+      uint32_t index = lua_tointeger(L, -1);
+      if (index > vertexCount || index < 1) {
+        return luaL_error(L, "Invalid vertex map value: %d", index);
+      }
+
+      if (size == sizeof(uint16_t)) {
+        indices.shorts[i] = index - 1;
+      } else {
+        indices.ints[i] = index - 1;
+      }
+
+      lua_pop(L, 1);
     }
-
-    uint32_t index = lua_tointeger(L, -1);
-    if (index > vertexCount || index < 1) {
-      return luaL_error(L, "Invalid vertex map value: %d", index);
-    }
-
-    if (size == sizeof(uint16_t)) {
-      indices.shorts[i] = index - 1;
-    } else {
-      indices.ints[i] = index - 1;
-    }
-
-    lua_pop(L, 1);
   }
 
   return 0;
