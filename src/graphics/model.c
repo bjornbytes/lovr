@@ -38,7 +38,8 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
       }
 
       lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
-      lovrMeshDraw(model->mesh, NULL, (float*) model->pose, instances);
+      lovrMeshSetPose(model->mesh, (float*) model->pose);
+      lovrGraphicsDraw(model->mesh, NULL, SHADER_DEFAULT, instances);
     }
 
     lovrGraphicsPop();
@@ -163,6 +164,7 @@ void lovrModelDraw(Model* model, mat4 transform, int instances) {
   lovrGraphicsMatrixTransform(transform);
   renderNode(model, 0, instances);
   lovrGraphicsPop();
+  lovrMeshSetPose(model->mesh, NULL);
 }
 
 Animator* lovrModelGetAnimator(Model* model) {

@@ -3,68 +3,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static void lovrMeshBindAttributes(Mesh* mesh) {
-  const char* key;
-  map_iter_t iter = map_iter(&mesh->attachments);
-  Shader* shader = lovrGraphicsGetActiveShader();
-
-  MeshAttachment layout[MAX_ATTACHMENTS];
-  memset(layout, 0, MAX_ATTACHMENTS * sizeof(MeshAttachment));
-
-  while ((key = map_next(&mesh->attachments, &iter)) != NULL) {
-    int location = lovrShaderGetAttributeId(shader, key);
-
-    if (location >= 0) {
-      MeshAttachment* attachment = map_get(&mesh->attachments, key);
-      layout[location] = *attachment;
-    }
-  }
-
-  for (int i = 0; i < MAX_ATTACHMENTS; i++) {
-    MeshAttachment previous = mesh->layout[i];
-    MeshAttachment current = layout[i];
-
-    if (!memcmp(&previous, &current, sizeof(MeshAttachment))) {
-      continue;
-    }
-
-    if (previous.enabled != current.enabled) {
-      if (current.enabled) {
-        glEnableVertexAttribArray(i);
-      } else {
-        glDisableVertexAttribArray(i);
-        mesh->layout[i] = current;
-        continue;
-      }
-    }
-
-    if (previous.divisor != current.divisor) {
-      glVertexAttribDivisor(i, current.divisor);
-    }
-
-    if (previous.mesh != current.mesh || previous.attributeIndex != current.attributeIndex) {
-      lovrGraphicsBindVertexBuffer(current.mesh->vbo);
-      VertexFormat* format = &current.mesh->format;
-      Attribute attribute = format->attributes[current.attributeIndex];
-      switch (attribute.type) {
-        case ATTR_FLOAT:
-          glVertexAttribPointer(i, attribute.count, GL_FLOAT, GL_TRUE, format->stride, (void*) attribute.offset);
-          break;
-
-        case ATTR_BYTE:
-          glVertexAttribPointer(i, attribute.count, GL_UNSIGNED_BYTE, GL_TRUE, format->stride, (void*) attribute.offset);
-          break;
-
-        case ATTR_INT:
-          glVertexAttribIPointer(i, attribute.count, GL_UNSIGNED_INT, format->stride, (void*) attribute.offset);
-          break;
-      }
-    }
-
-    mesh->layout[i] = current;
-  }
-}
-
 Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, MeshUsage usage) {
   Mesh* mesh = lovrAlloc(sizeof(Mesh), lovrMeshDestroy);
   if (!mesh) return NULL;
@@ -135,30 +73,64 @@ void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
   map_remove(&mesh->attachments, name);
 }
 
-void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances) {
-  lovrMeshUnmapVertices(mesh);
-  lovrMeshUnmapIndices(mesh);
+void lovrMeshBind(Mesh* mesh, Shader* shader) {
+  const char* key;
+  map_iter_t iter = map_iter(&mesh->attachments);
 
-  if (transform) {
-    lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(transform);
+  MeshAttachment layout[MAX_ATTACHMENTS];
+  memset(layout, 0, MAX_ATTACHMENTS * sizeof(MeshAttachment));
+
+  while ((key = map_next(&mesh->attachments, &iter)) != NULL) {
+    int location = lovrShaderGetAttributeId(shader, key);
+
+    if (location >= 0) {
+      MeshAttachment* attachment = map_get(&mesh->attachments, key);
+      layout[location] = *attachment;
+    }
   }
 
-  lovrGraphicsPrepare(mesh->material, pose);
-  lovrGraphicsBindVertexArray(mesh->vao);
-  lovrMeshBindAttributes(mesh);
-  size_t start = mesh->rangeStart;
-  size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->count;
-  if (mesh->indexCount > 0) {
-    size_t offset = start * mesh->indexSize;
-    count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
-    lovrGraphicsDrawElements(mesh->drawMode, count, mesh->indexSize, offset, instances);
-  } else {
-    lovrGraphicsDrawArrays(mesh->drawMode, start, count, instances);
-  }
+  for (int i = 0; i < MAX_ATTACHMENTS; i++) {
+    MeshAttachment previous = mesh->layout[i];
+    MeshAttachment current = layout[i];
 
-  if (transform) {
-    lovrGraphicsPop();
+    if (!memcmp(&previous, &current, sizeof(MeshAttachment))) {
+      continue;
+    }
+
+    if (previous.enabled != current.enabled) {
+      if (current.enabled) {
+        glEnableVertexAttribArray(i);
+      } else {
+        glDisableVertexAttribArray(i);
+        mesh->layout[i] = current;
+        continue;
+      }
+    }
+
+    if (previous.divisor != current.divisor) {
+      glVertexAttribDivisor(i, current.divisor);
+    }
+
+    if (previous.mesh != current.mesh || previous.attributeIndex != current.attributeIndex) {
+      lovrGraphicsBindVertexBuffer(current.mesh->vbo);
+      VertexFormat* format = &current.mesh->format;
+      Attribute attribute = format->attributes[current.attributeIndex];
+      switch (attribute.type) {
+        case ATTR_FLOAT:
+          glVertexAttribPointer(i, attribute.count, GL_FLOAT, GL_TRUE, format->stride, (void*) attribute.offset);
+          break;
+
+        case ATTR_BYTE:
+          glVertexAttribPointer(i, attribute.count, GL_UNSIGNED_BYTE, GL_TRUE, format->stride, (void*) attribute.offset);
+          break;
+
+        case ATTR_INT:
+          glVertexAttribIPointer(i, attribute.count, GL_UNSIGNED_INT, format->stride, (void*) attribute.offset);
+          break;
+      }
+    }
+
+    mesh->layout[i] = current;
   }
 }
 
@@ -213,6 +185,14 @@ void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
     lovrRelease(mesh->material);
     mesh->material = material;
   }
+}
+
+float* lovrMeshGetPose(Mesh* mesh) {
+  return mesh->pose;
+}
+
+void lovrMeshSetPose(Mesh* mesh, float* pose) {
+  mesh->pose = pose;
 }
 
 VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write) {

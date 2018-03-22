@@ -1,4 +1,5 @@
 #include "graphics/material.h"
+#include "graphics/shader.h"
 #include "data/vertexData.h"
 #include "math/math.h"
 #include "lib/glfw.h"
@@ -59,6 +60,7 @@ struct Mesh {
   GLuint vbo;
   GLuint ibo;
   Material* material;
+  float* pose;
   map_attachment_t attachments;
   MeshAttachment layout[MAX_ATTACHMENTS];
   bool isAttachment;
@@ -68,7 +70,7 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode,
 void lovrMeshDestroy(void* ref);
 void lovrMeshAttachAttribute(Mesh* mesh, Mesh* other, const char* name, int divisor);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
-void lovrMeshDraw(Mesh* mesh, mat4 transform, float* pose, int instances);
+void lovrMeshBind(Mesh* mesh, Shader* shader);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);
 void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode);
@@ -79,6 +81,8 @@ void lovrMeshGetDrawRange(Mesh* mesh, int* start, int* count);
 void lovrMeshSetDrawRange(Mesh* mesh, int start, int count);
 Material* lovrMeshGetMaterial(Mesh* mesh);
 void lovrMeshSetMaterial(Mesh* mesh, Material* material);
+float* lovrMeshGetPose(Mesh* mesh);
+void lovrMeshSetPose(Mesh* mesh, float* pose);
 VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write);
 void lovrMeshUnmapVertices(Mesh* mesh);
 IndexPointer lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* size);

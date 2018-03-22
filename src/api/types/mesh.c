@@ -57,8 +57,7 @@ int l_lovrMeshDrawInstanced(lua_State* L) {
   int instances = luaL_checkinteger(L, 2);
   float transform[16];
   luax_readtransform(L, 3, transform, 1);
-  lovrGraphicsSetDefaultShader(SHADER_DEFAULT);
-  lovrMeshDraw(mesh, transform, NULL, instances);
+  lovrGraphicsDraw(mesh, transform, SHADER_DEFAULT, instances);
   return 0;
 }
 

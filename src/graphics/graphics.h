@@ -93,7 +93,6 @@ typedef struct {
   bool initialized;
   GLFWwindow* window;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
-  DefaultShader defaultShader;
   Material* defaultMaterial;
   Font* defaultFont;
   Texture* defaultTexture;
@@ -141,7 +140,6 @@ void lovrGraphicsDestroy();
 void lovrGraphicsReset();
 void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Color color, float depth, int stencil);
 void lovrGraphicsPresent();
-void lovrGraphicsPrepare(Material* material, float* pose);
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
@@ -204,7 +202,8 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGraphicsFill(Texture* texture);
 
-// Internal State
+// Internal
+void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader shader, int instances);
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsPushLayer(Layer layer);
 void lovrGraphicsPopLayer();
@@ -212,13 +211,9 @@ void lovrGraphicsSetViewport(int x, int y, int w, int h);
 Texture* lovrGraphicsGetTexture(int slot);
 void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot);
 Material* lovrGraphicsGetDefaultMaterial();
-void lovrGraphicsSetDefaultShader(DefaultShader defaultShader);
-Shader* lovrGraphicsGetActiveShader();
 void lovrGraphicsUseProgram(uint32_t program);
 void lovrGraphicsBindFramebuffer(uint32_t framebuffer);
 void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
 void lovrGraphicsBindUniformBuffer(uint32_t ubo);
 void lovrGraphicsBindIndexBuffer(uint32_t ibo);
-void lovrGraphicsDrawArrays(GLenum mode, size_t start, size_t count, int instances);
-void lovrGraphicsDrawElements(GLenum mode, size_t count, size_t indexSize, size_t offset, int instances);
