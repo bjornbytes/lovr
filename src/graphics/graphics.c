@@ -279,7 +279,7 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
 
   lovrAssert(count <= MAX_CANVASES, "Attempt to simultaneously render to %d canvases (the maximum is %d)", count, MAX_CANVASES);
 
-  if (state.canvasCount > 0 && state.canvas[0]->msaa > 0) {
+  if (state.canvasCount > 0 && state.canvas[0]->flags.msaa > 0) {
     lovrCanvasResolve(state.canvas[0]);
   }
 
@@ -1067,7 +1067,7 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   lovrShaderSetFloat(shader, "lovrPointSize", &state.pointSize, 1);
 
   // Stereo
-  int stereo = canvas ? canvas->stereo : false;
+  int stereo = canvas ? canvas->flags.stereo : false;
   lovrShaderSetInt(shader, "lovrIsStereo", &stereo, 1);
 
   // Pose

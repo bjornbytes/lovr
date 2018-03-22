@@ -833,10 +833,7 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
   luaL_argcheck(L, height > 0, 2, "height must be positive");
 
   TextureFormat format = FORMAT_RGBA;
-  int msaa = 0;
-  bool depth = true;
-  bool stencil = false;
-  bool stereo = false;
+  CanvasFlags flags = { .msaa = 0, .depth = true, .stencil = false, .stereo = false, .mipmaps = true };
 
   if (lua_istable(L, 3)) {
     lua_getfield(L, 3, "format");
@@ -844,19 +841,23 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "msaa");
-    msaa = luaL_optinteger(L, -1, 0);
+    flags.msaa = luaL_optinteger(L, -1, 0);
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "depth");
-    depth = lua_toboolean(L, -1);
+    flags.depth = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "stencil");
-    stencil = lua_toboolean(L, -1);
+    flags.stencil = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "stereo");
-    stereo = lua_toboolean(L, -1);
+    flags.stereo = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "mipmaps");
+    flags.mipmaps = lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
 
@@ -864,7 +865,7 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
     return luaL_error(L, "Unsupported texture format for canvas");
   }
 
-  Canvas* canvas = lovrCanvasCreate(width, height, format, msaa, depth, stencil, stereo);
+  Canvas* canvas = lovrCanvasCreate(width, height, format, flags);
   luax_pushtype(L, Canvas, canvas);
   return 1;
 }

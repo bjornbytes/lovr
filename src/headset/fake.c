@@ -318,7 +318,8 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
     lovrGraphicsBindFramebuffer(0);
     int msaa = 0;
     glGetIntegerv(GL_SAMPLES, &msaa);
-    state.canvas = lovrCanvasCreate(width * 2, height, FORMAT_RGB, 4, true, true, true);
+    CanvasFlags flags = { .msaa = msaa, .depth = true, .stencil = true, .stereo = true, .mipmaps = false };
+    state.canvas = lovrCanvasCreate(width * 2, height, FORMAT_RGB, flags);
   }
 
   Layer layer = { .canvas = state.canvas };
