@@ -99,6 +99,9 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
   lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
   lovrTextureSetWrap(texture, (TextureWrap) { .s = wrap, .t = wrap, .r = wrap });
 
+  lovrAssert(type != TEXTURE_CUBE || sliceCount == 6, "6 images are required for a cube texture\n");
+  lovrAssert(type != TEXTURE_2D || sliceCount == 1, "2D textures can only contain a single image");
+
   if (slices) {
     for (int i = 0; i < sliceCount; i++) {
       lovrTextureReplacePixels(texture, slices[i], i);
@@ -128,9 +131,10 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
   texture->slices[slice] = textureData;
 
   if (!texture->allocated) {
+    lovrAssert(texture->type != TEXTURE_CUBE || textureData->width == textureData->height, "Cubemap images must be square");
     lovrTextureAllocate(texture, textureData);
   } else {
-    // validation
+    lovrAssert(textureData->width == texture->width && textureData->height == texture->height, "All texture slices must have the same dimensions");
   }
 
   if (!textureData->blob.data) {
