@@ -19,7 +19,7 @@ bool lovrCanvasSupportsFormat(TextureFormat format) {
   }
 }
 
-Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, int msaa, bool depth, bool stencil) {
+Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, int msaa, bool depth, bool stencil, bool stereo) {
   TextureData* textureData = lovrTextureDataGetEmpty(width, height, format);
   Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false);
   if (!texture) return NULL;
@@ -27,6 +27,7 @@ Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, int msaa, 
   Canvas* canvas = lovrAlloc(sizeof(Canvas), lovrCanvasDestroy);
   canvas->texture = *texture;
   canvas->msaa = msaa;
+  canvas->stereo = stereo;
 
   // Framebuffer
   glGenFramebuffers(1, &canvas->framebuffer);

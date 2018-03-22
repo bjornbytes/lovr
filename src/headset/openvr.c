@@ -247,7 +247,7 @@ static void ensureCanvas() {
   int msaa = 0;
   glGetIntegerv(GL_SAMPLES, &msaa);
   state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
-  state.canvas = lovrCanvasCreate(state.renderWidth * 2, state.renderHeight, FORMAT_RGB, msaa, true, true);
+  state.canvas = lovrCanvasCreate(state.renderWidth * 2, state.renderHeight, FORMAT_RGB, msaa, true, true, true);
 }
 
 static bool openvrInit(float offset) {

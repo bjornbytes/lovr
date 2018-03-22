@@ -73,7 +73,7 @@ void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
   map_remove(&mesh->attachments, name);
 }
 
-void lovrMeshBind(Mesh* mesh, Shader* shader) {
+void lovrMeshBind(Mesh* mesh, Shader* shader, bool stereo) {
   const char* key;
   map_iter_t iter = map_iter(&mesh->attachments);
 
@@ -108,7 +108,7 @@ void lovrMeshBind(Mesh* mesh, Shader* shader) {
     }
 
     if (previous.divisor != current.divisor) {
-      glVertexAttribDivisor(i, current.divisor);
+      glVertexAttribDivisor(i, current.divisor * (1 + stereo));
     }
 
     if (previous.mesh != current.mesh || previous.attributeIndex != current.attributeIndex) {

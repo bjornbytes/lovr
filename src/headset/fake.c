@@ -33,6 +33,7 @@ typedef struct {
   float transform[16];
 
   GLFWwindow* hookedWindow;
+  Canvas* canvas;
 
   bool mouselook;
   double prevCursorX;
@@ -313,7 +314,14 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   int width, height;
   fakeGetDisplayDimensions(&width, &height);
 
-  Layer layer = { .canvas = NULL };
+  if (!state.canvas) {
+    lovrGraphicsBindFramebuffer(0);
+    int msaa = 0;
+    glGetIntegerv(GL_SAMPLES, &msaa);
+    state.canvas = lovrCanvasCreate(width * 2, height, FORMAT_RGB, 4, true, true, true);
+  }
+
+  Layer layer = { .canvas = state.canvas };
   mat4_perspective(layer.projections, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height / 2.);
   mat4_set(layer.projections + 16, layer.projections);
   mat4_identity(layer.views);
@@ -326,6 +334,18 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
   callback(userdata);
   lovrGraphicsPopLayer();
+
+  if (state.mirrored) {
+    Color oldColor = lovrGraphicsGetColor();
+    lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
+    Shader* lastShader = lovrGraphicsGetShader();
+    lovrRetain(lastShader);
+    lovrGraphicsSetShader(NULL);
+    lovrGraphicsFill(&state.canvas->texture);
+    lovrGraphicsSetShader(lastShader);
+    lovrRelease(lastShader);
+    lovrGraphicsSetColor(oldColor);
+  }
 }
 
 static void fakeUpdate(float dt) {

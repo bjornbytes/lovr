@@ -59,8 +59,8 @@ void lovrGraphicsReset() {
   int h = lovrGraphicsGetHeight();
   state.transform = 0;
   state.layer = 0;
-  mat4_perspective(state.layers[state.layer].projections, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
-  mat4_perspective(state.layers[state.layer].projections + 16, .01f, 100.f, 67 * M_PI / 180., (float) w / h / 2.);
+  mat4_perspective(state.layers[state.layer].projections, .01f, 100.f, 67 * M_PI / 180., (float) w / h);
+  mat4_perspective(state.layers[state.layer].projections + 16, .01f, 100.f, 67 * M_PI / 180., (float) w / h);
   mat4_identity(state.layers[state.layer].views);
   mat4_identity(state.layers[state.layer].views + 16);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1. });
@@ -80,6 +80,10 @@ void lovrGraphicsReset() {
 }
 
 void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Color color, float depth, int stencil) {
+  Layer layer = state.layers[state.layer];
+  Canvas* canvas = state.canvasCount > 0 ? state.canvas[0] : layer.canvas;
+  lovrGraphicsBindFramebuffer(canvas ? canvas->framebuffer : 0);
+
   if (clearColor) {
     gammaCorrectColor(&color);
     float c[4] = { color.r, color.g, color.b, color.a };
@@ -990,8 +994,8 @@ void lovrGraphicsFill(Texture* texture) {
   lovrMeshSetMaterial(state.mesh, material);
   lovrMeshSetDrawMode(state.mesh, MESH_TRIANGLE_STRIP);
   lovrMeshSetDrawRange(state.mesh, 0, 4);
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   lovrGraphicsDraw(state.mesh, NULL, SHADER_FILL, 1);
+  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   lovrGraphicsSetDepthTest(mode, write);
 }
 
@@ -1062,6 +1066,10 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   // Point size
   lovrShaderSetFloat(shader, "lovrPointSize", &state.pointSize, 1);
 
+  // Stereo
+  int stereo = canvas ? canvas->stereo : false;
+  lovrShaderSetInt(shader, "lovrIsStereo", &stereo, 1);
+
   // Pose
   float* pose = lovrMeshGetPose(mesh);
   if (pose) {
@@ -1102,17 +1110,17 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   lovrGraphicsBindVertexArray(mesh->vao);
   lovrMeshUnmapVertices(mesh);
   lovrMeshUnmapIndices(mesh);
-  lovrMeshBind(mesh, shader);
+  lovrMeshBind(mesh, shader, stereo);
 
   size_t start = mesh->rangeStart;
   if (mesh->indexCount > 0) {
     size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
     GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
     size_t offset = start * mesh->indexSize;
-    glDrawElementsInstanced(mesh->drawMode, count, indexType, (GLvoid*) offset, instances * 2);
+    glDrawElementsInstanced(mesh->drawMode, count, indexType, (GLvoid*) offset, instances * (1 + stereo));
   } else {
     size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->count;
-    glDrawArraysInstanced(mesh->drawMode, start, count, instances * 2);
+    glDrawArraysInstanced(mesh->drawMode, start, count, instances * (1 + stereo));
   }
 
   if (transform) {
