@@ -70,6 +70,7 @@ void lovrWorldDestroy(void* ref) {
   World* world = ref;
   lovrWorldDestroyData(world);
   vec_deinit(&world->overlaps);
+  map_deinit(&world->tags);
   free(world);
 }
 

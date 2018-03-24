@@ -521,10 +521,15 @@ void lovrModelDataDestroy(void* ref) {
   for (int i = 0; i < modelData->nodeCount; i++) {
     vec_deinit(&modelData->nodes[i].children);
     vec_deinit(&modelData->nodes[i].primitives);
+    free((char*) modelData->nodes[i].name);
   }
 
   for (int i = 0; i < modelData->primitiveCount; i++) {
-    map_deinit(&modelData->primitives[i].boneMap);
+    ModelPrimitive* primitive = &modelData->primitives[i];
+    for (int j = 0; j < primitive->boneCount; j++) {
+      free((char*) primitive->bones[j].name);
+    }
+    map_deinit(&primitive->boneMap);
   }
 
   for (int i = 0; i < modelData->animationCount; i++) {
@@ -538,6 +543,7 @@ void lovrModelDataDestroy(void* ref) {
       vec_deinit(&channel->scaleKeyframes);
     }
     map_deinit(&animation->channels);
+    free((char*) animation->name);
   }
 
   for (int i = 0; i < modelData->textures.length; i++) {

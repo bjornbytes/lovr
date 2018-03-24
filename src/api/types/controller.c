@@ -86,6 +86,7 @@ int l_lovrControllerNewModel(lua_State* L) {
   if (modelData) {
     Model* model = lovrModelCreate(modelData);
     luax_pushtype(L, Model, model);
+    lovrRelease(modelData);
     lovrRelease(model);
   } else {
     lua_pushnil(L);

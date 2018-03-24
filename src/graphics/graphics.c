@@ -43,6 +43,10 @@ void lovrGraphicsDestroy() {
   if (!state.initialized) return;
   lovrGraphicsSetShader(NULL);
   lovrGraphicsSetFont(NULL);
+  lovrGraphicsSetCanvas(NULL, 0);
+  for (int i = 0; i < MAX_TEXTURES; i++) {
+    lovrRelease(state.textures[i]);
+  }
   for (int i = 0; i < DEFAULT_SHADER_COUNT; i++) {
     lovrRelease(state.defaultShaders[i]);
   }
@@ -367,6 +371,7 @@ Font* lovrGraphicsGetFont() {
     if (!state.defaultFont) {
       Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
       state.defaultFont = lovrFontCreate(rasterizer);
+      lovrRelease(rasterizer);
     }
 
     lovrGraphicsSetFont(state.defaultFont);
@@ -1159,6 +1164,7 @@ void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot) {
     if (!state.defaultTexture) {
       TextureData* textureData = lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA);
       state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false);
+      lovrRelease(textureData);
     }
 
     texture = state.defaultTexture;

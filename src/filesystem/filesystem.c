@@ -206,29 +206,34 @@ void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
   // Create file
   File* file = lovrFileCreate(path);
   if (!file) {
+    lovrRelease(file);
     return NULL;
   }
 
   // Open it
   if (lovrFileOpen(file, OPEN_READ)) {
+    lovrRelease(file);
     return NULL;
   }
 
   // Get file size
   size_t size = lovrFileGetSize(file);
   if (size == (unsigned int) -1) {
+    lovrRelease(file);
     return NULL;
   }
 
   // Allocate buffer
   void* data = malloc(size);
   if (!data) {
+    lovrRelease(file);
     return NULL;
   }
 
   // Perform read
   *bytesRead = lovrFileRead(file, data, size);
   lovrFileClose(file);
+  lovrRelease(file);
 
   // Make sure we got everything
   if (*bytesRead != (size_t) size) {

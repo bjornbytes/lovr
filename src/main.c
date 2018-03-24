@@ -11,8 +11,11 @@
 
 static int errorCount = 0;
 
-static void destroy(int exitCode) {
+static void destroy(lua_State* L, int exitCode) {
   lovrDestroy();
+  free(lovrCatch);
+  lovrCatch = NULL;
+  lua_close(L);
   glfwTerminate();
   exit(exitCode);
 }
@@ -30,7 +33,7 @@ static void handleError(lua_State* L, const char* message) {
   } else {
     fprintf(stderr, "%s\n", message);
   }
-  destroy(1);
+  destroy(L, 1);
 }
 
 #ifdef EMSCRIPTEN
@@ -110,14 +113,14 @@ int main(int argc, char** argv) {
 
     // Failsafe in event that errhand throws
     if (errorCount++) {
-      destroy(1);
+      destroy(L, 1);
     }
 
     lua_pushcfunction(L, luax_getstack);
     lua_pushstring(L, lovrErrorMessage);
     lua_pcall(L, 1, 1, 0);
     handleError(L, lua_tostring(L, -1));
-    destroy(1);
+    destroy(L, 1);
   }
 
   // lovr.run()
@@ -132,14 +135,13 @@ int main(int argc, char** argv) {
   int exitCode = 0;
   int returnType = lua_type(L, -1);
   if (returnType == LUA_TSTRING && 0 == strcmp("restart", lua_tostring(L, -1))) {
+    lua_close(L);
     lovrDestroy();
     continue;
   }
 
   exitCode = luaL_optint(L, -1, 0);
-  free(lovrCatch);
-  lovrCatch = NULL;
-  destroy(exitCode);
+  destroy(L, exitCode);
 #endif
 
 #ifndef EMSCRIPTEN

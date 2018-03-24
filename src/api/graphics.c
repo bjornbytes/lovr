@@ -823,6 +823,7 @@ int l_lovrGraphicsNewAnimator(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Animator* animator = lovrAnimatorCreate(model->modelData);
   luax_pushtype(L, Animator, animator);
+  lovrRelease(animator);
   return 1;
 }
 
@@ -867,6 +868,7 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
 
   Canvas* canvas = lovrCanvasCreate(width, height, format, flags);
   luax_pushtype(L, Canvas, canvas);
+  lovrRelease(canvas);
   return 1;
 }
 
@@ -892,6 +894,7 @@ int l_lovrGraphicsNewFont(lua_State* L) {
 
   Font* font = lovrFontCreate(rasterizer);
   luax_pushtype(L, Font, font);
+  lovrRelease(rasterizer);
   lovrRelease(font);
   return 1;
 }
@@ -904,9 +907,10 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
   if (lua_type(L, index) == LUA_TSTRING) {
     Blob* blob = luax_readblob(L, index++, "Texture");
     TextureData* textureData = lovrTextureDataFromBlob(blob);
-    lovrRelease(blob);
     Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
+    lovrRelease(blob);
+    lovrRelease(textureData);
     lovrRelease(texture);
   } else if (lua_isuserdata(L, index)) {
     Texture* texture = luax_checktypeof(L, index, Texture);
@@ -920,6 +924,7 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
   }
 
   luax_pushtype(L, Material, material);
+  lovrRelease(material);
   return 1;
 }
 
@@ -1036,6 +1041,7 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   }
 
   luax_pushtype(L, Model, model);
+  lovrRelease(modelData);
   lovrRelease(model);
   return 1;
 }
@@ -1112,6 +1118,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_rawgeti(L, 1, i + 1);
     TextureData* textureData = luax_checktexturedata(L, -1);
     lovrTextureReplacePixels(texture, textureData, i);
+    lovrRelease(textureData);
     lua_pop(L, 1);
   }
 
