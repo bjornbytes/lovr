@@ -18,6 +18,7 @@ if(EMSCRIPTEN)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
 elseif(UNIX)
   find_package(PkgConfig REQUIRED)
+  add_definitions(-D_XOPEN_SOURCE=600)
 endif()
 
 # PhysicsFS
