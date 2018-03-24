@@ -40,6 +40,9 @@ void lovrAudioDestroy() {
   alcMakeContextCurrent(NULL);
   alcDestroyContext(state.context);
   alcCloseDevice(state.device);
+  for (int i = 0; i < state.sources.length; i++) {
+    lovrRelease(state.sources.data[i]);
+  }
   vec_deinit(&state.sources);
   memset(&state, 0, sizeof(AudioState));
 }
