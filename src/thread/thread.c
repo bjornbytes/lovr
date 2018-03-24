@@ -13,6 +13,12 @@ void lovrThreadInit() {
 
 void lovrThreadDeinit() {
   if (!state.initialized) return;
+  const char* key;
+  map_iter_t iter = map_iter(&state.channels);
+  while ((key = map_next(&state.channels, &iter)) != NULL) {
+    Channel* channel = *(Channel**) map_get(&state.channels, key);
+    lovrRelease(channel);
+  }
   map_deinit(&state.channels);
   state.initialized = false;
 }

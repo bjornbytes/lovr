@@ -15,6 +15,7 @@ void lovrDestroy() {
   lovrHeadsetDestroy();
   lovrMathDestroy();
   lovrPhysicsDestroy();
+  lovrThreadDeinit();
   lovrTimerDestroy();
 }
 
