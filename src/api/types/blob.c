@@ -1,7 +1,7 @@
 #include "api.h"
 #include "data/blob.h"
 
-int l_lovrBlobGetFilename(lua_State* L) {
+int l_lovrBlobGetName(lua_State* L) {
   Blob* blob = luax_checktypeof(L, 1, Blob);
   lua_pushstring(L, blob->name);
   return 1;
@@ -26,7 +26,7 @@ int l_lovrBlobGetString(lua_State* L) {
 }
 
 const luaL_Reg lovrBlob[] = {
-  { "getFilename", l_lovrBlobGetFilename },
+  { "getName", l_lovrBlobGetName },
   { "getPointer", l_lovrBlobGetPointer },
   { "getSize", l_lovrBlobGetSize },
   { "getString", l_lovrBlobGetString },
