@@ -179,7 +179,7 @@ end
 
 function lovr.run()
   lovr.timer.step()
-  if lovr.load then lovr.load() end
+  if lovr.load then lovr.load(arg) end
   while true do
     local exit = lovr.step()
     if exit then return exit end

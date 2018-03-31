@@ -94,7 +94,8 @@ int main(int argc, char** argv) {
   if (!lua_isnil(L, -1)) {
     lua_getfield(L, -1, "load");
     if (!lua_isnil(L, -1)) {
-      lua_call(L, 0, 0);
+      lua_getglobal(L, "arg");
+      lua_call(L, 1, 0);
     } else {
       lua_pop(L, 1);
     }
