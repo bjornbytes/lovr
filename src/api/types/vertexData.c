@@ -1,5 +1,34 @@
 #include "api.h"
 
+int luax_loadvertices(lua_State* L, int index, VertexFormat* format, VertexPointer vertices) {
+  uint32_t count = lua_objlen(L, index);
+
+  for (uint32_t i = 0; i < count; i++) {
+    lua_rawgeti(L, index, i + 1);
+    if (!lua_istable(L, -1)) {
+      return luaL_error(L, "Vertex information should be specified as a table");
+    }
+
+    int component = 0;
+    for (int j = 0; j < format->count; j++) {
+      Attribute attribute = format->attributes[j];
+      for (int k = 0; k < attribute.count; k++) {
+        lua_rawgeti(L, -1, ++component);
+        switch (attribute.type) {
+          case ATTR_FLOAT: *vertices.floats++ = luaL_optnumber(L, -1, 0.f); break;
+          case ATTR_BYTE: *vertices.bytes++ = luaL_optint(L, -1, 255); break;
+          case ATTR_INT: *vertices.ints++ = luaL_optint(L, -1, 0); break;
+        }
+        lua_pop(L, 1);
+      }
+    }
+
+    lua_pop(L, 1);
+  }
+
+  return 0;
+}
+
 bool luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
   if (!lua_istable(L, index)) {
     return false;

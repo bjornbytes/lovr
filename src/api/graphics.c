@@ -976,32 +976,8 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   Mesh* mesh = lovrMeshCreate(count, format, *drawMode, *usage);
 
   if (dataIndex) {
-    uint32_t dataCount = lua_objlen(L, dataIndex);
-    format = *lovrMeshGetVertexFormat(mesh);
-    VertexPointer vertices = lovrMeshMapVertices(mesh, 0, dataCount, false, true);
-
-    for (uint32_t i = 0; i < dataCount; i++) {
-      lua_rawgeti(L, dataIndex, i + 1);
-      if (!lua_istable(L, -1)) {
-        return luaL_error(L, "Vertex information should be specified as a table");
-      }
-
-      int component = 0;
-      for (int j = 0; j < format.count; j++) {
-        Attribute attribute = format.attributes[j];
-        for (int k = 0; k < attribute.count; k++) {
-          lua_rawgeti(L, -1, ++component);
-          switch (attribute.type) {
-            case ATTR_FLOAT: *vertices.floats++ = luaL_optnumber(L, -1, 0.f); break;
-            case ATTR_BYTE: *vertices.bytes++ = luaL_optint(L, -1, 255); break;
-            case ATTR_INT: *vertices.ints++ = luaL_optint(L, -1, 0); break;
-          }
-          lua_pop(L, 1);
-        }
-      }
-
-      lua_pop(L, 1);
-    }
+    VertexPointer vertices = lovrMeshMapVertices(mesh, 0, lua_objlen(L, dataIndex), false, true);
+    luax_loadvertices(L, dataIndex, lovrMeshGetVertexFormat(mesh), vertices);
   } else if (vertexData) {
     VertexPointer vertices = lovrMeshMapVertices(mesh, 0, count, false, true);
     memcpy(vertices.raw, vertexData->blob.data, vertexData->count * vertexData->format.stride);

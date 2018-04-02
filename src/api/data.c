@@ -96,11 +96,36 @@ int l_lovrDataNewTextureData(lua_State* L) {
 }
 
 int l_lovrDataNewVertexData(lua_State* L) {
-  uint32_t count = luaL_checkinteger(L, 1);
+  uint32_t count;
+  int dataIndex = 0;
+  bool hasFormat = false;
   VertexFormat format;
   vertexFormatInit(&format);
-  bool hasFormat = luax_checkvertexformat(L, 2, &format);
+
+  if (lua_isnumber(L, 1)) {
+    count = lua_tointeger(L, 1);
+  } else if (lua_istable(L, 1)) {
+    if (lua_isnumber(L, 2)) {
+      hasFormat = luax_checkvertexformat(L, 1, &format);
+      count = lua_tointeger(L, 2);
+      dataIndex = 0;
+    } else if (lua_istable(L, 2)) {
+      hasFormat = luax_checkvertexformat(L, 1, &format);
+      count = lua_objlen(L, 2);
+      dataIndex = 2;
+    } else {
+      count = lua_objlen(L, 1);
+      dataIndex = 1;
+    }
+  } else {
+    return luaL_argerror(L, 1, "table or number expected");
+  }
+
   VertexData* vertexData = lovrVertexDataCreate(count, hasFormat ? &format : NULL);
+
+  if (dataIndex) {
+    luax_loadvertices(L, dataIndex, &vertexData->format, (VertexPointer) { .raw = vertexData->blob.data });
+  }
   luax_pushtype(L, VertexData, vertexData);
   lovrRelease(vertexData);
   return 1;
