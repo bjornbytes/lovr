@@ -39,9 +39,9 @@ typedef struct {
   Ref ref;
   TextureType type;
   TextureData** slices;
-  int sliceCount;
   int width;
   int height;
+  int depth;
   GLuint id;
   TextureFilter filter;
   TextureWrap wrap;
@@ -54,7 +54,7 @@ GLenum lovrTextureFormatGetGLFormat(TextureFormat format);
 GLenum lovrTextureFormatGetGLInternalFormat(TextureFormat format, bool srgb);
 bool lovrTextureFormatIsCompressed(TextureFormat format);
 
-Texture* lovrTextureCreate(TextureType type, TextureData** slices, int count, bool srgb, bool mipmaps);
+Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bool srgb, bool mipmaps);
 void lovrTextureDestroy(void* ref);
 TextureType lovrTextureGetType(Texture* texture);
 void lovrTextureReplacePixels(Texture* texture, TextureData* data, int slice);

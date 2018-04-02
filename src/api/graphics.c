@@ -1080,8 +1080,8 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_replace(L, 1);
   }
 
-  int sliceCount = lua_objlen(L, 1);
-  TextureType type = isTable ? (sliceCount > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE) : TEXTURE_2D;
+  int depth = lua_objlen(L, 1);
+  TextureType type = isTable ? (depth > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE) : TEXTURE_2D;
 
   bool hasFlags = lua_istable(L, 2);
   bool srgb = true;
@@ -1103,8 +1103,8 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  if (type == TEXTURE_CUBE && sliceCount == 0) {
-    sliceCount = 6;
+  if (type == TEXTURE_CUBE && depth == 0) {
+    depth = 6;
     const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
     for (int i = 0; i < 6; i++) {
       lua_pushstring(L, faces[i]);
@@ -1113,9 +1113,9 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     }
   }
 
-  Texture* texture = lovrTextureCreate(type, NULL, sliceCount, srgb, mipmaps);
+  Texture* texture = lovrTextureCreate(type, NULL, depth, srgb, mipmaps);
 
-  for (int i = 0; i < sliceCount; i++) {
+  for (int i = 0; i < depth; i++) {
     lua_rawgeti(L, 1, i + 1);
     TextureData* textureData = luax_checktexturedata(L, -1);
     lovrTextureReplacePixels(texture, textureData, i);

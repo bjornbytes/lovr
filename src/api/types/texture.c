@@ -1,10 +1,20 @@
 #include "api.h"
 #include "graphics/graphics.h"
 
+int l_lovrTextureGetDepth(lua_State* L) {
+  Texture* texture = luax_checktypeof(L, 1, Texture);
+  lua_pushnumber(L, texture->depth);
+  return 1;
+}
+
 int l_lovrTextureGetDimensions(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  lua_pushnumber(L, texture->width);
-  lua_pushnumber(L, texture->height);
+  lua_pushinteger(L, texture->width);
+  lua_pushinteger(L, texture->height);
+  if (texture->type != TEXTURE_2D) {
+    lua_pushinteger(L, texture->depth);
+    return 3;
+  }
   return 2;
 }
 
@@ -77,6 +87,7 @@ int l_lovrTextureSetWrap(lua_State* L) {
 }
 
 const luaL_Reg lovrTexture[] = {
+  { "getDepth", l_lovrTextureGetDepth },
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getFilter", l_lovrTextureGetFilter },
   { "getHeight", l_lovrTextureGetHeight },

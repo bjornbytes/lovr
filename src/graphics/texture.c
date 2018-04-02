@@ -53,7 +53,7 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
   if (GLAD_GL_ARB_texture_storage) {
 #endif
   if (texture->type == TEXTURE_ARRAY) {
-    glTexStorage3D(texture->type, mipmapCount, internalFormat, w, h, texture->sliceCount);
+    glTexStorage3D(texture->type, mipmapCount, internalFormat, w, h, texture->depth);
   } else {
     glTexStorage2D(texture->type, mipmapCount, internalFormat, w, h);
   }
@@ -73,7 +73,7 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
 
         case TEXTURE_ARRAY:
         case TEXTURE_VOLUME:
-          glTexImage3D(texture->type, i, internalFormat, w, h, texture->sliceCount, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+          glTexImage3D(texture->type, i, internalFormat, w, h, texture->depth, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
           break;
       }
       w = MAX(w >> 1, 1);
@@ -83,13 +83,13 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
 #endif
 }
 
-Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps) {
+Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bool srgb, bool mipmaps) {
   Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
   if (!texture) return NULL;
 
   texture->type = type;
-  texture->slices = calloc(sliceCount, sizeof(TextureData**));
-  texture->sliceCount = sliceCount;
+  texture->slices = calloc(depth, sizeof(TextureData**));
+  texture->depth = depth;
   texture->srgb = srgb;
   texture->mipmaps = mipmaps;
 
@@ -99,11 +99,11 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
   lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
   lovrTextureSetWrap(texture, (TextureWrap) { .s = wrap, .t = wrap, .r = wrap });
 
-  lovrAssert(type != TEXTURE_CUBE || sliceCount == 6, "6 images are required for a cube texture\n");
-  lovrAssert(type != TEXTURE_2D || sliceCount == 1, "2D textures can only contain a single image");
+  lovrAssert(type != TEXTURE_CUBE || depth == 6, "6 images are required for a cube texture\n");
+  lovrAssert(type != TEXTURE_2D || depth == 1, "2D textures can only contain a single image");
 
   if (slices) {
-    for (int i = 0; i < sliceCount; i++) {
+    for (int i = 0; i < depth; i++) {
       lovrTextureReplacePixels(texture, slices[i], i);
     }
   }
@@ -113,7 +113,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
 
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
-  for (int i = 0; i < texture->sliceCount; i++) {
+  for (int i = 0; i < texture->depth; i++) {
     lovrRelease(texture->slices[i]);
   }
   glDeleteTextures(1, &texture->id);
