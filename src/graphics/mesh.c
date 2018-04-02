@@ -237,6 +237,8 @@ void lovrMeshUnmapVertices(Mesh* mesh) {
 IndexPointer lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* size) {
   if (mesh->indexCount == 0) {
     return (IndexPointer) { .raw = NULL };
+  } else if (mesh->mappedIndices) {
+    lovrMeshUnmapIndices(mesh);
   }
 
   *size = mesh->indexSize;
@@ -252,6 +254,10 @@ IndexPointer lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* size) {
 }
 
 IndexPointer lovrMeshWriteIndices(Mesh* mesh, uint32_t count, size_t size) {
+  if (mesh->mappedIndices) {
+    lovrMeshUnmapIndices(mesh);
+  }
+
   mesh->indexSize = size;
   mesh->indexCount = count;
 

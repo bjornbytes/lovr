@@ -185,11 +185,22 @@ int l_lovrMeshGetVertexMap(lua_State* L) {
     return 1;
   }
 
-  lua_newtable(L);
+  if (lua_istable(L, 2)) {
+    lua_settop(L, 2);
+  } else if (lua_isuserdata(L, 2)) {
+    Blob* blob = luax_checktypeof(L, 2, Blob);
+    lovrAssert(size * count <= blob->size, "Mesh vertex map is %zu bytes, but Blob can only hold %zu", size * count, blob->size);
+    memcpy(blob->data, indices.raw, size * count);
+    return 0;
+  } else {
+    lua_settop(L, 1);
+    lua_createtable(L, count, 0);
+  }
+
   for (size_t i = 0; i < count; i++) {
     uint32_t index = size == sizeof(uint32_t) ? indices.ints[i] : indices.shorts[i];
     lua_pushinteger(L, index + 1);
-    lua_rawseti(L, -2, i + 1);
+    lua_rawseti(L, 2, i + 1);
   }
 
   return 1;
