@@ -3,7 +3,7 @@
 
 map_int_t EventTypes;
 
-static int pollRef;
+static _Thread_local int pollRef;
 
 static int nextEvent(lua_State* L) {
   Event event;

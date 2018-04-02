@@ -1,5 +1,6 @@
 #include "headset/headset.h"
 #include "thread/thread.h"
+#include "lib/tinycthread/tinycthread.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
 
@@ -77,6 +78,7 @@ typedef struct {
   bool initialized;
   vec_pump_t pumps;
   vec_event_t events;
+  mtx_t lock;
 } EventState;
 
 void lovrEventInit();
