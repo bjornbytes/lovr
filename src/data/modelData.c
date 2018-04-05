@@ -135,6 +135,7 @@ static int readMaterialTexture(struct aiMaterial* assimpMaterial, enum aiTexture
   strncpy(fullPath, dirname, LOVR_PATH_MAX);
   char* lastSlash = strrchr(fullPath, '/');
   if (lastSlash) lastSlash[1] = '\0';
+  else fullPath[0] = '\0';
   strncat(fullPath, path, LOVR_PATH_MAX);
   normalizePath(fullPath, normalizedPath, LOVR_PATH_MAX);
 
