@@ -8,8 +8,8 @@ void lovrEventInit() {
   if (state.initialized) return;
   vec_init(&state.pumps);
   vec_init(&state.events);
-  lovrEventAddPump(glfwPollEvents);
   mtx_init(&state.lock, mtx_plain);
+  lovrEventAddPump(glfwPollEvents);
   atexit(lovrEventDestroy);
   state.initialized = true;
 }
