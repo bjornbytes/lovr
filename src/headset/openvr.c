@@ -312,7 +312,7 @@ static bool openvrInit(float offset) {
   state.vsyncToPhotons = state.system->GetFloatTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_SecondsFromVsyncToPhotons_Float, NULL);
   state.isRendering = false;
   state.isMirrored = true;
-  state.offset = lovrHeadsetGetOriginType() == ORIGIN_HEAD ? offset : 0.;
+  state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
   state.canvas = NULL;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
