@@ -68,7 +68,7 @@ static uint32_t luax_readvertices(lua_State* L, int index) {
     }
   }
 
-  return count;
+  return count / 3;
 }
 
 static void stencilCallback(void* userdata) {
