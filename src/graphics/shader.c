@@ -254,7 +254,9 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   map_init(&shader->attributes);
   for (int i = 0; i < attributeCount; i++) {
     char name[LOVR_MAX_ATTRIBUTE_LENGTH];
-    glGetActiveAttrib(program, i, LOVR_MAX_ATTRIBUTE_LENGTH, NULL, NULL, NULL, name);
+    GLint size;
+    GLenum type;
+    glGetActiveAttrib(program, i, LOVR_MAX_ATTRIBUTE_LENGTH, NULL, &size, &type, name);
     map_set(&shader->attributes, name, glGetAttribLocation(program, name));
   }
 
