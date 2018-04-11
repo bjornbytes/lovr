@@ -348,7 +348,6 @@ static void openvrDestroy() {
     lovrRelease(controller);
   }
   vec_deinit(&state.controllers);
-  lovrEventRemovePump(openvrPoll);
   VR_ShutdownInternal();
   memset(&state, 0, sizeof(HeadsetState));
 }
