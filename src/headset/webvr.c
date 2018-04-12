@@ -8,68 +8,65 @@
 #include <stdbool.h>
 
 typedef struct {
-  headsetRenderCallback renderCallback;
+  bool initialized;
+  void (*renderCallback)(void*);
   vec_controller_t controllers;
+  Canvas* canvas;
+  float offset;
 } HeadsetState;
 
 static HeadsetState state;
 
 static void onRequestAnimationFrame(void* userdata) {
-  lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
-
   int width = emscripten_vr_get_display_width();
   int height = emscripten_vr_get_display_height();
 
-  float projection[16];
-  float transform[16];
-  float sittingToStanding[16];
+  if (!state.canvas) {
+    CanvasFlags flags = { .msaa = 0, .depth = true, .stencil = true, .stereo = true, .mipmaps = false };
+    state.canvas = lovrCanvasCreate(width, height, FORMAT_RGB, flags);
+  }
 
+  Layer layer = { .canvas = state.canvas };
+
+  float sittingToStanding[16];
   mat4_set(sittingToStanding, emscripten_vr_get_sitting_to_standing_matrix());
+  if (!emscripten_vr_has_stage()) {
+    mat4_translate(sittingToStanding, 0, state.offset, 0);
+  }
   mat4_invert(sittingToStanding);
 
-  for (HeadsetEye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
-    bool isRight = eye == EYE_RIGHT;
+  mat4_set(&layer.projections[0], emscripten_vr_get_projection_matrix(0));
+  mat4_set(&layer.projections[16], emscripten_vr_get_projection_matrix(1));
+  mat4_set(&layer.views[0], emscripten_vr_get_view_matrix(0));
+  mat4_multiply(&layer.views[0], sittingToStanding);
+  mat4_set(&layer.views[16], emscripten_vr_get_view_matrix(1));
+  mat4_multiply(&layer.views[16], sittingToStanding);
 
-    mat4_set(projection, emscripten_vr_get_projection_matrix(isRight));
-    mat4_set(transform, emscripten_vr_get_view_matrix(isRight));
-    mat4_multiply(transform, sittingToStanding);
-
-    if (isRight) {
-      int viewport[4] = { width / 2, 0, width / 2, height };
-      lovrGraphicsPushDisplay(0, projection, viewport);
-    } else {
-      int viewport[4] = { 0, 0, width / 2, height };
-      lovrGraphicsPushDisplay(0, projection, viewport);
-    }
-
-    lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
-    lovrGraphicsSetProjection(projection);
-
-    state.renderCallback(eye, userdata);
-    lovrGraphicsPop();
-    lovrGraphicsPopDisplay();
-  }
+  lovrGraphicsPushLayer(layer);
+  lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
+  state.renderCallback(userdata);
+  lovrGraphicsPopLayer();
 }
 
-static bool webvrInit() {
-  if (!emscripten_vr_is_present()) {
-    return false;
-  }
-
+static bool webvrInit(float offset) {
+  if (state.initialized) return true;
+  if (!emscripten_vr_is_present()) return false;
   vec_init(&state.controllers);
   emscripten_vr_init();
+  state.offset = offset;
   return true;
 }
 
 static void webvrDestroy() {
+  if (!state.initialized) return;
   Controller* controller;
   int i;
   vec_foreach(&state.controllers, controller, i) {
     lovrRelease(controller);
   }
-
   vec_deinit(&state.controllers);
+  lovrRelease(state.canvas);
+  memset(&state, 0, sizeof(HeadsetState));
 }
 
 static HeadsetType webvrGetType() {

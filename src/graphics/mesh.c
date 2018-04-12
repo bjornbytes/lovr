@@ -272,7 +272,7 @@ IndexPointer lovrMeshWriteIndices(Mesh* mesh, uint32_t count, size_t size) {
   if (mesh->indexCapacity < size * count) {
     mesh->indexCapacity = nextPo2(size * count);
 #ifdef EMSCRIPTEN
-    mesh->indices = realloc(mesh->indices.raw, mesh->indexCapacity);
+    mesh->indices.raw = realloc(mesh->indices.raw, mesh->indexCapacity);
 #else
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCapacity, NULL, mesh->usage);
 #endif
