@@ -24,6 +24,7 @@ const char* lovrShaderVertexPrefix = ""
 #ifdef EMSCRIPTEN
 "#version 300 es \n"
 "precision mediump float; \n"
+"out float lovrClipDistance; \n"
 #else
 "#version 150 \n"
 #endif
@@ -61,6 +62,7 @@ const char* lovrShaderFragmentPrefix = ""
 #ifdef EMSCRIPTEN
 "#version 300 es \n"
 "precision mediump float; \n"
+"in float lovrClipDistance; \n"
 #else
 "#version 150 \n"
 "in vec4 gl_FragCoord; \n"
@@ -95,14 +97,23 @@ const char* lovrShaderVertexSuffix = ""
 "    lovrPose[lovrBones[3]] * lovrBoneWeights[3]; \n"
 "  gl_PointSize = lovrPointSize; \n"
 "  vec4 projected = position(lovrProjection, lovrTransform, pose * vec4(lovrPosition, 1.0)); \n"
-"  gl_ClipDistance[0] = lovrIsStereo * dot(projected, lovrClipPlane[lovrEye]); \n"
-"  projected.x *= 1. - (lovrIsStereo * .5); \n"
-"  projected.x += lovrIsStereo * lovrEyeOffset[lovrEye] * projected.w; \n"
+#ifndef EMSCRIPTEN
+"  gl_ClipDistance[0] = float(lovrIsStereo) * dot(projected, lovrClipPlane[lovrEye]); \n"
+#else
+"  lovrClipDistance = float(lovrIsStereo) * dot(projected, lovrClipPlane[lovrEye]); \n"
+#endif
+"  projected.x *= 1. - (float(lovrIsStereo) * .5); \n"
+"  projected.x += float(lovrIsStereo) * lovrEyeOffset[lovrEye] * projected.w; \n"
 "  gl_Position = projected; \n"
 "}";
 
 const char* lovrShaderFragmentSuffix = ""
 "void main() { \n"
+#ifdef EMSCRIPTEN
+"  if (lovrClipDistance < 0.) { \n"
+"    discard; \n"
+"  } \n"
+#endif
 "#ifdef MULTICANVAS \n"
 "  colors(lovrColor, lovrDiffuseTexture, texCoord); \n"
 "#else \n"
