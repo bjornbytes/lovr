@@ -1,6 +1,7 @@
 #include "headset/headset.h"
+#ifndef EMSCRIPTEN
 #include "thread/thread.h"
-#include "lib/tinycthread/tinycthread.h"
+#endif
 #include "lib/vec/vec.h"
 #include <stdbool.h>
 
@@ -30,10 +31,12 @@ typedef struct {
   bool mounted;
 } MountEvent;
 
+#ifndef EMSCRIPTEN
 typedef struct {
   Thread* thread;
   const char* error;
 } ThreadErrorEvent;
+#endif
 
 typedef struct {
   Controller* controller;
@@ -57,7 +60,9 @@ typedef union {
   QuitEvent quit;
   FocusEvent focus;
   MountEvent mount;
+#ifndef EMSCRIPTEN
   ThreadErrorEvent threaderror;
+#endif
   ControllerAddedEvent controlleradded;
   ControllerRemovedEvent controllerremoved;
   ControllerPressedEvent controllerpressed;
@@ -78,7 +83,6 @@ typedef struct {
   bool initialized;
   vec_pump_t pumps;
   vec_event_t events;
-  mtx_t lock;
 } EventState;
 
 void lovrEventInit();

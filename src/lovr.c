@@ -5,6 +5,9 @@
 #include "graphics/graphics.h"
 #include "math/math.h"
 #include "physics/physics.h"
+#ifndef EMSCRIPTEN
+#include "thread/thread.h"
+#endif
 #include "timer/timer.h"
 
 void lovrDestroy() {
@@ -15,7 +18,9 @@ void lovrDestroy() {
   lovrHeadsetDestroy();
   lovrMathDestroy();
   lovrPhysicsDestroy();
+#ifndef EMSCRIPTEN
   lovrThreadDeinit();
+#endif
   lovrTimerDestroy();
 }
 

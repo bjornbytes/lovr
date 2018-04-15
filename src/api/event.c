@@ -31,11 +31,13 @@ static int nextEvent(lua_State* L) {
       lua_pushboolean(L, event.data.mount.mounted);
       return 2;
 
+#ifndef EMSCRIPTEN
     case EVENT_THREAD_ERROR:
       luax_pushtype(L, Thread, event.data.threaderror.thread);
       lua_pushstring(L, event.data.threaderror.error);
       free((void*) event.data.threaderror.error);
       return 3;
+#endif
 
     case EVENT_CONTROLLER_ADDED:
       luax_pushtype(L, Controller, event.data.controlleradded.controller);
@@ -120,10 +122,12 @@ int l_lovrEventPush(lua_State* L) {
       data.mount.mounted = lua_toboolean(L, 2);
       break;
 
+#ifndef EMSCRIPTEN
     case EVENT_THREAD_ERROR:
       data.threaderror.thread = luax_checktype(L, 2, Thread);
       data.threaderror.error = luaL_checkstring(L, 3);
       break;
+#endif
 
     case EVENT_CONTROLLER_ADDED:
       data.controlleradded.controller = luax_checktype(L, 2, Controller);

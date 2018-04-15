@@ -161,7 +161,7 @@ elseif(WIN32)
 else()
   pkg_search_module(ODE REQUIRED ode)
   include_directories(${ODE_INCLUDE_DIRS})
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lstdc++ -lpthread")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lstdc++")
   if(APPLE)
     set(LOVR_ODE ode ccd)
   else()
@@ -216,6 +216,13 @@ if(NOT EMSCRIPTEN)
   set(LOVR_OPENVR openvr_api)
 endif()
 
+# pthreads
+if(NOT WIN32 AND NOT EMSCRIPTEN)
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+  set(LOVR_PTHREADS Threads::Threads)
+endif()
+
 # LÖVR
 set(LOVR_SRC
   src/api/audio.c
@@ -227,13 +234,11 @@ set(LOVR_SRC
   src/api/lovr.c
   src/api/math.c
   src/api/physics.c
-  src/api/thread.c
   src/api/timer.c
   src/api/types/animator.c
   src/api/types/audioStream.c
   src/api/types/blob.c
   src/api/types/canvas.c
-  src/api/types/channel.c
   src/api/types/collider.c
   src/api/types/controller.c
   src/api/types/font.c
@@ -249,7 +254,6 @@ set(LOVR_SRC
   src/api/types/source.c
   src/api/types/texture.c
   src/api/types/textureData.c
-  src/api/types/thread.c
   src/api/types/transform.c
   src/api/types/vertexData.c
   src/api/types/world.c
@@ -285,8 +289,6 @@ set(LOVR_SRC
   src/lib/stb/stb_image.c
   src/lib/stb/stb_image_write.c
   src/lib/stb/stb_vorbis.c
-  src/lib/tinycthread/tinycthread.c
-  src/lib/tinycthread/tinycthread.h
   src/lib/vec/vec.c
   src/lovr.c
   src/luax.c
@@ -299,8 +301,6 @@ set(LOVR_SRC
   src/math/vec3.c
   src/physics/physics.c
   src/resources/shaders.c
-  src/thread/channel.c
-  src/thread/thread.c
   src/timer/timer.c
   src/util.c
 )
@@ -308,7 +308,15 @@ set(LOVR_SRC
 if(EMSCRIPTEN)
   set(LOVR_SRC ${LOVR_SRC} src/headset/webvr.c)
 else()
-  set(LOVR_SRC ${LOVR_SRC} src/headset/openvr.c)
+  set(LOVR_SRC ${LOVR_SRC}
+    src/headset/openvr.c
+    src/api/thread.c
+    src/api/types/channel.c
+    src/api/types/thread.c
+    src/lib/tinycthread/tinycthread.c
+    src/thread/channel.c
+    src/thread/thread.c
+  )
 endif()
 
 if(WIN32)
@@ -333,6 +341,7 @@ target_link_libraries(lovr
   ${LOVR_OPENGL}
   ${LOVR_OPENVR}
   ${LOVR_PHYSFS}
+  ${LOVR_PTHREADS}
 
   ${LOVR_EMSCRIPTEN_FLAGS}
 )

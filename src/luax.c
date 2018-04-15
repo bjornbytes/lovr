@@ -40,6 +40,11 @@ int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f) {
   return 0;
 }
 
+int luax_stubnil(lua_State* L) {
+  lua_pushnil(L);
+  return 1;
+}
+
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions) {
 
   // Push metatable

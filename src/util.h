@@ -1,5 +1,9 @@
 #include "lib/vec/vec.h"
+#ifdef EMSCRIPTEN
+#define _Thread_local
+#else
 #include "lib/tinycthread/tinycthread.h"
+#endif
 #include <stdint.h>
 #include <stddef.h>
 #include <setjmp.h>
