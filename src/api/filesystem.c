@@ -235,7 +235,10 @@ int l_lovrFilesystemLoad(lua_State* L) {
     return luaL_error(L, "Could not read file '%s'", path);
   }
 
-  int status = luaL_loadbuffer(L, content, size, path);
+  char debug[LOVR_PATH_MAX];
+  snprintf(debug, LOVR_PATH_MAX, "@%s", path);
+
+  int status = luaL_loadbuffer(L, content, size, debug);
   free(content);
   switch (status) {
     case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1));
