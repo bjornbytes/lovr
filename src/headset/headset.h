@@ -5,6 +5,10 @@
 
 #pragma once
 
+#ifndef WIN32
+#pragma pack(push, 4)
+#endif
+
 typedef enum {
   EYE_LEFT,
   EYE_RIGHT
