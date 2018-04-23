@@ -9,7 +9,13 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#ifndef WIN32
+#pragma pack(push, 4)
+#endif
 #include <openvr_capi.h>
+#ifndef WIN32
+#pragma pack(pop)
+#endif
 
 // From openvr_capi.h
 extern intptr_t VR_InitInternal(EVRInitError *peError, EVRApplicationType eType);
