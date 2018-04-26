@@ -7,6 +7,7 @@ if(EMSCRIPTEN)
     "-O3 "
     "-s USE_WEBGL2=1 "
     "-s FULL_ES3=1 "
+    "-s FORCE_FILESYSTEM=1 "
     "-s USE_FREETYPE=1 "
     "-s USE_GLFW=3 "
     "-s USE_ZLIB=1 "

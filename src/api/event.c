@@ -122,7 +122,10 @@ int l_lovrEventPush(lua_State* L) {
       data.mount.mounted = lua_toboolean(L, 2);
       break;
 
-#ifndef EMSCRIPTEN
+#ifdef EMSCRIPTEN
+    case EVENT_THREAD_ERROR:
+      break;
+#else
     case EVENT_THREAD_ERROR:
       data.threaderror.thread = luax_checktype(L, 2, Thread);
       data.threaderror.error = luaL_checkstring(L, 3);

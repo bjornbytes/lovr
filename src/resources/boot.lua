@@ -160,7 +160,6 @@ function lovr.errhand(message)
     lovr.graphics.clear()
     lovr.graphics.origin()
     if lovr.headset then lovr.headset.renderTo(render) end
-    lovr.graphics.clear()
     render()
     lovr.graphics.present()
   end
