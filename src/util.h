@@ -6,7 +6,6 @@
 #endif
 #include <stdint.h>
 #include <stddef.h>
-#include <setjmp.h>
 
 #pragma once
 
@@ -23,8 +22,7 @@ typedef struct {
   float r, g, b, a;
 } Color;
 
-extern _Thread_local char lovrErrorMessage[];
-extern _Thread_local jmp_buf* lovrCatch;
+extern _Thread_local void* lovrErrorContext;
 
 void lovrThrow(const char* format, ...);
 void lovrSleep(double seconds);

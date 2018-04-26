@@ -1,4 +1,7 @@
 #include "util.h"
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,22 +11,15 @@
 #include <unistd.h>
 #endif
 
-#define MAX_ERROR_LENGTH 1024
-
-_Thread_local char lovrErrorMessage[MAX_ERROR_LENGTH];
-_Thread_local jmp_buf* lovrCatch = NULL;
+_Thread_local void* lovrErrorContext = NULL;
 
 void lovrThrow(const char* format, ...) {
+  lua_State* L = (lua_State*) lovrErrorContext;
   va_list args;
   va_start(args, format);
-  vsnprintf(lovrErrorMessage, MAX_ERROR_LENGTH, format, args);
+  lua_pushvfstring(L, format, args);
+  lua_error(L);
   va_end(args);
-  if (lovrCatch) {
-    longjmp(*lovrCatch, 0);
-  } else {
-    fprintf(stderr, "Error: %s\n", lovrErrorMessage);
-    exit(EXIT_FAILURE);
-  }
 }
 
 void lovrSleep(double seconds) {
