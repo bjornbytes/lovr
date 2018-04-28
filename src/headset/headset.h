@@ -94,36 +94,13 @@ typedef struct {
   void (*update)(float dt);
 } HeadsetInterface;
 
-// Headset implementations
+// Available drivers
 extern HeadsetInterface lovrHeadsetOpenVRDriver;
 extern HeadsetInterface lovrHeadsetWebVRDriver;
 extern HeadsetInterface lovrHeadsetFakeDriver;
 
+// Active driver
+extern HeadsetInterface* lovrHeadsetDriver;
+
 void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset);
 void lovrHeadsetDestroy();
-const HeadsetDriver* lovrHeadsetGetDriver();
-HeadsetType lovrHeadsetGetType();
-HeadsetOrigin lovrHeadsetGetOriginType();
-bool lovrHeadsetIsMounted();
-bool lovrHeadsetIsMirrored();
-void lovrHeadsetSetMirrored(bool mirror);
-void lovrHeadsetGetDisplayDimensions(int* width, int* height);
-void lovrHeadsetGetClipDistance(float* clipNear, float* clipFar);
-void lovrHeadsetSetClipDistance(float clipNear, float clipFar);
-float lovrHeadsetGetBoundsWidth();
-float lovrHeadsetGetBoundsDepth();
-void lovrHeadsetGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-void lovrHeadsetGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-void lovrHeadsetGetVelocity(float* x, float* y, float* z);
-void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);
-vec_controller_t* lovrHeadsetGetControllers();
-bool lovrHeadsetControllerIsConnected(Controller* controller);
-ControllerHand lovrHeadsetControllerGetHand(Controller* controller);
-void lovrHeadsetControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
-bool lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
-bool lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button);
-void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power);
-ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
-void lovrHeadsetRenderTo(void (*callback)(void*), void* userdata);
-void lovrHeadsetUpdate(float dt);

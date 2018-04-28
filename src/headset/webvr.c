@@ -8,7 +8,6 @@
 #include <stdbool.h>
 
 typedef struct {
-  bool initialized;
   void (*renderCallback)(void*);
   vec_controller_t controllers;
   Canvas* canvas;
@@ -49,7 +48,6 @@ static void onRequestAnimationFrame(void* userdata) {
 }
 
 static bool webvrInit(float offset) {
-  if (state.initialized) return true;
   if (!emscripten_vr_is_present()) return false;
   vec_init(&state.controllers);
   emscripten_vr_init();
@@ -58,7 +56,6 @@ static bool webvrInit(float offset) {
 }
 
 static void webvrDestroy() {
-  if (!state.initialized) return;
   Controller* controller;
   int i;
   vec_foreach(&state.controllers, controller, i) {

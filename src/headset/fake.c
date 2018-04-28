@@ -12,7 +12,6 @@
 #include <stdbool.h>
 
 typedef struct {
-  bool initialized;
   HeadsetType type;
   bool mirrored;
   float offset;
@@ -144,7 +143,6 @@ static void check_window_existance() {
 }
 
 static bool fakeInit(float offset) {
-  if (state.initialized) return true;
   state.mirrored = true;
   state.offset = offset;
 
@@ -168,21 +166,16 @@ static bool fakeInit(float offset) {
 
   state.mouselook = false;
   state.hookedWindow = NULL;
-  state.initialized = true;
   return true;
 }
 
 static void fakeDestroy() {
-  if (!state.initialized) return;
-
   int i;
   Controller *controller;
   vec_foreach(&state.controllers, controller, i) {
     lovrRelease(controller);
   }
   vec_deinit(&state.controllers);
-
-  state.initialized = false;
   memset(&state, 0, sizeof(FakeHeadsetState));
 }
 

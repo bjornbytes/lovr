@@ -101,7 +101,7 @@ int l_lovrHeadsetInit(lua_State* L) {
   }
 
   lovrHeadsetInit(drivers.data, drivers.length, offset);
-  lovrHeadsetSetMirrored(mirror);
+  lovrHeadsetDriver->setMirrored(mirror);
 
   vec_deinit(&drivers);
   lua_pop(L, 2);
@@ -112,58 +112,53 @@ int l_lovrHeadsetInit(lua_State* L) {
 }
 
 int l_lovrHeadsetGetDriver(lua_State* L) {
-  const HeadsetDriver* driver = lovrHeadsetGetDriver();
-  if (driver) {
-    luax_pushenum(L, &HeadsetDrivers, *driver);
-  } else {
-    lua_pushnil(L);
-  }
+  luax_pushenum(L, &HeadsetDrivers, lovrHeadsetDriver->driverType);
   return 1;
 }
 
 int l_lovrHeadsetGetType(lua_State* L) {
-  luax_pushenum(L, &HeadsetTypes, lovrHeadsetGetType());
+  luax_pushenum(L, &HeadsetTypes, lovrHeadsetDriver->getType());
   return 1;
 }
 
 int l_lovrHeadsetGetOriginType(lua_State* L) {
-  luax_pushenum(L, &HeadsetOrigins, lovrHeadsetGetOriginType());
+  luax_pushenum(L, &HeadsetOrigins, lovrHeadsetDriver->getOriginType());
   return 1;
 }
 
 int l_lovrHeadsetIsMounted(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetIsMounted());
+  lua_pushboolean(L, lovrHeadsetDriver->isMounted());
   return 1;
 }
 
 int l_lovrHeadsetIsMirrored(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetIsMirrored());
+  lua_pushboolean(L, lovrHeadsetDriver->isMirrored());
   return 1;
 }
 
 int l_lovrHeadsetSetMirrored(lua_State* L) {
   int mirror = lua_toboolean(L, 1);
-  lovrHeadsetSetMirrored(mirror);
+  lovrHeadsetDriver->setMirrored(mirror);
   return 0;
 }
 
 int l_lovrHeadsetGetDisplayWidth(lua_State* L) {
   int width;
-  lovrHeadsetGetDisplayDimensions(&width, NULL);
+  lovrHeadsetDriver->getDisplayDimensions(&width, NULL);
   lua_pushnumber(L, width);
   return 1;
 }
 
 int l_lovrHeadsetGetDisplayHeight(lua_State* L) {
   int height;
-  lovrHeadsetGetDisplayDimensions(NULL, &height);
+  lovrHeadsetDriver->getDisplayDimensions(NULL, &height);
   lua_pushnumber(L, height);
   return 1;
 }
 
 int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
   int width, height;
-  lovrHeadsetGetDisplayDimensions(&width, &height);
+  lovrHeadsetDriver->getDisplayDimensions(&width, &height);
   lua_pushnumber(L, width);
   lua_pushnumber(L, height);
   return 2;
@@ -171,7 +166,7 @@ int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
 
 int l_lovrHeadsetGetClipDistance(lua_State* L) {
   float clipNear, clipFar;
-  lovrHeadsetGetClipDistance(&clipNear, &clipFar);
+  lovrHeadsetDriver->getClipDistance(&clipNear, &clipFar);
   lua_pushnumber(L, clipNear);
   lua_pushnumber(L, clipFar);
   return 2;
@@ -180,32 +175,32 @@ int l_lovrHeadsetGetClipDistance(lua_State* L) {
 int l_lovrHeadsetSetClipDistance(lua_State* L) {
   float clipNear = luaL_checknumber(L, 1);
   float clipFar = luaL_checknumber(L, 2);
-  lovrHeadsetSetClipDistance(clipNear, clipFar);
+  lovrHeadsetDriver->setClipDistance(clipNear, clipFar);
   return 0;
 }
 
 int l_lovrHeadsetGetBoundsWidth(lua_State* L) {
-  lua_pushnumber(L, lovrHeadsetGetBoundsWidth());
+  lua_pushnumber(L, lovrHeadsetDriver->getBoundsWidth());
   return 1;
 }
 
 int l_lovrHeadsetGetBoundsDepth(lua_State* L) {
-  lua_pushnumber(L, lovrHeadsetGetBoundsDepth());
+  lua_pushnumber(L, lovrHeadsetDriver->getBoundsDepth());
   return 1;
 }
 
 int l_lovrHeadsetGetBoundsDimensions(lua_State* L) {
-  lua_pushnumber(L, lovrHeadsetGetBoundsWidth());
-  lua_pushnumber(L, lovrHeadsetGetBoundsDepth());
+  lua_pushnumber(L, lovrHeadsetDriver->getBoundsWidth());
+  lua_pushnumber(L, lovrHeadsetDriver->getBoundsDepth());
   return 2;
 }
 
 static void luax_getPose(lua_State* L, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (lua_type(L, 1) == LUA_TSTRING) {
     HeadsetEye eye = *(HeadsetEye*) luax_checkenum(L, 1, &HeadsetEyes, "eye");
-    lovrHeadsetGetEyePose(eye, x, y, z, angle, ax, ay, az);
+    lovrHeadsetDriver->getEyePose(eye, x, y, z, angle, ax, ay, az);
   } else {
-    lovrHeadsetGetPose(x, y, z, angle, ax, ay, az);
+    lovrHeadsetDriver->getPose(x, y, z, angle, ax, ay, az);
   }
 }
 
@@ -243,7 +238,7 @@ int l_lovrHeadsetGetOrientation(lua_State* L) {
 
 int l_lovrHeadsetGetVelocity(lua_State* L) {
   float x, y, z;
-  lovrHeadsetGetVelocity(&x, &y, &z);
+  lovrHeadsetDriver->getVelocity(&x, &y, &z);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
@@ -252,7 +247,7 @@ int l_lovrHeadsetGetVelocity(lua_State* L) {
 
 int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   float x, y, z;
-  lovrHeadsetGetAngularVelocity(&x, &y, &z);
+  lovrHeadsetDriver->getAngularVelocity(&x, &y, &z);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
@@ -260,7 +255,7 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 }
 
 int l_lovrHeadsetGetControllers(lua_State* L) {
-  vec_controller_t* controllers = lovrHeadsetGetControllers();
+  vec_controller_t* controllers = lovrHeadsetDriver->getControllers();
   if (!controllers) {
     lua_newtable(L);
     return 1;
@@ -276,7 +271,7 @@ int l_lovrHeadsetGetControllers(lua_State* L) {
 }
 
 int l_lovrHeadsetGetControllerCount(lua_State* L) {
-  vec_controller_t* controllers = lovrHeadsetGetControllers();
+  vec_controller_t* controllers = lovrHeadsetDriver->getControllers();
   if (controllers) {
     lua_pushnumber(L, controllers->length);
   } else {
@@ -295,13 +290,13 @@ int l_lovrHeadsetRenderTo(lua_State* L) {
 
   headsetRenderData.ref = luaL_ref(L, LUA_REGISTRYINDEX);
   headsetRenderData.L = L;
-  lovrHeadsetRenderTo(renderHelper, &headsetRenderData);
+  lovrHeadsetDriver->renderTo(renderHelper, &headsetRenderData);
   return 0;
 }
 
 int l_lovrHeadsetUpdate(lua_State* L) {
   float dt = luaL_checknumber(L, 1);
-  lovrHeadsetUpdate(dt);
+  lovrHeadsetDriver->update(dt);
   return 0;
 }
 

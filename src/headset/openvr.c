@@ -27,7 +27,6 @@ extern bool VR_IsRuntimeInstalled();
 static ControllerHand openvrControllerGetHand(Controller* controller);
 
 typedef struct {
-  bool initialized;
   bool isRendering;
   bool isMirrored;
   float offset;
@@ -258,8 +257,6 @@ static void ensureCanvas() {
 }
 
 static bool openvrInit(float offset) {
-  if (state.initialized) return true;
-
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
     return false;
   }
@@ -331,13 +328,10 @@ static bool openvrInit(float offset) {
   vec_init(&state.controllers);
   openvrRefreshControllers();
   lovrEventAddPump(openvrPoll);
-  state.initialized = true;
   return true;
 }
 
 static void openvrDestroy() {
-  if (!state.initialized) return;
-  state.initialized = false;
   lovrRelease(&state.canvas->texture);
   for (int i = 0; i < 16; i++) {
     if (state.deviceModels[i]) {
