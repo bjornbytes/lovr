@@ -75,8 +75,7 @@ typedef struct {
   void (*getDisplayDimensions)(int* width, int* height);
   void (*getClipDistance)(float* clipNear, float* clipFar);
   void (*setClipDistance)(float clipNear, float clipFar);
-  float (*getBoundsWidth)();
-  float (*getBoundsDepth)();
+  void (*getBoundsDimensions)(float* width, float* depth);
   void (*getPose)(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void (*getEyePose)(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void (*getVelocity)(float* x, float* y, float* z);

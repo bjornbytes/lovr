@@ -180,18 +180,24 @@ int l_lovrHeadsetSetClipDistance(lua_State* L) {
 }
 
 int l_lovrHeadsetGetBoundsWidth(lua_State* L) {
-  lua_pushnumber(L, lovrHeadsetDriver->getBoundsWidth());
+  float width, depth;
+  lovrHeadsetDriver->getBoundsDimensions(&width, &depth);
+  lua_pushnumber(L, width);
   return 1;
 }
 
 int l_lovrHeadsetGetBoundsDepth(lua_State* L) {
-  lua_pushnumber(L, lovrHeadsetDriver->getBoundsDepth());
+  float width, depth;
+  lovrHeadsetDriver->getBoundsDimensions(&width, &depth);
+  lua_pushnumber(L, depth);
   return 1;
 }
 
 int l_lovrHeadsetGetBoundsDimensions(lua_State* L) {
-  lua_pushnumber(L, lovrHeadsetDriver->getBoundsWidth());
-  lua_pushnumber(L, lovrHeadsetDriver->getBoundsDepth());
+  float width, depth;
+  lovrHeadsetDriver->getBoundsDimensions(&width, &depth);
+  lua_pushnumber(L, width);
+  lua_pushnumber(L, depth);
   return 2;
 }
 

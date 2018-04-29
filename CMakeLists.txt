@@ -12,8 +12,9 @@ if(EMSCRIPTEN)
     "-s USE_GLFW=3 "
     "-s USE_ZLIB=1 "
     "-s ALLOW_MEMORY_GROWTH=1 "
-    "-s EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue'] "
-    "-s WASM=1"
+    "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
+    "-s WASM=1 "
+    "--js-library ../src/resources/lovr.js"
   )
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")

@@ -216,12 +216,8 @@ static void fakeSetClipDistance(float clipNear, float clipFar) {
   state.clipFar = clipFar;
 }
 
-static float fakeGetBoundsWidth() {
-  return 0.0f;
-}
-
-static float fakeGetBoundsDepth() {
-  return 0.0f;
+static void fakeGetBoundsDimensions(float* width, float* depth) {
+  *width = *depth = 0.f;
 }
 
 static void fakeGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
@@ -393,8 +389,7 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeGetDisplayDimensions,
   fakeGetClipDistance,
   fakeSetClipDistance,
-  fakeGetBoundsWidth,
-  fakeGetBoundsDepth,
+  fakeGetBoundsDimensions,
   fakeGetPose,
   fakeGetEyePose,
   fakeGetVelocity,

@@ -394,16 +394,8 @@ static void openvrSetClipDistance(float clipNear, float clipFar) {
   state.clipFar = clipFar;
 }
 
-static float openvrGetBoundsWidth() {
-  float width;
-  state.chaperone->GetPlayAreaSize(&width, NULL);
-  return width;
-}
-
-static float openvrGetBoundsDepth() {
-  float depth;
-  state.chaperone->GetPlayAreaSize(NULL, &depth);
-  return depth;
+static void openvrGetBoundsDimensions(float* width, float* depth) {
+  state.chaperone->GetPlayAreaSize(width, depth);
 }
 
 static void openvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
@@ -751,8 +743,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrGetDisplayDimensions,
   openvrGetClipDistance,
   openvrSetClipDistance,
-  openvrGetBoundsWidth,
-  openvrGetBoundsDepth,
+  openvrGetBoundsDimensions,
   openvrGetPose,
   openvrGetEyePose,
   openvrGetVelocity,
