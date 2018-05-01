@@ -12,6 +12,7 @@ if(EMSCRIPTEN)
     "-s USE_GLFW=3 "
     "-s USE_ZLIB=1 "
     "-s ALLOW_MEMORY_GROWTH=1 "
+    "-s \"EXPORTED_FUNCTIONS=['_main','_quat_getAngleAxis']\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
     "-s WASM=1 "
     "--js-library ../src/resources/lovr.js"

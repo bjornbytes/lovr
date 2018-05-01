@@ -24,13 +24,13 @@ var LibraryLOVR = {
         lovr.WebVR.height = canvas.height;
         lovr.WebVR.frameData = new VRFrameData();
 
-        !function findDisplay() {
+        function findDisplay() {
           navigator.getVRDisplays && navigator.getVRDisplays().then(function(displays) {
             lovr.WebVR.display = display = displays[0];
           });
-        }();
+        }
 
-        !function onResize() {
+        function onResize() {
           if (display && display.isPresenting) {
             var eyeParams = display.getEyeParameters('left');
             lovr.WebVR.width = eyeParams.renderWidth;
@@ -41,7 +41,7 @@ var LibraryLOVR = {
             canvas.width = lovr.WebVR.width = canvas.parentElement.offsetWidth * window.devicePixelRatio;
             canvas.height = lovr.WebVR.height = canvas.parentElement.offsetHeight * window.devicePixelRatio;
           }
-        }();
+        }
 
         window.requestAnimationFrame(function onAnimationFrame() {
           if (display) {
@@ -84,6 +84,9 @@ var LibraryLOVR = {
 
         window.addEventListener('vrdisplaypresentchange', onResize);
         window.addEventListener('resize', onResize);
+
+        findDisplay();
+        onResize();
       }
     }
   },
@@ -105,13 +108,13 @@ var LibraryLOVR = {
   },
 
   webvrGetDisplayDimensions: function(width, height) {
-    Module.setValue(width, lovr.WebVR.width, 'i32');
-    Module.setValue(height, lovr.WebVR.height, 'i32');
+    HEAP32[width >> 2] = lovr.WebVR.width;
+    HEAP32[height >> 2] = lovr.WebVR.height;
   },
 
   webvrGetClipDistance: function(clipNear, clipFar) {
-    Module.setValue(clipNear, lovr.WebVR.display ? lovr.WebVR.display.depthNear : 0, 'float');
-    Module.setValue(clipFar, lovr.WebVR.display ? lovr.WebVR.display.depthFar : 0, 'float');
+    HEAPF32[clipNear >> 2] = lovr.WebVR.display ? lovr.WebVR.display.depthNear : 0;
+    HEAPF32[clipFar >> 2] = lovr.WebVR.display ? lovr.WebVR.display.depthFar : 0;
   },
 
   webvrSetClipDistance: function(clipNear, clipFar) {
@@ -122,8 +125,52 @@ var LibraryLOVR = {
   },
 
   webvrGetBoundsDimensions: function(width, depth) {
-    Module.setValue(width, lovr.WebVR.display && lovr.WebVR.display.stageParameters ? lovr.WebVR.display.stageParameters.sizeX : 0);
-    Module.setValue(depth, lovr.WebVR.display && lovr.WebVR.display.stageParameters ? lovr.WebVR.display.stageParameters.sizeZ : 0);
+    var stage = lovr.WebVR.display && lovr.WebVR.display.stageParameters;
+    HEAPF32[width >> 2] = stage ? stage.sizeX : 0;
+    HEAPF32[depth >> 2] = stage ? stage.sizeZ : 0;
+  },
+
+  webvrGetPose: function(x, y, z, angle, ax, ay, az) {
+    var sittingToStanding = lovr.WebVR.display && lovr.WebVR.display.stageParameters && lovr.WebVR.display.stageParameters.sittingToStandingTransform;
+    var pose = lovr.WebVR.frameData.pose;
+
+    if (pose.position) {
+      HEAPF32[x >> 2] = pose.position[0];
+      HEAPF32[y >> 2] = pose.position[1];
+      HEAPF32[z >> 2] = pose.position[2];
+
+      if (sittingToStanding) {
+        //Module._mat4_transformPoint(sittingToStanding, x, y, z);
+      }
+    } else {
+      HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
+    }
+
+    if (pose.orientation) {
+      if (sittingToStanding) {
+        //Module._mat4_set(lovr.WebVR.tempMat4, sittingToStanding);
+        //Module._mat4_rotateQuat(lovr.WebVR.tempMat4, pose.orientation);
+        //Module._quat_fromMat4(lovr.WebVR.tempQuat, lovr.WebVR.tempMat4);
+        //Module._quat_getAngleAxis(lovr.WebVR.tempQuat, angle, ax, ay, az);
+      } else {
+        Module._quat_getAngleAxis(pose.orientation, angle, ax, ay, az);
+      }
+    } else {
+      HEAPF32[angle >> 2] = HEAPF32[ax >> 2] = HEAPF32[ay >> 2] = HEAPF32[az >> 2] = 0;
+    }
+  },
+
+  webvrGetVelocity: function(x, y, z) {
+    var stage = lovr.WebVR.display && lovr.WebVR.display.stageParameters;
+    var pose = lovr.WebVR.frameData.pose;
+
+    if (pose.linearVelocity) {
+      HEAPF32[x >> 2] = pose.linearVelocity[0];
+      HEAPF32[y >> 2] = pose.linearVelocity[1];
+      HEAPF32[z >> 2] = pose.linearVelocity[2];
+    } else {
+      HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
+    }
   },
 
   webvrRenderTo: function(callback, userdata) {

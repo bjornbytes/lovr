@@ -3,6 +3,7 @@
 #include "lib/vec/vec.h"
 #include <stdbool.h>
 
+// Provided by resources/lovr.js
 extern void webvrInit(void);
 extern HeadsetOrigin webvrGetOriginType(void);
 extern bool webvrIsMirrored(void);
@@ -11,6 +12,8 @@ extern void webvrGetDisplayDimensions(int32_t* width, int32_t* height);
 extern void webvrGetClipDistance(float* near, float* far);
 extern void webvrSetClipDistance(float near, float far);
 extern void webvrGetBoundsDimensions(float* width, float* depth);
+extern void webvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+extern void webvrGetVelocity(float* x, float* y, float* z);
 extern void webvrRenderTo(void (*callback)(void*), void* userdata);
 
 typedef struct {
@@ -21,6 +24,7 @@ static HeadsetState state;
 
 static bool webvrDriverInit(float offset) {
   state.offset = offset;
+  webvrInit();
   return true;
 }
 
@@ -41,9 +45,9 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrGetClipDistance,
   webvrSetClipDistance,
   webvrGetBoundsDimensions,
-  NULL, //void (*getPose)(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+  webvrGetPose,
   NULL, //void (*getEyePose)(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-  NULL, //void (*getVelocity)(float* x, float* y, float* z);
+  webvrGetVelocity,
   NULL, //void (*getAngularVelocity)(float* x, float* y, float* z);
   NULL, //vec_controller_t* (*getControllers)();
   NULL, //bool (*controllerIsConnected)(Controller* controller);

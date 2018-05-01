@@ -301,8 +301,10 @@ int l_lovrHeadsetRenderTo(lua_State* L) {
 }
 
 int l_lovrHeadsetUpdate(lua_State* L) {
-  float dt = luaL_checknumber(L, 1);
-  lovrHeadsetDriver->update(dt);
+  if (lovrHeadsetDriver->update) {
+    lovrHeadsetDriver->update(luaL_checknumber(L, 1));
+  }
+
   return 0;
 }
 
