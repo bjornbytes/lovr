@@ -15,7 +15,7 @@ if(EMSCRIPTEN)
     "-s \"EXPORTED_FUNCTIONS=['_main','_quat_getAngleAxis']\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
     "-s WASM=1 "
-    "--js-library ../src/resources/lovr.js"
+    "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.js\""
   )
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
