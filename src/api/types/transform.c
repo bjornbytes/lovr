@@ -135,29 +135,25 @@ int l_lovrTransformSetTransformation(lua_State* L) {
 
 int l_lovrTransformTransformPoint(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
-  float point[3] = {
-    luaL_checknumber(L, 2),
-    luaL_checknumber(L, 3),
-    luaL_checknumber(L, 4)
-  };
-  lovrTransformTransformPoint(transform, point);
-  lua_pushnumber(L, point[0]);
-  lua_pushnumber(L, point[1]);
-  lua_pushnumber(L, point[2]);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrTransformTransformPoint(transform, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
   return 3;
 }
 
 int l_lovrTransformInverseTransformPoint(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
-  float point[3] = {
-    luaL_checknumber(L, 2),
-    luaL_checknumber(L, 3),
-    luaL_checknumber(L, 4)
-  };
-  lovrTransformInverseTransformPoint(transform, point);
-  lua_pushnumber(L, point[0]);
-  lua_pushnumber(L, point[1]);
-  lua_pushnumber(L, point[2]);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrTransformInverseTransformPoint(transform, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
   return 3;
 }
 

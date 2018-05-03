@@ -20,5 +20,5 @@ void lovrTransformOrigin(Transform* transform);
 void lovrTransformTranslate(Transform* transform, float x, float y, float z);
 void lovrTransformRotate(Transform* transform, float angle, float x, float y, float z);
 void lovrTransformScale(Transform* transform, float x, float y, float z);
-void lovrTransformTransformPoint(Transform* transform, vec3 point);
-void lovrTransformInverseTransformPoint(Transform* transform, vec3 point);
+void lovrTransformTransformPoint(Transform* transform, float* x, float* y, float* z);
+void lovrTransformInverseTransformPoint(Transform* transform, float* x, float* y, float* z);

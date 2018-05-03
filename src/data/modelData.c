@@ -568,16 +568,16 @@ static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6]) {
   for (int i = 0; i < node->primitives.length; i++) {
     ModelPrimitive* primitive = &modelData->primitives[node->primitives.data[i]];
     for (int j = 0; j < primitive->drawCount; j++) {
-      float vertex[3];
       uint32_t index;
       if (modelData->indexSize == sizeof(uint16_t)) {
         index = modelData->indices.shorts[primitive->drawStart + j];
       } else {
         index = modelData->indices.ints[primitive->drawStart + j];
       }
+      float vertex[3];
       VertexPointer vertices = { .raw = modelData->vertexData->blob.data };
       vec3_init(vertex, (float*) (vertices.bytes + index * modelData->vertexData->format.stride));
-      mat4_transform(node->globalTransform, vertex);
+      mat4_transform(node->globalTransform, &vertex[0], &vertex[1], &vertex[2]);
       aabb[0] = MIN(aabb[0], vertex[0]);
       aabb[1] = MAX(aabb[1], vertex[0]);
       aabb[2] = MIN(aabb[2], vertex[1]);

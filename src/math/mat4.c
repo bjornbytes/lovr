@@ -329,18 +329,9 @@ mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   return m;
 }
 
-void mat4_transform(mat4 m, vec3 v) {
-  vec3_set(v,
-    v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12],
-    v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13],
-    v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14]
-  );
-}
-
-void mat4_transformDirection(mat4 m, vec3 v) {
-  vec3_set(v,
-    v[0] * m[0] + v[1] * m[4] + v[2] * m[8],
-    v[0] * m[1] + v[1] * m[5] + v[2] * m[9],
-    v[0] * m[2] + v[1] * m[6] + v[2] * m[10]
-  );
+void mat4_transform(mat4 m, float* x, float* y, float* z) {
+  float tx = *x, ty = *y, tz = *z;
+  *x = tx * m[0] + ty * m[4] + tz * m[8] + m[12];
+  *y = tx * m[1] + ty * m[5] + tz * m[9] + m[13];
+  *z = tx * m[2] + ty * m[6] + tz * m[10] + m[14];
 }

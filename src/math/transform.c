@@ -60,10 +60,10 @@ void lovrTransformScale(Transform* transform, float x, float y, float z) {
   mat4_scale(transform->matrix, x, y, z);
 }
 
-void lovrTransformTransformPoint(Transform* transform, vec3 point) {
-  mat4_transform(transform->matrix, point);
+void lovrTransformTransformPoint(Transform* transform, float* x, float* y, float* z) {
+  mat4_transform(transform->matrix, x, y, z);
 }
 
-void lovrTransformInverseTransformPoint(Transform* transform, vec3 point) {
-  mat4_transform(lovrTransformInverse(transform), point);
+void lovrTransformInverseTransformPoint(Transform* transform, float* x, float* y, float* z) {
+  mat4_transform(lovrTransformInverse(transform), x, y, z);
 }

@@ -256,15 +256,10 @@ static ControllerHand fakeControllerGetHand(Controller* controller) {
 }
 
 static void fakeControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  // for now, locked to headset
-
-  float offset[3];
-  vec3_set(offset, 0, 0, -1.0f);
-
-  mat4_transform(state.transform, offset);
-  *x = offset[0];
-  *y = offset[1];
-  *z = offset[2];
+  *x = 0;
+  *y = 0;
+  *z = -1;
+  mat4_transform(state.transform, x, y, z);
 
   float q[4];
   quat_fromMat4(q, state.transform);
@@ -339,12 +334,13 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
 }
 
 static void fakeUpdate(float dt) {
-  float k = 4.0f;
   check_window_existance();
   GLFWwindow* w = glfwGetCurrentContext();
-  if(!w) {
+  if (!w) {
     return;
   }
+
+  float k = 4.0f * dt;
   float v[3] = {0.0f,0.0f,0.0f};
   if (glfwGetKey(w, GLFW_KEY_W)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_UP)==GLFW_PRESS) {
     v[2] = -k;
@@ -366,8 +362,8 @@ static void fakeUpdate(float dt) {
   }
 
   // move
-  vec3_scale(v,dt);
-  mat4_transformDirection(state.transform, v);
+  float quat[4];
+  quat_rotate(quat_fromMat4(quat, state.transform), v);
   vec3_add(state.pos, v);
 
   // update transform
