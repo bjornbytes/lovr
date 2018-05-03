@@ -11,6 +11,8 @@ var LibraryLOVR = {
       frameData: null,
       width: 0,
       height: 0,
+      tempMat4: new Float32Array(16),
+      tempQuat: new Float32Array(4),
 
       init: function() {
         if (lovr.WebVR.initialized) {
@@ -140,7 +142,7 @@ var LibraryLOVR = {
       HEAPF32[z >> 2] = pose.position[2];
 
       if (sittingToStanding) {
-        //Module._mat4_transformPoint(sittingToStanding, x, y, z);
+        Module._mat4_transform(sittingToStanding, x, y, z);
       }
     } else {
       HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
@@ -148,10 +150,10 @@ var LibraryLOVR = {
 
     if (pose.orientation) {
       if (sittingToStanding) {
-        //Module._mat4_set(lovr.WebVR.tempMat4, sittingToStanding);
-        //Module._mat4_rotateQuat(lovr.WebVR.tempMat4, pose.orientation);
-        //Module._quat_fromMat4(lovr.WebVR.tempQuat, lovr.WebVR.tempMat4);
-        //Module._quat_getAngleAxis(lovr.WebVR.tempQuat, angle, ax, ay, az);
+        Module._mat4_set(lovr.WebVR.tempMat4, sittingToStanding);
+        Module._mat4_rotateQuat(lovr.WebVR.tempMat4, pose.orientation);
+        Module._quat_fromMat4(lovr.WebVR.tempQuat, lovr.WebVR.tempMat4);
+        Module._quat_getAngleAxis(lovr.WebVR.tempQuat, angle, ax, ay, az);
       } else {
         Module._quat_getAngleAxis(pose.orientation, angle, ax, ay, az);
       }

@@ -13,7 +13,7 @@ if(EMSCRIPTEN)
     "-s FULL_ES3=1 "
     "-s FORCE_FILESYSTEM=1 "
     "-s ALLOW_MEMORY_GROWTH=1 "
-    "-s \"EXPORTED_FUNCTIONS=['_main','_quat_getAngleAxis']\" "
+    "-s \"EXPORTED_FUNCTIONS=['_main','_mat4_rotateQuat','_mat4_set','_mat4_transform','_quat_fromMat4','_quat_getAngleAxis']\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
     "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.js\""
   )
