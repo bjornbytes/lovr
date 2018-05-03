@@ -5,16 +5,16 @@ project(lovr)
 if(EMSCRIPTEN)
   string(CONCAT LOVR_EMSCRIPTEN_FLAGS
     "-O3 "
-    "-s USE_WEBGL2=1 "
-    "-s FULL_ES3=1 "
-    "-s FORCE_FILESYSTEM=1 "
+    "-s WASM=1 "
     "-s USE_FREETYPE=1 "
     "-s USE_GLFW=3 "
+    "-s USE_WEBGL2=1 "
     "-s USE_ZLIB=1 "
+    "-s FULL_ES3=1 "
+    "-s FORCE_FILESYSTEM=1 "
     "-s ALLOW_MEMORY_GROWTH=1 "
     "-s \"EXPORTED_FUNCTIONS=['_main','_quat_getAngleAxis']\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
-    "-s WASM=1 "
     "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.js\""
   )
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
@@ -94,16 +94,14 @@ else()
 endif()
 
 # FreeType
-if (EMSCRIPTEN)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s USE_FREETYPE=1")
-elseif (WIN32)
+if(WIN32)
   set(FREETYPE_NO_DIST TRUE CACHE BOOL "")
   set(BUILD_SHARED_LIBS OFF)
   add_subdirectory(deps/freetype freetype)
   set(BUILD_SHARED_LIBS ON)
   include_directories(deps/freetype/include)
   set(LOVR_FREETYPE freetype)
-else()
+elseif(NOT EMSCRIPTEN)
   pkg_search_module(FREETYPE REQUIRED freetype2)
   include_directories(${FREETYPE_INCLUDE_DIRS})
   set(LOVR_FREETYPE ${FREETYPE_LIBRARIES})
@@ -202,7 +200,7 @@ else()
 endif()
 
 # OpenGL
-if(NOT WIN32)
+if(NOT WIN32 AND NOT EMSCRIPTEN)
   find_package(OpenGL REQUIRED)
   include_directories(${OPENGL_INCLUDE_DIRS})
   set(LOVR_OPENGL ${OPENGL_LIBRARIES})
@@ -230,7 +228,7 @@ if(NOT WIN32 AND NOT EMSCRIPTEN)
   set(LOVR_PTHREADS Threads::Threads)
 endif()
 
-# LÖVR
+# LÖVR source
 set(LOVR_SRC
   src/api/audio.c
   src/api/data.c
@@ -312,6 +310,7 @@ set(LOVR_SRC
   src/util.c
 )
 
+# Conditional sources
 if(EMSCRIPTEN)
   set(LOVR_SRC ${LOVR_SRC} src/headset/webvr.c)
 else()
@@ -326,13 +325,7 @@ else()
   )
 endif()
 
-if(WIN32)
-  if(MSVC_VERSION VERSION_LESS 1900)
-    add_definitions(-Dinline=__inline)
-    add_definitions(-Dsnprintf=_snprintf)
-  endif()
-endif()
-
+# LÖVR
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_executable(lovr ${LOVR_SRC})
 set_property(TARGET lovr PROPERTY C_STANDARD 99)
@@ -349,14 +342,18 @@ target_link_libraries(lovr
   ${LOVR_OPENVR}
   ${LOVR_PHYSFS}
   ${LOVR_PTHREADS}
-
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
 
+# Yay Windows
 if(WIN32)
   set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+
+  if(MSVC_VERSION VERSION_LESS 1900)
+    target_compile_definitions(lovr PUBLIC -Dinline=__inline -Dsnprintf=_snprintf)
+  endif()
 
   function(move_dll ARG_TARGET)
     add_custom_command(TARGET lovr POST_BUILD
