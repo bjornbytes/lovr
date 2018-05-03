@@ -20,3 +20,4 @@ mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom,
 mat4 mat4_perspective(mat4 m, float near, float far, float fov, float aspect);
 mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up);
 void mat4_transform(mat4 m, float* x, float* y, float* z);
+void mat4_transformDirection(mat4 m, float* x, float* y, float* z);

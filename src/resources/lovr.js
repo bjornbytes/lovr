@@ -163,13 +163,34 @@ var LibraryLOVR = {
   },
 
   webvrGetVelocity: function(x, y, z) {
-    var stage = lovr.WebVR.display && lovr.WebVR.display.stageParameters;
+    var sittingToStanding = lovr.WebVR.display && lovr.WebVR.display.stageParameters && lovr.WebVR.display.stageParameters.sittingToStandingTransform;
     var pose = lovr.WebVR.frameData.pose;
 
     if (pose.linearVelocity) {
       HEAPF32[x >> 2] = pose.linearVelocity[0];
       HEAPF32[y >> 2] = pose.linearVelocity[1];
       HEAPF32[z >> 2] = pose.linearVelocity[2];
+
+      if (sittingToStanding) {
+        Module._mat4_transformDirection(sittingToStanding, x, y, z);
+      }
+    } else {
+      HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
+    }
+  },
+
+  webvrGetAngularVelocity: function(x, y, z) {
+    var sittingToStanding = lovr.WebVR.display && lovr.WebVR.display.stageParameters && lovr.WebVR.display.stageParameters.sittingToStandingTransform;
+    var pose = lovr.WebVR.frameData.pose;
+
+    if (pose.angularVelocity) {
+      HEAPF32[x >> 2] = pose.angularVelocity[0];
+      HEAPF32[y >> 2] = pose.angularVelocity[1];
+      HEAPF32[z >> 2] = pose.angularVelocity[2];
+
+      if (sittingToStanding) {
+        Module._mat4_transformDirection(sittingToStanding, x, y, z);
+      }
     } else {
       HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
     }

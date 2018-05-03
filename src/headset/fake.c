@@ -362,8 +362,7 @@ static void fakeUpdate(float dt) {
   }
 
   // move
-  float quat[4];
-  quat_rotate(quat_fromMat4(quat, state.transform), v);
+  mat4_transformDirection(state.transform, &v[0], &v[1], &v[2]);
   vec3_add(state.pos, v);
 
   // update transform

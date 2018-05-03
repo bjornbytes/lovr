@@ -335,3 +335,10 @@ void mat4_transform(mat4 m, float* x, float* y, float* z) {
   *y = tx * m[1] + ty * m[5] + tz * m[9] + m[13];
   *z = tx * m[2] + ty * m[6] + tz * m[10] + m[14];
 }
+
+void mat4_transformDirection(mat4 m, float* dx, float* dy, float* dz) {
+  float x = *dx, y = *dy, z = *dz;
+  *dx = x * m[0] + y * m[4] + z * m[8];
+  *dy = x * m[1] + y * m[5] + z * m[9];
+  *dz = x * m[2] + y * m[6] + z * m[10];
+}
