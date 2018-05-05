@@ -3,6 +3,8 @@ var LibraryLOVR = {
     WebVR: {
       ORIGIN_HEAD: 0,
       ORIGIN_FLOOR: 1,
+      EYE_LEFT: 0,
+      EYE_RIGHT: 1,
 
       initialized: false,
       mirrored: true,
@@ -11,7 +13,8 @@ var LibraryLOVR = {
       frameData: null,
       width: 0,
       height: 0,
-      tempMat4: new Float32Array(16),
+      tempMatA: new Float32Array(16),
+      tempMatB: new Float32Array(16),
       tempQuat: new Float32Array(4),
 
       init: function() {
@@ -150,9 +153,9 @@ var LibraryLOVR = {
 
     if (pose.orientation) {
       if (sittingToStanding) {
-        Module._mat4_set(lovr.WebVR.tempMat4, sittingToStanding);
-        Module._mat4_rotateQuat(lovr.WebVR.tempMat4, pose.orientation);
-        Module._quat_fromMat4(lovr.WebVR.tempQuat, lovr.WebVR.tempMat4);
+        Module._mat4_set(lovr.WebVR.tempMatA, sittingToStanding);
+        Module._mat4_rotateQuat(lovr.WebVR.tempMatA, pose.orientation);
+        Module._quat_fromMat4(lovr.WebVR.tempQuat, lovr.WebVR.tempMatA);
         Module._quat_getAngleAxis(lovr.WebVR.tempQuat, angle, ax, ay, az);
       } else {
         Module._quat_getAngleAxis(pose.orientation, angle, ax, ay, az);
@@ -160,6 +163,31 @@ var LibraryLOVR = {
     } else {
       HEAPF32[angle >> 2] = HEAPF32[ax >> 2] = HEAPF32[ay >> 2] = HEAPF32[az >> 2] = 0;
     }
+  },
+
+  webvrGetEyePose: function(eye, x, y, z, angle, ax, ay, az) {
+    var sittingToStanding = lovr.WebVR.display && lovr.WebVR.display.stageParameters && lovr.WebVR.display.stageParameters.sittingToStandingTransform;
+    var eyeParameters = lovr.WebVR.display && lovr.WebVR.display.getEyeParameters(eye == EYE_LEFT ? 'left' : 'right');
+
+    if (sittingToStanding) {
+      Module._mat4_set(lovr.WebVR.tempMatA, sittingToStanding);
+      Module._mat4_set(lovr.WebVR.tempMatB, eye == EYE_LEFT ? lovr.WebVR.frameData.leftViewMatrix : lovr.WebVR.frameData.rightViewMatrix);
+      Module._mat4_invert(lovr.WebVR.tempMatB);
+      Module._mat4_multiply(lovr.WebVR.tempMatA, lovr.WebVR.tempMatB);
+      Module._mat4_translate(lovr.WebVR.tempMatA, eyeParameters.offset[0], eyeParameters.offset[1], eyeParameters.offset[2]);
+    } else {
+      Module._mat4_set(lovr.WebVR.tempMatA, eye == EYE_LEFT ? lovr.WebVR.frameData.leftViewMatrix : lovr.WebVR.frameData.rightViewMatrix);
+      Module._mat4_invert(lovr.WebVR.tempMatA);
+      Module._mat4_multiply(lovr.WebVR.tempMatA, lovr.WebVR.tempMatB);
+      Module._mat4_translate(lovr.WebVR.tempMatA, eyeParameters.offset[0], eyeParameters.offset[1], eyeParameters.offset[2]);
+    }
+
+    HEAPF32[x >> 2] = lovr.WebVR.tempMatA[12];
+    HEAPF32[y >> 2] = lovr.WebVR.tempMatA[13];
+    HEAPF32[z >> 2] = lovr.WebVR.tempMatA[14];
+
+    Module._quat_fromMat4(lovr.WebVR.tempQuat, lovr.WebVR.tempMatA);
+    Module._quat_getAngleAxis(lovr.WebVR.tempQuat, angle, ax, ay, az);
   },
 
   webvrGetVelocity: function(x, y, z) {
