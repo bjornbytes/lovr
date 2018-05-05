@@ -1,10 +1,12 @@
 var LibraryLOVR = {
   $lovr: {
     WebVR: {
-      ORIGIN_HEAD: 0,
-      ORIGIN_FLOOR: 1,
-      EYE_LEFT: 0,
-      EYE_RIGHT: 1,
+      C: {
+        ORIGIN_HEAD: 0,
+        ORIGIN_FLOOR: 1,
+        EYE_LEFT: 0,
+        EYE_RIGHT: 1,
+      }
 
       initialized: false,
       mirrored: true,
@@ -101,7 +103,7 @@ var LibraryLOVR = {
   },
 
   webvrGetOriginType: function() {
-    return WebVR.display && WebVR.display.stageParameters ? ORIGIN_FLOOR : ORIGIN_HEAD;
+    return WebVR.display && WebVR.display.stageParameters ? lovr.WebVR.C.ORIGIN_FLOOR : lovr.WebVR.C.ORIGIN_HEAD;
   },
 
   webvrIsMirrored: function() {
@@ -166,17 +168,18 @@ var LibraryLOVR = {
   },
 
   webvrGetEyePose: function(eye, x, y, z, angle, ax, ay, az) {
+    var isLeft = eye === lovr.WebVR.C.EYE_LEFT;
     var sittingToStanding = lovr.WebVR.display && lovr.WebVR.display.stageParameters && lovr.WebVR.display.stageParameters.sittingToStandingTransform;
-    var eyeParameters = lovr.WebVR.display && lovr.WebVR.display.getEyeParameters(eye == EYE_LEFT ? 'left' : 'right');
+    var eyeParameters = lovr.WebVR.display && lovr.WebVR.display.getEyeParameters(isLeft ? 'left' : 'right');
 
     if (sittingToStanding) {
       Module._mat4_set(lovr.WebVR.tempMatA, sittingToStanding);
-      Module._mat4_set(lovr.WebVR.tempMatB, eye == EYE_LEFT ? lovr.WebVR.frameData.leftViewMatrix : lovr.WebVR.frameData.rightViewMatrix);
+      Module._mat4_set(lovr.WebVR.tempMatB, isLeft ? lovr.WebVR.frameData.leftViewMatrix : lovr.WebVR.frameData.rightViewMatrix);
       Module._mat4_invert(lovr.WebVR.tempMatB);
       Module._mat4_multiply(lovr.WebVR.tempMatA, lovr.WebVR.tempMatB);
       Module._mat4_translate(lovr.WebVR.tempMatA, eyeParameters.offset[0], eyeParameters.offset[1], eyeParameters.offset[2]);
     } else {
-      Module._mat4_set(lovr.WebVR.tempMatA, eye == EYE_LEFT ? lovr.WebVR.frameData.leftViewMatrix : lovr.WebVR.frameData.rightViewMatrix);
+      Module._mat4_set(lovr.WebVR.tempMatA, isLeft ? lovr.WebVR.frameData.leftViewMatrix : lovr.WebVR.frameData.rightViewMatrix);
       Module._mat4_invert(lovr.WebVR.tempMatA);
       Module._mat4_multiply(lovr.WebVR.tempMatA, lovr.WebVR.tempMatB);
       Module._mat4_translate(lovr.WebVR.tempMatA, eyeParameters.offset[0], eyeParameters.offset[1], eyeParameters.offset[2]);
