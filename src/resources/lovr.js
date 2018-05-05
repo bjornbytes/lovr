@@ -6,6 +6,7 @@ var LibraryLOVR = {
         ORIGIN_FLOOR: 1,
         EYE_LEFT: 0,
         EYE_RIGHT: 1,
+        sizeofController: 24
       }
 
       initialized: false,

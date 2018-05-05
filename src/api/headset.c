@@ -261,28 +261,20 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 }
 
 int l_lovrHeadsetGetControllers(lua_State* L) {
-  vec_controller_t* controllers = lovrHeadsetDriver->getControllers();
-  if (!controllers) {
-    lua_newtable(L);
-    return 1;
-  }
-
+  uint8_t count;
+  Controller** controllers = lovrHeadsetDriver->getControllers(&count);
   lua_newtable(L);
-  Controller* controller; int i;
-  vec_foreach(controllers, controller, i) {
-    luax_pushtype(L, Controller, controller);
+  for (uint8_t i = 0; i < count; i++) {
+    luax_pushtype(L, Controller, controllers[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
 }
 
 int l_lovrHeadsetGetControllerCount(lua_State* L) {
-  vec_controller_t* controllers = lovrHeadsetDriver->getControllers();
-  if (controllers) {
-    lua_pushnumber(L, controllers->length);
-  } else {
-    lua_pushnumber(L, 0);
-  }
+  uint8_t count;
+  lovrHeadsetDriver->getControllers(&count);
+  lua_pushnumber(L, count);
   return 1;
 }
 

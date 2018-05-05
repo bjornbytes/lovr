@@ -58,7 +58,7 @@ typedef enum {
 
 typedef struct {
   Ref ref;
-  unsigned int id;
+  uint32_t id;
 } Controller;
 
 typedef vec_t(Controller*) vec_controller_t;
@@ -80,7 +80,7 @@ typedef struct {
   void (*getEyePose)(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void (*getVelocity)(float* x, float* y, float* z);
   void (*getAngularVelocity)(float* x, float* y, float* z);
-  vec_controller_t* (*getControllers)();
+  Controller** (*getControllers)(uint8_t* count);
   bool (*controllerIsConnected)(Controller* controller);
   ControllerHand (*controllerGetHand)(Controller* controller);
   void (*controllerGetPose)(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);

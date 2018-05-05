@@ -243,8 +243,9 @@ static void fakeGetAngularVelocity(float* x, float* y, float* z) {
   *x = *y = *z = 0;
 }
 
-static vec_controller_t* fakeGetControllers() {
-  return &state.controllers;
+static Controller** fakeGetControllers(uint8_t* count) {
+  *count = state.controllers.length;
+  return state.controllers.data;
 }
 
 static bool fakeControllerIsConnected(Controller* controller) {

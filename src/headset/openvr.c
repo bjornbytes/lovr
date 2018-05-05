@@ -468,8 +468,9 @@ static void openvrGetAngularVelocity(float* x, float* y, float* z) {
   *z = pose.vAngularVelocity.v[2];
 }
 
-static vec_controller_t* openvrGetControllers() {
-  return &state.controllers;
+static Controller** openvrGetControllers(uint8_t* count) {
+  *count = state.controllers.length;
+  return state.controllers.data;
 }
 
 static bool openvrControllerIsConnected(Controller* controller) {
