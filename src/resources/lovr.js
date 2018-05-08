@@ -1,14 +1,13 @@
 var LibraryLOVR = {
+  $C: {
+    ORIGIN_HEAD: 0,
+    ORIGIN_FLOOR: 1,
+    EYE_LEFT: 0,
+    EYE_RIGHT: 1
+  },
+
   $lovr: {
     WebVR: {
-      C: {
-        ORIGIN_HEAD: 0,
-        ORIGIN_FLOOR: 1,
-        EYE_LEFT: 0,
-        EYE_RIGHT: 1,
-        sizeofController: 24
-      }
-
       initialized: false,
       mirrored: true,
       renderCallback: null,
@@ -104,7 +103,7 @@ var LibraryLOVR = {
   },
 
   webvrGetOriginType: function() {
-    return WebVR.display && WebVR.display.stageParameters ? lovr.WebVR.C.ORIGIN_FLOOR : lovr.WebVR.C.ORIGIN_HEAD;
+    return WebVR.display && WebVR.display.stageParameters ? C.ORIGIN_FLOOR : C.ORIGIN_HEAD;
   },
 
   webvrIsMirrored: function() {
@@ -169,7 +168,7 @@ var LibraryLOVR = {
   },
 
   webvrGetEyePose: function(eye, x, y, z, angle, ax, ay, az) {
-    var isLeft = eye === lovr.WebVR.C.EYE_LEFT;
+    var isLeft = eye === C.EYE_LEFT;
     var sittingToStanding = lovr.WebVR.display && lovr.WebVR.display.stageParameters && lovr.WebVR.display.stageParameters.sittingToStandingTransform;
     var eyeParameters = lovr.WebVR.display && lovr.WebVR.display.getEyeParameters(isLeft ? 'left' : 'right');
 
@@ -235,4 +234,5 @@ var LibraryLOVR = {
 };
 
 autoAddDeps(LibraryLOVR, '$lovr');
+autoAddDeps(LibraryLOVR, '$C');
 mergeInto(LibraryManager.library, LibraryLOVR);
