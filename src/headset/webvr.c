@@ -20,17 +20,20 @@ extern void webvrRenderTo(void (*callback)(void*), void* userdata);
 
 typedef struct {
   float offset;
+  vec_controller_t controllers;
 } HeadsetState;
 
 static HeadsetState state;
 
 static bool webvrDriverInit(float offset) {
   state.offset = offset;
+  vec_init(&state.controllers);
   webvrInit();
   return true;
 }
 
 static void webvrDriverDestroy() {
+  vec_deinit(&state.controllers);
   memset(&state, 0, sizeof(HeadsetState));
 }
 
