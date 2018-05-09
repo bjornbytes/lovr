@@ -1,10 +1,14 @@
 #include "headset/headset.h"
+#include "event/event.h"
 #include "graphics/graphics.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
 
 // Provided by resources/lovr.js
 extern void webvrInit(void);
+extern void webvrSetControllerAddedCallback(void (*callback)(uint32_t id));
+extern void webvrSetControllerRemovedCallback(void (*callback)(uint32_t id));
+extern HeadsetType webvrGetType(void);
 extern HeadsetOrigin webvrGetOriginType(void);
 extern bool webvrIsMirrored(void);
 extern void webvrSetMirrored(bool mirror);
@@ -16,6 +20,11 @@ extern void webvrGetPose(float* x, float* y, float* z, float* angle, float* ax, 
 extern void webvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
 extern void webvrGetVelocity(float* x, float* y, float* z);
 extern void webvrGetAngularVelocity(float* x, float* y, float* z);
+extern bool webvrControllerIsConnected(Controller* controller);
+extern ControllerHand webvrControllerGetHand(Controller* controller);
+extern void webvrControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+extern void webvrControllerVibrate(Controller* controller, float duration, float power);
+extern ModelData* webvrControllerNewModelData(Controller* controller);
 extern void webvrRenderTo(void (*callback)(void*), void* userdata);
 
 typedef struct {
@@ -25,10 +34,39 @@ typedef struct {
 
 static HeadsetState state;
 
+static void onControllerAdded(uint32_t id) {
+  Controller* controller = lovrAlloc(sizeof(Controller), free);
+  controller->id = id;
+  vec_push(&state.controllers, controller);
+  EventType type = EVENT_CONTROLLER_ADDED;
+  EventData data = { .controlleradded = { controller } };
+  Event event = { .type = type, .data = data };
+  lovrRetain(controller);
+  lovrEventPush(event);
+}
+
+static void onControllerRemoved(uint32_t id) {
+  for (int i = 0; i < state.controllers.length; i++) {
+    if (state.controllers.data[i]->id == id) {
+      Controller* controller = state.controllers.data[i];
+      EventType type = EVENT_CONTROLLER_REMOVED;
+      EventData data = { .controllerremoved = { controller } };
+      Event event = { .type = type, .data = data };
+      lovrRetain(controller);
+      lovrEventPush(event);
+      vec_splice(&state.controllers, i, 1);
+      lovrRelease(controller);
+      break;
+    }
+  }
+}
+
 static bool webvrDriverInit(float offset) {
   state.offset = offset;
   vec_init(&state.controllers);
   webvrInit();
+  webvrSetControllerAddedCallback(onControllerAdded);
+  webvrSetControllerRemovedCallback(onControllerRemoved);
   return true;
 }
 
@@ -37,11 +75,16 @@ static void webvrDriverDestroy() {
   memset(&state, 0, sizeof(HeadsetState));
 }
 
+Controller** webvrGetControllers(uint8_t* count) {
+  *count = state.controllers.length;
+  return state.controllers.data;
+}
+
 HeadsetInterface lovrHeadsetWebVRDriver = {
   DRIVER_WEBVR,
   webvrDriverInit,
   webvrDriverDestroy,
-  NULL, //HeadsetType (*getType)();
+  webvrGetType,
   webvrGetOriginType,
   NULL, //bool (*isMounted)();
   webvrIsMirrored,
@@ -54,15 +97,15 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrGetEyePose,
   webvrGetVelocity,
   webvrGetAngularVelocity,
-  NULL, //vec_controller_t* (*getControllers)();
-  NULL, //bool (*controllerIsConnected)(Controller* controller);
-  NULL, //ControllerHand (*controllerGetHand)(Controller* controller);
-  NULL, //void (*controllerGetPose)(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+  webvrGetControllers,
+  webvrControllerIsConnected,
+  webvrControllerGetHand,
+  webvrControllerGetPose,
   NULL, //float (*controllerGetAxis)(Controller* controller, ControllerAxis axis);
   NULL, //bool (*controllerIsDown)(Controller* controller, ControllerButton button);
   NULL, //bool (*controllerIsTouched)(Controller* controller, ControllerButton button);
-  NULL, //void (*controllerVibrate)(Controller* controller, float duration, float power);
-  NULL, //ModelData* (*controllerNewModelData)(Controller* controller);
+  webvrControllerVibrate,
+  webvrControllerNewModelData,
   webvrRenderTo,
   NULL //void (*update)(float dt);
 };

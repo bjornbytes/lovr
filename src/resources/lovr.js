@@ -2,14 +2,23 @@ var LibraryLOVR = {
   $C: {
     ORIGIN_HEAD: 0,
     ORIGIN_FLOOR: 1,
+    HEADSET_UNKNOWN: 0,
     EYE_LEFT: 0,
-    EYE_RIGHT: 1
+    EYE_RIGHT: 1,
+    HAND_UNKNOWN: 0,
+    HAND_LEFT: 1,
+    HAND_RIGHT: 2,
+    sizeofRef: 16
   },
 
   $lovr: {
     WebVR: {
+      display: null,
+      gamepads: {},
       initialized: false,
       mirrored: true,
+      ongamepadconnected: null,
+      ongamepaddisconnected: null,
       renderCallback: null,
       renderUserdata: null,
       frameData: null,
@@ -24,7 +33,7 @@ var LibraryLOVR = {
           return;
         }
 
-        var display, canvas;
+        var display, canvas, gamepads = lovr.WebVR.gamepads;
         lovr.WebVR.initialized = true;
         lovr.WebVR.canvas = canvas = Module['canvas'];
         lovr.WebVR.width = canvas.width;
@@ -77,6 +86,20 @@ var LibraryLOVR = {
           }
         });
 
+        window.addEventListener('gamepadconnected', function(gamepad) {
+          if (display && gamepad.displayId === display.displayId && gamepad.pose) {
+            gamepads[gamepad.index] = gamepad;
+            lovr.WebVR.ongamepadconnected && lovr.WebVR.ongamepadconnected(gamepad.index);
+          }
+        });
+
+        window.addEventListener('gamepaddisconnected', function(gamepad) {
+          if (gamepads[gamepad.index]) {
+            lovr.WebVR.ongamepaddisconnected && lovr.WebVR.ongamepaddisconnected(gamepad.index);
+            delete gamepads[gamepad.index];
+          }
+        });
+
         window.addEventListener('lovr.entervr', function() {
           if (display && !display.isPresenting) {
             display.requestPresent([{ source: canvas }]);
@@ -94,12 +117,29 @@ var LibraryLOVR = {
 
         findDisplay();
         onResize();
+      },
+
+      controllerToGamepad: function(controller) {
+        var index = HEAPU32[(controller + sizeofRef) >> 2];
+        return lovr.WebVR.gamepads[index];
       }
     }
   },
 
   webvrInit: function() {
     lovr.WebVR.init();
+  },
+
+  webvrSetControllerAddedCallback: function(callback) {
+    lovr.WebVR.ongamepadconnected = callback;
+  },
+
+  webvrSetControllerRemovedCallback: function(callback) {
+    lovr.WebVR.ongamepaddisconnected = callback;
+  },
+
+  webvrGetType: function() {
+    return C.HEADSET_UNKNOWN;
   },
 
   webvrGetOriginType: function() {
@@ -225,6 +265,53 @@ var LibraryLOVR = {
     } else {
       HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
     }
+  },
+
+  webvrControllerIsConnected: function(controller) {
+    var gamepad = lovr.WebVR.controllerToGamepad(controller);
+    return gamepad && gamepad.connected;
+  },
+
+  webvrControllerGetHand: function(controller) {
+    var gamepad = lovr.WebVR.controllerToGamepad(controller);
+    var handMap = { '': 0, left: 1, right: 2 };
+    return gamepad && handMap[gamepad.hand || ''];
+  },
+
+  webvrControllerGetPose: function(controller, x, y, z, angle, ax, ay, az) {
+    var gamepad = lovr.WebVR.controllerToGamepad(controller);
+    var sittingToStanding = lovr.WebVR.display && lovr.WebVR.display.stageParameters && lovr.WebVR.display.stageParameters.sittingToStandingTransform;
+
+    if (!gamepad || !gamepad.pose || !gamepad.pose.position || !gamepad.pose.orientation) {
+      HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = HEAPF32[angle >> 2] = HEAPF32[ax >> 2] = HEAPF32[ay >> 2] = HEAPF32[az >> 2] = 0;
+      return;
+    }
+
+    HEAPF32[x >> 2] = gamepad.pose.position[0];
+    HEAPF32[y >> 2] = gamepad.pose.position[1];
+    HEAPF32[z >> 2] = gamepad.pose.position[2];
+
+    if (sittingToStanding) {
+      Module._mat4_transform(sittingToStanding, x, y, z);
+      Module._mat4_set(lovr.WebVR.tempMatA, sittingToStanding);
+      Module._mat4_rotateQuat(lovr.WebVR.tempMatA, gamepad.pose.orientation);
+      Module._quat_fromMat4(lovr.WebVR.tempQuat, lovr.WebVR.tempMatA);
+      Module._quat_getAngleAxis(lovr.WebVR.tempQuat, angle, ax, ay, az);
+    } else {
+      Module._quat_getAngleAxis(gamepad.pose.orientation, angle, ax, ay, az);
+    }
+  },
+
+  webvrControllerVibrate: function(controller, duration, power) {
+    var gamepad = lovr.WebVR.controllerToGamepad(controller);
+
+    if (gamepad && gamepad.hapticActuators && gamepad.hapticActuators[0]) {
+      gamepad.hapticActuators[0].pulse(power, duration);
+    }
+  },
+
+  webvrControllerNewModelData: function(controller) {
+    return 0;
   },
 
   webvrRenderTo: function(callback, userdata) {
