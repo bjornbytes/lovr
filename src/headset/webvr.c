@@ -23,6 +23,9 @@ extern void webvrGetAngularVelocity(float* x, float* y, float* z);
 extern bool webvrControllerIsConnected(Controller* controller);
 extern ControllerHand webvrControllerGetHand(Controller* controller);
 extern void webvrControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+extern float webvrControllerGetAxis(Controller* controller, ControllerAxis axis);
+extern bool webvrControllerIsDown(Controller* controller, ControllerButton button);
+extern bool webvrControllerIsTouched(Controller* controller, ControllerButton button);
 extern void webvrControllerVibrate(Controller* controller, float duration, float power);
 extern ModelData* webvrControllerNewModelData(Controller* controller);
 extern void webvrRenderTo(void (*callback)(void*), void* userdata);
@@ -101,9 +104,9 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrControllerIsConnected,
   webvrControllerGetHand,
   webvrControllerGetPose,
-  NULL, //float (*controllerGetAxis)(Controller* controller, ControllerAxis axis);
-  NULL, //bool (*controllerIsDown)(Controller* controller, ControllerButton button);
-  NULL, //bool (*controllerIsTouched)(Controller* controller, ControllerButton button);
+  webvrControllerGetAxis,
+  webvrControllerIsDown,
+  webvrControllerIsTouched,
   webvrControllerVibrate,
   webvrControllerNewModelData,
   webvrRenderTo,

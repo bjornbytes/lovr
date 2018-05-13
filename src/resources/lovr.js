@@ -8,6 +8,10 @@ var LibraryLOVR = {
     HAND_UNKNOWN: 0,
     HAND_LEFT: 1,
     HAND_RIGHT: 2,
+    CONTROLLER_AXIS_TRIGGER: 0,
+    CONTROLLER_AXIS_GRIP: 1,
+    CONTROLLER_AXIS_TOUCHPAD_X: 2,
+    CONTROLLER_AXIS_TOUCHPAD_Y: 3,
     sizeofRef: 8,
   },
 
@@ -27,6 +31,11 @@ var LibraryLOVR = {
       matA: null,
       matB: null,
       quat: null,
+      buttonMap: {
+        'OpenVR Gamepad': [null, null, 3, 1, 2, 0, null, null, null, null, null],
+        'Oculus Touch (Right)': [null, null, null, 1, 2, 0, null, 3, 4],
+        'Oculus Touch (Left)': [null, null, null, 1, 2, 0, null, null, null, 3, 4]
+      },
 
       init: function() {
         if (lovr.WebVR.initialized) {
@@ -327,6 +336,45 @@ var LibraryLOVR = {
     } else {
       Module._quat_getAngleAxis(quat, angle, ax, ay, az);
     }
+  },
+
+  webvrControllerGetAxis: function(controller, axis) {
+    var gamepad = lovr.WebVR.controllerToGamepad(controller);
+
+    if (!gamepad) {
+      return 0;
+    }
+
+    if (gamepad.id.startsWith('OpenVR')) {
+      switch (axis) {
+        case C.CONTROLLER_AXIS_TRIGGER: return gamepad.buttons[1].value;
+        case C.CONTROLLER_AXIS_TOUCHPAD_X: return gamepad.axes[0];
+        case C.CONTROLLER_AXIS_TOUCHPAD_Y: return gamepad.axes[1];
+        default: return 0;
+      }
+    } else if (gamepad.id.startsWith('Oculus')) {
+      switch (axis) {
+        case C.CONTROLLER_AXIS_TRIGGER: return gamepad.axes[3 /* ? */];
+        case C.CONTROLLER_AXIS_GRIP: return gamepad.axes[2 /* ? */];
+        case C.CONTROLLER_AXIS_TOUCHPAD_X: return gamepad.axes[0];
+        case C.CONTROLLER_AXIS_TOUCHPAD_Y: return gamepad.axes[1];
+        default: return 0;
+      }
+    }
+
+    return 0;
+  },
+
+  webvrControllerIsDown: function(controller, button) {
+    var gamepad = lovr.WebVR.controllerToGamepad(controller);
+    var buttonMap = lovr.WebVR.buttonMap;
+    return gamepad && buttonMap[gamepad.id] && gamepad.buttons[buttonMap[gamepad.id]].pressed;
+  },
+
+  webvrControllerIsTouched: function(controller, button) {
+    var gamepad = lovr.WebVR.controllerToGamepad(controller);
+    var buttonMap = lovr.WebVR.buttonMap;
+    return gamepad && buttonMap[gamepad.id] && gamepad.buttons[buttonMap[gamepad.id]].touched;
   },
 
   webvrControllerVibrate: function(controller, duration, power) {
