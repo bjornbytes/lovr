@@ -20,7 +20,7 @@ int l_lovrInit(lua_State* L) {
   luax_preloadmodule(L, "lovr.math", l_lovrMathInit);
   luax_preloadmodule(L, "lovr.physics", l_lovrPhysicsInit);
 #ifdef EMSCRIPTEN
-  luax_preloadmodule(L, "lovr.thread", luax_stubnil);
+  luax_preloadmodule(L, "lovr.thread", luax_emptymodule);
 #else
   luax_preloadmodule(L, "lovr.thread", l_lovrThreadInit);
 #endif

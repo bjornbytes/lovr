@@ -30,7 +30,7 @@
   else if (!luax_getobject(L, x)) { luax_newobject(L, T, x); }
 
 int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f);
-int luax_stubnil(lua_State* L);
+int luax_emptymodule(lua_State* L);
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions);
 void luax_extendtype(lua_State* L, const char* base, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions);
 int luax_releasetype(lua_State* L);
