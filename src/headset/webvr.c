@@ -10,6 +10,7 @@ extern void webvrSetControllerAddedCallback(void (*callback)(uint32_t id));
 extern void webvrSetControllerRemovedCallback(void (*callback)(uint32_t id));
 extern HeadsetType webvrGetType(void);
 extern HeadsetOrigin webvrGetOriginType(void);
+extern bool webvrIsMounted(void);
 extern bool webvrIsMirrored(void);
 extern void webvrSetMirrored(bool mirror);
 extern void webvrGetDisplayDimensions(int32_t* width, int32_t* height);
@@ -89,7 +90,7 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrDriverDestroy,
   webvrGetType,
   webvrGetOriginType,
-  NULL, //bool (*isMounted)();
+  webvrIsMounted,
   webvrIsMirrored,
   webvrSetMirrored,
   webvrGetDisplayDimensions,

@@ -160,6 +160,11 @@ var LibraryLOVR = {
     return lovr.WebVR.display && lovr.WebVR.display.stageParameters ? C.ORIGIN_FLOOR : C.ORIGIN_HEAD;
   },
 
+  webvrIsMounted: function() {
+    // Best we can do I think
+    return lovr.WebVR.display && lovr.WebVR.display.isPresenting;
+  },
+
   webvrIsMirrored: function() {
     return lovr.WebVR.mirrored;
   },
