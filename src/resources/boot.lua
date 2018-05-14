@@ -143,7 +143,7 @@ end
 function lovr.errhand(message)
   message = debug.traceback('Error:\n' .. message, 2):gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
   print(message)
-  if not lovr.graphics then return end
+  if not lovr.graphics then return function() return 1 end end
   lovr.graphics.reset()
   lovr.graphics.setBackgroundColor(.105, .098, .137)
   lovr.graphics.setColor(.863, .863, .863)
