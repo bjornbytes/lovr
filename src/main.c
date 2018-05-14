@@ -32,6 +32,7 @@ int main(int argc, char** argv) {
 
     glfwSetErrorCallback(onGlfwError);
     lovrAssert(glfwInit(), "Error initializing GLFW");
+    glfwSetTime(0);
 
     // arg
     lua_newtable(L);
@@ -70,12 +71,9 @@ int main(int argc, char** argv) {
     emscripten_set_main_loop_arg(emscriptenLoop, (void*) L, 0, 1);
     return 0;
 #else
-    int top = lua_gettop(L);
-    while (lua_resume(L, 0) == LUA_YIELD) {
-      lua_settop(L, top);
-    }
+    while (lua_resume(L, 0) == LUA_YIELD) ;
 
-    int exitCode = luaL_optint(L, -1, 0);
+    int exitCode = lua_tonumber(L, -1);
     bool isRestart = lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "restart");
 
     lovrDestroy();
