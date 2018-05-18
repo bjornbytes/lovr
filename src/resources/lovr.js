@@ -65,9 +65,6 @@ var LibraryLOVR = {
             lovr.WebVR.height = eyeParams.renderHeight;
             canvas.width = lovr.WebVR.width * 2;
             canvas.height = lovr.WebVR.height;
-          } else {
-            canvas.width = lovr.WebVR.width = canvas.parentElement.offsetWidth * window.devicePixelRatio;
-            canvas.height = lovr.WebVR.height = canvas.parentElement.offsetHeight * window.devicePixelRatio;
           }
         }
 

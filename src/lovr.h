@@ -7,5 +7,6 @@
 
 void lovrDestroy();
 bool lovrRun(int argc, char** argv, int* status);
+void lovrQuit(int status);
 const char* lovrGetOS();
 void lovrGetVersion(int* major, int* minor, int* patch);

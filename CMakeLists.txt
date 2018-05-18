@@ -9,11 +9,12 @@ if(EMSCRIPTEN)
     "-s USE_FREETYPE=1 "
     "-s USE_GLFW=3 "
     "-s USE_WEBGL2=1 "
+    "-s GL_PREINITIALIZED_CONTEXT=1 "
     "-s USE_ZLIB=1 "
     "-s FULL_ES3=1 "
     "-s FORCE_FILESYSTEM=1 "
     "-s ALLOW_MEMORY_GROWTH=1 "
-    "-s \"EXPORTED_FUNCTIONS=['_main','_mat4_rotateQuat','_mat4_set','_mat4_transform','_mat4_transformDirection','_quat_fromMat4','_quat_getAngleAxis']\" "
+    "-s \"EXPORTED_FUNCTIONS=['_main','_lovrRun','_lovrQuit','_lovrDestroy','_mat4_rotateQuat','_mat4_set','_mat4_transform','_mat4_transformDirection','_quat_fromMat4','_quat_getAngleAxis']\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
     "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.js\""
   )

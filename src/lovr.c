@@ -126,6 +126,13 @@ bool lovrRun(int argc, char** argv, int* status) {
 #endif
 }
 
+void lovrQuit(int status) {
+  EventType type = EVENT_QUIT;
+  EventData data = { .quit = { false, status } };
+  Event event = { .type = type, .data = data };
+  lovrEventPush(event);
+}
+
 const char* lovrGetOS() {
 #ifdef _WIN32
   return "Windows";
