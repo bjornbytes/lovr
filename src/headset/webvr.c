@@ -6,8 +6,7 @@
 
 // Provided by resources/lovr.js
 extern void webvrInit(void);
-extern void webvrSetControllerAddedCallback(void (*callback)(uint32_t id));
-extern void webvrSetControllerRemovedCallback(void (*callback)(uint32_t id));
+extern void webvrSetCallbacks(void (*added)(uint32_t id), void (*removed)(uint32_t id), void (*pressed)(uint32_t, ControllerButton button), void (*released)(uint32_t id, ControllerButton button), void (*mount)(bool mounted));
 extern HeadsetType webvrGetType(void);
 extern HeadsetOrigin webvrGetOriginType(void);
 extern bool webvrIsMounted(void);
@@ -30,6 +29,7 @@ extern bool webvrControllerIsTouched(Controller* controller, ControllerButton bu
 extern void webvrControllerVibrate(Controller* controller, float duration, float power);
 extern ModelData* webvrControllerNewModelData(Controller* controller);
 extern void webvrRenderTo(void (*callback)(void*), void* userdata);
+extern void webvrUpdate(float dt);
 
 typedef struct {
   float offset;
@@ -42,35 +42,57 @@ static void onControllerAdded(uint32_t id) {
   Controller* controller = lovrAlloc(sizeof(Controller), free);
   controller->id = id;
   vec_push(&state.controllers, controller);
-  EventType type = EVENT_CONTROLLER_ADDED;
-  EventData data = { .controlleradded = { controller } };
-  Event event = { .type = type, .data = data };
   lovrRetain(controller);
-  lovrEventPush(event);
+  lovrEventPush((Event) {
+    .type = EVENT_CONTROLLER_ADDED,
+    .data = { .controlleradded = { controller } }
+  });
 }
 
 static void onControllerRemoved(uint32_t id) {
   for (int i = 0; i < state.controllers.length; i++) {
-    if (state.controllers.data[i]->id == id) {
-      Controller* controller = state.controllers.data[i];
-      EventType type = EVENT_CONTROLLER_REMOVED;
-      EventData data = { .controllerremoved = { controller } };
-      Event event = { .type = type, .data = data };
-      lovrRetain(controller);
-      lovrEventPush(event);
-      vec_splice(&state.controllers, i, 1);
-      lovrRelease(controller);
-      break;
+    if (state.controllers.data[i]->id != id) {
+      continue;
     }
+
+    Controller* controller = state.controllers.data[i];
+    lovrRetain(controller);
+    lovrEventPush((Event) {
+      .type = EVENT_CONTROLLER_REMOVED,
+      .data = { .controllerremoved = { controller } }
+    });
+    vec_splice(&state.controllers, i, 1);
+    lovrRelease(controller);
+    break;
   }
+}
+
+static void onControllerPressed(uint32_t id, ControllerButton button) {
+  lovrEventPush((Event) {
+    .type = EVENT_CONTROLLER_PRESSED,
+    .data = { .controllerpressed = { state.controllers.data[id], button } }
+  });
+}
+
+static void onControllerReleased(uint32_t id, ControllerButton button) {
+  lovrEventPush((Event) {
+    .type = EVENT_CONTROLLER_RELEASED,
+    .data = { .controllerreleased = { state.controllers.data[id], button } }
+  });
+}
+
+static void onMountChanged(bool mounted) {
+  lovrEventPush((Event) {
+    .type = EVENT_MOUNT,
+    .data = { .mount = { mounted } }
+  });
 }
 
 static bool webvrDriverInit(float offset) {
   state.offset = offset;
   vec_init(&state.controllers);
   webvrInit();
-  webvrSetControllerAddedCallback(onControllerAdded);
-  webvrSetControllerRemovedCallback(onControllerRemoved);
+  webvrSetCallbacks(onControllerAdded, onControllerRemoved, onControllerPressed, onControllerReleased, onMountChanged);
   return true;
 }
 
@@ -111,5 +133,5 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrControllerVibrate,
   webvrControllerNewModelData,
   webvrRenderTo,
-  NULL //void (*update)(float dt);
+  webvrUpdate
 };

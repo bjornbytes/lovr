@@ -12,17 +12,21 @@ var LibraryLOVR = {
     CONTROLLER_AXIS_GRIP: 1,
     CONTROLLER_AXIS_TOUCHPAD_X: 2,
     CONTROLLER_AXIS_TOUCHPAD_Y: 3,
-    sizeofRef: 8,
+    sizeofRef: 8
   },
 
   $lovr: {
     WebVR: {
       display: null,
       gamepads: {},
+      lastGamepadState: {},
       initialized: false,
       mirrored: true,
-      ongamepadconnected: 0,
-      ongamepaddisconnected: 0,
+      oncontrolleradded: 0,
+      oncontrollerremoved: 0,
+      oncontrollerpressed: 0,
+      oncontrollerreleased: 0,
+      onmount: 0,
       renderCallback: 0,
       renderUserdata: 0,
       frameData: null,
@@ -32,9 +36,38 @@ var LibraryLOVR = {
       matB: null,
       quat: null,
       buttonMap: {
-        'OpenVR Gamepad': [null, null, 3, 1, 2, 0, null, null, null, null, null],
-        'Oculus Touch (Right)': [null, null, null, 1, 2, 0, null, 3, 4],
-        'Oculus Touch (Left)': [null, null, null, 1, 2, 0, null, null, null, 3, 4]
+        'OpenVR Gamepad': [
+          /* C.CONTROLLER_BUTTON_UNKNOWN  */ null,
+          /* C.CONTROLLER_BUTTON_SYSTEM   */ null,
+          /* C.CONTROLLER_BUTTON_MENU     */ 3,
+          /* C.CONTROLLER_BUTTON_TRIGGER  */ 1,
+          /* C.CONTROLLER_BUTTON_GRIP     */ 2,
+          /* C.CONTROLLER_BUTTON_TOUCHPAD */ 0
+        ],
+        'Oculus Touch (Right)': [
+          /* C.CONTROLLER_BUTTON_UNKNOWN  */ null,
+          /* C.CONTROLLER_BUTTON_SYSTEM   */ null,
+          /* C.CONTROLLER_BUTTON_MENU     */ 3,
+          /* C.CONTROLLER_BUTTON_TRIGGER  */ 1,
+          /* C.CONTROLLER_BUTTON_GRIP     */ 2,
+          /* C.CONTROLLER_BUTTON_TOUCHPAD */ 0,
+          /* C.CONTROLLER_BUTTON_JOYSTICK */ null,
+          /* C.CONTROLLER_BUTTON_A        */ 3,
+          /* C.CONTROLLER_BUTTON_B        */ 4
+        ],
+        'Oculus Touch (Left)': [
+          /* C.CONTROLLER_BUTTON_UNKNOWN  */ null,
+          /* C.CONTROLLER_BUTTON_SYSTEM   */ null,
+          /* C.CONTROLLER_BUTTON_MENU     */ 3,
+          /* C.CONTROLLER_BUTTON_TRIGGER  */ 1,
+          /* C.CONTROLLER_BUTTON_GRIP     */ 2,
+          /* C.CONTROLLER_BUTTON_TOUCHPAD */ 0,
+          /* C.CONTROLLER_BUTTON_JOYSTICK */ null,
+          /* C.CONTROLLER_BUTTON_A        */ null,
+          /* C.CONTROLLER_BUTTON_B        */ null,
+          /* C.CONTROLLER_BUTTON_X        */ 3,
+          /* C.CONTROLLER_BUTTON_Y        */ 4
+        ]
       },
 
       init: function() {
@@ -68,6 +101,14 @@ var LibraryLOVR = {
           }
         }
 
+        function onPresentChange() {
+          if (display) {
+            Runtime.dynCall('vi', lovr.WebVR.onmount, [display.isPresenting]);
+          }
+
+          onResize();
+        }
+
         window.requestAnimationFrame(function onAnimationFrame() {
           if (display) {
             display.requestAnimationFrame(onAnimationFrame);
@@ -99,14 +140,16 @@ var LibraryLOVR = {
           var gamepad = event.gamepad;
           if (display && gamepad.displayId === display.displayId && gamepad.pose) {
             gamepads[gamepad.index] = gamepad;
-            lovr.WebVR.ongamepadconnected && Runtime.dynCall('vi', lovr.WebVR.ongamepadconnected, [gamepad.index]);
+            lovr.WebVR.lastGamepadState[gamepad.index] = gamepad.buttons.map(function(button) { return button.pressed; });
+            lovr.WebVR.oncontrolleradded && Runtime.dynCall('vi', lovr.WebVR.oncontrolleradded, [gamepad.index]);
           }
         });
 
         window.addEventListener('gamepaddisconnected', function(event) {
           var gamepad = event.gamepad;
           if (gamepads[gamepad.index]) {
-            lovr.WebVR.ongamepaddisconnected && Runtime.dynCall('vi', lovr.WebVR.ongamepaddisconnected, [gamepad.index]);
+            lovr.WebVR.oncontrollerremoved && Runtime.dynCall('vi', lovr.WebVR.oncontrollerremoved, [gamepad.index]);
+            delete lovr.WebVR.lastGamepadState[gamepad.index];
             delete gamepads[gamepad.index];
           }
         });
@@ -123,7 +166,7 @@ var LibraryLOVR = {
           }
         });
 
-        window.addEventListener('vrdisplaypresentchange', onResize);
+        window.addEventListener('vrdisplaypresentchange', onPresentChange);
         window.addEventListener('resize', onResize);
 
         findDisplay();
@@ -141,12 +184,12 @@ var LibraryLOVR = {
     lovr.WebVR.init();
   },
 
-  webvrSetControllerAddedCallback: function(callback) {
-    lovr.WebVR.ongamepadconnected = callback;
-  },
-
-  webvrSetControllerRemovedCallback: function(callback) {
-    lovr.WebVR.ongamepaddisconnected = callback;
+  webvrSetCallbacks: function(added, removed, pressed, released, mount) {
+    lovr.WebVR.oncontrolleradded = added;
+    lovr.WebVR.oncontrollerremoved = removed;
+    lovr.WebVR.oncontrollerpressed = pressed;
+    lovr.WebVR.oncontrollerreleased = released;
+    lovr.WebVR.onmount = mount;
   },
 
   webvrGetType: function() {
@@ -370,13 +413,13 @@ var LibraryLOVR = {
   webvrControllerIsDown: function(controller, button) {
     var gamepad = lovr.WebVR.controllerToGamepad(controller);
     var buttonMap = lovr.WebVR.buttonMap;
-    return gamepad && buttonMap[gamepad.id] && gamepad.buttons[buttonMap[gamepad.id]].pressed;
+    return gamepad && buttonMap[gamepad.id] && buttonMap[gamepad.id][button] && gamepad.buttons[buttonMap[gamepad.id][button]].pressed;
   },
 
   webvrControllerIsTouched: function(controller, button) {
     var gamepad = lovr.WebVR.controllerToGamepad(controller);
     var buttonMap = lovr.WebVR.buttonMap;
-    return gamepad && buttonMap[gamepad.id] && gamepad.buttons[buttonMap[gamepad.id]].touched;
+    return gamepad && buttonMap[gamepad.id] && buttonMap[gamepad.id][button] && gamepad.buttons[buttonMap[gamepad.id][button]].touched;
   },
 
   webvrControllerVibrate: function(controller, duration, power) {
@@ -394,6 +437,27 @@ var LibraryLOVR = {
   webvrRenderTo: function(callback, userdata) {
     lovr.WebVR.renderCallback = callback;
     lovr.WebVR.renderUserdata = userdata;
+  },
+
+  webvrUpdate: function(dt) {
+    for (var index in lovr.WebVR.gamepads) {
+      var gamepad = lovr.WebVR.gamepads[index];
+      var lastState = lovr.WebVR.lastGamepadState[index];
+      var buttonMap = lovr.WebVR.buttonMap[gamepad.id];
+      for (var button in buttonMap) {
+        if (buttonMap[button]) {
+          var pressed = gamepad.buttons[buttonMap[button]].pressed;
+          if (lastState[buttonIndex] !== pressed) {
+            lastState[buttonIndex] = pressed;
+            if (pressed) {
+              Runtime.dynCall('vii', lovr.WebVR.oncontrollerpressed, [gamepad.index, button]);
+            } else {
+              Runtime.dynCall('vii', lovr.WebVR.oncontrollerreleased, [gamepad.index, button]);
+            }
+          }
+        }
+      }
+    }
   }
 };
 
