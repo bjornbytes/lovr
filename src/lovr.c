@@ -33,6 +33,7 @@ static void emscriptenLoop(void* arg) {
     bool isRestart = lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "restart");
 
     lovrDestroy();
+
     lua_close(L);
     emscripten_cancel_main_loop();
 

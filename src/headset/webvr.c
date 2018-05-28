@@ -5,8 +5,8 @@
 #include <stdbool.h>
 
 // Provided by resources/lovr.js
-extern bool webvrInit(void);
-extern void webvrSetCallbacks(void (*added)(uint32_t id), void (*removed)(uint32_t id), void (*pressed)(uint32_t, ControllerButton button), void (*released)(uint32_t id, ControllerButton button), void (*mount)(bool mounted));
+extern bool webvrInit(float offset, void (*added)(uint32_t id), void (*removed)(uint32_t id), void (*pressed)(uint32_t, ControllerButton button), void (*released)(uint32_t id, ControllerButton button), void (*mount)(bool mounted));
+extern void webvrDestroy(void);
 extern HeadsetType webvrGetType(void);
 extern HeadsetOrigin webvrGetOriginType(void);
 extern bool webvrIsMounted(void);
@@ -28,11 +28,11 @@ extern bool webvrControllerIsDown(Controller* controller, ControllerButton butto
 extern bool webvrControllerIsTouched(Controller* controller, ControllerButton button);
 extern void webvrControllerVibrate(Controller* controller, float duration, float power);
 extern ModelData* webvrControllerNewModelData(Controller* controller);
-extern void webvrSetRenderCallback(void (*callback)(void*), void* userdata);
+extern void webvrSetRenderCallback(void (*callback)(float*, float*, float*, float*, void*), void* userdata);
 extern void webvrUpdate(float dt);
 
 typedef struct {
-  float offset;
+  Canvas* canvas;
   vec_controller_t controllers;
   void (*renderCallback)(void*);
 } HeadsetState;
@@ -87,16 +87,42 @@ static void onMountChanged(bool mounted) {
   });
 }
 
-static void onFrame(void* userdata) {
-  //
+static void onFrame(float* leftView, float* rightView, float* leftProjection, float* rightProjection, void* userdata) {
+  if (!state.canvas) {
+    int32_t width, height;
+    webvrGetDisplayDimensions(&width, &height);
+    CanvasFlags flags = { .msaa = 0, .depth = true, .stencil = true, .stereo = true, .mipmaps = false };
+    state.canvas = lovrCanvasCreate(width, height, FORMAT_RGB, flags);
+  }
+
+  Layer layer = { .canvas = state.canvas };
+
+  memcpy(layer.views, leftView, 16 * sizeof(float));
+  memcpy(layer.views + 16, rightView, 16 * sizeof(float));
+  memcpy(layer.projections, leftProjection, 16 * sizeof(float));
+  memcpy(layer.projections + 16, rightProjection, 16 * sizeof(float));
+
+  lovrGraphicsPushLayer(layer);
+  lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
+  state.renderCallback(userdata);
+  lovrGraphicsPopLayer();
+
+  Color oldColor = lovrGraphicsGetColor();
+  lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
+  Shader* lastShader = lovrGraphicsGetShader();
+  lovrRetain(lastShader);
+  lovrGraphicsSetShader(NULL);
+  lovrGraphicsFill(&state.canvas->texture);
+  lovrGraphicsSetShader(lastShader);
+  lovrRelease(lastShader);
+  lovrGraphicsSetColor(oldColor);
 }
 
 static bool webvrDriverInit(float offset) {
-  state.offset = offset;
   vec_init(&state.controllers);
-  state.renderCallback = NULL;
-  if (webvrInit()) {
-    webvrSetCallbacks(onControllerAdded, onControllerRemoved, onControllerPressed, onControllerReleased, onMountChanged);
+
+  if (webvrInit(offset, onControllerAdded, onControllerRemoved, onControllerPressed, onControllerReleased, onMountChanged)) {
+    state.renderCallback = NULL;
     return true;
   } else {
     return false;
@@ -104,6 +130,8 @@ static bool webvrDriverInit(float offset) {
 }
 
 static void webvrDriverDestroy() {
+  webvrDestroy();
+  lovrRelease(state.canvas);
   vec_deinit(&state.controllers);
   memset(&state, 0, sizeof(HeadsetState));
 }

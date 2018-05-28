@@ -126,12 +126,12 @@ function lovr.run()
     end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics then
-      lovr.graphics.clear()
       lovr.graphics.origin()
       if lovr.draw then
         if lovr.headset then
           lovr.headset.renderTo(lovr.draw)
         else
+          lovr.graphics.clear()
           lovr.draw()
         end
       end

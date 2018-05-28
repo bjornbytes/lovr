@@ -95,11 +95,13 @@ void lovrCanvasDestroy(void* ref) {
 }
 
 void lovrCanvasResolve(Canvas* canvas) {
-  int width = canvas->texture.width;
-  int height = canvas->texture.height;
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, canvas->resolveFramebuffer);
-  glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  if (canvas->flags.msaa > 0) {
+    int width = canvas->texture.width;
+    int height = canvas->texture.height;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, canvas->resolveFramebuffer);
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  }
 
   if (canvas->flags.mipmaps) {
     lovrGraphicsBindTexture(&canvas->texture, canvas->texture.type, 0);

@@ -228,7 +228,7 @@ void lovrMeshUnmapVertices(Mesh* mesh) {
   size_t stride = mesh->format.stride;
   size_t start = mesh->mapStart * stride;
   size_t count = mesh->mapCount * stride;
-  glBufferSubData(GL_ARRAY_BUFFER, start, count, mesh->data.bytes + start);
+  glBufferSubData(GL_ARRAY_BUFFER, start, count, mesh->data.bytes);
 #else
   glUnmapBuffer(GL_ARRAY_BUFFER);
 #endif
@@ -273,9 +273,8 @@ IndexPointer lovrMeshWriteIndices(Mesh* mesh, uint32_t count, size_t size) {
     mesh->indexCapacity = nextPo2(size * count);
 #ifdef EMSCRIPTEN
     mesh->indices.raw = realloc(mesh->indices.raw, mesh->indexCapacity);
-#else
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCapacity, NULL, mesh->usage);
 #endif
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCapacity, NULL, mesh->usage);
   }
 
 #ifdef EMSCRIPTEN

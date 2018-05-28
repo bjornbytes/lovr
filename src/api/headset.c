@@ -19,7 +19,9 @@ static HeadsetRenderData headsetRenderData;
 static void renderHelper(void* userdata) {
   HeadsetRenderData* renderData = userdata;
   lua_State* L = renderData->L;
+#ifdef EMSCRIPTEN
   lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
+#endif
   lua_call(L, 0, 0);
 }
 
@@ -282,11 +284,13 @@ int l_lovrHeadsetRenderTo(lua_State* L) {
   lua_settop(L, 1);
   luaL_checktype(L, 1, LUA_TFUNCTION);
 
+#ifdef EMSCRIPTEN
   if (headsetRenderData.ref != LUA_NOREF) {
     luaL_unref(L, LUA_REGISTRYINDEX, headsetRenderData.ref);
   }
 
   headsetRenderData.ref = luaL_ref(L, LUA_REGISTRYINDEX);
+#endif
   headsetRenderData.L = L;
   lovrHeadsetDriver->renderTo(renderHelper, &headsetRenderData);
   return 0;
