@@ -83,7 +83,7 @@ Material* lovrMeshGetMaterial(Mesh* mesh);
 void lovrMeshSetMaterial(Mesh* mesh, Material* material);
 float* lovrMeshGetPose(Mesh* mesh);
 void lovrMeshSetPose(Mesh* mesh, float* pose);
-VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write);
+VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write, bool invalidate);
 void lovrMeshUnmapVertices(Mesh* mesh);
 IndexPointer lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* size);
 IndexPointer lovrMeshWriteIndices(Mesh* mesh, uint32_t count, size_t size);

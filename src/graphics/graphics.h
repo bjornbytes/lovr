@@ -119,7 +119,8 @@ typedef struct {
   Winding winding;
   bool wireframe;
   Mesh* mesh;
-  uint32_t cameraUBO;
+  uint32_t cameraBuffer;
+  float cameraData[4][16];
   Layer layers[MAX_LAYERS];
   int layer;
   Texture* textures[MAX_TEXTURES];
@@ -127,6 +128,7 @@ typedef struct {
   bool stencilWriting;
   uint32_t program;
   uint32_t framebuffer;
+  uint32_t viewport[4];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   uint32_t uniformBuffer;
@@ -207,7 +209,6 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader shader, int inst
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsPushLayer(Layer layer);
 void lovrGraphicsPopLayer();
-void lovrGraphicsSetViewport(int x, int y, int w, int h);
 Texture* lovrGraphicsGetTexture(int slot);
 void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot);
 Material* lovrGraphicsGetDefaultMaterial();
@@ -215,5 +216,4 @@ void lovrGraphicsUseProgram(uint32_t program);
 void lovrGraphicsBindFramebuffer(uint32_t framebuffer);
 void lovrGraphicsBindVertexArray(uint32_t vao);
 void lovrGraphicsBindVertexBuffer(uint32_t vbo);
-void lovrGraphicsBindUniformBuffer(uint32_t ubo);
 void lovrGraphicsBindIndexBuffer(uint32_t ibo);

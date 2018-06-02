@@ -195,7 +195,7 @@ void lovrMeshSetPose(Mesh* mesh, float* pose) {
   mesh->pose = pose;
 }
 
-VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write) {
+VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write, bool invalidate) {
 #ifdef EMSCRIPTEN
   mesh->mappedVertices = true;
   mesh->mapStart = start;
@@ -210,7 +210,10 @@ VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bo
   mesh->mapStart = start;
   mesh->mapCount = count;
   size_t stride = mesh->format.stride;
-  GLbitfield access = (read ? GL_MAP_READ_BIT : 0) | (write ? GL_MAP_WRITE_BIT : 0);
+  GLbitfield access = 0;
+  access |= read ? GL_MAP_READ_BIT : 0;
+  access |= write ? GL_MAP_WRITE_BIT : 0;
+  access |= invalidate ? GL_MAP_INVALIDATE_BUFFER_BIT : 0;
   lovrGraphicsBindVertexBuffer(mesh->vbo);
   return (VertexPointer) { .raw = glMapBufferRange(GL_ARRAY_BUFFER, start * stride, count * stride, access) };
 #endif

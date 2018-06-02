@@ -54,7 +54,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultFont);
   lovrRelease(state.defaultTexture);
   lovrRelease(state.mesh);
-  glDeleteBuffers(1, &state.cameraUBO);
+  glDeleteBuffers(1, &state.cameraBuffer);
   memset(&state, 0, sizeof(GraphicsState));
 }
 
@@ -180,10 +180,10 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
   vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
   state.mesh = lovrMeshCreate(64, format, MESH_TRIANGLES, MESH_STREAM);
-  glGenBuffers(1, &state.cameraUBO);
-  lovrGraphicsBindUniformBuffer(state.cameraUBO);
+  glGenBuffers(1, &state.cameraBuffer);
+  glBindBuffer(GL_UNIFORM_BUFFER, state.cameraBuffer);
   glBufferData(GL_UNIFORM_BUFFER, 4 * 16 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
-  glBindBufferBase(GL_UNIFORM_BUFFER, LOVR_SHADER_BLOCK_CAMERA, state.cameraUBO);
+  glBindBufferBase(GL_UNIFORM_BUFFER, LOVR_SHADER_BLOCK_CAMERA, state.cameraBuffer);
   lovrGraphicsReset();
   state.initialized = true;
 }
@@ -543,7 +543,7 @@ VertexPointer lovrGraphicsGetVertexPointer(uint32_t count) {
     lovrMeshResize(state.mesh, capacity);
   }
 
-  return lovrMeshMapVertices(state.mesh, 0, count, false, true);
+  return lovrMeshMapVertices(state.mesh, 0, count, false, true, true);
 }
 
 void lovrGraphicsPoints(uint32_t count) {
@@ -1015,12 +1015,21 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   // Layer
   Layer layer = state.layers[state.layer];
   Canvas* canvas = state.canvasCount > 0 ? state.canvas[0] : layer.canvas;
-  int w = canvas ? canvas->texture.width : lovrGraphicsGetWidth();
-  int h = canvas ? canvas->texture.height : lovrGraphicsGetHeight();
   lovrGraphicsBindFramebuffer(canvas ? canvas->framebuffer : 0);
-  lovrGraphicsSetViewport(0, 0, w, h);
-  lovrGraphicsBindUniformBuffer(state.cameraUBO);
-  glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), &layer); // TODO
+  uint32_t width = canvas ? canvas->texture.width : lovrGraphicsGetWidth();
+  uint32_t height = canvas ? canvas->texture.height : lovrGraphicsGetHeight();
+  uint32_t viewport[4] = { 0, 0, width, height };
+
+  if (memcmp(state.viewport, viewport, 4 * sizeof(uint32_t))) {
+    memcpy(state.viewport, viewport, 4 * sizeof(uint32_t));
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+  }
+
+  if (memcmp(state.cameraData, &layer, 4 * 16 * sizeof(float))) {
+    memcpy(state.cameraData, &layer, 4 * 16 * sizeof(float));
+    glBindBuffer(GL_UNIFORM_BUFFER, state.cameraBuffer);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), &layer);
+  }
 
   // Transforms
   if (transform) {
@@ -1151,10 +1160,6 @@ void lovrGraphicsPopLayer() {
   lovrAssert(--state.layer >= 0, "Layer underflow");
 }
 
-void lovrGraphicsSetViewport(int x, int y, int w, int h) {
-  glViewport(x, y, w, h);
-}
-
 Texture* lovrGraphicsGetTexture(int slot) {
   return state.textures[slot];
 }
@@ -1213,13 +1218,6 @@ void lovrGraphicsBindVertexBuffer(uint32_t vertexBuffer) {
   if (state.vertexBuffer != vertexBuffer) {
     state.vertexBuffer = vertexBuffer;
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-  }
-}
-
-void lovrGraphicsBindUniformBuffer(uint32_t uniformBuffer) {
-  if (state.uniformBuffer != uniformBuffer) {
-    state.uniformBuffer = uniformBuffer;
-    glBindBuffer(GL_UNIFORM_BUFFER, uniformBuffer);
   }
 }
 

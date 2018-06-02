@@ -976,10 +976,10 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   Mesh* mesh = lovrMeshCreate(count, format, *drawMode, *usage);
 
   if (dataIndex) {
-    VertexPointer vertices = lovrMeshMapVertices(mesh, 0, lua_objlen(L, dataIndex), false, true);
+    VertexPointer vertices = lovrMeshMapVertices(mesh, 0, lua_objlen(L, dataIndex), false, true, true);
     luax_loadvertices(L, dataIndex, lovrMeshGetVertexFormat(mesh), vertices);
   } else if (vertexData) {
-    VertexPointer vertices = lovrMeshMapVertices(mesh, 0, count, false, true);
+    VertexPointer vertices = lovrMeshMapVertices(mesh, 0, count, false, true, true);
     memcpy(vertices.raw, vertexData->blob.data, vertexData->count * vertexData->format.stride);
   }
 
