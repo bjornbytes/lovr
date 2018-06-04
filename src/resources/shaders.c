@@ -28,7 +28,6 @@ const char* lovrShaderVertexPrefix = ""
 "#version 150 \n"
 #endif
 "#define MAX_BONES 48 \n"
-"in int lovrEye; \n"
 "in vec3 lovrPosition; \n"
 "in vec3 lovrNormal; \n"
 "in vec2 lovrTexCoord; \n"

@@ -531,12 +531,8 @@ void lovrGraphicsMatrixTransform(mat4 transform) {
 // Primitives
 
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t count) {
-  if (!state.mesh || state.mesh->count < count) {
-    size_t capacity = nextPo2(count);
-    lovrMeshResize(state.mesh, capacity);
-  }
-
-  return lovrMeshMapVertices(state.mesh, 0, count, false, true, true);
+  lovrMeshResize(state.mesh, count);
+  return lovrMeshMapVertices(state.mesh, 0, count, false, true);
 }
 
 void lovrGraphicsPoints(uint32_t count) {
