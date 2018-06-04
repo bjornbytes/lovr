@@ -21,6 +21,8 @@ static void renderHelper(void* userdata) {
   lua_State* L = renderData->L;
 #ifdef EMSCRIPTEN
   lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
+#else
+  lua_pushvalue(L, -1);
 #endif
   lua_call(L, 0, 0);
 }

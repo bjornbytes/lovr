@@ -203,6 +203,7 @@ static void fakeGetDisplayDimensions(int* width, int* height) {
   GLFWwindow* window = glfwGetCurrentContext();
   if (window) {
     glfwGetFramebufferSize(window, width, height);
+    *width /= 2;
   }
 }
 
@@ -299,39 +300,23 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   int width, height;
   fakeGetDisplayDimensions(&width, &height);
 
-  if (!state.canvas) {
-    lovrGraphicsBindFramebuffer(0);
-    int msaa = 0;
-    glGetIntegerv(GL_SAMPLES, &msaa);
-    CanvasFlags flags = { .msaa = msaa, .depth = true, .stencil = true, .stereo = true, .mipmaps = false };
-    state.canvas = lovrCanvasCreate(width * 2, height, FORMAT_RGB, flags);
-  }
+  float projection[16];
+  mat4_perspective(projection, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height);
 
-  Layer layer = { .canvas = state.canvas };
-  mat4_perspective(layer.projections, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height / 2.);
-  mat4_set(layer.projections + 16, layer.projections);
-  mat4_identity(layer.views);
-  mat4_translate(layer.views, 0, state.offset, 0);
-  mat4_multiply(layer.views, state.transform);
-  mat4_invert(layer.views);
-  mat4_set(layer.views + 16, layer.views);
+  float view[16];
+  mat4_identity(view);
+  mat4_translate(view, 0, state.offset, 0);
+  mat4_multiply(view, state.transform);
+  mat4_invert(view);
 
-  lovrGraphicsPushLayer(layer);
+  lovrGraphicsPushLayer(NULL);
   lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
+  lovrGraphicsSetCamera(projection, view);
+  lovrGraphicsSetViewport(0, 0, width, height);
+  callback(userdata);
+  lovrGraphicsSetViewport(width, 0, width, height);
   callback(userdata);
   lovrGraphicsPopLayer();
-
-  if (state.mirrored) {
-    Color oldColor = lovrGraphicsGetColor();
-    lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
-    Shader* lastShader = lovrGraphicsGetShader();
-    lovrRetain(lastShader);
-    lovrGraphicsSetShader(NULL);
-    lovrGraphicsFill(&state.canvas->texture);
-    lovrGraphicsSetShader(lastShader);
-    lovrRelease(lastShader);
-    lovrGraphicsSetColor(oldColor);
-  }
 }
 
 static void fakeUpdate(float dt) {

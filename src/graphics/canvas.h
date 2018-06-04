@@ -9,7 +9,6 @@ typedef struct {
   int msaa;
   bool depth;
   bool stencil;
-  bool stereo;
   bool mipmaps;
 } CanvasFlags;
 

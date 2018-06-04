@@ -32,7 +32,6 @@ extern void webvrSetRenderCallback(void (*callback)(float*, float*, float*, floa
 extern void webvrUpdate(float dt);
 
 typedef struct {
-  Canvas* canvas;
   vec_controller_t controllers;
   void (*renderCallback)(void*);
 } HeadsetState;
@@ -88,34 +87,17 @@ static void onMountChanged(bool mounted) {
 }
 
 static void onFrame(float* leftView, float* rightView, float* leftProjection, float* rightProjection, void* userdata) {
-  if (!state.canvas) {
-    int32_t width, height;
-    webvrGetDisplayDimensions(&width, &height);
-    CanvasFlags flags = { .msaa = 0, .depth = true, .stencil = true, .stereo = true, .mipmaps = false };
-    state.canvas = lovrCanvasCreate(width, height, FORMAT_RGB, flags);
-  }
-
-  Layer layer = { .canvas = state.canvas };
-
-  memcpy(layer.views, leftView, 16 * sizeof(float));
-  memcpy(layer.views + 16, rightView, 16 * sizeof(float));
-  memcpy(layer.projections, leftProjection, 16 * sizeof(float));
-  memcpy(layer.projections + 16, rightProjection, 16 * sizeof(float));
-
-  lovrGraphicsPushLayer(layer);
+  int width, height;
+  webvrGetDisplayDimensions(&width, &height);
+  lovrGraphicsPushLayer(NULL);
   lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
+  lovrGraphicsSetCamera(leftProjection, leftView);
+  lovrGraphicsSetViewport(0, 0, width, height);
+  state.renderCallback(userdata);
+  lovrGraphicsSetCamera(rightProjection, rightView);
+  lovrGraphicsSetViewport(width, 0, width, height);
   state.renderCallback(userdata);
   lovrGraphicsPopLayer();
-
-  Color oldColor = lovrGraphicsGetColor();
-  lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
-  Shader* lastShader = lovrGraphicsGetShader();
-  lovrRetain(lastShader);
-  lovrGraphicsSetShader(NULL);
-  lovrGraphicsFill(&state.canvas->texture);
-  lovrGraphicsSetShader(lastShader);
-  lovrRelease(lastShader);
-  lovrGraphicsSetColor(oldColor);
 }
 
 static bool webvrDriverInit(float offset) {
@@ -131,7 +113,6 @@ static bool webvrDriverInit(float offset) {
 
 static void webvrDriverDestroy() {
   webvrDestroy();
-  lovrRelease(state.canvas);
   vec_deinit(&state.controllers);
   memset(&state, 0, sizeof(HeadsetState));
 }

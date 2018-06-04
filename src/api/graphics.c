@@ -835,7 +835,7 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
   luaL_argcheck(L, height > 0, 2, "height must be positive");
 
   TextureFormat format = FORMAT_RGBA;
-  CanvasFlags flags = { .msaa = 0, .depth = true, .stencil = false, .stereo = false, .mipmaps = true };
+  CanvasFlags flags = { .msaa = 0, .depth = true, .stencil = false, .mipmaps = true };
 
   if (lua_istable(L, 3)) {
     lua_getfield(L, 3, "format");
@@ -852,10 +852,6 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
 
     lua_getfield(L, 3, "stencil");
     flags.stencil = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 3, "stereo");
-    flags.stereo = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "mipmaps");

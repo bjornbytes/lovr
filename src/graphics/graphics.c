@@ -54,7 +54,6 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultFont);
   lovrRelease(state.defaultTexture);
   lovrRelease(state.mesh);
-  glDeleteBuffers(1, &state.cameraBuffer);
   memset(&state, 0, sizeof(GraphicsState));
 }
 
@@ -63,10 +62,8 @@ void lovrGraphicsReset() {
   int h = lovrGraphicsGetHeight();
   state.transform = 0;
   state.layer = 0;
-  mat4_perspective(state.layers[state.layer].projections, .01f, 100.f, 67 * M_PI / 180., (float) w / h);
-  mat4_perspective(state.layers[state.layer].projections + 16, .01f, 100.f, 67 * M_PI / 180., (float) w / h);
-  mat4_identity(state.layers[state.layer].views);
-  mat4_identity(state.layers[state.layer].views + 16);
+  mat4_perspective(state.layers[state.layer].projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h);
+  mat4_identity(state.layers[state.layer].view);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1. });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetColor((Color) { 1., 1., 1., 1. });
@@ -180,10 +177,6 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
   vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
   state.mesh = lovrMeshCreate(64, format, MESH_TRIANGLES, MESH_STREAM);
-  glGenBuffers(1, &state.cameraBuffer);
-  glBindBuffer(GL_UNIFORM_BUFFER, state.cameraBuffer);
-  glBufferData(GL_UNIFORM_BUFFER, 4 * 16 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
-  glBindBufferBase(GL_UNIFORM_BUFFER, LOVR_SHADER_BLOCK_CAMERA, state.cameraBuffer);
   lovrGraphicsReset();
   state.initialized = true;
 }
@@ -1006,29 +999,28 @@ void lovrGraphicsFill(Texture* texture) {
 
 // Internal
 void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, int instances) {
-  Shader* shader = state.shader ? state.shader : state.defaultShaders[defaultShader];
-
-  if (!shader) {
-    shader = state.defaultShaders[defaultShader] = lovrShaderCreateDefault(defaultShader);
-  }
 
   // Layer
   Layer layer = state.layers[state.layer];
   Canvas* canvas = state.canvasCount > 0 ? state.canvas[0] : layer.canvas;
   lovrGraphicsBindFramebuffer(canvas ? canvas->framebuffer : 0);
-  uint32_t width = canvas ? canvas->texture.width : lovrGraphicsGetWidth();
-  uint32_t height = canvas ? canvas->texture.height : lovrGraphicsGetHeight();
-  uint32_t viewport[4] = { 0, 0, width, height };
+
+  uint32_t viewport[4];
+  if (state.canvasCount > 0) {
+    viewport[0] = 0;
+    viewport[1] = 0;
+    viewport[2] = state.canvas[0]->texture.width;
+    viewport[3] = state.canvas[0]->texture.height;
+  } else {
+    viewport[0] = layer.viewport[0];
+    viewport[1] = layer.viewport[1];
+    viewport[2] = layer.viewport[2];
+    viewport[3] = layer.viewport[3];
+  }
 
   if (memcmp(state.viewport, viewport, 4 * sizeof(uint32_t))) {
     memcpy(state.viewport, viewport, 4 * sizeof(uint32_t));
     glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  }
-
-  if (memcmp(state.cameraData, &layer, 4 * 16 * sizeof(float))) {
-    memcpy(state.cameraData, &layer, 4 * 16 * sizeof(float));
-    glBindBuffer(GL_UNIFORM_BUFFER, state.cameraBuffer);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, 4 * 16 * sizeof(float), &layer);
   }
 
   // Transforms
@@ -1037,38 +1029,36 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
     lovrGraphicsMatrixTransform(transform);
   }
 
+  Shader* shader = state.shader ? state.shader : state.defaultShaders[defaultShader];
+
+  if (!shader) {
+    shader = state.defaultShaders[defaultShader] = lovrShaderCreateDefault(defaultShader);
+  }
+
+  lovrShaderSetMatrix(shader, "lovrProjection", layer.projection, 16);
+  lovrShaderSetMatrix(shader, "lovrView", layer.view, 16);
+
   mat4 model = state.transforms[state.transform];
   lovrShaderSetMatrix(shader, "lovrModel", model, 16);
 
-  float transforms[32];
-  mat4_multiply(mat4_set(transforms + 0, layer.views + 0), model);
-  mat4_multiply(mat4_set(transforms + 16, layer.views + 16), model);
-  lovrShaderSetMatrix(shader, "lovrTransforms", transforms, 32);
+  float modelView[16];
+  mat4_multiply(mat4_set(modelView, layer.view), model);
+  lovrShaderSetMatrix(shader, "lovrTransform", modelView, 16);
 
-  if (lovrShaderGetUniform(shader, "lovrNormalMatrices")) {
-    if (mat4_invert(transforms)) {
-      mat4_transpose(transforms);
+  if (lovrShaderGetUniform(shader, "lovrNormalMatrix")) {
+    if (mat4_invert(modelView)) {
+      mat4_transpose(modelView);
     } else {
-      mat4_identity(transforms);
+      mat4_identity(modelView);
     }
 
-    if (mat4_invert(transforms + 16)) {
-      mat4_transpose(transforms + 16);
-    } else {
-      mat4_identity(transforms + 16);
-    }
-
-    float normalMatrix[18] = {
-      transforms[0], transforms[1], transforms[2],
-      transforms[4], transforms[5], transforms[6],
-      transforms[8], transforms[9], transforms[10],
-
-      transforms[16], transforms[17], transforms[18],
-      transforms[20], transforms[21], transforms[22],
-      transforms[24], transforms[25], transforms[26]
+    float normalMatrix[9] = {
+      modelView[0], modelView[1], modelView[2],
+      modelView[4], modelView[5], modelView[6],
+      modelView[8], modelView[9], modelView[10],
     };
 
-    lovrShaderSetMatrix(shader, "lovrNormalMatrices", normalMatrix, 18);
+    lovrShaderSetMatrix(shader, "lovrNormalMatrix", normalMatrix, 9);
   }
 
   // Color
@@ -1079,10 +1069,6 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
 
   // Point size
   lovrShaderSetFloat(shader, "lovrPointSize", &state.pointSize, 1);
-
-  // Stereo
-  int stereo = canvas ? canvas->flags.stereo : false;
-  lovrShaderSetInt(shader, "lovrIsStereo", &stereo, 1);
 
   // Pose
   float* pose = lovrMeshGetPose(mesh);
@@ -1124,17 +1110,25 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   lovrGraphicsBindVertexArray(mesh->vao);
   lovrMeshUnmapVertices(mesh);
   lovrMeshUnmapIndices(mesh);
-  lovrMeshBind(mesh, shader, stereo);
+  lovrMeshBind(mesh, shader);
 
   size_t start = mesh->rangeStart;
   if (mesh->indexCount > 0) {
     size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
     GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
     size_t offset = start * mesh->indexSize;
-    glDrawElementsInstanced(mesh->drawMode, count, indexType, (GLvoid*) offset, instances * (1 + stereo));
+    if (instances > 1) {
+      glDrawElementsInstanced(mesh->drawMode, count, indexType, (GLvoid*) offset, instances);
+    } else {
+      glDrawElements(mesh->drawMode, count, indexType, (GLvoid*) offset);
+    }
   } else {
     size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->count;
-    glDrawArraysInstanced(mesh->drawMode, start, count, instances * (1 + stereo));
+    if (instances > 1) {
+      glDrawArraysInstanced(mesh->drawMode, start, count, instances);
+    } else {
+      glDrawArrays(mesh->drawMode, start, count);
+    }
   }
 
   if (transform) {
@@ -1144,12 +1138,13 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   state.stats.drawCalls++;
 }
 
-void lovrGraphicsPushLayer(Layer layer) {
+void lovrGraphicsPushLayer(Canvas* canvas) {
   if (++state.layer >= MAX_LAYERS) {
     lovrThrow("Layer overflow");
   }
 
-  memcpy(&state.layers[state.layer], &layer, sizeof(Layer));
+  memcpy(&state.layers[state.layer], &state.layers[state.layer - 1], sizeof(Layer));
+  state.layers[state.layer].canvas = canvas;
 }
 
 void lovrGraphicsPopLayer() {
@@ -1158,6 +1153,18 @@ void lovrGraphicsPopLayer() {
   }
 
   lovrAssert(--state.layer >= 0, "Layer underflow");
+}
+
+void lovrGraphicsSetCamera(mat4 projection, mat4 view) {
+  mat4_set(state.layers[state.layer].projection, projection);
+  mat4_set(state.layers[state.layer].view, view);
+}
+
+void lovrGraphicsSetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
+  state.layers[state.layer].viewport[0] = x;
+  state.layers[state.layer].viewport[1] = y;
+  state.layers[state.layer].viewport[2] = width;
+  state.layers[state.layer].viewport[3] = height;
 }
 
 Texture* lovrGraphicsGetTexture(int slot) {

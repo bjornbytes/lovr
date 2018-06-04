@@ -252,7 +252,7 @@ static void ensureCanvas() {
   int msaa = 0;
   glGetIntegerv(GL_SAMPLES, &msaa);
   state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
-  CanvasFlags flags = { .msaa = msaa, .depth = true, .stencil = true, .stereo = true, .mipmaps = false };
+  CanvasFlags flags = { .msaa = msaa, .depth = true, .stencil = true, .mipmaps = false };
   state.canvas = lovrCanvasCreate(state.renderWidth * 2, state.renderHeight, FORMAT_RGB, flags);
 }
 
@@ -664,59 +664,44 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 }
 
 static void openvrRenderTo(void (*callback)(void*), void* userdata) {
+  float head[16], eye[16], projection[16], view[16];
+
   ensureCanvas();
   state.isRendering = true;
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
+  mat4_fromMat34(head, state.renderPoses[state.headsetIndex].mDeviceToAbsoluteTracking.m);
 
-  // Layer setup
-  Layer layer = { .canvas = state.canvas };
-  float eye[16];
-  float head[16];
-  float (*matrix)[4];
-  matrix = state.renderPoses[state.headsetIndex].mDeviceToAbsoluteTracking.m;
-  mat4_fromMat34(head, matrix);
+  lovrGraphicsPushLayer(state.canvas);
+  lovrGraphicsSetViewport(0, 0, state.renderWidth, state.renderHeight);
 
   for (HeadsetEye i = EYE_LEFT; i <= EYE_RIGHT; i++) {
+
+    // Camera
     EVREye vrEye = (i == EYE_LEFT) ? EVREye_Eye_Left : EVREye_Eye_Right;
-
-    // Projection
-    matrix = state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m;
-    mat4 projection = layer.projections + 16 * i;
-    mat4_fromMat44(projection, matrix);
-
-    // View
-    matrix = state.system->GetEyeToHeadTransform(vrEye).m;
-    mat4_fromMat34(eye, matrix);
-    mat4 view = layer.views + 16 * i;
+    mat4_fromMat44(projection, state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
     mat4_identity(view);
     mat4_translate(view, 0, state.offset, 0);
     mat4_multiply(view, head);
-    mat4_multiply(view, eye);
+    mat4_multiply(view, mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
     mat4_invert(view);
+    lovrGraphicsSetCamera(projection, view);
+
+    // Render
+    lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
+    callback(userdata);
+    lovrCanvasResolve(state.canvas);
+
+    // Submit
+    glActiveTexture(GL_TEXTURE0);
+    Texture* oldTexture = lovrGraphicsGetTexture(0);
+    uintptr_t texture = (uintptr_t) state.canvas->texture.id;
+    EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
+    Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
+    state.compositor->Submit(vrEye, &eyeTexture, NULL, EVRSubmitFlags_Submit_Default);
+    glBindTexture(GL_TEXTURE_2D, oldTexture->id);
   }
 
-  // Render
-  lovrGraphicsPushLayer(layer);
-  lovrGraphicsClear(true, true, false, lovrGraphicsGetBackgroundColor(), 1., 0);
-  callback(userdata);
   lovrGraphicsPopLayer();
-
-  // OpenVR changes the OpenGL texture binding, so we reset it after rendering
-  glActiveTexture(GL_TEXTURE0);
-  Texture* oldTexture = lovrGraphicsGetTexture(0);
-
-  // Submit
-  uintptr_t texture = (uintptr_t) state.canvas->texture.id;
-  EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
-  Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
-  VRTextureBounds_t left = { 0, 0, .5, 1. };
-  VRTextureBounds_t right = { .5, 0, 1., 1. };
-  state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
-  state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
-
-  // Reset to the correct texture
-  glBindTexture(GL_TEXTURE_2D, oldTexture->id);
-
   state.isRendering = false;
 
   if (state.isMirrored) {

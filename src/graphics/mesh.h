@@ -70,7 +70,7 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode,
 void lovrMeshDestroy(void* ref);
 void lovrMeshAttachAttribute(Mesh* mesh, Mesh* other, const char* name, int divisor);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
-void lovrMeshBind(Mesh* mesh, Shader* shader, bool stereo);
+void lovrMeshBind(Mesh* mesh, Shader* shader);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);
 void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode);

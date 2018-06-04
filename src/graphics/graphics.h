@@ -71,9 +71,10 @@ typedef enum {
 } StencilAction;
 
 typedef struct {
-  float projections[32];
-  float views[32];
+  float projection[16];
+  float view[16];
   Canvas* canvas;
+  int viewport[4];
 } Layer;
 
 typedef struct {
@@ -98,6 +99,8 @@ typedef struct {
   Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
   int transform;
+  Layer layers[MAX_LAYERS];
+  int layer;
   Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
@@ -119,10 +122,6 @@ typedef struct {
   Winding winding;
   bool wireframe;
   Mesh* mesh;
-  uint32_t cameraBuffer;
-  float cameraData[4][16];
-  Layer layers[MAX_LAYERS];
-  int layer;
   Texture* textures[MAX_TEXTURES];
   bool stencilEnabled;
   bool stencilWriting;
@@ -131,7 +130,6 @@ typedef struct {
   uint32_t viewport[4];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
-  uint32_t uniformBuffer;
   uint32_t indexBuffer;
   GraphicsStats stats;
 } GraphicsState;
@@ -207,8 +205,10 @@ void lovrGraphicsFill(Texture* texture);
 // Internal
 void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader shader, int instances);
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
-void lovrGraphicsPushLayer(Layer layer);
+void lovrGraphicsPushLayer(Canvas* canvas);
 void lovrGraphicsPopLayer();
+void lovrGraphicsSetCamera(mat4 projection, mat4 view);
+void lovrGraphicsSetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 Texture* lovrGraphicsGetTexture(int slot);
 void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot);
 Material* lovrGraphicsGetDefaultMaterial();
