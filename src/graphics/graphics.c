@@ -62,6 +62,7 @@ void lovrGraphicsReset() {
   int h = lovrGraphicsGetHeight();
   state.transform = 0;
   state.layer = 0;
+  memcpy(state.layers[state.layer].viewport, (int[]) { 0, 0, w, h }, 4 * sizeof(uint32_t));
   mat4_perspective(state.layers[state.layer].projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h);
   mat4_identity(state.layers[state.layer].view);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1. });

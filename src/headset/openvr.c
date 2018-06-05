@@ -253,7 +253,7 @@ static void ensureCanvas() {
   glGetIntegerv(GL_SAMPLES, &msaa);
   state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
   CanvasFlags flags = { .msaa = msaa, .depth = true, .stencil = true, .mipmaps = false };
-  state.canvas = lovrCanvasCreate(state.renderWidth * 2, state.renderHeight, FORMAT_RGB, flags);
+  state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, flags);
 }
 
 static bool openvrInit(float offset) {
@@ -687,7 +687,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     lovrGraphicsSetCamera(projection, view);
 
     // Render
-    lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
+    lovrGraphicsClear(true, true, false, lovrGraphicsGetBackgroundColor(), 1., 0);
     callback(userdata);
     lovrCanvasResolve(state.canvas);
 
