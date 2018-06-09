@@ -27,6 +27,8 @@ typedef struct {
 
   double yaw;
   double pitch;
+  double vYaw;
+  double vPitch;
 
   float orientation[4];
   float transform[16];
@@ -37,6 +39,7 @@ typedef struct {
   bool mouselook;
   double prevCursorX;
   double prevCursorY;
+  double prevMove;
 } FakeHeadsetState;
 
 static FakeHeadsetState state;
@@ -73,11 +76,17 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
   state.prevCursorX = xpos;
   state.prevCursorY = ypos;
 
-  const double k = 0.01;
-  const double l = 0.01;
+  const double k = 0.002;
+  const double l = 0.002;
+
+  double t = glfwGetTime();
 
   state.yaw -= dx * k;
   state.pitch -= CLAMP(dy * l, -M_PI / 2., M_PI / 2.);
+  state.vYaw = dx / (t - state.prevMove);
+  state.vPitch = dy / (t - state.prevMove);
+
+  state.prevMove = t;
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -350,6 +359,13 @@ static void fakeUpdate(float dt) {
   // move
   mat4_transformDirection(state.transform, &v[0], &v[1], &v[2]);
   vec3_add(state.pos, v);
+
+  if (!state.mouselook) {
+    state.yaw -= state.vYaw * .002 * dt;
+    state.pitch -= CLAMP(state.vPitch * .002 * dt, -M_PI / 2., M_PI / 2.);
+    state.vYaw = state.vYaw + (-state.vYaw) * (1 - pow(.001, dt));
+    state.vPitch = state.vPitch + (-state.vPitch) * (1 - pow(.001, dt));
+  }
 
   // update transform
   mat4_identity(state.transform);
