@@ -3,10 +3,8 @@
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "math/quat.h"
-#include "util.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -20,21 +18,16 @@ typedef struct {
 
   float clipNear;
   float clipFar;
-  float fov;
 
-  float pos[3];
-  float vel[3];
-  float avel[3];
+  float position[3];
+  float velocity[3];
+  float angularVelocity[3];
 
   double yaw;
   double pitch;
-
-  float orientation[4];
   float transform[16];
 
-  GLFWwindow* hookedWindow;
-  Canvas* canvas;
-
+  GLFWwindow* window;
   bool mouselook;
   double prevCursorX;
   double prevCursorY;
@@ -42,10 +35,6 @@ typedef struct {
 } FakeHeadsetState;
 
 static FakeHeadsetState state;
-
-/*
- * callback handlers
- */
 
 static void enableMouselook(GLFWwindow* window) {
   if (window) {
@@ -58,17 +47,17 @@ static void enableMouselook(GLFWwindow* window) {
 static void disableMouselook(GLFWwindow* window) {
   state.mouselook = false;
   if (glfwGetTime() - state.prevMove > .1) {
-    vec3_set(state.avel, 0, 0, 0);
+    vec3_set(state.angularVelocity, 0, 0, 0);
   }
 }
 
-static void window_focus_callback(GLFWwindow* window, int focused) {
+static void onFocus(GLFWwindow* window, int focused) {
   if (!focused) {
     disableMouselook(window);
   }
 }
 
-static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
+static void onMouseMove(GLFWwindow* window, double xpos, double ypos) {
   if (!state.mouselook) {
     return;
   }
@@ -85,66 +74,55 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
 
   state.yaw -= dx * k;
   state.pitch = CLAMP(state.pitch - dy * l, -M_PI / 2., M_PI / 2.);
-  state.avel[0] = dy / (t - state.prevMove);
-  state.avel[1] = dx / (t - state.prevMove);
+  state.angularVelocity[0] = dy / (t - state.prevMove);
+  state.angularVelocity[1] = dx / (t - state.prevMove);
 
   state.prevMove = t;
 }
 
-static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-  if (!state.mouselook && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-    enableMouselook(window);
-  } else if (state.mouselook && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-    disableMouselook(window);
-  }
-
-  // now generate events on fake controllers
-  {
-    Event ev;
-    Controller* controller;
-    int i;
-    switch (action) {
-      case GLFW_PRESS:
-        ev.type = EVENT_CONTROLLER_PRESSED;
-        break;
-      case GLFW_RELEASE:
-        ev.type = EVENT_CONTROLLER_RELEASED;
-        break;
-      default:
-        return;
+static void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
+  if (button == GLFW_MOUSE_BUTTON_LEFT) {
+    if (!state.mouselook && action == GLFW_PRESS) {
+      enableMouselook(window);
+    } else if (state.mouselook && action == GLFW_RELEASE) {
+      disableMouselook(window);
     }
 
-    vec_foreach(&state.controllers, controller, i) {
-      if (controller->id == 0) {
-        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-          ev.data.controllerpressed.controller = controller;
-          ev.data.controllerpressed.button = CONTROLLER_BUTTON_TRIGGER;
-          lovrEventPush(ev);
-        }
+    return;
+  }
+
+  Event event;
+  Controller* controller;
+  int i;
+  vec_foreach(&state.controllers, controller, i) {
+    if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+      if (action == GLFW_PRESS) {
+        event.type = EVENT_CONTROLLER_PRESSED;
+        event.data.controllerpressed.controller = controller;
+        event.data.controllerpressed.button = CONTROLLER_BUTTON_TRIGGER;
+      } else {
+        event.type = EVENT_CONTROLLER_RELEASED;
+        event.data.controllerreleased.controller = controller;
+        event.data.controllerreleased.button = CONTROLLER_BUTTON_TRIGGER;
       }
+      lovrEventPush(event);
     }
   }
 }
 
-// headset can start up without a window, so we poll window existance here
-static void check_window_existance() {
+static void updateWindow() {
   GLFWwindow* window = glfwGetCurrentContext();
 
-  if (window == state.hookedWindow) {
-    // no change
+  if (window == state.window) {
     return;
   }
 
-  state.hookedWindow = window;
-  // window might be coming or going.
-  // If it's coming we'll install our event hooks.
-  // If it's going, it's already gone, so no way to uninstall our hooks.
+  state.window = window;
   if (window) {
-    glfwSetMouseButtonCallback(window, mouse_button_callback);
-    glfwSetCursorPosCallback(window, cursor_position_callback);
-    glfwSetWindowFocusCallback(window, window_focus_callback);
+    glfwSetMouseButtonCallback(window, onMouseButton);
+    glfwSetCursorPosCallback(window, onMouseMove);
+    glfwSetWindowFocusCallback(window, onFocus);
 
-    // can now actually do mouselook!
     if (state.mouselook) {
       enableMouselook(window);
     } else {
@@ -159,16 +137,13 @@ static bool fakeInit(float offset) {
 
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
-  state.fov = 67.0f * M_PI / 100.0f;
-
-  mat4_identity(state.transform);
 
   state.pitch = 0.0;
   state.yaw = 0.0;
-  quat_set(state.orientation, 0, 0, 0, 1);
+  mat4_identity(state.transform);
 
-  vec3_set(state.vel, 0, 0, 0);
-  vec3_set(state.pos, 0, 0, 0);
+  vec3_set(state.velocity, 0, 0, 0);
+  vec3_set(state.position, 0, 0, 0);
 
   vec_init(&state.controllers);
   Controller* controller = lovrAlloc(sizeof(Controller), free);
@@ -176,7 +151,7 @@ static bool fakeInit(float offset) {
   vec_push(&state.controllers, controller);
 
   state.mouselook = false;
-  state.hookedWindow = NULL;
+  state.window = NULL;
   return true;
 }
 
@@ -211,9 +186,8 @@ static void fakeSetMirrored(bool mirror) {
 }
 
 static void fakeGetDisplayDimensions(int* width, int* height) {
-  GLFWwindow* window = glfwGetCurrentContext();
-  if (window) {
-    glfwGetFramebufferSize(window, width, height);
+  if (state.window) {
+    glfwGetFramebufferSize(state.window, width, height);
     *width /= 2;
   }
 }
@@ -233,9 +207,9 @@ static void fakeGetBoundsDimensions(float* width, float* depth) {
 }
 
 static void fakeGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  *x = state.pos[0];
-  *y = state.pos[1];
-  *z = state.pos[2];
+  *x = state.position[0];
+  *y = state.position[1];
+  *z = state.position[2];
   float q[4];
   quat_fromMat4(q, state.transform);
   quat_getAngleAxis(q, angle, ax, ay, az);
@@ -246,13 +220,15 @@ static void fakeGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* 
 }
 
 static void fakeGetVelocity(float* x, float* y, float* z) {
-  *x = state.vel[0];
-  *y = state.vel[1];
-  *z = state.vel[2];
+  *x = state.velocity[0];
+  *y = state.velocity[1];
+  *z = state.velocity[2];
 }
 
 static void fakeGetAngularVelocity(float* x, float* y, float* z) {
-  *x = *y = *z = 0;
+  *x = state.angularVelocity[0];
+  *y = state.angularVelocity[1];
+  *z = state.angularVelocity[2];
 }
 
 static Controller** fakeGetControllers(uint8_t* count) {
@@ -270,7 +246,7 @@ static ControllerHand fakeControllerGetHand(Controller* controller) {
 
 static void fakeControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = 0;
-  *y = 0;
+  *y = state.offset;
   *z = -1;
   mat4_transform(state.transform, x, y, z);
 
@@ -284,12 +260,7 @@ static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) 
 }
 
 static bool fakeControllerIsDown(Controller* controller, ControllerButton button) {
-  GLFWwindow* window = glfwGetCurrentContext();
-  if (!window) {
-    return false;
-  }
-  int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
-  return state == GLFW_PRESS;
+  return state.window ? (glfwGetMouseButton(state.window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) : false;
 }
 
 static bool fakeControllerIsTouched(Controller* controller, ControllerButton button) {
@@ -297,6 +268,7 @@ static bool fakeControllerIsTouched(Controller* controller, ControllerButton but
 }
 
 static void fakeControllerVibrate(Controller* controller, float duration, float power) {
+  //
 }
 
 static ModelData* fakeControllerNewModelData(Controller* controller) {
@@ -304,7 +276,7 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
 }
 
 static void fakeRenderTo(void (*callback)(void*), void* userdata) {
-  if (!state.mirrored) {
+  if (!state.window || !state.mirrored) {
     return;
   }
 
@@ -331,49 +303,37 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
 }
 
 static void fakeUpdate(float dt) {
-  check_window_existance();
-  GLFWwindow* w = glfwGetCurrentContext();
-  if (!w) {
+  updateWindow();
+
+  if (!state.window) {
     return;
   }
 
-  float k = 4.0f * dt;
-  float v[3] = {0.0f,0.0f,0.0f};
-  if (glfwGetKey(w, GLFW_KEY_W)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_UP)==GLFW_PRESS) {
-    v[2] = -k;
-  }
-  if (glfwGetKey(w, GLFW_KEY_S)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_DOWN)==GLFW_PRESS) {
-    v[2] = k;
-  }
-  if (glfwGetKey(w, GLFW_KEY_A)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_LEFT)==GLFW_PRESS) {
-    v[0] = -k;
-  }
-  if (glfwGetKey(w, GLFW_KEY_D)==GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT)==GLFW_PRESS) {
-    v[0] = k;
-  }
-  if (glfwGetKey(w, GLFW_KEY_Q) == GLFW_PRESS) {
-    v[1] = k;
-  }
-  if (glfwGetKey(w, GLFW_KEY_E) == GLFW_PRESS) {
-    v[1] = -k;
-  }
+  bool front = glfwGetKey(state.window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(state.window, GLFW_KEY_UP) == GLFW_PRESS;
+  bool back = glfwGetKey(state.window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(state.window, GLFW_KEY_DOWN) == GLFW_PRESS;
+  bool left = glfwGetKey(state.window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(state.window, GLFW_KEY_LEFT) == GLFW_PRESS;
+  bool right = glfwGetKey(state.window, GLFW_KEY_D) == GLFW_PRESS || glfwGetKey(state.window, GLFW_KEY_RIGHT) == GLFW_PRESS;
+  bool up = glfwGetKey(state.window, GLFW_KEY_Q) == GLFW_PRESS;
+  bool down = glfwGetKey(state.window, GLFW_KEY_E) == GLFW_PRESS;
 
-  // move
-  mat4_transformDirection(state.transform, &v[0], &v[1], &v[2]);
-  vec3_add(state.pos, v);
+  float k = 4.0f * dt;
+  state.velocity[0] = left ? -k : (right ? k : 0);
+  state.velocity[1] = up ? k : (down ? -k : 0);
+  state.velocity[2] = front ? -k : (back ? k : 0);
+
+  mat4_transformDirection(state.transform, &state.velocity[0], &state.velocity[1], &state.velocity[2]);
+  vec3_add(state.position, state.velocity);
 
   if (!state.mouselook) {
-    state.pitch = CLAMP(state.pitch - state.avel[0] * .002 * dt, -M_PI / 2., M_PI / 2.);
-    state.yaw -= state.avel[1] * .002 * dt;
-    state.avel[0] = state.avel[0] + (-state.avel[0]) * (1 - pow(.001, dt));
-    state.avel[1] = state.avel[1] + (-state.avel[1]) * (1 - pow(.001, dt));
+    state.pitch = CLAMP(state.pitch - state.angularVelocity[0] * .002 * dt, -M_PI / 2., M_PI / 2.);
+    state.yaw -= state.angularVelocity[1] * .002 * dt;
+    vec3_scale(state.angularVelocity, pow(.001, dt));
   }
 
-  // update transform
   mat4_identity(state.transform);
-  mat4_translate(state.transform, state.pos[0], state.pos[1], state.pos[2]);
-  mat4_rotate(state.transform, state.yaw, 0,1,0);
-  mat4_rotate(state.transform, state.pitch, 1,0,0);
+  mat4_translate(state.transform, state.position[0], state.position[1], state.position[2]);
+  mat4_rotate(state.transform, state.yaw, 0, 1, 0);
+  mat4_rotate(state.transform, state.pitch, 1, 0, 0);
 }
 
 HeadsetInterface lovrHeadsetFakeDriver = {
