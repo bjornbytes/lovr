@@ -58,6 +58,9 @@ static void enableMouselook(GLFWwindow* window) {
 
 static void disableMouselook(GLFWwindow* window) {
   state.mouselook = false;
+  if (glfwGetTime() - state.prevMove > .25) {
+    state.vYaw = state.vPitch = 0;
+  }
 }
 
 static void window_focus_callback(GLFWwindow* window, int focused) {
