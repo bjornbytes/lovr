@@ -22,13 +22,12 @@ typedef struct {
   float clipFar;
   float fov;
 
-  float vel[3];
   float pos[3];
+  float vel[3];
+  float avel[3];
 
   double yaw;
   double pitch;
-  double vYaw;
-  double vPitch;
 
   float orientation[4];
   float transform[16];
@@ -58,8 +57,8 @@ static void enableMouselook(GLFWwindow* window) {
 
 static void disableMouselook(GLFWwindow* window) {
   state.mouselook = false;
-  if (glfwGetTime() - state.prevMove > .25) {
-    state.vYaw = state.vPitch = 0;
+  if (glfwGetTime() - state.prevMove > .1) {
+    vec3_set(state.avel, 0, 0, 0);
   }
 }
 
@@ -79,15 +78,15 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
   state.prevCursorX = xpos;
   state.prevCursorY = ypos;
 
-  const double k = 0.002;
-  const double l = 0.002;
+  const double k = 0.003;
+  const double l = 0.003;
 
   double t = glfwGetTime();
 
   state.yaw -= dx * k;
-  state.pitch -= CLAMP(dy * l, -M_PI / 2., M_PI / 2.);
-  state.vYaw = dx / (t - state.prevMove);
-  state.vPitch = dy / (t - state.prevMove);
+  state.pitch = CLAMP(state.pitch - dy * l, -M_PI / 2., M_PI / 2.);
+  state.avel[0] = dy / (t - state.prevMove);
+  state.avel[1] = dx / (t - state.prevMove);
 
   state.prevMove = t;
 }
@@ -364,10 +363,10 @@ static void fakeUpdate(float dt) {
   vec3_add(state.pos, v);
 
   if (!state.mouselook) {
-    state.yaw -= state.vYaw * .002 * dt;
-    state.pitch -= CLAMP(state.vPitch * .002 * dt, -M_PI / 2., M_PI / 2.);
-    state.vYaw = state.vYaw + (-state.vYaw) * (1 - pow(.001, dt));
-    state.vPitch = state.vPitch + (-state.vPitch) * (1 - pow(.001, dt));
+    state.pitch = CLAMP(state.pitch - state.avel[0] * .002 * dt, -M_PI / 2., M_PI / 2.);
+    state.yaw -= state.avel[1] * .002 * dt;
+    state.avel[0] = state.avel[0] + (-state.avel[0]) * (1 - pow(.001, dt));
+    state.avel[1] = state.avel[1] + (-state.avel[1]) * (1 - pow(.001, dt));
   }
 
   // update transform
