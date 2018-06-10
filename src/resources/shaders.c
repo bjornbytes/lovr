@@ -107,7 +107,7 @@ const char* lovrCubeVertexShader = ""
 "out vec3 texturePosition; \n"
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  texturePosition = inverse(mat3(transform)) * (inverse(projection) * vertex).xyz; \n"
-"  texturePosition.y *= -1; \n"
+"  texturePosition.y *= -1.; \n"
 "  return vertex; \n"
 "}";
 
@@ -123,7 +123,7 @@ const char* lovrPanoFragmentShader = ""
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  float theta = acos(texturePosition.y / length(texturePosition)); \n"
 "  float phi = atan(texturePosition.x, texturePosition.z); \n"
-"  uv = vec2(.5 + phi / (2 * PI), theta / PI); \n"
+"  uv = vec2(.5 + phi / (2. * PI), theta / PI); \n"
 "  return graphicsColor * texture(lovrDiffuseTexture, uv); \n"
 "}";
 
