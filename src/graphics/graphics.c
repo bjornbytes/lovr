@@ -67,6 +67,7 @@ void lovrGraphicsReset() {
   mat4_identity(state.layers[state.layer].view);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1. });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
+  lovrGraphicsSetCanvas(NULL, 0);
   lovrGraphicsSetColor((Color) { 1., 1., 1., 1. });
   lovrGraphicsSetCullingEnabled(false);
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = FILTER_TRILINEAR });
