@@ -163,7 +163,6 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   glfwSwapInterval(0);
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PROGRAM_POINT_SIZE);
-  glEnable(GL_CLIP_DISTANCE0);
   if (state.gammaCorrect) {
     glEnable(GL_FRAMEBUFFER_SRGB);
   } else {
