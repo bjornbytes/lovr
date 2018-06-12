@@ -77,12 +77,21 @@ void lovrMeshBind(Mesh* mesh, Shader* shader) {
   MeshAttachment layout[MAX_ATTACHMENTS];
   memset(layout, 0, MAX_ATTACHMENTS * sizeof(MeshAttachment));
 
+  lovrGraphicsBindVertexArray(mesh->vao);
+  lovrMeshUnmapVertices(mesh);
+  lovrMeshUnmapIndices(mesh);
+  if (mesh->indexCount > 0) {
+    lovrGraphicsBindIndexBuffer(mesh->ibo);
+  }
+
   while ((key = map_next(&mesh->attachments, &iter)) != NULL) {
     int location = lovrShaderGetAttributeId(shader, key);
 
     if (location >= 0) {
       MeshAttachment* attachment = map_get(&mesh->attachments, key);
       layout[location] = *attachment;
+      lovrMeshUnmapVertices(attachment->mesh);
+      lovrMeshUnmapIndices(attachment->mesh);
     }
   }
 

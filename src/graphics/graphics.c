@@ -1104,10 +1104,6 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
 
   lovrGraphicsUseProgram(shader->program);
   lovrShaderBind(shader);
-
-  lovrGraphicsBindVertexArray(mesh->vao);
-  lovrMeshUnmapVertices(mesh);
-  lovrMeshUnmapIndices(mesh);
   lovrMeshBind(mesh, shader);
 
   size_t start = mesh->rangeStart;
