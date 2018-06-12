@@ -291,6 +291,7 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
 
   if (count > 0) {
     memcpy(state.canvas, canvas, count * sizeof(Canvas*));
+    lovrGraphicsBindFramebuffer(canvas[0]->framebuffer);
 
     GLenum buffers[MAX_CANVASES];
     for (int i = 0; i < count; i++) {
