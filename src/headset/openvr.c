@@ -253,7 +253,7 @@ static void ensureCanvas() {
   glGetIntegerv(GL_SAMPLES, &msaa);
   state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
   CanvasFlags flags = { .msaa = msaa, .depth = true, .stencil = true, .mipmaps = false };
-  state.canvas = lovrCanvasCreate(state.renderWidth, state.renderHeight, FORMAT_RGB, flags);
+  state.canvas = lovrCanvasCreate(state.renderWidth * 2, state.renderHeight, FORMAT_RGB, flags);
 }
 
 static bool openvrInit(float offset) {
@@ -672,7 +672,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   mat4_fromMat34(head, state.renderPoses[state.headsetIndex].mDeviceToAbsoluteTracking.m);
 
   lovrGraphicsPushLayer(state.canvas);
-  lovrGraphicsSetViewport(0, 0, state.renderWidth, state.renderHeight);
+  lovrGraphicsClear(true, true, false, lovrGraphicsGetBackgroundColor(), 1., 0);
 
   for (HeadsetEye i = EYE_LEFT; i <= EYE_RIGHT; i++) {
 
@@ -685,21 +685,24 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     mat4_multiply(view, mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
     mat4_invert(view);
     lovrGraphicsSetCamera(projection, view);
+    lovrGraphicsSetViewport(state.renderWidth * i, 0, state.renderWidth, state.renderHeight);
 
     // Render
-    lovrGraphicsClear(true, true, false, lovrGraphicsGetBackgroundColor(), 1., 0);
     callback(userdata);
     lovrCanvasResolve(state.canvas);
-
-    // Submit
-    glActiveTexture(GL_TEXTURE0);
-    Texture* oldTexture = lovrGraphicsGetTexture(0);
-    uintptr_t texture = (uintptr_t) state.canvas->texture.id;
-    EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
-    Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
-    state.compositor->Submit(vrEye, &eyeTexture, NULL, EVRSubmitFlags_Submit_Default);
-    glBindTexture(GL_TEXTURE_2D, oldTexture->id);
   }
+
+  // Submit
+  glActiveTexture(GL_TEXTURE0);
+  Texture* oldTexture = lovrGraphicsGetTexture(0);
+  uintptr_t texture = (uintptr_t) state.canvas->texture.id;
+  EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
+  Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
+  VRTextureBounds_t left = { 0, 0, .5, 1. };
+  VRTextureBounds_t right = { .5, 0, 1., 1. };
+  state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
+  state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
+  glBindTexture(GL_TEXTURE_2D, oldTexture->id);
 
   lovrGraphicsPopLayer();
   state.isRendering = false;
