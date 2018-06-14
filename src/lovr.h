@@ -1,9 +1,9 @@
 #include <stdbool.h>
 
 #define LOVR_VERSION_MAJOR 0
-#define LOVR_VERSION_MINOR 9
-#define LOVR_VERSION_PATCH 1
-#define LOVR_VERSION_ALIAS "Fluffy Cuttlefish"
+#define LOVR_VERSION_MINOR 10
+#define LOVR_VERSION_PATCH 0
+#define LOVR_VERSION_ALIAS "Hangry Goose"
 
 void lovrDestroy();
 bool lovrRun(int argc, char** argv, int* status);
