@@ -15,7 +15,7 @@ typedef struct {
   bool isSpatialized;
   float orientation[4];
   float position[3];
-  float velocity[4];
+  float velocity[3];
 } AudioState;
 
 void lovrAudioInit();
