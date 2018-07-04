@@ -5,6 +5,7 @@
 #include "graphics/shader.h"
 #include "graphics/texture.h"
 #include "math/math.h"
+#include "util.h"
 #include "lib/glfw.h"
 #include <stdbool.h>
 

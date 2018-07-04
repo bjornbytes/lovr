@@ -1,7 +1,5 @@
 #include "thread/thread.h"
-#include "luax.h"
-#include "api.h"
-#include <string.h>
+#include <stdlib.h>
 
 static ThreadState state;
 

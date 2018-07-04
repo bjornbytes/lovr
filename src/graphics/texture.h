@@ -1,6 +1,7 @@
 #include "data/textureData.h"
 #include "lib/glfw.h"
 #include "util.h"
+#include <stdbool.h>
 
 #pragma once
 

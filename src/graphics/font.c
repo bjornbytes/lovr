@@ -3,8 +3,10 @@
 #include "graphics/texture.h"
 #include "data/rasterizer.h"
 #include "data/textureData.h"
+#include "math/math.h"
 #include "util.h"
 #include <string.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 

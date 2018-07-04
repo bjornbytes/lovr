@@ -1,7 +1,7 @@
 #include "graphics/canvas.h"
 #include "graphics/graphics.h"
-#include "math/mat4.h"
-#include <math.h>
+#include "data/blob.h"
+#include "util.h"
 #include <stdlib.h>
 
 bool lovrCanvasSupportsFormat(TextureFormat format) {

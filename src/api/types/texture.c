@@ -1,5 +1,4 @@
 #include "api.h"
-#include "graphics/graphics.h"
 
 int l_lovrTextureGetDepth(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);

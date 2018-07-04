@@ -1,9 +1,9 @@
 #include "graphics/graphics.h"
+#include "data/modelData.h"
 #include "data/textureData.h"
 #include "data/rasterizer.h"
 #include "resources/shaders.h"
 #include "event/event.h"
-#include "filesystem/filesystem.h"
 #include "math/math.h"
 #include "math/mat4.h"
 #include "math/vec3.h"
@@ -12,6 +12,7 @@
 #define _USE_MATH_DEFINES
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 static GraphicsState state;

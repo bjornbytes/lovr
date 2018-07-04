@@ -1,5 +1,4 @@
 #include "graphics/texture.h"
-#include "math/math.h"
 #include "lib/map/map.h"
 #include "lib/glfw.h"
 #include "util.h"

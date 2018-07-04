@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdbool.h>
 #ifndef WIN32
 #pragma pack(push, 4)
 #endif

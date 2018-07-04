@@ -1,7 +1,9 @@
 #include "graphics/animator.h"
+#include "math/mat4.h"
 #include "math/vec3.h"
 #include "math/quat.h"
 #include <math.h>
+#include <stdlib.h>
 
 static Track* lovrAnimatorEnsureTrack(Animator* animator, const char* animation) {
   Track* track = map_get(&animator->trackMap, animation);

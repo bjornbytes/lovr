@@ -1,8 +1,12 @@
 #include "graphics/model.h"
 #include "graphics/graphics.h"
+#include "graphics/shader.h"
+#include "data/blob.h"
+#include "data/textureData.h"
+#include "data/vertexData.h"
 #include "math/mat4.h"
-#include "math/vec3.h"
 #include <stdlib.h>
+#include <string.h>
 
 static void renderNode(Model* model, int nodeIndex, int instances) {
   ModelNode* node = &model->modelData->nodes[nodeIndex];

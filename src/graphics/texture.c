@@ -1,5 +1,8 @@
 #include "graphics/texture.h"
 #include "graphics/graphics.h"
+#include "data/blob.h"
+#include "math/math.h"
+#include "lib/vec/vec.h"
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>

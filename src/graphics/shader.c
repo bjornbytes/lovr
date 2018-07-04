@@ -1,9 +1,10 @@
 #include "graphics/shader.h"
 #include "graphics/graphics.h"
+#include "math/math.h"
 #include "resources/shaders.h"
-#include "math/mat4.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static UniformType getUniformType(GLenum type, const char* debug) {
   switch (type) {

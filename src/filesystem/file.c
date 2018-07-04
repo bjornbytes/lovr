@@ -1,5 +1,6 @@
 #include "filesystem/file.h"
 #include <physfs.h>
+#include <stdlib.h>
 
 File* lovrFileCreate(const char* path) {
   File* file = lovrAlloc(sizeof(File), lovrFileDestroy);

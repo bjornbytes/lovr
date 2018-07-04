@@ -1,6 +1,5 @@
 #include "graphics/texture.h"
 #include "data/textureData.h"
-#include "util.h"
 #include <stdbool.h>
 
 #pragma once

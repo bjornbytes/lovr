@@ -1,5 +1,5 @@
 #include "lib/vec/vec.h"
-#include "randomGenerator.h"
+#include "math/randomGenerator.h"
 #include <stdbool.h>
 
 #pragma once

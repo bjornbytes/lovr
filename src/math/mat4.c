@@ -2,7 +2,6 @@
 #include "math/quat.h"
 #include "math/vec3.h"
 #include <math.h>
-#include <stdlib.h>
 #include <string.h>
 
 // m0 m4 m8  m12

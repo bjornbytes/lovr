@@ -1,10 +1,10 @@
 #include "graphics/material.h"
 #include "graphics/shader.h"
 #include "data/vertexData.h"
-#include "math/math.h"
 #include "lib/glfw.h"
 #include "lib/map/map.h"
 #include "util.h"
+#include <stdbool.h>
 
 #pragma once
 

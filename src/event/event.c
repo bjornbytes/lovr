@@ -1,6 +1,7 @@
 #include "event/event.h"
 #include "lib/glfw.h"
 #include <stdlib.h>
+#include <string.h>
 
 static EventState state;
 

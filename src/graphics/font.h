@@ -2,7 +2,6 @@
 #include "data/vertexData.h"
 #include "util.h"
 #include "graphics/texture.h"
-#include "math/math.h"
 #include "lib/map/map.h"
 #include <stdint.h>
 

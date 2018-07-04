@@ -2,8 +2,6 @@
 #include "data/modelData.h"
 #include "math/transform.h"
 #include "math/mat4.h"
-#include "math/quat.h"
-#include "math/vec3.h"
 
 int l_lovrModelDataGetVertexData(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);

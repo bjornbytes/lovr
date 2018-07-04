@@ -1,7 +1,7 @@
 #include "thread/channel.h"
 #include <math.h>
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
 
 Channel* lovrChannelCreate() {
   Channel* channel = lovrAlloc(sizeof(Channel), lovrChannelDestroy);

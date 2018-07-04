@@ -3,7 +3,6 @@
 #include <lauxlib.h>
 #include <lualib.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
 #ifdef _WIN32
 #include <Windows.h>

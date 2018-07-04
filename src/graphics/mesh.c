@@ -1,7 +1,9 @@
 #include "graphics/mesh.h"
 #include "graphics/graphics.h"
+#include "math/math.h"
 #include <limits.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 
 Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, MeshUsage usage) {

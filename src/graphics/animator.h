@@ -1,7 +1,8 @@
 #include "data/modelData.h"
-#include "math/mat4.h"
+#include "math/math.h"
 #include "util.h"
 #include "lib/map/map.h"
+#include "lib/vec/vec.h"
 #include <stdbool.h>
 
 #pragma once

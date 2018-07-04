@@ -3,6 +3,7 @@
 #include "event/event.h"
 #include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
+#include "headset/headset.h"
 #include "math/math.h"
 #include "physics/physics.h"
 #ifndef EMSCRIPTEN
@@ -14,6 +15,8 @@
 #include "luax.h"
 #include "api.h"
 #include "util.h"
+#include <string.h>
+#include <stdio.h>
 
 #ifdef EMSCRIPTEN
 #include <emscripten.h>

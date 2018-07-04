@@ -1,7 +1,7 @@
 #include "math.h"
-#include "math/vec3.h"
+#include "util.h"
 #include <math.h>
-#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 static MathState state;

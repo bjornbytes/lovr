@@ -2,7 +2,6 @@
 #include "filesystem/filesystem.h"
 #include "data/blob.h"
 #include <stdlib.h>
-#include <string.h>
 
 // Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
 Blob* luax_readblob(lua_State* L, int index, const char* debug) {

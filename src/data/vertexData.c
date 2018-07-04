@@ -1,6 +1,5 @@
 #include "data/vertexData.h"
 #include <string.h>
-#include <stdio.h>
 
 static const size_t attributeTypeSizes[3] = { 4, 1, 4 };
 

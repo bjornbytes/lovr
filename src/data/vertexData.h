@@ -1,8 +1,6 @@
-#include "util.h"
 #include "blob.h"
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 #pragma once
 
