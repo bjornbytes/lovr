@@ -50,7 +50,7 @@ void lovrRandomGeneratorGetState(RandomGenerator* generator, char* state, size_t
   snprintf(state, length, "0x%16llx", generator->state.b64);
 }
 
-int lovrRandomGeneratorSetState(RandomGenerator* generator, const char* state, size_t length) {
+int lovrRandomGeneratorSetState(RandomGenerator* generator, const char* state) {
   char* end = NULL;
   Seed newState;
   newState.b64 = strtoull(state, &end, 16);

@@ -24,6 +24,6 @@ RandomGenerator* lovrRandomGeneratorCreate();
 Seed lovrRandomGeneratorGetSeed(RandomGenerator* generator);
 void lovrRandomGeneratorSetSeed(RandomGenerator* generator, Seed seed);
 void lovrRandomGeneratorGetState(RandomGenerator* generator, char* state, size_t length);
-int lovrRandomGeneratorSetState(RandomGenerator* generator, const char* state, size_t length);
+int lovrRandomGeneratorSetState(RandomGenerator* generator, const char* state);
 double lovrRandomGeneratorRandom(RandomGenerator* generator);
 double lovrRandomGeneratorRandomNormal(RandomGenerator* generator);
