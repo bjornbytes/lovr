@@ -147,18 +147,9 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   shader->program = program;
 
   lovrGraphicsUseProgram(program);
-
-  // Set default vertex color
-  float defaultVertexColor[4] = { 1., 1., 1., 1. };
-  glVertexAttrib4fv(LOVR_SHADER_VERTEX_COLOR, defaultVertexColor);
-
-  // Set default bone ids
-  int defaultBones[4] = { 0., 0., 0., 0. };
-  glVertexAttribI4iv(LOVR_SHADER_BONES, defaultBones);
-
-  // Set default bone weights
-  float defaultBoneWeights[4] = { 1., 0., 0., 0. };
-  glVertexAttrib4fv(LOVR_SHADER_BONE_WEIGHTS, defaultBoneWeights);
+  glVertexAttrib4fv(LOVR_SHADER_VERTEX_COLOR, (float[4]) { 1., 1., 1., 1. });
+  glVertexAttribI4iv(LOVR_SHADER_BONES, (float[4]) { 0., 0., 0., 0. });
+  glVertexAttrib4fv(LOVR_SHADER_BONE_WEIGHTS, (float[4]) { 1., 0., 0., 0. });
 
   // Uniform introspection
   int32_t uniformCount;

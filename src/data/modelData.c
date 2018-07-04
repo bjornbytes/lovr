@@ -105,12 +105,12 @@ static float readMaterialScalar(struct aiMaterial* assimpMaterial, const char* k
 static Color readMaterialColor(struct aiMaterial* assimpMaterial, const char* key, unsigned int type, unsigned int index) {
   struct aiColor4D assimpColor;
   if (aiGetMaterialColor(assimpMaterial, key, type, index, &assimpColor) == aiReturn_SUCCESS) {
-    Color color;
-    color.r = assimpColor.r;
-    color.g = assimpColor.g;
-    color.b = assimpColor.b;
-    color.a = assimpColor.a;
-    return color;
+    return (Color) {
+      .r = assimpColor.r,
+      .g = assimpColor.g,
+      .b = assimpColor.b,
+      .a = assimpColor.a
+    };
   } else {
     return (Color) { 1, 1, 1, 1 };
   }
@@ -484,28 +484,28 @@ ModelData* lovrModelDataCreate(Blob* blob) {
       for (unsigned int k = 0; k < assimpChannel->mNumPositionKeys; k++) {
         struct aiVectorKey assimpKeyframe = assimpChannel->mPositionKeys[k];
         struct aiVector3D position = assimpKeyframe.mValue;
-        Keyframe keyframe;
-        keyframe.time = assimpKeyframe.mTime / ticksPerSecond;
-        vec3_set(keyframe.data, position.x, position.y, position.z);
-        vec_push(&channel.positionKeyframes, keyframe);
+        vec_push(&channel.positionKeyframes, ((Keyframe) {
+          .time = assimpKeyframe.mTime / ticksPerSecond,
+          .data = { position.x, position.y, position.z }
+        }));
       }
 
       for (unsigned int k = 0; k < assimpChannel->mNumRotationKeys; k++) {
         struct aiQuatKey assimpKeyframe = assimpChannel->mRotationKeys[k];
         struct aiQuaternion quaternion = assimpKeyframe.mValue;
-        Keyframe keyframe;
-        keyframe.time = assimpKeyframe.mTime / ticksPerSecond;
-        quat_set(keyframe.data, quaternion.x, quaternion.y, quaternion.z, quaternion.w);
-        vec_push(&channel.rotationKeyframes, keyframe);
+        vec_push(&channel.rotationKeyframes, ((Keyframe) {
+          .time = assimpKeyframe.mTime / ticksPerSecond,
+          .data = { quaternion.x, quaternion.y, quaternion.z, quaternion.w }
+        }));
       }
 
       for (unsigned int k = 0; k < assimpChannel->mNumScalingKeys; k++) {
         struct aiVectorKey assimpKeyframe = assimpChannel->mScalingKeys[k];
         struct aiVector3D scale = assimpKeyframe.mValue;
-        Keyframe keyframe;
-        keyframe.time = assimpKeyframe.mTime / ticksPerSecond;
-        vec3_set(keyframe.data, scale.x, scale.y, scale.z);
-        vec_push(&channel.scaleKeyframes, keyframe);
+        vec_push(&channel.scaleKeyframes, ((Keyframe) {
+          .time = assimpKeyframe.mTime / ticksPerSecond,
+          .data = { scale.x, scale.y, scale.z }
+        }));
       }
 
       map_set(&animation->channels, channel.node, channel);

@@ -22,8 +22,7 @@ void lovrAudioInit() {
   state.isSpatialized = alcIsExtensionPresent(device, "ALC_SOFT_HRTF");
 
   if (state.isSpatialized) {
-    ALCint attrs[3] = { ALC_HRTF_SOFT, ALC_TRUE, 0 };
-    alcResetDeviceSOFT(device, attrs);
+    alcResetDeviceSOFT(device, (ALCint[]) { ALC_HRTF_SOFT, ALC_TRUE, 0 });
   }
 
   state.device = device;
@@ -144,8 +143,7 @@ void lovrAudioSetOrientation(float angle, float ax, float ay, float az) {
   // Rotate the unit forward/up vectors by the quaternion derived from the specified angle/axis
   float f[3] = { 0, 0, -1 };
   float u[3] = { 0, 1, 0 };
-  float axis[3] = { ax, ay, az };
-  quat_fromAngleAxis(state.orientation, angle, axis);
+  quat_fromAngleAxis(state.orientation, angle, (float[3]) { ax, ay, az });
   quat_rotate(state.orientation, f);
   quat_rotate(state.orientation, u);
 
