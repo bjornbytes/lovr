@@ -148,7 +148,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 
   lovrGraphicsUseProgram(program);
   glVertexAttrib4fv(LOVR_SHADER_VERTEX_COLOR, (float[4]) { 1., 1., 1., 1. });
-  glVertexAttribI4iv(LOVR_SHADER_BONES, (float[4]) { 0., 0., 0., 0. });
+  glVertexAttribI4iv(LOVR_SHADER_BONES, (int[4]) { 0., 0., 0., 0. });
   glVertexAttrib4fv(LOVR_SHADER_BONE_WEIGHTS, (float[4]) { 1., 0., 0., 0. });
 
   // Uniform introspection
