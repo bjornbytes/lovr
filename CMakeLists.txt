@@ -299,6 +299,7 @@ set(LOVR_SRC
   src/lib/noise1234/noise1234.c
   src/lib/stb/stb_image.c
   src/lib/stb/stb_image_write.c
+  src/lib/stb/stb_truetype.c
   src/lib/stb/stb_vorbis.c
   src/lib/vec/vec.c
   src/lovr.c
