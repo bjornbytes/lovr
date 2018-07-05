@@ -6,6 +6,14 @@
 #include <string.h>
 #include <stdio.h>
 
+static GLenum convertMeshUsage(MeshUsage usage) {
+  switch (usage) {
+    case MESH_STATIC: return GL_STATIC_DRAW;
+    case MESH_DYNAMIC: return GL_DYNAMIC_DRAW;
+    case MESH_STREAM: return GL_STREAM_DRAW;
+  }
+}
+
 Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, MeshUsage usage) {
   Mesh* mesh = lovrAlloc(sizeof(Mesh), lovrMeshDestroy);
   if (!mesh) return NULL;
@@ -13,7 +21,7 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode,
   mesh->count = count;
   mesh->format = format;
   mesh->drawMode = drawMode;
-  mesh->usage = usage;
+  mesh->usage = convertMeshUsage(usage);
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);

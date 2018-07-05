@@ -11,19 +11,19 @@
 #define MAX_ATTACHMENTS 16
 
 typedef enum {
-  MESH_POINTS = GL_POINTS,
-  MESH_LINES = GL_LINES,
-  MESH_LINE_STRIP = GL_LINE_STRIP,
-  MESH_LINE_LOOP = GL_LINE_LOOP,
-  MESH_TRIANGLE_STRIP = GL_TRIANGLE_STRIP,
-  MESH_TRIANGLES = GL_TRIANGLES,
-  MESH_TRIANGLE_FAN = GL_TRIANGLE_FAN
+  MESH_POINTS,
+  MESH_LINES,
+  MESH_LINE_STRIP,
+  MESH_LINE_LOOP,
+  MESH_TRIANGLE_STRIP,
+  MESH_TRIANGLES,
+  MESH_TRIANGLE_FAN
 } MeshDrawMode;
 
 typedef enum {
-  MESH_STATIC = GL_STATIC_DRAW,
-  MESH_DYNAMIC = GL_DYNAMIC_DRAW,
-  MESH_STREAM = GL_STREAM_DRAW
+  MESH_STATIC,
+  MESH_DYNAMIC,
+  MESH_STREAM
 } MeshUsage;
 
 typedef struct Mesh Mesh;
@@ -42,7 +42,7 @@ struct Mesh {
   uint32_t count;
   VertexFormat format;
   MeshDrawMode drawMode;
-  MeshUsage usage;
+  GLenum usage;
   VertexPointer data;
   IndexPointer indices;
   uint32_t indexCount;

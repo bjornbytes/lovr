@@ -4,7 +4,6 @@
 #include "math/math.h"
 #include "math/randomGenerator.h"
 #include "physics/physics.h"
-#include "lib/map/map.h"
 
 // Module loaders
 int l_lovrInit(lua_State* L);
@@ -67,34 +66,36 @@ extern const luaL_Reg lovrVertexData[];
 extern const luaL_Reg lovrWorld[];
 
 // Enums
-extern map_int_t ArcModes;
-extern map_int_t AttributeTypes;
-extern map_int_t BlendAlphaModes;
-extern map_int_t BlendModes;
-extern map_int_t CompareModes;
-extern map_int_t ControllerAxes;
-extern map_int_t ControllerButtons;
-extern map_int_t ControllerHands;
-extern map_int_t DrawModes;
-extern map_int_t EventTypes;
-extern map_int_t FilterModes;
-extern map_int_t HeadsetEyes;
-extern map_int_t HeadsetOrigins;
-extern map_int_t HeadsetTypes;
-extern map_int_t HorizontalAligns;
-extern map_int_t JointTypes;
-extern map_int_t MaterialColors;
-extern map_int_t MaterialScalars;
-extern map_int_t MaterialTextures;
-extern map_int_t MeshDrawModes;
-extern map_int_t MeshUsages;
-extern map_int_t PolygonWindings;
-extern map_int_t ShapeTypes;
-extern map_int_t TextureFormats;
-extern map_int_t TextureTypes;
-extern map_int_t TimeUnits;
-extern map_int_t VerticalAligns;
-extern map_int_t WrapModes;
+extern const char* ArcModes[];
+extern const char* AttributeTypes[];
+extern const char* BlendAlphaModes[];
+extern const char* BlendModes[];
+extern const char* CompareModes[];
+extern const char* ControllerAxes[];
+extern const char* ControllerButtons[];
+extern const char* ControllerHands[];
+extern const char* DrawModes[];
+extern const char* EventTypes[];
+extern const char* FilterModes[];
+extern const char* HeadsetDrivers[];
+extern const char* HeadsetEyes[];
+extern const char* HeadsetOrigins[];
+extern const char* HeadsetTypes[];
+extern const char* HorizontalAligns[];
+extern const char* JointTypes[];
+extern const char* MaterialColors[];
+extern const char* MaterialScalars[];
+extern const char* MaterialTextures[];
+extern const char* MeshDrawModes[];
+extern const char* MeshUsages[];
+extern const char* ShapeTypes[];
+extern const char* StencilActions[];
+extern const char* TextureFormats[];
+extern const char* TextureTypes[];
+extern const char* TimeUnits[];
+extern const char* VerticalAligns[];
+extern const char* Windings[];
+extern const char* WrapModes[];
 
 // Shared helpers
 int luax_loadvertices(lua_State* L, int index, VertexFormat* format, VertexPointer vertices);

@@ -49,9 +49,9 @@ bool luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
     lua_rawgeti(L, -3, 3);
 
     const char* name = lua_tostring(L, -3);
-    AttributeType* type = (AttributeType*) luax_checkenum(L, -2, &AttributeTypes, "mesh attribute type");
+    AttributeType type = luaL_checkoption(L, -2, NULL, AttributeTypes);
     int count = lua_tointeger(L, -1);
-    vertexFormatAppend(format, name, *type, count);
+    vertexFormatAppend(format, name, type, count);
     lua_pop(L, 4);
   }
 
@@ -69,7 +69,7 @@ int luax_pushvertexformat(lua_State* L, VertexFormat* format) {
     lua_rawseti(L, -2, 1);
 
     // Type
-    luax_pushenum(L, &AttributeTypes, attribute.type);
+    lua_pushstring(L, AttributeTypes[attribute.type]);
     lua_rawseti(L, -2, 2);
 
     // Count

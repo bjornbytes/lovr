@@ -1,13 +1,60 @@
 #include "api.h"
 #include "headset/headset.h"
 
-map_int_t ControllerAxes;
-map_int_t ControllerButtons;
-map_int_t ControllerHands;
-map_int_t HeadsetDrivers;
-map_int_t HeadsetEyes;
-map_int_t HeadsetOrigins;
-map_int_t HeadsetTypes;
+const char* ControllerAxes[] = {
+  [CONTROLLER_AXIS_TRIGGER] = "trigger",
+  [CONTROLLER_AXIS_GRIP] = "grip",
+  [CONTROLLER_AXIS_TOUCHPAD_X] = "touchx",
+  [CONTROLLER_AXIS_TOUCHPAD_Y] = "touchy",
+  NULL
+};
+
+const char* ControllerButtons[] = {
+  [CONTROLLER_BUTTON_SYSTEM] = "system",
+  [CONTROLLER_BUTTON_MENU] = "menu",
+  [CONTROLLER_BUTTON_TRIGGER] = "trigger",
+  [CONTROLLER_BUTTON_GRIP] = "grip",
+  [CONTROLLER_BUTTON_TOUCHPAD] = "touchpad",
+  [CONTROLLER_BUTTON_A] = "a",
+  [CONTROLLER_BUTTON_B] = "b",
+  [CONTROLLER_BUTTON_X] = "x",
+  [CONTROLLER_BUTTON_Y] = "y",
+  NULL
+};
+
+const char* ControllerHands[] = {
+  [HAND_UNKNOWN] = "unknown",
+  [HAND_LEFT] = "left",
+  [HAND_RIGHT] = "right",
+  NULL
+};
+
+const char* HeadsetDrivers[] = {
+  [DRIVER_FAKE] = "fake",
+  [DRIVER_OPENVR] = "openvr",
+  [DRIVER_WEBVR] = "webvr",
+  NULL
+};
+
+const char* HeadsetEyes[] = {
+  [EYE_LEFT] = "left",
+  [EYE_RIGHT] = "right",
+  NULL
+};
+
+const char* HeadsetOrigins[] = {
+  [ORIGIN_HEAD] = "head",
+  [ORIGIN_FLOOR] = "floor",
+  NULL
+};
+
+const char* HeadsetTypes[] = {
+  [HEADSET_UNKNOWN] = "unknown",
+  [HEADSET_VIVE] = "vive",
+  [HEADSET_RIFT] = "rift",
+  [HEADSET_WINDOWS_MR] = "windowsmr",
+  NULL
+};
 
 typedef struct {
   lua_State* L;
@@ -32,47 +79,6 @@ int l_lovrHeadsetInit(lua_State* L) {
   luaL_register(L, NULL, lovrHeadset);
   luax_registertype(L, "Controller", lovrController);
 
-  map_init(&ControllerAxes);
-  map_set(&ControllerAxes, "trigger", CONTROLLER_AXIS_TRIGGER);
-  map_set(&ControllerAxes, "grip", CONTROLLER_AXIS_GRIP);
-  map_set(&ControllerAxes, "touchx", CONTROLLER_AXIS_TOUCHPAD_X);
-  map_set(&ControllerAxes, "touchy", CONTROLLER_AXIS_TOUCHPAD_Y);
-
-  map_init(&ControllerButtons);
-  map_set(&ControllerButtons, "system", CONTROLLER_BUTTON_SYSTEM);
-  map_set(&ControllerButtons, "menu", CONTROLLER_BUTTON_MENU);
-  map_set(&ControllerButtons, "trigger", CONTROLLER_BUTTON_TRIGGER);
-  map_set(&ControllerButtons, "grip", CONTROLLER_BUTTON_GRIP);
-  map_set(&ControllerButtons, "touchpad", CONTROLLER_BUTTON_TOUCHPAD);
-  map_set(&ControllerButtons, "a", CONTROLLER_BUTTON_A);
-  map_set(&ControllerButtons, "b", CONTROLLER_BUTTON_B);
-  map_set(&ControllerButtons, "x", CONTROLLER_BUTTON_X);
-  map_set(&ControllerButtons, "y", CONTROLLER_BUTTON_Y);
-
-  map_init(&ControllerHands);
-  map_set(&ControllerHands, "unknown", HAND_UNKNOWN);
-  map_set(&ControllerHands, "left", HAND_LEFT);
-  map_set(&ControllerHands, "right", HAND_RIGHT);
-
-  map_init(&HeadsetEyes);
-  map_set(&HeadsetEyes, "left", EYE_LEFT);
-  map_set(&HeadsetEyes, "right", EYE_RIGHT);
-
-  map_init(&HeadsetOrigins);
-  map_set(&HeadsetOrigins, "head", ORIGIN_HEAD);
-  map_set(&HeadsetOrigins, "floor", ORIGIN_FLOOR);
-
-  map_init(&HeadsetTypes);
-  map_set(&HeadsetTypes, "unknown", HEADSET_UNKNOWN);
-  map_set(&HeadsetTypes, "vive", HEADSET_VIVE);
-  map_set(&HeadsetTypes, "rift", HEADSET_RIFT);
-  map_set(&HeadsetTypes, "windowsmr", HEADSET_WINDOWS_MR);
-
-  map_init(&HeadsetDrivers);
-  map_set(&HeadsetDrivers, "fake", DRIVER_FAKE);
-  map_set(&HeadsetDrivers, "openvr", DRIVER_OPENVR);
-  map_set(&HeadsetDrivers, "webvr", DRIVER_WEBVR);
-
   luax_pushconf(L);
   lua_getfield(L, -1, "headset");
 
@@ -88,7 +94,7 @@ int l_lovrHeadsetInit(lua_State* L) {
     int n = lua_objlen(L, -1);
     for (int i = 0; i < n; i++) {
       lua_rawgeti(L, -1, i + 1);
-      vec_push(&drivers, *(HeadsetDriver*) luax_checkenum(L, -1, &HeadsetDrivers, "headset driver"));
+      vec_push(&drivers, luaL_checkoption(L, -1, NULL, HeadsetDrivers));
       lua_pop(L, 1);
     }
     lua_pop(L, 1);
@@ -116,17 +122,17 @@ int l_lovrHeadsetInit(lua_State* L) {
 }
 
 int l_lovrHeadsetGetDriver(lua_State* L) {
-  luax_pushenum(L, &HeadsetDrivers, lovrHeadsetDriver->driverType);
+  lua_pushstring(L, HeadsetDrivers[lovrHeadsetDriver->driverType]);
   return 1;
 }
 
 int l_lovrHeadsetGetType(lua_State* L) {
-  luax_pushenum(L, &HeadsetTypes, lovrHeadsetDriver->getType());
+  lua_pushstring(L, HeadsetTypes[lovrHeadsetDriver->getType()]);
   return 1;
 }
 
 int l_lovrHeadsetGetOriginType(lua_State* L) {
-  luax_pushenum(L, &HeadsetOrigins, lovrHeadsetDriver->getOriginType());
+  lua_pushstring(L, HeadsetOrigins[lovrHeadsetDriver->getOriginType()]);
   return 1;
 }
 
@@ -207,7 +213,7 @@ int l_lovrHeadsetGetBoundsDimensions(lua_State* L) {
 
 static void luax_getPose(lua_State* L, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (lua_type(L, 1) == LUA_TSTRING) {
-    HeadsetEye eye = *(HeadsetEye*) luax_checkenum(L, 1, &HeadsetEyes, "eye");
+    HeadsetEye eye = luaL_checkoption(L, 1, NULL, HeadsetEyes);
     lovrHeadsetDriver->getEyePose(eye, x, y, z, angle, ax, ay, az);
   } else {
     lovrHeadsetDriver->getPose(x, y, z, angle, ax, ay, az);

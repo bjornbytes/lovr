@@ -34,6 +34,30 @@ static void gammaCorrectColor(Color* color) {
   }
 }
 
+static GLenum convertCompareMode(CompareMode mode) {
+  switch (mode) {
+    case COMPARE_NONE: return GL_ALWAYS;
+    case COMPARE_EQUAL: return GL_EQUAL;
+    case COMPARE_NEQUAL: return GL_NOTEQUAL;
+    case COMPARE_LESS: return GL_LESS;
+    case COMPARE_LEQUAL: return GL_LEQUAL;
+    case COMPARE_GREATER: return GL_GREATER;
+    case COMPARE_GEQUAL: return GL_GEQUAL;
+  }
+}
+
+static GLenum convertMeshDrawMode(MeshDrawMode drawMode) {
+  switch (drawMode) {
+    case MESH_POINTS: return GL_POINTS;
+    case MESH_LINES: return GL_LINES;
+    case MESH_LINE_STRIP: return GL_LINE_STRIP;
+    case MESH_LINE_LOOP: return GL_LINE_LOOP;
+    case MESH_TRIANGLE_STRIP: return GL_TRIANGLE_STRIP;
+    case MESH_TRIANGLES: return GL_TRIANGLES;
+    case MESH_TRIANGLE_FAN: return GL_TRIANGLE_FAN;
+  }
+}
+
 // Base
 
 void lovrGraphicsInit() {
@@ -345,11 +369,11 @@ void lovrGraphicsGetDepthTest(CompareMode* mode, bool* write) {
   *write = state.depthWrite;
 }
 
-void lovrGraphicsSetDepthTest(CompareMode depthTest, bool write) {
-  if (state.depthTest != depthTest) {
-    state.depthTest = depthTest;
-    if (depthTest != COMPARE_NONE) {
-      glDepthFunc(depthTest);
+void lovrGraphicsSetDepthTest(CompareMode mode, bool write) {
+  if (state.depthTest != mode) {
+    state.depthTest = mode;
+    if (mode != COMPARE_NONE) {
+      glDepthFunc(convertCompareMode(mode));
       glEnable(GL_DEPTH_TEST);
     } else {
       glDisable(GL_DEPTH_TEST);
@@ -454,12 +478,14 @@ void lovrGraphicsSetStencilTest(CompareMode mode, int value) {
       state.stencilEnabled = true;
     }
 
-    GLenum glMode = mode;
+    GLenum glMode = GL_ALWAYS;
     switch (mode) {
+      case COMPARE_EQUAL: glMode = GL_EQUAL; break;
+      case COMPARE_NEQUAL: glMode = GL_NOTEQUAL; break;
       case COMPARE_LESS: glMode = GL_GREATER; break;
       case COMPARE_LEQUAL: glMode = GL_GEQUAL; break;
-      case COMPARE_GEQUAL: glMode = GL_LEQUAL; break;
       case COMPARE_GREATER: glMode = GL_LESS; break;
+      case COMPARE_GEQUAL: glMode = GL_LEQUAL; break;
       default: break;
     }
 
@@ -478,7 +504,8 @@ Winding lovrGraphicsGetWinding() {
 void lovrGraphicsSetWinding(Winding winding) {
   if (winding != state.winding) {
     state.winding = winding;
-    glFrontFace(winding);
+    GLenum glWinding = winding == WINDING_CLOCKWISE ? GL_CW : GL_CCW;
+    glFrontFace(glWinding);
   }
 }
 
@@ -959,8 +986,18 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
     state.stencilEnabled = true;
   }
 
+  GLenum glAction;
+  switch (action) {
+    case STENCIL_REPLACE: glAction = GL_REPLACE; break;
+    case STENCIL_INCREMENT: glAction = GL_INCR; break;
+    case STENCIL_DECREMENT: glAction = GL_DECR; break;
+    case STENCIL_INCREMENT_WRAP: glAction = GL_INCR_WRAP; break;
+    case STENCIL_DECREMENT_WRAP: glAction = GL_DECR_WRAP; break;
+    case STENCIL_INVERT: glAction = GL_INVERT; break;
+  }
+
   glStencilFunc(GL_ALWAYS, replaceValue, 0xff);
-  glStencilOp(GL_KEEP, GL_KEEP, action);
+  glStencilOp(GL_KEEP, GL_KEEP, glAction);
 
   state.stencilWriting = true;
   callback(userdata);
@@ -1108,21 +1145,22 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   lovrMeshBind(mesh, shader);
 
   size_t start = mesh->rangeStart;
+  GLenum glDrawMode = convertMeshDrawMode(mesh->drawMode);
   if (mesh->indexCount > 0) {
     size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
     GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
     size_t offset = start * mesh->indexSize;
     if (instances > 1) {
-      glDrawElementsInstanced(mesh->drawMode, count, indexType, (GLvoid*) offset, instances);
+      glDrawElementsInstanced(glDrawMode, count, indexType, (GLvoid*) offset, instances);
     } else {
-      glDrawElements(mesh->drawMode, count, indexType, (GLvoid*) offset);
+      glDrawElements(glDrawMode, count, indexType, (GLvoid*) offset);
     }
   } else {
     size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->count;
     if (instances > 1) {
-      glDrawArraysInstanced(mesh->drawMode, start, count, instances);
+      glDrawArraysInstanced(glDrawMode, start, count, instances);
     } else {
-      glDrawArrays(mesh->drawMode, start, count);
+      glDrawArrays(glDrawMode, start, count);
     }
   }
 
@@ -1166,7 +1204,7 @@ Texture* lovrGraphicsGetTexture(int slot) {
   return state.textures[slot];
 }
 
-void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot) {
+void lovrGraphicsBindTexture(Texture* texture, GLenum type, int slot) {
   if (!texture) {
     if (!state.defaultTexture) {
       TextureData* textureData = lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA);

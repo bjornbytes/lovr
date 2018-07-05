@@ -12,7 +12,7 @@ int l_lovrControllerIsConnected(lua_State* L) {
 int l_lovrControllerGetHand(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   ControllerHand hand = lovrHeadsetDriver->controllerGetHand(controller);
-  luax_pushenum(L, &ControllerHands, hand);
+  lua_pushstring(L, ControllerHands[hand]);
   return 1;
 }
 
@@ -53,22 +53,22 @@ int l_lovrControllerGetOrientation(lua_State* L) {
 
 int l_lovrControllerGetAxis(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  ControllerAxis* axis = (ControllerAxis*) luax_checkenum(L, 2, &ControllerAxes, "controller axis");
-  lua_pushnumber(L, lovrHeadsetDriver->controllerGetAxis(controller, *axis));
+  ControllerAxis axis = luaL_checkoption(L, 2, NULL, ControllerAxes);
+  lua_pushnumber(L, lovrHeadsetDriver->controllerGetAxis(controller, axis));
   return 1;
 }
 
 int l_lovrControllerIsDown(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  ControllerButton* button = (ControllerButton*) luax_checkenum(L, 2, &ControllerButtons, "controller button");
-  lua_pushboolean(L, lovrHeadsetDriver->controllerIsDown(controller, *button));
+  ControllerButton button = luaL_checkoption(L, 2, NULL, ControllerButtons);
+  lua_pushboolean(L, lovrHeadsetDriver->controllerIsDown(controller, button));
   return 1;
 }
 
 int l_lovrControllerIsTouched(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  ControllerButton* button = (ControllerButton*) luax_checkenum(L, 2, &ControllerButtons, "controller button");
-  lua_pushboolean(L, lovrHeadsetDriver->controllerIsTouched(controller, *button));
+  ControllerButton button = luaL_checkoption(L, 2, NULL, ControllerButtons);
+  lua_pushboolean(L, lovrHeadsetDriver->controllerIsTouched(controller, button));
   return 1;
 }
 

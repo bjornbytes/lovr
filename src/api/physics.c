@@ -1,8 +1,21 @@
 #include "api.h"
 #include "physics/physics.h"
 
-map_int_t ShapeTypes;
-map_int_t JointTypes;
+const char* ShapeTypes[] = {
+  [SHAPE_SPHERE] = "sphere",
+  [SHAPE_BOX] = "box",
+  [SHAPE_CAPSULE] = "capsule",
+  [SHAPE_CYLINDER] = "cylinder",
+  NULL
+};
+
+const char* JointTypes[] = {
+  [JOINT_BALL] = "ball",
+  [JOINT_DISTANCE] = "distance",
+  [JOINT_HINGE] = "hinge",
+  [JOINT_SLIDER] = "slider",
+  NULL
+};
 
 int l_lovrPhysicsInit(lua_State* L) {
   lua_newtable(L);
@@ -17,19 +30,6 @@ int l_lovrPhysicsInit(lua_State* L) {
   luax_extendtype(L, "Shape", "BoxShape", lovrShape, lovrBoxShape);
   luax_extendtype(L, "Shape", "CapsuleShape", lovrShape, lovrCapsuleShape);
   luax_extendtype(L, "Shape", "CylinderShape", lovrShape, lovrCylinderShape);
-
-  map_init(&JointTypes);
-  map_set(&JointTypes, "ball", JOINT_BALL);
-  map_set(&JointTypes, "distance", JOINT_DISTANCE);
-  map_set(&JointTypes, "hinge", JOINT_HINGE);
-  map_set(&JointTypes, "slider", JOINT_SLIDER);
-
-  map_init(&ShapeTypes);
-  map_set(&ShapeTypes, "sphere", SHAPE_SPHERE);
-  map_set(&ShapeTypes, "box", SHAPE_BOX);
-  map_set(&ShapeTypes, "capsule", SHAPE_CAPSULE);
-  map_set(&ShapeTypes, "cylinder", SHAPE_CYLINDER);
-
   lovrPhysicsInit();
   return 1;
 }

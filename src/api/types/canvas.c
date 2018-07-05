@@ -19,7 +19,7 @@ int l_lovrCanvasRenderTo(lua_State* L) {
 int l_lovrCanvasGetFormat(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   TextureFormat format = lovrCanvasGetFormat(canvas);
-  luax_pushenum(L, &TextureFormats, format);
+  lua_pushstring(L, TextureFormats[format]);
   return 1;
 }
 

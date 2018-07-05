@@ -7,6 +7,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+GLenum convertWrap(WrapMode mode) {
+  switch (mode) {
+    case WRAP_CLAMP: return GL_CLAMP_TO_EDGE;
+    case WRAP_REPEAT: return GL_REPEAT;
+    case WRAP_MIRRORED_REPEAT: return GL_MIRRORED_REPEAT;
+  }
+}
+
 GLenum lovrTextureFormatGetGLFormat(TextureFormat format) {
   switch (format) {
     case FORMAT_RGB: return GL_RGB;
@@ -56,16 +64,16 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
   if (GLAD_GL_ARB_texture_storage) {
 #endif
   if (texture->type == TEXTURE_ARRAY) {
-    glTexStorage3D(texture->type, mipmapCount, internalFormat, w, h, texture->depth);
+    glTexStorage3D(texture->glType, mipmapCount, internalFormat, w, h, texture->depth);
   } else {
-    glTexStorage2D(texture->type, mipmapCount, internalFormat, w, h);
+    glTexStorage2D(texture->glType, mipmapCount, internalFormat, w, h);
   }
 #ifndef EMSCRIPTEN
   } else {
     for (int i = 0; i < mipmapCount; i++) {
       switch (texture->type) {
         case TEXTURE_2D:
-          glTexImage2D(texture->type, i, internalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+          glTexImage2D(texture->glType, i, internalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
           break;
 
         case TEXTURE_CUBE:
@@ -76,7 +84,7 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
 
         case TEXTURE_ARRAY:
         case TEXTURE_VOLUME:
-          glTexImage3D(texture->type, i, internalFormat, w, h, texture->depth, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+          glTexImage3D(texture->glType, i, internalFormat, w, h, texture->depth, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
           break;
       }
       w = MAX(w >> 1, 1);
@@ -91,6 +99,13 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bo
   if (!texture) return NULL;
 
   texture->type = type;
+  switch (type) {
+    case TEXTURE_2D: texture->glType = GL_TEXTURE_2D; break;
+    case TEXTURE_ARRAY: texture->glType = GL_TEXTURE_2D_ARRAY; break;
+    case TEXTURE_CUBE: texture->glType = GL_TEXTURE_CUBE_MAP; break;
+    case TEXTURE_VOLUME: texture->glType = GL_TEXTURE_3D; break;
+  }
+
   texture->slices = calloc(depth, sizeof(TextureData**));
   texture->depth = depth;
   texture->srgb = srgb;
@@ -98,7 +113,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bo
 
   WrapMode wrap = type == TEXTURE_CUBE ? WRAP_CLAMP : WRAP_REPEAT;
   glGenTextures(1, &texture->id);
-  lovrGraphicsBindTexture(texture, texture->type, 0);
+  lovrGraphicsBindTexture(texture, texture->glType, 0);
   lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
   lovrTextureSetWrap(texture, (TextureWrap) { .s = wrap, .t = wrap, .r = wrap });
 
@@ -146,7 +161,7 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
 
   GLenum glFormat = lovrTextureFormatGetGLFormat(textureData->format);
   GLenum glInternalFormat = lovrTextureFormatGetGLInternalFormat(textureData->format, texture->srgb);
-  GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice : texture->type;
+  GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice : texture->glType;
 
   if (lovrTextureFormatIsCompressed(textureData->format)) {
     Mipmap m; int i;
@@ -175,7 +190,7 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
     }
 
     if (texture->mipmaps) {
-      glGenerateMipmap(texture->type);
+      glGenerateMipmap(texture->glType);
     }
   }
 }
@@ -186,38 +201,38 @@ TextureFilter lovrTextureGetFilter(Texture* texture) {
 
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
   float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
-  lovrGraphicsBindTexture(texture, texture->type, 0);
+  lovrGraphicsBindTexture(texture, texture->glType, 0);
   texture->filter = filter;
 
   switch (filter.mode) {
     case FILTER_NEAREST:
-      glTexParameteri(texture->type, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(texture->type, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(texture->glType, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(texture->glType, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       break;
 
     case FILTER_BILINEAR:
       if (texture->mipmaps) {
-        glTexParameteri(texture->type, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-        glTexParameteri(texture->type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->glType, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+        glTexParameteri(texture->glType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       } else {
-        glTexParameteri(texture->type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(texture->type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->glType, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(texture->glType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       }
       break;
 
     case FILTER_TRILINEAR:
     case FILTER_ANISOTROPIC:
       if (texture->mipmaps) {
-        glTexParameteri(texture->type, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(texture->type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->glType, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(texture->glType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       } else {
-        glTexParameteri(texture->type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(texture->type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->glType, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(texture->glType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       }
       break;
   }
 
-  glTexParameteri(texture->type, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
+  glTexParameteri(texture->glType, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
 }
 
 TextureWrap lovrTextureGetWrap(Texture* texture) {
@@ -226,10 +241,10 @@ TextureWrap lovrTextureGetWrap(Texture* texture) {
 
 void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
   texture->wrap = wrap;
-  lovrGraphicsBindTexture(texture, texture->type, 0);
-  glTexParameteri(texture->type, GL_TEXTURE_WRAP_S, wrap.s);
-  glTexParameteri(texture->type, GL_TEXTURE_WRAP_T, wrap.t);
+  lovrGraphicsBindTexture(texture, texture->glType, 0);
+  glTexParameteri(texture->glType, GL_TEXTURE_WRAP_S, wrap.s);
+  glTexParameteri(texture->glType, GL_TEXTURE_WRAP_T, wrap.t);
   if (texture->type == TEXTURE_CUBE || texture->type == TEXTURE_VOLUME) {
-    glTexParameteri(texture->type, GL_TEXTURE_WRAP_R, wrap.r);
+    glTexParameteri(texture->glType, GL_TEXTURE_WRAP_R, wrap.r);
   }
 }

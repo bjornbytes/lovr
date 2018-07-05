@@ -48,27 +48,27 @@ typedef enum {
 } ArcMode;
 
 typedef enum {
-  WINDING_CLOCKWISE = GL_CW,
-  WINDING_COUNTERCLOCKWISE = GL_CCW
+  WINDING_CLOCKWISE,
+  WINDING_COUNTERCLOCKWISE
 } Winding;
 
 typedef enum {
-  COMPARE_NONE = 0,
-  COMPARE_EQUAL = GL_EQUAL,
-  COMPARE_NOT_EQUAL = GL_NOTEQUAL,
-  COMPARE_LESS = GL_LESS,
-  COMPARE_LEQUAL = GL_LEQUAL,
-  COMPARE_GEQUAL = GL_GEQUAL,
-  COMPARE_GREATER = GL_GREATER
+  COMPARE_NONE,
+  COMPARE_EQUAL,
+  COMPARE_NEQUAL,
+  COMPARE_LESS,
+  COMPARE_LEQUAL,
+  COMPARE_GREATER,
+  COMPARE_GEQUAL
 } CompareMode;
 
 typedef enum {
-  STENCIL_REPLACE = GL_REPLACE,
-  STENCIL_INCREMENT = GL_INCR,
-  STENCIL_DECREMENT = GL_DECR,
-  STENCIL_INCREMENT_WRAP = GL_INCR_WRAP,
-  STENCIL_DECREMENT_WRAP = GL_DECR_WRAP,
-  STENCIL_INVERT = GL_INVERT
+  STENCIL_REPLACE,
+  STENCIL_INCREMENT,
+  STENCIL_DECREMENT,
+  STENCIL_INCREMENT_WRAP,
+  STENCIL_DECREMENT_WRAP,
+  STENCIL_INVERT
 } StencilAction;
 
 typedef struct {
@@ -211,7 +211,7 @@ void lovrGraphicsPopLayer();
 void lovrGraphicsSetCamera(mat4 projection, mat4 view);
 void lovrGraphicsSetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 Texture* lovrGraphicsGetTexture(int slot);
-void lovrGraphicsBindTexture(Texture* texture, TextureType type, int slot);
+void lovrGraphicsBindTexture(Texture* texture, GLenum type, int slot);
 Material* lovrGraphicsGetDefaultMaterial();
 void lovrGraphicsUseProgram(uint32_t program);
 void lovrGraphicsBindFramebuffer(uint32_t framebuffer);

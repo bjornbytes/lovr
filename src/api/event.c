@@ -1,7 +1,16 @@
 #include "api.h"
 #include "event/event.h"
 
-map_int_t EventTypes;
+const char* EventTypes[] = {
+  [EVENT_QUIT] = "quit",
+  [EVENT_FOCUS] = "focus",
+  [EVENT_MOUNT] = "mount",
+  [EVENT_THREAD_ERROR] = "threaderror",
+  [EVENT_CONTROLLER_ADDED] = "controlleradded",
+  [EVENT_CONTROLLER_REMOVED] = "controllerremoved",
+  [EVENT_CONTROLLER_PRESSED] = "controllerpressed",
+  [EVENT_CONTROLLER_RELEASED] = "controllerreleased",
+};
 
 static _Thread_local int pollRef;
 
@@ -12,7 +21,7 @@ static int nextEvent(lua_State* L) {
     return 0;
   }
 
-  luax_pushenum(L, &EventTypes, event.type);
+  lua_pushstring(L, EventTypes[event.type]);
 
   switch (event.type) {
     case EVENT_QUIT:
@@ -51,12 +60,12 @@ static int nextEvent(lua_State* L) {
 
     case EVENT_CONTROLLER_PRESSED:
       luax_pushtype(L, Controller, event.data.controllerpressed.controller);
-      luax_pushenum(L, &ControllerButtons, event.data.controllerpressed.button);
+      lua_pushstring(L, ControllerButtons[event.data.controllerpressed.button]);
       return 3;
 
     case EVENT_CONTROLLER_RELEASED:
       luax_pushtype(L, Controller, event.data.controllerreleased.controller);
-      luax_pushenum(L, &ControllerButtons, event.data.controllerreleased.button);
+      lua_pushstring(L, ControllerButtons[event.data.controllerpressed.button]);
       return 3;
 
     default:
@@ -71,16 +80,6 @@ int l_lovrEventInit(lua_State* L) {
   // Store nextEvent in the registry to avoid creating a closure every time we poll for events.
   lua_pushcfunction(L, nextEvent);
   pollRef = luaL_ref(L, LUA_REGISTRYINDEX);
-
-  map_init(&EventTypes);
-  map_set(&EventTypes, "quit", EVENT_QUIT);
-  map_set(&EventTypes, "focus", EVENT_FOCUS);
-  map_set(&EventTypes, "mount", EVENT_MOUNT);
-  map_set(&EventTypes, "threaderror", EVENT_THREAD_ERROR);
-  map_set(&EventTypes, "controlleradded", EVENT_CONTROLLER_ADDED);
-  map_set(&EventTypes, "controllerremoved", EVENT_CONTROLLER_REMOVED);
-  map_set(&EventTypes, "controllerpressed", EVENT_CONTROLLER_PRESSED);
-  map_set(&EventTypes, "controllerreleased", EVENT_CONTROLLER_RELEASED);
 
   lovrEventInit();
   return 1;
@@ -102,7 +101,7 @@ int l_lovrEventPump(lua_State* L) {
 }
 
 int l_lovrEventPush(lua_State* L) {
-  EventType type = *(EventType*) luax_checkenum(L, 1, &EventTypes, "event type");
+  EventType type = luaL_checkoption(L, 1, NULL, EventTypes);
   EventData data;
 
   switch (type) {
@@ -142,12 +141,12 @@ int l_lovrEventPush(lua_State* L) {
 
     case EVENT_CONTROLLER_PRESSED:
       data.controllerpressed.controller = luax_checktype(L, 2, Controller);
-      data.controllerpressed.button = *(ControllerButton*) luax_checkenum(L, 3, &ControllerButtons, "button");
+      data.controllerpressed.button = luaL_checkoption(L, 3, NULL, ControllerButtons);
       break;
 
     case EVENT_CONTROLLER_RELEASED:
       data.controllerreleased.controller = luax_checktype(L, 2, Controller);
-      data.controllerreleased.button = *(ControllerButton*) luax_checkenum(L, 3, &ControllerButtons, "button");
+      data.controllerreleased.button = luaL_checkoption(L, 3, NULL, ControllerButtons);
       break;
   }
 

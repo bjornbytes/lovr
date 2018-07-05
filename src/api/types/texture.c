@@ -20,7 +20,7 @@ int l_lovrTextureGetDimensions(lua_State* L) {
 int l_lovrTextureGetFilter(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
   TextureFilter filter = lovrTextureGetFilter(texture);
-  luax_pushenum(L, &FilterModes, filter.mode);
+  lua_pushstring(L, FilterModes[filter.mode]);
   if (filter.mode == FILTER_ANISOTROPIC) {
     lua_pushnumber(L, filter.anisotropy);
     return 2;
@@ -36,7 +36,7 @@ int l_lovrTextureGetHeight(lua_State* L) {
 
 int l_lovrTextureGetType(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  luax_pushenum(L, &TextureTypes, lovrTextureGetType(texture));
+  lua_pushstring(L, TextureTypes[lovrTextureGetType(texture)]);
   return 1;
 }
 
@@ -49,10 +49,10 @@ int l_lovrTextureGetWidth(lua_State* L) {
 int l_lovrTextureGetWrap(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
   TextureWrap wrap = lovrTextureGetWrap(texture);
-  luax_pushenum(L, &WrapModes, wrap.s);
-  luax_pushenum(L, &WrapModes, wrap.t);
+  lua_pushstring(L, WrapModes[wrap.s]);
+  lua_pushstring(L, WrapModes[wrap.t]);
   if (texture->type == TEXTURE_CUBE) {
-    luax_pushenum(L, &WrapModes, wrap.r);
+    lua_pushstring(L, WrapModes[wrap.r]);
     return 3;
   }
   return 2;
@@ -68,19 +68,18 @@ int l_lovrTextureReplacePixels(lua_State* L) {
 
 int l_lovrTextureSetFilter(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  FilterMode mode = *(FilterMode*) luax_checkenum(L, 2, &FilterModes, "filter mode");
+  FilterMode mode = luaL_checkoption(L, 2, NULL, FilterModes);
   float anisotropy = luaL_optnumber(L, 3, 1.);
-  TextureFilter filter = { .mode = mode, .anisotropy = anisotropy };
-  lovrTextureSetFilter(texture, filter);
+  lovrTextureSetFilter(texture, (TextureFilter) { .mode = mode, .anisotropy = anisotropy });
   return 0;
 }
 
 int l_lovrTextureSetWrap(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
   TextureWrap wrap;
-  wrap.s = *(WrapMode*) luax_checkenum(L, 2, &WrapModes, "wrap mode");
-  wrap.t = *(WrapMode*) luax_optenum(L, 3, luaL_checkstring(L, 2), &WrapModes, "wrap mode");
-  wrap.r = *(WrapMode*) luax_optenum(L, 4, luaL_checkstring(L, 2), &WrapModes, "wrap mode");
+  wrap.s = luaL_checkoption(L, 2, NULL, WrapModes);
+  wrap.t = luaL_checkoption(L, 3, luaL_checkstring(L, 2), WrapModes);
+  wrap.r = luaL_checkoption(L, 4, luaL_checkstring(L, 2), WrapModes);
   lovrTextureSetWrap(texture, wrap);
   return 0;
 }

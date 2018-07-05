@@ -19,7 +19,7 @@ int l_lovrShapeDestroy(lua_State* L) {
 
 int l_lovrShapeGetType(lua_State* L) {
   Shape* shape = luax_checktypeof(L, 1, Shape);
-  luax_pushenum(L, &ShapeTypes, lovrShapeGetType(shape));
+  lua_pushstring(L, ShapeTypes[lovrShapeGetType(shape)]);
   return 1;
 }
 

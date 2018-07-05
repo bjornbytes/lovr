@@ -3,16 +3,16 @@
 #include "audio/source.h"
 #include "data/audioStream.h"
 
-map_int_t TimeUnits;
+const char* TimeUnits[] = {
+  [UNIT_SECONDS] = "seconds",
+  [UNIT_SAMPLES] = "samples",
+  NULL
+};
 
 int l_lovrAudioInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrAudio);
   luax_registertype(L, "Source", lovrSource);
-
-  map_init(&TimeUnits);
-  map_set(&TimeUnits, "seconds", UNIT_SECONDS);
-  map_set(&TimeUnits, "samples", UNIT_SAMPLES);
 
   lovrAudioInit();
   return 1;

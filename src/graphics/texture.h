@@ -6,10 +6,10 @@
 #pragma once
 
 typedef enum {
-  TEXTURE_2D = GL_TEXTURE_2D,
-  TEXTURE_CUBE = GL_TEXTURE_CUBE_MAP,
-  TEXTURE_ARRAY = GL_TEXTURE_2D_ARRAY,
-  TEXTURE_VOLUME = GL_TEXTURE_3D
+  TEXTURE_2D,
+  TEXTURE_CUBE,
+  TEXTURE_ARRAY,
+  TEXTURE_VOLUME
 } TextureType;
 
 typedef enum {
@@ -25,9 +25,9 @@ typedef struct {
 } TextureFilter;
 
 typedef enum {
-  WRAP_CLAMP = GL_CLAMP_TO_EDGE,
-  WRAP_REPEAT = GL_REPEAT,
-  WRAP_MIRRORED_REPEAT = GL_MIRRORED_REPEAT
+  WRAP_CLAMP,
+  WRAP_REPEAT,
+  WRAP_MIRRORED_REPEAT
 } WrapMode;
 
 typedef struct {
@@ -39,6 +39,7 @@ typedef struct {
 typedef struct {
   Ref ref;
   TextureType type;
+  GLenum glType;
   TextureData** slices;
   int width;
   int height;

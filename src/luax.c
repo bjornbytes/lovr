@@ -155,40 +155,6 @@ int luax_setconf(lua_State* L) {
   return 0;
 }
 
-void luax_pushenum(lua_State* L, map_int_t* map, int value) {
-  const char* key;
-  map_iter_t iter = map_iter(map);
-  while ((key = map_next(map, &iter))) {
-    if (*map_get(map, key) == value) {
-      lua_pushstring(L, key);
-      return;
-    }
-  }
-  lua_pushnil(L);
-}
-
-void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName) {
-  const char* key = luaL_checkstring(L, index);
-  void* value = map_get(map, key);
-  if (!value) {
-    luaL_error(L, "Invalid %s '%s'", typeName, key);
-    return NULL;
-  }
-
-  return value;
-}
-
-void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map, const char* typeName) {
-  const char* key = luaL_optstring(L, index, fallback);
-  void* value = map_get(map, key);
-  if (!value) {
-    luaL_error(L, "Invalid %s '%s'", typeName, key);
-    return NULL;
-  }
-
-  return value;
-}
-
 Color luax_checkcolor(lua_State* L, int index) {
   Color color = { 1., 1., 1., 1. };
 

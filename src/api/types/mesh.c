@@ -69,14 +69,14 @@ int l_lovrMeshDraw(lua_State* L) {
 
 int l_lovrMeshGetDrawMode(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  luax_pushenum(L, &MeshDrawModes, lovrMeshGetDrawMode(mesh));
+  lua_pushstring(L, MeshDrawModes[lovrMeshGetDrawMode(mesh)]);
   return 1;
 }
 
 int l_lovrMeshSetDrawMode(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  MeshDrawMode* drawMode = (MeshDrawMode*) luax_checkenum(L, 2, &MeshDrawModes, "mesh draw mode");
-  lovrMeshSetDrawMode(mesh, *drawMode);
+  MeshDrawMode drawMode = luaL_checkoption(L, 2, NULL, MeshDrawModes);
+  lovrMeshSetDrawMode(mesh, drawMode);
   return 0;
 }
 

@@ -319,10 +319,10 @@ void lovrShaderBind(Shader* shader) {
         for (int i = 0; i < count; i++) {
           TextureType type;
           switch (uniform->glType) {
-            case GL_SAMPLER_2D: type = TEXTURE_2D; break;
-            case GL_SAMPLER_3D: type = TEXTURE_VOLUME; break;
-            case GL_SAMPLER_CUBE: type = TEXTURE_CUBE; break;
-            case GL_SAMPLER_2D_ARRAY: type = TEXTURE_ARRAY; break;
+            case GL_SAMPLER_2D: type = GL_TEXTURE_2D; break;
+            case GL_SAMPLER_3D: type = GL_TEXTURE_3D; break;
+            case GL_SAMPLER_CUBE: type = GL_TEXTURE_CUBE_MAP; break;
+            case GL_SAMPLER_2D_ARRAY: type = GL_TEXTURE_2D_ARRAY; break;
           }
           lovrGraphicsBindTexture(uniform->value.textures[i], type, uniform->baseTextureSlot + i);
         }

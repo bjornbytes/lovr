@@ -13,25 +13,158 @@
 #include <math.h>
 #include <stdbool.h>
 
-map_int_t ArcModes;
-map_int_t AttributeTypes;
-map_int_t BlendAlphaModes;
-map_int_t BlendModes;
-map_int_t CompareModes;
-map_int_t DrawModes;
-map_int_t FilterModes;
-map_int_t HorizontalAligns;
-map_int_t MaterialColors;
-map_int_t MaterialScalars;
-map_int_t MaterialTextures;
-map_int_t MeshDrawModes;
-map_int_t MeshUsages;
-map_int_t StencilActions;
-map_int_t TextureFormats;
-map_int_t TextureTypes;
-map_int_t VerticalAligns;
-map_int_t Windings;
-map_int_t WrapModes;
+const char* ArcModes[] = {
+  [ARC_MODE_PIE] = "pie",
+  [ARC_MODE_OPEN] = "open",
+  [ARC_MODE_CLOSED] = "closed",
+  NULL
+};
+
+const char* AttributeTypes[] = {
+  [ATTR_FLOAT] = "float",
+  [ATTR_BYTE] = "byte",
+  [ATTR_INT] = "int",
+  NULL
+};
+
+const char* BlendAlphaModes[] = {
+  [BLEND_ALPHA_MULTIPLY] = "alphamultiply",
+  [BLEND_PREMULTIPLIED] = "premultiplied",
+  NULL
+};
+
+const char* BlendModes[] = {
+  [BLEND_ALPHA] = "alpha",
+  [BLEND_ADD] = "add",
+  [BLEND_SUBTRACT] = "subtract",
+  [BLEND_MULTIPLY] = "multiply",
+  [BLEND_LIGHTEN] = "lighten",
+  [BLEND_DARKEN] = "darken",
+  [BLEND_SCREEN] = "screen",
+  [BLEND_REPLACE] = "replace",
+  NULL
+};
+
+const char* CompareModes[] = {
+  [COMPARE_EQUAL] = "equal",
+  [COMPARE_NEQUAL] = "notequal",
+  [COMPARE_LESS] = "less",
+  [COMPARE_LEQUAL] = "lequal",
+  [COMPARE_GREATER] = "greater",
+  [COMPARE_GEQUAL] = "gequal",
+  NULL
+};
+
+const char* DrawModes[] = {
+  [DRAW_MODE_FILL] = "fill",
+  [DRAW_MODE_LINE] = "line",
+  NULL
+};
+
+const char* FilterModes[] = {
+  [FILTER_NEAREST] = "nearest",
+  [FILTER_BILINEAR] = "bilinear",
+  [FILTER_TRILINEAR] = "trilinear",
+  [FILTER_ANISOTROPIC] = "anisotropic",
+  NULL
+};
+
+const char* HorizontalAligns[] = {
+  [ALIGN_LEFT] = "left",
+  [ALIGN_RIGHT] = "right",
+  [ALIGN_CENTER] = "center",
+  NULL
+};
+
+const char* MaterialColors[] = {
+  [COLOR_DIFFUSE] = "diffuse",
+  [COLOR_EMISSIVE] = "emissive",
+  NULL
+};
+
+const char* MaterialScalars[] = {
+  [SCALAR_METALNESS] = "metalness",
+  [SCALAR_ROUGHNESS] = "roughness",
+  NULL
+};
+
+const char* MaterialTextures[] = {
+  [TEXTURE_DIFFUSE] = "diffuse",
+  [TEXTURE_EMISSIVE] = "emissive",
+  [TEXTURE_METALNESS] = "metalness",
+  [TEXTURE_ROUGHNESS] = "roughness",
+  [TEXTURE_OCCLUSION] = "occlusion",
+  [TEXTURE_NORMAL] = "normal",
+  [TEXTURE_ENVIRONMENT_MAP] = "environment",
+  NULL
+};
+
+const char* MeshDrawModes[] = {
+  [MESH_POINTS] = "points",
+  [MESH_LINES] = "lines",
+  [MESH_LINE_STRIP] = "linestrip",
+  [MESH_TRIANGLE_STRIP] = "strip",
+  [MESH_TRIANGLES] = "triangles",
+  [MESH_TRIANGLE_FAN] = "fan",
+  NULL
+};
+
+const char* MeshUsages[] = {
+  [MESH_STATIC] = "static",
+  [MESH_DYNAMIC] = "dynamic",
+  [MESH_STREAM] = "stream",
+  NULL
+};
+
+const char* StencilActions[] = {
+  [STENCIL_REPLACE] = "replace",
+  [STENCIL_INCREMENT] = "increment",
+  [STENCIL_DECREMENT] = "decrement",
+  [STENCIL_INCREMENT_WRAP] = "incrementwrap",
+  [STENCIL_DECREMENT_WRAP] = "decrementwrap",
+  [STENCIL_INVERT] = "invert",
+  NULL
+};
+
+const char* TextureFormats[] = {
+  [FORMAT_RGB] = "rgb",
+  [FORMAT_RGBA] = "rgba",
+  [FORMAT_RGBA16F] = "rgba16f",
+  [FORMAT_RGBA32F] = "rgba32f",
+  [FORMAT_RG11B10F] = "rg11b10f",
+  [FORMAT_DXT1] = "dxt1",
+  [FORMAT_DXT3] = "dxt3",
+  [FORMAT_DXT5] = "dxt5",
+  NULL
+};
+
+const char* TextureTypes[] = {
+  [TEXTURE_2D] = "2d",
+  [TEXTURE_ARRAY] = "array",
+  [TEXTURE_CUBE] = "cube",
+  [TEXTURE_VOLUME] = "volume",
+  NULL
+};
+
+const char* VerticalAligns[] = {
+  [ALIGN_TOP] = "top",
+  [ALIGN_BOTTOM] = "bottom",
+  [ALIGN_MIDDLE] = "middle",
+  NULL
+};
+
+const char* Windings[] = {
+  [WINDING_CLOCKWISE] = "clockwise",
+  [WINDING_COUNTERCLOCKWISE] = "counterclockwise",
+  NULL
+};
+
+const char* WrapModes[] = {
+  [WRAP_CLAMP] = "clamp",
+  [WRAP_REPEAT] = "repeat",
+  [WRAP_MIRRORED_REPEAT] = "mirroredrepeat",
+  NULL
+};
 
 static uint32_t luax_readvertices(lua_State* L, int index) {
   bool isTable = lua_istable(L, index);
@@ -102,122 +235,6 @@ int l_lovrGraphicsInit(lua_State* L) {
   luax_registertype(L, "Shader", lovrShader);
   luax_registertype(L, "Texture", lovrTexture);
   luax_extendtype(L, "Texture", "Canvas", lovrTexture, lovrCanvas);
-
-  map_init(&ArcModes);
-  map_set(&ArcModes, "pie", ARC_MODE_PIE);
-  map_set(&ArcModes, "open", ARC_MODE_OPEN);
-  map_set(&ArcModes, "closed", ARC_MODE_CLOSED);
-
-  map_init(&AttributeTypes);
-  map_set(&AttributeTypes, "float", ATTR_FLOAT);
-  map_set(&AttributeTypes, "byte", ATTR_BYTE);
-  map_set(&AttributeTypes, "int", ATTR_INT);
-
-  map_init(&BlendAlphaModes);
-  map_set(&BlendAlphaModes, "alphamultiply", BLEND_ALPHA_MULTIPLY);
-  map_set(&BlendAlphaModes, "premultiplied", BLEND_PREMULTIPLIED);
-
-  map_init(&BlendModes);
-  map_set(&BlendModes, "alpha", BLEND_ALPHA);
-  map_set(&BlendModes, "add", BLEND_ADD);
-  map_set(&BlendModes, "subtract", BLEND_SUBTRACT);
-  map_set(&BlendModes, "multiply", BLEND_MULTIPLY);
-  map_set(&BlendModes, "lighten", BLEND_LIGHTEN);
-  map_set(&BlendModes, "darken", BLEND_DARKEN);
-  map_set(&BlendModes, "screen", BLEND_SCREEN);
-  map_set(&BlendModes, "replace", BLEND_REPLACE);
-
-  map_init(&CompareModes);
-  map_set(&CompareModes, "equal", COMPARE_EQUAL);
-  map_set(&CompareModes, "notequal", COMPARE_NOT_EQUAL);
-  map_set(&CompareModes, "less", COMPARE_LESS);
-  map_set(&CompareModes, "lequal", COMPARE_LEQUAL);
-  map_set(&CompareModes, "gequal", COMPARE_GEQUAL);
-  map_set(&CompareModes, "greater", COMPARE_GREATER);
-
-  map_init(&DrawModes);
-  map_set(&DrawModes, "fill", DRAW_MODE_FILL);
-  map_set(&DrawModes, "line", DRAW_MODE_LINE);
-
-  map_init(&FilterModes);
-  map_set(&FilterModes, "nearest", FILTER_NEAREST);
-  map_set(&FilterModes, "bilinear", FILTER_BILINEAR);
-  map_set(&FilterModes, "trilinear", FILTER_TRILINEAR);
-  map_set(&FilterModes, "anisotropic", FILTER_ANISOTROPIC);
-
-  map_init(&HorizontalAligns);
-  map_set(&HorizontalAligns, "left", ALIGN_LEFT);
-  map_set(&HorizontalAligns, "right", ALIGN_RIGHT);
-  map_set(&HorizontalAligns, "center", ALIGN_CENTER);
-
-  map_init(&MaterialColors);
-  map_set(&MaterialColors, "diffuse", COLOR_DIFFUSE);
-  map_set(&MaterialColors, "emissive", COLOR_EMISSIVE);
-
-  map_init(&MaterialScalars);
-  map_set(&MaterialScalars, "metalness", SCALAR_METALNESS);
-  map_set(&MaterialScalars, "roughness", SCALAR_ROUGHNESS);
-
-  map_init(&MaterialTextures);
-  map_set(&MaterialTextures, "diffuse", TEXTURE_DIFFUSE);
-  map_set(&MaterialTextures, "emissive", TEXTURE_EMISSIVE);
-  map_set(&MaterialTextures, "metalness", TEXTURE_METALNESS);
-  map_set(&MaterialTextures, "roughness", TEXTURE_ROUGHNESS);
-  map_set(&MaterialTextures, "occlusion", TEXTURE_OCCLUSION);
-  map_set(&MaterialTextures, "normal", TEXTURE_NORMAL);
-  map_set(&MaterialTextures, "environment", TEXTURE_ENVIRONMENT_MAP);
-
-  map_init(&MeshDrawModes);
-  map_set(&MeshDrawModes, "points", MESH_POINTS);
-  map_set(&MeshDrawModes, "lines", MESH_LINES);
-  map_set(&MeshDrawModes, "linestrip", MESH_LINE_STRIP);
-  map_set(&MeshDrawModes, "strip", MESH_TRIANGLE_STRIP);
-  map_set(&MeshDrawModes, "triangles", MESH_TRIANGLES);
-  map_set(&MeshDrawModes, "fan", MESH_TRIANGLE_FAN);
-
-  map_init(&MeshUsages);
-  map_set(&MeshUsages, "static", MESH_STATIC);
-  map_set(&MeshUsages, "dynamic", MESH_DYNAMIC);
-  map_set(&MeshUsages, "stream", MESH_STREAM);
-
-  map_init(&StencilActions);
-  map_set(&StencilActions, "replace", STENCIL_REPLACE);
-  map_set(&StencilActions, "increment", STENCIL_INCREMENT);
-  map_set(&StencilActions, "decrement", STENCIL_DECREMENT);
-  map_set(&StencilActions, "incrementwrap", STENCIL_INCREMENT_WRAP);
-  map_set(&StencilActions, "decrementwrap", STENCIL_DECREMENT_WRAP);
-  map_set(&StencilActions, "invert", STENCIL_INVERT);
-
-  map_init(&TextureFormats);
-  map_set(&TextureFormats, "rgb", FORMAT_RGB);
-  map_set(&TextureFormats, "rgba", FORMAT_RGBA);
-  map_set(&TextureFormats, "rgba16f", FORMAT_RGBA16F);
-  map_set(&TextureFormats, "rgba32f", FORMAT_RGBA32F);
-  map_set(&TextureFormats, "rg11b10f", FORMAT_RG11B10F);
-  map_set(&TextureFormats, "dxt1", FORMAT_DXT1);
-  map_set(&TextureFormats, "dxt3", FORMAT_DXT3);
-  map_set(&TextureFormats, "dxt5", FORMAT_DXT5);
-
-  map_init(&TextureTypes);
-  map_set(&TextureTypes, "2d", TEXTURE_2D);
-  map_set(&TextureTypes, "array", TEXTURE_ARRAY);
-  map_set(&TextureTypes, "cube", TEXTURE_CUBE);
-  map_set(&TextureTypes, "volume", TEXTURE_VOLUME);
-
-  map_init(&VerticalAligns);
-  map_set(&VerticalAligns, "top", ALIGN_TOP);
-  map_set(&VerticalAligns, "bottom", ALIGN_BOTTOM);
-  map_set(&VerticalAligns, "middle", ALIGN_MIDDLE);
-
-  map_init(&Windings);
-  map_set(&Windings, "clockwise", WINDING_CLOCKWISE);
-  map_set(&Windings, "counterclockwise", WINDING_COUNTERCLOCKWISE);
-
-  map_init(&WrapModes);
-  map_set(&WrapModes, "clamp", WRAP_CLAMP);
-  map_set(&WrapModes, "repeat", WRAP_REPEAT);
-  map_set(&WrapModes, "mirroredrepeat", WRAP_MIRRORED_REPEAT);
-
   lovrGraphicsInit();
 
   luax_pushconf(L);
@@ -386,14 +403,14 @@ int l_lovrGraphicsGetBlendMode(lua_State* L) {
   BlendMode mode;
   BlendAlphaMode alphaMode;
   lovrGraphicsGetBlendMode(&mode, &alphaMode);
-  luax_pushenum(L, &BlendModes, mode);
-  luax_pushenum(L, &BlendAlphaModes, alphaMode);
+  lua_pushstring(L, BlendModes[mode]);
+  lua_pushstring(L, BlendAlphaModes[alphaMode]);
   return 2;
 }
 
 int l_lovrGraphicsSetBlendMode(lua_State* L) {
-  BlendMode mode = *(BlendMode*) luax_checkenum(L, 1, &BlendModes, "blend mode");
-  BlendAlphaMode alphaMode = *(BlendAlphaMode*) luax_optenum(L, 2, "alphamultiply", &BlendAlphaModes, "alpha blend mode");
+  BlendMode mode = luaL_checkoption(L, 1, NULL, BlendModes);
+  BlendAlphaMode alphaMode = luaL_checkoption(L, 2, "alphamultiply", BlendAlphaModes);
   lovrGraphicsSetBlendMode(mode, alphaMode);
   return 0;
 }
@@ -445,7 +462,7 @@ int l_lovrGraphicsSetCullingEnabled(lua_State* L) {
 
 int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
   TextureFilter filter = lovrGraphicsGetDefaultFilter();
-  luax_pushenum(L, &FilterModes, filter.mode);
+  lua_pushstring(L, FilterModes[filter.mode]);
   if (filter.mode == FILTER_ANISOTROPIC) {
     lua_pushnumber(L, filter.anisotropy);
     return 2;
@@ -454,10 +471,9 @@ int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
 }
 
 int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
-  FilterMode mode = *(FilterMode*) luax_checkenum(L, 1, &FilterModes, "filter mode");
+  FilterMode mode = luaL_checkoption(L, 1, NULL, FilterModes);
   float anisotropy = luaL_optnumber(L, 2, 1.);
-  TextureFilter filter = { .mode = mode, .anisotropy = anisotropy };
-  lovrGraphicsSetDefaultFilter(filter);
+  lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = mode, .anisotropy = anisotropy });
   return 0;
 }
 
@@ -465,18 +481,13 @@ int l_lovrGraphicsGetDepthTest(lua_State* L) {
   CompareMode mode;
   bool write;
   lovrGraphicsGetDepthTest(&mode, &write);
-  luax_pushenum(L, &CompareModes, mode);
+  lua_pushstring(L, CompareModes[mode]);
   lua_pushboolean(L, write);
   return 2;
 }
 
 int l_lovrGraphicsSetDepthTest(lua_State* L) {
-  CompareMode mode = COMPARE_NONE;
-
-  if (lua_type(L, 1) == LUA_TSTRING) {
-    mode = *(CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
-  }
-
+  CompareMode mode = lua_isnoneornil(L, 1) ? COMPARE_NONE : luaL_checkoption(L, 1, NULL, CompareModes);
   bool write = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
   lovrGraphicsSetDepthTest(mode, write);
   return 0;
@@ -558,7 +569,7 @@ int l_lovrGraphicsGetStencilTest(lua_State* L) {
     return 1;
   }
 
-  luax_pushenum(L, &CompareModes, mode);
+  lua_pushstring(L, CompareModes[mode]);
   lua_pushinteger(L, value);
   return 2;
 }
@@ -567,7 +578,7 @@ int l_lovrGraphicsSetStencilTest(lua_State* L) {
   if (lua_isnoneornil(L, 1)) {
     lovrGraphicsSetStencilTest(COMPARE_NONE, 0);
   } else {
-    CompareMode mode = *(CompareMode*) luax_checkenum(L, 1, &CompareModes, "compare mode");
+    CompareMode mode = luaL_checkoption(L, 1, NULL, CompareModes);
     int value = luaL_checkinteger(L, 2);
     lovrGraphicsSetStencilTest(mode, value);
   }
@@ -575,13 +586,12 @@ int l_lovrGraphicsSetStencilTest(lua_State* L) {
 }
 
 int l_lovrGraphicsGetWinding(lua_State* L) {
-  luax_pushenum(L, &Windings, lovrGraphicsGetWinding());
+  lua_pushstring(L, Windings[lovrGraphicsGetWinding()]);
   return 1;
 }
 
 int l_lovrGraphicsSetWinding(lua_State* L) {
-  Winding* winding = (Winding*) luax_checkenum(L, 1, &Windings, "winding");
-  lovrGraphicsSetWinding(*winding);
+  lovrGraphicsSetWinding(luaL_checkoption(L, 1, NULL, Windings));
   return 0;
 }
 
@@ -664,7 +674,7 @@ int l_lovrGraphicsTriangle(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+    drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
   }
 
   float points[9];
@@ -683,7 +693,7 @@ int l_lovrGraphicsPlane(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+    drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
   }
   float transform[16];
   luax_readtransform(L, 2, transform, 2);
@@ -697,7 +707,7 @@ static int luax_rectangularprism(lua_State* L, int scaleComponents) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+    drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
   }
   float transform[16];
   luax_readtransform(L, 2, transform, scaleComponents);
@@ -719,12 +729,12 @@ int l_lovrGraphicsArc(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+    drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
   }
   ArcMode arcMode = ARC_MODE_PIE;
   int index = 2;
   if (lua_type(L, index) == LUA_TSTRING) {
-    arcMode = *(ArcMode*) luax_checkenum(L, index++, &ArcModes, "arc mode");
+    arcMode = luaL_checkoption(L, index++, NULL, ArcModes);
   }
   float transform[16];
   index = luax_readtransform(L, index, transform, 1);
@@ -741,7 +751,7 @@ int l_lovrGraphicsCircle(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    drawMode = *(DrawMode*) luax_checkenum(L, 1, &DrawModes, "draw mode");
+    drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
   }
   float transform[16];
   int index = luax_readtransform(L, 2, transform, 1);
@@ -792,15 +802,15 @@ int l_lovrGraphicsPrint(lua_State* L) {
   float transform[16];
   int index = luax_readtransform(L, 2, transform, 1);
   float wrap = luaL_optnumber(L, index++, 0);
-  HorizontalAlign halign = *(HorizontalAlign*) luax_optenum(L, index++, "center", &HorizontalAligns, "alignment");
-  VerticalAlign valign = *(VerticalAlign*) luax_optenum(L, index++, "middle", &VerticalAligns, "alignment");
+  HorizontalAlign halign = luaL_checkoption(L, index++, "center", HorizontalAligns);
+  VerticalAlign valign = luaL_checkoption(L, index++, "middle", VerticalAligns);
   lovrGraphicsPrint(str, transform, wrap, halign, valign);
   return 0;
 }
 
 int l_lovrGraphicsStencil(lua_State* L) {
   luaL_checktype(L, 1, LUA_TFUNCTION);
-  StencilAction action = *(StencilAction*) luax_optenum(L, 2, "replace", &StencilActions, "stencil action");
+  StencilAction action = luaL_checkoption(L, 2, "replace", StencilActions);
   int replaceValue = luaL_optinteger(L, 3, 1);
   bool keepValues = lua_toboolean(L, 4);
   if (!keepValues) {
@@ -839,7 +849,7 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
 
   if (lua_istable(L, 3)) {
     lua_getfield(L, 3, "format");
-    format = *(TextureFormat*) luax_optenum(L, -1, "rgba", &TextureFormats, "canvas format");
+    format = luaL_checkoption(L, -1, "rgba", TextureFormats);
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "msaa");
@@ -967,9 +977,9 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
     vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
   }
 
-  MeshDrawMode* drawMode = (MeshDrawMode*) luax_optenum(L, drawModeIndex, "fan", &MeshDrawModes, "mesh draw mode");
-  MeshUsage* usage = (MeshUsage*) luax_optenum(L, drawModeIndex + 1, "dynamic", &MeshUsages, "mesh usage");
-  Mesh* mesh = lovrMeshCreate(count, format, *drawMode, *usage);
+  MeshDrawMode drawMode = luaL_checkoption(L, drawModeIndex, "fan", MeshDrawModes);
+  MeshUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", MeshUsages);
+  Mesh* mesh = lovrMeshCreate(count, format, drawMode, usage);
 
   if (dataIndex) {
     VertexPointer vertices = lovrMeshMapVertices(mesh, 0, lua_objlen(L, dataIndex), false, true);
@@ -1070,7 +1080,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
 
     lua_getfield(L, 2, "type");
     if (!lua_isnil(L, -1)) {
-      type = *(TextureType*) luax_checkenum(L, -1, &TextureTypes, "texture type");
+      type = luaL_checkoption(L, -1, NULL, TextureTypes);
     }
     lua_pop(L, 1);
   }
