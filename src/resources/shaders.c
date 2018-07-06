@@ -27,6 +27,7 @@ const char* lovrShaderVertexPrefix = ""
 #else
 "#version 150 \n"
 #endif
+"#define VERTEX VERTEX \n"
 "#define MAX_BONES 48 \n"
 "in vec3 lovrPosition; \n"
 "in vec3 lovrNormal; \n"
@@ -54,6 +55,8 @@ const char* lovrShaderFragmentPrefix = ""
 "#version 150 \n"
 "in vec4 gl_FragCoord; \n"
 #endif
+"#define PIXEL PIXEL \n"
+"#define FRAGMENT FRAGMENT \n"
 "in vec2 texCoord; \n"
 "in vec4 vertexColor; \n"
 "out vec4 lovrCanvas[gl_MaxDrawBuffers]; \n"
