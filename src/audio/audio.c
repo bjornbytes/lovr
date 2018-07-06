@@ -49,6 +49,10 @@ void lovrAudioDestroy() {
 void lovrAudioUpdate() {
   int i; Source* source;
   vec_foreach_rev(&state.sources, source, i) {
+    if (source->type == SOURCE_STATIC) {
+      continue;
+    }
+
     bool isStopped = lovrSourceIsStopped(source);
     ALint processed;
     alGetSourcei(source->id, AL_BUFFERS_PROCESSED, &processed);

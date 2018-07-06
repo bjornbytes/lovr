@@ -22,8 +22,8 @@ typedef enum {
 typedef struct {
   Ref ref;
   SourceType type;
-  AudioStream* stream;
   SoundData* soundData;
+  AudioStream* stream;
   ALuint id;
   ALuint buffers[SOURCE_BUFFERS];
   bool isLooping;
