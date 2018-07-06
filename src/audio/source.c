@@ -27,10 +27,24 @@ static ALenum lovrSourceGetState(Source* source) {
   return state;
 }
 
-Source* lovrSourceCreate(AudioStream* stream) {
+Source* lovrSourceCreateStatic(SoundData* soundData) {
   Source* source = lovrAlloc(sizeof(Source), lovrSourceDestroy);
   if (!source) return NULL;
 
+  source->type = SOURCE_STATIC;
+  source->soundData = soundData;
+  alGenSources(1, &source->id);
+  alGenBuffers(SOURCE_BUFFERS, source->buffers);
+  lovrRetain(soundData);
+
+  return source;
+}
+
+Source* lovrSourceCreateStream(AudioStream* stream) {
+  Source* source = lovrAlloc(sizeof(Source), lovrSourceDestroy);
+  if (!source) return NULL;
+
+  source->type = SOURCE_STREAM;
   source->stream = stream;
   alGenSources(1, &source->id);
   alGenBuffers(SOURCE_BUFFERS, source->buffers);

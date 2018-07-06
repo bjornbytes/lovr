@@ -3,6 +3,12 @@
 #include "audio/source.h"
 #include "data/audioStream.h"
 
+const char* SourceTypes[] = {
+  [SOURCE_STATIC] = "static",
+  [SOURCE_STREAM] = "stream",
+  NULL
+};
+
 const char* TimeUnits[] = {
   [UNIT_SECONDS] = "seconds",
   [UNIT_SAMPLES] = "samples",
@@ -13,7 +19,6 @@ int l_lovrAudioInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrAudio);
   luax_registertype(L, "Source", lovrSource);
-
   lovrAudioInit();
   return 1;
 }
@@ -70,24 +75,43 @@ int l_lovrAudioIsSpatialized(lua_State* L) {
 }
 
 int l_lovrAudioNewSource(lua_State* L) {
-  void** type;
-  AudioStream* stream;
-  if ((type = luax_totype(L, 1, AudioStream)) != NULL) {
-    stream = *type;
-  } else {
-    Blob* blob = luax_readblob(L, 1, "Source");
-    stream = lovrAudioStreamCreate(blob, 4096);
-    lovrRelease(blob);
-    if (!stream) {
-      luaL_error(L, "Could not decode Ogg audio source at '%s'", luaL_checkstring(L, 1));
-      return 0;
+  Source* source = NULL;
+  SoundData** soundDataRef = luax_totype(L, 1, SoundData);
+  AudioStream** streamRef = luax_totype(L, 1, AudioStream);
+  bool isStatic = soundDataRef || luaL_checkoption(L, 2, NULL, SourceTypes) == SOURCE_STATIC;
+
+  if (isStatic) {
+    SoundData* soundData = soundDataRef ? *soundDataRef : NULL;
+
+    if (!soundData) {
+      if (streamRef) {
+        soundData = lovrSoundDataCreateFromAudioStream(*streamRef);
+      } else {
+        Blob* blob = luax_readblob(L, 1, "Source");
+        soundData = lovrSoundDataCreateFromBlob(blob);
+        lovrRelease(blob);
+      }
     }
+
+    lovrAssert(soundData, "Could not create static Source");
+    source = lovrSourceCreateStatic(soundData);
+    lovrRelease(soundData);
+  } else {
+    AudioStream* stream = streamRef ? *streamRef : NULL;
+
+    if (!stream) {
+      Blob* blob = luax_readblob(L, 1, "Source");
+      stream = lovrAudioStreamCreate(blob, 4096);
+      lovrRelease(blob);
+    }
+
+    lovrAssert(stream, "Could not create stream Source");
+    source = lovrSourceCreateStream(stream);
+    lovrRelease(stream);
   }
 
-  Source* source = lovrSourceCreate(stream);
   luax_pushtype(L, Source, source);
   lovrRelease(source);
-  lovrRelease(stream);
   return 1;
 }
 

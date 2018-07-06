@@ -1,4 +1,5 @@
 #include "data/audioStream.h"
+#include "data/soundData.h"
 #include "util.h"
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -9,19 +10,27 @@
 #define SOURCE_BUFFERS 4
 
 typedef enum {
+  SOURCE_STATIC,
+  SOURCE_STREAM
+} SourceType;
+
+typedef enum {
   UNIT_SECONDS,
   UNIT_SAMPLES
 } TimeUnit;
 
 typedef struct {
   Ref ref;
+  SourceType type;
   AudioStream* stream;
+  SoundData* soundData;
   ALuint id;
   ALuint buffers[SOURCE_BUFFERS];
   bool isLooping;
 } Source;
 
-Source* lovrSourceCreate(AudioStream* stream);
+Source* lovrSourceCreateStatic(SoundData* soundData);
+Source* lovrSourceCreateStream(AudioStream* stream);
 void lovrSourceDestroy(void* ref);
 int lovrSourceGetBitDepth(Source* source);
 int lovrSourceGetChannelCount(Source* source);
