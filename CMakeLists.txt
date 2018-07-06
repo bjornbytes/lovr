@@ -261,6 +261,7 @@ set(LOVR_SRC
   src/api/types/rasterizer.c
   src/api/types/shader.c
   src/api/types/shapes.c
+  src/api/types/soundData.c
   src/api/types/source.c
   src/api/types/texture.c
   src/api/types/textureData.c
@@ -273,6 +274,7 @@ set(LOVR_SRC
   src/data/blob.c
   src/data/modelData.c
   src/data/rasterizer.c
+  src/data/soundData.c
   src/data/textureData.c
   src/data/vertexData.c
   src/event/event.c
