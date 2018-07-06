@@ -262,7 +262,7 @@ void lovrSourceStream(Source* source, ALuint* buffers, int count) {
   int n = 0;
 
   // Keep decoding until there is nothing left to decode or all the buffers are filled
-  while (n < count && (samples = lovrAudioStreamDecode(stream)) != 0) {
+  while (n < count && (samples = lovrAudioStreamDecode(stream, NULL, 0)) != 0) {
     alBufferData(buffers[n++], format, stream->buffer, samples * sizeof(ALshort), frequency);
   }
 

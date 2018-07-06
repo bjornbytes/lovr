@@ -37,11 +37,11 @@ void lovrAudioStreamDestroy(void* ref) {
   free(stream);
 }
 
-int lovrAudioStreamDecode(AudioStream* stream) {
+int lovrAudioStreamDecode(AudioStream* stream, short* destination, size_t size) {
   stb_vorbis* decoder = (stb_vorbis*) stream->decoder;
-  short* buffer = (short*) stream->buffer;
+  short* buffer = destination ? destination : (short*) stream->buffer;
+  int capacity = destination ? size : (stream->bufferSize / sizeof(short));
   int channelCount = stream->channelCount;
-  int capacity = stream->bufferSize / sizeof(short);
   int samples = 0;
 
   while (samples < capacity) {

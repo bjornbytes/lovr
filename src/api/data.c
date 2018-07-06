@@ -2,7 +2,9 @@
 #include "data/audioStream.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
+#include "data/soundData.h"
 #include "data/textureData.h"
+#include "data/vertexData.h"
 
 int l_lovrDataInit(lua_State* L) {
   lua_newtable(L);
@@ -11,6 +13,7 @@ int l_lovrDataInit(lua_State* L) {
   luax_registertype(L, "AudioStream", lovrAudioStream);
   luax_registertype(L, "ModelData", lovrModelData);
   luax_registertype(L, "Rasterizer", lovrRasterizer);
+  luax_extendtype(L, "Blob", "SoundData", lovrBlob, lovrSoundData);
   luax_extendtype(L, "Blob", "TextureData", lovrBlob, lovrTextureData);
   luax_extendtype(L, "Blob", "VertexData", lovrBlob, lovrVertexData);
   return 1;
@@ -41,7 +44,7 @@ int l_lovrDataNewBlob(lua_State* L) {
 }
 
 int l_lovrDataNewAudioStream(lua_State* L) {
-  Blob* blob = luax_readblob(L, 1, "Sound");
+  Blob* blob = luax_readblob(L, 1, "AudioStream");
   size_t bufferSize = luaL_optinteger(L, 2, 4096);
   AudioStream* stream = lovrAudioStreamCreate(blob, bufferSize);
   luax_pushtype(L, AudioStream, stream);
@@ -74,6 +77,32 @@ int l_lovrDataNewRasterizer(lua_State* L) {
   luax_pushtype(L, Rasterizer, rasterizer);
   lovrRelease(blob);
   lovrRelease(rasterizer);
+  return 1;
+}
+
+int l_lovrDataNewSoundData(lua_State* L) {
+  if (lua_type(L, 1) == LUA_TNUMBER) {
+    int samples = luaL_checkinteger(L, 1);
+    int sampleRate = luaL_optinteger(L, 2, 44100);
+    int bitDepth = luaL_optinteger(L, 3, 16);
+    int channelCount = luaL_optinteger(L, 4, 2);
+    SoundData* soundData = lovrSoundDataCreate(samples, sampleRate, bitDepth, channelCount);
+    luax_pushtype(L, SoundData, soundData);
+    return 1;
+  }
+
+  AudioStream** audioStream;
+  if ((audioStream = luax_totype(L, 1, AudioStream)) != NULL) {
+    SoundData* soundData = lovrSoundDataCreateFromAudioStream(*audioStream);
+    luax_pushtype(L, SoundData, soundData);
+    return 1;
+  }
+
+  Blob* blob = luax_readblob(L, 1, "SoundData");
+  SoundData* soundData = lovrSoundDataCreateFromBlob(blob);
+  luax_pushtype(L, SoundData, soundData);
+  lovrRelease(blob);
+  lovrRelease(soundData);
   return 1;
 }
 
@@ -135,6 +164,7 @@ const luaL_Reg lovrData[] = {
   { "newAudioStream", l_lovrDataNewAudioStream },
   { "newModelData", l_lovrDataNewModelData },
   { "newRasterizer", l_lovrDataNewRasterizer },
+  { "newSoundData", l_lovrDataNewSoundData },
   { "newTextureData", l_lovrDataNewTextureData },
   { "newVertexData", l_lovrDataNewVertexData },
   { NULL, NULL }
