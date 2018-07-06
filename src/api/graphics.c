@@ -1037,9 +1037,7 @@ int l_lovrGraphicsNewShader(lua_State* L) {
     if (!lovrFilesystemIsFile(source)) continue;
     size_t bytesRead;
     char* contents = lovrFilesystemRead(source, &bytesRead);
-    if (bytesRead <= 0) {
-      return luaL_error(L, "Could not read shader from file '%s'", source);
-    }
+    lovrAssert(bytesRead > 0, "Could not read shader from file '%s'", source);
     lua_pushlstring(L, contents, bytesRead);
     lua_replace(L, i + 1);
     free(contents);
