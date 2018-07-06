@@ -14,4 +14,6 @@ typedef struct {
 SoundData* lovrSoundDataCreate(int samples, int sampleRate, int bitDepth, int channels);
 SoundData* lovrSoundDataCreateFromAudioStream(AudioStream* audioStream);
 SoundData* lovrSoundDataCreateFromBlob(Blob* blob);
+float lovrSoundDataGetSample(SoundData* soundData, int index);
+void lovrSoundDataSetSample(SoundData* soundData, int index, float value);
 void lovrSoundDataDestroy(void* ref);
