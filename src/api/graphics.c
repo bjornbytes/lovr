@@ -103,6 +103,7 @@ const char* MeshDrawModes[] = {
   [MESH_POINTS] = "points",
   [MESH_LINES] = "lines",
   [MESH_LINE_STRIP] = "linestrip",
+  [MESH_LINE_LOOP] = "lineloop",
   [MESH_TRIANGLE_STRIP] = "strip",
   [MESH_TRIANGLES] = "triangles",
   [MESH_TRIANGLE_FAN] = "fan",
