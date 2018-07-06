@@ -1031,15 +1031,21 @@ int l_lovrGraphicsNewModel(lua_State* L) {
 }
 
 int l_lovrGraphicsNewShader(lua_State* L) {
-  for (int i = 0; i < 2; i++) {
-    if (lua_isnoneornil(L, i + 1)) continue;
-    const char* source = luaL_checkstring(L, i + 1);
+  for (int i = 1; i <= 2; i++) {
+    if (lua_isnoneornil(L, i)) continue;
+    Blob** blob = luax_totype(L, i, Blob);
+    if (blob) {
+      lua_pushlstring(L, (*blob)->data, (*blob)->size);
+      lua_replace(L, i);
+      continue;
+    }
+    const char* source = luaL_checkstring(L, i);
     if (!lovrFilesystemIsFile(source)) continue;
     size_t bytesRead;
     char* contents = lovrFilesystemRead(source, &bytesRead);
     lovrAssert(bytesRead > 0, "Could not read shader from file '%s'", source);
     lua_pushlstring(L, contents, bytesRead);
-    lua_replace(L, i + 1);
+    lua_replace(L, i);
     free(contents);
   }
 
