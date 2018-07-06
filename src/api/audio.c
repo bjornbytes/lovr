@@ -81,9 +81,11 @@ int l_lovrAudioNewSource(lua_State* L) {
   bool isStatic = soundDataRef || luaL_checkoption(L, 2, NULL, SourceTypes) == SOURCE_STATIC;
 
   if (isStatic) {
-    SoundData* soundData = soundDataRef ? *soundDataRef : NULL;
+    if (soundDataRef) {
+      source = lovrSourceCreateStatic(*soundDataRef);
+    } else {
+      SoundData* soundData;
 
-    if (!soundData) {
       if (streamRef) {
         soundData = lovrSoundDataCreateFromAudioStream(*streamRef);
       } else {
@@ -91,23 +93,22 @@ int l_lovrAudioNewSource(lua_State* L) {
         soundData = lovrSoundDataCreateFromBlob(blob);
         lovrRelease(blob);
       }
-    }
 
-    lovrAssert(soundData, "Could not create static Source");
-    source = lovrSourceCreateStatic(soundData);
-    lovrRelease(soundData);
+      lovrAssert(soundData, "Could not create static Source");
+      source = lovrSourceCreateStatic(soundData);
+      lovrRelease(soundData);
+    }
   } else {
-    AudioStream* stream = streamRef ? *streamRef : NULL;
-
-    if (!stream) {
+    if (streamRef) {
+      source = lovrSourceCreateStream(*streamRef);
+    } else {
       Blob* blob = luax_readblob(L, 1, "Source");
-      stream = lovrAudioStreamCreate(blob, 4096);
+      AudioStream* stream = lovrAudioStreamCreate(blob, 4096);
+      lovrAssert(stream, "Could not create stream Source");
+      source = lovrSourceCreateStream(stream);
       lovrRelease(blob);
+      lovrRelease(stream);
     }
-
-    lovrAssert(stream, "Could not create stream Source");
-    source = lovrSourceCreateStream(stream);
-    lovrRelease(stream);
   }
 
   luax_pushtype(L, Source, source);
