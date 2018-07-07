@@ -152,16 +152,20 @@ int l_lovrFilesystemGetRealDirectory(lua_State* L) {
   return 1;
 }
 
-int l_lovrFilesystemGetRequirePath(lua_State* L) {
-  vec_str_t* requirePath = lovrFilesystemGetRequirePath();
-  char* path; int i;
-  vec_foreach(requirePath, path, i) {
-    lua_pushstring(L, path);
+static void pushRequirePath(lua_State* L, vec_str_t* path) {
+  char* pattern; int i;
+  vec_foreach(path, pattern, i) {
+    lua_pushstring(L, pattern);
     lua_pushstring(L, ";");
   }
   lua_pop(L, 1);
-  lua_concat(L, requirePath->length * 2 - 1);
-  return 1;
+  lua_concat(L, path->length * 2 - 1);
+}
+
+int l_lovrFilesystemGetRequirePath(lua_State* L) {
+  pushRequirePath(L, lovrFilesystemGetRequirePath());
+  pushRequirePath(L, lovrFilesystemGetCRequirePath());
+  return 2;
 }
 
 int l_lovrFilesystemGetSaveDirectory(lua_State* L) {
@@ -292,7 +296,8 @@ int l_lovrFilesystemSetIdentity(lua_State* L) {
 }
 
 int l_lovrFilesystemSetRequirePath(lua_State* L) {
-  lovrFilesystemSetRequirePath(luaL_checkstring(L, 1));
+  if (lua_type(L, 1) == LUA_TSTRING) lovrFilesystemSetRequirePath(luaL_checkstring(L, 1));
+  if (lua_type(L, 2) == LUA_TSTRING) lovrFilesystemSetCRequirePath(luaL_checkstring(L, 2));
   return 0;
 }
 

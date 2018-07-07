@@ -32,8 +32,10 @@ void lovrFilesystemInit(const char* arg0, const char* arg1) {
   state.source = malloc(LOVR_PATH_MAX * sizeof(char));
   state.identity = NULL;
   state.isFused = true;
-  vec_init(&state.requirePatterns);
+  vec_init(&state.requirePattern[0]);
+  vec_init(&state.requirePattern[1]);
   lovrFilesystemSetRequirePath("?.lua;?/init.lua");
+  lovrFilesystemSetCRequirePath("??");
 
   // Try to mount either an archive fused to the executable or an archive from the command line
   lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
@@ -57,8 +59,10 @@ void lovrFilesystemDestroy() {
   free(state.source);
   free(state.savePathFull);
   free(state.savePathRelative);
-  free(state.requirePath);
-  vec_deinit(&state.requirePatterns);
+  for (int i = 0; i < 2; i++) {
+    free(state.requirePath[i]);
+    vec_deinit(&state.requirePattern[i]);
+  }
   PHYSFS_deinit();
   memset(&state, 0, sizeof(FilesystemState));
 }
@@ -138,7 +142,11 @@ const char* lovrFilesystemGetRealDirectory(const char* path) {
 }
 
 vec_str_t* lovrFilesystemGetRequirePath() {
-  return &state.requirePatterns;
+  return &state.requirePattern[0];
+}
+
+vec_str_t* lovrFilesystemGetCRequirePath() {
+  return &state.requirePattern[1];
 }
 
 const char* lovrFilesystemGetSaveDirectory() {
@@ -284,23 +292,30 @@ int lovrFilesystemSetIdentity(const char* identity) {
   return 0;
 }
 
-void lovrFilesystemSetRequirePath(const char* requirePath) {
-  if (state.requirePath) {
-    free(state.requirePath);
-    vec_clear(&state.requirePatterns);
+static void setRequirePath(int i, const char* requirePath) {
+  if (state.requirePath[i]) {
+    free(state.requirePath[i]);
+    vec_clear(&state.requirePattern[i]);
   }
 
-  state.requirePath = strdup(requirePath);
-  char* p = state.requirePath;
+  char* p = state.requirePath[i] = strdup(requirePath);
 
   while (1) {
-    vec_push(&state.requirePatterns, p);
+    vec_push(&state.requirePattern[i], p);
     if ((p = strchr(p, ';')) != NULL) {
       *p++ = '\0';
     } else {
       break;
     }
   }
+}
+
+void lovrFilesystemSetRequirePath(const char* requirePath) {
+  setRequirePath(0, requirePath);
+}
+
+void lovrFilesystemSetCRequirePath(const char* requirePath) {
+  setRequirePath(1, requirePath);
 }
 
 int lovrFilesystemUnmount(const char* path) {
