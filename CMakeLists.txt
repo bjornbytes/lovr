@@ -299,6 +299,7 @@ set(LOVR_SRC
   src/lib/lua-cjson/strbuf.c
   src/lib/lua-enet/enet.c
   src/lib/map/map.c
+  src/lib/noise1234/noise1234.c
   src/lib/stb/stb_image.c
   src/lib/stb/stb_image_write.c
   src/lib/stb/stb_vorbis.c
