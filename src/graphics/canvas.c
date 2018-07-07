@@ -1,4 +1,5 @@
 #include "graphics/canvas.h"
+#include "graphics/gpu.h"
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "util.h"
@@ -30,7 +31,7 @@ Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasFlag
 
   // Framebuffer
   glGenFramebuffers(1, &canvas->framebuffer);
-  glBindFramebuffer(GL_FRAMEBUFFER, canvas->framebuffer);
+  gpuBindFramebuffer(canvas->framebuffer);
 
   // Color attachment
   if (flags.msaa > 0) {
@@ -66,15 +67,15 @@ Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasFlag
   // Resolve framebuffer
   if (flags.msaa > 0) {
     glGenFramebuffers(1, &canvas->resolveFramebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, canvas->resolveFramebuffer);
+    gpuBindFramebuffer(canvas->resolveFramebuffer);
     glBindTexture(GL_TEXTURE_2D, canvas->texture.id);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, canvas->texture.id, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, canvas->framebuffer);
+    gpuBindFramebuffer(canvas->framebuffer);
   }
 
   lovrAssert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "Error creating Canvas");
   lovrGraphicsClear(true, true, true, (Color) { 0, 0, 0, 0 }, 1., 0);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  gpuBindFramebuffer(0);
 
   return canvas;
 }
@@ -121,7 +122,7 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas) {
   TextureData* textureData = lovrTextureDataGetBlank(canvas->texture.width, canvas->texture.height, 0, FORMAT_RGBA);
   if (!textureData) return NULL;
 
-  lovrGraphicsBindFramebuffer(canvas->framebuffer);
+  gpuBindFramebuffer(canvas->framebuffer);
   glReadPixels(0, 0, canvas->texture.width, canvas->texture.height, GL_RGBA, GL_UNSIGNED_BYTE, textureData->blob.data);
 
   return textureData;

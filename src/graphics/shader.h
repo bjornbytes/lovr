@@ -1,6 +1,6 @@
 #include "graphics/texture.h"
+#include "graphics/gpu.h"
 #include "lib/map/map.h"
-#include "lib/glfw.h"
 #include "util.h"
 #include <stdbool.h>
 

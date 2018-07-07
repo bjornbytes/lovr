@@ -1,7 +1,7 @@
+#include "graphics/gpu.h"
 #include "graphics/material.h"
 #include "graphics/shader.h"
 #include "data/vertexData.h"
-#include "lib/glfw.h"
 #include "lib/map/map.h"
 #include "util.h"
 #include <stdbool.h>

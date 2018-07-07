@@ -1,3 +1,4 @@
+#include "graphics/gpu.h"
 #include "graphics/canvas.h"
 #include "graphics/font.h"
 #include "graphics/material.h"
@@ -75,7 +76,7 @@ typedef struct {
   float projection[16];
   float view[16];
   Canvas* canvas;
-  int viewport[4];
+  uint32_t viewport[4];
 } Layer;
 
 typedef struct {
@@ -126,12 +127,6 @@ typedef struct {
   Texture* textures[MAX_TEXTURES];
   bool stencilEnabled;
   bool stencilWriting;
-  uint32_t program;
-  uint32_t framebuffer;
-  uint32_t viewport[4];
-  uint32_t vertexArray;
-  uint32_t vertexBuffer;
-  uint32_t indexBuffer;
   GraphicsStats stats;
 } GraphicsState;
 
@@ -213,8 +208,3 @@ void lovrGraphicsSetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t he
 Texture* lovrGraphicsGetTexture(int slot);
 void lovrGraphicsBindTexture(Texture* texture, GLenum type, int slot);
 Material* lovrGraphicsGetDefaultMaterial();
-void lovrGraphicsUseProgram(uint32_t program);
-void lovrGraphicsBindFramebuffer(uint32_t framebuffer);
-void lovrGraphicsBindVertexArray(uint32_t vao);
-void lovrGraphicsBindVertexBuffer(uint32_t vbo);
-void lovrGraphicsBindIndexBuffer(uint32_t ibo);

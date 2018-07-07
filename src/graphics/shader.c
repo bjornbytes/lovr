@@ -1,4 +1,5 @@
 #include "graphics/shader.h"
+#include "graphics/gpu.h"
 #include "graphics/graphics.h"
 #include "math/math.h"
 #include "resources/shaders.h"
@@ -146,7 +147,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   uint32_t program = linkShaders(vertexShader, fragmentShader);
   shader->program = program;
 
-  lovrGraphicsUseProgram(program);
+  gpuUseProgram(program);
   glVertexAttrib4fv(LOVR_SHADER_VERTEX_COLOR, (float[4]) { 1., 1., 1., 1. });
   glVertexAttribI4iv(LOVR_SHADER_BONES, (int[4]) { 0., 0., 0., 0. });
   glVertexAttrib4fv(LOVR_SHADER_BONE_WEIGHTS, (float[4]) { 1., 0., 0., 0. });

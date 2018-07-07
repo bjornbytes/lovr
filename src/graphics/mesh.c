@@ -1,4 +1,5 @@
 #include "graphics/mesh.h"
+#include "graphics/gpu.h"
 #include "graphics/graphics.h"
 #include "math/math.h"
 #include <limits.h>
@@ -25,7 +26,7 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode,
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);
-  lovrGraphicsBindVertexBuffer(mesh->vbo);
+  gpuBindVertexBuffer(mesh->vbo);
   glBufferData(GL_ARRAY_BUFFER, count * format.stride, NULL, mesh->usage);
   glGenVertexArrays(1, &mesh->vao);
 
@@ -87,11 +88,11 @@ void lovrMeshBind(Mesh* mesh, Shader* shader) {
   MeshAttachment layout[MAX_ATTACHMENTS];
   memset(layout, 0, MAX_ATTACHMENTS * sizeof(MeshAttachment));
 
-  lovrGraphicsBindVertexArray(mesh->vao);
+  gpuBindVertexArray(mesh->vao);
   lovrMeshUnmapVertices(mesh);
   lovrMeshUnmapIndices(mesh);
   if (mesh->indexCount > 0) {
-    lovrGraphicsBindIndexBuffer(mesh->ibo);
+    gpuBindIndexBuffer(mesh->ibo);
   }
 
   while ((key = map_next(&mesh->attachments, &iter)) != NULL) {
@@ -128,7 +129,7 @@ void lovrMeshBind(Mesh* mesh, Shader* shader) {
     }
 
     if (previous.mesh != current.mesh || previous.attributeIndex != current.attributeIndex) {
-      lovrGraphicsBindVertexBuffer(current.mesh->vbo);
+      gpuBindVertexBuffer(current.mesh->vbo);
       VertexFormat* format = &current.mesh->format;
       Attribute attribute = format->attributes[current.attributeIndex];
       switch (attribute.type) {
@@ -225,7 +226,7 @@ void lovrMeshUnmapVertices(Mesh* mesh) {
   }
 
   size_t stride = mesh->format.stride;
-  lovrGraphicsBindVertexBuffer(mesh->vbo);
+  gpuBindVertexBuffer(mesh->vbo);
   if (mesh->usage == MESH_STREAM) {
     glBufferData(GL_ARRAY_BUFFER, mesh->count * stride, mesh->data.bytes, mesh->usage);
   } else {
@@ -263,8 +264,8 @@ IndexPointer lovrMeshWriteIndices(Mesh* mesh, uint32_t count, size_t size) {
     return (IndexPointer) { .raw = NULL };
   }
 
-  lovrGraphicsBindVertexArray(mesh->vao);
-  lovrGraphicsBindIndexBuffer(mesh->ibo);
+  gpuBindVertexArray(mesh->vao);
+  gpuBindIndexBuffer(mesh->ibo);
   mesh->mappedIndices = true;
 
   if (mesh->indexCapacity < size * count) {
@@ -282,14 +283,14 @@ void lovrMeshUnmapIndices(Mesh* mesh) {
   }
 
   mesh->mappedIndices = false;
-  lovrGraphicsBindIndexBuffer(mesh->ibo);
+  gpuBindIndexBuffer(mesh->ibo);
   glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->indexCount * mesh->indexSize, mesh->indices.raw);
 }
 
 void lovrMeshResize(Mesh* mesh, uint32_t count) {
   if (mesh->count < count) {
     mesh->count = nextPo2(count);
-    lovrGraphicsBindVertexBuffer(mesh->vbo);
+    gpuBindVertexBuffer(mesh->vbo);
     mesh->data.raw = realloc(mesh->data.raw, count * mesh->format.stride);
     glBufferData(GL_ARRAY_BUFFER, count * mesh->format.stride, mesh->data.raw, mesh->usage);
   }

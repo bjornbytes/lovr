@@ -110,7 +110,7 @@ void lovrGraphicsReset() {
 void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Color color, float depth, int stencil) {
   Layer layer = state.layers[state.layer];
   Canvas* canvas = state.canvasCount > 0 ? state.canvas[0] : layer.canvas;
-  lovrGraphicsBindFramebuffer(canvas ? canvas->framebuffer : 0);
+  gpuBindFramebuffer(canvas ? canvas->framebuffer : 0);
 
   if (clearColor) {
     gammaCorrectColor(&color);
@@ -134,7 +134,7 @@ void lovrGraphicsPresent() {
   glfwSwapBuffers(state.window);
   state.stats.drawCalls = 0;
   state.stats.shaderSwitches = 0;
-  state.program = -1; // Fixes a driver bug with instancing seen on macOS
+  gpuPresent();
 }
 
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon) {
@@ -184,19 +184,9 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
 #ifndef EMSCRIPTEN
   }
 
-  gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
   glfwSwapInterval(0);
-  glEnable(GL_LINE_SMOOTH);
-  glEnable(GL_PROGRAM_POINT_SIZE);
-  if (state.gammaCorrect) {
-    glEnable(GL_FRAMEBUFFER_SRGB);
-  } else {
-    glDisable(GL_FRAMEBUFFER_SRGB);
-  }
 #endif
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  gpuInit(state.gammaCorrect, glfwGetProcAddress);
   VertexFormat format;
   vertexFormatInit(&format);
   vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
@@ -316,7 +306,7 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
 
   if (count > 0) {
     memcpy(state.canvas, canvas, count * sizeof(Canvas*));
-    lovrGraphicsBindFramebuffer(canvas[0]->framebuffer);
+    gpuBindFramebuffer(canvas[0]->framebuffer);
 
     GLenum buffers[MAX_CANVASES];
     for (int i = 0; i < count; i++) {
@@ -1039,25 +1029,11 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   // Layer
   Layer layer = state.layers[state.layer];
   Canvas* canvas = state.canvasCount > 0 ? state.canvas[0] : layer.canvas;
-  lovrGraphicsBindFramebuffer(canvas ? canvas->framebuffer : 0);
-
-  uint32_t viewport[4];
-  if (state.canvasCount > 0) {
-    viewport[0] = 0;
-    viewport[1] = 0;
-    viewport[2] = state.canvas[0]->texture.width;
-    viewport[3] = state.canvas[0]->texture.height;
-  } else {
-    viewport[0] = layer.viewport[0];
-    viewport[1] = layer.viewport[1];
-    viewport[2] = layer.viewport[2];
-    viewport[3] = layer.viewport[3];
-  }
-
-  if (memcmp(state.viewport, viewport, 4 * sizeof(uint32_t))) {
-    memcpy(state.viewport, viewport, 4 * sizeof(uint32_t));
-    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  }
+  gpuBindFramebuffer(canvas ? canvas->framebuffer : 0);
+  gpuSetViewport(state.canvasCount > 0 ?
+    (uint32_t[4]) { 0, 0, state.canvas[0]->texture.width, state.canvas[0]->texture.height } :
+    layer.viewport
+  );
 
   // Transforms
   if (transform) {
@@ -1140,7 +1116,7 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
     lovrShaderSetTexture(shader, lovrShaderTextureUniforms[i], &texture, 1);
   }
 
-  lovrGraphicsUseProgram(shader->program);
+  gpuUseProgram(shader->program);
   lovrShaderBind(shader);
   lovrMeshBind(mesh, shader);
 
@@ -1230,40 +1206,4 @@ Material* lovrGraphicsGetDefaultMaterial() {
   }
 
   return state.defaultMaterial;
-}
-
-void lovrGraphicsUseProgram(uint32_t program) {
-  if (state.program != program) {
-    state.program = program;
-    glUseProgram(program);
-    state.stats.shaderSwitches++;
-  }
-}
-
-void lovrGraphicsBindFramebuffer(uint32_t framebuffer) {
-  if (state.framebuffer != framebuffer) {
-    state.framebuffer = framebuffer;
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-  }
-}
-
-void lovrGraphicsBindVertexArray(uint32_t vertexArray) {
-  if (state.vertexArray != vertexArray) {
-    state.vertexArray = vertexArray;
-    glBindVertexArray(vertexArray);
-  }
-}
-
-void lovrGraphicsBindVertexBuffer(uint32_t vertexBuffer) {
-  if (state.vertexBuffer != vertexBuffer) {
-    state.vertexBuffer = vertexBuffer;
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-  }
-}
-
-void lovrGraphicsBindIndexBuffer(uint32_t indexBuffer) {
-  if (state.indexBuffer != indexBuffer) {
-    state.indexBuffer = indexBuffer;
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-  }
 }
