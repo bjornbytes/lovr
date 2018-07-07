@@ -80,10 +80,10 @@ static int libraryLoader(lua_State* L) {
         void* function = lovrLoadSymbol(library, buffer);
         if (!function) {
           snprintf(buffer, 63, "loveopen_%s", moduleFunction);
-          function = dlsym(library, buffer);
+          function = lovrLoadSymbol(library, buffer);
           if (!function) {
             snprintf(buffer, 63, "lovropen_%s", moduleFunction);
-            function = dlsym(library, buffer);
+            function = lovrLoadSymbol(library, buffer);
           }
         }
 
