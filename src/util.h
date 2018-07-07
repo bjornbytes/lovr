@@ -29,5 +29,8 @@ void lovrSleep(double seconds);
 void* lovrAlloc(size_t size, void (*destructor)(void* object));
 void lovrRetain(void* object);
 void lovrRelease(void* object);
+void* lovrLoadLibrary(const char* filename);
+void* lovrLoadSymbol(void* library, const char* symbol);
+void lovrCloseLibrary(void* library);
 size_t utf8_decode(const char *s, const char *e, unsigned *pch);
 uint32_t nextPo2(uint32_t x);

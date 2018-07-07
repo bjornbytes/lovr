@@ -32,8 +32,7 @@ static int pushDirectoryItem(void* userdata, const char* path, const char* filen
 
 int l_lovrFilesystemLoad(lua_State* L);
 
-// Loader to help Lua's require understand PhysFS.
-static int filesystemLoader(lua_State* L) {
+static int moduleLoader(lua_State* L) {
   const char* module = luaL_gsub(L, lua_tostring(L, -1), ".", "/");
   lua_pop(L, 2);
 
@@ -44,6 +43,58 @@ static int filesystemLoader(lua_State* L) {
       return l_lovrFilesystemLoad(L);
     }
     lua_pop(L, 1);
+  }
+
+  return 0;
+}
+
+static const char* libraryExtensions[] = {
+#ifdef _WIN32
+  ".dll", NULL
+#elif __APPLE__
+  ".so", ".dylib", NULL
+#else
+  ".so", NULL
+#endif
+};
+
+static int libraryLoader(lua_State* L) {
+  const char* modulePath = luaL_gsub(L, lua_tostring(L, -1), ".", "/");
+  const char* moduleFunction = luaL_gsub(L, lua_tostring(L, -1), ".", "_");
+  lua_pop(L, 3);
+
+  char* path; int i;
+  vec_foreach(lovrFilesystemGetCRequirePath(), path, i) {
+    for (const char** extension = libraryExtensions; *extension != NULL; extension++) {
+      char buffer[64];
+      snprintf(buffer, 63, "%s%s", modulePath, *extension);
+      const char* filename = luaL_gsub(L, path, "??", buffer);
+      filename = luaL_gsub(L, filename, "?", modulePath);
+      lua_pop(L, 2);
+
+      if (lovrFilesystemIsFile(filename)) {
+        const char* realPath = lovrFilesystemGetRealDirectory(filename);
+        void* library = lovrLoadLibrary(realPath);
+
+        snprintf(buffer, 63, "luaopen_%s", moduleFunction);
+        void* function = lovrLoadSymbol(library, buffer);
+        if (!function) {
+          snprintf(buffer, 63, "loveopen_%s", moduleFunction);
+          function = dlsym(library, buffer);
+          if (!function) {
+            snprintf(buffer, 63, "lovropen_%s", moduleFunction);
+            function = dlsym(library, buffer);
+          }
+        }
+
+        if (function) {
+          lua_pushcfunction(L, (lua_CFunction) function);
+          return 1;
+        } else {
+          lovrCloseLibrary(library);
+        }
+      }
+    }
   }
 
   return 0;
@@ -61,20 +112,8 @@ int l_lovrFilesystemInit(lua_State* L) {
   lovrFilesystemInit(arg0, arg1);
   lua_pop(L, 3);
 
-  // Add custom package loader
-  lua_getglobal(L, "table");
-  lua_getfield(L, -1, "insert");
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "loaders");
-  lua_remove(L, -2);
-  if (lua_istable(L, -1)) {
-    lua_pushinteger(L, 2); // Insert our loader after package.preload
-    lua_pushcfunction(L, filesystemLoader);
-    lua_call(L, 3, 0);
-  }
-
-  lua_pop(L, 1);
-
+  luax_registerloader(L, moduleLoader, 2);
+  luax_registerloader(L, libraryLoader, 3);
   return 1;
 }
 

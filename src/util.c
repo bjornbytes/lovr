@@ -8,6 +8,7 @@
 #include <Windows.h>
 #else
 #include <unistd.h>
+#include <dlfcn.h>
 #endif
 
 _Thread_local void* lovrErrorContext = NULL;
@@ -43,6 +44,34 @@ void lovrRetain(void* object) {
 void lovrRelease(void* object) {
   Ref* ref = object;
   if (ref && --ref->count == 0) ref->free(object);
+}
+
+void* lovrLoadLibrary(const char* filename) {
+#ifdef _WIN32
+  return LoadLibrary(WIN_UTF8ToString(filename));
+#elif EMSCRIPTEN
+  return NULL;
+#else
+  return dlopen(filename, RTLD_LAZY);
+#endif
+}
+
+void* lovrLoadSymbol(void* library, const char* symbol) {
+#ifdef _WIN32
+  return GetProcAddress((HMODULE) library, symbol);
+#elif EMSCRIPTEN
+  return NULL;
+#else
+  return dlsym(library, symbol);
+#endif
+}
+
+void lovrCloseLibrary(void* library) {
+#ifdef _WIN32
+  FreeLibrary((HMODULE) library);
+#elif !defined(EMSCRIPTEN)
+  dlclose(library);
+#endif
 }
 
 // https://github.com/starwing/luautf8
