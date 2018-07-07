@@ -1,25 +1,9 @@
 #include "audio/source.h"
+#include "audio/audio.h"
 #include "data/audioStream.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdlib.h>
-
-static ALenum lovrSourceGetFormat(Source* source) {
-  int channelCount = source->type == SOURCE_STATIC ? source->soundData->channelCount : source->stream->channelCount;
-  int bitDepth = source->type == SOURCE_STATIC ? source->soundData->bitDepth : source->stream->bitDepth;
-
-  if (bitDepth == 8 && channelCount == 1) {
-    return AL_FORMAT_MONO8;
-  } else if (bitDepth == 8 && channelCount == 2) {
-    return AL_FORMAT_STEREO8;
-  } else if (bitDepth == 16 && channelCount == 1) {
-    return AL_FORMAT_MONO16;
-  } else if (bitDepth == 16 && channelCount == 2) {
-    return AL_FORMAT_STEREO16;
-  }
-
-  return 0;
-}
 
 static ALenum lovrSourceGetState(Source* source) {
   ALenum state;
@@ -31,11 +15,12 @@ Source* lovrSourceCreateStatic(SoundData* soundData) {
   Source* source = lovrAlloc(sizeof(Source), lovrSourceDestroy);
   if (!source) return NULL;
 
+  ALenum format = lovrAudioConvertFormat(soundData->bitDepth, soundData->channelCount);
   source->type = SOURCE_STATIC;
   source->soundData = soundData;
   alGenSources(1, &source->id);
   alGenBuffers(1, source->buffers);
-  alBufferData(source->buffers[0], lovrSourceGetFormat(source), soundData->blob.data, soundData->blob.size, soundData->sampleRate);
+  alBufferData(source->buffers[0], format, soundData->blob.data, soundData->blob.size, soundData->sampleRate);
   alSourcei(source->id, AL_BUFFER, source->buffers[0]);
   lovrRetain(soundData);
 
@@ -299,7 +284,7 @@ void lovrSourceStream(Source* source, ALuint* buffers, int count) {
   }
 
   AudioStream* stream = source->stream;
-  ALenum format = lovrSourceGetFormat(source);
+  ALenum format = lovrAudioConvertFormat(stream->bitDepth, stream->channelCount);
   int frequency = stream->sampleRate;
   int samples = 0;
   int n = 0;

@@ -18,6 +18,7 @@ const char* TimeUnits[] = {
 int l_lovrAudioInit(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrAudio);
+  luax_registertype(L, "Microphone", lovrMicrophone);
   luax_registertype(L, "Source", lovrSource);
   lovrAudioInit();
   return 1;
@@ -34,6 +35,26 @@ int l_lovrAudioGetDopplerEffect(lua_State* L) {
   lua_pushnumber(L, factor);
   lua_pushnumber(L, speedOfSound);
   return 2;
+}
+
+int l_lovrAudioGetMicrophoneNames(lua_State* L) {
+  const char* names[MAX_MICROPHONES];
+  uint8_t count;
+  lovrAudioGetMicrophoneNames(names, &count);
+
+  if (lua_istable(L, 1)) {
+    lua_settop(L, 1);
+  } else {
+    lua_settop(L, 0);
+    lua_createtable(L, count, 0);
+  }
+
+  for (int i = 0; i < count; i++) {
+    lua_pushstring(L, names[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+
+  return 1;
 }
 
 int l_lovrAudioGetOrientation(lua_State* L) {
@@ -71,6 +92,18 @@ int l_lovrAudioGetVolume(lua_State* L) {
 
 int l_lovrAudioIsSpatialized(lua_State* L) {
   lua_pushboolean(L, lovrAudioIsSpatialized());
+  return 1;
+}
+
+int l_lovrAudioNewMicrophone(lua_State* L) {
+  const char* name = luaL_optstring(L, 1, NULL);
+  int samples = luaL_optinteger(L, 2, 1024);
+  int sampleRate = luaL_optinteger(L, 3, 8000);
+  int bitDepth = luaL_optinteger(L, 4, 16);
+  int channelCount = luaL_optinteger(L, 5, 1);
+  Microphone* microphone = lovrMicrophoneCreate(name, samples, sampleRate, bitDepth, channelCount);
+  luax_pushtype(L, Microphone, microphone);
+  lovrRelease(microphone);
   return 1;
 }
 
@@ -177,11 +210,13 @@ int l_lovrAudioStop(lua_State* L) {
 const luaL_Reg lovrAudio[] = {
   { "update", l_lovrAudioUpdate },
   { "getDopplerEffect", l_lovrAudioGetDopplerEffect },
+  { "getMicrophoneNames", l_lovrAudioGetMicrophoneNames },
   { "getOrientation", l_lovrAudioGetOrientation },
   { "getPosition", l_lovrAudioGetPosition },
   { "getVelocity", l_lovrAudioGetVelocity },
   { "getVolume", l_lovrAudioGetVolume },
   { "isSpatialized", l_lovrAudioIsSpatialized },
+  { "newMicrophone", l_lovrAudioNewMicrophone },
   { "newSource", l_lovrAudioNewSource },
   { "pause", l_lovrAudioPause },
   { "resume", l_lovrAudioResume },

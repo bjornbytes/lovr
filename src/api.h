@@ -49,6 +49,7 @@ extern const luaL_Reg lovrHingeJoint[];
 extern const luaL_Reg lovrJoint[];
 extern const luaL_Reg lovrMaterial[];
 extern const luaL_Reg lovrMesh[];
+extern const luaL_Reg lovrMicrophone[];
 extern const luaL_Reg lovrModel[];
 extern const luaL_Reg lovrModelData[];
 extern const luaL_Reg lovrRandomGenerator[];

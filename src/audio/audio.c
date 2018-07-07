@@ -6,6 +6,20 @@
 
 static AudioState state;
 
+ALenum lovrAudioConvertFormat(int bitDepth, int channelCount) {
+  if (bitDepth == 8 && channelCount == 1) {
+    return AL_FORMAT_MONO8;
+  } else if (bitDepth == 8 && channelCount == 2) {
+    return AL_FORMAT_STEREO8;
+  } else if (bitDepth == 16 && channelCount == 1) {
+    return AL_FORMAT_MONO16;
+  } else if (bitDepth == 16 && channelCount == 2) {
+    return AL_FORMAT_STEREO16;
+  }
+
+  return 0;
+}
+
 void lovrAudioInit() {
   if (state.initialized) return;
 
@@ -82,6 +96,15 @@ void lovrAudioAdd(Source* source) {
 void lovrAudioGetDopplerEffect(float* factor, float* speedOfSound) {
   alGetFloatv(AL_DOPPLER_FACTOR, factor);
   alGetFloatv(AL_SPEED_OF_SOUND, speedOfSound);
+}
+
+void lovrAudioGetMicrophoneNames(const char* names[MAX_MICROPHONES], uint8_t* count) {
+  const char* name = alcGetString(NULL, ALC_CAPTURE_DEVICE_SPECIFIER);
+  *count = 0;
+  while (*name) {
+    names[(*count)++] = name;
+    name += strlen(name);
+  }
 }
 
 void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az) {

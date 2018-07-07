@@ -1,4 +1,5 @@
 #include "audio/source.h"
+#include "audio/microphone.h"
 #include "lib/vec/vec.h"
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -6,6 +7,8 @@
 #include <stdbool.h>
 
 #pragma once
+
+#define MAX_MICROPHONES 8
 
 typedef struct {
   bool initialized;
@@ -18,11 +21,14 @@ typedef struct {
   float velocity[3];
 } AudioState;
 
+ALenum lovrAudioConvertFormat(int bitDepth, int channelCount);
+
 void lovrAudioInit();
 void lovrAudioDestroy();
 void lovrAudioUpdate();
 void lovrAudioAdd(Source* source);
 void lovrAudioGetDopplerEffect(float* factor, float* speedOfSound);
+void lovrAudioGetMicrophoneNames(const char* names[MAX_MICROPHONES], uint8_t* count);
 void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az);
 void lovrAudioGetPosition(float* x, float* y, float* z);
 void lovrAudioGetVelocity(float* x, float* y, float* z);

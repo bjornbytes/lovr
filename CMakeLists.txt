@@ -255,6 +255,7 @@ set(LOVR_SRC
   src/api/types/joints.c
   src/api/types/material.c
   src/api/types/mesh.c
+  src/api/types/microphone.c
   src/api/types/model.c
   src/api/types/modelData.c
   src/api/types/randomGenerator.c
@@ -269,6 +270,7 @@ set(LOVR_SRC
   src/api/types/vertexData.c
   src/api/types/world.c
   src/audio/audio.c
+  src/audio/microphone.c
   src/audio/source.c
   src/data/audioStream.c
   src/data/blob.c
