@@ -1,4 +1,5 @@
 #include "math.h"
+#include "lib/noise1234/noise1234.h"
 #include "util.h"
 #include <math.h>
 #include <string.h>
@@ -46,4 +47,20 @@ float lovrMathLinearToGamma(float x) {
   } else {
     return 1.055 * powf(x, 1. / 2.4) - .055;
   }
+}
+
+float lovrMathNoise1(float x) {
+  return noise1(x) * .5f + .5f;
+}
+
+float lovrMathNoise2(float x, float y) {
+  return noise2(x, y) * .5f + .5f;
+}
+
+float lovrMathNoise3(float x, float y, float z) {
+  return noise3(x, y, z) * .5f + .5f;
+}
+
+float lovrMathNoise4(float x, float y, float z, float w) {
+  return noise4(x, y, z, w) * .5f + .5f;
 }

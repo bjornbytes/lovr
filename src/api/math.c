@@ -67,6 +67,19 @@ int l_lovrMathOrientationToDirection(lua_State* L) {
   return 3;
 }
 
+int l_lovrMathNoise(lua_State* L) {
+  switch (lua_gettop(L)) {
+    case 0:
+    case 1: lua_pushnumber(L, lovrMathNoise1(luaL_checknumber(L, 1))); return 1;
+    case 2: lua_pushnumber(L, lovrMathNoise2(luaL_checknumber(L, 1), luaL_checknumber(L, 2))); return 1;
+    case 3: lua_pushnumber(L, lovrMathNoise3(luaL_checknumber(L, 1), luaL_checknumber(L, 2), luaL_checknumber(L, 3))); return 1;
+    case 4:
+    default:
+      lua_pushnumber(L, lovrMathNoise4(luaL_checknumber(L, 1), luaL_checknumber(L, 2), luaL_checknumber(L, 3), luaL_checknumber(L, 4)));
+      return 1;
+  }
+}
+
 int l_lovrMathRandom(lua_State* L) {
   luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
@@ -130,6 +143,7 @@ const luaL_Reg lovrMath[] = {
   { "newTransform", l_lovrMathNewTransform },
   { "orientationToDirection", l_lovrMathOrientationToDirection },
   { "lookAt", l_lovrMathLookAt },
+  { "noise", l_lovrMathNoise },
   { "random", l_lovrMathRandom },
   { "randomNormal", l_lovrMathRandomNormal },
   { "getRandomSeed", l_lovrMathGetRandomSeed },
