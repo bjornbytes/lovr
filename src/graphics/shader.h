@@ -59,10 +59,6 @@ typedef struct {
   uint32_t program;
   map_uniform_t uniforms;
   map_int_t attributes;
-  float model[16];
-  float view[16];
-  float projection[16];
-  Color color;
 } Shader;
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
