@@ -32,7 +32,7 @@ Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasFlag
 
   // Color attachment
   if (flags.msaa > 0) {
-    GLenum internalFormat = lovrTextureFormatGetGLInternalFormat(format, lovrGraphicsIsGammaCorrect());
+    GLenum internalFormat = lovrConvertTextureFormatInternal(format, lovrGraphicsIsGammaCorrect());
     glGenRenderbuffers(1, &canvas->msaaTexture);
     glBindRenderbuffer(GL_RENDERBUFFER, canvas->msaaTexture);
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, flags.msaa, internalFormat, width, height);

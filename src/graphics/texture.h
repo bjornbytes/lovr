@@ -1,4 +1,3 @@
-#include "graphics/gpu.h"
 #include "data/textureData.h"
 #include <stdbool.h>
 
@@ -36,10 +35,6 @@ typedef struct {
 } TextureWrap;
 
 typedef struct Texture Texture;
-
-GLenum lovrTextureFormatGetGLFormat(TextureFormat format);
-GLenum lovrTextureFormatGetGLInternalFormat(TextureFormat format, bool srgb);
-bool lovrTextureFormatIsCompressed(TextureFormat format);
 
 Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bool srgb, bool mipmaps);
 void lovrTextureDestroy(void* ref);

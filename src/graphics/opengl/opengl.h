@@ -3,8 +3,11 @@
 #include "graphics/canvas.h"
 #include "graphics/mesh.h"
 #include "util.h"
+#include "lib/glfw.h"
 #include "lib/map/map.h"
 #include <stdint.h>
+
+#pragma once
 
 #define LOVR_SHADER_POSITION 0
 #define LOVR_SHADER_NORMAL 1
@@ -103,3 +106,8 @@ struct Mesh {
   MeshAttachment layout[MAX_ATTACHMENTS];
   bool isAttachment;
 };
+
+GLenum lovrConvertWrapMode(WrapMode mode);
+GLenum lovrConvertTextureFormat(TextureFormat format);
+GLenum lovrConvertTextureFormatInternal(TextureFormat format, bool srgb);
+bool lovrIsTextureFormatCompressed(TextureFormat format);

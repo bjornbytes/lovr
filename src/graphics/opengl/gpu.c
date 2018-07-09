@@ -1,4 +1,5 @@
 #include "graphics/gpu.h"
+#include "lib/glfw.h"
 #include <string.h>
 
 static struct {

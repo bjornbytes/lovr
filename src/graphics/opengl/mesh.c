@@ -1,4 +1,5 @@
 #include "graphics/opengl/opengl.h"
+#include "graphics/gpu.h"
 #include "math/math.h"
 #include <limits.h>
 

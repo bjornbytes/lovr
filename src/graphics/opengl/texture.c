@@ -1,11 +1,10 @@
 #include "graphics/opengl/opengl.h"
 #include "graphics/graphics.h"
-#include "graphics/gpu.h"
 #include "lib/vec/vec.h"
 #include "math/math.h"
 #include <math.h>
 
-GLenum convertWrap(WrapMode mode) {
+GLenum lovrConvertWrapMode(WrapMode mode) {
   switch (mode) {
     case WRAP_CLAMP: return GL_CLAMP_TO_EDGE;
     case WRAP_REPEAT: return GL_REPEAT;
@@ -13,7 +12,7 @@ GLenum convertWrap(WrapMode mode) {
   }
 }
 
-GLenum lovrTextureFormatGetGLFormat(TextureFormat format) {
+GLenum lovrConvertTextureFormat(TextureFormat format) {
   switch (format) {
     case FORMAT_RGB: return GL_RGB;
     case FORMAT_RGBA: return GL_RGBA;
@@ -26,7 +25,7 @@ GLenum lovrTextureFormatGetGLFormat(TextureFormat format) {
   }
 }
 
-GLenum lovrTextureFormatGetGLInternalFormat(TextureFormat format, bool srgb) {
+GLenum lovrConvertTextureFormatInternal(TextureFormat format, bool srgb) {
   switch (format) {
     case FORMAT_RGB: return srgb ? GL_SRGB8 : GL_RGB8;
     case FORMAT_RGBA: return srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
@@ -39,8 +38,15 @@ GLenum lovrTextureFormatGetGLInternalFormat(TextureFormat format, bool srgb) {
   }
 }
 
-bool lovrTextureFormatIsCompressed(TextureFormat format) {
-  return format == FORMAT_DXT1 || format == FORMAT_DXT3 || format == FORMAT_DXT5;
+bool lovrIsTextureFormatCompressed(TextureFormat format) {
+  switch (format) {
+    case FORMAT_DXT1:
+    case FORMAT_DXT3:
+    case FORMAT_DXT5:
+      return true;
+    default:
+      return false;
+  }
 }
 
 static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
@@ -48,7 +54,7 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
   texture->width = textureData->width;
   texture->height = textureData->height;
 
-  if (lovrTextureFormatIsCompressed(textureData->format)) {
+  if (lovrIsTextureFormatCompressed(textureData->format)) {
     return;
   }
 
@@ -56,8 +62,8 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
   int h = textureData->height;
   int mipmapCount = log2(MAX(w, h)) + 1;
   bool srgb = lovrGraphicsIsGammaCorrect() && texture->srgb;
-  GLenum glFormat = lovrTextureFormatGetGLFormat(textureData->format);
-  GLenum internalFormat = lovrTextureFormatGetGLInternalFormat(textureData->format, srgb);
+  GLenum glFormat = lovrConvertTextureFormat(textureData->format);
+  GLenum internalFormat = lovrConvertTextureFormatInternal(textureData->format, srgb);
 #ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_texture_storage) {
 #endif
@@ -173,11 +179,11 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
     return;
   }
 
-  GLenum glFormat = lovrTextureFormatGetGLFormat(textureData->format);
-  GLenum glInternalFormat = lovrTextureFormatGetGLInternalFormat(textureData->format, texture->srgb);
+  GLenum glFormat = lovrConvertTextureFormat(textureData->format);
+  GLenum glInternalFormat = lovrConvertTextureFormatInternal(textureData->format, texture->srgb);
   GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice : texture->glType;
 
-  if (lovrTextureFormatIsCompressed(textureData->format)) {
+  if (lovrIsTextureFormatCompressed(textureData->format)) {
     Mipmap m; int i;
     vec_foreach(&textureData->mipmaps, m, i) {
       switch (texture->type) {
@@ -256,9 +262,9 @@ TextureWrap lovrTextureGetWrap(Texture* texture) {
 void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
   texture->wrap = wrap;
   lovrGraphicsBindTexture(texture, texture->glType, 0);
-  glTexParameteri(texture->glType, GL_TEXTURE_WRAP_S, wrap.s);
-  glTexParameteri(texture->glType, GL_TEXTURE_WRAP_T, wrap.t);
+  glTexParameteri(texture->glType, GL_TEXTURE_WRAP_S, lovrConvertWrapMode(wrap.s));
+  glTexParameteri(texture->glType, GL_TEXTURE_WRAP_T, lovrConvertWrapMode(wrap.t));
   if (texture->type == TEXTURE_CUBE || texture->type == TEXTURE_VOLUME) {
-    glTexParameteri(texture->glType, GL_TEXTURE_WRAP_R, wrap.r);
+    glTexParameteri(texture->glType, GL_TEXTURE_WRAP_R, lovrConvertWrapMode(wrap.r));
   }
 }

@@ -4,5 +4,11 @@
 #define APIENTRY __stdcall
 #endif
 
-#include "graphics/gpu.h"
+#if EMSCRIPTEN
+#define GLFW_INCLUDE_ES3
+#define GLFW_INCLUDE_GLEXT
+#else
+#include "glad/glad.h"
+#endif
+
 #include <GLFW/glfw3.h>
