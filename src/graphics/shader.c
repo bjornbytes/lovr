@@ -275,6 +275,10 @@ void lovrShaderDestroy(void* ref) {
   free(shader);
 }
 
+uint32_t lovrShaderGetProgram(Shader* shader) {
+  return shader->program;
+}
+
 void lovrShaderBind(Shader* shader) {
   map_iter_t iter = map_iter(&shader->uniforms);
   const char* key;

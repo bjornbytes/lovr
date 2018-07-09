@@ -11,19 +11,22 @@ typedef struct {
   bool mipmaps;
 } CanvasFlags;
 
-typedef struct {
+typedef struct Canvas Canvas;
+
+struct Canvas {
   Texture texture;
   GLuint framebuffer;
   GLuint resolveFramebuffer;
   GLuint depthStencilBuffer;
   GLuint msaaTexture;
   CanvasFlags flags;
-} Canvas;
+};
 
 bool lovrCanvasSupportsFormat(TextureFormat format);
 
 Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasFlags flags);
 void lovrCanvasDestroy(void* ref);
+uint32_t lovrCanvasGetId(Canvas* canvas); // FIXME temporary
 void lovrCanvasResolve(Canvas* canvas);
 TextureFormat lovrCanvasGetFormat(Canvas* canvas);
 int lovrCanvasGetMSAA(Canvas* canvas);

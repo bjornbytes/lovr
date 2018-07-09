@@ -54,16 +54,19 @@ typedef struct {
 
 typedef map_t(Uniform) map_uniform_t;
 
-typedef struct {
+typedef struct Shader Shader;
+
+struct Shader {
   Ref ref;
   uint32_t program;
   map_uniform_t uniforms;
   map_int_t attributes;
-} Shader;
+};
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
 Shader* lovrShaderCreateDefault(DefaultShader type);
 void lovrShaderDestroy(void* ref);
+uint32_t lovrShaderGetProgram(Shader* shader);
 void lovrShaderBind(Shader* shader);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 Uniform* lovrShaderGetUniform(Shader* shader, const char* name);

@@ -110,7 +110,7 @@ void lovrGraphicsReset() {
 void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Color color, float depth, int stencil) {
   Layer layer = state.layers[state.layer];
   Canvas* canvas = state.canvasCount > 0 ? state.canvas[0] : layer.canvas;
-  gpuBindFramebuffer(canvas ? canvas->framebuffer : 0);
+  gpuBindFramebuffer(canvas ? lovrCanvasGetId(canvas) : 0);
 
   if (clearColor) {
     gammaCorrectColor(&color);
@@ -297,21 +297,21 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
   }
 
   for (int i = 0; i < count; i++) {
-    lovrRetain(&canvas[i]->texture);
+    lovrRetain(canvas[i]);
   }
 
   for (int i = 0; i < state.canvasCount; i++) {
-    lovrRelease(&state.canvas[i]->texture);
+    lovrRelease(state.canvas[i]);
   }
 
   if (count > 0) {
     memcpy(state.canvas, canvas, count * sizeof(Canvas*));
-    gpuBindFramebuffer(canvas[0]->framebuffer);
+    gpuBindFramebuffer(lovrCanvasGetId(canvas[0]));
 
     GLenum buffers[MAX_CANVASES];
     for (int i = 0; i < count; i++) {
       buffers[i] = GL_COLOR_ATTACHMENT0 + i;
-      glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, canvas[i]->texture.id, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, lovrTextureGetId((Texture*) canvas[i]), 0);
     }
     glDrawBuffers(count, buffers);
 
@@ -916,7 +916,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
     1, -1, 1,  0, 0, 0, 0, 0
   };
 
-  TextureType type = texture->type;
+  TextureType type = lovrTextureGetType(texture);
   lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
   MaterialTexture materialTexture = type == TEXTURE_CUBE ? TEXTURE_ENVIRONMENT_MAP : TEXTURE_DIFFUSE;
   DefaultShader shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO;
@@ -1029,9 +1029,9 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   // Layer
   Layer layer = state.layers[state.layer];
   Canvas* canvas = state.canvasCount > 0 ? state.canvas[0] : layer.canvas;
-  gpuBindFramebuffer(canvas ? canvas->framebuffer : 0);
+  gpuBindFramebuffer(canvas ? lovrCanvasGetId(canvas) : 0);
   gpuSetViewport(state.canvasCount > 0 ?
-    (uint32_t[4]) { 0, 0, state.canvas[0]->texture.width, state.canvas[0]->texture.height } :
+    (uint32_t[4]) { 0, 0, lovrTextureGetWidth((Texture*) state.canvas[0]), lovrTextureGetHeight((Texture*) state.canvas[0]) } :
     layer.viewport
   );
 
@@ -1116,27 +1116,31 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
     lovrShaderSetTexture(shader, lovrShaderTextureUniforms[i], &texture, 1);
   }
 
-  gpuUseProgram(shader->program);
+  gpuUseProgram(lovrShaderGetProgram(shader));
   lovrShaderBind(shader);
   lovrMeshBind(mesh, shader);
 
-  size_t start = mesh->rangeStart;
-  GLenum glDrawMode = convertMeshDrawMode(mesh->drawMode);
-  if (mesh->indexCount > 0) {
-    size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
-    GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-    size_t offset = start * mesh->indexSize;
+  uint32_t rangeStart, rangeCount;
+  lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
+  uint32_t indexCount;
+  size_t indexSize;
+  lovrMeshReadIndices(mesh, &indexCount, &indexSize);
+  GLenum glDrawMode = convertMeshDrawMode(lovrMeshGetDrawMode(mesh));
+  if (indexCount > 0) {
+    size_t count = rangeCount ? rangeCount : indexCount;
+    GLenum indexType = indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+    size_t offset = rangeStart * indexSize;
     if (instances > 1) {
       glDrawElementsInstanced(glDrawMode, count, indexType, (GLvoid*) offset, instances);
     } else {
       glDrawElements(glDrawMode, count, indexType, (GLvoid*) offset);
     }
   } else {
-    size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->count;
+    size_t count = rangeCount ? rangeCount : lovrMeshGetVertexCount(mesh);
     if (instances > 1) {
-      glDrawArraysInstanced(glDrawMode, start, count, instances);
+      glDrawArraysInstanced(glDrawMode, rangeStart, count, instances);
     } else {
-      glDrawArrays(glDrawMode, start, count);
+      glDrawArrays(glDrawMode, rangeStart, count);
     }
   }
 
@@ -1196,7 +1200,7 @@ void lovrGraphicsBindTexture(Texture* texture, GLenum type, int slot) {
     lovrRelease(state.textures[slot]);
     state.textures[slot] = texture;
     glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(type, texture->id);
+    glBindTexture(type, lovrTextureGetId(texture));
   }
 }
 

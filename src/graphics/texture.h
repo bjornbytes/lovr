@@ -36,7 +36,9 @@ typedef struct {
   WrapMode r;
 } TextureWrap;
 
-typedef struct {
+typedef struct Texture Texture;
+
+struct Texture {
   Ref ref;
   TextureType type;
   GLenum glType;
@@ -50,7 +52,7 @@ typedef struct {
   bool srgb;
   bool mipmaps;
   bool allocated;
-} Texture;
+};
 
 GLenum lovrTextureFormatGetGLFormat(TextureFormat format);
 GLenum lovrTextureFormatGetGLInternalFormat(TextureFormat format, bool srgb);
@@ -58,6 +60,10 @@ bool lovrTextureFormatIsCompressed(TextureFormat format);
 
 Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bool srgb, bool mipmaps);
 void lovrTextureDestroy(void* ref);
+uint32_t lovrTextureGetId(Texture* texture); // FIXME temporary
+int lovrTextureGetWidth(Texture* texture);
+int lovrTextureGetHeight(Texture* texture);
+int lovrTextureGetDepth(Texture* texture);
 TextureType lovrTextureGetType(Texture* texture);
 void lovrTextureReplacePixels(Texture* texture, TextureData* data, int slice);
 TextureFilter lovrTextureGetFilter(Texture* texture);

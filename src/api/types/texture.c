@@ -2,16 +2,16 @@
 
 int l_lovrTextureGetDepth(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  lua_pushnumber(L, texture->depth);
+  lua_pushnumber(L, lovrTextureGetDepth(texture));
   return 1;
 }
 
 int l_lovrTextureGetDimensions(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  lua_pushinteger(L, texture->width);
-  lua_pushinteger(L, texture->height);
-  if (texture->type != TEXTURE_2D) {
-    lua_pushinteger(L, texture->depth);
+  lua_pushinteger(L, lovrTextureGetWidth(texture));
+  lua_pushinteger(L, lovrTextureGetHeight(texture));
+  if (lovrTextureGetType(texture) != TEXTURE_2D) {
+    lua_pushinteger(L, lovrTextureGetDepth(texture));
     return 3;
   }
   return 2;
@@ -30,7 +30,7 @@ int l_lovrTextureGetFilter(lua_State* L) {
 
 int l_lovrTextureGetHeight(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  lua_pushnumber(L, texture->height);
+  lua_pushnumber(L, lovrTextureGetHeight(texture));
   return 1;
 }
 
@@ -42,7 +42,7 @@ int l_lovrTextureGetType(lua_State* L) {
 
 int l_lovrTextureGetWidth(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  lua_pushnumber(L, texture->width);
+  lua_pushnumber(L, lovrTextureGetWidth(texture));
   return 1;
 }
 
@@ -51,7 +51,7 @@ int l_lovrTextureGetWrap(lua_State* L) {
   TextureWrap wrap = lovrTextureGetWrap(texture);
   lua_pushstring(L, WrapModes[wrap.s]);
   lua_pushstring(L, WrapModes[wrap.t]);
-  if (texture->type == TEXTURE_CUBE) {
+  if (lovrTextureGetType(texture) == TEXTURE_CUBE) {
     lua_pushstring(L, WrapModes[wrap.r]);
     return 3;
   }

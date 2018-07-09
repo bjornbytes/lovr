@@ -139,6 +139,22 @@ void lovrTextureDestroy(void* ref) {
   free(texture);
 }
 
+GLuint lovrTextureGetId(Texture* texture) {
+  return texture->id;
+}
+
+int lovrTextureGetWidth(Texture* texture) {
+  return texture->width;
+}
+
+int lovrTextureGetHeight(Texture* texture) {
+  return texture->height;
+}
+
+int lovrTextureGetDepth(Texture* texture) {
+  return texture->depth;
+}
+
 TextureType lovrTextureGetType(Texture* texture) {
   return texture->type;
 }

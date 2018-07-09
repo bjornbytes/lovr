@@ -95,6 +95,10 @@ void lovrCanvasDestroy(void* ref) {
   lovrTextureDestroy(ref);
 }
 
+uint32_t lovrCanvasGetId(Canvas* canvas) {
+  return canvas->framebuffer;
+}
+
 void lovrCanvasResolve(Canvas* canvas) {
   if (canvas->flags.msaa > 0) {
     int width = canvas->texture.width;

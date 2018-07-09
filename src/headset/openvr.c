@@ -331,7 +331,7 @@ static bool openvrInit(float offset) {
 }
 
 static void openvrDestroy() {
-  lovrRelease(&state.canvas->texture);
+  lovrRelease(state.canvas);
   for (int i = 0; i < 16; i++) {
     if (state.deviceModels[i]) {
       state.renderModels->FreeRenderModel(state.deviceModels[i]);
@@ -694,14 +694,14 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   // Submit
   glActiveTexture(GL_TEXTURE0);
   Texture* oldTexture = lovrGraphicsGetTexture(0);
-  uintptr_t texture = (uintptr_t) state.canvas->texture.id;
+  uintptr_t texture = (uintptr_t) lovrTextureGetId((Texture*) state.canvas);
   EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
   Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
   VRTextureBounds_t left = { 0, 0, .5, 1. };
   VRTextureBounds_t right = { .5, 0, 1., 1. };
   state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
   state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
-  glBindTexture(GL_TEXTURE_2D, oldTexture->id);
+  glBindTexture(GL_TEXTURE_2D, lovrTextureGetId(oldTexture));
 
   lovrGraphicsPopLayer();
   state.isRendering = false;
@@ -712,7 +712,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     Shader* lastShader = lovrGraphicsGetShader();
     lovrRetain(lastShader);
     lovrGraphicsSetShader(NULL);
-    lovrGraphicsFill(&state.canvas->texture);
+    lovrGraphicsFill((Texture*) state.canvas);
     lovrGraphicsSetShader(lastShader);
     lovrRelease(lastShader);
     lovrGraphicsSetColor(oldColor);
