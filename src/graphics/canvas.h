@@ -13,15 +13,6 @@ typedef struct {
 
 typedef struct Canvas Canvas;
 
-struct Canvas {
-  Texture texture;
-  GLuint framebuffer;
-  GLuint resolveFramebuffer;
-  GLuint depthStencilBuffer;
-  GLuint msaaTexture;
-  CanvasFlags flags;
-};
-
 bool lovrCanvasSupportsFormat(TextureFormat format);
 
 Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasFlags flags);

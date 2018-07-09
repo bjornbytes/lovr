@@ -1,11 +1,9 @@
-#include "graphics/texture.h"
+#include "graphics/opengl/opengl.h"
 #include "graphics/graphics.h"
-#include "data/blob.h"
-#include "math/math.h"
+#include "graphics/gpu.h"
 #include "lib/vec/vec.h"
+#include "math/math.h"
 #include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
 
 GLenum convertWrap(WrapMode mode) {
   switch (mode) {

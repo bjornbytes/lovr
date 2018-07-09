@@ -1,6 +1,5 @@
 #include "graphics/gpu.h"
 #include "data/textureData.h"
-#include "util.h"
 #include <stdbool.h>
 
 #pragma once
@@ -37,22 +36,6 @@ typedef struct {
 } TextureWrap;
 
 typedef struct Texture Texture;
-
-struct Texture {
-  Ref ref;
-  TextureType type;
-  GLenum glType;
-  TextureData** slices;
-  int width;
-  int height;
-  int depth;
-  GLuint id;
-  TextureFilter filter;
-  TextureWrap wrap;
-  bool srgb;
-  bool mipmaps;
-  bool allocated;
-};
 
 GLenum lovrTextureFormatGetGLFormat(TextureFormat format);
 GLenum lovrTextureFormatGetGLInternalFormat(TextureFormat format, bool srgb);

@@ -1,11 +1,6 @@
-#include "graphics/mesh.h"
-#include "graphics/gpu.h"
-#include "graphics/graphics.h"
+#include "graphics/opengl/opengl.h"
 #include "math/math.h"
 #include <limits.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 
 static GLenum convertMeshUsage(MeshUsage usage) {
   switch (usage) {
@@ -240,14 +235,14 @@ void lovrMeshUnmapVertices(Mesh* mesh) {
 }
 
 IndexPointer lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* size) {
+  *size = mesh->indexSize;
+  *count = mesh->indexCount;
+
   if (mesh->indexCount == 0) {
     return (IndexPointer) { .raw = NULL };
   } else if (mesh->mappedIndices) {
     lovrMeshUnmapIndices(mesh);
   }
-
-  *size = mesh->indexSize;
-  *count = mesh->indexCount;
 
   return mesh->indices;
 }

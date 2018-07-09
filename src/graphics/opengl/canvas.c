@@ -1,9 +1,6 @@
-#include "graphics/canvas.h"
-#include "graphics/gpu.h"
+#include "graphics/opengl/opengl.h"
 #include "graphics/graphics.h"
-#include "data/blob.h"
-#include "util.h"
-#include <stdlib.h>
+#include "graphics/gpu.h"
 
 bool lovrCanvasSupportsFormat(TextureFormat format) {
   switch (format) {
@@ -110,7 +107,7 @@ void lovrCanvasResolve(Canvas* canvas) {
 
   if (canvas->flags.mipmaps) {
     lovrGraphicsBindTexture(&canvas->texture, canvas->texture.type, 0);
-    glGenerateMipmap(canvas->texture.type);
+    glGenerateMipmap(canvas->texture.glType);
   }
 }
 

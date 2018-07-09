@@ -1056,7 +1056,7 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   mat4_multiply(mat4_set(modelView, layer.view), model);
   lovrShaderSetMatrix(shader, "lovrTransform", modelView, 16);
 
-  if (lovrShaderGetUniform(shader, "lovrNormalMatrix")) {
+  if (lovrShaderHasUniform(shader, "lovrNormalMatrix")) {
     if (mat4_invert(modelView)) {
       mat4_transpose(modelView);
     } else {

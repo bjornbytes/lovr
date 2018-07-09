@@ -12,7 +12,7 @@ static struct TempData tempData;
 int l_lovrShaderHasUniform(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
-  lua_pushboolean(L, lovrShaderGetUniform(shader, name) != NULL);
+  lua_pushboolean(L, lovrShaderHasUniform(shader, name));
   return 1;
 }
 
@@ -21,23 +21,25 @@ int l_lovrShaderSend(lua_State* L) {
   const char* name = luaL_checkstring(L, 2);
   lua_settop(L, 3);
 
-  Uniform* uniform = lovrShaderGetUniform(shader, name);
+  int count;
+  int components;
+  size_t size;
+  UniformType type;
+  bool present = lovrShaderGetUniform(shader, name, &count, &components, &size, &type);
 
-  if (!uniform) {
+  if (!present) {
     return luaL_error(L, "Unknown shader variable '%s'", name);
   }
 
-  if (tempData.size < uniform->size) {
-    tempData.size = uniform->size;
+  if (tempData.size < size) {
+    tempData.size = size;
     tempData.data = realloc(tempData.data, tempData.size);
   }
 
   int* ints = (int*) tempData.data;
   float* floats = (float*) tempData.data;
   Texture** textures = (Texture**) tempData.data;
-
   int n = 1;
-  int components = uniform->components;
 
   if (components > 1 && lua_istable(L, 3)) {
     lua_rawgeti(L, 3, 1);
@@ -50,18 +52,17 @@ int l_lovrShaderSend(lua_State* L) {
     }
 
     n = lua_objlen(L, -1);
-    if (n != uniform->count) {
-      const char* elements = uniform->count == 1 ? "element" : "elements";
-      return luaL_error(L, "Expected %d %s for array '%s', got %d", uniform->count, elements, uniform->name, n);
+    if (n != count) {
+      return luaL_error(L, "Expected %d element%s for array '%s', got %d", count, count == 1 ? "" : "s", name, n);
     }
   }
 
   Blob** blob = luax_totype(L, 3, Blob);
 
-  switch (uniform->type) {
+  switch (type) {
     case UNIFORM_FLOAT:
       if (blob) {
-        n = uniform->count;
+        n = count;
         floats = (float*) (*blob)->data;
         size_t count = n * components;
         size_t capacity = (*blob)->size / sizeof(float);
@@ -74,7 +75,7 @@ int l_lovrShaderSend(lua_State* L) {
         for (int i = 0; i < n; i++) {
           lua_rawgeti(L, -1, i + 1);
           if (lua_type(L, -1) != LUA_TTABLE || (int) lua_objlen(L, -1) != components) {
-            return luaL_error(L, "Expected %d components for uniform '%s' #%d, got %d", components, uniform->name, lua_objlen(L, -1));
+            return luaL_error(L, "Expected %d components for uniform '%s' #%d, got %d", components, name, lua_objlen(L, -1));
           }
           for (int j = 0; j < components; j++) {
             lua_rawgeti(L, -1, j + 1);
@@ -89,7 +90,7 @@ int l_lovrShaderSend(lua_State* L) {
 
     case UNIFORM_INT:
       if (blob) {
-        n = uniform->count;
+        n = count;
         ints = (int*) (*blob)->data;
         size_t count = n * components;
         size_t capacity = (*blob)->size / sizeof(int);
@@ -102,7 +103,7 @@ int l_lovrShaderSend(lua_State* L) {
         for (int i = 0; i < n; i++) {
           lua_rawgeti(L, -1, i + 1);
           if (lua_type(L, -1) != LUA_TTABLE || (int) lua_objlen(L, -1) != components) {
-            return luaL_error(L, "Expected %d components for uniform '%s' #%d, got %d", components, uniform->name, lua_objlen(L, -1));
+            return luaL_error(L, "Expected %d components for uniform '%s' #%d, got %d", components, name, lua_objlen(L, -1));
           }
           for (int j = 0; j < components; j++) {
             lua_rawgeti(L, -1, j + 1);
@@ -117,7 +118,7 @@ int l_lovrShaderSend(lua_State* L) {
 
     case UNIFORM_MATRIX:
       if (blob) {
-        n = uniform->count;
+        n = count;
         floats = (float*) (*blob)->data;
         size_t count = n * components * components;
         size_t capacity = (*blob)->size / sizeof(float);

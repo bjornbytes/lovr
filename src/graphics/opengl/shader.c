@@ -1,11 +1,10 @@
-#include "graphics/shader.h"
-#include "graphics/gpu.h"
+#include "graphics/opengl/opengl.h"
 #include "graphics/graphics.h"
-#include "math/math.h"
 #include "resources/shaders.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "math/math.h"
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 static UniformType getUniformType(GLenum type, const char* debug) {
   switch (type) {
@@ -179,22 +178,22 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     switch (uniform.type) {
       case UNIFORM_FLOAT:
         uniform.size = uniform.components * uniform.count * sizeof(float);
-        uniform.value.data = malloc(uniform.size);
+        uniform.value.data = calloc(1, uniform.size);
         break;
 
       case UNIFORM_INT:
         uniform.size = uniform.components * uniform.count * sizeof(int);
-        uniform.value.data = malloc(uniform.size);
+        uniform.value.data = calloc(1, uniform.size);
         break;
 
       case UNIFORM_MATRIX:
         uniform.size = uniform.components * uniform.components * uniform.count * sizeof(int);
-        uniform.value.data = malloc(uniform.size);
+        uniform.value.data = calloc(1, uniform.size);
         break;
 
       case UNIFORM_SAMPLER:
         uniform.size = uniform.components * uniform.count * MAX(sizeof(Texture*), sizeof(int));
-        uniform.value.data = malloc(uniform.size);
+        uniform.value.data = calloc(1, uniform.size);
 
         // Use the value for ints to bind texture slots, but use the value for textures afterwards.
         for (int i = 0; i < uniform.count; i++) {
@@ -203,8 +202,6 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
         glUniform1iv(uniform.location, uniform.count, uniform.value.ints);
         break;
     }
-
-    memset(uniform.value.data, 0, uniform.size);
 
     size_t offset = 0;
     for (int j = 0; j < uniform.count; j++) {
@@ -341,8 +338,21 @@ int lovrShaderGetAttributeId(Shader* shader, const char* name) {
   return id ? *id : -1;
 }
 
-Uniform* lovrShaderGetUniform(Shader* shader, const char* name) {
-  return map_get(&shader->uniforms, name);
+bool lovrShaderHasUniform(Shader* shader, const char* name) {
+  return map_get(&shader->uniforms, name) != NULL;
+}
+
+bool lovrShaderGetUniform(Shader* shader, const char* name, int* count, int* components, size_t* size, UniformType* type) {
+  Uniform* uniform = map_get(&shader->uniforms, name);
+  if (!uniform) {
+    return false;
+  }
+
+  *count = uniform->count;
+  *components = uniform->components;
+  *size = uniform->size;
+  *type = uniform->type;
+  return true;
 }
 
 static void lovrShaderSetUniform(Shader* shader, const char* name, UniformType type, void* data, int count, size_t size, const char* debug) {

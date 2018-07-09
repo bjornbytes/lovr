@@ -1,9 +1,6 @@
-#include "graphics/gpu.h"
 #include "graphics/material.h"
 #include "graphics/shader.h"
 #include "data/vertexData.h"
-#include "lib/map/map.h"
-#include "util.h"
 #include <stdbool.h>
 
 #pragma once
@@ -27,41 +24,6 @@ typedef enum {
 } MeshUsage;
 
 typedef struct Mesh Mesh;
-
-typedef struct {
-  Mesh* mesh;
-  int attributeIndex;
-  int divisor;
-  bool enabled;
-} MeshAttachment;
-
-typedef map_t(MeshAttachment) map_attachment_t;
-
-struct Mesh {
-  Ref ref;
-  uint32_t count;
-  VertexFormat format;
-  MeshDrawMode drawMode;
-  GLenum usage;
-  VertexPointer data;
-  IndexPointer indices;
-  uint32_t indexCount;
-  size_t indexSize;
-  size_t indexCapacity;
-  bool mappedIndices;
-  uint32_t dirtyStart;
-  uint32_t dirtyEnd;
-  uint32_t rangeStart;
-  uint32_t rangeCount;
-  GLuint vao;
-  GLuint vbo;
-  GLuint ibo;
-  Material* material;
-  float* pose;
-  map_attachment_t attachments;
-  MeshAttachment layout[MAX_ATTACHMENTS];
-  bool isAttachment;
-};
 
 Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, MeshUsage usage);
 void lovrMeshDestroy(void* ref);
