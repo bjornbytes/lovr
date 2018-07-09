@@ -11,7 +11,6 @@
 #include "lib/stb/stb_image.h"
 #define _USE_MATH_DEFINES
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <math.h>
 
