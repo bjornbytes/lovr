@@ -1,11 +1,16 @@
 #include "graphics/gpu.h"
+#include "graphics/opengl/opengl.h"
 #include "lib/glfw.h"
 #include <string.h>
 
+#define MAX_TEXTURES 16
+
 static struct {
+  Texture* defaultTexture;
   uint32_t framebuffer;
   uint32_t indexBuffer;
   uint32_t program;
+  Texture* textures[MAX_TEXTURES];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   uint32_t viewport[4];
@@ -28,6 +33,13 @@ void gpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 }
 
+void gpuDestroy() {
+  lovrRelease(state.defaultTexture);
+  for (int i = 0; i < MAX_TEXTURES; i++) {
+    lovrRelease(state.textures[i]);
+  }
+}
+
 void gpuPresent() {
   memset(&state.stats, 0, sizeof(state.stats));
 }
@@ -46,6 +58,28 @@ void gpuBindIndexBuffer(uint32_t indexBuffer) {
   }
 }
 
+void gpuBindTexture(Texture* texture, int slot) {
+  lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
+
+  if (!texture) {
+    if (!state.defaultTexture) {
+      TextureData* textureData = lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA);
+      state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false);
+      lovrRelease(textureData);
+    }
+
+    texture = state.defaultTexture;
+  }
+
+  if (texture != state.textures[slot]) {
+    lovrRetain(texture);
+    lovrRelease(state.textures[slot]);
+    state.textures[slot] = texture;
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(texture->glType, lovrTextureGetId(texture));
+  }
+}
+
 void gpuBindVertexArray(uint32_t vertexArray) {
   if (state.vertexArray != vertexArray) {
     state.vertexArray = vertexArray;
@@ -58,6 +92,11 @@ void gpuBindVertexBuffer(uint32_t vertexBuffer) {
     state.vertexBuffer = vertexBuffer;
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
   }
+}
+
+Texture* gpuGetTexture(int slot) {
+  lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
+  return state.textures[slot];
 }
 
 void gpuSetViewport(uint32_t viewport[4]) {

@@ -98,7 +98,6 @@ typedef struct {
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   Material* defaultMaterial;
   Font* defaultFont;
-  Texture* defaultTexture;
   float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
   int transform;
   Layer layers[MAX_LAYERS];
@@ -124,7 +123,6 @@ typedef struct {
   Winding winding;
   bool wireframe;
   Mesh* mesh;
-  Texture* textures[MAX_TEXTURES];
   bool stencilEnabled;
   bool stencilWriting;
   GraphicsStats stats;
@@ -205,6 +203,4 @@ void lovrGraphicsPushLayer(Canvas* canvas);
 void lovrGraphicsPopLayer();
 void lovrGraphicsSetCamera(mat4 projection, mat4 view);
 void lovrGraphicsSetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
-Texture* lovrGraphicsGetTexture(int slot);
-void lovrGraphicsBindTexture(Texture* texture, GLenum type, int slot);
 Material* lovrGraphicsGetDefaultMaterial();

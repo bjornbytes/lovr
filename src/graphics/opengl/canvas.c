@@ -106,7 +106,7 @@ void lovrCanvasResolve(Canvas* canvas) {
   }
 
   if (canvas->flags.mipmaps) {
-    lovrGraphicsBindTexture(&canvas->texture, canvas->texture.type, 0);
+    gpuBindTexture(&canvas->texture, 0);
     glGenerateMipmap(canvas->texture.glType);
   }
 }

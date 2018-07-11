@@ -117,7 +117,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bo
 
   WrapMode wrap = type == TEXTURE_CUBE ? WRAP_CLAMP : WRAP_REPEAT;
   glGenTextures(1, &texture->id);
-  lovrGraphicsBindTexture(texture, texture->glType, 0);
+  gpuBindTexture(texture, 0);
   lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
   lovrTextureSetWrap(texture, (TextureWrap) { .s = wrap, .t = wrap, .r = wrap });
 
@@ -221,7 +221,7 @@ TextureFilter lovrTextureGetFilter(Texture* texture) {
 
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
   float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
-  lovrGraphicsBindTexture(texture, texture->glType, 0);
+  gpuBindTexture(texture, 0);
   texture->filter = filter;
 
   switch (filter.mode) {
@@ -261,7 +261,7 @@ TextureWrap lovrTextureGetWrap(Texture* texture) {
 
 void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
   texture->wrap = wrap;
-  lovrGraphicsBindTexture(texture, texture->glType, 0);
+  gpuBindTexture(texture, 0);
   glTexParameteri(texture->glType, GL_TEXTURE_WRAP_S, lovrConvertWrapMode(wrap.s));
   glTexParameteri(texture->glType, GL_TEXTURE_WRAP_T, lovrConvertWrapMode(wrap.t));
   if (texture->type == TEXTURE_CUBE || texture->type == TEXTURE_VOLUME) {

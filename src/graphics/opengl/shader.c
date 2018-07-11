@@ -319,14 +319,15 @@ void lovrShaderBind(Shader* shader) {
 
       case UNIFORM_SAMPLER:
         for (int i = 0; i < count; i++) {
-          TextureType type;
+          GLenum uniformTextureType;
           switch (uniform->glType) {
-            case GL_SAMPLER_2D: type = GL_TEXTURE_2D; break;
-            case GL_SAMPLER_3D: type = GL_TEXTURE_3D; break;
-            case GL_SAMPLER_CUBE: type = GL_TEXTURE_CUBE_MAP; break;
-            case GL_SAMPLER_2D_ARRAY: type = GL_TEXTURE_2D_ARRAY; break;
+            case GL_SAMPLER_2D: uniformTextureType = GL_TEXTURE_2D; break;
+            case GL_SAMPLER_3D: uniformTextureType = GL_TEXTURE_3D; break;
+            case GL_SAMPLER_CUBE: uniformTextureType = GL_TEXTURE_CUBE_MAP; break;
+            case GL_SAMPLER_2D_ARRAY: uniformTextureType = GL_TEXTURE_2D_ARRAY; break;
           }
-          lovrGraphicsBindTexture(uniform->value.textures[i], type, uniform->baseTextureSlot + i);
+          lovrAssert(uniform->value.textures[i]->glType == uniformTextureType, "Texture uniform types do not match");
+          gpuBindTexture(uniform->value.textures[i], uniform->baseTextureSlot + i);
         }
         break;
     }

@@ -68,16 +68,13 @@ void lovrGraphicsDestroy() {
   lovrGraphicsSetShader(NULL);
   lovrGraphicsSetFont(NULL);
   lovrGraphicsSetCanvas(NULL, 0);
-  for (int i = 0; i < MAX_TEXTURES; i++) {
-    lovrRelease(state.textures[i]);
-  }
   for (int i = 0; i < DEFAULT_SHADER_COUNT; i++) {
     lovrRelease(state.defaultShaders[i]);
   }
   lovrRelease(state.defaultMaterial);
   lovrRelease(state.defaultFont);
-  lovrRelease(state.defaultTexture);
   lovrRelease(state.mesh);
+  gpuDestroy();
   memset(&state, 0, sizeof(GraphicsState));
 }
 
@@ -1177,30 +1174,6 @@ void lovrGraphicsSetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t he
   state.layers[state.layer].viewport[1] = y;
   state.layers[state.layer].viewport[2] = width;
   state.layers[state.layer].viewport[3] = height;
-}
-
-Texture* lovrGraphicsGetTexture(int slot) {
-  return state.textures[slot];
-}
-
-void lovrGraphicsBindTexture(Texture* texture, GLenum type, int slot) {
-  if (!texture) {
-    if (!state.defaultTexture) {
-      TextureData* textureData = lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA);
-      state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false);
-      lovrRelease(textureData);
-    }
-
-    texture = state.defaultTexture;
-  }
-
-  if (texture != state.textures[slot]) {
-    lovrRetain(texture);
-    lovrRelease(state.textures[slot]);
-    state.textures[slot] = texture;
-    glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(type, lovrTextureGetId(texture));
-  }
 }
 
 Material* lovrGraphicsGetDefaultMaterial() {

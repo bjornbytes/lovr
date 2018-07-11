@@ -1,5 +1,6 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
+#include "graphics/gpu.h"
 #include "graphics/canvas.h"
 #include "math/mat4.h"
 #include "math/quat.h"
@@ -693,7 +694,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
 
   // Submit
   glActiveTexture(GL_TEXTURE0);
-  Texture* oldTexture = lovrGraphicsGetTexture(0);
+  Texture* oldTexture = gpuGetTexture(0);
   uintptr_t texture = (uintptr_t) lovrTextureGetId((Texture*) state.canvas);
   EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
   Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
