@@ -116,8 +116,6 @@ void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Colo
 
 void lovrGraphicsPresent() {
   glfwSwapBuffers(state.window);
-  state.stats.drawCalls = 0;
-  state.stats.shaderSwitches = 0;
   gpuPresent();
 }
 
@@ -193,8 +191,8 @@ int lovrGraphicsGetHeight() {
   return height;
 }
 
-GraphicsStats lovrGraphicsGetStats() {
-  return state.stats;
+GpuStats lovrGraphicsGetStats() {
+  return gpuGetStats();
 }
 
 // State
@@ -1109,8 +1107,6 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
   if (transform) {
     lovrGraphicsPop();
   }
-
-  state.stats.drawCalls++;
 }
 
 void lovrGraphicsPushLayer(Canvas* canvas) {

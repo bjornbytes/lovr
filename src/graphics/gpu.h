@@ -7,7 +7,8 @@
 #pragma once
 
 typedef struct {
-  uint32_t shaderSwitches;
+  int shaderSwitches;
+  int drawCalls;
 } GpuStats;
 
 typedef struct {
@@ -49,6 +50,9 @@ void gpuInit(bool srgb, gpuProc (*getProcAddress)(const char*));
 void gpuDestroy();
 void gpuDraw(GpuDrawCommand* command);
 void gpuPresent();
+GpuStats gpuGetStats();
+
+// Ephemeral
 void gpuBindFramebuffer(uint32_t framebuffer);
 void gpuBindIndexBuffer(uint32_t indexBuffer);
 void gpuBindTexture(Texture* texture, int slot);

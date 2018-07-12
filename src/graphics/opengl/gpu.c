@@ -73,11 +73,19 @@ void gpuDraw(GpuDrawCommand* command) {
       glDrawArrays(glDrawMode, rangeStart, count);
     }
   }
+
+  state.stats.drawCalls++;
 }
 
 void gpuPresent() {
   memset(&state.stats, 0, sizeof(state.stats));
 }
+
+GpuStats gpuGetStats() {
+  return state.stats;
+}
+
+// Ephemeral
 
 void gpuBindFramebuffer(uint32_t framebuffer) {
   if (state.framebuffer != framebuffer) {

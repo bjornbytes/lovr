@@ -88,11 +88,6 @@ typedef struct {
 } GraphicsLimits;
 
 typedef struct {
-  int drawCalls;
-  int shaderSwitches;
-} GraphicsStats;
-
-typedef struct {
   bool initialized;
   GLFWwindow* window;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
@@ -125,7 +120,6 @@ typedef struct {
   Mesh* mesh;
   bool stencilEnabled;
   bool stencilWriting;
-  GraphicsStats stats;
 } GraphicsState;
 
 // Base
@@ -137,7 +131,7 @@ void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
-GraphicsStats lovrGraphicsGetStats();
+GpuStats lovrGraphicsGetStats();
 
 // State
 Color lovrGraphicsGetBackgroundColor();
