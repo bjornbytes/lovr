@@ -110,4 +110,6 @@ struct Mesh {
 GLenum lovrConvertWrapMode(WrapMode mode);
 GLenum lovrConvertTextureFormat(TextureFormat format);
 GLenum lovrConvertTextureFormatInternal(TextureFormat format, bool srgb);
+GLenum lovrConvertMeshUsage(MeshUsage usage);
+GLenum lovrConvertMeshDrawMode(MeshDrawMode mode);
 bool lovrIsTextureFormatCompressed(TextureFormat format);

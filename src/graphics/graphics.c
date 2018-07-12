@@ -45,18 +45,6 @@ static GLenum convertCompareMode(CompareMode mode) {
   }
 }
 
-static GLenum convertMeshDrawMode(MeshDrawMode drawMode) {
-  switch (drawMode) {
-    case MESH_POINTS: return GL_POINTS;
-    case MESH_LINES: return GL_LINES;
-    case MESH_LINE_STRIP: return GL_LINE_STRIP;
-    case MESH_LINE_LOOP: return GL_LINE_LOOP;
-    case MESH_TRIANGLE_STRIP: return GL_TRIANGLE_STRIP;
-    case MESH_TRIANGLES: return GL_TRIANGLES;
-    case MESH_TRIANGLE_FAN: return GL_TRIANGLE_FAN;
-  }
-}
-
 // Base
 
 void lovrGraphicsInit() {
@@ -1112,33 +1100,11 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
     lovrShaderSetTexture(shader, lovrShaderTextureUniforms[i], &texture, 1);
   }
 
-  gpuUseProgram(lovrShaderGetProgram(shader));
-  lovrShaderBind(shader);
-  lovrMeshBind(mesh, shader);
-
-  uint32_t rangeStart, rangeCount;
-  lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
-  uint32_t indexCount;
-  size_t indexSize;
-  lovrMeshReadIndices(mesh, &indexCount, &indexSize);
-  GLenum glDrawMode = convertMeshDrawMode(lovrMeshGetDrawMode(mesh));
-  if (indexCount > 0) {
-    size_t count = rangeCount ? rangeCount : indexCount;
-    GLenum indexType = indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-    size_t offset = rangeStart * indexSize;
-    if (instances > 1) {
-      glDrawElementsInstanced(glDrawMode, count, indexType, (GLvoid*) offset, instances);
-    } else {
-      glDrawElements(glDrawMode, count, indexType, (GLvoid*) offset);
-    }
-  } else {
-    size_t count = rangeCount ? rangeCount : lovrMeshGetVertexCount(mesh);
-    if (instances > 1) {
-      glDrawArraysInstanced(glDrawMode, rangeStart, count, instances);
-    } else {
-      glDrawArrays(glDrawMode, rangeStart, count);
-    }
-  }
+  gpuDraw(&(GpuDrawCommand) {
+    .mesh = mesh,
+    .shader = shader,
+    .instances = instances
+  });
 
   if (transform) {
     lovrGraphicsPop();

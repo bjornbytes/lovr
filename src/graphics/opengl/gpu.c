@@ -40,6 +40,41 @@ void gpuDestroy() {
   }
 }
 
+void gpuDraw(GpuDrawCommand* command) {
+  Mesh* mesh = command->mesh;
+  Shader* shader = command->shader;
+  int instances = command->instances;
+
+  gpuUseProgram(lovrShaderGetProgram(shader));
+  lovrShaderBind(shader);
+  lovrMeshBind(mesh, shader);
+
+  // TODEW
+  uint32_t rangeStart, rangeCount;
+  lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
+  uint32_t indexCount;
+  size_t indexSize;
+  lovrMeshReadIndices(mesh, &indexCount, &indexSize);
+  GLenum glDrawMode = lovrConvertMeshDrawMode(lovrMeshGetDrawMode(mesh));
+  if (indexCount > 0) {
+    size_t count = rangeCount ? rangeCount : indexCount;
+    GLenum indexType = indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+    size_t offset = rangeStart * indexSize;
+    if (instances > 1) {
+      glDrawElementsInstanced(glDrawMode, count, indexType, (GLvoid*) offset, instances);
+    } else {
+      glDrawElements(glDrawMode, count, indexType, (GLvoid*) offset);
+    }
+  } else {
+    size_t count = rangeCount ? rangeCount : lovrMeshGetVertexCount(mesh);
+    if (instances > 1) {
+      glDrawArraysInstanced(glDrawMode, rangeStart, count, instances);
+    } else {
+      glDrawArrays(glDrawMode, rangeStart, count);
+    }
+  }
+}
+
 void gpuPresent() {
   memset(&state.stats, 0, sizeof(state.stats));
 }

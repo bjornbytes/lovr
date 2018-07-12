@@ -3,11 +3,23 @@
 #include "math/math.h"
 #include <limits.h>
 
-static GLenum convertMeshUsage(MeshUsage usage) {
+GLenum lovrConvertMeshUsage(MeshUsage usage) {
   switch (usage) {
     case MESH_STATIC: return GL_STATIC_DRAW;
     case MESH_DYNAMIC: return GL_DYNAMIC_DRAW;
     case MESH_STREAM: return GL_STREAM_DRAW;
+  }
+}
+
+GLenum lovrConvertMeshDrawMode(MeshDrawMode mode) {
+  switch (mode) {
+    case MESH_POINTS: return GL_POINTS;
+    case MESH_LINES: return GL_LINES;
+    case MESH_LINE_STRIP: return GL_LINE_STRIP;
+    case MESH_LINE_LOOP: return GL_LINE_LOOP;
+    case MESH_TRIANGLE_STRIP: return GL_TRIANGLE_STRIP;
+    case MESH_TRIANGLES: return GL_TRIANGLES;
+    case MESH_TRIANGLE_FAN: return GL_TRIANGLE_FAN;
   }
 }
 
@@ -18,7 +30,7 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode,
   mesh->count = count;
   mesh->format = format;
   mesh->drawMode = drawMode;
-  mesh->usage = convertMeshUsage(usage);
+  mesh->usage = lovrConvertMeshUsage(usage);
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);
