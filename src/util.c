@@ -48,7 +48,7 @@ void lovrRelease(void* object) {
 
 void* lovrLoadLibrary(const char* filename) {
 #ifdef _WIN32
-  return LoadLibrary(WIN_UTF8ToString(filename));
+  return LoadLibrary(filename);
 #elif EMSCRIPTEN
   return NULL;
 #else
