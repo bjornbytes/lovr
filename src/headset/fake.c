@@ -292,7 +292,7 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   mat4_multiply(view, state.transform);
   mat4_invert(view);
 
-  lovrGraphicsPushLayer(NULL);
+  lovrGraphicsPushLayer(NULL, 0, false);
   lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
   lovrGraphicsSetCamera(projection, view);
   lovrGraphicsSetViewport(0, 0, width, height);

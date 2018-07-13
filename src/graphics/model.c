@@ -43,7 +43,7 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
 
       lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
       lovrMeshSetPose(model->mesh, (float*) model->pose);
-      lovrGraphicsDraw(model->mesh, NULL, SHADER_DEFAULT, instances);
+      lovrGraphicsDraw(model->mesh, SHADER_DEFAULT, instances);
     }
 
     lovrGraphicsPop();

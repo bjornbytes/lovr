@@ -89,7 +89,7 @@ static void onMountChanged(bool mounted) {
 static void onFrame(float* leftView, float* rightView, float* leftProjection, float* rightProjection, void* userdata) {
   int width, height;
   webvrGetDisplayDimensions(&width, &height);
-  lovrGraphicsPushLayer(NULL);
+  lovrGraphicsPushLayer(NULL, 0, false);
   lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
   lovrGraphicsSetCamera(leftProjection, leftView);
   lovrGraphicsSetViewport(0, 0, width, height);

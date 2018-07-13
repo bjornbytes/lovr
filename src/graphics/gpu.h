@@ -1,10 +1,15 @@
+#include "graphics/canvas.h"
+#include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/shader.h"
 #include "graphics/texture.h"
+#include "math/math.h"
 #include <stdint.h>
 #include <stdbool.h>
 
 #pragma once
+
+#define MAX_CANVASES 4
 
 typedef struct {
   int shaderSwitches;
@@ -12,23 +17,26 @@ typedef struct {
 } GpuStats;
 
 typedef struct {
+  float projection[16];
+  float view[16];
+  uint32_t viewport[4];
+  Canvas* canvas[MAX_CANVASES];
+  int canvasCount;
+  bool user;
+} Layer;
+
+typedef struct {
+  Layer layer;
   Mesh* mesh;
+  mat4 transform;
+  Material* material;
+  Color color;
+  float pointSize;
   Shader* shader;
   int instances;
 
 /*
 eventually:
-
-  Canvas* canvas;
-  uint32_t viewport[4];
-  mat4 view;
-  mat4 projection;
-  mat4 model;
-
-  Color color;
-  float pointSize;
-
-  Material* material;
 
   struct {
     CompareMode test;

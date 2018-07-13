@@ -12,7 +12,6 @@
 
 #pragma once
 
-#define MAX_CANVASES 4
 #define MAX_LAYERS 4
 #define MAX_TRANSFORMS 60
 #define INTERNAL_TRANSFORMS 4
@@ -73,13 +72,6 @@ typedef enum {
 } StencilAction;
 
 typedef struct {
-  float projection[16];
-  float view[16];
-  Canvas* canvas;
-  uint32_t viewport[4];
-} Layer;
-
-typedef struct {
   bool initialized;
   float pointSizes[2];
   int textureSize;
@@ -100,8 +92,6 @@ typedef struct {
   Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
-  Canvas* canvas[MAX_CANVASES];
-  int canvasCount;
   Color color;
   bool culling;
   TextureFilter defaultFilter;
@@ -191,9 +181,9 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 void lovrGraphicsFill(Texture* texture);
 
 // Internal
-void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader shader, int instances);
+void lovrGraphicsDraw(Mesh* mesh, DefaultShader shader, int instances);
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
-void lovrGraphicsPushLayer(Canvas* canvas);
+void lovrGraphicsPushLayer(Canvas** canvas, int count, bool user);
 void lovrGraphicsPopLayer();
 void lovrGraphicsSetCamera(mat4 projection, mat4 view);
 void lovrGraphicsSetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);

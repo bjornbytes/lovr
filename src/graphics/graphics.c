@@ -93,14 +93,13 @@ void lovrGraphicsReset() {
 
 void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Color color, float depth, int stencil) {
   Layer layer = state.layers[state.layer];
-  Canvas* canvas = state.canvasCount > 0 ? state.canvas[0] : layer.canvas;
-  gpuBindFramebuffer(canvas ? lovrCanvasGetId(canvas) : 0);
+  gpuBindFramebuffer(layer.canvasCount > 0 ? lovrCanvasGetId(layer.canvas[0]) : 0);
 
   if (clearColor) {
     gammaCorrectColor(&color);
     float c[4] = { color.r, color.g, color.b, color.a };
     glClearBufferfv(GL_COLOR, 0, c);
-    for (int i = 1; i < state.canvasCount; i++) {
+    for (int i = 1; i < layer.canvasCount; i++) {
       glClearBufferfv(GL_COLOR, i, c);
     }
   }
@@ -263,46 +262,21 @@ void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
 }
 
 void lovrGraphicsGetCanvas(Canvas** canvas, int* count) {
-  *count = state.canvasCount;
-  memcpy(canvas, state.canvas, state.canvasCount * sizeof(Canvas*));
+  Layer layer = state.layers[state.layer];
+  if (layer.user) {
+    *count = layer.canvasCount;
+    memcpy(canvas, layer.canvas, layer.canvasCount * sizeof(Canvas*));
+  } else {
+    *count = 0;
+  }
 }
 
 void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
-  if (count == state.canvasCount && !memcmp(state.canvas, canvas, count * sizeof(Canvas*))) {
-    return;
+  if (state.layers[state.layer].user) {
+    lovrGraphicsPopLayer();
   }
 
-  lovrAssert(count <= MAX_CANVASES, "Attempt to simultaneously render to %d canvases (the maximum is %d)", count, MAX_CANVASES);
-
-  if (state.canvasCount > 0) {
-    lovrCanvasResolve(state.canvas[0]);
-  }
-
-  for (int i = 0; i < count; i++) {
-    lovrRetain(canvas[i]);
-  }
-
-  for (int i = 0; i < state.canvasCount; i++) {
-    lovrRelease(state.canvas[i]);
-  }
-
-  if (count > 0) {
-    memcpy(state.canvas, canvas, count * sizeof(Canvas*));
-    gpuBindFramebuffer(lovrCanvasGetId(canvas[0]));
-
-    GLenum buffers[MAX_CANVASES];
-    for (int i = 0; i < count; i++) {
-      buffers[i] = GL_COLOR_ATTACHMENT0 + i;
-      glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, lovrTextureGetId((Texture*) canvas[i]), 0);
-    }
-    glDrawBuffers(count, buffers);
-
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    lovrAssert(status != GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS, "All multicanvas canvases must have the same dimensions");
-    lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
-  }
-
-  state.canvasCount = count;
+  lovrGraphicsPushLayer(canvas, count, true);
 }
 
 Color lovrGraphicsGetColor() {
@@ -542,7 +516,7 @@ void lovrGraphicsPoints(uint32_t count) {
   lovrMeshSetDrawRange(state.mesh, 0, count);
   lovrMeshSetMaterial(state.mesh, NULL);
   lovrMeshWriteIndices(state.mesh, 0, 0);
-  lovrGraphicsDraw(state.mesh, NULL, SHADER_DEFAULT, 1);
+  lovrGraphicsDraw(state.mesh, SHADER_DEFAULT, 1);
 }
 
 void lovrGraphicsLine(uint32_t count) {
@@ -550,7 +524,7 @@ void lovrGraphicsLine(uint32_t count) {
   lovrMeshSetDrawRange(state.mesh, 0, count);
   lovrMeshSetMaterial(state.mesh, NULL);
   lovrMeshWriteIndices(state.mesh, 0, 0);
-  lovrGraphicsDraw(state.mesh, NULL, SHADER_DEFAULT, 1);
+  lovrGraphicsDraw(state.mesh, SHADER_DEFAULT, 1);
 }
 
 void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]) {
@@ -582,7 +556,7 @@ void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]) {
 
   lovrMeshSetDrawRange(state.mesh, 0, 3);
   lovrMeshSetMaterial(state.mesh, material);
-  lovrGraphicsDraw(state.mesh, NULL, SHADER_DEFAULT, 1);
+  lovrGraphicsDraw(state.mesh, SHADER_DEFAULT, 1);
 }
 
 void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
@@ -613,7 +587,10 @@ void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
   lovrMeshSetMaterial(state.mesh, material);
   lovrMeshWriteIndices(state.mesh, 0, 0);
   lovrMeshSetDrawRange(state.mesh, 0, 4);
-  lovrGraphicsDraw(state.mesh, transform, SHADER_DEFAULT, 1);
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsDraw(state.mesh, SHADER_DEFAULT, 1);
+  lovrGraphicsPop();
 }
 
 void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
@@ -695,7 +672,10 @@ void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
   }
 
   lovrMeshSetMaterial(state.mesh, material);
-  lovrGraphicsDraw(state.mesh, transform, SHADER_DEFAULT, 1);
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsDraw(state.mesh, SHADER_DEFAULT, 1);
+  lovrGraphicsPop();
 }
 
 void lovrGraphicsArc(DrawMode mode, ArcMode arcMode, Material* material, mat4 transform, float theta1, float theta2, int segments) {
@@ -742,7 +722,10 @@ void lovrGraphicsArc(DrawMode mode, ArcMode arcMode, Material* material, mat4 tr
   lovrMeshSetMaterial(state.mesh, material);
   lovrMeshSetDrawMode(state.mesh, mode == DRAW_MODE_LINE ? (arcMode == ARC_MODE_OPEN ? MESH_LINE_STRIP : MESH_LINE_LOOP) : MESH_TRIANGLE_FAN);
   lovrMeshSetDrawRange(state.mesh, 0, count);
-  lovrGraphicsDraw(state.mesh, transform, SHADER_DEFAULT, 1);
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsDraw(state.mesh, SHADER_DEFAULT, 1);
+  lovrGraphicsPop();
 }
 
 void lovrGraphicsCircle(DrawMode mode, Material* material, mat4 transform, int segments) {
@@ -842,7 +825,7 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
   lovrMeshSetMaterial(state.mesh, material);
   lovrMeshSetDrawMode(state.mesh, MESH_TRIANGLES);
   lovrMeshSetDrawRange(state.mesh, 0, indexCount);
-  lovrGraphicsDraw(state.mesh, NULL, SHADER_DEFAULT, 1);
+  lovrGraphicsDraw(state.mesh, SHADER_DEFAULT, 1);
 }
 
 void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
@@ -887,7 +870,10 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
   lovrMeshSetDrawMode(state.mesh, GL_TRIANGLES);
   lovrMeshSetDrawRange(state.mesh, 0, segments * segments * 6);
   lovrMeshSetMaterial(state.mesh, material);
-  lovrGraphicsDraw(state.mesh, transform, SHADER_DEFAULT, 1);
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsDraw(state.mesh, SHADER_DEFAULT, 1);
+  lovrGraphicsPop();
 }
 
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az) {
@@ -912,7 +898,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   lovrMeshSetMaterial(state.mesh, material);
   lovrMeshSetDrawMode(state.mesh, MESH_TRIANGLE_STRIP);
   lovrMeshSetDrawRange(state.mesh, 0, 4);
-  lovrGraphicsDraw(state.mesh, NULL, shader, 1);
+  lovrGraphicsDraw(state.mesh, shader, 1);
   lovrMaterialSetTexture(material, materialTexture, NULL);
   lovrGraphicsSetWinding(winding);
 }
@@ -940,7 +926,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrMeshSetMaterial(state.mesh, material);
   lovrMeshSetDrawMode(state.mesh, MESH_TRIANGLES);
   lovrMeshSetDrawRange(state.mesh, 0, vertexCount);
-  lovrGraphicsDraw(state.mesh, NULL, SHADER_FONT, 1);
+  lovrGraphicsDraw(state.mesh, SHADER_FONT, 1);
   lovrGraphicsSetDepthTest(mode, write);
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   lovrGraphicsPop();
@@ -1000,69 +986,18 @@ void lovrGraphicsFill(Texture* texture) {
   lovrMeshSetMaterial(state.mesh, material);
   lovrMeshSetDrawMode(state.mesh, MESH_TRIANGLE_STRIP);
   lovrMeshSetDrawRange(state.mesh, 0, 4);
-  lovrGraphicsDraw(state.mesh, NULL, SHADER_FILL, 1);
+  lovrGraphicsDraw(state.mesh, SHADER_FILL, 1);
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   lovrGraphicsSetDepthTest(mode, write);
 }
 
 // Internal
-void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, int instances) {
-
-  // Layer
-  Layer layer = state.layers[state.layer];
-  Canvas* canvas = state.canvasCount > 0 ? state.canvas[0] : layer.canvas;
-  gpuBindFramebuffer(canvas ? lovrCanvasGetId(canvas) : 0);
-  gpuSetViewport(state.canvasCount > 0 ?
-    (uint32_t[4]) { 0, 0, lovrTextureGetWidth((Texture*) state.canvas[0]), lovrTextureGetHeight((Texture*) state.canvas[0]) } :
-    layer.viewport
-  );
-
-  // Transforms
-  if (transform) {
-    lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(transform);
-  }
-
+void lovrGraphicsDraw(Mesh* mesh, DefaultShader defaultShader, int instances) {
   Shader* shader = state.shader ? state.shader : state.defaultShaders[defaultShader];
 
   if (!shader) {
     shader = state.defaultShaders[defaultShader] = lovrShaderCreateDefault(defaultShader);
   }
-
-  lovrShaderSetMatrix(shader, "lovrProjection", layer.projection, 16);
-  lovrShaderSetMatrix(shader, "lovrView", layer.view, 16);
-
-  mat4 model = state.transforms[state.transform];
-  lovrShaderSetMatrix(shader, "lovrModel", model, 16);
-
-  float modelView[16];
-  mat4_multiply(mat4_set(modelView, layer.view), model);
-  lovrShaderSetMatrix(shader, "lovrTransform", modelView, 16);
-
-  if (lovrShaderHasUniform(shader, "lovrNormalMatrix")) {
-    if (mat4_invert(modelView)) {
-      mat4_transpose(modelView);
-    } else {
-      mat4_identity(modelView);
-    }
-
-    float normalMatrix[9] = {
-      modelView[0], modelView[1], modelView[2],
-      modelView[4], modelView[5], modelView[6],
-      modelView[8], modelView[9], modelView[10],
-    };
-
-    lovrShaderSetMatrix(shader, "lovrNormalMatrix", normalMatrix, 9);
-  }
-
-  // Color
-  Color color = state.color;
-  gammaCorrectColor(&color);
-  float data[4] = { color.r, color.g, color.b, color.a };
-  lovrShaderSetFloat(shader, "lovrColor", data, 4);
-
-  // Point size
-  lovrShaderSetFloat(shader, "lovrPointSize", &state.pointSize, 1);
 
   // Pose
   float* pose = lovrMeshGetPose(mesh);
@@ -1076,51 +1011,59 @@ void lovrGraphicsDraw(Mesh* mesh, mat4 transform, DefaultShader defaultShader, i
 
   // Material
   Material* material = lovrMeshGetMaterial(mesh);
-
-  if (!material) {
-    material = lovrGraphicsGetDefaultMaterial();
-  }
-
-  for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
-    float value = lovrMaterialGetScalar(material, i);
-    lovrShaderSetFloat(shader, lovrShaderScalarUniforms[i], &value, 1);
-  }
-
-  for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
-    Color color = lovrMaterialGetColor(material, i);
-    gammaCorrectColor(&color);
-    float data[4] = { color.r, color.g, color.b, color.a };
-    lovrShaderSetFloat(shader, lovrShaderColorUniforms[i], data, 4);
-  }
-
-  for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
-    Texture* texture = lovrMaterialGetTexture(material, i);
-    lovrShaderSetTexture(shader, lovrShaderTextureUniforms[i], &texture, 1);
-  }
+  material = material ? material : lovrGraphicsGetDefaultMaterial();
 
   gpuDraw(&(GpuDrawCommand) {
-    .mesh = mesh,
+    .layer = state.layers[state.layer],
     .shader = shader,
+    .material = material,
+    .transform = state.transforms[state.transform],
+    .mesh = mesh,
+    .color = state.color,
+    .pointSize = state.pointSize,
     .instances = instances
   });
-
-  if (transform) {
-    lovrGraphicsPop();
-  }
 }
 
-void lovrGraphicsPushLayer(Canvas* canvas) {
-  if (++state.layer >= MAX_LAYERS) {
-    lovrThrow("Layer overflow");
+void lovrGraphicsPushLayer(Canvas** canvas, int count, bool user) {
+  lovrAssert(count <= MAX_CANVASES, "Attempt to set %d canvases (the maximum is %d)", count, MAX_CANVASES);
+  lovrAssert(++state.layer < MAX_LAYERS, "Layer overflow");
+
+  for (int i = 0; i < count; i++) {
+    lovrRetain(canvas[i]);
   }
 
-  memcpy(&state.layers[state.layer], &state.layers[state.layer - 1], sizeof(Layer));
-  state.layers[state.layer].canvas = canvas;
+  Layer* prevLayer = &state.layers[state.layer - 1];
+  for (int i = 0; i < prevLayer->canvasCount; i++) {
+    lovrRelease(prevLayer->canvas[i]);
+  }
+
+  Layer* layer = &state.layers[state.layer];
+  memcpy(layer, prevLayer, sizeof(Layer));
+  layer->canvasCount = count;
+  layer->user = user;
+
+  if (count > 0) {
+    memcpy(layer->canvas, canvas, count * sizeof(Canvas*));
+    gpuBindFramebuffer(lovrCanvasGetId(canvas[0]));
+
+    GLenum buffers[MAX_CANVASES];
+    for (int i = 0; i < count; i++) {
+      buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+      glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, lovrTextureGetId((Texture*) canvas[i]), 0);
+    }
+    glDrawBuffers(count, buffers);
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    lovrAssert(status != GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS, "All multicanvas canvases must have the same dimensions");
+    lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
+  }
 }
 
 void lovrGraphicsPopLayer() {
-  if (state.canvasCount == 0 && state.layers[state.layer].canvas) {
-    lovrCanvasResolve(state.layers[state.layer].canvas);
+  Layer* layer = &state.layers[state.layer];
+  if (layer->canvasCount > 0) {
+    lovrCanvasResolve(layer->canvas[0]);
   }
 
   lovrAssert(--state.layer >= 0, "Layer underflow");

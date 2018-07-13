@@ -1,5 +1,7 @@
 #include "graphics/gpu.h"
 #include "graphics/opengl/opengl.h"
+#include "resources/shaders.h"
+#include "math/mat4.h"
 #include "lib/glfw.h"
 #include <string.h>
 
@@ -14,8 +16,17 @@ static struct {
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   uint32_t viewport[4];
+  bool srgb;
   GpuStats stats;
 } state;
+
+static void gammaCorrectColor(Color* color) {
+  if (state.srgb) {
+    color->r = lovrMathGammaToLinear(color->r);
+    color->g = lovrMathGammaToLinear(color->g);
+    color->b = lovrMathGammaToLinear(color->b);
+  }
+}
 
 void gpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
 #ifndef EMSCRIPTEN
@@ -31,6 +42,7 @@ void gpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  state.srgb = srgb;
 }
 
 void gpuDestroy() {
@@ -42,14 +54,74 @@ void gpuDestroy() {
 
 void gpuDraw(GpuDrawCommand* command) {
   Mesh* mesh = command->mesh;
+  Material* material = command->material;
   Shader* shader = command->shader;
   int instances = command->instances;
 
+  // Transform
+  lovrShaderSetMatrix(shader, "lovrProjection", command->layer.projection, 16);
+  lovrShaderSetMatrix(shader, "lovrView", command->layer.view, 16);
+  lovrShaderSetMatrix(shader, "lovrModel", command->transform, 16);
+
+  float modelView[16];
+  mat4_multiply(mat4_set(modelView, command->layer.view), command->transform);
+  lovrShaderSetMatrix(shader, "lovrTransform", modelView, 16);
+
+  if (lovrShaderHasUniform(shader, "lovrNormalMatrix")) {
+    if (mat4_invert(modelView)) {
+      mat4_transpose(modelView);
+    } else {
+      mat4_identity(modelView);
+    }
+
+    float normalMatrix[9] = {
+      modelView[0], modelView[1], modelView[2],
+      modelView[4], modelView[5], modelView[6],
+      modelView[8], modelView[9], modelView[10],
+    };
+
+    lovrShaderSetMatrix(shader, "lovrNormalMatrix", normalMatrix, 9);
+  }
+
+  // Point size
+  lovrShaderSetFloat(shader, "lovrPointSize", &command->pointSize, 1);
+
+  // Color
+  Color color = command->color;
+  gammaCorrectColor(&color);
+  float data[4] = { color.r, color.g, color.b, color.a };
+  lovrShaderSetFloat(shader, "lovrColor", data, 4);
+
+  // Material
+  for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
+    float value = lovrMaterialGetScalar(material, i);
+    lovrShaderSetFloat(shader, lovrShaderScalarUniforms[i], &value, 1);
+  }
+
+  for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
+    Color color = lovrMaterialGetColor(material, i);
+    gammaCorrectColor(&color);
+    float data[4] = { color.r, color.g, color.b, color.a };
+    lovrShaderSetFloat(shader, lovrShaderColorUniforms[i], data, 4);
+  }
+
+  for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
+    Texture* texture = lovrMaterialGetTexture(material, i);
+    lovrShaderSetTexture(shader, lovrShaderTextureUniforms[i], &texture, 1);
+  }
+
+  // Layer
+  gpuBindFramebuffer(command->layer.canvasCount > 0 ? lovrCanvasGetId(command->layer.canvas[0]) : 0);
+  gpuSetViewport(command->layer.viewport);
+
+  // Shader
   gpuUseProgram(lovrShaderGetProgram(shader));
   lovrShaderBind(shader);
+
+  // Attributes
   lovrMeshBind(mesh, shader);
 
-  // TODEW
+  // Draw (TODEW)
   uint32_t rangeStart, rangeCount;
   lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
   uint32_t indexCount;
