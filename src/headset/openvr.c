@@ -17,6 +17,8 @@
 #pragma pack(pop)
 #endif
 
+#include "graphics/opengl/opengl.h"
+
 // From openvr_capi.h
 extern intptr_t VR_InitInternal(EVRInitError *peError, EVRApplicationType eType);
 extern void VR_ShutdownInternal();

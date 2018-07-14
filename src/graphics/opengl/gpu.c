@@ -3,7 +3,6 @@
 #include "resources/shaders.h"
 #include "data/modelData.h"
 #include "math/mat4.h"
-#include "lib/glfw.h"
 #include <string.h>
 
 #define MAX_TEXTURES 16

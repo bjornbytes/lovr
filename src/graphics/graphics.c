@@ -13,6 +13,8 @@
 #include <string.h>
 #include <math.h>
 
+#include "graphics/opengl/opengl.h"
+
 static GraphicsState state;
 
 static void onCloseWindow(GLFWwindow* window) {

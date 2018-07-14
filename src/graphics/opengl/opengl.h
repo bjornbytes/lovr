@@ -3,11 +3,17 @@
 #include "graphics/canvas.h"
 #include "graphics/mesh.h"
 #include "util.h"
-#include "lib/glfw.h"
 #include "lib/map/map.h"
 #include <stdint.h>
 
 #pragma once
+
+#if EMSCRIPTEN
+#include <GLES3/gl3.h>
+#include <GLES2/gl2ext.h>
+#else
+#include "lib/glad/glad.h"
+#endif
 
 #define LOVR_SHADER_POSITION 0
 #define LOVR_SHADER_NORMAL 1
