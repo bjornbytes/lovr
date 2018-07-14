@@ -27,29 +27,13 @@ typedef struct {
 
 typedef struct {
   Layer layer;
-  Mesh* mesh;
   mat4 transform;
+  Shader* shader;
   Material* material;
+  Mesh* mesh;
   Color color;
   float pointSize;
-  Shader* shader;
   int instances;
-
-/*
-eventually:
-
-  struct {
-    CompareMode test;
-    bool write;
-  } depthMode;
-
-  struct {
-    BlendMode mode;
-    BlendAlphaMode alphaMode;
-  } blendMode;
-
-  //etc.
-*/
 } GpuDrawCommand;
 
 typedef void (*gpuProc)(void);

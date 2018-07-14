@@ -12,9 +12,6 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
   ModelNode* node = &model->modelData->nodes[nodeIndex];
 
   if (node->primitives.length > 0) {
-    lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(model->nodeTransforms[nodeIndex]);
-
     float globalInverse[16];
     if (model->animator) {
       mat4_set(globalInverse, model->nodeTransforms[nodeIndex]);
@@ -43,10 +40,12 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
 
       lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
       lovrMeshSetPose(model->mesh, (float*) model->pose);
-      lovrGraphicsDraw(model->mesh, SHADER_DEFAULT, instances);
+      lovrGraphicsDraw(&(GraphicsDraw) {
+        .transform = model->nodeTransforms[nodeIndex],
+        .mesh = model->mesh,
+        .instances = instances
+      });
     }
-
-    lovrGraphicsPop();
   }
 
   for (int i = 0; i < node->children.length; i++) {

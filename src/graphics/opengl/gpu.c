@@ -1,6 +1,7 @@
 #include "graphics/gpu.h"
 #include "graphics/opengl/opengl.h"
 #include "resources/shaders.h"
+#include "data/modelData.h"
 #include "math/mat4.h"
 #include "lib/glfw.h"
 #include <string.h>
@@ -81,6 +82,16 @@ void gpuDraw(GpuDrawCommand* command) {
     };
 
     lovrShaderSetMatrix(shader, "lovrNormalMatrix", normalMatrix, 9);
+  }
+
+  // Pose
+  float* pose = lovrMeshGetPose(mesh);
+  if (pose) {
+    lovrShaderSetMatrix(shader, "lovrPose", pose, MAX_BONES * 16);
+  } else {
+    float identity[16];
+    mat4_identity(identity);
+    lovrShaderSetMatrix(shader, "lovrPose", identity, 16);
   }
 
   // Point size

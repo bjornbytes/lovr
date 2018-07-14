@@ -80,6 +80,27 @@ typedef struct {
 } GraphicsLimits;
 
 typedef struct {
+  mat4 transform;
+  DefaultShader shader;
+  Material* material;
+  Mesh* mesh;
+  MeshDrawMode mode;
+  struct {
+    uint32_t count;
+    float* data;
+  } vertex;
+  struct {
+    uint32_t count;
+    uint16_t* data;
+  } index;
+  struct {
+    int start;
+    int count;
+  } range;
+  int instances;
+} GraphicsDraw;
+
+typedef struct {
   bool initialized;
   GLFWwindow* window;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
@@ -181,7 +202,7 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 void lovrGraphicsFill(Texture* texture);
 
 // Internal
-void lovrGraphicsDraw(Mesh* mesh, DefaultShader shader, int instances);
+void lovrGraphicsDraw(GraphicsDraw* draw);
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsPushLayer(Canvas** canvas, int count, bool user);
 void lovrGraphicsPopLayer();

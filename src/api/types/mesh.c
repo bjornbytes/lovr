@@ -57,10 +57,7 @@ int l_lovrMeshDrawInstanced(lua_State* L) {
   int instances = luaL_checkinteger(L, 2);
   float transform[16];
   luax_readtransform(L, 3, transform, 1);
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
-  lovrGraphicsDraw(mesh, SHADER_DEFAULT, instances);
-  lovrGraphicsPop();
+  lovrGraphicsDraw(&(GraphicsDraw) { .transform = transform, .mesh = mesh, .instances = instances });
   return 0;
 }
 

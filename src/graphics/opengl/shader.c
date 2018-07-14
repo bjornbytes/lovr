@@ -326,7 +326,6 @@ void lovrShaderBind(Shader* shader) {
             case GL_SAMPLER_CUBE: uniformTextureType = GL_TEXTURE_CUBE_MAP; break;
             case GL_SAMPLER_2D_ARRAY: uniformTextureType = GL_TEXTURE_2D_ARRAY; break;
           }
-          lovrAssert(uniform->value.textures[i]->glType == uniformTextureType, "Texture uniform types do not match");
           gpuBindTexture(uniform->value.textures[i], uniform->baseTextureSlot + i);
         }
         break;
