@@ -88,9 +88,9 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
     glfwWindowHint(GLFW_SAMPLES, msaa);
-    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     glfwWindowHint(GLFW_SRGB_CAPABLE, state.gammaCorrect);
 #else
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
