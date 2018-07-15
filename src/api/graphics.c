@@ -345,18 +345,24 @@ int l_lovrGraphicsCreateWindow(lua_State* L) {
 }
 
 int l_lovrGraphicsGetWidth(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetWidth());
+  int width;
+  lovrGraphicsGetDimensions(&width, NULL);
+  lua_pushnumber(L, width);
   return 1;
 }
 
 int l_lovrGraphicsGetHeight(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetHeight());
+  int height;
+  lovrGraphicsGetDimensions(NULL, &height);
+  lua_pushnumber(L, height);
   return 1;
 }
 
 int l_lovrGraphicsGetDimensions(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetWidth());
-  lua_pushnumber(L, lovrGraphicsGetHeight());
+  int width, height;
+  lovrGraphicsGetDimensions(&width, &height);
+  lua_pushnumber(L, width);
+  lua_pushnumber(L, height);
   return 2;
 }
 

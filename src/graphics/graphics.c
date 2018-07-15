@@ -46,12 +46,12 @@ void lovrGraphicsDestroy() {
 }
 
 void lovrGraphicsReset() {
-  int w = lovrGraphicsGetWidth();
-  int h = lovrGraphicsGetHeight();
+  int width, height;
+  lovrGraphicsGetDimensions(&width, &height);
   state.transform = 0;
   state.layer = 0;
-  memcpy(state.layers[state.layer].viewport, (int[]) { 0, 0, w, h }, 4 * sizeof(uint32_t));
-  mat4_perspective(state.layers[state.layer].projection, .01f, 100.f, 67 * M_PI / 180., (float) w / h);
+  memcpy(state.layers[state.layer].viewport, (int[]) { 0, 0, width, height }, 4 * sizeof(uint32_t));
+  mat4_perspective(state.layers[state.layer].projection, .01f, 100.f, 67 * M_PI / 180., (float) width / height);
   mat4_identity(state.layers[state.layer].view);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1. });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
@@ -140,16 +140,8 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   state.initialized = true;
 }
 
-int lovrGraphicsGetWidth() {
-  int width, height;
-  glfwGetFramebufferSize(state.window, &width, &height);
-  return width;
-}
-
-int lovrGraphicsGetHeight() {
-  int width, height;
-  glfwGetFramebufferSize(state.window, &width, &height);
-  return height;
+void lovrGraphicsGetDimensions(int* width, int* height) {
+  glfwGetFramebufferSize(state.window, width, height);
 }
 
 GpuStats lovrGraphicsGetStats() {
