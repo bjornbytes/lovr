@@ -29,6 +29,7 @@ static struct {
   uint32_t vertexBuffer;
   uint32_t viewport[4];
   bool srgb;
+  GraphicsLimits limits;
   GraphicsStats stats;
 } state;
 
@@ -351,6 +352,22 @@ void gpuDraw(GpuDrawCommand* command) {
 
 void gpuPresent() {
   memset(&state.stats, 0, sizeof(state.stats));
+}
+
+GraphicsLimits lovrGraphicsGetLimits() {
+  if (!state.limits.initialized) {
+#ifdef EMSCRIPTEN
+    glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, state.limits.pointSizes);
+#else
+    glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
+#endif
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.limits.textureSize);
+    glGetIntegerv(GL_MAX_SAMPLES, &state.limits.textureMSAA);
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
+    state.limits.initialized = 1;
+  }
+
+  return state.limits;
 }
 
 GraphicsStats lovrGraphicsGetStats() {

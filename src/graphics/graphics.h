@@ -52,7 +52,6 @@ typedef struct {
   Font* defaultFont;
   TextureFilter defaultFilter;
   bool gammaCorrect;
-  GraphicsLimits limits;
   Mesh* mesh;
   float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
   int transform;
@@ -72,6 +71,7 @@ void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 void lovrGraphicsGetDimensions(int* width, int* height);
+GraphicsLimits lovrGraphicsGetLimits();
 GraphicsStats lovrGraphicsGetStats();
 
 // State
@@ -93,7 +93,6 @@ Font* lovrGraphicsGetFont();
 void lovrGraphicsSetFont(Font* font);
 bool lovrGraphicsIsGammaCorrect();
 void lovrGraphicsSetGammaCorrect(bool gammaCorrect);
-GraphicsLimits lovrGraphicsGetLimits();
 float lovrGraphicsGetLineWidth();
 void lovrGraphicsSetLineWidth(float width);
 float lovrGraphicsGetPointSize();
