@@ -374,7 +374,7 @@ int l_lovrGraphicsGetStats(lua_State* L) {
     lua_createtable(L, 0, 2);
   }
 
-  GpuStats stats = lovrGraphicsGetStats();
+  GraphicsStats stats = lovrGraphicsGetStats();
 
   lua_pushinteger(L, stats.drawCalls);
   lua_setfield(L, 1, "drawcalls");

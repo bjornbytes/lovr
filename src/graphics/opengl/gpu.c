@@ -29,7 +29,7 @@ static struct {
   uint32_t vertexBuffer;
   uint32_t viewport[4];
   bool srgb;
-  GpuStats stats;
+  GraphicsStats stats;
 } state;
 
 static void gammaCorrectColor(Color* color) {
@@ -353,7 +353,7 @@ void gpuPresent() {
   memset(&state.stats, 0, sizeof(state.stats));
 }
 
-GpuStats gpuGetStats() {
+GraphicsStats lovrGraphicsGetStats() {
   return state.stats;
 }
 

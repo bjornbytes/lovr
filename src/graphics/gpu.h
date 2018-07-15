@@ -15,7 +15,7 @@
 typedef struct {
   int shaderSwitches;
   int drawCalls;
-} GpuStats;
+} GraphicsStats;
 
 typedef enum {
   BLEND_ALPHA,
@@ -120,7 +120,6 @@ void gpuDestroy();
 void gpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil);
 void gpuDraw(GpuDrawCommand* command);
 void gpuPresent();
-GpuStats gpuGetStats();
 
 // Ephemeral
 void gpuBindFramebuffer(uint32_t framebuffer);

@@ -144,10 +144,6 @@ void lovrGraphicsGetDimensions(int* width, int* height) {
   glfwGetFramebufferSize(state.window, width, height);
 }
 
-GpuStats lovrGraphicsGetStats() {
-  return gpuGetStats();
-}
-
 // State
 
 Color lovrGraphicsGetBackgroundColor() {

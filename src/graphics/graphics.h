@@ -72,7 +72,7 @@ void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 void lovrGraphicsGetDimensions(int* width, int* height);
-GpuStats lovrGraphicsGetStats();
+GraphicsStats lovrGraphicsGetStats();
 
 // State
 Color lovrGraphicsGetBackgroundColor();
