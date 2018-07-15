@@ -673,8 +673,9 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
   mat4_fromMat34(head, state.renderPoses[state.headsetIndex].mDeviceToAbsoluteTracking.m);
 
+  Color backgroundColor = lovrGraphicsGetBackgroundColor();
   lovrGraphicsPushLayer(&state.canvas, 1, false);
-  lovrGraphicsClear(true, true, false, lovrGraphicsGetBackgroundColor(), 1., 0);
+  lovrGraphicsClear(&backgroundColor, &(float) { 1. }, NULL);
 
   for (HeadsetEye i = EYE_LEFT; i <= EYE_RIGHT; i++) {
 

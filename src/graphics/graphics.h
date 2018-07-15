@@ -12,72 +12,15 @@
 
 #pragma once
 
-#define MAX_LAYERS 4
 #define MAX_TRANSFORMS 60
 #define INTERNAL_TRANSFORMS 4
+#define MAX_LAYERS 4
+#define MAX_PIPELINES 14
+#define INTERNAL_PIPELINES 2
 #define DEFAULT_SHADER_COUNT 5
 #define MAX_TEXTURES 16
 
 typedef void (*StencilCallback)(void* userdata);
-
-typedef enum {
-  BLEND_ALPHA,
-  BLEND_ADD,
-  BLEND_SUBTRACT,
-  BLEND_MULTIPLY,
-  BLEND_LIGHTEN,
-  BLEND_DARKEN,
-  BLEND_SCREEN,
-  BLEND_REPLACE
-} BlendMode;
-
-typedef enum {
-  BLEND_ALPHA_MULTIPLY,
-  BLEND_PREMULTIPLIED
-} BlendAlphaMode;
-
-typedef enum {
-  DRAW_MODE_FILL,
-  DRAW_MODE_LINE
-} DrawMode;
-
-typedef enum {
-  ARC_MODE_PIE,
-  ARC_MODE_OPEN,
-  ARC_MODE_CLOSED
-} ArcMode;
-
-typedef enum {
-  WINDING_CLOCKWISE,
-  WINDING_COUNTERCLOCKWISE
-} Winding;
-
-typedef enum {
-  COMPARE_NONE,
-  COMPARE_EQUAL,
-  COMPARE_NEQUAL,
-  COMPARE_LESS,
-  COMPARE_LEQUAL,
-  COMPARE_GREATER,
-  COMPARE_GEQUAL
-} CompareMode;
-
-typedef enum {
-  STENCIL_REPLACE,
-  STENCIL_INCREMENT,
-  STENCIL_DECREMENT,
-  STENCIL_INCREMENT_WRAP,
-  STENCIL_DECREMENT_WRAP,
-  STENCIL_INVERT
-} StencilAction;
-
-typedef struct {
-  bool initialized;
-  float pointSizes[2];
-  int textureSize;
-  int textureMSAA;
-  float textureAnisotropy;
-} GraphicsLimits;
 
 typedef struct {
   mat4 transform;
@@ -106,38 +49,25 @@ typedef struct {
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   Material* defaultMaterial;
   Font* defaultFont;
+  TextureFilter defaultFilter;
+  bool gammaCorrect;
+  GraphicsLimits limits;
+  Mesh* mesh;
   float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
   int transform;
   Layer layers[MAX_LAYERS];
   int layer;
-  Color backgroundColor;
-  BlendMode blendMode;
-  BlendAlphaMode blendAlphaMode;
-  Color color;
-  bool culling;
-  TextureFilter defaultFilter;
-  CompareMode depthTest;
-  bool depthWrite;
-  Font* font;
-  bool gammaCorrect;
-  GraphicsLimits limits;
-  float lineWidth;
-  float pointSize;
-  Shader* shader;
-  CompareMode stencilMode;
-  int stencilValue;
-  Winding winding;
-  bool wireframe;
-  Mesh* mesh;
-  bool stencilEnabled;
+  Pipeline pipelines[MAX_PIPELINES + INTERNAL_PIPELINES];
+  int pipeline;
   bool stencilWriting;
+  bool stencilEnabled;
 } GraphicsState;
 
 // Base
 void lovrGraphicsInit();
 void lovrGraphicsDestroy();
 void lovrGraphicsReset();
-void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Color color, float depth, int stencil);
+void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 int lovrGraphicsGetWidth();
@@ -202,10 +132,12 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 void lovrGraphicsFill(Texture* texture);
 
 // Internal
-void lovrGraphicsDraw(GraphicsDraw* draw);
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
+void lovrGraphicsDraw(GraphicsDraw* draw);
 void lovrGraphicsPushLayer(Canvas** canvas, int count, bool user);
 void lovrGraphicsPopLayer();
+void lovrGraphicsPushPipeline();
+void lovrGraphicsPopPipeline();
 void lovrGraphicsSetCamera(mat4 projection, mat4 view);
 void lovrGraphicsSetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 Material* lovrGraphicsGetDefaultMaterial();

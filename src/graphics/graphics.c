@@ -1,9 +1,7 @@
 #include "graphics/graphics.h"
-#include "data/textureData.h"
 #include "data/rasterizer.h"
 #include "resources/shaders.h"
 #include "event/event.h"
-#include "math/math.h"
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "util.h"
@@ -23,26 +21,6 @@ static void onCloseWindow(GLFWwindow* window) {
     EventData data = { .quit = { false, 0 } };
     Event event = { .type = type, .data = data };
     lovrEventPush(event);
-  }
-}
-
-static void gammaCorrectColor(Color* color) {
-  if (state.gammaCorrect) {
-    color->r = lovrMathGammaToLinear(color->r);
-    color->g = lovrMathGammaToLinear(color->g);
-    color->b = lovrMathGammaToLinear(color->b);
-  }
-}
-
-static GLenum convertCompareMode(CompareMode mode) {
-  switch (mode) {
-    case COMPARE_NONE: return GL_ALWAYS;
-    case COMPARE_EQUAL: return GL_EQUAL;
-    case COMPARE_NEQUAL: return GL_NOTEQUAL;
-    case COMPARE_LESS: return GL_LESS;
-    case COMPARE_LEQUAL: return GL_LEQUAL;
-    case COMPARE_GREATER: return GL_GREATER;
-    case COMPARE_GEQUAL: return GL_GEQUAL;
   }
 }
 
@@ -92,26 +70,9 @@ void lovrGraphicsReset() {
   lovrGraphicsOrigin();
 }
 
-void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Color color, float depth, int stencil) {
+void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
   Layer layer = state.layers[state.layer];
-  gpuBindFramebuffer(layer.canvasCount > 0 ? lovrCanvasGetId(layer.canvas[0]) : 0);
-
-  if (clearColor) {
-    gammaCorrectColor(&color);
-    float c[4] = { color.r, color.g, color.b, color.a };
-    glClearBufferfv(GL_COLOR, 0, c);
-    for (int i = 1; i < layer.canvasCount; i++) {
-      glClearBufferfv(GL_COLOR, i, c);
-    }
-  }
-
-  if (clearDepth) {
-    glClearBufferfv(GL_DEPTH, 0, &depth);
-  }
-
-  if (clearStencil) {
-    glClearBufferiv(GL_STENCIL, 0, &stencil);
-  }
+  gpuClear(layer.canvas, layer.canvasCount, color, depth, stencil);
 }
 
 void lovrGraphicsPresent() {
@@ -198,68 +159,21 @@ GpuStats lovrGraphicsGetStats() {
 // State
 
 Color lovrGraphicsGetBackgroundColor() {
-  return state.backgroundColor;
+  return state.pipelines[state.pipeline].backgroundColor;
 }
 
 void lovrGraphicsSetBackgroundColor(Color color) {
-  state.backgroundColor = color;
-  gammaCorrectColor(&color);
-  glClearColor(color.r, color.g, color.b, color.a);
+  state.pipelines[state.pipeline].backgroundColor = color;
 }
 
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
-  *mode =  state.blendMode;
-  *alphaMode = state.blendAlphaMode;
+  *mode = state.pipelines[state.pipeline].blendMode;
+  *alphaMode = state.pipelines[state.pipeline].blendAlphaMode;
 }
 
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
-  GLenum srcRGB = mode == BLEND_MULTIPLY ? GL_DST_COLOR : GL_ONE;
-
-  if (srcRGB == GL_ONE && alphaMode == BLEND_ALPHA_MULTIPLY) {
-    srcRGB = GL_SRC_ALPHA;
-  }
-
-  switch (mode) {
-    case BLEND_ALPHA:
-      glBlendEquation(GL_FUNC_ADD);
-      glBlendFuncSeparate(srcRGB, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-      break;
-
-    case BLEND_ADD:
-      glBlendEquation(GL_FUNC_ADD);
-      glBlendFuncSeparate(srcRGB, GL_ONE, GL_ZERO, GL_ONE);
-      break;
-
-    case BLEND_SUBTRACT:
-      glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
-      glBlendFuncSeparate(srcRGB, GL_ONE, GL_ZERO, GL_ONE);
-      break;
-
-    case BLEND_MULTIPLY:
-      glBlendEquation(GL_FUNC_ADD);
-      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_DST_COLOR, GL_ZERO);
-      break;
-
-    case BLEND_LIGHTEN:
-      glBlendEquation(GL_MAX);
-      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
-      break;
-
-    case BLEND_DARKEN:
-      glBlendEquation(GL_MIN);
-      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
-      break;
-
-    case BLEND_SCREEN:
-      glBlendEquation(GL_FUNC_ADD);
-      glBlendFuncSeparate(srcRGB, GL_ONE_MINUS_SRC_COLOR, GL_ONE, GL_ONE_MINUS_SRC_COLOR);
-      break;
-
-    case BLEND_REPLACE:
-      glBlendEquation(GL_FUNC_ADD);
-      glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
-      break;
-  }
+  state.pipelines[state.pipeline].blendMode = mode;
+  state.pipelines[state.pipeline].blendAlphaMode = alphaMode;
 }
 
 void lovrGraphicsGetCanvas(Canvas** canvas, int* count) {
@@ -281,26 +195,19 @@ void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
 }
 
 Color lovrGraphicsGetColor() {
-  return state.color;
+  return state.pipelines[state.pipeline].color;
 }
 
 void lovrGraphicsSetColor(Color color) {
-  state.color = color;
+  state.pipelines[state.pipeline].color = color;
 }
 
 bool lovrGraphicsIsCullingEnabled() {
-  return state.culling;
+  return state.pipelines[state.pipeline].culling;
 }
 
 void lovrGraphicsSetCullingEnabled(bool culling) {
-  if (culling != state.culling) {
-    state.culling = culling;
-    if (culling) {
-      glEnable(GL_CULL_FACE);
-    } else {
-      glDisable(GL_CULL_FACE);
-    }
-  }
+  state.pipelines[state.pipeline].culling = culling;
 }
 
 TextureFilter lovrGraphicsGetDefaultFilter() {
@@ -312,29 +219,17 @@ void lovrGraphicsSetDefaultFilter(TextureFilter filter) {
 }
 
 void lovrGraphicsGetDepthTest(CompareMode* mode, bool* write) {
-  *mode = state.depthTest;
-  *write = state.depthWrite;
+  *mode = state.pipelines[state.pipeline].depthTest;
+  *write = state.pipelines[state.pipeline].depthWrite;
 }
 
 void lovrGraphicsSetDepthTest(CompareMode mode, bool write) {
-  if (state.depthTest != mode) {
-    state.depthTest = mode;
-    if (mode != COMPARE_NONE) {
-      glDepthFunc(convertCompareMode(mode));
-      glEnable(GL_DEPTH_TEST);
-    } else {
-      glDisable(GL_DEPTH_TEST);
-    }
-  }
-
-  if (state.depthWrite != write) {
-    state.depthWrite = write;
-    glDepthMask(write);
-  }
+  state.pipelines[state.pipeline].depthTest = mode;
+  state.pipelines[state.pipeline].depthWrite = write;
 }
 
 Font* lovrGraphicsGetFont() {
-  if (!state.font) {
+  if (!state.pipelines[state.pipeline].font) {
     if (!state.defaultFont) {
       Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
       state.defaultFont = lovrFontCreate(rasterizer);
@@ -344,13 +239,13 @@ Font* lovrGraphicsGetFont() {
     lovrGraphicsSetFont(state.defaultFont);
   }
 
-  return state.font;
+  return state.pipelines[state.pipeline].font;
 }
 
 void lovrGraphicsSetFont(Font* font) {
   lovrRetain(font);
-  lovrRelease(state.font);
-  state.font = font;
+  lovrRelease(state.pipelines[state.pipeline].font);
+  state.pipelines[state.pipeline].font = font;
 }
 
 bool lovrGraphicsIsGammaCorrect() {
@@ -378,94 +273,62 @@ GraphicsLimits lovrGraphicsGetLimits() {
 }
 
 float lovrGraphicsGetLineWidth() {
-  return state.lineWidth;
+  return state.pipelines[state.pipeline].lineWidth;
 }
 
 void lovrGraphicsSetLineWidth(float width) {
-  state.lineWidth = width;
-  glLineWidth(width);
+  state.pipelines[state.pipeline].lineWidth = width;
 }
 
 float lovrGraphicsGetPointSize() {
-  return state.pointSize;
+  return state.pipelines[state.pipeline].pointSize;
 }
 
 void lovrGraphicsSetPointSize(float size) {
-  state.pointSize = size;
+  state.pipelines[state.pipeline].pointSize = size;
 }
 
 Shader* lovrGraphicsGetShader() {
-  return state.shader;
+  return state.pipelines[state.pipeline].shader;
 }
 
 void lovrGraphicsSetShader(Shader* shader) {
-  if (shader != state.shader) {
+  if (shader != state.pipelines[state.pipeline].shader) {
     lovrRetain(shader);
-    lovrRelease(state.shader);
-    state.shader = shader;
+    lovrRelease(state.pipelines[state.pipeline].shader);
+    state.pipelines[state.pipeline].shader = shader;
   }
 }
 
 void lovrGraphicsGetStencilTest(CompareMode* mode, int* value) {
-  *mode = state.stencilMode;
-  *value = state.stencilValue;
+  *mode = state.pipelines[state.pipeline].stencilMode;
+  *value = state.pipelines[state.pipeline].stencilValue;
 }
 
 void lovrGraphicsSetStencilTest(CompareMode mode, int value) {
-  state.stencilMode = mode;
-  state.stencilValue = value;
-
   if (state.stencilWriting) {
     return;
   }
 
-  if (mode != COMPARE_NONE) {
-    if (!state.stencilEnabled) {
-      glEnable(GL_STENCIL_TEST);
-      state.stencilEnabled = true;
-    }
-
-    GLenum glMode = GL_ALWAYS;
-    switch (mode) {
-      case COMPARE_EQUAL: glMode = GL_EQUAL; break;
-      case COMPARE_NEQUAL: glMode = GL_NOTEQUAL; break;
-      case COMPARE_LESS: glMode = GL_GREATER; break;
-      case COMPARE_LEQUAL: glMode = GL_GEQUAL; break;
-      case COMPARE_GREATER: glMode = GL_LESS; break;
-      case COMPARE_GEQUAL: glMode = GL_LEQUAL; break;
-      default: break;
-    }
-
-    glStencilFunc(glMode, value, 0xff);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-  } else if (state.stencilEnabled) {
-    glDisable(GL_STENCIL_TEST);
-    state.stencilEnabled = false;
-  }
+  state.pipelines[state.pipeline].stencilMode = mode;
+  state.pipelines[state.pipeline].stencilValue = value;
 }
 
 Winding lovrGraphicsGetWinding() {
-  return state.winding;
+  return state.pipelines[state.pipeline].winding;
 }
 
 void lovrGraphicsSetWinding(Winding winding) {
-  if (winding != state.winding) {
-    state.winding = winding;
-    GLenum glWinding = winding == WINDING_CLOCKWISE ? GL_CW : GL_CCW;
-    glFrontFace(glWinding);
-  }
+  state.pipelines[state.pipeline].winding = winding;
 }
 
 bool lovrGraphicsIsWireframe() {
-  return state.wireframe;
+  return state.pipelines[state.pipeline].wireframe;
 }
 
 void lovrGraphicsSetWireframe(bool wireframe) {
 #ifndef EMSCRIPTEN
-  if (state.wireframe != wireframe) {
-    state.wireframe = wireframe;
-    glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
-  }
+  state.pipelines[state.pipeline].wireframe = wireframe;
 #endif
 }
 
@@ -836,7 +699,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   TextureType type = lovrTextureGetType(texture);
   lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
   MaterialTexture materialTexture = type == TEXTURE_CUBE ? TEXTURE_ENVIRONMENT_MAP : TEXTURE_DIFFUSE;
-  Winding winding = state.winding;
+  lovrGraphicsPushPipeline();
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
   Material* material = lovrGraphicsGetDefaultMaterial();
   lovrMaterialSetTexture(material, materialTexture, texture);
@@ -852,7 +715,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
     }
   });
   lovrMaterialSetTexture(material, materialTexture, NULL);
-  lovrGraphicsSetWinding(winding);
+  lovrGraphicsPopPipeline();
 }
 
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
@@ -871,17 +734,15 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsTranslate(0, offsety, 0);
   Material* material = lovrGraphicsGetDefaultMaterial();
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, font->texture);
-  CompareMode mode;
-  bool write;
-  lovrGraphicsGetDepthTest(&mode, &write);
-  lovrGraphicsSetDepthTest(mode, false);
+  lovrGraphicsPushPipeline();
+  state.pipelines[state.pipeline].depthWrite = false;
   lovrGraphicsDraw(&(GraphicsDraw) {
     .shader = SHADER_FONT,
     .material = material,
     .mode = MESH_TRIANGLES,
     .range = { 0, vertexCount }
   });
-  lovrGraphicsSetDepthTest(mode, write);
+  lovrGraphicsPopPipeline();
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   lovrGraphicsPop();
 }
@@ -917,13 +778,11 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   lovrGraphicsSetDepthTest(mode, write);
-  lovrGraphicsSetStencilTest(state.stencilMode, state.stencilValue);
+  lovrGraphicsSetStencilTest(state.pipelines[state.pipeline].stencilMode, state.pipelines[state.pipeline].stencilValue);
 }
 
 void lovrGraphicsFill(Texture* texture) {
-  CompareMode mode;
-  bool write;
-  lovrGraphicsGetDepthTest(&mode, &write);
+  lovrGraphicsPushPipeline();
   lovrGraphicsSetDepthTest(COMPARE_NONE, false);
   Material* material = lovrGraphicsGetDefaultMaterial();
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
@@ -940,7 +799,7 @@ void lovrGraphicsFill(Texture* texture) {
     }
   });
   lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
-  lovrGraphicsSetDepthTest(mode, write);
+  lovrGraphicsPopPipeline();
 }
 
 // Internal
@@ -950,7 +809,7 @@ void lovrGraphicsDraw(GraphicsDraw* draw) {
     lovrGraphicsMatrixTransform(draw->transform);
   }
 
-  Shader* shader = state.shader ? state.shader : state.defaultShaders[draw->shader];
+  Shader* shader = state.pipelines[state.pipeline].shader ? state.pipelines[state.pipeline].shader : state.defaultShaders[draw->shader];
   if (!shader) shader = state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader);
 
   Mesh* mesh = draw->mesh;
@@ -980,8 +839,7 @@ void lovrGraphicsDraw(GraphicsDraw* draw) {
     .material = material,
     .transform = state.transforms[state.transform],
     .mesh = mesh,
-    .color = state.color,
-    .pointSize = state.pointSize,
+    .pipeline = state.pipelines[state.pipeline],
     .instances = draw->instances
   });
 
@@ -1032,6 +890,20 @@ void lovrGraphicsPopLayer() {
   }
 
   lovrAssert(--state.layer >= 0, "Layer underflow");
+}
+
+void lovrGraphicsPushPipeline() {
+  if (++state.pipeline >= MAX_PIPELINES) {
+    lovrThrow("Unbalanced pipeline stack (more pushes than pops?)");
+  }
+
+  memcpy(&state.pipelines[state.pipeline], &state.pipelines[state.pipeline - 1], sizeof(Pipeline));
+}
+
+void lovrGraphicsPopPipeline() {
+  if (--state.pipeline < 0) {
+    lovrThrow("Unbalanced pipeline stack (more pops than pushes?)");
+  }
 }
 
 void lovrGraphicsSetCamera(mat4 projection, mat4 view) {

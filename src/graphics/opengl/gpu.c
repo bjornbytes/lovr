@@ -9,6 +9,18 @@
 
 static struct {
   Texture* defaultTexture;
+  BlendMode blendMode;
+  BlendAlphaMode blendAlphaMode;
+  bool culling;
+  bool depthEnabled;
+  CompareMode depthTest;
+  bool depthWrite;
+  float lineWidth;
+  bool stencilEnabled;
+  CompareMode stencilMode;
+  int stencilValue;
+  Winding winding;
+  bool wireframe;
   uint32_t framebuffer;
   uint32_t indexBuffer;
   uint32_t program;
@@ -28,6 +40,18 @@ static void gammaCorrectColor(Color* color) {
   }
 }
 
+static GLenum convertCompareMode(CompareMode mode) {
+  switch (mode) {
+    case COMPARE_NONE: return GL_ALWAYS;
+    case COMPARE_EQUAL: return GL_EQUAL;
+    case COMPARE_NEQUAL: return GL_NOTEQUAL;
+    case COMPARE_LESS: return GL_LESS;
+    case COMPARE_LEQUAL: return GL_LEQUAL;
+    case COMPARE_GREATER: return GL_GREATER;
+    case COMPARE_GEQUAL: return GL_GEQUAL;
+  }
+}
+
 void gpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
 #ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) getProcAddress);
@@ -40,9 +64,20 @@ void gpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   }
 #endif
   glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
+  state.blendMode = -1;
+  state.blendAlphaMode = -1;
+  state.culling = -1;
+  state.depthEnabled = -1;
+  state.depthTest = -1;
+  state.depthWrite = -1;
+  state.lineWidth = -1;
+  state.stencilEnabled = -1;
+  state.stencilMode = -1;
+  state.stencilValue = -1;
+  state.winding = -1;
+  state.wireframe = -1;
 }
 
 void gpuDestroy() {
@@ -52,11 +87,166 @@ void gpuDestroy() {
   }
 }
 
+void gpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil) {
+  gpuBindFramebuffer(canvasCount > 0 ? lovrCanvasGetId(canvas[0]) : 0);
+
+  if (color) {
+    gammaCorrectColor(color);
+    float c[4] = { color->r, color->g, color->b, color->a };
+    glClearBufferfv(GL_COLOR, 0, c);
+    for (int i = 1; i < canvasCount; i++) {
+      glClearBufferfv(GL_COLOR, i, c);
+    }
+  }
+
+  if (depth) {
+    glClearBufferfv(GL_DEPTH, 0, depth);
+  }
+
+  if (stencil) {
+    glClearBufferiv(GL_STENCIL, 0, stencil);
+  }
+}
+
 void gpuDraw(GpuDrawCommand* command) {
   Mesh* mesh = command->mesh;
   Material* material = command->material;
   Shader* shader = command->shader;
+  Pipeline* pipeline = &command->pipeline;
   int instances = command->instances;
+
+  // Blend mode
+  if (state.blendMode != pipeline->blendMode || state.blendAlphaMode != pipeline->blendAlphaMode) {
+    state.blendMode = pipeline->blendMode;
+    state.blendAlphaMode = pipeline->blendAlphaMode;
+
+    GLenum srcRGB = state.blendMode == BLEND_MULTIPLY ? GL_DST_COLOR : GL_ONE;
+    if (srcRGB == GL_ONE && state.blendAlphaMode == BLEND_ALPHA_MULTIPLY) {
+      srcRGB = GL_SRC_ALPHA;
+    }
+
+    switch (state.blendMode) {
+      case BLEND_ALPHA:
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFuncSeparate(srcRGB, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        break;
+
+      case BLEND_ADD:
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFuncSeparate(srcRGB, GL_ONE, GL_ZERO, GL_ONE);
+        break;
+
+      case BLEND_SUBTRACT:
+        glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+        glBlendFuncSeparate(srcRGB, GL_ONE, GL_ZERO, GL_ONE);
+        break;
+
+      case BLEND_MULTIPLY:
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_DST_COLOR, GL_ZERO);
+        break;
+
+      case BLEND_LIGHTEN:
+        glBlendEquation(GL_MAX);
+        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+        break;
+
+      case BLEND_DARKEN:
+        glBlendEquation(GL_MIN);
+        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+        break;
+
+      case BLEND_SCREEN:
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFuncSeparate(srcRGB, GL_ONE_MINUS_SRC_COLOR, GL_ONE, GL_ONE_MINUS_SRC_COLOR);
+        break;
+
+      case BLEND_REPLACE:
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+        break;
+    }
+  }
+
+  // Culling
+  if (state.culling != pipeline->culling) {
+    state.culling = pipeline->culling;
+    if (state.culling) {
+      glEnable(GL_CULL_FACE);
+    } else {
+      glDisable(GL_CULL_FACE);
+    }
+  }
+
+  // Depth test
+  if (state.depthTest != pipeline->depthTest) {
+    state.depthTest = pipeline->depthTest;
+    if (state.depthTest != COMPARE_NONE) {
+      if (!state.depthEnabled) {
+        state.depthEnabled = true;
+        glEnable(GL_DEPTH_TEST);
+      }
+      glDepthFunc(convertCompareMode(state.depthTest));
+    } else if (state.depthEnabled) {
+      state.depthEnabled = false;
+      glDisable(GL_DEPTH_TEST);
+    }
+  }
+
+  // Depth write
+  if (state.depthWrite != pipeline->depthWrite) {
+    state.depthWrite = pipeline->depthWrite;
+    glDepthMask(state.depthWrite);
+  }
+
+  // Line width
+  if (state.lineWidth != pipeline->lineWidth) {
+    state.lineWidth = state.lineWidth;
+    glLineWidth(state.lineWidth);
+  }
+
+  // Stencil mode
+  if (state.stencilMode != pipeline->stencilMode || state.stencilValue != pipeline->stencilValue) {
+    state.stencilMode = pipeline->stencilMode;
+    state.stencilValue = pipeline->stencilValue;
+    if (state.stencilMode != COMPARE_NONE) {
+      if (!state.stencilEnabled) {
+        state.stencilEnabled = true;
+        glEnable(GL_STENCIL_TEST);
+      }
+
+      GLenum glMode = GL_ALWAYS;
+      switch (state.stencilMode) {
+        case COMPARE_EQUAL: glMode = GL_EQUAL; break;
+        case COMPARE_NEQUAL: glMode = GL_NOTEQUAL; break;
+        case COMPARE_LESS: glMode = GL_GREATER; break;
+        case COMPARE_LEQUAL: glMode = GL_GEQUAL; break;
+        case COMPARE_GREATER: glMode = GL_LESS; break;
+        case COMPARE_GEQUAL: glMode = GL_LEQUAL; break;
+        default: break;
+      }
+
+      glStencilFunc(glMode, state.stencilValue, 0xff);
+      glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    } else if (state.stencilEnabled) {
+      state.stencilEnabled = false;
+      glDisable(GL_STENCIL_TEST);
+    }
+  }
+
+  // Winding
+  if (state.winding != pipeline->winding) {
+    state.winding = pipeline->winding;
+    glFrontFace(state.winding == WINDING_CLOCKWISE ? GL_CW : GL_CCW);
+  }
+
+  // Wireframe
+  if (state.wireframe != pipeline->wireframe) {
+    state.wireframe = pipeline->wireframe;
+#ifndef EMSCRIPTEN
+    glPolygonMode(GL_FRONT_AND_BACK, state.wireframe ? GL_LINE : GL_FILL);
+#endif
+  }
 
   // Transform
   lovrShaderSetMatrix(shader, "lovrProjection", command->layer.projection, 16);
@@ -94,10 +284,10 @@ void gpuDraw(GpuDrawCommand* command) {
   }
 
   // Point size
-  lovrShaderSetFloat(shader, "lovrPointSize", &command->pointSize, 1);
+  lovrShaderSetFloat(shader, "lovrPointSize", &pipeline->pointSize, 1);
 
   // Color
-  Color color = command->color;
+  Color color = pipeline->color;
   gammaCorrectColor(&color);
   float data[4] = { color.r, color.g, color.b, color.a };
   lovrShaderSetFloat(shader, "lovrColor", data, 4);
