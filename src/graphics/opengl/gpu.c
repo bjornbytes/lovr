@@ -19,6 +19,7 @@ static struct {
   bool stencilEnabled;
   CompareMode stencilMode;
   int stencilValue;
+  bool stencilWriting;
   Winding winding;
   bool wireframe;
   uint32_t framebuffer;
@@ -77,6 +78,7 @@ void gpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   state.stencilEnabled = -1;
   state.stencilMode = -1;
   state.stencilValue = -1;
+  state.stencilWriting = false;
   state.winding = -1;
   state.wireframe = -1;
 }
@@ -107,6 +109,36 @@ void gpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int*
   if (stencil) {
     glClearBufferiv(GL_STENCIL, 0, stencil);
   }
+}
+
+void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
+  state.depthWrite = false;
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+  if (!state.stencilEnabled) {
+    state.stencilEnabled = true;
+    glEnable(GL_STENCIL_TEST);
+  }
+
+  GLenum glAction;
+  switch (action) {
+    case STENCIL_REPLACE: glAction = GL_REPLACE; break;
+    case STENCIL_INCREMENT: glAction = GL_INCR; break;
+    case STENCIL_DECREMENT: glAction = GL_DECR; break;
+    case STENCIL_INCREMENT_WRAP: glAction = GL_INCR_WRAP; break;
+    case STENCIL_DECREMENT_WRAP: glAction = GL_DECR_WRAP; break;
+    case STENCIL_INVERT: glAction = GL_INVERT; break;
+  }
+
+  glStencilFunc(GL_ALWAYS, replaceValue, 0xff);
+  glStencilOp(GL_KEEP, GL_KEEP, glAction);
+
+  state.stencilWriting = true;
+  callback(userdata);
+  state.stencilWriting = false;
+
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  state.stencilMode = ~0; // Dirty
 }
 
 void gpuDraw(GpuDrawCommand* command) {
@@ -207,7 +239,7 @@ void gpuDraw(GpuDrawCommand* command) {
   }
 
   // Stencil mode
-  if (state.stencilMode != pipeline->stencilMode || state.stencilValue != pipeline->stencilValue) {
+  if (!state.stencilWriting && (state.stencilMode != pipeline->stencilMode || state.stencilValue != pipeline->stencilValue)) {
     state.stencilMode = pipeline->stencilMode;
     state.stencilValue = pipeline->stencilValue;
     if (state.stencilMode != COMPARE_NONE) {
@@ -312,7 +344,7 @@ void gpuDraw(GpuDrawCommand* command) {
   }
 
   // Layer
-  gpuBindFramebuffer(command->layer.canvasCount > 0 ? lovrCanvasGetId(command->layer.canvas[0]) : 0);
+  lovrCanvasBind(command->layer.canvas, command->layer.canvasCount);
   gpuSetViewport(command->layer.viewport);
 
   // Shader

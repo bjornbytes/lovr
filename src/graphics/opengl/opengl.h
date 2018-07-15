@@ -76,6 +76,7 @@ struct Canvas {
   GLuint depthStencilBuffer;
   GLuint msaaTexture;
   CanvasFlags flags;
+  Canvas** attachments[MAX_CANVASES];
 };
 
 typedef struct {

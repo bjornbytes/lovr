@@ -278,10 +278,6 @@ void lovrGraphicsGetStencilTest(CompareMode* mode, int* value) {
 }
 
 void lovrGraphicsSetStencilTest(CompareMode mode, int value) {
-  if (state.stencilWriting) {
-    return;
-  }
-
   state.pipelines[state.pipeline].stencilMode = mode;
   state.pipelines[state.pipeline].stencilValue = value;
 }
@@ -716,40 +712,6 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsPop();
 }
 
-void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
-  CompareMode mode;
-  bool write;
-  lovrGraphicsGetDepthTest(&mode, &write);
-  lovrGraphicsSetDepthTest(mode, false);
-  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-  if (!state.stencilEnabled) {
-    glEnable(GL_STENCIL_TEST);
-    state.stencilEnabled = true;
-  }
-
-  GLenum glAction;
-  switch (action) {
-    case STENCIL_REPLACE: glAction = GL_REPLACE; break;
-    case STENCIL_INCREMENT: glAction = GL_INCR; break;
-    case STENCIL_DECREMENT: glAction = GL_DECR; break;
-    case STENCIL_INCREMENT_WRAP: glAction = GL_INCR_WRAP; break;
-    case STENCIL_DECREMENT_WRAP: glAction = GL_DECR_WRAP; break;
-    case STENCIL_INVERT: glAction = GL_INVERT; break;
-  }
-
-  glStencilFunc(GL_ALWAYS, replaceValue, 0xff);
-  glStencilOp(GL_KEEP, GL_KEEP, glAction);
-
-  state.stencilWriting = true;
-  callback(userdata);
-  state.stencilWriting = false;
-
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  lovrGraphicsSetDepthTest(mode, write);
-  lovrGraphicsSetStencilTest(state.pipelines[state.pipeline].stencilMode, state.pipelines[state.pipeline].stencilValue);
-}
-
 void lovrGraphicsFill(Texture* texture) {
   lovrGraphicsPushPipeline();
   lovrGraphicsSetDepthTest(COMPARE_NONE, false);
@@ -844,18 +806,6 @@ void lovrGraphicsPushLayer(Canvas** canvas, int count, bool user) {
 
   if (count > 0) {
     memcpy(layer->canvas, canvas, count * sizeof(Canvas*));
-    gpuBindFramebuffer(lovrCanvasGetId(canvas[0]));
-
-    GLenum buffers[MAX_CANVASES];
-    for (int i = 0; i < count; i++) {
-      buffers[i] = GL_COLOR_ATTACHMENT0 + i;
-      glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, lovrTextureGetId((Texture*) canvas[i]), 0);
-    }
-    glDrawBuffers(count, buffers);
-
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    lovrAssert(status != GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS, "All multicanvas canvases must have the same dimensions");
-    lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
   }
 }
 

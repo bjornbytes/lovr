@@ -96,6 +96,29 @@ uint32_t lovrCanvasGetId(Canvas* canvas) {
   return canvas->framebuffer;
 }
 
+void lovrCanvasBind(Canvas** canvases, int canvasCount) {
+  if (canvasCount == 0) {
+    gpuBindFramebuffer(0);
+    return;
+  }
+
+  gpuBindFramebuffer(canvases[0]->texture.id);
+  if (memcmp(canvases, canvases[0]->attachments, MAX_CANVASES * sizeof(Canvas*))) {
+    memcpy(canvases[0]->attachments, canvases, MAX_CANVASES * sizeof(Canvas*));
+
+    GLenum buffers[MAX_CANVASES];
+    for (int i = 0; i < canvasCount; i++) {
+      buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+      glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, lovrTextureGetId((Texture*) canvases[i]), 0);
+    }
+    glDrawBuffers(canvasCount, buffers);
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    lovrAssert(status != GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS, "All multicanvas canvases must have the same dimensions");
+    lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
+  }
+}
+
 void lovrCanvasResolve(Canvas* canvas) {
   if (canvas->flags.msaa > 0) {
     int width = canvas->texture.width;

@@ -20,8 +20,6 @@
 #define DEFAULT_SHADER_COUNT 5
 #define MAX_TEXTURES 16
 
-typedef void (*StencilCallback)(void* userdata);
-
 typedef struct {
   mat4 transform;
   DefaultShader shader;
@@ -59,8 +57,6 @@ typedef struct {
   int layer;
   Pipeline pipelines[MAX_PIPELINES + INTERNAL_PIPELINES];
   int pipeline;
-  bool stencilWriting;
-  bool stencilEnabled;
 } GraphicsState;
 
 // Base

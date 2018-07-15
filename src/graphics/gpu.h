@@ -10,7 +10,7 @@
 
 #pragma once
 
-#define MAX_CANVASES 4
+typedef void (*StencilCallback)(void* userdata);
 
 typedef struct {
   int shaderSwitches;
