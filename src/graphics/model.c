@@ -43,6 +43,7 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
       lovrGraphicsDraw(&(GraphicsDraw) {
         .transform = model->nodeTransforms[nodeIndex],
         .mesh = model->mesh,
+        .material = lovrMeshGetMaterial(model->mesh),
         .instances = instances
       });
     }

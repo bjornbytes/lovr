@@ -57,7 +57,12 @@ int l_lovrMeshDrawInstanced(lua_State* L) {
   int instances = luaL_checkinteger(L, 2);
   float transform[16];
   luax_readtransform(L, 3, transform, 1);
-  lovrGraphicsDraw(&(GraphicsDraw) { .transform = transform, .mesh = mesh, .instances = instances });
+  lovrGraphicsDraw(&(GraphicsDraw) {
+    .transform = transform,
+    .mesh = mesh,
+    .material = lovrMeshGetMaterial(mesh),
+    .instances = instances
+  });
   return 0;
 }
 

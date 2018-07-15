@@ -384,6 +384,7 @@ void lovrGraphicsLine(uint32_t count) {
 void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]) {
   if (mode == DRAW_MODE_LINE) {
     lovrGraphicsDraw(&(GraphicsDraw) {
+      .material = material,
       .mode = MESH_LINE_LOOP,
       .vertex.count = 3,
       .vertex.data = (float[]) {
@@ -396,6 +397,7 @@ void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]) {
     float normal[3];
     vec3_cross(vec3_init(normal, &points[0]), &points[3]);
     lovrGraphicsDraw(&(GraphicsDraw) {
+      .material = material,
       .mode = MESH_TRIANGLES,
       .vertex.count = 3,
       .vertex.data = (float[]) {
@@ -690,13 +692,12 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az) {
   TextureType type = lovrTextureGetType(texture);
   lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
-  MaterialTexture materialTexture = type == TEXTURE_CUBE ? TEXTURE_ENVIRONMENT_MAP : TEXTURE_DIFFUSE;
   lovrGraphicsPushPipeline();
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
-  Material* material = lovrGraphicsGetDefaultMaterial();
-  lovrMaterialSetTexture(material, materialTexture, texture);
   lovrGraphicsDraw(&(GraphicsDraw) {
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
+    .textures[TEXTURE_DIFFUSE] = texture,
+    .textures[TEXTURE_ENVIRONMENT_MAP] = texture,
     .mode = MESH_TRIANGLE_STRIP,
     .vertex.count = 4,
     .vertex.data = (float[]) {
@@ -706,7 +707,6 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
       1, -1, 1,  0, 0, 0, 0, 0
     }
   });
-  lovrMaterialSetTexture(material, materialTexture, NULL);
   lovrGraphicsPopPipeline();
 }
 
@@ -724,18 +724,15 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsMatrixTransform(transform);
   lovrGraphicsScale(scale, scale, scale);
   lovrGraphicsTranslate(0, offsety, 0);
-  Material* material = lovrGraphicsGetDefaultMaterial();
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, font->texture);
   lovrGraphicsPushPipeline();
   state.pipelines[state.pipeline].depthWrite = false;
   lovrGraphicsDraw(&(GraphicsDraw) {
     .shader = SHADER_FONT,
-    .material = material,
+    .textures[TEXTURE_DIFFUSE] = font->texture,
     .mode = MESH_TRIANGLES,
     .range = { 0, vertexCount }
   });
   lovrGraphicsPopPipeline();
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   lovrGraphicsPop();
 }
 
@@ -776,11 +773,9 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 void lovrGraphicsFill(Texture* texture) {
   lovrGraphicsPushPipeline();
   lovrGraphicsSetDepthTest(COMPARE_NONE, false);
-  Material* material = lovrGraphicsGetDefaultMaterial();
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
   lovrGraphicsDraw(&(GraphicsDraw) {
     .shader = SHADER_FILL,
-    .material = material,
+    .textures[TEXTURE_DIFFUSE] = texture,
     .mode = MESH_TRIANGLE_STRIP,
     .vertex.count = 4,
     .vertex.data = (float[]) {
@@ -790,7 +785,6 @@ void lovrGraphicsFill(Texture* texture) {
       1, -1, 0,  0, 0, 0, 1, 0
     }
   });
-  lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, NULL);
   lovrGraphicsPopPipeline();
 }
 
@@ -822,8 +816,18 @@ void lovrGraphicsDraw(GraphicsDraw* draw) {
     }
   }
 
-  Material* material = draw->material ? draw->material : lovrMeshGetMaterial(mesh);
-  material = material ? material : lovrGraphicsGetDefaultMaterial();
+  Material* material = draw->material;
+  if (!material) {
+    material = state.defaultMaterial;
+
+    if (!material) {
+      material = state.defaultMaterial = lovrMaterialCreate(true);
+    }
+
+    for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
+      lovrMaterialSetTexture(material, i, draw->textures[i]);
+    }
+  }
 
   gpuDraw(&(GpuDrawCommand) {
     .layer = state.layers[state.layer],
@@ -908,12 +912,4 @@ void lovrGraphicsSetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t he
   state.layers[state.layer].viewport[1] = y;
   state.layers[state.layer].viewport[2] = width;
   state.layers[state.layer].viewport[3] = height;
-}
-
-Material* lovrGraphicsGetDefaultMaterial() {
-  if (!state.defaultMaterial) {
-    state.defaultMaterial = lovrMaterialCreate(true);
-  }
-
-  return state.defaultMaterial;
 }
