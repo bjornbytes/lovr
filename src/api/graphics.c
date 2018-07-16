@@ -281,53 +281,6 @@ int l_lovrGraphicsInit(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsReset(lua_State* L) {
-  lovrGraphicsReset();
-  return 0;
-}
-
-int l_lovrGraphicsClear(lua_State* L) {
-  int index = 1;
-  int top = lua_gettop(L);
-
-  bool clearColor = true;
-  bool clearDepth = true;
-  bool clearStencil = true;
-  Color color = lovrGraphicsGetBackgroundColor();
-  float depth = 1.f;
-  int stencil = 0;
-
-  if (top >= index) {
-    if (lua_type(L, index) == LUA_TNUMBER) {
-      color.r = luaL_checknumber(L, index++);
-      color.g = luaL_checknumber(L, index++);
-      color.b = luaL_checknumber(L, index++);
-      color.a = luaL_optnumber(L, index++, 1.);
-    } else {
-      clearColor = lua_toboolean(L, index++);
-    }
-  }
-
-  if (top >= index) {
-    if (lua_type(L, index) == LUA_TNUMBER) {
-      depth = luaL_checknumber(L, index++);
-    } else {
-      clearDepth = lua_toboolean(L, index++);
-    }
-  }
-
-  if (top >= index) {
-    if (lua_type(L, index) == LUA_TNUMBER) {
-      stencil = luaL_checkinteger(L, index++);
-    } else {
-      clearStencil = lua_toboolean(L, index++);
-    }
-  }
-
-  lovrGraphicsClear(clearColor ? &color : NULL, clearDepth ? &depth : NULL, clearStencil ? &stencil : NULL);
-  return 0;
-}
-
 int l_lovrGraphicsPresent(lua_State* L) {
   lovrGraphicsPresent();
   return 0;
@@ -366,6 +319,20 @@ int l_lovrGraphicsGetDimensions(lua_State* L) {
   return 2;
 }
 
+int l_lovrGraphicsGetSystemLimits(lua_State* L) {
+  GraphicsLimits limits = lovrGraphicsGetLimits();
+  lua_newtable(L);
+  lua_pushnumber(L, limits.pointSizes[1]);
+  lua_setfield(L, -2, "pointsize");
+  lua_pushinteger(L, limits.textureSize);
+  lua_setfield(L, -2, "texturesize");
+  lua_pushinteger(L, limits.textureMSAA);
+  lua_setfield(L, -2, "texturemsaa");
+  lua_pushinteger(L, limits.textureAnisotropy);
+  lua_setfield(L, -2, "anisotropy");
+  return 1;
+}
+
 int l_lovrGraphicsGetStats(lua_State* L) {
   if (lua_gettop(L) > 0) {
     luaL_checktype(L, 1, LUA_TTABLE);
@@ -386,6 +353,11 @@ int l_lovrGraphicsGetStats(lua_State* L) {
 }
 
 // State
+
+int l_lovrGraphicsReset(lua_State* L) {
+  lovrGraphicsReset();
+  return 0;
+}
 
 int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
   Color color = lovrGraphicsGetBackgroundColor();
@@ -518,20 +490,6 @@ int l_lovrGraphicsIsGammaCorrect(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsGetSystemLimits(lua_State* L) {
-  GraphicsLimits limits = lovrGraphicsGetLimits();
-  lua_newtable(L);
-  lua_pushnumber(L, limits.pointSizes[1]);
-  lua_setfield(L, -2, "pointsize");
-  lua_pushinteger(L, limits.textureSize);
-  lua_setfield(L, -2, "texturesize");
-  lua_pushinteger(L, limits.textureMSAA);
-  lua_setfield(L, -2, "texturemsaa");
-  lua_pushinteger(L, limits.textureAnisotropy);
-  lua_setfield(L, -2, "anisotropy");
-  return 1;
-}
-
 int l_lovrGraphicsGetLineWidth(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetLineWidth());
   return 1;
@@ -661,7 +619,49 @@ int l_lovrGraphicsTransform(lua_State* L) {
   return 0;
 }
 
-// Primitives
+// Drawing
+
+int l_lovrGraphicsClear(lua_State* L) {
+  int index = 1;
+  int top = lua_gettop(L);
+
+  bool clearColor = true;
+  bool clearDepth = true;
+  bool clearStencil = true;
+  Color color = lovrGraphicsGetBackgroundColor();
+  float depth = 1.f;
+  int stencil = 0;
+
+  if (top >= index) {
+    if (lua_type(L, index) == LUA_TNUMBER) {
+      color.r = luaL_checknumber(L, index++);
+      color.g = luaL_checknumber(L, index++);
+      color.b = luaL_checknumber(L, index++);
+      color.a = luaL_optnumber(L, index++, 1.);
+    } else {
+      clearColor = lua_toboolean(L, index++);
+    }
+  }
+
+  if (top >= index) {
+    if (lua_type(L, index) == LUA_TNUMBER) {
+      depth = luaL_checknumber(L, index++);
+    } else {
+      clearDepth = lua_toboolean(L, index++);
+    }
+  }
+
+  if (top >= index) {
+    if (lua_type(L, index) == LUA_TNUMBER) {
+      stencil = luaL_checkinteger(L, index++);
+    } else {
+      clearStencil = lua_toboolean(L, index++);
+    }
+  }
+
+  lovrGraphicsClear(clearColor ? &color : NULL, clearDepth ? &depth : NULL, clearStencil ? &stencil : NULL);
+  return 0;
+}
 
 int l_lovrGraphicsPoints(lua_State* L) {
   uint32_t count = luax_readvertices(L, 1);
@@ -1122,14 +1122,18 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
 }
 
 const luaL_Reg lovrGraphics[] = {
-  { "reset", l_lovrGraphicsReset },
-  { "clear", l_lovrGraphicsClear },
+
+  // Base
   { "present", l_lovrGraphicsPresent },
   { "createWindow", l_lovrGraphicsCreateWindow },
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
+  { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getStats", l_lovrGraphicsGetStats },
+
+  // State
+  { "reset", l_lovrGraphicsReset },
   { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
   { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
   { "getBlendMode", l_lovrGraphicsGetBlendMode },
@@ -1147,7 +1151,6 @@ const luaL_Reg lovrGraphics[] = {
   { "getFont", l_lovrGraphicsGetFont },
   { "setFont", l_lovrGraphicsSetFont },
   { "isGammaCorrect", l_lovrGraphicsIsGammaCorrect },
-  { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
   { "getPointSize", l_lovrGraphicsGetPointSize },
@@ -1160,6 +1163,8 @@ const luaL_Reg lovrGraphics[] = {
   { "setWinding", l_lovrGraphicsSetWinding },
   { "isWireframe", l_lovrGraphicsIsWireframe },
   { "setWireframe", l_lovrGraphicsSetWireframe },
+
+  // Transforms
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },
@@ -1167,6 +1172,9 @@ const luaL_Reg lovrGraphics[] = {
   { "rotate", l_lovrGraphicsRotate },
   { "scale", l_lovrGraphicsScale },
   { "transform", l_lovrGraphicsTransform },
+
+  // Drawing
+  { "clear", l_lovrGraphicsClear },
   { "points", l_lovrGraphicsPoints },
   { "line", l_lovrGraphicsLine },
   { "triangle", l_lovrGraphicsTriangle },
@@ -1181,6 +1189,8 @@ const luaL_Reg lovrGraphics[] = {
   { "print", l_lovrGraphicsPrint },
   { "stencil", l_lovrGraphicsStencil },
   { "fill", l_lovrGraphicsFill },
+
+  // Types
   { "newAnimator", l_lovrGraphicsNewAnimator },
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newFont", l_lovrGraphicsNewFont },
@@ -1189,5 +1199,6 @@ const luaL_Reg lovrGraphics[] = {
   { "newModel", l_lovrGraphicsNewModel },
   { "newShader", l_lovrGraphicsNewShader },
   { "newTexture", l_lovrGraphicsNewTexture },
+
   { NULL, NULL }
 };

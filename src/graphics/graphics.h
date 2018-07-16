@@ -1,4 +1,3 @@
-#include "graphics/gpu.h"
 #include "graphics/canvas.h"
 #include "graphics/font.h"
 #include "graphics/material.h"
@@ -20,6 +19,99 @@
 #define DEFAULT_SHADER_COUNT 5
 #define MAX_TEXTURES 16
 
+typedef void (*StencilCallback)(void* userdata);
+
+typedef struct {
+  int shaderSwitches;
+  int drawCalls;
+} GraphicsStats;
+
+typedef enum {
+  BLEND_ALPHA,
+  BLEND_ADD,
+  BLEND_SUBTRACT,
+  BLEND_MULTIPLY,
+  BLEND_LIGHTEN,
+  BLEND_DARKEN,
+  BLEND_SCREEN,
+  BLEND_REPLACE
+} BlendMode;
+
+typedef enum {
+  BLEND_ALPHA_MULTIPLY,
+  BLEND_PREMULTIPLIED
+} BlendAlphaMode;
+
+typedef enum {
+  DRAW_MODE_FILL,
+  DRAW_MODE_LINE
+} DrawMode;
+
+typedef enum {
+  ARC_MODE_PIE,
+  ARC_MODE_OPEN,
+  ARC_MODE_CLOSED
+} ArcMode;
+
+typedef enum {
+  WINDING_CLOCKWISE,
+  WINDING_COUNTERCLOCKWISE
+} Winding;
+
+typedef enum {
+  COMPARE_NONE,
+  COMPARE_EQUAL,
+  COMPARE_NEQUAL,
+  COMPARE_LESS,
+  COMPARE_LEQUAL,
+  COMPARE_GREATER,
+  COMPARE_GEQUAL
+} CompareMode;
+
+typedef enum {
+  STENCIL_REPLACE,
+  STENCIL_INCREMENT,
+  STENCIL_DECREMENT,
+  STENCIL_INCREMENT_WRAP,
+  STENCIL_DECREMENT_WRAP,
+  STENCIL_INVERT
+} StencilAction;
+
+typedef struct {
+  bool initialized;
+  float pointSizes[2];
+  int textureSize;
+  int textureMSAA;
+  float textureAnisotropy;
+} GraphicsLimits;
+
+typedef struct {
+  Color backgroundColor;
+  BlendMode blendMode;
+  BlendAlphaMode blendAlphaMode;
+  Color color;
+  bool culling;
+  CompareMode depthTest;
+  bool depthWrite;
+  Font* font;
+  float lineWidth;
+  float pointSize;
+  Shader* shader;
+  CompareMode stencilMode;
+  int stencilValue;
+  Winding winding;
+  bool wireframe;
+} Pipeline;
+
+typedef struct {
+  float projection[16];
+  float view[16];
+  uint32_t viewport[4];
+  Canvas* canvas[MAX_CANVASES];
+  int canvasCount;
+  bool user;
+} Layer;
+
 typedef struct {
   mat4 transform;
   DefaultShader shader;
@@ -40,7 +132,7 @@ typedef struct {
     int count;
   } range;
   int instances;
-} GraphicsDraw;
+} DrawCommand;
 
 typedef struct {
   bool initialized;
@@ -62,8 +154,6 @@ typedef struct {
 // Base
 void lovrGraphicsInit();
 void lovrGraphicsDestroy();
-void lovrGraphicsReset();
-void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 void lovrGraphicsGetDimensions(int* width, int* height);
@@ -71,6 +161,7 @@ GraphicsLimits lovrGraphicsGetLimits();
 GraphicsStats lovrGraphicsGetStats();
 
 // State
+void lovrGraphicsReset();
 Color lovrGraphicsGetBackgroundColor();
 void lovrGraphicsSetBackgroundColor(Color color);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
@@ -111,7 +202,10 @@ void lovrGraphicsRotate(float angle, float ax, float ay, float az);
 void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsMatrixTransform(mat4 transform);
 
-// Primitives
+// Drawing
+VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
+void lovrGraphicsClear(Color* color, float* depth, int* stencil);
+void lovrGraphicsDraw(DrawCommand* draw);
 void lovrGraphicsPoints(uint32_t count);
 void lovrGraphicsLine(uint32_t count);
 void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]);
@@ -127,8 +221,6 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 void lovrGraphicsFill(Texture* texture);
 
 // Internal
-VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
-void lovrGraphicsDraw(GraphicsDraw* draw);
 void lovrGraphicsPushLayer(Canvas** canvas, int count, bool user);
 void lovrGraphicsPopLayer();
 void lovrGraphicsPushPipeline();

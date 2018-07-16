@@ -1,5 +1,6 @@
 #include "graphics/opengl/opengl.h"
 #include "graphics/graphics.h"
+#include "graphics/gpu.h"
 #include "lib/vec/vec.h"
 #include "math/math.h"
 #include <math.h>

@@ -1,5 +1,6 @@
 #include "graphics/opengl/opengl.h"
 #include "graphics/graphics.h"
+#include "graphics/gpu.h"
 #include "resources/shaders.h"
 #include "math/math.h"
 #include <string.h>
