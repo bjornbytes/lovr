@@ -187,6 +187,7 @@ static void fakeSetMirrored(bool mirror) {
 }
 
 static void fakeGetDisplayDimensions(int* width, int* height) {
+  state.window = state.window ? state.window : glfwGetCurrentContext();
   if (state.window) {
     glfwGetFramebufferSize(state.window, width, height);
     *width /= 2;
