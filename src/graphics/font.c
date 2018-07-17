@@ -1,5 +1,4 @@
 #include "graphics/font.h"
-#include "graphics/gpu.h"
 #include "graphics/graphics.h"
 #include "graphics/texture.h"
 #include "data/rasterizer.h"
@@ -278,7 +277,7 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
   glyph->y = atlas->y;
 
   // Paste glyph into texture
-  gpuBindTexture(font->texture, 0);
+  lovrGpuBindTexture(font->texture, 0);
   glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->tw, glyph->th, GL_RGB, GL_UNSIGNED_BYTE, glyph->data);
 
   // Advance atlas cursor

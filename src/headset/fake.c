@@ -276,6 +276,7 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
+#include <stdio.h>
 static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   if (!state.window || !state.mirrored) {
     return;
@@ -283,23 +284,17 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
 
   int width, height;
   fakeGetDisplayDimensions(&width, &height);
+  Camera camera = { .viewport = { 0, 0, width, height } };
 
-  float projection[16];
-  mat4_perspective(projection, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height);
-
-  float viewMatrix[16];
-  mat4_identity(viewMatrix);
-  mat4_translate(viewMatrix, 0, state.offset, 0);
-  mat4_multiply(viewMatrix, state.transform);
-  mat4_invert(viewMatrix);
+  mat4_perspective(camera.projection, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height);
+  mat4_identity(camera.viewMatrix);
+  mat4_translate(camera.viewMatrix, 0, state.offset, 0);
+  mat4_multiply(camera.viewMatrix, state.transform);
+  mat4_invert(camera.viewMatrix);
 
   for (int eye = 0; eye < 2; eye++) {
-    lovrGraphicsSetCamera(&(Camera) {
-      .viewport = { width * eye, 0, width, height },
-      .viewMatrix = viewMatrix,
-      .projection = projection
-    }, eye == 0);
-
+    camera.viewport[0] = width * eye;
+    lovrGraphicsSetCamera(&camera, eye == 0);
     callback(userdata);
   }
 

@@ -1,5 +1,4 @@
 #include "graphics/graphics.h"
-#include "graphics/gpu.h"
 #include "data/rasterizer.h"
 #include "event/event.h"
 #include "math/mat4.h"
@@ -37,13 +36,13 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultMaterial);
   lovrRelease(state.defaultFont);
   lovrRelease(state.defaultMesh);
-  gpuDestroy();
+  lovrGpuDestroy();
   memset(&state, 0, sizeof(GraphicsState));
 }
 
 void lovrGraphicsPresent() {
   glfwSwapBuffers(state.window);
-  gpuPresent();
+  lovrGpuPresent();
 }
 
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon) {
@@ -95,7 +94,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
 
   glfwSwapInterval(0);
 #endif
-  gpuInit(state.gammaCorrect, glfwGetProcAddress);
+  lovrGpuInit(state.gammaCorrect, glfwGetProcAddress);
   VertexFormat format;
   vertexFormatInit(&format);
   vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
@@ -122,8 +121,9 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   }
 
   if (clear) {
+    int canvasCount = state.camera.canvas != NULL;
     Color backgroundColor = lovrGraphicsGetBackgroundColor();
-    gpuClear(&state.camera.canvas, 1, &backgroundColor, &(float) { 1. }, &(int) { 0 });
+    lovrGpuClear(&state.camera.canvas, canvasCount, &backgroundColor, &(float) { 1. }, &(int) { 0 });
   }
 }
 
@@ -356,9 +356,9 @@ VertexPointer lovrGraphicsGetVertexPointer(uint32_t count) {
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
   Pipeline* pipeline = &state.pipelines[state.pipeline];
   if (pipeline->canvasCount > 0) {
-    gpuClear(pipeline->canvas, pipeline->canvasCount, color, depth, stencil);
+    lovrGpuClear(pipeline->canvas, pipeline->canvasCount, color, depth, stencil);
   } else {
-    gpuClear(&state.camera.canvas, 1, color, depth, stencil);
+    lovrGpuClear(&state.camera.canvas, 1, color, depth, stencil);
   }
 }
 
@@ -411,7 +411,7 @@ void lovrGraphicsDraw(DrawOptions* draw) {
     mat4_multiply(command.transform, draw->transform);
   }
 
-  gpuDraw(&command);
+  lovrGpuDraw(&command);
 }
 
 void lovrGraphicsPoints(uint32_t count) {

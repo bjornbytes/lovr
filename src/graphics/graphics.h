@@ -83,8 +83,8 @@ typedef struct {
 typedef struct {
   Canvas* canvas;
   uint32_t viewport[4];
-  mat4 viewMatrix;
-  mat4 projection;
+  float viewMatrix[16];
+  float projection[16];
 } Camera;
 
 typedef struct {
@@ -226,3 +226,16 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGraphicsFill(Texture* texture);
+
+// GPU
+
+typedef void (*gpuProc)(void);
+
+void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*));
+void lovrGpuDestroy();
+void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil);
+void lovrGpuDraw(DrawCommand* command);
+void lovrGpuPresent();
+
+void lovrGpuBindTexture(Texture* texture, int slot);
+Texture* lovrGpuGetTexture(int slot);

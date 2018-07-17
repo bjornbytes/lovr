@@ -1,6 +1,5 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
-#include "graphics/gpu.h"
 #include "graphics/canvas.h"
 #include "math/mat4.h"
 #include "math/quat.h"
@@ -666,35 +665,35 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 }
 
 static void openvrRenderTo(void (*callback)(void*), void* userdata) {
-  float head[16], eye[16], projection[16], view[16];
+  float head[16], eye[16];
 
   ensureCanvas();
   state.isRendering = true;
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
   mat4_fromMat34(head, state.renderPoses[state.headsetIndex].mDeviceToAbsoluteTracking.m);
 
+  Camera camera = {
+    .canvas = state.canvas,
+    .viewport = { 0, 0, state.renderWidth, state.renderHeight }
+  };
+
   for (int i = 0; i < 2; i++) {
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
-    mat4_fromMat44(projection, state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
-    mat4_identity(view);
-    mat4_translate(view, 0, state.offset, 0);
-    mat4_multiply(view, head);
-    mat4_multiply(view, mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
-    mat4_invert(view);
+    mat4_fromMat44(camera.projection, state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
+    mat4_identity(camera.viewMatrix);
+    mat4_translate(camera.viewMatrix, 0, state.offset, 0);
+    mat4_multiply(camera.viewMatrix, head);
+    mat4_multiply(camera.viewMatrix, mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
+    mat4_invert(camera.viewMatrix);
 
-    lovrGraphicsSetCamera(&(Camera) {
-      .canvas = state.canvas,
-      .viewport = { state.renderWidth * i, 0, state.renderWidth, state.renderHeight },
-      .viewMatrix = view,
-      .projection = projection
-    }, i == 0);
-
+    camera.viewport[0] = state.renderWidth * i;
+    lovrGraphicsSetCamera(&camera, i == 0);
     callback(userdata);
   }
 
   // Submit
   glActiveTexture(GL_TEXTURE0);
-  Texture* oldTexture = gpuGetTexture(0);
+  Texture* oldTexture = lovrGpuGetTexture(0);
   uintptr_t texture = (uintptr_t) lovrTextureGetId((Texture*) state.canvas);
   EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
   Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
