@@ -38,12 +38,12 @@ typedef struct Texture Texture;
 
 Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bool srgb, bool mipmaps);
 void lovrTextureDestroy(void* ref);
-uint32_t lovrTextureGetId(Texture* texture); // FIXME temporary
+uint32_t lovrTextureGetId(Texture* texture);
 int lovrTextureGetWidth(Texture* texture);
 int lovrTextureGetHeight(Texture* texture);
 int lovrTextureGetDepth(Texture* texture);
 TextureType lovrTextureGetType(Texture* texture);
-void lovrTextureReplacePixels(Texture* texture, TextureData* data, int slice);
+void lovrTextureReplacePixels(Texture* texture, TextureData* data, int x, int y, int slice);
 TextureFilter lovrTextureGetFilter(Texture* texture);
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter);
 TextureWrap lovrTextureGetWrap(Texture* texture);

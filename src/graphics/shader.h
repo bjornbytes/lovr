@@ -24,7 +24,6 @@ typedef struct Shader Shader;
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
 Shader* lovrShaderCreateDefault(DefaultShader type);
 void lovrShaderDestroy(void* ref);
-uint32_t lovrShaderGetProgram(Shader* shader);
 void lovrShaderBind(Shader* shader);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 bool lovrShaderHasUniform(Shader* shader, const char* name);

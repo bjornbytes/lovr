@@ -1,4 +1,5 @@
 #include "data/blob.h"
+#include "data/textureData.h"
 #include "lib/map/map.h"
 #include "util.h"
 #include <stdint.h>
@@ -30,7 +31,7 @@ typedef struct {
   int dx;
   int dy;
   int advance;
-  uint8_t* data;
+  TextureData* data;
 } Glyph;
 
 typedef map_t(Glyph) map_glyph_t;

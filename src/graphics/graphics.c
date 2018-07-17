@@ -74,6 +74,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
       glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
     }
 
+    state.msaa = msaa;
     state.window = glfwCreateWindow(w ? w : mode->width, h ? h : mode->height, title, fullscreen ? monitor : NULL, NULL);
     if (!state.window) {
       glfwTerminate();
@@ -105,6 +106,14 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   state.initialized = true;
 }
 
+void lovrGraphicsGetDimensions(int* width, int* height) {
+  glfwGetFramebufferSize(state.window, width, height);
+}
+
+int lovrGraphicsGetMSAA() {
+  return state.msaa;
+}
+
 void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   if (!camera) {
     int width, height;
@@ -125,10 +134,6 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
     Color backgroundColor = lovrGraphicsGetBackgroundColor();
     lovrGpuClear(&state.camera.canvas, canvasCount, &backgroundColor, &(float) { 1. }, &(int) { 0 });
   }
-}
-
-void lovrGraphicsGetDimensions(int* width, int* height) {
-  glfwGetFramebufferSize(state.window, width, height);
 }
 
 // State
@@ -358,7 +363,7 @@ void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
   if (pipeline->canvasCount > 0) {
     lovrGpuClear(pipeline->canvas, pipeline->canvasCount, color, depth, stencil);
   } else {
-    lovrGpuClear(&state.camera.canvas, 1, color, depth, stencil);
+    lovrGpuClear(&state.camera.canvas, state.camera.canvas != NULL, color, depth, stencil);
   }
 }
 

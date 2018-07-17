@@ -148,14 +148,14 @@ void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, Glyph* 
   glyph->dx = metrics->horiBearingX >> 6;
   glyph->dy = metrics->horiBearingY >> 6;
   glyph->advance = metrics->horiAdvance >> 6;
-  glyph->data = malloc(glyph->tw * glyph->th * 3 * sizeof(uint8_t));
+  glyph->data = lovrTextureDataGetBlank(glyph->tw, glyph->th, 0, FORMAT_RGB);
 
   // Render SDF
   float tx = GLYPH_PADDING + -glyph->dx;
   float ty = GLYPH_PADDING + glyph->h - glyph->dy;
   msShapeNormalize(shape);
   msEdgeColoringSimple(shape, 3.0, 0);
-  msGenerateMSDF(glyph->data, glyph->tw, glyph->th, shape, 4., 1, 1, tx, ty);
+  msGenerateMSDF(glyph->data->blob.data, glyph->tw, glyph->th, shape, 4., 1, 1, tx, ty);
   msShapeDestroy(shape);
 }
 

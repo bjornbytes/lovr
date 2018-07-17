@@ -43,6 +43,8 @@ static struct {
   bool stencilWriting;
   Winding winding;
   bool wireframe;
+  Canvas* canvas[MAX_CANVASES];
+  int canvasCount;
   uint32_t framebuffer;
   uint32_t indexBuffer;
   uint32_t program;
@@ -337,6 +339,13 @@ void lovrGpuBindTexture(Texture* texture, int slot) {
   }
 }
 
+void lovrGpuRebindTexture(int slot) {
+  lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
+  Texture* texture = state.textures[slot];
+  glActiveTexture(GL_TEXTURE0 + slot);
+  glBindTexture(texture->glType, lovrTextureGetId(texture));
+}
+
 static void lovrGpuBindVertexArray(uint32_t vertexArray) {
   if (state.vertexArray != vertexArray) {
     state.vertexArray = vertexArray;
@@ -349,11 +358,6 @@ static void lovrGpuBindVertexBuffer(uint32_t vertexBuffer) {
     state.vertexBuffer = vertexBuffer;
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
   }
-}
-
-Texture* lovrGpuGetTexture(int slot) {
-  lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
-  return state.textures[slot];
 }
 
 static void lovrGpuSetViewport(uint32_t viewport[4]) {
@@ -387,17 +391,17 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   state.srgb = srgb;
   state.blendMode = -1;
   state.blendAlphaMode = -1;
-  state.culling = -1;
-  state.depthEnabled = -1;
-  state.depthTest = -1;
-  state.depthWrite = -1;
-  state.lineWidth = -1;
-  state.stencilEnabled = -1;
-  state.stencilMode = -1;
-  state.stencilValue = -1;
+  state.culling = false;
+  state.depthEnabled = false;
+  state.depthTest = COMPARE_LESS;
+  state.depthWrite = true;
+  state.lineWidth = 1;
+  state.stencilEnabled = false;
+  state.stencilMode = COMPARE_NONE;
+  state.stencilValue = 0;
   state.stencilWriting = false;
-  state.winding = -1;
-  state.wireframe = -1;
+  state.winding = WINDING_COUNTERCLOCKWISE;
+  state.wireframe = false;
 }
 
 void lovrGpuDestroy() {
@@ -408,7 +412,7 @@ void lovrGpuDestroy() {
 }
 
 void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil) {
-  lovrGpuBindFramebuffer(canvasCount > 0 ? lovrCanvasGetId(canvas[0]) : 0);
+  lovrGpuBindFramebuffer(canvasCount > 0 ? canvas[0]->framebuffer : 0);
 
   if (color) {
     gammaCorrectColor(color);
@@ -420,11 +424,17 @@ void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, 
   }
 
   if (depth) {
+    state.depthWrite = true;
+    glDepthMask(state.depthWrite);
     glClearBufferfv(GL_DEPTH, 0, depth);
   }
 
   if (stencil) {
     glClearBufferiv(GL_STENCIL, 0, stencil);
+  }
+
+  if (canvasCount > 0) {
+    lovrCanvasResolve(canvas[0]);
   }
 }
 
@@ -551,7 +561,7 @@ void lovrGpuDraw(DrawCommand* command) {
 
   // Line width
   if (state.lineWidth != pipeline->lineWidth) {
-    state.lineWidth = state.lineWidth;
+    state.lineWidth = pipeline->lineWidth;
     glLineWidth(state.lineWidth);
   }
 
@@ -661,18 +671,45 @@ void lovrGpuDraw(DrawCommand* command) {
   }
 
   // Canvas
+  Canvas** canvas = pipeline->canvasCount > 0 ? pipeline->canvas : &command->camera.canvas;
+  int canvasCount = pipeline->canvasCount > 0 ? pipeline->canvasCount : (command->camera.canvas != NULL);
+  if (memcmp(state.canvas, canvas, canvasCount * sizeof(Canvas*))) {
+    if (state.canvasCount > 0) {
+      lovrCanvasResolve(state.canvas[0]);
+    }
+
+    state.canvasCount = canvasCount;
+
+    if (canvasCount > 0) {
+      memcpy(state.canvas, canvas, canvasCount * sizeof(Canvas*));
+      lovrGpuBindFramebuffer(canvas[0]->framebuffer);
+
+      GLenum buffers[MAX_CANVASES];
+      for (int i = 0; i < canvasCount; i++) {
+        buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+        glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, lovrTextureGetId((Texture*) canvas[i]), 0);
+      }
+      glDrawBuffers(canvasCount, buffers);
+
+      GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+      lovrAssert(status != GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS, "All multicanvas canvases must have the same dimensions");
+      lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
+    } else {
+      lovrGpuBindFramebuffer(0);
+    }
+  }
+
+  // Viewport
   if (pipeline->canvasCount > 0) {
-    lovrCanvasBind(pipeline->canvas, pipeline->canvasCount);
-    int width = lovrTextureGetWidth((Texture*) pipeline->canvas);
-    int height = lovrTextureGetHeight((Texture*) pipeline->canvas);
+    int width = lovrTextureGetWidth((Texture*) pipeline->canvas[0]);
+    int height = lovrTextureGetHeight((Texture*) pipeline->canvas[0]);
     lovrGpuSetViewport((uint32_t[4]) { 0, 0, width, height });
   } else {
-    lovrCanvasBind(&command->camera.canvas, command->camera.canvas != NULL);
     lovrGpuSetViewport(command->camera.viewport);
   }
 
   // Shader
-  lovrGpuUseProgram(lovrShaderGetProgram(shader));
+  lovrGpuUseProgram(shader->program);
   lovrShaderBind(shader);
 
   // Attributes
@@ -809,7 +846,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bo
 
   if (slices) {
     for (int i = 0; i < depth; i++) {
-      lovrTextureReplacePixels(texture, slices[i], i);
+      lovrTextureReplacePixels(texture, slices[i], 0, 0, i);
     }
   }
 
@@ -846,16 +883,18 @@ TextureType lovrTextureGetType(Texture* texture) {
   return texture->type;
 }
 
-void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int slice) {
+void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x, int y, int slice) {
   lovrRetain(textureData);
   lovrRelease(texture->slices[slice]);
   texture->slices[slice] = textureData;
+  lovrGpuBindTexture(texture, 0);
 
   if (!texture->allocated) {
     lovrAssert(texture->type != TEXTURE_CUBE || textureData->width == textureData->height, "Cubemap images must be square");
     lovrTextureAllocate(texture, textureData);
   } else {
-    lovrAssert(textureData->width == texture->width && textureData->height == texture->height, "All texture slices must have the same dimensions");
+    bool overflow = (x + textureData->width > texture->width) || (y + textureData->height > texture->height);
+    lovrAssert(!overflow, "Trying to replace pixels outside the texture's bounds");
   }
 
   if (!textureData->blob.data) {
@@ -876,7 +915,7 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
           break;
         case TEXTURE_ARRAY:
         case TEXTURE_VOLUME:
-          glCompressedTexSubImage3D(binding, i, 0, 0, slice, m.width, m.height, 1, glInternalFormat, m.size, m.data);
+          glCompressedTexSubImage3D(binding, i, x, y, slice, m.width, m.height, 1, glInternalFormat, m.size, m.data);
           break;
       }
     }
@@ -884,11 +923,11 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int sl
     switch (texture->type) {
       case TEXTURE_2D:
       case TEXTURE_CUBE:
-        glTexSubImage2D(binding, 0, 0, 0, textureData->width, textureData->height, glFormat, GL_UNSIGNED_BYTE, textureData->blob.data);
+        glTexSubImage2D(binding, 0, x, y, textureData->width, textureData->height, glFormat, GL_UNSIGNED_BYTE, textureData->blob.data);
         break;
       case TEXTURE_ARRAY:
       case TEXTURE_VOLUME:
-        glTexSubImage3D(binding, 0, 0, 0, slice, textureData->width, textureData->height, 1, glFormat, GL_UNSIGNED_BYTE, textureData->blob.data);
+        glTexSubImage3D(binding, 0, x, y, slice, textureData->width, textureData->height, 1, glFormat, GL_UNSIGNED_BYTE, textureData->blob.data);
         break;
     }
 
@@ -1028,33 +1067,6 @@ void lovrCanvasDestroy(void* ref) {
     glDeleteTextures(1, &canvas->msaaTexture);
   }
   lovrTextureDestroy(ref);
-}
-
-uint32_t lovrCanvasGetId(Canvas* canvas) {
-  return canvas->framebuffer;
-}
-
-void lovrCanvasBind(Canvas** canvases, int canvasCount) {
-  if (canvasCount == 0) {
-    lovrGpuBindFramebuffer(0);
-    return;
-  }
-
-  lovrGpuBindFramebuffer(canvases[0]->texture.id);
-  if (memcmp(canvases, canvases[0]->attachments, MAX_CANVASES * sizeof(Canvas*))) {
-    memcpy(canvases[0]->attachments, canvases, MAX_CANVASES * sizeof(Canvas*));
-
-    GLenum buffers[MAX_CANVASES];
-    for (int i = 0; i < canvasCount; i++) {
-      buffers[i] = GL_COLOR_ATTACHMENT0 + i;
-      glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, lovrTextureGetId((Texture*) canvases[i]), 0);
-    }
-    glDrawBuffers(canvasCount, buffers);
-
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    lovrAssert(status != GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS, "All multicanvas canvases must have the same dimensions");
-    lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
-  }
 }
 
 void lovrCanvasResolve(Canvas* canvas) {
@@ -1288,10 +1300,6 @@ void lovrShaderDestroy(void* ref) {
   map_deinit(&shader->uniforms);
   map_deinit(&shader->attributes);
   free(shader);
-}
-
-uint32_t lovrShaderGetProgram(Shader* shader) {
-  return shader->program;
 }
 
 void lovrShaderBind(Shader* shader) {

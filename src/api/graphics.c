@@ -46,6 +46,7 @@ const char* BlendModes[] = {
 };
 
 const char* CompareModes[] = {
+  [COMPARE_NONE] = "always",
   [COMPARE_EQUAL] = "equal",
   [COMPARE_NEQUAL] = "notequal",
   [COMPARE_LESS] = "less",
@@ -1107,7 +1108,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   for (int i = 0; i < depth; i++) {
     lua_rawgeti(L, 1, i + 1);
     TextureData* textureData = luax_checktexturedata(L, -1);
-    lovrTextureReplacePixels(texture, textureData, i);
+    lovrTextureReplacePixels(texture, textureData, 0, 0, i);
     lovrRelease(textureData);
     lua_pop(L, 1);
   }

@@ -10,8 +10,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "graphics/opengl.h"
-
 static float* lovrFontAlignLine(float* x, float* lineEnd, float width, HorizontalAlign halign) {
   while(x < lineEnd) {
     if (halign == ALIGN_CENTER) {
@@ -277,8 +275,7 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
   glyph->y = atlas->y;
 
   // Paste glyph into texture
-  lovrGpuBindTexture(font->texture, 0);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->tw, glyph->th, GL_RGB, GL_UNSIGNED_BYTE, glyph->data);
+  lovrTextureReplacePixels(font->texture, glyph->data, atlas->x, atlas->y, 0);
 
   // Advance atlas cursor
   atlas->x += glyph->tw + atlas->padding;

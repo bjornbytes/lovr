@@ -16,8 +16,6 @@
 #pragma pack(pop)
 #endif
 
-#include "graphics/opengl.h"
-
 // From openvr_capi.h
 extern intptr_t VR_InitInternal(EVRInitError *peError, EVRApplicationType eType);
 extern void VR_ShutdownInternal();
@@ -249,9 +247,7 @@ static void ensureCanvas() {
     return;
   }
 
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  int msaa = 0;
-  glGetIntegerv(GL_SAMPLES, &msaa);
+  int msaa = lovrGraphicsGetMSAA();
   state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
   CanvasFlags flags = { .msaa = msaa, .depth = true, .stencil = true, .mipmaps = false };
   state.canvas = lovrCanvasCreate(state.renderWidth * 2, state.renderHeight, FORMAT_RGB, flags);
@@ -692,8 +688,6 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   }
 
   // Submit
-  glActiveTexture(GL_TEXTURE0);
-  Texture* oldTexture = lovrGpuGetTexture(0);
   uintptr_t texture = (uintptr_t) lovrTextureGetId((Texture*) state.canvas);
   EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
   Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
@@ -701,7 +695,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   VRTextureBounds_t right = { .5, 0, 1., 1. };
   state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
   state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
-  glBindTexture(GL_TEXTURE_2D, lovrTextureGetId(oldTexture));
+  lovrGpuRebindTexture(0);
 
   lovrGraphicsSetCamera(NULL, false);
   state.isRendering = false;

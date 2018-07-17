@@ -142,6 +142,7 @@ typedef struct {
 typedef struct {
   bool initialized;
   bool gammaCorrect;
+  int msaa;
   void* window;
   Camera camera;
   Shader* defaultShaders[MAX_DEFAULT_SHADERS];
@@ -161,6 +162,7 @@ void lovrGraphicsDestroy();
 void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 void lovrGraphicsGetDimensions(int* width, int* height);
+int lovrGraphicsGetMSAA();
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
 GraphicsLimits lovrGraphicsGetLimits();
 GraphicsStats lovrGraphicsGetStats();
@@ -238,4 +240,4 @@ void lovrGpuDraw(DrawCommand* command);
 void lovrGpuPresent();
 
 void lovrGpuBindTexture(Texture* texture, int slot);
-Texture* lovrGpuGetTexture(int slot);
+void lovrGpuRebindTexture(int slot);
