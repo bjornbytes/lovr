@@ -283,14 +283,11 @@ set(LOVR_SRC
   src/filesystem/file.c
   src/filesystem/filesystem.c
   src/graphics/animator.c
-  src/graphics/canvas.c
   src/graphics/font.c
   src/graphics/graphics.c
   src/graphics/material.c
-  src/graphics/mesh.c
   src/graphics/model.c
-  src/graphics/shader.c
-  src/graphics/texture.c
+  src/graphics/opengl.c
   src/headset/fake.c
   src/headset/headset.c
   src/lib/glad/glad.c
