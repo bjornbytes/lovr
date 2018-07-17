@@ -27,6 +27,9 @@ void lovrGraphicsInit() {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
+  while (state.pipeline > 0) {
+    lovrGraphicsPopPipeline();
+  }
   lovrGraphicsSetShader(NULL);
   lovrGraphicsSetFont(NULL);
   lovrGraphicsSetCanvas(NULL, 0);
@@ -139,8 +142,10 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
 // State
 
 void lovrGraphicsReset() {
+  while (state.pipeline > 0) {
+    lovrGraphicsPopPipeline();
+  }
   state.transform = 0;
-  state.pipeline = 0;
   lovrGraphicsSetCamera(NULL, false);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
@@ -162,9 +167,19 @@ void lovrGraphicsReset() {
 void lovrGraphicsPushPipeline() {
   lovrAssert(++state.pipeline < MAX_PIPELINES, "Unbalanced pipeline stack (more pushes than pops?)");
   memcpy(&state.pipelines[state.pipeline], &state.pipelines[state.pipeline - 1], sizeof(Pipeline));
+  for (int i = 0; i < state.pipelines[state.pipeline].canvasCount; i++) {
+    lovrRetain(state.pipelines[state.pipeline].canvas[i]);
+  }
+  lovrRetain(state.pipelines[state.pipeline].font);
+  lovrRetain(state.pipelines[state.pipeline].shader);
 }
 
 void lovrGraphicsPopPipeline() {
+  for (int i = 0; i < state.pipelines[state.pipeline].canvasCount; i++) {
+    lovrRelease(state.pipelines[state.pipeline].canvas[i]);
+  }
+  lovrRelease(state.pipelines[state.pipeline].font);
+  lovrRelease(state.pipelines[state.pipeline].shader);
   lovrAssert(--state.pipeline >= 0, "Unbalanced pipeline stack (more pops than pushes?)");
 }
 
