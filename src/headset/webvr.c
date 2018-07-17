@@ -89,15 +89,12 @@ static void onMountChanged(bool mounted) {
 static void onFrame(float* leftView, float* rightView, float* leftProjection, float* rightProjection, void* userdata) {
   int width, height;
   webvrGetDisplayDimensions(&width, &height);
-  mat4 views[2] = { leftView, rightView };
-  mat4 projections[2] = { leftProjection, rightProjection };
+  Camera camera = { .viewport = { 0, 0, width, height } };
   for (int eye = 0; eye < 2; eye++) {
-    lovrGraphicsSetCamera(&(Camera) {
-      .viewport = { width * eye, 0, width, height },
-      .viewMatrix = views[eye],
-      .projection = projections[eye]
-    }, eye == 0);
-
+    camera.viewport[0] = width * eye;
+    memcpy(camera.projection, eye == 0 ? leftProjection : rightProjection);
+    memcpy(camera.viewMatrix, eye == 0 ? leftView : rightView);
+    lovrGraphicsSetCamera(&camera, eye == 0);
     state.renderCallback(userdata);
   }
   lovrGraphicsSetCamera(NULL, false);
