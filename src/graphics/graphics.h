@@ -6,25 +6,21 @@
 #include "graphics/texture.h"
 #include "math/math.h"
 #include "util.h"
-#include "lib/glfw.h"
 #include <stdbool.h>
+#include <stdint.h>
 
 #pragma once
 
-#define MAX_TRANSFORMS 60
-#define INTERNAL_TRANSFORMS 4
-#define MAX_LAYERS 4
-#define MAX_PIPELINES 14
-#define INTERNAL_PIPELINES 2
-#define DEFAULT_SHADER_COUNT 5
-#define MAX_TEXTURES 16
+#define MAX_TRANSFORMS 64
+#define MAX_PIPELINES 16
 
 typedef void (*StencilCallback)(void* userdata);
 
-typedef struct {
-  int shaderSwitches;
-  int drawCalls;
-} GraphicsStats;
+typedef enum {
+  ARC_MODE_PIE,
+  ARC_MODE_OPEN,
+  ARC_MODE_CLOSED
+} ArcMode;
 
 typedef enum {
   BLEND_ALPHA,
@@ -43,22 +39,6 @@ typedef enum {
 } BlendAlphaMode;
 
 typedef enum {
-  DRAW_MODE_FILL,
-  DRAW_MODE_LINE
-} DrawMode;
-
-typedef enum {
-  ARC_MODE_PIE,
-  ARC_MODE_OPEN,
-  ARC_MODE_CLOSED
-} ArcMode;
-
-typedef enum {
-  WINDING_CLOCKWISE,
-  WINDING_COUNTERCLOCKWISE
-} Winding;
-
-typedef enum {
   COMPARE_NONE,
   COMPARE_EQUAL,
   COMPARE_NEQUAL,
@@ -69,6 +49,11 @@ typedef enum {
 } CompareMode;
 
 typedef enum {
+  DRAW_MODE_FILL,
+  DRAW_MODE_LINE
+} DrawMode;
+
+typedef enum {
   STENCIL_REPLACE,
   STENCIL_INCREMENT,
   STENCIL_DECREMENT,
@@ -76,6 +61,11 @@ typedef enum {
   STENCIL_DECREMENT_WRAP,
   STENCIL_INVERT
 } StencilAction;
+
+typedef enum {
+  WINDING_CLOCKWISE,
+  WINDING_COUNTERCLOCKWISE
+} Winding;
 
 typedef struct {
   bool initialized;
@@ -86,9 +76,23 @@ typedef struct {
 } GraphicsLimits;
 
 typedef struct {
+  int shaderSwitches;
+  int drawCalls;
+} GraphicsStats;
+
+typedef struct {
+  Canvas* canvas;
+  uint32_t viewport[4];
+  mat4 viewMatrix;
+  mat4 projection;
+} Camera;
+
+typedef struct {
   Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
+  Canvas* canvas[MAX_CANVASES];
+  int canvasCount;
   Color color;
   bool culling;
   CompareMode depthTest;
@@ -104,19 +108,6 @@ typedef struct {
 } Pipeline;
 
 typedef struct {
-  float projection[16];
-  float view[16];
-  uint32_t viewport[4];
-  Canvas* canvas[MAX_CANVASES];
-  int canvasCount;
-  bool user;
-} Layer;
-
-typedef struct {
-  mat4 transform;
-  DefaultShader shader;
-  Material* material;
-  Texture* textures[MAX_MATERIAL_TEXTURES];
   Mesh* mesh;
   MeshDrawMode mode;
   struct {
@@ -131,23 +122,36 @@ typedef struct {
     int start;
     int count;
   } range;
+  DefaultShader shader;
+  Material* material;
+  Texture* textures[MAX_MATERIAL_TEXTURES];
+  mat4 transform;
+  int instances;
+} DrawOptions;
+
+typedef struct {
+  Mesh* mesh;
+  Shader* shader;
+  Material* material;
+  Camera camera;
+  float transform[16];
+  Pipeline pipeline;
   int instances;
 } DrawCommand;
 
 typedef struct {
   bool initialized;
-  GLFWwindow* window;
-  Shader* defaultShaders[DEFAULT_SHADER_COUNT];
+  bool gammaCorrect;
+  void* window;
+  Camera camera;
+  Shader* defaultShaders[MAX_DEFAULT_SHADERS];
   Material* defaultMaterial;
   Font* defaultFont;
+  Mesh* defaultMesh;
   TextureFilter defaultFilter;
-  bool gammaCorrect;
-  Mesh* mesh;
-  float transforms[MAX_TRANSFORMS + INTERNAL_TRANSFORMS][16];
+  float transforms[MAX_TRANSFORMS][16];
   int transform;
-  Layer layers[MAX_LAYERS];
-  int layer;
-  Pipeline pipelines[MAX_PIPELINES + INTERNAL_PIPELINES];
+  Pipeline pipelines[MAX_PIPELINES];
   int pipeline;
 } GraphicsState;
 
@@ -157,11 +161,14 @@ void lovrGraphicsDestroy();
 void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 void lovrGraphicsGetDimensions(int* width, int* height);
+void lovrGraphicsSetCamera(Camera* camera, bool clear);
 GraphicsLimits lovrGraphicsGetLimits();
 GraphicsStats lovrGraphicsGetStats();
 
 // State
 void lovrGraphicsReset();
+void lovrGraphicsPushPipeline();
+void lovrGraphicsPopPipeline();
 Color lovrGraphicsGetBackgroundColor();
 void lovrGraphicsSetBackgroundColor(Color color);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
@@ -205,7 +212,7 @@ void lovrGraphicsMatrixTransform(mat4 transform);
 // Drawing
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
-void lovrGraphicsDraw(DrawCommand* draw);
+void lovrGraphicsDraw(DrawOptions* draw);
 void lovrGraphicsPoints(uint32_t count);
 void lovrGraphicsLine(uint32_t count);
 void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]);
@@ -219,11 +226,3 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGraphicsFill(Texture* texture);
-
-// Internal
-void lovrGraphicsPushLayer(Canvas** canvas, int count, bool user);
-void lovrGraphicsPopLayer();
-void lovrGraphicsPushPipeline();
-void lovrGraphicsPopPipeline();
-void lovrGraphicsSetCamera(mat4 projection, mat4 view);
-void lovrGraphicsSetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);

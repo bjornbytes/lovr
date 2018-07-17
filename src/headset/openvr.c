@@ -17,7 +17,7 @@
 #pragma pack(pop)
 #endif
 
-#include "graphics/opengl/opengl.h"
+#include "graphics/opengl.h"
 
 // From openvr_capi.h
 extern intptr_t VR_InitInternal(EVRInitError *peError, EVRApplicationType eType);
@@ -673,26 +673,23 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
   mat4_fromMat34(head, state.renderPoses[state.headsetIndex].mDeviceToAbsoluteTracking.m);
 
-  Color backgroundColor = lovrGraphicsGetBackgroundColor();
-  lovrGraphicsPushLayer(&state.canvas, 1, false);
-  lovrGraphicsClear(&backgroundColor, &(float) { 1. }, NULL);
-
-  for (HeadsetEye i = EYE_LEFT; i <= EYE_RIGHT; i++) {
-
-    // Camera
-    EVREye vrEye = (i == EYE_LEFT) ? EVREye_Eye_Left : EVREye_Eye_Right;
+  for (int i = 0; i < 2; i++) {
+    EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
     mat4_fromMat44(projection, state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
     mat4_identity(view);
     mat4_translate(view, 0, state.offset, 0);
     mat4_multiply(view, head);
     mat4_multiply(view, mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
     mat4_invert(view);
-    lovrGraphicsSetCamera(projection, view);
-    lovrGraphicsSetViewport(state.renderWidth * i, 0, state.renderWidth, state.renderHeight);
 
-    // Render
+    lovrGraphicsSetCamera(&(Camera) {
+      .canvas = state.canvas,
+      .viewport = { state.renderWidth * i, 0, state.renderWidth, state.renderHeight },
+      .viewMatrix = view,
+      .projection = projection
+    }, i == 0);
+
     callback(userdata);
-    lovrCanvasResolve(state.canvas);
   }
 
   // Submit
@@ -707,19 +704,15 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
   glBindTexture(GL_TEXTURE_2D, lovrTextureGetId(oldTexture));
 
-  lovrGraphicsPopLayer();
+  lovrGraphicsSetCamera(NULL, false);
   state.isRendering = false;
 
   if (state.isMirrored) {
-    Color oldColor = lovrGraphicsGetColor();
+    lovrGraphicsPushPipeline();
     lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
-    Shader* lastShader = lovrGraphicsGetShader();
-    lovrRetain(lastShader);
     lovrGraphicsSetShader(NULL);
     lovrGraphicsFill((Texture*) state.canvas);
-    lovrGraphicsSetShader(lastShader);
-    lovrRelease(lastShader);
-    lovrGraphicsSetColor(oldColor);
+    lovrGraphicsPopPipeline();
   }
 }
 

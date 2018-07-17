@@ -11,22 +11,12 @@
 
 #pragma once
 
-typedef struct {
-  Layer layer;
-  mat4 transform;
-  Shader* shader;
-  Material* material;
-  Mesh* mesh;
-  Pipeline pipeline;
-  int instances;
-} GpuDrawCommand;
-
 typedef void (*gpuProc)(void);
 
 void gpuInit(bool srgb, gpuProc (*getProcAddress)(const char*));
 void gpuDestroy();
 void gpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil);
-void gpuDraw(GpuDrawCommand* command);
+void gpuDraw(DrawCommand* command);
 void gpuPresent();
 
 // Ephemeral

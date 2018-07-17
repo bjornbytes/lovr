@@ -89,15 +89,18 @@ static void onMountChanged(bool mounted) {
 static void onFrame(float* leftView, float* rightView, float* leftProjection, float* rightProjection, void* userdata) {
   int width, height;
   webvrGetDisplayDimensions(&width, &height);
-  lovrGraphicsPushLayer(NULL, 0, false);
-  lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0);
-  lovrGraphicsSetCamera(leftProjection, leftView);
-  lovrGraphicsSetViewport(0, 0, width, height);
-  state.renderCallback(userdata);
-  lovrGraphicsSetCamera(rightProjection, rightView);
-  lovrGraphicsSetViewport(width, 0, width, height);
-  state.renderCallback(userdata);
-  lovrGraphicsPopLayer();
+  mat4 views[2] = { leftView, rightView };
+  mat4 projections[2] = { leftProjection, rightProjection };
+  for (int eye = 0; eye < 2; eye++) {
+    lovrGraphicsSetCamera(&(Camera) {
+      .viewport = { width * eye, 0, width, height },
+      .viewMatrix = views[eye],
+      .projection = projections[eye]
+    }, eye == 0);
+
+    state.renderCallback(userdata);
+  }
+  lovrGraphicsSetCamera(NULL, false);
 }
 
 static bool webvrDriverInit(float offset) {

@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "graphics/opengl/opengl.h"
+#include "graphics/opengl.h"
 
 static float* lovrFontAlignLine(float* x, float* lineEnd, float width, HorizontalAlign halign) {
   while(x < lineEnd) {

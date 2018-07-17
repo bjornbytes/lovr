@@ -3,6 +3,7 @@
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "math/quat.h"
+#include "lib/glfw.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdlib.h>
@@ -286,21 +287,23 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   float projection[16];
   mat4_perspective(projection, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height);
 
-  float view[16];
-  mat4_identity(view);
-  mat4_translate(view, 0, state.offset, 0);
-  mat4_multiply(view, state.transform);
-  mat4_invert(view);
+  float viewMatrix[16];
+  mat4_identity(viewMatrix);
+  mat4_translate(viewMatrix, 0, state.offset, 0);
+  mat4_multiply(viewMatrix, state.transform);
+  mat4_invert(viewMatrix);
 
-  Color backgroundColor = lovrGraphicsGetBackgroundColor();
-  lovrGraphicsPushLayer(NULL, 0, false);
-  lovrGraphicsClear(&backgroundColor, &(float) { 1. }, &(int) { 0 });
-  lovrGraphicsSetCamera(projection, view);
-  lovrGraphicsSetViewport(0, 0, width, height);
-  callback(userdata);
-  lovrGraphicsSetViewport(width, 0, width, height);
-  callback(userdata);
-  lovrGraphicsPopLayer();
+  for (int eye = 0; eye < 2; eye++) {
+    lovrGraphicsSetCamera(&(Camera) {
+      .viewport = { width * eye, 0, width, height },
+      .viewMatrix = viewMatrix,
+      .projection = projection
+    }, eye == 0);
+
+    callback(userdata);
+  }
+
+  lovrGraphicsSetCamera(NULL, false);
 }
 
 static void fakeUpdate(float dt) {

@@ -15,7 +15,8 @@ typedef enum {
   SHADER_CUBE,
   SHADER_PANO,
   SHADER_FONT,
-  SHADER_FILL
+  SHADER_FILL,
+  MAX_DEFAULT_SHADERS
 } DefaultShader;
 
 typedef struct Shader Shader;
