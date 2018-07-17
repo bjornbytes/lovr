@@ -17,8 +17,8 @@ typedef struct {
   Material* material;
   Animator* animator;
   Mesh* mesh;
-  mat4 pose[MAX_BONES];
-  mat4* nodeTransforms;
+  float pose[MAX_BONES][16];
+  float (*nodeTransforms)[16];
   float aabb[6];
   bool aabbDirty;
 } Model;
