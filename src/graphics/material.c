@@ -1,11 +1,9 @@
 #include "graphics/material.h"
 #include <stdlib.h>
 
-Material* lovrMaterialCreate(bool isDefault) {
+Material* lovrMaterialCreate() {
   Material* material = lovrAlloc(sizeof(Material), lovrMaterialDestroy);
   if (!material) return NULL;
-
-  material->isDefault = isDefault;
 
   for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
     material->scalars[i] = 1.f;

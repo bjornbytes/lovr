@@ -911,7 +911,7 @@ int l_lovrGraphicsNewFont(lua_State* L) {
 }
 
 int l_lovrGraphicsNewMaterial(lua_State* L) {
-  Material* material = lovrMaterialCreate(false);
+  Material* material = lovrMaterialCreate();
 
   int index = 1;
 
@@ -1016,7 +1016,7 @@ int l_lovrGraphicsNewModel(lua_State* L) {
       Blob* blob = luax_readblob(L, 2, "Texture");
       TextureData* textureData = lovrTextureDataFromBlob(blob);
       Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true);
-      Material* material = lovrMaterialCreate(false);
+      Material* material = lovrMaterialCreate();
       lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
       lovrModelSetMaterial(model, material);
       lovrRelease(blob);

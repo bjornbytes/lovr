@@ -407,7 +407,7 @@ void lovrGraphicsDraw(DrawOptions* draw) {
   Material* material = draw->material;
   if (!material) {
     if (!state.defaultMaterial) {
-      state.defaultMaterial = lovrMaterialCreate(true);
+      state.defaultMaterial = lovrMaterialCreate();
     }
 
     material = state.defaultMaterial;

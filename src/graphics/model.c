@@ -83,7 +83,7 @@ Model* lovrModelCreate(ModelData* modelData) {
     model->materials = calloc(modelData->materialCount, sizeof(Material*));
     for (int i = 0; i < modelData->materialCount; i++) {
       ModelMaterial* materialData = &modelData->materials[i];
-      Material* material = lovrMaterialCreate(false);
+      Material* material = lovrMaterialCreate();
       lovrMaterialSetScalar(material, SCALAR_METALNESS, materialData->metalness);
       lovrMaterialSetScalar(material, SCALAR_ROUGHNESS, materialData->roughness);
       lovrMaterialSetColor(material, COLOR_DIFFUSE, materialData->diffuseColor);
