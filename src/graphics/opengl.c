@@ -345,11 +345,9 @@ void lovrGpuBindTexture(Texture* texture, int slot) {
   }
 }
 
-void lovrGpuRebindTexture(int slot) {
+void lovrGpuDirtyTexture(int slot) {
   lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
-  Texture* texture = state.textures[slot];
-  glActiveTexture(GL_TEXTURE0 + slot);
-  glBindTexture(texture->glType, lovrTextureGetId(texture));
+  state.textures[slot] = NULL;
 }
 
 static void lovrGpuBindVertexArray(uint32_t vertexArray) {
@@ -430,8 +428,11 @@ void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, 
   }
 
   if (depth) {
-    state.depthWrite = true;
-    glDepthMask(state.depthWrite);
+    if (!state.depthWrite) {
+      state.depthWrite = true;
+      glDepthMask(state.depthWrite);
+    }
+
     glClearBufferfv(GL_DEPTH, 0, depth);
   }
 
@@ -480,6 +481,9 @@ void lovrGpuDraw(DrawCommand* command) {
   Shader* shader = command->shader;
   Pipeline* pipeline = &command->pipeline;
   int instances = command->instances;
+
+  // Bind shader
+  lovrGpuUseProgram(shader->program);
 
   // Blend mode
   if (state.blendMode != pipeline->blendMode || state.blendAlphaMode != pipeline->blendAlphaMode) {
@@ -714,11 +718,10 @@ void lovrGpuDraw(DrawCommand* command) {
     lovrGpuSetViewport(command->camera.viewport);
   }
 
-  // Shader
-  lovrGpuUseProgram(shader->program);
+  // Bind uniforms
   lovrShaderBind(shader);
 
-  // Attributes
+  // Bind attributes
   lovrMeshBind(mesh, shader);
 
   // Draw (TODEW)

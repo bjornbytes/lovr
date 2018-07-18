@@ -240,4 +240,4 @@ void lovrGpuDraw(DrawCommand* command);
 void lovrGpuPresent();
 
 void lovrGpuBindTexture(Texture* texture, int slot);
-void lovrGpuRebindTexture(int slot);
+void lovrGpuDirtyTexture(int slot);

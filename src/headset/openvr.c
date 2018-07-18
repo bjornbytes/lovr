@@ -685,6 +685,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     camera.viewport[0] = state.renderWidth * i;
     lovrGraphicsSetCamera(&camera, i == 0);
     callback(userdata);
+    lovrGraphicsSetCanvas(NULL, 0);
   }
 
   // Submit
@@ -695,7 +696,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   VRTextureBounds_t right = { .5, 0, 1., 1. };
   state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
   state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
-  lovrGpuRebindTexture(0);
+  lovrGpuDirtyTexture(0);
 
   lovrGraphicsSetCamera(NULL, false);
   state.isRendering = false;
