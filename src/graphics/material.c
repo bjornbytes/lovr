@@ -1,4 +1,5 @@
 #include "graphics/material.h"
+#include <math.h>
 #include <stdlib.h>
 
 Material* lovrMaterialCreate() {
@@ -12,6 +13,8 @@ Material* lovrMaterialCreate() {
   for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
     material->colors[i] = (Color) { 1, 1, 1, 1 };
   }
+
+  lovrMaterialSetTransform(material, 0, 0, 1, 1, 0);
 
   return material;
 }
@@ -50,4 +53,26 @@ void lovrMaterialSetTexture(Material* material, MaterialTexture textureType, Tex
     lovrRelease(material->textures[textureType]);
     material->textures[textureType] = texture;
   }
+}
+
+void lovrMaterialGetTransform(Material* material, float* ox, float* oy, float* sx, float* sy, float* angle) {
+  *ox = material->transform[6];
+  *oy = material->transform[7];
+  *sx = sqrt(material->transform[0] * material->transform[0] + material->transform[1] * material->transform[1]);
+  *sy = sqrt(material->transform[3] * material->transform[3] + material->transform[4] * material->transform[4]);
+  *angle = atan2(-material->transform[3], material->transform[0]);
+}
+
+void lovrMaterialSetTransform(Material* material, float ox, float oy, float sx, float sy, float angle) {
+  float c = cos(angle);
+  float s = sin(angle);
+  material->transform[0] = c * sx;
+  material->transform[1] = s * sx;
+  material->transform[2] = 0;
+  material->transform[3] = -s * sy;
+  material->transform[4] = c * sy;
+  material->transform[5] = 0;
+  material->transform[6] = ox;
+  material->transform[7] = oy;
+  material->transform[8] = 1;
 }

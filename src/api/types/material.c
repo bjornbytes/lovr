@@ -62,6 +62,29 @@ int l_lovrMaterialSetTexture(lua_State* L) {
   return 0;
 }
 
+int l_lovrMaterialGetTransform(lua_State* L) {
+  Material* material = luax_checktype(L, 1, Material);
+  float ox, oy, sx, sy, angle;
+  lovrMaterialGetTransform(material, &ox, &oy,  &sx, &sy, &angle);
+  lua_pushnumber(L, ox);
+  lua_pushnumber(L, oy);
+  lua_pushnumber(L, sx);
+  lua_pushnumber(L, sy);
+  lua_pushnumber(L, angle);
+  return 5;
+}
+
+int l_lovrMaterialSetTransform(lua_State* L) {
+  Material* material = luax_checktype(L, 1, Material);
+  float ox = luaL_optnumber(L, 2, 0.f);
+  float oy = luaL_optnumber(L, 3, 0.f);
+  float sx = luaL_optnumber(L, 4, 1.f);
+  float sy = luaL_optnumber(L, 5, sx);
+  float angle = luaL_optnumber(L, 6, 0.f);
+  lovrMaterialSetTransform(material, ox, oy, sx, sy, angle);
+  return 0;
+}
+
 const luaL_Reg lovrMaterial[] = {
   { "getColor", l_lovrMaterialGetColor },
   { "setColor", l_lovrMaterialSetColor },
@@ -69,5 +92,7 @@ const luaL_Reg lovrMaterial[] = {
   { "setScalar", l_lovrMaterialSetScalar },
   { "getTexture", l_lovrMaterialGetTexture },
   { "setTexture", l_lovrMaterialSetTexture },
+  { "getTransform", l_lovrMaterialGetTransform },
+  { "setTransform", l_lovrMaterialSetTransform },
   { NULL, NULL }
 };

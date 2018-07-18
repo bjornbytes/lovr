@@ -680,6 +680,8 @@ void lovrGpuDraw(DrawCommand* command) {
     lovrShaderSetTexture(shader, lovrShaderTextureUniforms[i], &texture, 1);
   }
 
+  lovrShaderSetMatrix(shader, "lovrMaterialTransform", material->transform, 9);
+
   // Canvas
   Canvas** canvas = pipeline->canvasCount > 0 ? pipeline->canvas : &command->camera.canvas;
   int canvasCount = pipeline->canvasCount > 0 ? pipeline->canvasCount : (command->camera.canvas != NULL);
