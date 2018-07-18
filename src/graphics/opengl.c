@@ -683,7 +683,7 @@ void lovrGpuDraw(DrawCommand* command) {
   // Canvas
   Canvas** canvas = pipeline->canvasCount > 0 ? pipeline->canvas : &command->camera.canvas;
   int canvasCount = pipeline->canvasCount > 0 ? pipeline->canvasCount : (command->camera.canvas != NULL);
-  if (memcmp(state.canvas, canvas, canvasCount * sizeof(Canvas*))) {
+  if (canvasCount != state.canvasCount || memcmp(state.canvas, canvas, canvasCount * sizeof(Canvas*))) {
     if (state.canvasCount > 0) {
       lovrCanvasResolve(state.canvas[0]);
     }
@@ -1083,8 +1083,9 @@ void lovrCanvasResolve(Canvas* canvas) {
     int width = canvas->texture.width;
     int height = canvas->texture.height;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, canvas->resolveFramebuffer);
+    lovrGpuBindFramebuffer(GL_DRAW_FRAMEBUFFER, canvas->resolveFramebuffer);
     glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
   }
 
   if (canvas->flags.mipmaps) {

@@ -688,6 +688,8 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     lovrGraphicsSetCanvas(NULL, 0);
   }
 
+  lovrCanvasResolve(state.canvas);
+
   // Submit
   uintptr_t texture = (uintptr_t) lovrTextureGetId((Texture*) state.canvas);
   EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
