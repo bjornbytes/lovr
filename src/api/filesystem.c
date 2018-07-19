@@ -61,6 +61,9 @@ static const char* libraryExtensions[] = {
 static int libraryLoader(lua_State* L) {
   const char* modulePath = luaL_gsub(L, lua_tostring(L, -1), ".", "/");
   const char* moduleFunction = luaL_gsub(L, lua_tostring(L, -1), ".", "_");
+  char* hyphen = strchr(moduleFunction, '-');
+  moduleFunction = hyphen ? hyphen + 1 : moduleFunction;
+
   lua_pop(L, 3);
 
   char* path; int i;
@@ -74,7 +77,9 @@ static int libraryLoader(lua_State* L) {
 
       if (lovrFilesystemIsFile(filename)) {
         const char* realPath = lovrFilesystemGetRealDirectory(filename);
-        void* library = lovrLoadLibrary(realPath);
+        char fullPath[LOVR_PATH_MAX];
+        snprintf(fullPath, LOVR_PATH_MAX, "%s%c%s", realPath, lovrDirSep, filename);
+        void* library = lovrLoadLibrary(fullPath);
 
         snprintf(buffer, 63, "luaopen_%s", moduleFunction);
         void* function = lovrLoadSymbol(library, buffer);

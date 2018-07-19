@@ -19,6 +19,12 @@
 #include <pwd.h>
 #endif
 
+#ifdef _WIN32
+const char lovrDirSep = '\\';
+#else
+const char lovrDirSep = '/';
+#endif
+
 static FilesystemState state;
 
 void lovrFilesystemInit(const char* arg0, const char* arg1) {
