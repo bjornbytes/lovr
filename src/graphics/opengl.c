@@ -1115,10 +1115,10 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas) {
 
 // Shader
 
-static GLuint compileShader(GLenum type, const char* source) {
+static GLuint compileShader(GLenum type, const char** sources, int count) {
   GLuint shader = glCreateShader(type);
 
-  glShaderSource(shader, 1, (const GLchar**) &source, NULL);
+  glShaderSource(shader, count, sources, NULL);
   glCompileShader(shader);
 
   int isShaderCompiled;
@@ -1171,17 +1171,15 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   Shader* shader = lovrAlloc(sizeof(Shader), lovrShaderDestroy);
   if (!shader) return NULL;
 
-  char source[8192];
-
   // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
-  snprintf(source, sizeof(source), "%s%s\n%s", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix);
-  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, source);
+  const char* vertexSources[] = { lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
+  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, 3);
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
-  snprintf(source, sizeof(source), "%s%s\n%s", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix);
-  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, source);
+  const char* fragmentSources[] = { lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
+  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, 3);
 
   // Link
   uint32_t program = linkShaders(vertexShader, fragmentShader);
