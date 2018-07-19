@@ -1,7 +1,12 @@
 #include "graphics/texture.h"
+#include "lib/map/map.h"
+#include "lib/vec/vec.h"
 #include <stdbool.h>
 
 #pragma once
+
+#define LOVR_MAX_UNIFORM_LENGTH 64
+#define LOVR_MAX_ATTRIBUTE_LENGTH 64
 
 typedef enum {
   UNIFORM_FLOAT,
@@ -18,6 +23,26 @@ typedef enum {
   SHADER_FILL,
   MAX_DEFAULT_SHADERS
 } DefaultShader;
+
+typedef struct {
+  char name[LOVR_MAX_UNIFORM_LENGTH];
+  int location;
+  int count;
+  int components;
+  size_t size;
+  UniformType type;
+  union {
+    void* data;
+    int* ints;
+    float* floats;
+    Texture** textures;
+  } value;
+  int baseTextureSlot;
+  bool dirty;
+} Uniform;
+
+typedef map_t(Uniform) map_uniform_t;
+typedef vec_t(Uniform) vec_uniform_t;
 
 typedef struct Shader Shader;
 

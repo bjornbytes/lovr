@@ -31,8 +31,6 @@
 #define LOVR_SHADER_TANGENT 4
 #define LOVR_SHADER_BONES 5
 #define LOVR_SHADER_BONE_WEIGHTS 6
-#define LOVR_MAX_UNIFORM_LENGTH 64
-#define LOVR_MAX_ATTRIBUTE_LENGTH 64
 
 static struct {
   Texture* defaultTexture;
@@ -63,26 +61,6 @@ static struct {
   GraphicsLimits limits;
   GraphicsStats stats;
 } state;
-
-typedef struct {
-  GLchar name[LOVR_MAX_UNIFORM_LENGTH];
-  GLenum glType;
-  int location;
-  int count;
-  int components;
-  size_t size;
-  UniformType type;
-  union {
-    void* data;
-    int* ints;
-    float* floats;
-    Texture** textures;
-  } value;
-  int baseTextureSlot;
-  bool dirty;
-} Uniform;
-
-typedef map_t(Uniform) map_uniform_t;
 
 struct Shader {
   Ref ref;
@@ -1242,7 +1220,8 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &uniformCount);
   for (int i = 0; i < uniformCount; i++) {
     Uniform uniform;
-    glGetActiveUniform(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, &uniform.count, &uniform.glType, uniform.name);
+    GLenum glType;
+    glGetActiveUniform(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, &uniform.count, &glType, uniform.name);
 
     char* subscript = strchr(uniform.name, '[');
     if (subscript) {
@@ -1250,8 +1229,8 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     }
 
     uniform.location = glGetUniformLocation(program, uniform.name);
-    uniform.type = getUniformType(uniform.glType, uniform.name);
-    uniform.components = getUniformComponents(uniform.glType);
+    uniform.type = getUniformType(glType, uniform.name);
+    uniform.components = getUniformComponents(glType);
     uniform.baseTextureSlot = (uniform.type == UNIFORM_SAMPLER) ? textureSlot : -1;
 
     if (uniform.location == -1) {
@@ -1404,13 +1383,6 @@ void lovrShaderBind(Shader* shader) {
 
       case UNIFORM_SAMPLER:
         for (int i = 0; i < count; i++) {
-          GLenum uniformTextureType;
-          switch (uniform->glType) {
-            case GL_SAMPLER_2D: uniformTextureType = GL_TEXTURE_2D; break;
-            case GL_SAMPLER_3D: uniformTextureType = GL_TEXTURE_3D; break;
-            case GL_SAMPLER_CUBE: uniformTextureType = GL_TEXTURE_CUBE_MAP; break;
-            case GL_SAMPLER_2D_ARRAY: uniformTextureType = GL_TEXTURE_2D_ARRAY; break;
-          }
           lovrGpuBindTexture(uniform->value.textures[i], uniform->baseTextureSlot + i);
         }
         break;
