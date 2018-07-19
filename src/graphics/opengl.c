@@ -66,7 +66,6 @@ static struct {
 typedef struct {
   GLchar name[LOVR_MAX_UNIFORM_LENGTH];
   GLenum glType;
-  int index;
   int location;
   int count;
   int components;
@@ -1207,7 +1206,6 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
       *subscript = '\0';
     }
 
-    uniform.index = i;
     uniform.location = glGetUniformLocation(program, uniform.name);
     uniform.type = getUniformType(uniform.glType, uniform.name);
     uniform.components = getUniformComponents(uniform.glType);
