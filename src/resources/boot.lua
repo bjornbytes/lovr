@@ -78,12 +78,8 @@ function lovr.boot()
   if not lovr.filesystem.getSource() or not (hasConf or hasMain) then nogame() end
 
   local ok, confError
-  if hasConf then
-    ok, confError = pcall(require, 'conf')
-    if lovr.conf then
-      ok, confError = pcall(lovr.conf, conf)
-    end
-  end
+  if hasConf then ok, confError = pcall(require, 'conf') end
+  if lovr.conf then ok, confError = pcall(lovr.conf, conf) end
 
   lovr._setConf(conf)
   lovr.filesystem.setIdentity(conf.identity)
