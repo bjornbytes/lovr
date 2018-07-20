@@ -1079,17 +1079,15 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
 
   if (hasFlags) {
     lua_getfield(L, 2, "linear");
-    srgb = !lua_toboolean(L, -1);
+    srgb = lua_isnil(L, -1) ? srgb : !lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "mipmaps");
-    mipmaps = lua_toboolean(L, -1);
+    mipmaps = lua_isnil(L, -1) ? mipmaps : lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "type");
-    if (!lua_isnil(L, -1)) {
-      type = luaL_checkoption(L, -1, NULL, TextureTypes);
-    }
+    type = lua_isnil(L, -1) ? type : luaL_checkoption(L, -1, NULL, TextureTypes);
     lua_pop(L, 1);
   }
 
