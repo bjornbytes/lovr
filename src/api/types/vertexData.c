@@ -35,7 +35,7 @@ bool luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
   }
 
   int length = lua_objlen(L, index);
-  lovrAssert(length <= 8, "Only 8 vertex attributes are supported");
+  lovrAssert(length <= 8, "Up to 8 vertex attributes are supported");
   for (int i = 0; i < length; i++) {
     lua_rawgeti(L, index, i + 1);
 
