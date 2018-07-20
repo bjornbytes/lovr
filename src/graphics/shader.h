@@ -26,11 +26,12 @@ typedef enum {
 
 typedef struct {
   char name[LOVR_MAX_UNIFORM_LENGTH];
-  int location;
-  int count;
-  int components;
-  size_t size;
   UniformType type;
+  int components;
+  int count;
+  int location;
+  size_t offset;
+  size_t size;
   union {
     void* data;
     int* ints;
@@ -42,7 +43,6 @@ typedef struct {
 } Uniform;
 
 typedef map_t(Uniform) map_uniform_t;
-typedef vec_t(Uniform) vec_uniform_t;
 
 typedef struct Shader Shader;
 

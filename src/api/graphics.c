@@ -5,6 +5,7 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
+#include "graphics/shaderBlock.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "data/textureData.h"
@@ -853,12 +854,13 @@ int l_lovrGraphicsNewAnimator(lua_State* L) {
 }
 
 int l_lovrGraphicsNewShaderBlock(lua_State* L) {
-  vec_uniform_t uniforms;
-  vec_init(&uniforms);
+  Uniform uniforms[MAX_SHADER_BLOCK_UNIFORMS];
+  int count = 0;
 
   luaL_checktype(L, 1, LUA_TTABLE);
   lua_pushnil(L);
   while (lua_next(L, 1) != 0) {
+    lovrAssert(count < MAX_SHADER_BLOCK_UNIFORMS, "Shader blocks can only have up to %d uniforms", MAX_SHADER_BLOCK_UNIFORMS);
     lovrAssert(lua_type(L, -2) == LUA_TSTRING, "Uniform names must be strings");
 
     // Handle type shorthand
@@ -870,46 +872,44 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
     luaL_checktype(L, -1, LUA_TTABLE);
 
     // Name
-    Uniform uniform;
-    strncpy(uniform.name, lua_tostring(L, -2), LOVR_MAX_UNIFORM_LENGTH - 1);
+    Uniform* uniform = &uniforms[count++];
+    strncpy(uniform->name, lua_tostring(L, -2), LOVR_MAX_UNIFORM_LENGTH - 1);
 
     // Count
     lua_getfield(L, -1, "count");
-    uniform.count = lua_type(L, -1) == LUA_TNUMBER ? lua_tonumber(L, -1) : 1;
+    uniform->count = lua_type(L, -1) == LUA_TNUMBER ? lua_tonumber(L, -1) : 1;
     lua_pop(L, 1);
 
     // Type
     size_t length;
     lua_getfield(L, -1, "type");
     const char* type = lua_tolstring(L, -1, &length);
-    uniform.components = 1;
+    uniform->components = 1;
     if (strcmp(type, "float")) {
-      uniform.type = UNIFORM_FLOAT;
+      uniform->type = UNIFORM_FLOAT;
     } else if (strcmp(type, "int")) {
-      uniform.type = UNIFORM_INT;
+      uniform->type = UNIFORM_INT;
     } else {
-      uniform.components = type[length - 1] - '0';
-      lovrAssert(uniform.components >= 2 && uniform.components <= 4, "Unknown uniform type '%s'", type);
+      uniform->components = type[length - 1] - '0';
+      lovrAssert(uniform->components >= 2 && uniform->components <= 4, "Unknown uniform type '%s'", type);
       if (!strncmp(type, "vec", 3 * sizeof(char)) && length == 4) {
-        uniform.type = UNIFORM_FLOAT;
+        uniform->type = UNIFORM_FLOAT;
       } else if (!strncmp(type, "ivec", 4 * sizeof(char)) && length == 5) {
-        uniform.type = UNIFORM_INT;
+        uniform->type = UNIFORM_INT;
       } else if (!strncmp(type, "mat", 3 * sizeof(char)) && length == 4) {
-        uniform.type = UNIFORM_MATRIX;
+        uniform->type = UNIFORM_MATRIX;
       } else {
         lovrThrow("Unknown uniform type '%s'", type);
       }
     }
     lua_pop(L, 1);
 
-    // TODO value
-
-    vec_push(&uniforms, uniform);
+    // Pop the table, leaving the key for lua_next
     lua_pop(L, 1);
   }
 
-  vec_deinit(&uniforms);
-  lua_pushnil(L);
+  ShaderBlock* block = lovrShaderBlockCreate(uniforms, count);
+  luax_pushtype(L, ShaderBlock, block);
   return 1;
 }
 

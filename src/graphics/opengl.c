@@ -2,6 +2,7 @@
 #include "graphics/canvas.h"
 #include "graphics/mesh.h"
 #include "graphics/shader.h"
+#include "graphics/shaderBlock.h"
 #include "graphics/texture.h"
 #include "resources/shaders.h"
 #include "data/modelData.h"
@@ -53,6 +54,7 @@ static struct {
   uint32_t indexBuffer;
   uint32_t program;
   Texture* textures[MAX_TEXTURES];
+  uint32_t uniformBuffer;
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   float viewport[4];
@@ -67,6 +69,13 @@ struct Shader {
   uint32_t program;
   map_uniform_t uniforms;
   map_int_t attributes;
+};
+
+struct ShaderBlock {
+  Ref ref;
+  Uniform uniforms[32];
+  int uniformCount;
+  uint32_t buffer;
 };
 
 struct Texture {
@@ -334,6 +343,13 @@ void lovrGpuBindTexture(Texture* texture, int slot) {
 void lovrGpuDirtyTexture(int slot) {
   lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
   state.textures[slot] = NULL;
+}
+
+static void lovrGpuBindUniformBuffer(uint32_t uniformBuffer) {
+  if (state.uniformBuffer != uniformBuffer) {
+    state.uniformBuffer = uniformBuffer;
+    glBindBuffer(GL_UNIFORM_BUFFER, uniformBuffer);
+  }
 }
 
 static void lovrGpuBindVertexArray(uint32_t vertexArray) {
@@ -1444,6 +1460,41 @@ void lovrShaderSetMatrix(Shader* shader, const char* name, float* data, int coun
 
 void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int count) {
   lovrShaderSetUniform(shader, name, UNIFORM_SAMPLER, data, count, sizeof(Texture*), "texture");
+}
+
+// ShaderBlock
+
+ShaderBlock* lovrShaderBlockCreate(Uniform uniforms[MAX_SHADER_BLOCK_UNIFORMS], int uniformCount) {
+  ShaderBlock* block = lovrAlloc(sizeof(ShaderBlock), lovrShaderBlockDestroy);
+  if (!block) return NULL;
+
+  memcpy(block->uniforms, uniforms, MAX_SHADER_BLOCK_UNIFORMS * sizeof(Uniform));
+  block->uniformCount = uniformCount;
+
+  size_t offset = 0;
+  for (int i = 0; i < uniformCount; i++) {
+    uniforms[i].offset = offset;
+    if (uniforms[i].type != UNIFORM_MATRIX) {
+      if (uniforms[i].count == 1) {
+        offset += 4;
+      } else {
+        offset += uniforms[i].count * 16;
+      }
+    } else {
+      offset += uniforms[i].components * uniforms[i].components * 4;
+    }
+  }
+
+  size_t totalSize = offset;
+  glGenBuffers(1, &block->buffer);
+  lovrGpuBindUniformBuffer(block->buffer);
+  glBufferData(GL_UNIFORM_BUFFER, totalSize, NULL, GL_STATIC_DRAW);
+
+  return block;
+}
+
+void lovrShaderBlockDestroy(void* ref) {
+  free(ref);
 }
 
 // Mesh
