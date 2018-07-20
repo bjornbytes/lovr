@@ -1,17 +1,24 @@
 #include "api.h"
 
+int luax_optmipmap(lua_State* L, int index, Texture* texture) {
+  int mipmap = luaL_optinteger(L, index, 1);
+  lovrAssert(mipmap > 0 && mipmap <= lovrTextureGetMipmapCount(texture), "Invalid mipmap %d\n", mipmap);
+  return mipmap - 1;
+}
+
 int l_lovrTextureGetDepth(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  lua_pushnumber(L, lovrTextureGetDepth(texture));
+  lua_pushnumber(L, lovrTextureGetDepth(texture, luax_optmipmap(L, 2, texture)));
   return 1;
 }
 
 int l_lovrTextureGetDimensions(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  lua_pushinteger(L, lovrTextureGetWidth(texture));
-  lua_pushinteger(L, lovrTextureGetHeight(texture));
+  int mipmap = luax_optmipmap(L, 2, texture);
+  lua_pushinteger(L, lovrTextureGetWidth(texture, mipmap));
+  lua_pushinteger(L, lovrTextureGetHeight(texture, mipmap));
   if (lovrTextureGetType(texture) != TEXTURE_2D) {
-    lua_pushinteger(L, lovrTextureGetDepth(texture));
+    lua_pushinteger(L, lovrTextureGetDepth(texture, mipmap));
     return 3;
   }
   return 2;
@@ -30,7 +37,13 @@ int l_lovrTextureGetFilter(lua_State* L) {
 
 int l_lovrTextureGetHeight(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  lua_pushnumber(L, lovrTextureGetHeight(texture));
+  lua_pushnumber(L, lovrTextureGetHeight(texture, luax_optmipmap(L, 2, texture)));
+  return 1;
+}
+
+int l_lovrTextureGetMipmapCount(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  lua_pushinteger(L, lovrTextureGetMipmapCount(texture));
   return 1;
 }
 
@@ -42,7 +55,7 @@ int l_lovrTextureGetType(lua_State* L) {
 
 int l_lovrTextureGetWidth(lua_State* L) {
   Texture* texture = luax_checktypeof(L, 1, Texture);
-  lua_pushnumber(L, lovrTextureGetWidth(texture));
+  lua_pushnumber(L, lovrTextureGetWidth(texture, luax_optmipmap(L, 2, texture)));
   return 1;
 }
 
@@ -91,6 +104,7 @@ const luaL_Reg lovrTexture[] = {
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getFilter", l_lovrTextureGetFilter },
   { "getHeight", l_lovrTextureGetHeight },
+  { "getMipmapCount", l_lovrTextureGetMipmapCount },
   { "getType", l_lovrTextureGetType },
   { "getWidth", l_lovrTextureGetWidth },
   { "getWrap", l_lovrTextureGetWrap },

@@ -98,6 +98,7 @@ struct Texture {
   int width;
   int height;
   int depth;
+  int mipmapCount;
   GLuint id;
   TextureFilter filter;
   TextureWrap wrap;
@@ -712,8 +713,8 @@ void lovrGpuDraw(DrawCommand* command) {
 
   // Viewport
   if (pipeline->canvasCount > 0) {
-    int width = lovrTextureGetWidth((Texture*) pipeline->canvas[0]);
-    int height = lovrTextureGetHeight((Texture*) pipeline->canvas[0]);
+    int width = lovrTextureGetWidth((Texture*) pipeline->canvas[0], 0);
+    int height = lovrTextureGetHeight((Texture*) pipeline->canvas[0], 0);
     lovrGpuSetViewport((uint32_t[4]) { 0, 0, width, height });
   } else {
     lovrGpuSetViewport(command->camera.viewport);
@@ -780,17 +781,24 @@ GraphicsStats lovrGraphicsGetStats() {
 // Texture
 
 static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
+  int w = textureData->width;
+  int h = textureData->height;
+  int d = texture->depth;
   texture->allocated = true;
-  texture->width = textureData->width;
-  texture->height = textureData->height;
+  texture->width = w;
+  texture->height = h;
+
+  if (texture->mipmaps) {
+    int dimension = texture->type == TEXTURE_VOLUME ? (MAX(MAX(w, h), d)) : MAX(w, h);
+    texture->mipmapCount = texture->mipmaps ? (log2(dimension) + 1) : 1;
+  } else {
+    texture->mipmapCount = 1;
+  }
 
   if (isTextureFormatCompressed(textureData->format)) {
     return;
   }
 
-  int w = textureData->width;
-  int h = textureData->height;
-  int mipmapCount = log2(MAX(w, h)) + 1;
   bool srgb = lovrGraphicsIsGammaCorrect() && texture->srgb;
   GLenum glFormat = convertTextureFormat(textureData->format);
   GLenum internalFormat = convertTextureFormatInternal(textureData->format, srgb);
@@ -798,13 +806,13 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
   if (GLAD_GL_ARB_texture_storage) {
 #endif
   if (texture->type == TEXTURE_ARRAY) {
-    glTexStorage3D(texture->glType, mipmapCount, internalFormat, w, h, texture->depth);
+    glTexStorage3D(texture->glType, texture->mipmapCount, internalFormat, w, h, d);
   } else {
-    glTexStorage2D(texture->glType, mipmapCount, internalFormat, w, h);
+    glTexStorage2D(texture->glType, texture->mipmapCount, internalFormat, w, h);
   }
 #ifndef EMSCRIPTEN
   } else {
-    for (int i = 0; i < mipmapCount; i++) {
+    for (int i = 0; i < texture->mipmapCount; i++) {
       switch (texture->type) {
         case TEXTURE_2D:
           glTexImage2D(texture->glType, i, internalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
@@ -818,11 +826,12 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
 
         case TEXTURE_ARRAY:
         case TEXTURE_VOLUME:
-          glTexImage3D(texture->glType, i, internalFormat, w, h, texture->depth, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+          glTexImage3D(texture->glType, i, internalFormat, w, h, d, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
           break;
       }
       w = MAX(w >> 1, 1);
       h = MAX(h >> 1, 1);
+      d = texture->type == TEXTURE_VOLUME ? MAX(d >> 1, 1) : d;
     }
   }
 #endif
@@ -877,16 +886,20 @@ GLuint lovrTextureGetId(Texture* texture) {
   return texture->id;
 }
 
-int lovrTextureGetWidth(Texture* texture) {
-  return texture->width;
+int lovrTextureGetWidth(Texture* texture, int mipmap) {
+  return MAX(texture->width >> mipmap, 1);
 }
 
-int lovrTextureGetHeight(Texture* texture) {
-  return texture->height;
+int lovrTextureGetHeight(Texture* texture, int mipmap) {
+  return MAX(texture->height >> mipmap, 1);
 }
 
-int lovrTextureGetDepth(Texture* texture) {
-  return texture->depth;
+int lovrTextureGetDepth(Texture* texture, int mipmap) {
+  return texture->type == TEXTURE_VOLUME ? MAX(texture->depth >> mipmap, 1) : texture->depth;
+}
+
+int lovrTextureGetMipmapCount(Texture* texture) {
+  return texture->mipmapCount;
 }
 
 TextureType lovrTextureGetType(Texture* texture) {
