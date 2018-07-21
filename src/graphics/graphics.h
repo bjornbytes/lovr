@@ -81,10 +81,11 @@ typedef struct {
 } GraphicsStats;
 
 typedef struct {
+  bool stereo;
   Canvas* canvas;
-  uint32_t viewport[4];
-  float viewMatrix[16];
-  float projection[16];
+  float viewport[2][4];
+  float viewMatrix[2][16];
+  float projection[2][16];
 } Camera;
 
 typedef struct {

@@ -277,7 +277,6 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-#include <stdio.h>
 static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   if (!state.window || !state.mirrored) {
     return;
@@ -285,20 +284,24 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
 
   int width, height;
   fakeGetDisplayDimensions(&width, &height);
-  Camera camera = { .viewport = { 0, 0, width, height } };
+  Camera camera = {
+    .stereo = true,
+    .canvas = NULL,
+    .viewport = {
+      { 0, 0, width, height },
+      { width, 0, width, height }
+    }
+  };
 
-  mat4_perspective(camera.projection, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height);
-  mat4_identity(camera.viewMatrix);
-  mat4_translate(camera.viewMatrix, 0, state.offset, 0);
-  mat4_multiply(camera.viewMatrix, state.transform);
-  mat4_invert(camera.viewMatrix);
-
-  for (int eye = 0; eye < 2; eye++) {
-    camera.viewport[0] = width * eye;
-    lovrGraphicsSetCamera(&camera, eye == 0);
-    callback(userdata);
-  }
-
+  mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height);
+  mat4_identity(camera.viewMatrix[0]);
+  mat4_translate(camera.viewMatrix[0], 0, state.offset, 0);
+  mat4_multiply(camera.viewMatrix[0], state.transform);
+  mat4_invert(camera.viewMatrix[0]);
+  mat4_set(camera.projection[1], camera.projection[0]);
+  mat4_set(camera.viewMatrix[1], camera.viewMatrix[0]);
+  lovrGraphicsSetCamera(&camera, true);
+  callback(userdata);
   lovrGraphicsSetCamera(NULL, false);
 }
 

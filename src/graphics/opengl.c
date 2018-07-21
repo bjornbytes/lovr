@@ -57,8 +57,9 @@ static struct {
   Texture* textures[MAX_TEXTURES];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
-  uint32_t viewport[4];
+  float viewport[4];
   bool srgb;
+  bool supportsSinglepass;
   GraphicsLimits limits;
   GraphicsStats stats;
 } state;
@@ -371,9 +372,9 @@ static void lovrGpuBindVertexBuffer(uint32_t vertexBuffer) {
   }
 }
 
-static void lovrGpuSetViewport(uint32_t viewport[4]) {
-  if (memcmp(state.viewport, viewport, 4 * sizeof(uint32_t))) {
-    memcpy(state.viewport, viewport, 4 * sizeof(uint32_t));
+static void lovrGpuSetViewport(float viewport[4]) {
+  if (memcmp(state.viewport, viewport, 4 * sizeof(float))) {
+    memcpy(state.viewport, viewport, 4 * sizeof(float));
     glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
   }
 }
@@ -400,6 +401,7 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   glEnable(GL_BLEND);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
+  state.supportsSinglepass = GLAD_GL_ARB_viewport_array && GLAD_GL_NV_viewport_array2 && GLAD_GL_NV_stereo_view_rendering;
   state.blendMode = -1;
   state.blendAlphaMode = -1;
   state.culling = false;
@@ -626,28 +628,35 @@ void lovrGpuDraw(DrawCommand* command) {
   }
 
   // Transform
-  lovrShaderSetMatrix(shader, "lovrProjection", command->camera.projection, 16);
-  lovrShaderSetMatrix(shader, "lovrView", command->camera.viewMatrix, 16);
   lovrShaderSetMatrix(shader, "lovrModel", command->transform, 16);
+  lovrShaderSetMatrix(shader, "lovrViews", command->camera.viewMatrix, 32);
+  lovrShaderSetMatrix(shader, "lovrProjections", command->camera.projection, 32);
 
-  float modelView[16];
-  mat4_multiply(mat4_set(modelView, command->camera.viewMatrix), command->transform);
-  lovrShaderSetMatrix(shader, "lovrTransform", modelView, 16);
+  float modelView[32];
+  mat4_multiply(mat4_set(modelView, command->camera.viewMatrix[0]), command->transform);
+  mat4_multiply(mat4_set(modelView + 16, command->camera.viewMatrix[1]), command->transform);
+  lovrShaderSetMatrix(shader, "lovrTransforms", modelView, 32);
 
-  if (lovrShaderHasUniform(shader, "lovrNormalMatrix")) {
-    if (mat4_invert(modelView)) {
+  if (lovrShaderHasUniform(shader, "lovrNormalMatrices")) {
+    if (mat4_invert(modelView) && mat4_invert(modelView + 16)) {
       mat4_transpose(modelView);
+      mat4_transpose(modelView + 16);
     } else {
       mat4_identity(modelView);
+      mat4_identity(modelView + 16);
     }
 
-    float normalMatrix[9] = {
+    float normalMatrices[18] = {
       modelView[0], modelView[1], modelView[2],
       modelView[4], modelView[5], modelView[6],
       modelView[8], modelView[9], modelView[10],
+
+      modelView[16], modelView[17], modelView[18],
+      modelView[20], modelView[21], modelView[22],
+      modelView[24], modelView[25], modelView[26]
     };
 
-    lovrShaderSetMatrix(shader, "lovrNormalMatrix", normalMatrix, 9);
+    lovrShaderSetMatrix(shader, "lovrNormalMatrices", normalMatrices, 18);
   }
 
   // Pose
@@ -718,47 +727,55 @@ void lovrGpuDraw(DrawCommand* command) {
     }
   }
 
-  // Viewport
-  if (pipeline->canvasCount > 0) {
-    int width = lovrTextureGetWidth((Texture*) pipeline->canvas[0], 0);
-    int height = lovrTextureGetHeight((Texture*) pipeline->canvas[0], 0);
-    lovrGpuSetViewport((uint32_t[4]) { 0, 0, width, height });
-  } else {
-    lovrGpuSetViewport(command->camera.viewport);
-  }
-
-  // Bind uniforms
-  lovrShaderBind(shader);
-
   // Bind attributes
   lovrMeshBind(mesh, shader);
 
-  // Draw (TODEW)
-  uint32_t rangeStart, rangeCount;
-  lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
-  uint32_t indexCount;
-  size_t indexSize;
-  lovrMeshReadIndices(mesh, &indexCount, &indexSize);
-  GLenum glDrawMode = convertMeshDrawMode(lovrMeshGetDrawMode(mesh));
-  if (indexCount > 0) {
-    size_t count = rangeCount ? rangeCount : indexCount;
-    GLenum indexType = indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-    size_t offset = rangeStart * indexSize;
-    if (instances > 1) {
-      glDrawElementsInstanced(glDrawMode, count, indexType, (GLvoid*) offset, instances);
-    } else {
-      glDrawElements(glDrawMode, count, indexType, (GLvoid*) offset);
-    }
-  } else {
-    size_t count = rangeCount ? rangeCount : lovrMeshGetVertexCount(mesh);
-    if (instances > 1) {
-      glDrawArraysInstanced(glDrawMode, rangeStart, count, instances);
-    } else {
-      glDrawArrays(glDrawMode, rangeStart, count);
-    }
-  }
+  bool stereo = pipeline->canvasCount == 0 && command->camera.stereo == true;
+  int drawCount = 1 + (stereo == true && !state.supportsSinglepass);
 
-  state.stats.drawCalls++;
+  // Draw (TODEW)
+  for (int i = 0; i < drawCount; i++) {
+    if (pipeline->canvasCount > 0) {
+      int width = lovrTextureGetWidth((Texture*) pipeline->canvas[0], 0);
+      int height = lovrTextureGetHeight((Texture*) pipeline->canvas[0], 0);
+      lovrGpuSetViewport((float[4]) { 0, 0, width, height });
+    } else if (state.supportsSinglepass) {
+      glViewportArrayv(0, 2, command->camera.viewport);
+    } else  {
+      lovrGpuSetViewport(command->camera.viewport[i]);
+    }
+
+    // Bind uniforms
+    int eye = (stereo && state.supportsSinglepass) ? -1 : i;
+    lovrShaderSetInt(shader, "lovrEye", &eye, 1);
+    lovrShaderBind(shader);
+
+    uint32_t rangeStart, rangeCount;
+    lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
+    uint32_t indexCount;
+    size_t indexSize;
+    lovrMeshReadIndices(mesh, &indexCount, &indexSize);
+    GLenum glDrawMode = convertMeshDrawMode(lovrMeshGetDrawMode(mesh));
+    if (indexCount > 0) {
+      size_t count = rangeCount ? rangeCount : indexCount;
+      GLenum indexType = indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+      size_t offset = rangeStart * indexSize;
+      if (instances > 1) {
+        glDrawElementsInstanced(glDrawMode, count, indexType, (GLvoid*) offset, instances);
+      } else {
+        glDrawElements(glDrawMode, count, indexType, (GLvoid*) offset);
+      }
+    } else {
+      size_t count = rangeCount ? rangeCount : lovrMeshGetVertexCount(mesh);
+      if (instances > 1) {
+        glDrawArraysInstanced(glDrawMode, rangeStart, count, instances);
+      } else {
+        glDrawArrays(glDrawMode, rangeStart, count);
+      }
+    }
+
+    state.stats.drawCalls++;
+  }
 }
 
 void lovrGpuPresent() {

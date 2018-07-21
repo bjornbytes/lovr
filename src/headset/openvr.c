@@ -669,26 +669,30 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   mat4_fromMat34(head, state.renderPoses[state.headsetIndex].mDeviceToAbsoluteTracking.m);
 
   Camera camera = {
+    .stereo = true,
     .canvas = state.canvas,
-    .viewport = { 0, 0, state.renderWidth, state.renderHeight }
+    .viewport = {
+      { 0, 0, state.renderWidth, state.renderHeight },
+      { state.renderWidth, 0, state.renderWidth, state.renderHeight }
+    }
   };
 
   for (int i = 0; i < 2; i++) {
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
-    mat4_fromMat44(camera.projection, state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
-    mat4_identity(camera.viewMatrix);
-    mat4_translate(camera.viewMatrix, 0, state.offset, 0);
-    mat4_multiply(camera.viewMatrix, head);
-    mat4_multiply(camera.viewMatrix, mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
-    mat4_invert(camera.viewMatrix);
-
-    camera.viewport[0] = state.renderWidth * i;
-    lovrGraphicsSetCamera(&camera, i == 0);
-    callback(userdata);
-    lovrGraphicsSetCanvas(NULL, 0);
+    mat4_fromMat44(camera.projection[i], state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
+    mat4_identity(camera.viewMatrix[i]);
+    mat4_translate(camera.viewMatrix[i], 0, state.offset, 0);
+    mat4_multiply(camera.viewMatrix[i], head);
+    mat4_multiply(camera.viewMatrix[i], mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
+    mat4_invert(camera.viewMatrix[i]);
   }
 
+  lovrGraphicsSetCamera(&camera, true);
+  callback(userdata);
+  lovrGraphicsSetCamera(NULL, false);
+  lovrGraphicsSetCanvas(NULL, 0);
   lovrCanvasResolve(state.canvas);
+  state.isRendering = false;
 
   // Submit
   uintptr_t texture = (uintptr_t) lovrTextureGetId((Texture*) state.canvas);
@@ -699,9 +703,6 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
   state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
   lovrGpuDirtyTexture(0);
-
-  lovrGraphicsSetCamera(NULL, false);
-  state.isRendering = false;
 
   if (state.isMirrored) {
     lovrGraphicsPushPipeline();
