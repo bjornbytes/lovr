@@ -122,10 +122,21 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, Textu
   switch (format) {
     case FORMAT_RGB: pixelSize = 3; break;
     case FORMAT_RGBA: pixelSize = 4; break;
+    case FORMAT_RGBA4: pixelSize = 2; break;
     case FORMAT_RGBA16F: pixelSize = 8; break;
     case FORMAT_RGBA32F: pixelSize = 16; break;
+    case FORMAT_R16F: pixelSize = 2; break;
+    case FORMAT_R32F: pixelSize = 4; break;
+    case FORMAT_RGB565: pixelSize = 2; break;
+    case FORMAT_RGB5A1: pixelSize = 2; break;
+    case FORMAT_RGB10A2: pixelSize = 4; break;
     case FORMAT_RG11B10F: pixelSize = 4; break;
-    default: lovrThrow("Unable to create a blank compressed texture");
+
+    case FORMAT_DXT1:
+    case FORMAT_DXT3:
+    case FORMAT_DXT5:
+      lovrThrow("Unable to create a blank compressed texture");
+      return NULL;
   }
 
   lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");

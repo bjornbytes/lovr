@@ -186,8 +186,14 @@ static GLenum convertTextureFormat(TextureFormat format) {
   switch (format) {
     case FORMAT_RGB: return GL_RGB;
     case FORMAT_RGBA: return GL_RGBA;
+    case FORMAT_RGBA4: return GL_RGBA;
     case FORMAT_RGBA16F: return GL_RGBA;
     case FORMAT_RGBA32F: return GL_RGBA;
+    case FORMAT_R16F: return GL_RED;
+    case FORMAT_R32F: return GL_RED;
+    case FORMAT_RGB565: return GL_RGB;
+    case FORMAT_RGB5A1: return GL_RGBA;
+    case FORMAT_RGB10A2: return GL_RGBA;
     case FORMAT_RG11B10F: return GL_RGB;
     case FORMAT_DXT1: return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
@@ -199,8 +205,14 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
   switch (format) {
     case FORMAT_RGB: return srgb ? GL_SRGB8 : GL_RGB8;
     case FORMAT_RGBA: return srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+    case FORMAT_RGBA4: return GL_RGBA4;
     case FORMAT_RGBA16F: return GL_RGBA16F;
     case FORMAT_RGBA32F: return GL_RGBA32F;
+    case FORMAT_R16F: return GL_R16F;
+    case FORMAT_R32F: return GL_R32F;
+    case FORMAT_RGB565: return GL_RGB565;
+    case FORMAT_RGB5A1: return GL_RGB5_A1;
+    case FORMAT_RGB10A2: return GL_RGB10_A2;
     case FORMAT_RG11B10F: return GL_R11F_G11F_B10F;
     case FORMAT_DXT1: return srgb ? GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
@@ -241,16 +253,11 @@ static GLenum convertMeshDrawMode(MeshDrawMode mode) {
 
 static bool isCanvasFormatSupported(TextureFormat format) {
   switch (format) {
-    case FORMAT_RGB:
-    case FORMAT_RGBA:
-    case FORMAT_RGBA16F:
-    case FORMAT_RGBA32F:
-    case FORMAT_RG11B10F:
-      return true;
     case FORMAT_DXT1:
     case FORMAT_DXT3:
     case FORMAT_DXT5:
       return false;
+    default: return true;
   }
 }
 
