@@ -629,8 +629,8 @@ void lovrGpuDraw(DrawCommand* command) {
 
   // Transform
   lovrShaderSetMatrix(shader, "lovrModel", command->transform, 16);
-  lovrShaderSetMatrix(shader, "lovrViews", command->camera.viewMatrix, 32);
-  lovrShaderSetMatrix(shader, "lovrProjections", command->camera.projection, 32);
+  lovrShaderSetMatrix(shader, "lovrViews", command->camera.viewMatrix[0], 32);
+  lovrShaderSetMatrix(shader, "lovrProjections", command->camera.projection[0], 32);
 
   float modelView[32];
   mat4_multiply(mat4_set(modelView, command->camera.viewMatrix[0]), command->transform);
@@ -740,7 +740,7 @@ void lovrGpuDraw(DrawCommand* command) {
       int height = lovrTextureGetHeight((Texture*) pipeline->canvas[0], 0);
       lovrGpuSetViewport((float[4]) { 0, 0, width, height });
     } else if (state.supportsSinglepass) {
-      glViewportArrayv(0, 2, command->camera.viewport);
+      glViewportArrayv(0, 2, command->camera.viewport[0]);
     } else  {
       lovrGpuSetViewport(command->camera.viewport[i]);
     }
