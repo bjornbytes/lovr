@@ -24,6 +24,7 @@
 // Types
 
 #define MAX_TEXTURES 16
+#define MAX_UNIFORM_BUFFERS 32
 
 #define LOVR_SHADER_POSITION 0
 #define LOVR_SHADER_NORMAL 1
@@ -54,7 +55,7 @@ static struct {
   uint32_t indexBuffer;
   uint32_t program;
   Texture* textures[MAX_TEXTURES];
-  uint32_t uniformBuffer;
+  uint32_t uniformBuffers[MAX_UNIFORM_BUFFERS];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   float viewport[4];
@@ -64,18 +65,27 @@ static struct {
   GraphicsStats stats;
 } state;
 
-struct Shader {
-  Ref ref;
-  uint32_t program;
-  map_uniform_t uniforms;
-  map_int_t attributes;
-};
-
 struct ShaderBlock {
   Ref ref;
   Uniform uniforms[32];
   int uniformCount;
   uint32_t buffer;
+};
+
+typedef struct {
+  int index;
+  int binding;
+  ShaderBlock* source;
+} UniformBlock;
+
+typedef map_t(UniformBlock) map_block_t;
+
+struct Shader {
+  Ref ref;
+  uint32_t program;
+  map_uniform_t uniforms;
+  map_block_t blocks;
+  map_int_t attributes;
 };
 
 struct Texture {
@@ -345,10 +355,10 @@ void lovrGpuDirtyTexture(int slot) {
   state.textures[slot] = NULL;
 }
 
-static void lovrGpuBindUniformBuffer(uint32_t uniformBuffer) {
-  if (state.uniformBuffer != uniformBuffer) {
-    state.uniformBuffer = uniformBuffer;
-    glBindBuffer(GL_UNIFORM_BUFFER, uniformBuffer);
+static void lovrGpuBindUniformBuffer(uint32_t uniformBuffer, int slot) {
+  if (state.uniformBuffers[slot] != uniformBuffer) {
+    state.uniformBuffers[slot] = uniformBuffer;
+    glBindBufferBase(GL_UNIFORM_BUFFER, slot, uniformBuffer);
   }
 }
 
@@ -1316,6 +1326,18 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     textureSlot += (uniform.type == UNIFORM_SAMPLER) ? uniform.count : 0;
   }
 
+  // Uniform blocks
+  int32_t blockCount;
+  glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &blockCount);
+  map_init(&shader->blocks);
+  for (int i = 0; i < blockCount; i++) {
+    char name[LOVR_MAX_UNIFORM_LENGTH];
+    glGetActiveUniformBlockName(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, name);
+    UniformBlock block = { .index = i, .binding = i + 1, .source = NULL };
+    glUniformBlockBinding(program, block.index, block.binding);
+    map_set(&shader->blocks, name, block);
+  }
+
   // Attribute cache
   int32_t attributeCount;
   glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &attributeCount);
@@ -1404,6 +1426,12 @@ void lovrShaderBind(Shader* shader) {
         break;
     }
   }
+
+  iter = map_iter(&shader->blocks);
+  while ((key = map_next(&shader->blocks, &iter)) != NULL) {
+    UniformBlock* block = map_get(&shader->blocks, key);
+    lovrGpuBindUniformBuffer(block->source ? block->source->buffer : 0, block->binding);
+  }
 }
 
 int lovrShaderGetAttributeId(Shader* shader, const char* name) {
@@ -1487,7 +1515,7 @@ ShaderBlock* lovrShaderBlockCreate(Uniform uniforms[MAX_SHADER_BLOCK_UNIFORMS], 
 
   size_t totalSize = offset;
   glGenBuffers(1, &block->buffer);
-  lovrGpuBindUniformBuffer(block->buffer);
+  lovrGpuBindUniformBuffer(block->buffer, 0);
   glBufferData(GL_UNIFORM_BUFFER, totalSize, NULL, GL_STATIC_DRAW);
 
   return block;
