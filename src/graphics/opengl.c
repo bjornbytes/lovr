@@ -1025,6 +1025,7 @@ void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
       break;
   }
 
+  glTexParameteri(texture->glType, GL_TEXTURE_LOD_BIAS, -filter.sharpness);
   glTexParameteri(texture->glType, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
 }
 
