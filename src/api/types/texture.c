@@ -76,8 +76,9 @@ int l_lovrTextureReplacePixels(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 2, TextureData);
   int x = luaL_optinteger(L, 3, 0);
   int y = luaL_optinteger(L, 4, 0);
-  int slice = luaL_optinteger(L, 5, 1);
-  lovrTextureReplacePixels(texture, textureData, x, y, slice - 1);
+  int slice = luaL_optinteger(L, 5, 1) - 1;
+  int mipmap = luaL_optinteger(L, 6, 1) - 1;
+  lovrTextureReplacePixels(texture, textureData, x, y, slice, mipmap);
   return 0;
 }
 

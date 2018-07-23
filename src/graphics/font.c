@@ -275,7 +275,7 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
   glyph->y = atlas->y;
 
   // Paste glyph into texture
-  lovrTextureReplacePixels(font->texture, glyph->data, atlas->x, atlas->y, 0);
+  lovrTextureReplacePixels(font->texture, glyph->data, atlas->x, atlas->y, 0, 0);
 
   // Advance atlas cursor
   atlas->x += glyph->tw + atlas->padding;

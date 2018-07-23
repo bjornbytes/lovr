@@ -1112,7 +1112,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   for (int i = 0; i < depth; i++) {
     lua_rawgeti(L, 1, i + 1);
     TextureData* textureData = luax_checktexturedata(L, -1);
-    lovrTextureReplacePixels(texture, textureData, 0, 0, i);
+    lovrTextureReplacePixels(texture, textureData, 0, 0, i, 0);
     lovrRelease(textureData);
     lua_pop(L, 1);
   }
