@@ -248,7 +248,7 @@ static void assimpFileClose(struct aiFileIO* io, struct aiFile* assimpFile) {
 }
 
 ModelData* lovrModelDataCreate(Blob* blob) {
-  ModelData* modelData = lovrAlloc(sizeof(ModelData), lovrModelDataDestroy);
+  ModelData* modelData = lovrAlloc(ModelData, lovrModelDataDestroy);
   if (!modelData) return NULL;
 
   struct aiFileIO assimpIO;

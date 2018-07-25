@@ -3,7 +3,7 @@
 #include <limits.h>
 
 SoundData* lovrSoundDataCreate(int samples, int sampleRate, int bitDepth, int channelCount) {
-  SoundData* soundData = lovrAlloc(sizeof(SoundData), lovrSoundDataDestroy);
+  SoundData* soundData = lovrAlloc(SoundData, lovrSoundDataDestroy);
   if (!soundData) return NULL;
 
   soundData->samples = samples;
@@ -17,7 +17,7 @@ SoundData* lovrSoundDataCreate(int samples, int sampleRate, int bitDepth, int ch
 }
 
 SoundData* lovrSoundDataCreateFromAudioStream(AudioStream* audioStream) {
-  SoundData* soundData = lovrAlloc(sizeof(SoundData), lovrSoundDataDestroy);
+  SoundData* soundData = lovrAlloc(SoundData, lovrSoundDataDestroy);
   if (!soundData) return NULL;
 
   soundData->samples = audioStream->samples;
@@ -39,7 +39,7 @@ SoundData* lovrSoundDataCreateFromAudioStream(AudioStream* audioStream) {
 }
 
 SoundData* lovrSoundDataCreateFromBlob(Blob* blob) {
-  SoundData* soundData = lovrAlloc(sizeof(SoundData), lovrSoundDataDestroy);
+  SoundData* soundData = lovrAlloc(SoundData, lovrSoundDataDestroy);
   if (!soundData) return NULL;
 
   soundData->bitDepth = 16;

@@ -10,12 +10,14 @@
 #pragma once
 
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
+#define lovrAlloc(T, destructor) (T*) _lovrAlloc(#T, sizeof(T), destructor)
 
 typedef vec_t(unsigned int) vec_uint_t;
 
 typedef struct ref {
-  void (*free)(void* object);
   int count;
+  const char* type;
+  void (*free)(void*);
 } Ref;
 
 typedef struct {
@@ -26,7 +28,7 @@ extern _Thread_local void* lovrErrorContext;
 
 void lovrThrow(const char* format, ...);
 void lovrSleep(double seconds);
-void* lovrAlloc(size_t size, void (*destructor)(void* object));
+void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*));
 void lovrRetain(void* object);
 void lovrRelease(void* object);
 void* lovrLoadLibrary(const char* filename);

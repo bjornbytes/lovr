@@ -77,7 +77,7 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, int size) {
   err = err || FT_Set_Pixel_Sizes(face, 0, size);
   lovrAssert(!err, "Problem loading font");
 
-  Rasterizer* rasterizer = lovrAlloc(sizeof(Rasterizer), lovrRasterizerDestroy);
+  Rasterizer* rasterizer = lovrAlloc(Rasterizer, lovrRasterizerDestroy);
   rasterizer->ftHandle = face;
   rasterizer->blob = blob;
   rasterizer->size = size;

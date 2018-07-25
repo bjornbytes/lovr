@@ -115,7 +115,7 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 }
 
 TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, TextureFormat format) {
-  TextureData* textureData = lovrAlloc(sizeof(TextureData), lovrTextureDataDestroy);
+  TextureData* textureData = lovrAlloc(TextureData, lovrTextureDataDestroy);
   if (!textureData) return NULL;
 
   size_t pixelSize = 0;
@@ -151,7 +151,7 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, Textu
 }
 
 TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format) {
-  TextureData* textureData = lovrAlloc(sizeof(TextureData), lovrTextureDataDestroy);
+  TextureData* textureData = lovrAlloc(TextureData, lovrTextureDataDestroy);
   if (!textureData) return NULL;
 
   lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");
@@ -164,7 +164,7 @@ TextureData* lovrTextureDataGetEmpty(int width, int height, TextureFormat format
 }
 
 TextureData* lovrTextureDataFromBlob(Blob* blob) {
-  TextureData* textureData = lovrAlloc(sizeof(TextureData), lovrTextureDataDestroy);
+  TextureData* textureData = lovrAlloc(TextureData, lovrTextureDataDestroy);
   if (!textureData) return NULL;
 
   vec_init(&textureData->mipmaps);

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 Channel* lovrChannelCreate() {
-  Channel* channel = lovrAlloc(sizeof(Channel), lovrChannelDestroy);
+  Channel* channel = lovrAlloc(Channel, lovrChannelDestroy);
   if (!channel) return NULL;
 
   vec_init(&channel->messages);

@@ -862,7 +862,7 @@ static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
 }
 
 Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bool srgb, bool mipmaps) {
-  Texture* texture = lovrAlloc(sizeof(Texture), lovrTextureDestroy);
+  Texture* texture = lovrAlloc(Texture, lovrTextureDestroy);
   if (!texture) return NULL;
 
   texture->type = type;
@@ -1052,7 +1052,7 @@ Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasFlag
   Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, flags.mipmaps);
   if (!texture) return NULL;
 
-  Canvas* canvas = lovrAlloc(sizeof(Canvas), lovrCanvasDestroy);
+  Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
   canvas->texture = *texture;
   canvas->flags = flags;
 
@@ -1210,7 +1210,7 @@ static GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
 }
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
-  Shader* shader = lovrAlloc(sizeof(Shader), lovrShaderDestroy);
+  Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
   if (!shader) return NULL;
 
   // Vertex
@@ -1468,7 +1468,7 @@ void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int 
 // Mesh
 
 Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, MeshUsage usage) {
-  Mesh* mesh = lovrAlloc(sizeof(Mesh), lovrMeshDestroy);
+  Mesh* mesh = lovrAlloc(Mesh, lovrMeshDestroy);
   if (!mesh) return NULL;
 
   mesh->count = count;

@@ -147,7 +147,7 @@ static bool fakeInit(float offset) {
   vec3_set(state.position, 0, 0, 0);
 
   vec_init(&state.controllers);
-  Controller* controller = lovrAlloc(sizeof(Controller), free);
+  Controller* controller = lovrAlloc(Controller, free);
   controller->id = 0;
   vec_push(&state.controllers, controller);
 

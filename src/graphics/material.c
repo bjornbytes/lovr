@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 Material* lovrMaterialCreate() {
-  Material* material = lovrAlloc(sizeof(Material), lovrMaterialDestroy);
+  Material* material = lovrAlloc(Material, lovrMaterialDestroy);
   if (!material) return NULL;
 
   for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {

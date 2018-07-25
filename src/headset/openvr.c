@@ -69,7 +69,7 @@ static Controller* openvrAddController(unsigned int deviceIndex) {
     }
   }
 
-  controller = lovrAlloc(sizeof(Controller), free);
+  controller = lovrAlloc(Controller, free);
   controller->id = deviceIndex;
   vec_push(&state.controllers, controller);
   return controller;

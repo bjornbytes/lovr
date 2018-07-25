@@ -12,7 +12,7 @@ static ALenum lovrSourceGetState(Source* source) {
 }
 
 Source* lovrSourceCreateStatic(SoundData* soundData) {
-  Source* source = lovrAlloc(sizeof(Source), lovrSourceDestroy);
+  Source* source = lovrAlloc(Source, lovrSourceDestroy);
   if (!source) return NULL;
 
   ALenum format = lovrAudioConvertFormat(soundData->bitDepth, soundData->channelCount);
@@ -28,7 +28,7 @@ Source* lovrSourceCreateStatic(SoundData* soundData) {
 }
 
 Source* lovrSourceCreateStream(AudioStream* stream) {
-  Source* source = lovrAlloc(sizeof(Source), lovrSourceDestroy);
+  Source* source = lovrAlloc(Source, lovrSourceDestroy);
   if (!source) return NULL;
 
   source->type = SOURCE_STREAM;

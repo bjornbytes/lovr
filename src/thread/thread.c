@@ -34,7 +34,7 @@ Channel* lovrThreadGetChannel(const char* name) {
 }
 
 Thread* lovrThreadCreate(int (*runner)(void*), const char* body) {
-  Thread* thread = lovrAlloc(sizeof(Thread), lovrThreadDestroy);
+  Thread* thread = lovrAlloc(Thread, lovrThreadDestroy);
   if (!thread) return NULL;
 
   thread->runner = runner;

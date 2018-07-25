@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 AudioStream* lovrAudioStreamCreate(Blob* blob, size_t bufferSize) {
-  AudioStream* stream = lovrAlloc(sizeof(AudioStream), lovrAudioStreamDestroy);
+  AudioStream* stream = lovrAlloc(AudioStream, lovrAudioStreamDestroy);
   if (!stream) return NULL;
 
   stb_vorbis* decoder = stb_vorbis_open_memory(blob->data, blob->size, NULL, NULL);

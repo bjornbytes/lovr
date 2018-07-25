@@ -16,7 +16,7 @@ static int trackSortCallback(const void* a, const void* b) {
 }
 
 Animator* lovrAnimatorCreate(ModelData* modelData) {
-  Animator* animator = lovrAlloc(sizeof(Animator), lovrAnimatorDestroy);
+  Animator* animator = lovrAlloc(Animator, lovrAnimatorDestroy);
   if (!animator) return NULL;
 
   lovrRetain(modelData);

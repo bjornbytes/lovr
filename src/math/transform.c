@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 Transform* lovrTransformCreate(mat4 transfrom) {
-  Transform* transform = lovrAlloc(sizeof(Transform), free);
+  Transform* transform = lovrAlloc(Transform, free);
   if (!transform) return NULL;
 
   transform->isDirty = true;

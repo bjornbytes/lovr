@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 File* lovrFileCreate(const char* path) {
-  File* file = lovrAlloc(sizeof(File), lovrFileDestroy);
+  File* file = lovrAlloc(File, lovrFileDestroy);
   if (!file) return NULL;
 
   file->path = path;

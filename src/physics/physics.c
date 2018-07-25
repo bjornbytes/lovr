@@ -44,7 +44,7 @@ void lovrPhysicsDestroy() {
 }
 
 World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, int tagCount) {
-  World* world = lovrAlloc(sizeof(World), lovrWorldDestroy);
+  World* world = lovrAlloc(World, lovrWorldDestroy);
   if (!world) return NULL;
 
   world->id = dWorldCreate();
@@ -269,7 +269,7 @@ int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const cha
 
 Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   lovrAssert(world, "No world specified");
-  Collider* collider = lovrAlloc(sizeof(Collider), lovrColliderDestroy);
+  Collider* collider = lovrAlloc(Collider, lovrColliderDestroy);
   if (!collider) return NULL;
 
   collider->body = dBodyCreate(world->id);
@@ -753,7 +753,7 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {
-  SphereShape* sphere = lovrAlloc(sizeof(SphereShape), lovrShapeDestroy);
+  SphereShape* sphere = lovrAlloc(SphereShape, lovrShapeDestroy);
   if (!sphere) return NULL;
 
   sphere->type = SHAPE_SPHERE;
@@ -772,7 +772,7 @@ void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
 }
 
 BoxShape* lovrBoxShapeCreate(float x, float y, float z) {
-  BoxShape* box = lovrAlloc(sizeof(BoxShape), lovrShapeDestroy);
+  BoxShape* box = lovrAlloc(BoxShape, lovrShapeDestroy);
   if (!box) return NULL;
 
   box->type = SHAPE_BOX;
@@ -795,7 +795,7 @@ void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z) {
 }
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
-  CapsuleShape* capsule = lovrAlloc(sizeof(CapsuleShape), lovrShapeDestroy);
+  CapsuleShape* capsule = lovrAlloc(CapsuleShape, lovrShapeDestroy);
   if (!capsule) return NULL;
 
   capsule->type = SHAPE_CAPSULE;
@@ -826,7 +826,7 @@ void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
 }
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
-  CylinderShape* cylinder = lovrAlloc(sizeof(CylinderShape), lovrShapeDestroy);
+  CylinderShape* cylinder = lovrAlloc(CylinderShape, lovrShapeDestroy);
   if (!cylinder) return NULL;
 
   cylinder->type = SHAPE_CYLINDER;
@@ -896,7 +896,7 @@ void lovrJointSetUserData(Joint* joint, void* data) {
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
-  BallJoint* joint = lovrAlloc(sizeof(BallJoint), lovrJointDestroy);
+  BallJoint* joint = lovrAlloc(BallJoint, lovrJointDestroy);
   if (!joint) return NULL;
 
   joint->type = JOINT_BALL;
@@ -926,7 +926,7 @@ void lovrBallJointSetAnchor(BallJoint* joint, float x, float y, float z) {
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
-  DistanceJoint* joint = lovrAlloc(sizeof(DistanceJoint), lovrJointDestroy);
+  DistanceJoint* joint = lovrAlloc(DistanceJoint, lovrJointDestroy);
   if (!joint) return NULL;
 
   joint->type = JOINT_DISTANCE;
@@ -965,7 +965,7 @@ void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance) {
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
-  HingeJoint* joint = lovrAlloc(sizeof(HingeJoint), lovrJointDestroy);
+  HingeJoint* joint = lovrAlloc(HingeJoint, lovrJointDestroy);
   if (!joint) return NULL;
 
   joint->type = JOINT_HINGE;
@@ -1028,7 +1028,7 @@ void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in the same world");
-  SliderJoint* joint = lovrAlloc(sizeof(SliderJoint), lovrJointDestroy);
+  SliderJoint* joint = lovrAlloc(SliderJoint, lovrJointDestroy);
   if (!joint) return NULL;
 
   joint->type = JOINT_SLIDER;

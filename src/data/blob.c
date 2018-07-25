@@ -1,7 +1,7 @@
 #include "data/blob.h"
 
 Blob* lovrBlobCreate(void* data, size_t size, const char* name) {
-  Blob* blob = lovrAlloc(sizeof(Blob), lovrBlobDestroy);
+  Blob* blob = lovrAlloc(Blob, lovrBlobDestroy);
   if (!blob) return NULL;
 
   blob->data = data;
