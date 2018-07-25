@@ -22,7 +22,6 @@ typedef union {
 } VariantValue;
 
 typedef struct {
-  const char* meta;
   VariantType type;
   VariantValue value;
 } Variant;

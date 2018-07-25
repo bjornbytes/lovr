@@ -27,10 +27,6 @@ static void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       break;
 
     case LUA_TUSERDATA:
-      lua_getmetatable(L, index);
-      lua_getfield(L, -1, "name");
-      variant->meta = luaL_checkstring(L, -1);
-      lua_pop(L, 2);
       variant->type = TYPE_OBJECT;
       variant->value.ref = lua_touserdata(L, index);
       lovrRetain(variant->value.ref);
@@ -44,18 +40,12 @@ static void luax_checkvariant(lua_State* L, int index, Variant* variant) {
 
 static int luax_pushvariant(lua_State* L, Variant* variant) {
   switch (variant->type) {
-    case TYPE_NIL: lua_pushnil(L); break;
-    case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); break;
-    case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); break;
-    case TYPE_STRING: lua_pushstring(L, variant->value.string); break;
-    case TYPE_OBJECT: luax_pushobject(L, variant->value.ref); lovrRelease(variant->value.ref); break;
+    case TYPE_NIL: lua_pushnil(L); return 1;
+    case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
+    case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
+    case TYPE_STRING: lua_pushstring(L, variant->value.string); free(variant->value.string); return 1;
+    case TYPE_OBJECT: luax_pushobject(L, variant->value.ref); lovrRelease(variant->value.ref); return 1;
   }
-
-  if (variant->type == TYPE_STRING) {
-    free(variant->value.string);
-  }
-
-  return 1;
 }
 
 static void luax_checktimeout(lua_State* L, int index, double* timeout) {
