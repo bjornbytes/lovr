@@ -61,6 +61,8 @@ const char* lovrShaderFragmentPrefix = ""
 "precision mediump float; \n"
 #else
 "#version 150 \n"
+"#extension GL_NV_viewport_array2 : enable \n"
+"#extension GL_ARB_fragment_layer_viewport : enable \n"
 "in vec4 gl_FragCoord; \n"
 #endif
 "#define PIXEL PIXEL \n"
