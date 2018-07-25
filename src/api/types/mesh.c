@@ -193,7 +193,7 @@ int l_lovrMeshGetVertexMap(lua_State* L) {
   if (lua_istable(L, 2)) {
     lua_settop(L, 2);
   } else if (lua_isuserdata(L, 2)) {
-    Blob* blob = luax_checktypeof(L, 2, Blob);
+    Blob* blob = luax_checktype(L, 2, Blob);
     lovrAssert(size * count <= blob->size, "Mesh vertex map is %zu bytes, but Blob can only hold %zu", size * count, blob->size);
     memcpy(blob->data, indices.raw, size * count);
     return 0;
@@ -220,7 +220,7 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
   }
 
   if (lua_type(L, 2) == LUA_TUSERDATA) {
-    Blob* blob = luax_checktypeof(L, 2, Blob);
+    Blob* blob = luax_checktype(L, 2, Blob);
     size_t size = luaL_optinteger(L, 3, 4);
     lovrAssert(size == 2 || size == 4, "Size of Mesh indices should be 2 bytes or 4 bytes");
     uint32_t count = blob->size / size;

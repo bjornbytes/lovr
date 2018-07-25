@@ -32,7 +32,7 @@ int l_lovrDataNewBlob(lua_State* L) {
     memcpy(data, str, size);
     data[size] = '\0';
   } else {
-    Blob* blob = luax_checktypeof(L, 1, Blob);
+    Blob* blob = luax_checktype(L, 1, Blob);
     size = blob->size;
     data = malloc(size);
   }
@@ -91,9 +91,9 @@ int l_lovrDataNewSoundData(lua_State* L) {
     return 1;
   }
 
-  AudioStream** audioStream;
-  if ((audioStream = luax_totype(L, 1, AudioStream)) != NULL) {
-    SoundData* soundData = lovrSoundDataCreateFromAudioStream(*audioStream);
+  AudioStream* audioStream = luax_totype(L, 1, AudioStream);
+  if (audioStream) {
+    SoundData* soundData = lovrSoundDataCreateFromAudioStream(audioStream);
     luax_pushobject(L, soundData);
     return 1;
   }

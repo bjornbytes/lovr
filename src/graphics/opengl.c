@@ -1053,7 +1053,9 @@ Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasFlag
   if (!texture) return NULL;
 
   Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
+  Ref ref = canvas->texture.ref;
   canvas->texture = *texture;
+  canvas->texture.ref = ref;
   canvas->flags = flags;
 
   // Framebuffer

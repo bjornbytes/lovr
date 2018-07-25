@@ -109,18 +109,16 @@ int l_lovrAudioNewMicrophone(lua_State* L) {
 
 int l_lovrAudioNewSource(lua_State* L) {
   Source* source = NULL;
-  SoundData** soundDataRef = luax_totype(L, 1, SoundData);
-  AudioStream** streamRef = luax_totype(L, 1, AudioStream);
-  bool isStatic = soundDataRef || luaL_checkoption(L, 2, NULL, SourceTypes) == SOURCE_STATIC;
+  SoundData* soundData = luax_totype(L, 1, SoundData);
+  AudioStream* stream = luax_totype(L, 1, AudioStream);
+  bool isStatic = soundData || luaL_checkoption(L, 2, NULL, SourceTypes) == SOURCE_STATIC;
 
   if (isStatic) {
-    if (soundDataRef) {
-      source = lovrSourceCreateStatic(*soundDataRef);
+    if (soundData) {
+      source = lovrSourceCreateStatic(soundData);
     } else {
-      SoundData* soundData;
-
-      if (streamRef) {
-        soundData = lovrSoundDataCreateFromAudioStream(*streamRef);
+      if (stream) {
+        soundData = lovrSoundDataCreateFromAudioStream(stream);
       } else {
         Blob* blob = luax_readblob(L, 1, "Source");
         soundData = lovrSoundDataCreateFromBlob(blob);
@@ -132,11 +130,11 @@ int l_lovrAudioNewSource(lua_State* L) {
       lovrRelease(soundData);
     }
   } else {
-    if (streamRef) {
-      source = lovrSourceCreateStream(*streamRef);
+    if (stream) {
+      source = lovrSourceCreateStream(stream);
     } else {
       Blob* blob = luax_readblob(L, 1, "Source");
-      AudioStream* stream = lovrAudioStreamCreate(blob, 4096);
+      stream = lovrAudioStreamCreate(blob, 4096);
       lovrAssert(stream, "Could not create stream Source");
       source = lovrSourceCreateStream(stream);
       lovrRelease(blob);

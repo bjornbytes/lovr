@@ -219,15 +219,15 @@ static void stencilCallback(void* userdata) {
 }
 
 static TextureData* luax_checktexturedata(lua_State* L, int index) {
-  void** type;
-  if ((type = luax_totype(L, index, TextureData)) != NULL) {
-    return *type;
-  } else {
+  TextureData* textureData = luax_totype(L, index, TextureData);
+
+  if (!textureData) {
     Blob* blob = luax_readblob(L, index, "Texture");
-    TextureData* textureData = lovrTextureDataFromBlob(blob);
+    textureData = lovrTextureDataFromBlob(blob);
     lovrRelease(blob);
-    return textureData;
   }
+
+  return textureData;
 }
 
 // Base
@@ -802,7 +802,7 @@ int l_lovrGraphicsSphere(lua_State* L) {
 }
 
 int l_lovrGraphicsSkybox(lua_State* L) {
-  Texture* texture = luax_checktypeof(L, 1, Texture);
+  Texture* texture = luax_checktype(L, 1, Texture);
   float angle = luaL_optnumber(L, 2, 0);
   float ax = luaL_optnumber(L, 3, 0);
   float ay = luaL_optnumber(L, 4, 1);
@@ -837,7 +837,7 @@ int l_lovrGraphicsStencil(lua_State* L) {
 }
 
 int l_lovrGraphicsFill(lua_State* L) {
-  Texture* texture = luax_checktypeof(L, 1, Texture);
+  Texture* texture = luax_checktype(L, 1, Texture);
   lovrGraphicsFill(texture);
   return 0;
 }
@@ -890,11 +890,9 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
 }
 
 int l_lovrGraphicsNewFont(lua_State* L) {
-  Rasterizer* rasterizer;
-  void** type;
-  if ((type = luax_totype(L, 1, Rasterizer)) != NULL) {
-    rasterizer = *type;
-  } else {
+  Rasterizer* rasterizer = luax_totype(L, 1, Rasterizer);
+
+  if (!rasterizer) {
     Blob* blob = NULL;
     float size;
 
@@ -930,7 +928,7 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
     lovrRelease(textureData);
     lovrRelease(texture);
   } else if (lua_isuserdata(L, index)) {
-    Texture* texture = luax_checktypeof(L, index, Texture);
+    Texture* texture = luax_checktype(L, index, Texture);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     index++;
   }
@@ -1005,11 +1003,9 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
 }
 
 int l_lovrGraphicsNewModel(lua_State* L) {
-  ModelData* modelData;
-  void** type;
-  if ((type = luax_totype(L, 1, ModelData)) != NULL) {
-    modelData = *type;
-  } else {
+  ModelData* modelData = luax_totype(L, 1, ModelData);
+
+  if (!modelData) {
     Blob* blob = luax_readblob(L, 1, "Model");
     modelData = lovrModelDataCreate(blob);
     lovrRelease(blob);
@@ -1042,9 +1038,9 @@ int l_lovrGraphicsNewModel(lua_State* L) {
 int l_lovrGraphicsNewShader(lua_State* L) {
   for (int i = 1; i <= 2; i++) {
     if (lua_isnoneornil(L, i)) continue;
-    Blob** blob = luax_totype(L, i, Blob);
+    Blob* blob = luax_totype(L, i, Blob);
     if (blob) {
-      lua_pushlstring(L, (*blob)->data, (*blob)->size);
+      lua_pushlstring(L, blob->data, blob->size);
       lua_replace(L, i);
       continue;
     }

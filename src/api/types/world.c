@@ -129,8 +129,8 @@ int l_lovrWorldOverlaps(lua_State* L) {
 
 int l_lovrWorldCollide(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  Shape* a = luax_checktypeof(L, 2, Shape);
-  Shape* b = luax_checktypeof(L, 3, Shape);
+  Shape* a = luax_checktype(L, 2, Shape);
+  Shape* b = luax_checktype(L, 3, Shape);
   float friction = luaL_optnumber(L, 4, -1);
   float restitution = luaL_optnumber(L, 5, -1);
   lua_pushboolean(L, lovrWorldCollide(world, a, b, friction, restitution));

@@ -2,13 +2,13 @@
 #include "physics/physics.h"
 
 int l_lovrJointDestroy(lua_State* L) {
-  Joint* joint = luax_checktypeof(L, 1, Joint);
+  Joint* joint = luax_checktype(L, 1, Joint);
   lovrJointDestroyData(joint);
   return 0;
 }
 
 int l_lovrJointGetType(lua_State* L) {
-  Joint* joint = luax_checktypeof(L, 1, Joint);
+  Joint* joint = luax_checktype(L, 1, Joint);
   lua_pushstring(L, JointTypes[lovrJointGetType(joint)]);
   return 1;
 }
@@ -24,14 +24,14 @@ int l_lovrJointGetColliders(lua_State* L) {
 }
 
 int l_lovrJointGetUserData(lua_State* L) {
-  Joint* joint = luax_checktypeof(L, 1, Joint);
+  Joint* joint = luax_checktype(L, 1, Joint);
   int ref = (int) lovrJointGetUserData(joint);
   lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
   return 1;
 }
 
 int l_lovrJointSetUserData(lua_State* L) {
-  Joint* joint = luax_checktypeof(L, 1, Joint);
+  Joint* joint = luax_checktype(L, 1, Joint);
   uint64_t ref = (int) lovrJointGetUserData(joint);
   if (ref) {
     luaL_unref(L, LUA_REGISTRYINDEX, ref);

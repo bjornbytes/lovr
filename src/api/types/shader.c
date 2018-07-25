@@ -57,15 +57,15 @@ int l_lovrShaderSend(lua_State* L) {
     }
   }
 
-  Blob** blob = luax_totype(L, 3, Blob);
+  Blob* blob = luax_totype(L, 3, Blob);
 
   switch (type) {
     case UNIFORM_FLOAT:
       if (blob) {
         n = count;
-        floats = (float*) (*blob)->data;
+        floats = (float*) blob->data;
         size_t count = n * components;
-        size_t capacity = (*blob)->size / sizeof(float);
+        size_t capacity = blob->size / sizeof(float);
         const char* s = capacity == 1 ? "" : "s";
         lovrAssert(capacity >= count, "Blob can only hold %d float%s, at least %d needed", capacity, s, count);
       } else if (components == 1) {
@@ -91,9 +91,9 @@ int l_lovrShaderSend(lua_State* L) {
     case UNIFORM_INT:
       if (blob) {
         n = count;
-        ints = (int*) (*blob)->data;
+        ints = (int*) blob->data;
         size_t count = n * components;
-        size_t capacity = (*blob)->size / sizeof(int);
+        size_t capacity = blob->size / sizeof(int);
         const char* s = capacity == 1 ? "" : "s";
         lovrAssert(capacity >= count, "Blob can only hold %d int%s, at least %d needed", capacity, s, count);
       } else if (components == 1) {
@@ -119,9 +119,9 @@ int l_lovrShaderSend(lua_State* L) {
     case UNIFORM_MATRIX:
       if (blob) {
         n = count;
-        floats = (float*) (*blob)->data;
+        floats = (float*) blob->data;
         size_t count = n * components * components;
-        size_t capacity = (*blob)->size / sizeof(float);
+        size_t capacity = blob->size / sizeof(float);
         const char* s = capacity == 1 ? "x" : "ces";
         lovrAssert(capacity >= count, "Blob can only hold %d matri%s, at least %d needed", capacity, s, count);
       } else if (components == 4 && lua_isuserdata(L, 3)) {
@@ -144,12 +144,12 @@ int l_lovrShaderSend(lua_State* L) {
 
     case UNIFORM_SAMPLER:
       if (components == 1) {
-        textures[0] = luax_checktypeof(L, 3, Texture);
+        textures[0] = luax_checktype(L, 3, Texture);
       } else {
         luaL_checktype(L, 3, LUA_TTABLE);
         for (int i = 0; i < n; i++) {
           lua_rawgeti(L, -1, i + 1);
-          textures[i] = luax_checktypeof(L, -1, Texture);
+          textures[i] = luax_checktype(L, -1, Texture);
           lua_pop(L, 1);
         }
       }

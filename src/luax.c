@@ -85,17 +85,34 @@ void luax_extendtype(lua_State* L, const char* base, const char* name, const lua
   lua_pop(L, 1);
 }
 
-void* luax_testudata(lua_State* L, int index, const char* type) {
-  void* p = lua_touserdata(L, index);
+void* _luax_totype(lua_State* L, int index, const char* type) {
+  void** p = lua_touserdata(L, index);
 
-  if (!p || !lua_getmetatable(L, index)) {
-    return NULL;
+  if (p) {
+    Ref* object = *(Ref**) p;
+    if (!strcmp(object->type, type)) {
+      return object;
+    }
+
+    if (lua_getmetatable(L, index)) {
+      lua_getfield(L, -1, "super");
+      const char* super = lua_tostring(L, -1);
+      lua_pop(L, 2);
+      return (!super || strcmp(super, type)) ? NULL : object;
+    }
   }
 
-  luaL_getmetatable(L, type);
-  int equal = lua_rawequal(L, -1, -2);
-  lua_pop(L, 2);
-  return equal ? p : NULL;
+  return NULL;
+}
+
+void* _luax_checktype(lua_State* L, int index, const char* type) {
+  void* object = _luax_totype(L, index, type);
+
+  if (!object) {
+    luaL_typerror(L, index, type);
+  }
+
+  return object;
 }
 
 // Registers the userdata on the top of the stack in the registry.

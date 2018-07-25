@@ -46,8 +46,8 @@ int l_lovrModelDataGetNodeName(lua_State* L) {
 }
 
 static int luax_writenodetransform(lua_State* L, mat4 m, int transformIndex) {
-  Transform* transform;
-  if ((transform = luax_totype(L, transformIndex, Transform)) != NULL) {
+  Transform* transform = luax_totype(L, transformIndex, Transform);
+  if (transform) {
     lovrTransformSetMatrix(transform, m);
     lua_settop(L, transformIndex);
     return 1;

@@ -2,45 +2,45 @@
 #include "physics/physics.h"
 
 int l_lovrShapeDestroy(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   lovrShapeDestroyData(shape);
   return 0;
 }
 
 int l_lovrShapeGetType(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   lua_pushstring(L, ShapeTypes[lovrShapeGetType(shape)]);
   return 1;
 }
 
 int l_lovrShapeGetCollider(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   luax_pushobject(L, lovrShapeGetCollider(shape));
   return 1;
 }
 
 int l_lovrShapeIsEnabled(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   lua_pushboolean(L, lovrShapeIsEnabled(shape));
   return 1;
 }
 
 int l_lovrShapeSetEnabled(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   bool enabled = lua_toboolean(L, 2);
   lovrShapeSetEnabled(shape, enabled);
   return 0;
 }
 
 int l_lovrShapeGetUserData(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   int ref = (int) lovrShapeGetUserData(shape);
   lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
   return 1;
 }
 
 int l_lovrShapeSetUserData(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   uint64_t ref = (int) lovrShapeGetUserData(shape);
   if (ref) {
     luaL_unref(L, LUA_REGISTRYINDEX, ref);
@@ -57,7 +57,7 @@ int l_lovrShapeSetUserData(lua_State* L) {
 }
 
 int l_lovrShapeGetPosition(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   float x, y, z;
   lovrShapeGetPosition(shape, &x, &y, &z);
   lua_pushnumber(L, x);
@@ -67,7 +67,7 @@ int l_lovrShapeGetPosition(lua_State* L) {
 }
 
 int l_lovrShapeSetPosition(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   float x = luaL_checknumber(L, 2);
   float y = luaL_checknumber(L, 3);
   float z = luaL_checknumber(L, 4);
@@ -76,7 +76,7 @@ int l_lovrShapeSetPosition(lua_State* L) {
 }
 
 int l_lovrShapeGetOrientation(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   float angle, x, y, z;
   lovrShapeGetOrientation(shape, &angle, &x, &y, &z);
   lua_pushnumber(L, angle);
@@ -87,7 +87,7 @@ int l_lovrShapeGetOrientation(lua_State* L) {
 }
 
 int l_lovrShapeSetOrientation(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   float angle = luaL_checknumber(L, 2);
   float x = luaL_checknumber(L, 3);
   float y = luaL_checknumber(L, 4);
@@ -97,7 +97,7 @@ int l_lovrShapeSetOrientation(lua_State* L) {
 }
 
 int l_lovrShapeGetMass(lua_State* L) {
-  Shape* shape = luax_checktypeof(L, 1, Shape);
+  Shape* shape = luax_checktype(L, 1, Shape);
   float density = luaL_checknumber(L, 2);
   float cx, cy, cz, mass;
   float inertia[6];
