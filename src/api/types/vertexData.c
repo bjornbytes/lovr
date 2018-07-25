@@ -51,7 +51,6 @@ bool luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
     const char* name = lua_tostring(L, -3);
     AttributeType type = luaL_checkoption(L, -2, NULL, AttributeTypes);
     int count = lua_tointeger(L, -1);
-    lovrAssert(type != ATTR_BYTE || count == 1, "Vertex attribute with type 'byte' must have a count of 1");
     lovrAssert(count >= 1 || count <= 4, "Vertex attribute counts must be between 1 and 4");
     vertexFormatAppend(format, name, type, count);
     lua_pop(L, 4);
