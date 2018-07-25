@@ -110,6 +110,4 @@ void luax_setvertexattribute(lua_State* L, int index, VertexPointer* vertex, Att
 void luax_setvertex(lua_State* L, int index, VertexPointer* vertex, VertexFormat* format);
 int luax_readtransform(lua_State* L, int index, mat4 transform, int scaleComponents);
 Blob* luax_readblob(lua_State* L, int index, const char* debug);
-int luax_pushshape(lua_State* L, Shape* shape);
-int luax_pushjoint(lua_State* L, Joint* joint);
 Seed luax_checkrandomseed(lua_State* L, int index);

@@ -45,7 +45,7 @@ int l_lovrMaterialGetTexture(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   MaterialTexture textureType = luaL_checkoption(L, 2, "diffuse", MaterialTextures);
   Texture* texture = lovrMaterialGetTexture(material, textureType);
-  luax_pushtype(L, Texture, texture);
+  luax_pushobject(L, texture);
   return 1;
 }
 

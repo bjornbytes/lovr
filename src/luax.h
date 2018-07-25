@@ -19,25 +19,14 @@
   luaL_argcheck(L, lua_equal(L, -1, -2) || lua_equal(L, -1, -3), i, "Expected " STRINGIFY(T)), \
   lua_pop(L, 4), \
   lua_touserdata(L, i))
-#define luax_newobject(L, T, x) \
-  T** u = (T**) lua_newuserdata(L, sizeof(T**)); \
-  luax_registerobject(L, x); \
-  luaL_getmetatable(L, #T); \
-  lua_setmetatable(L, -2); \
-  *u = x;
-#define luax_pushtype(L, T, x) \
-  if (!x) { lua_pushnil(L); } \
-  else if (!luax_getobject(L, x)) { luax_newobject(L, T, x); }
 
 int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f);
 int luax_emptymodule(lua_State* L);
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions);
 void luax_extendtype(lua_State* L, const char* base, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions);
-int luax_releasetype(lua_State* L);
 void* luax_testudata(lua_State* L, int index, const char* type);
-int luax_getobject(lua_State* L, void* object);
-void luax_registerobject(lua_State* L, void* object);
+void luax_pushobject(lua_State* L, void* object);
 int luax_getstack(lua_State* L);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);

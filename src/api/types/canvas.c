@@ -32,7 +32,7 @@ int l_lovrCanvasGetMSAA(lua_State* L) {
 int l_lovrCanvasNewTextureData(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   TextureData* textureData = lovrCanvasNewTextureData(canvas);
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   lovrRelease(textureData);
   return 1;
 }

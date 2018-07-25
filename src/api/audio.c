@@ -102,7 +102,7 @@ int l_lovrAudioNewMicrophone(lua_State* L) {
   int bitDepth = luaL_optinteger(L, 4, 16);
   int channelCount = luaL_optinteger(L, 5, 1);
   Microphone* microphone = lovrMicrophoneCreate(name, samples, sampleRate, bitDepth, channelCount);
-  luax_pushtype(L, Microphone, microphone);
+  luax_pushobject(L, microphone);
   lovrRelease(microphone);
   return 1;
 }
@@ -144,7 +144,7 @@ int l_lovrAudioNewSource(lua_State* L) {
     }
   }
 
-  luax_pushtype(L, Source, source);
+  luax_pushobject(L, source);
   lovrRelease(source);
   return 1;
 }

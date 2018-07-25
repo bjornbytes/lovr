@@ -38,7 +38,7 @@ int l_lovrDataNewBlob(lua_State* L) {
   }
   const char* name = luaL_optstring(L, 2, "");
   Blob* blob = lovrBlobCreate(data, size, name);
-  luax_pushtype(L, Blob, blob);
+  luax_pushobject(L, blob);
   lovrRelease(blob);
   return 1;
 }
@@ -47,7 +47,7 @@ int l_lovrDataNewAudioStream(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "AudioStream");
   size_t bufferSize = luaL_optinteger(L, 2, 4096);
   AudioStream* stream = lovrAudioStreamCreate(blob, bufferSize);
-  luax_pushtype(L, AudioStream, stream);
+  luax_pushobject(L, stream);
   lovrRelease(blob);
   lovrRelease(stream);
   return 1;
@@ -56,7 +56,7 @@ int l_lovrDataNewAudioStream(lua_State* L) {
 int l_lovrDataNewModelData(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
   ModelData* modelData = lovrModelDataCreate(blob);
-  luax_pushtype(L, ModelData, modelData);
+  luax_pushobject(L, modelData);
   lovrRelease(blob);
   lovrRelease(modelData);
   return 1;
@@ -74,7 +74,7 @@ int l_lovrDataNewRasterizer(lua_State* L) {
   }
 
   Rasterizer* rasterizer = lovrRasterizerCreate(blob, size);
-  luax_pushtype(L, Rasterizer, rasterizer);
+  luax_pushobject(L, rasterizer);
   lovrRelease(blob);
   lovrRelease(rasterizer);
   return 1;
@@ -87,20 +87,20 @@ int l_lovrDataNewSoundData(lua_State* L) {
     int bitDepth = luaL_optinteger(L, 3, 16);
     int channelCount = luaL_optinteger(L, 4, 2);
     SoundData* soundData = lovrSoundDataCreate(samples, sampleRate, bitDepth, channelCount);
-    luax_pushtype(L, SoundData, soundData);
+    luax_pushobject(L, soundData);
     return 1;
   }
 
   AudioStream** audioStream;
   if ((audioStream = luax_totype(L, 1, AudioStream)) != NULL) {
     SoundData* soundData = lovrSoundDataCreateFromAudioStream(*audioStream);
-    luax_pushtype(L, SoundData, soundData);
+    luax_pushobject(L, soundData);
     return 1;
   }
 
   Blob* blob = luax_readblob(L, 1, "SoundData");
   SoundData* soundData = lovrSoundDataCreateFromBlob(blob);
-  luax_pushtype(L, SoundData, soundData);
+  luax_pushobject(L, soundData);
   lovrRelease(blob);
   lovrRelease(soundData);
   return 1;
@@ -118,7 +118,7 @@ int l_lovrDataNewTextureData(lua_State* L) {
     lovrRelease(blob);
   }
 
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   lovrRelease(textureData);
   return 1;
 }
@@ -154,7 +154,7 @@ int l_lovrDataNewVertexData(lua_State* L) {
   if (dataIndex) {
     luax_loadvertices(L, dataIndex, &vertexData->format, (VertexPointer) { .raw = vertexData->blob.data });
   }
-  luax_pushtype(L, VertexData, vertexData);
+  luax_pushobject(L, vertexData);
   lovrRelease(vertexData);
   return 1;
 }

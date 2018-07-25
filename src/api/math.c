@@ -25,7 +25,7 @@ int l_lovrMathNewRandomGenerator(lua_State* L) {
     Seed seed = luax_checkrandomseed(L, 1);
     lovrRandomGeneratorSetSeed(generator, seed);
   }
-  luax_pushtype(L, RandomGenerator, generator);
+  luax_pushobject(L, generator);
   lovrRelease(generator);
   return 1;
 }
@@ -34,7 +34,7 @@ int l_lovrMathNewTransform(lua_State* L) {
   float matrix[16];
   luax_readtransform(L, 1, matrix, 3);
   Transform* transform = lovrTransformCreate(matrix);
-  luax_pushtype(L, Transform, transform);
+  luax_pushobject(L, transform);
   lovrRelease(transform);
   return 1;
 }
@@ -81,25 +81,25 @@ int l_lovrMathNoise(lua_State* L) {
 }
 
 int l_lovrMathRandom(lua_State* L) {
-  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+  luax_pushobject(L, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorRandom(L);
 }
 
 int l_lovrMathRandomNormal(lua_State* L) {
-  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+  luax_pushobject(L, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorRandomNormal(L);
 }
 
 int l_lovrMathGetRandomSeed(lua_State* L) {
-  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+  luax_pushobject(L, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorGetSeed(L);
 }
 
 int l_lovrMathSetRandomSeed(lua_State* L) {
-  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+  luax_pushobject(L, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorSetSeed(L);
 }

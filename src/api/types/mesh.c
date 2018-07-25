@@ -303,11 +303,7 @@ int l_lovrMeshSetDrawRange(lua_State* L) {
 int l_lovrMeshGetMaterial(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   Material* material = lovrMeshGetMaterial(mesh);
-  if (material) {
-    luax_pushtype(L, Material, material);
-  } else {
-    lua_pushnil(L);
-  }
+  luax_pushobject(L, material);
   return 1;
 }
 

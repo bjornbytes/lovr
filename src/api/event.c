@@ -42,29 +42,29 @@ static int nextEvent(lua_State* L) {
 
 #ifndef EMSCRIPTEN
     case EVENT_THREAD_ERROR:
-      luax_pushtype(L, Thread, event.data.threaderror.thread);
+      luax_pushobject(L, event.data.threaderror.thread);
       lua_pushstring(L, event.data.threaderror.error);
       free((void*) event.data.threaderror.error);
       return 3;
 #endif
 
     case EVENT_CONTROLLER_ADDED:
-      luax_pushtype(L, Controller, event.data.controlleradded.controller);
+      luax_pushobject(L, event.data.controlleradded.controller);
       lovrRelease(event.data.controlleradded.controller);
       return 2;
 
     case EVENT_CONTROLLER_REMOVED:
-      luax_pushtype(L, Controller, event.data.controllerremoved.controller);
+      luax_pushobject(L, event.data.controllerremoved.controller);
       lovrRelease(event.data.controlleradded.controller);
       return 2;
 
     case EVENT_CONTROLLER_PRESSED:
-      luax_pushtype(L, Controller, event.data.controllerpressed.controller);
+      luax_pushobject(L, event.data.controllerpressed.controller);
       lua_pushstring(L, ControllerButtons[event.data.controllerpressed.button]);
       return 3;
 
     case EVENT_CONTROLLER_RELEASED:
-      luax_pushtype(L, Controller, event.data.controllerreleased.controller);
+      luax_pushobject(L, event.data.controllerreleased.controller);
       lua_pushstring(L, ControllerButtons[event.data.controllerpressed.button]);
       return 3;
 

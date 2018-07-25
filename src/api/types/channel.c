@@ -48,16 +48,7 @@ static int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); break;
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); break;
     case TYPE_STRING: lua_pushstring(L, variant->value.string); break;
-    case TYPE_OBJECT:
-      if (!luax_getobject(L, variant->value.ref)) {
-        Ref** u = (Ref**) lua_newuserdata(L, sizeof(Ref**));
-        luax_registerobject(L, variant->value.ref);
-        luaL_getmetatable(L, variant->meta);
-        lua_setmetatable(L, -2);
-        *u = variant->value.ref;
-        lovrRelease(variant->value.ref);
-      }
-      break;
+    case TYPE_OBJECT: luax_pushobject(L, variant->value.ref); lovrRelease(variant->value.ref); break;
   }
 
   if (variant->type == TYPE_STRING) {

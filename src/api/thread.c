@@ -52,7 +52,7 @@ int l_lovrThreadInit(lua_State* L) {
 int l_lovrThreadNewThread(lua_State* L) {
   const char* body = luaL_checkstring(L, 1);
   Thread* thread = lovrThreadCreate(threadRunner, body);
-  luax_pushtype(L, Thread, thread);
+  luax_pushobject(L, thread);
   lovrRelease(thread);
   return 1;
 }
@@ -60,7 +60,7 @@ int l_lovrThreadNewThread(lua_State* L) {
 int l_lovrThreadGetChannel(lua_State* L) {
   const char* name = luaL_checkstring(L, 1);
   Channel* channel = lovrThreadGetChannel(name);
-  luax_pushtype(L, Channel, channel);
+  luax_pushobject(L, channel);
   return 1;
 }
 

@@ -5,7 +5,7 @@
 
 int l_lovrModelDataGetVertexData(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
-  luax_pushtype(L, VertexData, modelData->vertexData);
+  luax_pushobject(L, modelData->vertexData);
   return 1;
 }
 
@@ -196,7 +196,7 @@ int l_lovrModelDataGetDiffuseTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->diffuseTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
@@ -204,7 +204,7 @@ int l_lovrModelDataGetEmissiveTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->emissiveTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
@@ -212,7 +212,7 @@ int l_lovrModelDataGetMetalnessTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->metalnessTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
@@ -220,7 +220,7 @@ int l_lovrModelDataGetRoughnessTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->roughnessTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
@@ -228,7 +228,7 @@ int l_lovrModelDataGetOcclusionTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->occlusionTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
@@ -236,7 +236,7 @@ int l_lovrModelDataGetNormalTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->normalTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 

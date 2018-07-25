@@ -5,7 +5,7 @@
 static void collisionResolver(World* world, void* userdata) {
   lua_State* L = userdata;
   luaL_checktype(L, -1, LUA_TFUNCTION);
-  luax_pushtype(L, World, world);
+  luax_pushobject(L, world);
   lua_call(L, 1, 0);
 }
 
@@ -14,8 +14,8 @@ static int nextOverlap(lua_State* L) {
   Shape* a;
   Shape* b;
   if (lovrWorldGetNextOverlap(world, &a, &b)) {
-    luax_pushshape(L, a);
-    luax_pushshape(L, b);
+    luax_pushobject(L, a);
+    luax_pushobject(L, b);
     return 2;
   } else {
     lua_pushnil(L);
@@ -27,7 +27,7 @@ static void raycastCallback(Shape* shape, float x, float y, float z, float nx, f
   lua_State* L = userdata;
   luaL_checktype(L, -1, LUA_TFUNCTION);
   lua_pushvalue(L, -1);
-  luax_pushshape(L, shape);
+  luax_pushobject(L, shape);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);
@@ -43,7 +43,7 @@ int l_lovrWorldNewCollider(lua_State* L) {
   float y = luaL_optnumber(L, 3, 0);
   float z = luaL_optnumber(L, 4, 0);
   Collider* collider = lovrColliderCreate(world, x, y, z);
-  luax_pushtype(L, Collider, collider);
+  luax_pushobject(L, collider);
   return 1;
 }
 
@@ -57,7 +57,7 @@ int l_lovrWorldNewBoxCollider(lua_State* L) {
   float sz = luaL_optnumber(L, 7, sx);
   Collider* collider = lovrColliderCreate(world, x, y, z);
   lovrColliderAddShape(collider, lovrBoxShapeCreate(sx, sy, sz));
-  luax_pushtype(L, Collider, collider);
+  luax_pushobject(L, collider);
   return 1;
 }
 
@@ -70,7 +70,7 @@ int l_lovrWorldNewCapsuleCollider(lua_State* L) {
   float length = luaL_optnumber(L, 6, 1.f);
   Collider* collider = lovrColliderCreate(world, x, y, z);
   lovrColliderAddShape(collider, lovrCapsuleShapeCreate(radius, length));
-  luax_pushtype(L, Collider, collider);
+  luax_pushobject(L, collider);
   return 1;
 }
 
@@ -83,7 +83,7 @@ int l_lovrWorldNewCylinderCollider(lua_State* L) {
   float length = luaL_optnumber(L, 6, 1.f);
   Collider* collider = lovrColliderCreate(world, x, y, z);
   lovrColliderAddShape(collider, lovrCylinderShapeCreate(radius, length));
-  luax_pushtype(L, Collider, collider);
+  luax_pushobject(L, collider);
   return 1;
 }
 
@@ -95,7 +95,7 @@ int l_lovrWorldNewSphereCollider(lua_State* L) {
   float radius = luaL_optnumber(L, 5, 1.f);
   Collider* collider = lovrColliderCreate(world, x, y, z);
   lovrColliderAddShape(collider, lovrSphereShapeCreate(radius));
-  luax_pushtype(L, Collider, collider);
+  luax_pushobject(L, collider);
   return 1;
 }
 

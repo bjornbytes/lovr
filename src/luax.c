@@ -2,33 +2,14 @@
 #include "util.h"
 #include <stdlib.h>
 
-static int luax_pushobjectname(lua_State* L) {
+static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "name");
   return 1;
 }
 
-static void luax_pushobjectregistry(lua_State* L) {
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
-
-  // Create the registry if it doesn't exist yet
-  if (lua_isnil(L, -1)) {
-    lua_newtable(L);
-    lua_replace(L, -2);
-
-    // Create the metatable
-    lua_newtable(L);
-
-    // __mode = v
-    lua_pushstring(L, "v");
-    lua_setfield(L, -2, "__mode");
-
-    // Set the metatable
-    lua_setmetatable(L, -2);
-
-    // Write the table to the registry
-    lua_pushvalue(L, -1);
-    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
-  }
+static int luax_meta__gc(lua_State* L) {
+  lovrRelease(*(Ref**) lua_touserdata(L, 1));
+  return 0;
 }
 
 int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f) {
@@ -70,7 +51,7 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   lua_setfield(L, -1, "__index");
 
   // m.__gc = gc
-  lua_pushcfunction(L, luax_releasetype);
+  lua_pushcfunction(L, luax_meta__gc);
   lua_setfield(L, -2, "__gc");
 
   // m.name = name
@@ -78,7 +59,7 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   lua_setfield(L, -2, "name");
 
   // m.__tostring
-  lua_pushcfunction(L, luax_pushobjectname);
+  lua_pushcfunction(L, luax_meta__tostring);
   lua_setfield(L, -2, "__tostring");
 
   // Register class functions
@@ -104,11 +85,6 @@ void luax_extendtype(lua_State* L, const char* base, const char* name, const lua
   lua_pop(L, 1);
 }
 
-int luax_releasetype(lua_State* L) {
-  lovrRelease(*(Ref**) lua_touserdata(L, 1));
-  return 0;
-}
-
 void* luax_testudata(lua_State* L, int index, const char* type) {
   void* p = lua_touserdata(L, index);
 
@@ -122,29 +98,57 @@ void* luax_testudata(lua_State* L, int index, const char* type) {
   return equal ? p : NULL;
 }
 
-// Find an object, pushing it onto the stack if it's found or leaving the stack unchanged otherwise.
-int luax_getobject(lua_State* L, void* object) {
-  luax_pushobjectregistry(L);
+// Registers the userdata on the top of the stack in the registry.
+void luax_pushobject(lua_State* L, void* object) {
+  if (!object) {
+    lua_pushnil(L);
+    return;
+  }
+
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
+
+  // Create the registry if it doesn't exist yet
+  if (lua_isnil(L, -1)) {
+    lua_newtable(L);
+    lua_replace(L, -2);
+
+    // Create the metatable
+    lua_newtable(L);
+
+    // __mode = v
+    lua_pushstring(L, "v");
+    lua_setfield(L, -2, "__mode");
+
+    // Set the metatable
+    lua_setmetatable(L, -2);
+
+    // Write the table to the registry
+    lua_pushvalue(L, -1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
+  }
+
   lua_pushlightuserdata(L, object);
   lua_gettable(L, -2);
 
   if (lua_isnil(L, -1)) {
-    lua_pop(L, 2);
-    return 0;
+    lua_pop(L, 1);
   } else {
     lua_remove(L, -2);
-    return 1;
+    return;
   }
-}
 
-// Registers the userdata on the top of the stack in the object registry.
-void luax_registerobject(lua_State* L, void* object) {
-  luax_pushobjectregistry(L);
-  lua_pushlightuserdata(L, object);
-  lua_pushvalue(L, -3);
-  lua_settable(L, -3);
-  lua_pop(L, 1);
+  // Allocate userdata
+  void** u = (void**) lua_newuserdata(L, sizeof(void**));
+  luaL_getmetatable(L, ((Ref*) object)->type);
+  lua_setmetatable(L, -2);
   lovrRetain(object);
+  *u = object;
+
+  // Write to registry and remove registry, leaving userdata on stack
+  lua_pushlightuserdata(L, object);
+  lua_pushvalue(L, -2);
+  lua_settable(L, -4);
+  lua_remove(L, -2);
 }
 
 int luax_getstack(lua_State* L) {

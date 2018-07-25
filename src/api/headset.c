@@ -275,7 +275,7 @@ int l_lovrHeadsetGetControllers(lua_State* L) {
   Controller** controllers = lovrHeadsetDriver->getControllers(&count);
   lua_newtable(L);
   for (uint8_t i = 0; i < count; i++) {
-    luax_pushtype(L, Controller, controllers[i]);
+    luax_pushobject(L, controllers[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
