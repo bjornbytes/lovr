@@ -1,5 +1,6 @@
 #include "luax.h"
 #include "data/blob.h"
+#include "event/event.h"
 #include "graphics/mesh.h"
 #include "math/math.h"
 #include "math/randomGenerator.h"
@@ -111,3 +112,5 @@ void luax_setvertex(lua_State* L, int index, VertexPointer* vertex, VertexFormat
 int luax_readtransform(lua_State* L, int index, mat4 transform, int scaleComponents);
 Blob* luax_readblob(lua_State* L, int index, const char* debug);
 Seed luax_checkrandomseed(lua_State* L, int index);
+void luax_checkvariant(lua_State* L, int index, Variant* variant);
+int luax_pushvariant(lua_State* L, Variant* variant);

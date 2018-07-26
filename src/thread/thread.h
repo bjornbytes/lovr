@@ -1,10 +1,11 @@
-#include "thread/channel.h"
 #include "util.h"
 #include "lib/tinycthread/tinycthread.h"
 #include "lib/map/map.h"
 #include <stdbool.h>
 
 #pragma once
+
+typedef struct Channel Channel;
 
 typedef struct {
   bool initialized;
@@ -23,7 +24,7 @@ typedef struct {
 
 void lovrThreadInit();
 void lovrThreadDeinit();
-Channel* lovrThreadGetChannel(const char* name);
+struct Channel* lovrThreadGetChannel(const char* name);
 
 Thread* lovrThreadCreate(int (*runner)(void*), const char* body);
 void lovrThreadDestroy(void* ref);

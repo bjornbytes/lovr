@@ -14,6 +14,53 @@ const char* EventTypes[] = {
 
 static _Thread_local int pollRef;
 
+void luax_checkvariant(lua_State* L, int index, Variant* variant) {
+  int type = lua_type(L, index);
+  switch (type) {
+    case LUA_TNIL:
+      variant->type = TYPE_NIL;
+      break;
+
+    case LUA_TBOOLEAN:
+      variant->type = TYPE_BOOLEAN;
+      variant->value.boolean = lua_toboolean(L, index);
+      break;
+
+    case LUA_TNUMBER:
+      variant->type = TYPE_NUMBER;
+      variant->value.number = lua_tonumber(L, index);
+      break;
+
+    case LUA_TSTRING:
+      variant->type = TYPE_STRING;
+      size_t length;
+      const char* string = lua_tolstring(L, index, &length);
+      variant->value.string = malloc(length + 1);
+      strcpy(variant->value.string, string);
+      break;
+
+    case LUA_TUSERDATA:
+      variant->type = TYPE_OBJECT;
+      variant->value.ref = lua_touserdata(L, index);
+      lovrRetain(variant->value.ref);
+      break;
+
+    default:
+      lovrThrow("Bad type for Channel:push: %s", lua_typename(L, type));
+      return;
+  }
+}
+
+int luax_pushvariant(lua_State* L, Variant* variant) {
+  switch (variant->type) {
+    case TYPE_NIL: lua_pushnil(L); return 1;
+    case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
+    case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
+    case TYPE_STRING: lua_pushstring(L, variant->value.string); free(variant->value.string); return 1;
+    case TYPE_OBJECT: luax_pushobject(L, variant->value.ref); lovrRelease(variant->value.ref); return 1;
+  }
+}
+
 static int nextEvent(lua_State* L) {
   Event event;
 
@@ -21,7 +68,11 @@ static int nextEvent(lua_State* L) {
     return 0;
   }
 
-  lua_pushstring(L, EventTypes[event.type]);
+  if (event.type == EVENT_CUSTOM) {
+    lua_pushstring(L, event.data.custom.name);
+  } else {
+    lua_pushstring(L, EventTypes[event.type]);
+  }
 
   switch (event.type) {
     case EVENT_QUIT:
@@ -57,6 +108,12 @@ static int nextEvent(lua_State* L) {
       lua_pushstring(L, ControllerButtons[event.data.controller.button]);
       return 3;
 
+    case EVENT_CUSTOM:
+      for (int i = 0; i < event.data.custom.count; i++) {
+        luax_pushvariant(L, &event.data.custom.data[i]);
+      }
+      return event.data.custom.count + 1;
+
     default:
       return 1;
   }
@@ -90,47 +147,15 @@ int l_lovrEventPump(lua_State* L) {
 }
 
 int l_lovrEventPush(lua_State* L) {
-  EventType type = luaL_checkoption(L, 1, NULL, EventTypes);
-  EventData data;
-
-  switch (type) {
-    case EVENT_QUIT:
-      if (lua_type(L, 2) == LUA_TSTRING) {
-        data.quit.restart = lua_toboolean(L, 2);
-      } else {
-        data.quit.exitCode = luaL_optint(L, 2, 0);
-      }
-      break;
-
-    case EVENT_FOCUS:
-    case EVENT_MOUNT:
-      data.boolean.value = lua_toboolean(L, 2);
-      break;
-
-#ifdef EMSCRIPTEN
-    case EVENT_THREAD_ERROR:
-      break;
-#else
-    case EVENT_THREAD_ERROR:
-      data.thread.thread = luax_checktype(L, 2, Thread);
-      data.thread.error = luaL_checkstring(L, 3);
-      break;
-#endif
-
-    case EVENT_CONTROLLER_ADDED:
-    case EVENT_CONTROLLER_REMOVED:
-      data.controller.controller = luax_checktype(L, 2, Controller);
-      break;
-
-    case EVENT_CONTROLLER_PRESSED:
-    case EVENT_CONTROLLER_RELEASED:
-      data.controller.controller = luax_checktype(L, 2, Controller);
-      data.controller.button = luaL_checkoption(L, 3, NULL, ControllerButtons);
-      break;
+  CustomEvent eventData;
+  const char* name = luaL_checkstring(L, 1);
+  strncpy(eventData.name, name, MAX_EVENT_NAME_LENGTH - 1);
+  eventData.count = MIN(lua_gettop(L) - 1, 4);
+  for (int i = 0; i < eventData.count; i++) {
+    luax_checkvariant(L, 2 + i, &eventData.data[i]);
   }
 
-  Event event = { .type = type, .data = data };
-  lovrEventPush(event);
+  lovrEventPush((Event) { .type = EVENT_CUSTOM, .data.custom = eventData });
   return 0;
 }
 

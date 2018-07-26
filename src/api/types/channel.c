@@ -1,53 +1,6 @@
 #include "api.h"
 #include "thread/channel.h"
 
-static void luax_checkvariant(lua_State* L, int index, Variant* variant) {
-  int type = lua_type(L, index);
-  switch (type) {
-    case LUA_TNIL:
-      variant->type = TYPE_NIL;
-      break;
-
-    case LUA_TBOOLEAN:
-      variant->type = TYPE_BOOLEAN;
-      variant->value.boolean = lua_toboolean(L, index);
-      break;
-
-    case LUA_TNUMBER:
-      variant->type = TYPE_NUMBER;
-      variant->value.number = lua_tonumber(L, index);
-      break;
-
-    case LUA_TSTRING:
-      variant->type = TYPE_STRING;
-      size_t length;
-      const char* string = lua_tolstring(L, index, &length);
-      variant->value.string = malloc(length + 1);
-      strcpy(variant->value.string, string);
-      break;
-
-    case LUA_TUSERDATA:
-      variant->type = TYPE_OBJECT;
-      variant->value.ref = lua_touserdata(L, index);
-      lovrRetain(variant->value.ref);
-      break;
-
-    default:
-      lovrThrow("Bad type for Channel:push: %s", lua_typename(L, type));
-      return;
-  }
-}
-
-static int luax_pushvariant(lua_State* L, Variant* variant) {
-  switch (variant->type) {
-    case TYPE_NIL: lua_pushnil(L); return 1;
-    case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
-    case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
-    case TYPE_STRING: lua_pushstring(L, variant->value.string); free(variant->value.string); return 1;
-    case TYPE_OBJECT: luax_pushobject(L, variant->value.ref); lovrRelease(variant->value.ref); return 1;
-  }
-}
-
 static void luax_checktimeout(lua_State* L, int index, double* timeout) {
   switch (lua_type(L, index)) {
     case LUA_TNONE:
