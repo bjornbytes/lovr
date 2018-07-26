@@ -131,10 +131,7 @@ bool lovrRun(int argc, char** argv, int* status) {
 }
 
 void lovrQuit(int status) {
-  EventType type = EVENT_QUIT;
-  EventData data = { .quit = { false, status } };
-  Event event = { .type = type, .data = data };
-  lovrEventPush(event);
+  lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { false, status } });
 }
 
 const char* lovrGetOS() {

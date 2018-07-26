@@ -24,49 +24,28 @@ typedef struct {
 } QuitEvent;
 
 typedef struct {
-  bool focused;
-} FocusEvent;
-
-typedef struct {
-  bool mounted;
-} MountEvent;
+  bool value;
+} BoolEvent;
 
 #ifndef EMSCRIPTEN
 typedef struct {
   Thread* thread;
   const char* error;
-} ThreadErrorEvent;
+} ThreadEvent;
 #endif
 
 typedef struct {
   Controller* controller;
-} ControllerAddedEvent;
-
-typedef struct {
-  Controller* controller;
-} ControllerRemovedEvent;
-
-typedef struct {
-  Controller* controller;
   ControllerButton button;
-} ControllerPressedEvent;
-
-typedef struct {
-  Controller* controller;
-  ControllerButton button;
-} ControllerReleasedEvent;
+} ControllerEvent;
 
 typedef union {
   QuitEvent quit;
-  FocusEvent focus;
-  MountEvent mount;
+  BoolEvent boolean;
 #ifndef EMSCRIPTEN
-  ThreadErrorEvent threaderror;
+  ThreadEvent thread;
 #endif
-  ControllerAddedEvent controlleradded;
-  ControllerRemovedEvent controllerremoved;
-  ControllerPressedEvent controllerpressed;
-  ControllerReleasedEvent controllerreleased;
+  ControllerEvent controller;
 } EventData;
 
 typedef struct {

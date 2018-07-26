@@ -92,21 +92,14 @@ static void onMouseButton(GLFWwindow* window, int button, int action, int mods) 
     return;
   }
 
-  Event event;
   Controller* controller;
   int i;
   vec_foreach(&state.controllers, controller, i) {
     if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-      if (action == GLFW_PRESS) {
-        event.type = EVENT_CONTROLLER_PRESSED;
-        event.data.controllerpressed.controller = controller;
-        event.data.controllerpressed.button = CONTROLLER_BUTTON_TRIGGER;
-      } else {
-        event.type = EVENT_CONTROLLER_RELEASED;
-        event.data.controllerreleased.controller = controller;
-        event.data.controllerreleased.button = CONTROLLER_BUTTON_TRIGGER;
-      }
-      lovrEventPush(event);
+      lovrEventPush((Event) {
+        .type = action == GLFW_PRESS ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED,
+        .data.controller = { controller, CONTROLLER_BUTTON_TRIGGER }
+      });
     }
   }
 }

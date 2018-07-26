@@ -86,11 +86,11 @@ static void openvrRefreshControllers() {
   Controller* controller; int i;
   vec_foreach_rev(&state.controllers, controller, i) {
     if (controller->id != controllerIds[0] && controller->id != controllerIds[1]) {
-      EventType type = EVENT_CONTROLLER_REMOVED;
-      EventData data = { .controllerremoved = { controller } };
-      Event event = { .type = type, .data = data };
       lovrRetain(controller);
-      lovrEventPush(event);
+      lovrEventPush((Event) {
+        .type = EVENT_CONTROLLER_REMOVED,
+        .data.controller = { controller, 0 }
+      });
       vec_splice(&state.controllers, i, 1);
       lovrRelease(controller);
     }
@@ -101,11 +101,11 @@ static void openvrRefreshControllers() {
     if ((int) controllerIds[i] != -1) {
       controller = openvrAddController(controllerIds[i]);
       if (!controller) continue;
-      EventType type = EVENT_CONTROLLER_ADDED;
-      EventData data = { .controlleradded = { controller } };
-      Event event = { .type = type, .data = data };
       lovrRetain(controller);
-      lovrEventPush(event);
+      lovrEventPush((Event) {
+        .type = EVENT_CONTROLLER_ADDED,
+        .data.controller = { controller, 0 }
+      });
     }
   }
 }
@@ -188,8 +188,7 @@ static void openvrPoll() {
         bool isPress = vrEvent.eventType == EVREventType_VREvent_ButtonPress;
 
         if (vrEvent.trackedDeviceIndex == state.headsetIndex && vrEvent.data.controller.button == EVRButtonId_k_EButton_ProximitySensor) {
-          Event event = { .type = EVENT_MOUNT, .data = { .mount = { isPress } } };
-          lovrEventPush(event);
+          lovrEventPush((Event) { .type = EVENT_MOUNT, .data.boolean = { isPress } });
           break;
         }
 
@@ -197,15 +196,10 @@ static void openvrPoll() {
           Controller* controller = state.controllers.data[i];
           if (controller->id == vrEvent.trackedDeviceIndex) {
             ControllerButton button = getButton(vrEvent.data.controller.button, openvrControllerGetHand(controller));
-            if (isPress) {
-              EventData data = { .controllerpressed = { controller, button } };
-              Event event = { .type = EVENT_CONTROLLER_PRESSED, .data = data };
-              lovrEventPush(event);
-            } else {
-              EventData data = { .controllerreleased = { controller, button } };
-              Event event = { .type = EVENT_CONTROLLER_RELEASED, .data = data };
-              lovrEventPush(event);
-            }
+            lovrEventPush((Event) {
+              .type = isPress ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED,
+              .data.controller = { controller, button }
+            });
             break;
           }
         }
@@ -215,9 +209,7 @@ static void openvrPoll() {
       case EVREventType_VREvent_InputFocusCaptured:
       case EVREventType_VREvent_InputFocusReleased: {
         bool isFocused = vrEvent.eventType == EVREventType_VREvent_InputFocusReleased;
-        EventData data = { .focus = { isFocused } };
-        Event event = { .type = EVENT_FOCUS, .data = data };
-        lovrEventPush(event);
+        lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { isFocused } });
         break;
       }
 

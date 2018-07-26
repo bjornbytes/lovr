@@ -15,7 +15,7 @@ static GraphicsState state;
 
 static void onCloseWindow(GLFWwindow* window) {
   if (window == state.window) {
-    lovrEventPush((Event) { .type = EVENT_QUIT, .data = { .quit = { false, 0 } } });
+    lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { false, 0 } });
   }
 }
 

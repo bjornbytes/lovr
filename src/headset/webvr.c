@@ -45,7 +45,7 @@ static void onControllerAdded(uint32_t id) {
   lovrRetain(controller);
   lovrEventPush((Event) {
     .type = EVENT_CONTROLLER_ADDED,
-    .data = { .controlleradded = { controller } }
+    .data.controller = { controller, 0 }
   });
 }
 
@@ -56,7 +56,7 @@ static void onControllerRemoved(uint32_t id) {
       lovrRetain(controller);
       lovrEventPush((Event) {
         .type = EVENT_CONTROLLER_REMOVED,
-        .data = { .controllerremoved = { controller } }
+        .data.controller = { controller, 0 }
       });
       vec_splice(&state.controllers, i, 1);
       lovrRelease(controller);
@@ -68,21 +68,21 @@ static void onControllerRemoved(uint32_t id) {
 static void onControllerPressed(uint32_t id, ControllerButton button) {
   lovrEventPush((Event) {
     .type = EVENT_CONTROLLER_PRESSED,
-    .data = { .controllerpressed = { state.controllers.data[id], button } }
+    .data.controller = { state.controllers.data[id], button }
   });
 }
 
 static void onControllerReleased(uint32_t id, ControllerButton button) {
   lovrEventPush((Event) {
     .type = EVENT_CONTROLLER_RELEASED,
-    .data = { .controllerreleased = { state.controllers.data[id], button } }
+    .data.controller = { state.controllers.data[id], button }
   });
 }
 
 static void onMountChanged(bool mounted) {
   lovrEventPush((Event) {
     .type = EVENT_MOUNT,
-    .data = { .mount = { mounted } }
+    .data.boolean = { mounted }
   });
 }
 

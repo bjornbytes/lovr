@@ -33,39 +33,28 @@ static int nextEvent(lua_State* L) {
       return 2;
 
     case EVENT_FOCUS:
-      lua_pushboolean(L, event.data.focus.focused);
-      return 2;
-
     case EVENT_MOUNT:
-      lua_pushboolean(L, event.data.mount.mounted);
+      lua_pushboolean(L, event.data.boolean.value);
       return 2;
 
 #ifndef EMSCRIPTEN
     case EVENT_THREAD_ERROR:
-      luax_pushobject(L, event.data.threaderror.thread);
-      lua_pushstring(L, event.data.threaderror.error);
-      free((void*) event.data.threaderror.error);
+      luax_pushobject(L, event.data.thread.thread);
+      lua_pushstring(L, event.data.thread.error);
+      free((void*) event.data.thread.error);
       return 3;
 #endif
 
     case EVENT_CONTROLLER_ADDED:
-      luax_pushobject(L, event.data.controlleradded.controller);
-      lovrRelease(event.data.controlleradded.controller);
-      return 2;
-
     case EVENT_CONTROLLER_REMOVED:
-      luax_pushobject(L, event.data.controllerremoved.controller);
-      lovrRelease(event.data.controlleradded.controller);
+      luax_pushobject(L, event.data.controller.controller);
+      lovrRelease(event.data.controller.controller);
       return 2;
 
     case EVENT_CONTROLLER_PRESSED:
-      luax_pushobject(L, event.data.controllerpressed.controller);
-      lua_pushstring(L, ControllerButtons[event.data.controllerpressed.button]);
-      return 3;
-
     case EVENT_CONTROLLER_RELEASED:
-      luax_pushobject(L, event.data.controllerreleased.controller);
-      lua_pushstring(L, ControllerButtons[event.data.controllerpressed.button]);
+      luax_pushobject(L, event.data.controller.controller);
+      lua_pushstring(L, ControllerButtons[event.data.controller.button]);
       return 3;
 
     default:
@@ -114,11 +103,8 @@ int l_lovrEventPush(lua_State* L) {
       break;
 
     case EVENT_FOCUS:
-      data.focus.focused = lua_toboolean(L, 2);
-      break;
-
     case EVENT_MOUNT:
-      data.mount.mounted = lua_toboolean(L, 2);
+      data.boolean.value = lua_toboolean(L, 2);
       break;
 
 #ifdef EMSCRIPTEN
@@ -126,27 +112,20 @@ int l_lovrEventPush(lua_State* L) {
       break;
 #else
     case EVENT_THREAD_ERROR:
-      data.threaderror.thread = luax_checktype(L, 2, Thread);
-      data.threaderror.error = luaL_checkstring(L, 3);
+      data.thread.thread = luax_checktype(L, 2, Thread);
+      data.thread.error = luaL_checkstring(L, 3);
       break;
 #endif
 
     case EVENT_CONTROLLER_ADDED:
-      data.controlleradded.controller = luax_checktype(L, 2, Controller);
-      break;
-
     case EVENT_CONTROLLER_REMOVED:
-      data.controllerremoved.controller = luax_checktype(L, 2, Controller);
+      data.controller.controller = luax_checktype(L, 2, Controller);
       break;
 
     case EVENT_CONTROLLER_PRESSED:
-      data.controllerpressed.controller = luax_checktype(L, 2, Controller);
-      data.controllerpressed.button = luaL_checkoption(L, 3, NULL, ControllerButtons);
-      break;
-
     case EVENT_CONTROLLER_RELEASED:
-      data.controllerreleased.controller = luax_checktype(L, 2, Controller);
-      data.controllerreleased.button = luaL_checkoption(L, 3, NULL, ControllerButtons);
+      data.controller.controller = luax_checktype(L, 2, Controller);
+      data.controller.button = luaL_checkoption(L, 3, NULL, ControllerButtons);
       break;
   }
 
