@@ -1509,7 +1509,7 @@ void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int 
 // ShaderBlock
 
 ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms) {
-  ShaderBlock* block = lovrAlloc(sizeof(ShaderBlock), lovrShaderBlockDestroy);
+  ShaderBlock* block = lovrAlloc(ShaderBlock, lovrShaderBlockDestroy);
   if (!block) return NULL;
 
   vec_init(&block->uniforms);

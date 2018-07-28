@@ -912,7 +912,7 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   }
 
   ShaderBlock* block = lovrShaderBlockCreate(&uniforms);
-  luax_pushtype(L, ShaderBlock, block);
+  luax_pushobject(L, block);
   vec_deinit(&uniforms);
   return 1;
 }
