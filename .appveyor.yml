@@ -1,0 +1,32 @@
+clone_depth: 1
+
+only_commits:
+  files:
+    - src/
+    - deps/
+
+before_build:
+  - cd C:\projects\lovr
+  - git submodule update --init
+  - md build
+  - cd build
+  - cmake -DCMAKE_BUILD_TYPE=%configuration% ..
+
+build:
+  project: build\lovr.sln
+  verbosity: quiet
+
+after_build:
+  - cd C:\projects\lovr
+  - 7z a lovr.zip C:\projects\lovr\build\Debug\*.dll C:\projects\lovr\build\Debug\lovr.exe
+
+artifacts:
+  - path: lovr.zip
+
+deploy:
+  provider: Webhook
+  url: https://lovr.org/nightly
+  on:
+    branch: master
+  authorization:
+    secure: zbxwiHmtJRVP9FdiqxepLdLGjxhtpjVytb+yLSqrz+8Bl1bH6k5Zts809bLrEjzn
