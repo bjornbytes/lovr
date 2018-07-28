@@ -113,9 +113,14 @@ static void updateWindow() {
 
   state.window = window;
   if (window) {
-    glfwSetMouseButtonCallback(window, onMouseButton);
-    glfwSetCursorPosCallback(window, onMouseMove);
-    glfwSetWindowFocusCallback(window, onFocus);
+    GLFWmousebuttonfun prevMouseButton = glfwSetMouseButtonCallback(window, onMouseButton);
+    if (prevMouseButton) glfwSetMouseButtonCallback(window, prevMouseButton);
+
+    GLFWcursorposfun prevMouseMove = glfwSetCursorPosCallback(window, onMouseMove);
+    if (prevMouseMove) glfwSetCursorPosCallback(window, prevMouseMove);
+
+    GLFWwindowfocusfun prevFocus = glfwSetWindowFocusCallback(window, onFocus);
+    if (prevFocus) glfwSetWindowFocusCallback(window, onFocus);
 
     if (state.mouselook) {
       enableMouselook(window);
