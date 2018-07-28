@@ -162,8 +162,26 @@ int l_lovrShaderSend(lua_State* L) {
   return 0;
 }
 
+int l_lovrShaderGetBlock(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  const char* name = luaL_checkstring(L, 2);
+  ShaderBlock* block = lovrShaderGetBlock(shader, name);
+  luax_pushobject(L, block);
+  return 1;
+}
+
+int l_lovrShaderSetBlock(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  const char* name = luaL_checkstring(L, 2);
+  ShaderBlock* block = luax_checktype(L, 3, ShaderBlock);
+  lovrShaderSetBlock(shader, name, block);
+  return 0;
+}
+
 const luaL_Reg lovrShader[] = {
   { "hasUniform", l_lovrShaderHasUniform },
   { "send", l_lovrShaderSend },
+  { "getBlock", l_lovrShaderGetBlock },
+  { "setBlock", l_lovrShaderSetBlock },
   { NULL, NULL }
 };

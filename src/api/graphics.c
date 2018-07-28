@@ -5,7 +5,6 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
-#include "graphics/shaderBlock.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "data/textureData.h"

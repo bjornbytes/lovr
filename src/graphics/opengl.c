@@ -2,7 +2,6 @@
 #include "graphics/canvas.h"
 #include "graphics/mesh.h"
 #include "graphics/shader.h"
-#include "graphics/shaderBlock.h"
 #include "graphics/texture.h"
 #include "resources/shaders.h"
 #include "data/modelData.h"
@@ -1504,6 +1503,22 @@ void lovrShaderSetMatrix(Shader* shader, const char* name, float* data, int coun
 
 void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int count) {
   lovrShaderSetUniform(shader, name, UNIFORM_SAMPLER, data, count, sizeof(Texture*), "texture");
+}
+
+ShaderBlock* lovrShaderGetBlock(Shader* shader, const char* name) {
+  int* index = map_get(&shader->blockMap, name);
+  lovrAssert(index, "No shader block named '%s'", name);
+
+  UniformBlock* block = &shader->blocks.data[*index];
+  return block->source;
+}
+
+void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
+  int* index = map_get(&shader->blockMap, name);
+  lovrAssert(index, "No shader block named '%s'", name);
+
+  UniformBlock* block = &shader->blocks.data[*index];
+  block->source = source;
 }
 
 // ShaderBlock

@@ -7,6 +7,7 @@
 
 #define LOVR_MAX_UNIFORM_LENGTH 64
 #define LOVR_MAX_ATTRIBUTE_LENGTH 64
+#define MAX_SHADER_BLOCK_UNIFORMS 32
 
 typedef enum {
   UNIFORM_FLOAT,
@@ -45,6 +46,7 @@ typedef struct {
 typedef vec_t(Uniform) vec_uniform_t;
 
 typedef struct Shader Shader;
+typedef struct ShaderBlock ShaderBlock;
 
 Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
 Shader* lovrShaderCreateDefault(DefaultShader type);
@@ -57,3 +59,8 @@ void lovrShaderSetFloat(Shader* shader, const char* name, float* data, int count
 void lovrShaderSetInt(Shader* shader, const char* name, int* data, int count);
 void lovrShaderSetMatrix(Shader* shader, const char* name, float* data, int count);
 void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int count);
+ShaderBlock* lovrShaderGetBlock(Shader* shader, const char* name);
+void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* block);
+
+ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms);
+void lovrShaderBlockDestroy(void* ref);
