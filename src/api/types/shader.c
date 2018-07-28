@@ -4,7 +4,7 @@
 
 struct TempData {
   void* data;
-  size_t size;
+  int size;
 };
 
 static struct TempData tempData;
@@ -23,7 +23,7 @@ int l_lovrShaderSend(lua_State* L) {
 
   int count;
   int components;
-  size_t size;
+  int size;
   UniformType type;
   bool present = lovrShaderGetUniform(shader, name, &count, &components, &size, &type);
 

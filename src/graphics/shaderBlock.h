@@ -6,5 +6,5 @@
 
 typedef struct ShaderBlock ShaderBlock;
 
-ShaderBlock* lovrShaderBlockCreate(Uniform uniforms[MAX_SHADER_BLOCK_UNIFORMS], int uniformCount);
+ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms);
 void lovrShaderBlockDestroy(void* ref);

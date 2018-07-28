@@ -30,8 +30,8 @@ typedef struct {
   int components;
   int count;
   int location;
-  size_t offset;
-  size_t size;
+  int offset;
+  int size;
   union {
     void* data;
     int* ints;
@@ -42,7 +42,7 @@ typedef struct {
   bool dirty;
 } Uniform;
 
-typedef map_t(Uniform) map_uniform_t;
+typedef vec_t(Uniform) vec_uniform_t;
 
 typedef struct Shader Shader;
 
@@ -52,7 +52,7 @@ void lovrShaderDestroy(void* ref);
 void lovrShaderBind(Shader* shader);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 bool lovrShaderHasUniform(Shader* shader, const char* name);
-bool lovrShaderGetUniform(Shader* shader, const char* name, int* count, int* components, size_t* size, UniformType* type);
+bool lovrShaderGetUniform(Shader* shader, const char* name, int* count, int* components, int* size, UniformType* type);
 void lovrShaderSetFloat(Shader* shader, const char* name, float* data, int count);
 void lovrShaderSetInt(Shader* shader, const char* name, int* data, int count);
 void lovrShaderSetMatrix(Shader* shader, const char* name, float* data, int count);

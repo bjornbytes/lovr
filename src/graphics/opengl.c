@@ -67,8 +67,7 @@ static struct {
 
 struct ShaderBlock {
   Ref ref;
-  Uniform uniforms[32];
-  int uniformCount;
+  vec_uniform_t uniforms;
   uint32_t buffer;
 };
 
@@ -76,16 +75,19 @@ typedef struct {
   int index;
   int binding;
   ShaderBlock* source;
+  vec_uniform_t uniforms;
 } UniformBlock;
 
-typedef map_t(UniformBlock) map_block_t;
+typedef vec_t(UniformBlock) vec_block_t;
 
 struct Shader {
   Ref ref;
   uint32_t program;
-  map_uniform_t uniforms;
-  map_block_t blocks;
+  vec_uniform_t uniforms;
+  vec_block_t blocks;
   map_int_t attributes;
+  map_int_t uniformMap;
+  map_int_t blockMap;
 };
 
 struct Texture {
@@ -1239,12 +1241,28 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   glVertexAttribI4iv(LOVR_SHADER_BONES, (int[4]) { 0., 0., 0., 0. });
   glVertexAttrib4fv(LOVR_SHADER_BONE_WEIGHTS, (float[4]) { 1., 0., 0., 0. });
 
+  // Uniform blocks
+  int32_t blockCount;
+  glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &blockCount);
+  map_init(&shader->blockMap);
+  vec_init(&shader->blocks);
+  vec_reserve(&shader->blocks, blockCount);
+  for (int i = 0; i < blockCount; i++) {
+    UniformBlock block = { .index = i, .binding = i + 1, .source = NULL };
+    glUniformBlockBinding(program, block.index, block.binding);
+    vec_init(&block.uniforms);
+
+    char name[LOVR_MAX_UNIFORM_LENGTH];
+    glGetActiveUniformBlockName(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, name);
+    map_set(&shader->blockMap, name, i);
+  }
+
   // Uniform introspection
   int32_t uniformCount;
   int textureSlot = 0;
   map_init(&shader->uniforms);
   glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &uniformCount);
-  for (int i = 0; i < uniformCount; i++) {
+  for (uint32_t i = 0; i < (uint32_t) uniformCount; i++) {
     Uniform uniform;
     GLenum glType;
     glGetActiveUniform(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, &uniform.count, &glType, uniform.name);
@@ -1259,7 +1277,16 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     uniform.components = getUniformComponents(glType);
     uniform.baseTextureSlot = (uniform.type == UNIFORM_SAMPLER) ? textureSlot : -1;
 
-    if (uniform.location == -1) {
+    int blockIndex;
+    glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_BLOCK_INDEX, &blockIndex);
+
+    if (blockIndex != -1) {
+      UniformBlock* block = &shader->blocks.data[i];
+      glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_OFFSET, &uniform.offset);
+      glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_SIZE, &uniform.size);
+      vec_push(&block->uniforms, uniform);
+      continue;
+    } else if (uniform.location == -1) {
       continue;
     }
 
@@ -1322,20 +1349,9 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
       }
     }
 
-    map_set(&shader->uniforms, uniform.name, uniform);
+    map_set(&shader->uniformMap, uniform.name, shader->uniforms.length);
+    vec_push(&shader->uniforms, uniform);
     textureSlot += (uniform.type == UNIFORM_SAMPLER) ? uniform.count : 0;
-  }
-
-  // Uniform blocks
-  int32_t blockCount;
-  glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &blockCount);
-  map_init(&shader->blocks);
-  for (int i = 0; i < blockCount; i++) {
-    char name[LOVR_MAX_UNIFORM_LENGTH];
-    glGetActiveUniformBlockName(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, name);
-    UniformBlock block = { .index = i, .binding = i + 1, .source = NULL };
-    glUniformBlockBinding(program, block.index, block.binding);
-    map_set(&shader->blocks, name, block);
   }
 
   // Attribute cache
@@ -1367,23 +1383,21 @@ Shader* lovrShaderCreateDefault(DefaultShader type) {
 void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
   glDeleteProgram(shader->program);
-  const char* key;
-  map_iter_t iter = map_iter(&shader->uniforms);
-  while ((key = map_next(&shader->uniforms, &iter)) != NULL) {
-    Uniform* uniform = map_get(&shader->uniforms, key);
-    free(uniform->value.data);
+  for (int i = 0; i < shader->uniforms.length; i++) {
+    free(shader->uniforms.data[i].value.data);
   }
-  map_deinit(&shader->uniforms);
+  vec_deinit(&shader->uniforms);
+  vec_deinit(&shader->blocks);
   map_deinit(&shader->attributes);
+  map_deinit(&shader->uniformMap);
+  map_deinit(&shader->blockMap);
   free(shader);
 }
 
 void lovrShaderBind(Shader* shader) {
-  map_iter_t iter = map_iter(&shader->uniforms);
-  const char* key;
-  while ((key = map_next(&shader->uniforms, &iter)) != NULL) {
-    Uniform* uniform = map_get(&shader->uniforms, key);
-
+  int i;
+  Uniform* uniform;
+  vec_foreach_ptr(&shader->uniforms, uniform, i) {
     if (uniform->type != UNIFORM_SAMPLER && !uniform->dirty) {
       continue;
     }
@@ -1427,9 +1441,8 @@ void lovrShaderBind(Shader* shader) {
     }
   }
 
-  iter = map_iter(&shader->blocks);
-  while ((key = map_next(&shader->blocks, &iter)) != NULL) {
-    UniformBlock* block = map_get(&shader->blocks, key);
+  UniformBlock* block;
+  vec_foreach_ptr(&shader->blocks, block, i) {
     lovrGpuBindUniformBuffer(block->source ? block->source->buffer : 0, block->binding);
   }
 }
@@ -1440,14 +1453,16 @@ int lovrShaderGetAttributeId(Shader* shader, const char* name) {
 }
 
 bool lovrShaderHasUniform(Shader* shader, const char* name) {
-  return map_get(&shader->uniforms, name) != NULL;
+  return map_get(&shader->uniformMap, name) != NULL;
 }
 
-bool lovrShaderGetUniform(Shader* shader, const char* name, int* count, int* components, size_t* size, UniformType* type) {
-  Uniform* uniform = map_get(&shader->uniforms, name);
-  if (!uniform) {
+bool lovrShaderGetUniform(Shader* shader, const char* name, int* count, int* components, int* size, UniformType* type) {
+  int* index = map_get(&shader->uniformMap, name);
+  if (!index) {
     return false;
   }
+
+  Uniform* uniform = &shader->uniforms.data[*index];
 
   *count = uniform->count;
   *components = uniform->components;
@@ -1456,15 +1471,16 @@ bool lovrShaderGetUniform(Shader* shader, const char* name, int* count, int* com
   return true;
 }
 
-static void lovrShaderSetUniform(Shader* shader, const char* name, UniformType type, void* data, int count, size_t size, const char* debug) {
-  Uniform* uniform = map_get(&shader->uniforms, name);
-  if (!uniform) {
+static void lovrShaderSetUniform(Shader* shader, const char* name, UniformType type, void* data, int count, int size, const char* debug) {
+  int* index = map_get(&shader->uniformMap, name);
+  if (!index) {
     return;
   }
 
+  Uniform* uniform = &shader->uniforms.data[*index];
   const char* plural = (uniform->size / size) > 1 ? "s" : "";
-  lovrAssert(uniform->type == type, "Unable to send %ss to uniform %s", debug, uniform->name);
-  lovrAssert(count * size <= uniform->size, "Expected at most %d %s%s for uniform %s, got %d", uniform->size / size, debug, plural, uniform->name, count);
+  lovrAssert(uniform->type == type, "Unable to send %ss to uniform %s", debug, name);
+  lovrAssert(count * size <= uniform->size, "Expected at most %d %s%s for uniform %s, got %d", uniform->size / size, debug, plural, name, count);
 
   if (!uniform->dirty && !memcmp(uniform->value.data, data, count * size)) {
     return;
@@ -1492,37 +1508,36 @@ void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int 
 
 // ShaderBlock
 
-ShaderBlock* lovrShaderBlockCreate(Uniform uniforms[MAX_SHADER_BLOCK_UNIFORMS], int uniformCount) {
+ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms) {
   ShaderBlock* block = lovrAlloc(sizeof(ShaderBlock), lovrShaderBlockDestroy);
   if (!block) return NULL;
 
-  memcpy(block->uniforms, uniforms, MAX_SHADER_BLOCK_UNIFORMS * sizeof(Uniform));
-  block->uniformCount = uniformCount;
+  vec_init(&block->uniforms);
+  vec_extend(&block->uniforms, uniforms);
 
-  size_t offset = 0;
-  for (int i = 0; i < uniformCount; i++) {
-    uniforms[i].offset = offset;
-    if (uniforms[i].type != UNIFORM_MATRIX) {
-      if (uniforms[i].count == 1) {
-        offset += 4;
-      } else {
-        offset += uniforms[i].count * 16;
-      }
+  int i;
+  Uniform* uniform;
+  size_t size = 0;
+  vec_foreach_ptr(&block->uniforms, uniform, i) {
+    uniform->offset = size;
+    if (uniform->type == UNIFORM_MATRIX) {
+      size += uniform->components * uniform->components * 4;
     } else {
-      offset += uniforms[i].components * uniforms[i].components * 4;
+      size += uniform->count == 1 ? 4 : (uniform->count * 16);
     }
   }
 
-  size_t totalSize = offset;
   glGenBuffers(1, &block->buffer);
   lovrGpuBindUniformBuffer(block->buffer, 0);
-  glBufferData(GL_UNIFORM_BUFFER, totalSize, NULL, GL_STATIC_DRAW);
+  glBufferData(GL_UNIFORM_BUFFER, size, NULL, GL_STATIC_DRAW);
 
   return block;
 }
 
 void lovrShaderBlockDestroy(void* ref) {
-  free(ref);
+  UniformBlock* block = ref;
+  vec_deinit(&block->uniforms);
+  free(block);
 }
 
 // Mesh
