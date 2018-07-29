@@ -29,6 +29,7 @@ typedef struct {
   bool isRendering;
   bool isMirrored;
   float offset;
+  int msaa;
 
   struct VR_IVRSystem_FnTable* system;
   struct VR_IVRCompositor_FnTable* compositor;
@@ -239,13 +240,14 @@ static void ensureCanvas() {
     return;
   }
 
-  int msaa = lovrGraphicsGetMSAA();
+  int maxMSAA = lovrGraphicsGetLimits().textureMSAA;
+  int msaa = state.msaa == -1 ? maxMSAA : MIN(state.msaa, maxMSAA);
   state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
   CanvasFlags flags = { .msaa = msaa, .depth = true, .stencil = true, .mipmaps = false };
   state.canvas = lovrCanvasCreate(state.renderWidth * 2, state.renderHeight, FORMAT_RGB, flags);
 }
 
-static bool openvrInit(float offset) {
+static bool openvrInit(float offset, int msaa) {
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
     return false;
   }
@@ -305,6 +307,7 @@ static bool openvrInit(float offset) {
   state.isRendering = false;
   state.isMirrored = true;
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
+  state.msaa = msaa;
   state.canvas = NULL;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;

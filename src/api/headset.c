@@ -86,6 +86,7 @@ int l_lovrHeadsetInit(lua_State* L) {
   vec_init(&drivers);
   bool mirror = false;
   float offset = 1.7;
+  int msaa = -1;
 
   if (lua_istable(L, -1)) {
 
@@ -108,9 +109,14 @@ int l_lovrHeadsetInit(lua_State* L) {
     lua_getfield(L, -1, "offset");
     offset = luaL_optnumber(L, -1, 1.7);
     lua_pop(L, 1);
+
+    // MSAA
+    lua_getfield(L, -1, "msaa");
+    msaa = luaL_optnumber(L, -1, -1);
+    lua_pop(L, 1);
   }
 
-  lovrHeadsetInit(drivers.data, drivers.length, offset);
+  lovrHeadsetInit(drivers.data, drivers.length, offset, msaa);
   lovrHeadsetDriver->setMirrored(mirror);
 
   vec_deinit(&drivers);

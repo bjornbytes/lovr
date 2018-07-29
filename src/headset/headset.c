@@ -4,7 +4,7 @@
 HeadsetInterface* lovrHeadsetDriver = NULL;
 static bool initialized = false;
 
-void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset) {
+void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa) {
   if (initialized) return;
   initialized = true;
 
@@ -21,7 +21,7 @@ void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset) {
       default: break;
     }
 
-    if (interface && interface->init(offset)) {
+    if (interface && interface->init(offset, msaa)) {
       lovrHeadsetDriver = interface;
       break;
     }

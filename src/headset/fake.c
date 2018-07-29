@@ -130,7 +130,7 @@ static void updateWindow() {
   }
 }
 
-static bool fakeInit(float offset) {
+static bool fakeInit(float offset, int msaa) {
   state.mirrored = true;
   state.offset = offset;
 

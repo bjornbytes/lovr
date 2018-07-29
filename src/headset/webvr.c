@@ -108,7 +108,7 @@ static void onFrame(float* leftView, float* rightView, float* leftProjection, fl
   lovrGraphicsSetCamera(NULL, false);
 }
 
-static bool webvrDriverInit(float offset) {
+static bool webvrDriverInit(float offset, int msaa) {
   vec_init(&state.controllers);
 
   if (webvrInit(offset, onControllerAdded, onControllerRemoved, onControllerPressed, onControllerReleased, onMountChanged)) {

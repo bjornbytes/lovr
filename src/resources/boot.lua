@@ -61,7 +61,8 @@ function lovr.boot()
     headset = {
       drivers = { 'openvr', 'webvr', 'fake' },
       mirror = true,
-      offset = 1.7
+      offset = 1.7,
+      msaa = -1
     },
     window = {
       width = 1080,

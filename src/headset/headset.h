@@ -65,7 +65,7 @@ typedef vec_t(Controller*) vec_controller_t;
 
 typedef struct {
   HeadsetDriver driverType;
-  bool (*init)(float offset);
+  bool (*init)(float offset, int msaa);
   void (*destroy)();
   HeadsetType (*getType)();
   HeadsetOrigin (*getOriginType)();
@@ -101,5 +101,5 @@ extern HeadsetInterface lovrHeadsetFakeDriver;
 // Active driver
 extern HeadsetInterface* lovrHeadsetDriver;
 
-void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset);
+void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa);
 void lovrHeadsetDestroy();
