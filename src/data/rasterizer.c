@@ -15,6 +15,7 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, int size) {
     lovrThrow("Problem loading font");
   }
 
+  lovrRetain(blob);
   rasterizer->blob = blob;
   rasterizer->size = size;
   rasterizer->scale = stbtt_ScaleForMappingEmToPixels(font, size);
