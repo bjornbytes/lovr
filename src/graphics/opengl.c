@@ -1254,6 +1254,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     UniformBlock block = { .index = i, .binding = i + 1, .source = NULL };
     glUniformBlockBinding(program, block.index, block.binding);
     vec_init(&block.uniforms);
+    vec_push(&shader->blocks, block);
 
     char name[LOVR_MAX_UNIFORM_LENGTH];
     glGetActiveUniformBlockName(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, name);
@@ -1263,7 +1264,8 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   // Uniform introspection
   int32_t uniformCount;
   int textureSlot = 0;
-  map_init(&shader->uniforms);
+  map_init(&shader->uniformMap);
+  vec_init(&shader->uniforms);
   glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &uniformCount);
   for (uint32_t i = 0; i < (uint32_t) uniformCount; i++) {
     Uniform uniform;
@@ -1284,7 +1286,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_BLOCK_INDEX, &blockIndex);
 
     if (blockIndex != -1) {
-      UniformBlock* block = &shader->blocks.data[i];
+      UniformBlock* block = &shader->blocks.data[blockIndex];
       glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_OFFSET, &uniform.offset);
       glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_SIZE, &uniform.size);
       vec_push(&block->uniforms, uniform);
