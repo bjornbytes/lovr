@@ -14,9 +14,7 @@ int l_lovrShaderBlockSend(lua_State* L) {
   const Uniform* uniform = lovrShaderBlockGetUniform(block, name);
   lovrAssert(uniform, "Unknown uniform for ShaderBlock '%s'", name);
   uint8_t* data = ((uint8_t*) lovrShaderBlockMap(block)) + uniform->offset;
-
   luax_checkuniform(L, 3, uniform, data, name);
-
   return 0;
 }
 
