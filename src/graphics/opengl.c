@@ -1292,7 +1292,18 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     if (blockIndex != -1) {
       UniformBlock* block = &shader->blocks.data[blockIndex];
       glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_OFFSET, &uniform.offset);
-      glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_SIZE, &uniform.size);
+      glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_SIZE, &uniform.count);
+      if (uniform.count > 1) {
+        int stride;
+        glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_ARRAY_STRIDE, &stride);
+        uniform.size = stride * uniform.count;
+      } else if (uniform.type == UNIFORM_MATRIX) {
+        int matrixStride;
+        glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_MATRIX_STRIDE, &matrixStride);
+        uniform.size = uniform.components * matrixStride;
+      } else {
+        uniform.size = uniform.components > 1 ? 16 : 4;
+      }
       vec_push(&block->uniforms, uniform);
       continue;
     } else if (uniform.location == -1) {
@@ -1560,10 +1571,11 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms) {
     // Calculate size and offset
     uniform->offset = size;
     if (uniform->type == UNIFORM_MATRIX) {
-      size += uniform->components * uniform->components * 4;
+      uniform->size = 4 * uniform->components * sizeof(float) * uniform->count;
     } else {
-      size += uniform->count == 1 ? 4 : (uniform->count * 16);
+      uniform->size = uniform->count == 1 ? 4 : (uniform->count * 16);
     }
+    size += uniform->size;
 
     // Write index to uniform lookup
     map_set(&block->uniformMap, uniform->name, i);
