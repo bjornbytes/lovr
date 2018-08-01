@@ -27,17 +27,18 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
       case UNIFORM_FLOAT:
       case UNIFORM_MATRIX:
         capacity = blob->size / sizeof(float);
-        lovrAssert(capacity >= elements, "Blob can only hold %d float%s, at least %d needed", capacity, s, elements);
+        lovrAssert(capacity >= elements, "Blob can only hold %d float%s, at least %d needed for uniform '%s'", capacity, s, elements, debug);
         memcpy(dest, blob->data, elements * sizeof(float));
         break;
 
       case UNIFORM_INT:
         capacity = blob->size / sizeof(int);
-        lovrAssert(capacity >= elements, "Blob can only hold %d int%s, at least %d needed", capacity, s, elements);
+        lovrAssert(capacity >= elements, "Blob can only hold %d int%s, at least %d needed for uniform '%s'", capacity, s, elements, debug);
         memcpy(dest, blob->data, elements * sizeof(int));
         break;
 
-      default: lovrThrow(""); // TODO
+      case UNIFORM_SAMPLER:
+        lovrThrow("Texture uniform '%s' can not be updated with a Blob", debug);
     }
 
     return 0;
@@ -47,7 +48,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
     bool isTable = lua_istable(L, index);
     if (isTable) {
       int length = lua_objlen(L, index);
-      lovrAssert(length == count, ""); // TODO
+      length = MIN(length, count);
       for (int i = 0; i < length; i++) {
         lua_rawgeti(L, index, i + 1);
         switch (uniform->type) {
@@ -76,7 +77,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
 
     if (wrappedTable) {
       int length = lua_objlen(L, index);
-      lovrAssert(length == count, ""); // TODO
+      length = MIN(length, count);
       for (int i = 0; i < length; i++) {
         lua_rawgeti(L, index, i + 1);
 
@@ -97,8 +98,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
               *((int*) dest + i * components + j) = luaL_checkinteger(L, -1);
               break;
 
-            default:
-              lovrThrow(""); // TODO
+            case UNIFORM_SAMPLER: lovrThrow("Unreachable");
           }
           lua_pop(L, 1);
         }
@@ -125,7 +125,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
               *((float*) dest + i * components + j) = luaL_checknumber(L, -1);
               break;
 
-            default: lovrThrow(""); // TODO
+            case UNIFORM_SAMPLER: lovrThrow("Unreachable");
           }
         }
       }
