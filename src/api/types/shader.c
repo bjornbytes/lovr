@@ -18,8 +18,6 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
     components *= components;
   }
 
-  // TODO samplers/textures
-
   if (blob) {
     size_t elements = count * components;
     const char* s = elements == 1 ? "" : "s";
@@ -55,7 +53,8 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         switch (uniform->type) {
           case UNIFORM_FLOAT: *((float*) dest + i) = luaL_checknumber(L, -1); break;
           case UNIFORM_INT: *((int*) dest + i) = luaL_checkinteger(L, -1); break;
-          default: lovrThrow(""); // TODO
+          case UNIFORM_SAMPLER: *((Texture**) dest + i) = luax_checktype(L, -1, Texture); break;
+          default: break;
         }
         lua_pop(L, 1);
       }
@@ -64,7 +63,8 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         switch (uniform->type) {
           case UNIFORM_FLOAT: *((float*) dest + i) = luaL_checknumber(L, index + i); break;
           case UNIFORM_INT: *((int*) dest + i) = luaL_checkinteger(L, index + i); break;
-          default: lovrThrow(""); // TODO
+          case UNIFORM_SAMPLER: *((Texture**) dest + i) = luax_checktype(L, index + i, Texture); break;
+          default: break;
         }
       }
     }
