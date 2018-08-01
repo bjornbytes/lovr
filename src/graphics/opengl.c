@@ -791,6 +791,10 @@ void lovrGpuDraw(DrawCommand* command) {
 
 void lovrGpuPresent() {
   memset(&state.stats, 0, sizeof(state.stats));
+#ifdef __APPLE__
+  // For some reason instancing doesn't work on macOS unless you reset the shader every frame
+  lovrGpuUseProgram(0);
+#endif
 }
 
 GraphicsLimits lovrGraphicsGetLimits() {
