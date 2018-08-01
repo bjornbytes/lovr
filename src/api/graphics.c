@@ -241,6 +241,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   luax_registertype(L, "Mesh", lovrMesh);
   luax_registertype(L, "Model", lovrModel);
   luax_registertype(L, "Shader", lovrShader);
+  luax_registertype(L, "ShaderBlock", lovrShaderBlock);
   luax_registertype(L, "Texture", lovrTexture);
   luax_extendtype(L, "Texture", "Canvas", lovrTexture, lovrCanvas);
   lovrGraphicsInit();
@@ -885,9 +886,9 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
     lua_getfield(L, -1, "type");
     const char* type = lua_tolstring(L, -1, &length);
     uniform.components = 1;
-    if (strcmp(type, "float")) {
+    if (!strcmp(type, "float")) {
       uniform.type = UNIFORM_FLOAT;
-    } else if (strcmp(type, "int")) {
+    } else if (!strcmp(type, "int")) {
       uniform.type = UNIFORM_INT;
     } else {
       uniform.components = type[length - 1] - '0';
