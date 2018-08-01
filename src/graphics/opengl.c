@@ -1521,6 +1521,18 @@ void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
   lovrAssert(index, "No shader block named '%s'", name);
 
   UniformBlock* block = &shader->blocks.data[*index];
+
+  if (source) {
+    lovrAssert(block->uniforms.length == source->uniforms.length, "ShaderBlock must have same number of uniforms as block definition in Shader");
+    for (int i = 0; i < block->uniforms.length; i++) {
+      const Uniform* u = &block->uniforms.data[i];
+      const Uniform* v = &source->uniforms.data[i];
+      lovrAssert(u->offset == v->offset, ""); // TODO
+      lovrAssert(u->size == v->size, ""); // TODO
+      lovrAssert(u->type == v->type, ""); // TODO
+    }
+  }
+
   block->source = source;
 }
 
