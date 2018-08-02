@@ -1,3 +1,5 @@
+skip_branch_with_pr: true
+
 clone_depth: 1
 
 only_commits:
