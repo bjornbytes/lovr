@@ -28,12 +28,11 @@ int l_lovrTextureGetFilter(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   TextureFilter filter = lovrTextureGetFilter(texture);
   lua_pushstring(L, FilterModes[filter.mode]);
-  lua_pushnumber(L, filter.sharpness);
   if (filter.mode == FILTER_ANISOTROPIC) {
     lua_pushnumber(L, filter.anisotropy);
-    return 3;
+    return 2;
   }
-  return 2;
+  return 1;
 }
 
 int l_lovrTextureGetHeight(lua_State* L) {
@@ -86,9 +85,8 @@ int l_lovrTextureReplacePixels(lua_State* L) {
 int l_lovrTextureSetFilter(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   FilterMode mode = luaL_checkoption(L, 2, NULL, FilterModes);
-  float sharpness = luaL_optnumber(L, 3, 0.);
   float anisotropy = luaL_optnumber(L, 4, 1.);
-  TextureFilter filter = { .mode = mode, .sharpness = sharpness, .anisotropy = anisotropy };
+  TextureFilter filter = { .mode = mode, .anisotropy = anisotropy };
   lovrTextureSetFilter(texture, filter);
   return 0;
 }

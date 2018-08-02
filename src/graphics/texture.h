@@ -20,7 +20,6 @@ typedef enum {
 typedef struct {
   FilterMode mode;
   float anisotropy;
-  float sharpness;
 } TextureFilter;
 
 typedef enum {

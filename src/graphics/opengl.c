@@ -397,11 +397,11 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   } else {
     glDisable(GL_FRAMEBUFFER_SRGB);
   }
+  state.supportsSinglepass = GLAD_GL_ARB_viewport_array && GLAD_GL_NV_viewport_array2 && GLAD_GL_NV_stereo_view_rendering;
 #endif
   glEnable(GL_BLEND);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
-  state.supportsSinglepass = GLAD_GL_ARB_viewport_array && GLAD_GL_NV_viewport_array2 && GLAD_GL_NV_stereo_view_rendering;
   state.blendMode = -1;
   state.blendAlphaMode = -1;
   state.culling = false;
@@ -739,8 +739,10 @@ void lovrGpuDraw(DrawCommand* command) {
       int width = lovrTextureGetWidth((Texture*) pipeline->canvas[0], 0);
       int height = lovrTextureGetHeight((Texture*) pipeline->canvas[0], 0);
       lovrGpuSetViewport((float[4]) { 0, 0, width, height });
+#ifndef EMSCRIPTEN
     } else if (state.supportsSinglepass) {
       glViewportArrayv(0, 2, command->camera.viewport[0]);
+#endif
     } else  {
       lovrGpuSetViewport(command->camera.viewport[i]);
     }
@@ -1025,7 +1027,6 @@ void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
       break;
   }
 
-  glTexParameteri(texture->glType, GL_TEXTURE_LOD_BIAS, -filter.sharpness);
   glTexParameteri(texture->glType, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
 }
 
