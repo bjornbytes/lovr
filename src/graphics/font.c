@@ -85,6 +85,7 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
   unsigned int codepoint;
   size_t bytes;
 
+  float* cursor = vertices.floats;
   float* lineStart = vertices.floats;
   int lineCount = 1;
   *vertexCount = 0;
@@ -93,7 +94,7 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
 
     // Newlines
     if (codepoint == '\n' || (wrap && cx * scale > wrap && codepoint == ' ')) {
-      lineStart = lovrFontAlignLine(lineStart, vertices.floats, cx, halign);
+      lineStart = lovrFontAlignLine(lineStart, cursor, cx, halign);
       lineCount++;
       cx = 0;
       cy -= font->rasterizer->height * font->lineHeight;
@@ -135,8 +136,8 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
         x2, y2, 0, 0, 0, 0, s2, t2
       };
 
-      memcpy(vertices.floats, quad, 6 * 8 * sizeof(float));
-      vertices.floats += 48;
+      memcpy(cursor, quad, 6 * 8 * sizeof(float));
+      cursor += 48;
       *vertexCount += 6;
     }
 
@@ -146,7 +147,7 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
   }
 
   // Align the last line
-  lovrFontAlignLine(lineStart, vertices.floats, cx, halign);
+  lovrFontAlignLine(lineStart, cursor, cx, halign);
 
   // Calculate vertical offset
   if (valign == ALIGN_MIDDLE) {
