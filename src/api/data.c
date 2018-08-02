@@ -88,6 +88,7 @@ int l_lovrDataNewSoundData(lua_State* L) {
     int channelCount = luaL_optinteger(L, 4, 2);
     SoundData* soundData = lovrSoundDataCreate(samples, sampleRate, bitDepth, channelCount);
     luax_pushobject(L, soundData);
+    lovrRelease(soundData);
     return 1;
   }
 
@@ -95,6 +96,7 @@ int l_lovrDataNewSoundData(lua_State* L) {
   if (audioStream) {
     SoundData* soundData = lovrSoundDataCreateFromAudioStream(audioStream);
     luax_pushobject(L, soundData);
+    lovrRelease(soundData);
     return 1;
   }
 
