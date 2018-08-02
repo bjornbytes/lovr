@@ -1,6 +1,7 @@
 #include "data/blob.h"
 #include "data/textureData.h"
 #include "lib/map/map.h"
+#include "lib/stb/stb_truetype.h"
 #include "util.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -11,9 +12,10 @@
 
 typedef struct {
   Ref ref;
-  void* ftHandle;
+  stbtt_fontinfo font;
   Blob* blob;
   int size;
+  float scale;
   int glyphCount;
   int height;
   int advance;

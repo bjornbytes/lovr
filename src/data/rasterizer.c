@@ -1,107 +1,47 @@
 #include "data/rasterizer.h"
 #include "resources/Cabin.ttf.h"
 #include "util.h"
+#include "lib/stb/stb_truetype.h"
 #include "msdfgen-c.h"
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_GLYPH_H
-#include FT_OUTLINE_H
-
-static FT_Library ft = NULL;
-
-typedef struct {
-  float x;
-  float y;
-  msShape* shape;
-  msContour* contour;
-} ftContext;
-
-static int ftMoveTo(const FT_Vector* to, void* userdata) {
-  ftContext* context = userdata;
-  context->contour = msShapeAddContour(context->shape);
-  context->x = to->x / 64.;
-  context->y = to->y / 64.;
-  return 0;
-}
-
-static int ftLineTo(const FT_Vector* to, void* userdata) {
-  ftContext* context = userdata;
-  float x = to->x / 64.;
-  float y = to->y / 64.;
-  msContourAddLinearEdge(context->contour, context->x, context->y, x, y);
-  context->x = x;
-  context->y = y;
-  return 0;
-}
-
-static int ftConicTo(const FT_Vector* control, const FT_Vector* to, void* userdata) {
-  ftContext* context = userdata;
-  float cx = control->x / 64.;
-  float cy = control->y / 64.;
-  float x = to->x / 64.;
-  float y = to->y / 64.;
-  msContourAddQuadraticEdge(context->contour, context->x, context->y, cx, cy, x, y);
-  context->x = x;
-  context->y = y;
-  return 0;
-}
-
-static int ftCubicTo(const FT_Vector* control1, const FT_Vector* control2, const FT_Vector* to, void* userdata) {
-  ftContext* context = userdata;
-  float c1x = control1->x / 64.;
-  float c1y = control1->y / 64.;
-  float c2x = control2->x / 64.;
-  float c2y = control2->y / 64.;
-  float x = to->x / 64.;
-  float y = to->y / 64.;
-  msContourAddCubicEdge(context->contour, context->x, context->y, c1x, c1y, c2x, c2y, x, y);
-  context->x = x;
-  context->y = y;
-  return 0;
-}
+#include <math.h>
 
 Rasterizer* lovrRasterizerCreate(Blob* blob, int size) {
-  if (!ft && FT_Init_FreeType(&ft)) {
-    lovrThrow("Error initializing FreeType");
-  }
-
-  FT_Face face = NULL;
-  FT_Error err = FT_Err_Ok;
-  if (blob) {
-    err = err || FT_New_Memory_Face(ft, blob->data, blob->size, 0, &face);
-    lovrRetain(blob);
-  } else {
-    err = err || FT_New_Memory_Face(ft, Cabin_ttf, Cabin_ttf_len, 0, &face);
-  }
-
-  err = err || FT_Set_Pixel_Sizes(face, 0, size);
-  lovrAssert(!err, "Problem loading font");
-
   Rasterizer* rasterizer = lovrAlloc(Rasterizer, lovrRasterizerDestroy);
-  rasterizer->ftHandle = face;
+  if (!rasterizer) return NULL;
+
+  stbtt_fontinfo* font = &rasterizer->font;
+  unsigned char* data = blob ? blob->data : Cabin_ttf;
+  if (!stbtt_InitFont(font, data, stbtt_GetFontOffsetForIndex(data, 0))) {
+    lovrThrow("Problem loading font");
+  }
+
+  lovrRetain(blob);
   rasterizer->blob = blob;
   rasterizer->size = size;
-  rasterizer->glyphCount = face->num_glyphs;
+  rasterizer->scale = stbtt_ScaleForMappingEmToPixels(font, size);
+  rasterizer->glyphCount = font->numGlyphs;
 
-  FT_Size_Metrics metrics = face->size->metrics;
-  rasterizer->height = metrics.height >> 6;
-  rasterizer->advance = metrics.max_advance >> 6;
-  rasterizer->ascent = metrics.ascender >> 6;
-  rasterizer->descent = metrics.descender >> 6;
+  int ascent, descent, linegap;
+  stbtt_GetFontVMetrics(font, &ascent, &descent, &linegap);
+  rasterizer->ascent = roundf(ascent * rasterizer->scale);
+  rasterizer->descent = roundf(descent * rasterizer->scale);
+  rasterizer->height = roundf((ascent - descent + linegap) * rasterizer->scale);
+
+  int x0, y0, x1, y1;
+  stbtt_GetFontBoundingBox(font, &x0, &y0, &x1, &y1);
+  rasterizer->advance = roundf(x1 * rasterizer->scale);
 
   return rasterizer;
 }
 
 void lovrRasterizerDestroy(void* ref) {
   Rasterizer* rasterizer = ref;
-  FT_Done_Face(rasterizer->ftHandle);
   lovrRelease(rasterizer->blob);
   free(rasterizer);
 }
 
 bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t character) {
-  FT_Face face = rasterizer->ftHandle;
-  return FT_Get_Char_Index(face, character) != 0;
+  return stbtt_FindGlyphIndex(&rasterizer->font, character) != 0;
 }
 
 bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str) {
@@ -119,35 +59,70 @@ bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str) {
 }
 
 void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, Glyph* glyph) {
-  FT_Face face = rasterizer->ftHandle;
-  FT_Error err = FT_Err_Ok;
-  FT_Glyph_Metrics* metrics;
-  FT_Outline_Funcs callbacks = {
-    .move_to = ftMoveTo,
-    .line_to = ftLineTo,
-    .conic_to = ftConicTo,
-    .cubic_to = ftCubicTo
-  };
+  int glyphIndex = stbtt_FindGlyphIndex(&rasterizer->font, character);
+  lovrAssert(glyphIndex, "Error loading glyph");
 
+  // Trace glyph outline
+  stbtt_vertex* vertices;
+  int vertexCount = stbtt_GetGlyphShape(&rasterizer->font, glyphIndex, &vertices);
   msShape* shape = msShapeCreate();
-  ftContext context = { .x = 0, .y = 0, .shape = shape, .contour = NULL };
+  msContour* contour = NULL;
+  float x = 0;
+  float y = 0;
 
-  err = err || FT_Load_Glyph(face, FT_Get_Char_Index(face, character), FT_LOAD_DEFAULT);
-  err = err || FT_Outline_Decompose(&face->glyph->outline, &callbacks, &context);
-  lovrAssert(!err, "Error loading glyph");
+  for (int i = 0; i < vertexCount; i++) {
+    stbtt_vertex vertex = vertices[i];
+    float x2 = vertex.x * rasterizer->scale;
+    float y2 = vertex.y * rasterizer->scale;
 
-  metrics = &face->glyph->metrics;
+    switch (vertex.type) {
+      case STBTT_vmove:
+        contour = msShapeAddContour(shape);
+        break;
 
-  // Initialize glyph
+      case STBTT_vline:
+        msContourAddLinearEdge(contour, x, y, x2, y2);
+        break;
+
+      case STBTT_vcurve: {
+        float cx = vertex.cx * rasterizer->scale;
+        float cy = vertex.cy * rasterizer->scale;
+        msContourAddQuadraticEdge(contour, x, y, cx, cy, x2, y2);
+        break;
+      }
+
+      case STBTT_vcubic: {
+        float cx1 = vertex.cx * rasterizer->scale;
+        float cy1 = vertex.cy * rasterizer->scale;
+        float cx2 = vertex.cx1 * rasterizer->scale;
+        float cy2 = vertex.cy1 * rasterizer->scale;
+        msContourAddCubicEdge(contour, x, y, cx1, cy1, cx2, cy2, x2, y2);
+        break;
+      }
+    }
+
+    x = x2;
+    y = y2;
+  }
+
+  int advance, bearing;
+  stbtt_GetGlyphHMetrics(&rasterizer->font, glyphIndex, &advance, &bearing);
+
+  int x0, y0, x1, y1;
+  stbtt_GetGlyphBox(&rasterizer->font, glyphIndex, &x0, &y0, &x1, &y1);
+
+  bool empty = stbtt_IsGlyphEmpty(&rasterizer->font, glyphIndex);
+
+  // Initialize glyph data
   glyph->x = 0;
   glyph->y = 0;
-  glyph->w = metrics->width >> 6;
-  glyph->h = metrics->height >> 6;
+  glyph->w = empty ? 0 : ceilf((x1 - x0) * rasterizer->scale);
+  glyph->h = empty ? 0 : ceilf((y1 - y0) * rasterizer->scale);
   glyph->tw = glyph->w + 2 * GLYPH_PADDING;
   glyph->th = glyph->h + 2 * GLYPH_PADDING;
-  glyph->dx = metrics->horiBearingX >> 6;
-  glyph->dy = metrics->horiBearingY >> 6;
-  glyph->advance = metrics->horiAdvance >> 6;
+  glyph->dx = empty ? 0 : roundf(bearing * rasterizer->scale);
+  glyph->dy = empty ? 0 : roundf(y1 * rasterizer->scale);
+  glyph->advance = roundf(advance * rasterizer->scale);
   glyph->data = lovrTextureDataGetBlank(glyph->tw, glyph->th, 0, FORMAT_RGB);
 
   // Render SDF
@@ -160,10 +135,5 @@ void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, Glyph* 
 }
 
 int lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t left, uint32_t right) {
-  FT_Face face = rasterizer->ftHandle;
-  FT_Vector kerning;
-  left = FT_Get_Char_Index(face, left);
-  right = FT_Get_Char_Index(face, right);
-  FT_Get_Kerning(face, left, right, FT_KERNING_DEFAULT, &kerning);
-  return kerning.x >> 6;
+  return stbtt_GetCodepointKernAdvance(&rasterizer->font, left, right) * rasterizer->scale;
 }
