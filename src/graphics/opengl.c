@@ -1350,6 +1350,12 @@ Shader* lovrShaderCreateDefault(DefaultShader type) {
 void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
   glDeleteProgram(shader->program);
+  const char* key;
+  map_iter_t iter = map_iter(&shader->uniforms);
+  while ((key = map_next(&shader->uniforms, &iter)) != NULL) {
+    Uniform* uniform = map_get(&shader->uniforms, key);
+    free(uniform->value.data);
+  }
   map_deinit(&shader->uniforms);
   map_deinit(&shader->attributes);
   free(shader);
