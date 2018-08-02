@@ -597,7 +597,7 @@ void lovrGraphicsArc(DrawMode mode, ArcMode arcMode, Material* material, mat4 tr
   lovrMeshWriteIndices(state.defaultMesh, 0, 0);
 
   if (hasCenterPoint) {
-    memcpy(vertices.floats, (float[]) { 0, 0, 0, 0, 0, 1, .5, .5 }, 8 * sizeof(float));
+    memcpy(vertices.floats, ((float[]) { 0, 0, 0, 0, 0, 1, .5, .5 }), 8 * sizeof(float));
     vertices.floats += 8;
   }
 
@@ -607,7 +607,7 @@ void lovrGraphicsArc(DrawMode mode, ArcMode arcMode, Material* material, mat4 tr
   for (int i = 0; i <= segments; i++) {
     float x = cos(theta) * .5;
     float y = sin(theta) * .5;
-    memcpy(vertices.floats, (float[]) { x, y, 0, 0, 0, 1, x + .5, 1 - (y + .5) }, 8 * sizeof(float));
+    memcpy(vertices.floats, ((float[]) { x, y, 0, 0, 0, 1, x + .5, 1 - (y + .5) }), 8 * sizeof(float));
     vertices.floats += 8;
     theta += angleShift;
   }
@@ -733,7 +733,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
       float x = sin(u * 2 * M_PI) * sin(v * M_PI);
       float y = cos(v * M_PI);
       float z = -cos(u * 2 * M_PI) * sin(v * M_PI);
-      memcpy(vertices.floats, (float[]) { x, y, z, x, y, z, u, 1 - v }, 8 * sizeof(float));
+      memcpy(vertices.floats, ((float[]) { x, y, z, x, y, z, u, 1 - v }), 8 * sizeof(float));
       vertices.floats += 8;
     }
   }
@@ -744,7 +744,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
     for (int j = 0; j < segments; j++) {
       unsigned int i0 = offset0 + j;
       unsigned int i1 = offset1 + j;
-      memcpy(indices.ints, (uint32_t[]) { i0, i1, i0 + 1, i1, i1 + 1, i0 + 1}, 6 * sizeof(uint32_t));
+      memcpy(indices.ints, ((uint32_t[]) { i0, i1, i0 + 1, i1, i1 + 1, i0 + 1 }), 6 * sizeof(uint32_t));
       indices.ints += 6;
     }
   }
