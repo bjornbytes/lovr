@@ -856,12 +856,10 @@ int l_lovrGraphicsNewAnimator(lua_State* L) {
 int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   vec_uniform_t uniforms;
   vec_init(&uniforms);
-  int count = 0;
 
   luaL_checktype(L, 1, LUA_TTABLE);
   lua_pushnil(L);
   while (lua_next(L, 1) != 0) {
-    lovrAssert(count < MAX_SHADER_BLOCK_UNIFORMS, "Shader blocks can only have up to %d uniforms", MAX_SHADER_BLOCK_UNIFORMS);
     lovrAssert(lua_type(L, -2) == LUA_TSTRING, "Uniform names must be strings");
 
     // Handle type shorthand
