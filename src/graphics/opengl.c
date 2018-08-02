@@ -364,10 +364,17 @@ void lovrGpuDirtyTexture(int slot) {
   state.textures[slot] = NULL;
 }
 
-static void lovrGpuBindUniformBuffer(uint32_t uniformBuffer, int slot) {
-  if (state.uniformBuffers[slot] != uniformBuffer) {
-    state.uniformBuffers[slot] = uniformBuffer;
-    glBindBufferBase(GL_UNIFORM_BUFFER, slot, uniformBuffer);
+static void lovrGpuBindStorageBuffer(uint32_t buffer, int slot) {
+  if (state.storageBuffers[slot] != buffer) {
+    state.storageBuffers[slot] = buffer;
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, slot, buffer);
+  }
+}
+
+static void lovrGpuBindUniformBuffer(uint32_t buffer, int slot) {
+  if (state.uniformBuffers[slot] != buffer) {
+    state.uniformBuffers[slot] = buffer;
+    glBindBufferBase(GL_UNIFORM_BUFFER, slot, buffer);
   }
 }
 
@@ -1587,6 +1594,8 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, bool writable, Buffe
 
   glGenBuffers(1, &block->buffer);
   if (writable) {
+    lovrGpuBindStorageBuffer(block->buffer, 0);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, size, NULL, usage);
   } else {
     lovrGpuBindUniformBuffer(block->buffer, 0);
     glBufferData(GL_UNIFORM_BUFFER, size, NULL, usage);
@@ -1602,6 +1611,7 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, bool writable, Buffe
 
 void lovrShaderBlockDestroy(void* ref) {
   ShaderBlock* block = ref;
+  glDeleteBuffers(1, &block->buffer);
   vec_deinit(&block->uniforms);
   map_deinit(&block->uniformMap);
   free(block->data);
@@ -1629,9 +1639,15 @@ void lovrShaderBlockUnmap(ShaderBlock* block) {
     return;
   }
 
-  lovrGpuBindUniformBuffer(block->buffer, 0);
-  glBufferData(GL_UNIFORM_BUFFER, block->size, NULL, block->usage);
-  glBufferSubData(GL_UNIFORM_BUFFER, 0, block->size, block->data);
+  if (block->writable) {
+    lovrGpuBindStorageBuffer(block->buffer, 0);
+  } else {
+    lovrGpuBindUniformBuffer(block->buffer, 0);
+  }
+
+  GLenum binding = block->writable ? GL_SHADER_STORAGE_BUFFER : GL_UNIFORM_BUFFER;
+  glBufferData(binding, block->size, NULL, block->usage);
+  glBufferSubData(binding, 0, block->size, block->data);
   block->mapped = false;
 }
 
