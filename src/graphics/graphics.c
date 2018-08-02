@@ -104,7 +104,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
   vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
   vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
-  state.defaultMesh = lovrMeshCreate(64, format, MESH_TRIANGLES, MESH_STREAM);
+  state.defaultMesh = lovrMeshCreate(64, format, MESH_TRIANGLES, USAGE_STREAM);
   lovrGraphicsReset();
   state.initialized = true;
 }

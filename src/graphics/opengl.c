@@ -23,6 +23,7 @@
 // Types
 
 #define MAX_TEXTURES 16
+#define MAX_STORAGE_BUFFERS 8
 #define MAX_UNIFORM_BUFFERS 32
 
 #define LOVR_SHADER_POSITION 0
@@ -54,6 +55,7 @@ static struct {
   uint32_t indexBuffer;
   uint32_t program;
   Texture* textures[MAX_TEXTURES];
+  uint32_t storageBuffers[MAX_STORAGE_BUFFERS];
   uint32_t uniformBuffers[MAX_UNIFORM_BUFFERS];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
@@ -66,8 +68,10 @@ static struct {
 
 struct ShaderBlock {
   Ref ref;
+  bool writable;
   vec_uniform_t uniforms;
   map_int_t uniformMap;
+  BufferUsage usage;
   uint32_t buffer;
   size_t size;
   void* data;
@@ -234,11 +238,11 @@ static bool isTextureFormatCompressed(TextureFormat format) {
   }
 }
 
-static GLenum convertMeshUsage(MeshUsage usage) {
+static GLenum convertBufferUsage(BufferUsage usage) {
   switch (usage) {
-    case MESH_STATIC: return GL_STATIC_DRAW;
-    case MESH_DYNAMIC: return GL_DYNAMIC_DRAW;
-    case MESH_STREAM: return GL_STREAM_DRAW;
+    case USAGE_STATIC: return GL_STATIC_DRAW;
+    case USAGE_DYNAMIC: return GL_DYNAMIC_DRAW;
+    case USAGE_STREAM: return GL_STREAM_DRAW;
   }
 }
 
@@ -1555,7 +1559,7 @@ void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
 
 // ShaderBlock
 
-ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms) {
+ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, bool writable, BufferUsage usage) {
   ShaderBlock* block = lovrAlloc(ShaderBlock, lovrShaderBlockDestroy);
   if (!block) return NULL;
 
@@ -1582,9 +1586,14 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms) {
   }
 
   glGenBuffers(1, &block->buffer);
-  lovrGpuBindUniformBuffer(block->buffer, 0);
-  glBufferData(GL_UNIFORM_BUFFER, size, NULL, GL_STATIC_DRAW);
+  if (writable) {
+  } else {
+    lovrGpuBindUniformBuffer(block->buffer, 0);
+    glBufferData(GL_UNIFORM_BUFFER, size, NULL, usage);
+  }
 
+  block->writable = writable;
+  block->usage = usage;
   block->size = size;
   block->data = calloc(1, size);
 
@@ -1621,21 +1630,21 @@ void lovrShaderBlockUnmap(ShaderBlock* block) {
   }
 
   lovrGpuBindUniformBuffer(block->buffer, 0);
-  glBufferData(GL_UNIFORM_BUFFER, block->size, NULL, GL_STATIC_DRAW);
+  glBufferData(GL_UNIFORM_BUFFER, block->size, NULL, block->usage);
   glBufferSubData(GL_UNIFORM_BUFFER, 0, block->size, block->data);
   block->mapped = false;
 }
 
 // Mesh
 
-Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, MeshUsage usage) {
+Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, BufferUsage usage) {
   Mesh* mesh = lovrAlloc(Mesh, lovrMeshDestroy);
   if (!mesh) return NULL;
 
   mesh->count = count;
   mesh->format = format;
   mesh->drawMode = drawMode;
-  mesh->usage = convertMeshUsage(usage);
+  mesh->usage = convertBufferUsage(usage);
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);
@@ -1840,7 +1849,7 @@ void lovrMeshUnmapVertices(Mesh* mesh) {
 
   size_t stride = mesh->format.stride;
   lovrGpuBindVertexBuffer(mesh->vbo);
-  if (mesh->usage == MESH_STREAM) {
+  if (mesh->usage == USAGE_STREAM) {
     glBufferData(GL_ARRAY_BUFFER, mesh->count * stride, mesh->data.bytes, mesh->usage);
   } else {
     size_t offset = mesh->dirtyStart * stride;

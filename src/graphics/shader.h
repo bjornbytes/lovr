@@ -10,6 +10,12 @@
 #define MAX_SHADER_BLOCK_UNIFORMS 32
 
 typedef enum {
+  USAGE_STATIC,
+  USAGE_DYNAMIC,
+  USAGE_STREAM
+} BufferUsage;
+
+typedef enum {
   UNIFORM_FLOAT,
   UNIFORM_MATRIX,
   UNIFORM_INT,
@@ -62,7 +68,7 @@ void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int 
 ShaderBlock* lovrShaderGetBlock(Shader* shader, const char* name);
 void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* block);
 
-ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms);
+ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, bool writable, BufferUsage usage);
 void lovrShaderBlockDestroy(void* ref);
 size_t lovrShaderBlockGetSize(ShaderBlock* block);
 const Uniform* lovrShaderBlockGetUniform(ShaderBlock* block, const char* name);

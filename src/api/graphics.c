@@ -45,6 +45,13 @@ const char* BlendModes[] = {
   NULL
 };
 
+const char* BufferUsages[] = {
+  [USAGE_STATIC] = "static",
+  [USAGE_DYNAMIC] = "dynamic",
+  [USAGE_STREAM] = "stream",
+  NULL
+};
+
 const char* CompareModes[] = {
   [COMPARE_NONE] = "always",
   [COMPARE_EQUAL] = "equal",
@@ -108,13 +115,6 @@ const char* MeshDrawModes[] = {
   [MESH_TRIANGLE_STRIP] = "strip",
   [MESH_TRIANGLES] = "triangles",
   [MESH_TRIANGLE_FAN] = "fan",
-  NULL
-};
-
-const char* MeshUsages[] = {
-  [MESH_STATIC] = "static",
-  [MESH_DYNAMIC] = "dynamic",
-  [MESH_STREAM] = "stream",
   NULL
 };
 
@@ -911,7 +911,20 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  ShaderBlock* block = lovrShaderBlockCreate(&uniforms);
+  BufferUsage usage = USAGE_DYNAMIC;
+  bool writable = false;
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "usage");
+    usage = luaL_checkoption(L, -1, "dynamic", BufferUsages);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "writable");
+    writable = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+
+  ShaderBlock* block = lovrShaderBlockCreate(&uniforms, writable, usage);
   luax_pushobject(L, block);
   vec_deinit(&uniforms);
   return 1;
@@ -1051,7 +1064,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   }
 
   MeshDrawMode drawMode = luaL_checkoption(L, drawModeIndex, "fan", MeshDrawModes);
-  MeshUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", MeshUsages);
+  BufferUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", BufferUsages);
   Mesh* mesh = lovrMeshCreate(count, format, drawMode, usage);
 
   if (dataIndex) {
