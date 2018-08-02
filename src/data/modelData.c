@@ -147,6 +147,7 @@ static int readMaterialTexture(struct aiMaterial* assimpMaterial, enum aiTexture
 
   Blob* blob = lovrBlobCreate(data, size, path);
   TextureData* textureData = lovrTextureDataFromBlob(blob);
+  lovrRelease(blob);
   int textureIndex = modelData->textures.length;
   vec_push(&modelData->textures, textureData);
   map_set(textureCache, path, textureIndex);
@@ -224,6 +225,7 @@ static struct aiFile* assimpFileOpen(struct aiFileIO* io, const char* path, cons
 
     File* file = lovrFileCreate(normalizedPath);
     if (lovrFileOpen(file, OPEN_READ)) {
+      lovrRelease(file);
       return NULL;
     }
 
