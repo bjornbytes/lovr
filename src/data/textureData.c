@@ -223,6 +223,7 @@ static void writeCallback(void* context, void* data, int size) {
 bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
   File* file = NULL;
   if ((file = lovrFileCreate(filename)) == NULL || lovrFileOpen(file, OPEN_WRITE)) {
+    lovrRelease(file);
     return false;
   }
   lovrAssert(textureData->format == FORMAT_RGB || textureData->format == FORMAT_RGBA, "Only RGB and RGBA TextureData can be encoded");
@@ -233,6 +234,7 @@ bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
   size_t stride = -textureData->width * components;
   bool success = stbi_write_png_to_func(writeCallback, file, width, height, components, data, stride);
   lovrFileClose(file);
+  lovrRelease(file);
   return success;
 }
 
