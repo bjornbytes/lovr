@@ -99,10 +99,10 @@ static void onFrame(float* leftView, float* rightView, float* leftProjection, fl
     }
   };
 
-  memcpy(camera.projection[0], leftProjection);
-  memcpy(camera.projection[1], rightProjection);
-  memcpy(camera.viewMatrix[0], leftView);
-  memcpy(camera.viewMatrix[1], rightView);
+  memcpy(camera.projection[0], leftProjection, 16 * sizeof(float));
+  memcpy(camera.projection[1], rightProjection, 16 * sizeof(float));
+  memcpy(camera.viewMatrix[0], leftView, 16 * sizeof(float));
+  memcpy(camera.viewMatrix[1], rightView, 16 * sizeof(float));
   lovrGraphicsSetCamera(&camera, true);
   state.renderCallback(userdata);
   lovrGraphicsSetCamera(NULL, false);
