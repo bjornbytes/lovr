@@ -1469,6 +1469,12 @@ void lovrShaderDestroy(void* ref) {
   for (int i = 0; i < shader->uniforms.length; i++) {
     free(shader->uniforms.data[i].value.data);
   }
+  for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_STORAGE; type++) {
+    UniformBlock* block; int i;
+    vec_foreach_ptr(&shader->blocks[type], block, i) {
+      lovrRelease(block->source);
+    }
+  }
   vec_deinit(&shader->uniforms);
   vec_deinit(&shader->blocks[BLOCK_UNIFORM]);
   vec_deinit(&shader->blocks[BLOCK_STORAGE]);
@@ -1610,18 +1616,22 @@ void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
   int index = *id >> 1;
   UniformBlock* block = &shader->blocks[type].data[index];
 
-  if (source) {
-    lovrAssert(block->uniforms.length == source->uniforms.length, "ShaderBlock must have same number of uniforms as block definition in Shader");
-    for (int i = 0; i < block->uniforms.length; i++) {
-      const Uniform* u = &block->uniforms.data[i];
-      const Uniform* v = &source->uniforms.data[i];
-      lovrAssert(u->offset == v->offset, ""); // TODO
-      lovrAssert(u->size == v->size, ""); // TODO
-      lovrAssert(u->type == v->type, ""); // TODO
+  if (source != block->source) {
+    if (source) {
+      lovrAssert(block->uniforms.length == source->uniforms.length, "ShaderBlock must have same number of uniforms as block definition in Shader");
+      for (int i = 0; i < block->uniforms.length; i++) {
+        const Uniform* u = &block->uniforms.data[i];
+        const Uniform* v = &source->uniforms.data[i];
+        lovrAssert(u->offset == v->offset, ""); // TODO
+        lovrAssert(u->size == v->size, ""); // TODO
+        lovrAssert(u->type == v->type, ""); // TODO
+      }
     }
-  }
 
-  block->source = source;
+    lovrRetain(source);
+    lovrRelease(block->source);
+    block->source = source;
+  }
 }
 
 // ShaderBlock
