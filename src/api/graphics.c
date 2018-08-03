@@ -909,8 +909,8 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
     lua_pop(L, 1);
   }
 
+  BlockType type = BLOCK_UNIFORM;
   BufferUsage usage = USAGE_DYNAMIC;
-  bool writable = false;
 
   if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "usage");
@@ -918,11 +918,11 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "writable");
-    writable = lua_toboolean(L, -1);
+    type = lua_toboolean(L, -1) ? BLOCK_STORAGE : BLOCK_UNIFORM;
     lua_pop(L, 1);
   }
 
-  ShaderBlock* block = lovrShaderBlockCreate(&uniforms, writable, usage);
+  ShaderBlock* block = lovrShaderBlockCreate(&uniforms, type, usage);
   luax_pushobject(L, block);
   vec_deinit(&uniforms);
   return 1;

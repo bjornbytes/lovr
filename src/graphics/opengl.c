@@ -23,8 +23,7 @@
 // Types
 
 #define MAX_TEXTURES 16
-#define MAX_STORAGE_BUFFERS 8
-#define MAX_UNIFORM_BUFFERS 32
+#define MAX_BLOCK_BUFFERS 8
 
 #define LOVR_SHADER_POSITION 0
 #define LOVR_SHADER_NORMAL 1
@@ -55,8 +54,7 @@ static struct {
   uint32_t indexBuffer;
   uint32_t program;
   Texture* textures[MAX_TEXTURES];
-  uint32_t storageBuffers[MAX_STORAGE_BUFFERS];
-  uint32_t uniformBuffers[MAX_UNIFORM_BUFFERS];
+  uint32_t blockBuffers[2][MAX_BLOCK_BUFFERS];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   float viewport[4];
@@ -68,11 +66,12 @@ static struct {
 
 struct ShaderBlock {
   Ref ref;
-  bool writable;
+  BlockType type;
   BufferUsage usage;
   vec_uniform_t uniforms;
   map_int_t uniformMap;
   uint32_t buffer;
+  GLenum target;
   size_t size;
   void* data;
   bool mapped;
@@ -87,11 +86,6 @@ typedef struct {
 } UniformBlock;
 
 typedef vec_t(UniformBlock) vec_block_t;
-
-enum {
-  BLOCK_UNIFORM,
-  BLOCK_STORAGE
-};
 
 struct Shader {
   Ref ref;
@@ -370,17 +364,10 @@ void lovrGpuDirtyTexture(int slot) {
   state.textures[slot] = NULL;
 }
 
-static void lovrGpuBindStorageBuffer(uint32_t buffer, int slot) {
-  if (state.storageBuffers[slot] != buffer) {
-    state.storageBuffers[slot] = buffer;
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, slot, buffer);
-  }
-}
-
-static void lovrGpuBindUniformBuffer(uint32_t buffer, int slot) {
-  if (state.uniformBuffers[slot] != buffer) {
-    state.uniformBuffers[slot] = buffer;
-    glBindBufferBase(GL_UNIFORM_BUFFER, slot, buffer);
+static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot) {
+  if (state.blockBuffers[type][slot] != buffer) {
+    state.blockBuffers[type][slot] = buffer;
+    glBindBufferBase(type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER, slot, buffer);
   }
 }
 
@@ -1529,22 +1516,14 @@ void lovrShaderBind(Shader* shader) {
 
   // Bind uniform blocks
   UniformBlock* block;
-  vec_foreach_ptr(&shader->blocks[BLOCK_UNIFORM], block, i) {
-    if (block->source) {
-      lovrShaderBlockUnmap(block->source);
-      lovrGpuBindUniformBuffer(block->source->buffer, block->binding);
-    } else {
-      lovrGpuBindUniformBuffer(0, block->binding);
-    }
-  }
-
-  // Bind storage blocks
-  vec_foreach_ptr(&shader->blocks[BLOCK_STORAGE], block, i) {
-    if (block->source) {
-      lovrShaderBlockUnmap(block->source);
-      lovrGpuBindStorageBuffer(block->source->buffer, block->binding);
-    } else {
-      lovrGpuBindStorageBuffer(0, block->binding);
+  for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_STORAGE; type++) {
+    vec_foreach_ptr(&shader->blocks[type], block, i) {
+      if (block->source) {
+        lovrShaderBlockUnmap(block->source);
+        lovrGpuBindBlockBuffer(type, block->source->buffer, block->binding);
+      } else {
+        lovrGpuBindBlockBuffer(type, 0, block->binding);
+      }
     }
   }
 }
@@ -1636,7 +1615,7 @@ void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
 
 // ShaderBlock
 
-ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, bool writable, BufferUsage usage) {
+ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, BufferUsage usage) {
   ShaderBlock* block = lovrAlloc(ShaderBlock, lovrShaderBlockDestroy);
   if (!block) return NULL;
 
@@ -1662,19 +1641,15 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, bool writable, Buffe
     map_set(&block->uniformMap, uniform->name, i);
   }
 
-  glGenBuffers(1, &block->buffer);
-  if (writable) {
-    lovrGpuBindStorageBuffer(block->buffer, 0);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, size, NULL, usage);
-  } else {
-    lovrGpuBindUniformBuffer(block->buffer, 0);
-    glBufferData(GL_UNIFORM_BUFFER, size, NULL, usage);
-  }
-
-  block->writable = writable;
+  block->target = block->type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
+  block->type = type;
   block->usage = usage;
   block->size = size;
   block->data = calloc(1, size);
+
+  glGenBuffers(1, &block->buffer);
+  lovrGpuBindBlockBuffer(block->type, block->buffer, 0);
+  glBufferData(block->target, size, NULL, usage);
 
   return block;
 }
@@ -1709,15 +1684,9 @@ void lovrShaderBlockUnmap(ShaderBlock* block) {
     return;
   }
 
-  if (block->writable) {
-    lovrGpuBindStorageBuffer(block->buffer, 0);
-  } else {
-    lovrGpuBindUniformBuffer(block->buffer, 0);
-  }
-
-  GLenum binding = block->writable ? GL_SHADER_STORAGE_BUFFER : GL_UNIFORM_BUFFER;
-  glBufferData(binding, block->size, NULL, block->usage);
-  glBufferSubData(binding, 0, block->size, block->data);
+  lovrGpuBindBlockBuffer(block->type, block->buffer, 0);
+  glBufferData(block->target, block->size, NULL, block->usage);
+  glBufferSubData(block->target, 0, block->size, block->data);
   block->mapped = false;
 }
 

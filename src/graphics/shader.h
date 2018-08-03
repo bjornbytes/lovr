@@ -15,6 +15,11 @@ typedef enum {
 } BufferUsage;
 
 typedef enum {
+  BLOCK_UNIFORM,
+  BLOCK_STORAGE
+} BlockType;
+
+typedef enum {
   UNIFORM_FLOAT,
   UNIFORM_MATRIX,
   UNIFORM_INT,
@@ -67,7 +72,7 @@ void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int 
 ShaderBlock* lovrShaderGetBlock(Shader* shader, const char* name);
 void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* block);
 
-ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, bool writable, BufferUsage usage);
+ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, BufferUsage usage);
 void lovrShaderBlockDestroy(void* ref);
 size_t lovrShaderBlockGetSize(ShaderBlock* block);
 const Uniform* lovrShaderBlockGetUniform(ShaderBlock* block, const char* name);
