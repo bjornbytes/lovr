@@ -80,7 +80,6 @@ struct ShaderBlock {
 typedef struct {
   int index;
   int binding;
-  bool writable;
   ShaderBlock* source;
   vec_uniform_t uniforms;
 } UniformBlock;
@@ -1270,7 +1269,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   vec_init(uniformBlocks);
   vec_reserve(uniformBlocks, blockCount);
   for (int i = 0; i < blockCount; i++) {
-    UniformBlock block = { .index = i, .binding = i + 1, .writable = false, .source = NULL };
+    UniformBlock block = { .index = i, .binding = i, .source = NULL };
     glUniformBlockBinding(program, block.index, block.binding);
     vec_init(&block.uniforms);
 
@@ -1291,7 +1290,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     glGetProgramInterfaceiv(program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &storageCount);
     vec_reserve(storageBlocks, storageCount);
     for (int i = 0; i < storageCount; i++) {
-      UniformBlock block = { .index = i, .binding = i + 1, .writable = true, .source = NULL };
+      UniformBlock block = { .index = i, .binding = i, .source = NULL };
       glShaderStorageBlockBinding(program, block.index, block.binding);
       vec_init(&block.uniforms);
 
