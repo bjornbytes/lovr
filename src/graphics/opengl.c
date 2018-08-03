@@ -801,6 +801,16 @@ void lovrGpuPresent() {
 #endif
 }
 
+GraphicsFeatures lovrGraphicsGetSupported() {
+  return (GraphicsFeatures) {
+#ifdef EMSCRIPTEN
+    .writableBlocks = GLAD_GL_ARB_shader_storage_blocks
+#else
+    .writableBlocks = false
+#endif
+  };
+}
+
 GraphicsLimits lovrGraphicsGetLimits() {
   if (!state.limits.initialized) {
 #ifdef EMSCRIPTEN

@@ -327,6 +327,14 @@ int l_lovrGraphicsGetDimensions(lua_State* L) {
   return 2;
 }
 
+int l_lovrGraphicsGetSupported(lua_State* L) {
+  GraphicsFeatures features = lovrGraphicsGetSupported();
+  lua_newtable(L);
+  lua_pushboolean(L, features.writableBlocks);
+  lua_setfield(L, -2, "writableBlocks");
+  return 1;
+}
+
 int l_lovrGraphicsGetSystemLimits(lua_State* L) {
   GraphicsLimits limits = lovrGraphicsGetLimits();
   lua_newtable(L);
@@ -1202,6 +1210,7 @@ const luaL_Reg lovrGraphics[] = {
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
+  { "getSupported", l_lovrGraphicsGetSupported },
   { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getStats", l_lovrGraphicsGetStats },
 
