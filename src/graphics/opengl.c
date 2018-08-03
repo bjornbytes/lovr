@@ -1264,6 +1264,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   // Uniform blocks
   int32_t blockCount;
   glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &blockCount);
+  lovrAssert(blockCount <= MAX_BLOCK_BUFFERS, "Shader has too many read-only blocks (%d) the max is %d", blockCount, MAX_BLOCK_BUFFERS);
   map_init(&shader->blockMap);
   vec_block_t* uniformBlocks = &shader->blocks[BLOCK_UNIFORM];
   vec_init(uniformBlocks);
@@ -1288,6 +1289,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     // Iterate over storage blocks, setting their binding and pushing them onto the block vector
     int storageCount;
     glGetProgramInterfaceiv(program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &storageCount);
+    lovrAssert(storageCount <= MAX_BLOCK_BUFFERS, "Shader has too many writable blocks (%d) the max is %d", storageCount, MAX_BLOCK_BUFFERS);
     vec_reserve(storageBlocks, storageCount);
     for (int i = 0; i < storageCount; i++) {
       UniformBlock block = { .index = i, .binding = i, .source = NULL };
