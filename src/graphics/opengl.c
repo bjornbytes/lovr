@@ -1322,7 +1322,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
       } else if (uniform.type == UNIFORM_MATRIX) {
         uniform.size = values[matrixStride] * uniform.components;
       } else {
-        uniform.size = uniform.components > 1 ? 16 : 4;
+        uniform.size = 4 * (uniform.components == 3 ? 4 : uniform.components);
       }
       vec_push(&storageBlocks->data[values[blockIndex]].uniforms, uniform);
     }
@@ -1365,7 +1365,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
         glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_MATRIX_STRIDE, &matrixStride);
         uniform.size = uniform.components * matrixStride;
       } else {
-        uniform.size = uniform.components > 1 ? 16 : 4;
+        uniform.size = 4 * (uniform.components == 3 ? 4 : uniform.components);
       }
       vec_push(&block->uniforms, uniform);
       continue;
