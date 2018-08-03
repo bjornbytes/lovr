@@ -1640,6 +1640,8 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
   ShaderBlock* block = lovrAlloc(ShaderBlock, lovrShaderBlockDestroy);
   if (!block) return NULL;
 
+  lovrAssert(type != BLOCK_STORAGE || lovrGraphicsGetSupported().writableBlocks, "Writable ShaderBlocks are not supported on this system");
+
   vec_init(&block->uniforms);
   vec_extend(&block->uniforms, uniforms);
   map_init(&block->uniformMap);
