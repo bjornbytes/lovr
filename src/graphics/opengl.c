@@ -69,9 +69,9 @@ static struct {
 struct ShaderBlock {
   Ref ref;
   bool writable;
+  BufferUsage usage;
   vec_uniform_t uniforms;
   map_int_t uniformMap;
-  BufferUsage usage;
   uint32_t buffer;
   size_t size;
   void* data;
@@ -296,7 +296,7 @@ static UniformType getUniformType(GLenum type, const char* debug) {
     case GL_SAMPLER_2D_ARRAY:
       return UNIFORM_SAMPLER;
     default:
-      lovrThrow("Unsupported uniform type '%s'", debug);
+      lovrThrow("Unsupported uniform type for uniform '%s'", debug);
       return UNIFORM_FLOAT;
   }
 }
@@ -1303,6 +1303,30 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
       int blockId = (i << 1) + BLOCK_STORAGE;
       map_set(&shader->blockMap, name, blockId);
       vec_push(storageBlocks, block);
+    }
+
+    // Iterate over buffer variables, pushing them onto the uniform list of the correct block
+    int bufferVariableCount;
+    glGetProgramInterfaceiv(program, GL_BUFFER_VARIABLE, GL_ACTIVE_RESOURCES, &bufferVariableCount);
+    for (int i = 0; i < bufferVariableCount; i++) {
+      Uniform uniform;
+      enum { blockIndex, offset, glType, count, arrayStride, matrixStride, propCount };
+      int values[propCount];
+      GLenum properties[propCount] = { GL_BLOCK_INDEX, GL_OFFSET, GL_TYPE, GL_ARRAY_SIZE, GL_ARRAY_STRIDE, GL_MATRIX_STRIDE };
+      glGetProgramResourceiv(program, GL_BUFFER_VARIABLE, i, propCount, properties, sizeof(values), NULL, values);
+      glGetProgramResourceName(program, GL_BUFFER_VARIABLE, i, LOVR_MAX_UNIFORM_LENGTH, NULL, uniform.name);
+      uniform.type = getUniformType(values[glType], uniform.name);
+      uniform.components = getUniformComponents(uniform.type);
+      uniform.count = values[count];
+      uniform.offset = values[offset];
+      if (uniform.count > 1) {
+        uniform.size = uniform.count * values[arrayStride];
+      } else if (uniform.type == UNIFORM_MATRIX) {
+        uniform.size = values[matrixStride] * uniform.components;
+      } else {
+        uniform.size = uniform.components > 1 ? 16 : 4;
+      }
+      vec_push(&storageBlocks->data[values[blockIndex]].uniforms, uniform);
     }
   }
 
