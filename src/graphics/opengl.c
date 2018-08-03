@@ -81,17 +81,23 @@ struct ShaderBlock {
 typedef struct {
   int index;
   int binding;
+  bool writable;
   ShaderBlock* source;
   vec_uniform_t uniforms;
 } UniformBlock;
 
 typedef vec_t(UniformBlock) vec_block_t;
 
+enum {
+  BLOCK_UNIFORM,
+  BLOCK_STORAGE
+};
+
 struct Shader {
   Ref ref;
   uint32_t program;
   vec_uniform_t uniforms;
-  vec_block_t blocks;
+  vec_block_t blocks[2];
   map_int_t attributes;
   map_int_t uniformMap;
   map_int_t blockMap;
@@ -1263,17 +1269,41 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   int32_t blockCount;
   glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &blockCount);
   map_init(&shader->blockMap);
-  vec_init(&shader->blocks);
-  vec_reserve(&shader->blocks, blockCount);
+  vec_block_t* uniformBlocks = &shader->blocks[BLOCK_UNIFORM];
+  vec_init(uniformBlocks);
+  vec_reserve(uniformBlocks, blockCount);
   for (int i = 0; i < blockCount; i++) {
-    UniformBlock block = { .index = i, .binding = i + 1, .source = NULL };
+    UniformBlock block = { .index = i, .binding = i + 1, .writable = false, .source = NULL };
     glUniformBlockBinding(program, block.index, block.binding);
     vec_init(&block.uniforms);
-    vec_push(&shader->blocks, block);
 
     char name[LOVR_MAX_UNIFORM_LENGTH];
     glGetActiveUniformBlockName(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, name);
-    map_set(&shader->blockMap, name, i);
+    int blockId = (i << 1) + BLOCK_UNIFORM;
+    map_set(&shader->blockMap, name, blockId);
+    vec_push(uniformBlocks, block);
+  }
+
+  // Shader storage buffers and their buffer variables
+  vec_block_t* storageBlocks = &shader->blocks[BLOCK_STORAGE];
+  vec_init(storageBlocks);
+  if (GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_program_interface_query) {
+
+    // Iterate over storage blocks, setting their binding and pushing them onto the block vector
+    int storageCount;
+    glGetProgramInterfaceiv(program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &storageCount);
+    vec_reserve(storageBlocks, storageCount);
+    for (int i = 0; i < storageCount; i++) {
+      UniformBlock block = { .index = i, .binding = i + 1, .writable = true, .source = NULL };
+      glShaderStorageBlockBinding(program, block.index, block.binding);
+      vec_init(&block.uniforms);
+
+      char name[LOVR_MAX_UNIFORM_LENGTH];
+      glGetProgramResourceName(program, GL_SHADER_STORAGE_BLOCK, i, LOVR_MAX_UNIFORM_LENGTH, NULL, name);
+      int blockId = (i << 1) + BLOCK_STORAGE;
+      map_set(&shader->blockMap, name, blockId);
+      vec_push(storageBlocks, block);
+    }
   }
 
   // Uniform introspection
@@ -1301,7 +1331,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
     glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_BLOCK_INDEX, &blockIndex);
 
     if (blockIndex != -1) {
-      UniformBlock* block = &shader->blocks.data[blockIndex];
+      UniformBlock* block = &shader->blocks[BLOCK_UNIFORM].data[blockIndex];
       glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_OFFSET, &uniform.offset);
       glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_SIZE, &uniform.count);
       if (uniform.count > 1) {
@@ -1418,7 +1448,8 @@ void lovrShaderDestroy(void* ref) {
     free(shader->uniforms.data[i].value.data);
   }
   vec_deinit(&shader->uniforms);
-  vec_deinit(&shader->blocks);
+  vec_deinit(&shader->blocks[BLOCK_UNIFORM]);
+  vec_deinit(&shader->blocks[BLOCK_STORAGE]);
   map_deinit(&shader->attributes);
   map_deinit(&shader->uniformMap);
   map_deinit(&shader->blockMap);
@@ -1472,13 +1503,24 @@ void lovrShaderBind(Shader* shader) {
     }
   }
 
+  // Bind uniform blocks
   UniformBlock* block;
-  vec_foreach_ptr(&shader->blocks, block, i) {
+  vec_foreach_ptr(&shader->blocks[BLOCK_UNIFORM], block, i) {
     if (block->source) {
       lovrShaderBlockUnmap(block->source);
       lovrGpuBindUniformBuffer(block->source->buffer, block->binding);
     } else {
       lovrGpuBindUniformBuffer(0, block->binding);
+    }
+  }
+
+  // Bind storage blocks
+  vec_foreach_ptr(&shader->blocks[BLOCK_STORAGE], block, i) {
+    if (block->source) {
+      lovrShaderBlockUnmap(block->source);
+      lovrGpuBindStorageBuffer(block->source->buffer, block->binding);
+    } else {
+      lovrGpuBindStorageBuffer(0, block->binding);
     }
   }
 }
@@ -1537,18 +1579,22 @@ void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int 
 }
 
 ShaderBlock* lovrShaderGetBlock(Shader* shader, const char* name) {
-  int* index = map_get(&shader->blockMap, name);
-  lovrAssert(index, "No shader block named '%s'", name);
+  int* id = map_get(&shader->blockMap, name);
+  lovrAssert(id, "No shader block named '%s'", name);
 
-  UniformBlock* block = &shader->blocks.data[*index];
+  int type = *id & 1;
+  int index = *id >> 1;
+  UniformBlock* block = &shader->blocks[type].data[index];
   return block->source;
 }
 
 void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
-  int* index = map_get(&shader->blockMap, name);
+  int* id = map_get(&shader->blockMap, name);
   lovrAssert(index, "No shader block named '%s'", name);
 
-  UniformBlock* block = &shader->blocks.data[*index];
+  int type = *id & 1;
+  int index = *id >> 1;
+  UniformBlock* block = &shader->blocks[type].data[index];
 
   if (source) {
     lovrAssert(block->uniforms.length == source->uniforms.length, "ShaderBlock must have same number of uniforms as block definition in Shader");
