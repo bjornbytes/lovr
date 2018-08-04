@@ -1610,7 +1610,7 @@ ShaderBlock* lovrShaderGetBlock(Shader* shader, const char* name) {
 
 void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
   int* id = map_get(&shader->blockMap, name);
-  lovrAssert(index, "No shader block named '%s'", name);
+  lovrAssert(id, "No shader block named '%s'", name);
 
   int type = *id & 1;
   int index = *id >> 1;
