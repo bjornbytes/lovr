@@ -715,7 +715,11 @@ void lovrGpuDraw(DrawCommand* command) {
       GLenum buffers[MAX_CANVASES];
       for (int i = 0; i < canvasCount; i++) {
         buffers[i] = GL_COLOR_ATTACHMENT0 + i;
-        glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, lovrTextureGetId((Texture*) canvas[i]), 0);
+        if (canvas[i]->flags.msaa > 0) {
+          glFramebufferRenderbuffer(GL_FRAMEBUFFER, buffers[i], GL_RENDERBUFFER, canvas[i]->msaaTexture);
+        } else {
+          glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, lovrTextureGetId((Texture*) canvas[i]), 0);
+        }
       }
       glDrawBuffers(canvasCount, buffers);
 
