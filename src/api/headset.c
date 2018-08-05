@@ -86,7 +86,7 @@ int l_lovrHeadsetInit(lua_State* L) {
   vec_init(&drivers);
   bool mirror = false;
   float offset = 1.7;
-  int msaa = -1;
+  int msaa = 4;
 
   if (lua_istable(L, -1)) {
 
