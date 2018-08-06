@@ -366,7 +366,11 @@ void lovrGpuDirtyTexture(int slot) {
 static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot) {
   if (state.blockBuffers[type][slot] != buffer) {
     state.blockBuffers[type][slot] = buffer;
+#ifdef EMSCRIPTEN
+    glBindBufferBase(GL_UNIFORM_BUFFER, slot, buffer);
+#else
     glBindBufferBase(type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER, slot, buffer);
+#endif
   }
 }
 
@@ -803,9 +807,9 @@ void lovrGpuPresent() {
 GraphicsFeatures lovrGraphicsGetSupported() {
   return (GraphicsFeatures) {
 #ifdef EMSCRIPTEN
-    .writableBlocks = GLAD_GL_ARB_shader_storage_blocks
-#else
     .writableBlocks = false
+#else
+    .writableBlocks = GLAD_GL_ARB_shader_storage_blocks
 #endif
   };
 }
@@ -1284,6 +1288,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
   // Shader storage buffers and their buffer variables
   vec_block_t* storageBlocks = &shader->blocks[BLOCK_STORAGE];
   vec_init(storageBlocks);
+#ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_program_interface_query) {
 
     // Iterate over storage blocks, setting their binding and pushing them onto the block vector
@@ -1327,6 +1332,7 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
       vec_push(&storageBlocks->data[values[blockIndex]].uniforms, uniform);
     }
   }
+#endif
 
   // Uniform introspection
   int32_t uniformCount;
@@ -1664,7 +1670,11 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
     map_set(&block->uniformMap, uniform->name, i);
   }
 
+#ifdef EMSCRIPTEN
+  block->target = GL_UNIFORM_BUFFER;
+#else
   block->target = block->type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
+#endif
   block->type = type;
   block->usage = usage;
   block->size = size;
