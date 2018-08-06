@@ -167,10 +167,12 @@ function lovr.threaderror(thread, err)
 end
 
 return function()
-  local _, thread = xpcall(lovr.boot, lovr.errhand)
+  local errored = false
+  local function onerror(...) if not errored then errored = true return lovr.errhand(...) else return function() return 1 end end end
+  local _, thread = xpcall(lovr.boot, onerror)
 
   while true do
-    local ok, result = xpcall(thread, lovr.errhand)
+    local ok, result = xpcall(thread, onerror)
     if result and ok then return result
     elseif not ok then thread = result end
     coroutine.yield()
