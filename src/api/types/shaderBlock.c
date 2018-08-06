@@ -24,12 +24,22 @@ int l_lovrShaderBlockIsWritable(lua_State* L) {
 
 int l_lovrShaderBlockSend(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
-  const char* name = luaL_checkstring(L, 2);
-  const Uniform* uniform = lovrShaderBlockGetUniform(block, name);
-  lovrAssert(uniform, "Unknown uniform for ShaderBlock '%s'", name);
-  uint8_t* data = ((uint8_t*) lovrShaderBlockMap(block)) + uniform->offset;
-  luax_checkuniform(L, 3, uniform, data, name);
-  return 0;
+  if (lua_type(L, 2) == LUA_TSTRING) {
+    const char* name = luaL_checkstring(L, 2);
+    const Uniform* uniform = lovrShaderBlockGetUniform(block, name);
+    lovrAssert(uniform, "Unknown uniform for ShaderBlock '%s'", name);
+    uint8_t* data = ((uint8_t*) lovrShaderBlockMap(block)) + uniform->offset;
+    luax_checkuniform(L, 3, uniform, data, name);
+    return 0;
+  } else {
+    Blob* blob = luax_checktype(L, 1, Blob);
+    void* data = lovrShaderBlockMap(block);
+    size_t blockSize = lovrShaderBlockGetSize(block);
+    size_t copySize = MIN(blockSize, blob->size);
+    memcpy(data, blob->data, copySize);
+    lua_pushinteger(L, copySize);
+    return 1;
+  }
 }
 
 const luaL_Reg lovrShaderBlock[] = {
