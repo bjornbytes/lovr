@@ -1629,8 +1629,8 @@ void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
         const Uniform* u = &block->uniforms.data[i];
         const Uniform* v = &source->uniforms.data[i];
         lovrAssert(u->type == v->type, "Shader is not compatible with ShaderBlock, check type of variable '%s'", v->name);
-        lovrAssert(u->offset == v->offset, "Shader is not compatible with ShaderBlock, check variable '%s'", v->name);
-        lovrAssert(u->size == v->size, "Shader is not compatible with ShaderBlock, check variable '%s'", v->name);
+        lovrAssert(u->offset == v->offset, "Shader is not compatible with ShaderBlock, check order of variable '%s'", v->name);
+        lovrAssert(u->size == v->size, "Shader is not compatible with ShaderBlock, check count of variable '%s'", v->name);
       }
     }
 

@@ -868,52 +868,29 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   luaL_checktype(L, 1, LUA_TTABLE);
   lua_pushnil(L);
   while (lua_next(L, 1) != 0) {
-    lovrAssert(lua_type(L, -2) == LUA_TSTRING, "Uniform names must be strings");
-
-    // Handle type shorthand
-    if (lua_type(L, -1) == LUA_TSTRING) {
-      lua_newtable(L);
-      lua_insert(L, -2);
-      lua_setfield(L, -2, "type");
-    }
-    luaL_checktype(L, -1, LUA_TTABLE);
+    Uniform uniform;
 
     // Name
-    Uniform uniform;
-    strncpy(uniform.name, lua_tostring(L, -2), LOVR_MAX_UNIFORM_LENGTH - 1);
+    strncpy(uniform.name, luaL_checkstring(L, -2), LOVR_MAX_UNIFORM_LENGTH - 1);
 
-    // Count
-    lua_getfield(L, -1, "count");
-    uniform.count = lua_type(L, -1) == LUA_TNUMBER ? lua_tonumber(L, -1) : 1;
-    lua_pop(L, 1);
-
-    // Type
-    size_t length;
-    lua_getfield(L, -1, "type");
-    const char* type = lua_tolstring(L, -1, &length);
-    uniform.components = 1;
-    if (!strcmp(type, "float")) {
-      uniform.type = UNIFORM_FLOAT;
-    } else if (!strcmp(type, "int")) {
-      uniform.type = UNIFORM_INT;
+    if (lua_type(L, -1) == LUA_TSTRING) {
+      uniform.count = 1;
+      luax_checkuniformtype(L, -1, &uniform.type, &uniform.components);
     } else {
-      uniform.components = type[length - 1] - '0';
-      lovrAssert(uniform.components >= 2 && uniform.components <= 4, "Unknown uniform type '%s'", type);
-      if (!strncmp(type, "vec", 3 * sizeof(char)) && length == 4) {
-        uniform.type = UNIFORM_FLOAT;
-      } else if (!strncmp(type, "ivec", 4 * sizeof(char)) && length == 5) {
-        uniform.type = UNIFORM_INT;
-      } else if (!strncmp(type, "mat", 3 * sizeof(char)) && length == 4) {
-        uniform.type = UNIFORM_MATRIX;
-      } else {
-        lovrThrow("Unknown uniform type '%s'", type);
-      }
+      luaL_checktype(L, -1, LUA_TTABLE);
+
+      lua_rawgeti(L, -1, 1);
+      luax_checkuniformtype(L, -1, &uniform.type, &uniform.components);
+      lua_pop(L, 1);
+
+      lua_rawgeti(L, -1, 2);
+      uniform.count = luaL_optinteger(L, -1, 1);
+      lua_pop(L, 1);
     }
-    lua_pop(L, 1);
 
     vec_push(&uniforms, uniform);
 
-    // Pop the table, leaving the key for lua_next
+    // Pop the table, leaving the key for lua_next to nom
     lua_pop(L, 1);
   }
 
