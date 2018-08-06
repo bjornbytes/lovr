@@ -2,6 +2,14 @@
 #include "graphics/shader.h"
 #include "math/transform.h"
 
+int l_lovrShaderBlockGetOffset(lua_State* L) {
+  ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
+  const char* field = luaL_checkstring(L, 2);
+  const Uniform* uniform = lovrShaderBlockGetUniform(block, field);
+  lua_pushinteger(L, uniform->offset);
+  return 1;
+}
+
 int l_lovrShaderBlockGetSize(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
   lua_pushinteger(L, lovrShaderBlockGetSize(block));
@@ -25,6 +33,7 @@ int l_lovrShaderBlockSend(lua_State* L) {
 }
 
 const luaL_Reg lovrShaderBlock[] = {
+  { "getOffset", l_lovrShaderBlockGetOffset },
   { "getSize", l_lovrShaderBlockGetSize },
   { "isWritable", l_lovrShaderBlockIsWritable },
   { "send", l_lovrShaderBlockSend },
