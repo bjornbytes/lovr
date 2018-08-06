@@ -76,6 +76,7 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
 void lovrShaderBlockDestroy(void* ref);
 size_t lovrShaderBlockGetSize(ShaderBlock* block);
 BlockType lovrShaderBlockGetType(ShaderBlock* block);
+char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, size_t* length);
 const Uniform* lovrShaderBlockGetUniform(ShaderBlock* block, const char* name);
 void* lovrShaderBlockMap(ShaderBlock* block);
 void lovrShaderBlockUnmap(ShaderBlock* block);

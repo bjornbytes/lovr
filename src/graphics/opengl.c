@@ -320,6 +320,58 @@ static int getUniformComponents(GLenum type) {
   }
 }
 
+static size_t getUniformTypeLength(const Uniform* uniform) {
+  size_t size = 0;
+
+  if (uniform->count > 1) {
+    size += 2 + floor(log10(uniform->count)) + 1; // "[count]"
+  }
+
+  switch (uniform->type) {
+    case UNIFORM_MATRIX: size += 3; break;
+    case UNIFORM_FLOAT: size += uniform->components == 1 ? 5 : 4; break;
+    case UNIFORM_INT: size += uniform->components == 1 ? 3 : 5; break;
+    default: break;
+  }
+
+  return size;
+}
+
+static const char* getUniformTypeName(const Uniform* uniform) {
+  switch (uniform->type) {
+    case UNIFORM_FLOAT:
+      switch (uniform->components) {
+        case 1: return "float";
+        case 2: return "vec2";
+        case 3: return "vec3";
+        case 4: return "vec4";
+      }
+      break;
+
+    case UNIFORM_INT:
+      switch (uniform->components) {
+        case 1: return "int";
+        case 2: return "ivec2";
+        case 3: return "ivec3";
+        case 4: return "ivec4";
+      }
+      break;
+
+    case UNIFORM_MATRIX:
+      switch (uniform->components) {
+        case 2: return "mat2";
+        case 3: return "mat3";
+        case 4: return "mat4";
+      }
+      break;
+
+    default: break;
+  }
+
+  lovrThrow("Unreachable");
+  return "";
+}
+
 // GPU
 
 static void lovrGpuBindFramebuffer(uint32_t framebuffer) {
@@ -1702,6 +1754,45 @@ size_t lovrShaderBlockGetSize(ShaderBlock* block) {
 
 BlockType lovrShaderBlockGetType(ShaderBlock* block) {
   return block->type;
+}
+
+char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, size_t* length) {
+
+  // Calculate
+  size_t size = 0;
+  size_t tab = 2;
+  size += block->type == BLOCK_UNIFORM ? 7 : 6; // "uniform" || "buffer"
+  size += 1; // " "
+  size += strlen(blockName);
+  size += 3; // " {\n"
+  for (int i = 0; i < block->uniforms.length; i++) {
+    size += tab;
+    size += getUniformTypeLength(&block->uniforms.data[i]);
+    size += 1; // " "
+    size += strlen(block->uniforms.data[i].name);
+    size += 2; // ";\n"
+  }
+  size += 3; // "};\n"
+
+  // Allocate
+  char* code = malloc(size + 1);
+
+  // Concatenate
+  char* s = code;
+  s += sprintf(s, "%s %s {\n", block->type == BLOCK_UNIFORM ? "uniform" : "buffer", blockName);
+  for (int i = 0; i < block->uniforms.length; i++) {
+    const Uniform* uniform = &block->uniforms.data[i];
+    if (uniform->count > 1) {
+      s += sprintf(s, "  %s %s[%d];\n", getUniformTypeName(uniform), uniform->name, uniform->count);
+    } else {
+      s += sprintf(s, "  %s %s;\n", getUniformTypeName(uniform), uniform->name);
+    }
+  }
+  s += sprintf(s, "};\n");
+  *s = '\0';
+
+  *length = size;
+  return code;
 }
 
 const Uniform* lovrShaderBlockGetUniform(ShaderBlock* block, const char* name) {
