@@ -183,6 +183,12 @@ int l_lovrShaderSend(lua_State* L) {
   }
 
   luax_checkuniform(L, 3, uniform, tempData.data, name);
+  switch (uniform->type) {
+    case UNIFORM_FLOAT: lovrShaderSetFloat(shader, uniform->name, tempData.data, uniform->count * uniform->components); break;
+    case UNIFORM_INT: lovrShaderSetInt(shader, uniform->name, tempData.data, uniform->count * uniform->components); break;
+    case UNIFORM_MATRIX: lovrShaderSetMatrix(shader, uniform->name, tempData.data, uniform->count * uniform->components * uniform->components); break;
+    case UNIFORM_SAMPLER: lovrShaderSetTexture(shader, uniform->name, tempData.data, uniform->count); break;
+  }
   return 0;
 }
 
