@@ -809,7 +809,7 @@ GraphicsFeatures lovrGraphicsGetSupported() {
 #ifdef EMSCRIPTEN
     .writableBlocks = false
 #else
-    .writableBlocks = GLAD_GL_ARB_shader_storage_blocks
+    .writableBlocks = GLAD_GL_ARB_shader_storage_buffer_object
 #endif
   };
 }
@@ -1676,7 +1676,7 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
   block->target = block->type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
 #endif
   block->type = type;
-  block->usage = usage;
+  block->usage = convertBufferUsage(usage);
   block->size = size;
   block->data = calloc(1, size);
 
