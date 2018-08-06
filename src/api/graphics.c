@@ -888,6 +888,7 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
       lua_pop(L, 1);
     }
 
+    lovrAssert(uniform.count >= 1, "Uniform count must be positive, got %d for '%s'", uniform.count, uniform.name);
     vec_push(&uniforms, uniform);
 
     // Pop the table, leaving the key for lua_next to nom
