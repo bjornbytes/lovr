@@ -1700,6 +1700,10 @@ size_t lovrShaderBlockGetSize(ShaderBlock* block) {
   return block->size;
 }
 
+BlockType lovrShaderBlockGetType(ShaderBlock* block) {
+  return block->type;
+}
+
 const Uniform* lovrShaderBlockGetUniform(ShaderBlock* block, const char* name) {
   int* index = map_get(&block->uniformMap, name);
   if (!index) return NULL;
