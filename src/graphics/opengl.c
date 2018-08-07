@@ -1682,7 +1682,7 @@ void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
         const Uniform* v = &source->uniforms.data[i];
         lovrAssert(u->type == v->type, "Shader is not compatible with ShaderBlock, check type of variable '%s'", v->name);
         lovrAssert(u->offset == v->offset, "Shader is not compatible with ShaderBlock, check order of variable '%s'", v->name);
-        lovrAssert(u->size == v->size, "Shader is not compatible with ShaderBlock, check count of variable '%s'", v->name);
+        //lovrAssert(u->size == v->size, "Shader is not compatible with ShaderBlock, check count of variable '%s'", v->name);
       }
     }
 
@@ -1710,13 +1710,16 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
   vec_foreach_ptr(&block->uniforms, uniform, i) {
 
     // Calculate size and offset
-    uniform->offset = size;
-    if (uniform->type == UNIFORM_MATRIX) {
-      uniform->size = 4 * uniform->components * sizeof(float) * uniform->count;
+    size_t align;
+    if (uniform->count > 1 || uniform->type == UNIFORM_MATRIX) {
+      align = 16 * (uniform->type == UNIFORM_MATRIX ? uniform->components : 1);
+      uniform->size = align * uniform->count;
     } else {
-      uniform->size = uniform->count == 1 ? 4 : (uniform->count * 16);
+      align = (uniform->components + (uniform->components == 3)) * 4;
+      uniform->size = uniform->components * 4;
     }
-    size += uniform->size;
+    uniform->offset = (size + (align - 1)) & -align;
+    size = uniform->offset + uniform->size;
 
     // Write index to uniform lookup
     map_set(&block->uniformMap, uniform->name, i);
@@ -1761,6 +1764,7 @@ char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, si
   // Calculate
   size_t size = 0;
   size_t tab = 2;
+  size += 15; // "layout(std140) "
   size += block->type == BLOCK_UNIFORM ? 7 : 6; // "uniform" || "buffer"
   size += 1; // " "
   size += strlen(blockName);
@@ -1779,7 +1783,7 @@ char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, si
 
   // Concatenate
   char* s = code;
-  s += sprintf(s, "%s %s {\n", block->type == BLOCK_UNIFORM ? "uniform" : "buffer", blockName);
+  s += sprintf(s, "layout(std140) %s %s {\n", block->type == BLOCK_UNIFORM ? "uniform" : "buffer", blockName);
   for (int i = 0; i < block->uniforms.length; i++) {
     const Uniform* uniform = &block->uniforms.data[i];
     if (uniform->count > 1) {
