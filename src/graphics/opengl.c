@@ -88,6 +88,7 @@ typedef vec_t(UniformBlock) vec_block_t;
 
 struct Shader {
   Ref ref;
+  ShaderType type;
   uint32_t program;
   vec_uniform_t uniforms;
   vec_block_t blocks[2];
@@ -1286,7 +1287,7 @@ static GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
   return program;
 }
 
-Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
+Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentSource) {
   Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
   if (!shader) return NULL;
 
@@ -1504,11 +1505,11 @@ Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource) {
 
 Shader* lovrShaderCreateDefault(DefaultShader type) {
   switch (type) {
-    case SHADER_DEFAULT: return lovrShaderCreate(NULL, NULL);
-    case SHADER_CUBE: return lovrShaderCreate(lovrCubeVertexShader, lovrCubeFragmentShader); break;
-    case SHADER_PANO: return lovrShaderCreate(lovrCubeVertexShader, lovrPanoFragmentShader); break;
-    case SHADER_FONT: return lovrShaderCreate(NULL, lovrFontFragmentShader);
-    case SHADER_FILL: return lovrShaderCreate(lovrFillVertexShader, NULL);
+    case SHADER_DEFAULT: return lovrShaderCreateGraphics(NULL, NULL);
+    case SHADER_CUBE: return lovrShaderCreateGraphics(lovrCubeVertexShader, lovrCubeFragmentShader); break;
+    case SHADER_PANO: return lovrShaderCreateGraphics(lovrCubeVertexShader, lovrPanoFragmentShader); break;
+    case SHADER_FONT: return lovrShaderCreateGraphics(NULL, lovrFontFragmentShader);
+    case SHADER_FILL: return lovrShaderCreateGraphics(lovrFillVertexShader, NULL);
     default: lovrThrow("Unknown default shader type"); return NULL;
   }
 }

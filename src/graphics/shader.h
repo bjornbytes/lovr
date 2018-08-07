@@ -27,6 +27,11 @@ typedef enum {
 } UniformType;
 
 typedef enum {
+  SHADER_GRAPHICS,
+  SHADER_COMPUTE
+} ShaderType;
+
+typedef enum {
   SHADER_DEFAULT,
   SHADER_CUBE,
   SHADER_PANO,
@@ -58,7 +63,8 @@ typedef vec_t(Uniform) vec_uniform_t;
 typedef struct Shader Shader;
 typedef struct ShaderBlock ShaderBlock;
 
-Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
+Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentSource);
+Shader* lovrShaderCreateCompute(const char* source);
 Shader* lovrShaderCreateDefault(DefaultShader type);
 void lovrShaderDestroy(void* ref);
 void lovrShaderBind(Shader* shader);

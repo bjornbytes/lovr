@@ -1118,7 +1118,7 @@ int l_lovrGraphicsNewShader(lua_State* L) {
 
   const char* vertexSource = lua_tostring(L, 1);
   const char* fragmentSource = lua_tostring(L, 2);
-  Shader* shader = lovrShaderCreate(vertexSource, fragmentSource);
+  Shader* shader = lovrShaderCreateGraphics(vertexSource, fragmentSource);
   luax_pushobject(L, shader);
   lovrRelease(shader);
   return 1;
