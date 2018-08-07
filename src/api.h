@@ -92,6 +92,7 @@ extern const char* MaterialColors[];
 extern const char* MaterialScalars[];
 extern const char* MaterialTextures[];
 extern const char* MeshDrawModes[];
+extern const char* ShaderTypes[];
 extern const char* ShapeTypes[];
 extern const char* SourceTypes[];
 extern const char* StencilActions[];

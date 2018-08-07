@@ -115,6 +115,11 @@ const char* lovrShaderFragmentSuffix = ""
 "#endif \n"
 "}";
 
+const char* lovrShaderComputeSuffix = ""
+"void main() { \n"
+"  compute(); \n"
+"}";
+
 const char* lovrDefaultVertexShader = ""
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  return projection * transform * vertex; \n"

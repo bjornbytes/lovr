@@ -118,6 +118,12 @@ const char* MeshDrawModes[] = {
   NULL
 };
 
+const char* ShaderTypes[] = {
+  [SHADER_GRAPHICS] = "graphics",
+  [SHADER_COMPUTE] = "compute",
+  NULL
+};
+
 const char* StencilActions[] = {
   [STENCIL_REPLACE] = "replace",
   [STENCIL_INCREMENT] = "increment",
@@ -1097,28 +1103,46 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsNewShader(lua_State* L) {
-  for (int i = 1; i <= 2; i++) {
-    if (lua_isnoneornil(L, i)) continue;
-    Blob* blob = luax_totype(L, i, Blob);
-    if (blob) {
-      lua_pushlstring(L, blob->data, blob->size);
-      lua_replace(L, i);
-      continue;
-    }
-    const char* source = luaL_checkstring(L, i);
-    if (!lovrFilesystemIsFile(source)) continue;
-    size_t bytesRead;
-    char* contents = lovrFilesystemRead(source, &bytesRead);
-    lovrAssert(bytesRead > 0, "Could not read shader from file '%s'", source);
-    lua_pushlstring(L, contents, bytesRead);
-    lua_replace(L, i);
-    free(contents);
+static void luax_readshadersource(lua_State* L, int index) {
+  if (lua_isnoneornil(L, index)) {
+    return;
   }
 
+  Blob* blob = luax_totype(L, index, Blob);
+  if (blob) {
+    lua_pushlstring(L, blob->data, blob->size);
+    lua_replace(L, index);
+    return;
+  }
+
+  const char* source = luaL_checkstring(L, index);
+  if (!lovrFilesystemIsFile(source)) {
+    return;
+  }
+
+  size_t bytesRead;
+  char* contents = lovrFilesystemRead(source, &bytesRead);
+  lovrAssert(bytesRead > 0, "Could not read shader from file '%s'", source);
+  lua_pushlstring(L, contents, bytesRead);
+  lua_replace(L, index);
+  free(contents);
+}
+
+int l_lovrGraphicsNewShader(lua_State* L) {
+  luax_readshadersource(L, 1);
+  luax_readshadersource(L, 2);
   const char* vertexSource = lua_tostring(L, 1);
   const char* fragmentSource = lua_tostring(L, 2);
   Shader* shader = lovrShaderCreateGraphics(vertexSource, fragmentSource);
+  luax_pushobject(L, shader);
+  lovrRelease(shader);
+  return 1;
+}
+
+int l_lovrGraphicsNewComputeShader(lua_State* L) {
+  luax_readshadersource(L, 1);
+  const char* source = lua_tostring(L, 1);
+  Shader* shader = lovrShaderCreateCompute(source);
   luax_pushobject(L, shader);
   lovrRelease(shader);
   return 1;
@@ -1261,6 +1285,7 @@ const luaL_Reg lovrGraphics[] = {
   { "newMesh", l_lovrGraphicsNewMesh },
   { "newModel", l_lovrGraphicsNewModel },
   { "newShader", l_lovrGraphicsNewShader },
+  { "newComputeShader", l_lovrGraphicsNewComputeShader },
   { "newShaderBlock", l_lovrGraphicsNewShaderBlock },
   { "newTexture", l_lovrGraphicsNewTexture },
 

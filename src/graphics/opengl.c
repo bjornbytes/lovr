@@ -1237,7 +1237,6 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas) {
 
 static GLuint compileShader(GLenum type, const char** sources, int count) {
   GLuint shader = glCreateShader(type);
-
   glShaderSource(shader, count, sources, NULL);
   glCompileShader(shader);
 
@@ -1246,7 +1245,6 @@ static GLuint compileShader(GLenum type, const char** sources, int count) {
   if (!isShaderCompiled) {
     int logLength;
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-
     char* log = malloc(logLength);
     glGetShaderInfoLog(shader, logLength, &logLength, log);
     lovrThrow("Could not compile shader %s", log);
@@ -1255,17 +1253,7 @@ static GLuint compileShader(GLenum type, const char** sources, int count) {
   return shader;
 }
 
-static GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
-  GLuint program = glCreateProgram();
-  glAttachShader(program, vertexShader);
-  glAttachShader(program, fragmentShader);
-  glBindAttribLocation(program, LOVR_SHADER_POSITION, "lovrPosition");
-  glBindAttribLocation(program, LOVR_SHADER_NORMAL, "lovrNormal");
-  glBindAttribLocation(program, LOVR_SHADER_TEX_COORD, "lovrTexCoord");
-  glBindAttribLocation(program, LOVR_SHADER_VERTEX_COLOR, "lovrVertexColor");
-  glBindAttribLocation(program, LOVR_SHADER_TANGENT, "lovrTangent");
-  glBindAttribLocation(program, LOVR_SHADER_BONES, "lovrBones");
-  glBindAttribLocation(program, LOVR_SHADER_BONE_WEIGHTS, "lovrBoneWeights");
+static GLuint linkProgram(GLuint program) {
   glLinkProgram(program);
 
   int isLinked;
@@ -1273,42 +1261,17 @@ static GLuint linkShaders(GLuint vertexShader, GLuint fragmentShader) {
   if (!isLinked) {
     int logLength;
     glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
-
     char* log = malloc(logLength);
     glGetProgramInfoLog(program, logLength, &logLength, log);
     lovrThrow("Could not link shader %s", log);
   }
 
-  glDetachShader(program, vertexShader);
-  glDeleteShader(vertexShader);
-  glDetachShader(program, fragmentShader);
-  glDeleteShader(fragmentShader);
-
   return program;
 }
 
-Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentSource) {
-  Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
-  if (!shader) return NULL;
-
-  // Vertex
-  vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
-  const char* vertexSources[] = { lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
-  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, 3);
-
-  // Fragment
-  fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
-  const char* fragmentSources[] = { lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
-  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, 3);
-
-  // Link
-  uint32_t program = linkShaders(vertexShader, fragmentShader);
-  shader->program = program;
-
-  lovrGpuUseProgram(program);
-  glVertexAttrib4fv(LOVR_SHADER_VERTEX_COLOR, (float[4]) { 1., 1., 1., 1. });
-  glVertexAttribI4iv(LOVR_SHADER_BONES, (int[4]) { 0., 0., 0., 0. });
-  glVertexAttrib4fv(LOVR_SHADER_BONE_WEIGHTS, (float[4]) { 1., 0., 0., 0. });
+static void lovrShaderSetupUniforms(Shader* shader) {
+  uint32_t program = shader->program;
+  lovrGpuUseProgram(program); // TODO necessary?
 
   // Uniform blocks
   int32_t blockCount;
@@ -1487,6 +1450,47 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentS
     vec_push(&shader->uniforms, uniform);
     textureSlot += (uniform.type == UNIFORM_SAMPLER) ? uniform.count : 0;
   }
+}
+
+Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentSource) {
+  Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
+  if (!shader) return NULL;
+
+  // Vertex
+  vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
+  const char* vertexSources[] = { lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
+  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, sizeof(vertexSources) / sizeof(vertexSources[0]));
+
+  // Fragment
+  fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
+  const char* fragmentSources[] = { lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
+  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, sizeof(fragmentSources) / sizeof(fragmentSources[0]));
+
+  // Link
+  uint32_t program = glCreateProgram();
+  glAttachShader(program, vertexShader);
+  glAttachShader(program, fragmentShader);
+  glBindAttribLocation(program, LOVR_SHADER_POSITION, "lovrPosition");
+  glBindAttribLocation(program, LOVR_SHADER_NORMAL, "lovrNormal");
+  glBindAttribLocation(program, LOVR_SHADER_TEX_COORD, "lovrTexCoord");
+  glBindAttribLocation(program, LOVR_SHADER_VERTEX_COLOR, "lovrVertexColor");
+  glBindAttribLocation(program, LOVR_SHADER_TANGENT, "lovrTangent");
+  glBindAttribLocation(program, LOVR_SHADER_BONES, "lovrBones");
+  glBindAttribLocation(program, LOVR_SHADER_BONE_WEIGHTS, "lovrBoneWeights");
+  linkProgram(program);
+  glDetachShader(program, vertexShader);
+  glDeleteShader(vertexShader);
+  glDetachShader(program, fragmentShader);
+  glDeleteShader(fragmentShader);
+  shader->program = program;
+  shader->type = SHADER_GRAPHICS;
+
+  lovrGpuUseProgram(program);
+  glVertexAttrib4fv(LOVR_SHADER_VERTEX_COLOR, (float[4]) { 1., 1., 1., 1. });
+  glVertexAttribI4iv(LOVR_SHADER_BONES, (int[4]) { 0., 0., 0., 0. });
+  glVertexAttrib4fv(LOVR_SHADER_BONE_WEIGHTS, (float[4]) { 1., 0., 0., 0. });
+
+  lovrShaderSetupUniforms(shader);
 
   // Attribute cache
   int32_t attributeCount;
@@ -1500,6 +1504,23 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentS
     map_set(&shader->attributes, name, glGetAttribLocation(program, name));
   }
 
+  return shader;
+}
+
+Shader* lovrShaderCreateCompute(const char* source) {
+  Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
+  if (!shader) return NULL;
+
+  const char* sources[] = { source, lovrShaderComputeSuffix };
+  GLuint computeShader = compileShader(GL_COMPUTE_SHADER, sources, sizeof(sources) / sizeof(sources[0]));
+  GLuint program = glCreateProgram();
+  glAttachShader(program, computeShader);
+  linkProgram(program);
+  glDetachShader(program, computeShader);
+  glDeleteShader(computeShader);
+  shader->program = program;
+  shader->type = SHADER_COMPUTE;
+  lovrShaderSetupUniforms(shader);
   return shader;
 }
 
@@ -1533,6 +1554,10 @@ void lovrShaderDestroy(void* ref) {
   map_deinit(&shader->uniformMap);
   map_deinit(&shader->blockMap);
   free(shader);
+}
+
+ShaderType lovrShaderGetType(Shader* shader) {
+  return shader->type;
 }
 
 void lovrShaderBind(Shader* shader) {

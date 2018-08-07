@@ -164,6 +164,12 @@ void luax_checkuniformtype(lua_State* L, int index, UniformType* baseType, int* 
   }
 }
 
+int l_lovrShaderGetType(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  lua_pushstring(L, ShaderTypes[lovrShaderGetType(shader)]);
+  return 1;
+}
+
 int l_lovrShaderHasUniform(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
@@ -209,6 +215,7 @@ int l_lovrShaderSetBlock(lua_State* L) {
 }
 
 const luaL_Reg lovrShader[] = {
+  { "getType", l_lovrShaderGetType },
   { "hasUniform", l_lovrShaderHasUniform },
   { "send", l_lovrShaderSend },
   { "getBlock", l_lovrShaderGetBlock },

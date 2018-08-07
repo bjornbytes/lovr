@@ -67,6 +67,7 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentS
 Shader* lovrShaderCreateCompute(const char* source);
 Shader* lovrShaderCreateDefault(DefaultShader type);
 void lovrShaderDestroy(void* ref);
+ShaderType lovrShaderGetType(Shader* shader);
 void lovrShaderBind(Shader* shader);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 bool lovrShaderHasUniform(Shader* shader, const char* name);
