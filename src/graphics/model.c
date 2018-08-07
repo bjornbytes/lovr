@@ -63,7 +63,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->modelData = modelData;
   model->aabbDirty = true;
 
-  model->mesh = lovrMeshCreate(modelData->vertexData->count, modelData->vertexData->format, MESH_TRIANGLES, MESH_STATIC);
+  model->mesh = lovrMeshCreate(modelData->vertexData->count, modelData->vertexData->format, MESH_TRIANGLES, USAGE_STATIC);
   VertexPointer vertices = lovrMeshMapVertices(model->mesh, 0, modelData->vertexData->count, false, true);
   memcpy(vertices.raw, modelData->vertexData->blob.data, modelData->vertexData->count * modelData->vertexData->format.stride);
 

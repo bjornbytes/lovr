@@ -261,6 +261,7 @@ set(LOVR_SRC
   src/api/types/randomGenerator.c
   src/api/types/rasterizer.c
   src/api/types/shader.c
+  src/api/types/shaderBlock.c
   src/api/types/shapes.c
   src/api/types/soundData.c
   src/api/types/source.c

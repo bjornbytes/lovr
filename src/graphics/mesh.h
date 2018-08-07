@@ -17,15 +17,9 @@ typedef enum {
   MESH_TRIANGLE_FAN
 } MeshDrawMode;
 
-typedef enum {
-  MESH_STATIC,
-  MESH_DYNAMIC,
-  MESH_STREAM
-} MeshUsage;
-
 typedef struct Mesh Mesh;
 
-Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, MeshUsage usage);
+Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, BufferUsage usage);
 void lovrMeshDestroy(void* ref);
 void lovrMeshAttachAttribute(Mesh* mesh, Mesh* other, const char* name, int divisor);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);

@@ -68,6 +68,10 @@ typedef enum {
 } Winding;
 
 typedef struct {
+  bool writableBlocks;
+} GraphicsFeatures;
+
+typedef struct {
   bool initialized;
   float pointSizes[2];
   int textureSize;
@@ -165,6 +169,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
 void lovrGraphicsGetDimensions(int* width, int* height);
 int lovrGraphicsGetMSAA();
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
+GraphicsFeatures lovrGraphicsGetSupported();
 GraphicsLimits lovrGraphicsGetLimits();
 GraphicsStats lovrGraphicsGetStats();
 

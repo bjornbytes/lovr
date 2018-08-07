@@ -45,6 +45,13 @@ const char* BlendModes[] = {
   NULL
 };
 
+const char* BufferUsages[] = {
+  [USAGE_STATIC] = "static",
+  [USAGE_DYNAMIC] = "dynamic",
+  [USAGE_STREAM] = "stream",
+  NULL
+};
+
 const char* CompareModes[] = {
   [COMPARE_NONE] = "always",
   [COMPARE_EQUAL] = "equal",
@@ -108,13 +115,6 @@ const char* MeshDrawModes[] = {
   [MESH_TRIANGLE_STRIP] = "strip",
   [MESH_TRIANGLES] = "triangles",
   [MESH_TRIANGLE_FAN] = "fan",
-  NULL
-};
-
-const char* MeshUsages[] = {
-  [MESH_STATIC] = "static",
-  [MESH_DYNAMIC] = "dynamic",
-  [MESH_STREAM] = "stream",
   NULL
 };
 
@@ -241,6 +241,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   luax_registertype(L, "Mesh", lovrMesh);
   luax_registertype(L, "Model", lovrModel);
   luax_registertype(L, "Shader", lovrShader);
+  luax_registertype(L, "ShaderBlock", lovrShaderBlock);
   luax_registertype(L, "Texture", lovrTexture);
   luax_extendtype(L, "Texture", "Canvas", lovrTexture, lovrCanvas);
   lovrGraphicsInit();
@@ -324,6 +325,14 @@ int l_lovrGraphicsGetDimensions(lua_State* L) {
   lua_pushnumber(L, width);
   lua_pushnumber(L, height);
   return 2;
+}
+
+int l_lovrGraphicsGetSupported(lua_State* L) {
+  GraphicsFeatures features = lovrGraphicsGetSupported();
+  lua_newtable(L);
+  lua_pushboolean(L, features.writableBlocks);
+  lua_setfield(L, -2, "writableBlocks");
+  return 1;
 }
 
 int l_lovrGraphicsGetSystemLimits(lua_State* L) {
@@ -852,6 +861,59 @@ int l_lovrGraphicsNewAnimator(lua_State* L) {
   return 1;
 }
 
+int l_lovrGraphicsNewShaderBlock(lua_State* L) {
+  vec_uniform_t uniforms;
+  vec_init(&uniforms);
+
+  luaL_checktype(L, 1, LUA_TTABLE);
+  lua_pushnil(L);
+  while (lua_next(L, 1) != 0) {
+    Uniform uniform;
+
+    // Name
+    strncpy(uniform.name, luaL_checkstring(L, -2), LOVR_MAX_UNIFORM_LENGTH - 1);
+
+    if (lua_type(L, -1) == LUA_TSTRING) {
+      uniform.count = 1;
+      luax_checkuniformtype(L, -1, &uniform.type, &uniform.components);
+    } else {
+      luaL_checktype(L, -1, LUA_TTABLE);
+
+      lua_rawgeti(L, -1, 1);
+      luax_checkuniformtype(L, -1, &uniform.type, &uniform.components);
+      lua_pop(L, 1);
+
+      lua_rawgeti(L, -1, 2);
+      uniform.count = luaL_optinteger(L, -1, 1);
+      lua_pop(L, 1);
+    }
+
+    lovrAssert(uniform.count >= 1, "Uniform count must be positive, got %d for '%s'", uniform.count, uniform.name);
+    vec_push(&uniforms, uniform);
+
+    // Pop the table, leaving the key for lua_next to nom
+    lua_pop(L, 1);
+  }
+
+  BlockType type = BLOCK_UNIFORM;
+  BufferUsage usage = USAGE_DYNAMIC;
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "usage");
+    usage = luaL_checkoption(L, -1, "dynamic", BufferUsages);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "writable");
+    type = lua_toboolean(L, -1) ? BLOCK_STORAGE : BLOCK_UNIFORM;
+    lua_pop(L, 1);
+  }
+
+  ShaderBlock* block = lovrShaderBlockCreate(&uniforms, type, usage);
+  luax_pushobject(L, block);
+  vec_deinit(&uniforms);
+  return 1;
+}
+
 int l_lovrGraphicsNewCanvas(lua_State* L) {
   int width = luaL_checkinteger(L, 1);
   int height = luaL_checkinteger(L, 2);
@@ -986,7 +1048,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   }
 
   MeshDrawMode drawMode = luaL_checkoption(L, drawModeIndex, "fan", MeshDrawModes);
-  MeshUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", MeshUsages);
+  BufferUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", BufferUsages);
   Mesh* mesh = lovrMeshCreate(count, format, drawMode, usage);
 
   if (dataIndex) {
@@ -1126,6 +1188,7 @@ const luaL_Reg lovrGraphics[] = {
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
+  { "getSupported", l_lovrGraphicsGetSupported },
   { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getStats", l_lovrGraphicsGetStats },
 
@@ -1195,6 +1258,7 @@ const luaL_Reg lovrGraphics[] = {
   { "newMesh", l_lovrGraphicsNewMesh },
   { "newModel", l_lovrGraphicsNewModel },
   { "newShader", l_lovrGraphicsNewShader },
+  { "newShaderBlock", l_lovrGraphicsNewShaderBlock },
   { "newTexture", l_lovrGraphicsNewTexture },
 
   { NULL, NULL }
