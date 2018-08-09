@@ -198,7 +198,6 @@ static GLenum convertTextureFormat(TextureFormat format) {
     case FORMAT_RGBA32F: return GL_RGBA;
     case FORMAT_R16F: return GL_RED;
     case FORMAT_R32F: return GL_RED;
-    case FORMAT_RGB565: return GL_RGB;
     case FORMAT_RGB5A1: return GL_RGBA;
     case FORMAT_RGB10A2: return GL_RGBA;
     case FORMAT_RG11B10F: return GL_RGB;
@@ -217,7 +216,6 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
     case FORMAT_RGBA32F: return GL_RGBA32F;
     case FORMAT_R16F: return GL_R16F;
     case FORMAT_R32F: return GL_R32F;
-    case FORMAT_RGB565: return GL_RGB565;
     case FORMAT_RGB5A1: return GL_RGB5_A1;
     case FORMAT_RGB10A2: return GL_RGB10_A2;
     case FORMAT_RG11B10F: return GL_R11F_G11F_B10F;
@@ -793,7 +791,6 @@ void lovrGpuDraw(DrawCommand* command) {
       glDrawBuffers(canvasCount, buffers);
 
       GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-      lovrAssert(status != GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS, "All multicanvas canvases must have the same dimensions");
       lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
     } else {
       lovrGpuBindFramebuffer(0);
@@ -861,12 +858,16 @@ void lovrGpuCompute(Shader* shader, int x, int y, int z) {
 }
 
 void lovrGpuWait(int barriers) {
-  glMemoryBarrier(
-    (barriers & (1 << BARRIER_ALL)) ? GL_ALL_BARRIER_BITS : 0 |
-    (barriers & (1 << BARRIER_BLOCKS)) ? GL_SHADER_STORAGE_BARRIER_BIT : 0 |
-    (barriers & (1 << BARRIER_IMAGES)) ? GL_SHADER_IMAGE_ACCESS_BARRIER_BIT : 0 |
-    (barriers & (1 << BARRIER_TEXTURES)) ? (GL_TEXTURE_FETCH_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT) : 0
-  );
+#ifndef EMSCRIPTEN
+  if (GL_ARB_shader_image_load_store) {
+    glMemoryBarrier(
+      (barriers & (1 << BARRIER_ALL)) ? GL_ALL_BARRIER_BITS : 0 |
+      (barriers & (1 << BARRIER_BLOCKS)) ? GL_SHADER_STORAGE_BARRIER_BIT : 0 |
+      (barriers & (1 << BARRIER_IMAGES)) ? GL_SHADER_IMAGE_ACCESS_BARRIER_BIT : 0 |
+      (barriers & (1 << BARRIER_TEXTURES)) ? (GL_TEXTURE_FETCH_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT) : 0
+    );
+  }
+#endif
 }
 
 void lovrGpuPresent() {

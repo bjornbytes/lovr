@@ -150,7 +150,6 @@ const char* TextureFormats[] = {
   [FORMAT_RGBA32F] = "rgba32f",
   [FORMAT_R16F] = "r16f",
   [FORMAT_R32F] = "r32f",
-  [FORMAT_RGB565] = "rgb565",
   [FORMAT_RGB5A1] = "rgb5a1",
   [FORMAT_RGB10A2] = "rgb5a2",
   [FORMAT_RG11B10F] = "rg11b10f",
