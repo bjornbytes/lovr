@@ -234,6 +234,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGraphicsFill(Texture* texture);
+#define lovrGraphicsCompute lovrGpuCompute
 
 // GPU
 
@@ -243,6 +244,7 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*));
 void lovrGpuDestroy();
 void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil);
 void lovrGpuDraw(DrawCommand* command);
+void lovrGpuCompute(Shader* shader, int x, int y, int z);
 void lovrGpuPresent();
 
 void lovrGpuBindTexture(Texture* texture, int slot);

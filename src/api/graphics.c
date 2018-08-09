@@ -857,6 +857,15 @@ int l_lovrGraphicsFill(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsCompute(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  int x = luaL_optinteger(L, 1, 1);
+  int y = luaL_optinteger(L, 2, 1);
+  int z = luaL_optinteger(L, 3, 1);
+  lovrGraphicsCompute(shader, x, y, z);
+  return 0;
+}
+
 // Types
 
 int l_lovrGraphicsNewAnimator(lua_State* L) {
@@ -1276,6 +1285,7 @@ const luaL_Reg lovrGraphics[] = {
   { "print", l_lovrGraphicsPrint },
   { "stencil", l_lovrGraphicsStencil },
   { "fill", l_lovrGraphicsFill },
+  { "compute", l_lovrGraphicsCompute },
 
   // Types
   { "newAnimator", l_lovrGraphicsNewAnimator },

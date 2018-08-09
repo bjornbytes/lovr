@@ -853,6 +853,12 @@ void lovrGpuDraw(DrawCommand* command) {
   }
 }
 
+void lovrGpuCompute(Shader* shader, int x, int y, int z) {
+  lovrAssert(shader->type == SHADER_COMPUTE, "Attempt to use a non-compute shader for a compute operation");
+  lovrGpuUseProgram(shader->program);
+  glDispatchCompute(x, y, z);
+}
+
 void lovrGpuPresent() {
   memset(&state.stats, 0, sizeof(state.stats));
 #ifdef __APPLE__
