@@ -860,6 +860,15 @@ void lovrGpuCompute(Shader* shader, int x, int y, int z) {
   glDispatchCompute(x, y, z);
 }
 
+void lovrGpuWait(int barriers) {
+  glMemoryBarrier(
+    (barriers & (1 << BARRIER_ALL)) ? GL_ALL_BARRIER_BITS : 0 |
+    (barriers & (1 << BARRIER_BLOCKS)) ? GL_SHADER_STORAGE_BARRIER_BIT : 0 |
+    (barriers & (1 << BARRIER_IMAGES)) ? GL_SHADER_IMAGE_ACCESS_BARRIER_BIT : 0 |
+    (barriers & (1 << BARRIER_TEXTURES)) ? (GL_TEXTURE_FETCH_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT) : 0
+  );
+}
+
 void lovrGpuPresent() {
   memset(&state.stats, 0, sizeof(state.stats));
 #ifdef __APPLE__

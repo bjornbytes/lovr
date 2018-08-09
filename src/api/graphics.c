@@ -27,6 +27,14 @@ const char* AttributeTypes[] = {
   NULL
 };
 
+const char* Barriers[] = {
+  [BARRIER_ALL] = "all",
+  [BARRIER_BLOCKS] = "blocks",
+  [BARRIER_IMAGES] = "images",
+  [BARRIER_TEXTURES] = "textures",
+  NULL
+};
+
 const char* BlendAlphaModes[] = {
   [BLEND_ALPHA_MULTIPLY] = "alphamultiply",
   [BLEND_PREMULTIPLIED] = "premultiplied",
@@ -868,6 +876,16 @@ int l_lovrGraphicsCompute(lua_State* L) {
   return 0;
 }
 
+int l_lovrGraphicsWait(lua_State* L) {
+  int top = lua_gettop(L);
+  int barriers = top ? 0 : BARRIER_ALL;
+  for (int i = 1; i <= top; i++) {
+    barriers |= luaL_checkoption(L, i, NULL, Barriers);
+  }
+  lovrGraphicsWait(barriers);
+  return 0;
+}
+
 // Types
 
 int l_lovrGraphicsNewAnimator(lua_State* L) {
@@ -1288,6 +1306,7 @@ const luaL_Reg lovrGraphics[] = {
   { "stencil", l_lovrGraphicsStencil },
   { "fill", l_lovrGraphicsFill },
   { "compute", l_lovrGraphicsCompute },
+  { "wait", l_lovrGraphicsWait },
 
   // Types
   { "newAnimator", l_lovrGraphicsNewAnimator },
