@@ -115,6 +115,9 @@ const char* lovrShaderFragmentSuffix = ""
 "#endif \n"
 "}";
 
+const char* lovrShaderComputePrefix = ""
+"#version 420 \n";
+
 const char* lovrShaderComputeSuffix = ""
 "void main() { \n"
 "  compute(); \n"

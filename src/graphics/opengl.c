@@ -1521,7 +1521,7 @@ Shader* lovrShaderCreateCompute(const char* source) {
   if (!shader) return NULL;
 
   lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
-  const char* sources[] = { source, lovrShaderComputeSuffix };
+  const char* sources[] = { lovrShaderComputePrefix, source, lovrShaderComputeSuffix };
   GLuint computeShader = compileShader(GL_COMPUTE_SHADER, sources, sizeof(sources) / sizeof(sources[0]));
   GLuint program = glCreateProgram();
   glAttachShader(program, computeShader);
