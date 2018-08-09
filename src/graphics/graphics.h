@@ -68,6 +68,7 @@ typedef enum {
 } Winding;
 
 typedef struct {
+  bool computeShaders;
   bool writableBlocks;
 } GraphicsFeatures;
 

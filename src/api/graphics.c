@@ -336,8 +336,10 @@ int l_lovrGraphicsGetDimensions(lua_State* L) {
 int l_lovrGraphicsGetSupported(lua_State* L) {
   GraphicsFeatures features = lovrGraphicsGetSupported();
   lua_newtable(L);
+  lua_pushboolean(L, features.computeShaders);
+  lua_setfield(L, -2, "computeshaders");
   lua_pushboolean(L, features.writableBlocks);
-  lua_setfield(L, -2, "writableBlocks");
+  lua_setfield(L, -2, "writableblocks");
   return 1;
 }
 
@@ -859,9 +861,9 @@ int l_lovrGraphicsFill(lua_State* L) {
 
 int l_lovrGraphicsCompute(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
-  int x = luaL_optinteger(L, 1, 1);
-  int y = luaL_optinteger(L, 2, 1);
-  int z = luaL_optinteger(L, 3, 1);
+  int x = luaL_optinteger(L, 2, 1);
+  int y = luaL_optinteger(L, 3, 1);
+  int z = luaL_optinteger(L, 4, 1);
   lovrGraphicsCompute(shader, x, y, z);
   return 0;
 }
