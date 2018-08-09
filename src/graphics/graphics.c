@@ -368,7 +368,7 @@ void lovrGraphicsMatrixTransform(mat4 transform) {
   mat4_multiply(state.transforms[state.transform], transform);
 }
 
-// Drawing
+// Rendering
 
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t count) {
   lovrMeshResize(state.defaultMesh, count);

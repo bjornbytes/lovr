@@ -218,7 +218,7 @@ void lovrGraphicsRotate(float angle, float ax, float ay, float az);
 void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsMatrixTransform(mat4 transform);
 
-// Drawing
+// Rendering
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDraw(DrawOptions* draw);

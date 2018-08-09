@@ -643,7 +643,7 @@ int l_lovrGraphicsTransform(lua_State* L) {
   return 0;
 }
 
-// Drawing
+// Rendering
 
 int l_lovrGraphicsClear(lua_State* L) {
   int index = 1;
@@ -1271,7 +1271,7 @@ const luaL_Reg lovrGraphics[] = {
   { "scale", l_lovrGraphicsScale },
   { "transform", l_lovrGraphicsTransform },
 
-  // Drawing
+  // Rendering
   { "clear", l_lovrGraphicsClear },
   { "points", l_lovrGraphicsPoints },
   { "line", l_lovrGraphicsLine },
