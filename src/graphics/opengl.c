@@ -851,10 +851,14 @@ void lovrGpuDraw(DrawCommand* command) {
 }
 
 void lovrGpuCompute(Shader* shader, int x, int y, int z) {
+#ifdef EMSCRIPTEN
+  lovrThrow("Compute shaders are not supported on this system");
+#else
   lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
   lovrAssert(shader->type == SHADER_COMPUTE, "Attempt to use a non-compute shader for a compute operation");
   lovrGpuUseProgram(shader->program);
   glDispatchCompute(x, y, z);
+#endif
 }
 
 void lovrGpuWait(int barriers) {
@@ -1530,6 +1534,9 @@ Shader* lovrShaderCreateCompute(const char* source) {
   Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
   if (!shader) return NULL;
 
+#ifdef EMSCRIPTEN
+  lovrThrow("Compute shaders are not supported on this system");
+#else
   lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
   const char* sources[] = { lovrShaderComputePrefix, source, lovrShaderComputeSuffix };
   GLuint computeShader = compileShader(GL_COMPUTE_SHADER, sources, sizeof(sources) / sizeof(sources[0]));
@@ -1541,6 +1548,7 @@ Shader* lovrShaderCreateCompute(const char* source) {
   shader->program = program;
   shader->type = SHADER_COMPUTE;
   lovrShaderSetupUniforms(shader);
+#endif
   return shader;
 }
 
