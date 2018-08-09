@@ -99,13 +99,13 @@ struct Shader {
 struct Texture {
   Ref ref;
   TextureType type;
-  GLenum glType;
-  TextureData** slices;
+  TextureFormat format;
   int width;
   int height;
   int depth;
   int mipmapCount;
   GLuint id;
+  GLenum target;
   TextureFilter filter;
   TextureWrap wrap;
   bool srgb;
@@ -406,7 +406,7 @@ void lovrGpuBindTexture(Texture* texture, int slot) {
     lovrRelease(state.textures[slot]);
     state.textures[slot] = texture;
     glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(texture->glType, lovrTextureGetId(texture));
+    glBindTexture(texture->target, lovrTextureGetId(texture));
   }
 }
 
@@ -892,79 +892,20 @@ GraphicsStats lovrGraphicsGetStats() {
 
 // Texture
 
-static void lovrTextureAllocate(Texture* texture, TextureData* textureData) {
-  int w = textureData->width;
-  int h = textureData->height;
-  int d = texture->depth;
-  texture->allocated = true;
-  texture->width = w;
-  texture->height = h;
-
-  if (texture->mipmaps) {
-    int dimension = texture->type == TEXTURE_VOLUME ? (MAX(MAX(w, h), d)) : MAX(w, h);
-    texture->mipmapCount = texture->mipmaps ? (log2(dimension) + 1) : 1;
-  } else {
-    texture->mipmapCount = 1;
-  }
-
-  if (isTextureFormatCompressed(textureData->format)) {
-    return;
-  }
-
-  bool srgb = lovrGraphicsIsGammaCorrect() && texture->srgb;
-  GLenum glFormat = convertTextureFormat(textureData->format);
-  GLenum internalFormat = convertTextureFormatInternal(textureData->format, srgb);
-#ifndef EMSCRIPTEN
-  if (GLAD_GL_ARB_texture_storage) {
-#endif
-  if (texture->type == TEXTURE_ARRAY) {
-    glTexStorage3D(texture->glType, texture->mipmapCount, internalFormat, w, h, d);
-  } else {
-    glTexStorage2D(texture->glType, texture->mipmapCount, internalFormat, w, h);
-  }
-#ifndef EMSCRIPTEN
-  } else {
-    for (int i = 0; i < texture->mipmapCount; i++) {
-      switch (texture->type) {
-        case TEXTURE_2D:
-          glTexImage2D(texture->glType, i, internalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
-          break;
-
-        case TEXTURE_CUBE:
-          for (int face = 0; face < 6; face++) {
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, i, internalFormat, w, h, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
-          }
-          break;
-
-        case TEXTURE_ARRAY:
-        case TEXTURE_VOLUME:
-          glTexImage3D(texture->glType, i, internalFormat, w, h, d, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
-          break;
-      }
-      w = MAX(w >> 1, 1);
-      h = MAX(h >> 1, 1);
-      d = texture->type == TEXTURE_VOLUME ? MAX(d >> 1, 1) : d;
-    }
-  }
-#endif
-}
-
-Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bool srgb, bool mipmaps) {
+Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps) {
   Texture* texture = lovrAlloc(Texture, lovrTextureDestroy);
   if (!texture) return NULL;
 
   texture->type = type;
-  switch (type) {
-    case TEXTURE_2D: texture->glType = GL_TEXTURE_2D; break;
-    case TEXTURE_ARRAY: texture->glType = GL_TEXTURE_2D_ARRAY; break;
-    case TEXTURE_CUBE: texture->glType = GL_TEXTURE_CUBE_MAP; break;
-    case TEXTURE_VOLUME: texture->glType = GL_TEXTURE_3D; break;
-  }
-
-  texture->slices = calloc(depth, sizeof(TextureData**));
-  texture->depth = depth;
   texture->srgb = srgb;
   texture->mipmaps = mipmaps;
+
+  switch (type) {
+    case TEXTURE_2D: texture->target = GL_TEXTURE_2D; break;
+    case TEXTURE_ARRAY: texture->target = GL_TEXTURE_2D_ARRAY; break;
+    case TEXTURE_CUBE: texture->target = GL_TEXTURE_CUBE_MAP; break;
+    case TEXTURE_VOLUME: texture->target = GL_TEXTURE_3D; break;
+  }
 
   WrapMode wrap = type == TEXTURE_CUBE ? WRAP_CLAMP : WRAP_REPEAT;
   glGenTextures(1, &texture->id);
@@ -972,11 +913,9 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bo
   lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
   lovrTextureSetWrap(texture, (TextureWrap) { .s = wrap, .t = wrap, .r = wrap });
 
-  lovrAssert(type != TEXTURE_CUBE || depth == 6, "6 images are required for a cube texture\n");
-  lovrAssert(type != TEXTURE_2D || depth == 1, "2D textures can only contain a single image");
-
-  if (slices) {
-    for (int i = 0; i < depth; i++) {
+  if (sliceCount > 0) {
+    lovrTextureAllocate(texture, slices[0]->width, slices[0]->height, sliceCount, slices[0]->format);
+    for (int i = 0; i < sliceCount; i++) {
       lovrTextureReplacePixels(texture, slices[i], 0, 0, i, 0);
     }
   }
@@ -986,52 +925,76 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int depth, bo
 
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
-  for (int i = 0; i < texture->depth; i++) {
-    lovrRelease(texture->slices[i]);
-  }
   glDeleteTextures(1, &texture->id);
-  free(texture->slices);
   free(texture);
 }
 
-GLuint lovrTextureGetId(Texture* texture) {
-  return texture->id;
-}
+void lovrTextureAllocate(Texture* texture, int width, int height, int depth, TextureFormat format) {
+  int maxSize = lovrGraphicsGetLimits().textureSize;
+  lovrAssert(!texture->allocated, "Texture is already allocated");
+  lovrAssert(texture->type != TEXTURE_CUBE || width == height, "Cubemap images must be square");
+  lovrAssert(texture->type != TEXTURE_CUBE || depth == 6, "6 images are required for a cube texture\n");
+  lovrAssert(texture->type != TEXTURE_2D || depth == 1, "2D textures can only contain a single image");
+  lovrAssert(width < maxSize, "Texture width %d exceeds max of %d", width, maxSize);
+  lovrAssert(height < maxSize, "Texture height %d exceeds max of %d", height, maxSize);
 
-int lovrTextureGetWidth(Texture* texture, int mipmap) {
-  return MAX(texture->width >> mipmap, 1);
-}
+  texture->allocated = true;
+  texture->width = width;
+  texture->height = height;
+  texture->format = format;
 
-int lovrTextureGetHeight(Texture* texture, int mipmap) {
-  return MAX(texture->height >> mipmap, 1);
-}
+  if (texture->mipmaps) {
+    int dimension = texture->type == TEXTURE_VOLUME ? (MAX(MAX(width, height), depth)) : MAX(width, height);
+    texture->mipmapCount = texture->mipmaps ? (log2(dimension) + 1) : 1;
+  } else {
+    texture->mipmapCount = 1;
+  }
 
-int lovrTextureGetDepth(Texture* texture, int mipmap) {
-  return texture->type == TEXTURE_VOLUME ? MAX(texture->depth >> mipmap, 1) : texture->depth;
-}
+  if (isTextureFormatCompressed(format)) {
+    return;
+  }
 
-int lovrTextureGetMipmapCount(Texture* texture) {
-  return texture->mipmapCount;
-}
+  bool srgb = lovrGraphicsIsGammaCorrect() && texture->srgb;
+  GLenum glFormat = convertTextureFormat(format);
+  GLenum internalFormat = convertTextureFormatInternal(format, srgb);
+#ifndef EMSCRIPTEN
+  if (GLAD_GL_ARB_texture_storage) {
+#endif
+  if (texture->type == TEXTURE_ARRAY) {
+    glTexStorage3D(texture->target, texture->mipmapCount, internalFormat, width, height, depth);
+  } else {
+    glTexStorage2D(texture->target, texture->mipmapCount, internalFormat, width, height);
+  }
+#ifndef EMSCRIPTEN
+  } else {
+    for (int i = 0; i < texture->mipmapCount; i++) {
+      switch (texture->type) {
+        case TEXTURE_2D:
+          glTexImage2D(texture->target, i, internalFormat, width, height, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+          break;
 
-TextureType lovrTextureGetType(Texture* texture) {
-  return texture->type;
+        case TEXTURE_CUBE:
+          for (int face = 0; face < 6; face++) {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, i, internalFormat, width, height, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+          }
+          break;
+
+        case TEXTURE_ARRAY:
+        case TEXTURE_VOLUME:
+          glTexImage3D(texture->target, i, internalFormat, width, height, depth, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
+          break;
+      }
+      width = MAX(width >> 1, 1);
+      height = MAX(height >> 1, 1);
+      depth = texture->type == TEXTURE_VOLUME ? MAX(depth >> 1, 1) : depth;
+    }
+  }
+#endif
 }
 
 void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x, int y, int slice, int mipmap) {
-  lovrRetain(textureData);
-  lovrRelease(texture->slices[slice]);
-  texture->slices[slice] = textureData;
-  lovrGpuBindTexture(texture, 0);
-
-  if (!texture->allocated) {
-    lovrAssert(texture->type != TEXTURE_CUBE || textureData->width == textureData->height, "Cubemap images must be square");
-    lovrTextureAllocate(texture, textureData);
-  }
-
-  if (!textureData->blob.data) {
-    return;
-  }
+  lovrAssert(texture->allocated, "Texture is not allocated");
+  lovrAssert(textureData->blob.data, "Trying to replace Texture pixels with empty pixel data");
 
   int width = lovrTextureGetWidth(texture, mipmap);
   int height = lovrTextureGetHeight(texture, mipmap);
@@ -1040,8 +1003,9 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
   lovrAssert(mipmap >= 0 && mipmap < texture->mipmapCount, "Invalid mipmap level %d", mipmap);
   GLenum glFormat = convertTextureFormat(textureData->format);
   GLenum glInternalFormat = convertTextureFormatInternal(textureData->format, texture->srgb);
-  GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice : texture->glType;
+  GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice : texture->target;
 
+  lovrGpuBindTexture(texture, 0);
   if (isTextureFormatCompressed(textureData->format)) {
     lovrAssert(width == textureData->width && height == textureData->height, "Compressed texture pixels must be fully replaced");
     lovrAssert(mipmap == 0, "Unable to replace a specific mipmap of a compressed texture");
@@ -1071,9 +1035,33 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
     }
 
     if (texture->mipmaps) {
-      glGenerateMipmap(texture->glType);
+      glGenerateMipmap(texture->target);
     }
   }
+}
+
+GLuint lovrTextureGetId(Texture* texture) {
+  return texture->id;
+}
+
+int lovrTextureGetWidth(Texture* texture, int mipmap) {
+  return MAX(texture->width >> mipmap, 1);
+}
+
+int lovrTextureGetHeight(Texture* texture, int mipmap) {
+  return MAX(texture->height >> mipmap, 1);
+}
+
+int lovrTextureGetDepth(Texture* texture, int mipmap) {
+  return texture->type == TEXTURE_VOLUME ? MAX(texture->depth >> mipmap, 1) : texture->depth;
+}
+
+int lovrTextureGetMipmapCount(Texture* texture) {
+  return texture->mipmapCount;
+}
+
+TextureType lovrTextureGetType(Texture* texture) {
+  return texture->type;
 }
 
 TextureFilter lovrTextureGetFilter(Texture* texture) {
@@ -1087,33 +1075,33 @@ void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
 
   switch (filter.mode) {
     case FILTER_NEAREST:
-      glTexParameteri(texture->glType, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(texture->glType, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(texture->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(texture->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       break;
 
     case FILTER_BILINEAR:
       if (texture->mipmaps) {
-        glTexParameteri(texture->glType, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-        glTexParameteri(texture->glType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+        glTexParameteri(texture->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       } else {
-        glTexParameteri(texture->glType, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(texture->glType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(texture->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       }
       break;
 
     case FILTER_TRILINEAR:
     case FILTER_ANISOTROPIC:
       if (texture->mipmaps) {
-        glTexParameteri(texture->glType, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(texture->glType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(texture->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       } else {
-        glTexParameteri(texture->glType, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(texture->glType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(texture->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(texture->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       }
       break;
   }
 
-  glTexParameteri(texture->glType, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
+  glTexParameteri(texture->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
 }
 
 TextureWrap lovrTextureGetWrap(Texture* texture) {
@@ -1123,10 +1111,10 @@ TextureWrap lovrTextureGetWrap(Texture* texture) {
 void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
   texture->wrap = wrap;
   lovrGpuBindTexture(texture, 0);
-  glTexParameteri(texture->glType, GL_TEXTURE_WRAP_S, convertWrapMode(wrap.s));
-  glTexParameteri(texture->glType, GL_TEXTURE_WRAP_T, convertWrapMode(wrap.t));
+  glTexParameteri(texture->target, GL_TEXTURE_WRAP_S, convertWrapMode(wrap.s));
+  glTexParameteri(texture->target, GL_TEXTURE_WRAP_T, convertWrapMode(wrap.t));
   if (texture->type == TEXTURE_CUBE || texture->type == TEXTURE_VOLUME) {
-    glTexParameteri(texture->glType, GL_TEXTURE_WRAP_R, convertWrapMode(wrap.r));
+    glTexParameteri(texture->target, GL_TEXTURE_WRAP_R, convertWrapMode(wrap.r));
   }
 }
 
@@ -1222,12 +1210,12 @@ void lovrCanvasResolve(Canvas* canvas) {
 
   if (canvas->flags.mipmaps) {
     lovrGpuBindTexture(&canvas->texture, 0);
-    glGenerateMipmap(canvas->texture.glType);
+    glGenerateMipmap(canvas->texture.target);
   }
 }
 
 TextureFormat lovrCanvasGetFormat(Canvas* canvas) {
-  return canvas->texture.slices[0]->format;
+  return canvas->texture.format;
 }
 
 int lovrCanvasGetMSAA(Canvas* canvas) {

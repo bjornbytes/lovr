@@ -1165,11 +1165,14 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     }
   }
 
-  Texture* texture = lovrTextureCreate(type, NULL, depth, srgb, mipmaps);
+  Texture* texture = lovrTextureCreate(type, NULL, 0, srgb, mipmaps);
 
   for (int i = 0; i < depth; i++) {
     lua_rawgeti(L, 1, i + 1);
     TextureData* textureData = luax_checktexturedata(L, -1);
+    if (i == 0) {
+      lovrTextureAllocate(texture, textureData->width, textureData->height, depth, textureData->format);
+    }
     lovrTextureReplacePixels(texture, textureData, 0, 0, i, 0);
     lovrRelease(textureData);
     lua_pop(L, 1);
