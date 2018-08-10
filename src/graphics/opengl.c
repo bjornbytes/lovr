@@ -323,6 +323,24 @@ static int getUniformComponents(GLenum type) {
   }
 }
 
+static TextureType getUniformTextureType(GLenum type) {
+  switch (type) {
+    case GL_SAMPLER_2D:
+    case GL_IMAGE_2d:
+      return TEXTURE_2D;
+    case GL_SAMPLER_3D:
+    case GL_IMAGE_3D:
+      return TEXTURE_VOLUME;
+    case GL_SAMPLER_CUBE:
+    case GL_IMAGE_CUBE:
+      return TEXTURE_CUBE;
+    case GL_SAMPLER_2D_ARRAY:
+    case GL_IMAGE_2D_ARRAY:
+      return TEXTURE_ARRAY;
+    default: return -1;
+  }
+}
+
 static size_t getUniformTypeLength(const Uniform* uniform) {
   size_t size = 0;
 
@@ -1480,12 +1498,13 @@ static void lovrShaderSetupUniforms(Shader* shader) {
     uniform.location = glGetUniformLocation(program, uniform.name);
     uniform.type = getUniformType(glType, uniform.name);
     uniform.components = getUniformComponents(glType);
-    uniform.baseTextureSlot = uniform.type == UNIFORM_TEXTURE ? textureSlot : -1;
 #ifdef EMSCRIPTEN
     uniform.image = false;
 #else
     uniform.image = glType == GL_IMAGE_2D || glType == GL_IMAGE_3D || glType == GL_IMAGE_CUBE || glType == GL_IMAGE_2D_ARRAY;
 #endif
+    uniform.textureType = (uniform.type == UNIFORM_TEXTURE) ? getUniformTextureType(glType) : -1;
+    uniform.baseTextureSlot = uniform.type == UNIFORM_TEXTURE ? textureSlot : -1;
 
     int blockIndex;
     glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_BLOCK_INDEX, &blockIndex);
@@ -1756,8 +1775,10 @@ void lovrShaderBind(Shader* shader) {
 
       case UNIFORM_TEXTURE:
         for (int i = 0; i < count; i++) {
+          Texture* texture = uniform->value.textures[i];
+          lovrAssert(!texture || texture->type == uniform->textureType, "Uniform texture type mismatch");
+
           if (uniform->image) {
-            Texture* texture = uniform->value.textures[i];
 
             // Mark texture as incoherent since we could write to it (TODO add read/write binding hints)
             if (texture) {
@@ -1769,7 +1790,7 @@ void lovrShaderBind(Shader* shader) {
 
             lovrGpuBindImage(texture, uniform->baseTextureSlot + i);
           } else {
-            lovrGpuBindTexture(uniform->value.textures[i], uniform->baseTextureSlot + i);
+            lovrGpuBindTexture(texture, uniform->baseTextureSlot + i);
           }
         }
         break;

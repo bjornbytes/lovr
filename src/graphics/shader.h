@@ -54,6 +54,7 @@ typedef struct {
     float* floats;
     Texture** textures;
   } value;
+  TextureType textureType;
   int baseTextureSlot;
   bool image;
   bool dirty;

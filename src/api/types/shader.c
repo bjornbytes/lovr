@@ -46,27 +46,28 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
 
   if (components == 1) {
     bool isTable = lua_istable(L, index);
-    if (isTable) {
-      int length = lua_objlen(L, index);
-      length = MIN(length, count);
-      for (int i = 0; i < length; i++) {
+    int length = isTable ? lua_objlen(L, index) : count;
+    length = MIN(length, count);
+    for (int i = 0; i < count; i++) {
+      int j = index + i;
+      if (isTable) {
         lua_rawgeti(L, index, i + 1);
-        switch (uniform->type) {
-          case UNIFORM_FLOAT: *((float*) dest + i) = luaL_checknumber(L, -1); break;
-          case UNIFORM_INT: *((int*) dest + i) = luaL_checkinteger(L, -1); break;
-          case UNIFORM_TEXTURE: *((Texture**) dest + i) = luax_checktype(L, -1, Texture); break;
-          default: break;
-        }
-        lua_pop(L, 1);
+        j = -1;
       }
-    } else {
-      for (int i = 0; i < count; i++) {
-        switch (uniform->type) {
-          case UNIFORM_FLOAT: *((float*) dest + i) = luaL_checknumber(L, index + i); break;
-          case UNIFORM_INT: *((int*) dest + i) = luaL_checkinteger(L, index + i); break;
-          case UNIFORM_TEXTURE: *((Texture**) dest + i) = luax_checktype(L, index + i, Texture); break;
-          default: break;
-        }
+
+      switch (uniform->type) {
+        case UNIFORM_FLOAT: *((float*) dest + i) = luaL_checknumber(L, j); break;
+        case UNIFORM_INT: *((int*) dest + i) = luaL_checkinteger(L, j); break;
+        case UNIFORM_TEXTURE:
+          *((Texture**) dest + i) = luax_checktype(L, j, Texture);
+          TextureType type = lovrTextureGetType(*((Texture**) dest + i));
+          lovrAssert(type == uniform->textureType, "Attempt to send %s texture to %s texture uniform", TextureTypes[type], TextureTypes[uniform->textureType]);
+          break;
+        default: break;
+      }
+
+      if (isTable) {
+        lua_pop(L, 1);
       }
     }
   } else {
