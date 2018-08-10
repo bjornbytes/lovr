@@ -23,7 +23,7 @@ typedef enum {
   UNIFORM_FLOAT,
   UNIFORM_MATRIX,
   UNIFORM_INT,
-  UNIFORM_SAMPLER
+  UNIFORM_TEXTURE
 } UniformType;
 
 typedef enum {
@@ -55,6 +55,7 @@ typedef struct {
     Texture** textures;
   } value;
   int baseTextureSlot;
+  bool image;
   bool dirty;
 } Uniform;
 

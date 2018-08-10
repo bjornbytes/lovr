@@ -247,6 +247,4 @@ void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, 
 void lovrGpuDraw(DrawCommand* command);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
 void lovrGpuPresent();
-
-void lovrGpuBindTexture(Texture* texture, int slot);
 void lovrGpuDirtyTexture(int slot);

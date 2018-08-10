@@ -23,6 +23,7 @@
 // Types
 
 #define MAX_TEXTURES 16
+#define MAX_IMAGES 8
 #define MAX_BLOCK_BUFFERS 8
 
 #define LOVR_SHADER_POSITION 0
@@ -54,6 +55,7 @@ static struct {
   uint32_t indexBuffer;
   uint32_t program;
   Texture* textures[MAX_TEXTURES];
+  Texture* images[MAX_IMAGES];
   uint32_t blockBuffers[2][MAX_BLOCK_BUFFERS];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
@@ -288,7 +290,13 @@ static UniformType getUniformType(GLenum type, const char* debug) {
     case GL_SAMPLER_3D:
     case GL_SAMPLER_CUBE:
     case GL_SAMPLER_2D_ARRAY:
-      return UNIFORM_SAMPLER;
+#ifdef GL_ARB_shader_image_load_store
+    case GL_IMAGE_2D:
+    case GL_IMAGE_3D:
+    case GL_IMAGE_CUBE:
+    case GL_IMAGE_2D_ARRAY:
+#endif
+      return UNIFORM_TEXTURE;
     default:
       lovrThrow("Unsupported uniform type for uniform '%s'", debug);
       return UNIFORM_FLOAT;
@@ -297,13 +305,6 @@ static UniformType getUniformType(GLenum type, const char* debug) {
 
 static int getUniformComponents(GLenum type) {
   switch (type) {
-    case GL_FLOAT:
-    case GL_INT:
-    case GL_SAMPLER_2D:
-    case GL_SAMPLER_3D:
-    case GL_SAMPLER_CUBE:
-    case GL_SAMPLER_2D_ARRAY:
-      return 1;
     case GL_FLOAT_VEC2:
     case GL_INT_VEC2:
     case GL_FLOAT_MAT2:
@@ -373,6 +374,16 @@ static const char* getUniformTypeName(const Uniform* uniform) {
   return "";
 }
 
+static Texture* lovrGpuGetDefaultTexture() {
+  if (!state.defaultTexture) {
+    TextureData* textureData = lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA);
+    state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false);
+    lovrRelease(textureData);
+  }
+
+  return state.defaultTexture;
+}
+
 // GPU
 
 static void lovrGpuBindFramebuffer(uint32_t framebuffer) {
@@ -389,31 +400,36 @@ static void lovrGpuBindIndexBuffer(uint32_t indexBuffer) {
   }
 }
 
-void lovrGpuBindTexture(Texture* texture, int slot) {
+static void lovrGpuBindTexture(Texture* texture, int slot) {
   lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
-
-  if (!texture) {
-    if (!state.defaultTexture) {
-      TextureData* textureData = lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA);
-      state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false);
-      lovrRelease(textureData);
-    }
-
-    texture = state.defaultTexture;
-  }
+  texture = texture ? texture : lovrGpuGetDefaultTexture();
 
   if (texture != state.textures[slot]) {
     lovrRetain(texture);
     lovrRelease(state.textures[slot]);
     state.textures[slot] = texture;
     glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(texture->target, lovrTextureGetId(texture));
+    glBindTexture(texture->target, texture->id);
   }
 }
 
 void lovrGpuDirtyTexture(int slot) {
   lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
   state.textures[slot] = NULL;
+}
+
+static void lovrGpuBindImage(Texture* texture, int slot) {
+#ifndef EMSCRIPTEN
+  lovrAssert(slot >= 0 && slot < MAX_IMAGES, "Invalid image slot %d", slot);
+  texture = texture ? texture : lovrGpuGetDefaultTexture();
+
+  if (texture != state.images[slot]) {
+    lovrRetain(texture);
+    lovrRelease(state.textures[slot]);
+    state.images[slot] = texture;
+    glBindImageTexture(slot, texture->id, 0, false, 0, GL_READ_WRITE, texture->slices[0]->format);
+  }
+#endif
 }
 
 static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot) {
@@ -1390,7 +1406,8 @@ static void lovrShaderSetupUniforms(Shader* shader) {
     uniform.location = glGetUniformLocation(program, uniform.name);
     uniform.type = getUniformType(glType, uniform.name);
     uniform.components = getUniformComponents(glType);
-    uniform.baseTextureSlot = (uniform.type == UNIFORM_SAMPLER) ? textureSlot : -1;
+    uniform.baseTextureSlot = uniform.type == UNIFORM_TEXTURE ? textureSlot : -1;
+    uniform.image = glType == GL_IMAGE_2D || glType == GL_IMAGE_3D || glType == GL_IMAGE_CUBE || glType == GL_IMAGE_2D_ARRAY;
 
     int blockIndex;
     glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_BLOCK_INDEX, &blockIndex);
@@ -1432,7 +1449,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
         uniform.value.data = calloc(1, uniform.size);
         break;
 
-      case UNIFORM_SAMPLER:
+      case UNIFORM_TEXTURE:
         uniform.size = uniform.components * uniform.count * MAX(sizeof(Texture*), sizeof(int));
         uniform.value.data = calloc(1, uniform.size);
 
@@ -1477,7 +1494,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
 
     map_set(&shader->uniformMap, uniform.name, shader->uniforms.length);
     vec_push(&shader->uniforms, uniform);
-    textureSlot += (uniform.type == UNIFORM_SAMPLER) ? uniform.count : 0;
+    textureSlot += uniform.type == UNIFORM_TEXTURE ? uniform.count : 0;
   }
 }
 
@@ -1598,7 +1615,7 @@ void lovrShaderBind(Shader* shader) {
   int i;
   Uniform* uniform;
   vec_foreach_ptr(&shader->uniforms, uniform, i) {
-    if (uniform->type != UNIFORM_SAMPLER && !uniform->dirty) {
+    if (uniform->type != UNIFORM_TEXTURE && !uniform->dirty) {
       continue;
     }
 
@@ -1633,9 +1650,13 @@ void lovrShaderBind(Shader* shader) {
         }
         break;
 
-      case UNIFORM_SAMPLER:
+      case UNIFORM_TEXTURE:
         for (int i = 0; i < count; i++) {
-          lovrGpuBindTexture(uniform->value.textures[i], uniform->baseTextureSlot + i);
+          if (uniform->image) {
+            //lovrGpuBindImage(uniform->value.textures[i], uniform->baseTextureSlot + i);
+          } else {
+            lovrGpuBindTexture(uniform->value.textures[i], uniform->baseTextureSlot + i);
+          }
         }
         break;
     }
@@ -1714,7 +1735,7 @@ void lovrShaderSetMatrix(Shader* shader, const char* name, float* data, int coun
 }
 
 void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int count) {
-  lovrShaderSetUniform(shader, name, UNIFORM_SAMPLER, data, count, sizeof(Texture*), "texture");
+  lovrShaderSetUniform(shader, name, UNIFORM_TEXTURE, data, count, sizeof(Texture*), "texture");
 }
 
 ShaderBlock* lovrShaderGetBlock(Shader* shader, const char* name) {

@@ -37,7 +37,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         memcpy(dest, blob->data, elements * sizeof(int));
         break;
 
-      case UNIFORM_SAMPLER:
+      case UNIFORM_TEXTURE:
         lovrThrow("Texture uniform '%s' can not be updated with a Blob", debug);
     }
 
@@ -54,7 +54,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         switch (uniform->type) {
           case UNIFORM_FLOAT: *((float*) dest + i) = luaL_checknumber(L, -1); break;
           case UNIFORM_INT: *((int*) dest + i) = luaL_checkinteger(L, -1); break;
-          case UNIFORM_SAMPLER: *((Texture**) dest + i) = luax_checktype(L, -1, Texture); break;
+          case UNIFORM_TEXTURE: *((Texture**) dest + i) = luax_checktype(L, -1, Texture); break;
           default: break;
         }
         lua_pop(L, 1);
@@ -64,7 +64,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         switch (uniform->type) {
           case UNIFORM_FLOAT: *((float*) dest + i) = luaL_checknumber(L, index + i); break;
           case UNIFORM_INT: *((int*) dest + i) = luaL_checkinteger(L, index + i); break;
-          case UNIFORM_SAMPLER: *((Texture**) dest + i) = luax_checktype(L, index + i, Texture); break;
+          case UNIFORM_TEXTURE: *((Texture**) dest + i) = luax_checktype(L, index + i, Texture); break;
           default: break;
         }
       }
@@ -98,7 +98,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
               *((int*) dest + i * components + j) = luaL_checkinteger(L, -1);
               break;
 
-            case UNIFORM_SAMPLER: lovrThrow("Unreachable");
+            case UNIFORM_TEXTURE: lovrThrow("Unreachable");
           }
           lua_pop(L, 1);
         }
@@ -125,7 +125,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
               *((float*) dest + i * components + j) = luaL_checknumber(L, -1);
               break;
 
-            case UNIFORM_SAMPLER: lovrThrow("Unreachable");
+            case UNIFORM_TEXTURE: lovrThrow("Unreachable");
           }
         }
       }
@@ -193,7 +193,7 @@ int l_lovrShaderSend(lua_State* L) {
     case UNIFORM_FLOAT: lovrShaderSetFloat(shader, uniform->name, tempData.data, uniform->count * uniform->components); break;
     case UNIFORM_INT: lovrShaderSetInt(shader, uniform->name, tempData.data, uniform->count * uniform->components); break;
     case UNIFORM_MATRIX: lovrShaderSetMatrix(shader, uniform->name, tempData.data, uniform->count * uniform->components * uniform->components); break;
-    case UNIFORM_SAMPLER: lovrShaderSetTexture(shader, uniform->name, tempData.data, uniform->count); break;
+    case UNIFORM_TEXTURE: lovrShaderSetTexture(shader, uniform->name, tempData.data, uniform->count); break;
   }
   return 0;
 }
