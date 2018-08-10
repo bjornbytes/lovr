@@ -427,7 +427,7 @@ static void lovrGpuBindImage(Texture* texture, int slot) {
     lovrRetain(texture);
     lovrRelease(state.textures[slot]);
     state.images[slot] = texture;
-    glBindImageTexture(slot, texture->id, 0, false, 0, GL_READ_WRITE, texture->slices[0]->format);
+    glBindImageTexture(slot, texture->id, 0, false, 0, GL_READ_WRITE, texture->format);
   }
 #endif
 }
@@ -1407,7 +1407,11 @@ static void lovrShaderSetupUniforms(Shader* shader) {
     uniform.type = getUniformType(glType, uniform.name);
     uniform.components = getUniformComponents(glType);
     uniform.baseTextureSlot = uniform.type == UNIFORM_TEXTURE ? textureSlot : -1;
+#ifdef EMSCRIPTEN
+    uniform.image = false;
+#else
     uniform.image = glType == GL_IMAGE_2D || glType == GL_IMAGE_3D || glType == GL_IMAGE_CUBE || glType == GL_IMAGE_2D_ARRAY;
+#endif
 
     int blockIndex;
     glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_BLOCK_INDEX, &blockIndex);
