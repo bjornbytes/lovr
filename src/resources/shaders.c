@@ -26,8 +26,10 @@ const char* lovrShaderVertexPrefix = ""
 "precision mediump float; \n"
 #else
 "#version 150 \n"
+"#ifdef GL_NV_stereo_view_rendering \n"
 "#extension GL_NV_viewport_array2 : enable \n"
 "#extension GL_NV_stereo_view_rendering : enable \n"
+"#endif \n"
 #endif
 "#define VERTEX VERTEX \n"
 "#define MAX_BONES 48 \n"
