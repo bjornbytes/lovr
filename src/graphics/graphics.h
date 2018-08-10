@@ -23,13 +23,6 @@ typedef enum {
 } ArcMode;
 
 typedef enum {
-  BARRIER_ALL,
-  BARRIER_BLOCKS,
-  BARRIER_IMAGES,
-  BARRIER_TEXTURES
-} Barrier;
-
-typedef enum {
   BLEND_ALPHA,
   BLEND_ADD,
   BLEND_SUBTRACT,
@@ -243,7 +236,6 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGraphicsFill(Texture* texture);
 #define lovrGraphicsCompute lovrGpuCompute
-#define lovrGraphicsWait lovrGpuWait
 
 // GPU
 
@@ -254,7 +246,6 @@ void lovrGpuDestroy();
 void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil);
 void lovrGpuDraw(DrawCommand* command);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
-void lovrGpuWait(int barriers);
 void lovrGpuPresent();
 
 void lovrGpuBindTexture(Texture* texture, int slot);

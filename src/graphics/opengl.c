@@ -58,6 +58,7 @@ static struct {
   uint32_t vertexArray;
   uint32_t vertexBuffer;
   float viewport[4];
+  vec_void_t incoherents;
   bool srgb;
   bool supportsSinglepass;
   GraphicsLimits limits;
@@ -75,6 +76,7 @@ struct ShaderBlock {
   size_t size;
   void* data;
   bool mapped;
+  bool incoherent;
 };
 
 typedef struct {
@@ -482,6 +484,7 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   state.stencilWriting = false;
   state.winding = WINDING_COUNTERCLOCKWISE;
   state.wireframe = false;
+  vec_init(&state.incoherents);
 }
 
 void lovrGpuDestroy() {
@@ -489,6 +492,7 @@ void lovrGpuDestroy() {
   for (int i = 0; i < MAX_TEXTURES; i++) {
     lovrRelease(state.textures[i]);
   }
+  vec_deinit(&state.incoherents);
 }
 
 void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil) {
@@ -857,19 +861,21 @@ void lovrGpuCompute(Shader* shader, int x, int y, int z) {
   lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
   lovrAssert(shader->type == SHADER_COMPUTE, "Attempt to use a non-compute shader for a compute operation");
   lovrGpuUseProgram(shader->program);
+  lovrShaderBind(shader);
   glDispatchCompute(x, y, z);
 #endif
 }
 
-void lovrGpuWait(int barriers) {
+static void lovrGpuWait() {
 #ifndef EMSCRIPTEN
-  if (GL_ARB_shader_image_load_store) {
-    glMemoryBarrier(
-      (barriers & (1 << BARRIER_ALL)) ? GL_ALL_BARRIER_BITS : 0 |
-      (barriers & (1 << BARRIER_BLOCKS)) ? GL_SHADER_STORAGE_BARRIER_BIT : 0 |
-      (barriers & (1 << BARRIER_IMAGES)) ? GL_SHADER_IMAGE_ACCESS_BARRIER_BIT : 0 |
-      (barriers & (1 << BARRIER_TEXTURES)) ? (GL_TEXTURE_FETCH_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT) : 0
-    );
+  if (!GL_ARB_shader_image_load_store || state.incoherents.length == 0) {
+    return;
+  }
+
+  glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+  while (state.incoherents.length > 0) {
+    ShaderBlock* block = vec_pop(&state.incoherents);
+    block->incoherent = false;
   }
 #endif
 }
@@ -1635,11 +1641,20 @@ void lovrShaderBind(Shader* shader) {
     }
   }
 
-  // Bind uniform blocks
+  // Wait for outstanding storage block writes to complete, if necessary
   UniformBlock* block;
+  vec_foreach_ptr(&shader->blocks[BLOCK_STORAGE], block, i) {
+    if (block->source && block->source->incoherent) {
+      lovrGpuWait();
+      break;
+    }
+  }
+
+  // Bind uniform blocks
   for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_STORAGE; type++) {
     vec_foreach_ptr(&shader->blocks[type], block, i) {
       if (block->source) {
+        block->source->incoherent = type == BLOCK_STORAGE;
         lovrShaderBlockUnmap(block->source);
         lovrGpuBindBlockBuffer(type, block->source->buffer, block->binding);
       } else {
@@ -1790,6 +1805,14 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
 
 void lovrShaderBlockDestroy(void* ref) {
   ShaderBlock* block = ref;
+
+  // Remove block from the global incoherents list
+  for (int i = 0; i < state.incoherents.length; i++) {
+    if (state.incoherents.data[i] == block) {
+      vec_swapsplice(&state.incoherents, i, 1);
+    }
+  }
+
   glDeleteBuffers(1, &block->buffer);
   vec_deinit(&block->uniforms);
   map_deinit(&block->uniformMap);

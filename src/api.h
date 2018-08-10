@@ -72,7 +72,6 @@ extern const luaL_Reg lovrWorld[];
 // Enums
 extern const char* ArcModes[];
 extern const char* AttributeTypes[];
-extern const char* Barriers[];
 extern const char* BlendAlphaModes[];
 extern const char* BlendModes[];
 extern const char* BufferUsages[];
