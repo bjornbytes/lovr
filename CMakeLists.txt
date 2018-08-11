@@ -6,7 +6,6 @@ if(EMSCRIPTEN)
   string(CONCAT LOVR_EMSCRIPTEN_FLAGS
     "-O3 "
     "-s WASM=1 "
-    "-s USE_FREETYPE=1 "
     "-s USE_GLFW=3 "
     "-s USE_WEBGL2=1 "
     "-s GL_PREINITIALIZED_CONTEXT=1 "
@@ -95,20 +94,6 @@ else()
   if(WIN32)
     set(LOVR_ENET ${LOVR_ENET} ws2_32 winmm)
   endif()
-endif()
-
-# FreeType
-if(WIN32)
-  set(FREETYPE_NO_DIST TRUE CACHE BOOL "")
-  set(BUILD_SHARED_LIBS OFF)
-  add_subdirectory(deps/freetype freetype)
-  set(BUILD_SHARED_LIBS ON)
-  include_directories(deps/freetype/include)
-  set(LOVR_FREETYPE freetype)
-elseif(NOT EMSCRIPTEN)
-  pkg_search_module(FREETYPE REQUIRED freetype2)
-  include_directories(${FREETYPE_INCLUDE_DIRS})
-  set(LOVR_FREETYPE ${FREETYPE_LIBRARIES})
 endif()
 
 # GLFW
@@ -339,7 +324,6 @@ set_property(TARGET lovr PROPERTY C_STANDARD 99)
 target_link_libraries(lovr
   ${LOVR_ASSIMP}
   ${LOVR_ENET}
-  ${LOVR_FREETYPE}
   ${LOVR_GLFW}
   ${LOVR_LUA}
   ${LOVR_MSDF}
