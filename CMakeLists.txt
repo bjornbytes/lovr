@@ -202,12 +202,16 @@ if(NOT EMSCRIPTEN)
   include_directories(deps/openvr/headers)
   include_directories(deps/openvr/src)
   include_directories(deps/openvr/src/vrcommon)
-  add_subdirectory(deps/openvr openvr_api)
-  set_target_properties(openvr_api PROPERTIES
+  if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(LOVR_OPENVR openvr_api64)
+  else()
+    set(LOVR_OPENVR openvr_api)
+  endif()
+  add_subdirectory(deps/openvr)
+  set_target_properties(${LOVR_OPENVR} PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
   )
-  set(LOVR_OPENVR openvr_api)
 endif()
 
 # pthreads
