@@ -424,7 +424,7 @@ static void lovrGpuBindImage(Texture* texture, int slot) {
   texture = texture ? texture : lovrGpuGetDefaultTexture();
 
   if (texture != state.images[slot]) {
-    lovrAssert(!texture->srgb, "Textures created with the srgb flag can not be used as image uniforms");
+    lovrAssert(!texture->srgb, "sRGB textures can not be used as image uniforms");
     lovrAssert(!isTextureFormatCompressed(texture->format), "Compressed textures can not be used as image uniforms");
     lovrAssert(texture->format != FORMAT_RGB && texture->format != FORMAT_RGBA4 && texture->format != FORMAT_RGB5A1, "Unsupported texture format for image uniform");
 
