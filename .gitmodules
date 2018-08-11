@@ -1,9 +1,6 @@
 [submodule "deps/enet"]
 	path = deps/enet
 	url = https://github.com/lsalzman/enet
-[submodule "deps/freetype"]
-	path = deps/freetype
-	url = https://github.com/aseprite/freetype2
 [submodule "deps/glfw"]
 	path = deps/glfw
 	url = https://github.com/glfw/glfw
