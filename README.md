@@ -91,8 +91,7 @@ Feel free to join the [LÖVR Slack](https://join.slack.com/ifyouwannabemylovr/sh
 Compiling
 ---
 
-To compile from source to create a custom build or contribute to LÖVR, see
-[`COMPILING`](COMPILING.md).
+To compile from source, see the [Compiling Guide](https://lovr.org/docs/Compiling).
 
 Contributing
 ---
