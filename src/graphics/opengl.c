@@ -1296,7 +1296,7 @@ static GLuint compileShader(GLenum type, const char** sources, int count) {
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
     char* log = malloc(logLength);
     glGetShaderInfoLog(shader, logLength, &logLength, log);
-    lovrThrow("Could not compile shader %s", log);
+    lovrThrow("Could not compile shader:\n%s", log);
   }
 
   return shader;
@@ -1312,7 +1312,7 @@ static GLuint linkProgram(GLuint program) {
     glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
     char* log = malloc(logLength);
     glGetProgramInfoLog(program, logLength, &logLength, log);
-    lovrThrow("Could not link shader %s", log);
+    lovrThrow("Could not link shader:\n%s", log);
   }
 
   return program;
