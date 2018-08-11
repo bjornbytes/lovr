@@ -425,9 +425,9 @@ static void lovrGpuBindImage(Texture* texture, int slot) {
 
   if (texture != state.images[slot]) {
     lovrRetain(texture);
-    lovrRelease(state.textures[slot]);
+    lovrRelease(state.images[slot]);
     state.images[slot] = texture;
-    glBindImageTexture(slot, texture->id, 0, false, 0, GL_READ_WRITE, texture->format);
+    glBindImageTexture(slot, texture->id, 0, true, 0, GL_READ_WRITE, GL_RGBA8);
   }
 #endif
 }
@@ -1657,7 +1657,7 @@ void lovrShaderBind(Shader* shader) {
       case UNIFORM_TEXTURE:
         for (int i = 0; i < count; i++) {
           if (uniform->image) {
-            //lovrGpuBindImage(uniform->value.textures[i], uniform->baseTextureSlot + i);
+            lovrGpuBindImage(uniform->value.textures[i], uniform->baseTextureSlot + i);
           } else {
             lovrGpuBindTexture(uniform->value.textures[i], uniform->baseTextureSlot + i);
           }
