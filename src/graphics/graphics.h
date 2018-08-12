@@ -23,6 +23,15 @@ typedef enum {
 } ArcMode;
 
 typedef enum {
+  BARRIER_BLOCK,
+  BARRIER_UNIFORM_TEXTURE,
+  BARRIER_UNIFORM_IMAGE,
+  BARRIER_TEXTURE,
+  BARRIER_CANVAS,
+  MAX_BARRIERS
+} Barrier;
+
+typedef enum {
   BLEND_ALPHA,
   BLEND_ADD,
   BLEND_SUBTRACT,
@@ -246,5 +255,6 @@ void lovrGpuDestroy();
 void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil);
 void lovrGpuDraw(DrawCommand* command);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
+void lovrGpuWait(uint8_t flags);
 void lovrGpuPresent();
 void lovrGpuDirtyTexture(int slot);
