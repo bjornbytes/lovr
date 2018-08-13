@@ -303,6 +303,7 @@ Shader* lovrGraphicsGetShader() {
 }
 
 void lovrGraphicsSetShader(Shader* shader) {
+  lovrAssert(!shader || lovrShaderGetType(shader) == SHADER_GRAPHICS, "Compute shaders can not be set as the active shader");
   lovrRetain(shader);
   lovrRelease(state.pipelines[state.pipeline].shader);
   state.pipelines[state.pipeline].shader = shader;
@@ -367,7 +368,7 @@ void lovrGraphicsMatrixTransform(mat4 transform) {
   mat4_multiply(state.transforms[state.transform], transform);
 }
 
-// Drawing
+// Rendering
 
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t count) {
   lovrMeshResize(state.defaultMesh, count);

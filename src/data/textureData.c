@@ -127,7 +127,6 @@ TextureData* lovrTextureDataGetBlank(int width, int height, uint8_t value, Textu
     case FORMAT_RGBA32F: pixelSize = 16; break;
     case FORMAT_R16F: pixelSize = 2; break;
     case FORMAT_R32F: pixelSize = 4; break;
-    case FORMAT_RGB565: pixelSize = 2; break;
     case FORMAT_RGB5A1: pixelSize = 2; break;
     case FORMAT_RGB10A2: pixelSize = 4; break;
     case FORMAT_RG11B10F: pixelSize = 4; break;

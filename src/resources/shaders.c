@@ -55,6 +55,28 @@ const char* lovrShaderVertexPrefix = ""
 "uniform mat4 lovrPose[MAX_BONES]; \n"
 "#line 0 \n";
 
+const char* lovrShaderVertexSuffix = ""
+"void main() { \n"
+"  texCoord = (lovrMaterialTransform * vec3(lovrTexCoord, 1.)).xy; \n"
+"  vertexColor = lovrVertexColor; \n"
+"  mat4 pose = \n"
+"    lovrPose[lovrBones[0]] * lovrBoneWeights[0] + \n"
+"    lovrPose[lovrBones[1]] * lovrBoneWeights[1] + \n"
+"    lovrPose[lovrBones[2]] * lovrBoneWeights[2] + \n"
+"    lovrPose[lovrBones[3]] * lovrBoneWeights[3]; \n"
+"  gl_PointSize = lovrPointSize; \n"
+"#if defined(GL_NV_viewport_array2) && defined(GL_NV_stereo_view_rendering) \n"
+"  if (lovrEye < 0) { \n"
+"    gl_Position = position(lovrProjections[0], lovrTransforms[0], pose * vec4(lovrPosition, 1.0)); \n"
+"    gl_SecondaryPositionNV = position(lovrProjections[1], lovrTransforms[1], pose * vec4(lovrPosition, 1.0)); \n"
+"    gl_ViewportMask[0] = (1 << 0); \n"
+"    gl_SecondaryViewportMaskNV[0] = (1 << 1); \n"
+"    return; \n"
+"  }\n"
+"#endif \n"
+"  gl_Position = position(lovrProjection, lovrTransform, pose * vec4(lovrPosition, 1.0)); \n"
+"}";
+
 const char* lovrShaderFragmentPrefix = ""
 #ifdef EMSCRIPTEN
 "#version 300 es \n"
@@ -84,28 +106,6 @@ const char* lovrShaderFragmentPrefix = ""
 "uniform samplerCube lovrEnvironmentTexture; \n"
 "#line 0 \n";
 
-const char* lovrShaderVertexSuffix = ""
-"void main() { \n"
-"  texCoord = (lovrMaterialTransform * vec3(lovrTexCoord, 1.)).xy; \n"
-"  vertexColor = lovrVertexColor; \n"
-"  mat4 pose = \n"
-"    lovrPose[lovrBones[0]] * lovrBoneWeights[0] + \n"
-"    lovrPose[lovrBones[1]] * lovrBoneWeights[1] + \n"
-"    lovrPose[lovrBones[2]] * lovrBoneWeights[2] + \n"
-"    lovrPose[lovrBones[3]] * lovrBoneWeights[3]; \n"
-"  gl_PointSize = lovrPointSize; \n"
-"#if defined(GL_NV_viewport_array2) && defined(GL_NV_stereo_view_rendering) \n"
-"  if (lovrEye < 0) { \n"
-"    gl_Position = position(lovrProjections[0], lovrTransforms[0], pose * vec4(lovrPosition, 1.0)); \n"
-"    gl_SecondaryPositionNV = position(lovrProjections[1], lovrTransforms[1], pose * vec4(lovrPosition, 1.0)); \n"
-"    gl_ViewportMask[0] = (1 << 0); \n"
-"    gl_SecondaryViewportMaskNV[0] = (1 << 1); \n"
-"    return; \n"
-"  }\n"
-"#endif \n"
-"  gl_Position = position(lovrProjection, lovrTransform, pose * vec4(lovrPosition, 1.0)); \n"
-"}";
-
 const char* lovrShaderFragmentSuffix = ""
 "void main() { \n"
 "#ifdef MULTICANVAS \n"
@@ -113,6 +113,15 @@ const char* lovrShaderFragmentSuffix = ""
 "#else \n"
 "  lovrCanvas[0] = color(lovrColor, lovrDiffuseTexture, texCoord); \n"
 "#endif \n"
+"}";
+
+const char* lovrShaderComputePrefix = ""
+"#version 430 \n"
+"#line 0 \n";
+
+const char* lovrShaderComputeSuffix = ""
+"void main() { \n"
+"  compute(); \n"
 "}";
 
 const char* lovrDefaultVertexShader = ""

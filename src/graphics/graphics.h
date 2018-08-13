@@ -23,6 +23,15 @@ typedef enum {
 } ArcMode;
 
 typedef enum {
+  BARRIER_BLOCK,
+  BARRIER_UNIFORM_TEXTURE,
+  BARRIER_UNIFORM_IMAGE,
+  BARRIER_TEXTURE,
+  BARRIER_CANVAS,
+  MAX_BARRIERS
+} Barrier;
+
+typedef enum {
   BLEND_ALPHA,
   BLEND_ADD,
   BLEND_SUBTRACT,
@@ -68,6 +77,7 @@ typedef enum {
 } Winding;
 
 typedef struct {
+  bool computeShaders;
   bool writableBlocks;
 } GraphicsFeatures;
 
@@ -217,7 +227,7 @@ void lovrGraphicsRotate(float angle, float ax, float ay, float az);
 void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsMatrixTransform(mat4 transform);
 
-// Drawing
+// Rendering
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDraw(DrawOptions* draw);
@@ -234,6 +244,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGraphicsFill(Texture* texture);
+#define lovrGraphicsCompute lovrGpuCompute
 
 // GPU
 
@@ -243,7 +254,7 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*));
 void lovrGpuDestroy();
 void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil);
 void lovrGpuDraw(DrawCommand* command);
+void lovrGpuCompute(Shader* shader, int x, int y, int z);
+void lovrGpuWait(uint8_t flags);
 void lovrGpuPresent();
-
-void lovrGpuBindTexture(Texture* texture, int slot);
 void lovrGpuDirtyTexture(int slot);

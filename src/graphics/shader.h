@@ -23,8 +23,13 @@ typedef enum {
   UNIFORM_FLOAT,
   UNIFORM_MATRIX,
   UNIFORM_INT,
-  UNIFORM_SAMPLER
+  UNIFORM_TEXTURE
 } UniformType;
+
+typedef enum {
+  SHADER_GRAPHICS,
+  SHADER_COMPUTE
+} ShaderType;
 
 typedef enum {
   SHADER_DEFAULT,
@@ -50,6 +55,7 @@ typedef struct {
     Texture** textures;
   } value;
   int baseTextureSlot;
+  bool image;
   bool dirty;
 } Uniform;
 
@@ -58,9 +64,11 @@ typedef vec_t(Uniform) vec_uniform_t;
 typedef struct Shader Shader;
 typedef struct ShaderBlock ShaderBlock;
 
-Shader* lovrShaderCreate(const char* vertexSource, const char* fragmentSource);
+Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentSource);
+Shader* lovrShaderCreateCompute(const char* source);
 Shader* lovrShaderCreateDefault(DefaultShader type);
 void lovrShaderDestroy(void* ref);
+ShaderType lovrShaderGetType(Shader* shader);
 void lovrShaderBind(Shader* shader);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 bool lovrShaderHasUniform(Shader* shader, const char* name);
