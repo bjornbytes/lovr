@@ -326,7 +326,7 @@ static int getUniformComponents(GLenum type) {
 static TextureType getUniformTextureType(GLenum type) {
   switch (type) {
     case GL_SAMPLER_2D:
-    case GL_IMAGE_2d:
+    case GL_IMAGE_2D:
       return TEXTURE_2D;
     case GL_SAMPLER_3D:
     case GL_IMAGE_3D:
