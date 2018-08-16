@@ -1256,12 +1256,17 @@ void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
 
 Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasFlags flags) {
   lovrAssert(isCanvasFormatSupported(format), "Unsupported texture format for Canvas");
-
-  TextureData* textureData = lovrTextureDataGetEmpty(width, height, format);
-  Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, flags.mipmaps);
-  if (!texture) return NULL;
-
   Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
+  Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, flags.mipmaps);
+
+  if (!canvas || !texture) {
+    lovrRelease(canvas);
+    lovrRelease(texture);
+    return NULL;
+  }
+
+  lovrTextureAllocate(texture, width, height, 1, format);
+
   Ref ref = canvas->texture.ref;
   canvas->texture = *texture;
   canvas->texture.ref = ref;
