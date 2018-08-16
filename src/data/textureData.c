@@ -175,8 +175,13 @@ TextureData* lovrTextureDataFromBlob(Blob* blob) {
   }
 
   stbi_set_flip_vertically_on_load(1);
-  textureData->format = FORMAT_RGBA;
-  textureData->blob.data = stbi_load_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
+  if (stbi_is_hdr_from_memory(blob->data, blob->size)) {
+    textureData->format = FORMAT_RGBA32F;
+    textureData->blob.data = stbi_loadf_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
+  } else {
+    textureData->format = FORMAT_RGBA;
+    textureData->blob.data = stbi_load_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
+  }
 
   if (!textureData->blob.data) {
     lovrThrow("Could not load texture data from '%s'", blob->name);

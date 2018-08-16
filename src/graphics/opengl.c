@@ -230,6 +230,26 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
   }
 }
 
+static GLenum convertTextureFormatType(TextureFormat format) {
+  switch (format) {
+    case FORMAT_RGB: return GL_UNSIGNED_BYTE;
+    case FORMAT_RGBA: return GL_UNSIGNED_BYTE;
+    case FORMAT_RGBA4: return GL_UNSIGNED_SHORT_4_4_4_4;
+    case FORMAT_RGBA16F: return GL_HALF_FLOAT;
+    case FORMAT_RGBA32F: return GL_FLOAT;
+    case FORMAT_R16F: return GL_HALF_FLOAT;
+    case FORMAT_R32F: return GL_FLOAT;
+    case FORMAT_RGB5A1: return GL_UNSIGNED_SHORT_5_5_5_1;
+    case FORMAT_RGB10A2: return GL_UNSIGNED_INT_2_10_10_10_REV;
+    case FORMAT_RG11B10F: return GL_UNSIGNED_INT_10F_11F_11F_REV;
+    case FORMAT_DXT1:
+    case FORMAT_DXT3:
+    case FORMAT_DXT5:
+      lovrThrow("Unreachable");
+      return GL_UNSIGNED_BYTE;
+  }
+}
+
 static bool isTextureFormatCompressed(TextureFormat format) {
   switch (format) {
     case FORMAT_DXT1:
@@ -1130,18 +1150,21 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
     lovrGpuWait(1 << BARRIER_TEXTURE);
   }
 
-  int width = lovrTextureGetWidth(texture, mipmap);
-  int height = lovrTextureGetHeight(texture, mipmap);
-  bool overflow = (x + textureData->width > width) || (y + textureData->height > height);
+  int maxWidth = lovrTextureGetWidth(texture, mipmap);
+  int maxHeight = lovrTextureGetHeight(texture, mipmap);
+  int width = textureData->width;
+  int height = textureData->height;
+  bool overflow = (x + width > maxWidth) || (y + height > maxHeight);
   lovrAssert(!overflow, "Trying to replace pixels outside the texture's bounds");
   lovrAssert(mipmap >= 0 && mipmap < texture->mipmapCount, "Invalid mipmap level %d", mipmap);
   GLenum glFormat = convertTextureFormat(textureData->format);
   GLenum glInternalFormat = convertTextureFormatInternal(textureData->format, texture->srgb);
+  GLenum glType = convertTextureFormatType(textureData->format);
   GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice : texture->target;
 
   lovrGpuBindTexture(texture, 0);
   if (isTextureFormatCompressed(textureData->format)) {
-    lovrAssert(width == textureData->width && height == textureData->height, "Compressed texture pixels must be fully replaced");
+    lovrAssert(width == maxWidth && height == maxHeight, "Compressed texture pixels must be fully replaced");
     lovrAssert(mipmap == 0, "Unable to replace a specific mipmap of a compressed texture");
     Mipmap m; int i;
     vec_foreach(&textureData->mipmaps, m, i) {
@@ -1160,11 +1183,11 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
     switch (texture->type) {
       case TEXTURE_2D:
       case TEXTURE_CUBE:
-        glTexSubImage2D(binding, mipmap, x, y, textureData->width, textureData->height, glFormat, GL_UNSIGNED_BYTE, textureData->blob.data);
+        glTexSubImage2D(binding, mipmap, x, y, width, height, glFormat, glType, textureData->blob.data);
         break;
       case TEXTURE_ARRAY:
       case TEXTURE_VOLUME:
-        glTexSubImage3D(binding, mipmap, x, y, slice, textureData->width, textureData->height, 1, glFormat, GL_UNSIGNED_BYTE, textureData->blob.data);
+        glTexSubImage3D(binding, mipmap, x, y, slice, width, height, 1, glFormat, glType, textureData->blob.data);
         break;
     }
 
