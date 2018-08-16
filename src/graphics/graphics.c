@@ -86,9 +86,15 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
 
     if (icon) {
       GLFWimage image;
-      image.pixels = stbi_load(icon, &image.width, &image.height, NULL, 3);
+      size_t size;
+      lovrAssert(lovrFilesystemIsFile(icon), "Could not read icon from %s", icon);
+      void* data = lovrFilesystemRead(icon, &size);
+      lovrAssert(data, "Could not read icon from %s", icon);
+      image.pixels = stbi_load_from_memory(data, size, &image.width, &image.height, NULL, 4);
+      lovrAssert(image.pixels, "Could not read icon from %s", icon);
       glfwSetWindowIcon(state.window, 1, &image);
       free(image.pixels);
+      free(data);
     }
 
     glfwMakeContextCurrent(state.window);
