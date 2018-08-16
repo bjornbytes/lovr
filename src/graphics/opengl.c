@@ -203,6 +203,8 @@ static GLenum convertTextureFormat(TextureFormat format) {
     case FORMAT_RGBA32F: return GL_RGBA;
     case FORMAT_R16F: return GL_RED;
     case FORMAT_R32F: return GL_RED;
+    case FORMAT_RG16F: return GL_RG;
+    case FORMAT_RG32F: return GL_RG;
     case FORMAT_RGB5A1: return GL_RGBA;
     case FORMAT_RGB10A2: return GL_RGBA;
     case FORMAT_RG11B10F: return GL_RGB;
@@ -221,6 +223,8 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
     case FORMAT_RGBA32F: return GL_RGBA32F;
     case FORMAT_R16F: return GL_R16F;
     case FORMAT_R32F: return GL_R32F;
+    case FORMAT_RG16F: return GL_RG16F;
+    case FORMAT_RG32F: return GL_RG32F;
     case FORMAT_RGB5A1: return GL_RGB5_A1;
     case FORMAT_RGB10A2: return GL_RGB10_A2;
     case FORMAT_RG11B10F: return GL_R11F_G11F_B10F;
@@ -239,6 +243,8 @@ static GLenum convertTextureFormatType(TextureFormat format) {
     case FORMAT_RGBA32F: return GL_FLOAT;
     case FORMAT_R16F: return GL_HALF_FLOAT;
     case FORMAT_R32F: return GL_FLOAT;
+    case FORMAT_RG16F: return GL_HALF_FLOAT;
+    case FORMAT_RG32F: return GL_FLOAT;
     case FORMAT_RGB5A1: return GL_UNSIGNED_SHORT_5_5_5_1;
     case FORMAT_RGB10A2: return GL_UNSIGNED_INT_2_10_10_10_REV;
     case FORMAT_RG11B10F: return GL_UNSIGNED_INT_10F_11F_11F_REV;
