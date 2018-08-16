@@ -112,7 +112,7 @@ int l_lovrHeadsetInit(lua_State* L) {
 
     // MSAA
     lua_getfield(L, -1, "msaa");
-    msaa = luaL_optnumber(L, -1, -1);
+    msaa = luaL_optnumber(L, -1, 4);
     lua_pop(L, 1);
   }
 
