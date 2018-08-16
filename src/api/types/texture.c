@@ -35,6 +35,12 @@ int l_lovrTextureGetFilter(lua_State* L) {
   return 1;
 }
 
+int l_lovrTextureGetFormat(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  lua_pushstring(L, TextureFormats[lovrTextureGetFormat(texture)]);
+  return 1;
+}
+
 int l_lovrTextureGetHeight(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lua_pushnumber(L, lovrTextureGetHeight(texture, luax_optmipmap(L, 2, texture)));
@@ -105,6 +111,7 @@ const luaL_Reg lovrTexture[] = {
   { "getDepth", l_lovrTextureGetDepth },
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getFilter", l_lovrTextureGetFilter },
+  { "getFormat", l_lovrTextureGetFormat },
   { "getHeight", l_lovrTextureGetHeight },
   { "getMipmapCount", l_lovrTextureGetMipmapCount },
   { "getType", l_lovrTextureGetType },

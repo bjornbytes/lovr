@@ -1198,6 +1198,10 @@ TextureType lovrTextureGetType(Texture* texture) {
   return texture->type;
 }
 
+TextureType lovrTextureGetFormat(Texture* texture) {
+  return texture->format;
+}
+
 TextureFilter lovrTextureGetFilter(Texture* texture) {
   return texture->filter;
 }

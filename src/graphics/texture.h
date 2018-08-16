@@ -46,6 +46,7 @@ int lovrTextureGetHeight(Texture* texture, int mipmap);
 int lovrTextureGetDepth(Texture* texture, int mipmap);
 int lovrTextureGetMipmapCount(Texture* texture);
 TextureType lovrTextureGetType(Texture* texture);
+TextureFormat lovrTextureGetFormat(Texture* texture);
 TextureFilter lovrTextureGetFilter(Texture* texture);
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter);
 TextureWrap lovrTextureGetWrap(Texture* texture);
