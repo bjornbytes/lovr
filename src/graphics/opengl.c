@@ -86,6 +86,7 @@ typedef struct {
   int binding;
   ShaderBlock* source;
   vec_uniform_t uniforms;
+  UniformAccess access;
 } UniformBlock;
 
 typedef vec_t(UniformBlock) vec_block_t;
@@ -272,6 +273,14 @@ static GLenum convertBufferUsage(BufferUsage usage) {
     case USAGE_STATIC: return GL_STATIC_DRAW;
     case USAGE_DYNAMIC: return GL_DYNAMIC_DRAW;
     case USAGE_STREAM: return GL_STREAM_DRAW;
+  }
+}
+
+static GLenum convertAccess(UniformAccess access) {
+  switch (access) {
+    case ACCESS_READ: return GL_READ_ONLY;
+    case ACCESS_WRITE: return GL_WRITE_ONLY;
+    case ACCESS_READ_WRITE: return GL_READ_WRITE;
   }
 }
 
@@ -481,7 +490,7 @@ void lovrGpuDirtyTexture(int slot) {
   state.textures[slot] = NULL;
 }
 
-static void lovrGpuBindImage(Texture* texture, int slot) {
+static void lovrGpuBindImage(Texture* texture, int slot, UniformAccess access) {
 #ifndef EMSCRIPTEN
   lovrAssert(slot >= 0 && slot < MAX_IMAGES, "Invalid image slot %d", slot);
   texture = texture ? texture : lovrGpuGetDefaultTexture();
@@ -490,11 +499,13 @@ static void lovrGpuBindImage(Texture* texture, int slot) {
     lovrAssert(!texture->srgb, "sRGB textures can not be used as image uniforms");
     lovrAssert(!isTextureFormatCompressed(texture->format), "Compressed textures can not be used as image uniforms");
     lovrAssert(texture->format != FORMAT_RGB && texture->format != FORMAT_RGBA4 && texture->format != FORMAT_RGB5A1, "Unsupported texture format for image uniform");
+    GLenum glAccess = convertAccess(access);
+    GLenum glFormat = convertTextureFormatInternal(texture->format, false);
 
     lovrRetain(texture);
     lovrRelease(state.images[slot]);
     state.images[slot] = texture;
-    glBindImageTexture(slot, texture->id, 0, true, 0, GL_READ_WRITE, convertTextureFormatInternal(texture->format, false));
+    glBindImageTexture(slot, texture->id, 0, true, 0, glAccess, glFormat);
   }
 #endif
 }
@@ -1817,16 +1828,14 @@ void lovrShaderBind(Shader* shader) {
           lovrAssert(!texture || texture->type == uniform->textureType, "Uniform texture type mismatch");
 
           if (uniform->image) {
-
-            // Mark texture as incoherent since we could write to it (TODO add read/write binding hints)
-            if (texture) {
+            if (texture && uniform->access != ACCESS_READ) {
               texture->incoherent |= 1 << BARRIER_UNIFORM_TEXTURE;
               texture->incoherent |= 1 << BARRIER_UNIFORM_IMAGE;
               texture->incoherent |= 1 << BARRIER_TEXTURE;
               texture->incoherent |= 1 << BARRIER_CANVAS;
             }
 
-            lovrGpuBindImage(texture, uniform->baseTextureSlot + i);
+            lovrGpuBindImage(texture, uniform->baseTextureSlot + i, uniform->access);
           } else {
             lovrGpuBindTexture(texture, uniform->baseTextureSlot + i);
           }
@@ -1839,9 +1848,8 @@ void lovrShaderBind(Shader* shader) {
   for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_STORAGE; type++) {
     vec_foreach_ptr(&shader->blocks[type], block, i) {
       if (block->source) {
-
-        // Mark block as incoherent since we could write to it (TODO add read/write binding hints)
-        block->source->incoherent |= (type == BLOCK_STORAGE) ? (1 << BARRIER_BLOCK) : 0;
+        bool writable = type == BLOCK_STORAGE && block->access != ACCESS_READ;
+        block->source->incoherent |= writable ? (1 << BARRIER_BLOCK) : 0;
         lovrShaderBlockUnmap(block->source);
         lovrGpuBindBlockBuffer(type, block->source->buffer, block->binding);
       } else {

@@ -15,6 +15,12 @@ typedef enum {
 } BufferUsage;
 
 typedef enum {
+  ACCESS_READ,
+  ACCESS_WRITE,
+  ACCESS_READ_WRITE
+} UniformAccess;
+
+typedef enum {
   BLOCK_UNIFORM,
   BLOCK_STORAGE
 } BlockType;
@@ -55,6 +61,7 @@ typedef struct {
     Texture** textures;
   } value;
   TextureType textureType;
+  UniformAccess access;
   int baseTextureSlot;
   bool image;
   bool dirty;
