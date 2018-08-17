@@ -161,6 +161,12 @@ const char* TextureTypes[] = {
   NULL
 };
 
+const char* UniformAccesses[] = {
+  [ACCESS_READ] = "read",
+  [ACCESS_WRITE] = "write",
+  [ACCESS_READ_WRITE] = "readwrite"
+};
+
 const char* VerticalAligns[] = {
   [ALIGN_TOP] = "top",
   [ALIGN_BOTTOM] = "bottom",

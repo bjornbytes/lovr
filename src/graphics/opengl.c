@@ -1828,6 +1828,8 @@ void lovrShaderBind(Shader* shader) {
           lovrAssert(!texture || texture->type == uniform->textureType, "Uniform texture type mismatch");
 
           if (uniform->image) {
+
+            // If the Shader can write to the texture, mark it as incoherent
             if (texture && uniform->access != ACCESS_READ) {
               texture->incoherent |= 1 << BARRIER_UNIFORM_TEXTURE;
               texture->incoherent |= 1 << BARRIER_UNIFORM_IMAGE;
@@ -1848,6 +1850,8 @@ void lovrShaderBind(Shader* shader) {
   for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_STORAGE; type++) {
     vec_foreach_ptr(&shader->blocks[type], block, i) {
       if (block->source) {
+
+        // If the Shader can write to the block, mark it as incoherent
         bool writable = type == BLOCK_STORAGE && block->access != ACCESS_READ;
         block->source->incoherent |= writable ? (1 << BARRIER_BLOCK) : 0;
         lovrShaderBlockUnmap(block->source);
@@ -1922,13 +1926,14 @@ ShaderBlock* lovrShaderGetBlock(Shader* shader, const char* name) {
   return block->source;
 }
 
-void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
+void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source, UniformAccess access) {
   int* id = map_get(&shader->blockMap, name);
   lovrAssert(id, "No shader block named '%s'", name);
 
   int type = *id & 1;
   int index = *id >> 1;
   UniformBlock* block = &shader->blocks[type].data[index];
+  block->access = access;
 
   if (source != block->source) {
     if (source) {
@@ -1938,7 +1943,9 @@ void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source) {
         const Uniform* v = &source->uniforms.data[i];
         lovrAssert(u->type == v->type, "Shader is not compatible with ShaderBlock, check type of variable '%s'", v->name);
         lovrAssert(u->offset == v->offset, "Shader is not compatible with ShaderBlock, check order of variable '%s'", v->name);
-        //lovrAssert(u->size == v->size, "Shader is not compatible with ShaderBlock, check count of variable '%s'", v->name);
+
+        // This check is disabled due to observed driver bugs with std140 layouts
+        // lovrAssert(u->size == v->size, "Shader is not compatible with ShaderBlock, check count of variable '%s'", v->name);
       }
     }
 

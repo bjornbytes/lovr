@@ -99,6 +99,7 @@ extern const char* StencilActions[];
 extern const char* TextureFormats[];
 extern const char* TextureTypes[];
 extern const char* TimeUnits[];
+extern const char* UniformAccesses[];
 extern const char* VerticalAligns[];
 extern const char* Windings[];
 extern const char* WrapModes[];

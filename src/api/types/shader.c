@@ -211,7 +211,8 @@ int l_lovrShaderSetBlock(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
   ShaderBlock* block = luax_checktype(L, 3, ShaderBlock);
-  lovrShaderSetBlock(shader, name, block);
+  UniformAccess access = luaL_checkoption(L, 4, "readwrite", UniformAccesses);
+  lovrShaderSetBlock(shader, name, block, access);
   return 0;
 }
 
