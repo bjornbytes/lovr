@@ -78,6 +78,12 @@ int l_lovrSourceGetSampleRate(lua_State* L) {
   return 1;
 }
 
+int l_lovrSourceGetType(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  lua_pushstring(L, SourceTypes[lovrSourceGetType(source)]);
+  return 1;
+}
+
 int l_lovrSourceGetVelocity(lua_State* L) {
   float x, y, z;
   lovrSourceGetVelocity(luax_checktype(L, 1, Source), &x, &y, &z);
@@ -265,6 +271,7 @@ const luaL_Reg lovrSource[] = {
   { "getPitch", l_lovrSourceGetPitch },
   { "getPosition", l_lovrSourceGetPosition },
   { "getSampleRate", l_lovrSourceGetSampleRate },
+  { "getType", l_lovrSourceGetType },
   { "getVelocity", l_lovrSourceGetVelocity },
   { "getVolume", l_lovrSourceGetVolume },
   { "getVolumeLimits", l_lovrSourceGetVolumeLimits },

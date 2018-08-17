@@ -49,6 +49,10 @@ void lovrSourceDestroy(void* ref) {
   free(source);
 }
 
+SourceType lovrSourceGetType(Source* source) {
+  return source->type;
+}
+
 int lovrSourceGetBitDepth(Source* source) {
   return source->type == SOURCE_STATIC ? source->soundData->bitDepth : source->stream->bitDepth;
 }

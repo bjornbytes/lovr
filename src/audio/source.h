@@ -32,6 +32,7 @@ typedef struct {
 Source* lovrSourceCreateStatic(SoundData* soundData);
 Source* lovrSourceCreateStream(AudioStream* stream);
 void lovrSourceDestroy(void* ref);
+SourceType lovrSourceGetType(Source* source);
 int lovrSourceGetBitDepth(Source* source);
 int lovrSourceGetChannelCount(Source* source);
 void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, float* outerGain);
