@@ -1227,7 +1227,7 @@ TextureType lovrTextureGetType(Texture* texture) {
   return texture->type;
 }
 
-TextureType lovrTextureGetFormat(Texture* texture) {
+TextureFormat lovrTextureGetFormat(Texture* texture) {
   return texture->format;
 }
 

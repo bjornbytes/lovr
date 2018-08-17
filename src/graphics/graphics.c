@@ -1,6 +1,7 @@
 #include "graphics/graphics.h"
 #include "data/rasterizer.h"
 #include "event/event.h"
+#include "filesystem/filesystem.h"
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "util.h"
