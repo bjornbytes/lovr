@@ -7,6 +7,7 @@ struct TempData {
   int size;
 };
 
+// Not thread safe
 static struct TempData tempData;
 
 int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* dest, const char* debug) {
@@ -37,8 +38,8 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         memcpy(dest, blob->data, elements * sizeof(int));
         break;
 
-      case UNIFORM_TEXTURE:
-        lovrThrow("Texture uniform '%s' can not be updated with a Blob", debug);
+      case UNIFORM_SAMPLER: lovrThrow("Sampler uniform '%s' can not be updated with a Blob", debug);
+      case UNIFORM_IMAGE: lovrThrow("Image uniform '%s' can not be updated with a Blob", debug);
     }
 
     return 0;
@@ -58,11 +59,23 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
       switch (uniform->type) {
         case UNIFORM_FLOAT: *((float*) dest + i) = luaL_checknumber(L, j); break;
         case UNIFORM_INT: *((int*) dest + i) = luaL_checkinteger(L, j); break;
-        case UNIFORM_TEXTURE:
+        case UNIFORM_SAMPLER:
           *((Texture**) dest + i) = luax_checktype(L, j, Texture);
           TextureType type = lovrTextureGetType(*((Texture**) dest + i));
-          lovrAssert(type == uniform->textureType, "Attempt to send %s texture to %s texture uniform", TextureTypes[type], TextureTypes[uniform->textureType]);
+          lovrAssert(type == uniform->textureType, "Attempt to send %s texture to %s sampler uniform", TextureTypes[type], TextureTypes[uniform->textureType]);
           break;
+
+        case UNIFORM_IMAGE: {
+          Image* image = (Image*) dest + i;
+          image->texture = luax_checktype(L, j, Texture);
+          image->slice = 0;
+          image->mipmap = 0;
+          image->access = ACCESS_READ_WRITE;
+          TextureType type = lovrTextureGetType(image->texture);
+          lovrAssert(type == uniform->textureType, "Attempt to send %s texture to %s image uniform", TextureTypes[type], TextureTypes[uniform->textureType]);
+          break;
+        }
+
         default: break;
       }
 
@@ -99,7 +112,9 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
               *((int*) dest + i * components + j) = luaL_checkinteger(L, -1);
               break;
 
-            case UNIFORM_TEXTURE: lovrThrow("Unreachable");
+            case UNIFORM_SAMPLER:
+            case UNIFORM_IMAGE:
+              lovrThrow("Unreachable");
           }
           lua_pop(L, 1);
         }
@@ -126,7 +141,9 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
               *((float*) dest + i * components + j) = luaL_checknumber(L, -1);
               break;
 
-            case UNIFORM_TEXTURE: lovrThrow("Unreachable");
+            case UNIFORM_SAMPLER:
+            case UNIFORM_IMAGE:
+              lovrThrow("Unreachable");
           }
         }
       }
@@ -191,23 +208,16 @@ int l_lovrShaderSend(lua_State* L) {
 
   luax_checkuniform(L, 3, uniform, tempData.data, name);
   switch (uniform->type) {
-    case UNIFORM_FLOAT: lovrShaderSetFloat(shader, uniform->name, tempData.data, uniform->count * uniform->components); break;
-    case UNIFORM_INT: lovrShaderSetInt(shader, uniform->name, tempData.data, uniform->count * uniform->components); break;
-    case UNIFORM_MATRIX: lovrShaderSetMatrix(shader, uniform->name, tempData.data, uniform->count * uniform->components * uniform->components); break;
-    case UNIFORM_TEXTURE: lovrShaderSetTexture(shader, uniform->name, tempData.data, uniform->count); break;
+    case UNIFORM_FLOAT: lovrShaderSetFloats(shader, uniform->name, tempData.data, 0, uniform->count * uniform->components); break;
+    case UNIFORM_INT: lovrShaderSetInts(shader, uniform->name, tempData.data, 0, uniform->count * uniform->components); break;
+    case UNIFORM_MATRIX: lovrShaderSetMatrices(shader, uniform->name, tempData.data, 0, uniform->count * uniform->components * uniform->components); break;
+    case UNIFORM_SAMPLER: lovrShaderSetTextures(shader, uniform->name, tempData.data, 0, uniform->count); break;
+    case UNIFORM_IMAGE: lovrShaderSetImages(shader, uniform->name, tempData.data, 0, uniform->count); break;
   }
   return 0;
 }
 
-int l_lovrShaderGetBlock(lua_State* L) {
-  Shader* shader = luax_checktype(L, 1, Shader);
-  const char* name = luaL_checkstring(L, 2);
-  ShaderBlock* block = lovrShaderGetBlock(shader, name);
-  luax_pushobject(L, block);
-  return 1;
-}
-
-int l_lovrShaderSetBlock(lua_State* L) {
+int l_lovrShaderSendBlock(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
   ShaderBlock* block = luax_checktype(L, 3, ShaderBlock);
@@ -216,11 +226,30 @@ int l_lovrShaderSetBlock(lua_State* L) {
   return 0;
 }
 
+int l_lovrShaderSendImage(lua_State* L) {
+  int index = 1;
+  Shader* shader = luax_checktype(L, index++, Shader);
+  const char* name = luaL_checkstring(L, index++);
+
+  int start = 0;
+  if (lua_type(L, index) == LUA_TNUMBER) {
+    start = lua_tointeger(L, index++);
+  }
+
+  Texture* texture = luax_checktype(L, index++, Texture);
+  int slice = luaL_optinteger(L, index++, 0) - 1; // Default is -1
+  int mipmap = luax_optmipmap(L, index++, texture);
+  UniformAccess access = luaL_checkoption(L, index++, "readwrite", UniformAccesses);
+  Image image = { .texture = texture, .slice = slice, .mipmap = mipmap, .access = access };
+  lovrShaderSetImages(shader, name, &image, start, 1);
+  return 0;
+}
+
 const luaL_Reg lovrShader[] = {
   { "getType", l_lovrShaderGetType },
   { "hasUniform", l_lovrShaderHasUniform },
   { "send", l_lovrShaderSend },
-  { "getBlock", l_lovrShaderGetBlock },
-  { "setBlock", l_lovrShaderSetBlock },
+  { "sendBlock", l_lovrShaderSendBlock },
+  { "sendImage", l_lovrShaderSendImage },
   { NULL, NULL }
 };

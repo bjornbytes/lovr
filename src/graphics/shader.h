@@ -29,7 +29,8 @@ typedef enum {
   UNIFORM_FLOAT,
   UNIFORM_MATRIX,
   UNIFORM_INT,
-  UNIFORM_TEXTURE
+  UNIFORM_SAMPLER,
+  UNIFORM_IMAGE
 } UniformType;
 
 typedef enum {
@@ -47,6 +48,13 @@ typedef enum {
 } DefaultShader;
 
 typedef struct {
+  Texture* texture;
+  int slice;
+  int mipmap;
+  UniformAccess access;
+} Image;
+
+typedef struct {
   char name[LOVR_MAX_UNIFORM_LENGTH];
   UniformType type;
   int components;
@@ -56,13 +64,14 @@ typedef struct {
   int size;
   union {
     void* data;
+    char* bytes;
     int* ints;
     float* floats;
     Texture** textures;
+    Image* images;
   } value;
   TextureType textureType;
-  UniformAccess access;
-  int baseTextureSlot;
+  int baseSlot;
   bool image;
   bool dirty;
 } Uniform;
@@ -71,6 +80,15 @@ typedef vec_t(Uniform) vec_uniform_t;
 
 typedef struct Shader Shader;
 typedef struct ShaderBlock ShaderBlock;
+
+typedef struct {
+  vec_uniform_t uniforms;
+  int slot;
+  ShaderBlock* source;
+  UniformAccess access;
+} UniformBlock;
+
+typedef vec_t(UniformBlock) vec_block_t;
 
 Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentSource);
 Shader* lovrShaderCreateCompute(const char* source);
@@ -81,11 +99,11 @@ void lovrShaderBind(Shader* shader);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 bool lovrShaderHasUniform(Shader* shader, const char* name);
 const Uniform* lovrShaderGetUniform(Shader* shader, const char* name);
-void lovrShaderSetFloat(Shader* shader, const char* name, float* data, int count);
-void lovrShaderSetInt(Shader* shader, const char* name, int* data, int count);
-void lovrShaderSetMatrix(Shader* shader, const char* name, float* data, int count);
-void lovrShaderSetTexture(Shader* shader, const char* name, Texture** data, int count);
-ShaderBlock* lovrShaderGetBlock(Shader* shader, const char* name);
+void lovrShaderSetFloats(Shader* shader, const char* name, float* data, int start, int count);
+void lovrShaderSetInts(Shader* shader, const char* name, int* data, int start, int count);
+void lovrShaderSetMatrices(Shader* shader, const char* name, float* data, int start, int count);
+void lovrShaderSetTextures(Shader* shader, const char* name, Texture** data, int start, int count);
+void lovrShaderSetImages(Shader* shader, const char* name, Image* data, int start, int count);
 void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* block, UniformAccess access);
 
 ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, BufferUsage usage);
