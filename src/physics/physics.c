@@ -85,6 +85,12 @@ void lovrWorldDestroyData(World* world) {
     world->space = NULL;
   }
 
+  while (world->head) {
+    Collider* next = world->head->next;
+    lovrColliderDestroyData(world->head);
+    world->head = next;
+  }
+
   if (world->id) {
     dWorldDestroy(world->id);
     world->id = NULL;
@@ -268,7 +274,6 @@ int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const cha
 }
 
 Collider* lovrColliderCreate(World* world, float x, float y, float z) {
-  lovrAssert(world, "No world specified");
   Collider* collider = lovrAlloc(Collider, lovrColliderDestroy);
   if (!collider) return NULL;
 
@@ -283,6 +288,18 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
 
   lovrColliderSetPosition(collider, x, y, z);
 
+  // Adjust the world's collider list
+  if (!collider->world->head) {
+    collider->world->head = collider;
+  } else {
+    collider->next = collider->world->head;
+    collider->next->prev = collider;
+    collider->world->head = collider;
+  }
+
+  // The world owns a reference to the collider
+  lovrRetain(collider);
+
   return collider;
 }
 
@@ -295,10 +312,20 @@ void lovrColliderDestroy(void* ref) {
 }
 
 void lovrColliderDestroyData(Collider* collider) {
-  if (collider->body) {
-    dBodyDestroy(collider->body);
-    collider->body = NULL;
+  if (!collider->body) {
+    return;
   }
+
+  dBodyDestroy(collider->body);
+  collider->body = NULL;
+
+  if (collider->next) collider->next->prev = collider->prev;
+  if (collider->prev) collider->prev->next = collider->next;
+  if (collider->world->head == collider) collider->world->head = collider->next;
+  collider->next = collider->prev = NULL;
+
+  // If the Collider is destroyed, the world lets go of its reference to this Collider
+  lovrRelease(collider);
 }
 
 World* lovrColliderGetWorld(Collider* collider) {

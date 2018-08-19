@@ -25,6 +25,8 @@ typedef enum {
   JOINT_SLIDER
 } JointType;
 
+typedef struct Collider Collider;
+
 typedef struct {
   Ref ref;
   dWorldID id;
@@ -33,19 +35,22 @@ typedef struct {
   vec_void_t overlaps;
   map_int_t tags;
   uint16_t masks[MAX_TAGS];
+  Collider* head;
 } World;
 
-typedef struct {
+struct Collider {
   Ref ref;
   dBodyID body;
   World* world;
+  Collider* prev;
+  Collider* next;
   void* userdata;
   int tag;
   vec_void_t shapes;
   vec_void_t joints;
   float friction;
   float restitution;
-} Collider;
+};
 
 typedef struct {
   Ref ref;

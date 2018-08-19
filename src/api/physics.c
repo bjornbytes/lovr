@@ -57,6 +57,7 @@ int l_lovrPhysicsNewWorld(lua_State* L) {
   }
   World* world = lovrWorldCreate(xg, yg, zg, allowSleep, tags, tagCount);
   luax_pushobject(L, world);
+  lovrRelease(world);
   return 1;
 }
 
