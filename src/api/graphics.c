@@ -256,7 +256,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   luax_registertype(L, "Shader", lovrShader);
   luax_registertype(L, "ShaderBlock", lovrShaderBlock);
   luax_registertype(L, "Texture", lovrTexture);
-  luax_extendtype(L, "Texture", "Canvas", lovrTexture, lovrCanvas);
+  luax_registertype(L, "Canvas", lovrCanvas);
 
   luax_pushconf(L);
 
@@ -436,22 +436,10 @@ int l_lovrGraphicsSetBlendMode(lua_State* L) {
 }
 
 int l_lovrGraphicsGetCanvas(lua_State* L) {
-  Canvas* canvas[MAX_CANVASES];
-  int count;
-  lovrGraphicsGetCanvas(canvas, &count);
-  for (int i = 0; i < count; i++) {
-    luax_pushobject(L, canvas[i]);
-  }
-  return count;
+  return 0;
 }
 
 int l_lovrGraphicsSetCanvas(lua_State* L) {
-  Canvas* canvas[MAX_CANVASES];
-  int count = MIN(lua_gettop(L), MAX_CANVASES);
-  for (int i = 0; i < count; i++) {
-    canvas[i] = luax_checktype(L, i + 1, Canvas);
-  }
-  lovrGraphicsSetCanvas(canvas, count);
   return 0;
 }
 
@@ -949,37 +937,7 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
 }
 
 int l_lovrGraphicsNewCanvas(lua_State* L) {
-  int width = luaL_checkinteger(L, 1);
-  int height = luaL_checkinteger(L, 2);
-  luaL_argcheck(L, width > 0, 1, "width must be positive");
-  luaL_argcheck(L, height > 0, 2, "height must be positive");
-
-  TextureFormat format = FORMAT_RGBA;
-  CanvasFlags flags = { .msaa = 0, .depth = true, .stencil = false, .mipmaps = true };
-
-  if (lua_istable(L, 3)) {
-    lua_getfield(L, 3, "format");
-    format = luaL_checkoption(L, -1, "rgba", TextureFormats);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 3, "msaa");
-    flags.msaa = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 3, "depth");
-    flags.depth = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 3, "stencil");
-    flags.stencil = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 3, "mipmaps");
-    flags.mipmaps = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-  }
-
-  Canvas* canvas = lovrCanvasCreate(width, height, format, flags);
+  Canvas* canvas = lovrCanvasCreate();
   luax_pushobject(L, canvas);
   lovrRelease(canvas);
   return 1;

@@ -49,8 +49,6 @@ static struct {
   bool stencilWriting;
   Winding winding;
   bool wireframe;
-  Canvas* canvas[MAX_CANVASES];
-  int canvasCount;
   uint32_t framebuffer;
   uint32_t indexBuffer;
   uint32_t program;
@@ -111,13 +109,8 @@ struct Texture {
 };
 
 struct Canvas {
-  Texture texture;
-  GLuint framebuffer;
-  GLuint resolveFramebuffer;
-  GLuint depthStencilBuffer;
-  GLuint msaaTexture;
-  CanvasFlags flags;
-  Canvas** attachments[MAX_CANVASES];
+  Ref ref;
+  uint32_t framebuffer;
 };
 
 typedef struct {
@@ -286,16 +279,6 @@ static GLenum convertMeshDrawMode(MeshDrawMode mode) {
   }
 }
 
-static bool isCanvasFormatSupported(TextureFormat format) {
-  switch (format) {
-    case FORMAT_DXT1:
-    case FORMAT_DXT3:
-    case FORMAT_DXT5:
-      return false;
-    default: return true;
-  }
-}
-
 static UniformType getUniformType(GLenum type, const char* debug) {
   switch (type) {
     case GL_FLOAT:
@@ -448,13 +431,6 @@ static void lovrGpuCleanupIncoherentResource(void* resource, uint8_t incoherent)
 
 // GPU
 
-static void lovrGpuBindFramebuffer(uint32_t framebuffer) {
-  if (state.framebuffer != framebuffer) {
-    state.framebuffer = framebuffer;
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-  }
-}
-
 static void lovrGpuBindIndexBuffer(uint32_t indexBuffer) {
   if (state.indexBuffer != indexBuffer) {
     state.indexBuffer = indexBuffer;
@@ -529,13 +505,6 @@ static void lovrGpuBindVertexBuffer(uint32_t vertexBuffer) {
   }
 }
 
-static void lovrGpuSetViewport(float viewport[4]) {
-  if (memcmp(state.viewport, viewport, 4 * sizeof(float))) {
-    memcpy(state.viewport, viewport, 4 * sizeof(float));
-    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-  }
-}
-
 static void lovrGpuUseProgram(uint32_t program) {
   if (state.program != program) {
     state.program = program;
@@ -590,34 +559,7 @@ void lovrGpuDestroy() {
   }
 }
 
-void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil) {
-  lovrGpuBindFramebuffer(canvasCount > 0 ? canvas[0]->framebuffer : 0);
-
-  if (color) {
-    gammaCorrectColor(color);
-    float c[4] = { color->r, color->g, color->b, color->a };
-    glClearBufferfv(GL_COLOR, 0, c);
-    for (int i = 1; i < canvasCount; i++) {
-      glClearBufferfv(GL_COLOR, i, c);
-    }
-  }
-
-  if (depth) {
-    if (!state.depthWrite) {
-      state.depthWrite = true;
-      glDepthMask(state.depthWrite);
-    }
-
-    glClearBufferfv(GL_DEPTH, 0, depth);
-  }
-
-  if (stencil) {
-    glClearBufferiv(GL_STENCIL, 0, stencil);
-  }
-
-  if (canvasCount > 0) {
-    lovrCanvasResolve(canvas[0]);
-  }
+void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil) {
 }
 
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
@@ -864,65 +806,14 @@ void lovrGpuDraw(DrawCommand* command) {
 
   lovrShaderSetMatrices(shader, "lovrMaterialTransform", material->transform, 0, 9);
 
-  // Canvas
-  Canvas** canvas = pipeline->canvasCount > 0 ? pipeline->canvas : &command->camera.canvas;
-  int canvasCount = pipeline->canvasCount > 0 ? pipeline->canvasCount : (command->camera.canvas != NULL);
-  if (canvasCount != state.canvasCount || memcmp(state.canvas, canvas, canvasCount * sizeof(Canvas*))) {
-    if (state.canvasCount > 0) {
-      lovrCanvasResolve(state.canvas[0]);
-    }
-
-    state.canvasCount = canvasCount;
-
-    if (canvasCount > 0) {
-      memcpy(state.canvas, canvas, canvasCount * sizeof(Canvas*));
-      lovrGpuBindFramebuffer(canvas[0]->framebuffer);
-
-      GLenum buffers[MAX_CANVASES];
-      for (int i = 0; i < canvasCount; i++) {
-        buffers[i] = GL_COLOR_ATTACHMENT0 + i;
-        if (canvas[i]->flags.msaa > 0) {
-          glFramebufferRenderbuffer(GL_FRAMEBUFFER, buffers[i], GL_RENDERBUFFER, canvas[i]->msaaTexture);
-        } else {
-          glFramebufferTexture2D(GL_FRAMEBUFFER, buffers[i], GL_TEXTURE_2D, lovrTextureGetId((Texture*) canvas[i]), 0);
-        }
-      }
-      glDrawBuffers(canvasCount, buffers);
-
-      GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-      lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
-    } else {
-      lovrGpuBindFramebuffer(0);
-    }
-  }
-
-  // We need to synchronize if any attached textures have pending writes
-  for (int i = 0; i < canvasCount; i++) {
-    if ((canvas[i]->texture.incoherent >> BARRIER_CANVAS) & 1) {
-      lovrGpuWait(1 << BARRIER_CANVAS);
-      break;
-    }
-  }
-
   // Bind attributes
   lovrMeshBind(mesh, shader);
 
-  bool stereo = pipeline->canvasCount == 0 && command->camera.stereo == true;
+  bool stereo = false;
   int drawCount = 1 + (stereo == true && !state.singlepass);
 
   // Draw (TODEW)
   for (int i = 0; i < drawCount; i++) {
-    if (pipeline->canvasCount > 0) {
-      int width = lovrTextureGetWidth((Texture*) pipeline->canvas[0], 0);
-      int height = lovrTextureGetHeight((Texture*) pipeline->canvas[0], 0);
-      lovrGpuSetViewport((float[4]) { 0, 0, width, height });
-#ifndef EMSCRIPTEN
-    } else if (state.singlepass) {
-      glViewportArrayv(0, 2, command->camera.viewport[0]);
-#endif
-    } else  {
-      lovrGpuSetViewport(command->camera.viewport[i]);
-    }
 
     // Bind uniforms
     lovrShaderSetInts(shader, "lovrIsStereo", &(int) { stereo && state.singlepass }, 0, 1);
@@ -1295,125 +1186,16 @@ void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
 
 // Canvas
 
-Canvas* lovrCanvasCreate(int width, int height, TextureFormat format, CanvasFlags flags) {
-  lovrAssert(isCanvasFormatSupported(format), "Unsupported texture format for Canvas");
+Canvas* lovrCanvasCreate() {
   Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
-  Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, flags.mipmaps);
-
-  if (!canvas || !texture) {
-    lovrRelease(canvas);
-    lovrRelease(texture);
-    return NULL;
-  }
-
-  lovrTextureAllocate(texture, width, height, 1, format);
-
-  Ref ref = canvas->texture.ref;
-  canvas->texture = *texture;
-  canvas->texture.ref = ref;
-  canvas->flags = flags;
-
-  // Framebuffer
-  glGenFramebuffers(1, &canvas->framebuffer);
-  lovrGpuBindFramebuffer(canvas->framebuffer);
-
-  // Color attachment
-  if (flags.msaa > 0) {
-    GLenum internalFormat = convertTextureFormatInternal(format, lovrGraphicsIsGammaCorrect());
-    glGenRenderbuffers(1, &canvas->msaaTexture);
-    glBindRenderbuffer(GL_RENDERBUFFER, canvas->msaaTexture);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, flags.msaa, internalFormat, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, canvas->msaaTexture);
-  } else {
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, canvas->texture.id, 0);
-  }
-
-  // Depth/Stencil
-  if (flags.depth || flags.stencil) {
-    GLenum depthStencilFormat = flags.stencil ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT24;
-    glGenRenderbuffers(1, &canvas->depthStencilBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, canvas->depthStencilBuffer);
-    if (flags.msaa > 0) {
-      glRenderbufferStorageMultisample(GL_RENDERBUFFER, flags.msaa, depthStencilFormat, width, height);
-    } else {
-      glRenderbufferStorage(GL_RENDERBUFFER, depthStencilFormat, width, height);
-    }
-
-    if (flags.depth) {
-      glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, canvas->depthStencilBuffer);
-    }
-
-    if (flags.stencil) {
-      glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, canvas->depthStencilBuffer);
-    }
-  }
-
-  // Resolve framebuffer
-  if (flags.msaa > 0) {
-    glGenFramebuffers(1, &canvas->resolveFramebuffer);
-    lovrGpuBindFramebuffer(canvas->resolveFramebuffer);
-    glBindTexture(GL_TEXTURE_2D, canvas->texture.id);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, canvas->texture.id, 0);
-    lovrGpuBindFramebuffer(canvas->framebuffer);
-  }
-
-  lovrAssert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "Error creating Canvas");
-  lovrGpuClear(&canvas, 1, &(Color) { 0, 0, 0, 0 }, &(float) { 1. }, &(int) { 0 });
+  if (!canvas) return NULL;
 
   return canvas;
 }
 
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
-  glDeleteFramebuffers(1, &canvas->framebuffer);
-  if (canvas->resolveFramebuffer) {
-    glDeleteFramebuffers(1, &canvas->resolveFramebuffer);
-  }
-  if (canvas->depthStencilBuffer) {
-    glDeleteRenderbuffers(1, &canvas->depthStencilBuffer);
-  }
-  if (canvas->msaaTexture) {
-    glDeleteTextures(1, &canvas->msaaTexture);
-  }
-  lovrTextureDestroy(ref);
-}
-
-void lovrCanvasResolve(Canvas* canvas) {
-  if (canvas->flags.msaa > 0) {
-    int width = canvas->texture.width;
-    int height = canvas->texture.height;
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
-    lovrGpuBindFramebuffer(canvas->resolveFramebuffer);
-    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-  }
-
-  if (canvas->flags.mipmaps) {
-    lovrGpuBindTexture(&canvas->texture, 0);
-    glGenerateMipmap(canvas->texture.target);
-  }
-}
-
-TextureFormat lovrCanvasGetFormat(Canvas* canvas) {
-  return canvas->texture.format;
-}
-
-int lovrCanvasGetMSAA(Canvas* canvas) {
-  return canvas->flags.msaa;
-}
-
-TextureData* lovrCanvasNewTextureData(Canvas* canvas) {
-  TextureData* textureData = lovrTextureDataGetBlank(canvas->texture.width, canvas->texture.height, 0, FORMAT_RGBA);
-  if (!textureData) return NULL;
-
-  if ((canvas->texture.incoherent >> BARRIER_TEXTURE) & 1) {
-    lovrGpuWait(1 << BARRIER_TEXTURE);
-  }
-
-  lovrGpuBindFramebuffer(canvas->framebuffer);
-  glReadPixels(0, 0, canvas->texture.width, canvas->texture.height, GL_RGBA, GL_UNSIGNED_BYTE, textureData->blob.data);
-
-  return textureData;
+  free(ref);
 }
 
 // Shader

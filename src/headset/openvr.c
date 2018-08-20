@@ -240,11 +240,7 @@ static void ensureCanvas() {
     return;
   }
 
-  int maxMSAA = lovrGraphicsGetLimits().textureMSAA;
-  int msaa = state.msaa == -1 ? maxMSAA : MIN(state.msaa, maxMSAA);
-  state.system->GetRecommendedRenderTargetSize(&state.renderWidth, &state.renderHeight);
-  CanvasFlags flags = { .msaa = msaa, .depth = true, .stencil = true, .mipmaps = false };
-  state.canvas = lovrCanvasCreate(state.renderWidth * 2, state.renderHeight, FORMAT_RGB, flags);
+  state.canvas = lovrCanvasCreate();
 }
 
 static bool openvrInit(float offset, int msaa) {
@@ -685,12 +681,10 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   lovrGraphicsSetCamera(&camera, true);
   callback(userdata);
   lovrGraphicsSetCamera(NULL, false);
-  lovrGraphicsSetCanvas(NULL, 0);
-  lovrCanvasResolve(state.canvas);
   state.isRendering = false;
 
   // Submit
-  uintptr_t texture = (uintptr_t) lovrTextureGetId((Texture*) state.canvas);
+  uintptr_t texture = (uintptr_t) 0; // TODO
   EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
   Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
   VRTextureBounds_t left = { 0, 0, .5, 1. };
@@ -703,7 +697,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     lovrGraphicsPushPipeline();
     lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
     lovrGraphicsSetShader(NULL);
-    lovrGraphicsFill((Texture*) state.canvas);
+    // TODO
     lovrGraphicsPopPipeline();
   }
 }

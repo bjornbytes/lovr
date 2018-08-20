@@ -106,8 +106,6 @@ typedef struct {
   Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
-  Canvas* canvas[MAX_CANVASES];
-  int canvasCount;
   Color color;
   bool culling;
   CompareMode depthTest;
@@ -192,8 +190,6 @@ Color lovrGraphicsGetBackgroundColor();
 void lovrGraphicsSetBackgroundColor(Color color);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
-void lovrGraphicsGetCanvas(Canvas** canvas, int* count);
-void lovrGraphicsSetCanvas(Canvas** canvas, int count);
 Color lovrGraphicsGetColor();
 void lovrGraphicsSetColor(Color color);
 bool lovrGraphicsIsCullingEnabled();
@@ -252,7 +248,7 @@ typedef void (*gpuProc)(void);
 
 void lovrGpuInit(bool srgb, bool singlepass, gpuProc (*getProcAddress)(const char*));
 void lovrGpuDestroy();
-void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil);
+void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
 void lovrGpuDraw(DrawCommand* command);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
 void lovrGpuWait(uint8_t flags);

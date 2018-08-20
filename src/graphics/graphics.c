@@ -34,7 +34,6 @@ void lovrGraphicsDestroy() {
   }
   lovrGraphicsSetShader(NULL);
   lovrGraphicsSetFont(NULL);
-  lovrGraphicsSetCanvas(NULL, 0);
   for (int i = 0; i < MAX_DEFAULT_SHADERS; i++) {
     lovrRelease(state.defaultShaders[i]);
   }
@@ -142,9 +141,8 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   }
 
   if (clear) {
-    int canvasCount = state.camera.canvas != NULL;
     Color backgroundColor = lovrGraphicsGetBackgroundColor();
-    lovrGpuClear(&state.camera.canvas, canvasCount, &backgroundColor, &(float) { 1. }, &(int) { 0 });
+    lovrGpuClear(state.camera.canvas, &backgroundColor, &(float) { 1. }, &(int) { 0 });
   }
 }
 
@@ -158,7 +156,6 @@ void lovrGraphicsReset() {
   lovrGraphicsSetCamera(NULL, false);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
-  lovrGraphicsSetCanvas(NULL, 0);
   lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
   lovrGraphicsSetCullingEnabled(false);
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = FILTER_TRILINEAR });
@@ -176,17 +173,11 @@ void lovrGraphicsReset() {
 void lovrGraphicsPushPipeline() {
   lovrAssert(++state.pipeline < MAX_PIPELINES, "Unbalanced pipeline stack (more pushes than pops?)");
   memcpy(&state.pipelines[state.pipeline], &state.pipelines[state.pipeline - 1], sizeof(Pipeline));
-  for (int i = 0; i < state.pipelines[state.pipeline].canvasCount; i++) {
-    lovrRetain(state.pipelines[state.pipeline].canvas[i]);
-  }
   lovrRetain(state.pipelines[state.pipeline].font);
   lovrRetain(state.pipelines[state.pipeline].shader);
 }
 
 void lovrGraphicsPopPipeline() {
-  for (int i = 0; i < state.pipelines[state.pipeline].canvasCount; i++) {
-    lovrRelease(state.pipelines[state.pipeline].canvas[i]);
-  }
   lovrRelease(state.pipelines[state.pipeline].font);
   lovrRelease(state.pipelines[state.pipeline].shader);
   lovrAssert(--state.pipeline >= 0, "Unbalanced pipeline stack (more pops than pushes?)");
@@ -208,24 +199,6 @@ void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
   state.pipelines[state.pipeline].blendMode = mode;
   state.pipelines[state.pipeline].blendAlphaMode = alphaMode;
-}
-
-void lovrGraphicsGetCanvas(Canvas** canvas, int* count) {
-  *count = state.pipelines[state.pipeline].canvasCount;
-  memcpy(canvas, state.pipelines[state.pipeline].canvas, *count);
-}
-
-void lovrGraphicsSetCanvas(Canvas** canvas, int count) {
-  for (int i = 0; i < count; i++) {
-    lovrRetain(canvas[i]);
-  }
-
-  for (int i = 0; i < state.pipelines[state.pipeline].canvasCount; i++) {
-    lovrRelease(state.pipelines[state.pipeline].canvas[i]);
-  }
-
-  memcpy(state.pipelines[state.pipeline].canvas, canvas, count * sizeof(Canvas*));
-  state.pipelines[state.pipeline].canvasCount = count;
 }
 
 Color lovrGraphicsGetColor() {
@@ -381,11 +354,7 @@ VertexPointer lovrGraphicsGetVertexPointer(uint32_t count) {
 
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
   Pipeline* pipeline = &state.pipelines[state.pipeline];
-  if (pipeline->canvasCount > 0) {
-    lovrGpuClear(pipeline->canvas, pipeline->canvasCount, color, depth, stencil);
-  } else {
-    lovrGpuClear(&state.camera.canvas, state.camera.canvas != NULL, color, depth, stencil);
-  }
+  lovrGpuClear(state.camera.canvas, color, depth, stencil);
 }
 
 void lovrGraphicsDraw(DrawOptions* draw) {
