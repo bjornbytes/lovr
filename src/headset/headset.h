@@ -37,7 +37,6 @@ typedef enum {
 } ControllerAxis;
 
 typedef enum {
-  CONTROLLER_BUTTON_UNKNOWN,
   CONTROLLER_BUTTON_SYSTEM,
   CONTROLLER_BUTTON_MENU,
   CONTROLLER_BUTTON_TRIGGER,
@@ -47,7 +46,8 @@ typedef enum {
   CONTROLLER_BUTTON_A,
   CONTROLLER_BUTTON_B,
   CONTROLLER_BUTTON_X,
-  CONTROLLER_BUTTON_Y
+  CONTROLLER_BUTTON_Y,
+  CONTROLLER_BUTTON_UNKNOWN // Must be last item
 } ControllerButton;
 
 typedef enum {
