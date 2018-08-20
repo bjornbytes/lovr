@@ -114,7 +114,9 @@ bool lovrRun(int argc, char** argv, int* status) {
   *status = 0;
   return false;
 #else
-  while (lua_resume(L, 0) == LUA_YIELD) ;
+  while (lua_resume(L, 0) == LUA_YIELD) {
+    lovrTimerSleep(.001);
+  }
 
   *status = lua_tonumber(L, -1);
   bool restart = lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "restart");
