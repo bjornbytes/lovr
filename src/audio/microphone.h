@@ -1,11 +1,14 @@
 #include "util.h"
 #include "data/soundData.h"
+#if USE_OPENAL
 #include <AL/al.h>
 #include <AL/alc.h>
+#endif
 #include <stdbool.h>
 
 #pragma once
 
+#ifdef USE_OPENAL
 typedef struct {
   Ref ref;
   ALCdevice* device;
@@ -15,6 +18,9 @@ typedef struct {
   int bitDepth;
   int channelCount;
 } Microphone;
+#else
+typedef unsigned int Microphone;
+#endif
 
 Microphone* lovrMicrophoneCreate(const char* name, int samples, int sampleRate, int bitDepth, int channelCount);
 void lovrMicrophoneDestroy(void* ref);
