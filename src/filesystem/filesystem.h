@@ -21,6 +21,8 @@ typedef struct {
   vec_str_t requirePattern[2];
 } FilesystemState;
 
+extern bool lovrFilesystemReloadEnable;
+
 void lovrFilesystemInit(const char* arg0, const char* arg1);
 void lovrFilesystemDestroy();
 int lovrFilesystemCreateDirectory(const char* path);
@@ -47,4 +49,5 @@ int lovrFilesystemSetIdentity(const char* identity);
 void lovrFilesystemSetRequirePath(const char* requirePath);
 void lovrFilesystemSetCRequirePath(const char* requirePath);
 int lovrFilesystemUnmount(const char* path);
+bool lovrCheckReload();
 size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append);

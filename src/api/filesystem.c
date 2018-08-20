@@ -3,6 +3,36 @@
 #include "data/blob.h"
 #include <stdlib.h>
 
+bool lovrFilesystemReloadEnable;
+
+struct LovrLiveReloadRecord;
+typedef struct LovrLiveReloadRecord {
+  char *path;
+  long modtime;
+  struct LovrLiveReloadRecord *next;
+} LovrLiveReloadRecord;
+static LovrLiveReloadRecord *liveRecordRoot = NULL;
+
+static void lovrReloadAddWatch(const char *physPath) {
+  if (!lovrFilesystemReloadEnable)
+    return;
+  if (PHYSFS_getRealDir(physPath)) { // Disregard anything in a zip file, etc
+    LovrLiveReloadRecord *newRecord = malloc(sizeof(LovrLiveReloadRecord));
+    newRecord->path = strdup(physPath);
+    newRecord->modtime = lovrFilesystemGetLastModified(physPath);
+    newRecord->next = liveRecordRoot;
+    liveRecordRoot = newRecord;
+  }
+}
+
+static bool lovrReloadCheck() {
+  for(LovrLiveReloadRecord *i = liveRecordRoot; i; i = i->next) {
+    if (lovrFilesystemGetLastModified(i->path) != i->modtime)
+      return true;
+  }
+  return false;
+}
+
 // Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
 Blob* luax_readblob(lua_State* L, int index, const char* debug) {
   if (lua_type(L, index) == LUA_TUSERDATA) {
@@ -40,6 +70,9 @@ static int moduleLoader(lua_State* L) {
   vec_foreach(lovrFilesystemGetRequirePath(), path, i) {
     const char* filename = luaL_gsub(L, path, "?", module);
     if (lovrFilesystemIsFile(filename)) {
+      if (lovrFilesystemReloadEnable) {
+        lovrReloadAddWatch(filename);
+      }
       return l_lovrFilesystemLoad(L);
     }
     lua_pop(L, 1);
@@ -98,6 +131,10 @@ static int libraryLoader(lua_State* L) {
         } else {
           lovrCloseLibrary(library);
         }
+
+        if (lovrFilesystemReloadEnable) {
+          lovrReloadAddWatch(filename);
+        }
       }
     }
   }
@@ -106,6 +143,17 @@ static int libraryLoader(lua_State* L) {
 }
 
 int l_lovrFilesystemInit(lua_State* L) {
+  if (liveRecordRoot) {
+    LovrLiveReloadRecord *i = liveRecordRoot;
+    while (i) {
+      LovrLiveReloadRecord *current = i;
+      i = current->next;
+      free(current->path);
+      free(current);
+    }
+    liveRecordRoot = NULL;
+  }
+    
   lua_newtable(L);
   luaL_register(L, NULL, lovrFilesystem);
 
@@ -323,6 +371,22 @@ int l_lovrFilesystemRead(lua_State* L) {
   return 1;
 }
 
+int l_lovrFilesystemReloadAddWatch(lua_State* L) {
+  const char* path = luaL_checkstring(L, 1);
+  lovrReloadAddWatch(path);
+  return 0;
+}
+
+int l_lovrFilesystemReloadEnabled(lua_State* L) {
+  lua_pushboolean(L, lovrFilesystemReloadEnable);
+  return 1;
+}
+
+int l_lovrFilesystemReloadCheck(lua_State* L) {
+  lua_pushboolean(L, lovrReloadCheck());
+  return 1;
+}
+
 int l_lovrFilesystemRemove(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, !lovrFilesystemRemove(path));
@@ -381,6 +445,9 @@ const luaL_Reg lovrFilesystem[] = {
   { "mount", l_lovrFilesystemMount },
   { "newBlob", l_lovrFilesystemNewBlob },
   { "read", l_lovrFilesystemRead },
+  { "reloadAddWatch", l_lovrFilesystemReloadAddWatch },
+  { "reloadEnabled", l_lovrFilesystemReloadEnabled },
+  { "reloadCheck", l_lovrFilesystemReloadCheck },
   { "remove", l_lovrFilesystemRemove },
   { "setRequirePath", l_lovrFilesystemSetRequirePath },
   { "setIdentity", l_lovrFilesystemSetIdentity },

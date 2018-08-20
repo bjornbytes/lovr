@@ -98,6 +98,19 @@ function lovr.boot()
   return lovr.run()
 end
 
+local reloadLast = 0
+local reloadLastUpdated = nil
+local function reloadHandle(dt)
+  reloadLast = reloadLast + dt
+  if not reloadLastUpdated or math.floor(reloadLast) > reloadLastUpdated then
+    if lovr.filesystem.reloadCheck() then
+      print("Source files changed, restarting")
+      return true
+    end
+    reloadLastUpdated = reloadLast
+  end
+end
+
 function lovr.run()
   lovr.timer.step()
   if lovr.load then lovr.load(arg) end
@@ -134,6 +147,11 @@ function lovr.run()
       end
       lovr.graphics.present()
     end
+    if lovr.filesystem and lovr.filesystem.reloadEnabled() then
+      if reloadHandle(dt) then
+        return "restart"
+      end
+    end
   end
 end
 
@@ -151,6 +169,7 @@ function lovr.errhand(message)
   local function render()
     lovr.graphics.print(message, -width / 2, 0, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
   end
+  local lastReloadCheck
   return function()
     lovr.event.pump()
     for name in lovr.event.poll() do if name == 'quit' then return 1 end end
@@ -159,6 +178,14 @@ function lovr.errhand(message)
     if lovr.headset then lovr.headset.renderTo(render) end
     render()
     lovr.graphics.present()
+    if lovr.filesystem and lovr.filesystem.reloadEnabled() then
+      local currentTime = lovr.timer.getTime()
+      local dt = lastReloadCheck and (currentTime - lastReloadCheck)
+      currentTime = lastReloadCheck
+      if reloadHandle(dt or 1) then
+        return "restart"
+      end
+    end
   end
 end
 

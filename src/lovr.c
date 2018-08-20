@@ -69,6 +69,20 @@ void lovrDestroy() {
 }
 
 bool lovrRun(int argc, char** argv, int* status) {
+  bool checkingArgs = true;
+  while (checkingArgs) {
+    checkingArgs = false; // Set true to loop again
+    if (argc > 1 && strcmp(argv[1], "--live") == 0) {
+      if (!lovrFilesystemReloadEnable) {
+        printf("Running LOVR in live-reload mode: lua files on disk will be watched.\n");
+        lovrFilesystemReloadEnable = true;
+      }
+      argc--;
+      argv++;
+      checkingArgs = true;
+    }
+  }
+
   lua_State* L = lovrErrorContext = luaL_newstate();
   luaL_openlibs(L);
 
