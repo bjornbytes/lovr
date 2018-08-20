@@ -164,28 +164,37 @@ else()
 endif()
 
 # OpenAL
+set(USE_OPENAL ON CACHE BOOL "If set to OFF, OpenAL is excluded and the behavior of lovr.audio is undefined")
 set(ALSOFT_UTILS OFF CACHE BOOL "")
 set(ALSOFT_EXAMPLES OFF CACHE BOOL "")
 set(ALSOFT_TESTS OFF CACHE BOOL "")
-if(EMSCRIPTEN)
-  include_directories(deps/openal-soft/include)
-elseif(WIN32)
-  add_subdirectory(deps/openal-soft openal)
-  include_directories(deps/openal-soft/include)
-  set_target_properties(OpenAL PROPERTIES COMPILE_FLAGS "/wd4005 /wd4098")
-  set(LOVR_OPENAL OpenAL)
-else()
-  pkg_search_module(OPENAL openal-soft)
-  if (NOT OPENAL_FOUND)
-    pkg_search_module(OPENAL openal)
+
+if(USE_OPENAL)
+  add_definitions(-DUSE_OPENAL)
+  set(LOVR_AUDIO_SRC src/audio/audio.c src/audio/source.c src/audio/microphone.c)
+
+  if(EMSCRIPTEN)
+    include_directories(deps/openal-soft/include)
+  elseif(WIN32)
+    add_subdirectory(deps/openal-soft openal)
+    include_directories(deps/openal-soft/include)
+    set_target_properties(OpenAL PROPERTIES COMPILE_FLAGS "/wd4005 /wd4098")
+    set(LOVR_OPENAL OpenAL)
+  else()
+    pkg_search_module(OPENAL openal-soft)
     if (NOT OPENAL_FOUND)
-      message(FATAL_ERROR "OpenAL not found.")
+      pkg_search_module(OPENAL openal)
+      if (NOT OPENAL_FOUND)
+        message(FATAL_ERROR "OpenAL not found.")
+      endif()
     endif()
+    include_directories(${OPENAL_INCLUDE_DIRS})
+    string(REPLACE ";" " " OPENAL_LDFLAGS_STR "${OPENAL_LDFLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OPENAL_LDFLAGS_STR}")
+    set(LOVR_OPENAL ${OPENAL_LIBRARIES})
   endif()
-  include_directories(${OPENAL_INCLUDE_DIRS})
-  string(REPLACE ";" " " OPENAL_LDFLAGS_STR "${OPENAL_LDFLAGS}")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OPENAL_LDFLAGS_STR}")
-  set(LOVR_OPENAL ${OPENAL_LIBRARIES})
+else()
+  set(LOVR_AUDIO_SRC src/audio/null.c)
 endif()
 
 # OpenGL
@@ -258,9 +267,6 @@ set(LOVR_SRC
   src/api/types/transform.c
   src/api/types/vertexData.c
   src/api/types/world.c
-  src/audio/audio.c
-  src/audio/microphone.c
-  src/audio/source.c
   src/data/audioStream.c
   src/data/blob.c
   src/data/modelData.c
@@ -304,6 +310,7 @@ set(LOVR_SRC
   src/resources/shaders.c
   src/timer/timer.c
   src/util.c
+  ${LOVR_AUDIO_SRC}
 )
 
 # Conditional sources
@@ -362,7 +369,9 @@ if(WIN32)
   move_dll(${LOVR_GLFW})
   move_dll(${LOVR_LUA})
   move_dll(${LOVR_ODE})
-  move_dll(${LOVR_OPENAL})
+  if (LOVR_OPENAL)
+    move_dll(${LOVR_OPENAL})
+  endif()
   move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_PHYSFS})
 endif()
