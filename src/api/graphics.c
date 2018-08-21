@@ -1135,57 +1135,76 @@ int l_lovrGraphicsNewComputeShader(lua_State* L) {
 }
 
 int l_lovrGraphicsNewTexture(lua_State* L) {
-  bool isTable = lua_istable(L, 1);
+  int index = 1;
+  int width, height, depth;
+  int argType = lua_type(L, index);
+  bool blank = argType == LUA_TNUMBER;
+  TextureType type = TEXTURE_2D;
 
-  if (!isTable) {
-    lua_newtable(L);
+  if (blank) {
+    width = lua_tointeger(L, index++);
+    height = luaL_checkinteger(L, index++);
+    depth = lua_type(L, index) == LUA_TNUMBER ? lua_tonumber(L, index++) : 1;
+    lovrAssert(width > 0 && height > 0 && depth > 0, "A Texture must have a positive width, height, and depth");
+  } else if (argType != LUA_TTABLE) {
+    lua_createtable(L, 1, 0);
     lua_pushvalue(L, 1);
     lua_rawseti(L, -2, 1);
     lua_replace(L, 1);
+    depth = 1;
+  } else {
+    depth = lua_objlen(L, index++);
+    type = depth > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE;
   }
 
-  int depth = lua_objlen(L, 1);
-  TextureType type = isTable ? (depth > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE) : TEXTURE_2D;
-
-  bool hasFlags = lua_istable(L, 2);
+  bool hasFlags = lua_istable(L, index);
   bool srgb = true;
   bool mipmaps = true;
+  TextureFormat format = FORMAT_RGBA;
 
   if (hasFlags) {
-    lua_getfield(L, 2, "linear");
+    lua_getfield(L, index, "linear");
     srgb = lua_isnil(L, -1) ? srgb : !lua_toboolean(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, 2, "mipmaps");
+    lua_getfield(L, index, "mipmaps");
     mipmaps = lua_isnil(L, -1) ? mipmaps : lua_toboolean(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, 2, "type");
+    lua_getfield(L, index, "type");
     type = lua_isnil(L, -1) ? type : luaL_checkoption(L, -1, NULL, TextureTypes);
     lua_pop(L, 1);
-  }
 
-  if (type == TEXTURE_CUBE && depth == 0) {
-    depth = 6;
-    const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
-    for (int i = 0; i < 6; i++) {
-      lua_pushstring(L, faces[i]);
-      lua_rawget(L, 1);
-      lua_rawseti(L, 1, i + 1);
-    }
+    lua_getfield(L, index, "format");
+    format = lua_isnil(L, -1) ? format : luaL_checkoption(L, -1, NULL, TextureFormats);
+    lua_pop(L, 1);
   }
 
   Texture* texture = lovrTextureCreate(type, NULL, 0, srgb, mipmaps);
 
-  for (int i = 0; i < depth; i++) {
-    lua_rawgeti(L, 1, i + 1);
-    TextureData* textureData = luax_checktexturedata(L, -1);
-    if (i == 0) {
-      lovrTextureAllocate(texture, textureData->width, textureData->height, depth, textureData->format);
+  if (blank) {
+    lovrTextureAllocate(texture, width, height, depth, format);
+  } else {
+    if (type == TEXTURE_CUBE && depth == 0) {
+      depth = 6;
+      const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
+      for (int i = 0; i < 6; i++) {
+        lua_pushstring(L, faces[i]);
+        lua_rawget(L, 1);
+        lua_rawseti(L, 1, i + 1);
+      }
     }
-    lovrTextureReplacePixels(texture, textureData, 0, 0, i, 0);
-    lovrRelease(textureData);
-    lua_pop(L, 1);
+
+    for (int i = 0; i < depth; i++) {
+      lua_rawgeti(L, 1, i + 1);
+      TextureData* textureData = luax_checktexturedata(L, -1);
+      if (i == 0) {
+        lovrTextureAllocate(texture, textureData->width, textureData->height, depth, textureData->format);
+      }
+      lovrTextureReplacePixels(texture, textureData, 0, 0, i, 0);
+      lovrRelease(textureData);
+      lua_pop(L, 1);
+    }
   }
 
   luax_pushobject(L, texture);
