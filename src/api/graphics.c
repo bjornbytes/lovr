@@ -236,7 +236,7 @@ static TextureData* luax_checktexturedata(lua_State* L, int index) {
 
   if (!textureData) {
     Blob* blob = luax_readblob(L, index, "Texture");
-    textureData = lovrTextureDataFromBlob(blob);
+    textureData = lovrTextureDataCreateFromBlob(blob);
     lovrRelease(blob);
   }
 
@@ -975,7 +975,7 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
 
   if (lua_type(L, index) == LUA_TSTRING) {
     Blob* blob = luax_readblob(L, index++, "Texture");
-    TextureData* textureData = lovrTextureDataFromBlob(blob);
+    TextureData* textureData = lovrTextureDataCreateFromBlob(blob);
     Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     lovrRelease(blob);
@@ -1070,7 +1070,7 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   if (lua_gettop(L) >= 2) {
     if (lua_type(L, 2) == LUA_TSTRING) {
       Blob* blob = luax_readblob(L, 2, "Texture");
-      TextureData* textureData = lovrTextureDataFromBlob(blob);
+      TextureData* textureData = lovrTextureDataCreateFromBlob(blob);
       Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true);
       Material* material = lovrMaterialCreate();
       lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);

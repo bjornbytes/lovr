@@ -403,7 +403,7 @@ static const char* getUniformTypeName(const Uniform* uniform) {
 // TODO really ought to have TextureType-specific default textures
 static Texture* lovrGpuGetDefaultTexture() {
   if (!state.defaultTexture) {
-    TextureData* textureData = lovrTextureDataGetBlank(1, 1, 0xff, FORMAT_RGBA);
+    TextureData* textureData = lovrTextureDataCreate(1, 1, 0xff, FORMAT_RGBA);
     state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false);
     lovrRelease(textureData);
   }

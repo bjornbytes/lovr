@@ -629,7 +629,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   // Material
   RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
-  TextureData* textureData = lovrTextureDataGetBlank(vrTexture->unWidth, vrTexture->unHeight, 0, FORMAT_RGBA);
+  TextureData* textureData = lovrTextureDataCreate(vrTexture->unWidth, vrTexture->unHeight, 0, FORMAT_RGBA);
   memcpy(textureData->blob.data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
 
   vec_init(&modelData->textures);
