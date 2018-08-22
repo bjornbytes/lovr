@@ -772,8 +772,8 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
   lovrGraphicsDraw(&(DrawOptions) {
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
-    .textures[TEXTURE_DIFFUSE] = texture,
-    .textures[TEXTURE_ENVIRONMENT_MAP] = texture,
+    .textures[TEXTURE_DIFFUSE] = type == TEXTURE_2D ? texture : NULL,
+    .textures[TEXTURE_ENVIRONMENT_MAP] = type == TEXTURE_CUBE ? texture : NULL,
     .mode = MESH_TRIANGLE_STRIP,
     .vertex.count = 4,
     .vertex.data = (float[]) {
