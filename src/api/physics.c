@@ -69,6 +69,7 @@ int l_lovrPhysicsNewBallJoint(lua_State* L) {
   float z = luaL_checknumber(L, 5);
   BallJoint* joint = lovrBallJointCreate(a, b, x, y, z);
   luax_pushobject(L, joint);
+  lovrRelease(joint);
   return 1;
 }
 
@@ -78,6 +79,7 @@ int l_lovrPhysicsNewBoxShape(lua_State* L) {
   float z = luaL_optnumber(L, 3, x);
   BoxShape* box = lovrBoxShapeCreate(x, y, z);
   luax_pushobject(L, box);
+  lovrRelease(box);
   return 1;
 }
 
@@ -86,6 +88,7 @@ int l_lovrPhysicsNewCapsuleShape(lua_State* L) {
   float length = luaL_optnumber(L, 2, 1.f);
   CapsuleShape* capsule = lovrCapsuleShapeCreate(radius, length);
   luax_pushobject(L, capsule);
+  lovrRelease(capsule);
   return 1;
 }
 
@@ -94,6 +97,7 @@ int l_lovrPhysicsNewCylinderShape(lua_State* L) {
   float length = luaL_optnumber(L, 2, 1.f);
   CylinderShape* cylinder = lovrCylinderShapeCreate(radius, length);
   luax_pushobject(L, cylinder);
+  lovrRelease(cylinder);
   return 1;
 }
 
@@ -108,6 +112,7 @@ int l_lovrPhysicsNewDistanceJoint(lua_State* L) {
   float z2 = luaL_checknumber(L, 8);
   DistanceJoint* joint = lovrDistanceJointCreate(a, b, x1, y1, z1, x2, y2, z2);
   luax_pushobject(L, joint);
+  lovrRelease(joint);
   return 1;
 }
 
@@ -122,6 +127,7 @@ int l_lovrPhysicsNewHingeJoint(lua_State* L) {
   float az = luaL_checknumber(L, 8);
   HingeJoint* joint = lovrHingeJointCreate(a, b, x, y, z, ax, ay, az);
   luax_pushobject(L, joint);
+  lovrRelease(joint);
   return 1;
 }
 
@@ -133,6 +139,7 @@ int l_lovrPhysicsNewSliderJoint(lua_State* L) {
   float az = luaL_checknumber(L, 5);
   SliderJoint* joint = lovrSliderJointCreate(a, b, ax, ay, az);
   luax_pushobject(L, joint);
+  lovrRelease(joint);
   return 1;
 }
 
@@ -140,6 +147,7 @@ int l_lovrPhysicsNewSphereShape(lua_State* L) {
   float radius = luaL_optnumber(L, 1, 1.f);
   SphereShape* sphere = lovrSphereShapeCreate(radius);
   luax_pushobject(L, sphere);
+  lovrRelease(sphere);
   return 1;
 }
 

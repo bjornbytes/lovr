@@ -75,20 +75,20 @@ void lovrWorldDestroy(void* ref) {
 }
 
 void lovrWorldDestroyData(World* world) {
+  while (world->head) {
+    Collider* next = world->head->next;
+    lovrColliderDestroyData(world->head);
+    world->head = next;
+  }
+
   if (world->contactGroup) {
-    dJointGroupEmpty(world->contactGroup);
+    dJointGroupDestroy(world->contactGroup);
     world->contactGroup = NULL;
   }
 
   if (world->space) {
     dSpaceDestroy(world->space);
     world->space = NULL;
-  }
-
-  while (world->head) {
-    Collider* next = world->head->next;
-    lovrColliderDestroyData(world->head);
-    world->head = next;
   }
 
   if (world->id) {
@@ -305,15 +305,27 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
 
 void lovrColliderDestroy(void* ref) {
   Collider* collider = ref;
+  lovrColliderDestroyData(collider);
   vec_deinit(&collider->shapes);
   vec_deinit(&collider->joints);
-  lovrColliderDestroyData(collider);
   free(collider);
 }
 
 void lovrColliderDestroyData(Collider* collider) {
   if (!collider->body) {
     return;
+  }
+
+  vec_void_t* shapes = lovrColliderGetShapes(collider);
+  Shape* shape; int i;
+  vec_foreach(shapes, shape, i) {
+    lovrColliderRemoveShape(collider, shape);
+  }
+
+  vec_void_t* joints = lovrColliderGetJoints(collider);
+  Joint* joint; int j;
+  vec_foreach(joints, joint, j) {
+    lovrRelease(joint);
   }
 
   dBodyDestroy(collider->body);
@@ -333,16 +345,15 @@ World* lovrColliderGetWorld(Collider* collider) {
 }
 
 void lovrColliderAddShape(Collider* collider, Shape* shape) {
-  shape->collider = collider;
-  dGeomSetBody(shape->id, collider->body);
+  lovrRetain(shape);
 
-  dSpaceID oldSpace = dGeomGetSpace(shape->id);
-  dSpaceID newSpace = collider->world->space;
-
-  if (oldSpace && oldSpace != newSpace) {
-    dSpaceRemove(oldSpace, shape->id);
+  if (shape->collider) {
+    lovrColliderRemoveShape(shape->collider, shape);
   }
 
+  shape->collider = collider;
+  dGeomSetBody(shape->id, collider->body);
+  dSpaceID newSpace = collider->world->space;
   dSpaceAdd(newSpace, shape->id);
 }
 
@@ -350,6 +361,8 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   if (shape->collider == collider) {
     dSpaceRemove(collider->world->space, shape->id);
     dGeomSetBody(shape->id, 0);
+    shape->collider = NULL;
+    lovrRelease(shape);
   }
 }
 
@@ -931,6 +944,7 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
   lovrBallJointSetAnchor(joint, x, y, z);
+  lovrRetain(joint);
 
   return joint;
 }
@@ -961,6 +975,7 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
   lovrDistanceJointSetAnchors(joint, x1, y1, z1, x2, y2, z2);
+  lovrRetain(joint);
 
   return joint;
 }
@@ -1001,6 +1016,7 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, flo
   dJointAttach(joint->id, a->body, b->body);
   lovrHingeJointSetAnchor(joint, x, y, z);
   lovrHingeJointSetAxis(joint, ax, ay, az);
+  lovrRetain(joint);
 
   return joint;
 }
@@ -1063,6 +1079,7 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay,
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
   lovrSliderJointSetAxis(joint, ax, ay, az);
+  lovrRetain(joint);
 
   return joint;
 }
