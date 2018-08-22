@@ -111,6 +111,8 @@ struct Texture {
 struct Canvas {
   Ref ref;
   uint32_t framebuffer;
+  Texture* color[MAX_COLOR_ATTACHMENTS];
+  Texture* depth;
 };
 
 typedef struct {
@@ -1005,6 +1007,7 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
   texture->allocated = true;
   texture->width = width;
   texture->height = height;
+  texture->depth = depth;
   texture->format = format;
 
   if (texture->mipmaps) {
@@ -1199,11 +1202,18 @@ Canvas* lovrCanvasCreate() {
   Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
   if (!canvas) return NULL;
 
+  glGenFramebuffers(1, &canvas->framebuffer);
+
   return canvas;
 }
 
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
+  glDeleteFramebuffers(1, &canvas->framebuffer);
+  for (int i = 0; i < MAX_COLOR_ATTACHMENTS; i++) {
+    lovrRelease(canvas->color[i]);
+  }
+  lovrRelease(canvas->depth);
   free(ref);
 }
 

@@ -173,11 +173,13 @@ void lovrGraphicsReset() {
 void lovrGraphicsPushPipeline() {
   lovrAssert(++state.pipeline < MAX_PIPELINES, "Unbalanced pipeline stack (more pushes than pops?)");
   memcpy(&state.pipelines[state.pipeline], &state.pipelines[state.pipeline - 1], sizeof(Pipeline));
+  lovrRetain(state.pipelines[state.pipeline].canvas);
   lovrRetain(state.pipelines[state.pipeline].font);
   lovrRetain(state.pipelines[state.pipeline].shader);
 }
 
 void lovrGraphicsPopPipeline() {
+  lovrRelease(state.pipelines[state.pipeline].canvas);
   lovrRelease(state.pipelines[state.pipeline].font);
   lovrRelease(state.pipelines[state.pipeline].shader);
   lovrAssert(--state.pipeline >= 0, "Unbalanced pipeline stack (more pops than pushes?)");
@@ -199,6 +201,14 @@ void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
   state.pipelines[state.pipeline].blendMode = mode;
   state.pipelines[state.pipeline].blendAlphaMode = alphaMode;
+}
+
+Canvas* lovrGraphicsGetCanvas() {
+  return state.pipelines[state.pipeline].canvas;
+}
+
+void lovrGraphicsSetCanvas(Canvas* canvas) {
+  state.pipelines[state.pipeline].canvas = canvas;
 }
 
 Color lovrGraphicsGetColor() {

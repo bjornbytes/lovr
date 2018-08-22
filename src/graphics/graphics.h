@@ -106,6 +106,7 @@ typedef struct {
   Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
+  Canvas* canvas;
   Color color;
   bool culling;
   CompareMode depthTest;
@@ -190,6 +191,8 @@ Color lovrGraphicsGetBackgroundColor();
 void lovrGraphicsSetBackgroundColor(Color color);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
+Canvas* lovrGraphicsGetCanvas();
+void lovrGraphicsSetCanvas(Canvas* canvas);
 Color lovrGraphicsGetColor();
 void lovrGraphicsSetColor(Color color);
 bool lovrGraphicsIsCullingEnabled();
