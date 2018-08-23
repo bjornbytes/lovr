@@ -861,7 +861,7 @@ int l_lovrGraphicsStencil(lua_State* L) {
 }
 
 int l_lovrGraphicsFill(lua_State* L) {
-  Texture* texture = luax_checktype(L, 1, Texture);
+  Texture* texture = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Texture);
   lovrGraphicsFill(texture);
   return 0;
 }
