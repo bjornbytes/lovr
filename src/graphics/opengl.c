@@ -62,7 +62,7 @@ static struct {
   float viewport[4];
   vec_void_t incoherents[MAX_BARRIERS];
   bool srgb;
-  bool supportsSinglepass;
+  bool singlepass;
   GraphicsLimits limits;
   GraphicsStats stats;
 } state;
@@ -544,7 +544,7 @@ static void lovrGpuUseProgram(uint32_t program) {
   }
 }
 
-void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
+void lovrGpuInit(bool srgb, bool singlepass, gpuProc (*getProcAddress)(const char*)) {
 #ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) getProcAddress);
   glEnable(GL_LINE_SMOOTH);
@@ -554,7 +554,7 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   } else {
     glDisable(GL_FRAMEBUFFER_SRGB);
   }
-  state.supportsSinglepass = GLAD_GL_ARB_viewport_array && GLAD_GL_NV_viewport_array2 && GLAD_GL_NV_stereo_view_rendering;
+  state.singlepass = singlepass && GLAD_GL_ARB_viewport_array && GLAD_GL_NV_viewport_array2 && GLAD_GL_NV_stereo_view_rendering;
 #endif
   glEnable(GL_BLEND);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -908,7 +908,7 @@ void lovrGpuDraw(DrawCommand* command) {
   lovrMeshBind(mesh, shader);
 
   bool stereo = pipeline->canvasCount == 0 && command->camera.stereo == true;
-  int drawCount = 1 + (stereo == true && !state.supportsSinglepass);
+  int drawCount = 1 + (stereo == true && !state.singlepass);
 
   // Draw (TODEW)
   for (int i = 0; i < drawCount; i++) {
@@ -917,7 +917,7 @@ void lovrGpuDraw(DrawCommand* command) {
       int height = lovrTextureGetHeight((Texture*) pipeline->canvas[0], 0);
       lovrGpuSetViewport((float[4]) { 0, 0, width, height });
 #ifndef EMSCRIPTEN
-    } else if (state.supportsSinglepass) {
+    } else if (state.singlepass) {
       glViewportArrayv(0, 2, command->camera.viewport[0]);
 #endif
     } else  {
@@ -925,8 +925,8 @@ void lovrGpuDraw(DrawCommand* command) {
     }
 
     // Bind uniforms
-    int eye = (stereo && state.supportsSinglepass) ? -1 : i;
-    lovrShaderSetInts(shader, "lovrEye", &eye, 0, 1);
+    lovrShaderSetInts(shader, "lovrIsStereo", &(int) { stereo && state.singlepass }, 0, 1);
+    lovrShaderSetInts(shader, "_lovrEye", &i, 0, 1);
     lovrShaderBind(shader);
 
     uint32_t rangeStart, rangeCount;

@@ -257,15 +257,25 @@ int l_lovrGraphicsInit(lua_State* L) {
   luax_registertype(L, "ShaderBlock", lovrShaderBlock);
   luax_registertype(L, "Texture", lovrTexture);
   luax_extendtype(L, "Texture", "Canvas", lovrTexture, lovrCanvas);
-  lovrGraphicsInit();
 
   luax_pushconf(L);
 
-  // Set gamma correct
+  // Gamma correct
   lua_getfield(L, -1, "gammacorrect");
   bool gammaCorrect = lua_toboolean(L, -1);
-  lovrGraphicsSetGammaCorrect(gammaCorrect);
   lua_pop(L, 1);
+
+  // Singlepass
+  bool singlepass = false;
+  lua_getfield(L, -1, "graphics");
+  if (!lua_isnil(L, -1)) {
+    lua_getfield(L, -1, "singlepass");
+    singlepass = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 1);
+
+  lovrGraphicsInit(gammaCorrect, singlepass);
 
   // Create window if needed
   lua_getfield(L, -1, "window");

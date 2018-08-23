@@ -22,8 +22,9 @@ static void onCloseWindow(GLFWwindow* window) {
 
 // Base
 
-void lovrGraphicsInit() {
-  // This page intentionally left blank
+void lovrGraphicsInit(bool gammaCorrect, bool singlepass) {
+  state.gammaCorrect = gammaCorrect;
+  state.singlepass = singlepass;
 }
 
 void lovrGraphicsDestroy() {
@@ -105,7 +106,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
 
   glfwSwapInterval(0);
 #endif
-  lovrGpuInit(state.gammaCorrect, glfwGetProcAddress);
+  lovrGpuInit(state.gammaCorrect, state.singlepass, glfwGetProcAddress);
   VertexFormat format;
   vertexFormatInit(&format);
   vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
@@ -283,10 +284,6 @@ void lovrGraphicsSetFont(Font* font) {
 
 bool lovrGraphicsIsGammaCorrect() {
   return state.gammaCorrect;
-}
-
-void lovrGraphicsSetGammaCorrect(bool gammaCorrect) {
-  state.gammaCorrect = gammaCorrect;
 }
 
 float lovrGraphicsGetLineWidth() {

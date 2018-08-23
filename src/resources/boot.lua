@@ -58,6 +58,9 @@ function lovr.boot()
       timer = true
     },
     gammacorrect = false,
+    graphics = {
+      singlepass = true,
+    },
     headset = {
       drivers = { 'openvr', 'webvr', 'fake' },
       mirror = true,

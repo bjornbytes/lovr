@@ -157,6 +157,7 @@ typedef struct {
 typedef struct {
   bool initialized;
   bool gammaCorrect;
+  bool singlepass;
   int msaa;
   void* window;
   Camera camera;
@@ -172,7 +173,7 @@ typedef struct {
 } GraphicsState;
 
 // Base
-void lovrGraphicsInit();
+void lovrGraphicsInit(bool gammaCorrect, bool singlepass);
 void lovrGraphicsDestroy();
 void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
@@ -204,7 +205,6 @@ void lovrGraphicsSetDepthTest(CompareMode depthTest, bool write);
 Font* lovrGraphicsGetFont();
 void lovrGraphicsSetFont(Font* font);
 bool lovrGraphicsIsGammaCorrect();
-void lovrGraphicsSetGammaCorrect(bool gammaCorrect);
 float lovrGraphicsGetLineWidth();
 void lovrGraphicsSetLineWidth(float width);
 float lovrGraphicsGetPointSize();
@@ -250,7 +250,7 @@ void lovrGraphicsFill(Texture* texture);
 
 typedef void (*gpuProc)(void);
 
-void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*));
+void lovrGpuInit(bool srgb, bool singlepass, gpuProc (*getProcAddress)(const char*));
 void lovrGpuDestroy();
 void lovrGpuClear(Canvas** canvas, int canvasCount, Color* color, float* depth, int* stencil);
 void lovrGpuDraw(DrawCommand* command);
