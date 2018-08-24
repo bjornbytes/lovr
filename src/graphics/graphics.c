@@ -364,7 +364,8 @@ VertexPointer lovrGraphicsGetVertexPointer(uint32_t count) {
 
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
   Pipeline* pipeline = &state.pipelines[state.pipeline];
-  lovrGpuClear(state.camera.canvas, color, depth, stencil);
+  Canvas* canvas = pipeline->canvas ? pipeline->canvas : state.camera.canvas;
+  lovrGpuClear(canvas, color, depth, stencil);
 }
 
 void lovrGraphicsDraw(DrawOptions* draw) {

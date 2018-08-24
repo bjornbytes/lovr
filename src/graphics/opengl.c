@@ -1244,7 +1244,7 @@ Canvas* lovrCanvasCreate() {
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
   glDeleteFramebuffers(1, &canvas->framebuffer);
-  for (int i = 0; i < MAX_CANVAS_ATTACHMENTS; i++) {
+  for (int i = 0; i < canvas->count; i++) {
     lovrRelease(canvas->attachments[i].texture);
   }
   free(ref);
@@ -1260,6 +1260,14 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
   lovrAssert(count <= MAX_CANVAS_ATTACHMENTS, "Only %d textures can be attached to a Canvas, got %d\n", MAX_CANVAS_ATTACHMENTS, count);
 
   if (canvas->dirty || memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
+    for (int i = 0; i < count; i++) {
+      lovrRetain(attachments[i].texture);
+    }
+
+    for (int i = 0; i < canvas->count; i++) {
+      lovrRelease(canvas->attachments[i].texture);
+    }
+
     memcpy(canvas->attachments, attachments, count * sizeof(Attachment));
     canvas->count = count;
     canvas->dirty = true;
