@@ -1,5 +1,6 @@
 #include "api.h"
 #include "graphics/canvas.h"
+#include "graphics/graphics.h"
 
 static int luax_checkattachment(lua_State* L, int index, Attachment* attachment) {
   attachment->texture = luax_checktype(L, index++, Texture);
@@ -33,8 +34,20 @@ int l_lovrCanvasSetTexture(lua_State* L) {
   return 0;
 }
 
+int l_lovrCanvasRenderTo(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  luaL_checktype(L, 2, LUA_TFUNCTION);
+  int argumentCount = lua_gettop(L) - 2;
+  Canvas* old = lovrGraphicsGetCanvas();
+  lovrGraphicsSetCanvas(canvas);
+  lua_call(L, argumentCount, 0);
+  lovrGraphicsSetCanvas(old);
+  return 0;
+}
+
 const luaL_Reg lovrCanvas[] = {
   { "getTexture", l_lovrCanvasGetTexture },
   { "setTexture", l_lovrCanvasSetTexture },
+  { "renderTo", l_lovrCanvasRenderTo },
   { NULL, NULL }
 };
