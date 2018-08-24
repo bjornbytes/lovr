@@ -1279,7 +1279,12 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
 
   if (canvas->dirty || memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
     for (int i = 0; i < count; i++) {
-      lovrRetain(attachments[i].texture);
+      Texture* texture = attachments[i].texture;
+      int width = lovrTextureGetWidth(texture, attachments[i].level);
+      int height = lovrTextureGetHeight(texture, attachments[i].level);
+      lovrAssert(width == canvas->width, "Texture width of %d does not match Canvas width", width);
+      lovrAssert(height == canvas->height, "Texture height of %d does not match Canvas height", height);
+      lovrRetain(texture);
     }
 
     for (int i = 0; i < canvas->count; i++) {
@@ -1331,7 +1336,12 @@ void lovrCanvasBind(Canvas* canvas) {
   glDrawBuffers(canvas->count, buffers);
 
   GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-  lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
+  switch (status) {
+    case GL_FRAMEBUFFER_COMPLETE: break;
+    case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE: lovrThrow("Unable to set Canvas (MSAA settings)"); break;
+    case GL_FRAMEBUFFER_UNSUPPORTED: lovrThrow("Unable to set Canvas (Texture formats)"); break;
+    default: lovrThrow("Unable to set Canvas (reason unknown)"); break;
+  }
 
   canvas->dirty = false;
 }
