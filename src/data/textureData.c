@@ -132,9 +132,6 @@ TextureData* lovrTextureDataCreate(int width, int height, uint8_t value, Texture
     case FORMAT_RGB5A1: pixelSize = 2; break;
     case FORMAT_RGB10A2: pixelSize = 4; break;
     case FORMAT_RG11B10F: pixelSize = 4; break;
-    case FORMAT_D16: pixelSize = 2; break;
-    case FORMAT_D32: pixelSize = 4; break;
-    case FORMAT_D24S8: pixelSize = 4; break;
 
     case FORMAT_DXT1:
     case FORMAT_DXT3:

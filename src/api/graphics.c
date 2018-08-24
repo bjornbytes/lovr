@@ -63,6 +63,13 @@ const char* CompareModes[] = {
   NULL
 };
 
+const char* DepthFormats[] = {
+  [DEPTH_D16] = "d16",
+  [DEPTH_D32] = "d32",
+  [DEPTH_D24S8] = "d24s8",
+  NULL
+};
+
 const char* DrawModes[] = {
   [DRAW_MODE_FILL] = "fill",
   [DRAW_MODE_LINE] = "line",
@@ -147,9 +154,6 @@ const char* TextureFormats[] = {
   [FORMAT_RGB5A1] = "rgb5a1",
   [FORMAT_RGB10A2] = "rgb5a2",
   [FORMAT_RG11B10F] = "rg11b10f",
-  [FORMAT_D16] = "d16",
-  [FORMAT_D32] = "d32",
-  [FORMAT_D24S8] = "d24s8",
   [FORMAT_DXT1] = "dxt1",
   [FORMAT_DXT3] = "dxt3",
   [FORMAT_DXT5] = "dxt5",
@@ -944,7 +948,17 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
 }
 
 int l_lovrGraphicsNewCanvas(lua_State* L) {
-  Canvas* canvas = lovrCanvasCreate();
+  int width = luaL_checkinteger(L, 1);
+  int height = luaL_checkinteger(L, 2);
+  CanvasFlags flags = { .depth = DEPTH_D16 };
+
+  if (lua_istable(L, 3)) {
+    lua_getfield(L, 3, "depth");
+    flags.depth = lua_isnil(L, -1) ? flags.depth : luaL_checkoption(L, -1, NULL, DepthFormats);
+    lua_pop(L, 1);
+  }
+
+  Canvas* canvas = lovrCanvasCreate(width, height, flags);
   luax_pushobject(L, canvas);
   lovrRelease(canvas);
   return 1;

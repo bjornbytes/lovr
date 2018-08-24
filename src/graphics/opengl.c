@@ -110,7 +110,11 @@ struct Texture {
 
 struct Canvas {
   Ref ref;
+  int width;
+  int height;
+  CanvasFlags flags;
   uint32_t framebuffer;
+  uint32_t depthBuffer;
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
   int count;
   bool dirty;
@@ -195,9 +199,6 @@ static GLenum convertTextureFormat(TextureFormat format) {
     case FORMAT_RGB5A1: return GL_RGBA;
     case FORMAT_RGB10A2: return GL_RGBA;
     case FORMAT_RG11B10F: return GL_RGB;
-    case FORMAT_D16: return GL_DEPTH_COMPONENT;
-    case FORMAT_D32: return GL_DEPTH_COMPONENT;
-    case FORMAT_D24S8: return GL_DEPTH_STENCIL;
     case FORMAT_DXT1: return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
@@ -218,9 +219,6 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
     case FORMAT_RGB5A1: return GL_RGB5_A1;
     case FORMAT_RGB10A2: return GL_RGB10_A2;
     case FORMAT_RG11B10F: return GL_R11F_G11F_B10F;
-    case FORMAT_D16: return GL_DEPTH_COMPONENT16;
-    case FORMAT_D32: return GL_DEPTH_COMPONENT32;
-    case FORMAT_D24S8: return GL_DEPTH24_STENCIL8;
     case FORMAT_DXT1: return srgb ? GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
@@ -241,14 +239,20 @@ static GLenum convertTextureFormatType(TextureFormat format) {
     case FORMAT_RGB5A1: return GL_UNSIGNED_SHORT_5_5_5_1;
     case FORMAT_RGB10A2: return GL_UNSIGNED_INT_2_10_10_10_REV;
     case FORMAT_RG11B10F: return GL_UNSIGNED_INT_10F_11F_11F_REV;
-    case FORMAT_D16: return GL_UNSIGNED_SHORT;
-    case FORMAT_D32: return GL_UNSIGNED_INT;
-    case FORMAT_D24S8: return GL_UNSIGNED_INT_24_8;
     case FORMAT_DXT1:
     case FORMAT_DXT3:
     case FORMAT_DXT5:
       lovrThrow("Unreachable");
       return GL_UNSIGNED_BYTE;
+  }
+}
+
+static GLenum convertDepthFormat(DepthFormat format) {
+  switch (format) {
+    case DEPTH_D16: return GL_DEPTH_COMPONENT16; break;
+    case DEPTH_D32: return GL_DEPTH_COMPONENT32; break;
+    case DEPTH_D24S8: return GL_DEPTH24_STENCIL8; break;
+    default: lovrThrow("Unreachable"); return GL_DEPTH_COMPONENT16;
   }
 }
 
@@ -1232,11 +1236,25 @@ void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
 
 // Canvas
 
-Canvas* lovrCanvasCreate() {
+Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
   Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
   if (!canvas) return NULL;
 
+  canvas->width = width;
+  canvas->height = height;
+  canvas->flags = flags;
+
   glGenFramebuffers(1, &canvas->framebuffer);
+  lovrGpuBindFramebuffer(canvas->framebuffer);
+
+  if (flags.depth != DEPTH_NONE) {
+    GLenum attachment = flags.depth == DEPTH_D24S8 ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
+    GLenum format = convertDepthFormat(flags.depth);
+    glGenRenderbuffers(1, &canvas->depthBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, canvas->depthBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, format, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, canvas->depthBuffer);
+  }
 
   return canvas;
 }

@@ -240,7 +240,7 @@ static void ensureCanvas() {
     return;
   }
 
-  state.canvas = lovrCanvasCreate();
+  state.canvas = lovrCanvasCreate(1, 1, (CanvasFlags) { .depth = DEPTH_D24S8 });
 }
 
 static bool openvrInit(float offset, int msaa) {
