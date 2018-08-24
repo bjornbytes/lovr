@@ -2,12 +2,7 @@
 
 #pragma once
 
-#define MAX_COLOR_ATTACHMENTS 4
-
-typedef enum {
-  ATTACHMENT_COLOR,
-  ATTACHMENT_DEPTH
-} AttachmentType;
+#define MAX_CANVAS_ATTACHMENTS 4
 
 typedef struct {
   Texture* texture;
@@ -19,3 +14,6 @@ typedef struct Canvas Canvas;
 
 Canvas* lovrCanvasCreate();
 void lovrCanvasDestroy(void* ref);
+const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count);
+void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count);
+void lovrCanvasBind(Canvas* canvas);

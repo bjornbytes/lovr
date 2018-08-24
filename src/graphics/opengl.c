@@ -111,8 +111,9 @@ struct Texture {
 struct Canvas {
   Ref ref;
   uint32_t framebuffer;
-  Texture* color[MAX_COLOR_ATTACHMENTS];
-  Texture* depth;
+  Attachment attachments[MAX_CANVAS_ATTACHMENTS];
+  int count;
+  bool dirty;
 };
 
 typedef struct {
@@ -442,6 +443,13 @@ static void lovrGpuCleanupIncoherentResource(void* resource, uint8_t incoherent)
 
 // GPU
 
+static void lovrGpuBindFramebuffer(uint32_t framebuffer) {
+  if (state.framebuffer != framebuffer) {
+    state.framebuffer = framebuffer;
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+  }
+}
+
 static void lovrGpuBindIndexBuffer(uint32_t indexBuffer) {
   if (state.indexBuffer != indexBuffer) {
     state.indexBuffer = indexBuffer;
@@ -571,6 +579,28 @@ void lovrGpuDestroy() {
 }
 
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil) {
+  lovrCanvasBind(canvas);
+
+  if (color) {
+    gammaCorrectColor(color);
+    int count = canvas ? canvas->count : 1;
+    for (int i = 0; i < count; i++) {
+      glClearBufferfv(GL_COLOR, i, (float[]) { color->r, color->g, color->b, color->a });
+    }
+  }
+
+  if (depth && !state.depthWrite) {
+    state.depthWrite = true;
+    glDepthMask(state.depthWrite);
+  }
+
+  if (depth && stencil) {
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, *depth, *stencil);
+  } else if (depth) {
+    glClearBufferfv(GL_DEPTH, 0, depth);
+  } else if (stencil) {
+    glClearBufferiv(GL_STENCIL, 0, stencil);
+  }
 }
 
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
@@ -608,6 +638,7 @@ void lovrGpuDraw(DrawCommand* command) {
   Material* material = command->material;
   Shader* shader = command->shader;
   Pipeline* pipeline = &command->pipeline;
+  Canvas* canvas = pipeline->canvas ? pipeline->canvas : command->camera.canvas;
   int instances = command->instances;
 
   // Bind shader
@@ -745,6 +776,9 @@ void lovrGpuDraw(DrawCommand* command) {
     glPolygonMode(GL_FRONT_AND_BACK, state.wireframe ? GL_LINE : GL_FILL);
 #endif
   }
+
+  // Canvas
+  lovrCanvasBind(canvas);
 
   // Transform
   lovrShaderSetMatrices(shader, "lovrModel", command->transform, 0, 16);
@@ -1210,11 +1244,70 @@ Canvas* lovrCanvasCreate() {
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
   glDeleteFramebuffers(1, &canvas->framebuffer);
-  for (int i = 0; i < MAX_COLOR_ATTACHMENTS; i++) {
-    lovrRelease(canvas->color[i]);
+  for (int i = 0; i < MAX_CANVAS_ATTACHMENTS; i++) {
+    lovrRelease(canvas->attachments[i].texture);
   }
-  lovrRelease(canvas->depth);
   free(ref);
+}
+
+const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count) {
+  *count = canvas->count;
+  return canvas->attachments;
+}
+
+void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count) {
+  lovrAssert(count > 0, "A Canvas must have at least one attached Texture");
+  lovrAssert(count <= MAX_CANVAS_ATTACHMENTS, "Only %d textures can be attached to a Canvas, got %d\n", MAX_CANVAS_ATTACHMENTS, count);
+
+  if (canvas->dirty || memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
+    memcpy(canvas->attachments, attachments, count * sizeof(Attachment));
+    canvas->count = count;
+    canvas->dirty = true;
+  }
+}
+
+void lovrCanvasBind(Canvas* canvas) {
+  if (!canvas) {
+    lovrGpuBindFramebuffer(0);
+    return;
+  }
+
+  lovrGpuBindFramebuffer(canvas->framebuffer);
+
+  if (!canvas->dirty) {
+    return;
+  }
+
+  // We need to synchronize if any of the Canvas attachments have pending writes on them
+  for (int i = 0; i < canvas->count; i++) {
+    Texture* texture = canvas->attachments[i].texture;
+    if (texture->incoherent && (texture->incoherent >> BARRIER_CANVAS) & 1) {
+      lovrGpuWait(1 << BARRIER_CANVAS);
+      break;
+    }
+  }
+
+  GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
+  for (int i = 0; i < canvas->count; i++) {
+    GLenum buffer = buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+    Attachment* attachment = &canvas->attachments[i];
+    Texture* texture = attachment->texture;
+    int slice = attachment->slice;
+    int level = attachment->level;
+
+    switch (texture->type) {
+      case TEXTURE_2D: glFramebufferTexture2D(GL_FRAMEBUFFER, buffer, GL_TEXTURE_2D, texture->id, level); break;
+      case TEXTURE_CUBE: glFramebufferTexture2D(GL_FRAMEBUFFER, buffer, GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice, texture->id, level); break;
+      case TEXTURE_ARRAY: glFramebufferTextureLayer(GL_FRAMEBUFFER, buffer, texture->id, level, slice); break;
+      case TEXTURE_VOLUME: glFramebufferTexture3D(GL_FRAMEBUFFER, buffer, GL_TEXTURE_3D, texture->id, level, slice); break;
+    }
+  }
+  glDrawBuffers(canvas->count, buffers);
+
+  GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  lovrAssert(status == GL_FRAMEBUFFER_COMPLETE, "Unable to bind framebuffer");
+
+  canvas->dirty = false;
 }
 
 // Shader

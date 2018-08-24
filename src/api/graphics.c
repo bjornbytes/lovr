@@ -20,12 +20,6 @@ const char* ArcModes[] = {
   NULL
 };
 
-const char* AttachmentTypes[] = {
-  [ATTACHMENT_COLOR] = "color",
-  [ATTACHMENT_DEPTH] = "depth",
-  NULL
-};
-
 const char* AttributeTypes[] = {
   [ATTR_FLOAT] = "float",
   [ATTR_BYTE] = "byte",
@@ -451,7 +445,7 @@ int l_lovrGraphicsGetCanvas(lua_State* L) {
 }
 
 int l_lovrGraphicsSetCanvas(lua_State* L) {
-  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  Canvas* canvas = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Canvas);
   lovrGraphicsSetCanvas(canvas);
   return 0;
 }

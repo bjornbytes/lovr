@@ -9,33 +9,26 @@ static int luax_checkattachment(lua_State* L, int index, Attachment* attachment)
 }
 
 int l_lovrCanvasGetTexture(lua_State* L) {
-  return 0;
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  int count;
+  const Attachment* attachments = lovrCanvasGetAttachments(canvas, &count);
+  for (int i = 0; i < count; i++) {
+    luax_pushobject(L, attachments[i].texture);
+  }
+  return count;
 }
 
 int l_lovrCanvasSetTexture(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
-
+  Attachment attachments[MAX_CANVAS_ATTACHMENTS];
+  int count;
   int index = 2;
-  AttachmentType type = ATTACHMENT_COLOR;
-  if (lua_type(L, index) == LUA_TSTRING) {
-    type = luaL_checkoption(L, index++, NULL, AttachmentTypes);
+  int top = lua_gettop(L);
+  for (count = 0; count < MAX_CANVAS_ATTACHMENTS && index <= top; count++) {
+    index = luax_checkattachment(L, index, attachments + count);
   }
 
-  if (type == ATTACHMENT_COLOR) {
-    Attachment attachments[MAX_COLOR_ATTACHMENTS];
-    int top = lua_gettop(L);
-    int count;
-
-    for (count = 0; count < MAX_COLOR_ATTACHMENTS && index <= top; count++) {
-      index = luax_checkattachment(L, index, attachments + count);
-    }
-
-    //lovrCanvasSetAttachments(type, attachments, count);
-  } else if (type == ATTACHMENT_DEPTH) {
-    Attachment attachment;
-    luax_checkattachment(L, index, &attachment);
-    //lovrCanvasSetAttachments(type, &attachment, 1);
-  }
+  lovrCanvasSetAttachments(canvas, attachments, count);
 
   return 0;
 }
