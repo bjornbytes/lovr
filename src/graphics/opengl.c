@@ -1262,6 +1262,9 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
   glDeleteFramebuffers(1, &canvas->framebuffer);
+  if (canvas->depthBuffer) {
+    glDeleteRenderbuffers(1, &canvas->depthBuffer);
+  }
   for (int i = 0; i < canvas->count; i++) {
     lovrRelease(canvas->attachments[i].texture);
   }
