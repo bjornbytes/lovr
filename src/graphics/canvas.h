@@ -19,6 +19,7 @@ typedef struct {
 
 typedef struct {
   DepthFormat depth;
+  bool stereo;
 } CanvasFlags;
 
 typedef struct Canvas Canvas;

@@ -950,11 +950,19 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
 int l_lovrGraphicsNewCanvas(lua_State* L) {
   int width = luaL_checkinteger(L, 1);
   int height = luaL_checkinteger(L, 2);
-  CanvasFlags flags = { .depth = DEPTH_D16 };
+  CanvasFlags flags = { .depth = DEPTH_D16, .stereo = true };
 
   if (lua_istable(L, 3)) {
     lua_getfield(L, 3, "depth");
-    flags.depth = lua_isnil(L, -1) ? flags.depth : luaL_checkoption(L, -1, NULL, DepthFormats);
+    switch (lua_type(L, -1)) {
+      case LUA_TNIL: break;
+      case LUA_TBOOLEAN: flags.depth = lua_toboolean(L, -1) ? DEPTH_D16 : DEPTH_NONE; break;
+      default: flags.depth = luaL_checkoption(L, -1, NULL, DepthFormats);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "stereo");
+    flags.stereo = lua_isnil(L, -1) ? flags.stereo : lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
 
