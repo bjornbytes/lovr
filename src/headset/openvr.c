@@ -659,14 +659,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
   mat4_fromMat34(head, state.renderPoses[state.headsetIndex].mDeviceToAbsoluteTracking.m);
 
-  Camera camera = {
-    .stereo = true,
-    .canvas = state.canvas,
-    .viewport = {
-      { 0, 0, state.renderWidth, state.renderHeight },
-      { state.renderWidth, 0, state.renderWidth, state.renderHeight }
-    }
-  };
+  Camera camera = { .canvas = state.canvas };
 
   for (int i = 0; i < 2; i++) {
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;

@@ -130,10 +130,6 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
     lovrGraphicsGetDimensions(&width, &height);
     state.camera.stereo = false;
     state.camera.canvas = NULL;
-    state.camera.viewport[0][0] = 0;
-    state.camera.viewport[0][1] = 0;
-    state.camera.viewport[0][2] = width;
-    state.camera.viewport[0][3] = height;
     mat4_identity(state.camera.viewMatrix[0]);
     mat4_perspective(state.camera.projection[0], .01f, 100.f, 67 * M_PI / 180., (float) width / height);
   } else {

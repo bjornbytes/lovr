@@ -57,7 +57,6 @@ static struct {
   uint32_t blockBuffers[2][MAX_BLOCK_BUFFERS];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
-  float viewport[4];
   vec_void_t incoherents[MAX_BARRIERS];
   bool srgb;
   bool singlepass;
@@ -858,11 +857,32 @@ void lovrGpuDraw(DrawCommand* command) {
   // Bind attributes
   lovrMeshBind(mesh, shader);
 
-  bool stereo = false;
+  bool stereo = canvas ? canvas->flags.stereo : command->camera.stereo;
+  int width, height;
+  if (canvas) {
+    width = canvas->width;
+    height = canvas->height;
+  } else {
+    lovrGraphicsGetDimensions(&width, &height);
+  }
   int drawCount = 1 + (stereo == true && !state.singlepass);
+  int viewWidth = width >> stereo;
+  float viewports[2][4] = {
+    { 0, 0, viewWidth, height },
+    { viewWidth, 0, viewWidth, height },
+  };
 
   // Draw (TODEW)
   for (int i = 0; i < drawCount; i++) {
+#ifdef GL_ARB_viewport_array
+    if (stereo && state.singlepass) {
+      glViewportArrayv(0, 2, viewports[0]);
+    } else {
+#endif
+      glViewport(viewports[i][0], viewports[i][1], viewports[i][2], viewports[i][3]);
+#ifdef GL_ARB_viewport_array
+    }
+#endif
 
     // Bind uniforms
     lovrShaderSetInts(shader, "lovrIsStereo", &(int) { stereo && state.singlepass }, 0, 1);

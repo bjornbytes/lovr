@@ -90,15 +90,7 @@ static void onFrame(float* leftView, float* rightView, float* leftProjection, fl
   int width, height;
   webvrGetDisplayDimensions(&width, &height);
 
-  Camera camera = {
-    .stereo = true,
-    .canvas = NULL,
-    .viewport = {
-      { 0, 0, width, height },
-      { width, 0, width, height }
-    }
-  };
-
+  Camera camera = { .canvas = NULL, .stereo = true };
   memcpy(camera.projection[0], leftProjection, 16 * sizeof(float));
   memcpy(camera.projection[1], rightProjection, 16 * sizeof(float));
   memcpy(camera.viewMatrix[0], leftView, 16 * sizeof(float));

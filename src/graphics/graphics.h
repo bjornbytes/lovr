@@ -97,7 +97,6 @@ typedef struct {
 typedef struct {
   bool stereo;
   Canvas* canvas;
-  float viewport[2][4];
   float viewMatrix[2][16];
   float projection[2][16];
 } Camera;
