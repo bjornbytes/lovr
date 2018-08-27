@@ -780,9 +780,6 @@ void lovrGpuDraw(DrawCommand* command) {
 #endif
   }
 
-  // Canvas
-  lovrCanvasBind(canvas);
-
   // Transform
   lovrShaderSetMatrices(shader, "lovrModel", command->transform, 0, 16);
   lovrShaderSetMatrices(shader, "lovrViews", command->camera.viewMatrix[0], 0, 32);
@@ -857,20 +854,22 @@ void lovrGpuDraw(DrawCommand* command) {
   // Bind attributes
   lovrMeshBind(mesh, shader);
 
-  bool stereo = canvas ? canvas->flags.stereo : command->camera.stereo;
+  // Canvas
+  bool stereo;
   int width, height;
+  lovrCanvasBind(canvas);
   if (canvas) {
+    stereo = canvas->flags.stereo;
     width = canvas->width;
     height = canvas->height;
   } else {
+    stereo = true;
     lovrGraphicsGetDimensions(&width, &height);
   }
-  int drawCount = 1 + (stereo == true && !state.singlepass);
-  int viewWidth = width >> stereo;
-  float viewports[2][4] = {
-    { 0, 0, viewWidth, height },
-    { viewWidth, 0, viewWidth, height },
-  };
+
+  width >>= stereo == true;
+  float viewports[2][4] = { { 0, 0, width, height }, { width, 0, width, height } };
+  int drawCount = 1 + (stereo && !state.singlepass);
 
   // Draw (TODEW)
   for (int i = 0; i < drawCount; i++) {
@@ -1321,14 +1320,9 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
 }
 
 void lovrCanvasBind(Canvas* canvas) {
-  if (!canvas) {
-    lovrGpuBindFramebuffer(0);
-    return;
-  }
+  lovrGpuBindFramebuffer(canvas ? canvas->framebuffer : 0);
 
-  lovrGpuBindFramebuffer(canvas->framebuffer);
-
-  if (!canvas->dirty) {
+  if (!canvas->dirty || !canvas) {
     return;
   }
 

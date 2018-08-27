@@ -34,6 +34,7 @@ void lovrGraphicsDestroy() {
   }
   lovrGraphicsSetShader(NULL);
   lovrGraphicsSetFont(NULL);
+  lovrGraphicsSetCanvas(NULL);
   for (int i = 0; i < MAX_DEFAULT_SHADERS; i++) {
     lovrRelease(state.defaultShaders[i]);
   }
@@ -128,10 +129,11 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   if (!camera) {
     int width, height;
     lovrGraphicsGetDimensions(&width, &height);
-    state.camera.stereo = false;
     state.camera.canvas = NULL;
-    mat4_identity(state.camera.viewMatrix[0]);
-    mat4_perspective(state.camera.projection[0], .01f, 100.f, 67 * M_PI / 180., (float) width / height);
+    for (int i = 0; i < 2; i++) {
+      mat4_identity(state.camera.viewMatrix[i]);
+      mat4_perspective(state.camera.projection[i], .01f, 100.f, 67 * M_PI / 180., (float) width / height);
+    }
   } else {
     state.camera = *camera;
   }
@@ -152,6 +154,7 @@ void lovrGraphicsReset() {
   lovrGraphicsSetCamera(NULL, false);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
+  lovrGraphicsSetCanvas(NULL);
   lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
   lovrGraphicsSetCullingEnabled(false);
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = FILTER_TRILINEAR });
