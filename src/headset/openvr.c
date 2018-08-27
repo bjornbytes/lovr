@@ -48,8 +48,6 @@ typedef struct {
   float clipNear;
   float clipFar;
 
-  uint32_t renderWidth;
-  uint32_t renderHeight;
   float refreshRate;
   float vsyncToPhotons;
 
@@ -240,7 +238,13 @@ static void ensureCanvas() {
     return;
   }
 
-  state.canvas = lovrCanvasCreate(1, 1, (CanvasFlags) { .depth = DEPTH_D24S8 });
+  uint32_t width, height;
+  state.system->GetRecommendedRenderTargetSize(&width, &height);
+  state.canvas = lovrCanvasCreate(width * 2, height, (CanvasFlags) { .depth = DEPTH_D24S8, .stereo = true });
+  Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, false);
+  lovrTextureAllocate(texture, width * 2, height, 1, FORMAT_RGBA);
+  lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
+  lovrRelease(texture);
 }
 
 static bool openvrInit(float offset, int msaa) {
@@ -368,8 +372,8 @@ static void openvrSetMirrored(bool mirror) {
 
 static void openvrGetDisplayDimensions(int* width, int* height) {
   ensureCanvas();
-  *width = state.renderWidth;
-  *height = state.renderHeight;
+  *width = lovrCanvasGetWidth(state.canvas);
+  *height = lovrCanvasGetHeight(state.canvas);
 }
 
 static void openvrGetClipDistance(float* clipNear, float* clipFar) {
@@ -677,9 +681,10 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   state.isRendering = false;
 
   // Submit
-  uintptr_t texture = (uintptr_t) 0; // TODO
+  const Attachment* attachments = lovrCanvasGetAttachments(state.canvas, NULL);
+  uint32_t id = lovrTextureGetId(attachments[0].texture);
   EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
-  Texture_t eyeTexture = { (void*) texture, ETextureType_TextureType_OpenGL, colorSpace };
+  Texture_t eyeTexture = { (void*) id, ETextureType_TextureType_OpenGL, colorSpace };
   VRTextureBounds_t left = { 0, 0, .5, 1. };
   VRTextureBounds_t right = { .5, 0, 1., 1. };
   state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
@@ -690,7 +695,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     lovrGraphicsPushPipeline();
     lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
     lovrGraphicsSetShader(NULL);
-    // TODO
+    lovrGraphicsFill(attachments[0].texture);
     lovrGraphicsPopPipeline();
   }
 }

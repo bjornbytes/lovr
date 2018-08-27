@@ -29,3 +29,5 @@ void lovrCanvasDestroy(void* ref);
 const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count);
 void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count);
 void lovrCanvasBind(Canvas* canvas);
+uint32_t lovrCanvasGetWidth(Canvas* canvas);
+uint32_t lovrCanvasGetHeight(Canvas* canvas);

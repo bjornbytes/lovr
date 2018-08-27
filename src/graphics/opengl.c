@@ -641,7 +641,6 @@ void lovrGpuDraw(DrawCommand* command) {
   Material* material = command->material;
   Shader* shader = command->shader;
   Pipeline* pipeline = &command->pipeline;
-  Canvas* canvas = pipeline->canvas ? pipeline->canvas : command->camera.canvas;
   int instances = command->instances;
 
   // Bind shader
@@ -855,21 +854,20 @@ void lovrGpuDraw(DrawCommand* command) {
   lovrMeshBind(mesh, shader);
 
   // Canvas
-  bool stereo;
+  Canvas* canvas = pipeline->canvas ? pipeline->canvas : command->camera.canvas;
+  bool stereo = !canvas || canvas->flags.stereo;
   int width, height;
-  lovrCanvasBind(canvas);
   if (canvas) {
-    stereo = canvas->flags.stereo;
     width = canvas->width;
     height = canvas->height;
   } else {
-    stereo = true;
     lovrGraphicsGetDimensions(&width, &height);
   }
 
   width >>= stereo == true;
   float viewports[2][4] = { { 0, 0, width, height }, { width, 0, width, height } };
   int drawCount = 1 + (stereo && !state.singlepass);
+  lovrCanvasBind(canvas);
 
   // Draw (TODEW)
   for (int i = 0; i < drawCount; i++) {
@@ -1299,7 +1297,7 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
   lovrAssert(count > 0, "A Canvas must have at least one attached Texture");
   lovrAssert(count <= MAX_CANVAS_ATTACHMENTS, "Only %d textures can be attached to a Canvas, got %d\n", MAX_CANVAS_ATTACHMENTS, count);
 
-  if (canvas->dirty || memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
+  if (canvas->dirty || count != canvas->count || memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
     for (int i = 0; i < count; i++) {
       Texture* texture = attachments[i].texture;
       int width = lovrTextureGetWidth(texture, attachments[i].level);
@@ -1361,6 +1359,14 @@ void lovrCanvasBind(Canvas* canvas) {
   }
 
   canvas->dirty = false;
+}
+
+uint32_t lovrCanvasGetWidth(Canvas* canvas) {
+  return canvas->width;
+}
+
+uint32_t lovrCanvasGetHeight(Canvas* canvas) {
+  return canvas->height;
 }
 
 // Shader
