@@ -189,7 +189,6 @@ static void fakeGetDisplayDimensions(int* width, int* height) {
 
   if (state.window) {
     glfwGetFramebufferSize(state.window, width, height);
-    *width /= 2;
   }
 }
 

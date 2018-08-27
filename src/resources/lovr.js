@@ -34,9 +34,9 @@ var LibraryLOVR = {
       webvr.matD = d = Module._malloc(64);
       webvr.matE = e = Module._malloc(64);
       webvr.quat = Module._malloc(16);
-      webvr.width = display.getEyeParameters('left').renderWidth;
+      webvr.width = display.getEyeParameters('left').renderWidth * 2;
       webvr.height = display.getEyeParameters('left').renderHeight;
-      Browser.setCanvasSize(webvr.width * 2, webvr.height);
+      Browser.setCanvasSize(webvr.width, webvr.height);
 
       webvr.onentervr = function() {
         if (!display.isPresenting) {
