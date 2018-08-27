@@ -1291,7 +1291,7 @@ void lovrCanvasDestroy(void* ref) {
 }
 
 const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count) {
-  *count = canvas->count;
+  if (count) *count = canvas->count;
   return canvas->attachments;
 }
 
@@ -1322,7 +1322,7 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
 void lovrCanvasBind(Canvas* canvas) {
   lovrGpuBindFramebuffer(canvas ? canvas->framebuffer : 0);
 
-  if (!canvas->dirty || !canvas) {
+  if (!canvas || !canvas->dirty) {
     return;
   }
 
