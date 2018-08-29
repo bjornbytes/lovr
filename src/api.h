@@ -71,7 +71,6 @@ extern const luaL_Reg lovrWorld[];
 
 // Enums
 extern const char* ArcModes[];
-extern const char* AttachmentTypes[];
 extern const char* AttributeTypes[];
 extern const char* BlendAlphaModes[];
 extern const char* BlendModes[];
@@ -80,6 +79,7 @@ extern const char* CompareModes[];
 extern const char* ControllerAxes[];
 extern const char* ControllerButtons[];
 extern const char* ControllerHands[];
+extern const char* DepthFormats[];
 extern const char* DrawModes[];
 extern const char* EventTypes[];
 extern const char* FilterModes[];
