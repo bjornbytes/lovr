@@ -1397,29 +1397,30 @@ void lovrCanvasBind(Canvas* canvas) {
 }
 
 void lovrCanvasResolve(Canvas* canvas) {
-  if (!canvas->needsResolve || !canvas->flags.msaa) {
+  if (!canvas->needsResolve) {
     return;
   }
 
-  int w = canvas->width;
-  int h = canvas->height;
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, canvas->resolveBuffer);
-  state.framebuffer = canvas->resolveBuffer;
-  canvas->needsResolve = false;
+  if (canvas->flags.msaa) {
+    int w = canvas->width;
+    int h = canvas->height;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, canvas->resolveBuffer);
+    state.framebuffer = canvas->resolveBuffer;
 
-  if (canvas->count == 1) {
-    glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-  } else {
-    GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
-    for (int i = 0; i < canvas->count; i++) {
-      buffers[i] = GL_COLOR_ATTACHMENT0 + i;
-      glReadBuffer(i);
-      glDrawBuffers(1, &buffers[i]);
+    if (canvas->count == 1) {
       glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    } else {
+      GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
+      for (int i = 0; i < canvas->count; i++) {
+        buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+        glReadBuffer(i);
+        glDrawBuffers(1, &buffers[i]);
+        glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+      }
+      glReadBuffer(0);
+      glDrawBuffers(canvas->count, buffers);
     }
-    glReadBuffer(0);
-    glDrawBuffers(canvas->count, buffers);
   }
 
   if (canvas->flags.mipmaps) {
@@ -1431,6 +1432,8 @@ void lovrCanvasResolve(Canvas* canvas) {
       }
     }
   }
+
+  canvas->needsResolve = false;
 }
 
 void lovrCanvasBlit(Canvas* canvas) {
