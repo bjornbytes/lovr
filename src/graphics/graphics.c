@@ -106,6 +106,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
 
   glfwSwapInterval(0);
 #endif
+  glfwGetFramebufferSize(state.window, &state.width, &state.height);
   lovrGpuInit(state.gammaCorrect, state.singlepass, glfwGetProcAddress);
   VertexFormat format;
   vertexFormatInit(&format);
@@ -117,8 +118,12 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   state.initialized = true;
 }
 
-void lovrGraphicsGetDimensions(int* width, int* height) {
-  glfwGetFramebufferSize(state.window, width, height);
+int lovrGraphicsGetWidth() {
+  return state.width;
+}
+
+int lovrGraphicsGetHeight() {
+  return state.height;
 }
 
 int lovrGraphicsGetMSAA() {
@@ -127,12 +132,10 @@ int lovrGraphicsGetMSAA() {
 
 void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   if (!camera) {
-    int width, height;
-    lovrGraphicsGetDimensions(&width, &height);
     state.camera.canvas = NULL;
     for (int i = 0; i < 2; i++) {
       mat4_identity(state.camera.viewMatrix[i]);
-      mat4_perspective(state.camera.projection[i], .01f, 100.f, 67 * M_PI / 180., (float) width / height);
+      mat4_perspective(state.camera.projection[i], .01f, 100.f, 67 * M_PI / 180., (float) state.width / state.height);
     }
   } else {
     state.camera = *camera;
@@ -403,17 +406,10 @@ void lovrGraphicsDraw(DrawOptions* draw) {
   }
 
   Canvas* canvas = state.pipelines[state.pipeline].canvas ? state.pipelines[state.pipeline].canvas : state.camera.canvas;
-  int width, height;
-  if (!canvas) {
-    lovrGraphicsGetDimensions(&width, &height);
-  } else {
-    width = lovrCanvasGetWidth(canvas);
-    height = lovrCanvasGetHeight(canvas);
-  }
   bool stereo = !draw->forceMono && (!canvas || lovrCanvasIsStereo(canvas));
-  int viewportCount = 1 + !!stereo;
-  float w = stereo ? ((float) width / 2) : width;
-  float h = height;
+  float w = (canvas ? lovrCanvasGetWidth(canvas) : state.width) >> stereo;
+  float h = canvas ? lovrCanvasGetHeight(canvas) : state.height;
+  int viewportCount = 1 + stereo;
 
   DrawCommand command = {
     .mesh = mesh,

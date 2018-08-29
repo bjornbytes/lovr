@@ -160,6 +160,8 @@ typedef struct {
   bool gammaCorrect;
   bool singlepass;
   int msaa;
+  int width;
+  int height;
   void* window;
   Camera camera;
   Shader* defaultShaders[MAX_DEFAULT_SHADERS];
@@ -178,7 +180,8 @@ void lovrGraphicsInit(bool gammaCorrect, bool singlepass);
 void lovrGraphicsDestroy();
 void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
-void lovrGraphicsGetDimensions(int* width, int* height);
+int lovrGraphicsGetWidth();
+int lovrGraphicsGetHeight();
 int lovrGraphicsGetMSAA();
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
 GraphicsFeatures lovrGraphicsGetSupported();
@@ -245,6 +248,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGraphicsFill(Texture* texture);
+#define lovrGraphicsBlit lovrGpuBlit
 #define lovrGraphicsCompute lovrGpuCompute
 
 // GPU
@@ -255,6 +259,7 @@ void lovrGpuInit(bool srgb, bool singlepass, gpuProc (*getProcAddress)(const cha
 void lovrGpuDestroy();
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
 void lovrGpuDraw(DrawCommand* command);
+void lovrGpuBlit(Canvas* canvas);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
 void lovrGpuWait(uint8_t flags);
 void lovrGpuPresent();

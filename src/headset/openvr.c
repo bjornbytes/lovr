@@ -692,11 +692,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   lovrGpuDirtyTexture(0);
 
   if (state.isMirrored) {
-    lovrGraphicsPushPipeline();
-    lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
-    lovrGraphicsSetShader(NULL);
-    lovrGraphicsFill(attachments[0].texture);
-    lovrGraphicsPopPipeline();
+    lovrGraphicsBlit(state.canvas);
   }
 }
 

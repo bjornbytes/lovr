@@ -594,7 +594,11 @@ void lovrGpuDestroy() {
 }
 
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil) {
-  lovrCanvasBind(canvas);
+  if (canvas) {
+    lovrCanvasBind(canvas);
+  } else {
+    lovrGpuBindFramebuffer(0);
+  }
 
   if (color) {
     gammaCorrectColor(color);
@@ -867,7 +871,11 @@ void lovrGpuDraw(DrawCommand* command) {
   lovrMeshBind(mesh, shader);
 
   // Canvas
-  lovrCanvasBind(canvas);
+  if (canvas) {
+    lovrCanvasBind(canvas);
+  } else {
+    lovrGpuBindFramebuffer(0);
+  }
 
   // Draw (TODEW)
   int drawCount = state.supportsSinglepass ? 1 : command->viewportCount;
@@ -1311,9 +1319,9 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
 }
 
 void lovrCanvasBind(Canvas* canvas) {
-  lovrGpuBindFramebuffer(canvas ? canvas->framebuffer : 0);
+  lovrGpuBindFramebuffer(canvas->framebuffer);
 
-  if (!canvas || !canvas->dirty) {
+  if (!canvas->dirty) {
     return;
   }
 
@@ -1352,6 +1360,13 @@ void lovrCanvasBind(Canvas* canvas) {
   }
 
   canvas->dirty = false;
+}
+
+void lovrGpuBlit(Canvas* canvas) {
+  lovrCanvasBind(canvas);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBlitFramebuffer(0, 0, canvas->width, canvas->height, 0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  state.framebuffer = 0;
 }
 
 bool lovrCanvasIsStereo(Canvas* canvas) {
