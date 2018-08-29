@@ -1421,6 +1421,16 @@ void lovrCanvasResolve(Canvas* canvas) {
     glReadBuffer(0);
     glDrawBuffers(canvas->count, buffers);
   }
+
+  if (canvas->flags.mipmaps) {
+    for (int i = 0; i < canvas->count; i++) {
+      Texture* texture = canvas->attachments[i].texture;
+      if (texture->mipmapCount > 1) {
+        lovrGpuBindTexture(texture, 0);
+        glGenerateMipmap(texture->target);
+      }
+    }
+  }
 }
 
 void lovrCanvasBlit(Canvas* canvas) {

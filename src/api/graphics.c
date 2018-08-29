@@ -944,7 +944,7 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
 int l_lovrGraphicsNewCanvas(lua_State* L) {
   int width = luaL_checkinteger(L, 1);
   int height = luaL_checkinteger(L, 2);
-  CanvasFlags flags = { .depth = DEPTH_D16, .stereo = true, .msaa = 0 };
+  CanvasFlags flags = { .depth = DEPTH_D16, .stereo = true, .msaa = 0, .mipmaps = true };
 
   if (lua_istable(L, 3)) {
     lua_getfield(L, 3, "depth");
@@ -961,6 +961,10 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
 
     lua_getfield(L, 3, "msaa");
     flags.msaa = lua_isnil(L, -1) ? flags.msaa : luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "mipmaps");
+    flags.mipmaps = lua_isnil(L, -1) ? flags.mipmaps : lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
 

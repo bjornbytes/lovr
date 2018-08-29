@@ -21,6 +21,7 @@ typedef struct {
   DepthFormat depth;
   bool stereo;
   int msaa;
+  bool mipmaps;
 } CanvasFlags;
 
 typedef struct Canvas Canvas;
