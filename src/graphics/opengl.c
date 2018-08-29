@@ -535,6 +535,18 @@ static void lovrGpuUseProgram(uint32_t program) {
   }
 }
 
+static void lovrGpuSetViewports(float viewports[][4], int viewportCount, int index) {
+#ifdef GL_ARB_viewport_array
+    if (state.supportsSinglepass) {
+      glViewportArrayv(0, viewportCount, viewports);
+    } else {
+#endif
+      glViewport(viewports[index][0], viewports[index][1], viewports[index][2], viewports[index][3]);
+#ifdef GL_ARB_viewport_array
+    }
+#endif
+}
+
 void lovrGpuInit(bool srgb, bool singlepass, gpuProc (*getProcAddress)(const char*)) {
 #ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) getProcAddress);
@@ -638,8 +650,9 @@ void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback
 
 void lovrGpuDraw(DrawCommand* command) {
   Mesh* mesh = command->mesh;
-  Material* material = command->material;
+  Canvas* canvas = command->canvas;
   Shader* shader = command->shader;
+  Material* material = command->material;
   Pipeline* pipeline = &command->pipeline;
   int instances = command->instances;
 
@@ -854,36 +867,16 @@ void lovrGpuDraw(DrawCommand* command) {
   lovrMeshBind(mesh, shader);
 
   // Canvas
-  Canvas* canvas = pipeline->canvas ? pipeline->canvas : command->camera.canvas;
-  bool stereo = !canvas || canvas->flags.stereo;
-  int width, height;
-  if (canvas) {
-    width = canvas->width;
-    height = canvas->height;
-  } else {
-    lovrGraphicsGetDimensions(&width, &height);
-  }
-
-  width >>= stereo == true;
-  float viewports[2][4] = { { 0, 0, width, height }, { width, 0, width, height } };
-  int drawCount = 1 + (stereo && !state.singlepass);
   lovrCanvasBind(canvas);
 
   // Draw (TODEW)
+  int drawCount = state.supportsSinglepass ? 1 : command->viewportCount;
   for (int i = 0; i < drawCount; i++) {
-#ifdef GL_ARB_viewport_array
-    if (stereo && state.singlepass) {
-      glViewportArrayv(0, 2, viewports[0]);
-    } else {
-#endif
-      glViewport(viewports[i][0], viewports[i][1], viewports[i][2], viewports[i][3]);
-#ifdef GL_ARB_viewport_array
-    }
-#endif
+    lovrGpuSetViewports(command->viewports, command->viewportCount, i);
 
     // Bind uniforms
-    lovrShaderSetInts(shader, "lovrIsStereo", &(int) { stereo && state.singlepass }, 0, 1);
-    lovrShaderSetInts(shader, "_lovrEye", &i, 0, 1);
+    int eye = (command->viewportCount > 1 && state.singlepass) ? -1 : i;
+    lovrShaderSetInts(shader, "lovrEye", &eye, 0, 1);
     lovrShaderBind(shader);
 
     uint32_t rangeStart, rangeCount;
@@ -1359,6 +1352,10 @@ void lovrCanvasBind(Canvas* canvas) {
   }
 
   canvas->dirty = false;
+}
+
+bool lovrCanvasIsStereo(Canvas* canvas) {
+  return canvas->flags.stereo;
 }
 
 uint32_t lovrCanvasGetWidth(Canvas* canvas) {

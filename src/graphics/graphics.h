@@ -138,15 +138,19 @@ typedef struct {
   Material* material;
   Texture* textures[MAX_MATERIAL_TEXTURES];
   mat4 transform;
+  bool forceMono;
   int instances;
 } DrawOptions;
 
 typedef struct {
   Mesh* mesh;
+  Canvas* canvas;
   Shader* shader;
   Material* material;
   Camera camera;
   float transform[16];
+  float viewports[2][4];
+  int viewportCount;
   Pipeline pipeline;
   int instances;
 } DrawCommand;

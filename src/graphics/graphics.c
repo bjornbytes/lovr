@@ -402,11 +402,27 @@ void lovrGraphicsDraw(DrawOptions* draw) {
     }
   }
 
+  Canvas* canvas = state.pipelines[state.pipeline].canvas ? state.pipelines[state.pipeline].canvas : state.camera.canvas;
+  int width, height;
+  if (!canvas) {
+    lovrGraphicsGetDimensions(&width, &height);
+  } else {
+    width = lovrCanvasGetWidth(canvas);
+    height = lovrCanvasGetHeight(canvas);
+  }
+  bool stereo = !draw->forceMono && (!canvas || lovrCanvasIsStereo(canvas));
+  int viewportCount = 1 + !!stereo;
+  float w = stereo ? ((float) width / 2) : width;
+  float h = height;
+
   DrawCommand command = {
     .mesh = mesh,
+    .canvas = canvas,
     .shader = shader,
     .material = material,
     .camera = state.camera,
+    .viewports = { { 0, 0, w, h }, { w, 0, w, h } },
+    .viewportCount = viewportCount,
     .pipeline = state.pipelines[state.pipeline],
     .instances = draw->instances
   };
@@ -792,6 +808,7 @@ void lovrGraphicsFill(Texture* texture) {
   lovrGraphicsPushPipeline();
   lovrGraphicsSetDepthTest(COMPARE_NONE, false);
   lovrGraphicsDraw(&(DrawOptions) {
+    .forceMono = true,
     .shader = SHADER_FILL,
     .textures[TEXTURE_DIFFUSE] = texture,
     .mode = MESH_TRIANGLE_STRIP,
