@@ -119,7 +119,8 @@ struct Canvas {
   uint32_t resolveBuffer;
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
   int count;
-  bool dirty;
+  bool needsAttach;
+  bool needsResolve;
 };
 
 typedef struct {
@@ -599,6 +600,7 @@ void lovrGpuDestroy() {
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil) {
   if (canvas) {
     lovrCanvasBind(canvas);
+    canvas->needsResolve = true;
   } else {
     lovrGpuBindFramebuffer(0);
   }
@@ -876,6 +878,7 @@ void lovrGpuDraw(DrawCommand* command) {
   // Canvas
   if (canvas) {
     lovrCanvasBind(canvas);
+    canvas->needsResolve = true;
   } else {
     lovrGpuBindFramebuffer(0);
   }
@@ -916,6 +919,13 @@ void lovrGpuDraw(DrawCommand* command) {
 
     state.stats.drawCalls++;
   }
+}
+
+void lovrGpuBlit(Canvas* canvas) {
+  lovrCanvasBind(canvas);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBlitFramebuffer(0, 0, canvas->width, canvas->height, 0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  state.framebuffer = 0;
 }
 
 void lovrGpuCompute(Shader* shader, int x, int y, int z) {
@@ -1316,31 +1326,33 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
   lovrAssert(count > 0, "A Canvas must have at least one attached Texture");
   lovrAssert(count <= MAX_CANVAS_ATTACHMENTS, "Only %d textures can be attached to a Canvas, got %d\n", MAX_CANVAS_ATTACHMENTS, count);
 
-  if (canvas->dirty || count != canvas->count || memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
-    for (int i = 0; i < count; i++) {
-      Texture* texture = attachments[i].texture;
-      int width = lovrTextureGetWidth(texture, attachments[i].level);
-      int height = lovrTextureGetHeight(texture, attachments[i].level);
-      lovrAssert(width == canvas->width, "Texture width of %d does not match Canvas width", width);
-      lovrAssert(height == canvas->height, "Texture height of %d does not match Canvas height", height);
-      lovrAssert(texture->msaa == canvas->flags.msaa, "Texture MSAA does not match Canvas MSAA");
-      lovrRetain(texture);
-    }
-
-    for (int i = 0; i < canvas->count; i++) {
-      lovrRelease(canvas->attachments[i].texture);
-    }
-
-    memcpy(canvas->attachments, attachments, count * sizeof(Attachment));
-    canvas->count = count;
-    canvas->dirty = true;
+  if (!canvas->needsAttach && count == canvas->count && !memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
+    return;
   }
+
+  for (int i = 0; i < count; i++) {
+    Texture* texture = attachments[i].texture;
+    int width = lovrTextureGetWidth(texture, attachments[i].level);
+    int height = lovrTextureGetHeight(texture, attachments[i].level);
+    lovrAssert(width == canvas->width, "Texture width of %d does not match Canvas width", width);
+    lovrAssert(height == canvas->height, "Texture height of %d does not match Canvas height", height);
+    lovrAssert(texture->msaa == canvas->flags.msaa, "Texture MSAA does not match Canvas MSAA");
+    lovrRetain(texture);
+  }
+
+  for (int i = 0; i < canvas->count; i++) {
+    lovrRelease(canvas->attachments[i].texture);
+  }
+
+  memcpy(canvas->attachments, attachments, count * sizeof(Attachment));
+  canvas->count = count;
+  canvas->needsAttach = true;
 }
 
 void lovrCanvasBind(Canvas* canvas) {
   lovrGpuBindFramebuffer(canvas->framebuffer);
 
-  if (!canvas->dirty) {
+  if (!canvas->needsAttach) {
     return;
   }
 
@@ -1388,14 +1400,20 @@ void lovrCanvasBind(Canvas* canvas) {
     default: lovrThrow("Unable to set Canvas (reason unknown)"); break;
   }
 
-  canvas->dirty = false;
+  canvas->needsAttach = false;
 }
 
-void lovrGpuBlit(Canvas* canvas) {
-  lovrCanvasBind(canvas);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-  glBlitFramebuffer(0, 0, canvas->width, canvas->height, 0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
-  state.framebuffer = 0;
+void lovrCanvasResolve(Canvas* canvas) {
+  if (!canvas->needsResolve) {
+    return;
+  }
+
+  int w = canvas->width;
+  int h = canvas->height;
+  lovrGpuBindFramebuffer(canvas->resolveBuffer);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
+  glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+  canvas->needsResolve = false;
 }
 
 bool lovrCanvasIsStereo(Canvas* canvas) {

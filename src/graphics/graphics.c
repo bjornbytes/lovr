@@ -131,6 +131,10 @@ int lovrGraphicsGetMSAA() {
 }
 
 void lovrGraphicsSetCamera(Camera* camera, bool clear) {
+  if (state.camera.canvas && (!camera || camera->canvas != state.camera.canvas)) {
+    lovrCanvasResolve(state.camera.canvas);
+  }
+
   if (!camera) {
     state.camera.canvas = NULL;
     for (int i = 0; i < 2; i++) {
@@ -210,6 +214,10 @@ Canvas* lovrGraphicsGetCanvas() {
 }
 
 void lovrGraphicsSetCanvas(Canvas* canvas) {
+  if (state.pipelines[state.pipeline].canvas) {
+    lovrCanvasResolve(state.pipelines[state.pipeline].canvas);
+  }
+
   state.pipelines[state.pipeline].canvas = canvas;
 }
 
