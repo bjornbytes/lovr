@@ -2088,7 +2088,7 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
   block->data = calloc(1, size);
 
   glGenBuffers(1, &block->buffer);
-  lovrGpuBindBlockBuffer(block->type, block->buffer, 0);
+  glBindBuffer(block->target, block->buffer);
   glBufferData(block->target, size, NULL, usage);
 
   return block;
@@ -2169,7 +2169,7 @@ void lovrShaderBlockUnmap(ShaderBlock* block) {
     return;
   }
 
-  lovrGpuBindBlockBuffer(block->type, block->buffer, 0);
+  glBindBuffer(block->target, block->buffer);
   glBufferData(block->target, block->size, NULL, block->usage);
   glBufferSubData(block->target, 0, block->size, block->data);
   block->mapped = false;
