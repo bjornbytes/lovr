@@ -1404,7 +1404,7 @@ void lovrCanvasBind(Canvas* canvas) {
 }
 
 void lovrCanvasResolve(Canvas* canvas) {
-  if (!canvas->needsResolve) {
+  if (!canvas->needsResolve || !canvas->flags.msaa) {
     return;
   }
 
