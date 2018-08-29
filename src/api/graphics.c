@@ -829,7 +829,7 @@ int l_lovrGraphicsSphere(lua_State* L) {
 }
 
 int l_lovrGraphicsSkybox(lua_State* L) {
-  Texture* texture = luax_checktype(L, 1, Texture);
+  Texture* texture = luax_checktexture(L, 1);
   float angle = luaL_optnumber(L, 2, 0);
   float ax = luaL_optnumber(L, 3, 0);
   float ay = luaL_optnumber(L, 4, 1);
@@ -864,7 +864,7 @@ int l_lovrGraphicsStencil(lua_State* L) {
 }
 
 int l_lovrGraphicsFill(lua_State* L) {
-  Texture* texture = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Texture);
+  Texture* texture = lua_isnoneornil(L, 1) ? NULL : luax_checktexture(L, 1);
   lovrGraphicsFill(texture);
   return 0;
 }
@@ -1005,7 +1005,7 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
     lovrRelease(textureData);
     lovrRelease(texture);
   } else if (lua_isuserdata(L, index)) {
-    Texture* texture = luax_checktype(L, index, Texture);
+    Texture* texture = luax_checktexture(L, index);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     index++;
   }

@@ -2,6 +2,16 @@
 #include "graphics/canvas.h"
 #include "graphics/graphics.h"
 
+Texture* luax_checktexture(lua_State* L, int index) {
+  Canvas* canvas = luax_totype(L, index, Canvas);
+  if (canvas) {
+    const Attachment* attachment = lovrCanvasGetAttachments(canvas, NULL);
+    return attachment->texture;
+  } else {
+    return luax_checktype(L, index, Texture);
+  }
+}
+
 static int luax_checkattachment(lua_State* L, int index, Attachment* attachment) {
   attachment->texture = luax_checktype(L, index++, Texture);
   attachment->slice = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) - 1 : 0;

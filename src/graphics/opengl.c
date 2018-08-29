@@ -538,7 +538,7 @@ static void lovrGpuUseProgram(uint32_t program) {
 static void lovrGpuSetViewports(float viewports[][4], int viewportCount, int index) {
 #ifdef GL_ARB_viewport_array
     if (state.supportsSinglepass) {
-      glViewportArrayv(0, viewportCount, viewports);
+      glViewportArrayv(0, viewportCount, &viewports[0][0]);
     } else {
 #endif
       glViewport(viewports[index][0], viewports[index][1], viewports[index][2], viewports[index][3]);
