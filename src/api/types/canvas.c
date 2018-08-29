@@ -46,6 +46,18 @@ int l_lovrCanvasSetTexture(lua_State* L) {
   return 0;
 }
 
+int l_lovrCanvasNewTextureData(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  int index = luaL_optinteger(L, 2, 1) - 1;
+  int count;
+  lovrCanvasGetAttachments(canvas, &count);
+  lovrAssert(index >= 0 && index < count, "Can not create a TextureData from Texture #%d of Canvas (it only has %d textures)", index, count);
+  TextureData* textureData = lovrCanvasNewTextureData(canvas, index);
+  luax_pushobject(L, textureData);
+  lovrRelease(textureData);
+  return 1;
+}
+
 int l_lovrCanvasRenderTo(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   luaL_checktype(L, 2, LUA_TFUNCTION);
@@ -60,6 +72,7 @@ int l_lovrCanvasRenderTo(lua_State* L) {
 const luaL_Reg lovrCanvas[] = {
   { "getTexture", l_lovrCanvasGetTexture },
   { "setTexture", l_lovrCanvasSetTexture },
+  { "newTextureData", l_lovrCanvasNewTextureData },
   { "renderTo", l_lovrCanvasRenderTo },
   { NULL, NULL }
 };

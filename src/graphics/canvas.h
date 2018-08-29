@@ -36,3 +36,4 @@ void lovrCanvasBlit(Canvas* canvas);
 bool lovrCanvasIsStereo(Canvas* canvas);
 uint32_t lovrCanvasGetWidth(Canvas* canvas);
 uint32_t lovrCanvasGetHeight(Canvas* canvas);
+TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index);

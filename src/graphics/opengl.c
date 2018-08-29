@@ -1452,6 +1452,28 @@ uint32_t lovrCanvasGetHeight(Canvas* canvas) {
   return canvas->height;
 }
 
+TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {
+  lovrCanvasBind(canvas);
+
+  Texture* texture = canvas->attachments[index].texture;
+  if ((texture->incoherent >> BARRIER_TEXTURE) & 1) {
+    lovrGpuWait(1 << BARRIER_TEXTURE);
+  }
+
+  if (index != 0) {
+    glReadBuffer(index);
+  }
+
+  TextureData* textureData = lovrTextureDataCreate(canvas->width, canvas->height, 0x0, FORMAT_RGBA);
+  glReadPixels(0, 0, canvas->width, canvas->height, GL_RGBA, GL_UNSIGNED_BYTE, textureData->blob.data);
+
+  if (index != 0) {
+    glReadBuffer(0);
+  }
+
+  return textureData;
+}
+
 // Shader
 
 static GLuint compileShader(GLenum type, const char** sources, int count) {
