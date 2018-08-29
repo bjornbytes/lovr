@@ -921,13 +921,6 @@ void lovrGpuDraw(DrawCommand* command) {
   }
 }
 
-void lovrGpuBlit(Canvas* canvas) {
-  lovrCanvasBind(canvas);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-  glBlitFramebuffer(0, 0, canvas->width, canvas->height, 0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
-  state.framebuffer = 0;
-}
-
 void lovrGpuCompute(Shader* shader, int x, int y, int z) {
 #ifdef EMSCRIPTEN
   lovrThrow("Compute shaders are not supported on this system");
@@ -1410,10 +1403,31 @@ void lovrCanvasResolve(Canvas* canvas) {
 
   int w = canvas->width;
   int h = canvas->height;
-  lovrGpuBindFramebuffer(canvas->resolveBuffer);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
-  glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, canvas->resolveBuffer);
+  state.framebuffer = canvas->resolveBuffer;
   canvas->needsResolve = false;
+
+  if (canvas->count == 1) {
+    glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+  } else {
+    GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
+    for (int i = 0; i < canvas->count; i++) {
+      buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+      glReadBuffer(i);
+      glDrawBuffers(1, &buffers[i]);
+      glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    }
+    glReadBuffer(0);
+    glDrawBuffers(canvas->count, buffers);
+  }
+}
+
+void lovrCanvasBlit(Canvas* canvas) {
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBlitFramebuffer(0, 0, canvas->width, canvas->height, 0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  state.framebuffer = 0;
 }
 
 bool lovrCanvasIsStereo(Canvas* canvas) {

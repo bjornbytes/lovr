@@ -693,7 +693,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   lovrGpuDirtyTexture(0);
 
   if (state.isMirrored) {
-    lovrGraphicsBlit(state.canvas);
+    lovrCanvasBlit(state.canvas);
   }
 }
 
