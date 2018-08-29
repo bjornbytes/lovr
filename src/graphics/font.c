@@ -324,7 +324,7 @@ void lovrFontExpandTexture(Font* font) {
 void lovrFontCreateTexture(Font* font) {
   lovrRelease(font->texture);
   TextureData* textureData = lovrTextureDataCreate(font->atlas.width, font->atlas.height, 0x0, FORMAT_RGB);
-  font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false, false);
+  font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false, false, 0);
   lovrTextureSetFilter(font->texture, (TextureFilter) { .mode = FILTER_BILINEAR });
   lovrTextureSetWrap(font->texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP });
   lovrRelease(textureData);

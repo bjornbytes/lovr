@@ -36,7 +36,7 @@ typedef struct {
 
 typedef struct Texture Texture;
 
-Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps);
+Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps, int msaa);
 void lovrTextureDestroy(void* ref);
 void lovrTextureAllocate(Texture* texture, int width, int height, int depth, TextureFormat format);
 void lovrTextureReplacePixels(Texture* texture, TextureData* data, int x, int y, int slice, int mipmap);
@@ -45,6 +45,7 @@ int lovrTextureGetWidth(Texture* texture, int mipmap);
 int lovrTextureGetHeight(Texture* texture, int mipmap);
 int lovrTextureGetDepth(Texture* texture, int mipmap);
 int lovrTextureGetMipmapCount(Texture* texture);
+int lovrTextureGetMSAA(Texture* texture);
 TextureType lovrTextureGetType(Texture* texture);
 TextureFormat lovrTextureGetFormat(Texture* texture);
 TextureFilter lovrTextureGetFilter(Texture* texture);

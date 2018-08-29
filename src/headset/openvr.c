@@ -241,7 +241,7 @@ static void ensureCanvas() {
   uint32_t width, height;
   state.system->GetRecommendedRenderTargetSize(&width, &height);
   state.canvas = lovrCanvasCreate(width * 2, height, (CanvasFlags) { .depth = DEPTH_D24S8, .stereo = true });
-  Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, false);
+  Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, false, state.msaa);
   lovrTextureAllocate(texture, width * 2, height, 1, FORMAT_RGBA);
   lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
   lovrRelease(texture);

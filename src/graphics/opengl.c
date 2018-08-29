@@ -98,9 +98,11 @@ struct Texture {
   int depth;
   int mipmapCount;
   GLuint id;
+  GLuint msaaId;
   GLenum target;
   TextureFilter filter;
   TextureWrap wrap;
+  int msaa;
   bool srgb;
   bool mipmaps;
   bool allocated;
@@ -114,6 +116,7 @@ struct Canvas {
   CanvasFlags flags;
   uint32_t framebuffer;
   uint32_t depthBuffer;
+  uint32_t resolveBuffer;
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
   int count;
   bool dirty;
@@ -419,7 +422,7 @@ static const char* getUniformTypeName(const Uniform* uniform) {
 static Texture* lovrGpuGetDefaultTexture() {
   if (!state.defaultTexture) {
     TextureData* textureData = lovrTextureDataCreate(1, 1, 0xff, FORMAT_RGBA);
-    state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false);
+    state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false, 0);
     lovrRelease(textureData);
   }
 
@@ -1013,7 +1016,7 @@ GraphicsStats lovrGraphicsGetStats() {
 
 // Texture
 
-Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps) {
+Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps, int msaa) {
   Texture* texture = lovrAlloc(Texture, lovrTextureDestroy);
   if (!texture) return NULL;
 
@@ -1034,6 +1037,11 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
   lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
   lovrTextureSetWrap(texture, (TextureWrap) { .s = wrap, .t = wrap, .r = wrap });
 
+  if (msaa > 0) {
+    texture->msaa = msaa;
+    glGenRenderbuffers(1, &texture->msaaId);
+  }
+
   if (sliceCount > 0) {
     lovrTextureAllocate(texture, slices[0]->width, slices[0]->height, sliceCount, slices[0]->format);
     for (int i = 0; i < sliceCount; i++) {
@@ -1047,6 +1055,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   glDeleteTextures(1, &texture->id);
+  glDeleteRenderbuffers(1, &texture->msaaId);
   lovrGpuCleanupIncoherentResource(texture, texture->incoherent);
   free(texture);
 }
@@ -1059,6 +1068,7 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
   lovrAssert(texture->type != TEXTURE_2D || depth == 1, "2D textures can only contain a single image");
   lovrAssert(width < maxSize, "Texture width %d exceeds max of %d", width, maxSize);
   lovrAssert(height < maxSize, "Texture height %d exceeds max of %d", height, maxSize);
+  lovrAssert(!texture->msaa || texture->type == TEXTURE_2D, "Only 2D textures can be created with MSAA");
 
   texture->allocated = true;
   texture->width = width;
@@ -1113,6 +1123,11 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
     }
   }
 #endif
+
+  if (texture->msaaId) {
+    glBindRenderbuffer(GL_RENDERBUFFER, texture->msaaId);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, texture->msaa, internalFormat, width, height);
+  }
 }
 
 void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x, int y, int slice, int mipmap) {
@@ -1270,8 +1285,12 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
     GLenum format = convertDepthFormat(flags.depth);
     glGenRenderbuffers(1, &canvas->depthBuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, canvas->depthBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, format, width, height);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, canvas->flags.msaa, format, width, height);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, canvas->depthBuffer);
+  }
+
+  if (flags.msaa) {
+    glGenFramebuffers(1, &canvas->resolveBuffer);
   }
 
   return canvas;
@@ -1280,9 +1299,8 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
   glDeleteFramebuffers(1, &canvas->framebuffer);
-  if (canvas->depthBuffer) {
-    glDeleteRenderbuffers(1, &canvas->depthBuffer);
-  }
+  glDeleteRenderbuffers(1, &canvas->depthBuffer);
+  glDeleteFramebuffers(1, &canvas->resolveBuffer);
   for (int i = 0; i < canvas->count; i++) {
     lovrRelease(canvas->attachments[i].texture);
   }
@@ -1305,6 +1323,7 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
       int height = lovrTextureGetHeight(texture, attachments[i].level);
       lovrAssert(width == canvas->width, "Texture width of %d does not match Canvas width", width);
       lovrAssert(height == canvas->height, "Texture height of %d does not match Canvas height", height);
+      lovrAssert(texture->msaa == canvas->flags.msaa, "Texture MSAA does not match Canvas MSAA");
       lovrRetain(texture);
     }
 
@@ -1334,6 +1353,11 @@ void lovrCanvasBind(Canvas* canvas) {
     }
   }
 
+  // Use the read framebuffer as a binding point to bind resolve textures
+  if (canvas->flags.msaa) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->resolveBuffer);
+  }
+
   GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
   for (int i = 0; i < canvas->count; i++) {
     GLenum buffer = buffers[i] = GL_COLOR_ATTACHMENT0 + i;
@@ -1341,12 +1365,17 @@ void lovrCanvasBind(Canvas* canvas) {
     Texture* texture = attachment->texture;
     int slice = attachment->slice;
     int level = attachment->level;
+    uint32_t id = texture->msaa ? texture->msaaId : texture->id;
+
+    if (texture->msaa) {
+      glFramebufferRenderbuffer(GL_FRAMEBUFFER, buffer, GL_RENDERBUFFER, texture->msaaId);
+    }
 
     switch (texture->type) {
-      case TEXTURE_2D: glFramebufferTexture2D(GL_FRAMEBUFFER, buffer, GL_TEXTURE_2D, texture->id, level); break;
-      case TEXTURE_CUBE: glFramebufferTexture2D(GL_FRAMEBUFFER, buffer, GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice, texture->id, level); break;
-      case TEXTURE_ARRAY: glFramebufferTextureLayer(GL_FRAMEBUFFER, buffer, texture->id, level, slice); break;
-      case TEXTURE_VOLUME: glFramebufferTexture3D(GL_FRAMEBUFFER, buffer, GL_TEXTURE_3D, texture->id, level, slice); break;
+      case TEXTURE_2D: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_2D, id, level); break;
+      case TEXTURE_CUBE: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice, id, level); break;
+      case TEXTURE_ARRAY: glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, buffer, id, level, slice); break;
+      case TEXTURE_VOLUME: glFramebufferTexture3D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_3D, id, level, slice); break;
     }
   }
   glDrawBuffers(canvas->count, buffers);

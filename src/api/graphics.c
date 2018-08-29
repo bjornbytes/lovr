@@ -944,7 +944,7 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
 int l_lovrGraphicsNewCanvas(lua_State* L) {
   int width = luaL_checkinteger(L, 1);
   int height = luaL_checkinteger(L, 2);
-  CanvasFlags flags = { .depth = DEPTH_D16, .stereo = true };
+  CanvasFlags flags = { .depth = DEPTH_D16, .stereo = true, .msaa = 0 };
 
   if (lua_istable(L, 3)) {
     lua_getfield(L, 3, "depth");
@@ -957,6 +957,10 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
 
     lua_getfield(L, 3, "stereo");
     flags.stereo = lua_isnil(L, -1) ? flags.stereo : lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "msaa");
+    flags.msaa = lua_isnil(L, -1) ? flags.msaa : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
   }
 
@@ -999,7 +1003,7 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
   if (lua_type(L, index) == LUA_TSTRING) {
     Blob* blob = luax_readblob(L, index++, "Texture");
     TextureData* textureData = lovrTextureDataCreateFromBlob(blob);
-    Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true);
+    Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true, 0);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     lovrRelease(blob);
     lovrRelease(textureData);
@@ -1094,7 +1098,7 @@ int l_lovrGraphicsNewModel(lua_State* L) {
     if (lua_type(L, 2) == LUA_TSTRING) {
       Blob* blob = luax_readblob(L, 2, "Texture");
       TextureData* textureData = lovrTextureDataCreateFromBlob(blob);
-      Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true);
+      Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true, 0);
       Material* material = lovrMaterialCreate();
       lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
       lovrModelSetMaterial(model, material);
@@ -1184,6 +1188,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   bool srgb = true;
   bool mipmaps = true;
   TextureFormat format = FORMAT_RGBA;
+  int msaa = 0;
 
   if (hasFlags) {
     lua_getfield(L, index, "linear");
@@ -1201,9 +1206,13 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_getfield(L, index, "format");
     format = lua_isnil(L, -1) ? format : luaL_checkoption(L, -1, NULL, TextureFormats);
     lua_pop(L, 1);
+
+    lua_getfield(L, index, "msaa");
+    msaa = lua_isnil(L, -1) ? msaa : luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
   }
 
-  Texture* texture = lovrTextureCreate(type, NULL, 0, srgb, mipmaps);
+  Texture* texture = lovrTextureCreate(type, NULL, 0, srgb, mipmaps, msaa);
 
   if (blank) {
     lovrTextureAllocate(texture, width, height, depth, format);
