@@ -1183,6 +1183,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_rawseti(L, -2, 1);
     lua_replace(L, 1);
     depth = 1;
+    index++;
   } else {
     depth = lua_objlen(L, index++);
     type = depth > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE;
