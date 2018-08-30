@@ -272,17 +272,7 @@ int l_lovrGraphicsInit(lua_State* L) {
   bool gammaCorrect = lua_toboolean(L, -1);
   lua_pop(L, 1);
 
-  // Singlepass
-  bool singlepass = false;
-  lua_getfield(L, -1, "graphics");
-  if (!lua_isnil(L, -1)) {
-    lua_getfield(L, -1, "singlepass");
-    singlepass = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-  }
-  lua_pop(L, 1);
-
-  lovrGraphicsInit(gammaCorrect, singlepass);
+  lovrGraphicsInit(gammaCorrect);
 
   // Create window if needed
   lua_getfield(L, -1, "window");
@@ -358,6 +348,8 @@ int l_lovrGraphicsGetSupported(lua_State* L) {
   lua_setfield(L, -2, "computeshaders");
   lua_pushboolean(L, features.writableBlocks);
   lua_setfield(L, -2, "writableblocks");
+  lua_pushboolean(L, features.singlepass);
+  lua_setfield(L, -2, "singlepass");
   return 1;
 }
 

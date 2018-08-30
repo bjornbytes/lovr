@@ -22,9 +22,8 @@ static void onCloseWindow(GLFWwindow* window) {
 
 // Base
 
-void lovrGraphicsInit(bool gammaCorrect, bool singlepass) {
+void lovrGraphicsInit(bool gammaCorrect) {
   state.gammaCorrect = gammaCorrect;
-  state.singlepass = singlepass;
 }
 
 void lovrGraphicsDestroy() {
@@ -107,7 +106,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   glfwSwapInterval(0);
 #endif
   glfwGetFramebufferSize(state.window, &state.width, &state.height);
-  lovrGpuInit(state.gammaCorrect, state.singlepass, glfwGetProcAddress);
+  lovrGpuInit(state.gammaCorrect, glfwGetProcAddress);
   VertexFormat format;
   vertexFormatInit(&format);
   vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);

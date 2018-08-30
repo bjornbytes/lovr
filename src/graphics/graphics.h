@@ -79,6 +79,7 @@ typedef enum {
 typedef struct {
   bool computeShaders;
   bool writableBlocks;
+  bool singlepass;
 } GraphicsFeatures;
 
 typedef struct {
@@ -159,7 +160,6 @@ typedef struct {
 typedef struct {
   bool initialized;
   bool gammaCorrect;
-  bool singlepass;
   int msaa;
   int width;
   int height;
@@ -177,7 +177,7 @@ typedef struct {
 } GraphicsState;
 
 // Base
-void lovrGraphicsInit(bool gammaCorrect, bool singlepass);
+void lovrGraphicsInit(bool gammaCorrect);
 void lovrGraphicsDestroy();
 void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
@@ -256,7 +256,7 @@ void lovrGraphicsFill(Texture* texture);
 
 typedef void (*gpuProc)(void);
 
-void lovrGpuInit(bool srgb, bool singlepass, gpuProc (*getProcAddress)(const char*));
+void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*));
 void lovrGpuDestroy();
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
 void lovrGpuDraw(DrawCommand* command);

@@ -540,25 +540,21 @@ static void lovrGpuUseProgram(uint32_t program) {
   }
 }
 
-static void lovrGpuSetViewports(float viewports[][4], int viewportCount, int index) {
-#ifdef GL_ARB_viewport_array
-    if (state.singlepass) {
-      if (memcmp(state.viewports, &viewports[0][0], viewportCount * 4 * sizeof(float))) {
-        memcpy(state.viewports, &viewports[0][0], viewportCount * 4 * sizeof(float));
-        glViewportArrayv(0, viewportCount, &viewports[0][0]);
-      }
-    } else {
-#endif
-      if (memcmp(state.viewports, viewports[index], 4 * sizeof(float))) {
-        memcpy(state.viewports, viewports[index], 4 * sizeof(float));
-        glViewport(viewports[index][0], viewports[index][1], viewports[index][2], viewports[index][3]);
-      }
-#ifdef GL_ARB_viewport_array
+static void lovrGpuSetViewports(float* viewport, int count) {
+  if (count > 1) {
+    if (memcmp(state.viewports, viewport, count * 4 * sizeof(float))) {
+      memcpy(state.viewports, viewport, count * 4 * sizeof(float));
+      glViewportArrayv(0, count, viewport);
     }
-#endif
+  } else {
+    if (memcmp(state.viewports, viewport, 4 * sizeof(float))) {
+      memcpy(state.viewports, viewport, 4 * sizeof(float));
+      glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    }
+  }
 }
 
-void lovrGpuInit(bool srgb, bool singlepass, gpuProc (*getProcAddress)(const char*)) {
+void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
 #ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) getProcAddress);
   glEnable(GL_LINE_SMOOTH);
@@ -568,7 +564,6 @@ void lovrGpuInit(bool srgb, bool singlepass, gpuProc (*getProcAddress)(const cha
   } else {
     glDisable(GL_FRAMEBUFFER_SRGB);
   }
-  state.singlepass = singlepass && GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index;
 #endif
   glEnable(GL_BLEND);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -891,15 +886,16 @@ void lovrGpuDraw(DrawCommand* command) {
   }
 
   // Draw
-  int drawCount = state.singlepass ? 1 : command->viewportCount;
-  instances = MAX(instances, 1);
-  instances *= state.singlepass ? command->viewportCount : 1;
+  bool singlepass = lovrGraphicsGetSupported().singlepass;
+  int drawCount = singlepass ? 1 : command->viewportCount;
+  instances = MAX(instances, 1) * (singlepass ? command->viewportCount : 1);
   for (int i = 0; i < drawCount; i++) {
-    lovrGpuSetViewports(command->viewports, command->viewportCount, i);
+    lovrGpuSetViewports(&command->viewports[i][0], singlepass ? command->viewportCount : 1);
 
-    if (!state.singlepass) {
+    if (!singlepass) {
       lovrShaderSetInts(shader, "lovrViewportIndex", &i, 0, 1);
     }
+
     lovrShaderBind(shader);
 
     uint32_t rangeStart, rangeCount;
@@ -998,10 +994,12 @@ GraphicsFeatures lovrGraphicsGetSupported() {
   return (GraphicsFeatures) {
 #ifdef EMSCRIPTEN
     .computeShaders = false,
-    .writableBlocks = false
+    .writableBlocks = false,
+    .singlepass = false
 #else
     .computeShaders = GLAD_GL_ARB_compute_shader,
-    .writableBlocks = GLAD_GL_ARB_shader_storage_buffer_object
+    .writableBlocks = GLAD_GL_ARB_shader_storage_buffer_object,
+    .singlepass = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index
 #endif
   };
 }
