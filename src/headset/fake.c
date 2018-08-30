@@ -283,7 +283,7 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   int width, height;
   fakeGetDisplayDimensions(&width, &height);
   Camera camera = { .canvas = NULL };
-  mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / height);
+  mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / 2 / height);
   mat4_identity(camera.viewMatrix[0]);
   mat4_translate(camera.viewMatrix[0], 0, state.offset, 0);
   mat4_multiply(camera.viewMatrix[0], state.transform);
