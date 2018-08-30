@@ -541,7 +541,7 @@ static void lovrGpuUseProgram(uint32_t program) {
 
 static void lovrGpuSetViewports(float viewports[][4], int viewportCount, int index) {
 #ifdef GL_ARB_viewport_array
-    if (state.supportsSinglepass) {
+    if (state.singlepass) {
       glViewportArrayv(0, viewportCount, &viewports[0][0]);
     } else {
 #endif
@@ -884,13 +884,14 @@ void lovrGpuDraw(DrawCommand* command) {
   }
 
   // Draw (TODEW)
-  int drawCount = state.supportsSinglepass ? 1 : command->viewportCount;
+  int drawCount = state.singlepass ? 1 : command->viewportCount;
   for (int i = 0; i < drawCount; i++) {
     lovrGpuSetViewports(command->viewports, command->viewportCount, i);
 
     // Bind uniforms
     int eye = (command->viewportCount > 1 && state.singlepass) ? -1 : i;
-    lovrShaderSetInts(shader, "lovrEye", &eye, 0, 1);
+    lovrShaderSetInts(shader, "lovrIsStereo", &(int) { eye == -1 }, 0, 1);
+    lovrShaderSetInts(shader, "_lovrEye", &eye, 0, 1);
     lovrShaderBind(shader);
 
     uint32_t rangeStart, rangeCount;
