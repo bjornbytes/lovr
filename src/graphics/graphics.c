@@ -137,6 +137,7 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
 
   if (!camera) {
     state.camera.canvas = NULL;
+    state.camera.stereo = false;
     for (int i = 0; i < 2; i++) {
       mat4_identity(state.camera.viewMatrix[i]);
       mat4_perspective(state.camera.projection[i], .01f, 100.f, 67 * M_PI / 180., (float) state.width / state.height);
@@ -414,7 +415,7 @@ void lovrGraphicsDraw(DrawOptions* draw) {
   }
 
   Canvas* canvas = state.pipelines[state.pipeline].canvas ? state.pipelines[state.pipeline].canvas : state.camera.canvas;
-  bool stereo = !draw->forceMono && (!canvas || lovrCanvasIsStereo(canvas));
+  bool stereo = !draw->forceMono && (canvas ? lovrCanvasIsStereo(canvas) : state.camera.stereo);
   float w = (canvas ? lovrCanvasGetWidth(canvas) : state.width) >> stereo;
   float h = canvas ? lovrCanvasGetHeight(canvas) : state.height;
   int viewportCount = 1 + stereo;

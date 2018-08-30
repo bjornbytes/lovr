@@ -95,6 +95,7 @@ typedef struct {
 } GraphicsStats;
 
 typedef struct {
+  bool stereo;
   Canvas* canvas;
   float viewMatrix[2][16];
   float projection[2][16];
