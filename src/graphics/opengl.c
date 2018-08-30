@@ -57,6 +57,7 @@ static struct {
   uint32_t blockBuffers[2][MAX_BLOCK_BUFFERS];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
+  float viewports[2][4];
   vec_void_t incoherents[MAX_BARRIERS];
   bool srgb;
   bool singlepass;
@@ -542,10 +543,16 @@ static void lovrGpuUseProgram(uint32_t program) {
 static void lovrGpuSetViewports(float viewports[][4], int viewportCount, int index) {
 #ifdef GL_ARB_viewport_array
     if (state.singlepass) {
-      glViewportArrayv(0, viewportCount, &viewports[0][0]);
+      if (memcmp(state.viewports, &viewports[0][0], viewportCount * 4 * sizeof(float))) {
+        memcpy(state.viewports, &viewports[0][0], viewportCount * 4 * sizeof(float));
+        glViewportArrayv(0, viewportCount, &viewports[0][0]);
+      }
     } else {
 #endif
-      glViewport(viewports[index][0], viewports[index][1], viewports[index][2], viewports[index][3]);
+      if (memcmp(state.viewports, viewports[index], 4 * sizeof(float))) {
+        memcpy(state.viewports, viewports[index], 4 * sizeof(float));
+        glViewport(viewports[index][0], viewports[index][1], viewports[index][2], viewports[index][3]);
+      }
 #ifdef GL_ARB_viewport_array
     }
 #endif
