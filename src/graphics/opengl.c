@@ -879,9 +879,6 @@ void lovrGpuDraw(DrawCommand* command) {
 
   lovrShaderSetMatrices(shader, "lovrMaterialTransform", material->transform, 0, 9);
 
-  // Bind shader resources
-  lovrShaderBind(shader);
-
   // Bind attributes
   lovrMeshBind(mesh, shader);
 
@@ -899,6 +896,12 @@ void lovrGpuDraw(DrawCommand* command) {
   instances *= state.singlepass ? command->viewportCount : 1;
   for (int i = 0; i < drawCount; i++) {
     lovrGpuSetViewports(command->viewports, command->viewportCount, i);
+
+    if (!state.singlepass) {
+      lovrShaderSetInts(shader, "lovrViewportIndex", &i, 0, 1);
+    }
+    lovrShaderBind(shader);
+
     uint32_t rangeStart, rangeCount;
     lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
     uint32_t indexCount;
