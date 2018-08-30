@@ -1370,17 +1370,16 @@ void lovrCanvasBind(Canvas* canvas) {
     Texture* texture = attachment->texture;
     int slice = attachment->slice;
     int level = attachment->level;
-    uint32_t id = texture->msaa ? texture->msaaId : texture->id;
 
     if (texture->msaa) {
       glFramebufferRenderbuffer(GL_FRAMEBUFFER, buffer, GL_RENDERBUFFER, texture->msaaId);
     }
 
     switch (texture->type) {
-      case TEXTURE_2D: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_2D, id, level); break;
-      case TEXTURE_CUBE: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice, id, level); break;
-      case TEXTURE_ARRAY: glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, buffer, id, level, slice); break;
-      case TEXTURE_VOLUME: glFramebufferTexture3D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_3D, id, level, slice); break;
+      case TEXTURE_2D: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_2D, texture->id, level); break;
+      case TEXTURE_CUBE: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice, texture->id, level); break;
+      case TEXTURE_ARRAY: glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, buffer, texture->id, level, slice); break;
+      case TEXTURE_VOLUME: glFramebufferTexture3D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_3D, texture->id, level, slice); break;
     }
   }
   glDrawBuffers(canvas->count, buffers);
