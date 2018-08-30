@@ -561,7 +561,7 @@ void lovrGpuInit(bool srgb, bool singlepass, gpuProc (*getProcAddress)(const cha
   } else {
     glDisable(GL_FRAMEBUFFER_SRGB);
   }
-  state.singlepass = singlepass && GLAD_GL_ARB_viewport_array && GLAD_GL_NV_viewport_array2 && GLAD_GL_NV_stereo_view_rendering;
+  state.singlepass = singlepass && GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index;
 #endif
   glEnable(GL_BLEND);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -872,6 +872,9 @@ void lovrGpuDraw(DrawCommand* command) {
 
   lovrShaderSetMatrices(shader, "lovrMaterialTransform", material->transform, 0, 9);
 
+  // Bind shader resources
+  lovrShaderBind(shader);
+
   // Bind attributes
   lovrMeshBind(mesh, shader);
 
@@ -883,17 +886,12 @@ void lovrGpuDraw(DrawCommand* command) {
     lovrGpuBindFramebuffer(0);
   }
 
-  // Draw (TODEW)
+  // Draw
   int drawCount = state.singlepass ? 1 : command->viewportCount;
+  instances = MAX(instances, 1);
+  instances *= state.singlepass ? command->viewportCount : 1;
   for (int i = 0; i < drawCount; i++) {
     lovrGpuSetViewports(command->viewports, command->viewportCount, i);
-
-    // Bind uniforms
-    int eye = (command->viewportCount > 1 && state.singlepass) ? -1 : i;
-    lovrShaderSetInts(shader, "lovrIsStereo", &(int) { eye == -1 }, 0, 1);
-    lovrShaderSetInts(shader, "_lovrEye", &eye, 0, 1);
-    lovrShaderBind(shader);
-
     uint32_t rangeStart, rangeCount;
     lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
     uint32_t indexCount;
