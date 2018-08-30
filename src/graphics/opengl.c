@@ -1327,8 +1327,8 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
     Texture* texture = attachments[i].texture;
     int width = lovrTextureGetWidth(texture, attachments[i].level);
     int height = lovrTextureGetHeight(texture, attachments[i].level);
-    lovrAssert(width == canvas->width, "Texture width of %d does not match Canvas width", width);
-    lovrAssert(height == canvas->height, "Texture height of %d does not match Canvas height", height);
+    lovrAssert(!canvas->depthBuffer || width == canvas->width, "Texture width of %d does not match Canvas width", width);
+    lovrAssert(!canvas->depthBuffer || height == canvas->height, "Texture height of %d does not match Canvas height", height);
     lovrAssert(texture->msaa == canvas->flags.msaa, "Texture MSAA does not match Canvas MSAA");
     lovrRetain(texture);
   }
@@ -1447,12 +1447,20 @@ bool lovrCanvasIsStereo(Canvas* canvas) {
   return canvas->flags.stereo;
 }
 
-uint32_t lovrCanvasGetWidth(Canvas* canvas) {
+int lovrCanvasGetWidth(Canvas* canvas) {
   return canvas->width;
 }
 
-uint32_t lovrCanvasGetHeight(Canvas* canvas) {
+int lovrCanvasGetHeight(Canvas* canvas) {
   return canvas->height;
+}
+
+int lovrCanvasGetMSAA(Canvas* canvas) {
+  return canvas->flags.msaa;
+}
+
+DepthFormat lovrCanvasGetDepthFormat(Canvas* canvas) {
+  return canvas->flags.depth;
 }
 
 TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {
