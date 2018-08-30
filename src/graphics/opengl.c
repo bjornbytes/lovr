@@ -1435,8 +1435,9 @@ void lovrCanvasResolve(Canvas* canvas) {
   canvas->needsResolve = false;
 }
 
+// Canvas must be resolved
 void lovrCanvasBlit(Canvas* canvas) {
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->flags.msaa ? canvas->resolveBuffer : canvas->framebuffer);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
   glBlitFramebuffer(0, 0, canvas->width, canvas->height, 0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
   state.framebuffer = 0;
