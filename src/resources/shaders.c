@@ -155,8 +155,7 @@ const char* lovrDefaultFragmentShader = ""
 const char* lovrCubeVertexShader = ""
 "out vec3 texturePosition[2]; \n"
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
-"  texturePosition[lovrEye] = inverse(mat3(transform)) * (inverse(projection) * vertex).xyz; \n"
-"  texturePosition[lovrEye].y *= -1.; \n"
+"  texturePosition[lovrEye] = -inverse(mat3(transform)) * (inverse(projection) * vertex).xyz; \n"
 "  return vertex; \n"
 "}";
 

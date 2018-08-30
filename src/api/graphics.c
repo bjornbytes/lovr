@@ -1224,7 +1224,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   } else {
     if (type == TEXTURE_CUBE && depth == 0) {
       depth = 6;
-      const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
+      const char* faces[6] = { "right", "left", "bottom", "top", "back", "front" };
       for (int i = 0; i < 6; i++) {
         lua_pushstring(L, faces[i]);
         lua_rawget(L, 1);
