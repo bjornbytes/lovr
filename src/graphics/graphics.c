@@ -52,8 +52,8 @@ void lovrGraphicsPresent() {
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon) {
   lovrAssert(!state.window, "Window is already created");
 
-#ifndef EMSCRIPTEN
   if ((state.window = glfwGetCurrentContext()) == NULL) {
+#ifndef EMSCRIPTEN
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -100,11 +100,9 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
 
     glfwMakeContextCurrent(state.window);
     glfwSetWindowCloseCallback(state.window, onCloseWindow);
-#ifndef EMSCRIPTEN
   }
 
   glfwSwapInterval(0);
-#endif
   glfwGetFramebufferSize(state.window, &state.width, &state.height);
   lovrGpuInit(state.gammaCorrect, glfwGetProcAddress);
   VertexFormat format;
