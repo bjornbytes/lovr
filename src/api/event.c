@@ -88,13 +88,11 @@ static int nextEvent(lua_State* L) {
       lua_pushboolean(L, event.data.boolean.value);
       return 2;
 
-#ifndef EMSCRIPTEN
     case EVENT_THREAD_ERROR:
       luax_pushobject(L, event.data.thread.thread);
       lua_pushstring(L, event.data.thread.error);
       free((void*) event.data.thread.error);
       return 3;
-#endif
 
     case EVENT_CONTROLLER_ADDED:
     case EVENT_CONTROLLER_REMOVED:

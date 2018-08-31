@@ -6,9 +6,7 @@
 #include "headset/headset.h"
 #include "math/math.h"
 #include "physics/physics.h"
-#ifndef EMSCRIPTEN
 #include "thread/thread.h"
-#endif
 #include "timer/timer.h"
 #include "resources/boot.lua.h"
 #include "lib/glfw.h"

@@ -19,11 +19,7 @@ int l_lovrInit(lua_State* L) {
   luax_preloadmodule(L, "lovr.headset", l_lovrHeadsetInit);
   luax_preloadmodule(L, "lovr.math", l_lovrMathInit);
   luax_preloadmodule(L, "lovr.physics", l_lovrPhysicsInit);
-#ifdef EMSCRIPTEN
-  luax_preloadmodule(L, "lovr.thread", luax_emptymodule);
-#else
   luax_preloadmodule(L, "lovr.thread", l_lovrThreadInit);
-#endif
   luax_preloadmodule(L, "lovr.timer", l_lovrTimerInit);
   luax_preloadmodule(L, "json", luaopen_cjson);
   luax_preloadmodule(L, "enet", luaopen_enet);

@@ -21,11 +21,6 @@ int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f) {
   return 0;
 }
 
-int luax_emptymodule(lua_State* L) {
-  lua_pushnil(L);
-  return 1;
-}
-
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
   lua_getglobal(L, "table");
   lua_getfield(L, -1, "insert");

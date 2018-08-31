@@ -1,7 +1,5 @@
 #include "headset/headset.h"
-#ifndef EMSCRIPTEN
 #include "thread/thread.h"
-#endif
 #include "lib/vec/vec.h"
 #include <stdbool.h>
 
@@ -52,12 +50,10 @@ typedef struct {
   bool value;
 } BoolEvent;
 
-#ifndef EMSCRIPTEN
 typedef struct {
   Thread* thread;
   const char* error;
 } ThreadEvent;
-#endif
 
 typedef struct {
   Controller* controller;
@@ -73,9 +69,7 @@ typedef struct {
 typedef union {
   QuitEvent quit;
   BoolEvent boolean;
-#ifndef EMSCRIPTEN
   ThreadEvent thread;
-#endif
   ControllerEvent controller;
   CustomEvent custom;
 } EventData;
