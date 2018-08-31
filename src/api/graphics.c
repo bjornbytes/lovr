@@ -929,12 +929,32 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
 }
 
 int l_lovrGraphicsNewCanvas(lua_State* L) {
-  int width = luaL_checkinteger(L, 1);
-  int height = luaL_checkinteger(L, 2);
+  Attachment attachments[MAX_CANVAS_ATTACHMENTS];
+  bool anonymous = false;
+  int attachmentCount = 0;
+  int width = 0;
+  int height = 0;
+  int index;
+
+  if (luax_totype(L, 1, Texture)) {
+    for (index = 1; index <= MAX_CANVAS_ATTACHMENTS; index++) {
+      Texture* texture = luax_totype(L, index, Texture);
+      if (!texture) break;
+      attachments[attachmentCount++] = (Attachment) { texture, 0, 0 };
+    }
+  } else if (lua_istable(L, 1)) {
+    luax_readattachments(L, 1, attachments, &attachmentCount);
+    index = 2;
+  } else {
+    width = luaL_checkinteger(L, 1);
+    height = luaL_checkinteger(L, 2);
+    index = 3;
+  }
+
   CanvasFlags flags = { .depth = DEPTH_D16, .stereo = true, .msaa = 0, .mipmaps = true };
 
-  if (lua_istable(L, 3)) {
-    lua_getfield(L, 3, "depth");
+  if (lua_istable(L, index)) {
+    lua_getfield(L, index, "depth");
     switch (lua_type(L, -1)) {
       case LUA_TNIL: break;
       case LUA_TBOOLEAN: flags.depth = lua_toboolean(L, -1) ? DEPTH_D16 : DEPTH_NONE; break;
@@ -942,20 +962,46 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
     }
     lua_pop(L, 1);
 
-    lua_getfield(L, 3, "stereo");
+    lua_getfield(L, index, "stereo");
     flags.stereo = lua_isnil(L, -1) ? flags.stereo : lua_toboolean(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, 3, "msaa");
+    lua_getfield(L, index, "msaa");
     flags.msaa = lua_isnil(L, -1) ? flags.msaa : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, 3, "mipmaps");
+    lua_getfield(L, index, "mipmaps");
     flags.mipmaps = lua_isnil(L, -1) ? flags.mipmaps : lua_toboolean(L, -1);
     lua_pop(L, 1);
+
+    if (attachmentCount == 0) {
+      lua_getfield(L, index, "format");
+      if (lua_type(L, -1) == LUA_TSTRING) {
+        TextureFormat format = luaL_checkoption(L, -1, "rgba", TextureFormats);
+        Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, flags.mipmaps, flags.msaa);
+        lovrTextureAllocate(texture, width, height, 1, format);
+        attachments[0] = (Attachment) { texture, 0, 0 };
+        attachmentCount++;
+        anonymous = true;
+      }
+      lua_pop(L, 1);
+    }
+  }
+
+  if (width == 0 && height == 0 && attachmentCount > 0) {
+    width = lovrTextureGetWidth(attachments[0].texture, attachments[0].level);
+    height = lovrTextureGetHeight(attachments[0].texture, attachments[0].level);
   }
 
   Canvas* canvas = lovrCanvasCreate(width, height, flags);
+
+  if (attachmentCount > 0) {
+    lovrCanvasSetAttachments(canvas, attachments, attachmentCount);
+    if (anonymous) {
+      lovrRelease(attachments[0].texture);
+    }
+  }
+
   luax_pushobject(L, canvas);
   lovrRelease(canvas);
   return 1;

@@ -13,12 +13,51 @@ Texture* luax_checktexture(lua_State* L, int index) {
 }
 
 static int luax_checkattachment(lua_State* L, int index, Attachment* attachment) {
-  attachment->texture = luax_checktype(L, index++, Texture);
-  attachment->slice = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) - 1 : 0;
-  attachment->level = lua_type(L, index) == LUA_TNUMBER ? luax_optmipmap(L, index++, attachment->texture) : 0;
+  if (lua_istable(L, index)) {
+    lua_rawgeti(L, index, 1);
+    attachment->texture = luax_checktype(L, -1, Texture);
+    lua_pop(L, 1);
+
+    lua_rawgeti(L, index, 2);
+    attachment->slice = luaL_optinteger(L, -1, 1) - 1;
+    lua_pop(L, 1);
+
+    lua_rawgeti(L, index, 3);
+    attachment->level = luax_optmipmap(L, -1, attachment->texture);
+    lua_pop(L, 1);
+
+    index++;
+  } else {
+    attachment->texture = luax_checktype(L, index++, Texture);
+    attachment->slice = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) - 1 : 0;
+    attachment->level = lua_type(L, index) == LUA_TNUMBER ? luax_optmipmap(L, index++, attachment->texture) : 0;
+  }
   bool isValidSlice = attachment->slice >= 0 && attachment->slice < lovrTextureGetDepth(attachment->texture, 0);
   lovrAssert(isValidSlice, "Invalid slice %d\n", attachment->slice + 1);
   return index;
+}
+
+void luax_readattachments(lua_State* L, int index, Attachment* attachments, int* count) {
+  bool table = lua_istable(L, index);
+  int top = table ? -1 : lua_gettop(L);
+  int n;
+
+  if (lua_istable(L, index)) {
+    n = lua_objlen(L, index);
+    n = MIN(n, 3 * MAX_CANVAS_ATTACHMENTS);
+    for (int i = 0; i < n; i++) {
+      lua_rawgeti(L, index, i + 1);
+    }
+    index = -n;
+  }
+
+  for (*count = 0; *count < MAX_CANVAS_ATTACHMENTS && index <= top; (*count)++) {
+    index = luax_checkattachment(L, index, attachments + *count);
+  }
+
+  if (table) {
+    lua_pop(L, n);
+  }
 }
 
 int l_lovrCanvasNewTextureData(lua_State* L) {
@@ -58,14 +97,8 @@ int l_lovrCanvasSetTexture(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
   int count;
-  int index = 2;
-  int top = lua_gettop(L);
-  for (count = 0; count < MAX_CANVAS_ATTACHMENTS && index <= top; count++) {
-    index = luax_checkattachment(L, index, attachments + count);
-  }
-
+  luax_readattachments(L, 2, attachments, &count);
   lovrCanvasSetAttachments(canvas, attachments, count);
-
   return 0;
 }
 
