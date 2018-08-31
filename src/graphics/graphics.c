@@ -53,7 +53,6 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
   lovrAssert(!state.window, "Window is already created");
 
   if ((state.window = glfwGetCurrentContext()) == NULL) {
-#ifndef EMSCRIPTEN
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -61,13 +60,6 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
     glfwWindowHint(GLFW_SAMPLES, msaa);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     glfwWindowHint(GLFW_SRGB_CAPABLE, state.gammaCorrect);
-#else
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    glfwWindowHint(GLFW_SAMPLES, msaa);
-    glfwWindowHint(GLFW_SRGB_CAPABLE, state.gammaCorrect);
-#endif
 
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode* mode = glfwGetVideoMode(monitor);
