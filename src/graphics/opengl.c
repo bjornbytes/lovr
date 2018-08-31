@@ -52,6 +52,7 @@ static struct {
   uint32_t framebuffer;
   uint32_t indexBuffer;
   uint32_t program;
+  int activeTexture;
   Texture* textures[MAX_TEXTURES];
   Image images[MAX_IMAGES];
   uint32_t blockBuffers[2][MAX_BLOCK_BUFFERS];
@@ -459,7 +460,10 @@ static void lovrGpuBindTexture(Texture* texture, int slot) {
     lovrRetain(texture);
     lovrRelease(state.textures[slot]);
     state.textures[slot] = texture;
-    glActiveTexture(GL_TEXTURE0 + slot);
+    if (state.activeTexture != slot) {
+      glActiveTexture(GL_TEXTURE0 + slot);
+      state.activeTexture = slot;
+    }
     glBindTexture(texture->target, texture->id);
   }
 }
