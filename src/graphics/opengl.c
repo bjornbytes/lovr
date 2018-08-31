@@ -262,12 +262,8 @@ static GLenum convertDepthFormat(DepthFormat format) {
 
 static bool isTextureFormatCompressed(TextureFormat format) {
   switch (format) {
-    case FORMAT_DXT1:
-    case FORMAT_DXT3:
-    case FORMAT_DXT5:
-      return true;
-    default:
-      return false;
+    case FORMAT_DXT1: case FORMAT_DXT3: case FORMAT_DXT5: return true;
+    default: return false;
   }
 }
 
@@ -335,20 +331,10 @@ static UniformType getUniformType(GLenum type, const char* debug) {
 
 static int getUniformComponents(GLenum type) {
   switch (type) {
-    case GL_FLOAT_VEC2:
-    case GL_INT_VEC2:
-    case GL_FLOAT_MAT2:
-      return 2;
-    case GL_FLOAT_VEC3:
-    case GL_INT_VEC3:
-    case GL_FLOAT_MAT3:
-      return 3;
-    case GL_FLOAT_VEC4:
-    case GL_INT_VEC4:
-    case GL_FLOAT_MAT4:
-      return 4;
-    default:
-      return 1;
+    case GL_FLOAT_VEC2: case GL_INT_VEC2: case GL_FLOAT_MAT2: return 2;
+    case GL_FLOAT_VEC3: case GL_INT_VEC3: case GL_FLOAT_MAT3: return 3;
+    case GL_FLOAT_VEC4: case GL_INT_VEC4: case GL_FLOAT_MAT4: return 4;
+    default: return 1;
   }
 }
 
@@ -796,12 +782,12 @@ void lovrGpuDraw(DrawCommand* command) {
   }
 
   // Wireframe
+#ifndef EMSCRIPTEN
   if (state.wireframe != pipeline->wireframe) {
     state.wireframe = pipeline->wireframe;
-#ifndef EMSCRIPTEN
     glPolygonMode(GL_FRONT_AND_BACK, state.wireframe ? GL_LINE : GL_FILL);
-#endif
   }
+#endif
 
   // Transform
   lovrShaderSetMatrices(shader, "lovrModel", command->transform, 0, 16);
