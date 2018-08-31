@@ -94,7 +94,9 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
     glfwSetWindowCloseCallback(state.window, onCloseWindow);
   }
 
+#ifndef EMSCRIPTEN
   glfwSwapInterval(0);
+#endif
   glfwGetFramebufferSize(state.window, &state.width, &state.height);
   lovrGpuInit(state.gammaCorrect, glfwGetProcAddress);
   VertexFormat format;

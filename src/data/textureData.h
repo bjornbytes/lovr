@@ -5,14 +5,6 @@
 
 #pragma once
 
-// WEBGL_compressed_texture_s3tc_srgb isn't ratified yet...
-#ifdef EMSCRIPTEN
-#define GL_COMPRESSED_SRGB_S3TC_DXT1_EXT 0x8C4C
-#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT 0x8C4D
-#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT 0x8C4E
-#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT 0x8C4F
-#endif
-
 typedef enum {
   FORMAT_RGB,
   FORMAT_RGBA,
