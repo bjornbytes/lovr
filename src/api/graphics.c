@@ -65,7 +65,7 @@ const char* CompareModes[] = {
 
 const char* DepthFormats[] = {
   [DEPTH_D16] = "d16",
-  [DEPTH_D32] = "d32",
+  [DEPTH_D32F] = "d32f",
   [DEPTH_D24S8] = "d24s8",
   NULL
 };

@@ -255,7 +255,7 @@ static GLenum convertTextureFormatType(TextureFormat format) {
 static GLenum convertDepthFormat(DepthFormat format) {
   switch (format) {
     case DEPTH_D16: return GL_DEPTH_COMPONENT16; break;
-    case DEPTH_D32: return GL_DEPTH_COMPONENT32; break;
+    case DEPTH_D32F: return GL_DEPTH_COMPONENT32F; break;
     case DEPTH_D24S8: return GL_DEPTH24_STENCIL8; break;
     default: lovrThrow("Unreachable"); return GL_DEPTH_COMPONENT16;
   }
@@ -276,6 +276,7 @@ static GLenum convertBufferUsage(BufferUsage usage) {
   }
 }
 
+#ifndef EMSCRIPTEN
 static GLenum convertAccess(UniformAccess access) {
   switch (access) {
     case ACCESS_READ: return GL_READ_ONLY;
@@ -283,6 +284,7 @@ static GLenum convertAccess(UniformAccess access) {
     case ACCESS_READ_WRITE: return GL_READ_WRITE;
   }
 }
+#endif
 
 static GLenum convertMeshDrawMode(MeshDrawMode mode) {
   switch (mode) {
@@ -474,9 +476,9 @@ void lovrGpuDirtyTexture(int slot) {
 }
 
 static void lovrGpuBindImage(Image* image, int slot) {
-#ifndef EMSCRIPTEN
+#ifdef EMSCRIPTEN
   lovrThrow("Shaders can not write to textures on this system");
-#endif
+#else
   lovrAssert(slot >= 0 && slot < MAX_IMAGES, "Invalid image slot %d", slot);
 
   // This is a risky way to compare the two structs
@@ -495,16 +497,20 @@ static void lovrGpuBindImage(Image* image, int slot) {
     glBindImageTexture(slot, texture->id, image->mipmap, image->slice == -1, image->slice, glAccess, glFormat);
     memcpy(state.images + slot, image, sizeof(Image));
   }
+#endif
 }
 
 static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot) {
-#ifndef EMSCRIPTEN
+#ifdef EMSCRIPTEN
   lovrAssert(type == BLOCK_UNIFORM, "Writable ShaderBlocks are not supported on this system");
+  GLenum target = BLOCK_UNIFORM;
+#else
+  GLenum target = type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
 #endif
 
   if (state.blockBuffers[type][slot] != buffer) {
     state.blockBuffers[type][slot] = buffer;
-    glBindBufferBase(type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER, slot, buffer);
+    glBindBufferBase(target, slot, buffer);
   }
 }
 
@@ -531,17 +537,21 @@ static void lovrGpuUseProgram(uint32_t program) {
 }
 
 static void lovrGpuSetViewports(float* viewport, int count) {
+#ifndef EMSCRIPTEN
   if (count > 1) {
     if (memcmp(state.viewports, viewport, count * 4 * sizeof(float))) {
       memcpy(state.viewports, viewport, count * 4 * sizeof(float));
       glViewportArrayv(0, count, viewport);
     }
   } else {
+#endif
     if (memcmp(state.viewports, viewport, 4 * sizeof(float))) {
       memcpy(state.viewports, viewport, 4 * sizeof(float));
       glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
     }
+#ifndef EMSCRIPTEN
   }
+#endif
 }
 
 void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
@@ -1376,7 +1386,7 @@ void lovrCanvasBind(Canvas* canvas) {
       case TEXTURE_2D: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_2D, texture->id, level); break;
       case TEXTURE_CUBE: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice, texture->id, level); break;
       case TEXTURE_ARRAY: glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, buffer, texture->id, level, slice); break;
-      case TEXTURE_VOLUME: glFramebufferTexture3D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_3D, texture->id, level, slice); break;
+      case TEXTURE_VOLUME: glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, buffer, texture->id, level, slice); break;
     }
   }
   glDrawBuffers(canvas->count, buffers);

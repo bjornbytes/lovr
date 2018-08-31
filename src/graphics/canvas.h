@@ -6,7 +6,7 @@
 
 typedef enum {
   DEPTH_D16,
-  DEPTH_D32,
+  DEPTH_D32F,
   DEPTH_D24S8,
   DEPTH_NONE
 } DepthFormat;
