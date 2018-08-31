@@ -805,10 +805,12 @@ void lovrGpuDraw(DrawCommand* command) {
   }
 #endif
 
-  // Transform
+  // Uniforms
+
   lovrShaderSetMatrices(shader, "lovrModel", command->transform, 0, 16);
   lovrShaderSetMatrices(shader, "lovrViews", command->camera.viewMatrix[0], 0, 32);
   lovrShaderSetMatrices(shader, "lovrProjections", command->camera.projection[0], 0, 32);
+  lovrShaderSetInts(shader, "lovrViewportCount", &command->viewportCount, 0, 1);
 
   float modelView[32];
   mat4_multiply(mat4_set(modelView, command->camera.viewMatrix[0]), command->transform);
@@ -877,7 +879,7 @@ void lovrGpuDraw(DrawCommand* command) {
   lovrShaderSetMatrices(shader, "lovrMaterialTransform", material->transform, 0, 9);
 
   // Bind attributes
-  lovrMeshBind(mesh, shader);
+  lovrMeshBind(mesh, shader, command->viewportCount);
 
   // Canvas
   if (canvas) {
@@ -2243,7 +2245,7 @@ void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
   map_remove(&mesh->attachments, name);
 }
 
-void lovrMeshBind(Mesh* mesh, Shader* shader) {
+void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   const char* key;
   map_iter_t iter = map_iter(&mesh->attachments);
 
@@ -2287,7 +2289,7 @@ void lovrMeshBind(Mesh* mesh, Shader* shader) {
     }
 
     if (previous.divisor != current.divisor) {
-      glVertexAttribDivisor(i, current.divisor);
+      glVertexAttribDivisor(i, current.divisor * divisorMultiplier);
     }
 
     if (previous.mesh != current.mesh || previous.attributeIndex != current.attributeIndex) {
