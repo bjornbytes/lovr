@@ -24,6 +24,7 @@ const char* lovrShaderVertexPrefix = ""
 #ifdef EMSCRIPTEN
 "#version 300 es \n"
 "precision mediump float; \n"
+"precision mediump int; \n"
 #else
 "#version 150 \n"
 "#extension GL_AMD_vertex_shader_viewport_index : enable \n"
@@ -78,6 +79,7 @@ const char* lovrShaderFragmentPrefix = ""
 #ifdef EMSCRIPTEN
 "#version 300 es \n"
 "precision mediump float; \n"
+"precision mediump int; \n"
 #else
 "#version 150 \n"
 "#extension GL_AMD_vertex_shader_viewport_index : enable \n"
