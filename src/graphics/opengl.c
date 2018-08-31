@@ -36,6 +36,15 @@
 #define LOVR_SHADER_BONES 5
 #define LOVR_SHADER_BONE_WEIGHTS 6
 
+typedef enum {
+  BARRIER_BLOCK,
+  BARRIER_UNIFORM_TEXTURE,
+  BARRIER_UNIFORM_IMAGE,
+  BARRIER_TEXTURE,
+  BARRIER_CANVAS,
+  MAX_BARRIERS
+} Barrier;
+
 static struct {
   Texture* defaultTexture;
   BlendMode blendMode;
@@ -63,9 +72,9 @@ static struct {
   float viewports[2][4];
   vec_void_t incoherents[MAX_BARRIERS];
   bool srgb;
-  bool singlepass;
-  GraphicsLimits limits;
-  GraphicsStats stats;
+  GpuFeatures features;
+  GpuLimits limits;
+  GpuStats stats;
 } state;
 
 struct ShaderBlock {
@@ -422,8 +431,52 @@ static Texture* lovrGpuGetDefaultTexture() {
   return state.defaultTexture;
 }
 
-// TODO this is pretty slow
-static void lovrGpuCleanupIncoherentResource(void* resource, uint8_t incoherent) {
+// Syncing resources is only relevant for compute shaders
+#ifndef EMSCRIPTEN
+static void lovrGpuSync(uint8_t flags) {
+  if (!flags) {
+    return;
+  }
+
+  GLbitfield bits = 0;
+  for (int i = 0; i < MAX_BARRIERS; i++) {
+    if (!((flags >> i) & 1)) {
+      continue;
+    }
+
+    if (state.incoherents[i].length == 0) {
+      flags &= ~(1 << i);
+      continue;
+    }
+
+    if (i == BARRIER_BLOCK) {
+      for (int j = 0; j < state.incoherents[j].length; j++) {
+        ShaderBlock* block = state.incoherents[i].data[j];
+        block->incoherent &= ~(1 << i);
+      }
+    } else {
+      for (int j = 0; j < state.incoherents[j].length; j++) {
+        Texture* texture = state.incoherents[i].data[j];
+        texture->incoherent &= ~(1 << i);
+      }
+    }
+
+    switch (i) {
+      case BARRIER_BLOCK: bits |= GL_SHADER_STORAGE_BARRIER_BIT; break;
+      case BARRIER_UNIFORM_IMAGE: bits |= GL_SHADER_IMAGE_ACCESS_BARRIER_BIT; break;
+      case BARRIER_UNIFORM_TEXTURE: bits |= GL_TEXTURE_FETCH_BARRIER_BIT; break;
+      case BARRIER_TEXTURE: bits |= GL_TEXTURE_UPDATE_BARRIER_BIT; break;
+      case BARRIER_CANVAS: bits |= GL_FRAMEBUFFER_BARRIER_BIT; break;
+    }
+  }
+
+  if (bits) {
+    glMemoryBarrier(bits);
+  }
+}
+#endif
+
+static void lovrGpuDestroySyncResource(void* resource, uint8_t incoherent) {
   if (!incoherent) {
     return;
   }
@@ -439,8 +492,6 @@ static void lovrGpuCleanupIncoherentResource(void* resource, uint8_t incoherent)
     }
   }
 }
-
-// GPU
 
 static void lovrGpuBindFramebuffer(uint32_t framebuffer) {
   if (state.framebuffer != framebuffer) {
@@ -472,15 +523,9 @@ static void lovrGpuBindTexture(Texture* texture, int slot) {
   }
 }
 
-void lovrGpuDirtyTexture(int slot) {
-  lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
-  state.textures[slot] = NULL;
-}
-
+#ifndef EMSCRIPTEN
 static void lovrGpuBindImage(Image* image, int slot) {
-#ifdef EMSCRIPTEN
   lovrThrow("Shaders can not write to textures on this system");
-#else
   lovrAssert(slot >= 0 && slot < MAX_IMAGES, "Invalid image slot %d", slot);
 
   // This is a risky way to compare the two structs
@@ -499,8 +544,8 @@ static void lovrGpuBindImage(Image* image, int slot) {
     glBindImageTexture(slot, texture->id, image->mipmap, image->slice == -1, image->slice, glAccess, glFormat);
     memcpy(state.images + slot, image, sizeof(Image));
   }
-#endif
 }
+#endif
 
 static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot) {
 #ifdef EMSCRIPTEN
@@ -538,27 +583,13 @@ static void lovrGpuUseProgram(uint32_t program) {
   }
 }
 
-static void lovrGpuSetViewports(float* viewport, int count) {
-#ifndef EMSCRIPTEN
-  if (count > 1) {
-    if (memcmp(state.viewports, viewport, count * 4 * sizeof(float))) {
-      memcpy(state.viewports, viewport, count * 4 * sizeof(float));
-      glViewportArrayv(0, count, viewport);
-    }
-  } else {
-#endif
-    if (memcmp(state.viewports, viewport, 4 * sizeof(float))) {
-      memcpy(state.viewports, viewport, 4 * sizeof(float));
-      glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-    }
-#ifndef EMSCRIPTEN
-  }
-#endif
-}
+// GPU
 
 void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
 #ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) getProcAddress);
+  state.features.computeShaders = GLAD_GL_ARB_compute_shader;
+  state.features.singlepass = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PROGRAM_POINT_SIZE);
   if (srgb) {
@@ -566,7 +597,13 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   } else {
     glDisable(GL_FRAMEBUFFER_SRGB);
   }
+  glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
+#else
+  glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, state.limits.pointSizes);
 #endif
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.limits.textureSize);
+  glGetIntegerv(GL_MAX_SAMPLES, &state.limits.textureMSAA);
+  glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
   glEnable(GL_BLEND);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
@@ -601,76 +638,7 @@ void lovrGpuDestroy() {
   }
 }
 
-void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil) {
-  if (canvas) {
-    lovrCanvasBind(canvas);
-    canvas->needsResolve = true;
-  } else {
-    lovrGpuBindFramebuffer(0);
-  }
-
-  if (color) {
-    gammaCorrectColor(color);
-    int count = canvas ? canvas->count : 1;
-    for (int i = 0; i < count; i++) {
-      glClearBufferfv(GL_COLOR, i, (float[]) { color->r, color->g, color->b, color->a });
-    }
-  }
-
-  if (depth && !state.depthWrite) {
-    state.depthWrite = true;
-    glDepthMask(state.depthWrite);
-  }
-
-  if (depth && stencil) {
-    glClearBufferfi(GL_DEPTH_STENCIL, 0, *depth, *stencil);
-  } else if (depth) {
-    glClearBufferfv(GL_DEPTH, 0, depth);
-  } else if (stencil) {
-    glClearBufferiv(GL_STENCIL, 0, stencil);
-  }
-}
-
-void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
-  state.depthWrite = false;
-  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-  if (!state.stencilEnabled) {
-    state.stencilEnabled = true;
-    glEnable(GL_STENCIL_TEST);
-  }
-
-  GLenum glAction;
-  switch (action) {
-    case STENCIL_REPLACE: glAction = GL_REPLACE; break;
-    case STENCIL_INCREMENT: glAction = GL_INCR; break;
-    case STENCIL_DECREMENT: glAction = GL_DECR; break;
-    case STENCIL_INCREMENT_WRAP: glAction = GL_INCR_WRAP; break;
-    case STENCIL_DECREMENT_WRAP: glAction = GL_DECR_WRAP; break;
-    case STENCIL_INVERT: glAction = GL_INVERT; break;
-  }
-
-  glStencilFunc(GL_ALWAYS, replaceValue, 0xff);
-  glStencilOp(GL_KEEP, GL_KEEP, glAction);
-
-  state.stencilWriting = true;
-  callback(userdata);
-  state.stencilWriting = false;
-
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  state.stencilMode = ~0; // Dirty
-}
-
-void lovrGpuDraw(DrawCommand* command) {
-  Mesh* mesh = command->mesh;
-  Canvas* canvas = command->canvas;
-  Shader* shader = command->shader;
-  Material* material = command->material;
-  Pipeline* pipeline = &command->pipeline;
-  int instances = command->instances;
-
-  // Bind shader
-  lovrGpuUseProgram(shader->program);
+void lovrGpuBindPipeline(Pipeline* pipeline) {
 
   // Blend mode
   if (state.blendMode != pipeline->blendMode || state.blendAlphaMode != pipeline->blendAlphaMode) {
@@ -804,130 +772,79 @@ void lovrGpuDraw(DrawCommand* command) {
     glPolygonMode(GL_FRONT_AND_BACK, state.wireframe ? GL_LINE : GL_FILL);
   }
 #endif
+}
 
-  // Uniforms
-
-  lovrShaderSetMatrices(shader, "lovrModel", command->transform, 0, 16);
-  lovrShaderSetMatrices(shader, "lovrViews", command->camera.viewMatrix[0], 0, 32);
-  lovrShaderSetMatrices(shader, "lovrProjections", command->camera.projection[0], 0, 32);
-  lovrShaderSetInts(shader, "lovrViewportCount", &command->viewportCount, 0, 1);
-
-  float modelView[32];
-  mat4_multiply(mat4_set(modelView, command->camera.viewMatrix[0]), command->transform);
-  mat4_multiply(mat4_set(modelView + 16, command->camera.viewMatrix[1]), command->transform);
-  lovrShaderSetMatrices(shader, "lovrTransforms", modelView, 0, 32);
-
-  if (lovrShaderHasUniform(shader, "lovrNormalMatrices")) {
-    if (mat4_invert(modelView) && mat4_invert(modelView + 16)) {
-      mat4_transpose(modelView);
-      mat4_transpose(modelView + 16);
-    } else {
-      mat4_identity(modelView);
-      mat4_identity(modelView + 16);
+void lovrGpuSetViewports(float* viewport, int count) {
+#ifndef EMSCRIPTEN
+  if (count > 1) {
+    if (memcmp(state.viewports, viewport, count * 4 * sizeof(float))) {
+      memcpy(state.viewports, viewport, count * 4 * sizeof(float));
+      glViewportArrayv(0, count, viewport);
     }
-
-    float normalMatrices[18] = {
-      modelView[0], modelView[1], modelView[2],
-      modelView[4], modelView[5], modelView[6],
-      modelView[8], modelView[9], modelView[10],
-
-      modelView[16], modelView[17], modelView[18],
-      modelView[20], modelView[21], modelView[22],
-      modelView[24], modelView[25], modelView[26]
-    };
-
-    lovrShaderSetMatrices(shader, "lovrNormalMatrices", normalMatrices, 0, 18);
-  }
-
-  // Pose
-  float* pose = lovrMeshGetPose(mesh);
-  if (pose) {
-    lovrShaderSetMatrices(shader, "lovrPose", pose, 0, MAX_BONES * 16);
   } else {
-    float identity[16];
-    mat4_identity(identity);
-    lovrShaderSetMatrices(shader, "lovrPose", identity, 0, 16);
-  }
-
-  // Point size
-  lovrShaderSetFloats(shader, "lovrPointSize", &pipeline->pointSize, 0, 1);
-
-  // Color
-  Color color = pipeline->color;
-  gammaCorrectColor(&color);
-  float data[4] = { color.r, color.g, color.b, color.a };
-  lovrShaderSetFloats(shader, "lovrColor", data, 0, 4);
-
-  // Material
-  for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
-    float value = lovrMaterialGetScalar(material, i);
-    lovrShaderSetFloats(shader, lovrShaderScalarUniforms[i], &value, 0, 1);
-  }
-
-  for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
-    Color color = lovrMaterialGetColor(material, i);
-    gammaCorrectColor(&color);
-    float data[4] = { color.r, color.g, color.b, color.a };
-    lovrShaderSetFloats(shader, lovrShaderColorUniforms[i], data, 0, 4);
-  }
-
-  for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
-    Texture* texture = lovrMaterialGetTexture(material, i);
-    lovrShaderSetTextures(shader, lovrShaderTextureUniforms[i], &texture, 0, 1);
-  }
-
-  lovrShaderSetMatrices(shader, "lovrMaterialTransform", material->transform, 0, 9);
-
-  // Bind attributes
-  lovrMeshBind(mesh, shader, command->viewportCount);
-
-  // Canvas
-  if (canvas) {
-    lovrCanvasBind(canvas);
-    canvas->needsResolve = true;
-  } else {
-    lovrGpuBindFramebuffer(0);
-  }
-
-  // Draw
-  bool singlepass = lovrGraphicsGetSupported().singlepass;
-  int drawCount = singlepass ? 1 : command->viewportCount;
-  instances = MAX(instances, 1) * (singlepass ? command->viewportCount : 1);
-  for (int i = 0; i < drawCount; i++) {
-    lovrGpuSetViewports(&command->viewports[i][0], singlepass ? command->viewportCount : 1);
-
-    if (!singlepass) {
-      lovrShaderSetInts(shader, "lovrViewportIndex", &i, 0, 1);
+#endif
+    if (memcmp(state.viewports, viewport, 4 * sizeof(float))) {
+      memcpy(state.viewports, viewport, 4 * sizeof(float));
+      glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
     }
-
-    lovrShaderBind(shader);
-
-    uint32_t rangeStart, rangeCount;
-    lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
-    uint32_t indexCount;
-    size_t indexSize;
-    lovrMeshReadIndices(mesh, &indexCount, &indexSize);
-    GLenum glDrawMode = convertMeshDrawMode(lovrMeshGetDrawMode(mesh));
-    if (indexCount > 0) {
-      size_t count = rangeCount ? rangeCount : indexCount;
-      GLenum indexType = indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-      size_t offset = rangeStart * indexSize;
-      if (instances > 1) {
-        glDrawElementsInstanced(glDrawMode, count, indexType, (GLvoid*) offset, instances);
-      } else {
-        glDrawElements(glDrawMode, count, indexType, (GLvoid*) offset);
-      }
-    } else {
-      size_t count = rangeCount ? rangeCount : lovrMeshGetVertexCount(mesh);
-      if (instances > 1) {
-        glDrawArraysInstanced(glDrawMode, rangeStart, count, instances);
-      } else {
-        glDrawArrays(glDrawMode, rangeStart, count);
-      }
-    }
-
-    state.stats.drawCalls++;
+#ifndef EMSCRIPTEN
   }
+#endif
+}
+
+void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil) {
+  lovrCanvasBind(canvas, true);
+
+  if (color) {
+    gammaCorrectColor(color);
+    int count = canvas ? canvas->count : 1;
+    for (int i = 0; i < count; i++) {
+      glClearBufferfv(GL_COLOR, i, (float[]) { color->r, color->g, color->b, color->a });
+    }
+  }
+
+  if (depth && !state.depthWrite) {
+    state.depthWrite = true;
+    glDepthMask(state.depthWrite);
+  }
+
+  if (depth && stencil) {
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, *depth, *stencil);
+  } else if (depth) {
+    glClearBufferfv(GL_DEPTH, 0, depth);
+  } else if (stencil) {
+    glClearBufferiv(GL_STENCIL, 0, stencil);
+  }
+}
+
+void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
+  state.depthWrite = false;
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+  if (!state.stencilEnabled) {
+    state.stencilEnabled = true;
+    glEnable(GL_STENCIL_TEST);
+  }
+
+  GLenum glAction;
+  switch (action) {
+    case STENCIL_REPLACE: glAction = GL_REPLACE; break;
+    case STENCIL_INCREMENT: glAction = GL_INCR; break;
+    case STENCIL_DECREMENT: glAction = GL_DECR; break;
+    case STENCIL_INCREMENT_WRAP: glAction = GL_INCR_WRAP; break;
+    case STENCIL_DECREMENT_WRAP: glAction = GL_DECR_WRAP; break;
+    case STENCIL_INVERT: glAction = GL_INVERT; break;
+  }
+
+  glStencilFunc(GL_ALWAYS, replaceValue, 0xff);
+  glStencilOp(GL_KEEP, GL_KEEP, glAction);
+
+  state.stencilWriting = true;
+  callback(userdata);
+  state.stencilWriting = false;
+
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  state.stencilMode = ~0; // Dirty
 }
 
 void lovrGpuCompute(Shader* shader, int x, int y, int z) {
@@ -936,53 +853,8 @@ void lovrGpuCompute(Shader* shader, int x, int y, int z) {
 #else
   lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
   lovrAssert(shader->type == SHADER_COMPUTE, "Attempt to use a non-compute shader for a compute operation");
-  lovrGpuUseProgram(shader->program);
   lovrShaderBind(shader);
   glDispatchCompute(x, y, z);
-#endif
-}
-
-void lovrGpuWait(uint8_t flags) {
-#ifndef EMSCRIPTEN
-  if (!GL_ARB_shader_image_load_store || !flags) {
-    return;
-  }
-
-  GLbitfield bits = 0;
-  for (int i = 0; i < MAX_BARRIERS; i++) {
-    if (!((flags >> i) & 1)) {
-      continue;
-    }
-
-    if (state.incoherents[i].length == 0) {
-      flags &= ~(1 << i);
-      continue;
-    }
-
-    if (i == BARRIER_BLOCK) {
-      for (int j = 0; j < state.incoherents[j].length; j++) {
-        ShaderBlock* block = state.incoherents[i].data[j];
-        block->incoherent &= ~(1 << i);
-      }
-    } else {
-      for (int j = 0; j < state.incoherents[j].length; j++) {
-        Texture* texture = state.incoherents[i].data[j];
-        texture->incoherent &= ~(1 << i);
-      }
-    }
-
-    switch (i) {
-      case BARRIER_BLOCK: bits |= GL_SHADER_STORAGE_BARRIER_BIT; break;
-      case BARRIER_UNIFORM_IMAGE: bits |= GL_SHADER_IMAGE_ACCESS_BARRIER_BIT; break;
-      case BARRIER_UNIFORM_TEXTURE: bits |= GL_TEXTURE_FETCH_BARRIER_BIT; break;
-      case BARRIER_TEXTURE: bits |= GL_TEXTURE_UPDATE_BARRIER_BIT; break;
-      case BARRIER_CANVAS: bits |= GL_FRAMEBUFFER_BARRIER_BIT; break;
-    }
-  }
-
-  if (bits) {
-    glMemoryBarrier(bits);
-  }
 #endif
 }
 
@@ -994,38 +866,21 @@ void lovrGpuPresent() {
 #endif
 }
 
-GraphicsFeatures lovrGraphicsGetSupported() {
-  return (GraphicsFeatures) {
-#ifdef EMSCRIPTEN
-    .computeShaders = false,
-    .writableBlocks = false,
-    .singlepass = false
-#else
-    .computeShaders = GLAD_GL_ARB_compute_shader,
-    .writableBlocks = GLAD_GL_ARB_shader_storage_buffer_object,
-    .singlepass = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index
-#endif
-  };
+void lovrGpuDirtyTexture(int slot) {
+  lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
+  state.textures[slot] = NULL;
 }
 
-GraphicsLimits lovrGraphicsGetLimits() {
-  if (!state.limits.initialized) {
-#ifdef EMSCRIPTEN
-    glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, state.limits.pointSizes);
-#else
-    glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
-#endif
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.limits.textureSize);
-    glGetIntegerv(GL_MAX_SAMPLES, &state.limits.textureMSAA);
-    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
-    state.limits.initialized = 1;
-  }
-
-  return state.limits;
+const GpuFeatures* lovrGpuGetSupported() {
+  return &state.features;
 }
 
-GraphicsStats lovrGraphicsGetStats() {
-  return state.stats;
+const GpuLimits* lovrGpuGetLimits() {
+  return &state.limits;
+}
+
+const GpuStats* lovrGpuGetStats() {
+  return &state.stats;
 }
 
 // Texture
@@ -1070,12 +925,12 @@ void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   glDeleteTextures(1, &texture->id);
   glDeleteRenderbuffers(1, &texture->msaaId);
-  lovrGpuCleanupIncoherentResource(texture, texture->incoherent);
+  lovrGpuDestroySyncResource(texture, texture->incoherent);
   free(texture);
 }
 
 void lovrTextureAllocate(Texture* texture, int width, int height, int depth, TextureFormat format) {
-  int maxSize = lovrGraphicsGetLimits().textureSize;
+  int maxSize = state.limits.textureSize;
   lovrAssert(!texture->allocated, "Texture is already allocated");
   lovrAssert(texture->type != TEXTURE_CUBE || width == height, "Cubemap images must be square");
   lovrAssert(texture->type != TEXTURE_CUBE || depth == 6, "6 images are required for a cube texture\n");
@@ -1101,7 +956,7 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
     return;
   }
 
-  bool srgb = lovrGraphicsIsGammaCorrect() && texture->srgb;
+  bool srgb = state.srgb && texture->srgb;
   GLenum glFormat = convertTextureFormat(format);
   GLenum internalFormat = convertTextureFormatInternal(format, srgb);
 #ifndef EMSCRIPTEN
@@ -1148,9 +1003,11 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
   lovrAssert(texture->allocated, "Texture is not allocated");
   lovrAssert(textureData->blob.data, "Trying to replace Texture pixels with empty pixel data");
 
+#ifndef EMSCRIPTEN
   if ((texture->incoherent >> BARRIER_TEXTURE) & 1) {
-    lovrGpuWait(1 << BARRIER_TEXTURE);
+    lovrGpuSync(1 << BARRIER_TEXTURE);
   }
+#endif
 
   int maxWidth = lovrTextureGetWidth(texture, mipmap);
   int maxHeight = lovrTextureGetHeight(texture, mipmap);
@@ -1353,21 +1210,29 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
   canvas->needsAttach = true;
 }
 
-void lovrCanvasBind(Canvas* canvas) {
-  lovrGpuBindFramebuffer(canvas->framebuffer);
+void lovrCanvasBind(Canvas* canvas, bool willDraw) {
+  if (canvas) {
+    lovrGpuBindFramebuffer(canvas->framebuffer);
+    canvas->needsResolve = willDraw;
+  } else {
+    lovrGpuBindFramebuffer(0);
+    return;
+  }
 
   if (!canvas->needsAttach) {
     return;
   }
 
   // We need to synchronize if any of the Canvas attachments have pending writes on them
+#ifndef EMSCRIPTEN
   for (int i = 0; i < canvas->count; i++) {
     Texture* texture = canvas->attachments[i].texture;
     if (texture->incoherent && (texture->incoherent >> BARRIER_CANVAS) & 1) {
-      lovrGpuWait(1 << BARRIER_CANVAS);
+      lovrGpuSync(1 << BARRIER_CANVAS);
       break;
     }
   }
+#endif
 
   // Use the read framebuffer as a binding point to bind resolve textures
   if (canvas->flags.msaa) {
@@ -1475,12 +1340,14 @@ DepthFormat lovrCanvasGetDepthFormat(Canvas* canvas) {
 }
 
 TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {
-  lovrCanvasBind(canvas);
+  lovrCanvasBind(canvas, false);
 
+#ifndef EMSCRIPTEN
   Texture* texture = canvas->attachments[index].texture;
   if ((texture->incoherent >> BARRIER_TEXTURE) & 1) {
-    lovrGpuWait(1 << BARRIER_TEXTURE);
+    lovrGpuSync(1 << BARRIER_TEXTURE);
   }
+#endif
 
   if (index != 0) {
     glReadBuffer(index);
@@ -1842,7 +1709,10 @@ void lovrShaderBind(Shader* shader) {
   Uniform* uniform;
   int i;
 
+  lovrGpuUseProgram(shader->program);
+
   // Figure out if we need to wait for pending writes on resources to complete
+#ifndef EMSCRIPTEN
   uint8_t flags = 0;
   vec_foreach_ptr(&shader->blocks[BLOCK_STORAGE], block, i) {
     if (block->source && (block->source->incoherent >> BARRIER_BLOCK) & 1) {
@@ -1875,7 +1745,8 @@ void lovrShaderBind(Shader* shader) {
     }
   }
 
-  lovrGpuWait(flags);
+  lovrGpuSync(flags);
+#endif
 
   // Bind uniforms
   vec_foreach_ptr(&shader->uniforms, uniform, i) {
@@ -1914,6 +1785,7 @@ void lovrShaderBind(Shader* shader) {
         }
         break;
 
+#ifndef EMSCRIPTEN
       case UNIFORM_IMAGE:
         for (int i = 0; i < count; i++) {
           Image* image = &uniform->value.images[i];
@@ -1931,6 +1803,7 @@ void lovrShaderBind(Shader* shader) {
           lovrGpuBindImage(image, uniform->baseSlot + i);
         }
         break;
+#endif
 
       case UNIFORM_SAMPLER:
         for (int i = 0; i < count; i++) {
@@ -2017,6 +1890,11 @@ void lovrShaderSetImages(Shader* shader, const char* name, Image* data, int star
   lovrShaderSetUniform(shader, name, UNIFORM_IMAGE, data, start, count, sizeof(Image), "image");
 }
 
+void lovrShaderSetColor(Shader* shader, const char* name, Color color) {
+  gammaCorrectColor(&color);
+  lovrShaderSetUniform(shader, name, UNIFORM_FLOAT, (float*) &color, 0, 4, sizeof(float), "float");
+}
+
 void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source, UniformAccess access) {
   int* id = map_get(&shader->blockMap, name);
   lovrAssert(id, "No shader block named '%s'", name);
@@ -2052,7 +1930,7 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
   ShaderBlock* block = lovrAlloc(ShaderBlock, lovrShaderBlockDestroy);
   if (!block) return NULL;
 
-  lovrAssert(type != BLOCK_STORAGE || lovrGraphicsGetSupported().writableBlocks, "Writable ShaderBlocks are not supported on this system");
+  lovrAssert(type != BLOCK_STORAGE || state.features.computeShaders, "Writable ShaderBlocks are not supported on this system");
 
   vec_init(&block->uniforms);
   vec_extend(&block->uniforms, uniforms);
@@ -2098,7 +1976,7 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
 
 void lovrShaderBlockDestroy(void* ref) {
   ShaderBlock* block = ref;
-  lovrGpuCleanupIncoherentResource(block, block->incoherent);
+  lovrGpuDestroySyncResource(block, block->incoherent);
   glDeleteBuffers(1, &block->buffer);
   vec_deinit(&block->uniforms);
   map_deinit(&block->uniformMap);
@@ -2313,6 +2191,30 @@ void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
 
     mesh->layout[i] = current;
   }
+}
+
+void lovrMeshDraw(Mesh* mesh, int instances) {
+  GLenum glDrawMode = convertMeshDrawMode(lovrMeshGetDrawMode(mesh));
+
+  if (mesh->indexCount > 0) {
+    size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
+    GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+    size_t offset = mesh->rangeStart * mesh->indexSize;
+    if (instances > 1) {
+      glDrawElementsInstanced(glDrawMode, count, indexType, (GLvoid*) offset, instances);
+    } else {
+      glDrawElements(glDrawMode, count, indexType, (GLvoid*) offset);
+    }
+  } else {
+    size_t count = mesh->rangeCount ? mesh->rangeCount : lovrMeshGetVertexCount(mesh);
+    if (instances > 1) {
+      glDrawArraysInstanced(glDrawMode, mesh->rangeStart, count, instances);
+    } else {
+      glDrawArrays(glDrawMode, mesh->rangeStart, count);
+    }
+  }
+
+  state.stats.drawCalls++;
 }
 
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh) {

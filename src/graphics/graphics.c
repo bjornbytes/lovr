@@ -1,4 +1,5 @@
 #include "graphics/graphics.h"
+#include "resources/shaders.h"
 #include "data/rasterizer.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
@@ -370,10 +371,7 @@ void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
   lovrGpuClear(canvas, color, depth, stencil);
 }
 
-void lovrGraphicsDraw(DrawOptions* draw) {
-  Shader* shader = state.pipelines[state.pipeline].shader ? state.pipelines[state.pipeline].shader : state.defaultShaders[draw->shader];
-  if (!shader) shader = state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader);
-
+void lovrGraphicsDraw(DrawCommand* draw) {
   Mesh* mesh = draw->mesh;
   if (!mesh) {
     int drawCount = draw->range.count ? draw->range.count : (draw->index.count ? draw->index.count : draw->vertex.count);
@@ -392,54 +390,126 @@ void lovrGraphicsDraw(DrawOptions* draw) {
     }
   }
 
-  Material* material = draw->material;
-  if (!material) {
-    if (!state.defaultMaterial) {
-      state.defaultMaterial = lovrMaterialCreate();
-    }
+  if (draw->transform) {
+    lovrGraphicsPush();
+    lovrGraphicsMatrixTransform(draw->transform);
+  }
 
-    material = state.defaultMaterial;
+  Pipeline* pipeline = &state.pipelines[state.pipeline];
 
+  Canvas* canvas = pipeline->canvas ? pipeline->canvas : state.camera.canvas;
+  bool stereo = !draw->forceMono && (canvas ? lovrCanvasIsStereo(canvas) : state.camera.stereo);
+  float w = (canvas ? lovrCanvasGetWidth(canvas) : state.width) >> stereo;
+  float h = canvas ? lovrCanvasGetHeight(canvas) : state.height;
+  float viewports[2][4] = { { 0, 0, w, h, }, { w, 0, w, h } };
+  int viewportCount = 1 + stereo;
+
+  Material* material = draw->material ? draw->material : state.defaultMaterial;
+  if (!material) material = state.defaultMaterial = lovrMaterialCreate();
+  if (!draw->material) {
     for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
       lovrMaterialSetTexture(material, i, draw->textures[i]);
     }
   }
 
-  Canvas* canvas = state.pipelines[state.pipeline].canvas ? state.pipelines[state.pipeline].canvas : state.camera.canvas;
-  bool stereo = !draw->forceMono && (canvas ? lovrCanvasIsStereo(canvas) : state.camera.stereo);
-  float w = (canvas ? lovrCanvasGetWidth(canvas) : state.width) >> stereo;
-  float h = canvas ? lovrCanvasGetHeight(canvas) : state.height;
-  int viewportCount = 1 + stereo;
+  Shader* shader = pipeline->shader ? pipeline->shader : state.defaultShaders[draw->shader];
+  if (!shader) shader = state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader);
 
-  DrawCommand command = {
-    .mesh = mesh,
-    .canvas = canvas,
-    .shader = shader,
-    .material = material,
-    .camera = state.camera,
-    .viewports = { { 0, 0, w, h }, { w, 0, w, h } },
-    .viewportCount = viewportCount,
-    .pipeline = state.pipelines[state.pipeline],
-    .instances = draw->instances
-  };
+  mat4 transform = state.transforms[state.transform];
+  lovrShaderSetMatrices(shader, "lovrModel", transform, 0, 16);
+  lovrShaderSetMatrices(shader, "lovrViews", state.camera.viewMatrix[0], 0, 32);
+  lovrShaderSetMatrices(shader, "lovrProjections", state.camera.projection[0], 0, 32);
 
-  mat4_init(command.transform, state.transforms[state.transform]);
-  if (draw->transform) {
-    mat4_multiply(command.transform, draw->transform);
+  float modelView[32];
+  mat4_multiply(mat4_set(modelView, state.camera.viewMatrix[0]), transform);
+  mat4_multiply(mat4_set(modelView + 16, state.camera.viewMatrix[1]), transform);
+  lovrShaderSetMatrices(shader, "lovrTransforms", modelView, 0, 32);
+
+  if (lovrShaderHasUniform(shader, "lovrNormalMatrices")) {
+    if (mat4_invert(modelView) && mat4_invert(modelView + 16)) {
+      mat4_transpose(modelView);
+      mat4_transpose(modelView + 16);
+    } else {
+      mat4_identity(modelView);
+      mat4_identity(modelView + 16);
+    }
+
+    float normalMatrices[18] = {
+      modelView[0], modelView[1], modelView[2],
+      modelView[4], modelView[5], modelView[6],
+      modelView[8], modelView[9], modelView[10],
+
+      modelView[16], modelView[17], modelView[18],
+      modelView[20], modelView[21], modelView[22],
+      modelView[24], modelView[25], modelView[26]
+    };
+
+    lovrShaderSetMatrices(shader, "lovrNormalMatrices", normalMatrices, 0, 18);
   }
 
-  lovrGpuDraw(&command);
+  float* pose = lovrMeshGetPose(mesh);
+  if (pose) {
+    lovrShaderSetMatrices(shader, "lovrPose", pose, 0, MAX_BONES * 16);
+  } else {
+    float identity[16];
+    mat4_identity(identity);
+    lovrShaderSetMatrices(shader, "lovrPose", identity, 0, 16);
+  }
+
+  lovrShaderSetInts(shader, "lovrViewportCount", &viewportCount, 0, 1);
+  lovrShaderSetColor(shader, "lovrColor", pipeline->color);
+  lovrShaderSetFloats(shader, "lovrPointSize", &pipeline->pointSize, 0, 1);
+
+  for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
+    float value = lovrMaterialGetScalar(material, i);
+    lovrShaderSetFloats(shader, lovrShaderScalarUniforms[i], &value, 0, 1);
+  }
+
+  for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
+    lovrShaderSetColor(shader, lovrShaderColorUniforms[i], lovrMaterialGetColor(material, i));
+  }
+
+  for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
+    Texture* texture = lovrMaterialGetTexture(material, i);
+    lovrShaderSetTextures(shader, lovrShaderTextureUniforms[i], &texture, 0, 1);
+  }
+
+  lovrShaderSetMatrices(shader, "lovrMaterialTransform", material->transform, 0, 9);
+
+  // Bind
+  lovrCanvasBind(canvas, true);
+  lovrGpuBindPipeline(pipeline);
+  lovrMeshBind(mesh, shader, viewportCount);
+
+  // Draw
+  if (lovrGpuGetSupported()->singlepass) {
+    int instances = MAX(draw->instances, 1) * viewportCount;
+    lovrGpuSetViewports(&viewports[0][0], viewportCount);
+    lovrShaderBind(shader);
+    lovrMeshDraw(mesh, instances);
+  } else {
+    for (int i = 0; i < viewportCount; i++) {
+      lovrGpuSetViewports(&viewports[i][0], 1);
+      lovrShaderSetInts(shader, "lovrViewportIndex", &i, 0, 1);
+      lovrShaderBind(shader);
+      lovrMeshDraw(mesh, draw->instances);
+    }
+  }
+
+  if (draw->transform) {
+    lovrGraphicsPop();
+  }
 }
 
 void lovrGraphicsPoints(uint32_t count) {
-  lovrGraphicsDraw(&(DrawOptions) {
+  lovrGraphicsDraw(&(DrawCommand) {
     .mode = MESH_POINTS,
     .range = { 0, count }
   });
 }
 
 void lovrGraphicsLine(uint32_t count) {
-  lovrGraphicsDraw(&(DrawOptions) {
+  lovrGraphicsDraw(&(DrawCommand) {
     .mode = MESH_LINE_STRIP,
     .range = { 0, count }
   });
@@ -447,7 +517,7 @@ void lovrGraphicsLine(uint32_t count) {
 
 void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]) {
   if (mode == DRAW_MODE_LINE) {
-    lovrGraphicsDraw(&(DrawOptions) {
+    lovrGraphicsDraw(&(DrawCommand) {
       .material = material,
       .mode = MESH_LINE_LOOP,
       .vertex.count = 3,
@@ -460,7 +530,7 @@ void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]) {
   } else {
     float normal[3];
     vec3_cross(vec3_init(normal, &points[0]), &points[3]);
-    lovrGraphicsDraw(&(DrawOptions) {
+    lovrGraphicsDraw(&(DrawCommand) {
       .material = material,
       .mode = MESH_TRIANGLES,
       .vertex.count = 3,
@@ -475,7 +545,7 @@ void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]) {
 
 void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
   if (mode == DRAW_MODE_LINE) {
-    lovrGraphicsDraw(&(DrawOptions) {
+    lovrGraphicsDraw(&(DrawCommand) {
       .transform = transform,
       .material = material,
       .mode = MESH_LINE_LOOP,
@@ -488,7 +558,7 @@ void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
       }
     });
   } else if (mode == DRAW_MODE_FILL) {
-    lovrGraphicsDraw(&(DrawOptions) {
+    lovrGraphicsDraw(&(DrawCommand) {
       .transform = transform,
       .material = material,
       .mode = MESH_TRIANGLE_STRIP,
@@ -505,7 +575,7 @@ void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
 
 void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
   if (mode == DRAW_MODE_LINE) {
-    lovrGraphicsDraw(&(DrawOptions) {
+    lovrGraphicsDraw(&(DrawCommand) {
       .transform = transform,
       .material = material,
       .mode = MESH_LINES,
@@ -531,7 +601,7 @@ void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
       }
     });
   } else {
-    lovrGraphicsDraw(&(DrawOptions) {
+    lovrGraphicsDraw(&(DrawCommand) {
       .transform = transform,
       .material = material,
       .mode = MESH_TRIANGLE_STRIP,
@@ -608,7 +678,7 @@ void lovrGraphicsArc(DrawMode mode, ArcMode arcMode, Material* material, mat4 tr
     theta += angleShift;
   }
 
-  lovrGraphicsDraw(&(DrawOptions) {
+  lovrGraphicsDraw(&(DrawCommand) {
     .transform = transform,
     .material = material,
     .mode = mode == DRAW_MODE_LINE ? (arcMode == ARC_MODE_OPEN ? MESH_LINE_STRIP : MESH_LINE_LOOP) : MESH_TRIANGLE_FAN,
@@ -710,7 +780,7 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
 #undef PUSH_CYLINDER_VERTEX
 #undef PUSH_CYLINDER_TRIANGLE
 
-  lovrGraphicsDraw(&(DrawOptions) {
+  lovrGraphicsDraw(&(DrawCommand) {
     .material = material,
     .mode = MESH_TRIANGLES,
     .range = { 0, indexCount }
@@ -745,7 +815,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
     }
   }
 
-  lovrGraphicsDraw(&(DrawOptions) {
+  lovrGraphicsDraw(&(DrawCommand) {
     .transform = transform,
     .material = material,
     .mode = MESH_TRIANGLES,
@@ -758,7 +828,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
   lovrGraphicsPushPipeline();
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
-  lovrGraphicsDraw(&(DrawOptions) {
+  lovrGraphicsDraw(&(DrawCommand) {
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
     .textures[TEXTURE_DIFFUSE] = type == TEXTURE_2D ? texture : NULL,
     .textures[TEXTURE_ENVIRONMENT_MAP] = type == TEXTURE_CUBE ? texture : NULL,
@@ -790,7 +860,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsTranslate(0, offsety, 0);
   lovrGraphicsPushPipeline();
   state.pipelines[state.pipeline].depthWrite = false;
-  lovrGraphicsDraw(&(DrawOptions) {
+  lovrGraphicsDraw(&(DrawCommand) {
     .shader = SHADER_FONT,
     .textures[TEXTURE_DIFFUSE] = font->texture,
     .mode = MESH_TRIANGLES,
@@ -803,7 +873,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 void lovrGraphicsFill(Texture* texture) {
   lovrGraphicsPushPipeline();
   lovrGraphicsSetDepthTest(COMPARE_NONE, false);
-  lovrGraphicsDraw(&(DrawOptions) {
+  lovrGraphicsDraw(&(DrawCommand) {
     .forceMono = true,
     .shader = SHADER_FILL,
     .textures[TEXTURE_DIFFUSE] = texture,

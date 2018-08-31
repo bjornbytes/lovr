@@ -104,6 +104,7 @@ void lovrShaderSetInts(Shader* shader, const char* name, int* data, int start, i
 void lovrShaderSetMatrices(Shader* shader, const char* name, float* data, int start, int count);
 void lovrShaderSetTextures(Shader* shader, const char* name, Texture** data, int start, int count);
 void lovrShaderSetImages(Shader* shader, const char* name, Image* data, int start, int count);
+void lovrShaderSetColor(Shader* shader, const char* name, Color color);
 void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* block, UniformAccess access);
 
 ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, BufferUsage usage);

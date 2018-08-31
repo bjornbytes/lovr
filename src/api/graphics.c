@@ -342,27 +342,25 @@ int l_lovrGraphicsGetDimensions(lua_State* L) {
 }
 
 int l_lovrGraphicsGetSupported(lua_State* L) {
-  GraphicsFeatures features = lovrGraphicsGetSupported();
+  const GpuFeatures* features = lovrGraphicsGetSupported();
   lua_newtable(L);
-  lua_pushboolean(L, features.computeShaders);
+  lua_pushboolean(L, features->computeShaders);
   lua_setfield(L, -2, "computeshaders");
-  lua_pushboolean(L, features.writableBlocks);
-  lua_setfield(L, -2, "writableblocks");
-  lua_pushboolean(L, features.singlepass);
+  lua_pushboolean(L, features->singlepass);
   lua_setfield(L, -2, "singlepass");
   return 1;
 }
 
 int l_lovrGraphicsGetSystemLimits(lua_State* L) {
-  GraphicsLimits limits = lovrGraphicsGetLimits();
+  const GpuLimits* limits = lovrGraphicsGetLimits();
   lua_newtable(L);
-  lua_pushnumber(L, limits.pointSizes[1]);
+  lua_pushnumber(L, limits->pointSizes[1]);
   lua_setfield(L, -2, "pointsize");
-  lua_pushinteger(L, limits.textureSize);
+  lua_pushinteger(L, limits->textureSize);
   lua_setfield(L, -2, "texturesize");
-  lua_pushinteger(L, limits.textureMSAA);
+  lua_pushinteger(L, limits->textureMSAA);
   lua_setfield(L, -2, "texturemsaa");
-  lua_pushinteger(L, limits.textureAnisotropy);
+  lua_pushinteger(L, limits->textureAnisotropy);
   lua_setfield(L, -2, "anisotropy");
   return 1;
 }
@@ -375,14 +373,11 @@ int l_lovrGraphicsGetStats(lua_State* L) {
     lua_createtable(L, 0, 2);
   }
 
-  GraphicsStats stats = lovrGraphicsGetStats();
-
-  lua_pushinteger(L, stats.drawCalls);
+  const GpuStats* stats = lovrGraphicsGetStats();
+  lua_pushinteger(L, stats->drawCalls);
   lua_setfield(L, 1, "drawcalls");
-
-  lua_pushinteger(L, stats.shaderSwitches);
+  lua_pushinteger(L, stats->shaderSwitches);
   lua_setfield(L, 1, "shaderswitches");
-
   return 1;
 }
 

@@ -23,15 +23,6 @@ typedef enum {
 } ArcMode;
 
 typedef enum {
-  BARRIER_BLOCK,
-  BARRIER_UNIFORM_TEXTURE,
-  BARRIER_UNIFORM_IMAGE,
-  BARRIER_TEXTURE,
-  BARRIER_CANVAS,
-  MAX_BARRIERS
-} Barrier;
-
-typedef enum {
   BLEND_ALPHA,
   BLEND_ADD,
   BLEND_SUBTRACT,
@@ -78,9 +69,8 @@ typedef enum {
 
 typedef struct {
   bool computeShaders;
-  bool writableBlocks;
   bool singlepass;
-} GraphicsFeatures;
+} GpuFeatures;
 
 typedef struct {
   bool initialized;
@@ -88,12 +78,12 @@ typedef struct {
   int textureSize;
   int textureMSAA;
   float textureAnisotropy;
-} GraphicsLimits;
+} GpuLimits;
 
 typedef struct {
   int shaderSwitches;
   int drawCalls;
-} GraphicsStats;
+} GpuStats;
 
 typedef struct {
   bool stereo;
@@ -142,19 +132,6 @@ typedef struct {
   mat4 transform;
   bool forceMono;
   int instances;
-} DrawOptions;
-
-typedef struct {
-  Mesh* mesh;
-  Canvas* canvas;
-  Shader* shader;
-  Material* material;
-  Camera camera;
-  float transform[16];
-  float viewports[2][4];
-  int viewportCount;
-  Pipeline pipeline;
-  int instances;
 } DrawCommand;
 
 typedef struct {
@@ -185,9 +162,9 @@ int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
 int lovrGraphicsGetMSAA();
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
-GraphicsFeatures lovrGraphicsGetSupported();
-GraphicsLimits lovrGraphicsGetLimits();
-GraphicsStats lovrGraphicsGetStats();
+#define lovrGraphicsGetSupported lovrGpuGetSupported
+#define lovrGraphicsGetLimits lovrGpuGetLimits
+#define lovrGraphicsGetStats lovrGpuGetStats
 
 // State
 void lovrGraphicsReset();
@@ -235,7 +212,7 @@ void lovrGraphicsMatrixTransform(mat4 transform);
 // Rendering
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
-void lovrGraphicsDraw(DrawOptions* draw);
+void lovrGraphicsDraw(DrawCommand* draw);
 void lovrGraphicsPoints(uint32_t count);
 void lovrGraphicsLine(uint32_t count);
 void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]);
@@ -247,9 +224,8 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
 void lovrGraphicsSphere(Material* material, mat4 transform, int segments);
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
-void lovrGraphicsStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGraphicsFill(Texture* texture);
-#define lovrGraphicsBlit lovrGpuBlit
+#define lovrGraphicsStencil lovrGpuStencil
 #define lovrGraphicsCompute lovrGpuCompute
 
 // GPU
@@ -258,10 +234,13 @@ typedef void (*gpuProc)(void);
 
 void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*));
 void lovrGpuDestroy();
+void lovrGpuBindPipeline(Pipeline* pipeline);
+void lovrGpuSetViewports(float* viewports, int count);
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
-void lovrGpuDraw(DrawCommand* command);
-void lovrGpuBlit(Canvas* canvas);
+void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
-void lovrGpuWait(uint8_t flags);
 void lovrGpuPresent();
 void lovrGpuDirtyTexture(int slot);
+const GpuFeatures* lovrGpuGetSupported();
+const GpuLimits* lovrGpuGetLimits();
+const GpuStats* lovrGpuGetStats();

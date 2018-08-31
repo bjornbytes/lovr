@@ -24,6 +24,7 @@ void lovrMeshDestroy(void* ref);
 void lovrMeshAttachAttribute(Mesh* mesh, Mesh* other, const char* name, int divisor);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
 void lovrMeshBind(Mesh* mesh, Shader* shader);
+void lovrMeshDraw(Mesh* mesh, int instances);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);
 void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode);
