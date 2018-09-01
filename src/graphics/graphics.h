@@ -137,7 +137,6 @@ typedef struct {
 typedef struct {
   bool initialized;
   bool gammaCorrect;
-  int msaa;
   int width;
   int height;
   void* window;
@@ -160,7 +159,6 @@ void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
-int lovrGraphicsGetMSAA();
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
 #define lovrGraphicsGetSupported lovrGpuGetSupported
 #define lovrGraphicsGetLimits lovrGpuGetLimits
@@ -240,7 +238,7 @@ void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
 void lovrGpuPresent();
-void lovrGpuDirtyTexture(int slot);
+void lovrGpuDirtyTexture();
 const GpuFeatures* lovrGpuGetSupported();
 const GpuLimits* lovrGpuGetLimits();
 const GpuStats* lovrGpuGetStats();

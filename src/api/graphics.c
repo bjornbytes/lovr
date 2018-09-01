@@ -930,7 +930,6 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
 
 int l_lovrGraphicsNewCanvas(lua_State* L) {
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
-  bool anonymous = false;
   int attachmentCount = 0;
   int width = 0;
   int height = 0;
@@ -952,6 +951,8 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
   }
 
   CanvasFlags flags = { .depth = DEPTH_D16, .stereo = true, .msaa = 0, .mipmaps = true };
+  TextureFormat format = FORMAT_RGBA;
+  bool anonymous = attachmentCount == 0;
 
   if (lua_istable(L, index)) {
     lua_getfield(L, index, "depth");
@@ -976,16 +977,17 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
 
     if (attachmentCount == 0) {
       lua_getfield(L, index, "format");
-      if (lua_type(L, -1) == LUA_TSTRING) {
-        TextureFormat format = luaL_checkoption(L, -1, "rgba", TextureFormats);
-        Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, flags.mipmaps, flags.msaa);
-        lovrTextureAllocate(texture, width, height, 1, format);
-        attachments[0] = (Attachment) { texture, 0, 0 };
-        attachmentCount++;
-        anonymous = true;
-      }
+      format = luaL_checkoption(L, -1, "rgba", TextureFormats);
+      anonymous = lua_isnil(L, -1) || lua_toboolean(L, -1);
       lua_pop(L, 1);
     }
+  }
+
+  if (anonymous) {
+    Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, flags.mipmaps, flags.msaa);
+    lovrTextureAllocate(texture, width, height, 1, format);
+    attachments[0] = (Attachment) { texture, 0, 0 };
+    attachmentCount++;
   }
 
   if (width == 0 && height == 0 && attachmentCount > 0) {

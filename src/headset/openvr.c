@@ -690,10 +690,14 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   VRTextureBounds_t right = { .5, 0, 1., 1. };
   state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
   state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
-  lovrGpuDirtyTexture(0);
+  lovrGpuDirtyTexture();
 
   if (state.isMirrored) {
-    lovrCanvasBlit(state.canvas);
+    lovrGraphicsPushPipeline();
+    lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
+    lovrGraphicsSetShader(NULL);
+    lovrGraphicsFill(attachments[0].texture);
+    lovrGraphicsPopPipeline();
   }
 }
 

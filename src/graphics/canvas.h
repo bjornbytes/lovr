@@ -32,7 +32,6 @@ const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count);
 void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count);
 void lovrCanvasBind(Canvas* canvas, bool willDraw);
 void lovrCanvasResolve(Canvas* canvas);
-void lovrCanvasBlit(Canvas* canvas);
 bool lovrCanvasIsStereo(Canvas* canvas);
 int lovrCanvasGetWidth(Canvas* canvas);
 int lovrCanvasGetHeight(Canvas* canvas);

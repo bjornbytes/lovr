@@ -866,9 +866,8 @@ void lovrGpuPresent() {
 #endif
 }
 
-void lovrGpuDirtyTexture(int slot) {
-  lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
-  state.textures[slot] = NULL;
+void lovrGpuDirtyTexture() {
+  state.textures[state.activeTexture] = NULL;
 }
 
 const GpuFeatures* lovrGpuGetSupported() {
@@ -1247,7 +1246,7 @@ void lovrCanvasBind(Canvas* canvas, bool willDraw) {
     int slice = attachment->slice;
     int level = attachment->level;
 
-    if (texture->msaa) {
+    if (canvas->flags.msaa) {
       glFramebufferRenderbuffer(GL_FRAMEBUFFER, buffer, GL_RENDERBUFFER, texture->msaaId);
     }
 
@@ -1309,14 +1308,6 @@ void lovrCanvasResolve(Canvas* canvas) {
   }
 
   canvas->needsResolve = false;
-}
-
-// Canvas must be resolved
-void lovrCanvasBlit(Canvas* canvas) {
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->flags.msaa ? canvas->resolveBuffer : canvas->framebuffer);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-  glBlitFramebuffer(0, 0, canvas->width, canvas->height, 0, 0, lovrGraphicsGetWidth(), lovrGraphicsGetHeight(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
-  state.framebuffer = 0;
 }
 
 bool lovrCanvasIsStereo(Canvas* canvas) {

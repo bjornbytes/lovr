@@ -71,7 +71,6 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
       glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
     }
 
-    state.msaa = msaa;
     state.window = glfwCreateWindow(w ? w : mode->width, h ? h : mode->height, title, fullscreen ? monitor : NULL, NULL);
     if (!state.window) {
       glfwTerminate();
@@ -116,10 +115,6 @@ int lovrGraphicsGetWidth() {
 
 int lovrGraphicsGetHeight() {
   return state.height;
-}
-
-int lovrGraphicsGetMSAA() {
-  return state.msaa;
 }
 
 void lovrGraphicsSetCamera(Camera* camera, bool clear) {
