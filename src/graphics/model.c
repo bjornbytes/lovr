@@ -72,11 +72,6 @@ Model* lovrModelCreate(ModelData* modelData) {
 
   if (modelData->textures.length > 0) {
     model->textures = calloc(modelData->textures.length, sizeof(Texture*));
-    for (int i = 0; i < modelData->textures.length; i++) {
-      if (modelData->textures.data[i]) {
-        model->textures[i] = lovrTextureCreate(TEXTURE_2D, (TextureData**) &modelData->textures.data[i], 1, i == 2, true, 0);
-      }
-    }
   }
 
   if (modelData->materialCount > 0) {
@@ -88,12 +83,30 @@ Model* lovrModelCreate(ModelData* modelData) {
       lovrMaterialSetScalar(material, SCALAR_ROUGHNESS, materialData->roughness);
       lovrMaterialSetColor(material, COLOR_DIFFUSE, materialData->diffuseColor);
       lovrMaterialSetColor(material, COLOR_EMISSIVE, materialData->emissiveColor);
-      lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, model->textures[materialData->diffuseTexture]);
-      lovrMaterialSetTexture(material, TEXTURE_EMISSIVE, model->textures[materialData->emissiveTexture]);
-      lovrMaterialSetTexture(material, TEXTURE_METALNESS, model->textures[materialData->metalnessTexture]);
-      lovrMaterialSetTexture(material, TEXTURE_ROUGHNESS, model->textures[materialData->roughnessTexture]);
-      lovrMaterialSetTexture(material, TEXTURE_OCCLUSION, model->textures[materialData->occlusionTexture]);
-      lovrMaterialSetTexture(material, TEXTURE_NORMAL, model->textures[materialData->normalTexture]);
+      for (MaterialTexture textureType = 0; textureType < MAX_MATERIAL_TEXTURES; textureType++) {
+        int textureIndex = 0;
+
+        switch (textureType) {
+          case TEXTURE_DIFFUSE: textureIndex = materialData->diffuseTexture; break;
+          case TEXTURE_EMISSIVE: textureIndex = materialData->emissiveTexture; break;
+          case TEXTURE_METALNESS: textureIndex = materialData->metalnessTexture; break;
+          case TEXTURE_ROUGHNESS: textureIndex = materialData->roughnessTexture; break;
+          case TEXTURE_OCCLUSION: textureIndex = materialData->occlusionTexture; break;
+          case TEXTURE_NORMAL: textureIndex = materialData->normalTexture; break;
+          default: break;
+        }
+
+        if (textureIndex) {
+          if (!model->textures[textureIndex]) {
+            TextureData* textureData = modelData->textures.data[textureIndex];
+            bool srgb = textureType == TEXTURE_DIFFUSE || textureType == TEXTURE_EMISSIVE;
+            model->textures[textureIndex] = lovrTextureCreate(TEXTURE_2D, &textureData, 1, srgb, true, 0);
+          }
+
+          lovrMaterialSetTexture(material, textureType, model->textures[textureIndex]);
+        }
+      }
+
       model->materials[i] = material;
     }
   }
