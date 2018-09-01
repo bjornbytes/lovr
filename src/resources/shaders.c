@@ -1,34 +1,5 @@
 #include "resources/shaders.h"
 
-const char* lovrShaderScalarUniforms[] = {
-  "lovrMetalness",
-  "lovrRoughness"
-};
-
-const char* lovrShaderColorUniforms[] = {
-  "lovrDiffuseColor",
-  "lovrEmissiveColor"
-};
-
-const char* lovrShaderTextureUniforms[] = {
-  "lovrDiffuseTexture",
-  "lovrEmissiveTexture",
-  "lovrMetalnessTexture",
-  "lovrRoughnessTexture",
-  "lovrOcclusionTexture",
-  "lovrNormalTexture",
-  "lovrEnvironmentTexture"
-};
-
-const char* lovrShaderVertexHeader = ""
-#ifdef EMSCRIPTEN
-"#version 300 es \n"
-"precision mediump float; \n"
-"precision mediump int; \n";
-#else
-"#version 150 \n";
-#endif
-
 const char* lovrShaderVertexPrefix = ""
 "#define VERTEX VERTEX \n"
 "#define MAX_BONES 48 \n"
@@ -76,16 +47,6 @@ const char* lovrShaderVertexSuffix = ""
 "#endif \n"
 "  gl_Position = position(lovrProjection, lovrTransform, pose * vec4(lovrPosition, 1.0)); \n"
 "}";
-
-const char* lovrShaderFragmentHeader = ""
-#ifdef EMSCRIPTEN
-"#version 300 es \n"
-"precision mediump float; \n"
-"precision mediump int; \n";
-#else
-"#version 150 \n"
-"in vec4 gl_FragCoord; \n";
-#endif
 
 const char* lovrShaderFragmentPrefix = ""
 "#define PIXEL PIXEL \n"
@@ -181,3 +142,23 @@ const char* lovrFillVertexShader = ""
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  return vertex; \n"
 "}";
+
+const char* lovrShaderScalarUniforms[] = {
+  "lovrMetalness",
+  "lovrRoughness"
+};
+
+const char* lovrShaderColorUniforms[] = {
+  "lovrDiffuseColor",
+  "lovrEmissiveColor"
+};
+
+const char* lovrShaderTextureUniforms[] = {
+  "lovrDiffuseTexture",
+  "lovrEmissiveTexture",
+  "lovrMetalnessTexture",
+  "lovrRoughnessTexture",
+  "lovrOcclusionTexture",
+  "lovrNormalTexture",
+  "lovrEnvironmentTexture"
+};

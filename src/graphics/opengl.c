@@ -1586,6 +1586,14 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentS
   Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
   if (!shader) return NULL;
 
+#ifdef EMSCRIPTEN
+  const char* vertexHeader = "#version 300 es\nprecision mediump float;\nprecision mediump int;\n";
+  const char* fragmentHeader = vertexHeader;
+#else
+  const char* vertexHeader = state.features.computeShaders ? "#version 430\n" : "#version 150\n";
+  const char* fragmentHeader = "#version 150\nin vec4 gl_FragCoord;\n";
+#endif
+
   const char* vertexSinglepass = state.features.singlepass ?
     "#extension GL_AMD_vertex_shader_viewport_index : require\n" "#define SINGLEPASS 1\n" :
     "#define SINGLEPASS 0\n";
@@ -1596,12 +1604,12 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentS
 
   // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
-  const char* vertexSources[] = { lovrShaderVertexHeader, vertexSinglepass, lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
+  const char* vertexSources[] = { vertexHeader, vertexSinglepass, lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, sizeof(vertexSources) / sizeof(vertexSources[0]));
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
-  const char* fragmentSources[] = { lovrShaderFragmentHeader, fragmentSinglepass, lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
+  const char* fragmentSources[] = { fragmentHeader, fragmentSinglepass, lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, sizeof(fragmentSources) / sizeof(fragmentSources[0]));
 
   // Link
