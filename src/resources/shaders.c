@@ -20,15 +20,16 @@ const char* lovrShaderTextureUniforms[] = {
   "lovrEnvironmentTexture"
 };
 
-const char* lovrShaderVertexPrefix = ""
+const char* lovrShaderVertexHeader = ""
 #ifdef EMSCRIPTEN
 "#version 300 es \n"
 "precision mediump float; \n"
-"precision mediump int; \n"
+"precision mediump int; \n";
 #else
-"#version 150 \n"
-"#extension GL_AMD_vertex_shader_viewport_index : enable \n"
+"#version 150 \n";
 #endif
+
+const char* lovrShaderVertexPrefix = ""
 "#define VERTEX VERTEX \n"
 "#define MAX_BONES 48 \n"
 "#define lovrView lovrViews[lovrViewportIndex] \n"
@@ -53,7 +54,7 @@ const char* lovrShaderVertexPrefix = ""
 "uniform float lovrPointSize; \n"
 "uniform mat4 lovrPose[MAX_BONES]; \n"
 "uniform int lovrViewportCount; \n"
-"#ifdef GL_AMD_vertex_shader_viewport_index \n"
+"#if SINGLEPASS \n"
 "#define lovrViewportIndex gl_ViewportIndex \n"
 "#else \n"
 "uniform int lovrViewportIndex; \n"
@@ -70,22 +71,23 @@ const char* lovrShaderVertexSuffix = ""
 "    lovrPose[lovrBones[2]] * lovrBoneWeights[2] + \n"
 "    lovrPose[lovrBones[3]] * lovrBoneWeights[3]; \n"
 "  gl_PointSize = lovrPointSize; \n"
-"#ifdef GL_AMD_vertex_shader_viewport_index \n"
+"#if SINGLEPASS \n"
 "  lovrViewportIndex = gl_InstanceID % lovrViewportCount; \n"
 "#endif \n"
 "  gl_Position = position(lovrProjection, lovrTransform, pose * vec4(lovrPosition, 1.0)); \n"
 "}";
 
-const char* lovrShaderFragmentPrefix = ""
+const char* lovrShaderFragmentHeader = ""
 #ifdef EMSCRIPTEN
 "#version 300 es \n"
 "precision mediump float; \n"
-"precision mediump int; \n"
+"precision mediump int; \n";
 #else
 "#version 150 \n"
-"#extension GL_ARB_fragment_layer_viewport : enable \n"
-"in vec4 gl_FragCoord; \n"
+"in vec4 gl_FragCoord; \n";
 #endif
+
+const char* lovrShaderFragmentPrefix = ""
 "#define PIXEL PIXEL \n"
 "#define FRAGMENT FRAGMENT \n"
 "in vec2 texCoord; \n"
@@ -104,7 +106,7 @@ const char* lovrShaderFragmentPrefix = ""
 "uniform sampler2D lovrNormalTexture; \n"
 "uniform samplerCube lovrEnvironmentTexture; \n"
 "uniform int lovrViewportCount; \n"
-"#ifdef GL_ARB_fragment_layer_viewport \n"
+"#if SINGLEPASS \n"
 "#define lovrViewportIndex gl_ViewportIndex \n"
 "#else \n"
 "uniform int lovrViewportIndex; \n"

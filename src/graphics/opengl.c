@@ -1595,14 +1595,22 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentS
   Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
   if (!shader) return NULL;
 
+  const char* vertexSinglepass = state.features.singlepass ?
+    "#extension GL_AMD_vertex_shader_viewport_index : require\n" "#define SINGLEPASS 1\n" :
+    "#define SINGLEPASS 0\n";
+
+  const char* fragmentSinglepass = state.features.singlepass ?
+    "#extension GL_ARB_fragment_layer_viewport : require\n" "#define SINGLEPASS 1\n" :
+    "#define SINGLEPASS 0\n";
+
   // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
-  const char* vertexSources[] = { lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
+  const char* vertexSources[] = { lovrShaderVertexHeader, vertexSinglepass, lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, sizeof(vertexSources) / sizeof(vertexSources[0]));
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
-  const char* fragmentSources[] = { lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
+  const char* fragmentSources[] = { lovrShaderFragmentHeader, fragmentSinglepass, lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, sizeof(fragmentSources) / sizeof(fragmentSources[0]));
 
   // Link
