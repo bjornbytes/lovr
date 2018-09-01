@@ -1785,8 +1785,8 @@ void lovrShaderBind(Shader* shader) {
         }
         break;
 
-#ifndef EMSCRIPTEN
       case UNIFORM_IMAGE:
+#ifndef EMSCRIPTEN
         for (int i = 0; i < count; i++) {
           Image* image = &uniform->value.images[i];
           Texture* texture = image->texture;
@@ -1802,8 +1802,8 @@ void lovrShaderBind(Shader* shader) {
 
           lovrGpuBindImage(image, uniform->baseSlot + i);
         }
-        break;
 #endif
+        break;
 
       case UNIFORM_SAMPLER:
         for (int i = 0; i < count; i++) {
