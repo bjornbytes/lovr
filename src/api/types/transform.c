@@ -33,15 +33,20 @@ int luax_readtransform(lua_State* L, int index, mat4 m, int scaleComponents) {
 
 int l_lovrTransformGetMatrix(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
+  bool table = lua_istable(L, 2);
+  lua_settop(L, 2);
 
   float matrix[16];
   lovrTransformGetMatrix(transform, matrix);
 
   for (int i = 0; i < 16; i++) {
     lua_pushnumber(L, matrix[i]);
+    if (table) {
+      lua_rawseti(L, 2, i + 1);
+    }
   }
 
-  return 16;
+  return table ? 1 : 16;
 }
 
 int l_lovrTransformSetMatrix(lua_State* L) {
