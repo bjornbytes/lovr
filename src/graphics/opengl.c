@@ -1000,7 +1000,6 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
 
 void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x, int y, int slice, int mipmap) {
   lovrAssert(texture->allocated, "Texture is not allocated");
-  lovrAssert(textureData->blob.data, "Trying to replace Texture pixels with empty pixel data");
 
 #ifndef EMSCRIPTEN
   if ((texture->incoherent >> BARRIER_TEXTURE) & 1) {
@@ -1017,7 +1016,6 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
   lovrAssert(mipmap >= 0 && mipmap < texture->mipmapCount, "Invalid mipmap level %d", mipmap);
   GLenum glFormat = convertTextureFormat(textureData->format);
   GLenum glInternalFormat = convertTextureFormatInternal(textureData->format, texture->srgb);
-  GLenum glType = convertTextureFormatType(textureData->format);
   GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice : texture->target;
 
   lovrGpuBindTexture(texture, 0);
@@ -1038,6 +1036,9 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
       }
     }
   } else {
+    lovrAssert(textureData->blob.data, "Trying to replace Texture pixels with empty pixel data");
+    GLenum glType = convertTextureFormatType(textureData->format);
+
     switch (texture->type) {
       case TEXTURE_2D:
       case TEXTURE_CUBE:
