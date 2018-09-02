@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct {
+static struct {
   HeadsetType type;
   bool mirrored;
   float offset;
@@ -22,6 +22,7 @@ typedef struct {
 
   float position[3];
   float velocity[3];
+  float localVelocity[3];
   float angularVelocity[3];
 
   double yaw;
@@ -29,78 +30,21 @@ typedef struct {
   float transform[16];
 
   GLFWwindow* window;
-  bool mouselook;
   double prevCursorX;
   double prevCursorY;
-  double prevMove;
-} FakeHeadsetState;
-
-static FakeHeadsetState state;
-
-static void enableMouselook(GLFWwindow* window) {
-  if (window) {
-    glfwGetCursorPos(window, &state.prevCursorX, &state.prevCursorY);
-  }
-
-  state.mouselook = true;
-}
-
-static void disableMouselook(GLFWwindow* window) {
-  state.mouselook = false;
-  if (glfwGetTime() - state.prevMove > .1) {
-    vec3_set(state.angularVelocity, 0, 0, 0);
-  }
-}
-
-static void onFocus(GLFWwindow* window, int focused) {
-  if (!focused) {
-    disableMouselook(window);
-  }
-}
-
-static void onMouseMove(GLFWwindow* window, double xpos, double ypos) {
-  if (!state.mouselook) {
-    return;
-  }
-
-  double dx = xpos - state.prevCursorX;
-  double dy = ypos - state.prevCursorY;
-  state.prevCursorX = xpos;
-  state.prevCursorY = ypos;
-
-  const double k = 0.003;
-  const double l = 0.003;
-
-  double t = glfwGetTime();
-
-  state.yaw -= dx * k;
-  state.pitch = CLAMP(state.pitch - dy * l, -M_PI / 2., M_PI / 2.);
-  state.angularVelocity[0] = dy / (t - state.prevMove);
-  state.angularVelocity[1] = dx / (t - state.prevMove);
-
-  state.prevMove = t;
-}
+} state;
 
 static void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
-  if (button == GLFW_MOUSE_BUTTON_LEFT) {
-    if (!state.mouselook && action == GLFW_PRESS) {
-      enableMouselook(window);
-    } else if (state.mouselook && action == GLFW_RELEASE) {
-      disableMouselook(window);
-    }
-
+  if (button != GLFW_MOUSE_BUTTON_RIGHT) {
     return;
   }
 
-  Controller* controller;
-  int i;
+  Controller* controller; int i;
   vec_foreach(&state.controllers, controller, i) {
-    if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-      lovrEventPush((Event) {
-        .type = action == GLFW_PRESS ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED,
-        .data.controller = { controller, CONTROLLER_BUTTON_TRIGGER }
-      });
-    }
+    lovrEventPush((Event) {
+      .type = action == GLFW_PRESS ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED,
+      .data.controller = { controller, CONTROLLER_BUTTON_TRIGGER }
+    });
   }
 }
 
@@ -113,20 +57,9 @@ static void updateWindow() {
 
   state.window = window;
   if (window) {
+    glfwSwapInterval(1);
     GLFWmousebuttonfun prevMouseButton = glfwSetMouseButtonCallback(window, onMouseButton);
     if (prevMouseButton) glfwSetMouseButtonCallback(window, prevMouseButton);
-
-    GLFWcursorposfun prevMouseMove = glfwSetCursorPosCallback(window, onMouseMove);
-    if (prevMouseMove) glfwSetCursorPosCallback(window, prevMouseMove);
-
-    GLFWwindowfocusfun prevFocus = glfwSetWindowFocusCallback(window, onFocus);
-    if (prevFocus) glfwSetWindowFocusCallback(window, onFocus);
-
-    if (state.mouselook) {
-      enableMouselook(window);
-    } else {
-      disableMouselook(window);
-    }
   }
 }
 
@@ -137,31 +70,24 @@ static bool fakeInit(float offset, int msaa) {
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
 
-  state.pitch = 0.0;
-  state.yaw = 0.0;
   mat4_identity(state.transform);
-
-  vec3_set(state.velocity, 0, 0, 0);
-  vec3_set(state.position, 0, 0, 0);
 
   vec_init(&state.controllers);
   Controller* controller = lovrAlloc(Controller, free);
   controller->id = 0;
   vec_push(&state.controllers, controller);
 
-  state.mouselook = false;
   state.window = NULL;
   return true;
 }
 
 static void fakeDestroy() {
-  int i;
-  Controller *controller;
+  Controller *controller; int i;
   vec_foreach(&state.controllers, controller, i) {
     lovrRelease(controller);
   }
   vec_deinit(&state.controllers);
-  memset(&state, 0, sizeof(FakeHeadsetState));
+  memset(&state, 0, sizeof(state));
 }
 
 static HeadsetType fakeGetType() {
@@ -309,20 +235,53 @@ static void fakeUpdate(float dt) {
   bool up = glfwGetKey(state.window, GLFW_KEY_Q) == GLFW_PRESS;
   bool down = glfwGetKey(state.window, GLFW_KEY_E) == GLFW_PRESS;
 
-  float k = 4.0f * dt;
-  state.velocity[0] = left ? -k : (right ? k : 0);
-  state.velocity[1] = up ? k : (down ? -k : 0);
-  state.velocity[2] = front ? -k : (back ? k : 0);
+  float movespeed = 3.f * dt;
+  float turnspeed = 3.f * dt;
+  double damping = MAX(1 - 20 * dt, 0);
 
-  mat4_transformDirection(state.transform, &state.velocity[0], &state.velocity[1], &state.velocity[2]);
-  vec3_add(state.position, state.velocity);
+  if (glfwGetMouseButton(state.window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+    glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-  if (!state.mouselook) {
-    state.pitch = CLAMP(state.pitch - state.angularVelocity[0] * .002 * dt, -M_PI / 2., M_PI / 2.);
-    state.yaw -= state.angularVelocity[1] * .002 * dt;
-    vec3_scale(state.angularVelocity, pow(.001, dt));
+    int width, height;
+    glfwGetWindowSize(state.window, &width, &height);
+
+    double mx, my;
+    glfwGetCursorPos(state.window, &mx, &my);
+
+    if (state.prevCursorX == -1 && state.prevCursorY == -1) {
+      state.prevCursorX = mx;
+      state.prevCursorY = my;
+    }
+
+    double aspect = (double) width / height;
+    double dx = (mx - state.prevCursorX) / ((double) width);
+    double dy = (my - state.prevCursorY) / ((double) height * aspect);
+    state.angularVelocity[0] = dy / dt;
+    state.angularVelocity[1] = dx / dt;
+    state.prevCursorX = mx;
+    state.prevCursorY = my;
+  } else {
+    glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    vec3_scale(state.angularVelocity, damping);
+    state.prevCursorX = state.prevCursorY = -1;
   }
 
+  // Update velocity
+  state.localVelocity[0] = left ? -movespeed : (right ? movespeed : state.localVelocity[0]);
+  state.localVelocity[1] = up ? movespeed : (down ? -movespeed : state.localVelocity[1]);
+  state.localVelocity[2] = front ? -movespeed : (back ? movespeed : state.localVelocity[2]);
+  vec3_init(state.velocity, state.localVelocity);
+  mat4_transformDirection(state.transform, &state.velocity[0], &state.velocity[1], &state.velocity[2]);
+  vec3_scale(state.localVelocity, damping);
+
+  // Update position
+  vec3_add(state.position, state.velocity);
+
+  // Update orientation
+  state.pitch = CLAMP(state.pitch - state.angularVelocity[0] * turnspeed, -M_PI / 2., M_PI / 2.);
+  state.yaw -= state.angularVelocity[1] * turnspeed;
+
+  // Update transform
   mat4_identity(state.transform);
   mat4_translate(state.transform, state.position[0], state.position[1], state.position[2]);
   mat4_rotate(state.transform, state.yaw, 0, 1, 0);
