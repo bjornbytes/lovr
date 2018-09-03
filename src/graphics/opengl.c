@@ -450,16 +450,18 @@ static void lovrGpuSync(uint8_t flags) {
     }
 
     if (i == BARRIER_BLOCK) {
-      for (int j = 0; j < state.incoherents[j].length; j++) {
+      for (int j = 0; j < state.incoherents[i].length; j++) {
         ShaderBlock* block = state.incoherents[i].data[j];
         block->incoherent &= ~(1 << i);
       }
     } else {
-      for (int j = 0; j < state.incoherents[j].length; j++) {
+      for (int j = 0; j < state.incoherents[i].length; j++) {
         Texture* texture = state.incoherents[i].data[j];
         texture->incoherent &= ~(1 << i);
       }
     }
+
+    vec_clear(&state.incoherents[i]);
 
     switch (i) {
       case BARRIER_BLOCK: bits |= GL_SHADER_STORAGE_BARRIER_BIT; break;
@@ -1801,10 +1803,10 @@ void lovrShaderBind(Shader* shader) {
 
           // If the Shader can write to the texture, mark it as incoherent
           if (texture && image->access != ACCESS_READ) {
-            texture->incoherent |= 1 << BARRIER_UNIFORM_TEXTURE;
-            texture->incoherent |= 1 << BARRIER_UNIFORM_IMAGE;
-            texture->incoherent |= 1 << BARRIER_TEXTURE;
-            texture->incoherent |= 1 << BARRIER_CANVAS;
+            for (Barrier barrier = BARRIER_BLOCK + 1; barrier < MAX_BARRIERS; barrier++) {
+              texture->incoherent |= 1 << barrier;
+              vec_push(&state.incoherents[barrier], texture);
+            }
           }
 
           lovrGpuBindImage(image, uniform->baseSlot + i);
@@ -1830,6 +1832,7 @@ void lovrShaderBind(Shader* shader) {
         // If the Shader can write to the block, mark it as incoherent
         bool writable = type == BLOCK_STORAGE && block->access != ACCESS_READ;
         block->source->incoherent |= writable ? (1 << BARRIER_BLOCK) : 0;
+        vec_push(&state.incoherents[BARRIER_BLOCK], block->source);
         lovrShaderBlockUnmap(block->source);
         lovrGpuBindBlockBuffer(type, block->source->buffer, block->slot);
       } else {
