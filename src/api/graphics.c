@@ -1225,7 +1225,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   bool hasFlags = lua_istable(L, index);
-  bool srgb = true;
+  bool srgb = !blank;
   bool mipmaps = true;
   TextureFormat format = FORMAT_RGBA;
   int msaa = 0;
