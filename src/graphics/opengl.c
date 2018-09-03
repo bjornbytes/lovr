@@ -525,7 +525,6 @@ static void lovrGpuBindTexture(Texture* texture, int slot) {
 
 #ifndef EMSCRIPTEN
 static void lovrGpuBindImage(Image* image, int slot) {
-  lovrThrow("Shaders can not write to textures on this system");
   lovrAssert(slot >= 0 && slot < MAX_IMAGES, "Invalid image slot %d", slot);
 
   // This is a risky way to compare the two structs
