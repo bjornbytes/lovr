@@ -1210,8 +1210,8 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   if (blank) {
     width = lua_tointeger(L, index++);
     height = luaL_checkinteger(L, index++);
-    depth = lua_type(L, index) == LUA_TNUMBER ? lua_tonumber(L, index++) : 1;
-    lovrAssert(width > 0 && height > 0 && depth > 0, "A Texture must have a positive width, height, and depth");
+    depth = lua_type(L, index) == LUA_TNUMBER ? lua_tonumber(L, index++) : 0;
+    lovrAssert(width > 0 && height > 0, "A Texture must have a positive width, height, and depth");
   } else if (argType != LUA_TTABLE) {
     lua_createtable(L, 1, 0);
     lua_pushvalue(L, 1);
@@ -1255,6 +1255,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   Texture* texture = lovrTextureCreate(type, NULL, 0, srgb, mipmaps, msaa);
 
   if (blank) {
+    depth = depth ? depth : (type == TEXTURE_CUBE ? 6 : 1);
     lovrTextureAllocate(texture, width, height, depth, format);
   } else {
     if (type == TEXTURE_CUBE && depth == 0) {
