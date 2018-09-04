@@ -68,7 +68,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         case UNIFORM_IMAGE: {
           Image* image = (Image*) dest + i;
           image->texture = luax_checktype(L, j, Texture);
-          image->slice = 0;
+          image->slice = -1;
           image->mipmap = 0;
           image->access = ACCESS_READ_WRITE;
           TextureType type = lovrTextureGetType(image->texture);

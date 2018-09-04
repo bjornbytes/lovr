@@ -539,10 +539,12 @@ static void lovrGpuBindImage(Image* image, int slot) {
     lovrAssert(image->slice < texture->depth, "Invalid texture slice '%d' for image uniform", image->slice);
     GLenum glAccess = convertAccess(image->access);
     GLenum glFormat = convertTextureFormatInternal(texture->format, false);
+    bool layered = image->slice == -1;
+    int slice = layered ? 0 : image->slice;
 
     lovrRetain(texture);
     lovrRelease(state.images[slot].texture);
-    glBindImageTexture(slot, texture->id, image->mipmap, image->slice == -1, image->slice, glAccess, glFormat);
+    glBindImageTexture(slot, texture->id, image->mipmap, layered, slice, glAccess, glFormat);
     memcpy(state.images + slot, image, sizeof(Image));
   }
 }
