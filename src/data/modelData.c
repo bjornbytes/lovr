@@ -146,7 +146,7 @@ static int readMaterialTexture(struct aiMaterial* assimpMaterial, enum aiTexture
   }
 
   Blob* blob = lovrBlobCreate(data, size, path);
-  TextureData* textureData = lovrTextureDataCreateFromBlob(blob);
+  TextureData* textureData = lovrTextureDataCreateFromBlob(blob, true);
   lovrRelease(blob);
   int textureIndex = modelData->textures.length;
   vec_push(&modelData->textures, textureData);

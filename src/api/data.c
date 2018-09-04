@@ -117,7 +117,7 @@ int l_lovrDataNewTextureData(lua_State* L) {
     textureData = lovrTextureDataCreate(width, height, 0x0, format);
   } else {
     Blob* blob = luax_readblob(L, 1, "Texture");
-    textureData = lovrTextureDataCreateFromBlob(blob);
+    textureData = lovrTextureDataCreateFromBlob(blob, true);
     lovrRelease(blob);
   }
 

@@ -151,7 +151,7 @@ TextureData* lovrTextureDataCreate(int width, int height, uint8_t value, Texture
   return textureData;
 }
 
-TextureData* lovrTextureDataCreateFromBlob(Blob* blob) {
+TextureData* lovrTextureDataCreateFromBlob(Blob* blob, bool flip) {
   TextureData* textureData = lovrAlloc(TextureData, lovrTextureDataDestroy);
   if (!textureData) return NULL;
 
@@ -163,7 +163,7 @@ TextureData* lovrTextureDataCreateFromBlob(Blob* blob) {
     return textureData;
   }
 
-  stbi_set_flip_vertically_on_load(1);
+  stbi_set_flip_vertically_on_load(flip);
   if (stbi_is_hdr_from_memory(blob->data, blob->size)) {
     textureData->format = FORMAT_RGBA32F;
     textureData->blob.data = stbi_loadf_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);

@@ -238,12 +238,12 @@ static void stencilCallback(void* userdata) {
   lua_call(L, 0, 0);
 }
 
-static TextureData* luax_checktexturedata(lua_State* L, int index) {
+static TextureData* luax_checktexturedata(lua_State* L, int index, bool flip) {
   TextureData* textureData = luax_totype(L, index, TextureData);
 
   if (!textureData) {
     Blob* blob = luax_readblob(L, index, "Texture");
-    textureData = lovrTextureDataCreateFromBlob(blob);
+    textureData = lovrTextureDataCreateFromBlob(blob, flip);
     lovrRelease(blob);
   }
 
@@ -1041,7 +1041,7 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
 
   if (lua_type(L, index) == LUA_TSTRING) {
     Blob* blob = luax_readblob(L, index++, "Texture");
-    TextureData* textureData = lovrTextureDataCreateFromBlob(blob);
+    TextureData* textureData = lovrTextureDataCreateFromBlob(blob, true);
     Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true, 0);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     lovrRelease(blob);
@@ -1136,7 +1136,7 @@ int l_lovrGraphicsNewModel(lua_State* L) {
   if (lua_gettop(L) >= 2) {
     if (lua_type(L, 2) == LUA_TSTRING) {
       Blob* blob = luax_readblob(L, 2, "Texture");
-      TextureData* textureData = lovrTextureDataCreateFromBlob(blob);
+      TextureData* textureData = lovrTextureDataCreateFromBlob(blob, true);
       Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true, 0);
       Material* material = lovrMaterialCreate();
       lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
@@ -1260,7 +1260,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   } else {
     if (type == TEXTURE_CUBE && depth == 0) {
       depth = 6;
-      const char* faces[6] = { "right", "left", "bottom", "top", "back", "front" };
+      const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
       for (int i = 0; i < 6; i++) {
         lua_pushstring(L, faces[i]);
         lua_rawget(L, 1);
@@ -1270,7 +1270,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
 
     for (int i = 0; i < depth; i++) {
       lua_rawgeti(L, 1, i + 1);
-      TextureData* textureData = luax_checktexturedata(L, -1);
+      TextureData* textureData = luax_checktexturedata(L, -1, type != TEXTURE_CUBE);
       if (i == 0) {
         lovrTextureAllocate(texture, textureData->width, textureData->height, depth, textureData->format);
       }

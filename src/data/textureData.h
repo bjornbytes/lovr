@@ -42,7 +42,7 @@ typedef struct {
 } TextureData;
 
 TextureData* lovrTextureDataCreate(int width, int height, uint8_t value, TextureFormat format);
-TextureData* lovrTextureDataCreateFromBlob(Blob* blob);
+TextureData* lovrTextureDataCreateFromBlob(Blob* blob, bool flip);
 Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y);
 void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color);
 bool lovrTextureDataEncode(TextureData* textureData, const char* filename);
