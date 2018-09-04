@@ -114,7 +114,7 @@ const char* lovrCubeVertexShader = ""
 const char* lovrCubeFragmentShader = ""
 "in vec3 texturePosition[2]; \n"
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
-"  return graphicsColor * texture(lovrEnvironmentTexture, texturePosition[lovrViewportIndex]); \n"
+"  return graphicsColor * texture(lovrEnvironmentTexture, texturePosition[lovrViewportIndex] * vec3(-1, 1, 1)); \n"
 "}";
 
 const char* lovrPanoFragmentShader = ""
