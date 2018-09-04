@@ -610,19 +610,39 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   glEnable(GL_BLEND);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
-  state.blendMode = -1;
-  state.blendAlphaMode = -1;
+
+  state.blendMode = BLEND_ALPHA;
+  state.blendAlphaMode = BLEND_ALPHA_MULTIPLY;
+  glBlendEquation(GL_FUNC_ADD);
+  glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
   state.culling = false;
-  state.depthEnabled = false;
-  state.depthTest = COMPARE_LESS;
+  glDisable(GL_CULL_FACE);
+
+  state.depthEnabled = true;
+  state.depthTest = COMPARE_LEQUAL;
   state.depthWrite = true;
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(convertCompareMode(state.depthTest));
+  glDepthMask(state.depthWrite);
+
   state.lineWidth = 1;
+  glLineWidth(state.lineWidth);
+
   state.stencilEnabled = false;
   state.stencilMode = COMPARE_NONE;
   state.stencilValue = 0;
   state.stencilWriting = false;
+  glDisable(GL_STENCIL_TEST);
+
   state.winding = WINDING_COUNTERCLOCKWISE;
+  glFrontFace(GL_CCW);
+
   state.wireframe = false;
+#ifndef EMSCRIPTEN
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
+
   for (int i = 0; i < MAX_BARRIERS; i++) {
     vec_init(&state.incoherents[i]);
   }
@@ -639,6 +659,7 @@ void lovrGpuDestroy() {
   for (int i = 0; i < MAX_BARRIERS; i++) {
     vec_deinit(&state.incoherents[i]);
   }
+  memset(&state, 0, sizeof(state));
 }
 
 void lovrGpuBindPipeline(Pipeline* pipeline) {
