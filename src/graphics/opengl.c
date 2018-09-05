@@ -2010,7 +2010,7 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
 
   glGenBuffers(1, &block->buffer);
   glBindBuffer(block->target, block->buffer);
-  glBufferData(block->target, size, NULL, usage);
+  glBufferData(block->target, size, NULL, block->usage);
 
   return block;
 }
