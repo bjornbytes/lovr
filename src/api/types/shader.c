@@ -98,6 +98,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         if (uniform->type == UNIFORM_MATRIX && lua_isuserdata(L, -1)) {
           Transform* transform = luax_checktype(L, -1, Transform);
           memcpy((float*) dest + i * components, transform->matrix, 16 * sizeof(float));
+          lua_pop(L, 1);
           continue;
         }
 
