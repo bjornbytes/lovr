@@ -1075,7 +1075,15 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
     }
 
     if (texture->mipmaps) {
+#if defined(__APPLE__) || defined(EMSCRIPTEN) // glGenerateMipmap doesn't work on big cubemap textures on macOS
+      if (texture->type != TEXTURE_CUBE || width < 2048) {
+        glGenerateMipmap(texture->target);
+      } else {
+        glTexParameteri(texture->target, GL_TEXTURE_MAX_LEVEL, 0);
+      }
+#else
       glGenerateMipmap(texture->target);
+#endif
     }
   }
 }
