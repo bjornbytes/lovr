@@ -172,9 +172,10 @@ static ControllerHand fakeControllerGetHand(Controller* controller) {
 
 static void fakeControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = 0;
-  *y = state.offset;
-  *z = -1;
+  *y = 0;
+  *z = -.75;
   mat4_transform(state.transform, x, y, z);
+  *y += state.offset;
 
   float q[4];
   quat_fromMat4(q, state.transform);
