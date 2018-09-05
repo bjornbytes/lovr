@@ -87,7 +87,7 @@ int luax_pushvertexattribute(lua_State* L, VertexPointer* vertex, Attribute attr
     switch (attribute.type) {
       case ATTR_FLOAT: lua_pushnumber(L, *vertex->floats++); break;
       case ATTR_BYTE: lua_pushnumber(L, *vertex->bytes++); break;
-      case ATTR_INT: lua_pushnumber(L, *vertex->ints++); break;
+      case ATTR_INT: lua_pushinteger(L, *vertex->ints++); break;
     }
   }
   return attribute.count;

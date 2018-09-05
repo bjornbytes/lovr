@@ -2217,7 +2217,7 @@ void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
           break;
 
         case ATTR_INT:
-          glVertexAttribIPointer(i, attribute.count, GL_UNSIGNED_INT, format->stride, (void*) attribute.offset);
+          glVertexAttribIPointer(i, attribute.count, GL_INT, format->stride, (void*) attribute.offset);
           break;
       }
     }
