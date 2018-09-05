@@ -21,6 +21,13 @@ static void onCloseWindow(GLFWwindow* window) {
   }
 }
 
+static void onResizeWindow(GLFWwindow* window, int width, int height) {
+  if (window == state.window) {
+    state.width = width;
+    state.height = height;
+  }
+}
+
 // Base
 
 void lovrGraphicsInit(bool gammaCorrect) {
@@ -92,6 +99,7 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
 
     glfwMakeContextCurrent(state.window);
     glfwSetWindowCloseCallback(state.window, onCloseWindow);
+    glfwSetWindowSizeCallback(state.window, onResizeWindow);
   }
 
 #ifndef EMSCRIPTEN
