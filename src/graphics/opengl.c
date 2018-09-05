@@ -376,7 +376,7 @@ static size_t getUniformTypeLength(const Uniform* uniform) {
   }
 
   switch (uniform->type) {
-    case UNIFORM_MATRIX: size += 3; break;
+    case UNIFORM_MATRIX: size += 4; break;
     case UNIFORM_FLOAT: size += uniform->components == 1 ? 5 : 4; break;
     case UNIFORM_INT: size += uniform->components == 1 ? 3 : 5; break;
     default: break;
