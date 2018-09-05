@@ -553,7 +553,7 @@ static void lovrGpuBindImage(Image* image, int slot) {
 static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot) {
 #ifdef EMSCRIPTEN
   lovrAssert(type == BLOCK_UNIFORM, "Writable ShaderBlocks are not supported on this system");
-  GLenum target = BLOCK_UNIFORM;
+  GLenum target = GL_UNIFORM_BUFFER;
 #else
   GLenum target = type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
 #endif
