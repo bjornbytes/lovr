@@ -108,6 +108,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
             case UNIFORM_FLOAT:
             case UNIFORM_MATRIX:
               *((float*) dest + i * components + j) = luaL_checknumber(L, -1);
+              break;
 
             case UNIFORM_INT:
               *((int*) dest + i * components + j) = luaL_checkinteger(L, -1);
