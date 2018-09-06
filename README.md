@@ -17,7 +17,7 @@ Features
 ---
 
 - **Cross-Platform** - Runs on Windows, Mac, Linux, and even on the web using WebAssembly and WebVR.
-- **Cross-Device** - Support for many HMDs including HTC Vive, Oculus Touch, Windows MR headsets.  There's also a keyboard/mouse VR simulator so you can prototype without hardware.
+- **Cross-Device** - Support for many HMDs including HTC Vive, Oculus Touch, and Windows MR headsets.  There's also a keyboard/mouse VR simulator so you can prototype without hardware.
 - **Beginner-friendly** - Simple VR scenes can be created in just a few lines of Lua.
 - **Fast** - Writen in C99 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
 - **Asset Import** - Supports 3D models (glTF, FBX, OBJ), skeletal animation, HDR textures, cubemaps, fonts, etc.
@@ -62,7 +62,7 @@ function lovr.draw()
 end
 ```
 
-You can also find lots of other WebVR examples on the [docs page](https://lovr.org/docs).
+You can also find lots of other WebVR examples on the [docs page](https://lovr.org/docs/Hello_World).
 
 Resources
 ---
