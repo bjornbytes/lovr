@@ -518,6 +518,10 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   return modelData;
 }
 
+ModelData* lovrModelDataCreateEmpty() {
+  return lovrAlloc(ModelData, lovrModelDataDestroy);
+}
+
 void lovrModelDataDestroy(void* ref) {
   ModelData* modelData = ref;
 

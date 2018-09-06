@@ -56,56 +56,18 @@ typedef struct {
 
 static HeadsetState state;
 
-static Controller* openvrAddController(unsigned int deviceIndex) {
-  if ((int) deviceIndex == -1) {
-    return NULL;
+static bool openvrIsController(TrackedDeviceIndex_t id) {
+  if (!state.system->IsTrackedDeviceConnected(id)) {
+    return false;
   }
 
-  Controller* controller; int i;
-  vec_foreach(&state.controllers, controller, i) {
-    if (controller->id == deviceIndex) {
-      return NULL;
-    }
-  }
-
-  controller = lovrAlloc(Controller, free);
-  controller->id = deviceIndex;
-  vec_push(&state.controllers, controller);
-  return controller;
-}
-
-static void openvrRefreshControllers() {
-  unsigned int leftHand = ETrackedControllerRole_TrackedControllerRole_LeftHand;
-  unsigned int rightHand = ETrackedControllerRole_TrackedControllerRole_RightHand;
-  unsigned int leftControllerId = state.system->GetTrackedDeviceIndexForControllerRole(leftHand);
-  unsigned int rightControllerId = state.system->GetTrackedDeviceIndexForControllerRole(rightHand);
-  unsigned int controllerIds[2] = { leftControllerId, rightControllerId };
-
-  // Remove controllers that are no longer recognized as connected
-  Controller* controller; int i;
-  vec_foreach_rev(&state.controllers, controller, i) {
-    if (controller->id != controllerIds[0] && controller->id != controllerIds[1]) {
-      lovrRetain(controller);
-      lovrEventPush((Event) {
-        .type = EVENT_CONTROLLER_REMOVED,
-        .data.controller = { controller, 0 }
-      });
-      vec_splice(&state.controllers, i, 1);
-      lovrRelease(controller);
-    }
-  }
-
-  // Add connected controllers that aren't in the list yet
-  for (i = 0; i < 2; i++) {
-    if ((int) controllerIds[i] != -1) {
-      controller = openvrAddController(controllerIds[i]);
-      if (!controller) continue;
-      lovrRetain(controller);
-      lovrEventPush((Event) {
-        .type = EVENT_CONTROLLER_ADDED,
-        .data.controller = { controller, 0 }
-      });
-    }
+  switch (state.system->GetTrackedDeviceClass(id)) {
+    case ETrackedDeviceClass_TrackedDeviceClass_Controller:
+    case ETrackedDeviceClass_TrackedDeviceClass_GenericTracker:
+    case ETrackedDeviceClass_TrackedDeviceClass_TrackingReference:
+      return true;
+    default:
+      return false;
   }
 }
 
@@ -177,9 +139,34 @@ static void openvrPoll() {
   while (state.system->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
     switch (vrEvent.eventType) {
       case EVREventType_VREvent_TrackedDeviceActivated:
+        uint32_t id = vrEvent.trackedDeviceIndex;
+        if (openvrIsController(id)) {
+          Controller* controller = lovrAlloc(Controller, free);
+          if (!controller) break;
+          controller->id = id;
+          vec_push(&state.controllers, controller);
+          lovrRetain(controller);
+          lovrEventPush((Event) {
+            .type = EVENT_CONTROLLER_ADDED,
+            .data.controller = { controller }
+          });
+        }
+        break;
+
       case EVREventType_VREvent_TrackedDeviceDeactivated:
-      case EVREventType_VREvent_TrackedDeviceRoleChanged:
-        openvrRefreshControllers();
+        for (int i = 0; i < state.controllers.length; i++) {
+          Controller* controller = state.controllers.data[i];
+          if (controller->id == vrEvent.trackedDeviceIndex) {
+            lovrRetain(controller);
+            lovrEventPush((Event) {
+              .type = EVENT_CONTROLLER_REMOVED,
+              .data.controller = { controller }
+            });
+            vec_swapsplice(&state.controllers, i, 1);
+            lovrRelease(controller);
+            break;
+          }
+        }
         break;
 
       case EVREventType_VREvent_ButtonPress:
@@ -319,7 +306,15 @@ static bool openvrInit(float offset, int msaa) {
   }
 
   vec_init(&state.controllers);
-  openvrRefreshControllers();
+  for (uint32_t i = 0; i < k_unMaxTrackedDeviceCount; i++) {
+    if (openvrIsController(i)) {
+      Controller* controller = lovrAlloc(Controller, free);
+      if (!controller) continue;
+      controller->id = i;
+      vec_push(&state.controllers, controller);
+    }
+  }
+
   lovrEventAddPump(openvrPoll);
   return true;
 }
@@ -574,7 +569,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   RenderModel_t* vrModel = state.deviceModels[id];
 
-  ModelData* modelData = malloc(sizeof(ModelData));
+  ModelData* modelData = lovrModelDataCreateEmpty();
   if (!modelData) return NULL;
 
   VertexFormat format;
