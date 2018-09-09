@@ -201,6 +201,15 @@ static GLenum convertWrapMode(WrapMode mode) {
   }
 }
 
+static GLenum convertTextureTarget(TextureType type) {
+  switch (type) {
+    case TEXTURE_2D: return GL_TEXTURE_2D; break;
+    case TEXTURE_ARRAY: return GL_TEXTURE_2D_ARRAY; break;
+    case TEXTURE_CUBE: return GL_TEXTURE_CUBE_MAP; break;
+    case TEXTURE_VOLUME: return GL_TEXTURE_3D; break;
+  }
+}
+
 static GLenum convertTextureFormat(TextureFormat format) {
   switch (format) {
     case FORMAT_RGB: return GL_RGB;
@@ -915,13 +924,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
   texture->type = type;
   texture->srgb = srgb;
   texture->mipmaps = mipmaps;
-
-  switch (type) {
-    case TEXTURE_2D: texture->target = GL_TEXTURE_2D; break;
-    case TEXTURE_ARRAY: texture->target = GL_TEXTURE_2D_ARRAY; break;
-    case TEXTURE_CUBE: texture->target = GL_TEXTURE_CUBE_MAP; break;
-    case TEXTURE_VOLUME: texture->target = GL_TEXTURE_3D; break;
-  }
+  texture->target = convertTextureTarget(type);
 
   WrapMode wrap = type == TEXTURE_CUBE ? WRAP_CLAMP : WRAP_REPEAT;
   glGenTextures(1, &texture->id);
@@ -940,6 +943,19 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
       lovrTextureReplacePixels(texture, slices[i], 0, 0, i, 0);
     }
   }
+
+  return texture;
+}
+
+Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type) {
+  lovrAssert(glIsTexture(handle), "Invalid texture handle");
+
+  Texture* texture = lovrAlloc(Texture, lovrTextureDestroy);
+  if (!texture) return NULL;
+
+  texture->type = type;
+  texture->id = handle;
+  texture->target = convertTextureTarget(type);
 
   return texture;
 }
