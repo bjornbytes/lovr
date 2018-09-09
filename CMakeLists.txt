@@ -225,6 +225,13 @@ if(NOT EMSCRIPTEN)
   )
 endif()
 
+# Oculus
+if (NOT EMSCRIPTEN AND LOVR_OCULUS_PATH)
+  include_directories("${LOVR_OCULUS_PATH}/LibOVR/Include")
+  link_directories("${LOVR_OCULUS_PATH}/LibOVR/Lib/Windows/x64/Release/VS2017")
+  set(LOVR_OCULUS LibOVR)
+endif()
+
 # pthreads
 if(NOT WIN32)
   set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -326,6 +333,10 @@ if(EMSCRIPTEN)
   set(LOVR_SRC ${LOVR_SRC} src/headset/webvr.c)
 else()
   set(LOVR_SRC ${LOVR_SRC} src/headset/openvr.c)
+
+  if (LOVR_OCULUS_PATH)
+    set(LOVR_SRC ${LOVR_SRC} src/headset/oculus.c)
+  endif()
 endif()
 
 # LÖVR
@@ -342,6 +353,7 @@ target_link_libraries(lovr
   ${LOVR_OPENAL}
   ${LOVR_OPENGL}
   ${LOVR_OPENVR}
+  ${LOVR_OCULUS}
   ${LOVR_PHYSFS}
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
