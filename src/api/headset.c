@@ -31,6 +31,7 @@ const char* ControllerHands[] = {
 
 const char* HeadsetDrivers[] = {
   [DRIVER_FAKE] = "fake",
+  [DRIVER_OCULUS] = "oculus",
   [DRIVER_OPENVR] = "openvr",
   [DRIVER_WEBVR] = "webvr",
   NULL

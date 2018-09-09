@@ -17,6 +17,7 @@ typedef enum {
 
 typedef enum {
   DRIVER_FAKE,
+  DRIVER_OCULUS,
   DRIVER_OPENVR,
   DRIVER_WEBVR
 } HeadsetDriver;
@@ -93,6 +94,7 @@ typedef struct {
 } HeadsetInterface;
 
 // Available drivers
+extern HeadsetInterface lovrHeadsetOculusDriver;
 extern HeadsetInterface lovrHeadsetOpenVRDriver;
 extern HeadsetInterface lovrHeadsetWebVRDriver;
 extern HeadsetInterface lovrHeadsetFakeDriver;

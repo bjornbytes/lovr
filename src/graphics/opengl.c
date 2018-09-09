@@ -948,14 +948,16 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
 }
 
 Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type) {
-  lovrAssert(glIsTexture(handle), "Invalid texture handle");
-
   Texture* texture = lovrAlloc(Texture, lovrTextureDestroy);
   if (!texture) return NULL;
 
   texture->type = type;
   texture->id = handle;
   texture->target = convertTextureTarget(type);
+
+  lovrGpuBindTexture(texture, 0);
+  glGetTexLevelParameteriv(texture->target, 0, GL_TEXTURE_WIDTH, &texture->width);
+  glGetTexLevelParameteriv(texture->target, 0, GL_TEXTURE_HEIGHT, &texture->height);
 
   return texture;
 }
@@ -1243,8 +1245,8 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
     Texture* texture = attachments[i].texture;
     int width = lovrTextureGetWidth(texture, attachments[i].level);
     int height = lovrTextureGetHeight(texture, attachments[i].level);
-    lovrAssert(!canvas->depthBuffer || width == canvas->width, "Texture width of %d does not match Canvas width", width);
-    lovrAssert(!canvas->depthBuffer || height == canvas->height, "Texture height of %d does not match Canvas height", height);
+    lovrAssert(!canvas->depthBuffer || width == canvas->width, "Texture width of %d does not match Canvas width (%d)", width, canvas->width);
+    lovrAssert(!canvas->depthBuffer || height == canvas->height, "Texture height of %d does not match Canvas height (%d)", height, canvas->height);
     lovrAssert(texture->msaa == canvas->flags.msaa, "Texture MSAA does not match Canvas MSAA");
     lovrRetain(texture);
   }

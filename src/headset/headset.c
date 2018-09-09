@@ -14,6 +14,7 @@ void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa) 
     switch (drivers[i]) {
       case DRIVER_FAKE: interface = &lovrHeadsetFakeDriver; break;
 #ifndef EMSCRIPTEN
+      case DRIVER_OCULUS: interface = &lovrHeadsetOculusDriver; break;
       case DRIVER_OPENVR: interface = &lovrHeadsetOpenVRDriver; break;
 #else
       case DRIVER_WEBVR: interface = &lovrHeadsetWebVRDriver; break;

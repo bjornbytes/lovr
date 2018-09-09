@@ -228,7 +228,7 @@ endif()
 # Oculus
 if (NOT EMSCRIPTEN AND LOVR_OCULUS_PATH)
   include_directories("${LOVR_OCULUS_PATH}/LibOVR/Include")
-  link_directories("${LOVR_OCULUS_PATH}/LibOVR/Lib/Windows/x64/Release/VS2017")
+  link_directories("${LOVR_OCULUS_PATH}/LibOVR/Lib/Windows/Win32/Debug/VS2017")
   set(LOVR_OCULUS LibOVR)
 endif()
 
