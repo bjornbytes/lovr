@@ -64,7 +64,6 @@ static bool openvrIsController(TrackedDeviceIndex_t id) {
   switch (state.system->GetTrackedDeviceClass(id)) {
     case ETrackedDeviceClass_TrackedDeviceClass_Controller:
     case ETrackedDeviceClass_TrackedDeviceClass_GenericTracker:
-    case ETrackedDeviceClass_TrackedDeviceClass_TrackingReference:
       return true;
     default:
       return false;
