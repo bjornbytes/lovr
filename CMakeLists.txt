@@ -225,10 +225,23 @@ if(NOT EMSCRIPTEN)
   )
 endif()
 
-# Oculus
+# Oculus SDK
 if (NOT EMSCRIPTEN AND LOVR_OCULUS_PATH)
+  if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(OCULUS_BUILD_TYPE "Release")
+  else()
+    set(OCULUS_BUILD_TYPE "Debug")
+  endif()
+
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(OCULUS_ARCH "x64")
+  else()
+    set(OCULUS_ARCH "Win32")
+  endif()
+
+  add_definitions(-DUSE_OCULUS)
   include_directories("${LOVR_OCULUS_PATH}/LibOVR/Include")
-  link_directories("${LOVR_OCULUS_PATH}/LibOVR/Lib/Windows/Win32/Debug/VS2017")
+  link_directories("${LOVR_OCULUS_PATH}/LibOVR/Lib/Windows/${OCULUS_ARCH}/${OCULUS_BUILD_TYPE}/VS2017")
   set(LOVR_OCULUS LibOVR)
 endif()
 
@@ -334,7 +347,7 @@ if(EMSCRIPTEN)
 else()
   set(LOVR_SRC ${LOVR_SRC} src/headset/openvr.c)
 
-  if (LOVR_OCULUS_PATH)
+  if(LOVR_OCULUS_PATH)
     set(LOVR_SRC ${LOVR_SRC} src/headset/oculus.c)
   endif()
 endif()
