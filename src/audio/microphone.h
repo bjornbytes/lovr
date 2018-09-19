@@ -1,14 +1,12 @@
 #include "util.h"
 #include "data/soundData.h"
-#if USE_OPENAL
-#include <AL/al.h>
-#include <AL/alc.h>
-#endif
 #include <stdbool.h>
 
 #pragma once
 
-#ifdef USE_OPENAL
+#ifdef LOVR_USE_OPENAL
+#include <AL/al.h>
+#include <AL/alc.h>
 typedef struct {
   Ref ref;
   ALCdevice* device;

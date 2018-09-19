@@ -52,17 +52,33 @@ static void onGlfwError(int code, const char* description) {
 }
 
 void lovrDestroy() {
+#ifdef LOVR_ENABLE_AUDIO
   lovrAudioDestroy();
+#endif
+#ifdef LOVR_ENABLE_EVENT
   lovrEventDestroy();
+#endif
+#ifdef LOVR_ENABLE_FILESYSTEM
   lovrFilesystemDestroy();
+#endif
+#ifdef LOVR_ENABLE_GRAPHICS
   lovrGraphicsDestroy();
+#endif
+#ifdef LOVR_ENABLE_GRAPHICS
   lovrHeadsetDestroy();
+#endif
+#ifdef LOVR_ENABLE_MATH
   lovrMathDestroy();
+#endif
+#ifdef LOVR_ENABLE_PHYSICS
   lovrPhysicsDestroy();
-#ifndef EMSCRIPTEN
+#endif
+#ifdef LOVR_ENABLE_THREAD
   lovrThreadDeinit();
 #endif
+#ifdef LOVR_ENABLE_TIMER
   lovrTimerDestroy();
+#endif
 }
 
 bool lovrRun(int argc, char** argv, int* status) {

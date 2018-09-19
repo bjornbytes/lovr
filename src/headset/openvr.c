@@ -137,7 +137,7 @@ static void openvrPoll() {
   struct VREvent_t vrEvent;
   while (state.system->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
     switch (vrEvent.eventType) {
-      case EVREventType_VREvent_TrackedDeviceActivated:
+      case EVREventType_VREvent_TrackedDeviceActivated: {
         uint32_t id = vrEvent.trackedDeviceIndex;
         if (openvrIsController(id)) {
           Controller* controller = lovrAlloc(Controller, free);
@@ -151,6 +151,7 @@ static void openvrPoll() {
           });
         }
         break;
+      }
 
       case EVREventType_VREvent_TrackedDeviceDeactivated:
         for (int i = 0; i < state.controllers.length; i++) {

@@ -1,18 +1,16 @@
 #include "audio/source.h"
 #include "audio/microphone.h"
 #include "lib/vec/vec.h"
-#ifdef USE_OPENAL
-#include <AL/al.h>
-#include <AL/alc.h>
-#include <AL/alext.h>
-#endif
 #include <stdbool.h>
 
 #pragma once
 
 #define MAX_MICROPHONES 8
 
-#ifdef USE_OPENAL
+#ifdef LOVR_USE_OPENAL
+#include <AL/al.h>
+#include <AL/alc.h>
+#include <AL/alext.h>
 typedef struct {
   bool initialized;
   ALCdevice* device;
