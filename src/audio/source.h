@@ -1,6 +1,8 @@
 #include "data/audioStream.h"
 #include "data/soundData.h"
 #include "util.h"
+#include <AL/al.h>
+#include <AL/alc.h>
 #include <stdbool.h>
 
 #pragma once
@@ -17,9 +19,6 @@ typedef enum {
   UNIT_SAMPLES
 } TimeUnit;
 
-#ifdef LOVR_USE_OPENAL
-#include <AL/al.h>
-#include <AL/alc.h>
 typedef struct {
   Ref ref;
   SourceType type;
@@ -29,11 +28,6 @@ typedef struct {
   ALuint buffers[SOURCE_BUFFERS];
   bool isLooping;
 } Source;
-#else
-typedef struct { Ref ref; } Source;
-typedef unsigned int ALuint;
-#define ALC_HRTF_SOFT 0
-#endif
 
 Source* lovrSourceCreateStatic(SoundData* soundData);
 Source* lovrSourceCreateStream(AudioStream* stream);
