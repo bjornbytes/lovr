@@ -1,16 +1,15 @@
 #include "audio/source.h"
 #include "audio/microphone.h"
 #include "lib/vec/vec.h"
+#include <AL/al.h>
+#include <AL/alc.h>
+#include <AL/alext.h>
 #include <stdbool.h>
 
 #pragma once
 
 #define MAX_MICROPHONES 8
 
-#ifdef LOVR_USE_OPENAL
-#include <AL/al.h>
-#include <AL/alc.h>
-#include <AL/alext.h>
 typedef struct {
   bool initialized;
   ALCdevice* device;
@@ -21,10 +20,6 @@ typedef struct {
   float position[3];
   float velocity[3];
 } AudioState;
-#else
-typedef unsigned int AudioState;
-typedef unsigned int ALenum;
-#endif
 
 ALenum lovrAudioConvertFormat(int bitDepth, int channelCount);
 

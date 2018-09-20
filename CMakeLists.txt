@@ -17,7 +17,6 @@ option(LOVR_ENABLE_ENET "Bundle with lua-enet" ON)
 option(LOVR_ENABLE_JSON "Bundle with lua-cjson" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
-option(LOVR_USE_OPENAL "Enable the OpenAL backend for the audio module" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
@@ -221,7 +220,7 @@ if(LOVR_ENABLE_PHYSICS)
 endif()
 
 # OpenAL
-if(LOVR_ENABLE_AUDIO AND LOVR_USE_OPENAL)
+if(LOVR_ENABLE_AUDIO)
   if(LOVR_SYSTEM_OPENAL)
     pkg_search_module(OPENAL openal-soft)
     if (NOT OPENAL_FOUND)
@@ -303,17 +302,13 @@ endif()
 if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)
   set(LOVR_AUDIO_SRC
+    src/audio/audio.c
+    src/audio/microphone.c
+    src/audio/source.c
     src/api/audio.c
     src/api/types/source.c
     src/api/types/microphone.c
   )
-
-  if(LOVR_USE_OPENAL)
-    add_definitions(-DLOVR_USE_OPENAL)
-    set(LOVR_AUDIO_SRC ${LOVR_AUDIO_SRC} src/audio/audio.c src/audio/source.c src/audio/microphone.c)
-  else()
-    set(LOVR_AUDIO_SRC ${LOVR_AUDIO_SRC} src/audio/null.c)
-  endif()
 endif()
 
 if(LOVR_ENABLE_DATA)
