@@ -300,10 +300,39 @@ if(NOT WIN32)
   set(LOVR_PTHREADS Threads::Threads)
 endif()
 
-# LÖVR source
+# LÖVR
+
+add_executable(lovr
+  src/main.c
+  src/lovr.c
+  src/util.c
+  src/luax.c
+  src/api/lovr.c
+  src/lib/map/map.c
+  src/lib/vec/vec.c
+)
+
+set_target_properties(lovr PROPERTIES C_STANDARD 99)
+target_include_directories(lovr PRIVATE src)
+target_link_libraries(lovr
+  ${LOVR_ASSIMP}
+  ${LOVR_ENET}
+  ${LOVR_GLFW}
+  ${LOVR_LUA}
+  ${LOVR_MSDF}
+  ${LOVR_ODE}
+  ${LOVR_OPENAL}
+  ${LOVR_OPENGL}
+  ${LOVR_OPENVR}
+  ${LOVR_OCULUS}
+  ${LOVR_PHYSFS}
+  ${LOVR_PTHREADS}
+  ${LOVR_EMSCRIPTEN_FLAGS}
+)
+
 if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)
-  set(LOVR_AUDIO_SRC
+  target_sources(lovr PRIVATE
     src/audio/audio.c
     src/audio/microphone.c
     src/audio/source.c
@@ -315,7 +344,7 @@ endif()
 
 if(LOVR_ENABLE_DATA)
   add_definitions(-DLOVR_ENABLE_DATA)
-  set(LOVR_DATA_SRC
+  target_sources(lovr PRIVATE
     src/data/audioStream.c
     src/data/blob.c
     src/data/modelData.c
@@ -340,7 +369,7 @@ endif()
 
 if(LOVR_ENABLE_EVENT)
   add_definitions(-DLOVR_ENABLE_EVENT)
-  set(LOVR_EVENT_SRC
+  target_sources(lovr PRIVATE
     src/event/event.c
     src/api/event.c
   )
@@ -348,7 +377,7 @@ endif()
 
 if(LOVR_ENABLE_FILESYSTEM)
   add_definitions(-DLOVR_ENABLE_FILESYSTEM)
-  set(LOVR_FILESYSTEM_SRC
+  target_sources(lovr PRIVATE
     src/filesystem/file.c
     src/filesystem/filesystem.c
     src/api/filesystem.c
@@ -357,7 +386,7 @@ endif()
 
 if(LOVR_ENABLE_GRAPHICS)
   add_definitions(-DLOVR_ENABLE_GRAPHICS)
-  set(LOVR_GRAPHICS_SRC
+  target_sources(lovr PRIVATE
     src/graphics/animator.c
     src/graphics/font.c
     src/graphics/graphics.c
@@ -381,7 +410,7 @@ endif()
 
 if(LOVR_ENABLE_HEADSET)
   add_definitions(-DLOVR_ENABLE_HEADSET)
-  set(LOVR_HEADSET_SRC
+  target_sources(lovr PRIVATE
     src/api/headset.c
     src/api/types/controller.c
     src/headset/headset.c
@@ -389,25 +418,25 @@ if(LOVR_ENABLE_HEADSET)
 
   if(LOVR_USE_OPENVR)
     add_definitions(-DLOVR_USE_OPENVR)
-    set(LOVR_HEADSET_SRC ${LOVR_HEADSET_SRC} src/headset/openvr.c)
+    target_sources(lovr PRIVATE src/headset/openvr.c)
   endif()
   if(LOVR_USE_OCULUS)
     add_definitions(-DLOVR_USE_OCULUS)
-    set(LOVR_HEADSET_SRC ${LOVR_HEADSET_SRC} src/headset/oculus.c)
+    target_sources(lovr PRIVATE src/headset/oculus.c)
   endif()
   if(LOVR_USE_WEBVR)
     add_definitions(-DLOVR_USE_WEBVR)
-    set(LOVR_HEADSET_SRC ${LOVR_HEADSET_SRC} src/headset/webvr.c)
+    target_sources(lovr PRIVATE src/headset/webvr.c)
   endif()
   if(LOVR_USE_FAKE_HEADSET)
     add_definitions(-DLOVR_USE_FAKE_HEADSET)
-    set(LOVR_HEADSET_SRC ${LOVR_HEADSET_SRC} src/headset/fake.c)
+    target_sources(lovr PRIVATE src/headset/fake.c)
   endif()
 endif()
 
 if(LOVR_ENABLE_MATH)
   add_definitions(-DLOVR_ENABLE_MATH)
-  set(LOVR_MATH_SRC
+  target_sources(lovr PRIVATE
     src/math/mat4.c
     src/math/math.c
     src/math/quat.c
@@ -423,7 +452,7 @@ endif()
 
 if(LOVR_ENABLE_PHYSICS)
   add_definitions(-DLOVR_ENABLE_PHYSICS)
-  set(LOVR_PHYSICS_SRC
+  target_sources(lovr PRIVATE
     src/physics/physics.c
     src/api/physics.c
     src/api/types/collider.c
@@ -435,7 +464,7 @@ endif()
 
 if(LOVR_ENABLE_THREAD)
   add_definitions(-DLOVR_ENABLE_THREAD)
-  set(LOVR_THREAD_SRC
+  target_sources(lovr PRIVATE
     src/thread/channel.c
     src/thread/thread.c
     src/api/thread.c
@@ -447,64 +476,22 @@ endif()
 
 if(LOVR_ENABLE_TIMER)
   add_definitions(-DLOVR_ENABLE_TIMER)
-  set(LOVR_TIMER_SRC src/timer/timer.c src/api/timer.c)
+  target_sources(lovr PRIVATE src/timer/timer.c src/api/timer.c)
 endif()
 
 if(LOVR_ENABLE_ENET)
   add_definitions(-DLOVR_ENABLE_ENET)
-  set(LOVR_ENET_SRC src/lib/lua-enet/enet.c)
+  target_sources(lovr PRIVATE src/lib/lua-enet/enet.c)
 endif()
 
 if(LOVR_ENABLE_JSON)
   add_definitions(-DLOVR_ENABLE_JSON)
-  set(LOVR_JSON_SRC
+  target_sources(lovr PRIVATE
     src/lib/lua-cjson/fpconv.c
     src/lib/lua-cjson/lua_cjson.c
     src/lib/lua-cjson/strbuf.c
   )
 endif()
-
-set(LOVR_SRC
-  src/api/lovr.c
-  src/lib/map/map.c
-  src/lib/vec/vec.c
-  src/lovr.c
-  src/luax.c
-  src/main.c
-  src/util.c
-  ${LOVR_AUDIO_SRC}
-  ${LOVR_DATA_SRC}
-  ${LOVR_EVENT_SRC}
-  ${LOVR_FILESYSTEM_SRC}
-  ${LOVR_GRAPHICS_SRC}
-  ${LOVR_HEADSET_SRC}
-  ${LOVR_MATH_SRC}
-  ${LOVR_PHYSICS_SRC}
-  ${LOVR_THREAD_SRC}
-  ${LOVR_TIMER_SRC}
-  ${LOVR_ENET_SRC}
-  ${LOVR_JSON_SRC}
-)
-
-# LÖVR
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-add_executable(lovr ${LOVR_SRC})
-set_property(TARGET lovr PROPERTY C_STANDARD 99)
-target_link_libraries(lovr
-  ${LOVR_ASSIMP}
-  ${LOVR_ENET}
-  ${LOVR_GLFW}
-  ${LOVR_LUA}
-  ${LOVR_MSDF}
-  ${LOVR_ODE}
-  ${LOVR_OPENAL}
-  ${LOVR_OPENGL}
-  ${LOVR_OPENVR}
-  ${LOVR_OCULUS}
-  ${LOVR_PHYSFS}
-  ${LOVR_PTHREADS}
-  ${LOVR_EMSCRIPTEN_FLAGS}
-)
 
 # Yay Windows
 if(WIN32)
