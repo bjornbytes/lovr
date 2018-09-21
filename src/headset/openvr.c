@@ -147,7 +147,7 @@ static void openvrPoll() {
           lovrRetain(controller);
           lovrEventPush((Event) {
             .type = EVENT_CONTROLLER_ADDED,
-            .data.controller = { controller }
+            .data.controller = { controller, 0 }
           });
         }
         break;
@@ -160,7 +160,7 @@ static void openvrPoll() {
             lovrRetain(controller);
             lovrEventPush((Event) {
               .type = EVENT_CONTROLLER_REMOVED,
-              .data.controller = { controller }
+              .data.controller = { controller, 0 }
             });
             vec_swapsplice(&state.controllers, i, 1);
             lovrRelease(controller);
