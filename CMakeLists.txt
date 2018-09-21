@@ -17,6 +17,7 @@ option(LOVR_ENABLE_ENET "Bundle with lua-enet" ON)
 option(LOVR_ENABLE_JSON "Bundle with lua-cjson" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
+option(LOVR_USE_ASSIMP "Enable model loading with Assimp" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
@@ -90,7 +91,7 @@ if(LOVR_ENABLE_FILESYSTEM)
 endif()
 
 # Assimp
-if(LOVR_ENABLE_DATA)
+if(LOVR_ENABLE_DATA AND LOVR_USE_ASSIMP)
   if(LOVR_SYSTEM_ASSIMP)
     pkg_search_module(ASSIMP REQUIRED assimp)
     include_directories(${ASSIMP_INCLUDE_DIRS})
@@ -365,6 +366,10 @@ if(LOVR_ENABLE_DATA)
     src/lib/stb/stb_truetype.c
     src/lib/stb/stb_vorbis.c
   )
+
+  if (LOVR_USE_ASSIMP)
+    add_definitions(-DLOVR_USE_ASSIMP)
+  endif()
 endif()
 
 if(LOVR_ENABLE_EVENT)

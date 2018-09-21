@@ -9,6 +9,8 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#ifdef LOVR_USE_ASSIMP
 #include <assimp/cfileio.h>
 #include <assimp/cimport.h>
 #include <assimp/config.h>
@@ -90,6 +92,35 @@ static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode,
     ModelNode* child = &modelData->nodes[*nodeId];
     child->parent = currentIndex;
     assimpNodeTraversal(modelData, assimpNode->mChildren[n], nodeId);
+  }
+}
+
+static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6]) {
+  for (int i = 0; i < node->primitives.length; i++) {
+    ModelPrimitive* primitive = &modelData->primitives[node->primitives.data[i]];
+    for (int j = 0; j < primitive->drawCount; j++) {
+      uint32_t index;
+      if (modelData->indexSize == sizeof(uint16_t)) {
+        index = modelData->indices.shorts[primitive->drawStart + j];
+      } else {
+        index = modelData->indices.ints[primitive->drawStart + j];
+      }
+      float vertex[3];
+      VertexPointer vertices = { .raw = modelData->vertexData->blob.data };
+      vec3_init(vertex, (float*) (vertices.bytes + index * modelData->vertexData->format.stride));
+      mat4_transform(node->globalTransform, &vertex[0], &vertex[1], &vertex[2]);
+      aabb[0] = MIN(aabb[0], vertex[0]);
+      aabb[1] = MAX(aabb[1], vertex[0]);
+      aabb[2] = MIN(aabb[2], vertex[1]);
+      aabb[3] = MAX(aabb[3], vertex[1]);
+      aabb[4] = MIN(aabb[4], vertex[2]);
+      aabb[5] = MAX(aabb[5], vertex[2]);
+    }
+  }
+
+  for (int i = 0; i < node->children.length; i++) {
+    ModelNode* child = &modelData->nodes[node->children.data[i]];
+    aabbIterator(modelData, child, aabb);
   }
 }
 
@@ -517,6 +548,12 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   aiReleaseImport(scene);
   return modelData;
 }
+#else
+static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6]) {}
+ModelData* lovrModelDataCreate(Blob* blob) {
+  return NULL;
+}
+#endif
 
 ModelData* lovrModelDataCreateEmpty() {
   return lovrAlloc(ModelData, lovrModelDataDestroy);
@@ -568,35 +605,6 @@ void lovrModelDataDestroy(void* ref) {
   free(modelData->materials);
   free(modelData->indices.raw);
   free(modelData);
-}
-
-static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6]) {
-  for (int i = 0; i < node->primitives.length; i++) {
-    ModelPrimitive* primitive = &modelData->primitives[node->primitives.data[i]];
-    for (int j = 0; j < primitive->drawCount; j++) {
-      uint32_t index;
-      if (modelData->indexSize == sizeof(uint16_t)) {
-        index = modelData->indices.shorts[primitive->drawStart + j];
-      } else {
-        index = modelData->indices.ints[primitive->drawStart + j];
-      }
-      float vertex[3];
-      VertexPointer vertices = { .raw = modelData->vertexData->blob.data };
-      vec3_init(vertex, (float*) (vertices.bytes + index * modelData->vertexData->format.stride));
-      mat4_transform(node->globalTransform, &vertex[0], &vertex[1], &vertex[2]);
-      aabb[0] = MIN(aabb[0], vertex[0]);
-      aabb[1] = MAX(aabb[1], vertex[0]);
-      aabb[2] = MIN(aabb[2], vertex[1]);
-      aabb[3] = MAX(aabb[3], vertex[1]);
-      aabb[4] = MIN(aabb[4], vertex[2]);
-      aabb[5] = MAX(aabb[5], vertex[2]);
-    }
-  }
-
-  for (int i = 0; i < node->children.length; i++) {
-    ModelNode* child = &modelData->nodes[node->children.data[i]];
-    aabbIterator(modelData, child, aabb);
-  }
 }
 
 void lovrModelDataGetAABB(ModelData* modelData, float aabb[6]) {
