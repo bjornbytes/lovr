@@ -279,9 +279,9 @@ static int oculusControllerIsDown(Controller* controller, ControllerButton butto
     case CONTROLLER_BUTTON_X: return (relevant & ovrButton_X) > 0;
     case CONTROLLER_BUTTON_Y: return (relevant & ovrButton_Y) > 0;
     case CONTROLLER_BUTTON_MENU: return (relevant & ovrButton_Enter) > 0;
-    case CONTROLLER_BUTTON_TRIGGER: return (relevant & (ovrButton_LShoulder | ovrButton_RShoulder)) > 0;
+    case CONTROLLER_BUTTON_TRIGGER: return is->IndexTriggerNoDeadzone[controller->id] > 0.5f;
     case CONTROLLER_BUTTON_TOUCHPAD: return (relevant & (ovrButton_LThumb | ovrButton_RThumb)) > 0;
-    case CONTROLLER_BUTTON_GRIP: return is->HandTrigger[controller->id] > 0.0f;
+    case CONTROLLER_BUTTON_GRIP: return is->HandTrigger[controller->id] > 0.9f;
     default: return 0;
   }
 }
