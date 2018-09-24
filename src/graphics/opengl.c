@@ -150,7 +150,7 @@ struct Mesh {
   uint32_t count;
   VertexFormat format;
   MeshDrawMode drawMode;
-  GLenum usage;
+  BufferUsage usage;
   VertexPointer data;
   IndexPointer indices;
   uint32_t indexCount;
@@ -2022,13 +2022,13 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
   block->target = block->type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
 #endif
   block->type = type;
-  block->usage = convertBufferUsage(usage);
+  block->usage = usage;
   block->size = size;
   block->data = calloc(1, size);
 
   glGenBuffers(1, &block->buffer);
   glBindBuffer(block->target, block->buffer);
-  glBufferData(block->target, size, NULL, block->usage);
+  glBufferData(block->target, size, NULL, convertBufferUsage(block->usage));
 
   return block;
 }
@@ -2109,7 +2109,7 @@ void lovrShaderBlockUnmap(ShaderBlock* block) {
   }
 
   glBindBuffer(block->target, block->buffer);
-  glBufferData(block->target, block->size, NULL, block->usage);
+  glBufferData(block->target, block->size, NULL, convertBufferUsage(block->usage));
   glBufferSubData(block->target, 0, block->size, block->data);
   block->mapped = false;
 }
@@ -2123,12 +2123,12 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode,
   mesh->count = count;
   mesh->format = format;
   mesh->drawMode = drawMode;
-  mesh->usage = convertBufferUsage(usage);
+  mesh->usage = usage;
 
   glGenBuffers(1, &mesh->vbo);
   glGenBuffers(1, &mesh->ibo);
   lovrGpuBindVertexBuffer(mesh->vbo);
-  glBufferData(GL_ARRAY_BUFFER, count * format.stride, NULL, mesh->usage);
+  glBufferData(GL_ARRAY_BUFFER, count * format.stride, NULL, convertBufferUsage(mesh->usage));
   glGenVertexArrays(1, &mesh->vao);
 
   map_init(&mesh->attachments);
@@ -2353,7 +2353,7 @@ void lovrMeshUnmapVertices(Mesh* mesh) {
   size_t stride = mesh->format.stride;
   lovrGpuBindVertexBuffer(mesh->vbo);
   if (mesh->usage == USAGE_STREAM) {
-    glBufferData(GL_ARRAY_BUFFER, mesh->count * stride, mesh->data.bytes, mesh->usage);
+    glBufferData(GL_ARRAY_BUFFER, mesh->count * stride, mesh->data.bytes, convertBufferUsage(mesh->usage));
   } else {
     size_t offset = mesh->dirtyStart * stride;
     size_t count = (mesh->dirtyEnd - mesh->dirtyStart) * stride;
@@ -2396,7 +2396,7 @@ IndexPointer lovrMeshWriteIndices(Mesh* mesh, uint32_t count, size_t size) {
   if (mesh->indexCapacity < size * count) {
     mesh->indexCapacity = nextPo2(size * count);
     mesh->indices.raw = realloc(mesh->indices.raw, mesh->indexCapacity);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCapacity, NULL, mesh->usage);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCapacity, NULL, convertBufferUsage(mesh->usage));
   }
 
   return mesh->indices;
@@ -2414,9 +2414,10 @@ void lovrMeshUnmapIndices(Mesh* mesh) {
 
 void lovrMeshResize(Mesh* mesh, uint32_t count) {
   if (mesh->count < count) {
-    mesh->count = nextPo2(count);
+    count = nextPo2(count);
+    mesh->count = count;
     lovrGpuBindVertexBuffer(mesh->vbo);
     mesh->data.raw = realloc(mesh->data.raw, count * mesh->format.stride);
-    glBufferData(GL_ARRAY_BUFFER, count * mesh->format.stride, mesh->data.raw, mesh->usage);
+    glBufferData(GL_ARRAY_BUFFER, count * mesh->format.stride, mesh->data.raw, convertBufferUsage(mesh->usage));
   }
 }
