@@ -1,6 +1,7 @@
 #include "luax.h"
 #include "util.h"
 #include <stdlib.h>
+#include <stdarg.h>
 
 static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "name");
@@ -161,6 +162,11 @@ void luax_pushobject(lua_State* L, void* object) {
   lua_pushvalue(L, -2);
   lua_settable(L, -4);
   lua_remove(L, -2);
+}
+
+void luax_vthrow(lua_State* L, const char* format, va_list args) {
+  lua_pushvfstring(L, format, args);
+  lua_error(L);
 }
 
 int luax_getstack(lua_State* L) {

@@ -82,8 +82,10 @@ void lovrDestroy() {
 }
 
 bool lovrRun(int argc, char** argv, int* status) {
-  lua_State* L = lovrErrorContext = luaL_newstate();
+  lua_State* L = luaL_newstate();
   luaL_openlibs(L);
+
+  lovrSetErrorCallback((lovrErrorHandler) luax_vthrow, L);
 
   glfwSetErrorCallback(onGlfwError);
   lovrAssert(glfwInit(), "Error initializing GLFW");

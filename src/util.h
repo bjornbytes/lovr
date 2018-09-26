@@ -2,6 +2,7 @@
 #include "lib/tinycthread/tinycthread.h"
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
 
 #pragma once
 
@@ -20,8 +21,11 @@ typedef struct {
   float r, g, b, a;
 } Color;
 
-extern _Thread_local void* lovrErrorContext;
+typedef void (*lovrErrorHandler)(void* userdata, const char* format, va_list args);
+extern _Thread_local lovrErrorHandler lovrErrorCallback;
+extern _Thread_local void* lovrErrorUserdata;
 
+void lovrSetErrorCallback(lovrErrorHandler callback, void* context);
 void lovrThrow(const char* format, ...);
 void lovrSleep(double seconds);
 void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*));

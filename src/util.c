@@ -1,9 +1,6 @@
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
-#include <stdarg.h>
 #include <stdlib.h>
+#include <stdio.h>
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -11,15 +8,29 @@
 #include <dlfcn.h>
 #endif
 
-_Thread_local void* lovrErrorContext = NULL;
+_Thread_local lovrErrorHandler lovrErrorCallback = NULL;
+_Thread_local void* lovrErrorUserdata = NULL;
+
+void lovrSetErrorCallback(lovrErrorHandler callback, void* userdata) {
+  lovrErrorCallback = callback;
+  lovrErrorUserdata = userdata;
+}
 
 void lovrThrow(const char* format, ...) {
-  lua_State* L = (lua_State*) lovrErrorContext;
-  va_list args;
-  va_start(args, format);
-  lua_pushvfstring(L, format, args);
-  lua_error(L);
-  va_end(args);
+  if (lovrErrorCallback) {
+    va_list args;
+    va_start(args, format);
+    lovrErrorCallback(lovrErrorUserdata, format, args);
+    va_end(args);
+  } else {
+    va_list args;
+    va_start(args, format);
+    fprintf(stderr, "Error: ");
+    vfprintf(stderr, format, args);
+    fprintf(stderr, "\n");
+    va_end(args);
+    exit(EXIT_FAILURE);
+  }
 }
 
 void lovrSleep(double seconds) {

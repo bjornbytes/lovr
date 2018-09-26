@@ -12,8 +12,9 @@ static int threadRunner(void* data) {
   mtx_unlock(&thread->lock);
 
   // Lua state
-  lua_State* L = lovrErrorContext = luaL_newstate();
+  lua_State* L = luaL_newstate();
   luaL_openlibs(L);
+  lovrSetErrorCallback((lovrErrorHandler) luax_vthrow, L);
   l_lovrInit(L);
   lua_setglobal(L, "lovr");
 
