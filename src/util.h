@@ -1,4 +1,3 @@
-#include "lib/vec/vec.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -8,8 +7,6 @@
 
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 #define lovrAlloc(T, destructor) (T*) _lovrAlloc(#T, sizeof(T), destructor)
-
-typedef vec_t(unsigned int) vec_uint_t;
 
 typedef struct ref {
   int count;

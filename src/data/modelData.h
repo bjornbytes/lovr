@@ -24,6 +24,8 @@ typedef struct {
   int boneCount;
 } ModelPrimitive;
 
+typedef vec_t(unsigned int) vec_uint_t;
+
 typedef struct ModelNode {
   const char* name;
   float transform[16];
