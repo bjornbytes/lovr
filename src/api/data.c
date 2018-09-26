@@ -6,6 +6,7 @@
 #include "data/soundData.h"
 #include "data/textureData.h"
 #include "data/vertexData.h"
+#include "filesystem/filesystem.h"
 
 static int l_lovrDataNewBlob(lua_State* L) {
   size_t size;
@@ -44,9 +45,11 @@ static int l_lovrDataNewAudioStream(lua_State* L) {
   return 1;
 }
 
+static ModelDataIO modelDataIO = { lovrFilesystemRead };
+
 static int l_lovrDataNewModelData(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
-  ModelData* modelData = lovrModelDataCreate(blob);
+  ModelData* modelData = lovrModelDataCreate(blob, modelDataIO);
   luax_pushobject(L, modelData);
   lovrRelease(blob);
   lovrRelease(modelData);
@@ -147,7 +150,7 @@ static int l_lovrDataNewVertexData(lua_State* L) {
   VertexData* vertexData = lovrVertexDataCreate(count, hasFormat ? &format : NULL);
 
   if (dataIndex) {
-    luax_loadvertices(L, dataIndex, &vertexData->format, (VertexPointer) { .raw = vertexData->blob.data });
+    luax_loadvertices(L, dataIndex, &vertexData->format, (AttributePointer) { .raw = vertexData->blob.data });
   }
   luax_pushobject(L, vertexData);
   lovrRelease(vertexData);

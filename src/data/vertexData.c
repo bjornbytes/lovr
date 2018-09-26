@@ -1,7 +1,15 @@
 #include "data/vertexData.h"
 #include <string.h>
 
-static const size_t attributeTypeSizes[3] = { 4, 1, 4 };
+static const size_t attributeTypeSizes[] = {
+  [I8] = 1,
+  [U8] = 1,
+  [I16] = 2,
+  [U16] = 2,
+  [I32] = 4,
+  [U32] = 4,
+  [F32] = 4
+};
 
 void vertexFormatInit(VertexFormat* format) {
   memset(format, 0, sizeof(*format));
@@ -20,10 +28,10 @@ VertexData* lovrVertexDataInit(VertexData* vertexData, uint32_t count, VertexFor
   } else {
     format = &vertexData->format;
     vertexFormatInit(&vertexData->format);
-    vertexFormatAppend(&vertexData->format, "lovrPosition", ATTR_FLOAT, 3);
-    vertexFormatAppend(&vertexData->format, "lovrNormal", ATTR_FLOAT, 3);
-    vertexFormatAppend(&vertexData->format, "lovrTexCoord", ATTR_FLOAT, 2);
-    vertexFormatAppend(&vertexData->format, "lovrVertexColor", ATTR_BYTE, 4);
+    vertexFormatAppend(&vertexData->format, "lovrPosition", F32, 3);
+    vertexFormatAppend(&vertexData->format, "lovrNormal", F32, 3);
+    vertexFormatAppend(&vertexData->format, "lovrTexCoord", F32, 2);
+    vertexFormatAppend(&vertexData->format, "lovrVertexColor", U8, 4);
   }
 
   size_t size = format->stride * count;

@@ -26,9 +26,13 @@ const char* ArcModes[] = {
 };
 
 const char* AttributeTypes[] = {
-  [ATTR_FLOAT] = "float",
-  [ATTR_BYTE] = "byte",
-  [ATTR_INT] = "int",
+  [I8] = "i8",
+  [U8] = "u8",
+  [I16] = "i16",
+  [U16] = "u16",
+  [I32] = "i32",
+  [U32] = "u32",
+  [F32] = "f32",
   NULL
 };
 
@@ -899,7 +903,7 @@ static int l_lovrGraphicsCompute(lua_State* L) {
 
 static int l_lovrGraphicsNewAnimator(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  Animator* animator = lovrAnimatorCreate(model->modelData);
+  Animator* animator = lovrAnimatorCreate(model->data);
   luax_pushobject(L, animator);
   lovrRelease(animator);
   return 1;
@@ -1154,9 +1158,9 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   }
 
   if (!hasFormat) {
-    vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
-    vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
-    vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
+    vertexFormatAppend(&format, "lovrPosition", F32, 3);
+    vertexFormatAppend(&format, "lovrNormal", F32, 3);
+    vertexFormatAppend(&format, "lovrTexCoord", F32, 2);
   }
 
   DrawMode mode = luaL_checkoption(L, drawModeIndex, "fan", DrawModes);
@@ -1168,7 +1172,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
 
   lovrMeshAttachAttribute(mesh, "lovrDrawID", &(MeshAttribute) {
     .buffer = lovrGraphicsGetIdentityBuffer(),
-    .type = ATTR_BYTE,
+    .type = U8,
     .components = 1,
     .divisor = 1,
     .integer = true,
@@ -1176,8 +1180,8 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   });
 
   if (dataIndex) {
-    VertexPointer vertices = { .raw = lovrBufferMap(vertexBuffer, 0) };
-    luax_loadvertices(L, dataIndex, &format, vertices);
+    AttributePointer vertices = { .raw = lovrBufferMap(vertexBuffer, 0) };
+    luax_loadvertices(L, dataIndex, lovrMeshGetVertexFormat(mesh), vertices);
   } else if (vertexData) {
     void* vertices = lovrBufferMap(vertexBuffer, 0);
     memcpy(vertices, vertexData->blob.data, vertexData->count * vertexData->format.stride);
@@ -1196,30 +1200,13 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
 
   if (!modelData) {
     Blob* blob = luax_readblob(L, 1, "Model");
-    modelData = lovrModelDataCreate(blob);
+    static ModelDataIO io = { lovrFilesystemRead };
+    modelData = lovrModelDataCreate(blob, io);
     lovrRelease(blob);
   }
 
   Model* model = lovrModelCreate(modelData);
-
-  if (lua_gettop(L) >= 2) {
-    if (lua_type(L, 2) == LUA_TSTRING) {
-      Blob* blob = luax_readblob(L, 2, "Texture");
-      TextureData* textureData = lovrTextureDataCreateFromBlob(blob, true);
-      Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true, 0);
-      Material* material = lovrMaterialCreate();
-      lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
-      lovrModelSetMaterial(model, material);
-      lovrRelease(blob);
-      lovrRelease(texture);
-      lovrRelease(material);
-    } else {
-      lovrModelSetMaterial(model, luax_checktype(L, 2, Material));
-    }
-  }
-
   luax_pushobject(L, model);
-  lovrRelease(modelData);
   lovrRelease(model);
   return 1;
 }

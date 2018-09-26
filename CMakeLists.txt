@@ -396,6 +396,7 @@ if(LOVR_ENABLE_DATA)
     src/lib/stb/stb_image_write.c
     src/lib/stb/stb_truetype.c
     src/lib/stb/stb_vorbis.c
+    src/lib/jsmn/jsmn.c
   )
 
   if (LOVR_USE_ASSIMP)
