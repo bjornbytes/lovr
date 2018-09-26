@@ -1,14 +1,9 @@
 #include "blob.h"
+#include "data/modelData.h"
 #include <stdlib.h>
 #include <stdint.h>
 
 #pragma once
-
-typedef enum {
-  ATTR_FLOAT,
-  ATTR_BYTE,
-  ATTR_INT
-} AttributeType;
 
 typedef struct {
   const char* name;
@@ -26,10 +21,14 @@ typedef struct {
 
 typedef union {
   void* raw;
-  float* floats;
-  uint8_t* bytes;
-  int* ints;
-} VertexPointer;
+  int8_t* i8;
+  uint8_t* u8;
+  int16_t* i16;
+  uint16_t* u16;
+  int32_t* i32;
+  uint32_t* u32;
+  float* f32;
+} AttributePointer;
 
 typedef union {
   void* raw;

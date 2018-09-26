@@ -70,11 +70,11 @@ static void lovrGraphicsInitBuffers() {
   VertexFormat empty = { .count = 0 };
   Buffer* vertexBuffer = state.buffers[STREAM_VERTEX];
   size_t stride = BUFFER_STRIDES[STREAM_VERTEX];
-  MeshAttribute position = { vertexBuffer, 0, stride, ATTR_FLOAT, 3, .enabled = true };
-  MeshAttribute normal = { vertexBuffer, 12, stride, ATTR_FLOAT, 3, .enabled = true };
-  MeshAttribute texCoord = { vertexBuffer, 24, stride, ATTR_FLOAT, 2, .enabled = true };
-  MeshAttribute drawId = { state.buffers[STREAM_DRAW_ID], 0, 0, ATTR_BYTE, 1, .integer = true, .enabled = true };
-  MeshAttribute identity = { state.identityBuffer, 0, 0, ATTR_BYTE, 1, .divisor = 1, .integer = true, .enabled = true };
+  MeshAttribute position = { vertexBuffer, 0, stride, F32, 3, .enabled = true };
+  MeshAttribute normal = { vertexBuffer, 12, stride, F32, 3, .enabled = true };
+  MeshAttribute texCoord = { vertexBuffer, 24, stride, F32, 2, .enabled = true };
+  MeshAttribute drawId = { state.buffers[STREAM_DRAW_ID], 0, 0, U8, 1, .integer = true, .enabled = true };
+  MeshAttribute identity = { state.identityBuffer, 0, 0, U8, 1, .divisor = 1, .integer = true, .enabled = true };
 
   state.mesh = lovrMeshCreate(DRAW_TRIANGLES, empty, NULL, 0);
   lovrMeshAttachAttribute(state.mesh, "lovrPosition", &position);

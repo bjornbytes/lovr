@@ -1,600 +1,432 @@
 #include "data/modelData.h"
-#include "filesystem/filesystem.h"
-#include "filesystem/file.h"
 #include "lib/math.h"
-#include <float.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "lib/jsmn/jsmn.h"
+#include <stdbool.h>
 
-#ifdef LOVR_USE_ASSIMP
-#include <assimp/cfileio.h>
-#include <assimp/cimport.h>
-#include <assimp/config.h>
-#include <assimp/scene.h>
-#include <assimp/mesh.h>
-#include <assimp/matrix4x4.h>
-#include <assimp/vector3.h>
-#include <assimp/postprocess.h>
+// Notes:
+//   - We parse in two passes.
+//     - In the first pass we figure out how much memory we need to allocate.
+//     - Then we allocate the memory and do a second pass to fill everything in.
+//   - Plan is to make this parser destructive, so it mutates the input Blob in order to avoid doing
+//     work in some situations, for speed.  May make sense to provide a non-destructive option.
+//     - Currently this is most useful for reusing string memory by changing quotes to \0's.
+//   - Caveats:
+//     - The IO callback must not hang onto the filenames that are passed into it.
 
-static void normalizePath(char* path, char* dst, size_t size) {
-  char* slash = path;
-  while ((slash = strchr(path, '\\')) != NULL) { *slash++ = '/'; }
+#define MAGIC_glTF 0x46546c67
+#define MAGIC_JSON 0x4e4f534a
+#define MAGIC_BIN 0x004e4942
 
-  if (path[0] == '/') {
-    strncpy(dst, path, size);
-    return;
+#define KEY_EQ(k, s) !strncmp(k.data, s, k.length)
+#define TOK_INT(j, t) strtol(j + t->start, NULL, 10)
+#define TOK_BOOL(j, t) (*(j + t->start) == 't')
+#define TOK_FLOAT(j, t) strtof(j + t->start, NULL)
+
+typedef struct {
+  struct { int count; jsmntok_t* token; } accessors;
+  struct { int count; jsmntok_t* token; } blobs;
+  struct { int count; jsmntok_t* token; } views;
+  struct { int count; jsmntok_t* token; } nodes;
+  struct { int count; jsmntok_t* token; } meshes;
+  int childCount;
+  int primitiveCount;
+} gltfInfo;
+
+static int nomString(const char* data, jsmntok_t* token, gltfString* string) {
+  lovrAssert(token->type == JSMN_STRING, "Expected string");
+  string->data = (char*) data + token->start;
+  string->length = token->end - token->start;
+  return 1;
+}
+
+static int nomValue(const char* data, jsmntok_t* token, int count, int sum) {
+  if (count == 0) { return sum; }
+  switch (token->type) {
+    case JSMN_OBJECT: return nomValue(data, token + 1, count - 1 + 2 * token->size, sum + 1);
+    case JSMN_ARRAY: return nomValue(data, token + 1, count - 1 + token->size, sum + 1);
+    default: return nomValue(data, token + 1, count - 1, sum + 1);
   }
+}
 
-  memset(dst, 0, size);
-
-  while (*path != '\0') {
-    if (*path == '/') {
-      path++;
-      continue;
-    }
-    if (*path == '.') {
-      if (path[1] == '\0' || path[1] == '/') {
-        path++;
-        continue;
+// Kinda like sum(map(arr, obj => #obj[key]))
+static jsmntok_t* aggregate(const char* json, jsmntok_t* token, const char* target, int* total) {
+  *total = 0;
+  int size = (token++)->size;
+  for (int i = 0; i < size; i++) {
+    if (token->size > 0) {
+      int keys = (token++)->size;
+      for (int k = 0; k < keys; k++) {
+        gltfString key;
+        token += nomString(json, token, &key);
+        if (KEY_EQ(key, target)) {
+          *total += token->size;
+        }
+        token += nomValue(json, token, 1, 0);
       }
-      if (path[1] == '.' && (path[2] == '\0' || path[2] == '/')) {
-        path += 2;
-        while ((--dst)[-1] != '/');
-        continue;
-      }
     }
-    while (*path != '\0' && *path != '/') {
-      *dst++ = *path++;
+  }
+  return token;
+}
+
+static void preparse(const char* json, jsmntok_t* tokens, int tokenCount, gltfInfo* info, size_t* dataSize) {
+  for (jsmntok_t* token = tokens + 1; token < tokens + tokenCount;) { // +1 to skip root object
+    gltfString key;
+    token += nomString(json, token, &key);
+
+    if (KEY_EQ(key, "accessors")) {
+      info->accessors.token = token;
+      info->accessors.count = token->size;
+      *dataSize += info->accessors.count * sizeof(ModelAccessor);
+      token += nomValue(json, token, 1, 0);
+    } else if (KEY_EQ(key, "buffers")) {
+      info->blobs.token = token;
+      info->blobs.count = token->size;
+      *dataSize += info->blobs.count * sizeof(ModelBlob);
+      token += nomValue(json, token, 1, 0);
+    } else if (KEY_EQ(key, "bufferViews")) {
+      info->views.token = token;
+      info->views.count = token->size;
+      *dataSize += info->views.count * sizeof(ModelView);
+      token += nomValue(json, token, 1, 0);
+    } else if (KEY_EQ(key, "nodes")) {
+      info->nodes.token = token;
+      info->nodes.count = token->size;
+      *dataSize += info->nodes.count * sizeof(ModelNode);
+      token = aggregate(json, token, "children", &info->childCount);
+    } else if (KEY_EQ(key, "meshes")) {
+      info->meshes.token = token;
+      info->meshes.count = token->size;
+      *dataSize += info->meshes.count * sizeof(ModelMesh);
+      token = aggregate(json, token, "primitives", &info->primitiveCount);
+      *dataSize += info->primitiveCount * sizeof(ModelPrimitive);
+    } else {
+      token += nomValue(json, token, 1, 0); // Skip
     }
-    *dst++ = '/';
-  }
-
-  *--dst = '\0';
-}
-
-static void assimpSumChildren(struct aiNode* assimpNode, int* totalChildren) {
-  (*totalChildren)++;
-  for (unsigned int i = 0; i < assimpNode->mNumChildren; i++) {
-    assimpSumChildren(assimpNode->mChildren[i], totalChildren);
   }
 }
 
-static void assimpNodeTraversal(ModelData* modelData, struct aiNode* assimpNode, int* nodeId) {
-  int currentIndex = *nodeId;
-  ModelNode* node = &modelData->nodes[currentIndex];
-  node->name = strdup(assimpNode->mName.data);
-  map_set(&modelData->nodeMap, node->name, currentIndex);
+static void parseAccessors(const char* json, jsmntok_t* token, ModelData* model) {
+  if (!token) return;
 
-  // Transform
-  struct aiMatrix4x4 m = assimpNode->mTransformation;
-  aiTransposeMatrix4(&m);
-  mat4_set(node->transform, (float*) &m);
-  if (node->parent == -1) {
-    mat4_set(node->globalTransform, node->transform);
-  } else {
-    mat4_set(node->globalTransform, modelData->nodes[node->parent].globalTransform);
-    mat4_multiply(node->globalTransform, node->transform);
-  }
+  int count = (token++)->size;
+  for (int i = 0; i < count; i++) {
+    ModelAccessor* accessor = &model->accessors[i];
+    gltfString key;
+    int keyCount = (token++)->size;
 
-  // Primitives
-  vec_init(&node->primitives);
-  vec_pusharr(&node->primitives, assimpNode->mMeshes, assimpNode->mNumMeshes);
-
-  // Children
-  vec_init(&node->children);
-  for (unsigned int n = 0; n < assimpNode->mNumChildren; n++) {
-    (*nodeId)++;
-    vec_push(&node->children, *nodeId);
-    ModelNode* child = &modelData->nodes[*nodeId];
-    child->parent = currentIndex;
-    assimpNodeTraversal(modelData, assimpNode->mChildren[n], nodeId);
-  }
-}
-
-static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6]) {
-  for (int i = 0; i < node->primitives.length; i++) {
-    ModelPrimitive* primitive = &modelData->primitives[node->primitives.data[i]];
-    for (int j = 0; j < primitive->drawCount; j++) {
-      uint32_t index;
-      if (modelData->indexSize == sizeof(uint16_t)) {
-        index = modelData->indices.shorts[primitive->drawStart + j];
+    for (int k = 0; k < keyCount; k++) {
+      token += nomString(json, token, &key);
+      if (KEY_EQ(key, "bufferView")) {
+        accessor->view = TOK_INT(json, token), token++;
+      } else if (KEY_EQ(key, "count")) {
+        accessor->count = TOK_INT(json, token), token++;
+      } else if (KEY_EQ(key, "byteOffset")) {
+        accessor->offset = TOK_INT(json, token), token++;
+      } else if (KEY_EQ(key, "componentType")) {
+        switch (TOK_INT(json, token)) {
+          case 5120: accessor->type = I8; break;
+          case 5121: accessor->type = U8; break;
+          case 5122: accessor->type = I16; break;
+          case 5123: accessor->type = U16; break;
+          case 5125: accessor->type = U32; break;
+          case 5126: accessor->type = F32; break;
+          default: break;
+        }
+        token++;
+      } else if (KEY_EQ(key, "type")) {
+        gltfString type;
+        token += nomString(json, token, &type);
+        if (KEY_EQ(type, "SCALAR")) {
+          accessor->components = 1;
+        } else if (type.length == 4 && type.data[0] == 'V') {
+          accessor->components = type.data[3] - '0';
+        } else if (type.length == 4 && type.data[0] == 'M') {
+          lovrThrow("Matrix accessors are not supported");
+        } else {
+          lovrThrow("Unknown attribute type");
+        }
+      } else if (KEY_EQ(key, "normalized")) {
+        accessor->normalized = TOK_BOOL(json, token), token++;
       } else {
-        index = modelData->indices.ints[primitive->drawStart + j];
+        token += nomValue(json, token, 1, 0); // Skip
       }
-      float vertex[3];
-      VertexPointer vertices = { .raw = modelData->vertexData->blob.data };
-      vec3_init(vertex, (float*) (vertices.bytes + index * modelData->vertexData->format.stride));
-      mat4_transform(node->globalTransform, &vertex[0], &vertex[1], &vertex[2]);
-      aabb[0] = MIN(aabb[0], vertex[0]);
-      aabb[1] = MAX(aabb[1], vertex[0]);
-      aabb[2] = MIN(aabb[2], vertex[1]);
-      aabb[3] = MAX(aabb[3], vertex[1]);
-      aabb[4] = MIN(aabb[4], vertex[2]);
-      aabb[5] = MAX(aabb[5], vertex[2]);
     }
   }
-
-  for (int i = 0; i < node->children.length; i++) {
-    ModelNode* child = &modelData->nodes[node->children.data[i]];
-    aabbIterator(modelData, child, aabb);
-  }
 }
 
-static float readMaterialScalar(struct aiMaterial* assimpMaterial, const char* key, unsigned int type, unsigned int index) {
-  float scalar;
-  if (aiGetMaterialFloatArray(assimpMaterial, key, type, index, &scalar, NULL) == aiReturn_SUCCESS) {
-    return scalar;
-  } else {
-    return 1.f;
-  }
-}
+static void parseBlobs(const char* json, jsmntok_t* token, ModelData* model, ModelDataIO io, void* binData) {
+  if (!token) return;
 
-static Color readMaterialColor(struct aiMaterial* assimpMaterial, const char* key, unsigned int type, unsigned int index, Color fallback) {
-  struct aiColor4D assimpColor;
-  if (aiGetMaterialColor(assimpMaterial, key, type, index, &assimpColor) == aiReturn_SUCCESS) {
-    return (Color) { .r = assimpColor.r, .g = assimpColor.g, .b = assimpColor.b, .a = assimpColor.a };
-  } else {
-    return fallback;
-  }
-}
+  int count = (token++)->size;
+  for (int i = 0; i < count; i++) {
+    ModelBlob* blob = &model->blobs[i];
+    gltfString key;
+    int keyCount = (token++)->size;
+    size_t bytesRead = 0;
+    bool hasUri = false;
 
-static int readMaterialTexture(struct aiMaterial* assimpMaterial, enum aiTextureType type, ModelData* modelData, map_int_t* textureCache, const char* dirname) {
-  struct aiString str;
-
-  if (aiGetMaterialTexture(assimpMaterial, type, 0, &str, NULL, NULL, NULL, NULL, NULL, NULL) != aiReturn_SUCCESS) {
-    return 0;
-  }
-
-  char* path = str.data;
-
-  int* cachedTexture = map_get(textureCache, path);
-  if (cachedTexture) {
-    return *cachedTexture;
-  }
-
-  char fullPath[LOVR_PATH_MAX];
-  char normalizedPath[LOVR_PATH_MAX];
-  strncpy(fullPath, dirname, LOVR_PATH_MAX);
-  char* lastSlash = strrchr(fullPath, '/');
-  if (lastSlash) lastSlash[1] = '\0';
-  else fullPath[0] = '\0';
-  strncat(fullPath, path, LOVR_PATH_MAX - 1);
-  normalizePath(fullPath, normalizedPath, LOVR_PATH_MAX);
-
-  size_t size;
-  void* data = lovrFilesystemRead(normalizedPath, &size);
-  if (!data) {
-    return 0;
-  }
-
-  Blob* blob = lovrBlobCreate(data, size, path);
-  TextureData* textureData = lovrTextureDataCreateFromBlob(blob, true);
-  lovrRelease(blob);
-  int textureIndex = modelData->textures.length;
-  vec_push(&modelData->textures, textureData);
-  map_set(textureCache, path, textureIndex);
-  return textureIndex;
-}
-
-// Blob IO (to avoid reading data twice)
-static size_t assimpBlobRead(struct aiFile* assimpFile, char* buffer, size_t size, size_t count) {
-  Blob* blob = (Blob*) assimpFile->UserData;
-  char* data = blob->data;
-  size_t bytes = MIN(count * size * sizeof(char), blob->size - blob->seek);
-  memcpy(buffer, data + blob->seek, bytes);
-  blob->seek += bytes;
-  return bytes / size;
-}
-
-static size_t assimpBlobGetSize(struct aiFile* assimpFile) {
-  Blob* blob = (Blob*) assimpFile->UserData;
-  return blob->size;
-}
-
-static aiReturn assimpBlobSeek(struct aiFile* assimpFile, size_t position, enum aiOrigin origin) {
-  Blob* blob = (Blob*) assimpFile->UserData;
-  switch (origin) {
-    case aiOrigin_SET: blob->seek = position; break;
-    case aiOrigin_CUR: blob->seek += position; break;
-    case aiOrigin_END: blob->seek = blob->size - position; break;
-    default: return aiReturn_FAILURE;
-  }
-  return blob->seek < blob->size ? aiReturn_SUCCESS : aiReturn_FAILURE;
-}
-
-static size_t assimpBlobTell(struct aiFile* assimpFile) {
-  Blob* blob = (Blob*) assimpFile->UserData;
-  return blob->seek;
-}
-
-// File IO (for reading referenced materials/textures)
-static size_t assimpFileRead(struct aiFile* assimpFile, char* buffer, size_t size, size_t count) {
-  File* file = (File*) assimpFile->UserData;
-  unsigned long bytes = lovrFileRead(file, buffer, size * count);
-  return bytes / size;
-}
-
-static size_t assimpFileGetSize(struct aiFile* assimpFile) {
-  File* file = (File*) assimpFile->UserData;
-  return lovrFileGetSize(file);
-}
-
-static aiReturn assimpFileSeek(struct aiFile* assimpFile, size_t position, enum aiOrigin origin) {
-  File* file = (File*) assimpFile->UserData;
-  return lovrFileSeek(file, position) ? aiReturn_FAILURE : aiReturn_SUCCESS;
-}
-
-static size_t assimpFileTell(struct aiFile* assimpFile) {
-  File* file = (File*) assimpFile->UserData;
-  return lovrFileTell(file);
-}
-
-static struct aiFile* assimpFileOpen(struct aiFileIO* io, const char* path, const char* mode) {
-  struct aiFile* assimpFile = malloc(sizeof(struct aiFile));
-  Blob* blob = (Blob*) io->UserData;
-  if (!strcmp(blob->name, path)) {
-    blob->seek = 0;
-    assimpFile->ReadProc = assimpBlobRead;
-    assimpFile->FileSizeProc = assimpBlobGetSize;
-    assimpFile->SeekProc = assimpBlobSeek;
-    assimpFile->TellProc = assimpBlobTell;
-    assimpFile->UserData = (void*) blob;
-  } else {
-    char tempPath[LOVR_PATH_MAX];
-    char normalizedPath[LOVR_PATH_MAX];
-    strncpy(tempPath, path, LOVR_PATH_MAX);
-    normalizePath(tempPath, normalizedPath, LOVR_PATH_MAX);
-
-    File* file = lovrFileCreate(normalizedPath);
-    if (lovrFileOpen(file, OPEN_READ)) {
-      lovrRelease(file);
-      return NULL;
+    for (int k = 0; k < keyCount; k++) {
+      token += nomString(json, token, &key);
+      if (KEY_EQ(key, "byteLength")) {
+        blob->size = TOK_INT(json, token), token++;
+      } else if (KEY_EQ(key, "uri")) {
+        hasUri = true;
+        gltfString filename;
+        token += nomString(json, token, &filename);
+        filename.data[filename.length] = '\0'; // Change the quote into a terminator (I'll be b0k)
+        blob->data = io.read(filename.data, &bytesRead);
+        lovrAssert(blob->data, "Unable to read %s", filename.data);
+      } else {
+        token += nomValue(json, token, 1, 0); // Skip
+      }
     }
 
-    assimpFile->ReadProc = assimpFileRead;
-    assimpFile->FileSizeProc = assimpFileGetSize;
-    assimpFile->SeekProc = assimpFileSeek;
-    assimpFile->TellProc = assimpFileTell;
-    assimpFile->UserData = (void*) file;
+    if (hasUri) {
+      lovrAssert(bytesRead == blob->size, "Couldn't read all of buffer data");
+    } else {
+      lovrAssert(binData && i == 0, "Buffer is missing URI");
+      blob->data = binData;
+    }
   }
-
-  return assimpFile;
 }
 
-static void assimpFileClose(struct aiFileIO* io, struct aiFile* assimpFile) {
-  void* blob = io->UserData;
-  if (assimpFile->UserData != blob) {
-    File* file = (File*) assimpFile->UserData;
-    lovrFileClose(file);
-    lovrRelease(file);
+static void parseViews(const char* json, jsmntok_t* token, ModelData* model) {
+  if (!token) return;
+
+  int count = (token++)->size;
+  for (int i = 0; i < count; i++) {
+    ModelView* view = &model->views[i];
+    gltfString key;
+    int keyCount = (token++)->size;
+
+    for (int k = 0; k < keyCount; k++) {
+      token += nomString(json, token, &key);
+      if (KEY_EQ(key, "buffer")) {
+        view->blob = TOK_INT(json, token), token++;
+      } else if (KEY_EQ(key, "byteOffset")) {
+        view->offset = TOK_INT(json, token), token++;
+      } else if (KEY_EQ(key, "byteLength")) {
+        view->length = TOK_INT(json, token), token++;
+      } else if (KEY_EQ(key, "byteStride")) {
+        view->stride = TOK_INT(json, token), token++;
+    } else {
+        token += nomValue(json, token, 1, 0); // Skip
+      }
+    }
   }
-  free(assimpFile);
 }
 
-ModelData* lovrModelDataInit(ModelData* modelData, Blob* blob) {
-  struct aiFileIO assimpIO;
-  assimpIO.OpenProc = assimpFileOpen;
-  assimpIO.CloseProc = assimpFileClose;
-  assimpIO.UserData = (void*) blob;
+static void parseNodes(const char* json, jsmntok_t* token, ModelData* model) {
+  if (!token) return;
 
-  struct aiPropertyStore* propertyStore = aiCreatePropertyStore();
-  aiSetImportPropertyInteger(propertyStore, AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_POINT | aiPrimitiveType_LINE);
-  aiSetImportPropertyInteger(propertyStore, AI_CONFIG_PP_SBBC_MAX_BONES, 48);
-  unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_SplitByBoneCount;
-  const struct aiScene* scene = aiImportFileExWithProperties(blob->name, flags, &assimpIO, propertyStore);
-  aiReleasePropertyStore(propertyStore);
-  lovrAssert(scene, "Unable to load model from '%s': %s", blob->name, aiGetErrorString());
+  int childIndex = 0;
+  int count = (token++)->size; // Enter array
+  for (int i = 0; i < count; i++) {
+    ModelNode* node = &model->nodes[i];
+    float translation[3] = { 0, 0, 0 };
+    float rotation[4] = { 0, 0, 0, 0 };
+    float scale[3] = { 1, 1, 1 };
+    bool matrix = false;
 
-  uint32_t vertexCount = 0;
-  bool hasNormals = false;
-  bool hasUVs = false;
-  bool hasVertexColors = false;
-  bool hasTangents = false;
-  bool isSkinned = false;
+    gltfString key;
+    int keyCount = (token++)->size; // Enter object
+    for (int k = 0; k < keyCount; k++) {
+      token += nomString(json, token, &key);
 
-  for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
-    struct aiMesh* assimpMesh = scene->mMeshes[m];
-    vertexCount += assimpMesh->mNumVertices;
-    modelData->indexCount += assimpMesh->mNumFaces * 3;
-    hasNormals |= assimpMesh->mNormals != NULL;
-    hasUVs |= assimpMesh->mTextureCoords[0] != NULL;
-    hasVertexColors |= assimpMesh->mColors[0] != NULL;
-    hasTangents |= assimpMesh->mTangents != NULL;
-    isSkinned |= assimpMesh->mNumBones > 0;
+      if (KEY_EQ(key, "children")) {
+        node->children = &model->childMap[childIndex];
+        node->childCount = (token++)->size;
+        for (uint32_t j = 0; j < node->childCount; j++) {
+          model->childMap[childIndex++] = TOK_INT(json, token), token++;
+        }
+      } else if (KEY_EQ(key, "mesh")) {
+        node->mesh = TOK_INT(json, token), token++;
+      } else if (KEY_EQ(key, "matrix")) {
+        lovrAssert(token->size == 16, "Node matrix needs 16 elements");
+        matrix = true;
+        for (int j = 0; j < token->size; j++) {
+          node->transform[j] = TOK_FLOAT(json, token), token++;
+        }
+      } else if (KEY_EQ(key, "translation")) {
+        lovrAssert(token->size == 3, "Node translation needs 3 elements");
+        translation[0] = TOK_FLOAT(json, token), token++;
+        translation[1] = TOK_FLOAT(json, token), token++;
+        translation[2] = TOK_FLOAT(json, token), token++;
+      } else if (KEY_EQ(key, "rotation")) {
+        lovrAssert(token->size == 4, "Node rotation needs 4 elements");
+        rotation[0] = TOK_FLOAT(json, token), token++;
+        rotation[1] = TOK_FLOAT(json, token), token++;
+        rotation[2] = TOK_FLOAT(json, token), token++;
+        rotation[3] = TOK_FLOAT(json, token), token++;
+      } else if (KEY_EQ(key, "scale")) {
+        lovrAssert(token->size == 3, "Node scale needs 3 elements");
+        scale[0] = TOK_FLOAT(json, token), token++;
+        scale[1] = TOK_FLOAT(json, token), token++;
+        scale[2] = TOK_FLOAT(json, token), token++;
+      } else {
+        token += nomValue(json, token, 1, 0); // Skip
+      }
+    }
+
+    // Fix it in post
+    if (!matrix) {
+      mat4_identity(node->transform);
+      mat4_translate(node->transform, translation[0], translation[1], translation[2]);
+      mat4_rotateQuat(node->transform, rotation);
+      mat4_scale(node->transform, scale[0], scale[1], scale[2]);
+    }
   }
+}
 
-  VertexFormat format;
-  vertexFormatInit(&format);
-  vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
+static jsmntok_t* parsePrimitive(const char* json, jsmntok_t* token, int index, ModelData* model) {
+  gltfString key;
+  ModelPrimitive* primitive = &model->primitives[index];
+  int keyCount = (token++)->size; // Enter object
+  memset(primitive->attributes, 0xff, sizeof(primitive->attributes));
+  primitive->indices = -1;
+  primitive->mode = DRAW_TRIANGLES;
 
-  if (hasNormals) vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
-  if (hasUVs) vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
-  if (hasVertexColors) vertexFormatAppend(&format, "lovrVertexColor", ATTR_BYTE, 4);
-  if (hasTangents) vertexFormatAppend(&format, "lovrTangent", ATTR_FLOAT, 3);
-  size_t boneByteOffset = format.stride;
-  if (isSkinned) vertexFormatAppend(&format, "lovrBones", ATTR_INT, 4);
-  if (isSkinned) vertexFormatAppend(&format, "lovrBoneWeights", ATTR_FLOAT, 4);
+  for (int k = 0; k < keyCount; k++) {
+    token += nomString(json, token, &key);
 
-  // Allocate
-  modelData->vertexData = lovrVertexDataCreate(vertexCount, &format);
-  modelData->indexSize = vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
-  modelData->indices.raw = malloc(modelData->indexCount * modelData->indexSize);
-  modelData->primitiveCount = scene->mNumMeshes;
-  modelData->primitives = malloc(modelData->primitiveCount * sizeof(ModelPrimitive));
+    if (KEY_EQ(key, "material")) {
+      primitive->material = TOK_INT(json, token), token++;
+    } else if (KEY_EQ(key, "indices")) {
+      primitive->indices = TOK_INT(json, token), token++;
+    } else if (KEY_EQ(key, "mode")) {
+      switch (TOK_INT(json, token)) {
+        case 0: primitive->mode = DRAW_POINTS; break;
+        case 1: primitive->mode = DRAW_LINES; break;
+        case 2: primitive->mode = DRAW_LINE_LOOP; break;
+        case 3: primitive->mode = DRAW_LINE_STRIP; break;
+        case 4: primitive->mode = DRAW_TRIANGLES; break;
+        case 5: primitive->mode = DRAW_TRIANGLE_STRIP; break;
+        case 6: primitive->mode = DRAW_TRIANGLE_FAN; break;
+        default: lovrThrow("Unknown primitive mode");
+      }
+      token++;
+    } else if (KEY_EQ(key, "attributes")) {
+      int attributeCount = (token++)->size;
+      for (int i = 0; i < attributeCount; i++) {
+        gltfString name;
+        token += nomString(json, token, &name);
+        int accessor = TOK_INT(json, token);
+        if (KEY_EQ(name, "POSITION")) {
+          primitive->attributes[ATTR_POSITION] = accessor;
+        } else if (KEY_EQ(name, "NORMAL")) {
+          primitive->attributes[ATTR_NORMAL] = accessor;
+        } else if (KEY_EQ(name, "TEXCOORD_0")) {
+          primitive->attributes[ATTR_TEXCOORD] = accessor;
+        } else if (KEY_EQ(name, "COLOR_0")) {
+          primitive->attributes[ATTR_COLOR] = accessor;
+        } else if (KEY_EQ(name, "TANGENT")) {
+          primitive->attributes[ATTR_TANGENT] = accessor;
+        } else if (KEY_EQ(name, "JOINTS_0")) {
+          primitive->attributes[ATTR_BONES] = accessor;
+        } else if (KEY_EQ(name, "WEIGHTS_0")) {
+          primitive->attributes[ATTR_WEIGHTS] = accessor;
+        }
+        token++;
+      }
+    } else {
+      token += nomValue(json, token, 1, 0); // Skip
+    }
+  }
+  return token;
+}
 
-  // Load vertices
-  IndexPointer indices = modelData->indices;
-  uint32_t vertex = 0;
-  uint32_t index = 0;
-  for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
-    struct aiMesh* assimpMesh = scene->mMeshes[m];
-    ModelPrimitive* primitive = &modelData->primitives[m];
-    primitive->material = assimpMesh->mMaterialIndex;
-    primitive->drawStart = index;
-    primitive->drawCount = 0;
-    uint32_t baseVertex = vertex;
+static void parseMeshes(const char* json, jsmntok_t* token, ModelData* model) {
+  if (!token) return;
 
-    // Indices
-    for (unsigned int f = 0; f < assimpMesh->mNumFaces; f++) {
-      struct aiFace assimpFace = assimpMesh->mFaces[f];
-      lovrAssert(assimpFace.mNumIndices == 3, "Only triangular faces are supported");
+  int primitiveIndex = 0;
+  int count = (token++)->size; // Enter array
+  for (int i = 0; i < count; i++) {
+    gltfString key;
+    ModelMesh* mesh = &model->meshes[i];
+    int keyCount = (token++)->size; // Enter object
+    for (int k = 0; k < keyCount; k++) {
+      token += nomString(json, token, &key);
 
-      primitive->drawCount += assimpFace.mNumIndices;
-
-      if (modelData->indexSize == sizeof(uint16_t)) {
-        for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
-          indices.shorts[index++] = baseVertex + assimpFace.mIndices[i];
+      if (KEY_EQ(key, "primitives")) {
+        mesh->primitives = &model->primitives[primitiveIndex];
+        mesh->primitiveCount = (token++)->size;
+        for (uint32_t j = 0; j < mesh->primitiveCount; j++) {
+          token = parsePrimitive(json, token, primitiveIndex++, model);
         }
       } else {
-        for (unsigned int i = 0; i < assimpFace.mNumIndices; i++) {
-          indices.ints[index++] = baseVertex + assimpFace.mIndices[i];
-        }
-      }
-    }
-
-    // Vertices
-    for (unsigned int v = 0; v < assimpMesh->mNumVertices; v++) {
-      VertexPointer vertices = { .raw = modelData->vertexData->blob.data };
-      vertices.bytes += vertex * modelData->vertexData->format.stride;
-
-      *vertices.floats++ = assimpMesh->mVertices[v].x;
-      *vertices.floats++ = assimpMesh->mVertices[v].y;
-      *vertices.floats++ = assimpMesh->mVertices[v].z;
-
-      if (hasNormals) {
-        if (assimpMesh->mNormals) {
-          *vertices.floats++ = assimpMesh->mNormals[v].x;
-          *vertices.floats++ = assimpMesh->mNormals[v].y;
-          *vertices.floats++ = assimpMesh->mNormals[v].z;
-        } else {
-          *vertices.floats++ = 0;
-          *vertices.floats++ = 0;
-          *vertices.floats++ = 0;
-        }
-      }
-
-      if (hasUVs) {
-        if (assimpMesh->mTextureCoords[0]) {
-          *vertices.floats++ = assimpMesh->mTextureCoords[0][v].x;
-          *vertices.floats++ = assimpMesh->mTextureCoords[0][v].y;
-        } else {
-          *vertices.floats++ = 0;
-          *vertices.floats++ = 0;
-        }
-      }
-
-      if (hasVertexColors) {
-        if (assimpMesh->mColors[0]) {
-          *vertices.bytes++ = assimpMesh->mColors[0][v].r * 255;
-          *vertices.bytes++ = assimpMesh->mColors[0][v].g * 255;
-          *vertices.bytes++ = assimpMesh->mColors[0][v].b * 255;
-          *vertices.bytes++ = assimpMesh->mColors[0][v].a * 255;
-        } else {
-          *vertices.bytes++ = 255;
-          *vertices.bytes++ = 255;
-          *vertices.bytes++ = 255;
-          *vertices.bytes++ = 255;
-        }
-      }
-
-      if (hasTangents) {
-        if (assimpMesh->mTangents) {
-          *vertices.floats++ = assimpMesh->mTangents[v].x;
-          *vertices.floats++ = assimpMesh->mTangents[v].y;
-          *vertices.floats++ = assimpMesh->mTangents[v].z;
-        } else {
-          *vertices.floats++ = 0;
-          *vertices.floats++ = 0;
-          *vertices.floats++ = 0;
-        }
-      }
-
-      vertex++;
-    }
-
-    // Bones
-    primitive->boneCount = assimpMesh->mNumBones;
-    map_init(&primitive->boneMap);
-    for (unsigned int b = 0; b < assimpMesh->mNumBones; b++) {
-      struct aiBone* assimpBone = assimpMesh->mBones[b];
-      Bone* bone = &primitive->bones[b];
-
-      bone->name = strdup(assimpBone->mName.data);
-      aiTransposeMatrix4(&assimpBone->mOffsetMatrix);
-      mat4_set(bone->offset, (float*) &assimpBone->mOffsetMatrix);
-      map_set(&primitive->boneMap, bone->name, b);
-
-      for (unsigned int w = 0; w < assimpBone->mNumWeights; w++) {
-        uint32_t vertexIndex = baseVertex + assimpBone->mWeights[w].mVertexId;
-        float weight = assimpBone->mWeights[w].mWeight;
-        VertexPointer vertices = { .raw = modelData->vertexData->blob.data };
-        vertices.bytes += vertexIndex * modelData->vertexData->format.stride;
-        uint32_t* bones = (uint32_t*) (vertices.bytes + boneByteOffset);
-        float* weights = (float*) (bones + MAX_BONES_PER_VERTEX);
-
-        int boneSlot = 0;
-        while (weights[boneSlot] > 0) {
-          boneSlot++;
-          lovrAssert(boneSlot < MAX_BONES_PER_VERTEX, "Too many bones for vertex %d", vertexIndex);
-        }
-
-        bones[boneSlot] = b;
-        weights[boneSlot] = weight;
+        token += nomValue(json, token, 1, 0); // Skip
       }
     }
   }
-
-  // Materials
-  map_int_t textureCache;
-  map_init(&textureCache);
-  vec_init(&modelData->textures);
-  vec_push(&modelData->textures, NULL);
-  modelData->materialCount = scene->mNumMaterials;
-  modelData->materials = malloc(modelData->materialCount * sizeof(ModelMaterial));
-  for (unsigned int m = 0; m < scene->mNumMaterials; m++) {
-    ModelMaterial* material = &modelData->materials[m];
-    struct aiMaterial* assimpMaterial = scene->mMaterials[m];
-
-    material->diffuseColor = readMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, (Color) { 1., 1., 1., 1. });
-    material->emissiveColor = readMaterialColor(assimpMaterial, AI_MATKEY_COLOR_EMISSIVE, (Color) { 0., 0., 0., 0. });
-    material->diffuseTexture = readMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, modelData, &textureCache, blob->name);
-    material->emissiveTexture = readMaterialTexture(assimpMaterial, aiTextureType_EMISSIVE, modelData, &textureCache, blob->name);
-    material->metalnessTexture = readMaterialTexture(assimpMaterial, aiTextureType_UNKNOWN, modelData, &textureCache, blob->name);
-    material->roughnessTexture = material->metalnessTexture;
-    material->occlusionTexture = readMaterialTexture(assimpMaterial, aiTextureType_LIGHTMAP, modelData, &textureCache, blob->name);
-    material->normalTexture = readMaterialTexture(assimpMaterial, aiTextureType_NORMALS, modelData, &textureCache, blob->name);
-    material->metalness = readMaterialScalar(assimpMaterial, "$mat.gltf.pbrMetallicRoughness.metallicFactor", 0, 0);
-    material->roughness = readMaterialScalar(assimpMaterial, "$mat.gltf.pbrMetallicRoughness.roughnessFactor", 0, 0);
-  }
-  map_deinit(&textureCache);
-
-  // Nodes
-  modelData->nodeCount = 0;
-  assimpSumChildren(scene->mRootNode, &modelData->nodeCount);
-  modelData->nodes = malloc(modelData->nodeCount * sizeof(ModelNode));
-  modelData->nodes[0].parent = -1;
-  map_init(&modelData->nodeMap);
-  int nodeIndex = 0;
-  assimpNodeTraversal(modelData, scene->mRootNode, &nodeIndex);
-
-  // Animations
-  modelData->animationCount = scene->mNumAnimations;
-  modelData->animations = malloc(modelData->animationCount * sizeof(Animation));
-  for (int i = 0; i < modelData->animationCount; i++) {
-    struct aiAnimation* assimpAnimation = scene->mAnimations[i];
-    float ticksPerSecond = assimpAnimation->mTicksPerSecond;
-
-    Animation* animation = &modelData->animations[i];
-    animation->name = strdup(assimpAnimation->mName.data);
-    animation->duration = assimpAnimation->mDuration / ticksPerSecond;
-    animation->channelCount = assimpAnimation->mNumChannels;
-    map_init(&animation->channels);
-
-    for (int j = 0; j < animation->channelCount; j++) {
-      struct aiNodeAnim* assimpChannel = assimpAnimation->mChannels[j];
-      AnimationChannel channel;
-
-      channel.node = strdup(assimpChannel->mNodeName.data);
-      vec_init(&channel.positionKeyframes);
-      vec_init(&channel.rotationKeyframes);
-      vec_init(&channel.scaleKeyframes);
-
-      for (unsigned int k = 0; k < assimpChannel->mNumPositionKeys; k++) {
-        struct aiVectorKey assimpKeyframe = assimpChannel->mPositionKeys[k];
-        struct aiVector3D position = assimpKeyframe.mValue;
-        vec_push(&channel.positionKeyframes, ((Keyframe) {
-          .time = assimpKeyframe.mTime / ticksPerSecond,
-          .data = { position.x, position.y, position.z }
-        }));
-      }
-
-      for (unsigned int k = 0; k < assimpChannel->mNumRotationKeys; k++) {
-        struct aiQuatKey assimpKeyframe = assimpChannel->mRotationKeys[k];
-        struct aiQuaternion quaternion = assimpKeyframe.mValue;
-        vec_push(&channel.rotationKeyframes, ((Keyframe) {
-          .time = assimpKeyframe.mTime / ticksPerSecond,
-          .data = { quaternion.x, quaternion.y, quaternion.z, quaternion.w }
-        }));
-      }
-
-      for (unsigned int k = 0; k < assimpChannel->mNumScalingKeys; k++) {
-        struct aiVectorKey assimpKeyframe = assimpChannel->mScalingKeys[k];
-        struct aiVector3D scale = assimpKeyframe.mValue;
-        vec_push(&channel.scaleKeyframes, ((Keyframe) {
-          .time = assimpKeyframe.mTime / ticksPerSecond,
-          .data = { scale.x, scale.y, scale.z }
-        }));
-      }
-
-      map_set(&animation->channels, channel.node, channel);
-    }
-  }
-
-  aiReleaseImport(scene);
-  return modelData;
 }
-#else
-static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6]) {}
-ModelData* lovrModelDataInit(ModelData* modelData, Blob* blob) {
-  return NULL;
+
+ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
+  uint8_t* data = blob->data;
+  gltfHeader* header = (gltfHeader*) data;
+  bool glb = header->magic == MAGIC_glTF;
+  const char *jsonData, *binData;
+  size_t jsonLength, binLength;
+
+  if (glb) {
+    gltfChunkHeader* jsonHeader = (gltfChunkHeader*) &header[1];
+    lovrAssert(jsonHeader->type == MAGIC_JSON, "Invalid JSON header");
+
+    jsonData = (char*) &jsonHeader[1];
+    jsonLength = jsonHeader->length;
+
+    gltfChunkHeader* binHeader = (gltfChunkHeader*) &jsonData[jsonLength];
+    lovrAssert(binHeader->type == MAGIC_BIN, "Invalid BIN header");
+
+    binData = (char*) &binHeader[1];
+    binLength = binHeader->length;
+
+    // Hang onto the data since it's already here rather than make a copy of it
+    lovrRetain(blob);
+  } else {
+    jsonData = (char*) data;
+    jsonLength = blob->size;
+    binData = NULL;
+    binLength = 0;
+  }
+
+  jsmn_parser parser;
+  jsmn_init(&parser);
+
+  jsmntok_t tokens[1024]; // TODO malloc or token queue
+  int tokenCount = jsmn_parse(&parser, jsonData, jsonLength, tokens, 1024);
+  lovrAssert(tokenCount >= 0, "Invalid JSON");
+  lovrAssert(tokens[0].type == JSMN_OBJECT, "No root object");
+
+  gltfInfo info = { 0 };
+  size_t dataSize = 0;
+  preparse(jsonData, tokens, tokenCount, &info, &dataSize);
+
+  size_t offset = 0;
+  model->data = calloc(1, dataSize);
+  model->glbBlob = glb ? blob : NULL;
+  model->accessorCount = info.accessors.count;
+  model->blobCount = info.blobs.count;
+  model->viewCount = info.views.count;
+  model->meshCount = info.meshes.count;
+  model->nodeCount = info.nodes.count;
+  model->primitiveCount = info.primitiveCount;
+  model->accessors = (ModelAccessor*) (model->data + offset), offset += info.accessors.count * sizeof(ModelAccessor);
+  model->blobs = (ModelBlob*) (model->data + offset), offset += info.blobs.count * sizeof(ModelBlob);
+  model->views = (ModelView*) (model->data + offset), offset += info.views.count * sizeof(ModelView);
+  model->meshes = (ModelMesh*) (model->data + offset), offset += info.meshes.count * sizeof(ModelMesh);
+  model->nodes = (ModelNode*) (model->data + offset), offset += info.nodes.count * sizeof(ModelNode);
+  model->primitives = (ModelPrimitive*) (model->data + offset), offset += info.primitiveCount * sizeof(ModelPrimitive);
+  model->childMap = (uint32_t*) (model->data + offset), offset += info.childCount * sizeof(uint32_t);
+
+  parseAccessors(jsonData, info.accessors.token, model);
+  parseBlobs(jsonData, info.blobs.token, model, io, (void*) binData);
+  parseViews(jsonData, info.views.token, model);
+  parseNodes(jsonData, info.nodes.token, model);
+  parseMeshes(jsonData, info.meshes.token, model);
+
+  return model;
 }
-#endif
 
 void lovrModelDataDestroy(void* ref) {
-  ModelData* modelData = ref;
-
-  for (int i = 0; i < modelData->nodeCount; i++) {
-    vec_deinit(&modelData->nodes[i].children);
-    vec_deinit(&modelData->nodes[i].primitives);
-    free((char*) modelData->nodes[i].name);
-  }
-
-  for (int i = 0; i < modelData->primitiveCount; i++) {
-    ModelPrimitive* primitive = &modelData->primitives[i];
-    for (int j = 0; j < primitive->boneCount; j++) {
-      free((char*) primitive->bones[j].name);
-    }
-    map_deinit(&primitive->boneMap);
-  }
-
-  for (int i = 0; i < modelData->animationCount; i++) {
-    Animation* animation = &modelData->animations[i];
-    const char* key;
-    map_iter_t iter = map_iter(&animation->channels);
-    while ((key = map_next(&animation->channels, &iter)) != NULL) {
-      AnimationChannel* channel = map_get(&animation->channels, key);
-      vec_deinit(&channel->positionKeyframes);
-      vec_deinit(&channel->rotationKeyframes);
-      vec_deinit(&channel->scaleKeyframes);
-    }
-    map_deinit(&animation->channels);
-    free((char*) animation->name);
-  }
-
-  for (int i = 0; i < modelData->textures.length; i++) {
-    lovrRelease(modelData->textures.data[i]);
-  }
-
-  vec_deinit(&modelData->textures);
-  map_deinit(&modelData->nodeMap);
-
-  lovrRelease(modelData->vertexData);
-
-  free(modelData->nodes);
-  free(modelData->primitives);
-  free(modelData->animations);
-  free(modelData->materials);
-  free(modelData->indices.raw);
-}
-
-void lovrModelDataGetAABB(ModelData* modelData, float aabb[6]) {
-  aabb[0] = FLT_MAX;
-  aabb[1] = -FLT_MAX;
-  aabb[2] = FLT_MAX;
-  aabb[3] = -FLT_MAX;
-  aabb[4] = FLT_MAX;
-  aabb[5] = -FLT_MAX;
-  aabbIterator(modelData, &modelData->nodes[0], aabb);
+  //
 }

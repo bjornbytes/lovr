@@ -127,7 +127,7 @@ int l_lovrMeshGetVertex(lua_State* L) {
   Buffer* buffer = lovrMeshGetVertexBuffer(mesh);
   lovrAssert(lovrBufferIsReadable(buffer), "Mesh:getVertex can only be used if the Mesh was created with the readable flag");
   VertexFormat* format = lovrMeshGetVertexFormat(mesh);
-  VertexPointer vertex = { .raw = lovrBufferMap(buffer, index * format->stride) };
+  AttributePointer vertex = { .raw = lovrBufferMap(buffer, index * format->stride) };
   return luax_pushvertex(L, &vertex, format);
 }
 
@@ -137,7 +137,7 @@ int l_lovrMeshSetVertex(lua_State* L) {
   lovrAssert(index >= 0 && index < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex index: %d", index + 1);
   Buffer* buffer = lovrMeshGetVertexBuffer(mesh);
   VertexFormat* format = lovrMeshGetVertexFormat(mesh);
-  VertexPointer vertex = { .raw = lovrBufferMap(buffer, index * format->stride) };
+  AttributePointer vertex = { .raw = lovrBufferMap(buffer, index * format->stride) };
   luax_setvertex(L, 3, &vertex, format);
   lovrBufferMarkRange(buffer, index * format->stride, (index + 1) * format->stride);
   return 0;
@@ -153,7 +153,7 @@ int l_lovrMeshGetVertexAttribute(lua_State* L) {
   lovrAssert(vertexIndex >= 0 && vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
   lovrAssert(attributeIndex >= 0 && attributeIndex < format->count, "Invalid mesh attribute: %d", attributeIndex + 1);
   Attribute attribute = format->attributes[attributeIndex];
-  VertexPointer vertex = { .raw = lovrBufferMap(buffer, vertexIndex * format->stride + attribute.offset) };
+  AttributePointer vertex = { .raw = lovrBufferMap(buffer, vertexIndex * format->stride + attribute.offset) };
   return luax_pushvertexattribute(L, &vertex, attribute);
 }
 
@@ -166,7 +166,7 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
   lovrAssert(attributeIndex >= 0 && attributeIndex < format->count, "Invalid mesh attribute: %d", attributeIndex + 1);
   Attribute attribute = format->attributes[attributeIndex];
   Buffer* buffer = lovrMeshGetVertexBuffer(mesh);
-  VertexPointer vertex = { .raw = lovrBufferMap(buffer, vertexIndex * format->stride + attribute.offset) };
+  AttributePointer vertex = { .raw = lovrBufferMap(buffer, vertexIndex * format->stride + attribute.offset) };
   luax_setvertexattribute(L, 4, &vertex, attribute);
   lovrBufferMarkRange(buffer, vertexIndex * format->stride + attribute.offset, vertexIndex * format->stride + attribute.offset + attribute.size);
   return 0;
@@ -194,7 +194,7 @@ int l_lovrMeshSetVertices(lua_State* L) {
   lovrAssert(count <= sourceSize, "Cannot set %d vertices on Mesh: source only has %d vertices", count, sourceSize);
 
   Buffer* buffer = lovrMeshGetVertexBuffer(mesh);
-  VertexPointer vertices = { .raw = lovrBufferMap(buffer, start * format->stride) };
+  AttributePointer vertices = { .raw = lovrBufferMap(buffer, start * format->stride) };
 
   if (vertexData) {
     memcpy(vertices.raw, vertexData->blob.data, count * format->stride);

@@ -17,3 +17,4 @@ extern const char* lovrFillVertexShader;
 extern const char* lovrShaderScalarUniforms[];
 extern const char* lovrShaderColorUniforms[];
 extern const char* lovrShaderTextureUniforms[];
+extern const char* lovrShaderAttributeNames[];

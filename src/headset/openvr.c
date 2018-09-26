@@ -401,78 +401,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   RenderModel_t* vrModel = state.deviceModels[id];
 
-  ModelData* modelData = lovrAlloc(ModelData);
-
-  VertexFormat format;
-  vertexFormatInit(&format);
-  vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
-  vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
-  vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
-
-  modelData->vertexData = lovrVertexDataCreate(vrModel->unVertexCount, &format);
-
-  float* vertices = (float*) modelData->vertexData->blob.data;
-  int vertex = 0;
-  for (size_t i = 0; i < vrModel->unVertexCount; i++) {
-    float* position = vrModel->rVertexData[i].vPosition.v;
-    float* normal = vrModel->rVertexData[i].vNormal.v;
-    float* texCoords = vrModel->rVertexData[i].rfTextureCoord;
-
-    vertices[vertex++] = position[0];
-    vertices[vertex++] = position[1];
-    vertices[vertex++] = position[2];
-
-    vertices[vertex++] = normal[0];
-    vertices[vertex++] = normal[1];
-    vertices[vertex++] = normal[2];
-
-    vertices[vertex++] = texCoords[0];
-    vertices[vertex++] = texCoords[1];
-  }
-
-  modelData->indexCount = vrModel->unTriangleCount * 3;
-  modelData->indexSize = sizeof(uint16_t);
-  modelData->indices.raw = malloc(modelData->indexCount * modelData->indexSize);
-  memcpy(modelData->indices.raw, vrModel->rIndexData, modelData->indexCount * modelData->indexSize);
-
-  modelData->nodeCount = 1;
-  modelData->primitiveCount = 1;
-  modelData->animationCount = 0;
-  modelData->materialCount = 1;
-
-  modelData->nodes = calloc(1, sizeof(ModelNode));
-  modelData->primitives = calloc(1, sizeof(ModelPrimitive));
-  modelData->materials = calloc(1, sizeof(ModelMaterial));
-
-  // Nodes
-  ModelNode* root = &modelData->nodes[0];
-  root->parent = -1;
-  vec_init(&root->children);
-  vec_init(&root->primitives);
-  vec_push(&root->primitives, 0);
-  mat4_identity(root->transform);
-  mat4_identity(root->globalTransform);
-  modelData->primitives[0].material = 0;
-  modelData->primitives[0].drawStart = 0;
-  modelData->primitives[0].drawCount = modelData->indexCount;
-  map_init(&modelData->primitives[0].boneMap);
-  map_init(&modelData->nodeMap);
-
-  // Material
-  RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
-  TextureData* textureData = lovrTextureDataCreate(vrTexture->unWidth, vrTexture->unHeight, 0, FORMAT_RGBA);
-  memcpy(textureData->blob.data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
-
-  vec_init(&modelData->textures);
-  vec_push(&modelData->textures, NULL);
-  vec_push(&modelData->textures, textureData);
-
-  ModelMaterial* material = &modelData->materials[0];
-  material->diffuseColor = (Color) { 1, 1, 1, 1 };
-  material->emissiveColor = (Color) { 0, 0, 0, 1 };
-  material->diffuseTexture = 1;
-
-  return modelData;
+  return NULL;
 }
 
 static void openvrRenderTo(void (*callback)(void*), void* userdata) {
