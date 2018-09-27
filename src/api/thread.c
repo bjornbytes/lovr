@@ -40,16 +40,7 @@ static int threadRunner(void* data) {
   return 0;
 }
 
-int l_lovrThreadInit(lua_State* L) {
-  lua_newtable(L);
-  luaL_register(L, NULL, lovrThreadModule);
-  luax_registertype(L, "Thread", lovrThread);
-  luax_registertype(L, "Channel", lovrChannel);
-  lovrThreadInit();
-  return 1;
-}
-
-int l_lovrThreadNewThread(lua_State* L) {
+static int l_lovrThreadNewThread(lua_State* L) {
   const char* body = luaL_checkstring(L, 1);
   Thread* thread = lovrThreadCreate(threadRunner, body);
   luax_pushobject(L, thread);
@@ -57,15 +48,24 @@ int l_lovrThreadNewThread(lua_State* L) {
   return 1;
 }
 
-int l_lovrThreadGetChannel(lua_State* L) {
+static int l_lovrThreadGetChannel(lua_State* L) {
   const char* name = luaL_checkstring(L, 1);
   Channel* channel = lovrThreadGetChannel(name);
   luax_pushobject(L, channel);
   return 1;
 }
 
-const luaL_Reg lovrThreadModule[] = {
+static const luaL_Reg lovrThreadModule[] = {
   { "newThread", l_lovrThreadNewThread },
   { "getChannel", l_lovrThreadGetChannel },
   { NULL, NULL }
 };
+
+int luaopen_lovr_thread(lua_State* L) {
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrThreadModule);
+  luax_registertype(L, "Thread", lovrThread);
+  luax_registertype(L, "Channel", lovrChannel);
+  lovrThreadInit();
+  return 1;
+}

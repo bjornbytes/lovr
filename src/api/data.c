@@ -7,20 +7,7 @@
 #include "data/textureData.h"
 #include "data/vertexData.h"
 
-int l_lovrDataInit(lua_State* L) {
-  lua_newtable(L);
-  luaL_register(L, NULL, lovrData);
-  luax_registertype(L, "Blob", lovrBlob);
-  luax_registertype(L, "AudioStream", lovrAudioStream);
-  luax_registertype(L, "ModelData", lovrModelData);
-  luax_registertype(L, "Rasterizer", lovrRasterizer);
-  luax_extendtype(L, "Blob", "SoundData", lovrBlob, lovrSoundData);
-  luax_extendtype(L, "Blob", "TextureData", lovrBlob, lovrTextureData);
-  luax_extendtype(L, "Blob", "VertexData", lovrBlob, lovrVertexData);
-  return 1;
-}
-
-int l_lovrDataNewBlob(lua_State* L) {
+static int l_lovrDataNewBlob(lua_State* L) {
   size_t size;
   uint8_t* data = NULL;
   int type = lua_type(L, 1);
@@ -44,7 +31,7 @@ int l_lovrDataNewBlob(lua_State* L) {
   return 1;
 }
 
-int l_lovrDataNewAudioStream(lua_State* L) {
+static int l_lovrDataNewAudioStream(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "AudioStream");
   size_t bufferSize = luaL_optinteger(L, 2, 4096);
   AudioStream* stream = lovrAudioStreamCreate(blob, bufferSize);
@@ -54,7 +41,7 @@ int l_lovrDataNewAudioStream(lua_State* L) {
   return 1;
 }
 
-int l_lovrDataNewModelData(lua_State* L) {
+static int l_lovrDataNewModelData(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
   ModelData* modelData = lovrModelDataCreate(blob);
   luax_pushobject(L, modelData);
@@ -63,7 +50,7 @@ int l_lovrDataNewModelData(lua_State* L) {
   return 1;
 }
 
-int l_lovrDataNewRasterizer(lua_State* L) {
+static int l_lovrDataNewRasterizer(lua_State* L) {
   Blob* blob = NULL;
   float size;
 
@@ -81,7 +68,7 @@ int l_lovrDataNewRasterizer(lua_State* L) {
   return 1;
 }
 
-int l_lovrDataNewSoundData(lua_State* L) {
+static int l_lovrDataNewSoundData(lua_State* L) {
   if (lua_type(L, 1) == LUA_TNUMBER) {
     int samples = luaL_checkinteger(L, 1);
     int sampleRate = luaL_optinteger(L, 2, 44100);
@@ -109,7 +96,7 @@ int l_lovrDataNewSoundData(lua_State* L) {
   return 1;
 }
 
-int l_lovrDataNewTextureData(lua_State* L) {
+static int l_lovrDataNewTextureData(lua_State* L) {
   TextureData* textureData = NULL;
   if (lua_type(L, 1) == LUA_TNUMBER) {
     int width = luaL_checknumber(L, 1);
@@ -127,7 +114,7 @@ int l_lovrDataNewTextureData(lua_State* L) {
   return 1;
 }
 
-int l_lovrDataNewVertexData(lua_State* L) {
+static int l_lovrDataNewVertexData(lua_State* L) {
   uint32_t count;
   int dataIndex = 0;
   bool hasFormat = false;
@@ -163,7 +150,7 @@ int l_lovrDataNewVertexData(lua_State* L) {
   return 1;
 }
 
-const luaL_Reg lovrData[] = {
+static const luaL_Reg lovrData[] = {
   { "newBlob", l_lovrDataNewBlob },
   { "newAudioStream", l_lovrDataNewAudioStream },
   { "newModelData", l_lovrDataNewModelData },
@@ -173,3 +160,16 @@ const luaL_Reg lovrData[] = {
   { "newVertexData", l_lovrDataNewVertexData },
   { NULL, NULL }
 };
+
+int luaopen_lovr_data(lua_State* L) {
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrData);
+  luax_registertype(L, "Blob", lovrBlob);
+  luax_registertype(L, "AudioStream", lovrAudioStream);
+  luax_registertype(L, "ModelData", lovrModelData);
+  luax_registertype(L, "Rasterizer", lovrRasterizer);
+  luax_extendtype(L, "Blob", "SoundData", lovrBlob, lovrSoundData);
+  luax_extendtype(L, "Blob", "TextureData", lovrBlob, lovrTextureData);
+  luax_extendtype(L, "Blob", "VertexData", lovrBlob, lovrVertexData);
+  return 1;
+}

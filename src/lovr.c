@@ -93,23 +93,16 @@ bool lovrRun(int argc, char** argv, int* status) {
 
   // arg
   lua_newtable(L);
-
-  if (argc > 0) {
-    lua_pushstring(L, argv[0]);
-    lua_rawseti(L, -2, -2);
-  }
-
   lua_pushstring(L, "lovr");
   lua_rawseti(L, -2, -1);
-
-  for (int i = 1; i < argc; i++) {
+  for (int i = 0; i < argc; i++) {
     lua_pushstring(L, argv[i]);
-    lua_rawseti(L, -2, i);
+    lua_rawseti(L, -2, i == 0 ? -2 : i);
   }
-
   lua_setglobal(L, "arg");
 
-  l_lovrInit(L);
+  // _G['lovr']
+  luaopen_lovr(L);
   lua_setglobal(L, "lovr");
 
   lua_pushcfunction(L, luax_getstack);

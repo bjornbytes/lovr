@@ -1,30 +1,17 @@
 #include "luax.h"
 
 // Module loaders
-int l_lovrInit(lua_State* L);
-int l_lovrAudioInit(lua_State* L);
-int l_lovrDataInit(lua_State* L);
-int l_lovrEventInit(lua_State* L);
-int l_lovrFilesystemInit(lua_State* L);
-int l_lovrGraphicsInit(lua_State* L);
-int l_lovrHeadsetInit(lua_State* L);
-int l_lovrMathInit(lua_State* L);
-int l_lovrPhysicsInit(lua_State* L);
-int l_lovrThreadInit(lua_State* L);
-int l_lovrTimerInit(lua_State* L);
-
-// Modules
-extern const luaL_Reg lovr[];
-extern const luaL_Reg lovrAudio[];
-extern const luaL_Reg lovrData[];
-extern const luaL_Reg lovrEvent[];
-extern const luaL_Reg lovrFilesystem[];
-extern const luaL_Reg lovrGraphics[];
-extern const luaL_Reg lovrHeadset[];
-extern const luaL_Reg lovrMath[];
-extern const luaL_Reg lovrPhysics[];
-extern const luaL_Reg lovrThreadModule[];
-extern const luaL_Reg lovrTimer[];
+int luaopen_lovr(lua_State* L);
+int luaopen_lovr_audio(lua_State* L);
+int luaopen_lovr_data(lua_State* L);
+int luaopen_lovr_event(lua_State* L);
+int luaopen_lovr_filesystem(lua_State* L);
+int luaopen_lovr_graphics(lua_State* L);
+int luaopen_lovr_headset(lua_State* L);
+int luaopen_lovr_math(lua_State* L);
+int luaopen_lovr_physics(lua_State* L);
+int luaopen_lovr_thread(lua_State* L);
+int luaopen_lovr_timer(lua_State* L);
 
 // Objects
 extern const luaL_Reg lovrAnimator[];

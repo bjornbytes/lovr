@@ -15,21 +15,12 @@ const char* TimeUnits[] = {
   NULL
 };
 
-int l_lovrAudioInit(lua_State* L) {
-  lua_newtable(L);
-  luaL_register(L, NULL, lovrAudio);
-  luax_registertype(L, "Microphone", lovrMicrophone);
-  luax_registertype(L, "Source", lovrSource);
-  lovrAudioInit();
-  return 1;
-}
-
-int l_lovrAudioUpdate(lua_State* L) {
+static int l_lovrAudioUpdate(lua_State* L) {
   lovrAudioUpdate();
   return 0;
 }
 
-int l_lovrAudioGetDopplerEffect(lua_State* L) {
+static int l_lovrAudioGetDopplerEffect(lua_State* L) {
   float factor, speedOfSound;
   lovrAudioGetDopplerEffect(&factor, &speedOfSound);
   lua_pushnumber(L, factor);
@@ -37,7 +28,7 @@ int l_lovrAudioGetDopplerEffect(lua_State* L) {
   return 2;
 }
 
-int l_lovrAudioGetMicrophoneNames(lua_State* L) {
+static int l_lovrAudioGetMicrophoneNames(lua_State* L) {
   const char* names[MAX_MICROPHONES];
   uint8_t count;
   lovrAudioGetMicrophoneNames(names, &count);
@@ -57,7 +48,7 @@ int l_lovrAudioGetMicrophoneNames(lua_State* L) {
   return 1;
 }
 
-int l_lovrAudioGetOrientation(lua_State* L) {
+static int l_lovrAudioGetOrientation(lua_State* L) {
   float angle, ax, ay, az;
   lovrAudioGetOrientation(&angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
@@ -67,7 +58,7 @@ int l_lovrAudioGetOrientation(lua_State* L) {
   return 4;
 }
 
-int l_lovrAudioGetPosition(lua_State* L) {
+static int l_lovrAudioGetPosition(lua_State* L) {
   float x, y, z;
   lovrAudioGetPosition(&x, &y, &z);
   lua_pushnumber(L, x);
@@ -76,7 +67,7 @@ int l_lovrAudioGetPosition(lua_State* L) {
   return 3;
 }
 
-int l_lovrAudioGetVelocity(lua_State* L) {
+static int l_lovrAudioGetVelocity(lua_State* L) {
   float x, y, z;
   lovrAudioGetVelocity(&x, &y, &z);
   lua_pushnumber(L, x);
@@ -85,17 +76,17 @@ int l_lovrAudioGetVelocity(lua_State* L) {
   return 3;
 }
 
-int l_lovrAudioGetVolume(lua_State* L) {
+static int l_lovrAudioGetVolume(lua_State* L) {
   lua_pushnumber(L, lovrAudioGetVolume());
   return 1;
 }
 
-int l_lovrAudioIsSpatialized(lua_State* L) {
+static int l_lovrAudioIsSpatialized(lua_State* L) {
   lua_pushboolean(L, lovrAudioIsSpatialized());
   return 1;
 }
 
-int l_lovrAudioNewMicrophone(lua_State* L) {
+static int l_lovrAudioNewMicrophone(lua_State* L) {
   const char* name = luaL_optstring(L, 1, NULL);
   int samples = luaL_optinteger(L, 2, 1024);
   int sampleRate = luaL_optinteger(L, 3, 8000);
@@ -107,7 +98,7 @@ int l_lovrAudioNewMicrophone(lua_State* L) {
   return 1;
 }
 
-int l_lovrAudioNewSource(lua_State* L) {
+static int l_lovrAudioNewSource(lua_State* L) {
   Source* source = NULL;
   SoundData* soundData = luax_totype(L, 1, SoundData);
   AudioStream* stream = luax_totype(L, 1, AudioStream);
@@ -147,29 +138,29 @@ int l_lovrAudioNewSource(lua_State* L) {
   return 1;
 }
 
-int l_lovrAudioPause(lua_State* L) {
+static int l_lovrAudioPause(lua_State* L) {
   lovrAudioPause();
   return 0;
 }
 
-int l_lovrAudioResume(lua_State* L) {
+static int l_lovrAudioResume(lua_State* L) {
   lovrAudioResume();
   return 0;
 }
 
-int l_lovrAudioRewind(lua_State* L) {
+static int l_lovrAudioRewind(lua_State* L) {
   lovrAudioRewind();
   return 0;
 }
 
-int l_lovrAudioSetDopplerEffect(lua_State* L) {
+static int l_lovrAudioSetDopplerEffect(lua_State* L) {
   float factor = luaL_optnumber(L, 1, 1.);
   float speedOfSound = luaL_optnumber(L, 2, 343.29);
   lovrAudioSetDopplerEffect(factor, speedOfSound);
   return 0;
 }
 
-int l_lovrAudioSetOrientation(lua_State* L) {
+static int l_lovrAudioSetOrientation(lua_State* L) {
   float angle = luaL_checknumber(L, 1);
   float ax = luaL_checknumber(L, 2);
   float ay = luaL_checknumber(L, 3);
@@ -178,7 +169,7 @@ int l_lovrAudioSetOrientation(lua_State* L) {
   return 0;
 }
 
-int l_lovrAudioSetPosition(lua_State* L) {
+static int l_lovrAudioSetPosition(lua_State* L) {
   float x = luaL_checknumber(L, 1);
   float y = luaL_checknumber(L, 2);
   float z = luaL_checknumber(L, 3);
@@ -186,7 +177,7 @@ int l_lovrAudioSetPosition(lua_State* L) {
   return 0;
 }
 
-int l_lovrAudioSetVelocity(lua_State* L) {
+static int l_lovrAudioSetVelocity(lua_State* L) {
   float x = luaL_checknumber(L, 1);
   float y = luaL_checknumber(L, 2);
   float z = luaL_checknumber(L, 3);
@@ -194,18 +185,18 @@ int l_lovrAudioSetVelocity(lua_State* L) {
   return 0;
 }
 
-int l_lovrAudioSetVolume(lua_State* L) {
+static int l_lovrAudioSetVolume(lua_State* L) {
   float volume = luaL_checknumber(L, 1);
   lovrAudioSetVolume(volume);
   return 0;
 }
 
-int l_lovrAudioStop(lua_State* L) {
+static int l_lovrAudioStop(lua_State* L) {
   lovrAudioStop();
   return 0;
 }
 
-const luaL_Reg lovrAudio[] = {
+static const luaL_Reg lovrAudio[] = {
   { "update", l_lovrAudioUpdate },
   { "getDopplerEffect", l_lovrAudioGetDopplerEffect },
   { "getMicrophoneNames", l_lovrAudioGetMicrophoneNames },
@@ -227,3 +218,12 @@ const luaL_Reg lovrAudio[] = {
   { "stop", l_lovrAudioStop },
   { NULL, NULL }
 };
+
+int luaopen_lovr_audio(lua_State* L) {
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrAudio);
+  luax_registertype(L, "Microphone", lovrMicrophone);
+  luax_registertype(L, "Source", lovrSource);
+  lovrAudioInit();
+  return 1;
+}
