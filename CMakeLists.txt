@@ -305,7 +305,6 @@ endif()
 
 add_executable(lovr
   src/main.c
-  src/lovr.c
   src/util.c
   src/luax.c
   src/api/lovr.c
