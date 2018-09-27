@@ -4,10 +4,6 @@
 
 #pragma once
 
-#define MAX(a, b) (a > b ? a : b)
-#define MIN(a, b) (a < b ? a : b)
-#define CLAMP(x, min, max) MAX(min, MIN(max, x))
-
 typedef float* vec3;
 typedef float* quat;
 typedef float* mat4;

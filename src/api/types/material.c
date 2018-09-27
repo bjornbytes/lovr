@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/graphics.h"
 #include "graphics/material.h"
 
 int l_lovrMaterialGetColor(lua_State* L) {

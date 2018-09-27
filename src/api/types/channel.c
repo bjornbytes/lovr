@@ -1,6 +1,7 @@
 #include "api.h"
 #include "api/event.h"
 #include "thread/channel.h"
+#include <math.h>
 
 static void luax_checktimeout(lua_State* L, int index, double* timeout) {
   switch (lua_type(L, index)) {

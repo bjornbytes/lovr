@@ -1,6 +1,7 @@
 #include "api.h"
 #include "api/data.h"
 #include "api/graphics.h"
+#include "api/math.h"
 #include "graphics/graphics.h"
 #include "graphics/animator.h"
 #include "graphics/canvas.h"
@@ -12,6 +13,7 @@
 #include "data/textureData.h"
 #include "data/vertexData.h"
 #include "filesystem/filesystem.h"
+#include "util.h"
 #include <math.h>
 #include <stdbool.h>
 

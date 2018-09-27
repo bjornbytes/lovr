@@ -15,8 +15,6 @@ static int threadRunner(void* data) {
   lua_State* L = luaL_newstate();
   luaL_openlibs(L);
   lovrSetErrorCallback((lovrErrorHandler) luax_vthrow, L);
-  l_lovrInit(L);
-  lua_setglobal(L, "lovr");
 
   if (luaL_loadbuffer(L, thread->body, strlen(thread->body), "thread") || lua_pcall(L, 0, 0, 0)) {
     thread->error = lua_tostring(L, -1);
@@ -63,7 +61,7 @@ static const luaL_Reg lovrThreadModule[] = {
 
 int luaopen_lovr_thread(lua_State* L) {
   lua_newtable(L);
-  luax_atexit(L, lovrThreadDestroy);
+  luax_atexit(L, lovrThreadDeinit);
   luaL_register(L, NULL, lovrThreadModule);
   luax_registertype(L, "Thread", lovrThread);
   luax_registertype(L, "Channel", lovrChannel);

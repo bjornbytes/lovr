@@ -3,7 +3,7 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/texture.h"
-#include "math/math.h"
+#include "math/mat4.h"
 #include "util.h"
 #include <stdbool.h>
 

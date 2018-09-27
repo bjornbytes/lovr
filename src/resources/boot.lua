@@ -90,7 +90,8 @@ function lovr.boot()
   local modules = { 'audio', 'data', 'event', 'graphics', 'headset', 'math', 'physics', 'thread', 'timer' }
   for _, module in ipairs(modules) do
     if conf.modules[module] then
-      lovr[module] = package.preload['lovr.' .. module] and require('lovr.' .. module)
+      local ok, result = pcall(require, 'lovr.' .. module)
+      lovr[module] = ok and result
     end
   end
 

@@ -1,4 +1,5 @@
 #include "api.h"
+#include "graphics/texture.h"
 
 int luax_optmipmap(lua_State* L, int index, Texture* texture) {
   int mipmap = luaL_optinteger(L, index, 1);

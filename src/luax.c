@@ -55,6 +55,7 @@ void luax_atexit(lua_State* L, luax_destructor destructor) {
   int length = lua_objlen(L, -1);
   lua_pushlightuserdata(L, (void*) destructor);
   lua_rawseti(L, -2, length + 1);
+  lua_pop(L, 1);
 }
 
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
