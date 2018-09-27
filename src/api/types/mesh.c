@@ -1,5 +1,6 @@
 #include "api.h"
 #include "api/data.h"
+#include "api/math.h"
 #include "graphics/graphics.h"
 #include <limits.h>
 

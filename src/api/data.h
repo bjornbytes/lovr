@@ -1,5 +1,6 @@
 #include "data/blob.h"
 #include "data/vertexData.h"
+#include <stdbool.h>
 
 int luax_loadvertices(lua_State* L, int index, VertexFormat* format, VertexPointer vertices);
 bool luax_checkvertexformat(lua_State* L, int index, VertexFormat* format);

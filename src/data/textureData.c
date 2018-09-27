@@ -1,6 +1,5 @@
 #include "data/textureData.h"
 #include "filesystem/file.h"
-#include "math/math.h"
 #include "lib/dds.h"
 #include "lib/stb/stb_image.h"
 #include "lib/stb/stb_image_write.h"

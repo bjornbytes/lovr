@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/graphics.h"
 #include "graphics/canvas.h"
 #include "graphics/graphics.h"
 
