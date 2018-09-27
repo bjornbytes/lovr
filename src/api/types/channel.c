@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/event.h"
 #include "thread/channel.h"
 
 static void luax_checktimeout(lua_State* L, int index, double* timeout) {

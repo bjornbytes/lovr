@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/data.h"
 
 int luax_loadvertices(lua_State* L, int index, VertexFormat* format, VertexPointer vertices) {
   uint32_t count = lua_objlen(L, index);

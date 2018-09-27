@@ -1,11 +1,4 @@
 #include "luax.h"
-#include "data/blob.h"
-#include "event/event.h"
-#include "graphics/canvas.h"
-#include "graphics/mesh.h"
-#include "math/math.h"
-#include "math/randomGenerator.h"
-#include "physics/physics.h"
 
 // Module loaders
 int l_lovrInit(lua_State* L);
@@ -104,22 +97,3 @@ extern const char* UniformAccesses[];
 extern const char* VerticalAligns[];
 extern const char* Windings[];
 extern const char* WrapModes[];
-
-// Shared helpers
-int luax_loadvertices(lua_State* L, int index, VertexFormat* format, VertexPointer vertices);
-bool luax_checkvertexformat(lua_State* L, int index, VertexFormat* format);
-int luax_pushvertexformat(lua_State* L, VertexFormat* format);
-int luax_pushvertexattribute(lua_State* L, VertexPointer* vertex, Attribute attribute);
-int luax_pushvertex(lua_State* L, VertexPointer* vertex, VertexFormat* format);
-void luax_setvertexattribute(lua_State* L, int index, VertexPointer* vertex, Attribute attribute);
-void luax_setvertex(lua_State* L, int index, VertexPointer* vertex, VertexFormat* format);
-int luax_readtransform(lua_State* L, int index, mat4 transform, int scaleComponents);
-Blob* luax_readblob(lua_State* L, int index, const char* debug);
-Seed luax_checkrandomseed(lua_State* L, int index);
-void luax_checkvariant(lua_State* L, int index, Variant* variant);
-int luax_pushvariant(lua_State* L, Variant* variant);
-int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* dest, const char* debug);
-void luax_checkuniformtype(lua_State* L, int index, UniformType* baseType, int* components);
-int luax_optmipmap(lua_State* L, int index, Texture* texture);
-Texture* luax_checktexture(lua_State* L, int index);
-void luax_readattachments(lua_State* L, int index, Attachment* attachments, int* count);
