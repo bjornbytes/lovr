@@ -13,12 +13,48 @@ static int luax_meta__gc(lua_State* L) {
   return 0;
 }
 
+static int luax_module__gc(lua_State* L) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+  for (int i = lua_objlen(L, 2); i >= 1; i--) {
+    lua_rawgeti(L, 2, i);
+    luax_destructor destructor = (luax_destructor) lua_touserdata(L, -1);
+    destructor();
+    lua_pop(L, 1);
+  }
+  return 0;
+}
+
 void luax_loadlib(lua_State* L, const char* library, const char* module) {
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "loadlib");
   lua_pushstring(L, library);
   lua_pushfstring(L, "luaopen_%s", module);
   lua_call(L, 2, 1);
+}
+
+void luax_atexit(lua_State* L, luax_destructor destructor) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+
+  if (lua_isnil(L, -1)) {
+    lua_newtable(L);
+    lua_replace(L, -2);
+
+    // Userdata sentinel since tables don't have __gc (yet)
+    lua_newuserdata(L, sizeof(void*));
+    lua_createtable(L, 0, 1);
+    lua_pushcfunction(L, luax_module__gc);
+    lua_setfield(L, -2, "__gc");
+    lua_setmetatable(L, -2);
+    lua_setfield(L, -2, "");
+
+    // Write to the registry
+    lua_pushvalue(L, -1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+  }
+
+  int length = lua_objlen(L, -1);
+  lua_pushlightuserdata(L, (void*) destructor);
+  lua_rawseti(L, -2, length + 1);
 }
 
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {

@@ -1,17 +1,10 @@
 #include "lovr.h"
-#include "audio/audio.h"
+#ifdef LOVR_ENABLE_EVENT
 #include "event/event.h"
-#include "filesystem/filesystem.h"
-#include "graphics/graphics.h"
-#include "headset/headset.h"
-#include "math/math.h"
-#include "physics/physics.h"
-#include "thread/thread.h"
-#include "timer/timer.h"
+#endif
 #include "resources/boot.lua.h"
 #include "lib/glfw.h"
 #include "luax.h"
-#include "api.h"
 #include "util.h"
 #include <string.h>
 #include <stdio.h>
@@ -34,7 +27,6 @@ static void emscriptenLoop(void* arg) {
     bool isRestart = lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "restart");
 
     lua_close(L);
-    lovrDestroy();
     emscripten_cancel_main_loop();
 
     if (isRestart) {
@@ -59,36 +51,6 @@ static int loadSelf(lua_State* L) {
 
 static void onGlfwError(int code, const char* description) {
   lovrThrow(description);
-}
-
-void lovrDestroy() {
-#ifdef LOVR_ENABLE_AUDIO
-  lovrAudioDestroy();
-#endif
-#ifdef LOVR_ENABLE_EVENT
-  lovrEventDestroy();
-#endif
-#ifdef LOVR_ENABLE_FILESYSTEM
-  lovrFilesystemDestroy();
-#endif
-#ifdef LOVR_ENABLE_GRAPHICS
-  lovrGraphicsDestroy();
-#endif
-#ifdef LOVR_ENABLE_GRAPHICS
-  lovrHeadsetDestroy();
-#endif
-#ifdef LOVR_ENABLE_MATH
-  lovrMathDestroy();
-#endif
-#ifdef LOVR_ENABLE_PHYSICS
-  lovrPhysicsDestroy();
-#endif
-#ifdef LOVR_ENABLE_THREAD
-  lovrThreadDeinit();
-#endif
-#ifdef LOVR_ENABLE_TIMER
-  lovrTimerDestroy();
-#endif
 }
 
 bool lovrRun(int argc, char** argv, int* status) {
@@ -117,7 +79,6 @@ bool lovrRun(int argc, char** argv, int* status) {
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
     fprintf(stderr, "%s\n", lua_tostring(L, -1));
     lua_close(L);
-    lovrDestroy();
     *status = 1;
     return false;
   }
@@ -131,14 +92,12 @@ bool lovrRun(int argc, char** argv, int* status) {
   return false;
 #else
   while (lua_resume(L, 0) == LUA_YIELD) {
-    lovrTimerSleep(.001);
+    lovrSleep(.001);
   }
 
   *status = lua_tonumber(L, -1);
   bool restart = lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "restart");
-
   lua_close(L);
-  lovrDestroy();
 
   if (!restart) {
     glfwTerminate();

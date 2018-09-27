@@ -296,6 +296,7 @@ static const luaL_Reg lovrHeadset[] = {
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
+  luax_atexit(L, lovrHeadsetDestroy);
   luax_registertype(L, "Controller", lovrController);
 
   luax_pushconf(L);
