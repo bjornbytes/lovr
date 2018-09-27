@@ -167,7 +167,7 @@ static int readMaterialTexture(struct aiMaterial* assimpMaterial, enum aiTexture
   char* lastSlash = strrchr(fullPath, '/');
   if (lastSlash) lastSlash[1] = '\0';
   else fullPath[0] = '\0';
-  strncat(fullPath, path, LOVR_PATH_MAX);
+  strncat(fullPath, path, LOVR_PATH_MAX - 1);
   normalizePath(fullPath, normalizedPath, LOVR_PATH_MAX);
 
   size_t size;
