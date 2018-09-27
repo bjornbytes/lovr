@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/event.h"
 #include "event/event.h"
 
 const char* EventTypes[] = {

@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/math.h"
 #include "math/math.h"
 #include "math/mat4.h"
 #include "math/quat.h"

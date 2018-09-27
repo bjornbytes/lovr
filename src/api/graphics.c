@@ -1,4 +1,6 @@
 #include "api.h"
+#include "api/data.h"
+#include "api/graphics.h"
 #include "graphics/graphics.h"
 #include "graphics/animator.h"
 #include "graphics/canvas.h"
