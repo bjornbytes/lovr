@@ -45,6 +45,7 @@ static const luaL_Reg lovrTimer[] = {
 int luaopen_lovr_timer(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrTimer);
+  luax_atexit(L, lovrTimerDestroy);
   lovrTimerInit();
   return 1;
 }

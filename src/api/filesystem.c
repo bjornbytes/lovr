@@ -356,6 +356,7 @@ static const luaL_Reg lovrFilesystem[] = {
 int luaopen_lovr_filesystem(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrFilesystem);
+  luax_atexit(L, lovrFilesystemDestroy);
 
   lua_getglobal(L, "arg");
   lua_rawgeti(L, -1, -2);

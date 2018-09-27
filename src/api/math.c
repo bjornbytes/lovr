@@ -143,6 +143,7 @@ static const luaL_Reg lovrMath[] = {
 int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrMath);
+  luax_atexit(L, lovrMathDestroy);
   luax_registertype(L, "RandomGenerator", lovrRandomGenerator);
   luax_registertype(L, "Transform", lovrTransform);
   lovrMathInit();

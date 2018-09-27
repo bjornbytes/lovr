@@ -1319,6 +1319,7 @@ static const luaL_Reg lovrGraphics[] = {
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
+  luax_atexit(L, lovrGraphicsDestroy);
   luax_registertype(L, "Animator", lovrAnimator);
   luax_registertype(L, "Font", lovrFont);
   luax_registertype(L, "Material", lovrMaterial);
