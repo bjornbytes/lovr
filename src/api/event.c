@@ -118,34 +118,22 @@ static int nextEvent(lua_State* L) {
   }
 }
 
-int l_lovrEventInit(lua_State* L) {
-  lua_newtable(L);
-  luaL_register(L, NULL, lovrEvent);
-
-  // Store nextEvent in the registry to avoid creating a closure every time we poll for events.
-  lua_pushcfunction(L, nextEvent);
-  pollRef = luaL_ref(L, LUA_REGISTRYINDEX);
-
-  lovrEventInit();
-  return 1;
-}
-
-int l_lovrEventClear(lua_State* L) {
+static int l_lovrEventClear(lua_State* L) {
   lovrEventClear();
   return 0;
 }
 
-int l_lovrEventPoll(lua_State* L) {
+static int l_lovrEventPoll(lua_State* L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, pollRef);
   return 1;
 }
 
-int l_lovrEventPump(lua_State* L) {
+static int l_lovrEventPump(lua_State* L) {
   lovrEventPump();
   return 0;
 }
 
-int l_lovrEventPush(lua_State* L) {
+static int l_lovrEventPush(lua_State* L) {
   CustomEvent eventData;
   const char* name = luaL_checkstring(L, 1);
   strncpy(eventData.name, name, MAX_EVENT_NAME_LENGTH - 1);
@@ -158,7 +146,7 @@ int l_lovrEventPush(lua_State* L) {
   return 0;
 }
 
-int l_lovrEventQuit(lua_State* L) {
+static int l_lovrEventQuit(lua_State* L) {
   EventData data;
 
   int argType = lua_type(L, 1);
@@ -178,7 +166,7 @@ int l_lovrEventQuit(lua_State* L) {
   return 0;
 }
 
-const luaL_Reg lovrEvent[] = {
+static const luaL_Reg lovrEvent[] = {
   { "clear", l_lovrEventClear },
   { "poll", l_lovrEventPoll },
   { "pump", l_lovrEventPump },
@@ -186,3 +174,15 @@ const luaL_Reg lovrEvent[] = {
   { "quit", l_lovrEventQuit },
   { NULL, NULL }
 };
+
+int luaopen_lovr_event(lua_State* L) {
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrEvent);
+
+  // Store nextEvent in the registry to avoid creating a closure every time we poll for events.
+  lua_pushcfunction(L, nextEvent);
+  pollRef = luaL_ref(L, LUA_REGISTRYINDEX);
+
+  lovrEventInit();
+  return 1;
+}

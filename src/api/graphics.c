@@ -250,69 +250,12 @@ static TextureData* luax_checktexturedata(lua_State* L, int index, bool flip) {
 
 // Base
 
-int l_lovrGraphicsInit(lua_State* L) {
-  lua_newtable(L);
-  luaL_register(L, NULL, lovrGraphics);
-  luax_registertype(L, "Animator", lovrAnimator);
-  luax_registertype(L, "Font", lovrFont);
-  luax_registertype(L, "Material", lovrMaterial);
-  luax_registertype(L, "Mesh", lovrMesh);
-  luax_registertype(L, "Model", lovrModel);
-  luax_registertype(L, "Shader", lovrShader);
-  luax_registertype(L, "ShaderBlock", lovrShaderBlock);
-  luax_registertype(L, "Texture", lovrTexture);
-  luax_registertype(L, "Canvas", lovrCanvas);
-
-  luax_pushconf(L);
-
-  // Gamma correct
-  lua_getfield(L, -1, "gammacorrect");
-  bool gammaCorrect = lua_toboolean(L, -1);
-  lua_pop(L, 1);
-
-  lovrGraphicsInit(gammaCorrect);
-
-  // Create window if needed
-  lua_getfield(L, -1, "window");
-  if (!lua_isnil(L, -1)) {
-    lua_getfield(L, -1, "width");
-    int width = luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "height");
-    int height = luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "fullscreen");
-    bool fullscreen = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "msaa");
-    int msaa = luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "title");
-    const char* title = luaL_checkstring(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "icon");
-    const char* icon = luaL_optstring(L, -1, NULL);
-    lua_pop(L, 1);
-
-    lovrGraphicsCreateWindow(width, height, fullscreen, msaa, title, icon);
-  }
-
-  lua_pop(L, 2);
-
-  return 1;
-}
-
-int l_lovrGraphicsPresent(lua_State* L) {
+static int l_lovrGraphicsPresent(lua_State* L) {
   lovrGraphicsPresent();
   return 0;
 }
 
-int l_lovrGraphicsCreateWindow(lua_State* L) {
+static int l_lovrGraphicsCreateWindow(lua_State* L) {
   int width = luaL_optnumber(L, 1, 1080);
   int height = luaL_optnumber(L, 2, 600);
   bool fullscreen = !lua_isnoneornil(L, 3) && lua_toboolean(L, 3);
@@ -323,23 +266,23 @@ int l_lovrGraphicsCreateWindow(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsGetWidth(lua_State* L) {
+static int l_lovrGraphicsGetWidth(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetWidth());
   return 1;
 }
 
-int l_lovrGraphicsGetHeight(lua_State* L) {
+static int l_lovrGraphicsGetHeight(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetHeight());
   return 1;
 }
 
-int l_lovrGraphicsGetDimensions(lua_State* L) {
+static int l_lovrGraphicsGetDimensions(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetWidth());
   lua_pushnumber(L, lovrGraphicsGetHeight());
   return 2;
 }
 
-int l_lovrGraphicsGetSupported(lua_State* L) {
+static int l_lovrGraphicsGetSupported(lua_State* L) {
   const GpuFeatures* features = lovrGraphicsGetSupported();
   lua_newtable(L);
   lua_pushboolean(L, features->computeShaders);
@@ -349,7 +292,7 @@ int l_lovrGraphicsGetSupported(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsGetSystemLimits(lua_State* L) {
+static int l_lovrGraphicsGetSystemLimits(lua_State* L) {
   const GpuLimits* limits = lovrGraphicsGetLimits();
   lua_newtable(L);
   lua_pushnumber(L, limits->pointSizes[1]);
@@ -363,7 +306,7 @@ int l_lovrGraphicsGetSystemLimits(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsGetStats(lua_State* L) {
+static int l_lovrGraphicsGetStats(lua_State* L) {
   if (lua_gettop(L) > 0) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
@@ -381,12 +324,12 @@ int l_lovrGraphicsGetStats(lua_State* L) {
 
 // State
 
-int l_lovrGraphicsReset(lua_State* L) {
+static int l_lovrGraphicsReset(lua_State* L) {
   lovrGraphicsReset();
   return 0;
 }
 
-int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
+static int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
   Color color = lovrGraphicsGetBackgroundColor();
   lua_pushnumber(L, color.r);
   lua_pushnumber(L, color.g);
@@ -395,7 +338,7 @@ int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
   return 4;
 }
 
-int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
+static int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
   Color color;
   color.r = luaL_checknumber(L, 1);
   color.g = luaL_checknumber(L, 2);
@@ -405,7 +348,7 @@ int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsGetBlendMode(lua_State* L) {
+static int l_lovrGraphicsGetBlendMode(lua_State* L) {
   BlendMode mode;
   BlendAlphaMode alphaMode;
   lovrGraphicsGetBlendMode(&mode, &alphaMode);
@@ -414,26 +357,26 @@ int l_lovrGraphicsGetBlendMode(lua_State* L) {
   return 2;
 }
 
-int l_lovrGraphicsSetBlendMode(lua_State* L) {
+static int l_lovrGraphicsSetBlendMode(lua_State* L) {
   BlendMode mode = luaL_checkoption(L, 1, NULL, BlendModes);
   BlendAlphaMode alphaMode = luaL_checkoption(L, 2, "alphamultiply", BlendAlphaModes);
   lovrGraphicsSetBlendMode(mode, alphaMode);
   return 0;
 }
 
-int l_lovrGraphicsGetCanvas(lua_State* L) {
+static int l_lovrGraphicsGetCanvas(lua_State* L) {
   Canvas* canvas = lovrGraphicsGetCanvas();
   luax_pushobject(L, canvas);
   return 1;
 }
 
-int l_lovrGraphicsSetCanvas(lua_State* L) {
+static int l_lovrGraphicsSetCanvas(lua_State* L) {
   Canvas* canvas = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Canvas);
   lovrGraphicsSetCanvas(canvas);
   return 0;
 }
 
-int l_lovrGraphicsGetColor(lua_State* L) {
+static int l_lovrGraphicsGetColor(lua_State* L) {
   Color color = lovrGraphicsGetColor();
   lua_pushnumber(L, color.r);
   lua_pushnumber(L, color.g);
@@ -442,23 +385,23 @@ int l_lovrGraphicsGetColor(lua_State* L) {
   return 4;
 }
 
-int l_lovrGraphicsSetColor(lua_State* L) {
+static int l_lovrGraphicsSetColor(lua_State* L) {
   Color color = luax_checkcolor(L, 1);
   lovrGraphicsSetColor(color);
   return 0;
 }
 
-int l_lovrGraphicsIsCullingEnabled(lua_State* L) {
+static int l_lovrGraphicsIsCullingEnabled(lua_State* L) {
   lua_pushboolean(L, lovrGraphicsIsCullingEnabled());
   return 1;
 }
 
-int l_lovrGraphicsSetCullingEnabled(lua_State* L) {
+static int l_lovrGraphicsSetCullingEnabled(lua_State* L) {
   lovrGraphicsSetCullingEnabled(lua_toboolean(L, 1));
   return 0;
 }
 
-int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
+static int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
   TextureFilter filter = lovrGraphicsGetDefaultFilter();
   lua_pushstring(L, FilterModes[filter.mode]);
   if (filter.mode == FILTER_ANISOTROPIC) {
@@ -468,14 +411,14 @@ int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
+static int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
   FilterMode mode = luaL_checkoption(L, 1, NULL, FilterModes);
   float anisotropy = luaL_optnumber(L, 2, 1.);
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = mode, .anisotropy = anisotropy });
   return 0;
 }
 
-int l_lovrGraphicsGetDepthTest(lua_State* L) {
+static int l_lovrGraphicsGetDepthTest(lua_State* L) {
   CompareMode mode;
   bool write;
   lovrGraphicsGetDepthTest(&mode, &write);
@@ -484,66 +427,66 @@ int l_lovrGraphicsGetDepthTest(lua_State* L) {
   return 2;
 }
 
-int l_lovrGraphicsSetDepthTest(lua_State* L) {
+static int l_lovrGraphicsSetDepthTest(lua_State* L) {
   CompareMode mode = lua_isnoneornil(L, 1) ? COMPARE_NONE : luaL_checkoption(L, 1, NULL, CompareModes);
   bool write = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
   lovrGraphicsSetDepthTest(mode, write);
   return 0;
 }
 
-int l_lovrGraphicsGetFont(lua_State* L) {
+static int l_lovrGraphicsGetFont(lua_State* L) {
   Font* font = lovrGraphicsGetFont();
   luax_pushobject(L, font);
   return 1;
 }
 
-int l_lovrGraphicsSetFont(lua_State* L) {
+static int l_lovrGraphicsSetFont(lua_State* L) {
   Font* font = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Font);
   lovrGraphicsSetFont(font);
   return 0;
 }
 
-int l_lovrGraphicsIsGammaCorrect(lua_State* L) {
+static int l_lovrGraphicsIsGammaCorrect(lua_State* L) {
   bool gammaCorrect = lovrGraphicsIsGammaCorrect();
   lua_pushboolean(L, gammaCorrect);
   return 1;
 }
 
-int l_lovrGraphicsGetLineWidth(lua_State* L) {
+static int l_lovrGraphicsGetLineWidth(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetLineWidth());
   return 1;
 }
 
-int l_lovrGraphicsSetLineWidth(lua_State* L) {
+static int l_lovrGraphicsSetLineWidth(lua_State* L) {
   float width = luaL_optnumber(L, 1, 1.f);
   lovrGraphicsSetLineWidth(width);
   return 0;
 }
 
-int l_lovrGraphicsGetPointSize(lua_State* L) {
+static int l_lovrGraphicsGetPointSize(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetPointSize());
   return 1;
 }
 
-int l_lovrGraphicsSetPointSize(lua_State* L) {
+static int l_lovrGraphicsSetPointSize(lua_State* L) {
   float size = luaL_optnumber(L, 1, 1.f);
   lovrGraphicsSetPointSize(size);
   return 0;
 }
 
-int l_lovrGraphicsGetShader(lua_State* L) {
+static int l_lovrGraphicsGetShader(lua_State* L) {
   Shader* shader = lovrGraphicsGetShader();
   luax_pushobject(L, shader);
   return 1;
 }
 
-int l_lovrGraphicsSetShader(lua_State* L) {
+static int l_lovrGraphicsSetShader(lua_State* L) {
   Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Shader);
   lovrGraphicsSetShader(shader);
   return 0;
 }
 
-int l_lovrGraphicsGetStencilTest(lua_State* L) {
+static int l_lovrGraphicsGetStencilTest(lua_State* L) {
   CompareMode mode;
   int value;
   lovrGraphicsGetStencilTest(&mode, &value);
@@ -558,7 +501,7 @@ int l_lovrGraphicsGetStencilTest(lua_State* L) {
   return 2;
 }
 
-int l_lovrGraphicsSetStencilTest(lua_State* L) {
+static int l_lovrGraphicsSetStencilTest(lua_State* L) {
   if (lua_isnoneornil(L, 1)) {
     lovrGraphicsSetStencilTest(COMPARE_NONE, 0);
   } else {
@@ -569,44 +512,44 @@ int l_lovrGraphicsSetStencilTest(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsGetWinding(lua_State* L) {
+static int l_lovrGraphicsGetWinding(lua_State* L) {
   lua_pushstring(L, Windings[lovrGraphicsGetWinding()]);
   return 1;
 }
 
-int l_lovrGraphicsSetWinding(lua_State* L) {
+static int l_lovrGraphicsSetWinding(lua_State* L) {
   lovrGraphicsSetWinding(luaL_checkoption(L, 1, NULL, Windings));
   return 0;
 }
 
-int l_lovrGraphicsIsWireframe(lua_State* L) {
+static int l_lovrGraphicsIsWireframe(lua_State* L) {
   lua_pushboolean(L, lovrGraphicsIsWireframe());
   return 1;
 }
 
-int l_lovrGraphicsSetWireframe(lua_State* L) {
+static int l_lovrGraphicsSetWireframe(lua_State* L) {
   lovrGraphicsSetWireframe(lua_toboolean(L, 1));
   return 0;
 }
 
 // Transforms
 
-int l_lovrGraphicsPush(lua_State* L) {
+static int l_lovrGraphicsPush(lua_State* L) {
   lovrGraphicsPush();
   return 0;
 }
 
-int l_lovrGraphicsPop(lua_State* L) {
+static int l_lovrGraphicsPop(lua_State* L) {
   lovrGraphicsPop();
   return 0;
 }
 
-int l_lovrGraphicsOrigin(lua_State* L) {
+static int l_lovrGraphicsOrigin(lua_State* L) {
   lovrGraphicsOrigin();
   return 0;
 }
 
-int l_lovrGraphicsTranslate(lua_State* L) {
+static int l_lovrGraphicsTranslate(lua_State* L) {
   float x = luaL_checknumber(L, 1);
   float y = luaL_checknumber(L, 2);
   float z = luaL_checknumber(L, 3);
@@ -614,7 +557,7 @@ int l_lovrGraphicsTranslate(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsRotate(lua_State* L) {
+static int l_lovrGraphicsRotate(lua_State* L) {
   float angle = luaL_checknumber(L, 1);
   float axisX = luaL_optnumber(L, 2, 0);
   float axisY = luaL_optnumber(L, 3, 1);
@@ -623,7 +566,7 @@ int l_lovrGraphicsRotate(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsScale(lua_State* L) {
+static int l_lovrGraphicsScale(lua_State* L) {
   float x = luaL_checknumber(L, 1);
   float y = luaL_optnumber(L, 2, x);
   float z = luaL_optnumber(L, 3, x);
@@ -631,7 +574,7 @@ int l_lovrGraphicsScale(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsTransform(lua_State* L) {
+static int l_lovrGraphicsTransform(lua_State* L) {
   float transform[16];
   luax_readtransform(L, 1, transform, 3);
   lovrGraphicsMatrixTransform(transform);
@@ -640,7 +583,7 @@ int l_lovrGraphicsTransform(lua_State* L) {
 
 // Rendering
 
-int l_lovrGraphicsClear(lua_State* L) {
+static int l_lovrGraphicsClear(lua_State* L) {
   int index = 1;
   int top = lua_gettop(L);
 
@@ -682,19 +625,19 @@ int l_lovrGraphicsClear(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsPoints(lua_State* L) {
+static int l_lovrGraphicsPoints(lua_State* L) {
   uint32_t count = luax_readvertices(L, 1);
   lovrGraphicsPoints(count);
   return 0;
 }
 
-int l_lovrGraphicsLine(lua_State* L) {
+static int l_lovrGraphicsLine(lua_State* L) {
   uint32_t count = luax_readvertices(L, 1);
   lovrGraphicsLine(count);
   return 0;
 }
 
-int l_lovrGraphicsTriangle(lua_State* L) {
+static int l_lovrGraphicsTriangle(lua_State* L) {
   DrawMode drawMode = DRAW_MODE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
@@ -713,7 +656,7 @@ int l_lovrGraphicsTriangle(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsPlane(lua_State* L) {
+static int l_lovrGraphicsPlane(lua_State* L) {
   DrawMode drawMode = DRAW_MODE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
@@ -741,15 +684,15 @@ static int luax_rectangularprism(lua_State* L, int scaleComponents) {
   return 0;
 }
 
-int l_lovrGraphicsCube(lua_State* L) {
+static int l_lovrGraphicsCube(lua_State* L) {
   return luax_rectangularprism(L, 1);
 }
 
-int l_lovrGraphicsBox(lua_State* L) {
+static int l_lovrGraphicsBox(lua_State* L) {
   return luax_rectangularprism(L, 3);
 }
 
-int l_lovrGraphicsArc(lua_State* L) {
+static int l_lovrGraphicsArc(lua_State* L) {
   DrawMode drawMode = DRAW_MODE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
@@ -771,7 +714,7 @@ int l_lovrGraphicsArc(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsCircle(lua_State* L) {
+static int l_lovrGraphicsCircle(lua_State* L) {
   DrawMode drawMode = DRAW_MODE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
@@ -786,7 +729,7 @@ int l_lovrGraphicsCircle(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsCylinder(lua_State* L) {
+static int l_lovrGraphicsCylinder(lua_State* L) {
   int index = 1;
   Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
   float x1 = luaL_checknumber(L, index++);
@@ -803,7 +746,7 @@ int l_lovrGraphicsCylinder(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsSphere(lua_State* L) {
+static int l_lovrGraphicsSphere(lua_State* L) {
   float transform[16];
   int index = 1;
   Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
@@ -813,7 +756,7 @@ int l_lovrGraphicsSphere(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsSkybox(lua_State* L) {
+static int l_lovrGraphicsSkybox(lua_State* L) {
   Texture* texture = luax_checktexture(L, 1);
   float angle = luaL_optnumber(L, 2, 0);
   float ax = luaL_optnumber(L, 3, 0);
@@ -823,7 +766,7 @@ int l_lovrGraphicsSkybox(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsPrint(lua_State* L) {
+static int l_lovrGraphicsPrint(lua_State* L) {
   const char* str = luaL_checkstring(L, 1);
   float transform[16];
   int index = luax_readtransform(L, 2, transform, 1);
@@ -834,7 +777,7 @@ int l_lovrGraphicsPrint(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsStencil(lua_State* L) {
+static int l_lovrGraphicsStencil(lua_State* L) {
   luaL_checktype(L, 1, LUA_TFUNCTION);
   StencilAction action = luaL_checkoption(L, 2, "replace", StencilActions);
   int replaceValue = luaL_optinteger(L, 3, 1);
@@ -848,13 +791,13 @@ int l_lovrGraphicsStencil(lua_State* L) {
   return 0;
 }
 
-int l_lovrGraphicsFill(lua_State* L) {
+static int l_lovrGraphicsFill(lua_State* L) {
   Texture* texture = lua_isnoneornil(L, 1) ? NULL : luax_checktexture(L, 1);
   lovrGraphicsFill(texture);
   return 0;
 }
 
-int l_lovrGraphicsCompute(lua_State* L) {
+static int l_lovrGraphicsCompute(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   int x = luaL_optinteger(L, 2, 1);
   int y = luaL_optinteger(L, 3, 1);
@@ -865,7 +808,7 @@ int l_lovrGraphicsCompute(lua_State* L) {
 
 // Types
 
-int l_lovrGraphicsNewAnimator(lua_State* L) {
+static int l_lovrGraphicsNewAnimator(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Animator* animator = lovrAnimatorCreate(model->modelData);
   luax_pushobject(L, animator);
@@ -873,7 +816,7 @@ int l_lovrGraphicsNewAnimator(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsNewShaderBlock(lua_State* L) {
+static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   vec_uniform_t uniforms;
   vec_init(&uniforms);
 
@@ -926,7 +869,7 @@ int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsNewCanvas(lua_State* L) {
+static int l_lovrGraphicsNewCanvas(lua_State* L) {
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
   int attachmentCount = 0;
   int width = 0;
@@ -1024,7 +967,7 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsNewFont(lua_State* L) {
+static int l_lovrGraphicsNewFont(lua_State* L) {
   Rasterizer* rasterizer = luax_totype(L, 1, Rasterizer);
 
   if (!rasterizer) {
@@ -1049,7 +992,7 @@ int l_lovrGraphicsNewFont(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsNewMaterial(lua_State* L) {
+static int l_lovrGraphicsNewMaterial(lua_State* L) {
   Material* material = lovrMaterialCreate();
 
   int index = 1;
@@ -1078,7 +1021,7 @@ int l_lovrGraphicsNewMaterial(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsNewMesh(lua_State* L) {
+static int l_lovrGraphicsNewMesh(lua_State* L) {
   uint32_t count;
   int dataIndex = 0;
   int drawModeIndex = 2;
@@ -1137,7 +1080,7 @@ int l_lovrGraphicsNewMesh(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsNewModel(lua_State* L) {
+static int l_lovrGraphicsNewModel(lua_State* L) {
   ModelData* modelData = luax_totype(L, 1, ModelData);
 
   if (!modelData) {
@@ -1195,7 +1138,7 @@ static void luax_readshadersource(lua_State* L, int index) {
   free(contents);
 }
 
-int l_lovrGraphicsNewShader(lua_State* L) {
+static int l_lovrGraphicsNewShader(lua_State* L) {
   luax_readshadersource(L, 1);
   luax_readshadersource(L, 2);
   const char* vertexSource = lua_tostring(L, 1);
@@ -1206,7 +1149,7 @@ int l_lovrGraphicsNewShader(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsNewComputeShader(lua_State* L) {
+static int l_lovrGraphicsNewComputeShader(lua_State* L) {
   luax_readshadersource(L, 1);
   const char* source = lua_tostring(L, 1);
   Shader* shader = lovrShaderCreateCompute(source);
@@ -1215,7 +1158,7 @@ int l_lovrGraphicsNewComputeShader(lua_State* L) {
   return 1;
 }
 
-int l_lovrGraphicsNewTexture(lua_State* L) {
+static int l_lovrGraphicsNewTexture(lua_State* L) {
   int index = 1;
   int width, height, depth;
   int argType = lua_type(L, index);
@@ -1300,7 +1243,7 @@ int l_lovrGraphicsNewTexture(lua_State* L) {
   return 1;
 }
 
-const luaL_Reg lovrGraphics[] = {
+static const luaL_Reg lovrGraphics[] = {
 
   // Base
   { "present", l_lovrGraphicsPresent },
@@ -1385,3 +1328,60 @@ const luaL_Reg lovrGraphics[] = {
 
   { NULL, NULL }
 };
+
+int luaopen_lovr_graphics(lua_State* L) {
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrGraphics);
+  luax_registertype(L, "Animator", lovrAnimator);
+  luax_registertype(L, "Font", lovrFont);
+  luax_registertype(L, "Material", lovrMaterial);
+  luax_registertype(L, "Mesh", lovrMesh);
+  luax_registertype(L, "Model", lovrModel);
+  luax_registertype(L, "Shader", lovrShader);
+  luax_registertype(L, "ShaderBlock", lovrShaderBlock);
+  luax_registertype(L, "Texture", lovrTexture);
+  luax_registertype(L, "Canvas", lovrCanvas);
+
+  luax_pushconf(L);
+
+  // Gamma correct
+  lua_getfield(L, -1, "gammacorrect");
+  bool gammaCorrect = lua_toboolean(L, -1);
+  lua_pop(L, 1);
+
+  lovrGraphicsInit(gammaCorrect);
+
+  // Create window if needed
+  lua_getfield(L, -1, "window");
+  if (!lua_isnil(L, -1)) {
+    lua_getfield(L, -1, "width");
+    int width = luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "height");
+    int height = luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "fullscreen");
+    bool fullscreen = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "msaa");
+    int msaa = luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "title");
+    const char* title = luaL_checkstring(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "icon");
+    const char* icon = luaL_optstring(L, -1, NULL);
+    lua_pop(L, 1);
+
+    lovrGraphicsCreateWindow(width, height, fullscreen, msaa, title, icon);
+  }
+
+  lua_pop(L, 2);
+
+  return 1;
+}
