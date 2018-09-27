@@ -349,6 +349,7 @@ static const luaL_Reg lovrFilesystem[] = {
   { "remove", l_lovrFilesystemRemove },
   { "setRequirePath", l_lovrFilesystemSetRequirePath },
   { "setIdentity", l_lovrFilesystemSetIdentity },
+  { "unmount", l_lovrFilesystemUnmount },
   { "write", l_lovrFilesystemWrite },
   { NULL, NULL }
 };
