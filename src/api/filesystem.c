@@ -63,7 +63,6 @@ static int libraryLoader(lua_State* L) {
   const char* moduleFunction = luaL_gsub(L, lua_tostring(L, -1), ".", "_");
   char* hyphen = strchr(moduleFunction, '-');
   moduleFunction = hyphen ? hyphen + 1 : moduleFunction;
-
   lua_pop(L, 3);
 
   char* path; int i;
@@ -76,28 +75,11 @@ static int libraryLoader(lua_State* L) {
       lua_pop(L, 2);
 
       if (lovrFilesystemIsFile(filename)) {
-        const char* realPath = lovrFilesystemGetRealDirectory(filename);
         char fullPath[LOVR_PATH_MAX];
-        snprintf(fullPath, LOVR_PATH_MAX, "%s%c%s", realPath, lovrDirSep, filename);
-        void* library = lovrLoadLibrary(fullPath);
-
-        snprintf(buffer, 63, "luaopen_%s", moduleFunction);
-        void* function = lovrLoadSymbol(library, buffer);
-        if (!function) {
-          snprintf(buffer, 63, "loveopen_%s", moduleFunction);
-          function = lovrLoadSymbol(library, buffer);
-          if (!function) {
-            snprintf(buffer, 63, "lovropen_%s", moduleFunction);
-            function = lovrLoadSymbol(library, buffer);
-          }
-        }
-
-        if (function) {
-          lua_pushcfunction(L, (lua_CFunction) function);
-          return 1;
-        } else {
-          lovrCloseLibrary(library);
-        }
+        const char* realPath = lovrFilesystemGetRealDirectory(filename);
+        snprintf(fullPath, LOVR_PATH_MAX - 1, "%s%c%s", realPath, lovrDirSep, filename);
+        luax_loadlib(L, fullPath, moduleFunction);
+        return 1;
       }
     }
   }

@@ -113,27 +113,6 @@ void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback
   PHYSFS_enumerate(path, callback, userdata);
 }
 
-int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
-#ifdef __APPLE__
-  if (_NSGetExecutablePath(dest, &size) == 0) {
-    return 0;
-  }
-#elif _WIN32
-  return !GetModuleFileName(NULL, dest, size);
-#elif EMSCRIPTEN
-  return 1;
-#elif __linux__
-  memset(dest, 0, size);
-  if (readlink("/proc/self/exe", dest, size) != -1) {
-    return 0;
-  }
-#else
-#error "This platform is missing an implementation for lovrFilesystemGetExecutablePath"
-#endif
-
-  return 1;
-}
-
 const char* lovrFilesystemGetIdentity() {
   return state.identity;
 }

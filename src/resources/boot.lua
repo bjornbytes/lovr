@@ -1,3 +1,5 @@
+lovr = require 'lovr'
+
 local function nogame()
   local logo, controllers
   local function refreshControllers()

@@ -13,13 +13,12 @@ static int luax_meta__gc(lua_State* L) {
   return 0;
 }
 
-int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f) {
+void luax_loadlib(lua_State* L, const char* library, const char* module) {
   lua_getglobal(L, "package");
-  lua_getfield(L, -1, "preload");
-  lua_pushcfunction(L, f);
-  lua_setfield(L, -2, key);
-  lua_pop(L, 2);
-  return 0;
+  lua_getfield(L, -1, "loadlib");
+  lua_pushstring(L, library);
+  lua_pushfstring(L, "luaopen_%s", module);
+  lua_call(L, 2, 1);
 }
 
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {

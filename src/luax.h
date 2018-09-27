@@ -9,7 +9,7 @@
 #define luax_totype(L, i, T) ((T*) _luax_totype(L, i, #T))
 #define luax_checktype(L, i, T) ((T*) _luax_checktype(L, i, #T))
 
-int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f);
+void luax_loadlib(lua_State* L, const char* library, const char* module);
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions);
 void luax_extendtype(lua_State* L, const char* base, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions);
