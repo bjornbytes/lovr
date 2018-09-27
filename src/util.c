@@ -3,6 +3,10 @@
 #include <stdio.h>
 #ifdef _WIN32
 #include <Windows.h>
+#elif __APPLE__
+#include <mach-o/dyld.h>
+#include <unistd.h>
+#include <dlfcn.h>
 #else
 #include <unistd.h>
 #include <dlfcn.h>
@@ -57,32 +61,24 @@ void lovrRelease(void* object) {
   if (ref && --ref->count == 0) ref->free(object);
 }
 
-void* lovrLoadLibrary(const char* filename) {
-#ifdef _WIN32
-  return LoadLibrary(filename);
+int lovrGetExecutablePath(char* dest, uint32_t size) {
+#ifdef __APPLE__
+  if (_NSGetExecutablePath(dest, &size) == 0) {
+    return 0;
+  }
+#elif _WIN32
+  return !GetModuleFileName(NULL, dest, size);
 #elif EMSCRIPTEN
-  return NULL;
+  return 1;
+#elif __linux__
+  memset(dest, 0, size);
+  if (readlink("/proc/self/exe", dest, size) != -1) {
+    return 0;
+  }
 #else
-  return dlopen(filename, RTLD_LAZY);
+#error "This platform is missing an implementation for lovrGetExecutablePath"
 #endif
-}
-
-void* lovrLoadSymbol(void* library, const char* symbol) {
-#ifdef _WIN32
-  return GetProcAddress((HMODULE) library, symbol);
-#elif EMSCRIPTEN
-  return NULL;
-#else
-  return dlsym(library, symbol);
-#endif
-}
-
-void lovrCloseLibrary(void* library) {
-#ifdef _WIN32
-  FreeLibrary((HMODULE) library);
-#elif !defined(EMSCRIPTEN)
-  dlclose(library);
-#endif
+  return 1;
 }
 
 // https://github.com/starwing/luautf8

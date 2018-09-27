@@ -47,6 +47,16 @@ static void emscriptenLoop(void* arg) {
 }
 #endif
 
+static int loadSelf(lua_State* L) {
+  const char* moduleFunction = luaL_gsub(L, lua_tostring(L, -1), ".", "_");
+  char* hyphen = strchr(moduleFunction, '-');
+  moduleFunction = hyphen ? hyphen + 1 : moduleFunction;
+  char executablePath[1024] = { 0 };
+  lovrGetExecutablePath(executablePath, 1024);
+  luax_loadlib(L, executablePath, moduleFunction);
+  return 1;
+}
+
 static void onGlfwError(int code, const char* description) {
   lovrThrow(description);
 }
@@ -101,9 +111,7 @@ bool lovrRun(int argc, char** argv, int* status) {
   }
   lua_setglobal(L, "arg");
 
-  // _G['lovr']
-  luaopen_lovr(L);
-  lua_setglobal(L, "lovr");
+  luax_registerloader(L, loadSelf, 2);
 
   lua_pushcfunction(L, luax_getstack);
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
