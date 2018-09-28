@@ -998,6 +998,7 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
   if (anonymous) {
     Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, flags.mipmaps, flags.msaa);
     lovrTextureAllocate(texture, width, height, 1, format);
+    lovrTextureSetWrap(texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP, .r = WRAP_CLAMP });
     attachments[0] = (Attachment) { texture, 0, 0 };
     attachmentCount++;
   }
