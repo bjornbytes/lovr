@@ -121,10 +121,10 @@ int l_lovrCanvasGetDimensions(lua_State* L) {
   return 2;
 }
 
-int l_lovrCanvasGetDepthFormat(lua_State* L) {
+int l_lovrCanvasGetDepthTexture(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
-  DepthFormat format = lovrCanvasGetDepthFormat(canvas);
-  lua_pushstring(L, DepthFormats[format]);
+  Texture* texture = lovrCanvasGetDepthTexture(canvas);
+  luax_pushobject(L, texture);
   return 1;
 }
 
@@ -150,7 +150,7 @@ const luaL_Reg lovrCanvas[] = {
   { "getWidth", l_lovrCanvasGetWidth },
   { "getHeight", l_lovrCanvasGetHeight },
   { "getDimensions", l_lovrCanvasGetDimensions },
-  { "getDepthFormat", l_lovrCanvasGetDepthFormat },
+  { "getDepthTexture", l_lovrCanvasGetDepthTexture },
   { "getMSAA", l_lovrCanvasGetMSAA },
   { "isStereo", l_lovrCanvasIsStereo },
   { NULL, NULL }

@@ -128,9 +128,10 @@ struct Canvas {
   int height;
   CanvasFlags flags;
   uint32_t framebuffer;
-  uint32_t depthBuffer;
   uint32_t resolveBuffer;
+  uint32_t depthBuffer;
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
+  Attachment depth;
   int count;
   bool needsAttach;
   bool needsResolve;
@@ -224,6 +225,9 @@ static GLenum convertTextureFormat(TextureFormat format) {
     case FORMAT_RGB5A1: return GL_RGBA;
     case FORMAT_RGB10A2: return GL_RGBA;
     case FORMAT_RG11B10F: return GL_RGB;
+    case FORMAT_D16: return GL_DEPTH_COMPONENT;
+    case FORMAT_D32F: return GL_DEPTH_COMPONENT;
+    case FORMAT_D24S8: return GL_DEPTH_STENCIL;
     case FORMAT_DXT1: return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
@@ -244,6 +248,9 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
     case FORMAT_RGB5A1: return GL_RGB5_A1;
     case FORMAT_RGB10A2: return GL_RGB10_A2;
     case FORMAT_RG11B10F: return GL_R11F_G11F_B10F;
+    case FORMAT_D16: return GL_DEPTH_COMPONENT16;
+    case FORMAT_D32F: return GL_DEPTH_COMPONENT32F;
+    case FORMAT_D24S8: return GL_DEPTH24_STENCIL8;
     case FORMAT_DXT1: return srgb ? GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
@@ -264,6 +271,9 @@ static GLenum convertTextureFormatType(TextureFormat format) {
     case FORMAT_RGB5A1: return GL_UNSIGNED_SHORT_5_5_5_1;
     case FORMAT_RGB10A2: return GL_UNSIGNED_INT_2_10_10_10_REV;
     case FORMAT_RG11B10F: return GL_UNSIGNED_INT_10F_11F_11F_REV;
+    case FORMAT_D16: return GL_UNSIGNED_SHORT;
+    case FORMAT_D32F: return GL_UNSIGNED_INT;
+    case FORMAT_D24S8: return GL_UNSIGNED_INT_24_8;
     case FORMAT_DXT1:
     case FORMAT_DXT3:
     case FORMAT_DXT5:
@@ -272,18 +282,16 @@ static GLenum convertTextureFormatType(TextureFormat format) {
   }
 }
 
-static GLenum convertDepthFormat(DepthFormat format) {
-  switch (format) {
-    case DEPTH_D16: return GL_DEPTH_COMPONENT16; break;
-    case DEPTH_D32F: return GL_DEPTH_COMPONENT32F; break;
-    case DEPTH_D24S8: return GL_DEPTH24_STENCIL8; break;
-    default: lovrThrow("Unreachable"); return GL_DEPTH_COMPONENT16;
-  }
-}
-
 static bool isTextureFormatCompressed(TextureFormat format) {
   switch (format) {
     case FORMAT_DXT1: case FORMAT_DXT3: case FORMAT_DXT5: return true;
+    default: return false;
+  }
+}
+
+static bool isTextureFormatDepth(TextureFormat format) {
+  switch (format) {
+    case FORMAT_D16: case FORMAT_D32F: case FORMAT_D24S8: return true;
     default: return false;
   }
 }
@@ -1201,13 +1209,20 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
   glGenFramebuffers(1, &canvas->framebuffer);
   lovrGpuBindFramebuffer(canvas->framebuffer);
 
-  if (flags.depth != DEPTH_NONE) {
-    GLenum attachment = flags.depth == DEPTH_D24S8 ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
-    GLenum format = convertDepthFormat(flags.depth);
-    glGenRenderbuffers(1, &canvas->depthBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, canvas->depthBuffer);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, canvas->flags.msaa, format, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, canvas->depthBuffer);
+  if (flags.depth.enabled) {
+    lovrAssert(isTextureFormatDepth(flags.depth.format), "Canvas depth buffer can't use a color TextureFormat");
+    GLenum attachment = flags.depth.format == FORMAT_D24S8 ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
+    if (flags.depth.readable) {
+      canvas->depth.texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, false, flags.mipmaps, flags.msaa);
+      lovrTextureAllocate(canvas->depth.texture, width, height, 1, flags.depth.format);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, canvas->depth.texture->id, 0);
+    } else {
+      GLenum format = convertTextureFormatInternal(flags.depth.format, false);
+      glGenRenderbuffers(1, &canvas->depthBuffer);
+      glBindRenderbuffer(GL_RENDERBUFFER, canvas->depthBuffer);
+      glRenderbufferStorageMultisample(GL_RENDERBUFFER, canvas->flags.msaa, format, width, height);
+      glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, canvas->depthBuffer);
+    }
   }
 
   if (flags.msaa) {
@@ -1225,6 +1240,7 @@ void lovrCanvasDestroy(void* ref) {
   for (int i = 0; i < canvas->count; i++) {
     lovrRelease(canvas->attachments[i].texture);
   }
+  lovrRelease(canvas->depth.texture);
   free(ref);
 }
 
@@ -1245,8 +1261,9 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
     Texture* texture = attachments[i].texture;
     int width = lovrTextureGetWidth(texture, attachments[i].level);
     int height = lovrTextureGetHeight(texture, attachments[i].level);
-    lovrAssert(!canvas->depthBuffer || width == canvas->width, "Texture width of %d does not match Canvas width (%d)", width, canvas->width);
-    lovrAssert(!canvas->depthBuffer || height == canvas->height, "Texture height of %d does not match Canvas height (%d)", height, canvas->height);
+    bool hasDepth = canvas->flags.depth.enabled;
+    lovrAssert(!hasDepth || width == canvas->width, "Texture width of %d does not match Canvas width (%d)", width, canvas->width);
+    lovrAssert(!hasDepth || height == canvas->height, "Texture height of %d does not match Canvas height (%d)", height, canvas->height);
     lovrAssert(texture->msaa == canvas->flags.msaa, "Texture MSAA does not match Canvas MSAA");
     lovrRetain(texture);
   }
@@ -1377,8 +1394,8 @@ int lovrCanvasGetMSAA(Canvas* canvas) {
   return canvas->flags.msaa;
 }
 
-DepthFormat lovrCanvasGetDepthFormat(Canvas* canvas) {
-  return canvas->flags.depth;
+Texture* lovrCanvasGetDepthTexture(Canvas* canvas) {
+  return canvas->depth.texture;
 }
 
 TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {

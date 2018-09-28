@@ -80,7 +80,6 @@ extern const char* CompareModes[];
 extern const char* ControllerAxes[];
 extern const char* ControllerButtons[];
 extern const char* ControllerHands[];
-extern const char* DepthFormats[];
 extern const char* DrawModes[];
 extern const char* EventTypes[];
 extern const char* FilterModes[];

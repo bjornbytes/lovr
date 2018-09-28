@@ -4,13 +4,6 @@
 
 #define MAX_CANVAS_ATTACHMENTS 4
 
-typedef enum {
-  DEPTH_D16,
-  DEPTH_D32F,
-  DEPTH_D24S8,
-  DEPTH_NONE
-} DepthFormat;
-
 typedef struct {
   Texture* texture;
   int slice;
@@ -18,7 +11,11 @@ typedef struct {
 } Attachment;
 
 typedef struct {
-  DepthFormat depth;
+  struct {
+    bool enabled;
+    bool readable;
+    TextureFormat format;
+  } depth;
   bool stereo;
   int msaa;
   bool mipmaps;
@@ -36,5 +33,5 @@ bool lovrCanvasIsStereo(Canvas* canvas);
 int lovrCanvasGetWidth(Canvas* canvas);
 int lovrCanvasGetHeight(Canvas* canvas);
 int lovrCanvasGetMSAA(Canvas* canvas);
-DepthFormat lovrCanvasGetDepthFormat(Canvas* canvas);
+Texture* lovrCanvasGetDepthTexture(Canvas* canvas);
 TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index);

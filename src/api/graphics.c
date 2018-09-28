@@ -63,13 +63,6 @@ const char* CompareModes[] = {
   NULL
 };
 
-const char* DepthFormats[] = {
-  [DEPTH_D16] = "d16",
-  [DEPTH_D32F] = "d32f",
-  [DEPTH_D24S8] = "d24s8",
-  NULL
-};
-
 const char* DrawModes[] = {
   [DRAW_MODE_FILL] = "fill",
   [DRAW_MODE_LINE] = "line",
@@ -154,6 +147,9 @@ const char* TextureFormats[] = {
   [FORMAT_RGB5A1] = "rgb5a1",
   [FORMAT_RGB10A2] = "rgb5a2",
   [FORMAT_RG11B10F] = "rg11b10f",
+  [FORMAT_D16] = "d16",
+  [FORMAT_D32F] = "d32f",
+  [FORMAT_D24S8] = "d24s8",
   [FORMAT_DXT1] = "dxt1",
   [FORMAT_DXT3] = "dxt3",
   [FORMAT_DXT5] = "dxt5",
@@ -950,7 +946,13 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
     index = 3;
   }
 
-  CanvasFlags flags = { .depth = DEPTH_D16, .stereo = true, .msaa = 0, .mipmaps = true };
+  CanvasFlags flags = {
+    .depth = { .enabled = true, .readable = false, .format = FORMAT_D16 },
+    .stereo = true,
+    .msaa = 0,
+    .mipmaps = true
+  };
+
   TextureFormat format = FORMAT_RGBA;
   bool anonymous = attachmentCount == 0;
 
@@ -958,8 +960,18 @@ int l_lovrGraphicsNewCanvas(lua_State* L) {
     lua_getfield(L, index, "depth");
     switch (lua_type(L, -1)) {
       case LUA_TNIL: break;
-      case LUA_TBOOLEAN: flags.depth = lua_toboolean(L, -1) ? DEPTH_D16 : DEPTH_NONE; break;
-      default: flags.depth = luaL_checkoption(L, -1, NULL, DepthFormats);
+      case LUA_TBOOLEAN: flags.depth.enabled = lua_toboolean(L, -1); break;
+      case LUA_TSTRING: flags.depth.format = luaL_checkoption(L, -1, NULL, TextureFormats); break;
+      case LUA_TTABLE:
+        lua_getfield(L, -1, "readable");
+        flags.depth.readable = lua_toboolean(L, -1);
+        lua_pop(L, 1);
+
+        lua_getfield(L, -1, "format");
+        flags.depth.format = luaL_checkoption(L, -1, NULL, TextureFormats);
+        lua_pop(L, 1);
+        break;
+      default: lovrThrow("Expected boolean, string, or table for Canvas depth flag");
     }
     lua_pop(L, 1);
 
