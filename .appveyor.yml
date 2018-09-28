@@ -22,7 +22,7 @@ build:
 
 after_build:
   - cd C:\projects\lovr
-  - 7z a lovr.zip C:\projects\lovr\build\Debug\*.dll C:\projects\lovr\build\Debug\lovr.exe
+  - 7z a lovr.zip C:\projects\lovr\build\Release\*.dll C:\projects\lovr\build\Release\lovr.exe
 
 artifacts:
   - path: lovr.zip
