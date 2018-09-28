@@ -14,6 +14,7 @@
 #include "data/vertexData.h"
 #include "filesystem/filesystem.h"
 #include "util.h"
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdbool.h>
 
