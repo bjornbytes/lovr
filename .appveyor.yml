@@ -12,7 +12,7 @@ before_build:
   - git submodule update --init
   - md build
   - cd build
-  - cmake -DCMAKE_BUILD_TYPE=%configuration% ..
+  - cmake -DCMAKE_BUILD_TYPE=Release ..
 
 build:
   project: build\lovr.sln
