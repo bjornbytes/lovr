@@ -28,6 +28,7 @@ static ControllerHand openvrControllerGetHand(Controller* controller);
 typedef struct {
   bool isRendering;
   bool isMirrored;
+  HeadsetEye mirrorEye;
   float offset;
   int msaa;
 
@@ -294,6 +295,7 @@ static bool openvrInit(float offset, int msaa) {
   state.vsyncToPhotons = state.system->GetFloatTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_SecondsFromVsyncToPhotons_Float, NULL);
   state.isRendering = false;
   state.isMirrored = true;
+  state.mirrorEye = EYE_BOTH;
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
   state.msaa = msaa;
   state.canvas = NULL;
@@ -358,12 +360,14 @@ static bool openvrIsMounted() {
   return (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
 }
 
-static bool openvrIsMirrored() {
-  return state.isMirrored;
+static void openvrIsMirrored(bool* mirrored, HeadsetEye* eye) {
+  *mirrored = state.isMirrored;
+  *eye = state.mirrorEye;
 }
 
-static void openvrSetMirrored(bool mirror) {
+static void openvrSetMirrored(bool mirror, HeadsetEye eye) {
   state.isMirrored = mirror;
+  state.mirrorEye = eye;
 }
 
 static void openvrGetDisplayDimensions(int* width, int* height) {
