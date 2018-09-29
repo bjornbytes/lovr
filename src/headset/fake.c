@@ -13,6 +13,7 @@
 static struct {
   HeadsetType type;
   bool mirrored;
+  HeadsetEye mirrorEye;
   float offset;
 
   vec_controller_t controllers;
@@ -102,12 +103,14 @@ static bool fakeIsMounted() {
   return true;
 }
 
-static bool fakeIsMirrored() {
-  return state.mirrored;
+static void fakeIsMirrored(bool* mirrored, HeadsetEye* eye) {
+  *mirrored = state.mirrored;
+  *eye = state.mirrorEye;
 }
 
-static void fakeSetMirrored(bool mirror) {
+static void fakeSetMirrored(bool mirror, HeadsetEye eye) {
   state.mirrored = mirror;
+  state.mirrorEye = eye;
 }
 
 static void fakeGetDisplayDimensions(int* width, int* height) {
@@ -209,8 +212,9 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
 
   int width, height;
   fakeGetDisplayDimensions(&width, &height);
-  Camera camera = { .canvas = NULL, .stereo = true };
-  mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / 2 / height);
+  bool stereo = state.mirrorEye == EYE_BOTH;
+  Camera camera = { .canvas = NULL, .stereo = stereo };
+  mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / (1 + stereo) / height);
   mat4_identity(camera.viewMatrix[0]);
   mat4_translate(camera.viewMatrix[0], 0, state.offset, 0);
   mat4_multiply(camera.viewMatrix[0], state.transform);

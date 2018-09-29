@@ -96,13 +96,21 @@ static int l_lovrHeadsetIsMounted(lua_State* L) {
 }
 
 static int l_lovrHeadsetIsMirrored(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetDriver->isMirrored());
+  bool mirrored;
+  HeadsetEye eye;
+  lovrHeadsetDriver->isMirrored(&mirrored, &eye);
+  if (mirrored && eye != EYE_BOTH) {
+    lua_pushstring(L, HeadsetEyes[eye]);
+  } else {
+    lua_pushboolean(L, mirrored);
+  }
   return 1;
 }
 
 static int l_lovrHeadsetSetMirrored(lua_State* L) {
-  int mirror = lua_toboolean(L, 1);
-  lovrHeadsetDriver->setMirrored(mirror);
+  bool mirror = lua_toboolean(L, 1);
+  HeadsetEye eye = lua_type(L, 2) == LUA_TSTRING ? luaL_checkoption(L, 2, NULL, HeadsetEyes) : EYE_BOTH;
+  lovrHeadsetDriver->setMirrored(mirror, eye);
   return 0;
 }
 
@@ -305,6 +313,7 @@ int luaopen_lovr_headset(lua_State* L) {
   vec_t(HeadsetDriver) drivers;
   vec_init(&drivers);
   bool mirror = false;
+  HeadsetEye mirrorEye = EYE_BOTH;
   float offset = 1.7;
   int msaa = 4;
 
@@ -323,6 +332,7 @@ int luaopen_lovr_headset(lua_State* L) {
     // Mirror
     lua_getfield(L, -1, "mirror");
     mirror = lua_toboolean(L, -1);
+    mirrorEye = lua_type(L, -1) == LUA_TSTRING ? luaL_checkoption(L, -1, NULL, HeadsetEyes) : EYE_BOTH;
     lua_pop(L, 1);
 
     // Offset
@@ -337,7 +347,7 @@ int luaopen_lovr_headset(lua_State* L) {
   }
 
   lovrHeadsetInit(drivers.data, drivers.length, offset, msaa);
-  lovrHeadsetDriver->setMirrored(mirror);
+  lovrHeadsetDriver->setMirrored(mirror, mirrorEye);
 
   vec_deinit(&drivers);
   lua_pop(L, 2);

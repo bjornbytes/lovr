@@ -6,6 +6,7 @@
 #pragma once
 
 typedef enum {
+  EYE_BOTH = -1,
   EYE_LEFT,
   EYE_RIGHT
 } HeadsetEye;
@@ -70,8 +71,8 @@ typedef struct {
   HeadsetType (*getType)();
   HeadsetOrigin (*getOriginType)();
   bool (*isMounted)();
-  bool (*isMirrored)();
-  void (*setMirrored)(bool mirror);
+  void (*isMirrored)(bool* mirrored, HeadsetEye* eye);
+  void (*setMirrored)(bool mirror, HeadsetEye eye);
   void (*getDisplayDimensions)(int* width, int* height);
   void (*getClipDistance)(float* clipNear, float* clipFar);
   void (*setClipDistance)(float clipNear, float clipFar);
