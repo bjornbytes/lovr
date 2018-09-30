@@ -8,7 +8,7 @@ Inspired by [LÖVE](https://love2d.org), a 2D game framework.
 [![Version](https://img.shields.io/github/release/bjornbytes/lovr.svg?label=version)](https://github.com/bjornbytes/lovr/releases)
 [![Slack](https://img.shields.io/badge/chat-slack-7e4e76.svg)](https://lovr.org/slack)
 
-[**Website**](https://lovr.org) | [**Documentation**](https://lovr.org/docs)
+[**Website**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**FAQ**](https://lovr.org/docs/FAQ)
 
 <p align="left">
   <span><img src="http://lovr.org/static/img/wattle.jpg" width="32%"/></span>
@@ -98,7 +98,8 @@ Resources
 ---
 
 - [**Documentation**](https://lovr.org/docs): Guides, tutorials, examples, and API documentation.
-- [**Slack Group**](https://lovr.org): For general LÖVR discussion and support.
+- [**FAQ**](https://lovr.org/docs/FAQ): Frequently Asked Questions.
+- [**Slack Group**](https://lovr.org/slack): For general LÖVR discussion and support.
 - [**Nightly Builds**](https://lovr.org/download/nightly): Nightly builds for Windows.
 - [**Compiling Guide**](https://lovr.org/docs/Compiling): Information on compiling LÖVR from source.
 - [**Contributing**](CONTRIBUTING.md): Guide for helping out with development :heart:
