@@ -2,10 +2,13 @@
 
 > **A simple Lua framework for rapidly building VR experiences.**
 
+Inspired by [LÖVE](https://love2d.org), a 2D game framework.
+
 [![Build status](https://ci.appveyor.com/api/projects/status/alx3kdi35bmxka8c/branch/master?svg=true)](https://ci.appveyor.com/project/bjornbytes/lovr/branch/master)
 [![Version](https://img.shields.io/github/release/bjornbytes/lovr.svg?label=version)](https://github.com/bjornbytes/lovr/releases)
+[![Slack](https://img.shields.io/badge/chat-slack-7e4e76.svg)](https://lovr.org/slack)
 
-[**Site**](https://lovr.org) | [**Docs**](https://lovr.org/docs) | [**Slack**](https://lovr.org/slack)
+[**Website**](https://lovr.org) | [**Documentation**](https://lovr.org/docs)
 
 <p align="left">
   <span><img src="http://lovr.org/static/img/wattle.jpg" width="32%"/></span>
@@ -49,6 +52,19 @@ function lovr.draw()
 end
 ```
 
+#### Hand Tracking
+
+```lua
+function lovr.draw()
+  controllers = lovr.headset.getControllers()
+
+  for _, controller in ipairs(controllers) do
+    x, y, z = controller:getPosition()
+    lovr.graphics.sphere(x, y, z, .1)
+  end
+end
+```
+
 #### 3D Models
 
 ```lua
@@ -63,6 +79,20 @@ end
 ```
 
 You can also find lots of other WebVR examples on the [docs page](https://lovr.org/docs/Hello_World).
+
+Building
+---
+
+Here's how to build LÖVR using CMake:
+
+```console
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
+
+For more help, see the [Compiling Guide](https://lovr.org/docs/Compiling).
 
 Resources
 ---
