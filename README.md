@@ -83,7 +83,7 @@ You can also find lots of other WebVR examples on the [docs page](https://lovr.o
 Building
 ---
 
-Here's how to build LÖVR using CMake:
+Here's how to compile LÖVR using CMake:
 
 ```console
 mkdir build
