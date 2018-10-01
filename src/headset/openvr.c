@@ -695,7 +695,11 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     lovrGraphicsPushPipeline();
     lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
     lovrGraphicsSetShader(NULL);
-    lovrGraphicsFill(attachments[0].texture);
+    if (state.mirrorEye == EYE_BOTH) {
+      lovrGraphicsFill(attachments[0].texture, 0, 0, 1, 1);
+    } else {
+      lovrGraphicsFill(attachments[0].texture, .5 * state.mirrorEye, 0, .5, 1);
+    }
     lovrGraphicsPopPipeline();
   }
 }

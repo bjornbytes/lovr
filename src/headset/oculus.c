@@ -12,6 +12,7 @@
 
 typedef struct {
   bool isMirrored;
+  HeadsetEye mirrorEye;
   bool hmdPresent;
   bool needRefreshTracking;
   bool needRefreshButtons;
@@ -99,6 +100,7 @@ static bool oculusInit(float offset, int msaa) {
   state.needRefreshButtons = true;
   state.lastButtonState = 0;
   state.isMirrored = true;
+  state.mirrorEye = EYE_BOTH;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
 
@@ -159,12 +161,14 @@ static bool oculusIsMounted() {
   return true;
 }
 
-static bool oculusIsMirrored() {
-  return state.isMirrored;
+static void oculusIsMirrored(bool* mirrored, bool* eye) {
+  *mirrored = state.isMirrored;
+  *eye = state.mirrorEye;
 }
 
-static void oculusSetMirrored(bool mirror) {
+static void oculusSetMirrored(bool mirror, HeadsetEye eye) {
   state.isMirrored = mirror;
+  state.mirrorEye = eye;
 }
 
 static void oculusGetDisplayDimensions(int* width, int* height) {
@@ -422,7 +426,11 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
     lovrGraphicsPushPipeline();
     lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
     lovrGraphicsSetShader(NULL);
-    lovrGraphicsFill(texture);
+    if (state.mirrorEye == EYE_BOTH) {
+      lovrGraphicsFill(texture, 0, 0, 1, 1);
+    } else {
+      lovrGraphicsFill(texture, .5 * state.mirrorEye, 0, .5, 1);
+    }
     lovrGraphicsPopPipeline();
   }
 }
