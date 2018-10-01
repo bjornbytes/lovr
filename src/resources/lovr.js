@@ -20,6 +20,7 @@ var LibraryLOVR = {
       webvr.gamepads = [];
       webvr.lastGamepadState = [];
       webvr.mirrored = true;
+      webvr.mirrorEye = true;
       webvr.offset = offset;
       webvr.controlleradded = added;
       webvr.controllerremoved = removed;
@@ -140,12 +141,14 @@ var LibraryLOVR = {
     return webvr.display.isPresenting;
   },
 
-  webvrIsMirrored: function() {
-    return webvr.mirrored;
+  webvrIsMirrored: function(mirror, eye) {
+    HEAP32[mirror >> 2] = webvr.mirrored;
+    HEAP32[eye >> 2] = webvr.mirrorEye;
   },
 
-  webvrSetMirrored: function(mirror) {
+  webvrSetMirrored: function(mirror, eye) {
     webvr.mirrored = mirror;
+    webvr.mirrorEye = eye;
   },
 
   webvrGetDisplayDimensions: function(width, height) {
