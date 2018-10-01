@@ -873,7 +873,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsPop();
 }
 
-void lovrGraphicsFill(Texture* texture) {
+void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
   lovrGraphicsPushPipeline();
   lovrGraphicsSetDepthTest(COMPARE_NONE, false);
   lovrGraphicsDraw(&(DrawCommand) {
@@ -883,10 +883,10 @@ void lovrGraphicsFill(Texture* texture) {
     .mode = MESH_TRIANGLE_STRIP,
     .vertex.count = 4,
     .vertex.data = (float[]) {
-      -1, 1, 0,  0, 0, 0, 0, 1,
-      -1, -1, 0, 0, 0, 0, 0, 0,
-      1, 1, 0,   0, 0, 0, 1, 1,
-      1, -1, 0,  0, 0, 0, 1, 0
+      -1, 1, 0,  0, 0, 0, u, v + h,
+      -1, -1, 0, 0, 0, 0, u, v,
+      1, 1, 0,   0, 0, 0, u + w, v + h,
+      1, -1, 0,  0, 0, 0, u + w, v
     }
   });
   lovrGraphicsPopPipeline();
