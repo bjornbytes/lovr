@@ -796,7 +796,11 @@ static int l_lovrGraphicsStencil(lua_State* L) {
 
 static int l_lovrGraphicsFill(lua_State* L) {
   Texture* texture = lua_isnoneornil(L, 1) ? NULL : luax_checktexture(L, 1);
-  lovrGraphicsFill(texture);
+  float u = luaL_optnumber(L, 2, 0.);
+  float v = luaL_optnumber(L, 3, 0.);
+  float w = luaL_optnumber(L, 4, 1. - u);
+  float h = luaL_optnumber(L, 5, 1. - v);
+  lovrGraphicsFill(texture, u, v, w, h);
   return 0;
 }
 
