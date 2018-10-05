@@ -41,7 +41,7 @@ void lovrFilesystemInit(const char* arg0, const char* arg1) {
   vec_init(&state.requirePattern[0]);
   vec_init(&state.requirePattern[1]);
   lovrFilesystemSetRequirePath("?.lua;?/init.lua;lua_modules/?.lua;lua_modules/?/init.lua;deps/?.lua;deps/?/init.lua");
-  lovrFilesystemSetCRequirePath("??");
+  lovrFilesystemSetCRequirePath("??;lua_modules/??;deps/??");
 
   // Try to mount either an archive fused to the executable or an archive from the command line
   lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
