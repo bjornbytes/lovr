@@ -58,8 +58,8 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
       }
 
       switch (uniform->type) {
-        case UNIFORM_FLOAT: *((float*) dest + i) = luaL_checknumber(L, j); break;
-        case UNIFORM_INT: *((int*) dest + i) = luaL_checkinteger(L, j); break;
+        case UNIFORM_FLOAT: *((float*) dest + i) = luaL_optnumber(L, j, 0.); break;
+        case UNIFORM_INT: *((int*) dest + i) = luaL_optinteger(L, j, 0); break;
         case UNIFORM_SAMPLER:
           *((Texture**) dest + i) = luax_checktype(L, j, Texture);
           TextureType type = lovrTextureGetType(*((Texture**) dest + i));
@@ -108,11 +108,11 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
           switch (uniform->type) {
             case UNIFORM_FLOAT:
             case UNIFORM_MATRIX:
-              *((float*) dest + i * components + j) = luaL_checknumber(L, -1);
+              *((float*) dest + i * components + j) = luaL_optnumber(L, -1, 0.);
               break;
 
             case UNIFORM_INT:
-              *((int*) dest + i * components + j) = luaL_checkinteger(L, -1);
+              *((int*) dest + i * components + j) = luaL_optinteger(L, -1, 0);
               break;
 
             case UNIFORM_SAMPLER:
@@ -137,11 +137,11 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
           switch (uniform->type) {
             case UNIFORM_FLOAT:
             case UNIFORM_MATRIX:
-              *((float*) dest + i * components + j) = luaL_checknumber(L, -1);
+              *((float*) dest + i * components + j) = luaL_optnumber(L, -1, 0.);
               break;
 
             case UNIFORM_INT:
-              *((float*) dest + i * components + j) = luaL_checknumber(L, -1);
+              *((float*) dest + i * components + j) = luaL_optinteger(L, -1, 0);
               break;
 
             case UNIFORM_SAMPLER:
