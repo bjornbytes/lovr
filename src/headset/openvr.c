@@ -26,7 +26,6 @@ extern bool VR_IsRuntimeInstalled();
 static ControllerHand openvrControllerGetHand(Controller* controller);
 
 typedef struct {
-  bool isRendering;
   bool isMirrored;
   HeadsetEye mirrorEye;
   float offset;
@@ -40,7 +39,7 @@ typedef struct {
   unsigned int headsetIndex;
   HeadsetType type;
 
-  TrackedDevicePose_t renderPoses[16];
+  TrackedDevicePose_t poses[16];
   RenderModel_t* deviceModels[16];
   RenderModel_TextureMap_t* deviceTextures[16];
 
@@ -48,9 +47,6 @@ typedef struct {
 
   float clipNear;
   float clipFar;
-
-  float refreshRate;
-  float vsyncToPhotons;
 
   Canvas* canvas;
 } HeadsetState;
@@ -206,21 +202,6 @@ static void openvrPoll() {
   }
 }
 
-static TrackedDevicePose_t getPose(unsigned int deviceIndex) {
-  if (state.isRendering) {
-    return state.renderPoses[deviceIndex];
-  }
-
-  ETrackingUniverseOrigin origin = ETrackingUniverseOrigin_TrackingUniverseStanding;
-  float timeSinceVsync;
-  state.system->GetTimeSinceLastVsync(&timeSinceVsync, NULL);
-  float frameDuration = 1.f / state.refreshRate;
-  float secondsInFuture = frameDuration - timeSinceVsync + state.vsyncToPhotons;
-  TrackedDevicePose_t poses[16];
-  state.system->GetDeviceToAbsoluteTrackingPose(origin, secondsInFuture, poses, 16);
-  return poses[deviceIndex];
-}
-
 static void ensureCanvas() {
   if (state.canvas) {
     return;
@@ -291,9 +272,6 @@ static bool openvrInit(float offset, int msaa) {
   }
 
   state.headsetIndex = k_unTrackedDeviceIndex_Hmd;
-  state.refreshRate = state.system->GetFloatTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_DisplayFrequency_Float, NULL);
-  state.vsyncToPhotons = state.system->GetFloatTrackedDeviceProperty(state.headsetIndex, ETrackedDeviceProperty_Prop_SecondsFromVsyncToPhotons_Float, NULL);
-  state.isRendering = false;
   state.isMirrored = true;
   state.mirrorEye = EYE_BOTH;
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
@@ -391,7 +369,7 @@ static void openvrGetBoundsDimensions(float* width, float* depth) {
 }
 
 static void openvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  TrackedDevicePose_t pose = getPose(state.headsetIndex);
+  TrackedDevicePose_t pose = state.poses[state.headsetIndex];
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
@@ -411,7 +389,7 @@ static void openvrGetPose(float* x, float* y, float* z, float* angle, float* ax,
 }
 
 static void openvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  TrackedDevicePose_t pose = getPose(state.headsetIndex);
+  TrackedDevicePose_t pose = state.poses[state.headsetIndex];
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
@@ -435,7 +413,7 @@ static void openvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float
 }
 
 static void openvrGetVelocity(float* x, float* y, float* z) {
-  TrackedDevicePose_t pose = getPose(state.headsetIndex);
+  TrackedDevicePose_t pose = state.poses[state.headsetIndex];
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
@@ -448,7 +426,7 @@ static void openvrGetVelocity(float* x, float* y, float* z) {
 }
 
 static void openvrGetAngularVelocity(float* x, float* y, float* z) {
-  TrackedDevicePose_t pose = getPose(state.headsetIndex);
+  TrackedDevicePose_t pose = state.poses[state.headsetIndex];
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
@@ -478,7 +456,7 @@ static ControllerHand openvrControllerGetHand(Controller* controller) {
 }
 
 static void openvrControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  TrackedDevicePose_t pose = getPose(controller->id);
+  TrackedDevicePose_t pose = state.poses[controller->id];
 
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
@@ -659,10 +637,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   float head[16], eye[16];
 
   ensureCanvas();
-  state.isRendering = true;
-  state.compositor->WaitGetPoses(state.renderPoses, 16, NULL, 0);
-  mat4_fromMat34(head, state.renderPoses[state.headsetIndex].mDeviceToAbsoluteTracking.m);
-
+  mat4_fromMat34(head, state.poses[state.headsetIndex].mDeviceToAbsoluteTracking.m);
   Camera camera = { .canvas = state.canvas };
 
   for (int i = 0; i < 2; i++) {
@@ -678,7 +653,6 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   lovrGraphicsSetCamera(&camera, true);
   callback(userdata);
   lovrGraphicsSetCamera(NULL, false);
-  state.isRendering = false;
 
   // Submit
   const Attachment* attachments = lovrCanvasGetAttachments(state.canvas, NULL);
@@ -702,6 +676,10 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     }
     lovrGraphicsPopPipeline();
   }
+}
+
+static void openvrUpdate(float dt) {
+  state.compositor->WaitGetPoses(state.poses, 16, NULL, 0);
 }
 
 HeadsetInterface lovrHeadsetOpenVRDriver = {
@@ -731,5 +709,5 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrControllerVibrate,
   openvrControllerNewModelData,
   openvrRenderTo,
-  NULL
+  openvrUpdate
 };
