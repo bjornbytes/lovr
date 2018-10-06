@@ -207,6 +207,15 @@ mat4 mat4_scale(mat4 m, float x, float y, float z) {
   return m;
 }
 
+void mat4_getPose(mat4 m, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  *x = m[12];
+  *y = m[13];
+  *z = m[14];
+  float quat[4];
+  quat_fromMat4(quat, m);
+  quat_getAngleAxis(quat, angle, ax, ay, az);
+}
+
 void mat4_getTransform(mat4 m, float* x, float* y, float* z, float* sx, float* sy, float* sz, float* angle, float* ax, float* ay, float* az) {
   *x = m[12];
   *y = m[13];
