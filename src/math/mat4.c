@@ -172,6 +172,24 @@ mat4 mat4_transpose(mat4 m) {
 
 // Modified from gl-matrix.c
 mat4 mat4_multiply(mat4 m, mat4 n) {
+#ifdef LOVR_USE_SSE
+  __m128 c0 = _mm_loadu_ps(m + 0);
+  __m128 c1 = _mm_loadu_ps(m + 4);
+  __m128 c2 = _mm_loadu_ps(m + 8);
+  __m128 c3 = _mm_loadu_ps(m + 12);
+
+  for (int i = 0; i < 4; i++) {
+    __m128 x = _mm_set1_ps(n[4 * i + 0]);
+    __m128 y = _mm_set1_ps(n[4 * i + 1]);
+    __m128 z = _mm_set1_ps(n[4 * i + 2]);
+    __m128 w = _mm_set1_ps(n[4 * i + 3]);
+
+    _mm_storeu_ps(m + 4 * i, _mm_add_ps(
+      _mm_add_ps(_mm_mul_ps(x, c0), _mm_mul_ps(y, c1)),
+      _mm_add_ps(_mm_mul_ps(z, c2), _mm_mul_ps(w, c3))
+    ));
+  }
+#else
   float m00 = m[0], m01 = m[1], m02 = m[2], m03 = m[3],
         m10 = m[4], m11 = m[5], m12 = m[6], m13 = m[7],
         m20 = m[8], m21 = m[9], m22 = m[10], m23 = m[11],
@@ -198,6 +216,7 @@ mat4 mat4_multiply(mat4 m, mat4 n) {
   m[13] = n30 * m01 + n31 * m11 + n32 * m21 + n33 * m31;
   m[14] = n30 * m02 + n31 * m12 + n32 * m22 + n33 * m32;
   m[15] = n30 * m03 + n31 * m13 + n32 * m23 + n33 * m33;
+#endif
 
   return m;
 }
