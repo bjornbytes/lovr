@@ -132,6 +132,8 @@ mat4 mat4_invertPose(mat4 m) {
   _mm_storeu_ps(m + 4, c1);
   _mm_storeu_ps(m + 8, c2);
   _mm_storeu_ps(m + 12, x0);
+
+  return m;
 }
 #endif
 
