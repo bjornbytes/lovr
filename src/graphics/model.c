@@ -158,8 +158,7 @@ void lovrModelDraw(Model* model, mat4 transform, int instances) {
     for (int i = 0; i < model->modelData->nodeCount; i++) {
       ModelNode* node = &model->modelData->nodes[i];
 
-      float localTransform[16];
-      mat4_identity(localTransform);
+      float localTransform[16] = MAT4_IDENTITY;
       if (!lovrAnimatorEvaluate(model->animator, node->name, localTransform)) {
         mat4_set(localTransform, node->transform);
       }

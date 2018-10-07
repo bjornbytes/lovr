@@ -541,7 +541,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     lovrRelease(texture);
   }
 
-  Camera camera = { .canvas = state.canvas };
+  Camera camera = { .canvas = state.canvas, .viewMatrix = { MAT4_IDENTITY, MAT4_IDENTITY } };
 
   float head[16], eye[16];
   getTransform(HEADSET_INDEX, head);
@@ -549,7 +549,6 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   for (int i = 0; i < 2; i++) {
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
     mat4_fromMat44(camera.projection[i], state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
-    mat4_identity(camera.viewMatrix[i]);
     mat4_translate(camera.viewMatrix[i], 0, state.offset, 0);
     mat4_multiply(camera.viewMatrix[i], head);
     mat4_multiply(camera.viewMatrix[i], mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));

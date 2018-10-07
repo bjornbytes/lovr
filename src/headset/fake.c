@@ -213,9 +213,8 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   int width, height;
   fakeGetDisplayDimensions(&width, &height);
   bool stereo = state.mirrorEye == EYE_BOTH;
-  Camera camera = { .canvas = NULL, .stereo = stereo };
+  Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = stereo };
   mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / (1 + stereo) / height);
-  mat4_identity(camera.viewMatrix[0]);
   mat4_translate(camera.viewMatrix[0], 0, state.offset, 0);
   mat4_multiply(camera.viewMatrix[0], state.transform);
   mat4_invertPose(camera.viewMatrix[0]);

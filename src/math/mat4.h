@@ -2,6 +2,8 @@
 
 #pragma once
 
+#define MAT4_IDENTITY { 1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1 }
+
 #define mat4_init mat4_set
 mat4 mat4_set(mat4 m, mat4 n);
 mat4 mat4_fromMat34(mat4 m, float (*n)[4]);

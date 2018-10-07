@@ -454,9 +454,7 @@ void lovrGraphicsDraw(DrawCommand* draw) {
   if (pose) {
     lovrShaderSetMatrices(shader, "lovrPose", pose, 0, MAX_BONES * 16);
   } else {
-    float identity[16];
-    mat4_identity(identity);
-    lovrShaderSetMatrices(shader, "lovrPose", identity, 0, 16);
+    lovrShaderSetMatrices(shader, "lovrPose", (float[16]) MAT4_IDENTITY, 0, 16);
   }
 
   lovrShaderSetInts(shader, "lovrViewportCount", &viewportCount, 0, 1);
