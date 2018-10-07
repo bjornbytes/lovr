@@ -109,6 +109,18 @@ mat4 mat4_invert(mat4 m) {
 }
 
 mat4 mat4_transpose(mat4 m) {
+#ifdef LOVR_USE_SSE
+  __m128 c1 = _mm_loadu_ps(m + 0);
+  __m128 c2 = _mm_loadu_ps(m + 4);
+  __m128 c3 = _mm_loadu_ps(m + 8);
+  __m128 c4 = _mm_loadu_ps(m + 12);
+  _MM_TRANSPOSE4_PS(c1, c2, c3, c4);
+  _mm_storeu_ps(m + 0, c1);
+  _mm_storeu_ps(m + 4, c2);
+  _mm_storeu_ps(m + 8, c3);
+  _mm_storeu_ps(m + 12, c4);
+  return m;
+#else
   float a01 = m[1], a02 = m[2], a03 = m[3],
         a12 = m[6], a13 = m[7],
         a23 = m[11];
@@ -126,6 +138,7 @@ mat4 mat4_transpose(mat4 m) {
   m[13] = a13;
   m[14] = a23;
   return m;
+#endif
 }
 
 // Modified from gl-matrix.c
