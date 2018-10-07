@@ -22,49 +22,44 @@ extern void VR_ShutdownInternal();
 extern bool VR_IsHmdPresent();
 extern intptr_t VR_GetGenericInterface(const char* pchInterfaceVersion, EVRInitError* peError);
 extern bool VR_IsRuntimeInstalled();
+#define HEADSET_INDEX k_unTrackedDeviceIndex_Hmd
 
 static ControllerHand openvrControllerGetHand(Controller* controller);
 
 typedef struct {
-  bool isMirrored;
-  HeadsetEye mirrorEye;
-  float offset;
-  int msaa;
-
   struct VR_IVRSystem_FnTable* system;
   struct VR_IVRCompositor_FnTable* compositor;
   struct VR_IVRChaperone_FnTable* chaperone;
   struct VR_IVRRenderModels_FnTable* renderModels;
-
-  unsigned int headsetIndex;
-  HeadsetType type;
-
   TrackedDevicePose_t poses[16];
   RenderModel_t* deviceModels[16];
   RenderModel_TextureMap_t* deviceTextures[16];
-
+  Canvas* canvas;
   vec_controller_t controllers;
-
+  HeadsetType type;
+  bool isMirrored;
+  HeadsetEye mirrorEye;
   float clipNear;
   float clipFar;
-
-  Canvas* canvas;
+  float offset;
+  int msaa;
 } HeadsetState;
 
 static HeadsetState state;
 
-static bool openvrIsController(TrackedDeviceIndex_t id) {
-  if (!state.system->IsTrackedDeviceConnected(id)) {
-    return false;
+static void getTransform(unsigned int device, mat4 transform) {
+  TrackedDevicePose_t pose = state.poses[device];
+  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+    mat4_identity(transform);
+  } else {
+    mat4_fromMat34(transform, pose.mDeviceToAbsoluteTracking.m);
   }
+}
 
-  switch (state.system->GetTrackedDeviceClass(id)) {
-    case ETrackedDeviceClass_TrackedDeviceClass_Controller:
-    case ETrackedDeviceClass_TrackedDeviceClass_GenericTracker:
-      return true;
-    default:
-      return false;
-  }
+static bool isController(TrackedDeviceIndex_t id) {
+  return state.system->IsTrackedDeviceConnected(id) && 
+    state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_Controller ||
+    state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_GenericTracker;
 }
 
 static ControllerButton getButton(uint32_t button, ControllerHand hand) {
@@ -136,16 +131,13 @@ static void openvrPoll() {
     switch (vrEvent.eventType) {
       case EVREventType_VREvent_TrackedDeviceActivated: {
         uint32_t id = vrEvent.trackedDeviceIndex;
-        if (openvrIsController(id)) {
+        if (isController(id)) {
           Controller* controller = lovrAlloc(Controller, free);
           if (!controller) break;
           controller->id = id;
           vec_push(&state.controllers, controller);
           lovrRetain(controller);
-          lovrEventPush((Event) {
-            .type = EVENT_CONTROLLER_ADDED,
-            .data.controller = { controller, 0 }
-          });
+          lovrEventPush((Event) { .type = EVENT_CONTROLLER_ADDED, .data.controller = { controller, 0 } });
         }
         break;
       }
@@ -155,10 +147,7 @@ static void openvrPoll() {
           Controller* controller = state.controllers.data[i];
           if (controller->id == vrEvent.trackedDeviceIndex) {
             lovrRetain(controller);
-            lovrEventPush((Event) {
-              .type = EVENT_CONTROLLER_REMOVED,
-              .data.controller = { controller, 0 }
-            });
+            lovrEventPush((Event) { .type = EVENT_CONTROLLER_REMOVED, .data.controller = { controller, 0 } });
             vec_swapsplice(&state.controllers, i, 1);
             lovrRelease(controller);
             break;
@@ -170,7 +159,7 @@ static void openvrPoll() {
       case EVREventType_VREvent_ButtonUnpress: {
         bool isPress = vrEvent.eventType == EVREventType_VREvent_ButtonPress;
 
-        if (vrEvent.trackedDeviceIndex == state.headsetIndex && vrEvent.data.controller.button == EVRButtonId_k_EButton_ProximitySensor) {
+        if (vrEvent.trackedDeviceIndex == HEADSET_INDEX && vrEvent.data.controller.button == EVRButtonId_k_EButton_ProximitySensor) {
           lovrEventPush((Event) { .type = EVENT_MOUNT, .data.boolean = { isPress } });
           break;
         }
@@ -179,10 +168,8 @@ static void openvrPoll() {
           Controller* controller = state.controllers.data[i];
           if (controller->id == vrEvent.trackedDeviceIndex) {
             ControllerButton button = getButton(vrEvent.data.controller.button, openvrControllerGetHand(controller));
-            lovrEventPush((Event) {
-              .type = isPress ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED,
-              .data.controller = { controller, button }
-            });
+            EventType type = isPress ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED;
+            lovrEventPush((Event) { .type = type, .data.controller = { controller, button } });
             break;
           }
         }
@@ -196,25 +183,9 @@ static void openvrPoll() {
         break;
       }
 
-      default:
-        break;
+      default: break;
     }
   }
-}
-
-static void ensureCanvas() {
-  if (state.canvas) {
-    return;
-  }
-
-  uint32_t width, height;
-  state.system->GetRecommendedRenderTargetSize(&width, &height);
-  CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .msaa = state.msaa };
-  state.canvas = lovrCanvasCreate(width * 2, height, flags);
-  Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, false, state.msaa);
-  lovrTextureAllocate(texture, width * 2, height, 1, FORMAT_RGBA);
-  lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
-  lovrRelease(texture);
 }
 
 static bool openvrInit(float offset, int msaa) {
@@ -224,42 +195,22 @@ static bool openvrInit(float offset, int msaa) {
 
   EVRInitError vrError;
   VR_InitInternal(&vrError, EVRApplicationType_VRApplication_Scene);
-
   if (vrError != EVRInitError_VRInitError_None) {
     return false;
   }
 
-  char buffer[128];
+  char buffer[64];
+  sprintf(buffer, "FnTable:%s", IVRSystem_Version), state.system = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(buffer, &vrError);
+  sprintf(buffer, "FnTable:%s", IVRCompositor_Version), state.compositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(buffer, &vrError);
+  sprintf(buffer, "FnTable:%s", IVRChaperone_Version), state.chaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(buffer, &vrError);
+  sprintf(buffer, "FnTable:%s", IVRRenderModels_Version), state.renderModels = (struct VR_IVRRenderModels_FnTable*) VR_GetGenericInterface(buffer, &vrError);
 
-  sprintf(buffer, "FnTable:%s", IVRSystem_Version);
-  state.system = (struct VR_IVRSystem_FnTable*) VR_GetGenericInterface(buffer, &vrError);
-  if (vrError != EVRInitError_VRInitError_None || !state.system) {
+  if (!state.system || !state.compositor || !state.chaperone || !state.renderModels) {
     VR_ShutdownInternal();
     return false;
   }
 
-  sprintf(buffer, "FnTable:%s", IVRCompositor_Version);
-  state.compositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(buffer, &vrError);
-  if (vrError != EVRInitError_VRInitError_None || !state.compositor) {
-    VR_ShutdownInternal();
-    return false;
-  }
-
-  sprintf(buffer, "FnTable:%s", IVRChaperone_Version);
-  state.chaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(buffer, &vrError);
-  if (vrError != EVRInitError_VRInitError_None || !state.chaperone) {
-    VR_ShutdownInternal();
-    return false;
-  }
-
-  sprintf(buffer, "FnTable:%s", IVRRenderModels_Version);
-  state.renderModels = (struct VR_IVRRenderModels_FnTable*) VR_GetGenericInterface(buffer, &vrError);
-  if (vrError != EVRInitError_VRInitError_None || !state.renderModels) {
-    VR_ShutdownInternal();
-    return false;
-  }
-
-  state.system->GetStringTrackedDeviceProperty(k_unTrackedDeviceIndex_Hmd, ETrackedDeviceProperty_Prop_ManufacturerName_String, buffer, 128, NULL);
+  state.system->GetStringTrackedDeviceProperty(HEADSET_INDEX, ETrackedDeviceProperty_Prop_ManufacturerName_String, buffer, 128, NULL);
 
   if (!strncmp(buffer, "HTC", 128)) {
     state.type = HEADSET_VIVE;
@@ -271,23 +222,16 @@ static bool openvrInit(float offset, int msaa) {
     state.type = HEADSET_UNKNOWN;
   }
 
-  state.headsetIndex = k_unTrackedDeviceIndex_Hmd;
   state.isMirrored = true;
   state.mirrorEye = EYE_BOTH;
-  state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
-  state.msaa = msaa;
-  state.canvas = NULL;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
-
-  for (int i = 0; i < 16; i++) {
-    state.deviceModels[i] = NULL;
-    state.deviceTextures[i] = NULL;
-  }
+  state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
+  state.msaa = msaa;
 
   vec_init(&state.controllers);
   for (uint32_t i = 0; i < k_unMaxTrackedDeviceCount; i++) {
-    if (openvrIsController(i)) {
+    if (isController(i)) {
       Controller* controller = lovrAlloc(Controller, free);
       if (!controller) continue;
       controller->id = i;
@@ -334,7 +278,7 @@ static HeadsetOrigin openvrGetOriginType() {
 
 static bool openvrIsMounted() {
   VRControllerState_t input;
-  state.system->GetControllerState(state.headsetIndex, &input, sizeof(input));
+  state.system->GetControllerState(HEADSET_INDEX, &input, sizeof(input));
   return (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
 }
 
@@ -349,9 +293,7 @@ static void openvrSetMirrored(bool mirror, HeadsetEye eye) {
 }
 
 static void openvrGetDisplayDimensions(int* width, int* height) {
-  ensureCanvas();
-  *width = lovrCanvasGetWidth(state.canvas);
-  *height = lovrCanvasGetHeight(state.canvas);
+  state.system->GetRecommendedRenderTargetSize(width, height);
 }
 
 static void openvrGetClipDistance(float* clipNear, float* clipFar) {
@@ -369,73 +311,42 @@ static void openvrGetBoundsDimensions(float* width, float* depth) {
 }
 
 static void openvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  TrackedDevicePose_t pose = state.poses[state.headsetIndex];
-
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
-    return;
-  }
-
   float transform[16];
-  mat4_fromMat44(transform, pose.mDeviceToAbsoluteTracking.m);
-
-  *x = transform[12];
-  *y = transform[13];
-  *z = transform[14];
-
-  float rotation[4];
-  quat_fromMat4(rotation, transform);
-  quat_getAngleAxis(rotation, angle, ax, ay, az);
+  getTransform(HEADSET_INDEX, transform);
+  mat4_getPose(transform, x, y, z, angle, ax, ay, az);
 }
 
 static void openvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  TrackedDevicePose_t pose = state.poses[state.headsetIndex];
-
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
-    return;
-  }
-
-  float transform[16];
   float eyeTransform[16];
   EVREye vrEye = (eye == EYE_LEFT) ? EVREye_Eye_Left : EVREye_Eye_Right;
   mat4_fromMat34(eyeTransform, state.system->GetEyeToHeadTransform(vrEye).m);
-  mat4_fromMat44(transform, pose.mDeviceToAbsoluteTracking.m);
+
+  float transform[16];
+  getTransform(HEADSET_INDEX, transform);
   mat4_multiply(transform, eyeTransform);
-
-  *x = transform[12];
-  *y = transform[13];
-  *z = transform[14];
-
-  float rotation[4];
-  quat_fromMat4(rotation, transform);
-  quat_getAngleAxis(rotation, angle, ax, ay, az);
+  mat4_getPose(transform, x, y, z, angle, ax, ay, az);
 }
 
 static void openvrGetVelocity(float* x, float* y, float* z) {
-  TrackedDevicePose_t pose = state.poses[state.headsetIndex];
-
+  TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
-    return;
+  } else {
+    *x = pose.vVelocity.v[0];
+    *y = pose.vVelocity.v[1];
+    *z = pose.vVelocity.v[2];
   }
-
-  *x = pose.vVelocity.v[0];
-  *y = pose.vVelocity.v[1];
-  *z = pose.vVelocity.v[2];
 }
 
 static void openvrGetAngularVelocity(float* x, float* y, float* z) {
-  TrackedDevicePose_t pose = state.poses[state.headsetIndex];
-
+  TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     *x = *y = *z = 0.f;
-    return;
+  } else {
+    *x = pose.vAngularVelocity.v[0];
+    *y = pose.vAngularVelocity.v[1];
+    *z = pose.vAngularVelocity.v[2];
   }
-
-  *x = pose.vAngularVelocity.v[0];
-  *y = pose.vAngularVelocity.v[1];
-  *z = pose.vAngularVelocity.v[2];
 }
 
 static Controller** openvrGetControllers(uint8_t* count) {
@@ -456,23 +367,9 @@ static ControllerHand openvrControllerGetHand(Controller* controller) {
 }
 
 static void openvrControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  TrackedDevicePose_t pose = state.poses[controller->id];
-
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
-    return;
-  }
-
   float transform[16];
-  mat4_fromMat44(transform, pose.mDeviceToAbsoluteTracking.m);
-
-  *x = transform[12];
-  *y = transform[13];
-  *z = transform[14];
-
-  float rotation[4];
-  quat_fromMat4(rotation, transform);
-  quat_getAngleAxis(rotation, angle, ax, ay, az);
+  getTransform(controller->id, transform);
+  mat4_getPose(transform, x, y, z, angle, ax, ay, az);
 }
 
 static float openvrControllerGetAxis(Controller* controller, ControllerAxis axis) {
@@ -519,7 +416,6 @@ static bool openvrControllerIsTouched(Controller* controller, ControllerButton b
 
 static void openvrControllerVibrate(Controller* controller, float duration, float power) {
   if (duration <= 0) return;
-
   uint32_t axis = 0;
   unsigned short uSeconds = (unsigned short) (duration * 1e6);
   state.system->TriggerHapticPulse(controller->id, axis, uSeconds);
@@ -634,11 +530,21 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 }
 
 static void openvrRenderTo(void (*callback)(void*), void* userdata) {
-  float head[16], eye[16];
+  if (!state.canvas) {
+    uint32_t width, height;
+    state.system->GetRecommendedRenderTargetSize(&width, &height);
+    CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .msaa = state.msaa };
+    state.canvas = lovrCanvasCreate(width * 2, height, flags);
+    Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, false, state.msaa);
+    lovrTextureAllocate(texture, width * 2, height, 1, FORMAT_RGBA);
+    lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
+    lovrRelease(texture);
+  }
 
-  ensureCanvas();
-  mat4_fromMat34(head, state.poses[state.headsetIndex].mDeviceToAbsoluteTracking.m);
   Camera camera = { .canvas = state.canvas };
+
+  float head[16], eye[16];
+  getTransform(HEADSET_INDEX, head);
 
   for (int i = 0; i < 2; i++) {
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
