@@ -3,6 +3,9 @@
 #include "math/vec3.h"
 #include <math.h>
 #include <string.h>
+#ifdef LOVR_USE_SSE
+#include <xmmintrin.h>
+#endif
 
 // m0 m4 m8  m12
 // m1 m5 m9  m13
