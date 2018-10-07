@@ -108,17 +108,44 @@ mat4 mat4_invert(mat4 m) {
   return m;
 }
 
+// This can only be used if the matrix doesn't have any scale applied
+#ifdef LOVR_USE_SSE
+mat4 mat4_invertPose(mat4 m) {
+  __m128 c0 = _mm_loadu_ps(m + 0);
+  __m128 c1 = _mm_loadu_ps(m + 4);
+  __m128 c2 = _mm_loadu_ps(m + 8);
+  __m128 c3 = _mm_loadu_ps(m + 12);
+  __m128 x1 = _mm_set_ps(1.f, 0.f, 0.f, 0.f);
+
+  _MM_TRANSPOSE4_PS(c0, c1, c2, x1);
+
+  __m128 x0 = _mm_add_ps(
+    _mm_mul_ps(c0, _mm_shuffle_ps(c3, c3, _MM_SHUFFLE(0, 0, 0, 0))),
+    _mm_mul_ps(c1, _mm_shuffle_ps(c3, c3, _MM_SHUFFLE(1, 1, 1, 1)))
+  );
+
+  x0 = _mm_add_ps(x0, _mm_mul_ps(c2, _mm_shuffle_ps(c3, c3, _MM_SHUFFLE(2, 2, 2, 2))));
+  x0 = _mm_xor_ps(x0, _mm_set1_ps(-0.f));
+  x0 = _mm_add_ps(x0, x1);
+
+  _mm_storeu_ps(m + 0, c0);
+  _mm_storeu_ps(m + 4, c1);
+  _mm_storeu_ps(m + 8, c2);
+  _mm_storeu_ps(m + 12, x0);
+}
+#endif
+
 mat4 mat4_transpose(mat4 m) {
 #ifdef LOVR_USE_SSE
-  __m128 c1 = _mm_loadu_ps(m + 0);
-  __m128 c2 = _mm_loadu_ps(m + 4);
-  __m128 c3 = _mm_loadu_ps(m + 8);
-  __m128 c4 = _mm_loadu_ps(m + 12);
-  _MM_TRANSPOSE4_PS(c1, c2, c3, c4);
-  _mm_storeu_ps(m + 0, c1);
-  _mm_storeu_ps(m + 4, c2);
-  _mm_storeu_ps(m + 8, c3);
-  _mm_storeu_ps(m + 12, c4);
+  __m128 c0 = _mm_loadu_ps(m + 0);
+  __m128 c1 = _mm_loadu_ps(m + 4);
+  __m128 c2 = _mm_loadu_ps(m + 8);
+  __m128 c3 = _mm_loadu_ps(m + 12);
+  _MM_TRANSPOSE4_PS(c0, c1, c2, c3);
+  _mm_storeu_ps(m + 0, c0);
+  _mm_storeu_ps(m + 4, c1);
+  _mm_storeu_ps(m + 8, c2);
+  _mm_storeu_ps(m + 12, c3);
   return m;
 #else
   float a01 = m[1], a02 = m[2], a03 = m[3],

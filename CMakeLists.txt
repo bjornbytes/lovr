@@ -454,6 +454,10 @@ if(LOVR_ENABLE_MATH)
     src/api/types/transform.c
     src/lib/noise1234/noise1234.c
   )
+
+  if(LOVR_USE_SSE)
+    add_definitions(-DLOVR_USE_SSE)
+  endif()
 endif()
 
 if(LOVR_ENABLE_PHYSICS)

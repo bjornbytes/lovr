@@ -218,7 +218,7 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   mat4_identity(camera.viewMatrix[0]);
   mat4_translate(camera.viewMatrix[0], 0, state.offset, 0);
   mat4_multiply(camera.viewMatrix[0], state.transform);
-  mat4_invert(camera.viewMatrix[0]);
+  mat4_invertPose(camera.viewMatrix[0]);
   mat4_set(camera.projection[1], camera.projection[0]);
   mat4_set(camera.viewMatrix[1], camera.viewMatrix[0]);
   lovrGraphicsSetCamera(&camera, true);

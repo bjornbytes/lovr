@@ -553,7 +553,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     mat4_translate(camera.viewMatrix[i], 0, state.offset, 0);
     mat4_multiply(camera.viewMatrix[i], head);
     mat4_multiply(camera.viewMatrix[i], mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
-    mat4_invert(camera.viewMatrix[i]);
+    mat4_invertPose(camera.viewMatrix[i]);
   }
 
   lovrGraphicsSetCamera(&camera, true);
