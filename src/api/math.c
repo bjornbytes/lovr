@@ -8,7 +8,39 @@
 #include "math/transform.h"
 
 static int l_lovrMathNewCurve(lua_State* L) {
-  Curve* curve = lovrCurveCreate(0);
+  int top = lua_gettop(L);
+  bool table = lua_type(L, 1) == LUA_TTABLE;
+
+  if (top == 1 && !table) {
+    Curve* curve = lovrCurveCreate(luaL_checkinteger(L, 1));
+    luax_pushobject(L, curve);
+    return 1;
+  }
+
+  int size = ((table ? lua_objlen(L, 1) : top) + 2) / 3;
+  Curve* curve = lovrCurveCreate(size);
+  for (int i = 0; i < size; i++) {
+    float point[3];
+
+    if (table) {
+      lua_rawgeti(L, 1, 3 * i + 1);
+      lua_rawgeti(L, 1, 3 * i + 2);
+      lua_rawgeti(L, 1, 3 * i + 3);
+
+      point[0] = lua_tonumber(L, -3);
+      point[1] = lua_tonumber(L, -2);
+      point[2] = lua_tonumber(L, -1);
+
+      lovrCurveAddPoint(curve, point, i);
+      lua_pop(L, 3);
+    } else {
+      point[0] = lua_tonumber(L, 3 * i + 1);
+      point[1] = lua_tonumber(L, 3 * i + 2);
+      point[2] = lua_tonumber(L, 3 * i + 3);
+      lovrCurveAddPoint(curve, point, i);
+    }
+  }
+
   luax_pushobject(L, curve);
   return 1;
 }
