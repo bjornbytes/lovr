@@ -3,8 +3,15 @@
 #include "math/math.h"
 #include "math/mat4.h"
 #include "math/quat.h"
+#include "math/curve.h"
 #include "math/randomGenerator.h"
 #include "math/transform.h"
+
+static int l_lovrMathNewCurve(lua_State* L) {
+  Curve* curve = lovrCurveCreate(0);
+  luax_pushobject(L, curve);
+  return 1;
+}
 
 static int l_lovrMathNewRandomGenerator(lua_State* L) {
   RandomGenerator* generator = lovrRandomGeneratorCreate();
@@ -126,6 +133,7 @@ static int l_lovrMathLinearToGamma(lua_State* L) {
 }
 
 static const luaL_Reg lovrMath[] = {
+  { "newCurve", l_lovrMathNewCurve },
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "newTransform", l_lovrMathNewTransform },
   { "orientationToDirection", l_lovrMathOrientationToDirection },
@@ -144,6 +152,7 @@ int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrMath);
   luax_atexit(L, lovrMathDestroy);
+  luax_registertype(L, "Curve", lovrCurve);
   luax_registertype(L, "RandomGenerator", lovrRandomGenerator);
   luax_registertype(L, "Transform", lovrTransform);
   lovrMathInit();
