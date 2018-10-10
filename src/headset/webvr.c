@@ -16,7 +16,7 @@ extern void webvrGetDisplayDimensions(int32_t* width, int32_t* height);
 extern void webvrGetClipDistance(float* near, float* far);
 extern void webvrSetClipDistance(float near, float far);
 extern void webvrGetBoundsDimensions(float* width, float* depth);
-extern const float* webvrGetBoundsDimensions(int* count);
+extern const float* webvrGetBoundsGeometry(int* count);
 extern void webvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
 extern void webvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
 extern void webvrGetVelocity(float* x, float* y, float* z);
