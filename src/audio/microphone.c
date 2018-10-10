@@ -23,6 +23,7 @@ Microphone* lovrMicrophoneCreate(const char* name, int samples, int sampleRate, 
 
 void lovrMicrophoneDestroy(void* ref) {
   Microphone* microphone = ref;
+  lovrMicrophoneStopRecording(microphone);
   alcCaptureCloseDevice(microphone->device);
   free(microphone);
 }
@@ -86,5 +87,6 @@ void lovrMicrophoneStopRecording(Microphone* microphone) {
     return;
   }
 
+  alcCaptureStop(microphone->device);
   microphone->isRecording = false;
 }
