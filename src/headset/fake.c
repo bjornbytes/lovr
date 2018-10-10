@@ -135,6 +135,11 @@ static void fakeGetBoundsDimensions(float* width, float* depth) {
   *width = *depth = 0.f;
 }
 
+static const float* fakeGetBoundsGeometry(int* count) {
+  *count = 0;
+  return NULL;
+}
+
 static void fakeGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = state.position[0];
   *y = state.position[1];
@@ -305,6 +310,7 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeGetClipDistance,
   fakeSetClipDistance,
   fakeGetBoundsDimensions,
+  fakeGetBoundsGeometry,
   fakeGetPose,
   fakeGetEyePose,
   fakeGetVelocity,

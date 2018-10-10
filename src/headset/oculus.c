@@ -189,11 +189,16 @@ static void oculusSetClipDistance(float clipNear, float clipFar) {
   state.clipFar = clipFar;
 }
 
-static float oculusGetBoundsDimensions(float* width, float* depth) {
+static void oculusGetBoundsDimensions(float* width, float* depth) {
   ovrVector3f dimensions;
   ovr_GetBoundaryDimensions(state.session, ovrBoundary_PlayArea, &dimensions);
   *width = dimensions.x;
   *depth = dimensions.z;
+}
+
+static const float* oculusGetBoundsGeometry(int* count) {
+  *count = 0;
+  return NULL;
 }
 
 static void oculusGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
@@ -483,6 +488,7 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   oculusGetClipDistance,
   oculusSetClipDistance,
   oculusGetBoundsDimensions,
+  oculusGetBoundsGeometry,
   oculusGetPose,
   oculusGetEyePose,
   oculusGetVelocity,

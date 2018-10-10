@@ -176,6 +176,11 @@ var LibraryLOVR = {
     }
   },
 
+  webvrGetBoundsGeometry: function(count) {
+    HEAP32[count >> 2] = 0;
+    return 0;
+  },
+
   webvrGetPose: function(x, y, z, angle, ax, ay, az) {
     var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
     var pose = webvr.frameData.pose;

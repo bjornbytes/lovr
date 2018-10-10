@@ -173,6 +173,30 @@ static int l_lovrHeadsetGetBoundsDimensions(lua_State* L) {
   return 2;
 }
 
+static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
+  int count;
+  const float* points = lovrHeadsetDriver->getBoundsGeometry(&count);
+
+  if (!points) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  if (lua_type(L, 1) == LUA_TTABLE) {
+    lua_settop(L, 1);
+  } else {
+    lua_settop(L, 0);
+    lua_createtable(L, count, 0);
+  }
+
+  for (int i = 0; i < count; i++) {
+    lua_pushnumber(L, points[i]);
+    lua_rawseti(L, 1, i + 1);
+  }
+
+  return 1;
+}
+
 static void luax_getPose(lua_State* L, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (lua_type(L, 1) == LUA_TSTRING) {
     HeadsetEye eye = luaL_checkoption(L, 1, NULL, HeadsetEyes);
@@ -235,7 +259,7 @@ static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 static int l_lovrHeadsetGetControllers(lua_State* L) {
   uint8_t count;
   Controller** controllers = lovrHeadsetDriver->getControllers(&count);
-  lua_newtable(L);
+  lua_createtable(L, count, 0);
   for (uint8_t i = 0; i < count; i++) {
     luax_pushobject(L, controllers[i]);
     lua_rawseti(L, -2, i + 1);
@@ -289,6 +313,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getBoundsWidth", l_lovrHeadsetGetBoundsWidth },
   { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
   { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
+  { "getBoundsGeometry", l_lovrHeadsetGetBoundsGeometry },
   { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
