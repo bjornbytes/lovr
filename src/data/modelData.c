@@ -133,17 +133,12 @@ static float readMaterialScalar(struct aiMaterial* assimpMaterial, const char* k
   }
 }
 
-static Color readMaterialColor(struct aiMaterial* assimpMaterial, const char* key, unsigned int type, unsigned int index) {
+static Color readMaterialColor(struct aiMaterial* assimpMaterial, const char* key, unsigned int type, unsigned int index, Color fallback) {
   struct aiColor4D assimpColor;
   if (aiGetMaterialColor(assimpMaterial, key, type, index, &assimpColor) == aiReturn_SUCCESS) {
-    return (Color) {
-      .r = assimpColor.r,
-      .g = assimpColor.g,
-      .b = assimpColor.b,
-      .a = assimpColor.a
-    };
+    return (Color) { .r = assimpColor.r, .g = assimpColor.g, .b = assimpColor.b, .a = assimpColor.a };
   } else {
-    return (Color) { 1, 1, 1, 1 };
+    return fallback;
   }
 }
 
@@ -470,8 +465,8 @@ ModelData* lovrModelDataCreate(Blob* blob) {
     ModelMaterial* material = &modelData->materials[m];
     struct aiMaterial* assimpMaterial = scene->mMaterials[m];
 
-    material->diffuseColor = readMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE);
-    material->emissiveColor = readMaterialColor(assimpMaterial, AI_MATKEY_COLOR_EMISSIVE);
+    material->diffuseColor = readMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, (Color) { 1., 1., 1., 1. });
+    material->emissiveColor = readMaterialColor(assimpMaterial, AI_MATKEY_COLOR_EMISSIVE, (Color) { 0., 0., 0., 0. });
     material->diffuseTexture = readMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, modelData, &textureCache, blob->name);
     material->emissiveTexture = readMaterialTexture(assimpMaterial, aiTextureType_EMISSIVE, modelData, &textureCache, blob->name);
     material->metalnessTexture = readMaterialTexture(assimpMaterial, aiTextureType_UNKNOWN, modelData, &textureCache, blob->name);

@@ -11,7 +11,11 @@ Material* lovrMaterialCreate() {
   }
 
   for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
-    material->colors[i] = (Color) { 1, 1, 1, 1 };
+    if (i == COLOR_EMISSIVE) {
+      material->colors[i] = (Color) { 0, 0, 0, 0 };
+    } else {
+      material->colors[i] = (Color) { 1, 1, 1, 1 };
+    }
   }
 
   lovrMaterialSetTransform(material, 0, 0, 1, 1, 0);
