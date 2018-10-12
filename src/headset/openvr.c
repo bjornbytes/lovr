@@ -58,9 +58,9 @@ static void getTransform(unsigned int device, mat4 transform) {
 }
 
 static bool isController(TrackedDeviceIndex_t id) {
-  return state.system->IsTrackedDeviceConnected(id) && 
-    state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_Controller ||
-    state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_GenericTracker;
+  return state.system->IsTrackedDeviceConnected(id) &&
+    (state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_Controller ||
+    state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_GenericTracker);
 }
 
 static ControllerButton getButton(uint32_t button, ControllerHand hand) {
