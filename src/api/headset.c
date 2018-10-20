@@ -63,12 +63,15 @@ int l_lovrHeadsetInit(lua_State* L) {
   map_init(&HeadsetTypes);
   map_set(&HeadsetTypes, "unknown", HEADSET_UNKNOWN);
   map_set(&HeadsetTypes, "vive", HEADSET_VIVE);
+  map_set(&HeadsetTypes, "oculusmobile", HEADSET_OCULUS_MOBILE);
   map_set(&HeadsetTypes, "rift", HEADSET_RIFT);
   map_set(&HeadsetTypes, "windowsmr", HEADSET_WINDOWS_MR);
 
   map_init(&HeadsetDrivers);
   map_set(&HeadsetDrivers, "fake", DRIVER_FAKE);
   map_set(&HeadsetDrivers, "openvr", DRIVER_OPENVR);
+  map_set(&HeadsetDrivers, "oculusvr", DRIVER_OVR);
+  map_set(&HeadsetDrivers, "oculusvrmobile", DRIVER_OVR_MOBILE);
   map_set(&HeadsetDrivers, "webvr", DRIVER_WEBVR);
 
   luax_pushconf(L);

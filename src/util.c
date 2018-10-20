@@ -7,6 +7,10 @@
 #else
 #include <unistd.h>
 #endif
+#ifdef LOVR_OVR_MOBILE
+#include <android/log.h>
+#include <assert.h>
+#endif
 
 #define MAX_ERROR_LENGTH 1024
 
@@ -21,8 +25,13 @@ void lovrThrow(const char* format, ...) {
   if (lovrCatch) {
     longjmp(*lovrCatch, 0);
   } else {
+#ifdef LOVR_OVR_MOBILE
+    __android_log_print(ANDROID_LOG_FATAL, "LOVR", "Error: %s\n", lovrErrorMessage);
+    assert(0);
+#else
     fprintf(stderr, "Error: %s\n", lovrErrorMessage);
     exit(EXIT_FAILURE);
+#endif
   }
 }
 

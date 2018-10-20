@@ -6,6 +6,6 @@
 #define LOVR_VERSION_PATCH 1
 #define LOVR_VERSION_ALIAS "Fluffy Cuttlefish"
 
-void lovrInit(lua_State* L, int argc, char** argv);
+void lovrInit(lua_State* L, int argc, const char** argv);
 void lovrDestroy(int exitCode);
 bool lovrRun(lua_State* L); // Returns true to request continue

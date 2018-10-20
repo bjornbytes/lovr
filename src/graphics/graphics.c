@@ -15,8 +15,14 @@
 #include <math.h>
 #include "lovr.h"
 
+#ifdef LOVR_OVR_MOBILE
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#endif
+
 static GraphicsState state;
 
+#ifndef NO_WINDOW
 static void onCloseWindow(GLFWwindow* window) {
   if (window == state.window) {
     EventType type = EVENT_QUIT;
@@ -25,6 +31,7 @@ static void onCloseWindow(GLFWwindow* window) {
     lovrEventPush(event);
   }
 }
+#endif
 
 static void gammaCorrectColor(Color* color) {
   if (state.gammaCorrect) {
@@ -97,7 +104,10 @@ void lovrGraphicsClear(bool clearColor, bool clearDepth, bool clearStencil, Colo
 }
 
 void lovrGraphicsPresent() {
+#ifndef NO_WINDOW
   glfwSwapBuffers(state.window);
+#endif
+  // ANDROIDTODO swap buffers here
   state.stats.drawCalls = 0;
   state.stats.shaderSwitches = 0;
 }
@@ -191,6 +201,8 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
     graphicsAlreadyInit = true;
   }
 
+#ifndef NO_WINDOW
+
 #ifdef EMSCRIPTEN
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -231,8 +243,11 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
 
   glfwMakeContextCurrent(state.window);
   glfwSetWindowCloseCallback(state.window, onCloseWindow);
+#endif
 
-#ifndef EMSCRIPTEN
+#if defined(LOVR_OVR_MOBILE)
+  gladLoadGLLoader((GLADloadproc) eglGetProcAddress);
+#elif !defined(EMSCRIPTEN)
   gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
   glfwSwapInterval(0);
   glEnable(GL_LINE_SMOOTH);
@@ -256,15 +271,23 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
 }
 
 int lovrGraphicsGetWidth() {
+#ifndef LOVR_OVR_MOBILE
   int width, height;
   glfwGetFramebufferSize(state.window, &width, &height);
   return width;
+#else
+  return 1280;
+#endif
 }
 
 int lovrGraphicsGetHeight() {
+#ifndef LOVR_OVR_MOBILE
   int width, height;
   glfwGetFramebufferSize(state.window, &width, &height);
   return height;
+#else
+  return 1440;
+#endif
 }
 
 GraphicsStats lovrGraphicsGetStats() {

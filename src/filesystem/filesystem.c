@@ -18,6 +18,9 @@
 #include <unistd.h>
 #include <pwd.h>
 #endif
+#if LOVR_OVR_MOBILE
+#include "BridgeLovr.h"
+#endif
 
 static FilesystemState state;
 
@@ -85,6 +88,8 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
 #elif EMSCRIPTEN
   strncpy(dest, "/home/web_user", size);
   return 0;
+#elif LOVR_OVR_MOBILE
+  strncpy(dest, bridgeLovrWritablePath, size);
 #elif __linux__
   const char* home;
   if ((home = getenv("HOME")) == NULL) {

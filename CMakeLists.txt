@@ -30,11 +30,7 @@ set(PHYSFS_ARCHIVE_MVL OFF CACHE BOOL "")
 set(PHYSFS_ARCHIVE_QPAK OFF CACHE BOOL "")
 set(PHYSFS_BUILD_TEST OFF CACHE BOOL "")
 set(PHYSFS_BUILD_WX_TEST FALSE CACHE BOOL "")
-if(EMSCRIPTEN)
-  add_subdirectory(deps/physfs physfs)
-  include_directories(deps/physfs/src)
-  set(LOVR_PHYSFS physfs)
-elseif(WIN32)
+if(WIN32 OR EMSCRIPTEN OR OCULUS_ANDROID_EMBED)
   add_subdirectory(deps/physfs physfs)
   include_directories(deps/physfs/src)
   set(LOVR_PHYSFS physfs)
@@ -58,6 +54,11 @@ if(EMSCRIPTEN)
   set(ZLIB_FOUND 1)
   set(ZLIB_LIBRARIES "-s USE_ZLIB=1")
   set(ZLIB_INCLUDE_DIR "assimp/contrib/zlib")
+  add_subdirectory(deps/assimp assimp)
+  include_directories(deps/assimp/include ${CMAKE_BINARY_DIR}/assimp/include)
+  set(LOVR_ASSIMP assimp)
+elseif (OCULUS_ANDROID_EMBED)
+  set(ASSIMP_BUILD_ZLIB 1)
   add_subdirectory(deps/assimp assimp)
   include_directories(deps/assimp/include ${CMAKE_BINARY_DIR}/assimp/include)
   set(LOVR_ASSIMP assimp)
@@ -91,7 +92,7 @@ endif()
 # FreeType
 if (EMSCRIPTEN)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s USE_FREETYPE=1")
-elseif (WIN32)
+elseif (WIN32 OR OCULUS_ANDROID_EMBED)
   set(FREETYPE_NO_DIST TRUE CACHE BOOL "")
   set(BUILD_SHARED_LIBS OFF)
   add_subdirectory(deps/freetype freetype)
@@ -112,7 +113,7 @@ if(WIN32)
   add_subdirectory(deps/glfw glfw)
   include_directories(deps/glfw/include)
   set(LOVR_GLFW glfw ${GLFW_LIBRARIES})
-elseif(NOT EMSCRIPTEN)
+elseif(NOT (EMSCRIPTEN OR OCULUS_ANDROID_EMBED))
   pkg_search_module(GLFW REQUIRED glfw3)
   include_directories(${GLFW_INCLUDE_DIRS})
   set(LOVR_GLFW ${GLFW_LIBRARIES})
@@ -127,6 +128,22 @@ if(EMSCRIPTEN)
   set_target_properties(lua luac liblua liblua_static PROPERTIES EXCLUDE_FROM_ALL 1)
   include_directories(deps/lua/src ${CMAKE_BINARY_DIR}/lua)
   set(LOVR_LUA liblua_static)
+elseif (OCULUS_ANDROID_EMBED)
+  if (FALSE)
+    # The LuaJIT CMakeLists is going to build a helper tool named minilua,
+    # but then it won't be able to execute it because it's an Android executable.
+    # There is no known workaround to this yet.
+
+    set(TARGET_LJARCH ARM)
+    add_subdirectory(deps/luajit luajit)
+    include_directories(deps/luajit/luajit/src ${CMAKE_BINARY_DIR}/luajit)
+    set(LOVR_LUA luajit-5.1)
+  else()
+    add_subdirectory(deps/lua lua)
+    set_target_properties(lua luac liblua liblua_static PROPERTIES EXCLUDE_FROM_ALL 1)
+    include_directories(deps/lua/src ${CMAKE_BINARY_DIR}/lua)
+    set(LOVR_LUA liblua_static)
+  endif()
 elseif(WIN32)
   add_subdirectory(deps/luajit luajit)
   include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
@@ -148,7 +165,7 @@ include_directories(deps/msdfgen)
 set(LOVR_MSDF lib_msdfgen)
 
 # ODE
-if(EMSCRIPTEN)
+if(EMSCRIPTEN OR OCULUS_ANDROID_EMBED)
   set(ODE_BUILD_SHARED OFF CACHE BOOL "")
   add_subdirectory(deps/ode ode)
   include_directories(deps/ode/include "${CMAKE_CURRENT_BINARY_DIR}/ode/include")
@@ -191,14 +208,13 @@ else()
 endif()
 
 # OpenGL
-if(NOT WIN32)
+if(NOT (WIN32 OR OCULUS_ANDROID_EMBED))
   find_package(OpenGL REQUIRED)
   include_directories(${OPENGL_INCLUDE_DIRS})
   set(LOVR_OPENGL ${OPENGL_LIBRARIES})
 endif()
 
-# OpenVR
-if(NOT EMSCRIPTEN)
+if(NOT (EMSCRIPTEN OR LOVR_USE_OCULUS OR OCULUS_ANDROID_EMBED))
   set(BUILD_SHARED ON CACHE BOOL "")
   set(BUILD_UNIVERSAL OFF CACHE BOOL "")
   include_directories(deps/openvr/headers)
@@ -210,6 +226,10 @@ if(NOT EMSCRIPTEN)
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
   )
   set(LOVR_OPENVR openvr_api)
+endif()
+
+if (NOT OCULUS_ANDROID_EMBED)
+set(FAKE_SRC src/headset/fake.c)
 endif()
 
 # LÖVR
@@ -266,7 +286,7 @@ set(LOVR_SRC
   src/graphics/model.c
   src/graphics/shader.c
   src/graphics/texture.c
-  src/headset/fake.c
+  ${FAKE_SRC}
   src/headset/headset.c
   src/lib/glad/glad.c
   src/lib/lua-cjson/fpconv.c
@@ -293,8 +313,19 @@ set(LOVR_SRC
   src/util.c
 )
 
+set(LOVR_USE_OCULUS OFF CACHE BOOL "")
 if(EMSCRIPTEN)
-  set(LOVR_SRC ${LOVR_SRC} src/headset/webvr.c)
+  set(LOVR_HEADSET src/headset/webvr.c)
+elseif(LOVR_USE_OCULUS)
+  set(LOVR_HEADSET src/headset/oculus.c)
+  include_directories(C:/Users/Andi/Downloads/ovr_sdk_win_1.26.0_public/OculusSDK/LibOVR/Include)
+  add_definitions(-DLOVR_OVR) # FIXME: NO
+elseif (OCULUS_ANDROID_EMBED)
+  add_definitions(-DLOVR_OVR_MOBILE=1)
+  add_definitions(-DNO_WINDOW=1)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-narrowing")
+  set(LOVR_SRC ${LOVR_SRC} src/headset/oculus_mobile.c ../BridgeLovr.cpp ../BridgeLovrPrintOverride.cpp)
+  include_directories(../include)
 else()
   set(LOVR_SRC ${LOVR_SRC} src/headset/openvr.c)
 endif()
@@ -307,7 +338,15 @@ if(WIN32)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-add_executable(lovr ${LOVR_SRC})
+
+if (OCULUS_ANDROID_EMBED)
+  # For Oculus mobile ONLY we build as a library.
+  add_library(lovr SHARED ${LOVR_SRC} ${LOVR_HEADSET})
+  target_link_libraries(lovr log EGL)
+else()
+  add_executable(lovr ${LOVR_SRC} ${LOVR_HEADSET})
+endif()
+
 target_link_libraries(lovr
   ${LOVR_ASSIMP}
   ${LOVR_ENET}
@@ -318,11 +357,14 @@ target_link_libraries(lovr
   ${LOVR_ODE}
   ${LOVR_OPENAL}
   ${LOVR_OPENGL}
-  ${LOVR_OPENVR}
   ${LOVR_PHYSFS}
 
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
+
+if (NOT (LOVR_USE_OCULUS OR OCULUS_ANDROID_EMBED))
+    target_link_libraries(lovr ${LOVR_OPENVR})
+endif()
 
 if(WIN32)
   set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
@@ -341,7 +383,8 @@ if(WIN32)
   move_dll(${LOVR_GLFW})
   move_dll(${LOVR_LUA})
   move_dll(${LOVR_ODE})
-  move_dll(${LOVR_OPENAL})
-  move_dll(${LOVR_OPENVR})
+  if (NOT LOVR_USE_OCULUS)
+    move_dll(${LOVR_OPENVR})
+  endif()
   move_dll(${LOVR_PHYSFS})
 endif()

@@ -1,6 +1,6 @@
 #include "lovr.h"
 
-int main(int argc, char** argv) {
+int main(int argc, const char** argv) {
   bool reloading;
   do {
 	lua_State* L = luaL_newstate();

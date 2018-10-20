@@ -1,5 +1,9 @@
 #include "resources/shaders.h"
 
+#if defined(EMSCRIPTEN) || defined(LOVR_OVR_MOBILE)
+#define GLES_SHADERS
+#endif
+
 const char* lovrShaderScalarUniforms[] = {
   "lovrMetalness",
   "lovrRoughness"
@@ -21,7 +25,7 @@ const char* lovrShaderTextureUniforms[] = {
 };
 
 const char* lovrShaderVertexPrefix = ""
-#ifdef EMSCRIPTEN
+#ifdef GLES_SHADERS
 "#version 300 es \n"
 "precision mediump float; \n"
 #else
@@ -46,7 +50,7 @@ const char* lovrShaderVertexPrefix = ""
 "#line 0 \n";
 
 const char* lovrShaderFragmentPrefix = ""
-#ifdef EMSCRIPTEN
+#ifdef GLES_SHADERS
 "#version 300 es \n"
 "precision mediump float; \n"
 #else

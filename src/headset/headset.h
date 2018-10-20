@@ -18,13 +18,16 @@ typedef enum {
 typedef enum {
   DRIVER_FAKE,
   DRIVER_OPENVR,
-  DRIVER_WEBVR
+  DRIVER_WEBVR,
+  DRIVER_OVR,
+  DRIVER_OVR_MOBILE
 } HeadsetDriver;
 
 typedef enum {
   HEADSET_UNKNOWN,
   HEADSET_VIVE,
   HEADSET_RIFT,
+  HEADSET_OCULUS_MOBILE,
   HEADSET_WINDOWS_MR,
   HEADSET_FAKE
 } HeadsetType;

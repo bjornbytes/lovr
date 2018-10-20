@@ -9,6 +9,8 @@ void lovrControllerDestroy(const Ref* ref) {
 static HeadsetInterface* headset = NULL;
 static bool headsetAlreadyInit = false;
 
+#if !(defined(LOVR_OVR) || defined(LOVR_OVR_MOBILE))
+
 void lovrHeadsetInit(HeadsetDriver* drivers, int count) {
   for (int i = 0; i < count; i++) {
     HeadsetInterface* interface = NULL;
@@ -220,3 +222,5 @@ void lovrHeadsetUpdate(float dt) {
     headset->update(dt);
   }
 }
+
+#endif

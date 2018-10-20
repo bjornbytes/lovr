@@ -8,6 +8,11 @@
 #include "lib/glfw.h"
 #include <stdlib.h>
 
+#ifdef LOVR_OVR_MOBILE
+#include <android/log.h>
+#include <assert.h>
+#endif
+
 static int hasErrored = 0;
 
 static void onGlfwError(int code, const char* description) {
@@ -31,7 +36,12 @@ static void handleError(lua_State* L, const char* message) {
     lua_pushstring(L, message);
     lua_pcall(L, 1, 0, 0);
   } else {
+#ifdef LOVR_OVR_MOBILE
+  __android_log_print(ANDROID_LOG_ERROR, "LOVR", "Lua error: %s\n", message);
+  assert(0); // Long term this is not the correct thing to do
+#else
     fprintf(stderr, "%s\n", message);
+#endif
   }
   lovrDestroy(1);
 }
@@ -65,7 +75,7 @@ static int lovrSetConf(lua_State* L) {
 
 static bool glfwAlreadyInit = false;
 
-void lovrInit(lua_State* L, int argc, char** argv) {
+void lovrInit(lua_State* L, int argc, const char** argv) {
   if (argc > 1 && strcmp(argv[1], "--version") == 0) {
     printf("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
     exit(0);
