@@ -86,7 +86,6 @@ Building
 Here's how to compile LÖVR using CMake:
 
 ```console
-mkdir build
 cd build
 cmake ..
 cmake --build .
