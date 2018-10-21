@@ -1,5 +1,4 @@
 .tup
-build
 /lovr
 /data
 /*.lua
@@ -7,6 +6,5 @@ src/obj
 **/Tupfile
 Tuprules.tup
 /watch.sh
-*.glsl
 .DS_Store
 bin
