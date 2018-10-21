@@ -171,7 +171,7 @@ static void oculusSetMirrored(bool mirror, HeadsetEye eye) {
   state.mirrorEye = eye;
 }
 
-static void oculusGetDisplayDimensions(int* width, int* height) {
+static void oculusGetDisplayDimensions(uint32_t* width, uint32_t* height) {
   ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
   ovrSizei size = ovr_GetFovTextureSize(state.session, ovrEye_Left, desc.DefaultEyeFov[0], 1.0f);
 

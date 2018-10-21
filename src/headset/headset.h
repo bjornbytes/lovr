@@ -73,7 +73,7 @@ typedef struct {
   bool (*isMounted)();
   void (*isMirrored)(bool* mirrored, HeadsetEye* eye);
   void (*setMirrored)(bool mirror, HeadsetEye eye);
-  void (*getDisplayDimensions)(int* width, int* height);
+  void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
   void (*getClipDistance)(float* clipNear, float* clipFar);
   void (*setClipDistance)(float clipNear, float clipFar);
   void (*getBoundsDimensions)(float* width, float* depth);

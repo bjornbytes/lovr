@@ -12,7 +12,7 @@ extern HeadsetOrigin webvrGetOriginType(void);
 extern bool webvrIsMounted(void);
 extern bool webvrIsMirrored(void);
 extern void webvrSetMirrored(bool mirror);
-extern void webvrGetDisplayDimensions(int32_t* width, int32_t* height);
+extern void webvrGetDisplayDimensions(uint32_t* width, uint32_t* height);
 extern void webvrGetClipDistance(float* near, float* far);
 extern void webvrSetClipDistance(float near, float far);
 extern void webvrGetBoundsDimensions(float* width, float* depth);

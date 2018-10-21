@@ -113,11 +113,14 @@ static void fakeSetMirrored(bool mirror, HeadsetEye eye) {
   state.mirrorEye = eye;
 }
 
-static void fakeGetDisplayDimensions(int* width, int* height) {
+static void fakeGetDisplayDimensions(uint32_t* width, uint32_t* height) {
   updateWindow();
 
   if (state.window) {
-    glfwGetFramebufferSize(state.window, width, height);
+    int w, h;
+    glfwGetFramebufferSize(state.window, &w, &h);
+    *width = (uint32_t) w;
+    *height = (uint32_t) h;
   }
 }
 
@@ -215,7 +218,7 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
     return;
   }
 
-  int width, height;
+  uint32_t width, height;
   fakeGetDisplayDimensions(&width, &height);
   bool stereo = state.mirrorEye == EYE_BOTH;
   Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = stereo };

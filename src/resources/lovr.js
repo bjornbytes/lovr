@@ -152,8 +152,8 @@ var LibraryLOVR = {
   },
 
   webvrGetDisplayDimensions: function(width, height) {
-    HEAP32[width >> 2] = webvr.width;
-    HEAP32[height >> 2] = webvr.height;
+    HEAPU32[width >> 2] = webvr.width;
+    HEAPU32[height >> 2] = webvr.height;
   },
 
   webvrGetClipDistance: function(clipNear, clipFar) {

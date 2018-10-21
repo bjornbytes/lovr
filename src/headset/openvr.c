@@ -295,7 +295,7 @@ static void openvrSetMirrored(bool mirror, HeadsetEye eye) {
   state.mirrorEye = eye;
 }
 
-static void openvrGetDisplayDimensions(int* width, int* height) {
+static void openvrGetDisplayDimensions(uint32_t* width, uint32_t* height) {
   state.system->GetRecommendedRenderTargetSize(width, height);
 }
 

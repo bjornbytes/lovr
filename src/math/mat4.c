@@ -297,7 +297,7 @@ mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom,
   float rl = right - left;
   float tb = top - bottom;
   float fn = clipFar - clipNear;
-  mat4_identity(m);
+  memset(m, 0, 16 * sizeof(float));
   m[0] = 2 / rl;
   m[5] = 2 / tb;
   m[10] = -2 / fn;
@@ -314,7 +314,7 @@ mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, float a
   float sy = clipNear / range;
   float sz = -(clipFar + clipNear) / (clipFar - clipNear);
   float pz = (-2.0f * clipFar * clipNear) / (clipFar - clipNear);
-  mat4_identity(m);
+  memset(m, 0, 16 * sizeof(float));
   m[0] = sx;
   m[5] = sy;
   m[10] = sz;

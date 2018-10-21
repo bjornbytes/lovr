@@ -115,24 +115,24 @@ static int l_lovrHeadsetSetMirrored(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetDisplayWidth(lua_State* L) {
-  int width, height;
+  uint32_t width, height;
   lovrHeadsetDriver->getDisplayDimensions(&width, &height);
-  lua_pushnumber(L, width);
+  lua_pushinteger(L, width);
   return 1;
 }
 
 static int l_lovrHeadsetGetDisplayHeight(lua_State* L) {
-  int width, height;
+  uint32_t width, height;
   lovrHeadsetDriver->getDisplayDimensions(&width, &height);
-  lua_pushnumber(L, height);
+  lua_pushinteger(L, height);
   return 1;
 }
 
 static int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
-  int width, height;
+  uint32_t width, height;
   lovrHeadsetDriver->getDisplayDimensions(&width, &height);
-  lua_pushnumber(L, width);
-  lua_pushnumber(L, height);
+  lua_pushinteger(L, width);
+  lua_pushinteger(L, height);
   return 2;
 }
 
