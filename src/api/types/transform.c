@@ -136,20 +136,20 @@ int l_lovrTransformSetOrthographic(lua_State* L) {
   float right = luaL_checknumber(L, 3);
   float top = luaL_checknumber(L, 4);
   float bottom = luaL_checknumber(L, 5);
-  float near = luaL_checknumber(L, 6);
-  float far = luaL_checknumber(L, 7);
-  mat4_orthographic(transform->matrix, left, right, top, bottom, near, far);
+  float clipNear = luaL_checknumber(L, 6);
+  float clipFar = luaL_checknumber(L, 7);
+  mat4_orthographic(transform->matrix, left, right, top, bottom, clipNear, clipFar);
   lua_pushvalue(L, 1);
   return 1;
 }
 
 int l_lovrTransformSetPerspective(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
-  float near = luaL_checknumber(L, 2);
-  float far = luaL_checknumber(L, 3);
+  float clipNear = luaL_checknumber(L, 2);
+  float clipFar = luaL_checknumber(L, 3);
   float fov = luaL_checknumber(L, 4);
   float aspect = luaL_checknumber(L, 5);
-  mat4_perspective(transform->matrix, near, far, fov, aspect);
+  mat4_perspective(transform->matrix, clipNear, clipFar, fov, aspect);
   lua_pushvalue(L, 1);
   return 1;
 }
