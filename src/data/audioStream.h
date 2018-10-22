@@ -1,4 +1,4 @@
-#include "filesystem/blob.h"
+#include "data/blob.h"
 #include "util.h"
 
 #pragma once
@@ -16,8 +16,8 @@ typedef struct {
 } AudioStream;
 
 AudioStream* lovrAudioStreamCreate(Blob* blob, size_t bufferSize);
-void lovrAudioStreamDestroy(const Ref* ref);
-int lovrAudioStreamDecode(AudioStream* stream);
+void lovrAudioStreamDestroy(void* ref);
+int lovrAudioStreamDecode(AudioStream* stream, short* destination, size_t size);
 void lovrAudioStreamRewind(AudioStream* stream);
 void lovrAudioStreamSeek(AudioStream* stream, int sample);
 int lovrAudioStreamTell(AudioStream* stream);

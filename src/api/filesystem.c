@@ -1,14 +1,13 @@
 #include "api.h"
 #include "filesystem/filesystem.h"
-#include "filesystem/blob.h"
+#include "data/blob.h"
 #include <stdlib.h>
-#include <string.h>
 
 // Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
 Blob* luax_readblob(lua_State* L, int index, const char* debug) {
   if (lua_type(L, index) == LUA_TUSERDATA) {
     Blob* blob = luax_checktype(L, index, Blob);
-    lovrRetain(&blob->ref);
+    lovrRetain(blob);
     return blob;
   } else {
     const char* path = luaL_checkstring(L, index);
@@ -31,41 +30,56 @@ static int pushDirectoryItem(void* userdata, const char* path, const char* filen
   return 1;
 }
 
-int l_lovrFilesystemLoad(lua_State* L);
+static int l_lovrFilesystemLoad(lua_State* L);
 
-// Loader to help Lua's require understand PhysFS.
-static int filesystemLoader(lua_State* L) {
-  const char* module = luaL_checkstring(L, -1);
-  char* dot;
+static int moduleLoader(lua_State* L) {
+  const char* module = luaL_gsub(L, lua_tostring(L, -1), ".", "/");
+  lua_pop(L, 2);
 
-  char path[LOVR_PATH_MAX];
-  strncpy(path, module, LOVR_PATH_MAX);
-
-  while ((dot = strchr(path, '.')) != NULL) {
-    *dot = '/';
+  char* path; int i;
+  vec_foreach(lovrFilesystemGetRequirePath(), path, i) {
+    const char* filename = luaL_gsub(L, path, "?", module);
+    if (lovrFilesystemIsFile(filename)) {
+      return l_lovrFilesystemLoad(L);
+    }
+    lua_pop(L, 1);
   }
 
-  const char* requirePath[] = {
-    "?.lua",
-    "?/init.lua"
-  };
+  return 0;
+}
 
-  for (size_t i = 0; i < sizeof(requirePath) / sizeof(char*); i++) {
-    char filename[LOVR_PATH_MAX];
-    char* sub = strchr(requirePath[i], '?');
+static const char* libraryExtensions[] = {
+#ifdef _WIN32
+  ".dll", NULL
+#elif __APPLE__
+  ".so", ".dylib", NULL
+#else
+  ".so", NULL
+#endif
+};
 
-    memset(filename, 0, LOVR_PATH_MAX);
+static int libraryLoader(lua_State* L) {
+  const char* modulePath = luaL_gsub(L, lua_tostring(L, -1), ".", "/");
+  const char* moduleFunction = luaL_gsub(L, lua_tostring(L, -1), ".", "_");
+  char* hyphen = strchr(moduleFunction, '-');
+  moduleFunction = hyphen ? hyphen + 1 : moduleFunction;
+  lua_pop(L, 3);
 
-    if (sub) {
-      int index = (int) (sub - requirePath[i]);
-      strncat(filename, requirePath[i], index);
-      strncat(filename, path, strlen(path));
-      strncat(filename, requirePath[i] + index + 1, strlen(requirePath[i]) - index);
+  char* path; int i;
+  vec_foreach(lovrFilesystemGetCRequirePath(), path, i) {
+    for (const char** extension = libraryExtensions; *extension != NULL; extension++) {
+      char buffer[64];
+      snprintf(buffer, 63, "%s%s", modulePath, *extension);
+      const char* filename = luaL_gsub(L, path, "??", buffer);
+      filename = luaL_gsub(L, filename, "?", modulePath);
+      lua_pop(L, 2);
 
       if (lovrFilesystemIsFile(filename)) {
-        lua_pop(L, 1);
-        lua_pushstring(L, filename);
-        return l_lovrFilesystemLoad(L);
+        char fullPath[LOVR_PATH_MAX];
+        const char* realPath = lovrFilesystemGetRealDirectory(filename);
+        snprintf(fullPath, LOVR_PATH_MAX - 1, "%s%c%s", realPath, lovrDirSep, filename);
+        luax_loadlib(L, fullPath, moduleFunction);
+        return 1;
       }
     }
   }
@@ -73,37 +87,7 @@ static int filesystemLoader(lua_State* L) {
   return 0;
 }
 
-int l_lovrFilesystemInit(lua_State* L) {
-  lua_newtable(L);
-  luaL_register(L, NULL, lovrFilesystem);
-  luax_registertype(L, "Blob", lovrBlob);
-
-  lua_getglobal(L, "arg");
-  lua_rawgeti(L, -1, -2);
-  lua_rawgeti(L, -2, 1);
-  const char* arg0 = lua_tostring(L, -2);
-  const char* arg1 = lua_tostring(L, -1);
-  lovrFilesystemInit(arg0, arg1);
-  lua_pop(L, 3);
-
-  // Add custom package loader
-  lua_getglobal(L, "table");
-  lua_getfield(L, -1, "insert");
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "loaders");
-  lua_remove(L, -2);
-  if (lua_istable(L, -1)) {
-    lua_pushinteger(L, 2); // Insert our loader after package.preload
-    lua_pushcfunction(L, filesystemLoader);
-    lua_call(L, 3, 0);
-  }
-
-  lua_pop(L, 1);
-
-  return 1;
-}
-
-int l_lovrFilesystemAppend(lua_State* L) {
+static int l_lovrFilesystemAppend(lua_State* L) {
   size_t size;
   const char* path = luaL_checkstring(L, 1);
   const char* content = luaL_checklstring(L, 2, &size);
@@ -111,14 +95,14 @@ int l_lovrFilesystemAppend(lua_State* L) {
   return 1;
 }
 
-int l_lovrFilesystemCreateDirectory(lua_State* L) {
+static int l_lovrFilesystemCreateDirectory(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, !lovrFilesystemCreateDirectory(path));
   return 1;
 }
 
-int l_lovrFilesystemGetAppdataDirectory(lua_State* L) {
-  char buffer[1024];
+static int l_lovrFilesystemGetAppdataDirectory(lua_State* L) {
+  char buffer[LOVR_PATH_MAX];
 
   if (lovrFilesystemGetAppdataDirectory(buffer, sizeof(buffer))) {
     lua_pushnil(L);
@@ -129,15 +113,15 @@ int l_lovrFilesystemGetAppdataDirectory(lua_State* L) {
   return 1;
 }
 
-int l_lovrFilesystemGetDirectoryItems(lua_State* L) {
+static int l_lovrFilesystemGetDirectoryItems(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_newtable(L);
   lovrFilesystemGetDirectoryItems(path, pushDirectoryItem, L);
   return 1;
 }
 
-int l_lovrFilesystemGetExecutablePath(lua_State* L) {
-  char buffer[1024];
+static int l_lovrFilesystemGetExecutablePath(lua_State* L) {
+  char buffer[LOVR_PATH_MAX];
 
   if (lovrFilesystemGetExecutablePath(buffer, sizeof(buffer))) {
     lua_pushnil(L);
@@ -148,7 +132,7 @@ int l_lovrFilesystemGetExecutablePath(lua_State* L) {
   return 1;
 }
 
-int l_lovrFilesystemGetIdentity(lua_State* L) {
+static int l_lovrFilesystemGetIdentity(lua_State* L) {
   const char* identity = lovrFilesystemGetIdentity();
   if (identity) {
     lua_pushstring(L, identity);
@@ -158,7 +142,7 @@ int l_lovrFilesystemGetIdentity(lua_State* L) {
   return 1;
 }
 
-int l_lovrFilesystemGetLastModified(lua_State* L) {
+static int l_lovrFilesystemGetLastModified(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   int lastModified = lovrFilesystemGetLastModified(path);
 
@@ -171,18 +155,34 @@ int l_lovrFilesystemGetLastModified(lua_State* L) {
   return 1;
 }
 
-int l_lovrFilesystemGetRealDirectory(lua_State* L) {
+static int l_lovrFilesystemGetRealDirectory(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushstring(L, lovrFilesystemGetRealDirectory(path));
   return 1;
 }
 
-int l_lovrFilesystemGetSaveDirectory(lua_State* L) {
+static void pushRequirePath(lua_State* L, vec_str_t* path) {
+  char* pattern; int i;
+  vec_foreach(path, pattern, i) {
+    lua_pushstring(L, pattern);
+    lua_pushstring(L, ";");
+  }
+  lua_pop(L, 1);
+  lua_concat(L, path->length * 2 - 1);
+}
+
+static int l_lovrFilesystemGetRequirePath(lua_State* L) {
+  pushRequirePath(L, lovrFilesystemGetRequirePath());
+  pushRequirePath(L, lovrFilesystemGetCRequirePath());
+  return 2;
+}
+
+static int l_lovrFilesystemGetSaveDirectory(lua_State* L) {
   lua_pushstring(L, lovrFilesystemGetSaveDirectory());
   return 1;
 }
 
-int l_lovrFilesystemGetSize(lua_State* L) {
+static int l_lovrFilesystemGetSize(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   size_t size = lovrFilesystemGetSize(path);
   if ((int) size == -1) {
@@ -192,7 +192,7 @@ int l_lovrFilesystemGetSize(lua_State* L) {
   return 1;
 }
 
-int l_lovrFilesystemGetSource(lua_State* L) {
+static int l_lovrFilesystemGetSource(lua_State* L) {
   const char* source = lovrFilesystemGetSource();
 
   if (source) {
@@ -204,29 +204,41 @@ int l_lovrFilesystemGetSource(lua_State* L) {
   return 1;
 }
 
-int l_lovrFilesystemGetUserDirectory(lua_State* L) {
+static int l_lovrFilesystemGetUserDirectory(lua_State* L) {
   lua_pushstring(L, lovrFilesystemGetUserDirectory());
   return 1;
 }
 
-int l_lovrFilesystemIsDirectory(lua_State* L) {
+static int l_lovrFilesystemGetWorkingDirectory(lua_State* L) {
+  char buffer[LOVR_PATH_MAX];
+
+  if (lovrFilesystemGetWorkingDirectory(buffer, sizeof(buffer))) {
+    lua_pushnil(L);
+  } else {
+    lua_pushstring(L, buffer);
+  }
+
+  return 1;
+}
+
+static int l_lovrFilesystemIsDirectory(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, lovrFilesystemIsDirectory(path));
   return 1;
 }
 
-int l_lovrFilesystemIsFile(lua_State* L) {
+static int l_lovrFilesystemIsFile(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, lovrFilesystemIsFile(path));
   return 1;
 }
 
-int l_lovrFilesystemIsFused(lua_State* L) {
+static int l_lovrFilesystemIsFused(lua_State* L) {
   lua_pushboolean(L, lovrFilesystemIsFused());
   return 1;
 }
 
-int l_lovrFilesystemLoad(lua_State* L) {
+static int l_lovrFilesystemLoad(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   size_t size;
   char* content = lovrFilesystemRead(path, &size);
@@ -235,7 +247,10 @@ int l_lovrFilesystemLoad(lua_State* L) {
     return luaL_error(L, "Could not read file '%s'", path);
   }
 
-  int status = luaL_loadbuffer(L, content, size, path);
+  char debug[LOVR_PATH_MAX];
+  snprintf(debug, LOVR_PATH_MAX, "@%s", path);
+
+  int status = luaL_loadbuffer(L, content, size, debug);
   free(content);
   switch (status) {
     case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1));
@@ -244,7 +259,7 @@ int l_lovrFilesystemLoad(lua_State* L) {
   }
 }
 
-int l_lovrFilesystemMount(lua_State* L) {
+static int l_lovrFilesystemMount(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   const char* mountpoint = luaL_optstring(L, 2, NULL);
   bool append = lua_isnoneornil(L, 3) ? 0 : lua_toboolean(L, 3);
@@ -252,48 +267,34 @@ int l_lovrFilesystemMount(lua_State* L) {
   return 1;
 }
 
-int l_lovrFilesystemNewBlob(lua_State* L) {
-  const char* path;
-  char* data;
+static int l_lovrFilesystemNewBlob(lua_State* L) {
   size_t size;
-
-  if (lua_gettop(L) == 1) {
-    path = luaL_checkstring(L, 1);
-    data = lovrFilesystemRead(path, &size);
-  } else {
-    const char* str = luaL_checklstring(L, 1, &size);
-    data = malloc(size + 1); // Copy the Lua string so we can hold onto it
-    memcpy(data, str, size);
-    data[size] = '\0';
-    path = luaL_checkstring(L, 2);
-  }
-
+  const char* path = luaL_checkstring(L, 1);
+  uint8_t* data = lovrFilesystemRead(path, &size);
+  lovrAssert(data, "Could not load file '%s'", path);
   Blob* blob = lovrBlobCreate((void*) data, size, path);
-  luax_pushtype(L, Blob, blob);
-  lovrRelease(&blob->ref);
+  luax_pushobject(L, blob);
+  lovrRelease(blob);
   return 1;
 }
 
-int l_lovrFilesystemRead(lua_State* L) {
+static int l_lovrFilesystemRead(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   size_t size;
   char* content = lovrFilesystemRead(path, &size);
-  if (!content) {
-    return luaL_error(L, "Could not read file '%s'", path);
-  }
-
+  lovrAssert(content, "Could not read file '%s'", path);
   lua_pushlstring(L, content, size);
   free(content);
   return 1;
 }
 
-int l_lovrFilesystemRemove(lua_State* L) {
+static int l_lovrFilesystemRemove(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, !lovrFilesystemRemove(path));
   return 1;
 }
 
-int l_lovrFilesystemSetIdentity(lua_State* L) {
+static int l_lovrFilesystemSetIdentity(lua_State* L) {
   if (lua_isnoneornil(L, 1)) {
     lovrFilesystemSetIdentity(NULL);
   } else {
@@ -303,13 +304,19 @@ int l_lovrFilesystemSetIdentity(lua_State* L) {
   return 0;
 }
 
-int l_lovrFilesystemUnmount(lua_State* L) {
+static int l_lovrFilesystemSetRequirePath(lua_State* L) {
+  if (lua_type(L, 1) == LUA_TSTRING) lovrFilesystemSetRequirePath(luaL_checkstring(L, 1));
+  if (lua_type(L, 2) == LUA_TSTRING) lovrFilesystemSetCRequirePath(luaL_checkstring(L, 2));
+  return 0;
+}
+
+static int l_lovrFilesystemUnmount(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, !lovrFilesystemUnmount(path));
   return 1;
 }
 
-int l_lovrFilesystemWrite(lua_State* L) {
+static int l_lovrFilesystemWrite(lua_State* L) {
   size_t size;
   const char* path = luaL_checkstring(L, 1);
   const char* content = luaL_checklstring(L, 2, &size);
@@ -317,7 +324,7 @@ int l_lovrFilesystemWrite(lua_State* L) {
   return 1;
 }
 
-const luaL_Reg lovrFilesystem[] = {
+static const luaL_Reg lovrFilesystem[] = {
   { "append", l_lovrFilesystemAppend },
   { "createDirectory", l_lovrFilesystemCreateDirectory },
   { "getAppdataDirectory", l_lovrFilesystemGetAppdataDirectory },
@@ -326,10 +333,12 @@ const luaL_Reg lovrFilesystem[] = {
   { "getIdentity", l_lovrFilesystemGetIdentity },
   { "getLastModified", l_lovrFilesystemGetLastModified },
   { "getRealDirectory", l_lovrFilesystemGetRealDirectory },
+  { "getRequirePath", l_lovrFilesystemGetRequirePath },
   { "getSaveDirectory", l_lovrFilesystemGetSaveDirectory },
   { "getSize", l_lovrFilesystemGetSize },
   { "getSource", l_lovrFilesystemGetSource },
   { "getUserDirectory", l_lovrFilesystemGetUserDirectory },
+  { "getWorkingDirectory", l_lovrFilesystemGetWorkingDirectory },
   { "isDirectory", l_lovrFilesystemIsDirectory },
   { "isFile", l_lovrFilesystemIsFile },
   { "isFused", l_lovrFilesystemIsFused },
@@ -338,7 +347,27 @@ const luaL_Reg lovrFilesystem[] = {
   { "newBlob", l_lovrFilesystemNewBlob },
   { "read", l_lovrFilesystemRead },
   { "remove", l_lovrFilesystemRemove },
+  { "setRequirePath", l_lovrFilesystemSetRequirePath },
   { "setIdentity", l_lovrFilesystemSetIdentity },
+  { "unmount", l_lovrFilesystemUnmount },
   { "write", l_lovrFilesystemWrite },
   { NULL, NULL }
 };
+
+int luaopen_lovr_filesystem(lua_State* L) {
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrFilesystem);
+  luax_atexit(L, lovrFilesystemDestroy);
+
+  lua_getglobal(L, "arg");
+  lua_rawgeti(L, -1, -2);
+  lua_rawgeti(L, -2, 1);
+  const char* arg0 = lua_tostring(L, -2);
+  const char* arg1 = lua_tostring(L, -1);
+  lovrFilesystemInit(arg0, arg1);
+  lua_pop(L, 3);
+
+  luax_registerloader(L, moduleLoader, 2);
+  luax_registerloader(L, libraryLoader, 3);
+  return 1;
+}

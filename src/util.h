@@ -1,30 +1,37 @@
-#include "lib/vec/vec.h"
+#include "lib/tinycthread/tinycthread.h"
 #include <stdint.h>
 #include <stddef.h>
-#include <setjmp.h>
+#include <stdarg.h>
 
 #pragma once
 
-#define containerof(ptr, type) ((type*)((char*)(ptr) - offsetof(type, ref)))
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
+#define lovrAlloc(T, destructor) (T*) _lovrAlloc(#T, sizeof(T), destructor)
 
-typedef vec_t(unsigned int) vec_uint_t;
+#define MAX(a, b) (a > b ? a : b)
+#define MIN(a, b) (a < b ? a : b)
+#define CLAMP(x, min, max) MAX(min, MIN(max, x))
 
 typedef struct ref {
-  void (*free)(const struct ref* ref);
   int count;
+  const char* type;
+  void (*free)(void*);
 } Ref;
 
 typedef struct {
   float r, g, b, a;
 } Color;
 
-extern char lovrErrorMessage[];
-extern jmp_buf* lovrCatch;
+typedef void (*lovrErrorHandler)(void* userdata, const char* format, va_list args);
+extern _Thread_local lovrErrorHandler lovrErrorCallback;
+extern _Thread_local void* lovrErrorUserdata;
 
+void lovrSetErrorCallback(lovrErrorHandler callback, void* context);
 void lovrThrow(const char* format, ...);
 void lovrSleep(double seconds);
-void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref));
-void lovrRetain(const Ref* ref);
-void lovrRelease(const Ref* ref);
+void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*));
+void lovrRetain(void* object);
+void lovrRelease(void* object);
+int lovrGetExecutablePath(char* dest, uint32_t size);
 size_t utf8_decode(const char *s, const char *e, unsigned *pch);
+uint32_t nextPo2(uint32_t x);

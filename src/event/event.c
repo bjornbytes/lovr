@@ -1,29 +1,32 @@
 #include "event/event.h"
 #include "lib/glfw.h"
 #include <stdlib.h>
+#include <string.h>
 
 static EventState state;
-bool eventAlreadyInit = false;
 
 void lovrEventInit() {
-  if (eventAlreadyInit)
-    lovrEventDestroy();
+  if (state.initialized) return;
   vec_init(&state.pumps);
   vec_init(&state.events);
   lovrEventAddPump(glfwPollEvents);
-  if (!eventAlreadyInit) {
-    atexit(lovrEventDestroy);
-    eventAlreadyInit = true;
-  }
+  atexit(lovrEventDestroy);
+  state.initialized = true;
 }
 
 void lovrEventDestroy() {
+  if (!state.initialized) return;
   vec_deinit(&state.pumps);
   vec_deinit(&state.events);
+  memset(&state, 0, sizeof(EventState));
 }
 
 void lovrEventAddPump(EventPump pump) {
   vec_push(&state.pumps, pump);
+}
+
+void lovrEventRemovePump(EventPump pump) {
+  vec_remove(&state.pumps, pump);
 }
 
 void lovrEventPump() {

@@ -2,24 +2,24 @@
 #include "math/mat4.h"
 #include "math/transform.h"
 
-int luax_readtransform(lua_State* L, int index, mat4 m, bool uniformScale) {
+int luax_readtransform(lua_State* L, int index, mat4 m, int scaleComponents) {
   if (lua_isnumber(L, index)) {
     float x = luaL_optnumber(L, index++, 0);
     float y = luaL_optnumber(L, index++, 0);
     float z = luaL_optnumber(L, index++, 0);
-    float sx, sy, sz;
-    if (uniformScale) {
-      sx = sy = sz = luaL_optnumber(L, index++, 1);
+    float scale[3] = { 1., 1., 1. };
+    if (scaleComponents == 1) {
+      scale[0] = scale[1] = scale[2] = luaL_optnumber(L, index++, 1);
     } else {
-      sx = luaL_optnumber(L, index++, 1);
-      sy = luaL_optnumber(L, index++, 1);
-      sz = luaL_optnumber(L, index++, 1);
+      for (int i = 0; i < scaleComponents; i++) {
+        scale[i] = luaL_optnumber(L, index++, 1);
+      }
     }
     float angle = luaL_optnumber(L, index++, 0);
     float ax = luaL_optnumber(L, index++, 0);
     float ay = luaL_optnumber(L, index++, 1);
     float az = luaL_optnumber(L, index++, 0);
-    mat4_setTransform(m, x, y, z, sx, sy, sz, angle, ax, ay, az);
+    mat4_setTransform(m, x, y, z, scale[0], scale[1], scale[2], angle, ax, ay, az);
     return index;
   } else if (lua_isnoneornil(L, index)) {
     mat4_identity(m);
@@ -33,15 +33,20 @@ int luax_readtransform(lua_State* L, int index, mat4 m, bool uniformScale) {
 
 int l_lovrTransformGetMatrix(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
+  bool table = lua_istable(L, 2);
+  lua_settop(L, 2);
 
   float matrix[16];
   lovrTransformGetMatrix(transform, matrix);
 
   for (int i = 0; i < 16; i++) {
     lua_pushnumber(L, matrix[i]);
+    if (table) {
+      lua_rawseti(L, 2, i + 1);
+    }
   }
 
-  return 16;
+  return table ? 1 : 16;
 }
 
 int l_lovrTransformSetMatrix(lua_State* L) {
@@ -67,16 +72,16 @@ int l_lovrTransformSetMatrix(lua_State* L) {
 int l_lovrTransformClone(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
   Transform* clone = lovrTransformCreate(transform->matrix);
-  luax_pushtype(L, Transform, clone);
-  lovrRelease(&clone->ref);
+  luax_pushobject(L, clone);
+  lovrRelease(clone);
   return 1;
 }
 
 int l_lovrTransformInverse(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
   Transform* inverse = lovrTransformCreate(lovrTransformInverse(transform));
-  luax_pushtype(L, Transform, inverse);
-  lovrRelease(&inverse->ref);
+  luax_pushobject(L, inverse);
+  lovrRelease(inverse);
   return 1;
 }
 
@@ -125,39 +130,59 @@ int l_lovrTransformScale(lua_State* L) {
   return 1;
 }
 
+int l_lovrTransformSetOrthographic(lua_State* L) {
+  Transform* transform = luax_checktype(L, 1, Transform);
+  float left = luaL_checknumber(L, 2);
+  float right = luaL_checknumber(L, 3);
+  float top = luaL_checknumber(L, 4);
+  float bottom = luaL_checknumber(L, 5);
+  float near = luaL_checknumber(L, 6);
+  float far = luaL_checknumber(L, 7);
+  mat4_orthographic(transform->matrix, left, right, top, bottom, near, far);
+  lua_pushvalue(L, 1);
+  return 1;
+}
+
+int l_lovrTransformSetPerspective(lua_State* L) {
+  Transform* transform = luax_checktype(L, 1, Transform);
+  float near = luaL_checknumber(L, 2);
+  float far = luaL_checknumber(L, 3);
+  float fov = luaL_checknumber(L, 4);
+  float aspect = luaL_checknumber(L, 5);
+  mat4_perspective(transform->matrix, near, far, fov, aspect);
+  lua_pushvalue(L, 1);
+  return 1;
+}
+
 int l_lovrTransformSetTransformation(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
   lovrTransformOrigin(transform); // Dirty the Transform
-  luax_readtransform(L, 2, transform->matrix, 0);
+  luax_readtransform(L, 2, transform->matrix, 3);
   lua_pushvalue(L, 1);
   return 1;
 }
 
 int l_lovrTransformTransformPoint(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
-  float point[3] = {
-    luaL_checknumber(L, 2),
-    luaL_checknumber(L, 3),
-    luaL_checknumber(L, 4)
-  };
-  lovrTransformTransformPoint(transform, point);
-  lua_pushnumber(L, point[0]);
-  lua_pushnumber(L, point[1]);
-  lua_pushnumber(L, point[2]);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrTransformTransformPoint(transform, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
   return 3;
 }
 
 int l_lovrTransformInverseTransformPoint(lua_State* L) {
   Transform* transform = luax_checktype(L, 1, Transform);
-  float point[3] = {
-    luaL_checknumber(L, 2),
-    luaL_checknumber(L, 3),
-    luaL_checknumber(L, 4)
-  };
-  lovrTransformInverseTransformPoint(transform, point);
-  lua_pushnumber(L, point[0]);
-  lua_pushnumber(L, point[1]);
-  lua_pushnumber(L, point[2]);
+  float x = luaL_checknumber(L, 2);
+  float y = luaL_checknumber(L, 3);
+  float z = luaL_checknumber(L, 4);
+  lovrTransformInverseTransformPoint(transform, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
   return 3;
 }
 
@@ -171,7 +196,8 @@ const luaL_Reg lovrTransform[] = {
   { "translate", l_lovrTransformTranslate },
   { "rotate", l_lovrTransformRotate },
   { "scale", l_lovrTransformScale },
-  { "setTransformation", l_lovrTransformSetTransformation },
+  { "setOrthographic", l_lovrTransformSetOrthographic },
+  { "setPerspective", l_lovrTransformSetPerspective },
   { "transformPoint", l_lovrTransformTransformPoint },
   { "inverseTransformPoint", l_lovrTransformInverseTransformPoint },
   { NULL, NULL }

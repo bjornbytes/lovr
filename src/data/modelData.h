@@ -1,4 +1,4 @@
-#include "filesystem/blob.h"
+#include "data/blob.h"
 #include "data/textureData.h"
 #include "data/vertexData.h"
 #include "util.h"
@@ -23,6 +23,8 @@ typedef struct {
   map_int_t boneMap;
   int boneCount;
 } ModelPrimitive;
+
+typedef vec_t(unsigned int) vec_uint_t;
 
 typedef struct ModelNode {
   const char* name;
@@ -88,5 +90,6 @@ typedef struct {
 } ModelData;
 
 ModelData* lovrModelDataCreate(Blob* blob);
-void lovrModelDataDestroy(const Ref* ref);
+ModelData* lovrModelDataCreateEmpty();
+void lovrModelDataDestroy(void* ref);
 void lovrModelDataGetAABB(ModelData* modelData, float aabb[6]);

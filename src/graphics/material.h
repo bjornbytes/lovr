@@ -32,14 +32,17 @@ typedef struct {
   float scalars[MAX_MATERIAL_SCALARS];
   Color colors[MAX_MATERIAL_COLORS];
   Texture* textures[MAX_MATERIAL_TEXTURES];
+  float transform[9];
   bool isDefault;
 } Material;
 
-Material* lovrMaterialCreate(bool isDefault);
-void lovrMaterialDestroy(const Ref* ref);
+Material* lovrMaterialCreate();
+void lovrMaterialDestroy(void* ref);
 float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType);
 void lovrMaterialSetScalar(Material* material, MaterialScalar scalarType, float value);
 Color lovrMaterialGetColor(Material* material, MaterialColor colorType);
 void lovrMaterialSetColor(Material* material, MaterialColor colorType, Color color);
 Texture* lovrMaterialGetTexture(Material* material, MaterialTexture textureType);
 void lovrMaterialSetTexture(Material* material, MaterialTexture textureType, Texture* texture);
+void lovrMaterialGetTransform(Material* material, float* ox, float* oy, float* sx, float* sy, float* angle);
+void lovrMaterialSetTransform(Material* material, float ox, float oy, float sx, float sy, float angle);

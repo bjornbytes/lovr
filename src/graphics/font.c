@@ -5,30 +5,30 @@
 #include "data/textureData.h"
 #include "util.h"
 #include <string.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-static int lovrFontAlignLine(vec_float_t* vertices, int index, float width, HorizontalAlign halign) {
-  while (index < vertices->length) {
+static float* lovrFontAlignLine(float* x, float* lineEnd, float width, HorizontalAlign halign) {
+  while(x < lineEnd) {
     if (halign == ALIGN_CENTER) {
-      vertices->data[index] -= width / 2.f;
+      *x -= width / 2.f;
     } else if (halign == ALIGN_RIGHT) {
-      vertices->data[index] -= width;
+      *x -= width;
     }
 
-    index += 5;
+    x += 8;
   }
 
-  return index;
+  return x;
 }
 
 Font* lovrFontCreate(Rasterizer* rasterizer) {
-  Font* font = lovrAlloc(sizeof(Font), lovrFontDestroy);
+  Font* font = lovrAlloc(Font, lovrFontDestroy);
   if (!font) return NULL;
 
-  lovrRetain(&rasterizer->ref);
+  lovrRetain(rasterizer);
   font->rasterizer = rasterizer;
-  font->texture = NULL;
   font->lineHeight = 1.f;
   font->pixelDensity = (float) font->rasterizer->height;
   map_init(&font->kerning);
@@ -53,16 +53,22 @@ Font* lovrFontCreate(Rasterizer* rasterizer) {
   return font;
 }
 
-void lovrFontDestroy(const Ref* ref) {
-  Font* font = containerof(ref, Font);
-  lovrRelease(&font->rasterizer->ref);
-  lovrRelease(&font->texture->ref);
+void lovrFontDestroy(void* ref) {
+  Font* font = ref;
+  lovrRelease(font->rasterizer);
+  lovrRelease(font->texture);
+  const char* key;
+  map_iter_t iter = map_iter(&font->atlas.glyphs);
+  while ((key = map_next(&font->atlas.glyphs, &iter)) != NULL) {
+    Glyph* glyph = map_get(&font->atlas.glyphs, key);
+    lovrRelease(glyph->data);
+  }
   map_deinit(&font->atlas.glyphs);
   map_deinit(&font->kerning);
   free(font);
 }
 
-void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, vec_float_t* vertices, float* offsety) {
+void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, VertexPointer vertices, float* offsety, uint32_t* vertexCount) {
   FontAtlas* atlas = &font->atlas;
 
   float cx = 0;
@@ -78,17 +84,16 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
   unsigned int codepoint;
   size_t bytes;
 
-  int linePtr = 0;
+  float* cursor = vertices.floats;
+  float* lineStart = vertices.floats;
   int lineCount = 1;
-
-  vec_reserve(vertices, len * 30);
-  vec_clear(vertices);
+  *vertexCount = 0;
 
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
 
     // Newlines
     if (codepoint == '\n' || (wrap && cx * scale > wrap && codepoint == ' ')) {
-      linePtr = lovrFontAlignLine(vertices, linePtr, cx, halign);
+      lineStart = lovrFontAlignLine(lineStart, cursor, cx, halign);
       lineCount++;
       cx = 0;
       cy -= font->rasterizer->height * font->lineHeight;
@@ -106,7 +111,7 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
 
     // Start over if texture was repacked
     if (u != atlas->width || v != atlas->height) {
-      lovrFontRender(font, start, wrap, halign, valign, vertices, offsety);
+      lovrFontRender(font, start, wrap, halign, valign, vertices, offsety, vertexCount);
       return;
     }
 
@@ -121,16 +126,18 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
       float s2 = (glyph->x + glyph->tw) / u;
       float t2 = glyph->y / v;
 
-      float quad[30] = {
-        x1, y1, 0, s1, t1,
-        x1, y2, 0, s1, t2,
-        x2, y1, 0, s2, t1,
-        x2, y1, 0, s2, t1,
-        x1, y2, 0, s1, t2,
-        x2, y2, 0, s2, t2
+      float quad[48] = {
+        x1, y1, 0, 0, 0, 0, s1, t1,
+        x1, y2, 0, 0, 0, 0, s1, t2,
+        x2, y1, 0, 0, 0, 0, s2, t1,
+        x2, y1, 0, 0, 0, 0, s2, t1,
+        x1, y2, 0, 0, 0, 0, s1, t2,
+        x2, y2, 0, 0, 0, 0, s2, t2
       };
 
-      vec_pusharr(vertices, quad, 30);
+      memcpy(cursor, quad, 6 * 8 * sizeof(float));
+      cursor += 48;
+      *vertexCount += 6;
     }
 
     // Advance cursor
@@ -139,7 +146,7 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
   }
 
   // Align the last line
-  lovrFontAlignLine(vertices, linePtr, cx, halign);
+  lovrFontAlignLine(lineStart, cursor, cx, halign);
 
   // Calculate vertical offset
   if (valign == ALIGN_MIDDLE) {
@@ -274,8 +281,7 @@ void lovrFontAddGlyph(Font* font, Glyph* glyph) {
   glyph->y = atlas->y;
 
   // Paste glyph into texture
-  lovrGraphicsBindTexture(font->texture, TEXTURE_2D, 0);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, atlas->x, atlas->y, glyph->tw, glyph->th, GL_RGB, GL_UNSIGNED_BYTE, glyph->data);
+  lovrTextureReplacePixels(font->texture, glyph->data, atlas->x, atlas->y, 0, 0);
 
   // Advance atlas cursor
   atlas->x += glyph->tw + atlas->padding;
@@ -312,19 +318,13 @@ void lovrFontExpandTexture(Font* font) {
   }
 }
 
+// TODO we only need the TextureData here to clear the texture, but it's a big waste of memory.
+// Could look into using glClearTexImage when supported to make this more efficient.
 void lovrFontCreateTexture(Font* font) {
-  if (font->texture) {
-    lovrRelease(&font->texture->ref);
-  }
-
-  int maxTextureSize = lovrGraphicsGetLimits().textureSize;
-  if (font->atlas.width > maxTextureSize || font->atlas.height > maxTextureSize) {
-    lovrThrow("Font texture atlas overflow: exceeded %d x %d", maxTextureSize, maxTextureSize);
-  }
-
-  TextureData* textureData = lovrTextureDataGetBlank(font->atlas.width, font->atlas.height, 0x0, FORMAT_RGB);
-  TextureFilter filter = { .mode = FILTER_BILINEAR };
-  font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false);
-  lovrTextureSetFilter(font->texture, filter);
+  lovrRelease(font->texture);
+  TextureData* textureData = lovrTextureDataCreate(font->atlas.width, font->atlas.height, 0x0, FORMAT_RGB);
+  font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false, false, 0);
+  lovrTextureSetFilter(font->texture, (TextureFilter) { .mode = FILTER_BILINEAR });
   lovrTextureSetWrap(font->texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP });
+  lovrRelease(textureData);
 }

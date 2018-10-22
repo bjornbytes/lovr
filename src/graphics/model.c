@@ -1,16 +1,18 @@
 #include "graphics/model.h"
 #include "graphics/graphics.h"
+#include "graphics/shader.h"
+#include "data/blob.h"
+#include "data/textureData.h"
+#include "data/vertexData.h"
 #include "math/mat4.h"
-#include "math/vec3.h"
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
 static void renderNode(Model* model, int nodeIndex, int instances) {
   ModelNode* node = &model->modelData->nodes[nodeIndex];
 
   if (node->primitives.length > 0) {
-    lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(MATRIX_MODEL, model->nodeTransforms[nodeIndex]);
-
     float globalInverse[16];
     if (model->animator) {
       mat4_set(globalInverse, model->nodeTransforms[nodeIndex]);
@@ -38,10 +40,14 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
       }
 
       lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
-      lovrMeshDraw(model->mesh, NULL, (float*) model->pose, instances);
+      lovrMeshSetPose(model->mesh, (float*) model->pose);
+      lovrGraphicsDraw(&(DrawCommand) {
+        .transform = model->nodeTransforms[nodeIndex],
+        .mesh = model->mesh,
+        .material = lovrMeshGetMaterial(model->mesh),
+        .instances = instances
+      });
     }
-
-    lovrGraphicsPop();
   }
 
   for (int i = 0; i < node->children.length; i++) {
@@ -50,54 +56,59 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
 }
 
 Model* lovrModelCreate(ModelData* modelData) {
-  Model* model = lovrAlloc(sizeof(Model), lovrModelDestroy);
+  Model* model = lovrAlloc(Model, lovrModelDestroy);
   if (!model) return NULL;
 
-  lovrRetain(&modelData->ref);
+  lovrRetain(modelData);
   model->modelData = modelData;
   model->aabbDirty = true;
-  model->animator = NULL;
-  model->material = NULL;
 
-  model->mesh = lovrMeshCreate(modelData->vertexData->count, &modelData->vertexData->format, MESH_TRIANGLES, MESH_STATIC);
-  VertexPointer vertices = lovrMeshMap(model->mesh, 0, modelData->vertexData->count, false, true);
-  memcpy(vertices.raw, modelData->vertexData->data.raw, modelData->vertexData->count * modelData->vertexData->format.stride);
-  lovrMeshUnmap(model->mesh);
-  lovrMeshSetVertexMap(model->mesh, modelData->indices.raw, modelData->indexCount);
-  lovrMeshSetRangeEnabled(model->mesh, true);
+  model->mesh = lovrMeshCreate(modelData->vertexData->count, modelData->vertexData->format, MESH_TRIANGLES, USAGE_STATIC);
+  VertexPointer vertices = lovrMeshMapVertices(model->mesh, 0, modelData->vertexData->count, false, true);
+  memcpy(vertices.raw, modelData->vertexData->blob.data, modelData->vertexData->count * modelData->vertexData->format.stride);
+
+  IndexPointer indices = lovrMeshWriteIndices(model->mesh, modelData->indexCount, modelData->indexSize);
+  memcpy(indices.raw, modelData->indices.raw, modelData->indexCount * modelData->indexSize);
 
   if (modelData->textures.length > 0) {
-    model->textures = malloc(modelData->textures.length * sizeof(Texture*));
-    for (int i = 0; i < modelData->textures.length; i++) {
-      if (modelData->textures.data[i]) {
-        model->textures[i] = lovrTextureCreate(TEXTURE_2D, (TextureData**) &modelData->textures.data[i], 1, true);
-      } else {
-        model->textures[i] = NULL;
-      }
-    }
-  } else {
-    model->textures = NULL;
+    model->textures = calloc(modelData->textures.length, sizeof(Texture*));
   }
 
   if (modelData->materialCount > 0) {
-    model->materials = malloc(modelData->materialCount * sizeof(Material*));
+    model->materials = calloc(modelData->materialCount, sizeof(Material*));
     for (int i = 0; i < modelData->materialCount; i++) {
       ModelMaterial* materialData = &modelData->materials[i];
-      Material* material = lovrMaterialCreate(false);
+      Material* material = lovrMaterialCreate();
       lovrMaterialSetScalar(material, SCALAR_METALNESS, materialData->metalness);
       lovrMaterialSetScalar(material, SCALAR_ROUGHNESS, materialData->roughness);
       lovrMaterialSetColor(material, COLOR_DIFFUSE, materialData->diffuseColor);
       lovrMaterialSetColor(material, COLOR_EMISSIVE, materialData->emissiveColor);
-      lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, model->textures[materialData->diffuseTexture]);
-      lovrMaterialSetTexture(material, TEXTURE_EMISSIVE, model->textures[materialData->emissiveTexture]);
-      lovrMaterialSetTexture(material, TEXTURE_METALNESS, model->textures[materialData->metalnessTexture]);
-      lovrMaterialSetTexture(material, TEXTURE_ROUGHNESS, model->textures[materialData->roughnessTexture]);
-      lovrMaterialSetTexture(material, TEXTURE_OCCLUSION, model->textures[materialData->occlusionTexture]);
-      lovrMaterialSetTexture(material, TEXTURE_NORMAL, model->textures[materialData->normalTexture]);
+      for (MaterialTexture textureType = 0; textureType < MAX_MATERIAL_TEXTURES; textureType++) {
+        int textureIndex = 0;
+
+        switch (textureType) {
+          case TEXTURE_DIFFUSE: textureIndex = materialData->diffuseTexture; break;
+          case TEXTURE_EMISSIVE: textureIndex = materialData->emissiveTexture; break;
+          case TEXTURE_METALNESS: textureIndex = materialData->metalnessTexture; break;
+          case TEXTURE_ROUGHNESS: textureIndex = materialData->roughnessTexture; break;
+          case TEXTURE_OCCLUSION: textureIndex = materialData->occlusionTexture; break;
+          case TEXTURE_NORMAL: textureIndex = materialData->normalTexture; break;
+          default: break;
+        }
+
+        if (textureIndex) {
+          if (!model->textures[textureIndex]) {
+            TextureData* textureData = modelData->textures.data[textureIndex];
+            bool srgb = textureType == TEXTURE_DIFFUSE || textureType == TEXTURE_EMISSIVE;
+            model->textures[textureIndex] = lovrTextureCreate(TEXTURE_2D, &textureData, 1, srgb, true, 0);
+          }
+
+          lovrMaterialSetTexture(material, textureType, model->textures[textureIndex]);
+        }
+      }
+
       model->materials[i] = material;
     }
-  } else {
-    model->materials = NULL;
   }
 
   for (int i = 0; i < MAX_BONES; i++) {
@@ -120,26 +131,20 @@ Model* lovrModelCreate(ModelData* modelData) {
   return model;
 }
 
-void lovrModelDestroy(const Ref* ref) {
-  Model* model = containerof(ref, Model);
+void lovrModelDestroy(void* ref) {
+  Model* model = ref;
   for (int i = 0; i < model->modelData->textures.length; i++) {
-    if (model->textures[i]) {
-      lovrRelease(&model->textures[i]->ref);
-    }
+    lovrRelease(model->textures[i]);
   }
   for (int i = 0; i < model->modelData->materialCount; i++) {
-    lovrRelease(&model->materials[i]->ref);
+    lovrRelease(model->materials[i]);
   }
-  if (model->animator) {
-    lovrRelease(&model->animator->ref);
-  }
-  if (model->material) {
-    lovrRelease(&model->material->ref);
-  }
+  lovrRelease(model->animator);
+  lovrRelease(model->material);
   free(model->textures);
   free(model->materials);
-  lovrRelease(&model->modelData->ref);
-  lovrRelease(&model->mesh->ref);
+  lovrRelease(model->modelData);
+  lovrRelease(model->mesh);
   free(model->nodeTransforms);
   free(model);
 }
@@ -153,8 +158,7 @@ void lovrModelDraw(Model* model, mat4 transform, int instances) {
     for (int i = 0; i < model->modelData->nodeCount; i++) {
       ModelNode* node = &model->modelData->nodes[i];
 
-      float localTransform[16];
-      mat4_identity(localTransform);
+      float localTransform[16] = MAT4_IDENTITY;
       if (!lovrAnimatorEvaluate(model->animator, node->name, localTransform)) {
         mat4_set(localTransform, node->transform);
       }
@@ -174,9 +178,10 @@ void lovrModelDraw(Model* model, mat4 transform, int instances) {
   }
 
   lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(MATRIX_MODEL, transform);
+  lovrGraphicsMatrixTransform(transform);
   renderNode(model, 0, instances);
   lovrGraphicsPop();
+  lovrMeshSetPose(model->mesh, NULL);
 }
 
 Animator* lovrModelGetAnimator(Model* model) {
@@ -185,15 +190,9 @@ Animator* lovrModelGetAnimator(Model* model) {
 
 void lovrModelSetAnimator(Model* model, Animator* animator) {
   if (model->animator != animator) {
-    if (model->animator) {
-      lovrRelease(&model->animator->ref);
-    }
-
+    lovrRetain(animator);
+    lovrRelease(model->animator);
     model->animator = animator;
-
-    if (animator) {
-      lovrRetain(&animator->ref);
-    }
   }
 }
 
@@ -207,15 +206,9 @@ Material* lovrModelGetMaterial(Model* model) {
 
 void lovrModelSetMaterial(Model* model, Material* material) {
   if (model->material != material) {
-    if (model->material) {
-      lovrRelease(&model->material->ref);
-    }
-
+    lovrRetain(material);
+    lovrRelease(model->material);
     model->material = material;
-
-    if (material) {
-      lovrRetain(&material->ref);
-    }
   }
 }
 

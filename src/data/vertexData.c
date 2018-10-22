@@ -1,8 +1,7 @@
 #include "data/vertexData.h"
 #include <string.h>
-#include <stdio.h>
 
-static size_t attributeTypeSizes[3] = { 4, 1, 4 };
+static const size_t attributeTypeSizes[3] = { 4, 1, 4 };
 
 void vertexFormatInit(VertexFormat* format) {
   memset(format, 0, sizeof(*format));
@@ -15,8 +14,8 @@ void vertexFormatAppend(VertexFormat* format, const char* name, AttributeType ty
   format->stride += size * count;
 }
 
-VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format, bool allocate) {
-  VertexData* vertexData = lovrAlloc(sizeof(VertexData), lovrVertexDataDestroy);
+VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format) {
+  VertexData* vertexData = lovrAlloc(VertexData, lovrBlobDestroy);
   if (!vertexData) return NULL;
 
   if (format) {
@@ -30,21 +29,10 @@ VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format, bool allo
     vertexFormatAppend(&vertexData->format, "lovrVertexColor", ATTR_BYTE, 4);
   }
 
+  size_t size = format->stride * count;
+  vertexData->blob.data = calloc(1, size);
+  vertexData->blob.size = size;
   vertexData->count = count;
-  vertexData->data.raw = NULL;
-
-  if (allocate) {
-    vertexData->data.raw = malloc(format->stride * count);
-    memset(vertexData->data.raw, 0, format->stride * count);
-  }
 
   return vertexData;
-}
-
-void lovrVertexDataDestroy(const Ref* ref) {
-  VertexData* vertexData = containerof(ref, VertexData);
-  if (vertexData->data.raw) {
-    free(vertexData->data.raw);
-  }
-  free(vertexData);
 }

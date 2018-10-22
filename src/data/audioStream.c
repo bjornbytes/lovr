@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 AudioStream* lovrAudioStreamCreate(Blob* blob, size_t bufferSize) {
-  AudioStream* stream = lovrAlloc(sizeof(AudioStream), lovrAudioStreamDestroy);
+  AudioStream* stream = lovrAlloc(AudioStream, lovrAudioStreamDestroy);
   if (!stream) return NULL;
 
   stb_vorbis* decoder = stb_vorbis_open_memory(blob->data, blob->size, NULL, NULL);
@@ -24,24 +24,24 @@ AudioStream* lovrAudioStreamCreate(Blob* blob, size_t bufferSize) {
   stream->bufferSize = stream->channelCount * bufferSize * sizeof(short);
   stream->buffer = malloc(stream->bufferSize);
   stream->blob = blob;
-  lovrRetain(&blob->ref);
+  lovrRetain(blob);
 
   return stream;
 }
 
-void lovrAudioStreamDestroy(const Ref* ref) {
-  AudioStream* stream = containerof(ref, AudioStream);
+void lovrAudioStreamDestroy(void* ref) {
+  AudioStream* stream = ref;
   stb_vorbis_close(stream->decoder);
-  lovrRelease(&stream->blob->ref);
+  lovrRelease(stream->blob);
   free(stream->buffer);
   free(stream);
 }
 
-int lovrAudioStreamDecode(AudioStream* stream) {
+int lovrAudioStreamDecode(AudioStream* stream, short* destination, size_t size) {
   stb_vorbis* decoder = (stb_vorbis*) stream->decoder;
-  short* buffer = (short*) stream->buffer;
+  short* buffer = destination ? destination : (short*) stream->buffer;
+  int capacity = destination ? size : (stream->bufferSize / sizeof(short));
   int channelCount = stream->channelCount;
-  int capacity = stream->bufferSize / sizeof(short);
   int samples = 0;
 
   while (samples < capacity) {

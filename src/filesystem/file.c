@@ -1,18 +1,18 @@
 #include "filesystem/file.h"
 #include <physfs.h>
+#include <stdlib.h>
 
 File* lovrFileCreate(const char* path) {
-  File* file = lovrAlloc(sizeof(File), lovrFileDestroy);
+  File* file = lovrAlloc(File, lovrFileDestroy);
   if (!file) return NULL;
 
   file->path = path;
-  file->handle = NULL;
 
   return file;
 }
 
-void lovrFileDestroy(const Ref* ref) {
-  File* file = containerof(ref, File);
+void lovrFileDestroy(void* ref) {
+  File* file = ref;
   if (file->handle) {
     PHYSFS_close(file->handle);
   }

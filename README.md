@@ -1,40 +1,42 @@
-<p align="center"><a href="http://lovr.org"><img src="src/resources/logo.png" width="160"></a></p>
+# <p align="center"><a href="https://lovr.org"><img src="https://lovr.org/static/img/README.png" width="256"/></a></p>
 
-<h1 align="center">LÖVR</h1>
+> **A simple Lua framework for rapidly building VR experiences.**
 
-LÖVR is a simple framework for creating virtual reality experiences with Lua, based on [LÖVE](http://love2d.org).
-
-[**Homepage**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**Slack**](https://join.slack.com/ifyouwannabemylovr/shared_invite/MTc5ODk2MjE0NDM3LTE0OTQxMTIyMDEtMzdhOGVlODFhYg)
+Inspired by [LÖVE](https://love2d.org), a 2D game framework.
 
 [![Build status](https://ci.appveyor.com/api/projects/status/alx3kdi35bmxka8c/branch/master?svg=true)](https://ci.appveyor.com/project/bjornbytes/lovr/branch/master)
 [![Version](https://img.shields.io/github/release/bjornbytes/lovr.svg?label=version)](https://github.com/bjornbytes/lovr/releases)
+[![Slack](https://img.shields.io/badge/chat-slack-7e4e76.svg)](https://lovr.org/slack)
 
-Features
----
+[**Website**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**FAQ**](https://lovr.org/docs/FAQ)
 
-- Easily create VR using simple Lua scripts
-- Automatically detects and renders to connected VR headsets (works without a headset too!)
-- 3D graphics API supporting primitives, fonts, shaders, skyboxes, framebuffers, etc.
-- Import 3D models from obj, fbx, collada, or glTF files, including materials and animations.
-- Create projects for Windows, macOS, Linux, or WebVR
-- Spatialized audio
-- 3D physics
-
-Screenshots
----
-
-<p align="center">
+<p align="left">
   <span><img src="http://lovr.org/static/img/wattle.jpg" width="32%"/></span>
   <span><img src="http://lovr.org/static/img/levrage.jpg" width="32%"/></span>
   <span><img src="http://lovr.org/static/img/planets.jpg" width="32%"/></span>
 </p>
 
+Features
+---
+
+- **Cross-Platform** - Runs on Windows, Mac, Linux, and even on the web using WebAssembly and WebVR.
+- **Cross-Device** - Support for many HMDs including HTC Vive, Oculus Touch, and Windows MR headsets.  There's also a keyboard/mouse VR simulator so you can prototype without hardware.
+- **Beginner-friendly** - Simple VR scenes can be created in just a few lines of Lua.
+- **Fast** - Writen in C99 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
+- **Asset Import** - Supports 3D models (glTF, FBX, OBJ), skeletal animation, HDR textures, cubemaps, fonts, etc.
+- **Spatialized Audio** - Audio is automatically spatialized using HRTFs.
+- **3D Rigid Body Physics** - Including 4 collider shapes and 4 joint types.
+- **Compute Shaders** - For high performance GPU tasks, like particles.
+- **Multiplayer** - Includes enet for multi-user VR experiences.
+- **Umlauts** - !!!
+
 Getting Started
 ---
 
-You can download precompiled binaries from the [website](https://lovr.org).  There, you
-can also find documentation and a set of tutorials and examples.  Here is the hello world example
-for LÖVR:
+It's really easy to get started making things with LÖVR!  Grab a copy of the executable from <https://lovr.org/download>,
+then write a `main.lua` script and drag its parent folder onto the executable.  Here are some example projects to try:
+
+#### Hello World
 
 ```lua
 function lovr.draw()
@@ -42,15 +44,24 @@ function lovr.draw()
 end
 ```
 
-To run it, first create a folder for your project and put the code in a file called `main.lua`.
-Then, just drop the `project` folder onto `lovr.exe` (or run `lovr.exe path/to/project` on the
-command line).  Put on your headset and you should see the text at the front of your play area!
-
 #### Spinning Cube
 
 ```lua
 function lovr.draw()
   lovr.graphics.cube('line', 0, 1.7, -1, .5, lovr.timer.getTime())
+end
+```
+
+#### Hand Tracking
+
+```lua
+function lovr.draw()
+  controllers = lovr.headset.getControllers()
+
+  for _, controller in ipairs(controllers) do
+    x, y, z = controller:getPosition()
+    lovr.graphics.sphere(x, y, z, .1)
+  end
 end
 ```
 
@@ -62,42 +73,35 @@ function lovr.load()
 end
 
 function lovr.draw()
-  model:draw()
+  local x, y, z = 0, 0, 0
+  model:draw(x, y, z)
 end
 ```
 
-#### Audio
+You can also find lots of other WebVR examples on the [docs page](https://lovr.org/docs/Hello_World).
 
-```lua
-function lovr.load()
-  local sound = lovr.audio.newSource('darudeSandstorm.ogg')
-  sound:play()
-end
+Building
+---
+
+Here's how to compile LÖVR using CMake:
+
+```console
+cd build
+cmake ..
+cmake --build .
 ```
 
-Documentation
+For more help, see the [Compiling Guide](https://lovr.org/docs/Compiling).
+
+Resources
 ---
 
-Documentation and examples are available on the [website](https://lovr.org/docs).
-
-Community
----
-
-> If you wanna be my LÖVR, you gotta get with my friends
-> *- Spice Girls*
-
-Feel free to join the [LÖVR Slack](https://join.slack.com/ifyouwannabemylovr/shared_invite/MTc5ODk2MjE0NDM3LTE0OTQxMTIyMDEtMzdhOGVlODFhYg) for questions, info, and other discussion.
-
-Compiling
----
-
-To compile from source to create a custom build or contribute to LÖVR, see
-[`COMPILING`](COMPILING.md).
-
-Contributing
----
-
-Contributions are welcome!  See [`CONTRIBUTING`](CONTRIBUTING.md) for more information.
+- [**Documentation**](https://lovr.org/docs): Guides, tutorials, examples, and API documentation.
+- [**FAQ**](https://lovr.org/docs/FAQ): Frequently Asked Questions.
+- [**Slack Group**](https://lovr.org/slack): For general LÖVR discussion and support.
+- [**Nightly Builds**](https://lovr.org/download/nightly): Nightly builds for Windows.
+- [**Compiling Guide**](https://lovr.org/docs/Compiling): Information on compiling LÖVR from source.
+- [**Contributing**](CONTRIBUTING.md): Guide for helping out with development :heart:
 
 License
 ---

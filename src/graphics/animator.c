@@ -1,7 +1,9 @@
 #include "graphics/animator.h"
+#include "math/mat4.h"
 #include "math/vec3.h"
 #include "math/quat.h"
 #include <math.h>
+#include <stdlib.h>
 
 static Track* lovrAnimatorEnsureTrack(Animator* animator, const char* animation) {
   Track* track = map_get(&animator->trackMap, animation);
@@ -14,10 +16,10 @@ static int trackSortCallback(const void* a, const void* b) {
 }
 
 Animator* lovrAnimatorCreate(ModelData* modelData) {
-  Animator* animator = lovrAlloc(sizeof(Animator), lovrAnimatorDestroy);
+  Animator* animator = lovrAlloc(Animator, lovrAnimatorDestroy);
   if (!animator) return NULL;
 
-  lovrRetain(&modelData->ref);
+  lovrRetain(modelData);
   animator->modelData = modelData;
   map_init(&animator->trackMap);
   vec_init(&animator->trackList);
@@ -43,9 +45,9 @@ Animator* lovrAnimatorCreate(ModelData* modelData) {
   return animator;
 }
 
-void lovrAnimatorDestroy(const Ref* ref) {
-  Animator* animator = containerof(ref, Animator);
-  lovrRelease(&animator->modelData->ref);
+void lovrAnimatorDestroy(void* ref) {
+  Animator* animator = ref;
+  lovrRelease(animator->modelData);
   map_deinit(&animator->trackMap);
   vec_deinit(&animator->trackList);
   free(animator);

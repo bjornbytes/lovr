@@ -2,6 +2,7 @@
 #include "math/mat4.h"
 #include "util.h"
 #include "lib/map/map.h"
+#include "lib/vec/vec.h"
 #include <stdbool.h>
 
 #pragma once
@@ -27,7 +28,7 @@ typedef struct {
 } Animator;
 
 Animator* lovrAnimatorCreate(ModelData* modelData);
-void lovrAnimatorDestroy(const Ref* ref);
+void lovrAnimatorDestroy(void* ref);
 void lovrAnimatorReset(Animator* animator);
 void lovrAnimatorUpdate(Animator* animator, float dt);
 bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform);

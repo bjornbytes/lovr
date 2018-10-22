@@ -1,43 +1,75 @@
 #include "luax.h"
 #include "util.h"
 #include <stdlib.h>
+#include <stdarg.h>
 
-static int luax_pushobjectname(lua_State* L) {
+static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "name");
   return 1;
 }
 
-static void luax_pushobjectregistry(lua_State* L) {
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
+static int luax_meta__gc(lua_State* L) {
+  lovrRelease(*(Ref**) lua_touserdata(L, 1));
+  return 0;
+}
 
-  // Create the registry if it doesn't exist yet
+static int luax_module__gc(lua_State* L) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+  for (int i = lua_objlen(L, 2); i >= 1; i--) {
+    lua_rawgeti(L, 2, i);
+    luax_destructor destructor = (luax_destructor) lua_touserdata(L, -1);
+    destructor();
+    lua_pop(L, 1);
+  }
+  return 0;
+}
+
+void luax_loadlib(lua_State* L, const char* library, const char* module) {
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "loadlib");
+  lua_pushstring(L, library);
+  lua_pushfstring(L, "luaopen_%s", module);
+  lua_call(L, 2, 1);
+}
+
+void luax_atexit(lua_State* L, luax_destructor destructor) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+
   if (lua_isnil(L, -1)) {
     lua_newtable(L);
     lua_replace(L, -2);
 
-    // Create the metatable
-    lua_newtable(L);
-
-    // __mode = v
-    lua_pushstring(L, "v");
-    lua_setfield(L, -2, "__mode");
-
-    // Set the metatable
+    // Userdata sentinel since tables don't have __gc (yet)
+    lua_newuserdata(L, sizeof(void*));
+    lua_createtable(L, 0, 1);
+    lua_pushcfunction(L, luax_module__gc);
+    lua_setfield(L, -2, "__gc");
     lua_setmetatable(L, -2);
+    lua_setfield(L, -2, "");
 
-    // Write the table to the registry
+    // Write to the registry
     lua_pushvalue(L, -1);
-    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
   }
+
+  int length = lua_objlen(L, -1);
+  lua_pushlightuserdata(L, (void*) destructor);
+  lua_rawseti(L, -2, length + 1);
+  lua_pop(L, 1);
 }
 
-int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f) {
+void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
+  lua_getglobal(L, "table");
+  lua_getfield(L, -1, "insert");
   lua_getglobal(L, "package");
-  lua_getfield(L, -1, "preload");
-  lua_pushcfunction(L, f);
-  lua_setfield(L, -2, key);
-  lua_pop(L, 2);
-  return 0;
+  lua_getfield(L, -1, "loaders");
+  lua_remove(L, -2);
+  if (lua_istable(L, -1)) {
+    lua_pushinteger(L, index);
+    lua_pushcfunction(L, loader);
+    lua_call(L, 3, 0);
+  }
+  lua_pop(L, 1);
 }
 
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions) {
@@ -51,7 +83,7 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   lua_setfield(L, -1, "__index");
 
   // m.__gc = gc
-  lua_pushcfunction(L, luax_releasetype);
+  lua_pushcfunction(L, luax_meta__gc);
   lua_setfield(L, -2, "__gc");
 
   // m.name = name
@@ -59,7 +91,7 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   lua_setfield(L, -2, "name");
 
   // m.__tostring
-  lua_pushcfunction(L, luax_pushobjectname);
+  lua_pushcfunction(L, luax_meta__tostring);
   lua_setfield(L, -2, "__tostring");
 
   // Register class functions
@@ -85,92 +117,114 @@ void luax_extendtype(lua_State* L, const char* base, const char* name, const lua
   lua_pop(L, 1);
 }
 
-int luax_releasetype(lua_State* L) {
-  lovrRelease(*(Ref**) lua_touserdata(L, 1));
-  return 0;
-}
+void* _luax_totype(lua_State* L, int index, const char* type) {
+  void** p = lua_touserdata(L, index);
 
-void* luax_testudata(lua_State* L, int index, const char* type) {
-  void* p = lua_touserdata(L, index);
+  if (p) {
+    Ref* object = *(Ref**) p;
+    if (!strcmp(object->type, type)) {
+      return object;
+    }
 
-  if (!p || !lua_getmetatable(L, index)) {
-    return NULL;
+    if (lua_getmetatable(L, index)) {
+      lua_getfield(L, -1, "super");
+      const char* super = lua_tostring(L, -1);
+      lua_pop(L, 2);
+      return (!super || strcmp(super, type)) ? NULL : object;
+    }
   }
 
-  luaL_getmetatable(L, type);
-  int equal = lua_rawequal(L, -1, -2);
-  lua_pop(L, 2);
-  return equal ? p : NULL;
+  return NULL;
 }
 
-// Find an object, pushing it onto the stack if it's found or leaving the stack unchanged otherwise.
-int luax_getobject(lua_State* L, void* object) {
-  luax_pushobjectregistry(L);
+void* _luax_checktype(lua_State* L, int index, const char* type) {
+  void* object = _luax_totype(L, index, type);
+
+  if (!object) {
+    luaL_typerror(L, index, type);
+  }
+
+  return object;
+}
+
+// Registers the userdata on the top of the stack in the registry.
+void luax_pushobject(lua_State* L, void* object) {
+  if (!object) {
+    lua_pushnil(L);
+    return;
+  }
+
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
+
+  // Create the registry if it doesn't exist yet
+  if (lua_isnil(L, -1)) {
+    lua_newtable(L);
+    lua_replace(L, -2);
+
+    // Create the metatable
+    lua_newtable(L);
+
+    // __mode = v
+    lua_pushstring(L, "v");
+    lua_setfield(L, -2, "__mode");
+
+    // Set the metatable
+    lua_setmetatable(L, -2);
+
+    // Write the table to the registry
+    lua_pushvalue(L, -1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
+  }
+
   lua_pushlightuserdata(L, object);
   lua_gettable(L, -2);
 
   if (lua_isnil(L, -1)) {
-    lua_pop(L, 2);
-    return 0;
+    lua_pop(L, 1);
   } else {
     lua_remove(L, -2);
-    return 1;
+    return;
   }
+
+  // Allocate userdata
+  void** u = (void**) lua_newuserdata(L, sizeof(void**));
+  luaL_getmetatable(L, ((Ref*) object)->type);
+  lua_setmetatable(L, -2);
+  lovrRetain(object);
+  *u = object;
+
+  // Write to registry and remove registry, leaving userdata on stack
+  lua_pushlightuserdata(L, object);
+  lua_pushvalue(L, -2);
+  lua_settable(L, -4);
+  lua_remove(L, -2);
 }
 
-// Registers the userdata on the top of the stack in the object registry.
-void luax_registerobject(lua_State* L, void* object) {
-  luax_pushobjectregistry(L);
-  lua_pushlightuserdata(L, object);
-  lua_pushvalue(L, -3);
-  lua_settable(L, -3);
-  lua_pop(L, 1);
-  lovrRetain(object);
+void luax_vthrow(lua_State* L, const char* format, va_list args) {
+  lua_pushvfstring(L, format, args);
+  lua_error(L);
+}
+
+int luax_getstack(lua_State* L) {
+  const char* message = luaL_checkstring(L, -1);
+  lua_getglobal(L, "debug");
+  lua_getfield(L, -1, "traceback");
+  lua_pushstring(L, message);
+  lua_pushinteger(L, 2);
+  lua_call(L, 2, 1);
+  return 1;
 }
 
 void luax_pushconf(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrconf");
 }
 
-void luax_setconf(lua_State* L) {
+int luax_setconf(lua_State* L) {
   luax_pushconf(L);
   lovrAssert(lua_isnil(L, -1), "Unable to set lovr.conf multiple times");
   lua_pop(L, 1);
   lua_setfield(L, LUA_REGISTRYINDEX, "_lovrconf");
-}
-
-void luax_pushenum(lua_State* L, map_int_t* map, int value) {
-  const char* key;
-  map_iter_t iter = map_iter(map);
-  while ((key = map_next(map, &iter))) {
-    if (*map_get(map, key) == value) {
-      lua_pushstring(L, key);
-      return;
-    }
-  }
-  lua_pushnil(L);
-}
-
-void* luax_checkenum(lua_State* L, int index, map_int_t* map, const char* typeName) {
-  const char* key = luaL_checkstring(L, index);
-  void* value = map_get(map, key);
-  if (!value) {
-    luaL_error(L, "Invalid %s '%s'", typeName, key);
-    return NULL;
-  }
-
-  return value;
-}
-
-void* luax_optenum(lua_State* L, int index, const char* fallback, map_int_t* map, const char* typeName) {
-  const char* key = luaL_optstring(L, index, fallback);
-  void* value = map_get(map, key);
-  if (!value) {
-    luaL_error(L, "Invalid %s '%s'", typeName, key);
-    return NULL;
-  }
-
-  return value;
+  return 0;
 }
 
 Color luax_checkcolor(lua_State* L, int index) {

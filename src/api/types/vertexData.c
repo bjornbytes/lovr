@@ -1,18 +1,48 @@
 #include "api.h"
+#include "api/data.h"
 
-void luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
+int luax_loadvertices(lua_State* L, int index, VertexFormat* format, VertexPointer vertices) {
+  uint32_t count = lua_objlen(L, index);
+
+  for (uint32_t i = 0; i < count; i++) {
+    lua_rawgeti(L, index, i + 1);
+    if (!lua_istable(L, -1)) {
+      return luaL_error(L, "Vertex information should be specified as a table");
+    }
+
+    int component = 0;
+    for (int j = 0; j < format->count; j++) {
+      Attribute attribute = format->attributes[j];
+      for (int k = 0; k < attribute.count; k++) {
+        lua_rawgeti(L, -1, ++component);
+        switch (attribute.type) {
+          case ATTR_FLOAT: *vertices.floats++ = luaL_optnumber(L, -1, 0.f); break;
+          case ATTR_BYTE: *vertices.bytes++ = luaL_optint(L, -1, 255); break;
+          case ATTR_INT: *vertices.ints++ = luaL_optint(L, -1, 0); break;
+        }
+        lua_pop(L, 1);
+      }
+    }
+
+    lua_pop(L, 1);
+  }
+
+  return 0;
+}
+
+bool luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
   if (!lua_istable(L, index)) {
-    return;
+    return false;
   }
 
   int length = lua_objlen(L, index);
-  lovrAssert(length <= 8, "Only 8 vertex attributes are supported");
+  lovrAssert(length <= 8, "Up to 8 vertex attributes are supported");
   for (int i = 0; i < length; i++) {
     lua_rawgeti(L, index, i + 1);
 
     if (!lua_istable(L, -1) || lua_objlen(L, -1) != 3) {
       luaL_error(L, "Expected vertex format specified as tables containing name, data type, and size");
-      return;
+      return false;
     }
 
     lua_rawgeti(L, -1, 1);
@@ -20,11 +50,14 @@ void luax_checkvertexformat(lua_State* L, int index, VertexFormat* format) {
     lua_rawgeti(L, -3, 3);
 
     const char* name = lua_tostring(L, -3);
-    AttributeType* type = (AttributeType*) luax_checkenum(L, -2, &AttributeTypes, "mesh attribute type");
+    AttributeType type = luaL_checkoption(L, -2, NULL, AttributeTypes);
     int count = lua_tointeger(L, -1);
-    vertexFormatAppend(format, name, *type, count);
+    lovrAssert(count >= 1 || count <= 4, "Vertex attribute counts must be between 1 and 4");
+    vertexFormatAppend(format, name, type, count);
     lua_pop(L, 4);
   }
+
+  return true;
 }
 
 int luax_pushvertexformat(lua_State* L, VertexFormat* format) {
@@ -38,7 +71,7 @@ int luax_pushvertexformat(lua_State* L, VertexFormat* format) {
     lua_rawseti(L, -2, 1);
 
     // Type
-    luax_pushenum(L, &AttributeTypes, attribute.type);
+    lua_pushstring(L, AttributeTypes[attribute.type]);
     lua_rawseti(L, -2, 2);
 
     // Count
@@ -55,7 +88,7 @@ int luax_pushvertexattribute(lua_State* L, VertexPointer* vertex, Attribute attr
     switch (attribute.type) {
       case ATTR_FLOAT: lua_pushnumber(L, *vertex->floats++); break;
       case ATTR_BYTE: lua_pushnumber(L, *vertex->bytes++); break;
-      case ATTR_INT: lua_pushnumber(L, *vertex->ints++); break;
+      case ATTR_INT: lua_pushinteger(L, *vertex->ints++); break;
     }
   }
   return attribute.count;
@@ -104,24 +137,6 @@ void luax_setvertex(lua_State* L, int index, VertexPointer* vertex, VertexFormat
 
 //
 
-int l_lovrVertexDataGetPointer(lua_State* L) {
-  VertexData* vertexData = luax_checktype(L, 1, VertexData);
-  lua_pushlightuserdata(L, vertexData->data.raw);
-  return 1;
-}
-
-int l_lovrVertexDataGetSize(lua_State* L) {
-  VertexData* vertexData = luax_checktype(L, 1, VertexData);
-  lua_pushinteger(L, vertexData->count * vertexData->format.stride);
-  return 1;
-}
-
-int l_lovrVertexDataGetString(lua_State* L) {
-  VertexData* vertexData = luax_checktype(L, 1, VertexData);
-  lua_pushlstring(L, vertexData->data.raw, vertexData->count * vertexData->format.stride);
-  return 1;
-}
-
 int l_lovrVertexDataGetCount(lua_State* L) {
   VertexData* vertexData = luax_checktype(L, 1, VertexData);
   uint32_t count = vertexData->count;
@@ -137,7 +152,7 @@ int l_lovrVertexDataGetFormat(lua_State* L) {
 int l_lovrVertexDataGetVertex(lua_State* L) {
   VertexData* vertexData = luax_checktype(L, 1, VertexData);
   uint32_t index = (uint32_t) luaL_checkint(L, 2) - 1;
-  VertexPointer vertex = { .raw = vertexData->data.bytes + index * vertexData->format.stride };
+  VertexPointer vertex = { .raw = (uint8_t*) vertexData->blob.data + index * vertexData->format.stride };
   return luax_pushvertex(L, &vertex, &vertexData->format);
 }
 
@@ -146,9 +161,9 @@ int l_lovrVertexDataSetVertex(lua_State* L) {
   uint32_t index = (uint32_t) luaL_checkint(L, 2) - 1;
   lovrAssert(index < vertexData->count, "Invalid vertex index: %d", index + 1);
   VertexFormat* format = &vertexData->format;
-  VertexPointer* vertex = &vertexData->data;
-  vertex->bytes += index * format->stride;
-  luax_setvertex(L, 3, vertex, format);
+  VertexPointer vertex = { .raw = vertexData->blob.data };
+  vertex.bytes += index * format->stride;
+  luax_setvertex(L, 3, &vertex, format);
   return 0;
 }
 
@@ -160,7 +175,7 @@ int l_lovrVertexDataGetVertexAttribute(lua_State* L) {
   lovrAssert(vertexIndex < vertexData->count, "Invalid vertex index: %d", vertexIndex + 1);
   lovrAssert(attributeIndex >= 0 && attributeIndex < format->count, "Invalid attribute index: %d", attributeIndex + 1);
   Attribute attribute = format->attributes[attributeIndex];
-  VertexPointer vertex = vertexData->data;
+  VertexPointer vertex = { .raw = vertexData->blob.data };
   vertex.bytes += vertexIndex * format->stride + attribute.offset;
   return luax_pushvertexattribute(L, &vertex, attribute);
 }
@@ -173,7 +188,7 @@ int l_lovrVertexDataSetVertexAttribute(lua_State* L) {
   lovrAssert(vertexIndex < vertexData->count, "Invalid vertex index: %d", vertexIndex + 1);
   lovrAssert(attributeIndex >= 0 && attributeIndex < format->count, "Invalid attribute index: %d", attributeIndex + 1);
   Attribute attribute = format->attributes[attributeIndex];
-  VertexPointer vertex = vertexData->data;
+  VertexPointer vertex = { .raw = vertexData->blob.data };
   vertex.bytes += vertexIndex * format->stride + attribute.offset;
   luax_setvertexattribute(L, 4, &vertex, attribute);
   return 0;
@@ -186,7 +201,7 @@ int l_lovrVertexDataSetVertices(lua_State* L) {
   uint32_t vertexCount = lua_objlen(L, 2);
   int start = luaL_optnumber(L, 3, 1) - 1;
   lovrAssert(start + vertexCount <= vertexData->count, "VertexData can only hold %d vertices", vertexData->count);
-  VertexPointer vertices = vertexData->data;
+  VertexPointer vertices = { .raw = vertexData->blob.data };
   vertices.bytes += start * format->stride;
 
   for (uint32_t i = 0; i < vertexCount; i++) {
@@ -200,9 +215,6 @@ int l_lovrVertexDataSetVertices(lua_State* L) {
 }
 
 const luaL_Reg lovrVertexData[] = {
-  { "getPointer", l_lovrVertexDataGetPointer },
-  { "getSize", l_lovrVertexDataGetSize },
-  { "getString", l_lovrVertexDataGetString },
   { "getCount", l_lovrVertexDataGetCount },
   { "getFormat", l_lovrVertexDataGetFormat },
   { "getVertex", l_lovrVertexDataGetVertex },

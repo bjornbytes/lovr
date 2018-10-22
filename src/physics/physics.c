@@ -1,6 +1,7 @@
 #include "physics.h"
 #include "math/quat.h"
 #include <stdlib.h>
+#include <stdbool.h>
 
 static void defaultNearCallback(void* data, dGeomID a, dGeomID b) {
   lovrWorldCollide((World*) data, dGeomGetData(a), dGeomGetData(b), -1, -1);
@@ -28,23 +29,22 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
   }
 }
 
-static bool odeAlreadyInit = false;
+static bool initialized = false;
 
 void lovrPhysicsInit() {
-  if (odeAlreadyInit)
-    return;
-
+  if (initialized) return;
   dInitODE();
-  atexit(lovrPhysicsDestroy);
-  odeAlreadyInit = true;
+  initialized = true;
 }
 
 void lovrPhysicsDestroy() {
+  if (!initialized) return;
   dCloseODE();
+  initialized = false;
 }
 
 World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, int tagCount) {
-  World* world = lovrAlloc(sizeof(World), lovrWorldDestroy);
+  World* world = lovrAlloc(World, lovrWorldDestroy);
   if (!world) return NULL;
 
   world->id = dWorldCreate();
@@ -66,16 +66,23 @@ World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char
   return world;
 }
 
-void lovrWorldDestroy(const Ref* ref) {
-  World* world = containerof(ref, World);
+void lovrWorldDestroy(void* ref) {
+  World* world = ref;
   lovrWorldDestroyData(world);
   vec_deinit(&world->overlaps);
+  map_deinit(&world->tags);
   free(world);
 }
 
 void lovrWorldDestroyData(World* world) {
+  while (world->head) {
+    Collider* next = world->head->next;
+    lovrColliderDestroyData(world->head);
+    world->head = next;
+  }
+
   if (world->contactGroup) {
-    dJointGroupEmpty(world->contactGroup);
+    dJointGroupDestroy(world->contactGroup);
     world->contactGroup = NULL;
   }
 
@@ -267,8 +274,7 @@ int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const cha
 }
 
 Collider* lovrColliderCreate(World* world, float x, float y, float z) {
-  lovrAssert(world, "No world specified");
-  Collider* collider = lovrAlloc(sizeof(Collider), lovrColliderDestroy);
+  Collider* collider = lovrAlloc(Collider, lovrColliderDestroy);
   if (!collider) return NULL;
 
   collider->body = dBodyCreate(world->id);
@@ -282,22 +288,56 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
 
   lovrColliderSetPosition(collider, x, y, z);
 
+  // Adjust the world's collider list
+  if (!collider->world->head) {
+    collider->world->head = collider;
+  } else {
+    collider->next = collider->world->head;
+    collider->next->prev = collider;
+    collider->world->head = collider;
+  }
+
+  // The world owns a reference to the collider
+  lovrRetain(collider);
+
   return collider;
 }
 
-void lovrColliderDestroy(const Ref* ref) {
-  Collider* collider = containerof(ref, Collider);
+void lovrColliderDestroy(void* ref) {
+  Collider* collider = ref;
+  lovrColliderDestroyData(collider);
   vec_deinit(&collider->shapes);
   vec_deinit(&collider->joints);
-  lovrColliderDestroyData(collider);
   free(collider);
 }
 
 void lovrColliderDestroyData(Collider* collider) {
-  if (collider->body) {
-    dBodyDestroy(collider->body);
-    collider->body = NULL;
+  if (!collider->body) {
+    return;
   }
+
+  vec_void_t* shapes = lovrColliderGetShapes(collider);
+  Shape* shape; int i;
+  vec_foreach(shapes, shape, i) {
+    lovrColliderRemoveShape(collider, shape);
+  }
+
+  vec_void_t* joints = lovrColliderGetJoints(collider);
+  Joint* joint; int j;
+  vec_foreach(joints, joint, j) {
+    lovrRelease(joint);
+  }
+
+  dBodyDestroy(collider->body);
+  collider->body = NULL;
+
+  if (collider->next) collider->next->prev = collider->prev;
+  if (collider->prev) collider->prev->next = collider->next;
+  if (collider->world->head == collider) collider->world->head = collider->next;
+  collider->next = collider->prev = NULL;
+
+  // If the Collider is destroyed, the world lets go of its reference to this Collider
+  lovrRelease(collider);
 }
 
 World* lovrColliderGetWorld(Collider* collider) {
@@ -305,16 +345,15 @@ World* lovrColliderGetWorld(Collider* collider) {
 }
 
 void lovrColliderAddShape(Collider* collider, Shape* shape) {
-  shape->collider = collider;
-  dGeomSetBody(shape->id, collider->body);
+  lovrRetain(shape);
 
-  dSpaceID oldSpace = dGeomGetSpace(shape->id);
-  dSpaceID newSpace = collider->world->space;
-
-  if (oldSpace && oldSpace != newSpace) {
-    dSpaceRemove(oldSpace, shape->id);
+  if (shape->collider) {
+    lovrColliderRemoveShape(shape->collider, shape);
   }
 
+  shape->collider = collider;
+  dGeomSetBody(shape->id, collider->body);
+  dSpaceID newSpace = collider->world->space;
   dSpaceAdd(newSpace, shape->id);
 }
 
@@ -322,6 +361,8 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   if (shape->collider == collider) {
     dSpaceRemove(collider->world->space, shape->id);
     dGeomSetBody(shape->id, 0);
+    shape->collider = NULL;
+    lovrRelease(shape);
   }
 }
 
@@ -628,8 +669,8 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
   }
 }
 
-void lovrShapeDestroy(const Ref* ref) {
-  Shape* shape = containerof(ref, Shape);
+void lovrShapeDestroy(void* ref) {
+  Shape* shape = ref;
   lovrShapeDestroyData(shape);
   free(shape);
 }
@@ -752,7 +793,7 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {
-  SphereShape* sphere = lovrAlloc(sizeof(SphereShape), lovrShapeDestroy);
+  SphereShape* sphere = lovrAlloc(SphereShape, lovrShapeDestroy);
   if (!sphere) return NULL;
 
   sphere->type = SHAPE_SPHERE;
@@ -771,7 +812,7 @@ void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
 }
 
 BoxShape* lovrBoxShapeCreate(float x, float y, float z) {
-  BoxShape* box = lovrAlloc(sizeof(BoxShape), lovrShapeDestroy);
+  BoxShape* box = lovrAlloc(BoxShape, lovrShapeDestroy);
   if (!box) return NULL;
 
   box->type = SHAPE_BOX;
@@ -794,7 +835,7 @@ void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z) {
 }
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
-  CapsuleShape* capsule = lovrAlloc(sizeof(CapsuleShape), lovrShapeDestroy);
+  CapsuleShape* capsule = lovrAlloc(CapsuleShape, lovrShapeDestroy);
   if (!capsule) return NULL;
 
   capsule->type = SHAPE_CAPSULE;
@@ -825,7 +866,7 @@ void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
 }
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
-  CylinderShape* cylinder = lovrAlloc(sizeof(CylinderShape), lovrShapeDestroy);
+  CylinderShape* cylinder = lovrAlloc(CylinderShape, lovrShapeDestroy);
   if (!cylinder) return NULL;
 
   cylinder->type = SHAPE_CYLINDER;
@@ -855,8 +896,8 @@ void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
   dGeomCylinderSetParams(cylinder->id, lovrCylinderShapeGetRadius(cylinder), length);
 }
 
-void lovrJointDestroy(const Ref* ref) {
-  Joint* joint = containerof(ref, Joint);
+void lovrJointDestroy(void* ref) {
+  Joint* joint = ref;
   lovrJointDestroyData(joint);
   free(joint);
 }
@@ -895,7 +936,7 @@ void lovrJointSetUserData(Joint* joint, void* data) {
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
-  BallJoint* joint = lovrAlloc(sizeof(BallJoint), lovrJointDestroy);
+  BallJoint* joint = lovrAlloc(BallJoint, lovrJointDestroy);
   if (!joint) return NULL;
 
   joint->type = JOINT_BALL;
@@ -903,6 +944,7 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
   lovrBallJointSetAnchor(joint, x, y, z);
+  lovrRetain(joint);
 
   return joint;
 }
@@ -925,7 +967,7 @@ void lovrBallJointSetAnchor(BallJoint* joint, float x, float y, float z) {
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
-  DistanceJoint* joint = lovrAlloc(sizeof(DistanceJoint), lovrJointDestroy);
+  DistanceJoint* joint = lovrAlloc(DistanceJoint, lovrJointDestroy);
   if (!joint) return NULL;
 
   joint->type = JOINT_DISTANCE;
@@ -933,6 +975,7 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
   lovrDistanceJointSetAnchors(joint, x1, y1, z1, x2, y2, z2);
+  lovrRetain(joint);
 
   return joint;
 }
@@ -964,7 +1007,7 @@ void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance) {
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
-  HingeJoint* joint = lovrAlloc(sizeof(HingeJoint), lovrJointDestroy);
+  HingeJoint* joint = lovrAlloc(HingeJoint, lovrJointDestroy);
   if (!joint) return NULL;
 
   joint->type = JOINT_HINGE;
@@ -973,6 +1016,7 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, flo
   dJointAttach(joint->id, a->body, b->body);
   lovrHingeJointSetAnchor(joint, x, y, z);
   lovrHingeJointSetAxis(joint, ax, ay, az);
+  lovrRetain(joint);
 
   return joint;
 }
@@ -1027,7 +1071,7 @@ void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in the same world");
-  SliderJoint* joint = lovrAlloc(sizeof(SliderJoint), lovrJointDestroy);
+  SliderJoint* joint = lovrAlloc(SliderJoint, lovrJointDestroy);
   if (!joint) return NULL;
 
   joint->type = JOINT_SLIDER;
@@ -1035,6 +1079,7 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay,
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
   lovrSliderJointSetAxis(joint, ax, ay, az);
+  lovrRetain(joint);
 
   return joint;
 }

@@ -11,41 +11,41 @@ int l_lovrColliderDestroy(lua_State* L) {
 int l_lovrColliderGetWorld(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   World* world = lovrColliderGetWorld(collider);
-  luax_pushtype(L, World, world);
+  luax_pushobject(L, world);
   return 1;
 }
 
 int l_lovrColliderAddShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = luax_checktypeof(L, 2, Shape);
+  Shape* shape = luax_checktype(L, 2, Shape);
   lovrColliderAddShape(collider, shape);
   return 0;
 }
 
 int l_lovrColliderRemoveShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = luax_checktypeof(L, 2, Shape);
+  Shape* shape = luax_checktype(L, 2, Shape);
   lovrColliderRemoveShape(collider, shape);
   return 0;
 }
 
-int l_lovrColliderGetShapeList(lua_State* L) {
+int l_lovrColliderGetShapes(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   lua_newtable(L);
   vec_void_t* shapes = lovrColliderGetShapes(collider);
   for (int i = 0; i < shapes->length; i++) {
-    luax_pushshape(L, shapes->data[i]);
+    luax_pushobject(L, shapes->data[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
 }
 
-int l_lovrColliderGetJointList(lua_State* L) {
+int l_lovrColliderGetJoints(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   lua_newtable(L);
   vec_void_t* joints = lovrColliderGetJoints(collider);
   for (int i = 0; i < joints->length; i++) {
-    luax_pushshape(L, joints->data[i]);
+    luax_pushobject(L, joints->data[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
@@ -476,7 +476,8 @@ const luaL_Reg lovrCollider[] = {
   { "getWorld", l_lovrColliderGetWorld },
   { "addShape", l_lovrColliderAddShape },
   { "removeShape", l_lovrColliderRemoveShape },
-  { "getShapeList", l_lovrColliderGetShapeList },
+  { "getShapes", l_lovrColliderGetShapes },
+  { "getJoints", l_lovrColliderGetJoints },
   { "getUserData", l_lovrColliderGetUserData },
   { "setUserData", l_lovrColliderSetUserData },
   { "isKinematic", l_lovrColliderIsKinematic },

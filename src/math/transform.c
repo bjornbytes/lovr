@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 Transform* lovrTransformCreate(mat4 transfrom) {
-  Transform* transform = lovrAlloc(sizeof(Transform), lovrTransformDestroy);
+  Transform* transform = lovrAlloc(Transform, free);
   if (!transform) return NULL;
 
   transform->isDirty = true;
@@ -15,11 +15,6 @@ Transform* lovrTransformCreate(mat4 transfrom) {
   }
 
   return transform;
-}
-
-void lovrTransformDestroy(const Ref* ref) {
-  Transform* transform = containerof(ref, Transform);
-  free(transform);
 }
 
 void lovrTransformGetMatrix(Transform* transform, mat4 m) {
@@ -65,10 +60,10 @@ void lovrTransformScale(Transform* transform, float x, float y, float z) {
   mat4_scale(transform->matrix, x, y, z);
 }
 
-void lovrTransformTransformPoint(Transform* transform, vec3 point) {
-  mat4_transform(transform->matrix, point);
+void lovrTransformTransformPoint(Transform* transform, float* x, float* y, float* z) {
+  mat4_transform(transform->matrix, x, y, z);
 }
 
-void lovrTransformInverseTransformPoint(Transform* transform, vec3 point) {
-  mat4_transform(lovrTransformInverse(transform), point);
+void lovrTransformInverseTransformPoint(Transform* transform, float* x, float* y, float* z) {
+  mat4_transform(lovrTransformInverse(transform), x, y, z);
 }

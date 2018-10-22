@@ -12,7 +12,6 @@ typedef struct Transform {
 } Transform;
 
 Transform* lovrTransformCreate(mat4 transfrom);
-void lovrTransformDestroy(const Ref* ref);
 void lovrTransformGetMatrix(Transform* transform, mat4 m);
 void lovrTransformSetMatrix(Transform* transform, mat4 m);
 void lovrTransformApply(Transform* transform, Transform* other);
@@ -21,5 +20,5 @@ void lovrTransformOrigin(Transform* transform);
 void lovrTransformTranslate(Transform* transform, float x, float y, float z);
 void lovrTransformRotate(Transform* transform, float angle, float x, float y, float z);
 void lovrTransformScale(Transform* transform, float x, float y, float z);
-void lovrTransformTransformPoint(Transform* transform, vec3 point);
-void lovrTransformInverseTransformPoint(Transform* transform, vec3 point);
+void lovrTransformTransformPoint(Transform* transform, float* x, float* y, float* z);
+void lovrTransformInverseTransformPoint(Transform* transform, float* x, float* y, float* z);

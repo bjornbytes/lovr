@@ -3,8 +3,7 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/texture.h"
-#include "math/math.h"
-#include "lib/glfw.h"
+#include "math/mat4.h"
 #include "util.h"
 #include <stdbool.h>
 
@@ -25,7 +24,7 @@ typedef struct {
 } Model;
 
 Model* lovrModelCreate(ModelData* modelData);
-void lovrModelDestroy(const Ref* ref);
+void lovrModelDestroy(void* ref);
 void lovrModelDraw(Model* model, mat4 transform, int instances);
 Animator* lovrModelGetAnimator(Model* model);
 void lovrModelSetAnimator(Model* model, Animator* animator);

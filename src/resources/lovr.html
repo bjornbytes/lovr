@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+  <head>
+    <style>
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: 'sans-serif';
+      }
+
+      #canvas {
+        display: block;
+        border-radius: 8px;
+        background: #fff;
+        max-width: 80%;
+        width: 1080px;
+        height: auto;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+        margin: 40px auto;
+      }
+
+      button {
+        display: block;
+        margin: 0 auto;
+        font-size: 18px;
+        border-radius: 4px;
+        padding: 8px 16px;
+      }
+    </style>
+
+    <meta charset="utf-8"/>
+    <title>LÖVR</title>
+  </head>
+
+  <body>
+    <div class="container">
+      <canvas id="canvas" width="1080" height="600"></canvas>
+    </div>
+
+    <script type="text/javascript">
+      var container = document.querySelector('.container');
+      var canvas = document.getElementById('canvas');
+      var button = document.createElement('button');
+      button.textContent = 'Enter VR';
+
+      var context = canvas.getContext('webgl2', {
+        alpha: false,
+        antialias: true,
+        depth: true,
+        stencil: true,
+        preserveDrawingBuffer: true
+      });
+
+      var Module = window.Module = {
+        arguments: ['./'],
+        preRun: [findDisplay],
+        postRun: [],
+        print: console.log.bind(console),
+        printErr: console.error.bind(console),
+        thisProgram: './lovr',
+        canvas: canvas,
+        preinitializedWebGLContext: context
+      };
+
+      function findDisplay() {
+        if (navigator.getVRDisplays) {
+          Module.addRunDependency('lovrDisplay');
+          navigator.getVRDisplays().
+            then(function(displays) {
+              Module.lovrDisplay = displays[0];
+              container.appendChild(button);
+            }).finally(function() {
+              Module.removeRunDependency('lovrDisplay');
+            });
+        }
+      }
+
+      button.addEventListener('click', function() {
+        if (Module.lovrDisplay && Module.lovrDisplay.capabilities.canPresent) {
+          var eventName = Module.lovrDisplay.isPresenting ? 'lovr.exitvr' : 'lovr.entervr';
+          window.dispatchEvent(new CustomEvent(eventName));
+        }
+      });
+
+      window.addEventListener('vrdisplaypresentchange', function() {
+        button.textContent = Module.lovrDisplay.isPresenting ? 'Exit VR' : 'Enter VR';
+      });
+    </script>
+
+    {{{ SCRIPT }}}
+  </body>
+</html>

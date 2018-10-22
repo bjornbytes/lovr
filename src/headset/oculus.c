@@ -11,114 +11,44 @@
 #include <OVR_CAPI_GL.h>
 
 typedef struct {
-  bool isInitialized;
-  bool isRendering;
   bool isMirrored;
+  HeadsetEye mirrorEye;
   bool hmdPresent;
   bool needRefreshTracking;
   bool needRefreshButtons;
-  headsetRenderCallback renderCallback;
   vec_controller_t controllers;
   ovrSession session;
   ovrGraphicsLuid luid;
   float clipNear;
   float clipFar;
   int lastButtonState;
-  struct {
-    ovrSizei size;
-    GLuint fboId;
-    GLuint depthId;
-    ovrTextureSwapChain chain;
-  } eyeTextures[2];
-  ovrMirrorTexture mirrorTexture;
-  GLuint mirrorFBO;
+  ovrSizei size;
+  Canvas* canvas;
+  ovrTextureSwapChain chain;
+  ovrMirrorTexture mirror;
+  map_void_t textureLookup;
 } HeadsetState;
 
 static HeadsetState state;
 
-void lovrHeadsetInit() {
-  ovrResult result = ovr_Initialize(NULL);
-  if (OVR_FAILURE(result))
-    return;
-
-  result = ovr_Create(&state.session, &state.luid);
-  if (OVR_FAILURE(result)) {
-    ovr_Shutdown();
-    return;
+static Texture* lookupTexture(uint32_t handle) {
+  char key[4 + 1] = { 0 };
+  lovrAssert(handle < 9999, "Texture handle overflow");
+  sprintf(key, "%d", handle);
+  Texture** texture = map_get(&state.textureLookup, key);
+  if (!texture) {
+    map_set(&state.textureLookup, key, lovrTextureCreateFromHandle(handle, TEXTURE_2D));
+    texture = map_get(&state.textureLookup, key);
   }
-
-  state.needRefreshTracking = true;
-  state.needRefreshButtons = true;
-  state.lastButtonState = 0;
-  state.isInitialized = true;
-  state.isMirrored = true;
-  state.mirrorTexture = NULL;
-  int i;
-  for (i = 0; i < 2; i++) {
-    state.eyeTextures[i].size.w = 0;
-    state.eyeTextures[i].size.h = 0;
-    state.eyeTextures[i].fboId = 0;
-    state.eyeTextures[i].depthId = 0;
-    state.eyeTextures[i].chain = NULL;
-  }
-  state.clipNear = 0.1f;
-  state.clipFar = 30.f;
-
-  vec_init(&state.controllers);
-
-  // per the docs, ovrHand* is intended as array indices - so we use it directly.
-  for (i = ovrHand_Left; i < ovrHand_Count; i++) {
-    Controller *controller = lovrAlloc(sizeof(Controller), lovrControllerDestroy);
-    controller->id = ovrHand_Left+i;
-    vec_push(&state.controllers, controller);
-  }
-
-  ovr_SetTrackingOriginType(state.session, ovrTrackingOrigin_FloorLevel);
-  lovrEventAddPump(lovrHeadsetPoll);
-  atexit(lovrHeadsetDestroy);
-}
-
-void lovrHeadsetDestroy() {
-  int i;
-  Controller *controller;
-  vec_foreach(&state.controllers, controller, i) {
-    lovrRelease(&controller->ref);
-  }
-
-  vec_deinit(&state.controllers);
-
-  if (state.mirrorTexture) {
-    ovr_DestroyMirrorTexture(state.session, state.mirrorTexture);
-    state.mirrorTexture = NULL;
-  }
-
-  for (i = 0; i < 2; i++) {
-    if (state.eyeTextures[i].chain) {
-      ovr_DestroyTextureSwapChain(state.session, state.eyeTextures[i].chain);
-      state.eyeTextures[i].chain = NULL;
-    }
-  }
-
-  ovr_Destroy(state.session);
-  ovr_Shutdown();
-
-  state.isInitialized = false;
+  return *texture;
 }
 
 static void checkInput(Controller *controller, int diff, int state, ovrButton button, ControllerButton target) {
   if ((diff & button) > 0) {
-    Event e;
-    if ((state & button) > 0) {
-      e.type = EVENT_CONTROLLER_PRESSED;
-      e.data.controllerpressed.controller = controller;
-      e.data.controllerpressed.button = target;
-    }
-    else {
-      e.type = EVENT_CONTROLLER_RELEASED;
-      e.data.controllerreleased.controller = controller;
-      e.data.controllerreleased.button = target;
-    }
-    lovrEventPush(e);
+    lovrEventPush((Event) {
+      .type = (state & button) ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED,
+      .data.controller = { controller, target }
+    });
   }
 }
 
@@ -154,7 +84,363 @@ static ovrInputState *refreshButtons() {
   return &is;
 }
 
-void lovrHeadsetPoll() {
+static bool oculusInit(float offset, int msaa) {
+  ovrResult result = ovr_Initialize(NULL);
+  if (OVR_FAILURE(result)) {
+    return false;
+  }
+
+  result = ovr_Create(&state.session, &state.luid);
+  if (OVR_FAILURE(result)) {
+    ovr_Shutdown();
+    return false;
+  }
+
+  state.needRefreshTracking = true;
+  state.needRefreshButtons = true;
+  state.lastButtonState = 0;
+  state.isMirrored = true;
+  state.mirrorEye = EYE_BOTH;
+  state.clipNear = 0.1f;
+  state.clipFar = 30.f;
+
+  vec_init(&state.controllers);
+
+  for (ovrHandType hand = ovrHand_Left; hand < ovrHand_Count; hand++) {
+    Controller* controller = lovrAlloc(Controller, free);
+    controller->id = hand;
+    vec_push(&state.controllers, controller);
+  }
+
+  map_init(&state.textureLookup);
+
+  ovr_SetTrackingOriginType(state.session, ovrTrackingOrigin_FloorLevel);
+  return true;
+}
+
+static void oculusDestroy() {
+  Controller *controller; int i;
+  vec_foreach(&state.controllers, controller, i) {
+    lovrRelease(controller);
+  }
+  vec_deinit(&state.controllers);
+
+  const char* key;
+  map_iter_t iter = map_iter(&state.textureLookup);
+  while ((key = map_next(&state.textureLookup, &iter)) != NULL) {
+    Texture* texture = *(Texture**) map_get(&state.textureLookup, key);
+    lovrRelease(texture);
+  }
+  map_deinit(&state.textureLookup);
+
+  if (state.mirror) {
+    ovr_DestroyMirrorTexture(state.session, state.mirror);
+    state.mirror = NULL;
+  }
+
+  if (state.chain) {
+    ovr_DestroyTextureSwapChain(state.session, state.chain);
+    state.chain = NULL;
+  }
+
+  lovrRelease(state.canvas);
+  ovr_Destroy(state.session);
+  ovr_Shutdown();
+  memset(&state, 0, sizeof(state));
+}
+
+static HeadsetType oculusGetType() {
+  return HEADSET_RIFT;
+}
+
+static HeadsetOrigin oculusGetOriginType() {
+  return ORIGIN_FLOOR;
+}
+
+static bool oculusIsMounted() {
+  return true;
+}
+
+static void oculusIsMirrored(bool* mirrored, bool* eye) {
+  *mirrored = state.isMirrored;
+  *eye = state.mirrorEye;
+}
+
+static void oculusSetMirrored(bool mirror, HeadsetEye eye) {
+  state.isMirrored = mirror;
+  state.mirrorEye = eye;
+}
+
+static void oculusGetDisplayDimensions(uint32_t* width, uint32_t* height) {
+  ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
+  ovrSizei size = ovr_GetFovTextureSize(state.session, ovrEye_Left, desc.DefaultEyeFov[0], 1.0f);
+
+  *width = size.w;
+  *height = size.h;
+}
+
+static void oculusGetClipDistance(float* clipNear, float* clipFar) {
+  *clipNear = state.clipNear;
+  *clipFar = state.clipFar;
+}
+
+static void oculusSetClipDistance(float clipNear, float clipFar) {
+  state.clipNear = clipNear;
+  state.clipFar = clipFar;
+}
+
+static void oculusGetBoundsDimensions(float* width, float* depth) {
+  ovrVector3f dimensions;
+  ovr_GetBoundaryDimensions(state.session, ovrBoundary_PlayArea, &dimensions);
+  *width = dimensions.x;
+  *depth = dimensions.z;
+}
+
+static const float* oculusGetBoundsGeometry(int* count) {
+  *count = 0;
+  return NULL;
+}
+
+static void oculusGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f pos = ts->HeadPose.ThePose.Position;
+  *x = pos.x;
+  *y = pos.y;
+  *z = pos.z;
+  ovrQuatf oq = ts->HeadPose.ThePose.Orientation;
+  float quat[] = { oq.x, oq.y, oq.z, oq.w };
+  quat_getAngleAxis(quat, angle, ax, ay, az);
+}
+
+static void oculusGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  // TODO
+  oculusGetPose(x, y, z, angle, ax, ay, az);
+}
+
+static void oculusGetVelocity(float* x, float* y, float* z) {
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f vel = ts->HeadPose.LinearVelocity;
+  *x = vel.x;
+  *y = vel.y;
+  *z = vel.z;
+}
+
+static void oculusGetAngularVelocity(float* x, float* y, float* z) {
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f vel = ts->HeadPose.AngularVelocity;
+  *x = vel.x;
+  *y = vel.y;
+  *z = vel.z;
+}
+
+static Controller** oculusGetControllers(uint8_t* count) {
+  *count = state.controllers.length;
+  return state.controllers.data;
+}
+
+static bool oculusControllerIsConnected(Controller* controller) {
+  ovrInputState *is = refreshButtons();
+  switch (controller->id) {
+    case ovrHand_Left: return (is->ControllerType & ovrControllerType_LTouch) == ovrControllerType_LTouch;
+    case ovrHand_Right: return (is->ControllerType & ovrControllerType_RTouch) == ovrControllerType_RTouch;
+    default: return false;
+  }
+  return false;
+}
+
+static ControllerHand oculusControllerGetHand(Controller* controller) {
+  switch (controller->id) {
+    case ovrHand_Left: return HAND_LEFT;
+    case ovrHand_Right: return HAND_RIGHT;
+    default: return HAND_UNKNOWN;
+  }
+}
+
+static void oculusControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f pos = ts->HandPoses[controller->id].ThePose.Position;
+  *x = pos.x;
+  *y = pos.y;
+  *z = pos.z;
+  ovrQuatf orient = ts->HandPoses[controller->id].ThePose.Orientation;
+  float quat[4] = { orient.x, orient.y, orient.z, orient.w };
+  quat_getAngleAxis(quat, angle, ax, ay, az);
+}
+
+static float oculusControllerGetAxis(Controller* controller, ControllerAxis axis) {
+  ovrInputState *is = refreshButtons();
+  switch (axis) {
+    case CONTROLLER_AXIS_GRIP: return is->HandTriggerNoDeadzone[controller->id];
+    case CONTROLLER_AXIS_TRIGGER: return is->IndexTriggerNoDeadzone[controller->id];
+    case CONTROLLER_AXIS_TOUCHPAD_X: return is->ThumbstickNoDeadzone[controller->id].x;
+    case CONTROLLER_AXIS_TOUCHPAD_Y: return is->ThumbstickNoDeadzone[controller->id].y;
+    default: return 0.0f;
+  }
+  return 0.0f;
+}
+
+static int oculusControllerIsDown(Controller* controller, ControllerButton button) {
+  ovrInputState *is = refreshButtons();
+  int relevant = is->Buttons & ((controller->id == ovrHand_Left) ? ovrButton_LMask : ovrButton_RMask);
+  switch (button) {
+    case CONTROLLER_BUTTON_A: return (relevant & ovrButton_A) > 0;
+    case CONTROLLER_BUTTON_B: return (relevant & ovrButton_B) > 0;
+    case CONTROLLER_BUTTON_X: return (relevant & ovrButton_X) > 0;
+    case CONTROLLER_BUTTON_Y: return (relevant & ovrButton_Y) > 0;
+    case CONTROLLER_BUTTON_MENU: return (relevant & ovrButton_Enter) > 0;
+    case CONTROLLER_BUTTON_TRIGGER: return is->IndexTriggerNoDeadzone[controller->id] > 0.5f;
+    case CONTROLLER_BUTTON_TOUCHPAD: return (relevant & (ovrButton_LThumb | ovrButton_RThumb)) > 0;
+    case CONTROLLER_BUTTON_GRIP: return is->HandTrigger[controller->id] > 0.9f;
+    default: return 0;
+  }
+}
+
+static bool oculusControllerIsTouched(Controller* controller, ControllerButton button) {
+  ovrInputState *is = refreshButtons();
+  int relevant = is->Touches & ((controller->id == ovrHand_Left) ? ovrTouch_LButtonMask : ovrTouch_RButtonMask);
+  switch (button) {
+    case CONTROLLER_BUTTON_A: return (relevant & ovrTouch_A) > 0;
+    case CONTROLLER_BUTTON_B: return (relevant & ovrTouch_B) > 0;
+    case CONTROLLER_BUTTON_X: return (relevant & ovrTouch_X) > 0;
+    case CONTROLLER_BUTTON_Y: return (relevant & ovrTouch_Y) > 0;
+    case CONTROLLER_BUTTON_TRIGGER: return (relevant & (ovrTouch_LIndexTrigger | ovrTouch_RIndexTrigger)) > 0;
+    case CONTROLLER_BUTTON_TOUCHPAD:return (relevant & (ovrTouch_LThumb | ovrTouch_RThumb)) > 0;
+    default: return false;
+  }
+}
+
+static void oculusControllerVibrate(Controller* controller, float duration, float power) {
+  //ovr_SetControllerVibration(state.session, ovrControllerType_LTouch, freq, power);
+  // TODO
+}
+
+static ModelData* oculusControllerNewModelData(Controller* controller) {
+  // TODO
+  return NULL;
+}
+
+// TODO: need to set up swap chain textures for the eyes and finish view transforms
+static void oculusRenderTo(void (*callback)(void*), void* userdata) {
+  ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
+  if (!state.canvas) {
+    state.size = ovr_GetFovTextureSize(state.session, ovrEye_Left, desc.DefaultEyeFov[ovrEye_Left], 1.0f);
+
+    ovrTextureSwapChainDesc swdesc = {
+      .Type = ovrTexture_2D,
+      .ArraySize = 1,
+      .Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB,
+      .Width = 2 * state.size.w,
+      .Height = state.size.h,
+      .MipLevels = 1,
+      .SampleCount = 1,
+      .StaticImage = ovrFalse
+    };
+    lovrAssert(OVR_SUCCESS(ovr_CreateTextureSwapChainGL(state.session, &swdesc, &state.chain)), "Unable to create swapchain");
+
+    ovrMirrorTextureDesc mdesc = {
+      .Width = lovrGraphicsGetWidth(),
+      .Height = lovrGraphicsGetHeight(),
+      .Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB,
+      .MirrorOptions = ovrMirrorOption_PostDistortion
+    };
+    lovrAssert(OVR_SUCCESS(ovr_CreateMirrorTextureWithOptionsGL(state.session, &mdesc, &state.mirror)), "Unable to create mirror texture");
+
+    CanvasFlags flags = { .depth = DEPTH_D24S8, .stereo = true };
+    state.canvas = lovrCanvasCreate(2 * state.size.w, state.size.h, flags);
+  }
+
+  ovrEyeRenderDesc eyeRenderDesc[2];
+  eyeRenderDesc[0] = ovr_GetRenderDesc(state.session, ovrEye_Left, desc.DefaultEyeFov[0]);
+  eyeRenderDesc[1] = ovr_GetRenderDesc(state.session, ovrEye_Right, desc.DefaultEyeFov[1]);
+  ovrPosef HmdToEyeOffset[2] = {
+    eyeRenderDesc[0].HmdToEyePose,
+    eyeRenderDesc[1].HmdToEyePose
+  };
+  ovrPosef EyeRenderPose[2];
+  double sensorSampleTime;
+  ovr_GetEyePoses(state.session, 0, ovrTrue, HmdToEyeOffset, EyeRenderPose, &sensorSampleTime);
+
+  Camera camera = { .canvas = state.canvas };
+
+  for (HeadsetEye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
+    float orient[] = {
+      EyeRenderPose[eye].Orientation.x,
+      EyeRenderPose[eye].Orientation.y,
+      EyeRenderPose[eye].Orientation.z,
+      -EyeRenderPose[eye].Orientation.w
+    };
+    float pos[] = {
+      EyeRenderPose[eye].Position.x,
+      EyeRenderPose[eye].Position.y,
+      EyeRenderPose[eye].Position.z,
+    };
+    mat4 transform = camera.viewMatrix[eye];
+    mat4_identity(transform);
+    mat4_rotateQuat(transform, orient);
+    transform[12] = -(transform[0] * pos[0] + transform[4] * pos[1] + transform[8] * pos[2]);
+    transform[13] = -(transform[1] * pos[0] + transform[5] * pos[1] + transform[9] * pos[2]);
+    transform[14] = -(transform[2] * pos[0] + transform[6] * pos[1] + transform[10] * pos[2]);
+
+    ovrMatrix4f projection = ovrMatrix4f_Projection(desc.DefaultEyeFov[eye], state.clipNear, state.clipFar, ovrProjection_ClipRangeOpenGL);
+    mat4_fromMat44(camera.projection[eye], projection.M);
+  }
+
+  int curIndex;
+  uint32_t curTexId;
+  ovr_GetTextureSwapChainCurrentIndex(state.session, state.chain, &curIndex);
+  ovr_GetTextureSwapChainBufferGL(state.session, state.chain, curIndex, &curTexId);
+  Texture* texture = lookupTexture(curTexId);
+  lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
+
+  lovrGraphicsSetCamera(&camera, true);
+  callback(userdata);
+  lovrGraphicsSetCamera(NULL, false);
+
+  ovr_CommitTextureSwapChain(state.session, state.chain);
+
+  ovrLayerEyeFov ld;
+  ld.Header.Type = ovrLayerType_EyeFov;
+  ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;
+  for (int eye = 0; eye < 2; eye++) {
+    ld.ColorTexture[eye] = state.chain;
+    ovrRecti vp;
+    vp.Pos.x = state.size.w * eye;
+    vp.Pos.y = 0;
+    vp.Size.w = state.size.w;
+    vp.Size.h = state.size.h;
+    ld.Viewport[eye] = vp;
+    ld.Fov[eye] = desc.DefaultEyeFov[eye];
+    ld.RenderPose[eye] = EyeRenderPose[eye];
+    ld.SensorSampleTime = sensorSampleTime;
+  }
+
+  ovrLayerHeader* layers = &ld.Header;
+  ovr_SubmitFrame(state.session, 0, NULL, &layers, 1);
+  // apparently if this happens we should kill the session and reinit as long as we're getting ovrError_DisplayLost,
+  // lest oculus get upset should you try to get anything on the store.
+  // if (!OVR_SUCCESS(result))
+  //   goto Done;
+
+  state.needRefreshTracking = true;
+  state.needRefreshButtons = true;
+
+  if (state.isMirrored) {
+    uint32_t handle;
+    ovr_GetMirrorTextureBufferGL(state.session, state.mirror, &handle);
+    Texture* texture = lookupTexture(handle);
+    lovrGraphicsPushPipeline();
+    lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
+    lovrGraphicsSetShader(NULL);
+    if (state.mirrorEye == EYE_BOTH) {
+      lovrGraphicsFill(texture, 0, 0, 1, 1);
+    } else {
+      lovrGraphicsFill(texture, .5 * state.mirrorEye, 0, .5, 1);
+    }
+    lovrGraphicsPopPipeline();
+  }
+}
+
+static void oculusUpdate(float dt) {
   ovrInputState *is = refreshButtons();
 
   ovrSessionStatus status;
@@ -178,418 +464,44 @@ void lovrHeadsetPoll() {
   checkInput(right, diff, istate, ovrButton_A, CONTROLLER_BUTTON_A);
   checkInput(right, diff, istate, ovrButton_B, CONTROLLER_BUTTON_B);
   checkInput(right, diff, istate, ovrButton_RShoulder, CONTROLLER_BUTTON_TRIGGER);
-  checkInput(right, diff, istate, ovrButton_RThumb, CONTROLLER_BUTTON_JOYSTICK);
+  checkInput(right, diff, istate, ovrButton_RThumb, CONTROLLER_BUTTON_TOUCHPAD);
 
   checkInput(left, diff, istate, ovrButton_X, CONTROLLER_BUTTON_X);
   checkInput(left, diff, istate, ovrButton_Y, CONTROLLER_BUTTON_Y);
   checkInput(left, diff, istate, ovrButton_LShoulder, CONTROLLER_BUTTON_TRIGGER);
-  checkInput(left, diff, istate, ovrButton_LThumb, CONTROLLER_BUTTON_JOYSTICK);
+  checkInput(left, diff, istate, ovrButton_LThumb, CONTROLLER_BUTTON_TOUCHPAD);
   checkInput(left, diff, istate, ovrButton_Enter, CONTROLLER_BUTTON_MENU);
 
   state.lastButtonState = is->Buttons;
 }
 
-bool lovrHeadsetIsPresent() {
-  return state.hmdPresent? 1 : 0;
-}
-
-HeadsetType lovrHeadsetGetType() {
-  return HEADSET_OCULUS_MOBILE;
-}
-
-HeadsetOrigin lovrHeadsetGetOriginType() {
-  return ORIGIN_FLOOR;
-}
-
-bool lovrHeadsetIsMirrored() {
-  return (int)state.isMirrored;
-}
-
-void lovrHeadsetSetMirrored(int mirror) {
-  state.isMirrored = mirror? true : false;
-}
-
-void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
-  ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
-  ovrSizei size = ovr_GetFovTextureSize(state.session, ovrEye_Left, desc.DefaultEyeFov[0], 1.0f);
-
-  *width = size.w;
-  *height = size.h;
-}
-
-void lovrHeadsetGetClipDistance(float* near, float* far) {
-  if (!state.isInitialized) {
-    *near = *far = 0.f;
-  } else {
-    *near = state.clipNear;
-    *far = state.clipFar;
-  }
-}
-
-void lovrHeadsetSetClipDistance(float near, float far) {
-  if (!state.isInitialized) return;
-  state.clipNear = near;
-  state.clipFar = far;
-}
-
-float lovrHeadsetGetBoundsWidth() {
-  ovrVector3f dimensions;
-  ovr_GetBoundaryDimensions(state.session, ovrBoundary_PlayArea, &dimensions);
-  return dimensions.x;
-}
-
-float lovrHeadsetGetBoundsDepth() {
-  ovrVector3f dimensions;
-  ovr_GetBoundaryDimensions(state.session, ovrBoundary_PlayArea, &dimensions);
-  return dimensions.z;
-}
-
-void lovrHeadsetGetBoundsGeometry(float* geometry) {
-  // TODO
-  memset(geometry, 0, 12 * sizeof(float));
-}
-
-void lovrHeadsetGetPosition(float* x, float* y, float* z) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrVector3f pos = ts->HeadPose.ThePose.Position;
-  *x = pos.x;
-  *y = pos.y;
-  *z = pos.z;
-}
-
-void lovrHeadsetGetEyePosition(HeadsetEye eye, float* x, float* y, float* z) {
-  // we don't actually know these until render time, does this even need to be exposed?
-  *x = 0.0f;
-  *y = 0.0f;
-  *z = 0.0f;
-}
-
-void lovrHeadsetGetOrientation(float* angle, float* x, float* y, float* z) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrQuatf oq = ts->HeadPose.ThePose.Orientation;
-  float quat[] = { oq.x, oq.y, oq.z, oq.w };
-  quat_getAngleAxis(quat, angle, x, y, z);
-}
-
-void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrVector3f vel = ts->HeadPose.LinearVelocity;
-  *x = vel.x;
-  *y = vel.y;
-  *z = vel.z;
-}
-
-void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrVector3f vel = ts->HeadPose.AngularVelocity;
-  *x = vel.x;
-  *y = vel.y;
-  *z = vel.z;
-}
-
-vec_controller_t* lovrHeadsetGetControllers() {
-  return &state.controllers;
-}
-
-bool lovrHeadsetControllerIsPresent(Controller* controller) {
-  ovrInputState *is = refreshButtons();
-  switch (controller->id) {
-    case ovrHand_Left: return (is->ControllerType & ovrControllerType_LTouch) == ovrControllerType_LTouch;
-    case ovrHand_Right: return (is->ControllerType & ovrControllerType_RTouch) == ovrControllerType_RTouch;
-    default: return 0;
-  }
-  return 0;
-}
-
-ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
-  switch (controller->id) {
-    case ovrHand_Left: return HAND_LEFT;
-    case ovrHand_Right: return HAND_RIGHT;
-    default: return HAND_UNKNOWN;
-  }
-  return HAND_UNKNOWN;
-}
-
-void lovrHeadsetControllerGetPosition(Controller* controller, float* x, float* y, float* z) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrVector3f pos = ts->HandPoses[controller->id].ThePose.Position;
-  *x = pos.x;
-  *y = pos.y;
-  *z = pos.z;
-}
-
-void lovrHeadsetControllerGetOrientation(Controller* controller, float* angle, float* x, float* y, float* z) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrQuatf orient = ts->HandPoses[controller->id].ThePose.Orientation;
-  float quat[4] = { orient.x, orient.y, orient.z, orient.w };
-  quat_getAngleAxis(quat, angle, x, y, z);
-}
-
-float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
-  ovrInputState *is = refreshButtons();
-  switch (axis) {
-    case CONTROLLER_AXIS_GRIP: return is->HandTriggerNoDeadzone[controller->id];
-    case CONTROLLER_AXIS_TRIGGER: return is->IndexTriggerNoDeadzone[controller->id];
-    case CONTROLLER_AXIS_TOUCHPAD_X: return is->ThumbstickNoDeadzone[controller->id].x;
-    case CONTROLLER_AXIS_TOUCHPAD_Y: return is->ThumbstickNoDeadzone[controller->id].y;
-    default: return 0.0f;
-  }
-  return 0.0f;
-}
-
-bool lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
-  ovrInputState *is = refreshButtons();
-  int relevant = is->Buttons & ((controller->id == ovrHand_Left) ? ovrButton_LMask : ovrButton_RMask);
-  switch (button) {
-    case CONTROLLER_BUTTON_A: return (relevant & ovrButton_A) > 0;
-    case CONTROLLER_BUTTON_B: return (relevant & ovrButton_B) > 0;
-    case CONTROLLER_BUTTON_X: return (relevant & ovrButton_X) > 0;
-    case CONTROLLER_BUTTON_Y: return (relevant & ovrButton_Y) > 0;
-    case CONTROLLER_BUTTON_MENU: return (relevant & ovrButton_Enter) > 0;
-    case CONTROLLER_BUTTON_TRIGGER: return is->IndexTriggerNoDeadzone[controller->id] > 0.5f;
-    case CONTROLLER_BUTTON_TOUCHPAD:
-    case CONTROLLER_BUTTON_JOYSTICK: return (relevant & (ovrButton_LThumb | ovrButton_RThumb)) > 0;
-    case CONTROLLER_BUTTON_GRIP: return is->HandTrigger[controller->id] > 0.9f;
-    default: return 0;
-  }
-  return 0;
-}
-
-bool lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
-  ovrInputState *is = refreshButtons();
-  int relevant = is->Touches & ((controller->id == ovrHand_Left) ? ovrTouch_LButtonMask : ovrTouch_RButtonMask);
-  switch (button) {
-    case CONTROLLER_BUTTON_A: return (relevant & ovrTouch_A) > 0;
-    case CONTROLLER_BUTTON_B: return (relevant & ovrTouch_B) > 0;
-    case CONTROLLER_BUTTON_X: return (relevant & ovrTouch_X) > 0;
-    case CONTROLLER_BUTTON_Y: return (relevant & ovrTouch_Y) > 0;
-    case CONTROLLER_BUTTON_TRIGGER: return (relevant & (ovrTouch_LIndexTrigger | ovrTouch_RIndexTrigger)) > 0;
-    case CONTROLLER_BUTTON_TOUCHPAD:
-    case CONTROLLER_BUTTON_JOYSTICK: return (relevant & (ovrTouch_LThumb | ovrTouch_RThumb)) > 0;
-    default: return 0;
-  }
-  return 0;
-}
-
-void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {
-  //ovr_SetControllerVibration(state.session, ovrControllerType_LTouch, freq, power);
-  // TODO
-}
-
-ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
-  // TODO
-  return NULL;
-}
-
-TextureData* lovrHeadsetControllerNewTextureData(Controller* controller) {
-  // TODO
-  return NULL;
-}
-
-// TODO: need to set up swap chain textures for the eyes and finish view transforms
-void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
-  if (!state.isInitialized) return;
-
-  state.renderCallback = callback;
-
-  ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
-  if (!state.mirrorTexture) {
-    int i;
-    for (i = 0; i < 2; i++) {
-      state.eyeTextures[i].size = ovr_GetFovTextureSize(state.session, ovrEye_Left+i, desc.DefaultEyeFov[ovrEye_Left+i], 1.0f);
-
-      ovrTextureSwapChainDesc swdesc = {0};
-      swdesc.Type = ovrTexture_2D;
-      swdesc.ArraySize = 1;
-      swdesc.Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB;
-      swdesc.Width = state.eyeTextures[i].size.w;
-      swdesc.Height = state.eyeTextures[i].size.h;
-      swdesc.MipLevels = 1;
-      swdesc.SampleCount = 1;
-      swdesc.StaticImage = ovrFalse;
-
-      ovrTextureSwapChain chain;
-      if (OVR_SUCCESS(ovr_CreateTextureSwapChainGL(state.session, &swdesc, &chain))) {
-        state.eyeTextures[i].chain = chain;
-
-        int len;
-        ovr_GetTextureSwapChainLength(state.session, state.eyeTextures[i].chain, &len);
-        int j;
-        for (j = 0; j < len; j++) {
-          GLuint texId;
-          ovr_GetTextureSwapChainBufferGL(state.session, state.eyeTextures[i].chain, j, &texId);
-          glBindTexture(GL_TEXTURE_2D, texId);
-          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        }
-      }
-      else {
-        lovrAssert(chain != NULL, "Unable to create swap chain.");
-        break;
-      }
-      glGenFramebuffers(1, &state.eyeTextures[i].fboId);
-
-      glGenTextures(1, &state.eyeTextures[i].depthId);
-      glBindTexture(GL_TEXTURE_2D, state.eyeTextures[i].depthId);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, state.eyeTextures[i].size.w, state.eyeTextures[i].size.h, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
-    }
-
-    ovrMirrorTextureDesc mdesc;
-    memset(&mdesc, 0, sizeof(mdesc));
-    mdesc.Width = lovrGraphicsGetWidth();
-    mdesc.Height = lovrGraphicsGetHeight();
-    mdesc.Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB;
-
-    // Create mirror texture and an FBO used to copy mirror texture to back buffer
-    ovr_CreateMirrorTextureGL(state.session, &mdesc, &state.mirrorTexture);
-
-    GLuint texId;
-    ovr_GetMirrorTextureBufferGL(state.session, state.mirrorTexture, &texId);
-
-    glGenFramebuffers(1, &state.mirrorFBO);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, state.mirrorFBO);
-    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texId, 0);
-    glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-  }
-
-  lovrGraphicsPushView();
-  state.isRendering = true;
-
-  ovrEyeRenderDesc eyeRenderDesc[2];
-  eyeRenderDesc[0] = ovr_GetRenderDesc(state.session, ovrEye_Left, desc.DefaultEyeFov[0]);
-  eyeRenderDesc[1] = ovr_GetRenderDesc(state.session, ovrEye_Right, desc.DefaultEyeFov[1]);
-  ovrPosef HmdToEyeOffset[2] = {
-    eyeRenderDesc[0].HmdToEyePose,
-    eyeRenderDesc[1].HmdToEyePose,
-  };
-  ovrPosef EyeRenderPose[2];
-  double sensorSampleTime;
-  ovr_GetEyePoses(state.session, 0, ovrTrue, HmdToEyeOffset, EyeRenderPose, &sensorSampleTime);
-
-  float transform[16];
-  float projection[16];
-  for (HeadsetEye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
-    float orient[] = {
-      EyeRenderPose[eye].Orientation.x,
-      EyeRenderPose[eye].Orientation.y,
-      EyeRenderPose[eye].Orientation.z,
-      -EyeRenderPose[eye].Orientation.w
-    };
-    float pos[] = {
-      EyeRenderPose[eye].Position.x,
-      EyeRenderPose[eye].Position.y,
-      EyeRenderPose[eye].Position.z,
-    };
-    mat4_identity(transform);
-    mat4_rotateQuat(transform, orient);
-    transform[12] = -(transform[0] * pos[0] + transform[4] * pos[1] + transform[8] * pos[2]);
-    transform[13] = -(transform[1] * pos[0] + transform[5] * pos[1] + transform[9] * pos[2]);
-    transform[14] = -(transform[2] * pos[0] + transform[6] * pos[1] + transform[10] * pos[2]);
-
-    ovrTextureSwapChain chain = state.eyeTextures[eye].chain;
-    if (chain == NULL) {
-      lovrAssert(chain != NULL, "Swap chain is broken. This is a bug.");
-      continue;
-    }
-
-    int curIndex;
-    GLuint curTexId;
-    ovr_GetTextureSwapChainCurrentIndex(state.session, chain, &curIndex);
-    ovr_GetTextureSwapChainBufferGL(state.session, chain, curIndex, &curTexId);
-    glBindFramebuffer(GL_FRAMEBUFFER, state.eyeTextures[eye].fboId);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, curTexId, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, state.eyeTextures[eye].depthId, 0);
-    glViewport(0, 0, state.eyeTextures[eye].size.w, state.eyeTextures[eye].size.h);
-
-    lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(MATRIX_VIEW, transform);
-    ovrMatrix4f proj = ovrMatrix4f_Projection(desc.DefaultEyeFov[eye], state.clipNear, state.clipFar, ovrProjection_ClipRangeOpenGL);
-    mat4_fromMat44(projection, proj.M);
-    lovrGraphicsSetProjection(projection);
-    lovrGraphicsClear(true, true, false, (Color) { 0, 0, 0, 0 }, 1., 0);
-    callback(eye, userdata);
-    lovrGraphicsPop();
-
-    glBindFramebuffer(GL_FRAMEBUFFER, state.eyeTextures[eye].fboId);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
-
-    ovr_CommitTextureSwapChain(state.session, chain);
-  }
-
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-  ovrLayerEyeFov ld;
-  ld.Header.Type = ovrLayerType_EyeFov;
-  ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;
-  for (int eye = 0; eye < 2; eye++) {
-    ld.ColorTexture[eye] = state.eyeTextures[eye].chain;
-    ovrRecti vp;
-    vp.Pos.x = 0;
-    vp.Pos.y = 0;
-    vp.Size.w = state.eyeTextures[eye].size.w;
-    vp.Size.h = state.eyeTextures[eye].size.h;
-    ld.Viewport[eye] = vp;
-    ld.Fov[eye] = desc.DefaultEyeFov[eye];
-    ld.RenderPose[eye] = EyeRenderPose[eye];
-    ld.SensorSampleTime = sensorSampleTime;
-  }
-
-  ovrLayerHeader* layers = &ld.Header;
-  ovr_SubmitFrame(state.session, 0, NULL, &layers, 1);
-  // apparently if this happens we should kill the session and reinit as long as we're getting ovrError_DisplayLost,
-  // lest oculus get upset should you try to get anything on the store.
-  // if (!OVR_SUCCESS(result))
-  //   goto Done;
-
-  state.isRendering = false;
-  state.needRefreshTracking = true;
-  state.needRefreshButtons = true;
-  lovrGraphicsPopView();
-
-  if (state.isMirrored || 1) {
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, state.mirrorFBO);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    int w = lovrGraphicsGetWidth();
-    int h = lovrGraphicsGetHeight();
-    glBlitFramebuffer(0, h, w, 0, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-  }
-}
-
-void lovrHeadsetGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  lovrHeadsetGetPosition(x, y, z);
-  lovrHeadsetGetOrientation(angle, ax, ay, az);
-}
-
-void lovrHeadsetGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  lovrHeadsetGetEyePosition(eye, x, y, z);
-  angle = ax = ay = az = 0; // TODO
-  //lovrHeadsetGetEyeOrientation(eye, angle, ax, ay, az);
-}
-
-void lovrHeadsetControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  if (!controller) {
-    *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
-    return;
-  }
-
-  lovrHeadsetControllerGetPosition(controller, x, y, z);
-  lovrHeadsetControllerGetOrientation(controller, angle, ax, ay, az);
-}
-
-static HeadsetDriver driver = DRIVER_OVR;
-
-const HeadsetDriver* lovrHeadsetGetDriver() {
-  return &driver;
-}
-
-void lovrHeadsetUpdate(float dt) {
-}
+HeadsetInterface lovrHeadsetOculusDriver = {
+  DRIVER_OCULUS,
+  oculusInit,
+  oculusDestroy,
+  oculusGetType,
+  oculusGetOriginType,
+  oculusIsMounted,
+  oculusIsMirrored,
+  oculusSetMirrored,
+  oculusGetDisplayDimensions,
+  oculusGetClipDistance,
+  oculusSetClipDistance,
+  oculusGetBoundsDimensions,
+  oculusGetBoundsGeometry,
+  oculusGetPose,
+  oculusGetEyePose,
+  oculusGetVelocity,
+  oculusGetAngularVelocity,
+  oculusGetControllers,
+  oculusControllerIsConnected,
+  oculusControllerGetHand,
+  oculusControllerGetPose,
+  oculusControllerGetAxis,
+  oculusControllerIsDown,
+  oculusControllerIsTouched,
+  oculusControllerVibrate,
+  oculusControllerNewModelData,
+  oculusRenderTo,
+  oculusUpdate
+};

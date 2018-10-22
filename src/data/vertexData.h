@@ -1,7 +1,6 @@
-#include "util.h"
+#include "blob.h"
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 #pragma once
 
@@ -39,14 +38,12 @@ typedef union {
 } IndexPointer;
 
 typedef struct {
-  Ref ref;
+  Blob blob;
   VertexFormat format;
-  VertexPointer data;
   uint32_t count;
 } VertexData;
 
 void vertexFormatInit(VertexFormat* format);
 void vertexFormatAppend(VertexFormat* format, const char* name, AttributeType type, int count);
 
-VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format, bool allocate);
-void lovrVertexDataDestroy(const Ref* ref);
+VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format);

@@ -1,8 +1,11 @@
+#include <stdbool.h>
+
 #pragma once
 
 #define TICK_SAMPLES 90
 
 typedef struct {
+  bool initialized;
   double lastTime;
   double time;
   double dt;
@@ -14,6 +17,7 @@ typedef struct {
 } TimerState;
 
 void lovrTimerInit();
+void lovrTimerDestroy();
 double lovrTimerGetDelta();
 double lovrTimerGetTime();
 double lovrTimerStep();

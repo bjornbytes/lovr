@@ -1,17 +1,45 @@
 #include "headset/headset.h"
+#include "thread/thread.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
 
 #pragma once
 
+#define MAX_EVENT_NAME_LENGTH 32
+
 typedef enum {
   EVENT_QUIT,
   EVENT_FOCUS,
+  EVENT_MOUNT,
+  EVENT_THREAD_ERROR,
   EVENT_CONTROLLER_ADDED,
   EVENT_CONTROLLER_REMOVED,
   EVENT_CONTROLLER_PRESSED,
-  EVENT_CONTROLLER_RELEASED
+  EVENT_CONTROLLER_RELEASED,
+  EVENT_CUSTOM
 } EventType;
+
+typedef enum {
+  TYPE_NIL,
+  TYPE_BOOLEAN,
+  TYPE_NUMBER,
+  TYPE_STRING,
+  TYPE_OBJECT
+} VariantType;
+
+typedef union {
+  bool boolean;
+  double number;
+  char* string;
+  Ref* ref;
+} VariantValue;
+
+typedef struct {
+  VariantType type;
+  VariantValue value;
+} Variant;
+
+typedef vec_t(Variant) vec_variant_t;
 
 typedef struct {
   bool restart;
@@ -19,34 +47,31 @@ typedef struct {
 } QuitEvent;
 
 typedef struct {
-  bool isFocused;
-} FocusEvent;
+  bool value;
+} BoolEvent;
 
 typedef struct {
-  Controller* controller;
-} ControllerAddedEvent;
-
-typedef struct {
-  Controller* controller;
-} ControllerRemovedEvent;
-
-typedef struct {
-  Controller* controller;
-  ControllerButton button;
-} ControllerPressedEvent;
+  Thread* thread;
+  const char* error;
+} ThreadEvent;
 
 typedef struct {
   Controller* controller;
   ControllerButton button;
-} ControllerReleasedEvent;
+} ControllerEvent;
+
+typedef struct {
+  char name[MAX_EVENT_NAME_LENGTH];
+  Variant data[4];
+  int count;
+} CustomEvent;
 
 typedef union {
   QuitEvent quit;
-  FocusEvent focus;
-  ControllerAddedEvent controlleradded;
-  ControllerRemovedEvent controllerremoved;
-  ControllerPressedEvent controllerpressed;
-  ControllerReleasedEvent controllerreleased;
+  BoolEvent boolean;
+  ThreadEvent thread;
+  ControllerEvent controller;
+  CustomEvent custom;
 } EventData;
 
 typedef struct {
@@ -60,13 +85,15 @@ typedef vec_t(EventPump) vec_pump_t;
 typedef vec_t(Event) vec_event_t;
 
 typedef struct {
+  bool initialized;
   vec_pump_t pumps;
   vec_event_t events;
 } EventState;
 
 void lovrEventInit();
 void lovrEventDestroy();
-void lovrEventAddPump(void (*pump)(void));
+void lovrEventAddPump(EventPump pump);
+void lovrEventRemovePump(EventPump pump);
 void lovrEventPump();
 void lovrEventPush(Event event);
 bool lovrEventPoll(Event* event);

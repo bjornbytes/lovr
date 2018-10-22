@@ -1,5 +1,7 @@
 #include "api.h"
+#include "api/math.h"
 #include "math/randomGenerator.h"
+#include <math.h>
 
 static double luax_checkrandomseedpart(lua_State* L, int index) {
   double x = luaL_checknumber(L, index);
@@ -50,9 +52,8 @@ int l_lovrRandomGeneratorGetState(lua_State* L) {
 
 int l_lovrRandomGeneratorSetState(lua_State* L) {
   RandomGenerator* generator = luax_checktype(L, 1, RandomGenerator);
-  size_t length;
-  const char* state = luaL_checklstring(L, 2, &length);
-  if (lovrRandomGeneratorSetState(generator, state, length)) {
+  const char* state = luaL_checklstring(L, 2, NULL);
+  if (lovrRandomGeneratorSetState(generator, state)) {
     return luaL_error(L, "invalid random state %s", state);
   }
   return 0;

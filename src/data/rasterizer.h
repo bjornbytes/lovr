@@ -1,5 +1,7 @@
-#include "filesystem/blob.h"
+#include "data/blob.h"
+#include "data/textureData.h"
 #include "lib/map/map.h"
+#include "lib/stb/stb_truetype.h"
 #include "util.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -10,9 +12,10 @@
 
 typedef struct {
   Ref ref;
-  void* ftHandle;
+  stbtt_fontinfo font;
   Blob* blob;
   int size;
+  float scale;
   int glyphCount;
   int height;
   int advance;
@@ -30,13 +33,13 @@ typedef struct {
   int dx;
   int dy;
   int advance;
-  uint8_t* data;
+  TextureData* data;
 } Glyph;
 
 typedef map_t(Glyph) map_glyph_t;
 
 Rasterizer* lovrRasterizerCreate(Blob* blob, int size);
-void lovrRasterizerDestroy(const Ref* ref);
+void lovrRasterizerDestroy(void* ref);
 bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
 bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);
 void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, Glyph* glyph);

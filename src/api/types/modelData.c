@@ -2,12 +2,10 @@
 #include "data/modelData.h"
 #include "math/transform.h"
 #include "math/mat4.h"
-#include "math/quat.h"
-#include "math/vec3.h"
 
 int l_lovrModelDataGetVertexData(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
-  luax_pushtype(L, VertexData, modelData->vertexData);
+  luax_pushobject(L, modelData->vertexData);
   return 1;
 }
 
@@ -15,6 +13,21 @@ int l_lovrModelDataGetTriangleCount(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   lua_pushinteger(L, modelData->indexCount / 3);
   return 1;
+}
+
+int l_lovrModelDataGetTriangle(lua_State* L) {
+  ModelData* modelData = luax_checktype(L, 1, ModelData);
+  int index = luaL_checkinteger(L, 2);
+  if (modelData->indexSize == sizeof(uint16_t)) {
+    lua_pushinteger(L, modelData->indices.shorts[index]);
+    lua_pushinteger(L, modelData->indices.shorts[index]);
+    lua_pushinteger(L, modelData->indices.shorts[index]);
+  } else {
+    lua_pushinteger(L, modelData->indices.ints[index]);
+    lua_pushinteger(L, modelData->indices.ints[index]);
+    lua_pushinteger(L, modelData->indices.ints[index]);
+  }
+  return 3;
 }
 
 int l_lovrModelDataGetNodeCount(lua_State* L) {
@@ -33,8 +46,8 @@ int l_lovrModelDataGetNodeName(lua_State* L) {
 }
 
 static int luax_writenodetransform(lua_State* L, mat4 m, int transformIndex) {
-  Transform* transform;
-  if ((transform = luax_totype(L, transformIndex, Transform)) != NULL) {
+  Transform* transform = luax_totype(L, transformIndex, Transform);
+  if (transform) {
     lovrTransformSetMatrix(transform, m);
     lua_settop(L, transformIndex);
     return 1;
@@ -183,7 +196,7 @@ int l_lovrModelDataGetDiffuseTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->diffuseTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
@@ -191,7 +204,7 @@ int l_lovrModelDataGetEmissiveTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->emissiveTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
@@ -199,7 +212,7 @@ int l_lovrModelDataGetMetalnessTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->metalnessTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
@@ -207,7 +220,7 @@ int l_lovrModelDataGetRoughnessTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->roughnessTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
@@ -215,7 +228,7 @@ int l_lovrModelDataGetOcclusionTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->occlusionTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
@@ -223,13 +236,14 @@ int l_lovrModelDataGetNormalTexture(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmodelmaterial(L, 1);
   TextureData* textureData = modelData->textures.data[material->normalTexture];
-  luax_pushtype(L, TextureData, textureData);
+  luax_pushobject(L, textureData);
   return 1;
 }
 
 const luaL_Reg lovrModelData[] = {
   { "getVertexData", l_lovrModelDataGetVertexData },
   { "getTriangleCount", l_lovrModelDataGetTriangleCount },
+  { "getTriangle", l_lovrModelDataGetTriangle },
   { "getNodeCount", l_lovrModelDataGetNodeCount },
   { "getNodeName", l_lovrModelDataGetNodeName },
   { "getLocalNodeTransform", l_lovrModelDataGetLocalNodeTransform },

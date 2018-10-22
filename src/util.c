@@ -1,35 +1,42 @@
 #include "util.h"
-#include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #ifdef _WIN32
 #include <Windows.h>
+#elif __APPLE__
+#include <mach-o/dyld.h>
+#include <unistd.h>
+#include <dlfcn.h>
 #else
 #include <unistd.h>
+#include <dlfcn.h>
 #endif
 #ifdef LOVR_OVR_MOBILE
 #include <android/log.h>
 #include <assert.h>
 #endif
 
-#define MAX_ERROR_LENGTH 1024
+_Thread_local lovrErrorHandler lovrErrorCallback = NULL;
+_Thread_local void* lovrErrorUserdata = NULL;
 
-char lovrErrorMessage[MAX_ERROR_LENGTH];
-jmp_buf* lovrCatch = NULL;
+void lovrSetErrorCallback(lovrErrorHandler callback, void* userdata) {
+  lovrErrorCallback = callback;
+  lovrErrorUserdata = userdata;
+}
 
 void lovrThrow(const char* format, ...) {
-  va_list args;
-  va_start(args, format);
-  vsnprintf(lovrErrorMessage, MAX_ERROR_LENGTH, format, args);
-  va_end(args);
-  if (lovrCatch) {
-    longjmp(*lovrCatch, 0);
+  if (lovrErrorCallback) {
+    va_list args;
+    va_start(args, format);
+    lovrErrorCallback(lovrErrorUserdata, format, args);
+    va_end(args);
   } else {
-#ifdef LOVR_OVR_MOBILE
-    __android_log_print(ANDROID_LOG_FATAL, "LOVR", "Error: %s\n", lovrErrorMessage);
-    assert(0);
-#else
-    fprintf(stderr, "Error: %s\n", lovrErrorMessage);
+    va_list args;
+    va_start(args, format);
+    fprintf(stderr, "Error: ");
+    vfprintf(stderr, format, args);
+    fprintf(stderr, "\n");
+    va_end(args);
     exit(EXIT_FAILURE);
 #endif
   }
@@ -43,19 +50,40 @@ void lovrSleep(double seconds) {
 #endif
 }
 
-void* lovrAlloc(size_t size, void (*destructor)(const Ref* ref)) {
-  void* object = malloc(size);
+void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*)) {
+  void* object = calloc(1, size);
   if (!object) return NULL;
-  *((Ref*) object) = (Ref) { destructor, 1 };
+  *((Ref*) object) = (Ref) { 1, type, destructor };
   return object;
 }
 
-void lovrRetain(const Ref* ref) {
-  ((Ref*) ref)->count++;
+void lovrRetain(void* object) {
+  if (object) ((Ref*) object)->count++;
 }
 
-void lovrRelease(const Ref* ref) {
-  if (--((Ref*) ref)->count == 0 && ref->free) ref->free(ref);
+void lovrRelease(void* object) {
+  Ref* ref = object;
+  if (ref && --ref->count == 0) ref->free(object);
+}
+
+int lovrGetExecutablePath(char* dest, uint32_t size) {
+#ifdef __APPLE__
+  if (_NSGetExecutablePath(dest, &size) == 0) {
+    return 0;
+  }
+#elif _WIN32
+  return !GetModuleFileName(NULL, dest, size);
+#elif EMSCRIPTEN
+  return 1;
+#elif __linux__
+  memset(dest, 0, size);
+  if (readlink("/proc/self/exe", dest, size) != -1) {
+    return 0;
+  }
+#else
+#error "This platform is missing an implementation for lovrGetExecutablePath"
+#endif
+  return 1;
 }
 
 // https://github.com/starwing/luautf8
@@ -105,4 +133,15 @@ size_t utf8_decode(const char *s, const char *e, unsigned *pch) {
 fallback:
   *pch = ch;
   return 1;
+}
+
+uint32_t nextPo2(uint32_t x) {
+  x--;
+  x |= x >> 1;
+  x |= x >> 2;
+  x |= x >> 4;
+  x |= x >> 8;
+  x |= x >> 16;
+  x++;
+  return x;
 }

@@ -1,25 +1,9 @@
 #include "audio/source.h"
+#include "audio/audio.h"
 #include "data/audioStream.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdlib.h>
-
-static ALenum lovrSourceGetFormat(Source* source) {
-  int channelCount = source->stream->channelCount;
-  int bitDepth = source->stream->bitDepth;
-
-  if (bitDepth == 8 && channelCount == 1) {
-    return AL_FORMAT_MONO8;
-  } else if (bitDepth == 8 && channelCount == 2) {
-    return AL_FORMAT_STEREO8;
-  } else if (bitDepth == 16 && channelCount == 1) {
-    return AL_FORMAT_MONO16;
-  } else if (bitDepth == 16 && channelCount == 2) {
-    return AL_FORMAT_STEREO16;
-  }
-
-  return 0;
-}
 
 static ALenum lovrSourceGetState(Source* source) {
   ALenum state;
@@ -27,29 +11,50 @@ static ALenum lovrSourceGetState(Source* source) {
   return state;
 }
 
-Source* lovrSourceCreate(AudioStream* stream) {
-  Source* source = lovrAlloc(sizeof(Source), lovrSourceDestroy);
+Source* lovrSourceCreateStatic(SoundData* soundData) {
+  Source* source = lovrAlloc(Source, lovrSourceDestroy);
   if (!source) return NULL;
 
-  source->stream = stream;
-  source->isLooping = false;
+  ALenum format = lovrAudioConvertFormat(soundData->bitDepth, soundData->channelCount);
+  source->type = SOURCE_STATIC;
+  source->soundData = soundData;
   alGenSources(1, &source->id);
-  alGenBuffers(SOURCE_BUFFERS, source->buffers);
-  lovrRetain(&stream->ref);
+  alGenBuffers(1, source->buffers);
+  alBufferData(source->buffers[0], format, soundData->blob.data, soundData->blob.size, soundData->sampleRate);
+  alSourcei(source->id, AL_BUFFER, source->buffers[0]);
+  lovrRetain(soundData);
 
   return source;
 }
 
-void lovrSourceDestroy(const Ref* ref) {
-  Source* source = containerof(ref, Source);
+Source* lovrSourceCreateStream(AudioStream* stream) {
+  Source* source = lovrAlloc(Source, lovrSourceDestroy);
+  if (!source) return NULL;
+
+  source->type = SOURCE_STREAM;
+  source->stream = stream;
+  alGenSources(1, &source->id);
+  alGenBuffers(SOURCE_BUFFERS, source->buffers);
+  lovrRetain(stream);
+
+  return source;
+}
+
+void lovrSourceDestroy(void* ref) {
+  Source* source = ref;
   alDeleteSources(1, &source->id);
-  alDeleteBuffers(SOURCE_BUFFERS, source->buffers);
-  lovrRelease(&source->stream->ref);
+  alDeleteBuffers(source->type == SOURCE_STATIC ? 1 : SOURCE_BUFFERS, source->buffers);
+  lovrRelease(source->soundData);
+  lovrRelease(source->stream);
   free(source);
 }
 
+SourceType lovrSourceGetType(Source* source) {
+  return source->type;
+}
+
 int lovrSourceGetBitDepth(Source* source) {
-  return source->stream->bitDepth;
+  return source->type == SOURCE_STATIC ? source->soundData->bitDepth : source->stream->bitDepth;
 }
 
 void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, float* outerGain) {
@@ -61,7 +66,7 @@ void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, flo
 }
 
 int lovrSourceGetChannelCount(Source* source) {
-  return source->stream->channelCount;
+  return source->type == SOURCE_STATIC ? source->soundData->channelCount : source->stream->channelCount;
 }
 
 void lovrSourceGetDirection(Source* source, float* x, float* y, float* z) {
@@ -73,7 +78,7 @@ void lovrSourceGetDirection(Source* source, float* x, float* y, float* z) {
 }
 
 int lovrSourceGetDuration(Source* source) {
-  return source->stream->samples;
+  return source->type == SOURCE_STATIC ? source->soundData->samples : source->stream->samples;
 }
 
 void lovrSourceGetFalloff(Source* source, float* reference, float* max, float* rolloff) {
@@ -97,7 +102,7 @@ void lovrSourceGetPosition(Source* source, float* x, float* y, float* z) {
 }
 
 int lovrSourceGetSampleRate(Source* source) {
-  return source->stream->sampleRate;
+  return source->type == SOURCE_STATIC ? source->soundData->sampleRate : source->stream->sampleRate;
 }
 
 void lovrSourceGetVelocity(Source* source, float* x, float* y, float* z) {
@@ -180,12 +185,21 @@ void lovrSourceRewind(Source* source) {
 }
 
 void lovrSourceSeek(Source* source, int sample) {
-  bool wasPaused = lovrSourceIsPaused(source);
-  lovrSourceStop(source);
-  lovrAudioStreamSeek(source->stream, sample);
-  lovrSourcePlay(source);
-  if (wasPaused) {
-    lovrSourcePause(source);
+  switch (source->type) {
+    case SOURCE_STATIC:
+      alSourcef(source->id, AL_SAMPLE_OFFSET, sample);
+      break;
+
+    case SOURCE_STREAM: {
+      bool wasPaused = lovrSourceIsPaused(source);
+      lovrSourceStop(source);
+      lovrAudioStreamSeek(source->stream, sample);
+      lovrSourcePlay(source);
+      if (wasPaused) {
+        lovrSourcePause(source);
+      }
+      break;
+    }
   }
 }
 
@@ -208,6 +222,9 @@ void lovrSourceSetFalloff(Source* source, float reference, float max, float roll
 
 void lovrSourceSetLooping(Source* source, bool isLooping) {
   source->isLooping = isLooping;
+  if (source->type == SOURCE_STATIC) {
+    alSourcei(source->id, AL_LOOPING, isLooping ? AL_TRUE : AL_FALSE);
+  }
 }
 
 void lovrSourceSetPitch(Source* source, float pitch) {
@@ -241,29 +258,43 @@ void lovrSourceStop(Source* source) {
     return;
   }
 
-  // Empty the buffers
-  int count = 0;
-  alGetSourcei(source->id, AL_BUFFERS_QUEUED, &count);
-  alSourceUnqueueBuffers(source->id, count, NULL);
+  switch (source->type) {
+    case SOURCE_STATIC:
+      alSourceStop(source->id);
+      break;
 
-  // Stop the source
-  alSourceStop(source->id);
-  alSourcei(source->id, AL_BUFFER, AL_NONE);
+    case SOURCE_STREAM: {
 
-  // Rewind the decoder
-  lovrAudioStreamRewind(source->stream);
+      // Empty the buffers
+      int count = 0;
+      alGetSourcei(source->id, AL_BUFFERS_QUEUED, &count);
+      alSourceUnqueueBuffers(source->id, count, NULL);
+
+      // Stop the source
+      alSourceStop(source->id);
+      alSourcei(source->id, AL_BUFFER, AL_NONE);
+
+      // Rewind the decoder
+      lovrAudioStreamRewind(source->stream);
+      break;
+    }
+  }
 }
 
 // Fills buffers with data and queues them, called once initially and over time to stream more data
 void lovrSourceStream(Source* source, ALuint* buffers, int count) {
+  if (source->type == SOURCE_STATIC) {
+    return;
+  }
+
   AudioStream* stream = source->stream;
-  ALenum format = lovrSourceGetFormat(source);
+  ALenum format = lovrAudioConvertFormat(stream->bitDepth, stream->channelCount);
   int frequency = stream->sampleRate;
   int samples = 0;
   int n = 0;
 
   // Keep decoding until there is nothing left to decode or all the buffers are filled
-  while (n < count && (samples = lovrAudioStreamDecode(stream)) != 0) {
+  while (n < count && (samples = lovrAudioStreamDecode(stream, NULL, 0)) != 0) {
     alBufferData(buffers[n++], format, stream->buffer, samples * sizeof(ALshort), frequency);
   }
 
@@ -277,17 +308,28 @@ void lovrSourceStream(Source* source, ALuint* buffers, int count) {
 }
 
 int lovrSourceTell(Source* source) {
-  int decoderOffset = lovrAudioStreamTell(source->stream);
-  int samplesPerBuffer = source->stream->bufferSize / source->stream->channelCount / sizeof(ALshort);
-  int queuedBuffers, sampleOffset;
-  alGetSourcei(source->id, AL_BUFFERS_QUEUED, &queuedBuffers);
-  alGetSourcei(source->id, AL_SAMPLE_OFFSET, &sampleOffset);
+  switch (source->type) {
+    case SOURCE_STATIC: {
+      float offset;
+      alGetSourcef(source->id, AL_SAMPLE_OFFSET, &offset);
+      return offset;
+    }
 
-  int offset = decoderOffset - queuedBuffers * samplesPerBuffer + sampleOffset;
+    case SOURCE_STREAM: {
+      int decoderOffset = lovrAudioStreamTell(source->stream);
+      int samplesPerBuffer = source->stream->bufferSize / source->stream->channelCount / sizeof(ALshort);
+      int queuedBuffers, sampleOffset;
+      alGetSourcei(source->id, AL_BUFFERS_QUEUED, &queuedBuffers);
+      alGetSourcei(source->id, AL_SAMPLE_OFFSET, &sampleOffset);
 
-  if (offset < 0) {
-    return offset + source->stream->samples;
-  } else {
-    return offset;
+      int offset = decoderOffset - queuedBuffers * samplesPerBuffer + sampleOffset;
+
+      if (offset < 0) {
+        return offset + source->stream->samples;
+      } else {
+        return offset;
+      }
+      break;
+    }
   }
 }

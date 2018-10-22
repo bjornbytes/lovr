@@ -1,5 +1,6 @@
 #include "math/quat.h"
 #include "math/vec3.h"
+#include "util.h"
 #include <math.h>
 
 quat quat_init(quat q, quat r) {
@@ -62,6 +63,14 @@ quat quat_slerp(quat q, quat r, float t) {
   float dot = q[0] * r[0] + q[1] * r[1] + q[2] * r[2] + q[3] * r[3];
   if (fabs(dot) >= 1.f) {
     return q;
+  }
+
+  if (dot < 0) {
+    q[0] *= -1;
+    q[1] *= -1;
+    q[2] *= -1;
+    q[3] *= -1;
+    dot *= -1;
   }
 
   float halfTheta = acos(dot);

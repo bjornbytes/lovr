@@ -2,8 +2,10 @@
 #include "math/quat.h"
 #include "math/vec3.h"
 #include <math.h>
-#include <stdlib.h>
 #include <string.h>
+#ifdef LOVR_USE_SSE
+#include <xmmintrin.h>
+#endif
 
 // m0 m4 m8  m12
 // m1 m5 m9  m13
@@ -106,7 +108,48 @@ mat4 mat4_invert(mat4 m) {
   return m;
 }
 
+// This can only be used if the matrix doesn't have any scale applied
+#ifdef LOVR_USE_SSE
+mat4 mat4_invertPose(mat4 m) {
+  __m128 c0 = _mm_loadu_ps(m + 0);
+  __m128 c1 = _mm_loadu_ps(m + 4);
+  __m128 c2 = _mm_loadu_ps(m + 8);
+  __m128 c3 = _mm_loadu_ps(m + 12);
+  __m128 x1 = _mm_set_ps(1.f, 0.f, 0.f, 0.f);
+
+  _MM_TRANSPOSE4_PS(c0, c1, c2, x1);
+
+  __m128 x0 = _mm_add_ps(
+    _mm_mul_ps(c0, _mm_shuffle_ps(c3, c3, _MM_SHUFFLE(0, 0, 0, 0))),
+    _mm_mul_ps(c1, _mm_shuffle_ps(c3, c3, _MM_SHUFFLE(1, 1, 1, 1)))
+  );
+
+  x0 = _mm_add_ps(x0, _mm_mul_ps(c2, _mm_shuffle_ps(c3, c3, _MM_SHUFFLE(2, 2, 2, 2))));
+  x0 = _mm_xor_ps(x0, _mm_set1_ps(-0.f));
+  x0 = _mm_add_ps(x0, x1);
+
+  _mm_storeu_ps(m + 0, c0);
+  _mm_storeu_ps(m + 4, c1);
+  _mm_storeu_ps(m + 8, c2);
+  _mm_storeu_ps(m + 12, x0);
+
+  return m;
+}
+#endif
+
 mat4 mat4_transpose(mat4 m) {
+#ifdef LOVR_USE_SSE
+  __m128 c0 = _mm_loadu_ps(m + 0);
+  __m128 c1 = _mm_loadu_ps(m + 4);
+  __m128 c2 = _mm_loadu_ps(m + 8);
+  __m128 c3 = _mm_loadu_ps(m + 12);
+  _MM_TRANSPOSE4_PS(c0, c1, c2, c3);
+  _mm_storeu_ps(m + 0, c0);
+  _mm_storeu_ps(m + 4, c1);
+  _mm_storeu_ps(m + 8, c2);
+  _mm_storeu_ps(m + 12, c3);
+  return m;
+#else
   float a01 = m[1], a02 = m[2], a03 = m[3],
         a12 = m[6], a13 = m[7],
         a23 = m[11];
@@ -124,10 +167,29 @@ mat4 mat4_transpose(mat4 m) {
   m[13] = a13;
   m[14] = a23;
   return m;
+#endif
 }
 
 // Modified from gl-matrix.c
 mat4 mat4_multiply(mat4 m, mat4 n) {
+#ifdef LOVR_USE_SSE
+  __m128 c0 = _mm_loadu_ps(m + 0);
+  __m128 c1 = _mm_loadu_ps(m + 4);
+  __m128 c2 = _mm_loadu_ps(m + 8);
+  __m128 c3 = _mm_loadu_ps(m + 12);
+
+  for (int i = 0; i < 4; i++) {
+    __m128 x = _mm_set1_ps(n[4 * i + 0]);
+    __m128 y = _mm_set1_ps(n[4 * i + 1]);
+    __m128 z = _mm_set1_ps(n[4 * i + 2]);
+    __m128 w = _mm_set1_ps(n[4 * i + 3]);
+
+    _mm_storeu_ps(m + 4 * i, _mm_add_ps(
+      _mm_add_ps(_mm_mul_ps(x, c0), _mm_mul_ps(y, c1)),
+      _mm_add_ps(_mm_mul_ps(z, c2), _mm_mul_ps(w, c3))
+    ));
+  }
+#else
   float m00 = m[0], m01 = m[1], m02 = m[2], m03 = m[3],
         m10 = m[4], m11 = m[5], m12 = m[6], m13 = m[7],
         m20 = m[8], m21 = m[9], m22 = m[10], m23 = m[11],
@@ -154,6 +216,7 @@ mat4 mat4_multiply(mat4 m, mat4 n) {
   m[13] = n30 * m01 + n31 * m11 + n32 * m21 + n33 * m31;
   m[14] = n30 * m02 + n31 * m12 + n32 * m22 + n33 * m32;
   m[15] = n30 * m03 + n31 * m13 + n32 * m23 + n33 * m33;
+#endif
 
   return m;
 }
@@ -174,22 +237,13 @@ mat4 mat4_rotate(mat4 m, float angle, float x, float y, float z) {
 }
 
 mat4 mat4_rotateQuat(mat4 m, quat q) {
-  float x = q[0];
-  float y = q[1];
-  float z = q[2];
-  float w = q[3];
-  float rotation[16];
-  mat4_identity(rotation);
-  rotation[0] = 1 - 2 * y * y - 2 * z * z;
-  rotation[1] = 2 * x * y + 2 * w * z;
-  rotation[2] = 2 * x * z - 2 * w * y;
-  rotation[4] = 2 * x * y - 2 * w * z;
-  rotation[5] = 1 - 2 * x * x - 2 * z * z;
-  rotation[6] = 2 * y * z + 2 * w * x;
-  rotation[8] = 2 * x * z + 2 * w * y;
-  rotation[9] = 2 * y * z - 2 * w * x;
-  rotation[10] = 1 - 2 * x * x - 2 * y * y;
-  return mat4_multiply(m, rotation);
+  float x = q[0], y = q[1], z = q[2], w = q[3];
+  return mat4_multiply(m, (float[16]) {
+    1 - 2 * y * y - 2 * z * z, 2 * x * y + 2 * w * z, 2 * x * z - 2 * w * y, 0,
+    2 * x * y - 2 * w * z, 1 - 2 * x * x - 2 * z * z, 2 * y * z + 2 * w * x, 0,
+    2 * x * z + 2 * w * y, 2 * y * z - 2 * w * x, 1 - 2 * x * x - 2 * y * y, 0,
+    0, 0, 0, 1
+  });
 }
 
 mat4 mat4_scale(mat4 m, float x, float y, float z) {
@@ -206,6 +260,15 @@ mat4 mat4_scale(mat4 m, float x, float y, float z) {
   m[10] *= z;
   m[11] *= z;
   return m;
+}
+
+void mat4_getPose(mat4 m, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  *x = m[12];
+  *y = m[13];
+  *z = m[14];
+  float quat[4];
+  quat_fromMat4(quat, m);
+  quat_getAngleAxis(quat, angle, ax, ay, az);
 }
 
 void mat4_getTransform(mat4 m, float* x, float* y, float* z, float* sx, float* sy, float* sz, float* angle, float* ax, float* ay, float* az) {
@@ -230,28 +293,28 @@ mat4 mat4_setTransform(mat4 m, float x, float y, float z, float sx, float sy, fl
   return mat4_scale(m, sx, sy, sz);
 }
 
-mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float near, float far) {
+mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float clipNear, float clipFar) {
   float rl = right - left;
   float tb = top - bottom;
-  float fn = far - near;
-  mat4_identity(m);
+  float fn = clipFar - clipNear;
+  memset(m, 0, 16 * sizeof(float));
   m[0] = 2 / rl;
   m[5] = 2 / tb;
   m[10] = -2 / fn;
   m[12] = -(left + right) / rl;
   m[13] = -(top + bottom) / tb;
-  m[14] = -(far + near) / fn;
+  m[14] = -(clipFar + clipNear) / fn;
   m[15] = 1;
   return m;
 }
 
-mat4 mat4_perspective(mat4 m, float near, float far, float fovy, float aspect) {
-  float range = tan(fovy * .5f) * near;
-  float sx = (2.0f * near) / (range * aspect + range * aspect);
-  float sy = near / range;
-  float sz = -(far + near) / (far - near);
-  float pz = (-2.0f * far * near) / (far - near);
-  mat4_identity(m);
+mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, float aspect) {
+  float range = tan(fovy * .5f) * clipNear;
+  float sx = (2.0f * clipNear) / (range * aspect + range * aspect);
+  float sy = clipNear / range;
+  float sz = -(clipFar + clipNear) / (clipFar - clipNear);
+  float pz = (-2.0f * clipFar * clipNear) / (clipFar - clipNear);
+  memset(m, 0, 16 * sizeof(float));
   m[0] = sx;
   m[5] = sy;
   m[10] = sz;
@@ -329,18 +392,16 @@ mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   return m;
 }
 
-void mat4_transform(mat4 m, vec3 v) {
-  vec3_set(v,
-    v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12],
-    v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13],
-    v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14]
-  );
+void mat4_transform(mat4 m, float* x, float* y, float* z) {
+  float tx = *x, ty = *y, tz = *z;
+  *x = tx * m[0] + ty * m[4] + tz * m[8] + m[12];
+  *y = tx * m[1] + ty * m[5] + tz * m[9] + m[13];
+  *z = tx * m[2] + ty * m[6] + tz * m[10] + m[14];
 }
 
-void mat4_transformDirection(mat4 m, vec3 v) {
-  vec3_set(v,
-    v[0] * m[0] + v[1] * m[4] + v[2] * m[8],
-    v[0] * m[1] + v[1] * m[5] + v[2] * m[9],
-    v[0] * m[2] + v[1] * m[6] + v[2] * m[10]
-  );
+void mat4_transformDirection(mat4 m, float* dx, float* dy, float* dz) {
+  float x = *dx, y = *dy, z = *dz;
+  *dx = x * m[0] + y * m[4] + z * m[8];
+  *dy = x * m[1] + y * m[5] + z * m[9];
+  *dz = x * m[2] + y * m[6] + z * m[10];
 }

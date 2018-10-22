@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/math.h"
 #include "graphics/model.h"
 
 int l_lovrModelDrawInstanced(lua_State* L) {
@@ -28,7 +29,7 @@ int l_lovrModelGetAABB(lua_State* L) {
 int l_lovrModelGetAnimator(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Animator* animator = lovrModelGetAnimator(model);
-  luax_pushtype(L, Animator, animator);
+  luax_pushobject(L, animator);
   return 1;
 }
 
@@ -53,7 +54,7 @@ int l_lovrModelGetMaterial(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Material* material = lovrModelGetMaterial(model);
   if (material) {
-    luax_pushtype(L, Material, material);
+    luax_pushobject(L, material);
   } else {
     lua_pushnil(L);
   }
@@ -74,7 +75,7 @@ int l_lovrModelSetMaterial(lua_State* L) {
 int l_lovrModelGetMesh(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Mesh* mesh = lovrModelGetMesh(model);
-  luax_pushtype(L, Mesh, mesh);
+  luax_pushobject(L, mesh);
   return 1;
 }
 

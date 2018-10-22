@@ -4,7 +4,7 @@
 #include <physfs.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "lovr.h"
+#include <string.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
@@ -22,14 +22,17 @@
 #include "BridgeLovr.h"
 #endif
 
+#ifdef _WIN32
+const char lovrDirSep = '\\';
+#else
+const char lovrDirSep = '/';
+#endif
+
 static FilesystemState state;
 
-bool filesystemAlreadyInit = false;
-
 void lovrFilesystemInit(const char* arg0, const char* arg1) {
-  if (filesystemAlreadyInit) // Do not change settings during a reload, and don't try to initialize PhysFS twice
-    return;
-  filesystemAlreadyInit = true;
+  if (state.initialized) return;
+  state.initialized = true;
 
   if (!PHYSFS_init(arg0)) {
     lovrThrow("Could not initialize filesystem: %s", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
@@ -38,6 +41,10 @@ void lovrFilesystemInit(const char* arg0, const char* arg1) {
   state.source = malloc(LOVR_PATH_MAX * sizeof(char));
   state.identity = NULL;
   state.isFused = true;
+  vec_init(&state.requirePattern[0]);
+  vec_init(&state.requirePattern[1]);
+  lovrFilesystemSetRequirePath("?.lua;?/init.lua;lua_modules/?.lua;lua_modules/?/init.lua;deps/?.lua;deps/?/init.lua");
+  lovrFilesystemSetCRequirePath("??;lua_modules/??;deps/??");
 
   // Try to mount either an archive fused to the executable or an archive from the command line
   lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
@@ -47,23 +54,26 @@ void lovrFilesystemInit(const char* arg0, const char* arg1) {
     if (arg1) {
       strncpy(state.source, arg1, LOVR_PATH_MAX);
       if (!lovrFilesystemMount(state.source, NULL, 1)) {
-        goto mounted;
+        return;
       }
     }
 
     free(state.source);
     state.source = NULL;
   }
-
-mounted:
-  atexit(lovrFilesystemDestroy);
 }
 
 void lovrFilesystemDestroy() {
+  if (!state.initialized) return;
   free(state.source);
   free(state.savePathFull);
   free(state.savePathRelative);
+  for (int i = 0; i < 2; i++) {
+    free(state.requirePath[i]);
+    vec_deinit(&state.requirePattern[i]);
+  }
   PHYSFS_deinit();
+  memset(&state, 0, sizeof(FilesystemState));
 }
 
 int lovrFilesystemCreateDirectory(const char* path) {
@@ -108,27 +118,6 @@ void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback
   PHYSFS_enumerate(path, callback, userdata);
 }
 
-int lovrFilesystemGetExecutablePath(char* dest, unsigned int size) {
-#ifdef __APPLE__
-  if (_NSGetExecutablePath(dest, &size) == 0) {
-    return 0;
-  }
-#elif _WIN32
-  return !GetModuleFileName(NULL, dest, size);
-#elif EMSCRIPTEN
-  return 1;
-#elif __linux__
-  memset(dest, 0, size);
-  if (readlink("/proc/self/exe", dest, size) == -1) {
-    return 1;
-  }
-#else
-#error "This platform is missing an implementation for lovrFilesystemGetExecutablePath"
-#endif
-
-  return 1;
-}
-
 const char* lovrFilesystemGetIdentity() {
   return state.identity;
 }
@@ -140,6 +129,14 @@ long lovrFilesystemGetLastModified(const char* path) {
 
 const char* lovrFilesystemGetRealDirectory(const char* path) {
   return PHYSFS_getRealDir(path);
+}
+
+vec_str_t* lovrFilesystemGetRequirePath() {
+  return &state.requirePattern[0];
+}
+
+vec_str_t* lovrFilesystemGetCRequirePath() {
+  return &state.requirePattern[1];
 }
 
 const char* lovrFilesystemGetSaveDirectory() {
@@ -171,6 +168,20 @@ const char* lovrFilesystemGetUserDirectory() {
 #endif
 }
 
+int lovrFilesystemGetWorkingDirectory(char* dest, unsigned int size) {
+#ifdef _WIN32
+  WCHAR w_cwd[LOVR_PATH_MAX];
+  _wgetcwd(w_cwd, LOVR_PATH_MAX);
+  PHYSFS_utf8FromUtf16(w_cwd, dest, size);
+  return 0;
+#else
+  if (getcwd(dest, size)) {
+    return 0;
+  }
+#endif
+  return 1;
+}
+
 bool lovrFilesystemIsDirectory(const char* path) {
   PHYSFS_Stat stat;
   return PHYSFS_stat(path, &stat) ? stat.filetype == PHYSFS_FILETYPE_DIRECTORY : false;
@@ -194,29 +205,34 @@ void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
   // Create file
   File* file = lovrFileCreate(path);
   if (!file) {
+    lovrRelease(file);
     return NULL;
   }
 
   // Open it
   if (lovrFileOpen(file, OPEN_READ)) {
+    lovrRelease(file);
     return NULL;
   }
 
   // Get file size
   size_t size = lovrFileGetSize(file);
   if (size == (unsigned int) -1) {
+    lovrRelease(file);
     return NULL;
   }
 
   // Allocate buffer
   void* data = malloc(size);
   if (!data) {
+    lovrRelease(file);
     return NULL;
   }
 
   // Perform read
   *bytesRead = lovrFileRead(file, data, size);
   lovrFileClose(file);
+  lovrRelease(file);
 
   // Make sure we got everything
   if (*bytesRead != (size_t) size) {
@@ -266,6 +282,32 @@ int lovrFilesystemSetIdentity(const char* identity) {
   return 0;
 }
 
+static void setRequirePath(int i, const char* requirePath) {
+  if (state.requirePath[i]) {
+    free(state.requirePath[i]);
+    vec_clear(&state.requirePattern[i]);
+  }
+
+  char* p = state.requirePath[i] = strdup(requirePath);
+
+  while (1) {
+    vec_push(&state.requirePattern[i], p);
+    if ((p = strchr(p, ';')) != NULL) {
+      *p++ = '\0';
+    } else {
+      break;
+    }
+  }
+}
+
+void lovrFilesystemSetRequirePath(const char* requirePath) {
+  setRequirePath(0, requirePath);
+}
+
+void lovrFilesystemSetCRequirePath(const char* requirePath) {
+  setRequirePath(1, requirePath);
+}
+
 int lovrFilesystemUnmount(const char* path) {
   return !PHYSFS_unmount(path);
 }
@@ -279,6 +321,6 @@ size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, b
   lovrFileOpen(file, append ? OPEN_APPEND : OPEN_WRITE);
   size_t bytesWritten = lovrFileWrite(file, (void*) content, size);
   lovrFileClose(file);
-  lovrRelease(&file->ref);
+  lovrRelease(file);
   return bytesWritten;
 }

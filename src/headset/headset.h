@@ -6,6 +6,7 @@
 #pragma once
 
 typedef enum {
+  EYE_BOTH = -1,
   EYE_LEFT,
   EYE_RIGHT
 } HeadsetEye;
@@ -17,6 +18,7 @@ typedef enum {
 
 typedef enum {
   DRIVER_FAKE,
+  DRIVER_OCULUS,
   DRIVER_OPENVR,
   DRIVER_WEBVR,
   DRIVER_OVR,
@@ -40,17 +42,16 @@ typedef enum {
 } ControllerAxis;
 
 typedef enum {
-  CONTROLLER_BUTTON_UNKNOWN,
   CONTROLLER_BUTTON_SYSTEM,
   CONTROLLER_BUTTON_MENU,
   CONTROLLER_BUTTON_TRIGGER,
   CONTROLLER_BUTTON_GRIP,
   CONTROLLER_BUTTON_TOUCHPAD,
-  CONTROLLER_BUTTON_JOYSTICK,
   CONTROLLER_BUTTON_A,
   CONTROLLER_BUTTON_B,
   CONTROLLER_BUTTON_X,
-  CONTROLLER_BUTTON_Y
+  CONTROLLER_BUTTON_Y,
+  CONTROLLER_BUTTON_UNKNOWN // Must be last item
 } ControllerButton;
 
 typedef enum {
@@ -61,34 +62,31 @@ typedef enum {
 
 typedef struct {
   Ref ref;
-  unsigned int id;
+  uint32_t id;
 } Controller;
 
 typedef vec_t(Controller*) vec_controller_t;
-typedef void (*headsetRenderCallback)(HeadsetEye eye, void* userdata);
 
 typedef struct {
   HeadsetDriver driverType;
-  bool (*isAvailable)();
-  void (*init)();
+  bool (*init)(float offset, int msaa);
   void (*destroy)();
-  void (*poll)();
-  bool (*isPresent)();
   HeadsetType (*getType)();
   HeadsetOrigin (*getOriginType)();
-  bool (*isMirrored)();
-  void (*setMirrored)(bool mirror);
-  void (*getDisplayDimensions)(int* width, int* height);
+  bool (*isMounted)();
+  void (*isMirrored)(bool* mirrored, HeadsetEye* eye);
+  void (*setMirrored)(bool mirror, HeadsetEye eye);
+  void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
   void (*getClipDistance)(float* clipNear, float* clipFar);
   void (*setClipDistance)(float clipNear, float clipFar);
-  float (*getBoundsWidth)();
-  float (*getBoundsDepth)();
+  void (*getBoundsDimensions)(float* width, float* depth);
+  const float* (*getBoundsGeometry)(int* count);
   void (*getPose)(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void (*getEyePose)(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void (*getVelocity)(float* x, float* y, float* z);
   void (*getAngularVelocity)(float* x, float* y, float* z);
-  vec_controller_t* (*getControllers)();
-  bool (*controllerIsPresent)(Controller* controller);
+  Controller** (*getControllers)(uint8_t* count);
+  bool (*controllerIsConnected)(Controller* controller);
   ControllerHand (*controllerGetHand)(Controller* controller);
   void (*controllerGetPose)(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   float (*controllerGetAxis)(Controller* controller, ControllerAxis axis);
@@ -96,43 +94,18 @@ typedef struct {
   bool (*controllerIsTouched)(Controller* controller, ControllerButton button);
   void (*controllerVibrate)(Controller* controller, float duration, float power);
   ModelData* (*controllerNewModelData)(Controller* controller);
-  void (*renderTo)(headsetRenderCallback callback, void* userdata);
+  void (*renderTo)(void (*callback)(void*), void* userdata);
   void (*update)(float dt);
 } HeadsetInterface;
 
-// Headset implementations
+// Available drivers
+extern HeadsetInterface lovrHeadsetOculusDriver;
 extern HeadsetInterface lovrHeadsetOpenVRDriver;
 extern HeadsetInterface lovrHeadsetWebVRDriver;
 extern HeadsetInterface lovrHeadsetFakeDriver;
 
-void lovrHeadsetInit(HeadsetDriver* drivers, int count);
-void lovrHeadsetDestroy();
-void lovrHeadsetPoll();
-const HeadsetDriver* lovrHeadsetGetDriver();
-bool lovrHeadsetIsPresent();
-HeadsetType lovrHeadsetGetType();
-HeadsetOrigin lovrHeadsetGetOriginType();
-bool lovrHeadsetIsMirrored();
-void lovrHeadsetSetMirrored(bool mirror);
-void lovrHeadsetGetDisplayDimensions(int* width, int* height);
-void lovrHeadsetGetClipDistance(float* clipNear, float* clipFar);
-void lovrHeadsetSetClipDistance(float clipNear, float clipFar);
-float lovrHeadsetGetBoundsWidth();
-float lovrHeadsetGetBoundsDepth();
-void lovrHeadsetGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-void lovrHeadsetGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-void lovrHeadsetGetVelocity(float* x, float* y, float* z);
-void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z);
-vec_controller_t* lovrHeadsetGetControllers();
-bool lovrHeadsetControllerIsPresent(Controller* controller);
-ControllerHand lovrHeadsetControllerGetHand(Controller* controller);
-void lovrHeadsetControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis);
-bool lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button);
-bool lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button);
-void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power);
-ModelData* lovrHeadsetControllerNewModelData(Controller* controller);
-void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata);
-void lovrHeadsetUpdate(float dt);
+// Active driver
+extern HeadsetInterface* lovrHeadsetDriver;
 
-void lovrControllerDestroy(const Ref* ref);
+void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa);
+void lovrHeadsetDestroy();

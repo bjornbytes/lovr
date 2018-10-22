@@ -35,10 +35,10 @@ int l_lovrSourceGetDirection(lua_State* L) {
 
 int l_lovrSourceGetDuration(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  TimeUnit* unit = luax_optenum(L, 2, "seconds", &TimeUnits, "unit");
+  TimeUnit unit = luaL_checkoption(L, 2, "seconds", TimeUnits);
   int duration = lovrSourceGetDuration(source);
 
-  if (*unit == UNIT_SECONDS) {
+  if (unit == UNIT_SECONDS) {
     lua_pushnumber(L, (float) duration / lovrSourceGetSampleRate(source));
   } else {
     lua_pushinteger(L, duration);
@@ -75,6 +75,12 @@ int l_lovrSourceGetPosition(lua_State* L) {
 int l_lovrSourceGetSampleRate(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   lua_pushinteger(L, lovrSourceGetSampleRate(source));
+  return 1;
+}
+
+int l_lovrSourceGetType(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  lua_pushstring(L, SourceTypes[lovrSourceGetType(source)]);
   return 1;
 }
 
@@ -151,9 +157,9 @@ int l_lovrSourceRewind(lua_State* L) {
 
 int l_lovrSourceSeek(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  TimeUnit* unit = luax_optenum(L, 3, "seconds", &TimeUnits, "unit");
+  TimeUnit unit = luaL_checkoption(L, 3, "seconds", TimeUnits);
 
-  if (*unit == UNIT_SECONDS) {
+  if (unit == UNIT_SECONDS) {
     float seconds = luaL_checknumber(L, 2);
     int sampleRate = lovrSourceGetSampleRate(source);
     lovrSourceSeek(source, (int) (seconds * sampleRate + .5f));
@@ -243,10 +249,10 @@ int l_lovrSourceStop(lua_State* L) {
 
 int l_lovrSourceTell(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  TimeUnit* unit = luax_optenum(L, 2, "seconds", &TimeUnits, "unit");
+  TimeUnit unit = luaL_checkoption(L, 2, "seconds", TimeUnits);
   int offset = lovrSourceTell(source);
 
-  if (*unit == UNIT_SECONDS) {
+  if (unit == UNIT_SECONDS) {
     lua_pushnumber(L, (float) offset / lovrSourceGetSampleRate(source));
   } else {
     lua_pushinteger(L, offset);
@@ -265,6 +271,7 @@ const luaL_Reg lovrSource[] = {
   { "getPitch", l_lovrSourceGetPitch },
   { "getPosition", l_lovrSourceGetPosition },
   { "getSampleRate", l_lovrSourceGetSampleRate },
+  { "getType", l_lovrSourceGetType },
   { "getVelocity", l_lovrSourceGetVelocity },
   { "getVolume", l_lovrSourceGetVolume },
   { "getVolumeLimits", l_lovrSourceGetVolumeLimits },

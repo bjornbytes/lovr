@@ -1,45 +1,32 @@
 #include "api.h"
+#include "api/math.h"
 #include "math/math.h"
 #include "math/mat4.h"
 #include "math/quat.h"
 #include "math/randomGenerator.h"
 #include "math/transform.h"
 
-extern int l_lovrRandomGeneratorRandom(lua_State* L);
-extern int l_lovrRandomGeneratorRandomNormal(lua_State* L);
-extern int l_lovrRandomGeneratorGetSeed(lua_State* L);
-extern int l_lovrRandomGeneratorSetSeed(lua_State* L);
-
-int l_lovrMathInit(lua_State* L) {
-  lua_newtable(L);
-  luaL_register(L, NULL, lovrMath);
-  luax_registertype(L, "RandomGenerator", lovrRandomGenerator);
-  luax_registertype(L, "Transform", lovrTransform);
-  lovrMathInit();
-  return 1;
-}
-
-int l_lovrMathNewRandomGenerator(lua_State* L) {
+static int l_lovrMathNewRandomGenerator(lua_State* L) {
   RandomGenerator* generator = lovrRandomGeneratorCreate();
   if (lua_gettop(L) > 0){
     Seed seed = luax_checkrandomseed(L, 1);
     lovrRandomGeneratorSetSeed(generator, seed);
   }
-  luax_pushtype(L, RandomGenerator, generator);
-  lovrRelease(&generator->ref);
+  luax_pushobject(L, generator);
+  lovrRelease(generator);
   return 1;
 }
 
-int l_lovrMathNewTransform(lua_State* L) {
+static int l_lovrMathNewTransform(lua_State* L) {
   float matrix[16];
-  luax_readtransform(L, 1, matrix, 0);
+  luax_readtransform(L, 1, matrix, 3);
   Transform* transform = lovrTransformCreate(matrix);
-  luax_pushtype(L, Transform, transform);
-  lovrRelease(&transform->ref);
+  luax_pushobject(L, transform);
+  lovrRelease(transform);
   return 1;
 }
 
-int l_lovrMathLookAt(lua_State* L) {
+static int l_lovrMathLookAt(lua_State* L) {
   float from[3] = { luaL_checknumber(L, 1), luaL_checknumber(L, 2), luaL_checknumber(L, 3) };
   float to[3] = { luaL_checknumber(L, 4), luaL_checknumber(L, 5), luaL_checknumber(L, 6) };
   float up[3] = { luaL_optnumber(L, 7, 0), luaL_optnumber(L, 8, 1), luaL_optnumber(L, 9, 0) };
@@ -54,7 +41,7 @@ int l_lovrMathLookAt(lua_State* L) {
   return 4;
 }
 
-int l_lovrMathOrientationToDirection(lua_State* L) {
+static int l_lovrMathOrientationToDirection(lua_State* L) {
   float angle = luaL_checknumber(L, 1);
   float ax = luaL_optnumber(L, 2, 0);
   float ay = luaL_optnumber(L, 3, 1);
@@ -67,31 +54,44 @@ int l_lovrMathOrientationToDirection(lua_State* L) {
   return 3;
 }
 
-int l_lovrMathRandom(lua_State* L) {
-  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+static int l_lovrMathNoise(lua_State* L) {
+  switch (lua_gettop(L)) {
+    case 0:
+    case 1: lua_pushnumber(L, lovrMathNoise1(luaL_checknumber(L, 1))); return 1;
+    case 2: lua_pushnumber(L, lovrMathNoise2(luaL_checknumber(L, 1), luaL_checknumber(L, 2))); return 1;
+    case 3: lua_pushnumber(L, lovrMathNoise3(luaL_checknumber(L, 1), luaL_checknumber(L, 2), luaL_checknumber(L, 3))); return 1;
+    case 4:
+    default:
+      lua_pushnumber(L, lovrMathNoise4(luaL_checknumber(L, 1), luaL_checknumber(L, 2), luaL_checknumber(L, 3), luaL_checknumber(L, 4)));
+      return 1;
+  }
+}
+
+static int l_lovrMathRandom(lua_State* L) {
+  luax_pushobject(L, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorRandom(L);
 }
 
-int l_lovrMathRandomNormal(lua_State* L) {
-  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+static int l_lovrMathRandomNormal(lua_State* L) {
+  luax_pushobject(L, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorRandomNormal(L);
 }
 
-int l_lovrMathGetRandomSeed(lua_State* L) {
-  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+static int l_lovrMathGetRandomSeed(lua_State* L) {
+  luax_pushobject(L, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorGetSeed(L);
 }
 
-int l_lovrMathSetRandomSeed(lua_State* L) {
-  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
+static int l_lovrMathSetRandomSeed(lua_State* L) {
+  luax_pushobject(L, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorSetSeed(L);
 }
 
-int l_lovrMathGammaToLinear(lua_State* L) {
+static int l_lovrMathGammaToLinear(lua_State* L) {
   if (lua_istable(L, 1)) {
     for (int i = 0; i < 3; i++) {
       lua_rawgeti(L, 1, i + 1);
@@ -108,7 +108,7 @@ int l_lovrMathGammaToLinear(lua_State* L) {
   }
 }
 
-int l_lovrMathLinearToGamma(lua_State* L) {
+static int l_lovrMathLinearToGamma(lua_State* L) {
   if (lua_istable(L, 1)) {
     for (int i = 0; i < 3; i++) {
       lua_rawgeti(L, 1, i + 1);
@@ -125,11 +125,12 @@ int l_lovrMathLinearToGamma(lua_State* L) {
   }
 }
 
-const luaL_Reg lovrMath[] = {
+static const luaL_Reg lovrMath[] = {
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "newTransform", l_lovrMathNewTransform },
   { "orientationToDirection", l_lovrMathOrientationToDirection },
   { "lookAt", l_lovrMathLookAt },
+  { "noise", l_lovrMathNoise },
   { "random", l_lovrMathRandom },
   { "randomNormal", l_lovrMathRandomNormal },
   { "getRandomSeed", l_lovrMathGetRandomSeed },
@@ -139,3 +140,12 @@ const luaL_Reg lovrMath[] = {
   { NULL, NULL }
 };
 
+int luaopen_lovr_math(lua_State* L) {
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrMath);
+  luax_atexit(L, lovrMathDestroy);
+  luax_registertype(L, "RandomGenerator", lovrRandomGenerator);
+  luax_registertype(L, "Transform", lovrTransform);
+  lovrMathInit();
+  return 1;
+}
