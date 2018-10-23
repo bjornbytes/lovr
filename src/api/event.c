@@ -36,13 +36,13 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       variant->type = TYPE_STRING;
       size_t length;
       const char* string = lua_tolstring(L, index, &length);
-      variant->value.string = malloc(length + 1);
-      strcpy(variant->value.string, string);
+      variant->value.string = calloc(1, length + 1);
+      memcpy(variant->value.string, string, length);
       break;
 
     case LUA_TUSERDATA:
       variant->type = TYPE_OBJECT;
-      variant->value.ref = lua_touserdata(L, index);
+      variant->value.ref = *(Ref**) lua_touserdata(L, index);
       lovrRetain(variant->value.ref);
       break;
 
