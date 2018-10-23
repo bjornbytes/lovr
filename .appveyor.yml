@@ -10,7 +10,6 @@ only_commits:
 before_build:
   - cd C:\projects\lovr
   - git submodule update --init
-  - md build
   - cd build
   - cmake -DCMAKE_BUILD_TYPE=%configuration% ..
 
