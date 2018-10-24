@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <stddef.h>
-#include "lib/vec/vec.h"
 
 #pragma once
 
