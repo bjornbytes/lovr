@@ -280,7 +280,10 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENVR)
 endif()
 
 # Oculus SDK
-if (LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS AND LOVR_OCULUS_PATH)
+if (LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
+  if(NOT LOVR_OCULUS_PATH)
+    message(FATAL_ERROR "LOVR_USE_OCULUS requires the LOVR_OCULUS_PATH to be set to the location of the Oculus Desktop SDK")
+  endif()
   if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(OCULUS_BUILD_TYPE "Release")
   else()
