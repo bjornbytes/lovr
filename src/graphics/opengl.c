@@ -1232,6 +1232,15 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
   return canvas;
 }
 
+Canvas* lovrCanvasCreateFromHandle(uint32_t handle) {
+  Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
+  if (!canvas) return NULL;
+
+  canvas->framebuffer = handle;
+
+  return canvas;
+}
+
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
   glDeleteFramebuffers(1, &canvas->framebuffer);
