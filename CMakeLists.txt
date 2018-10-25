@@ -45,7 +45,7 @@ if(EMSCRIPTEN)
     "-s FORCE_FILESYSTEM=1 "
     "-s ALLOW_MEMORY_GROWTH=1 "
     "-s \"EXPORTED_FUNCTIONS=[ "
-      "'_main','_lovrRun','_lovrQuit','_lovrDestroy',"
+      "'_main','_lovrRun','_lovrQuit',"
       "'_mat4_identity','_mat4_invert','_mat4_multiply','_mat4_rotateQuat','_mat4_transform','_mat4_transformDirection','_mat4_translate',"
       "'_quat_fromMat4','_quat_getAngleAxis'"
     "]\" "
@@ -294,7 +294,10 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENVR)
 endif()
 
 # Oculus SDK
-if (LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS AND LOVR_OCULUS_PATH)
+if (LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
+  if(NOT LOVR_OCULUS_PATH)
+    message(FATAL_ERROR "LOVR_USE_OCULUS requires the LOVR_OCULUS_PATH to be set to the location of the Oculus Desktop SDK")
+  endif()
   if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(OCULUS_BUILD_TYPE "Release")
   else()
@@ -311,10 +314,12 @@ if (LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS AND LOVR_OCULUS_PATH)
 endif()
 
 # pthreads
-if(NOT WIN32)
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-  find_package(Threads REQUIRED)
-  set(LOVR_PTHREADS Threads::Threads)
+if(LOVR_ENABLE_THREAD)
+  if(NOT WIN32 AND NOT EMSCRIPTEN)
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+    find_package(Threads REQUIRED)
+    set(LOVR_PTHREADS Threads::Threads)
+  endif()
 endif()
 
 # LÖVR

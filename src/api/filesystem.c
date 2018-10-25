@@ -360,12 +360,17 @@ int luaopen_lovr_filesystem(lua_State* L) {
   luax_atexit(L, lovrFilesystemDestroy);
 
   lua_getglobal(L, "arg");
-  lua_rawgeti(L, -1, -2);
-  lua_rawgeti(L, -2, 1);
-  const char* arg0 = lua_tostring(L, -2);
-  const char* arg1 = lua_tostring(L, -1);
-  lovrFilesystemInit(arg0, arg1);
-  lua_pop(L, 3);
+  if (lua_istable(L, -1)) {
+    lua_rawgeti(L, -1, -2);
+    lua_rawgeti(L, -2, 1);
+    const char* arg0 = lua_tostring(L, -2);
+    const char* arg1 = lua_tostring(L, -1);
+    lovrFilesystemInit(arg0, arg1);
+    lua_pop(L, 3);
+  } else {
+    lua_pop(L, 1);
+    lovrFilesystemInit(NULL, NULL);
+  }
 
   luax_registerloader(L, moduleLoader, 2);
   luax_registerloader(L, libraryLoader, 3);

@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 // Thomas Wang's 64-bit integer hashing function:
 // https://web.archive.org/web/20110807030012/http://www.cris.com/%7ETtwang/tech/inthash.htm
@@ -47,7 +48,7 @@ void lovrRandomGeneratorSetSeed(RandomGenerator* generator, Seed seed) {
 }
 
 void lovrRandomGeneratorGetState(RandomGenerator* generator, char* state, size_t length) {
-  snprintf(state, length, "0x%16llx", generator->state.b64);
+  snprintf(state, length, "0x%" PRIx64, generator->state.b64);
 }
 
 int lovrRandomGeneratorSetState(RandomGenerator* generator, const char* state) {

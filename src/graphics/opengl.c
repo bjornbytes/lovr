@@ -132,7 +132,7 @@ struct Canvas {
   uint32_t depthBuffer;
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
   Attachment depth;
-  int count;
+  int attachmentCount;
   bool needsAttach;
   bool needsResolve;
 };
@@ -838,7 +838,7 @@ void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil) {
 
   if (color) {
     gammaCorrectColor(color);
-    int count = canvas ? canvas->count : 1;
+    int count = canvas ? canvas->attachmentCount : 1;
     for (int i = 0; i < count; i++) {
       glClearBufferfv(GL_COLOR, i, (float[]) { color->r, color->g, color->b, color->a });
     }
@@ -1232,12 +1232,21 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
   return canvas;
 }
 
+Canvas* lovrCanvasCreateFromHandle(uint32_t handle) {
+  Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
+  if (!canvas) return NULL;
+
+  canvas->framebuffer = handle;
+
+  return canvas;
+}
+
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
   glDeleteFramebuffers(1, &canvas->framebuffer);
   glDeleteRenderbuffers(1, &canvas->depthBuffer);
   glDeleteFramebuffers(1, &canvas->resolveBuffer);
-  for (int i = 0; i < canvas->count; i++) {
+  for (int i = 0; i < canvas->attachmentCount; i++) {
     lovrRelease(canvas->attachments[i].texture);
   }
   lovrRelease(canvas->depth.texture);
@@ -1245,7 +1254,7 @@ void lovrCanvasDestroy(void* ref) {
 }
 
 const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count) {
-  if (count) *count = canvas->count;
+  if (count) *count = canvas->attachmentCount;
   return canvas->attachments;
 }
 
@@ -1253,7 +1262,7 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
   lovrAssert(count > 0, "A Canvas must have at least one attached Texture");
   lovrAssert(count <= MAX_CANVAS_ATTACHMENTS, "Only %d textures can be attached to a Canvas, got %d\n", MAX_CANVAS_ATTACHMENTS, count);
 
-  if (!canvas->needsAttach && count == canvas->count && !memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
+  if (!canvas->needsAttach && count == canvas->attachmentCount && !memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
     return;
   }
 
@@ -1268,12 +1277,12 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
     lovrRetain(texture);
   }
 
-  for (int i = 0; i < canvas->count; i++) {
+  for (int i = 0; i < canvas->attachmentCount; i++) {
     lovrRelease(canvas->attachments[i].texture);
   }
 
   memcpy(canvas->attachments, attachments, count * sizeof(Attachment));
-  canvas->count = count;
+  canvas->attachmentCount = count;
   canvas->needsAttach = true;
 }
 
@@ -1292,7 +1301,7 @@ void lovrCanvasBind(Canvas* canvas, bool willDraw) {
 
   // We need to synchronize if any of the Canvas attachments have pending writes on them
 #ifndef EMSCRIPTEN
-  for (int i = 0; i < canvas->count; i++) {
+  for (int i = 0; i < canvas->attachmentCount; i++) {
     Texture* texture = canvas->attachments[i].texture;
     if (texture->incoherent && (texture->incoherent >> BARRIER_CANVAS) & 1) {
       lovrGpuSync(1 << BARRIER_CANVAS);
@@ -1307,7 +1316,7 @@ void lovrCanvasBind(Canvas* canvas, bool willDraw) {
   }
 
   GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
-  for (int i = 0; i < canvas->count; i++) {
+  for (int i = 0; i < canvas->attachmentCount; i++) {
     GLenum buffer = buffers[i] = GL_COLOR_ATTACHMENT0 + i;
     Attachment* attachment = &canvas->attachments[i];
     Texture* texture = attachment->texture;
@@ -1325,7 +1334,7 @@ void lovrCanvasBind(Canvas* canvas, bool willDraw) {
       case TEXTURE_VOLUME: glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, buffer, texture->id, level, slice); break;
     }
   }
-  glDrawBuffers(canvas->count, buffers);
+  glDrawBuffers(canvas->attachmentCount, buffers);
 
   GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   switch (status) {
@@ -1350,23 +1359,23 @@ void lovrCanvasResolve(Canvas* canvas) {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, canvas->resolveBuffer);
     state.framebuffer = canvas->resolveBuffer;
 
-    if (canvas->count == 1) {
+    if (canvas->attachmentCount == 1) {
       glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     } else {
       GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
-      for (int i = 0; i < canvas->count; i++) {
+      for (int i = 0; i < canvas->attachmentCount; i++) {
         buffers[i] = GL_COLOR_ATTACHMENT0 + i;
         glReadBuffer(i);
         glDrawBuffers(1, &buffers[i]);
         glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
       }
       glReadBuffer(0);
-      glDrawBuffers(canvas->count, buffers);
+      glDrawBuffers(canvas->attachmentCount, buffers);
     }
   }
 
   if (canvas->flags.mipmaps) {
-    for (int i = 0; i < canvas->count; i++) {
+    for (int i = 0; i < canvas->attachmentCount; i++) {
       Texture* texture = canvas->attachments[i].texture;
       if (texture->mipmapCount > 1) {
         lovrGpuBindTexture(texture, 0);
