@@ -92,7 +92,7 @@ bool lovrRun(int argc, char** argv, int* status) {
   }
   lua_setglobal(L, "arg");
 
-  luax_registerloader(L, loadSelf, 2);
+  luax_registerloader(L, loadSelf, 1);
 
   lua_pushcfunction(L, luax_getstack);
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
