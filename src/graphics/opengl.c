@@ -512,7 +512,7 @@ static void lovrGpuDestroySyncResource(void* resource, uint8_t incoherent) {
   }
 }
 
-static void lovrGpuBindFramebuffer(uint32_t framebuffer) {
+void lovrGpuBindFramebuffer(uint32_t framebuffer) {
   if (state.framebuffer != framebuffer) {
     state.framebuffer = framebuffer;
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -605,7 +605,7 @@ static void lovrGpuUseProgram(uint32_t program) {
 
 // GPU
 
-void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
+void lovrGpuInit(bool srgb, getGpuProcProc getProcAddress) {
 #ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) getProcAddress);
   state.features.computeShaders = GLAD_GL_ARB_compute_shader;
@@ -656,7 +656,7 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   glFrontFace(GL_CCW);
 
   state.wireframe = false;
-#ifndef EMSCRIPTEN
+#if !(defined(EMSCRIPTEN) || defined(__ANDROID__))
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
 
@@ -1654,7 +1654,7 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentS
   Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
   if (!shader) return NULL;
 
-#ifdef EMSCRIPTEN
+#if defined(EMSCRIPTEN) || defined(__ANDROID__)
   const char* vertexHeader = "#version 300 es\nprecision mediump float;\nprecision mediump int;\n";
   const char* fragmentHeader = vertexHeader;
 #else

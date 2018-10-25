@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #endif
-#ifdef LOVR_OVR_MOBILE
+#ifdef LOVR_USE_OCULUS_MOBILE
 #include <android/log.h>
 #include <assert.h>
 #endif
@@ -38,7 +38,6 @@ void lovrThrow(const char* format, ...) {
     fprintf(stderr, "\n");
     va_end(args);
     exit(EXIT_FAILURE);
-#endif
   }
 }
 

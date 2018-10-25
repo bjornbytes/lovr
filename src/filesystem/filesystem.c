@@ -18,7 +18,7 @@
 #include <unistd.h>
 #include <pwd.h>
 #endif
-#if LOVR_OVR_MOBILE
+#if LOVR_USE_OCULUS_MOBILE
 #include "BridgeLovr.h"
 #endif
 
@@ -98,7 +98,7 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
 #elif EMSCRIPTEN
   strncpy(dest, "/home/web_user", size);
   return 0;
-#elif LOVR_OVR_MOBILE
+#elif LOVR_USE_OCULUS_MOBILE
   strncpy(dest, bridgeLovrWritablePath, size);
 #elif __linux__
   const char* home;

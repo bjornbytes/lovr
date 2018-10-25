@@ -18,9 +18,9 @@ option(LOVR_ENABLE_JSON "Bundle with lua-cjson" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_ASSIMP "Enable model loading with Assimp" ON)
-option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
+option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for the headset module" OFF)
 option(LOVR_USE_FAKE_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_SSE "Enable SIMD use of intrinsics" ON)
 
@@ -60,6 +60,17 @@ if(EMSCRIPTEN)
   set(LOVR_USE_OPENVR OFF)
   set(LOVR_USE_OCULUS OFF)
   set(LOVR_USE_SSE OFF)
+elseif(ANDROID)
+  #set(LOVR_ANDROID_FLAGS "-Wno-narrowing")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_ANDROID_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_ANDROID_FLAGS}")
+
+  set(LOVR_USE_OPENVR OFF)
+  set(LOVR_USE_OCULUS OFF)
+  set(LOVR_USE_FAKE_HEADSET OFF)
+  set(LOVR_USE_OCULUS_MOBILE ON)
+  set(LOVR_USE_LUAJIT OFF) # Until buildvm re-invoke works
+  set(LOVR_USE_SSE OFF) # Assume ARM. Technically wrong on Android X86…?
 elseif(UNIX)
   if(APPLE)
     set(CMAKE_MACOSX_RPATH 1)
@@ -104,6 +115,9 @@ if(LOVR_ENABLE_DATA AND LOVR_USE_ASSIMP)
       set(ZLIB_LIBRARIES "-s USE_ZLIB=1")
       set(ZLIB_INCLUDE_DIR "assimp/contrib/zlib")
     endif()
+    if (ANDROID)
+      set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "")
+    endif()
     set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "")
     set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "")
     set(ASSIMP_NO_EXPORT ON CACHE BOOL "")
@@ -140,7 +154,7 @@ if(LOVR_ENABLE_ENET)
 endif()
 
 # GLFW
-if(NOT (EMSCRIPTEN OR OCULUS_ANDROID_EMBED))
+if(NOT (EMSCRIPTEN OR ANDROID))
   if(LOVR_SYSTEM_GLFW)
     pkg_search_module(GLFW REQUIRED glfw3)
     include_directories(${GLFW_INCLUDE_DIRS})
@@ -157,7 +171,7 @@ if(NOT (EMSCRIPTEN OR OCULUS_ANDROID_EMBED))
 endif()
 
 # Lua
-if(LOVR_USE_LUAJIT AND NOT (EMSCRIPTEN OR OCULUS_ANDROID_EMBED))
+if(LOVR_USE_LUAJIT AND NOT (EMSCRIPTEN OR ANDROID))
   if (APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pagezero_size 10000 -image_base 100000000")
   endif()
@@ -180,9 +194,6 @@ else()
     option(LUA_USE_ULONGJMP OFF)
     option(LUA_USE_POPEN OFF)
   endif()
-  if (OCULUS_ANDROID_EMBED)
-    set_target_properties(lua luac liblua liblua_static PROPERTIES EXCLUDE_FROM_ALL 1)
-  endif ()
   if(LOVR_SYSTEM_LUA)
     pkg_search_module(LUA REQUIRED lua)
     include_directories(${LUA_INCLUDE_DIRS})
@@ -257,7 +268,7 @@ if(LOVR_ENABLE_AUDIO)
 endif()
 
 # OpenGL
-if(NOT (WIN32 OR EMSCRIPTEN OR OCULUS_ANDROID_EMBED))
+if(NOT (WIN32 OR EMSCRIPTEN OR ANDROID))
   find_package(OpenGL REQUIRED)
   include_directories(${OPENGL_INCLUDE_DIRS})
   set(LOVR_OPENGL ${OPENGL_LIBRARIES})
@@ -306,15 +317,9 @@ if(NOT WIN32)
   set(LOVR_PTHREADS Threads::Threads)
 endif()
 
-if (NOT OCULUS_ANDROID_EMBED)
-set(FAKE_SRC src/headset/fake.c)
-endif()
-
 # LÖVR
 
-
-
-add_executable(lovr
+set(LOVR_SRC
   src/main.c
   src/util.c
   src/luax.c
@@ -322,6 +327,14 @@ add_executable(lovr
   src/lib/map/map.c
   src/lib/vec/vec.c
 )
+
+if (ANDROID)
+  # For Android only we build as a library.
+  add_library(lovr SHARED ${LOVR_SRC})
+  target_link_libraries(lovr log EGL)
+else()
+  add_executable(lovr ${LOVR_SRC})
+endif()
 
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
 target_include_directories(lovr PRIVATE src)
@@ -438,6 +451,17 @@ if(LOVR_ENABLE_HEADSET)
   if(LOVR_USE_OCULUS)
     add_definitions(-DLOVR_USE_OCULUS)
     target_sources(lovr PRIVATE src/headset/oculus.c)
+  endif()
+  if(LOVR_USE_OCULUS_MOBILE)
+    add_definitions(-DLOVR_USE_OCULUS_MOBILE)
+    add_definitions(-DNO_WINDOW=1)
+
+    #add_definitions(-DLOVRAPP_LIBLOVR_INTERNAL_PATH=) # TODO?
+
+    # OCULUS_MOBILE assumes it will be built as part of an Android app, and that it is a git submodule of that app.
+    # The "BridgeLovr" files live in the parent (app) repository:
+    include_directories(../include)
+    target_sources(lovr PRIVATE src/headset/oculus_mobile.c ../BridgeLovr.cpp ../BridgeLovrPrintOverride.cpp)
   endif()
   if(LOVR_USE_WEBVR)
     add_definitions(-DLOVR_USE_WEBVR)

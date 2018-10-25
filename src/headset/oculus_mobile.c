@@ -3,165 +3,31 @@
 #include "BridgeLovr.h"
 #include "math/quat.h"
 #include "graphics/graphics.h"
+#include "math/mat4.h"
 
-void lovrHeadsetInit(HeadsetDriver* drivers, int count) {
-}
-
-void lovrHeadsetDestroy() {
-}
-
-static HeadsetDriver driver = DRIVER_OVR_MOBILE;
-
-const HeadsetDriver* lovrHeadsetGetDriver() {
-  return &driver;
-}
-
-void lovrHeadsetPoll() {
-}
-
-bool lovrHeadsetIsPresent() {
-  return true; // Can't not ?!?
-}
-
-HeadsetType lovrHeadsetGetType() {
-  return HEADSET_RIFT;
-}
-
-HeadsetOrigin lovrHeadsetGetOriginType() {
-  return ORIGIN_FLOOR;
-}
-
-bool lovrHeadsetIsMirrored() {
-  return false; // Can't ever??
-}
-
-void lovrHeadsetSetMirrored(bool mirrored) {
-  // Don't care?
-}
-
-void lovrHeadsetGetDisplayDimensions(int* width, int* height) {
-  *width = bridgeLovrMobileData.displayDimensions.width;
-  *height = bridgeLovrMobileData.displayDimensions.height;
-  return;
-}
-
-// TODO
-void lovrHeadsetGetClipDistance(float* near, float* far) {
-  *near = *far = 0.f;
-  return;
-}
-
-/// TODO
-void lovrHeadsetSetClipDistance(float near, float far) {
-}
-
-// TODO
-float lovrHeadsetGetBoundsWidth() {
-  return 0.f;
-}
-
-// TODO
-float lovrHeadsetGetBoundsDepth() {
-  return 0.f;
-}
-
-// TODO
-void lovrHeadsetGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  *x = bridgeLovrMobileData.lastHeadPose.x;
-  *y = bridgeLovrMobileData.lastHeadPose.y;
-  *z = bridgeLovrMobileData.lastHeadPose.z;
-
-  quat_getAngleAxis(bridgeLovrMobileData.lastHeadPose.q, angle, ax, ay, az);
-}
-
-// TODO
-void lovrHeadsetGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  // This is very wrong!
-  lovrHeadsetGetPose(x, y, z, angle, ax, ay, az);
-  return;
-}
-
-// TODO
-void lovrHeadsetGetVelocity(float* x, float* y, float* z) {
-  *x = bridgeLovrMobileData.lastHeadVelocity.x;
-  *y = bridgeLovrMobileData.lastHeadVelocity.y;
-  *z = bridgeLovrMobileData.lastHeadVelocity.z;
-  return;
-}
-
-// TODO
-void lovrHeadsetGetAngularVelocity(float* x, float* y, float* z) {
-  *x = bridgeLovrMobileData.lastHeadVelocity.ax;
-  *y = bridgeLovrMobileData.lastHeadVelocity.ay;
-  *z = bridgeLovrMobileData.lastHeadVelocity.az;
-  return;
-}
-
-// TODO
-vec_controller_t* lovrHeadsetGetControllers() {
-  return NULL;
-}
-
-// TODO
-bool lovrHeadsetControllerIsPresent(Controller* controller) {
-  return false;
-}
-
-// TODO
-ControllerHand lovrHeadsetControllerGetHand(Controller* controller) {
-  return HAND_UNKNOWN;
-}
-
-// TODO
-void lovrHeadsetControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  *x = *y = *z = *angle = *ax = *ay = *az = 0.f;
-  return;
-}
-
-// TODO
-float lovrHeadsetControllerGetAxis(Controller* controller, ControllerAxis axis) {
-  return 0.f;
-}
-
-// TODO
-bool lovrHeadsetControllerIsDown(Controller* controller, ControllerButton button) {
-  return false;
-}
-
-// TODO
-bool lovrHeadsetControllerIsTouched(Controller* controller, ControllerButton button) {
-  return false;
-}
-
-// TODO
-void lovrHeadsetControllerVibrate(Controller* controller, float duration, float power) {
-  return;
-}
-
-// TODO
-ModelData* lovrHeadsetControllerNewModelData(Controller* controller) {
-  return NULL;
-}
-
-// TODO
-static headsetRenderCallback renderCallback;
+static void (*renderCallback)(void*);
 static void* renderUserdata;
-void lovrHeadsetRenderTo(headsetRenderCallback callback, void* userdata) {
-  renderCallback = callback;
-  renderUserdata = userdata;
-}
 
 void lovrOculusMobileDraw(int eye, int framebuffer, int width, int height, float *eyeViewMatrix, float *projectionMatrix) {
   lovrGraphicsPush();
-  lovrGraphicsBindFramebuffer(framebuffer);
-  lovrGraphicsMatrixTransform(MATRIX_VIEW, eyeViewMatrix);
-  lovrGraphicsSetProjection(projectionMatrix);
-  lovrGraphicsClear(true, true, true, lovrGraphicsGetBackgroundColor(), 1., 0); // Needed?
+  lovrGpuBindFramebuffer(framebuffer);
 
-  lovrGraphicsSetViewport(0, 0, width, height);
-  glScissor(0, 0, width, height);
-  
-  renderCallback(eye, renderUserdata);
+  float m[16];
+  mat4_set(m, projectionMatrix);
+  mat4_multiply(m, eyeViewMatrix);
+
+  lovrGraphicsOrigin();
+  lovrGraphicsMatrixTransform(m);
+
+  Color color = lovrGraphicsGetBackgroundColor();
+  float depth = 1.f;
+  int stencil = 0;
+  lovrGraphicsClear(&color, &depth, &stencil); // Needed?
+
+  float viewports[4] = { 0, 0, width, height };
+  lovrGpuSetViewports(viewports, 1);
+
+  renderCallback(renderUserdata);
 
   lovrGraphicsPop();
 }
@@ -169,6 +35,158 @@ void lovrOculusMobileDraw(int eye, int framebuffer, int width, int height, float
 // TODO
 void lovrHeadsetUpdate(float dt) {
 }
+
+// Headset driver object
+
+static bool oculusMobileInit(float offset, int msaa) {
+  return true;
+}
+
+static void oculusMobileDestroy() {
+}
+
+static HeadsetType oculusMobileGetType() {
+  return HEADSET_OCULUS_MOBILE;
+}
+
+static HeadsetOrigin oculusMobileGetOriginType() {
+  return ORIGIN_FLOOR;
+}
+
+static bool oculusMobileIsMounted() {
+  return true; // ???
+}
+
+static void oculusMobileIsMirrored(bool* mirrored, bool* eye) {
+  *mirrored = false; // Can't ever??
+  *eye = false;
+}
+
+static void oculusMobileSetMirrored(bool mirror, HeadsetEye eye) {
+}
+
+static void oculusMobileGetDisplayDimensions(uint32_t* width, uint32_t* height) {
+  *width = bridgeLovrMobileData.displayDimensions.width;
+  *height = bridgeLovrMobileData.displayDimensions.height;
+}
+
+static void oculusMobileGetClipDistance(float* clipNear, float* clipFar) {
+  // TODO
+}
+
+static void oculusMobileSetClipDistance(float clipNear, float clipFar) {
+  // TODO
+}
+
+static void oculusMobileGetBoundsDimensions(float* width, float* depth) {
+  *width = 0;
+  *depth = 0;
+}
+
+static const float* oculusMobileGetBoundsGeometry(int* count) {
+  *count = 0;
+  return NULL;
+}
+
+static void oculusMobileGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  *x = bridgeLovrMobileData.lastHeadPose.x;
+  *y = bridgeLovrMobileData.lastHeadPose.y;
+  *z = bridgeLovrMobileData.lastHeadPose.z;
+
+  quat_getAngleAxis(bridgeLovrMobileData.lastHeadPose.q, angle, ax, ay, az);
+}
+
+static void oculusMobileGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  // TODO: This is very wrong!
+  oculusMobileGetPose(x, y, z, angle, ax, ay, az);
+}
+
+static void oculusMobileGetVelocity(float* x, float* y, float* z) {
+  *x = bridgeLovrMobileData.lastHeadVelocity.x;
+  *y = bridgeLovrMobileData.lastHeadVelocity.y;
+  *z = bridgeLovrMobileData.lastHeadVelocity.z;
+}
+
+static void oculusMobileGetAngularVelocity(float* x, float* y, float* z) {
+  *x = bridgeLovrMobileData.lastHeadVelocity.ax;
+  *y = bridgeLovrMobileData.lastHeadVelocity.ay;
+  *z = bridgeLovrMobileData.lastHeadVelocity.az;
+}
+
+static Controller** oculusMobileGetControllers(uint8_t* count) {
+  *count = 0; // TODO
+  return NULL;
+}
+
+static bool oculusMobileControllerIsConnected(Controller* controller) {
+  return false;
+}
+
+static ControllerHand oculusMobileControllerGetHand(Controller* controller) {
+  return HAND_UNKNOWN;
+}
+
+static void oculusMobileControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+}
+
+static float oculusMobileControllerGetAxis(Controller* controller, ControllerAxis axis) {
+  return 0;
+}
+
+static int oculusMobileControllerIsDown(Controller* controller, ControllerButton button) {
+  return 0;
+}
+
+static bool oculusMobileControllerIsTouched(Controller* controller, ControllerButton button) {
+  return false;
+}
+
+static void oculusMobileControllerVibrate(Controller* controller, float duration, float power) {
+}
+
+static ModelData* oculusMobileControllerNewModelData(Controller* controller) {
+  return NULL;
+}
+
+// TODO: need to set up swap chain textures for the eyes and finish view transforms
+static void oculusMobileRenderTo(void (*callback)(void*), void* userdata) {
+  renderCallback = callback;
+  renderUserdata = userdata;
+}
+
+static void oculusMobileUpdate(float dt) {
+}
+
+HeadsetInterface lovrHeadsetOculusMobileDriver = {
+  DRIVER_OCULUS_MOBILE,
+  oculusMobileInit,
+  oculusMobileDestroy,
+  oculusMobileGetType,
+  oculusMobileGetOriginType,
+  oculusMobileIsMounted,
+  oculusMobileIsMirrored,
+  oculusMobileSetMirrored,
+  oculusMobileGetDisplayDimensions,
+  oculusMobileGetClipDistance,
+  oculusMobileSetClipDistance,
+  oculusMobileGetBoundsDimensions,
+  oculusMobileGetBoundsGeometry,
+  oculusMobileGetPose,
+  oculusMobileGetEyePose,
+  oculusMobileGetVelocity,
+  oculusMobileGetAngularVelocity,
+  oculusMobileGetControllers,
+  oculusMobileControllerIsConnected,
+  oculusMobileControllerGetHand,
+  oculusMobileControllerGetPose,
+  oculusMobileControllerGetAxis,
+  oculusMobileControllerIsDown,
+  oculusMobileControllerIsTouched,
+  oculusMobileControllerVibrate,
+  oculusMobileControllerNewModelData,
+  oculusMobileRenderTo,
+  oculusMobileUpdate
+};
 
 // Pseudo GLFW
 
@@ -205,4 +223,10 @@ int glfwInit(void) {
 }
 void glfwTerminate(void) {
 
+}
+
+GLFWAPI void glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height)
+{
+  *width = bridgeLovrMobileData.displayDimensions.width;
+  *height = bridgeLovrMobileData.displayDimensions.height; 
 }

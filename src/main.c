@@ -14,6 +14,8 @@
 bool lovrRun(int argc, char** argv, int* status);
 void lovrQuit(int status);
 
+#ifndef LOVR_USE_OCULUS_MOBILE
+
 int main(int argc, char** argv) {
   if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
     printf("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
@@ -27,6 +29,8 @@ int main(int argc, char** argv) {
     }
   }
 }
+
+#endif
 
 #ifdef EMSCRIPTEN
 #include <emscripten.h>

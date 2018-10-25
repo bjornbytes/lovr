@@ -4,14 +4,16 @@
 #define APIENTRY __stdcall
 #endif
 
-#ifndef LOVR_OVR_MOBILE
+#ifndef LOVR_USE_OCULUS_MOBILE
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 #else
 
-// Pseudo GLFW for oculus android
+// These are stubs of necessary GLFW functions for platforms lacking GLFW, such as Oculus Mobile.
+// All of Lovr will build with just these functions as long as you build with NO_WINDOW and omit fake.c.
+
 // TODO: Move to own header
 typedef void GLFWwindow;
 #define GLFWAPI
@@ -21,6 +23,8 @@ GLFWAPI GLFWwindow* glfwGetCurrentContext(void);
 GLFWAPI void glfwSetTime(double time);
 typedef void (* GLFWerrorfun)(int,const char*);
 GLFWAPI GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun cbfun);
+GLFWAPI void glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height);
+
 
 // Constants
 

@@ -229,9 +229,11 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h);
 // GPU
 
 typedef void (*gpuProc)(void);
+typedef gpuProc (*getGpuProcProc)(const char*);
 
-void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*));
+void lovrGpuInit(bool srgb, getGpuProcProc getProcAddress);
 void lovrGpuDestroy();
+void lovrGpuBindFramebuffer(uint32_t framebuffer);
 void lovrGpuBindPipeline(Pipeline* pipeline);
 void lovrGpuSetViewports(float* viewports, int count);
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
