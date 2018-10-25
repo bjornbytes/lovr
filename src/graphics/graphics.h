@@ -93,6 +93,7 @@ typedef struct {
 } Camera;
 
 typedef struct {
+  bool alphaCoverage;
   Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
