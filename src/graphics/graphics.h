@@ -233,7 +233,6 @@ typedef gpuProc (*getGpuProcProc)(const char*);
 
 void lovrGpuInit(bool srgb, getGpuProcProc getProcAddress);
 void lovrGpuDestroy();
-void lovrGpuBindFramebuffer(uint32_t framebuffer);
 void lovrGpuBindPipeline(Pipeline* pipeline);
 void lovrGpuSetViewports(float* viewports, int count);
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);

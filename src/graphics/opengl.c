@@ -512,7 +512,7 @@ static void lovrGpuDestroySyncResource(void* resource, uint8_t incoherent) {
   }
 }
 
-void lovrGpuBindFramebuffer(uint32_t framebuffer) {
+static void lovrGpuBindFramebuffer(uint32_t framebuffer) {
   if (state.framebuffer != framebuffer) {
     state.framebuffer = framebuffer;
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -1232,11 +1232,15 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
   return canvas;
 }
 
-Canvas* lovrCanvasCreateFromHandle(uint32_t handle) {
+Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uint32_t handle, int attachmentCount) {
   Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
   if (!canvas) return NULL;
 
   canvas->framebuffer = handle;
+  canvas->attachmentCount = attachmentCount;
+  canvas->width = width;
+  canvas->height = height;
+  canvas->flags = flags;
 
   return canvas;
 }

@@ -4,32 +4,25 @@
 #include "math/quat.h"
 #include "graphics/graphics.h"
 #include "math/mat4.h"
+#include "lib/glad/glad.h"
 
 static void (*renderCallback)(void*);
 static void* renderUserdata;
 
-void lovrOculusMobileDraw(int eye, int framebuffer, int width, int height, float *eyeViewMatrix, float *projectionMatrix) {
-  lovrGraphicsPush();
-  lovrGpuBindFramebuffer(framebuffer);
+void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeViewMatrix, float *projectionMatrix) {
+  CanvasFlags flags = {0};
+  Canvas *canvas = lovrCanvasCreateFromHandle(width, height, flags, framebuffer, 1);
 
-  float m[16];
-  mat4_set(m, projectionMatrix);
-  mat4_multiply(m, eyeViewMatrix);
+  Camera camera = { .canvas = canvas, .stereo = false };
+  memcpy(camera.viewMatrix[0], eyeViewMatrix, sizeof(camera.viewMatrix[0]));
+  memcpy(camera.projection[0], projectionMatrix, sizeof(camera.projection[0]));
 
-  lovrGraphicsOrigin();
-  lovrGraphicsMatrixTransform(m);
-
-  Color color = lovrGraphicsGetBackgroundColor();
-  float depth = 1.f;
-  int stencil = 0;
-  lovrGraphicsClear(&color, &depth, &stencil); // Needed?
-
-  float viewports[4] = { 0, 0, width, height };
-  lovrGpuSetViewports(viewports, 1);
+  lovrGraphicsSetCamera(&camera, true);
 
   renderCallback(renderUserdata);
 
-  lovrGraphicsPop();
+  lovrGraphicsSetCamera(NULL, false);
+  lovrRelease(canvas);
 }
 
 // TODO
@@ -57,7 +50,7 @@ static bool oculusMobileIsMounted() {
   return true; // ???
 }
 
-static void oculusMobileIsMirrored(bool* mirrored, bool* eye) {
+static void oculusMobileIsMirrored(bool* mirrored, HeadsetEye * eye) {
   *mirrored = false; // Can't ever??
   *eye = false;
 }
@@ -133,7 +126,7 @@ static float oculusMobileControllerGetAxis(Controller* controller, ControllerAxi
   return 0;
 }
 
-static int oculusMobileControllerIsDown(Controller* controller, ControllerButton button) {
+static bool oculusMobileControllerIsDown(Controller* controller, ControllerButton button) {
   return 0;
 }
 
