@@ -374,6 +374,12 @@ void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
   lovrGpuClear(canvas, color, depth, stencil);
 }
 
+void lovrGraphicsDiscard(bool color, bool depth, bool stencil) {
+  Pipeline* pipeline = &state.pipelines[state.pipeline];
+  Canvas* canvas = pipeline->canvas ? pipeline->canvas : state.camera.canvas;
+  lovrGpuDiscard(canvas, color, depth, stencil);
+}
+
 void lovrGraphicsDraw(DrawCommand* draw) {
   Mesh* mesh = draw->mesh;
   if (!mesh) {

@@ -628,6 +628,15 @@ static int l_lovrGraphicsClear(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsDiscard(lua_State* L) {
+  int top = lua_gettop(L);
+  bool color = top >= 1 ? lua_toboolean(L, 1) : true;
+  bool depth = top >= 2 ? lua_toboolean(L, 2) : true;
+  bool stencil = top >= 3 ? lua_toboolean(L, 3) : true;
+  lovrGraphicsDiscard(color, depth, stencil);
+  return 0;
+}
+
 static int l_lovrGraphicsPoints(lua_State* L) {
   uint32_t count = luax_readvertices(L, 1);
   lovrGraphicsPoints(count);
@@ -1305,6 +1314,7 @@ static const luaL_Reg lovrGraphics[] = {
 
   // Rendering
   { "clear", l_lovrGraphicsClear },
+  { "discard", l_lovrGraphicsDiscard },
   { "points", l_lovrGraphicsPoints },
   { "line", l_lovrGraphicsLine },
   { "triangle", l_lovrGraphicsTriangle },

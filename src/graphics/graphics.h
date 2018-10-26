@@ -210,6 +210,7 @@ void lovrGraphicsMatrixTransform(mat4 transform);
 // Rendering
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
+void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
 void lovrGraphicsDraw(DrawCommand* draw);
 void lovrGraphicsPoints(uint32_t count);
 void lovrGraphicsLine(uint32_t count);
@@ -235,6 +236,7 @@ void lovrGpuDestroy();
 void lovrGpuBindPipeline(Pipeline* pipeline);
 void lovrGpuSetViewports(float* viewports, int count);
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
+void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil);
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
 void lovrGpuPresent();
