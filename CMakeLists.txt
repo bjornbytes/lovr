@@ -17,6 +17,7 @@ option(LOVR_ENABLE_ENET "Bundle with lua-enet" ON)
 option(LOVR_ENABLE_JSON "Bundle with lua-cjson" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
+option(LOVR_USE_LOGO "Include the logo in the build" ON)
 option(LOVR_USE_ASSIMP "Enable model loading with Assimp" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
@@ -336,6 +337,10 @@ target_link_libraries(lovr
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
+
+if(LOVR_USE_LOGO)
+  add_definitions(-DLOVR_USE_LOGO)
+endif()
 
 if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)

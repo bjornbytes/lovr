@@ -34,7 +34,9 @@ static const luaL_Reg lovr[] = {
 int luaopen_lovr(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovr);
+#ifdef LOVR_USE_LOGO
   lua_pushlstring(L, (const char*) logo_png, logo_png_len);
   lua_setfield(L, -2, "_logo");
+#endif
   return 1;
 }
