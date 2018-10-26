@@ -859,6 +859,32 @@ void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil) {
   }
 }
 
+void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil) {
+#if defined(EMSCRIPTEN) || defined(__ANDROID__)
+  lovrCanvasBind(canvas, false);
+
+  GLenum attachments[MAX_CANVAS_ATTACHMENTS + 1] = { 0 };
+  int count = 0;
+
+  if (color) {
+    int n = canvas ? canvas->attachmentCount : 1;
+    for (int i = 0; i < n; i++) {
+      attachments[count++] = GL_COLOR_ATTACHMENT0 + i;
+    }
+  }
+
+  if (depth) {
+    attachments[count++] = GL_DEPTH_ATTACHMENT;
+  }
+
+  if (stencil) {
+    attachments[count++] = GL_STENCIL_ATTACHMENT;
+  }
+
+  glInvalidateFramebuffer(GL_FRAMEBUFFER, count, attachments);
+#endif
+}
+
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
   state.depthWrite = false;
   glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
