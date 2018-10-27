@@ -206,6 +206,7 @@ void lovrGraphicsTranslate(float x, float y, float z);
 void lovrGraphicsRotate(float angle, float ax, float ay, float az);
 void lovrGraphicsScale(float x, float y, float z);
 void lovrGraphicsMatrixTransform(mat4 transform);
+void lovrGraphicsSetProjection(mat4 projection);
 
 // Rendering
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
