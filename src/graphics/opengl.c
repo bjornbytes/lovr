@@ -1233,11 +1233,13 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
   return canvas;
 }
 
-Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uint32_t handle, int attachmentCount, bool immortal) {
+Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, int attachmentCount, bool immortal) {
   Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
   if (!canvas) return NULL;
 
-  canvas->framebuffer = handle;
+  canvas->framebuffer = framebuffer;
+  canvas->depthBuffer = depthBuffer;
+  canvas->resolveBuffer = resolveBuffer;
   canvas->attachmentCount = attachmentCount;
   canvas->width = width;
   canvas->height = height;

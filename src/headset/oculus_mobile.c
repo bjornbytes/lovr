@@ -13,7 +13,7 @@ void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeView
   lovrGpuDirtyTexture();
 
   CanvasFlags flags = {0};
-  Canvas *canvas = lovrCanvasCreateFromHandle(width, height, flags, framebuffer, 1, true);
+  Canvas *canvas = lovrCanvasCreateFromHandle(width, height, flags, framebuffer, 0, 0, 1, true);
 
   Camera camera = { .canvas = canvas, .stereo = false };
   memcpy(camera.viewMatrix[0], eyeViewMatrix, sizeof(camera.viewMatrix[0]));
