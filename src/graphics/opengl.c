@@ -135,6 +135,7 @@ struct Canvas {
   int attachmentCount;
   bool needsAttach;
   bool needsResolve;
+  bool immortal;
 };
 
 typedef struct {
@@ -1232,7 +1233,7 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
   return canvas;
 }
 
-Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uint32_t handle, int attachmentCount) {
+Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uint32_t handle, int attachmentCount, bool immortal) {
   Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
   if (!canvas) return NULL;
 
@@ -1241,15 +1242,18 @@ Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uin
   canvas->width = width;
   canvas->height = height;
   canvas->flags = flags;
+  canvas->immortal = immortal;
 
   return canvas;
 }
 
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
-  glDeleteFramebuffers(1, &canvas->framebuffer);
-  glDeleteRenderbuffers(1, &canvas->depthBuffer);
-  glDeleteFramebuffers(1, &canvas->resolveBuffer);
+  if (!canvas->immortal) {
+    glDeleteFramebuffers(1, &canvas->framebuffer);
+    glDeleteRenderbuffers(1, &canvas->depthBuffer);
+    glDeleteFramebuffers(1, &canvas->resolveBuffer);
+  }
   for (int i = 0; i < canvas->attachmentCount; i++) {
     lovrRelease(canvas->attachments[i].texture);
   }

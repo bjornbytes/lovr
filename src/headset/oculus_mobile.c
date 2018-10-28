@@ -10,8 +10,10 @@ static void (*renderCallback)(void*);
 static void* renderUserdata;
 
 void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeViewMatrix, float *projectionMatrix) {
+  lovrGpuDirtyTexture();
+
   CanvasFlags flags = {0};
-  Canvas *canvas = lovrCanvasCreateFromHandle(width, height, flags, framebuffer, 1);
+  Canvas *canvas = lovrCanvasCreateFromHandle(width, height, flags, framebuffer, 1, true);
 
   Camera camera = { .canvas = canvas, .stereo = false };
   memcpy(camera.viewMatrix[0], eyeViewMatrix, sizeof(camera.viewMatrix[0]));
