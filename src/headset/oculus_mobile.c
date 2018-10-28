@@ -9,6 +9,8 @@
 static void (*renderCallback)(void*);
 static void* renderUserdata;
 
+static float offset;
+
 void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeViewMatrix, float *projectionMatrix) {
   lovrGpuDirtyTexture();
 
@@ -17,6 +19,8 @@ void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeView
 
   Camera camera = { .canvas = canvas, .stereo = false };
   memcpy(camera.viewMatrix[0], eyeViewMatrix, sizeof(camera.viewMatrix[0]));
+  mat4_translate(camera.viewMatrix[0], 0, -offset, 0);
+
   memcpy(camera.projection[0], projectionMatrix, sizeof(camera.projection[0]));
 
   lovrGraphicsSetCamera(&camera, true);
@@ -33,7 +37,8 @@ void lovrHeadsetUpdate(float dt) {
 
 // Headset driver object
 
-static bool oculusMobileInit(float offset, int msaa) {
+static bool oculusMobileInit(float _offset, int msaa) {
+  offset = _offset;
   return true;
 }
 
@@ -45,7 +50,7 @@ static HeadsetType oculusMobileGetType() {
 }
 
 static HeadsetOrigin oculusMobileGetOriginType() {
-  return ORIGIN_FLOOR;
+  return ORIGIN_HEAD;
 }
 
 static bool oculusMobileIsMounted() {
@@ -190,31 +195,30 @@ void glfwPollEvents() {
 }
 
 GLFWAPI void glfwGetCursorPos(GLFWwindow* window, double* xpos, double* ypos) {
-	*xpos = 0;
-	*ypos = 0;
+  *xpos = 0;
+  *ypos = 0;
 }
 
 GLFWwindow* glfwGetCurrentContext(void) {
-	return NULL;
+  return NULL;
 }
 
 void glfwSetTime(double time) {
 }
 
 double glfwGetTime(void) {
-	
 }
 
 static GLFWerrorfun lastErrFun;
 GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun cbfun)
 {
-	GLFWerrorfun cb = lastErrFun;
-	lastErrFun = cbfun;
-	return cb;
+  GLFWerrorfun cb = lastErrFun;
+  lastErrFun = cbfun;
+  return cb;
 }
 
 int glfwInit(void) {
-	return 1;
+  return 1;
 }
 void glfwTerminate(void) {
 
