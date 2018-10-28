@@ -11,10 +11,6 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #endif
-#ifdef LOVR_USE_OCULUS_MOBILE
-#include <android/log.h>
-#include <assert.h>
-#endif
 
 _Thread_local lovrErrorHandler lovrErrorCallback = NULL;
 _Thread_local void* lovrErrorUserdata = NULL;

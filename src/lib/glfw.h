@@ -14,9 +14,9 @@
 // These are stubs of necessary GLFW functions for platforms lacking GLFW, such as Oculus Mobile.
 // All of Lovr will build with just these functions as long as you build with NO_WINDOW and omit fake.c.
 
-// TODO: Move to own header
 typedef void GLFWwindow;
 #define GLFWAPI
+#define GLFWAPI_IS_FAKE
 GLFWAPI void glfwPollEvents();
 GLFWAPI void glfwGetCursorPos(GLFWwindow* window, double* xpos, double* ypos);
 GLFWAPI GLFWwindow* glfwGetCurrentContext(void);

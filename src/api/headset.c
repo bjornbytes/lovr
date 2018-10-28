@@ -70,14 +70,11 @@ typedef struct {
 
 static HeadsetRenderData headsetRenderData;
 
-#include <android/log.h>
-
 static void renderHelper(void* userdata) {
   HeadsetRenderData* renderData = userdata;
   lua_State* L = renderData->L;
 #ifdef LOVR_HEADSET_HELPER_USES_REGISTRY
   lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
-  __android_log_print(ANDROID_LOG_ERROR, "LOVR", "ON ANDROID PATH AS EXPECTED (%d) (%d,%d)", (int)renderData->ref, (int)lua_type(L, -1), (int)LUA_TFUNCTION);
 #else
   lua_pushvalue(L, -1);
 #endif

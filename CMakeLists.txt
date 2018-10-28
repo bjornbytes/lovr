@@ -18,6 +18,7 @@ option(LOVR_ENABLE_JSON "Bundle with lua-cjson" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_ASSIMP "Enable model loading with Assimp" ON)
+option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
 option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for the headset module" OFF)
@@ -461,8 +462,6 @@ if(LOVR_ENABLE_HEADSET)
     add_definitions(-DLOVR_USE_OCULUS_MOBILE)
     add_definitions(-DNO_WINDOW=1)
 
-    #add_definitions(-DLOVRAPP_LIBLOVR_INTERNAL_PATH=) # TODO?
-
     # OCULUS_MOBILE assumes it will be built as part of an Android app, and that it is a git submodule of that app.
     # The "BridgeLovr" files live in the parent (app) repository:
     include_directories(../include)
@@ -565,7 +564,7 @@ if(WIN32)
   move_dll(${LOVR_GLFW})
   move_dll(${LOVR_LUA})
   move_dll(${LOVR_ODE})
-  if (NOT LOVR_USE_OCULUS)
+  if (LOVR_USE_OPENVR)
     move_dll(${LOVR_OPENVR})
   endif()
   move_dll(${LOVR_PHYSFS})
