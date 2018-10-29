@@ -1,5 +1,6 @@
 #include "filesystem/filesystem.h"
 #include "filesystem/file.h"
+#include "platform.h"
 #include "util.h"
 #include <physfs.h>
 #include <stdio.h>
@@ -111,6 +112,10 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
 
 void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata) {
   PHYSFS_enumerate(path, callback, userdata);
+}
+
+int lovrFilesystemGetExecutablePath(char* path, uint32_t size) {
+  return lovrGetExecutablePath(path, size);
 }
 
 const char* lovrFilesystemGetIdentity() {

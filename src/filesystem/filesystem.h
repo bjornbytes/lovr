@@ -26,7 +26,7 @@ void lovrFilesystemDestroy();
 int lovrFilesystemCreateDirectory(const char* path);
 int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size);
 void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata);
-#define lovrFilesystemGetExecutablePath lovrGetExecutablePath
+int lovrFilesystemGetExecutablePath(char* path, uint32_t size);
 const char* lovrFilesystemGetIdentity();
 long lovrFilesystemGetLastModified(const char* path);
 const char* lovrFilesystemGetRealDirectory(const char* path);

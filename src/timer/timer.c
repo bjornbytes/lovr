@@ -1,6 +1,6 @@
 #include "timer/timer.h"
 #include "lib/glfw.h"
-#include "util.h"
+#include "platform.h"
 #include <string.h>
 
 static TimerState state;

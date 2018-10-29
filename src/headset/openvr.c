@@ -3,6 +3,7 @@
 #include "graphics/canvas.h"
 #include "math/mat4.h"
 #include "math/quat.h"
+#include "platform.h"
 #include "util.h"
 #include <stdbool.h>
 #include <stdio.h>

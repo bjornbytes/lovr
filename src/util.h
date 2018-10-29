@@ -28,10 +28,8 @@ extern _Thread_local void* lovrErrorUserdata;
 
 void lovrSetErrorCallback(lovrErrorHandler callback, void* context);
 void lovrThrow(const char* format, ...);
-void lovrSleep(double seconds);
 void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*));
 void lovrRetain(void* object);
 void lovrRelease(void* object);
-int lovrGetExecutablePath(char* dest, uint32_t size);
 size_t utf8_decode(const char *s, const char *e, unsigned *pch);
 uint32_t nextPo2(uint32_t x);
