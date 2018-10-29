@@ -33,6 +33,8 @@ option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
 option(LOVR_SYSTEM_ODE "Use the system-provided ODE" OFF)
 option(LOVR_SYSTEM_OPENAL "Use the system-provided OpenAL" OFF)
 
+option(LOVR_BUILD_SHARED "Build as a static library instead of an executable" OFF)
+
 # Setup
 if(EMSCRIPTEN)
   string(CONCAT LOVR_EMSCRIPTEN_FLAGS
@@ -72,6 +74,7 @@ elseif(ANDROID)
   set(LOVR_USE_OCULUS_MOBILE ON)
   set(LOVR_USE_LUAJIT OFF) # Until buildvm re-invoke works
   set(LOVR_USE_SSE OFF) # Assume ARM. Technically wrong on Android X86…?
+  set(LOVR_BUILD_SHARED ON) # Android has only "activities"
 elseif(UNIX)
   if(APPLE)
     set(CMAKE_MACOSX_RPATH 1)
@@ -334,10 +337,8 @@ set(LOVR_SRC
   src/lib/vec/vec.c
 )
 
-if (ANDROID)
-  # For Android only we build as a library.
+if (LOVR_BUILD_SHARED)
   add_library(lovr SHARED ${LOVR_SRC})
-  target_link_libraries(lovr log EGL)
 else()
   add_executable(lovr ${LOVR_SRC})
 endif()
@@ -540,6 +541,10 @@ if(LOVR_ENABLE_JSON)
   )
 endif()
 
+if (ANDROID)
+  target_link_libraries(lovr log EGL)
+endif()
+
 # Yay Windows
 if(WIN32)
   set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
@@ -564,8 +569,7 @@ if(WIN32)
   move_dll(${LOVR_GLFW})
   move_dll(${LOVR_LUA})
   move_dll(${LOVR_ODE})
-  if (LOVR_USE_OPENVR)
-    move_dll(${LOVR_OPENVR})
-  endif()
+  move_dll(${LOVR_OPENAL})
+  move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_PHYSFS})
 endif()

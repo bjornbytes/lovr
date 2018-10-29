@@ -9,6 +9,8 @@ static int l_lovrGetOS(lua_State* L) {
   lua_pushstring(L, "macOS");
 #elif EMSCRIPTEN
   lua_pushstring(L, "Web");
+#elif __ANDROID__
+  lua_pushstring(L, "Android");
 #elif __linux__
   lua_pushstring(L, "Linux");
 #else

@@ -31,10 +31,6 @@ void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeView
   lovrRelease(canvas);
 }
 
-// TODO
-void lovrHeadsetUpdate(float dt) {
-}
-
 // Headset driver object
 
 static bool oculusMobileInit(float _offset, int msaa) {
