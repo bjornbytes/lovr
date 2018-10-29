@@ -21,6 +21,7 @@ typedef struct {
   ovrGraphicsLuid luid;
   float clipNear;
   float clipFar;
+  float offset;
   int lastButtonState;
   ovrSizei size;
   Canvas* canvas;
@@ -103,6 +104,7 @@ static bool oculusInit(float offset, int msaa) {
   state.mirrorEye = EYE_BOTH;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
+  state.offset = offset;
 
   vec_init(&state.controllers);
 
@@ -205,7 +207,7 @@ static void oculusGetPose(float* x, float* y, float* z, float* angle, float* ax,
   ovrTrackingState *ts = refreshTracking();
   ovrVector3f pos = ts->HeadPose.ThePose.Position;
   *x = pos.x;
-  *y = pos.y;
+  *y = pos.y + state.offset;
   *z = pos.z;
   ovrQuatf oq = ts->HeadPose.ThePose.Orientation;
   float quat[] = { oq.x, oq.y, oq.z, oq.w };
@@ -260,7 +262,7 @@ static void oculusControllerGetPose(Controller* controller, float* x, float* y, 
   ovrTrackingState *ts = refreshTracking();
   ovrVector3f pos = ts->HandPoses[controller->id].ThePose.Position;
   *x = pos.x;
-  *y = pos.y;
+  *y = pos.y + state.offset;
   *z = pos.z;
   ovrQuatf orient = ts->HandPoses[controller->id].ThePose.Orientation;
   float quat[4] = { orient.x, orient.y, orient.z, orient.w };
@@ -319,7 +321,6 @@ static ModelData* oculusControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-// TODO: need to set up swap chain textures for the eyes and finish view transforms
 static void oculusRenderTo(void (*callback)(void*), void* userdata) {
   ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
   if (!state.canvas) {
@@ -378,7 +379,7 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
     mat4_identity(transform);
     mat4_rotateQuat(transform, orient);
     transform[12] = -(transform[0] * pos[0] + transform[4] * pos[1] + transform[8] * pos[2]);
-    transform[13] = -(transform[1] * pos[0] + transform[5] * pos[1] + transform[9] * pos[2]);
+    transform[13] = -(transform[1] * pos[0] + transform[5] * pos[1] + transform[9] * pos[2] + state.offset);
     transform[14] = -(transform[2] * pos[0] + transform[6] * pos[1] + transform[10] * pos[2]);
 
     ovrMatrix4f projection = ovrMatrix4f_Projection(desc.DefaultEyeFov[eye], state.clipNear, state.clipFar, ovrProjection_ClipRangeOpenGL);
@@ -416,10 +417,6 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
 
   ovrLayerHeader* layers = &ld.Header;
   ovr_SubmitFrame(state.session, 0, NULL, &layers, 1);
-  // apparently if this happens we should kill the session and reinit as long as we're getting ovrError_DisplayLost,
-  // lest oculus get upset should you try to get anything on the store.
-  // if (!OVR_SUCCESS(result))
-  //   goto Done;
 
   state.needRefreshTracking = true;
   state.needRefreshButtons = true;

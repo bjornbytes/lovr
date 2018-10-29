@@ -195,6 +195,8 @@ var LibraryLOVR = {
       if (sittingToStanding) {
         HEAPF32.set(sittingToStanding, matA >> 2);
         Module._mat4_transform(matA, x, y, z);
+      } else {
+        HEAPF32[y >> 2] += webvr.offset;
       }
     } else {
       HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
@@ -233,6 +235,8 @@ var LibraryLOVR = {
       if (sittingToStanding) {
         HEAPF32.set(sittingToStanding, matB >> 2);
         Module._mat4_multiply(matA, matB);
+      } else {
+        HEAPF32[(matA + 4 * 13) >> 2] += webvr.offset;
       }
 
       Module._mat4_translate(matA, pose.position[0], pose.position[1], pose.position[2]);
@@ -323,6 +327,7 @@ var LibraryLOVR = {
       Module._quat_fromMat4(quat, matA);
       Module._quat_getAngleAxis(quat, angle, ax, ay, az);
     } else {
+      HEAPF32[y >> 2] += webvr.offset;
       Module._quat_getAngleAxis(quat, angle, ax, ay, az);
     }
   },
