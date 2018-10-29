@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-bool lovrRun(int argc, char** argv, int* status);
+lua_State* lovrInit(lua_State* L, int argc, char** argv);
 void lovrQuit(int status);
 
 int main(int argc, char** argv) {
@@ -21,35 +21,60 @@ int main(int argc, char** argv) {
   }
 
   int status;
-  while (1) {
-    if (!lovrRun(argc, argv, &status)) {
-      return status;
+  bool restart;
+
+  do {
+    lua_State* L = luaL_newstate();
+    luaL_openlibs(L);
+
+    lovrSetErrorCallback((lovrErrorHandler) luax_vthrow, L);
+
+    lua_State* T = lovrInit(L, argc, argv);
+    if (!T) {
+      fprintf(stderr, "Could not boot LÖVR\n");
+      return 1;
     }
-  }
+
+#ifdef EMSCRIPTEN
+    lovrEmscriptenContext context = { L, T, argc, argv };
+    emscripten_set_main_loop_arg(emscriptenLoop, (void*) &context, 0, 1);
+    return 0;
+#else
+    while (lua_resume(T, 0) == LUA_YIELD) {
+      lovrSleep(.001);
+    }
+
+    restart = lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart");
+    status = lua_tonumber(T, -1);
+    lua_close(L);
+#endif
+  } while (restart);
+
+  glfwTerminate();
+
+  return status;
 }
 
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
 typedef struct {
   lua_State* L;
-  int ref;
+  lua_State* T;
   int argc;
   char** argv;
 } lovrEmscriptenContext;
 
 static void emscriptenLoop(void* arg) {
   lovrEmscriptenContext* context = arg;
-  lua_State* L = context->L;
-  lua_rawgeti(L, LUA_REGISTRYINDEX, context->ref);
-  if (lua_resume(L, 0) != LUA_YIELD) {
-    int status = lua_tonumber(L, -1);
-    bool isRestart = lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "restart");
+  if (lua_resume(context->T, 0) != LUA_YIELD) {
+    bool restart = lua_type(context->T, -1) == LUA_TSTRING && !strcmp(lua_tostring(context->T, -1), "restart");
+    int status = lua_tonumber(context->T, -1);
 
-    lua_close(L);
+    lua_close(context->L);
     emscripten_cancel_main_loop();
 
-    if (isRestart) {
-      lovrRun(context->argc, context->argv, &status);
+    if (restart) {
+      main(context->argc, context->argv);
     } else {
       glfwTerminate();
       exit(status);
@@ -72,12 +97,7 @@ static void onGlfwError(int code, const char* description) {
   lovrThrow(description);
 }
 
-bool lovrRun(int argc, char** argv, int* status) {
-  lua_State* L = luaL_newstate();
-  luaL_openlibs(L);
-
-  lovrSetErrorCallback((lovrErrorHandler) luax_vthrow, L);
-
+lua_State* lovrInit(lua_State* L, int argc, char** argv) {
   glfwSetErrorCallback(onGlfwError);
   lovrAssert(glfwInit(), "Error initializing GLFW");
   glfwSetTime(0);
@@ -97,33 +117,13 @@ bool lovrRun(int argc, char** argv, int* status) {
   lua_pushcfunction(L, luax_getstack);
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
     fprintf(stderr, "%s\n", lua_tostring(L, -1));
-    lua_close(L);
-    *status = 1;
-    return false;
+    return NULL;
   }
 
-  lua_newthread(L);
+  lua_State* T = lua_newthread(L);
   lua_pushvalue(L, -2);
-#ifdef EMSCRIPTEN
-  lovrEmscriptenContext context = { L, luaL_ref(L, LUA_REGISTRYINDEX), argc, argv };
-  emscripten_set_main_loop_arg(emscriptenLoop, (void*) &context, 0, 1);
-  *status = 0;
-  return false;
-#else
-  while (lua_resume(L, 0) == LUA_YIELD) {
-    lovrSleep(.001);
-  }
-
-  *status = lua_tonumber(L, -1);
-  bool restart = lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "restart");
-  lua_close(L);
-
-  if (!restart) {
-    glfwTerminate();
-  }
-
-  return restart;
-#endif
+  lua_xmove(L, T, 1);
+  return T;
 }
 
 void lovrQuit(int status) {
