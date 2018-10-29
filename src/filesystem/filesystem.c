@@ -313,7 +313,10 @@ size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, b
     return 0;
   }
 
-  lovrFileOpen(file, append ? OPEN_APPEND : OPEN_WRITE);
+  if (lovrFileOpen(file, append ? OPEN_APPEND : OPEN_WRITE)) {
+    return 0;
+  }
+
   size_t bytesWritten = lovrFileWrite(file, (void*) content, size);
   lovrFileClose(file);
   lovrRelease(file);
