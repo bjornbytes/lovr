@@ -21,6 +21,7 @@ GLFWAPI void glfwPollEvents();
 GLFWAPI void glfwGetCursorPos(GLFWwindow* window, double* xpos, double* ypos);
 GLFWAPI GLFWwindow* glfwGetCurrentContext(void);
 GLFWAPI void glfwSetTime(double time);
+GLFWAPI double glfwGetTime(void);
 typedef void (* GLFWerrorfun)(int,const char*);
 GLFWAPI GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun cbfun);
 GLFWAPI void glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height);

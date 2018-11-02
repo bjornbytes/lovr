@@ -25,7 +25,8 @@ void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeView
 
   lovrGraphicsSetCamera(&camera, true);
 
-  renderCallback(renderUserdata);
+  if (renderCallback)
+    renderCallback(renderUserdata);
 
   lovrGraphicsSetCamera(NULL, false);
   lovrRelease(canvas);
@@ -85,11 +86,11 @@ static const float* oculusMobileGetBoundsGeometry(int* count) {
 }
 
 static void oculusMobileGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  *x = bridgeLovrMobileData.lastHeadPose.x;
-  *y = bridgeLovrMobileData.lastHeadPose.y;
-  *z = bridgeLovrMobileData.lastHeadPose.z;
+  *x = bridgeLovrMobileData.updateData.lastHeadPose.x;
+  *y = bridgeLovrMobileData.updateData.lastHeadPose.y;
+  *z = bridgeLovrMobileData.updateData.lastHeadPose.z;
 
-  quat_getAngleAxis(bridgeLovrMobileData.lastHeadPose.q, angle, ax, ay, az);
+  quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, ax, ay, az);
 }
 
 static void oculusMobileGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
@@ -98,24 +99,28 @@ static void oculusMobileGetEyePose(HeadsetEye eye, float* x, float* y, float* z,
 }
 
 static void oculusMobileGetVelocity(float* x, float* y, float* z) {
-  *x = bridgeLovrMobileData.lastHeadVelocity.x;
-  *y = bridgeLovrMobileData.lastHeadVelocity.y;
-  *z = bridgeLovrMobileData.lastHeadVelocity.z;
+  *x = bridgeLovrMobileData.updateData.lastHeadVelocity.x;
+  *y = bridgeLovrMobileData.updateData.lastHeadVelocity.y;
+  *z = bridgeLovrMobileData.updateData.lastHeadVelocity.z;
 }
 
 static void oculusMobileGetAngularVelocity(float* x, float* y, float* z) {
-  *x = bridgeLovrMobileData.lastHeadVelocity.ax;
-  *y = bridgeLovrMobileData.lastHeadVelocity.ay;
-  *z = bridgeLovrMobileData.lastHeadVelocity.az;
+  *x = bridgeLovrMobileData.updateData.lastHeadVelocity.ax;
+  *y = bridgeLovrMobileData.updateData.lastHeadVelocity.ay;
+  *z = bridgeLovrMobileData.updateData.lastHeadVelocity.az;
 }
 
+static Controller *controller;
+
 static Controller** oculusMobileGetControllers(uint8_t* count) {
-  *count = 0; // TODO
-  return NULL;
+  if (!controller)
+    controller = lovrAlloc(Controller, free);
+  *count = bridgeLovrMobileData.updateData.goPresent; // TODO: Figure out what multi controller Oculus Mobile looks like and support it
+  return &controller;
 }
 
 static bool oculusMobileControllerIsConnected(Controller* controller) {
-  return false;
+  return bridgeLovrMobileData.updateData.goPresent;
 }
 
 static ControllerHand oculusMobileControllerGetHand(Controller* controller) {
@@ -123,18 +128,42 @@ static ControllerHand oculusMobileControllerGetHand(Controller* controller) {
 }
 
 static void oculusMobileControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  *x = bridgeLovrMobileData.updateData.goPose.x;
+  *y = bridgeLovrMobileData.updateData.goPose.y;
+  *z = bridgeLovrMobileData.updateData.goPose.z;
+
+  quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, ax, ay, az);
 }
 
 static float oculusMobileControllerGetAxis(Controller* controller, ControllerAxis axis) {
-  return 0;
+  switch (axis) {
+    case CONTROLLER_AXIS_TOUCHPAD_X:
+      return (bridgeLovrMobileData.updateData.goTrackpad.x-160)/160.0;
+    case CONTROLLER_AXIS_TOUCHPAD_Y:
+      return (bridgeLovrMobileData.updateData.goTrackpad.y-160)/160.0;
+  }
+}
+
+static bool buttonCheck(BridgeLovrButton field, ControllerButton button) {
+  switch (button) {
+    case CONTROLLER_BUTTON_MENU:
+      return field & BridgeLovrButtonMenu;
+    case CONTROLLER_BUTTON_TRIGGER:
+      return field & BridgeLovrButtonShoulder;
+    case CONTROLLER_BUTTON_TOUCHPAD:
+      return field & BridgeLovrButtonTouchpad;
+    default:
+      return false;
+  }
+
 }
 
 static bool oculusMobileControllerIsDown(Controller* controller, ControllerButton button) {
-  return 0;
+  return buttonCheck(bridgeLovrMobileData.updateData.goButtonDown, button);
 }
 
 static bool oculusMobileControllerIsTouched(Controller* controller, ControllerButton button) {
-  return false;
+  return buttonCheck(bridgeLovrMobileData.updateData.goButtonTouch, button);
 }
 
 static void oculusMobileControllerVibrate(Controller* controller, float duration, float power) {
@@ -199,10 +228,13 @@ GLFWwindow* glfwGetCurrentContext(void) {
   return NULL;
 }
 
-void glfwSetTime(double time) {
-}
+static double timeOffset;
 
+void glfwSetTime(double time) {
+  timeOffset = time - bridgeLovrMobileData.updateData.displayTime;
+}
 double glfwGetTime(void) {
+  return bridgeLovrMobileData.updateData.displayTime - timeOffset;
 }
 
 static GLFWerrorfun lastErrFun;
