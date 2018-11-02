@@ -1,16 +1,6 @@
 #include "util.h"
+#include "platform.h"
 #include <stdlib.h>
-#include <stdio.h>
-#ifdef _WIN32
-#include <Windows.h>
-#elif __APPLE__
-#include <mach-o/dyld.h>
-#include <unistd.h>
-#include <dlfcn.h>
-#else
-#include <unistd.h>
-#include <dlfcn.h>
-#endif
 
 _Thread_local lovrErrorHandler lovrErrorCallback = NULL;
 _Thread_local void* lovrErrorUserdata = NULL;
@@ -29,20 +19,12 @@ void lovrThrow(const char* format, ...) {
   } else {
     va_list args;
     va_start(args, format);
-    fprintf(stderr, "Error: ");
-    vfprintf(stderr, format, args);
-    fprintf(stderr, "\n");
+    lovrWarn("Error: ");
+    lovrWarnv(format, args);
+    lovrWarn("\n");
     va_end(args);
     exit(EXIT_FAILURE);
   }
-}
-
-void lovrSleep(double seconds) {
-#ifdef _WIN32
-  Sleep((unsigned int)(seconds * 1000));
-#else
-  usleep((unsigned int)(seconds * 1000000));
-#endif
 }
 
 void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*)) {
@@ -59,26 +41,6 @@ void lovrRetain(void* object) {
 void lovrRelease(void* object) {
   Ref* ref = object;
   if (ref && --ref->count == 0) ref->free(object);
-}
-
-int lovrGetExecutablePath(char* dest, uint32_t size) {
-#ifdef __APPLE__
-  if (_NSGetExecutablePath(dest, &size) == 0) {
-    return 0;
-  }
-#elif _WIN32
-  return !GetModuleFileName(NULL, dest, size);
-#elif EMSCRIPTEN
-  return 1;
-#elif __linux__
-  memset(dest, 0, size);
-  if (readlink("/proc/self/exe", dest, size) != -1) {
-    return 0;
-  }
-#else
-#error "This platform is missing an implementation for lovrGetExecutablePath"
-#endif
-  return 1;
 }
 
 // https://github.com/starwing/luautf8

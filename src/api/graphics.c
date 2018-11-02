@@ -13,6 +13,7 @@
 #include "data/textureData.h"
 #include "data/vertexData.h"
 #include "filesystem/filesystem.h"
+#include "math/transform.h"
 #include "util.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -581,6 +582,12 @@ static int l_lovrGraphicsTransform(lua_State* L) {
   float transform[16];
   luax_readtransform(L, 1, transform, 3);
   lovrGraphicsMatrixTransform(transform);
+  return 0;
+}
+
+static int l_lovrGraphicsSetProjection(lua_State* L) {
+  Transform* transform = luax_checktype(L, 1, Transform);
+  lovrGraphicsSetProjection(transform->matrix);
   return 0;
 }
 
@@ -1302,6 +1309,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "rotate", l_lovrGraphicsRotate },
   { "scale", l_lovrGraphicsScale },
   { "transform", l_lovrGraphicsTransform },
+  { "setProjection", l_lovrGraphicsSetProjection },
 
   // Rendering
   { "clear", l_lovrGraphicsClear },

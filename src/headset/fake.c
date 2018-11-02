@@ -144,9 +144,8 @@ static const float* fakeGetBoundsGeometry(int* count) {
 }
 
 static void fakeGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  *x = state.position[0];
-  *y = state.position[1];
-  *z = state.position[2];
+  *x = *y = *z = 0;
+  mat4_transform(state.transform, x, y, z);
   float q[4];
   quat_fromMat4(q, state.transform);
   quat_getAngleAxis(q, angle, ax, ay, az);
@@ -186,7 +185,6 @@ static void fakeControllerGetPose(Controller* controller, float* x, float* y, fl
   *y = 0;
   *z = -.75;
   mat4_transform(state.transform, x, y, z);
-  *y += state.offset;
 
   float q[4];
   quat_fromMat4(q, state.transform);
@@ -223,7 +221,6 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   bool stereo = state.mirrorEye == EYE_BOTH;
   Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = stereo };
   mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / (1 + stereo) / height);
-  mat4_translate(camera.viewMatrix[0], 0, state.offset, 0);
   mat4_multiply(camera.viewMatrix[0], state.transform);
   mat4_invertPose(camera.viewMatrix[0]);
   mat4_set(camera.projection[1], camera.projection[0]);
@@ -295,6 +292,7 @@ static void fakeUpdate(float dt) {
 
   // Update transform
   mat4_identity(state.transform);
+  mat4_translate(state.transform, 0, state.offset, 0);
   mat4_translate(state.transform, state.position[0], state.position[1], state.position[2]);
   mat4_rotate(state.transform, state.yaw, 0, 1, 0);
   mat4_rotate(state.transform, state.pitch, 1, 0, 0);

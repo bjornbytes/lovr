@@ -3,6 +3,7 @@
 #include "graphics/canvas.h"
 #include "math/mat4.h"
 #include "math/quat.h"
+#include "platform.h"
 #include "util.h"
 #include <stdbool.h>
 #include <stdio.h>
@@ -54,6 +55,7 @@ static void getTransform(unsigned int device, mat4 transform) {
     mat4_identity(transform);
   } else {
     mat4_fromMat34(transform, pose.mDeviceToAbsoluteTracking.m);
+    transform[13] += state.offset;
   }
 }
 
@@ -570,7 +572,6 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   for (int i = 0; i < 2; i++) {
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
     mat4_fromMat44(camera.projection[i], state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
-    mat4_translate(camera.viewMatrix[i], 0, state.offset, 0);
     mat4_multiply(camera.viewMatrix[i], head);
     mat4_multiply(camera.viewMatrix[i], mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
     mat4_invertPose(camera.viewMatrix[i]);

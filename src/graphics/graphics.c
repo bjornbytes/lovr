@@ -380,6 +380,11 @@ void lovrGraphicsMatrixTransform(mat4 transform) {
   mat4_multiply(state.transforms[state.transform], transform);
 }
 
+void lovrGraphicsSetProjection(mat4 projection) {
+  mat4_set(state.camera.projection[0], projection);
+  mat4_set(state.camera.projection[1], projection);
+}
+
 // Rendering
 
 VertexPointer lovrGraphicsGetVertexPointer(uint32_t count) {
