@@ -231,7 +231,7 @@ GLFWwindow* glfwGetCurrentContext(void) {
 static double timeOffset;
 
 void glfwSetTime(double time) {
-  timeOffset = time - bridgeLovrMobileData.updateData.displayTime;
+  timeOffset = bridgeLovrMobileData.updateData.displayTime - time;
 }
 double glfwGetTime(void) {
   return bridgeLovrMobileData.updateData.displayTime - timeOffset;
