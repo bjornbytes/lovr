@@ -87,10 +87,14 @@ static const float* oculusMobileGetBoundsGeometry(int* count) {
 
 static void oculusMobileGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = bridgeLovrMobileData.updateData.lastHeadPose.x;
-  *y = bridgeLovrMobileData.updateData.lastHeadPose.y;
+  *y = bridgeLovrMobileData.updateData.lastHeadPose.y + offset; // Correct for head height
   *z = bridgeLovrMobileData.updateData.lastHeadPose.z;
 
-  quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, ax, ay, az);
+  // Notice: Ax and Az are both swapped and inverted. Experimentally, if you do the Oculus Go controller position
+  // lines up with Lovr visually, and if you don't it doesn't. This is probably needed because of different axis standards.
+  quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, az, ay, ax);
+  *ax = -*ax;
+  *az = -*az;
 }
 
 static void oculusMobileGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
@@ -98,12 +102,14 @@ static void oculusMobileGetEyePose(HeadsetEye eye, float* x, float* y, float* z,
   oculusMobileGetPose(x, y, z, angle, ax, ay, az);
 }
 
+// TODO: This has never been tested
 static void oculusMobileGetVelocity(float* x, float* y, float* z) {
   *x = bridgeLovrMobileData.updateData.lastHeadVelocity.x;
   *y = bridgeLovrMobileData.updateData.lastHeadVelocity.y;
   *z = bridgeLovrMobileData.updateData.lastHeadVelocity.z;
 }
 
+// TODO: This has never been tested
 static void oculusMobileGetAngularVelocity(float* x, float* y, float* z) {
   *x = bridgeLovrMobileData.updateData.lastHeadVelocity.ax;
   *y = bridgeLovrMobileData.updateData.lastHeadVelocity.ay;
@@ -129,10 +135,14 @@ static ControllerHand oculusMobileControllerGetHand(Controller* controller) {
 
 static void oculusMobileControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = bridgeLovrMobileData.updateData.goPose.x;
-  *y = bridgeLovrMobileData.updateData.goPose.y;
+  *y = bridgeLovrMobileData.updateData.goPose.y + offset; // Correct for head height
   *z = bridgeLovrMobileData.updateData.goPose.z;
 
-  quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, ax, ay, az);
+  // Notice: Ax and Az are both swapped and inverted. Experimentally, if you do the Oculus Go controller position
+  // lines up with Lovr visually, and if you don't it doesn't. This is probably needed because of different axis standards.
+  quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, az, ay, ax);
+  *ax = -*ax;
+  *az = -*az;
 }
 
 static float oculusMobileControllerGetAxis(Controller* controller, ControllerAxis axis) {
