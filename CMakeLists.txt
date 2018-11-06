@@ -466,7 +466,7 @@ if(LOVR_ENABLE_HEADSET)
     # OCULUS_MOBILE assumes it will be built as part of an Android app, and that it is a git submodule of that app.
     # The "BridgeLovr" files live in the parent (app) repository:
     include_directories(../include)
-    target_sources(lovr PRIVATE src/headset/oculus_mobile.c ../BridgeLovr.cpp ../BridgeLovrPrintOverride.cpp)
+    target_sources(lovr PRIVATE src/headset/oculus_mobile.c ../BridgeLovr.c ../BridgeLovrPrintOverride.c)
   endif()
   if(LOVR_USE_WEBVR)
     add_definitions(-DLOVR_USE_WEBVR)
