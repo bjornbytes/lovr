@@ -1,5 +1,6 @@
-/* SDSLib 2.0 -- A C dynamic strings library
+/* SDSLib 2.x -- A C dynamic strings library
  *
+ * Copyright (c) 2018 Lynn Kirby <lynn@arrak.is>
  * Copyright (c) 2006-2015, Salvatore Sanfilippo <antirez at gmail dot com>
  * Copyright (c) 2015, Oran Agra
  * Copyright (c) 2015, Redis Labs, Inc
@@ -1246,9 +1247,8 @@ int sdsTest(void) {
             memcmp(y,"\"\\a\\n\\x00foo\\r\"",15) == 0)
 
         {
-            unsigned int oldfree;
             char *p;
-            int step = 10, j, i;
+            size_t step = 10, j, i;
 
             sdsfree(x);
             sdsfree(y);
@@ -1258,14 +1258,13 @@ int sdsTest(void) {
             /* Run the test a few times in order to hit the first two
              * SDS header types. */
             for (i = 0; i < 10; i++) {
-                int oldlen = sdslen(x);
+                size_t oldlen = sdslen(x);
                 x = sdsMakeRoomFor(x,step);
                 int type = x[-1]&SDS_TYPE_MASK;
 
                 test_cond("sdsMakeRoomFor() len", sdslen(x) == oldlen);
                 if (type != SDS_TYPE_5) {
                     test_cond("sdsMakeRoomFor() free", sdsavail(x) >= step);
-                    oldfree = sdsavail(x);
                 }
                 p = x+oldlen;
                 for (j = 0; j < step; j++) {
