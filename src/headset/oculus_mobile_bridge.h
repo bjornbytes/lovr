@@ -29,12 +29,20 @@ typedef struct {
 // Bit identical with VrApi_Input.h ovrButton
 typedef enum
 {
-	BridgeLovrButtonNone = 0,
+	BRIDGE_LOVR_BUTTON_NONE = 0,
 
-	BridgeLovrButtonShoulder = 0x00000001,	// "Set for trigger pulled on the Gear VR and Go Controllers"
-	BridgeLovrButtonTouchpad = 0x00100000,	// "Set for touchpad click on the Gear VR and Go Controllers"
-	BridgeLovrButtonMenu     = 0x00200000,	// "Back button on the headset or Gear VR Controller (only set when a short press comes up)"
+	BRIDGE_LOVR_BUTTON_SHOULDER = 0x00000001,	// "Set for trigger pulled on the Gear VR and Go Controllers"
+	BRIDGE_LOVR_BUTTON_TOUCHPAD = 0x00100000,	// "Set for touchpad click on the Gear VR and Go Controllers"
+	BRIDGE_LOVR_BUTTON_MENU     = 0x00200000,	// "Back button on the headset or Gear VR Controller (only set when a short press comes up)"
 } BridgeLovrButton;
+
+// Values identical with headset.h HeadsetType
+typedef enum
+{
+	BRIDGE_LOVR_DEVICE_UNKNOWN,
+	BRIDGE_LOVR_DEVICE_GEAR = 3,
+	BRIDGE_LOVR_DEVICE_GO = 4
+} BridgeLovrDevice;
 
 // Data passed from Lovr_NativeActivity to BridgeLovr at update time
 typedef struct {
@@ -61,6 +69,7 @@ typedef struct {
 	const char *apkPath;
 	BridgeLovrDimensions suggestedEyeTexture;
 	double zeroDisplayTime;
+	BridgeLovrDevice deviceType;
 } BridgeLovrInitData;
 
 void bridgeLovrInit(BridgeLovrInitData *initData);

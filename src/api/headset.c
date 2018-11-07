@@ -58,7 +58,8 @@ const char* HeadsetTypes[] = {
   [HEADSET_UNKNOWN] = "unknown",
   [HEADSET_VIVE] = "vive",
   [HEADSET_RIFT] = "rift",
-  [HEADSET_OCULUS_MOBILE] = "oculusmobile",
+  [HEADSET_GEAR] = "gear",
+  [HEADSET_GO] = "go",
   [HEADSET_WINDOWS_MR] = "windowsmr",
   NULL
 };

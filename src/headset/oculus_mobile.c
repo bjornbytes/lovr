@@ -5,11 +5,13 @@
 #include "graphics/graphics.h"
 #include "math/mat4.h"
 #include "lib/glad/glad.h"
+#include <assert.h>
 
 // Data passed from bridge code to headset code
 
 typedef struct {
   BridgeLovrDimensions displayDimensions;
+  BridgeLovrDevice deviceType;
   BridgeLovrUpdateData updateData;
 } BridgeLovrMobileData;
 BridgeLovrMobileData bridgeLovrMobileData;
@@ -45,6 +47,11 @@ static void lovrOculusMobileDraw(int framebuffer, int width, int height, float *
 // Headset driver object
 
 static bool oculusMobileInit(float _offset, int msaa) {
+  // Make sure HeadsetDriver and BridgeLovrDevice have not gone out of sync
+  assert(BRIDGE_LOVR_DEVICE_UNKNOWN == HEADSET_UNKNOWN);
+  assert(BRIDGE_LOVR_DEVICE_GEAR == HEADSET_GEAR);
+  assert(BRIDGE_LOVR_DEVICE_GO == HEADSET_GO);
+
   offset = _offset;
   return true;
 }
@@ -53,7 +60,7 @@ static void oculusMobileDestroy() {
 }
 
 static HeadsetType oculusMobileGetType() {
-  return HEADSET_OCULUS_MOBILE;
+  return (HeadsetType)(int)bridgeLovrMobileData.deviceType;
 }
 
 static HeadsetOrigin oculusMobileGetOriginType() {
@@ -167,11 +174,11 @@ static float oculusMobileControllerGetAxis(Controller* controller, ControllerAxi
 static bool buttonCheck(BridgeLovrButton field, ControllerButton button) {
   switch (button) {
     case CONTROLLER_BUTTON_MENU:
-      return field & BridgeLovrButtonMenu;
+      return field & BRIDGE_LOVR_BUTTON_MENU;
     case CONTROLLER_BUTTON_TRIGGER:
-      return field & BridgeLovrButtonShoulder;
+      return field & BRIDGE_LOVR_BUTTON_SHOULDER;
     case CONTROLLER_BUTTON_TOUCHPAD:
-      return field & BridgeLovrButtonTouchpad;
+      return field & BRIDGE_LOVR_BUTTON_TOUCHPAD;
     default:
       return false;
   }
@@ -470,6 +477,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   // Unpack init data
   bridgeLovrMobileData.displayDimensions = initData->suggestedEyeTexture;
   bridgeLovrMobileData.updateData.displayTime = initData->zeroDisplayTime;
+  bridgeLovrMobileData.deviceType = initData->deviceType;
 
   // Ready to actually go now.
   // Copypaste the init sequence from lovrRun:
