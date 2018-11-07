@@ -464,10 +464,7 @@ if(LOVR_ENABLE_HEADSET)
     add_definitions(-DLOVR_USE_OCULUS_MOBILE)
     add_definitions(-DNO_WINDOW=1)
 
-    # OCULUS_MOBILE assumes it will be built as part of an Android app, and that it is a git submodule of that app.
-    # The "BridgeLovr" files live in the parent (app) repository:
-    include_directories(../include)
-    target_sources(lovr PRIVATE src/headset/oculus_mobile.c ../BridgeLovr.c ../BridgeLovrPrintOverride.c)
+    target_sources(lovr PRIVATE src/headset/oculus_mobile.c)
   endif()
   if(LOVR_USE_WEBVR)
     add_definitions(-DLOVR_USE_WEBVR)
@@ -542,10 +539,6 @@ if(LOVR_ENABLE_JSON)
   )
 endif()
 
-if (ANDROID)
-  target_link_libraries(lovr log EGL)
-endif()
-
 # Yay Windows
 if(WIN32)
   target_sources(lovr PRIVATE src/platform/windows.c)
@@ -578,6 +571,9 @@ elseif(APPLE)
   target_sources(lovr PRIVATE src/platform/macos.c)
 elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/platform/web.c)
+elseif(ANDROID)
+  target_link_libraries(lovr log EGL)
+  target_sourceS(lovr PRIVATE src/platform/linux.c src/platform/android.c src/platform/print_override.c)
 elseif(UNIX)
   target_sourceS(lovr PRIVATE src/platform/linux.c)
 endif()
