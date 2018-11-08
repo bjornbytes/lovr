@@ -25,9 +25,10 @@ and the `examples` folder has source code for sample projects and other demos.
 Contributing Code
 ---
 
-To contribute patches, fork LÖVR, commit to a branch, and submit a pull request.  For larger
-changes, it can be a good idea to engage in initial discussion via issues or Slack before
-submitting.  Try to stick to the existing coding style:
+To contribute patches, fork LÖVR, commit to a branch, and submit a pull request.  Note that
+contributions to the repository will be released under the terms in LICENSE.  For larger changes, it
+can be a good idea to engage in initial discussion via issues or Slack before submitting.  Try to
+stick to the existing coding style:
 
 - 2 space indentation.
 - 100 character wrapping (ish, sometimes it's more readable to just have a long line).
