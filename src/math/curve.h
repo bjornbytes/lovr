@@ -10,6 +10,7 @@ typedef struct {
 Curve* lovrCurveCreate(int sizeHint);
 void lovrCurveDestroy(void* ref);
 void lovrCurveEvaluate(Curve* curve, float t, vec3 point);
+void lovrCurveGetTangent(Curve* curve, float t, vec3 point);
 void lovrCurveRender(Curve* curve, float t1, float t2, vec3 points, int n);
 Curve* lovrCurveSplit(Curve* curve, float t1, float t2);
 int lovrCurveGetPointCount(Curve* curve);
