@@ -12,6 +12,17 @@ int l_lovrCurveEvaluate(lua_State* L) {
   return 3;
 }
 
+int l_lovrCurveGetTangent(lua_State* L) {
+  Curve* curve = luax_checktype(L, 1, Curve);
+  float t = luaL_checknumber(L, 2);
+  float point[3];
+  lovrCurveGetTangent(curve, t, point);
+  lua_pushnumber(L, point[0]);
+  lua_pushnumber(L, point[1]);
+  lua_pushnumber(L, point[2]);
+  return 3;
+}
+
 int l_lovrCurveRender(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   int n = luaL_optinteger(L, 2, 32);
@@ -89,6 +100,7 @@ int l_lovrCurveRemovePoint(lua_State* L) {
 
 const luaL_Reg lovrCurve[] = {
   { "evaluate", l_lovrCurveEvaluate },
+  { "getTangent", l_lovrCurveGetTangent },
   { "render", l_lovrCurveRender },
   { "split", l_lovrCurveSplit },
   { "getPointCount", l_lovrCurveGetPointCount },

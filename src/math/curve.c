@@ -59,6 +59,15 @@ void lovrCurveEvaluate(Curve* curve, float t, vec3 p) {
   evaluate(curve->points.data, curve->points.length / 3, t, p);
 }
 
+void lovrCurveGetTangent(Curve* curve, float t, vec3 p) {
+  float q[3];
+  int n = curve->points.length / 3;
+  evaluate(curve->points.data, n - 1, t, q);
+  evaluate(curve->points.data + 3, n - 1, t, p);
+  vec3_add(p, vec3_scale(q, -1));
+  vec3_normalize(p);
+}
+
 void lovrCurveRender(Curve* curve, float t1, float t2, vec3 points, int n) {
   lovrAssert(curve->points.length >= 6, "Need at least 2 points to render a Curve");
   lovrAssert(t1 >= 0 && t2 <= 1, "Curve render interval must be within [0, 1]");
