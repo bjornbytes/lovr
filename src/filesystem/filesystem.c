@@ -19,6 +19,9 @@
 #include <unistd.h>
 #include <pwd.h>
 #endif
+#if LOVR_USE_OCULUS_MOBILE
+#include "headset/oculus_mobile.h"
+#endif
 
 #ifdef _WIN32
 const char lovrDirSep = '\\';
@@ -96,6 +99,8 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
 #elif EMSCRIPTEN
   strncpy(dest, "/home/web_user", size);
   return 0;
+#elif LOVR_USE_OCULUS_MOBILE
+  strncpy(dest, lovrOculusMobileWritablePath, size);
 #elif __linux__
   const char* home;
   if ((home = getenv("HOME")) == NULL) {

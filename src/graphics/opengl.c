@@ -135,6 +135,7 @@ struct Canvas {
   int attachmentCount;
   bool needsAttach;
   bool needsResolve;
+  bool immortal;
 };
 
 typedef struct {
@@ -605,7 +606,7 @@ static void lovrGpuUseProgram(uint32_t program) {
 
 // GPU
 
-void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
+void lovrGpuInit(bool srgb, getGpuProcProc getProcAddress) {
 #ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) getProcAddress);
   state.features.computeShaders = GLAD_GL_ARB_compute_shader;
@@ -656,7 +657,7 @@ void lovrGpuInit(bool srgb, gpuProc (*getProcAddress)(const char*)) {
   glFrontFace(GL_CCW);
 
   state.wireframe = false;
-#ifndef EMSCRIPTEN
+#if !(defined(EMSCRIPTEN) || defined(__ANDROID__))
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
 
@@ -1232,20 +1233,29 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
   return canvas;
 }
 
-Canvas* lovrCanvasCreateFromHandle(uint32_t handle) {
+Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, int attachmentCount, bool immortal) {
   Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
   if (!canvas) return NULL;
 
-  canvas->framebuffer = handle;
+  canvas->framebuffer = framebuffer;
+  canvas->depthBuffer = depthBuffer;
+  canvas->resolveBuffer = resolveBuffer;
+  canvas->attachmentCount = attachmentCount;
+  canvas->width = width;
+  canvas->height = height;
+  canvas->flags = flags;
+  canvas->immortal = immortal;
 
   return canvas;
 }
 
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
-  glDeleteFramebuffers(1, &canvas->framebuffer);
-  glDeleteRenderbuffers(1, &canvas->depthBuffer);
-  glDeleteFramebuffers(1, &canvas->resolveBuffer);
+  if (!canvas->immortal) {
+    glDeleteFramebuffers(1, &canvas->framebuffer);
+    glDeleteRenderbuffers(1, &canvas->depthBuffer);
+    glDeleteFramebuffers(1, &canvas->resolveBuffer);
+  }
   for (int i = 0; i < canvas->attachmentCount; i++) {
     lovrRelease(canvas->attachments[i].texture);
   }
@@ -1663,7 +1673,7 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentS
   Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
   if (!shader) return NULL;
 
-#ifdef EMSCRIPTEN
+#if defined(EMSCRIPTEN) || defined(__ANDROID__)
   const char* vertexHeader = "#version 300 es\nprecision mediump float;\nprecision mediump int;\n";
   const char* fragmentHeader = vertexHeader;
 #else

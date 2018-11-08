@@ -13,13 +13,20 @@
 #include <string.h>
 #include <math.h>
 
+#ifdef LOVR_USE_OCULUS_MOBILE
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#endif
+
 static GraphicsState state;
 
+#ifndef NO_WINDOW
 static void onCloseWindow(GLFWwindow* window) {
   if (window == state.window) {
     lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { false, 0 } });
   }
 }
+#endif
 
 static void onResizeWindow(GLFWwindow* window, int width, int height) {
   if (window == state.window) {
@@ -53,13 +60,16 @@ void lovrGraphicsDestroy() {
 }
 
 void lovrGraphicsPresent() {
+#ifndef NO_WINDOW
   glfwSwapBuffers(state.window);
+#endif
   lovrGpuPresent();
 }
 
 void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon) {
-  lovrAssert(!state.window, "Window is already created");
+  lovrAssert(!state.window && !state.initialized, "Window is already created");
 
+#ifndef NO_WINDOW
   if ((state.window = glfwGetCurrentContext()) == NULL) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -101,12 +111,21 @@ void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const cha
     glfwSetWindowCloseCallback(state.window, onCloseWindow);
     glfwSetWindowSizeCallback(state.window, onResizeWindow);
   }
+#endif
 
-#ifndef EMSCRIPTEN
+#if !(defined(EMSCRIPTEN) || defined(LOVR_USE_OCULUS_MOBILE))
   glfwSwapInterval(0);
 #endif
+  
   glfwGetFramebufferSize(state.window, &state.width, &state.height);
-  lovrGpuInit(state.gammaCorrect, glfwGetProcAddress);
+
+#if LOVR_USE_OCULUS_MOBILE
+  getGpuProcProc getProcAddress = eglGetProcAddress;
+#else
+  getGpuProcProc getProcAddress = glfwGetProcAddress;
+#endif
+  lovrGpuInit(state.gammaCorrect, getProcAddress);
+
   VertexFormat format;
   vertexFormatInit(&format);
   vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);

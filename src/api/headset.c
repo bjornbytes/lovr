@@ -1,6 +1,10 @@
 #include "api.h"
 #include "headset/headset.h"
 
+#if defined(EMSCRIPTEN) || defined(LOVR_USE_OCULUS_MOBILE)
+#define LOVR_HEADSET_HELPER_USES_REGISTRY
+#endif
+
 const char* ControllerAxes[] = {
   [CONTROLLER_AXIS_TRIGGER] = "trigger",
   [CONTROLLER_AXIS_GRIP] = "grip",
@@ -32,6 +36,7 @@ const char* ControllerHands[] = {
 const char* HeadsetDrivers[] = {
   [DRIVER_FAKE] = "fake",
   [DRIVER_OCULUS] = "oculus",
+  [DRIVER_OCULUS_MOBILE] = "oculusmobile",
   [DRIVER_OPENVR] = "openvr",
   [DRIVER_WEBVR] = "webvr",
   NULL
@@ -53,6 +58,8 @@ const char* HeadsetTypes[] = {
   [HEADSET_UNKNOWN] = "unknown",
   [HEADSET_VIVE] = "vive",
   [HEADSET_RIFT] = "rift",
+  [HEADSET_GEAR] = "gear",
+  [HEADSET_GO] = "go",
   [HEADSET_WINDOWS_MR] = "windowsmr",
   NULL
 };
@@ -67,7 +74,7 @@ static HeadsetRenderData headsetRenderData;
 static void renderHelper(void* userdata) {
   HeadsetRenderData* renderData = userdata;
   lua_State* L = renderData->L;
-#ifdef EMSCRIPTEN
+#ifdef LOVR_HEADSET_HELPER_USES_REGISTRY
   lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
 #else
   lua_pushvalue(L, -1);
@@ -278,7 +285,7 @@ static int l_lovrHeadsetRenderTo(lua_State* L) {
   lua_settop(L, 1);
   luaL_checktype(L, 1, LUA_TFUNCTION);
 
-#ifdef EMSCRIPTEN
+#ifdef LOVR_HEADSET_HELPER_USES_REGISTRY
   if (headsetRenderData.ref != LUA_NOREF) {
     luaL_unref(L, LUA_REGISTRYINDEX, headsetRenderData.ref);
   }

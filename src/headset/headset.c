@@ -18,6 +18,9 @@ void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa) 
 #ifdef LOVR_USE_OCULUS
       case DRIVER_OCULUS: interface = &lovrHeadsetOculusDriver; break;
 #endif
+#ifdef LOVR_USE_OCULUS_MOBILE
+      case DRIVER_OCULUS_MOBILE: interface = &lovrHeadsetOculusMobileDriver; break;
+#endif
 #ifdef LOVR_USE_OPENVR
       case DRIVER_OPENVR: interface = &lovrHeadsetOpenVRDriver; break;
 #endif

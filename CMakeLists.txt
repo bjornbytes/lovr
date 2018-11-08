@@ -21,6 +21,7 @@ option(LOVR_USE_ASSIMP "Enable model loading with Assimp" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
+option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for the headset module" OFF)
 option(LOVR_USE_FAKE_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_SSE "Enable SIMD use of intrinsics" ON)
 
@@ -31,6 +32,8 @@ option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
 option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
 option(LOVR_SYSTEM_ODE "Use the system-provided ODE" OFF)
 option(LOVR_SYSTEM_OPENAL "Use the system-provided OpenAL" OFF)
+
+option(LOVR_BUILD_SHARED "Build as a static library instead of an executable" OFF)
 
 # Setup
 if(EMSCRIPTEN)
@@ -60,6 +63,18 @@ if(EMSCRIPTEN)
   set(LOVR_USE_OPENVR OFF)
   set(LOVR_USE_OCULUS OFF)
   set(LOVR_USE_SSE OFF)
+elseif(ANDROID)
+  #set(LOVR_ANDROID_FLAGS "-Wno-narrowing")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_ANDROID_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_ANDROID_FLAGS}")
+
+  set(LOVR_USE_OPENVR OFF)
+  set(LOVR_USE_OCULUS OFF)
+  set(LOVR_USE_FAKE_HEADSET OFF)
+  set(LOVR_USE_OCULUS_MOBILE ON)
+  set(LOVR_USE_LUAJIT OFF) # Until buildvm re-invoke works
+  set(LOVR_USE_SSE OFF) # Assume ARM. Technically wrong on Android X86…?
+  set(LOVR_BUILD_SHARED ON) # Android has only "activities"
 elseif(UNIX)
   if(APPLE)
     set(CMAKE_MACOSX_RPATH 1)
@@ -104,6 +119,9 @@ if(LOVR_ENABLE_DATA AND LOVR_USE_ASSIMP)
       set(ZLIB_LIBRARIES "-s USE_ZLIB=1")
       set(ZLIB_INCLUDE_DIR "assimp/contrib/zlib")
     endif()
+    if (ANDROID)
+      set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "")
+    endif()
     set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "")
     set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "")
     set(ASSIMP_NO_EXPORT ON CACHE BOOL "")
@@ -140,7 +158,7 @@ if(LOVR_ENABLE_ENET)
 endif()
 
 # GLFW
-if(NOT EMSCRIPTEN)
+if(NOT (EMSCRIPTEN OR ANDROID))
   if(LOVR_SYSTEM_GLFW)
     pkg_search_module(GLFW REQUIRED glfw3)
     include_directories(${GLFW_INCLUDE_DIRS})
@@ -157,7 +175,7 @@ if(NOT EMSCRIPTEN)
 endif()
 
 # Lua
-if(LOVR_USE_LUAJIT AND NOT EMSCRIPTEN)
+if(LOVR_USE_LUAJIT AND NOT (EMSCRIPTEN OR ANDROID))
   if (APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pagezero_size 10000 -image_base 100000000")
   endif()
@@ -254,7 +272,7 @@ if(LOVR_ENABLE_AUDIO)
 endif()
 
 # OpenGL
-if(NOT WIN32 AND NOT EMSCRIPTEN)
+if(NOT (WIN32 OR EMSCRIPTEN OR ANDROID))
   find_package(OpenGL REQUIRED)
   include_directories(${OPENGL_INCLUDE_DIRS})
   set(LOVR_OPENGL ${OPENGL_LIBRARIES})
@@ -310,14 +328,21 @@ endif()
 
 # LÖVR
 
-add_executable(lovr
+set(LOVR_SRC
   src/main.c
   src/util.c
   src/luax.c
   src/api/lovr.c
   src/lib/map/map.c
   src/lib/vec/vec.c
+  src/lib/sds/sds.c
 )
+
+if (LOVR_BUILD_SHARED)
+  add_library(lovr SHARED ${LOVR_SRC})
+else()
+  add_executable(lovr ${LOVR_SRC})
+endif()
 
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
 target_include_directories(lovr PRIVATE src)
@@ -435,6 +460,12 @@ if(LOVR_ENABLE_HEADSET)
     add_definitions(-DLOVR_USE_OCULUS)
     target_sources(lovr PRIVATE src/headset/oculus.c)
   endif()
+  if(LOVR_USE_OCULUS_MOBILE)
+    add_definitions(-DLOVR_USE_OCULUS_MOBILE)
+    add_definitions(-DNO_WINDOW=1)
+
+    target_sources(lovr PRIVATE src/headset/oculus_mobile.c)
+  endif()
   if(LOVR_USE_WEBVR)
     add_definitions(-DLOVR_USE_WEBVR)
     target_sources(lovr PRIVATE src/headset/webvr.c)
@@ -540,6 +571,9 @@ elseif(APPLE)
   target_sources(lovr PRIVATE src/platform/macos.c)
 elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/platform/web.c)
+elseif(ANDROID)
+  target_link_libraries(lovr log EGL)
+  target_sourceS(lovr PRIVATE src/platform/linux.c src/platform/android.c src/platform/print_override.c)
 elseif(UNIX)
   target_sourceS(lovr PRIVATE src/platform/linux.c)
 endif()

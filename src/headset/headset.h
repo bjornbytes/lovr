@@ -19,6 +19,7 @@ typedef enum {
 typedef enum {
   DRIVER_FAKE,
   DRIVER_OCULUS,
+  DRIVER_OCULUS_MOBILE,
   DRIVER_OPENVR,
   DRIVER_WEBVR
 } HeadsetDriver;
@@ -27,6 +28,8 @@ typedef enum {
   HEADSET_UNKNOWN,
   HEADSET_VIVE,
   HEADSET_RIFT,
+  HEADSET_GEAR,
+  HEADSET_GO,
   HEADSET_WINDOWS_MR,
   HEADSET_FAKE
 } HeadsetType;
@@ -100,6 +103,7 @@ extern HeadsetInterface lovrHeadsetOculusDriver;
 extern HeadsetInterface lovrHeadsetOpenVRDriver;
 extern HeadsetInterface lovrHeadsetWebVRDriver;
 extern HeadsetInterface lovrHeadsetFakeDriver;
+extern HeadsetInterface lovrHeadsetOculusMobileDriver;
 
 // Active driver
 extern HeadsetInterface* lovrHeadsetDriver;
