@@ -103,6 +103,14 @@ Resources
 - [**Compiling Guide**](https://lovr.org/docs/Compiling): Information on compiling LÖVR from source.
 - [**Contributing**](CONTRIBUTING.md): Guide for helping out with development :heart:
 
+Contributors
+---
+
+- [@bjornbytes](https://github.com/bjornbytes)
+- [@shakesoda](https://github.com/shakesoda)
+- [@bcampbell](https://github.com/bcampbell)
+- [@mcclure](https://github.com/mcclure)
+
 License
 ---
 
