@@ -30,12 +30,12 @@ int main(int argc, char** argv) {
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
 
-    lovrSetErrorCallback((lovrErrorHandler) luax_vthrow, L);
-
     lua_State* T = lovrInit(L, argc, argv);
     if (!T) {
       return 1;
     }
+
+    lovrSetErrorCallback((lovrErrorHandler) luax_vthrow, T);
 
 #ifdef EMSCRIPTEN
     lovrEmscriptenContext context = { L, T, argc, argv };
