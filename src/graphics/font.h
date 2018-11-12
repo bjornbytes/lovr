@@ -41,6 +41,7 @@ typedef struct {
 
 Font* lovrFontCreate(Rasterizer* rasterizer);
 void lovrFontDestroy(void* ref);
+Rasterizer* lovrFontGetRasterizer(Font* font);
 void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, VertexPointer vertices, float* offsety, uint32_t* vertexCount);
 float lovrFontGetWidth(Font* font, const char* string, float wrap);
 float lovrFontGetHeight(Font* font);

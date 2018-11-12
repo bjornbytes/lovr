@@ -68,6 +68,10 @@ void lovrFontDestroy(void* ref) {
   free(font);
 }
 
+Rasterizer* lovrFontGetRasterizer(Font* font) {
+  return font->rasterizer;
+}
+
 void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, VertexPointer vertices, float* offsety, uint32_t* vertexCount) {
   FontAtlas* atlas = &font->atlas;
 
