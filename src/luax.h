@@ -20,6 +20,7 @@ void* _luax_checktype(lua_State* L, int index, const char* type);
 void luax_pushobject(lua_State* L, void* object);
 void luax_vthrow(lua_State* L, const char* format, va_list args);
 int luax_getstack(lua_State* L);
+int luax_getstack_panic(lua_State *L);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
 Color luax_checkcolor(lua_State* L, int index);

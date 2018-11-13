@@ -110,3 +110,5 @@ extern HeadsetInterface* lovrHeadsetDriver;
 
 void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa);
 void lovrHeadsetDestroy();
+
+int lovrHeadsetExtractRenderFn(void *userdata);
