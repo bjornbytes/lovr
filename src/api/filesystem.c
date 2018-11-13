@@ -263,7 +263,8 @@ static int l_lovrFilesystemMount(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   const char* mountpoint = luaL_optstring(L, 2, NULL);
   bool append = lua_isnoneornil(L, 3) ? 0 : lua_toboolean(L, 3);
-  lua_pushboolean(L, !lovrFilesystemMount(path, mountpoint, append));
+  const char* mountpointInner = luaL_optstring(L, 4, NULL);
+  lua_pushboolean(L, !lovrFilesystemMount(path, mountpoint, append, mountpointInner));
   return 1;
 }
 
@@ -362,14 +363,16 @@ int luaopen_lovr_filesystem(lua_State* L) {
   lua_getglobal(L, "arg");
   if (lua_istable(L, -1)) {
     lua_rawgeti(L, -1, -1);
+    const char* argExe = lua_tostring(L, -1);
     lua_rawgeti(L, -2, 0);
-    const char* argExe = lua_tostring(L, -2);
     const char* argGame = lua_tostring(L, -1);
-    lovrFilesystemInit(argExe, argGame);
-    lua_pop(L, 3);
+    lua_getfield(L, -3, "inside");
+    const char* argGameInner = luaL_optstring(L, -1, NULL);
+    lovrFilesystemInit(argExe, argGame, argGameInner);
+    lua_pop(L, 4);
   } else {
     lua_pop(L, 1);
-    lovrFilesystemInit(NULL, NULL);
+    lovrFilesystemInit(NULL, NULL, NULL);
   }
 
   luax_registerloader(L, moduleLoader, 2);

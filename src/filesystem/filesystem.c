@@ -31,7 +31,7 @@ const char lovrDirSep = '/';
 
 static FilesystemState state;
 
-void lovrFilesystemInit(const char* argExe, const char* argGame) {
+void lovrFilesystemInit(const char* argExe, const char* argGame, const char* argGameInner) {
   if (state.initialized) return;
   state.initialized = true;
 
@@ -49,17 +49,17 @@ void lovrFilesystemInit(const char* argExe, const char* argGame) {
 
   // Try to mount either an archive fused to the executable or an archive from the command line
   lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
-  if (lovrFilesystemMount(state.source, NULL, 1)) {
+  if (lovrFilesystemMount(state.source, NULL, 1, argGameInner)) { // Attempt to load fused. If that fails...
     state.isFused = false;
 
     if (argGame) {
       strncpy(state.source, argGame, LOVR_PATH_MAX);
-      if (!lovrFilesystemMount(state.source, NULL, 1)) {
+      if (!lovrFilesystemMount(state.source, NULL, 1, argGameInner)) { // Attempt to load from arg. If success, init is done
         return;
       }
     }
 
-    free(state.source);
+    free(state.source); // Couldn't load from argProject, so apparently it isn't the source
     state.source = NULL;
   }
 }
@@ -201,8 +201,13 @@ bool lovrFilesystemIsFused() {
   return state.isFused;
 }
 
-int lovrFilesystemMount(const char* path, const char* mountpoint, bool append) {
-  return !PHYSFS_mount(path, mountpoint, append);
+// Returns zero on success, nonzero on failure
+int lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char* mountpointInner) {
+  bool success = PHYSFS_mount(path, mountpoint, append);
+  if (success && mountpointInner) {
+    success = PHYSFS_setRoot(path, mountpointInner);
+  }
+  return !success;
 }
 
 void* lovrFilesystemRead(const char* path, size_t* bytesRead) {

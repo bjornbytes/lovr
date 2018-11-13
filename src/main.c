@@ -101,10 +101,16 @@ static void onGlfwError(int code, const char* description) {
   lovrThrow(description);
 }
 
-typedef enum {
+typedef enum { // What is the argument parser doing?
   argparse_exe, // Interpreter
+  argparse_flags,
   argparse_game // Game path and arguments
 } ArgParseState;
+
+typedef enum { // In state argparse_flag, what flag is being searched for?
+  argflag_none, // Not processing a flag
+  argflag_inside
+} ArgFlag;
 
 lua_State* lovrInit(lua_State* L, int argc, char** argv) {
   glfwSetErrorCallback(onGlfwError);
@@ -117,24 +123,45 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
   //   The interpreter will always be at arg[-1] and always non-nil.
   // * The "script" (in the case of Lovr, the "game") is at arg[0]. This may be nil (for a fused exe)
   // * Arguments intended for the script (the "game") are at positive indexes starting with 1.
+  // Named arguments recognized by lovr will also be stored in the table at their names. This is not standard.
   lua_newtable(L);
   // push dummy "lovr" in case argv is empty
   lua_pushstring(L, "lovr");
   lua_rawseti(L, -2, -1);
 
   ArgParseState parseState = argparse_exe;
+  ArgFlag currentFlag = argflag_none;
   int lovrArgs = 0, userArgs = 0;
   for (int i = 0; i < argc; i++) {
+    // Handle flags first, so we can immediately reinterpret this as the game path if it isn't a flag
+    if (parseState == argparse_flags) {
+      // This argument is an argument to a -- flag
+      if (currentFlag == argflag_inside) {
+        lua_pushstring(L, argv[i]);
+        lua_setfield(L, -2, "inside");
+        currentFlag = argflag_none;
+
+      // This argument is a -- flag
+      } else if (!strcmp(argv[1], "--inside") || !strcmp(argv[1], "-i")) {
+        currentFlag = argflag_inside;
+
+      // No flags, this is the game path
+      } else {
+        parseState = argparse_game;
+      }
+    }
+
     lua_pushstring(L, argv[i]);
     lua_rawseti(L, -2, parseState == argparse_game ? (0 + userArgs) : (-1 - lovrArgs));
 
+    // Count flags
     if (parseState == argparse_game) {
       userArgs++;
     } else {
       lovrArgs++;
 
       if (parseState == argparse_exe) {
-        parseState = argparse_game;
+        parseState = argparse_flags;
       }
     }
   }
