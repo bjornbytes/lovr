@@ -554,9 +554,9 @@ static int l_lovrGraphicsOrigin(lua_State* L) {
 }
 
 static int l_lovrGraphicsTranslate(lua_State* L) {
-  float x = luaL_checknumber(L, 1);
-  float y = luaL_checknumber(L, 2);
-  float z = luaL_checknumber(L, 3);
+  float x = luaL_optnumber(L, 1, 0.);
+  float y = luaL_optnumber(L, 2, 0.);
+  float z = luaL_optnumber(L, 3, 0.);
   lovrGraphicsTranslate(x, y, z);
   return 0;
 }
