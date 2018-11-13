@@ -500,18 +500,13 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
 
   glfwSetTime(0);
 
-  // Set "arg" global
+  // Set "arg" global (see main.c)
   {
-    const char *argv[] = {"lovr", programPath};
-    int argc = 2;
-
     lua_newtable(L);
     lua_pushstring(L, "lovr");
     lua_rawseti(L, -2, -1);
-    for (int i = 0; i < argc; i++) {
-      lua_pushstring(L, argv[i]);
-      lua_rawseti(L, -2, i == 0 ? -2 : i);
-    }
+    lua_pushstring(L, programPath);
+    lua_rawseti(L, -2, 0);
     lua_setglobal(L, "arg");
   }
 

@@ -361,11 +361,11 @@ int luaopen_lovr_filesystem(lua_State* L) {
 
   lua_getglobal(L, "arg");
   if (lua_istable(L, -1)) {
-    lua_rawgeti(L, -1, -2);
-    lua_rawgeti(L, -2, 1);
-    const char* arg0 = lua_tostring(L, -2);
-    const char* arg1 = lua_tostring(L, -1);
-    lovrFilesystemInit(arg0, arg1);
+    lua_rawgeti(L, -1, -1);
+    lua_rawgeti(L, -2, 0);
+    const char* argExe = lua_tostring(L, -2);
+    const char* argGame = lua_tostring(L, -1);
+    lovrFilesystemInit(argExe, argGame);
     lua_pop(L, 3);
   } else {
     lua_pop(L, 1);

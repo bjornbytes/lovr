@@ -22,7 +22,7 @@ typedef struct {
   vec_str_t requirePattern[2];
 } FilesystemState;
 
-void lovrFilesystemInit(const char* arg0, const char* arg1);
+void lovrFilesystemInit(const char* argExe, const char* argGame);
 void lovrFilesystemDestroy();
 int lovrFilesystemCreateDirectory(const char* path);
 int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size);

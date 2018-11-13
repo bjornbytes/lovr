@@ -101,19 +101,44 @@ static void onGlfwError(int code, const char* description) {
   lovrThrow(description);
 }
 
+typedef enum {
+  argparse_exe, // Interpreter
+  argparse_game // Game path and arguments
+} ArgParseState;
+
 lua_State* lovrInit(lua_State* L, int argc, char** argv) {
   glfwSetErrorCallback(onGlfwError);
   lovrAssert(glfwInit(), "Error initializing GLFW");
   glfwSetTime(0);
 
-  // arg
+  // arg table
+  // Args follow the lua standard https://en.wikibooks.org/wiki/Lua_Programming/command_line_parameter
+  // * The lovr interpreter and its arguments are in successive negative indexes starting at -1.
+  //   The interpreter will always be at arg[-1] and always non-nil.
+  // * The "script" (in the case of Lovr, the "game") is at arg[0]. This may be nil (for a fused exe)
+  // * Arguments intended for the script (the "game") are at positive indexes starting with 1.
   lua_newtable(L);
+  // push dummy "lovr" in case argv is empty
   lua_pushstring(L, "lovr");
   lua_rawseti(L, -2, -1);
+
+  ArgParseState parseState = argparse_exe;
+  int lovrArgs = 0, userArgs = 0;
   for (int i = 0; i < argc; i++) {
     lua_pushstring(L, argv[i]);
-    lua_rawseti(L, -2, i == 0 ? -2 : i);
+    lua_rawseti(L, -2, parseState == argparse_game ? (0 + userArgs) : (-1 - lovrArgs));
+
+    if (parseState == argparse_game) {
+      userArgs++;
+    } else {
+      lovrArgs++;
+
+      if (parseState == argparse_exe) {
+        parseState = argparse_game;
+      }
+    }
   }
+
   lua_setglobal(L, "arg");
 
   luax_registerloader(L, loadSelf, 1);

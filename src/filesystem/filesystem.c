@@ -31,11 +31,11 @@ const char lovrDirSep = '/';
 
 static FilesystemState state;
 
-void lovrFilesystemInit(const char* arg0, const char* arg1) {
+void lovrFilesystemInit(const char* argExe, const char* argGame) {
   if (state.initialized) return;
   state.initialized = true;
 
-  if (!PHYSFS_init(arg0)) {
+  if (!PHYSFS_init(argExe)) {
     lovrThrow("Could not initialize filesystem: %s", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
   }
 
@@ -52,8 +52,8 @@ void lovrFilesystemInit(const char* arg0, const char* arg1) {
   if (lovrFilesystemMount(state.source, NULL, 1)) {
     state.isFused = false;
 
-    if (arg1) {
-      strncpy(state.source, arg1, LOVR_PATH_MAX);
+    if (argGame) {
+      strncpy(state.source, argGame, LOVR_PATH_MAX);
       if (!lovrFilesystemMount(state.source, NULL, 1)) {
         return;
       }
