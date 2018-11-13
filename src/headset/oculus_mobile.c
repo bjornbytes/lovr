@@ -293,7 +293,6 @@ extern unsigned int boot_lua_len;
 static lua_State *L, *Lcoroutine;
 static int coroutineRef = LUA_NOREF;
 static int coroutineStartFunctionRef = LUA_NOREF;
-static int renderErrorRef = LUA_NOREF;
 
 // Expose to filesystem.h
 char *lovrOculusMobileWritablePath;
@@ -475,6 +474,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   // Copypaste the init sequence from lovrRun:
   // Load libraries
   L = luaL_newstate(); // FIXME: Just call main?
+  luax_setmainstate(L);
   lua_atpanic(L, luax_custom_atpanic);
   luaL_openlibs(L);
   __android_log_print(ANDROID_LOG_DEBUG, "LOVR", "\n OPENED LIB\n");
@@ -560,13 +560,8 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
     luaL_unref (Lcoroutine, LUA_REGISTRYINDEX, coroutineStartFunctionRef);
     coroutineStartFunctionRef = LUA_NOREF; // No longer needed
   }
-  bool haveRenderError = renderErrorRef != LUA_NOREF;
-  if (haveRenderError) {
-    lua_rawgeti(Lcoroutine, LUA_REGISTRYINDEX, renderErrorRef); // Pull t from registry
-    luaL_unref (Lcoroutine, LUA_REGISTRYINDEX, renderErrorRef);
-    renderErrorRef = LUA_NOREF;
-  }
-  if (lua_resume(Lcoroutine, haveRenderError ? 1 : 0) != LUA_YIELD) {
+  int coroutineArgs = luax_pushLovrHeadsetRenderError(Lcoroutine);
+  if (lua_resume(Lcoroutine, coroutineArgs) != LUA_YIELD) {
     __android_log_print(ANDROID_LOG_DEBUG, "LOVR", "\n LUA QUIT\n");
     assert(0);
   }
@@ -586,14 +581,8 @@ static void lovrOculusMobileDraw(int framebuffer, int width, int height, float *
 
   lovrGraphicsSetCamera(&camera, true);
 
-  if (renderUserdata && renderErrorRef == LUA_NOREF) { // Don't render if a render error occurred
-    int fn = lovrHeadsetExtractRenderFn(renderUserdata);
-    lua_pushcfunction(L, luax_getstack);
-    lua_rawgeti(L, LUA_REGISTRYINDEX, fn);
-    if (lua_pcall(L, 0, 0, -2)) {
-      renderErrorRef = luaL_ref(L, LUA_REGISTRYINDEX); // save luax_getstack output
-    }
-  }
+  if (renderCallback)
+    renderCallback(renderUserdata);
 
   lovrGraphicsSetCamera(NULL, false);
   lovrRelease(canvas);

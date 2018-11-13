@@ -28,6 +28,7 @@ int main(int argc, char** argv) {
 
   do {
     lua_State* L = luaL_newstate();
+    luax_setmainstate(L);
     luaL_openlibs(L);
 
     lua_State* T = lovrInit(L, argc, argv);
@@ -49,6 +50,7 @@ int main(int argc, char** argv) {
     restart = lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart");
     status = lua_tonumber(T, -1);
     lua_close(L);
+    luax_setmainstate(NULL);
 #endif
   } while (restart);
 
@@ -70,7 +72,16 @@ typedef struct {
 
 static void emscriptenLoop(void* arg) {
   lovrEmscriptenContext* context = arg;
-  if (lua_resume(context->T, 0) != LUA_YIELD) {
+
+  lua_getglobal(L, "_lovrHeadsetRenderError"); // webvr.c renderCallback failed
+  bool haveRenderError = !lua_isnil(L, -1);
+  if (!haveRenderError) {
+    lua_pop(L, 1);
+  }
+
+  int coroutineArgs = luax_pushLovrHeadsetRenderError(context->T);
+
+  if (lua_resume(context->T, coroutineArgs) != LUA_YIELD) {
     bool restart = lua_type(context->T, -1) == LUA_TSTRING && !strcmp(lua_tostring(context->T, -1), "restart");
     int status = lua_tonumber(context->T, -1);
 

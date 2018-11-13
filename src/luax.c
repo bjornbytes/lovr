@@ -2,6 +2,7 @@
 #include "util.h"
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "name");
@@ -270,4 +271,26 @@ Color luax_checkcolor(lua_State* L, int index) {
   }
 
   return color;
+}
+
+int luax_pushLovrHeadsetRenderError(lua_State *L) {
+  lua_getglobal(L, "_lovrHeadsetRenderError"); // renderCallback failed
+  bool haveRenderError = !lua_isnil(L, -1);
+  if (haveRenderError) {
+    lua_pushnil(L); // Now the error is on the stack remove it from globals
+    lua_setglobal(L, "_lovrHeadsetRenderError");
+  } else {
+    lua_pop(L, 1); // pop stray nil
+  }
+  return haveRenderError;
+}
+
+static lua_State *luax_mainstate;
+
+lua_State *luax_getmainstate() {
+  return luax_mainstate;
+}
+
+void luax_setmainstate(lua_State *L) {
+  luax_mainstate = L;
 }

@@ -24,3 +24,6 @@ int luax_getstack_panic(lua_State *L);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
 Color luax_checkcolor(lua_State* L, int index);
+int luax_pushLovrHeadsetRenderError(lua_State *L);
+lua_State *luax_getmainstate();
+void luax_setmainstate(lua_State *L);
