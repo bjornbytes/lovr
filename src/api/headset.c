@@ -82,6 +82,11 @@ static void renderHelper(void* userdata) {
   lua_call(L, 0, 0);
 }
 
+int lovrHeadsetExtractRenderFn(void *userdata) {
+  HeadsetRenderData* renderData = userdata;
+  return renderData->ref;
+}
+
 static int l_lovrHeadsetGetDriver(lua_State* L) {
   lua_pushstring(L, HeadsetDrivers[lovrHeadsetDriver->driverType]);
   return 1;
