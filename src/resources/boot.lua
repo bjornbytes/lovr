@@ -147,6 +147,7 @@ end
 
 function lovr.errhand(message, traceback)
   message = 'Error:\n' .. message .. formatTraceback(traceback or debug.traceback('', 2))
+  print(message)
   if not lovr.graphics then return function() return 1 end end
   lovr.graphics.reset()
   lovr.graphics.setBackgroundColor(.105, .098, .137)
@@ -197,7 +198,7 @@ return function()
       errored = true
       return lovr.errhand(e, tb) or abortclean
     else
-      print('Error occurred while trying to display another error:\n' .. 
+      print('Error occurred while trying to display another error:\n' ..
         e .. formatTraceback(tb or debug.traceback('', 2)))
       return abortclean
     end
