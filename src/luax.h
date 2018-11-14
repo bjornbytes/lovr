@@ -10,7 +10,6 @@
 #define luax_checktype(L, i, T) ((T*) _luax_checktype(L, i, #T))
 typedef void (*luax_destructor)(void);
 
-void luax_loadlib(lua_State* L, const char* library, const char* module);
 void luax_atexit(lua_State* L, luax_destructor destructor);
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions);

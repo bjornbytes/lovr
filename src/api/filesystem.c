@@ -78,7 +78,11 @@ static int libraryLoader(lua_State* L) {
         char fullPath[LOVR_PATH_MAX];
         const char* realPath = lovrFilesystemGetRealDirectory(filename);
         snprintf(fullPath, LOVR_PATH_MAX - 1, "%s%c%s", realPath, lovrDirSep, filename);
-        luax_loadlib(L, fullPath, moduleFunction);
+        lua_getglobal(L, "package");
+        lua_getfield(L, -1, "loadlib");
+        lua_pushstring(L, fullPath);
+        lua_pushfstring(L, "luaopen_%s", moduleFunction);
+        lua_call(L, 2, 1);
         return 1;
       }
     }

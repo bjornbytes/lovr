@@ -18,6 +18,7 @@ LOVR_API int luaopen_lovr_math(lua_State* L);
 LOVR_API int luaopen_lovr_physics(lua_State* L);
 LOVR_API int luaopen_lovr_thread(lua_State* L);
 LOVR_API int luaopen_lovr_timer(lua_State* L);
+extern const luaL_Reg lovrModules[];
 
 // Objects
 extern const luaL_Reg lovrAnimator[];

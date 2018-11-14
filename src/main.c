@@ -4,6 +4,7 @@
 #include "resources/boot.lua.h"
 #include "lib/glfw.h"
 #include "version.h"
+#include "api.h"
 #include "luax.h"
 #include "platform.h"
 #include "util.h"
@@ -98,16 +99,6 @@ static void emscriptenLoop(void* arg) {
 }
 #endif
 
-static int loadSelf(lua_State* L) {
-  const char* moduleFunction = luaL_gsub(L, lua_tostring(L, -1), ".", "_");
-  char* hyphen = strchr(moduleFunction, '-');
-  moduleFunction = hyphen ? hyphen + 1 : moduleFunction;
-  char executablePath[1024] = { 0 };
-  lovrGetExecutablePath(executablePath, 1024);
-  luax_loadlib(L, executablePath, moduleFunction);
-  return 1;
-}
-
 static void onGlfwError(int code, const char* description) {
   lovrThrow(description);
 }
@@ -176,7 +167,10 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
 
   lua_setglobal(L, "arg");
 
-  luax_registerloader(L, loadSelf, 1);
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "preload");
+  luaL_register(L, NULL, lovrModules);
+  lua_pop(L, 2);
 
   lua_pushcfunction(L, luax_getstack);
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
