@@ -389,17 +389,20 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   {
     lua_newtable(L);
     lua_pushstring(L, "lovr");
-    lua_rawseti(L, -2, -1);
-    lua_pushstring(L, initData->apkPath);
-    lua_rawseti(L, -2, 0);
+    lua_pushvalue(L, -1); // Double at named key
+    lua_setfield(L, -3, "exe");
+    lua_rawseti(L, -2, -3);
 
-    // Mimic the arguments "--inside /assets" as parsed by lovrInit
-    lua_pushstring(L, "--inside");
+    // Mimic the arguments "--root /assets" as parsed by lovrInit
+    lua_pushstring(L, "--root");
     lua_rawseti(L, -2, -2);
     lua_pushstring(L, "/assets");
-    lua_pushvalue(L, -1);
-    lua_setfield(L, -3, "inside");
-    lua_rawseti(L, -2, -3);
+    lua_pushvalue(L, -1); // Double at named key
+    lua_setfield(L, -3, "root");
+    lua_rawseti(L, -2, -1);
+
+    lua_pushstring(L, initData->apkPath);
+    lua_rawseti(L, -2, 0);
 
     lua_setglobal(L, "arg");
   }

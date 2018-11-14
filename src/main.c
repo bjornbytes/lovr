@@ -101,15 +101,9 @@ static void onGlfwError(int code, const char* description) {
   lovrThrow(description);
 }
 
-typedef enum { // What is the argument parser doing?
-  argparse_exe, // Interpreter
-  argparse_flags,
-  argparse_game // Game path and arguments
-} ArgParseState;
-
-typedef enum { // In state argparse_flag, what flag is being searched for?
-  argflag_none, // Not processing a flag
-  argflag_inside
+typedef enum { // What flag is being searched for?
+  ARGFLAG_NONE, // Not processing a flag
+  ARGFLAG_ROOT
 } ArgFlag;
 
 lua_State* lovrInit(lua_State* L, int argc, char** argv) {
@@ -119,51 +113,54 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
 
   // arg table
   // Args follow the lua standard https://en.wikibooks.org/wiki/Lua_Programming/command_line_parameter
-  // * The lovr interpreter and its arguments are in successive negative indexes starting at -1.
-  //   The interpreter will always be at arg[-1] and always non-nil.
-  // * The "script" (in the case of Lovr, the "game") is at arg[0]. This may be nil (for a fused exe)
-  // * Arguments intended for the script (the "game") are at positive indexes starting with 1.
-  // Named arguments recognized by lovr will also be stored in the table at their names. This is not standard.
+  // In this standard, the contents of argv are put in a global table named "arg", but with indices offset
+  // such that the "script" (in lovr, the game path) is at index 0. So all arguments (if any) intended for
+  // the script/game are at successive indices starting with 1, and the exe and its arguments are in normal
+  // order but stored in negative indices.
+  //
+  // Lovr can be run in ways normal lua can't. It can be run with an empty argv, or with no script (if fused).
+  // So in the case of lovr:
+  // * The script path will always be at index 0, but it can be nil.
+  // * For a fused executable, whatever is given in argv as script name is still at 0, but will be ignored.
+  // * The exe (argv[0]) will always be the lowest-integer index. If it's present, it will always be -1 or less.
+  // * Any named arguments parsed by Lovr will be stored in the arg table at their named keys.
+  // * An exe name will always be stored in the arg table at string key "exe", even if none was supplied in argv.
   lua_newtable(L);
   // push dummy "lovr" in case argv is empty
   lua_pushstring(L, "lovr");
-  lua_rawseti(L, -2, -1);
+  lua_setfield(L, -2, "exe");
 
-  ArgParseState parseState = argparse_exe;
-  ArgFlag currentFlag = argflag_none;
-  int lovrArgs = 0, userArgs = 0;
+  bool exeFound = false;
+  ArgFlag currentFlag = ARGFLAG_NONE;
+  int lovrArgs = 0; // Arg count up to but not including the game path
+  // One pass to parse flags
   for (int i = 0; i < argc; i++) {
-    // Handle flags first, so we can immediately reinterpret this as the game path if it isn't a flag
-    if (parseState == argparse_flags) {
+    if (lovrArgs > 0) {
       // This argument is an argument to a -- flag
-      if (currentFlag == argflag_inside) {
+      if (currentFlag == ARGFLAG_ROOT) {
         lua_pushstring(L, argv[i]);
-        lua_setfield(L, -2, "inside");
-        currentFlag = argflag_none;
+        lua_setfield(L, -2, "root");
+        currentFlag = ARGFLAG_NONE;
 
       // This argument is a -- flag
-      } else if (!strcmp(argv[1], "--inside") || !strcmp(argv[1], "-i")) {
-        currentFlag = argflag_inside;
+      } else if (!strcmp(argv[1], "--root") || !strcmp(argv[1], "-r")) {
+        currentFlag = ARGFLAG_ROOT;
 
-      // No flags, this is the game path
+      // This is the game path
       } else {
-        parseState = argparse_game;
+        break;
       }
+    } else { // Found exe name
+      lua_pushstring(L, argv[i]);
+      lua_setfield(L, -2, "exe");
     }
 
+    lovrArgs++;
+  }
+  // Now that we know the negative offset to start at, copy all args in the table
+  for (int i = 0; i < argc; i++) {
     lua_pushstring(L, argv[i]);
-    lua_rawseti(L, -2, parseState == argparse_game ? (0 + userArgs) : (-1 - lovrArgs));
-
-    // Count flags
-    if (parseState == argparse_game) {
-      userArgs++;
-    } else {
-      lovrArgs++;
-
-      if (parseState == argparse_exe) {
-        parseState = argparse_flags;
-      }
-    }
+    lua_rawseti(L, -2, -lovrArgs + i);
   }
 
   lua_setglobal(L, "arg");
