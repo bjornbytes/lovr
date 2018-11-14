@@ -358,14 +358,8 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   lovrSetErrorCallback((lovrErrorHandler) android_vthrow, L);
 
   // Install custom print
-  static const struct luaL_Reg printHack [] = {
-    {"print", lovr_luaB_print_override},
-    {NULL, NULL} /* end of array */
-  };
-  lua_getglobal(L, "_G");
-  luaL_register(L, NULL, printHack); // "for Lua versions < 5.2"
-  //luaL_setfuncs(L, printlib, 0);  // "for Lua versions 5.2 or greater"
-  lua_pop(L, 1);
+  lua_pushcfunction(L, luax_print);
+  lua_setglobal(L, "print");
 
   glfwSetTime(0);
 
