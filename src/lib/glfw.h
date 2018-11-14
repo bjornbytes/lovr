@@ -17,6 +17,7 @@
 typedef void GLFWwindow;
 #define GLFWAPI
 #define GLFWAPI_IS_FAKE
+GLFWAPI int glfwInit();
 GLFWAPI void glfwPollEvents();
 GLFWAPI void glfwGetCursorPos(GLFWwindow* window, double* xpos, double* ypos);
 GLFWAPI GLFWwindow* glfwGetCurrentContext(void);
