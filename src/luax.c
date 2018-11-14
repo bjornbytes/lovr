@@ -226,34 +226,30 @@ void luax_vthrow(lua_State* L, const char* format, va_list args) {
   lua_error(L);
 }
 
-int luax_getstack(lua_State* L) {
-  const char* message = luaL_checkstring(L, -1);
-  lua_getglobal(L, "debug");
-  lua_getfield(L, -1, "traceback");
-  lua_pushstring(L, message);
-  lua_pushinteger(L, 2);
-  lua_call(L, 2, 1);
-  return 1;
-}
-
-// Variant of luax_getstack for panic (doesn't assume free memory, skips nothing in traceback)
-int luax_getstack_panic(lua_State *L) {
-  if (!lua_checkstack(L, 3)) // Maybe this could be 2, depends on how lua_insert works
-    return 0;
+// An implementation of luaL_traceback for Lua 5.1
+void luax_traceback(lua_State* L, lua_State* T, const char* message, int level) {
+  if (!lua_checkstack(L, 5)) {
+    return;
+  }
   lua_getglobal(L, "debug");
   if (!lua_istable(L, -1)) {
     lua_pop(L, 1);
-    return 0;
+    return;
   }
   lua_getfield(L, -1, "traceback");
   if (!lua_isfunction(L, -1)) {
     lua_pop(L, 2);
-    return 0;
+    return;
   }
   lua_remove(L, -2); // Pop debug object
-  lua_insert(L, -2); // Move message to top
-  lua_pushinteger(L, 0);
-  lua_call(L, 2, 1); // Call debug.traceback
+  lua_pushthread(T);
+  lua_pushstring(L, message);
+  lua_pushinteger(L, level);
+  lua_call(L, 3, 1);
+}
+
+int luax_getstack(lua_State *L) {
+  luax_traceback(L, L, lua_tostring(L, 1), 2);
   return 1;
 }
 

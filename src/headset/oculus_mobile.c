@@ -321,15 +321,11 @@ static void android_vthrow(lua_State* L, const char* format, va_list args) {
   assert(0);
 }
 
-static int luax_custom_atpanic(lua_State *L)
-{
-    const char *msg = lua_tostring(L, -1);
-    // This doesn't appear to get a sensible stack. Maybe Luajit would work better?
-    if (luax_getstack_panic(L)) {
-      msg = lua_tostring(L, -1);
-    }
-    lovrThrow("Lua panic: %s", msg);
-    return 0;
+static int luax_custom_atpanic(lua_State *L) {
+  // This doesn't appear to get a sensible stack. Maybe Luajit would work better?
+  luax_traceback(L, L, lua_tostring(L, -1), 0); // Pushes the traceback onto the stack
+  lovrThrow("Lua panic: %s", lua_tostring(L, -1));
+  return 0;
 }
 
 void bridgeLovrInit(BridgeLovrInitData *initData) {
