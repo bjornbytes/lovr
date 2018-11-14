@@ -265,7 +265,7 @@ void glfwTerminate(void) {
 GLFWAPI void glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height)
 {
   *width = bridgeLovrMobileData.displayDimensions.width;
-  *height = bridgeLovrMobileData.displayDimensions.height; 
+  *height = bridgeLovrMobileData.displayDimensions.height;
 }
 
 // "Bridge" (see oculus_mobile_bridge.h)
