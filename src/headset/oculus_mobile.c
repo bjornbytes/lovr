@@ -317,7 +317,7 @@ static void android_vthrow(lua_State* L, const char* format, va_list args) {
   #define MAX_ERROR_LENGTH 1024
   char lovrErrorMessage[MAX_ERROR_LENGTH];
   vsnprintf(lovrErrorMessage, MAX_ERROR_LENGTH, format, args);
-  __android_log_print(ANDROID_LOG_FATAL, "LOVR", "Error: %s\n", lovrErrorMessage);
+  lovrWarn("Error: %s\n", lovrErrorMessage);
   assert(0);
 }
 
@@ -329,7 +329,7 @@ static int luax_custom_atpanic(lua_State *L) {
 }
 
 void bridgeLovrInit(BridgeLovrInitData *initData) {
-  __android_log_print(ANDROID_LOG_DEBUG, "LOVR", "\n INSIDE LOVR\n");
+  lovrLog("\n INSIDE LOVR\n");
 
   // Save writable data directory for LovrFilesystemInit later
   {
@@ -349,7 +349,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   luax_setmainstate(L);
   lua_atpanic(L, luax_custom_atpanic);
   luaL_openlibs(L);
-  __android_log_print(ANDROID_LOG_DEBUG, "LOVR", "\n OPENED LIB\n");
+  lovrLog("\n OPENED LIB\n");
 
   lovrSetErrorCallback((lovrErrorHandler) android_vthrow, L);
 
@@ -391,7 +391,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
 
   lua_pushcfunction(L, luax_getstack);
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
-    __android_log_print(ANDROID_LOG_DEBUG, "LOVR", "\n LUA STARTUP FAILED: %s\n", lua_tostring(L, -1));
+    lovrWarn("\n LUA STARTUP FAILED: %s\n", lua_tostring(L, -1));
     lua_close(L);
     assert(0);
   }
@@ -401,7 +401,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   lua_atpanic(Lcoroutine, luax_custom_atpanic);
   coroutineRef = luaL_ref(L, LUA_REGISTRYINDEX); // Hold on to the Lua-side coroutine object so it isn't GC'd
 
-  __android_log_print(ANDROID_LOG_DEBUG, "LOVR", "\n BRIDGE INIT COMPLETE\n");
+  lovrLog("\n BRIDGE INIT COMPLETE\n");
 }
 
 void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
@@ -424,7 +424,7 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   }
   int coroutineArgs = luax_pushLovrHeadsetRenderError(Lcoroutine);
   if (lua_resume(Lcoroutine, coroutineArgs) != LUA_YIELD) {
-    __android_log_print(ANDROID_LOG_DEBUG, "LOVR", "\n LUA QUIT\n");
+    lovrLog("\n LUA QUIT\n");
     assert(0);
   }
 }
