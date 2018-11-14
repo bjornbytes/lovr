@@ -25,14 +25,6 @@ static int luax_module__gc(lua_State* L) {
   return 0;
 }
 
-void luax_loadlib(lua_State* L, const char* library, const char* module) {
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "loadlib");
-  lua_pushstring(L, library);
-  lua_pushfstring(L, "luaopen_%s", module);
-  lua_call(L, 2, 1);
-}
-
 void luax_atexit(lua_State* L, luax_destructor destructor) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
 

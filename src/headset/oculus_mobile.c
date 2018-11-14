@@ -321,15 +321,6 @@ static void android_vthrow(lua_State* L, const char* format, va_list args) {
   assert(0);
 }
 
-static int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f) {
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "preload");
-  lua_pushcfunction(L, f);
-  lua_setfield(L, -2, key);
-  lua_pop(L, 2);
-  return 0;
-}
-
 static int luax_custom_atpanic(lua_State *L)
 {
     const char *msg = lua_tostring(L, -1);
@@ -400,20 +391,11 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
     lua_setglobal(L, "arg");
   }
 
-  // Register loaders for internal packages (since dynamic load does not seem to work on Android)
-  luax_preloadmodule(L, "lovr", luaopen_lovr);
-  luax_preloadmodule(L, "lovr.audio", luaopen_lovr_audio);
-  luax_preloadmodule(L, "lovr.data", luaopen_lovr_data);
-  luax_preloadmodule(L, "lovr.event", luaopen_lovr_event);
-  luax_preloadmodule(L, "lovr.filesystem", luaopen_lovr_filesystem);
-  luax_preloadmodule(L, "lovr.graphics", luaopen_lovr_graphics);
-  luax_preloadmodule(L, "lovr.headset", luaopen_lovr_headset);
-  luax_preloadmodule(L, "lovr.math", luaopen_lovr_math);
-  luax_preloadmodule(L, "lovr.physics", luaopen_lovr_physics);
-  luax_preloadmodule(L, "lovr.thread", luaopen_lovr_thread);
-  luax_preloadmodule(L, "lovr.timer", luaopen_lovr_timer);
-  luax_preloadmodule(L, "cjson", luaopen_cjson);
-  luax_preloadmodule(L, "enet", luaopen_enet);
+  // Populate package.preload with built-in modules
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "preload");
+  luaL_register(L, NULL, lovrModules);
+  lua_pop(L, 2);
 
   // Run init
 

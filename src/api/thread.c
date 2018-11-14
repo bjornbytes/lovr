@@ -16,6 +16,11 @@ static int threadRunner(void* data) {
   luaL_openlibs(L);
   lovrSetErrorCallback((lovrErrorHandler) luax_vthrow, L);
 
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "preload");
+  luaL_register(L, NULL, lovrModules);
+  lua_pop(L, 2);
+
   if (luaL_loadbuffer(L, thread->body, strlen(thread->body), "thread") || lua_pcall(L, 0, 0, 0)) {
     thread->error = lua_tostring(L, -1);
   }
