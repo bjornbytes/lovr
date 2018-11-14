@@ -68,6 +68,10 @@ void lovrFontDestroy(void* ref) {
   free(font);
 }
 
+Rasterizer* lovrFontGetRasterizer(Font* font) {
+  return font->rasterizer;
+}
+
 void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, VertexPointer vertices, float* offsety, uint32_t* vertexCount) {
   FontAtlas* atlas = &font->atlas;
 
@@ -98,6 +102,14 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
       cx = 0;
       cy -= font->rasterizer->height * font->lineHeight;
       previous = '\0';
+      str += bytes;
+      continue;
+    }
+
+    // Tabs
+    if (codepoint == '\t') {
+      Glyph* space = lovrFontGetGlyph(font, ' ');
+      cx += space->advance * 4;
       str += bytes;
       continue;
     }
@@ -172,6 +184,14 @@ float lovrFontGetWidth(Font* font, const char* str, float wrap) {
       width = MAX(width, x * scale);
       x = 0;
       previous = '\0';
+      str += bytes;
+      continue;
+    }
+
+    // Tabs
+    if (codepoint == '\t') {
+      Glyph* space = lovrFontGetGlyph(font, ' ');
+      x += space->advance * 4;
       str += bytes;
       continue;
     }

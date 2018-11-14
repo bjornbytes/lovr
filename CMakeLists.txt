@@ -482,10 +482,12 @@ if(LOVR_ENABLE_MATH)
     src/math/mat4.c
     src/math/math.c
     src/math/quat.c
+    src/math/curve.c
     src/math/randomGenerator.c
     src/math/transform.c
     src/math/vec3.c
     src/api/math.c
+    src/api/types/curve.c
     src/api/types/randomGenerator.c
     src/api/types/transform.c
     src/lib/noise1234/noise1234.c

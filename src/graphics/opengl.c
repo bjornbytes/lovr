@@ -47,6 +47,7 @@ typedef enum {
 
 static struct {
   Texture* defaultTexture;
+  bool alphaCoverage;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
   bool culling;
@@ -629,6 +630,9 @@ void lovrGpuInit(bool srgb, getGpuProcProc getProcAddress) {
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
 
+  state.alphaCoverage = false;
+  glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+
   state.blendMode = BLEND_ALPHA;
   state.blendAlphaMode = BLEND_ALPHA_MULTIPLY;
   glBlendEquation(GL_FUNC_ADD);
@@ -681,6 +685,16 @@ void lovrGpuDestroy() {
 }
 
 void lovrGpuBindPipeline(Pipeline* pipeline) {
+
+  // Alpha Coverage
+  if (state.alphaCoverage != pipeline->alphaCoverage) {
+    state.alphaCoverage = pipeline->alphaCoverage;
+    if (state.alphaCoverage) {
+      glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+    } else {
+      glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+    }
+  }
 
   // Blend mode
   if (state.blendMode != pipeline->blendMode || state.blendAlphaMode != pipeline->blendAlphaMode) {
@@ -857,6 +871,32 @@ void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil) {
   } else if (stencil) {
     glClearBufferiv(GL_STENCIL, 0, stencil);
   }
+}
+
+void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil) {
+#if defined(EMSCRIPTEN) || defined(__ANDROID__)
+  lovrCanvasBind(canvas, false);
+
+  GLenum attachments[MAX_CANVAS_ATTACHMENTS + 1] = { 0 };
+  int count = 0;
+
+  if (color) {
+    int n = canvas ? canvas->attachmentCount : 1;
+    for (int i = 0; i < n; i++) {
+      attachments[count++] = GL_COLOR_ATTACHMENT0 + i;
+    }
+  }
+
+  if (depth) {
+    attachments[count++] = GL_DEPTH_ATTACHMENT;
+  }
+
+  if (stencil) {
+    attachments[count++] = GL_STENCIL_ATTACHMENT;
+  }
+
+  glInvalidateFramebuffer(GL_FRAMEBUFFER, count, attachments);
+#endif
 }
 
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {

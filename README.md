@@ -19,8 +19,8 @@ Inspired by [LÖVE](https://love2d.org), a 2D game framework.
 Features
 ---
 
-- **Cross-Platform** - Runs on Windows, Mac, Linux, and even on the web using WebAssembly and WebVR.
-- **Cross-Device** - Support for many HMDs including HTC Vive, Oculus Touch, and Windows MR headsets.  There's also a keyboard/mouse VR simulator so you can prototype without hardware.
+- **Cross-Platform** - Runs on Windows, Mac, Linux, Android, and even on the web using WebAssembly and WebVR.
+- **Cross-Device** - Supports HTC Vive, Oculus Touch, Oculus Go, and Windows MR.  There's also a keyboard/mouse VR simulator.
 - **Beginner-friendly** - Simple VR scenes can be created in just a few lines of Lua.
 - **Fast** - Writen in C99 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
 - **Asset Import** - Supports 3D models (glTF, FBX, OBJ), skeletal animation, HDR textures, cubemaps, fonts, etc.
@@ -86,6 +86,7 @@ Building
 Here's how to compile LÖVR using CMake:
 
 ```console
+mkdir build
 cd build
 cmake ..
 cmake --build .

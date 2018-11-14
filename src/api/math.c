@@ -3,8 +3,47 @@
 #include "math/math.h"
 #include "math/mat4.h"
 #include "math/quat.h"
+#include "math/curve.h"
 #include "math/randomGenerator.h"
 #include "math/transform.h"
+
+static int l_lovrMathNewCurve(lua_State* L) {
+  int top = lua_gettop(L);
+  bool table = lua_type(L, 1) == LUA_TTABLE;
+
+  if (top == 1 && !table) {
+    Curve* curve = lovrCurveCreate(luaL_checkinteger(L, 1));
+    luax_pushobject(L, curve);
+    return 1;
+  }
+
+  int size = ((table ? lua_objlen(L, 1) : top) + 2) / 3;
+  Curve* curve = lovrCurveCreate(size);
+  for (int i = 0; i < size; i++) {
+    float point[3];
+
+    if (table) {
+      lua_rawgeti(L, 1, 3 * i + 1);
+      lua_rawgeti(L, 1, 3 * i + 2);
+      lua_rawgeti(L, 1, 3 * i + 3);
+
+      point[0] = lua_tonumber(L, -3);
+      point[1] = lua_tonumber(L, -2);
+      point[2] = lua_tonumber(L, -1);
+
+      lovrCurveAddPoint(curve, point, i);
+      lua_pop(L, 3);
+    } else {
+      point[0] = lua_tonumber(L, 3 * i + 1);
+      point[1] = lua_tonumber(L, 3 * i + 2);
+      point[2] = lua_tonumber(L, 3 * i + 3);
+      lovrCurveAddPoint(curve, point, i);
+    }
+  }
+
+  luax_pushobject(L, curve);
+  return 1;
+}
 
 static int l_lovrMathNewRandomGenerator(lua_State* L) {
   RandomGenerator* generator = lovrRandomGeneratorCreate();
@@ -126,6 +165,7 @@ static int l_lovrMathLinearToGamma(lua_State* L) {
 }
 
 static const luaL_Reg lovrMath[] = {
+  { "newCurve", l_lovrMathNewCurve },
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "newTransform", l_lovrMathNewTransform },
   { "orientationToDirection", l_lovrMathOrientationToDirection },
@@ -144,6 +184,7 @@ int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrMath);
   luax_atexit(L, lovrMathDestroy);
+  luax_registertype(L, "Curve", lovrCurve);
   luax_registertype(L, "RandomGenerator", lovrRandomGenerator);
   luax_registertype(L, "Transform", lovrTransform);
   lovrMathInit();

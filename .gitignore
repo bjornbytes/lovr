@@ -1,4 +1,5 @@
 .tup
+build
 /lovr
 /data
 /*.lua

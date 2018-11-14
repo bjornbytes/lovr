@@ -6,6 +6,7 @@
 #include "math/mat4.h"
 #include "lib/glad/glad.h"
 #include <assert.h>
+#include "platform.h"
 
 // Data passed from bridge code to headset code
 
@@ -22,27 +23,6 @@ static void (*renderCallback)(void*);
 static void* renderUserdata;
 
 static float offset;
-
-static void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeViewMatrix, float *projectionMatrix) {
-  lovrGpuDirtyTexture();
-
-  CanvasFlags flags = {0};
-  Canvas *canvas = lovrCanvasCreateFromHandle(width, height, flags, framebuffer, 0, 0, 1, true);
-
-  Camera camera = { .canvas = canvas, .stereo = false };
-  memcpy(camera.viewMatrix[0], eyeViewMatrix, sizeof(camera.viewMatrix[0]));
-  mat4_translate(camera.viewMatrix[0], 0, -offset, 0);
-
-  memcpy(camera.projection[0], projectionMatrix, sizeof(camera.projection[0]));
-
-  lovrGraphicsSetCamera(&camera, true);
-
-  if (renderCallback)
-    renderCallback(renderUserdata);
-
-  lovrGraphicsSetCamera(NULL, false);
-  lovrRelease(canvas);
-}
 
 // Headset driver object
 
@@ -168,6 +148,10 @@ static float oculusMobileControllerGetAxis(Controller* controller, ControllerAxi
       return (bridgeLovrMobileData.updateData.goTrackpad.x-160)/160.0;
     case CONTROLLER_AXIS_TOUCHPAD_Y:
       return (bridgeLovrMobileData.updateData.goTrackpad.y-160)/160.0;
+    case CONTROLLER_AXIS_TRIGGER:
+      return bridgeLovrMobileData.updateData.goButtonDown ? 1.0 : 0.0;
+    default:
+      return 0;
   }
 }
 
@@ -182,7 +166,6 @@ static bool buttonCheck(BridgeLovrButton field, ControllerButton button) {
     default:
       return false;
   }
-
 }
 
 static bool oculusMobileControllerIsDown(Controller* controller, ControllerButton button) {
@@ -307,7 +290,7 @@ GLFWAPI void glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height)
 extern unsigned char boot_lua[];
 extern unsigned int boot_lua_len;
 
-static lua_State* L, *Lcoroutine;
+static lua_State *L, *Lcoroutine;
 static int coroutineRef = LUA_NOREF;
 static int coroutineStartFunctionRef = LUA_NOREF;
 
@@ -330,13 +313,10 @@ int lovr_luaB_print_override (lua_State *L);
 
 #define SDS(...) sdscatfmt(sdsempty(), __VA_ARGS__)
 
-static void android_vthrow(lua_State* L, const char* format, ...) {
+static void android_vthrow(lua_State* L, const char* format, va_list args) {
   #define MAX_ERROR_LENGTH 1024
   char lovrErrorMessage[MAX_ERROR_LENGTH];
-  va_list args;
-  va_start(args, format);
   vsnprintf(lovrErrorMessage, MAX_ERROR_LENGTH, format, args);
-  va_end(args);
   __android_log_print(ANDROID_LOG_FATAL, "LOVR", "Error: %s\n", lovrErrorMessage);
   assert(0);
 }
@@ -348,6 +328,17 @@ static int luax_preloadmodule(lua_State* L, const char* key, lua_CFunction f) {
   lua_setfield(L, -2, key);
   lua_pop(L, 2);
   return 0;
+}
+
+static int luax_custom_atpanic(lua_State *L)
+{
+    const char *msg = lua_tostring(L, -1);
+    // This doesn't appear to get a sensible stack. Maybe Luajit would work better?
+    if (luax_getstack_panic(L)) {
+      msg = lua_tostring(L, -1);
+    }
+    lovrThrow("Lua panic: %s", msg);
+    return 0;
 }
 
 void bridgeLovrInit(BridgeLovrInitData *initData) {
@@ -368,6 +359,8 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   // Copypaste the init sequence from lovrRun:
   // Load libraries
   L = luaL_newstate(); // FIXME: Just call main?
+  luax_setmainstate(L);
+  lua_atpanic(L, luax_custom_atpanic);
   luaL_openlibs(L);
   __android_log_print(ANDROID_LOG_DEBUG, "LOVR", "\n OPENED LIB\n");
 
@@ -433,6 +426,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
 
   coroutineStartFunctionRef = luaL_ref(L, LUA_REGISTRYINDEX); // Value returned by boot.lua
   Lcoroutine = lua_newthread(L); // Leave L clear to be used by the draw function
+  lua_atpanic(Lcoroutine, luax_custom_atpanic);
   coroutineRef = luaL_ref(L, LUA_REGISTRYINDEX); // Hold on to the Lua-side coroutine object so it isn't GC'd
 
   __android_log_print(ANDROID_LOG_DEBUG, "LOVR", "\n BRIDGE INIT COMPLETE\n");
@@ -456,10 +450,32 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
     luaL_unref (Lcoroutine, LUA_REGISTRYINDEX, coroutineStartFunctionRef);
     coroutineStartFunctionRef = LUA_NOREF; // No longer needed
   }
-  if (lua_resume(Lcoroutine, 0) != LUA_YIELD) {
+  int coroutineArgs = luax_pushLovrHeadsetRenderError(Lcoroutine);
+  if (lua_resume(Lcoroutine, coroutineArgs) != LUA_YIELD) {
     __android_log_print(ANDROID_LOG_DEBUG, "LOVR", "\n LUA QUIT\n");
     assert(0);
   }
+}
+
+static void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeViewMatrix, float *projectionMatrix) {
+  lovrGpuDirtyTexture();
+
+  CanvasFlags flags = {0};
+  Canvas *canvas = lovrCanvasCreateFromHandle(width, height, flags, framebuffer, 0, 0, 1, true);
+
+  Camera camera = { .canvas = canvas, .stereo = false };
+  memcpy(camera.viewMatrix[0], eyeViewMatrix, sizeof(camera.viewMatrix[0]));
+  mat4_translate(camera.viewMatrix[0], 0, -offset, 0);
+
+  memcpy(camera.projection[0], projectionMatrix, sizeof(camera.projection[0]));
+
+  lovrGraphicsSetCamera(&camera, true);
+
+  if (renderCallback)
+    renderCallback(renderUserdata);
+
+  lovrGraphicsSetCamera(NULL, false);
+  lovrRelease(canvas);
 }
 
 void bridgeLovrDraw(BridgeLovrDrawData *drawData) {

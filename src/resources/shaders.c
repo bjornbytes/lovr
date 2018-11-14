@@ -137,6 +137,7 @@ const char* lovrFontFragmentShader = ""
 "  float sdf = median(col.r, col.g, col.b); \n"
 "  float w = fwidth(sdf); \n"
 "  float alpha = smoothstep(.5 - w, .5 + w, sdf); \n"
+"  if (alpha <= 0.0) discard; \n"
 "  return vec4(graphicsColor.rgb, graphicsColor.a * alpha); \n"
 "}";
 

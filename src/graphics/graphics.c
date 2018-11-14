@@ -398,6 +398,12 @@ void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
   lovrGpuClear(canvas, color, depth, stencil);
 }
 
+void lovrGraphicsDiscard(bool color, bool depth, bool stencil) {
+  Pipeline* pipeline = &state.pipelines[state.pipeline];
+  Canvas* canvas = pipeline->canvas ? pipeline->canvas : state.camera.canvas;
+  lovrGpuDiscard(canvas, color, depth, stencil);
+}
+
 void lovrGraphicsDraw(DrawCommand* draw) {
   Mesh* mesh = draw->mesh;
   if (!mesh) {
@@ -883,15 +889,14 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsMatrixTransform(transform);
   lovrGraphicsScale(scale, scale, scale);
   lovrGraphicsTranslate(0, offsety, 0);
-  lovrGraphicsPushPipeline();
-  state.pipelines[state.pipeline].depthWrite = false;
+  state.pipelines[state.pipeline].alphaCoverage = true;
   lovrGraphicsDraw(&(DrawCommand) {
     .shader = SHADER_FONT,
     .textures[TEXTURE_DIFFUSE] = font->texture,
     .mode = MESH_TRIANGLES,
     .range = { 0, vertexCount }
   });
-  lovrGraphicsPopPipeline();
+  state.pipelines[state.pipeline].alphaCoverage = false;
   lovrGraphicsPop();
 }
 

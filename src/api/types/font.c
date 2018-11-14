@@ -59,6 +59,21 @@ int l_lovrFontSetPixelDensity(lua_State* L) {
   return 0;
 }
 
+int l_lovrFontHasGlyphs(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  Rasterizer* rasterizer = lovrFontGetRasterizer(font);
+  bool hasGlyphs = true;
+  for (int i = 2; i <= lua_gettop(L); i++) {
+    if (lua_type(L, i) == LUA_TSTRING) {
+      hasGlyphs &= lovrRasterizerHasGlyphs(rasterizer, lua_tostring(L, i));
+    } else {
+      hasGlyphs &= lovrRasterizerHasGlyph(rasterizer, luaL_checkinteger(L, i));
+    }
+  }
+  lua_pushboolean(L, hasGlyphs);
+  return 1;
+}
+
 const luaL_Reg lovrFont[] = {
   { "getWidth", l_lovrFontGetWidth },
   { "getHeight", l_lovrFontGetHeight },
@@ -69,5 +84,6 @@ const luaL_Reg lovrFont[] = {
   { "setLineHeight", l_lovrFontSetLineHeight },
   { "getPixelDensity", l_lovrFontGetPixelDensity },
   { "setPixelDensity", l_lovrFontSetPixelDensity },
+  { "hasGlyphs", l_lovrFontHasGlyphs },
   { NULL, NULL }
 };

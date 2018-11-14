@@ -46,6 +46,7 @@ local function nogame()
   lovr.controllerremoved = refreshControllers
 end
 
+-- Note: Cannot be overloaded
 function lovr.boot()
   local conf = {
     modules = {
@@ -140,9 +141,12 @@ function lovr.run()
   end
 end
 
-function lovr.errhand(message)
-  message = debug.traceback('Error:\n' .. message, 2):gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
-  print(message)
+local function formatTraceback(s)
+  return s:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
+end
+
+function lovr.errhand(message, traceback)
+  message = 'Error:\n' .. message .. formatTraceback(traceback or debug.traceback('', 2))
   if not lovr.graphics then return function() return 1 end end
   lovr.graphics.reset()
   lovr.graphics.setBackgroundColor(.105, .098, .137)
@@ -169,17 +173,55 @@ function lovr.threaderror(thread, err)
   error('Thread error\n\n' .. err, 0)
 end
 
-return function()
-  local errored = false
-  local function onerror(...) if not errored then errored = true return lovr.errhand(...) else return function() return 1 end end end
-  local _, thread = xpcall(lovr.boot, onerror)
+-- This splits up the string returned by luax_getstack so it looks like the error message plus the string from
+-- debug.traceback(). This includes splitting on the newline before 'stack traceback:' and appending a newline
+local function splitOnLabelLine(s, t)
+  local at = s:reverse():find(t:reverse())
+  if at then
+    local slen = #s
+    at = (#s - at - #t + 2)
+    return s:sub(1, at-2), s:sub(at,slen) .. '\n'
+  else
+    return s, ''
+  end
+end
 
-  while true do
-    local ok, result = xpcall(thread, onerror)
-    if result and ok then return result
-    elseif not ok then thread = result end
-    coroutine.yield()
+-- lovr will run this function in its own coroutine
+return function()
+  local errored = false -- lovr.errhand may only be called once
+  local function onerror(e, tb) -- wrapper for errhand to ensure it is only called once
+    local function abortclean()
+      return 1
+    end
+    if not errored then
+      errored = true
+      return lovr.errhand(e, tb) or abortclean
+    else
+      print('Error occurred while trying to display another error:\n' .. 
+        e .. formatTraceback(tb or debug.traceback('', 2)))
+      return abortclean
+    end
   end
 
-  return 1
+  -- Executes lovr.boot and lovr.run.
+  -- continuation, afterward, will be either lovr.run's per-frame function, or the result of errhand.
+  local _, continuation = xpcall(lovr.boot, onerror)
+
+  while true do
+    local ok, result = xpcall(continuation, onerror)
+    if result and ok then return result -- Result is value returned by function. Return it.
+    elseif not ok then continuation = result end -- Result is value returned by error handler. Make it the new error handler.
+
+    if type(continuation) == 'string' then -- LuaJIT returns a fixed string if an error occurs in an xpcall error handler
+      print('Error occurred while trying to display another error.')
+      return 1
+    end
+
+    local externerror = coroutine.yield() -- Return control to C code
+
+    if externerror then -- A must-report error occurred in the C code
+      local errorpart, tracepart = splitOnLabelLine(externerror, 'stack traceback:')
+      continuation = onerror(errorpart, tracepart) -- Switch continuation to lovr.errhand
+    end
+  end
 end

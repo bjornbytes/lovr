@@ -554,9 +554,9 @@ static int l_lovrGraphicsOrigin(lua_State* L) {
 }
 
 static int l_lovrGraphicsTranslate(lua_State* L) {
-  float x = luaL_checknumber(L, 1);
-  float y = luaL_checknumber(L, 2);
-  float z = luaL_checknumber(L, 3);
+  float x = luaL_optnumber(L, 1, 0.);
+  float y = luaL_optnumber(L, 2, 0.);
+  float z = luaL_optnumber(L, 3, 0.);
   lovrGraphicsTranslate(x, y, z);
   return 0;
 }
@@ -632,6 +632,15 @@ static int l_lovrGraphicsClear(lua_State* L) {
   }
 
   lovrGraphicsClear(clearColor ? &color : NULL, clearDepth ? &depth : NULL, clearStencil ? &stencil : NULL);
+  return 0;
+}
+
+static int l_lovrGraphicsDiscard(lua_State* L) {
+  int top = lua_gettop(L);
+  bool color = top >= 1 ? lua_toboolean(L, 1) : true;
+  bool depth = top >= 2 ? lua_toboolean(L, 2) : true;
+  bool stencil = top >= 3 ? lua_toboolean(L, 3) : true;
+  lovrGraphicsDiscard(color, depth, stencil);
   return 0;
 }
 
@@ -1313,6 +1322,7 @@ static const luaL_Reg lovrGraphics[] = {
 
   // Rendering
   { "clear", l_lovrGraphicsClear },
+  { "discard", l_lovrGraphicsDiscard },
   { "points", l_lovrGraphicsPoints },
   { "line", l_lovrGraphicsLine },
   { "triangle", l_lovrGraphicsTriangle },

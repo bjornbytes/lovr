@@ -2,6 +2,7 @@
 #include "util.h"
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "name");
@@ -215,6 +216,27 @@ int luax_getstack(lua_State* L) {
   return 1;
 }
 
+// Variant of luax_getstack for panic (doesn't assume free memory, skips nothing in traceback)
+int luax_getstack_panic(lua_State *L) {
+  if (!lua_checkstack(L, 3)) // Maybe this could be 2, depends on how lua_insert works
+    return 0;
+  lua_getglobal(L, "debug");
+  if (!lua_istable(L, -1)) {
+    lua_pop(L, 1);
+    return 0;
+  }
+  lua_getfield(L, -1, "traceback");
+  if (!lua_isfunction(L, -1)) {
+    lua_pop(L, 2);
+    return 0;
+  }
+  lua_remove(L, -2); // Pop debug object
+  lua_insert(L, -2); // Move message to top
+  lua_pushinteger(L, 0);
+  lua_call(L, 2, 1); // Call debug.traceback
+  return 1;
+}
+
 void luax_pushconf(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrconf");
 }
@@ -249,4 +271,26 @@ Color luax_checkcolor(lua_State* L, int index) {
   }
 
   return color;
+}
+
+int luax_pushLovrHeadsetRenderError(lua_State *L) {
+  lua_getglobal(L, "_lovrHeadsetRenderError"); // renderCallback failed
+  bool haveRenderError = !lua_isnil(L, -1);
+  if (haveRenderError) {
+    lua_pushnil(L); // Now the error is on the stack remove it from globals
+    lua_setglobal(L, "_lovrHeadsetRenderError");
+  } else {
+    lua_pop(L, 1); // pop stray nil
+  }
+  return haveRenderError;
+}
+
+static lua_State *luax_mainstate;
+
+lua_State *luax_getmainstate() {
+  return luax_mainstate;
+}
+
+void luax_setmainstate(lua_State *L) {
+  luax_mainstate = L;
 }

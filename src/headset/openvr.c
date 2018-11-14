@@ -510,10 +510,9 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   modelData->animationCount = 0;
   modelData->materialCount = 1;
 
-  modelData->nodes = malloc(1 * sizeof(ModelNode));
-  modelData->primitives = malloc(1 * sizeof(ModelPrimitive));
-  modelData->animations = NULL;
-  modelData->materials = malloc(1 * sizeof(ModelMaterial));
+  modelData->nodes = calloc(1, sizeof(ModelNode));
+  modelData->primitives = calloc(1, sizeof(ModelPrimitive));
+  modelData->materials = calloc(1, sizeof(ModelMaterial));
 
   // Nodes
   ModelNode* root = &modelData->nodes[0];
@@ -522,6 +521,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   vec_init(&root->primitives);
   vec_push(&root->primitives, 0);
   mat4_identity(root->transform);
+  mat4_identity(root->globalTransform);
   modelData->primitives[0].material = 0;
   modelData->primitives[0].drawStart = 0;
   modelData->primitives[0].drawCount = modelData->indexCount;
@@ -541,13 +541,6 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   material->diffuseColor = (Color) { 1, 1, 1, 1 };
   material->emissiveColor = (Color) { 0, 0, 0, 1 };
   material->diffuseTexture = 1;
-  material->emissiveTexture = 0;
-  material->metalnessTexture = 0;
-  material->roughnessTexture = 0;
-  material->occlusionTexture = 0;
-  material->normalTexture = 0;
-  material->metalness = 0;
-  material->roughness = 0;
 
   return modelData;
 }
