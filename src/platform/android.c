@@ -12,7 +12,7 @@ void lovrLogv(const char * restrict format, va_list ap) {
 }
 
 void lovrLog(const char * restrict format, ...) {
-  va_list args;   
+  va_list args;
   va_start(args, format);
   lovrLogv(format, args);
   va_end(args);
@@ -23,7 +23,7 @@ void lovrWarnv(const char * restrict format, va_list ap) {
 }
 
 void lovrWarn(const char * restrict format, ...) {
-  va_list args;   
+  va_list args;
   va_start(args, format);
   lovrWarnv(format, args);
   va_end(args);
