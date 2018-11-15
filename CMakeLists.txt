@@ -333,6 +333,7 @@ set(LOVR_SRC
   src/util.c
   src/luax.c
   src/api/lovr.c
+  src/lib/math.c
   src/lib/map/map.c
   src/lib/vec/vec.c
   src/lib/sds/sds.c
@@ -479,13 +480,10 @@ endif()
 if(LOVR_ENABLE_MATH)
   add_definitions(-DLOVR_ENABLE_MATH)
   target_sources(lovr PRIVATE
-    src/math/mat4.c
     src/math/math.c
-    src/math/quat.c
     src/math/curve.c
     src/math/randomGenerator.c
     src/math/transform.c
-    src/math/vec3.c
     src/api/math.c
     src/api/types/curve.c
     src/api/types/randomGenerator.c
