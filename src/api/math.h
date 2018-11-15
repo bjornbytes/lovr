@@ -1,4 +1,4 @@
-#include "math/mat4.h"
+#include "lib/math.h"
 #include "math/randomGenerator.h"
 
 int luax_readtransform(lua_State* L, int index, mat4 transform, int scaleComponents);

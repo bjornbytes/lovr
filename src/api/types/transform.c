@@ -1,5 +1,4 @@
 #include "api.h"
-#include "math/mat4.h"
 #include "math/transform.h"
 
 int luax_readtransform(lua_State* L, int index, mat4 m, int scaleComponents) {

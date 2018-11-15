@@ -1,9 +1,7 @@
 #include "data/modelData.h"
 #include "filesystem/filesystem.h"
 #include "filesystem/file.h"
-#include "math/mat4.h"
-#include "math/quat.h"
-#include "math/vec3.h"
+#include "lib/math.h"
 #include <float.h>
 #include <limits.h>
 #include <stdlib.h>

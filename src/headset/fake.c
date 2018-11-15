@@ -1,8 +1,6 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
-#include "math/mat4.h"
-#include "math/vec3.h"
-#include "math/quat.h"
+#include "lib/math.h"
 #include "lib/glfw.h"
 #define _USE_MATH_DEFINES
 #include <math.h>

@@ -1,5 +1,5 @@
-#include "math/vec3.h"
 #include "util.h"
+#include "lib/math.h"
 #include "lib/vec/vec.h"
 
 typedef struct {

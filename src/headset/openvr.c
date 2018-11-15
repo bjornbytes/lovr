@@ -1,10 +1,9 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
-#include "math/mat4.h"
-#include "math/quat.h"
 #include "platform.h"
 #include "util.h"
+#include "lib/math.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>

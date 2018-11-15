@@ -4,7 +4,6 @@
 #include "data/blob.h"
 #include "data/textureData.h"
 #include "data/vertexData.h"
-#include "math/mat4.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

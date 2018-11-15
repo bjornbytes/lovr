@@ -1,5 +1,4 @@
 #include "transform.h"
-#include "math/mat4.h"
 #include <stdlib.h>
 
 Transform* lovrTransformCreate(mat4 transfrom) {

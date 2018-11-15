@@ -1,5 +1,5 @@
 #include "util.h"
-#include "math/math.h"
+#include "lib/math.h"
 #include <stdbool.h>
 
 #pragma once

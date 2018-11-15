@@ -1,8 +1,6 @@
 #include "api.h"
 #include "api/math.h"
 #include "math/math.h"
-#include "math/mat4.h"
-#include "math/quat.h"
 #include "math/curve.h"
 #include "math/randomGenerator.h"
 #include "math/transform.h"

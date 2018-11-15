@@ -1,5 +1,5 @@
 #include "physics.h"
-#include "math/quat.h"
+#include "lib/math.h"
 #include <stdlib.h>
 #include <stdbool.h>
 

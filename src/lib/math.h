@@ -1,9 +1,33 @@
-#include "math/math.h"
-
 #pragma once
 
-#define MAT4_IDENTITY { 1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1 }
+typedef float* vec3;
+typedef float* quat;
+typedef float* mat4;
 
+// vec3
+vec3 vec3_init(vec3 v, vec3 u);
+vec3 vec3_set(vec3 v, float x, float y, float z);
+vec3 vec3_add(vec3 v, vec3 u);
+vec3 vec3_scale(vec3 v, float s);
+vec3 vec3_normalize(vec3 v);
+float vec3_length(vec3 v);
+float vec3_dot(vec3 v, vec3 u);
+vec3 vec3_cross(vec3 v, vec3 u);
+vec3 vec3_lerp(vec3 v, vec3 u, float t);
+
+// quat
+quat quat_init(quat q, quat r);
+quat quat_set(quat q, float x, float y, float z, float w);
+quat quat_fromAngleAxis(quat q, float angle, vec3 axis);
+quat quat_fromMat4(quat q, mat4 m);
+quat quat_normalize(quat q);
+float quat_length(quat q);
+quat quat_slerp(quat q, quat r, float t);
+void quat_rotate(quat q, vec3 v);
+void quat_getAngleAxis(quat q, float* angle, float* x, float* y, float* z);
+
+// mat4
+#define MAT4_IDENTITY { 1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1 }
 #define mat4_init mat4_set
 mat4 mat4_set(mat4 m, mat4 n);
 mat4 mat4_fromMat34(mat4 m, float (*n)[4]);

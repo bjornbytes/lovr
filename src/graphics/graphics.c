@@ -3,10 +3,9 @@
 #include "data/rasterizer.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
-#include "math/mat4.h"
-#include "math/vec3.h"
 #include "util.h"
 #include "lib/glfw.h"
+#include "lib/math.h"
 #include "lib/stb/stb_image.h"
 #define _USE_MATH_DEFINES
 #include <stdlib.h>
