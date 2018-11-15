@@ -1,6 +1,3 @@
-#ifdef LOVR_ENABLE_EVENT
-#include "event/event.h"
-#endif
 #include "resources/boot.lua.h"
 #include "lib/glfw.h"
 #include "version.h"
@@ -15,6 +12,7 @@
 
 lua_State* lovrInit(lua_State* L, int argc, char** argv);
 void lovrQuit(int status);
+int main(int argc, char** argv);
 
 #ifndef LOVR_USE_OCULUS_MOBILE
 
@@ -71,13 +69,19 @@ typedef struct {
   char** argv;
 } lovrEmscriptenContext;
 
+void lovrDestroy(void* arg) {
+  lovrEmscriptenContext* context = arg;
+  lua_State* L = context->L;
+  emscripten_cancel_main_loop();
+  lua_close(L);
+}
+
 static void emscriptenLoop(void* arg) {
   lovrEmscriptenContext* context = arg;
-
-  lua_getglobal(L, "_lovrHeadsetRenderError"); // webvr.c renderCallback failed
-  bool haveRenderError = !lua_isnil(L, -1);
+  lua_getglobal(context->L, "_lovrHeadsetRenderError"); // webvr.c renderCallback failed
+  bool haveRenderError = !lua_isnil(context->L, -1);
   if (!haveRenderError) {
-    lua_pop(L, 1);
+    lua_pop(context->L, 1);
   }
 
   int coroutineArgs = luax_pushLovrHeadsetRenderError(context->T);
@@ -182,10 +186,4 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
   lua_pushvalue(L, -2);
   lua_xmove(L, T, 1);
   return T;
-}
-
-void lovrQuit(int status) {
-#ifdef LOVR_ENABLE_EVENT
-  lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { false, status } });
-#endif
 }

@@ -44,11 +44,12 @@ if(EMSCRIPTEN)
     "-s USE_WEBGL2=1 "
     "-s GL_PREINITIALIZED_CONTEXT=1 "
     "-s USE_ZLIB=1 "
+    "-s USE_PTHREADS=0 "
     "-s FULL_ES3=1 "
     "-s FORCE_FILESYSTEM=1 "
     "-s ALLOW_MEMORY_GROWTH=1 "
     "-s \"EXPORTED_FUNCTIONS=[ "
-      "'_main','_lovrRun','_lovrQuit',"
+      "'_main','_lovrDestroy',"
       "'_mat4_identity','_mat4_invert','_mat4_multiply','_mat4_rotateQuat','_mat4_transform','_mat4_transformDirection','_mat4_translate',"
       "'_quat_fromMat4','_quat_getAngleAxis'"
     "]\" "
@@ -63,6 +64,7 @@ if(EMSCRIPTEN)
   set(LOVR_USE_OPENVR OFF)
   set(LOVR_USE_OCULUS OFF)
   set(LOVR_USE_SSE OFF)
+  set(LOVR_ENABLE_THREAD OFF)
 elseif(ANDROID)
   #set(LOVR_ANDROID_FLAGS "-Wno-narrowing")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_ANDROID_FLAGS}")
