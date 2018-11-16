@@ -465,8 +465,6 @@ if(LOVR_ENABLE_HEADSET)
   endif()
   if(LOVR_USE_OCULUS_MOBILE)
     add_definitions(-DLOVR_USE_OCULUS_MOBILE)
-    add_definitions(-DNO_WINDOW=1)
-
     target_sources(lovr PRIVATE src/headset/oculus_mobile.c)
   endif()
   if(LOVR_USE_WEBVR)
