@@ -88,11 +88,14 @@ function lovr.boot()
   lovr._setConf(conf)
   lovr.filesystem.setIdentity(conf.identity)
 
-  local modules = { 'audio', 'data', 'event', 'graphics', 'headset', 'math', 'physics', 'thread', 'timer' }
-  for _, module in ipairs(modules) do
+  for module in pairs(conf.modules) do
     if conf.modules[module] then
       local ok, result = pcall(require, 'lovr.' .. module)
-      lovr[module] = ok and result
+      if not ok then
+        print(string.format('Warning: Could not load module %q: %s', module, result))
+      else
+        lovr[module] = result
+      end
     end
   end
 
