@@ -66,7 +66,7 @@ void lovrGraphicsSetWindow(WindowFlags* flags) {
   lovrAssert(lovrPlatformSetWindow(flags), "Could not create window");
   lovrPlatformOnWindowClose(onCloseWindow);
   lovrPlatformOnWindowResize(onResizeWindow);
-  lovrPlatformGetWindowSize(&state.width, &state.height);
+  lovrPlatformGetFramebufferSize(&state.width, &state.height);
   lovrGpuInit(state.gammaCorrect, lovrGetProcAddress);
 
   VertexFormat format;

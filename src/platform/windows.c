@@ -10,6 +10,7 @@ static struct {
   GLFWwindow* window;
   windowCloseCallback onWindowClose;
   windowResizeCallback onWindowResize;
+  mouseButtonCallback onMouseButton;
 } state;
 
 static void onWindowClose(GLFWwindow* window) {
@@ -21,6 +22,38 @@ static void onWindowClose(GLFWwindow* window) {
 static void onWindowResize(GLFWwindow* window, int width, int height) {
   if (state.onWindowResize) {
     state.onWindowResize(width, height);
+  }
+}
+
+static void onMouseButton(GLFWwindow* window, int b, int a, int mods) {
+  if (state.onMouseButton && (b == GLFW_MOUSE_BUTTON_LEFT || b == GLFW_MOUSE_BUTTON_RIGHT)) {
+    MouseButton button = (b == GLFW_MOUSE_BUTTON_LEFT) ? MOUSE_LEFT : MOUSE_RIGHT;
+    ButtonAction action = (a == GLFW_PRESS) ? BUTTON_PRESSED : BUTTON_RELEASED;
+    int x, y;
+    glfwGetCursorPos(state.window, &x, &y);
+    state.onMouseButton(button, action, x, y);
+  }
+}
+
+static int convertMouseButton(MouseButton button) {
+  switch (button) {
+    case MOUSE_LEFT: return GLFW_MOUSE_BUTTON_LEFT;
+    case MOUSE_RIGHT: return GLFW_MOUSE_BUTTON_RIGHT;
+  }
+}
+
+static int convertKeyCode(KeyCode key) {
+  switch (key) {
+    case KEY_W: return GLFW_KEY_W;
+    case KEY_A: return GLFW_KEY_A;
+    case KEY_S: return GLFW_KEY_S;
+    case KEY_D: return GLFW_KEY_D;
+    case KEY_Q: return GLFW_KEY_Q;
+    case KEY_E: return GLFW_KEY_E;
+    case KEY_UP: return GLFW_KEY_UP;
+    case KEY_DOWN: return GLFW_KEY_DOWN;
+    case KEY_LEFT: return GLFW_KEY_LEFT;
+    case KEY_RIGHT: return GLFW_KEY_RIGHT;
   }
 }
 
@@ -76,27 +109,66 @@ bool lovrPlatformSetWindow(WindowFlags* flags) {
   }
 
   glfwMakeContextCurrent(state.window);
+  glfwSetWindowCloseCallback(state.window, onWindowClose);
+  glfwSetWindowSizeCallback(state.window, onWindowResize);
+  glfwSetMouseButtonCallback(state.window, onMouseButton);
   glfwSwapInterval(flags->vsync);
   return true;
 }
 
-void lovrPlatformGetWindowSize(uint32_t* width, uint32_t* height) {
-  int w, h;
-  glfwGetFramebufferSize(state.window, &w, &h);
-  *width = w;
-  *height = h;
+void lovrPlatformGetWindowSize(int* width, int* height) {
+  if (state.window) {
+    glfwGetWindowSize(state.window, width, height);
+  } else {
+    *width = *height = 0;
+  }
 }
 
-void lovrPlatformOnWindowClose(windowCloseCallback callback) {
-  glfwSetWindowCloseCallback(state.window, callback);
-}
-
-void lovrPlatformOnWindowResize(windowResizeCallback callback) {
-  glfwSetWindowSizeCallback(state.window, callback);
+void lovrPlatformGetFramebufferSize(int* width, int* height) {
+  if (state.window) {
+    glfwGetFramebufferSize(state.window, width, height);
+  } else {
+    *width = *height = 0;
+  }
 }
 
 void lovrPlatformSwapBuffers() {
   glfwSwapBuffers(state.window);
+}
+
+void lovrPlatformOnWindowClose(windowCloseCallback callback) {
+  state.onWindowClose = callback;
+}
+
+void lovrPlatformOnWindowResize(windowResizeCallback callback) {
+  state.onWindowResize = callback;
+}
+
+void lovrPlatformOnMouseButton(mouseButtonCallback callback) {
+  state.onMouseButton = callback;
+}
+
+void lovrPlatformGetMousePosition(double* x, double* y) {
+  if (state.window) {
+    glfwGetCursorPos(state.window, x, y);
+  } else {
+    *x = *y = 0.;
+  }
+}
+
+void lovrPlatformSetMouseMode(MouseMode mode) {
+  if (state.window) {
+    int m = (mode == MOUSE_MODE_GRABBED) ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
+    glfwSetInputMode(state.window, GLFW_CURSOR, m);
+  }
+}
+
+bool lovrPlatformIsMouseDown(MouseButton button) {
+  return state.window ? glfwGetMouseButton(state.window, convertMouseButton(button)) == GLFW_PRESS : false;
+}
+
+bool lovrPlatformIsKeyDown(KeyCode key) {
+  return state.window ? glfwGetKey(state.window, convertKeyCode(key)) == GLFW_PRESS : false;
 }
 
 void lovrSleep(double seconds) {

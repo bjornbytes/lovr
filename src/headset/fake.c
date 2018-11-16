@@ -1,7 +1,7 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "lib/math.h"
-#include "lib/glfw.h"
+#include "platform.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdlib.h>
@@ -28,37 +28,19 @@ static struct {
   double pitch;
   float transform[16];
 
-  GLFWwindow* window;
   double prevCursorX;
   double prevCursorY;
 } state;
 
-static void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
-  if (button != GLFW_MOUSE_BUTTON_RIGHT) {
-    return;
-  }
-
-  Controller* controller; int i;
-  vec_foreach(&state.controllers, controller, i) {
-    lovrEventPush((Event) {
-      .type = action == GLFW_PRESS ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED,
-      .data.controller = { controller, CONTROLLER_BUTTON_TRIGGER }
-    });
-  }
-}
-
-static void updateWindow() {
-  GLFWwindow* window = glfwGetCurrentContext();
-
-  if (window == state.window) {
-    return;
-  }
-
-  state.window = window;
-  if (window) {
-    glfwSwapInterval(1);
-    GLFWmousebuttonfun prevMouseButton = glfwSetMouseButtonCallback(window, onMouseButton);
-    if (prevMouseButton) glfwSetMouseButtonCallback(window, prevMouseButton);
+static void onMouseButton(MouseButton button, ButtonAction action, int x, int y) {
+  if (button == MOUSE_RIGHT) {
+    Controller* controller; int i;
+    vec_foreach(&state.controllers, controller, i) {
+      lovrEventPush((Event) {
+        .type = action == BUTTON_PRESSED ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED,
+        .data.controller = { controller, CONTROLLER_BUTTON_TRIGGER }
+      });
+    }
   }
 }
 
@@ -76,7 +58,7 @@ static bool fakeInit(float offset, int msaa) {
   controller->id = 0;
   vec_push(&state.controllers, controller);
 
-  state.window = NULL;
+  lovrPlatformOnMouseButton(onMouseButton);
   return true;
 }
 
@@ -112,14 +94,10 @@ static void fakeSetMirrored(bool mirror, HeadsetEye eye) {
 }
 
 static void fakeGetDisplayDimensions(uint32_t* width, uint32_t* height) {
-  updateWindow();
-
-  if (state.window) {
-    int w, h;
-    glfwGetFramebufferSize(state.window, &w, &h);
-    *width = (uint32_t) w;
-    *height = (uint32_t) h;
-  }
+  int w, h;
+  lovrPlatformGetFramebufferSize(&w, &h);
+  *width = (uint32_t) w;
+  *height = (uint32_t) h;
 }
 
 static void fakeGetClipDistance(float* clipNear, float* clipFar) {
@@ -194,7 +172,7 @@ static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) 
 }
 
 static bool fakeControllerIsDown(Controller* controller, ControllerButton button) {
-  return state.window ? (glfwGetMouseButton(state.window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) : false;
+  return lovrPlatformIsMouseDown(MOUSE_RIGHT);
 }
 
 static bool fakeControllerIsTouched(Controller* controller, ControllerButton button) {
@@ -210,7 +188,7 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
 }
 
 static void fakeRenderTo(void (*callback)(void*), void* userdata) {
-  if (!state.window || !state.mirrored) {
+  if (!state.mirrored) {
     return;
   }
 
@@ -229,31 +207,25 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
 }
 
 static void fakeUpdate(float dt) {
-  updateWindow();
-
-  if (!state.window) {
-    return;
-  }
-
-  bool front = glfwGetKey(state.window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(state.window, GLFW_KEY_UP) == GLFW_PRESS;
-  bool back = glfwGetKey(state.window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(state.window, GLFW_KEY_DOWN) == GLFW_PRESS;
-  bool left = glfwGetKey(state.window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(state.window, GLFW_KEY_LEFT) == GLFW_PRESS;
-  bool right = glfwGetKey(state.window, GLFW_KEY_D) == GLFW_PRESS || glfwGetKey(state.window, GLFW_KEY_RIGHT) == GLFW_PRESS;
-  bool up = glfwGetKey(state.window, GLFW_KEY_Q) == GLFW_PRESS;
-  bool down = glfwGetKey(state.window, GLFW_KEY_E) == GLFW_PRESS;
+  bool front = lovrPlatformIsKeyDown(KEY_W) || lovrPlatformIsKeyDown(KEY_UP);
+  bool back = lovrPlatformIsKeyDown(KEY_S) || lovrPlatformIsKeyDown(KEY_DOWN);
+  bool left = lovrPlatformIsKeyDown(KEY_A) || lovrPlatformIsKeyDown(KEY_LEFT);
+  bool right = lovrPlatformIsKeyDown(KEY_D) || lovrPlatformIsKeyDown(KEY_RIGHT);
+  bool up = lovrPlatformIsKeyDown(KEY_Q);
+  bool down = lovrPlatformIsKeyDown(KEY_E);
 
   float movespeed = 3.f * dt;
   float turnspeed = 3.f * dt;
   double damping = MAX(1 - 20 * dt, 0);
 
-  if (glfwGetMouseButton(state.window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-    glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  if (lovrPlatformIsMouseDown(MOUSE_LEFT)) {
+    lovrPlatformSetMouseMode(MOUSE_MODE_GRABBED);
 
     int width, height;
-    glfwGetWindowSize(state.window, &width, &height);
+    lovrPlatformGetWindowSize(&width, &height);
 
     double mx, my;
-    glfwGetCursorPos(state.window, &mx, &my);
+    lovrPlatformGetMousePosition(&mx, &my);
 
     if (state.prevCursorX == -1 && state.prevCursorY == -1) {
       state.prevCursorX = mx;
@@ -268,7 +240,7 @@ static void fakeUpdate(float dt) {
     state.prevCursorX = mx;
     state.prevCursorY = my;
   } else {
-    glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    lovrPlatformSetMouseMode(MOUSE_MODE_NORMAL);
     vec3_scale(state.angularVelocity, damping);
     state.prevCursorX = state.prevCursorY = -1;
   }

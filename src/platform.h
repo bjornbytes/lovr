@@ -32,8 +32,37 @@ typedef struct {
   } icon;
 } WindowFlags;
 
+typedef enum {
+  MOUSE_LEFT,
+  MOUSE_RIGHT
+} MouseButton;
+
+typedef enum {
+  MOUSE_MODE_NORMAL,
+  MOUSE_MODE_GRABBED
+} MouseMode;
+
+typedef enum {
+  KEY_W,
+  KEY_A,
+  KEY_S,
+  KEY_D,
+  KEY_Q,
+  KEY_E,
+  KEY_UP,
+  KEY_DOWN,
+  KEY_LEFT,
+  KEY_RIGHT
+} KeyCode;
+
+typedef enum {
+  BUTTON_PRESSED,
+  BUTTON_RELEASED
+} ButtonAction;
+
 typedef void (*windowCloseCallback)();
 typedef void (*windowResizeCallback)(uint32_t width, uint32_t height);
+typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action, int x, int y);
 
 typedef void (*gpuProc)(void);
 typedef gpuProc (*getProcAddressProc)(const char*);
@@ -43,9 +72,15 @@ void lovrPlatformPollEvents();
 double lovrPlatformGetTime();
 void lovrPlatformSetTime(double t);
 bool lovrPlatformSetWindow(WindowFlags* flags);
-void lovrPlatformGetWindowSize(uint32_t* width, uint32_t* height);
+void lovrPlatformGetWindowSize(int* width, int* height);
+void lovrPlatformGetFramebufferSize(int* width, int* height);
+void lovrPlatformSwapBuffers();
 void lovrPlatformOnWindowClose(windowCloseCallback callback);
 void lovrPlatformOnWindowResize(windowResizeCallback callback);
-void lovrPlatformSwapBuffers();
+void lovrPlatformOnMouseButton(mouseButtonCallback callback);
+void lovrPlatformGetMousePosition(double* x, double* y);
+void lovrPlatformSetMouseMode(MouseMode mode);
+bool lovrPlatformIsMouseDown(MouseButton button);
+bool lovrPlatformIsKeyDown(KeyCode key);
 void lovrSleep(double seconds);
 int lovrGetExecutablePath(char* dest, uint32_t size);
