@@ -17,5 +17,7 @@
 #endif
 
 void lovrPlatformPollEvents();
+double lovrPlatformGetTime();
+void lovrPlatformSetTime(double t);
 void lovrSleep(double seconds);
 int lovrGetExecutablePath(char* dest, uint32_t size);

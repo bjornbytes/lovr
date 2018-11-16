@@ -8,6 +8,14 @@ void lovrPlatformPollEvents() {
   glfwPollEvents();
 }
 
+double lovrPlatformGetTime() {
+  return glfwGetTime();
+}
+
+void lovrPlatformSetTime(double t) {
+  glfwSetTime(t);
+}
+
 void lovrSleep(double seconds) {
   Sleep((unsigned int) (seconds * 1000));
 }

@@ -115,7 +115,7 @@ typedef enum { // What flag is being searched for?
 lua_State* lovrInit(lua_State* L, int argc, char** argv) {
   glfwSetErrorCallback(onGlfwError);
   lovrAssert(glfwInit(), "Error initializing GLFW");
-  glfwSetTime(0);
+  lovrPlatformSetTime(0.);
 
   // arg table
   // Args follow the lua standard https://en.wikibooks.org/wiki/Lua_Programming/command_line_parameter

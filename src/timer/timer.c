@@ -1,5 +1,4 @@
 #include "timer/timer.h"
-#include "lib/glfw.h"
 #include "platform.h"
 #include <string.h>
 
@@ -21,12 +20,12 @@ double lovrTimerGetDelta() {
 }
 
 double lovrTimerGetTime() {
-  return glfwGetTime();
+  return lovrPlatformGetTime();
 }
 
 double lovrTimerStep() {
   state.lastTime = state.time;
-  state.time = glfwGetTime();
+  state.time = lovrPlatformGetTime();
   state.dt = state.time - state.lastTime;
   state.tickSum -= state.tickBuffer[state.tickIndex];
   state.tickSum += state.dt;
