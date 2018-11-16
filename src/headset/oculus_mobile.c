@@ -1,4 +1,3 @@
-#include "lib/glfw.h"
 #include "headset/headset.h"
 #include "oculus_mobile_bridge.h"
 #include "math/quat.h"
@@ -223,47 +222,19 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   oculusMobileUpdate
 };
 
-// Pseudo GLFW
-
-void glfwPollEvents() {
-
-}
-
-GLFWAPI void glfwGetCursorPos(GLFWwindow* window, double* xpos, double* ypos) {
-  *xpos = 0;
-  *ypos = 0;
-}
-
-GLFWwindow* glfwGetCurrentContext(void) {
-  return NULL;
-}
+// Oculus-specific platform functions
 
 static double timeOffset;
 
-void glfwSetTime(double time) {
+void lovrPlatformSetTime(double time) {
   timeOffset = bridgeLovrMobileData.updateData.displayTime - time;
 }
-double glfwGetTime(void) {
+
+double lovrPlatformGetTime(void) {
   return bridgeLovrMobileData.updateData.displayTime - timeOffset;
 }
 
-static GLFWerrorfun lastErrFun;
-GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun cbfun)
-{
-  GLFWerrorfun cb = lastErrFun;
-  lastErrFun = cbfun;
-  return cb;
-}
-
-int glfwInit(void) {
-  return 1;
-}
-void glfwTerminate(void) {
-
-}
-
-GLFWAPI void glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height)
-{
+void lovrPlatformGetFramebufferSize(int* width, int* height) {
   *width = bridgeLovrMobileData.displayDimensions.width;
   *height = bridgeLovrMobileData.displayDimensions.height;
 }
@@ -279,7 +250,6 @@ GLFWAPI void glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height)
 #include "oculus_mobile_bridge.h"
 #include "luax.h"
 #include "lib/sds/sds.h"
-#include "lib/glfw.h"
 
 #include "api.h"
 #include "lib/lua-cjson/lua_cjson.h"
@@ -301,7 +271,7 @@ char *lovrOculusMobileWritablePath;
 // 1. The GLFW time should rewind after a pause so that the app cannot perceive time passed
 // 2. There is a bug in the Mobile SDK https://developer.oculus.com/bugs/bug/189155031962759/
 //    On the first frame after a resume, the time will be total nonsense
-static double lastPauseAt, lastPauseAtRaw; // glfw time and oculus time at last pause
+static double lastPauseAt, lastPauseAtRaw; // platform time and oculus time at last pause
 enum {
   PAUSESTATE_NONE,   // Normal state
   PAUSESTATE_PAUSED, // A pause has been issued -- waiting for resume
@@ -357,7 +327,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   lua_pushcfunction(L, luax_print);
   lua_setglobal(L, "print");
 
-  glfwSetTime(0);
+  lovrPlatformSetTime(0);
 
   // Set "arg" global (see main.c)
   {
@@ -411,8 +381,8 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   if (pauseState == PAUSESTATE_BUG) { // Bad frame-- replace bad time with last known good oculus time
     bridgeLovrMobileData.updateData.displayTime = lastPauseAtRaw;
     pauseState = PAUSESTATE_RESUME;
-  } else if (pauseState == PAUSESTATE_RESUME) { // Resume frame-- adjust glfw time to be equal to last good glfw time
-    glfwSetTime(lastPauseAt);
+  } else if (pauseState == PAUSESTATE_RESUME) { // Resume frame-- adjust platform time to be equal to last good platform time
+    lovrPlatformSetTime(lastPauseAt);
     pauseState = PAUSESTATE_NONE;
   }
 
@@ -460,8 +430,8 @@ void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
 // In order to prevent weird dt jumps, we need to freeze and reset the clock
 static bool armedUnpause;
 void bridgeLovrPaused(bool paused) {
-  if (paused) { // Save last glfw and oculus times and wait for resume
-    lastPauseAt = glfwGetTime();
+  if (paused) { // Save last platform and oculus times and wait for resume
+    lastPauseAt = lovrPlatformGetTime();
     lastPauseAtRaw = bridgeLovrMobileData.updateData.displayTime;
     pauseState = PAUSESTATE_PAUSED;
   } else {
