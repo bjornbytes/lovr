@@ -4,7 +4,6 @@
 #include "event/event.h"
 #include "filesystem/filesystem.h"
 #include "util.h"
-#include "lib/glfw.h"
 #include "lib/math.h"
 #include "lib/stb/stb_image.h"
 #define _USE_MATH_DEFINES
@@ -12,26 +11,15 @@
 #include <string.h>
 #include <math.h>
 
-#ifdef LOVR_USE_OCULUS_MOBILE
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#endif
-
 static GraphicsState state;
 
-#ifndef NO_WINDOW
-static void onCloseWindow(GLFWwindow* window) {
-  if (window == state.window) {
-    lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { false, 0 } });
-  }
+static void onCloseWindow() {
+  lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { false, 0 } });
 }
-#endif
 
-static void onResizeWindow(GLFWwindow* window, int width, int height) {
-  if (window == state.window) {
-    state.width = width;
-    state.height = height;
-  }
+static void onResizeWindow(int width, int height) {
+  state.width = width;
+  state.height = height;
 }
 
 // Base
@@ -59,71 +47,27 @@ void lovrGraphicsDestroy() {
 }
 
 void lovrGraphicsPresent() {
-#ifndef NO_WINDOW
-  glfwSwapBuffers(state.window);
-#endif
+  lovrPlatformSwapBuffers();
   lovrGpuPresent();
 }
 
-void lovrGraphicsCreateWindow(int w, int h, bool fullscreen, int msaa, const char* title, const char* icon) {
-  lovrAssert(!state.window && !state.initialized, "Window is already created");
+void lovrGraphicsSetWindow(WindowFlags* flags) {
+  lovrAssert(!state.initialized, "Window is already created");
 
-#ifndef NO_WINDOW
-  if ((state.window = glfwGetCurrentContext()) == NULL) {
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-    glfwWindowHint(GLFW_SAMPLES, msaa);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    glfwWindowHint(GLFW_SRGB_CAPABLE, state.gammaCorrect);
-
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-    if (fullscreen) {
-      glfwWindowHint(GLFW_RED_BITS, mode->redBits);
-      glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
-      glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-      glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-    }
-
-    state.window = glfwCreateWindow(w ? w : mode->width, h ? h : mode->height, title, fullscreen ? monitor : NULL, NULL);
-    if (!state.window) {
-      glfwTerminate();
-      lovrThrow("Could not create window");
-    }
-
-    if (icon) {
-      GLFWimage image;
-      size_t size;
-      lovrAssert(lovrFilesystemIsFile(icon), "Could not read icon from %s", icon);
-      void* data = lovrFilesystemRead(icon, &size);
-      lovrAssert(data, "Could not read icon from %s", icon);
-      image.pixels = stbi_load_from_memory(data, size, &image.width, &image.height, NULL, 4);
-      lovrAssert(image.pixels, "Could not read icon from %s", icon);
-      glfwSetWindowIcon(state.window, 1, &image);
-      free(image.pixels);
-      free(data);
-    }
-
-    glfwMakeContextCurrent(state.window);
-    glfwSetWindowCloseCallback(state.window, onCloseWindow);
-    glfwSetWindowSizeCallback(state.window, onResizeWindow);
-  }
-#endif
-
-#if !(defined(EMSCRIPTEN) || defined(LOVR_USE_OCULUS_MOBILE))
-  glfwSwapInterval(0);
-#endif
-  
-  glfwGetFramebufferSize(state.window, &state.width, &state.height);
-
-#if LOVR_USE_OCULUS_MOBILE
-  getGpuProcProc getProcAddress = eglGetProcAddress;
+  if (flags) {
+    flags->srgb = state.gammaCorrect;
+#ifdef EMSCRIPTEN
+    flags->vsync = 1;
 #else
-  getGpuProcProc getProcAddress = glfwGetProcAddress;
+    flags->vsync = 0;
 #endif
-  lovrGpuInit(state.gammaCorrect, getProcAddress);
+  }
+
+  lovrAssert(lovrPlatformSetWindow(flags), "Could not create window");
+  lovrPlatformOnWindowClose(onCloseWindow);
+  lovrPlatformOnWindowResize(onResizeWindow);
+  lovrPlatformGetWindowSize(&state.width, &state.height);
+  lovrGpuInit(state.gammaCorrect, lovrGetProcAddress);
 
   VertexFormat format;
   vertexFormatInit(&format);

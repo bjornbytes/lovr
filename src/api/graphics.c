@@ -259,14 +259,47 @@ static int l_lovrGraphicsPresent(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsCreateWindow(lua_State* L) {
-  int width = luaL_optnumber(L, 1, 1080);
-  int height = luaL_optnumber(L, 2, 600);
-  bool fullscreen = !lua_isnoneornil(L, 3) && lua_toboolean(L, 3);
-  int msaa = luaL_optnumber(L, 4, 0);
-  const char* title = luaL_optstring(L, 5, "LÖVR");
-  const char* icon = luaL_optstring(L, 6, NULL);
-  lovrGraphicsCreateWindow(width, height, fullscreen, msaa, title, icon);
+static int l_lovrGraphicsSetWindow(lua_State* L) {
+  if (lua_isnoneornil(L, 1)) {
+    lovrGraphicsSetWindow(NULL);
+    return 0;
+  }
+
+  WindowFlags flags = { 0 };
+  luaL_checktype(L, 1, LUA_TTABLE);
+
+  lua_getfield(L, 1, "width");
+  flags.width = luaL_optinteger(L, -1, 1080);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "height");
+  flags.height = luaL_optinteger(L, -1, 600);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "fullscreen");
+  flags.fullscreen = lua_toboolean(L, -1);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "msaa");
+  flags.msaa = lua_tointeger(L, -1);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "title");
+  flags.title = luaL_optstring(L, -1, "LÖVR");
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "icon");
+  TextureData* textureData = NULL;
+  if (!lua_isnil(L, -1)) {
+    textureData = luax_checktexturedata(L, -1, true);
+    flags.icon.data = textureData->blob.data;
+    flags.icon.width = textureData->width;
+    flags.icon.height = textureData->height;
+  }
+  lua_pop(L, 1);
+
+  lovrGraphicsSetWindow(&flags);
+  lovrRelease(textureData);
   return 0;
 }
 
@@ -1270,7 +1303,7 @@ static const luaL_Reg lovrGraphics[] = {
 
   // Base
   { "present", l_lovrGraphicsPresent },
-  { "createWindow", l_lovrGraphicsCreateWindow },
+  { "setWindow", l_lovrGraphicsSetWindow },
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
@@ -1377,37 +1410,10 @@ int luaopen_lovr_graphics(lua_State* L) {
 
   lovrGraphicsInit(gammaCorrect);
 
-  // Create window if needed
-  lua_getfield(L, -1, "window");
-  if (!lua_isnil(L, -1)) {
-    lua_getfield(L, -1, "width");
-    int width = luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
+  lua_pushcfunction(L, l_lovrGraphicsSetWindow);
+  lua_getfield(L, -2, "window");
+  lua_call(L, 1, 0);
 
-    lua_getfield(L, -1, "height");
-    int height = luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "fullscreen");
-    bool fullscreen = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "msaa");
-    int msaa = luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "title");
-    const char* title = luaL_checkstring(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "icon");
-    const char* icon = luaL_optstring(L, -1, NULL);
-    lua_pop(L, 1);
-
-    lovrGraphicsCreateWindow(width, height, fullscreen, msaa, title, icon);
-  }
-
-  lua_pop(L, 2);
-
+  lua_pop(L, 1); // conf
   return 1;
 }

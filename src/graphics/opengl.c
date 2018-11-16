@@ -607,7 +607,7 @@ static void lovrGpuUseProgram(uint32_t program) {
 
 // GPU
 
-void lovrGpuInit(bool srgb, getGpuProcProc getProcAddress) {
+void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
 #ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) getProcAddress);
   state.features.computeShaders = GLAD_GL_ARB_compute_shader;

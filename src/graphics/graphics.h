@@ -6,6 +6,7 @@
 #include "graphics/texture.h"
 #include "math/math.h"
 #include "util.h"
+#include "platform.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -140,7 +141,6 @@ typedef struct {
   bool gammaCorrect;
   int width;
   int height;
-  void* window;
   Camera camera;
   Shader* defaultShaders[MAX_DEFAULT_SHADERS];
   Material* defaultMaterial;
@@ -231,10 +231,7 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h);
 
 // GPU
 
-typedef void (*gpuProc)(void);
-typedef gpuProc (*getGpuProcProc)(const char*);
-
-void lovrGpuInit(bool srgb, getGpuProcProc getProcAddress);
+void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress);
 void lovrGpuDestroy();
 void lovrGpuBindPipeline(Pipeline* pipeline);
 void lovrGpuSetViewports(float* viewports, int count);
