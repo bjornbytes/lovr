@@ -1,5 +1,4 @@
 #include "resources/boot.lua.h"
-#include "lib/glfw.h"
 #include "version.h"
 #include "api.h"
 #include "luax.h"
@@ -53,7 +52,7 @@ int main(int argc, char** argv) {
 #endif
   } while (restart);
 
-  glfwTerminate();
+  lovrPlatformDestroy();
 
   return status;
 }
@@ -96,16 +95,12 @@ static void emscriptenLoop(void* arg) {
     if (restart) {
       main(context->argc, context->argv);
     } else {
-      glfwTerminate();
+      lovrPlatformDestroy();
       exit(status);
     }
   }
 }
 #endif
-
-static void onGlfwError(int code, const char* description) {
-  lovrThrow(description);
-}
 
 typedef enum { // What flag is being searched for?
   ARGFLAG_NONE, // Not processing a flag
@@ -113,9 +108,7 @@ typedef enum { // What flag is being searched for?
 } ArgFlag;
 
 lua_State* lovrInit(lua_State* L, int argc, char** argv) {
-  glfwSetErrorCallback(onGlfwError);
-  lovrAssert(glfwInit(), "Error initializing GLFW");
-  lovrPlatformSetTime(0.);
+  lovrAssert(lovrPlatformInit(), "Failed to initialize platform");
 
   // arg table
   // Args follow the lua standard https://en.wikibooks.org/wiki/Lua_Programming/command_line_parameter

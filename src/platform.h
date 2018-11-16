@@ -68,6 +68,8 @@ typedef void (*gpuProc)(void);
 typedef gpuProc (*getProcAddressProc)(const char*);
 extern getProcAddressProc lovrGetProcAddress;
 
+bool lovrPlatformInit();
+void lovrPlatformDestroy();
 void lovrPlatformPollEvents();
 double lovrPlatformGetTime();
 void lovrPlatformSetTime(double t);

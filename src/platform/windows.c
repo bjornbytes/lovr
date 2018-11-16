@@ -57,6 +57,19 @@ static int convertKeyCode(KeyCode key) {
   }
 }
 
+static void onGlfwError(int code, const char* description) {
+  lovrThrow(description);
+}
+
+bool lovrPlatformInit() {
+  glfwSetErrorCallback(onGlfwError);
+  return glfwInit();
+}
+
+void lovrPlatformDestroy() {
+  glfwTerminate();
+}
+
 void lovrPlatformPollEvents() {
   glfwPollEvents();
 }
