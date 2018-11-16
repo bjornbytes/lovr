@@ -32,7 +32,7 @@ static struct {
   double prevCursorY;
 } state;
 
-static void onMouseButton(MouseButton button, ButtonAction action, int x, int y) {
+static void onMouseButton(MouseButton button, ButtonAction action) {
   if (button == MOUSE_RIGHT) {
     Controller* controller; int i;
     vec_foreach(&state.controllers, controller, i) {

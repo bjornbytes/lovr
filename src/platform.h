@@ -62,7 +62,7 @@ typedef enum {
 
 typedef void (*windowCloseCallback)();
 typedef void (*windowResizeCallback)(int width, int height);
-typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action, int x, int y);
+typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action);
 
 typedef void (*gpuProc)(void);
 typedef gpuProc (*getProcAddressProc)(const char*);

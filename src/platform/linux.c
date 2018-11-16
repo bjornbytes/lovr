@@ -2,6 +2,8 @@
 #include <unistd.h>
 #include <string.h>
 
+#include "platform/glfw.h"
+
 void lovrSleep(double seconds) {
   usleep((unsigned int) (seconds * 1000000));
 }
