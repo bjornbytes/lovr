@@ -1,5 +1,5 @@
 #include "event/event.h"
-#include "lib/glfw.h"
+#include "platform.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -9,7 +9,7 @@ void lovrEventInit() {
   if (state.initialized) return;
   vec_init(&state.pumps);
   vec_init(&state.events);
-  lovrEventAddPump(glfwPollEvents);
+  lovrEventAddPump(lovrPlatformPollEvents);
   atexit(lovrEventDestroy);
   state.initialized = true;
 }

@@ -16,5 +16,6 @@
 #define lovrWarnv(...) vfprintf(stderr, __VA_ARGS__)
 #endif
 
+void lovrPlatformPollEvents();
 void lovrSleep(double seconds);
 int lovrGetExecutablePath(char* dest, uint32_t size);
