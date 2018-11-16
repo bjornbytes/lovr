@@ -15,6 +15,49 @@ int main(int argc, char** argv);
 
 #ifndef LOVR_USE_OCULUS_MOBILE
 
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+typedef struct {
+  lua_State* L;
+  lua_State* T;
+  int argc;
+  char** argv;
+} lovrEmscriptenContext;
+
+void lovrDestroy(void* arg) {
+  lovrEmscriptenContext* context = arg;
+  lua_State* L = context->L;
+  emscripten_cancel_main_loop();
+  lua_close(L);
+}
+
+static void emscriptenLoop(void* arg) {
+  lovrEmscriptenContext* context = arg;
+  lua_getglobal(context->L, "_lovrHeadsetRenderError"); // webvr.c renderCallback failed
+  bool haveRenderError = !lua_isnil(context->L, -1);
+  if (!haveRenderError) {
+    lua_pop(context->L, 1);
+  }
+
+  int coroutineArgs = luax_pushLovrHeadsetRenderError(context->T);
+
+  if (lua_resume(context->T, coroutineArgs) != LUA_YIELD) {
+    bool restart = lua_type(context->T, -1) == LUA_TSTRING && !strcmp(lua_tostring(context->T, -1), "restart");
+    int status = lua_tonumber(context->T, -1);
+
+    lua_close(context->L);
+    emscripten_cancel_main_loop();
+
+    if (restart) {
+      main(context->argc, context->argv);
+    } else {
+      lovrPlatformDestroy();
+      exit(status);
+    }
+  }
+}
+#endif
+
 int main(int argc, char** argv) {
   if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
     lovrLog("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
@@ -57,49 +100,6 @@ int main(int argc, char** argv) {
   return status;
 }
 
-#endif
-
-#ifdef EMSCRIPTEN
-#include <emscripten.h>
-typedef struct {
-  lua_State* L;
-  lua_State* T;
-  int argc;
-  char** argv;
-} lovrEmscriptenContext;
-
-void lovrDestroy(void* arg) {
-  lovrEmscriptenContext* context = arg;
-  lua_State* L = context->L;
-  emscripten_cancel_main_loop();
-  lua_close(L);
-}
-
-static void emscriptenLoop(void* arg) {
-  lovrEmscriptenContext* context = arg;
-  lua_getglobal(context->L, "_lovrHeadsetRenderError"); // webvr.c renderCallback failed
-  bool haveRenderError = !lua_isnil(context->L, -1);
-  if (!haveRenderError) {
-    lua_pop(context->L, 1);
-  }
-
-  int coroutineArgs = luax_pushLovrHeadsetRenderError(context->T);
-
-  if (lua_resume(context->T, coroutineArgs) != LUA_YIELD) {
-    bool restart = lua_type(context->T, -1) == LUA_TSTRING && !strcmp(lua_tostring(context->T, -1), "restart");
-    int status = lua_tonumber(context->T, -1);
-
-    lua_close(context->L);
-    emscripten_cancel_main_loop();
-
-    if (restart) {
-      main(context->argc, context->argv);
-    } else {
-      lovrPlatformDestroy();
-      exit(status);
-    }
-  }
-}
 #endif
 
 typedef enum { // What flag is being searched for?
