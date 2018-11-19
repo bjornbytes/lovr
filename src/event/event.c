@@ -5,13 +5,13 @@
 
 static EventState state;
 
-void lovrEventInit() {
-  if (state.initialized) return;
+bool lovrEventInit() {
+  if (state.initialized) return false;
   vec_init(&state.pumps);
   vec_init(&state.events);
   lovrEventAddPump(lovrPlatformPollEvents);
   atexit(lovrEventDestroy);
-  state.initialized = true;
+  return state.initialized = true;
 }
 
 void lovrEventDestroy() {

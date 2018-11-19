@@ -349,7 +349,6 @@ static const luaL_Reg lovrHeadset[] = {
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
-  luax_atexit(L, lovrHeadsetDestroy);
   luax_registertype(L, "Controller", lovrController);
 
   luax_pushconf(L);
@@ -391,7 +390,10 @@ int luaopen_lovr_headset(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  lovrHeadsetInit(drivers.data, drivers.length, offset, msaa);
+  if (lovrHeadsetInit(drivers.data, drivers.length, offset, msaa)) {
+    luax_atexit(L, lovrHeadsetDestroy);
+  }
+
   lovrHeadsetDriver->setMirrored(mirror, mirrorEye);
 
   vec_deinit(&drivers);

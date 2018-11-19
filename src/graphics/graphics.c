@@ -24,8 +24,9 @@ static void onResizeWindow(int width, int height) {
 
 // Base
 
-void lovrGraphicsInit(bool gammaCorrect) {
+bool lovrGraphicsInit(bool gammaCorrect) {
   state.gammaCorrect = gammaCorrect;
+  return false;
 }
 
 void lovrGraphicsDestroy() {

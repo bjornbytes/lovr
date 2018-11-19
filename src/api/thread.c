@@ -66,10 +66,11 @@ static const luaL_Reg lovrThreadModule[] = {
 
 int luaopen_lovr_thread(lua_State* L) {
   lua_newtable(L);
-  luax_atexit(L, lovrThreadDeinit);
   luaL_register(L, NULL, lovrThreadModule);
   luax_registertype(L, "Thread", lovrThread);
   luax_registertype(L, "Channel", lovrChannel);
-  lovrThreadInit();
+  if (lovrThreadInit()) {
+    luax_atexit(L, lovrThreadDeinit);
+  }
   return 1;
 }

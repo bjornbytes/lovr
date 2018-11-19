@@ -7,12 +7,12 @@
 
 static MathState state;
 
-void lovrMathInit() {
-  if (state.initialized) return;
+bool lovrMathInit() {
+  if (state.initialized) return false;
   state.generator = lovrRandomGeneratorCreate();
   Seed seed = { .b64 = (uint64_t) time(0) };
 	lovrRandomGeneratorSetSeed(state.generator, seed);
-  state.initialized = true;
+  return state.initialized = true;
 }
 
 void lovrMathDestroy() {

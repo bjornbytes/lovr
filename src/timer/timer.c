@@ -4,10 +4,10 @@
 
 static TimerState state;
 
-void lovrTimerInit() {
-  if (state.initialized) return;
+bool lovrTimerInit() {
+  if (state.initialized) return false;
   lovrTimerDestroy();
-  state.initialized = true;
+  return state.initialized = true;
 }
 
 void lovrTimerDestroy() {

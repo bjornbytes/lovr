@@ -360,10 +360,6 @@ static const luaL_Reg lovrFilesystem[] = {
 };
 
 int luaopen_lovr_filesystem(lua_State* L) {
-  lua_newtable(L);
-  luaL_register(L, NULL, lovrFilesystem);
-  luax_atexit(L, lovrFilesystemDestroy);
-
   lua_getglobal(L, "arg");
   if (lua_istable(L, -1)) {
     lua_getfield(L, -1, "exe");
@@ -372,13 +368,19 @@ int luaopen_lovr_filesystem(lua_State* L) {
     const char* argGame = lua_tostring(L, -1);
     lua_getfield(L, -3, "root");
     const char* argRoot = luaL_optstring(L, -1, NULL);
-    lovrFilesystemInit(argExe, argGame, argRoot);
+    if (lovrFilesystemInit(argExe, argGame, argRoot)) {
+      luax_atexit(L, lovrFilesystemDestroy);
+    }
     lua_pop(L, 4);
   } else {
     lua_pop(L, 1);
-    lovrFilesystemInit(NULL, NULL, NULL);
+    if (lovrFilesystemInit(NULL, NULL, NULL)) {
+      luax_atexit(L, lovrFilesystemDestroy);
+    }
   }
 
+  lua_newtable(L);
+  luaL_register(L, NULL, lovrFilesystem);
   luax_registerloader(L, moduleLoader, 2);
   luax_registerloader(L, libraryLoader, 3);
   return 1;
