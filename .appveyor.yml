@@ -7,6 +7,10 @@ only_commits:
     - src/
     - deps/
 
+branches:
+  only:
+    - master
+
 before_build:
   - cd C:\projects\lovr
   - git submodule update --init
