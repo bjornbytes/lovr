@@ -23,7 +23,7 @@ typedef struct {
 
 ALenum lovrAudioConvertFormat(int bitDepth, int channelCount);
 
-void lovrAudioInit();
+bool lovrAudioInit();
 void lovrAudioDestroy();
 void lovrAudioUpdate();
 void lovrAudioAdd(Source* source);

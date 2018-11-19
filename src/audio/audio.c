@@ -19,8 +19,8 @@ ALenum lovrAudioConvertFormat(int bitDepth, int channelCount) {
   return 0;
 }
 
-void lovrAudioInit() {
-  if (state.initialized) return;
+bool lovrAudioInit() {
+  if (state.initialized) return false;
 
   ALCdevice* device = alcOpenDevice(NULL);
   lovrAssert(device, "Unable to open default audio device");
@@ -46,7 +46,7 @@ void lovrAudioInit() {
   quat_set(state.orientation, 0, 0, 0, -1);
   vec3_set(state.position, 0, 0, 0);
   vec3_set(state.velocity, 0, 0, 0);
-  state.initialized = true;
+  return state.initialized = true;
 }
 
 void lovrAudioDestroy() {

@@ -154,7 +154,7 @@ typedef struct {
 } GraphicsState;
 
 // Base
-void lovrGraphicsInit(bool gammaCorrect);
+bool lovrGraphicsInit(bool gammaCorrect);
 void lovrGraphicsDestroy();
 void lovrGraphicsPresent();
 void lovrGraphicsSetWindow(WindowFlags* flags);

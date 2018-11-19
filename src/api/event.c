@@ -178,12 +178,14 @@ static const luaL_Reg lovrEvent[] = {
 int luaopen_lovr_event(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrEvent);
-  luax_atexit(L, lovrEventDestroy);
 
   // Store nextEvent in the registry to avoid creating a closure every time we poll for events.
   lua_pushcfunction(L, nextEvent);
   pollRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
-  lovrEventInit();
+  if (lovrEventInit()) {
+    luax_atexit(L, lovrEventDestroy);
+  }
+
   return 1;
 }

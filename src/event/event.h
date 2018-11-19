@@ -90,7 +90,7 @@ typedef struct {
   vec_event_t events;
 } EventState;
 
-void lovrEventInit();
+bool lovrEventInit();
 void lovrEventDestroy();
 void lovrEventAddPump(EventPump pump);
 void lovrEventRemovePump(EventPump pump);

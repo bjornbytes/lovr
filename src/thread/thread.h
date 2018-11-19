@@ -22,7 +22,7 @@ typedef struct {
   bool running;
 } Thread;
 
-void lovrThreadInit();
+bool lovrThreadInit();
 void lovrThreadDeinit();
 struct Channel* lovrThreadGetChannel(const char* name);
 

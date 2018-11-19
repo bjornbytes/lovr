@@ -4,10 +4,10 @@
 
 static ThreadState state;
 
-void lovrThreadInit() {
-  if (state.initialized) return;
+bool lovrThreadInit() {
+  if (state.initialized) return false;
   map_init(&state.channels);
-  state.initialized = true;
+  return state.initialized = true;
 }
 
 void lovrThreadDeinit() {

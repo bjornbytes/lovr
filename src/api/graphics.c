@@ -299,6 +299,7 @@ static int l_lovrGraphicsSetWindow(lua_State* L) {
   lua_pop(L, 1);
 
   lovrGraphicsSetWindow(&flags);
+  luax_atexit(L, lovrGraphicsDestroy); // The lua_State that creates the window shall be the one to destroy it
   lovrRelease(textureData);
   return 0;
 }
@@ -1390,7 +1391,6 @@ static const luaL_Reg lovrGraphics[] = {
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
-  luax_atexit(L, lovrGraphicsDestroy);
   luax_registertype(L, "Animator", lovrAnimator);
   luax_registertype(L, "Font", lovrFont);
   luax_registertype(L, "Material", lovrMaterial);

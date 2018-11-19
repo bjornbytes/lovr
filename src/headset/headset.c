@@ -4,8 +4,8 @@
 HeadsetInterface* lovrHeadsetDriver = NULL;
 static bool initialized = false;
 
-void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa) {
-  if (initialized) return;
+bool lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa) {
+  if (initialized) return false;
   initialized = true;
 
   for (int i = 0; i < count; i++) {
@@ -37,6 +37,7 @@ void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa) 
   }
 
   lovrAssert(lovrHeadsetDriver, "No headset driver available, check t.headset.drivers in conf.lua");
+  return true;
 }
 
 void lovrHeadsetDestroy() {

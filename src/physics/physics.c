@@ -31,10 +31,10 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
 
 static bool initialized = false;
 
-void lovrPhysicsInit() {
-  if (initialized) return;
+bool lovrPhysicsInit() {
+  if (initialized) return false;
   dInitODE();
-  initialized = true;
+  return initialized = true;
 }
 
 void lovrPhysicsDestroy() {

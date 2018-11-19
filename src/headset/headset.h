@@ -110,5 +110,5 @@ extern HeadsetInterface lovrHeadsetOculusMobileDriver;
 // Active driver
 extern HeadsetInterface* lovrHeadsetDriver;
 
-void lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa);
+bool lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa);
 void lovrHeadsetDestroy();

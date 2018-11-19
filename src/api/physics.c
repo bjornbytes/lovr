@@ -150,7 +150,6 @@ static const luaL_Reg lovrPhysics[] = {
 int luaopen_lovr_physics(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrPhysics);
-  luax_atexit(L, lovrPhysicsDestroy);
   luax_registertype(L, "World", lovrWorld);
   luax_registertype(L, "Collider", lovrCollider);
   luax_extendtype(L, "Joint", "BallJoint", lovrJoint, lovrBallJoint);
@@ -161,6 +160,8 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_extendtype(L, "Shape", "BoxShape", lovrShape, lovrBoxShape);
   luax_extendtype(L, "Shape", "CapsuleShape", lovrShape, lovrCapsuleShape);
   luax_extendtype(L, "Shape", "CylinderShape", lovrShape, lovrCylinderShape);
-  lovrPhysicsInit();
+  if (lovrPhysicsInit()) {
+    luax_atexit(L, lovrPhysicsDestroy);
+  }
   return 1;
 }
