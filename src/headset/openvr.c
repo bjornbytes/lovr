@@ -349,25 +349,25 @@ static void openvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float
   mat4_getPose(transform, x, y, z, angle, ax, ay, az);
 }
 
-static void openvrGetVelocity(float* x, float* y, float* z) {
+static void openvrGetVelocity(float* vx, float* vy, float* vz) {
   TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *x = *y = *z = 0.f;
+    *vx = *vy = *vz = 0.f;
   } else {
-    *x = pose.vVelocity.v[0];
-    *y = pose.vVelocity.v[1];
-    *z = pose.vVelocity.v[2];
+    *vx = pose.vVelocity.v[0];
+    *vy = pose.vVelocity.v[1];
+    *vz = pose.vVelocity.v[2];
   }
 }
 
-static void openvrGetAngularVelocity(float* x, float* y, float* z) {
+static void openvrGetAngularVelocity(float* vx, float* vy, float* vz) {
   TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *x = *y = *z = 0.f;
+    *vx = *vy = *vz = 0.f;
   } else {
-    *x = pose.vAngularVelocity.v[0];
-    *y = pose.vAngularVelocity.v[1];
-    *z = pose.vAngularVelocity.v[2];
+    *vx = pose.vAngularVelocity.v[0];
+    *vy = pose.vAngularVelocity.v[1];
+    *vz = pose.vAngularVelocity.v[2];
   }
 }
 
@@ -392,6 +392,28 @@ static void openvrControllerGetPose(Controller* controller, float* x, float* y, 
   float transform[16];
   getTransform(controller->id, transform);
   mat4_getPose(transform, x, y, z, angle, ax, ay, az);
+}
+
+static void openvrControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
+  TrackedDevicePose_t pose = state.poses[controller->id];
+  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+    *vx = *vy = *vz = 0.f;
+  } else {
+    *vx = pose.vVelocity.v[0];
+    *vy = pose.vVelocity.v[1];
+    *vz = pose.vVelocity.v[2];
+  }
+}
+
+static void openvrControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
+  TrackedDevicePose_t pose = state.poses[controller->id];
+  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+    *vx = *vy = *vz = 0.f;
+  } else {
+    *vx = pose.vAngularVelocity.v[0];
+    *vy = pose.vAngularVelocity.v[1];
+    *vz = pose.vAngularVelocity.v[2];
+  }
 }
 
 static float openvrControllerGetAxis(Controller* controller, ControllerAxis axis) {
@@ -623,6 +645,8 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrControllerIsConnected,
   openvrControllerGetHand,
   openvrControllerGetPose,
+  openvrControllerGetVelocity,
+  openvrControllerGetAngularVelocity,
   openvrControllerGetAxis,
   openvrControllerIsDown,
   openvrControllerIsTouched,

@@ -19,11 +19,13 @@ extern void webvrGetBoundsDimensions(float* width, float* depth);
 extern const float* webvrGetBoundsGeometry(int* count);
 extern void webvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
 extern void webvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-extern void webvrGetVelocity(float* x, float* y, float* z);
-extern void webvrGetAngularVelocity(float* x, float* y, float* z);
+extern void webvrGetVelocity(float* vx, float* vy, float* vz);
+extern void webvrGetAngularVelocity(float* vx, float* vy, float* vz);
 extern bool webvrControllerIsConnected(Controller* controller);
 extern ControllerHand webvrControllerGetHand(Controller* controller);
 extern void webvrControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+extern void webvrControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz);
+extern void webvrControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz);
 extern float webvrControllerGetAxis(Controller* controller, ControllerAxis axis);
 extern bool webvrControllerIsDown(Controller* controller, ControllerButton button);
 extern bool webvrControllerIsTouched(Controller* controller, ControllerButton button);
@@ -147,6 +149,8 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrControllerIsConnected,
   webvrControllerGetHand,
   webvrControllerGetPose,
+  webvrControllerGetVelocity,
+  webvrControllerGetAngularVelocity,
   webvrControllerGetAxis,
   webvrControllerIsDown,
   webvrControllerIsTouched,

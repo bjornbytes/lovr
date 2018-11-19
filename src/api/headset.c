@@ -259,20 +259,20 @@ static int l_lovrHeadsetGetOrientation(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetVelocity(lua_State* L) {
-  float x, y, z;
-  lovrHeadsetDriver->getVelocity(&x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
+  float vx, vy, vz;
+  lovrHeadsetDriver->getVelocity(&vx, &vy, &vz);
+  lua_pushnumber(L, vx);
+  lua_pushnumber(L, vy);
+  lua_pushnumber(L, vz);
   return 3;
 }
 
 static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
-  float x, y, z;
-  lovrHeadsetDriver->getAngularVelocity(&x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
+  float vx, vy, vz;
+  lovrHeadsetDriver->getAngularVelocity(&vx, &vy, &vz);
+  lua_pushnumber(L, vx);
+  lua_pushnumber(L, vy);
+  lua_pushnumber(L, vz);
   return 3;
 }
 

@@ -254,41 +254,41 @@ var LibraryLOVR = {
     }
   },
 
-  webvrGetVelocity: function(x, y, z) {
+  webvrGetVelocity: function(vx, vy, vz) {
     var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
     var pose = webvr.frameData.pose;
     var matA = webvr.matA;
 
     if (pose.linearVelocity) {
-      HEAPF32[x >> 2] = pose.linearVelocity[0];
-      HEAPF32[y >> 2] = pose.linearVelocity[1];
-      HEAPF32[z >> 2] = pose.linearVelocity[2];
+      HEAPF32[vx >> 2] = pose.linearVelocity[0];
+      HEAPF32[vy >> 2] = pose.linearVelocity[1];
+      HEAPF32[vz >> 2] = pose.linearVelocity[2];
 
       if (sittingToStanding) {
         HEAPF32.set(sittingToStanding, matA >> 2);
-        Module._mat4_transformDirection(matA, x, y, z);
+        Module._mat4_transformDirection(matA, vx, vy, vz);
       }
     } else {
-      HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
+      HEAPF32[vx >> 2] = HEAPF32[vy >> 2] = HEAPF32[vz >> 2] = 0;
     }
   },
 
-  webvrGetAngularVelocity: function(x, y, z) {
+  webvrGetAngularVelocity: function(vx, vy, vz) {
     var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
     var pose = webvr.frameData.pose;
     var matA = webvr.matA;
 
     if (pose.angularVelocity) {
-      HEAPF32[x >> 2] = pose.angularVelocity[0];
-      HEAPF32[y >> 2] = pose.angularVelocity[1];
-      HEAPF32[z >> 2] = pose.angularVelocity[2];
+      HEAPF32[vx >> 2] = pose.angularVelocity[0];
+      HEAPF32[vy >> 2] = pose.angularVelocity[1];
+      HEAPF32[vz >> 2] = pose.angularVelocity[2];
 
       if (sittingToStanding) {
         HEAPF32.set(sittingToStanding, matA >> 2);
-        Module._mat4_transformDirection(matA, x, y, z);
+        Module._mat4_transformDirection(matA, vx, vy, vz);
       }
     } else {
-      HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
+      HEAPF32[vx >> 2] = HEAPF32[vy >> 2] = HEAPF32[vz >> 2] = 0;
     }
   },
 
@@ -329,6 +329,46 @@ var LibraryLOVR = {
     } else {
       HEAPF32[y >> 2] += webvr.offset;
       Module._quat_getAngleAxis(quat, angle, ax, ay, az);
+    }
+  },
+
+  webvrControllerGetVelocity: function(controller, vx, vy, vz) {
+    var gamepad = webvr.controllerToGamepad(controller);
+    var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
+    var matA = webvr.matA;
+
+    if (!gamepad || !gamepad.pose || !gamepad.pose.linearVelocity) {
+      HEAPF32[vx >> 2] = HEAPF32[vy >> 2] = HEAPF32[vz >> 2] = 0;
+      return;
+    }
+
+    HEAPF32[vx >> 2] = gamepad.pose.linearVelocity[0];
+    HEAPF32[vy >> 2] = gamepad.pose.linearVelocity[1];
+    HEAPF32[vz >> 2] = gamepad.pose.linearVelocity[2];
+
+    if (sittingToStanding) {
+      HEAPF32.set(sittingToStanding, matA >> 2);
+      Module._mat4_transformDirection(matA, vx, vy, vz);
+    }
+  },
+
+  webvrControllerGetAngularVelocity: function(controller, vx, vy, vz) {
+    var gamepad = webvr.controllerToGamepad(controller);
+    var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
+    var matA = webvr.matA;
+
+    if (!gamepad || !gamepad.pose || !gamepad.pose.angularVelocity) {
+      HEAPF32[vx >> 2] = HEAPF32[vy >> 2] = HEAPF32[vz >> 2] = 0;
+      return;
+    }
+
+    HEAPF32[vx >> 2] = gamepad.pose.angularVelocity[0];
+    HEAPF32[vy >> 2] = gamepad.pose.angularVelocity[1];
+    HEAPF32[vz >> 2] = gamepad.pose.angularVelocity[2];
+
+    if (sittingToStanding) {
+      HEAPF32.set(sittingToStanding, matA >> 2);
+      Module._mat4_transformDirection(matA, vx, vy, vz);
     }
   },
 
