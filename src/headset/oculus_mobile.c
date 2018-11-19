@@ -99,17 +99,17 @@ static void oculusMobileGetEyePose(HeadsetEye eye, float* x, float* y, float* z,
 }
 
 // TODO: This has never been tested
-static void oculusMobileGetVelocity(float* x, float* y, float* z) {
-  *x = bridgeLovrMobileData.updateData.lastHeadVelocity.x;
-  *y = bridgeLovrMobileData.updateData.lastHeadVelocity.y;
-  *z = bridgeLovrMobileData.updateData.lastHeadVelocity.z;
+static void oculusMobileGetVelocity(float* vx, float* vy, float* vz) {
+  *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.x;
+  *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.y;
+  *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.z;
 }
 
 // TODO: This has never been tested
-static void oculusMobileGetAngularVelocity(float* x, float* y, float* z) {
-  *x = bridgeLovrMobileData.updateData.lastHeadVelocity.ax;
-  *y = bridgeLovrMobileData.updateData.lastHeadVelocity.ay;
-  *z = bridgeLovrMobileData.updateData.lastHeadVelocity.az;
+static void oculusMobileGetAngularVelocity(float* vx, float* vy, float* vz) {
+  *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.ax;
+  *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.ay;
+  *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.az;
 }
 
 static Controller *controller;
@@ -139,6 +139,18 @@ static void oculusMobileControllerGetPose(Controller* controller, float* x, floa
   quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, az, ay, ax);
   *ax = -*ax;
   *az = -*az;
+}
+
+static void oculusMobileControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
+  *vx = bridgeLovrMobileData.updateData.goVelocity.x;
+  *vy = bridgeLovrMobileData.updateData.goVelocity.y;
+  *vz = bridgeLovrMobileData.updateData.goVelocity.z;
+}
+
+static void oculusMobileControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
+  *vx = bridgeLovrMobileData.updateData.goVelocity.ax;
+  *vy = bridgeLovrMobileData.updateData.goVelocity.ay;
+  *vz = bridgeLovrMobileData.updateData.goVelocity.az;
 }
 
 static float oculusMobileControllerGetAxis(Controller* controller, ControllerAxis axis) {
@@ -213,6 +225,8 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   oculusMobileControllerIsConnected,
   oculusMobileControllerGetHand,
   oculusMobileControllerGetPose,
+  oculusMobileControllerGetVelocity,
+  oculusMobileControllerGetAngularVelocity,
   oculusMobileControllerGetAxis,
   oculusMobileControllerIsDown,
   oculusMobileControllerIsTouched,

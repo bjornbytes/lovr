@@ -83,12 +83,14 @@ typedef struct {
   const float* (*getBoundsGeometry)(int* count);
   void (*getPose)(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void (*getEyePose)(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-  void (*getVelocity)(float* x, float* y, float* z);
-  void (*getAngularVelocity)(float* x, float* y, float* z);
+  void (*getVelocity)(float* vx, float* vy, float* vz);
+  void (*getAngularVelocity)(float* vx, float* vy, float* vz);
   Controller** (*getControllers)(uint8_t* count);
   bool (*controllerIsConnected)(Controller* controller);
   ControllerHand (*controllerGetHand)(Controller* controller);
   void (*controllerGetPose)(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+  void (*controllerGetVelocity)(Controller* controller, float* vx, float* vy, float* vz);
+  void (*controllerGetAngularVelocity)(Controller* controller, float* vx, float* vy, float* vz);
   float (*controllerGetAxis)(Controller* controller, ControllerAxis axis);
   bool (*controllerIsDown)(Controller* controller, ControllerButton button);
   bool (*controllerIsTouched)(Controller* controller, ControllerButton button);

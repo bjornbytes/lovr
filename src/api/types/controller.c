@@ -51,6 +51,26 @@ int l_lovrControllerGetOrientation(lua_State* L) {
   return 4;
 }
 
+int l_lovrControllerGetVelocity(lua_State* L) {
+  Controller* controller = luax_checktype(L, 1, Controller);
+  float vx, vy, vz;
+  lovrHeadsetDriver->controllerGetVelocity(controller, &vx, &vy, &vz);
+  lua_pushnumber(L, vx);
+  lua_pushnumber(L, vy);
+  lua_pushnumber(L, vz);
+  return 3;
+}
+
+int l_lovrControllerGetAngularVelocity(lua_State* L) {
+  Controller* controller = luax_checktype(L, 1, Controller);
+  float vx, vy, vz;
+  lovrHeadsetDriver->controllerGetAngularVelocity(controller, &vx, &vy, &vz);
+  lua_pushnumber(L, vx);
+  lua_pushnumber(L, vy);
+  lua_pushnumber(L, vz);
+  return 3;
+}
+
 int l_lovrControllerGetAxis(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   ControllerAxis axis = luaL_checkoption(L, 2, NULL, ControllerAxes);
@@ -100,6 +120,8 @@ const luaL_Reg lovrController[] = {
   { "getPose", l_lovrControllerGetPose },
   { "getPosition", l_lovrControllerGetPosition },
   { "getOrientation", l_lovrControllerGetOrientation },
+  { "getVelocity", l_lovrControllerGetVelocity },
+  { "getAngularVelocity", l_lovrControllerGetAngularVelocity },
   { "getAxis", l_lovrControllerGetAxis },
   { "isDown", l_lovrControllerIsDown },
   { "isTouched", l_lovrControllerIsTouched },

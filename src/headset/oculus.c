@@ -219,20 +219,20 @@ static void oculusGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float
   oculusGetPose(x, y, z, angle, ax, ay, az);
 }
 
-static void oculusGetVelocity(float* x, float* y, float* z) {
+static void oculusGetVelocity(float* vx, float* vy, float* vz) {
   ovrTrackingState *ts = refreshTracking();
   ovrVector3f vel = ts->HeadPose.LinearVelocity;
-  *x = vel.x;
-  *y = vel.y;
-  *z = vel.z;
+  *vx = vel.x;
+  *vy = vel.y;
+  *vz = vel.z;
 }
 
-static void oculusGetAngularVelocity(float* x, float* y, float* z) {
+static void oculusGetAngularVelocity(float* vx, float* vy, float* vz) {
   ovrTrackingState *ts = refreshTracking();
   ovrVector3f vel = ts->HeadPose.AngularVelocity;
-  *x = vel.x;
-  *y = vel.y;
-  *z = vel.z;
+  *vx = vel.x;
+  *vy = vel.y;
+  *vz = vel.z;
 }
 
 static Controller** oculusGetControllers(uint8_t* count) {
@@ -267,6 +267,22 @@ static void oculusControllerGetPose(Controller* controller, float* x, float* y, 
   ovrQuatf orient = ts->HandPoses[controller->id].ThePose.Orientation;
   float quat[4] = { orient.x, orient.y, orient.z, orient.w };
   quat_getAngleAxis(quat, angle, ax, ay, az);
+}
+
+static void oculusControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f vel = ts->HandPoses[controller->id].ThePose.LinearVelocity;
+  *vx = vel.x;
+  *vy = vel.y;
+  *vz = vel.z;
+}
+
+static void oculusControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f vel = ts->HandPoses[controller->id].ThePose.AngularVelocity;
+  *vx = vel.x;
+  *vy = vel.y;
+  *vz = vel.z;
 }
 
 static float oculusControllerGetAxis(Controller* controller, ControllerAxis axis) {
@@ -494,6 +510,8 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   oculusControllerIsConnected,
   oculusControllerGetHand,
   oculusControllerGetPose,
+  oculusControllerGetVelocity,
+  oculusControllerGetAngularVelocity,
   oculusControllerGetAxis,
   oculusControllerIsDown,
   oculusControllerIsTouched,

@@ -131,16 +131,16 @@ static void fakeGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* 
   fakeGetPose(x, y, z, angle, ax, ay, az);
 }
 
-static void fakeGetVelocity(float* x, float* y, float* z) {
-  *x = state.velocity[0];
-  *y = state.velocity[1];
-  *z = state.velocity[2];
+static void fakeGetVelocity(float* vx, float* vy, float* vz) {
+  *vx = state.velocity[0];
+  *vy = state.velocity[1];
+  *vz = state.velocity[2];
 }
 
-static void fakeGetAngularVelocity(float* x, float* y, float* z) {
-  *x = state.angularVelocity[0];
-  *y = state.angularVelocity[1];
-  *z = state.angularVelocity[2];
+static void fakeGetAngularVelocity(float* vx, float* vy, float* vz) {
+  *vx = state.angularVelocity[0];
+  *vy = state.angularVelocity[1];
+  *vz = state.angularVelocity[2];
 }
 
 static Controller** fakeGetControllers(uint8_t* count) {
@@ -165,6 +165,14 @@ static void fakeControllerGetPose(Controller* controller, float* x, float* y, fl
   float q[4];
   quat_fromMat4(q, state.transform);
   quat_getAngleAxis(q, angle, ax, ay, az);
+}
+
+static void fakeControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
+  *vx = *vy = *vz = 0.f;
+}
+
+static void fakeControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
+  *vx = *vy = *vz = 0.f;
 }
 
 static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) {
@@ -290,6 +298,8 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeControllerIsConnected,
   fakeControllerGetHand,
   fakeControllerGetPose,
+  fakeControllerGetVelocity,
+  fakeControllerGetAngularVelocity,
   fakeControllerGetAxis,
   fakeControllerIsDown,
   fakeControllerIsTouched,
