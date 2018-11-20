@@ -127,69 +127,6 @@ static int getButtonState(uint64_t mask, ControllerButton button, ControllerHand
   }
 }
 
-static void openvrPoll() {
-  struct VREvent_t vrEvent;
-  while (state.system->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
-    switch (vrEvent.eventType) {
-      case EVREventType_VREvent_TrackedDeviceActivated: {
-        uint32_t id = vrEvent.trackedDeviceIndex;
-        if (isController(id)) {
-          Controller* controller = lovrAlloc(Controller, free);
-          if (!controller) break;
-          controller->id = id;
-          vec_push(&state.controllers, controller);
-          lovrRetain(controller);
-          lovrEventPush((Event) { .type = EVENT_CONTROLLER_ADDED, .data.controller = { controller, 0 } });
-        }
-        break;
-      }
-
-      case EVREventType_VREvent_TrackedDeviceDeactivated:
-        for (int i = 0; i < state.controllers.length; i++) {
-          Controller* controller = state.controllers.data[i];
-          if (controller->id == vrEvent.trackedDeviceIndex) {
-            lovrRetain(controller);
-            lovrEventPush((Event) { .type = EVENT_CONTROLLER_REMOVED, .data.controller = { controller, 0 } });
-            vec_swapsplice(&state.controllers, i, 1);
-            lovrRelease(controller);
-            break;
-          }
-        }
-        break;
-
-      case EVREventType_VREvent_ButtonPress:
-      case EVREventType_VREvent_ButtonUnpress: {
-        bool isPress = vrEvent.eventType == EVREventType_VREvent_ButtonPress;
-
-        if (vrEvent.trackedDeviceIndex == HEADSET_INDEX && vrEvent.data.controller.button == EVRButtonId_k_EButton_ProximitySensor) {
-          lovrEventPush((Event) { .type = EVENT_MOUNT, .data.boolean = { isPress } });
-          break;
-        }
-
-        for (int i = 0; i < state.controllers.length; i++) {
-          Controller* controller = state.controllers.data[i];
-          if (controller->id == vrEvent.trackedDeviceIndex) {
-            ControllerButton button = getButton(vrEvent.data.controller.button, openvrControllerGetHand(controller));
-            EventType type = isPress ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED;
-            lovrEventPush((Event) { .type = type, .data.controller = { controller, button } });
-            break;
-          }
-        }
-        break;
-      }
-
-      case EVREventType_VREvent_InputFocusCaptured:
-      case EVREventType_VREvent_InputFocusReleased: {
-        bool isFocused = vrEvent.eventType == EVREventType_VREvent_InputFocusReleased;
-        lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { isFocused } });
-        break;
-      }
-
-      default: break;
-    }
-  }
-}
-
 static bool openvrInit(float offset, int msaa) {
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
     return false;
@@ -242,7 +179,6 @@ static bool openvrInit(float offset, int msaa) {
     }
   }
 
-  lovrEventAddPump(openvrPoll);
   return true;
 }
 
@@ -610,6 +546,68 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
 
 static void openvrUpdate(float dt) {
   state.compositor->WaitGetPoses(state.poses, 16, NULL, 0);
+
+  // Poll for new events after waiting for poses (to get as many events as possible)
+  struct VREvent_t vrEvent;
+  while (state.system->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
+    switch (vrEvent.eventType) {
+      case EVREventType_VREvent_TrackedDeviceActivated: {
+        uint32_t id = vrEvent.trackedDeviceIndex;
+        if (isController(id)) {
+          Controller* controller = lovrAlloc(Controller, free);
+          if (!controller) break;
+          controller->id = id;
+          vec_push(&state.controllers, controller);
+          lovrRetain(controller);
+          lovrEventPush((Event) { .type = EVENT_CONTROLLER_ADDED, .data.controller = { controller, 0 } });
+        }
+        break;
+      }
+
+      case EVREventType_VREvent_TrackedDeviceDeactivated:
+        for (int i = 0; i < state.controllers.length; i++) {
+          Controller* controller = state.controllers.data[i];
+          if (controller->id == vrEvent.trackedDeviceIndex) {
+            lovrRetain(controller);
+            lovrEventPush((Event) { .type = EVENT_CONTROLLER_REMOVED, .data.controller = { controller, 0 } });
+            vec_swapsplice(&state.controllers, i, 1);
+            lovrRelease(controller);
+            break;
+          }
+        }
+        break;
+
+      case EVREventType_VREvent_ButtonPress:
+      case EVREventType_VREvent_ButtonUnpress: {
+        bool isPress = vrEvent.eventType == EVREventType_VREvent_ButtonPress;
+
+        if (vrEvent.trackedDeviceIndex == HEADSET_INDEX && vrEvent.data.controller.button == EVRButtonId_k_EButton_ProximitySensor) {
+          lovrEventPush((Event) { .type = EVENT_MOUNT, .data.boolean = { isPress } });
+          break;
+        }
+
+        for (int i = 0; i < state.controllers.length; i++) {
+          Controller* controller = state.controllers.data[i];
+          if (controller->id == vrEvent.trackedDeviceIndex) {
+            ControllerButton button = getButton(vrEvent.data.controller.button, openvrControllerGetHand(controller));
+            EventType type = isPress ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED;
+            lovrEventPush((Event) { .type = type, .data.controller = { controller, button } });
+            break;
+          }
+        }
+        break;
+      }
+
+      case EVREventType_VREvent_InputFocusCaptured:
+      case EVREventType_VREvent_InputFocusReleased: {
+        bool isFocused = vrEvent.eventType == EVREventType_VREvent_InputFocusReleased;
+        lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { isFocused } });
+        break;
+      }
+
+      default: break;
+    }
+  }
 }
 
 HeadsetInterface lovrHeadsetOpenVRDriver = {
