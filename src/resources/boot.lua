@@ -81,9 +81,9 @@ function lovr.boot()
   local hasConf, hasMain = lovr.filesystem.isFile('conf.lua'), lovr.filesystem.isFile('main.lua')
   if not lovr.filesystem.getSource() or not (hasConf or hasMain) then nogame() end
 
-  local ok, confError
-  if hasConf then ok, confError = pcall(require, 'conf') end
-  if lovr.conf then ok, confError = pcall(lovr.conf, conf) end
+  local confOk, confError = true
+  if hasConf then confOk, confError = pcall(require, 'conf') end
+  if confOk and lovr.conf then confOk, confError = pcall(lovr.conf, conf) end
 
   lovr._setConf(conf)
   lovr.filesystem.setIdentity(conf.identity)
@@ -100,7 +100,7 @@ function lovr.boot()
   end
 
   lovr.handlers = setmetatable({}, { __index = lovr })
-  if confError then error(confError) end
+  if not confOk then error(confError) end
   if hasMain then require 'main' end
   return lovr.run()
 end
@@ -149,6 +149,7 @@ local function formatTraceback(s)
 end
 
 function lovr.errhand(message, traceback)
+  message = tostring(message)
   message = 'Error:\n' .. message .. formatTraceback(traceback or debug.traceback('', 2))
   print(message)
   if not lovr.graphics then return function() return 1 end end
@@ -202,7 +203,7 @@ return function()
       return lovr.errhand(e, tb) or abortclean
     else
       print('Error occurred while trying to display another error:\n' ..
-        e .. formatTraceback(tb or debug.traceback('', 2)))
+        tostring(e) .. formatTraceback(tb or debug.traceback('', 2)))
       return abortclean
     end
   end
@@ -212,14 +213,14 @@ return function()
   local _, continuation = xpcall(lovr.boot, onerror)
 
   while true do
-    local ok, result = xpcall(continuation, onerror)
-    if result and ok then return result -- Result is value returned by function. Return it.
-    elseif not ok then continuation = result end -- Result is value returned by error handler. Make it the new error handler.
-
     if type(continuation) == 'string' then -- LuaJIT returns a fixed string if an error occurs in an xpcall error handler
       print('Error occurred while trying to display another error.')
       return 1
     end
+
+    local ok, result = xpcall(continuation, onerror)
+    if result and ok then return result -- Result is value returned by function. Return it.
+    elseif not ok then continuation = result end -- Result is value returned by error handler. Make it the new error handler.
 
     local externerror = coroutine.yield() -- Return control to C code
 
