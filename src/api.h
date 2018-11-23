@@ -8,6 +8,7 @@
 
 // Module loaders
 LOVR_API int luaopen_lovr(lua_State* L);
+LOVR_API int luaopen_lovr_android(lua_State* L);
 LOVR_API int luaopen_lovr_audio(lua_State* L);
 LOVR_API int luaopen_lovr_data(lua_State* L);
 LOVR_API int luaopen_lovr_event(lua_State* L);

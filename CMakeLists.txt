@@ -73,6 +73,8 @@ elseif(ANDROID)
   set(LOVR_USE_LUAJIT OFF) # Until buildvm re-invoke works
   set(LOVR_USE_SSE OFF) # Assume ARM. Technically wrong on Android X86…?
   set(LOVR_BUILD_SHARED ON) # Android has only "activities"
+
+  option(LOVR_ENABLE_ANDROID "Enable the Android module" ON)
 elseif(UNIX)
   if(APPLE)
     set(CMAKE_MACOSX_RPATH 1)
@@ -569,7 +571,7 @@ elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/platform/web.c)
 elseif(ANDROID)
   target_link_libraries(lovr log EGL GLESv3)
-  target_sources(lovr PRIVATE src/platform/android.c)
+  target_sources(lovr PRIVATE src/platform/android.c src/api/android.c)
 elseif(UNIX)
   target_sources(lovr PRIVATE src/platform/linux.c)
 endif()
