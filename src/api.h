@@ -37,11 +37,14 @@ extern const luaL_Reg lovrDistanceJoint[];
 extern const luaL_Reg lovrFont[];
 extern const luaL_Reg lovrHingeJoint[];
 extern const luaL_Reg lovrJoint[];
+extern const luaL_Reg lovrMat4[];
 extern const luaL_Reg lovrMaterial[];
 extern const luaL_Reg lovrMesh[];
 extern const luaL_Reg lovrMicrophone[];
 extern const luaL_Reg lovrModel[];
 extern const luaL_Reg lovrModelData[];
+extern const luaL_Reg lovrPool[];
+extern const luaL_Reg lovrQuat[];
 extern const luaL_Reg lovrRandomGenerator[];
 extern const luaL_Reg lovrRasterizer[];
 extern const luaL_Reg lovrShader[];
@@ -55,8 +58,11 @@ extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrTextureData[];
 extern const luaL_Reg lovrThread[];
 extern const luaL_Reg lovrTransform[];
+extern const luaL_Reg lovrVec3[];
 extern const luaL_Reg lovrVertexData[];
 extern const luaL_Reg lovrWorld[];
+
+extern const luaL_Reg lovrLightUserdata[];
 
 // Enums
 extern const char* ArcModes[];

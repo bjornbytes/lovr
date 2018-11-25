@@ -478,12 +478,17 @@ if(LOVR_ENABLE_MATH)
   target_sources(lovr PRIVATE
     src/math/math.c
     src/math/curve.c
+    src/math/pool.c
     src/math/randomGenerator.c
     src/math/transform.c
     src/api/math.c
     src/api/types/curve.c
+    src/api/types/pool.c
     src/api/types/randomGenerator.c
     src/api/types/transform.c
+    src/api/types/vec3.c
+    src/api/types/quat.c
+    src/api/types/mat4.c
     src/lib/noise1234/noise1234.c
   )
 

@@ -1,3 +1,4 @@
+#include "math/pool.h"
 #include "math/randomGenerator.h"
 #include "lib/math.h"
 #include <stdbool.h>
@@ -7,10 +8,12 @@
 typedef struct {
   bool initialized;
   RandomGenerator* generator;
+  Pool* pool;
 } MathState;
 
-bool lovrMathInit();
+bool lovrMathInit(size_t poolSize);
 void lovrMathDestroy();
+Pool* lovrMathGetPool();
 RandomGenerator* lovrMathGetRandomGenerator();
 void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, vec3 v);
 float lovrMathGammaToLinear(float x);
