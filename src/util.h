@@ -12,6 +12,8 @@
 #define MIN(a, b) (a < b ? a : b)
 #define CLAMP(x, min, max) MAX(min, MIN(max, x))
 
+#define ALIGN(p, n) ((uintptr_t) p & -n)
+
 typedef struct ref {
   int count;
   const char* type;

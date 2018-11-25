@@ -18,13 +18,15 @@ vec3 vec3_lerp(vec3 v, vec3 u, float t);
 // quat
 quat quat_init(quat q, quat r);
 quat quat_set(quat q, float x, float y, float z, float w);
-quat quat_fromAngleAxis(quat q, float angle, vec3 axis);
+quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az);
 quat quat_fromMat4(quat q, mat4 m);
+quat quat_mul(quat q, quat r);
 quat quat_normalize(quat q);
 float quat_length(quat q);
 quat quat_slerp(quat q, quat r, float t);
 void quat_rotate(quat q, vec3 v);
 void quat_getAngleAxis(quat q, float* angle, float* x, float* y, float* z);
+quat quat_between(quat q, vec3 u, vec3 v);
 
 // mat4
 #define MAT4_IDENTITY { 1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1 }

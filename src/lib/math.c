@@ -1,4 +1,5 @@
 #include "math.h"
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <string.h>
 #ifdef LOVR_USE_SSE
@@ -74,13 +75,14 @@ quat quat_set(quat q, float x, float y, float z, float w) {
   return q;
 }
 
-quat quat_fromAngleAxis(quat q, float angle, vec3 axis) {
-  vec3_normalize(axis);
+quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az) {
+  float length = sqrt(ax * ax + ay * ay + az * az);
+  length = length == 0. ? 1. : length;
   float s = sin(angle * .5f);
   float c = cos(angle * .5f);
-  q[0] = s * axis[0];
-  q[1] = s * axis[1];
-  q[2] = s * axis[2];
+  q[0] = s * ax / length;
+  q[1] = s * ay / length;
+  q[2] = s * az / length;
   q[3] = c;
   return q;
 }
@@ -101,6 +103,15 @@ quat quat_fromMat4(quat q, mat4 m) {
   q[2] = z;
   q[3] = w;
   return q;
+}
+
+quat quat_mul(quat q, quat r) {
+  return quat_set(q,
+    q[0] * r[3] + q[3] * r[0] - q[1] * r[2] - q[2] * r[1],
+    q[1] * r[3] + q[3] * r[1] - q[2] * r[0] - q[0] * r[2],
+    q[2] * r[3] + q[3] * r[2] - q[0] * r[1] - q[1] * r[0],
+    q[3] * r[3] - q[0] * r[0] - q[1] * r[1] - q[2] * r[2]
+  );
 }
 
 quat quat_normalize(quat q) {
@@ -183,6 +194,27 @@ void quat_getAngleAxis(quat q, float* angle, float* x, float* y, float* z) {
   *x = q[0] * s;
   *y = q[1] * s;
   *z = q[2] * s;
+}
+
+quat quat_between(quat q, vec3 u, vec3 v) {
+  float dot = vec3_dot(u, v);
+  if (dot > .99999) {
+    q[0] = q[1] = q[2] = 0.f;
+    q[3] = 1.f;
+    return q;
+  } else if (dot < -.99999) {
+    float axis[3];
+    vec3_cross(vec3_set(axis, 1, 0, 0), u);
+    if (vec3_length(axis) < .00001) {
+      vec3_cross(vec3_set(axis, 0, 1, 0), u);
+    }
+    vec3_normalize(axis);
+    quat_fromAngleAxis(q, M_PI, axis[0], axis[1], axis[2]);
+    return q;
+  }
+  vec3_cross(vec3_init(q, u), v);
+  q[3] = 1 + dot;
+  return quat_normalize(q);
 }
 
 // mat4
@@ -406,8 +438,7 @@ mat4 mat4_translate(mat4 m, float x, float y, float z) {
 
 mat4 mat4_rotate(mat4 m, float angle, float x, float y, float z) {
   float q[4];
-  float v[3];
-  quat_fromAngleAxis(q, angle, vec3_set(v, x, y, z));
+  quat_fromAngleAxis(q, angle, x, y, z);
   return mat4_rotateQuat(m, q);
 }
 
