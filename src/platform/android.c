@@ -76,3 +76,7 @@ void lovrSleep(double seconds) {
 int lovrGetExecutablePath(char* dest, uint32_t size) {
   return 1;
 }
+
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+getProcAddressProc lovrGetProcAddress = eglGetProcAddress;

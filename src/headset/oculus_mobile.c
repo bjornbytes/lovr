@@ -1,8 +1,7 @@
 #include "headset/headset.h"
 #include "oculus_mobile_bridge.h"
-#include "math/quat.h"
+#include "math.h"
 #include "graphics/graphics.h"
-#include "math/mat4.h"
 #include "lib/glad/glad.h"
 #include <assert.h>
 #include "platform.h"
