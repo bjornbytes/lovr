@@ -277,6 +277,8 @@ static lua_State *L, *Lcoroutine;
 static int coroutineRef = LUA_NOREF;
 static int coroutineStartFunctionRef = LUA_NOREF;
 
+static char *apkPath;
+
 // Expose to filesystem.h
 char *lovrOculusMobileWritablePath;
 
@@ -311,24 +313,11 @@ static int luax_custom_atpanic(lua_State *L) {
   return 0;
 }
 
-void bridgeLovrInit(BridgeLovrInitData *initData) {
-  lovrLog("\n INSIDE LOVR\n");
-
-  // Save writable data directory for LovrFilesystemInit later
-  {
-    lovrOculusMobileWritablePath = sdsRemoveFreeSpace(SDS("%s/data", initData->writablePath));
-    mkdir(lovrOculusMobileWritablePath, 0777);
-  }
-
-  // Unpack init data
-  bridgeLovrMobileData.displayDimensions = initData->suggestedEyeTexture;
-  bridgeLovrMobileData.updateData.displayTime = initData->zeroDisplayTime;
-  bridgeLovrMobileData.deviceType = initData->deviceType;
-
+static void bridgeLovrInitState() {
   // Ready to actually go now.
   // Copypaste the init sequence from lovrRun:
   // Load libraries
-  L = luaL_newstate(); // FIXME: Just call main?
+  L = luaL_newstate(); // FIXME: Can this be handed off to main.c?
   luax_setmainstate(L);
   lua_atpanic(L, luax_custom_atpanic);
   luaL_openlibs(L);
@@ -358,7 +347,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
     lua_setfield(L, -3, "root");
     lua_rawseti(L, -2, -1);
 
-    lua_pushstring(L, initData->apkPath);
+    lua_pushstring(L, apkPath);
     lua_rawseti(L, -2, 0);
 
     lua_setglobal(L, "arg");
@@ -384,6 +373,28 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   lua_atpanic(Lcoroutine, luax_custom_atpanic);
   coroutineRef = luaL_ref(L, LUA_REGISTRYINDEX); // Hold on to the Lua-side coroutine object so it isn't GC'd
 
+  lovrLog("\n STATE INIT COMPLETE\n");
+}
+
+void bridgeLovrInit(BridgeLovrInitData *initData) {
+  lovrLog("\n INSIDE LOVR\n");
+
+  // Save writable data directory for LovrFilesystemInit later
+  {
+    lovrOculusMobileWritablePath = sdsRemoveFreeSpace(SDS("%s/data", initData->writablePath));
+    mkdir(lovrOculusMobileWritablePath, 0777);
+  }
+
+  // Unpack init data
+  bridgeLovrMobileData.displayDimensions = initData->suggestedEyeTexture;
+  bridgeLovrMobileData.updateData.displayTime = initData->zeroDisplayTime;
+  bridgeLovrMobileData.deviceType = initData->deviceType;
+
+  free(apkPath);
+  apkPath = strdup(initData->apkPath);
+
+  bridgeLovrInitState();
+
   lovrLog("\n BRIDGE INIT COMPLETE\n");
 }
 
@@ -407,8 +418,14 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   }
   int coroutineArgs = luax_pushLovrHeadsetRenderError(Lcoroutine);
   if (lua_resume(Lcoroutine, coroutineArgs) != LUA_YIELD) {
-    lovrLog("\n LUA QUIT\n");
-    assert(0);
+    if (lua_type(Lcoroutine, -1) == LUA_TSTRING && !strcmp(lua_tostring(Lcoroutine, -1), "restart")) {
+      lua_close(L);
+      luax_setmainstate(NULL);
+      bridgeLovrInitState();
+    } else {
+      lovrLog("\n LUA REQUESTED A QUIT\n");
+      assert(0);
+    }
   }
 }
 
