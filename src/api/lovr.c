@@ -6,9 +6,6 @@
 
 const luaL_Reg lovrModules[] = {
   { "lovr", luaopen_lovr },
-#ifdef LOVR_ENABLE_ANDROID
-  { "lovr.android", luaopen_lovr_android },
-#endif
 #ifdef LOVR_ENABLE_AUDIO
   { "lovr.audio", luaopen_lovr_audio },
 #endif

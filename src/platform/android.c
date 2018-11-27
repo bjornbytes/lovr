@@ -1,4 +1,5 @@
 #include "platform.h"
+#include <stdio.h>
 #include <unistd.h>
 
 bool lovrPlatformInit() {
@@ -76,6 +77,25 @@ void lovrSleep(double seconds) {
 int lovrGetExecutablePath(char* dest, uint32_t size) {
   return 1;
 }
+
+sds lovrGetApplicationId() {
+  pid_t pid = getpid();
+  sds procPath = sdscatfmt(sdsempty(), "/proc/%i/cmdline", (int)pid);
+  FILE *procFile = fopen(procPath, "r");
+  sdsfree(procPath);
+  if (procFile) {
+    sds procData = sdsempty();
+    char data[64];
+    int read;
+    while ((read = fread(data, 1, sizeof(data), procFile))) {
+      procData = sdscatlen(procData, data, read);
+    }
+    return procData;
+  } else {
+    return NULL;
+  }
+}
+
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>

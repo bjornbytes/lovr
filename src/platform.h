@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include <lib/sds/sds.h>
 
 #pragma once
 
@@ -86,3 +87,4 @@ bool lovrPlatformIsMouseDown(MouseButton button);
 bool lovrPlatformIsKeyDown(KeyCode key);
 void lovrSleep(double seconds);
 int lovrGetExecutablePath(char* dest, uint32_t size);
+sds lovrGetApplicationId();

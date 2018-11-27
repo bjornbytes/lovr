@@ -10,3 +10,7 @@ void lovrSleep(double seconds) {
 int lovrGetExecutablePath(char* dest, uint32_t size) {
   return !GetModuleFileName(NULL, dest, size);
 }
+
+sds lovrGetApplicationId() {
+	return NULL;
+}
