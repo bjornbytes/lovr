@@ -2,6 +2,7 @@
 #include "filesystem/filesystem.h"
 #include "data/blob.h"
 #include <stdlib.h>
+#include "platform.h"
 
 // Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
 Blob* luax_readblob(lua_State* L, int index, const char* debug) {
@@ -329,6 +330,17 @@ static int l_lovrFilesystemWrite(lua_State* L) {
   return 1;
 }
 
+static int l_lovrFilesystemGetApplicationId(lua_State *L) {
+  sds applicationId = lovrGetApplicationId();
+  if (applicationId) {
+    lua_pushstring(L, applicationId);
+    sdsfree(applicationId);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
 static const luaL_Reg lovrFilesystem[] = {
   { "append", l_lovrFilesystemAppend },
   { "createDirectory", l_lovrFilesystemCreateDirectory },
@@ -356,6 +368,7 @@ static const luaL_Reg lovrFilesystem[] = {
   { "setIdentity", l_lovrFilesystemSetIdentity },
   { "unmount", l_lovrFilesystemUnmount },
   { "write", l_lovrFilesystemWrite },
+  { "getApplicationId", l_lovrFilesystemGetApplicationId },
   { NULL, NULL }
 };
 

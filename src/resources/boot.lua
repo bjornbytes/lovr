@@ -50,7 +50,6 @@ end
 function lovr.boot()
   local conf = {
     modules = {
-      android = true,
       audio = true,
       data = true,
       event = true,

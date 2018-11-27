@@ -11,3 +11,8 @@ void lovrSleep(double seconds) {
 int lovrGetExecutablePath(char* dest, uint32_t size) {
   return _NSGetExecutablePath(dest, &size);
 }
+
+// TODO: Actually, this could perfectly well return the bundle ID, but who would need it?
+sds lovrGetApplicationId() {
+	return NULL;
+}
