@@ -197,20 +197,17 @@ const char* WrapModes[] = {
 };
 
 static uint32_t luax_readvertices(lua_State* L, int index) {
+  /*
   bool isTable = lua_istable(L, index);
+  uint32_t vertexCount = (lua_gettop(L) - index + 1) / 3;
 
-  if (!isTable && !lua_isnumber(L, index)) {
-    luaL_error(L, "Expected number or table, got '%s'", lua_typename(L, lua_type(L, 1)));
-    return 0;
+  if (isTable) {
+    lua_rawgeti(L, 1);
+    vertexCount = lua_type(L, -1) == LUA_TNUMBER ? lua_objlen(L, index) / 3 : lua_objlen(L, index);
+    lua_pop(L, 1);
   }
 
-  uint32_t count = isTable ? lua_objlen(L, index) : lua_gettop(L) - index + 1;
-  if (count % 3 != 0) {
-    luaL_error(L, "Number of coordinates must be a multiple of 3, got '%d'", count);
-    return 0;
-  }
-
-  VertexPointer pointer = lovrGraphicsGetVertexPointer(count / 3);
+  VertexPointer pointer = lovrGraphicsGetVertexPointer(count);
 
   if (isTable) {
     for (uint32_t i = 1; i <= count; i += 3) {
@@ -231,7 +228,8 @@ static uint32_t luax_readvertices(lua_State* L, int index) {
     }
   }
 
-  return count / 3;
+  return count / 3;*/
+  return 0;
 }
 
 static void stencilCallback(void* userdata) {
@@ -588,40 +586,37 @@ static int l_lovrGraphicsOrigin(lua_State* L) {
 }
 
 static int l_lovrGraphicsTranslate(lua_State* L) {
-  float x = luaL_optnumber(L, 1, 0.);
-  float y = luaL_optnumber(L, 2, 0.);
-  float z = luaL_optnumber(L, 3, 0.);
-  lovrGraphicsTranslate(x, y, z);
+  float translation[3];
+  luax_readvec3(L, 1, translation, NULL);
+  lovrGraphicsTranslate(translation);
   return 0;
 }
 
 static int l_lovrGraphicsRotate(lua_State* L) {
-  float angle = luaL_checknumber(L, 1);
-  float axisX = luaL_optnumber(L, 2, 0);
-  float axisY = luaL_optnumber(L, 3, 1);
-  float axisZ = luaL_optnumber(L, 4, 0);
-  lovrGraphicsRotate(angle, axisX, axisY, axisZ);
+  float rotation[4];
+  luax_readquat(L, 1, rotation, NULL);
+  lovrGraphicsRotate(rotation);
   return 0;
 }
 
 static int l_lovrGraphicsScale(lua_State* L) {
-  float x = luaL_checknumber(L, 1);
-  float y = luaL_optnumber(L, 2, x);
-  float z = luaL_optnumber(L, 3, x);
-  lovrGraphicsScale(x, y, z);
+  float scale[3];
+  luax_readscale(L, 1, scale, 3, NULL);
+  lovrGraphicsScale(scale);
   return 0;
 }
 
 static int l_lovrGraphicsTransform(lua_State* L) {
   float transform[16];
-  luax_readtransform(L, 1, transform, 3);
+  luax_readmat4(L, 1, transform, 3, NULL);
   lovrGraphicsMatrixTransform(transform);
   return 0;
 }
 
 static int l_lovrGraphicsSetProjection(lua_State* L) {
-  Transform* transform = luax_checktype(L, 1, Transform);
-  lovrGraphicsSetProjection(transform->matrix);
+  float transform[16];
+  luax_readmat4(L, 1, transform, 3, NULL);
+  lovrGraphicsSetProjection(transform);
   return 0;
 }
 
@@ -718,7 +713,7 @@ static int l_lovrGraphicsPlane(lua_State* L) {
     drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
   }
   float transform[16];
-  luax_readtransform(L, 2, transform, 2);
+  luax_readmat4(L, 2, transform, 2, NULL);
   lovrGraphicsPlane(drawMode, material, transform);
   return 0;
 }
@@ -732,7 +727,7 @@ static int luax_rectangularprism(lua_State* L, int scaleComponents) {
     drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
   }
   float transform[16];
-  luax_readtransform(L, 2, transform, scaleComponents);
+  luax_readmat4(L, 2, transform, scaleComponents, NULL);
   lovrGraphicsBox(drawMode, material, transform);
   return 0;
 }
@@ -759,7 +754,7 @@ static int l_lovrGraphicsArc(lua_State* L) {
     arcMode = luaL_checkoption(L, index++, NULL, ArcModes);
   }
   float transform[16];
-  index = luax_readtransform(L, index, transform, 1);
+  index = luax_readmat4(L, index, transform, 1, NULL);
   float theta1 = luaL_optnumber(L, index++, 0);
   float theta2 = luaL_optnumber(L, index++, 2 * M_PI);
   int segments = luaL_optinteger(L, index, 64) * (MIN(fabsf(theta2 - theta1), 2 * M_PI) / (2 * M_PI));
@@ -776,7 +771,7 @@ static int l_lovrGraphicsCircle(lua_State* L) {
     drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
   }
   float transform[16];
-  int index = luax_readtransform(L, 2, transform, 1);
+  int index = luax_readmat4(L, 2, transform, 1, NULL);
   int segments = luaL_optnumber(L, index, 32);
   lovrGraphicsCircle(drawMode, material, transform, segments);
   return 0;
@@ -803,7 +798,7 @@ static int l_lovrGraphicsSphere(lua_State* L) {
   float transform[16];
   int index = 1;
   Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
-  index = luax_readtransform(L, index, transform, 1);
+  index = luax_readmat4(L, index, transform, 1, NULL);
   int segments = luaL_optnumber(L, index, 30);
   lovrGraphicsSphere(material, transform, segments);
   return 0;
@@ -822,7 +817,7 @@ static int l_lovrGraphicsSkybox(lua_State* L) {
 static int l_lovrGraphicsPrint(lua_State* L) {
   const char* str = luaL_checkstring(L, 1);
   float transform[16];
-  int index = luax_readtransform(L, 2, transform, 1);
+  int index = luax_readmat4(L, 2, transform, 1, NULL);
   float wrap = luaL_optnumber(L, index++, 0);
   HorizontalAlign halign = luaL_checkoption(L, index++, "center", HorizontalAligns);
   VerticalAlign valign = luaL_checkoption(L, index++, "middle", VerticalAligns);

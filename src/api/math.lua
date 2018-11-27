@@ -164,6 +164,8 @@ ffi.metatype(vec3, {
 
 ffi.metatype(quat, {
   __index = {
+    _type = C.MATH_QUAT,
+
     unpack = function(q, raw)
       checkquat(q)
       if raw then
@@ -182,9 +184,7 @@ ffi.metatype(quat, {
           if raw then
             C.quat_set(q, x, y, z, w)
           else
-            local axis = new('vec3[1]')
-            axis[0] = vec3(y, z, w)
-            C.quat_fromAngleAxis(q, x, axis)
+            C.quat_fromAngleAxis(q, x, y, z, w)
           end
         else
           local axis = checkvec3(y)
@@ -255,6 +255,8 @@ ffi.metatype(quat, {
 
 ffi.metatype(mat4, {
   __index = {
+    _type = C.MATH_MAT4,
+
     unpack = function(m)
       checkmat4(m)
       return -- yum

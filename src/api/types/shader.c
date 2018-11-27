@@ -1,5 +1,6 @@
 #include "api.h"
 #include "api/graphics.h"
+#include "api/math.h"
 #include "graphics/shader.h"
 #include "math/transform.h"
 
@@ -13,10 +14,11 @@ static struct TempData tempData;
 
 int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* dest, const char* debug) {
   Blob* blob = luax_totype(L, index, Blob);
+  UniformType uniformType = uniform->type;
   int components = uniform->components;
   int count = uniform->count;
 
-  if (uniform->type == UNIFORM_MATRIX) {
+  if (uniformType == UNIFORM_MATRIX) {
     components *= components;
   }
 
@@ -25,7 +27,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
     const char* s = elements == 1 ? "" : "s";
     size_t capacity;
 
-    switch (uniform->type) {
+    switch (uniformType) {
       case UNIFORM_FLOAT:
       case UNIFORM_MATRIX:
         capacity = blob->size / sizeof(float);
@@ -57,7 +59,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         j = -1;
       }
 
-      switch (uniform->type) {
+      switch (uniformType) {
         case UNIFORM_FLOAT: *((float*) dest + i) = luaL_optnumber(L, j, 0.); break;
         case UNIFORM_INT: *((int*) dest + i) = luaL_optinteger(L, j, 0); break;
         case UNIFORM_SAMPLER:
@@ -96,16 +98,28 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
       for (int i = 0; i < length; i++) {
         lua_rawgeti(L, index, i + 1);
 
-        if (uniform->type == UNIFORM_MATRIX && lua_isuserdata(L, -1)) {
-          Transform* transform = luax_checktype(L, -1, Transform);
-          memcpy((float*) dest + i * components, transform->matrix, 16 * sizeof(float));
-          lua_pop(L, 1);
-          continue;
+        if (uniformType == UNIFORM_MATRIX && components == 16) {
+          MathType type;
+          mat4 m = luax_tomathtype(L, -1, &type);
+          if (m && type == MATH_MAT4) {
+            mat4_init((float*) dest + i * components, m);
+            lua_pop(L, 1);
+            continue;
+          }
+        } else if (uniformType == UNIFORM_FLOAT && components == 3) {
+          MathType type;
+          vec3 v = luax_tomathtype(L, -1, &type);
+          if (v && type == MATH_VEC3) {
+            vec3_init((float*) dest + i * components, v);
+            lua_pop(L, 1);
+            continue;
+          }
         }
 
+        luaL_checktype(L, -1, LUA_TTABLE);
         for (int j = 0; j < components; j++) {
           lua_rawgeti(L, -1, j + 1);
-          switch (uniform->type) {
+          switch (uniformType) {
             case UNIFORM_FLOAT:
             case UNIFORM_MATRIX:
               *((float*) dest + i * components + j) = luaL_optnumber(L, -1, 0.);
@@ -125,16 +139,26 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
       }
     } else {
       for (int i = 0; i < count; i++) {
-        if (uniform->type == UNIFORM_MATRIX && lua_isuserdata(L, index + i)) {
-          Transform* transform = luax_checktype(L, index + i, Transform);
-          memcpy((float*) dest + i * components, transform->matrix, 16 * sizeof(float));
-          continue;
+        if (uniformType == UNIFORM_MATRIX && components == 16) {
+          MathType type;
+          mat4 m = luax_tomathtype(L, index + i, &type);
+          if (m && type == MATH_MAT4) {
+            mat4_init((float*) dest + i * components, m);
+            continue;
+          }
+        } else if (uniformType == UNIFORM_FLOAT && components == 3) {
+          MathType type;
+          vec3 v = luax_tomathtype(L, index + i, &type);
+          if (v && type == MATH_VEC3) {
+            vec3_init((float*) dest + i * components, v);
+            continue;
+          }
         }
 
         luaL_checktype(L, index + i, LUA_TTABLE);
         for (int j = 0; j < components; j++) {
           lua_rawgeti(L, index + i, j + 1);
-          switch (uniform->type) {
+          switch (uniformType) {
             case UNIFORM_FLOAT:
             case UNIFORM_MATRIX:
               *((float*) dest + i * components + j) = luaL_optnumber(L, -1, 0.);

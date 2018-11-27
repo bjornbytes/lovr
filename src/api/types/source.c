@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/math.h"
 #include "audio/audio.h"
 #include <stdbool.h>
 
@@ -25,12 +26,9 @@ int l_lovrSourceGetCone(lua_State* L) {
 }
 
 int l_lovrSourceGetDirection(lua_State* L) {
-  float x, y, z;
-  lovrSourceGetDirection(luax_checktype(L, 1, Source), &x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 3;
+  float direction[3];
+  lovrSourceGetDirection(luax_checktype(L, 1, Source), &direction[0], &direction[1], &direction[2]);
+  return luax_pushvec3(L, direction, 2);
 }
 
 int l_lovrSourceGetDuration(lua_State* L) {
@@ -64,12 +62,9 @@ int l_lovrSourceGetPitch(lua_State* L) {
 }
 
 int l_lovrSourceGetPosition(lua_State* L) {
-  float x, y, z;
-  lovrSourceGetPosition(luax_checktype(L, 1, Source), &x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 3;
+  float position[3];
+  lovrSourceGetPosition(luax_checktype(L, 1, Source), &position[0], &position[1], &position[2]);
+  return luax_pushvec3(L, position, 2);
 }
 
 int l_lovrSourceGetSampleRate(lua_State* L) {
@@ -85,12 +80,9 @@ int l_lovrSourceGetType(lua_State* L) {
 }
 
 int l_lovrSourceGetVelocity(lua_State* L) {
-  float x, y, z;
-  lovrSourceGetVelocity(luax_checktype(L, 1, Source), &x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 3;
+  float velocity[3];
+  lovrSourceGetVelocity(luax_checktype(L, 1, Source), &velocity[0], &velocity[1], &velocity[2]);
+  return luax_pushvec3(L, velocity, 2);
 }
 
 int l_lovrSourceGetVolume(lua_State* L) {
@@ -195,10 +187,9 @@ int l_lovrSourceSetLooping(lua_State* L) {
 
 int l_lovrSourceSetDirection(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float x = luaL_checknumber(L, 2);
-  float y = luaL_checknumber(L, 3);
-  float z = luaL_checknumber(L, 4);
-  lovrSourceSetDirection(source, x, y, z);
+  float direction[3];
+  luax_readvec3(L, 2, direction, NULL);
+  lovrSourceSetDirection(source, direction[0], direction[1], direction[2]);
   return 0;
 }
 
@@ -209,10 +200,9 @@ int l_lovrSourceSetPitch(lua_State* L) {
 
 int l_lovrSourceSetPosition(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float x = luaL_checknumber(L, 2);
-  float y = luaL_checknumber(L, 3);
-  float z = luaL_checknumber(L, 4);
-  lovrSourceSetPosition(source, x, y, z);
+  float position[3];
+  luax_readvec3(L, 2, position, NULL);
+  lovrSourceSetPosition(source, position[0], position[1], position[2]);
   return 0;
 }
 
@@ -225,10 +215,9 @@ int l_lovrSourceSetRelative(lua_State* L) {
 
 int l_lovrSourceSetVelocity(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float x = luaL_checknumber(L, 2);
-  float y = luaL_checknumber(L, 3);
-  float z = luaL_checknumber(L, 4);
-  lovrSourceSetVelocity(source, x, y, z);
+  float velocity[3];
+  luax_readvec3(L, 2, velocity, NULL);
+  lovrSourceSetVelocity(source, velocity[0], velocity[1], velocity[2]);
   return 0;
 }
 

@@ -3,6 +3,56 @@
 #include "math/math.h"
 #include "lib/math.h"
 
+int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents, const char* expected) {
+  switch (lua_type(L, index)) {
+    case LUA_TNIL:
+    case LUA_TNONE:
+      mat4_identity(m);
+      return index + 1;
+
+    case LUA_TLIGHTUSERDATA:
+    case LUA_TUSERDATA:
+    default: {
+      MathType type;
+      float* p = luax_tomathtype(L, index, &type);
+      if (type == MATH_MAT4) {
+        mat4_init(m, p);
+        return index + 1;
+      }
+    } // Fall through
+
+    case LUA_TNUMBER: {
+      float S[3];
+      float R[4];
+      mat4_identity(m);
+      index = luax_readvec3(L, index, m + 12, "mat4, vec3, or number");
+      index = luax_readscale(L, index, S, scaleComponents, NULL);
+      index = luax_readquat(L, index, R, NULL);
+      mat4_rotateQuat(m, R);
+      mat4_scale(m, S[0], S[1], S[2]);
+      return index;
+    }
+  }
+}
+
+int luax_pushpose(lua_State* L, float x, float y, float z, float angle, float ax, float ay, float az, int index) {
+  mat4 out;
+  if (index > 0 && !lua_isnoneornil(L, index) && (out = luax_checkmathtype(L, index, MATH_MAT4, NULL)) != NULL) {
+    mat4_setTransform(out, x, y, z, 1, 1, 1, angle, ax, ay, az);
+    lua_settop(L, index);
+    return 1;
+  } else {
+    lua_pushnumber(L, x);
+    lua_pushnumber(L, y);
+    lua_pushnumber(L, z);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+    return 7;
+  }
+}
+
 static int l_lovrMat4Unpack(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   for (int i = 0; i < 16; i++) {
@@ -13,8 +63,14 @@ static int l_lovrMat4Unpack(lua_State* L) {
 
 int l_lovrMat4Set(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  for (int i = 0; i < 16; i++) {
-    m[i] = luaL_checknumber(L, i);
+  switch (lua_gettop(L)) {
+    case 1: mat4_identity(m); break;
+    case 2: m[0] = m[5] = m[10] = m[15] = luaL_checknumber(L, 2); break;
+    default:
+      for (int i = 0; i < 16; i++) {
+        m[i] = luaL_checknumber(L, i + 2);
+      }
+      break;
   }
   lua_settop(L, 1);
   return 1;

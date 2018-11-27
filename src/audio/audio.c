@@ -108,20 +108,16 @@ void lovrAudioGetMicrophoneNames(const char* names[MAX_MICROPHONES], uint8_t* co
   }
 }
 
-void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az) {
-  quat_getAngleAxis(state.orientation, angle, ax, ay, az);
+void lovrAudioGetOrientation(quat orientation) {
+  quat_init(orientation, state.orientation);
 }
 
-void lovrAudioGetPosition(float* x, float* y, float* z) {
-  *x = state.position[0];
-  *y = state.position[1];
-  *z = state.position[2];
+void lovrAudioGetPosition(vec3 position) {
+  vec3_init(position, state.position);
 }
 
-void lovrAudioGetVelocity(float* x, float* y, float* z) {
-  *x = state.velocity[0];
-  *y = state.velocity[1];
-  *z = state.velocity[2];
+void lovrAudioGetVelocity(vec3 velocity) {
+  vec3_init(velocity, state.velocity);
 }
 
 float lovrAudioGetVolume() {
@@ -166,28 +162,28 @@ void lovrAudioSetDopplerEffect(float factor, float speedOfSound) {
   alSpeedOfSound(speedOfSound);
 }
 
-void lovrAudioSetOrientation(float angle, float ax, float ay, float az) {
+void lovrAudioSetOrientation(quat orientation) {
 
   // Rotate the unit forward/up vectors by the quaternion derived from the specified angle/axis
   float f[3] = { 0, 0, -1 };
   float u[3] = { 0, 1, 0 };
-  quat_fromAngleAxis(state.orientation, angle, ax, ay, az);
+  quat_init(state.orientation, orientation);
   quat_rotate(state.orientation, f);
   quat_rotate(state.orientation, u);
 
   // Pass the rotated orientation vectors to OpenAL
-  ALfloat orientation[6] = { f[0], f[1], f[2], u[0], u[1], u[2] };
-  alListenerfv(AL_ORIENTATION, orientation);
+  ALfloat directionVectors[6] = { f[0], f[1], f[2], u[0], u[1], u[2] };
+  alListenerfv(AL_ORIENTATION, directionVectors);
 }
 
-void lovrAudioSetPosition(float x, float y, float z) {
-  vec3_set(state.position, x, y, z);
-  alListener3f(AL_POSITION, x, y, z);
+void lovrAudioSetPosition(vec3 position) {
+  vec3_init(state.position, position);
+  alListenerfv(AL_POSITION, position);
 }
 
-void lovrAudioSetVelocity(float x, float y, float z) {
-  vec3_set(state.velocity, x, y, z);
-  alListener3f(AL_VELOCITY, x, y, z);
+void lovrAudioSetVelocity(vec3 velocity) {
+  vec3_init(state.velocity, velocity);
+  alListenerfv(AL_VELOCITY, velocity);
 }
 
 void lovrAudioSetVolume(float volume) {

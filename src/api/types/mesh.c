@@ -58,7 +58,7 @@ int l_lovrMeshDrawInstanced(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int instances = luaL_checkinteger(L, 2);
   float transform[16];
-  luax_readtransform(L, 3, transform, 1);
+  luax_readmat4(L, 3, transform, 1, NULL);
   lovrGraphicsDraw(&(DrawCommand) {
     .transform = transform,
     .mesh = mesh,

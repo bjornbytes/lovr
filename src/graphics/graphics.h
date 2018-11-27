@@ -203,9 +203,9 @@ void lovrGraphicsSetWireframe(bool wireframe);
 void lovrGraphicsPush();
 void lovrGraphicsPop();
 void lovrGraphicsOrigin();
-void lovrGraphicsTranslate(float x, float y, float z);
-void lovrGraphicsRotate(float angle, float ax, float ay, float az);
-void lovrGraphicsScale(float x, float y, float z);
+void lovrGraphicsTranslate(vec3 translation);
+void lovrGraphicsRotate(quat rotation);
+void lovrGraphicsScale(vec3 scale);
 void lovrGraphicsMatrixTransform(mat4 transform);
 void lovrGraphicsSetProjection(mat4 projection);
 

@@ -1,5 +1,7 @@
 #include "api.h"
+#include "api/math.h"
 #include "headset/headset.h"
+#include "lib/math.h"
 
 #if defined(EMSCRIPTEN) || defined(LOVR_USE_OCULUS_MOBILE)
 #define LOVR_HEADSET_HELPER_USES_REGISTRY
@@ -217,63 +219,46 @@ static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
   return 1;
 }
 
-static void luax_getPose(lua_State* L, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static int luax_getPose(lua_State* L, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (lua_type(L, 1) == LUA_TSTRING) {
     HeadsetEye eye = luaL_checkoption(L, 1, NULL, HeadsetEyes);
     lovrHeadsetDriver->getEyePose(eye, x, y, z, angle, ax, ay, az);
+    return 2;
   } else {
     lovrHeadsetDriver->getPose(x, y, z, angle, ax, ay, az);
+    return 1;
   }
 }
 
 static int l_lovrHeadsetGetPose(lua_State* L) {
   float x, y, z, angle, ax, ay, az;
-  luax_getPose(L, &x, &y, &z, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 7;
+  int index = luax_getPose(L, &x, &y, &z, &angle, &ax, &ay, &az);
+  return luax_pushpose(L, x, y, x, angle, ax, ay, az, index);
 }
 
 static int l_lovrHeadsetGetPosition(lua_State* L) {
-  float x, y, z, angle, ax, ay, az;
-  luax_getPose(L, &x, &y, &z, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 3;
+  float position[3], angle, ax, ay, az;
+  int index = luax_getPose(L, &position[0], &position[1], &position[2], &angle, &ax, &ay, &az);
+  return luax_pushvec3(L, position, index);
 }
 
 static int l_lovrHeadsetGetOrientation(lua_State* L) {
-  float x, y, z, angle, ax, ay, az;
-  luax_getPose(L, &x, &y, &z, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 4;
+  float x, y, z, angle, ax, ay, az, q[4];
+  int index = luax_getPose(L, &x, &y, &z, &angle, &ax, &ay, &az);
+  quat_fromAngleAxis(q, angle, ax, ay, az);
+  return luax_pushquat(L, q, index);
 }
 
 static int l_lovrHeadsetGetVelocity(lua_State* L) {
-  float vx, vy, vz;
-  lovrHeadsetDriver->getVelocity(&vx, &vy, &vz);
-  lua_pushnumber(L, vx);
-  lua_pushnumber(L, vy);
-  lua_pushnumber(L, vz);
-  return 3;
+  float velocity[3];
+  lovrHeadsetDriver->getVelocity(&velocity[0], &velocity[1], &velocity[2]);
+  return luax_pushvec3(L, velocity, 1);
 }
 
 static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
-  float vx, vy, vz;
-  lovrHeadsetDriver->getAngularVelocity(&vx, &vy, &vz);
-  lua_pushnumber(L, vx);
-  lua_pushnumber(L, vy);
-  lua_pushnumber(L, vz);
-  return 3;
+  float velocity[3];
+  lovrHeadsetDriver->getAngularVelocity(&velocity[0], &velocity[1], &velocity[2]);
+  return luax_pushvec3(L, velocity, 1);
 }
 
 static int l_lovrHeadsetGetControllers(lua_State* L) {
