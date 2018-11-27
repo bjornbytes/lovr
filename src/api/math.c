@@ -21,7 +21,7 @@ static const luaL_Reg* lovrMathTypes[] = {
 
 static int lovrMathTypeRefs[MAX_MATH_TYPES];
 
-float* luax_tolightmathtype(lua_State* L, int index, MathType* type) {
+static float* luax_tolightmathtype(lua_State* L, int index, MathType* type) {
   uintptr_t p = (uintptr_t) lua_touserdata(L, index), aligned = ALIGN(p, POOL_ALIGN);
   return *type = p - aligned, p ? (float*) aligned : NULL;
 }

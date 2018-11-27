@@ -6,7 +6,7 @@ int l_lovrModelDrawInstanced(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   int instances = luaL_checkinteger(L, 2);
   float transform[16];
-  luax_readtransform(L, 3, transform, 1);
+  luax_readmat4(L, 3, transform, 1, NULL);
   lovrModelDraw(model, transform, instances);
   return 0;
 }

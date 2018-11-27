@@ -1,5 +1,6 @@
 #include "api.h"
 #include "api/data.h"
+#include "api/math.h"
 #include "audio/audio.h"
 #include "audio/source.h"
 #include "data/audioStream.h"
@@ -50,31 +51,21 @@ static int l_lovrAudioGetMicrophoneNames(lua_State* L) {
 }
 
 static int l_lovrAudioGetOrientation(lua_State* L) {
-  float angle, ax, ay, az;
-  lovrAudioGetOrientation(&angle, &ax, &ay, &az);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 4;
+  float orientation[4];
+  lovrAudioGetOrientation(orientation);
+  return luax_pushquat(L, orientation, 1);
 }
 
 static int l_lovrAudioGetPosition(lua_State* L) {
-  float x, y, z;
-  lovrAudioGetPosition(&x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 3;
+  float position[3];
+  lovrAudioGetPosition(position);
+  return luax_pushvec3(L, position, 1);
 }
 
 static int l_lovrAudioGetVelocity(lua_State* L) {
-  float x, y, z;
-  lovrAudioGetVelocity(&x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 3;
+  float velocity[3];
+  lovrAudioGetVelocity(velocity);
+  return luax_pushvec3(L, velocity, 1);
 }
 
 static int l_lovrAudioGetVolume(lua_State* L) {
@@ -162,27 +153,23 @@ static int l_lovrAudioSetDopplerEffect(lua_State* L) {
 }
 
 static int l_lovrAudioSetOrientation(lua_State* L) {
-  float angle = luaL_checknumber(L, 1);
-  float ax = luaL_checknumber(L, 2);
-  float ay = luaL_checknumber(L, 3);
-  float az = luaL_checknumber(L, 4);
-  lovrAudioSetOrientation(angle, ax, ay, az);
+  float orientation[4];
+  luax_readquat(L, 1, orientation, NULL);
+  lovrAudioSetOrientation(orientation);
   return 0;
 }
 
 static int l_lovrAudioSetPosition(lua_State* L) {
-  float x = luaL_checknumber(L, 1);
-  float y = luaL_checknumber(L, 2);
-  float z = luaL_checknumber(L, 3);
-  lovrAudioSetPosition(x, y, z);
+  float position[3];
+  luax_readvec3(L, 1, position, NULL);
+  lovrAudioSetPosition(position);
   return 0;
 }
 
 static int l_lovrAudioSetVelocity(lua_State* L) {
-  float x = luaL_checknumber(L, 1);
-  float y = luaL_checknumber(L, 2);
-  float z = luaL_checknumber(L, 3);
-  lovrAudioSetVelocity(x, y, z);
+  float velocity[3];
+  luax_readvec3(L, 1, velocity, NULL);
+  lovrAudioSetVelocity(velocity);
   return 0;
 }
 

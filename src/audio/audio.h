@@ -1,5 +1,6 @@
 #include "audio/source.h"
 #include "audio/microphone.h"
+#include "lib/math.h"
 #include "lib/vec/vec.h"
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -29,9 +30,9 @@ void lovrAudioUpdate();
 void lovrAudioAdd(Source* source);
 void lovrAudioGetDopplerEffect(float* factor, float* speedOfSound);
 void lovrAudioGetMicrophoneNames(const char* names[MAX_MICROPHONES], uint8_t* count);
-void lovrAudioGetOrientation(float* angle, float* ax, float* ay, float* az);
-void lovrAudioGetPosition(float* x, float* y, float* z);
-void lovrAudioGetVelocity(float* x, float* y, float* z);
+void lovrAudioGetOrientation(quat orientation);
+void lovrAudioGetPosition(vec3 position);
+void lovrAudioGetVelocity(vec3 velocity);
 float lovrAudioGetVolume();
 bool lovrAudioHas(Source* source);
 bool lovrAudioIsSpatialized();
@@ -39,8 +40,8 @@ void lovrAudioPause();
 void lovrAudioResume();
 void lovrAudioRewind();
 void lovrAudioSetDopplerEffect(float factor, float speedOfSound);
-void lovrAudioSetOrientation(float angle, float ax, float ay, float az);
-void lovrAudioSetPosition(float x, float y, float z);
-void lovrAudioSetVelocity(float x, float y, float z);
+void lovrAudioSetOrientation(quat orientation);
+void lovrAudioSetPosition(vec3 position);
+void lovrAudioSetVelocity(vec3 velocity);
 void lovrAudioSetVolume(float volume);
 void lovrAudioStop();

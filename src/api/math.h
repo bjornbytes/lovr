@@ -2,11 +2,17 @@
 #include "math/pool.h"
 #include "math/randomGenerator.h"
 
-float* luax_tolightmathtype(lua_State* L, int index, MathType* type);
 void luax_pushlightmathtype(lua_State* L, float* p, MathType type);
 float* luax_tomathtype(lua_State* L, int index, MathType* type);
-float* luax_checkmathtype(lua_State* L, int index, MathType type, const char* message);
+float* luax_checkmathtype(lua_State* L, int index, MathType type, const char* expected);
+int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected);
+int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* expected);
+int luax_readquat(lua_State* L, int index, quat q, const char* expected);
+int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents, const char* expected);
 int luax_readtransform(lua_State* L, int index, mat4 transform, int scaleComponents);
+int luax_pushvec3(lua_State* L, vec3 v, int outIndex);
+int luax_pushquat(lua_State* L, quat q, int outIndex);
+int luax_pushpose(lua_State* L, float x, float y, float z, float angle, float ax, float ay, float az, int outIndex);
 Seed luax_checkrandomseed(lua_State* L, int index);
 int l_lovrRandomGeneratorRandom(lua_State* L);
 int l_lovrRandomGeneratorRandomNormal(lua_State* L);

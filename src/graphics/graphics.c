@@ -308,16 +308,16 @@ void lovrGraphicsOrigin() {
   mat4_identity(state.transforms[state.transform]);
 }
 
-void lovrGraphicsTranslate(float x, float y, float z) {
-  mat4_translate(state.transforms[state.transform], x, y, z);
+void lovrGraphicsTranslate(vec3 translation) {
+  mat4_translate(state.transforms[state.transform], translation[0], translation[1], translation[2]);
 }
 
-void lovrGraphicsRotate(float angle, float ax, float ay, float az) {
-  mat4_rotate(state.transforms[state.transform], angle, ax, ay, az);
+void lovrGraphicsRotate(quat rotation) {
+  mat4_rotateQuat(state.transforms[state.transform], rotation);
 }
 
-void lovrGraphicsScale(float x, float y, float z) {
-  mat4_scale(state.transforms[state.transform], x, y, z);
+void lovrGraphicsScale(vec3 scale) {
+  mat4_scale(state.transforms[state.transform], scale[0], scale[1], scale[2]);
 }
 
 void lovrGraphicsMatrixTransform(mat4 transform) {
@@ -831,8 +831,8 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(transform);
-  lovrGraphicsScale(scale, scale, scale);
-  lovrGraphicsTranslate(0, offsety, 0);
+  lovrGraphicsScale((float[3]) { scale, scale, scale });
+  lovrGraphicsTranslate((float[3]) { 0, offsety, 0 });
   state.pipelines[state.pipeline].alphaCoverage = true;
   lovrGraphicsDraw(&(DrawCommand) {
     .shader = SHADER_FONT,

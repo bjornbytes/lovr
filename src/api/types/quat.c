@@ -2,6 +2,43 @@
 #include "api/math.h"
 #include "math/math.h"
 
+int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
+  float angle, ax, ay, az;
+  switch (lua_type(L, index)) {
+    case LUA_TNIL:
+    case LUA_TNONE:
+      quat_set(q, 0, 0, 0, 0);
+      return ++index;
+    case LUA_TNUMBER:
+      angle = luaL_optnumber(L, index++, 0.);
+      ax = luaL_optnumber(L, index++, 0.);
+      ay = luaL_optnumber(L, index++, 1.);
+      az = luaL_optnumber(L, index++, 0.);
+      quat_fromAngleAxis(q, angle, ax, ay, az);
+      return index;
+    default:
+      quat_init(q, luax_checkmathtype(L, index++, MATH_QUAT, expected ? expected : "quat or number"));
+      return index;
+  }
+}
+
+int luax_pushquat(lua_State* L, quat q, int index) {
+  quat out;
+  if (index > 0 && !lua_isnoneornil(L, index) && (out = luax_checkmathtype(L, index, MATH_QUAT, NULL)) != NULL) {
+    quat_init(out, q);
+    lua_settop(L, index);
+    return 1;
+  } else {
+    float angle, ax, ay, az;
+    quat_getAngleAxis(q, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+    return 4;
+  }
+}
+
 static int l_lovrQuatUnpack(lua_State* L) {
   quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
   bool raw = lua_toboolean(L, 2);

@@ -3,6 +3,59 @@
 #include "math/math.h"
 #include "lib/math.h"
 
+int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected) {
+  switch (lua_type(L, index)) {
+    case LUA_TNIL:
+    case LUA_TNONE:
+      v[0] = v[1] = v[2] = 0.f;
+      return ++index;
+    case LUA_TNUMBER:
+      v[0] = luaL_optnumber(L, index++, 0.);
+      v[1] = luaL_optnumber(L, index++, 0.);
+      v[2] = luaL_optnumber(L, index++, 0.);
+      return index;
+    default:
+      vec3_init(v, luax_checkmathtype(L, index++, MATH_VEC3, expected ? expected : "vec3 or number"));
+      return index;
+  }
+}
+
+int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* expected) {
+  switch (lua_type(L, index)) {
+    case LUA_TNIL:
+    case LUA_TNONE:
+      v[0] = v[1] = v[2] = 1.f;
+      return index + components;
+    case LUA_TNUMBER:
+      if (components == 1) {
+        v[0] = v[1] = v[2] = luaL_optnumber(L, index++, 0.);
+      } else {
+        v[0] = 1.f;
+        for (int i = 0; i < components; i++) {
+          v[i] = luaL_optnumber(L, index++, v[0]);
+        }
+      }
+      return index;
+    default:
+      vec3_init(v, luax_checkmathtype(L, index++, MATH_VEC3, expected ? expected : "vec3 or number"));
+      return index;
+  }
+}
+
+int luax_pushvec3(lua_State* L, vec3 v, int index) {
+  vec3 out;
+  if (index > 0 && !lua_isnoneornil(L, index) && (out = luax_checkmathtype(L, index, MATH_VEC3, NULL)) != NULL) {
+    vec3_init(out, v);
+    lua_settop(L, index);
+    return 1;
+  } else {
+    lua_pushnumber(L, v[0]);
+    lua_pushnumber(L, v[1]);
+    lua_pushnumber(L, v[2]);
+    return 3;
+  }
+}
+
 static int l_lovrVec3Unpack(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   lua_pushnumber(L, v[0]);
