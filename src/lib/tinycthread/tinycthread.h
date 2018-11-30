@@ -106,6 +106,10 @@ extern "C" {
   #define TTHREAD_NORETURN
 #endif
 
+/* HOTFIX: The TIME_UTC check below will spuriously succeed on Android NDK 18 or later, even on systems which lack timespec_get. */
+#ifdef __ANDROID__
+#undef TIME_UTC
+#endif
 /* If TIME_UTC is missing, provide it and provide a wrapper for
    timespec_get. */
 #ifndef TIME_UTC
