@@ -1,7 +1,6 @@
 #include "api.h"
 #include "api/graphics.h"
 #include "graphics/shader.h"
-#include "math/transform.h"
 
 int l_lovrShaderBlockIsWritable(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);

@@ -9,7 +9,6 @@ int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected);
 int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* expected);
 int luax_readquat(lua_State* L, int index, quat q, const char* expected);
 int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents, const char* expected);
-int luax_readtransform(lua_State* L, int index, mat4 transform, int scaleComponents);
 int luax_pushvec3(lua_State* L, vec3 v, int outIndex);
 int luax_pushquat(lua_State* L, quat q, int outIndex);
 int luax_pushpose(lua_State* L, float x, float y, float z, float angle, float ax, float ay, float az, int outIndex);
