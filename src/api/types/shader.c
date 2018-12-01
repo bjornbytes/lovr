@@ -2,7 +2,6 @@
 #include "api/graphics.h"
 #include "api/math.h"
 #include "graphics/shader.h"
-#include "math/transform.h"
 
 struct TempData {
   void* data;
@@ -89,7 +88,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
   } else {
     luaL_checktype(L, index, LUA_TTABLE);
     lua_rawgeti(L, index, 1);
-    bool wrappedTable = lua_istable(L, -1) || luax_totype(L, -1, Transform);
+    bool wrappedTable = !lua_isnumber(L, -1);
     lua_pop(L, 1);
 
     if (wrappedTable) {

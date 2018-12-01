@@ -13,7 +13,6 @@
 #include "data/textureData.h"
 #include "data/vertexData.h"
 #include "filesystem/filesystem.h"
-#include "math/transform.h"
 #include "util.h"
 #define _USE_MATH_DEFINES
 #include <math.h>

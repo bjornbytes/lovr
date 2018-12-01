@@ -480,12 +480,10 @@ if(LOVR_ENABLE_MATH)
     src/math/curve.c
     src/math/pool.c
     src/math/randomGenerator.c
-    src/math/transform.c
     src/api/math.c
     src/api/types/curve.c
     src/api/types/pool.c
     src/api/types/randomGenerator.c
-    src/api/types/transform.c
     src/api/types/vec3.c
     src/api/types/quat.c
     src/api/types/mat4.c

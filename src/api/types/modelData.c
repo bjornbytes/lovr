@@ -1,6 +1,6 @@
 #include "api.h"
 #include "data/modelData.h"
-#include "math/transform.h"
+#include "lib/math.h"
 
 int l_lovrModelDataGetVertexData(lua_State* L) {
   ModelData* modelData = luax_checktype(L, 1, ModelData);
@@ -45,26 +45,19 @@ int l_lovrModelDataGetNodeName(lua_State* L) {
 }
 
 static int luax_writenodetransform(lua_State* L, mat4 m, int transformIndex) {
-  Transform* transform = luax_totype(L, transformIndex, Transform);
-  if (transform) {
-    lovrTransformSetMatrix(transform, m);
-    lua_settop(L, transformIndex);
-    return 1;
-  } else {
-    float x, y, z, sx, sy, sz, angle, ax, ay, az;
-    mat4_getTransform(m, &x, &y, &z, &sx, &sy, &sz, &angle, &ax, &ay, &az);
-    lua_pushnumber(L, x);
-    lua_pushnumber(L, y);
-    lua_pushnumber(L, z);
-    lua_pushnumber(L, sx);
-    lua_pushnumber(L, sy);
-    lua_pushnumber(L, sz);
-    lua_pushnumber(L, angle);
-    lua_pushnumber(L, ax);
-    lua_pushnumber(L, ay);
-    lua_pushnumber(L, az);
-    return 10;
-  }
+  float x, y, z, sx, sy, sz, angle, ax, ay, az;
+  mat4_getTransform(m, &x, &y, &z, &sx, &sy, &sz, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  lua_pushnumber(L, sx);
+  lua_pushnumber(L, sy);
+  lua_pushnumber(L, sz);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 10;
 }
 
 int l_lovrModelDataGetLocalNodeTransform(lua_State* L) {

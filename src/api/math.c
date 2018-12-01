@@ -5,7 +5,6 @@
 #include "math/curve.h"
 #include "math/pool.h"
 #include "math/randomGenerator.h"
-#include "math/transform.h"
 
 static const char* lovrMathTypeNames[] = {
   [MATH_VEC3] = "vec3",
@@ -114,15 +113,6 @@ static int l_lovrMathNewRandomGenerator(lua_State* L) {
   }
   luax_pushobject(L, generator);
   lovrRelease(generator);
-  return 1;
-}
-
-static int l_lovrMathNewTransform(lua_State* L) {
-  float matrix[16];
-  luax_readtransform(L, 1, matrix, 3);
-  Transform* transform = lovrTransformCreate(matrix);
-  luax_pushobject(L, transform);
-  lovrRelease(transform);
   return 1;
 }
 
@@ -253,7 +243,6 @@ static const luaL_Reg lovrMath[] = {
   { "newCurve", l_lovrMathNewCurve },
   { "newPool", l_lovrMathNewPool },
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
-  { "newTransform", l_lovrMathNewTransform },
   { "orientationToDirection", l_lovrMathOrientationToDirection },
   { "lookAt", l_lovrMathLookAt },
   { "noise", l_lovrMathNoise },
@@ -297,7 +286,6 @@ int luaopen_lovr_math(lua_State* L) {
   luax_registertype(L, "Curve", lovrCurve);
   luax_registertype(L, "Pool", lovrPool);
   luax_registertype(L, "RandomGenerator", lovrRandomGenerator);
-  luax_registertype(L, "Transform", lovrTransform);
 
   // Store every math type metatable in the registry and register it as a type
   for (int i = 0; i < MAX_MATH_TYPES; i++) {
