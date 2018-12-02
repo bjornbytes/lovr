@@ -100,19 +100,19 @@ static int l_lovrMat4Identity(lua_State* L) {
   return 1;
 }
 
-static int l_lovrMat4Inverse(lua_State* L) {
+static int l_lovrMat4Invert(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  mat4 n = lovrPoolAllocate(lovrMathGetPool(), MATH_MAT4);
-  mat4_invert(mat4_init(n, m));
-  luax_pushlightmathtype(L, n, MATH_MAT4);
+  mat4 out = lua_gettop(L) > 1 ? mat4_init(luax_checkmathtype(L, 2, MATH_MAT4, NULL), m) : m;
+  mat4_invert(out);
+  luax_pushlightmathtype(L, out, MATH_MAT4);
   return 1;
 }
 
 static int l_lovrMat4Transpose(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  mat4 n = lovrPoolAllocate(lovrMathGetPool(), MATH_MAT4);
-  mat4_transpose(mat4_init(n, m));
-  luax_pushlightmathtype(L, n, MATH_MAT4);
+  mat4 out = lua_gettop(L) > 1 ? mat4_init(luax_checkmathtype(L, 2, MATH_MAT4, NULL), m) : m;
+  mat4_transpose(out);
+  luax_pushlightmathtype(L, out, MATH_MAT4);
   return 1;
 }
 
@@ -220,13 +220,19 @@ static int l_lovrMat4__mul(lua_State* L) {
   return 1;
 }
 
+static int l_lovrMat4__tostring(lua_State* L) {
+  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
+  lua_pushliteral(L, "mat4");
+  return 1;
+}
+
 const luaL_Reg lovrMat4[] = {
   { "unpack", l_lovrMat4Unpack },
   { "set", l_lovrMat4Set },
   { "copy", l_lovrMat4Copy },
   { "save", l_lovrMat4Save },
   { "identity", l_lovrMat4Identity },
-  { "inverse", l_lovrMat4Inverse },
+  { "invert", l_lovrMat4Invert },
   { "transpose", l_lovrMat4Transpose },
   { "translate", l_lovrMat4Translate },
   { "rotate", l_lovrMat4Rotate },
@@ -236,5 +242,6 @@ const luaL_Reg lovrMat4[] = {
   { "perspective", l_lovrMat4Perspective },
   { "orthographic", l_lovrMat4Orthographic },
   { "__mul", l_lovrMat4__mul },
+  { "__tostring", l_lovrMat4__tostring },
   { NULL, NULL }
 };

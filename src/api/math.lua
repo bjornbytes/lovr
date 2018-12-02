@@ -266,7 +266,7 @@ ffi.metatype(mat4, {
         m.m[0], m.m[1], m.m[2], m.m[3],
         m.m[4], m.m[5], m.m[6], m.m[7],
         m.m[8], m.m[9], m.m[10], m.m[11],
-        m.m[12], m.m[13], m.m[14], m.m[15] = ...
+        m.m[12], m.m[13], m.m[14], m.m[15] = x, ...
       end
       return m
     end,
@@ -283,21 +283,19 @@ ffi.metatype(mat4, {
 
     identity = function(m)
       checkmat4(m)
-      C.mat4_identity(m)
+      return C.mat4_identity(m)
     end,
 
-    inverse = function(m)
+    invert = function(m, out)
       checkmat4(m)
-      local out = math.mat4()
-      C.mat4_invert(C.mat4_set(out, m))
-      return out
+      out = out and C.mat4_set(out, m) or m
+      return C.mat4_invert(out)
     end,
 
     transpose = function(m)
       checkmat4(m)
-      local out = math.mat4()
-      C.mat4_transpose(C.mat4_set(out, m))
-      return out
+      out = out and C.mat4_set(out, m) or m
+      return C.mat4_transpose(out)
     end,
 
     translate = function(m, x, y, z)
@@ -368,5 +366,9 @@ ffi.metatype(mat4, {
       C.mat4_transform(m, f + 0, f + 1, f + 2)
       return math.vec3(f[0], f[1], f[2])
     end
+  end,
+
+  __tostring = function(m)
+    return 'mat4'
   end
 })
