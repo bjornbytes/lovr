@@ -196,39 +196,60 @@ const char* WrapModes[] = {
 };
 
 static uint32_t luax_readvertices(lua_State* L, int index) {
-  /*
-  bool isTable = lua_istable(L, index);
-  uint32_t vertexCount = (lua_gettop(L) - index + 1) / 3;
+  switch (lua_type(L, index)) {
+    case LUA_TTABLE: {
+      size_t count = lua_objlen(L, index);
+      lua_rawgeti(L, index, 1);
 
-  if (isTable) {
-    lua_rawgeti(L, 1);
-    vertexCount = lua_type(L, -1) == LUA_TNUMBER ? lua_objlen(L, index) / 3 : lua_objlen(L, index);
-    lua_pop(L, 1);
-  }
-
-  VertexPointer pointer = lovrGraphicsGetVertexPointer(count);
-
-  if (isTable) {
-    for (uint32_t i = 1; i <= count; i += 3) {
-      for (int j = 0; j < 3; j++) {
-        lua_rawgeti(L, index, i + j);
-        pointer.floats[j] = lua_tonumber(L, -1);
+      if (lua_type(L, -1) == LUA_TNUMBER) {
         lua_pop(L, 1);
+        VertexPointer vertices = lovrGraphicsGetVertexPointer(count / 3);
+        for (size_t i = 1; i <= count; i += 3) {
+          for (int j = 0; j < 3; j++) {
+            lua_rawgeti(L, index, i + j);
+            vertices.floats[j] = lua_tonumber(L, -1);
+            lua_pop(L, 1);
+          }
+          vertices.floats += 8;
+        }
+        return count / 3;
+      } else {
+        lua_pop(L, 1);
+        VertexPointer vertices = lovrGraphicsGetVertexPointer(count);
+        for (size_t i = 1; i <= count; i++) {
+          lua_rawgeti(L, index, i);
+          vec3_init(vertices.floats, luax_checkmathtype(L, -1, MATH_VEC3, NULL));
+          lua_pop(L, 1);
+          vertices.floats += 8;
+        }
+        return count;
       }
-
-      pointer.floats += 8;
     }
-  } else {
-    for (uint32_t i = 0; i < count; i += 3) {
-      pointer.floats[0] = lua_tonumber(L, index + i + 0);
-      pointer.floats[1] = lua_tonumber(L, index + i + 1);
-      pointer.floats[2] = lua_tonumber(L, index + i + 2);
-      pointer.floats += 8;
+
+    case LUA_TNUMBER: {
+      int top = lua_gettop(L);
+      uint32_t count = (top - index + 1) / 3;
+      VertexPointer vertices = lovrGraphicsGetVertexPointer(count);
+      for (int i = index; i <= top; i += 3) {
+        for (int j = 0; j < 3; j++) {
+          vertices.floats[j] = lua_tonumber(L, i + j);
+        }
+        vertices.floats += 8;
+      }
+      return count;
+    }
+
+    default: {
+      int top = lua_gettop(L);
+      uint32_t count = top - index + 1;
+      VertexPointer vertices = lovrGraphicsGetVertexPointer(count);
+      for (int i = index; i <= top; i++) {
+        vec3_init(vertices.floats, luax_checkmathtype(L, i, MATH_VEC3, NULL));
+        vertices.floats += 8;
+      }
+      return count;
     }
   }
-
-  return count / 3;*/
-  return 0;
 }
 
 static void stencilCallback(void* userdata) {
