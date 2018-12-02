@@ -338,17 +338,6 @@ static void openvrGetPose(float* x, float* y, float* z, float* angle, float* ax,
   mat4_getPose(transform, x, y, z, angle, ax, ay, az);
 }
 
-static void openvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  float eyeTransform[16];
-  EVREye vrEye = (eye == EYE_LEFT) ? EVREye_Eye_Left : EVREye_Eye_Right;
-  mat4_fromMat34(eyeTransform, state.system->GetEyeToHeadTransform(vrEye).m);
-
-  float transform[16];
-  getTransform(HEADSET_INDEX, transform);
-  mat4_multiply(transform, eyeTransform);
-  mat4_getPose(transform, x, y, z, angle, ax, ay, az);
-}
-
 static void openvrGetVelocity(float* vx, float* vy, float* vz) {
   TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
@@ -638,7 +627,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrGetBoundsDimensions,
   openvrGetBoundsGeometry,
   openvrGetPose,
-  openvrGetEyePose,
   openvrGetVelocity,
   openvrGetAngularVelocity,
   openvrGetControllers,

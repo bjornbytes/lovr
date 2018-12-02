@@ -82,7 +82,6 @@ typedef struct {
   void (*getBoundsDimensions)(float* width, float* depth);
   const float* (*getBoundsGeometry)(int* count);
   void (*getPose)(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-  void (*getEyePose)(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void (*getVelocity)(float* vx, float* vy, float* vz);
   void (*getAngularVelocity)(float* vx, float* vy, float* vz);
   Controller** (*getControllers)(uint8_t* count);

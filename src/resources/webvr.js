@@ -218,42 +218,6 @@ var LibraryLOVR = {
     }
   },
 
-  webvrGetEyePose: function(eye, x, y, z, angle, ax, ay, az) {
-    var isLeft = eye === C.EYE_LEFT;
-    var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
-    var eyeParameters = webvr.display.getEyeParameters(isLeft ? 'left' : 'right');
-    var pose = webvr.frameData.pose;
-    var matA = webvr.matA;
-    var matB = webvr.matB;
-    var quat = webvr.quat;
-
-    if (pose.position && pose.orientation) {
-      HEAPF32.set(pose.orientation, quat >> 2);
-
-      Module._mat4_identity(matA);
-
-      if (sittingToStanding) {
-        HEAPF32.set(sittingToStanding, matB >> 2);
-        Module._mat4_multiply(matA, matB);
-      } else {
-        HEAPF32[(matA + 4 * 13) >> 2] += webvr.offset;
-      }
-
-      Module._mat4_translate(matA, pose.position[0], pose.position[1], pose.position[2]);
-      Module._mat4_rotateQuat(matA, quat);
-      Module._mat4_translate(matA, eyeParameters.offset[0], eyeParameters.offset[1], eyeParameters.offset[2]);
-
-      HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
-      Module._mat4_transform(matA, x, y, z);
-
-      Module._quat_fromMat4(quat, matA);
-      Module._quat_getAngleAxis(quat, angle, ax, ay, az);
-    } else {
-      HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
-      HEAPF32[angle >> 2] = HEAPF32[ax >> 2] = HEAPF32[ay >> 2] = HEAPF32[az >> 2] = 0;
-    }
-  },
-
   webvrGetVelocity: function(vx, vy, vz) {
     var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
     var pose = webvr.frameData.pose;

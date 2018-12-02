@@ -18,7 +18,6 @@ extern void webvrSetClipDistance(float near, float far);
 extern void webvrGetBoundsDimensions(float* width, float* depth);
 extern const float* webvrGetBoundsGeometry(int* count);
 extern void webvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-extern void webvrGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
 extern void webvrGetVelocity(float* vx, float* vy, float* vz);
 extern void webvrGetAngularVelocity(float* vx, float* vy, float* vz);
 extern bool webvrControllerIsConnected(Controller* controller);
@@ -142,7 +141,6 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrGetBoundsDimensions,
   webvrGetBoundsGeometry,
   webvrGetPose,
-  webvrGetEyePose,
   webvrGetVelocity,
   webvrGetAngularVelocity,
   webvrGetControllers,

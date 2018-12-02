@@ -127,10 +127,6 @@ static void fakeGetPose(float* x, float* y, float* z, float* angle, float* ax, f
   quat_getAngleAxis(q, angle, ax, ay, az);
 }
 
-static void fakeGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  fakeGetPose(x, y, z, angle, ax, ay, az);
-}
-
 static void fakeGetVelocity(float* vx, float* vy, float* vz) {
   *vx = state.velocity[0];
   *vy = state.velocity[1];
@@ -291,7 +287,6 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeGetBoundsDimensions,
   fakeGetBoundsGeometry,
   fakeGetPose,
-  fakeGetEyePose,
   fakeGetVelocity,
   fakeGetAngularVelocity,
   fakeGetControllers,

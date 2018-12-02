@@ -92,11 +92,6 @@ static void oculusMobileGetPose(float* x, float* y, float* z, float* angle, floa
   *az = -*az;
 }
 
-static void oculusMobileGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  // TODO: This is very wrong!
-  oculusMobileGetPose(x, y, z, angle, ax, ay, az);
-}
-
 // TODO: This has never been tested
 static void oculusMobileGetVelocity(float* vx, float* vy, float* vz) {
   *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.x;
@@ -217,7 +212,6 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   oculusMobileGetBoundsDimensions,
   oculusMobileGetBoundsGeometry,
   oculusMobileGetPose,
-  oculusMobileGetEyePose,
   oculusMobileGetVelocity,
   oculusMobileGetAngularVelocity,
   oculusMobileGetControllers,

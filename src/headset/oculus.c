@@ -214,11 +214,6 @@ static void oculusGetPose(float* x, float* y, float* z, float* angle, float* ax,
   quat_getAngleAxis(quat, angle, ax, ay, az);
 }
 
-static void oculusGetEyePose(HeadsetEye eye, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  // TODO
-  oculusGetPose(x, y, z, angle, ax, ay, az);
-}
-
 static void oculusGetVelocity(float* vx, float* vy, float* vz) {
   ovrTrackingState *ts = refreshTracking();
   ovrVector3f vel = ts->HeadPose.LinearVelocity;
@@ -503,7 +498,6 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   oculusGetBoundsDimensions,
   oculusGetBoundsGeometry,
   oculusGetPose,
-  oculusGetEyePose,
   oculusGetVelocity,
   oculusGetAngularVelocity,
   oculusGetControllers,
