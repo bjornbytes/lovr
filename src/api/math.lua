@@ -55,14 +55,14 @@ ffi.cdef [[
   void mat4_transform(mat4* m, float* x, float* y, float* z);
 ]]
 
-function Pool:vec3(...) return C.lovrPoolAllocateVec3(cast('Pool**', self)[0]):set(...) end
-function Pool:quat(...) return C.lovrPoolAllocateQuat(cast('Pool**', self)[0]):set(...) end
-function Pool:mat4(...) return C.lovrPoolAllocateMat4(cast('Pool**', self)[0]):set(...) end
+function Pool:vec3(...) return C.lovrPoolAllocateVec3(cast('Pool**', self)[0])[0]:set(...) end
+function Pool:quat(...) return C.lovrPoolAllocateQuat(cast('Pool**', self)[0])[0]:set(...) end
+function Pool:mat4(...) return C.lovrPoolAllocateMat4(cast('Pool**', self)[0])[0]:set(...) end
 
 local pool = C.lovrMathGetPool()
-function math.vec3(...) return C.lovrPoolAllocateVec3(pool):set(...) end
-function math.quat(...) return C.lovrPoolAllocateQuat(pool):set(...) end
-function math.mat4(...) return C.lovrPoolAllocateMat4(pool):set(...) end
+function math.vec3(...) return C.lovrPoolAllocateVec3(pool)[0]:set(...) end
+function math.quat(...) return C.lovrPoolAllocateQuat(pool)[0]:set(...) end
+function math.mat4(...) return C.lovrPoolAllocateMat4(pool)[0]:set(...) end
 
 local vec3 = ffi.typeof('vec3')
 local quat = ffi.typeof('quat')
