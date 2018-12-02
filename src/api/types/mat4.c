@@ -211,16 +211,6 @@ static int l_lovrMat4Orthographic(lua_State* L) {
   return 1;
 }
 
-static int l_lovrMat4LookAt(lua_State* L) {
-  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  float from[3] = { luaL_checknumber(L, 2), luaL_checknumber(L, 3), luaL_checknumber(L, 4) };
-  float to[3] = { luaL_checknumber(L, 5), luaL_checknumber(L, 6), luaL_checknumber(L, 7) };
-  float up[3] = { luaL_optnumber(L, 8, 0), luaL_optnumber(L, 9, 1), luaL_optnumber(L, 10, 0) };
-  mat4_lookAt(m, from, to, up);
-  lua_settop(L, 1);
-  return 1;
-}
-
 static int l_lovrMat4__mul(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   mat4 n = luax_checkmathtype(L, 2, MATH_MAT4, NULL);
@@ -245,7 +235,6 @@ const luaL_Reg lovrMat4[] = {
   { "setTransform", l_lovrMat4SetTransform },
   { "perspective", l_lovrMat4Perspective },
   { "orthographic", l_lovrMat4Orthographic },
-  { "lookAt", l_lovrMat4LookAt },
   { "__mul", l_lovrMat4__mul },
   { NULL, NULL }
 };
