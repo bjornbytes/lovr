@@ -94,6 +94,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
   }
 
   luax_pushobject(L, curve);
+  lovrRelease(curve);
   return 1;
 }
 
