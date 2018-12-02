@@ -306,6 +306,7 @@ ffi.metatype(mat4, {
         checkvec3(x, 1, 'vec3 or number')
         C.mat4_translate(m, x.x, x.y, x.z)
       end
+      return m
     end,
 
     rotate = function(m, angle, ax, ay, az)
@@ -316,6 +317,7 @@ ffi.metatype(mat4, {
         checkquat(angle, 1, 'quat or number')
         C.mat4_rotateQuat(m, angle)
       end
+      return m
     end,
 
     scale = function(m, sx, sy, sz)
@@ -326,6 +328,7 @@ ffi.metatype(mat4, {
         checkvec3(sx, 1, 'vec3 or number')
         C.mat4_scale(m, sx.x, sx.y, sx.z)
       end
+      return m
     end,
 
     getTransform = function(m)
