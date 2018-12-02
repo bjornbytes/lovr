@@ -323,7 +323,7 @@ ffi.metatype(mat4, {
     scale = function(m, sx, sy, sz)
       checkmat4(m)
       if type(sx) == 'number' then
-        C.mat4_scale(m, sx, sy, sz)
+        C.mat4_scale(m, sx, sy or sx, sz or sx)
       else
         checkvec3(sx, 1, 'vec3 or number')
         C.mat4_scale(m, sx.x, sx.y, sx.z)
