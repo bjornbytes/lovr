@@ -24,18 +24,11 @@ ffi.cdef [[
   // From lib/math.h
   // Careful, the declarations below are using as the structs above, not the usual C types
 
-  vec3* vec3_init(vec3* v, vec3* u);
-  vec3* vec3_set(vec3* v, float x, float y, float z);
-  vec3* vec3_add(vec3* v, vec3* u);
-  vec3* vec3_scale(vec3* v, float s);
   vec3* vec3_normalize(vec3* v);
   float vec3_length(vec3* v);
-  float vec3_dot(vec3* v, vec3* u);
   vec3* vec3_cross(vec3* v, vec3* u);
   vec3* vec3_lerp(vec3* v, vec3* u, float t);
 
-  quat* quat_init(quat* q, quat* r);
-  quat* quat_set(quat* q, float x, float y, float z, float w);
   quat* quat_fromAngleAxis(quat* q, float angle, float ax, float ay, float az);
   quat* quat_fromMat4(quat* q, mat4* m);
   quat* quat_mul(quat* q, quat* r);
@@ -55,14 +48,11 @@ ffi.cdef [[
   mat4* mat4_rotate(mat4* m, float angle, float x, float y, float z);
   mat4* mat4_rotateQuat(mat4* m, quat* q);
   mat4* mat4_scale(mat4* m, float x, float y, float z);
-  void mat4_getPose(mat4* m, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void mat4_getTransform(mat4* m, float* x, float* y, float* z, float* sx, float* sy, float* sz, float* angle, float* ax, float* ay, float* az);
   mat4* mat4_setTransform(mat4* m, float x, float y, float z, float sx, float sy, float sz, float angle, float ax, float ay, float az);
   mat4* mat4_orthographic(mat4* m, float left, float right, float top, float bottom, float near, float far);
   mat4* mat4_perspective(mat4* m, float near, float far, float fov, float aspect);
-  mat4* mat4_lookAt(mat4* m, vec3* from, vec3* to, vec3* up);
   void mat4_transform(mat4* m, float* x, float* y, float* z);
-  void mat4_transformDirection(mat4* m, float* x, float* y, float* z);
 ]]
 
 function Pool:vec3(...) return C.lovrPoolAllocateVec3(cast('Pool**', self)[0]):set(...) end
@@ -103,10 +93,10 @@ ffi.metatype(vec3, {
     set = function(v, x, y, z)
       checkvec3(v)
       if type(x) == 'number' then
-        C.vec3_set(v, x, y, z)
+        v.x, v.y, v.z = x, y, z
       else
         checkvec3(x, 1)
-        C.vec3_init(v, x)
+        v.x, v.y, v.z = x.x, x.y, x.z
       end
       return v
     end,
@@ -134,7 +124,6 @@ ffi.metatype(vec3, {
     dot = function(v, u)
       checkvec3(v)
       checkvec3(u)
-      --return C.vec3_dot(v, u)
       return v.x * u.x + v.y * u.y + v.z * u.z
     end,
 
@@ -182,22 +171,23 @@ ffi.metatype(quat, {
       if type(x) == 'number' then
         if type(y) == 'number' then
           if raw then
-            C.quat_set(q, x, y, z, w)
+            q.x, q.y, q.z, q.w = x, y, z, w
           else
             C.quat_fromAngleAxis(q, x, y, z, w)
           end
         else
           local axis = checkvec3(y)
-          --
+          C.quat_fromAngleAxis(q, x, y.x, y.y, y.z)
         end
       elseif istype(vec3, x) then
         if istype(vec3, y) then
-          --
+          C.quat_between(q, x, y)
         else
-          --
+          local forward = new('float[3]', 0, 0, -1)
+          C.quat_between(forward, x)
         end
       elseif istype(quat, x) then
-        C.quat_init(q, x)
+        q.x, q.y, q.z, q.w = x.x, x.y, x.z, x.w
       elseif istype(mat4, x) then
         C.quat_fromMat4(q, x)
       else
@@ -266,15 +256,17 @@ ffi.metatype(mat4, {
         m.m[12], m.m[13], m.m[14], m.m[15]
     end,
 
-    set = function(m, ...)
+    set = function(m, x, ...)
       checkmat4(m)
-      if ... then
+      if not x then
+        m:identity()
+      elseif not ... and type(x) == 'number' then
+        m.m[0], m.m[5], m.m[10], m.m[15] = x, x, x, x
+      elseif ... then
         m.m[0], m.m[1], m.m[2], m.m[3],
         m.m[4], m.m[5], m.m[6], m.m[7],
         m.m[8], m.m[9], m.m[10], m.m[11],
         m.m[12], m.m[13], m.m[14], m.m[15] = ...
-      else
-        m:identity()
       end
       return m
     end,
@@ -340,26 +332,27 @@ ffi.metatype(mat4, {
 
     getTransform = function(m)
       checkmat4(m)
-      --
+      local f = new('float[10]')
+      C.mat4_getTransform(m, f + 0, f + 1, f + 2, f + 3, f + 4, f + 5, f + 6, f + 7, f + 8, f + 9)
+      return f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9]
     end,
 
-    setTransform = function(m)
+    setTransform = function(m, x, y, z, sx, sy, sz, angle, ax, ay, az)
       checkmat4(m)
-      --
+      C.mat4_setTransform(m, x or 0, y or 0, z or 0, sx or 1, sy or sx or 1, sz or sx or 1, angle or 0, ax or 0, ay or 1, az or 0)
+      return m
     end,
 
-    perspective = function(m)
+    perspective = function(m, near, far, fov, aspect)
       checkmat4(m)
-      --
+      C.mat4_perspective(m, near, far, fov, aspect)
+      return m
     end,
 
-    orthographic = function(m)
+    orthographic = function(m, left, right, top, bottom, near, far)
       checkmat4(m)
-      --
-    end,
-
-    lookAt = function(m)
-      --
+      C.mat4_orthographic(m, left, right, top, bottom, near, far)
+      return m
     end
   },
 
