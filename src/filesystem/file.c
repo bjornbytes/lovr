@@ -43,7 +43,7 @@ size_t lovrFileRead(File* file, void* data, size_t bytes) {
   return PHYSFS_readBytes(file->handle, data, bytes);
 }
 
-size_t lovrFileWrite(File* file, void* data, size_t bytes) {
+size_t lovrFileWrite(File* file, const void* data, size_t bytes) {
   lovrAssert(file->handle && (file->mode == OPEN_READ || file->mode == OPEN_WRITE), "File must be open for writing");
   return PHYSFS_writeBytes(file->handle, data, bytes);
 }
