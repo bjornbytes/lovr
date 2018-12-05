@@ -1,5 +1,4 @@
 #include "data/rasterizer.h"
-#include "data/vertexData.h"
 #include "util.h"
 #include "graphics/texture.h"
 #include "lib/map/map.h"
@@ -42,7 +41,7 @@ typedef struct {
 Font* lovrFontCreate(Rasterizer* rasterizer);
 void lovrFontDestroy(void* ref);
 Rasterizer* lovrFontGetRasterizer(Font* font);
-void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, VertexPointer vertices, float* offsety, uint32_t* vertexCount);
+void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, float* vertices, float* offsety, uint32_t* vertexCount);
 float lovrFontGetWidth(Font* font, const char* string, float wrap);
 float lovrFontGetHeight(Font* font);
 float lovrFontGetAscent(Font* font);

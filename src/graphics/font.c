@@ -72,7 +72,7 @@ Rasterizer* lovrFontGetRasterizer(Font* font) {
   return font->rasterizer;
 }
 
-void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, VertexPointer vertices, float* offsety, uint32_t* vertexCount) {
+void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, float* vertices, float* offsety, uint32_t* vertexCount) {
   FontAtlas* atlas = &font->atlas;
 
   float cx = 0;
@@ -88,8 +88,8 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
   unsigned int codepoint;
   size_t bytes;
 
-  float* cursor = vertices.floats;
-  float* lineStart = vertices.floats;
+  float* cursor = vertices;
+  float* lineStart = vertices;
   int lineCount = 1;
   *vertexCount = 0;
 

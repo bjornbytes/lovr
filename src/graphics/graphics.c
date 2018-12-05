@@ -825,7 +825,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   uint32_t vertexCount;
   uint32_t maxVertices = strlen(str) * 6;
   VertexPointer vertexPointer = lovrGraphicsGetVertexPointer(maxVertices);
-  lovrFontRender(font, str, wrap, halign, valign, vertexPointer, &offsety, &vertexCount);
+  lovrFontRender(font, str, wrap, halign, valign, vertexPointer.floats, &offsety, &vertexCount);
   lovrMeshWriteIndices(state.defaultMesh, 0, 0);
 
   lovrGraphicsPush();
