@@ -134,6 +134,7 @@ typedef struct {
   mat4 transform;
   bool forceMono;
   int instances;
+  float* pose;
 } DrawCommand;
 
 typedef struct {

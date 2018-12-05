@@ -424,9 +424,8 @@ void lovrGraphicsDraw(DrawCommand* draw) {
     lovrShaderSetMatrices(shader, "lovrNormalMatrices", normalMatrices, 0, 18);
   }
 
-  float* pose = lovrMeshGetPose(mesh);
-  if (pose) {
-    lovrShaderSetMatrices(shader, "lovrPose", pose, 0, MAX_BONES * 16);
+  if (draw->pose) {
+    lovrShaderSetMatrices(shader, "lovrPose", draw->pose, 0, MAX_BONES * 16);
   } else {
     lovrShaderSetMatrices(shader, "lovrPose", (float[16]) MAT4_IDENTITY, 0, 16);
   }

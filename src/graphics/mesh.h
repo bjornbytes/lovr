@@ -35,8 +35,6 @@ void lovrMeshGetDrawRange(Mesh* mesh, uint32_t* start, uint32_t* count);
 void lovrMeshSetDrawRange(Mesh* mesh, uint32_t start, uint32_t count);
 Material* lovrMeshGetMaterial(Mesh* mesh);
 void lovrMeshSetMaterial(Mesh* mesh, Material* material);
-float* lovrMeshGetPose(Mesh* mesh);
-void lovrMeshSetPose(Mesh* mesh, float* pose);
 VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write);
 void lovrMeshUnmapVertices(Mesh* mesh);
 IndexPointer lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* size);

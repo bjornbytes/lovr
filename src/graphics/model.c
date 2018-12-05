@@ -39,12 +39,12 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
       }
 
       lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
-      lovrMeshSetPose(model->mesh, (float*) model->pose);
       lovrGraphicsDraw(&(DrawCommand) {
         .transform = model->nodeTransforms[nodeIndex],
         .mesh = model->mesh,
         .material = lovrMeshGetMaterial(model->mesh),
-        .instances = instances
+        .instances = instances,
+        .pose = (float*) model->pose
       });
     }
   }
@@ -180,7 +180,6 @@ void lovrModelDraw(Model* model, mat4 transform, int instances) {
   lovrGraphicsMatrixTransform(transform);
   renderNode(model, 0, instances);
   lovrGraphicsPop();
-  lovrMeshSetPose(model->mesh, NULL);
 }
 
 Animator* lovrModelGetAnimator(Model* model) {

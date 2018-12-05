@@ -168,7 +168,6 @@ struct Mesh {
   GLuint vbo;
   GLuint ibo;
   Material* material;
-  float* pose;
   map_attachment_t attachments;
   MeshAttachment layout[MAX_ATTACHMENTS];
   bool isAttachment;
@@ -2402,14 +2401,6 @@ void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
     lovrRelease(mesh->material);
     mesh->material = material;
   }
-}
-
-float* lovrMeshGetPose(Mesh* mesh) {
-  return mesh->pose;
-}
-
-void lovrMeshSetPose(Mesh* mesh, float* pose) {
-  mesh->pose = pose;
 }
 
 VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write) {
