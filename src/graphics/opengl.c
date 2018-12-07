@@ -147,8 +147,11 @@ struct Canvas {
 };
 
 typedef struct {
-  Mesh* mesh;
-  int attributeIndex;
+  Buffer* buffer;
+  AttributeType type;
+  int components;
+  size_t offset;
+  int stride;
   int divisor;
   bool enabled;
 } MeshAttachment;
@@ -157,27 +160,22 @@ typedef map_t(MeshAttachment) map_attachment_t;
 
 struct Mesh {
   Ref ref;
+  uint32_t vao;
   uint32_t count;
-  VertexFormat format;
   MeshDrawMode drawMode;
+  VertexFormat format;
+  bool readable;
   BufferUsage usage;
-  VertexPointer data;
-  IndexPointer indices;
+  Buffer* vbo;
+  Buffer* ibo;
   uint32_t indexCount;
   size_t indexSize;
   size_t indexCapacity;
-  bool mappedIndices;
-  uint32_t dirtyStart;
-  uint32_t dirtyEnd;
   uint32_t rangeStart;
   uint32_t rangeCount;
-  GLuint vao;
-  GLuint vbo;
-  GLuint ibo;
   Material* material;
   map_attachment_t attachments;
   MeshAttachment layout[MAX_ATTACHMENTS];
-  bool isAttachment;
 };
 
 // Helper functions
@@ -1496,7 +1494,7 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {
 
 // Buffer
 
-Buffer* lovrBufferCreate(size_t size, void* data, BufferUsage usage) {
+Buffer* lovrBufferCreate(size_t size, void* data, BufferUsage usage, bool readable) {
   Buffer* buffer = lovrAlloc(Buffer, lovrBufferDestroy);
   if (!buffer) return NULL;
 
@@ -1507,12 +1505,9 @@ Buffer* lovrBufferCreate(size_t size, void* data, BufferUsage usage) {
 
 #ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_buffer_storage) {
-    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT;
+    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | (readable ? GL_MAP_READ_BIT : 0);
     glBufferStorage(GL_COPY_WRITE_BUFFER, size, data, flags);
-
-    if (usage != USAGE_STATIC) {
-      buffer->data = glMapBufferRange(GL_COPY_WRITE_BUFFER, 0, size, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
-    }
+    buffer->data = glMapBufferRange(GL_COPY_WRITE_BUFFER, 0, size, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
   } else {
 #endif
     buffer->data = calloc(1, size);
@@ -1550,7 +1545,6 @@ void* lovrBufferMap(Buffer* buffer, size_t offset) {
 }
 
 void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size) {
-  lovrAssert(buffer->usage != USAGE_STATIC, "Static buffers may not be updated");
   lovrGpuBindGenericBuffer(buffer->id);
 #ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_buffer_storage) {
@@ -1565,7 +1559,7 @@ void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size) {
 
 void lovrBufferLock(Buffer* buffer) {
 #ifndef EMSCRIPTEN
-  if (!GLAD_GL_ARB_buffer_storage || buffer->usage == USAGE_STATIC) {
+  if (!GLAD_GL_ARB_buffer_storage) {
     return;
   }
 
@@ -1576,7 +1570,7 @@ void lovrBufferLock(Buffer* buffer) {
 
 void lovrBufferUnlock(Buffer* buffer) {
 #ifndef EMSCRIPTEN
-  if (!GLAD_GL_ARB_buffer_storage || buffer->usage == USAGE_STATIC || !buffer->lock) {
+  if (!GLAD_GL_ARB_buffer_storage || !buffer->lock) {
     return;
   }
 
@@ -2206,7 +2200,7 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
   block->target = block->type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
 #endif
   block->type = type;
-  block->buffer = lovrBufferCreate(size, NULL, usage);
+  block->buffer = lovrBufferCreate(size, NULL, usage, false);
 
   return block;
 }
@@ -2278,27 +2272,30 @@ Buffer* lovrShaderBlockGetBuffer(ShaderBlock* block) {
 
 // Mesh
 
-Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, BufferUsage usage) {
+Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, BufferUsage usage, bool readable) {
   Mesh* mesh = lovrAlloc(Mesh, lovrMeshDestroy);
   if (!mesh) return NULL;
 
   mesh->count = count;
   mesh->format = format;
+  mesh->readable = readable;
   mesh->drawMode = drawMode;
   mesh->usage = usage;
-
-  glGenBuffers(1, &mesh->vbo);
-  glGenBuffers(1, &mesh->ibo);
-  lovrGpuBindVertexBuffer(mesh->vbo);
-  glBufferData(GL_ARRAY_BUFFER, count * format.stride, NULL, convertBufferUsage(mesh->usage));
+  mesh->vbo = lovrBufferCreate(count * format.stride, NULL, usage, readable);
   glGenVertexArrays(1, &mesh->vao);
 
   map_init(&mesh->attachments);
   for (int i = 0; i < format.count; i++) {
-    map_set(&mesh->attachments, format.attributes[i].name, ((MeshAttachment) { mesh, i, 0, true }));
+    lovrRetain(mesh->vbo);
+    map_set(&mesh->attachments, format.attributes[i].name, ((MeshAttachment) {
+      .buffer = mesh->vbo,
+      .type = format.attributes[i].type,
+      .components = format.attributes[i].count,
+      .offset = format.attributes[i].offset,
+      .stride = format.stride,
+      .enabled = true
+    }));
   }
-
-  mesh->data.raw = calloc(count, format.stride);
 
   return mesh;
 }
@@ -2306,41 +2303,37 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode,
 void lovrMeshDestroy(void* ref) {
   Mesh* mesh = ref;
   lovrRelease(mesh->material);
-  free(mesh->data.raw);
-  free(mesh->indices.raw);
-  glDeleteBuffers(1, &mesh->vbo);
-  glDeleteBuffers(1, &mesh->ibo);
   glDeleteVertexArrays(1, &mesh->vao);
   const char* key;
   map_iter_t iter = map_iter(&mesh->attachments);
   while ((key = map_next(&mesh->attachments, &iter)) != NULL) {
     MeshAttachment* attachment = map_get(&mesh->attachments, key);
-    if (attachment->mesh != mesh) {
-      lovrRelease(attachment->mesh);
-    }
+    lovrRelease(attachment->buffer);
   }
+  lovrRelease(mesh->vbo);
+  lovrRelease(mesh->ibo);
   map_deinit(&mesh->attachments);
   free(mesh);
 }
 
 void lovrMeshAttachAttribute(Mesh* mesh, Mesh* other, const char* name, int divisor) {
   MeshAttachment* otherAttachment = map_get(&other->attachments, name);
-  lovrAssert(!mesh->isAttachment, "Attempted to attach to a mesh which is an attachment itself");
   lovrAssert(otherAttachment, "No attribute named '%s' exists", name);
   lovrAssert(!map_get(&mesh->attachments, name), "Mesh already has an attribute named '%s'", name);
   lovrAssert(divisor >= 0, "Divisor can't be negative");
 
-  MeshAttachment attachment = { other, otherAttachment->attributeIndex, divisor, true };
+  MeshAttachment attachment = *otherAttachment;
+  attachment.divisor = divisor;
+  attachment.enabled = true;
   map_set(&mesh->attachments, name, attachment);
-  other->isAttachment = true;
-  lovrRetain(other);
+  lovrRetain(attachment.buffer);
 }
 
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
   MeshAttachment* attachment = map_get(&mesh->attachments, name);
   lovrAssert(attachment, "No attached attribute '%s' was found", name);
-  lovrAssert(attachment->mesh != mesh, "Attribute '%s' was not attached from another Mesh", name);
-  lovrRelease(attachment->mesh);
+  lovrAssert(attachment->buffer != mesh->vbo, "Attribute '%s' was not attached from another Mesh", name);
+  lovrRelease(attachment->buffer);
   map_remove(&mesh->attachments, name);
 }
 
@@ -2352,10 +2345,8 @@ void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   memset(layout, 0, MAX_ATTACHMENTS * sizeof(MeshAttachment));
 
   lovrGpuBindVertexArray(mesh->vao);
-  lovrMeshUnmapVertices(mesh);
-  lovrMeshUnmapIndices(mesh);
   if (mesh->indexCount > 0) {
-    lovrGpuBindIndexBuffer(mesh->ibo);
+    lovrGpuBindIndexBuffer(mesh->ibo->id);
   }
 
   while ((key = map_next(&mesh->attachments, &iter)) != NULL) {
@@ -2364,8 +2355,6 @@ void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
     if (location >= 0) {
       MeshAttachment* attachment = map_get(&mesh->attachments, key);
       layout[location] = *attachment;
-      lovrMeshUnmapVertices(attachment->mesh);
-      lovrMeshUnmapIndices(attachment->mesh);
     }
   }
 
@@ -2391,31 +2380,31 @@ void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
       glVertexAttribDivisor(i, current.divisor * divisorMultiplier);
     }
 
-    if (previous.mesh != current.mesh || previous.attributeIndex != current.attributeIndex) {
-      lovrGpuBindVertexBuffer(current.mesh->vbo);
-      VertexFormat* format = &current.mesh->format;
-      Attribute attribute = format->attributes[current.attributeIndex];
-      switch (attribute.type) {
-        case ATTR_FLOAT:
-          glVertexAttribPointer(i, attribute.count, GL_FLOAT, GL_TRUE, format->stride, (void*) attribute.offset);
-          break;
+    bool changed =
+      previous.buffer != current.buffer ||
+      previous.type != current.type ||
+      previous.components != current.components ||
+      previous.offset != current.offset ||
+      previous.stride != current.stride;
 
-        case ATTR_BYTE:
-          glVertexAttribPointer(i, attribute.count, GL_UNSIGNED_BYTE, GL_TRUE, format->stride, (void*) attribute.offset);
-          break;
-
-        case ATTR_INT:
-          glVertexAttribIPointer(i, attribute.count, GL_INT, format->stride, (void*) attribute.offset);
-          break;
+    if (changed) {
+      lovrGpuBindVertexBuffer(current.buffer->id);
+      int count = current.components;
+      int stride = current.stride;
+      GLvoid* offset = (GLvoid*) current.offset;
+      switch (current.type) {
+        case ATTR_FLOAT: glVertexAttribPointer(i, count, GL_FLOAT, GL_TRUE, stride, offset); break;
+        case ATTR_BYTE: glVertexAttribPointer(i, count, GL_UNSIGNED_BYTE, GL_TRUE, stride, offset); break;
+        case ATTR_INT: glVertexAttribIPointer(i, count, GL_INT, stride, offset); break;
       }
     }
-
-    mesh->layout[i] = current;
   }
+
+  memcpy(mesh->layout, layout, MAX_ATTACHMENTS * sizeof(MeshAttachment));
 }
 
 void lovrMeshDraw(Mesh* mesh, int instances) {
-  GLenum glDrawMode = convertMeshDrawMode(lovrMeshGetDrawMode(mesh));
+  GLenum glDrawMode = convertMeshDrawMode(mesh->drawMode);
 
   if (mesh->indexCount > 0) {
     size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
@@ -2427,7 +2416,7 @@ void lovrMeshDraw(Mesh* mesh, int instances) {
       glDrawElements(glDrawMode, count, indexType, (GLvoid*) offset);
     }
   } else {
-    size_t count = mesh->rangeCount ? mesh->rangeCount : lovrMeshGetVertexCount(mesh);
+    size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->count;
     if (instances > 1) {
       glDrawArraysInstanced(glDrawMode, mesh->rangeStart, count, instances);
     } else {
@@ -2440,6 +2429,10 @@ void lovrMeshDraw(Mesh* mesh, int instances) {
 
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh) {
   return &mesh->format;
+}
+
+bool lovrMeshIsReadable(Mesh* mesh) {
+  return mesh->readable;
 }
 
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh) {
@@ -2490,88 +2483,35 @@ void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
   }
 }
 
-VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write) {
-  if (write) {
-    mesh->dirtyStart = MIN(mesh->dirtyStart, start);
-    mesh->dirtyEnd = MAX(mesh->dirtyEnd, start + count);
-  }
-
-  return (VertexPointer) { .bytes = mesh->data.bytes + start * mesh->format.stride };
+void* lovrMeshMapVertices(Mesh* mesh, size_t offset) {
+  return lovrBufferMap(mesh->vbo, offset);
 }
 
-void lovrMeshUnmapVertices(Mesh* mesh) {
-  if (mesh->dirtyEnd == 0) {
-    return;
-  }
-
-  size_t stride = mesh->format.stride;
-  lovrGpuBindVertexBuffer(mesh->vbo);
-  if (mesh->usage == USAGE_STREAM) {
-    glBufferData(GL_ARRAY_BUFFER, mesh->count * stride, mesh->data.bytes, convertBufferUsage(mesh->usage));
-  } else {
-    size_t offset = mesh->dirtyStart * stride;
-    size_t count = (mesh->dirtyEnd - mesh->dirtyStart) * stride;
-    glBufferSubData(GL_ARRAY_BUFFER, offset, count, mesh->data.bytes + offset);
-  }
-
-  mesh->dirtyStart = INT_MAX;
-  mesh->dirtyEnd = 0;
+void lovrMeshFlushVertices(Mesh* mesh, size_t offset, size_t size) {
+  lovrBufferFlush(mesh->vbo, offset, size);
 }
 
-IndexPointer lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* size) {
-  *size = mesh->indexSize;
-  *count = mesh->indexCount;
-
-  if (mesh->indexCount == 0) {
-    return (IndexPointer) { .raw = NULL };
-  } else if (mesh->mappedIndices) {
-    lovrMeshUnmapIndices(mesh);
-  }
-
-  return mesh->indices;
-}
-
-IndexPointer lovrMeshWriteIndices(Mesh* mesh, uint32_t count, size_t size) {
-  if (mesh->mappedIndices) {
-    lovrMeshUnmapIndices(mesh);
-  }
-
-  mesh->indexSize = size;
+void* lovrMeshMapIndices(Mesh* mesh, uint32_t count, size_t indexSize) {
+  mesh->indexSize = indexSize;
   mesh->indexCount = count;
 
   if (count == 0) {
-    return (IndexPointer) { .raw = NULL };
+    return NULL;
   }
 
-  lovrGpuBindVertexArray(mesh->vao);
-  lovrGpuBindIndexBuffer(mesh->ibo);
-  mesh->mappedIndices = true;
-
-  if (mesh->indexCapacity < size * count) {
-    mesh->indexCapacity = nextPo2(size * count);
-    mesh->indices.raw = realloc(mesh->indices.raw, mesh->indexCapacity);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCapacity, NULL, convertBufferUsage(mesh->usage));
+  if (mesh->indexCapacity < indexSize * count) {
+    mesh->indexCapacity = nextPo2(indexSize * count);
+    lovrRelease(mesh->ibo);
+    mesh->ibo = lovrBufferCreate(mesh->indexCapacity, NULL, mesh->usage, mesh->readable);
   }
 
-  return mesh->indices;
+  return lovrBufferMap(mesh->ibo, 0);
 }
 
-void lovrMeshUnmapIndices(Mesh* mesh) {
-  if (!mesh->mappedIndices) {
-    return;
-  }
-
-  mesh->mappedIndices = false;
-  lovrGpuBindIndexBuffer(mesh->ibo);
-  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->indexCount * mesh->indexSize, mesh->indices.raw);
+void lovrMeshFlushIndices(Mesh* mesh) {
+  lovrBufferFlush(mesh->ibo, 0, mesh->indexCount * mesh->indexSize);
 }
 
-void lovrMeshResize(Mesh* mesh, uint32_t count) {
-  if (mesh->count < count) {
-    count = nextPo2(count);
-    mesh->count = count;
-    lovrGpuBindVertexBuffer(mesh->vbo);
-    mesh->data.raw = realloc(mesh->data.raw, count * mesh->format.stride);
-    glBufferData(GL_ARRAY_BUFFER, count * mesh->format.stride, mesh->data.raw, convertBufferUsage(mesh->usage));
-  }
+void* lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* indexSize) {
+  return *count = mesh->indexCount, *indexSize = mesh->indexSize, lovrBufferMap(mesh->ibo, 0);
 }

@@ -203,24 +203,24 @@ static uint32_t luax_readvertices(lua_State* L, int index) {
 
       if (lua_type(L, -1) == LUA_TNUMBER) {
         lua_pop(L, 1);
-        VertexPointer vertices = lovrGraphicsGetVertexPointer(count / 3);
+        float* vertices = lovrGraphicsGetVertexPointer(count / 3);
         for (size_t i = 1; i <= count; i += 3) {
           for (int j = 0; j < 3; j++) {
             lua_rawgeti(L, index, i + j);
-            vertices.floats[j] = lua_tonumber(L, -1);
+            vertices[j] = lua_tonumber(L, -1);
             lua_pop(L, 1);
           }
-          vertices.floats += 8;
+          vertices += 8;
         }
         return count / 3;
       } else {
         lua_pop(L, 1);
-        VertexPointer vertices = lovrGraphicsGetVertexPointer(count);
+        float* vertices = lovrGraphicsGetVertexPointer(count);
         for (size_t i = 1; i <= count; i++) {
           lua_rawgeti(L, index, i);
-          vec3_init(vertices.floats, luax_checkmathtype(L, -1, MATH_VEC3, NULL));
+          vec3_init(vertices, luax_checkmathtype(L, -1, MATH_VEC3, NULL));
           lua_pop(L, 1);
-          vertices.floats += 8;
+          vertices += 8;
         }
         return count;
       }
@@ -229,12 +229,12 @@ static uint32_t luax_readvertices(lua_State* L, int index) {
     case LUA_TNUMBER: {
       int top = lua_gettop(L);
       uint32_t count = (top - index + 1) / 3;
-      VertexPointer vertices = lovrGraphicsGetVertexPointer(count);
+      float* vertices = lovrGraphicsGetVertexPointer(count);
       for (int i = index; i <= top; i += 3) {
         for (int j = 0; j < 3; j++) {
-          vertices.floats[j] = lua_tonumber(L, i + j);
+          vertices[j] = lua_tonumber(L, i + j);
         }
-        vertices.floats += 8;
+        vertices += 8;
       }
       return count;
     }
@@ -242,10 +242,10 @@ static uint32_t luax_readvertices(lua_State* L, int index) {
     default: {
       int top = lua_gettop(L);
       uint32_t count = top - index + 1;
-      VertexPointer vertices = lovrGraphicsGetVertexPointer(count);
+      float* vertices = lovrGraphicsGetVertexPointer(count);
       for (int i = index; i <= top; i++) {
-        vec3_init(vertices.floats, luax_checkmathtype(L, i, MATH_VEC3, NULL));
-        vertices.floats += 8;
+        vec3_init(vertices, luax_checkmathtype(L, i, MATH_VEC3, NULL));
+        vertices += 8;
       }
       return count;
     }
@@ -1137,14 +1137,17 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
 
   MeshDrawMode drawMode = luaL_checkoption(L, drawModeIndex, "fan", MeshDrawModes);
   BufferUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", BufferUsages);
-  Mesh* mesh = lovrMeshCreate(count, format, drawMode, usage);
+  bool readable = lua_toboolean(L, drawModeIndex + 2);
+  Mesh* mesh = lovrMeshCreate(count, format, drawMode, usage, readable);
 
   if (dataIndex) {
-    VertexPointer vertices = lovrMeshMapVertices(mesh, 0, lua_objlen(L, dataIndex), false, true);
+    VertexPointer vertices = { .raw = lovrMeshMapVertices(mesh, 0) };
     luax_loadvertices(L, dataIndex, lovrMeshGetVertexFormat(mesh), vertices);
+    lovrMeshFlushVertices(mesh, 0, count * format.stride);
   } else if (vertexData) {
-    VertexPointer vertices = lovrMeshMapVertices(mesh, 0, count, false, true);
-    memcpy(vertices.raw, vertexData->blob.data, vertexData->count * vertexData->format.stride);
+    void* vertices = lovrMeshMapVertices(mesh, 0);
+    memcpy(vertices, vertexData->blob.data, vertexData->count * vertexData->format.stride);
+    lovrMeshFlushVertices(mesh, 0, count * format.stride);
   }
 
   luax_pushobject(L, mesh);

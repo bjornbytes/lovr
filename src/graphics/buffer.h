@@ -10,7 +10,7 @@ typedef enum {
 
 typedef struct Buffer Buffer;
 
-Buffer* lovrBufferCreate(size_t size, void* data, BufferUsage usage);
+Buffer* lovrBufferCreate(size_t size, void* data, BufferUsage usage, bool readable);
 void lovrBufferDestroy(void* ref);
 size_t lovrBufferGetSize(Buffer* buffer);
 BufferUsage lovrBufferGetUsage(Buffer* buffer);

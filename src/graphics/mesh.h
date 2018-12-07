@@ -19,13 +19,14 @@ typedef enum {
 
 typedef struct Mesh Mesh;
 
-Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, BufferUsage usage);
+Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, BufferUsage usage, bool readable);
 void lovrMeshDestroy(void* ref);
 void lovrMeshAttachAttribute(Mesh* mesh, Mesh* other, const char* name, int divisor);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
 void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier);
 void lovrMeshDraw(Mesh* mesh, int instances);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
+bool lovrMeshIsReadable(Mesh* mesh);
 MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);
 void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode);
 int lovrMeshGetVertexCount(Mesh* mesh);
@@ -35,9 +36,8 @@ void lovrMeshGetDrawRange(Mesh* mesh, uint32_t* start, uint32_t* count);
 void lovrMeshSetDrawRange(Mesh* mesh, uint32_t start, uint32_t count);
 Material* lovrMeshGetMaterial(Mesh* mesh);
 void lovrMeshSetMaterial(Mesh* mesh, Material* material);
-VertexPointer lovrMeshMapVertices(Mesh* mesh, uint32_t start, uint32_t count, bool read, bool write);
-void lovrMeshUnmapVertices(Mesh* mesh);
-IndexPointer lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* size);
-IndexPointer lovrMeshWriteIndices(Mesh* mesh, uint32_t count, size_t size);
-void lovrMeshUnmapIndices(Mesh* mesh);
-void lovrMeshResize(Mesh* mesh, uint32_t count);
+void* lovrMeshMapVertices(Mesh* mesh, size_t offset);
+void lovrMeshFlushVertices(Mesh* mesh, size_t offset, size_t size);
+void* lovrMeshMapIndices(Mesh* mesh, uint32_t count, size_t indexSize);
+void lovrMeshFlushIndices(Mesh* mesh);
+void* lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* indexSize);

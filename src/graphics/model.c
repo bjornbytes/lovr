@@ -62,12 +62,14 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->modelData = modelData;
   model->aabbDirty = true;
 
-  model->mesh = lovrMeshCreate(modelData->vertexData->count, modelData->vertexData->format, MESH_TRIANGLES, USAGE_STATIC);
-  VertexPointer vertices = lovrMeshMapVertices(model->mesh, 0, modelData->vertexData->count, false, true);
-  memcpy(vertices.raw, modelData->vertexData->blob.data, modelData->vertexData->count * modelData->vertexData->format.stride);
+  model->mesh = lovrMeshCreate(modelData->vertexData->count, modelData->vertexData->format, MESH_TRIANGLES, USAGE_STATIC, false);
+  void* vertices = lovrMeshMapVertices(model->mesh, 0);
+  memcpy(vertices, modelData->vertexData->blob.data, modelData->vertexData->count * modelData->vertexData->format.stride);
+  lovrMeshFlushVertices(model->mesh, 0, modelData->vertexData->count * modelData->vertexData->format.stride);
 
-  IndexPointer indices = lovrMeshWriteIndices(model->mesh, modelData->indexCount, modelData->indexSize);
-  memcpy(indices.raw, modelData->indices.raw, modelData->indexCount * modelData->indexSize);
+  void* indices = lovrMeshMapIndices(model->mesh, modelData->indexCount, modelData->indexSize);
+  memcpy(indices, modelData->indices.raw, modelData->indexCount * modelData->indexSize);
+  lovrMeshFlushIndices(model->mesh);
 
   if (modelData->textures.length > 0) {
     model->textures = calloc(modelData->textures.length, sizeof(Texture*));

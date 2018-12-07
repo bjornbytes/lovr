@@ -124,10 +124,6 @@ typedef struct {
     uint32_t count;
     uint16_t* data;
   } index;
-  struct {
-    int start;
-    int count;
-  } range;
   DefaultShader shader;
   Material* material;
   Texture* textures[MAX_MATERIAL_TEXTURES];
@@ -211,7 +207,7 @@ void lovrGraphicsMatrixTransform(mat4 transform);
 void lovrGraphicsSetProjection(mat4 projection);
 
 // Rendering
-VertexPointer lovrGraphicsGetVertexPointer(uint32_t capacity);
+float* lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
 void lovrGraphicsDraw(DrawCommand* draw);
