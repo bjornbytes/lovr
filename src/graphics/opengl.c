@@ -1,4 +1,5 @@
 #include "graphics/graphics.h"
+#include "graphics/buffer.h"
 #include "graphics/canvas.h"
 #include "graphics/mesh.h"
 #include "graphics/shader.h"
@@ -70,6 +71,7 @@ static struct {
   uint32_t blockBuffers[2][MAX_BLOCK_BUFFERS];
   uint32_t vertexArray;
   uint32_t vertexBuffer;
+  uint32_t genericBuffer;
   float viewports[2][4];
   vec_void_t incoherents[MAX_BARRIERS];
   bool srgb;
@@ -77,6 +79,15 @@ static struct {
   GpuLimits limits;
   GpuStats stats;
 } state;
+
+struct Buffer {
+  Ref ref;
+  void* data;
+  size_t size;
+  uint32_t id;
+  GLsync lock;
+  BufferUsage usage;
+};
 
 struct ShaderBlock {
   Ref ref;
@@ -593,6 +604,13 @@ static void lovrGpuBindVertexBuffer(uint32_t vertexBuffer) {
   if (state.vertexBuffer != vertexBuffer) {
     state.vertexBuffer = vertexBuffer;
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+  }
+}
+
+static void lovrGpuBindGenericBuffer(uint32_t buffer) {
+  if (state.genericBuffer != buffer) {
+    state.genericBuffer = buffer;
+    glBindBuffer(GL_COPY_WRITE_BUFFER, buffer);
   }
 }
 
@@ -1478,6 +1496,102 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {
   }
 
   return textureData;
+}
+
+// Buffer
+
+Buffer* lovrBufferCreate(size_t size, void* data, BufferUsage usage) {
+  Buffer* buffer = lovrAlloc(Buffer, lovrBufferDestroy);
+  if (!buffer) return NULL;
+
+  buffer->size = size;
+  buffer->usage = usage;
+  glGenBuffers(1, &buffer->id);
+  lovrGpuBindGenericBuffer(buffer->id);
+
+#ifndef EMSCRIPTEN
+  if (GLAD_GL_ARB_buffer_storage) {
+    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT;
+    glBufferStorage(GL_COPY_WRITE_BUFFER, size, data, flags);
+
+    if (usage != USAGE_STATIC) {
+      buffer->data = glMapBufferRange(GL_COPY_WRITE_BUFFER, 0, size, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
+    }
+  } else {
+#endif
+    buffer->data = calloc(1, size);
+    glBufferData(GL_COPY_WRITE_BUFFER, size, data, convertBufferUsage(usage));
+
+    if (data) {
+      memcpy(buffer->data, data, size);
+    }
+#ifndef EMSCRIPTEN
+  }
+#endif
+
+  return buffer;
+}
+
+void lovrBufferDestroy(void* ref) {
+  Buffer* buffer = ref;
+  glDeleteBuffers(1, &buffer->id);
+  if (buffer->data) {
+    free(buffer->data);
+  }
+  free(ref);
+}
+
+size_t lovrBufferGetSize(Buffer* buffer) {
+  return buffer->size;
+}
+
+BufferUsage lovrBufferGetUsage(Buffer* buffer) {
+  return buffer->usage;
+}
+
+void* lovrBufferMap(Buffer* buffer, size_t offset, size_t size) {
+  return (uint8_t*) buffer->data + offset;
+}
+
+void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size) {
+  lovrAssert(buffer->usage != USAGE_STATIC, "Static buffers may not be updated");
+  lovrGpuBindGenericBuffer(buffer->id);
+#ifndef EMSCRIPTEN
+  if (GLAD_GL_ARB_buffer_storage) {
+    glFlushMappedBufferRange(GL_COPY_WRITE_BUFFER, offset, size);
+  } else {
+#endif
+    glBufferSubData(GL_COPY_WRITE_BUFFER, offset, size, (GLvoid*) ((uint8_t*) buffer->data + offset));
+#ifndef EMSCRIPTEN
+  }
+#endif
+}
+
+void lovrBufferLock(Buffer* buffer) {
+#ifndef EMSCRIPTEN
+  if (!GLAD_GL_ARB_buffer_storage || buffer->usage == USAGE_STATIC) {
+    return;
+  }
+
+  lovrBufferUnlock(buffer);
+  buffer->lock = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+#endif
+}
+
+void lovrBufferUnlock(Buffer* buffer) {
+#ifndef EMSCRIPTEN
+  if (!GLAD_GL_ARB_buffer_storage || buffer->usage == USAGE_STATIC || !buffer->lock) {
+    return;
+  }
+
+  if (glClientWaitSync(buffer->lock, 0, 0) == GL_TIMEOUT_EXPIRED) {
+    while (glClientWaitSync(buffer->lock, GL_SYNC_FLUSH_COMMANDS_BIT, 1E9) == GL_TIMEOUT_EXPIRED) {
+      continue;
+    }
+  }
+  glDeleteSync(buffer->lock);
+  buffer->lock = NULL;
+#endif
 }
 
 // Shader

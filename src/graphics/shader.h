@@ -1,3 +1,4 @@
+#include "graphics/buffer.h"
 #include "graphics/texture.h"
 #include "lib/map/map.h"
 #include "lib/vec/vec.h"
@@ -7,12 +8,6 @@
 
 #define LOVR_MAX_UNIFORM_LENGTH 64
 #define LOVR_MAX_ATTRIBUTE_LENGTH 64
-
-typedef enum {
-  USAGE_STATIC,
-  USAGE_DYNAMIC,
-  USAGE_STREAM
-} BufferUsage;
 
 typedef enum {
   ACCESS_READ,
