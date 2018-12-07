@@ -10,7 +10,8 @@ int l_lovrShaderBlockIsWritable(lua_State* L) {
 
 int l_lovrShaderBlockGetSize(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
-  lua_pushinteger(L, lovrShaderBlockGetSize(block));
+  Buffer* buffer = lovrShaderBlockGetBuffer(block);
+  lua_pushinteger(L, lovrBufferGetSize(buffer));
   return 1;
 }
 
@@ -28,15 +29,19 @@ int l_lovrShaderBlockSend(lua_State* L) {
     const char* name = luaL_checkstring(L, 2);
     const Uniform* uniform = lovrShaderBlockGetUniform(block, name);
     lovrAssert(uniform, "Unknown uniform for ShaderBlock '%s'", name);
-    uint8_t* data = ((uint8_t*) lovrShaderBlockMap(block)) + uniform->offset;
+    Buffer* buffer = lovrShaderBlockGetBuffer(block);
+    uint8_t* data = lovrBufferMap(buffer, uniform->offset);
     luax_checkuniform(L, 3, uniform, data, name);
+    lovrBufferFlush(buffer, uniform->offset, uniform->size);
     return 0;
   } else {
     Blob* blob = luax_checktype(L, 1, Blob);
-    void* data = lovrShaderBlockMap(block);
-    size_t blockSize = lovrShaderBlockGetSize(block);
-    size_t copySize = MIN(blockSize, blob->size);
+    Buffer* buffer = lovrShaderBlockGetBuffer(block);
+    void* data = lovrBufferMap(buffer, 0);
+    size_t bufferSize = lovrBufferGetSize(buffer);
+    size_t copySize = MIN(bufferSize, blob->size);
     memcpy(data, blob->data, copySize);
+    lovrBufferFlush(buffer, 0, copySize);
     lua_pushinteger(L, copySize);
     return 1;
   }

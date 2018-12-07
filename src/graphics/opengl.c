@@ -92,14 +92,10 @@ struct Buffer {
 struct ShaderBlock {
   Ref ref;
   BlockType type;
-  BufferUsage usage;
   vec_uniform_t uniforms;
   map_int_t uniformMap;
-  uint32_t buffer;
   GLenum target;
-  size_t size;
-  void* data;
-  bool mapped;
+  Buffer* buffer;
   uint8_t incoherent;
 };
 
@@ -1549,7 +1545,7 @@ BufferUsage lovrBufferGetUsage(Buffer* buffer) {
   return buffer->usage;
 }
 
-void* lovrBufferMap(Buffer* buffer, size_t offset, size_t size) {
+void* lovrBufferMap(Buffer* buffer, size_t offset) {
   return (uint8_t*) buffer->data + offset;
 }
 
@@ -2071,8 +2067,7 @@ void lovrShaderBind(Shader* shader) {
         bool writable = type == BLOCK_STORAGE && block->access != ACCESS_READ;
         block->source->incoherent |= writable ? (1 << BARRIER_BLOCK) : 0;
         vec_push(&state.incoherents[BARRIER_BLOCK], block->source);
-        lovrShaderBlockUnmap(block->source);
-        lovrGpuBindBlockBuffer(type, block->source->buffer, block->slot);
+        lovrGpuBindBlockBuffer(type, block->source->buffer->id, block->slot);
       } else {
         lovrGpuBindBlockBuffer(type, 0, block->slot);
       }
@@ -2189,7 +2184,7 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
   size_t size = 0;
   vec_foreach_ptr(&block->uniforms, uniform, i) {
 
-    // Calculate size and offset
+    // Calculate size and offset based on the cryptic std140 rules
     size_t align;
     if (uniform->count > 1 || uniform->type == UNIFORM_MATRIX) {
       align = 16 * (uniform->type == UNIFORM_MATRIX ? uniform->components : 1);
@@ -2211,13 +2206,7 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
   block->target = block->type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
 #endif
   block->type = type;
-  block->usage = usage;
-  block->size = size;
-  block->data = calloc(1, size);
-
-  glGenBuffers(1, &block->buffer);
-  glBindBuffer(block->target, block->buffer);
-  glBufferData(block->target, size, NULL, convertBufferUsage(block->usage));
+  block->buffer = lovrBufferCreate(size, NULL, usage);
 
   return block;
 }
@@ -2225,21 +2214,17 @@ ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, Buff
 void lovrShaderBlockDestroy(void* ref) {
   ShaderBlock* block = ref;
   lovrGpuDestroySyncResource(block, block->incoherent);
-  glDeleteBuffers(1, &block->buffer);
+  lovrRelease(block->buffer);
   vec_deinit(&block->uniforms);
   map_deinit(&block->uniformMap);
-  free(block->data);
   free(block);
-}
-
-size_t lovrShaderBlockGetSize(ShaderBlock* block) {
-  return block->size;
 }
 
 BlockType lovrShaderBlockGetType(ShaderBlock* block) {
   return block->type;
 }
 
+// TODO use sds!
 char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, size_t* length) {
 
   // Calculate
@@ -2287,20 +2272,8 @@ const Uniform* lovrShaderBlockGetUniform(ShaderBlock* block, const char* name) {
   return &block->uniforms.data[*index];
 }
 
-void* lovrShaderBlockMap(ShaderBlock* block) {
-  block->mapped = true;
-  return block->data;
-}
-
-void lovrShaderBlockUnmap(ShaderBlock* block) {
-  if (!block->mapped) {
-    return;
-  }
-
-  glBindBuffer(block->target, block->buffer);
-  glBufferData(block->target, block->size, NULL, convertBufferUsage(block->usage));
-  glBufferSubData(block->target, 0, block->size, block->data);
-  block->mapped = false;
+Buffer* lovrShaderBlockGetBuffer(ShaderBlock* block) {
+  return block->buffer;
 }
 
 // Mesh
