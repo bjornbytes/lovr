@@ -146,18 +146,6 @@ struct Canvas {
   bool immortal;
 };
 
-typedef struct {
-  Buffer* buffer;
-  AttributeType type;
-  int components;
-  size_t offset;
-  int stride;
-  int divisor;
-  bool enabled;
-} MeshAttachment;
-
-typedef map_t(MeshAttachment) map_attachment_t;
-
 struct Mesh {
   Ref ref;
   uint32_t vao;
@@ -174,8 +162,8 @@ struct Mesh {
   uint32_t rangeStart;
   uint32_t rangeCount;
   Material* material;
-  map_attachment_t attachments;
-  MeshAttachment layout[MAX_ATTACHMENTS];
+  map_attribute_t attributes;
+  MeshAttribute layout[MAX_ATTRIBUTES];
 };
 
 // Helper functions
@@ -2284,10 +2272,10 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode,
   mesh->vbo = lovrBufferCreate(count * format.stride, NULL, usage, readable);
   glGenVertexArrays(1, &mesh->vao);
 
-  map_init(&mesh->attachments);
+  map_init(&mesh->attributes);
   for (int i = 0; i < format.count; i++) {
     lovrRetain(mesh->vbo);
-    map_set(&mesh->attachments, format.attributes[i].name, ((MeshAttachment) {
+    map_set(&mesh->attributes, format.attributes[i].name, ((MeshAttribute) {
       .buffer = mesh->vbo,
       .type = format.attributes[i].type,
       .components = format.attributes[i].count,
@@ -2305,64 +2293,62 @@ void lovrMeshDestroy(void* ref) {
   lovrRelease(mesh->material);
   glDeleteVertexArrays(1, &mesh->vao);
   const char* key;
-  map_iter_t iter = map_iter(&mesh->attachments);
-  while ((key = map_next(&mesh->attachments, &iter)) != NULL) {
-    MeshAttachment* attachment = map_get(&mesh->attachments, key);
-    lovrRelease(attachment->buffer);
+  map_iter_t iter = map_iter(&mesh->attributes);
+  while ((key = map_next(&mesh->attributes, &iter)) != NULL) {
+    MeshAttribute* attribute = map_get(&mesh->attributes, key);
+    lovrRelease(attribute->buffer);
   }
+  map_deinit(&mesh->attributes);
   lovrRelease(mesh->vbo);
   lovrRelease(mesh->ibo);
-  map_deinit(&mesh->attachments);
   free(mesh);
 }
 
-void lovrMeshAttachAttribute(Mesh* mesh, Mesh* other, const char* name, int divisor) {
-  MeshAttachment* otherAttachment = map_get(&other->attachments, name);
-  lovrAssert(otherAttachment, "No attribute named '%s' exists", name);
-  lovrAssert(!map_get(&mesh->attachments, name), "Mesh already has an attribute named '%s'", name);
-  lovrAssert(divisor >= 0, "Divisor can't be negative");
-
-  MeshAttachment attachment = *otherAttachment;
-  attachment.divisor = divisor;
-  attachment.enabled = true;
-  map_set(&mesh->attachments, name, attachment);
-  lovrRetain(attachment.buffer);
+void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute) {
+  lovrAssert(!map_get(&mesh->attributes, name), "Mesh already has an attribute named '%s'", name);
+  lovrAssert(attribute->divisor >= 0, "Divisor can't be negative");
+  map_set(&mesh->attributes, name, *attribute);
+  lovrRetain(attribute->buffer);
 }
 
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
-  MeshAttachment* attachment = map_get(&mesh->attachments, name);
-  lovrAssert(attachment, "No attached attribute '%s' was found", name);
-  lovrAssert(attachment->buffer != mesh->vbo, "Attribute '%s' was not attached from another Mesh", name);
-  lovrRelease(attachment->buffer);
-  map_remove(&mesh->attachments, name);
+  MeshAttribute* attribute = map_get(&mesh->attributes, name);
+  lovrAssert(attribute, "No attached attribute '%s' was found", name);
+  lovrAssert(attribute->buffer != mesh->vbo, "Attribute '%s' was not attached from another Mesh", name);
+  lovrRelease(attribute->buffer);
+  map_remove(&mesh->attributes, name);
+}
+
+MeshAttribute* lovrMeshGetAttribute(Mesh* mesh, const char* name) {
+  return map_get(&mesh->attributes, name);
 }
 
 void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   const char* key;
   map_iter_t iter = map_iter(&mesh->attachments);
 
-  MeshAttachment layout[MAX_ATTACHMENTS];
-  memset(layout, 0, MAX_ATTACHMENTS * sizeof(MeshAttachment));
+  MeshAttribute layout[MAX_ATTRIBUTES];
+  memset(layout, 0, MAX_ATTRIBUTES * sizeof(MeshAttribute));
 
   lovrGpuBindVertexArray(mesh->vao);
   if (mesh->indexCount > 0) {
     lovrGpuBindIndexBuffer(mesh->ibo->id);
   }
 
-  while ((key = map_next(&mesh->attachments, &iter)) != NULL) {
+  while ((key = map_next(&mesh->attributes, &iter)) != NULL) {
     int location = lovrShaderGetAttributeId(shader, key);
 
     if (location >= 0) {
-      MeshAttachment* attachment = map_get(&mesh->attachments, key);
-      layout[location] = *attachment;
+      MeshAttribute* attribute = map_get(&mesh->attributes, key);
+      layout[location] = *attribute;
     }
   }
 
-  for (int i = 0; i < MAX_ATTACHMENTS; i++) {
-    MeshAttachment previous = mesh->layout[i];
-    MeshAttachment current = layout[i];
+  for (int i = 0; i < MAX_ATTRIBUTES; i++) {
+    MeshAttribute previous = mesh->layout[i];
+    MeshAttribute current = layout[i];
 
-    if (!memcmp(&previous, &current, sizeof(MeshAttachment))) {
+    if (!memcmp(&previous, &current, sizeof(MeshAttribute))) {
       continue;
     }
 
@@ -2400,7 +2386,7 @@ void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
     }
   }
 
-  memcpy(mesh->layout, layout, MAX_ATTACHMENTS * sizeof(MeshAttachment));
+  memcpy(mesh->layout, layout, MAX_ATTRIBUTES * sizeof(MeshAttribute));
 }
 
 void lovrMeshDraw(Mesh* mesh, int instances) {
@@ -2448,15 +2434,15 @@ int lovrMeshGetVertexCount(Mesh* mesh) {
 }
 
 bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
-  MeshAttachment* attachment = map_get(&mesh->attachments, name);
-  lovrAssert(attachment, "Mesh does not have an attribute named '%s'", name);
-  return attachment->enabled;
+  MeshAttribute* attribute = map_get(&mesh->attributes, name);
+  lovrAssert(attribute, "Mesh does not have an attribute named '%s'", name);
+  return attribute->enabled;
 }
 
 void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enable) {
-  MeshAttachment* attachment = map_get(&mesh->attachments, name);
-  lovrAssert(attachment, "Mesh does not have an attribute named '%s'", name);
-  attachment->enabled = enable;
+  MeshAttribute* attribute = map_get(&mesh->attributes, name);
+  lovrAssert(attribute, "Mesh does not have an attribute named '%s'", name);
+  attribute->enabled = enable;
 }
 
 void lovrMeshGetDrawRange(Mesh* mesh, uint32_t* start, uint32_t* count) {

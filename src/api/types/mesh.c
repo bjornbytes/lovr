@@ -11,19 +11,36 @@ int l_lovrMeshAttachAttributes(lua_State* L) {
   if (lua_isnoneornil(L, 4)) {
     VertexFormat* format = lovrMeshGetVertexFormat(other);
     for (int i = 0; i < format->count; i++) {
-      lovrMeshAttachAttribute(mesh, other, format->attributes[i].name, instanceDivisor);
+      const char* name = format->attributes[i].name;
+      MeshAttribute* attribute = lovrMeshGetAttribute(other, name);
+      MeshAttribute attachment = *attribute;
+      attachment.divisor = instanceDivisor;
+      attachment.enabled = true;
+      lovrMeshAttachAttribute(mesh, name, &attachment);
     }
   } else if (lua_istable(L, 4)) {
     int length = lua_objlen(L, 4);
     for (int i = 0; i < length; i++) {
       lua_rawgeti(L, 4, i + 1);
-      lovrMeshAttachAttribute(mesh, other, lua_tostring(L, -1), instanceDivisor);
+      const char* name = lua_tostring(L, -1);
+      MeshAttribute* attribute = lovrMeshGetAttribute(other, name);
+      lovrAssert(attribute, "Tried to attach non-existent attribute %s", name);
+      MeshAttribute attachment = *attribute;
+      attachment.divisor = instanceDivisor;
+      attachment.enabled = true;
+      lovrMeshAttachAttribute(mesh, name, &attachment);
       lua_pop(L, 1);
     }
   } else {
     int top = lua_gettop(L);
     for (int i = 4; i <= top; i++) {
-      lovrMeshAttachAttribute(mesh, other, lua_tostring(L, i), instanceDivisor);
+      const char* name = lua_tostring(L, i);
+      MeshAttribute* attribute = lovrMeshGetAttribute(other, name);
+      lovrAssert(attribute, "Tried to attach non-existent attribute %s", name);
+      MeshAttribute attachment = *attribute;
+      attachment.divisor = instanceDivisor;
+      attachment.enabled = true;
+      lovrMeshAttachAttribute(mesh, name, &attachment);
     }
   }
 

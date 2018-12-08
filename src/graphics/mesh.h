@@ -1,11 +1,24 @@
 #include "graphics/material.h"
 #include "graphics/shader.h"
 #include "data/vertexData.h"
+#include "lib/map/map.h"
 #include <stdbool.h>
 
 #pragma once
 
-#define MAX_ATTACHMENTS 16
+#define MAX_ATTRIBUTES 16
+
+typedef struct {
+  Buffer* buffer;
+  AttributeType type;
+  int components;
+  size_t offset;
+  int stride;
+  int divisor;
+  bool enabled;
+} MeshAttribute;
+
+typedef map_t(MeshAttribute) map_attribute_t;
 
 typedef enum {
   MESH_POINTS,
@@ -21,8 +34,9 @@ typedef struct Mesh Mesh;
 
 Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, BufferUsage usage, bool readable);
 void lovrMeshDestroy(void* ref);
-void lovrMeshAttachAttribute(Mesh* mesh, Mesh* other, const char* name, int divisor);
+void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
+MeshAttribute* lovrMeshGetAttribute(Mesh* mesh, const char* name);
 void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier);
 void lovrMeshDraw(Mesh* mesh, int instances);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
