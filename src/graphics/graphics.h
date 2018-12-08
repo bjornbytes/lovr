@@ -14,6 +14,7 @@
 
 #define MAX_TRANSFORMS 64
 #define MAX_PIPELINES 16
+#define MAX_BATCHES 256
 
 typedef void (*StencilCallback)(void* userdata);
 
@@ -143,6 +144,7 @@ typedef struct {
   Material* defaultMaterial;
   Font* defaultFont;
   Mesh* defaultMesh;
+  ShaderBlock* block;
   TextureFilter defaultFilter;
   float transforms[MAX_TRANSFORMS][16];
   int transform;

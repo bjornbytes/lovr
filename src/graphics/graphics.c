@@ -76,6 +76,14 @@ void lovrGraphicsSetWindow(WindowFlags* flags) {
   vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
   vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
   state.defaultMesh = lovrMeshCreate(65536, format, MESH_TRIANGLES, USAGE_STREAM, false);
+
+  vec_uniform_t uniforms;
+  vec_init(&uniforms);
+  vec_push(&uniforms, ((Uniform) { .name = "model", .type = UNIFORM_MATRIX, .components = 4, .count = MAX_BATCHES }));
+  vec_push(&uniforms, ((Uniform) { .name = "color", .type = UNIFORM_FLOAT, .components = 4, .count = MAX_BATCHES }));
+  state.block = lovrShaderBlockCreate(&uniforms, BLOCK_UNIFORM, USAGE_STREAM);
+  vec_deinit(&uniforms);
+
   lovrGraphicsReset();
   state.initialized = true;
 }
@@ -403,36 +411,20 @@ void lovrGraphicsDraw(DrawCommand* draw) {
   if (!shader) shader = state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader);
 
   mat4 transform = state.transforms[state.transform];
-  lovrShaderSetMatrices(shader, "lovrModel", transform, 0, 16);
   lovrShaderSetMatrices(shader, "lovrViews", state.camera.viewMatrix[0], 0, 32);
   lovrShaderSetMatrices(shader, "lovrProjections", state.camera.projection[0], 0, 32);
 
-  float modelView[32];
-  mat4_multiply(mat4_set(modelView, state.camera.viewMatrix[0]), transform);
-  mat4_multiply(mat4_set(modelView + 16, state.camera.viewMatrix[1]), transform);
-  lovrShaderSetMatrices(shader, "lovrTransforms", modelView, 0, 32);
+  Buffer* drawDataBuffer = lovrShaderBlockGetBuffer(state.block);
 
-  if (lovrShaderHasUniform(shader, "lovrNormalMatrices")) {
-    if (mat4_invert(modelView) && mat4_invert(modelView + 16)) {
-      mat4_transpose(modelView);
-      mat4_transpose(modelView + 16);
-    } else {
-      mat4_identity(modelView);
-      mat4_identity(modelView + 16);
-    }
+  struct {
+    float model[MAX_BATCHES][16];
+    float color[MAX_BATCHES][4];
+  }* drawData = lovrBufferMap(drawDataBuffer, 0);
 
-    float normalMatrices[18] = {
-      modelView[0], modelView[1], modelView[2],
-      modelView[4], modelView[5], modelView[6],
-      modelView[8], modelView[9], modelView[10],
-
-      modelView[16], modelView[17], modelView[18],
-      modelView[20], modelView[21], modelView[22],
-      modelView[24], modelView[25], modelView[26]
-    };
-
-    lovrShaderSetMatrices(shader, "lovrNormalMatrices", normalMatrices, 0, 18);
-  }
+  memcpy(drawData->model[0], transform, 16 * sizeof(float));
+  memcpy(drawData->color[0], (float*) &pipeline->color, 4 * sizeof(float));
+  lovrBufferFlush(drawDataBuffer, 0, sizeof(*drawData));
+  lovrShaderSetBlock(shader, "lovrDrawData", state.block, ACCESS_READ);
 
   if (draw->pose) {
     lovrShaderSetMatrices(shader, "lovrPose", draw->pose, 0, MAX_BONES * 16);
@@ -441,7 +433,6 @@ void lovrGraphicsDraw(DrawCommand* draw) {
   }
 
   lovrShaderSetInts(shader, "lovrViewportCount", &viewportCount, 0, 1);
-  lovrShaderSetColor(shader, "lovrColor", pipeline->color);
   lovrShaderSetFloats(shader, "lovrPointSize", &pipeline->pointSize, 0, 1);
 
   for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
