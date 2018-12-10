@@ -9,8 +9,8 @@
 typedef struct {
   Ref ref;
   ALCdevice* device;
-  bool isRecording;
   const char* name;
+  bool isRecording;
   int sampleRate;
   int bitDepth;
   int channelCount;

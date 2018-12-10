@@ -30,7 +30,7 @@ void lovrThrow(const char* format, ...) {
 void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*)) {
   void* object = calloc(1, size);
   if (!object) return NULL;
-  *((Ref*) object) = (Ref) { 1, type, destructor };
+  *((Ref*) object) = (Ref) { .free = destructor, .type = type, .count = 1 };
   return object;
 }
 

@@ -16,14 +16,12 @@
 #define ALIGN(p, n) ((uintptr_t) p & -n)
 
 typedef struct ref {
-  int count;
-  const char* type;
   void (*free)(void*);
+  const char* type;
+  int count;
 } Ref;
 
-typedef struct {
-  float r, g, b, a;
-} Color;
+typedef struct { float r, g, b, a; } Color;
 
 typedef void (*lovrErrorHandler)(void* userdata, const char* format, va_list args);
 extern _Thread_local lovrErrorHandler lovrErrorCallback;

@@ -10,11 +10,11 @@
 
 typedef struct {
   Buffer* buffer;
-  AttributeType type;
-  int components;
   size_t offset;
-  int stride;
-  int divisor;
+  size_t stride;
+  AttributeType type;
+  uint8_t components;
+  uint8_t divisor;
   bool enabled;
 } MeshAttribute;
 

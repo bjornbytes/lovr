@@ -84,8 +84,8 @@ struct Buffer {
   Ref ref;
   void* data;
   size_t size;
-  uint32_t id;
   GLsync lock;
+  uint32_t id;
   BufferUsage usage;
 };
 
@@ -94,8 +94,8 @@ struct ShaderBlock {
   BlockType type;
   vec_uniform_t uniforms;
   map_int_t uniformMap;
-  GLenum target;
   Buffer* buffer;
+  GLenum target;
   uint8_t incoherent;
 };
 
