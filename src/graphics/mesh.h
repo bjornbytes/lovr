@@ -15,6 +15,7 @@ typedef struct {
   AttributeType type;
   uint8_t components;
   uint8_t divisor;
+  bool integer;
   bool enabled;
 } MeshAttribute;
 

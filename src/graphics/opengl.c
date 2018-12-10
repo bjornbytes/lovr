@@ -2277,10 +2277,11 @@ Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode,
     lovrRetain(mesh->vbo);
     map_set(&mesh->attributes, format.attributes[i].name, ((MeshAttribute) {
       .buffer = mesh->vbo,
-      .type = format.attributes[i].type,
-      .components = format.attributes[i].count,
       .offset = format.attributes[i].offset,
       .stride = format.stride,
+      .type = format.attributes[i].type,
+      .components = format.attributes[i].count,
+      .integer = format.attributes[i].type == ATTR_INT,
       .enabled = true
     }));
   }
@@ -2378,10 +2379,20 @@ void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
       int count = current.components;
       int stride = current.stride;
       GLvoid* offset = (GLvoid*) current.offset;
-      switch (current.type) {
-        case ATTR_FLOAT: glVertexAttribPointer(i, count, GL_FLOAT, GL_TRUE, stride, offset); break;
-        case ATTR_BYTE: glVertexAttribPointer(i, count, GL_UNSIGNED_BYTE, GL_TRUE, stride, offset); break;
-        case ATTR_INT: glVertexAttribIPointer(i, count, GL_INT, stride, offset); break;
+
+      // TODO
+      if (current.integer) {
+        switch (current.type) {
+          case ATTR_BYTE: glVertexAttribIPointer(i, count, GL_UNSIGNED_BYTE, stride, offset); break;
+          case ATTR_INT: glVertexAttribIPointer(i, count, GL_INT, stride, offset); break;
+          default: lovrThrow("Cannot use float data for int attribute");
+        }
+      } else {
+        switch (current.type) {
+          case ATTR_FLOAT: glVertexAttribPointer(i, count, GL_FLOAT, GL_TRUE, stride, offset); break;
+          case ATTR_BYTE: glVertexAttribPointer(i, count, GL_UNSIGNED_BYTE, GL_TRUE, stride, offset); break;
+          case ATTR_INT: glVertexAttribPointer(i, count, GL_INT, GL_TRUE, stride, offset); break;
+        }
       }
     }
   }
