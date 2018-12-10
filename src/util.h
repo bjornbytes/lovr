@@ -5,13 +5,14 @@
 
 #pragma once
 
+#define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
+
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 #define lovrAlloc(T, destructor) (T*) _lovrAlloc(#T, sizeof(T), destructor)
 
 #define MAX(a, b) (a > b ? a : b)
 #define MIN(a, b) (a < b ? a : b)
 #define CLAMP(x, min, max) MAX(min, MIN(max, x))
-
 #define ALIGN(p, n) ((uintptr_t) p & -n)
 
 typedef struct ref {
