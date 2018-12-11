@@ -1,4 +1,5 @@
 #include "graphics/material.h"
+#include "resources/shaders.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -29,6 +30,22 @@ void lovrMaterialDestroy(void* ref) {
     lovrRelease(material->textures[i]);
   }
   free(material);
+}
+
+void lovrMaterialBind(Material* material, Shader* shader) {
+  for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
+    lovrShaderSetFloats(shader, lovrShaderScalarUniforms[i], &material->scalars[i], 0, 1);
+  }
+
+  for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
+    lovrShaderSetColor(shader, lovrShaderColorUniforms[i], material->colors[i]);
+  }
+
+  for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
+    lovrShaderSetTextures(shader, lovrShaderTextureUniforms[i], &material->textures[i], 0, 1);
+  }
+
+  lovrShaderSetMatrices(shader, "lovrMaterialTransform", material->transform, 0, 9);
 }
 
 float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType) {

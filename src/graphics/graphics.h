@@ -14,7 +14,8 @@
 
 #define MAX_TRANSFORMS 64
 #define MAX_PIPELINES 16
-#define MAX_BATCHES 256
+#define MAX_VERTICES 65536
+#define MAX_BATCHES 192 // Enough to fit in any UBO
 
 typedef void (*StencilCallback)(void* userdata);
 
@@ -87,6 +88,8 @@ typedef struct {
   int drawCalls;
 } GpuStats;
 
+// Internal
+
 typedef struct {
   bool stereo;
   Canvas* canvas;
@@ -117,21 +120,16 @@ typedef struct {
 typedef struct {
   Mesh* mesh;
   MeshDrawMode mode;
-  struct {
-    uint32_t count;
-    float* data;
-  } vertex;
-  struct {
-    uint32_t count;
-    uint16_t* data;
-  } index;
+  struct { uint32_t count; float* data; } vertex;
+  struct { uint32_t count; uint16_t* data; } index;
   DefaultShader shader;
+  Texture* diffuseTexture;
+  Texture* environmentMap;
   Material* material;
-  Texture* textures[MAX_MATERIAL_TEXTURES];
   mat4 transform;
-  bool forceMono;
-  int instances;
   float* pose;
+  int instances;
+  bool mono;
 } DrawCommand;
 
 typedef struct {
@@ -144,12 +142,16 @@ typedef struct {
   Material* defaultMaterial;
   Font* defaultFont;
   Mesh* defaultMesh;
-  ShaderBlock* block;
   TextureFilter defaultFilter;
   float transforms[MAX_TRANSFORMS][16];
   int transform;
   Pipeline pipelines[MAX_PIPELINES];
   int pipeline;
+  int batchSize;
+  DrawCommand batch;
+  int vertexCursor;
+  ShaderBlock* block;
+  Buffer* vertexMap;
 } GraphicsState;
 
 // Base
@@ -212,6 +214,7 @@ void lovrGraphicsSetProjection(mat4 projection);
 float* lovrGraphicsGetVertexPointer(uint32_t capacity);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
+void lovrGraphicsFlush();
 void lovrGraphicsDraw(DrawCommand* draw);
 void lovrGraphicsPoints(uint32_t count);
 void lovrGraphicsLine(uint32_t count);
@@ -228,8 +231,7 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h);
 #define lovrGraphicsStencil lovrGpuStencil
 #define lovrGraphicsCompute lovrGpuCompute
 
-// GPU
-
+// GPU API
 void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress);
 void lovrGpuDestroy();
 void lovrGpuBindPipeline(Pipeline* pipeline);

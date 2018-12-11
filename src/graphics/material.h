@@ -1,4 +1,5 @@
 #include "graphics/texture.h"
+#include "graphics/shader.h"
 #include "util.h"
 #include <stdbool.h>
 
@@ -38,6 +39,7 @@ typedef struct {
 
 Material* lovrMaterialCreate();
 void lovrMaterialDestroy(void* ref);
+void lovrMaterialBind(Material* material, Shader* shader);
 float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType);
 void lovrMaterialSetScalar(Material* material, MaterialScalar scalarType, float value);
 Color lovrMaterialGetColor(Material* material, MaterialColor colorType);

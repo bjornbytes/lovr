@@ -1,5 +1,4 @@
 #include "graphics/graphics.h"
-#include "resources/shaders.h"
 #include "data/rasterizer.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
@@ -43,6 +42,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultMaterial);
   lovrRelease(state.defaultFont);
   lovrRelease(state.defaultMesh);
+  lovrRelease(state.vertexMap);
   lovrGpuDestroy();
   memset(&state, 0, sizeof(GraphicsState));
 }
@@ -75,7 +75,16 @@ void lovrGraphicsSetWindow(WindowFlags* flags) {
   vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
   vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
   vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
-  state.defaultMesh = lovrMeshCreate(65536, format, MESH_TRIANGLES, USAGE_STREAM, false);
+  state.defaultMesh = lovrMeshCreate(MAX_VERTICES, format, MESH_TRIANGLES, USAGE_STREAM, false);
+
+  state.vertexMap = lovrBufferCreate(MAX_VERTICES * sizeof(uint8_t), NULL, USAGE_STREAM, false);
+  lovrMeshAttachAttribute(state.defaultMesh, "lovrDrawId", &(MeshAttribute) {
+    .buffer = state.vertexMap,
+    .type = ATTR_BYTE,
+    .components = 1,
+    .integer = true,
+    .enabled = true
+  });
 
   vec_uniform_t uniforms;
   vec_init(&uniforms);
@@ -340,7 +349,7 @@ void lovrGraphicsSetProjection(mat4 projection) {
 // Rendering
 
 float* lovrGraphicsGetVertexPointer(uint32_t count) {
-  lovrAssert(count <= 65536, "Hey now!  Up to 65536 vertices are allowed per-primitive...");
+  lovrAssert(count <= MAX_VERTICES, "Hey now!  Up to %d vertices are allowed per-primitive...", MAX_VERTICES);
   return lovrMeshMapVertices(state.defaultMesh, 0);
 }
 
@@ -356,109 +365,59 @@ void lovrGraphicsDiscard(bool color, bool depth, bool stencil) {
   lovrGpuDiscard(canvas, color, depth, stencil);
 }
 
-void lovrGraphicsDraw(DrawCommand* draw) {
-  Mesh* mesh = draw->mesh;
-  if (!mesh) {
-    mesh = state.defaultMesh;
-    lovrMeshSetDrawMode(mesh, draw->mode);
-
-    if (draw->index.count) {
-      if (draw->index.data) {
-        void* indices = lovrMeshMapIndices(mesh, draw->index.count, sizeof(uint16_t));
-        memcpy(indices, draw->index.data, draw->index.count * sizeof(uint16_t));
-      }
-      lovrMeshSetDrawRange(mesh, 0, draw->index.count);
-      lovrMeshFlushIndices(mesh);
-    } else {
-      lovrMeshSetDrawRange(mesh, 0, draw->vertex.count);
-      lovrMeshMapIndices(mesh, 0, 0);
-    }
-
-    if (draw->vertex.count) {
-      if (draw->vertex.data) {
-        void* vertices = lovrGraphicsGetVertexPointer(draw->vertex.count);
-        memcpy(vertices, draw->vertex.data, draw->vertex.count * 8 * sizeof(float));
-      }
-      lovrMeshFlushVertices(state.defaultMesh, 0, draw->vertex.count * 8 * sizeof(float));
-    } else {
-      return;
-    }
+void lovrGraphicsFlush() {
+  if (state.batchSize == 0) {
+    return;
   }
 
-  if (draw->transform) {
-    lovrGraphicsPush();
-    lovrGraphicsMatrixTransform(draw->transform);
-  }
-
+  // Resolve objects
+  DrawCommand* draw = &state.batch;
+  Mesh* mesh = draw->mesh ? draw->mesh : state.defaultMesh;
   Pipeline* pipeline = &state.pipelines[state.pipeline];
-
   Canvas* canvas = pipeline->canvas ? pipeline->canvas : state.camera.canvas;
-  bool stereo = !draw->forceMono && (canvas ? lovrCanvasIsStereo(canvas) : state.camera.stereo);
-  float w = (canvas ? lovrCanvasGetWidth(canvas) : state.width) >> stereo;
-  float h = canvas ? lovrCanvasGetHeight(canvas) : state.height;
-  float viewports[2][4] = { { 0, 0, w, h, }, { w, 0, w, h } };
-  int viewportCount = 1 + stereo;
+  Material* material = draw->material ? draw->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
+  Shader* shader = pipeline->shader ? pipeline->shader : (state.defaultShaders[draw->shader] ? state.defaultShaders[draw->shader] : (state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader)));
 
-  Material* material = draw->material ? draw->material : state.defaultMaterial;
-  if (!material) material = state.defaultMaterial = lovrMaterialCreate();
   if (!draw->material) {
-    for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
-      lovrMaterialSetTexture(material, i, draw->textures[i]);
-    }
+    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, draw->diffuseTexture);
+    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, draw->environmentMap);
   }
 
-  Shader* shader = pipeline->shader ? pipeline->shader : state.defaultShaders[draw->shader];
-  if (!shader) shader = state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader);
-
-  mat4 transform = state.transforms[state.transform];
+  // Camera
   lovrShaderSetMatrices(shader, "lovrViews", state.camera.viewMatrix[0], 0, 32);
   lovrShaderSetMatrices(shader, "lovrProjections", state.camera.projection[0], 0, 32);
 
-  Buffer* drawDataBuffer = lovrShaderBlockGetBuffer(state.block);
-
-  struct {
-    float model[MAX_BATCHES][16];
-    float color[MAX_BATCHES][4];
-  }* drawData = lovrBufferMap(drawDataBuffer, 0);
-
-  memcpy(drawData->model[0], transform, 16 * sizeof(float));
-  memcpy(drawData->color[0], (float*) &pipeline->color, 4 * sizeof(float));
-  lovrBufferFlush(drawDataBuffer, 0, sizeof(*drawData));
-  lovrShaderSetBlock(shader, "lovrDrawData", state.block, ACCESS_READ);
-
+  // Pose
   if (draw->pose) {
     lovrShaderSetMatrices(shader, "lovrPose", draw->pose, 0, MAX_BONES * 16);
   } else {
     lovrShaderSetMatrices(shader, "lovrPose", (float[16]) MAT4_IDENTITY, 0, 16);
   }
 
+  // Viewport
+  bool stereo = !draw->mono && (canvas ? lovrCanvasIsStereo(canvas) : state.camera.stereo);
+  float w = (canvas ? lovrCanvasGetWidth(canvas) : state.width) >> stereo;
+  float h = canvas ? lovrCanvasGetHeight(canvas) : state.height;
+  float viewports[2][4] = { { 0, 0, w, h, }, { w, 0, w, h } };
+  int viewportCount = 1 + stereo;
   lovrShaderSetInts(shader, "lovrViewportCount", &viewportCount, 0, 1);
+
+  // Point size
   lovrShaderSetFloats(shader, "lovrPointSize", &pipeline->pointSize, 0, 1);
 
-  for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
-    float value = lovrMaterialGetScalar(material, i);
-    lovrShaderSetFloats(shader, lovrShaderScalarUniforms[i], &value, 0, 1);
-  }
-
-  for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
-    lovrShaderSetColor(shader, lovrShaderColorUniforms[i], lovrMaterialGetColor(material, i));
-  }
-
-  for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
-    Texture* texture = lovrMaterialGetTexture(material, i);
-    lovrShaderSetTextures(shader, lovrShaderTextureUniforms[i], &texture, 0, 1);
-  }
-
-  lovrShaderSetMatrices(shader, "lovrMaterialTransform", material->transform, 0, 9);
+  // Flush Buffers
+  lovrBufferFlush(lovrShaderBlockGetBuffer(state.block), 0, MAX_BATCHES * (16 * sizeof(float) + 4 * sizeof(float)));
 
   // Bind
   lovrCanvasBind(canvas, true);
   lovrGpuBindPipeline(pipeline);
+  lovrMaterialBind(material, shader);
   lovrMeshBind(mesh, shader, viewportCount);
+  lovrShaderSetBlock(shader, "lovrDrawData", state.block, ACCESS_READ);
 
   // Draw
   if (lovrGpuGetSupported()->singlepass) {
-    int instances = MAX(draw->instances, 1) * viewportCount;
+    int instances = draw->instances * viewportCount;
     lovrGpuSetViewports(&viewports[0][0], viewportCount);
     lovrShaderBind(shader);
     lovrMeshDraw(mesh, instances);
@@ -471,9 +430,50 @@ void lovrGraphicsDraw(DrawCommand* draw) {
     }
   }
 
-  if (draw->transform) {
-    lovrGraphicsPop();
+  state.batchSize = 0;
+}
+
+void lovrGraphicsDraw(DrawCommand* draw) {
+  if (state.batchSize == 0) {
+    memcpy(&state.batch, draw, sizeof(DrawCommand));
   }
+
+  // Geometry
+  if (!draw->mesh) {
+    lovrMeshSetDrawMode(state.defaultMesh, draw->mode);
+
+    if (draw->index.count) {
+      if (draw->index.data) {
+        void* indices = lovrMeshMapIndices(state.defaultMesh, draw->index.count, sizeof(uint16_t));
+        memcpy(indices, draw->index.data, draw->index.count * sizeof(uint16_t));
+      }
+      lovrMeshSetDrawRange(state.defaultMesh, 0, draw->index.count);
+      lovrMeshFlushIndices(state.defaultMesh);
+    } else {
+      lovrMeshSetDrawRange(state.defaultMesh, 0, draw->vertex.count);
+      lovrMeshMapIndices(state.defaultMesh, 0, 0);
+    }
+
+    if (draw->vertex.count) {
+      if (draw->vertex.data) {
+        void* vertices = lovrGraphicsGetVertexPointer(draw->vertex.count);
+        memcpy(vertices, draw->vertex.data, draw->vertex.count * 8 * sizeof(float));
+      }
+      lovrMeshFlushVertices(state.defaultMesh, 0, draw->vertex.count * 8 * sizeof(float));
+    }
+  }
+
+  // Transform and color
+  struct { float model[MAX_BATCHES][16]; float color[MAX_BATCHES][4]; } *drawData;
+  drawData = lovrBufferMap(lovrShaderBlockGetBuffer(state.block), 0);
+
+  memcpy(drawData->model[state.batchSize], state.transforms[state.transform], 16 * sizeof(float));
+  if (draw->transform) { mat4_multiply(drawData->model[state.batchSize], draw->transform); }
+
+  memcpy(drawData->color[state.batchSize], (float*) &state.pipelines[state.pipeline].color, 4 * sizeof(float));
+
+  state.batchSize++;
+  lovrGraphicsFlush();
 }
 
 void lovrGraphicsPoints(uint32_t count) {
@@ -809,8 +809,8 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
   lovrGraphicsDraw(&(DrawCommand) {
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
-    .textures[TEXTURE_DIFFUSE] = type == TEXTURE_2D ? texture : NULL,
-    .textures[TEXTURE_ENVIRONMENT_MAP] = type == TEXTURE_CUBE ? texture : NULL,
+    .diffuseTexture = type == TEXTURE_2D ? texture : NULL,
+    .environmentMap = type == TEXTURE_CUBE ? texture : NULL,
     .mode = MESH_TRIANGLE_STRIP,
     .vertex.count = 4,
     .vertex.data = (float[]) {
@@ -840,7 +840,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   state.pipelines[state.pipeline].alphaCoverage = true;
   lovrGraphicsDraw(&(DrawCommand) {
     .shader = SHADER_FONT,
-    .textures[TEXTURE_DIFFUSE] = font->texture,
+    .diffuseTexture = font->texture,
     .mode = MESH_TRIANGLES,
     .vertex.count = vertexCount
   });
@@ -852,9 +852,9 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
   lovrGraphicsPushPipeline();
   lovrGraphicsSetDepthTest(COMPARE_NONE, false);
   lovrGraphicsDraw(&(DrawCommand) {
-    .forceMono = true,
+    .mono = true,
     .shader = SHADER_FILL,
-    .textures[TEXTURE_DIFFUSE] = texture,
+    .diffuseTexture = texture,
     .mode = MESH_TRIANGLE_STRIP,
     .vertex.count = 4,
     .vertex.data = (float[]) {
