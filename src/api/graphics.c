@@ -359,6 +359,8 @@ static int l_lovrGraphicsGetSystemLimits(lua_State* L) {
   lua_setfield(L, -2, "texturemsaa");
   lua_pushinteger(L, limits->textureAnisotropy);
   lua_setfield(L, -2, "anisotropy");
+  lua_pushinteger(L, limits->blockSize);
+  lua_setfield(L, -2, "blocksize");
   return 1;
 }
 

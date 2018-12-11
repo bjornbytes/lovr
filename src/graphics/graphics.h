@@ -81,6 +81,7 @@ typedef struct {
   int textureSize;
   int textureMSAA;
   float textureAnisotropy;
+  int blockSize;
 } GpuLimits;
 
 typedef struct {

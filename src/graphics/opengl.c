@@ -624,7 +624,9 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
 #endif
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.limits.textureSize);
   glGetIntegerv(GL_MAX_SAMPLES, &state.limits.textureMSAA);
+  glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &state.limits.blockSize);
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
+
   glEnable(GL_BLEND);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
