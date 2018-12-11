@@ -695,6 +695,11 @@ static int l_lovrGraphicsDiscard(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsFlush(lua_State* L) {
+  lovrGraphicsFlush();
+  return 0;
+}
+
 static int l_lovrGraphicsPoints(lua_State* L) {
   uint32_t count = luax_readvertices(L, 1);
   lovrGraphicsPoints(count);
@@ -1377,6 +1382,7 @@ static const luaL_Reg lovrGraphics[] = {
   // Rendering
   { "clear", l_lovrGraphicsClear },
   { "discard", l_lovrGraphicsDiscard },
+  { "flush", l_lovrGraphicsFlush },
   { "points", l_lovrGraphicsPoints },
   { "line", l_lovrGraphicsLine },
   { "triangle", l_lovrGraphicsTriangle },
