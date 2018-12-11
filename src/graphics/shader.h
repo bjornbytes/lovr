@@ -91,6 +91,7 @@ Shader* lovrShaderCreateDefault(DefaultShader type);
 void lovrShaderDestroy(void* ref);
 ShaderType lovrShaderGetType(Shader* shader);
 void lovrShaderBind(Shader* shader);
+bool lovrShaderIsDirty(Shader* shader);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 bool lovrShaderHasUniform(Shader* shader, const char* name);
 const Uniform* lovrShaderGetUniform(Shader* shader, const char* name);

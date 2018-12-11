@@ -14,8 +14,9 @@
 
 #define MAX_TRANSFORMS 64
 #define MAX_PIPELINES 16
-#define MAX_VERTICES 65536
-#define MAX_BATCHES 192 // Enough to fit in any UBO
+#define MAX_VERTICES (1 << 16)
+#define MAX_INDICES (1 << 16)
+#define MAX_BATCH_SIZE 192 // Enough to fit in any UBO
 
 typedef void (*StencilCallback)(void* userdata);
 
@@ -116,6 +117,7 @@ typedef struct {
   int stencilValue;
   Winding winding;
   bool wireframe;
+  bool dirty;
 } Pipeline;
 
 typedef struct {
@@ -147,10 +149,14 @@ typedef struct {
   float transforms[MAX_TRANSFORMS][16];
   int transform;
   Pipeline pipelines[MAX_PIPELINES];
-  int pipeline;
-  int batchSize;
+  Pipeline* pipeline;
+  int pipelineIndex;
   DrawCommand batch;
+  int batchVertex;
+  int batchIndex;
+  int batchSize;
   int vertexCursor;
+  int indexCursor;
   ShaderBlock* block;
   Buffer* vertexMap;
 } GraphicsState;
@@ -212,7 +218,8 @@ void lovrGraphicsMatrixTransform(mat4 transform);
 void lovrGraphicsSetProjection(mat4 projection);
 
 // Rendering
-float* lovrGraphicsGetVertexPointer(uint32_t capacity);
+float* lovrGraphicsGetVertexPointer(uint32_t count);
+uint16_t* lovrGraphicsGetIndexPointer(uint32_t count);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
 void lovrGraphicsFlush();

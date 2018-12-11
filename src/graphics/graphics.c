@@ -21,6 +21,24 @@ static void onResizeWindow(int width, int height) {
   state.height = height;
 }
 
+static bool batchable(DrawCommand* a, DrawCommand* b) {
+  if (a->mesh != b->mesh) return false;
+  if (!a->mesh && a->mode != b->mode) return false;
+  if (!a->mesh && !!a->index.count != !!b->index.count) return false;
+  if (a->shader != b->shader) return false;
+  if (a->material != b->material) return false;
+  if (!a->material && a->diffuseTexture != b->diffuseTexture) return false;
+  if (!a->material && a->environmentMap != b->environmentMap) return false;
+  if (a->instances > 1 || b->instances > 1) return false;
+  if (a->mono != b->mono) return false;
+  if (!!a->pose != !!b->pose || (a->pose && memcmp(a->pose, b->pose, MAX_BONES * 16 * sizeof(float)))) return false;
+  if (state.pipeline->dirty) return false;
+  if (a->material && lovrMaterialIsDirty(a->material)) return false;
+  if (state.pipeline->shader && lovrShaderIsDirty(state.pipeline->shader)) return false;
+  if (state.pipeline->canvas && lovrCanvasIsDirty(state.pipeline->canvas)) return false;
+  return true;
+}
+
 // Base
 
 bool lovrGraphicsInit(bool gammaCorrect) {
@@ -30,7 +48,7 @@ bool lovrGraphicsInit(bool gammaCorrect) {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
-  while (state.pipeline > 0) {
+  while (state.pipelineIndex > 0) {
     lovrGraphicsPopPipeline();
   }
   lovrGraphicsSetShader(NULL);
@@ -48,6 +66,7 @@ void lovrGraphicsDestroy() {
 }
 
 void lovrGraphicsPresent() {
+  lovrGraphicsFlush();
   lovrPlatformSwapBuffers();
   lovrGpuPresent();
 }
@@ -78,7 +97,7 @@ void lovrGraphicsSetWindow(WindowFlags* flags) {
   state.defaultMesh = lovrMeshCreate(MAX_VERTICES, format, MESH_TRIANGLES, USAGE_STREAM, false);
 
   state.vertexMap = lovrBufferCreate(MAX_VERTICES * sizeof(uint8_t), NULL, USAGE_STREAM, false);
-  lovrMeshAttachAttribute(state.defaultMesh, "lovrDrawId", &(MeshAttribute) {
+  lovrMeshAttachAttribute(state.defaultMesh, "lovrDrawID", &(MeshAttribute) {
     .buffer = state.vertexMap,
     .type = ATTR_BYTE,
     .components = 1,
@@ -88,8 +107,8 @@ void lovrGraphicsSetWindow(WindowFlags* flags) {
 
   vec_uniform_t uniforms;
   vec_init(&uniforms);
-  vec_push(&uniforms, ((Uniform) { .name = "model", .type = UNIFORM_MATRIX, .components = 4, .count = MAX_BATCHES }));
-  vec_push(&uniforms, ((Uniform) { .name = "color", .type = UNIFORM_FLOAT, .components = 4, .count = MAX_BATCHES }));
+  vec_push(&uniforms, ((Uniform) { .name = "model", .type = UNIFORM_MATRIX, .components = 4, .count = MAX_BATCH_SIZE }));
+  vec_push(&uniforms, ((Uniform) { .name = "color", .type = UNIFORM_FLOAT, .components = 4, .count = MAX_BATCH_SIZE }));
   state.block = lovrShaderBlockCreate(&uniforms, BLOCK_UNIFORM, USAGE_STREAM);
   vec_deinit(&uniforms);
 
@@ -106,6 +125,8 @@ int lovrGraphicsGetHeight() {
 }
 
 void lovrGraphicsSetCamera(Camera* camera, bool clear) {
+  lovrGraphicsFlush();
+
   if (state.camera.canvas && (!camera || camera->canvas != state.camera.canvas)) {
     lovrCanvasResolve(state.camera.canvas);
   }
@@ -130,9 +151,10 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
 // State
 
 void lovrGraphicsReset() {
-  while (state.pipeline > 0) {
+  while (state.pipelineIndex > 0) {
     lovrGraphicsPopPipeline();
   }
+  state.pipeline = &state.pipelines[state.pipelineIndex];
   state.transform = 0;
   lovrGraphicsSetCamera(NULL, false);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1 });
@@ -153,64 +175,76 @@ void lovrGraphicsReset() {
 }
 
 void lovrGraphicsPushPipeline() {
-  lovrAssert(++state.pipeline < MAX_PIPELINES, "Unbalanced pipeline stack (more pushes than pops?)");
-  memcpy(&state.pipelines[state.pipeline], &state.pipelines[state.pipeline - 1], sizeof(Pipeline));
-  lovrRetain(state.pipelines[state.pipeline].canvas);
-  lovrRetain(state.pipelines[state.pipeline].font);
-  lovrRetain(state.pipelines[state.pipeline].shader);
+  lovrAssert(++state.pipelineIndex < MAX_PIPELINES, "Unbalanced pipeline stack (more pushes than pops?)");
+  memcpy(&state.pipelines[state.pipelineIndex], &state.pipelines[state.pipelineIndex - 1], sizeof(Pipeline));
+  state.pipeline = &state.pipelines[state.pipelineIndex];
+  lovrRetain(state.pipeline->canvas);
+  lovrRetain(state.pipeline->font);
+  lovrRetain(state.pipeline->shader);
+  state.pipeline->dirty = true;
 }
 
 void lovrGraphicsPopPipeline() {
-  lovrRelease(state.pipelines[state.pipeline].canvas);
-  lovrRelease(state.pipelines[state.pipeline].font);
-  lovrRelease(state.pipelines[state.pipeline].shader);
-  lovrAssert(--state.pipeline >= 0, "Unbalanced pipeline stack (more pops than pushes?)");
+  lovrRelease(state.pipeline->canvas);
+  lovrRelease(state.pipeline->font);
+  lovrRelease(state.pipeline->shader);
+  lovrAssert(--state.pipelineIndex >= 0, "Unbalanced pipeline stack (more pops than pushes?)");
+  state.pipeline = &state.pipelines[state.pipelineIndex];
 }
 
 Color lovrGraphicsGetBackgroundColor() {
-  return state.pipelines[state.pipeline].backgroundColor;
+  return state.pipeline->backgroundColor;
 }
 
 void lovrGraphicsSetBackgroundColor(Color color) {
-  state.pipelines[state.pipeline].backgroundColor = color;
+  state.pipeline->backgroundColor = color;
 }
 
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
-  *mode = state.pipelines[state.pipeline].blendMode;
-  *alphaMode = state.pipelines[state.pipeline].blendAlphaMode;
+  *mode = state.pipeline->blendMode;
+  *alphaMode = state.pipeline->blendAlphaMode;
 }
 
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
-  state.pipelines[state.pipeline].blendMode = mode;
-  state.pipelines[state.pipeline].blendAlphaMode = alphaMode;
+  if (state.pipeline->blendMode != mode || state.pipeline->blendAlphaMode != alphaMode) {
+    state.pipeline->blendMode = mode;
+    state.pipeline->blendAlphaMode = alphaMode;
+    state.pipeline->dirty = true;
+  }
 }
 
 Canvas* lovrGraphicsGetCanvas() {
-  return state.pipelines[state.pipeline].canvas;
+  return state.pipeline->canvas;
 }
 
 void lovrGraphicsSetCanvas(Canvas* canvas) {
-  if (state.pipelines[state.pipeline].canvas) {
-    lovrCanvasResolve(state.pipelines[state.pipeline].canvas);
-  }
+  if (state.pipeline->canvas != canvas) {
+    if (state.pipeline->canvas) {
+      lovrCanvasResolve(state.pipeline->canvas);
+    }
 
-  state.pipelines[state.pipeline].canvas = canvas;
+    state.pipeline->canvas = canvas;
+    state.pipeline->dirty = true;
+  }
 }
 
 Color lovrGraphicsGetColor() {
-  return state.pipelines[state.pipeline].color;
+  return state.pipeline->color;
 }
 
 void lovrGraphicsSetColor(Color color) {
-  state.pipelines[state.pipeline].color = color;
+  state.pipeline->color = color;
 }
 
 bool lovrGraphicsIsCullingEnabled() {
-  return state.pipelines[state.pipeline].culling;
+  return state.pipeline->culling;
 }
 
 void lovrGraphicsSetCullingEnabled(bool culling) {
-  state.pipelines[state.pipeline].culling = culling;
+  if (state.pipeline->culling != culling) {
+    state.pipeline->culling = culling;
+    state.pipeline->dirty = true;
+  }
 }
 
 TextureFilter lovrGraphicsGetDefaultFilter() {
@@ -222,17 +256,20 @@ void lovrGraphicsSetDefaultFilter(TextureFilter filter) {
 }
 
 void lovrGraphicsGetDepthTest(CompareMode* mode, bool* write) {
-  *mode = state.pipelines[state.pipeline].depthTest;
-  *write = state.pipelines[state.pipeline].depthWrite;
+  *mode = state.pipeline->depthTest;
+  *write = state.pipeline->depthWrite;
 }
 
 void lovrGraphicsSetDepthTest(CompareMode mode, bool write) {
-  state.pipelines[state.pipeline].depthTest = mode;
-  state.pipelines[state.pipeline].depthWrite = write;
+  if (state.pipeline->depthTest != mode || state.pipeline->depthWrite != write) {
+    state.pipeline->depthTest = mode;
+    state.pipeline->depthWrite = write;
+    state.pipeline->dirty = true;
+  }
 }
 
 Font* lovrGraphicsGetFont() {
-  if (!state.pipelines[state.pipeline].font) {
+  if (!state.pipeline->font) {
     if (!state.defaultFont) {
       Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
       state.defaultFont = lovrFontCreate(rasterizer);
@@ -242,13 +279,15 @@ Font* lovrGraphicsGetFont() {
     lovrGraphicsSetFont(state.defaultFont);
   }
 
-  return state.pipelines[state.pipeline].font;
+  return state.pipeline->font;
 }
 
 void lovrGraphicsSetFont(Font* font) {
-  lovrRetain(font);
-  lovrRelease(state.pipelines[state.pipeline].font);
-  state.pipelines[state.pipeline].font = font;
+  if (state.pipeline->font != font) {
+    lovrRetain(font);
+    lovrRelease(state.pipeline->font);
+    state.pipeline->font = font;
+  }
 }
 
 bool lovrGraphicsIsGammaCorrect() {
@@ -256,57 +295,70 @@ bool lovrGraphicsIsGammaCorrect() {
 }
 
 float lovrGraphicsGetLineWidth() {
-  return state.pipelines[state.pipeline].lineWidth;
+  return state.pipeline->lineWidth;
 }
 
 void lovrGraphicsSetLineWidth(float width) {
-  state.pipelines[state.pipeline].lineWidth = width;
+  if (state.pipeline->lineWidth != width) {
+    state.pipeline->lineWidth = width;
+  }
 }
 
 float lovrGraphicsGetPointSize() {
-  return state.pipelines[state.pipeline].pointSize;
+  return state.pipeline->pointSize;
 }
 
 void lovrGraphicsSetPointSize(float size) {
-  state.pipelines[state.pipeline].pointSize = size;
+  if (state.pipeline->pointSize != size) {
+    state.pipeline->pointSize = size;
+  }
 }
 
 Shader* lovrGraphicsGetShader() {
-  return state.pipelines[state.pipeline].shader;
+  return state.pipeline->shader;
 }
 
 void lovrGraphicsSetShader(Shader* shader) {
   lovrAssert(!shader || lovrShaderGetType(shader) == SHADER_GRAPHICS, "Compute shaders can not be set as the active shader");
-  lovrRetain(shader);
-  lovrRelease(state.pipelines[state.pipeline].shader);
-  state.pipelines[state.pipeline].shader = shader;
+  if (state.pipeline->shader != shader) {
+    lovrRetain(shader);
+    lovrRelease(state.pipeline->shader);
+    state.pipeline->shader = shader;
+    state.pipeline->dirty = true;
+  }
 }
 
 void lovrGraphicsGetStencilTest(CompareMode* mode, int* value) {
-  *mode = state.pipelines[state.pipeline].stencilMode;
-  *value = state.pipelines[state.pipeline].stencilValue;
+  *mode = state.pipeline->stencilMode;
+  *value = state.pipeline->stencilValue;
 }
 
 void lovrGraphicsSetStencilTest(CompareMode mode, int value) {
-  state.pipelines[state.pipeline].stencilMode = mode;
-  state.pipelines[state.pipeline].stencilValue = value;
+  if (state.pipeline->stencilMode != mode || state.pipeline->stencilValue != value) {
+    state.pipeline->stencilMode = mode;
+    state.pipeline->stencilValue = value;
+  }
 }
 
 Winding lovrGraphicsGetWinding() {
-  return state.pipelines[state.pipeline].winding;
+  return state.pipeline->winding;
 }
 
 void lovrGraphicsSetWinding(Winding winding) {
-  state.pipelines[state.pipeline].winding = winding;
+  if (state.pipeline->winding != winding) {
+    state.pipeline->winding = winding;
+  }
 }
 
 bool lovrGraphicsIsWireframe() {
-  return state.pipelines[state.pipeline].wireframe;
+  return state.pipeline->wireframe;
 }
 
 void lovrGraphicsSetWireframe(bool wireframe) {
 #ifndef EMSCRIPTEN
-  state.pipelines[state.pipeline].wireframe = wireframe;
+  if (state.pipeline->wireframe != wireframe) {
+    state.pipeline->wireframe = wireframe;
+  }
 #endif
 }
 
@@ -349,20 +401,33 @@ void lovrGraphicsSetProjection(mat4 projection) {
 // Rendering
 
 float* lovrGraphicsGetVertexPointer(uint32_t count) {
-  lovrAssert(count <= MAX_VERTICES, "Hey now!  Up to %d vertices are allowed per-primitive...", MAX_VERTICES);
-  return lovrMeshMapVertices(state.defaultMesh, 0);
+  lovrAssert(count <= MAX_VERTICES, "Hey now!  Up to %d vertices are allowed per primitive", MAX_VERTICES);
+
+  if (state.vertexCursor + count > MAX_VERTICES) {
+    lovrGraphicsFlush();
+    state.batchVertex = state.vertexCursor = 0;
+  }
+
+  return lovrMeshMapVertices(state.defaultMesh, state.vertexCursor * 8 * sizeof(float));
+}
+
+uint16_t* lovrGraphicsGetIndexPointer(uint32_t count) {
+  lovrAssert(count <= MAX_INDICES, "Whoa there!  Up to %d indices are allowed per primitive", MAX_INDICES);
+
+  if (state.indexCursor + count > MAX_INDICES) {
+    lovrGraphicsFlush();
+    state.batchIndex = state.indexCursor = 0;
+  }
+
+  return lovrMeshMapIndices(state.defaultMesh, count ? MAX_INDICES : 0, sizeof(uint16_t), state.indexCursor * sizeof(uint16_t));
 }
 
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
-  Pipeline* pipeline = &state.pipelines[state.pipeline];
-  Canvas* canvas = pipeline->canvas ? pipeline->canvas : state.camera.canvas;
-  lovrGpuClear(canvas, color, depth, stencil);
+  lovrGpuClear(state.pipeline->canvas ? state.pipeline->canvas : state.camera.canvas, color, depth, stencil);
 }
 
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil) {
-  Pipeline* pipeline = &state.pipelines[state.pipeline];
-  Canvas* canvas = pipeline->canvas ? pipeline->canvas : state.camera.canvas;
-  lovrGpuDiscard(canvas, color, depth, stencil);
+  lovrGpuDiscard(state.pipeline->canvas ? state.pipeline->canvas : state.camera.canvas, color, depth, stencil);
 }
 
 void lovrGraphicsFlush() {
@@ -373,10 +438,9 @@ void lovrGraphicsFlush() {
   // Resolve objects
   DrawCommand* draw = &state.batch;
   Mesh* mesh = draw->mesh ? draw->mesh : state.defaultMesh;
-  Pipeline* pipeline = &state.pipelines[state.pipeline];
-  Canvas* canvas = pipeline->canvas ? pipeline->canvas : state.camera.canvas;
+  Canvas* canvas = state.pipeline->canvas ? state.pipeline->canvas : state.camera.canvas;
   Material* material = draw->material ? draw->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
-  Shader* shader = pipeline->shader ? pipeline->shader : (state.defaultShaders[draw->shader] ? state.defaultShaders[draw->shader] : (state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader)));
+  Shader* shader = state.pipeline->shader ? state.pipeline->shader : (state.defaultShaders[draw->shader] ? state.defaultShaders[draw->shader] : (state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader)));
 
   if (!draw->material) {
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, draw->diffuseTexture);
@@ -403,14 +467,29 @@ void lovrGraphicsFlush() {
   lovrShaderSetInts(shader, "lovrViewportCount", &viewportCount, 0, 1);
 
   // Point size
-  lovrShaderSetFloats(shader, "lovrPointSize", &pipeline->pointSize, 0, 1);
+  lovrShaderSetFloats(shader, "lovrPointSize", &state.pipeline->pointSize, 0, 1);
 
-  // Flush Buffers
-  lovrBufferFlush(lovrShaderBlockGetBuffer(state.block), 0, MAX_BATCHES * (16 * sizeof(float) + 4 * sizeof(float)));
+  // Buffers and Mesh
+  int vertexCount = state.vertexCursor - state.batchVertex;
+  int indexCount = state.indexCursor - state.batchIndex;
+  lovrBufferFlush(lovrShaderBlockGetBuffer(state.block), 0, MAX_BATCH_SIZE * (16 * sizeof(float) + 4 * sizeof(float)));
+  lovrBufferFlush(state.vertexMap, state.batchVertex, vertexCount);
+
+  if (!draw->mesh) {
+    if (indexCount > 0) {
+      lovrMeshSetDrawRange(state.defaultMesh, state.batchIndex, indexCount);
+    } else {
+      lovrMeshSetDrawRange(state.defaultMesh, state.batchVertex, vertexCount);
+    }
+
+    lovrMeshSetDrawMode(state.defaultMesh, draw->mode);
+    lovrMeshFlushVertices(state.defaultMesh, state.batchVertex * 8 * sizeof(float), vertexCount * 8 * sizeof(float));
+    lovrMeshFlushIndices(state.defaultMesh);
+  }
 
   // Bind
   lovrCanvasBind(canvas, true);
-  lovrGpuBindPipeline(pipeline);
+  lovrGpuBindPipeline(state.pipeline);
   lovrMaterialBind(material, shader);
   lovrMeshBind(mesh, shader, viewportCount);
   lovrShaderSetBlock(shader, "lovrDrawData", state.block, ACCESS_READ);
@@ -431,49 +510,59 @@ void lovrGraphicsFlush() {
   }
 
   state.batchSize = 0;
+  state.batchVertex = state.vertexCursor;
+  state.batchIndex = state.indexCursor;
 }
 
 void lovrGraphicsDraw(DrawCommand* draw) {
+  if (state.batchSize > 0 && !batchable(draw, &state.batch)) {
+    lovrGraphicsFlush();
+  }
+
   if (state.batchSize == 0) {
     memcpy(&state.batch, draw, sizeof(DrawCommand));
   }
 
   // Geometry
   if (!draw->mesh) {
-    lovrMeshSetDrawMode(state.defaultMesh, draw->mode);
+    if (draw->vertex.data) {
+      void* vertices = lovrGraphicsGetVertexPointer(draw->vertex.count);
+      memcpy(vertices, draw->vertex.data, draw->vertex.count * 8 * sizeof(float));
+    }
 
     if (draw->index.count) {
+      // TODO conditionally use BaseVertex when it is supported to avoid this
+      for (uint32_t i = 0; i < draw->index.count; i++) {
+        draw->index.data[i] += state.vertexCursor;
+      }
+
       if (draw->index.data) {
-        void* indices = lovrMeshMapIndices(state.defaultMesh, draw->index.count, sizeof(uint16_t));
+        uint16_t* indices = lovrGraphicsGetIndexPointer(draw->index.count);
         memcpy(indices, draw->index.data, draw->index.count * sizeof(uint16_t));
       }
-      lovrMeshSetDrawRange(state.defaultMesh, 0, draw->index.count);
-      lovrMeshFlushIndices(state.defaultMesh);
+
+      state.indexCursor += draw->index.count;
     } else {
-      lovrMeshSetDrawRange(state.defaultMesh, 0, draw->vertex.count);
-      lovrMeshMapIndices(state.defaultMesh, 0, 0);
+      lovrMeshMapIndices(state.defaultMesh, 0, 0, 0);
     }
 
-    if (draw->vertex.count) {
-      if (draw->vertex.data) {
-        void* vertices = lovrGraphicsGetVertexPointer(draw->vertex.count);
-        memcpy(vertices, draw->vertex.data, draw->vertex.count * 8 * sizeof(float));
-      }
-      lovrMeshFlushVertices(state.defaultMesh, 0, draw->vertex.count * 8 * sizeof(float));
-    }
+    void* vertexMap = lovrBufferMap(state.vertexMap, state.vertexCursor * sizeof(uint8_t));
+    memset(vertexMap, state.batchSize, draw->vertex.count * sizeof(uint8_t));
+    state.vertexCursor += draw->vertex.count;
   }
 
   // Transform and color
-  struct { float model[MAX_BATCHES][16]; float color[MAX_BATCHES][4]; } *drawData;
+  struct { float model[MAX_BATCH_SIZE][16]; float color[MAX_BATCH_SIZE][4]; } *drawData;
   drawData = lovrBufferMap(lovrShaderBlockGetBuffer(state.block), 0);
 
   memcpy(drawData->model[state.batchSize], state.transforms[state.transform], 16 * sizeof(float));
   if (draw->transform) { mat4_multiply(drawData->model[state.batchSize], draw->transform); }
 
-  memcpy(drawData->color[state.batchSize], (float*) &state.pipelines[state.pipeline].color, 4 * sizeof(float));
+  memcpy(drawData->color[state.batchSize], (float*) &state.pipeline->color, 4 * sizeof(float));
 
-  state.batchSize++;
-  lovrGraphicsFlush();
+  if (++state.batchSize >= MAX_BATCH_SIZE) {
+    lovrGraphicsFlush();
+  }
 }
 
 void lovrGraphicsPoints(uint32_t count) {
@@ -536,14 +625,16 @@ void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
     lovrGraphicsDraw(&(DrawCommand) {
       .transform = transform,
       .material = material,
-      .mode = MESH_TRIANGLE_STRIP,
+      .mode = MESH_TRIANGLES,
       .vertex.count = 4,
       .vertex.data = (float[]) {
         -.5, .5, 0,  0, 0, -1, 0, 1,
         -.5, -.5, 0, 0, 0, -1, 0, 0,
         .5, .5, 0,   0, 0, -1, 1, 1,
         .5, -.5, 0,  0, 0, -1, 1, 0
-      }
+      },
+      .index.count = 6,
+      .index.data = (uint16_t[]) { 0, 1, 2, 2, 1, 3 }
     });
   }
 }
@@ -561,7 +652,6 @@ void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
         .5, .5, -.5,   0, 0, 0, 0, 0,
         .5, -.5, -.5,  0, 0, 0, 0, 0,
         -.5, -.5, -.5, 0, 0, 0, 0, 0,
-
         // Back
         -.5, .5, .5,   0, 0, 0, 0, 0,
         .5, .5, .5,    0, 0, 0, 0, 0,
@@ -579,48 +669,48 @@ void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
     lovrGraphicsDraw(&(DrawCommand) {
       .transform = transform,
       .material = material,
-      .mode = MESH_TRIANGLE_STRIP,
-      .vertex.count = 26,
+      .mode = MESH_TRIANGLES,
+      .vertex.count = 24,
       .vertex.data = (float[]) {
         // Front
         -.5, -.5, -.5,  0, 0, -1, 0, 0,
         -.5, .5, -.5,   0, 0, -1, 0, 1,
         .5, -.5, -.5,   0, 0, -1, 1, 0,
         .5, .5, -.5,    0, 0, -1, 1, 1,
-
         // Right
         .5, .5, -.5,    1, 0, 0,  0, 1,
         .5, .5, .5,     1, 0, 0,  1, 1,
         .5, -.5, -.5,   1, 0, 0,  0, 0,
         .5, -.5, .5,    1, 0, 0,  1, 0,
-
         // Back
         .5, -.5, .5,    0, 0, 1,  0, 0,
         .5, .5, .5,     0, 0, 1,  0, 1,
         -.5, -.5, .5,   0, 0, 1,  1, 0,
         -.5, .5, .5,    0, 0, 1,  1, 1,
-
         // Left
         -.5, .5, .5,   -1, 0, 0,  0, 1,
         -.5, .5, -.5,  -1, 0, 0,  1, 1,
         -.5, -.5, .5,  -1, 0, 0,  0, 0,
         -.5, -.5, -.5, -1, 0, 0,  1, 0,
-
         // Bottom
         -.5, -.5, -.5,  0, -1, 0, 0, 0,
         .5, -.5, -.5,   0, -1, 0, 1, 0,
         -.5, -.5, .5,   0, -1, 0, 0, 1,
         .5, -.5, .5,    0, -1, 0, 1, 1,
-
-        // Adjust
-        .5, -.5, .5,    0, 1, 0,  0, 1,
-        -.5, .5, -.5,   0, 1, 0,  0, 1,
-
         // Top
         -.5, .5, -.5,   0, 1, 0,  0, 1,
         -.5, .5, .5,    0, 1, 0,  0, 0,
         .5, .5, -.5,    0, 1, 0,  1, 1,
         .5, .5, .5,     0, 1, 0,  1, 0
+      },
+      .index.count = 36,
+      .index.data = (uint16_t[]) {
+        0,  1,   2,  2,  1,  3,
+        4,  5,   6,  6,  5,  7,
+        8,  9,  10, 10,  9, 11,
+        12, 13, 14, 14, 13, 15,
+        16, 17, 18, 18, 17, 19,
+        20, 21, 22, 22, 21, 23
       }
     });
   }
@@ -635,7 +725,6 @@ void lovrGraphicsArc(DrawMode mode, ArcMode arcMode, Material* material, mat4 tr
   bool hasCenterPoint = arcMode == ARC_MODE_PIE && fabsf(theta1 - theta2) < 2 * M_PI;
   uint32_t count = segments + 1 + hasCenterPoint;
   float* vertices = lovrGraphicsGetVertexPointer(count);
-  lovrMeshMapIndices(state.defaultMesh, 0, 0);
 
   if (hasCenterPoint) {
     memcpy(vertices, ((float[]) { 0, 0, 0, 0, 0, 1, .5, .5 }), 8 * sizeof(float));
@@ -675,7 +764,7 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
   uint32_t indexCount = 3 * segments * ((capped && r1) + (capped && r2) + 2);
 
   float* vertices = lovrGraphicsGetVertexPointer(vertexCount);
-  uint16_t* indices = lovrMeshMapIndices(state.defaultMesh, indexCount, sizeof(uint32_t));
+  uint16_t* indices = lovrGraphicsGetIndexPointer(indexCount);
   float* baseVertex = vertices;
 
   vec3_init(p, n);
@@ -767,7 +856,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
   uint32_t vertexCount = (segments + 1) * (segments + 1);
   uint32_t indexCount = segments * segments * 6;
   float* vertices = lovrGraphicsGetVertexPointer(vertexCount);
-  uint16_t* indices = lovrMeshMapIndices(state.defaultMesh, indexCount, sizeof(uint16_t));
+  uint16_t* indices = lovrGraphicsGetIndexPointer(indexCount);
 
   for (int i = 0; i <= segments; i++) {
     float v = i / (float) segments;
@@ -831,20 +920,19 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   uint32_t maxVertices = strlen(str) * 6;
   float* vertices = lovrGraphicsGetVertexPointer(maxVertices);
   lovrFontRender(font, str, wrap, halign, valign, vertices, &offsety, &vertexCount);
-  lovrMeshMapIndices(state.defaultMesh, 0, 0);
 
   lovrGraphicsPush();
   lovrGraphicsMatrixTransform(transform);
   lovrGraphicsScale((float[3]) { scale, scale, scale });
   lovrGraphicsTranslate((float[3]) { 0, offsety, 0 });
-  state.pipelines[state.pipeline].alphaCoverage = true;
+  state.pipeline->alphaCoverage = true;
   lovrGraphicsDraw(&(DrawCommand) {
     .shader = SHADER_FONT,
     .diffuseTexture = font->texture,
     .mode = MESH_TRIANGLES,
     .vertex.count = vertexCount
   });
-  state.pipelines[state.pipeline].alphaCoverage = false;
+  state.pipeline->alphaCoverage = false;
   lovrGraphicsPop();
 }
 

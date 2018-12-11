@@ -35,11 +35,13 @@ typedef struct {
   Texture* textures[MAX_MATERIAL_TEXTURES];
   float transform[9];
   bool isDefault;
+  bool dirty;
 } Material;
 
 Material* lovrMaterialCreate();
 void lovrMaterialDestroy(void* ref);
 void lovrMaterialBind(Material* material, Shader* shader);
+bool lovrMaterialIsDirty(Material* material);
 float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType);
 void lovrMaterialSetScalar(Material* material, MaterialScalar scalarType, float value);
 Color lovrMaterialGetColor(Material* material, MaterialColor colorType);

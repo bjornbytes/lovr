@@ -46,6 +46,12 @@ void lovrMaterialBind(Material* material, Shader* shader) {
   }
 
   lovrShaderSetMatrices(shader, "lovrMaterialTransform", material->transform, 0, 9);
+
+  material->dirty = false;
+}
+
+bool lovrMaterialIsDirty(Material* material) {
+  return material->dirty;
 }
 
 float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType) {
@@ -53,7 +59,10 @@ float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType) {
 }
 
 void lovrMaterialSetScalar(Material* material, MaterialScalar scalarType, float value) {
-  material->scalars[scalarType] = value;
+  if (material->scalars[scalarType] != value) {
+    material->scalars[scalarType] = value;
+    material->dirty = true;
+  }
 }
 
 Color lovrMaterialGetColor(Material* material, MaterialColor colorType) {
@@ -61,7 +70,10 @@ Color lovrMaterialGetColor(Material* material, MaterialColor colorType) {
 }
 
 void lovrMaterialSetColor(Material* material, MaterialColor colorType, Color color) {
-  material->colors[colorType] = color;
+  if (memcmp(&material->colors[colorType], &color, 4 * sizeof(float))) {
+    material->colors[colorType] = color;
+    material->dirty = true;
+  }
 }
 
 Texture* lovrMaterialGetTexture(Material* material, MaterialTexture textureType) {
@@ -69,10 +81,11 @@ Texture* lovrMaterialGetTexture(Material* material, MaterialTexture textureType)
 }
 
 void lovrMaterialSetTexture(Material* material, MaterialTexture textureType, Texture* texture) {
-  if (texture != material->textures[textureType]) {
+  if (material->textures[textureType] != texture) {
     lovrRetain(texture);
     lovrRelease(material->textures[textureType]);
     material->textures[textureType] = texture;
+    material->dirty = true;
   }
 }
 
@@ -96,4 +109,5 @@ void lovrMaterialSetTransform(Material* material, float ox, float oy, float sx, 
   material->transform[6] = ox;
   material->transform[7] = oy;
   material->transform[8] = 1;
+  material->dirty = true;
 }

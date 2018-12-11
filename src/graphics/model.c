@@ -67,7 +67,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   memcpy(vertices, modelData->vertexData->blob.data, modelData->vertexData->count * modelData->vertexData->format.stride);
   lovrMeshFlushVertices(model->mesh, 0, modelData->vertexData->count * modelData->vertexData->format.stride);
 
-  void* indices = lovrMeshMapIndices(model->mesh, modelData->indexCount, modelData->indexSize);
+  void* indices = lovrMeshMapIndices(model->mesh, modelData->indexCount, modelData->indexSize, 0);
   memcpy(indices, modelData->indices.raw, modelData->indexCount * modelData->indexSize);
   lovrMeshFlushIndices(model->mesh);
 

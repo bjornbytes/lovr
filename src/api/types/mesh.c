@@ -238,7 +238,7 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
 
   if (lua_isnoneornil(L, 2)) {
-    lovrMeshMapIndices(mesh, 0, 0);
+    lovrMeshMapIndices(mesh, 0, 0, 0);
     return 0;
   }
 
@@ -247,14 +247,14 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
     size_t size = luaL_optinteger(L, 3, 4);
     lovrAssert(size == 2 || size == 4, "Size of Mesh indices should be 2 bytes or 4 bytes");
     uint32_t count = blob->size / size;
-    void* indices = lovrMeshMapIndices(mesh, count, size);
+    void* indices = lovrMeshMapIndices(mesh, count, size, 0);
     memcpy(indices, blob->data, blob->size);
   } else {
     luaL_checktype(L, 2, LUA_TTABLE);
     uint32_t count = lua_objlen(L, 2);
     uint32_t vertexCount = lovrMeshGetVertexCount(mesh);
     size_t size = vertexCount > USHRT_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
-    IndexPointer indices = { .raw = lovrMeshMapIndices(mesh, count, size) };
+    IndexPointer indices = { .raw = lovrMeshMapIndices(mesh, count, size, 0) };
 
     for (uint32_t i = 0; i < count; i++) {
       lua_rawgeti(L, 2, i + 1);

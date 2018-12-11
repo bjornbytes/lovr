@@ -108,6 +108,7 @@ struct Shader {
   map_int_t attributes;
   map_int_t uniformMap;
   map_int_t blockMap;
+  bool dirty;
 };
 
 struct Texture {
@@ -829,6 +830,8 @@ void lovrGpuBindPipeline(Pipeline* pipeline) {
     glPolygonMode(GL_FRONT_AND_BACK, state.wireframe ? GL_LINE : GL_FILL);
   }
 #endif
+
+  pipeline->dirty = false;
 }
 
 void lovrGpuSetViewports(float* viewport, int count) {
@@ -1396,6 +1399,10 @@ void lovrCanvasBind(Canvas* canvas, bool willDraw) {
   }
 
   canvas->needsAttach = false;
+}
+
+bool lovrCanvasIsDirty(Canvas* canvas) {
+  return canvas->needsAttach;
 }
 
 void lovrCanvasResolve(Canvas* canvas) {
@@ -2057,6 +2064,12 @@ void lovrShaderBind(Shader* shader) {
       }
     }
   }
+
+  shader->dirty = false;
+}
+
+bool lovrShaderIsDirty(Shader* shader) {
+  return shader->dirty;
 }
 
 int lovrShaderGetAttributeId(Shader* shader, const char* name) {
@@ -2095,6 +2108,7 @@ static void lovrShaderSetUniform(Shader* shader, const char* name, UniformType t
 
   memcpy(dest, data, count * size);
   uniform->dirty = true;
+  shader->dirty = true;
 }
 
 void lovrShaderSetFloats(Shader* shader, const char* name, float* data, int start, int count) {
@@ -2148,6 +2162,7 @@ void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source, U
     lovrRetain(source);
     lovrRelease(block->source);
     block->source = source;
+    shader->dirty = true;
   }
 }
 
@@ -2490,7 +2505,7 @@ void lovrMeshFlushVertices(Mesh* mesh, size_t offset, size_t size) {
   lovrBufferFlush(mesh->vbo, offset, size);
 }
 
-void* lovrMeshMapIndices(Mesh* mesh, uint32_t count, size_t indexSize) {
+void* lovrMeshMapIndices(Mesh* mesh, uint32_t count, size_t indexSize, size_t offset) {
   mesh->indexSize = indexSize;
   mesh->indexCount = count;
 
@@ -2504,11 +2519,13 @@ void* lovrMeshMapIndices(Mesh* mesh, uint32_t count, size_t indexSize) {
     mesh->ibo = lovrBufferCreate(mesh->indexCapacity, NULL, mesh->usage, mesh->readable);
   }
 
-  return lovrBufferMap(mesh->ibo, 0);
+  return lovrBufferMap(mesh->ibo, offset);
 }
 
 void lovrMeshFlushIndices(Mesh* mesh) {
-  lovrBufferFlush(mesh->ibo, 0, mesh->indexCount * mesh->indexSize);
+  if (mesh->indexCount > 0) {
+    lovrBufferFlush(mesh->ibo, 0, mesh->indexCount * mesh->indexSize);
+  }
 }
 
 void* lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* indexSize) {

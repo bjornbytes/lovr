@@ -53,6 +53,6 @@ Material* lovrMeshGetMaterial(Mesh* mesh);
 void lovrMeshSetMaterial(Mesh* mesh, Material* material);
 void* lovrMeshMapVertices(Mesh* mesh, size_t offset);
 void lovrMeshFlushVertices(Mesh* mesh, size_t offset, size_t size);
-void* lovrMeshMapIndices(Mesh* mesh, uint32_t count, size_t indexSize);
+void* lovrMeshMapIndices(Mesh* mesh, uint32_t count, size_t indexSize, size_t offset);
 void lovrMeshFlushIndices(Mesh* mesh);
 void* lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* indexSize);
