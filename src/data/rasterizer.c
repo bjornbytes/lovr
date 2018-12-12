@@ -1,5 +1,5 @@
 #include "data/rasterizer.h"
-#include "resources/Cabin.ttf.h"
+#include "resources/VarelaRound.ttf.h"
 #include "util.h"
 #include "lib/stb/stb_truetype.h"
 #include "msdfgen-c.h"
@@ -10,7 +10,7 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, int size) {
   if (!rasterizer) return NULL;
 
   stbtt_fontinfo* font = &rasterizer->font;
-  unsigned char* data = blob ? blob->data : Cabin_ttf;
+  unsigned char* data = blob ? blob->data : VarelaRound_ttf;
   if (!stbtt_InitFont(font, data, stbtt_GetFontOffsetForIndex(data, 0))) {
     lovrThrow("Problem loading font");
   }
