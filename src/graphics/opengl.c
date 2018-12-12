@@ -154,6 +154,7 @@ struct Mesh {
   MeshDrawMode drawMode;
   VertexFormat format;
   bool readable;
+  bool dirty;
   BufferUsage usage;
   Buffer* vbo;
   Buffer* ibo;
@@ -2327,6 +2328,7 @@ void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attrib
   lovrAssert(attribute->divisor >= 0, "Divisor can't be negative");
   map_set(&mesh->attributes, name, *attribute);
   lovrRetain(attribute->buffer);
+  mesh->dirty = true;
 }
 
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
@@ -2335,6 +2337,7 @@ void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
   lovrAssert(attribute->buffer != mesh->vbo, "Attribute '%s' was not attached from another Mesh", name);
   lovrRelease(attribute->buffer);
   map_remove(&mesh->attributes, name);
+  mesh->dirty = true;
 }
 
 MeshAttribute* lovrMeshGetAttribute(Mesh* mesh, const char* name) {
@@ -2415,6 +2418,11 @@ void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   }
 
   memcpy(mesh->layout, layout, MAX_ATTRIBUTES * sizeof(MeshAttribute));
+  mesh->dirty = false;
+}
+
+bool lovrMeshIsDirty(Mesh* mesh) {
+  return mesh->dirty;
 }
 
 void lovrMeshDraw(Mesh* mesh, int instances) {
@@ -2454,7 +2462,10 @@ MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh) {
 }
 
 void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode) {
-  mesh->drawMode = drawMode;
+  if (mesh->drawMode != drawMode) {
+    mesh->drawMode = drawMode;
+    mesh->dirty = true;
+  }
 }
 
 int lovrMeshGetVertexCount(Mesh* mesh) {
@@ -2470,6 +2481,7 @@ bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
 void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enable) {
   MeshAttribute* attribute = map_get(&mesh->attributes, name);
   lovrAssert(attribute, "Mesh does not have an attribute named '%s'", name);
+  mesh->dirty = attribute->enabled != enable;
   attribute->enabled = enable;
 }
 
@@ -2481,8 +2493,11 @@ void lovrMeshGetDrawRange(Mesh* mesh, uint32_t* start, uint32_t* count) {
 void lovrMeshSetDrawRange(Mesh* mesh, uint32_t start, uint32_t count) {
   uint32_t limit = mesh->indexCount > 0 ? mesh->indexCount : mesh->count;
   lovrAssert(start + count <= limit, "Invalid mesh draw range [%d, %d]", start + 1, start + count + 1);
-  mesh->rangeStart = start;
-  mesh->rangeCount = count;
+  if (mesh->rangeStart != start || mesh->rangeCount != count) {
+    mesh->rangeStart = start;
+    mesh->rangeCount = count;
+    mesh->dirty = true;
+  }
 }
 
 Material* lovrMeshGetMaterial(Mesh* mesh) {
@@ -2494,6 +2509,7 @@ void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
     lovrRetain(material);
     lovrRelease(mesh->material);
     mesh->material = material;
+    mesh->dirty = true;
   }
 }
 
@@ -2508,6 +2524,7 @@ void lovrMeshFlushVertices(Mesh* mesh, size_t offset, size_t size) {
 void* lovrMeshMapIndices(Mesh* mesh, uint32_t count, size_t indexSize, size_t offset) {
   mesh->indexSize = indexSize;
   mesh->indexCount = count;
+  mesh->dirty = true;
 
   if (count == 0) {
     return NULL;

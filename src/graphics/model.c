@@ -182,6 +182,7 @@ void lovrModelDraw(Model* model, mat4 transform, int instances) {
   lovrGraphicsMatrixTransform(transform);
   renderNode(model, 0, instances);
   lovrGraphicsPop();
+  lovrGraphicsFlush();
 }
 
 Animator* lovrModelGetAnimator(Model* model) {

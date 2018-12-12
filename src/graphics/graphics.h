@@ -159,6 +159,7 @@ typedef struct {
   int indexCursor;
   ShaderBlock* block;
   Buffer* vertexMap;
+  Buffer* identityBuffer;
 } GraphicsState;
 
 // Base
@@ -169,6 +170,7 @@ void lovrGraphicsSetWindow(WindowFlags* flags);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
+Buffer* lovrGraphicsGetIdentityBuffer();
 #define lovrGraphicsGetSupported lovrGpuGetSupported
 #define lovrGraphicsGetLimits lovrGpuGetLimits
 #define lovrGraphicsGetStats lovrGpuGetStats

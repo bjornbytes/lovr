@@ -21,7 +21,9 @@ static void onResizeWindow(int width, int height) {
   state.height = height;
 }
 
-static bool batchable(DrawCommand* a, DrawCommand* b) {
+static bool batchable(DrawCommand* a) {
+  DrawCommand* b = &state.batch;
+  if (a->instances > 1) return false;
   if (a->mesh != b->mesh) return false;
   if (!a->mesh && a->mode != b->mode) return false;
   if (!a->mesh && !!a->index.count != !!b->index.count) return false;
@@ -29,7 +31,6 @@ static bool batchable(DrawCommand* a, DrawCommand* b) {
   if (a->material != b->material) return false;
   if (!a->material && a->diffuseTexture != b->diffuseTexture) return false;
   if (!a->material && a->environmentMap != b->environmentMap) return false;
-  if (a->instances > 1 || b->instances > 1) return false;
   if (a->mono != b->mono) return false;
   if (!!a->pose != !!b->pose || (a->pose && memcmp(a->pose, b->pose, MAX_BONES * 16 * sizeof(float)))) return false;
   if (state.pipeline->dirty) return false;
@@ -61,6 +62,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultFont);
   lovrRelease(state.defaultMesh);
   lovrRelease(state.vertexMap);
+  lovrRelease(state.identityBuffer);
   lovrGpuDestroy();
   memset(&state, 0, sizeof(GraphicsState));
 }
@@ -112,6 +114,10 @@ void lovrGraphicsSetWindow(WindowFlags* flags) {
   state.block = lovrShaderBlockCreate(&uniforms, BLOCK_UNIFORM, USAGE_STREAM);
   vec_deinit(&uniforms);
 
+  uint8_t identity[MAX_BATCH_SIZE];
+  for (int i = 0; i < MAX_BATCH_SIZE; i++) { identity[i] = i; }
+  state.identityBuffer = lovrBufferCreate(sizeof(identity), identity, USAGE_STATIC, false);
+
   lovrGraphicsReset();
   state.initialized = true;
 }
@@ -146,6 +152,10 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
     Color backgroundColor = lovrGraphicsGetBackgroundColor();
     lovrGpuClear(state.camera.canvas, &backgroundColor, &(float) { 1. }, &(int) { 0 });
   }
+}
+
+Buffer* lovrGraphicsGetIdentityBuffer() {
+  return state.identityBuffer;
 }
 
 // State
@@ -515,7 +525,7 @@ void lovrGraphicsFlush() {
 }
 
 void lovrGraphicsDraw(DrawCommand* draw) {
-  if (state.batchSize > 0 && !batchable(draw, &state.batch)) {
+  if (state.batchSize > 0 && !batchable(draw)) {
     lovrGraphicsFlush();
   }
 
@@ -549,6 +559,8 @@ void lovrGraphicsDraw(DrawCommand* draw) {
     void* vertexMap = lovrBufferMap(state.vertexMap, state.vertexCursor * sizeof(uint8_t));
     memset(vertexMap, state.batchSize, draw->vertex.count * sizeof(uint8_t));
     state.vertexCursor += draw->vertex.count;
+  } else if (draw->instances <= 1) {
+    state.batch.instances++;
   }
 
   // Transform and color

@@ -1157,6 +1157,15 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     lovrMeshFlushVertices(mesh, 0, count * format.stride);
   }
 
+  lovrMeshAttachAttribute(mesh, "lovrDrawID", &(MeshAttribute) {
+    .buffer = lovrGraphicsGetIdentityBuffer(),
+    .type = ATTR_BYTE,
+    .components = 1,
+    .divisor = 1,
+    .integer = true,
+    .enabled = true
+  });
+
   luax_pushobject(L, mesh);
   lovrRelease(mesh);
   return 1;

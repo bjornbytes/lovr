@@ -39,6 +39,7 @@ void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attrib
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
 MeshAttribute* lovrMeshGetAttribute(Mesh* mesh, const char* name);
 void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier);
+bool lovrMeshIsDirty(Mesh* mesh);
 void lovrMeshDraw(Mesh* mesh, int instances);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
 bool lovrMeshIsReadable(Mesh* mesh);
