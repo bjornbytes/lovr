@@ -71,11 +71,11 @@ int l_lovrMeshDetachAttributes(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshDrawInstanced(lua_State* L) {
+int l_lovrMeshDraw(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  int instances = luaL_checkinteger(L, 2);
   float transform[16];
-  luax_readmat4(L, 3, transform, 1, NULL);
+  int index = luax_readmat4(L, 3, transform, 1, NULL);
+  int instances = luaL_optinteger(L, index, 1);
   lovrGraphicsDraw(&(DrawCommand) {
     .transform = transform,
     .mesh = mesh,
@@ -83,12 +83,6 @@ int l_lovrMeshDrawInstanced(lua_State* L) {
     .instances = instances
   });
   return 0;
-}
-
-int l_lovrMeshDraw(lua_State* L) {
-  lua_pushinteger(L, 1);
-  lua_insert(L, 2);
-  return l_lovrMeshDrawInstanced(L);
 }
 
 int l_lovrMeshGetDrawMode(lua_State* L) {
@@ -346,7 +340,6 @@ int l_lovrMeshSetMaterial(lua_State* L) {
 const luaL_Reg lovrMesh[] = {
   { "attachAttributes", l_lovrMeshAttachAttributes },
   { "detachAttributes", l_lovrMeshDetachAttributes },
-  { "drawInstanced", l_lovrMeshDrawInstanced },
   { "draw", l_lovrMeshDraw },
   { "getVertexFormat", l_lovrMeshGetVertexFormat },
   { "getVertexCount", l_lovrMeshGetVertexCount },

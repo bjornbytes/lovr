@@ -2,19 +2,13 @@
 #include "api/math.h"
 #include "graphics/model.h"
 
-int l_lovrModelDrawInstanced(lua_State* L) {
+int l_lovrModelDraw(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  int instances = luaL_checkinteger(L, 2);
   float transform[16];
-  luax_readmat4(L, 3, transform, 1, NULL);
+  int index = luax_readmat4(L, 3, transform, 1, NULL);
+  int instances = luaL_optinteger(L, index, 1);
   lovrModelDraw(model, transform, instances);
   return 0;
-}
-
-int l_lovrModelDraw(lua_State* L) {
-  lua_pushinteger(L, 1);
-  lua_insert(L, 2);
-  return l_lovrModelDrawInstanced(L);
 }
 
 int l_lovrModelGetAABB(lua_State* L) {
@@ -80,7 +74,6 @@ int l_lovrModelGetMesh(lua_State* L) {
 }
 
 const luaL_Reg lovrModel[] = {
-  { "drawInstanced", l_lovrModelDrawInstanced },
   { "draw", l_lovrModelDraw },
   { "getAABB", l_lovrModelGetAABB },
   { "getAnimator", l_lovrModelGetAnimator },
