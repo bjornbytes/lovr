@@ -165,10 +165,10 @@ function lovr.errhand(message, traceback)
   if lovr.headset then lovr.headset.setMirrored(false) end
   local font = lovr.graphics.getFont()
   local pixelDensity = font:getPixelDensity()
-  local width = font:getWidth(message, .55 * pixelDensity)
+  local width = font:getWidth(message, .7 * pixelDensity)
   local function render()
     lovr.graphics.print(header, -width / 2, 8, -20, 2, 0, 0, 0, 0, 0, 'left')
-    lovr.graphics.print(message, -width / 2, 5, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left', 'top')
+    lovr.graphics.print(message, -width / 2, 5, -20, 1, 0, 0, 0, 0, .7 * pixelDensity, 'left', 'top')
   end
   return function()
     lovr.event.pump()
