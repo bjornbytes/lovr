@@ -100,7 +100,7 @@ typedef struct {
 } Camera;
 
 typedef struct {
-  bool alphaCoverage;
+  bool alphaSampling;
   Color backgroundColor;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
@@ -179,6 +179,8 @@ Buffer* lovrGraphicsGetIdentityBuffer();
 void lovrGraphicsReset();
 void lovrGraphicsPushPipeline();
 void lovrGraphicsPopPipeline();
+bool lovrGraphicsGetAlphaSampling();
+void lovrGraphicsSetAlphaSampling(bool alphaSampling);
 Color lovrGraphicsGetBackgroundColor();
 void lovrGraphicsSetBackgroundColor(Color color);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);

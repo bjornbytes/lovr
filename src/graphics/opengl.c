@@ -48,7 +48,7 @@ typedef enum {
 
 static struct {
   Texture* defaultTexture;
-  bool alphaCoverage;
+  bool alphaToCoverage;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
   bool culling;
@@ -633,7 +633,7 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
 
-  state.alphaCoverage = false;
+  state.alphaToCoverage = false;
   glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
   state.blendMode = BLEND_ALPHA;
@@ -690,9 +690,9 @@ void lovrGpuDestroy() {
 void lovrGpuBindPipeline(Pipeline* pipeline) {
 
   // Alpha Coverage
-  if (state.alphaCoverage != pipeline->alphaCoverage) {
-    state.alphaCoverage = pipeline->alphaCoverage;
-    if (state.alphaCoverage) {
+  if (state.alphaToCoverage != pipeline->alphaSampling) {
+    state.alphaToCoverage = pipeline->alphaSampling;
+    if (state.alphaToCoverage) {
       glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
     } else {
       glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);

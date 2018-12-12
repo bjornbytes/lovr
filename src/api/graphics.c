@@ -387,6 +387,16 @@ static int l_lovrGraphicsReset(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsGetAlphaSampling(lua_State* L) {
+  lua_pushboolean(L, lovrGraphicsGetAlphaSampling());
+  return 1;
+}
+
+static int l_lovrGraphicsSetAlphaSampling(lua_State* L) {
+  lovrGraphicsSetAlphaSampling(lua_toboolean(L, 1));
+  return 0;
+}
+
 static int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
   Color color = lovrGraphicsGetBackgroundColor();
   lua_pushnumber(L, color.r);
@@ -1349,6 +1359,8 @@ static const luaL_Reg lovrGraphics[] = {
 
   // State
   { "reset", l_lovrGraphicsReset },
+  { "getAlphaSampling", l_lovrGraphicsGetAlphaSampling },
+  { "setAlphaSampling", l_lovrGraphicsSetAlphaSampling },
   { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
   { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
   { "getBlendMode", l_lovrGraphicsGetBlendMode },

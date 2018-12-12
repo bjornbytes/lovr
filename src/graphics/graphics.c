@@ -203,6 +203,17 @@ void lovrGraphicsPopPipeline() {
   state.pipeline = &state.pipelines[state.pipelineIndex];
 }
 
+bool lovrGraphicsGetAlphaSampling() {
+  return state.pipeline->alphaSampling;
+}
+
+void lovrGraphicsSetAlphaSampling(bool sample) {
+  if (state.pipeline->alphaSampling != sample) {
+    state.pipeline->alphaSampling = sample;
+    state.pipeline->dirty = true;
+  }
+}
+
 Color lovrGraphicsGetBackgroundColor() {
   return state.pipeline->backgroundColor;
 }
@@ -938,14 +949,15 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsMatrixTransform(transform);
   lovrGraphicsScale((float[3]) { scale, scale, scale });
   lovrGraphicsTranslate((float[3]) { 0, offsety, 0 });
-  state.pipeline->alphaCoverage = true;
+  lovrGraphicsPushPipeline();
+  lovrGraphicsSetAlphaSampling(true);
   lovrGraphicsDraw(&(DrawCommand) {
     .shader = SHADER_FONT,
     .diffuseTexture = font->texture,
     .mode = MESH_TRIANGLES,
     .vertex.count = vertexCount
   });
-  state.pipeline->alphaCoverage = false;
+  lovrGraphicsPopPipeline();
   lovrGraphicsPop();
 }
 
