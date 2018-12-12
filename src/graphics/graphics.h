@@ -180,7 +180,7 @@ void lovrGraphicsReset();
 void lovrGraphicsPushPipeline();
 void lovrGraphicsPopPipeline();
 bool lovrGraphicsGetAlphaSampling();
-void lovrGraphicsSetAlphaSampling(bool alphaSampling);
+void lovrGraphicsSetAlphaSampling(bool sample);
 Color lovrGraphicsGetBackgroundColor();
 void lovrGraphicsSetBackgroundColor(Color color);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
