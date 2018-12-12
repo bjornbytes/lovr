@@ -149,12 +149,14 @@ function lovr.run()
 end
 
 local function formatTraceback(s)
-  return s:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
+  return s:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback:', '\nStack:\n')
 end
 
 function lovr.errhand(message, traceback)
   message = tostring(message)
-  message = 'Error:\n' .. message .. formatTraceback(traceback or debug.traceback('', 2))
+  message = message .. formatTraceback(traceback or debug.traceback('', 3))
+  local headers = { 'Oops.', 'Oh no.', 'Drat.', 'Darn.', 'Uh oh.' }
+  local header = headers[lovr.math.random(#headers)]
   print(message)
   if not lovr.graphics then return function() return 1 end end
   lovr.graphics.reset()
@@ -165,7 +167,8 @@ function lovr.errhand(message, traceback)
   local pixelDensity = font:getPixelDensity()
   local width = font:getWidth(message, .55 * pixelDensity)
   local function render()
-    lovr.graphics.print(message, -width / 2, 0, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
+    lovr.graphics.print(header, -width / 2, 8, -20, 2, 0, 0, 0, 0, 0, 'left')
+    lovr.graphics.print(message, -width / 2, 5, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left', 'top')
   end
   return function()
     lovr.event.pump()
