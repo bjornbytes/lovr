@@ -983,7 +983,6 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
   WrapMode wrap = type == TEXTURE_CUBE ? WRAP_CLAMP : WRAP_REPEAT;
   glGenTextures(1, &texture->id);
   lovrGpuBindTexture(texture, 0);
-  lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
   lovrTextureSetWrap(texture, (TextureWrap) { .s = wrap, .t = wrap, .r = wrap });
 
   if (msaa > 0) {

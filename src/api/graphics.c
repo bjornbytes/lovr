@@ -1302,6 +1302,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   Texture* texture = lovrTextureCreate(type, NULL, 0, srgb, mipmaps, msaa);
+  lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
 
   if (blank) {
     depth = depth ? depth : (type == TEXTURE_CUBE ? 6 : 1);
