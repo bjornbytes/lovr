@@ -34,6 +34,7 @@ static bool batchable(DrawCommand* a) {
   if (a->mono != b->mono) return false;
   if (!!a->pose != !!b->pose || (a->pose && memcmp(a->pose, b->pose, MAX_BONES * 16 * sizeof(float)))) return false;
   if (state.pipeline->dirty) return false;
+  if (a->mesh && lovrMeshIsDirty(a->mesh)) return false;
   if (a->material && lovrMaterialIsDirty(a->material)) return false;
   if (state.pipeline->shader && lovrShaderIsDirty(state.pipeline->shader)) return false;
   if (state.pipeline->canvas && lovrCanvasIsDirty(state.pipeline->canvas)) return false;
@@ -531,6 +532,8 @@ void lovrGraphicsDraw(DrawCommand* draw) {
 
   if (state.batchSize == 0) {
     memcpy(&state.batch, draw, sizeof(DrawCommand));
+  } else if (draw->mesh && draw->instances <= 1) {
+    state.batch.instances++;
   }
 
   // Geometry
@@ -559,8 +562,6 @@ void lovrGraphicsDraw(DrawCommand* draw) {
     void* vertexMap = lovrBufferMap(state.vertexMap, state.vertexCursor * sizeof(uint8_t));
     memset(vertexMap, state.batchSize, draw->vertex.count * sizeof(uint8_t));
     state.vertexCursor += draw->vertex.count;
-  } else if (draw->instances <= 1) {
-    state.batch.instances++;
   }
 
   // Transform and color
