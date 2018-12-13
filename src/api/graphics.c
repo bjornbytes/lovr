@@ -69,8 +69,19 @@ const char* CompareModes[] = {
 };
 
 const char* DrawModes[] = {
-  [DRAW_MODE_FILL] = "fill",
-  [DRAW_MODE_LINE] = "line",
+  [DRAW_POINTS] = "points",
+  [DRAW_LINES] = "lines",
+  [DRAW_LINE_STRIP] = "linestrip",
+  [DRAW_LINE_LOOP] = "lineloop",
+  [DRAW_TRIANGLE_STRIP] = "strip",
+  [DRAW_TRIANGLES] = "triangles",
+  [DRAW_TRIANGLE_FAN] = "fan",
+  NULL
+};
+
+const char* DrawStyles[] = {
+  [STYLE_FILL] = "fill",
+  [STYLE_LINE] = "line",
   NULL
 };
 
@@ -109,17 +120,6 @@ const char* MaterialTextures[] = {
   [TEXTURE_OCCLUSION] = "occlusion",
   [TEXTURE_NORMAL] = "normal",
   [TEXTURE_ENVIRONMENT_MAP] = "environment",
-  NULL
-};
-
-const char* MeshDrawModes[] = {
-  [MESH_POINTS] = "points",
-  [MESH_LINES] = "lines",
-  [MESH_LINE_STRIP] = "linestrip",
-  [MESH_LINE_LOOP] = "lineloop",
-  [MESH_TRIANGLE_STRIP] = "strip",
-  [MESH_TRIANGLES] = "triangles",
-  [MESH_TRIANGLE_FAN] = "fan",
   NULL
 };
 
@@ -723,12 +723,12 @@ static int l_lovrGraphicsLine(lua_State* L) {
 }
 
 static int l_lovrGraphicsTriangle(lua_State* L) {
-  DrawMode drawMode = DRAW_MODE_FILL;
+  DrawStyle style = STYLE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
+    style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
 
   float points[9];
@@ -737,35 +737,35 @@ static int l_lovrGraphicsTriangle(lua_State* L) {
   for (int i = 0; i < 9; i++) {
     points[i] = luaL_checknumber(L, i + 2);
   }
-  lovrGraphicsTriangle(drawMode, material, points);
+  lovrGraphicsTriangle(style, material, points);
   return 0;
 }
 
 static int l_lovrGraphicsPlane(lua_State* L) {
-  DrawMode drawMode = DRAW_MODE_FILL;
+  DrawStyle style = STYLE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
+    style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
   float transform[16];
   luax_readmat4(L, 2, transform, 2, NULL);
-  lovrGraphicsPlane(drawMode, material, transform);
+  lovrGraphicsPlane(style, material, transform);
   return 0;
 }
 
 static int luax_rectangularprism(lua_State* L, int scaleComponents) {
-  DrawMode drawMode = DRAW_MODE_FILL;
+  DrawStyle style = STYLE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
+    style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
   float transform[16];
   luax_readmat4(L, 2, transform, scaleComponents, NULL);
-  lovrGraphicsBox(drawMode, material, transform);
+  lovrGraphicsBox(style, material, transform);
   return 0;
 }
 
@@ -778,12 +778,12 @@ static int l_lovrGraphicsBox(lua_State* L) {
 }
 
 static int l_lovrGraphicsArc(lua_State* L) {
-  DrawMode drawMode = DRAW_MODE_FILL;
+  DrawStyle style = STYLE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
+    style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
   ArcMode arcMode = ARC_MODE_PIE;
   int index = 2;
@@ -795,22 +795,22 @@ static int l_lovrGraphicsArc(lua_State* L) {
   float theta1 = luaL_optnumber(L, index++, 0);
   float theta2 = luaL_optnumber(L, index++, 2 * M_PI);
   int segments = luaL_optinteger(L, index, 64) * (MIN(fabsf(theta2 - theta1), 2 * M_PI) / (2 * M_PI));
-  lovrGraphicsArc(drawMode, arcMode, material, transform, theta1, theta2, segments);
+  lovrGraphicsArc(style, arcMode, material, transform, theta1, theta2, segments);
   return 0;
 }
 
 static int l_lovrGraphicsCircle(lua_State* L) {
-  DrawMode drawMode = DRAW_MODE_FILL;
+  DrawStyle style = STYLE_FILL;
   Material* material = NULL;
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    drawMode = luaL_checkoption(L, 1, NULL, DrawModes);
+    style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1, NULL);
   int segments = luaL_optnumber(L, index, 32);
-  lovrGraphicsCircle(drawMode, material, transform, segments);
+  lovrGraphicsCircle(style, material, transform, segments);
   return 0;
 }
 
@@ -1152,10 +1152,10 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
   }
 
-  MeshDrawMode drawMode = luaL_checkoption(L, drawModeIndex, "fan", MeshDrawModes);
+  DrawMode mode = luaL_checkoption(L, drawModeIndex, "fan", DrawModes);
   BufferUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", BufferUsages);
   bool readable = lua_toboolean(L, drawModeIndex + 2);
-  Mesh* mesh = lovrMeshCreate(count, format, drawMode, usage, readable);
+  Mesh* mesh = lovrMeshCreate(count, format, mode, usage, readable);
 
   if (dataIndex) {
     VertexPointer vertices = { .raw = lovrMeshMapVertices(mesh, 0) };

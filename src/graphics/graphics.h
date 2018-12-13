@@ -53,9 +53,9 @@ typedef enum {
 } CompareMode;
 
 typedef enum {
-  DRAW_MODE_FILL,
-  DRAW_MODE_LINE
-} DrawMode;
+  STYLE_FILL,
+  STYLE_LINE
+} DrawStyle;
 
 typedef enum {
   STENCIL_REPLACE,
@@ -122,7 +122,7 @@ typedef struct {
 
 typedef struct {
   Mesh* mesh;
-  MeshDrawMode mode;
+  DrawMode mode;
   struct { uint32_t count; float* data; } vertex;
   struct { uint32_t count; uint16_t* data; } index;
   DefaultShader shader;
@@ -230,11 +230,11 @@ void lovrGraphicsFlush();
 void lovrGraphicsDraw(DrawCommand* draw);
 void lovrGraphicsPoints(uint32_t count);
 void lovrGraphicsLine(uint32_t count);
-void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]);
-void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform);
-void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform);
-void lovrGraphicsArc(DrawMode mode, ArcMode, Material* material, mat4 transform, float theta1, float theta2, int segments);
-void lovrGraphicsCircle(DrawMode mode, Material* material, mat4 transform, int segments);
+void lovrGraphicsTriangle(DrawStyle style, Material* material, float points[9]);
+void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform);
+void lovrGraphicsBox(DrawStyle style, Material* material, mat4 transform);
+void lovrGraphicsArc(DrawStyle style, ArcMode, Material* material, mat4 transform, float theta1, float theta2, int segments);
+void lovrGraphicsCircle(DrawStyle style, Material* material, mat4 transform, int segments);
 void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments);
 void lovrGraphicsSphere(Material* material, mat4 transform, int segments);
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);

@@ -151,7 +151,7 @@ struct Mesh {
   Ref ref;
   uint32_t vao;
   uint32_t count;
-  MeshDrawMode drawMode;
+  DrawMode mode;
   VertexFormat format;
   bool readable;
   bool dirty;
@@ -310,15 +310,15 @@ static GLenum convertAccess(UniformAccess access) {
 }
 #endif
 
-static GLenum convertMeshDrawMode(MeshDrawMode mode) {
+static GLenum convertDrawMode(DrawMode mode) {
   switch (mode) {
-    case MESH_POINTS: return GL_POINTS;
-    case MESH_LINES: return GL_LINES;
-    case MESH_LINE_STRIP: return GL_LINE_STRIP;
-    case MESH_LINE_LOOP: return GL_LINE_LOOP;
-    case MESH_TRIANGLE_STRIP: return GL_TRIANGLE_STRIP;
-    case MESH_TRIANGLES: return GL_TRIANGLES;
-    case MESH_TRIANGLE_FAN: return GL_TRIANGLE_FAN;
+    case DRAW_POINTS: return GL_POINTS;
+    case DRAW_LINES: return GL_LINES;
+    case DRAW_LINE_STRIP: return GL_LINE_STRIP;
+    case DRAW_LINE_LOOP: return GL_LINE_LOOP;
+    case DRAW_TRIANGLE_STRIP: return GL_TRIANGLE_STRIP;
+    case DRAW_TRIANGLES: return GL_TRIANGLES;
+    case DRAW_TRIANGLE_FAN: return GL_TRIANGLE_FAN;
   }
 }
 
@@ -2277,14 +2277,14 @@ Buffer* lovrShaderBlockGetBuffer(ShaderBlock* block) {
 
 // Mesh
 
-Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, BufferUsage usage, bool readable) {
+Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, DrawMode mode, BufferUsage usage, bool readable) {
   Mesh* mesh = lovrAlloc(Mesh, lovrMeshDestroy);
   if (!mesh) return NULL;
 
   mesh->count = count;
+  mesh->mode = mode;
   mesh->format = format;
   mesh->readable = readable;
-  mesh->drawMode = drawMode;
   mesh->usage = usage;
   mesh->vbo = lovrBufferCreate(count * format.stride, NULL, usage, readable);
   glGenVertexArrays(1, &mesh->vao);
@@ -2425,7 +2425,7 @@ bool lovrMeshIsDirty(Mesh* mesh) {
 }
 
 void lovrMeshDraw(Mesh* mesh, int instances) {
-  GLenum glDrawMode = convertMeshDrawMode(mesh->drawMode);
+  GLenum glDrawMode = convertDrawMode(mesh->mode);
 
   if (mesh->indexCount > 0) {
     size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
@@ -2456,13 +2456,13 @@ bool lovrMeshIsReadable(Mesh* mesh) {
   return mesh->readable;
 }
 
-MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh) {
-  return mesh->drawMode;
+DrawMode lovrMeshGetDrawMode(Mesh* mesh) {
+  return mesh->mode;
 }
 
-void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode) {
-  if (mesh->drawMode != drawMode) {
-    mesh->drawMode = drawMode;
+void lovrMeshSetDrawMode(Mesh* mesh, DrawMode mode) {
+  if (mesh->mode != mode) {
+    mesh->mode = mode;
     mesh->dirty = true;
   }
 }

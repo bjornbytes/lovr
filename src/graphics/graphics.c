@@ -97,7 +97,7 @@ void lovrGraphicsSetWindow(WindowFlags* flags) {
   vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
   vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
   vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
-  state.defaultMesh = lovrMeshCreate(MAX_VERTICES, format, MESH_TRIANGLES, USAGE_STREAM, false);
+  state.defaultMesh = lovrMeshCreate(MAX_VERTICES, format, DRAW_TRIANGLES, USAGE_STREAM, false);
 
   state.vertexMap = lovrBufferCreate(MAX_VERTICES * sizeof(uint8_t), NULL, USAGE_STREAM, false);
   lovrMeshAttachAttribute(state.defaultMesh, "lovrDrawID", &(MeshAttribute) {
@@ -591,23 +591,23 @@ void lovrGraphicsDraw(DrawCommand* draw) {
 
 void lovrGraphicsPoints(uint32_t count) {
   lovrGraphicsDraw(&(DrawCommand) {
-    .mode = MESH_POINTS,
+    .mode = DRAW_POINTS,
     .vertex.count = count
   });
 }
 
 void lovrGraphicsLine(uint32_t count) {
   lovrGraphicsDraw(&(DrawCommand) {
-    .mode = MESH_LINE_STRIP,
+    .mode = DRAW_LINE_STRIP,
     .vertex.count = count
   });
 }
 
-void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]) {
-  if (mode == DRAW_MODE_LINE) {
+void lovrGraphicsTriangle(DrawStyle style, Material* material, float points[9]) {
+  if (style == STYLE_LINE) {
     lovrGraphicsDraw(&(DrawCommand) {
       .material = material,
-      .mode = MESH_LINE_LOOP,
+      .mode = DRAW_LINE_LOOP,
       .vertex.count = 3,
       .vertex.data = (float[]) {
         points[0], points[1], points[2], 0, 0, 0, 0, 0,
@@ -620,7 +620,7 @@ void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]) {
     vec3_cross(vec3_init(normal, &points[0]), &points[3]);
     lovrGraphicsDraw(&(DrawCommand) {
       .material = material,
-      .mode = MESH_TRIANGLES,
+      .mode = DRAW_TRIANGLES,
       .vertex.count = 3,
       .vertex.data = (float[]) {
         points[0], points[1], points[2], normal[0], normal[1], normal[2], 0, 0,
@@ -631,12 +631,12 @@ void lovrGraphicsTriangle(DrawMode mode, Material* material, float points[9]) {
   }
 }
 
-void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
-  if (mode == DRAW_MODE_LINE) {
+void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform) {
+  if (style == STYLE_LINE) {
     lovrGraphicsDraw(&(DrawCommand) {
       .transform = transform,
       .material = material,
-      .mode = MESH_LINE_LOOP,
+      .mode = DRAW_LINE_LOOP,
       .vertex.count = 4,
       .vertex.data = (float[]) {
         -.5, .5, 0,  0, 0, 0, 0, 0,
@@ -645,11 +645,11 @@ void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
         -.5, -.5, 0, 0, 0, 0, 0, 0
       }
     });
-  } else if (mode == DRAW_MODE_FILL) {
+  } else {
     lovrGraphicsDraw(&(DrawCommand) {
       .transform = transform,
       .material = material,
-      .mode = MESH_TRIANGLES,
+      .mode = DRAW_TRIANGLES,
       .vertex.count = 4,
       .vertex.data = (float[]) {
         -.5, .5, 0,  0, 0, -1, 0, 1,
@@ -663,12 +663,12 @@ void lovrGraphicsPlane(DrawMode mode, Material* material, mat4 transform) {
   }
 }
 
-void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
-  if (mode == DRAW_MODE_LINE) {
+void lovrGraphicsBox(DrawStyle style, Material* material, mat4 transform) {
+  if (style == STYLE_LINE) {
     lovrGraphicsDraw(&(DrawCommand) {
       .transform = transform,
       .material = material,
-      .mode = MESH_LINES,
+      .mode = DRAW_LINES,
       .vertex.count = 8,
       .vertex.data = (float[]) {
         // Front
@@ -693,7 +693,7 @@ void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
     lovrGraphicsDraw(&(DrawCommand) {
       .transform = transform,
       .material = material,
-      .mode = MESH_TRIANGLES,
+      .mode = DRAW_TRIANGLES,
       .vertex.count = 24,
       .vertex.data = (float[]) {
         // Front
@@ -740,7 +740,7 @@ void lovrGraphicsBox(DrawMode mode, Material* material, mat4 transform) {
   }
 }
 
-void lovrGraphicsArc(DrawMode mode, ArcMode arcMode, Material* material, mat4 transform, float theta1, float theta2, int segments) {
+void lovrGraphicsArc(DrawStyle style, ArcMode arcMode, Material* material, mat4 transform, float theta1, float theta2, int segments) {
   if (fabsf(theta1 - theta2) >= 2 * M_PI) {
     theta1 = 0;
     theta2 = 2 * M_PI;
@@ -769,13 +769,13 @@ void lovrGraphicsArc(DrawMode mode, ArcMode arcMode, Material* material, mat4 tr
   lovrGraphicsDraw(&(DrawCommand) {
     .transform = transform,
     .material = material,
-    .mode = mode == DRAW_MODE_LINE ? (arcMode == ARC_MODE_OPEN ? MESH_LINE_STRIP : MESH_LINE_LOOP) : MESH_TRIANGLE_FAN,
+    .mode = style == STYLE_LINE ? (arcMode == ARC_MODE_OPEN ? DRAW_LINE_STRIP : DRAW_LINE_LOOP) : DRAW_TRIANGLE_FAN,
     .vertex.count = count
   });
 }
 
-void lovrGraphicsCircle(DrawMode mode, Material* material, mat4 transform, int segments) {
-  lovrGraphicsArc(mode, ARC_MODE_OPEN, material, transform, 0, 2 * M_PI, segments);
+void lovrGraphicsCircle(DrawStyle style, Material* material, mat4 transform, int segments) {
+  lovrGraphicsArc(style, ARC_MODE_OPEN, material, transform, 0, 2 * M_PI, segments);
 }
 
 void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments) {
@@ -870,7 +870,7 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
 
   lovrGraphicsDraw(&(DrawCommand) {
     .material = material,
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .vertex.count = vertexCount,
     .index.count = indexCount
   });
@@ -909,7 +909,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
   lovrGraphicsDraw(&(DrawCommand) {
     .transform = transform,
     .material = material,
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .vertex.count = vertexCount,
     .index.count = indexCount
   });
@@ -924,7 +924,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
     .diffuseTexture = type == TEXTURE_2D ? texture : NULL,
     .environmentMap = type == TEXTURE_CUBE ? texture : NULL,
-    .mode = MESH_TRIANGLE_STRIP,
+    .mode = DRAW_TRIANGLE_STRIP,
     .vertex.count = 4,
     .vertex.data = (float[]) {
       -1, 1, 1,  0, 0, 0, 0, 0,
@@ -954,7 +954,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsDraw(&(DrawCommand) {
     .shader = SHADER_FONT,
     .diffuseTexture = font->texture,
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .vertex.count = vertexCount
   });
   lovrGraphicsPopPipeline();
@@ -968,7 +968,7 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
     .mono = true,
     .shader = SHADER_FILL,
     .diffuseTexture = texture,
-    .mode = MESH_TRIANGLE_STRIP,
+    .mode = DRAW_TRIANGLE_STRIP,
     .vertex.count = 4,
     .vertex.data = (float[]) {
       -1, 1, 0,  0, 0, 0, u, v + h,

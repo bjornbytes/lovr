@@ -62,7 +62,7 @@ Model* lovrModelCreate(ModelData* modelData) {
   model->modelData = modelData;
   model->aabbDirty = true;
 
-  model->mesh = lovrMeshCreate(modelData->vertexData->count, modelData->vertexData->format, MESH_TRIANGLES, USAGE_STATIC, false);
+  model->mesh = lovrMeshCreate(modelData->vertexData->count, modelData->vertexData->format, DRAW_TRIANGLES, USAGE_STATIC, false);
   void* vertices = lovrMeshMapVertices(model->mesh, 0);
   memcpy(vertices, modelData->vertexData->blob.data, modelData->vertexData->count * modelData->vertexData->format.stride);
   lovrMeshFlushVertices(model->mesh, 0, modelData->vertexData->count * modelData->vertexData->format.stride);

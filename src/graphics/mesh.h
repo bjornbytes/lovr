@@ -22,18 +22,18 @@ typedef struct {
 typedef map_t(MeshAttribute) map_attribute_t;
 
 typedef enum {
-  MESH_POINTS,
-  MESH_LINES,
-  MESH_LINE_STRIP,
-  MESH_LINE_LOOP,
-  MESH_TRIANGLE_STRIP,
-  MESH_TRIANGLES,
-  MESH_TRIANGLE_FAN
-} MeshDrawMode;
+  DRAW_POINTS,
+  DRAW_LINES,
+  DRAW_LINE_STRIP,
+  DRAW_LINE_LOOP,
+  DRAW_TRIANGLE_STRIP,
+  DRAW_TRIANGLES,
+  DRAW_TRIANGLE_FAN
+} DrawMode;
 
 typedef struct Mesh Mesh;
 
-Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, MeshDrawMode drawMode, BufferUsage usage, bool readable);
+Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, DrawMode drawMode, BufferUsage usage, bool readable);
 void lovrMeshDestroy(void* ref);
 void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
@@ -43,8 +43,8 @@ bool lovrMeshIsDirty(Mesh* mesh);
 void lovrMeshDraw(Mesh* mesh, int instances);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
 bool lovrMeshIsReadable(Mesh* mesh);
-MeshDrawMode lovrMeshGetDrawMode(Mesh* mesh);
-void lovrMeshSetDrawMode(Mesh* mesh, MeshDrawMode drawMode);
+DrawMode lovrMeshGetDrawMode(Mesh* mesh);
+void lovrMeshSetDrawMode(Mesh* mesh, DrawMode mode);
 int lovrMeshGetVertexCount(Mesh* mesh);
 bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name);
 void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enabled);
