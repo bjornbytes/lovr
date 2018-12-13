@@ -74,7 +74,7 @@ int l_lovrMeshDetachAttributes(lua_State* L) {
 int l_lovrMeshDraw(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   float transform[16];
-  int index = luax_readmat4(L, 3, transform, 1, NULL);
+  int index = luax_readmat4(L, 2, transform, 1, NULL);
   int instances = luaL_optinteger(L, index, 1);
   lovrGraphicsDraw(&(DrawCommand) {
     .transform = transform,
