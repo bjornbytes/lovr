@@ -1,9 +1,24 @@
-#include "lib/tinycthread/tinycthread.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
 
 #pragma once
+
+#ifndef _Thread_local
+# ifdef _WIN32
+#  define _Thread_local __declspec(thread)
+# else
+#  define _Thread_local __thread
+# endif
+#endif
+
+#ifndef _Noreturn
+# ifdef _WIN32
+#  define _Noreturn __declspec(noreturn)
+# else
+#  define _Noreturn __attribute__((noreturn))
+# endif
+#endif
 
 #define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
 
@@ -28,7 +43,7 @@ extern _Thread_local lovrErrorHandler lovrErrorCallback;
 extern _Thread_local void* lovrErrorUserdata;
 
 void lovrSetErrorCallback(lovrErrorHandler callback, void* context);
-void lovrThrow(const char* format, ...);
+void _Noreturn lovrThrow(const char* format, ...);
 void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*));
 void lovrRetain(void* object);
 void lovrRelease(void* object);

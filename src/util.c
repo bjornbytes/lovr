@@ -16,6 +16,7 @@ void lovrThrow(const char* format, ...) {
     va_start(args, format);
     lovrErrorCallback(lovrErrorUserdata, format, args);
     va_end(args);
+    exit(EXIT_FAILURE);
   } else {
     va_list args;
     va_start(args, format);
