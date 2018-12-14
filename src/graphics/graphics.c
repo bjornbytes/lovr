@@ -556,8 +556,10 @@ void lovrGraphicsDraw(DrawCommand* draw) {
 
     if (draw->index.count) {
       // TODO conditionally use BaseVertex when it is supported to avoid this
-      for (uint32_t i = 0; i < draw->index.count; i++) {
-        draw->index.data[i] += state.vertexCursor;
+      if (draw->index.data) {
+        for (uint32_t i = 0; i < draw->index.count; i++) {
+          draw->index.data[i] += state.vertexCursor;
+        }
       }
 
       if (draw->index.data) {
@@ -832,7 +834,7 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
   }
 
   // Top
-  int topOffset = (segments + 1) * 2;
+  int topOffset = (segments + 1) * 2 + state.vertexCursor;
   if (capped && r1 != 0) {
     PUSH_CYLINDER_VERTEX(x1, y1, z1, axis[0], axis[1], axis[2]);
     for (int i = 0; i <= segments; i++) {
@@ -842,7 +844,7 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
   }
 
   // Bottom
-  int bottomOffset = (segments + 1) * 2 + (1 + segments + 1) * (capped && r1 != 0);
+  int bottomOffset = (segments + 1) * 2 + (1 + segments + 1) * (capped && r1 != 0) + state.vertexCursor;
   if (capped && r2 != 0) {
     PUSH_CYLINDER_VERTEX(x2, y2, z1, -axis[0], -axis[1], -axis[2]);
     for (int i = 0; i <= segments; i++) {
@@ -853,7 +855,7 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
 
   // Indices
   for (int i = 0; i < segments; i++) {
-    int j = 2 * i;
+    int j = 2 * i + state.vertexCursor;
     PUSH_CYLINDER_TRIANGLE(j, j + 1, j + 2);
     PUSH_CYLINDER_TRIANGLE(j + 1, j + 3, j + 2);
 
@@ -899,8 +901,8 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
     uint16_t offset0 = i * (segments + 1);
     uint16_t offset1 = (i + 1) * (segments + 1);
     for (int j = 0; j < segments; j++) {
-      uint16_t i0 = offset0 + j;
-      uint16_t i1 = offset1 + j;
+      uint16_t i0 = offset0 + j + state.vertexCursor;
+      uint16_t i1 = offset1 + j + state.vertexCursor;
       memcpy(indices, ((uint16_t[]) { i0, i1, i0 + 1, i1, i1 + 1, i0 + 1 }), 6 * sizeof(uint16_t));
       indices += 6;
     }
