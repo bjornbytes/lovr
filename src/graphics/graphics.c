@@ -110,8 +110,8 @@ void lovrGraphicsSetWindow(WindowFlags* flags) {
 
   vec_uniform_t uniforms;
   vec_init(&uniforms);
-  vec_push(&uniforms, ((Uniform) { .name = "model", .type = UNIFORM_MATRIX, .components = 4, .count = MAX_BATCH_SIZE }));
-  vec_push(&uniforms, ((Uniform) { .name = "color", .type = UNIFORM_FLOAT, .components = 4, .count = MAX_BATCH_SIZE }));
+  vec_push(&uniforms, ((Uniform) { .name = "lovrModels", .type = UNIFORM_MATRIX, .components = 4, .count = MAX_BATCH_SIZE }));
+  vec_push(&uniforms, ((Uniform) { .name = "lovrColors", .type = UNIFORM_FLOAT, .components = 4, .count = MAX_BATCH_SIZE }));
   state.block = lovrShaderBlockCreate(&uniforms, BLOCK_UNIFORM, USAGE_STREAM);
   vec_deinit(&uniforms);
 
