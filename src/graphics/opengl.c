@@ -1523,9 +1523,13 @@ Buffer* lovrBufferCreate(size_t size, void* data, BufferUsage usage, bool readab
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
   glDeleteBuffers(1, &buffer->id);
-  if (buffer->data) {
+#ifndef EMSCRIPTEN
+  if (!GLAD_GL_ARB_buffer_storage) {
+#endif
     free(buffer->data);
+#ifndef EMSCRIPTEN
   }
+#endif
   free(ref);
 }
 
