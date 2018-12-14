@@ -1909,8 +1909,8 @@ Shader* lovrShaderCreateCompute(const char* source) {
 Shader* lovrShaderCreateDefault(DefaultShader type) {
   switch (type) {
     case SHADER_DEFAULT: return lovrShaderCreateGraphics(NULL, NULL);
-    case SHADER_CUBE: return lovrShaderCreateGraphics(lovrCubeVertexShader, lovrCubeFragmentShader); break;
-    case SHADER_PANO: return lovrShaderCreateGraphics(lovrCubeVertexShader, lovrPanoFragmentShader); break;
+    case SHADER_CUBE: return lovrShaderCreateGraphics(lovrCubeVertexShader, lovrCubeFragmentShader);
+    case SHADER_PANO: return lovrShaderCreateGraphics(lovrCubeVertexShader, lovrPanoFragmentShader);
     case SHADER_FONT: return lovrShaderCreateGraphics(NULL, lovrFontFragmentShader);
     case SHADER_FILL: return lovrShaderCreateGraphics(lovrFillVertexShader, NULL);
     default: lovrThrow("Unknown default shader type"); return NULL;
