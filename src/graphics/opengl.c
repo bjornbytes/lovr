@@ -1740,7 +1740,13 @@ static void lovrShaderSetupUniforms(Shader* shader) {
       } else {
         uniform.size = 4 * (uniform.components == 3 ? 4 : uniform.components);
       }
-      vec_push(&block->uniforms, uniform);
+
+      // Uniforms in the block need to be in order of their offset, so find the right index for it
+      int index = 0;
+      while (index < block->uniforms.length && block->uniforms.data[index].offset < uniform.offset) {
+        index++;
+      }
+      vec_insert(&block->uniforms, index, uniform);
       continue;
     } else if (uniform.location == -1) {
       continue;
