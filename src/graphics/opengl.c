@@ -1410,6 +1410,8 @@ void lovrCanvasResolve(Canvas* canvas) {
     return;
   }
 
+  lovrGraphicsFlush();
+
   if (canvas->flags.msaa) {
     int w = canvas->width;
     int h = canvas->height;
