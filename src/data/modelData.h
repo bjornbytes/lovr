@@ -28,6 +28,18 @@ typedef enum {
   DRAW_TRIANGLE_FAN
 } DrawMode;
 
+typedef enum {
+  SMOOTH_STEP,
+  SMOOTH_LINEAR,
+  SMOOTH_CUBIC,
+} SmoothMode;
+
+typedef enum {
+  PROP_TRANSLATION,
+  PROP_ROTATION,
+  PROP_SCALE,
+} AnimationProperty;
+
 typedef enum { I8, U8, I16, U16, I32, U32, F32 } AttributeType;
 
 typedef struct {
@@ -42,11 +54,6 @@ typedef struct {
 } gltfChunkHeader;
 
 typedef struct {
-  char* data;
-  size_t length;
-} gltfString;
-
-typedef struct {
   int view;
   int count;
   int offset;
@@ -54,6 +61,25 @@ typedef struct {
   int components : 3;
   int normalized : 1;
 } ModelAccessor;
+
+typedef struct {
+  int nodeIndex;
+  AnimationProperty property;
+  int sampler;
+} ModelAnimationChannel;
+
+typedef struct {
+  int times;
+  int values;
+  SmoothMode smoothing;
+} ModelAnimationSampler;
+
+typedef struct {
+  ModelAnimationChannel* channels;
+  ModelAnimationSampler* samplers;
+  int channelCount;
+  int samplerCount;
+} ModelAnimation;
 
 typedef struct {
   void* data;
@@ -84,7 +110,15 @@ typedef struct {
   uint32_t* children;
   uint32_t childCount;
   int mesh;
+  int skin;
 } ModelNode;
+
+typedef struct {
+  uint32_t* joints;
+  uint32_t jointCount;
+  int skeleton;
+  int inverseBindMatrices;
+} ModelSkin;
 
 typedef struct {
   double time;
@@ -112,20 +146,29 @@ typedef struct {
 typedef struct {
   Ref ref;
   uint8_t* data;
-  Blob* glbBlob;
+  Blob* binaryBlob;
   ModelAccessor* accessors;
+  ModelAnimationChannel* animationChannels;
+  ModelAnimationSampler* animationSamplers;
+  ModelAnimation* animations;
   ModelBlob* blobs;
   ModelView* views;
+  ModelPrimitive* primitives;
   ModelMesh* meshes;
   ModelNode* nodes;
-  ModelPrimitive* primitives;
-  uint32_t* childMap;
+  ModelSkin* skins;
   int accessorCount;
+  int animationChannelCount;
+  int animationSamplerCount;
+  int animationCount;
   int blobCount;
   int viewCount;
+  int primitiveCount;
   int meshCount;
   int nodeCount;
-  int primitiveCount;
+  int skinCount;
+  uint32_t* nodeChildren;
+  uint32_t* skinJoints;
 } ModelData;
 
 typedef struct {
