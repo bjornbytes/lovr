@@ -186,7 +186,7 @@ void luax_pushobject(lua_State* L, void* object) {
     lua_newtable(L);
 
     // __mode = v
-    lua_pushstring(L, "v");
+    lua_pushliteral(L, "v");
     lua_setfield(L, -2, "__mode");
 
     // Set the metatable

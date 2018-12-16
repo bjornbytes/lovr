@@ -170,7 +170,7 @@ static void pushRequirePath(lua_State* L, vec_str_t* path) {
   char* pattern; int i;
   vec_foreach(path, pattern, i) {
     lua_pushstring(L, pattern);
-    lua_pushstring(L, ";");
+    lua_pushliteral(L, ";");
   }
   lua_pop(L, 1);
   lua_concat(L, path->length * 2 - 1);

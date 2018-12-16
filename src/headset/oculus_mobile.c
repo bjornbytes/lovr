@@ -328,15 +328,15 @@ static void bridgeLovrInitState() {
   // Set "arg" global (see main.c)
   {
     lua_newtable(L);
-    lua_pushstring(L, "lovr");
+    lua_pushliteral(L, "lovr");
     lua_pushvalue(L, -1); // Double at named key
     lua_setfield(L, -3, "exe");
     lua_rawseti(L, -2, -3);
 
     // Mimic the arguments "--root /assets" as parsed by lovrInit
-    lua_pushstring(L, "--root");
+    lua_pushliteral(L, "--root");
     lua_rawseti(L, -2, -2);
-    lua_pushstring(L, "/assets");
+    lua_pushliteral(L, "/assets");
     lua_pushvalue(L, -1); // Double at named key
     lua_setfield(L, -3, "root");
     lua_rawseti(L, -2, -1);

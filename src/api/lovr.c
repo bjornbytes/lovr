@@ -47,15 +47,15 @@ const luaL_Reg lovrModules[] = {
 
 static int l_lovrGetOS(lua_State* L) {
 #ifdef _WIN32
-  lua_pushstring(L, "Windows");
+  lua_pushliteral(L, "Windows");
 #elif __APPLE__
-  lua_pushstring(L, "macOS");
+  lua_pushliteral(L, "macOS");
 #elif EMSCRIPTEN
-  lua_pushstring(L, "Web");
+  lua_pushliteral(L, "Web");
 #elif __ANDROID__
-  lua_pushstring(L, "Android");
+  lua_pushliteral(L, "Android");
 #elif __linux__
-  lua_pushstring(L, "Linux");
+  lua_pushliteral(L, "Linux");
 #else
   lua_pushnil(L);
 #endif

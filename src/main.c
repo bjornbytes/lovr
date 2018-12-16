@@ -126,7 +126,7 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
   // * An exe name will always be stored in the arg table at string key "exe", even if none was supplied in argv.
   lua_newtable(L);
   // push dummy "lovr" in case argv is empty
-  lua_pushstring(L, "lovr");
+  lua_pushliteral(L, "lovr");
   lua_setfield(L, -2, "exe");
 
   bool exeFound = false;

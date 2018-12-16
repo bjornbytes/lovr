@@ -78,7 +78,7 @@ static int nextEvent(lua_State* L) {
   switch (event.type) {
     case EVENT_QUIT:
       if (event.data.quit.restart) {
-        lua_pushstring(L, "restart");
+        lua_pushliteral(L, "restart");
       } else {
         lua_pushnumber(L, event.data.quit.exitCode);
       }
