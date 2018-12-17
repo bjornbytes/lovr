@@ -1,4 +1,5 @@
 #include "data/blob.h"
+#include "data/textureData.h"
 #include "util.h"
 #include "lib/map/map.h"
 #include "lib/vec/vec.h"
@@ -27,6 +28,29 @@ typedef enum {
   DRAW_TRIANGLE_STRIP,
   DRAW_TRIANGLE_FAN
 } DrawMode;
+
+typedef enum {
+  SCALAR_METALNESS,
+  SCALAR_ROUGHNESS,
+  MAX_MATERIAL_SCALARS
+} MaterialScalar;
+
+typedef enum {
+  COLOR_DIFFUSE,
+  COLOR_EMISSIVE,
+  MAX_MATERIAL_COLORS
+} MaterialColor;
+
+typedef enum {
+  TEXTURE_DIFFUSE,
+  TEXTURE_EMISSIVE,
+  TEXTURE_METALNESS,
+  TEXTURE_ROUGHNESS,
+  TEXTURE_OCCLUSION,
+  TEXTURE_NORMAL,
+  TEXTURE_ENVIRONMENT_MAP,
+  MAX_MATERIAL_TEXTURES
+} MaterialTexture;
 
 typedef enum {
   SMOOTH_STEP,
@@ -94,6 +118,12 @@ typedef struct {
 } ModelView;
 
 typedef struct {
+  float scalars[MAX_MATERIAL_SCALARS];
+  Color colors[MAX_MATERIAL_COLORS];
+  int textures[MAX_MATERIAL_TEXTURES];
+} ModelMaterial;
+
+typedef struct {
   DrawMode mode;
   int attributes[MAX_DEFAULT_ATTRIBUTES];
   int indices;
@@ -153,6 +183,8 @@ typedef struct {
   ModelAnimation* animations;
   ModelBlob* blobs;
   ModelView* views;
+  TextureData** images;
+  ModelMaterial* materials;
   ModelPrimitive* primitives;
   ModelMesh* meshes;
   ModelNode* nodes;
@@ -163,6 +195,8 @@ typedef struct {
   int animationCount;
   int blobCount;
   int viewCount;
+  int imageCount;
+  int materialCount;
   int primitiveCount;
   int meshCount;
   int nodeCount;

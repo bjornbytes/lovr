@@ -1,32 +1,10 @@
+#include "data/modelData.h"
 #include "graphics/texture.h"
 #include "graphics/shader.h"
 #include "util.h"
 #include <stdbool.h>
 
 #pragma once
-
-typedef enum {
-  SCALAR_METALNESS,
-  SCALAR_ROUGHNESS,
-  MAX_MATERIAL_SCALARS
-} MaterialScalar;
-
-typedef enum {
-  COLOR_DIFFUSE,
-  COLOR_EMISSIVE,
-  MAX_MATERIAL_COLORS
-} MaterialColor;
-
-typedef enum {
-  TEXTURE_DIFFUSE,
-  TEXTURE_EMISSIVE,
-  TEXTURE_METALNESS,
-  TEXTURE_ROUGHNESS,
-  TEXTURE_OCCLUSION,
-  TEXTURE_NORMAL,
-  TEXTURE_ENVIRONMENT_MAP,
-  MAX_MATERIAL_TEXTURES
-} MaterialTexture;
 
 typedef struct {
   Ref ref;
