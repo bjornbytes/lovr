@@ -34,7 +34,6 @@ typedef struct {
   Color colors[MAX_MATERIAL_COLORS];
   Texture* textures[MAX_MATERIAL_TEXTURES];
   float transform[9];
-  bool isDefault;
   bool dirty;
 } Material;
 
