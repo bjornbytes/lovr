@@ -19,6 +19,7 @@ typedef struct {
   jsmntok_t* animations;
   jsmntok_t* blobs;
   jsmntok_t* views;
+  jsmntok_t* images;
   jsmntok_t* nodes;
   jsmntok_t* meshes;
   jsmntok_t* skins;
@@ -101,12 +102,11 @@ static void preparse(const char* json, jsmntok_t* tokens, int tokenCount, ModelD
         info->totalSize += token->size * sizeof(ModelView);
         token += nomValue(json, token, 1, 0);
         break;
-      case HASH16("nodes"):
-        info->nodes = token;
-        model->nodeCount = token->size;
-        info->totalSize += token->size * sizeof(ModelNode);
-        token = aggregate(json, token, HASH16("children"), &info->childCount);
-        info->totalSize += info->childCount * sizeof(uint32_t);
+      case HASH16("images"):
+        info->images = token;
+        model->imageCount = token->size;
+        info->totalSize += token->size * sizeof(TextureData);
+        token += nomValue(json, token, 1, 0);
         break;
       case HASH16("meshes"):
         info->meshes = token;
@@ -114,6 +114,13 @@ static void preparse(const char* json, jsmntok_t* tokens, int tokenCount, ModelD
         info->totalSize += token->size * sizeof(ModelMesh);
         token = aggregate(json, token, HASH16("primitives"), &model->primitiveCount);
         info->totalSize += model->primitiveCount * sizeof(ModelPrimitive);
+        break;
+      case HASH16("nodes"):
+        info->nodes = token;
+        model->nodeCount = token->size;
+        info->totalSize += token->size * sizeof(ModelNode);
+        token = aggregate(json, token, HASH16("children"), &info->childCount);
+        info->totalSize += info->childCount * sizeof(uint32_t);
         break;
       case HASH16("skins"):
         info->skins = token;
@@ -304,66 +311,40 @@ static void parseViews(const char* json, jsmntok_t* token, ModelData* model) {
   }
 }
 
-static void parseNodes(const char* json, jsmntok_t* token, ModelData* model) {
+static void parseImages(const char* json, jsmntok_t* token, ModelData* model, ModelDataIO io) {
   if (!token) return;
 
-  int childIndex = 0;
-  int count = (token++)->size; // Enter array
+  int count = (token++)->size;
   for (int i = 0; i < count; i++) {
-    ModelNode* node = &model->nodes[i];
-    float translation[3] = { 0, 0, 0 };
-    float rotation[4] = { 0, 0, 0, 0 };
-    float scale[3] = { 1, 1, 1 };
-    bool matrix = false;
-
-    int keyCount = (token++)->size; // Enter object
+    TextureData** image = &model->images[i];
+    int keyCount = (token++)->size;
     for (int k = 0; k < keyCount; k++) {
       switch (NOM_KEY(json, token)) {
-        case HASH16("mesh"): node->mesh = NOM_INT(json, token); break;
-        case HASH16("skin"): node->skin = NOM_INT(json, token); break;
-        case HASH16("children"):
-          node->children = &model->nodeChildren[childIndex];
-          node->childCount = (token++)->size;
-          for (uint32_t j = 0; j < node->childCount; j++) {
-            model->nodeChildren[childIndex++] = NOM_INT(json, token);
-          }
+        case HASH16("bufferView"): {
+          int viewIndex = NOM_INT(json, token);
+          ModelView* view = &model->views[viewIndex];
+          void* data = (uint8_t*) model->blobs[view->blob].data + view->offset;
+          Blob* blob = lovrBlobCreate(data, view->length, NULL);
+          *image = lovrTextureDataCreateFromBlob(blob, true);
+          blob->data = NULL; // FIXME
+          lovrRelease(blob);
           break;
-        case HASH16("matrix"):
-          lovrAssert(token->size == 16, "Node matrix needs 16 elements");
-          matrix = true;
-          for (int j = 0; j < token->size; j++) {
-            node->transform[j] = NOM_FLOAT(json, token);
-          }
+        }
+        case HASH16("uri"): {
+          size_t size = 0;
+          char* uri = (char*) json + token->start;
+          size_t length = token->end - token->start;
+          uri[length] = '\0'; // Change the quote into a terminator (I'll be b0k)
+          void* data = io.read(uri, &size);
+          lovrAssert(data && size > 0, "Unable to read image at '%s'", uri);
+          uri[length] = '"';
+          Blob* blob = lovrBlobCreate(data, size, NULL);
+          *image = lovrTextureDataCreateFromBlob(blob, true);
+          lovrRelease(blob);
           break;
-        case HASH16("translation"):
-          lovrAssert(token->size == 3, "Node translation needs 3 elements");
-          translation[0] = NOM_FLOAT(json, token);
-          translation[1] = NOM_FLOAT(json, token);
-          translation[2] = NOM_FLOAT(json, token);
-          break;
-        case HASH16("rotation"):
-          lovrAssert(token->size == 4, "Node rotation needs 4 elements");
-          rotation[0] = NOM_FLOAT(json, token);
-          rotation[1] = NOM_FLOAT(json, token);
-          rotation[2] = NOM_FLOAT(json, token);
-          rotation[3] = NOM_FLOAT(json, token);
-          break;
-        case HASH16("scale"):
-          lovrAssert(token->size == 3, "Node scale needs 3 elements");
-          scale[0] = NOM_FLOAT(json, token);
-          scale[1] = NOM_FLOAT(json, token);
-          scale[2] = NOM_FLOAT(json, token);
-          break;
+        }
         default: token += nomValue(json, token, 1, 0); break;
       }
-    }
-
-    // Fix it in post
-    if (!matrix) {
-      mat4_identity(node->transform);
-      mat4_translate(node->transform, translation[0], translation[1], translation[2]);
-      mat4_rotateQuat(node->transform, rotation);
-      mat4_scale(node->transform, scale[0], scale[1], scale[2]);
     }
   }
 }
@@ -433,6 +414,70 @@ static void parseMeshes(const char* json, jsmntok_t* token, ModelData* model) {
           break;
         default: token += nomValue(json, token, 1, 0); break;
       }
+    }
+  }
+}
+
+static void parseNodes(const char* json, jsmntok_t* token, ModelData* model) {
+  if (!token) return;
+
+  int childIndex = 0;
+  int count = (token++)->size; // Enter array
+  for (int i = 0; i < count; i++) {
+    ModelNode* node = &model->nodes[i];
+    float translation[3] = { 0, 0, 0 };
+    float rotation[4] = { 0, 0, 0, 0 };
+    float scale[3] = { 1, 1, 1 };
+    bool matrix = false;
+
+    int keyCount = (token++)->size; // Enter object
+    for (int k = 0; k < keyCount; k++) {
+      switch (NOM_KEY(json, token)) {
+        case HASH16("mesh"): node->mesh = NOM_INT(json, token); break;
+        case HASH16("skin"): node->skin = NOM_INT(json, token); break;
+        case HASH16("children"):
+          node->children = &model->nodeChildren[childIndex];
+          node->childCount = (token++)->size;
+          for (uint32_t j = 0; j < node->childCount; j++) {
+            model->nodeChildren[childIndex++] = NOM_INT(json, token);
+          }
+          break;
+        case HASH16("matrix"):
+          lovrAssert(token->size == 16, "Node matrix needs 16 elements");
+          matrix = true;
+          for (int j = 0; j < token->size; j++) {
+            node->transform[j] = NOM_FLOAT(json, token);
+          }
+          break;
+        case HASH16("translation"):
+          lovrAssert(token->size == 3, "Node translation needs 3 elements");
+          translation[0] = NOM_FLOAT(json, token);
+          translation[1] = NOM_FLOAT(json, token);
+          translation[2] = NOM_FLOAT(json, token);
+          break;
+        case HASH16("rotation"):
+          lovrAssert(token->size == 4, "Node rotation needs 4 elements");
+          rotation[0] = NOM_FLOAT(json, token);
+          rotation[1] = NOM_FLOAT(json, token);
+          rotation[2] = NOM_FLOAT(json, token);
+          rotation[3] = NOM_FLOAT(json, token);
+          break;
+        case HASH16("scale"):
+          lovrAssert(token->size == 3, "Node scale needs 3 elements");
+          scale[0] = NOM_FLOAT(json, token);
+          scale[1] = NOM_FLOAT(json, token);
+          scale[2] = NOM_FLOAT(json, token);
+          break;
+        default: token += nomValue(json, token, 1, 0); break;
+      }
+    }
+
+    // Fix it in post
+    if (!matrix) {
+      mat4_identity(node->transform);
+      mat4_translate(node->transform, translation[0], translation[1], translation[2]);
+      mat4_rotateQuat(node->transform, rotation);
+      mat4_scale(node->transform, scale[0], scale[1], scale[2]);
     }
   }
 }
@@ -511,6 +556,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
   model->animations = (ModelAnimation*) (model->data + offset), offset += model->animationCount * sizeof(ModelAnimation);
   model->blobs = (ModelBlob*) (model->data + offset), offset += model->blobCount * sizeof(ModelBlob);
   model->views = (ModelView*) (model->data + offset), offset += model->viewCount * sizeof(ModelView);
+  model->images = (TextureData**) (model->data + offset), offset += model->imageCount * sizeof(TextureData*);
   model->primitives = (ModelPrimitive*) (model->data + offset), offset += model->primitiveCount * sizeof(ModelPrimitive);
   model->meshes = (ModelMesh*) (model->data + offset), offset += model->meshCount * sizeof(ModelMesh);
   model->nodes = (ModelNode*) (model->data + offset), offset += model->nodeCount * sizeof(ModelNode);
@@ -522,8 +568,9 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
   parseAnimations(jsonData, info.animations, model);
   parseBlobs(jsonData, info.blobs, model, io, (void*) binData);
   parseViews(jsonData, info.views, model);
-  parseNodes(jsonData, info.nodes, model);
+  parseImages(jsonData, info.images, model, io);
   parseMeshes(jsonData, info.meshes, model);
+  parseNodes(jsonData, info.nodes, model);
   parseSkins(jsonData, info.skins, model);
 
   return model;
