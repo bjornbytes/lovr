@@ -1,5 +1,6 @@
 #include "data/textureData.h"
 #include "graphics/opengl.h"
+#include "data/modelData.h"
 #include <stdbool.h>
 
 #pragma once
@@ -10,30 +11,6 @@ typedef enum {
   TEXTURE_ARRAY,
   TEXTURE_VOLUME
 } TextureType;
-
-typedef enum {
-  FILTER_NEAREST,
-  FILTER_BILINEAR,
-  FILTER_TRILINEAR,
-  FILTER_ANISOTROPIC
-} FilterMode;
-
-typedef struct {
-  FilterMode mode;
-  float anisotropy;
-} TextureFilter;
-
-typedef enum {
-  WRAP_CLAMP,
-  WRAP_REPEAT,
-  WRAP_MIRRORED_REPEAT
-} WrapMode;
-
-typedef struct {
-  WrapMode s;
-  WrapMode t;
-  WrapMode r;
-} TextureWrap;
 
 typedef struct {
   Ref ref;

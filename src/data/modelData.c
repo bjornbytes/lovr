@@ -20,6 +20,7 @@ typedef struct {
   jsmntok_t* blobs;
   jsmntok_t* views;
   jsmntok_t* images;
+  jsmntok_t* samplers;
   jsmntok_t* nodes;
   jsmntok_t* meshes;
   jsmntok_t* skins;
@@ -349,6 +350,52 @@ static void parseImages(const char* json, jsmntok_t* token, ModelData* model, Mo
   }
 }
 
+static void parseSamplers(const char* json, jsmntok_t* token, ModelData* model) {
+  if (!token) return;
+
+  int count = (token++)->size;
+  for (int i = 0; i < count; i++) {
+    ModelSampler* sampler = &model->samplers[i];
+    sampler->wrap.s = sampler->wrap.t = sampler->wrap.r = WRAP_REPEAT;
+    int min = -1;
+    int mag = -1;
+
+    int keyCount = (token++)->size;
+    for (int k = 0; k < keyCount; k++) {
+      switch (NOM_KEY(json, token)) {
+        case HASH16("magFilter"): min = NOM_INT(json, token); break;
+        case HASH16("minFilter"): mag = NOM_INT(json, token); break;
+        case HASH16("wrapS"):
+          switch (NOM_INT(json, token)) {
+            case 33071: sampler->wrap.s = WRAP_CLAMP;
+            case 33648: sampler->wrap.s = WRAP_MIRRORED_REPEAT;
+            case 10497: sampler->wrap.s = WRAP_REPEAT;
+            default: lovrThrow("Unknown sampler wrapS mode for sampler %d", i);
+          }
+          break;
+        case HASH16("wrapT"):
+          switch (NOM_INT(json, token)) {
+            case 33071: sampler->wrap.t = WRAP_CLAMP;
+            case 33648: sampler->wrap.t = WRAP_MIRRORED_REPEAT;
+            case 10497: sampler->wrap.t = WRAP_REPEAT;
+            default: lovrThrow("Unknown sampler wrapT mode for sampler %d", i);
+          }
+          break;
+      }
+    }
+
+    if (min == 9728 || min == 9984 || min == 9986 || mag == 9728) {
+      sampler->filter.mode = FILTER_NEAREST;
+    } else {
+      switch (min) {
+        case 9729: sampler->filter.mode = FILTER_BILINEAR, sampler->mipmaps = false; break;
+        case 9985: sampler->filter.mode = FILTER_BILINEAR, sampler->mipmaps = true; break;
+        case 9987: sampler->filter.mode = FILTER_TRILINEAR, sampler->mipmaps = true; break;
+      }
+    }
+  }
+}
+
 static jsmntok_t* parsePrimitive(const char* json, jsmntok_t* token, int index, ModelData* model) {
   ModelPrimitive* primitive = &model->primitives[index];
   memset(primitive->attributes, 0xff, sizeof(primitive->attributes));
@@ -557,6 +604,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
   model->blobs = (ModelBlob*) (model->data + offset), offset += model->blobCount * sizeof(ModelBlob);
   model->views = (ModelView*) (model->data + offset), offset += model->viewCount * sizeof(ModelView);
   model->images = (TextureData**) (model->data + offset), offset += model->imageCount * sizeof(TextureData*);
+  model->samplers = (ModelSampler*) (model->data + offset), offset += model->samplerCount * sizeof(ModelSampler);
   model->primitives = (ModelPrimitive*) (model->data + offset), offset += model->primitiveCount * sizeof(ModelPrimitive);
   model->meshes = (ModelMesh*) (model->data + offset), offset += model->meshCount * sizeof(ModelMesh);
   model->nodes = (ModelNode*) (model->data + offset), offset += model->nodeCount * sizeof(ModelNode);
@@ -569,6 +617,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
   parseBlobs(jsonData, info.blobs, model, io, (void*) binData);
   parseViews(jsonData, info.views, model);
   parseImages(jsonData, info.images, model, io);
+  parseSamplers(jsonData, info.samplers, model);
   parseMeshes(jsonData, info.meshes, model);
   parseNodes(jsonData, info.nodes, model);
   parseSkins(jsonData, info.skins, model);
