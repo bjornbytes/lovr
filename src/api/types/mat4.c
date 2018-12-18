@@ -187,6 +187,17 @@ static int l_lovrMat4SetTransform(lua_State* L) {
   return 1;
 }
 
+static int l_lovrMat4TransformPoint(lua_State* L) {
+  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
+  float v[3];
+  luax_readvec3(L, 2, v, NULL);
+  mat4_transform(m, &v[0], &v[1], &v[2]);
+  lua_pushnumber(L, v[0]);
+  lua_pushnumber(L, v[1]);
+  lua_pushnumber(L, v[2]);
+  return 3;
+}
+
 static int l_lovrMat4Perspective(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   float clipNear = luaL_checknumber(L, 2);
@@ -239,6 +250,7 @@ const luaL_Reg lovrMat4[] = {
   { "scale", l_lovrMat4Scale },
   { "getTransform", l_lovrMat4GetTransform },
   { "setTransform", l_lovrMat4SetTransform },
+  { "transformPoint", l_lovrMat4TransformPoint },
   { "perspective", l_lovrMat4Perspective },
   { "orthographic", l_lovrMat4Orthographic },
   { "__mul", l_lovrMat4__mul },

@@ -349,6 +349,14 @@ ffi.metatype(mat4, {
       return m
     end,
 
+    transformPoint = function(m, x, y, z)
+      checkmat4(m)
+      if istype(vec3, x) then x, y, z = x.x, x.y, x.z end
+      local f = new('float[3]', x, y, z)
+      C.mat4_transform(m, f + 0, f + 1, f + 2)
+      return f[0], f[1], f[2]
+    end,
+
     perspective = function(m, near, far, fov, aspect)
       checkmat4(m)
       C.mat4_perspective(m, near, far, fov, aspect)
