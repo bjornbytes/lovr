@@ -30,6 +30,30 @@ typedef enum {
 } DrawMode;
 
 typedef enum {
+  FILTER_NEAREST,
+  FILTER_BILINEAR,
+  FILTER_TRILINEAR,
+  FILTER_ANISOTROPIC
+} FilterMode;
+
+typedef struct {
+  FilterMode mode;
+  float anisotropy;
+} TextureFilter;
+
+typedef enum {
+  WRAP_CLAMP,
+  WRAP_REPEAT,
+  WRAP_MIRRORED_REPEAT
+} WrapMode;
+
+typedef struct {
+  WrapMode s;
+  WrapMode t;
+  WrapMode r;
+} TextureWrap;
+
+typedef enum {
   SCALAR_METALNESS,
   SCALAR_ROUGHNESS,
   MAX_MATERIAL_SCALARS
@@ -144,6 +168,12 @@ typedef struct {
 } ModelNode;
 
 typedef struct {
+  TextureFilter filter;
+  TextureWrap wrap;
+  bool mipmaps;
+} ModelSampler;
+
+typedef struct {
   uint32_t* joints;
   uint32_t jointCount;
   int skeleton;
@@ -184,6 +214,7 @@ typedef struct {
   ModelBlob* blobs;
   ModelView* views;
   TextureData** images;
+  ModelSampler* samplers;
   ModelMaterial* materials;
   ModelPrimitive* primitives;
   ModelMesh* meshes;
@@ -196,6 +227,7 @@ typedef struct {
   int blobCount;
   int viewCount;
   int imageCount;
+  int samplerCount;
   int materialCount;
   int primitiveCount;
   int meshCount;
