@@ -92,8 +92,8 @@ ffi.metatype(vec3, {
 
     set = function(v, x, y, z)
       checkvec3(v)
-      if type(x) == 'number' then
-        v.x, v.y, v.z = x, y, z
+      if x == nil or type(x) == 'number' then
+        v.x, v.y, v.z = x or 0, y or 0, z or 0
       else
         checkvec3(x, 1)
         v.x, v.y, v.z = x.x, x.y, x.z
