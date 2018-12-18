@@ -115,6 +115,11 @@ ffi.metatype(vec3, {
       return vec3(v:unpack())
     end,
 
+    length = function(v)
+      checkvec3(v)
+      return C.vec3_length(v)
+    end,
+
     normalize = function(v)
       checkvec3(v)
       C.vec3_normalize(v)

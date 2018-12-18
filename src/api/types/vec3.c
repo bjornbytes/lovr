@@ -97,6 +97,12 @@ static int l_lovrVec3Save(lua_State* L) {
   return 1;
 }
 
+static int l_lovrVec3Length(lua_State* L) {
+  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
+  lua_pushnumber(L, vec3_length(v));
+  return 1;
+}
+
 static int l_lovrVec3Normalize(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3_normalize(v);
@@ -197,6 +203,7 @@ const luaL_Reg lovrVec3[] = {
   { "set", l_lovrVec3Set },
   { "copy", l_lovrVec3Copy },
   { "save", l_lovrVec3Save },
+  { "length", l_lovrVec3Length },
   { "normalize", l_lovrVec3Normalize },
   { "dot", l_lovrVec3Dot },
   { "cross", l_lovrVec3Cross },
