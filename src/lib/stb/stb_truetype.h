@@ -2602,6 +2602,7 @@ STBTT_DEF void stbtt_FreeShape(const stbtt_fontinfo *info, stbtt_vertex *v)
    STBTT_free(v, info->userdata);
 }
 
+#if 0
 //////////////////////////////////////////////////////////////////////////////
 //
 // antialiasing software rasterizer
@@ -4549,6 +4550,8 @@ STBTT_DEF void stbtt_FreeSDF(unsigned char *bitmap, void *userdata)
    STBTT_free(bitmap, userdata);
 }
 
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 //
 // font name matching -- recommended not to use this
@@ -4714,12 +4717,14 @@ static int stbtt_FindMatchingFont_internal(unsigned char *font_collection, char 
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
 
+#if 0
 STBTT_DEF int stbtt_BakeFontBitmap(const unsigned char *data, int offset,
                                 float pixel_height, unsigned char *pixels, int pw, int ph,
                                 int first_char, int num_chars, stbtt_bakedchar *chardata)
 {
    return stbtt_BakeFontBitmap_internal((unsigned char *) data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata);
 }
+#endif
 
 STBTT_DEF int stbtt_GetFontOffsetForIndex(const unsigned char *data, int index)
 {
@@ -4745,6 +4750,7 @@ STBTT_DEF int stbtt_CompareUTF8toUTF16_bigendian(const char *s1, int len1, const
 {
    return stbtt_CompareUTF8toUTF16_bigendian_internal((char *) s1, len1, (char *) s2, len2);
 }
+
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
