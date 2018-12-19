@@ -416,8 +416,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   RenderModel_t* vrModel = state.deviceModels[id];
 
-  ModelData* modelData = lovrModelDataCreateEmpty();
-  if (!modelData) return NULL;
+  ModelData* modelData = lovrAlloc(ModelData, lovrModelDataDestroy);
 
   VertexFormat format;
   vertexFormatInit(&format);

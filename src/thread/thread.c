@@ -34,16 +34,12 @@ Channel* lovrThreadGetChannel(const char* name) {
   }
 }
 
-Thread* lovrThreadCreate(int (*runner)(void*), const char* body) {
-  Thread* thread = lovrAlloc(Thread, lovrThreadDestroy);
-  if (!thread) return NULL;
-
+Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), const char* body) {
   thread->runner = runner;
   thread->body = body;
   thread->error = NULL;
   thread->running = false;
   mtx_init(&thread->lock, mtx_plain);
-
   return thread;
 }
 

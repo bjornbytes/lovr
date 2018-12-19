@@ -38,7 +38,8 @@ typedef struct {
   float pixelDensity;
 } Font;
 
-Font* lovrFontCreate(Rasterizer* rasterizer);
+Font* lovrFontInit(Font* font, Rasterizer* rasterizer);
+#define lovrFontCreate(...) lovrFontInit(lovrAlloc(Font, lovrFontDestroy), __VA_ARGS__)
 void lovrFontDestroy(void* ref);
 Rasterizer* lovrFontGetRasterizer(Font* font);
 void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, float* vertices, float* offsety, uint32_t* vertexCount);

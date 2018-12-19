@@ -15,7 +15,8 @@ typedef struct {
   Blob* blob;
 } AudioStream;
 
-AudioStream* lovrAudioStreamCreate(Blob* blob, size_t bufferSize);
+AudioStream* lovrAudioStreamInit(AudioStream* stream, Blob* blob, size_t bufferSize);
+#define lovrAudioStreamCreate(...) lovrAudioStreamInit(lovrAlloc(AudioStream, lovrAudioStreamDestroy), __VA_ARGS__)
 void lovrAudioStreamDestroy(void* ref);
 int lovrAudioStreamDecode(AudioStream* stream, short* destination, size_t size);
 void lovrAudioStreamRewind(AudioStream* stream);

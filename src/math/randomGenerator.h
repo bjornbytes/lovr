@@ -20,7 +20,9 @@ typedef struct {
   double lastRandomNormal;
 } RandomGenerator;
 
-RandomGenerator* lovrRandomGeneratorCreate();
+RandomGenerator* lovrRandomGeneratorInit(RandomGenerator* generator);
+#define lovrRandomGeneratorCreate() lovrRandomGeneratorInit(lovrAlloc(RandomGenerator, lovrRandomGeneratorDestroy))
+#define lovrRandomGeneratorDestroy free
 Seed lovrRandomGeneratorGetSeed(RandomGenerator* generator);
 void lovrRandomGeneratorSetSeed(RandomGenerator* generator, Seed seed);
 void lovrRandomGeneratorGetState(RandomGenerator* generator, char* state, size_t length);

@@ -2,24 +2,17 @@
 #include "lib/stb/stb_vorbis.h"
 #include <limits.h>
 
-SoundData* lovrSoundDataCreate(int samples, int sampleRate, int bitDepth, int channelCount) {
-  SoundData* soundData = lovrAlloc(SoundData, lovrSoundDataDestroy);
-  if (!soundData) return NULL;
-
+SoundData* lovrSoundDataInit(SoundData* soundData, int samples, int sampleRate, int bitDepth, int channelCount) {
   soundData->samples = samples;
   soundData->sampleRate = sampleRate;
   soundData->bitDepth = bitDepth;
   soundData->channelCount = channelCount;
   soundData->blob.size = samples * channelCount * (bitDepth / 8);
   soundData->blob.data = calloc(1, soundData->blob.size);
-
   return soundData;
 }
 
-SoundData* lovrSoundDataCreateFromAudioStream(AudioStream* audioStream) {
-  SoundData* soundData = lovrAlloc(SoundData, lovrSoundDataDestroy);
-  if (!soundData) return NULL;
-
+SoundData* lovrSoundDataInitFromAudioStream(SoundData* soundData, AudioStream* audioStream) {
   soundData->samples = audioStream->samples;
   soundData->sampleRate = audioStream->sampleRate;
   soundData->bitDepth = audioStream->bitDepth;
@@ -38,14 +31,10 @@ SoundData* lovrSoundDataCreateFromAudioStream(AudioStream* audioStream) {
   return soundData;
 }
 
-SoundData* lovrSoundDataCreateFromBlob(Blob* blob) {
-  SoundData* soundData = lovrAlloc(SoundData, lovrSoundDataDestroy);
-  if (!soundData) return NULL;
-
+SoundData* lovrSoundDataInitFromBlob(SoundData* soundData, Blob* blob) {
   soundData->bitDepth = 16;
   soundData->samples = stb_vorbis_decode_memory(blob->data, blob->size, &soundData->channelCount, &soundData->sampleRate, (short**) &soundData->blob.data);
   soundData->blob.size = soundData->samples * soundData->channelCount * (soundData->bitDepth / 8);
-
   return soundData;
 }
 

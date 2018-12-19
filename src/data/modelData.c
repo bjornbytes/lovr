@@ -273,10 +273,7 @@ static void assimpFileClose(struct aiFileIO* io, struct aiFile* assimpFile) {
   free(assimpFile);
 }
 
-ModelData* lovrModelDataCreate(Blob* blob) {
-  ModelData* modelData = lovrAlloc(ModelData, lovrModelDataDestroy);
-  if (!modelData) return NULL;
-
+ModelData* lovrModelDataInit(ModelData* modelData, Blob* blob) {
   struct aiFileIO assimpIO;
   assimpIO.OpenProc = assimpFileOpen;
   assimpIO.CloseProc = assimpFileClose;
@@ -288,10 +285,7 @@ ModelData* lovrModelDataCreate(Blob* blob) {
   unsigned int flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_OptimizeGraph | aiProcess_SplitByBoneCount;
   const struct aiScene* scene = aiImportFileExWithProperties(blob->name, flags, &assimpIO, propertyStore);
   aiReleasePropertyStore(propertyStore);
-
-  if (!scene) {
-    lovrThrow("Unable to load model from '%s': %s\n", blob->name, aiGetErrorString());
-  }
+  lovrAssert(scene, "Unable to load model from '%s': %s", blob->name, aiGetErrorString());
 
   uint32_t vertexCount = 0;
   bool hasNormals = false;
@@ -543,14 +537,10 @@ ModelData* lovrModelDataCreate(Blob* blob) {
 }
 #else
 static void aabbIterator(ModelData* modelData, ModelNode* node, float aabb[6]) {}
-ModelData* lovrModelDataCreate(Blob* blob) {
+ModelData* lovrModelDataInit(ModelData* modelData, Blob* blob) {
   return NULL;
 }
 #endif
-
-ModelData* lovrModelDataCreateEmpty() {
-  return lovrAlloc(ModelData, lovrModelDataDestroy);
-}
 
 void lovrModelDataDestroy(void* ref) {
   ModelData* modelData = ref;

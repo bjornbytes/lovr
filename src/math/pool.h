@@ -20,7 +20,8 @@ typedef struct {
   uint8_t* head;
 } Pool;
 
-Pool* lovrPoolCreate(size_t size);
+Pool* lovrPoolInit(Pool* pool, size_t size);
+#define lovrPoolCreate(...) lovrPoolInit(lovrAlloc(Pool, lovrPoolDestroy), __VA_ARGS__)
 void lovrPoolDestroy(void* ref);
 float* lovrPoolAllocate(Pool* pool, MathType type);
 void lovrPoolDrain(Pool* pool);

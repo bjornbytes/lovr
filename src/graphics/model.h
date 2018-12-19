@@ -23,7 +23,8 @@ typedef struct {
   bool aabbDirty;
 } Model;
 
-Model* lovrModelCreate(ModelData* modelData);
+Model* lovrModelInit(Model* model, ModelData* modelData);
+#define lovrModelCreate(...) lovrModelInit(lovrAlloc(Model, lovrModelDestroy), __VA_ARGS__)
 void lovrModelDestroy(void* ref);
 void lovrModelDraw(Model* model, mat4 transform, int instances);
 Animator* lovrModelGetAnimator(Model* model);

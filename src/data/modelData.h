@@ -89,7 +89,7 @@ typedef struct {
   int materialCount;
 } ModelData;
 
-ModelData* lovrModelDataCreate(Blob* blob);
-ModelData* lovrModelDataCreateEmpty();
+ModelData* lovrModelDataInit(ModelData* modelData, Blob* blob);
+#define lovrModelDataCreate(...) lovrModelDataInit(lovrAlloc(ModelData, lovrModelDataDestroy), __VA_ARGS__)
 void lovrModelDataDestroy(void* ref);
 void lovrModelDataGetAABB(ModelData* modelData, float aabb[6]);

@@ -7,16 +7,12 @@ static const size_t sizeOfMathType[] = {
   [MATH_MAT4] = 16 * sizeof(float)
 };
 
-Pool* lovrPoolCreate(size_t size) {
-  Pool* pool = lovrAlloc(Pool, lovrPoolDestroy);
-  if (!pool) return NULL;
-
+Pool* lovrPoolInit(Pool* pool, size_t size) {
   pool->size = size;
   pool->data = calloc(1, size + POOL_ALIGN - 1);
   pool->head = (uint8_t*) ALIGN((uint8_t*) pool->data + POOL_ALIGN - 1, POOL_ALIGN);
   lovrAssert(pool->data, "Could not allocate Pool memory");
   pool->usage = 0;
-
   return pool;
 }
 

@@ -7,7 +7,8 @@ typedef struct {
   vec_float_t points;
 } Curve;
 
-Curve* lovrCurveCreate(int sizeHint);
+Curve* lovrCurveInit(Curve* curve, int sizeHint);
+#define lovrCurveCreate(...) lovrCurveInit(lovrAlloc(Curve, lovrCurveDestroy), __VA_ARGS__)
 void lovrCurveDestroy(void* ref);
 void lovrCurveEvaluate(Curve* curve, float t, vec3 point);
 void lovrCurveGetTangent(Curve* curve, float t, vec3 point);

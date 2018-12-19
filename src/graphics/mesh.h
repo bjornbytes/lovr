@@ -53,7 +53,8 @@ typedef struct {
   GPU_MESH_FIELDS
 } Mesh;
 
-Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, DrawMode drawMode, BufferUsage usage, bool readable);
+Mesh* lovrMeshInit(Mesh* mesh, uint32_t count, VertexFormat format, DrawMode drawMode, BufferUsage usage, bool readable);
+#define lovrMeshCreate(...) lovrMeshInit(lovrAlloc(Mesh, lovrMeshDestroy), __VA_ARGS__)
 void lovrMeshDestroy(void* ref);
 void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);

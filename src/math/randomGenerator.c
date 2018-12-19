@@ -22,14 +22,10 @@ static uint64_t wangHash64(uint64_t key) {
 // George Marsaglia, "Xorshift RNGs", Journal of Statistical Software, Vol.8 (Issue 14), 2003
 // Use an 'Xorshift*' variant, as shown here: http://xorshift.di.unimi.it
 
-RandomGenerator* lovrRandomGeneratorCreate() {
-  RandomGenerator* generator = lovrAlloc(RandomGenerator, free);
-  if (!generator) return NULL;
-
+RandomGenerator* lovrRandomGeneratorInit(RandomGenerator* generator) {
   Seed seed = { .b32 = { .lo = 0xCBBF7A44, .hi = 0x0139408D } };
   lovrRandomGeneratorSetSeed(generator, seed);
   generator->lastRandomNormal = INFINITY;
-
   return generator;
 }
 

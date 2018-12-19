@@ -46,4 +46,6 @@ typedef struct {
 void vertexFormatInit(VertexFormat* format);
 void vertexFormatAppend(VertexFormat* format, const char* name, AttributeType type, int count);
 
-VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format);
+VertexData* lovrVertexDataInit(VertexData* vertexData, uint32_t count, VertexFormat* format);
+#define lovrVertexDataCreate(...) lovrVertexDataInit(lovrAlloc(VertexData, lovrVertexDataDestroy), __VA_ARGS__)
+#define lovrVertexDataDestroy lovrBlobDestroy

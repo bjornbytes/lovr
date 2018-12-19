@@ -11,10 +11,7 @@ static ALenum lovrSourceGetState(Source* source) {
   return state;
 }
 
-Source* lovrSourceCreateStatic(SoundData* soundData) {
-  Source* source = lovrAlloc(Source, lovrSourceDestroy);
-  if (!source) return NULL;
-
+Source* lovrSourceInitStatic(Source* source, SoundData* soundData) {
   ALenum format = lovrAudioConvertFormat(soundData->bitDepth, soundData->channelCount);
   source->type = SOURCE_STATIC;
   source->soundData = soundData;
@@ -23,20 +20,15 @@ Source* lovrSourceCreateStatic(SoundData* soundData) {
   alBufferData(source->buffers[0], format, soundData->blob.data, soundData->blob.size, soundData->sampleRate);
   alSourcei(source->id, AL_BUFFER, source->buffers[0]);
   lovrRetain(soundData);
-
   return source;
 }
 
-Source* lovrSourceCreateStream(AudioStream* stream) {
-  Source* source = lovrAlloc(Source, lovrSourceDestroy);
-  if (!source) return NULL;
-
+Source* lovrSourceInitStream(Source* source, AudioStream* stream) {
   source->type = SOURCE_STREAM;
   source->stream = stream;
   alGenSources(1, &source->id);
   alGenBuffers(SOURCE_BUFFERS, source->buffers);
   lovrRetain(stream);
-
   return source;
 }
 

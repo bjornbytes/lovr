@@ -104,9 +104,12 @@ typedef struct {
   GPU_SHADER_FIELDS
 } Shader;
 
-Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentSource);
-Shader* lovrShaderCreateCompute(const char* source);
-Shader* lovrShaderCreateDefault(DefaultShader type);
+Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource);
+Shader* lovrShaderInitCompute(Shader* shader, const char* source);
+Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type);
+#define lovrShaderCreateGraphics(...) lovrShaderInitGraphics(lovrAlloc(Shader, lovrShaderDestroy), __VA_ARGS__)
+#define lovrShaderCreateCompute(...) lovrShaderInitCompute(lovrAlloc(Shader, lovrShaderDestroy), __VA_ARGS__)
+#define lovrShaderCreateDefault(...) lovrShaderInitDefault(lovrAlloc(Shader, lovrShaderDestroy), __VA_ARGS__)
 void lovrShaderDestroy(void* ref);
 ShaderType lovrShaderGetType(Shader* shader);
 void lovrShaderBind(Shader* shader);
@@ -122,7 +125,8 @@ void lovrShaderSetImages(Shader* shader, const char* name, Image* data, int star
 void lovrShaderSetColor(Shader* shader, const char* name, Color color);
 void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* block, UniformAccess access);
 
-ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, BufferUsage usage);
+ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, vec_uniform_t* uniforms, BlockType type, BufferUsage usage);
+#define lovrShaderBlockCreate(...) lovrShaderBlockInit(lovrAlloc(ShaderBlock, lovrShaderBlockDestroy), __VA_ARGS__)
 void lovrShaderBlockDestroy(void* ref);
 BlockType lovrShaderBlockGetType(ShaderBlock* block);
 char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, size_t* length);

@@ -45,8 +45,10 @@ typedef struct {
   vec_mipmap_t mipmaps;
 } TextureData;
 
-TextureData* lovrTextureDataCreate(int width, int height, uint8_t value, TextureFormat format);
-TextureData* lovrTextureDataCreateFromBlob(Blob* blob, bool flip);
+TextureData* lovrTextureDataInit(TextureData* textureData, int width, int height, uint8_t value, TextureFormat format);
+TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, bool flip);
+#define lovrTextureDataCreate(...) lovrTextureDataInit(lovrAlloc(TextureData, lovrTextureDataDestroy), __VA_ARGS__)
+#define lovrTextureDataCreateFromBlob(...) lovrTextureDataInitFromBlob(lovrAlloc(TextureData, lovrTextureDataDestroy), __VA_ARGS__)
 Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y);
 void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color);
 bool lovrTextureDataEncode(TextureData* textureData, const char* filename);

@@ -875,10 +875,7 @@ const GpuStats* lovrGpuGetStats() {
 
 // Texture
 
-Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps, int msaa) {
-  Texture* texture = lovrAlloc(Texture, lovrTextureDestroy);
-  if (!texture) return NULL;
-
+Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps, int msaa) {
   texture->type = type;
   texture->srgb = srgb;
   texture->mipmaps = mipmaps;
@@ -904,10 +901,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCoun
   return texture;
 }
 
-Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type) {
-  Texture* texture = lovrAlloc(Texture, lovrTextureDestroy);
-  if (!texture) return NULL;
-
+Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureType type) {
   texture->type = type;
   texture->id = handle;
   texture->target = convertTextureTarget(type);
@@ -1147,10 +1141,7 @@ void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
 
 // Canvas
 
-Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
-  Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
-  if (!canvas) return NULL;
-
+Canvas* lovrCanvasInit(Canvas* canvas, int width, int height, CanvasFlags flags) {
   canvas->width = width;
   canvas->height = height;
   canvas->flags = flags;
@@ -1181,10 +1172,7 @@ Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags) {
   return canvas;
 }
 
-Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, int attachmentCount, bool immortal) {
-  Canvas* canvas = lovrAlloc(Canvas, lovrCanvasDestroy);
-  if (!canvas) return NULL;
-
+Canvas* lovrCanvasInitFromHandle(Canvas* canvas, int width, int height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, int attachmentCount, bool immortal) {
   canvas->framebuffer = framebuffer;
   canvas->depthBuffer = depthBuffer;
   canvas->resolveBuffer = resolveBuffer;
@@ -1193,7 +1181,6 @@ Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uin
   canvas->height = height;
   canvas->flags = flags;
   canvas->immortal = immortal;
-
   return canvas;
 }
 
@@ -1397,10 +1384,7 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {
 
 // Buffer
 
-Buffer* lovrBufferCreate(size_t size, void* data, BufferUsage usage, bool readable) {
-  Buffer* buffer = lovrAlloc(Buffer, lovrBufferDestroy);
-  if (!buffer) return NULL;
-
+Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferUsage usage, bool readable) {
   buffer->size = size;
   buffer->usage = usage;
   glGenBuffers(1, &buffer->id);
@@ -1725,10 +1709,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   }
 }
 
-Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentSource) {
-  Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
-  if (!shader) return NULL;
-
+Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource) {
 #if defined(EMSCRIPTEN) || defined(__ANDROID__)
   const char* vertexHeader = "#version 300 es\nprecision mediump float;\nprecision mediump int;\n";
   const char* fragmentHeader = vertexHeader;
@@ -1796,10 +1777,7 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentS
   return shader;
 }
 
-Shader* lovrShaderCreateCompute(const char* source) {
-  Shader* shader = lovrAlloc(Shader, lovrShaderDestroy);
-  if (!shader) return NULL;
-
+Shader* lovrShaderInitCompute(Shader* shader, const char* source) {
 #ifdef EMSCRIPTEN
   lovrThrow("Compute shaders are not supported on this system");
 #else
@@ -1818,13 +1796,13 @@ Shader* lovrShaderCreateCompute(const char* source) {
   return shader;
 }
 
-Shader* lovrShaderCreateDefault(DefaultShader type) {
+Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type) {
   switch (type) {
-    case SHADER_DEFAULT: return lovrShaderCreateGraphics(NULL, NULL);
-    case SHADER_CUBE: return lovrShaderCreateGraphics(lovrCubeVertexShader, lovrCubeFragmentShader);
-    case SHADER_PANO: return lovrShaderCreateGraphics(lovrCubeVertexShader, lovrPanoFragmentShader);
-    case SHADER_FONT: return lovrShaderCreateGraphics(NULL, lovrFontFragmentShader);
-    case SHADER_FILL: return lovrShaderCreateGraphics(lovrFillVertexShader, NULL);
+    case SHADER_DEFAULT: return lovrShaderInitGraphics(shader, NULL, NULL);
+    case SHADER_CUBE: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrCubeFragmentShader);
+    case SHADER_PANO: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrPanoFragmentShader);
+    case SHADER_FONT: return lovrShaderInitGraphics(shader, NULL, lovrFontFragmentShader);
+    case SHADER_FILL: return lovrShaderInitGraphics(shader, lovrFillVertexShader, NULL);
     default: lovrThrow("Unknown default shader type"); return NULL;
   }
 }
@@ -2084,10 +2062,7 @@ void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source, U
 
 // ShaderBlock
 
-ShaderBlock* lovrShaderBlockCreate(vec_uniform_t* uniforms, BlockType type, BufferUsage usage) {
-  ShaderBlock* block = lovrAlloc(ShaderBlock, lovrShaderBlockDestroy);
-  if (!block) return NULL;
-
+ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, vec_uniform_t* uniforms, BlockType type, BufferUsage usage) {
   lovrAssert(type != BLOCK_STORAGE || state.features.computeShaders, "Writable ShaderBlocks are not supported on this system");
 
   vec_init(&block->uniforms);
@@ -2193,10 +2168,7 @@ Buffer* lovrShaderBlockGetBuffer(ShaderBlock* block) {
 
 // Mesh
 
-Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, DrawMode mode, BufferUsage usage, bool readable) {
-  Mesh* mesh = lovrAlloc(Mesh, lovrMeshDestroy);
-  if (!mesh) return NULL;
-
+Mesh* lovrMeshInit(Mesh* mesh, uint32_t count, VertexFormat format, DrawMode mode, BufferUsage usage, bool readable) {
   mesh->count = count;
   mesh->mode = mode;
   mesh->format = format;

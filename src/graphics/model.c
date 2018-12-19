@@ -54,10 +54,7 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
   }
 }
 
-Model* lovrModelCreate(ModelData* modelData) {
-  Model* model = lovrAlloc(Model, lovrModelDestroy);
-  if (!model) return NULL;
-
+Model* lovrModelInit(Model* model, ModelData* modelData) {
   lovrRetain(modelData);
   model->modelData = modelData;
   model->aabbDirty = true;

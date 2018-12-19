@@ -16,7 +16,8 @@ struct Channel {
   uint64_t received;
 };
 
-Channel* lovrChannelCreate();
+Channel* lovrChannelInit(Channel* channel);
+#define lovrChannelCreate() lovrChannelInit(lovrAlloc(Channel, lovrChannelDestroy))
 void lovrChannelDestroy(void* ref);
 bool lovrChannelPush(Channel* channel, Variant variant, double timeout, uint64_t* id);
 bool lovrChannelPop(Channel* channel, Variant* variant, double timeout);

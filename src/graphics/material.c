@@ -3,10 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-Material* lovrMaterialCreate() {
-  Material* material = lovrAlloc(Material, lovrMaterialDestroy);
-  if (!material) return NULL;
-
+Material* lovrMaterialInit(Material* material) {
   for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
     material->scalars[i] = 1.f;
   }
@@ -20,7 +17,6 @@ Material* lovrMaterialCreate() {
   }
 
   lovrMaterialSetTransform(material, 0, 0, 1, 1, 0);
-
   return material;
 }
 

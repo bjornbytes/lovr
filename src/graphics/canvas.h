@@ -35,8 +35,10 @@ typedef struct {
   GPU_CANVAS_FIELDS
 } Canvas;
 
-Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags);
-Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, int attachmentCount, bool immortal);
+Canvas* lovrCanvasInit(Canvas* canvas, int width, int height, CanvasFlags flags);
+Canvas* lovrCanvasInitFromHandle(Canvas* canvas, int width, int height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, int attachmentCount, bool immortal);
+#define lovrCanvasCreate(...) lovrCanvasInit(lovrAlloc(Canvas, lovrCanvasDestroy), __VA_ARGS__)
+#define lovrCanvasCreateFromHandle(...) lovrCanvasInitFromHandle(lovrAlloc(Canvas, lovrCanvasDestroy), __VA_ARGS__)
 void lovrCanvasDestroy(void* ref);
 const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count);
 void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count);

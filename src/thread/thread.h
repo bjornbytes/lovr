@@ -26,7 +26,8 @@ bool lovrThreadModuleInit();
 void lovrThreadModuleDestroy();
 struct Channel* lovrThreadGetChannel(const char* name);
 
-Thread* lovrThreadCreate(int (*runner)(void*), const char* body);
+Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), const char* body);
+#define lovrThreadCreate(...) lovrThreadInit(lovrAlloc(Thread, lovrThreadDestroy), __VA_ARGS__)
 void lovrThreadDestroy(void* ref);
 void lovrThreadStart(Thread* thread);
 void lovrThreadWait(Thread* thread);

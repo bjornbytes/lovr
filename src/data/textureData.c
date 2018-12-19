@@ -112,10 +112,7 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
   return 0;
 }
 
-TextureData* lovrTextureDataCreate(int width, int height, uint8_t value, TextureFormat format) {
-  TextureData* textureData = lovrAlloc(TextureData, lovrTextureDataDestroy);
-  if (!textureData) return NULL;
-
+TextureData* lovrTextureDataInit(TextureData* textureData, int width, int height, uint8_t value, TextureFormat format) {
   size_t pixelSize = 0;
   switch (format) {
     case FORMAT_RGB: pixelSize = 3; break;
@@ -152,10 +149,7 @@ TextureData* lovrTextureDataCreate(int width, int height, uint8_t value, Texture
   return textureData;
 }
 
-TextureData* lovrTextureDataCreateFromBlob(Blob* blob, bool flip) {
-  TextureData* textureData = lovrAlloc(TextureData, lovrTextureDataDestroy);
-  if (!textureData) return NULL;
-
+TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, bool flip) {
   vec_init(&textureData->mipmaps);
 
   if (!parseDDS(blob->data, blob->size, textureData)) {
