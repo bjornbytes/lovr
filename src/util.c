@@ -29,10 +29,12 @@ void lovrThrow(const char* format, ...) {
 }
 
 void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*)) {
-  void* object = calloc(1, size);
-  if (!object) return NULL;
-  *((Ref*) object) = (Ref) { .free = destructor, .type = type, .count = 1 };
-  return object;
+  Ref* ref = calloc(1, size);
+  if (!ref) return lovrThrow("Out of memory"), NULL;
+  ref->free = destructor;
+  ref->type = type;
+  ref->count = 1;
+  return ref;
 }
 
 void lovrRetain(void* object) {
