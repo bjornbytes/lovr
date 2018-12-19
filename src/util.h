@@ -23,7 +23,7 @@
 #define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
 
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
-#define lovrAlloc(T, destructor) (T*) _lovrAlloc(#T, sizeof(T), destructor)
+#define lovrAlloc(T) (T*) _lovrAlloc(#T, sizeof(T), lovr ## T ## Destroy)
 
 #define MAX(a, b) (a > b ? a : b)
 #define MIN(a, b) (a < b ? a : b)

@@ -37,8 +37,8 @@ typedef struct {
 
 Canvas* lovrCanvasInit(Canvas* canvas, int width, int height, CanvasFlags flags);
 Canvas* lovrCanvasInitFromHandle(Canvas* canvas, int width, int height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, int attachmentCount, bool immortal);
-#define lovrCanvasCreate(...) lovrCanvasInit(lovrAlloc(Canvas, lovrCanvasDestroy), __VA_ARGS__)
-#define lovrCanvasCreateFromHandle(...) lovrCanvasInitFromHandle(lovrAlloc(Canvas, lovrCanvasDestroy), __VA_ARGS__)
+#define lovrCanvasCreate(...) lovrCanvasInit(lovrAlloc(Canvas), __VA_ARGS__)
+#define lovrCanvasCreateFromHandle(...) lovrCanvasInitFromHandle(lovrAlloc(Canvas), __VA_ARGS__)
 void lovrCanvasDestroy(void* ref);
 const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count);
 void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count);

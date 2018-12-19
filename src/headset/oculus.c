@@ -109,7 +109,7 @@ static bool oculusInit(float offset, int msaa) {
   vec_init(&state.controllers);
 
   for (ovrHandType hand = ovrHand_Left; hand < ovrHand_Count; hand++) {
-    Controller* controller = lovrAlloc(Controller, free);
+    Controller* controller = lovrAlloc(Controller);
     controller->id = hand;
     vec_push(&state.controllers, controller);
   }

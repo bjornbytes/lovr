@@ -18,7 +18,7 @@ typedef struct {
 } Buffer;
 
 Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferUsage usage, bool readable);
-#define lovrBufferCreate(...) lovrBufferInit(lovrAlloc(Buffer, lovrBufferDestroy), __VA_ARGS__)
+#define lovrBufferCreate(...) lovrBufferInit(lovrAlloc(Buffer), __VA_ARGS__)
 void lovrBufferDestroy(void* ref);
 size_t lovrBufferGetSize(Buffer* buffer);
 BufferUsage lovrBufferGetUsage(Buffer* buffer);

@@ -21,7 +21,7 @@ typedef struct {
 } Pool;
 
 Pool* lovrPoolInit(Pool* pool, size_t size);
-#define lovrPoolCreate(...) lovrPoolInit(lovrAlloc(Pool, lovrPoolDestroy), __VA_ARGS__)
+#define lovrPoolCreate(...) lovrPoolInit(lovrAlloc(Pool), __VA_ARGS__)
 void lovrPoolDestroy(void* ref);
 float* lovrPoolAllocate(Pool* pool, MathType type);
 void lovrPoolDrain(Pool* pool);
