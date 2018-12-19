@@ -43,9 +43,6 @@ bool lovrAudioInit() {
   state.device = device;
   state.context = context;
   vec_init(&state.sources);
-  quat_set(state.orientation, 0, 0, 0, -1);
-  vec3_set(state.position, 0, 0, 0);
-  vec3_set(state.velocity, 0, 0, 0);
   return state.initialized = true;
 }
 
