@@ -1,3 +1,4 @@
+#include "graphics/opengl.h"
 #include "graphics/graphics.h"
 #include "graphics/buffer.h"
 #include "graphics/canvas.h"
@@ -13,15 +14,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-#if EMSCRIPTEN
-#include <GLES3/gl3.h>
-#include <GLES2/gl2ext.h>
-#include <GL/gl.h>
-#include <GL/glext.h>
-#else
-#include "lib/glad/glad.h"
-#endif
 
 // Types
 
@@ -79,94 +71,6 @@ static struct {
   GpuLimits limits;
   GpuStats stats;
 } state;
-
-struct Buffer {
-  Ref ref;
-  void* data;
-  size_t size;
-  GLsync lock;
-  uint32_t id;
-  BufferUsage usage;
-};
-
-struct ShaderBlock {
-  Ref ref;
-  BlockType type;
-  vec_uniform_t uniforms;
-  map_int_t uniformMap;
-  Buffer* buffer;
-  GLenum target;
-  uint8_t incoherent;
-};
-
-struct Shader {
-  Ref ref;
-  ShaderType type;
-  uint32_t program;
-  vec_uniform_t uniforms;
-  vec_block_t blocks[2];
-  map_int_t attributes;
-  map_int_t uniformMap;
-  map_int_t blockMap;
-  bool dirty;
-};
-
-struct Texture {
-  Ref ref;
-  TextureType type;
-  TextureFormat format;
-  int width;
-  int height;
-  int depth;
-  int mipmapCount;
-  GLuint id;
-  GLuint msaaId;
-  GLenum target;
-  TextureFilter filter;
-  TextureWrap wrap;
-  int msaa;
-  bool srgb;
-  bool mipmaps;
-  bool allocated;
-  uint8_t incoherent;
-};
-
-struct Canvas {
-  Ref ref;
-  int width;
-  int height;
-  CanvasFlags flags;
-  uint32_t framebuffer;
-  uint32_t resolveBuffer;
-  uint32_t depthBuffer;
-  Attachment attachments[MAX_CANVAS_ATTACHMENTS];
-  Attachment depth;
-  int attachmentCount;
-  bool needsAttach;
-  bool needsResolve;
-  bool immortal;
-};
-
-struct Mesh {
-  Ref ref;
-  uint32_t vao;
-  uint32_t count;
-  DrawMode mode;
-  VertexFormat format;
-  bool readable;
-  bool dirty;
-  BufferUsage usage;
-  Buffer* vbo;
-  Buffer* ibo;
-  uint32_t indexCount;
-  size_t indexSize;
-  size_t indexCapacity;
-  uint32_t rangeStart;
-  uint32_t rangeCount;
-  Material* material;
-  map_attribute_t attributes;
-  MeshAttribute layout[MAX_ATTRIBUTES];
-};
 
 // Helper functions
 

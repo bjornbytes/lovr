@@ -1,4 +1,5 @@
 #include "data/textureData.h"
+#include "graphics/opengl.h"
 #include <stdbool.h>
 
 #pragma once
@@ -34,7 +35,22 @@ typedef struct {
   WrapMode r;
 } TextureWrap;
 
-typedef struct Texture Texture;
+typedef struct {
+  Ref ref;
+  TextureType type;
+  TextureFormat format;
+  int width;
+  int height;
+  int depth;
+  int mipmapCount;
+  TextureFilter filter;
+  TextureWrap wrap;
+  int msaa;
+  bool srgb;
+  bool mipmaps;
+  bool allocated;
+  GPU_TEXTURE_FIELDS
+} Texture;
 
 Texture* lovrTextureCreate(TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps, int msaa);
 Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type);
