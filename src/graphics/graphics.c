@@ -64,6 +64,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultMesh);
   lovrRelease(state.vertexMap);
   lovrRelease(state.identityBuffer);
+  lovrRelease(state.block);
   lovrGpuDestroy();
   memset(&state, 0, sizeof(GraphicsState));
 }
