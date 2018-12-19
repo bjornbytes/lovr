@@ -5,10 +5,7 @@
 #include "msdfgen-c.h"
 #include <math.h>
 
-Rasterizer* lovrRasterizerCreate(Blob* blob, int size) {
-  Rasterizer* rasterizer = lovrAlloc(Rasterizer, lovrRasterizerDestroy);
-  if (!rasterizer) return NULL;
-
+Rasterizer* lovrRasterizerInit(Rasterizer* rasterizer, Blob* blob, int size) {
   stbtt_fontinfo* font = &rasterizer->font;
   unsigned char* data = blob ? blob->data : VarelaRound_ttf;
   if (!stbtt_InitFont(font, data, stbtt_GetFontOffsetForIndex(data, 0))) {

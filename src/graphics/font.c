@@ -23,10 +23,7 @@ static float* lovrFontAlignLine(float* x, float* lineEnd, float width, Horizonta
   return x;
 }
 
-Font* lovrFontCreate(Rasterizer* rasterizer) {
-  Font* font = lovrAlloc(Font, lovrFontDestroy);
-  if (!font) return NULL;
-
+Font* lovrFontInit(Font* font, Rasterizer* rasterizer) {
   lovrRetain(rasterizer);
   font->rasterizer = rasterizer;
   font->lineHeight = 1.f;

@@ -12,10 +12,7 @@ static int trackSortCallback(const void* a, const void* b) {
   return ((Track*) a)->priority < ((Track*) b)->priority;
 }
 
-Animator* lovrAnimatorCreate(ModelData* modelData) {
-  Animator* animator = lovrAlloc(Animator, lovrAnimatorDestroy);
-  if (!animator) return NULL;
-
+Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData) {
   lovrRetain(modelData);
   animator->modelData = modelData;
   map_init(&animator->trackMap);

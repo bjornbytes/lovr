@@ -37,13 +37,9 @@ static void evaluate(float* P, int n, float t, vec3 p) {
   }
 }
 
-Curve* lovrCurveCreate(int sizeHint) {
-  Curve* curve = lovrAlloc(Curve, lovrCurveDestroy);
-  if (!curve) return NULL;
-
+Curve* lovrCurveInit(Curve* curve, int sizeHint) {
   vec_init(&curve->points);
   lovrAssert(!vec_reserve(&curve->points, sizeHint * 3), "Out of memory");
-
   return curve;
 }
 

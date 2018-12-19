@@ -1,23 +1,14 @@
 #include "audio/microphone.h"
 #include "audio/audio.h"
 
-Microphone* lovrMicrophoneCreate(const char* name, int samples, int sampleRate, int bitDepth, int channelCount) {
-  Microphone* microphone = lovrAlloc(Microphone, lovrMicrophoneDestroy);
-  if (!microphone) return NULL;
-
+Microphone* lovrMicrophoneInit(Microphone* microphone, const char* name, int samples, int sampleRate, int bitDepth, int channelCount) {
   ALCdevice* device = alcCaptureOpenDevice(name, sampleRate, lovrAudioConvertFormat(bitDepth, channelCount), samples);
-
-  if (!device) {
-    free(microphone);
-    return NULL;
-  }
-
+  lovrAssert(device, "Error opening capture device for microphone '%s'", name);
   microphone->device = device;
   microphone->name = name ? name : alcGetString(device, ALC_CAPTURE_DEVICE_SPECIFIER);
   microphone->sampleRate = sampleRate;
   microphone->bitDepth = bitDepth;
   microphone->channelCount = channelCount;
-
   return microphone;
 }
 

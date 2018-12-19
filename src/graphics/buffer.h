@@ -17,7 +17,8 @@ typedef struct {
   GPU_BUFFER_FIELDS
 } Buffer;
 
-Buffer* lovrBufferCreate(size_t size, void* data, BufferUsage usage, bool readable);
+Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferUsage usage, bool readable);
+#define lovrBufferCreate(...) lovrBufferInit(lovrAlloc(Buffer, lovrBufferDestroy), __VA_ARGS__)
 void lovrBufferDestroy(void* ref);
 size_t lovrBufferGetSize(Buffer* buffer);
 BufferUsage lovrBufferGetUsage(Buffer* buffer);

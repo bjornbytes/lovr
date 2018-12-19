@@ -3,14 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-Channel* lovrChannelCreate() {
-  Channel* channel = lovrAlloc(Channel, lovrChannelDestroy);
-  if (!channel) return NULL;
-
+Channel* lovrChannelInit(Channel* channel) {
   vec_init(&channel->messages);
   mtx_init(&channel->lock, mtx_plain | mtx_timed);
   cnd_init(&channel->cond);
-
   return channel;
 }
 

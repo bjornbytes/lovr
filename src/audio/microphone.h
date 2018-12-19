@@ -16,7 +16,8 @@ typedef struct {
   int channelCount;
 } Microphone;
 
-Microphone* lovrMicrophoneCreate(const char* name, int samples, int sampleRate, int bitDepth, int channelCount);
+Microphone* lovrMicrophoneInit(Microphone* microphone, const char* name, int samples, int sampleRate, int bitDepth, int channelCount);
+#define lovrMicrophoneCreate(...) lovrMicrophoneInit(lovrAlloc(Microphone, lovrMicrophoneDestroy), __VA_ARGS__)
 void lovrMicrophoneDestroy(void* ref);
 int lovrMicrophoneGetBitDepth(Microphone* microphone);
 int lovrMicrophoneGetChannelCount(Microphone* microphone);

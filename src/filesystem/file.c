@@ -2,12 +2,8 @@
 #include <physfs.h>
 #include <stdlib.h>
 
-File* lovrFileCreate(const char* path) {
-  File* file = lovrAlloc(File, lovrFileDestroy);
-  if (!file) return NULL;
-
+File* lovrFileInit(File* file ,const char* path) {
   file->path = path;
-
   return file;
 }
 

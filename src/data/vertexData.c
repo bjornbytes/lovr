@@ -14,10 +14,7 @@ void vertexFormatAppend(VertexFormat* format, const char* name, AttributeType ty
   format->stride += size * count;
 }
 
-VertexData* lovrVertexDataCreate(uint32_t count, VertexFormat* format) {
-  VertexData* vertexData = lovrAlloc(VertexData, lovrBlobDestroy);
-  if (!vertexData) return NULL;
-
+VertexData* lovrVertexDataInit(VertexData* vertexData, uint32_t count, VertexFormat* format) {
   if (format) {
     vertexData->format = *format;
   } else {

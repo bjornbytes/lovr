@@ -29,8 +29,10 @@ typedef struct {
   bool isLooping;
 } Source;
 
-Source* lovrSourceCreateStatic(SoundData* soundData);
-Source* lovrSourceCreateStream(AudioStream* stream);
+Source* lovrSourceInitStatic(Source* source, SoundData* soundData);
+Source* lovrSourceInitStream(Source* source, AudioStream* stream);
+#define lovrSourceCreateStatic(...) lovrSourceInitStatic(lovrAlloc(Source, lovrSourceDestroy), __VA_ARGS__)
+#define lovrSourceCreateStream(...) lovrSourceInitStream(lovrAlloc(Source, lovrSourceDestroy), __VA_ARGS__)
 void lovrSourceDestroy(void* ref);
 SourceType lovrSourceGetType(Source* source);
 int lovrSourceGetBitDepth(Source* source);

@@ -27,7 +27,8 @@ typedef struct {
   float speed;
 } Animator;
 
-Animator* lovrAnimatorCreate(ModelData* modelData);
+Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData);
+#define lovrAnimatorCreate(...) lovrAnimatorInit(lovrAlloc(Animator, lovrAnimatorDestroy), __VA_ARGS__)
 void lovrAnimatorDestroy(void* ref);
 void lovrAnimatorReset(Animator* animator);
 void lovrAnimatorUpdate(Animator* animator, float dt);
