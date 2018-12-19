@@ -21,6 +21,7 @@ typedef struct {
   jsmntok_t* views;
   jsmntok_t* images;
   jsmntok_t* samplers;
+  jsmntok_t* textures;
   jsmntok_t* nodes;
   jsmntok_t* meshes;
   jsmntok_t* skins;
@@ -381,6 +382,7 @@ static void parseSamplers(const char* json, jsmntok_t* token, ModelData* model) 
             default: lovrThrow("Unknown sampler wrapT mode for sampler %d", i);
           }
           break;
+        default: token += nomValue(json, token, 1, 0); break;
       }
     }
 
@@ -391,6 +393,23 @@ static void parseSamplers(const char* json, jsmntok_t* token, ModelData* model) 
         case 9729: sampler->filter.mode = FILTER_BILINEAR, sampler->mipmaps = false; break;
         case 9985: sampler->filter.mode = FILTER_BILINEAR, sampler->mipmaps = true; break;
         case 9987: sampler->filter.mode = FILTER_TRILINEAR, sampler->mipmaps = true; break;
+      }
+    }
+  }
+}
+
+static void parseTextures(const char* json, jsmntok_t* token, ModelData* model) {
+  if (!token) return;
+
+  int count = (token++)->size;
+  for (int i = 0; i < count; i++) {
+    ModelTexture* texture = &model->textures[i];
+    int keyCount = (token++)->size;
+    for (int k = 0; k < keyCount; k++) {
+      switch (NOM_KEY(json, token)) {
+        case HASH16("source"): texture->image = NOM_INT(json, token); break;
+        case HASH16("sampler"): texture->sampler = NOM_INT(json, token); break;
+        default: token += nomValue(json, token, 1, 0); break;
       }
     }
   }
@@ -605,6 +624,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
   model->views = (ModelView*) (model->data + offset), offset += model->viewCount * sizeof(ModelView);
   model->images = (TextureData**) (model->data + offset), offset += model->imageCount * sizeof(TextureData*);
   model->samplers = (ModelSampler*) (model->data + offset), offset += model->samplerCount * sizeof(ModelSampler);
+  model->textures = (ModelTexture*) (model->data + offset), offset += model->textureCount * sizeof(ModelTexture);
   model->primitives = (ModelPrimitive*) (model->data + offset), offset += model->primitiveCount * sizeof(ModelPrimitive);
   model->meshes = (ModelMesh*) (model->data + offset), offset += model->meshCount * sizeof(ModelMesh);
   model->nodes = (ModelNode*) (model->data + offset), offset += model->nodeCount * sizeof(ModelNode);
@@ -618,6 +638,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
   parseViews(jsonData, info.views, model);
   parseImages(jsonData, info.images, model, io);
   parseSamplers(jsonData, info.samplers, model);
+  parseTextures(jsonData, info.textures, model);
   parseMeshes(jsonData, info.meshes, model);
   parseNodes(jsonData, info.nodes, model);
   parseSkins(jsonData, info.skins, model);
