@@ -91,17 +91,6 @@ typedef enum {
 typedef enum { I8, U8, I16, U16, I32, U32, F32 } AttributeType;
 
 typedef struct {
-  uint32_t magic;
-  uint32_t version;
-  uint32_t length;
-} gltfHeader;
-
-typedef struct {
-  uint32_t length;
-  uint32_t type;
-} gltfChunkHeader;
-
-typedef struct {
   int view;
   int count;
   int offset;

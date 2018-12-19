@@ -2,12 +2,14 @@
 #include "lib/math.h"
 #include "lib/jsmn/jsmn.h"
 #include <stdbool.h>
+#include <stdlib.h>
 
 #define MAGIC_glTF 0x46546c67
 #define MAGIC_JSON 0x4e4f534a
 #define MAGIC_BIN 0x004e4942
 
 #define KEY_EQ(k, s) !strncmp(k.data, s, k.length)
+#define NOM_VALUE(j, t) nomValue(j, t, 1, 0)
 #define NOM_KEY(j, t) hashKey((char*) j + (t++)->start)
 #define NOM_INT(j, t) strtol(j + (t++)->start, NULL, 10)
 #define NOM_BOOL(j, t) (*(j + (t++)->start) == 't')
@@ -29,6 +31,17 @@ typedef struct {
   int childCount;
   int jointCount;
 } gltfInfo;
+
+typedef struct {
+  uint32_t magic;
+  uint32_t version;
+  uint32_t length;
+} gltfHeader;
+
+typedef struct {
+  uint32_t length;
+  uint32_t type;
+} gltfChunkHeader;
 
 static uint32_t hashKey(char* key) {
   uint32_t hash = 0;
@@ -57,7 +70,7 @@ static jsmntok_t* aggregate(const char* json, jsmntok_t* token, uint32_t hash, i
         if (NOM_KEY(json, token) == hash) {
           *total += token->size;
         }
-        token += nomValue(json, token, 1, 0);
+        token += NOM_VALUE(json, token);
       }
     }
   }
@@ -71,7 +84,7 @@ static void preparse(const char* json, jsmntok_t* tokens, int tokenCount, ModelD
         info->accessors = token;
         model->accessorCount = token->size;
         info->totalSize += token->size * sizeof(ModelAccessor);
-        token += nomValue(json, token, 1, 0);
+        token += NOM_VALUE(json, token);
         break;
       case HASH16("animations"):
         info->animations = token;
@@ -88,7 +101,7 @@ static void preparse(const char* json, jsmntok_t* tokens, int tokenCount, ModelD
                 case HASH16("samplers"): model->animationSamplerCount += token->size; break;
                 default: break;
               }
-              token += nomValue(json, token, 1, 0);
+              token += NOM_VALUE(json, token);
             }
           }
         }
@@ -97,37 +110,37 @@ static void preparse(const char* json, jsmntok_t* tokens, int tokenCount, ModelD
         info->blobs = token;
         model->blobCount = token->size;
         info->totalSize += token->size * sizeof(ModelBlob);
-        token += nomValue(json, token, 1, 0);
+        token += NOM_VALUE(json, token);
         break;
       case HASH16("bufferViews"):
         info->views = token;
         model->viewCount = token->size;
         info->totalSize += token->size * sizeof(ModelView);
-        token += nomValue(json, token, 1, 0);
+        token += NOM_VALUE(json, token);
         break;
       case HASH16("images"):
         info->images = token;
         model->imageCount = token->size;
         info->totalSize += token->size * sizeof(TextureData);
-        token += nomValue(json, token, 1, 0);
+        token += NOM_VALUE(json, token);
         break;
       case HASH16("samplers"):
         info->samplers = token;
         model->samplerCount = token->size;
         info->totalSize += token->size * sizeof(ModelSampler);
-        token += nomValue(json, token, 1, 0);
+        token += NOM_VALUE(json, token);
         break;
       case HASH16("textures"):
         info->samplers = token;
         model->textureCount = token->size;
         info->totalSize += token->size * sizeof(ModelTexture);
-        token += nomValue(json, token, 1, 0);
+        token += NOM_VALUE(json, token);
         break;
       case HASH16("materials"):
         info->materials = token;
         model->materialCount = token->size;
         info->totalSize += token->size * sizeof(ModelMaterial);
-        token += nomValue(json, token, 1, 0);
+        token += NOM_VALUE(json, token);
         break;
       case HASH16("meshes"):
         info->meshes = token;
@@ -150,7 +163,7 @@ static void preparse(const char* json, jsmntok_t* tokens, int tokenCount, ModelD
         token = aggregate(json, token, HASH16("joints"), &info->jointCount);
         info->totalSize += info->jointCount * sizeof(uint32_t);
         break;
-      default: token += nomValue(json, token, 1, 0); break;
+      default: token += NOM_VALUE(json, token); break;
     }
   }
 }
@@ -189,7 +202,7 @@ static void parseAccessors(const char* json, jsmntok_t* token, ModelData* model)
             default: lovrThrow("Unsupported accessor type"); break;
           }
           break;
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
   }
@@ -214,11 +227,11 @@ static jsmntok_t* parseAnimationChannel(const char* json, jsmntok_t* token, int 
                 default: lovrThrow("Unknown animation target path"); break;
               }
               break;
-            default: token += nomValue(json, token, 1, 0); break;
+            default: token += NOM_VALUE(json, token); break;
           }
         }
       }
-      default: token += nomValue(json, token, 1, 0); break;
+      default: token += NOM_VALUE(json, token); break;
     }
   }
   return token;
@@ -239,7 +252,7 @@ static jsmntok_t* parseAnimationSampler(const char* json, jsmntok_t* token, int 
           default: lovrThrow("Unknown animation sampler interpolation"); break;
         }
         break;
-      default: token += nomValue(json, token, 1, 0);
+      default: token += NOM_VALUE(json, token);
     }
   }
   return token;
@@ -271,7 +284,7 @@ static void parseAnimations(const char* json, jsmntok_t* token, ModelData* model
             token = parseAnimationSampler(json, token, samplerIndex++, model);
           }
           break;
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
   }
@@ -299,7 +312,7 @@ static void parseBlobs(const char* json, jsmntok_t* token, ModelData* model, Mod
           lovrAssert(blob->data, "Unable to read %s", filename);
           filename[length] = '"';
           break;
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
 
@@ -326,7 +339,7 @@ static void parseViews(const char* json, jsmntok_t* token, ModelData* model) {
         case HASH16("byteOffset"): view->offset = NOM_INT(json, token); break;
         case HASH16("byteLength"): view->length = NOM_INT(json, token); break;
         case HASH16("byteStride"): view->stride = NOM_INT(json, token); break;
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
   }
@@ -364,7 +377,7 @@ static void parseImages(const char* json, jsmntok_t* token, ModelData* model, Mo
           lovrRelease(blob);
           break;
         }
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
   }
@@ -401,7 +414,7 @@ static void parseSamplers(const char* json, jsmntok_t* token, ModelData* model) 
             default: lovrThrow("Unknown sampler wrapT mode for sampler %d", i);
           }
           break;
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
 
@@ -428,7 +441,7 @@ static void parseTextures(const char* json, jsmntok_t* token, ModelData* model) 
       switch (NOM_KEY(json, token)) {
         case HASH16("source"): texture->image = NOM_INT(json, token); break;
         case HASH16("sampler"): texture->sampler = NOM_INT(json, token); break;
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
   }
@@ -440,7 +453,7 @@ static jsmntok_t* parseTextureInfo(const char* json, jsmntok_t* token, int* dest
     switch (NOM_KEY(json, token)) {
       case HASH16("index"): *dest = NOM_INT(json, token); break;
       case HASH16("texCoord"): lovrAssert(NOM_INT(json, token) == 0, "Only one set of texture coordinates is supported"); break;
-      default: token += nomValue(json, token, 1, 0); break;
+      default: token += NOM_VALUE(json, token); break;
     }
   }
   return token;
@@ -488,7 +501,7 @@ static void parseMaterials(const char* json, jsmntok_t* token, ModelData* model)
           material->colors[COLOR_EMISSIVE].b = NOM_FLOAT(json, token);
           material->colors[COLOR_EMISSIVE].a = NOM_FLOAT(json, token);
           break;
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
   }
@@ -533,7 +546,7 @@ static jsmntok_t* parsePrimitive(const char* json, jsmntok_t* token, int index, 
         }
         break;
       }
-      default: token += nomValue(json, token, 1, 0); break;
+      default: token += NOM_VALUE(json, token); break;
     }
   }
   return token;
@@ -557,7 +570,7 @@ static void parseMeshes(const char* json, jsmntok_t* token, ModelData* model) {
             token = parsePrimitive(json, token, primitiveIndex++, model);
           }
           break;
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
   }
@@ -613,7 +626,7 @@ static void parseNodes(const char* json, jsmntok_t* token, ModelData* model) {
           scale[1] = NOM_FLOAT(json, token);
           scale[2] = NOM_FLOAT(json, token);
           break;
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
 
@@ -647,7 +660,7 @@ static void parseSkins(const char* json, jsmntok_t* token, ModelData* model) {
             model->skinJoints[jointIndex++] = NOM_INT(json, token);
           }
           break;
-        default: token += nomValue(json, token, 1, 0); break;
+        default: token += NOM_VALUE(json, token); break;
       }
     }
   }
@@ -684,8 +697,10 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
 
   jsmn_parser parser;
   jsmn_init(&parser);
-  jsmntok_t tokens[1024]; // TODO malloc or token queue
-  int tokenCount = jsmn_parse(&parser, jsonData, jsonLength, tokens, 1024);
+  int tokenCount = jsmn_parse(&parser, jsonData, jsonLength, NULL, 0);
+  jsmntok_t* tokens = malloc(tokenCount * sizeof(jsmntok_t));
+  jsmn_init(&parser);
+  tokenCount = jsmn_parse(&parser, jsonData, jsonLength, tokens, tokenCount);
   lovrAssert(tokenCount >= 0, "Invalid JSON");
   lovrAssert(tokens[0].type == JSMN_OBJECT, "No root object");
 
@@ -723,6 +738,8 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
   parseMeshes(jsonData, info.meshes, model);
   parseNodes(jsonData, info.nodes, model);
   parseSkins(jsonData, info.skins, model);
+
+  free(tokens);
 
   return model;
 }
