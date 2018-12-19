@@ -213,38 +213,30 @@ int lovrFilesystemMount(const char* path, const char* mountpoint, bool append, c
 }
 
 void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
+  File file;
+  lovrFileInit(memset(&file, 0, sizeof(File)), path);
 
-  // Create file
-  File* file = lovrFileCreate(path);
-  if (!file) {
-    lovrRelease(file);
-    return NULL;
-  }
-
-  // Open it
-  if (lovrFileOpen(file, OPEN_READ)) {
-    lovrRelease(file);
+  if (lovrFileOpen(&file, OPEN_READ)) {
     return NULL;
   }
 
   // Get file size
-  size_t size = lovrFileGetSize(file);
+  size_t size = lovrFileGetSize(&file);
   if (size == (unsigned int) -1) {
-    lovrRelease(file);
+    lovrFileDestroy(&file);
     return NULL;
   }
 
   // Allocate buffer
   void* data = malloc(size);
   if (!data) {
-    lovrRelease(file);
+    lovrFileDestroy(&file);
     return NULL;
   }
 
   // Perform read
-  *bytesRead = lovrFileRead(file, data, size);
-  lovrFileClose(file);
-  lovrRelease(file);
+  *bytesRead = lovrFileRead(&file, data, size);
+  lovrFileDestroy(&file);
 
   // Make sure we got everything
   if (*bytesRead != (size_t) size) {
@@ -325,17 +317,13 @@ int lovrFilesystemUnmount(const char* path) {
 }
 
 size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append) {
-  File* file = lovrFileCreate(path);
-  if (!file) {
+  File file;
+  lovrFileInit(memset(&file, 0, sizeof(File)), path);
+
+  if (lovrFileOpen(&file, append ? OPEN_APPEND : OPEN_WRITE)) {
     return 0;
   }
 
-  if (lovrFileOpen(file, append ? OPEN_APPEND : OPEN_WRITE)) {
-    return 0;
-  }
-
-  size_t bytesWritten = lovrFileWrite(file, (void*) content, size);
-  lovrFileClose(file);
-  lovrRelease(file);
-  return bytesWritten;
+  size_t bytesWritten = lovrFileWrite(&file, (void*) content, size);
+  return lovrFileDestroy(&file), bytesWritten;
 }
