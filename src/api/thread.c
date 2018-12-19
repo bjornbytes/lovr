@@ -69,8 +69,8 @@ int luaopen_lovr_thread(lua_State* L) {
   luaL_register(L, NULL, lovrThreadModule);
   luax_registertype(L, "Thread", lovrThread);
   luax_registertype(L, "Channel", lovrChannel);
-  if (lovrThreadInit()) {
-    luax_atexit(L, lovrThreadDeinit);
+  if (lovrThreadModuleInit()) {
+    luax_atexit(L, lovrThreadModuleDestroy);
   }
   return 1;
 }
