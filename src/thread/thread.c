@@ -4,13 +4,13 @@
 
 static ThreadState state;
 
-bool lovrThreadInit() {
+bool lovrThreadModuleInit() {
   if (state.initialized) return false;
   map_init(&state.channels);
   return state.initialized = true;
 }
 
-void lovrThreadDeinit() {
+void lovrThreadModuleDestroy() {
   if (!state.initialized) return;
   const char* key;
   map_iter_t iter = map_iter(&state.channels);
