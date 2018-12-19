@@ -21,6 +21,7 @@ LOVR_API int luaopen_lovr_timer(lua_State* L);
 extern const luaL_Reg lovrModules[];
 
 // Objects
+extern const luaL_Reg lovrLightUserdata[];
 extern const luaL_Reg lovrAnimator[];
 extern const luaL_Reg lovrAudioStream[];
 extern const luaL_Reg lovrBallJoint[];
@@ -60,8 +61,6 @@ extern const luaL_Reg lovrThread[];
 extern const luaL_Reg lovrVec3[];
 extern const luaL_Reg lovrVertexData[];
 extern const luaL_Reg lovrWorld[];
-
-extern const luaL_Reg lovrLightUserdata[];
 
 // Enums
 extern const char* ArcModes[];
