@@ -918,7 +918,6 @@ void lovrTextureDestroy(void* ref) {
   glDeleteTextures(1, &texture->id);
   glDeleteRenderbuffers(1, &texture->msaaId);
   lovrGpuDestroySyncResource(texture, texture->incoherent);
-  free(texture);
 }
 
 void lovrTextureAllocate(Texture* texture, int width, int height, int depth, TextureFormat format) {
@@ -1195,7 +1194,6 @@ void lovrCanvasDestroy(void* ref) {
     lovrRelease(canvas->attachments[i].texture);
   }
   lovrRelease(canvas->depth.texture);
-  free(ref);
 }
 
 const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count) {
@@ -1420,7 +1418,6 @@ void lovrBufferDestroy(void* ref) {
 #ifndef EMSCRIPTEN
   }
 #endif
-  free(ref);
 }
 
 size_t lovrBufferGetSize(Buffer* buffer) {
@@ -1825,7 +1822,6 @@ void lovrShaderDestroy(void* ref) {
   map_deinit(&shader->attributes);
   map_deinit(&shader->uniformMap);
   map_deinit(&shader->blockMap);
-  free(shader);
 }
 
 ShaderType lovrShaderGetType(Shader* shader) {
@@ -2107,7 +2103,6 @@ void lovrShaderBlockDestroy(void* ref) {
   lovrRelease(block->buffer);
   vec_deinit(&block->uniforms);
   map_deinit(&block->uniformMap);
-  free(block);
 }
 
 BlockType lovrShaderBlockGetType(ShaderBlock* block) {
@@ -2207,7 +2202,6 @@ void lovrMeshDestroy(void* ref) {
   map_deinit(&mesh->attributes);
   lovrRelease(mesh->vbo);
   lovrRelease(mesh->ibo);
-  free(mesh);
 }
 
 void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute) {

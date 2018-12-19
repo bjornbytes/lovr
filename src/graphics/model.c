@@ -144,7 +144,6 @@ void lovrModelDestroy(void* ref) {
   lovrRelease(model->modelData);
   lovrRelease(model->mesh);
   free(model->nodeTransforms);
-  free(model);
 }
 
 void lovrModelDraw(Model* model, mat4 transform, int instances) {

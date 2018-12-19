@@ -44,7 +44,6 @@ void lovrAnimatorDestroy(void* ref) {
   lovrRelease(animator->modelData);
   map_deinit(&animator->trackMap);
   vec_deinit(&animator->trackList);
-  free(animator);
 }
 
 void lovrAnimatorReset(Animator* animator) {

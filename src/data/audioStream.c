@@ -27,7 +27,6 @@ void lovrAudioStreamDestroy(void* ref) {
   stb_vorbis_close(stream->decoder);
   lovrRelease(stream->blob);
   free(stream->buffer);
-  free(stream);
 }
 
 int lovrAudioStreamDecode(AudioStream* stream, short* destination, size_t size) {

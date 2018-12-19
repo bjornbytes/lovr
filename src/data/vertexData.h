@@ -48,4 +48,4 @@ void vertexFormatAppend(VertexFormat* format, const char* name, AttributeType ty
 
 VertexData* lovrVertexDataInit(VertexData* vertexData, uint32_t count, VertexFormat* format);
 #define lovrVertexDataCreate(...) lovrVertexDataInit(lovrAlloc(VertexData), __VA_ARGS__)
-#define lovrVertexDataDestroy lovrBlobDestroy
+#define lovrVertexDataDestroy NULL

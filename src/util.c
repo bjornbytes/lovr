@@ -44,7 +44,8 @@ void lovrRetain(void* object) {
 void lovrRelease(void* object) {
   Ref* ref = object;
   if (ref && --ref->count == 0) {
-    ref->destructor(object);
+    if (ref->destructor) ref->destructor(object);
+    free(object);
   }
 }
 

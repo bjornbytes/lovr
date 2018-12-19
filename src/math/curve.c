@@ -46,7 +46,6 @@ Curve* lovrCurveInit(Curve* curve, int sizeHint) {
 void lovrCurveDestroy(void* ref) {
   Curve* curve = ref;
   vec_deinit(&curve->points);
-  free(curve);
 }
 
 void lovrCurveEvaluate(Curve* curve, float t, vec3 p) {

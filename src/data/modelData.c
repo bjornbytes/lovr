@@ -587,7 +587,6 @@ void lovrModelDataDestroy(void* ref) {
   free(modelData->animations);
   free(modelData->materials);
   free(modelData->indices.raw);
-  free(modelData);
 }
 
 void lovrModelDataGetAABB(ModelData* modelData, float aabb[6]) {

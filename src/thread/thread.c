@@ -47,7 +47,6 @@ void lovrThreadDestroy(void* ref) {
   Thread* thread = ref;
   mtx_destroy(&thread->lock);
   thrd_detach(thread->handle);
-  free(thread);
 }
 
 void lovrThreadStart(Thread* thread) {

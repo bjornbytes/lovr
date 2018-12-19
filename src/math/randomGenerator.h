@@ -22,7 +22,7 @@ typedef struct {
 
 RandomGenerator* lovrRandomGeneratorInit(RandomGenerator* generator);
 #define lovrRandomGeneratorCreate() lovrRandomGeneratorInit(lovrAlloc(RandomGenerator))
-#define lovrRandomGeneratorDestroy free
+#define lovrRandomGeneratorDestroy NULL
 Seed lovrRandomGeneratorGetSeed(RandomGenerator* generator);
 void lovrRandomGeneratorSetSeed(RandomGenerator* generator, Seed seed);
 void lovrRandomGeneratorGetState(RandomGenerator* generator, char* state, size_t length);
