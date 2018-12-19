@@ -142,6 +142,17 @@ typedef struct {
 } ModelView;
 
 typedef struct {
+  TextureFilter filter;
+  TextureWrap wrap;
+  bool mipmaps;
+} ModelSampler;
+
+typedef struct {
+  int image;
+  int sampler;
+} ModelTexture;
+
+typedef struct {
   float scalars[MAX_MATERIAL_SCALARS];
   Color colors[MAX_MATERIAL_COLORS];
   int textures[MAX_MATERIAL_TEXTURES];
@@ -166,12 +177,6 @@ typedef struct {
   int mesh;
   int skin;
 } ModelNode;
-
-typedef struct {
-  TextureFilter filter;
-  TextureWrap wrap;
-  bool mipmaps;
-} ModelSampler;
 
 typedef struct {
   uint32_t* joints;
@@ -215,6 +220,7 @@ typedef struct {
   ModelView* views;
   TextureData** images;
   ModelSampler* samplers;
+  ModelTexture* textures;
   ModelMaterial* materials;
   ModelPrimitive* primitives;
   ModelMesh* meshes;
@@ -228,6 +234,7 @@ typedef struct {
   int viewCount;
   int imageCount;
   int samplerCount;
+  int textureCount;
   int materialCount;
   int primitiveCount;
   int meshCount;
