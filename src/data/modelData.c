@@ -22,8 +22,9 @@ typedef struct {
   jsmntok_t* images;
   jsmntok_t* samplers;
   jsmntok_t* textures;
-  jsmntok_t* nodes;
+  jsmntok_t* materials;
   jsmntok_t* meshes;
+  jsmntok_t* nodes;
   jsmntok_t* skins;
   int childCount;
   int jointCount;
@@ -108,6 +109,24 @@ static void preparse(const char* json, jsmntok_t* tokens, int tokenCount, ModelD
         info->images = token;
         model->imageCount = token->size;
         info->totalSize += token->size * sizeof(TextureData);
+        token += nomValue(json, token, 1, 0);
+        break;
+      case HASH16("samplers"):
+        info->samplers = token;
+        model->samplerCount = token->size;
+        info->totalSize += token->size * sizeof(ModelSampler);
+        token += nomValue(json, token, 1, 0);
+        break;
+      case HASH16("textures"):
+        info->samplers = token;
+        model->textureCount = token->size;
+        info->totalSize += token->size * sizeof(ModelTexture);
+        token += nomValue(json, token, 1, 0);
+        break;
+      case HASH16("materials"):
+        info->materials = token;
+        model->materialCount = token->size;
+        info->totalSize += token->size * sizeof(ModelMaterial);
         token += nomValue(json, token, 1, 0);
         break;
       case HASH16("meshes"):
@@ -415,6 +434,66 @@ static void parseTextures(const char* json, jsmntok_t* token, ModelData* model) 
   }
 }
 
+static jsmntok_t* parseTextureInfo(const char* json, jsmntok_t* token, int* dest) {
+  int keyCount = (token++)->size;
+  for (int k = 0; k < keyCount; k++) {
+    switch (NOM_KEY(json, token)) {
+      case HASH16("index"): *dest = NOM_INT(json, token); break;
+      case HASH16("texCoord"): lovrAssert(NOM_INT(json, token) == 0, "Only one set of texture coordinates is supported"); break;
+      default: token += nomValue(json, token, 1, 0); break;
+    }
+  }
+  return token;
+}
+
+static void parseMaterials(const char* json, jsmntok_t* token, ModelData* model) {
+  if (!token) return;
+
+  int count = (token++)->size;
+  for (int i = 0; i < count; i++) {
+    ModelMaterial* material = &model->materials[i];
+    int keyCount = (token++)->size;
+    for (int k = 0; k < keyCount; k++) {
+      switch (NOM_KEY(json, token)) {
+        case HASH64("pbrMetallicRoughness"): {
+          int pbrKeyCount = (token++)->size;
+          for (int j = 0; j < pbrKeyCount; j++) {
+            switch (NOM_KEY(json, token)) {
+              case HASH16("baseColorFactor"):
+                token++; // Enter array
+                material->colors[COLOR_DIFFUSE].r = NOM_FLOAT(json, token);
+                material->colors[COLOR_DIFFUSE].g = NOM_FLOAT(json, token);
+                material->colors[COLOR_DIFFUSE].b = NOM_FLOAT(json, token);
+                material->colors[COLOR_DIFFUSE].a = NOM_FLOAT(json, token);
+                break;
+              case HASH16("baseColorTexture"):
+                token = parseTextureInfo(json, token, &material->textures[TEXTURE_DIFFUSE]);
+                break;
+              case HASH16("metallicFactor"): material->scalars[SCALAR_METALNESS] = NOM_FLOAT(json, token); break;
+              case HASH16("roughnessFactor"): material->scalars[SCALAR_ROUGHNESS] = NOM_FLOAT(json, token); break;
+              case HASH64("metallicRoughnessTexture"):
+                token = parseTextureInfo(json, token, &material->textures[TEXTURE_METALNESS]);
+                material->textures[TEXTURE_ROUGHNESS] = material->textures[TEXTURE_METALNESS];
+                break;
+            }
+          }
+        }
+        case HASH16("normalTexture"): token = parseTextureInfo(json, token, &material->textures[TEXTURE_NORMAL]); break;
+        case HASH16("occlusionTexture"): token = parseTextureInfo(json, token, &material->textures[TEXTURE_OCCLUSION]); break;
+        case HASH16("emissiveTexture"): token = parseTextureInfo(json, token, &material->textures[TEXTURE_EMISSIVE]); break;
+        case HASH16("emissiveFactor"):
+          token++; // Enter array
+          material->colors[COLOR_EMISSIVE].r = NOM_FLOAT(json, token);
+          material->colors[COLOR_EMISSIVE].g = NOM_FLOAT(json, token);
+          material->colors[COLOR_EMISSIVE].b = NOM_FLOAT(json, token);
+          material->colors[COLOR_EMISSIVE].a = NOM_FLOAT(json, token);
+          break;
+        default: token += nomValue(json, token, 1, 0); break;
+      }
+    }
+  }
+}
+
 static jsmntok_t* parsePrimitive(const char* json, jsmntok_t* token, int index, ModelData* model) {
   ModelPrimitive* primitive = &model->primitives[index];
   memset(primitive->attributes, 0xff, sizeof(primitive->attributes));
@@ -625,6 +704,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
   model->images = (TextureData**) (model->data + offset), offset += model->imageCount * sizeof(TextureData*);
   model->samplers = (ModelSampler*) (model->data + offset), offset += model->samplerCount * sizeof(ModelSampler);
   model->textures = (ModelTexture*) (model->data + offset), offset += model->textureCount * sizeof(ModelTexture);
+  model->materials = (ModelMaterial*) (model->data + offset), offset += model->materialCount * sizeof(ModelMaterial);
   model->primitives = (ModelPrimitive*) (model->data + offset), offset += model->primitiveCount * sizeof(ModelPrimitive);
   model->meshes = (ModelMesh*) (model->data + offset), offset += model->meshCount * sizeof(ModelMesh);
   model->nodes = (ModelNode*) (model->data + offset), offset += model->nodeCount * sizeof(ModelNode);
@@ -639,6 +719,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
   parseImages(jsonData, info.images, model, io);
   parseSamplers(jsonData, info.samplers, model);
   parseTextures(jsonData, info.textures, model);
+  parseMaterials(jsonData, info.materials, model);
   parseMeshes(jsonData, info.meshes, model);
   parseNodes(jsonData, info.nodes, model);
   parseSkins(jsonData, info.skins, model);
