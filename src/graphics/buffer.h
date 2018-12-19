@@ -1,3 +1,4 @@
+#include "graphics/opengl.h"
 #include <stdlib.h>
 
 #pragma once
@@ -8,7 +9,13 @@ typedef enum {
   USAGE_STREAM
 } BufferUsage;
 
-typedef struct Buffer Buffer;
+typedef struct {
+  Ref ref;
+  void* data;
+  size_t size;
+  BufferUsage usage;
+  GPU_BUFFER_FIELDS
+} Buffer;
 
 Buffer* lovrBufferCreate(size_t size, void* data, BufferUsage usage, bool readable);
 void lovrBufferDestroy(void* ref);

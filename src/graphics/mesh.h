@@ -1,5 +1,6 @@
 #include "graphics/material.h"
 #include "graphics/shader.h"
+#include "graphics/opengl.h"
 #include "data/vertexData.h"
 #include "lib/map/map.h"
 #include <stdbool.h>
@@ -31,7 +32,26 @@ typedef enum {
   DRAW_TRIANGLE_FAN
 } DrawMode;
 
-typedef struct Mesh Mesh;
+typedef struct {
+  Ref ref;
+  uint32_t count;
+  DrawMode mode;
+  VertexFormat format;
+  bool readable;
+  bool dirty;
+  BufferUsage usage;
+  Buffer* vbo;
+  Buffer* ibo;
+  uint32_t indexCount;
+  size_t indexSize;
+  size_t indexCapacity;
+  uint32_t rangeStart;
+  uint32_t rangeCount;
+  Material* material;
+  map_attribute_t attributes;
+  MeshAttribute layout[MAX_ATTRIBUTES];
+  GPU_MESH_FIELDS
+} Mesh;
 
 Mesh* lovrMeshCreate(uint32_t count, VertexFormat format, DrawMode drawMode, BufferUsage usage, bool readable);
 void lovrMeshDestroy(void* ref);

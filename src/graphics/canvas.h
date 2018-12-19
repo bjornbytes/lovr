@@ -1,4 +1,5 @@
 #include "graphics/texture.h"
+#include "graphics/opengl.h"
 
 #pragma once
 
@@ -21,7 +22,18 @@ typedef struct {
   bool mipmaps;
 } CanvasFlags;
 
-typedef struct Canvas Canvas;
+typedef struct {
+  Ref ref;
+  int width;
+  int height;
+  CanvasFlags flags;
+  Attachment attachments[MAX_CANVAS_ATTACHMENTS];
+  Attachment depth;
+  int attachmentCount;
+  bool needsAttach;
+  bool needsResolve;
+  GPU_CANVAS_FIELDS
+} Canvas;
 
 Canvas* lovrCanvasCreate(int width, int height, CanvasFlags flags);
 Canvas* lovrCanvasCreateFromHandle(int width, int height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, int attachmentCount, bool immortal);

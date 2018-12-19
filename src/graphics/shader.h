@@ -1,5 +1,6 @@
 #include "graphics/buffer.h"
 #include "graphics/texture.h"
+#include "graphics/opengl.h"
 #include "lib/map/map.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
@@ -73,8 +74,14 @@ typedef struct {
 
 typedef vec_t(Uniform) vec_uniform_t;
 
-typedef struct Shader Shader;
-typedef struct ShaderBlock ShaderBlock;
+typedef struct {
+  Ref ref;
+  BlockType type;
+  vec_uniform_t uniforms;
+  map_int_t uniformMap;
+  Buffer* buffer;
+  GPU_SHADER_BLOCK_FIELDS
+} ShaderBlock;
 
 typedef struct {
   vec_uniform_t uniforms;
@@ -84,6 +91,18 @@ typedef struct {
 } UniformBlock;
 
 typedef vec_t(UniformBlock) vec_block_t;
+
+typedef struct {
+  Ref ref;
+  ShaderType type;
+  vec_uniform_t uniforms;
+  vec_block_t blocks[2];
+  map_int_t attributes;
+  map_int_t uniformMap;
+  map_int_t blockMap;
+  bool dirty;
+  GPU_SHADER_FIELDS
+} Shader;
 
 Shader* lovrShaderCreateGraphics(const char* vertexSource, const char* fragmentSource);
 Shader* lovrShaderCreateCompute(const char* source);
