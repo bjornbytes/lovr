@@ -38,7 +38,7 @@ typedef struct {
 } Material;
 
 Material* lovrMaterialInit(Material* material);
-#define lovrMaterialCreate() lovrMaterialInit(lovrAlloc(Material, lovrMaterialDestroy))
+#define lovrMaterialCreate() lovrMaterialInit(lovrAlloc(Material))
 void lovrMaterialDestroy(void* ref);
 void lovrMaterialBind(Material* material, Shader* shader);
 bool lovrMaterialIsDirty(Material* material);

@@ -28,7 +28,7 @@ typedef struct {
 } Animator;
 
 Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData);
-#define lovrAnimatorCreate(...) lovrAnimatorInit(lovrAlloc(Animator, lovrAnimatorDestroy), __VA_ARGS__)
+#define lovrAnimatorCreate(...) lovrAnimatorInit(lovrAlloc(Animator), __VA_ARGS__)
 void lovrAnimatorDestroy(void* ref);
 void lovrAnimatorReset(Animator* animator);
 void lovrAnimatorUpdate(Animator* animator, float dt);

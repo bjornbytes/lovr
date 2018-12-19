@@ -111,3 +111,4 @@ extern HeadsetInterface* lovrHeadsetDriver;
 
 bool lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa);
 void lovrHeadsetDestroy();
+#define lovrControllerDestroy free

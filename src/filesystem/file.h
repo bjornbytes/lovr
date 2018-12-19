@@ -16,7 +16,7 @@ typedef struct {
 } File;
 
 File* lovrFileInit(File* file, const char* filename);
-#define lovrFileCreate(...) lovrFileInit(lovrAlloc(File, lovrFileDestroy), __VA_ARGS__)
+#define lovrFileCreate(...) lovrFileInit(lovrAlloc(File), __VA_ARGS__)
 void lovrFileDestroy(void* ref);
 int lovrFileOpen(File* file, FileMode mode);
 void lovrFileClose(File* file);

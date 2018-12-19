@@ -110,7 +110,7 @@ static Controller *controller;
 
 static Controller** oculusMobileGetControllers(uint8_t* count) {
   if (!controller)
-    controller = lovrAlloc(Controller, free);
+    controller = lovrAlloc(Controller);
   *count = bridgeLovrMobileData.updateData.goPresent; // TODO: Figure out what multi controller Oculus Mobile looks like and support it
   return &controller;
 }

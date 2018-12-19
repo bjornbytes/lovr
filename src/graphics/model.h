@@ -24,7 +24,7 @@ typedef struct {
 } Model;
 
 Model* lovrModelInit(Model* model, ModelData* modelData);
-#define lovrModelCreate(...) lovrModelInit(lovrAlloc(Model, lovrModelDestroy), __VA_ARGS__)
+#define lovrModelCreate(...) lovrModelInit(lovrAlloc(Model), __VA_ARGS__)
 void lovrModelDestroy(void* ref);
 void lovrModelDraw(Model* model, mat4 transform, int instances);
 Animator* lovrModelGetAnimator(Model* model);

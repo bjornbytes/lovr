@@ -107,9 +107,9 @@ typedef struct {
 Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource);
 Shader* lovrShaderInitCompute(Shader* shader, const char* source);
 Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type);
-#define lovrShaderCreateGraphics(...) lovrShaderInitGraphics(lovrAlloc(Shader, lovrShaderDestroy), __VA_ARGS__)
-#define lovrShaderCreateCompute(...) lovrShaderInitCompute(lovrAlloc(Shader, lovrShaderDestroy), __VA_ARGS__)
-#define lovrShaderCreateDefault(...) lovrShaderInitDefault(lovrAlloc(Shader, lovrShaderDestroy), __VA_ARGS__)
+#define lovrShaderCreateGraphics(...) lovrShaderInitGraphics(lovrAlloc(Shader), __VA_ARGS__)
+#define lovrShaderCreateCompute(...) lovrShaderInitCompute(lovrAlloc(Shader), __VA_ARGS__)
+#define lovrShaderCreateDefault(...) lovrShaderInitDefault(lovrAlloc(Shader), __VA_ARGS__)
 void lovrShaderDestroy(void* ref);
 ShaderType lovrShaderGetType(Shader* shader);
 void lovrShaderBind(Shader* shader);
@@ -126,7 +126,7 @@ void lovrShaderSetColor(Shader* shader, const char* name, Color color);
 void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* block, UniformAccess access);
 
 ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, vec_uniform_t* uniforms, BlockType type, BufferUsage usage);
-#define lovrShaderBlockCreate(...) lovrShaderBlockInit(lovrAlloc(ShaderBlock, lovrShaderBlockDestroy), __VA_ARGS__)
+#define lovrShaderBlockCreate(...) lovrShaderBlockInit(lovrAlloc(ShaderBlock), __VA_ARGS__)
 void lovrShaderBlockDestroy(void* ref);
 BlockType lovrShaderBlockGetType(ShaderBlock* block);
 char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, size_t* length);

@@ -172,8 +172,7 @@ static bool openvrInit(float offset, int msaa) {
   vec_init(&state.controllers);
   for (uint32_t i = 0; i < k_unMaxTrackedDeviceCount; i++) {
     if (isController(i)) {
-      Controller* controller = lovrAlloc(Controller, free);
-      if (!controller) continue;
+      Controller* controller = lovrAlloc(Controller);
       controller->id = i;
       vec_push(&state.controllers, controller);
     }
@@ -416,7 +415,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   RenderModel_t* vrModel = state.deviceModels[id];
 
-  ModelData* modelData = lovrAlloc(ModelData, lovrModelDataDestroy);
+  ModelData* modelData = lovrAlloc(ModelData);
 
   VertexFormat format;
   vertexFormatInit(&format);
@@ -553,8 +552,7 @@ static void openvrUpdate(float dt) {
       case EVREventType_VREvent_TrackedDeviceActivated: {
         uint32_t id = vrEvent.trackedDeviceIndex;
         if (isController(id)) {
-          Controller* controller = lovrAlloc(Controller, free);
-          if (!controller) break;
+          Controller* controller = lovrAlloc(Controller);
           controller->id = id;
           vec_push(&state.controllers, controller);
           lovrRetain(controller);

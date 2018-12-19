@@ -41,7 +41,7 @@ typedef struct {
 static HeadsetState state;
 
 static void onControllerAdded(uint32_t id) {
-  Controller* controller = lovrAlloc(Controller, free);
+  Controller* controller = lovrAlloc(Controller);
   controller->id = id;
   vec_push(&state.controllers, controller);
   lovrRetain(controller);

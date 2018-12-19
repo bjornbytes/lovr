@@ -54,7 +54,7 @@ static bool fakeInit(float offset, int msaa) {
   mat4_identity(state.transform);
 
   vec_init(&state.controllers);
-  Controller* controller = lovrAlloc(Controller, free);
+  Controller* controller = lovrAlloc(Controller);
   controller->id = 0;
   vec_push(&state.controllers, controller);
 

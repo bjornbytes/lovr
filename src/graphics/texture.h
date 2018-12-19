@@ -54,8 +54,8 @@ typedef struct {
 
 Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps, int msaa);
 Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureType type);
-#define lovrTextureCreate(...) lovrTextureInit(lovrAlloc(Texture, lovrTextureDestroy), __VA_ARGS__)
-#define lovrTextureCreateFromHandle(...) lovrTextureInitFromHandle(lovrAlloc(Texture, lovrTextureDestroy), __VA_ARGS__)
+#define lovrTextureCreate(...) lovrTextureInit(lovrAlloc(Texture), __VA_ARGS__)
+#define lovrTextureCreateFromHandle(...) lovrTextureInitFromHandle(lovrAlloc(Texture), __VA_ARGS__)
 void lovrTextureDestroy(void* ref);
 void lovrTextureAllocate(Texture* texture, int width, int height, int depth, TextureFormat format);
 void lovrTextureReplacePixels(Texture* texture, TextureData* data, int x, int y, int slice, int mipmap);
