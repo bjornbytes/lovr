@@ -1,6 +1,8 @@
 #ifndef __JSMN_H_
 #define __JSMN_H_
 
+#define JSMN_PARENT_LINKS
+
 #include <stddef.h>
 
 #ifdef __cplusplus
