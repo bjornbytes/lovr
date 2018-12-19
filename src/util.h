@@ -31,7 +31,7 @@
 #define ALIGN(p, n) ((uintptr_t) p & -n)
 
 typedef struct ref {
-  void (*free)(void*);
+  void (*destructor)(void*);
   const char* type;
   int count;
 } Ref;

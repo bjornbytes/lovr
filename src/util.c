@@ -31,7 +31,7 @@ void lovrThrow(const char* format, ...) {
 void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*)) {
   Ref* ref = calloc(1, size);
   if (!ref) return lovrThrow("Out of memory"), NULL;
-  ref->free = destructor;
+  ref->destructor = destructor;
   ref->type = type;
   ref->count = 1;
   return ref;
@@ -43,7 +43,9 @@ void lovrRetain(void* object) {
 
 void lovrRelease(void* object) {
   Ref* ref = object;
-  if (ref && --ref->count == 0) ref->free(object);
+  if (ref && --ref->count == 0) {
+    ref->destructor(object);
+  }
 }
 
 // https://github.com/starwing/luautf8
