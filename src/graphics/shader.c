@@ -71,10 +71,6 @@ ShaderType lovrShaderGetType(Shader* shader) {
   return shader->type;
 }
 
-bool lovrShaderIsDirty(Shader* shader) {
-  return shader->dirty;
-}
-
 int lovrShaderGetAttributeId(Shader* shader, const char* name) {
   int* id = map_get(&shader->attributes, name);
   return id ? *id : -1;
@@ -111,7 +107,6 @@ static void lovrShaderSetUniform(Shader* shader, const char* name, UniformType t
 
   memcpy(dest, data, count * size);
   uniform->dirty = true;
-  shader->dirty = true;
 }
 
 void lovrShaderSetFloats(Shader* shader, const char* name, float* data, int start, int count) {
@@ -170,7 +165,6 @@ void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source, U
     lovrRetain(source);
     lovrRelease(block->source);
     block->source = source;
-    shader->dirty = true;
   }
 }
 

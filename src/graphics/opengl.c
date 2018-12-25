@@ -1813,8 +1813,6 @@ void lovrShaderBind(Shader* shader) {
       }
     }
   }
-
-  shader->dirty = false;
 }
 
 // ShaderBlock
