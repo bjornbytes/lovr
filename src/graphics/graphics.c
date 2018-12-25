@@ -2,6 +2,7 @@
 #include "data/rasterizer.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
+#include "math/math.h"
 #include "util.h"
 #include "lib/math.h"
 #include "lib/stb/stb_image.h"
@@ -11,6 +12,14 @@
 #include <math.h>
 
 static GraphicsState state;
+
+static void gammaCorrectColor(Color* color) {
+  if (state.gammaCorrect) {
+    color->r = lovrMathGammaToLinear(color->r);
+    color->g = lovrMathGammaToLinear(color->g);
+    color->b = lovrMathGammaToLinear(color->b);
+  }
+}
 
 static void onCloseWindow() {
   lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { false, 0 } });
@@ -410,6 +419,7 @@ uint16_t* lovrGraphicsGetIndexPointer(uint32_t count) {
 }
 
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
+  if (color) gammaCorrectColor(color);
   lovrGpuClear(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
 }
 
