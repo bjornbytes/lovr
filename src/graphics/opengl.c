@@ -1081,10 +1081,6 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
   }
 }
 
-GLuint lovrTextureGetId(Texture* texture) {
-  return texture->id;
-}
-
 int lovrTextureGetWidth(Texture* texture, int mipmap) {
   return MAX(texture->width >> mipmap, 1);
 }
