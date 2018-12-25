@@ -151,8 +151,7 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   }
 
   if (clear) {
-    Color backgroundColor = lovrGraphicsGetBackgroundColor();
-    lovrGpuClear(state.camera.canvas, &backgroundColor, &(float) { 1. }, &(int) { 0 });
+    lovrGpuClear(state.camera.canvas, &state.backgroundColor, &(float) { 1. }, &(int) { 0 });
   }
 }
 
@@ -216,11 +215,11 @@ void lovrGraphicsSetAlphaSampling(bool sample) {
 }
 
 Color lovrGraphicsGetBackgroundColor() {
-  return state.pipeline->backgroundColor;
+  return state.backgroundColor;
 }
 
 void lovrGraphicsSetBackgroundColor(Color color) {
-  state.pipeline->backgroundColor = color;
+  state.backgroundColor = color;
 }
 
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
