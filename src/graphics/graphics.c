@@ -43,7 +43,6 @@ static bool batchable(DrawRequest* a) {
   if (a->mono != b->mono) return false;
   if (!!a->pose != !!b->pose || (a->pose && memcmp(a->pose, b->pose, MAX_BONES * 16 * sizeof(float)))) return false;
   if (a->material && lovrMaterialIsDirty(a->material)) return false;
-  if (state.canvas && lovrCanvasIsDirty(state.canvas)) return false;
   return true;
 }
 
