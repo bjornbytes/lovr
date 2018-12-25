@@ -33,10 +33,6 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
   canvas->needsAttach = true;
 }
 
-bool lovrCanvasIsDirty(Canvas* canvas) {
-  return canvas->needsAttach;
-}
-
 bool lovrCanvasIsStereo(Canvas* canvas) {
   return canvas->flags.stereo;
 }
