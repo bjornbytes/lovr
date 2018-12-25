@@ -436,7 +436,8 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
     uint32_t handle;
     ovr_GetMirrorTextureBufferGL(state.session, state.mirror, &handle);
     Texture* texture = lookupTexture(handle);
-    lovrGraphicsPushPipeline();
+    Color oldColor = lovrGraphicsGetColor();
+    Shader* oldShader = lovrGraphicsGetShader();
     lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
     lovrGraphicsSetShader(NULL);
     if (state.mirrorEye == EYE_BOTH) {
@@ -444,7 +445,8 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
     } else {
       lovrGraphicsFill(texture, .5 * state.mirrorEye, 0, .5, 1);
     }
-    lovrGraphicsPopPipeline();
+    lovrGraphicsSetColor(oldColor);
+    lovrGraphicsSetShader(oldShader);
   }
 }
 

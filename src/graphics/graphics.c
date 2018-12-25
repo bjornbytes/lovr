@@ -55,9 +55,6 @@ bool lovrGraphicsInit(bool gammaCorrect) {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
-  while (state.pipelineIndex > 0) {
-    lovrGraphicsPopPipeline();
-  }
   lovrGraphicsSetShader(NULL);
   lovrGraphicsSetFont(NULL);
   lovrGraphicsSetCanvas(NULL);
@@ -167,10 +164,6 @@ Buffer* lovrGraphicsGetIdentityBuffer() {
 // State
 
 void lovrGraphicsReset() {
-  while (state.pipelineIndex > 0) {
-    lovrGraphicsPopPipeline();
-  }
-  state.pipeline = &state.pipelines[state.pipelineIndex];
   state.transform = 0;
   lovrGraphicsSetCamera(NULL, false);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1 });
@@ -190,23 +183,12 @@ void lovrGraphicsReset() {
   lovrGraphicsOrigin();
 }
 
-void lovrGraphicsPushPipeline() {
-  lovrAssert(++state.pipelineIndex < MAX_PIPELINES, "Unbalanced pipeline stack (more pushes than pops?)");
-  memcpy(&state.pipelines[state.pipelineIndex], &state.pipelines[state.pipelineIndex - 1], sizeof(Pipeline));
-  state.pipeline = &state.pipelines[state.pipelineIndex];
-}
-
-void lovrGraphicsPopPipeline() {
-  lovrAssert(--state.pipelineIndex >= 0, "Unbalanced pipeline stack (more pops than pushes?)");
-  state.pipeline = &state.pipelines[state.pipelineIndex];
-}
-
 bool lovrGraphicsGetAlphaSampling() {
-  return state.pipeline->alphaSampling;
+  return state.pipeline.alphaSampling;
 }
 
 void lovrGraphicsSetAlphaSampling(bool sample) {
-  state.pipeline->alphaSampling = sample;
+  state.pipeline.alphaSampling = sample;
 }
 
 Color lovrGraphicsGetBackgroundColor() {
@@ -218,13 +200,13 @@ void lovrGraphicsSetBackgroundColor(Color color) {
 }
 
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
-  *mode = state.pipeline->blendMode;
-  *alphaMode = state.pipeline->blendAlphaMode;
+  *mode = state.pipeline.blendMode;
+  *alphaMode = state.pipeline.blendAlphaMode;
 }
 
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
-  state.pipeline->blendMode = mode;
-  state.pipeline->blendAlphaMode = alphaMode;
+  state.pipeline.blendMode = mode;
+  state.pipeline.blendAlphaMode = alphaMode;
 }
 
 Canvas* lovrGraphicsGetCanvas() {
@@ -250,11 +232,11 @@ void lovrGraphicsSetColor(Color color) {
 }
 
 bool lovrGraphicsIsCullingEnabled() {
-  return state.pipeline->culling;
+  return state.pipeline.culling;
 }
 
 void lovrGraphicsSetCullingEnabled(bool culling) {
-  state.pipeline->culling = culling;
+  state.pipeline.culling = culling;
 }
 
 TextureFilter lovrGraphicsGetDefaultFilter() {
@@ -266,13 +248,13 @@ void lovrGraphicsSetDefaultFilter(TextureFilter filter) {
 }
 
 void lovrGraphicsGetDepthTest(CompareMode* mode, bool* write) {
-  *mode = state.pipeline->depthTest;
-  *write = state.pipeline->depthWrite;
+  *mode = state.pipeline.depthTest;
+  *write = state.pipeline.depthWrite;
 }
 
 void lovrGraphicsSetDepthTest(CompareMode mode, bool write) {
-  state.pipeline->depthTest = mode;
-  state.pipeline->depthWrite = write;
+  state.pipeline.depthTest = mode;
+  state.pipeline.depthWrite = write;
 }
 
 Font* lovrGraphicsGetFont() {
@@ -300,12 +282,12 @@ bool lovrGraphicsIsGammaCorrect() {
 }
 
 float lovrGraphicsGetLineWidth() {
-  return state.pipeline->lineWidth;
+  return state.pipeline.lineWidth;
 }
 
 void lovrGraphicsSetLineWidth(uint8_t width) {
   lovrAssert(width > 0 && width <= 255, "Line width must be between 0 and 255");
-  state.pipeline->lineWidth = width;
+  state.pipeline.lineWidth = width;
 }
 
 float lovrGraphicsGetPointSize() {
@@ -328,30 +310,30 @@ void lovrGraphicsSetShader(Shader* shader) {
 }
 
 void lovrGraphicsGetStencilTest(CompareMode* mode, int* value) {
-  *mode = state.pipeline->stencilMode;
-  *value = state.pipeline->stencilValue;
+  *mode = state.pipeline.stencilMode;
+  *value = state.pipeline.stencilValue;
 }
 
 void lovrGraphicsSetStencilTest(CompareMode mode, int value) {
-  state.pipeline->stencilMode = mode;
-  state.pipeline->stencilValue = value;
+  state.pipeline.stencilMode = mode;
+  state.pipeline.stencilValue = value;
 }
 
 Winding lovrGraphicsGetWinding() {
-  return state.pipeline->winding;
+  return state.pipeline.winding;
 }
 
 void lovrGraphicsSetWinding(Winding winding) {
-  state.pipeline->winding = winding;
+  state.pipeline.winding = winding;
 }
 
 bool lovrGraphicsIsWireframe() {
-  return state.pipeline->wireframe;
+  return state.pipeline.wireframe;
 }
 
 void lovrGraphicsSetWireframe(bool wireframe) {
 #ifndef EMSCRIPTEN
-  state.pipeline->wireframe = wireframe;
+  state.pipeline.wireframe = wireframe;
 #endif
 }
 
@@ -435,6 +417,7 @@ void lovrGraphicsFlush() {
   Canvas* canvas = state.canvas ? state.canvas : state.camera.canvas;
   Material* material = draw->material ? draw->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
   Shader* shader = state.shader ? state.shader : (state.defaultShaders[draw->shader] ? state.defaultShaders[draw->shader] : (state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader)));
+  Pipeline* pipeline = draw->pipeline ? draw->pipeline : &state.pipeline;
 
   if (!draw->material) {
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, draw->diffuseTexture);
@@ -480,7 +463,7 @@ void lovrGraphicsFlush() {
     .mesh = mesh,
     .shader = shader,
     .canvas = canvas,
-    .pipeline = *state.pipeline,
+    .pipeline = *pipeline,
     .instances = draw->instances,
     .width = canvas ? lovrCanvasGetWidth(canvas) : state.width,
     .height = canvas ? lovrCanvasGetHeight(canvas) : state.height,
@@ -876,12 +859,15 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az) {
   TextureType type = lovrTextureGetType(texture);
   lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
-  lovrGraphicsPushPipeline();
-  lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
+
+  Pipeline pipeline = state.pipeline;
+  pipeline.winding = WINDING_COUNTERCLOCKWISE;
+
   lovrGraphicsDraw(&(DrawRequest) {
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
     .diffuseTexture = type == TEXTURE_2D ? texture : NULL,
     .environmentMap = type == TEXTURE_CUBE ? texture : NULL,
+    .pipeline = &pipeline,
     .mode = DRAW_TRIANGLE_STRIP,
     .vertex.count = 4,
     .vertex.data = (float[]) {
@@ -891,7 +877,6 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
       1, -1, 1,  0, 0, 0, 0, 0
     }
   });
-  lovrGraphicsPopPipeline();
 }
 
 void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
@@ -903,29 +888,32 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   float* vertices = lovrGraphicsGetVertexPointer(maxVertices);
   lovrFontRender(font, str, wrap, halign, valign, vertices, &offsety, &vertexCount);
 
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
-  lovrGraphicsScale((float[3]) { scale, scale, scale });
-  lovrGraphicsTranslate((float[3]) { 0, offsety, 0 });
-  lovrGraphicsPushPipeline();
-  lovrGraphicsSetAlphaSampling(true);
+  Pipeline pipeline = state.pipeline;
+  pipeline.alphaSampling = true;
+
+  mat4_scale(transform, scale, scale, scale);
+  mat4_translate(transform, 0.f, offsety, 0.f);
+
   lovrGraphicsDraw(&(DrawRequest) {
     .shader = SHADER_FONT,
     .diffuseTexture = font->texture,
+    .pipeline = &pipeline,
+    .transform = transform,
     .mode = DRAW_TRIANGLES,
     .vertex.count = vertexCount
   });
-  lovrGraphicsPopPipeline();
-  lovrGraphicsPop();
 }
 
 void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
-  lovrGraphicsPushPipeline();
-  lovrGraphicsSetDepthTest(COMPARE_NONE, false);
+  Pipeline pipeline = state.pipeline;
+  pipeline.depthTest = COMPARE_NONE;
+  pipeline.depthWrite = false;
+
   lovrGraphicsDraw(&(DrawRequest) {
     .mono = true,
     .shader = SHADER_FILL,
     .diffuseTexture = texture,
+    .pipeline = &pipeline,
     .mode = DRAW_TRIANGLE_STRIP,
     .vertex.count = 4,
     .vertex.data = (float[]) {
@@ -935,5 +923,4 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
       1, -1, 0,  0, 0, 0, u + w, v
     }
   });
-  lovrGraphicsPopPipeline();
 }
