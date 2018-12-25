@@ -735,8 +735,6 @@ void lovrGpuBindPipeline(Pipeline* pipeline) {
     glPolygonMode(GL_FRONT_AND_BACK, state.wireframe ? GL_LINE : GL_FILL);
   }
 #endif
-
-  pipeline->dirty = false;
 }
 
 void lovrGpuSetViewports(float* viewport, int count) {
