@@ -855,6 +855,33 @@ void lovrGpuPresent() {
 #endif
 }
 
+void lovrGpuSubmit(DrawCommand* commands, int count) {
+  for (int i = 0; i < count; i++) {
+    DrawCommand* draw = &commands[i];
+
+    int viewCount = 1 + draw->stereo;
+    int drawCount = state.features.singlepass ? 1 : viewCount;
+    int viewsPerDraw = state.features.singlepass ? viewCount : 1;
+    int instances = draw->instances * viewsPerDraw;
+
+    float w = draw->width / (float) viewCount;
+    float h = draw->height;
+    float viewports[2][4] = { { 0, 0, w, h }, { w, 0, w, h } };
+    lovrShaderSetInts(draw->shader, "lovrViewportCount", &viewCount, 0, 1);
+
+    lovrMeshBind(draw->mesh, draw->shader, viewsPerDraw);
+    lovrCanvasBind(draw->canvas, true);
+    lovrGpuBindPipeline(&draw->pipeline);
+
+    for (int i = 0; i < drawCount; i++) {
+      lovrGpuSetViewports(&viewports[i][0], viewsPerDraw);
+      lovrShaderSetInts(draw->shader, "lovrViewportIndex", &i, 0, 1);
+      lovrShaderBind(draw->shader);
+      lovrMeshDraw(draw->mesh, instances);
+    }
+  }
+}
+
 void lovrGpuDirtyTexture() {
   state.textures[state.activeTexture] = NULL;
 }

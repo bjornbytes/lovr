@@ -243,6 +243,18 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h);
 #define lovrGraphicsCompute lovrGpuCompute
 
 // GPU API
+
+typedef struct {
+  Mesh* mesh;
+  Shader* shader;
+  Canvas* canvas;
+  Pipeline pipeline;
+  uint32_t instances;
+  uint32_t width : 15;
+  uint32_t height : 15;
+  bool stereo : 1;
+} DrawCommand;
+
 void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress);
 void lovrGpuDestroy();
 void lovrGpuBindPipeline(Pipeline* pipeline);
@@ -252,6 +264,7 @@ void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil);
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
 void lovrGpuPresent();
+void lovrGpuSubmit(DrawCommand* commands, int count);
 void lovrGpuDirtyTexture();
 const GpuFeatures* lovrGpuGetSupported();
 const GpuLimits* lovrGpuGetLimits();
