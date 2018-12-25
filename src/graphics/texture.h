@@ -59,7 +59,6 @@ Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureTyp
 void lovrTextureDestroy(void* ref);
 void lovrTextureAllocate(Texture* texture, int width, int height, int depth, TextureFormat format);
 void lovrTextureReplacePixels(Texture* texture, TextureData* data, int x, int y, int slice, int mipmap);
-uint32_t lovrTextureGetId(Texture* texture);
 int lovrTextureGetWidth(Texture* texture, int mipmap);
 int lovrTextureGetHeight(Texture* texture, int mipmap);
 int lovrTextureGetDepth(Texture* texture, int mipmap);
