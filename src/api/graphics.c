@@ -526,7 +526,7 @@ static int l_lovrGraphicsGetLineWidth(lua_State* L) {
 }
 
 static int l_lovrGraphicsSetLineWidth(lua_State* L) {
-  float width = luaL_optnumber(L, 1, 1.f);
+  uint8_t width = (uint8_t) luaL_optinteger(L, 1, 1);
   lovrGraphicsSetLineWidth(width);
   return 0;
 }
