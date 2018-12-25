@@ -297,7 +297,8 @@ float lovrGraphicsGetLineWidth() {
   return state.pipeline->lineWidth;
 }
 
-void lovrGraphicsSetLineWidth(float width) {
+void lovrGraphicsSetLineWidth(uint8_t width) {
+  lovrAssert(width > 0 && width <= 255, "Line width must be between 0 and 255");
   state.pipeline->lineWidth = width;
 }
 

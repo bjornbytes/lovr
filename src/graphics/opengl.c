@@ -47,7 +47,7 @@ static struct {
   bool depthEnabled;
   CompareMode depthTest;
   bool depthWrite;
-  float lineWidth;
+  uint8_t lineWidth;
   bool stencilEnabled;
   CompareMode stencilMode;
   int stencilValue;

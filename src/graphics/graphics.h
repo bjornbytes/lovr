@@ -100,17 +100,17 @@ typedef struct {
 } Camera;
 
 typedef struct {
-  bool alphaSampling;
-  BlendMode blendMode;
-  BlendAlphaMode blendAlphaMode;
-  bool culling;
-  CompareMode depthTest;
-  bool depthWrite;
-  float lineWidth;
-  CompareMode stencilMode;
-  int stencilValue;
-  Winding winding;
-  bool wireframe;
+  BlendMode blendMode : 3;
+  BlendAlphaMode blendAlphaMode : 1;
+  CompareMode depthTest : 3;
+  bool depthWrite : 1;
+  uint8_t lineWidth : 8;
+  uint8_t stencilValue: 8;
+  CompareMode stencilMode : 3;
+  bool alphaSampling : 1;
+  bool culling : 1;
+  Winding winding : 1;
+  bool wireframe : 1;
 } Pipeline;
 
 typedef struct {
@@ -198,7 +198,7 @@ Font* lovrGraphicsGetFont();
 void lovrGraphicsSetFont(Font* font);
 bool lovrGraphicsIsGammaCorrect();
 float lovrGraphicsGetLineWidth();
-void lovrGraphicsSetLineWidth(float width);
+void lovrGraphicsSetLineWidth(uint8_t width);
 float lovrGraphicsGetPointSize();
 void lovrGraphicsSetPointSize(float size);
 Shader* lovrGraphicsGetShader();
