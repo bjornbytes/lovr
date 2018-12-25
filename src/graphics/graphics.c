@@ -250,11 +250,11 @@ void lovrGraphicsSetCanvas(Canvas* canvas) {
 }
 
 Color lovrGraphicsGetColor() {
-  return state.pipeline->color;
+  return state.color;
 }
 
 void lovrGraphicsSetColor(Color color) {
-  state.pipeline->color = color;
+  state.color = color;
 }
 
 bool lovrGraphicsIsCullingEnabled() {
@@ -583,7 +583,7 @@ void lovrGraphicsDraw(DrawRequest* draw) {
   memcpy(drawData->model[state.batchSize], state.transforms[state.transform], 16 * sizeof(float));
   if (draw->transform) { mat4_multiply(drawData->model[state.batchSize], draw->transform); }
 
-  memcpy(drawData->color[state.batchSize], (float*) &state.pipeline->color, 4 * sizeof(float));
+  memcpy(drawData->color[state.batchSize], (float*) &state.color, 4 * sizeof(float));
 
   if (++state.batchSize >= MAX_BATCH_SIZE) {
     lovrGraphicsFlush();
