@@ -106,7 +106,6 @@ typedef struct {
   bool culling;
   CompareMode depthTest;
   bool depthWrite;
-  Font* font;
   float lineWidth;
   float pointSize;
   Shader* shader;
@@ -151,6 +150,7 @@ typedef struct {
   Color backgroundColor;
   Canvas* canvas;
   Color color;
+  Font* font;
   DrawRequest batch;
   int batchVertex;
   int batchIndex;
