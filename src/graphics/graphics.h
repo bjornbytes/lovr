@@ -257,14 +257,12 @@ typedef struct {
 
 void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress);
 void lovrGpuDestroy();
-void lovrGpuBindPipeline(Pipeline* pipeline);
-void lovrGpuSetViewports(float* viewports, int count);
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
-void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil);
-void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
+void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil);
+void lovrGpuDraw(DrawCommand* commands, int count);
+void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGpuPresent();
-void lovrGpuSubmit(DrawCommand* commands, int count);
 void lovrGpuDirtyTexture();
 const GpuFeatures* lovrGpuGetSupported();
 const GpuLimits* lovrGpuGetLimits();

@@ -476,7 +476,7 @@ void lovrGraphicsFlush() {
   lovrMaterialBind(material, shader);
   lovrShaderSetBlock(shader, "lovrDrawData", state.block, ACCESS_READ);
 
-  lovrGpuSubmit(&(DrawCommand) {
+  lovrGpuDraw(&(DrawCommand) {
     .mesh = mesh,
     .shader = shader,
     .canvas = canvas,
