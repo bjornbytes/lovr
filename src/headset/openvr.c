@@ -530,7 +530,8 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   lovrGpuDirtyTexture();
 
   if (state.isMirrored) {
-    lovrGraphicsPushPipeline();
+    Color oldColor = lovrGraphicsGetColor();
+    Shader* oldShader = lovrGraphicsGetShader();
     lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
     lovrGraphicsSetShader(NULL);
     if (state.mirrorEye == EYE_BOTH) {
@@ -538,7 +539,8 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     } else {
       lovrGraphicsFill(attachments[0].texture, .5 * state.mirrorEye, 0, .5, 1);
     }
-    lovrGraphicsPopPipeline();
+    lovrGraphicsSetColor(oldColor);
+    lovrGraphicsSetShader(oldShader);
   }
 }
 

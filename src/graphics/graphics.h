@@ -13,7 +13,6 @@
 #pragma once
 
 #define MAX_TRANSFORMS 64
-#define MAX_PIPELINES 16
 #define MAX_VERTICES (1 << 16)
 #define MAX_INDICES (1 << 16)
 #define MAX_BATCH_SIZE 192 // Enough to fit in any UBO
@@ -122,6 +121,7 @@ typedef struct {
   Texture* diffuseTexture;
   Texture* environmentMap;
   Material* material;
+  Pipeline* pipeline;
   mat4 transform;
   float* pose;
   int instances;
@@ -141,13 +141,11 @@ typedef struct {
   TextureFilter defaultFilter;
   float transforms[MAX_TRANSFORMS][16];
   int transform;
-  Pipeline pipelines[MAX_PIPELINES];
-  Pipeline* pipeline;
-  int pipelineIndex;
   Color backgroundColor;
   Canvas* canvas;
   Color color;
   Font* font;
+  Pipeline pipeline;
   float pointSize;
   Shader* shader;
   DrawRequest batch;
@@ -176,8 +174,6 @@ Buffer* lovrGraphicsGetIdentityBuffer();
 
 // State
 void lovrGraphicsReset();
-void lovrGraphicsPushPipeline();
-void lovrGraphicsPopPipeline();
 bool lovrGraphicsGetAlphaSampling();
 void lovrGraphicsSetAlphaSampling(bool sample);
 Color lovrGraphicsGetBackgroundColor();
