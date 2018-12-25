@@ -104,6 +104,8 @@ typedef struct {
   GPU_SHADER_FIELDS
 } Shader;
 
+// Shader
+
 Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource);
 Shader* lovrShaderInitCompute(Shader* shader, const char* source);
 Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type);
@@ -124,6 +126,8 @@ void lovrShaderSetTextures(Shader* shader, const char* name, Texture** data, int
 void lovrShaderSetImages(Shader* shader, const char* name, Image* data, int start, int count);
 void lovrShaderSetColor(Shader* shader, const char* name, Color color);
 void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* block, UniformAccess access);
+
+// ShaderBlock
 
 ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, vec_uniform_t* uniforms, BlockType type, BufferUsage usage);
 #define lovrShaderBlockCreate(...) lovrShaderBlockInit(lovrAlloc(ShaderBlock), __VA_ARGS__)

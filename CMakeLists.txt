@@ -423,11 +423,15 @@ if(LOVR_ENABLE_GRAPHICS)
   add_definitions(-DLOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
     src/graphics/animator.c
+    src/graphics/canvas.c
     src/graphics/font.c
     src/graphics/graphics.c
     src/graphics/material.c
+    src/graphics/mesh.c
     src/graphics/model.c
     src/graphics/opengl.c
+    src/graphics/shader.c
+    src/graphics/texture.c
     src/api/graphics.c
     src/api/types/animator.c
     src/api/types/canvas.c

@@ -1,5 +1,7 @@
 #include "graphics/opengl.h"
+#include "util.h"
 #include <stdlib.h>
+#include <stdbool.h>
 
 #pragma once
 

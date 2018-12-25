@@ -4,7 +4,7 @@
 #include "graphics/mesh.h"
 #include "graphics/shader.h"
 #include "graphics/texture.h"
-#include "math/math.h"
+#include "lib/math.h"
 #include "util.h"
 #include "platform.h"
 #include <stdbool.h>
