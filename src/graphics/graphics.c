@@ -36,7 +36,7 @@ static bool batchable(DrawRequest* a) {
   if (state.pipeline->dirty) return false;
   if (a->mesh && lovrMeshIsDirty(a->mesh)) return false;
   if (a->material && lovrMaterialIsDirty(a->material)) return false;
-  if (state.pipeline->shader && lovrShaderIsDirty(state.pipeline->shader)) return false;
+  if (state.shader && lovrShaderIsDirty(state.shader)) return false;
   if (state.canvas && lovrCanvasIsDirty(state.canvas)) return false;
   return true;
 }
@@ -189,12 +189,10 @@ void lovrGraphicsPushPipeline() {
   lovrAssert(++state.pipelineIndex < MAX_PIPELINES, "Unbalanced pipeline stack (more pushes than pops?)");
   memcpy(&state.pipelines[state.pipelineIndex], &state.pipelines[state.pipelineIndex - 1], sizeof(Pipeline));
   state.pipeline = &state.pipelines[state.pipelineIndex];
-  lovrRetain(state.pipeline->shader);
   state.pipeline->dirty = true;
 }
 
 void lovrGraphicsPopPipeline() {
-  lovrRelease(state.pipeline->shader);
   lovrAssert(--state.pipelineIndex >= 0, "Unbalanced pipeline stack (more pops than pushes?)");
   state.pipeline = &state.pipelines[state.pipelineIndex];
 }
@@ -334,15 +332,15 @@ void lovrGraphicsSetPointSize(float size) {
 }
 
 Shader* lovrGraphicsGetShader() {
-  return state.pipeline->shader;
+  return state.shader;
 }
 
 void lovrGraphicsSetShader(Shader* shader) {
   lovrAssert(!shader || lovrShaderGetType(shader) == SHADER_GRAPHICS, "Compute shaders can not be set as the active shader");
-  if (state.pipeline->shader != shader) {
+  if (state.shader != shader) {
     lovrRetain(shader);
-    lovrRelease(state.pipeline->shader);
-    state.pipeline->shader = shader;
+    lovrRelease(state.shader);
+    state.shader = shader;
     state.pipeline->dirty = true;
   }
 }
@@ -459,7 +457,7 @@ void lovrGraphicsFlush() {
   Mesh* mesh = draw->mesh ? draw->mesh : state.defaultMesh;
   Canvas* canvas = state.canvas ? state.canvas : state.camera.canvas;
   Material* material = draw->material ? draw->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
-  Shader* shader = state.pipeline->shader ? state.pipeline->shader : (state.defaultShaders[draw->shader] ? state.defaultShaders[draw->shader] : (state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader)));
+  Shader* shader = state.shader ? state.shader : (state.defaultShaders[draw->shader] ? state.defaultShaders[draw->shader] : (state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader)));
 
   if (!draw->material) {
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, draw->diffuseTexture);
