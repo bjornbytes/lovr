@@ -233,7 +233,7 @@ void lovrGraphicsCircle(DrawStyle style, Material* material, mat4 transform, int
 void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments);
 void lovrGraphicsSphere(Material* material, mat4 transform, int segments);
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);
-void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h);
 #define lovrGraphicsStencil lovrGpuStencil
 #define lovrGraphicsCompute lovrGpuCompute

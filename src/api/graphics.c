@@ -852,13 +852,14 @@ static int l_lovrGraphicsSkybox(lua_State* L) {
 }
 
 static int l_lovrGraphicsPrint(lua_State* L) {
-  const char* str = luaL_checkstring(L, 1);
+  size_t length;
+  const char* str = luaL_checklstring(L, 1, &length);
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1, NULL);
   float wrap = luaL_optnumber(L, index++, 0);
   HorizontalAlign halign = luaL_checkoption(L, index++, "center", HorizontalAligns);
   VerticalAlign valign = luaL_checkoption(L, index++, "middle", VerticalAligns);
-  lovrGraphicsPrint(str, transform, wrap, halign, valign);
+  lovrGraphicsPrint(str, length, transform, wrap, halign, valign);
   return 0;
 }
 

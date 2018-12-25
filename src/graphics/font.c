@@ -68,7 +68,7 @@ Rasterizer* lovrFontGetRasterizer(Font* font) {
   return font->rasterizer;
 }
 
-void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, float* vertices, float* offsety, uint32_t* vertexCount) {
+void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, VerticalAlign valign, float* vertices, float* offsety, uint32_t* vertexCount) {
   FontAtlas* atlas = &font->atlas;
 
   float cx = 0;
@@ -77,9 +77,8 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
   float v = atlas->height;
   float scale = 1 / font->pixelDensity;
 
-  int len = strlen(str);
   const char* start = str;
-  const char* end = str + len;
+  const char* end = str + length;
   unsigned int previous = '\0';
   unsigned int codepoint;
   size_t bytes;
@@ -119,7 +118,7 @@ void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign hal
 
     // Start over if texture was repacked
     if (u != atlas->width || v != atlas->height) {
-      lovrFontRender(font, start, wrap, halign, valign, vertices, offsety, vertexCount);
+      lovrFontRender(font, start, length, wrap, halign, valign, vertices, offsety, vertexCount);
       return;
     }
 
