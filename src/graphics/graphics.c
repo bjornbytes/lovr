@@ -37,7 +37,7 @@ static bool batchable(DrawRequest* a) {
   if (a->mesh && lovrMeshIsDirty(a->mesh)) return false;
   if (a->material && lovrMaterialIsDirty(a->material)) return false;
   if (state.pipeline->shader && lovrShaderIsDirty(state.pipeline->shader)) return false;
-  if (state.pipeline->canvas && lovrCanvasIsDirty(state.pipeline->canvas)) return false;
+  if (state.canvas && lovrCanvasIsDirty(state.canvas)) return false;
   return true;
 }
 
@@ -189,14 +189,12 @@ void lovrGraphicsPushPipeline() {
   lovrAssert(++state.pipelineIndex < MAX_PIPELINES, "Unbalanced pipeline stack (more pushes than pops?)");
   memcpy(&state.pipelines[state.pipelineIndex], &state.pipelines[state.pipelineIndex - 1], sizeof(Pipeline));
   state.pipeline = &state.pipelines[state.pipelineIndex];
-  lovrRetain(state.pipeline->canvas);
   lovrRetain(state.pipeline->font);
   lovrRetain(state.pipeline->shader);
   state.pipeline->dirty = true;
 }
 
 void lovrGraphicsPopPipeline() {
-  lovrRelease(state.pipeline->canvas);
   lovrRelease(state.pipeline->font);
   lovrRelease(state.pipeline->shader);
   lovrAssert(--state.pipelineIndex >= 0, "Unbalanced pipeline stack (more pops than pushes?)");
@@ -236,17 +234,18 @@ void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
 }
 
 Canvas* lovrGraphicsGetCanvas() {
-  return state.pipeline->canvas;
+  return state.canvas;
 }
 
 void lovrGraphicsSetCanvas(Canvas* canvas) {
-  if (state.pipeline->canvas != canvas) {
-    if (state.pipeline->canvas) {
-      lovrCanvasResolve(state.pipeline->canvas);
+  if (state.canvas != canvas) {
+    if (state.canvas) {
+      lovrCanvasResolve(state.canvas);
     }
 
-    state.pipeline->canvas = canvas;
-    state.pipeline->dirty = true;
+    lovrRetain(canvas);
+    lovrRelease(state.canvas);
+    state.canvas = canvas;
   }
 }
 
@@ -445,11 +444,11 @@ uint16_t* lovrGraphicsGetIndexPointer(uint32_t count) {
 }
 
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
-  lovrGpuClear(state.pipeline->canvas ? state.pipeline->canvas : state.camera.canvas, color, depth, stencil);
+  lovrGpuClear(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
 }
 
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil) {
-  lovrGpuDiscard(state.pipeline->canvas ? state.pipeline->canvas : state.camera.canvas, color, depth, stencil);
+  lovrGpuDiscard(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
 }
 
 void lovrGraphicsFlush() {
@@ -460,7 +459,7 @@ void lovrGraphicsFlush() {
   // Resolve objects
   DrawRequest* draw = &state.batch;
   Mesh* mesh = draw->mesh ? draw->mesh : state.defaultMesh;
-  Canvas* canvas = state.pipeline->canvas ? state.pipeline->canvas : state.camera.canvas;
+  Canvas* canvas = state.canvas ? state.canvas : state.camera.canvas;
   Material* material = draw->material ? draw->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
   Shader* shader = state.pipeline->shader ? state.pipeline->shader : (state.defaultShaders[draw->shader] ? state.defaultShaders[draw->shader] : (state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader)));
 
