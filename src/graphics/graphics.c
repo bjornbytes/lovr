@@ -189,13 +189,11 @@ void lovrGraphicsPushPipeline() {
   lovrAssert(++state.pipelineIndex < MAX_PIPELINES, "Unbalanced pipeline stack (more pushes than pops?)");
   memcpy(&state.pipelines[state.pipelineIndex], &state.pipelines[state.pipelineIndex - 1], sizeof(Pipeline));
   state.pipeline = &state.pipelines[state.pipelineIndex];
-  lovrRetain(state.pipeline->font);
   lovrRetain(state.pipeline->shader);
   state.pipeline->dirty = true;
 }
 
 void lovrGraphicsPopPipeline() {
-  lovrRelease(state.pipeline->font);
   lovrRelease(state.pipeline->shader);
   lovrAssert(--state.pipelineIndex >= 0, "Unbalanced pipeline stack (more pops than pushes?)");
   state.pipeline = &state.pipelines[state.pipelineIndex];
@@ -290,7 +288,7 @@ void lovrGraphicsSetDepthTest(CompareMode mode, bool write) {
 }
 
 Font* lovrGraphicsGetFont() {
-  if (!state.pipeline->font) {
+  if (!state.font) {
     if (!state.defaultFont) {
       Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
       state.defaultFont = lovrFontCreate(rasterizer);
@@ -300,14 +298,14 @@ Font* lovrGraphicsGetFont() {
     lovrGraphicsSetFont(state.defaultFont);
   }
 
-  return state.pipeline->font;
+  return state.font;
 }
 
 void lovrGraphicsSetFont(Font* font) {
-  if (state.pipeline->font != font) {
+  if (state.font != font) {
     lovrRetain(font);
-    lovrRelease(state.pipeline->font);
-    state.pipeline->font = font;
+    lovrRelease(state.font);
+    state.font = font;
   }
 }
 
