@@ -103,7 +103,6 @@ typedef struct {
   bool alphaSampling;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
-  Color color;
   bool culling;
   CompareMode depthTest;
   bool depthWrite;
@@ -151,6 +150,7 @@ typedef struct {
   int pipelineIndex;
   Color backgroundColor;
   Canvas* canvas;
+  Color color;
   DrawRequest batch;
   int batchVertex;
   int batchIndex;
