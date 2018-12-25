@@ -100,7 +100,6 @@ typedef struct {
   map_int_t attributes;
   map_int_t uniformMap;
   map_int_t blockMap;
-  bool dirty;
   GPU_SHADER_FIELDS
 } Shader;
 
@@ -115,7 +114,6 @@ Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type);
 void lovrShaderDestroy(void* ref);
 ShaderType lovrShaderGetType(Shader* shader);
 void lovrShaderBind(Shader* shader);
-bool lovrShaderIsDirty(Shader* shader);
 int lovrShaderGetAttributeId(Shader* shader, const char* name);
 bool lovrShaderHasUniform(Shader* shader, const char* name);
 const Uniform* lovrShaderGetUniform(Shader* shader, const char* name);
