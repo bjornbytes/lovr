@@ -445,14 +445,6 @@ void lovrGraphicsFlush() {
     lovrShaderSetMatrices(shader, "lovrPose", (float[16]) MAT4_IDENTITY, 0, 16);
   }
 
-  // Viewport
-  bool stereo = !draw->mono && (canvas ? lovrCanvasIsStereo(canvas) : state.camera.stereo);
-  float w = (canvas ? lovrCanvasGetWidth(canvas) : state.width) >> stereo;
-  float h = canvas ? lovrCanvasGetHeight(canvas) : state.height;
-  float viewports[2][4] = { { 0, 0, w, h, }, { w, 0, w, h } };
-  int viewportCount = 1 + stereo;
-  lovrShaderSetInts(shader, "lovrViewportCount", &viewportCount, 0, 1);
-
   // Point size
   lovrShaderSetFloats(shader, "lovrPointSize", &state.pointSize, 0, 1);
 
@@ -474,27 +466,19 @@ void lovrGraphicsFlush() {
     lovrMeshFlushIndices(state.defaultMesh);
   }
 
-  // Bind
-  lovrCanvasBind(canvas, true);
-  lovrGpuBindPipeline(state.pipeline);
   lovrMaterialBind(material, shader);
-  lovrMeshBind(mesh, shader, viewportCount);
   lovrShaderSetBlock(shader, "lovrDrawData", state.block, ACCESS_READ);
 
-  // Draw
-  if (lovrGpuGetSupported()->singlepass) {
-    int instances = draw->instances * viewportCount;
-    lovrGpuSetViewports(&viewports[0][0], viewportCount);
-    lovrShaderBind(shader);
-    lovrMeshDraw(mesh, instances);
-  } else {
-    for (int i = 0; i < viewportCount; i++) {
-      lovrGpuSetViewports(&viewports[i][0], 1);
-      lovrShaderSetInts(shader, "lovrViewportIndex", &i, 0, 1);
-      lovrShaderBind(shader);
-      lovrMeshDraw(mesh, draw->instances);
-    }
-  }
+  lovrGpuSubmit(&(DrawCommand) {
+    .mesh = mesh,
+    .shader = shader,
+    .canvas = canvas,
+    .pipeline = *state.pipeline,
+    .instances = draw->instances,
+    .width = canvas ? lovrCanvasGetWidth(canvas) : state.width,
+    .height = canvas ? lovrCanvasGetHeight(canvas) : state.height,
+    .stereo = !draw->mono && (canvas ? lovrCanvasIsStereo(canvas) : state.camera.stereo)
+  }, 1);
 
   state.batchSize = 0;
   state.batchVertex = state.vertexCursor;
