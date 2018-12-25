@@ -879,14 +879,14 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   });
 }
 
-void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   Font* font = lovrGraphicsGetFont();
   float scale = 1 / font->pixelDensity;
   float offsety;
   uint32_t vertexCount;
-  uint32_t maxVertices = strlen(str) * 6;
+  uint32_t maxVertices = length * 6;
   float* vertices = lovrGraphicsGetVertexPointer(maxVertices);
-  lovrFontRender(font, str, wrap, halign, valign, vertices, &offsety, &vertexCount);
+  lovrFontRender(font, str, length, wrap, halign, valign, vertices, &offsety, &vertexCount);
 
   Pipeline pipeline = state.pipeline;
   pipeline.alphaSampling = true;

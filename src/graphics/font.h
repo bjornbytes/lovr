@@ -42,7 +42,7 @@ Font* lovrFontInit(Font* font, Rasterizer* rasterizer);
 #define lovrFontCreate(...) lovrFontInit(lovrAlloc(Font), __VA_ARGS__)
 void lovrFontDestroy(void* ref);
 Rasterizer* lovrFontGetRasterizer(Font* font);
-void lovrFontRender(Font* font, const char* str, float wrap, HorizontalAlign halign, VerticalAlign valign, float* vertices, float* offsety, uint32_t* vertexCount);
+void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, VerticalAlign valign, float* vertices, float* offsety, uint32_t* vertexCount);
 float lovrFontGetWidth(Font* font, const char* string, float wrap);
 float lovrFontGetHeight(Font* font);
 float lovrFontGetAscent(Font* font);
