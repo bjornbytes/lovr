@@ -107,7 +107,6 @@ typedef struct {
   CompareMode depthTest;
   bool depthWrite;
   float lineWidth;
-  float pointSize;
   Shader* shader;
   CompareMode stencilMode;
   int stencilValue;
@@ -151,6 +150,7 @@ typedef struct {
   Canvas* canvas;
   Color color;
   Font* font;
+  float pointSize;
   DrawRequest batch;
   int batchVertex;
   int batchIndex;

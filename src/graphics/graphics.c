@@ -324,12 +324,12 @@ void lovrGraphicsSetLineWidth(float width) {
 }
 
 float lovrGraphicsGetPointSize() {
-  return state.pipeline->pointSize;
+  return state.pointSize;
 }
 
 void lovrGraphicsSetPointSize(float size) {
-  if (state.pipeline->pointSize != size) {
-    state.pipeline->pointSize = size;
+  if (state.pointSize != size) {
+    state.pointSize = size;
   }
 }
 
@@ -486,7 +486,7 @@ void lovrGraphicsFlush() {
   lovrShaderSetInts(shader, "lovrViewportCount", &viewportCount, 0, 1);
 
   // Point size
-  lovrShaderSetFloats(shader, "lovrPointSize", &state.pipeline->pointSize, 0, 1);
+  lovrShaderSetFloats(shader, "lovrPointSize", &state.pointSize, 0, 1);
 
   // Buffers and Mesh
   int vertexCount = state.vertexCursor - state.batchVertex;
