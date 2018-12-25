@@ -133,7 +133,7 @@ typedef struct {
   float* pose;
   int instances;
   bool mono;
-} DrawCommand;
+} DrawRequest;
 
 typedef struct {
   bool initialized;
@@ -151,7 +151,7 @@ typedef struct {
   Pipeline pipelines[MAX_PIPELINES];
   Pipeline* pipeline;
   int pipelineIndex;
-  DrawCommand batch;
+  DrawRequest batch;
   int batchVertex;
   int batchIndex;
   int batchSize;
@@ -227,7 +227,7 @@ uint16_t* lovrGraphicsGetIndexPointer(uint32_t count);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
 void lovrGraphicsFlush();
-void lovrGraphicsDraw(DrawCommand* draw);
+void lovrGraphicsDraw(DrawRequest* draw);
 void lovrGraphicsPoints(uint32_t count);
 void lovrGraphicsLine(uint32_t count);
 void lovrGraphicsTriangle(DrawStyle style, Material* material, float points[9]);

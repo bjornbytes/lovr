@@ -21,8 +21,8 @@ static void onResizeWindow(int width, int height) {
   state.height = height;
 }
 
-static bool batchable(DrawCommand* a) {
-  DrawCommand* b = &state.batch;
+static bool batchable(DrawRequest* a) {
+  DrawRequest* b = &state.batch;
   if (a->instances > 1) return false;
   if (a->mesh != b->mesh) return false;
   if (!a->mesh && a->mode != b->mode) return false;
@@ -459,7 +459,7 @@ void lovrGraphicsFlush() {
   }
 
   // Resolve objects
-  DrawCommand* draw = &state.batch;
+  DrawRequest* draw = &state.batch;
   Mesh* mesh = draw->mesh ? draw->mesh : state.defaultMesh;
   Canvas* canvas = state.pipeline->canvas ? state.pipeline->canvas : state.camera.canvas;
   Material* material = draw->material ? draw->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
@@ -537,13 +537,13 @@ void lovrGraphicsFlush() {
   state.batchIndex = state.indexCursor;
 }
 
-void lovrGraphicsDraw(DrawCommand* draw) {
+void lovrGraphicsDraw(DrawRequest* draw) {
   if (state.batchSize > 0 && !batchable(draw)) {
     lovrGraphicsFlush();
   }
 
   if (state.batchSize == 0) {
-    memcpy(&state.batch, draw, sizeof(DrawCommand));
+    memcpy(&state.batch, draw, sizeof(DrawRequest));
   } else if (draw->mesh && draw->instances <= 1) {
     state.batch.instances++;
   }
@@ -593,14 +593,14 @@ void lovrGraphicsDraw(DrawCommand* draw) {
 }
 
 void lovrGraphicsPoints(uint32_t count) {
-  lovrGraphicsDraw(&(DrawCommand) {
+  lovrGraphicsDraw(&(DrawRequest) {
     .mode = DRAW_POINTS,
     .vertex.count = count
   });
 }
 
 void lovrGraphicsLine(uint32_t count) {
-  lovrGraphicsDraw(&(DrawCommand) {
+  lovrGraphicsDraw(&(DrawRequest) {
     .mode = DRAW_LINE_STRIP,
     .vertex.count = count
   });
@@ -608,7 +608,7 @@ void lovrGraphicsLine(uint32_t count) {
 
 void lovrGraphicsTriangle(DrawStyle style, Material* material, float points[9]) {
   if (style == STYLE_LINE) {
-    lovrGraphicsDraw(&(DrawCommand) {
+    lovrGraphicsDraw(&(DrawRequest) {
       .material = material,
       .mode = DRAW_LINE_LOOP,
       .vertex.count = 3,
@@ -621,7 +621,7 @@ void lovrGraphicsTriangle(DrawStyle style, Material* material, float points[9]) 
   } else {
     float normal[3];
     vec3_cross(vec3_init(normal, &points[0]), &points[3]);
-    lovrGraphicsDraw(&(DrawCommand) {
+    lovrGraphicsDraw(&(DrawRequest) {
       .material = material,
       .mode = DRAW_TRIANGLES,
       .vertex.count = 3,
@@ -636,7 +636,7 @@ void lovrGraphicsTriangle(DrawStyle style, Material* material, float points[9]) 
 
 void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform) {
   if (style == STYLE_LINE) {
-    lovrGraphicsDraw(&(DrawCommand) {
+    lovrGraphicsDraw(&(DrawRequest) {
       .transform = transform,
       .material = material,
       .mode = DRAW_LINE_LOOP,
@@ -649,7 +649,7 @@ void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform) {
       }
     });
   } else {
-    lovrGraphicsDraw(&(DrawCommand) {
+    lovrGraphicsDraw(&(DrawRequest) {
       .transform = transform,
       .material = material,
       .mode = DRAW_TRIANGLES,
@@ -668,7 +668,7 @@ void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform) {
 
 void lovrGraphicsBox(DrawStyle style, Material* material, mat4 transform) {
   if (style == STYLE_LINE) {
-    lovrGraphicsDraw(&(DrawCommand) {
+    lovrGraphicsDraw(&(DrawRequest) {
       .transform = transform,
       .material = material,
       .mode = DRAW_LINES,
@@ -693,7 +693,7 @@ void lovrGraphicsBox(DrawStyle style, Material* material, mat4 transform) {
       }
     });
   } else {
-    lovrGraphicsDraw(&(DrawCommand) {
+    lovrGraphicsDraw(&(DrawRequest) {
       .transform = transform,
       .material = material,
       .mode = DRAW_TRIANGLES,
@@ -769,7 +769,7 @@ void lovrGraphicsArc(DrawStyle style, ArcMode arcMode, Material* material, mat4 
     theta += angleShift;
   }
 
-  lovrGraphicsDraw(&(DrawCommand) {
+  lovrGraphicsDraw(&(DrawRequest) {
     .transform = transform,
     .material = material,
     .mode = style == STYLE_LINE ? (arcMode == ARC_MODE_OPEN ? DRAW_LINE_STRIP : DRAW_LINE_LOOP) : DRAW_TRIANGLE_FAN,
@@ -871,7 +871,7 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
 #undef PUSH_CYLINDER_VERTEX
 #undef PUSH_CYLINDER_TRIANGLE
 
-  lovrGraphicsDraw(&(DrawCommand) {
+  lovrGraphicsDraw(&(DrawRequest) {
     .material = material,
     .mode = DRAW_TRIANGLES,
     .vertex.count = vertexCount,
@@ -909,7 +909,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
     }
   }
 
-  lovrGraphicsDraw(&(DrawCommand) {
+  lovrGraphicsDraw(&(DrawRequest) {
     .transform = transform,
     .material = material,
     .mode = DRAW_TRIANGLES,
@@ -923,7 +923,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
   lovrGraphicsPushPipeline();
   lovrGraphicsSetWinding(WINDING_COUNTERCLOCKWISE);
-  lovrGraphicsDraw(&(DrawCommand) {
+  lovrGraphicsDraw(&(DrawRequest) {
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
     .diffuseTexture = type == TEXTURE_2D ? texture : NULL,
     .environmentMap = type == TEXTURE_CUBE ? texture : NULL,
@@ -954,7 +954,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
   lovrGraphicsTranslate((float[3]) { 0, offsety, 0 });
   lovrGraphicsPushPipeline();
   lovrGraphicsSetAlphaSampling(true);
-  lovrGraphicsDraw(&(DrawCommand) {
+  lovrGraphicsDraw(&(DrawRequest) {
     .shader = SHADER_FONT,
     .diffuseTexture = font->texture,
     .mode = DRAW_TRIANGLES,
@@ -967,7 +967,7 @@ void lovrGraphicsPrint(const char* str, mat4 transform, float wrap, HorizontalAl
 void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
   lovrGraphicsPushPipeline();
   lovrGraphicsSetDepthTest(COMPARE_NONE, false);
-  lovrGraphicsDraw(&(DrawCommand) {
+  lovrGraphicsDraw(&(DrawRequest) {
     .mono = true,
     .shader = SHADER_FILL,
     .diffuseTexture = texture,

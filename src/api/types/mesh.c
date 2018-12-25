@@ -76,7 +76,7 @@ int l_lovrMeshDraw(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1, NULL);
   int instances = luaL_optinteger(L, index, 1);
-  lovrGraphicsDraw(&(DrawCommand) {
+  lovrGraphicsDraw(&(DrawRequest) {
     .transform = transform,
     .mesh = mesh,
     .material = lovrMeshGetMaterial(mesh),

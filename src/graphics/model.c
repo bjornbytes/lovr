@@ -39,7 +39,7 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
       }
 
       lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
-      lovrGraphicsDraw(&(DrawCommand) {
+      lovrGraphicsDraw(&(DrawRequest) {
         .transform = model->nodeTransforms[nodeIndex],
         .mesh = model->mesh,
         .material = lovrMeshGetMaterial(model->mesh),
