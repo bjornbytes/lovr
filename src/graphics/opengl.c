@@ -797,6 +797,7 @@ void lovrGpuPresent() {
 void lovrGpuSubmit(DrawCommand* commands, int count) {
   for (int i = 0; i < count; i++) {
     DrawCommand* draw = &commands[i];
+    Mesh* mesh = draw->mesh;
 
     int viewCount = 1 + draw->stereo;
     int drawCount = state.features.singlepass ? 1 : viewCount;
@@ -808,7 +809,7 @@ void lovrGpuSubmit(DrawCommand* commands, int count) {
     float viewports[2][4] = { { 0, 0, w, h }, { w, 0, w, h } };
     lovrShaderSetInts(draw->shader, "lovrViewportCount", &viewCount, 0, 1);
 
-    lovrMeshBind(draw->mesh, draw->shader, viewsPerDraw);
+    lovrMeshBind(mesh, draw->shader, viewsPerDraw);
     lovrCanvasBind(draw->canvas, true);
     lovrGpuBindPipeline(&draw->pipeline);
 
@@ -816,7 +817,28 @@ void lovrGpuSubmit(DrawCommand* commands, int count) {
       lovrGpuSetViewports(&viewports[i][0], viewsPerDraw);
       lovrShaderSetInts(draw->shader, "lovrViewportIndex", &i, 0, 1);
       lovrShaderBind(draw->shader);
-      lovrMeshDraw(draw->mesh, instances);
+
+      GLenum mode = convertDrawMode(mesh->mode);
+      if (mesh->indexCount > 0) {
+        size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
+        GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+        GLvoid* offset = (GLvoid*) (mesh->rangeStart * mesh->indexSize);
+        if (instances > 1) {
+          glDrawElementsInstanced(mode, count, indexType, offset, instances);
+        } else {
+          glDrawElements(mode, count, indexType, offset);
+        }
+      } else {
+        size_t start = mesh->rangeStart;
+        size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->count;
+        if (instances > 1) {
+          glDrawArraysInstanced(mode, start, count, instances);
+        } else {
+          glDrawArrays(mode, start, count);
+        }
+      }
+
+      state.stats.drawCalls++;
     }
   }
 }
@@ -1962,28 +1984,4 @@ void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
 
   memcpy(mesh->layout, layout, MAX_ATTRIBUTES * sizeof(MeshAttribute));
   mesh->dirty = false;
-}
-
-void lovrMeshDraw(Mesh* mesh, int instances) {
-  GLenum glDrawMode = convertDrawMode(mesh->mode);
-
-  if (mesh->indexCount > 0) {
-    size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
-    GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-    size_t offset = mesh->rangeStart * mesh->indexSize;
-    if (instances > 1) {
-      glDrawElementsInstanced(glDrawMode, count, indexType, (GLvoid*) offset, instances);
-    } else {
-      glDrawElements(glDrawMode, count, indexType, (GLvoid*) offset);
-    }
-  } else {
-    size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->count;
-    if (instances > 1) {
-      glDrawArraysInstanced(glDrawMode, mesh->rangeStart, count, instances);
-    } else {
-      glDrawArrays(glDrawMode, mesh->rangeStart, count);
-    }
-  }
-
-  state.stats.drawCalls++;
 }
