@@ -1983,5 +1983,4 @@ void lovrMeshBind(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   }
 
   memcpy(mesh->layout, layout, MAX_ATTRIBUTES * sizeof(MeshAttribute));
-  mesh->dirty = false;
 }
