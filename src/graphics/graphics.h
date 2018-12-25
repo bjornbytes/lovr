@@ -111,7 +111,6 @@ typedef struct {
   int stencilValue;
   Winding winding;
   bool wireframe;
-  bool dirty;
 } Pipeline;
 
 typedef struct {

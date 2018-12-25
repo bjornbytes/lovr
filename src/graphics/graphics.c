@@ -33,7 +33,6 @@ static bool batchable(DrawRequest* a) {
   if (!a->material && a->environmentMap != b->environmentMap) return false;
   if (a->mono != b->mono) return false;
   if (!!a->pose != !!b->pose || (a->pose && memcmp(a->pose, b->pose, MAX_BONES * 16 * sizeof(float)))) return false;
-  if (state.pipeline->dirty) return false;
   if (a->mesh && lovrMeshIsDirty(a->mesh)) return false;
   if (a->material && lovrMaterialIsDirty(a->material)) return false;
   if (state.shader && lovrShaderIsDirty(state.shader)) return false;
@@ -189,7 +188,6 @@ void lovrGraphicsPushPipeline() {
   lovrAssert(++state.pipelineIndex < MAX_PIPELINES, "Unbalanced pipeline stack (more pushes than pops?)");
   memcpy(&state.pipelines[state.pipelineIndex], &state.pipelines[state.pipelineIndex - 1], sizeof(Pipeline));
   state.pipeline = &state.pipelines[state.pipelineIndex];
-  state.pipeline->dirty = true;
 }
 
 void lovrGraphicsPopPipeline() {
@@ -202,10 +200,7 @@ bool lovrGraphicsGetAlphaSampling() {
 }
 
 void lovrGraphicsSetAlphaSampling(bool sample) {
-  if (state.pipeline->alphaSampling != sample) {
-    state.pipeline->alphaSampling = sample;
-    state.pipeline->dirty = true;
-  }
+  state.pipeline->alphaSampling = sample;
 }
 
 Color lovrGraphicsGetBackgroundColor() {
@@ -222,11 +217,8 @@ void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
 }
 
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode) {
-  if (state.pipeline->blendMode != mode || state.pipeline->blendAlphaMode != alphaMode) {
-    state.pipeline->blendMode = mode;
-    state.pipeline->blendAlphaMode = alphaMode;
-    state.pipeline->dirty = true;
-  }
+  state.pipeline->blendMode = mode;
+  state.pipeline->blendAlphaMode = alphaMode;
 }
 
 Canvas* lovrGraphicsGetCanvas() {
@@ -234,15 +226,13 @@ Canvas* lovrGraphicsGetCanvas() {
 }
 
 void lovrGraphicsSetCanvas(Canvas* canvas) {
-  if (state.canvas != canvas) {
-    if (state.canvas) {
-      lovrCanvasResolve(state.canvas);
-    }
-
-    lovrRetain(canvas);
-    lovrRelease(state.canvas);
-    state.canvas = canvas;
+  if (state.canvas && canvas != state.canvas) {
+    lovrCanvasResolve(state.canvas);
   }
+
+  lovrRetain(canvas);
+  lovrRelease(state.canvas);
+  state.canvas = canvas;
 }
 
 Color lovrGraphicsGetColor() {
@@ -258,10 +248,7 @@ bool lovrGraphicsIsCullingEnabled() {
 }
 
 void lovrGraphicsSetCullingEnabled(bool culling) {
-  if (state.pipeline->culling != culling) {
-    state.pipeline->culling = culling;
-    state.pipeline->dirty = true;
-  }
+  state.pipeline->culling = culling;
 }
 
 TextureFilter lovrGraphicsGetDefaultFilter() {
@@ -278,11 +265,8 @@ void lovrGraphicsGetDepthTest(CompareMode* mode, bool* write) {
 }
 
 void lovrGraphicsSetDepthTest(CompareMode mode, bool write) {
-  if (state.pipeline->depthTest != mode || state.pipeline->depthWrite != write) {
-    state.pipeline->depthTest = mode;
-    state.pipeline->depthWrite = write;
-    state.pipeline->dirty = true;
-  }
+  state.pipeline->depthTest = mode;
+  state.pipeline->depthWrite = write;
 }
 
 Font* lovrGraphicsGetFont() {
@@ -300,11 +284,9 @@ Font* lovrGraphicsGetFont() {
 }
 
 void lovrGraphicsSetFont(Font* font) {
-  if (state.font != font) {
-    lovrRetain(font);
-    lovrRelease(state.font);
-    state.font = font;
-  }
+  lovrRetain(font);
+  lovrRelease(state.font);
+  state.font = font;
 }
 
 bool lovrGraphicsIsGammaCorrect() {
@@ -316,9 +298,7 @@ float lovrGraphicsGetLineWidth() {
 }
 
 void lovrGraphicsSetLineWidth(float width) {
-  if (state.pipeline->lineWidth != width) {
-    state.pipeline->lineWidth = width;
-  }
+  state.pipeline->lineWidth = width;
 }
 
 float lovrGraphicsGetPointSize() {
@@ -326,9 +306,7 @@ float lovrGraphicsGetPointSize() {
 }
 
 void lovrGraphicsSetPointSize(float size) {
-  if (state.pointSize != size) {
-    state.pointSize = size;
-  }
+  state.pointSize = size;
 }
 
 Shader* lovrGraphicsGetShader() {
@@ -337,12 +315,9 @@ Shader* lovrGraphicsGetShader() {
 
 void lovrGraphicsSetShader(Shader* shader) {
   lovrAssert(!shader || lovrShaderGetType(shader) == SHADER_GRAPHICS, "Compute shaders can not be set as the active shader");
-  if (state.shader != shader) {
-    lovrRetain(shader);
-    lovrRelease(state.shader);
-    state.shader = shader;
-    state.pipeline->dirty = true;
-  }
+  lovrRetain(shader);
+  lovrRelease(state.shader);
+  state.shader = shader;
 }
 
 void lovrGraphicsGetStencilTest(CompareMode* mode, int* value) {
@@ -351,10 +326,8 @@ void lovrGraphicsGetStencilTest(CompareMode* mode, int* value) {
 }
 
 void lovrGraphicsSetStencilTest(CompareMode mode, int value) {
-  if (state.pipeline->stencilMode != mode || state.pipeline->stencilValue != value) {
-    state.pipeline->stencilMode = mode;
-    state.pipeline->stencilValue = value;
-  }
+  state.pipeline->stencilMode = mode;
+  state.pipeline->stencilValue = value;
 }
 
 Winding lovrGraphicsGetWinding() {
@@ -362,9 +335,7 @@ Winding lovrGraphicsGetWinding() {
 }
 
 void lovrGraphicsSetWinding(Winding winding) {
-  if (state.pipeline->winding != winding) {
-    state.pipeline->winding = winding;
-  }
+  state.pipeline->winding = winding;
 }
 
 bool lovrGraphicsIsWireframe() {
@@ -373,9 +344,7 @@ bool lovrGraphicsIsWireframe() {
 
 void lovrGraphicsSetWireframe(bool wireframe) {
 #ifndef EMSCRIPTEN
-  if (state.pipeline->wireframe != wireframe) {
-    state.pipeline->wireframe = wireframe;
-  }
+  state.pipeline->wireframe = wireframe;
 #endif
 }
 
