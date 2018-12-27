@@ -13,9 +13,8 @@
 #pragma once
 
 #define MAX_TRANSFORMS 64
-#define MAX_VERTICES (1 << 16)
-#define MAX_INDICES (1 << 16)
-#define MAX_BATCH_SIZE 192 // Enough to fit in any UBO
+#define MAX_BATCHES 16
+#define MAX_LOCKS 4
 
 typedef void (*StencilCallback)(void* userdata);
 
@@ -33,7 +32,7 @@ typedef enum {
   BLEND_LIGHTEN,
   BLEND_DARKEN,
   BLEND_SCREEN,
-  BLEND_REPLACE
+  BLEND_NONE
 } BlendMode;
 
 typedef enum {
@@ -71,27 +70,6 @@ typedef enum {
 } Winding;
 
 typedef struct {
-  bool computeShaders;
-  bool singlepass;
-} GpuFeatures;
-
-typedef struct {
-  bool initialized;
-  float pointSizes[2];
-  int textureSize;
-  int textureMSAA;
-  float textureAnisotropy;
-  int blockSize;
-} GpuLimits;
-
-typedef struct {
-  int shaderSwitches;
-  int drawCalls;
-} GpuStats;
-
-// Internal
-
-typedef struct {
   bool stereo;
   Canvas* canvas;
   float viewMatrix[2][16];
@@ -99,34 +77,87 @@ typedef struct {
 } Camera;
 
 typedef struct {
-  BlendMode blendMode : 3;
-  BlendAlphaMode blendAlphaMode : 1;
-  CompareMode depthTest : 3;
+  float transform[16];
+  Color color;
+} DrawData;
+
+typedef struct {
+  bool alphaSampling : 1;
+  uint8_t blendMode : 3; // BlendMode
+  uint8_t blendAlphaMode : 1; // BlendAlphaMode
+  bool culling : 1;
+  uint8_t depthTest : 3; // CompareMode
   bool depthWrite : 1;
   uint8_t lineWidth : 8;
   uint8_t stencilValue: 8;
-  CompareMode stencilMode : 3;
-  bool alphaSampling : 1;
-  bool culling : 1;
-  Winding winding : 1;
+  uint8_t stencilMode : 3; // CompareMode
+  uint8_t winding : 1; // Winding
   bool wireframe : 1;
 } Pipeline;
 
+typedef enum {
+  STREAM_VERTEX,
+  STREAM_INDEX,
+  STREAM_DRAW_ID,
+  STREAM_DRAW_DATA,
+  MAX_BUFFER_ROLES
+} BufferRole;
+
+typedef enum {
+  BATCH_POINTS,
+  BATCH_LINES,
+  BATCH_TRIANGLES,
+  BATCH_PLANE,
+  BATCH_BOX,
+  BATCH_ARC,
+  BATCH_SPHERE,
+  BATCH_SKYBOX,
+  BATCH_TEXT,
+  BATCH_FILL,
+  BATCH_MESH
+} BatchType;
+
+typedef union {
+  struct { DrawStyle style; } triangles;
+  struct { DrawStyle style; } plane;
+  struct { DrawStyle style; } box;
+  struct { DrawStyle style; ArcMode mode; float r1; float r2; int segments; } arc;
+  struct { int segments; } sphere;
+  struct { float u; float v; float w; float h; } fill;
+  struct { Mesh* object; DrawMode mode; uint32_t rangeStart; uint32_t rangeCount; uint32_t instances; float* pose; } mesh;
+} BatchParams;
+
 typedef struct {
-  Mesh* mesh;
-  DrawMode mode;
-  struct { uint32_t count; float* data; } vertex;
-  struct { uint32_t count; uint16_t* data; } index;
+  BatchType type;
+  BatchParams params;
   DefaultShader shader;
+  Pipeline* pipeline;
+  Material* material;
   Texture* diffuseTexture;
   Texture* environmentMap;
-  Material* material;
-  Pipeline* pipeline;
   mat4 transform;
-  float* pose;
-  int instances;
-  bool mono;
-} DrawRequest;
+  uint32_t vertexCount;
+  uint32_t indexCount;
+  float** vertices;
+  uint16_t** indices;
+  uint16_t* baseVertex;
+} BatchRequest;
+
+typedef struct {
+  BatchType type;
+  BatchParams params;
+  Canvas* canvas;
+  Shader* shader;
+  Pipeline pipeline;
+  Material* material;
+  uint32_t vertexStart;
+  uint32_t vertexCount;
+  uint32_t indexStart;
+  uint32_t indexCount;
+  uint32_t drawStart;
+  uint32_t drawCount;
+  DrawData* drawData;
+} Batch;
 
 typedef struct {
   bool initialized;
@@ -137,7 +168,6 @@ typedef struct {
   Shader* defaultShaders[MAX_DEFAULT_SHADERS];
   Material* defaultMaterial;
   Font* defaultFont;
-  Mesh* defaultMesh;
   TextureFilter defaultFilter;
   float transforms[MAX_TRANSFORMS][16];
   int transform;
@@ -148,15 +178,15 @@ typedef struct {
   Pipeline pipeline;
   float pointSize;
   Shader* shader;
-  DrawRequest batch;
-  int batchVertex;
-  int batchIndex;
-  int batchSize;
-  int vertexCursor;
-  int indexCursor;
-  ShaderBlock* block;
-  Buffer* vertexMap;
+  uint32_t maxDraws;
+  Mesh* mesh;
+  Mesh* instancedMesh;
   Buffer* identityBuffer;
+  Buffer* buffers[MAX_BUFFER_ROLES];
+  size_t cursors[MAX_BUFFER_ROLES];
+  void* locks[MAX_BUFFER_ROLES][MAX_LOCKS];
+  Batch batches[MAX_BATCHES];
+  uint8_t batchCount;
 } GraphicsState;
 
 // Base
@@ -167,6 +197,7 @@ void lovrGraphicsSetWindow(WindowFlags* flags);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
+void* lovrGraphicsMapBuffer(BufferRole role, uint32_t count);
 Buffer* lovrGraphicsGetIdentityBuffer();
 #define lovrGraphicsGetSupported lovrGpuGetSupported
 #define lovrGraphicsGetLimits lovrGpuGetLimits
@@ -217,18 +248,20 @@ void lovrGraphicsMatrixTransform(mat4 transform);
 void lovrGraphicsSetProjection(mat4 projection);
 
 // Rendering
-float* lovrGraphicsGetVertexPointer(uint32_t count);
-uint16_t* lovrGraphicsGetIndexPointer(uint32_t count);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
+void lovrGraphicsBatch(BatchRequest* req);
 void lovrGraphicsFlush();
-void lovrGraphicsDraw(DrawRequest* draw);
-void lovrGraphicsPoints(uint32_t count);
-void lovrGraphicsLine(uint32_t count);
-void lovrGraphicsTriangle(DrawStyle style, Material* material, float points[9]);
+void lovrGraphicsFlushCanvas(Canvas* canvas);
+void lovrGraphicsFlushShader(Shader* shader);
+void lovrGraphicsFlushMaterial(Material* material);
+void lovrGraphicsFlushMesh(Mesh* mesh);
+void lovrGraphicsPoints(uint32_t count, float** vertices);
+void lovrGraphicsLine(uint32_t count, float** vertices);
+void lovrGraphicsTriangle(DrawStyle style, Material* material, uint32_t count, float** vertices);
 void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform);
 void lovrGraphicsBox(DrawStyle style, Material* material, mat4 transform);
-void lovrGraphicsArc(DrawStyle style, ArcMode, Material* material, mat4 transform, float theta1, float theta2, int segments);
+void lovrGraphicsArc(DrawStyle style, ArcMode mode, Material* material, mat4 transform, float r1, float r2, int segments);
 void lovrGraphicsCircle(DrawStyle style, Material* material, mat4 transform, int segments);
 void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments);
 void lovrGraphicsSphere(Material* material, mat4 transform, int segments);
@@ -238,14 +271,37 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h);
 #define lovrGraphicsStencil lovrGpuStencil
 #define lovrGraphicsCompute lovrGpuCompute
 
-// GPU API
+// GPU
+
+typedef struct {
+  bool computeShaders;
+  bool singlepass;
+} GpuFeatures;
+
+typedef struct {
+  bool initialized;
+  float pointSizes[2];
+  int textureSize;
+  int textureMSAA;
+  float textureAnisotropy;
+  int blockSize;
+  int blockAlign;
+} GpuLimits;
+
+typedef struct {
+  int shaderSwitches;
+  int drawCalls;
+} GpuStats;
 
 typedef struct {
   Mesh* mesh;
-  Shader* shader;
   Canvas* canvas;
+  Shader* shader;
   Pipeline pipeline;
+  DrawMode drawMode;
   uint32_t instances;
+  uint32_t rangeStart;
+  uint32_t rangeCount;
   uint32_t width : 15;
   uint32_t height : 15;
   bool stereo : 1;
@@ -256,10 +312,13 @@ void lovrGpuDestroy();
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
 void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil);
-void lovrGpuDraw(DrawCommand* commands, int count);
+void lovrGpuDraw(DrawCommand* draw);
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGpuPresent();
 void lovrGpuDirtyTexture();
+void* lovrGpuLock();
+void lovrGpuUnlock(void* lock);
+void lovrGpuDestroyLock(void* lock);
 const GpuFeatures* lovrGpuGetSupported();
 const GpuLimits* lovrGpuGetLimits();
 const GpuStats* lovrGpuGetStats();

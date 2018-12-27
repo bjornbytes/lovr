@@ -38,13 +38,18 @@ static void renderNode(Model* model, int nodeIndex, int instances) {
         lovrMeshSetMaterial(model->mesh, model->materials[primitive->material]);
       }
 
-      lovrMeshSetDrawRange(model->mesh, primitive->drawStart, primitive->drawCount);
-      lovrGraphicsDraw(&(DrawRequest) {
+      lovrGraphicsBatch(&(BatchRequest) {
+        .type = BATCH_MESH,
+        .params.mesh = {
+          .object = model->mesh,
+          .mode = DRAW_TRIANGLES,
+          .rangeStart = primitive->drawStart,
+          .rangeCount = primitive->drawCount,
+          .pose = (float*) model->pose,
+          .instances = instances
+        },
         .transform = model->nodeTransforms[nodeIndex],
-        .mesh = model->mesh,
-        .material = lovrMeshGetMaterial(model->mesh),
-        .instances = instances,
-        .pose = (float*) model->pose
+        .material = lovrMeshGetMaterial(model->mesh)
       });
     }
   }
@@ -59,14 +64,26 @@ Model* lovrModelInit(Model* model, ModelData* modelData) {
   model->modelData = modelData;
   model->aabbDirty = true;
 
-  model->mesh = lovrMeshCreate(modelData->vertexData->count, modelData->vertexData->format, DRAW_TRIANGLES, USAGE_STATIC, false);
-  void* vertices = lovrMeshMapVertices(model->mesh, 0);
-  memcpy(vertices, modelData->vertexData->blob.data, modelData->vertexData->count * modelData->vertexData->format.stride);
-  lovrMeshFlushVertices(model->mesh, 0, modelData->vertexData->count * modelData->vertexData->format.stride);
+  VertexFormat* format = &modelData->vertexData->format;
+  size_t vboSize = modelData->vertexData->count * format->stride;
+  Buffer* vertexBuffer = lovrBufferCreate(vboSize, modelData->vertexData->blob.data, BUFFER_VERTEX, USAGE_STATIC, false);
+  model->mesh = lovrMeshCreate(DRAW_TRIANGLES, *format, vertexBuffer);
+  lovrRelease(vertexBuffer);
 
-  void* indices = lovrMeshMapIndices(model->mesh, modelData->indexCount, modelData->indexSize, 0);
-  memcpy(indices, modelData->indices.raw, modelData->indexCount * modelData->indexSize);
-  lovrMeshFlushIndices(model->mesh);
+  size_t indexSize = modelData->indexSize;
+  uint32_t indexCount = modelData->indexCount;
+  Buffer* indexBuffer = lovrBufferCreate(indexCount * indexSize, modelData->indices.raw, BUFFER_INDEX, USAGE_STATIC, false);
+  lovrMeshSetIndexBuffer(model->mesh, indexBuffer, indexCount, indexSize);
+  lovrRelease(indexBuffer);
+
+  lovrMeshAttachAttribute(model->mesh, "lovrDrawID", &(MeshAttribute) {
+    .buffer = lovrGraphicsGetIdentityBuffer(),
+    .type = ATTR_BYTE,
+    .components = 1,
+    .divisor = 1,
+    .integer = true,
+    .enabled = true
+  });
 
   if (modelData->textures.length > 0) {
     model->textures = calloc(modelData->textures.length, sizeof(Texture*));
@@ -178,7 +195,6 @@ void lovrModelDraw(Model* model, mat4 transform, int instances) {
   lovrGraphicsMatrixTransform(transform);
   renderNode(model, 0, instances);
   lovrGraphicsPop();
-  lovrGraphicsFlush();
 }
 
 Animator* lovrModelGetAnimator(Model* model) {

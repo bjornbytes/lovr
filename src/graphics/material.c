@@ -1,4 +1,5 @@
 #include "graphics/material.h"
+#include "graphics/graphics.h"
 #include "resources/shaders.h"
 #include <math.h>
 #include <stdlib.h>
@@ -41,12 +42,6 @@ void lovrMaterialBind(Material* material, Shader* shader) {
   }
 
   lovrShaderSetMatrices(shader, "lovrMaterialTransform", material->transform, 0, 9);
-
-  material->dirty = false;
-}
-
-bool lovrMaterialIsDirty(Material* material) {
-  return material->dirty;
 }
 
 float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType) {
@@ -55,8 +50,8 @@ float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType) {
 
 void lovrMaterialSetScalar(Material* material, MaterialScalar scalarType, float value) {
   if (material->scalars[scalarType] != value) {
+    lovrGraphicsFlushMaterial(material);
     material->scalars[scalarType] = value;
-    material->dirty = true;
   }
 }
 
@@ -66,8 +61,8 @@ Color lovrMaterialGetColor(Material* material, MaterialColor colorType) {
 
 void lovrMaterialSetColor(Material* material, MaterialColor colorType, Color color) {
   if (memcmp(&material->colors[colorType], &color, 4 * sizeof(float))) {
+    lovrGraphicsFlushMaterial(material);
     material->colors[colorType] = color;
-    material->dirty = true;
   }
 }
 
@@ -77,10 +72,10 @@ Texture* lovrMaterialGetTexture(Material* material, MaterialTexture textureType)
 
 void lovrMaterialSetTexture(Material* material, MaterialTexture textureType, Texture* texture) {
   if (material->textures[textureType] != texture) {
+    lovrGraphicsFlushMaterial(material);
     lovrRetain(texture);
     lovrRelease(material->textures[textureType]);
     material->textures[textureType] = texture;
-    material->dirty = true;
   }
 }
 
@@ -93,6 +88,7 @@ void lovrMaterialGetTransform(Material* material, float* ox, float* oy, float* s
 }
 
 void lovrMaterialSetTransform(Material* material, float ox, float oy, float sx, float sy, float angle) {
+  lovrGraphicsFlushMaterial(material);
   float c = cos(angle);
   float s = sin(angle);
   material->transform[0] = c * sx;
@@ -104,5 +100,4 @@ void lovrMaterialSetTransform(Material* material, float ox, float oy, float sx, 
   material->transform[6] = ox;
   material->transform[7] = oy;
   material->transform[8] = 1;
-  material->dirty = true;
 }

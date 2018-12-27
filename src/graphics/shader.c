@@ -96,17 +96,15 @@ static void lovrShaderSetUniform(Shader* shader, const char* name, UniformType t
   }
 
   Uniform* uniform = &shader->uniforms.data[*index];
-  const char* plural = (uniform->size / size) > 1 ? "s" : "";
   lovrAssert(uniform->type == type, "Unable to send %ss to uniform %s", debug, name);
-  lovrAssert((start + count) * size <= uniform->size, "Too many %s%s for uniform %s, maximum is %d", debug, plural, name, uniform->size / size);
+  lovrAssert((start + count) * size <= uniform->size, "Too many %ss for uniform %s, maximum is %d", debug, name, uniform->size / size);
 
   void* dest = uniform->value.bytes + start * size;
-  if (!uniform->dirty && !memcmp(dest, data, count * size)) {
-    return;
+  if (memcmp(dest, data, count * size)) {
+    lovrGraphicsFlushShader(shader);
+    memcpy(dest, data, count * size);
+    uniform->dirty = true;
   }
-
-  memcpy(dest, data, count * size);
-  uniform->dirty = true;
 }
 
 void lovrShaderSetFloats(Shader* shader, const char* name, float* data, int start, int count) {
@@ -139,36 +137,68 @@ void lovrShaderSetColor(Shader* shader, const char* name, Color color) {
   lovrShaderSetUniform(shader, name, UNIFORM_FLOAT, (float*) &color, 0, 4, sizeof(float), "float");
 }
 
-void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* source, UniformAccess access) {
+void lovrShaderSetBlock(Shader* shader, const char* name, Buffer* buffer, size_t offset, size_t size, UniformAccess access) {
   int* id = map_get(&shader->blockMap, name);
-  lovrAssert(id, "No shader block named '%s'", name);
+  if (!id) return;
 
   int type = *id & 1;
   int index = *id >> 1;
   UniformBlock* block = &shader->blocks[type].data[index];
-  block->access = access;
 
-  if (source != block->source) {
-    if (source) {
-      lovrAssert(block->uniforms.length == source->uniforms.length, "ShaderBlock must have same number of uniforms as block definition in Shader");
-      for (int i = 0; i < block->uniforms.length; i++) {
-        const Uniform* u = &block->uniforms.data[i];
-        const Uniform* v = &source->uniforms.data[i];
-        lovrAssert(u->type == v->type, "Shader is not compatible with ShaderBlock, check type of variable '%s'", v->name);
-        lovrAssert(u->offset == v->offset, "Shader is not compatible with ShaderBlock, check order of variable '%s'", v->name);
-
-        // This check is disabled due to observed driver bugs with std140 layouts
-        // lovrAssert(u->size == v->size, "Shader is not compatible with ShaderBlock, check count of variable '%s'", v->name);
-      }
-    }
-
-    lovrRetain(source);
+  if (block->source != buffer || block->offset != offset || block->size != size) {
+    lovrGraphicsFlushShader(shader);
+    lovrRetain(buffer);
     lovrRelease(block->source);
-    block->source = source;
+    block->access = access;
+    block->source = buffer;
+    block->offset = offset;
+    block->size = size;
   }
 }
 
 // ShaderBlock
+
+// Calculates uniform size and byte offsets using std140 rules, returning the total buffer size
+size_t lovrShaderComputeUniformLayout(vec_uniform_t* uniforms) {
+  size_t size = 0;
+  Uniform* uniform; int i;
+  vec_foreach_ptr(uniforms, uniform, i) {
+    size_t align;
+    if (uniform->count > 1 || uniform->type == UNIFORM_MATRIX) {
+      align = 16 * (uniform->type == UNIFORM_MATRIX ? uniform->components : 1);
+      uniform->size = align * uniform->count;
+    } else {
+      align = (uniform->components + (uniform->components == 3)) * 4;
+      uniform->size = uniform->components * 4;
+    }
+    uniform->offset = (size + (align - 1)) & -align;
+    size = uniform->offset + uniform->size;
+  }
+  return size;
+}
+
+ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, BlockType type, Buffer* buffer, vec_uniform_t* uniforms) {
+  vec_init(&block->uniforms);
+  map_init(&block->uniformMap);
+
+  Uniform* uniform; int i;
+  vec_extend(&block->uniforms, uniforms);
+  vec_foreach_ptr(&block->uniforms, uniform, i) {
+    map_set(&block->uniformMap, uniform->name, i);
+  }
+
+  block->type = type;
+  block->buffer = buffer;
+  lovrRetain(buffer);
+  return block;
+}
+
+void lovrShaderBlockDestroy(void* ref) {
+  ShaderBlock* block = ref;
+  lovrRelease(block->buffer);
+  vec_deinit(&block->uniforms);
+  map_deinit(&block->uniformMap);
+}
 
 BlockType lovrShaderBlockGetType(ShaderBlock* block) {
   return block->type;
@@ -225,4 +255,3 @@ const Uniform* lovrShaderBlockGetUniform(ShaderBlock* block, const char* name) {
 Buffer* lovrShaderBlockGetBuffer(ShaderBlock* block) {
   return block->buffer;
 }
-

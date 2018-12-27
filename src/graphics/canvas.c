@@ -1,4 +1,5 @@
 #include "graphics/canvas.h"
+#include "graphics/graphics.h"
 
 const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count) {
   if (count) *count = canvas->attachmentCount;
@@ -12,6 +13,8 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
   if (!canvas->needsAttach && count == canvas->attachmentCount && !memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
     return;
   }
+
+  lovrGraphicsFlushCanvas(canvas);
 
   for (int i = 0; i < count; i++) {
     Texture* texture = attachments[i].texture;

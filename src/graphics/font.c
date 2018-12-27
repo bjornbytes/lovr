@@ -68,7 +68,7 @@ Rasterizer* lovrFontGetRasterizer(Font* font) {
   return font->rasterizer;
 }
 
-void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, VerticalAlign valign, float* vertices, float* offsety, uint32_t* vertexCount) {
+void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, float* vertices, uint16_t* indices, uint16_t baseVertex) {
   FontAtlas* atlas = &font->atlas;
 
   float cx = 0;
@@ -83,17 +83,16 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
   unsigned int codepoint;
   size_t bytes;
 
-  float* cursor = vertices;
+  float* vertexCursor = vertices;
+  uint16_t* indexCursor = indices;
   float* lineStart = vertices;
-  int lineCount = 1;
-  *vertexCount = 0;
+  uint16_t I = baseVertex;
 
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
 
     // Newlines
     if (codepoint == '\n' || (wrap && cx * scale > wrap && codepoint == ' ')) {
-      lineStart = lovrFontAlignLine(lineStart, cursor, cx, halign);
-      lineCount++;
+      lineStart = lovrFontAlignLine(lineStart, vertexCursor, cx, halign);
       cx = 0;
       cy -= font->rasterizer->height * font->lineHeight;
       previous = '\0';
@@ -118,7 +117,7 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
 
     // Start over if texture was repacked
     if (u != atlas->width || v != atlas->height) {
-      lovrFontRender(font, start, length, wrap, halign, valign, vertices, offsety, vertexCount);
+      lovrFontRender(font, start, length, wrap, halign, vertices, indices, baseVertex);
       return;
     }
 
@@ -133,18 +132,18 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
       float s2 = (glyph->x + glyph->tw) / u;
       float t2 = glyph->y / v;
 
-      float quad[48] = {
+      memcpy(vertexCursor, (float[32]) {
         x1, y1, 0, 0, 0, 0, s1, t1,
         x1, y2, 0, 0, 0, 0, s1, t2,
         x2, y1, 0, 0, 0, 0, s2, t1,
-        x2, y1, 0, 0, 0, 0, s2, t1,
-        x1, y2, 0, 0, 0, 0, s1, t2,
         x2, y2, 0, 0, 0, 0, s2, t2
-      };
+      }, 32 * sizeof(float));
 
-      memcpy(cursor, quad, 6 * 8 * sizeof(float));
-      cursor += 48;
-      *vertexCount += 6;
+      memcpy(indexCursor, (uint16_t[6]) { I + 0, I + 1, I + 2, I + 2, I + 1, I + 3 }, 6 * sizeof(uint16_t));
+
+      vertexCursor += 32;
+      indexCursor += 6;
+      I += 4;
     }
 
     // Advance cursor
@@ -153,30 +152,24 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
   }
 
   // Align the last line
-  lovrFontAlignLine(lineStart, cursor, cx, halign);
-
-  // Calculate vertical offset
-  if (valign == ALIGN_MIDDLE) {
-    *offsety = lineCount * font->rasterizer->height * font->lineHeight * .5f;
-  } else if (valign == ALIGN_BOTTOM) {
-    *offsety = lineCount * font->rasterizer->height * font->lineHeight;
-  } else {
-    *offsety = 0;
-  }
+  lovrFontAlignLine(lineStart, vertexCursor, cx, halign);
 }
 
-float lovrFontGetWidth(Font* font, const char* str, float wrap) {
-  float width = 0;
+void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, float* width, uint32_t* lineCount, uint32_t* glyphCount) {
   float x = 0;
-  const char* end = str + strlen(str);
+  const char* end = str + length;
   size_t bytes;
   unsigned int previous = '\0';
   unsigned int codepoint;
   float scale = 1 / font->pixelDensity;
+  *width = 0.f;
+  *lineCount = 0;
+  *glyphCount = 0;
 
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
     if (codepoint == '\n' || (wrap && x * scale > wrap && codepoint == ' ')) {
-      width = MAX(width, x * scale);
+      *width = MAX(*width, x * scale);
+      (*lineCount)++;
       x = 0;
       previous = '\0';
       str += bytes;
@@ -192,12 +185,17 @@ float lovrFontGetWidth(Font* font, const char* str, float wrap) {
     }
 
     Glyph* glyph = lovrFontGetGlyph(font, codepoint);
+
+    if (glyph->w > 0 && glyph->h > 0) {
+      (*glyphCount)++;
+    }
+
     x += glyph->advance + lovrFontGetKerning(font, previous, codepoint);
     previous = codepoint;
     str += bytes;
   }
 
-  return MAX(width, x * scale);
+  *width = MAX(*width, x * scale);
 }
 
 float lovrFontGetHeight(Font* font) {

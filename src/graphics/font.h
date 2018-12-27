@@ -8,14 +8,14 @@
 
 typedef enum {
   ALIGN_LEFT,
-  ALIGN_RIGHT,
-  ALIGN_CENTER
+  ALIGN_CENTER,
+  ALIGN_RIGHT
 } HorizontalAlign;
 
 typedef enum {
   ALIGN_TOP,
-  ALIGN_BOTTOM,
-  ALIGN_MIDDLE
+  ALIGN_MIDDLE,
+  ALIGN_BOTTOM
 } VerticalAlign;
 
 typedef struct {
@@ -42,8 +42,8 @@ Font* lovrFontInit(Font* font, Rasterizer* rasterizer);
 #define lovrFontCreate(...) lovrFontInit(lovrAlloc(Font), __VA_ARGS__)
 void lovrFontDestroy(void* ref);
 Rasterizer* lovrFontGetRasterizer(Font* font);
-void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, VerticalAlign valign, float* vertices, float* offsety, uint32_t* vertexCount);
-float lovrFontGetWidth(Font* font, const char* string, float wrap);
+void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, float* vertices, uint16_t* indices, uint16_t baseVertex);
+void lovrFontMeasure(Font* font, const char* string, size_t length, float wrap, float* width, uint32_t* lineCount, uint32_t* glyphCount);
 float lovrFontGetHeight(Font* font);
 float lovrFontGetAscent(Font* font);
 float lovrFontGetDescent(Font* font);
