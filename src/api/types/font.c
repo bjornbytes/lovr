@@ -3,9 +3,14 @@
 
 int l_lovrFontGetWidth(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
-  const char* string = luaL_checkstring(L, 2);
+  size_t length;
+  const char* string = luaL_checklstring(L, 2, &length);
   float wrap = luaL_optnumber(L, 3, 0);
-  lua_pushnumber(L, lovrFontGetWidth(font, string, wrap));
+  float width;
+  uint32_t lineCount;
+  uint32_t glyphCount;
+  lovrFontMeasure(font, string, length, wrap, &width, &lineCount, &glyphCount);
+  lua_pushnumber(L, width);
   return 1;
 }
 

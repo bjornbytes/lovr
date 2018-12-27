@@ -46,7 +46,6 @@ const char* BlendModes[] = {
   [BLEND_LIGHTEN] = "lighten",
   [BLEND_DARKEN] = "darken",
   [BLEND_SCREEN] = "screen",
-  [BLEND_REPLACE] = "replace",
   NULL
 };
 
@@ -95,8 +94,8 @@ const char* FilterModes[] = {
 
 const char* HorizontalAligns[] = {
   [ALIGN_LEFT] = "left",
-  [ALIGN_RIGHT] = "right",
   [ALIGN_CENTER] = "center",
+  [ALIGN_RIGHT] = "right",
   NULL
 };
 
@@ -177,8 +176,8 @@ const char* UniformAccesses[] = {
 
 const char* VerticalAligns[] = {
   [ALIGN_TOP] = "top",
-  [ALIGN_BOTTOM] = "bottom",
   [ALIGN_MIDDLE] = "middle",
+  [ALIGN_BOTTOM] = "bottom",
   NULL
 };
 
@@ -195,60 +194,61 @@ const char* WrapModes[] = {
   NULL
 };
 
-static uint32_t luax_readvertices(lua_State* L, int index) {
-  switch (lua_type(L, index)) {
-    case LUA_TTABLE: {
-      size_t count = lua_objlen(L, index);
-      lua_rawgeti(L, index, 1);
+static uint32_t luax_getvertexcount(lua_State* L, int index) {
+  int type = lua_type(L, index);
+  if (type == LUA_TTABLE) {
+    size_t count = lua_objlen(L, index);
+    lua_rawgeti(L, index, 1);
+    int tableType = lua_type(L, -1);
+    lua_pop(L, 1);
+    return tableType == LUA_TNUMBER ? count / 3 : count;
+  } else if (type == LUA_TNUMBER) {
+    return (lua_gettop(L) - index + 1) / 3;
+  } else {
+    return lua_gettop(L) - index + 1;
+  }
+}
 
+static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t count) {
+  switch (lua_type(L, index)) {
+    case LUA_TTABLE:
+      lua_rawgeti(L, index, 1);
       if (lua_type(L, -1) == LUA_TNUMBER) {
         lua_pop(L, 1);
-        float* vertices = lovrGraphicsGetVertexPointer(count / 3);
-        for (size_t i = 1; i <= count; i += 3) {
-          for (int j = 0; j < 3; j++) {
-            lua_rawgeti(L, index, i + j);
+        for (uint32_t i = 0; i < count; i++) {
+          for (int j = 1; j <= 3; j++) {
+            lua_rawgeti(L, index, 3 * i + j);
             vertices[j] = lua_tonumber(L, -1);
             lua_pop(L, 1);
           }
           vertices += 8;
         }
-        return count / 3;
       } else {
         lua_pop(L, 1);
-        float* vertices = lovrGraphicsGetVertexPointer(count);
-        for (size_t i = 1; i <= count; i++) {
-          lua_rawgeti(L, index, i);
+        for (uint32_t i = 0; i < count; i++) {
+          lua_rawgeti(L, index, i + 1);
           vec3_init(vertices, luax_checkmathtype(L, -1, MATH_VEC3, NULL));
           lua_pop(L, 1);
           vertices += 8;
         }
-        return count;
       }
-    }
+      break;
 
-    case LUA_TNUMBER: {
-      int top = lua_gettop(L);
-      uint32_t count = (top - index + 1) / 3;
-      float* vertices = lovrGraphicsGetVertexPointer(count);
-      for (int i = index; i <= top; i += 3) {
+    case LUA_TNUMBER:
+      for (uint32_t i = 0; i < count; i++) {
         for (int j = 0; j < 3; j++) {
-          vertices[j] = lua_tonumber(L, i + j);
+          vertices[j] = lua_tonumber(L, index + 3 * i + j);
         }
         vertices += 8;
       }
-      return count;
-    }
+      break;
 
-    default: {
-      int top = lua_gettop(L);
-      uint32_t count = top - index + 1;
-      float* vertices = lovrGraphicsGetVertexPointer(count);
-      for (int i = index; i <= top; i++) {
-        vec3_init(vertices, luax_checkmathtype(L, i, MATH_VEC3, NULL));
+    default:
+      for (uint32_t i = 0; i < count; i++) {
+        vec3_init(vertices, luax_checkmathtype(L, index + i, MATH_VEC3, NULL));
         vertices += 8;
       }
-      return count;
-    }
+      break;
   }
 }
 
@@ -426,7 +426,7 @@ static int l_lovrGraphicsGetBlendMode(lua_State* L) {
 }
 
 static int l_lovrGraphicsSetBlendMode(lua_State* L) {
-  BlendMode mode = luaL_checkoption(L, 1, NULL, BlendModes);
+  BlendMode mode = lua_isnoneornil(L, 1) ? BLEND_NONE : luaL_checkoption(L, 1, NULL, BlendModes);
   BlendAlphaMode alphaMode = luaL_checkoption(L, 2, "alphamultiply", BlendAlphaModes);
   lovrGraphicsSetBlendMode(mode, alphaMode);
   return 0;
@@ -711,14 +711,18 @@ static int l_lovrGraphicsFlush(lua_State* L) {
 }
 
 static int l_lovrGraphicsPoints(lua_State* L) {
-  uint32_t count = luax_readvertices(L, 1);
-  lovrGraphicsPoints(count);
+  float* vertices;
+  uint32_t count = luax_getvertexcount(L, 1);
+  lovrGraphicsPoints(count, &vertices);
+  luax_readvertices(L, 1, vertices, count);
   return 0;
 }
 
 static int l_lovrGraphicsLine(lua_State* L) {
-  uint32_t count = luax_readvertices(L, 1);
-  lovrGraphicsLine(count);
+  float* vertices;
+  uint32_t count = luax_getvertexcount(L, 1);
+  lovrGraphicsLine(count, &vertices);
+  luax_readvertices(L, 1, vertices, count);
   return 0;
 }
 
@@ -731,13 +735,11 @@ static int l_lovrGraphicsTriangle(lua_State* L) {
     style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
 
-  float points[9];
-  int top = lua_gettop(L);
-  lovrAssert(top >= 10, "Expected 3 points to make a triangle, got %d\n", (top - 1) / 3);
-  for (int i = 0; i < 9; i++) {
-    points[i] = luaL_checknumber(L, i + 2);
-  }
-  lovrGraphicsTriangle(style, material, points);
+  float* vertices;
+  uint32_t count = luax_getvertexcount(L, 2);
+  lovrAssert(count % 3 == 0, "Triangle vertex count must be a multiple of 3");
+  lovrGraphicsTriangle(style, material, count, &vertices);
+  luax_readvertices(L, 2, vertices, count);
   return 0;
 }
 
@@ -785,17 +787,17 @@ static int l_lovrGraphicsArc(lua_State* L) {
   } else {
     style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
-  ArcMode arcMode = ARC_MODE_PIE;
+  ArcMode mode = ARC_MODE_PIE;
   int index = 2;
   if (lua_type(L, index) == LUA_TSTRING) {
-    arcMode = luaL_checkoption(L, index++, NULL, ArcModes);
+    mode = luaL_checkoption(L, index++, NULL, ArcModes);
   }
   float transform[16];
   index = luax_readmat4(L, index, transform, 1, NULL);
-  float theta1 = luaL_optnumber(L, index++, 0);
-  float theta2 = luaL_optnumber(L, index++, 2 * M_PI);
-  int segments = luaL_optinteger(L, index, 64) * (MIN(fabsf(theta2 - theta1), 2 * M_PI) / (2 * M_PI));
-  lovrGraphicsArc(style, arcMode, material, transform, theta1, theta2, segments);
+  float r1 = luaL_optnumber(L, index++, 0);
+  float r2 = luaL_optnumber(L, index++, 2 * M_PI);
+  int segments = luaL_optinteger(L, index, 64) * (MIN(fabsf(r2 - r1), 2 * M_PI) / (2 * M_PI));
+  lovrGraphicsArc(style, mode, material, transform, r1, r2, segments);
   return 0;
 }
 
@@ -953,9 +955,14 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  ShaderBlock* block = lovrShaderBlockCreate(&uniforms, type, usage);
+  lovrAssert(type != BLOCK_STORAGE || lovrGraphicsGetSupported()->computeShaders, "Writable ShaderBlocks are not supported on this system");
+  size_t size = lovrShaderComputeUniformLayout(&uniforms);
+  Buffer* buffer = lovrBufferCreate(size, NULL, type == BLOCK_STORAGE ? BUFFER_SHADER_STORAGE : BUFFER_UNIFORM, usage, false);
+  ShaderBlock* block = lovrShaderBlockCreate(type, buffer, &uniforms);
   luax_pushobject(L, block);
   vec_deinit(&uniforms);
+  lovrRelease(buffer);
+  lovrRelease(block);
   return 1;
 }
 
@@ -1156,17 +1163,9 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   DrawMode mode = luaL_checkoption(L, drawModeIndex, "fan", DrawModes);
   BufferUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", BufferUsages);
   bool readable = lua_toboolean(L, drawModeIndex + 2);
-  Mesh* mesh = lovrMeshCreate(count, format, mode, usage, readable);
-
-  if (dataIndex) {
-    VertexPointer vertices = { .raw = lovrMeshMapVertices(mesh, 0) };
-    luax_loadvertices(L, dataIndex, lovrMeshGetVertexFormat(mesh), vertices);
-    lovrMeshFlushVertices(mesh, 0, count * format.stride);
-  } else if (vertexData) {
-    void* vertices = lovrMeshMapVertices(mesh, 0);
-    memcpy(vertices, vertexData->blob.data, vertexData->count * vertexData->format.stride);
-    lovrMeshFlushVertices(mesh, 0, count * format.stride);
-  }
+  size_t bufferSize = count * format.stride;
+  Buffer* vertexBuffer = lovrBufferCreate(bufferSize, NULL, BUFFER_VERTEX, usage, readable);
+  Mesh* mesh = lovrMeshCreate(mode, format, vertexBuffer);
 
   lovrMeshAttachAttribute(mesh, "lovrDrawID", &(MeshAttribute) {
     .buffer = lovrGraphicsGetIdentityBuffer(),
@@ -1176,6 +1175,17 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     .integer = true,
     .enabled = true
   });
+
+  if (dataIndex) {
+    VertexPointer vertices = { .raw = lovrBufferMap(vertexBuffer, 0) };
+    luax_loadvertices(L, dataIndex, &format, vertices);
+  } else if (vertexData) {
+    void* vertices = lovrBufferMap(vertexBuffer, 0);
+    memcpy(vertices, vertexData->blob.data, vertexData->count * vertexData->format.stride);
+  }
+
+  lovrBufferFlush(vertexBuffer, 0, count * format.stride);
+  lovrRelease(vertexBuffer);
 
   luax_pushobject(L, mesh);
   lovrRelease(mesh);

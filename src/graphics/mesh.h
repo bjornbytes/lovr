@@ -34,43 +34,42 @@ typedef enum {
 
 typedef struct {
   Ref ref;
-  uint32_t count;
   DrawMode mode;
   VertexFormat format;
-  bool readable;
-  BufferUsage usage;
-  Buffer* vbo;
-  Buffer* ibo;
+  Buffer* vertexBuffer;
+  Buffer* indexBuffer;
+  uint32_t vertexCount;
   uint32_t indexCount;
   size_t indexSize;
-  size_t indexCapacity;
-  uint32_t rangeStart;
-  uint32_t rangeCount;
+  size_t flushStart;
+  size_t flushEnd;
+  uint32_t drawStart;
+  uint32_t drawCount;
   Material* material;
   map_attribute_t attributes;
   MeshAttribute layout[MAX_ATTRIBUTES];
   GPU_MESH_FIELDS
 } Mesh;
 
-Mesh* lovrMeshInit(Mesh* mesh, uint32_t count, VertexFormat format, DrawMode drawMode, BufferUsage usage, bool readable);
+Mesh* lovrMeshInit(Mesh* mesh, DrawMode mode, VertexFormat format, Buffer* vertexBuffer);
 #define lovrMeshCreate(...) lovrMeshInit(lovrAlloc(Mesh), __VA_ARGS__)
 void lovrMeshDestroy(void* ref);
+VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
+Buffer* lovrMeshGetVertexBuffer(Mesh* mesh);
+Buffer* lovrMeshGetIndexBuffer(Mesh* mesh);
+void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer, uint32_t indexCount, size_t indexSize);
+uint32_t lovrMeshGetVertexCount(Mesh* mesh);
+uint32_t lovrMeshGetIndexCount(Mesh* mesh);
+size_t lovrMeshGetIndexSize(Mesh* mesh);
+void lovrMeshMarkVertices(Mesh* mesh, size_t start, size_t end);
 void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
 MeshAttribute* lovrMeshGetAttribute(Mesh* mesh, const char* name);
-VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);
-bool lovrMeshIsReadable(Mesh* mesh);
-DrawMode lovrMeshGetDrawMode(Mesh* mesh);
-void lovrMeshSetDrawMode(Mesh* mesh, DrawMode mode);
-int lovrMeshGetVertexCount(Mesh* mesh);
 bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name);
 void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enabled);
+DrawMode lovrMeshGetDrawMode(Mesh* mesh);
+void lovrMeshSetDrawMode(Mesh* mesh, DrawMode mode);
 void lovrMeshGetDrawRange(Mesh* mesh, uint32_t* start, uint32_t* count);
 void lovrMeshSetDrawRange(Mesh* mesh, uint32_t start, uint32_t count);
 Material* lovrMeshGetMaterial(Mesh* mesh);
 void lovrMeshSetMaterial(Mesh* mesh, Material* material);
-void* lovrMeshMapVertices(Mesh* mesh, size_t offset);
-void lovrMeshFlushVertices(Mesh* mesh, size_t offset, size_t size);
-void* lovrMeshMapIndices(Mesh* mesh, uint32_t count, size_t indexSize, size_t offset);
-void lovrMeshFlushIndices(Mesh* mesh);
-void* lovrMeshReadIndices(Mesh* mesh, uint32_t* count, size_t* indexSize);

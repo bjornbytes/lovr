@@ -6,9 +6,9 @@
 #include "util.h"
 #include "lib/math.h"
 #include "lib/stb/stb_image.h"
-#define _USE_MATH_DEFINES
 #include <stdlib.h>
 #include <string.h>
+#define _USE_MATH_DEFINES
 #include <math.h>
 
 static GraphicsState state;
@@ -30,20 +30,100 @@ static void onResizeWindow(int width, int height) {
   state.height = height;
 }
 
-static bool batchable(DrawRequest* a) {
-  DrawRequest* b = &state.batch;
-  if (a->instances > 1) return false;
-  if (a->mesh != b->mesh) return false;
-  if (!a->mesh && a->mode != b->mode) return false;
-  if (!a->mesh && !!a->index.count != !!b->index.count) return false;
-  if (a->shader != b->shader) return false;
-  if (a->material != b->material) return false;
-  if (!a->material && a->diffuseTexture != b->diffuseTexture) return false;
-  if (!a->material && a->environmentMap != b->environmentMap) return false;
-  if (a->mono != b->mono) return false;
-  if (!!a->pose != !!b->pose || (a->pose && memcmp(a->pose, b->pose, MAX_BONES * 16 * sizeof(float)))) return false;
-  if (a->material && lovrMaterialIsDirty(a->material)) return false;
-  return true;
+static const size_t BUFFER_COUNTS[] = {
+  [STREAM_VERTEX] = 1 << 16,
+  [STREAM_INDEX] = 1 << 16,
+  [STREAM_DRAW_ID] = 1 << 16,
+  [STREAM_DRAW_DATA] = 256 * MAX_BATCHES * 2
+};
+
+static const size_t BUFFER_STRIDES[] = {
+  [STREAM_VERTEX] = 8 * sizeof(float),
+  [STREAM_INDEX] = sizeof(uint16_t),
+  [STREAM_DRAW_ID] = sizeof(uint8_t),
+  [STREAM_DRAW_DATA] = sizeof(DrawData)
+};
+
+static const BufferType BUFFER_TYPES[] = {
+  [STREAM_VERTEX] = BUFFER_VERTEX,
+  [STREAM_INDEX] = BUFFER_INDEX,
+  [STREAM_DRAW_ID] = BUFFER_GENERIC,
+  [STREAM_DRAW_DATA] = BUFFER_UNIFORM
+};
+
+static void lovrGraphicsInitBuffers() {
+  for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
+    state.buffers[i] = lovrBufferCreate(BUFFER_COUNTS[i] * BUFFER_STRIDES[i], NULL, BUFFER_TYPES[i], USAGE_STREAM, false);
+  }
+
+  // Compute the max number of draws per batch, since the hard cap of 256 won't always fit in a UBO
+  size_t maxBlockSize = lovrGpuGetLimits()->blockSize;
+  state.maxDraws = MIN(maxBlockSize / sizeof(DrawData) / 64 * 64, 256);
+
+  // The identity buffer is used for autoinstanced meshes and instanced primitives and maps the
+  // instance ID to a vertex attribute.  Its contents never change, so they are initialized here.
+  state.identityBuffer = lovrBufferCreate(256, NULL, BUFFER_VERTEX, USAGE_STATIC, false);
+  uint8_t* id = lovrBufferMap(state.identityBuffer, 0);
+  for (int i = 0; i < 256; i++) id[i] = i;
+  lovrBufferFlush(state.identityBuffer, 0, 256);
+
+  MeshAttribute position = {
+    .buffer = state.buffers[STREAM_VERTEX],
+    .offset = 0,
+    .stride = BUFFER_STRIDES[STREAM_VERTEX],
+    .type = ATTR_FLOAT,
+    .components = 3,
+    .enabled = true
+  };
+
+  MeshAttribute normal = {
+    .buffer = state.buffers[STREAM_VERTEX],
+    .offset = 3 * sizeof(float),
+    .stride = BUFFER_STRIDES[STREAM_VERTEX],
+    .type = ATTR_FLOAT,
+    .components = 3,
+    .enabled = true
+  };
+
+  MeshAttribute texCoord = {
+    .buffer = state.buffers[STREAM_VERTEX],
+    .offset = 3 * sizeof(float) + 3 * sizeof(float),
+    .stride = BUFFER_STRIDES[STREAM_VERTEX],
+    .type = ATTR_FLOAT,
+    .components = 2,
+    .enabled = true
+  };
+
+  MeshAttribute drawId = {
+    .buffer = state.buffers[STREAM_DRAW_ID],
+    .type = ATTR_BYTE,
+    .components = 1,
+    .integer = true,
+    .enabled = true
+  };
+
+  MeshAttribute identity = {
+    .buffer = state.identityBuffer,
+    .type = ATTR_BYTE,
+    .components = 1,
+    .divisor = 1,
+    .integer = true,
+    .enabled = true
+  };
+
+  VertexFormat empty = { .count = 0 };
+
+  state.mesh = lovrMeshCreate(DRAW_TRIANGLES, empty, NULL);
+  lovrMeshAttachAttribute(state.mesh, "lovrPosition", &position);
+  lovrMeshAttachAttribute(state.mesh, "lovrNormal", &normal);
+  lovrMeshAttachAttribute(state.mesh, "lovrTexCoord", &texCoord);
+  lovrMeshAttachAttribute(state.mesh, "lovrDrawID", &drawId);
+
+  state.instancedMesh = lovrMeshCreate(DRAW_TRIANGLES, empty, NULL);
+  lovrMeshAttachAttribute(state.instancedMesh, "lovrPosition", &position);
+  lovrMeshAttachAttribute(state.instancedMesh, "lovrNormal", &normal);
+  lovrMeshAttachAttribute(state.instancedMesh, "lovrTexCoord", &texCoord);
+  lovrMeshAttachAttribute(state.instancedMesh, "lovrDrawID", &identity);
 }
 
 // Base
@@ -61,12 +141,17 @@ void lovrGraphicsDestroy() {
   for (int i = 0; i < MAX_DEFAULT_SHADERS; i++) {
     lovrRelease(state.defaultShaders[i]);
   }
+  for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
+    lovrRelease(state.buffers[i]);
+    for (int j = 0; j < MAX_LOCKS; j++) {
+      lovrGpuDestroyLock(state.locks[i][j]);
+    }
+  }
+  lovrRelease(state.mesh);
+  lovrRelease(state.instancedMesh);
+  lovrRelease(state.identityBuffer);
   lovrRelease(state.defaultMaterial);
   lovrRelease(state.defaultFont);
-  lovrRelease(state.defaultMesh);
-  lovrRelease(state.vertexMap);
-  lovrRelease(state.identityBuffer);
-  lovrRelease(state.block);
   lovrGpuDestroy();
   memset(&state, 0, sizeof(GraphicsState));
 }
@@ -94,34 +179,7 @@ void lovrGraphicsSetWindow(WindowFlags* flags) {
   lovrPlatformOnWindowResize(onResizeWindow);
   lovrPlatformGetFramebufferSize(&state.width, &state.height);
   lovrGpuInit(state.gammaCorrect, lovrGetProcAddress);
-
-  VertexFormat format;
-  vertexFormatInit(&format);
-  vertexFormatAppend(&format, "lovrPosition", ATTR_FLOAT, 3);
-  vertexFormatAppend(&format, "lovrNormal", ATTR_FLOAT, 3);
-  vertexFormatAppend(&format, "lovrTexCoord", ATTR_FLOAT, 2);
-  state.defaultMesh = lovrMeshCreate(MAX_VERTICES, format, DRAW_TRIANGLES, USAGE_STREAM, false);
-
-  state.vertexMap = lovrBufferCreate(MAX_VERTICES * sizeof(uint8_t), NULL, USAGE_STREAM, false);
-  lovrMeshAttachAttribute(state.defaultMesh, "lovrDrawID", &(MeshAttribute) {
-    .buffer = state.vertexMap,
-    .type = ATTR_BYTE,
-    .components = 1,
-    .integer = true,
-    .enabled = true
-  });
-
-  vec_uniform_t uniforms;
-  vec_init(&uniforms);
-  vec_push(&uniforms, ((Uniform) { .name = "lovrModels", .type = UNIFORM_MATRIX, .components = 4, .count = MAX_BATCH_SIZE }));
-  vec_push(&uniforms, ((Uniform) { .name = "lovrColors", .type = UNIFORM_FLOAT, .components = 4, .count = MAX_BATCH_SIZE }));
-  state.block = lovrShaderBlockCreate(&uniforms, BLOCK_UNIFORM, USAGE_STREAM);
-  vec_deinit(&uniforms);
-
-  uint8_t identity[MAX_BATCH_SIZE];
-  for (int i = 0; i < MAX_BATCH_SIZE; i++) { identity[i] = i; }
-  state.identityBuffer = lovrBufferCreate(sizeof(identity), identity, USAGE_STATIC, false);
-
+  lovrGraphicsInitBuffers();
   lovrGraphicsReset();
   state.initialized = true;
 }
@@ -155,6 +213,34 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   if (clear) {
     lovrGpuClear(state.camera.canvas, &state.backgroundColor, &(float) { 1. }, &(int) { 0 });
   }
+}
+
+void* lovrGraphicsMapBuffer(BufferRole role, uint32_t count) {
+  Buffer* buffer = state.buffers[role];
+  size_t limit = BUFFER_COUNTS[role];
+  lovrAssert(count <= limit, "Whoa there!  Tried to get %d elements from a buffer that only has %d elements.", count, limit);
+
+  if (state.cursors[role] + count > limit) {
+    lovrGraphicsFlush();
+    state.cursors[role] = 0;
+
+    // Locks are placed as late as possible, causing the last lock to never get placed.  Whenever we
+    // wrap around a buffer, we gotta place that last missing lock.
+    state.locks[role][MAX_LOCKS - 1] = lovrGpuLock();
+  }
+
+  // Wait on any pending locks for the mapped region(s)
+  int firstLock = state.cursors[role] / (BUFFER_COUNTS[role] / MAX_LOCKS);
+  int lastLock = MIN(state.cursors[role] + count, BUFFER_COUNTS[role] - 1) / (BUFFER_COUNTS[role] / MAX_LOCKS);
+  for (int i = firstLock; i <= lastLock; i++) {
+    if (state.locks[role][i]) {
+      lovrGpuUnlock(state.locks[role][i]);
+      lovrGpuDestroyLock(state.locks[role][i]);
+      state.locks[role][i] = NULL;
+    }
+  }
+
+  return lovrBufferMap(buffer, state.cursors[role] * BUFFER_STRIDES[role]);
 }
 
 Buffer* lovrGraphicsGetIdentityBuffer() {
@@ -375,343 +461,683 @@ void lovrGraphicsSetProjection(mat4 projection) {
 
 // Rendering
 
-float* lovrGraphicsGetVertexPointer(uint32_t count) {
-  lovrAssert(count <= MAX_VERTICES, "Hey now!  Up to %d vertices are allowed per primitive", MAX_VERTICES);
-
-  if (state.vertexCursor + count > MAX_VERTICES) {
-    lovrGraphicsFlush();
-    state.batchVertex = state.vertexCursor = 0;
-  }
-
-  return lovrMeshMapVertices(state.defaultMesh, state.vertexCursor * 8 * sizeof(float));
-}
-
-uint16_t* lovrGraphicsGetIndexPointer(uint32_t count) {
-  lovrAssert(count <= MAX_INDICES, "Whoa there!  Up to %d indices are allowed per primitive", MAX_INDICES);
-
-  if (state.indexCursor + count > MAX_INDICES) {
-    lovrGraphicsFlush();
-    state.batchIndex = state.indexCursor = 0;
-  }
-
-  return lovrMeshMapIndices(state.defaultMesh, count ? MAX_INDICES : 0, sizeof(uint16_t), state.indexCursor * sizeof(uint16_t));
-}
-
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
+  if (color || depth || stencil) {
+    lovrGraphicsFlush();
+  }
+
   if (color) gammaCorrectColor(color);
   lovrGpuClear(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
 }
 
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil) {
+  if (color || depth || stencil) {
+    lovrGraphicsFlush();
+  }
+
   lovrGpuDiscard(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
 }
 
+void lovrGraphicsBatch(BatchRequest* req) {
+
+  // Resolve objects
+  Canvas* canvas = state.canvas ? state.canvas : state.camera.canvas;
+  Shader* shader = state.shader ? state.shader : (state.defaultShaders[req->shader] ? state.defaultShaders[req->shader] : (state.defaultShaders[req->shader] = lovrShaderCreateDefault(req->shader)));
+  Pipeline* pipeline = req->pipeline ? req->pipeline : &state.pipeline;
+  Material* material = req->material ? req->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
+
+  if (!req->material) {
+    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, req->diffuseTexture);
+    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, req->environmentMap);
+  }
+
+  if (req->type == BATCH_MESH) {
+    float* pose = req->params.mesh.pose ? req->params.mesh.pose : (float[]) MAT4_IDENTITY;
+    size_t count = req->params.mesh.pose ? (MAX_BONES * 16) : 16;
+    lovrShaderSetMatrices(shader, "lovrPose", pose, 0, count);
+  }
+
+  // Try to find an existing batch to use
+  Batch* batch = NULL;
+  if (req->type != BATCH_LINES && (req->type != BATCH_MESH || req->params.mesh.instances == 1)) {
+    for (int i = state.batchCount - 1; i >= 0; i--) {
+      Batch* b = &state.batches[i];
+
+      if (b->type != req->type) { continue; }
+
+      BatchParams* p = &req->params;
+      BatchParams* q = &b->params;
+      switch (req->type) {
+        case BATCH_TRIANGLES:
+          if (p->triangles.style != q->triangles.style) { continue; }
+          break;
+        case BATCH_BOX:
+          if (p->box.style != q->box.style) { continue; }
+          break;
+        case BATCH_ARC:
+          if (p->arc.style != q->arc.style || p->arc.mode != q->arc.mode) { continue; }
+          else if (p->arc.r1 != q->arc.r1 || p->arc.r2 != q->arc.r2 || p->arc.segments != q->arc.segments) { continue; }
+          break;
+        case BATCH_SPHERE:
+          if (p->sphere.segments != q->sphere.segments) { continue; }
+          break;
+        case BATCH_MESH:
+          if (p->mesh.object != q->mesh.object) { continue; }
+          else if (p->mesh.mode != q->mesh.mode) { continue; }
+          else if (p->mesh.rangeStart != q->mesh.rangeStart || p->mesh.rangeCount != q->mesh.rangeCount) { continue; }
+          break;
+        default: break;
+      }
+
+      if (b->canvas == canvas && b->shader == shader && !memcmp(&b->pipeline, pipeline, sizeof(Pipeline)) && b->material == material) {
+        batch = b;
+        break;
+      }
+
+      // Draws can't be reordered when blending is on
+      if (b->pipeline.blendMode != BLEND_NONE || pipeline->blendMode != BLEND_NONE) {
+        break;
+      }
+
+      // Draws can't be reordered when the depth test is off
+      if (b->pipeline.depthTest == COMPARE_NONE || pipeline->depthTest == COMPARE_NONE) {
+        break;
+      }
+
+      // Draws with streaming vertices must be sequential, since buffers are append-only
+      if (b->vertexCount > 0 && req->vertexCount > 0) {
+        break;
+      }
+    }
+  }
+
+  size_t streamRequirements[] = {
+    [STREAM_VERTEX] = req->vertexCount,
+    [STREAM_INDEX] = req->indexCount,
+    [STREAM_DRAW_ID] = req->vertexCount,
+    [STREAM_DRAW_DATA] = 0
+  };
+
+  if (!batch) {
+    streamRequirements[STREAM_DRAW_DATA] = state.maxDraws;
+    if (state.batchCount >= MAX_BATCHES) {
+      lovrGraphicsFlush();
+    }
+  }
+
+  for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
+    if (streamRequirements[i] > 0 && state.cursors[i] + streamRequirements[i] > BUFFER_COUNTS[i]) {
+      size_t oldCursor = state.cursors[i];
+      lovrGraphicsFlush();
+      state.locks[i][MAX_LOCKS - 1] = lovrGpuLock();
+      state.cursors[i] = state.cursors[i] >= oldCursor ? 0 : state.cursors[i];
+      batch = NULL;
+      streamRequirements[STREAM_DRAW_DATA] = state.maxDraws;
+      i = 0;
+    } else {
+      streamRequirements[i] = 0;
+    }
+  }
+
+  // Start a new batch
+  if (!batch) {
+    DrawData* drawData = lovrGraphicsMapBuffer(STREAM_DRAW_DATA, state.maxDraws);
+    batch = &state.batches[state.batchCount++];
+    *batch = (Batch) {
+      .type = req->type,
+      .params = req->params,
+      .canvas = canvas,
+      .shader = shader,
+      .pipeline = *pipeline,
+      .material = material,
+      .vertexStart = req->vertexCount > 0 ? state.cursors[STREAM_VERTEX] : 0,
+      .vertexCount = 0,
+      .indexStart = req->indexCount > 0 ? state.cursors[STREAM_INDEX] : 0,
+      .indexCount = 0,
+      .drawStart = state.cursors[STREAM_DRAW_DATA],
+      .drawCount = 0,
+      .drawData = drawData
+    };
+
+    state.cursors[STREAM_DRAW_DATA] += state.maxDraws;
+  }
+
+  // Transform
+  if (req->transform) {
+    float transform[16];
+    mat4_multiply(mat4_init(transform, state.transforms[state.transform]), req->transform);
+    memcpy(batch->drawData[batch->drawCount].transform, transform, 16 * sizeof(float));
+  } else {
+    memcpy(batch->drawData[batch->drawCount].transform, state.transforms[state.transform], 16 * sizeof(float));
+  }
+
+  // Color
+  Color color = state.color;
+  gammaCorrectColor(&color);
+  batch->drawData[batch->drawCount].color = color;
+
+  // Handle streams
+  uint8_t* ids = NULL;
+  if (req->vertexCount > 0) {
+    *(req->vertices) = lovrGraphicsMapBuffer(STREAM_VERTEX, req->vertexCount);
+    ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, req->vertexCount);
+    memset(ids, batch->drawCount, req->vertexCount * sizeof(uint8_t));
+
+    if (req->indexCount > 0) {
+      *(req->indices) = lovrGraphicsMapBuffer(STREAM_INDEX, req->indexCount);
+      *(req->baseVertex) = state.cursors[STREAM_VERTEX];
+    }
+
+    batch->vertexCount += req->vertexCount;
+    batch->indexCount += req->indexCount;
+
+    state.cursors[STREAM_VERTEX] += req->vertexCount;
+    state.cursors[STREAM_DRAW_ID] += req->vertexCount;
+    state.cursors[STREAM_INDEX] += req->indexCount;
+  }
+
+  if (++batch->drawCount >= state.maxDraws) {
+    lovrGraphicsFlush();
+  }
+}
+
 void lovrGraphicsFlush() {
-  if (state.batchSize == 0) {
+  if (state.batchCount == 0) {
     return;
   }
 
-  // Resolve objects
-  DrawRequest* draw = &state.batch;
-  Mesh* mesh = draw->mesh ? draw->mesh : state.defaultMesh;
-  Canvas* canvas = state.canvas ? state.canvas : state.camera.canvas;
-  Material* material = draw->material ? draw->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
-  Shader* shader = state.shader ? state.shader : (state.defaultShaders[draw->shader] ? state.defaultShaders[draw->shader] : (state.defaultShaders[draw->shader] = lovrShaderCreateDefault(draw->shader)));
-  Pipeline* pipeline = draw->pipeline ? draw->pipeline : &state.pipeline;
+  // Prevent infinite flushing >_>
+  int batchCount = state.batchCount;
+  state.batchCount = 0;
 
-  if (!draw->material) {
-    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, draw->diffuseTexture);
-    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, draw->environmentMap);
-  }
+  for (int b = 0; b < batchCount; b++) {
+    Batch* batch = &state.batches[b];
+    BatchParams* params = &batch->params;
 
-  // Camera
-  lovrShaderSetMatrices(shader, "lovrViews", state.camera.viewMatrix[0], 0, 32);
-  lovrShaderSetMatrices(shader, "lovrProjections", state.camera.projection[0], 0, 32);
+    // Resolve geometry
+    Mesh* mesh = NULL;
+    DrawMode drawMode;
+    bool instanced = batch->drawCount >= 4;
+    int instances = instanced ? batch->drawCount : 1;
+    uint32_t vertexCount = 0;
+    uint32_t indexCount = 0;
+    switch (batch->type) {
+      case BATCH_POINTS: mesh = state.mesh; drawMode = DRAW_POINTS; break;
+      case BATCH_LINES: mesh = state.mesh; drawMode = DRAW_LINE_STRIP; break;
+      case BATCH_TRIANGLES:
+        mesh = state.mesh;
+        drawMode = params->triangles.style == STYLE_LINE ? DRAW_LINE_LOOP : DRAW_TRIANGLES;
+        break;
 
-  // Pose
-  if (draw->pose) {
-    lovrShaderSetMatrices(shader, "lovrPose", draw->pose, 0, MAX_BONES * 16);
-  } else {
-    lovrShaderSetMatrices(shader, "lovrPose", (float[16]) MAT4_IDENTITY, 0, 16);
-  }
+      case BATCH_PLANE:
+        vertexCount = 4;
+        indexCount = params->plane.style == STYLE_LINE ? 0 : 6;
+        mesh = instanced ? state.instancedMesh : state.mesh;
+        drawMode = params->plane.style == STYLE_LINE ? DRAW_LINE_LOOP : DRAW_TRIANGLES;
+        break;
 
-  // Point size
-  lovrShaderSetFloats(shader, "lovrPointSize", &state.pointSize, 0, 1);
+      case BATCH_BOX:
+        vertexCount = params->box.style == STYLE_LINE ? 8 : 24;
+        indexCount = params->box.style == STYLE_LINE ? 24 : 36;
+        mesh = instanced ? state.instancedMesh : state.mesh;
+        drawMode = params->box.style == STYLE_LINE ? DRAW_LINES : DRAW_TRIANGLES;
+        break;
 
-  // Buffers and Mesh
-  int vertexCount = state.vertexCursor - state.batchVertex;
-  int indexCount = state.indexCursor - state.batchIndex;
-  lovrBufferFlush(lovrShaderBlockGetBuffer(state.block), 0, MAX_BATCH_SIZE * (16 * sizeof(float) + 4 * sizeof(float)));
-  lovrBufferFlush(state.vertexMap, state.batchVertex, vertexCount);
+      case BATCH_ARC: {
+        bool hasCenterPoint = params->arc.mode == ARC_MODE_PIE && fabsf(params->arc.r1 - params->arc.r2) < 2 * M_PI;
+        vertexCount = params->arc.segments + 1 + hasCenterPoint;
+        mesh = instanced ? state.instancedMesh : state.mesh;
+        drawMode = params->arc.style == STYLE_LINE ? (params->arc.mode == ARC_MODE_OPEN ? DRAW_LINE_STRIP : DRAW_LINE_LOOP) : DRAW_TRIANGLE_FAN;
+        break;
+      }
 
-  if (!draw->mesh) {
-    if (indexCount > 0) {
-      lovrMeshSetDrawRange(state.defaultMesh, state.batchIndex, indexCount);
-    } else {
-      lovrMeshSetDrawRange(state.defaultMesh, state.batchVertex, vertexCount);
+      case BATCH_SPHERE: {
+        int segments = params->sphere.segments;
+        vertexCount = (segments + 1) * (segments + 1);
+        indexCount = segments * segments * 6;
+        mesh = instanced ? state.instancedMesh : state.mesh;
+        drawMode = DRAW_TRIANGLES;
+        break;
+      }
+
+      case BATCH_SKYBOX:
+        vertexCount = 4;
+        instanced = false;
+        instances = 1;
+        mesh = state.mesh;
+        drawMode = DRAW_TRIANGLE_STRIP;
+        break;
+
+      case BATCH_TEXT:
+        mesh = state.mesh;
+        drawMode = DRAW_TRIANGLES;
+        break;
+
+      case BATCH_FILL:
+        vertexCount = 4;
+        instanced = false;
+        instances = 1;
+        mesh = state.mesh;
+        drawMode = DRAW_TRIANGLE_STRIP;
+        break;
+
+      case BATCH_MESH:
+        mesh = params->mesh.object;
+        drawMode = lovrMeshGetDrawMode(mesh);
+        if (params->mesh.instances > 1) {
+          lovrMeshSetAttributeEnabled(mesh, "lovrDrawID", false);
+          instances = params->mesh.instances;
+        } else {
+          lovrMeshSetAttributeEnabled(mesh, "lovrDrawID", true);
+          instances = batch->drawCount;
+        }
+        break;
+
+      default: break;
     }
 
-    lovrMeshSetDrawMode(state.defaultMesh, draw->mode);
-    lovrMeshFlushVertices(state.defaultMesh, state.batchVertex * 8 * sizeof(float), vertexCount * 8 * sizeof(float));
-    lovrMeshFlushIndices(state.defaultMesh);
-  }
+    // Write geometry
+    if (vertexCount > 0) {
+      int n = instanced ? 1 : batch->drawCount;
+      float* vertices = lovrGraphicsMapBuffer(STREAM_VERTEX, vertexCount * n);
+      uint16_t* indices = lovrGraphicsMapBuffer(STREAM_INDEX, indexCount * n);
+      uint16_t I = (uint16_t) state.cursors[STREAM_VERTEX];
 
-  lovrMaterialBind(material, shader);
-  lovrShaderSetBlock(shader, "lovrDrawData", state.block, ACCESS_READ);
+      batch->vertexStart = state.cursors[STREAM_VERTEX];
+      batch->indexStart = state.cursors[STREAM_INDEX];
+      batch->vertexCount = vertexCount * n;
+      batch->indexCount = indexCount * n;
 
-  lovrGpuDraw(&(DrawCommand) {
-    .mesh = mesh,
-    .shader = shader,
-    .canvas = canvas,
-    .pipeline = *pipeline,
-    .instances = draw->instances,
-    .width = canvas ? lovrCanvasGetWidth(canvas) : state.width,
-    .height = canvas ? lovrCanvasGetHeight(canvas) : state.height,
-    .stereo = !draw->mono && (canvas ? lovrCanvasIsStereo(canvas) : state.camera.stereo)
-  }, 1);
-
-  state.batchSize = 0;
-  state.batchVertex = state.vertexCursor;
-  state.batchIndex = state.indexCursor;
-}
-
-void lovrGraphicsDraw(DrawRequest* draw) {
-  if (state.batchSize > 0 && !batchable(draw)) {
-    lovrGraphicsFlush();
-  }
-
-  if (state.batchSize == 0) {
-    memcpy(&state.batch, draw, sizeof(DrawRequest));
-  } else if (draw->mesh && draw->instances <= 1) {
-    state.batch.instances++;
-  }
-
-  // Geometry
-  if (!draw->mesh) {
-    if (draw->vertex.data) {
-      void* vertices = lovrGraphicsGetVertexPointer(draw->vertex.count);
-      memcpy(vertices, draw->vertex.data, draw->vertex.count * 8 * sizeof(float));
-    }
-
-    if (draw->index.count) {
-      // TODO conditionally use BaseVertex when it is supported to avoid this
-      if (draw->index.data) {
-        for (uint32_t i = 0; i < draw->index.count; i++) {
-          draw->index.data[i] += state.vertexCursor;
+      if (!instanced) {
+        uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, batch->vertexCount);
+        for (int i = 0; i < n; i++) {
+          memset(ids, i, vertexCount * sizeof(uint8_t));
+          ids += vertexCount;
         }
       }
 
-      if (draw->index.data) {
-        uint16_t* indices = lovrGraphicsGetIndexPointer(draw->index.count);
-        memcpy(indices, draw->index.data, draw->index.count * sizeof(uint16_t));
-      }
+      state.cursors[STREAM_VERTEX] += batch->vertexCount;
+      state.cursors[STREAM_INDEX] += batch->indexCount;
+      state.cursors[STREAM_DRAW_ID] += batch->vertexCount;
 
-      state.indexCursor += draw->index.count;
-    } else {
-      lovrMeshMapIndices(state.defaultMesh, 0, 0, 0);
+      switch (batch->type) {
+        case BATCH_PLANE:
+          if (params->plane.style == STYLE_LINE) {
+            for (int i = 0; i < n; i++) {
+              memcpy(vertices, (float[32]) {
+                -.5, .5, 0,  0, 0, 0, 0, 0,
+                .5, .5, 0,   0, 0, 0, 0, 0,
+                .5, -.5, 0,  0, 0, 0, 0, 0,
+                -.5, -.5, 0, 0, 0, 0, 0, 0
+              }, 32 * sizeof(float));
+              vertices += 32;
+            }
+          } else {
+            for (int i = 0; i < n; i++) {
+              memcpy(vertices, (float[32]) {
+                -.5, .5, 0,  0, 0, -1, 0, 1,
+                -.5, -.5, 0, 0, 0, -1, 0, 0,
+                .5, .5, 0,   0, 0, -1, 1, 1,
+                .5, -.5, 0,  0, 0, -1, 1, 0
+              }, 32 * sizeof(float));
+              vertices += 32;
+
+              memcpy(indices, (uint16_t[6]) {
+                I + 0, I + 1, I + 2, I + 2, I + 1, I + 3
+              }, 6 * sizeof(uint16_t));
+              I += vertexCount;
+              indices += 6;
+            }
+          }
+          break;
+
+        case BATCH_BOX:
+          if (params->box.style == STYLE_LINE) {
+            for (int i = 0; i < n; i++) {
+              memcpy(vertices, (float[64]) {
+                -.5, .5, -.5,  0, 0, 0, 0, 0, // Front
+                .5, .5, -.5,   0, 0, 0, 0, 0,
+                .5, -.5, -.5,  0, 0, 0, 0, 0,
+                -.5, -.5, -.5, 0, 0, 0, 0, 0,
+                -.5, .5, .5,   0, 0, 0, 0, 0, // Back
+                .5, .5, .5,    0, 0, 0, 0, 0,
+                .5, -.5, .5,   0, 0, 0, 0, 0,
+                -.5, -.5, .5,  0, 0, 0, 0, 0
+              }, 64 * sizeof(float));
+              vertices += 64;
+
+              memcpy(indices, (uint16_t[24]) {
+                I + 0, I + 1, I + 1, I + 2, I + 2, I + 3, I + 3, I + 0, // Front
+                I + 4, I + 5, I + 5, I + 6, I + 6, I + 7, I + 7, I + 4, // Back
+                I + 0, I + 4, I + 1, I + 5, I + 2, I + 6, I + 3, I + 7  // Connections
+              }, 24 * sizeof(uint16_t));
+              I += vertexCount;
+              indices += 24;
+            }
+          } else {
+            for (int i = 0; i < n; i++) {
+              memcpy(vertices, (float[192]) {
+                -.5, -.5, -.5,  0, 0, -1, 0, 0, // Front
+                -.5, .5, -.5,   0, 0, -1, 0, 1,
+                .5, -.5, -.5,   0, 0, -1, 1, 0,
+                .5, .5, -.5,    0, 0, -1, 1, 1,
+                .5, .5, -.5,    1, 0, 0,  0, 1, // Right
+                .5, .5, .5,     1, 0, 0,  1, 1,
+                .5, -.5, -.5,   1, 0, 0,  0, 0,
+                .5, -.5, .5,    1, 0, 0,  1, 0,
+                .5, -.5, .5,    0, 0, 1,  0, 0, // Back
+                .5, .5, .5,     0, 0, 1,  0, 1,
+                -.5, -.5, .5,   0, 0, 1,  1, 0,
+                -.5, .5, .5,    0, 0, 1,  1, 1,
+                -.5, .5, .5,   -1, 0, 0,  0, 1, // Left
+                -.5, .5, -.5,  -1, 0, 0,  1, 1,
+                -.5, -.5, .5,  -1, 0, 0,  0, 0,
+                -.5, -.5, -.5, -1, 0, 0,  1, 0,
+                -.5, -.5, -.5,  0, -1, 0, 0, 0, // Bottom
+                .5, -.5, -.5,   0, -1, 0, 1, 0,
+                -.5, -.5, .5,   0, -1, 0, 0, 1,
+                .5, -.5, .5,    0, -1, 0, 1, 1,
+                -.5, .5, -.5,   0, 1, 0,  0, 1, // Top
+                -.5, .5, .5,    0, 1, 0,  0, 0,
+                .5, .5, -.5,    0, 1, 0,  1, 1,
+                .5, .5, .5,     0, 1, 0,  1, 0
+              }, 192 * sizeof(float));
+              vertices += 192;
+
+              memcpy(indices, (uint16_t[36]) {
+                I + 0,  I + 1,   I + 2,  I + 2,  I + 1,  I + 3,
+                I + 4,  I + 5,   I + 6,  I + 6,  I + 5,  I + 7,
+                I + 8,  I + 9,  I + 10, I + 10,  I + 9, I + 11,
+                I + 12, I + 13, I + 14, I + 14, I + 13, I + 15,
+                I + 16, I + 17, I + 18, I + 18, I + 17, I + 19,
+                I + 20, I + 21, I + 22, I + 22, I + 21, I + 23
+              }, 36 * sizeof(uint16_t));
+              I += vertexCount;
+              indices += 36;
+            }
+          }
+          break;
+
+        case BATCH_ARC: {
+          float r1 = params->arc.r1;
+          float r2 = params->arc.r2;
+          int segments = params->arc.segments;
+          bool hasCenterPoint = params->arc.mode == ARC_MODE_PIE && fabsf(r1 - r2) < 2 * M_PI;
+
+          for (int i = 0; i < n; i++) {
+            if (hasCenterPoint) {
+              memcpy(vertices, ((float[]) { 0, 0, 0, 0, 0, 1, .5, .5 }), 8 * sizeof(float));
+              vertices += 8;
+            }
+
+            float theta = r1;
+            float angleShift = (r2 - r1) / (float) segments;
+
+            for (int i = 0; i <= segments; i++) {
+              float x = cos(theta) * .5;
+              float y = sin(theta) * .5;
+              memcpy(vertices, ((float[]) { x, y, 0, 0, 0, 1, x + .5, 1 - (y + .5) }), 8 * sizeof(float));
+              vertices += 8;
+              theta += angleShift;
+            }
+          }
+          break;
+        }
+
+        case BATCH_SPHERE: {
+          int segments = params->sphere.segments;
+          for (int i = 0; i < n; i++) {
+            for (int j = 0; j <= segments; j++) {
+              float v = j / (float) segments;
+              float sinV = sin(v * M_PI);
+              float cosV = cos(v * M_PI);
+              for (int k = 0; k <= segments; k++) {
+                float u = k / (float) segments;
+                float x = sin(u * 2 * M_PI) * sinV;
+                float y = cosV;
+                float z = -cos(u * 2 * M_PI) * sinV;
+                memcpy(vertices, ((float[8]) { x, y, z, x, y, z, u, 1 - v }), 8 * sizeof(float));
+                vertices += 8;
+              }
+            }
+
+            for (int j = 0; j < segments; j++) {
+              uint16_t offset0 = j * (segments + 1) + I;
+              uint16_t offset1 = (j + 1) * (segments + 1) + I;
+              for (int k = 0; k < segments; k++) {
+                uint16_t i0 = offset0 + k;
+                uint16_t i1 = offset1 + k;
+                memcpy(indices, ((uint16_t[]) { i0, i1, i0 + 1, i1, i1 + 1, i0 + 1 }), 6 * sizeof(uint16_t));
+                indices += 6;
+              }
+            }
+
+            I += vertexCount;
+          }
+          break;
+        }
+
+        case BATCH_SKYBOX:
+          for (int i = 0; i < n; i++) {
+            memcpy(vertices, (float[32]) {
+              -1, 1, 1,  0, 0, 0, 0, 0,
+              -1, -1, 1, 0, 0, 0, 0, 0,
+              1, 1, 1,   0, 0, 0, 0, 0,
+              1, -1, 1,  0, 0, 0, 0, 0
+            }, 32 * sizeof(float));
+            vertices += 32;
+          }
+          break;
+
+        case BATCH_FILL:
+          for (int i = 0; i < n; i++) {
+            float u = params->fill.u;
+            float v = params->fill.v;
+            float w = params->fill.w;
+            float h = params->fill.h;
+            memcpy(vertices, (float[32]) {
+              -1, 1, 0,  0, 0, 0, u, v + h,
+              -1, -1, 0, 0, 0, 0, u, v,
+              1, 1, 0,   0, 0, 0, u + w, v + h,
+              1, -1, 0,  0, 0, 0, u + w, v
+            }, 32 * sizeof(float));
+            vertices += 32;
+          }
+          break;
+
+        default: break;
+      }
     }
 
-    void* vertexMap = lovrBufferMap(state.vertexMap, state.vertexCursor * sizeof(uint8_t));
-    memset(vertexMap, state.batchSize, draw->vertex.count * sizeof(uint8_t));
-    state.vertexCursor += draw->vertex.count;
-  }
+    uint32_t rangeStart, rangeCount;
+    if (batch->type == BATCH_MESH) {
+      rangeStart = batch->params.mesh.rangeStart;
+      rangeCount = batch->params.mesh.rangeCount;
+    } else {
+      rangeStart = batch->indexCount ? batch->indexStart : batch->vertexStart;
+      rangeCount = batch->indexCount ? batch->indexCount : batch->vertexCount;
+      if (batch->indexCount > 0) {
+        lovrMeshSetIndexBuffer(mesh, state.buffers[STREAM_INDEX], BUFFER_COUNTS[STREAM_INDEX], sizeof(uint16_t));
+      } else {
+        lovrMeshSetIndexBuffer(mesh, NULL, 0, 0);
+      }
+    }
 
-  // Transform and color
-  struct { float model[MAX_BATCH_SIZE][16]; float color[MAX_BATCH_SIZE][4]; } *drawData;
-  drawData = lovrBufferMap(lovrShaderBlockGetBuffer(state.block), 0);
+    // Uniforms
+    lovrMaterialBind(batch->material, batch->shader);
+    lovrShaderSetMatrices(batch->shader, "lovrViews", state.camera.viewMatrix[0], 0, 32);
+    lovrShaderSetMatrices(batch->shader, "lovrProjections", state.camera.projection[0], 0, 32);
 
-  memcpy(drawData->model[state.batchSize], state.transforms[state.transform], 16 * sizeof(float));
-  if (draw->transform) { mat4_multiply(drawData->model[state.batchSize], draw->transform); }
+    if (drawMode == DRAW_POINTS) {
+      lovrShaderSetFloats(batch->shader, "lovrPointSize", &state.pointSize, 0, 1);
+    }
 
-  memcpy(drawData->color[state.batchSize], (float*) &state.color, 4 * sizeof(float));
+    // Flush vertex buffer
+    if (batch->vertexCount > 0) {
+      size_t stride = BUFFER_STRIDES[STREAM_VERTEX];
+      lovrBufferFlush(state.buffers[STREAM_VERTEX], batch->vertexStart * stride, batch->vertexCount * stride);
 
-  if (++state.batchSize >= MAX_BATCH_SIZE) {
-    lovrGraphicsFlush();
+      if (!instanced) {
+        lovrBufferFlush(state.buffers[STREAM_DRAW_ID], batch->vertexStart, batch->vertexCount);
+      }
+    }
+
+    // Flush index buffer
+    if (batch->indexCount > 0) {
+      size_t stride = BUFFER_STRIDES[STREAM_INDEX];
+      lovrBufferFlush(state.buffers[STREAM_INDEX], batch->indexStart * stride, batch->indexCount * stride);
+    }
+
+    // Flush draw data buffer
+    size_t drawDataOffset = batch->drawStart * BUFFER_STRIDES[STREAM_DRAW_DATA];
+    size_t drawDataSize = batch->drawCount * BUFFER_STRIDES[STREAM_DRAW_DATA];
+    lovrBufferFlush(state.buffers[STREAM_DRAW_DATA], drawDataOffset, drawDataSize);
+    lovrShaderSetBlock(batch->shader, "lovrDrawData", state.buffers[STREAM_DRAW_DATA], drawDataOffset, state.maxDraws * BUFFER_STRIDES[STREAM_DRAW_DATA], ACCESS_READ);
+
+    // Draw!
+    lovrGpuDraw(&(DrawCommand) {
+      .mesh = mesh,
+      .shader = batch->shader,
+      .canvas = batch->canvas,
+      .pipeline = batch->pipeline,
+      .drawMode = drawMode,
+      .instances = instances,
+      .rangeStart = rangeStart,
+      .rangeCount = rangeCount,
+      .width = batch->canvas ? lovrCanvasGetWidth(batch->canvas) : state.width,
+      .height = batch->canvas ? lovrCanvasGetHeight(batch->canvas) : state.height,
+      .stereo = batch->type != BATCH_FILL && (batch->canvas ? lovrCanvasIsStereo(batch->canvas) : state.camera.stereo)
+    });
+
+    // Pop lock and drop it
+
+    if (batch->vertexCount > 0) {
+      size_t lockSize = BUFFER_COUNTS[STREAM_VERTEX] / MAX_LOCKS + 1;
+      int firstLock = batch->vertexStart / lockSize;
+      int lastLock = (batch->vertexStart + batch->vertexCount) / lockSize;
+      for (int i = firstLock; i < lastLock; i++) {
+        state.locks[STREAM_VERTEX][i] = lovrGpuLock();
+        if (!instanced) {
+          state.locks[STREAM_DRAW_ID][i] = lovrGpuLock();
+        }
+      }
+    }
+
+    if (batch->indexCount > 0) {
+      size_t lockSize = BUFFER_COUNTS[STREAM_INDEX] / MAX_LOCKS + 1;
+      int firstLock = batch->indexStart / lockSize;
+      int lastLock = (batch->indexStart + batch->indexCount) / lockSize;
+      for (int i = firstLock; i < lastLock; i++) {
+        state.locks[STREAM_INDEX][i] = lovrGpuLock();
+      }
+    }
+
+    if (batch->drawCount > 0) {
+      size_t lockSize = BUFFER_COUNTS[STREAM_DRAW_DATA] / MAX_LOCKS;
+      int firstLock = batch->drawStart / lockSize;
+      int lastLock = MIN(batch->drawStart + state.maxDraws, BUFFER_COUNTS[STREAM_DRAW_DATA] - 1) / lockSize;
+      for (int i = firstLock; i < lastLock; i++) {
+        state.locks[STREAM_DRAW_DATA][i] = lovrGpuLock();
+      }
+    }
   }
 }
 
-void lovrGraphicsPoints(uint32_t count) {
-  lovrGraphicsDraw(&(DrawRequest) {
-    .mode = DRAW_POINTS,
-    .vertex.count = count
+void lovrGraphicsFlushCanvas(Canvas* canvas) {
+  for (int i = state.batchCount - 1; i >= 0; i--) {
+    if (state.batches[i].canvas == canvas) {
+      lovrGraphicsFlush();
+      return;
+    }
+  }
+}
+
+void lovrGraphicsFlushShader(Shader* shader) {
+  for (int i = state.batchCount - 1; i >= 0; i--) {
+    if (state.batches[i].shader == shader) {
+      lovrGraphicsFlush();
+      return;
+    }
+  }
+}
+
+void lovrGraphicsFlushMaterial(Material* material) {
+  for (int i = state.batchCount - 1; i >= 0; i--) {
+    if (state.batches[i].material == material) {
+      lovrGraphicsFlush();
+      return;
+    }
+  }
+}
+
+void lovrGraphicsFlushMesh(Mesh* mesh) {
+  for (int i = state.batchCount - 1; i >= 0; i--) {
+    if (state.batches[i].type == BATCH_MESH && state.batches[i].params.mesh.object == mesh) {
+      lovrGraphicsFlush();
+      return;
+    }
+  }
+}
+
+void lovrGraphicsPoints(uint32_t count, float** vertices) {
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_POINTS,
+    .vertexCount = count,
+    .vertices = vertices
   });
 }
 
-void lovrGraphicsLine(uint32_t count) {
-  lovrGraphicsDraw(&(DrawRequest) {
-    .mode = DRAW_LINE_STRIP,
-    .vertex.count = count
+void lovrGraphicsLine(uint32_t count, float** vertices) {
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_LINES,
+    .vertexCount = count,
+    .vertices = vertices
   });
 }
 
-void lovrGraphicsTriangle(DrawStyle style, Material* material, float points[9]) {
-  if (style == STYLE_LINE) {
-    lovrGraphicsDraw(&(DrawRequest) {
-      .material = material,
-      .mode = DRAW_LINE_LOOP,
-      .vertex.count = 3,
-      .vertex.data = (float[]) {
-        points[0], points[1], points[2], 0, 0, 0, 0, 0,
-        points[3], points[4], points[5], 0, 0, 0, 0, 0,
-        points[6], points[7], points[8], 0, 0, 0, 0, 0
-      }
-    });
-  } else {
-    float normal[3];
-    vec3_cross(vec3_init(normal, &points[0]), &points[3]);
-    lovrGraphicsDraw(&(DrawRequest) {
-      .material = material,
-      .mode = DRAW_TRIANGLES,
-      .vertex.count = 3,
-      .vertex.data = (float[]) {
-        points[0], points[1], points[2], normal[0], normal[1], normal[2], 0, 0,
-        points[3], points[4], points[5], normal[0], normal[1], normal[2], 0, 0,
-        points[6], points[7], points[8], normal[0], normal[1], normal[2], 0, 0
-      }
-    });
-  }
+void lovrGraphicsTriangle(DrawStyle style, Material* material, uint32_t count, float** vertices) {
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_TRIANGLES,
+    .params.triangles.style = style,
+    .material = material,
+    .vertexCount = count,
+    .vertices = vertices
+  });
 }
 
 void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform) {
-  if (style == STYLE_LINE) {
-    lovrGraphicsDraw(&(DrawRequest) {
-      .transform = transform,
-      .material = material,
-      .mode = DRAW_LINE_LOOP,
-      .vertex.count = 4,
-      .vertex.data = (float[]) {
-        -.5, .5, 0,  0, 0, 0, 0, 0,
-        .5, .5, 0,   0, 0, 0, 0, 0,
-        .5, -.5, 0,  0, 0, 0, 0, 0,
-        -.5, -.5, 0, 0, 0, 0, 0, 0
-      }
-    });
-  } else {
-    lovrGraphicsDraw(&(DrawRequest) {
-      .transform = transform,
-      .material = material,
-      .mode = DRAW_TRIANGLES,
-      .vertex.count = 4,
-      .vertex.data = (float[]) {
-        -.5, .5, 0,  0, 0, -1, 0, 1,
-        -.5, -.5, 0, 0, 0, -1, 0, 0,
-        .5, .5, 0,   0, 0, -1, 1, 1,
-        .5, -.5, 0,  0, 0, -1, 1, 0
-      },
-      .index.count = 6,
-      .index.data = (uint16_t[]) { 0, 1, 2, 2, 1, 3 }
-    });
-  }
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_PLANE,
+    .params.plane.style = style,
+    .material = material,
+    .transform = transform
+  });
 }
 
 void lovrGraphicsBox(DrawStyle style, Material* material, mat4 transform) {
-  if (style == STYLE_LINE) {
-    lovrGraphicsDraw(&(DrawRequest) {
-      .transform = transform,
-      .material = material,
-      .mode = DRAW_LINES,
-      .vertex.count = 8,
-      .vertex.data = (float[]) {
-        // Front
-        -.5, .5, -.5,  0, 0, 0, 0, 0,
-        .5, .5, -.5,   0, 0, 0, 0, 0,
-        .5, -.5, -.5,  0, 0, 0, 0, 0,
-        -.5, -.5, -.5, 0, 0, 0, 0, 0,
-        // Back
-        -.5, .5, .5,   0, 0, 0, 0, 0,
-        .5, .5, .5,    0, 0, 0, 0, 0,
-        .5, -.5, .5,   0, 0, 0, 0, 0,
-        -.5, -.5, .5,  0, 0, 0, 0, 0
-      },
-      .index.count = 24,
-      .index.data = (uint16_t[]) {
-        0, 1, 1, 2, 2, 3, 3, 0, // Front
-        4, 5, 5, 6, 6, 7, 7, 4, // Back
-        0, 4, 1, 5, 2, 6, 3, 7  // Connections
-      }
-    });
-  } else {
-    lovrGraphicsDraw(&(DrawRequest) {
-      .transform = transform,
-      .material = material,
-      .mode = DRAW_TRIANGLES,
-      .vertex.count = 24,
-      .vertex.data = (float[]) {
-        // Front
-        -.5, -.5, -.5,  0, 0, -1, 0, 0,
-        -.5, .5, -.5,   0, 0, -1, 0, 1,
-        .5, -.5, -.5,   0, 0, -1, 1, 0,
-        .5, .5, -.5,    0, 0, -1, 1, 1,
-        // Right
-        .5, .5, -.5,    1, 0, 0,  0, 1,
-        .5, .5, .5,     1, 0, 0,  1, 1,
-        .5, -.5, -.5,   1, 0, 0,  0, 0,
-        .5, -.5, .5,    1, 0, 0,  1, 0,
-        // Back
-        .5, -.5, .5,    0, 0, 1,  0, 0,
-        .5, .5, .5,     0, 0, 1,  0, 1,
-        -.5, -.5, .5,   0, 0, 1,  1, 0,
-        -.5, .5, .5,    0, 0, 1,  1, 1,
-        // Left
-        -.5, .5, .5,   -1, 0, 0,  0, 1,
-        -.5, .5, -.5,  -1, 0, 0,  1, 1,
-        -.5, -.5, .5,  -1, 0, 0,  0, 0,
-        -.5, -.5, -.5, -1, 0, 0,  1, 0,
-        // Bottom
-        -.5, -.5, -.5,  0, -1, 0, 0, 0,
-        .5, -.5, -.5,   0, -1, 0, 1, 0,
-        -.5, -.5, .5,   0, -1, 0, 0, 1,
-        .5, -.5, .5,    0, -1, 0, 1, 1,
-        // Top
-        -.5, .5, -.5,   0, 1, 0,  0, 1,
-        -.5, .5, .5,    0, 1, 0,  0, 0,
-        .5, .5, -.5,    0, 1, 0,  1, 1,
-        .5, .5, .5,     0, 1, 0,  1, 0
-      },
-      .index.count = 36,
-      .index.data = (uint16_t[]) {
-        0,  1,   2,  2,  1,  3,
-        4,  5,   6,  6,  5,  7,
-        8,  9,  10, 10,  9, 11,
-        12, 13, 14, 14, 13, 15,
-        16, 17, 18, 18, 17, 19,
-        20, 21, 22, 22, 21, 23
-      }
-    });
-  }
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_BOX,
+    .params.box.style = style,
+    .material = material,
+    .transform = transform
+  });
 }
 
-void lovrGraphicsArc(DrawStyle style, ArcMode arcMode, Material* material, mat4 transform, float theta1, float theta2, int segments) {
-  if (fabsf(theta1 - theta2) >= 2 * M_PI) {
-    theta1 = 0;
-    theta2 = 2 * M_PI;
+void lovrGraphicsArc(DrawStyle style, ArcMode mode, Material* material, mat4 transform, float r1, float r2, int segments) {
+  if (fabsf(r1 - r2) >= 2 * M_PI) {
+    r1 = 0;
+    r2 = 2 * M_PI;
   }
 
-  bool hasCenterPoint = arcMode == ARC_MODE_PIE && fabsf(theta1 - theta2) < 2 * M_PI;
-  uint32_t count = segments + 1 + hasCenterPoint;
-  float* vertices = lovrGraphicsGetVertexPointer(count);
-
-  if (hasCenterPoint) {
-    memcpy(vertices, ((float[]) { 0, 0, 0, 0, 0, 1, .5, .5 }), 8 * sizeof(float));
-    vertices += 8;
-  }
-
-  float theta = theta1;
-  float angleShift = (theta2 - theta1) / (float) segments;
-
-  for (int i = 0; i <= segments; i++) {
-    float x = cos(theta) * .5;
-    float y = sin(theta) * .5;
-    memcpy(vertices, ((float[]) { x, y, 0, 0, 0, 1, x + .5, 1 - (y + .5) }), 8 * sizeof(float));
-    vertices += 8;
-    theta += angleShift;
-  }
-
-  lovrGraphicsDraw(&(DrawRequest) {
-    .transform = transform,
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_ARC,
+    .params.arc.r1 = r1,
+    .params.arc.r2 = r2,
+    .params.arc.mode = mode,
+    .params.arc.style = style,
+    .params.arc.segments = segments,
     .material = material,
-    .mode = style == STYLE_LINE ? (arcMode == ARC_MODE_OPEN ? DRAW_LINE_STRIP : DRAW_LINE_LOOP) : DRAW_TRIANGLE_FAN,
-    .vertex.count = count
+    .transform = transform
   });
 }
 
@@ -720,6 +1146,7 @@ void lovrGraphicsCircle(DrawStyle style, Material* material, mat4 transform, int
 }
 
 void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments) {
+  /*
   float axis[3] = { x1 - x2, y1 - y2, z1 - z2 };
   float n[3] = { x1 - x2, y1 - y2, z1 - z2 };
   float p[3];
@@ -727,10 +1154,11 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
 
   uint32_t vertexCount = ((capped && r1) * (segments + 2) + (capped && r2) * (segments + 2) + 2 * (segments + 1));
   uint32_t indexCount = 3 * segments * ((capped && r1) + (capped && r2) + 2);
+  float* vertices = lovrGraphicsMapBuffer(STREAM_VERTEX, vertexCount);
+  uint16_t* indices = lovrGraphicsMapBuffer(STREAM_INDEX, indexCount);
+  uint16_t baseVertex = (uint16_t) state.buffers[STREAM_VERTEX].cursor;
 
-  float* vertices = lovrGraphicsGetVertexPointer(vertexCount);
-  uint16_t* indices = lovrGraphicsGetIndexPointer(indexCount);
-  float* baseVertex = vertices;
+  float* v = vertices;
 
   vec3_init(p, n);
 
@@ -773,28 +1201,28 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
   }
 
   // Top
-  int topOffset = (segments + 1) * 2 + state.vertexCursor;
+  int topOffset = (segments + 1) * 2 + baseVertex;
   if (capped && r1 != 0) {
     PUSH_CYLINDER_VERTEX(x1, y1, z1, axis[0], axis[1], axis[2]);
     for (int i = 0; i <= segments; i++) {
       int j = i * 2 * 8;
-      PUSH_CYLINDER_VERTEX(baseVertex[j + 0], baseVertex[j + 1], baseVertex[j + 2], axis[0], axis[1], axis[2]);
+      PUSH_CYLINDER_VERTEX(v[j + 0], v[j + 1], v[j + 2], axis[0], axis[1], axis[2]);
     }
   }
 
   // Bottom
-  int bottomOffset = (segments + 1) * 2 + (1 + segments + 1) * (capped && r1 != 0) + state.vertexCursor;
+  int bottomOffset = (segments + 1) * 2 + (1 + segments + 1) * (capped && r1 != 0) + baseVertex;
   if (capped && r2 != 0) {
     PUSH_CYLINDER_VERTEX(x2, y2, z1, -axis[0], -axis[1], -axis[2]);
     for (int i = 0; i <= segments; i++) {
       int j = i * 2 * 8 + 8;
-      PUSH_CYLINDER_VERTEX(baseVertex[j + 0], baseVertex[j + 1], baseVertex[j + 2], -axis[0], -axis[1], -axis[2]);
+      PUSH_CYLINDER_VERTEX(v[j + 0], v[j + 1], v[j + 2], -axis[0], -axis[1], -axis[2]);
     }
   }
 
   // Indices
   for (int i = 0; i < segments; i++) {
-    int j = 2 * i + state.vertexCursor;
+    int j = 2 * i + baseVertex;
     PUSH_CYLINDER_TRIANGLE(j, j + 1, j + 2);
     PUSH_CYLINDER_TRIANGLE(j + 1, j + 3, j + 2);
 
@@ -812,47 +1240,18 @@ void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, floa
   lovrGraphicsDraw(&(DrawRequest) {
     .material = material,
     .mode = DRAW_TRIANGLES,
-    .vertex.count = vertexCount,
-    .index.count = indexCount
+    .vertexCount = vertexCount,
+    .indexCount = indexCount
   });
+  */
 }
 
 void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
-  uint32_t vertexCount = (segments + 1) * (segments + 1);
-  uint32_t indexCount = segments * segments * 6;
-  float* vertices = lovrGraphicsGetVertexPointer(vertexCount);
-  uint16_t* indices = lovrGraphicsGetIndexPointer(indexCount);
-
-  for (int i = 0; i <= segments; i++) {
-    float v = i / (float) segments;
-    for (int j = 0; j <= segments; j++) {
-      float u = j / (float) segments;
-
-      float x = sin(u * 2 * M_PI) * sin(v * M_PI);
-      float y = cos(v * M_PI);
-      float z = -cos(u * 2 * M_PI) * sin(v * M_PI);
-      memcpy(vertices, ((float[]) { x, y, z, x, y, z, u, 1 - v }), 8 * sizeof(float));
-      vertices += 8;
-    }
-  }
-
-  for (int i = 0; i < segments; i++) {
-    uint16_t offset0 = i * (segments + 1);
-    uint16_t offset1 = (i + 1) * (segments + 1);
-    for (int j = 0; j < segments; j++) {
-      uint16_t i0 = offset0 + j + state.vertexCursor;
-      uint16_t i1 = offset1 + j + state.vertexCursor;
-      memcpy(indices, ((uint16_t[]) { i0, i1, i0 + 1, i1, i1 + 1, i0 + 1 }), 6 * sizeof(uint16_t));
-      indices += 6;
-    }
-  }
-
-  lovrGraphicsDraw(&(DrawRequest) {
-    .transform = transform,
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_SPHERE,
+    .params.sphere.segments = segments,
     .material = material,
-    .mode = DRAW_TRIANGLES,
-    .vertex.count = vertexCount,
-    .index.count = indexCount
+    .transform = transform
   });
 }
 
@@ -863,45 +1262,51 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
   Pipeline pipeline = state.pipeline;
   pipeline.winding = WINDING_COUNTERCLOCKWISE;
 
-  lovrGraphicsDraw(&(DrawRequest) {
+  float transform[16] = MAT4_IDENTITY;
+  mat4_rotate(transform, angle, ax, ay, az);
+
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_SKYBOX,
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
-    .diffuseTexture = type == TEXTURE_2D ? texture : NULL,
-    .environmentMap = type == TEXTURE_CUBE ? texture : NULL,
     .pipeline = &pipeline,
-    .mode = DRAW_TRIANGLE_STRIP,
-    .vertex.count = 4,
-    .vertex.data = (float[]) {
-      -1, 1, 1,  0, 0, 0, 0, 0,
-      -1, -1, 1, 0, 0, 0, 0, 0,
-      1, 1, 1,   0, 0, 0, 0, 0,
-      1, -1, 1,  0, 0, 0, 0, 0
-    }
+    .transform = transform,
+    .diffuseTexture = type == TEXTURE_2D ? texture : NULL,
+    .environmentMap = type == TEXTURE_CUBE ? texture : NULL
   });
 }
 
 void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+  float width;
+  uint32_t lineCount;
+  uint32_t glyphCount;
   Font* font = lovrGraphicsGetFont();
-  float scale = 1 / font->pixelDensity;
-  float offsety;
-  uint32_t vertexCount;
-  uint32_t maxVertices = length * 6;
-  float* vertices = lovrGraphicsGetVertexPointer(maxVertices);
-  lovrFontRender(font, str, length, wrap, halign, valign, vertices, &offsety, &vertexCount);
+  lovrFontMeasure(font, str, length, wrap, &width, &lineCount, &glyphCount);
+
+  float scale = 1.f / font->pixelDensity;
+  float offsetY = (lineCount * font->rasterizer->height * font->lineHeight) * (valign / 2.f);
+  mat4_scale(transform, scale, scale, scale);
+  mat4_translate(transform, 0.f, offsetY, 0.f);
 
   Pipeline pipeline = state.pipeline;
-  pipeline.alphaSampling = true;
+  pipeline.blendMode = pipeline.blendMode == BLEND_NONE ? BLEND_ALPHA : pipeline.blendMode;
 
-  mat4_scale(transform, scale, scale, scale);
-  mat4_translate(transform, 0.f, offsety, 0.f);
-
-  lovrGraphicsDraw(&(DrawRequest) {
+  float* vertices;
+  uint16_t* indices;
+  uint16_t baseVertex;
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_TEXT,
     .shader = SHADER_FONT,
-    .diffuseTexture = font->texture,
     .pipeline = &pipeline,
     .transform = transform,
-    .mode = DRAW_TRIANGLES,
-    .vertex.count = vertexCount
+    .diffuseTexture = font->texture,
+    .vertexCount = glyphCount * 4,
+    .indexCount = glyphCount * 6,
+    .vertices = &vertices,
+    .indices = &indices,
+    .baseVertex = &baseVertex
   });
+
+  lovrFontRender(font, str, length, wrap, halign, vertices, indices, baseVertex);
 }
 
 void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
@@ -909,18 +1314,11 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
   pipeline.depthTest = COMPARE_NONE;
   pipeline.depthWrite = false;
 
-  lovrGraphicsDraw(&(DrawRequest) {
-    .mono = true,
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_FILL,
+    .params.fill = { .u = u, .v = v, .w = w, .h = h },
     .shader = SHADER_FILL,
-    .diffuseTexture = texture,
     .pipeline = &pipeline,
-    .mode = DRAW_TRIANGLE_STRIP,
-    .vertex.count = 4,
-    .vertex.data = (float[]) {
-      -1, 1, 0,  0, 0, 0, u, v + h,
-      -1, -1, 0, 0, 0, 0, u, v,
-      1, 1, 0,   0, 0, 0, u + w, v + h,
-      1, -1, 0,  0, 0, 0, u + w, v
-    }
+    .diffuseTexture = texture
   });
 }

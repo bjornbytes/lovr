@@ -28,6 +28,7 @@
 #define LOVR_SHADER_TANGENT 4
 #define LOVR_SHADER_BONES 5
 #define LOVR_SHADER_BONE_WEIGHTS 6
+#define LOVR_SHADER_DRAW_ID 7
 
 typedef enum {
   BARRIER_BLOCK,
@@ -38,9 +39,16 @@ typedef enum {
   MAX_BARRIERS
 } Barrier;
 
+typedef struct {
+  uint32_t buffer;
+  size_t offset;
+  size_t size;
+} BlockBuffer;
+
 static struct {
   Texture* defaultTexture;
   bool alphaToCoverage;
+  bool blendEnabled;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
   bool culling;
@@ -55,15 +63,13 @@ static struct {
   Winding winding;
   bool wireframe;
   uint32_t framebuffer;
-  uint32_t indexBuffer;
   uint32_t program;
+  uint32_t vertexArray;
+  uint32_t buffers[MAX_BUFFER_TYPES];
+  BlockBuffer blockBuffers[2][MAX_BLOCK_BUFFERS];
   int activeTexture;
   Texture* textures[MAX_TEXTURES];
   Image images[MAX_IMAGES];
-  uint32_t blockBuffers[2][MAX_BLOCK_BUFFERS];
-  uint32_t vertexArray;
-  uint32_t vertexBuffer;
-  uint32_t genericBuffer;
   float viewports[2][4];
   vec_void_t incoherents[MAX_BARRIERS];
   bool srgb;
@@ -188,6 +194,17 @@ static bool isTextureFormatDepth(TextureFormat format) {
   }
 }
 
+static GLenum convertBufferType(BufferType type) {
+  switch (type) {
+    case BUFFER_VERTEX: return GL_ARRAY_BUFFER;
+    case BUFFER_INDEX: return GL_ELEMENT_ARRAY_BUFFER;
+    case BUFFER_UNIFORM: return GL_UNIFORM_BUFFER;
+    case BUFFER_SHADER_STORAGE: return GL_SHADER_STORAGE_BUFFER;
+    case BUFFER_GENERIC: return GL_COPY_WRITE_BUFFER;
+    default: lovrThrow("Unreachable"); return 0;
+  }
+}
+
 static GLenum convertBufferUsage(BufferUsage usage) {
   switch (usage) {
     case USAGE_STATIC: return GL_STATIC_DRAW;
@@ -308,8 +325,8 @@ static void lovrGpuSync(uint8_t flags) {
 
     if (i == BARRIER_BLOCK) {
       for (int j = 0; j < state.incoherents[i].length; j++) {
-        ShaderBlock* block = state.incoherents[i].data[j];
-        block->incoherent &= ~(1 << i);
+        Buffer* buffer = state.incoherents[i].data[j];
+        buffer->incoherent &= ~(1 << i);
       }
     } else {
       for (int j = 0; j < state.incoherents[i].length; j++) {
@@ -359,10 +376,43 @@ static void lovrGpuBindFramebuffer(uint32_t framebuffer) {
   }
 }
 
-static void lovrGpuBindIndexBuffer(uint32_t indexBuffer) {
-  if (state.indexBuffer != indexBuffer) {
-    state.indexBuffer = indexBuffer;
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+static void lovrGpuUseProgram(uint32_t program) {
+  if (state.program != program) {
+    state.program = program;
+    glUseProgram(program);
+    state.stats.shaderSwitches++;
+  }
+}
+
+static void lovrGpuBindVertexArray(uint32_t vertexArray) {
+  if (state.vertexArray != vertexArray) {
+    state.vertexArray = vertexArray;
+    glBindVertexArray(vertexArray);
+  }
+}
+
+static void lovrGpuBindBuffer(BufferType type, uint32_t buffer) {
+  if (state.buffers[type] != buffer) {
+    state.buffers[type] = buffer;
+    glBindBuffer(convertBufferType(type), buffer);
+  }
+}
+
+static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot, size_t offset, size_t size) {
+  lovrAssert(offset % state.limits.blockAlign == 0, "Block buffer offset must be aligned to %d", state.limits.blockAlign);
+#ifdef EMSCRIPTEN
+  lovrAssert(type == BLOCK_UNIFORM, "Writable blocks are not supported on this system");
+  GLenum target = GL_UNIFORM_BUFFER;
+#else
+  GLenum target = type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
+#endif
+
+  BlockBuffer* block = &state.blockBuffers[type][slot];
+  if (block->buffer != buffer || block->offset != offset || block->size != size) {
+    block->buffer = buffer;
+    block->offset = offset;
+    block->size = size;
+    glBindBufferRange(target, slot, buffer, offset, size);
   }
 }
 
@@ -407,49 +457,6 @@ static void lovrGpuBindImage(Image* image, int slot) {
 }
 #endif
 
-static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot) {
-#ifdef EMSCRIPTEN
-  lovrAssert(type == BLOCK_UNIFORM, "Writable ShaderBlocks are not supported on this system");
-  GLenum target = GL_UNIFORM_BUFFER;
-#else
-  GLenum target = type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
-#endif
-
-  if (state.blockBuffers[type][slot] != buffer) {
-    state.blockBuffers[type][slot] = buffer;
-    glBindBufferBase(target, slot, buffer);
-  }
-}
-
-static void lovrGpuBindVertexArray(uint32_t vertexArray) {
-  if (state.vertexArray != vertexArray) {
-    state.vertexArray = vertexArray;
-    glBindVertexArray(vertexArray);
-  }
-}
-
-static void lovrGpuBindVertexBuffer(uint32_t vertexBuffer) {
-  if (state.vertexBuffer != vertexBuffer) {
-    state.vertexBuffer = vertexBuffer;
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-  }
-}
-
-static void lovrGpuBindGenericBuffer(uint32_t buffer) {
-  if (state.genericBuffer != buffer) {
-    state.genericBuffer = buffer;
-    glBindBuffer(GL_COPY_WRITE_BUFFER, buffer);
-  }
-}
-
-static void lovrGpuUseProgram(uint32_t program) {
-  if (state.program != program) {
-    state.program = program;
-    glUseProgram(program);
-    state.stats.shaderSwitches++;
-  }
-}
-
 static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   const char* key;
   map_iter_t iter = map_iter(&mesh->attachments);
@@ -458,8 +465,16 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   memset(layout, 0, MAX_ATTRIBUTES * sizeof(MeshAttribute));
 
   lovrGpuBindVertexArray(mesh->vao);
-  if (mesh->indexCount > 0) {
-    lovrGpuBindIndexBuffer(mesh->ibo->id);
+
+  if (mesh->indexBuffer && mesh->indexCount > 0 && mesh->ibo != mesh->indexBuffer->id) {
+    mesh->ibo = mesh->indexBuffer->id;
+    state.buffers[BUFFER_INDEX] = mesh->ibo;
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
+  }
+
+  if (mesh->flushEnd > 0) {
+    lovrBufferFlush(mesh->vertexBuffer, mesh->flushStart, mesh->flushEnd - mesh->flushStart);
+    mesh->flushStart = mesh->flushEnd = 0;
   }
 
   while ((key = map_next(&mesh->attributes, &iter)) != NULL) {
@@ -501,7 +516,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
       previous.stride != current.stride;
 
     if (changed) {
-      lovrGpuBindVertexBuffer(current.buffer->id);
+      lovrGpuBindBuffer(BUFFER_VERTEX, current.buffer->id);
       int count = current.components;
       int stride = current.stride;
       GLvoid* offset = (GLvoid*) current.offset;
@@ -604,51 +619,60 @@ static void lovrGpuBindPipeline(Pipeline* pipeline) {
     state.blendMode = pipeline->blendMode;
     state.blendAlphaMode = pipeline->blendAlphaMode;
 
-    GLenum srcRGB = state.blendMode == BLEND_MULTIPLY ? GL_DST_COLOR : GL_ONE;
-    if (srcRGB == GL_ONE && state.blendAlphaMode == BLEND_ALPHA_MULTIPLY) {
-      srcRGB = GL_SRC_ALPHA;
-    }
+    if (state.blendMode == BLEND_NONE) {
+      if (state.blendEnabled) {
+        state.blendEnabled = false;
+        glDisable(GL_BLEND);
+      }
+    } else {
+      if (!state.blendEnabled) {
+        state.blendEnabled = true;
+        glEnable(GL_BLEND);
+      }
 
-    switch (state.blendMode) {
-      case BLEND_ALPHA:
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFuncSeparate(srcRGB, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        break;
+      GLenum srcRGB = state.blendMode == BLEND_MULTIPLY ? GL_DST_COLOR : GL_ONE;
+      if (srcRGB == GL_ONE && state.blendAlphaMode == BLEND_ALPHA_MULTIPLY) {
+        srcRGB = GL_SRC_ALPHA;
+      }
 
-      case BLEND_ADD:
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFuncSeparate(srcRGB, GL_ONE, GL_ZERO, GL_ONE);
-        break;
+      switch (state.blendMode) {
+        case BLEND_ALPHA:
+          glBlendEquation(GL_FUNC_ADD);
+          glBlendFuncSeparate(srcRGB, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+          break;
 
-      case BLEND_SUBTRACT:
-        glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
-        glBlendFuncSeparate(srcRGB, GL_ONE, GL_ZERO, GL_ONE);
-        break;
+        case BLEND_ADD:
+          glBlendEquation(GL_FUNC_ADD);
+          glBlendFuncSeparate(srcRGB, GL_ONE, GL_ZERO, GL_ONE);
+          break;
 
-      case BLEND_MULTIPLY:
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_DST_COLOR, GL_ZERO);
-        break;
+        case BLEND_SUBTRACT:
+          glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+          glBlendFuncSeparate(srcRGB, GL_ONE, GL_ZERO, GL_ONE);
+          break;
 
-      case BLEND_LIGHTEN:
-        glBlendEquation(GL_MAX);
-        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
-        break;
+        case BLEND_MULTIPLY:
+          glBlendEquation(GL_FUNC_ADD);
+          glBlendFuncSeparate(srcRGB, GL_ZERO, GL_DST_COLOR, GL_ZERO);
+          break;
 
-      case BLEND_DARKEN:
-        glBlendEquation(GL_MIN);
-        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
-        break;
+        case BLEND_LIGHTEN:
+          glBlendEquation(GL_MAX);
+          glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+          break;
 
-      case BLEND_SCREEN:
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFuncSeparate(srcRGB, GL_ONE_MINUS_SRC_COLOR, GL_ONE, GL_ONE_MINUS_SRC_COLOR);
-        break;
+        case BLEND_DARKEN:
+          glBlendEquation(GL_MIN);
+          glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
+          break;
 
-      case BLEND_REPLACE:
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFuncSeparate(srcRGB, GL_ZERO, GL_ONE, GL_ZERO);
-        break;
+        case BLEND_SCREEN:
+          glBlendEquation(GL_FUNC_ADD);
+          glBlendFuncSeparate(srcRGB, GL_ONE_MINUS_SRC_COLOR, GL_ONE, GL_ONE_MINUS_SRC_COLOR);
+          break;
+
+        case BLEND_NONE: lovrThrow("Unreachable"); break;
+      }
     }
   }
 
@@ -678,8 +702,8 @@ static void lovrGpuBindPipeline(Pipeline* pipeline) {
   }
 
   // Depth write
-  if (state.depthWrite != pipeline->depthWrite) {
-    state.depthWrite = pipeline->depthWrite;
+  if (state.depthWrite != (pipeline->depthWrite && !state.stencilWriting)) {
+    state.depthWrite = pipeline->depthWrite && !state.stencilWriting;
     glDepthMask(state.depthWrite);
   }
 
@@ -848,14 +872,14 @@ static void lovrGpuBindShader(Shader* shader) {
   for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_STORAGE; type++) {
     vec_foreach_ptr(&shader->blocks[type], block, i) {
       if (block->source) {
+        if (type == BLOCK_STORAGE && block->access != ACCESS_READ) {
+          block->source->incoherent |= (1 << BARRIER_BLOCK);
+          vec_push(&state.incoherents[BARRIER_BLOCK], block->source);
+        }
 
-        // If the Shader can write to the block, mark it as incoherent
-        bool writable = type == BLOCK_STORAGE && block->access != ACCESS_READ;
-        block->source->incoherent |= writable ? (1 << BARRIER_BLOCK) : 0;
-        vec_push(&state.incoherents[BARRIER_BLOCK], block->source);
-        lovrGpuBindBlockBuffer(type, block->source->buffer->id, block->slot);
+        lovrGpuBindBlockBuffer(type, block->source->id, block->slot, block->offset, block->size);
       } else {
-        lovrGpuBindBlockBuffer(type, 0, block->slot);
+        lovrGpuBindBlockBuffer(type, 0, block->slot, 0, 0);
       }
     }
   }
@@ -900,17 +924,19 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.limits.textureSize);
   glGetIntegerv(GL_MAX_SAMPLES, &state.limits.textureMSAA);
   glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &state.limits.blockSize);
+  glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &state.limits.blockAlign);
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
 
-  glEnable(GL_BLEND);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
 
   state.alphaToCoverage = false;
   glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
+  state.blendEnabled = true;
   state.blendMode = BLEND_ALPHA;
   state.blendAlphaMode = BLEND_ALPHA_MULTIPLY;
+  glEnable(GL_BLEND);
   glBlendEquation(GL_FUNC_ADD);
   glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -990,6 +1016,7 @@ void lovrGpuCompute(Shader* shader, int x, int y, int z) {
 #else
   lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
   lovrAssert(shader->type == SHADER_COMPUTE, "Attempt to use a non-compute shader for a compute operation");
+  lovrGraphicsFlush();
   lovrGpuBindShader(shader);
   glDispatchCompute(x, y, z);
 #endif
@@ -1021,52 +1048,45 @@ void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil) {
 #endif
 }
 
-void lovrGpuDraw(DrawCommand* commands, int count) {
-  for (int i = 0; i < count; i++) {
-    DrawCommand* draw = &commands[i];
+void lovrGpuDraw(DrawCommand* draw) {
+  int viewCount = 1 + draw->stereo;
+  int drawCount = state.features.singlepass ? 1 : viewCount;
+  int viewsPerDraw = state.features.singlepass ? viewCount : 1;
+  int instances = MAX(draw->instances, 1) * viewsPerDraw;
 
-    int viewCount = 1 + draw->stereo;
-    int drawCount = state.features.singlepass ? 1 : viewCount;
-    int viewsPerDraw = state.features.singlepass ? viewCount : 1;
-    int instances = draw->instances * viewsPerDraw;
+  float w = draw->width / (float) viewCount;
+  float h = draw->height;
+  float viewports[2][4] = { { 0, 0, w, h }, { w, 0, w, h } };
+  lovrShaderSetInts(draw->shader, "lovrViewportCount", &viewCount, 0, 1);
 
-    float w = draw->width / (float) viewCount;
-    float h = draw->height;
-    float viewports[2][4] = { { 0, 0, w, h }, { w, 0, w, h } };
-    lovrShaderSetInts(draw->shader, "lovrViewportCount", &viewCount, 0, 1);
+  lovrGpuBindCanvas(draw->canvas, true);
+  lovrGpuBindPipeline(&draw->pipeline);
+  lovrGpuBindMesh(draw->mesh, draw->shader, viewsPerDraw);
 
-    lovrGpuBindMesh(draw->mesh, draw->shader, viewsPerDraw);
-    lovrGpuBindCanvas(draw->canvas, true);
-    lovrGpuBindPipeline(&draw->pipeline);
+  for (int i = 0; i < drawCount; i++) {
+    lovrGpuSetViewports(&viewports[i][0], viewsPerDraw);
+    lovrShaderSetInts(draw->shader, "lovrViewportIndex", &i, 0, 1);
+    lovrGpuBindShader(draw->shader);
 
-    for (int i = 0; i < drawCount; i++) {
-      lovrGpuSetViewports(&viewports[i][0], viewsPerDraw);
-      lovrShaderSetInts(draw->shader, "lovrViewportIndex", &i, 0, 1);
-      lovrGpuBindShader(draw->shader);
-
-      Mesh* mesh = draw->mesh;
-      GLenum mode = convertDrawMode(mesh->mode);
-      if (mesh->indexCount > 0) {
-        size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->indexCount;
-        GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-        GLvoid* offset = (GLvoid*) (mesh->rangeStart * mesh->indexSize);
-        if (instances > 1) {
-          glDrawElementsInstanced(mode, count, indexType, offset, instances);
-        } else {
-          glDrawElements(mode, count, indexType, offset);
-        }
+    Mesh* mesh = draw->mesh;
+    GLenum mode = convertDrawMode(draw->drawMode);
+    if (mesh->indexCount > 0) {
+      GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+      GLvoid* offset = (GLvoid*) (draw->rangeStart * mesh->indexSize);
+      if (instances > 1) {
+        glDrawElementsInstanced(mode, draw->rangeCount, indexType, offset, instances);
       } else {
-        size_t start = mesh->rangeStart;
-        size_t count = mesh->rangeCount ? mesh->rangeCount : mesh->count;
-        if (instances > 1) {
-          glDrawArraysInstanced(mode, start, count, instances);
-        } else {
-          glDrawArrays(mode, start, count);
-        }
+        glDrawElements(mode, draw->rangeCount, indexType, offset);
       }
-
-      state.stats.drawCalls++;
+    } else {
+      if (instances > 1) {
+        glDrawArraysInstanced(mode, draw->rangeStart, draw->rangeCount, instances);
+      } else {
+        glDrawArrays(mode, draw->rangeStart, draw->rangeCount);
+      }
     }
+
+    state.stats.drawCalls++;
   }
 }
 
@@ -1079,7 +1099,7 @@ void lovrGpuPresent() {
 }
 
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
-  state.depthWrite = false;
+  lovrGraphicsFlush();
   glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
   if (!state.stencilEnabled) {
@@ -1102,6 +1122,7 @@ void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback call
 
   state.stencilWriting = true;
   callback(userdata);
+  lovrGraphicsFlush();
   state.stencilWriting = false;
 
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -1110,6 +1131,24 @@ void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback call
 
 void lovrGpuDirtyTexture() {
   state.textures[state.activeTexture] = NULL;
+}
+
+void* lovrGpuLock() {
+  return (void*) glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+}
+
+void lovrGpuUnlock(void* lock) {
+  if (!lock) return;
+  GLsync sync = (GLsync) lock;
+  if (glClientWaitSync(sync, 0, 0) == GL_TIMEOUT_EXPIRED) {
+    while (glClientWaitSync(sync, GL_SYNC_FLUSH_COMMANDS_BIT, 1E9) == GL_TIMEOUT_EXPIRED) {
+      continue;
+    }
+  }
+}
+
+void lovrGpuDestroyLock(void* lock) {
+  if (lock) glDeleteSync((GLsync) lock);
 }
 
 const GpuFeatures* lovrGpuGetSupported() {
@@ -1242,6 +1281,7 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
 }
 
 void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x, int y, int slice, int mipmap) {
+  lovrGraphicsFlush();
   lovrAssert(texture->allocated, "Texture is not allocated");
 
 #ifndef EMSCRIPTEN
@@ -1308,6 +1348,7 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
 }
 
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
+  lovrGraphicsFlush();
   float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
   lovrGpuBindTexture(texture, 0);
   texture->filter = filter;
@@ -1344,6 +1385,7 @@ void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
 }
 
 void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
+  lovrGraphicsFlush();
   texture->wrap = wrap;
   lovrGpuBindTexture(texture, 0);
   glTexParameteri(texture->target, GL_TEXTURE_WRAP_S, convertWrapMode(wrap.s));
@@ -1416,7 +1458,7 @@ void lovrCanvasResolve(Canvas* canvas) {
     return;
   }
 
-  lovrGraphicsFlush();
+  lovrGraphicsFlushCanvas(canvas);
 
   if (canvas->flags.msaa) {
     int w = canvas->width;
@@ -1454,6 +1496,7 @@ void lovrCanvasResolve(Canvas* canvas) {
 }
 
 TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {
+  lovrGraphicsFlushCanvas(canvas);
   lovrGpuBindCanvas(canvas, false);
 
 #ifndef EMSCRIPTEN
@@ -1479,21 +1522,24 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {
 
 // Buffer
 
-Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferUsage usage, bool readable) {
+Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type, BufferUsage usage, bool readable) {
   buffer->size = size;
+  buffer->readable = readable;
+  buffer->type = type;
   buffer->usage = usage;
   glGenBuffers(1, &buffer->id);
-  lovrGpuBindGenericBuffer(buffer->id);
+  lovrGpuBindBuffer(type, buffer->id);
+  GLenum glType = convertBufferType(type);
 
 #ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_buffer_storage) {
     GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | (readable ? GL_MAP_READ_BIT : 0);
-    glBufferStorage(GL_COPY_WRITE_BUFFER, size, data, flags);
-    buffer->data = glMapBufferRange(GL_COPY_WRITE_BUFFER, 0, size, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
+    glBufferStorage(glType, size, data, flags);
+    buffer->data = glMapBufferRange(glType, 0, size, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
   } else {
 #endif
     buffer->data = calloc(1, size);
-    glBufferData(GL_COPY_WRITE_BUFFER, size, data, convertBufferUsage(usage));
+    glBufferData(glType, size, data, convertBufferUsage(usage));
 
     if (data) {
       memcpy(buffer->data, data, size);
@@ -1507,6 +1553,7 @@ Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferUsage usag
 
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
+  lovrGpuDestroySyncResource(buffer, buffer->incoherent);
   glDeleteBuffers(1, &buffer->id);
 #ifndef EMSCRIPTEN
   if (!GLAD_GL_ARB_buffer_storage) {
@@ -1522,42 +1569,15 @@ void* lovrBufferMap(Buffer* buffer, size_t offset) {
 }
 
 void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size) {
-  lovrGpuBindGenericBuffer(buffer->id);
+  lovrGpuBindBuffer(buffer->type, buffer->id);
 #ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_buffer_storage) {
-    glFlushMappedBufferRange(GL_COPY_WRITE_BUFFER, offset, size);
+    glFlushMappedBufferRange(convertBufferType(buffer->type), offset, size);
   } else {
 #endif
-    glBufferSubData(GL_COPY_WRITE_BUFFER, offset, size, (GLvoid*) ((uint8_t*) buffer->data + offset));
+    glBufferSubData(convertBufferType(buffer->type), offset, size, (GLvoid*) ((uint8_t*) buffer->data + offset));
 #ifndef EMSCRIPTEN
   }
-#endif
-}
-
-void lovrBufferLock(Buffer* buffer) {
-#ifndef EMSCRIPTEN
-  if (!GLAD_GL_ARB_buffer_storage) {
-    return;
-  }
-
-  lovrBufferUnlock(buffer);
-  buffer->lock = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-#endif
-}
-
-void lovrBufferUnlock(Buffer* buffer) {
-#ifndef EMSCRIPTEN
-  if (!GLAD_GL_ARB_buffer_storage || !buffer->lock) {
-    return;
-  }
-
-  if (glClientWaitSync(buffer->lock, 0, 0) == GL_TIMEOUT_EXPIRED) {
-    while (glClientWaitSync(buffer->lock, GL_SYNC_FLUSH_COMMANDS_BIT, 1E9) == GL_TIMEOUT_EXPIRED) {
-      continue;
-    }
-  }
-  glDeleteSync(buffer->lock);
-  buffer->lock = NULL;
 #endif
 }
 
@@ -1717,12 +1737,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
         uniform.size = 4 * (uniform.components == 3 ? 4 : uniform.components);
       }
 
-      // Uniforms in the block need to be in order of their offset, so find the right index for it
-      int index = 0;
-      while (index < block->uniforms.length && block->uniforms.data[index].offset < uniform.offset) {
-        index++;
-      }
-      vec_insert(&block->uniforms, index, uniform);
+      vec_push(&block->uniforms, uniform);
       continue;
     } else if (uniform.location == -1) {
       continue;
@@ -1740,7 +1755,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
         break;
 
       case UNIFORM_MATRIX:
-        uniform.size = uniform.components * uniform.components * uniform.count * sizeof(int);
+        uniform.size = uniform.components * uniform.components * uniform.count * sizeof(float);
         uniform.value.data = calloc(1, uniform.size);
         break;
 
@@ -1802,9 +1817,13 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
     "#extension GL_ARB_fragment_layer_viewport : require\n" "#define SINGLEPASS 1\n" :
     "#define SINGLEPASS 0\n";
 
+  size_t maxDraws = MIN(state.limits.blockSize / (20 * sizeof(float)) / 64 * 64, 256);
+  char maxDrawSource[32];
+  snprintf(maxDrawSource, 31, "#define MAX_DRAWS %zu\n", maxDraws);
+
   // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
-  const char* vertexSources[] = { vertexHeader, vertexSinglepass, lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
+  const char* vertexSources[] = { vertexHeader, vertexSinglepass, maxDrawSource, lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, sizeof(vertexSources) / sizeof(vertexSources[0]));
 
   // Fragment
@@ -1823,6 +1842,7 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
   glBindAttribLocation(program, LOVR_SHADER_TANGENT, "lovrTangent");
   glBindAttribLocation(program, LOVR_SHADER_BONES, "lovrBones");
   glBindAttribLocation(program, LOVR_SHADER_BONE_WEIGHTS, "lovrBoneWeights");
+  glBindAttribLocation(program, LOVR_SHADER_DRAW_ID, "lovrDrawID");
   linkProgram(program);
   glDetachShader(program, vertexShader);
   glDeleteShader(vertexShader);
@@ -1845,7 +1865,9 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
   map_init(&shader->attributes);
   for (int i = 0; i < attributeCount; i++) {
     char name[LOVR_MAX_ATTRIBUTE_LENGTH];
-    glGetActiveAttrib(program, i, LOVR_MAX_ATTRIBUTE_LENGTH, NULL, NULL, NULL, name);
+    GLint size;
+    GLenum type;
+    glGetActiveAttrib(program, i, LOVR_MAX_ATTRIBUTE_LENGTH, NULL, &size, &type, name);
     map_set(&shader->attributes, name, glGetAttribLocation(program, name));
   }
 
@@ -1891,71 +1913,20 @@ void lovrShaderDestroy(void* ref) {
   map_deinit(&shader->blockMap);
 }
 
-// ShaderBlock
-
-ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, vec_uniform_t* uniforms, BlockType type, BufferUsage usage) {
-  lovrAssert(type != BLOCK_STORAGE || state.features.computeShaders, "Writable ShaderBlocks are not supported on this system");
-
-  vec_init(&block->uniforms);
-  vec_extend(&block->uniforms, uniforms);
-  map_init(&block->uniformMap);
-
-  int i;
-  Uniform* uniform;
-  size_t size = 0;
-  vec_foreach_ptr(&block->uniforms, uniform, i) {
-
-    // Calculate size and offset based on the cryptic std140 rules
-    size_t align;
-    if (uniform->count > 1 || uniform->type == UNIFORM_MATRIX) {
-      align = 16 * (uniform->type == UNIFORM_MATRIX ? uniform->components : 1);
-      uniform->size = align * uniform->count;
-    } else {
-      align = (uniform->components + (uniform->components == 3)) * 4;
-      uniform->size = uniform->components * 4;
-    }
-    uniform->offset = (size + (align - 1)) & -align;
-    size = uniform->offset + uniform->size;
-
-    // Write index to uniform lookup
-    map_set(&block->uniformMap, uniform->name, i);
-  }
-
-#ifdef EMSCRIPTEN
-  block->target = GL_UNIFORM_BUFFER;
-#else
-  block->target = block->type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
-#endif
-  block->type = type;
-  block->buffer = lovrBufferCreate(size, NULL, usage, false);
-
-  return block;
-}
-
-void lovrShaderBlockDestroy(void* ref) {
-  ShaderBlock* block = ref;
-  lovrGpuDestroySyncResource(block, block->incoherent);
-  lovrRelease(block->buffer);
-  vec_deinit(&block->uniforms);
-  map_deinit(&block->uniformMap);
-}
-
 // Mesh
 
-Mesh* lovrMeshInit(Mesh* mesh, uint32_t count, VertexFormat format, DrawMode mode, BufferUsage usage, bool readable) {
-  mesh->count = count;
+Mesh* lovrMeshInit(Mesh* mesh, DrawMode mode, VertexFormat format, Buffer* vertexBuffer) {
   mesh->mode = mode;
   mesh->format = format;
-  mesh->readable = readable;
-  mesh->usage = usage;
-  mesh->vbo = lovrBufferCreate(count * format.stride, NULL, usage, readable);
+  mesh->vertexBuffer = vertexBuffer;
+  mesh->vertexCount = vertexBuffer ? (lovrBufferGetSize(vertexBuffer) / format.stride) : 0;
   glGenVertexArrays(1, &mesh->vao);
 
   map_init(&mesh->attributes);
   for (int i = 0; i < format.count; i++) {
-    lovrRetain(mesh->vbo);
+    lovrRetain(mesh->vertexBuffer);
     map_set(&mesh->attributes, format.attributes[i].name, ((MeshAttribute) {
-      .buffer = mesh->vbo,
+      .buffer = mesh->vertexBuffer,
       .offset = format.attributes[i].offset,
       .stride = format.stride,
       .type = format.attributes[i].type,
@@ -1970,7 +1941,6 @@ Mesh* lovrMeshInit(Mesh* mesh, uint32_t count, VertexFormat format, DrawMode mod
 
 void lovrMeshDestroy(void* ref) {
   Mesh* mesh = ref;
-  lovrRelease(mesh->material);
   glDeleteVertexArrays(1, &mesh->vao);
   const char* key;
   map_iter_t iter = map_iter(&mesh->attributes);
@@ -1979,6 +1949,7 @@ void lovrMeshDestroy(void* ref) {
     lovrRelease(attribute->buffer);
   }
   map_deinit(&mesh->attributes);
-  lovrRelease(mesh->vbo);
-  lovrRelease(mesh->ibo);
+  lovrRelease(mesh->vertexBuffer);
+  lovrRelease(mesh->indexBuffer);
+  lovrRelease(mesh->material);
 }

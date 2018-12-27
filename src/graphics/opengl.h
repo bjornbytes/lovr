@@ -11,7 +11,8 @@
 
 #define GPU_BUFFER_FIELDS \
   GLsync lock; \
-  uint32_t id;
+  uint32_t id; \
+  uint8_t incoherent;
 
 #define GPU_CANVAS_FIELDS \
   uint32_t framebuffer; \
@@ -20,14 +21,11 @@
   bool immortal;
 
 #define GPU_MESH_FIELDS \
-  uint32_t vao;
+  uint32_t vao; \
+  uint32_t ibo;
 
 #define GPU_SHADER_FIELDS \
   uint32_t program;
-
-#define GPU_SHADER_BLOCK_FIELDS \
-  GLenum target; \
-  uint8_t incoherent;
 
 #define GPU_TEXTURE_FIELDS \
   GLuint id; \

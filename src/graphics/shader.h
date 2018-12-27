@@ -80,14 +80,15 @@ typedef struct {
   vec_uniform_t uniforms;
   map_int_t uniformMap;
   Buffer* buffer;
-  GPU_SHADER_BLOCK_FIELDS
 } ShaderBlock;
 
 typedef struct {
   vec_uniform_t uniforms;
-  int slot;
-  ShaderBlock* source;
   UniformAccess access;
+  Buffer* source;
+  size_t offset;
+  size_t size;
+  int slot;
 } UniformBlock;
 
 typedef vec_t(UniformBlock) vec_block_t;
@@ -122,11 +123,13 @@ void lovrShaderSetMatrices(Shader* shader, const char* name, float* data, int st
 void lovrShaderSetTextures(Shader* shader, const char* name, Texture** data, int start, int count);
 void lovrShaderSetImages(Shader* shader, const char* name, Image* data, int start, int count);
 void lovrShaderSetColor(Shader* shader, const char* name, Color color);
-void lovrShaderSetBlock(Shader* shader, const char* name, ShaderBlock* block, UniformAccess access);
+void lovrShaderSetBlock(Shader* shader, const char* name, Buffer* buffer, size_t offset, size_t size, UniformAccess access);
 
 // ShaderBlock
 
-ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, vec_uniform_t* uniforms, BlockType type, BufferUsage usage);
+size_t lovrShaderComputeUniformLayout(vec_uniform_t* uniforms);
+
+ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, BlockType type, Buffer* buffer, vec_uniform_t* uniforms);
 #define lovrShaderBlockCreate(...) lovrShaderBlockInit(lovrAlloc(ShaderBlock), __VA_ARGS__)
 void lovrShaderBlockDestroy(void* ref);
 BlockType lovrShaderBlockGetType(ShaderBlock* block);
