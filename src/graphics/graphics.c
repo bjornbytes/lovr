@@ -518,6 +518,9 @@ void lovrGraphicsBatch(BatchRequest* req) {
           if (p->arc.style != q->arc.style || p->arc.mode != q->arc.mode) { continue; }
           else if (p->arc.r1 != q->arc.r1 || p->arc.r2 != q->arc.r2 || p->arc.segments != q->arc.segments) { continue; }
           break;
+        case BATCH_CYLINDER:
+          if (p->cylinder.r1 != q->cylinder.r1 || p->cylinder.r2 != q->cylinder.r2) { continue; }
+          else if (p->cylinder.capped != q->cylinder.capped || p->cylinder.segments != q->cylinder.segments) { continue; }
         case BATCH_SPHERE:
           if (p->sphere.segments != q->sphere.segments) { continue; }
           break;
@@ -688,6 +691,18 @@ void lovrGraphicsFlush() {
         vertexCount = params->arc.segments + 1 + hasCenterPoint;
         mesh = instanced ? state.instancedMesh : state.mesh;
         drawMode = params->arc.style == STYLE_LINE ? (params->arc.mode == ARC_MODE_OPEN ? DRAW_LINE_STRIP : DRAW_LINE_LOOP) : DRAW_TRIANGLE_FAN;
+        break;
+      }
+
+      case BATCH_CYLINDER: {
+        bool r1 = params->cylinder.r1 > 0;
+        bool r2 = params->cylinder.r2 > 0;
+        bool capped = params->cylinder.capped;
+        int segments = params->cylinder.segments;
+        vertexCount = ((capped && r1) * (segments + 2) + (capped && r2) * (segments + 2) + 2 * (segments + 1));
+        indexCount = 3 * segments * ((capped && r1) + (capped && r2) + 2);
+        mesh = instanced ? state.instancedMesh : state.mesh;
+        drawMode = DRAW_TRIANGLES;
         break;
       }
 
@@ -880,6 +895,73 @@ void lovrGraphicsFlush() {
               vertices += 8;
               theta += angleShift;
             }
+          }
+          break;
+        }
+
+        case BATCH_CYLINDER: {
+          bool capped = params->cylinder.capped;
+          float r1 = params->cylinder.r1;
+          float r2 = params->cylinder.r2;
+          int segments = params->cylinder.segments;
+
+          for (int i = 0; i < n; i++) {
+            float* v = vertices;
+
+            // Ring
+            for (int j = 0; j <= segments; j++) {
+              float theta = j * (2 * M_PI) / segments;
+              float X = cos(theta);
+              float Y = sin(theta);
+              memcpy(vertices, (float[16]) {
+                r1 * X, r1 * Y, -.5, X, Y, 0, 0, 0,
+                r2 * X, r2 * Y,  .5, X, Y, 0, 0, 0
+              }, 16 * sizeof(float));
+              vertices += 16;
+            }
+
+            // Top
+            int top = (segments + 1) * 2 + I;
+            if (capped && r1 != 0) {
+              memcpy(vertices, (float[8]) { 0, 0, -.5, 0.f, 0.f, -1.f, 0, 0 }, 8 * sizeof(float));
+              vertices += 8;
+              for (int j = 0; j <= segments; j++) {
+                int k = j * 2 * 8;
+                memcpy(vertices, (float[8]) { v[k + 0], v[k + 1], v[k + 2], 0.f, 0.f, -1.f, 0, 0 }, 8 * sizeof(float));
+                vertices += 8;
+              }
+            }
+
+            // Bottom
+            int bot = (segments + 1) * 2 + (1 + segments + 1) * (capped && r1 != 0) + I;
+            if (capped && r2 != 0) {
+              memcpy(vertices, (float[8]) { 0, 0, .5, 0.f, 0.f, 1.f, 0, 0 }, 8 * sizeof(float));
+              vertices += 8;
+              for (int j = 0; j <= segments; j++) {
+                int k = j * 2 * 8 + 8;
+                memcpy(vertices, (float[8]) { v[k + 0], v[k + 1], v[k + 2], 0.f, 0.f, 1.f, 0, 0 }, 8 * sizeof(float));
+                vertices += 8;
+              }
+            }
+
+            // Indices
+            for (int i = 0; i < segments; i++) {
+              int j = 2 * i + I;
+              memcpy(indices, (uint16_t[6]) { j, j + 1, j + 2, j + 1, j + 3, j + 2 }, 6 * sizeof(uint16_t));
+              indices += 6;
+
+              if (capped && r1 != 0.f) {
+                memcpy(indices, (uint16_t[3]) { top, top + i + 1, top + i + 2 }, 3 * sizeof(uint16_t));
+                indices += 3;
+              }
+
+              if (capped && r2 != 0.f) {
+                memcpy(indices, (uint16_t[3]) { bot, bot + i + 1, bot + i + 2 }, 3 * sizeof(uint16_t));
+                indices += 3;
+              }
+            }
+
+            I += vertexCount;
           }
           break;
         }
@@ -1145,105 +1227,18 @@ void lovrGraphicsCircle(DrawStyle style, Material* material, mat4 transform, int
   lovrGraphicsArc(style, ARC_MODE_OPEN, material, transform, 0, 2 * M_PI, segments);
 }
 
-void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments) {
-  /*
-  float axis[3] = { x1 - x2, y1 - y2, z1 - z2 };
-  float n[3] = { x1 - x2, y1 - y2, z1 - z2 };
-  float p[3];
-  float q[3];
+void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2, bool capped, int segments) {
+  float length = vec3_length((float[3]) { transform[8], transform[9], transform[10] });
 
-  uint32_t vertexCount = ((capped && r1) * (segments + 2) + (capped && r2) * (segments + 2) + 2 * (segments + 1));
-  uint32_t indexCount = 3 * segments * ((capped && r1) + (capped && r2) + 2);
-  float* vertices = lovrGraphicsMapBuffer(STREAM_VERTEX, vertexCount);
-  uint16_t* indices = lovrGraphicsMapBuffer(STREAM_INDEX, indexCount);
-  uint16_t baseVertex = (uint16_t) state.buffers[STREAM_VERTEX].cursor;
-
-  float* v = vertices;
-
-  vec3_init(p, n);
-
-  if (n[0] == 0 && n[2] == 0) {
-    p[0] += 1;
-  } else {
-    p[1] += 1;
-  }
-
-  vec3_init(q, p);
-  vec3_cross(q, n);
-  vec3_cross(n, q);
-  vec3_init(p, n);
-  vec3_normalize(p);
-  vec3_normalize(q);
-  vec3_normalize(axis);
-
-#define PUSH_CYLINDER_VERTEX(x, y, z, nx, ny, nz) \
-  *vertices++ = x; \
-  *vertices++ = y; \
-  *vertices++ = z; \
-  *vertices++ = nx; \
-  *vertices++ = ny; \
-  *vertices++ = nz; \
-  *vertices++ = 0; \
-  *vertices++ = 0;
-#define PUSH_CYLINDER_TRIANGLE(i1, i2, i3) \
-  *indices++ = i1; \
-  *indices++ = i2; \
-  *indices++ = i3; \
-
-  // Ring
-  for (int i = 0; i <= segments; i++) {
-    float theta = i * (2 * M_PI) / segments;
-    n[0] = cos(theta) * p[0] + sin(theta) * q[0];
-    n[1] = cos(theta) * p[1] + sin(theta) * q[1];
-    n[2] = cos(theta) * p[2] + sin(theta) * q[2];
-    PUSH_CYLINDER_VERTEX(x1 + r1 * n[0], y1 + r1 * n[1], z1 + r1 * n[2], n[0], n[1], n[2]);
-    PUSH_CYLINDER_VERTEX(x2 + r2 * n[0], y2 + r2 * n[1], z2 + r2 * n[2], n[0], n[1], n[2]);
-  }
-
-  // Top
-  int topOffset = (segments + 1) * 2 + baseVertex;
-  if (capped && r1 != 0) {
-    PUSH_CYLINDER_VERTEX(x1, y1, z1, axis[0], axis[1], axis[2]);
-    for (int i = 0; i <= segments; i++) {
-      int j = i * 2 * 8;
-      PUSH_CYLINDER_VERTEX(v[j + 0], v[j + 1], v[j + 2], axis[0], axis[1], axis[2]);
-    }
-  }
-
-  // Bottom
-  int bottomOffset = (segments + 1) * 2 + (1 + segments + 1) * (capped && r1 != 0) + baseVertex;
-  if (capped && r2 != 0) {
-    PUSH_CYLINDER_VERTEX(x2, y2, z1, -axis[0], -axis[1], -axis[2]);
-    for (int i = 0; i <= segments; i++) {
-      int j = i * 2 * 8 + 8;
-      PUSH_CYLINDER_VERTEX(v[j + 0], v[j + 1], v[j + 2], -axis[0], -axis[1], -axis[2]);
-    }
-  }
-
-  // Indices
-  for (int i = 0; i < segments; i++) {
-    int j = 2 * i + baseVertex;
-    PUSH_CYLINDER_TRIANGLE(j, j + 1, j + 2);
-    PUSH_CYLINDER_TRIANGLE(j + 1, j + 3, j + 2);
-
-    if (capped && r1 != 0) {
-      PUSH_CYLINDER_TRIANGLE(topOffset, topOffset + i + 1, topOffset + i + 2);
-    }
-
-    if (capped && r2 != 0) {
-      PUSH_CYLINDER_TRIANGLE(bottomOffset, bottomOffset + i + 1, bottomOffset + i + 2);
-    }
-  }
-#undef PUSH_CYLINDER_VERTEX
-#undef PUSH_CYLINDER_TRIANGLE
-
-  lovrGraphicsDraw(&(DrawRequest) {
-    .material = material,
-    .mode = DRAW_TRIANGLES,
-    .vertexCount = vertexCount,
-    .indexCount = indexCount
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_CYLINDER,
+    .params.cylinder.r1 = r1 / length,
+    .params.cylinder.r2 = r2 / length,
+    .params.cylinder.capped = capped,
+    .params.cylinder.segments = segments,
+    .transform = transform,
+    .material = material
   });
-  */
 }
 
 void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {

@@ -111,6 +111,7 @@ typedef enum {
   BATCH_BOX,
   BATCH_ARC,
   BATCH_SPHERE,
+  BATCH_CYLINDER,
   BATCH_SKYBOX,
   BATCH_TEXT,
   BATCH_FILL,
@@ -122,6 +123,7 @@ typedef union {
   struct { DrawStyle style; } plane;
   struct { DrawStyle style; } box;
   struct { DrawStyle style; ArcMode mode; float r1; float r2; int segments; } arc;
+  struct { float r1; float r2; bool capped; int segments; } cylinder;
   struct { int segments; } sphere;
   struct { float u; float v; float w; float h; } fill;
   struct { Mesh* object; DrawMode mode; uint32_t rangeStart; uint32_t rangeCount; uint32_t instances; float* pose; } mesh;
@@ -263,7 +265,7 @@ void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform);
 void lovrGraphicsBox(DrawStyle style, Material* material, mat4 transform);
 void lovrGraphicsArc(DrawStyle style, ArcMode mode, Material* material, mat4 transform, float r1, float r2, int segments);
 void lovrGraphicsCircle(DrawStyle style, Material* material, mat4 transform, int segments);
-void lovrGraphicsCylinder(Material* material, float x1, float y1, float z1, float x2, float y2, float z2, float r1, float r2, bool capped, int segments);
+void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2, bool capped, int segments);
 void lovrGraphicsSphere(Material* material, mat4 transform, int segments);
 void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);

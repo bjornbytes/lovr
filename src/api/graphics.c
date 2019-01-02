@@ -817,19 +817,15 @@ static int l_lovrGraphicsCircle(lua_State* L) {
 }
 
 static int l_lovrGraphicsCylinder(lua_State* L) {
+  float transform[16];
   int index = 1;
   Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
-  float x1 = luaL_checknumber(L, index++);
-  float y1 = luaL_checknumber(L, index++);
-  float z1 = luaL_checknumber(L, index++);
-  float x2 = luaL_checknumber(L, index++);
-  float y2 = luaL_checknumber(L, index++);
-  float z2 = luaL_checknumber(L, index++);
-  float r1 = luaL_optnumber(L, index++, 1);
-  float r2 = luaL_optnumber(L, index++, 1);
+  index = luax_readmat4(L, index, transform, 1, NULL);
+  float r1 = luaL_optnumber(L, index++, 1.);
+  float r2 = luaL_optnumber(L, index++, 1.);
   bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
   int segments = luaL_optnumber(L, index, floorf(16 + 16 * MAX(r1, r2)));
-  lovrGraphicsCylinder(material, x1, y1, z1, x2, y2, z2, r1, r2, capped, segments);
+  lovrGraphicsCylinder(material, transform, r1, r2, capped, segments);
   return 0;
 }
 
