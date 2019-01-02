@@ -67,51 +67,14 @@ static void lovrGraphicsInitBuffers() {
   for (int i = 0; i < 256; i++) id[i] = i;
   lovrBufferFlush(state.identityBuffer, 0, 256);
 
-  MeshAttribute position = {
-    .buffer = state.buffers[STREAM_VERTEX],
-    .offset = 0,
-    .stride = BUFFER_STRIDES[STREAM_VERTEX],
-    .type = ATTR_FLOAT,
-    .components = 3,
-    .enabled = true
-  };
-
-  MeshAttribute normal = {
-    .buffer = state.buffers[STREAM_VERTEX],
-    .offset = 3 * sizeof(float),
-    .stride = BUFFER_STRIDES[STREAM_VERTEX],
-    .type = ATTR_FLOAT,
-    .components = 3,
-    .enabled = true
-  };
-
-  MeshAttribute texCoord = {
-    .buffer = state.buffers[STREAM_VERTEX],
-    .offset = 3 * sizeof(float) + 3 * sizeof(float),
-    .stride = BUFFER_STRIDES[STREAM_VERTEX],
-    .type = ATTR_FLOAT,
-    .components = 2,
-    .enabled = true
-  };
-
-  MeshAttribute drawId = {
-    .buffer = state.buffers[STREAM_DRAW_ID],
-    .type = ATTR_BYTE,
-    .components = 1,
-    .integer = true,
-    .enabled = true
-  };
-
-  MeshAttribute identity = {
-    .buffer = state.identityBuffer,
-    .type = ATTR_BYTE,
-    .components = 1,
-    .divisor = 1,
-    .integer = true,
-    .enabled = true
-  };
-
   VertexFormat empty = { .count = 0 };
+  Buffer* vertexBuffer = state.buffers[STREAM_VERTEX];
+  size_t stride = BUFFER_STRIDES[STREAM_VERTEX];
+  MeshAttribute position = { vertexBuffer, 0, stride, ATTR_FLOAT, 3, .enabled = true };
+  MeshAttribute normal = { vertexBuffer, 12, stride, ATTR_FLOAT, 3, .enabled = true };
+  MeshAttribute texCoord = { vertexBuffer, 24, stride, ATTR_FLOAT, 2, .enabled = true };
+  MeshAttribute drawId = { state.buffers[STREAM_DRAW_ID], 0, 0, ATTR_BYTE, 1, .integer = true, .enabled = true };
+  MeshAttribute identity = { state.identityBuffer, 0, 0, ATTR_BYTE, 1, .divisor = 1, .integer = true, .enabled = true };
 
   state.mesh = lovrMeshCreate(DRAW_TRIANGLES, empty, NULL);
   lovrMeshAttachAttribute(state.mesh, "lovrPosition", &position);
@@ -124,6 +87,34 @@ static void lovrGraphicsInitBuffers() {
   lovrMeshAttachAttribute(state.instancedMesh, "lovrNormal", &normal);
   lovrMeshAttachAttribute(state.instancedMesh, "lovrTexCoord", &texCoord);
   lovrMeshAttachAttribute(state.instancedMesh, "lovrDrawID", &identity);
+}
+
+static void* lovrGraphicsMapBuffer(BufferRole role, uint32_t count) {
+  Buffer* buffer = state.buffers[role];
+  size_t limit = BUFFER_COUNTS[role];
+  lovrAssert(count <= limit, "Whoa there!  Tried to get %d elements from a buffer that only has %d elements.", count, limit);
+
+  if (state.cursors[role] + count > limit) {
+    lovrGraphicsFlush();
+    state.cursors[role] = 0;
+
+    // Locks are placed as late as possible, causing the last lock to never get placed.  Whenever we
+    // wrap around a buffer, we gotta place that last missing lock.
+    state.locks[role][MAX_LOCKS - 1] = lovrGpuLock();
+  }
+
+  // Wait on any pending locks for the mapped region(s)
+  int firstLock = state.cursors[role] / (BUFFER_COUNTS[role] / MAX_LOCKS);
+  int lastLock = MIN(state.cursors[role] + count, BUFFER_COUNTS[role] - 1) / (BUFFER_COUNTS[role] / MAX_LOCKS);
+  for (int i = firstLock; i <= lastLock; i++) {
+    if (state.locks[role][i]) {
+      lovrGpuUnlock(state.locks[role][i]);
+      lovrGpuDestroyLock(state.locks[role][i]);
+      state.locks[role][i] = NULL;
+    }
+  }
+
+  return lovrBufferMap(buffer, state.cursors[role] * BUFFER_STRIDES[role]);
 }
 
 // Base
@@ -200,12 +191,11 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   }
 
   if (!camera) {
-    state.camera.canvas = NULL;
-    state.camera.stereo = false;
-    for (int i = 0; i < 2; i++) {
-      mat4_identity(state.camera.viewMatrix[i]);
-      mat4_perspective(state.camera.projection[i], .01f, 100.f, 67 * M_PI / 180., (float) state.width / state.height);
-    }
+    memset(&state.camera, 0, sizeof(Camera));
+    mat4_identity(state.camera.viewMatrix[0]);
+    mat4_identity(state.camera.viewMatrix[1]);
+    mat4_perspective(state.camera.projection[0], .01f, 100.f, 67 * M_PI / 180., (float) state.width / state.height);
+    mat4_perspective(state.camera.projection[1], .01f, 100.f, 67 * M_PI / 180., (float) state.width / state.height);
   } else {
     state.camera = *camera;
   }
@@ -213,34 +203,6 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   if (clear) {
     lovrGpuClear(state.camera.canvas, &state.backgroundColor, &(float) { 1. }, &(int) { 0 });
   }
-}
-
-void* lovrGraphicsMapBuffer(BufferRole role, uint32_t count) {
-  Buffer* buffer = state.buffers[role];
-  size_t limit = BUFFER_COUNTS[role];
-  lovrAssert(count <= limit, "Whoa there!  Tried to get %d elements from a buffer that only has %d elements.", count, limit);
-
-  if (state.cursors[role] + count > limit) {
-    lovrGraphicsFlush();
-    state.cursors[role] = 0;
-
-    // Locks are placed as late as possible, causing the last lock to never get placed.  Whenever we
-    // wrap around a buffer, we gotta place that last missing lock.
-    state.locks[role][MAX_LOCKS - 1] = lovrGpuLock();
-  }
-
-  // Wait on any pending locks for the mapped region(s)
-  int firstLock = state.cursors[role] / (BUFFER_COUNTS[role] / MAX_LOCKS);
-  int lastLock = MIN(state.cursors[role] + count, BUFFER_COUNTS[role] - 1) / (BUFFER_COUNTS[role] / MAX_LOCKS);
-  for (int i = firstLock; i <= lastLock; i++) {
-    if (state.locks[role][i]) {
-      lovrGpuUnlock(state.locks[role][i]);
-      lovrGpuDestroyLock(state.locks[role][i]);
-      state.locks[role][i] = NULL;
-    }
-  }
-
-  return lovrBufferMap(buffer, state.cursors[role] * BUFFER_STRIDES[role]);
 }
 
 Buffer* lovrGraphicsGetIdentityBuffer() {
@@ -462,19 +424,13 @@ void lovrGraphicsSetProjection(mat4 projection) {
 // Rendering
 
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
-  if (color || depth || stencil) {
-    lovrGraphicsFlush();
-  }
-
   if (color) gammaCorrectColor(color);
+  if (color || depth || stencil) lovrGraphicsFlush();
   lovrGpuClear(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
 }
 
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil) {
-  if (color || depth || stencil) {
-    lovrGraphicsFlush();
-  }
-
+  if (color || depth || stencil) lovrGraphicsFlush();
   lovrGpuDiscard(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
 }
 
@@ -538,19 +494,13 @@ void lovrGraphicsBatch(BatchRequest* req) {
       }
 
       // Draws can't be reordered when blending is on
-      if (b->pipeline.blendMode != BLEND_NONE || pipeline->blendMode != BLEND_NONE) {
-        break;
-      }
+      if (b->pipeline.blendMode != BLEND_NONE || pipeline->blendMode != BLEND_NONE) { break; }
 
       // Draws can't be reordered when the depth test is off
-      if (b->pipeline.depthTest == COMPARE_NONE || pipeline->depthTest == COMPARE_NONE) {
-        break;
-      }
+      if (b->pipeline.depthTest == COMPARE_NONE || pipeline->depthTest == COMPARE_NONE) { break; }
 
       // Draws with streaming vertices must be sequential, since buffers are append-only
-      if (b->vertexCount > 0 && req->vertexCount > 0) {
-        break;
-      }
+      if (b->vertexCount > 0 && req->vertexCount > 0) { break; }
     }
   }
 
@@ -797,9 +747,7 @@ void lovrGraphicsFlush() {
               }, 32 * sizeof(float));
               vertices += 32;
 
-              memcpy(indices, (uint16_t[6]) {
-                I + 0, I + 1, I + 2, I + 2, I + 1, I + 3
-              }, 6 * sizeof(uint16_t));
+              memcpy(indices, (uint16_t[6]) { I + 0, I + 1, I + 2, I + 2, I + 1, I + 3 }, 6 * sizeof(uint16_t));
               I += vertexCount;
               indices += 6;
             }
