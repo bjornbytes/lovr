@@ -199,7 +199,6 @@ void lovrGraphicsSetWindow(WindowFlags* flags);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
-void* lovrGraphicsMapBuffer(BufferRole role, uint32_t count);
 Buffer* lovrGraphicsGetIdentityBuffer();
 #define lovrGraphicsGetSupported lovrGpuGetSupported
 #define lovrGraphicsGetLimits lovrGpuGetLimits
