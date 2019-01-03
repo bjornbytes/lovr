@@ -56,6 +56,7 @@ static struct {
   CompareMode depthTest;
   bool depthWrite;
   uint8_t lineWidth;
+  uint32_t primitiveRestart;
   bool stencilEnabled;
   CompareMode stencilMode;
   int stencilValue;
@@ -470,6 +471,12 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
     mesh->ibo = mesh->indexBuffer->id;
     state.buffers[BUFFER_INDEX] = mesh->ibo;
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
+
+    uint32_t primitiveRestart = (1 << (mesh->indexSize * 8)) - 1;
+    if (state.primitiveRestart != primitiveRestart) {
+      state.primitiveRestart = primitiveRestart;
+      glPrimitiveRestartIndex(primitiveRestart);
+    }
   }
 
   if (mesh->flushEnd > 0) {
@@ -927,6 +934,7 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &state.limits.blockAlign);
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
 
+  glEnable(GL_PRIMITIVE_RESTART);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
 
@@ -952,6 +960,9 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
 
   state.lineWidth = 1;
   glLineWidth(state.lineWidth);
+
+  state.primitiveRestart = 0xffffffff;
+  glPrimitiveRestartIndex(state.primitiveRestart);
 
   state.stencilEnabled = false;
   state.stencilMode = COMPARE_NONE;

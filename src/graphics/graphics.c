@@ -455,7 +455,7 @@ void lovrGraphicsBatch(BatchRequest* req) {
 
   // Try to find an existing batch to use
   Batch* batch = NULL;
-  if (req->type != BATCH_LINES && (req->type != BATCH_MESH || req->params.mesh.instances == 1)) {
+  if (req->type != BATCH_MESH || req->params.mesh.instances == 1) {
     for (int i = state.batchCount - 1; i >= 0; i--) {
       Batch* b = &state.batches[i];
 
@@ -1118,21 +1118,49 @@ void lovrGraphicsPoints(uint32_t count, float** vertices) {
 }
 
 void lovrGraphicsLine(uint32_t count, float** vertices) {
+  uint32_t indexCount = count + 1;
+  uint16_t* indices;
+  uint16_t baseVertex;
+
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_LINES,
     .vertexCount = count,
-    .vertices = vertices
+    .vertices = vertices,
+    .indexCount = indexCount,
+    .indices = &indices,
+    .baseVertex = &baseVertex
   });
+
+  indices[0] = 0xffff;
+  for (uint32_t i = 1; i < indexCount; i++) {
+    indices[i] = baseVertex + i - 1;
+  }
 }
 
 void lovrGraphicsTriangle(DrawStyle style, Material* material, uint32_t count, float** vertices) {
+  uint32_t indexCount = style == STYLE_LINE ? (4 * count / 3) : 0;
+  uint16_t* indices;
+  uint16_t baseVertex;
+
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_TRIANGLES,
     .params.triangles.style = style,
     .material = material,
     .vertexCount = count,
-    .vertices = vertices
+    .vertices = vertices,
+    .indexCount = indexCount,
+    .indices = &indices,
+    .baseVertex = &baseVertex
   });
+
+  if (style == STYLE_LINE) {
+    for (int i = 0; i < count; i += 3) {
+      *indices++ = 0xffff;
+      *indices++ = baseVertex + i + 0;
+      *indices++ = baseVertex + i + 1;
+      *indices++ = baseVertex + i + 2;
+    }
+  }
 }
 
 void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform) {
