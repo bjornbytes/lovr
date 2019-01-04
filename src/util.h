@@ -4,20 +4,14 @@
 
 #pragma once
 
-#ifndef _Thread_local
-# ifdef _WIN32
-#  define _Thread_local __declspec(thread)
-# else
-#  define _Thread_local __thread
-# endif
-#endif
-
-#ifndef _Noreturn
-# ifdef _WIN32
-#  define _Noreturn __declspec(noreturn)
-# else
-#  define _Noreturn __attribute__((noreturn))
-# endif
+#ifdef _WIN32
+#define LOVR_EXPORT __declspec(dllexport)
+#define LOVR_NORETURN __declspec(noreturn)
+#define LOVR_THREADLOCAL __declspec(thread)
+#else
+#define LOVR_EXPORT
+#define LOVR_NORETURN __attribute__((noreturn))
+#define LOVR_THREADLOCAL __thread
 #endif
 
 #define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
@@ -39,11 +33,11 @@ typedef struct ref {
 typedef struct { float r, g, b, a; } Color;
 
 typedef void (*lovrErrorHandler)(void* userdata, const char* format, va_list args);
-extern _Thread_local lovrErrorHandler lovrErrorCallback;
-extern _Thread_local void* lovrErrorUserdata;
+extern LOVR_THREADLOCAL lovrErrorHandler lovrErrorCallback;
+extern LOVR_THREADLOCAL void* lovrErrorUserdata;
 
 void lovrSetErrorCallback(lovrErrorHandler callback, void* context);
-void _Noreturn lovrThrow(const char* format, ...);
+void LOVR_NORETURN lovrThrow(const char* format, ...);
 void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*));
 void lovrRetain(void* object);
 void lovrRelease(void* object);

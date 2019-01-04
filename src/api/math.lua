@@ -14,7 +14,6 @@ ffi.cdef [[
   typedef struct Pool Pool;
   enum { MATH_VEC3, MATH_QUAT, MATH_MAT4 };
 
-  Pool* lovrPoolCreate(size_t count);
   vec3* lovrPoolAllocateVec3(Pool* pool);
   quat* lovrPoolAllocateQuat(Pool* pool);
   mat4* lovrPoolAllocateMat4(Pool* pool);

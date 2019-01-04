@@ -1,23 +1,17 @@
 #include "luax.h"
 
-#ifdef _WIN32
-#define LOVR_API __declspec(dllexport)
-#else
-#define LOVR_API
-#endif
-
 // Module loaders
-LOVR_API int luaopen_lovr(lua_State* L);
-LOVR_API int luaopen_lovr_audio(lua_State* L);
-LOVR_API int luaopen_lovr_data(lua_State* L);
-LOVR_API int luaopen_lovr_event(lua_State* L);
-LOVR_API int luaopen_lovr_filesystem(lua_State* L);
-LOVR_API int luaopen_lovr_graphics(lua_State* L);
-LOVR_API int luaopen_lovr_headset(lua_State* L);
-LOVR_API int luaopen_lovr_math(lua_State* L);
-LOVR_API int luaopen_lovr_physics(lua_State* L);
-LOVR_API int luaopen_lovr_thread(lua_State* L);
-LOVR_API int luaopen_lovr_timer(lua_State* L);
+LOVR_EXPORT int luaopen_lovr(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_audio(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_data(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_event(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_filesystem(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_graphics(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_headset(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_math(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_physics(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_thread(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_timer(lua_State* L);
 extern const luaL_Reg lovrModules[];
 
 // Objects

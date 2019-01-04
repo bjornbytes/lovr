@@ -29,6 +29,6 @@ size_t lovrPoolGetSize(Pool* pool);
 size_t lovrPoolGetUsage(Pool* pool);
 
 // For you, LuaJIT
-float* lovrPoolNewVec3(Pool* pool);
-float* lovrPoolNewQuat(Pool* pool);
-float* lovrPoolNewMat4(Pool* pool);
+LOVR_EXPORT float* lovrPoolNewVec3(Pool* pool);
+LOVR_EXPORT float* lovrPoolNewQuat(Pool* pool);
+LOVR_EXPORT float* lovrPoolNewMat4(Pool* pool);
