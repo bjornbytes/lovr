@@ -101,6 +101,11 @@ static void* lovrGraphicsMapBuffer(BufferRole role, uint32_t count) {
     // Locks are placed as late as possible, causing the last lock to never get placed.  Whenever we
     // wrap around a buffer, we gotta place that last missing lock.
     state.locks[role][MAX_LOCKS - 1] = lovrGpuLock();
+
+    // If we roll over the vertex/index streams, we can't reuse their contents
+    if (role == STREAM_VERTEX || role == STREAM_INDEX) {
+      state.cachedGeometry.vertexCount = 0;
+    }
   }
 
   // Wait on any pending locks for the mapped region(s)
@@ -116,6 +121,35 @@ static void* lovrGraphicsMapBuffer(BufferRole role, uint32_t count) {
 
   return lovrBufferMap(buffer, state.cursors[role] * BUFFER_STRIDES[role]);
 }
+
+static bool areBatchParamsEqual(BatchType typeA, BatchType typeB, BatchParams* a, BatchParams* b) {
+  if (typeA != typeB) return false;
+
+  switch (typeA) {
+    case BATCH_TRIANGLES:
+      return a->triangles.style == b->triangles.style;
+    case BATCH_BOX:
+      return a->box.style == b->box.style;
+    case BATCH_ARC:
+      return
+        a->arc.style == b->arc.style && a->arc.mode == b->arc.mode &&
+        a->arc.r1 == b->arc.r1 && a->arc.r2 == b->arc.r2 && a->arc.segments == b->arc.segments;
+    case BATCH_CYLINDER:
+      return
+        a->cylinder.r1 == b->cylinder.r1 && a->cylinder.r2 == b->cylinder.r2 &&
+        a->cylinder.capped == b->cylinder.capped && a->cylinder.segments == b->cylinder.segments;
+    case BATCH_SPHERE:
+      return a->sphere.segments == b->sphere.segments;
+    case BATCH_MESH:
+      return
+        a->mesh.object == b->mesh.object && a->mesh.mode == b->mesh.mode &&
+        a->mesh.rangeStart == b->mesh.rangeStart && a->mesh.rangeCount == b->mesh.rangeCount;
+    default:
+      return true;
+  }
+}
+
+static void writeGeometry(Batch* batch, float* vertices, uint16_t* indices, uint16_t I, uint32_t vertexCount, int n);
 
 // Base
 
@@ -459,47 +493,17 @@ void lovrGraphicsBatch(BatchRequest* req) {
     for (int i = state.batchCount - 1; i >= 0; i--) {
       Batch* b = &state.batches[i];
 
-      if (b->type != req->type) { continue; }
-
-      BatchParams* p = &req->params;
-      BatchParams* q = &b->params;
-      switch (req->type) {
-        case BATCH_TRIANGLES:
-          if (p->triangles.style != q->triangles.style) { continue; }
-          break;
-        case BATCH_BOX:
-          if (p->box.style != q->box.style) { continue; }
-          break;
-        case BATCH_ARC:
-          if (p->arc.style != q->arc.style || p->arc.mode != q->arc.mode) { continue; }
-          else if (p->arc.r1 != q->arc.r1 || p->arc.r2 != q->arc.r2 || p->arc.segments != q->arc.segments) { continue; }
-          break;
-        case BATCH_CYLINDER:
-          if (p->cylinder.r1 != q->cylinder.r1 || p->cylinder.r2 != q->cylinder.r2) { continue; }
-          else if (p->cylinder.capped != q->cylinder.capped || p->cylinder.segments != q->cylinder.segments) { continue; }
-        case BATCH_SPHERE:
-          if (p->sphere.segments != q->sphere.segments) { continue; }
-          break;
-        case BATCH_MESH:
-          if (p->mesh.object != q->mesh.object) { continue; }
-          else if (p->mesh.mode != q->mesh.mode) { continue; }
-          else if (p->mesh.rangeStart != q->mesh.rangeStart || p->mesh.rangeCount != q->mesh.rangeCount) { continue; }
-          break;
-        default: break;
-      }
-
+      if (b->drawCount >= state.maxDraws) { continue; }
+      if (!areBatchParamsEqual(req->type, b->type, &req->params, &b->params)) { continue; }
       if (b->canvas == canvas && b->shader == shader && !memcmp(&b->pipeline, pipeline, sizeof(Pipeline)) && b->material == material) {
         batch = b;
         break;
       }
 
-      // Draws can't be reordered when blending is on
+      // Draws can't be reordered when blending is on, depth test is off, or either of the batches
+      // are streaming their vertices (since buffers are append-only)
       if (b->pipeline.blendMode != BLEND_NONE || pipeline->blendMode != BLEND_NONE) { break; }
-
-      // Draws can't be reordered when the depth test is off
       if (b->pipeline.depthTest == COMPARE_NONE || pipeline->depthTest == COMPARE_NONE) { break; }
-
-      // Draws with streaming vertices must be sequential, since buffers are append-only
       if (b->vertexCount > 0 && req->vertexCount > 0) { break; }
     }
   }
@@ -589,9 +593,7 @@ void lovrGraphicsBatch(BatchRequest* req) {
     state.cursors[STREAM_INDEX] += req->indexCount;
   }
 
-  if (++batch->drawCount >= state.maxDraws) {
-    lovrGraphicsFlush();
-  }
+  batch->drawCount++;
 }
 
 void lovrGraphicsFlush() {
@@ -611,6 +613,7 @@ void lovrGraphicsFlush() {
     Mesh* mesh = NULL;
     DrawMode drawMode;
     bool instanced = batch->drawCount >= 4;
+    bool flushGeometry = batch->vertexCount > 0;
     int instances = instanced ? batch->drawCount : 1;
     uint32_t vertexCount = 0;
     uint32_t indexCount = 0;
@@ -705,289 +708,72 @@ void lovrGraphicsFlush() {
     // Write geometry
     if (vertexCount > 0) {
       int n = instanced ? 1 : batch->drawCount;
-      float* vertices = lovrGraphicsMapBuffer(STREAM_VERTEX, vertexCount * n);
-      uint16_t* indices = lovrGraphicsMapBuffer(STREAM_INDEX, indexCount * n);
-      uint16_t I = (uint16_t) state.cursors[STREAM_VERTEX];
 
-      batch->vertexStart = state.cursors[STREAM_VERTEX];
-      batch->indexStart = state.cursors[STREAM_INDEX];
-      batch->vertexCount = vertexCount * n;
-      batch->indexCount = indexCount * n;
+      // Try to re-use the geometry from the last batch
+      Batch* cached = &state.cachedGeometry;
+      if (areBatchParamsEqual(batch->type, cached->type, &batch->params, &cached->params) && cached->vertexCount >= vertexCount * n) {
+        batch->vertexStart = cached->vertexStart;
+        batch->indexStart = cached->indexStart;
+        batch->vertexCount = vertexCount * n;
+        batch->indexCount = indexCount * n;
+      } else {
+        float* vertices = lovrGraphicsMapBuffer(STREAM_VERTEX, vertexCount * n);
+        uint16_t* indices = lovrGraphicsMapBuffer(STREAM_INDEX, indexCount * n);
+        uint16_t I = (uint16_t) state.cursors[STREAM_VERTEX];
+
+        cached->type = batch->type;
+        cached->params = batch->params;
+        batch->vertexStart = cached->vertexStart = state.cursors[STREAM_VERTEX];
+        batch->indexStart = cached->indexStart = state.cursors[STREAM_INDEX];
+        batch->vertexCount = cached->vertexCount = vertexCount * n;
+        batch->indexCount = cached->indexCount = indexCount * n;
+        flushGeometry = true;
+
+        if (!instanced) {
+          uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, batch->vertexCount);
+          for (int i = 0; i < n; i++) {
+            memset(ids, i, vertexCount * sizeof(uint8_t));
+            ids += vertexCount;
+          }
+        }
+
+        state.cursors[STREAM_VERTEX] += batch->vertexCount;
+        state.cursors[STREAM_INDEX] += batch->indexCount;
+        state.cursors[STREAM_DRAW_ID] += batch->vertexCount;
+
+        writeGeometry(batch, vertices, indices, I, vertexCount, n);
+      }
+    }
+
+    // Flush vertex buffer
+    if (flushGeometry && batch->vertexCount > 0) {
+      size_t stride = BUFFER_STRIDES[STREAM_VERTEX];
+      lovrBufferFlush(state.buffers[STREAM_VERTEX], batch->vertexStart * stride, batch->vertexCount * stride);
 
       if (!instanced) {
-        uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, batch->vertexCount);
-        for (int i = 0; i < n; i++) {
-          memset(ids, i, vertexCount * sizeof(uint8_t));
-          ids += vertexCount;
-        }
+        lovrBufferFlush(state.buffers[STREAM_DRAW_ID], batch->vertexStart, batch->vertexCount);
       }
+    }
 
-      state.cursors[STREAM_VERTEX] += batch->vertexCount;
-      state.cursors[STREAM_INDEX] += batch->indexCount;
-      state.cursors[STREAM_DRAW_ID] += batch->vertexCount;
+    // Flush index buffer
+    if (flushGeometry && batch->indexCount > 0) {
+      size_t stride = BUFFER_STRIDES[STREAM_INDEX];
+      lovrBufferFlush(state.buffers[STREAM_INDEX], batch->indexStart * stride, batch->indexCount * stride);
+    }
 
-      switch (batch->type) {
-        case BATCH_PLANE:
-          if (params->plane.style == STYLE_LINE) {
-            for (int i = 0; i < n; i++) {
-              memcpy(vertices, (float[32]) {
-                -.5, .5, 0,  0, 0, 0, 0, 0,
-                .5, .5, 0,   0, 0, 0, 0, 0,
-                .5, -.5, 0,  0, 0, 0, 0, 0,
-                -.5, -.5, 0, 0, 0, 0, 0, 0
-              }, 32 * sizeof(float));
-              vertices += 32;
+    // Flush draw data buffer
+    size_t drawDataOffset = batch->drawStart * BUFFER_STRIDES[STREAM_DRAW_DATA];
+    size_t drawDataSize = batch->drawCount * BUFFER_STRIDES[STREAM_DRAW_DATA];
+    lovrBufferFlush(state.buffers[STREAM_DRAW_DATA], drawDataOffset, drawDataSize);
+    lovrShaderSetBlock(batch->shader, "lovrDrawData", state.buffers[STREAM_DRAW_DATA], drawDataOffset, state.maxDraws * BUFFER_STRIDES[STREAM_DRAW_DATA], ACCESS_READ);
 
-              memcpy(indices, (uint16_t[5]) { 0xffff, I + 0, I + 1, I + 2, I + 3 }, 5 * sizeof(uint16_t));
-              I += vertexCount;
-              indices += 5;
-            }
-          } else {
-            for (int i = 0; i < n; i++) {
-              memcpy(vertices, (float[32]) {
-                -.5, .5, 0,  0, 0, -1, 0, 1,
-                -.5, -.5, 0, 0, 0, -1, 0, 0,
-                .5, .5, 0,   0, 0, -1, 1, 1,
-                .5, -.5, 0,  0, 0, -1, 1, 0
-              }, 32 * sizeof(float));
-              vertices += 32;
+    // Uniforms
+    lovrMaterialBind(batch->material, batch->shader);
+    lovrShaderSetMatrices(batch->shader, "lovrViews", state.camera.viewMatrix[0], 0, 32);
+    lovrShaderSetMatrices(batch->shader, "lovrProjections", state.camera.projection[0], 0, 32);
 
-              memcpy(indices, (uint16_t[6]) { I + 0, I + 1, I + 2, I + 2, I + 1, I + 3 }, 6 * sizeof(uint16_t));
-              I += vertexCount;
-              indices += 6;
-            }
-          }
-          break;
-
-        case BATCH_BOX:
-          if (params->box.style == STYLE_LINE) {
-            for (int i = 0; i < n; i++) {
-              memcpy(vertices, (float[64]) {
-                -.5, .5, -.5,  0, 0, 0, 0, 0, // Front
-                .5, .5, -.5,   0, 0, 0, 0, 0,
-                .5, -.5, -.5,  0, 0, 0, 0, 0,
-                -.5, -.5, -.5, 0, 0, 0, 0, 0,
-                -.5, .5, .5,   0, 0, 0, 0, 0, // Back
-                .5, .5, .5,    0, 0, 0, 0, 0,
-                .5, -.5, .5,   0, 0, 0, 0, 0,
-                -.5, -.5, .5,  0, 0, 0, 0, 0
-              }, 64 * sizeof(float));
-              vertices += 64;
-
-              memcpy(indices, (uint16_t[24]) {
-                I + 0, I + 1, I + 1, I + 2, I + 2, I + 3, I + 3, I + 0, // Front
-                I + 4, I + 5, I + 5, I + 6, I + 6, I + 7, I + 7, I + 4, // Back
-                I + 0, I + 4, I + 1, I + 5, I + 2, I + 6, I + 3, I + 7  // Connections
-              }, 24 * sizeof(uint16_t));
-              I += vertexCount;
-              indices += 24;
-            }
-          } else {
-            for (int i = 0; i < n; i++) {
-              memcpy(vertices, (float[192]) {
-                -.5, -.5, -.5,  0, 0, -1, 0, 0, // Front
-                -.5, .5, -.5,   0, 0, -1, 0, 1,
-                .5, -.5, -.5,   0, 0, -1, 1, 0,
-                .5, .5, -.5,    0, 0, -1, 1, 1,
-                .5, .5, -.5,    1, 0, 0,  0, 1, // Right
-                .5, .5, .5,     1, 0, 0,  1, 1,
-                .5, -.5, -.5,   1, 0, 0,  0, 0,
-                .5, -.5, .5,    1, 0, 0,  1, 0,
-                .5, -.5, .5,    0, 0, 1,  0, 0, // Back
-                .5, .5, .5,     0, 0, 1,  0, 1,
-                -.5, -.5, .5,   0, 0, 1,  1, 0,
-                -.5, .5, .5,    0, 0, 1,  1, 1,
-                -.5, .5, .5,   -1, 0, 0,  0, 1, // Left
-                -.5, .5, -.5,  -1, 0, 0,  1, 1,
-                -.5, -.5, .5,  -1, 0, 0,  0, 0,
-                -.5, -.5, -.5, -1, 0, 0,  1, 0,
-                -.5, -.5, -.5,  0, -1, 0, 0, 0, // Bottom
-                .5, -.5, -.5,   0, -1, 0, 1, 0,
-                -.5, -.5, .5,   0, -1, 0, 0, 1,
-                .5, -.5, .5,    0, -1, 0, 1, 1,
-                -.5, .5, -.5,   0, 1, 0,  0, 1, // Top
-                -.5, .5, .5,    0, 1, 0,  0, 0,
-                .5, .5, -.5,    0, 1, 0,  1, 1,
-                .5, .5, .5,     0, 1, 0,  1, 0
-              }, 192 * sizeof(float));
-              vertices += 192;
-
-              memcpy(indices, (uint16_t[36]) {
-                I + 0,  I + 1,   I + 2,  I + 2,  I + 1,  I + 3,
-                I + 4,  I + 5,   I + 6,  I + 6,  I + 5,  I + 7,
-                I + 8,  I + 9,  I + 10, I + 10,  I + 9, I + 11,
-                I + 12, I + 13, I + 14, I + 14, I + 13, I + 15,
-                I + 16, I + 17, I + 18, I + 18, I + 17, I + 19,
-                I + 20, I + 21, I + 22, I + 22, I + 21, I + 23
-              }, 36 * sizeof(uint16_t));
-              I += vertexCount;
-              indices += 36;
-            }
-          }
-          break;
-
-        case BATCH_ARC: {
-          float r1 = params->arc.r1;
-          float r2 = params->arc.r2;
-          int segments = params->arc.segments;
-          bool hasCenterPoint = params->arc.mode == ARC_MODE_PIE && fabsf(r1 - r2) < 2 * M_PI;
-
-          for (int i = 0; i < n; i++) {
-            if (hasCenterPoint) {
-              memcpy(vertices, ((float[]) { 0, 0, 0, 0, 0, 1, .5, .5 }), 8 * sizeof(float));
-              vertices += 8;
-            }
-
-            float theta = r1;
-            float angleShift = (r2 - r1) / (float) segments;
-
-            for (int i = 0; i <= segments; i++) {
-              float x = cos(theta) * .5;
-              float y = sin(theta) * .5;
-              memcpy(vertices, ((float[]) { x, y, 0, 0, 0, 1, x + .5, 1 - (y + .5) }), 8 * sizeof(float));
-              vertices += 8;
-              theta += angleShift;
-            }
-
-            *indices++ = 0xffff;
-            for (uint32_t i = 0; i < vertexCount; i++) {
-              *indices++ = I + i;
-            }
-            I += vertexCount;
-          }
-          break;
-        }
-
-        case BATCH_CYLINDER: {
-          bool capped = params->cylinder.capped;
-          float r1 = params->cylinder.r1;
-          float r2 = params->cylinder.r2;
-          int segments = params->cylinder.segments;
-
-          for (int i = 0; i < n; i++) {
-            float* v = vertices;
-
-            // Ring
-            for (int j = 0; j <= segments; j++) {
-              float theta = j * (2 * M_PI) / segments;
-              float X = cos(theta);
-              float Y = sin(theta);
-              memcpy(vertices, (float[16]) {
-                r1 * X, r1 * Y, -.5, X, Y, 0, 0, 0,
-                r2 * X, r2 * Y,  .5, X, Y, 0, 0, 0
-              }, 16 * sizeof(float));
-              vertices += 16;
-            }
-
-            // Top
-            int top = (segments + 1) * 2 + I;
-            if (capped && r1 != 0) {
-              memcpy(vertices, (float[8]) { 0, 0, -.5, 0.f, 0.f, -1.f, 0, 0 }, 8 * sizeof(float));
-              vertices += 8;
-              for (int j = 0; j <= segments; j++) {
-                int k = j * 2 * 8;
-                memcpy(vertices, (float[8]) { v[k + 0], v[k + 1], v[k + 2], 0.f, 0.f, -1.f, 0, 0 }, 8 * sizeof(float));
-                vertices += 8;
-              }
-            }
-
-            // Bottom
-            int bot = (segments + 1) * 2 + (1 + segments + 1) * (capped && r1 != 0) + I;
-            if (capped && r2 != 0) {
-              memcpy(vertices, (float[8]) { 0, 0, .5, 0.f, 0.f, 1.f, 0, 0 }, 8 * sizeof(float));
-              vertices += 8;
-              for (int j = 0; j <= segments; j++) {
-                int k = j * 2 * 8 + 8;
-                memcpy(vertices, (float[8]) { v[k + 0], v[k + 1], v[k + 2], 0.f, 0.f, 1.f, 0, 0 }, 8 * sizeof(float));
-                vertices += 8;
-              }
-            }
-
-            // Indices
-            for (int i = 0; i < segments; i++) {
-              int j = 2 * i + I;
-              memcpy(indices, (uint16_t[6]) { j, j + 1, j + 2, j + 1, j + 3, j + 2 }, 6 * sizeof(uint16_t));
-              indices += 6;
-
-              if (capped && r1 != 0.f) {
-                memcpy(indices, (uint16_t[3]) { top, top + i + 1, top + i + 2 }, 3 * sizeof(uint16_t));
-                indices += 3;
-              }
-
-              if (capped && r2 != 0.f) {
-                memcpy(indices, (uint16_t[3]) { bot, bot + i + 1, bot + i + 2 }, 3 * sizeof(uint16_t));
-                indices += 3;
-              }
-            }
-
-            I += vertexCount;
-          }
-          break;
-        }
-
-        case BATCH_SPHERE: {
-          int segments = params->sphere.segments;
-          for (int i = 0; i < n; i++) {
-            for (int j = 0; j <= segments; j++) {
-              float v = j / (float) segments;
-              float sinV = sin(v * M_PI);
-              float cosV = cos(v * M_PI);
-              for (int k = 0; k <= segments; k++) {
-                float u = k / (float) segments;
-                float x = sin(u * 2 * M_PI) * sinV;
-                float y = cosV;
-                float z = -cos(u * 2 * M_PI) * sinV;
-                memcpy(vertices, ((float[8]) { x, y, z, x, y, z, u, 1 - v }), 8 * sizeof(float));
-                vertices += 8;
-              }
-            }
-
-            for (int j = 0; j < segments; j++) {
-              uint16_t offset0 = j * (segments + 1) + I;
-              uint16_t offset1 = (j + 1) * (segments + 1) + I;
-              for (int k = 0; k < segments; k++) {
-                uint16_t i0 = offset0 + k;
-                uint16_t i1 = offset1 + k;
-                memcpy(indices, ((uint16_t[]) { i0, i1, i0 + 1, i1, i1 + 1, i0 + 1 }), 6 * sizeof(uint16_t));
-                indices += 6;
-              }
-            }
-
-            I += vertexCount;
-          }
-          break;
-        }
-
-        case BATCH_SKYBOX:
-          for (int i = 0; i < n; i++) {
-            memcpy(vertices, (float[32]) {
-              -1, 1, 1,  0, 0, 0, 0, 0,
-              -1, -1, 1, 0, 0, 0, 0, 0,
-              1, 1, 1,   0, 0, 0, 0, 0,
-              1, -1, 1,  0, 0, 0, 0, 0
-            }, 32 * sizeof(float));
-            vertices += 32;
-          }
-          break;
-
-        case BATCH_FILL:
-          for (int i = 0; i < n; i++) {
-            float u = params->fill.u;
-            float v = params->fill.v;
-            float w = params->fill.w;
-            float h = params->fill.h;
-            memcpy(vertices, (float[32]) {
-              -1, 1, 0,  0, 0, 0, u, v + h,
-              -1, -1, 0, 0, 0, 0, u, v,
-              1, 1, 0,   0, 0, 0, u + w, v + h,
-              1, -1, 0,  0, 0, 0, u + w, v
-            }, 32 * sizeof(float));
-            vertices += 32;
-          }
-          break;
-
-        default: break;
-      }
+    if (drawMode == DRAW_POINTS) {
+      lovrShaderSetFloats(batch->shader, "lovrPointSize", &state.pointSize, 0, 1);
     }
 
     uint32_t rangeStart, rangeCount;
@@ -1003,37 +789,6 @@ void lovrGraphicsFlush() {
         lovrMeshSetIndexBuffer(mesh, NULL, 0, 0);
       }
     }
-
-    // Uniforms
-    lovrMaterialBind(batch->material, batch->shader);
-    lovrShaderSetMatrices(batch->shader, "lovrViews", state.camera.viewMatrix[0], 0, 32);
-    lovrShaderSetMatrices(batch->shader, "lovrProjections", state.camera.projection[0], 0, 32);
-
-    if (drawMode == DRAW_POINTS) {
-      lovrShaderSetFloats(batch->shader, "lovrPointSize", &state.pointSize, 0, 1);
-    }
-
-    // Flush vertex buffer
-    if (batch->vertexCount > 0) {
-      size_t stride = BUFFER_STRIDES[STREAM_VERTEX];
-      lovrBufferFlush(state.buffers[STREAM_VERTEX], batch->vertexStart * stride, batch->vertexCount * stride);
-
-      if (!instanced) {
-        lovrBufferFlush(state.buffers[STREAM_DRAW_ID], batch->vertexStart, batch->vertexCount);
-      }
-    }
-
-    // Flush index buffer
-    if (batch->indexCount > 0) {
-      size_t stride = BUFFER_STRIDES[STREAM_INDEX];
-      lovrBufferFlush(state.buffers[STREAM_INDEX], batch->indexStart * stride, batch->indexCount * stride);
-    }
-
-    // Flush draw data buffer
-    size_t drawDataOffset = batch->drawStart * BUFFER_STRIDES[STREAM_DRAW_DATA];
-    size_t drawDataSize = batch->drawCount * BUFFER_STRIDES[STREAM_DRAW_DATA];
-    lovrBufferFlush(state.buffers[STREAM_DRAW_DATA], drawDataOffset, drawDataSize);
-    lovrShaderSetBlock(batch->shader, "lovrDrawData", state.buffers[STREAM_DRAW_DATA], drawDataOffset, state.maxDraws * BUFFER_STRIDES[STREAM_DRAW_DATA], ACCESS_READ);
 
     // Draw!
     lovrGpuDraw(&(DrawCommand) {
@@ -1303,4 +1058,270 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
     .pipeline = &pipeline,
     .diffuseTexture = texture
   });
+}
+
+static void writeGeometry(Batch* batch, float* vertices, uint16_t* indices, uint16_t I, uint32_t vertexCount, int n) {
+  BatchParams* params = &batch->params;
+  switch (batch->type) {
+    case BATCH_PLANE:
+      if (params->plane.style == STYLE_LINE) {
+        for (int i = 0; i < n; i++) {
+          memcpy(vertices, (float[32]) {
+            -.5, .5, 0,  0, 0, 0, 0, 0,
+            .5, .5, 0,   0, 0, 0, 0, 0,
+            .5, -.5, 0,  0, 0, 0, 0, 0,
+            -.5, -.5, 0, 0, 0, 0, 0, 0
+          }, 32 * sizeof(float));
+          vertices += 32;
+
+          memcpy(indices, (uint16_t[5]) { 0xffff, I + 0, I + 1, I + 2, I + 3 }, 5 * sizeof(uint16_t));
+          I += vertexCount;
+          indices += 5;
+        }
+      } else {
+        for (int i = 0; i < n; i++) {
+          memcpy(vertices, (float[32]) {
+            -.5, .5, 0,  0, 0, -1, 0, 1,
+            -.5, -.5, 0, 0, 0, -1, 0, 0,
+            .5, .5, 0,   0, 0, -1, 1, 1,
+            .5, -.5, 0,  0, 0, -1, 1, 0
+          }, 32 * sizeof(float));
+          vertices += 32;
+
+          memcpy(indices, (uint16_t[6]) { I + 0, I + 1, I + 2, I + 2, I + 1, I + 3 }, 6 * sizeof(uint16_t));
+          I += vertexCount;
+          indices += 6;
+        }
+      }
+      break;
+
+    case BATCH_BOX:
+      if (params->box.style == STYLE_LINE) {
+        for (int i = 0; i < n; i++) {
+          memcpy(vertices, (float[64]) {
+            -.5, .5, -.5,  0, 0, 0, 0, 0, // Front
+            .5, .5, -.5,   0, 0, 0, 0, 0,
+            .5, -.5, -.5,  0, 0, 0, 0, 0,
+            -.5, -.5, -.5, 0, 0, 0, 0, 0,
+            -.5, .5, .5,   0, 0, 0, 0, 0, // Back
+            .5, .5, .5,    0, 0, 0, 0, 0,
+            .5, -.5, .5,   0, 0, 0, 0, 0,
+            -.5, -.5, .5,  0, 0, 0, 0, 0
+          }, 64 * sizeof(float));
+          vertices += 64;
+
+          memcpy(indices, (uint16_t[24]) {
+            I + 0, I + 1, I + 1, I + 2, I + 2, I + 3, I + 3, I + 0, // Front
+            I + 4, I + 5, I + 5, I + 6, I + 6, I + 7, I + 7, I + 4, // Back
+            I + 0, I + 4, I + 1, I + 5, I + 2, I + 6, I + 3, I + 7  // Connections
+          }, 24 * sizeof(uint16_t));
+          indices += 24;
+          I += 8;
+        }
+      } else {
+        for (int i = 0; i < n; i++) {
+          memcpy(vertices, (float[192]) {
+            -.5, -.5, -.5,  0, 0, -1, 0, 0, // Front
+            -.5, .5, -.5,   0, 0, -1, 0, 1,
+            .5, -.5, -.5,   0, 0, -1, 1, 0,
+            .5, .5, -.5,    0, 0, -1, 1, 1,
+            .5, .5, -.5,    1, 0, 0,  0, 1, // Right
+            .5, .5, .5,     1, 0, 0,  1, 1,
+            .5, -.5, -.5,   1, 0, 0,  0, 0,
+            .5, -.5, .5,    1, 0, 0,  1, 0,
+            .5, -.5, .5,    0, 0, 1,  0, 0, // Back
+            .5, .5, .5,     0, 0, 1,  0, 1,
+            -.5, -.5, .5,   0, 0, 1,  1, 0,
+            -.5, .5, .5,    0, 0, 1,  1, 1,
+            -.5, .5, .5,   -1, 0, 0,  0, 1, // Left
+            -.5, .5, -.5,  -1, 0, 0,  1, 1,
+            -.5, -.5, .5,  -1, 0, 0,  0, 0,
+            -.5, -.5, -.5, -1, 0, 0,  1, 0,
+            -.5, -.5, -.5,  0, -1, 0, 0, 0, // Bottom
+            .5, -.5, -.5,   0, -1, 0, 1, 0,
+            -.5, -.5, .5,   0, -1, 0, 0, 1,
+            .5, -.5, .5,    0, -1, 0, 1, 1,
+            -.5, .5, -.5,   0, 1, 0,  0, 1, // Top
+            -.5, .5, .5,    0, 1, 0,  0, 0,
+            .5, .5, -.5,    0, 1, 0,  1, 1,
+            .5, .5, .5,     0, 1, 0,  1, 0
+          }, 192 * sizeof(float));
+          vertices += 192;
+
+          memcpy(indices, (uint16_t[36]) {
+            I + 0,  I + 1,   I + 2,  I + 2,  I + 1,  I + 3,
+            I + 4,  I + 5,   I + 6,  I + 6,  I + 5,  I + 7,
+            I + 8,  I + 9,  I + 10, I + 10,  I + 9, I + 11,
+            I + 12, I + 13, I + 14, I + 14, I + 13, I + 15,
+            I + 16, I + 17, I + 18, I + 18, I + 17, I + 19,
+            I + 20, I + 21, I + 22, I + 22, I + 21, I + 23
+          }, 36 * sizeof(uint16_t));
+          I += vertexCount;
+          indices += 36;
+        }
+      }
+      break;
+
+    case BATCH_ARC: {
+      float r1 = params->arc.r1;
+      float r2 = params->arc.r2;
+      int segments = params->arc.segments;
+      bool hasCenterPoint = params->arc.mode == ARC_MODE_PIE && fabsf(r1 - r2) < 2 * M_PI;
+
+      for (int i = 0; i < n; i++) {
+        if (hasCenterPoint) {
+          memcpy(vertices, ((float[]) { 0, 0, 0, 0, 0, 1, .5, .5 }), 8 * sizeof(float));
+          vertices += 8;
+        }
+
+        float theta = r1;
+        float angleShift = (r2 - r1) / (float) segments;
+
+        for (int i = 0; i <= segments; i++) {
+          float x = cos(theta) * .5;
+          float y = sin(theta) * .5;
+          memcpy(vertices, ((float[]) { x, y, 0, 0, 0, 1, x + .5, 1 - (y + .5) }), 8 * sizeof(float));
+          vertices += 8;
+          theta += angleShift;
+        }
+
+        *indices++ = 0xffff;
+        for (uint32_t i = 0; i < vertexCount; i++) {
+          *indices++ = I + i;
+        }
+        I += vertexCount;
+      }
+      break;
+    }
+
+    case BATCH_CYLINDER: {
+      bool capped = params->cylinder.capped;
+      float r1 = params->cylinder.r1;
+      float r2 = params->cylinder.r2;
+      int segments = params->cylinder.segments;
+
+      for (int i = 0; i < n; i++) {
+        float* v = vertices;
+
+        // Ring
+        for (int j = 0; j <= segments; j++) {
+          float theta = j * (2 * M_PI) / segments;
+          float X = cos(theta);
+          float Y = sin(theta);
+          memcpy(vertices, (float[16]) {
+            r1 * X, r1 * Y, -.5, X, Y, 0, 0, 0,
+            r2 * X, r2 * Y,  .5, X, Y, 0, 0, 0
+          }, 16 * sizeof(float));
+          vertices += 16;
+        }
+
+        // Top
+        int top = (segments + 1) * 2 + I;
+        if (capped && r1 != 0) {
+          memcpy(vertices, (float[8]) { 0, 0, -.5, 0.f, 0.f, -1.f, 0, 0 }, 8 * sizeof(float));
+          vertices += 8;
+          for (int j = 0; j <= segments; j++) {
+            int k = j * 2 * 8;
+            memcpy(vertices, (float[8]) { v[k + 0], v[k + 1], v[k + 2], 0.f, 0.f, -1.f, 0, 0 }, 8 * sizeof(float));
+            vertices += 8;
+          }
+        }
+
+        // Bottom
+        int bot = (segments + 1) * 2 + (1 + segments + 1) * (capped && r1 != 0) + I;
+        if (capped && r2 != 0) {
+          memcpy(vertices, (float[8]) { 0, 0, .5, 0.f, 0.f, 1.f, 0, 0 }, 8 * sizeof(float));
+          vertices += 8;
+          for (int j = 0; j <= segments; j++) {
+            int k = j * 2 * 8 + 8;
+            memcpy(vertices, (float[8]) { v[k + 0], v[k + 1], v[k + 2], 0.f, 0.f, 1.f, 0, 0 }, 8 * sizeof(float));
+            vertices += 8;
+          }
+        }
+
+        // Indices
+        for (int i = 0; i < segments; i++) {
+          int j = 2 * i + I;
+          memcpy(indices, (uint16_t[6]) { j, j + 1, j + 2, j + 1, j + 3, j + 2 }, 6 * sizeof(uint16_t));
+          indices += 6;
+
+          if (capped && r1 != 0.f) {
+            memcpy(indices, (uint16_t[3]) { top, top + i + 1, top + i + 2 }, 3 * sizeof(uint16_t));
+            indices += 3;
+          }
+
+          if (capped && r2 != 0.f) {
+            memcpy(indices, (uint16_t[3]) { bot, bot + i + 1, bot + i + 2 }, 3 * sizeof(uint16_t));
+            indices += 3;
+          }
+        }
+
+        I += vertexCount;
+      }
+      break;
+    }
+
+    case BATCH_SPHERE: {
+      int segments = params->sphere.segments;
+      for (int i = 0; i < n; i++) {
+        for (int j = 0; j <= segments; j++) {
+          float v = j / (float) segments;
+          float sinV = sin(v * M_PI);
+          float cosV = cos(v * M_PI);
+          for (int k = 0; k <= segments; k++) {
+            float u = k / (float) segments;
+            float x = sin(u * 2 * M_PI) * sinV;
+            float y = cosV;
+            float z = -cos(u * 2 * M_PI) * sinV;
+            memcpy(vertices, ((float[8]) { x, y, z, x, y, z, u, 1 - v }), 8 * sizeof(float));
+            vertices += 8;
+          }
+        }
+
+        for (int j = 0; j < segments; j++) {
+          uint16_t offset0 = j * (segments + 1) + I;
+          uint16_t offset1 = (j + 1) * (segments + 1) + I;
+          for (int k = 0; k < segments; k++) {
+            uint16_t i0 = offset0 + k;
+            uint16_t i1 = offset1 + k;
+            memcpy(indices, ((uint16_t[]) { i0, i1, i0 + 1, i1, i1 + 1, i0 + 1 }), 6 * sizeof(uint16_t));
+            indices += 6;
+          }
+        }
+
+        I += vertexCount;
+      }
+      break;
+    }
+
+    case BATCH_SKYBOX:
+      for (int i = 0; i < n; i++) {
+        memcpy(vertices, (float[32]) {
+          -1, 1, 1,  0, 0, 0, 0, 0,
+          -1, -1, 1, 0, 0, 0, 0, 0,
+          1, 1, 1,   0, 0, 0, 0, 0,
+          1, -1, 1,  0, 0, 0, 0, 0
+        }, 32 * sizeof(float));
+        vertices += 32;
+      }
+      break;
+
+    case BATCH_FILL:
+      for (int i = 0; i < n; i++) {
+        float u = params->fill.u;
+        float v = params->fill.v;
+        float w = params->fill.w;
+        float h = params->fill.h;
+        memcpy(vertices, (float[32]) {
+          -1, 1, 0,  0, 0, 0, u, v + h,
+          -1, -1, 0, 0, 0, 0, u, v,
+          1, 1, 0,   0, 0, 0, u + w, v + h,
+          1, -1, 0,  0, 0, 0, u + w, v
+        }, 32 * sizeof(float));
+        vertices += 32;
+      }
+      break;
+
+    default: break;
+  }
 }
