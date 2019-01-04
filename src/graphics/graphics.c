@@ -530,6 +530,7 @@ void lovrGraphicsBatch(BatchRequest* req) {
       state.cursors[i] = state.cursors[i] >= oldCursor ? 0 : state.cursors[i];
       batch = NULL;
       streamRequirements[STREAM_DRAW_DATA] = state.maxDraws;
+      state.cachedGeometry.vertexCount = 0;
       i = 0;
     } else {
       streamRequirements[i] = 0;
