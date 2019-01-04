@@ -624,7 +624,7 @@ void lovrGraphicsFlush() {
 
       case BATCH_PLANE:
         vertexCount = 4;
-        indexCount = params->plane.style == STYLE_LINE ? 0 : 6;
+        indexCount = params->plane.style == STYLE_LINE ? 5 : 6;
         mesh = instanced ? state.instancedMesh : state.mesh;
         drawMode = params->plane.style == STYLE_LINE ? DRAW_LINE_LOOP : DRAW_TRIANGLES;
         break;
@@ -639,6 +639,7 @@ void lovrGraphicsFlush() {
       case BATCH_ARC: {
         bool hasCenterPoint = params->arc.mode == ARC_MODE_PIE && fabsf(params->arc.r1 - params->arc.r2) < 2 * M_PI;
         vertexCount = params->arc.segments + 1 + hasCenterPoint;
+        indexCount = vertexCount + 1;
         mesh = instanced ? state.instancedMesh : state.mesh;
         drawMode = params->arc.style == STYLE_LINE ? (params->arc.mode == ARC_MODE_OPEN ? DRAW_LINE_STRIP : DRAW_LINE_LOOP) : DRAW_TRIANGLE_FAN;
         break;
@@ -736,6 +737,10 @@ void lovrGraphicsFlush() {
                 -.5, -.5, 0, 0, 0, 0, 0, 0
               }, 32 * sizeof(float));
               vertices += 32;
+
+              memcpy(indices, (uint16_t[5]) { 0xffff, I + 0, I + 1, I + 2, I + 3 }, 5 * sizeof(uint16_t));
+              I += vertexCount;
+              indices += 5;
             }
           } else {
             for (int i = 0; i < n; i++) {
@@ -843,6 +848,12 @@ void lovrGraphicsFlush() {
               vertices += 8;
               theta += angleShift;
             }
+
+            *indices++ = 0xffff;
+            for (uint32_t i = 0; i < vertexCount; i++) {
+              *indices++ = I + i;
+            }
+            I += vertexCount;
           }
           break;
         }
@@ -1154,7 +1165,7 @@ void lovrGraphicsTriangle(DrawStyle style, Material* material, uint32_t count, f
   });
 
   if (style == STYLE_LINE) {
-    for (int i = 0; i < count; i += 3) {
+    for (uint32_t i = 0; i < count; i += 3) {
       *indices++ = 0xffff;
       *indices++ = baseVertex + i + 0;
       *indices++ = baseVertex + i + 1;
