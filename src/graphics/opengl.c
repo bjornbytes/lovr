@@ -72,6 +72,7 @@ static struct {
   Texture* textures[MAX_TEXTURES];
   Image images[MAX_IMAGES];
   float viewports[2][4];
+  uint32_t viewportCount;
   vec_void_t incoherents[MAX_BARRIERS];
   bool srgb;
   GpuFeatures features;
@@ -890,16 +891,14 @@ static void lovrGpuBindShader(Shader* shader) {
 }
 
 static void lovrGpuSetViewports(float* viewport, int count) {
+  if (state.viewportCount != count || memcmp(state.viewports, viewport, count * 4 * sizeof(float))) {
+    memcpy(state.viewports, viewport, count * 4 * sizeof(float));
+    state.viewportCount = count;
 #ifndef EMSCRIPTEN
-  if (count > 1) {
-    if (memcmp(state.viewports, viewport, count * 4 * sizeof(float))) {
-      memcpy(state.viewports, viewport, count * 4 * sizeof(float));
+    if (count > 1) {
       glViewportArrayv(0, count, viewport);
-    }
-  } else {
+    } else {
 #endif
-    if (memcmp(state.viewports, viewport, 4 * sizeof(float))) {
-      memcpy(state.viewports, viewport, 4 * sizeof(float));
       glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
     }
 #ifndef EMSCRIPTEN
