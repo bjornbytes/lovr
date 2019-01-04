@@ -76,13 +76,13 @@ static void lovrGraphicsInitBuffers() {
   MeshAttribute drawId = { state.buffers[STREAM_DRAW_ID], 0, 0, ATTR_BYTE, 1, .integer = true, .enabled = true };
   MeshAttribute identity = { state.identityBuffer, 0, 0, ATTR_BYTE, 1, .divisor = 1, .integer = true, .enabled = true };
 
-  state.mesh = lovrMeshCreate(DRAW_TRIANGLES, empty, NULL);
+  state.mesh = lovrMeshCreate(DRAW_TRIANGLES, empty, NULL, 0);
   lovrMeshAttachAttribute(state.mesh, "lovrPosition", &position);
   lovrMeshAttachAttribute(state.mesh, "lovrNormal", &normal);
   lovrMeshAttachAttribute(state.mesh, "lovrTexCoord", &texCoord);
   lovrMeshAttachAttribute(state.mesh, "lovrDrawID", &drawId);
 
-  state.instancedMesh = lovrMeshCreate(DRAW_TRIANGLES, empty, NULL);
+  state.instancedMesh = lovrMeshCreate(DRAW_TRIANGLES, empty, NULL, 0);
   lovrMeshAttachAttribute(state.instancedMesh, "lovrPosition", &position);
   lovrMeshAttachAttribute(state.instancedMesh, "lovrNormal", &normal);
   lovrMeshAttachAttribute(state.instancedMesh, "lovrTexCoord", &texCoord);
