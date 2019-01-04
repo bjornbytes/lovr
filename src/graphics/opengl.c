@@ -890,7 +890,7 @@ static void lovrGpuBindShader(Shader* shader) {
   }
 }
 
-static void lovrGpuSetViewports(float* viewport, int count) {
+static void lovrGpuSetViewports(float* viewport, uint32_t count) {
   if (state.viewportCount != count || memcmp(state.viewports, viewport, count * 4 * sizeof(float))) {
     memcpy(state.viewports, viewport, count * 4 * sizeof(float));
     state.viewportCount = count;
@@ -1056,23 +1056,23 @@ void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil) {
 }
 
 void lovrGpuDraw(DrawCommand* draw) {
-  int viewCount = 1 + draw->stereo;
-  int drawCount = state.features.singlepass ? 1 : viewCount;
-  int viewsPerDraw = state.features.singlepass ? viewCount : 1;
-  int instances = MAX(draw->instances, 1) * viewsPerDraw;
+  uint32_t viewCount = 1 + draw->stereo;
+  uint32_t drawCount = state.features.singlepass ? 1 : viewCount;
+  uint32_t viewsPerDraw = state.features.singlepass ? viewCount : 1;
+  uint32_t instances = MAX(draw->instances, 1) * viewsPerDraw;
 
   float w = draw->width / (float) viewCount;
   float h = draw->height;
   float viewports[2][4] = { { 0, 0, w, h }, { w, 0, w, h } };
-  lovrShaderSetInts(draw->shader, "lovrViewportCount", &viewCount, 0, 1);
+  lovrShaderSetInts(draw->shader, "lovrViewportCount", &(int) { viewCount }, 0, 1);
 
   lovrGpuBindCanvas(draw->canvas, true);
   lovrGpuBindPipeline(&draw->pipeline);
   lovrGpuBindMesh(draw->mesh, draw->shader, viewsPerDraw);
 
-  for (int i = 0; i < drawCount; i++) {
+  for (uint32_t i = 0; i < drawCount; i++) {
     lovrGpuSetViewports(&viewports[i][0], viewsPerDraw);
-    lovrShaderSetInts(draw->shader, "lovrViewportIndex", &i, 0, 1);
+    lovrShaderSetInts(draw->shader, "lovrViewportIndex", &(int) { i }, 0, 1);
     lovrGpuBindShader(draw->shader);
 
     Mesh* mesh = draw->mesh;
