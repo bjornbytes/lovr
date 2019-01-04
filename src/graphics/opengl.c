@@ -1449,6 +1449,7 @@ Canvas* lovrCanvasInitFromHandle(Canvas* canvas, int width, int height, CanvasFl
 
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
+  lovrGraphicsFlushCanvas(canvas);
   if (!canvas->immortal) {
     glDeleteFramebuffers(1, &canvas->framebuffer);
     glDeleteRenderbuffers(1, &canvas->depthBuffer);
@@ -1902,6 +1903,7 @@ Shader* lovrShaderInitCompute(Shader* shader, const char* source) {
 
 void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
+  lovrGraphicsFlushShader(shader);
   glDeleteProgram(shader->program);
   for (int i = 0; i < shader->uniforms.length; i++) {
     free(shader->uniforms.data[i].value.data);
@@ -1949,6 +1951,7 @@ Mesh* lovrMeshInit(Mesh* mesh, DrawMode mode, VertexFormat format, Buffer* verte
 
 void lovrMeshDestroy(void* ref) {
   Mesh* mesh = ref;
+  lovrGraphicsFlushMesh(mesh);
   glDeleteVertexArrays(1, &mesh->vao);
   const char* key;
   map_iter_t iter = map_iter(&mesh->attributes);
