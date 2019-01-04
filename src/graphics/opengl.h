@@ -21,8 +21,7 @@
   bool immortal;
 
 #define GPU_MESH_FIELDS \
-  uint32_t vao; \
-  uint32_t ibo;
+  uint32_t vao;
 
 #define GPU_SHADER_FIELDS \
   uint32_t program;

@@ -67,7 +67,7 @@ Model* lovrModelInit(Model* model, ModelData* modelData) {
   VertexFormat* format = &modelData->vertexData->format;
   size_t vboSize = modelData->vertexData->count * format->stride;
   Buffer* vertexBuffer = lovrBufferCreate(vboSize, modelData->vertexData->blob.data, BUFFER_VERTEX, USAGE_STATIC, false);
-  model->mesh = lovrMeshCreate(DRAW_TRIANGLES, *format, vertexBuffer);
+  model->mesh = lovrMeshCreate(DRAW_TRIANGLES, *format, vertexBuffer, modelData->vertexData->count);
   lovrRelease(vertexBuffer);
 
   size_t indexSize = modelData->indexSize;

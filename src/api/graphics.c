@@ -1161,7 +1161,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   bool readable = lua_toboolean(L, drawModeIndex + 2);
   size_t bufferSize = count * format.stride;
   Buffer* vertexBuffer = lovrBufferCreate(bufferSize, NULL, BUFFER_VERTEX, usage, readable);
-  Mesh* mesh = lovrMeshCreate(mode, format, vertexBuffer);
+  Mesh* mesh = lovrMeshCreate(mode, format, vertexBuffer, count);
 
   lovrMeshAttachAttribute(mesh, "lovrDrawID", &(MeshAttribute) {
     .buffer = lovrGraphicsGetIdentityBuffer(),

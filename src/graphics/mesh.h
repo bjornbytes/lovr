@@ -51,7 +51,7 @@ typedef struct {
   GPU_MESH_FIELDS
 } Mesh;
 
-Mesh* lovrMeshInit(Mesh* mesh, DrawMode mode, VertexFormat format, Buffer* vertexBuffer);
+Mesh* lovrMeshInit(Mesh* mesh, DrawMode mode, VertexFormat format, Buffer* vertexBuffer, uint32_t vertexCount);
 #define lovrMeshCreate(...) lovrMeshInit(lovrAlloc(Mesh), __VA_ARGS__)
 void lovrMeshDestroy(void* ref);
 VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh);

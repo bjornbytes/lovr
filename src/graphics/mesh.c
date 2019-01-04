@@ -13,17 +13,6 @@ Buffer* lovrMeshGetIndexBuffer(Mesh* mesh) {
   return mesh->indexBuffer;
 }
 
-void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer, uint32_t indexCount, size_t indexSize) {
-  if (mesh->indexBuffer != buffer || mesh->indexCount != indexCount || mesh->indexSize != indexSize) {
-    lovrGraphicsFlushMesh(mesh);
-    lovrRetain(buffer);
-    lovrRelease(mesh->indexBuffer);
-    mesh->indexBuffer = buffer;
-    mesh->indexCount = indexCount;
-    mesh->indexSize = indexSize;
-  }
-}
-
 uint32_t lovrMeshGetVertexCount(Mesh* mesh) {
   return mesh->vertexCount;
 }

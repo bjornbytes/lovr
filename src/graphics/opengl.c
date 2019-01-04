@@ -392,8 +392,8 @@ static void lovrGpuBindVertexArray(uint32_t vertexArray) {
   }
 }
 
-static void lovrGpuBindBuffer(BufferType type, uint32_t buffer) {
-  if (state.buffers[type] != buffer) {
+static void lovrGpuBindBuffer(BufferType type, uint32_t buffer, bool force) {
+  if (force || state.buffers[type] != buffer) {
     state.buffers[type] = buffer;
     glBindBuffer(convertBufferType(type), buffer);
   }
@@ -467,11 +467,8 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
 
   lovrGpuBindVertexArray(mesh->vao);
 
-  if (mesh->indexBuffer && mesh->indexCount > 0 && mesh->ibo != mesh->indexBuffer->id) {
-    mesh->ibo = mesh->indexBuffer->id;
-    state.buffers[BUFFER_INDEX] = mesh->ibo;
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
-
+  if (mesh->indexBuffer && mesh->indexCount > 0) {
+    lovrGpuBindBuffer(BUFFER_INDEX, mesh->indexBuffer->id, true);
     uint32_t primitiveRestart = (1 << (mesh->indexSize * 8)) - 1;
     if (state.primitiveRestart != primitiveRestart) {
       state.primitiveRestart = primitiveRestart;
@@ -523,7 +520,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
       previous.stride != current.stride;
 
     if (changed) {
-      lovrGpuBindBuffer(BUFFER_VERTEX, current.buffer->id);
+      lovrGpuBindBuffer(BUFFER_VERTEX, current.buffer->id, false);
       int count = current.components;
       int stride = current.stride;
       GLvoid* offset = (GLvoid*) current.offset;
@@ -1539,7 +1536,7 @@ Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type,
   buffer->type = type;
   buffer->usage = usage;
   glGenBuffers(1, &buffer->id);
-  lovrGpuBindBuffer(type, buffer->id);
+  lovrGpuBindBuffer(type, buffer->id, false);
   GLenum glType = convertBufferType(type);
 
 #ifndef EMSCRIPTEN
@@ -1580,7 +1577,7 @@ void* lovrBufferMap(Buffer* buffer, size_t offset) {
 }
 
 void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size) {
-  lovrGpuBindBuffer(buffer->type, buffer->id);
+  lovrGpuBindBuffer(buffer->type, buffer->id, false);
 #ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_buffer_storage) {
     glFlushMappedBufferRange(convertBufferType(buffer->type), offset, size);
@@ -1926,11 +1923,12 @@ void lovrShaderDestroy(void* ref) {
 
 // Mesh
 
-Mesh* lovrMeshInit(Mesh* mesh, DrawMode mode, VertexFormat format, Buffer* vertexBuffer) {
+Mesh* lovrMeshInit(Mesh* mesh, DrawMode mode, VertexFormat format, Buffer* vertexBuffer, uint32_t vertexCount) {
   mesh->mode = mode;
   mesh->format = format;
   mesh->vertexBuffer = vertexBuffer;
-  mesh->vertexCount = vertexBuffer ? (lovrBufferGetSize(vertexBuffer) / format.stride) : 0;
+  mesh->vertexCount = vertexCount;
+  lovrRetain(mesh->vertexBuffer);
   glGenVertexArrays(1, &mesh->vao);
 
   map_init(&mesh->attributes);
@@ -1963,4 +1961,15 @@ void lovrMeshDestroy(void* ref) {
   lovrRelease(mesh->vertexBuffer);
   lovrRelease(mesh->indexBuffer);
   lovrRelease(mesh->material);
+}
+
+void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer, uint32_t indexCount, size_t indexSize) {
+  if (mesh->indexBuffer != buffer || mesh->indexCount != indexCount || mesh->indexSize != indexSize) {
+    lovrGraphicsFlushMesh(mesh);
+    lovrRetain(buffer);
+    lovrRelease(mesh->indexBuffer);
+    mesh->indexBuffer = buffer;
+    mesh->indexCount = indexCount;
+    mesh->indexSize = indexSize;
+  }
 }
