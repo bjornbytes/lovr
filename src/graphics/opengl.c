@@ -470,11 +470,13 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
 
   if (mesh->indexBuffer && mesh->indexCount > 0) {
     lovrGpuBindBuffer(BUFFER_INDEX, mesh->indexBuffer->id, true);
+#ifndef EMSCRIPTEN
     uint32_t primitiveRestart = (1 << (mesh->indexSize * 8)) - 1;
     if (state.primitiveRestart != primitiveRestart) {
       state.primitiveRestart = primitiveRestart;
       glPrimitiveRestartIndex(primitiveRestart);
     }
+#endif
   }
 
   if (mesh->flushEnd > 0) {
@@ -914,12 +916,15 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   state.features.computeShaders = GLAD_GL_ARB_compute_shader;
   state.features.singlepass = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
   glEnable(GL_LINE_SMOOTH);
+  glEnable(GL_PRIMITIVE_RESTART);
   glEnable(GL_PROGRAM_POINT_SIZE);
   if (srgb) {
     glEnable(GL_FRAMEBUFFER_SRGB);
   } else {
     glDisable(GL_FRAMEBUFFER_SRGB);
   }
+  state.primitiveRestart = 0xffffffff;
+  glPrimitiveRestartIndex(state.primitiveRestart);
   glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
 #else
   glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, state.limits.pointSizes);
@@ -930,7 +935,6 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &state.limits.blockAlign);
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
 
-  glEnable(GL_PRIMITIVE_RESTART);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
 
@@ -956,9 +960,6 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
 
   state.lineWidth = 1;
   glLineWidth(state.lineWidth);
-
-  state.primitiveRestart = 0xffffffff;
-  glPrimitiveRestartIndex(state.primitiveRestart);
 
   state.stencilEnabled = false;
   state.stencilMode = COMPARE_NONE;
