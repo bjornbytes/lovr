@@ -105,7 +105,8 @@ static int l_lovrDataNewTextureData(lua_State* L) {
     textureData = lovrTextureDataCreate(width, height, 0x0, format);
   } else {
     Blob* blob = luax_readblob(L, 1, "Texture");
-    textureData = lovrTextureDataCreateFromBlob(blob, true);
+    bool flip = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
+    textureData = lovrTextureDataCreateFromBlob(blob, flip);
     lovrRelease(blob);
   }
 
