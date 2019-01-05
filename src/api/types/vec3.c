@@ -66,8 +66,9 @@ static int l_lovrVec3Unpack(lua_State* L) {
 
 int l_lovrVec3Set(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
-  if (lua_type(L, 2) == LUA_TNUMBER) {
-    vec3_set(v, luaL_checknumber(L, 2), luaL_checknumber(L, 3), luaL_checknumber(L, 4));
+  if (lua_isnoneornil(L, 2) || lua_type(L, 2) == LUA_TNUMBER) {
+    float x = luaL_optnumber(L, 2, 0.);
+    vec3_set(v, x, luaL_optnumber(L, 3, x), luaL_optnumber(L, 4, x));
   } else {
     vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, "vec3 or number");
     vec3_init(v, u);
