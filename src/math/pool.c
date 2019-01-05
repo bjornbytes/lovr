@@ -23,7 +23,7 @@ void lovrPoolDestroy(void* ref) {
 
 float* lovrPoolAllocate(Pool* pool, MathType type) {
   size_t size = sizeOfMathType[type];
-  if (pool->usage + size > pool->size) return NULL;
+  lovrAssert(pool->usage + size <= pool->size, "Pool overflow");
   float* p = (float*) (pool->head + pool->usage);
   pool->usage += size;
   return p;
