@@ -25,6 +25,7 @@ ffi.cdef [[
 
   vec3* vec3_normalize(vec3* v);
   float vec3_length(vec3* v);
+  float vec3_distance(vec3* v, vec3* u);
   vec3* vec3_cross(vec3* v, vec3* u);
   vec3* vec3_lerp(vec3* v, vec3* u, float t);
 
@@ -114,6 +115,56 @@ ffi.metatype(vec3, {
       return vec3(v:unpack())
     end,
 
+    add = function(v, u)
+      checkvec3(v)
+      checkvec3(u, 1)
+      v.x = v.x + u.x
+      v.y = v.y + u.y
+      v.z = v.z + u.z
+      return v
+    end,
+
+    sub = function(v, u)
+      checkvec3(v)
+      checkvec3(u, 1)
+      v.x = v.x - u.x
+      v.y = v.y - u.y
+      v.z = v.z - u.z
+      return v
+    end,
+
+    mul = function(v, u)
+      checkvec3(v)
+      if type(u) == 'number' then
+        v.x = v.x * u
+        v.y = v.y * u
+        v.z = v.z * u
+        return v
+      else
+        checkvec3(u, 1)
+        v.x = v.x * u.x
+        v.y = v.y * u.y
+        v.z = v.z * u.z
+        return v
+      end
+    end,
+
+    div = function(v, u)
+      checkvec3(v)
+      if type(u) == 'number' then
+        v.x = v.x / u
+        v.y = v.y / u
+        v.z = v.z / u
+        return v
+      else
+        checkvec3(u, 1)
+        v.x = v.x / u.x
+        v.y = v.y / u.y
+        v.z = v.z / u.z
+        return v
+      end
+    end,
+
     length = function(v)
       checkvec3(v)
       return C.vec3_length(v)
@@ -125,31 +176,73 @@ ffi.metatype(vec3, {
       return v
     end,
 
+    distance = function(v, u)
+      checkvec3(v)
+      checkvec3(u, 1)
+      return C.vec3_distance(v, u)
+    end,
+
     dot = function(v, u)
       checkvec3(v)
-      checkvec3(u)
+      checkvec3(u, 1)
       return v.x * u.x + v.y * u.y + v.z * u.z
     end,
 
     cross = function(v, u)
       checkvec3(v)
-      checkvec3(u)
+      checkvec3(u, 1)
       C.vec3_cross(v, u)
       return v
     end,
 
     lerp = function(v, u, t)
       checkvec3(v)
-      checkvec3(u)
+      checkvec3(u, 1)
       C.vec3_lerp(v, u, t)
       return v
     end
   },
 
-  __add = function(v, u) return math.vec3(v.x + u.x, v.y + u.y, v.z + u.z) end,
-  __sub = function(v, u) return math.vec3(v.x - u.x, v.y - u.y, v.z - u.z) end,
-  __mul = function(v, u) return math.vec3(v.x * u.x, v.y * u.y, v.z * u.z) end,
-  __div = function(v, u) return math.vec3(v.x / u.x, v.y / u.y, v.z / u.z) end,
+  __add = function(v, u)
+    checkvec3(v, 1)
+    checkvec3(u, 2)
+    return math.vec3(v.x + u.x, v.y + u.y, v.z + u.z)
+  end,
+
+  __sub = function(v, u)
+    checkvec3(v, 1)
+    checkvec3(u, 2)
+    return math.vec3(v.x - u.x, v.y - u.y, v.z - u.z)
+  end,
+
+  __mul = function(v, u)
+    if type(v) == 'number' then
+      checkvec3(u, 2)
+      return math.vec3(v * u.x, v * u.y, v * u.z)
+    elseif type(u) == 'number' then
+      checkvec3(v, 1)
+      return math.vec3(v.x * u, v.y * u, v.z * u)
+    else
+      checkvec3(v, 1)
+      checkvec3(u, 2, 'vec3 or number')
+      return math.vec3(v.x * u.x, v.y * u.y, v.z * u.z)
+    end
+  end,
+
+  __div = function(v, u)
+    if type(v) == 'number' then
+      checkvec3(u, 2)
+      return math.vec3(v / u.x, v / u.y, v / u.z)
+    elseif type(u) == 'number' then
+      checkvec3(v, 1)
+      return math.vec3(v.x / u, v.y / u, v.z / u)
+    else
+      checkvec3(v, 1)
+      checkvec3(u, 'vec3 or number')
+      return math.vec3(v.x / u.x, v.y / u.y, v.z / u.z)
+    end
+  end,
+
   __unm = function(v) return math.vec3(-v.x, -v.y, -v.z) end,
   __len = function(v) return C.vec3_length(v) end,
   __tostring = function(v) return string.format('(%f, %f, %f)', v.x, v.y, v.z) end
@@ -180,7 +273,7 @@ ffi.metatype(quat, {
             C.quat_fromAngleAxis(q, x, y, z, w)
           end
         else
-          local axis = checkvec3(y)
+          local axis = checkvec3(y, 2)
           C.quat_fromAngleAxis(q, x, y.x, y.y, y.z)
         end
       elseif istype(vec3, x) then
@@ -194,8 +287,6 @@ ffi.metatype(quat, {
         q.x, q.y, q.z, q.w = x.x, x.y, x.z, x.w
       elseif istype(mat4, x) then
         C.quat_fromMat4(q, x)
-      else
-        error('Expected a vec3, quat, mat4, or number')
       end
       return q
     end,
@@ -213,6 +304,18 @@ ffi.metatype(quat, {
       return quat(quat, q:unpack())
     end,
 
+    mul = function(q, r)
+      checkquat(q)
+      if istype(vec3, r) then
+        C.quat_rotate(q, r)
+        return r
+      else
+        checkquat(r, 1, 'vec3 or quat')
+        C.quat_mul(q, r)
+        return q
+      end
+    end,
+
     normalize = function(q)
       checkquat(q)
       C.quat_normalize(q)
@@ -220,22 +323,20 @@ ffi.metatype(quat, {
 
     slerp = function(q, r, t)
       checkquat(q)
-      checkquat(r)
+      checkquat(r, 1)
       C.quat_slerp(q, r, t)
     end
   },
 
   __mul = function(q, r)
-    checkquat(q)
+    checkquat(q, 1)
     if istype(vec3, r) then
       local v = math.vec3(r)
       C.quat_rotate(q, v)
       return v
     else
-      checkquat(r, 'Expected a vec3 or quat')
-      local out = math.quat()
-      C.quat_mul(C.quat_init(out, q), r)
-      return out
+      checkquat(r, 2, 'vec3 or quat')
+      return C.quat_mul(math.quat(q), r)
     end
   end,
 
@@ -370,13 +471,13 @@ ffi.metatype(mat4, {
   },
 
   __mul = function(m, n)
-    checkmat4(m)
+    checkmat4(m, 1)
     if istype(mat4, n) then
       local out = math.mat4(m)
       C.mat4_multiply(out, n)
       return out
     else
-      checkvec3(n, 1, 'mat4 or vec3')
+      checkvec3(n, 2, 'mat4 or vec3')
       local f = new('float[3]', n.x, n.y, n.z)
       C.mat4_transform(m, f + 0, f + 1, f + 2)
       return math.vec3(f[0], f[1], f[2])

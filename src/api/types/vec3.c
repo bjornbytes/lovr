@@ -98,6 +98,46 @@ static int l_lovrVec3Save(lua_State* L) {
   return 1;
 }
 
+static int l_lovrVec3Add(lua_State* L) {
+  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
+  vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
+  vec3_add(v, u);
+  lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec3Sub(lua_State* L) {
+  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
+  vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
+  vec3_sub(v, u);
+  lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec3Mul(lua_State* L) {
+  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    vec3_scale(v, lua_tonumber(L, 2));
+  } else {
+    vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, "vec3 or number");
+    v[0] = v[0] * u[0], v[1] = v[1] * u[1], v[2] = v[2] * u[2];
+  }
+  lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec3Div(lua_State* L) {
+  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    vec3_scale(v, 1.f / (float) lua_tonumber(L, 2));
+  } else {
+    vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, "vec3 or number");
+    v[0] = v[0] / u[0], v[1] = v[1] / u[1], v[2] = v[2] / u[2];
+  }
+  lua_settop(L, 1);
+  return 1;
+}
+
 static int l_lovrVec3Length(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   lua_pushnumber(L, vec3_length(v));
@@ -108,6 +148,13 @@ static int l_lovrVec3Normalize(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3_normalize(v);
   lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec3Distance(lua_State* L) {
+  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
+  vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
+  lua_pushnumber(L, vec3_distance(v, u));
   return 1;
 }
 
@@ -139,7 +186,7 @@ static int l_lovrVec3__add(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
   vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
-  out[0] = v[0] + u[0], out[1] = v[1] + u[1], out[2] = v[2] + u[2];
+  vec3_add(vec3_init(out, v), u);
   luax_pushlightmathtype(L, out, MATH_VEC3);
   return 1;
 }
@@ -148,17 +195,21 @@ static int l_lovrVec3__sub(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
   vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
-  out[0] = v[0] - u[0], out[1] = v[1] - u[1], out[2] = v[2] - u[2];
+  vec3_sub(vec3_init(out, v), u);
   luax_pushlightmathtype(L, out, MATH_VEC3);
   return 1;
 }
 
 static int l_lovrVec3__mul(lua_State* L) {
-  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
-  if (lua_type(L, 2) == LUA_TNUMBER) {
+  if (lua_type(L, 1) == LUA_TNUMBER) {
+    vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
+    vec3_scale(vec3_init(out, u), lua_tonumber(L, 1));
+  } else if (lua_type(L, 2) == LUA_TNUMBER) {
+    vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
     vec3_scale(vec3_init(out, v), lua_tonumber(L, 2));
   } else {
+    vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
     vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, "vec3 or number");
     out[0] = v[0] * u[0], out[1] = v[1] * u[1], out[2] = v[2] * u[2];
   }
@@ -167,11 +218,15 @@ static int l_lovrVec3__mul(lua_State* L) {
 }
 
 static int l_lovrVec3__div(lua_State* L) {
-  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
-  if (lua_type(L, 2) == LUA_TNUMBER) {
-    vec3_scale(vec3_init(out, v), 1 / lua_tonumber(L, 2));
+  if (lua_type(L, 1) == LUA_TNUMBER) {
+    vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
+    vec3_scale(vec3_init(out, u), 1. / lua_tonumber(L, 1));
+  } else if (lua_type(L, 2) == LUA_TNUMBER) {
+    vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
+    vec3_scale(vec3_init(out, v), 1. / lua_tonumber(L, 2));
   } else {
+    vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
     vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, "vec3 or number");
     out[0] = v[0] / u[0], out[1] = v[1] / u[1], out[2] = v[2] / u[2];
   }
@@ -204,8 +259,13 @@ const luaL_Reg lovrVec3[] = {
   { "set", l_lovrVec3Set },
   { "copy", l_lovrVec3Copy },
   { "save", l_lovrVec3Save },
+  { "add", l_lovrVec3Add },
+  { "sub", l_lovrVec3Sub },
+  { "mul", l_lovrVec3Mul },
+  { "div", l_lovrVec3Div },
   { "length", l_lovrVec3Length },
   { "normalize", l_lovrVec3Normalize },
+  { "distance", l_lovrVec3Distance },
   { "dot", l_lovrVec3Dot },
   { "cross", l_lovrVec3Cross },
   { "lerp", l_lovrVec3Lerp },

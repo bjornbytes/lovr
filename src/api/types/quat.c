@@ -121,6 +121,21 @@ static int l_lovrQuatSave(lua_State* L) {
   return 1;
 }
 
+static int l_lovrQuatMul(lua_State* L) {
+  quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
+  MathType type;
+  float* r = luax_tomathtype(L, 2, &type);
+  if (!r) return luaL_typerror(L, 2, "quat or vec3");
+  if (type == MATH_VEC3) {
+    quat_rotate(q, r);
+    lua_settop(L, 2);
+  } else {
+    quat_mul(q, r);
+    lua_settop(L, 1);
+  }
+  return 1;
+}
+
 static int l_lovrQuatNormalize(lua_State* L) {
   quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
   quat_normalize(q);
@@ -141,6 +156,7 @@ static int l_lovrQuat__mul(lua_State* L) {
   quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
   MathType type;
   float* r = luax_tomathtype(L, 2, &type);
+  if (!r) return luaL_typerror(L, 2, "quat or vec3");
   if (type == MATH_VEC3) {
     vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
     quat_rotate(q, vec3_init(out, r));
@@ -170,6 +186,7 @@ const luaL_Reg lovrQuat[] = {
   { "set", l_lovrQuatSet },
   { "copy", l_lovrQuatCopy },
   { "save", l_lovrQuatSave },
+  { "mul", l_lovrQuatMul },
   { "normalize", l_lovrQuatNormalize },
   { "slerp", l_lovrQuatSlerp },
   { "__mul", l_lovrQuat__mul },
