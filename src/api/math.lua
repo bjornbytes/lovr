@@ -301,7 +301,7 @@ ffi.metatype(quat, {
 
     save = function(q)
       checkquat(q)
-      return quat(quat, q:unpack())
+      return quat(q:unpack())
     end,
 
     mul = function(q, r)
@@ -383,7 +383,7 @@ ffi.metatype(mat4, {
 
     save = function(m)
       checkmat4(m)
-      return mat4(m:unpack())
+      return mat4():set(m:unpack())
     end,
 
     identity = function(m)
