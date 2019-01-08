@@ -47,6 +47,56 @@ int l_lovrShaderBlockSend(lua_State* L) {
   }
 }
 
+int l_lovrShaderBlockGetValue(lua_State* L) {
+  ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
+  const char* name = luaL_checkstring(L, 2);
+  const Uniform* uniform = lovrShaderBlockGetUniform(block, name);
+  lovrAssert(uniform, "Unknown uniform for ShaderBlock '%s'", name);
+  Buffer* buffer = lovrShaderBlockGetBuffer(block);
+  lovrAssert(lovrBufferIsReadable(buffer), "ShaderBlock:getValue requires the ShaderBlock to be created with the readable flag");
+  union { float* floats; int* ints; } data = { .floats = lovrBufferMap(buffer, uniform->offset) };
+  int components = uniform->components;
+
+  if (uniform->type == UNIFORM_MATRIX) {
+    components *= components;
+  }
+
+  lua_createtable(L, uniform->count, 0);
+  for (int i = 0; i < uniform->count; i++) {
+    if (components == 1) {
+      switch (uniform->type) {
+        case UNIFORM_FLOAT:
+          lua_pushnumber(L, data.floats[i]);
+          lua_rawseti(L, -2, i + 1);
+          break;
+        case UNIFORM_INT:
+          lua_pushinteger(L, data.ints[i]);
+          lua_rawseti(L, -2, i + 1);
+          break;
+        default: break;
+      }
+    } else {
+      lua_createtable(L, components, 0);
+      for (int j = 0; j < components; j++) {
+        switch (uniform->type) {
+          case UNIFORM_FLOAT:
+          case UNIFORM_MATRIX:
+            lua_pushnumber(L, data.floats[i * components + j]);
+            lua_rawseti(L, -2, j + 1);
+            break;
+          case UNIFORM_INT:
+            lua_pushinteger(L, data.ints[i * components + j]);
+            lua_rawseti(L, -2, j + 1);
+            break;
+          default: break;
+        }
+      }
+      lua_rawseti(L, -2, i + 1);
+    }
+  }
+  return 1;
+}
+
 int l_lovrShaderBlockGetShaderCode(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
   const char* blockName = luaL_checkstring(L, 2);
@@ -61,6 +111,7 @@ const luaL_Reg lovrShaderBlock[] = {
   { "getSize", l_lovrShaderBlockGetSize },
   { "getOffset", l_lovrShaderBlockGetOffset },
   { "send", l_lovrShaderBlockSend },
+  { "getValue", l_lovrShaderBlockGetValue },
   { "getShaderCode", l_lovrShaderBlockGetShaderCode },
   { NULL, NULL }
 };
