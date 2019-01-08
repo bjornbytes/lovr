@@ -45,7 +45,7 @@ float* luax_tomathtype(lua_State* L, int index, MathType* type) {
     lua_pop(L, 1);
 
     lua_getfield(L, index, "_p");
-    float* p = *(float**) lua_topointer(L, index);
+    float* p = *(float**) lua_topointer(L, -1);
     lua_pop(L, 1);
     return p;
   }
