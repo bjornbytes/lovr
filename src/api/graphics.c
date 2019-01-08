@@ -936,6 +936,7 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
 
   BlockType type = BLOCK_UNIFORM;
   BufferUsage usage = USAGE_DYNAMIC;
+  bool readable = false;
 
   if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "usage");
@@ -945,11 +946,15 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
     lua_getfield(L, 2, "writable");
     type = lua_toboolean(L, -1) ? BLOCK_STORAGE : BLOCK_UNIFORM;
     lua_pop(L, 1);
+
+    lua_getfield(L, 2, "readable");
+    readable = lua_toboolean(L, -1);
+    lua_pop(L, 1);
   }
 
   lovrAssert(type != BLOCK_STORAGE || lovrGraphicsGetSupported()->computeShaders, "Writable ShaderBlocks are not supported on this system");
   size_t size = lovrShaderComputeUniformLayout(&uniforms);
-  Buffer* buffer = lovrBufferCreate(size, NULL, type == BLOCK_STORAGE ? BUFFER_SHADER_STORAGE : BUFFER_UNIFORM, usage, false);
+  Buffer* buffer = lovrBufferCreate(size, NULL, type == BLOCK_STORAGE ? BUFFER_SHADER_STORAGE : BUFFER_UNIFORM, usage, readable);
   ShaderBlock* block = lovrShaderBlockCreate(type, buffer, &uniforms);
   luax_pushobject(L, block);
   vec_deinit(&uniforms);

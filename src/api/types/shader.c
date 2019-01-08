@@ -86,10 +86,13 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
       }
     }
   } else {
-    luaL_checktype(L, index, LUA_TTABLE);
-    lua_rawgeti(L, index, 1);
-    bool wrappedTable = !lua_isnumber(L, -1);
-    lua_pop(L, 1);
+    bool wrappedTable = false;
+
+    if (lua_istable(L, index)) {
+      lua_rawgeti(L, index, 1);
+      wrappedTable = !lua_isnumber(L, -1);
+      lua_pop(L, 1);
+    }
 
     if (wrappedTable) {
       int length = lua_objlen(L, index);
