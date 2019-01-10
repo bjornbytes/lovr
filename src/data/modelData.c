@@ -564,7 +564,7 @@ static void parseMeshes(const char* json, jsmntok_t* token, ModelData* model) {
     for (int k = 0; k < keyCount; k++) {
       switch (NOM_KEY(json, token)) {
         case HASH16("primitives"):
-          mesh->primitives = &model->primitives[primitiveIndex];
+          mesh->firstPrimitive = primitiveIndex;
           mesh->primitiveCount = (token++)->size;
           for (uint32_t j = 0; j < mesh->primitiveCount; j++) {
             token = parsePrimitive(json, token, primitiveIndex++, model);
@@ -587,6 +587,8 @@ static void parseNodes(const char* json, jsmntok_t* token, ModelData* model) {
     float rotation[4] = { 0, 0, 0, 0 };
     float scale[3] = { 1, 1, 1 };
     bool matrix = false;
+    node->mesh = -1;
+    node->skin = -1;
 
     int keyCount = (token++)->size; // Enter object
     for (int k = 0; k < keyCount; k++) {
@@ -601,27 +603,27 @@ static void parseNodes(const char* json, jsmntok_t* token, ModelData* model) {
           }
           break;
         case HASH16("matrix"):
-          lovrAssert(token->size == 16, "Node matrix needs 16 elements");
+          lovrAssert((token++)->size == 16, "Node matrix needs 16 elements");
           matrix = true;
-          for (int j = 0; j < token->size; j++) {
+          for (int j = 0; j < 16; j++) {
             node->transform[j] = NOM_FLOAT(json, token);
           }
           break;
         case HASH16("translation"):
-          lovrAssert(token->size == 3, "Node translation needs 3 elements");
+          lovrAssert((token++)->size == 3, "Node translation needs 3 elements");
           translation[0] = NOM_FLOAT(json, token);
           translation[1] = NOM_FLOAT(json, token);
           translation[2] = NOM_FLOAT(json, token);
           break;
         case HASH16("rotation"):
-          lovrAssert(token->size == 4, "Node rotation needs 4 elements");
+          lovrAssert((token++)->size == 4, "Node rotation needs 4 elements");
           rotation[0] = NOM_FLOAT(json, token);
           rotation[1] = NOM_FLOAT(json, token);
           rotation[2] = NOM_FLOAT(json, token);
           rotation[3] = NOM_FLOAT(json, token);
           break;
         case HASH16("scale"):
-          lovrAssert(token->size == 3, "Node scale needs 3 elements");
+          lovrAssert((token++)->size == 3, "Node scale needs 3 elements");
           scale[0] = NOM_FLOAT(json, token);
           scale[1] = NOM_FLOAT(json, token);
           scale[2] = NOM_FLOAT(json, token);
@@ -745,5 +747,6 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
 }
 
 void lovrModelDataDestroy(void* ref) {
-  //
+  ModelData* model = ref;
+  free(model->data);
 }

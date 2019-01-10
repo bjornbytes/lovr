@@ -155,7 +155,7 @@ typedef struct {
 } ModelPrimitive;
 
 typedef struct {
-  ModelPrimitive* primitives;
+  uint32_t firstPrimitive;
   uint32_t primitiveCount;
 } ModelMesh;
 
