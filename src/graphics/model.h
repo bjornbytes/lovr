@@ -10,6 +10,8 @@ typedef struct {
   ModelData* data;
   Buffer** buffers;
   Mesh** meshes;
+  float* globalNodeTransforms;
+  float pose[MAX_BONES][16];
 } Model;
 
 Model* lovrModelInit(Model* model, ModelData* data);

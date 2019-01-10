@@ -2,6 +2,50 @@
 #include "graphics/graphics.h"
 #include "resources/shaders.h"
 
+static void updateGlobalTransform(Model* model, mat4 parentTransform, int nodeIndex) {
+  ModelNode* node = &model->data->nodes[nodeIndex];
+  mat4 transform = &model->globalNodeTransforms[16 * nodeIndex];
+  mat4_multiply(mat4_init(transform, parentTransform), node->transform);
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    updateGlobalTransform(model, transform, node->children[i]);
+  }
+}
+
+static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
+  ModelNode* node = &model->data->nodes[nodeIndex];
+
+  if (node->mesh >= 0) {
+    ModelMesh* modelMesh = &model->data->meshes[node->mesh];
+
+    for (uint32_t i = 0; i < modelMesh->primitiveCount; i++) {
+      uint32_t primitiveIndex = modelMesh->firstPrimitive + i;
+      ModelPrimitive* primitive = &model->data->primitives[primitiveIndex];
+      Mesh* mesh = model->meshes[primitiveIndex];
+
+      uint32_t rangeStart, rangeCount;
+      lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
+
+      lovrGraphicsBatch(&(BatchRequest) {
+        .type = BATCH_MESH,
+        .params.mesh = {
+          .object = mesh,
+          .mode = primitive->mode,
+          .rangeStart = rangeStart,
+          .rangeCount = rangeCount,
+          .pose = (float*) model->pose,
+          .instances = instances
+        },
+        .transform = &model->globalNodeTransforms[16 * nodeIndex],
+        //.material = model->materials[modelMesh->material]
+      });
+    }
+  }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    renderNode(model, node->children[i], instances);
+  }
+}
+
 Model* lovrModelInit(Model* model, ModelData* data) {
   model->data = data;
   lovrRetain(data);
@@ -54,8 +98,18 @@ Model* lovrModelInit(Model* model, ModelData* data) {
       if (primitive->indices >= 0) {
         ModelAccessor* accessor = &data->accessors[primitive->indices];
         lovrMeshSetIndexBuffer(model->meshes[i], model->buffers[accessor->view], accessor->count, accessor->type == U16 ? 2 : 4);
+        lovrMeshSetDrawRange(model->meshes[i], 0, accessor->count);
       }
     }
+  }
+
+  // TODO use root instead of 0
+  float identity[16] = MAT4_IDENTITY;
+  model->globalNodeTransforms = malloc(16 * model->data->nodeCount * sizeof(float));
+  updateGlobalTransform(model, identity, 0);
+
+  for (int i = 0; i < MAX_BONES; i++) {
+    mat4_identity(model->pose[i]);
   }
 
   return model;
@@ -70,9 +124,12 @@ void lovrModelDestroy(void* ref) {
     lovrRelease(model->meshes[i]);
   }
   lovrRelease(model->data);
-  free(ref);
+  free(model->globalNodeTransforms);
 }
 
 void lovrModelDraw(Model* model, mat4 transform, int instances) {
-  //
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
+  renderNode(model, 0, instances); // TODO use root
+  lovrGraphicsPop();
 }
