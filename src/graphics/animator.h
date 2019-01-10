@@ -8,22 +8,21 @@
 #pragma once
 
 typedef struct {
-  Animation* animation;
   float time;
   float speed;
   float alpha;
+  float duration;
   int priority;
   bool playing;
   bool looping;
 } Track;
 
-typedef map_t(Track) map_track_t;
+typedef vec_t(Track) vec_track_t;
 
 typedef struct {
   Ref ref;
   ModelData* modelData;
-  map_track_t trackMap;
-  vec_void_t trackList;
+  vec_track_t tracks;
   float speed;
 } Animator;
 
@@ -32,22 +31,21 @@ Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData);
 void lovrAnimatorDestroy(void* ref);
 void lovrAnimatorReset(Animator* animator);
 void lovrAnimatorUpdate(Animator* animator, float dt);
-bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform);
+bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform);
 int lovrAnimatorGetAnimationCount(Animator* animator);
-const char* lovrAnimatorGetAnimationName(Animator* animator, int index);
-void lovrAnimatorPlay(Animator* animator, const char* animation);
-void lovrAnimatorStop(Animator* animator, const char* animation);
-void lovrAnimatorPause(Animator* animator, const char* animation);
-void lovrAnimatorResume(Animator* animator, const char* animation);
-void lovrAnimatorSeek(Animator* animator, const char* animation, float time);
-float lovrAnimatorTell(Animator* animator, const char* animation);
-float lovrAnimatorGetAlpha(Animator* animator, const char* animation);
-void lovrAnimatorSetAlpha(Animator* animator, const char* animation, float alpha);
-float lovrAnimatorGetDuration(Animator* animator, const char* animation);
-bool lovrAnimatorIsPlaying(Animator* animator, const char* animation);
-bool lovrAnimatorIsLooping(Animator* animator, const char* animation);
-void lovrAnimatorSetLooping(Animator* animator, const char* animation, bool looping);
-int lovrAnimatorGetPriority(Animator* animator, const char* animation);
-void lovrAnimatorSetPriority(Animator* animator, const char* animation, int priority);
-float lovrAnimatorGetSpeed(Animator* animator, const char* animation);
-void lovrAnimatorSetSpeed(Animator* animator, const char* animation, float speed);
+void lovrAnimatorPlay(Animator* animator, int animation);
+void lovrAnimatorStop(Animator* animator, int animation);
+void lovrAnimatorPause(Animator* animator, int animation);
+void lovrAnimatorResume(Animator* animator, int animation);
+void lovrAnimatorSeek(Animator* animator, int animation, float time);
+float lovrAnimatorTell(Animator* animator, int animation);
+float lovrAnimatorGetAlpha(Animator* animator, int animation);
+void lovrAnimatorSetAlpha(Animator* animator, int animation, float alpha);
+float lovrAnimatorGetDuration(Animator* animator, int animation);
+bool lovrAnimatorIsPlaying(Animator* animator, int animation);
+bool lovrAnimatorIsLooping(Animator* animator, int animation);
+void lovrAnimatorSetLooping(Animator* animator, int animation, bool loop);
+int lovrAnimatorGetPriority(Animator* animator, int animation);
+void lovrAnimatorSetPriority(Animator* animator, int animation, int priority);
+float lovrAnimatorGetSpeed(Animator* animator, int animation);
+void lovrAnimatorSetSpeed(Animator* animator, int animation, float speed);
