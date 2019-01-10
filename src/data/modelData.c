@@ -202,6 +202,28 @@ static void parseAccessors(const char* json, jsmntok_t* token, ModelData* model)
             default: lovrThrow("Unsupported accessor type"); break;
           }
           break;
+        case HASH16("min"):
+          if (token->size <= 4) {
+            int count = (token++)->size;
+            accessor->hasMin = true;
+            for (int j = 0; j < count; j++) {
+              accessor->min[j] = NOM_FLOAT(json, token);
+            }
+            break;
+          }
+          token += NOM_VALUE(json, token);
+          break;
+        case HASH16("max"):
+          if (token->size <= 4) {
+            int count = (token++)->size;
+            accessor->hasMax = true;
+            for (int j = 0; j < count; j++) {
+              accessor->max[j] = NOM_FLOAT(json, token);
+            }
+            break;
+          }
+          token += NOM_VALUE(json, token);
+          break;
         default: token += NOM_VALUE(json, token); break;
       }
     }

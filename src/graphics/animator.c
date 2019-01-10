@@ -2,12 +2,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-static Track* lovrAnimatorEnsureTrack(Animator* animator, const char* animation) {
-  Track* track = map_get(&animator->trackMap, animation);
-  lovrAssert(track, "Animation '%s' does not exist", animation);
-  return track;
-}
-
 static int trackSortCallback(const void* a, const void* b) {
   return ((Track*) a)->priority < ((Track*) b)->priority;
 }
@@ -15,16 +9,12 @@ static int trackSortCallback(const void* a, const void* b) {
 Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData) {
   lovrRetain(modelData);
   animator->modelData = modelData;
-  map_init(&animator->trackMap);
-  vec_init(&animator->trackList);
+  vec_init(&animator->tracks);
+  vec_reserve(&animator->tracks, modelData->animationCount);
   animator->speed = 1;
 
-  /*
   for (int i = 0; i < modelData->animationCount; i++) {
-    Animation* animation = &modelData->animations[i];
-
     Track track = {
-      .animation = animation,
       .time = 0,
       .speed = 1,
       .priority = 0,
@@ -33,10 +23,11 @@ Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData) {
       .looping = false
     };
 
-    map_set(&animator->trackMap, animation->name, track);
-    vec_push(&animator->trackList, map_get(&animator->trackMap, animation->name));
+    // TODO to get track duration: loop over samplers in animation, check max property of times
+    // accessor (it's guaranteed to be there by the spec), and keep MAX-ing that.
+
+    vec_push(&animator->tracks, track);
   }
-  */
 
   return animator;
 }
@@ -44,13 +35,12 @@ Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData) {
 void lovrAnimatorDestroy(void* ref) {
   Animator* animator = ref;
   lovrRelease(animator->modelData);
-  map_deinit(&animator->trackMap);
-  vec_deinit(&animator->trackList);
+  vec_deinit(&animator->tracks);
 }
 
 void lovrAnimatorReset(Animator* animator) {
   Track* track; int i;
-  vec_foreach(&animator->trackList, track, i) {
+  vec_foreach_ptr(&animator->tracks, track, i) {
     track->time = 0;
     track->speed = 1;
     track->playing = false;
@@ -61,13 +51,13 @@ void lovrAnimatorReset(Animator* animator) {
 
 void lovrAnimatorUpdate(Animator* animator, float dt) {
   Track* track; int i;
-  vec_foreach(&animator->trackList, track, i) {
+  vec_foreach_ptr(&animator->tracks, track, i) {
     if (track->playing) {
       track->time += dt * track->speed * animator->speed;
 
       if (track->looping) {
-        track->time = fmodf(track->time, track->animation->duration);
-      } else if (track->time > track->animation->duration || track->time < 0) {
+        track->time = fmodf(track->time, track->duration);
+      } else if (track->time > track->duration || track->time < 0) {
         track->time = 0;
         track->playing = false;
       }
@@ -75,24 +65,84 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
   }
 }
 
-bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) {
+bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
+  ModelData* modelData = animator->modelData;
   float mixedTranslation[3] = { 0, 0, 0 };
   float mixedRotation[4] = { 0, 0, 0, 1 };
   float mixedScale[3] = { 1, 1, 1 };
 
   Track* track; int i;
   bool touched = false;
-  vec_foreach(&animator->trackList, track, i) {
-    Animation* animation = track->animation;
-    AnimationChannel* channel = map_get(&animation->channels, bone);
+  vec_foreach_ptr(&animator->tracks, track, i) {
+    ModelAnimation* animation = &modelData->animations[i];
 
-    if (!channel || !track->playing) {
-      continue;
+    for (int i = 0; i < animation->channelCount; i++) {
+      ModelAnimationChannel* channel = &animation->channels[i];
+
+      if (!track->playing || channel->nodeIndex != nodeIndex) {
+        continue;
+      }
+
+      float time = fmodf(track->time, track->duration);
+      ModelAnimationSampler* sampler = &modelData->animationSamplers[channel->sampler];
+      ModelAccessor* timeAccessor = &modelData->accessors[sampler->times];
+      ModelAccessor* valueAccessor = &modelData->accessors[sampler->values];
+      ModelView* timeView = &modelData->views[timeAccessor->view];
+      ModelView* valueView = &modelData->views[valueAccessor->view];
+      uint8_t* times = (uint8_t*) modelData->blobs[timeView->blob].data + timeView->offset + timeAccessor->offset;
+      uint8_t* values = (uint8_t*) modelData->blobs[valueView->blob].data + valueView->offset + valueAccessor->offset;
+
+      int k = 0;
+      while (k < timeAccessor->count) {
+        float timestamp = *(float*) (times + timeView->stride * k);
+        if (time >= timestamp) {
+          break;
+        } else {
+          k++;
+        }
+      }
+
+      float value[4];
+      switch (channel->property) {
+        case PROP_TRANSLATION:
+          if (k == 0) {
+            vec3_init(value, (float*) values);
+          } else if (k >= timeAccessor->count) {
+            vec3_init(value, (float*) values + valueView->stride * (valueAccessor->count - 1));
+          } else {
+            float next[4];
+            float t1 = *(float*) (times + timeView->stride * k);
+            float t2 = *(float*) (times + timeView->stride * (k + 1));
+            float z = (time - t1) / (t2 - t1);
+            vec3_init(value, (float*) values + valueView->stride * k);
+            vec3_init(next, (float*) values + valueView->stride * (k + 1));
+            vec3_lerp(value, next, z);
+          }
+          vec3_lerp(mixedTranslation, value, track->alpha);
+          touched = true;
+          break;
+        case PROP_ROTATION:
+          if (k == 0) {
+            //quat_init(value, ...);
+          } else if (k >= timeAccessor->count) {
+            //quat_init(value, ...);
+          } else {
+            // Interpolate
+          }
+          break;
+        case PROP_SCALE:
+          if (k == 0) {
+            //vec3_init(value, ...);
+          } else if (k >= timeAccessor->count) {
+            //vec3_init(value, ...);
+          } else {
+            // Interpolate
+          }
+          break;
+      }
     }
 
-    float time = fmodf(track->time, animation->duration);
-    int i;
-
+    /*
     // Position
     if (channel->positionKeyframes.length > 0) {
       i = 0;
@@ -182,6 +232,7 @@ bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) 
       vec3_lerp(mixedScale, scale, track->alpha);
       touched = true;
     }
+    */
   }
 
   if (touched) {
@@ -194,121 +245,111 @@ bool lovrAnimatorEvaluate(Animator* animator, const char* bone, mat4 transform) 
 }
 
 int lovrAnimatorGetAnimationCount(Animator* animator) {
-  //oreturn animator->modelData->animationCount;
-  return 0;
+  return animator->modelData->animationCount;
 }
 
-const char* lovrAnimatorGetAnimationName(Animator* animator, int index) {
-  if (index < 0 || index >= 0/*animator->modelData->animationCount*/) {
-    return NULL;
-  }
-
-  //return animator->modelData->animations[index].name;
-  return NULL;
-}
-
-void lovrAnimatorPlay(Animator* animator, const char* animation) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+void lovrAnimatorPlay(Animator* animator, int animation) {
+  Track* track = &animator->tracks.data[animation];
   track->playing = true;
   track->time = 0;
 }
 
-void lovrAnimatorStop(Animator* animator, const char* animation) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+void lovrAnimatorStop(Animator* animator, int animation) {
+  Track* track = &animator->tracks.data[animation];
   track->playing = false;
   track->time = 0;
 }
 
-void lovrAnimatorPause(Animator* animator, const char* animation) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+void lovrAnimatorPause(Animator* animator, int animation) {
+  Track* track = &animator->tracks.data[animation];
   track->playing = false;
 }
 
-void lovrAnimatorResume(Animator* animator, const char* animation) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+void lovrAnimatorResume(Animator* animator, int animation) {
+  Track* track = &animator->tracks.data[animation];
   track->playing = true;
 }
 
-void lovrAnimatorSeek(Animator* animator, const char* animation, float time) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
-  float duration = track->animation->duration;
+void lovrAnimatorSeek(Animator* animator, int animation, float time) {
+  Track* track = &animator->tracks.data[animation];
+  float duration = track->duration;
 
-  while (time > duration) {
-    time -= duration;
+  while (time > track->duration) {
+    time -= track->duration;
   }
 
   while (time < 0) {
-    time += duration;
+    time += track->duration;
   }
 
   track->time = time;
 
   if (!track->looping) {
-    track->time = MIN(track->time, track->animation->duration);
+    track->time = MIN(track->time, track->duration);
     track->time = MAX(track->time, 0);
   }
 }
 
-float lovrAnimatorTell(Animator* animator, const char* animation) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+float lovrAnimatorTell(Animator* animator, int animation) {
+  Track* track = &animator->tracks.data[animation];
   return track->time;
 }
 
-float lovrAnimatorGetAlpha(Animator* animator, const char* animation) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+float lovrAnimatorGetAlpha(Animator* animator, int animation) {
+  Track* track = &animator->tracks.data[animation];
   return track->alpha;
 }
 
-void lovrAnimatorSetAlpha(Animator* animator, const char* animation, float alpha) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+void lovrAnimatorSetAlpha(Animator* animator, int animation, float alpha) {
+  Track* track = &animator->tracks.data[animation];
   track->alpha = alpha;
 }
 
-float lovrAnimatorGetDuration(Animator* animator, const char* animation) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
-  return track->animation->duration;
+float lovrAnimatorGetDuration(Animator* animator, int animation) {
+  Track* track = &animator->tracks.data[animation];
+  return track->duration;
 }
 
-bool lovrAnimatorIsPlaying(Animator* animator, const char* animation) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+bool lovrAnimatorIsPlaying(Animator* animator, int animation) {
+  Track* track = &animator->tracks.data[animation];
   return track->playing;
 }
 
-bool lovrAnimatorIsLooping(Animator* animator, const char* animation) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+bool lovrAnimatorIsLooping(Animator* animator, int animation) {
+  Track* track = &animator->tracks.data[animation];
   return track->looping;
 }
 
-void lovrAnimatorSetLooping(Animator* animator, const char* animation, bool looping) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
-  track->looping = looping;
+void lovrAnimatorSetLooping(Animator* animator, int animation, bool loop) {
+  Track* track = &animator->tracks.data[animation];
+  track->looping = loop;
 }
 
-int lovrAnimatorGetPriority(Animator* animator, const char* animation) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+int lovrAnimatorGetPriority(Animator* animator, int animation) {
+  Track* track = &animator->tracks.data[animation];
   return track->priority;
 }
 
-void lovrAnimatorSetPriority(Animator* animator, const char* animation, int priority) {
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+void lovrAnimatorSetPriority(Animator* animator, int animation, int priority) {
+  Track* track = &animator->tracks.data[animation];
   track->priority = priority;
-  vec_sort(&animator->trackList, trackSortCallback);
+  vec_sort(&animator->tracks, trackSortCallback);
 }
 
-float lovrAnimatorGetSpeed(Animator* animator, const char* animation) {
-  if (!animation) {
+float lovrAnimatorGetSpeed(Animator* animator, int animation) {
+  if (animation < 0) {
     return animator->speed;
   }
 
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  Track* track = &animator->tracks.data[animation];
   return track->speed;
 }
 
-void lovrAnimatorSetSpeed(Animator* animator, const char* animation, float speed) {
-  if (!animation) {
+void lovrAnimatorSetSpeed(Animator* animator, int animation, float speed) {
+  if (animation < 0) {
     animator->speed = speed;
   }
 
-  Track* track = lovrAnimatorEnsureTrack(animator, animation);
+  Track* track = &animator->tracks.data[animation];
   track->speed = speed;
 }

@@ -94,9 +94,13 @@ typedef struct {
   int view;
   int count;
   int offset;
+  float min[4];
+  float max[4];
   AttributeType type;
   int components : 3;
-  int normalized : 1;
+  bool normalized : 1;
+  bool hasMin : 1;
+  bool hasMax : 1;
 } ModelAccessor;
 
 typedef struct {

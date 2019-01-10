@@ -20,6 +20,7 @@ int l_lovrAnimatorGetAnimationCount(lua_State* L) {
   return 1;
 }
 
+/*
 int l_lovrAnimatorGetAnimationNames(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animationCount = lovrAnimatorGetAnimationCount(animator);
@@ -172,10 +173,12 @@ int l_lovrAnimatorSetSpeed(lua_State* L) {
   }
   return 0;
 }
+*/
 
 const luaL_Reg lovrAnimator[] = {
   { "reset", l_lovrAnimatorReset },
   { "update", l_lovrAnimatorUpdate },
+  /*
   { "getAnimationCount", l_lovrAnimatorGetAnimationCount },
   { "getAnimationNames", l_lovrAnimatorGetAnimationNames },
   { "play", l_lovrAnimatorPlay },
@@ -193,6 +196,6 @@ const luaL_Reg lovrAnimator[] = {
   { "getPriority", l_lovrAnimatorGetPriority },
   { "setPriority", l_lovrAnimatorSetPriority },
   { "getSpeed", l_lovrAnimatorGetSpeed },
-  { "setSpeed", l_lovrAnimatorSetSpeed },
+  { "setSpeed", l_lovrAnimatorSetSpeed },*/
   { NULL, NULL }
 };
