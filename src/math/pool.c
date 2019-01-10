@@ -7,12 +7,16 @@ static const size_t sizeOfMathType[] = {
   [MATH_MAT4] = 16 * sizeof(float)
 };
 
-Pool* lovrPoolInit(Pool* pool, size_t size) {
-  pool->size = size;
-  pool->data = calloc(1, size + POOL_ALIGN - 1);
+static void lovrPoolResize(Pool* pool) {
+  pool->data = realloc(pool->data, pool->size + POOL_ALIGN - 1);
   pool->head = (uint8_t*) ALIGN((uint8_t*) pool->data + POOL_ALIGN - 1, POOL_ALIGN);
   lovrAssert(pool->data, "Could not allocate Pool memory");
-  pool->usage = 0;
+}
+
+Pool* lovrPoolInit(Pool* pool, size_t size, bool resizable) {
+  pool->size = size;
+  pool->resizable = resizable;
+  lovrPoolResize(pool);
   return pool;
 }
 
@@ -23,7 +27,11 @@ void lovrPoolDestroy(void* ref) {
 
 float* lovrPoolAllocate(Pool* pool, MathType type) {
   size_t size = sizeOfMathType[type];
-  lovrAssert(pool->usage + size <= pool->size, "Pool overflow");
+  if (pool->usage + size > pool->size) {
+    lovrAssert(pool->resizable, "Pool overflow");
+    pool->size = pool->size * 2;
+    lovrPoolResize(pool);
+  }
   float* p = (float*) (pool->head + pool->usage);
   pool->usage += size;
   return p;
@@ -39,6 +47,10 @@ size_t lovrPoolGetSize(Pool* pool) {
 
 size_t lovrPoolGetUsage(Pool* pool) {
   return pool->usage;
+}
+
+bool lovrPoolIsResizable(Pool* pool) {
+  return pool->resizable;
 }
 
 float* lovrPoolAllocateVec3(Pool* pool) { return lovrPoolAllocate(pool, MATH_VEC3); }

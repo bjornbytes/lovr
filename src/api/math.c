@@ -100,7 +100,8 @@ static int l_lovrMathNewCurve(lua_State* L) {
 
 static int l_lovrMathNewPool(lua_State* L) {
   size_t size = luaL_optinteger(L, 1, DEFAULT_POOL_SIZE);
-  Pool* pool = lovrPoolCreate(size);
+  bool resizable = lua_toboolean(L, 2);
+  Pool* pool = lovrPoolCreate(size, resizable);
   luax_pushobject(L, pool);
   lovrRelease(pool);
   return 1;

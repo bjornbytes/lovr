@@ -10,7 +10,7 @@ static MathState state;
 
 bool lovrMathInit(size_t poolSize) {
   if (state.initialized) return false;
-  state.pool = lovrPoolCreate(poolSize);
+  state.pool = lovrPoolCreate(poolSize, true);
   state.generator = lovrRandomGeneratorCreate();
   Seed seed = { .b64 = (uint64_t) time(0) };
   lovrRandomGeneratorSetSeed(state.generator, seed);

@@ -1,4 +1,5 @@
 #include "util.h"
+#include <stdbool.h>
 
 #define POOL_ALIGN 16
 #define DEFAULT_POOL_SIZE (640 * 1024)
@@ -18,15 +19,17 @@ typedef struct {
   size_t size;
   size_t usage;
   uint8_t* head;
+  bool resizable;
 } Pool;
 
-Pool* lovrPoolInit(Pool* pool, size_t size);
+Pool* lovrPoolInit(Pool* pool, size_t size, bool resizable);
 #define lovrPoolCreate(...) lovrPoolInit(lovrAlloc(Pool), __VA_ARGS__)
 void lovrPoolDestroy(void* ref);
 float* lovrPoolAllocate(Pool* pool, MathType type);
 void lovrPoolDrain(Pool* pool);
 size_t lovrPoolGetSize(Pool* pool);
 size_t lovrPoolGetUsage(Pool* pool);
+bool lovrPoolIsResizable(Pool* pool);
 
 // For you, LuaJIT
 LOVR_EXPORT float* lovrPoolAllocateVec3(Pool* pool);

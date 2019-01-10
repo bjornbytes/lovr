@@ -68,7 +68,7 @@ function lovr.boot()
       msaa = 4
     },
     math = {
-      poolsize = 640 * 1024
+      poolsize = 4096
     },
     window = {
       width = 1080,
