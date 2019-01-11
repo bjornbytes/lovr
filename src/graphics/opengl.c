@@ -1713,7 +1713,11 @@ static void lovrShaderSetupUniforms(Shader* shader) {
 
     char* subscript = strchr(uniform.name, '[');
     if (subscript) {
-      *subscript = '\0';
+      if (subscript[1] > '0') {
+        continue;
+      } else {
+        *subscript = '\0';
+      }
     }
 
     uniform.location = glGetUniformLocation(program, uniform.name);
