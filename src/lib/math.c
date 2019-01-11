@@ -121,9 +121,9 @@ quat quat_fromMat4(quat q, mat4 m) {
 
 quat quat_mul(quat q, quat r) {
   return quat_set(q,
-    q[0] * r[3] + q[3] * r[0] - q[1] * r[2] - q[2] * r[1],
-    q[1] * r[3] + q[3] * r[1] - q[2] * r[0] - q[0] * r[2],
-    q[2] * r[3] + q[3] * r[2] - q[0] * r[1] - q[1] * r[0],
+    q[0] * r[3] + q[3] * r[0] + q[1] * r[2] - q[2] * r[1],
+    q[1] * r[3] + q[3] * r[1] + q[2] * r[0] - q[0] * r[2],
+    q[2] * r[3] + q[3] * r[2] + q[0] * r[1] - q[1] * r[0],
     q[3] * r[3] - q[0] * r[0] - q[1] * r[1] - q[2] * r[2]
   );
 }
