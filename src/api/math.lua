@@ -311,13 +311,13 @@ ffi.metatype(quat, {
 
     normalize = function(q)
       checkquat(q)
-      C.quat_normalize(q)
+      return C.quat_normalize(q)
     end,
 
     slerp = function(q, r, t)
       checkquat(q)
       checkquat(r, 1)
-      C.quat_slerp(q, r, t)
+      return C.quat_slerp(q, r, t)
     end
   },
 
@@ -397,34 +397,31 @@ ffi.metatype(mat4, {
     translate = function(m, x, y, z)
       checkmat4(m)
       if type(x) == 'number' then
-        C.mat4_translate(m, x, y, z)
+        return C.mat4_translate(m, x, y, z)
       else
         checkvec3(x, 1, 'vec3 or number')
-        C.mat4_translate(m, x.x, x.y, x.z)
+        return C.mat4_translate(m, x.x, x.y, x.z)
       end
-      return m
     end,
 
     rotate = function(m, angle, ax, ay, az)
       checkmat4(m)
       if type(angle) == 'number' then
-        C.mat4_rotate(m, angle, ax, ay, az)
+        return C.mat4_rotate(m, angle, ax, ay, az)
       else
         checkquat(angle, 1, 'quat or number')
-        C.mat4_rotateQuat(m, angle)
+        return C.mat4_rotateQuat(m, angle)
       end
-      return m
     end,
 
     scale = function(m, sx, sy, sz)
       checkmat4(m)
       if type(sx) == 'number' then
-        C.mat4_scale(m, sx, sy or sx, sz or sx)
+        return C.mat4_scale(m, sx, sy or sx, sz or sx)
       else
         checkvec3(sx, 1, 'vec3 or number')
-        C.mat4_scale(m, sx.x, sx.y, sx.z)
+        return C.mat4_scale(m, sx.x, sx.y, sx.z)
       end
-      return m
     end,
 
     getTransform = function(m)
@@ -436,8 +433,7 @@ ffi.metatype(mat4, {
 
     setTransform = function(m, x, y, z, sx, sy, sz, angle, ax, ay, az)
       checkmat4(m)
-      C.mat4_setTransform(m, x or 0, y or 0, z or 0, sx or 1, sy or sx or 1, sz or sx or 1, angle or 0, ax or 0, ay or 1, az or 0)
-      return m
+      return C.mat4_setTransform(m, x or 0, y or 0, z or 0, sx or 1, sy or sx or 1, sz or sx or 1, angle or 0, ax or 0, ay or 1, az or 0)
     end,
 
     transformPoint = function(m, x, y, z)
@@ -450,23 +446,19 @@ ffi.metatype(mat4, {
 
     perspective = function(m, near, far, fov, aspect)
       checkmat4(m)
-      C.mat4_perspective(m, near, far, fov, aspect)
-      return m
+      return C.mat4_perspective(m, near, far, fov, aspect)
     end,
 
     orthographic = function(m, left, right, top, bottom, near, far)
       checkmat4(m)
-      C.mat4_orthographic(m, left, right, top, bottom, near, far)
-      return m
+      return C.mat4_orthographic(m, left, right, top, bottom, near, far)
     end
   },
 
   __mul = function(m, n)
     checkmat4(m, 1)
     if istype(mat4, n) then
-      local out = math.mat4(m)
-      C.mat4_multiply(out, n)
-      return out
+      return C.mat4_multiply(math.mat4(m), n)
     else
       checkvec3(n, 2, 'mat4 or vec3')
       local f = new('float[3]', n.x, n.y, n.z)
