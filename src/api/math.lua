@@ -103,7 +103,7 @@ ffi.metatype(vec3, {
 
     copy = function(v, pool)
       checkvec3(v)
-      return (pool or mathPool):vec3(v)
+      return pool and pool:vec3(v) or math.vec3(v)
     end,
 
     save = function(v)
@@ -289,7 +289,7 @@ ffi.metatype(quat, {
 
     copy = function(q, pool)
       checkquat(q)
-      return (pool or mathPool):quat(q)
+      return pool and pool:quat(q) or math.quat(q)
     end,
 
     save = function(q)
@@ -371,7 +371,7 @@ ffi.metatype(mat4, {
 
     copy = function(m, pool)
       checkmat4(m)
-      return (pool or mathPool):mat4(m:unpack())
+      return pool and pool:mat4(m:unpack()) or math.mat4(m:unpack())
     end,
 
     save = function(m)
