@@ -103,17 +103,15 @@ static int l_lovrMat4Identity(lua_State* L) {
 
 static int l_lovrMat4Invert(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  mat4 out = lua_gettop(L) > 1 ? mat4_init(luax_checkmathtype(L, 2, MATH_MAT4, NULL), m) : m;
-  mat4_invert(out);
-  luax_pushlightmathtype(L, out, MATH_MAT4);
+  mat4_invert(m);
+  luax_pushlightmathtype(L, m, MATH_MAT4);
   return 1;
 }
 
 static int l_lovrMat4Transpose(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  mat4 out = lua_gettop(L) > 1 ? mat4_init(luax_checkmathtype(L, 2, MATH_MAT4, NULL), m) : m;
-  mat4_transpose(out);
-  luax_pushlightmathtype(L, out, MATH_MAT4);
+  mat4_transpose(m);
+  luax_pushlightmathtype(L, m, MATH_MAT4);
   return 1;
 }
 

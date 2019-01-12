@@ -384,16 +384,14 @@ ffi.metatype(mat4, {
       return C.mat4_identity(m)
     end,
 
-    invert = function(m, out)
+    invert = function(m)
       checkmat4(m)
-      out = out and C.mat4_set(out, m) or m
-      return C.mat4_invert(out)
+      return C.mat4_invert(m)
     end,
 
     transpose = function(m)
       checkmat4(m)
-      out = out and C.mat4_set(out, m) or m
-      return C.mat4_transpose(out)
+      return C.mat4_transpose(m)
     end,
 
     translate = function(m, x, y, z)
