@@ -59,10 +59,10 @@ function Pool:vec3(...) return C.lovrPoolAllocateVec3(cast('Pool**', self)[0])[0
 function Pool:quat(...) return C.lovrPoolAllocateQuat(cast('Pool**', self)[0])[0]:set(...) end
 function Pool:mat4(...) return C.lovrPoolAllocateMat4(cast('Pool**', self)[0])[0]:set(...) end
 
-local pool = C.lovrMathGetPool()
-function math.vec3(...) return C.lovrPoolAllocateVec3(pool)[0]:set(...) end
-function math.quat(...) return C.lovrPoolAllocateQuat(pool)[0]:set(...) end
-function math.mat4(...) return C.lovrPoolAllocateMat4(pool)[0]:set(...) end
+local mathPool = C.lovrMathGetPool()
+function math.vec3(...) return C.lovrPoolAllocateVec3(mathPool)[0]:set(...) end
+function math.quat(...) return C.lovrPoolAllocateQuat(mathPool)[0]:set(...) end
+function math.mat4(...) return C.lovrPoolAllocateMat4(mathPool)[0]:set(...) end
 
 local vec3 = ffi.typeof('vec3')
 local quat = ffi.typeof('quat')
@@ -101,13 +101,9 @@ ffi.metatype(vec3, {
       return v
     end,
 
-    copy = function(v, u)
+    copy = function(v, pool)
       checkvec3(v)
-      if istype(vec3, u) then
-        return u:set(v)
-      else
-        return math.vec3(v)
-      end
+      return (pool or mathPool):vec3(v)
     end,
 
     save = function(v)
@@ -291,12 +287,9 @@ ffi.metatype(quat, {
       return q
     end,
 
-    copy = function(q, r)
-      if istype(quat, r) then
-        return r:set(q)
-      else
-        return math.quat(q)
-      end
+    copy = function(q, pool)
+      checkquat(q)
+      return (pool or mathPool):quat(q)
     end,
 
     save = function(q)
@@ -376,9 +369,9 @@ ffi.metatype(mat4, {
       return m
     end,
 
-    copy = function(m)
+    copy = function(m, pool)
       checkmat4(m)
-      return math.mat4(m:unpack())
+      return (pool or mathPool):mat4(m:unpack())
     end,
 
     save = function(m)

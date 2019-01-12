@@ -78,9 +78,10 @@ int l_lovrMat4Set(lua_State* L) {
 
 static int l_lovrMat4Copy(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  mat4 n = lovrPoolAllocate(lovrMathGetPool(), MATH_MAT4);
-  mat4_init(n, m);
-  luax_pushlightmathtype(L, n, MATH_MAT4);
+  Pool* pool = lua_isnoneornil(L, 2) ? lovrMathGetPool() : luax_checktype(L, 2, Pool);
+  mat4 out = lovrPoolAllocate(pool, MATH_MAT4);
+  mat4_init(out, m);
+  luax_pushlightmathtype(L, out, MATH_MAT4);
   return 1;
 }
 

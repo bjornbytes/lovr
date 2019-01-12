@@ -102,13 +102,10 @@ int l_lovrQuatSet(lua_State* L) {
 
 static int l_lovrQuatCopy(lua_State* L) {
   quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
-  quat r = lovrPoolAllocate(lovrMathGetPool(), MATH_QUAT);
-  if (r) {
-    quat_init(r, q);
-    luax_pushlightmathtype(L, r, MATH_QUAT);
-  } else {
-    lua_pushnil(L);
-  }
+  Pool* pool = lua_isnoneornil(L, 2) ? lovrMathGetPool() : luax_checktype(L, 2, Pool);
+  quat out = lovrPoolAllocate(pool, MATH_QUAT);
+  quat_init(out, q);
+  luax_pushlightmathtype(L, out, MATH_QUAT);
   return 1;
 }
 
