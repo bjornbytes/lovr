@@ -39,9 +39,9 @@ static void raycastCallback(Shape* shape, float x, float y, float z, float nx, f
 
 int l_lovrWorldNewCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float x = luaL_optnumber(L, 2, 0);
-  float y = luaL_optnumber(L, 3, 0);
-  float z = luaL_optnumber(L, 4, 0);
+  float x = luaL_optnumber(L, 2, 0.f);
+  float y = luaL_optnumber(L, 3, 0.f);
+  float z = luaL_optnumber(L, 4, 0.f);
   Collider* collider = lovrColliderCreate(world, x, y, z);
   luax_pushobject(L, collider);
   lovrRelease(collider);
@@ -50,9 +50,9 @@ int l_lovrWorldNewCollider(lua_State* L) {
 
 int l_lovrWorldNewBoxCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float x = luaL_optnumber(L, 2, 0);
-  float y = luaL_optnumber(L, 3, 0);
-  float z = luaL_optnumber(L, 4, 0);
+  float x = luaL_optnumber(L, 2, 0.f);
+  float y = luaL_optnumber(L, 3, 0.f);
+  float z = luaL_optnumber(L, 4, 0.f);
   float sx = luaL_optnumber(L, 5, 1.f);
   float sy = luaL_optnumber(L, 6, sx);
   float sz = luaL_optnumber(L, 7, sx);
@@ -67,9 +67,9 @@ int l_lovrWorldNewBoxCollider(lua_State* L) {
 
 int l_lovrWorldNewCapsuleCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float x = luaL_optnumber(L, 2, 0);
-  float y = luaL_optnumber(L, 3, 0);
-  float z = luaL_optnumber(L, 4, 0);
+  float x = luaL_optnumber(L, 2, 0.f);
+  float y = luaL_optnumber(L, 3, 0.f);
+  float z = luaL_optnumber(L, 4, 0.f);
   float radius = luaL_optnumber(L, 5, 1.f);
   float length = luaL_optnumber(L, 6, 1.f);
   Collider* collider = lovrColliderCreate(world, x, y, z);
@@ -83,9 +83,9 @@ int l_lovrWorldNewCapsuleCollider(lua_State* L) {
 
 int l_lovrWorldNewCylinderCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float x = luaL_optnumber(L, 2, 0);
-  float y = luaL_optnumber(L, 3, 0);
-  float z = luaL_optnumber(L, 4, 0);
+  float x = luaL_optnumber(L, 2, 0.f);
+  float y = luaL_optnumber(L, 3, 0.f);
+  float z = luaL_optnumber(L, 4, 0.f);
   float radius = luaL_optnumber(L, 5, 1.f);
   float length = luaL_optnumber(L, 6, 1.f);
   Collider* collider = lovrColliderCreate(world, x, y, z);
@@ -99,9 +99,9 @@ int l_lovrWorldNewCylinderCollider(lua_State* L) {
 
 int l_lovrWorldNewSphereCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float x = luaL_optnumber(L, 2, 0);
-  float y = luaL_optnumber(L, 3, 0);
-  float z = luaL_optnumber(L, 4, 0);
+  float x = luaL_optnumber(L, 2, 0.f);
+  float y = luaL_optnumber(L, 3, 0.f);
+  float z = luaL_optnumber(L, 4, 0.f);
   float radius = luaL_optnumber(L, 5, 1.f);
   Collider* collider = lovrColliderCreate(world, x, y, z);
   SphereShape* shape = lovrSphereShapeCreate(radius);
@@ -144,8 +144,8 @@ int l_lovrWorldCollide(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   Shape* a = luax_checktype(L, 2, Shape);
   Shape* b = luax_checktype(L, 3, Shape);
-  float friction = luaL_optnumber(L, 4, -1);
-  float restitution = luaL_optnumber(L, 5, -1);
+  float friction = luaL_optnumber(L, 4, -1.f);
+  float restitution = luaL_optnumber(L, 5, -1.f);
   lua_pushboolean(L, lovrWorldCollide(world, a, b, friction, restitution));
   return 1;
 }
@@ -181,7 +181,7 @@ int l_lovrWorldGetLinearDamping(lua_State* L) {
 int l_lovrWorldSetLinearDamping(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float damping = luaL_checknumber(L, 2);
-  float threshold = luaL_optnumber(L, 3, .01);
+  float threshold = luaL_optnumber(L, 3, .01f);
   lovrWorldSetLinearDamping(world, damping, threshold);
   return 0;
 }
@@ -198,7 +198,7 @@ int l_lovrWorldGetAngularDamping(lua_State* L) {
 int l_lovrWorldSetAngularDamping(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float damping = luaL_checknumber(L, 2);
-  float threshold = luaL_optnumber(L, 3, .01);
+  float threshold = luaL_optnumber(L, 3, .01f);
   lovrWorldSetAngularDamping(world, damping, threshold);
   return 0;
 }

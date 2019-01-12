@@ -172,16 +172,16 @@ static int l_lovrMat4GetTransform(lua_State* L) {
 
 static int l_lovrMat4SetTransform(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  float x = luaL_optnumber(L, 2, 0.);
-  float y = luaL_optnumber(L, 3, 0.);
-  float z = luaL_optnumber(L, 4, 0.);
-  float sx = luaL_optnumber(L, 5, 1.);
+  float x = luaL_optnumber(L, 2, 0.f);
+  float y = luaL_optnumber(L, 3, 0.f);
+  float z = luaL_optnumber(L, 4, 0.f);
+  float sx = luaL_optnumber(L, 5, 1.f);
   float sy = luaL_optnumber(L, 6, sx);
   float sz = luaL_optnumber(L, 7, sx);
-  float angle = luaL_optnumber(L, 8, 0.);
-  float ax = luaL_optnumber(L, 9, 0.);
-  float ay = luaL_optnumber(L, 10, 1.);
-  float az = luaL_optnumber(L, 11, 0.);
+  float angle = luaL_optnumber(L, 8, 0.f);
+  float ax = luaL_optnumber(L, 9, 0.f);
+  float ay = luaL_optnumber(L, 10, 1.f);
+  float az = luaL_optnumber(L, 11, 0.f);
   mat4_setTransform(m, x, y, z, sx, sy, sz, angle, ax, ay, az);
   lua_settop(L, 1);
   return 1;

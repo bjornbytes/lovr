@@ -14,7 +14,7 @@ typedef struct {
   Ref ref;
   stbtt_fontinfo font;
   Blob* blob;
-  int size;
+  float size;
   float scale;
   int glyphCount;
   int height;
@@ -38,7 +38,7 @@ typedef struct {
 
 typedef map_t(Glyph) map_glyph_t;
 
-Rasterizer* lovrRasterizerInit(Rasterizer* rasterizer, Blob* blob, int size);
+Rasterizer* lovrRasterizerInit(Rasterizer* rasterizer, Blob* blob, float size);
 #define lovrRasterizerCreate(...) lovrRasterizerInit(lovrAlloc(Rasterizer), __VA_ARGS__)
 void lovrRasterizerDestroy(void* ref);
 bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);

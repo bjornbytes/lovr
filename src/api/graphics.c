@@ -407,11 +407,7 @@ static int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
 }
 
 static int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
-  Color color;
-  color.r = luaL_checknumber(L, 1);
-  color.g = luaL_checknumber(L, 2);
-  color.b = luaL_checknumber(L, 3);
-  color.a = luaL_optnumber(L, 4, 1.);
+  Color color = luax_checkcolor(L, 1);
   lovrGraphicsSetBackgroundColor(color);
   return 0;
 }
@@ -481,7 +477,7 @@ static int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
 
 static int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
   FilterMode mode = luaL_checkoption(L, 1, NULL, FilterModes);
-  float anisotropy = luaL_optnumber(L, 2, 1.);
+  float anisotropy = luaL_optnumber(L, 2, 1.f);
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = mode, .anisotropy = anisotropy });
   return 0;
 }
@@ -670,7 +666,7 @@ static int l_lovrGraphicsClear(lua_State* L) {
       color.r = luaL_checknumber(L, index++);
       color.g = luaL_checknumber(L, index++);
       color.b = luaL_checknumber(L, index++);
-      color.a = luaL_optnumber(L, index++, 1.);
+      color.a = luaL_optnumber(L, index++, 1.f);
     } else {
       clearColor = lua_toboolean(L, index++);
     }
@@ -794,8 +790,8 @@ static int l_lovrGraphicsArc(lua_State* L) {
   }
   float transform[16];
   index = luax_readmat4(L, index, transform, 1, NULL);
-  float r1 = luaL_optnumber(L, index++, 0);
-  float r2 = luaL_optnumber(L, index++, 2 * M_PI);
+  float r1 = luaL_optnumber(L, index++, 0.f);
+  float r2 = luaL_optnumber(L, index++, 2.f * M_PI);
   int segments = luaL_optinteger(L, index, 64) * (MIN(fabsf(r2 - r1), 2 * M_PI) / (2 * M_PI));
   lovrGraphicsArc(style, mode, material, transform, r1, r2, segments);
   return 0;
@@ -811,7 +807,7 @@ static int l_lovrGraphicsCircle(lua_State* L) {
   }
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1, NULL);
-  int segments = luaL_optnumber(L, index, 32);
+  int segments = luaL_optinteger(L, index, 32);
   lovrGraphicsCircle(style, material, transform, segments);
   return 0;
 }
@@ -821,10 +817,10 @@ static int l_lovrGraphicsCylinder(lua_State* L) {
   int index = 1;
   Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
   index = luax_readmat4(L, index, transform, 1, NULL);
-  float r1 = luaL_optnumber(L, index++, 1.);
-  float r2 = luaL_optnumber(L, index++, 1.);
+  float r1 = luaL_optnumber(L, index++, 1.f);
+  float r2 = luaL_optnumber(L, index++, 1.f);
   bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
-  int segments = luaL_optnumber(L, index, floorf(16 + 16 * MAX(r1, r2)));
+  int segments = luaL_optinteger(L, index, (lua_Integer) floorf(16 + 16 * MAX(r1, r2)));
   lovrGraphicsCylinder(material, transform, r1, r2, capped, segments);
   return 0;
 }
@@ -834,17 +830,17 @@ static int l_lovrGraphicsSphere(lua_State* L) {
   int index = 1;
   Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
   index = luax_readmat4(L, index, transform, 1, NULL);
-  int segments = luaL_optnumber(L, index, 30);
+  int segments = luaL_optinteger(L, index, 30);
   lovrGraphicsSphere(material, transform, segments);
   return 0;
 }
 
 static int l_lovrGraphicsSkybox(lua_State* L) {
   Texture* texture = luax_checktexture(L, 1);
-  float angle = luaL_optnumber(L, 2, 0);
-  float ax = luaL_optnumber(L, 3, 0);
-  float ay = luaL_optnumber(L, 4, 1);
-  float az = luaL_optnumber(L, 5, 0);
+  float angle = luaL_optnumber(L, 2, 0.f);
+  float ax = luaL_optnumber(L, 3, 0.f);
+  float ay = luaL_optnumber(L, 4, 1.f);
+  float az = luaL_optnumber(L, 5, 0.f);
   lovrGraphicsSkybox(texture, angle, ax, ay, az);
   return 0;
 }
@@ -854,7 +850,7 @@ static int l_lovrGraphicsPrint(lua_State* L) {
   const char* str = luaL_checklstring(L, 1, &length);
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1, NULL);
-  float wrap = luaL_optnumber(L, index++, 0);
+  float wrap = luaL_optnumber(L, index++, 0.f);
   HorizontalAlign halign = luaL_checkoption(L, index++, "center", HorizontalAligns);
   VerticalAlign valign = luaL_checkoption(L, index++, "middle", VerticalAligns);
   lovrGraphicsPrint(str, length, transform, wrap, halign, valign);
@@ -877,10 +873,10 @@ static int l_lovrGraphicsStencil(lua_State* L) {
 
 static int l_lovrGraphicsFill(lua_State* L) {
   Texture* texture = lua_isnoneornil(L, 1) ? NULL : luax_checktexture(L, 1);
-  float u = luaL_optnumber(L, 2, 0.);
-  float v = luaL_optnumber(L, 3, 0.);
-  float w = luaL_optnumber(L, 4, 1. - u);
-  float h = luaL_optnumber(L, 5, 1. - v);
+  float u = luaL_optnumber(L, 2, 0.f);
+  float v = luaL_optnumber(L, 3, 0.f);
+  float w = luaL_optnumber(L, 4, 1.f - u);
+  float h = luaL_optnumber(L, 5, 1.f - v);
   lovrGraphicsFill(texture, u, v, w, h);
   return 0;
 }
@@ -1068,10 +1064,10 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
     float size;
 
     if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
-      size = luaL_optnumber(L, 1, 32);
+      size = luaL_optinteger(L, 1, 32);
     } else {
       blob = luax_readblob(L, 1, "Font");
-      size = luaL_optnumber(L, 2, 32);
+      size = luaL_optinteger(L, 2, 32);
     }
 
     rasterizer = lovrRasterizerCreate(blob, size);

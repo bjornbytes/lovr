@@ -275,13 +275,13 @@ Color luax_checkcolor(lua_State* L, int index) {
     color.r = luaL_checknumber(L, -4);
     color.g = luaL_checknumber(L, -3);
     color.b = luaL_checknumber(L, -2);
-    color.a = luaL_optnumber(L, -1, 1);
+    color.a = luaL_optnumber(L, -1, 1.f);
     lua_pop(L, 4);
   } else if (lua_gettop(L) >= index + 2) {
     color.r = luaL_checknumber(L, index);
     color.g = luaL_checknumber(L, index + 1);
     color.b = luaL_checknumber(L, index + 2);
-    color.a = luaL_optnumber(L, index + 3, 1);
+    color.a = luaL_optnumber(L, index + 3, 1.f);
   } else {
     luaL_error(L, "Invalid color, expected 3 numbers, 4 numbers, or a table");
   }

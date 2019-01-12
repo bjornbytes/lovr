@@ -59,7 +59,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
       }
 
       switch (uniformType) {
-        case UNIFORM_FLOAT: *((float*) dest + i) = luaL_optnumber(L, j, 0.); break;
+        case UNIFORM_FLOAT: *((float*) dest + i) = luaL_optnumber(L, j, 0.f); break;
         case UNIFORM_INT: *((int*) dest + i) = luaL_optinteger(L, j, 0); break;
         case UNIFORM_SAMPLER:
           *((Texture**) dest + i) = luax_checktype(L, j, Texture);
@@ -121,7 +121,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
           switch (uniformType) {
             case UNIFORM_FLOAT:
             case UNIFORM_MATRIX:
-              *((float*) dest + i * components + j) = luaL_optnumber(L, -1, 0.);
+              *((float*) dest + i * components + j) = luaL_optnumber(L, -1, 0.f);
               break;
 
             case UNIFORM_INT:
@@ -160,11 +160,11 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
           switch (uniformType) {
             case UNIFORM_FLOAT:
             case UNIFORM_MATRIX:
-              *((float*) dest + i * components + j) = luaL_optnumber(L, -1, 0.);
+              *((float*) dest + i * components + j) = luaL_optnumber(L, -1, 0.f);
               break;
 
             case UNIFORM_INT:
-              *((float*) dest + i * components + j) = luaL_optinteger(L, -1, 0);
+              *((int*) dest + i * components + j) = luaL_optinteger(L, -1, 0);
               break;
 
             case UNIFORM_SAMPLER:

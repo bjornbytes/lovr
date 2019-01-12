@@ -10,10 +10,10 @@ int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
       quat_set(q, 0, 0, 0, 0);
       return ++index;
     case LUA_TNUMBER:
-      angle = luaL_optnumber(L, index++, 0.);
-      ax = luaL_optnumber(L, index++, 0.);
-      ay = luaL_optnumber(L, index++, 1.);
-      az = luaL_optnumber(L, index++, 0.);
+      angle = luaL_optnumber(L, index++, 0.f);
+      ax = luaL_optnumber(L, index++, 0.f);
+      ay = luaL_optnumber(L, index++, 1.f);
+      az = luaL_optnumber(L, index++, 0.f);
       quat_fromAngleAxis(q, angle, ax, ay, az);
       return index;
     default:

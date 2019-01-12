@@ -76,8 +76,8 @@ int l_lovrControllerIsTouched(lua_State* L) {
 
 int l_lovrControllerVibrate(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  float duration = luaL_optnumber(L, 2, .5);
-  float power = luaL_optnumber(L, 3, 1);
+  float duration = luaL_optnumber(L, 2, .5f);
+  float power = luaL_optnumber(L, 3, 1.f);
   lovrHeadsetDriver->controllerVibrate(controller, duration, power);
   return 0;
 }

@@ -199,7 +199,7 @@ int l_lovrVertexDataSetVertices(lua_State* L) {
   VertexFormat* format = &vertexData->format;
   luaL_checktype(L, 2, LUA_TTABLE);
   uint32_t vertexCount = lua_objlen(L, 2);
-  int start = luaL_optnumber(L, 3, 1) - 1;
+  int start = luaL_optinteger(L, 3, 1) - 1;
   lovrAssert(start + vertexCount <= vertexData->count, "VertexData can only hold %d vertices", vertexData->count);
   VertexPointer vertices = { .raw = vertexData->blob.data };
   vertices.bytes += start * format->stride;

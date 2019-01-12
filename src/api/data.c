@@ -55,10 +55,10 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
   float size;
 
   if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
-    size = luaL_optnumber(L, 1, 32);
+    size = luaL_optnumber(L, 1, 32.f);
   } else {
     blob = luax_readblob(L, 1, "Font");
-    size = luaL_optnumber(L, 2, 32);
+    size = luaL_optnumber(L, 2, 32.f);
   }
 
   Rasterizer* rasterizer = lovrRasterizerCreate(blob, size);
@@ -99,8 +99,8 @@ static int l_lovrDataNewSoundData(lua_State* L) {
 static int l_lovrDataNewTextureData(lua_State* L) {
   TextureData* textureData = NULL;
   if (lua_type(L, 1) == LUA_TNUMBER) {
-    int width = luaL_checknumber(L, 1);
-    int height = luaL_checknumber(L, 2);
+    int width = luaL_checkinteger(L, 1);
+    int height = luaL_checkinteger(L, 2);
     TextureFormat format = luaL_checkoption(L, 3, "rgba", TextureFormats);
     textureData = lovrTextureDataCreate(width, height, 0x0, format);
   } else {

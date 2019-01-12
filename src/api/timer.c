@@ -12,7 +12,7 @@ static int l_lovrTimerGetAverageDelta(lua_State* L) {
 }
 
 static int l_lovrTimerGetFPS(lua_State* L) {
-  lua_pushnumber(L, lovrTimerGetFPS());
+  lua_pushinteger(L, lovrTimerGetFPS());
   return 1;
 }
 

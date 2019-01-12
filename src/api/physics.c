@@ -19,7 +19,7 @@ const char* JointTypes[] = {
 
 static int l_lovrPhysicsNewWorld(lua_State* L) {
   float xg = luaL_optnumber(L, 1, 0.f);
-  float yg = luaL_optnumber(L, 2, -9.81);
+  float yg = luaL_optnumber(L, 2, -9.81f);
   float zg = luaL_optnumber(L, 3, 0.f);
   bool allowSleep = lua_gettop(L) < 4 || lua_toboolean(L, 4);
   const char* tags[16];

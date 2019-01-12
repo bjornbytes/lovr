@@ -355,12 +355,12 @@ int luaopen_lovr_headset(lua_State* L) {
 
     // Offset
     lua_getfield(L, -1, "offset");
-    offset = luaL_optnumber(L, -1, 1.7);
+    offset = luaL_optnumber(L, -1, 1.7f);
     lua_pop(L, 1);
 
     // MSAA
     lua_getfield(L, -1, "msaa");
-    msaa = luaL_optnumber(L, -1, 4);
+    msaa = luaL_optinteger(L, -1, 4);
     lua_pop(L, 1);
   }
 

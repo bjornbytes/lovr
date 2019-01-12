@@ -26,8 +26,8 @@ int l_lovrCurveGetTangent(lua_State* L) {
 int l_lovrCurveRender(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   int n = luaL_optinteger(L, 2, 32);
-  float t1 = luaL_optnumber(L, 3, 0.f);
-  float t2 = luaL_optnumber(L, 4, 1.f);
+  float t1 = luaL_optnumber(L, 3, 0.);
+  float t2 = luaL_optnumber(L, 4, 1.);
   float* points = malloc(3 * n * sizeof(float));
   lovrCurveRender(curve, t1, t2, points, n);
   lua_createtable(L, n, 0);
