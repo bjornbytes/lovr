@@ -31,7 +31,7 @@ static void onResizeWindow(int width, int height) {
 }
 
 static const size_t BUFFER_COUNTS[] = {
-  [STREAM_VERTEX] = 1 << 16,
+  [STREAM_VERTEX] = 1 << 16 - 1,
   [STREAM_INDEX] = 1 << 16,
   [STREAM_DRAW_ID] = 1 << 16,
   [STREAM_DRAW_DATA] = 256 * MAX_BATCHES * 2
@@ -730,12 +730,10 @@ void lovrGraphicsFlush() {
         batch->indexCount = cached->indexCount = indexCount * n;
         flushGeometry = true;
 
-        if (!instanced) {
-          uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, batch->vertexCount);
-          for (int i = 0; i < n; i++) {
-            memset(ids, i, vertexCount * sizeof(uint8_t));
-            ids += vertexCount;
-          }
+        uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, batch->vertexCount);
+        for (int i = 0; i < n; i++) {
+          memset(ids, i, vertexCount * sizeof(uint8_t));
+          ids += vertexCount;
         }
 
         state.cursors[STREAM_VERTEX] += batch->vertexCount;
