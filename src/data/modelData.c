@@ -106,6 +106,8 @@ static void preparse(const char* json, jsmntok_t* tokens, int tokenCount, ModelD
             }
           }
         }
+        info->totalSize += model->animationChannelCount * sizeof(ModelAnimationChannel);
+        info->totalSize += model->animationSamplerCount * sizeof(ModelAnimationSampler);
         break;
       case HASH16("buffers"):
         info->blobs = token;
@@ -122,7 +124,7 @@ static void preparse(const char* json, jsmntok_t* tokens, int tokenCount, ModelD
       case HASH16("images"):
         info->images = token;
         model->imageCount = token->size;
-        info->totalSize += token->size * sizeof(TextureData);
+        info->totalSize += token->size * sizeof(TextureData*);
         token += NOM_VALUE(json, token);
         break;
       case HASH16("samplers"):
