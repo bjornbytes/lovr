@@ -3,6 +3,7 @@
 #include "lib/jsmn/jsmn.h"
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define MAGIC_glTF 0x46546c67
 #define MAGIC_JSON 0x4e4f534a
@@ -199,6 +200,9 @@ static void parseAccessors(const char* json, jsmntok_t* token, ModelData* model)
             case HASH16("VEC2"): accessor->components += 2; break;
             case HASH16("VEC3"): accessor->components += 3; break;
             case HASH16("VEC4"): accessor->components += 4; break;
+            case HASH16("MAT2"): accessor->components += 2; accessor->matrix = true; break;
+            case HASH16("MAT3"): accessor->components += 3; accessor->matrix = true; break;
+            case HASH16("MAT4"): accessor->components += 4; accessor->matrix = true; break;
             default: lovrThrow("Unsupported accessor type"); break;
           }
           break;
@@ -312,7 +316,7 @@ static void parseAnimations(const char* json, jsmntok_t* token, ModelData* model
   }
 }
 
-static void parseBlobs(const char* json, jsmntok_t* token, ModelData* model, ModelDataIO io, void* binData) {
+static void parseBlobs(const char* json, jsmntok_t* token, ModelData* model, ModelDataIO io, const char* basePath, void* binData) {
   if (!token) return;
 
   int count = (token++)->size;
@@ -327,12 +331,11 @@ static void parseBlobs(const char* json, jsmntok_t* token, ModelData* model, Mod
         case HASH16("byteLength"): blob->size = NOM_INT(json, token); break;
         case HASH16("uri"):
           hasUri = true;
-          char* filename = (char*) json + token->start;
-          size_t length = token->end - token->start;
-          filename[length] = '\0'; // Change the quote into a terminator (I'll be b0k)
+          char filename[1024];
+          int length = token->end - token->start;
+          snprintf(filename, 1024, "%s/%.*s%c", basePath, length, (char*) json + token->start, 0);
           blob->data = io.read(filename, &bytesRead);
           lovrAssert(blob->data, "Unable to read %s", filename);
-          filename[length] = '"';
           break;
         default: token += NOM_VALUE(json, token); break;
       }
@@ -367,7 +370,7 @@ static void parseViews(const char* json, jsmntok_t* token, ModelData* model) {
   }
 }
 
-static void parseImages(const char* json, jsmntok_t* token, ModelData* model, ModelDataIO io) {
+static void parseImages(const char* json, jsmntok_t* token, ModelData* model, ModelDataIO io, const char* basePath) {
   if (!token) return;
 
   int count = (token++)->size;
@@ -388,12 +391,11 @@ static void parseImages(const char* json, jsmntok_t* token, ModelData* model, Mo
         }
         case HASH16("uri"): {
           size_t size = 0;
-          char* uri = (char*) json + token->start;
-          size_t length = token->end - token->start;
-          uri[length] = '\0'; // Change the quote into a terminator (I'll be b0k)
-          void* data = io.read(uri, &size);
-          lovrAssert(data && size > 0, "Unable to read image at '%s'", uri);
-          uri[length] = '"';
+          char filename[1024];
+          int length = token->end - token->start;
+          snprintf(filename, 1024, "%s/%.*s%c", basePath, length, (char*) json + token->start, 0);
+          void* data = io.read(filename, &size);
+          lovrAssert(data && size > 0, "Unable to read image from '%s'", filename);
           Blob* blob = lovrBlobCreate(data, size, NULL);
           *image = lovrTextureDataCreateFromBlob(blob, true);
           lovrRelease(blob);
@@ -697,6 +699,11 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
   const char *jsonData, *binData;
   size_t jsonLength, binLength;
 
+  char basePath[1024];
+  strncpy(basePath, blob->name, 1023);
+  char* slash = strrchr(basePath, '/');
+  if (slash) *slash = 0;
+
   if (glb) {
     gltfChunkHeader* jsonHeader = (gltfChunkHeader*) &header[1];
     lovrAssert(jsonHeader->type == MAGIC_JSON, "Invalid JSON header");
@@ -753,9 +760,9 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io) {
 
   parseAccessors(jsonData, info.accessors, model);
   parseAnimations(jsonData, info.animations, model);
-  parseBlobs(jsonData, info.blobs, model, io, (void*) binData);
+  parseBlobs(jsonData, info.blobs, model, io, basePath, (void*) binData);
   parseViews(jsonData, info.views, model);
-  parseImages(jsonData, info.images, model, io);
+  parseImages(jsonData, info.images, model, io, basePath);
   parseSamplers(jsonData, info.samplers, model);
   parseTextures(jsonData, info.textures, model);
   parseMaterials(jsonData, info.materials, model);
