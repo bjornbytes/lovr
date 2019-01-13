@@ -2,17 +2,15 @@
 #include "graphics/graphics.h"
 #include "resources/shaders.h"
 
-static void updateGlobalTransform(Model* model, mat4 parentTransform, int nodeIndex) {
+static void renderNode(Model* model, uint32_t nodeIndex, mat4 transform, int instances) {
   ModelNode* node = &model->data->nodes[nodeIndex];
-  mat4 transform = &model->globalNodeTransforms[16 * nodeIndex];
-  mat4_multiply(mat4_init(transform, parentTransform), node->transform);
-  for (uint32_t i = 0; i < node->childCount; i++) {
-    updateGlobalTransform(model, transform, node->children[i]);
-  }
-}
 
-static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
-  ModelNode* node = &model->data->nodes[nodeIndex];
+  float globalTransform[16];
+  mat4_init(globalTransform, transform);
+
+  if (!model->animator || !lovrAnimatorEvaluate(model->animator, nodeIndex, globalTransform)) {
+    mat4_multiply(globalTransform, node->transform);
+  }
 
   if (node->mesh >= 0) {
     ModelMesh* modelMesh = &model->data->meshes[node->mesh];
@@ -32,17 +30,17 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
           .mode = primitive->mode,
           .rangeStart = rangeStart,
           .rangeCount = rangeCount,
-          .pose = (float*) model->pose,
-          .instances = instances
+          .instances = instances,
+          .pose = NULL
         },
-        .transform = &model->globalNodeTransforms[16 * nodeIndex],
+        .transform = globalTransform
         //.material = model->materials[modelMesh->material]
       });
     }
   }
 
   for (uint32_t i = 0; i < node->childCount; i++) {
-    renderNode(model, node->children[i], instances);
+    renderNode(model, node->children[i], globalTransform, instances);
   }
 }
 
@@ -103,15 +101,6 @@ Model* lovrModelInit(Model* model, ModelData* data) {
     }
   }
 
-  // TODO use root instead of 0
-  float identity[16] = MAT4_IDENTITY;
-  model->globalNodeTransforms = malloc(16 * model->data->nodeCount * sizeof(float));
-  updateGlobalTransform(model, identity, 0);
-
-  for (int i = 0; i < MAX_BONES; i++) {
-    mat4_identity(model->pose[i]);
-  }
-
   return model;
 }
 
@@ -124,12 +113,10 @@ void lovrModelDestroy(void* ref) {
     lovrRelease(model->meshes[i]);
   }
   lovrRelease(model->data);
-  free(model->globalNodeTransforms);
 }
 
 void lovrModelDraw(Model* model, mat4 transform, int instances) {
-  lovrGraphicsPush();
-  lovrGraphicsMatrixTransform(transform);
-  renderNode(model, 0, instances); // TODO use root
-  lovrGraphicsPop();
+  for (int i = 0; i < model->data->nodeCount; i++) {
+    renderNode(model, i, transform, instances); // TODO use root
+  }
 }
