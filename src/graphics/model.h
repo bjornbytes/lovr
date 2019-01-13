@@ -1,4 +1,5 @@
 #include "data/modelData.h"
+#include "graphics/animator.h"
 #include "graphics/mesh.h"
 #include "lib/math.h"
 #include "util.h"
@@ -8,10 +9,9 @@
 typedef struct {
   Ref ref;
   ModelData* data;
+  Animator* animator;
   Buffer** buffers;
   Mesh** meshes;
-  float* globalNodeTransforms;
-  float pose[MAX_BONES][16];
 } Model;
 
 Model* lovrModelInit(Model* model, ModelData* data);

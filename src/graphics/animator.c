@@ -67,9 +67,9 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
 
 bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
   ModelData* modelData = animator->modelData;
-  float mixedTranslation[3] = { 0, 0, 0 };
-  float mixedRotation[4] = { 0, 0, 0, 1 };
-  float mixedScale[3] = { 1, 1, 1 };
+  float translation[3] = { 0, 0, 0 };
+  float rotation[4] = { 0, 0, 0, 1 };
+  float scale[3] = { 1, 1, 1 };
 
   Track* track; int i;
   bool touched = false;
@@ -102,7 +102,12 @@ bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
         }
       }
 
+      float t1 = *(float*) (times + timeView->stride * k);
+      float t2 = *(float*) (times + timeView->stride * (k + 1));
+      float z = (time - t1) / (t2 - t1);
       float value[4];
+      float next[4];
+
       switch (channel->property) {
         case PROP_TRANSLATION:
           if (k == 0) {
@@ -110,135 +115,47 @@ bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
           } else if (k >= timeAccessor->count) {
             vec3_init(value, (float*) values + valueView->stride * (valueAccessor->count - 1));
           } else {
-            float next[4];
-            float t1 = *(float*) (times + timeView->stride * k);
-            float t2 = *(float*) (times + timeView->stride * (k + 1));
-            float z = (time - t1) / (t2 - t1);
             vec3_init(value, (float*) values + valueView->stride * k);
             vec3_init(next, (float*) values + valueView->stride * (k + 1));
             vec3_lerp(value, next, z);
           }
-          vec3_lerp(mixedTranslation, value, track->alpha);
+          vec3_lerp(translation, value, track->alpha);
           touched = true;
           break;
         case PROP_ROTATION:
           if (k == 0) {
-            //quat_init(value, ...);
+            quat_init(value, (float*) values);
           } else if (k >= timeAccessor->count) {
-            //quat_init(value, ...);
+            quat_init(value, (float*) values + valueView->stride * (valueAccessor->count - 1));
           } else {
-            // Interpolate
+            quat_init(value, (float*) values + valueView->stride * k);
+            quat_init(next, (float*) values + valueView->stride * (k + 1));
+            quat_slerp(value, next, z);
           }
+          quat_slerp(rotation, value, track->alpha);
+          touched = true;
           break;
         case PROP_SCALE:
           if (k == 0) {
-            //vec3_init(value, ...);
+            vec3_init(value, (float*) values);
           } else if (k >= timeAccessor->count) {
-            //vec3_init(value, ...);
+            vec3_init(value, (float*) values + valueView->stride * (valueAccessor->count - 1));
           } else {
-            // Interpolate
+            vec3_init(value, (float*) values + valueView->stride * k);
+            vec3_init(next, (float*) values + valueView->stride * (k + 1));
+            vec3_lerp(value, next, z);
           }
+          vec3_lerp(scale, value, track->alpha);
+          touched = true;
           break;
       }
     }
-
-    /*
-    // Position
-    if (channel->positionKeyframes.length > 0) {
-      i = 0;
-      while (i < channel->positionKeyframes.length) {
-        if (channel->positionKeyframes.data[i].time >= time) {
-          break;
-        } else {
-          i++;
-        }
-      }
-
-      float translation[3];
-      if (i == 0) {
-        Keyframe keyframe = channel->positionKeyframes.data[0];
-        vec3_init(translation, keyframe.data);
-      } else if (i >= channel->positionKeyframes.length) {
-        Keyframe keyframe = channel->positionKeyframes.data[channel->positionKeyframes.length - 1];
-        vec3_init(translation, keyframe.data);
-      } else {
-        Keyframe before, after;
-        before = channel->positionKeyframes.data[i - 1];
-        after = channel->positionKeyframes.data[i];
-        float t = (time - before.time) / (after.time - before.time);
-        vec3_lerp(vec3_init(translation, before.data), after.data, t);
-      }
-
-      vec3_lerp(mixedTranslation, translation, track->alpha);
-      touched = true;
-    }
-
-    // Rotation
-    if (channel->rotationKeyframes.length > 0) {
-      i = 0;
-      while (i < channel->rotationKeyframes.length) {
-        if (channel->rotationKeyframes.data[i].time >= time) {
-          break;
-        } else {
-          i++;
-        }
-      }
-
-      float rotation[4];
-      if (i == 0) {
-        Keyframe keyframe = channel->rotationKeyframes.data[0];
-        quat_init(rotation, keyframe.data);
-      } else if (i >= channel->rotationKeyframes.length) {
-        Keyframe keyframe = channel->rotationKeyframes.data[channel->rotationKeyframes.length - 1];
-        quat_init(rotation, keyframe.data);
-      } else {
-        Keyframe before, after;
-        before = channel->rotationKeyframes.data[i - 1];
-        after = channel->rotationKeyframes.data[i];
-        float t = (time - before.time) / (after.time - before.time);
-        quat_slerp(quat_init(rotation, before.data), after.data, t);
-      }
-
-      quat_slerp(mixedRotation, rotation, track->alpha);
-      touched = true;
-    }
-
-    // Scale
-    if (channel->scaleKeyframes.length > 0) {
-      i = 0;
-      while (i < channel->scaleKeyframes.length) {
-        if (channel->scaleKeyframes.data[i].time >= time) {
-          break;
-        } else {
-          i++;
-        }
-      }
-
-      float scale[3];
-      if (i == 0) {
-        Keyframe keyframe = channel->scaleKeyframes.data[0];
-        vec3_init(scale, keyframe.data);
-      } else if (i >= channel->scaleKeyframes.length) {
-        Keyframe keyframe = channel->scaleKeyframes.data[channel->scaleKeyframes.length - 1];
-        vec3_init(scale, keyframe.data);
-      } else {
-        Keyframe before, after;
-        before = channel->scaleKeyframes.data[i - 1];
-        after = channel->scaleKeyframes.data[i];
-        float t = (time - before.time) / (after.time - before.time);
-        vec3_lerp(vec3_init(scale, before.data), after.data, t);
-      }
-
-      vec3_lerp(mixedScale, scale, track->alpha);
-      touched = true;
-    }
-    */
   }
 
   if (touched) {
-    mat4_translate(transform, mixedTranslation[0], mixedTranslation[1], mixedTranslation[2]);
-    mat4_rotateQuat(transform, mixedRotation);
-    mat4_scale(transform, mixedScale[0], mixedScale[1], mixedScale[2]);
+    mat4_translate(transform, translation[0], translation[1], translation[2]);
+    mat4_rotateQuat(transform, rotation);
+    mat4_scale(transform, scale[0], scale[1], scale[2]);
   }
 
   return touched;
