@@ -101,6 +101,7 @@ typedef struct {
   bool normalized : 1;
   bool hasMin : 1;
   bool hasMax : 1;
+  bool matrix : 1;
 } ModelAccessor;
 
 typedef struct {
