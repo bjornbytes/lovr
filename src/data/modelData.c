@@ -426,17 +426,17 @@ static void parseSamplers(const char* json, jsmntok_t* token, ModelData* model) 
         case HASH16("minFilter"): mag = NOM_INT(json, token); break;
         case HASH16("wrapS"):
           switch (NOM_INT(json, token)) {
-            case 33071: sampler->wrap.s = WRAP_CLAMP;
-            case 33648: sampler->wrap.s = WRAP_MIRRORED_REPEAT;
-            case 10497: sampler->wrap.s = WRAP_REPEAT;
+            case 33071: sampler->wrap.s = WRAP_CLAMP; break;
+            case 33648: sampler->wrap.s = WRAP_MIRRORED_REPEAT; break;
+            case 10497: sampler->wrap.s = WRAP_REPEAT; break;
             default: lovrThrow("Unknown sampler wrapS mode for sampler %d", i);
           }
           break;
         case HASH16("wrapT"):
           switch (NOM_INT(json, token)) {
-            case 33071: sampler->wrap.t = WRAP_CLAMP;
-            case 33648: sampler->wrap.t = WRAP_MIRRORED_REPEAT;
-            case 10497: sampler->wrap.t = WRAP_REPEAT;
+            case 33071: sampler->wrap.t = WRAP_CLAMP; break;
+            case 33648: sampler->wrap.t = WRAP_MIRRORED_REPEAT; break;
+            case 10497: sampler->wrap.t = WRAP_REPEAT; break;
             default: lovrThrow("Unknown sampler wrapT mode for sampler %d", i);
           }
           break;
