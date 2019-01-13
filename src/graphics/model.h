@@ -18,3 +18,5 @@ Model* lovrModelInit(Model* model, ModelData* data);
 #define lovrModelCreate(...) lovrModelInit(lovrAlloc(Model), __VA_ARGS__)
 void lovrModelDestroy(void* ref);
 void lovrModelDraw(Model* model, mat4 transform, int instances);
+Animator* lovrModelGetAnimator(Model* model);
+void lovrModelSetAnimator(Model* model, Animator* animator);

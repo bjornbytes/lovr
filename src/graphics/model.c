@@ -8,8 +8,22 @@ static void renderNode(Model* model, uint32_t nodeIndex, mat4 transform, int ins
   float globalTransform[16];
   mat4_init(globalTransform, transform);
 
-  if (!model->animator || !lovrAnimatorEvaluate(model->animator, nodeIndex, globalTransform)) {
-    mat4_multiply(globalTransform, node->transform);
+  float pose[16 * MAX_BONES];
+  if (node->skin >= 0 && model->animator) {
+    ModelSkin* skin = &model->data->skins[node->skin];
+
+    for (uint32_t j = 0; j < skin->jointCount; j++) {
+      mat4_identity(pose + 16 * j);
+      lovrAnimatorEvaluate(model->animator, skin->joints[j], pose + 16 * j);
+    }
+
+    if (!lovrAnimatorEvaluate(model->animator, skin->skeleton, globalTransform)) {
+      mat4_multiply(globalTransform, node->transform);
+    }
+  } else {
+    if (!model->animator || !lovrAnimatorEvaluate(model->animator, nodeIndex, globalTransform)) {
+      mat4_multiply(globalTransform, node->transform);
+    }
   }
 
   if (node->mesh >= 0) {
@@ -31,7 +45,7 @@ static void renderNode(Model* model, uint32_t nodeIndex, mat4 transform, int ins
           .rangeStart = rangeStart,
           .rangeCount = rangeCount,
           .instances = instances,
-          .pose = NULL
+          .pose = node->skin >= 0 ? pose : NULL
         },
         .transform = globalTransform
         //.material = model->materials[modelMesh->material]
@@ -117,4 +131,16 @@ void lovrModelDestroy(void* ref) {
 
 void lovrModelDraw(Model* model, mat4 transform, int instances) {
   renderNode(model, 0, transform, instances); // TODO use root
+}
+
+Animator* lovrModelGetAnimator(Model* model) {
+  return model->animator;
+}
+
+void lovrModelSetAnimator(Model* model, Animator* animator) {
+  if (model->animator != animator) {
+    lovrRetain(animator);
+    lovrRelease(model->animator);
+    model->animator = animator;
+  }
 }
