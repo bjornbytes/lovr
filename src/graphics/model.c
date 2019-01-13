@@ -116,7 +116,5 @@ void lovrModelDestroy(void* ref) {
 }
 
 void lovrModelDraw(Model* model, mat4 transform, int instances) {
-  for (int i = 0; i < model->data->nodeCount; i++) {
-    renderNode(model, i, transform, instances); // TODO use root
-  }
+  renderNode(model, 0, transform, instances); // TODO use root
 }
