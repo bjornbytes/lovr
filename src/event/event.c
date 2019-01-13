@@ -5,6 +5,14 @@
 
 static EventState state;
 
+void lovrVariantDestroy(Variant* variant) {
+  switch (variant->type) {
+    case TYPE_STRING: free(variant->value.string); return;
+    case TYPE_OBJECT: lovrRelease(variant->value.ref); return;
+    default: return;
+  }
+}
+
 bool lovrEventInit() {
   if (state.initialized) return false;
   vec_init(&state.pumps);

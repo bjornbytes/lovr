@@ -57,8 +57,8 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_NIL: lua_pushnil(L); return 1;
     case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
-    case TYPE_STRING: lua_pushstring(L, variant->value.string); free(variant->value.string); return 1;
-    case TYPE_OBJECT: luax_pushobject(L, variant->value.ref); lovrRelease(variant->value.ref); return 1;
+    case TYPE_STRING: lua_pushstring(L, variant->value.string); return 1;
+    case TYPE_OBJECT: luax_pushobject(L, variant->value.ref); return 1;
   }
 }
 
@@ -109,7 +109,9 @@ static int nextEvent(lua_State* L) {
 
     case EVENT_CUSTOM:
       for (int i = 0; i < event.data.custom.count; i++) {
-        luax_pushvariant(L, &event.data.custom.data[i]);
+        Variant* variant = &event.data.custom.data[i];
+        luax_pushvariant(L, variant);
+        lovrVariantDestroy(variant);
       }
       return event.data.custom.count + 1;
 

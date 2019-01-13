@@ -37,7 +37,9 @@ int l_lovrChannelPop(lua_State* L) {
   Channel* channel = luax_checktype(L, 1, Channel);
   luax_checktimeout(L, 2, &timeout);
   if (lovrChannelPop(channel, &variant, timeout)) {
-    return luax_pushvariant(L, &variant);
+    luax_pushvariant(L, &variant);
+    lovrVariantDestroy(&variant);
+    return 1;
   }
   lua_pushnil(L);
   return 1;
