@@ -76,8 +76,8 @@ bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
   vec_foreach_ptr(&animator->tracks, track, i) {
     ModelAnimation* animation = &modelData->animations[i];
 
-    for (int i = 0; i < animation->channelCount; i++) {
-      ModelAnimationChannel* channel = &animation->channels[i];
+    for (int j = 0; j < animation->channelCount; j++) {
+      ModelAnimationChannel* channel = &animation->channels[j];
 
       if (!track->playing || channel->nodeIndex != nodeIndex) {
         continue;
