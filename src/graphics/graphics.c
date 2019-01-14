@@ -31,7 +31,7 @@ static void onResizeWindow(int width, int height) {
 }
 
 static const size_t BUFFER_COUNTS[] = {
-  [STREAM_VERTEX] = 1 << 16 - 1,
+  [STREAM_VERTEX] = (1 << 16) - 1,
   [STREAM_INDEX] = 1 << 16,
   [STREAM_DRAW_ID] = 1 << 16,
   [STREAM_DRAW_DATA] = 256 * MAX_BATCHES * 2
