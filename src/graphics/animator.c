@@ -1,6 +1,7 @@
 #include "graphics/animator.h"
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 static int trackSortCallback(const void* a, const void* b) {
   return ((Track*) a)->priority < ((Track*) b)->priority;
@@ -15,16 +16,23 @@ Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData) {
 
   for (int i = 0; i < modelData->animationCount; i++) {
     Track track = {
-      .time = 0,
-      .speed = 1,
+      .time = 0.f,
+      .speed = 1.f,
+      .alpha = 1.f,
+      .duration = 0.f,
       .priority = 0,
-      .alpha = 1,
       .playing = false,
       .looping = false
     };
 
-    // TODO to get track duration: loop over samplers in animation, check max property of times
-    // accessor (it's guaranteed to be there by the spec), and keep MAX-ing that.
+    ModelAnimation* animation = &modelData->animations[i];
+    for (int j = 0; j < animation->samplerCount; j++) {
+      ModelAnimationSampler* sampler = &modelData->animationSamplers[j];
+      ModelAccessor* times = &modelData->accessors[sampler->times];
+      if (times->hasMax) {
+        track.duration = MAX(track.duration, times->max[0]);
+      }
+    }
 
     vec_push(&animator->tracks, track);
   }
@@ -67,9 +75,7 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
 
 bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
   ModelData* modelData = animator->modelData;
-  float translation[3] = { 0, 0, 0 };
-  float rotation[4] = { 0, 0, 0, 1 };
-  float scale[3] = { 1, 1, 1 };
+  float properties[3][4] = { { 0, 0, 0 }, { 0, 0, 0, 1 }, { 1, 1, 1 } };
 
   Track* track; int i;
   bool touched = false;
@@ -91,71 +97,94 @@ bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
       ModelView* valueView = &modelData->views[valueAccessor->view];
       uint8_t* times = (uint8_t*) modelData->blobs[timeView->blob].data + timeView->offset + timeAccessor->offset;
       uint8_t* values = (uint8_t*) modelData->blobs[valueView->blob].data + valueView->offset + valueAccessor->offset;
+      size_t timeStride = timeView->stride ? timeView->stride : sizeof(float);
+      size_t valueStride = valueView->stride ? valueView->stride : (sizeof(float) * valueAccessor->components);
 
       int k = 0;
       while (k < timeAccessor->count) {
-        float timestamp = *(float*) (times + timeView->stride * k);
-        if (time >= timestamp) {
+        float timestamp = *(float*) (times + timeStride * k);
+        if (timestamp >= time) {
           break;
         } else {
           k++;
         }
       }
 
-      float t1 = *(float*) (times + timeView->stride * k);
-      float t2 = *(float*) (times + timeView->stride * (k + 1));
-      float z = (time - t1) / (t2 - t1);
+      float z = 0.f;
       float value[4];
       float next[4];
+      if (k > 0 && k < timeAccessor->count - 1) {
+        float t1 = *(float*) (times + timeStride * (k - 1));
+        float t2 = *(float*) (times + timeStride * k);
+        z = (time - t1) / (t2 - t1);
+      }
 
       switch (channel->property) {
         case PROP_TRANSLATION:
-          if (k == 0) {
-            vec3_init(value, (float*) values);
-          } else if (k >= timeAccessor->count) {
-            vec3_init(value, (float*) values + valueView->stride * (valueAccessor->count - 1));
-          } else {
-            vec3_init(value, (float*) values + valueView->stride * k);
-            vec3_init(next, (float*) values + valueView->stride * (k + 1));
-            vec3_lerp(value, next, z);
-          }
-          vec3_lerp(translation, value, track->alpha);
-          touched = true;
-          break;
-        case PROP_ROTATION:
-          if (k == 0) {
-            quat_init(value, (float*) values);
-          } else if (k >= timeAccessor->count) {
-            quat_init(value, (float*) values + valueView->stride * (valueAccessor->count - 1));
-          } else {
-            quat_init(value, (float*) values + valueView->stride * k);
-            quat_init(next, (float*) values + valueView->stride * (k + 1));
-            quat_slerp(value, next, z);
-          }
-          quat_slerp(rotation, value, track->alpha);
-          touched = true;
-          break;
         case PROP_SCALE:
           if (k == 0) {
             vec3_init(value, (float*) values);
           } else if (k >= timeAccessor->count) {
-            vec3_init(value, (float*) values + valueView->stride * (valueAccessor->count - 1));
+            vec3_init(value, (float*) ((uint8_t*) values + valueStride * (valueAccessor->count - 1)));
           } else {
-            vec3_init(value, (float*) values + valueView->stride * k);
-            vec3_init(next, (float*) values + valueView->stride * (k + 1));
-            vec3_lerp(value, next, z);
+            vec3_init(value, (float*) ((uint8_t*) values + valueStride * (k - 1)));
+            vec3_init(next, (float*) ((uint8_t*) values + valueStride * k));
+
+            switch (sampler->smoothing) {
+              case SMOOTH_STEP:
+                if (z >= .5) {
+                  vec3_init(value, next);
+                }
+                break;
+              case SMOOTH_LINEAR:
+                vec3_lerp(value, next, z);
+                break;
+              case SMOOTH_CUBIC:
+                lovrThrow("No spline interpolation yet");
+                break;
+            }
           }
-          vec3_lerp(scale, value, track->alpha);
-          touched = true;
+          vec3_lerp(properties[channel->property], value, track->alpha);
+          break;
+
+        case PROP_ROTATION:
+          if (k == 0) {
+            quat_init(value, (float*) values);
+          } else if (k >= timeAccessor->count) {
+            quat_init(value, (float*) ((uint8_t*) values + valueStride * (valueAccessor->count - 1)));
+          } else {
+            quat_init(value, (float*) ((uint8_t*) values + valueStride * (k - 1)));
+            quat_init(next, (float*) ((uint8_t*) values + valueStride * k));
+
+            switch (sampler->smoothing) {
+              case SMOOTH_STEP:
+                if (z >= .5) {
+                  quat_init(value, next);
+                }
+                break;
+              case SMOOTH_LINEAR:
+                quat_slerp(value, next, z);
+                break;
+              case SMOOTH_CUBIC:
+                lovrThrow("No spline interpolation yet");
+                break;
+            }
+          }
+          quat_slerp(properties[channel->property], value, track->alpha);
           break;
       }
+
+      touched = true;
     }
   }
 
   if (touched) {
-    mat4_translate(transform, translation[0], translation[1], translation[2]);
-    mat4_rotateQuat(transform, rotation);
-    mat4_scale(transform, scale[0], scale[1], scale[2]);
+    vec3 T = properties[PROP_TRANSLATION];
+    quat R = properties[PROP_ROTATION];
+    vec3 S = properties[PROP_SCALE];
+    mat4_translate(transform, T[0], T[1], T[2]);
+    mat4_rotateQuat(transform, R);
+    mat4_scale(transform, S[0], S[1], S[2]);
   }
 
   return touched;

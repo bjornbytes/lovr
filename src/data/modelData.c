@@ -198,13 +198,13 @@ static void parseAccessors(const char* json, jsmntok_t* token, ModelData* model)
           break;
         case HASH16("type"):
           switch (NOM_KEY(json, token)) {
-            case HASH16("SCALAR"): accessor->components += 1; break;
-            case HASH16("VEC2"): accessor->components += 2; break;
-            case HASH16("VEC3"): accessor->components += 3; break;
-            case HASH16("VEC4"): accessor->components += 4; break;
-            case HASH16("MAT2"): accessor->components += 2; accessor->matrix = true; break;
-            case HASH16("MAT3"): accessor->components += 3; accessor->matrix = true; break;
-            case HASH16("MAT4"): accessor->components += 4; accessor->matrix = true; break;
+            case HASH16("SCALAR"): accessor->components = 1; break;
+            case HASH16("VEC2"): accessor->components = 2; break;
+            case HASH16("VEC3"): accessor->components = 3; break;
+            case HASH16("VEC4"): accessor->components = 4; break;
+            case HASH16("MAT2"): accessor->components = 2; accessor->matrix = true; break;
+            case HASH16("MAT3"): accessor->components = 3; accessor->matrix = true; break;
+            case HASH16("MAT4"): accessor->components = 4; accessor->matrix = true; break;
             default: lovrThrow("Unsupported accessor type"); break;
           }
           break;
@@ -258,6 +258,7 @@ static jsmntok_t* parseAnimationChannel(const char* json, jsmntok_t* token, int 
             default: token += NOM_VALUE(json, token); break;
           }
         }
+        break;
       }
       default: token += NOM_VALUE(json, token); break;
     }
@@ -280,7 +281,7 @@ static jsmntok_t* parseAnimationSampler(const char* json, jsmntok_t* token, int 
           default: lovrThrow("Unknown animation sampler interpolation"); break;
         }
         break;
-      default: token += NOM_VALUE(json, token);
+      default: token += NOM_VALUE(json, token); break;
     }
   }
   return token;
@@ -299,14 +300,14 @@ static void parseAnimations(const char* json, jsmntok_t* token, ModelData* model
     for (int k = 0; k < keyCount; k++) {
       switch (NOM_KEY(json, token)) {
         case HASH16("channels"):
-          animation->channelCount = token->size;
+          animation->channelCount = (token++)->size;
           animation->channels = &model->animationChannels[channelIndex];
           for (int j = 0; j < animation->channelCount; j++) {
             token = parseAnimationChannel(json, token, channelIndex++, model);
           }
           break;
         case HASH16("samplers"):
-          animation->samplerCount = token->size;
+          animation->samplerCount = (token++)->size;
           animation->samplers = &model->animationSamplers[samplerIndex];
           for (int j = 0; j < animation->samplerCount; j++) {
             token = parseAnimationSampler(json, token, samplerIndex++, model);

@@ -97,7 +97,7 @@ typedef struct {
   float min[4];
   float max[4];
   AttributeType type;
-  int components : 3;
+  unsigned int components : 3;
   bool normalized : 1;
   bool hasMin : 1;
   bool hasMax : 1;
@@ -166,6 +166,7 @@ typedef struct {
 
 typedef struct {
   float transform[16];
+  float globalTransform[16];
   uint32_t* children;
   uint32_t childCount;
   int mesh;

@@ -12,6 +12,7 @@ typedef struct {
   Animator* animator;
   Buffer** buffers;
   Mesh** meshes;
+  float* globalNodeTransforms;
 } Model;
 
 Model* lovrModelInit(Model* model, ModelData* data);
