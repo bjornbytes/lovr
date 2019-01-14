@@ -2,32 +2,46 @@
 #include "graphics/graphics.h"
 #include "resources/shaders.h"
 
-static void renderNode(Model* model, uint32_t nodeIndex, mat4 transform, int instances) {
+static void updateGlobalNodeTransform(Model* model, uint32_t nodeIndex, mat4 transform) {
   ModelNode* node = &model->data->nodes[nodeIndex];
 
-  float globalTransform[16];
-  mat4_init(globalTransform, transform);
+  mat4 globalTransform = model->globalNodeTransforms + 16 * nodeIndex;
+  mat4_set(globalTransform, transform);
 
-  float pose[16 * MAX_BONES];
-  if (node->skin >= 0 && model->animator) {
-    ModelSkin* skin = &model->data->skins[node->skin];
-
-    for (uint32_t j = 0; j < skin->jointCount; j++) {
-      mat4_identity(pose + 16 * j);
-      lovrAnimatorEvaluate(model->animator, skin->joints[j], pose + 16 * j);
-    }
-
-    if (!lovrAnimatorEvaluate(model->animator, skin->skeleton, globalTransform)) {
-      mat4_multiply(globalTransform, node->transform);
-    }
-  } else {
-    if (!model->animator || !lovrAnimatorEvaluate(model->animator, nodeIndex, globalTransform)) {
-      mat4_multiply(globalTransform, node->transform);
-    }
+  if (!model->animator || !lovrAnimatorEvaluate(model->animator, nodeIndex, globalTransform)) {
+    mat4_multiply(globalTransform, node->transform);
   }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    updateGlobalNodeTransform(model, node->children[i], globalTransform);
+  }
+}
+
+static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
+  ModelNode* node = &model->data->nodes[nodeIndex];
+  mat4 globalTransform = model->globalNodeTransforms + 16 * nodeIndex;
 
   if (node->mesh >= 0) {
     ModelMesh* modelMesh = &model->data->meshes[node->mesh];
+
+    float pose[16 * MAX_BONES];
+    if (node->skin >= 0 && model->animator) {
+      ModelSkin* skin = &model->data->skins[node->skin];
+
+      for (uint32_t j = 0; j < skin->jointCount; j++) {
+        mat4 globalJointTransform = model->globalNodeTransforms + 16 * skin->joints[j];
+
+        ModelAccessor* inverseBindMatrices = &model->data->accessors[skin->inverseBindMatrices];
+        ModelView* view = &model->data->views[inverseBindMatrices->view];
+        mat4 inverseBindMatrix = (float*) ((uint8_t*) model->data->blobs[view->blob].data + view->offset + inverseBindMatrices->offset + 16 * j * sizeof(float));
+
+        mat4 jointPose = pose + 16 * j;
+        mat4_set(jointPose, globalTransform);
+        mat4_invert(jointPose);
+        mat4_multiply(jointPose, globalJointTransform);
+        mat4_multiply(jointPose, inverseBindMatrix);
+      }
+    }
 
     for (uint32_t i = 0; i < modelMesh->primitiveCount; i++) {
       uint32_t primitiveIndex = modelMesh->firstPrimitive + i;
@@ -48,13 +62,12 @@ static void renderNode(Model* model, uint32_t nodeIndex, mat4 transform, int ins
           .pose = node->skin >= 0 ? pose : NULL
         },
         .transform = globalTransform
-        //.material = model->materials[modelMesh->material]
       });
     }
   }
 
   for (uint32_t i = 0; i < node->childCount; i++) {
-    renderNode(model, node->children[i], globalTransform, instances);
+    renderNode(model, node->children[i], instances);
   }
 }
 
@@ -115,6 +128,11 @@ Model* lovrModelInit(Model* model, ModelData* data) {
     }
   }
 
+  model->globalNodeTransforms = malloc(16 * sizeof(float) * model->data->nodeCount);
+  for (int i = 0; i < model->data->nodeCount; i++) {
+    mat4_identity(model->globalNodeTransforms + 16 * i);
+  }
+
   return model;
 }
 
@@ -130,7 +148,8 @@ void lovrModelDestroy(void* ref) {
 }
 
 void lovrModelDraw(Model* model, mat4 transform, int instances) {
-  renderNode(model, 0, transform, instances); // TODO use root
+  updateGlobalNodeTransform(model, 0, transform);
+  renderNode(model, 0, instances); // TODO use root
 }
 
 Animator* lovrModelGetAnimator(Model* model) {
