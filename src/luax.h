@@ -19,6 +19,7 @@ void* _luax_totype(lua_State* L, int index, const char* type);
 void* _luax_checktype(lua_State* L, int index, const char* type);
 void luax_pushobject(lua_State* L, void* object);
 void luax_vthrow(lua_State* L, const char* format, va_list args);
+void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);
 int luax_getstack(lua_State* L);
 int luax_getstack_panic(lua_State *L);
 void luax_pushconf(lua_State* L);
