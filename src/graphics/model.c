@@ -101,6 +101,7 @@ Model* lovrModelInit(Model* model, ModelData* data) {
             .stride = data->views[accessor->view].stride,
             .type = accessor->type,
             .components = accessor->components,
+            .integer = j == ATTR_BONES,
             .enabled = true
           });
 
