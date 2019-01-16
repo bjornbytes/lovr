@@ -49,6 +49,12 @@ const char* BlendModes[] = {
   NULL
 };
 
+const char* BlockTypes[] = {
+  [BLOCK_UNIFORM] = "uniform",
+  [BLOCK_COMPUTE] = "compute",
+  NULL
+};
+
 const char* BufferUsages[] = {
   [USAGE_STATIC] = "static",
   [USAGE_DYNAMIC] = "dynamic",
@@ -341,8 +347,8 @@ static int l_lovrGraphicsGetDimensions(lua_State* L) {
 static int l_lovrGraphicsGetSupported(lua_State* L) {
   const GpuFeatures* features = lovrGraphicsGetSupported();
   lua_newtable(L);
-  lua_pushboolean(L, features->computeShaders);
-  lua_setfield(L, -2, "computeshaders");
+  lua_pushboolean(L, features->compute);
+  lua_setfield(L, -2, "compute");
   lua_pushboolean(L, features->singlepass);
   lua_setfield(L, -2, "singlepass");
   return 1;
@@ -904,9 +910,11 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   vec_uniform_t uniforms;
   vec_init(&uniforms);
 
-  luaL_checktype(L, 1, LUA_TTABLE);
+  BlockType type = luaL_checkoption(L, 1, NULL, BlockTypes);
+
+  luaL_checktype(L, 2, LUA_TTABLE);
   lua_pushnil(L);
-  while (lua_next(L, 1) != 0) {
+  while (lua_next(L, 2) != 0) {
     Uniform uniform;
 
     // Name
@@ -934,27 +942,22 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  BlockType type = BLOCK_UNIFORM;
   BufferUsage usage = USAGE_DYNAMIC;
   bool readable = false;
 
-  if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "usage");
+  if (lua_istable(L, 3)) {
+    lua_getfield(L, 3, "usage");
     usage = luaL_checkoption(L, -1, "dynamic", BufferUsages);
     lua_pop(L, 1);
 
-    lua_getfield(L, 2, "writable");
-    type = lua_toboolean(L, -1) ? BLOCK_STORAGE : BLOCK_UNIFORM;
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "readable");
+    lua_getfield(L, 3, "readable");
     readable = lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
 
-  lovrAssert(type != BLOCK_STORAGE || lovrGraphicsGetSupported()->computeShaders, "Writable ShaderBlocks are not supported on this system");
+  lovrAssert(type == BLOCK_UNIFORM || lovrGraphicsGetSupported()->compute, "Compute blocks are not supported on this system");
   size_t size = lovrShaderComputeUniformLayout(&uniforms);
-  Buffer* buffer = lovrBufferCreate(size, NULL, type == BLOCK_STORAGE ? BUFFER_SHADER_STORAGE : BUFFER_UNIFORM, usage, readable);
+  Buffer* buffer = lovrBufferCreate(size, NULL, type == BLOCK_COMPUTE ? BUFFER_SHADER_STORAGE : BUFFER_UNIFORM, usage, readable);
   ShaderBlock* block = lovrShaderBlockCreate(type, buffer, &uniforms);
   luax_pushobject(L, block);
   vec_deinit(&uniforms);

@@ -403,7 +403,7 @@ static void lovrGpuBindBuffer(BufferType type, uint32_t buffer, bool force) {
 static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot, size_t offset, size_t size) {
   lovrAssert(offset % state.limits.blockAlign == 0, "Block buffer offset must be aligned to %d", state.limits.blockAlign);
 #ifdef EMSCRIPTEN
-  lovrAssert(type == BLOCK_UNIFORM, "Writable blocks are not supported on this system");
+  lovrAssert(type == BLOCK_UNIFORM, "Compute blocks are not supported on this system");
   GLenum target = GL_UNIFORM_BUFFER;
 #else
   GLenum target = type == BLOCK_UNIFORM ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
@@ -774,7 +774,7 @@ static void lovrGpuBindShader(Shader* shader) {
   // Figure out if we need to wait for pending writes on resources to complete
 #ifndef EMSCRIPTEN
   uint8_t flags = 0;
-  vec_foreach_ptr(&shader->blocks[BLOCK_STORAGE], block, i) {
+  vec_foreach_ptr(&shader->blocks[BLOCK_COMPUTE], block, i) {
     if (block->source && (block->source->incoherent >> BARRIER_BLOCK) & 1) {
       flags |= 1 << BARRIER_BLOCK;
       break;
@@ -876,10 +876,10 @@ static void lovrGpuBindShader(Shader* shader) {
   }
 
   // Bind uniform blocks
-  for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_STORAGE; type++) {
+  for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_COMPUTE; type++) {
     vec_foreach_ptr(&shader->blocks[type], block, i) {
       if (block->source) {
-        if (type == BLOCK_STORAGE && block->access != ACCESS_READ) {
+        if (type == BLOCK_COMPUTE && block->access != ACCESS_READ) {
           block->source->incoherent |= (1 << BARRIER_BLOCK);
           vec_push(&state.incoherents[BARRIER_BLOCK], block->source);
         }
@@ -913,7 +913,7 @@ static void lovrGpuSetViewports(float* viewport, uint32_t count) {
 void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
 #ifndef EMSCRIPTEN
   gladLoadGLLoader((GLADloadproc) getProcAddress);
-  state.features.computeShaders = GLAD_GL_ARB_compute_shader;
+  state.features.compute = GLAD_GL_ARB_compute_shader;
   state.features.singlepass = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PRIMITIVE_RESTART);
@@ -1633,7 +1633,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   // Uniform blocks
   int32_t blockCount;
   glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &blockCount);
-  lovrAssert(blockCount <= MAX_BLOCK_BUFFERS, "Shader has too many read-only blocks (%d) the max is %d", blockCount, MAX_BLOCK_BUFFERS);
+  lovrAssert(blockCount <= MAX_BLOCK_BUFFERS, "Shader has too many uniform blocks (%d) the max is %d", blockCount, MAX_BLOCK_BUFFERS);
   map_init(&shader->blockMap);
   vec_block_t* uniformBlocks = &shader->blocks[BLOCK_UNIFORM];
   vec_init(uniformBlocks);
@@ -1651,26 +1651,26 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   }
 
   // Shader storage buffers and their buffer variables
-  vec_block_t* storageBlocks = &shader->blocks[BLOCK_STORAGE];
-  vec_init(storageBlocks);
+  vec_block_t* computeBlocks = &shader->blocks[BLOCK_COMPUTE];
+  vec_init(computeBlocks);
 #ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_program_interface_query) {
 
-    // Iterate over storage blocks, setting their binding and pushing them onto the block vector
-    int storageCount;
-    glGetProgramInterfaceiv(program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &storageCount);
-    lovrAssert(storageCount <= MAX_BLOCK_BUFFERS, "Shader has too many writable blocks (%d) the max is %d", storageCount, MAX_BLOCK_BUFFERS);
-    vec_reserve(storageBlocks, storageCount);
-    for (int i = 0; i < storageCount; i++) {
+    // Iterate over compute blocks, setting their binding and pushing them onto the block vector
+    int computeBlockCount;
+    glGetProgramInterfaceiv(program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &computeBlockCount);
+    lovrAssert(computeBlockCount <= MAX_BLOCK_BUFFERS, "Shader has too many compute blocks (%d) the max is %d", computeBlockCount, MAX_BLOCK_BUFFERS);
+    vec_reserve(computeBlocks, computeBlockCount);
+    for (int i = 0; i < computeBlockCount; i++) {
       UniformBlock block = { .slot = i, .source = NULL };
       glShaderStorageBlockBinding(program, i, block.slot);
       vec_init(&block.uniforms);
 
       char name[LOVR_MAX_UNIFORM_LENGTH];
       glGetProgramResourceName(program, GL_SHADER_STORAGE_BLOCK, i, LOVR_MAX_UNIFORM_LENGTH, NULL, name);
-      int blockId = (i << 1) + BLOCK_STORAGE;
+      int blockId = (i << 1) + BLOCK_COMPUTE;
       map_set(&shader->blockMap, name, blockId);
-      vec_push(storageBlocks, block);
+      vec_push(computeBlocks, block);
     }
 
     // Iterate over buffer variables, pushing them onto the uniform list of the correct block
@@ -1694,7 +1694,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
       } else {
         uniform.size = 4 * (uniform.components == 3 ? 4 : uniform.components);
       }
-      vec_push(&storageBlocks->data[values[blockIndex]].uniforms, uniform);
+      vec_push(&computeBlocks->data[values[blockIndex]].uniforms, uniform);
     }
   }
 #endif
@@ -1818,7 +1818,7 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
   const char* vertexHeader = "#version 300 es\nprecision mediump float;\nprecision mediump int;\n";
   const char* fragmentHeader = vertexHeader;
 #else
-  const char* vertexHeader = state.features.computeShaders ? "#version 430\n" : "#version 150\n";
+  const char* vertexHeader = state.features.compute ? "#version 430\n" : "#version 150\n";
   const char* fragmentHeader = "#version 150\nin vec4 gl_FragCoord;\n";
 #endif
 
@@ -1913,7 +1913,7 @@ void lovrShaderDestroy(void* ref) {
   for (int i = 0; i < shader->uniforms.length; i++) {
     free(shader->uniforms.data[i].value.data);
   }
-  for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_STORAGE; type++) {
+  for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_COMPUTE; type++) {
     UniformBlock* block; int i;
     vec_foreach_ptr(&shader->blocks[type], block, i) {
       lovrRelease(block->source);
@@ -1921,7 +1921,7 @@ void lovrShaderDestroy(void* ref) {
   }
   vec_deinit(&shader->uniforms);
   vec_deinit(&shader->blocks[BLOCK_UNIFORM]);
-  vec_deinit(&shader->blocks[BLOCK_STORAGE]);
+  vec_deinit(&shader->blocks[BLOCK_COMPUTE]);
   map_deinit(&shader->attributes);
   map_deinit(&shader->uniformMap);
   map_deinit(&shader->blockMap);

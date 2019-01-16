@@ -61,6 +61,7 @@ extern const char* ArcModes[];
 extern const char* AttributeTypes[];
 extern const char* BlendAlphaModes[];
 extern const char* BlendModes[];
+extern const char* BlockTypes[];
 extern const char* BufferUsages[];
 extern const char* CompareModes[];
 extern const char* ControllerAxes[];

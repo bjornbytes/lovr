@@ -18,7 +18,7 @@ typedef enum {
 
 typedef enum {
   BLOCK_UNIFORM,
-  BLOCK_STORAGE
+  BLOCK_COMPUTE
 } BlockType;
 
 typedef enum {

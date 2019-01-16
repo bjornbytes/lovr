@@ -2,9 +2,9 @@
 #include "api/graphics.h"
 #include "graphics/shader.h"
 
-int l_lovrShaderBlockIsWritable(lua_State* L) {
+int l_lovrShaderBlockGetType(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
-  lua_pushboolean(L, lovrShaderBlockGetType(block) == BLOCK_STORAGE);
+  lua_pushstring(L, BlockTypes[lovrShaderBlockGetType(block)]);
   return 1;
 }
 
@@ -47,13 +47,13 @@ int l_lovrShaderBlockSend(lua_State* L) {
   }
 }
 
-int l_lovrShaderBlockGetValue(lua_State* L) {
+int l_lovrShaderBlockRead(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
   const char* name = luaL_checkstring(L, 2);
   const Uniform* uniform = lovrShaderBlockGetUniform(block, name);
   lovrAssert(uniform, "Unknown uniform for ShaderBlock '%s'", name);
   Buffer* buffer = lovrShaderBlockGetBuffer(block);
-  lovrAssert(lovrBufferIsReadable(buffer), "ShaderBlock:getValue requires the ShaderBlock to be created with the readable flag");
+  lovrAssert(lovrBufferIsReadable(buffer), "ShaderBlock:read requires the ShaderBlock to be created with the readable flag");
   union { float* floats; int* ints; } data = { .floats = lovrBufferMap(buffer, uniform->offset) };
   int components = uniform->components;
 
@@ -107,11 +107,11 @@ int l_lovrShaderBlockGetShaderCode(lua_State* L) {
 }
 
 const luaL_Reg lovrShaderBlock[] = {
-  { "isWritable", l_lovrShaderBlockIsWritable },
+  { "getType", l_lovrShaderBlockGetType },
   { "getSize", l_lovrShaderBlockGetSize },
   { "getOffset", l_lovrShaderBlockGetOffset },
+  { "read", l_lovrShaderBlockRead },
   { "send", l_lovrShaderBlockSend },
-  { "getValue", l_lovrShaderBlockGetValue },
   { "getShaderCode", l_lovrShaderBlockGetShaderCode },
   { NULL, NULL }
 };
