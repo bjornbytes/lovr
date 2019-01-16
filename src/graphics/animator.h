@@ -11,7 +11,6 @@ typedef struct {
   float time;
   float speed;
   float alpha;
-  float duration;
   int priority;
   bool playing;
   bool looping;
