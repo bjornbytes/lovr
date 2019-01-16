@@ -74,6 +74,7 @@ static int libraryLoader(lua_State* L) {
       const char* filename = luaL_gsub(L, path, "??", buffer);
       filename = luaL_gsub(L, filename, "?", modulePath);
       lua_pop(L, 2);
+      printf("hi\n");
 
       if (lovrFilesystemIsFile(filename)) {
         char fullPath[LOVR_PATH_MAX];

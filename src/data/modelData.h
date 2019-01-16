@@ -91,59 +91,45 @@ typedef enum {
 typedef enum { I8, U8, I16, U16, I32, U32, F32 } AttributeType;
 
 typedef struct {
-  int view;
-  int count;
-  int offset;
-  float min[4];
-  float max[4];
+  char* data;
+  size_t size;
+  size_t stride;
+} ModelBuffer;
+
+typedef struct {
+  uint32_t buffer;
+  size_t offset;
+  uint32_t count;
   AttributeType type;
   unsigned int components : 3;
   bool normalized : 1;
+  bool matrix : 1;
   bool hasMin : 1;
   bool hasMax : 1;
-  bool matrix : 1;
-} ModelAccessor;
+  float min[4];
+  float max[4];
+} ModelAttribute;
 
 typedef struct {
   int nodeIndex;
   AnimationProperty property;
-  int sampler;
+  SmoothMode smoothing;
+  int keyframeCount;
+  ModelAttribute* times;
+  ModelAttribute* data;
 } ModelAnimationChannel;
 
 typedef struct {
-  int times;
-  int values;
-  SmoothMode smoothing;
-} ModelAnimationSampler;
-
-typedef struct {
   ModelAnimationChannel* channels;
-  ModelAnimationSampler* samplers;
   int channelCount;
-  int samplerCount;
+  float duration;
 } ModelAnimation;
 
 typedef struct {
-  void* data;
-  size_t size;
-} ModelBlob;
-
-typedef struct {
-  int blob;
-  int offset;
-  int length;
-  int stride;
-} ModelView;
-
-typedef struct {
+  int imageIndex;
   TextureFilter filter;
   TextureWrap wrap;
   bool mipmaps;
-} ModelSampler;
-
-typedef struct {
-  int image;
-  int sampler;
 } ModelTexture;
 
 typedef struct {
@@ -154,22 +140,18 @@ typedef struct {
 
 typedef struct {
   DrawMode mode;
-  int attributes[MAX_DEFAULT_ATTRIBUTES];
-  int indices;
+  ModelAttribute* attributes[MAX_DEFAULT_ATTRIBUTES];
+  ModelAttribute* indices;
   int material;
 } ModelPrimitive;
-
-typedef struct {
-  uint32_t firstPrimitive;
-  uint32_t primitiveCount;
-} ModelMesh;
 
 typedef struct {
   float transform[16];
   float globalTransform[16];
   uint32_t* children;
   uint32_t childCount;
-  int mesh;
+  uint32_t primitiveIndex;
+  uint32_t primitiveCount;
   int skin;
 } ModelNode;
 
@@ -177,66 +159,32 @@ typedef struct {
   uint32_t* joints;
   uint32_t jointCount;
   int skeleton;
-  int inverseBindMatrices;
+  float* inverseBindMatrices;
 } ModelSkin;
-
-typedef struct {
-  double time;
-  float data[4];
-} Keyframe;
-
-typedef vec_t(Keyframe) vec_keyframe_t;
-
-typedef struct {
-  const char* node;
-  vec_keyframe_t positionKeyframes;
-  vec_keyframe_t rotationKeyframes;
-  vec_keyframe_t scaleKeyframes;
-} AnimationChannel;
-
-typedef map_t(AnimationChannel) map_channel_t;
-
-typedef struct {
-  const char* name;
-  float duration;
-  map_channel_t channels;
-  int channelCount;
-} Animation;
 
 typedef struct {
   Ref ref;
   uint8_t* data;
-  Blob* binaryBlob;
-  ModelAccessor* accessors;
-  ModelAnimationChannel* animationChannels;
-  ModelAnimationSampler* animationSamplers;
-  ModelAnimation* animations;
-  ModelBlob* blobs;
-  ModelView* views;
+  Blob** blobs;
   TextureData** images;
-  ModelSampler* samplers;
+  ModelAnimation* animations;
+  ModelAttribute* attributes;
+  ModelBuffer* buffers;
   ModelTexture* textures;
   ModelMaterial* materials;
   ModelPrimitive* primitives;
-  ModelMesh* meshes;
   ModelNode* nodes;
   ModelSkin* skins;
-  int accessorCount;
-  int animationChannelCount;
-  int animationSamplerCount;
-  int animationCount;
   int blobCount;
-  int viewCount;
   int imageCount;
-  int samplerCount;
+  int animationCount;
+  int attributeCount;
+  int bufferCount;
   int textureCount;
   int materialCount;
   int primitiveCount;
-  int meshCount;
   int nodeCount;
   int skinCount;
-  uint32_t* nodeChildren;
-  uint32_t* skinJoints;
 } ModelData;
 
 typedef struct {

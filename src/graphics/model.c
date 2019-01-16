@@ -21,21 +21,16 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
   ModelNode* node = &model->data->nodes[nodeIndex];
   mat4 globalTransform = model->globalNodeTransforms + 16 * nodeIndex;
 
-  if (node->mesh >= 0) {
-    ModelMesh* modelMesh = &model->data->meshes[node->mesh];
-
+  if (node->primitiveCount > 0) {
     float pose[16 * MAX_BONES];
     if (node->skin >= 0 && model->animator) {
       ModelSkin* skin = &model->data->skins[node->skin];
 
       for (uint32_t j = 0; j < skin->jointCount; j++) {
         mat4 globalJointTransform = model->globalNodeTransforms + 16 * skin->joints[j];
-
-        ModelAccessor* inverseBindMatrices = &model->data->accessors[skin->inverseBindMatrices];
-        ModelView* view = &model->data->views[inverseBindMatrices->view];
-        mat4 inverseBindMatrix = (float*) ((uint8_t*) model->data->blobs[view->blob].data + view->offset + inverseBindMatrices->offset + 16 * j * sizeof(float));
-
+        mat4 inverseBindMatrix = skin->inverseBindMatrices + 16 * j;
         mat4 jointPose = pose + 16 * j;
+
         mat4_set(jointPose, globalTransform);
         mat4_invert(jointPose);
         mat4_multiply(jointPose, globalJointTransform);
@@ -43,10 +38,9 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
       }
     }
 
-    for (uint32_t i = 0; i < modelMesh->primitiveCount; i++) {
-      uint32_t primitiveIndex = modelMesh->firstPrimitive + i;
-      ModelPrimitive* primitive = &model->data->primitives[primitiveIndex];
-      Mesh* mesh = model->meshes[primitiveIndex];
+    for (uint32_t i = 0; i < node->primitiveCount; i++) {
+      ModelPrimitive* primitive = &model->data->primitives[node->primitiveIndex + i];
+      Mesh* mesh = model->meshes[node->primitiveIndex + i];
 
       uint32_t rangeStart, rangeCount;
       lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
@@ -75,13 +69,8 @@ Model* lovrModelInit(Model* model, ModelData* data) {
   model->data = data;
   lovrRetain(data);
 
-  if (data->viewCount > 0) {
-    model->buffers = calloc(data->viewCount, sizeof(Buffer*));
-    for (int i = 0; i < data->viewCount; i++) {
-      ModelView* view = &data->views[i];
-      ModelBlob* blob = &data->blobs[view->blob];
-      model->buffers[i] = lovrBufferCreate(view->length, (uint8_t*) blob->data + view->offset, BUFFER_GENERIC, USAGE_STATIC, false);
-    }
+  if (data->bufferCount > 0) {
+    model->buffers = calloc(data->bufferCount, sizeof(Buffer*));
   }
 
   if (data->primitiveCount > 0) {
@@ -92,21 +81,26 @@ Model* lovrModelInit(Model* model, ModelData* data) {
 
       bool setDrawRange = false;
       for (int j = 0; j < MAX_DEFAULT_ATTRIBUTES; j++) {
-        if (primitive->attributes[j] >= 0) {
-          ModelAccessor* accessor = &data->accessors[primitive->attributes[j]];
+        if (primitive->attributes[j]) {
+          ModelAttribute* attribute = primitive->attributes[j];
+
+          if (!model->buffers[attribute->buffer]) {
+            ModelBuffer* buffer = &data->buffers[attribute->buffer];
+            model->buffers[attribute->buffer] = lovrBufferCreate(buffer->size, buffer->data, BUFFER_VERTEX, USAGE_STATIC, false);
+          }
 
           lovrMeshAttachAttribute(model->meshes[i], lovrShaderAttributeNames[j], &(MeshAttribute) {
-            .buffer = model->buffers[accessor->view],
-            .offset = accessor->offset,
-            .stride = data->views[accessor->view].stride,
-            .type = accessor->type,
-            .components = accessor->components,
+            .buffer = model->buffers[attribute->buffer],
+            .offset = attribute->offset,
+            .stride = data->buffers[attribute->buffer].stride,
+            .type = attribute->type,
+            .components = attribute->components,
             .integer = j == ATTR_BONES,
             .enabled = true
           });
 
-          if (!setDrawRange && primitive->indices == -1) {
-            lovrMeshSetDrawRange(model->meshes[i], 0, accessor->count);
+          if (!setDrawRange && !primitive->indices) {
+            lovrMeshSetDrawRange(model->meshes[i], 0, attribute->count);
             setDrawRange = true;
           }
         }
@@ -121,10 +115,16 @@ Model* lovrModelInit(Model* model, ModelData* data) {
         .enabled = true
       });
 
-      if (primitive->indices >= 0) {
-        ModelAccessor* accessor = &data->accessors[primitive->indices];
-        lovrMeshSetIndexBuffer(model->meshes[i], model->buffers[accessor->view], accessor->count, accessor->type == U16 ? 2 : 4);
-        lovrMeshSetDrawRange(model->meshes[i], 0, accessor->count);
+      if (primitive->indices) {
+        ModelAttribute* attribute = primitive->indices;
+
+        if (!model->buffers[attribute->buffer]) {
+          ModelBuffer* buffer = &data->buffers[attribute->buffer];
+          model->buffers[attribute->buffer] = lovrBufferCreate(buffer->size, buffer->data, BUFFER_INDEX, USAGE_STATIC, false);
+        }
+
+        lovrMeshSetIndexBuffer(model->meshes[i], model->buffers[attribute->buffer], attribute->count, attribute->type == U16 ? 2 : 4);
+        lovrMeshSetDrawRange(model->meshes[i], 0, attribute->count);
       }
     }
   }
@@ -139,7 +139,7 @@ Model* lovrModelInit(Model* model, ModelData* data) {
 
 void lovrModelDestroy(void* ref) {
   Model* model = ref;
-  for (int i = 0; i < model->data->viewCount; i++) {
+  for (int i = 0; i < model->data->bufferCount; i++) {
     lovrRelease(model->buffers[i]);
   }
   for (int i = 0; i < model->data->primitiveCount; i++) {
