@@ -276,7 +276,7 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h);
 // GPU
 
 typedef struct {
-  bool computeShaders;
+  bool compute;
   bool singlepass;
 } GpuFeatures;
 
