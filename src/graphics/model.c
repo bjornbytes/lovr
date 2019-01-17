@@ -125,7 +125,8 @@ Model* lovrModelInit(Model* model, ModelData* data) {
           model->buffers[attribute->buffer] = lovrBufferCreate(buffer->size, buffer->data, BUFFER_INDEX, USAGE_STATIC, false);
         }
 
-        lovrMeshSetIndexBuffer(model->meshes[i], model->buffers[attribute->buffer], attribute->count, attribute->type == U16 ? 2 : 4);
+        size_t indexSize = attribute->type == U16 ? 2 : 4;
+        lovrMeshSetIndexBuffer(model->meshes[i], model->buffers[attribute->buffer], attribute->count, indexSize, attribute->offset);
         lovrMeshSetDrawRange(model->meshes[i], 0, attribute->count);
       }
     }
