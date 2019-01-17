@@ -1106,7 +1106,7 @@ void lovrGpuDraw(DrawCommand* draw) {
     GLenum mode = convertDrawMode(draw->drawMode);
     if (mesh->indexCount > 0) {
       GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-      GLvoid* offset = (GLvoid*) (draw->rangeStart * mesh->indexSize);
+      GLvoid* offset = (GLvoid*) (mesh->indexOffset + draw->rangeStart * mesh->indexSize);
       if (instances > 1) {
         glDrawElementsInstanced(mode, draw->rangeCount, indexType, offset, instances);
       } else {
@@ -2009,7 +2009,7 @@ void lovrMeshDestroy(void* ref) {
   lovrRelease(mesh->material);
 }
 
-void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer, uint32_t indexCount, size_t indexSize) {
+void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer, uint32_t indexCount, size_t indexSize, size_t offset) {
   if (mesh->indexBuffer != buffer || mesh->indexCount != indexCount || mesh->indexSize != indexSize) {
     lovrGraphicsFlushMesh(mesh);
     lovrRetain(buffer);
@@ -2017,5 +2017,6 @@ void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer, uint32_t indexCount, siz
     mesh->indexBuffer = buffer;
     mesh->indexCount = indexCount;
     mesh->indexSize = indexSize;
+    mesh->indexOffset = offset;
   }
 }

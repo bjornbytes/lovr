@@ -120,6 +120,7 @@ typedef struct {
 } ModelAnimationChannel;
 
 typedef struct {
+  const char* name;
   ModelAnimationChannel* channels;
   int channelCount;
   float duration;

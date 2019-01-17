@@ -251,7 +251,7 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
 
   if (lua_isnoneornil(L, 2)) {
-    lovrMeshSetIndexBuffer(mesh, NULL, 0, 0);
+    lovrMeshSetIndexBuffer(mesh, NULL, 0, 0, 0);
     return 0;
   }
 
@@ -266,7 +266,7 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
       BufferUsage usage = vertexBuffer ? lovrBufferGetUsage(vertexBuffer) : USAGE_DYNAMIC;
       bool readable = vertexBuffer ? lovrBufferIsReadable(vertexBuffer) : false;
       indexBuffer = lovrBufferCreate(blob->size, blob->data, BUFFER_INDEX, usage, readable);
-      lovrMeshSetIndexBuffer(mesh, indexBuffer, count, size);
+      lovrMeshSetIndexBuffer(mesh, indexBuffer, count, size, 0);
     } else {
       void* indices = lovrBufferMap(indexBuffer, 0);
       memcpy(indices, blob->data, blob->size);
@@ -308,7 +308,7 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
       lua_pop(L, 1);
     }
 
-    lovrMeshSetIndexBuffer(mesh, indexBuffer, count, size);
+    lovrMeshSetIndexBuffer(mesh, indexBuffer, count, size, 0);
     lovrBufferMarkRange(indexBuffer, 0, count * size);
   }
 

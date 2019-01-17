@@ -790,9 +790,9 @@ void lovrGraphicsFlush() {
       rangeStart = batch->indexCount ? batch->indexStart : batch->vertexStart;
       rangeCount = batch->indexCount ? batch->indexCount : batch->vertexCount;
       if (batch->indexCount > 0) {
-        lovrMeshSetIndexBuffer(mesh, state.buffers[STREAM_INDEX], BUFFER_COUNTS[STREAM_INDEX], sizeof(uint16_t));
+        lovrMeshSetIndexBuffer(mesh, state.buffers[STREAM_INDEX], BUFFER_COUNTS[STREAM_INDEX], sizeof(uint16_t), 0);
       } else {
-        lovrMeshSetIndexBuffer(mesh, NULL, 0, 0);
+        lovrMeshSetIndexBuffer(mesh, NULL, 0, 0, 0);
       }
     }
 
