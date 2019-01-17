@@ -147,7 +147,6 @@ typedef struct {
 
 typedef struct {
   float transform[16];
-  float globalTransform[16];
   uint32_t* children;
   uint32_t childCount;
   uint32_t primitiveIndex;
@@ -185,6 +184,7 @@ typedef struct {
   int primitiveCount;
   int nodeCount;
   int skinCount;
+  int rootNode;
 } ModelData;
 
 typedef struct {
