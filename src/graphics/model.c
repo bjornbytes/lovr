@@ -55,7 +55,8 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
           .instances = instances,
           .pose = node->skin >= 0 ? pose : NULL
         },
-        .transform = globalTransform
+        .transform = globalTransform,
+        .material = model->materials[primitive->material]
       });
     }
   }
@@ -69,11 +70,12 @@ Model* lovrModelInit(Model* model, ModelData* data) {
   model->data = data;
   lovrRetain(data);
 
-  if (data->bufferCount > 0) {
-    model->buffers = calloc(data->bufferCount, sizeof(Buffer*));
-  }
-
+  // Geometry
   if (data->primitiveCount > 0) {
+    if (data->bufferCount > 0) {
+      model->buffers = calloc(data->bufferCount, sizeof(Buffer*));
+    }
+
     model->meshes = calloc(data->primitiveCount, sizeof(Mesh*));
     for (int i = 0; i < data->primitiveCount; i++) {
       ModelPrimitive* primitive = &data->primitives[i];
@@ -126,6 +128,44 @@ Model* lovrModelInit(Model* model, ModelData* data) {
         lovrMeshSetIndexBuffer(model->meshes[i], model->buffers[attribute->buffer], attribute->count, attribute->type == U16 ? 2 : 4);
         lovrMeshSetDrawRange(model->meshes[i], 0, attribute->count);
       }
+    }
+  }
+
+  // Materials
+  if (data->materialCount > 0) {
+    model->materials = malloc(data->materialCount * sizeof(Material*));
+
+    if (data->imageCount > 0) {
+      model->textures = calloc(data->imageCount, sizeof(Texture*));
+    }
+
+    for (int i = 0; i < data->materialCount; i++) {
+      Material* material = lovrMaterialCreate();
+
+      for (int j = 0; j < MAX_MATERIAL_SCALARS; j++) {
+        lovrMaterialSetScalar(material, j, data->materials[i].scalars[j]);
+      }
+
+      for (int j = 0; j < MAX_MATERIAL_COLORS; j++) {
+        lovrMaterialSetColor(material, j, data->materials[i].colors[j]);
+      }
+
+      for (int j = 0; j < MAX_MATERIAL_TEXTURES; j++) {
+        int index = data->materials[i].textures[j];
+
+        if (!model->textures[index]) {
+          ModelTexture* texture = &data->textures[index];
+          TextureData* image = data->images[texture->imageIndex];
+          bool srgb = j == TEXTURE_DIFFUSE || j == TEXTURE_EMISSIVE;
+          model->textures[index] = lovrTextureCreate(TEXTURE_2D, &image, 1, srgb, texture->mipmaps, 0);
+          lovrTextureSetFilter(model->textures[index], texture->filter);
+          lovrTextureSetWrap(model->textures[index], texture->wrap);
+        }
+
+        lovrMaterialSetTexture(material, j, model->textures[index]);
+      }
+
+      model->materials[i] = material;
     }
   }
 
