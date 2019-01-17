@@ -539,17 +539,14 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
     jsmntok_t* token = info.images;
     TextureData** image = model->images;
     for (int i = (token++)->size; i > 0; i--, image++) {
-      TextureData** image = &model->images[i];
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "bufferView")) {
-          /*int viewIndex = NOM_INT(json, token);
-          ModelView* view = &model->views[viewIndex];
-          void* data = (uint8_t*) model->blobs[view->blob].data + view->offset;
-          Blob* blob = lovrBlobCreate(data, view->length, NULL);
-          *image = lovrTextureDataCreateFromBlob(blob, true);
+          ModelBuffer* buffer = &model->buffers[NOM_INT(json, token)];
+          Blob* blob = lovrBlobCreate(buffer->data, buffer->size, NULL);
+          *image = lovrTextureDataCreateFromBlob(blob, false);
           blob->data = NULL; // FIXME
-          lovrRelease(blob);*/
+          lovrRelease(blob);
         } else if (STR_EQ(key, "uri")) {
           size_t size = 0;
           char filename[1024];
@@ -558,7 +555,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
           void* data = io.read(filename, &size);
           lovrAssert(data && size > 0, "Unable to read image from '%s'", filename);
           Blob* blob = lovrBlobCreate(data, size, NULL);
-          *image = lovrTextureDataCreateFromBlob(blob, true);
+          *image = lovrTextureDataCreateFromBlob(blob, false);
           lovrRelease(blob);
         } else {
           token += NOM_VALUE(json, token);
@@ -590,7 +587,11 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
   if (info.materials) {
     jsmntok_t* token = info.materials;
     ModelMaterial* material = model->materials;
-    for (int i = (token++)->size; i > 0; i--) {
+    for (int i = (token++)->size; i > 0; i--, material++) {
+      material->scalars[SCALAR_METALNESS] = 1.f;
+      material->scalars[SCALAR_ROUGHNESS] = 1.f;
+      material->colors[COLOR_DIFFUSE] = (Color) { 1.f, 1.f, 1.f, 1.f };
+      material->colors[COLOR_EMISSIVE] = (Color) { 1.f, 1.f, 1.f, 1.f };
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "pbrMetallicRoughness")) {

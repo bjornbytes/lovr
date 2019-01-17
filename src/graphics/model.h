@@ -12,6 +12,8 @@ typedef struct {
   Animator* animator;
   Buffer** buffers;
   Mesh** meshes;
+  Texture** textures;
+  Material** materials;
   float* globalNodeTransforms;
 } Model;
 
