@@ -49,6 +49,11 @@ typedef struct {
   bool mipmaps;
 } gltfSampler;
 
+typedef struct {
+  uint32_t node;
+  uint32_t nodeCount;
+} gltfScene;
+
 static int nomValue(const char* data, jsmntok_t* token, int count, int sum) {
   if (count == 0) { return sum; }
   switch (token->type) {
@@ -214,6 +219,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
     jsmntok_t* materials;
     jsmntok_t* meshes;
     jsmntok_t* nodes;
+    jsmntok_t* scenes;
     jsmntok_t* skins;
     int animationChannelCount;
     int childCount;
@@ -223,6 +229,8 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
   gltfAnimationSampler* animationSamplers = NULL;
   gltfMesh* meshes = NULL;
   gltfSampler* samplers = NULL;
+  gltfScene* scenes = NULL;
+  int rootScene = -1;
 
   for (jsmntok_t* token = tokens + 1; token < tokens + tokenCount;) {
     gltfString key = NOM_STR(json, token);
@@ -308,10 +316,27 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
 
     } else if (STR_EQ(key, "nodes")) {
       info.nodes = token;
-      model->nodeCount = token->size;
+      model->nodeCount += token->size;
       info.totalSize += token->size * sizeof(ModelNode);
       token = aggregate(json, token, "children", &info.childCount);
       info.totalSize += info.childCount * sizeof(uint32_t);
+
+    } else if (STR_EQ(key, "scene")) {
+      rootScene = NOM_INT(json, token);
+
+    } else if (STR_EQ(key, "scenes")) {
+      info.scenes = token;
+      scenes = malloc(token->size * sizeof(gltfScene));
+      gltfScene* scene = scenes;
+      for (int i = (token++)->size; i > 0; i--, scene++) {
+        for (int k = (token++)->size; k > 0; k--) {
+          gltfString key = NOM_STR(json, token);
+          if (STR_EQ(key, "nodes")) {
+            scene->nodeCount = token->size;
+          }
+          token += NOM_VALUE(json, token);
+        }
+      }
 
     } else if (STR_EQ(key, "skins")) {
       info.skins = token;
@@ -325,7 +350,14 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
     }
   }
 
+  // Make space for fake root node if the root scene has multiple root nodes
+  if (rootScene >= 0 && scenes[rootScene].nodeCount > 1) {
+    model->nodeCount++;
+    info.childCount += model->nodeCount;
+  }
+
   size_t offset = 0;
+  int childIndex = 0;
   model->data = calloc(1, info.totalSize);
   model->animations = (ModelAnimation*) (model->data + offset), offset += model->animationCount * sizeof(ModelAnimation);
   model->attributes = (ModelAttribute*) (model->data + offset), offset += model->attributeCount * sizeof(ModelAttribute);
@@ -663,7 +695,6 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
 
   // Nodes
   if (info.nodes) {
-    int childIndex = 0;
     jsmntok_t* token = info.nodes;
     ModelNode* node = model->nodes;
     for (int i = (token++)->size; i > 0; i--, node++) {
@@ -752,8 +783,41 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
     }
   }
 
+  // Scenes
+  if (scenes[rootScene].nodeCount > 1) {
+    model->rootNode = model->nodeCount - 1;
+    ModelNode* lastNode = &model->nodes[model->rootNode];
+    lastNode->childCount = scenes[rootScene].nodeCount;
+    lastNode->children = &nodeChildren[childIndex];
+    mat4_identity(lastNode->transform);
+    lastNode->primitiveCount = 0;
+    lastNode->skin = -1;
+
+    jsmntok_t* token = info.scenes;
+    int sceneCount = (token++)->size;
+    for (int i = 0; i < sceneCount; i++) {
+      if (i == rootScene) {
+        for (int k = (token++)->size; k > 0; k--) {
+          gltfString key = NOM_STR(json, token);
+          if (STR_EQ(key, "nodes")) {
+            for (int j = (token++)->size; j > 0; j--) {
+              lastNode->children[i] = NOM_INT(json, token);
+            }
+          } else {
+            token += NOM_VALUE(json, token);
+          }
+        }
+      } else {
+        token += NOM_VALUE(json, token);
+      }
+    }
+  } else {
+    model->rootNode = scenes[rootScene].node;
+  }
+
   free(animationSamplers);
   free(meshes);
+  free(scenes);
   free(tokens);
   return model;
 }
