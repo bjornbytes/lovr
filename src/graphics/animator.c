@@ -65,16 +65,19 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
 bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
   ModelData* modelData = animator->modelData;
   float properties[3][4] = { { 0, 0, 0 }, { 0, 0, 0, 1 }, { 1, 1, 1 } };
-
-  Track* track; int i;
   bool touched = false;
-  vec_foreach_ptr(&animator->tracks, track, i) {
+
+  for (int i = 0; i < modelData->animationCount; i++) {
     ModelAnimation* animation = &modelData->animations[i];
 
     for (int j = 0; j < animation->channelCount; j++) {
       ModelAnimationChannel* channel = &animation->channels[j];
+      if (channel->nodeIndex != nodeIndex) {
+        continue;
+      }
 
-      if (channel->nodeIndex != nodeIndex || !track->playing || track->alpha == 0.f) {
+      Track* track = &animator->tracks.data[i];
+      if (!track->playing || track->alpha == 0.f) {
         continue;
       }
 
