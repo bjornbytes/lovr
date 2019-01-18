@@ -618,6 +618,11 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
       material->scalars[SCALAR_ROUGHNESS] = 1.f;
       material->colors[COLOR_DIFFUSE] = (Color) { 1.f, 1.f, 1.f, 1.f };
       material->colors[COLOR_EMISSIVE] = (Color) { 1.f, 1.f, 1.f, 1.f };
+
+      for (int j = 0; j < MAX_MATERIAL_TEXTURES; j++) {
+        material->textures[j] = -1;
+      }
+
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "pbrMetallicRoughness")) {
