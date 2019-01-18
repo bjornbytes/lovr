@@ -12,19 +12,17 @@ Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData) {
   animator->modelData = modelData;
   vec_init(&animator->tracks);
   vec_reserve(&animator->tracks, modelData->animationCount);
-  animator->speed = 1;
+  animator->speed = 1.f;
 
   for (int i = 0; i < modelData->animationCount; i++) {
-    Track track = {
+    vec_push(&animator->tracks, ((Track) {
       .time = 0.f,
       .speed = 1.f,
       .alpha = 1.f,
       .priority = 0,
       .playing = false,
       .looping = false
-    };
-
-    vec_push(&animator->tracks, track);
+    }));
   }
 
   return animator;
@@ -39,12 +37,12 @@ void lovrAnimatorDestroy(void* ref) {
 void lovrAnimatorReset(Animator* animator) {
   Track* track; int i;
   vec_foreach_ptr(&animator->tracks, track, i) {
-    track->time = 0;
-    track->speed = 1;
+    track->time = 0.f;
+    track->speed = 1.f;
     track->playing = false;
     track->looping = false;
   }
-  animator->speed = 1;
+  animator->speed = 1.f;
 }
 
 void lovrAnimatorUpdate(Animator* animator, float dt) {
@@ -64,12 +62,6 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
   }
 }
 
-static float* evaluateAttribute(Animator* animator, ModelAttribute* attribute, int index) {
-  ModelBuffer* buffer = &animator->modelData->buffers[attribute->buffer];
-  size_t stride = buffer->stride ? buffer->stride : (attribute->components * sizeof(float)); // TODO
-  return (float*) (buffer->data + index * stride + attribute->offset);
-}
-
 bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
   ModelData* modelData = animator->modelData;
   float properties[3][4] = { { 0, 0, 0 }, { 0, 0, 0, 1 }, { 1, 1, 1 } };
@@ -82,82 +74,49 @@ bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
     for (int j = 0; j < animation->channelCount; j++) {
       ModelAnimationChannel* channel = &animation->channels[j];
 
-      if (!track->playing || channel->nodeIndex != nodeIndex) {
+      if (channel->nodeIndex != nodeIndex || !track->playing || track->alpha == 0.f) {
         continue;
       }
 
       float duration = animator->modelData->animations[i].duration;
       float time = fmodf(track->time, duration);
-      ModelAttribute* times = channel->times;
-      ModelAttribute* data = channel->data;
-
       int k = 0;
-      while (k < channel->keyframeCount && *evaluateAttribute(animator, times, k) < time) {
+
+      while (k < channel->keyframeCount && channel->times[k] < time) {
         k++;
       }
 
-      float z = 0.f;
       float value[4];
-      float next[4];
-      if (k > 0 && k <= channel->keyframeCount - 1) {
-        float t1 = *evaluateAttribute(animator, times, k - 1);
-        float t2 = *evaluateAttribute(animator, times, k);
-        z = (time - t1) / (t2 - t1);
+      bool rotate = channel->property == PROP_ROTATION;
+      int n = 3 + rotate;
+      float* (*lerp)(float* a, float* b, float t) = rotate ? quat_slerp : vec3_lerp;
+
+      if (k > 0 && k < channel->keyframeCount) {
+        float t1 = channel->times[k - 1];
+        float t2 = channel->times[k];
+        float z = (time - t1) / (t2 - t1);
+        float next[4];
+
+        memcpy(value, channel->data + (k - 1) * n, n * sizeof(float));
+        memcpy(next, channel->data + k * n, n * sizeof(float));
+
+        switch (channel->smoothing) {
+          case SMOOTH_STEP:
+            if (z >= .5) {
+              memcpy(value, next, n * sizeof(float));
+            }
+            break;
+          case SMOOTH_LINEAR: lerp(value, next, z); break;
+          case SMOOTH_CUBIC: lovrThrow("No spline interpolation yet"); break;
+        }
+      } else {
+        memcpy(value, channel->data + CLAMP(k, 0, channel->keyframeCount - 1) * n, n * sizeof(float));
       }
 
-      switch (channel->property) {
-        case PROP_TRANSLATION:
-        case PROP_SCALE:
-          if (k == 0) {
-            vec3_init(value, evaluateAttribute(animator, data, 0));
-          } else if (k >= channel->keyframeCount) {
-            vec3_init(value, evaluateAttribute(animator, data, channel->keyframeCount - 1));
-          } else {
-            vec3_init(value, evaluateAttribute(animator, data, k - 1));
-            vec3_init(next, evaluateAttribute(animator, data, k));
-
-            switch (channel->smoothing) {
-              case SMOOTH_STEP:
-                if (z >= .5) {
-                  vec3_init(value, next);
-                }
-                break;
-              case SMOOTH_LINEAR:
-                vec3_lerp(value, next, z);
-                break;
-              case SMOOTH_CUBIC:
-                lovrThrow("No spline interpolation yet");
-                break;
-            }
-          }
-          vec3_lerp(properties[channel->property], value, track->alpha);
-          break;
-
-        case PROP_ROTATION:
-          if (k == 0) {
-            quat_init(value, evaluateAttribute(animator, data, 0));
-          } else if (k >= channel->keyframeCount) {
-            quat_init(value, evaluateAttribute(animator, data, channel->keyframeCount - 1));
-          } else {
-            quat_init(value, evaluateAttribute(animator, data, k - 1));
-            quat_init(next, evaluateAttribute(animator, data, k));
-
-            switch (channel->smoothing) {
-              case SMOOTH_STEP:
-                if (z >= .5) {
-                  quat_init(value, next);
-                }
-                break;
-              case SMOOTH_LINEAR:
-                quat_slerp(value, next, z);
-                break;
-              case SMOOTH_CUBIC:
-                lovrThrow("No spline interpolation yet");
-                break;
-            }
-          }
-          quat_slerp(properties[channel->property], value, track->alpha);
-          break;
+      if (track->alpha == 1.f) {
+        memcpy(properties[channel->property], value, n * sizeof(float));
+      } else {
+        lerp(properties[channel->property], value, track->alpha);
       }
 
       touched = true;
