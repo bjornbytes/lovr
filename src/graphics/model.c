@@ -154,16 +154,18 @@ Model* lovrModelInit(Model* model, ModelData* data) {
       for (int j = 0; j < MAX_MATERIAL_TEXTURES; j++) {
         int index = data->materials[i].textures[j];
 
-        if (!model->textures[index]) {
-          ModelTexture* texture = &data->textures[index];
-          TextureData* image = data->images[texture->imageIndex];
-          bool srgb = j == TEXTURE_DIFFUSE || j == TEXTURE_EMISSIVE;
-          model->textures[index] = lovrTextureCreate(TEXTURE_2D, &image, 1, srgb, texture->mipmaps, 0);
-          lovrTextureSetFilter(model->textures[index], texture->filter);
-          lovrTextureSetWrap(model->textures[index], texture->wrap);
-        }
+        if (index != -1) {
+          if (!model->textures[index]) {
+            ModelTexture* texture = &data->textures[index];
+            TextureData* image = data->images[texture->imageIndex];
+            bool srgb = j == TEXTURE_DIFFUSE || j == TEXTURE_EMISSIVE;
+            model->textures[index] = lovrTextureCreate(TEXTURE_2D, &image, 1, srgb, texture->mipmaps, 0);
+            lovrTextureSetFilter(model->textures[index], texture->filter);
+            lovrTextureSetWrap(model->textures[index], texture->wrap);
+          }
 
-        lovrMaterialSetTexture(material, j, model->textures[index]);
+          lovrMaterialSetTexture(material, j, model->textures[index]);
+        }
       }
 
       model->materials[i] = material;
