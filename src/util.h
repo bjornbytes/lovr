@@ -6,12 +6,24 @@
 
 #ifdef _WIN32
 #define LOVR_EXPORT __declspec(dllexport)
-#define _Noreturn  __declspec(noreturn)
-#define _Thread_local __declspec(thread)
 #else
 #define LOVR_EXPORT
+#endif
+
+#ifndef _Noreturn
+#ifdef _WIN32
+#define _Noreturn  __declspec(noreturn)
+#else
 #define _Noreturn __attribute__((noreturn))
+#endif
+#endif
+
+#ifndef _Thread_local
+#ifdef _WIN32
+#define _Thread_local  __declspec(thread)
+#else
 #define _Thread_local __thread
+#endif
 #endif
 
 #define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
