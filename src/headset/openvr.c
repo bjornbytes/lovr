@@ -400,8 +400,111 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   }
 
   RenderModel_t* vrModel = state.deviceModels[id];
+  ModelData* model = lovrAlloc(ModelData);
+  size_t vertexSize = sizeof(RenderModel_Vertex_t);
 
-  return NULL;
+  // Buffers
+  model->bufferCount = 2;
+  model->buffers = calloc(model->bufferCount, sizeof(ModelBuffer));
+
+  model->buffers[0] = (ModelBuffer) {
+    .data = (char*) vrModel->rVertexData,
+    .size = vrModel->unVertexCount * vertexSize,
+    .stride = vertexSize
+  };
+
+  model->buffers[1] = (ModelBuffer) {
+    .data = (char*) vrModel->rIndexData,
+    .size = vrModel->unTriangleCount * 3 * sizeof(uint16_t),
+    .stride = sizeof(uint16_t)
+  };
+
+  // Attributes
+  model->attributeCount = 4;
+  model->attributes = calloc(model->attributeCount, sizeof(ModelAttribute));
+
+  model->attributes[0] = (ModelAttribute) {
+    .buffer = 0,
+    .offset = offsetof(RenderModel_Vertex_t, vPosition),
+    .count = vrModel->unVertexCount,
+    .type = F32,
+    .components = 3
+  };
+
+  model->attributes[1] = (ModelAttribute) {
+    .buffer = 0,
+    .offset = offsetof(RenderModel_Vertex_t, vNormal),
+    .count = vrModel->unVertexCount,
+    .type = F32,
+    .components = 3
+  };
+
+  model->attributes[2] = (ModelAttribute) {
+    .buffer = 0,
+    .offset = offsetof(RenderModel_Vertex_t, rfTextureCoord),
+    .count = vrModel->unVertexCount,
+    .type = F32,
+    .components = 2
+  };
+
+  model->attributes[3] = (ModelAttribute) {
+    .buffer = 1,
+    .offset = 0,
+    .count = vrModel->unTriangleCount * 3,
+    .type = U16,
+    .components = 1
+  };
+
+  // Images
+  RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
+  model->imageCount = 1;
+  model->images = calloc(model->imageCount, sizeof(TextureData**));
+  model->images[0] = lovrTextureDataCreate(vrTexture->unWidth, vrTexture->unHeight, 0, FORMAT_RGBA);
+  memcpy(model->images[0]->blob.data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
+
+  // Textures
+  model->textureCount = 1;
+  model->textures = calloc(model->textureCount, sizeof(ModelTexture));
+  model->textures[0] = (ModelTexture) {
+    .imageIndex = 0,
+    .filter = lovrGraphicsGetDefaultFilter(),
+    .mipmaps = true
+  };
+
+  // Material
+  model->materialCount = 1;
+  model->materials = calloc(model->materialCount, sizeof(ModelMaterial));
+  model->materials[0] = (ModelMaterial) {
+    .colors[COLOR_DIFFUSE] = { 1.f, 1.f, 1.f, 1.f },
+    .textures[TEXTURE_DIFFUSE] = 0
+  };
+
+  // Primitives
+  model->primitiveCount = 1;
+  model->primitives = calloc(model->primitiveCount, sizeof(ModelPrimitive));
+  model->primitives[0] = (ModelPrimitive) {
+    .mode = DRAW_TRIANGLES,
+    .attributes = {
+      [ATTR_POSITION] = &model->attributes[0],
+      [ATTR_NORMAL] = &model->attributes[1],
+      [ATTR_TEXCOORD] = &model->attributes[2]
+    },
+    .indices = &model->attributes[3],
+    .material = 0
+  };
+
+  // Nodes
+  model->nodeCount = 1;
+  model->nodes = calloc(model->nodeCount, sizeof(ModelNode));
+  model->nodes[0] = (ModelNode) {
+    .transform = MAT4_IDENTITY,
+    .primitiveIndex = 0,
+    .primitiveCount = 1
+  };
+
+  model->rootNode = 0;
+
+  return model;
 }
 
 static void openvrRenderTo(void (*callback)(void*), void* userdata) {
