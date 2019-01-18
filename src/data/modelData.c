@@ -498,18 +498,17 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
           channelIndex += animation->channelCount;
           for (int j = 0; j < animation->channelCount; j++) {
             ModelAnimationChannel* channel = &animation->channels[j];
+            ModelAttribute* times = NULL;
+            ModelAttribute* data = NULL;
+
             for (int kk = (token++)->size; kk > 0; kk--) {
               gltfString key = NOM_STR(json, token);
               if (STR_EQ(key, "sampler")) {
                 gltfAnimationSampler* sampler = animationSamplers + baseSampler + NOM_INT(json, token);
-                channel->times = &model->attributes[sampler->input];
-                channel->data = &model->attributes[sampler->output];
-                channel->keyframeCount = channel->times->count;
+                times = &model->attributes[sampler->input];
+                data = &model->attributes[sampler->output];
                 channel->smoothing = sampler->smoothing;
-                ModelBuffer* buffer = &model->buffers[channel->times->buffer];
-                size_t stride = buffer->stride ? buffer->stride : (channel->times->components * sizeof(float));
-                float lastTime = *(float*) (buffer->data + (channel->times->count - 1) * stride + channel->times->offset);
-                animation->duration = MAX(lastTime, animation->duration);
+                channel->keyframeCount = times->count;
               } else if (STR_EQ(key, "target")) {
                 for (int kkk = (token++)->size; kkk > 0; kkk--) {
                   gltfString key = NOM_STR(json, token);
@@ -528,6 +527,21 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
                 token += NOM_VALUE(json, token);
               }
             }
+
+            lovrAssert(times, "Missing keyframe times");
+            lovrAssert(data, "Missing keyframe data");
+
+            ModelBuffer* buffer;
+            buffer = &model->buffers[times->buffer];
+            lovrAssert(times->type == F32 && (buffer->stride == 0 || buffer->stride == sizeof(float)), "Keyframe times must be tightly-packed floats");
+            channel->times = (float*) (buffer->data + times->offset);
+
+            buffer = &model->buffers[data->buffer];
+            uint8_t components = data->components;
+            lovrAssert(data->type == F32 && (buffer->stride == 0 || buffer->stride == sizeof(float) * components), "Keyframe data must be tightly-packed floats");
+            channel->data = (float*) (buffer->data + data->offset);
+
+            animation->duration = MAX(animation->duration, channel->times[channel->keyframeCount - 1]);
           }
         } else if (STR_EQ(key, "samplers")) {
           samplerCount = token->size;

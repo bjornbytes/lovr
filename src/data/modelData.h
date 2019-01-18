@@ -115,8 +115,8 @@ typedef struct {
   AnimationProperty property;
   SmoothMode smoothing;
   int keyframeCount;
-  ModelAttribute* times;
-  ModelAttribute* data;
+  float* times;
+  float* data;
 } ModelAnimationChannel;
 
 typedef struct {
