@@ -5,7 +5,6 @@
 #include <float.h>
 #include <limits.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 
 #ifdef LOVR_USE_ASSIMP

@@ -2,8 +2,8 @@
 #include "filesystem/file.h"
 #include "platform.h"
 #include "util.h"
+#include "lib/stb/stb_sprintf.h"
 #include <physfs.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef __APPLE__
@@ -90,7 +90,7 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
     home = getpwuid(getuid())->pw_dir;
   }
 
-  snprintf(dest, size, "%s/Library/Application Support", home);
+  stb_snprintf(dest, size, "%s/Library/Application Support", home);
   return 0;
 #elif _WIN32
   PWSTR appData = NULL;
@@ -109,7 +109,7 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
     home = getpwuid(getuid())->pw_dir;
   }
 
-  snprintf(dest, size, "%s/.config", home);
+  stb_snprintf(dest, size, "%s/.config", home);
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetAppdataDirectory"
 #endif
@@ -271,9 +271,9 @@ int lovrFilesystemSetIdentity(const char* identity) {
     lovrThrow("Could not set write directory: %s (%s)", error, state.savePathFull);
   }
 
-  snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity ? identity : "default");
+  stb_snprintf(state.savePathRelative, LOVR_PATH_MAX, "LOVR/%s", identity ? identity : "default");
   char fullPathBuffer[LOVR_PATH_MAX];
-  snprintf(fullPathBuffer, LOVR_PATH_MAX, "%s/%s", state.savePathFull, state.savePathRelative);
+  stb_snprintf(fullPathBuffer, LOVR_PATH_MAX, "%s/%s", state.savePathFull, state.savePathRelative);
   strncpy(state.savePathFull, fullPathBuffer, LOVR_PATH_MAX);
   PHYSFS_mkdir(state.savePathRelative);
   if (!PHYSFS_setWriteDir(state.savePathFull)) {

@@ -9,11 +9,11 @@
 #include "data/modelData.h"
 #include "lib/math.h"
 #include "lib/vec/vec.h"
+#include "lib/stb/stb_sprintf.h"
 #include <math.h>
 #include <limits.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 // Types
 
@@ -1792,7 +1792,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
 
       if (uniform.count > 1) {
         char name[LOVR_MAX_UNIFORM_LENGTH];
-        snprintf(name, LOVR_MAX_UNIFORM_LENGTH, "%s[%d]", uniform.name, j);
+        stb_snprintf(name, LOVR_MAX_UNIFORM_LENGTH, "%s[%d]", uniform.name, j);
         location = glGetUniformLocation(program, name);
       }
 
@@ -1832,7 +1832,7 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
 
   size_t maxDraws = MIN(state.limits.blockSize / (20 * sizeof(float)) / 64 * 64, 256);
   char maxDrawSource[32];
-  snprintf(maxDrawSource, 31, "#define MAX_DRAWS %zu\n", maxDraws);
+  stb_snprintf(maxDrawSource, 31, "#define MAX_DRAWS %zu\n", maxDraws);
 
   // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;

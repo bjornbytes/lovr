@@ -103,6 +103,7 @@ int l_lovrShaderBlockGetShaderCode(lua_State* L) {
   size_t length;
   char* code = lovrShaderBlockGetShaderCode(block, blockName, &length);
   lua_pushlstring(L, code, length);
+  free(code);
   return 1;
 }
 

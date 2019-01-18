@@ -2,10 +2,9 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "graphics/texture.h"
+#include "lib/math.h"
+#include "lib/stb/stb_sprintf.h"
 #include "lib/vec/vec.h"
-#include "math/mat4.h"
-#include "math/quat.h"
-
 #include <stdbool.h>
 #include <OVR_CAPI.h>
 #include <OVR_CAPI_GL.h>
@@ -35,7 +34,7 @@ static HeadsetState state;
 static Texture* lookupTexture(uint32_t handle) {
   char key[4 + 1] = { 0 };
   lovrAssert(handle < 9999, "Texture handle overflow");
-  sprintf(key, "%d", handle);
+  stb_sprintf(key, "%d", handle);
   Texture** texture = map_get(&state.textureLookup, key);
   if (!texture) {
     map_set(&state.textureLookup, key, lovrTextureCreateFromHandle(handle, TEXTURE_2D));

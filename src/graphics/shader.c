@@ -2,6 +2,8 @@
 #include "graphics/graphics.h"
 #include "math/math.h"
 #include "resources/shaders.h"
+#include "lib/stb/stb_sprintf.h"
+#include <stdlib.h>
 #include <math.h>
 
 static size_t getUniformTypeLength(const Uniform* uniform) {
@@ -204,7 +206,6 @@ BlockType lovrShaderBlockGetType(ShaderBlock* block) {
   return block->type;
 }
 
-// TODO use sds!
 char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, size_t* length) {
 
   // Calculate
@@ -229,16 +230,16 @@ char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, si
 
   // Concatenate
   char* s = code;
-  s += sprintf(s, "layout(std140) %s %s {\n", block->type == BLOCK_UNIFORM ? "uniform" : "buffer", blockName);
+  s += stb_sprintf(s, "layout(std140) %s %s {\n", block->type == BLOCK_UNIFORM ? "uniform" : "buffer", blockName);
   for (int i = 0; i < block->uniforms.length; i++) {
     const Uniform* uniform = &block->uniforms.data[i];
     if (uniform->count > 1) {
-      s += sprintf(s, "  %s %s[%d];\n", getUniformTypeName(uniform), uniform->name, uniform->count);
+      s += stb_sprintf(s, "  %s %s[%d];\n", getUniformTypeName(uniform), uniform->name, uniform->count);
     } else {
-      s += sprintf(s, "  %s %s;\n", getUniformTypeName(uniform), uniform->name);
+      s += stb_sprintf(s, "  %s %s;\n", getUniformTypeName(uniform), uniform->name);
     }
   }
-  s += sprintf(s, "};\n");
+  s += stb_sprintf(s, "};\n");
   *s = '\0';
 
   *length = size;
