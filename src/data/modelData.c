@@ -395,6 +395,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
       }
 
       if (uri.data) {
+        lovrAssert(strncmp("data:", uri.data, strlen("data:")), "Base64 URIs aren't supported yet");;
         size_t bytesRead;
         char filename[1024];
         lovrAssert(uri.length < 1024, "Buffer filename is too long");
@@ -576,8 +577,9 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
         } else if (STR_EQ(key, "uri")) {
           size_t size = 0;
           char filename[1024];
-          gltfString path = NOM_STR(json, token);
-          snprintf(filename, 1024, "%s/%.*s%c", basePath, (int) path.length, path.data, 0);
+          gltfString uri = NOM_STR(json, token);
+          lovrAssert(strncmp("data:", uri.data, strlen("data:")), "Base64 URIs aren't supported yet");;
+          snprintf(filename, 1024, "%s/%.*s%c", basePath, (int) uri.length, uri.data, 0);
           void* data = io.read(filename, &size);
           lovrAssert(data && size > 0, "Unable to read image from '%s'", filename);
           Blob* blob = lovrBlobCreate(data, size, NULL);
