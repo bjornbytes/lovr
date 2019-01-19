@@ -1,20 +1,20 @@
 #include "graphics/animator.h"
 #include <math.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 static int trackSortCallback(const void* a, const void* b) {
   return ((Track*) a)->priority < ((Track*) b)->priority;
 }
 
-Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData) {
-  lovrRetain(modelData);
-  animator->modelData = modelData;
+Animator* lovrAnimatorInit(Animator* animator, ModelData* data) {
+  lovrRetain(data);
+  animator->data = data;
+  map_init(&animator->animations);
   vec_init(&animator->tracks);
-  vec_reserve(&animator->tracks, modelData->animationCount);
+  vec_reserve(&animator->tracks, data->animationCount);
   animator->speed = 1.f;
 
-  for (int i = 0; i < modelData->animationCount; i++) {
+  for (int i = 0; i < data->animationCount; i++) {
     vec_push(&animator->tracks, ((Track) {
       .time = 0.f,
       .speed = 1.f,
@@ -23,6 +23,10 @@ Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData) {
       .playing = false,
       .looping = false
     }));
+
+    if (data->animations[i].name) {
+      map_set(&animator->animations, data->animations[i].name, i);
+    }
   }
 
   return animator;
@@ -30,7 +34,7 @@ Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData) {
 
 void lovrAnimatorDestroy(void* ref) {
   Animator* animator = ref;
-  lovrRelease(animator->modelData);
+  lovrRelease(animator->data);
   vec_deinit(&animator->tracks);
 }
 
@@ -50,7 +54,7 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
   vec_foreach_ptr(&animator->tracks, track, i) {
     if (track->playing) {
       track->time += dt * track->speed * animator->speed;
-      float duration = animator->modelData->animations[i].duration;
+      float duration = animator->data->animations[i].duration;
 
       if (track->looping) {
         track->time = fmodf(track->time, duration);
@@ -63,12 +67,11 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
 }
 
 bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
-  ModelData* modelData = animator->modelData;
   float properties[3][4] = { { 0, 0, 0 }, { 0, 0, 0, 1 }, { 1, 1, 1 } };
   bool touched = false;
 
-  for (int i = 0; i < modelData->animationCount; i++) {
-    ModelAnimation* animation = &modelData->animations[i];
+  for (int i = 0; i < animator->data->animationCount; i++) {
+    ModelAnimation* animation = &animator->data->animations[i];
 
     for (int j = 0; j < animation->channelCount; j++) {
       ModelAnimationChannel* channel = &animation->channels[j];
@@ -81,7 +84,7 @@ bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
         continue;
       }
 
-      float duration = animator->modelData->animations[i].duration;
+      float duration = animator->data->animations[i].duration;
       float time = fmodf(track->time, duration);
       int k = 0;
 
@@ -139,7 +142,15 @@ bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
 }
 
 int lovrAnimatorGetAnimationCount(Animator* animator) {
-  return animator->modelData->animationCount;
+  return animator->data->animationCount;
+}
+
+int* lovrAnimatorGetAnimationIndex(Animator* animator, const char* name) {
+  return map_get(&animator->animations, name);
+}
+
+const char* lovrAnimatorGetAnimationName(Animator* animator, int index) {
+  return animator->data->animations[index].name;
 }
 
 void lovrAnimatorPlay(Animator* animator, int animation) {
@@ -166,7 +177,7 @@ void lovrAnimatorResume(Animator* animator, int animation) {
 
 void lovrAnimatorSeek(Animator* animator, int animation, float time) {
   Track* track = &animator->tracks.data[animation];
-  float duration = animator->modelData->animations[animation].duration;
+  float duration = animator->data->animations[animation].duration;
 
   while (time > duration) {
     time -= duration;
@@ -201,7 +212,7 @@ void lovrAnimatorSetAlpha(Animator* animator, int animation, float alpha) {
 
 float lovrAnimatorGetDuration(Animator* animator, int animation) {
   Track* track = &animator->tracks.data[animation];
-  return animator->modelData->animations[animation].duration;
+  return animator->data->animations[animation].duration;
 }
 
 bool lovrAnimatorIsPlaying(Animator* animator, int animation) {

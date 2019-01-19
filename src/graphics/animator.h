@@ -20,7 +20,8 @@ typedef vec_t(Track) vec_track_t;
 
 typedef struct {
   Ref ref;
-  ModelData* modelData;
+  ModelData* data;
+  map_int_t animations;
   vec_track_t tracks;
   float speed;
 } Animator;
@@ -32,6 +33,8 @@ void lovrAnimatorReset(Animator* animator);
 void lovrAnimatorUpdate(Animator* animator, float dt);
 bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform);
 int lovrAnimatorGetAnimationCount(Animator* animator);
+int* lovrAnimatorGetAnimationIndex(Animator* animator, const char* name);
+const char* lovrAnimatorGetAnimationName(Animator* animator, int index);
 void lovrAnimatorPlay(Animator* animator, int animation);
 void lovrAnimatorStop(Animator* animator, int animation);
 void lovrAnimatorPause(Animator* animator, int animation);

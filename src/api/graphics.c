@@ -1207,6 +1207,7 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
 
   Model* model = lovrModelCreate(modelData);
   luax_pushobject(L, model);
+  lovrRelease(modelData);
   lovrRelease(model);
   return 1;
 }
