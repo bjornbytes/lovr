@@ -192,8 +192,8 @@ void lovrModelDestroy(void* ref) {
 }
 
 void lovrModelDraw(Model* model, mat4 transform, int instances) {
-  updateGlobalNodeTransform(model, 0, transform);
-  renderNode(model, 0, instances); // TODO use root
+  updateGlobalNodeTransform(model, model->data->rootNode, transform);
+  renderNode(model, model->data->rootNode, instances);
 }
 
 Animator* lovrModelGetAnimator(Model* model) {

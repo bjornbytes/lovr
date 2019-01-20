@@ -356,8 +356,9 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
 
   // Make space for fake root node if the root scene has multiple root nodes
   if (rootScene >= 0 && scenes[rootScene].nodeCount > 1) {
-    model->nodeCount++;
     info.childCount += model->nodeCount;
+    info.totalSize += sizeof(ModelNode) + model->nodeCount * sizeof(uint32_t);
+    model->nodeCount++;
   }
 
   size_t offset = 0;
@@ -833,7 +834,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
           gltfString key = NOM_STR(json, token);
           if (STR_EQ(key, "nodes")) {
             for (int j = (token++)->size; j > 0; j--) {
-              lastNode->children[i] = NOM_INT(json, token);
+              lastNode->children[lastNode->childCount - j] = NOM_INT(json, token);
             }
           } else {
             token += NOM_VALUE(json, token);
