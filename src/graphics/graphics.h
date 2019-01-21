@@ -196,7 +196,7 @@ typedef struct {
 bool lovrGraphicsInit(bool gammaCorrect);
 void lovrGraphicsDestroy();
 void lovrGraphicsPresent();
-void lovrGraphicsSetWindow(WindowFlags* flags);
+void lovrGraphicsCreateWindow(WindowFlags* flags);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
 void lovrGraphicsSetCamera(Camera* camera, bool clear);

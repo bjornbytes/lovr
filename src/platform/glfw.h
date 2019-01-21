@@ -81,7 +81,7 @@ void lovrPlatformSetTime(double t) {
   glfwSetTime(t);
 }
 
-bool lovrPlatformSetWindow(WindowFlags* flags) {
+bool lovrPlatformCreateWindow(WindowFlags* flags) {
   if (state.window) {
     return true;
   }

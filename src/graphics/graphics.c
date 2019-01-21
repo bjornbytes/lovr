@@ -187,19 +187,15 @@ void lovrGraphicsPresent() {
   lovrGpuPresent();
 }
 
-void lovrGraphicsSetWindow(WindowFlags* flags) {
+void lovrGraphicsCreateWindow(WindowFlags* flags) {
   lovrAssert(!state.initialized, "Window is already created");
-
-  if (flags) {
-    flags->srgb = state.gammaCorrect;
+  flags->srgb = state.gammaCorrect;
 #ifdef EMSCRIPTEN
-    flags->vsync = 1;
+  flags->vsync = 1;
 #else
-    flags->vsync = 0;
+  flags->vsync = 0;
 #endif
-  }
-
-  lovrAssert(lovrPlatformSetWindow(flags), "Could not create window");
+  lovrAssert(lovrPlatformCreateWindow(flags), "Could not create window");
   lovrPlatformOnWindowClose(onCloseWindow);
   lovrPlatformOnWindowResize(onResizeWindow);
   lovrPlatformGetFramebufferSize(&state.width, &state.height);

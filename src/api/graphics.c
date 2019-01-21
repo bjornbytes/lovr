@@ -283,12 +283,7 @@ static int l_lovrGraphicsPresent(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsSetWindow(lua_State* L) {
-  if (lua_isnoneornil(L, 1)) {
-    lovrGraphicsSetWindow(NULL);
-    return 0;
-  }
-
+static int l_lovrGraphicsCreateWindow(lua_State* L) {
   WindowFlags flags = { 0 };
   luaL_checktype(L, 1, LUA_TTABLE);
 
@@ -322,7 +317,7 @@ static int l_lovrGraphicsSetWindow(lua_State* L) {
   }
   lua_pop(L, 1);
 
-  lovrGraphicsSetWindow(&flags);
+  lovrGraphicsCreateWindow(&flags);
   luax_atexit(L, lovrGraphicsDestroy); // The lua_State that creates the window shall be the one to destroy it
   lovrRelease(textureData);
   return 0;
@@ -1360,7 +1355,7 @@ static const luaL_Reg lovrGraphics[] = {
 
   // Base
   { "present", l_lovrGraphicsPresent },
-  { "setWindow", l_lovrGraphicsSetWindow },
+  { "createWindow", l_lovrGraphicsCreateWindow },
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
@@ -1469,7 +1464,7 @@ int luaopen_lovr_graphics(lua_State* L) {
 
   lovrGraphicsInit(gammaCorrect);
 
-  lua_pushcfunction(L, l_lovrGraphicsSetWindow);
+  lua_pushcfunction(L, l_lovrGraphicsCreateWindow);
   lua_getfield(L, -2, "window");
   lua_call(L, 1, 0);
 

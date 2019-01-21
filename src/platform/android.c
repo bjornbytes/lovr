@@ -24,7 +24,7 @@ void lovrPlatformSetTime(double t) {
 }
 */
 
-bool lovrPlatformSetWindow(WindowFlags* flags) {
+bool lovrPlatformCreateWindow(WindowFlags* flags) {
   return true;
 }
 
