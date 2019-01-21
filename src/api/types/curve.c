@@ -39,11 +39,11 @@ int l_lovrCurveRender(lua_State* L) {
   return 1;
 }
 
-int l_lovrCurveSplit(lua_State* L) {
+int l_lovrCurveSlice(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   float t1 = luaL_checknumber(L, 2);
   float t2 = luaL_checknumber(L, 3);
-  Curve* subcurve = lovrCurveSplit(curve, t1, t2);
+  Curve* subcurve = lovrCurveSlice(curve, t1, t2);
   luax_pushobject(L, subcurve);
   return 1;
 }
@@ -102,7 +102,7 @@ const luaL_Reg lovrCurve[] = {
   { "evaluate", l_lovrCurveEvaluate },
   { "getTangent", l_lovrCurveGetTangent },
   { "render", l_lovrCurveRender },
-  { "split", l_lovrCurveSplit },
+  { "slice", l_lovrCurveSlice },
   { "getPointCount", l_lovrCurveGetPointCount },
   { "getDegree", l_lovrCurveGetDegree },
   { "getPoint", l_lovrCurveGetPoint },

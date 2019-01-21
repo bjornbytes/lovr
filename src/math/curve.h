@@ -13,7 +13,7 @@ void lovrCurveDestroy(void* ref);
 void lovrCurveEvaluate(Curve* curve, float t, vec3 point);
 void lovrCurveGetTangent(Curve* curve, float t, vec3 point);
 void lovrCurveRender(Curve* curve, float t1, float t2, vec3 points, int n);
-Curve* lovrCurveSplit(Curve* curve, float t1, float t2);
+Curve* lovrCurveSlice(Curve* curve, float t1, float t2);
 int lovrCurveGetPointCount(Curve* curve);
 void lovrCurveGetPoint(Curve* curve, int index, vec3 point);
 void lovrCurveSetPoint(Curve* curve, int index, vec3 point);
