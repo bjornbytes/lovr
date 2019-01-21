@@ -54,12 +54,6 @@ int l_lovrCurveGetPointCount(lua_State* L) {
   return 1;
 }
 
-int l_lovrCurveGetDegree(lua_State* L) {
-  Curve* curve = luax_checktype(L, 1, Curve);
-  lua_pushinteger(L, lovrCurveGetPointCount(curve) - 1);
-  return 1;
-}
-
 int l_lovrCurveGetPoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   int index = luaL_checkinteger(L, 2) - 1;
@@ -104,7 +98,6 @@ const luaL_Reg lovrCurve[] = {
   { "render", l_lovrCurveRender },
   { "slice", l_lovrCurveSlice },
   { "getPointCount", l_lovrCurveGetPointCount },
-  { "getDegree", l_lovrCurveGetDegree },
   { "getPoint", l_lovrCurveGetPoint },
   { "setPoint", l_lovrCurveSetPoint },
   { "addPoint", l_lovrCurveAddPoint },
