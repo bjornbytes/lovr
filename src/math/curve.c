@@ -73,8 +73,8 @@ void lovrCurveRender(Curve* curve, float t1, float t2, vec3 points, int n) {
 }
 
 Curve* lovrCurveSlice(Curve* curve, float t1, float t2) {
-  lovrAssert(curve->points.length >= 6, "Need at least 2 points to split a Curve");
-  lovrAssert(t1 >= 0 && t2 <= 1, "Curve split interval must be within [0, 1]");
+  lovrAssert(curve->points.length >= 6, "Need at least 2 points to slice a Curve");
+  lovrAssert(t1 >= 0 && t2 <= 1, "Curve slice interval must be within [0, 1]");
 
   Curve* new = lovrCurveCreate(curve->points.length / 3);
   new->points.length = curve->points.length;
