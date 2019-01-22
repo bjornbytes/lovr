@@ -65,7 +65,7 @@ static void lovrGraphicsInitBuffers() {
   state.identityBuffer = lovrBufferCreate(256, NULL, BUFFER_VERTEX, USAGE_STATIC, false);
   uint8_t* id = lovrBufferMap(state.identityBuffer, 0);
   for (int i = 0; i < 256; i++) id[i] = i;
-  lovrBufferFlush(state.identityBuffer, 0, 256);
+  lovrBufferFlushRange(state.identityBuffer, 0, 256);
 
   VertexFormat empty = { .count = 0 };
   Buffer* vertexBuffer = state.buffers[STREAM_VERTEX];
@@ -743,23 +743,23 @@ void lovrGraphicsFlush() {
     // Flush vertex buffer
     if (flushGeometry && batch->vertexCount > 0) {
       size_t stride = BUFFER_STRIDES[STREAM_VERTEX];
-      lovrBufferFlush(state.buffers[STREAM_VERTEX], batch->vertexStart * stride, batch->vertexCount * stride);
+      lovrBufferFlushRange(state.buffers[STREAM_VERTEX], batch->vertexStart * stride, batch->vertexCount * stride);
 
       if (!instanced) {
-        lovrBufferFlush(state.buffers[STREAM_DRAW_ID], batch->vertexStart, batch->vertexCount);
+        lovrBufferFlushRange(state.buffers[STREAM_DRAW_ID], batch->vertexStart, batch->vertexCount);
       }
     }
 
     // Flush index buffer
     if (flushGeometry && batch->indexCount > 0) {
       size_t stride = BUFFER_STRIDES[STREAM_INDEX];
-      lovrBufferFlush(state.buffers[STREAM_INDEX], batch->indexStart * stride, batch->indexCount * stride);
+      lovrBufferFlushRange(state.buffers[STREAM_INDEX], batch->indexStart * stride, batch->indexCount * stride);
     }
 
     // Flush draw data buffer
     size_t drawDataOffset = batch->drawStart * BUFFER_STRIDES[STREAM_DRAW_DATA];
     size_t drawDataSize = batch->drawCount * BUFFER_STRIDES[STREAM_DRAW_DATA];
-    lovrBufferFlush(state.buffers[STREAM_DRAW_DATA], drawDataOffset, drawDataSize);
+    lovrBufferFlushRange(state.buffers[STREAM_DRAW_DATA], drawDataOffset, drawDataSize);
     lovrShaderSetBlock(batch->shader, "lovrDrawData", state.buffers[STREAM_DRAW_DATA], drawDataOffset, state.maxDraws * BUFFER_STRIDES[STREAM_DRAW_DATA], ACCESS_READ);
 
     // Uniforms

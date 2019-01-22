@@ -470,6 +470,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
 
   if (mesh->indexBuffer && mesh->indexCount > 0) {
     lovrGpuBindBuffer(BUFFER_INDEX, mesh->indexBuffer->id, true);
+    lovrBufferFlush(mesh->indexBuffer);
 #ifndef EMSCRIPTEN
     uint32_t primitiveRestart = (1 << (mesh->indexSize * 8)) - 1;
     if (state.primitiveRestart != primitiveRestart) {
@@ -477,11 +478,6 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
       glPrimitiveRestartIndex(primitiveRestart);
     }
 #endif
-  }
-
-  if (mesh->flushEnd > 0) {
-    lovrBufferFlush(mesh->vertexBuffer, mesh->flushStart, mesh->flushEnd - mesh->flushStart);
-    mesh->flushStart = mesh->flushEnd = 0;
   }
 
   while ((key = map_next(&mesh->attributes, &iter)) != NULL) {
@@ -496,6 +492,10 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   for (int i = 0; i < MAX_ATTRIBUTES; i++) {
     MeshAttribute previous = mesh->layout[i];
     MeshAttribute current = layout[i];
+
+    if (current.enabled) {
+      lovrBufferFlush(current.buffer);
+    }
 
     if (!memcmp(&previous, &current, sizeof(MeshAttribute))) {
       continue;
@@ -1577,7 +1577,7 @@ void* lovrBufferMap(Buffer* buffer, size_t offset) {
   return (uint8_t*) buffer->data + offset;
 }
 
-void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size) {
+void lovrBufferFlushRange(Buffer* buffer, size_t offset, size_t size) {
   lovrGpuBindBuffer(buffer->type, buffer->id, false);
 #ifndef EMSCRIPTEN
   if (GLAD_GL_ARB_buffer_storage) {

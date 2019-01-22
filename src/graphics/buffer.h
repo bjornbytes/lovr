@@ -24,6 +24,8 @@ typedef struct {
   Ref ref;
   void* data;
   size_t size;
+  size_t flushFrom;
+  size_t flushTo;
   bool readable;
   BufferType type;
   BufferUsage usage;
@@ -37,4 +39,6 @@ size_t lovrBufferGetSize(Buffer* buffer);
 bool lovrBufferIsReadable(Buffer* buffer);
 BufferUsage lovrBufferGetUsage(Buffer* buffer);
 void* lovrBufferMap(Buffer* buffer, size_t offset);
-void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size);
+void lovrBufferFlushRange(Buffer* buffer, size_t offset, size_t size);
+void lovrBufferMarkRange(Buffer* buffer, size_t offset, size_t size);
+void lovrBufferFlush(Buffer* buffer);

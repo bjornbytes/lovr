@@ -25,11 +25,6 @@ size_t lovrMeshGetIndexSize(Mesh* mesh) {
   return mesh->indexSize;
 }
 
-void lovrMeshMarkVertices(Mesh* mesh, size_t start, size_t end) {
-  mesh->flushStart = MIN(mesh->flushStart, start);
-  mesh->flushEnd = MAX(mesh->flushEnd, end);
-}
-
 void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute) {
   lovrAssert(!map_get(&mesh->attributes, name), "Mesh already has an attribute named '%s'", name);
   lovrAssert(attribute->divisor >= 0, "Divisor can't be negative");

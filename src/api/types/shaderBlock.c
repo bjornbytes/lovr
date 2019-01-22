@@ -32,7 +32,7 @@ int l_lovrShaderBlockSend(lua_State* L) {
     Buffer* buffer = lovrShaderBlockGetBuffer(block);
     uint8_t* data = lovrBufferMap(buffer, uniform->offset);
     luax_checkuniform(L, 3, uniform, data, name);
-    lovrBufferFlush(buffer, uniform->offset, uniform->size);
+    lovrBufferMarkRange(buffer, uniform->offset, uniform->size);
     return 0;
   } else {
     Blob* blob = luax_checktype(L, 1, Blob);
@@ -41,7 +41,7 @@ int l_lovrShaderBlockSend(lua_State* L) {
     size_t bufferSize = lovrBufferGetSize(buffer);
     size_t copySize = MIN(bufferSize, blob->size);
     memcpy(data, blob->data, copySize);
-    lovrBufferFlush(buffer, 0, copySize);
+    lovrBufferMarkRange(buffer, 0, copySize);
     lua_pushinteger(L, copySize);
     return 1;
   }

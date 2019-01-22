@@ -1179,7 +1179,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     memcpy(vertices, vertexData->blob.data, vertexData->count * vertexData->format.stride);
   }
 
-  lovrBufferFlush(vertexBuffer, 0, count * format.stride);
+  lovrBufferMarkRange(vertexBuffer, 0, count * format.stride);
   lovrRelease(vertexBuffer);
 
   luax_pushobject(L, mesh);

@@ -139,7 +139,7 @@ int l_lovrMeshSetVertex(lua_State* L) {
   VertexFormat* format = lovrMeshGetVertexFormat(mesh);
   VertexPointer vertex = { .raw = lovrBufferMap(buffer, index * format->stride) };
   luax_setvertex(L, 3, &vertex, format);
-  lovrMeshMarkVertices(mesh, index * format->stride, (index + 1) * format->stride);
+  lovrBufferMarkRange(buffer, index * format->stride, (index + 1) * format->stride);
   return 0;
 }
 
@@ -168,7 +168,7 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
   Buffer* buffer = lovrMeshGetVertexBuffer(mesh);
   VertexPointer vertex = { .raw = lovrBufferMap(buffer, vertexIndex * format->stride + attribute.offset) };
   luax_setvertexattribute(L, 4, &vertex, attribute);
-  lovrMeshMarkVertices(mesh, vertexIndex * format->stride + attribute.offset, vertexIndex * format->stride + attribute.offset + attribute.size);
+  lovrBufferMarkRange(buffer, vertexIndex * format->stride + attribute.offset, vertexIndex * format->stride + attribute.offset + attribute.size);
   return 0;
 }
 
@@ -207,7 +207,7 @@ int l_lovrMeshSetVertices(lua_State* L) {
     }
   }
 
-  lovrMeshMarkVertices(mesh, start * format->stride, (start + count) * format->stride);
+  lovrBufferMarkRange(buffer, start * format->stride, (start + count) * format->stride);
 
   return 0;
 }
@@ -270,7 +270,7 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
     } else {
       void* indices = lovrBufferMap(indexBuffer, 0);
       memcpy(indices, blob->data, blob->size);
-      lovrBufferFlush(indexBuffer, 0, blob->size);
+      lovrBufferMarkRange(indexBuffer, 0, blob->size);
     }
   } else {
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -309,7 +309,7 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
     }
 
     lovrMeshSetIndexBuffer(mesh, indexBuffer, count, size);
-    lovrBufferFlush(indexBuffer, 0, count * size);
+    lovrBufferMarkRange(indexBuffer, 0, count * size);
   }
 
   return 0;

@@ -41,8 +41,6 @@ typedef struct {
   uint32_t vertexCount;
   uint32_t indexCount;
   size_t indexSize;
-  size_t flushStart;
-  size_t flushEnd;
   uint32_t drawStart;
   uint32_t drawCount;
   Material* material;
@@ -61,7 +59,6 @@ void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer, uint32_t indexCount, siz
 uint32_t lovrMeshGetVertexCount(Mesh* mesh);
 uint32_t lovrMeshGetIndexCount(Mesh* mesh);
 size_t lovrMeshGetIndexSize(Mesh* mesh);
-void lovrMeshMarkVertices(Mesh* mesh, size_t start, size_t end);
 void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
 MeshAttribute* lovrMeshGetAttribute(Mesh* mesh, const char* name);
