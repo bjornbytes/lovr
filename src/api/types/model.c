@@ -28,9 +28,20 @@ int l_lovrModelSetAnimator(lua_State* L) {
   return 0;
 }
 
+int l_lovrModelGetAABB(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  float aabb[6];
+  lovrModelGetAABB(model, aabb);
+  for (int i = 0; i < 6; i++) {
+    lua_pushnumber(L, aabb[i]);
+  }
+  return 6;
+}
+
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
   { "getAnimator", l_lovrModelGetAnimator },
   { "setAnimator", l_lovrModelSetAnimator },
+  { "getAABB", l_lovrModelGetAABB },
   { NULL, NULL }
 };
