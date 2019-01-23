@@ -79,7 +79,7 @@ typedef enum {
 typedef enum {
   SMOOTH_STEP,
   SMOOTH_LINEAR,
-  SMOOTH_CUBIC,
+  SMOOTH_CUBIC
 } SmoothMode;
 
 typedef enum {
@@ -130,7 +130,6 @@ typedef struct {
   int imageIndex;
   TextureFilter filter;
   TextureWrap wrap;
-  bool mipmaps;
 } ModelTexture;
 
 typedef struct {

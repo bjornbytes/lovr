@@ -46,7 +46,6 @@ typedef struct {
 typedef struct {
   TextureFilter filter;
   TextureWrap wrap;
-  bool mipmaps;
 } gltfSampler;
 
 typedef struct {
@@ -79,82 +78,12 @@ static jsmntok_t* aggregate(const char* json, jsmntok_t* token, const char* targ
   return token;
 }
 
-static jsmntok_t* parseAnimationSamplers(const char* json, jsmntok_t* token, gltfAnimationSampler* sampler) {
-  for (int i = (token++)->size; i > 0; i--) {
-    for (int k = (token++)->size; k > 0; k--) {
-      gltfString key = NOM_STR(json, token);
-      if (STR_EQ(key, "samplers")) {
-        for (int j = (token++)->size; j > 0; j--, sampler++) {
-          for (int kk = (token++)->size; kk > 0; kk--) {
-            gltfString key = NOM_STR(json, token);
-            if (STR_EQ(key, "input")) { sampler->input = NOM_INT(json, token); }
-            else if (STR_EQ(key, "output")) { sampler->output = NOM_INT(json, token); }
-            else if (STR_EQ(key, "interpolation")) {
-              gltfString smoothing = NOM_STR(json, token);
-              if (STR_EQ(smoothing, "LINEAR")) { sampler->smoothing = SMOOTH_LINEAR; }
-              else if (STR_EQ(smoothing, "STEP")) { sampler->smoothing = SMOOTH_STEP; }
-              else if (STR_EQ(smoothing, "CUBICSPLINE")) { sampler->smoothing = SMOOTH_CUBIC; }
-              else { lovrThrow("Unknown animation sampler interpolation"); }
-            } else {
-              token += NOM_VALUE(json, token);
-            }
-          }
-        }
-      } else {
-        token += NOM_VALUE(json, token);
-      }
-    }
-  }
-  return token;
-}
-
-static jsmntok_t* parseSamplers(const char* json, jsmntok_t* token, gltfSampler* sampler) {
-  for (int i = (token++)->size; i > 0; i--, sampler++) {
-    sampler->wrap.s = sampler->wrap.t = sampler->wrap.r = WRAP_REPEAT;
-    int min = -1;
-    int mag = -1;
-
-    for (int k = (token++)->size; k > 0; k--) {
-      gltfString key = NOM_STR(json, token);
-      if (STR_EQ(key, "minFilter")) { min = NOM_INT(json, token); }
-      else if (STR_EQ(key, "magFilter")) { mag = NOM_INT(json, token); }
-      else if (STR_EQ(key, "wrapS")) {
-        switch (NOM_INT(json, token)) {
-          case 33071: sampler->wrap.s = WRAP_CLAMP; break;
-          case 33648: sampler->wrap.s = WRAP_MIRRORED_REPEAT; break;
-          case 10497: sampler->wrap.s = WRAP_REPEAT; break;
-          default: lovrThrow("Unknown sampler wrapS mode for sampler %d", i);
-        }
-      } else if (STR_EQ(key, "wrapT")) {
-        switch (NOM_INT(json, token)) {
-          case 33071: sampler->wrap.t = WRAP_CLAMP; break;
-          case 33648: sampler->wrap.t = WRAP_MIRRORED_REPEAT; break;
-          case 10497: sampler->wrap.t = WRAP_REPEAT; break;
-          default: lovrThrow("Unknown sampler wrapT mode for sampler %d", i);
-        }
-      } else {
-        token += NOM_VALUE(json, token);
-      }
-    }
-
-    if (min == 9728 || min == 9984 || min == 9986 || mag == 9728) {
-      sampler->filter.mode = FILTER_NEAREST;
-    } else {
-      switch (min) {
-        case 9729: sampler->filter.mode = FILTER_BILINEAR, sampler->mipmaps = false; break;
-        case 9985: sampler->filter.mode = FILTER_BILINEAR, sampler->mipmaps = true; break;
-        case 9987: sampler->filter.mode = FILTER_TRILINEAR, sampler->mipmaps = true; break;
-      }
-    }
-  }
-  return token;
-}
-
 static jsmntok_t* parseTextureInfo(const char* json, jsmntok_t* token, int* dest) {
   for (int k = (token++)->size; k > 0; k--) {
     gltfString key = NOM_STR(json, token);
-    if (STR_EQ(key, "index")) { *dest = NOM_INT(json, token); }
-    else if (STR_EQ(key, "texCoord")) {
+    if (STR_EQ(key, "index")) {
+      *dest = NOM_INT(json, token);
+    } else if (STR_EQ(key, "texCoord")) {
       lovrAssert(NOM_INT(json, token) == 0, "Only one set of texture coordinates is supported");
     } else {
       token += NOM_VALUE(json, token);
@@ -224,13 +153,14 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
     int childCount;
     int jointCount;
     int charCount;
+    int sceneCount;
   } info = { 0 };
 
   gltfAnimationSampler* animationSamplers = NULL;
   gltfMesh* meshes = NULL;
   gltfSampler* samplers = NULL;
   gltfScene* scenes = NULL;
-  int rootScene = -1;
+  int rootScene = 0;
 
   for (jsmntok_t* token = tokens + 1; token < tokens + tokenCount;) {
     gltfString key = NOM_STR(json, token);
@@ -254,16 +184,45 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
             if (STR_EQ(key, "channels")) { info.animationChannelCount += t->size; }
             else if (STR_EQ(key, "samplers")) { samplerCount += t->size; }
             else if (STR_EQ(key, "name")) {
-              info.charCount += token->end - token->start + 1;
-              info.totalSize += token->end - token->start + 1;
+              info.charCount += t->end - t->start + 1;
+              info.totalSize += t->end - t->start + 1;
             }
             t += NOM_VALUE(json, t);
           }
         }
       }
+
       info.totalSize += info.animationChannelCount * sizeof(ModelAnimationChannel);
       animationSamplers = malloc(samplerCount * sizeof(gltfAnimationSampler));
-      token = parseAnimationSamplers(json, token, animationSamplers);
+      gltfAnimationSampler* sampler = animationSamplers;
+      for (int i = (token++)->size; i > 0; i--) {
+        for (int k = (token++)->size; k > 0; k--) {
+          gltfString key = NOM_STR(json, token);
+          if (STR_EQ(key, "samplers")) {
+            for (int j = (token++)->size; j > 0; j--, sampler++) {
+              sampler->input = -1;
+              sampler->output = -1;
+              sampler->smoothing = SMOOTH_LINEAR;
+              for (int kk = (token++)->size; kk > 0; kk--) {
+                gltfString key = NOM_STR(json, token);
+                if (STR_EQ(key, "input")) { sampler->input = NOM_INT(json, token); }
+                else if (STR_EQ(key, "output")) { sampler->output = NOM_INT(json, token); }
+                else if (STR_EQ(key, "interpolation")) {
+                  gltfString smoothing = NOM_STR(json, token);
+                  if (STR_EQ(smoothing, "LINEAR")) { sampler->smoothing = SMOOTH_LINEAR; }
+                  else if (STR_EQ(smoothing, "STEP")) { sampler->smoothing = SMOOTH_STEP; }
+                  else if (STR_EQ(smoothing, "CUBICSPLINE")) { sampler->smoothing = SMOOTH_CUBIC; }
+                  else { lovrThrow("Unknown animation sampler interpolation"); }
+                } else {
+                  token += NOM_VALUE(json, token);
+                }
+              }
+            }
+          } else {
+            token += NOM_VALUE(json, token);
+          }
+        }
+      }
 
     } else if (STR_EQ(key, "buffers")) {
       info.buffers = token;
@@ -285,7 +244,46 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
 
     } else if (STR_EQ(key, "samplers")) {
       samplers = malloc(token->size * sizeof(gltfSampler));
-      token = parseSamplers(json, token, samplers);
+      gltfSampler* sampler = samplers;
+      for (int i = (token++)->size; i > 0; i--, sampler++) {
+        sampler->filter.mode = FILTER_TRILINEAR;
+        sampler->wrap.s = sampler->wrap.t = sampler->wrap.r = WRAP_REPEAT;
+        int min = -1;
+        int mag = -1;
+
+        for (int k = (token++)->size; k > 0; k--) {
+          gltfString key = NOM_STR(json, token);
+          if (STR_EQ(key, "minFilter")) { min = NOM_INT(json, token); }
+          else if (STR_EQ(key, "magFilter")) { mag = NOM_INT(json, token); }
+          else if (STR_EQ(key, "wrapS")) {
+            switch (NOM_INT(json, token)) {
+              case 33071: sampler->wrap.s = WRAP_CLAMP; break;
+              case 33648: sampler->wrap.s = WRAP_MIRRORED_REPEAT; break;
+              case 10497: sampler->wrap.s = WRAP_REPEAT; break;
+              default: lovrThrow("Unknown sampler wrapS mode for sampler %d", i);
+            }
+          } else if (STR_EQ(key, "wrapT")) {
+            switch (NOM_INT(json, token)) {
+              case 33071: sampler->wrap.t = WRAP_CLAMP; break;
+              case 33648: sampler->wrap.t = WRAP_MIRRORED_REPEAT; break;
+              case 10497: sampler->wrap.t = WRAP_REPEAT; break;
+              default: lovrThrow("Unknown sampler wrapT mode for sampler %d", i);
+            }
+          } else {
+            token += NOM_VALUE(json, token);
+          }
+        }
+
+        if (min == 9728 || min == 9984 || min == 9986 || mag == 9728) {
+          sampler->filter.mode = FILTER_NEAREST;
+        } else {
+          switch (min) {
+            case 9729: sampler->filter.mode = FILTER_BILINEAR; break;
+            case 9985: sampler->filter.mode = FILTER_BILINEAR; break;
+            case 9987: sampler->filter.mode = FILTER_TRILINEAR; break;
+          }
+        }
+      }
 
     } else if (STR_EQ(key, "textures")) {
       info.textures = token;
@@ -330,13 +328,16 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
 
     } else if (STR_EQ(key, "scenes")) {
       info.scenes = token;
-      scenes = malloc(token->size * sizeof(gltfScene));
+      info.sceneCount = token->size;
+      scenes = malloc(info.sceneCount * sizeof(gltfScene));
       gltfScene* scene = scenes;
       for (int i = (token++)->size; i > 0; i--, scene++) {
         for (int k = (token++)->size; k > 0; k--) {
           gltfString key = NOM_STR(json, token);
           if (STR_EQ(key, "nodes")) {
             scene->nodeCount = token->size;
+            jsmntok_t* t = token + 1;
+            scene->node = NOM_INT(json, t);
           }
           token += NOM_VALUE(json, token);
         }
@@ -355,12 +356,13 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
   }
 
   // Make space for fake root node if the root scene has multiple root nodes
-  if (rootScene >= 0 && scenes[rootScene].nodeCount > 1) {
+  if (info.sceneCount > 0 && scenes[rootScene].nodeCount > 1) {
     info.childCount += model->nodeCount;
     info.totalSize += sizeof(ModelNode) + model->nodeCount * sizeof(uint32_t);
     model->nodeCount++;
   }
 
+  // Allocate
   size_t offset = 0;
   int childIndex = 0;
   model->data = calloc(1, info.totalSize);
@@ -374,7 +376,6 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
   model->primitives = (ModelPrimitive*) (model->data + offset), offset += model->primitiveCount * sizeof(ModelPrimitive);
   model->nodes = (ModelNode*) (model->data + offset), offset += model->nodeCount * sizeof(ModelNode);
   model->skins = (ModelSkin*) (model->data + offset), offset += model->skinCount * sizeof(ModelSkin);
-
   ModelAnimationChannel* channels = (ModelAnimationChannel*) (model->data + offset); offset += info.animationChannelCount * sizeof(ModelAnimationChannel);
   uint32_t* nodeChildren = (uint32_t*) (model->data + offset); offset += info.childCount * sizeof(uint32_t);
   uint32_t* skinJoints = (uint32_t*) (model->data + offset); offset += info.jointCount * sizeof(uint32_t);
@@ -598,14 +599,16 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
     jsmntok_t* token = info.textures;
     ModelTexture* texture = model->textures;
     for (int i = (token++)->size; i > 0; i--, texture++) {
+      texture->filter.mode = FILTER_TRILINEAR;
+      texture->wrap.s = texture->wrap.t = WRAP_REPEAT;
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
-        if (STR_EQ(key, "source")) { texture->imageIndex = NOM_INT(json, token); }
-        else if (STR_EQ(key, "sampler")) {
+        if (STR_EQ(key, "source")) {
+          texture->imageIndex = NOM_INT(json, token);
+        } else if (STR_EQ(key, "sampler")) {
           gltfSampler* sampler = &samplers[NOM_INT(json, token)];
           texture->filter = sampler->filter;
           texture->wrap = sampler->wrap;
-          texture->mipmaps = sampler->mipmaps;
         }
         else { token += NOM_VALUE(json, token); }
       }
@@ -679,6 +682,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
         if (STR_EQ(key, "primitives")) {
           for (uint32_t j = (token++)->size; j > 0; j--, primitive++) {
             primitive->mode = DRAW_TRIANGLES;
+            primitive->material = -1;
 
             for (int kk = (token++)->size; kk > 0; kk--) {
               gltfString key = NOM_STR(json, token);
@@ -686,6 +690,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
                 primitive->material = NOM_INT(json, token);
               } else if (STR_EQ(key, "indices")) {
                 primitive->indices = &model->attributes[NOM_INT(json, token)];
+                lovrAssert(primitive->indices->type != U8, "Unsigned byte indices are not supported (must be unsigned shorts or unsigned ints)");
               } else if (STR_EQ(key, "mode")) {
                 switch (NOM_INT(json, token)) {
                   case 0: primitive->mode = DRAW_POINTS; break;
@@ -817,7 +822,9 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
   }
 
   // Scenes
-  if (scenes[rootScene].nodeCount > 1) {
+  if (info.sceneCount == 0) {
+    model->rootNode = 0;
+  } else if (scenes[rootScene].nodeCount > 1) {
     model->rootNode = model->nodeCount - 1;
     ModelNode* lastNode = &model->nodes[model->rootNode];
     lastNode->childCount = scenes[rootScene].nodeCount;
@@ -850,6 +857,7 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
 
   free(animationSamplers);
   free(meshes);
+  free(samplers);
   free(scenes);
   free(tokens);
   return model;
@@ -857,5 +865,11 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
 
 void lovrModelDataDestroy(void* ref) {
   ModelData* model = ref;
+  for (int i = 0; i < model->blobCount; i++) {
+    lovrRelease(model->blobs[i]);
+  }
+  for (int i = 0; i < model->imageCount; i++) {
+    lovrRelease(model->images[i]);
+  }
   free(model->data);
 }

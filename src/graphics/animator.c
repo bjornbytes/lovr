@@ -113,7 +113,8 @@ bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
             }
             break;
           case SMOOTH_LINEAR: lerp(value, next, z); break;
-          case SMOOTH_CUBIC: lovrThrow("Cubic spline keyframe interpolation is not supported yet"); break;
+          case SMOOTH_CUBIC: lovrThrow("Cubic spline interpolation is not supported yet"); break;
+          default: break;
         }
       } else {
         memcpy(value, channel->data + CLAMP(k, 0, channel->keyframeCount - 1) * n, n * sizeof(float));
