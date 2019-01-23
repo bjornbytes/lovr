@@ -467,8 +467,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   model->textures = calloc(model->textureCount, sizeof(ModelTexture));
   model->textures[0] = (ModelTexture) {
     .imageIndex = 0,
-    .filter = lovrGraphicsGetDefaultFilter(),
-    .mipmaps = true
+    .filter = lovrGraphicsGetDefaultFilter()
   };
 
   // Material

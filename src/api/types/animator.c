@@ -3,13 +3,16 @@
 
 static int luax_checkanimation(lua_State* L, int index, Animator* animator) {
   switch (lua_type(L, index)) {
-    case LUA_TNUMBER:
-      return lua_tointeger(L, index) - 1;
+    case LUA_TNUMBER: {
+      int i = lua_tointeger(L, index) - 1;
+      lovrAssert(i < lovrAnimatorGetAnimationCount(animator), "Invalid animation '%d'", i + 1);
+      return i;
+    }
     case LUA_TSTRING: {
       const char* name = lua_tostring(L, index);
-      int* index = lovrAnimatorGetAnimationIndex(animator, name);
-      lovrAssert(index, "Unknown animation '%s'", name);
-      return *index;
+      int* i = lovrAnimatorGetAnimationIndex(animator, name);
+      lovrAssert(i, "Unknown animation '%s'", name);
+      return *i;
     }
     default:
       luaL_typerror(L, index, "number or string");

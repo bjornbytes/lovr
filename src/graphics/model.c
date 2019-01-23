@@ -56,7 +56,7 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
           .pose = node->skin >= 0 ? pose : NULL
         },
         .transform = globalTransform,
-        .material = model->materials[primitive->material]
+        .material = primitive->material >= 0 ? model->materials[primitive->material] : NULL
       });
     }
   }
@@ -137,7 +137,7 @@ Model* lovrModelInit(Model* model, ModelData* data) {
     model->materials = malloc(data->materialCount * sizeof(Material*));
 
     if (data->imageCount > 0) {
-      model->textures = calloc(data->imageCount, sizeof(Texture*));
+      model->textures = calloc(data->textureCount, sizeof(Texture*));
     }
 
     for (int i = 0; i < data->materialCount; i++) {
@@ -159,7 +159,7 @@ Model* lovrModelInit(Model* model, ModelData* data) {
             ModelTexture* texture = &data->textures[index];
             TextureData* image = data->images[texture->imageIndex];
             bool srgb = j == TEXTURE_DIFFUSE || j == TEXTURE_EMISSIVE;
-            model->textures[index] = lovrTextureCreate(TEXTURE_2D, &image, 1, srgb, texture->mipmaps, 0);
+            model->textures[index] = lovrTextureCreate(TEXTURE_2D, &image, 1, srgb, true, 0);
             lovrTextureSetFilter(model->textures[index], texture->filter);
             lovrTextureSetWrap(model->textures[index], texture->wrap);
           }
