@@ -380,6 +380,8 @@ if(LOVR_ENABLE_DATA)
     src/data/audioStream.c
     src/data/blob.c
     src/data/modelData.c
+    src/data/modelData_gltf.c
+    src/data/modelData_obj.c
     src/data/rasterizer.c
     src/data/soundData.c
     src/data/textureData.c

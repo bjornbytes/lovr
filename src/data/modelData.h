@@ -97,8 +97,8 @@ typedef struct {
 } ModelBuffer;
 
 typedef struct {
-  uint32_t buffer;
   size_t offset;
+  uint32_t buffer;
   uint32_t count;
   AttributeType type;
   unsigned int components : 3;
@@ -139,9 +139,9 @@ typedef struct {
 } ModelMaterial;
 
 typedef struct {
-  DrawMode mode;
   ModelAttribute* attributes[MAX_DEFAULT_ATTRIBUTES];
   ModelAttribute* indices;
+  DrawMode mode;
   int material;
 } ModelPrimitive;
 
@@ -157,13 +157,12 @@ typedef struct {
 typedef struct {
   uint32_t* joints;
   uint32_t jointCount;
-  int skeleton;
   float* inverseBindMatrices;
 } ModelSkin;
 
 typedef struct {
   Ref ref;
-  uint8_t* data;
+  void* data;
   Blob** blobs;
   TextureData** images;
   ModelAnimation* animations;
@@ -185,6 +184,15 @@ typedef struct {
   int nodeCount;
   int skinCount;
   int rootNode;
+
+  ModelAnimationChannel* channels;
+  uint32_t* children;
+  uint32_t* joints;
+  char* chars;
+  int channelCount;
+  int childCount;
+  int jointCount;
+  int charCount;
 } ModelData;
 
 typedef struct {
@@ -192,5 +200,8 @@ typedef struct {
 } ModelDataIO;
 
 ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io);
+ModelData* lovrModelDataInitGltf(ModelData* model, Blob* blob, ModelDataIO io);
+ModelData* lovrModelDataInitObj(ModelData* model, Blob* blob, ModelDataIO io);
 #define lovrModelDataCreate(...) lovrModelDataInit(lovrAlloc(ModelData), __VA_ARGS__)
 void lovrModelDataDestroy(void* ref);
+void lovrModelDataAllocate(ModelData* model);
