@@ -1,6 +1,7 @@
 #include "graphics/model.h"
 #include "graphics/graphics.h"
 #include "resources/shaders.h"
+#include <float.h>
 
 static void updateGlobalNodeTransform(Model* model, uint32_t nodeIndex, mat4 transform) {
   ModelNode* node = &model->data->nodes[nodeIndex];
@@ -206,4 +207,54 @@ void lovrModelSetAnimator(Model* model, Animator* animator) {
     lovrRelease(model->animator);
     model->animator = animator;
   }
+}
+
+static void applyAABB(Model* model, int nodeIndex, float aabb[6]) {
+  ModelNode* node = &model->data->nodes[nodeIndex];
+
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    ModelAttribute* position = model->data->primitives[node->primitiveIndex + i].attributes[ATTR_POSITION];
+    if (position && position->hasMin && position->hasMax) {
+      mat4 m = model->globalNodeTransforms + 16 * nodeIndex;
+
+      float xa[3] = { position->min[0] * m[0], position->min[0] * m[1], position->min[0] * m[2] };
+      float xb[3] = { position->max[0] * m[0], position->max[0] * m[1], position->max[0] * m[2] };
+
+      float ya[3] = { position->min[1] * m[4], position->min[1] * m[5], position->min[1] * m[6] };
+      float yb[3] = { position->max[1] * m[4], position->max[1] * m[5], position->max[1] * m[6] };
+
+      float za[3] = { position->min[2] * m[8], position->min[2] * m[9], position->min[2] * m[10] };
+      float zb[3] = { position->max[2] * m[8], position->max[2] * m[9], position->max[2] * m[10] };
+
+      float min[3] = {
+        MIN(xa[0], xb[0]) + MIN(ya[0], yb[0]) + MIN(za[0], zb[0]) + m[12],
+        MIN(xa[1], xb[1]) + MIN(ya[1], yb[1]) + MIN(za[1], zb[1]) + m[13],
+        MIN(xa[2], xb[2]) + MIN(ya[2], yb[2]) + MIN(za[2], zb[2]) + m[14]
+      };
+
+      float max[3] = {
+        MAX(xa[0], xb[0]) + MAX(ya[0], yb[0]) + MAX(za[0], zb[0]) + m[12],
+        MAX(xa[1], xb[1]) + MAX(ya[1], yb[1]) + MAX(za[1], zb[1]) + m[13],
+        MAX(xa[2], xb[2]) + MAX(ya[2], yb[2]) + MAX(za[2], zb[2]) + m[14]
+      };
+
+      aabb[0] = MIN(aabb[0], min[0]);
+      aabb[1] = MAX(aabb[1], max[0]);
+      aabb[2] = MIN(aabb[2], min[1]);
+      aabb[3] = MAX(aabb[3], max[1]);
+      aabb[4] = MIN(aabb[4], min[2]);
+      aabb[5] = MAX(aabb[5], max[2]);
+    }
+  }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    applyAABB(model, node->children[i], aabb);
+  }
+}
+
+void lovrModelGetAABB(Model* model, float aabb[6]) {
+  aabb[0] = aabb[2] = aabb[4] = FLT_MAX;
+  aabb[1] = aabb[3] = aabb[5] = -FLT_MAX;
+  updateGlobalNodeTransform(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+  applyAABB(model, model->data->rootNode, aabb);
 }
