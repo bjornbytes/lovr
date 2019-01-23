@@ -2,6 +2,7 @@
 #define __JSMN_H_
 
 #define JSMN_PARENT_LINKS
+#define JSMN_STRICT
 
 #include <stddef.h>
 
