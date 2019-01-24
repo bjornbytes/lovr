@@ -75,6 +75,7 @@ void lovrPlatformPollEvents();
 double lovrPlatformGetTime();
 void lovrPlatformSetTime(double t);
 bool lovrPlatformCreateWindow(WindowFlags* flags);
+bool lovrPlatformGetHasWindow();
 void lovrPlatformGetWindowSize(int* width, int* height);
 void lovrPlatformGetFramebufferSize(int* width, int* height);
 void lovrPlatformSwapBuffers();

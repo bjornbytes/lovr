@@ -128,6 +128,10 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   return true;
 }
 
+bool lovrPlatformGetHasWindow() {
+  return state.window;
+}
+
 void lovrPlatformGetWindowSize(int* width, int* height) {
   if (state.window) {
     glfwGetWindowSize(state.window, width, height);

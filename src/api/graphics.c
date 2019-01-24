@@ -339,6 +339,15 @@ static int l_lovrGraphicsGetDimensions(lua_State* L) {
   return 2;
 }
 
+static int l_lovrGraphicsGetHasWindow(lua_State *L) {
+  bool window = false;
+#ifndef NO_WINDOW
+  window = lovrPlatformGetHasWindow();
+#endif
+  lua_pushboolean(L, window);
+  return 1;
+}
+
 static int l_lovrGraphicsGetSupported(lua_State* L) {
   const GpuFeatures* features = lovrGraphicsGetSupported();
   lua_newtable(L);
@@ -1359,6 +1368,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
+  { "hasWindow", l_lovrGraphicsGetHasWindow },
   { "getSupported", l_lovrGraphicsGetSupported },
   { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getStats", l_lovrGraphicsGetStats },
