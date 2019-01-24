@@ -1015,7 +1015,7 @@ void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wra
   lovrFontMeasure(font, str, length, wrap, &width, &lineCount, &glyphCount);
 
   float scale = 1.f / font->pixelDensity;
-  float offsetY = (lineCount * font->rasterizer->height * font->lineHeight) * (valign / 2.f);
+  float offsetY = ((lineCount + 1) * font->rasterizer->height * font->lineHeight) * (valign / 2.f);
   mat4_scale(transform, scale, scale, scale);
   mat4_translate(transform, 0.f, offsetY, 0.f);
 
