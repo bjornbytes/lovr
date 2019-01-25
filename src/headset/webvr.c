@@ -155,5 +155,6 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrControllerVibrate,
   webvrControllerNewModelData,
   webvrRenderTo,
+  NULL, // No mirror texture
   webvrUpdate
 };

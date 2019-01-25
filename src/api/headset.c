@@ -2,6 +2,7 @@
 #include "api/math.h"
 #include "headset/headset.h"
 #include "lib/math.h"
+#include "graphics/texture.h"
 
 #if defined(EMSCRIPTEN) || defined(LOVR_USE_OCULUS_MOBILE)
 #define LOVR_HEADSET_HELPER_USES_REGISTRY
@@ -292,6 +293,18 @@ static int l_lovrHeadsetUpdate(lua_State* L) {
   return 0;
 }
 
+static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
+  Texture *texture = NULL;
+  if (lovrHeadsetDriver->getMirrorTexture)
+    texture = lovrHeadsetDriver->getMirrorTexture();
+  if (texture)
+    luax_pushobject(L, texture);
+  else
+    lua_pushnil(L);
+
+  return 1;
+}
+
 static const luaL_Reg lovrHeadset[] = {
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getType", l_lovrHeadsetGetType },
@@ -317,6 +330,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getControllerCount", l_lovrHeadsetGetControllerCount },
   { "renderTo", l_lovrHeadsetRenderTo },
   { "update", l_lovrHeadsetUpdate },
+  { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
   { NULL, NULL }
 };
 

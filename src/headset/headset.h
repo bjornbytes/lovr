@@ -2,6 +2,7 @@
 #include "lib/vec/vec.h"
 #include "util.h"
 #include <stdbool.h>
+#include "graphics/texture.h"
 
 #pragma once
 
@@ -67,6 +68,8 @@ typedef struct {
 
 typedef vec_t(Controller*) vec_controller_t;
 
+struct Texture;
+
 typedef struct {
   HeadsetDriver driverType;
   bool (*init)(float offset, int msaa);
@@ -96,6 +99,7 @@ typedef struct {
   void (*controllerVibrate)(Controller* controller, float duration, float power);
   ModelData* (*controllerNewModelData)(Controller* controller);
   void (*renderTo)(void (*callback)(void*), void* userdata);
+  Texture* (*getMirrorTexture)();
   void (*update)(float dt);
 } HeadsetInterface;
 

@@ -609,6 +609,10 @@ static void openvrUpdate(float dt) {
   }
 }
 
+static Texture* openvrGetMirrorTexture() {
+  return lovrCanvasGetAttachments(state.canvas, NULL)[0].texture;
+}
+
 HeadsetInterface lovrHeadsetOpenVRDriver = {
   DRIVER_OPENVR,
   openvrInit,
@@ -638,5 +642,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrControllerVibrate,
   openvrControllerNewModelData,
   openvrRenderTo,
+  openvrGetMirrorTexture,
   openvrUpdate
 };

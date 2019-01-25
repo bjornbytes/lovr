@@ -301,5 +301,6 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeControllerVibrate,
   fakeControllerNewModelData,
   fakeRenderTo,
+  NULL, // No mirror texture
   fakeUpdate
 };
