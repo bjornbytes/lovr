@@ -6,6 +6,7 @@
 #include "data/vertexData.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 static void renderNode(Model* model, int nodeIndex, int instances) {
   ModelNode* node = &model->modelData->nodes[nodeIndex];

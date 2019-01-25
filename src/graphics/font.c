@@ -4,9 +4,10 @@
 #include "data/rasterizer.h"
 #include "data/textureData.h"
 #include "util.h"
-#include "lib/stb/stb_sprintf.h"
 #include <string.h>
+#include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 static float* lovrFontAlignLine(float* x, float* lineEnd, float width, HorizontalAlign halign) {
   while(x < lineEnd) {
@@ -223,7 +224,7 @@ void lovrFontSetLineHeight(Font* font, float lineHeight) {
 
 int lovrFontGetKerning(Font* font, unsigned int left, unsigned int right) {
   char key[12];
-  stb_snprintf(key, 12, "%d,%d", left, right);
+  snprintf(key, 12, "%d,%d", left, right);
 
   int* entry = map_get(&font->kerning, key);
   if (entry) {
@@ -249,7 +250,7 @@ void lovrFontSetPixelDensity(Font* font, float pixelDensity) {
 
 Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
   char key[6];
-  stb_snprintf(key, 6, "%d", codepoint);
+  snprintf(key, 6, "%d", codepoint);
 
   FontAtlas* atlas = &font->atlas;
   map_glyph_t* glyphs = &atlas->glyphs;

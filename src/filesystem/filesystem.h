@@ -1,4 +1,5 @@
 #include "lib/vec/vec.h"
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 

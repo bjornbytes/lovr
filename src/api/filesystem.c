@@ -1,9 +1,8 @@
 #include "api.h"
 #include "filesystem/filesystem.h"
 #include "data/blob.h"
-#include "platform.h"
-#include "lib/stb/stb_sprintf.h"
 #include <stdlib.h>
+#include "platform.h"
 
 // Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
 Blob* luax_readblob(lua_State* L, int index, const char* debug) {
@@ -71,7 +70,7 @@ static int libraryLoader(lua_State* L) {
   vec_foreach(lovrFilesystemGetCRequirePath(), path, i) {
     for (const char** extension = libraryExtensions; *extension != NULL; extension++) {
       char buffer[64];
-      stb_snprintf(buffer, 63, "%s%s", modulePath, *extension);
+      snprintf(buffer, 63, "%s%s", modulePath, *extension);
       const char* filename = luaL_gsub(L, path, "??", buffer);
       filename = luaL_gsub(L, filename, "?", modulePath);
       lua_pop(L, 2);
@@ -79,7 +78,7 @@ static int libraryLoader(lua_State* L) {
       if (lovrFilesystemIsFile(filename)) {
         char fullPath[LOVR_PATH_MAX];
         const char* realPath = lovrFilesystemGetRealDirectory(filename);
-        stb_snprintf(fullPath, LOVR_PATH_MAX - 1, "%s%c%s", realPath, lovrDirSep, filename);
+        snprintf(fullPath, LOVR_PATH_MAX - 1, "%s%c%s", realPath, lovrDirSep, filename);
         lua_getglobal(L, "package");
         lua_getfield(L, -1, "loadlib");
         lua_pushstring(L, fullPath);
@@ -254,7 +253,7 @@ static int l_lovrFilesystemLoad(lua_State* L) {
   }
 
   char debug[LOVR_PATH_MAX];
-  stb_snprintf(debug, LOVR_PATH_MAX, "@%s", path);
+  snprintf(debug, LOVR_PATH_MAX, "@%s", path);
 
   int status = luaL_loadbuffer(L, content, size, debug);
   free(content);
