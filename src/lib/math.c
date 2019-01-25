@@ -46,14 +46,14 @@ vec3 vec3_normalize(vec3 v) {
 }
 
 float vec3_length(vec3 v) {
-  return sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+  return sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }
 
 float vec3_distance(vec3 v, vec3 u) {
   float dx = v[0] - u[0];
   float dy = v[1] - u[1];
   float dz = v[2] - u[2];
-  return sqrt(dx * dx + dy * dy + dz * dz);
+  return sqrtf(dx * dx + dy * dy + dz * dz);
 }
 
 float vec3_dot(vec3 v, vec3 u) {
@@ -90,13 +90,15 @@ quat quat_set(quat q, float x, float y, float z, float w) {
 }
 
 quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az) {
-  float length = sqrt(ax * ax + ay * ay + az * az);
-  length = length == 0. ? 1. : length;
-  float s = sin(angle * .5f);
-  float c = cos(angle * .5f);
-  q[0] = s * ax / length;
-  q[1] = s * ay / length;
-  q[2] = s * az / length;
+  float length = sqrtf(ax * ax + ay * ay + az * az);
+  float s = sinf(angle * .5f);
+  float c = cosf(angle * .5f);
+  if (length > 0.f) {
+    s /= length;
+  }
+  q[0] = s * ax;
+  q[1] = s * ay;
+  q[2] = s * az;
   q[3] = c;
   return q;
 }
@@ -105,13 +107,13 @@ quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az) {
 #define MAX(a, b) (a > b ? a : b)
 #endif
 quat quat_fromMat4(quat q, mat4 m) {
-  float x = sqrt(MAX(0, 1 + m[0] - m[5] - m[10])) / 2;
-  float y = sqrt(MAX(0, 1 - m[0] + m[5] - m[10])) / 2;
-  float z = sqrt(MAX(0, 1 - m[0] - m[5] + m[10])) / 2;
-  float w = sqrt(MAX(0, 1 + m[0] + m[5] + m[10])) / 2;
-  x = (m[9] - m[6]) > 0 ? -x : x;
-  y = (m[2] - m[8]) > 0 ? -y : y;
-  z = (m[4] - m[1]) > 0 ? -z : z;
+  float x = sqrtf(MAX(0.f, 1.f + m[0] - m[5] - m[10])) / 2.f;
+  float y = sqrtf(MAX(0.f, 1.f - m[0] + m[5] - m[10])) / 2.f;
+  float z = sqrtf(MAX(0.f, 1.f - m[0] - m[5] + m[10])) / 2.f;
+  float w = sqrtf(MAX(0.f, 1.f + m[0] + m[5] + m[10])) / 2.f;
+  x = (m[9] - m[6]) > 0.f ? -x : x;
+  y = (m[2] - m[8]) > 0.f ? -y : y;
+  z = (m[4] - m[1]) > 0.f ? -z : z;
   q[0] = x;
   q[1] = y;
   q[2] = z;
@@ -129,50 +131,47 @@ quat quat_mul(quat q, quat r) {
 }
 
 quat quat_normalize(quat q) {
-  float len = quat_length(q);
-  if (len == 0) {
-    return q;
+  float length = quat_length(q);
+  if (length > 0.f) {
+    q[0] /= length;
+    q[1] /= length;
+    q[2] /= length;
+    q[3] /= length;
   }
-
-  len = 1 / len;
-  q[0] *= len;
-  q[1] *= len;
-  q[2] *= len;
-  q[3] *= len;
   return q;
 }
 
 float quat_length(quat q) {
-  return sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+  return sqrtf(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
 }
 
 quat quat_slerp(quat q, quat r, float t) {
   float dot = q[0] * r[0] + q[1] * r[1] + q[2] * r[2] + q[3] * r[3];
-  if (fabs(dot) >= 1.f) {
+  if (fabsf(dot) >= 1.f) {
     return q;
   }
 
-  if (dot < 0) {
-    q[0] *= -1;
-    q[1] *= -1;
-    q[2] *= -1;
-    q[3] *= -1;
-    dot *= -1;
+  if (dot < 0.f) {
+    q[0] *= -1.f;
+    q[1] *= -1.f;
+    q[2] *= -1.f;
+    q[3] *= -1.f;
+    dot *= -1.f;
   }
 
-  float halfTheta = acos(dot);
-  float sinHalfTheta = sqrt(1.f - dot * dot);
+  float halfTheta = acosf(dot);
+  float sinHalfTheta = sqrtf(1.f - dot * dot);
 
-  if (fabs(sinHalfTheta) < .001) {
-    q[0] = q[0] * .5 + r[0] * .5;
-    q[1] = q[1] * .5 + r[1] * .5;
-    q[2] = q[2] * .5 + r[2] * .5;
-    q[3] = q[3] * .5 + r[3] * .5;
+  if (fabsf(sinHalfTheta) < .001f) {
+    q[0] = q[0] * .5f + r[0] * .5f;
+    q[1] = q[1] * .5f + r[1] * .5f;
+    q[2] = q[2] * .5f + r[2] * .5f;
+    q[3] = q[3] * .5f + r[3] * .5f;
     return q;
   }
 
-  float a = sin((1 - t) * halfTheta) / sinHalfTheta;
-  float b = sin(t * halfTheta) / sinHalfTheta;
+  float a = sinf((1.f - t) * halfTheta) / sinHalfTheta;
+  float b = sinf(t * halfTheta) / sinHalfTheta;
 
   q[0] = q[0] * a + r[0] * b;
   q[1] = q[1] * a + r[1] * b;
@@ -190,21 +189,21 @@ void quat_rotate(quat q, vec3 v) {
   vec3_cross(vec3_init(c, u), v);
   float uu = vec3_dot(u, u);
   float uv = vec3_dot(u, v);
-  vec3_scale(u, 2 * uv);
+  vec3_scale(u, 2.f * uv);
   vec3_scale(v, s * s - uu);
-  vec3_scale(c, 2 * s);
+  vec3_scale(c, 2.f * s);
   vec3_add(v, vec3_add(u, c));
 }
 
 void quat_getAngleAxis(quat q, float* angle, float* x, float* y, float* z) {
-  if (q[3] > 1 || q[3] < -1) {
+  if (q[3] > 1.f || q[3] < -1.f) {
     quat_normalize(q);
   }
 
   float qw = q[3];
-  float s = sqrt(1 - qw * qw);
-  s = s < .0001 ? 1 : 1 / s;
-  *angle = 2 * acos(qw);
+  float s = sqrtf(1.f - qw * qw);
+  s = s < .0001f ? 1.f : 1.f / s;
+  *angle = 2.f * acosf(qw);
   *x = q[0] * s;
   *y = q[1] * s;
   *z = q[2] * s;
@@ -212,22 +211,22 @@ void quat_getAngleAxis(quat q, float* angle, float* x, float* y, float* z) {
 
 quat quat_between(quat q, vec3 u, vec3 v) {
   float dot = vec3_dot(u, v);
-  if (dot > .99999) {
+  if (dot > .99999f) {
     q[0] = q[1] = q[2] = 0.f;
     q[3] = 1.f;
     return q;
-  } else if (dot < -.99999) {
+  } else if (dot < -.99999f) {
     float axis[3];
-    vec3_cross(vec3_set(axis, 1, 0, 0), u);
-    if (vec3_length(axis) < .00001) {
-      vec3_cross(vec3_set(axis, 0, 1, 0), u);
+    vec3_cross(vec3_set(axis, 1.f, 0.f, 0.f), u);
+    if (vec3_length(axis) < .00001f) {
+      vec3_cross(vec3_set(axis, 0.f, 1.f, 0.f), u);
     }
     vec3_normalize(axis);
     quat_fromAngleAxis(q, M_PI, axis[0], axis[1], axis[2]);
     return q;
   }
   vec3_cross(vec3_init(q, u), v);
-  q[3] = 1 + dot;
+  q[3] = 1.f + dot;
   return quat_normalize(q);
 }
 
@@ -529,18 +528,18 @@ mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom,
 }
 
 mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, float aspect) {
-  float range = tan(fovy * .5f) * clipNear;
-  float sx = (2.0f * clipNear) / (range * aspect + range * aspect);
+  float range = tanf(fovy * .5f) * clipNear;
+  float sx = (2.f * clipNear) / (range * aspect + range * aspect);
   float sy = clipNear / range;
   float sz = -(clipFar + clipNear) / (clipFar - clipNear);
-  float pz = (-2.0f * clipFar * clipNear) / (clipFar - clipNear);
+  float pz = (-2.f * clipFar * clipNear) / (clipFar - clipNear);
   memset(m, 0, 16 * sizeof(float));
   m[0] = sx;
   m[5] = sy;
   m[10] = sz;
-  m[11] = -1.0f;
+  m[11] = -1.f;
   m[14] = pz;
-  m[15] = 0.0f;
+  m[15] = 0.f;
   return m;
 }
 
@@ -556,7 +555,7 @@ mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   z1 = from[1] - to[1];
   z2 = from[2] - to[2];
 
-  len = 1 / sqrt(z0 * z0 + z1 * z1 + z2 * z2);
+  len = 1.f / sqrtf(z0 * z0 + z1 * z1 + z2 * z2);
   z0 *= len;
   z1 *= len;
   z2 *= len;
@@ -564,7 +563,7 @@ mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   x0 = up[1] * z2 - up[2] * z1;
   x1 = up[2] * z0 - up[0] * z2;
   x2 = up[0] * z1 - up[1] * z0;
-  len = sqrt(x0 * x0 + x1 * x1 + x2 * x2);
+  len = sqrtf(x0 * x0 + x1 * x1 + x2 * x2);
   if (!len) {
     x0 = 0;
     x1 = 0;
@@ -580,7 +579,7 @@ mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   y1 = z2 * x0 - z0 * x2;
   y2 = z0 * x1 - z1 * x0;
 
-  len = sqrt(y0 * y0 + y1 * y1 + y2 * y2);
+  len = sqrtf(y0 * y0 + y1 * y1 + y2 * y2);
   if (!len) {
     y0 = 0;
     y1 = 0;

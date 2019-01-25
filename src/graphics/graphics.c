@@ -1165,7 +1165,7 @@ static void writeGeometry(Batch* batch, float* vertices, uint16_t* indices, uint
 
       for (int i = 0; i < n; i++) {
         if (hasCenterPoint) {
-          memcpy(vertices, ((float[]) { 0, 0, 0, 0, 0, 1, .5, .5 }), 8 * sizeof(float));
+          memcpy(vertices, ((float[]) { 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, .5f, .5f }), 8 * sizeof(float));
           vertices += 8;
         }
 
@@ -1173,9 +1173,9 @@ static void writeGeometry(Batch* batch, float* vertices, uint16_t* indices, uint
         float angleShift = (r2 - r1) / (float) segments;
 
         for (int i = 0; i <= segments; i++) {
-          float x = cos(theta) * .5;
-          float y = sin(theta) * .5;
-          memcpy(vertices, ((float[]) { x, y, 0, 0, 0, 1, x + .5, 1 - (y + .5) }), 8 * sizeof(float));
+          float x = cosf(theta) * .5f;
+          float y = sinf(theta) * .5f;
+          memcpy(vertices, ((float[]) { x, y, 0.f, 0.f, 0.f, 1.f, x + .5f, 1.f - (y + .5f) }), 8 * sizeof(float));
           vertices += 8;
           theta += angleShift;
         }
@@ -1201,11 +1201,11 @@ static void writeGeometry(Batch* batch, float* vertices, uint16_t* indices, uint
         // Ring
         for (int j = 0; j <= segments; j++) {
           float theta = j * (2 * M_PI) / segments;
-          float X = cos(theta);
-          float Y = sin(theta);
+          float X = cosf(theta);
+          float Y = sinf(theta);
           memcpy(vertices, (float[16]) {
-            r1 * X, r1 * Y, -.5, X, Y, 0, 0, 0,
-            r2 * X, r2 * Y,  .5, X, Y, 0, 0, 0
+            r1 * X, r1 * Y, -.5f, X, Y, 0.f, 0.f, 0.f,
+            r2 * X, r2 * Y,  .5f, X, Y, 0.f, 0.f, 0.f
           }, 16 * sizeof(float));
           vertices += 16;
         }
@@ -1213,11 +1213,11 @@ static void writeGeometry(Batch* batch, float* vertices, uint16_t* indices, uint
         // Top
         int top = (segments + 1) * 2 + I;
         if (capped && r1 != 0) {
-          memcpy(vertices, (float[8]) { 0, 0, -.5, 0.f, 0.f, -1.f, 0, 0 }, 8 * sizeof(float));
+          memcpy(vertices, (float[8]) { 0.f, 0.f, -.5f, 0.f, 0.f, -1.f, 0.f, 0.f }, 8 * sizeof(float));
           vertices += 8;
           for (int j = 0; j <= segments; j++) {
             int k = j * 2 * 8;
-            memcpy(vertices, (float[8]) { v[k + 0], v[k + 1], v[k + 2], 0.f, 0.f, -1.f, 0, 0 }, 8 * sizeof(float));
+            memcpy(vertices, (float[8]) { v[k + 0], v[k + 1], v[k + 2], 0.f, 0.f, -1.f, 0.f, 0.f }, 8 * sizeof(float));
             vertices += 8;
           }
         }
@@ -1225,11 +1225,11 @@ static void writeGeometry(Batch* batch, float* vertices, uint16_t* indices, uint
         // Bottom
         int bot = (segments + 1) * 2 + (1 + segments + 1) * (capped && r1 != 0) + I;
         if (capped && r2 != 0) {
-          memcpy(vertices, (float[8]) { 0, 0, .5, 0.f, 0.f, 1.f, 0, 0 }, 8 * sizeof(float));
+          memcpy(vertices, (float[8]) { 0.f, 0.f, .5f, 0.f, 0.f, 1.f, 0.f, 0.f }, 8 * sizeof(float));
           vertices += 8;
           for (int j = 0; j <= segments; j++) {
             int k = j * 2 * 8 + 8;
-            memcpy(vertices, (float[8]) { v[k + 0], v[k + 1], v[k + 2], 0.f, 0.f, 1.f, 0, 0 }, 8 * sizeof(float));
+            memcpy(vertices, (float[8]) { v[k + 0], v[k + 1], v[k + 2], 0.f, 0.f, 1.f, 0.f, 0.f }, 8 * sizeof(float));
             vertices += 8;
           }
         }
@@ -1261,14 +1261,14 @@ static void writeGeometry(Batch* batch, float* vertices, uint16_t* indices, uint
       for (int i = 0; i < n; i++) {
         for (int j = 0; j <= segments; j++) {
           float v = j / (float) segments;
-          float sinV = sin(v * M_PI);
-          float cosV = cos(v * M_PI);
+          float sinV = sinf(v * (float) M_PI);
+          float cosV = cosf(v * (float) M_PI);
           for (int k = 0; k <= segments; k++) {
             float u = k / (float) segments;
-            float x = sin(u * 2 * M_PI) * sinV;
+            float x = sinf(u * 2.f * (float) M_PI) * sinV;
             float y = cosV;
-            float z = -cos(u * 2 * M_PI) * sinV;
-            memcpy(vertices, ((float[8]) { x, y, z, x, y, z, u, 1 - v }), 8 * sizeof(float));
+            float z = -cosf(u * 2.f * (float) M_PI) * sinV;
+            memcpy(vertices, ((float[8]) { x, y, z, x, y, z, u, 1.f - v }), 8 * sizeof(float));
             vertices += 8;
           }
         }

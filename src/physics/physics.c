@@ -137,11 +137,11 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
     return false;
   }
 
-  if (friction < 0) {
-    friction = sqrt(colliderA->friction * colliderB->friction);
+  if (friction < 0.f) {
+    friction = sqrtf(colliderA->friction * colliderB->friction);
   }
 
-  if (restitution < 0) {
+  if (restitution < 0.f) {
     restitution = MAX(colliderA->restitution, colliderB->restitution);
   }
 
@@ -212,7 +212,7 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
   float dx = x2 - x1;
   float dy = y2 - y1;
   float dz = z2 - z1;
-  float length = sqrt(dx * dx + dy * dy + dz * dz);
+  float length = sqrtf(dx * dx + dy * dy + dz * dz);
   dGeomID ray = dCreateRay(world->space, length);
   dGeomRaySet(ray, x1, y1, z1, dx, dy, dz);
   dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);

@@ -83,22 +83,22 @@ void lovrMaterialSetTexture(Material* material, MaterialTexture textureType, Tex
 void lovrMaterialGetTransform(Material* material, float* ox, float* oy, float* sx, float* sy, float* angle) {
   *ox = material->transform[6];
   *oy = material->transform[7];
-  *sx = sqrt(material->transform[0] * material->transform[0] + material->transform[1] * material->transform[1]);
-  *sy = sqrt(material->transform[3] * material->transform[3] + material->transform[4] * material->transform[4]);
-  *angle = atan2(-material->transform[3], material->transform[0]);
+  *sx = sqrtf(material->transform[0] * material->transform[0] + material->transform[1] * material->transform[1]);
+  *sy = sqrtf(material->transform[3] * material->transform[3] + material->transform[4] * material->transform[4]);
+  *angle = atan2f(-material->transform[3], material->transform[0]);
 }
 
 void lovrMaterialSetTransform(Material* material, float ox, float oy, float sx, float sy, float angle) {
   lovrGraphicsFlushMaterial(material);
-  float c = cos(angle);
-  float s = sin(angle);
+  float c = cosf(angle);
+  float s = sinf(angle);
   material->transform[0] = c * sx;
   material->transform[1] = s * sx;
-  material->transform[2] = 0;
+  material->transform[2] = 0.f;
   material->transform[3] = -s * sy;
   material->transform[4] = c * sy;
-  material->transform[5] = 0;
+  material->transform[5] = 0.f;
   material->transform[6] = ox;
   material->transform[7] = oy;
-  material->transform[8] = 1;
+  material->transform[8] = 1.f;
 }

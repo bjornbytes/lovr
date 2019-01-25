@@ -33,11 +33,11 @@ RandomGenerator* lovrMathGetRandomGenerator() {
 }
 
 void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, vec3 v) {
-  float sinTheta = sin(angle);
-  float cosTheta = cos(angle);
-  v[0] = sinTheta * -ay + (1 - cosTheta) * -az * ax;
-  v[1] = sinTheta * ax + (1 - cosTheta) * -az * ay;
-  v[2] = -cosTheta + (1 - cosTheta) * -az * az;
+  float sinTheta = sinf(angle);
+  float cosTheta = cosf(angle);
+  v[0] = sinTheta * -ay + (1.f - cosTheta) * -az * ax;
+  v[1] = sinTheta * ax + (1.f - cosTheta) * -az * ay;
+  v[2] = -cosTheta + (1.f - cosTheta) * -az * az;
 }
 
 float lovrMathGammaToLinear(float x) {
