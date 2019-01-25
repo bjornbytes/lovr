@@ -7,7 +7,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 lua_State* lovrInit(lua_State* L, int argc, char** argv);
 void lovrQuit(int status);

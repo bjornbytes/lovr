@@ -3,7 +3,6 @@
 #include "platform.h"
 #include "util.h"
 #include <physfs.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef __APPLE__

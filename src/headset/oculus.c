@@ -2,9 +2,8 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "graphics/texture.h"
+#include "lib/math.h"
 #include "lib/vec/vec.h"
-#include "math/mat4.h"
-#include "math/quat.h"
 
 #include <stdbool.h>
 #include <OVR_CAPI.h>
