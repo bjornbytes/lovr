@@ -449,6 +449,11 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
   }
 }
 
+static Texture* oculusGetMirrorTexture() {
+  ovr_GetMirrorTextureBufferGL(state.session, state.mirror, &handle);
+  return lookupTexture(handle);
+}
+
 static void oculusUpdate(float dt) {
   ovrInputState *is = refreshButtons();
 
@@ -513,5 +518,6 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   oculusControllerVibrate,
   oculusControllerNewModelData,
   oculusRenderTo,
+  oculusGetMirrorTexture,
   oculusUpdate
 };

@@ -226,6 +226,7 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   oculusMobileControllerVibrate,
   oculusMobileControllerNewModelData,
   oculusMobileRenderTo,
+  NULL, // No mirror texture
   oculusMobileUpdate
 };
 

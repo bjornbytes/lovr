@@ -150,8 +150,11 @@ function lovr.run()
 end
 
 function lovr.mirror()
-  if lovr.headset then
-    lovr.graphics.fill(lovr.headset.getCanvas():getTexture())
+  if lovr.headset then -- On some systems, headset module will be disabled
+    local texture = lovr.headset.getMirrorTexture()
+    if texture then    -- On some drivers, texture is printed directly to the window
+      lovr.graphics.fill(texture)
+    end
   else
     lovr.graphics.clear()
     lovr.draw()
