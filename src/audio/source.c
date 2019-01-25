@@ -52,8 +52,8 @@ void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, flo
   alGetSourcef(source->id, AL_CONE_INNER_ANGLE, innerAngle);
   alGetSourcef(source->id, AL_CONE_OUTER_ANGLE, outerAngle);
   alGetSourcef(source->id, AL_CONE_OUTER_GAIN, outerGain);
-  *innerAngle *= M_PI / 180.f;
-  *outerAngle *= M_PI / 180.f;
+  *innerAngle *= (float) M_PI / 180.f;
+  *outerAngle *= (float) M_PI / 180.f;
 }
 
 int lovrSourceGetChannelCount(Source* source) {
@@ -195,8 +195,8 @@ void lovrSourceSeek(Source* source, int sample) {
 }
 
 void lovrSourceSetCone(Source* source, float innerAngle, float outerAngle, float outerGain) {
-  alSourcef(source->id, AL_CONE_INNER_ANGLE, innerAngle * 180.f / M_PI);
-  alSourcef(source->id, AL_CONE_OUTER_ANGLE, outerAngle * 180.f / M_PI);
+  alSourcef(source->id, AL_CONE_INNER_ANGLE, innerAngle * 180.f / (float) M_PI);
+  alSourcef(source->id, AL_CONE_OUTER_ANGLE, outerAngle * 180.f / (float) M_PI);
   alSourcef(source->id, AL_CONE_OUTER_GAIN, outerGain);
 }
 

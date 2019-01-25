@@ -385,7 +385,7 @@ static bool openvrControllerIsTouched(Controller* controller, ControllerButton b
 static void openvrControllerVibrate(Controller* controller, float duration, float power) {
   if (duration <= 0) return;
   uint32_t axis = 0;
-  unsigned short uSeconds = (unsigned short) (duration * 1e6);
+  unsigned short uSeconds = (unsigned short) (duration * 1e6f);
   state.system->TriggerHapticPulse(controller->id, axis, uSeconds);
 }
 

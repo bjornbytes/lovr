@@ -197,10 +197,10 @@ void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color
   lovrAssert(inside, "setPixel coordinates must be in TextureData bounds");
   size_t offset = 4 * ((textureData->height - (y + 1)) * textureData->width + x);
   uint8_t* data = (uint8_t*) textureData->blob.data + offset;
-  data[0] = (uint8_t) (color.r * 255.f + .5);
-  data[1] = (uint8_t) (color.g * 255.f + .5);
-  data[2] = (uint8_t) (color.b * 255.f + .5);
-  data[3] = (uint8_t) (color.a * 255.f + .5);
+  data[0] = (uint8_t) (color.r * 255.f + .5f);
+  data[1] = (uint8_t) (color.g * 255.f + .5f);
+  data[2] = (uint8_t) (color.b * 255.f + .5f);
+  data[3] = (uint8_t) (color.a * 255.f + .5f);
 }
 
 static void writeCallback(void* context, void* data, int size) {

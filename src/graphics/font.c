@@ -210,7 +210,7 @@ float lovrFontGetDescent(Font* font) {
 }
 
 float lovrFontGetBaseline(Font* font) {
-  return font->rasterizer->height * .8 / font->pixelDensity;
+  return font->rasterizer->height * .8f / font->pixelDensity;
 }
 
 float lovrFontGetLineHeight(Font* font) {

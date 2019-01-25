@@ -24,8 +24,8 @@ static struct {
   float localVelocity[3];
   float angularVelocity[3];
 
-  double yaw;
-  double pitch;
+  float yaw;
+  float pitch;
   float transform[16];
 
   double prevCursorX;
@@ -220,7 +220,7 @@ static void fakeUpdate(float dt) {
 
   float movespeed = 3.f * dt;
   float turnspeed = 3.f * dt;
-  double damping = MAX(1 - 20 * dt, 0);
+  float damping = MAX(1.f - 20.f * dt, 0);
 
   if (lovrPlatformIsMouseDown(MOUSE_LEFT)) {
     lovrPlatformSetMouseMode(MOUSE_MODE_GRABBED);
@@ -236,9 +236,9 @@ static void fakeUpdate(float dt) {
       state.prevCursorY = my;
     }
 
-    double aspect = (double) width / height;
-    double dx = (mx - state.prevCursorX) / ((double) width);
-    double dy = (my - state.prevCursorY) / ((double) height * aspect);
+    float aspect = (float) width / height;
+    float dx = (float) (mx - state.prevCursorX) / ((float) width);
+    float dy = (float) (my - state.prevCursorY) / ((float) height * aspect);
     state.angularVelocity[0] = dy / dt;
     state.angularVelocity[1] = dx / dt;
     state.prevCursorX = mx;
@@ -261,15 +261,15 @@ static void fakeUpdate(float dt) {
   vec3_add(state.position, state.velocity);
 
   // Update orientation
-  state.pitch = CLAMP(state.pitch - state.angularVelocity[0] * turnspeed, -M_PI / 2., M_PI / 2.);
+  state.pitch = CLAMP(state.pitch - state.angularVelocity[0] * turnspeed, -(float) M_PI / 2.f, (float) M_PI / 2.f);
   state.yaw -= state.angularVelocity[1] * turnspeed;
 
   // Update transform
   mat4_identity(state.transform);
-  mat4_translate(state.transform, 0, state.offset, 0);
+  mat4_translate(state.transform, 0.f, state.offset, 0.f);
   mat4_translate(state.transform, state.position[0], state.position[1], state.position[2]);
-  mat4_rotate(state.transform, state.yaw, 0, 1, 0);
-  mat4_rotate(state.transform, state.pitch, 1, 0, 0);
+  mat4_rotate(state.transform, state.yaw, 0.f, 1.f, 0.f);
+  mat4_rotate(state.transform, state.pitch, 1.f, 0.f, 0.f);
 }
 
 HeadsetInterface lovrHeadsetFakeDriver = {

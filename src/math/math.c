@@ -41,18 +41,18 @@ void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, v
 }
 
 float lovrMathGammaToLinear(float x) {
-  if (x <= .04045) {
-    return x / 12.92;
+  if (x <= .04045f) {
+    return x / 12.92f;
   } else {
-    return powf((x + .055) / 1.055, 2.4);
+    return powf((x + .055f) / 1.055f, 2.4f);
   }
 }
 
 float lovrMathLinearToGamma(float x) {
-  if (x <= .0031308) {
-    return x * 12.92;
+  if (x <= .0031308f) {
+    return x * 12.92f;
   } else {
-    return 1.055 * powf(x, 1. / 2.4) - .055;
+    return 1.055f * powf(x, 1.f / 2.4f) - .055f;
   }
 }
 

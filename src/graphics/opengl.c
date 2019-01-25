@@ -1357,7 +1357,7 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
 
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
   lovrGraphicsFlush();
-  float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.) : 1.;
+  float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.f) : 1.f;
   lovrGpuBindTexture(texture, 0);
   texture->filter = filter;
 

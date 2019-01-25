@@ -637,7 +637,7 @@ void lovrGraphicsFlush() {
         break;
 
       case BATCH_ARC: {
-        bool hasCenterPoint = params->arc.mode == ARC_MODE_PIE && fabsf(params->arc.r1 - params->arc.r2) < 2 * M_PI;
+        bool hasCenterPoint = params->arc.mode == ARC_MODE_PIE && fabsf(params->arc.r1 - params->arc.r2) < 2.f * (float) M_PI;
         vertexCount = params->arc.segments + 1 + hasCenterPoint;
         indexCount = vertexCount + 1;
         mesh = instanced ? state.instancedMesh : state.mesh;
@@ -943,9 +943,9 @@ void lovrGraphicsBox(DrawStyle style, Material* material, mat4 transform) {
 }
 
 void lovrGraphicsArc(DrawStyle style, ArcMode mode, Material* material, mat4 transform, float r1, float r2, int segments) {
-  if (fabsf(r1 - r2) >= 2 * M_PI) {
-    r1 = 0;
-    r2 = 2 * M_PI;
+  if (fabsf(r1 - r2) >= 2.f * (float) M_PI) {
+    r1 = 0.f;
+    r2 = 2.f * (float) M_PI;
   }
 
   lovrGraphicsBatch(&(BatchRequest) {
@@ -1161,7 +1161,7 @@ static void writeGeometry(Batch* batch, float* vertices, uint16_t* indices, uint
       float r1 = params->arc.r1;
       float r2 = params->arc.r2;
       int segments = params->arc.segments;
-      bool hasCenterPoint = params->arc.mode == ARC_MODE_PIE && fabsf(r1 - r2) < 2 * M_PI;
+      bool hasCenterPoint = params->arc.mode == ARC_MODE_PIE && fabsf(r1 - r2) < 2.f * (float) M_PI;
 
       for (int i = 0; i < n; i++) {
         if (hasCenterPoint) {

@@ -24,7 +24,7 @@ static uint64_t wangHash64(uint64_t key) {
 RandomGenerator* lovrRandomGeneratorInit(RandomGenerator* generator) {
   Seed seed = { .b32 = { .lo = 0xCBBF7A44, .hi = 0x0139408D } };
   lovrRandomGeneratorSetSeed(generator, seed);
-  generator->lastRandomNormal = INFINITY;
+  generator->lastRandomNormal = HUGE_VAL;
   return generator;
 }
 
@@ -69,9 +69,9 @@ double lovrRandomGeneratorRandom(RandomGenerator* generator) {
 }
 
 double lovrRandomGeneratorRandomNormal(RandomGenerator* generator) {
-  if (generator->lastRandomNormal != INFINITY) {
+  if (generator->lastRandomNormal != HUGE_VAL) {
     double r = generator->lastRandomNormal;
-    generator->lastRandomNormal = INFINITY;
+    generator->lastRandomNormal = HUGE_VAL;
     return r;
   }
 
