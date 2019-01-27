@@ -1,9 +1,9 @@
 #include "data/modelData.h"
 
-ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO io) {
-  if (lovrModelDataInitGltf(model, source, io)) {
+ModelData* lovrModelDataInit(ModelData* model, Blob* source) {
+  if (lovrModelDataInitGltf(model, source)) {
     return model;
-  } else if (lovrModelDataInitObj(model, source, io)) {
+  } else if (lovrModelDataInitObj(model, source)) {
     return model;
   }
 

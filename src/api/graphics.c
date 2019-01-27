@@ -11,7 +11,6 @@
 #include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "data/textureData.h"
-#include "data/vertexData.h"
 #include "filesystem/filesystem.h"
 #include "util.h"
 #define _USE_MATH_DEFINES
@@ -26,13 +25,13 @@ const char* ArcModes[] = {
 };
 
 const char* AttributeTypes[] = {
-  [I8] = "i8",
-  [U8] = "u8",
-  [I16] = "i16",
-  [U16] = "u16",
-  [I32] = "i32",
-  [U32] = "u32",
-  [F32] = "f32",
+  [I8] = "byte",
+  [U8] = "ubyte",
+  [I16] = "short",
+  [U16] = "ushort",
+  [I32] = "int",
+  [U32] = "uint",
+  [F32] = "float",
   NULL
 };
 
@@ -1124,70 +1123,136 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
 static int l_lovrGraphicsNewMesh(lua_State* L) {
   uint32_t count;
   int dataIndex = 0;
+  int formatIndex = 0;
   int drawModeIndex = 2;
-  VertexData* vertexData = NULL;
-  bool hasFormat = false;
-  VertexFormat format;
-  vertexFormatInit(&format);
 
   if (lua_isnumber(L, 1)) {
     count = lua_tointeger(L, 1);
   } else if (lua_istable(L, 1)) {
     if (lua_isnumber(L, 2)) {
       drawModeIndex++;
-      hasFormat = luax_checkvertexformat(L, 1, &format);
+      formatIndex = 1;
       count = lua_tointeger(L, 2);
       dataIndex = 0;
     } else if (lua_istable(L, 2)) {
       drawModeIndex++;
-      hasFormat = luax_checkvertexformat(L, 1, &format);
+      formatIndex = 1;
       count = lua_objlen(L, 2);
       dataIndex = 2;
     } else {
       count = lua_objlen(L, 1);
       dataIndex = 1;
     }
-  } else if (lua_isuserdata(L, 1)) {
-    vertexData = luax_checktype(L, 1, VertexData);
-    format = vertexData->format;
-    count = vertexData->count;
-    hasFormat = true;
   } else {
     luaL_argerror(L, 1, "table or number expected");
     return 0;
   }
 
-  if (!hasFormat) {
-    vertexFormatAppend(&format, "lovrPosition", F32, 3);
-    vertexFormatAppend(&format, "lovrNormal", F32, 3);
-    vertexFormatAppend(&format, "lovrTexCoord", F32, 2);
+  MeshAttribute attributes[MAX_ATTRIBUTES];
+  const char* attributeNames[MAX_ATTRIBUTES];
+  int attributeCount = 0;
+  size_t stride = 0;
+
+  if (formatIndex == 0) {
+    stride = 32;
+    attributeCount = 3;
+    attributes[0] = (MeshAttribute) { .offset = 0, .stride = stride, .type = F32, .components = 3 };
+    attributes[1] = (MeshAttribute) { .offset = 12, .stride = stride, .type = F32, .components = 3 };
+    attributes[2] = (MeshAttribute) { .offset = 24, .stride = stride, .type = F32, .components = 2 };
+    attributeNames[0] = "lovrPosition";
+    attributeNames[1] = "lovrNormal";
+    attributeNames[2] = "lovrTexCoord";
+  } else {
+    attributeCount = lua_objlen(L, formatIndex);
+    lovrAssert(attributeCount >= 0 && attributeCount <= MAX_ATTRIBUTES, "Attribute count must be between 0 and %d", MAX_ATTRIBUTES);
+    for (int i = 0; i < attributeCount; i++) {
+      lua_rawgeti(L, formatIndex, i + 1);
+      lovrAssert(lua_type(L, -1) == LUA_TTABLE, "Attribute definitions must be tables containing name, type, and component count");
+      lua_rawgeti(L, -1, 3);
+      lua_rawgeti(L, -1, 2);
+      lua_rawgeti(L, -1, 1);
+
+      attributeNames[i] = lua_tostring(L, -1);
+      attributes[i].offset = stride;
+      attributes[i].type = luaL_checkoption(L, -2, "float", AttributeTypes);
+      attributes[i].components = luaL_optinteger(L, -3, 1);
+
+      switch (attributes[i].type) {
+        case I8:
+        case U8:
+          stride += 1 * attributes[i].components;
+          break;
+
+        case I16:
+        case U16:
+          stride += 2 * attributes[i].components;
+          break;
+
+        case I32:
+        case U32:
+        case F32:
+          stride += 4 * attributes[i].components;
+          break;
+      }
+      lua_pop(L, 3);
+    }
   }
 
   DrawMode mode = luaL_checkoption(L, drawModeIndex, "fan", DrawModes);
   BufferUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", BufferUsages);
   bool readable = lua_toboolean(L, drawModeIndex + 2);
-  size_t bufferSize = count * format.stride;
+  size_t bufferSize = attributeCount * stride;
   Buffer* vertexBuffer = lovrBufferCreate(bufferSize, NULL, BUFFER_VERTEX, usage, readable);
-  Mesh* mesh = lovrMeshCreate(mode, format, vertexBuffer, count);
+  Mesh* mesh = lovrMeshCreate(mode, vertexBuffer, count);
+
+  for (int i = 0; i < attributeCount; i++) {
+    lovrMeshAttachAttribute(mesh, attributeNames[i], &(MeshAttribute) {
+      .buffer = vertexBuffer,
+      .offset = attributes[i].offset,
+      .stride = stride,
+      .type = attributes[i].type,
+      .components = attributes[i].components
+    });
+  }
 
   lovrMeshAttachAttribute(mesh, "lovrDrawID", &(MeshAttribute) {
     .buffer = lovrGraphicsGetIdentityBuffer(),
     .type = U8,
     .components = 1,
     .divisor = 1,
-    .integer = true,
-    .enabled = true
+    .integer = true
   });
 
   if (dataIndex) {
-    AttributePointer vertices = { .raw = lovrBufferMap(vertexBuffer, 0) };
-    luax_loadvertices(L, dataIndex, lovrMeshGetVertexFormat(mesh), vertices);
-  } else if (vertexData) {
-    void* vertices = lovrBufferMap(vertexBuffer, 0);
-    memcpy(vertices, vertexData->blob.data, vertexData->count * vertexData->format.stride);
+    AttributeData data = { .raw = lovrBufferMap(vertexBuffer, 0) };
+
+    for (uint32_t i = 0; i < count; i++) {
+      lua_rawgeti(L, dataIndex, i + 1);
+      lovrAssert(lua_istable(L, -1), "Vertices should be specified as a table of tables");
+
+      int component = 0;
+      for (int j = 0; j < attributeCount; j++) {
+        MeshAttribute* attribute = &attributes[j];
+        for (int k = 0; k < attribute->components; k++) {
+          lua_rawgeti(L, -1, ++component);
+          switch (attribute->type) {
+            case I8: *data.i8++ = luaL_optinteger(L, -1, 0); break;
+            case U8: *data.u8++ = luaL_optinteger(L, -1, 0); break;
+            case I16: *data.i16++ = luaL_optinteger(L, -1, 0); break;
+            case U16: *data.u16++ = luaL_optinteger(L, -1, 0); break;
+            case I32: *data.i32++ = luaL_optinteger(L, -1, 0); break;
+            case U32: *data.u32++ = luaL_optinteger(L, -1, 0); break;
+            case F32: *data.u32++ = luaL_optnumber(L, -1, 0.); break;
+          }
+          lua_pop(L, 1);
+        }
+      }
+
+      lua_pop(L, 1);
+    }
   }
 
-  lovrBufferMarkRange(vertexBuffer, 0, count * format.stride);
+  lovrBufferMarkRange(vertexBuffer, 0, count * stride);
   lovrRelease(vertexBuffer);
 
   luax_pushobject(L, mesh);
@@ -1200,8 +1265,7 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
 
   if (!modelData) {
     Blob* blob = luax_readblob(L, 1, "Model");
-    static ModelDataIO io = { lovrFilesystemRead };
-    modelData = lovrModelDataCreate(blob, io);
+    modelData = lovrModelDataCreate(blob);
     lovrRelease(blob);
   }
 

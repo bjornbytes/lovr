@@ -479,19 +479,13 @@ static void lovrGpuBindImage(Image* image, int slot) {
 }
 #endif
 
-static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
-  const char* key;
-  map_iter_t iter = map_iter(&mesh->attachments);
-
-  MeshAttribute layout[MAX_ATTRIBUTES];
-  memset(layout, 0, MAX_ATTRIBUTES * sizeof(MeshAttribute));
-
+static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int baseDivisor) {
   lovrGpuBindVertexArray(mesh);
 
   if (mesh->indexBuffer && mesh->indexCount > 0) {
     lovrGpuBindBuffer(BUFFER_INDEX, mesh->indexBuffer->id);
     lovrBufferFlush(mesh->indexBuffer);
-#ifndef LOVR_GL
+#ifdef LOVR_GL
     uint32_t primitiveRestart = mesh->indexSize == 4 ? 0xffffffff : 0xffff;
     if (state.primitiveRestart != primitiveRestart) {
       state.primitiveRestart = primitiveRestart;
@@ -500,68 +494,51 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
 #endif
   }
 
-  while ((key = map_next(&mesh->attributes, &iter)) != NULL) {
-    int location = lovrShaderGetAttributeId(shader, key);
+  uint16_t enabledLocations = 0;
+  for (int i = 0; i < mesh->attributeCount; i++) {
+    MeshAttribute* attribute;
+    int location;
 
-    if (location >= 0) {
-      MeshAttribute* attribute = map_get(&mesh->attributes, key);
-      layout[location] = *attribute;
+    if ((attribute = &mesh->attributes[i])->disabled) { continue; }
+    if ((location = lovrShaderGetAttributeLocation(shader, mesh->attributeNames[i])) < 0) { continue; }
+
+    lovrBufferFlush(attribute->buffer);
+    enabledLocations |= (1 << location);
+
+    uint16_t divisor = attribute->divisor * baseDivisor;
+    if (mesh->divisors[location] != divisor) {
+      glVertexAttribDivisor(location, divisor);
+      mesh->divisors[location] = divisor;
+    }
+
+    if (mesh->locations[location] == i) { continue; }
+
+    mesh->locations[location] = i;
+    lovrGpuBindBuffer(BUFFER_VERTEX, attribute->buffer->id);
+    GLenum type = convertAttributeType(attribute->type);
+    GLvoid* offset = (GLvoid*) (intptr_t) attribute->offset;
+
+    if (attribute->integer) {
+      glVertexAttribIPointer(location, attribute->components, type, attribute->stride, offset);
+    } else {
+      glVertexAttribPointer(location, attribute->components, type, attribute->normalized, attribute->stride, offset);
     }
   }
 
-  for (int i = 0; i < MAX_ATTRIBUTES; i++) {
-    MeshAttribute previous = mesh->layout[i];
-    MeshAttribute current = layout[i];
-
-    if (current.enabled) {
-      lovrBufferFlush(current.buffer);
-    }
-
-    uint16_t divisor = current.divisor * divisorMultiplier;
-
-    if (!memcmp(&previous, &current, sizeof(MeshAttribute)) && mesh->divisors[i] == divisor) {
-      continue;
-    }
-
-    if (previous.enabled != current.enabled) {
-      if (current.enabled) {
-        glEnableVertexAttribArray(i);
-      } else {
-        glDisableVertexAttribArray(i);
-        mesh->layout[i] = current;
-        continue;
+  uint16_t diff = enabledLocations ^ mesh->enabledLocations;
+  if (diff != 0) {
+    for (int i = 0; i < MAX_ATTRIBUTES; i++) {
+      if (diff & (1 << i)) {
+        if (enabledLocations & (1 << i)) {
+          glEnableVertexAttribArray(i);
+        } else {
+          glDisableVertexAttribArray(i);
+        }
       }
     }
 
-    if (mesh->divisors[i] != divisor) {
-      glVertexAttribDivisor(i, divisor);
-      mesh->divisors[i] = divisor;
-    }
-
-    bool changed =
-      previous.buffer != current.buffer ||
-      previous.type != current.type ||
-      previous.components != current.components ||
-      previous.offset != current.offset ||
-      previous.stride != current.stride;
-
-    if (changed) {
-      lovrGpuBindBuffer(BUFFER_VERTEX, current.buffer->id);
-      int count = current.components;
-      int stride = current.stride;
-      GLvoid* offset = (GLvoid*) current.offset;
-      GLenum type = convertAttributeType(current.type);
-
-      // TODO
-      if (current.integer) {
-        glVertexAttribIPointer(i, count, type, stride, offset);
-      } else {
-        glVertexAttribPointer(i, count, type, GL_TRUE, stride, offset);
-      }
-    }
+    mesh->enabledLocations = enabledLocations;
   }
-
-  memcpy(mesh->layout, layout, MAX_ATTRIBUTES * sizeof(MeshAttribute));
 }
 
 static void lovrGpuBindCanvas(Canvas* canvas, bool willDraw) {
@@ -1962,34 +1939,14 @@ void lovrShaderDestroy(void* ref) {
 
 // Mesh
 
-Mesh* lovrMeshInit(Mesh* mesh, DrawMode mode, VertexFormat format, Buffer* vertexBuffer, uint32_t vertexCount) {
+Mesh* lovrMeshInit(Mesh* mesh, DrawMode mode, Buffer* vertexBuffer, uint32_t vertexCount) {
   mesh->mode = mode;
-  mesh->format = format;
   mesh->vertexBuffer = vertexBuffer;
   mesh->vertexCount = vertexCount;
   lovrRetain(mesh->vertexBuffer);
   glGenVertexArrays(1, &mesh->vao);
-
-  map_init(&mesh->attributes);
-  for (int i = 0; i < format.count; i++) {
-    lovrRetain(mesh->vertexBuffer);
-    map_set(&mesh->attributes, format.attributes[i].name, ((MeshAttribute) {
-      .buffer = mesh->vertexBuffer,
-      .offset = format.attributes[i].offset,
-      .stride = format.stride,
-      .type = format.attributes[i].type,
-      .components = format.attributes[i].count,
-      .enabled = true
-    }));
-  }
-
-  return mesh;
-}
-
-Mesh* lovrMeshInitEmpty(Mesh* mesh, DrawMode mode) {
-  mesh->mode = mode;
-  glGenVertexArrays(1, &mesh->vao);
-  map_init(&mesh->attributes);
+  map_init(&mesh->attributeMap);
+  memset(mesh->locations, 0xff, MAX_ATTRIBUTES * sizeof(uint8_t));
   return mesh;
 }
 
@@ -1997,13 +1954,10 @@ void lovrMeshDestroy(void* ref) {
   Mesh* mesh = ref;
   lovrGraphicsFlushMesh(mesh);
   glDeleteVertexArrays(1, &mesh->vao);
-  const char* key;
-  map_iter_t iter = map_iter(&mesh->attributes);
-  while ((key = map_next(&mesh->attributes, &iter)) != NULL) {
-    MeshAttribute* attribute = map_get(&mesh->attributes, key);
-    lovrRelease(attribute->buffer);
+  for (int i = 0; i < mesh->attributeCount; i++) {
+    lovrRelease(mesh->attributes[i].buffer);
   }
-  map_deinit(&mesh->attributes);
+  map_deinit(&mesh->attributeMap);
   lovrRelease(mesh->vertexBuffer);
   lovrRelease(mesh->indexBuffer);
   lovrRelease(mesh->material);

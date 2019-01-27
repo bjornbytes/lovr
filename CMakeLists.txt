@@ -385,7 +385,6 @@ if(LOVR_ENABLE_DATA)
     src/data/rasterizer.c
     src/data/soundData.c
     src/data/textureData.c
-    src/data/vertexData.c
     src/api/data.c
     src/api/types/audioStream.c
     src/api/types/blob.c
@@ -393,7 +392,6 @@ if(LOVR_ENABLE_DATA)
     src/api/types/rasterizer.c
     src/api/types/soundData.c
     src/api/types/textureData.c
-    src/api/types/vertexData.c
     src/lib/stb/stb_image.c
     src/lib/stb/stb_image_write.c
     src/lib/stb/stb_truetype.c

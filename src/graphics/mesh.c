@@ -1,10 +1,6 @@
 #include "graphics/mesh.h"
 #include "graphics/graphics.h"
 
-VertexFormat* lovrMeshGetVertexFormat(Mesh* mesh) {
-  return &mesh->format;
-}
-
 Buffer* lovrMeshGetVertexBuffer(Mesh* mesh) {
   return mesh->vertexBuffer;
 }
@@ -25,39 +21,59 @@ size_t lovrMeshGetIndexSize(Mesh* mesh) {
   return mesh->indexSize;
 }
 
+int lovrMeshGetAttributeCount(Mesh* mesh) {
+  return mesh->attributeCount;
+}
+
 void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute) {
-  lovrAssert(!map_get(&mesh->attributes, name), "Mesh already has an attribute named '%s'", name);
-  lovrAssert(attribute->divisor >= 0, "Divisor can't be negative");
+  lovrAssert(!map_get(&mesh->attributeMap, name), "Mesh already has an attribute named '%s'", name);
+  lovrAssert(mesh->attributeCount < MAX_ATTRIBUTES, "Mesh already has the max number of attributes (%d)", MAX_ATTRIBUTES);
   lovrGraphicsFlushMesh(mesh);
-  map_set(&mesh->attributes, name, *attribute);
+  int index = mesh->attributeCount++;
+  mesh->attributes[index] = *attribute;
+  mesh->attributeNames[index] = name;
+  map_set(&mesh->attributeMap, name, index);
   lovrRetain(attribute->buffer);
 }
 
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
-  MeshAttribute* attribute = map_get(&mesh->attributes, name);
-  lovrAssert(attribute, "No attached attribute '%s' was found", name);
-  lovrAssert(attribute->buffer != mesh->vertexBuffer, "Attribute '%s' was not attached from another Mesh", name);
+  int* index = map_get(&mesh->attributeMap, name);
+  lovrAssert(index, "No attached attribute named '%s' was found", name);
+  MeshAttribute* attribute = &mesh->attributes[*index];
   lovrGraphicsFlushMesh(mesh);
   lovrRelease(attribute->buffer);
-  map_remove(&mesh->attributes, name);
+  map_remove(&mesh->attributeMap, name);
+  mesh->attributeNames[*index] = NULL;
+  memmove(mesh->attributeNames + *index, mesh->attributeNames + *index + 1, (mesh->attributeCount - *index - 1) * sizeof(char*));
+  memmove(mesh->attributes + *index, mesh->attributes + *index + 1, (mesh->attributeCount - *index - 1) * sizeof(MeshAttribute));
+  mesh->attributeCount--;
+  for (int i = 0; i < MAX_ATTRIBUTES; i++) {
+    if (mesh->locations[i] > *index) {
+      mesh->locations[i]--;
+    } else if (mesh->locations[i] == *index) {
+      mesh->locations[i] = 0xff;
+    }
+  }
 }
 
-MeshAttribute* lovrMeshGetAttribute(Mesh* mesh, const char* name) {
-  return map_get(&mesh->attributes, name);
+const MeshAttribute* lovrMeshGetAttribute(Mesh* mesh, const char* name) {
+  int* index = map_get(&mesh->attributeMap, name);
+  return index ? &mesh->attributes[*index] : NULL;
 }
 
 bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name) {
-  MeshAttribute* attribute = map_get(&mesh->attributes, name);
-  lovrAssert(attribute, "Mesh does not have an attribute named '%s'", name);
-  return attribute->enabled;
+  int* index = map_get(&mesh->attributeMap, name);
+  lovrAssert(index, "Mesh does not have an attribute named '%s'", name);
+  return !mesh->attributes[*index].disabled;
 }
 
 void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enable) {
-  MeshAttribute* attribute = map_get(&mesh->attributes, name);
-  lovrAssert(attribute, "Mesh does not have an attribute named '%s'", name);
-  if (attribute->enabled != enable) {
+  bool disable = !enable;
+  int* index = map_get(&mesh->attributeMap, name);
+  lovrAssert(index, "Mesh does not have an attribute named '%s'", name);
+  if (mesh->attributes[*index].disabled != disable) {
     lovrGraphicsFlushMesh(mesh);
-    attribute->enabled = enable;
+    mesh->attributes[*index].disabled = disable;
   }
 }
 

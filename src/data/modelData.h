@@ -1,8 +1,6 @@
 #include "data/blob.h"
 #include "data/textureData.h"
 #include "util.h"
-#include "lib/map/map.h"
-#include "lib/vec/vec.h"
 
 #pragma once
 
@@ -89,6 +87,17 @@ typedef enum {
 } AnimationProperty;
 
 typedef enum { I8, U8, I16, U16, I32, U32, F32 } AttributeType;
+
+typedef union {
+  void* raw;
+  int8_t* i8;
+  uint8_t* u8;
+  int16_t* i16;
+  uint16_t* u16;
+  int32_t* i32;
+  uint32_t* u32;
+  float* f32;
+} AttributeData;
 
 typedef struct {
   char* data;
@@ -196,13 +205,9 @@ typedef struct {
   int charCount;
 } ModelData;
 
-typedef struct {
-  void* (*read)(const char* path, size_t* bytesRead);
-} ModelDataIO;
-
-ModelData* lovrModelDataInit(ModelData* model, Blob* blob, ModelDataIO io);
-ModelData* lovrModelDataInitGltf(ModelData* model, Blob* blob, ModelDataIO io);
-ModelData* lovrModelDataInitObj(ModelData* model, Blob* blob, ModelDataIO io);
+ModelData* lovrModelDataInit(ModelData* model, Blob* blob);
 #define lovrModelDataCreate(...) lovrModelDataInit(lovrAlloc(ModelData), __VA_ARGS__)
+ModelData* lovrModelDataInitGltf(ModelData* model, Blob* blob);
+ModelData* lovrModelDataInitObj(ModelData* model, Blob* blob);
 void lovrModelDataDestroy(void* ref);
 void lovrModelDataAllocate(ModelData* model);
