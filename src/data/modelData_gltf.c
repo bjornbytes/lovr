@@ -1,4 +1,5 @@
 #include "data/modelData.h"
+#include "filesystem/filesystem.h"
 #include "lib/math.h"
 #include "lib/jsmn/jsmn.h"
 #include <stdbool.h>
@@ -111,7 +112,7 @@ static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMateri
   return token;
 }
 
-ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO io) {
+ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
   uint8_t* data = source->data;
   gltfHeader* header = (gltfHeader*) data;
   bool glb = header->magic == MAGIC_glTF;
@@ -422,7 +423,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO io)
         char filename[1024];
         lovrAssert(uri.length < 1024, "Buffer filename is too long");
         snprintf(filename, 1023, "%s/%.*s", basePath, (int) uri.length, uri.data);
-        *blob = lovrBlobCreate(io.read(filename, &bytesRead), size, NULL);
+        *blob = lovrBlobCreate(lovrFilesystemRead(filename, &bytesRead), size, NULL);
         lovrAssert((*blob)->data && bytesRead == size, "Unable to read %s", filename);
       } else {
         lovrAssert(glb, "Buffer is missing URI");

@@ -67,22 +67,22 @@ static void lovrGraphicsInitBuffers() {
   for (int i = 0; i < 256; i++) id[i] = i;
   lovrBufferFlushRange(state.identityBuffer, 0, 256);
 
-  VertexFormat empty = { .count = 0 };
   Buffer* vertexBuffer = state.buffers[STREAM_VERTEX];
   size_t stride = BUFFER_STRIDES[STREAM_VERTEX];
-  MeshAttribute position = { vertexBuffer, 0, stride, F32, 3, .enabled = true };
-  MeshAttribute normal = { vertexBuffer, 12, stride, F32, 3, .enabled = true };
-  MeshAttribute texCoord = { vertexBuffer, 24, stride, F32, 2, .enabled = true };
-  MeshAttribute drawId = { state.buffers[STREAM_DRAW_ID], 0, 0, U8, 1, .integer = true, .enabled = true };
-  MeshAttribute identity = { state.identityBuffer, 0, 0, U8, 1, .divisor = 1, .integer = true, .enabled = true };
 
-  state.mesh = lovrMeshCreate(DRAW_TRIANGLES, empty, NULL, 0);
+  MeshAttribute position = { .buffer = vertexBuffer, .offset = 0, .stride = stride, .type = F32, .components = 3 };
+  MeshAttribute normal = { .buffer = vertexBuffer, .offset = 12, .stride = stride, .type = F32, .components = 3 };
+  MeshAttribute texCoord = { .buffer = vertexBuffer, .offset = 24, .stride = stride, .type = F32, .components = 2 };
+  MeshAttribute drawId = { .buffer = state.buffers[STREAM_DRAW_ID], .type = U8, .components = 1, .integer = true };
+  MeshAttribute identity = { .buffer = state.identityBuffer, .type = U8, .components = 1, .divisor = 1, .integer = true };
+
+  state.mesh = lovrMeshCreate(DRAW_TRIANGLES, NULL, 0);
   lovrMeshAttachAttribute(state.mesh, "lovrPosition", &position);
   lovrMeshAttachAttribute(state.mesh, "lovrNormal", &normal);
   lovrMeshAttachAttribute(state.mesh, "lovrTexCoord", &texCoord);
   lovrMeshAttachAttribute(state.mesh, "lovrDrawID", &drawId);
 
-  state.instancedMesh = lovrMeshCreate(DRAW_TRIANGLES, empty, NULL, 0);
+  state.instancedMesh = lovrMeshCreate(DRAW_TRIANGLES, NULL, 0);
   lovrMeshAttachAttribute(state.instancedMesh, "lovrPosition", &position);
   lovrMeshAttachAttribute(state.instancedMesh, "lovrNormal", &normal);
   lovrMeshAttachAttribute(state.instancedMesh, "lovrTexCoord", &texCoord);

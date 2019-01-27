@@ -1,6 +1,8 @@
 #include "data/modelData.h"
 #include "filesystem/filesystem.h"
 #include "lib/math.h"
+#include "lib/map/map.h"
+#include "lib/vec/vec.h"
 #include <stdio.h>
 #include <ctype.h>
 

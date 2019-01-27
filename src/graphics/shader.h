@@ -114,7 +114,7 @@ Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type);
 #define lovrShaderCreateDefault(...) lovrShaderInitDefault(lovrAlloc(Shader), __VA_ARGS__)
 void lovrShaderDestroy(void* ref);
 ShaderType lovrShaderGetType(Shader* shader);
-int lovrShaderGetAttributeId(Shader* shader, const char* name);
+int lovrShaderGetAttributeLocation(Shader* shader, const char* name);
 bool lovrShaderHasUniform(Shader* shader, const char* name);
 const Uniform* lovrShaderGetUniform(Shader* shader, const char* name);
 void lovrShaderSetFloats(Shader* shader, const char* name, float* data, int start, int count);
