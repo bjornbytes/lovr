@@ -339,11 +339,8 @@ static int l_lovrGraphicsGetDimensions(lua_State* L) {
   return 2;
 }
 
-static int l_lovrGraphicsGetHasWindow(lua_State *L) {
-  bool window = false;
-#ifndef NO_WINDOW
-  window = lovrPlatformGetHasWindow();
-#endif
+static int l_lovrGraphicsHasWindow(lua_State *L) {
+  bool window = lovrPlatformHasWindow();
   lua_pushboolean(L, window);
   return 1;
 }
@@ -1368,7 +1365,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "getWidth", l_lovrGraphicsGetWidth },
   { "getHeight", l_lovrGraphicsGetHeight },
   { "getDimensions", l_lovrGraphicsGetDimensions },
-  { "hasWindow", l_lovrGraphicsGetHasWindow },
+  { "hasWindow", l_lovrGraphicsHasWindow },
   { "getSupported", l_lovrGraphicsGetSupported },
   { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
   { "getStats", l_lovrGraphicsGetStats },

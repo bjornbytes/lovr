@@ -128,7 +128,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   return true;
 }
 
-bool lovrPlatformGetHasWindow() {
+bool lovrPlatformHasWindow() {
   return state.window;
 }
 

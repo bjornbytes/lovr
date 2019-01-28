@@ -109,7 +109,6 @@ function lovr.boot()
 end
 
 function lovr.run()
-  local hasWindow = lovr.graphics.hasWindow()
   lovr.timer.step()
   if lovr.load then lovr.load(arg) end
   return function()
@@ -139,7 +138,7 @@ function lovr.run()
         if lovr.headset then
           lovr.headset.renderTo(lovr.draw)
         end
-        if hasWindow then
+        if lovr.graphics.hasWindow() then
           lovr.mirror()
         end
       end
