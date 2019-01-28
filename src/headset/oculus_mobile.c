@@ -247,6 +247,10 @@ void lovrPlatformGetFramebufferSize(int* width, int* height) {
   *height = bridgeLovrMobileData.displayDimensions.height;
 }
 
+bool lovrPlatformHasWindow() {
+  return false;
+}
+
 // "Bridge" (see oculus_mobile_bridge.h)
 
 #include <stdio.h>

@@ -450,6 +450,7 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
 }
 
 static Texture* oculusGetMirrorTexture() {
+  uint32_t handle;
   ovr_GetMirrorTextureBufferGL(state.session, state.mirror, &handle);
   return lookupTexture(handle);
 }
