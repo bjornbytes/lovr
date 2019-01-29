@@ -40,6 +40,7 @@ local function nogame()
     lovr.graphics.print('LÖVR', -.01, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
     lovr.graphics.setColor(.059, .059, .059, fade)
     lovr.graphics.print('No game :(', -.01, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
+    lovr.graphics.setColor(1, 1, 1)
   end
 
   lovr.controlleradded = refreshControllers
