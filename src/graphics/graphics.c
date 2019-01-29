@@ -410,7 +410,7 @@ bool lovrGraphicsIsWireframe() {
 }
 
 void lovrGraphicsSetWireframe(bool wireframe) {
-#ifndef EMSCRIPTEN
+#ifdef LOVR_GL
   state.pipeline.wireframe = wireframe;
 #endif
 }

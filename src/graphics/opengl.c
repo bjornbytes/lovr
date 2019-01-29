@@ -215,7 +215,7 @@ static GLenum convertBufferUsage(BufferUsage usage) {
   }
 }
 
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
 static GLenum convertAccess(UniformAccess access) {
   switch (access) {
     case ACCESS_READ: return GL_READ_ONLY;
@@ -308,7 +308,7 @@ static Texture* lovrGpuGetDefaultTexture() {
 }
 
 // Syncing resources is only relevant for compute shaders
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
 static void lovrGpuSync(uint8_t flags) {
   if (!flags) {
     return;
@@ -402,7 +402,7 @@ static void lovrGpuBindBuffer(BufferType type, uint32_t buffer, bool force) {
 
 static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot, size_t offset, size_t size) {
   lovrAssert(offset % state.limits.blockAlign == 0, "Block buffer offset must be aligned to %d", state.limits.blockAlign);
-#ifdef EMSCRIPTEN
+#ifdef LOVR_WEBGL
   lovrAssert(type == BLOCK_UNIFORM, "Compute blocks are not supported on this system");
   GLenum target = GL_UNIFORM_BUFFER;
 #else
@@ -434,7 +434,7 @@ static void lovrGpuBindTexture(Texture* texture, int slot) {
   }
 }
 
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
 static void lovrGpuBindImage(Image* image, int slot) {
   lovrAssert(slot >= 0 && slot < MAX_IMAGES, "Invalid image slot %d", slot);
 
@@ -471,7 +471,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   if (mesh->indexBuffer && mesh->indexCount > 0) {
     lovrGpuBindBuffer(BUFFER_INDEX, mesh->indexBuffer->id, true);
     lovrBufferFlush(mesh->indexBuffer);
-#if !(defined(EMSCRIPTEN) || defined(__ANDROID__))
+#ifdef LOVR_GL
     uint32_t primitiveRestart = (1 << (mesh->indexSize * 8)) - 1;
     if (state.primitiveRestart != primitiveRestart) {
       state.primitiveRestart = primitiveRestart;
@@ -562,7 +562,7 @@ static void lovrGpuBindCanvas(Canvas* canvas, bool willDraw) {
   }
 
   // We need to synchronize if any of the Canvas attachments have pending writes on them
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   for (int i = 0; i < canvas->attachmentCount; i++) {
     Texture* texture = canvas->attachments[i].texture;
     if (texture->incoherent && (texture->incoherent >> BARRIER_CANVAS) & 1) {
@@ -756,7 +756,7 @@ static void lovrGpuBindPipeline(Pipeline* pipeline) {
   }
 
   // Wireframe
-#ifndef EMSCRIPTEN
+#ifdef LOVR_GL
   if (state.wireframe != pipeline->wireframe) {
     state.wireframe = pipeline->wireframe;
     glPolygonMode(GL_FRONT_AND_BACK, state.wireframe ? GL_LINE : GL_FILL);
@@ -772,7 +772,7 @@ static void lovrGpuBindShader(Shader* shader) {
   lovrGpuUseProgram(shader->program);
 
   // Figure out if we need to wait for pending writes on resources to complete
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   uint8_t flags = 0;
   vec_foreach_ptr(&shader->blocks[BLOCK_COMPUTE], block, i) {
     if (block->source && (block->source->incoherent >> BARRIER_BLOCK) & 1) {
@@ -846,7 +846,7 @@ static void lovrGpuBindShader(Shader* shader) {
         break;
 
       case UNIFORM_IMAGE:
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
         for (int i = 0; i < count; i++) {
           Image* image = &uniform->value.images[i];
           Texture* texture = image->texture;
@@ -896,14 +896,14 @@ static void lovrGpuSetViewports(float* viewport, uint32_t count) {
   if (state.viewportCount != count || memcmp(state.viewports, viewport, count * 4 * sizeof(float))) {
     memcpy(state.viewports, viewport, count * 4 * sizeof(float));
     state.viewportCount = count;
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
     if (count > 1) {
       glViewportArrayv(0, count, viewport);
     } else {
 #endif
       glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
     }
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   }
 #endif
 }
@@ -911,7 +911,7 @@ static void lovrGpuSetViewports(float* viewport, uint32_t count) {
 // GPU
 
 void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   gladLoadGLLoader((GLADloadproc) getProcAddress);
   state.features.compute = GLAD_GL_ARB_compute_shader;
   state.features.singlepass = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
@@ -922,25 +922,26 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   } else {
     glDisable(GL_FRAMEBUFFER_SRGB);
   }
-  #ifdef __ANDROID__
-  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
-  #else
-  glEnable(GL_PRIMITIVE_RESTART);
-  state.primitiveRestart = 0xffffffff;
-  glPrimitiveRestartIndex(state.primitiveRestart);
-  #endif
   glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
 #else
   glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, state.limits.pointSizes);
 #endif
+
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &state.limits.textureSize);
   glGetIntegerv(GL_MAX_SAMPLES, &state.limits.textureMSAA);
   glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &state.limits.blockSize);
   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &state.limits.blockAlign);
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
-
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
+
+#ifdef LOVR_GLES
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#elif defined(LOVR_GL)
+  glEnable(GL_PRIMITIVE_RESTART);
+  state.primitiveRestart = 0xffffffff;
+  glPrimitiveRestartIndex(state.primitiveRestart);
+#endif
 
   state.alphaToCoverage = false;
   glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
@@ -975,7 +976,7 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   glFrontFace(GL_CCW);
 
   state.wireframe = false;
-#if !(defined(EMSCRIPTEN) || defined(__ANDROID__))
+#ifdef LOVR_GL
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
 
@@ -1023,7 +1024,7 @@ void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil) {
 }
 
 void lovrGpuCompute(Shader* shader, int x, int y, int z) {
-#ifdef EMSCRIPTEN
+#ifdef LOVR_WEBGL
   lovrThrow("Compute shaders are not supported on this system");
 #else
   lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
@@ -1035,7 +1036,7 @@ void lovrGpuCompute(Shader* shader, int x, int y, int z) {
 }
 
 void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil) {
-#if defined(EMSCRIPTEN) || defined(__ANDROID__)
+#ifndef LOVR_GL
   lovrGpuBindCanvas(canvas, false);
 
   GLenum attachments[MAX_CANVAS_ATTACHMENTS + 1] = { 0 };
@@ -1252,7 +1253,7 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
   bool srgb = state.srgb && texture->srgb;
   GLenum glFormat = convertTextureFormat(format);
   GLenum internalFormat = convertTextureFormatInternal(format, srgb);
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   if (GLAD_GL_ARB_texture_storage) {
 #endif
   if (texture->type == TEXTURE_ARRAY) {
@@ -1260,7 +1261,7 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
   } else {
     glTexStorage2D(texture->target, texture->mipmapCount, internalFormat, width, height);
   }
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   } else {
     for (int i = 0; i < texture->mipmapCount; i++) {
       switch (texture->type) {
@@ -1296,7 +1297,7 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
   lovrGraphicsFlush();
   lovrAssert(texture->allocated, "Texture is not allocated");
 
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   if ((texture->incoherent >> BARRIER_TEXTURE) & 1) {
     lovrGpuSync(1 << BARRIER_TEXTURE);
   }
@@ -1346,7 +1347,7 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
     }
 
     if (texture->mipmaps) {
-#if defined(__APPLE__) || defined(EMSCRIPTEN) // glGenerateMipmap doesn't work on big cubemap textures on macOS
+#if defined(__APPLE__) || defined(LOVR_WEBGL) // glGenerateMipmap doesn't work on big cubemap textures on macOS
       if (texture->type != TEXTURE_CUBE || width < 2048) {
         glGenerateMipmap(texture->target);
       } else {
@@ -1512,7 +1513,7 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {
   lovrGraphicsFlushCanvas(canvas);
   lovrGpuBindCanvas(canvas, false);
 
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   Texture* texture = canvas->attachments[index].texture;
   if ((texture->incoherent >> BARRIER_TEXTURE) & 1) {
     lovrGpuSync(1 << BARRIER_TEXTURE);
@@ -1544,7 +1545,7 @@ Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type,
   lovrGpuBindBuffer(type, buffer->id, false);
   GLenum glType = convertBufferType(type);
 
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   if (GLAD_GL_ARB_buffer_storage) {
     GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | (readable ? GL_MAP_READ_BIT : 0);
     glBufferStorage(glType, size, data, flags);
@@ -1557,7 +1558,7 @@ Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type,
     if (data) {
       memcpy(buffer->data, data, size);
     }
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   }
 #endif
 
@@ -1568,11 +1569,11 @@ void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
   lovrGpuDestroySyncResource(buffer, buffer->incoherent);
   glDeleteBuffers(1, &buffer->id);
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   if (!GLAD_GL_ARB_buffer_storage) {
 #endif
     free(buffer->data);
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   }
 #endif
 }
@@ -1583,13 +1584,13 @@ void* lovrBufferMap(Buffer* buffer, size_t offset) {
 
 void lovrBufferFlushRange(Buffer* buffer, size_t offset, size_t size) {
   lovrGpuBindBuffer(buffer->type, buffer->id, false);
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   if (GLAD_GL_ARB_buffer_storage) {
     glFlushMappedBufferRange(convertBufferType(buffer->type), offset, size);
   } else {
 #endif
     glBufferSubData(convertBufferType(buffer->type), offset, size, (GLvoid*) ((uint8_t*) buffer->data + offset));
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   }
 #endif
 }
@@ -1657,7 +1658,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   // Shader storage buffers and their buffer variables
   vec_block_t* computeBlocks = &shader->blocks[BLOCK_COMPUTE];
   vec_init(computeBlocks);
-#ifndef EMSCRIPTEN
+#ifndef LOVR_WEBGL
   if (GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_program_interface_query) {
 
     // Iterate over compute blocks, setting their binding and pushing them onto the block vector
@@ -1727,7 +1728,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
     uniform.location = glGetUniformLocation(program, uniform.name);
     uniform.type = getUniformType(glType, uniform.name);
     uniform.components = getUniformComponents(glType);
-#ifdef EMSCRIPTEN
+#ifdef LOVR_WEBGL
     uniform.image = false;
 #else
     uniform.image = glType == GL_IMAGE_2D || glType == GL_IMAGE_3D || glType == GL_IMAGE_CUBE || glType == GL_IMAGE_2D_ARRAY;
@@ -1818,7 +1819,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
 }
 
 Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource) {
-#if defined(EMSCRIPTEN) || defined(__ANDROID__)
+#if defined(LOVR_WEBGL) || defined(LOVR_GLES)
   const char* vertexHeader = "#version 300 es\nprecision mediump float;\nprecision mediump int;\n";
   const char* fragmentHeader = vertexHeader;
 #else
@@ -1892,7 +1893,7 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
 }
 
 Shader* lovrShaderInitCompute(Shader* shader, const char* source) {
-#ifdef EMSCRIPTEN
+#ifdef LOVR_WEBGL
   lovrThrow("Compute shaders are not supported on this system");
 #else
   lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");

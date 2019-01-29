@@ -1,4 +1,4 @@
-#if EMSCRIPTEN
+#if LOVR_WEBGL
 #include <GLES3/gl3.h>
 #include <GLES2/gl2ext.h>
 #include <GL/gl.h>
