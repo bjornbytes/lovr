@@ -240,10 +240,19 @@ static int l_lovrMat4Orthographic(lua_State* L) {
 
 static int l_lovrMat4__mul(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  mat4 n = luax_checkmathtype(L, 2, MATH_MAT4, NULL);
-  mat4 out = lovrPoolAllocate(lovrMathGetPool(), MATH_MAT4);
-  mat4_multiply(mat4_init(out, m), n);
-  luax_pushlightmathtype(L, out, MATH_MAT4);
+  MathType type;
+  float* n = luax_tomathtype(L, 2, &type);
+  if (!n || type == MATH_QUAT) return luaL_typerror(L, 2, "mat4 or vec3");
+  if (type == MATH_MAT4) {
+    mat4 out = lovrPoolAllocate(lovrMathGetPool(), MATH_MAT4);
+    mat4_multiply(mat4_init(out, m), n);
+    luax_pushlightmathtype(L, out, MATH_MAT4);
+  } else {
+    vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
+    vec3_init(out, n);
+    mat4_transform(m, &n[0], &n[1], &n[2]);
+    luax_pushlightmathtype(L, out, MATH_VEC3);
+  }
   return 1;
 }
 
