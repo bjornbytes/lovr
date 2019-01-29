@@ -64,7 +64,6 @@ function lovr.boot()
     gammacorrect = false,
     headset = {
       drivers = { 'oculus', 'oculusmobile', 'openvr', 'webvr', 'fake' },
-      mirror = true,
       offset = 1.7,
       msaa = 4
     },

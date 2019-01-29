@@ -38,8 +38,6 @@ typedef struct {
   vec_float_t boundsGeometry;
   vec_controller_t controllers;
   HeadsetType type;
-  bool isMirrored;
-  HeadsetEye mirrorEye;
   float clipNear;
   float clipFar;
   float offset;
@@ -161,8 +159,6 @@ static bool openvrInit(float offset, int msaa) {
     state.type = HEADSET_UNKNOWN;
   }
 
-  state.isMirrored = true;
-  state.mirrorEye = EYE_BOTH;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
@@ -219,16 +215,6 @@ static bool openvrIsMounted() {
   VRControllerState_t input;
   state.system->GetControllerState(HEADSET_INDEX, &input, sizeof(input));
   return (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
-}
-
-static void openvrIsMirrored(bool* mirrored, HeadsetEye* eye) {
-  *mirrored = state.isMirrored;
-  *eye = state.mirrorEye;
-}
-
-static void openvrSetMirrored(bool mirror, HeadsetEye eye) {
-  state.isMirrored = mirror;
-  state.mirrorEye = eye;
 }
 
 static void openvrGetDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -528,20 +514,6 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
   state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
   lovrGpuDirtyTexture();
-
-  if (state.isMirrored) {
-    Color oldColor = lovrGraphicsGetColor();
-    Shader* oldShader = lovrGraphicsGetShader();
-    lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
-    lovrGraphicsSetShader(NULL);
-    if (state.mirrorEye == EYE_BOTH) {
-      lovrGraphicsFill(attachments[0].texture, 0, 0, 1, 1);
-    } else {
-      lovrGraphicsFill(attachments[0].texture, .5 * state.mirrorEye, 0, .5, 1);
-    }
-    lovrGraphicsSetColor(oldColor);
-    lovrGraphicsSetShader(oldShader);
-  }
 }
 
 static void openvrUpdate(float dt) {
@@ -620,8 +592,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrGetType,
   openvrGetOriginType,
   openvrIsMounted,
-  openvrIsMirrored,
-  openvrSetMirrored,
   openvrGetDisplayDimensions,
   openvrGetClipDistance,
   openvrSetClipDistance,

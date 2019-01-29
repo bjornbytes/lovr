@@ -49,14 +49,6 @@ static bool oculusMobileIsMounted() {
   return true; // ???
 }
 
-static void oculusMobileIsMirrored(bool* mirrored, HeadsetEye * eye) {
-  *mirrored = false; // Can't ever??
-  *eye = false;
-}
-
-static void oculusMobileSetMirrored(bool mirror, HeadsetEye eye) {
-}
-
 static void oculusMobileGetDisplayDimensions(uint32_t* width, uint32_t* height) {
   *width = bridgeLovrMobileData.displayDimensions.width;
   *height = bridgeLovrMobileData.displayDimensions.height;
@@ -204,8 +196,6 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   oculusMobileGetType,
   oculusMobileGetOriginType,
   oculusMobileIsMounted,
-  oculusMobileIsMirrored,
-  oculusMobileSetMirrored,
   oculusMobileGetDisplayDimensions,
   oculusMobileGetClipDistance,
   oculusMobileSetClipDistance,

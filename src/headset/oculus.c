@@ -10,8 +10,6 @@
 #include <OVR_CAPI_GL.h>
 
 typedef struct {
-  bool isMirrored;
-  HeadsetEye mirrorEye;
   bool hmdPresent;
   bool needRefreshTracking;
   bool needRefreshButtons;
@@ -99,8 +97,6 @@ static bool oculusInit(float offset, int msaa) {
   state.needRefreshTracking = true;
   state.needRefreshButtons = true;
   state.lastButtonState = 0;
-  state.isMirrored = true;
-  state.mirrorEye = EYE_BOTH;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
   state.offset = offset;
@@ -160,16 +156,6 @@ static HeadsetOrigin oculusGetOriginType() {
 
 static bool oculusIsMounted() {
   return true;
-}
-
-static void oculusIsMirrored(bool* mirrored, bool* eye) {
-  *mirrored = state.isMirrored;
-  *eye = state.mirrorEye;
-}
-
-static void oculusSetMirrored(bool mirror, HeadsetEye eye) {
-  state.isMirrored = mirror;
-  state.mirrorEye = eye;
 }
 
 static void oculusGetDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -430,23 +416,6 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
 
   state.needRefreshTracking = true;
   state.needRefreshButtons = true;
-
-  if (state.isMirrored) {
-    uint32_t handle;
-    ovr_GetMirrorTextureBufferGL(state.session, state.mirror, &handle);
-    Texture* texture = lookupTexture(handle);
-    Color oldColor = lovrGraphicsGetColor();
-    Shader* oldShader = lovrGraphicsGetShader();
-    lovrGraphicsSetColor((Color) { 1, 1, 1, 1 });
-    lovrGraphicsSetShader(NULL);
-    if (state.mirrorEye == EYE_BOTH) {
-      lovrGraphicsFill(texture, 0, 0, 1, 1);
-    } else {
-      lovrGraphicsFill(texture, .5 * state.mirrorEye, 0, .5, 1);
-    }
-    lovrGraphicsSetColor(oldColor);
-    lovrGraphicsSetShader(oldShader);
-  }
 }
 
 static Texture* oculusGetMirrorTexture() {
@@ -497,8 +466,6 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   oculusGetType,
   oculusGetOriginType,
   oculusIsMounted,
-  oculusIsMirrored,
-  oculusSetMirrored,
   oculusGetDisplayDimensions,
   oculusGetClipDistance,
   oculusSetClipDistance,

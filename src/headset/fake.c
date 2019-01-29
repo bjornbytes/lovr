@@ -10,8 +10,6 @@
 
 static struct {
   HeadsetType type;
-  bool mirrored;
-  HeadsetEye mirrorEye;
   float offset;
 
   vec_controller_t controllers;
@@ -45,9 +43,7 @@ static void onMouseButton(MouseButton button, ButtonAction action) {
 }
 
 static bool fakeInit(float offset, int msaa) {
-  state.mirrored = true;
   state.offset = offset;
-
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
 
@@ -81,16 +77,6 @@ static HeadsetOrigin fakeGetOriginType() {
 
 static bool fakeIsMounted() {
   return true;
-}
-
-static void fakeIsMirrored(bool* mirrored, HeadsetEye* eye) {
-  *mirrored = state.mirrored;
-  *eye = state.mirrorEye;
-}
-
-static void fakeSetMirrored(bool mirror, HeadsetEye eye) {
-  state.mirrored = mirror;
-  state.mirrorEye = eye;
 }
 
 static void fakeGetDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -192,15 +178,10 @@ static ModelData* fakeControllerNewModelData(Controller* controller) {
 }
 
 static void fakeRenderTo(void (*callback)(void*), void* userdata) {
-  if (!state.mirrored) {
-    return;
-  }
-
   uint32_t width, height;
   fakeGetDisplayDimensions(&width, &height);
-  bool stereo = state.mirrorEye == EYE_BOTH;
-  Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = stereo };
-  mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / (1 + stereo) / height);
+  Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = true };
+  mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / 2.f / height);
   mat4_multiply(camera.viewMatrix[0], state.transform);
   mat4_invertPose(camera.viewMatrix[0]);
   mat4_set(camera.projection[1], camera.projection[0]);
@@ -279,8 +260,6 @@ HeadsetInterface lovrHeadsetFakeDriver = {
   fakeGetType,
   fakeGetOriginType,
   fakeIsMounted,
-  fakeIsMirrored,
-  fakeSetMirrored,
   fakeGetDisplayDimensions,
   fakeGetClipDistance,
   fakeSetClipDistance,

@@ -10,8 +10,6 @@ extern void webvrDestroy(void);
 extern HeadsetType webvrGetType(void);
 extern HeadsetOrigin webvrGetOriginType(void);
 extern bool webvrIsMounted(void);
-extern void webvrIsMirrored(bool* mirror, HeadsetEye* eye);
-extern void webvrSetMirrored(bool mirror, HeadsetEye eye);
 extern void webvrGetDisplayDimensions(uint32_t* width, uint32_t* height);
 extern void webvrGetClipDistance(float* near, float* far);
 extern void webvrSetClipDistance(float near, float far);
@@ -133,8 +131,6 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   webvrGetType,
   webvrGetOriginType,
   webvrIsMounted,
-  webvrIsMirrored,
-  webvrSetMirrored,
   webvrGetDisplayDimensions,
   webvrGetClipDistance,
   webvrSetClipDistance,
