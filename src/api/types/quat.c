@@ -100,15 +100,6 @@ int l_lovrQuatSet(lua_State* L) {
   return 1;
 }
 
-static int l_lovrQuatCopy(lua_State* L) {
-  quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
-  Pool* pool = lua_isnoneornil(L, 2) ? lovrMathGetPool() : luax_checktype(L, 2, Pool);
-  quat out = lovrPoolAllocate(pool, MATH_QUAT);
-  quat_init(out, q);
-  luax_pushlightmathtype(L, out, MATH_QUAT);
-  return 1;
-}
-
 static int l_lovrQuatSave(lua_State* L) {
   quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
   quat copy = lua_newuserdata(L, 4 * sizeof(float));
@@ -181,7 +172,6 @@ static int l_lovrQuat__tostring(lua_State* L) {
 const luaL_Reg lovrQuat[] = {
   { "unpack", l_lovrQuatUnpack },
   { "set", l_lovrQuatSet },
-  { "copy", l_lovrQuatCopy },
   { "save", l_lovrQuatSave },
   { "mul", l_lovrQuatMul },
   { "normalize", l_lovrQuatNormalize },

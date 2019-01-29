@@ -77,15 +77,6 @@ int l_lovrVec3Set(lua_State* L) {
   return 1;
 }
 
-static int l_lovrVec3Copy(lua_State* L) {
-  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
-  Pool* pool = lua_isnoneornil(L, 2) ? lovrMathGetPool() : luax_checktype(L, 2, Pool);
-  vec3 out = lovrPoolAllocate(pool, MATH_VEC3);
-  vec3_init(out, v);
-  luax_pushlightmathtype(L, out, MATH_VEC3);
-  return 1;
-}
-
 static int l_lovrVec3Save(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3 copy = lua_newuserdata(L, 4 * sizeof(float));
@@ -254,7 +245,6 @@ static int l_lovrVec3__tostring(lua_State* L) {
 const luaL_Reg lovrVec3[] = {
   { "unpack", l_lovrVec3Unpack },
   { "set", l_lovrVec3Set },
-  { "copy", l_lovrVec3Copy },
   { "save", l_lovrVec3Save },
   { "add", l_lovrVec3Add },
   { "sub", l_lovrVec3Sub },

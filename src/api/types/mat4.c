@@ -76,15 +76,6 @@ int l_lovrMat4Set(lua_State* L) {
   return 1;
 }
 
-static int l_lovrMat4Copy(lua_State* L) {
-  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  Pool* pool = lua_isnoneornil(L, 2) ? lovrMathGetPool() : luax_checktype(L, 2, Pool);
-  mat4 out = lovrPoolAllocate(pool, MATH_MAT4);
-  mat4_init(out, m);
-  luax_pushlightmathtype(L, out, MATH_MAT4);
-  return 1;
-}
-
 static int l_lovrMat4Save(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   mat4 copy = lua_newuserdata(L, 16 * sizeof(float));
@@ -239,7 +230,6 @@ static int l_lovrMat4__tostring(lua_State* L) {
 const luaL_Reg lovrMat4[] = {
   { "unpack", l_lovrMat4Unpack },
   { "set", l_lovrMat4Set },
-  { "copy", l_lovrMat4Copy },
   { "save", l_lovrMat4Save },
   { "identity", l_lovrMat4Identity },
   { "invert", l_lovrMat4Invert },
