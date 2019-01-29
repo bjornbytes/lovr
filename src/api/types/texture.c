@@ -92,7 +92,7 @@ int l_lovrTextureReplacePixels(lua_State* L) {
 int l_lovrTextureSetFilter(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   FilterMode mode = luaL_checkoption(L, 2, NULL, FilterModes);
-  float anisotropy = luaL_optnumber(L, 3, 1.f);
+  float anisotropy = luax_optfloat(L, 3, 1.f);
   TextureFilter filter = { .mode = mode, .anisotropy = anisotropy };
   lovrTextureSetFilter(texture, filter);
   return 0;

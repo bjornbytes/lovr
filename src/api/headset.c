@@ -149,8 +149,8 @@ static int l_lovrHeadsetGetClipDistance(lua_State* L) {
 }
 
 static int l_lovrHeadsetSetClipDistance(lua_State* L) {
-  float clipNear = luaL_checknumber(L, 1);
-  float clipFar = luaL_checknumber(L, 2);
+  float clipNear = luax_checkfloat(L, 1);
+  float clipFar = luax_checkfloat(L, 2);
   lovrHeadsetDriver->setClipDistance(clipNear, clipFar);
   return 0;
 }
@@ -287,7 +287,7 @@ static int l_lovrHeadsetRenderTo(lua_State* L) {
 
 static int l_lovrHeadsetUpdate(lua_State* L) {
   if (lovrHeadsetDriver->update) {
-    lovrHeadsetDriver->update(luaL_checknumber(L, 1));
+    lovrHeadsetDriver->update(luax_checkfloat(L, 1));
   }
 
   return 0;
@@ -356,7 +356,7 @@ int luaopen_lovr_headset(lua_State* L) {
 
     // Offset
     lua_getfield(L, -1, "offset");
-    offset = luaL_optnumber(L, -1, 1.7f);
+    offset = luax_optfloat(L, -1, 1.7f);
     lua_pop(L, 1);
 
     // MSAA
