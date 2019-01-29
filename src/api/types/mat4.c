@@ -143,6 +143,32 @@ static int l_lovrMat4Scale(lua_State* L) {
   return 1;
 }
 
+static int l_lovrMat4Mul(lua_State* L) {
+  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
+  MathType type;
+  float* n = luax_tomathtype(L, 2, &type);
+  if (n && type == MATH_MAT4) {
+    mat4_multiply(m, n);
+    lua_settop(L, 1);
+    return 1;
+  } else if (n && type == MATH_VEC3) {
+    mat4_transform(m, &n[0], &n[1], &n[2]);
+    lua_settop(L, 2);
+    return 1;
+  } else if (lua_type(L, 2) == LUA_TNUMBER) {
+    float x = luaL_checknumber(L, 2);
+    float y = luaL_optnumber(L, 3, 0.f);
+    float z = luaL_optnumber(L, 4, 0.f);
+    mat4_transform(m, &x, &y, &z);
+    lua_pushnumber(L, x);
+    lua_pushnumber(L, y);
+    lua_pushnumber(L, z);
+    return 3;
+  } else {
+    return luaL_typerror(L, 2, "mat4, vec3, or number");
+  }
+}
+
 static int l_lovrMat4GetTransform(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   float x, y, z, sx, sy, sz, angle, ax, ay, az;
@@ -237,6 +263,7 @@ const luaL_Reg lovrMat4[] = {
   { "translate", l_lovrMat4Translate },
   { "rotate", l_lovrMat4Rotate },
   { "scale", l_lovrMat4Scale },
+  { "mul", l_lovrMat4Mul },
   { "getTransform", l_lovrMat4GetTransform },
   { "setTransform", l_lovrMat4SetTransform },
   { "transformPoint", l_lovrMat4TransformPoint },

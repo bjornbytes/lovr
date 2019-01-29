@@ -409,6 +409,21 @@ ffi.metatype(mat4, {
       end
     end,
 
+    mul = function(m, x, y, z)
+      checkmat4(m)
+      if istype(mat4, x) then
+        return C.mat4_multiply(m, x)
+      elseif type(x) == 'number' then
+        local f = new('float[3]', x or 0, y or 0, z or 0)
+        C.mat4_transform(m, f + 0, f + 1, f + 2)
+        return f[0], f[1], f[2]
+      else
+        checkvec3(x, 2, 'mat4, vec3, or number')
+        C.mat4_transform(m, x._p + 0, x._p + 1, x._p + 2)
+        return x
+      end
+    end,
+
     getTransform = function(m)
       checkmat4(m)
       local f = new('float[10]')
