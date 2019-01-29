@@ -36,8 +36,10 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       variant->type = TYPE_STRING;
       size_t length;
       const char* string = lua_tolstring(L, index, &length);
-      variant->value.string = calloc(1, length + 1);
+      variant->value.string = malloc(length + 1);
+      lovrAssert(variant->value.string, "Out of memory");
       memcpy(variant->value.string, string, length);
+      variant->value.string[length] = '\0';
       break;
 
     case LUA_TUSERDATA:

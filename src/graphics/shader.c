@@ -226,6 +226,7 @@ char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, si
 
   // Allocate
   char* code = malloc(size + 1);
+  lovrAssert(code, "Out of memory");
 
   // Concatenate
   char* s = code;

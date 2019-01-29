@@ -39,6 +39,7 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   }
 
   state.source = malloc(LOVR_PATH_MAX * sizeof(char));
+  lovrAssert(state.source, "Out of memory");
   state.identity = NULL;
   state.isFused = true;
   vec_init(&state.requirePattern[0]);
@@ -259,6 +260,7 @@ int lovrFilesystemSetIdentity(const char* identity) {
   } else {
     state.savePathRelative = malloc(LOVR_PATH_MAX);
     state.savePathFull = malloc(LOVR_PATH_MAX);
+    lovrAssert(state.savePathRelative && state.savePathFull, "Out of memory");
     if (!state.savePathRelative || !state.savePathFull) {
       return 1;
     }

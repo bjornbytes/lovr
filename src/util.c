@@ -29,8 +29,8 @@ void lovrThrow(const char* format, ...) {
 }
 
 void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*)) {
-  Ref* ref = calloc(1, size);
-  if (!ref) return lovrThrow("Out of memory"), NULL;
+  Ref* ref = malloc(size);
+  lovrAssert(ref, "Out of memory");
   ref->destructor = destructor;
   ref->type = type;
   ref->count = 1;
