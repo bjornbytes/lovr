@@ -471,7 +471,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   if (mesh->indexBuffer && mesh->indexCount > 0) {
     lovrGpuBindBuffer(BUFFER_INDEX, mesh->indexBuffer->id, true);
     lovrBufferFlush(mesh->indexBuffer);
-#ifndef EMSCRIPTEN
+#if !(defined(EMSCRIPTEN) || defined(__ANDROID__))
     uint32_t primitiveRestart = (1 << (mesh->indexSize * 8)) - 1;
     if (state.primitiveRestart != primitiveRestart) {
       state.primitiveRestart = primitiveRestart;
@@ -916,15 +916,19 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   state.features.compute = GLAD_GL_ARB_compute_shader;
   state.features.singlepass = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
   glEnable(GL_LINE_SMOOTH);
-  glEnable(GL_PRIMITIVE_RESTART);
   glEnable(GL_PROGRAM_POINT_SIZE);
   if (srgb) {
     glEnable(GL_FRAMEBUFFER_SRGB);
   } else {
     glDisable(GL_FRAMEBUFFER_SRGB);
   }
+  #ifdef __ANDROID__
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+  #else
+  glEnable(GL_PRIMITIVE_RESTART);
   state.primitiveRestart = 0xffffffff;
   glPrimitiveRestartIndex(state.primitiveRestart);
+  #endif
   glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
 #else
   glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, state.limits.pointSizes);
