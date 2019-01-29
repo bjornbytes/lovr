@@ -60,7 +60,9 @@ static int l_lovrQuatUnpack(lua_State* L) {
 
 int l_lovrQuatSet(lua_State* L) {
   quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
-  if (lua_type(L, 2) == LUA_TNUMBER) {
+  if (lua_isnoneornil(L, 2)) {
+    quat_set(q, 0.f, 0.f, 0.f, 0.f);
+  } else if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
     if (lua_type(L, 3) == LUA_TNUMBER) {
       float y = luaL_checknumber(L, 3);
