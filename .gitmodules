@@ -25,6 +25,3 @@
 [submodule "deps/physfs"]
 	path = deps/physfs
 	url = https://github.com/Didstopia/physfs.git
-[submodule "deps/assimp"]
-	path = deps/assimp
-	url = https://github.com/assimp/assimp

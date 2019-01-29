@@ -17,7 +17,6 @@ option(LOVR_ENABLE_ENET "Bundle with lua-enet" ON)
 option(LOVR_ENABLE_JSON "Bundle with lua-cjson" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
-option(LOVR_USE_ASSIMP "Enable model loading with Assimp" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
@@ -26,7 +25,6 @@ option(LOVR_USE_FAKE_HEADSET "Enable the keyboard/mouse backend for the headset 
 option(LOVR_USE_SSE "Enable SIMD use of intrinsics" ON)
 
 option(LOVR_SYSTEM_PHYSFS "Use the system-provided PhysFS" OFF)
-option(LOVR_SYSTEM_ASSIMP "Use the system-provided Assimp" OFF)
 option(LOVR_SYSTEM_ENET "Use the system-provided enet" OFF)
 option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
 option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
@@ -103,34 +101,6 @@ if(LOVR_ENABLE_FILESYSTEM)
     add_subdirectory(deps/physfs physfs)
     include_directories(deps/physfs/src)
     set(LOVR_PHYSFS physfs)
-  endif()
-endif()
-
-# Assimp
-if(LOVR_ENABLE_DATA AND LOVR_USE_ASSIMP)
-  if(LOVR_SYSTEM_ASSIMP)
-    pkg_search_module(ASSIMP REQUIRED assimp)
-    include_directories(${ASSIMP_INCLUDE_DIRS})
-    set(LOVR_ASSIMP ${ASSIMP_LIBRARIES})
-  else()
-    if(EMSCRIPTEN)
-      set(ZLIB_FOUND 1)
-      set(ZLIB_LIBRARIES "-s USE_ZLIB=1")
-      set(ZLIB_INCLUDE_DIR "assimp/contrib/zlib")
-    endif()
-    if (ANDROID)
-      set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "")
-    endif()
-    set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "")
-    set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "")
-    set(ASSIMP_NO_EXPORT ON CACHE BOOL "")
-    set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "")
-    set(ASSIMP_BUILD_FBX_IMPORTER ON CACHE BOOL "")
-    set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE BOOL "")
-    set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE BOOL "")
-    add_subdirectory(deps/assimp assimp)
-    include_directories(deps/assimp/include ${CMAKE_BINARY_DIR}/assimp/include)
-    set(LOVR_ASSIMP assimp)
   endif()
 endif()
 
@@ -347,7 +317,6 @@ endif()
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
 target_include_directories(lovr PRIVATE src)
 target_link_libraries(lovr
-  ${LOVR_ASSIMP}
   ${LOVR_ENET}
   ${LOVR_GLFW}
   ${LOVR_LUA}
@@ -398,10 +367,6 @@ if(LOVR_ENABLE_DATA)
     src/lib/stb/stb_vorbis.c
     src/lib/jsmn/jsmn.c
   )
-
-  if (LOVR_USE_ASSIMP)
-    add_definitions(-DLOVR_USE_ASSIMP)
-  endif()
 endif()
 
 if(LOVR_ENABLE_EVENT)
@@ -566,7 +531,6 @@ if(WIN32)
     endif()
   endfunction()
 
-  move_dll(${LOVR_ASSIMP})
   move_dll(${LOVR_GLFW})
   move_dll(${LOVR_LUA})
   move_dll(${LOVR_ODE})
