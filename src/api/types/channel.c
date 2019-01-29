@@ -13,7 +13,7 @@ static void luax_checktimeout(lua_State* L, int index, double* timeout) {
       *timeout = lua_toboolean(L, index) ? INFINITY : NAN;
       break;
     default:
-      *timeout = luaL_checknumber(L, index);
+      *timeout = luax_checkfloat(L, index);
       break;
   }
 }

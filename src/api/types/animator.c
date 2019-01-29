@@ -9,7 +9,7 @@ int l_lovrAnimatorReset(lua_State* L) {
 
 int l_lovrAnimatorUpdate(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
-  float dt = luaL_checknumber(L, 2);
+  float dt = luax_checkfloat(L, 2);
   lovrAnimatorUpdate(animator, dt);
   return 0;
 }
@@ -70,7 +70,7 @@ int l_lovrAnimatorResume(lua_State* L) {
 int l_lovrAnimatorSeek(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   const char* animation = luaL_checkstring(L, 2);
-  float time = luaL_checknumber(L, 3);
+  float time = luax_checkfloat(L, 3);
   lovrAnimatorSeek(animator, animation, time);
   return 0;
 }
@@ -94,7 +94,7 @@ int l_lovrAnimatorGetAlpha(lua_State* L) {
 int l_lovrAnimatorSetAlpha(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   const char* animation = luaL_checkstring(L, 2);
-  float alpha = luaL_checknumber(L, 3);
+  float alpha = luax_checkfloat(L, 3);
   lovrAnimatorSetAlpha(animator, animation, alpha);
   return 0;
 }
@@ -164,10 +164,10 @@ int l_lovrAnimatorSetSpeed(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   if (lua_type(L, 2) == LUA_TSTRING) {
     const char* animation = luaL_checkstring(L, 2);
-    float speed = luaL_checknumber(L, 3);
+    float speed = luax_checkfloat(L, 3);
     lovrAnimatorSetSpeed(animator, animation, speed);
   } else {
-    float speed = luaL_checknumber(L, 2);
+    float speed = luax_checkfloat(L, 2);
     lovrAnimatorSetSpeed(animator, NULL, speed);
   }
   return 0;

@@ -4,7 +4,7 @@
 
 int l_lovrCurveEvaluate(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
-  float t = luaL_checknumber(L, 2);
+  float t = luax_checkfloat(L, 2);
   float point[3];
   lovrCurveEvaluate(curve, t, point);
   lua_pushnumber(L, point[0]);
@@ -15,7 +15,7 @@ int l_lovrCurveEvaluate(lua_State* L) {
 
 int l_lovrCurveGetTangent(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
-  float t = luaL_checknumber(L, 2);
+  float t = luax_checkfloat(L, 2);
   float point[3];
   lovrCurveGetTangent(curve, t, point);
   lua_pushnumber(L, point[0]);
@@ -27,8 +27,8 @@ int l_lovrCurveGetTangent(lua_State* L) {
 int l_lovrCurveRender(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   int n = luaL_optinteger(L, 2, 32);
-  float t1 = luaL_optnumber(L, 3, 0.);
-  float t2 = luaL_optnumber(L, 4, 1.);
+  float t1 = luax_optfloat(L, 3, 0.);
+  float t2 = luax_optfloat(L, 4, 1.);
   float* points = malloc(3 * n * sizeof(float));
   lovrAssert(points, "Out of memory");
   lovrCurveRender(curve, t1, t2, points, n);
@@ -43,8 +43,8 @@ int l_lovrCurveRender(lua_State* L) {
 
 int l_lovrCurveSlice(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
-  float t1 = luaL_checknumber(L, 2);
-  float t2 = luaL_checknumber(L, 3);
+  float t1 = luax_checkfloat(L, 2);
+  float t2 = luax_checkfloat(L, 3);
   Curve* subcurve = lovrCurveSlice(curve, t1, t2);
   luax_pushobject(L, subcurve);
   return 1;

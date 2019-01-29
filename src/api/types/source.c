@@ -161,7 +161,7 @@ int l_lovrSourceSeek(lua_State* L) {
   TimeUnit unit = luaL_checkoption(L, 3, "seconds", TimeUnits);
 
   if (unit == UNIT_SECONDS) {
-    float seconds = luaL_checknumber(L, 2);
+    float seconds = luax_checkfloat(L, 2);
     int sampleRate = lovrSourceGetSampleRate(source);
     lovrSourceSeek(source, (int) (seconds * sampleRate + .5f));
   } else {
@@ -173,18 +173,18 @@ int l_lovrSourceSeek(lua_State* L) {
 
 int l_lovrSourceSetCone(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float innerAngle = luaL_checknumber(L, 1);
-  float outerAngle = luaL_checknumber(L, 2);
-  float outerGain = luaL_checknumber(L, 3);
+  float innerAngle = luax_checkfloat(L, 1);
+  float outerAngle = luax_checkfloat(L, 2);
+  float outerGain = luax_checkfloat(L, 3);
   lovrSourceSetCone(source, innerAngle, outerAngle, outerGain);
   return 0;
 }
 
 int l_lovrSourceSetFalloff(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float reference = luaL_checknumber(L, 2);
-  float max = luaL_checknumber(L, 3);
-  float rolloff = luaL_checknumber(L, 4);
+  float reference = luax_checkfloat(L, 2);
+  float max = luax_checkfloat(L, 3);
+  float rolloff = luax_checkfloat(L, 4);
   lovrSourceSetFalloff(source, reference, max, rolloff);
   return 0;
 }
@@ -203,7 +203,7 @@ int l_lovrSourceSetDirection(lua_State* L) {
 }
 
 int l_lovrSourceSetPitch(lua_State* L) {
-  lovrSourceSetPitch(luax_checktype(L, 1, Source), luaL_checknumber(L, 2));
+  lovrSourceSetPitch(luax_checktype(L, 1, Source), luax_checkfloat(L, 2));
   return 0;
 }
 
@@ -231,12 +231,12 @@ int l_lovrSourceSetVelocity(lua_State* L) {
 }
 
 int l_lovrSourceSetVolume(lua_State* L) {
-  lovrSourceSetVolume(luax_checktype(L, 1, Source), luaL_checknumber(L, 2));
+  lovrSourceSetVolume(luax_checktype(L, 1, Source), luax_checkfloat(L, 2));
   return 0;
 }
 
 int l_lovrSourceSetVolumeLimits(lua_State* L) {
-  lovrSourceSetVolumeLimits(luax_checktype(L, 1, Source), luaL_checknumber(L, 2), luaL_checknumber(L, 3));
+  lovrSourceSetVolumeLimits(luax_checktype(L, 1, Source), luax_checkfloat(L, 2), luax_checkfloat(L, 3));
   return 0;
 }
 

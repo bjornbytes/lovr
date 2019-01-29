@@ -16,7 +16,7 @@ int luax_loadvertices(lua_State* L, int index, VertexFormat* format, VertexPoint
       for (int k = 0; k < attribute.count; k++) {
         lua_rawgeti(L, -1, ++component);
         switch (attribute.type) {
-          case ATTR_FLOAT: *vertices.floats++ = luaL_optnumber(L, -1, 0.f); break;
+          case ATTR_FLOAT: *vertices.floats++ = luax_optfloat(L, -1, 0.f); break;
           case ATTR_BYTE: *vertices.bytes++ = luaL_optint(L, -1, 255); break;
           case ATTR_INT: *vertices.ints++ = luaL_optint(L, -1, 0); break;
         }
@@ -105,7 +105,7 @@ int luax_pushvertex(lua_State* L, VertexPointer* vertex, VertexFormat* format) {
 void luax_setvertexattribute(lua_State* L, int index, VertexPointer* vertex, Attribute attribute) {
   for (int i = 0; i < attribute.count; i++) {
     switch (attribute.type) {
-      case ATTR_FLOAT: *vertex->floats++ = luaL_optnumber(L, index++, 0.f); break;
+      case ATTR_FLOAT: *vertex->floats++ = luax_optfloat(L, index++, 0.f); break;
       case ATTR_BYTE: *vertex->bytes++ = luaL_optint(L, index++, 255); break;
       case ATTR_INT: *vertex->ints++ = luaL_optint(L, index++, 0); break;
     }
@@ -120,7 +120,7 @@ void luax_setvertex(lua_State* L, int index, VertexPointer* vertex, VertexFormat
       for (int j = 0; j < attribute.count; j++) {
         lua_rawgeti(L, index, ++component);
         switch (attribute.type) {
-          case ATTR_FLOAT: *vertex->floats++ = luaL_optnumber(L, -1, 0.f); break;
+          case ATTR_FLOAT: *vertex->floats++ = luax_optfloat(L, -1, 0.f); break;
           case ATTR_BYTE: *vertex->bytes++ = luaL_optint(L, -1, 255); break;
           case ATTR_INT: *vertex->ints++ = luaL_optint(L, -1, 0); break;
         }

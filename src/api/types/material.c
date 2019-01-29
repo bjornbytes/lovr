@@ -37,7 +37,7 @@ int l_lovrMaterialGetScalar(lua_State* L) {
 int l_lovrMaterialSetScalar(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   MaterialScalar scalarType = luaL_checkoption(L, 2, NULL, MaterialScalars);
-  float value = luaL_checknumber(L, 3);
+  float value = luax_checkfloat(L, 3);
   lovrMaterialSetScalar(material, scalarType, value);
   return 0;
 }
@@ -77,11 +77,11 @@ int l_lovrMaterialGetTransform(lua_State* L) {
 
 int l_lovrMaterialSetTransform(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
-  float ox = luaL_optnumber(L, 2, 0.f);
-  float oy = luaL_optnumber(L, 3, 0.f);
-  float sx = luaL_optnumber(L, 4, 1.f);
-  float sy = luaL_optnumber(L, 5, sx);
-  float angle = luaL_optnumber(L, 6, 0.f);
+  float ox = luax_optfloat(L, 2, 0.f);
+  float oy = luax_optfloat(L, 3, 0.f);
+  float sx = luax_optfloat(L, 4, 1.f);
+  float sy = luax_optfloat(L, 5, sx);
+  float angle = luax_optfloat(L, 6, 0.f);
   lovrMaterialSetTransform(material, ox, oy, sx, sy, angle);
   return 0;
 }
