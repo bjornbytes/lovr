@@ -144,7 +144,9 @@ TextureData* lovrTextureDataInit(TextureData* textureData, int width, int height
   textureData->height = height;
   textureData->format = format;
   textureData->blob.size = size;
-  textureData->blob.data = memset(malloc(size), value, size);
+  textureData->blob.data = malloc(size);
+  lovrAssert(textureData->blob.data, "Out of memory");
+  memset(textureData->blob.data, value, size);
   vec_init(&textureData->mipmaps);
   return textureData;
 }

@@ -9,6 +9,7 @@ SoundData* lovrSoundDataInit(SoundData* soundData, int samples, int sampleRate, 
   soundData->channelCount = channelCount;
   soundData->blob.size = samples * channelCount * (bitDepth / 8);
   soundData->blob.data = calloc(1, soundData->blob.size);
+  lovrAssert(soundData->blob.data, "Out of memory");
   return soundData;
 }
 
@@ -19,6 +20,7 @@ SoundData* lovrSoundDataInitFromAudioStream(SoundData* soundData, AudioStream* a
   soundData->channelCount = audioStream->channelCount;
   soundData->blob.size = audioStream->samples * audioStream->channelCount * (audioStream->bitDepth / 8);
   soundData->blob.data = calloc(1, soundData->blob.size);
+  lovrAssert(soundData->blob.data, "Out of memory");
 
   int samples;
   short* buffer = soundData->blob.data;

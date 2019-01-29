@@ -1552,7 +1552,8 @@ Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type,
     buffer->data = glMapBufferRange(glType, 0, size, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
   } else {
 #endif
-    buffer->data = calloc(1, size);
+    buffer->data = malloc(size);
+    lovrAssert(buffer->data, "Out of memory");
     glBufferData(glType, size, data, convertBufferUsage(usage));
 
     if (data) {
@@ -1608,6 +1609,7 @@ static GLuint compileShader(GLenum type, const char** sources, int count) {
     int logLength;
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
     char* log = malloc(logLength);
+    lovrAssert(log, "Out of memory");
     glGetShaderInfoLog(shader, logLength, &logLength, log);
     lovrThrow("Could not compile shader:\n%s", log);
   }
@@ -1624,6 +1626,7 @@ static GLuint linkProgram(GLuint program) {
     int logLength;
     glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
     char* log = malloc(logLength);
+    lovrAssert(log, "Out of memory");
     glGetProgramInfoLog(program, logLength, &logLength, log);
     lovrThrow("Could not link shader:\n%s", log);
   }
@@ -1765,22 +1768,26 @@ static void lovrShaderSetupUniforms(Shader* shader) {
       case UNIFORM_FLOAT:
         uniform.size = uniform.components * uniform.count * sizeof(float);
         uniform.value.data = calloc(1, uniform.size);
+        lovrAssert(uniform.value.data, "Out of memory");
         break;
 
       case UNIFORM_INT:
         uniform.size = uniform.components * uniform.count * sizeof(int);
         uniform.value.data = calloc(1, uniform.size);
+        lovrAssert(uniform.value.data, "Out of memory");
         break;
 
       case UNIFORM_MATRIX:
         uniform.size = uniform.components * uniform.components * uniform.count * sizeof(float);
         uniform.value.data = calloc(1, uniform.size);
+        lovrAssert(uniform.value.data, "Out of memory");
         break;
 
       case UNIFORM_SAMPLER:
       case UNIFORM_IMAGE:
         uniform.size = uniform.count * (uniform.type == UNIFORM_SAMPLER ? sizeof(Texture*) : sizeof(Image));
         uniform.value.data = calloc(1, uniform.size);
+        lovrAssert(uniform.value.data, "Out of memory");
 
         // Use the value for ints to bind texture slots, but use the value for textures afterwards.
         for (int i = 0; i < uniform.count; i++) {

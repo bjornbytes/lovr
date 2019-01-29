@@ -30,6 +30,7 @@ int l_lovrCurveRender(lua_State* L) {
   float t1 = luaL_optnumber(L, 3, 0.);
   float t2 = luaL_optnumber(L, 4, 1.);
   float* points = malloc(3 * n * sizeof(float));
+  lovrAssert(points, "Out of memory");
   lovrCurveRender(curve, t1, t2, points, n);
   lua_createtable(L, n, 0);
   for (int i = 0; i < 3 * n; i++) {

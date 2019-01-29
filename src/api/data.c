@@ -14,15 +14,18 @@ static int l_lovrDataNewBlob(lua_State* L) {
   if (type == LUA_TNUMBER) {
     size = lua_tonumber(L, 1);
     data = calloc(1, size);
+    lovrAssert(data, "Out of memory");
   } else if (type == LUA_TSTRING) {
     const char* str = luaL_checklstring(L, 1, &size);
     data = malloc(size + 1);
+    lovrAssert(data, "Out of memory");
     memcpy(data, str, size);
     data[size] = '\0';
   } else {
     Blob* blob = luax_checktype(L, 1, Blob);
     size = blob->size;
     data = malloc(size);
+    lovrAssert(data, "Out of memory");
   }
   const char* name = luaL_optstring(L, 2, "");
   Blob* blob = lovrBlobCreate(data, size, name);

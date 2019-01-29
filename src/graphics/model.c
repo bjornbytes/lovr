@@ -86,10 +86,12 @@ Model* lovrModelInit(Model* model, ModelData* modelData) {
 
   if (modelData->textures.length > 0) {
     model->textures = calloc(modelData->textures.length, sizeof(Texture*));
+    lovrAssert(model->textures, "Out of memory");
   }
 
   if (modelData->materialCount > 0) {
     model->materials = calloc(modelData->materialCount, sizeof(Material*));
+    lovrAssert(model->materials, "Out of memory");
     for (int i = 0; i < modelData->materialCount; i++) {
       ModelMaterial* materialData = &modelData->materials[i];
       Material* material = lovrMaterialCreate();
@@ -130,6 +132,7 @@ Model* lovrModelInit(Model* model, ModelData* modelData) {
   }
 
   model->nodeTransforms = malloc(16 * modelData->nodeCount * sizeof(float));
+  lovrAssert(model->nodeTransforms, "Out of memory");
   for (int i = 0; i < modelData->nodeCount; i++) {
     ModelNode* node = &model->modelData->nodes[i];
     mat4 transform = model->nodeTransforms[i];

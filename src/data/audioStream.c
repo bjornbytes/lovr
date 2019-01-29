@@ -16,6 +16,7 @@ AudioStream* lovrAudioStreamInit(AudioStream* stream, Blob* blob, size_t bufferS
   stream->decoder = decoder;
   stream->bufferSize = stream->channelCount * bufferSize * sizeof(short);
   stream->buffer = malloc(stream->bufferSize);
+  lovrAssert(stream->buffer, "Out of memory");
   stream->blob = blob;
   lovrRetain(blob);
 
