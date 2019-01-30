@@ -51,21 +51,32 @@ static int l_lovrAudioGetMicrophoneNames(lua_State* L) {
 }
 
 static int l_lovrAudioGetOrientation(lua_State* L) {
-  float orientation[4];
+  float orientation[4], angle, ax, ay, az;
   lovrAudioGetOrientation(orientation);
-  return luax_pushquat(L, orientation, 1);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 4;
 }
 
 static int l_lovrAudioGetPosition(lua_State* L) {
   float position[3];
   lovrAudioGetPosition(position);
-  return luax_pushvec3(L, position, 1);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  return 3;
 }
 
 static int l_lovrAudioGetVelocity(lua_State* L) {
   float velocity[3];
   lovrAudioGetVelocity(velocity);
-  return luax_pushvec3(L, velocity, 1);
+  lua_pushnumber(L, velocity[0]);
+  lua_pushnumber(L, velocity[1]);
+  lua_pushnumber(L, velocity[2]);
+  return 3;
 }
 
 static int l_lovrAudioGetVolume(lua_State* L) {

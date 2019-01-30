@@ -35,24 +35,6 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents, const ch
   }
 }
 
-int luax_pushpose(lua_State* L, float x, float y, float z, float angle, float ax, float ay, float az, int index) {
-  mat4 out;
-  if (index > 0 && !lua_isnoneornil(L, index) && (out = luax_checkmathtype(L, index, MATH_MAT4, NULL)) != NULL) {
-    mat4_setTransform(out, x, y, z, 1, 1, 1, angle, ax, ay, az);
-    lua_settop(L, index);
-    return 1;
-  } else {
-    lua_pushnumber(L, x);
-    lua_pushnumber(L, y);
-    lua_pushnumber(L, z);
-    lua_pushnumber(L, angle);
-    lua_pushnumber(L, ax);
-    lua_pushnumber(L, ay);
-    lua_pushnumber(L, az);
-    return 7;
-  }
-}
-
 static int l_lovrMat4Unpack(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   for (int i = 0; i < 16; i++) {

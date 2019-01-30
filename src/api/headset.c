@@ -204,32 +204,51 @@ static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
 static int l_lovrHeadsetGetPose(lua_State* L) {
   float x, y, z, angle, ax, ay, az;
   lovrHeadsetDriver->getPose(&x, &y, &z, &angle, &ax, &ay, &az);
-  return luax_pushpose(L, x, y, x, angle, ax, ay, az, 1);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
 }
 
 static int l_lovrHeadsetGetPosition(lua_State* L) {
   float position[3], angle, ax, ay, az;
   lovrHeadsetDriver->getPose(&position[0], &position[1], &position[2], &angle, &ax, &ay, &az);
-  return luax_pushvec3(L, position, 1);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  return 3;
 }
 
 static int l_lovrHeadsetGetOrientation(lua_State* L) {
   float x, y, z, angle, ax, ay, az, q[4];
   lovrHeadsetDriver->getPose(&x, &y, &z, &angle, &ax, &ay, &az);
-  quat_fromAngleAxis(q, angle, ax, ay, az);
-  return luax_pushquat(L, q, 1);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 4;
 }
 
 static int l_lovrHeadsetGetVelocity(lua_State* L) {
   float velocity[3];
   lovrHeadsetDriver->getVelocity(&velocity[0], &velocity[1], &velocity[2]);
-  return luax_pushvec3(L, velocity, 1);
+  lua_pushnumber(L, velocity[0]);
+  lua_pushnumber(L, velocity[1]);
+  lua_pushnumber(L, velocity[2]);
+  return 3;
 }
 
 static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   float velocity[3];
   lovrHeadsetDriver->getAngularVelocity(&velocity[0], &velocity[1], &velocity[2]);
-  return luax_pushvec3(L, velocity, 1);
+  lua_pushnumber(L, velocity[0]);
+  lua_pushnumber(L, velocity[1]);
+  lua_pushnumber(L, velocity[2]);
+  return 3;
 }
 
 static int l_lovrHeadsetGetControllers(lua_State* L) {

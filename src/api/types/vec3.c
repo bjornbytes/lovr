@@ -42,20 +42,6 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
   }
 }
 
-int luax_pushvec3(lua_State* L, vec3 v, int index) {
-  vec3 out;
-  if (index > 0 && !lua_isnoneornil(L, index) && (out = luax_checkmathtype(L, index, MATH_VEC3, NULL)) != NULL) {
-    vec3_init(out, v);
-    lua_settop(L, index);
-    return 1;
-  } else {
-    lua_pushnumber(L, v[0]);
-    lua_pushnumber(L, v[1]);
-    lua_pushnumber(L, v[2]);
-    return 3;
-  }
-}
-
 static int l_lovrVec3Unpack(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   lua_pushnumber(L, v[0]);

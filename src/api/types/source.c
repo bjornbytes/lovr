@@ -28,7 +28,10 @@ int l_lovrSourceGetCone(lua_State* L) {
 int l_lovrSourceGetDirection(lua_State* L) {
   float direction[3];
   lovrSourceGetDirection(luax_checktype(L, 1, Source), &direction[0], &direction[1], &direction[2]);
-  return luax_pushvec3(L, direction, 2);
+  lua_pushnumber(L, direction[0]);
+  lua_pushnumber(L, direction[1]);
+  lua_pushnumber(L, direction[2]);
+  return 3;
 }
 
 int l_lovrSourceGetDuration(lua_State* L) {
@@ -64,7 +67,10 @@ int l_lovrSourceGetPitch(lua_State* L) {
 int l_lovrSourceGetPosition(lua_State* L) {
   float position[3];
   lovrSourceGetPosition(luax_checktype(L, 1, Source), &position[0], &position[1], &position[2]);
-  return luax_pushvec3(L, position, 2);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  return 3;
 }
 
 int l_lovrSourceGetSampleRate(lua_State* L) {
@@ -82,7 +88,10 @@ int l_lovrSourceGetType(lua_State* L) {
 int l_lovrSourceGetVelocity(lua_State* L) {
   float velocity[3];
   lovrSourceGetVelocity(luax_checktype(L, 1, Source), &velocity[0], &velocity[1], &velocity[2]);
-  return luax_pushvec3(L, velocity, 2);
+  lua_pushnumber(L, velocity[0]);
+  lua_pushnumber(L, velocity[1]);
+  lua_pushnumber(L, velocity[2]);
+  return 3;
 }
 
 int l_lovrSourceGetVolume(lua_State* L) {

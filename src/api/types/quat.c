@@ -22,23 +22,6 @@ int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
   }
 }
 
-int luax_pushquat(lua_State* L, quat q, int index) {
-  quat out;
-  if (index > 0 && !lua_isnoneornil(L, index) && (out = luax_checkmathtype(L, index, MATH_QUAT, NULL)) != NULL) {
-    quat_init(out, q);
-    lua_settop(L, index);
-    return 1;
-  } else {
-    float angle, ax, ay, az;
-    quat_getAngleAxis(q, &angle, &ax, &ay, &az);
-    lua_pushnumber(L, angle);
-    lua_pushnumber(L, ax);
-    lua_pushnumber(L, ay);
-    lua_pushnumber(L, az);
-    return 4;
-  }
-}
-
 static int l_lovrQuatUnpack(lua_State* L) {
   quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
   bool raw = lua_toboolean(L, 2);
