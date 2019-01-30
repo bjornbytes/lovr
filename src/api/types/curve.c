@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/math.h"
 #include "math/curve.h"
 
 int l_lovrCurveEvaluate(lua_State* L) {
@@ -70,15 +71,17 @@ int l_lovrCurveSetPoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   int index = luaL_checkinteger(L, 2) - 1;
   lovrAssert(index >= 0 && index < lovrCurveGetPointCount(curve), "Invalid Curve point index: %d", index + 1);
-  float point[3] = { luaL_checknumber(L, 3), luaL_checknumber(L, 4), luaL_checknumber(L, 5) };
+  float point[3];
+  luax_readvec3(L, 3, point, NULL);
   lovrCurveSetPoint(curve, index, point);
   return 0;
 }
 
 int l_lovrCurveAddPoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
-  float point[3] = { luaL_checknumber(L, 2), luaL_checknumber(L, 3), luaL_checknumber(L, 4) };
-  int index = lua_isnoneornil(L, 5) ? lovrCurveGetPointCount(curve) : luaL_checkinteger(L, 5) - 1;
+  float point[3];
+  int i = luax_readvec3(L, 2, point, NULL);
+  int index = lua_isnoneornil(L, i) ? lovrCurveGetPointCount(curve) : luaL_checkinteger(L, i) - 1;
   lovrAssert(index >= 0 && index <= lovrCurveGetPointCount(curve), "Invalid Curve point index: %d", index + 1);
   lovrCurveAddPoint(curve, point, index);
   return 0;

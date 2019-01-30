@@ -61,35 +61,34 @@ float* luax_checkmathtype(lua_State* L, int index, MathType type, const char* ex
 
 static int l_lovrMathNewCurve(lua_State* L) {
   int top = lua_gettop(L);
-  bool table = lua_type(L, 1) == LUA_TTABLE;
 
-  if (top == 1 && !table) {
+  if (top == 1 && lua_type(L, 1) == LUA_TNUMBER) {
     Curve* curve = lovrCurveCreate(luaL_checkinteger(L, 1));
     luax_pushobject(L, curve);
     return 1;
   }
 
-  int size = ((table ? lua_objlen(L, 1) : top) + 2) / 3;
-  Curve* curve = lovrCurveCreate(size);
-  for (int i = 0; i < size; i++) {
-    float point[3];
+  Curve* curve = lovrCurveCreate(3);
 
-    if (table) {
-      lua_rawgeti(L, 1, 3 * i + 1);
-      lua_rawgeti(L, 1, 3 * i + 2);
-      lua_rawgeti(L, 1, 3 * i + 3);
-
-      point[0] = lua_tonumber(L, -3);
-      point[1] = lua_tonumber(L, -2);
-      point[2] = lua_tonumber(L, -1);
-
-      lovrCurveAddPoint(curve, point, i);
+  if (lua_istable(L, 1)) {
+    int pointIndex = 0;
+    int length = lua_objlen(L, 1);
+    for (int i = 1; i <= length;) {
+      lua_rawgeti(L, 1, i + 0);
+      lua_rawgeti(L, 1, i + 1);
+      lua_rawgeti(L, 1, i + 2);
+      float point[3];
+      int components = luax_readvec3(L, -3, point, "vec3 or number");
+      lovrCurveAddPoint(curve, point, pointIndex++);
+      i += 3 + components;
       lua_pop(L, 3);
-    } else {
-      point[0] = lua_tonumber(L, 3 * i + 1);
-      point[1] = lua_tonumber(L, 3 * i + 2);
-      point[2] = lua_tonumber(L, 3 * i + 3);
-      lovrCurveAddPoint(curve, point, i);
+    }
+  } else {
+    int pointIndex = 0;
+    for (int i = 1; i <= top;) {
+      float point[3];
+      i = luax_readvec3(L, i, point, "vec3, number, or table");
+      lovrCurveAddPoint(curve, point, pointIndex++);
     }
   }
 
