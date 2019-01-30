@@ -69,9 +69,10 @@ Rasterizer* lovrFontGetRasterizer(Font* font) {
 
 void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, float* vertices, uint16_t* indices, uint16_t baseVertex) {
   FontAtlas* atlas = &font->atlas;
+  bool flip = font->flip;
 
   float cx = 0;
-  float cy = -font->rasterizer->height * .8;
+  float cy = -font->rasterizer->height * .8 * (flip ? -1 : 1);
   float u = atlas->width;
   float v = atlas->height;
   float scale = 1 / font->pixelDensity;
@@ -93,7 +94,7 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
     if (codepoint == '\n' || (wrap && cx * scale > wrap && codepoint == ' ')) {
       lineStart = lovrFontAlignLine(lineStart, vertexCursor, cx, halign);
       cx = 0;
-      cy -= font->rasterizer->height * font->lineHeight;
+      cy -= font->rasterizer->height * font->lineHeight * (flip ? -1 : 1);
       previous = '\0';
       str += bytes;
       continue;
@@ -123,9 +124,9 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
     // Triangles
     if (glyph->w > 0 && glyph->h > 0) {
       float x1 = cx + glyph->dx - GLYPH_PADDING;
-      float y1 = cy + glyph->dy + GLYPH_PADDING;
+      float y1 = cy + (glyph->dy + GLYPH_PADDING) * (flip ? -1 : 1);
       float x2 = x1 + glyph->tw;
-      float y2 = y1 - glyph->th;
+      float y2 = y1 - glyph->th * (flip ? -1 : 1);
       float s1 = glyph->x / u;
       float t1 = (glyph->y + glyph->th) / v;
       float s2 = (glyph->x + glyph->tw) / u;
@@ -219,6 +220,14 @@ float lovrFontGetLineHeight(Font* font) {
 
 void lovrFontSetLineHeight(Font* font, float lineHeight) {
   font->lineHeight = lineHeight;
+}
+
+bool lovrFontIsFlipEnabled(Font* font) {
+  return font->flip;
+}
+
+void lovrFontSetFlipEnabled(Font* font, bool flip) {
+  font->flip = flip;
 }
 
 int lovrFontGetKerning(Font* font, unsigned int left, unsigned int right) {

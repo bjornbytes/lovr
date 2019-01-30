@@ -3,6 +3,7 @@
 #include "graphics/texture.h"
 #include "lib/map/map.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 #pragma once
 
@@ -36,6 +37,7 @@ typedef struct {
   map_int_t kerning;
   float lineHeight;
   float pixelDensity;
+  bool flip;
 } Font;
 
 Font* lovrFontInit(Font* font, Rasterizer* rasterizer);
@@ -50,6 +52,8 @@ float lovrFontGetDescent(Font* font);
 float lovrFontGetBaseline(Font* font);
 float lovrFontGetLineHeight(Font* font);
 void lovrFontSetLineHeight(Font* font, float lineHeight);
+bool lovrFontIsFlipEnabled(Font* font);
+void lovrFontSetFlipEnabled(Font* font, bool flip);
 int lovrFontGetKerning(Font* font, unsigned int a, unsigned int b);
 float lovrFontGetPixelDensity(Font* font);
 void lovrFontSetPixelDensity(Font* font, float pixelDensity);

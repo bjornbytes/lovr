@@ -51,6 +51,18 @@ int l_lovrFontSetLineHeight(lua_State* L) {
   return 0;
 }
 
+int l_lovrFontIsFlipEnabled(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  lua_pushboolean(L, lovrFontIsFlipEnabled(font));
+  return 1;
+}
+
+int l_lovrFontSetFlipEnabled(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  lovrFontSetFlipEnabled(font, lua_toboolean(L, 2));
+  return 0;
+}
+
 int l_lovrFontGetPixelDensity(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   lua_pushnumber(L, lovrFontGetPixelDensity(font));
@@ -97,6 +109,8 @@ const luaL_Reg lovrFont[] = {
   { "getBaseline", l_lovrFontGetBaseline },
   { "getLineHeight", l_lovrFontGetLineHeight },
   { "setLineHeight", l_lovrFontSetLineHeight },
+  { "isFlipEnabled", l_lovrFontIsFlipEnabled },
+  { "setFlipEnabled", l_lovrFontSetFlipEnabled },
   { "getPixelDensity", l_lovrFontGetPixelDensity },
   { "setPixelDensity", l_lovrFontSetPixelDensity },
   { "getRasterizer", l_lovrFontGetRasterizer},
