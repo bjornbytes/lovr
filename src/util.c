@@ -29,7 +29,7 @@ void lovrThrow(const char* format, ...) {
 }
 
 void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*)) {
-  Ref* ref = malloc(size);
+  Ref* ref = calloc(1, size);
   lovrAssert(ref, "Out of memory");
   ref->destructor = destructor;
   ref->type = type;
