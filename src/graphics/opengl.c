@@ -911,8 +911,13 @@ static void lovrGpuSetViewports(float* viewport, uint32_t count) {
 // GPU
 
 void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
-#ifndef LOVR_WEBGL
+#ifdef LOVR_GL
   gladLoadGLLoader((GLADloadproc) getProcAddress);
+#elif defined(LOVR_GLES)
+  gladLoadGLES2Loader((GLADloadproc) getProcAddress);
+#endif
+
+#ifndef LOVR_WEBGL
   state.features.compute = GLAD_GL_ARB_compute_shader;
   state.features.singlepass = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
   glEnable(GL_LINE_SMOOTH);
