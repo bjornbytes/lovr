@@ -109,6 +109,12 @@ static int l_lovrQuatMul(lua_State* L) {
   return 1;
 }
 
+static int l_lovrQuatLength(lua_State* L) {
+  quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
+  lua_pushnumber(L, quat_length(q));
+  return 1;
+}
+
 static int l_lovrQuatNormalize(lua_State* L) {
   quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
   quat_normalize(q);
@@ -159,6 +165,7 @@ const luaL_Reg lovrQuat[] = {
   { "set", l_lovrQuatSet },
   { "save", l_lovrQuatSave },
   { "mul", l_lovrQuatMul },
+  { "length", l_lovrQuatLength },
   { "normalize", l_lovrQuatNormalize },
   { "slerp", l_lovrQuatSlerp },
   { "__mul", l_lovrQuat__mul },

@@ -299,6 +299,11 @@ ffi.metatype(quat, {
       end
     end,
 
+    length = function(q)
+      checkquat(q)
+      return C.quat_length(q)
+    end,
+
     normalize = function(q)
       checkquat(q)
       return C.quat_normalize(q)
