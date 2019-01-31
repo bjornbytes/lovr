@@ -643,14 +643,14 @@ static int l_lovrGraphicsScale(lua_State* L) {
 
 static int l_lovrGraphicsTransform(lua_State* L) {
   float transform[16];
-  luax_readmat4(L, 1, transform, 3, NULL);
+  luax_readmat4(L, 1, transform, 3);
   lovrGraphicsMatrixTransform(transform);
   return 0;
 }
 
 static int l_lovrGraphicsSetProjection(lua_State* L) {
   float transform[16];
-  luax_readmat4(L, 1, transform, 3, NULL);
+  luax_readmat4(L, 1, transform, 3);
   lovrGraphicsSetProjection(transform);
   return 0;
 }
@@ -755,7 +755,7 @@ static int l_lovrGraphicsPlane(lua_State* L) {
     style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
   float transform[16];
-  luax_readmat4(L, 2, transform, 2, NULL);
+  luax_readmat4(L, 2, transform, 2);
   lovrGraphicsPlane(style, material, transform);
   return 0;
 }
@@ -769,7 +769,7 @@ static int luax_rectangularprism(lua_State* L, int scaleComponents) {
     style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
   float transform[16];
-  luax_readmat4(L, 2, transform, scaleComponents, NULL);
+  luax_readmat4(L, 2, transform, scaleComponents);
   lovrGraphicsBox(style, material, transform);
   return 0;
 }
@@ -796,7 +796,7 @@ static int l_lovrGraphicsArc(lua_State* L) {
     mode = luaL_checkoption(L, index++, NULL, ArcModes);
   }
   float transform[16];
-  index = luax_readmat4(L, index, transform, 1, NULL);
+  index = luax_readmat4(L, index, transform, 1);
   float r1 = luax_optfloat(L, index++, 0.f);
   float r2 = luax_optfloat(L, index++, 2.f * M_PI);
   int segments = luaL_optinteger(L, index, 64) * (MIN(fabsf(r2 - r1), 2 * M_PI) / (2 * M_PI));
@@ -813,7 +813,7 @@ static int l_lovrGraphicsCircle(lua_State* L) {
     style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
   float transform[16];
-  int index = luax_readmat4(L, 2, transform, 1, NULL);
+  int index = luax_readmat4(L, 2, transform, 1);
   int segments = luaL_optinteger(L, index, 32);
   lovrGraphicsCircle(style, material, transform, segments);
   return 0;
@@ -823,7 +823,7 @@ static int l_lovrGraphicsCylinder(lua_State* L) {
   float transform[16];
   int index = 1;
   Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
-  index = luax_readmat4(L, index, transform, 1, NULL);
+  index = luax_readmat4(L, index, transform, 1);
   float r1 = luax_optfloat(L, index++, 1.f);
   float r2 = luax_optfloat(L, index++, 1.f);
   bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
@@ -836,7 +836,7 @@ static int l_lovrGraphicsSphere(lua_State* L) {
   float transform[16];
   int index = 1;
   Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
-  index = luax_readmat4(L, index, transform, 1, NULL);
+  index = luax_readmat4(L, index, transform, 1);
   int segments = luaL_optinteger(L, index, 30);
   lovrGraphicsSphere(material, transform, segments);
   return 0;
@@ -856,7 +856,7 @@ static int l_lovrGraphicsPrint(lua_State* L) {
   size_t length;
   const char* str = luaL_checklstring(L, 1, &length);
   float transform[16];
-  int index = luax_readmat4(L, 2, transform, 1, NULL);
+  int index = luax_readmat4(L, 2, transform, 1);
   float wrap = luax_optfloat(L, index++, 0.f);
   HorizontalAlign halign = luaL_checkoption(L, index++, "center", HorizontalAligns);
   VerticalAlign valign = luaL_checkoption(L, index++, "middle", VerticalAligns);

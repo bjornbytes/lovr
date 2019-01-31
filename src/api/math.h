@@ -8,7 +8,7 @@ float* luax_checkmathtype(lua_State* L, int index, MathType type, const char* ex
 int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected);
 int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* expected);
 int luax_readquat(lua_State* L, int index, quat q, const char* expected);
-int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents, const char* expected);
+int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents);
 Seed luax_checkrandomseed(lua_State* L, int index);
 int l_lovrRandomGeneratorRandom(lua_State* L);
 int l_lovrRandomGeneratorRandomNormal(lua_State* L);

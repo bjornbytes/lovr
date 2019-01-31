@@ -74,7 +74,7 @@ int l_lovrMeshDetachAttributes(lua_State* L) {
 int l_lovrMeshDraw(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   float transform[16];
-  int index = luax_readmat4(L, 2, transform, 1, NULL);
+  int index = luax_readmat4(L, 2, transform, 1);
   int instances = luaL_optinteger(L, index, 1);
   uint32_t vertexCount = lovrMeshGetVertexCount(mesh);
   uint32_t indexCount = lovrMeshGetIndexCount(mesh);

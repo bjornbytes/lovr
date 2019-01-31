@@ -3,7 +3,7 @@
 #include "math/math.h"
 #include "lib/math.h"
 
-int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents, const char* expected) {
+int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
   switch (lua_type(L, index)) {
     case LUA_TNIL:
     case LUA_TNONE:
@@ -45,14 +45,12 @@ static int l_lovrMat4Unpack(lua_State* L) {
 
 int l_lovrMat4Set(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  switch (lua_gettop(L)) {
-    case 1: mat4_identity(m); break;
-    case 2: m[0] = m[5] = m[10] = m[15] = luax_checkfloat(L, 2); break;
-    default:
-      for (int i = 0; i < 16; i++) {
-        m[i] = luax_checkfloat(L, i + 2);
-      }
-      break;
+  if (lua_gettop(L) >= 17) {
+    for (int i = 2; i <= 17; i++) {
+      *m++ = luaL_checknumber(L, i);
+    }
+  } else {
+    luax_readmat4(L, 2, m, 3);
   }
   lua_settop(L, 1);
   return 1;
