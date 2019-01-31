@@ -136,6 +136,8 @@ typedef struct {
   float scalars[MAX_MATERIAL_SCALARS];
   Color colors[MAX_MATERIAL_COLORS];
   int textures[MAX_MATERIAL_TEXTURES];
+  TextureFilter filters[MAX_MATERIAL_TEXTURES];
+  TextureWrap wraps[MAX_MATERIAL_TEXTURES];
 } ModelMaterial;
 
 typedef struct {
@@ -164,26 +166,25 @@ typedef struct {
   Ref ref;
   void* data;
   Blob** blobs;
-  TextureData** images;
-  ModelAnimation* animations;
-  ModelAttribute* attributes;
   ModelBuffer* buffers;
-  ModelTexture* textures;
+  TextureData** textures;
   ModelMaterial* materials;
+  ModelAttribute* attributes;
   ModelPrimitive* primitives;
-  ModelNode* nodes;
+  ModelAnimation* animations;
   ModelSkin* skins;
+  ModelNode* nodes;
+  int rootNode;
+
   int blobCount;
-  int imageCount;
-  int animationCount;
-  int attributeCount;
   int bufferCount;
   int textureCount;
   int materialCount;
+  int attributeCount;
   int primitiveCount;
-  int nodeCount;
+  int animationCount;
   int skinCount;
-  int rootNode;
+  int nodeCount;
 
   ModelAnimationChannel* channels;
   uint32_t* children;

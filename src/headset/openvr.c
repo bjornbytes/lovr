@@ -405,7 +405,6 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
 
   model->bufferCount = 2;
   model->attributeCount = 4;
-  model->imageCount = 1;
   model->textureCount = 1;
   model->materialCount = 1;
   model->primitiveCount = 1;
@@ -457,17 +456,13 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   };
 
   RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
-  model->images[0] = lovrTextureDataCreate(vrTexture->unWidth, vrTexture->unHeight, 0, FORMAT_RGBA);
-  memcpy(model->images[0]->blob.data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
-
-  model->textures[0] = (ModelTexture) {
-    .imageIndex = 0,
-    .filter = lovrGraphicsGetDefaultFilter()
-  };
+  model->textures[0] = lovrTextureDataCreate(vrTexture->unWidth, vrTexture->unHeight, 0, FORMAT_RGBA);
+  memcpy(model->textures[0]->blob.data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
 
   model->materials[0] = (ModelMaterial) {
     .colors[COLOR_DIFFUSE] = { 1.f, 1.f, 1.f, 1.f },
-    .textures[TEXTURE_DIFFUSE] = 0
+    .textures[TEXTURE_DIFFUSE] = 0,
+    .filters[TEXTURE_DIFFUSE] = lovrGraphicsGetDefaultFilter()
   };
 
   model->primitives[0] = (ModelPrimitive) {

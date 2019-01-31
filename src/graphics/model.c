@@ -137,7 +137,7 @@ Model* lovrModelInit(Model* model, ModelData* data) {
   if (data->materialCount > 0) {
     model->materials = malloc(data->materialCount * sizeof(Material*));
 
-    if (data->imageCount > 0) {
+    if (data->textureCount > 0) {
       model->textures = calloc(data->textureCount, sizeof(Texture*));
     }
 
@@ -157,12 +157,11 @@ Model* lovrModelInit(Model* model, ModelData* data) {
 
         if (index != -1) {
           if (!model->textures[index]) {
-            ModelTexture* texture = &data->textures[index];
-            TextureData* image = data->images[texture->imageIndex];
+            TextureData* textureData = data->textures[index];
             bool srgb = j == TEXTURE_DIFFUSE || j == TEXTURE_EMISSIVE;
-            model->textures[index] = lovrTextureCreate(TEXTURE_2D, &image, 1, srgb, true, 0);
-            lovrTextureSetFilter(model->textures[index], texture->filter);
-            lovrTextureSetWrap(model->textures[index], texture->wrap);
+            model->textures[index] = lovrTextureCreate(TEXTURE_2D, &textureData, 1, srgb, true, 0);
+            lovrTextureSetFilter(model->textures[index], data->materials[i].filters[j]);
+            lovrTextureSetWrap(model->textures[index], data->materials[i].wraps[j]);
           }
 
           lovrMaterialSetTexture(material, j, model->textures[index]);
