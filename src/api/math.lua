@@ -340,13 +340,19 @@ ffi.metatype(mat4, {
   __index = {
     _type = C.MATH_MAT4,
 
-    unpack = function(m)
+    unpack = function(m, raw)
       checkmat4(m)
-      return -- yum
-        m.m[0], m.m[1], m.m[2], m.m[3],
-        m.m[4], m.m[5], m.m[6], m.m[7],
-        m.m[8], m.m[9], m.m[10], m.m[11],
-        m.m[12], m.m[13], m.m[14], m.m[15]
+      if raw then
+        return
+          m.m[0], m.m[1], m.m[2], m.m[3],
+          m.m[4], m.m[5], m.m[6], m.m[7],
+          m.m[8], m.m[9], m.m[10], m.m[11],
+          m.m[12], m.m[13], m.m[14], m.m[15]
+      else
+        local f = new('float[10]')
+        C.mat4_getTransform(m, f + 0, f + 1, f + 2, f + 3, f + 4, f + 5, f + 6, f + 7, f + 8, f + 9)
+        return f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9]
+      end
     end,
 
     set = function(M, ...)
@@ -465,26 +471,6 @@ ffi.metatype(mat4, {
         C.mat4_transform(m, x._p + 0, x._p + 1, x._p + 2)
         return x
       end
-    end,
-
-    getTransform = function(m)
-      checkmat4(m)
-      local f = new('float[10]')
-      C.mat4_getTransform(m, f + 0, f + 1, f + 2, f + 3, f + 4, f + 5, f + 6, f + 7, f + 8, f + 9)
-      return f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9]
-    end,
-
-    setTransform = function(m, x, y, z, sx, sy, sz, angle, ax, ay, az)
-      checkmat4(m)
-      return C.mat4_setTransform(m, x or 0, y or 0, z or 0, sx or 1, sy or sx or 1, sz or sx or 1, angle or 0, ax or 0, ay or 1, az or 0)
-    end,
-
-    transformPoint = function(m, x, y, z)
-      checkmat4(m)
-      if istype(vec3, x) then x, y, z = x.x, x.y, x.z end
-      local f = new('float[3]', x, y, z)
-      C.mat4_transform(m, f + 0, f + 1, f + 2)
-      return f[0], f[1], f[2]
     end,
 
     perspective = function(m, near, far, fov, aspect)

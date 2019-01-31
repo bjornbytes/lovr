@@ -37,10 +37,26 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
 
 static int l_lovrMat4Unpack(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  for (int i = 0; i < 16; i++) {
-    lua_pushnumber(L, m[i]);
+  if (lua_toboolean(L, 2)) {
+    for (int i = 0; i < 16; i++) {
+      lua_pushnumber(L, m[i]);
+    }
+    return 16;
+  } else {
+    float x, y, z, sx, sy, sz, angle, ax, ay, az;
+    mat4_getTransform(m, &x, &y, &z, &sx, &sy, &sz, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, x);
+    lua_pushnumber(L, y);
+    lua_pushnumber(L, z);
+    lua_pushnumber(L, sx);
+    lua_pushnumber(L, sy);
+    lua_pushnumber(L, sz);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+    return 10;
   }
-  return 16;
 }
 
 int l_lovrMat4Set(lua_State* L) {
@@ -149,51 +165,6 @@ static int l_lovrMat4Mul(lua_State* L) {
   }
 }
 
-static int l_lovrMat4GetTransform(lua_State* L) {
-  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  float x, y, z, sx, sy, sz, angle, ax, ay, az;
-  mat4_getTransform(m, &x, &y, &z, &sx, &sy, &sz, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  lua_pushnumber(L, sx);
-  lua_pushnumber(L, sy);
-  lua_pushnumber(L, sz);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 10;
-}
-
-static int l_lovrMat4SetTransform(lua_State* L) {
-  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  float x = luax_optfloat(L, 2, 0.f);
-  float y = luax_optfloat(L, 3, 0.f);
-  float z = luax_optfloat(L, 4, 0.f);
-  float sx = luax_optfloat(L, 5, 1.f);
-  float sy = luax_optfloat(L, 6, sx);
-  float sz = luax_optfloat(L, 7, sx);
-  float angle = luax_optfloat(L, 8, 0.f);
-  float ax = luax_optfloat(L, 9, 0.f);
-  float ay = luax_optfloat(L, 10, 1.f);
-  float az = luax_optfloat(L, 11, 0.f);
-  mat4_setTransform(m, x, y, z, sx, sy, sz, angle, ax, ay, az);
-  lua_settop(L, 1);
-  return 1;
-}
-
-static int l_lovrMat4TransformPoint(lua_State* L) {
-  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  float v[3];
-  luax_readvec3(L, 2, v, NULL);
-  mat4_transform(m, &v[0], &v[1], &v[2]);
-  lua_pushnumber(L, v[0]);
-  lua_pushnumber(L, v[1]);
-  lua_pushnumber(L, v[2]);
-  return 3;
-}
-
 static int l_lovrMat4Perspective(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   float clipNear = luax_checkfloat(L, 2);
@@ -253,9 +224,6 @@ const luaL_Reg lovrMat4[] = {
   { "rotate", l_lovrMat4Rotate },
   { "scale", l_lovrMat4Scale },
   { "mul", l_lovrMat4Mul },
-  { "getTransform", l_lovrMat4GetTransform },
-  { "setTransform", l_lovrMat4SetTransform },
-  { "transformPoint", l_lovrMat4TransformPoint },
   { "perspective", l_lovrMat4Perspective },
   { "orthographic", l_lovrMat4Orthographic },
   { "__mul", l_lovrMat4__mul },
