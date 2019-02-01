@@ -65,7 +65,7 @@ static struct {
   bool wireframe;
   uint32_t framebuffer;
   uint32_t program;
-  uint32_t vertexArray;
+  Mesh* vertexArray;
   uint32_t buffers[MAX_BUFFER_TYPES];
   BlockBuffer blockBuffers[2][MAX_BLOCK_BUFFERS];
   int activeTexture;
@@ -386,17 +386,24 @@ static void lovrGpuUseProgram(uint32_t program) {
   }
 }
 
-static void lovrGpuBindVertexArray(uint32_t vertexArray) {
+static void lovrGpuBindVertexArray(Mesh* vertexArray) {
   if (state.vertexArray != vertexArray) {
     state.vertexArray = vertexArray;
-    glBindVertexArray(vertexArray);
+    glBindVertexArray(vertexArray->vao);
   }
 }
 
-static void lovrGpuBindBuffer(BufferType type, uint32_t buffer, bool force) {
-  if (force || state.buffers[type] != buffer) {
-    state.buffers[type] = buffer;
-    glBindBuffer(convertBufferType(type), buffer);
+static void lovrGpuBindBuffer(BufferType type, uint32_t buffer) {
+  if (type == BUFFER_INDEX && state.vertexArray) {
+    if (buffer != state.vertexArray->ibo) {
+      state.vertexArray->ibo = buffer;
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
+    }
+  } else {
+    if (state.buffers[type] != buffer) {
+      state.buffers[type] = buffer;
+      glBindBuffer(convertBufferType(type), buffer);
+    }
   }
 }
 
@@ -466,10 +473,10 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
   MeshAttribute layout[MAX_ATTRIBUTES];
   memset(layout, 0, MAX_ATTRIBUTES * sizeof(MeshAttribute));
 
-  lovrGpuBindVertexArray(mesh->vao);
+  lovrGpuBindVertexArray(mesh);
 
   if (mesh->indexBuffer && mesh->indexCount > 0) {
-    lovrGpuBindBuffer(BUFFER_INDEX, mesh->indexBuffer->id, true);
+    lovrGpuBindBuffer(BUFFER_INDEX, mesh->indexBuffer->id);
     lovrBufferFlush(mesh->indexBuffer);
 #ifdef LOVR_GL
     uint32_t primitiveRestart = (1 << (mesh->indexSize * 8)) - 1;
@@ -523,7 +530,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
       previous.stride != current.stride;
 
     if (changed) {
-      lovrGpuBindBuffer(BUFFER_VERTEX, current.buffer->id, false);
+      lovrGpuBindBuffer(BUFFER_VERTEX, current.buffer->id);
       int count = current.components;
       int stride = current.stride;
       GLvoid* offset = (GLvoid*) current.offset;
@@ -1547,7 +1554,7 @@ Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type,
   buffer->type = type;
   buffer->usage = usage;
   glGenBuffers(1, &buffer->id);
-  lovrGpuBindBuffer(type, buffer->id, false);
+  lovrGpuBindBuffer(type, buffer->id);
   GLenum glType = convertBufferType(type);
 
 #ifndef LOVR_WEBGL
@@ -1589,7 +1596,7 @@ void* lovrBufferMap(Buffer* buffer, size_t offset) {
 }
 
 void lovrBufferFlushRange(Buffer* buffer, size_t offset, size_t size) {
-  lovrGpuBindBuffer(buffer->type, buffer->id, false);
+  lovrGpuBindBuffer(buffer->type, buffer->id);
 #ifndef LOVR_WEBGL
   if (GLAD_GL_ARB_buffer_storage) {
     glFlushMappedBufferRange(convertBufferType(buffer->type), offset, size);
