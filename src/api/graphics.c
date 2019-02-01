@@ -63,7 +63,6 @@ const char* BufferUsages[] = {
 };
 
 const char* CompareModes[] = {
-  [COMPARE_NONE] = "always",
   [COMPARE_EQUAL] = "equal",
   [COMPARE_NEQUAL] = "notequal",
   [COMPARE_LESS] = "less",
@@ -561,12 +560,6 @@ static int l_lovrGraphicsGetStencilTest(lua_State* L) {
   CompareMode mode;
   int value;
   lovrGraphicsGetStencilTest(&mode, &value);
-
-  if (mode == COMPARE_NONE) {
-    lua_pushnil(L);
-    return 1;
-  }
-
   lua_pushstring(L, CompareModes[mode]);
   lua_pushinteger(L, value);
   return 2;

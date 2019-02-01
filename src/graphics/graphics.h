@@ -41,13 +41,13 @@ typedef enum {
 } BlendAlphaMode;
 
 typedef enum {
-  COMPARE_NONE,
   COMPARE_EQUAL,
   COMPARE_NEQUAL,
   COMPARE_LESS,
   COMPARE_LEQUAL,
   COMPARE_GREATER,
-  COMPARE_GEQUAL
+  COMPARE_GEQUAL,
+  COMPARE_NONE
 } CompareMode;
 
 typedef enum {
