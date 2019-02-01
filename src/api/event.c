@@ -7,10 +7,12 @@ const char* EventTypes[] = {
   [EVENT_FOCUS] = "focus",
   [EVENT_MOUNT] = "mount",
   [EVENT_THREAD_ERROR] = "threaderror",
+#ifdef LOVR_ENABLE_HEADSET
   [EVENT_CONTROLLER_ADDED] = "controlleradded",
   [EVENT_CONTROLLER_REMOVED] = "controllerremoved",
   [EVENT_CONTROLLER_PRESSED] = "controllerpressed",
   [EVENT_CONTROLLER_RELEASED] = "controllerreleased",
+#endif
 };
 
 static _Thread_local int pollRef;
@@ -97,6 +99,7 @@ static int nextEvent(lua_State* L) {
       free((void*) event.data.thread.error);
       return 3;
 
+#ifdef LOVR_ENABLE_HEADSET
     case EVENT_CONTROLLER_ADDED:
     case EVENT_CONTROLLER_REMOVED:
       luax_pushobject(L, event.data.controller.controller);
@@ -108,6 +111,7 @@ static int nextEvent(lua_State* L) {
       luax_pushobject(L, event.data.controller.controller);
       lua_pushstring(L, ControllerButtons[event.data.controller.button]);
       return 3;
+#endif
 
     case EVENT_CUSTOM:
       for (int i = 0; i < event.data.custom.count; i++) {
