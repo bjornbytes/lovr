@@ -21,7 +21,7 @@ ffi.cdef [[
   Pool* lovrMathGetPool();
 
   // From lib/math.h
-  // Careful, the declarations below are using as the structs above, not the usual C types
+  // Careful, the declarations below are using the structs above, not the usual C types
 
   vec3* vec3_normalize(vec3* v);
   float vec3_length(vec3* v);
