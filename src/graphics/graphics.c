@@ -609,7 +609,7 @@ void lovrGraphicsFlush() {
     // Resolve geometry
     Mesh* mesh = NULL;
     DrawMode drawMode;
-    bool instanced = batch->drawCount >= 4;
+    bool instanced = batch->vertexCount == 0 && batch->drawCount >= 4;
     bool flushGeometry = batch->vertexCount > 0;
     int instances = instanced ? batch->drawCount : 1;
     uint32_t vertexCount = 0;
