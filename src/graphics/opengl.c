@@ -504,7 +504,9 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
       lovrBufferFlush(current.buffer);
     }
 
-    if (!memcmp(&previous, &current, sizeof(MeshAttribute))) {
+    uint16_t divisor = current.divisor * divisorMultiplier;
+
+    if (!memcmp(&previous, &current, sizeof(MeshAttribute)) && mesh->divisors[i] == divisor) {
       continue;
     }
 
@@ -518,8 +520,9 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int divisorMultiplier) {
       }
     }
 
-    if (previous.divisor != current.divisor) {
-      glVertexAttribDivisor(i, current.divisor * divisorMultiplier);
+    if (mesh->divisors[i] != divisor) {
+      glVertexAttribDivisor(i, divisor);
+      mesh->divisors[i] = divisor;
     }
 
     bool changed =

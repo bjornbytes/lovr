@@ -46,6 +46,7 @@ typedef struct {
   Material* material;
   map_attribute_t attributes;
   MeshAttribute layout[MAX_ATTRIBUTES];
+  uint16_t divisors[MAX_ATTRIBUTES];
   GPU_MESH_FIELDS
 } Mesh;
 
