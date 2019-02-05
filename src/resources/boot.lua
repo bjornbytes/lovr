@@ -166,13 +166,12 @@ end
 
 function lovr.errhand(message, traceback)
   message = tostring(message)
-  message = 'Error:\n' .. message .. formatTraceback(traceback or debug.traceback('', 2))
+  message = 'Error:\n' .. message .. formatTraceback(traceback or debug.traceback('', 4))
   print(message)
   if not lovr.graphics then return function() return 1 end end
   lovr.graphics.reset()
   lovr.graphics.setBackgroundColor(.105, .098, .137)
   lovr.graphics.setColor(.863, .863, .863)
-  if lovr.headset then lovr.headset.setMirrored(false) end
   local font = lovr.graphics.getFont()
   local pixelDensity = font:getPixelDensity()
   local width = font:getWidth(message, .55 * pixelDensity)
@@ -182,9 +181,9 @@ function lovr.errhand(message, traceback)
   return function()
     lovr.event.pump()
     for name in lovr.event.poll() do if name == 'quit' then return 1 end end
-    lovr.graphics.clear()
     lovr.graphics.origin()
     if lovr.headset then lovr.headset.renderTo(render) end
+    lovr.graphics.clear()
     render()
     lovr.graphics.present()
   end
