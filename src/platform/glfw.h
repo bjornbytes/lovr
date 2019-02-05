@@ -136,7 +136,8 @@ void lovrPlatformGetWindowSize(int* width, int* height) {
   if (state.window) {
     glfwGetWindowSize(state.window, width, height);
   } else {
-    *width = *height = 0;
+    if (*width) *width = 0;
+    if (*height) *height = 0;
   }
 }
 
@@ -144,7 +145,8 @@ void lovrPlatformGetFramebufferSize(int* width, int* height) {
   if (state.window) {
     glfwGetFramebufferSize(state.window, width, height);
   } else {
-    *width = *height = 0;
+    if (*width) *width = 0;
+    if (*height) *height = 0;
   }
 }
 
