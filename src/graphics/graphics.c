@@ -213,6 +213,13 @@ int lovrGraphicsGetHeight() {
   return state.height;
 }
 
+float lovrGraphicsGetPixelDensity() {
+  int width, framebufferWidth;
+  lovrPlatformGetWindowSize(&width, NULL);
+  lovrPlatformGetFramebufferSize(&framebufferWidth, NULL);
+  return (float) framebufferWidth / (float) width;
+}
+
 void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   lovrGraphicsFlush();
 
