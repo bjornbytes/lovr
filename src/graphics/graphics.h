@@ -199,6 +199,7 @@ void lovrGraphicsPresent();
 void lovrGraphicsCreateWindow(WindowFlags* flags);
 int lovrGraphicsGetWidth();
 int lovrGraphicsGetHeight();
+float lovrGraphicsGetPixelDensity();
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
 Buffer* lovrGraphicsGetIdentityBuffer();
 #define lovrGraphicsGetSupported lovrGpuGetSupported
