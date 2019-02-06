@@ -85,15 +85,6 @@ int l_lovrQuatSet(lua_State* L) {
   return 1;
 }
 
-static int l_lovrQuatSave(lua_State* L) {
-  quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
-  quat copy = lua_newuserdata(L, 4 * sizeof(float));
-  quat_init(copy, q);
-  luaL_getmetatable(L, "quat");
-  lua_setmetatable(L, -2);
-  return 1;
-}
-
 static int l_lovrQuatMul(lua_State* L) {
   quat q = luax_checkmathtype(L, 1, MATH_QUAT, NULL);
   MathType type;
@@ -137,13 +128,11 @@ static int l_lovrQuat__mul(lua_State* L) {
   float* r = luax_tomathtype(L, 2, &type);
   if (!r) return luaL_typerror(L, 2, "quat or vec3");
   if (type == MATH_VEC3) {
-    vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
+    vec3 out = luax_newmathtype(L, MATH_VEC3);
     quat_rotate(q, vec3_init(out, r));
-    luax_pushlightmathtype(L, out, MATH_VEC3);
   } else {
-    quat out = lovrPoolAllocate(lovrMathGetPool(), MATH_QUAT);
+    quat out = luax_newmathtype(L, MATH_QUAT);
     quat_mul(quat_init(out, q), r);
-    luax_pushlightmathtype(L, out, MATH_QUAT);
   }
   return 1;
 }
@@ -163,7 +152,6 @@ static int l_lovrQuat__tostring(lua_State* L) {
 const luaL_Reg lovrQuat[] = {
   { "unpack", l_lovrQuatUnpack },
   { "set", l_lovrQuatSet },
-  { "save", l_lovrQuatSave },
   { "mul", l_lovrQuatMul },
   { "length", l_lovrQuatLength },
   { "normalize", l_lovrQuatNormalize },

@@ -18,7 +18,11 @@ static const luaL_Reg* lovrMathTypes[] = {
   [MATH_MAT4] = lovrMat4
 };
 
-static int lovrMathTypeRefs[MAX_MATH_TYPES];
+static const int lovrMathTypeComponents[] = {
+  [MATH_VEC3] = 3,
+  [MATH_QUAT] = 4,
+  [MATH_MAT4] = 16
+};
 
 static float* luax_tolightmathtype(lua_State* L, int index, MathType* type) {
   uintptr_t p = (uintptr_t) lua_touserdata(L, index), aligned = ALIGN(p, POOL_ALIGN);
@@ -33,12 +37,10 @@ float* luax_tomathtype(lua_State* L, int index, MathType* type) {
   int luaType = lua_type(L, index);
   if (luaType == LUA_TLIGHTUSERDATA) {
     return luax_tolightmathtype(L, index, type);
-  } else if (luaType == LUA_TUSERDATA && lua_getmetatable(L, index)) {
-    lua_pushliteral(L, "_type");
-    lua_rawget(L, -2);
-    *type = lua_tointeger(L, -1);
-    lua_pop(L, 2);
-    return lua_touserdata(L, index);
+  } else if (luaType == LUA_TUSERDATA) {
+    MathType* x = lua_touserdata(L, index);
+    *type = *x;
+    return (float*) (x + 1);
   } else if (luaType > LUA_TTHREAD) { // cdata
     lua_getfield(L, index, "_type");
     *type = lua_tonumber(L, -1);
@@ -57,6 +59,14 @@ float* luax_checkmathtype(lua_State* L, int index, MathType type, const char* ex
   float* p = luax_tomathtype(L, index, &t);
   if (!p || t != type) luaL_typerror(L, index, expected ? expected : lovrMathTypeNames[type]);
   return p;
+}
+
+float* luax_newmathtype(lua_State* L, MathType type) {
+  MathType* x = (MathType*) lua_newuserdata(L, sizeof(MathType) + lovrMathTypeComponents[type] * sizeof(float));
+  luaL_getmetatable(L, "vec3");
+  lua_setmetatable(L, -2);
+  *x = type;
+  return (float*) (x + 1);
 }
 
 static int l_lovrMathNewCurve(lua_State* L) {
@@ -99,8 +109,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
 
 static int l_lovrMathNewPool(lua_State* L) {
   size_t size = luaL_optinteger(L, 1, DEFAULT_POOL_SIZE);
-  bool resizable = lua_toboolean(L, 2);
-  Pool* pool = lovrPoolCreate(size, resizable);
+  Pool* pool = lovrPoolCreate(size);
   luax_pushobject(L, pool);
   lovrRelease(pool);
   return 1;
@@ -216,28 +225,22 @@ static int l_lovrMathLinearToGamma(lua_State* L) {
   }
 }
 
-static int l_lovrMathVec3(lua_State* L) {
-  luax_pushobject(L, lovrMathGetPool());
-  lua_insert(L, 1);
-  return l_lovrPoolVec3(L);
+static int l_lovrVec3__call(lua_State* L) {
+  luax_newmathtype(L, MATH_VEC3);
+  lua_replace(L, 1);
+  return l_lovrVec3Set(L);
 }
 
-static int l_lovrMathQuat(lua_State* L) {
-  luax_pushobject(L, lovrMathGetPool());
-  lua_insert(L, 1);
-  return l_lovrPoolQuat(L);
+static int l_lovrQuat__call(lua_State* L) {
+  luax_newmathtype(L, MATH_QUAT);
+  lua_replace(L, 1);
+  return l_lovrQuatSet(L);
 }
 
-static int l_lovrMathMat4(lua_State* L) {
-  luax_pushobject(L, lovrMathGetPool());
-  lua_insert(L, 1);
-  return l_lovrPoolMat4(L);
-}
-
-static int l_lovrMathDrain(lua_State* L) {
-  luax_pushobject(L, lovrMathGetPool());
-  lua_insert(L, 1);
-  return l_lovrPoolDrain(L);
+static int l_lovrMat4__call(lua_State* L) {
+  luax_newmathtype(L, MATH_MAT4);
+  lua_replace(L, 1);
+  return l_lovrMat4Set(L);
 }
 
 static const luaL_Reg lovrMath[] = {
@@ -253,17 +256,13 @@ static const luaL_Reg lovrMath[] = {
   { "setRandomSeed", l_lovrMathSetRandomSeed },
   { "gammaToLinear", l_lovrMathGammaToLinear },
   { "linearToGamma", l_lovrMathLinearToGamma },
-  { "vec3", l_lovrMathVec3 },
-  { "quat", l_lovrMathQuat },
-  { "mat4", l_lovrMathMat4 },
-  { "drain", l_lovrMathDrain },
   { NULL, NULL }
 };
 
 static int l_lovrLightUserdata__index(lua_State* L) {
   MathType type;
   luax_tolightmathtype(L, 1, &type);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrMathTypeRefs[type]);
+  luaL_getmetatable(L, lovrMathTypeNames[type]);
   lua_pushvalue(L, 2);
   lua_rawget(L, -2);
   return 1;
@@ -272,7 +271,7 @@ static int l_lovrLightUserdata__index(lua_State* L) {
 static int l_lovrLightUserdataOp(lua_State* L) {
   MathType type;
   luax_tolightmathtype(L, 1, &type);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrMathTypeRefs[type]);
+  luaL_getmetatable(L, lovrMathTypeNames[type]);
   lua_pushvalue(L, lua_upvalueindex(1));
   lua_gettable(L, -2);
   lua_pushvalue(L, 1);
@@ -288,19 +287,27 @@ int luaopen_lovr_math(lua_State* L) {
   luax_registertype(L, "Pool", lovrPool);
   luax_registertype(L, "RandomGenerator", lovrRandomGenerator);
 
-  // Store every math type metatable in the registry and register it as a type
   for (int i = 0; i < MAX_MATH_TYPES; i++) {
-    lua_newtable(L);
-    luaL_register(L, NULL, lovrMathTypes[i]);
-    lovrMathTypeRefs[i] = luaL_ref(L, LUA_REGISTRYINDEX);
+    luax_registertype(L, lovrMathTypeNames[i], lovrMathTypes[i]);
+    luaL_getmetatable(L, lovrMathTypeNames[i]);
 
-    luaL_newmetatable(L, lovrMathTypeNames[i]);
-    lua_pushvalue(L, -1);
-    lua_setfield(L, -1, "__index");
-    lua_pushinteger(L, i);
-    lua_setfield(L, -2, "_type");
-    luaL_register(L, NULL, lovrMathTypes[i]);
-    lua_pop(L, 1);
+    // Remove usual __gc handler
+    lua_pushnil(L);
+    lua_setfield(L, -2, "__gc");
+
+    // Allow metatable to be called as a function
+    lua_newtable(L);
+    switch (i) {
+      case MATH_VEC3: lua_pushcfunction(L, l_lovrVec3__call); break;
+      case MATH_QUAT: lua_pushcfunction(L, l_lovrQuat__call); break;
+      case MATH_MAT4: lua_pushcfunction(L, l_lovrMat4__call); break;
+      default: break;
+    }
+    lua_setfield(L, -2, "__call");
+    lua_setmetatable(L, -2);
+
+    // Assign into the lovr.math table
+    lua_setfield(L, -2, lovrMathTypeNames[i]);
   }
 
   // Global lightuserdata metatable
@@ -320,25 +327,13 @@ int luaopen_lovr_math(lua_State* L) {
   lua_setmetatable(L, -2);
   lua_pop(L, 1);
 
-  // Pool size
-  luax_pushconf(L);
-  lua_getfield(L, -1, "math");
-  size_t poolSize = DEFAULT_POOL_SIZE;
-  if (lua_istable(L, -1)) {
-    lua_getfield(L, -1, "poolsize");
-    if (lua_isnumber(L, -1)) {
-      poolSize = lua_tonumber(L, -1);
-    }
-    lua_pop(L, 1);
-  }
-  lua_pop(L, 2);
-
   // Module
-  if (lovrMathInit(poolSize)) {
+  if (lovrMathInit()) {
     luax_atexit(L, lovrMathDestroy);
   }
 
   // Inject LuaJIT superjuice
+#ifdef LOVR_USE_LUAJIT
   lua_pushcfunction(L, luax_getstack);
   lovrAssert(!luaL_loadbuffer(L, (const char*) math_lua, math_lua_len, "math.lua"), "Could not load math.lua");
   lua_pushvalue(L, -3); // lovr.math
@@ -347,6 +342,7 @@ int luaopen_lovr_math(lua_State* L) {
     lovrThrow(lua_tostring(L, -1));
   }
   lua_pop(L, 1);
+#endif
 
   return 1;
 }

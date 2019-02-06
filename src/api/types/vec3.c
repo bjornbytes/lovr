@@ -63,15 +63,6 @@ int l_lovrVec3Set(lua_State* L) {
   return 1;
 }
 
-static int l_lovrVec3Save(lua_State* L) {
-  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
-  vec3 copy = lua_newuserdata(L, 4 * sizeof(float));
-  vec3_init(copy, v);
-  luaL_getmetatable(L, "vec3");
-  lua_setmetatable(L, -2);
-  return 1;
-}
-
 static int l_lovrVec3Add(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
@@ -159,23 +150,21 @@ static int l_lovrVec3Lerp(lua_State* L) {
 static int l_lovrVec3__add(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
-  vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
+  vec3 out = luax_newmathtype(L, MATH_VEC3);
   vec3_add(vec3_init(out, v), u);
-  luax_pushlightmathtype(L, out, MATH_VEC3);
   return 1;
 }
 
 static int l_lovrVec3__sub(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
-  vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
+  vec3 out = luax_newmathtype(L, MATH_VEC3);
   vec3_sub(vec3_init(out, v), u);
-  luax_pushlightmathtype(L, out, MATH_VEC3);
   return 1;
 }
 
 static int l_lovrVec3__mul(lua_State* L) {
-  vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
+  vec3 out = luax_newmathtype(L, MATH_VEC3);
   if (lua_type(L, 1) == LUA_TNUMBER) {
     vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
     vec3_scale(vec3_init(out, u), lua_tonumber(L, 1));
@@ -187,12 +176,11 @@ static int l_lovrVec3__mul(lua_State* L) {
     vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, "vec3 or number");
     out[0] = v[0] * u[0], out[1] = v[1] * u[1], out[2] = v[2] * u[2];
   }
-  luax_pushlightmathtype(L, out, MATH_VEC3);
   return 1;
 }
 
 static int l_lovrVec3__div(lua_State* L) {
-  vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
+  vec3 out = luax_newmathtype(L, MATH_VEC3);
   if (lua_type(L, 1) == LUA_TNUMBER) {
     vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
     vec3_scale(vec3_init(out, u), 1. / lua_tonumber(L, 1));
@@ -204,15 +192,13 @@ static int l_lovrVec3__div(lua_State* L) {
     vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, "vec3 or number");
     out[0] = v[0] / u[0], out[1] = v[1] / u[1], out[2] = v[2] / u[2];
   }
-  luax_pushlightmathtype(L, out, MATH_VEC3);
   return 1;
 }
 
 static int l_lovrVec3__unm(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
-  vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
+  vec3 out = luax_newmathtype(L, MATH_VEC3);
   vec3_scale(vec3_init(out, v), -1.f);
-  luax_pushlightmathtype(L, out, MATH_VEC3);
   return 1;
 }
 
@@ -231,7 +217,6 @@ static int l_lovrVec3__tostring(lua_State* L) {
 const luaL_Reg lovrVec3[] = {
   { "unpack", l_lovrVec3Unpack },
   { "set", l_lovrVec3Set },
-  { "save", l_lovrVec3Save },
   { "add", l_lovrVec3Add },
   { "sub", l_lovrVec3Sub },
   { "mul", l_lovrVec3Mul },
