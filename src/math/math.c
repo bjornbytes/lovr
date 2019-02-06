@@ -8,9 +8,8 @@
 
 static MathState state;
 
-bool lovrMathInit(size_t poolSize) {
+bool lovrMathInit() {
   if (state.initialized) return false;
-  state.pool = lovrPoolCreate(poolSize, true);
   state.generator = lovrRandomGeneratorCreate();
   Seed seed = { .b64 = (uint64_t) time(0) };
   lovrRandomGeneratorSetSeed(state.generator, seed);
@@ -19,13 +18,8 @@ bool lovrMathInit(size_t poolSize) {
 
 void lovrMathDestroy() {
   if (!state.initialized) return;
-  lovrRelease(state.pool);
   lovrRelease(state.generator);
   memset(&state, 0, sizeof(MathState));
-}
-
-Pool* lovrMathGetPool() {
-  return state.pool;
 }
 
 RandomGenerator* lovrMathGetRandomGenerator() {

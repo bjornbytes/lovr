@@ -72,15 +72,6 @@ int l_lovrMat4Set(lua_State* L) {
   return 1;
 }
 
-static int l_lovrMat4Save(lua_State* L) {
-  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
-  mat4 copy = lua_newuserdata(L, 16 * sizeof(float));
-  mat4_init(copy, m);
-  luaL_getmetatable(L, "mat4");
-  lua_setmetatable(L, -2);
-  return 1;
-}
-
 static int l_lovrMat4Identity(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   mat4_identity(m);
@@ -91,14 +82,14 @@ static int l_lovrMat4Identity(lua_State* L) {
 static int l_lovrMat4Invert(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   mat4_invert(m);
-  luax_pushlightmathtype(L, m, MATH_MAT4);
+  lua_settop(L, 1);
   return 1;
 }
 
 static int l_lovrMat4Transpose(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   mat4_transpose(m);
-  luax_pushlightmathtype(L, m, MATH_MAT4);
+  lua_settop(L, 1);
   return 1;
 }
 
@@ -195,14 +186,12 @@ static int l_lovrMat4__mul(lua_State* L) {
   float* n = luax_tomathtype(L, 2, &type);
   if (!n || type == MATH_QUAT) return luaL_typerror(L, 2, "mat4 or vec3");
   if (type == MATH_MAT4) {
-    mat4 out = lovrPoolAllocate(lovrMathGetPool(), MATH_MAT4);
+    mat4 out = luax_newmathtype(L, MATH_MAT4);
     mat4_multiply(mat4_init(out, m), n);
-    luax_pushlightmathtype(L, out, MATH_MAT4);
   } else {
-    vec3 out = lovrPoolAllocate(lovrMathGetPool(), MATH_VEC3);
+    vec3 out = luax_newmathtype(L, MATH_VEC3);
     vec3_init(out, n);
     mat4_transform(m, &n[0], &n[1], &n[2]);
-    luax_pushlightmathtype(L, out, MATH_VEC3);
   }
   return 1;
 }
@@ -216,7 +205,6 @@ static int l_lovrMat4__tostring(lua_State* L) {
 const luaL_Reg lovrMat4[] = {
   { "unpack", l_lovrMat4Unpack },
   { "set", l_lovrMat4Set },
-  { "save", l_lovrMat4Save },
   { "identity", l_lovrMat4Identity },
   { "invert", l_lovrMat4Invert },
   { "transpose", l_lovrMat4Transpose },

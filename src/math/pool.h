@@ -19,17 +19,15 @@ typedef struct {
   size_t size;
   size_t usage;
   uint8_t* head;
-  bool resizable;
 } Pool;
 
-Pool* lovrPoolInit(Pool* pool, size_t size, bool resizable);
+Pool* lovrPoolInit(Pool* pool, size_t size);
 #define lovrPoolCreate(...) lovrPoolInit(lovrAlloc(Pool), __VA_ARGS__)
 void lovrPoolDestroy(void* ref);
 float* lovrPoolAllocate(Pool* pool, MathType type);
 void lovrPoolDrain(Pool* pool);
 size_t lovrPoolGetSize(Pool* pool);
 size_t lovrPoolGetUsage(Pool* pool);
-bool lovrPoolIsResizable(Pool* pool);
 
 // For you, LuaJIT
 LOVR_EXPORT float* lovrPoolAllocateVec3(Pool* pool);

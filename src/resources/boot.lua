@@ -67,9 +67,6 @@ function lovr.boot()
       offset = 1.7,
       msaa = 4
     },
-    math = {
-      poolsize = 4096
-    },
     window = {
       width = 1080,
       height = 600,
@@ -144,7 +141,6 @@ function lovr.run()
       end
       lovr.graphics.present()
     end
-    if lovr.math then lovr.math.drain() end
   end
 end
 

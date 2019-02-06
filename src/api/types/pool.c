@@ -60,12 +60,6 @@ int l_lovrPoolGetUsage(lua_State* L) {
   return 1;
 }
 
-int l_lovrPoolIsResizable(lua_State* L) {
-  Pool* pool = luax_checktype(L, 1, Pool);
-  lua_pushboolean(L, lovrPoolIsResizable(pool));
-  return 1;
-}
-
 const luaL_Reg lovrPool[] = {
   { "vec3", l_lovrPoolVec3 },
   { "quat", l_lovrPoolQuat },
@@ -73,6 +67,5 @@ const luaL_Reg lovrPool[] = {
   { "drain", l_lovrPoolDrain },
   { "getSize", l_lovrPoolGetSize },
   { "getUsage", l_lovrPoolGetUsage },
-  { "isResizable", l_lovrPoolIsResizable },
   { NULL, NULL }
 };

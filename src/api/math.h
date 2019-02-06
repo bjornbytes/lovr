@@ -5,6 +5,7 @@
 void luax_pushlightmathtype(lua_State* L, float* p, MathType type);
 float* luax_tomathtype(lua_State* L, int index, MathType* type);
 float* luax_checkmathtype(lua_State* L, int index, MathType type, const char* expected);
+float* luax_newmathtype(lua_State* L, MathType type);
 int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected);
 int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* expected);
 int luax_readquat(lua_State* L, int index, quat q, const char* expected);
