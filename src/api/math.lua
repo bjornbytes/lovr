@@ -79,6 +79,7 @@ local checkmat4 = checktype(mat4_t, 'mat4')
 
 local vec3 = {
   _type = C.MATH_VEC3,
+  name = 'vec3',
 
   unpack = function(v)
     checkvec3(v)
@@ -238,6 +239,7 @@ math.vec3 = setmetatable(vec3, {
 
 local quat = {
   _type = C.MATH_QUAT,
+  name = 'quat',
 
   unpack = function(q, raw)
     checkquat(q)
@@ -336,6 +338,7 @@ math.quat = setmetatable(quat, {
 
 local mat4 = {
   _type = C.MATH_MAT4,
+  name = 'mat4',
 
   unpack = function(m, raw)
     checkmat4(m)

@@ -63,7 +63,7 @@ float* luax_checkmathtype(lua_State* L, int index, MathType type, const char* ex
 
 float* luax_newmathtype(lua_State* L, MathType type) {
   MathType* x = (MathType*) lua_newuserdata(L, sizeof(MathType) + lovrMathTypeComponents[type] * sizeof(float));
-  luaL_getmetatable(L, "vec3");
+  luaL_getmetatable(L, lovrMathTypeNames[type]);
   lua_setmetatable(L, -2);
   *x = type;
   return (float*) (x + 1);
