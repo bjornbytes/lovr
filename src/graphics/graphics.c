@@ -217,7 +217,11 @@ float lovrGraphicsGetPixelDensity() {
   int width, framebufferWidth;
   lovrPlatformGetWindowSize(&width, NULL);
   lovrPlatformGetFramebufferSize(&framebufferWidth, NULL);
-  return (float) framebufferWidth / (float) width;
+  if (width == 0 || framebufferWidth == 0) {
+    return 0.f;
+  } else {
+    return (float) framebufferWidth / (float) width;
+  }
 }
 
 void lovrGraphicsSetCamera(Camera* camera, bool clear) {
