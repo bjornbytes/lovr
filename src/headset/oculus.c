@@ -342,7 +342,7 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
     };
     lovrAssert(OVR_SUCCESS(ovr_CreateMirrorTextureWithOptionsGL(state.session, &mdesc, &state.mirror)), "Unable to create mirror texture");
 
-    CanvasFlags flags = { .depth = DEPTH_D24S8, .stereo = true };
+    CanvasFlags flags = { .depth = FORMAT_D24S8, .stereo = true };
     state.canvas = lovrCanvasCreate(2 * state.size.w, state.size.h, flags);
   }
 
