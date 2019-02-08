@@ -45,6 +45,7 @@ if(EMSCRIPTEN)
     "-s GL_PREINITIALIZED_CONTEXT=1 "
     "-s USE_ZLIB=1 "
     "-s USE_PTHREADS=0 "
+    "-s FULL_ES2=1 "
     "-s FULL_ES3=1 "
     "-s FORCE_FILESYSTEM=1 "
     "-s ALLOW_MEMORY_GROWTH=1 "

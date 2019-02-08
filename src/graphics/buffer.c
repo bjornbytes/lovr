@@ -19,7 +19,7 @@ void lovrBufferMarkRange(Buffer* buffer, size_t offset, size_t size) {
 }
 
 void lovrBufferFlush(Buffer* buffer) {
-  if (buffer->flushTo < buffer->flushFrom) {
+  if (buffer->flushTo <= buffer->flushFrom) {
     return;
   }
 
