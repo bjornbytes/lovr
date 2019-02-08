@@ -251,7 +251,7 @@ static void oculusControllerGetPose(Controller* controller, float* x, float* y, 
 
 static void oculusControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
   ovrTrackingState *ts = refreshTracking();
-  ovrVector3f vel = ts->HandPoses[controller->id].ThePose.LinearVelocity;
+  ovrVector3f vel = ts->HandPoses[controller->id].LinearVelocity;
   *vx = vel.x;
   *vy = vel.y;
   *vz = vel.z;
@@ -259,7 +259,7 @@ static void oculusControllerGetVelocity(Controller* controller, float* vx, float
 
 static void oculusControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
   ovrTrackingState *ts = refreshTracking();
-  ovrVector3f vel = ts->HandPoses[controller->id].ThePose.AngularVelocity;
+  ovrVector3f vel = ts->HandPoses[controller->id].AngularVelocity;
   *vx = vel.x;
   *vy = vel.y;
   *vz = vel.z;
@@ -342,7 +342,7 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
     };
     lovrAssert(OVR_SUCCESS(ovr_CreateMirrorTextureWithOptionsGL(state.session, &mdesc, &state.mirror)), "Unable to create mirror texture");
 
-    CanvasFlags flags = { .depth = DEPTH_D24S8, .stereo = true };
+    CanvasFlags flags = { .depth = { .enabled = true, .format = FORMAT_D24S8 }, .stereo = true };
     state.canvas = lovrCanvasCreate(2 * state.size.w, state.size.h, flags);
   }
 
