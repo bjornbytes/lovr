@@ -1,4 +1,4 @@
-# <p align="center"><a href="https://lovr.org"><img src="https://lovr.org/static/img/README.png" width="256"/></a></p>
+<p align="center"><a href="https://lovr.org"><img src="https://lovr.org/static/img/README.png" width="256"/></a></p>
 
 # LÖVR
 
