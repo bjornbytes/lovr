@@ -1,6 +1,7 @@
 local ffi = type(jit) == 'table' and jit.status() and require 'ffi'
 if not ffi then return end
 
+local min, max = math.min, math.max
 local math, Pool = ...
 local C, new, cast, typeof, istype = ffi.C, ffi.new, ffi.cast, ffi.typeof, ffi.istype
 
@@ -181,6 +182,20 @@ local vec3 = {
     checkvec3(v)
     checkvec3(u, 1)
     C.vec3_lerp(v, u, t)
+    return v
+  end,
+
+  min = function(v, u, t)
+    checkvec3(v)
+    checkvec3(u, 1)
+    v.x, v.y, v.z = min(v.x, u.x), min(v.y, u.y), min(v.z, u.z)
+    return v
+  end,
+
+  max = function(v, u, t)
+    checkvec3(v)
+    checkvec3(u, 1)
+    v.x, v.y, v.z = max(v.x, u.x), max(v.y, u.y), max(v.z, u.z)
     return v
   end,
 

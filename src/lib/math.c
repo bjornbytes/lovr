@@ -6,6 +6,14 @@
 #include <xmmintrin.h>
 #endif
 
+#ifndef MIN
+#define MIN(a, b) (a < b ? a : b)
+#endif
+
+#ifndef MAX
+#define MAX(a, b) (a > b ? a : b)
+#endif
+
 // vec3
 
 vec3 vec3_init(vec3 v, vec3 u) {
@@ -75,6 +83,20 @@ vec3 vec3_lerp(vec3 v, vec3 u, float t) {
   return v;
 }
 
+vec3 vec3_min(vec3 v, vec3 u) {
+  v[0] = MIN(v[0], u[0]);
+  v[1] = MIN(v[1], u[1]);
+  v[2] = MIN(v[2], u[2]);
+  return v;
+}
+vec3 vec3_max(vec3 v, vec3 u) {
+  v[0] = MAX(v[0], u[0]);
+  v[1] = MAX(v[1], u[1]);
+  v[2] = MAX(v[2], u[2]);
+  return v;
+}
+
+
 // quat
 
 quat quat_init(quat q, quat r) {
@@ -103,9 +125,6 @@ quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az) {
   return q;
 }
 
-#ifndef MAX
-#define MAX(a, b) (a > b ? a : b)
-#endif
 quat quat_fromMat4(quat q, mat4 m) {
   float x = sqrtf(MAX(0.f, 1.f + m[0] - m[5] - m[10])) / 2.f;
   float y = sqrtf(MAX(0.f, 1.f - m[0] + m[5] - m[10])) / 2.f;

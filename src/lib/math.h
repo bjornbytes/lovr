@@ -24,6 +24,8 @@ MAF_EXPORT float vec3_distance(vec3 v, vec3 u);
 MAF_EXPORT float vec3_dot(vec3 v, vec3 u);
 MAF_EXPORT vec3 vec3_cross(vec3 v, vec3 u);
 MAF_EXPORT vec3 vec3_lerp(vec3 v, vec3 u, float t);
+MAF_EXPORT vec3 vec3_min(vec3 v, vec3 u);
+MAF_EXPORT vec3 vec3_max(vec3 v, vec3 u);
 
 // quat
 MAF_EXPORT quat quat_init(quat q, quat r);

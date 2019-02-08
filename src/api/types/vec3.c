@@ -147,6 +147,22 @@ static int l_lovrVec3Lerp(lua_State* L) {
   return 1;
 }
 
+static int l_lovrVec3Min(lua_State* L) {
+  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
+  vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
+  vec3_min(v, u);
+  lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec3Max(lua_State* L) {
+  vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
+  vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
+  vec3_max(v, u);
+  lua_settop(L, 1);
+  return 1;
+}
+
 static int l_lovrVec3__add(lua_State* L) {
   vec3 v = luax_checkmathtype(L, 1, MATH_VEC3, NULL);
   vec3 u = luax_checkmathtype(L, 2, MATH_VEC3, NULL);
@@ -227,6 +243,8 @@ const luaL_Reg lovrVec3[] = {
   { "dot", l_lovrVec3Dot },
   { "cross", l_lovrVec3Cross },
   { "lerp", l_lovrVec3Lerp },
+  { "min", l_lovrVec3Min },
+  { "max", l_lovrVec3Max },
   { "__add", l_lovrVec3__add },
   { "__sub", l_lovrVec3__sub },
   { "__mul", l_lovrVec3__mul },
