@@ -1,14 +1,16 @@
 # <p align="center"><a href="https://lovr.org"><img src="https://lovr.org/static/img/README.png" width="256"/></a></p>
 
+# LÖVR
+
 > **A simple Lua framework for rapidly building VR experiences.**
 
-Inspired by [LÖVE](https://love2d.org), a 2D game framework.
+You can use LÖVR to easily create VR experiences without much setup or programming experience.  The framework is tiny, fast, open source, and supports lots of different platforms and devices.
 
 [![Build status](https://ci.appveyor.com/api/projects/status/alx3kdi35bmxka8c/branch/master?svg=true)](https://ci.appveyor.com/project/bjornbytes/lovr/branch/master)
 [![Version](https://img.shields.io/github/release/bjornbytes/lovr.svg?label=version)](https://github.com/bjornbytes/lovr/releases)
 [![Slack](https://img.shields.io/badge/chat-slack-7e4e76.svg)](https://lovr.org/slack)
 
-[**Website**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**FAQ**](https://lovr.org/docs/FAQ)
+[**Homepage**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**FAQ**](https://lovr.org/docs/FAQ)
 
 <p align="left">
   <span><img src="http://lovr.org/static/img/wattle.jpg" width="32%"/></span>
@@ -20,7 +22,7 @@ Features
 ---
 
 - **Cross-Platform** - Runs on Windows, Mac, Linux, Android, and even on the web using WebAssembly and WebVR.
-- **Cross-Device** - Supports HTC Vive, Oculus Touch, Oculus Go, and Windows MR.  There's also a keyboard/mouse VR simulator.
+- **Cross-Device** - Supports HTC Vive, Oculus Touch/Go, Windows MR, and includes a keyboard/mouse VR simulator.
 - **Beginner-friendly** - Simple VR scenes can be created in just a few lines of Lua.
 - **Fast** - Writen in C99 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
 - **Asset Import** - Supports 3D models (glTF, FBX, OBJ), skeletal animation, HDR textures, cubemaps, fonts, etc.
@@ -28,12 +30,11 @@ Features
 - **3D Rigid Body Physics** - Including 4 collider shapes and 4 joint types.
 - **Compute Shaders** - For high performance GPU tasks, like particles.
 - **Multiplayer** - Includes enet for multi-user VR experiences.
-- **Umlauts** - !!!
 
 Getting Started
 ---
 
-It's really easy to get started making things with LÖVR!  Grab a copy of the executable from <https://lovr.org/download>,
+It's really easy to get started making things with LÖVR.  Grab a copy of the executable from <https://lovr.org/download>,
 then write a `main.lua` script and drag its parent folder onto the executable.  Here are some example projects to try:
 
 #### Hello World
@@ -78,12 +79,12 @@ function lovr.draw()
 end
 ```
 
-You can also find lots of other WebVR examples on the [docs page](https://lovr.org/docs/Hello_World).
+You can try more examples in your browser on the [docs page](https://lovr.org/docs/Hello_World).
 
 Building
 ---
 
-Here's how to compile LÖVR using CMake:
+You can build LÖVR from source using CMake.  Here are the steps using the command line:
 
 ```console
 mkdir build
@@ -92,7 +93,7 @@ cmake ..
 cmake --build .
 ```
 
-For more help, see the [Compiling Guide](https://lovr.org/docs/Compiling).
+See the [Compiling Guide](https://lovr.org/docs/Compiling) for more info.
 
 Resources
 ---
@@ -102,7 +103,8 @@ Resources
 - [**Slack Group**](https://lovr.org/slack): For general LÖVR discussion and support.
 - [**Nightly Builds**](https://lovr.org/download/nightly): Nightly builds for Windows.
 - [**Compiling Guide**](https://lovr.org/docs/Compiling): Information on compiling LÖVR from source.
-- [**Contributing**](CONTRIBUTING.md): Guide for helping out with development :heart:
+- [**Contributing**](CONTRIBUTING.md): Guide for helping out with development 💜
+- [**LÖVE**](https://love2d.org): LÖVR is heavily inspired by LÖVE, a 2D game framework.
 
 Contributors
 ---
