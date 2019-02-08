@@ -1846,7 +1846,7 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
   const char* fragmentHeader = vertexHeader;
 #else
   const char* vertexHeader = state.features.compute ? "#version 430\n" : "#version 150\n";
-  const char* fragmentHeader = "#version 150\nin vec4 gl_FragCoord;\n";
+  const char* fragmentHeader = "#version 150\n";
 #endif
 
   const char* vertexSinglepass = state.features.singlepass ?
