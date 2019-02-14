@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 lua_State* lovrInit(lua_State* L, int argc, char** argv);
-void lovrQuit(int status);
+void lovrDestroy(void* arg);
 int main(int argc, char** argv);
 
 #ifndef LOVR_USE_OCULUS_MOBILE
@@ -24,10 +24,12 @@ typedef struct {
 } lovrEmscriptenContext;
 
 void lovrDestroy(void* arg) {
-  lovrEmscriptenContext* context = arg;
-  lua_State* L = context->L;
-  emscripten_cancel_main_loop();
-  lua_close(L);
+  if (arg) {
+    lovrEmscriptenContext* context = arg;
+    lua_State* L = context->L;
+    emscripten_cancel_main_loop();
+    lua_close(L);
+  }
 }
 
 static void emscriptenLoop(void* arg) {
