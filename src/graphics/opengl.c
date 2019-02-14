@@ -1152,7 +1152,7 @@ void lovrGpuUnlock(void* lock) {
   if (!lock) return;
   GLsync sync = (GLsync) lock;
   if (glClientWaitSync(sync, 0, 0) == GL_TIMEOUT_EXPIRED) {
-    while (glClientWaitSync(sync, GL_SYNC_FLUSH_COMMANDS_BIT, 1E9) == GL_TIMEOUT_EXPIRED) {
+    while (glClientWaitSync(sync, GL_SYNC_FLUSH_COMMANDS_BIT, 32768) == GL_TIMEOUT_EXPIRED) {
       continue;
     }
   }
