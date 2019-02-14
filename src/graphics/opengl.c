@@ -877,6 +877,7 @@ static void lovrGpuBindShader(Shader* shader) {
           vec_push(&state.incoherents[BARRIER_BLOCK], block->source);
         }
 
+        lovrBufferFlush(block->source);
         lovrGpuBindBlockBuffer(type, block->source->id, block->slot, block->offset, block->size);
       } else {
         lovrGpuBindBlockBuffer(type, 0, block->slot, 0, 0);
