@@ -188,19 +188,19 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
       char name[128];
       bool hasName = sscanf(data + 7, "%s\n%n", name, &lineLength);
       int* material = map_get(&materialNames, name);
-      lovrAssert(hasName && material, "Bad OBJ: Expected a material name");
+      lovrAssert(hasName, "Bad OBJ: Expected a material name");
 
       // If the last group didn't have any faces, just reuse it, otherwise make a new group
       objGroup* group = &vec_last(&groups);
       if (group->count > 0) {
         int start = group->start + group->count; // Don't put this in the compound literal (realloc)
         vec_push(&groups, ((objGroup) {
-          .material = *material,
+          .material = material ? *material : -1,
           .start = start,
           .count = 0
         }));
       } else {
-        group->material = *material;
+        group->material = material ? *material : -1;
       }
     } else {
       char* newline = memchr(data, '\n', length);
