@@ -385,7 +385,7 @@ local mat4 = {
       return M
     end
 
-    if istype(mat4, ...) then
+    if istype(mat4_t, ...) then
       return C.mat4_set(M, ...)
     end
 
