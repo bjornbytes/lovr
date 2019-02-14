@@ -8,6 +8,7 @@
 #pragma once
 
 #define MAX_ATTRIBUTES 16
+#define MAX_ATTRIBUTE_NAME_LENGTH 32
 
 typedef struct {
   Buffer* buffer;
@@ -24,7 +25,7 @@ typedef struct {
 typedef struct {
   Ref ref;
   DrawMode mode;
-  const char* attributeNames[MAX_ATTRIBUTES];
+  char attributeNames[MAX_ATTRIBUTES][MAX_ATTRIBUTE_NAME_LENGTH];
   MeshAttribute attributes[MAX_ATTRIBUTES];
   uint8_t locations[MAX_ATTRIBUTES];
   uint16_t enabledLocations;

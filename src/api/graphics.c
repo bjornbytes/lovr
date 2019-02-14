@@ -1169,8 +1169,8 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
       lua_rawgeti(L, formatIndex, i + 1);
       lovrAssert(lua_type(L, -1) == LUA_TTABLE, "Attribute definitions must be tables containing name, type, and component count");
       lua_rawgeti(L, -1, 3);
-      lua_rawgeti(L, -1, 2);
-      lua_rawgeti(L, -1, 1);
+      lua_rawgeti(L, -2, 2);
+      lua_rawgeti(L, -3, 1);
 
       attributeNames[i] = lua_tostring(L, -1);
       attributes[i].offset = stride;
@@ -1178,31 +1178,18 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
       attributes[i].components = luaL_optinteger(L, -3, 1);
 
       switch (attributes[i].type) {
-        case I8:
-        case U8:
-          stride += 1 * attributes[i].components;
-          break;
-
-        case I16:
-        case U16:
-          stride += 2 * attributes[i].components;
-          break;
-
-        case I32:
-        case U32:
-        case F32:
-          stride += 4 * attributes[i].components;
-          break;
+        case I8: case U8: stride += 1 * attributes[i].components; break;
+        case I16: case U16: stride += 2 * attributes[i].components; break; 
+        case I32: case U32: case F32: stride += 4 * attributes[i].components; break;
       }
-      lua_pop(L, 3);
+      lua_pop(L, 4);
     }
   }
 
   DrawMode mode = luaL_checkoption(L, drawModeIndex, "fan", DrawModes);
   BufferUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", BufferUsages);
   bool readable = lua_toboolean(L, drawModeIndex + 2);
-  size_t bufferSize = attributeCount * stride;
-  Buffer* vertexBuffer = lovrBufferCreate(bufferSize, NULL, BUFFER_VERTEX, usage, readable);
+  Buffer* vertexBuffer = lovrBufferCreate(count * stride, NULL, BUFFER_VERTEX, usage, readable);
   Mesh* mesh = lovrMeshCreate(mode, vertexBuffer, count);
 
   for (int i = 0; i < attributeCount; i++) {
@@ -1242,7 +1229,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
             case U16: *data.u16++ = luaL_optinteger(L, -1, 0); break;
             case I32: *data.i32++ = luaL_optinteger(L, -1, 0); break;
             case U32: *data.u32++ = luaL_optinteger(L, -1, 0); break;
-            case F32: *data.u32++ = luaL_optnumber(L, -1, 0.); break;
+            case F32: *data.f32++ = luaL_optnumber(L, -1, 0.); break;
           }
           lua_pop(L, 1);
         }
