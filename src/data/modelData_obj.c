@@ -84,6 +84,10 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   char* data = (char*) source->data;
   size_t length = source->size;
 
+  if (data[0] != '#' && !memchr(data, '\n', 1024)) {
+    return NULL;
+  }
+
   vec_group_t groups;
   vec_void_t textures;
   vec_material_t materials;
@@ -200,12 +204,19 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
       }
     } else {
       char* newline = memchr(data, '\n', length);
+      if (!newline) {
+        break;
+      }
       lineLength = newline - data + 1;
     }
 
     data += lineLength;
     length -= lineLength;
     while (length && isspace(*data)) length--, data++;
+  }
+
+  if (vertexBlob.length == 0 || indexBlob.length == 0) {
+    return NULL;
   }
 
   model->blobCount = 2;
