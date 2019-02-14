@@ -28,6 +28,24 @@ int l_lovrModelSetAnimator(lua_State* L) {
   return 0;
 }
 
+int l_lovrModelGetMaterial(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  Material* material = lovrModelGetMaterial(model);
+  luax_pushobject(L, material);
+  return 1;
+}
+
+int l_lovrModelSetMaterial(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  if (lua_isnoneornil(L, 2)) {
+    lovrModelSetMaterial(model, NULL);
+  } else {
+    Material* material = luax_checktype(L, 2, Material);
+    lovrModelSetMaterial(model, material);
+  }
+  return 0;
+}
+
 int l_lovrModelGetAABB(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   float aabb[6];
@@ -42,6 +60,8 @@ const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
   { "getAnimator", l_lovrModelGetAnimator },
   { "setAnimator", l_lovrModelSetAnimator },
+  { "getMaterial", l_lovrModelGetMaterial },
+  { "setMaterial", l_lovrModelSetMaterial },
   { "getAABB", l_lovrModelGetAABB },
   { NULL, NULL }
 };

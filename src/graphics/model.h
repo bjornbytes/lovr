@@ -14,6 +14,7 @@ typedef struct {
   Mesh** meshes;
   Texture** textures;
   Material** materials;
+  Material* userMaterial;
   float* globalNodeTransforms;
 } Model;
 
@@ -23,4 +24,6 @@ void lovrModelDestroy(void* ref);
 void lovrModelDraw(Model* model, mat4 transform, int instances);
 Animator* lovrModelGetAnimator(Model* model);
 void lovrModelSetAnimator(Model* model, Animator* animator);
+Material* lovrModelGetMaterial(Model* model);
+void lovrModelSetMaterial(Model* model, Material* material);
 void lovrModelGetAABB(Model* model, float aabb[6]);

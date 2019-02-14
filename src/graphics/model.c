@@ -42,6 +42,11 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
     for (uint32_t i = 0; i < node->primitiveCount; i++) {
       ModelPrimitive* primitive = &model->data->primitives[node->primitiveIndex + i];
       Mesh* mesh = model->meshes[node->primitiveIndex + i];
+      Material* material = primitive->material >= 0 ? model->materials[primitive->material] : NULL;
+
+      if (model->userMaterial) {
+        material = model->userMaterial;
+      }
 
       uint32_t rangeStart, rangeCount;
       lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
@@ -57,7 +62,7 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
           .pose = node->skin >= 0 ? pose : NULL
         },
         .transform = globalTransform,
-        .material = primitive->material >= 0 ? model->materials[primitive->material] : NULL
+        .material = material
       });
     }
   }
@@ -204,6 +209,16 @@ void lovrModelSetAnimator(Model* model, Animator* animator) {
     lovrRelease(model->animator);
     model->animator = animator;
   }
+}
+
+Material* lovrModelGetMaterial(Model* model) {
+  return model->userMaterial;
+}
+
+void lovrModelSetMaterial(Model* model, Material* material) {
+  lovrRetain(material);
+  lovrRelease(model->userMaterial);
+  model->userMaterial = material;
 }
 
 static void applyAABB(Model* model, int nodeIndex, float aabb[6]) {
