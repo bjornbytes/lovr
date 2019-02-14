@@ -74,7 +74,7 @@ static void parseMtl(char* path, vec_void_t* textures, vec_material_t* materials
 
     s += lineLength;
     length -= lineLength;
-    while (length && isspace(*s)) length--, s++;
+    while (length && (*s == ' ' || *s == '\t')) length--, s++;
   }
 
   free(data);
@@ -84,7 +84,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   char* data = (char*) source->data;
   size_t length = source->size;
 
-  if (data[0] != '#' && !memchr(data, '\n', 1024)) {
+  if (!memchr(data, '\n', length)) {
     return NULL;
   }
 
@@ -212,7 +212,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
 
     data += lineLength;
     length -= lineLength;
-    while (length && isspace(*data)) length--, data++;
+    while (length && (*data == ' ' || *data == '\t')) length--, data++;
   }
 
   if (vertexBlob.length == 0 || indexBlob.length == 0) {
