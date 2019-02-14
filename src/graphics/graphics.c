@@ -242,7 +242,9 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   }
 
   if (clear) {
-    lovrGpuClear(state.camera.canvas, &state.backgroundColor, &(float) { 1. }, &(int) { 0 });
+    Color background = state.backgroundColor;
+    gammaCorrectColor(&background);
+    lovrGpuClear(state.camera.canvas, &background, &(float) { 1. }, &(int) { 0 });
   }
 }
 

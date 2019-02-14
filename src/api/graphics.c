@@ -1502,7 +1502,6 @@ int luaopen_lovr_graphics(lua_State* L) {
 
   luax_pushconf(L);
 
-  // Gamma correct
   lua_getfield(L, -1, "gammacorrect");
   bool gammaCorrect = lua_toboolean(L, -1);
   lua_pop(L, 1);
