@@ -25,8 +25,9 @@ Features
 - **Cross-Device** - Supports HTC Vive, Oculus Touch/Go, Windows MR, and includes a keyboard/mouse VR simulator.
 - **Beginner-friendly** - Simple VR scenes can be created in just a few lines of Lua.
 - **Fast** - Writen in C99 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
-- **Asset Import** - Supports 3D models (glTF, FBX, OBJ), skeletal animation, HDR textures, cubemaps, fonts, etc.
+- **Asset Import** - Supports 3D models (glTF, OBJ), skeletal animation, HDR textures, cubemaps, fonts, etc.
 - **Spatialized Audio** - Audio is automatically spatialized using HRTFs.
+- **Vector Library** - Efficient first-class support for 3D vectors, quaternions, and matrices.
 - **3D Rigid Body Physics** - Including 4 collider shapes and 4 joint types.
 - **Compute Shaders** - For high performance GPU tasks, like particles.
 - **Multiplayer** - Includes enet for multi-user VR experiences.
