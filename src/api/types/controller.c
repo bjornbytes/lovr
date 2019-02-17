@@ -43,7 +43,7 @@ int l_lovrControllerGetPosition(lua_State* L) {
 
 int l_lovrControllerGetOrientation(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  float x, y, z, angle, ax, ay, az, q[4];
+  float x, y, z, angle, ax, ay, az;
   lovrHeadsetDriver->controllerGetPose(controller, &x, &y, &z, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
   lua_pushnumber(L, ax);

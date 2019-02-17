@@ -91,6 +91,7 @@ static GLenum convertCompareMode(CompareMode mode) {
     case COMPARE_LEQUAL: return GL_LEQUAL;
     case COMPARE_GREATER: return GL_GREATER;
     case COMPARE_GEQUAL: return GL_GEQUAL;
+    default: lovrThrow("Unreachable");
   }
 }
 
@@ -99,6 +100,7 @@ static GLenum convertWrapMode(WrapMode mode) {
     case WRAP_CLAMP: return GL_CLAMP_TO_EDGE;
     case WRAP_REPEAT: return GL_REPEAT;
     case WRAP_MIRRORED_REPEAT: return GL_MIRRORED_REPEAT;
+    default: lovrThrow("Unreachable");
   }
 }
 
@@ -108,6 +110,7 @@ static GLenum convertTextureTarget(TextureType type) {
     case TEXTURE_ARRAY: return GL_TEXTURE_2D_ARRAY; break;
     case TEXTURE_CUBE: return GL_TEXTURE_CUBE_MAP; break;
     case TEXTURE_VOLUME: return GL_TEXTURE_3D; break;
+    default: lovrThrow("Unreachable");
   }
 }
 
@@ -131,6 +134,7 @@ static GLenum convertTextureFormat(TextureFormat format) {
     case FORMAT_DXT1: return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+    default: lovrThrow("Unreachable");
   }
 }
 
@@ -154,6 +158,7 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
     case FORMAT_DXT1: return srgb ? GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+    default: lovrThrow("Unreachable");
   }
 }
 
@@ -177,6 +182,7 @@ static GLenum convertTextureFormatType(TextureFormat format) {
     case FORMAT_DXT1:
     case FORMAT_DXT3:
     case FORMAT_DXT5:
+    default:
       lovrThrow("Unreachable");
       return GL_UNSIGNED_BYTE;
   }
@@ -216,7 +222,7 @@ static GLenum convertBufferType(BufferType type) {
     case BUFFER_UNIFORM: return GL_UNIFORM_BUFFER;
     case BUFFER_SHADER_STORAGE: return GL_SHADER_STORAGE_BUFFER;
     case BUFFER_GENERIC: return GL_COPY_WRITE_BUFFER;
-    default: lovrThrow("Unreachable"); return 0;
+    default: lovrThrow("Unreachable");
   }
 }
 
@@ -225,6 +231,7 @@ static GLenum convertBufferUsage(BufferUsage usage) {
     case USAGE_STATIC: return GL_STATIC_DRAW;
     case USAGE_DYNAMIC: return GL_DYNAMIC_DRAW;
     case USAGE_STREAM: return GL_STREAM_DRAW;
+    default: lovrThrow("Unreachable");
   }
 }
 
@@ -234,6 +241,7 @@ static GLenum convertAccess(UniformAccess access) {
     case ACCESS_READ: return GL_READ_ONLY;
     case ACCESS_WRITE: return GL_WRITE_ONLY;
     case ACCESS_READ_WRITE: return GL_READ_WRITE;
+    default: lovrThrow("Unreachable");
   }
 }
 #endif
@@ -247,6 +255,7 @@ static GLenum convertDrawMode(DrawMode mode) {
     case DRAW_TRIANGLE_STRIP: return GL_TRIANGLE_STRIP;
     case DRAW_TRIANGLES: return GL_TRIANGLES;
     case DRAW_TRIANGLE_FAN: return GL_TRIANGLE_FAN;
+    default: lovrThrow("Unreachable");
   }
 }
 

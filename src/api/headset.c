@@ -224,7 +224,7 @@ static int l_lovrHeadsetGetPosition(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetOrientation(lua_State* L) {
-  float x, y, z, angle, ax, ay, az, q[4];
+  float x, y, z, angle, ax, ay, az;
   lovrHeadsetDriver->getPose(&x, &y, &z, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
   lua_pushnumber(L, ax);
@@ -339,7 +339,7 @@ int luaopen_lovr_headset(lua_State* L) {
 
   vec_t(HeadsetDriver) drivers;
   vec_init(&drivers);
-  float offset = 1.7;
+  float offset = 1.7f;
   int msaa = 4;
 
   if (lua_istable(L, -1)) {

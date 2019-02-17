@@ -10,7 +10,7 @@
 #define luax_checktype(L, i, T) ((T*) _luax_checktype(L, i, #T))
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
-typedef void (*luax_destructor)(void);
+typedef void (*luax_destructor)();
 
 int luax_print(lua_State* L);
 void luax_atexit(lua_State* L, luax_destructor destructor);

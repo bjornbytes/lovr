@@ -18,7 +18,6 @@ bool lovrEventInit() {
   vec_init(&state.pumps);
   vec_init(&state.events);
   lovrEventAddPump(lovrPlatformPollEvents);
-  atexit(lovrEventDestroy);
   return state.initialized = true;
 }
 

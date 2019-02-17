@@ -322,5 +322,7 @@ int lovrSourceTell(Source* source) {
       }
       break;
     }
+
+    default: lovrThrow("Unreachable"); break;
   }
 }

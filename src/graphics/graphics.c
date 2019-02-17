@@ -235,8 +235,8 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
     memset(&state.camera, 0, sizeof(Camera));
     mat4_identity(state.camera.viewMatrix[0]);
     mat4_identity(state.camera.viewMatrix[1]);
-    mat4_perspective(state.camera.projection[0], .01f, 100.f, 67 * M_PI / 180., (float) state.width / state.height);
-    mat4_perspective(state.camera.projection[1], .01f, 100.f, 67 * M_PI / 180., (float) state.width / state.height);
+    mat4_perspective(state.camera.projection[0], .01f, 100.f, 67. * M_PI / 180., (float) state.width / state.height);
+    mat4_perspective(state.camera.projection[1], .01f, 100.f, 67. * M_PI / 180., (float) state.width / state.height);
   } else {
     state.camera = *camera;
   }
@@ -974,7 +974,7 @@ void lovrGraphicsArc(DrawStyle style, ArcMode mode, Material* material, mat4 tra
 }
 
 void lovrGraphicsCircle(DrawStyle style, Material* material, mat4 transform, int segments) {
-  lovrGraphicsArc(style, ARC_MODE_OPEN, material, transform, 0, 2 * M_PI, segments);
+  lovrGraphicsArc(style, ARC_MODE_OPEN, material, transform, 0, 2. * M_PI, segments);
 }
 
 void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2, bool capped, int segments) {

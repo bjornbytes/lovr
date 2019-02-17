@@ -81,7 +81,7 @@ typedef struct {
   EventData data;
 } Event;
 
-typedef void (*EventPump)(void);
+typedef void (*EventPump)();
 
 typedef vec_t(EventPump) vec_pump_t;
 typedef vec_t(Event) vec_event_t;
