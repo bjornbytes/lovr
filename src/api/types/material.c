@@ -2,7 +2,7 @@
 #include "api/graphics.h"
 #include "graphics/material.h"
 
-int l_lovrMaterialGetColor(lua_State* L) {
+static int l_lovrMaterialGetColor(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   MaterialColor colorType = luaL_checkoption(L, 2, "diffuse", MaterialColors);
   Color color = lovrMaterialGetColor(material, colorType);
@@ -13,7 +13,7 @@ int l_lovrMaterialGetColor(lua_State* L) {
   return 4;
 }
 
-int l_lovrMaterialSetColor(lua_State* L) {
+static int l_lovrMaterialSetColor(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   MaterialColor colorType = COLOR_DIFFUSE;
   int index = 2;
@@ -26,7 +26,7 @@ int l_lovrMaterialSetColor(lua_State* L) {
   return 0;
 }
 
-int l_lovrMaterialGetScalar(lua_State* L) {
+static int l_lovrMaterialGetScalar(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   MaterialScalar scalarType = luaL_checkoption(L, 2, NULL, MaterialScalars);
   float value = lovrMaterialGetScalar(material, scalarType);
@@ -34,7 +34,7 @@ int l_lovrMaterialGetScalar(lua_State* L) {
   return 1;
 }
 
-int l_lovrMaterialSetScalar(lua_State* L) {
+static int l_lovrMaterialSetScalar(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   MaterialScalar scalarType = luaL_checkoption(L, 2, NULL, MaterialScalars);
   float value = luax_checkfloat(L, 3);
@@ -42,7 +42,7 @@ int l_lovrMaterialSetScalar(lua_State* L) {
   return 0;
 }
 
-int l_lovrMaterialGetTexture(lua_State* L) {
+static int l_lovrMaterialGetTexture(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   MaterialTexture textureType = luaL_checkoption(L, 2, "diffuse", MaterialTextures);
   Texture* texture = lovrMaterialGetTexture(material, textureType);
@@ -50,7 +50,7 @@ int l_lovrMaterialGetTexture(lua_State* L) {
   return 1;
 }
 
-int l_lovrMaterialSetTexture(lua_State* L) {
+static int l_lovrMaterialSetTexture(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   MaterialTexture textureType = TEXTURE_DIFFUSE;
   int index = 2;
@@ -63,7 +63,7 @@ int l_lovrMaterialSetTexture(lua_State* L) {
   return 0;
 }
 
-int l_lovrMaterialGetTransform(lua_State* L) {
+static int l_lovrMaterialGetTransform(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   float ox, oy, sx, sy, angle;
   lovrMaterialGetTransform(material, &ox, &oy,  &sx, &sy, &angle);
@@ -75,7 +75,7 @@ int l_lovrMaterialGetTransform(lua_State* L) {
   return 5;
 }
 
-int l_lovrMaterialSetTransform(lua_State* L) {
+static int l_lovrMaterialSetTransform(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   float ox = luax_optfloat(L, 2, 0.f);
   float oy = luax_optfloat(L, 3, 0.f);

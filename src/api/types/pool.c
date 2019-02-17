@@ -3,7 +3,7 @@
 #include "math/pool.h"
 #include "lib/math.h"
 
-int l_lovrPoolVec3(lua_State* L) {
+static int l_lovrPoolVec3(lua_State* L) {
   Pool* pool = luax_checktype(L, 1, Pool);
   vec3 v = lovrPoolAllocate(pool, MATH_VEC3);
   if (v) {
@@ -16,7 +16,7 @@ int l_lovrPoolVec3(lua_State* L) {
   return 1;
 }
 
-int l_lovrPoolQuat(lua_State* L) {
+static int l_lovrPoolQuat(lua_State* L) {
   Pool* pool = luax_checktype(L, 1, Pool);
   quat q = lovrPoolAllocate(pool, MATH_QUAT);
   if (q) {
@@ -29,7 +29,7 @@ int l_lovrPoolQuat(lua_State* L) {
   return 1;
 }
 
-int l_lovrPoolMat4(lua_State* L) {
+static int l_lovrPoolMat4(lua_State* L) {
   Pool* pool = luax_checktype(L, 1, Pool);
   mat4 m = lovrPoolAllocate(pool, MATH_MAT4);
   if (m) {
@@ -42,19 +42,19 @@ int l_lovrPoolMat4(lua_State* L) {
   return 1;
 }
 
-int l_lovrPoolDrain(lua_State* L) {
+static int l_lovrPoolDrain(lua_State* L) {
   Pool* pool = luax_checktype(L, 1, Pool);
   lovrPoolDrain(pool);
   return 0;
 }
 
-int l_lovrPoolGetSize(lua_State* L) {
+static int l_lovrPoolGetSize(lua_State* L) {
   Pool* pool = luax_checktype(L, 1, Pool);
   lua_pushinteger(L, lovrPoolGetSize(pool));
   return 1;
 }
 
-int l_lovrPoolGetUsage(lua_State* L) {
+static int l_lovrPoolGetUsage(lua_State* L) {
   Pool* pool = luax_checktype(L, 1, Pool);
   lua_pushinteger(L, lovrPoolGetUsage(pool));
   return 1;

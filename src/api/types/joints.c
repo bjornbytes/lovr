@@ -1,19 +1,19 @@
 #include "api.h"
 #include "physics/physics.h"
 
-int l_lovrJointDestroy(lua_State* L) {
+static int l_lovrJointDestroy(lua_State* L) {
   Joint* joint = luax_checktype(L, 1, Joint);
   lovrJointDestroyData(joint);
   return 0;
 }
 
-int l_lovrJointGetType(lua_State* L) {
+static int l_lovrJointGetType(lua_State* L) {
   Joint* joint = luax_checktype(L, 1, Joint);
   lua_pushstring(L, JointTypes[lovrJointGetType(joint)]);
   return 1;
 }
 
-int l_lovrJointGetColliders(lua_State* L) {
+static int l_lovrJointGetColliders(lua_State* L) {
   Joint* joint = luax_checktype(L, 1, Joint);
   Collider* a;
   Collider* b;
@@ -23,14 +23,14 @@ int l_lovrJointGetColliders(lua_State* L) {
   return 2;
 }
 
-int l_lovrJointGetUserData(lua_State* L) {
+static int l_lovrJointGetUserData(lua_State* L) {
   Joint* joint = luax_checktype(L, 1, Joint);
   int ref = (int) lovrJointGetUserData(joint);
   lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
   return 1;
 }
 
-int l_lovrJointSetUserData(lua_State* L) {
+static int l_lovrJointSetUserData(lua_State* L) {
   Joint* joint = luax_checktype(L, 1, Joint);
   uint64_t ref = (int) lovrJointGetUserData(joint);
   if (ref) {
@@ -56,7 +56,7 @@ const luaL_Reg lovrJoint[] = {
   { NULL, NULL }
 };
 
-int l_lovrBallJointGetAnchors(lua_State* L) {
+static int l_lovrBallJointGetAnchors(lua_State* L) {
   BallJoint* joint = luax_checktype(L, 1, BallJoint);
   float x1, y1, z1, x2, y2, z2;
   lovrBallJointGetAnchors(joint, &x1, &y1, &z1, &x2, &y2, &z2);
@@ -69,7 +69,7 @@ int l_lovrBallJointGetAnchors(lua_State* L) {
   return 6;
 }
 
-int l_lovrBallJointSetAnchor(lua_State* L) {
+static int l_lovrBallJointSetAnchor(lua_State* L) {
   BallJoint* joint = luax_checktype(L, 1, BallJoint);
   float x = luax_checkfloat(L, 2);
   float y = luax_checkfloat(L, 3);
@@ -84,7 +84,7 @@ const luaL_Reg lovrBallJoint[] = {
   { NULL, NULL }
 };
 
-int l_lovrDistanceJointGetAnchors(lua_State* L) {
+static int l_lovrDistanceJointGetAnchors(lua_State* L) {
   DistanceJoint* joint = luax_checktype(L, 1, DistanceJoint);
   float x1, y1, z1, x2, y2, z2;
   lovrDistanceJointGetAnchors(joint, &x1, &y1, &z1, &x2, &y2, &z2);
@@ -97,7 +97,7 @@ int l_lovrDistanceJointGetAnchors(lua_State* L) {
   return 6;
 }
 
-int l_lovrDistanceJointSetAnchors(lua_State* L) {
+static int l_lovrDistanceJointSetAnchors(lua_State* L) {
   DistanceJoint* joint = luax_checktype(L, 1, DistanceJoint);
   float x1 = luax_checkfloat(L, 2);
   float y1 = luax_checkfloat(L, 3);
@@ -109,13 +109,13 @@ int l_lovrDistanceJointSetAnchors(lua_State* L) {
   return 0;
 }
 
-int l_lovrDistanceJointGetDistance(lua_State* L) {
+static int l_lovrDistanceJointGetDistance(lua_State* L) {
   DistanceJoint* joint = luax_checktype(L, 1, DistanceJoint);
   lua_pushnumber(L, lovrDistanceJointGetDistance(joint));
   return 1;
 }
 
-int l_lovrDistanceJointSetDistance(lua_State* L) {
+static int l_lovrDistanceJointSetDistance(lua_State* L) {
   DistanceJoint* joint = luax_checktype(L, 1, DistanceJoint);
   float distance = luax_checkfloat(L, 2);
   lovrDistanceJointSetDistance(joint, distance);
@@ -130,7 +130,7 @@ const luaL_Reg lovrDistanceJoint[] = {
   { NULL, NULL }
 };
 
-int l_lovrHingeJointGetAnchors(lua_State* L) {
+static int l_lovrHingeJointGetAnchors(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   float x1, y1, z1, x2, y2, z2;
   lovrHingeJointGetAnchors(joint, &x1, &y1, &z1, &x2, &y2, &z2);
@@ -143,7 +143,7 @@ int l_lovrHingeJointGetAnchors(lua_State* L) {
   return 6;
 }
 
-int l_lovrHingeJointSetAnchor(lua_State* L) {
+static int l_lovrHingeJointSetAnchor(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   float x = luax_checkfloat(L, 2);
   float y = luax_checkfloat(L, 3);
@@ -152,7 +152,7 @@ int l_lovrHingeJointSetAnchor(lua_State* L) {
   return 0;
 }
 
-int l_lovrHingeJointGetAxis(lua_State* L) {
+static int l_lovrHingeJointGetAxis(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   float x, y, z;
   lovrHingeJointGetAxis(joint, &x, &y, &z);
@@ -162,7 +162,7 @@ int l_lovrHingeJointGetAxis(lua_State* L) {
   return 3;
 }
 
-int l_lovrHingeJointSetAxis(lua_State* L) {
+static int l_lovrHingeJointSetAxis(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   float x = luax_checkfloat(L, 2);
   float y = luax_checkfloat(L, 3);
@@ -171,46 +171,46 @@ int l_lovrHingeJointSetAxis(lua_State* L) {
   return 0;
 }
 
-int l_lovrHingeJointGetAngle(lua_State* L) {
+static int l_lovrHingeJointGetAngle(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   lua_pushnumber(L, lovrHingeJointGetAngle(joint));
   return 1;
 }
 
-int l_lovrHingeJointGetLowerLimit(lua_State* L) {
+static int l_lovrHingeJointGetLowerLimit(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   lua_pushnumber(L, lovrHingeJointGetLowerLimit(joint));
   return 1;
 }
 
-int l_lovrHingeJointSetLowerLimit(lua_State* L) {
+static int l_lovrHingeJointSetLowerLimit(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   float limit = luax_checkfloat(L, 2);
   lovrHingeJointSetLowerLimit(joint, limit);
   return 0;
 }
 
-int l_lovrHingeJointGetUpperLimit(lua_State* L) {
+static int l_lovrHingeJointGetUpperLimit(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   lua_pushnumber(L, lovrHingeJointGetUpperLimit(joint));
   return 1;
 }
 
-int l_lovrHingeJointSetUpperLimit(lua_State* L) {
+static int l_lovrHingeJointSetUpperLimit(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   float limit = luax_checkfloat(L, 2);
   lovrHingeJointSetUpperLimit(joint, limit);
   return 0;
 }
 
-int l_lovrHingeJointGetLimits(lua_State* L) {
+static int l_lovrHingeJointGetLimits(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   lua_pushnumber(L, lovrHingeJointGetLowerLimit(joint));
   lua_pushnumber(L, lovrHingeJointGetUpperLimit(joint));
   return 2;
 }
 
-int l_lovrHingeJointSetLimits(lua_State* L) {
+static int l_lovrHingeJointSetLimits(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   float lower = luax_checkfloat(L, 2);
   float upper = luax_checkfloat(L, 3);
@@ -234,7 +234,7 @@ const luaL_Reg lovrHingeJoint[] = {
   { NULL, NULL }
 };
 
-int l_lovrSliderJointGetAxis(lua_State* L) {
+static int l_lovrSliderJointGetAxis(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   float x, y, z;
   lovrSliderJointGetAxis(joint, &x, &y, &z);
@@ -244,7 +244,7 @@ int l_lovrSliderJointGetAxis(lua_State* L) {
   return 3;
 }
 
-int l_lovrSliderJointSetAxis(lua_State* L) {
+static int l_lovrSliderJointSetAxis(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   float x = luax_checkfloat(L, 2);
   float y = luax_checkfloat(L, 3);
@@ -253,46 +253,46 @@ int l_lovrSliderJointSetAxis(lua_State* L) {
   return 0;
 }
 
-int l_lovrSliderJointGetPosition(lua_State* L) {
+static int l_lovrSliderJointGetPosition(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   lua_pushnumber(L, lovrSliderJointGetPosition(joint));
   return 1;
 }
 
-int l_lovrSliderJointGetLowerLimit(lua_State* L) {
+static int l_lovrSliderJointGetLowerLimit(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   lua_pushnumber(L, lovrSliderJointGetLowerLimit(joint));
   return 1;
 }
 
-int l_lovrSliderJointSetLowerLimit(lua_State* L) {
+static int l_lovrSliderJointSetLowerLimit(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   float limit = luax_checkfloat(L, 2);
   lovrSliderJointSetLowerLimit(joint, limit);
   return 0;
 }
 
-int l_lovrSliderJointGetUpperLimit(lua_State* L) {
+static int l_lovrSliderJointGetUpperLimit(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   lua_pushnumber(L, lovrSliderJointGetUpperLimit(joint));
   return 1;
 }
 
-int l_lovrSliderJointSetUpperLimit(lua_State* L) {
+static int l_lovrSliderJointSetUpperLimit(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   float limit = luax_checkfloat(L, 2);
   lovrSliderJointSetUpperLimit(joint, limit);
   return 0;
 }
 
-int l_lovrSliderJointGetLimits(lua_State* L) {
+static int l_lovrSliderJointGetLimits(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   lua_pushnumber(L, lovrSliderJointGetLowerLimit(joint));
   lua_pushnumber(L, lovrSliderJointGetUpperLimit(joint));
   return 2;
 }
 
-int l_lovrSliderJointSetLimits(lua_State* L) {
+static int l_lovrSliderJointSetLimits(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   float lower = luax_checkfloat(L, 2);
   float upper = luax_checkfloat(L, 3);

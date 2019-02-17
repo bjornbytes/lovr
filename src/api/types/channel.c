@@ -18,7 +18,7 @@ static void luax_checktimeout(lua_State* L, int index, double* timeout) {
   }
 }
 
-int l_lovrChannelPush(lua_State* L) {
+static int l_lovrChannelPush(lua_State* L) {
   Variant variant;
   double timeout;
   Channel* channel = luax_checktype(L, 1, Channel);
@@ -31,7 +31,7 @@ int l_lovrChannelPush(lua_State* L) {
   return 2;
 }
 
-int l_lovrChannelPop(lua_State* L) {
+static int l_lovrChannelPop(lua_State* L) {
   Variant variant;
   double timeout;
   Channel* channel = luax_checktype(L, 1, Channel);
@@ -45,7 +45,7 @@ int l_lovrChannelPop(lua_State* L) {
   return 1;
 }
 
-int l_lovrChannelPeek(lua_State* L) {
+static int l_lovrChannelPeek(lua_State* L) {
   Variant variant;
   Channel* channel = luax_checktype(L, 1, Channel);
   if (lovrChannelPeek(channel, &variant)) {
@@ -55,19 +55,19 @@ int l_lovrChannelPeek(lua_State* L) {
   return 1;
 }
 
-int l_lovrChannelClear(lua_State* L) {
+static int l_lovrChannelClear(lua_State* L) {
   Channel* channel = luax_checktype(L, 1, Channel);
   lovrChannelClear(channel);
   return 0;
 }
 
-int l_lovrChannelGetCount(lua_State* L) {
+static int l_lovrChannelGetCount(lua_State* L) {
   Channel* channel = luax_checktype(L, 1, Channel);
   lua_pushinteger(L, lovrChannelGetCount(channel));
   return 1;
 }
 
-int l_lovrChannelHasRead(lua_State* L) {
+static int l_lovrChannelHasRead(lua_State* L) {
   Channel* channel = luax_checktype(L, 1, Channel);
   uint64_t id = luaL_checkinteger(L, 2);
   lua_pushboolean(L, lovrChannelHasRead(channel, id));

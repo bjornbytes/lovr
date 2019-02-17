@@ -1,43 +1,43 @@
 #include "api.h"
 #include "data/rasterizer.h"
 
-int l_lovrRasterizerGetHeight(lua_State* L) {
+static int l_lovrRasterizerGetHeight(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   lua_pushinteger(L, rasterizer->height);
   return 1;
 }
 
-int l_lovrRasterizerGetAdvance(lua_State* L) {
+static int l_lovrRasterizerGetAdvance(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   lua_pushinteger(L, rasterizer->advance);
   return 1;
 }
 
-int l_lovrRasterizerGetAscent(lua_State* L) {
+static int l_lovrRasterizerGetAscent(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   lua_pushinteger(L, rasterizer->ascent);
   return 1;
 }
 
-int l_lovrRasterizerGetDescent(lua_State* L) {
+static int l_lovrRasterizerGetDescent(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   lua_pushinteger(L, rasterizer->descent);
   return 1;
 }
 
-int l_lovrRasterizerGetLineHeight(lua_State* L) {
+static int l_lovrRasterizerGetLineHeight(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   lua_pushinteger(L, rasterizer->height * 1.25f);
   return 1;
 }
 
-int l_lovrRasterizerGetGlyphCount(lua_State* L) {
+static int l_lovrRasterizerGetGlyphCount(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   lua_pushinteger(L, rasterizer->glyphCount);
   return 1;
 }
 
-int l_lovrRasterizerHasGlyphs(lua_State* L) {
+static int l_lovrRasterizerHasGlyphs(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   bool hasGlyphs = true;
   for (int i = 2; i <= lua_gettop(L); i++) {

@@ -4,7 +4,7 @@
 #include "graphics/graphics.h"
 #include <limits.h>
 
-int l_lovrMeshAttachAttributes(lua_State* L) {
+static int l_lovrMeshAttachAttributes(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   Mesh* other = luax_checktype(L, 2, Mesh);
   int instanceDivisor = luaL_optinteger(L, 3, 0);
@@ -44,7 +44,7 @@ int l_lovrMeshAttachAttributes(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshDetachAttributes(lua_State* L) {
+static int l_lovrMeshDetachAttributes(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   if (lua_isuserdata(L, 2)) {
     Mesh* other = luax_checktype(L, 2, Mesh);
@@ -71,7 +71,7 @@ int l_lovrMeshDetachAttributes(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshDraw(lua_State* L) {
+static int l_lovrMeshDraw(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1);
@@ -96,20 +96,20 @@ int l_lovrMeshDraw(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshGetDrawMode(lua_State* L) {
+static int l_lovrMeshGetDrawMode(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   lua_pushstring(L, DrawModes[lovrMeshGetDrawMode(mesh)]);
   return 1;
 }
 
-int l_lovrMeshSetDrawMode(lua_State* L) {
+static int l_lovrMeshSetDrawMode(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   DrawMode mode = luaL_checkoption(L, 2, NULL, DrawModes);
   lovrMeshSetDrawMode(mesh, mode);
   return 0;
 }
 
-int l_lovrMeshGetVertexFormat(lua_State* L) {
+static int l_lovrMeshGetVertexFormat(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   lua_createtable(L, mesh->attributeCount, 0);
   for (int i = 0; i < mesh->attributeCount; i++) {
@@ -129,13 +129,13 @@ int l_lovrMeshGetVertexFormat(lua_State* L) {
   return 1;
 }
 
-int l_lovrMeshGetVertexCount(lua_State* L) {
+static int l_lovrMeshGetVertexCount(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   lua_pushinteger(L, lovrMeshGetVertexCount(mesh));
   return 1;
 }
 
-int l_lovrMeshGetVertex(lua_State* L) {
+static int l_lovrMeshGetVertex(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   int index = luaL_checkinteger(L, 2) - 1;
 
@@ -167,7 +167,7 @@ int l_lovrMeshGetVertex(lua_State* L) {
   return components;
 }
 
-int l_lovrMeshSetVertex(lua_State* L) {
+static int l_lovrMeshSetVertex(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   uint32_t index = luaL_checkinteger(L, 2) - 1;
   lovrAssert(index >= 0 && index < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex index: %d", index + 1);
@@ -212,7 +212,7 @@ int l_lovrMeshSetVertex(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshGetVertexAttribute(lua_State* L) {
+static int l_lovrMeshGetVertexAttribute(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   uint32_t vertexIndex = luaL_checkinteger(L, 2) - 1;
   int attributeIndex = luaL_checkinteger(L, 3) - 1;
@@ -237,7 +237,7 @@ int l_lovrMeshGetVertexAttribute(lua_State* L) {
   return attribute->components;
 }
 
-int l_lovrMeshSetVertexAttribute(lua_State* L) {
+static int l_lovrMeshSetVertexAttribute(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   uint32_t vertexIndex = luaL_checkinteger(L, 2) - 1;
   int attributeIndex = luaL_checkinteger(L, 3) - 1;
@@ -272,7 +272,7 @@ int l_lovrMeshSetVertexAttribute(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshSetVertices(lua_State* L) {
+static int l_lovrMeshSetVertices(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   uint32_t capacity = lovrMeshGetVertexCount(mesh);
   luaL_checktype(L, 2, LUA_TTABLE);
@@ -322,7 +322,7 @@ int l_lovrMeshSetVertices(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshGetVertexMap(lua_State* L) {
+static int l_lovrMeshGetVertexMap(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   Buffer* buffer = lovrMeshGetIndexBuffer(mesh);
   uint32_t count = lovrMeshGetIndexCount(mesh);
@@ -357,7 +357,7 @@ int l_lovrMeshGetVertexMap(lua_State* L) {
   return 1;
 }
 
-int l_lovrMeshSetVertexMap(lua_State* L) {
+static int l_lovrMeshSetVertexMap(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
 
   if (lua_isnoneornil(L, 2)) {
@@ -425,14 +425,14 @@ int l_lovrMeshSetVertexMap(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshIsAttributeEnabled(lua_State* L) {
+static int l_lovrMeshIsAttributeEnabled(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   const char* attribute = luaL_checkstring(L, 2);
   lua_pushboolean(L, lovrMeshIsAttributeEnabled(mesh, attribute));
   return 1;
 }
 
-int l_lovrMeshSetAttributeEnabled(lua_State* L) {
+static int l_lovrMeshSetAttributeEnabled(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   const char* attribute = luaL_checkstring(L, 2);
   bool enabled = lua_toboolean(L, 3);
@@ -440,7 +440,7 @@ int l_lovrMeshSetAttributeEnabled(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshGetDrawRange(lua_State* L) {
+static int l_lovrMeshGetDrawRange(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   uint32_t start, count;
   lovrMeshGetDrawRange(mesh, &start, &count);
@@ -455,7 +455,7 @@ int l_lovrMeshGetDrawRange(lua_State* L) {
   return 2;
 }
 
-int l_lovrMeshSetDrawRange(lua_State* L) {
+static int l_lovrMeshSetDrawRange(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   if (lua_isnoneornil(L, 2)) {
     lovrMeshSetDrawRange(mesh, 0, 0);
@@ -468,14 +468,14 @@ int l_lovrMeshSetDrawRange(lua_State* L) {
   return 0;
 }
 
-int l_lovrMeshGetMaterial(lua_State* L) {
+static int l_lovrMeshGetMaterial(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   Material* material = lovrMeshGetMaterial(mesh);
   luax_pushobject(L, material);
   return 1;
 }
 
-int l_lovrMeshSetMaterial(lua_State* L) {
+static int l_lovrMeshSetMaterial(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   if (lua_isnoneornil(L, 2)) {
     lovrMeshSetMaterial(mesh, NULL);

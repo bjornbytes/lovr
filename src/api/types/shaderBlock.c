@@ -2,20 +2,20 @@
 #include "api/graphics.h"
 #include "graphics/shader.h"
 
-int l_lovrShaderBlockGetType(lua_State* L) {
+static int l_lovrShaderBlockGetType(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
   lua_pushstring(L, BlockTypes[lovrShaderBlockGetType(block)]);
   return 1;
 }
 
-int l_lovrShaderBlockGetSize(lua_State* L) {
+static int l_lovrShaderBlockGetSize(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
   Buffer* buffer = lovrShaderBlockGetBuffer(block);
   lua_pushinteger(L, lovrBufferGetSize(buffer));
   return 1;
 }
 
-int l_lovrShaderBlockGetOffset(lua_State* L) {
+static int l_lovrShaderBlockGetOffset(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
   const char* field = luaL_checkstring(L, 2);
   const Uniform* uniform = lovrShaderBlockGetUniform(block, field);
@@ -23,7 +23,7 @@ int l_lovrShaderBlockGetOffset(lua_State* L) {
   return 1;
 }
 
-int l_lovrShaderBlockSend(lua_State* L) {
+static int l_lovrShaderBlockSend(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
   if (lua_type(L, 2) == LUA_TSTRING) {
     const char* name = luaL_checkstring(L, 2);
@@ -47,7 +47,7 @@ int l_lovrShaderBlockSend(lua_State* L) {
   }
 }
 
-int l_lovrShaderBlockRead(lua_State* L) {
+static int l_lovrShaderBlockRead(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
   const char* name = luaL_checkstring(L, 2);
   const Uniform* uniform = lovrShaderBlockGetUniform(block, name);
@@ -97,7 +97,7 @@ int l_lovrShaderBlockRead(lua_State* L) {
   return 1;
 }
 
-int l_lovrShaderBlockGetShaderCode(lua_State* L) {
+static int l_lovrShaderBlockGetShaderCode(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
   const char* blockName = luaL_checkstring(L, 2);
   size_t length;

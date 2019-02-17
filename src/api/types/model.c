@@ -2,7 +2,7 @@
 #include "api/math.h"
 #include "graphics/model.h"
 
-int l_lovrModelDraw(lua_State* L) {
+static int l_lovrModelDraw(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1);
@@ -11,13 +11,13 @@ int l_lovrModelDraw(lua_State* L) {
   return 0;
 }
 
-int l_lovrModelGetAnimator(lua_State* L) {
+static int l_lovrModelGetAnimator(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   luax_pushobject(L, lovrModelGetAnimator(model));
   return 1;
 }
 
-int l_lovrModelSetAnimator(lua_State* L) {
+static int l_lovrModelSetAnimator(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   if (lua_isnoneornil(L, 2)) {
     lovrModelSetAnimator(model, NULL);
@@ -28,14 +28,14 @@ int l_lovrModelSetAnimator(lua_State* L) {
   return 0;
 }
 
-int l_lovrModelGetMaterial(lua_State* L) {
+static int l_lovrModelGetMaterial(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Material* material = lovrModelGetMaterial(model);
   luax_pushobject(L, material);
   return 1;
 }
 
-int l_lovrModelSetMaterial(lua_State* L) {
+static int l_lovrModelSetMaterial(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   if (lua_isnoneornil(L, 2)) {
     lovrModelSetMaterial(model, NULL);
@@ -46,7 +46,7 @@ int l_lovrModelSetMaterial(lua_State* L) {
   return 0;
 }
 
-int l_lovrModelGetAABB(lua_State* L) {
+static int l_lovrModelGetAABB(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   float aabb[6];
   lovrModelGetAABB(model, aabb);

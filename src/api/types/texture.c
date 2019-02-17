@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/graphics.h"
 #include "graphics/texture.h"
 
 int luax_optmipmap(lua_State* L, int index, Texture* texture) {
@@ -7,13 +8,13 @@ int luax_optmipmap(lua_State* L, int index, Texture* texture) {
   return mipmap - 1;
 }
 
-int l_lovrTextureGetDepth(lua_State* L) {
+static int l_lovrTextureGetDepth(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lua_pushnumber(L, lovrTextureGetDepth(texture, luax_optmipmap(L, 2, texture)));
   return 1;
 }
 
-int l_lovrTextureGetDimensions(lua_State* L) {
+static int l_lovrTextureGetDimensions(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   int mipmap = luax_optmipmap(L, 2, texture);
   lua_pushinteger(L, lovrTextureGetWidth(texture, mipmap));
@@ -25,7 +26,7 @@ int l_lovrTextureGetDimensions(lua_State* L) {
   return 2;
 }
 
-int l_lovrTextureGetFilter(lua_State* L) {
+static int l_lovrTextureGetFilter(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   TextureFilter filter = lovrTextureGetFilter(texture);
   lua_pushstring(L, FilterModes[filter.mode]);
@@ -36,37 +37,37 @@ int l_lovrTextureGetFilter(lua_State* L) {
   return 1;
 }
 
-int l_lovrTextureGetFormat(lua_State* L) {
+static int l_lovrTextureGetFormat(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lua_pushstring(L, TextureFormats[lovrTextureGetFormat(texture)]);
   return 1;
 }
 
-int l_lovrTextureGetHeight(lua_State* L) {
+static int l_lovrTextureGetHeight(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lua_pushnumber(L, lovrTextureGetHeight(texture, luax_optmipmap(L, 2, texture)));
   return 1;
 }
 
-int l_lovrTextureGetMipmapCount(lua_State* L) {
+static int l_lovrTextureGetMipmapCount(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lua_pushinteger(L, lovrTextureGetMipmapCount(texture));
   return 1;
 }
 
-int l_lovrTextureGetType(lua_State* L) {
+static int l_lovrTextureGetType(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lua_pushstring(L, TextureTypes[lovrTextureGetType(texture)]);
   return 1;
 }
 
-int l_lovrTextureGetWidth(lua_State* L) {
+static int l_lovrTextureGetWidth(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lua_pushnumber(L, lovrTextureGetWidth(texture, luax_optmipmap(L, 2, texture)));
   return 1;
 }
 
-int l_lovrTextureGetWrap(lua_State* L) {
+static int l_lovrTextureGetWrap(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   TextureWrap wrap = lovrTextureGetWrap(texture);
   lua_pushstring(L, WrapModes[wrap.s]);
@@ -78,7 +79,7 @@ int l_lovrTextureGetWrap(lua_State* L) {
   return 2;
 }
 
-int l_lovrTextureReplacePixels(lua_State* L) {
+static int l_lovrTextureReplacePixels(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   TextureData* textureData = luax_checktype(L, 2, TextureData);
   int x = luaL_optinteger(L, 3, 0);
@@ -89,7 +90,7 @@ int l_lovrTextureReplacePixels(lua_State* L) {
   return 0;
 }
 
-int l_lovrTextureSetFilter(lua_State* L) {
+static int l_lovrTextureSetFilter(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   FilterMode mode = luaL_checkoption(L, 2, NULL, FilterModes);
   float anisotropy = luax_optfloat(L, 3, 1.f);
@@ -98,7 +99,7 @@ int l_lovrTextureSetFilter(lua_State* L) {
   return 0;
 }
 
-int l_lovrTextureSetWrap(lua_State* L) {
+static int l_lovrTextureSetWrap(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   TextureWrap wrap;
   wrap.s = luaL_checkoption(L, 2, NULL, WrapModes);

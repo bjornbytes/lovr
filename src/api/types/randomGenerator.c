@@ -41,7 +41,7 @@ int l_lovrRandomGeneratorSetSeed(lua_State* L) {
   return 0;
 }
 
-int l_lovrRandomGeneratorGetState(lua_State* L) {
+static int l_lovrRandomGeneratorGetState(lua_State* L) {
   RandomGenerator* generator = luax_checktype(L, 1, RandomGenerator);
   size_t length = 32;
   char state[32];
@@ -50,7 +50,7 @@ int l_lovrRandomGeneratorGetState(lua_State* L) {
   return 1;
 }
 
-int l_lovrRandomGeneratorSetState(lua_State* L) {
+static int l_lovrRandomGeneratorSetState(lua_State* L) {
   RandomGenerator* generator = luax_checktype(L, 1, RandomGenerator);
   const char* state = luaL_checklstring(L, 2, NULL);
   if (lovrRandomGeneratorSetState(generator, state)) {

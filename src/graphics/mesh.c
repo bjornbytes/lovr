@@ -21,10 +21,6 @@ size_t lovrMeshGetIndexSize(Mesh* mesh) {
   return mesh->indexSize;
 }
 
-int lovrMeshGetAttributeCount(Mesh* mesh) {
-  return mesh->attributeCount;
-}
-
 void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute) {
   lovrAssert(!map_get(&mesh->attributeMap, name), "Mesh already has an attribute named '%s'", name);
   lovrAssert(mesh->attributeCount < MAX_ATTRIBUTES, "Mesh already has the max number of attributes (%d)", MAX_ATTRIBUTES);

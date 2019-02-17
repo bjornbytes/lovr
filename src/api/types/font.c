@@ -1,7 +1,7 @@
 #include "api.h"
 #include "graphics/font.h"
 
-int l_lovrFontGetWidth(lua_State* L) {
+static int l_lovrFontGetWidth(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   size_t length;
   const char* string = luaL_checklstring(L, 2, &length);
@@ -14,62 +14,62 @@ int l_lovrFontGetWidth(lua_State* L) {
   return 1;
 }
 
-int l_lovrFontGetHeight(lua_State* L) {
+static int l_lovrFontGetHeight(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   lua_pushnumber(L, lovrFontGetHeight(font));
   return 1;
 }
 
-int l_lovrFontGetAscent(lua_State* L) {
+static int l_lovrFontGetAscent(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   lua_pushnumber(L, lovrFontGetAscent(font));
   return 1;
 }
 
-int l_lovrFontGetDescent(lua_State* L) {
+static int l_lovrFontGetDescent(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   lua_pushnumber(L, lovrFontGetDescent(font));
   return 1;
 }
 
-int l_lovrFontGetBaseline(lua_State* L) {
+static int l_lovrFontGetBaseline(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   lua_pushnumber(L, lovrFontGetBaseline(font));
   return 1;
 }
 
-int l_lovrFontGetLineHeight(lua_State* L) {
+static int l_lovrFontGetLineHeight(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   lua_pushinteger(L, lovrFontGetLineHeight(font));
   return 1;
 }
 
-int l_lovrFontSetLineHeight(lua_State* L) {
+static int l_lovrFontSetLineHeight(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   float lineHeight = luax_checkfloat(L, 2);
   lovrFontSetLineHeight(font, lineHeight);
   return 0;
 }
 
-int l_lovrFontIsFlipEnabled(lua_State* L) {
+static int l_lovrFontIsFlipEnabled(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   lua_pushboolean(L, lovrFontIsFlipEnabled(font));
   return 1;
 }
 
-int l_lovrFontSetFlipEnabled(lua_State* L) {
+static int l_lovrFontSetFlipEnabled(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   lovrFontSetFlipEnabled(font, lua_toboolean(L, 2));
   return 0;
 }
 
-int l_lovrFontGetPixelDensity(lua_State* L) {
+static int l_lovrFontGetPixelDensity(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   lua_pushnumber(L, lovrFontGetPixelDensity(font));
   return 1;
 }
 
-int l_lovrFontSetPixelDensity(lua_State* L) {
+static int l_lovrFontSetPixelDensity(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   if (lua_isnoneornil(L, 2)) {
     lovrFontSetPixelDensity(font, lovrFontGetRasterizer(font)->height);
@@ -80,13 +80,13 @@ int l_lovrFontSetPixelDensity(lua_State* L) {
   return 0;
 }
 
-int l_lovrFontGetRasterizer(lua_State* L) {
+static int l_lovrFontGetRasterizer(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   luax_pushobject(L, lovrFontGetRasterizer(font));
   return 1;
 }
 
-int l_lovrFontHasGlyphs(lua_State* L) {
+static int l_lovrFontHasGlyphs(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   Rasterizer* rasterizer = lovrFontGetRasterizer(font);
   bool hasGlyphs = true;

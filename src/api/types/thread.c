@@ -1,19 +1,19 @@
 #include "api.h"
 #include "thread/thread.h"
 
-int l_lovrThreadStart(lua_State* L) {
+static int l_lovrThreadStart(lua_State* L) {
   Thread* thread = luax_checktype(L, 1, Thread);
   lovrThreadStart(thread);
   return 0;
 }
 
-int l_lovrThreadWait(lua_State* L) {
+static int l_lovrThreadWait(lua_State* L) {
   Thread* thread = luax_checktype(L, 1, Thread);
   lovrThreadWait(thread);
   return 0;
 }
 
-int l_lovrThreadGetError(lua_State* L) {
+static int l_lovrThreadGetError(lua_State* L) {
   Thread* thread = luax_checktype(L, 1, Thread);
   const char* error = lovrThreadGetError(thread);
   if (error) {
@@ -24,7 +24,7 @@ int l_lovrThreadGetError(lua_State* L) {
   return 1;
 }
 
-int l_lovrThreadIsRunning(lua_State* L) {
+static int l_lovrThreadIsRunning(lua_State* L) {
   Thread* thread = luax_checktype(L, 1, Thread);
   lua_pushboolean(L, thread->running);
   return 1;

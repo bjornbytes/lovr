@@ -4,20 +4,20 @@
 #include "data/modelData.h"
 #include "graphics/model.h"
 
-int l_lovrControllerIsConnected(lua_State* L) {
+static int l_lovrControllerIsConnected(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   lua_pushboolean(L, lovrHeadsetDriver->controllerIsConnected(controller));
   return 1;
 }
 
-int l_lovrControllerGetHand(lua_State* L) {
+static int l_lovrControllerGetHand(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   ControllerHand hand = lovrHeadsetDriver->controllerGetHand(controller);
   lua_pushstring(L, ControllerHands[hand]);
   return 1;
 }
 
-int l_lovrControllerGetPose(lua_State* L) {
+static int l_lovrControllerGetPose(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   float x, y, z, angle, ax, ay, az;
   lovrHeadsetDriver->controllerGetPose(controller, &x, &y, &z, &angle, &ax, &ay, &az);
@@ -31,7 +31,7 @@ int l_lovrControllerGetPose(lua_State* L) {
   return 7;
 }
 
-int l_lovrControllerGetPosition(lua_State* L) {
+static int l_lovrControllerGetPosition(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   float position[3], angle, ax, ay, az;
   lovrHeadsetDriver->controllerGetPose(controller, &position[0], &position[1], &position[2], &angle, &ax, &ay, &az);
@@ -41,7 +41,7 @@ int l_lovrControllerGetPosition(lua_State* L) {
   return 3;
 }
 
-int l_lovrControllerGetOrientation(lua_State* L) {
+static int l_lovrControllerGetOrientation(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   float x, y, z, angle, ax, ay, az;
   lovrHeadsetDriver->controllerGetPose(controller, &x, &y, &z, &angle, &ax, &ay, &az);
@@ -52,7 +52,7 @@ int l_lovrControllerGetOrientation(lua_State* L) {
   return 4;
 }
 
-int l_lovrControllerGetVelocity(lua_State* L) {
+static int l_lovrControllerGetVelocity(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   float velocity[3];
   lovrHeadsetDriver->controllerGetVelocity(controller, &velocity[0], &velocity[1], &velocity[2]);
@@ -62,7 +62,7 @@ int l_lovrControllerGetVelocity(lua_State* L) {
   return 3;
 }
 
-int l_lovrControllerGetAngularVelocity(lua_State* L) {
+static int l_lovrControllerGetAngularVelocity(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   float velocity[3];
   lovrHeadsetDriver->controllerGetAngularVelocity(controller, &velocity[0], &velocity[1], &velocity[2]);
@@ -72,28 +72,28 @@ int l_lovrControllerGetAngularVelocity(lua_State* L) {
   return 3;
 }
 
-int l_lovrControllerGetAxis(lua_State* L) {
+static int l_lovrControllerGetAxis(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   ControllerAxis axis = luaL_checkoption(L, 2, NULL, ControllerAxes);
   lua_pushnumber(L, lovrHeadsetDriver->controllerGetAxis(controller, axis));
   return 1;
 }
 
-int l_lovrControllerIsDown(lua_State* L) {
+static int l_lovrControllerIsDown(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   ControllerButton button = luaL_checkoption(L, 2, NULL, ControllerButtons);
   lua_pushboolean(L, lovrHeadsetDriver->controllerIsDown(controller, button));
   return 1;
 }
 
-int l_lovrControllerIsTouched(lua_State* L) {
+static int l_lovrControllerIsTouched(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   ControllerButton button = luaL_checkoption(L, 2, NULL, ControllerButtons);
   lua_pushboolean(L, lovrHeadsetDriver->controllerIsTouched(controller, button));
   return 1;
 }
 
-int l_lovrControllerVibrate(lua_State* L) {
+static int l_lovrControllerVibrate(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   float duration = luax_optfloat(L, 2, .5f);
   float power = luax_optfloat(L, 3, 1.f);
@@ -101,7 +101,7 @@ int l_lovrControllerVibrate(lua_State* L) {
   return 0;
 }
 
-int l_lovrControllerNewModel(lua_State* L) {
+static int l_lovrControllerNewModel(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   ModelData* modelData = lovrHeadsetDriver->controllerNewModelData(controller);
   if (modelData) {

@@ -20,26 +20,26 @@ static int luax_checkanimation(lua_State* L, int index, Animator* animator) {
   }
 }
 
-int l_lovrAnimatorReset(lua_State* L) {
+static int l_lovrAnimatorReset(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   lovrAnimatorReset(animator);
   return 0;
 }
 
-int l_lovrAnimatorUpdate(lua_State* L) {
+static int l_lovrAnimatorUpdate(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   float dt = luax_checkfloat(L, 2);
   lovrAnimatorUpdate(animator, dt);
   return 0;
 }
 
-int l_lovrAnimatorGetAnimationCount(lua_State* L) {
+static int l_lovrAnimatorGetAnimationCount(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   lua_pushnumber(L, lovrAnimatorGetAnimationCount(animator));
   return 1;
 }
 
-int l_lovrAnimatorGetAnimationNames(lua_State* L) {
+static int l_lovrAnimatorGetAnimationNames(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animationCount = lovrAnimatorGetAnimationCount(animator);
 
@@ -58,35 +58,35 @@ int l_lovrAnimatorGetAnimationNames(lua_State* L) {
   return 1;
 }
 
-int l_lovrAnimatorPlay(lua_State* L) {
+static int l_lovrAnimatorPlay(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   lovrAnimatorPlay(animator, animation);
   return 0;
 }
 
-int l_lovrAnimatorStop(lua_State* L) {
+static int l_lovrAnimatorStop(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   lovrAnimatorStop(animator, animation);
   return 0;
 }
 
-int l_lovrAnimatorPause(lua_State* L) {
+static int l_lovrAnimatorPause(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   lovrAnimatorPause(animator, animation);
   return 0;
 }
 
-int l_lovrAnimatorResume(lua_State* L) {
+static int l_lovrAnimatorResume(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   lovrAnimatorResume(animator, animation);
   return 0;
 }
 
-int l_lovrAnimatorSeek(lua_State* L) {
+static int l_lovrAnimatorSeek(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   float time = luax_checkfloat(L, 3);
@@ -94,7 +94,7 @@ int l_lovrAnimatorSeek(lua_State* L) {
   return 0;
 }
 
-int l_lovrAnimatorTell(lua_State* L) {
+static int l_lovrAnimatorTell(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   float time = lovrAnimatorTell(animator, animation);
@@ -102,7 +102,7 @@ int l_lovrAnimatorTell(lua_State* L) {
   return 1;
 }
 
-int l_lovrAnimatorGetAlpha(lua_State* L) {
+static int l_lovrAnimatorGetAlpha(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   float alpha = lovrAnimatorGetAlpha(animator, animation);
@@ -110,7 +110,7 @@ int l_lovrAnimatorGetAlpha(lua_State* L) {
   return 1;
 }
 
-int l_lovrAnimatorSetAlpha(lua_State* L) {
+static int l_lovrAnimatorSetAlpha(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   float alpha = luax_checkfloat(L, 3);
@@ -118,7 +118,7 @@ int l_lovrAnimatorSetAlpha(lua_State* L) {
   return 0;
 }
 
-int l_lovrAnimatorGetDuration(lua_State* L) {
+static int l_lovrAnimatorGetDuration(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   float duration = lovrAnimatorGetDuration(animator, animation);
@@ -126,7 +126,7 @@ int l_lovrAnimatorGetDuration(lua_State* L) {
   return 1;
 }
 
-int l_lovrAnimatorIsPlaying(lua_State* L) {
+static int l_lovrAnimatorIsPlaying(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   bool playing = lovrAnimatorIsPlaying(animator, animation);
@@ -134,7 +134,7 @@ int l_lovrAnimatorIsPlaying(lua_State* L) {
   return 1;
 }
 
-int l_lovrAnimatorIsLooping(lua_State* L) {
+static int l_lovrAnimatorIsLooping(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   bool looping = lovrAnimatorIsLooping(animator, animation);
@@ -142,7 +142,7 @@ int l_lovrAnimatorIsLooping(lua_State* L) {
   return 1;
 }
 
-int l_lovrAnimatorSetLooping(lua_State* L) {
+static int l_lovrAnimatorSetLooping(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   bool looping = lua_toboolean(L, 3);
@@ -150,7 +150,7 @@ int l_lovrAnimatorSetLooping(lua_State* L) {
   return 0;
 }
 
-int l_lovrAnimatorGetPriority(lua_State* L) {
+static int l_lovrAnimatorGetPriority(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   int priority = lovrAnimatorGetPriority(animator, animation);
@@ -158,7 +158,7 @@ int l_lovrAnimatorGetPriority(lua_State* L) {
   return 1;
 }
 
-int l_lovrAnimatorSetPriority(lua_State* L) {
+static int l_lovrAnimatorSetPriority(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   int animation = luax_checkanimation(L, 2, animator);
   int priority = luaL_checkinteger(L, 3);
@@ -166,7 +166,7 @@ int l_lovrAnimatorSetPriority(lua_State* L) {
   return 0;
 }
 
-int l_lovrAnimatorGetSpeed(lua_State* L) {
+static int l_lovrAnimatorGetSpeed(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   if (lua_isnoneornil(L, 2)) {
     float speed = lovrAnimatorGetSpeed(animator, -1);
@@ -179,7 +179,7 @@ int l_lovrAnimatorGetSpeed(lua_State* L) {
   return 1;
 }
 
-int l_lovrAnimatorSetSpeed(lua_State* L) {
+static int l_lovrAnimatorSetSpeed(lua_State* L) {
   Animator* animator = luax_checktype(L, 1, Animator);
   if (lua_isnoneornil(L, 2)) {
     float speed = luax_checkfloat(L, 2);

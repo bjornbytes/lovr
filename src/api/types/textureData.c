@@ -1,7 +1,7 @@
 #include "api.h"
 #include "data/textureData.h"
 
-int l_lovrTextureDataEncode(lua_State* L) {
+static int l_lovrTextureDataEncode(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
   const char* filename = luaL_checkstring(L, 2);
   bool success = lovrTextureDataEncode(textureData, filename);
@@ -9,26 +9,26 @@ int l_lovrTextureDataEncode(lua_State* L) {
   return 1;
 }
 
-int l_lovrTextureDataGetWidth(lua_State* L) {
+static int l_lovrTextureDataGetWidth(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
   lua_pushinteger(L, textureData->width);
   return 1;
 }
 
-int l_lovrTextureDataGetHeight(lua_State* L) {
+static int l_lovrTextureDataGetHeight(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
   lua_pushinteger(L, textureData->height);
   return 1;
 }
 
-int l_lovrTextureDataGetDimensions(lua_State* L) {
+static int l_lovrTextureDataGetDimensions(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
   lua_pushinteger(L, textureData->width);
   lua_pushinteger(L, textureData->height);
   return 2;
 }
 
-int l_lovrTextureDataGetPixel(lua_State* L) {
+static int l_lovrTextureDataGetPixel(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
   int x = luaL_checkinteger(L, 2);
   int y = luaL_checkinteger(L, 3);
@@ -40,7 +40,7 @@ int l_lovrTextureDataGetPixel(lua_State* L) {
   return 4;
 }
 
-int l_lovrTextureDataSetPixel(lua_State* L) {
+static int l_lovrTextureDataSetPixel(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
   int x = luaL_checkinteger(L, 2);
   int y = luaL_checkinteger(L, 3);

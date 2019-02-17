@@ -61,7 +61,7 @@ void luax_readattachments(lua_State* L, int index, Attachment* attachments, int*
   }
 }
 
-int l_lovrCanvasNewTextureData(lua_State* L) {
+static int l_lovrCanvasNewTextureData(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   int index = luaL_optinteger(L, 2, 1) - 1;
   int count;
@@ -73,7 +73,7 @@ int l_lovrCanvasNewTextureData(lua_State* L) {
   return 1;
 }
 
-int l_lovrCanvasRenderTo(lua_State* L) {
+static int l_lovrCanvasRenderTo(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   luaL_checktype(L, 2, LUA_TFUNCTION);
   int argumentCount = lua_gettop(L) - 2;
@@ -84,7 +84,7 @@ int l_lovrCanvasRenderTo(lua_State* L) {
   return 0;
 }
 
-int l_lovrCanvasGetTexture(lua_State* L) {
+static int l_lovrCanvasGetTexture(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   int count;
   const Attachment* attachments = lovrCanvasGetAttachments(canvas, &count);
@@ -94,7 +94,7 @@ int l_lovrCanvasGetTexture(lua_State* L) {
   return count;
 }
 
-int l_lovrCanvasSetTexture(lua_State* L) {
+static int l_lovrCanvasSetTexture(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
   int count;
@@ -103,40 +103,40 @@ int l_lovrCanvasSetTexture(lua_State* L) {
   return 0;
 }
 
-int l_lovrCanvasGetWidth(lua_State* L) {
+static int l_lovrCanvasGetWidth(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   lua_pushinteger(L, lovrCanvasGetWidth(canvas));
   return 1;
 }
 
-int l_lovrCanvasGetHeight(lua_State* L) {
+static int l_lovrCanvasGetHeight(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   lua_pushinteger(L, lovrCanvasGetHeight(canvas));
   return 1;
 }
 
-int l_lovrCanvasGetDimensions(lua_State* L) {
+static int l_lovrCanvasGetDimensions(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   lua_pushinteger(L, lovrCanvasGetWidth(canvas));
   lua_pushinteger(L, lovrCanvasGetHeight(canvas));
   return 2;
 }
 
-int l_lovrCanvasGetDepthTexture(lua_State* L) {
+static int l_lovrCanvasGetDepthTexture(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   Texture* texture = lovrCanvasGetDepthTexture(canvas);
   luax_pushobject(L, texture);
   return 1;
 }
 
-int l_lovrCanvasGetMSAA(lua_State* L) {
+static int l_lovrCanvasGetMSAA(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   int msaa = lovrCanvasGetMSAA(canvas);
   lua_pushinteger(L, msaa);
   return 1;
 }
 
-int l_lovrCanvasIsStereo(lua_State* L) {
+static int l_lovrCanvasIsStereo(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   bool stereo = lovrCanvasIsStereo(canvas);
   lua_pushboolean(L, stereo);

@@ -1,45 +1,45 @@
 #include "api.h"
 #include "physics/physics.h"
 
-int l_lovrShapeDestroy(lua_State* L) {
+static int l_lovrShapeDestroy(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   lovrShapeDestroyData(shape);
   return 0;
 }
 
-int l_lovrShapeGetType(lua_State* L) {
+static int l_lovrShapeGetType(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   lua_pushstring(L, ShapeTypes[lovrShapeGetType(shape)]);
   return 1;
 }
 
-int l_lovrShapeGetCollider(lua_State* L) {
+static int l_lovrShapeGetCollider(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   luax_pushobject(L, lovrShapeGetCollider(shape));
   return 1;
 }
 
-int l_lovrShapeIsEnabled(lua_State* L) {
+static int l_lovrShapeIsEnabled(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   lua_pushboolean(L, lovrShapeIsEnabled(shape));
   return 1;
 }
 
-int l_lovrShapeSetEnabled(lua_State* L) {
+static int l_lovrShapeSetEnabled(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   bool enabled = lua_toboolean(L, 2);
   lovrShapeSetEnabled(shape, enabled);
   return 0;
 }
 
-int l_lovrShapeGetUserData(lua_State* L) {
+static int l_lovrShapeGetUserData(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   int ref = (int) lovrShapeGetUserData(shape);
   lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
   return 1;
 }
 
-int l_lovrShapeSetUserData(lua_State* L) {
+static int l_lovrShapeSetUserData(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   uint64_t ref = (int) lovrShapeGetUserData(shape);
   if (ref) {
@@ -56,7 +56,7 @@ int l_lovrShapeSetUserData(lua_State* L) {
   return 0;
 }
 
-int l_lovrShapeGetPosition(lua_State* L) {
+static int l_lovrShapeGetPosition(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   float x, y, z;
   lovrShapeGetPosition(shape, &x, &y, &z);
@@ -66,7 +66,7 @@ int l_lovrShapeGetPosition(lua_State* L) {
   return 3;
 }
 
-int l_lovrShapeSetPosition(lua_State* L) {
+static int l_lovrShapeSetPosition(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   float x = luax_checkfloat(L, 2);
   float y = luax_checkfloat(L, 3);
@@ -75,7 +75,7 @@ int l_lovrShapeSetPosition(lua_State* L) {
   return 0;
 }
 
-int l_lovrShapeGetOrientation(lua_State* L) {
+static int l_lovrShapeGetOrientation(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   float angle, x, y, z;
   lovrShapeGetOrientation(shape, &angle, &x, &y, &z);
@@ -86,7 +86,7 @@ int l_lovrShapeGetOrientation(lua_State* L) {
   return 4;
 }
 
-int l_lovrShapeSetOrientation(lua_State* L) {
+static int l_lovrShapeSetOrientation(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   float angle = luax_checkfloat(L, 2);
   float x = luax_checkfloat(L, 3);
@@ -96,7 +96,7 @@ int l_lovrShapeSetOrientation(lua_State* L) {
   return 0;
 }
 
-int l_lovrShapeGetMass(lua_State* L) {
+static int l_lovrShapeGetMass(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   float density = luax_checkfloat(L, 2);
   float cx, cy, cz, mass;
@@ -114,7 +114,7 @@ int l_lovrShapeGetMass(lua_State* L) {
   return 5;
 }
 
-int l_lovrShapeGetAABB(lua_State* L) {
+static int l_lovrShapeGetAABB(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
   float aabb[6];
   lovrShapeGetAABB(shape, aabb);
@@ -141,13 +141,13 @@ const luaL_Reg lovrShape[] = {
   { NULL, NULL }
 };
 
-int l_lovrSphereShapeGetRadius(lua_State* L) {
+static int l_lovrSphereShapeGetRadius(lua_State* L) {
   SphereShape* sphere = luax_checktype(L, 1, SphereShape);
   lua_pushnumber(L, lovrSphereShapeGetRadius(sphere));
   return 1;
 }
 
-int l_lovrSphereShapeSetRadius(lua_State* L) {
+static int l_lovrSphereShapeSetRadius(lua_State* L) {
   SphereShape* sphere = luax_checktype(L, 1, SphereShape);
   float radius = luax_checkfloat(L, 2);
   lovrSphereShapeSetRadius(sphere, radius);
@@ -160,7 +160,7 @@ const luaL_Reg lovrSphereShape[] = {
   { NULL, NULL }
 };
 
-int l_lovrBoxShapeGetDimensions(lua_State* L) {
+static int l_lovrBoxShapeGetDimensions(lua_State* L) {
   BoxShape* box = luax_checktype(L, 1, BoxShape);
   float x, y, z;
   lovrBoxShapeGetDimensions(box, &x, &y, &z);
@@ -170,7 +170,7 @@ int l_lovrBoxShapeGetDimensions(lua_State* L) {
   return 3;
 }
 
-int l_lovrBoxShapeSetDimensions(lua_State* L) {
+static int l_lovrBoxShapeSetDimensions(lua_State* L) {
   BoxShape* box = luax_checktype(L, 1, BoxShape);
   float x = luax_checkfloat(L, 2);
   float y = luax_checkfloat(L, 3);
@@ -185,26 +185,26 @@ const luaL_Reg lovrBoxShape[] = {
   { NULL, NULL }
 };
 
-int l_lovrCapsuleShapeGetRadius(lua_State* L) {
+static int l_lovrCapsuleShapeGetRadius(lua_State* L) {
   CapsuleShape* capsule = luax_checktype(L, 1, CapsuleShape);
   lua_pushnumber(L, lovrCapsuleShapeGetRadius(capsule));
   return 1;
 }
 
-int l_lovrCapsuleShapeSetRadius(lua_State* L) {
+static int l_lovrCapsuleShapeSetRadius(lua_State* L) {
   CapsuleShape* capsule = luax_checktype(L, 1, CapsuleShape);
   float radius = luax_checkfloat(L, 2);
   lovrCapsuleShapeSetRadius(capsule, radius);
   return 0;
 }
 
-int l_lovrCapsuleShapeGetLength(lua_State* L) {
+static int l_lovrCapsuleShapeGetLength(lua_State* L) {
   CapsuleShape* capsule = luax_checktype(L, 1, CapsuleShape);
   lua_pushnumber(L, lovrCapsuleShapeGetLength(capsule));
   return 1;
 }
 
-int l_lovrCapsuleShapeSetLength(lua_State* L) {
+static int l_lovrCapsuleShapeSetLength(lua_State* L) {
   CapsuleShape* capsule = luax_checktype(L, 1, CapsuleShape);
   float length = luax_checkfloat(L, 2);
   lovrCapsuleShapeSetLength(capsule, length);
@@ -219,26 +219,26 @@ const luaL_Reg lovrCapsuleShape[] = {
   { NULL, NULL }
 };
 
-int l_lovrCylinderShapeGetRadius(lua_State* L) {
+static int l_lovrCylinderShapeGetRadius(lua_State* L) {
   CylinderShape* cylinder = luax_checktype(L, 1, CylinderShape);
   lua_pushnumber(L, lovrCylinderShapeGetRadius(cylinder));
   return 1;
 }
 
-int l_lovrCylinderShapeSetRadius(lua_State* L) {
+static int l_lovrCylinderShapeSetRadius(lua_State* L) {
   CylinderShape* cylinder = luax_checktype(L, 1, CylinderShape);
   float radius = luax_checkfloat(L, 2);
   lovrCylinderShapeSetRadius(cylinder, radius);
   return 0;
 }
 
-int l_lovrCylinderShapeGetLength(lua_State* L) {
+static int l_lovrCylinderShapeGetLength(lua_State* L) {
   CylinderShape* cylinder = luax_checktype(L, 1, CylinderShape);
   lua_pushnumber(L, lovrCylinderShapeGetLength(cylinder));
   return 1;
 }
 
-int l_lovrCylinderShapeSetLength(lua_State* L) {
+static int l_lovrCylinderShapeSetLength(lua_State* L) {
   CylinderShape* cylinder = luax_checktype(L, 1, CylinderShape);
   float length = luax_checkfloat(L, 2);
   lovrCylinderShapeSetLength(cylinder, length);

@@ -2,7 +2,7 @@
 #include "api/math.h"
 #include "math/curve.h"
 
-int l_lovrCurveEvaluate(lua_State* L) {
+static int l_lovrCurveEvaluate(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   float t = luax_checkfloat(L, 2);
   float point[3];
@@ -13,7 +13,7 @@ int l_lovrCurveEvaluate(lua_State* L) {
   return 3;
 }
 
-int l_lovrCurveGetTangent(lua_State* L) {
+static int l_lovrCurveGetTangent(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   float t = luax_checkfloat(L, 2);
   float point[3];
@@ -24,7 +24,7 @@ int l_lovrCurveGetTangent(lua_State* L) {
   return 3;
 }
 
-int l_lovrCurveRender(lua_State* L) {
+static int l_lovrCurveRender(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   int n = luaL_optinteger(L, 2, 32);
   float t1 = luax_optfloat(L, 3, 0.);
@@ -41,7 +41,7 @@ int l_lovrCurveRender(lua_State* L) {
   return 1;
 }
 
-int l_lovrCurveSlice(lua_State* L) {
+static int l_lovrCurveSlice(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   float t1 = luax_checkfloat(L, 2);
   float t2 = luax_checkfloat(L, 3);
@@ -50,13 +50,13 @@ int l_lovrCurveSlice(lua_State* L) {
   return 1;
 }
 
-int l_lovrCurveGetPointCount(lua_State* L) {
+static int l_lovrCurveGetPointCount(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   lua_pushinteger(L, lovrCurveGetPointCount(curve));
   return 1;
 }
 
-int l_lovrCurveGetPoint(lua_State* L) {
+static int l_lovrCurveGetPoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   int index = luaL_checkinteger(L, 2) - 1;
   lovrAssert(index >= 0 && index < lovrCurveGetPointCount(curve), "Invalid Curve point index: %d", index + 1);
@@ -68,7 +68,7 @@ int l_lovrCurveGetPoint(lua_State* L) {
   return 3;
 }
 
-int l_lovrCurveSetPoint(lua_State* L) {
+static int l_lovrCurveSetPoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   int index = luaL_checkinteger(L, 2) - 1;
   lovrAssert(index >= 0 && index < lovrCurveGetPointCount(curve), "Invalid Curve point index: %d", index + 1);
@@ -78,7 +78,7 @@ int l_lovrCurveSetPoint(lua_State* L) {
   return 0;
 }
 
-int l_lovrCurveAddPoint(lua_State* L) {
+static int l_lovrCurveAddPoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   float point[3];
   int i = luax_readvec3(L, 2, point, NULL);
@@ -88,7 +88,7 @@ int l_lovrCurveAddPoint(lua_State* L) {
   return 0;
 }
 
-int l_lovrCurveRemovePoint(lua_State* L) {
+static int l_lovrCurveRemovePoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   int index = luaL_checkinteger(L, 2) - 1;
   lovrAssert(index >= 0 && index < lovrCurveGetPointCount(curve), "Invalid Curve point index: %d", index + 1);

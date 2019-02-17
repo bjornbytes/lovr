@@ -211,20 +211,20 @@ void luax_checkuniformtype(lua_State* L, int index, UniformType* baseType, int* 
   }
 }
 
-int l_lovrShaderGetType(lua_State* L) {
+static int l_lovrShaderGetType(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   lua_pushstring(L, ShaderTypes[lovrShaderGetType(shader)]);
   return 1;
 }
 
-int l_lovrShaderHasUniform(lua_State* L) {
+static int l_lovrShaderHasUniform(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
   lua_pushboolean(L, lovrShaderHasUniform(shader, name));
   return 1;
 }
 
-int l_lovrShaderSend(lua_State* L) {
+static int l_lovrShaderSend(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
   const Uniform* uniform = lovrShaderGetUniform(shader, name);
@@ -246,7 +246,7 @@ int l_lovrShaderSend(lua_State* L) {
   return 0;
 }
 
-int l_lovrShaderSendBlock(lua_State* L) {
+static int l_lovrShaderSendBlock(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
   ShaderBlock* block = luax_checktype(L, 3, ShaderBlock);
@@ -256,7 +256,7 @@ int l_lovrShaderSendBlock(lua_State* L) {
   return 0;
 }
 
-int l_lovrShaderSendImage(lua_State* L) {
+static int l_lovrShaderSendImage(lua_State* L) {
   int index = 1;
   Shader* shader = luax_checktype(L, index++, Shader);
   const char* name = luaL_checkstring(L, index++);
