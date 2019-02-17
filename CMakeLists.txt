@@ -516,6 +516,7 @@ if(WIN32)
   set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+  target_compile_definitions(lovr PUBLIC -D_CRT_SECURE_NO_WARNINGS)
 
   if(MSVC_VERSION VERSION_LESS 1900)
     target_compile_definitions(lovr PUBLIC -Dinline=__inline -Dsnprintf=_snprintf)
