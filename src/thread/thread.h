@@ -22,8 +22,8 @@ typedef struct {
   bool running;
 } Thread;
 
-bool lovrThreadModuleInit();
-void lovrThreadModuleDestroy();
+bool lovrThreadModuleInit(void);
+void lovrThreadModuleDestroy(void);
 struct Channel* lovrThreadGetChannel(const char* name);
 
 Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), const char* body);

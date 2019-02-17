@@ -81,7 +81,7 @@ typedef struct {
   EventData data;
 } Event;
 
-typedef void (*EventPump)();
+typedef void (*EventPump)(void);
 
 typedef vec_t(EventPump) vec_pump_t;
 typedef vec_t(Event) vec_event_t;
@@ -94,11 +94,11 @@ typedef struct {
 
 void lovrVariantDestroy(Variant* variant);
 
-bool lovrEventInit();
-void lovrEventDestroy();
+bool lovrEventInit(void);
+void lovrEventDestroy(void);
 void lovrEventAddPump(EventPump pump);
 void lovrEventRemovePump(EventPump pump);
-void lovrEventPump();
+void lovrEventPump(void);
 void lovrEventPush(Event event);
 bool lovrEventPoll(Event* event);
-void lovrEventClear();
+void lovrEventClear(void);

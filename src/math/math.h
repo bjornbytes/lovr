@@ -9,9 +9,9 @@ typedef struct {
   RandomGenerator* generator;
 } MathState;
 
-bool lovrMathInit();
-void lovrMathDestroy();
-RandomGenerator* lovrMathGetRandomGenerator();
+bool lovrMathInit(void);
+void lovrMathDestroy(void);
+RandomGenerator* lovrMathGetRandomGenerator(void);
 void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, vec3 v);
 float lovrMathGammaToLinear(float x);
 float lovrMathLinearToGamma(float x);

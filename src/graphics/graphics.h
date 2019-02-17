@@ -194,56 +194,56 @@ typedef struct {
 
 // Base
 bool lovrGraphicsInit(bool gammaCorrect);
-void lovrGraphicsDestroy();
-void lovrGraphicsPresent();
+void lovrGraphicsDestroy(void);
+void lovrGraphicsPresent(void);
 void lovrGraphicsCreateWindow(WindowFlags* flags);
-int lovrGraphicsGetWidth();
-int lovrGraphicsGetHeight();
-float lovrGraphicsGetPixelDensity();
+int lovrGraphicsGetWidth(void);
+int lovrGraphicsGetHeight(void);
+float lovrGraphicsGetPixelDensity(void);
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
-Buffer* lovrGraphicsGetIdentityBuffer();
+Buffer* lovrGraphicsGetIdentityBuffer(void);
 #define lovrGraphicsGetSupported lovrGpuGetSupported
 #define lovrGraphicsGetLimits lovrGpuGetLimits
 #define lovrGraphicsGetStats lovrGpuGetStats
 
 // State
-void lovrGraphicsReset();
-bool lovrGraphicsGetAlphaSampling();
+void lovrGraphicsReset(void);
+bool lovrGraphicsGetAlphaSampling(void);
 void lovrGraphicsSetAlphaSampling(bool sample);
-Color lovrGraphicsGetBackgroundColor();
+Color lovrGraphicsGetBackgroundColor(void);
 void lovrGraphicsSetBackgroundColor(Color color);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
-Canvas* lovrGraphicsGetCanvas();
+Canvas* lovrGraphicsGetCanvas(void);
 void lovrGraphicsSetCanvas(Canvas* canvas);
-Color lovrGraphicsGetColor();
+Color lovrGraphicsGetColor(void);
 void lovrGraphicsSetColor(Color color);
-bool lovrGraphicsIsCullingEnabled();
+bool lovrGraphicsIsCullingEnabled(void);
 void lovrGraphicsSetCullingEnabled(bool culling);
-TextureFilter lovrGraphicsGetDefaultFilter();
+TextureFilter lovrGraphicsGetDefaultFilter(void);
 void lovrGraphicsSetDefaultFilter(TextureFilter filter);
 void lovrGraphicsGetDepthTest(CompareMode* mode, bool* write);
 void lovrGraphicsSetDepthTest(CompareMode depthTest, bool write);
-Font* lovrGraphicsGetFont();
+Font* lovrGraphicsGetFont(void);
 void lovrGraphicsSetFont(Font* font);
-bool lovrGraphicsIsGammaCorrect();
-float lovrGraphicsGetLineWidth();
+bool lovrGraphicsIsGammaCorrect(void);
+float lovrGraphicsGetLineWidth(void);
 void lovrGraphicsSetLineWidth(uint8_t width);
-float lovrGraphicsGetPointSize();
+float lovrGraphicsGetPointSize(void);
 void lovrGraphicsSetPointSize(float size);
-Shader* lovrGraphicsGetShader();
+Shader* lovrGraphicsGetShader(void);
 void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsGetStencilTest(CompareMode* mode, int* value);
 void lovrGraphicsSetStencilTest(CompareMode mode, int value);
-Winding lovrGraphicsGetWinding();
+Winding lovrGraphicsGetWinding(void);
 void lovrGraphicsSetWinding(Winding winding);
-bool lovrGraphicsIsWireframe();
+bool lovrGraphicsIsWireframe(void);
 void lovrGraphicsSetWireframe(bool wireframe);
 
 // Transforms
-void lovrGraphicsPush();
-void lovrGraphicsPop();
-void lovrGraphicsOrigin();
+void lovrGraphicsPush(void);
+void lovrGraphicsPop(void);
+void lovrGraphicsOrigin(void);
 void lovrGraphicsTranslate(vec3 translation);
 void lovrGraphicsRotate(quat rotation);
 void lovrGraphicsScale(vec3 scale);
@@ -254,7 +254,7 @@ void lovrGraphicsSetProjection(mat4 projection);
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
 void lovrGraphicsBatch(BatchRequest* req);
-void lovrGraphicsFlush();
+void lovrGraphicsFlush(void);
 void lovrGraphicsFlushCanvas(Canvas* canvas);
 void lovrGraphicsFlushShader(Shader* shader);
 void lovrGraphicsFlushMaterial(Material* material);
@@ -311,17 +311,17 @@ typedef struct {
 } DrawCommand;
 
 void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress);
-void lovrGpuDestroy();
+void lovrGpuDestroy(void);
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
 void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil);
 void lovrGpuDraw(DrawCommand* draw);
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
-void lovrGpuPresent();
-void lovrGpuDirtyTexture();
-void* lovrGpuLock();
+void lovrGpuPresent(void);
+void lovrGpuDirtyTexture(void);
+void* lovrGpuLock(void);
 void lovrGpuUnlock(void* lock);
 void lovrGpuDestroyLock(void* lock);
-const GpuFeatures* lovrGpuGetSupported();
-const GpuLimits* lovrGpuGetLimits();
-const GpuStats* lovrGpuGetStats();
+const GpuFeatures* lovrGpuGetSupported(void);
+const GpuLimits* lovrGpuGetLimits(void);
+const GpuStats* lovrGpuGetStats(void);

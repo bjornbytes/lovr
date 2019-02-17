@@ -61,7 +61,7 @@ typedef enum {
   BUTTON_RELEASED
 } ButtonAction;
 
-typedef void (*windowCloseCallback)();
+typedef void (*windowCloseCallback)(void);
 typedef void (*windowResizeCallback)(int width, int height);
 typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action);
 
@@ -69,16 +69,16 @@ typedef void (*gpuProc)(void);
 typedef gpuProc (*getProcAddressProc)(const char*);
 extern getProcAddressProc lovrGetProcAddress;
 
-bool lovrPlatformInit();
-void lovrPlatformDestroy();
-void lovrPlatformPollEvents();
-double lovrPlatformGetTime();
+bool lovrPlatformInit(void);
+void lovrPlatformDestroy(void);
+void lovrPlatformPollEvents(void);
+double lovrPlatformGetTime(void);
 void lovrPlatformSetTime(double t);
 bool lovrPlatformCreateWindow(WindowFlags* flags);
-bool lovrPlatformHasWindow();
+bool lovrPlatformHasWindow(void);
 void lovrPlatformGetWindowSize(int* width, int* height);
 void lovrPlatformGetFramebufferSize(int* width, int* height);
-void lovrPlatformSwapBuffers();
+void lovrPlatformSwapBuffers(void);
 void lovrPlatformOnWindowClose(windowCloseCallback callback);
 void lovrPlatformOnWindowResize(windowResizeCallback callback);
 void lovrPlatformOnMouseButton(mouseButtonCallback callback);
@@ -88,4 +88,4 @@ bool lovrPlatformIsMouseDown(MouseButton button);
 bool lovrPlatformIsKeyDown(KeyCode key);
 void lovrSleep(double seconds);
 int lovrGetExecutablePath(char* dest, uint32_t size);
-sds lovrGetApplicationId();
+sds lovrGetApplicationId(void);

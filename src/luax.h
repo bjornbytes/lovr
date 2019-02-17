@@ -10,7 +10,7 @@
 #define luax_checktype(L, i, T) ((T*) _luax_checktype(L, i, #T))
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
-typedef void (*luax_destructor)();
+typedef void (*luax_destructor)(void);
 
 int luax_print(lua_State* L);
 void luax_atexit(lua_State* L, luax_destructor destructor);
@@ -28,5 +28,5 @@ void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
 Color luax_checkcolor(lua_State* L, int index);
 int luax_pushLovrHeadsetRenderError(lua_State *L);
-lua_State *luax_getmainstate();
+lua_State *luax_getmainstate(void);
 void luax_setmainstate(lua_State *L);

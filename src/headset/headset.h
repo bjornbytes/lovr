@@ -73,10 +73,10 @@ struct Texture;
 typedef struct {
   HeadsetDriver driverType;
   bool (*init)(float offset, int msaa);
-  void (*destroy)();
-  HeadsetType (*getType)();
-  HeadsetOrigin (*getOriginType)();
-  bool (*isMounted)();
+  void (*destroy)(void);
+  HeadsetType (*getType)(void);
+  HeadsetOrigin (*getOriginType)(void);
+  bool (*isMounted)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
   void (*getClipDistance)(float* clipNear, float* clipFar);
   void (*setClipDistance)(float clipNear, float clipFar);
@@ -97,7 +97,7 @@ typedef struct {
   void (*controllerVibrate)(Controller* controller, float duration, float power);
   ModelData* (*controllerNewModelData)(Controller* controller);
   void (*renderTo)(void (*callback)(void*), void* userdata);
-  Texture* (*getMirrorTexture)();
+  Texture* (*getMirrorTexture)(void);
   void (*update)(float dt);
 } HeadsetInterface;
 
@@ -112,5 +112,5 @@ extern HeadsetInterface lovrHeadsetOculusMobileDriver;
 extern HeadsetInterface* lovrHeadsetDriver;
 
 bool lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa);
-void lovrHeadsetDestroy();
+void lovrHeadsetDestroy(void);
 #define lovrControllerDestroy NULL

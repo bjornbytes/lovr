@@ -85,8 +85,8 @@ typedef struct {
   void* userdata;
 } RaycastData;
 
-bool lovrPhysicsInit();
-void lovrPhysicsDestroy();
+bool lovrPhysicsInit(void);
+void lovrPhysicsDestroy(void);
 
 World* lovrWorldInit(World* world, float xg, float yg, float zg, bool allowSleep, const char** tags, int tagCount);
 #define lovrWorldCreate(...) lovrWorldInit(lovrAlloc(World), __VA_ARGS__)

@@ -16,11 +16,11 @@ typedef struct {
   int fps;
 } TimerState;
 
-bool lovrTimerInit();
-void lovrTimerDestroy();
-double lovrTimerGetDelta();
-double lovrTimerGetTime();
-double lovrTimerStep();
-double lovrTimerGetAverageDelta();
-int lovrTimerGetFPS();
+bool lovrTimerInit(void);
+void lovrTimerDestroy(void);
+double lovrTimerGetDelta(void);
+double lovrTimerGetTime(void);
+double lovrTimerStep(void);
+double lovrTimerGetAverageDelta(void);
+int lovrTimerGetFPS(void);
 void lovrTimerSleep(double seconds);
