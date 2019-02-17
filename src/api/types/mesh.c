@@ -9,7 +9,6 @@ int l_lovrMeshAttachAttributes(lua_State* L) {
   Mesh* other = luax_checktype(L, 2, Mesh);
   int instanceDivisor = luaL_optinteger(L, 3, 0);
   if (lua_isnoneornil(L, 4)) {
-    int count = 0;
     for (int i = 0; i < other->attributeCount; i++) {
       MeshAttribute attachment = other->attributes[i];
       if (attachment.buffer != other->vertexBuffer) {

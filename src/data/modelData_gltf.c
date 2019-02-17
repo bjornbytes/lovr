@@ -672,7 +672,6 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
 
   // Primitives
   if (model->primitiveCount > 0) {
-    int primitiveIndex = 0;
     jsmntok_t* token = info.meshes;
     ModelPrimitive* primitive = model->primitives;
     for (int i = (token++)->size; i > 0; i--) {

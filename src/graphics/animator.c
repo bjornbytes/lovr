@@ -212,7 +212,6 @@ void lovrAnimatorSetAlpha(Animator* animator, int animation, float alpha) {
 }
 
 float lovrAnimatorGetDuration(Animator* animator, int animation) {
-  Track* track = &animator->tracks.data[animation];
   return animator->data->animations[animation].duration;
 }
 

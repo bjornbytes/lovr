@@ -130,7 +130,6 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
   lua_pushliteral(L, "lovr");
   lua_setfield(L, -2, "exe");
 
-  bool exeFound = false;
   ArgFlag currentFlag = ARGFLAG_NONE;
   int lovrArgs = 0; // Arg count up to but not including the game path
   // One pass to parse flags

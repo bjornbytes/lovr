@@ -197,7 +197,7 @@ static int l_lovrMat4__mul(lua_State* L) {
 }
 
 static int l_lovrMat4__tostring(lua_State* L) {
-  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
+  luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   lua_pushliteral(L, "mat4");
   return 1;
 }
