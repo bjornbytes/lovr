@@ -42,7 +42,7 @@ static void onMouseButton(MouseButton button, ButtonAction action) {
   }
 }
 
-static bool fakeInit(float offset, int msaa) {
+static bool shimInit(float offset, int msaa) {
   state.offset = offset;
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
@@ -58,7 +58,7 @@ static bool fakeInit(float offset, int msaa) {
   return true;
 }
 
-static void fakeDestroy() {
+static void shimDestroy() {
   Controller *controller; int i;
   vec_foreach(&state.controllers, controller, i) {
     lovrRelease(controller);
@@ -67,45 +67,45 @@ static void fakeDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
-static HeadsetType fakeGetType() {
-  return HEADSET_FAKE;
+static HeadsetType shimGetType() {
+  return HEADSET_SHIM;
 }
 
-static HeadsetOrigin fakeGetOriginType() {
+static HeadsetOrigin shimGetOriginType() {
   return ORIGIN_HEAD;
 }
 
-static bool fakeIsMounted() {
+static bool shimIsMounted() {
   return true;
 }
 
-static void fakeGetDisplayDimensions(uint32_t* width, uint32_t* height) {
+static void shimGetDisplayDimensions(uint32_t* width, uint32_t* height) {
   int w, h;
   lovrPlatformGetFramebufferSize(&w, &h);
   *width = (uint32_t) w;
   *height = (uint32_t) h;
 }
 
-static void fakeGetClipDistance(float* clipNear, float* clipFar) {
+static void shimGetClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
 }
 
-static void fakeSetClipDistance(float clipNear, float clipFar) {
+static void shimSetClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
 }
 
-static void fakeGetBoundsDimensions(float* width, float* depth) {
+static void shimGetBoundsDimensions(float* width, float* depth) {
   *width = *depth = 0.f;
 }
 
-static const float* fakeGetBoundsGeometry(int* count) {
+static const float* shimGetBoundsGeometry(int* count) {
   *count = 0;
   return NULL;
 }
 
-static void fakeGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static void shimGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = *y = *z = 0;
   mat4_transform(state.transform, x, y, z);
   float q[4];
@@ -113,32 +113,32 @@ static void fakeGetPose(float* x, float* y, float* z, float* angle, float* ax, f
   quat_getAngleAxis(q, angle, ax, ay, az);
 }
 
-static void fakeGetVelocity(float* vx, float* vy, float* vz) {
+static void shimGetVelocity(float* vx, float* vy, float* vz) {
   *vx = state.velocity[0];
   *vy = state.velocity[1];
   *vz = state.velocity[2];
 }
 
-static void fakeGetAngularVelocity(float* vx, float* vy, float* vz) {
+static void shimGetAngularVelocity(float* vx, float* vy, float* vz) {
   *vx = state.angularVelocity[0];
   *vy = state.angularVelocity[1];
   *vz = state.angularVelocity[2];
 }
 
-static Controller** fakeGetControllers(uint8_t* count) {
+static Controller** shimGetControllers(uint8_t* count) {
   *count = state.controllers.length;
   return state.controllers.data;
 }
 
-static bool fakeControllerIsConnected(Controller* controller) {
+static bool shimControllerIsConnected(Controller* controller) {
   return true;
 }
 
-static ControllerHand fakeControllerGetHand(Controller* controller) {
+static ControllerHand shimControllerGetHand(Controller* controller) {
   return HAND_UNKNOWN;
 }
 
-static void fakeControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static void shimControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = 0;
   *y = 0;
   *z = -.75;
@@ -149,37 +149,37 @@ static void fakeControllerGetPose(Controller* controller, float* x, float* y, fl
   quat_getAngleAxis(q, angle, ax, ay, az);
 }
 
-static void fakeControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
+static void shimControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
   *vx = *vy = *vz = 0.f;
 }
 
-static void fakeControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
+static void shimControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
   *vx = *vy = *vz = 0.f;
 }
 
-static float fakeControllerGetAxis(Controller* controller, ControllerAxis axis) {
+static float shimControllerGetAxis(Controller* controller, ControllerAxis axis) {
   return 0.f;
 }
 
-static bool fakeControllerIsDown(Controller* controller, ControllerButton button) {
+static bool shimControllerIsDown(Controller* controller, ControllerButton button) {
   return lovrPlatformIsMouseDown(MOUSE_RIGHT);
 }
 
-static bool fakeControllerIsTouched(Controller* controller, ControllerButton button) {
+static bool shimControllerIsTouched(Controller* controller, ControllerButton button) {
   return false;
 }
 
-static void fakeControllerVibrate(Controller* controller, float duration, float power) {
+static void shimControllerVibrate(Controller* controller, float duration, float power) {
   //
 }
 
-static ModelData* fakeControllerNewModelData(Controller* controller) {
+static ModelData* shimControllerNewModelData(Controller* controller) {
   return NULL;
 }
 
-static void fakeRenderTo(void (*callback)(void*), void* userdata) {
+static void shimRenderTo(void (*callback)(void*), void* userdata) {
   uint32_t width, height;
-  fakeGetDisplayDimensions(&width, &height);
+  shimGetDisplayDimensions(&width, &height);
   Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = true };
   mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / 2.f / height);
   mat4_multiply(camera.viewMatrix[0], state.transform);
@@ -191,7 +191,7 @@ static void fakeRenderTo(void (*callback)(void*), void* userdata) {
   lovrGraphicsSetCamera(NULL, false);
 }
 
-static void fakeUpdate(float dt) {
+static void shimUpdate(float dt) {
   bool front = lovrPlatformIsKeyDown(KEY_W) || lovrPlatformIsKeyDown(KEY_UP);
   bool back = lovrPlatformIsKeyDown(KEY_S) || lovrPlatformIsKeyDown(KEY_DOWN);
   bool left = lovrPlatformIsKeyDown(KEY_A) || lovrPlatformIsKeyDown(KEY_LEFT);
@@ -253,33 +253,33 @@ static void fakeUpdate(float dt) {
   mat4_rotate(state.transform, state.pitch, 1.f, 0.f, 0.f);
 }
 
-HeadsetInterface lovrHeadsetFakeDriver = {
-  DRIVER_FAKE,
-  fakeInit,
-  fakeDestroy,
-  fakeGetType,
-  fakeGetOriginType,
-  fakeIsMounted,
-  fakeGetDisplayDimensions,
-  fakeGetClipDistance,
-  fakeSetClipDistance,
-  fakeGetBoundsDimensions,
-  fakeGetBoundsGeometry,
-  fakeGetPose,
-  fakeGetVelocity,
-  fakeGetAngularVelocity,
-  fakeGetControllers,
-  fakeControllerIsConnected,
-  fakeControllerGetHand,
-  fakeControllerGetPose,
-  fakeControllerGetVelocity,
-  fakeControllerGetAngularVelocity,
-  fakeControllerGetAxis,
-  fakeControllerIsDown,
-  fakeControllerIsTouched,
-  fakeControllerVibrate,
-  fakeControllerNewModelData,
-  fakeRenderTo,
+HeadsetInterface lovrHeadsetShimDriver = {
+  DRIVER_SHIM,
+  shimInit,
+  shimDestroy,
+  shimGetType,
+  shimGetOriginType,
+  shimIsMounted,
+  shimGetDisplayDimensions,
+  shimGetClipDistance,
+  shimSetClipDistance,
+  shimGetBoundsDimensions,
+  shimGetBoundsGeometry,
+  shimGetPose,
+  shimGetVelocity,
+  shimGetAngularVelocity,
+  shimGetControllers,
+  shimControllerIsConnected,
+  shimControllerGetHand,
+  shimControllerGetPose,
+  shimControllerGetVelocity,
+  shimControllerGetAngularVelocity,
+  shimControllerGetAxis,
+  shimControllerIsDown,
+  shimControllerIsTouched,
+  shimControllerVibrate,
+  shimControllerNewModelData,
+  shimRenderTo,
   NULL, // No mirror texture
-  fakeUpdate
+  shimUpdate
 };

@@ -63,7 +63,7 @@ function lovr.boot()
     },
     gammacorrect = false,
     headset = {
-      drivers = { 'oculus', 'oculusmobile', 'openvr', 'webvr', 'fake' },
+      drivers = { 'oculus', 'oculusmobile', 'openvr', 'webvr', 'shim' },
       offset = 1.7,
       msaa = 4
     },
