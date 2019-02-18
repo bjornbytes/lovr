@@ -11,7 +11,9 @@ static int l_lovrDataNewBlob(lua_State* L) {
   uint8_t* data = NULL;
   int type = lua_type(L, 1);
   if (type == LUA_TNUMBER) {
-    size = lua_tonumber(L, 1);
+    int isize = lua_tonumber(L, 1);
+    lovrAssert(isize > 0, "Blob size must be positive");
+    size = (size_t) isize;
     data = calloc(1, size);
     lovrAssert(data, "Out of memory");
   } else if (type == LUA_TSTRING) {
