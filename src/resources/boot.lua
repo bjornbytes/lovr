@@ -123,8 +123,7 @@ function lovr.run()
     if lovr.audio then
       lovr.audio.update()
       if lovr.headset then
-        lovr.audio.setOrientation(lovr.headset.getOrientation())
-        lovr.audio.setPosition(lovr.headset.getPosition())
+        lovr.audio.setPose(lovr.headset.getPose())
         lovr.audio.setVelocity(lovr.headset.getVelocity())
       end
     end

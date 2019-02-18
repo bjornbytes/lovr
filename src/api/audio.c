@@ -61,6 +61,21 @@ static int l_lovrAudioGetOrientation(lua_State* L) {
   return 4;
 }
 
+static int l_lovrAudioGetPose(lua_State* L) {
+  float position[3], orientation[4], angle, ax, ay, az;
+  lovrAudioGetPosition(position);
+  lovrAudioGetOrientation(orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
+}
+
 static int l_lovrAudioGetPosition(lua_State* L) {
   float position[3];
   lovrAudioGetPosition(position);
@@ -170,6 +185,16 @@ static int l_lovrAudioSetOrientation(lua_State* L) {
   return 0;
 }
 
+static int l_lovrAudioSetPose(lua_State* L) {
+  float position[3], orientation[4];
+  int index = 1;
+  index = luax_readvec3(L, index, position, NULL);
+  index = luax_readquat(L, index, orientation, NULL);
+  lovrAudioSetPosition(position);
+  lovrAudioSetOrientation(orientation);
+  return 0;
+}
+
 static int l_lovrAudioSetPosition(lua_State* L) {
   float position[3];
   luax_readvec3(L, 1, position, NULL);
@@ -200,6 +225,7 @@ static const luaL_Reg lovrAudio[] = {
   { "getDopplerEffect", l_lovrAudioGetDopplerEffect },
   { "getMicrophoneNames", l_lovrAudioGetMicrophoneNames },
   { "getOrientation", l_lovrAudioGetOrientation },
+  { "getPose", l_lovrAudioGetPose },
   { "getPosition", l_lovrAudioGetPosition },
   { "getVelocity", l_lovrAudioGetVelocity },
   { "getVolume", l_lovrAudioGetVolume },
@@ -211,6 +237,7 @@ static const luaL_Reg lovrAudio[] = {
   { "rewind", l_lovrAudioRewind },
   { "setDopplerEffect", l_lovrAudioSetDopplerEffect },
   { "setOrientation", l_lovrAudioSetOrientation },
+  { "setPose", l_lovrAudioSetPose },
   { "setPosition", l_lovrAudioSetPosition },
   { "setVelocity", l_lovrAudioSetVelocity },
   { "setVolume", l_lovrAudioSetVolume },
