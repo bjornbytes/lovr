@@ -31,7 +31,7 @@ option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
 option(LOVR_SYSTEM_ODE "Use the system-provided ODE" OFF)
 option(LOVR_SYSTEM_OPENAL "Use the system-provided OpenAL" OFF)
 
-option(LOVR_BUILD_SHARED "Build as a static library instead of an executable" OFF)
+option(LOVR_BUILD_SHARED "Build as a shared library instead of an executable" OFF)
 
 # Setup
 if(EMSCRIPTEN)
