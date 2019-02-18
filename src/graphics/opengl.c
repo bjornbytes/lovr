@@ -75,6 +75,7 @@ static struct {
   uint32_t viewportCount;
   vec_void_t incoherents[MAX_BARRIERS];
   bool srgb;
+  bool singlepass;
   GpuFeatures features;
   GpuLimits limits;
   GpuStats stats;
@@ -913,7 +914,7 @@ static void lovrGpuSetViewports(float* viewport, uint32_t count) {
 
 // GPU
 
-void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
+void lovrGpuInit(bool srgb, bool singlepass, getProcAddressProc getProcAddress) {
 #ifdef LOVR_GL
   gladLoadGLLoader((GLADloadproc) getProcAddress);
 #elif defined(LOVR_GLES)
@@ -942,6 +943,7 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   state.srgb = srgb;
+  state.singlepass = singlepass && state.features.singlepass;
 
 #ifdef LOVR_GLES
   glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
@@ -1071,8 +1073,8 @@ void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil) {
 
 void lovrGpuDraw(DrawCommand* draw) {
   uint32_t viewCount = 1 + draw->stereo;
-  uint32_t drawCount = state.features.singlepass ? 1 : viewCount;
-  uint32_t viewsPerDraw = state.features.singlepass ? viewCount : 1;
+  uint32_t drawCount = state.singlepass ? 1 : viewCount;
+  uint32_t viewsPerDraw = state.singlepass ? viewCount : 1;
   uint32_t instances = MAX(draw->instances, 1) * viewsPerDraw;
 
   float w = draw->width / (float) viewCount;
@@ -1842,11 +1844,11 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
   const char* fragmentHeader = "#version 150\n";
 #endif
 
-  const char* vertexSinglepass = state.features.singlepass ?
+  const char* vertexSinglepass = state.singlepass ?
     "#extension GL_AMD_vertex_shader_viewport_index : require\n" "#define SINGLEPASS 1\n" :
     "#define SINGLEPASS 0\n";
 
-  const char* fragmentSinglepass = state.features.singlepass ?
+  const char* fragmentSinglepass = state.singlepass ?
     "#extension GL_ARB_fragment_layer_viewport : require\n" "#define SINGLEPASS 1\n" :
     "#define SINGLEPASS 0\n";
 

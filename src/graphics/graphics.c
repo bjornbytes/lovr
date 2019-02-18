@@ -153,8 +153,9 @@ static void writeGeometry(Batch* batch, float* vertices, uint16_t* indices, uint
 
 // Base
 
-bool lovrGraphicsInit(bool gammaCorrect) {
+bool lovrGraphicsInit(bool gammaCorrect, bool singlepass) {
   state.gammaCorrect = gammaCorrect;
+  state.singlepass = singlepass;
   return false;
 }
 
@@ -199,7 +200,7 @@ void lovrGraphicsCreateWindow(WindowFlags* flags) {
   lovrPlatformOnWindowClose(onCloseWindow);
   lovrPlatformOnWindowResize(onResizeWindow);
   lovrPlatformGetFramebufferSize(&state.width, &state.height);
-  lovrGpuInit(state.gammaCorrect, lovrGetProcAddress);
+  lovrGpuInit(state.gammaCorrect, state.singlepass, lovrGetProcAddress);
   lovrGraphicsInitBuffers();
   lovrGraphicsReset();
   state.initialized = true;

@@ -1506,7 +1506,16 @@ int luaopen_lovr_graphics(lua_State* L) {
   bool gammaCorrect = lua_toboolean(L, -1);
   lua_pop(L, 1);
 
-  lovrGraphicsInit(gammaCorrect);
+  bool singlepass = true;
+  lua_getfield(L, -1, "graphics");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "singlepass");
+    singlepass = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 1);
+
+  lovrGraphicsInit(gammaCorrect, singlepass);
 
   lua_pushcfunction(L, l_lovrGraphicsCreateWindow);
   lua_getfield(L, -2, "window");

@@ -61,6 +61,9 @@ function lovr.boot()
       thread = true,
       timer = true
     },
+    graphics = {
+      singlepass = true
+    },
     gammacorrect = false,
     headset = {
       drivers = { 'oculus', 'oculusmobile', 'openvr', 'webvr', 'fake' },

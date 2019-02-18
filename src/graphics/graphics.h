@@ -164,6 +164,7 @@ typedef struct {
 typedef struct {
   bool initialized;
   bool gammaCorrect;
+  bool singlepass;
   int width;
   int height;
   Camera camera;
@@ -193,7 +194,7 @@ typedef struct {
 } GraphicsState;
 
 // Base
-bool lovrGraphicsInit(bool gammaCorrect);
+bool lovrGraphicsInit(bool gammaCorrect, bool singlepass);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsPresent(void);
 void lovrGraphicsCreateWindow(WindowFlags* flags);
@@ -310,7 +311,7 @@ typedef struct {
   bool stereo : 1;
 } DrawCommand;
 
-void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress);
+void lovrGpuInit(bool srgb, bool singlepass, getProcAddressProc getProcAddress);
 void lovrGpuDestroy(void);
 void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
 void lovrGpuCompute(Shader* shader, int x, int y, int z);
