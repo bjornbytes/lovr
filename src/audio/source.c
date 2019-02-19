@@ -82,24 +82,16 @@ float lovrSourceGetPitch(Source* source) {
   return pitch;
 }
 
-void lovrSourceGetPosition(Source* source, float* x, float* y, float* z) {
-  float v[3];
-  alGetSourcefv(source->id, AL_POSITION, v);
-  *x = v[0];
-  *y = v[1];
-  *z = v[2];
+void lovrSourceGetPosition(Source* source, vec3 position) {
+  alGetSourcefv(source->id, AL_POSITION, position);
 }
 
 int lovrSourceGetSampleRate(Source* source) {
   return source->type == SOURCE_STATIC ? source->soundData->sampleRate : source->stream->sampleRate;
 }
 
-void lovrSourceGetVelocity(Source* source, float* x, float* y, float* z) {
-  float v[3];
-  alGetSourcefv(source->id, AL_VELOCITY, v);
-  *x = v[0];
-  *y = v[1];
-  *z = v[2];
+void lovrSourceGetVelocity(Source* source, vec3 velocity) {
+  alGetSourcefv(source->id, AL_VELOCITY, velocity);
 }
 
 float lovrSourceGetVolume(Source* source) {
@@ -222,17 +214,17 @@ void lovrSourceSetPitch(Source* source, float pitch) {
   alSourcef(source->id, AL_PITCH, pitch);
 }
 
-void lovrSourceSetPosition(Source* source, float x, float y, float z) {
+void lovrSourceSetPosition(Source* source, vec3 position) {
   lovrAssert(lovrSourceGetChannelCount(source) == 1, "Positional audio is only supported for mono sources");
-  alSource3f(source->id, AL_POSITION, x, y, z);
+  alSource3f(source->id, AL_POSITION, position[0], position[1], position[2]);
 }
 
 void lovrSourceSetRelative(Source* source, bool isRelative) {
   alSourcei(source->id, AL_SOURCE_RELATIVE, isRelative ? AL_TRUE : AL_FALSE);
 }
 
-void lovrSourceSetVelocity(Source* source, float x, float y, float z) {
-  alSource3f(source->id, AL_VELOCITY, x, y, z);
+void lovrSourceSetVelocity(Source* source, vec3 velocity) {
+  alSource3f(source->id, AL_VELOCITY, velocity[0], velocity[1], velocity[2]);
 }
 
 void lovrSourceSetVolume(Source* source, float volume) {
