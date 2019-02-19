@@ -25,15 +25,6 @@ static int l_lovrSourceGetCone(lua_State* L) {
   return 3;
 }
 
-static int l_lovrSourceGetDirection(lua_State* L) {
-  float direction[3];
-  lovrSourceGetDirection(luax_checktype(L, 1, Source), &direction[0], &direction[1], &direction[2]);
-  lua_pushnumber(L, direction[0]);
-  lua_pushnumber(L, direction[1]);
-  lua_pushnumber(L, direction[2]);
-  return 3;
-}
-
 static int l_lovrSourceGetDuration(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   TimeUnit unit = luaL_checkoption(L, 2, "seconds", TimeUnits);
@@ -56,6 +47,18 @@ static int l_lovrSourceGetFalloff(lua_State* L) {
   lua_pushnumber(L, max);
   lua_pushnumber(L, rolloff);
   return 3;
+}
+
+static int l_lovrSourceGetOrientation(lua_State* L) {
+  float orientation[4], angle, ax, ay, az;
+  Source* source = luax_checktype(L, 1, Source);
+  lovrSourceGetOrientation(source, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 4;
 }
 
 static int l_lovrSourceGetPitch(lua_State* L) {
@@ -194,11 +197,11 @@ static int l_lovrSourceSetLooping(lua_State* L) {
   return 0;
 }
 
-static int l_lovrSourceSetDirection(lua_State* L) {
+static int l_lovrSourceSetOrientation(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float direction[3];
-  luax_readvec3(L, 2, direction, NULL);
-  lovrSourceSetDirection(source, direction[0], direction[1], direction[2]);
+  float orientation[4];
+  luax_readquat(L, 2, orientation, NULL);
+  lovrSourceSetOrientation(source, orientation);
   return 0;
 }
 
@@ -263,9 +266,9 @@ const luaL_Reg lovrSource[] = {
   { "getBitDepth", l_lovrSourceGetBitDepth },
   { "getChannelCount", l_lovrSourceGetChannelCount },
   { "getCone", l_lovrSourceGetCone },
-  { "getDirection", l_lovrSourceGetDirection },
   { "getDuration", l_lovrSourceGetDuration },
   { "getFalloff", l_lovrSourceGetFalloff },
+  { "getOrientation", l_lovrSourceGetOrientation },
   { "getPitch", l_lovrSourceGetPitch },
   { "getPosition", l_lovrSourceGetPosition },
   { "getSampleRate", l_lovrSourceGetSampleRate },
@@ -284,9 +287,9 @@ const luaL_Reg lovrSource[] = {
   { "rewind", l_lovrSourceRewind },
   { "seek", l_lovrSourceSeek },
   { "setCone", l_lovrSourceSetCone },
-  { "setDirection", l_lovrSourceSetDirection },
   { "setFalloff", l_lovrSourceSetFalloff },
   { "setLooping", l_lovrSourceSetLooping },
+  { "setOrientation", l_lovrSourceSetOrientation },
   { "setPitch", l_lovrSourceSetPitch },
   { "setPosition", l_lovrSourceSetPosition },
   { "setRelative", l_lovrSourceSetRelative },

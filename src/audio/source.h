@@ -1,5 +1,6 @@
 #include "data/audioStream.h"
 #include "data/soundData.h"
+#include "lib/math.h"
 #include "util.h"
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -38,7 +39,7 @@ SourceType lovrSourceGetType(Source* source);
 int lovrSourceGetBitDepth(Source* source);
 int lovrSourceGetChannelCount(Source* source);
 void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, float* outerGain);
-void lovrSourceGetDirection(Source* source, float* x, float* y, float* z);
+void lovrSourceGetOrientation(Source* source, quat orientation);
 int lovrSourceGetDuration(Source* source);
 void lovrSourceGetFalloff(Source* source, float* reference, float* max, float* rolloff);
 float lovrSourceGetPitch(Source* source);
@@ -58,7 +59,7 @@ void lovrSourceResume(Source* source);
 void lovrSourceRewind(Source* source);
 void lovrSourceSeek(Source* source, int sample);
 void lovrSourceSetCone(Source* source, float inner, float outer, float outerGain);
-void lovrSourceSetDirection(Source* source, float x, float y, float z);
+void lovrSourceSetOrientation(Source* source, quat orientation);
 void lovrSourceSetFalloff(Source* source, float reference, float max, float rolloff);
 void lovrSourceSetLooping(Source* source, bool isLooping);
 void lovrSourceSetPitch(Source* source, float pitch);

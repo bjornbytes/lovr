@@ -60,12 +60,10 @@ int lovrSourceGetChannelCount(Source* source) {
   return source->type == SOURCE_STATIC ? source->soundData->channelCount : source->stream->channelCount;
 }
 
-void lovrSourceGetDirection(Source* source, float* x, float* y, float* z) {
-  float v[3];
+void lovrSourceGetOrientation(Source* source, quat orientation) {
+  float v[3], forward[3] = { 0.f, 0.f, -1.f };
   alGetSourcefv(source->id, AL_DIRECTION, v);
-  *x = v[0];
-  *y = v[1];
-  *z = v[2];
+  quat_between(orientation, forward, v);
 }
 
 int lovrSourceGetDuration(Source* source) {
@@ -200,8 +198,10 @@ void lovrSourceSetCone(Source* source, float innerAngle, float outerAngle, float
   alSourcef(source->id, AL_CONE_OUTER_GAIN, outerGain);
 }
 
-void lovrSourceSetDirection(Source* source, float x, float y, float z) {
-  alSource3f(source->id, AL_DIRECTION, x, y, z);
+void lovrSourceSetOrientation(Source* source, quat orientation) {
+  float v[3] = { 0.f, 0.f, -1.f };
+  quat_rotate(orientation, v);
+  alSource3f(source->id, AL_DIRECTION, v[0], v[1], v[2]);
 }
 
 void lovrSourceSetFalloff(Source* source, float reference, float max, float rolloff) {
