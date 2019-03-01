@@ -179,24 +179,26 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
 }
 
 Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y) {
-  if (!textureData->blob.data || textureData->format != FORMAT_RGBA) {
+  if (!textureData->blob.data) {
     return (Color) { 0, 0, 0, 0 };
   }
 
   bool inside = x >= 0 && y >= 0 && x <= (textureData->width - 1) && y <= (textureData->height - 1);
   lovrAssert(inside, "getPixel coordinates must be in TextureData bounds");
+  lovrAssert(textureData->format == FORMAT_RGBA, "TextureData:getPixel currently only works with rgba formats");
   size_t offset = 4 * ((textureData->height - (y + 1)) * textureData->width + x);
   uint8_t* data = (uint8_t*) textureData->blob.data + offset;
   return (Color) { data[0] / 255.f, data[1] / 255.f, data[2] / 255.f, data[3] / 255.f };
 }
 
 void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color) {
-  if (!textureData->blob.data || textureData->format != FORMAT_RGBA) {
+  if (!textureData->blob.data) {
     return;
   }
 
   bool inside = x >= 0 && y >= 0 && x <= (textureData->width - 1) && y <= (textureData->height - 1);
   lovrAssert(inside, "setPixel coordinates must be in TextureData bounds");
+  lovrAssert(textureData->format == FORMAT_RGBA, "TextureData:setPixel currently only works with rgba formats");
   size_t offset = 4 * ((textureData->height - (y + 1)) * textureData->width + x);
   uint8_t* data = (uint8_t*) textureData->blob.data + offset;
   data[0] = (uint8_t) (color.r * 255.f + .5f);
