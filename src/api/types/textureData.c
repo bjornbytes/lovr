@@ -28,6 +28,12 @@ static int l_lovrTextureDataGetDimensions(lua_State* L) {
   return 2;
 }
 
+static int l_lovrTextureDataGetFormat(lua_State* L) {
+  TextureData* textureData = luax_checktype(L, 1, TextureData);
+  lua_pushstring(L, TextureFormats[textureData->format]);
+  return 1;
+}
+
 static int l_lovrTextureDataGetPixel(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
   int x = luaL_checkinteger(L, 2);
@@ -59,6 +65,7 @@ const luaL_Reg lovrTextureData[] = {
   { "getWidth", l_lovrTextureDataGetWidth },
   { "getHeight", l_lovrTextureDataGetHeight },
   { "getDimensions", l_lovrTextureDataGetDimensions },
+  { "getFormat", l_lovrTextureDataGetFormat },
   { "getPixel", l_lovrTextureDataGetPixel },
   { "setPixel", l_lovrTextureDataSetPixel },
   { NULL, NULL }
