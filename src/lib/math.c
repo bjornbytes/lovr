@@ -547,9 +547,8 @@ mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom,
 }
 
 mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, float aspect) {
-  float range = tanf(fovy * .5f) * clipNear;
-  float sx = (2.f * clipNear) / (range * aspect + range * aspect);
-  float sy = clipNear / range;
+  float sy = 1.f / tanf(fovy * .5f);
+  float sx = sy / aspect;
   float sz = -(clipFar + clipNear) / (clipFar - clipNear);
   float pz = (-2.f * clipFar * clipNear) / (clipFar - clipNear);
   memset(m, 0, 16 * sizeof(float));
