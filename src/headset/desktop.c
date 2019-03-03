@@ -16,6 +16,7 @@ static struct {
 
   float clipNear;
   float clipFar;
+  float ipd;
 
   float position[3];
   float velocity[3];
@@ -29,6 +30,14 @@ static struct {
   double prevCursorX;
   double prevCursorY;
 } state;
+
+static void desktopGetDisplayDimensions(uint32_t* width, uint32_t* height);
+
+static void setProjection(mat4 projection) {
+  uint32_t width, height;
+  desktopGetDisplayDimensions(&width, &height);
+  mat4_perspective(projection, state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / 2.f / height);
+}
 
 static void onMouseButton(MouseButton button, ButtonAction action) {
   if (button == MOUSE_RIGHT) {
@@ -46,6 +55,7 @@ static bool desktopInit(float offset, int msaa) {
   state.offset = offset;
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
+  state.ipd = .063f;
 
   mat4_identity(state.transform);
 
@@ -125,6 +135,29 @@ static void desktopGetAngularVelocity(float* vx, float* vy, float* vz) {
   *vz = state.angularVelocity[2];
 }
 
+static float* desktopGetFrustum(float* frustum) {
+  setProjection(frustum);
+
+  // Determine how far back the frustum needs to be pushed (behind the eyes)
+  // The first element of a perspective matrix is (1 / tan(fovx / 2))
+  float zoffset = state.ipd / 2.f * frustum[0];
+
+  // Compute and apply new clipping planes
+  float nc = state.clipNear + zoffset;
+  float fc = state.clipFar + zoffset;
+  frustum[10] = -(fc + nc) / (fc - nc);
+  frustum[14] = (-2.f * fc * nc) / (fc - nc);
+
+  // Get the modified view matrix by pushing the transform back by the zoffset and inverting it.
+  float view[16];
+  mat4_set(view, state.transform);
+  mat4_translate(view, 0.f, 0.f, zoffset);
+  mat4_invertPose(view);
+
+  // The combined world-space frustum is the projection matrix multiplied by the view matrix.
+  return mat4_multiply(frustum, view);
+}
+
 static Controller** desktopGetControllers(uint8_t* count) {
   *count = state.controllers.length;
   return state.controllers.data;
@@ -178,14 +211,15 @@ static ModelData* desktopControllerNewModelData(Controller* controller) {
 }
 
 static void desktopRenderTo(void (*callback)(void*), void* userdata) {
-  uint32_t width, height;
-  desktopGetDisplayDimensions(&width, &height);
   Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = true };
-  mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / 2.f / height);
-  mat4_multiply(camera.viewMatrix[0], state.transform);
-  mat4_invertPose(camera.viewMatrix[0]);
+  setProjection(camera.projection[0]);
   mat4_set(camera.projection[1], camera.projection[0]);
-  mat4_set(camera.viewMatrix[1], camera.viewMatrix[0]);
+  mat4_set(camera.viewMatrix[0], state.transform);
+  mat4_set(camera.viewMatrix[1], state.transform);
+  mat4_translate(camera.viewMatrix[0], -state.ipd / 2.f, 0.f, 0.f);
+  mat4_translate(camera.viewMatrix[1], state.ipd / 2.f, 0.f, 0.f);
+  mat4_invertPose(camera.viewMatrix[0]);
+  mat4_invertPose(camera.viewMatrix[1]);
   lovrGraphicsSetCamera(&camera, true);
   callback(userdata);
   lovrGraphicsSetCamera(NULL, false);
@@ -268,6 +302,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   desktopGetPose,
   desktopGetVelocity,
   desktopGetAngularVelocity,
+  desktopGetFrustum,
   desktopGetControllers,
   desktopControllerIsConnected,
   desktopControllerGetHand,

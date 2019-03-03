@@ -246,6 +246,13 @@ static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   return 3;
 }
 
+static int l_lovrHeadsetGetFrustum(lua_State* L) {
+  lua_settop(L, 1);
+  mat4 frustum = lua_isnoneornil(L, 1) ? luax_newmathtype(L, MATH_MAT4) : luax_checkmathtype(L, 1, MATH_MAT4, "mat4 or nil");
+  lovrHeadsetDriver->getFrustum(frustum);
+  return 1;
+}
+
 static int l_lovrHeadsetGetControllers(lua_State* L) {
   uint8_t count;
   Controller** controllers = lovrHeadsetDriver->getControllers(&count);
@@ -320,6 +327,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getOrientation", l_lovrHeadsetGetOrientation },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
+  { "getFrustum", l_lovrHeadsetGetFrustum },
   { "getControllers", l_lovrHeadsetGetControllers },
   { "getControllerCount", l_lovrHeadsetGetControllerCount },
   { "renderTo", l_lovrHeadsetRenderTo },

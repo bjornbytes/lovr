@@ -610,6 +610,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrGetPose,
   openvrGetVelocity,
   openvrGetAngularVelocity,
+  NULL,
   openvrGetControllers,
   openvrControllerIsConnected,
   openvrControllerGetHand,

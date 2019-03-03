@@ -84,6 +84,7 @@ typedef struct {
   void (*getPose)(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   void (*getVelocity)(float* vx, float* vy, float* vz);
   void (*getAngularVelocity)(float* vx, float* vy, float* vz);
+  float* (*getFrustum)(float* frustum);
   Controller** (*getControllers)(uint8_t* count);
   bool (*controllerIsConnected)(Controller* controller);
   ControllerHand (*controllerGetHand)(Controller* controller);
