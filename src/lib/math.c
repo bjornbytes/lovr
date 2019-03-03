@@ -558,7 +558,6 @@ mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, float a
   m[10] = sz;
   m[11] = -1.f;
   m[14] = pz;
-  m[15] = 0.f;
   return m;
 }
 
