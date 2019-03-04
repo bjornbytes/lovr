@@ -41,6 +41,7 @@ typedef struct {
   float clipNear;
   float clipFar;
   float offset;
+  float ipd;
   int msaa;
 } HeadsetState;
 
@@ -279,6 +280,30 @@ static void openvrGetAngularVelocity(float* vx, float* vy, float* vz) {
     *vy = pose.vAngularVelocity.v[1];
     *vz = pose.vAngularVelocity.v[2];
   }
+}
+
+static float* openvrGetFrustum(float* frustum) {
+
+  // Get projection and determine how far back the frustum needs to be pushed (behind the eyes)
+  // The first element of a perspective matrix is (1 / tan(fovx / 2))
+  // We sorta just hope that the eyes have the same projection.
+  mat4_fromMat44(frustum, state.system->GetProjectionMatrix(EVREye_Eye_Left, state.clipNear, state.clipFar).m);
+  float zoffset = state.ipd / 2.f * frustum[0];
+
+  // Compute and apply new clipping planes based on the zoffset.
+  float nc = state.clipNear + zoffset;
+  float fc = state.clipFar + zoffset;
+  frustum[10] = -(fc + nc) / (fc - nc);
+  frustum[14] = (-2.f * fc * nc) / (fc - nc);
+
+  // Get the head transform, offset it, and invert it to turn it into a view matrix.
+  float view[16];
+  getTransform(HEADSET_INDEX, view);
+  mat4_translate(view, 0.f, 0.f, zoffset);
+  mat4_invertPose(view);
+
+  // Combine the modified projection and view matrices to get a combined superfrustum.
+  return mat4_multiply(frustum, view);
 }
 
 static Controller** openvrGetControllers(uint8_t* count) {
@@ -586,6 +611,10 @@ static void openvrUpdate(float dt) {
         break;
       }
 
+      case EVREventType_VREvent_IpdChanged:
+        state.ipd = vrEvent.data.ipd.ipdMeters;
+        break;
+
       default: break;
     }
   }
@@ -610,7 +639,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   openvrGetPose,
   openvrGetVelocity,
   openvrGetAngularVelocity,
-  NULL,
+  openvrGetFrustum,
   openvrGetControllers,
   openvrControllerIsConnected,
   openvrControllerGetHand,
