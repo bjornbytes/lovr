@@ -163,6 +163,7 @@ static bool openvrInit(float offset, int msaa) {
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
+  state.ipd = state.system->GetFloatTrackedDeviceProperty(HEADSET_INDEX, ETrackedDeviceProperty_Prop_UserIpdMeters_Float, NULL);
   state.msaa = msaa;
 
   vec_init(&state.boundsGeometry);
@@ -282,27 +283,45 @@ static void openvrGetAngularVelocity(float* vx, float* vy, float* vz) {
   }
 }
 
+// Some OpenVR drivers return asymmetric/different projection values for the two eyes (both for the
+// horizontal and vertical fov), so a general solution is used here.
 static float* openvrGetFrustum(float* frustum) {
 
-  // Get projection and determine how far back the frustum needs to be pushed (behind the eyes)
-  // The first element of a perspective matrix is (1 / tan(fovx / 2))
-  // We sorta just hope that the eyes have the same projection.
-  mat4_fromMat44(frustum, state.system->GetProjectionMatrix(EVREye_Eye_Left, state.clipNear, state.clipFar).m);
-  float zoffset = state.ipd / 2.f * frustum[0];
+  // Compute z offset and conservative top/bottom tangents from both raw projections
+  float left, right, tl, bl, tr, br, empty;
+  state.system->GetProjectionRaw(EVREye_Eye_Left, &left, &empty, &tl, &bl);
+  state.system->GetProjectionRaw(EVREye_Eye_Right, &empty, &right, &tr, &br);
+  float zoffset = state.ipd / (right - left);
+  float bottom = MAX(bl, br);
+  float top = MIN(tl, tr);
 
-  // Compute and apply new clipping planes based on the zoffset.
-  float nc = state.clipNear + zoffset;
-  float fc = state.clipFar + zoffset;
-  frustum[10] = -(fc + nc) / (fc - nc);
-  frustum[14] = (-2.f * fc * nc) / (fc - nc);
+  // Make an adjusted projection matrix
+  float n = state.clipNear + zoffset;
+  float f = state.clipFar + zoffset;
+  float idx = 1.f / (right - left);
+  float idy = 1.f / (bottom - top);
+  float idz = 1.f / (f - n);
+  float sx = right + left;
+  float sy = bottom + top;
+  memset(frustum, 0, 16 * sizeof(float));
+  frustum[0] = 2.f * idx;
+  frustum[5] = 2.f * idy;
+  frustum[8] = sx * idx;
+  frustum[9] = sy * idy;
+  frustum[10] = -f * idz;
+  frustum[11] = -1.f;
+  frustum[14] = -f * n * idz;
 
-  // Get the head transform, offset it, and invert it to turn it into a view matrix.
+  // Get the head transform, offset it, and invert it to turn it into a view matrix.  The head is
+  // not always at the same z position as the eyes, so we request the eye offset and add that to the
+  // computed z offset.  It may be possible to cache the property lookup (XXX).
+  float eyeOffset = state.system->GetFloatTrackedDeviceProperty(HEADSET_INDEX, ETrackedDeviceProperty_Prop_UserHeadToEyeDepthMeters_Float, NULL);
   float view[16];
   getTransform(HEADSET_INDEX, view);
-  mat4_translate(view, 0.f, 0.f, zoffset);
+  mat4_translate(view, 0.f, 0.f, eyeOffset + zoffset);
   mat4_invertPose(view);
 
-  // Combine the modified projection and view matrices to get a combined superfrustum.
+  // Combine the modified projection and view matrix to get a combined superfrustum.
   return mat4_multiply(frustum, view);
 }
 
