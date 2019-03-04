@@ -58,6 +58,7 @@ ffi.cdef [[
   mat4* mat4_setTransform(mat4* m, float x, float y, float z, float sx, float sy, float sz, float angle, float ax, float ay, float az);
   mat4* mat4_orthographic(mat4* m, float left, float right, float top, float bottom, float near, float far);
   mat4* mat4_perspective(mat4* m, float near, float far, float fov, float aspect);
+  bool mat4_containsPoint(mat4* m, float x, float y, float z);
   void mat4_transform(mat4* m, float* x, float* y, float* z);
 ]]
 
@@ -491,6 +492,16 @@ local mat4 = {
   orthographic = function(m, left, right, top, bottom, near, far)
     checkmat4(m)
     return C.mat4_orthographic(m, left, right, top, bottom, near, far)
+  end,
+
+  containsPoint = function(m, x, y, z)
+    checkmat4(m)
+    if type(x) == 'number' then
+      return C.mat4_containsPoint(m, x, y, z)
+    else
+      checkvec3(x, 1, 'vec3 or number')
+      return C.mat4_containsPoint(m, x.x, x.y, x.z)
+    end
   end,
 
   __mul = function(m, n)

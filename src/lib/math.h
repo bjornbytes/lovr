@@ -1,4 +1,5 @@
 #include "util.h"
+#include <stdbool.h>
 
 #pragma once
 
@@ -60,6 +61,7 @@ MAF_EXPORT mat4 mat4_setTransform(mat4 m, float x, float y, float z, float sx, f
 MAF_EXPORT mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float near, float far);
 MAF_EXPORT mat4 mat4_perspective(mat4 m, float near, float far, float fov, float aspect);
 MAF_EXPORT mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up);
+MAF_EXPORT bool mat4_containsPoint(mat4 m, float x, float y, float z);
 MAF_EXPORT void mat4_transform(mat4 m, float* x, float* y, float* z);
 MAF_EXPORT void mat4_transformDirection(mat4 m, float* x, float* y, float* z);
 

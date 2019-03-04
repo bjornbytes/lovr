@@ -628,6 +628,28 @@ mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   return m;
 }
 
+bool mat4_containsPoint(mat4 m, float x, float y, float z) {
+#ifdef LOVR_USE_SSE
+  __m128 mx = _mm_mul_ps(_mm_loadu_ps(m + 0), _mm_set1_ps(x));
+  __m128 my = _mm_mul_ps(_mm_loadu_ps(m + 4), _mm_set1_ps(y));
+  __m128 mz = _mm_mul_ps(_mm_loadu_ps(m + 8), _mm_set1_ps(z));
+  __m128 mw = _mm_loadu_ps(m + 12);
+
+  __m128 v = _mm_add_ps(_mm_add_ps(mx, my), _mm_add_ps(mz, mw));
+  __m128 max = _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 3, 3));
+  __m128 min = _mm_xor_ps(max, _mm_set1_ps(-0.f));
+
+  return _mm_movemask_ps(_mm_cmpge_ps(v, min)) == 0xf && _mm_movemask_ps(_mm_cmple_ps(v, max)) == 0xf;
+#else
+  float w = 1.f;
+  float xx = x * m[0] + y * m[4] + z * m[8] + w * m[12];
+  float yy = x * m[1] + y * m[5] + z * m[9] + w * m[13];
+  float zz = x * m[2] + y * m[6] + z * m[10] + w * m[14];
+  float ww = x * m[3] + y * m[7] + z * m[11] + w * m[15];
+  return xx > -ww && xx < ww && yy > -ww && yy < ww && zz > -ww && zz < ww;
+#endif
+}
+
 void mat4_transform(mat4 m, float* x, float* y, float* z) {
   float tx = *x, ty = *y, tz = *z;
   *x = tx * m[0] + ty * m[4] + tz * m[8] + m[12];

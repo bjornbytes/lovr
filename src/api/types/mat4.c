@@ -180,6 +180,14 @@ static int l_lovrMat4Orthographic(lua_State* L) {
   return 1;
 }
 
+static int l_lovrMat4ContainsPoint(lua_State* L) {
+  mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
+  float v[3];
+  luax_readvec3(L, 2, v, NULL);
+  lua_pushboolean(L, mat4_containsPoint(m, v[0], v[1], v[2]));
+  return 1;
+}
+
 static int l_lovrMat4__mul(lua_State* L) {
   mat4 m = luax_checkmathtype(L, 1, MATH_MAT4, NULL);
   MathType type;
@@ -214,6 +222,7 @@ const luaL_Reg lovrMat4[] = {
   { "mul", l_lovrMat4Mul },
   { "perspective", l_lovrMat4Perspective },
   { "orthographic", l_lovrMat4Orthographic },
+  { "containsPoint", l_lovrMat4ContainsPoint },
   { "__mul", l_lovrMat4__mul },
   { "__tostring", l_lovrMat4__tostring },
   { NULL, NULL }
