@@ -641,11 +641,10 @@ bool mat4_containsPoint(mat4 m, float x, float y, float z) {
 
   return _mm_movemask_ps(_mm_cmple_ps(mv, ww)) == 0xf;
 #else
-  float w = 1.f;
-  float xx = x * m[0] + y * m[4] + z * m[8] + w * m[12];
-  float yy = x * m[1] + y * m[5] + z * m[9] + w * m[13];
-  float zz = x * m[2] + y * m[6] + z * m[10] + w * m[14];
-  float ww = x * m[3] + y * m[7] + z * m[11] + w * m[15];
+  float xx = x * m[0] + y * m[4] + z * m[8] + m[12];
+  float yy = x * m[1] + y * m[5] + z * m[9] + m[13];
+  float zz = x * m[2] + y * m[6] + z * m[10] + m[14];
+  float ww = x * m[3] + y * m[7] + z * m[11] + m[15];
   return ww + xx > 0 && ww - xx > 0 && ww + yy > 0 && ww - yy > 0 && ww + zz > 0 && ww - zz > 0;
 #endif
 }
