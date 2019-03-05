@@ -280,16 +280,16 @@ local quat = {
         local axis = checkvec3(y, 2)
         C.quat_fromAngleAxis(q, x, y.x, y.y, y.z)
       end
-    elseif istype(vec3, x) then
-      if istype(vec3, y) then
+    elseif istype(vec3_t, x) then
+      if istype(vec3_t, y) then
         C.quat_between(q, x, y)
       else
         local forward = new('float[3]', 0, 0, -1)
         C.quat_between(forward, x)
       end
-    elseif istype(quat, x) then
+    elseif istype(quat_t, x) then
       q.x, q.y, q.z, q.w = x.x, x.y, x.z, x.w
-    elseif istype(mat4, x) then
+    elseif istype(mat4_t, x) then
       C.quat_fromMat4(q, x)
     end
     return q
@@ -297,7 +297,7 @@ local quat = {
 
   mul = function(q, r)
     checkquat(q)
-    if istype(vec3, r) then
+    if istype(vec3_t, r) then
       C.quat_rotate(q, r)
       return r
     else
@@ -325,7 +325,7 @@ local quat = {
 
   __mul = function(q, r)
     checkquat(q, 1)
-    if istype(vec3, r) then
+    if istype(vec3_t, r) then
       local v = math.vec3(r)
       C.quat_rotate(q, v)
       return v
@@ -394,7 +394,7 @@ local mat4 = {
 
     -- Position
     local x, y, z = ...
-    if istype(vec3, x) then
+    if istype(vec3_t, x) then
       M.m[12], M.m[13], M.m[14] = x.x, x.y, x.z
       i = i + 1
     else
@@ -405,7 +405,7 @@ local mat4 = {
 
     -- Scale
     local sx, sy, sz = select(i, ...)
-    if istype(vec3, sx) then
+    if istype(vec3_t, sx) then
       sx, sy, sz = sx.x, sx.y, sx.z
       i = i + 1
     else
@@ -414,7 +414,7 @@ local mat4 = {
 
     -- Rotate
     local angle, ax, ay, az = select(i, ...)
-    if istype(quat, angle) then
+    if istype(quat_t, angle) then
       C.mat4_rotateQuat(M, angle)
     else
       C.mat4_rotate(M, angle, ax, ay, az)
@@ -470,7 +470,7 @@ local mat4 = {
 
   mul = function(m, x, y, z)
     checkmat4(m)
-    if istype(mat4, x) then
+    if istype(mat4_t, x) then
       return C.mat4_multiply(m, x)
     elseif type(x) == 'number' then
       local f = new('float[3]', x or 0, y or 0, z or 0)
@@ -495,7 +495,7 @@ local mat4 = {
 
   __mul = function(m, n)
     checkmat4(m, 1)
-    if istype(mat4, n) then
+    if istype(mat4_t, n) then
       return C.mat4_multiply(mat4_t():set(m), n)
     else
       checkvec3(n, 2, 'mat4 or vec3')
