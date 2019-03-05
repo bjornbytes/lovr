@@ -42,7 +42,7 @@ bool lovrFilesystemIsDirectory(const char* path);
 bool lovrFilesystemIsFile(const char* path);
 bool lovrFilesystemIsFused(void);
 int lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char *root);
-void* lovrFilesystemRead(const char* path, size_t* bytesRead);
+void* lovrFilesystemRead(const char* path, size_t bytes, size_t* bytesRead);
 int lovrFilesystemRemove(const char* path);
 int lovrFilesystemSetIdentity(const char* identity);
 void lovrFilesystemSetRequirePath(const char* requirePath);

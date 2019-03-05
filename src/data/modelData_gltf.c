@@ -423,7 +423,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
         char filename[1024];
         lovrAssert(uri.length < 1024, "Buffer filename is too long");
         snprintf(filename, 1023, "%s/%.*s", basePath, (int) uri.length, uri.data);
-        *blob = lovrBlobCreate(lovrFilesystemRead(filename, &bytesRead), size, NULL);
+        *blob = lovrBlobCreate(lovrFilesystemRead(filename, -1, &bytesRead), size, NULL);
         lovrAssert((*blob)->data && bytesRead == size, "Unable to read %s", filename);
       } else {
         lovrAssert(glb, "Buffer is missing URI");
@@ -603,7 +603,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           gltfString uri = NOM_STR(json, token);
           lovrAssert(strncmp("data:", uri.data, strlen("data:")), "Base64 URIs aren't supported yet");
           snprintf(filename, 1024, "%s/%.*s%c", basePath, (int) uri.length, uri.data, 0);
-          void* data = lovrFilesystemRead(filename, &size);
+          void* data = lovrFilesystemRead(filename, -1, &size);
           lovrAssert(data && size > 0, "Unable to read texture from '%s'", filename);
           Blob* blob = lovrBlobCreate(data, size, NULL);
           *texture = lovrTextureDataCreateFromBlob(blob, false);

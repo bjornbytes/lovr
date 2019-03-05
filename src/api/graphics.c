@@ -1281,7 +1281,7 @@ static void luax_readshadersource(lua_State* L, int index) {
   }
 
   size_t bytesRead;
-  char* contents = lovrFilesystemRead(source, &bytesRead);
+  char* contents = lovrFilesystemRead(source, -1, &bytesRead);
   lovrAssert(bytesRead > 0, "Could not read shader from file '%s'", source);
   lua_pushlstring(L, contents, bytesRead);
   lua_replace(L, index);

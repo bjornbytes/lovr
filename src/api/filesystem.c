@@ -15,7 +15,7 @@ Blob* luax_readblob(lua_State* L, int index, const char* debug) {
     const char* path = luaL_checkstring(L, index);
 
     size_t size;
-    void* data = lovrFilesystemRead(path, &size);
+    void* data = lovrFilesystemRead(path, -1, &size);
     if (!data) {
       luaL_error(L, "Could not read %s from '%s'", debug, path);
     }
@@ -247,7 +247,7 @@ static int l_lovrFilesystemIsFused(lua_State* L) {
 static int l_lovrFilesystemLoad(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   size_t size;
-  char* content = lovrFilesystemRead(path, &size);
+  char* content = lovrFilesystemRead(path, -1, &size);
 
   if (!content) {
     return luaL_error(L, "Could not read file '%s'", path);
@@ -277,7 +277,7 @@ static int l_lovrFilesystemMount(lua_State* L) {
 static int l_lovrFilesystemNewBlob(lua_State* L) {
   size_t size;
   const char* path = luaL_checkstring(L, 1);
-  uint8_t* data = lovrFilesystemRead(path, &size);
+  uint8_t* data = lovrFilesystemRead(path, -1, &size);
   lovrAssert(data, "Could not load file '%s'", path);
   Blob* blob = lovrBlobCreate((void*) data, size, path);
   luax_pushobject(L, blob);
@@ -287,12 +287,18 @@ static int l_lovrFilesystemNewBlob(lua_State* L) {
 
 static int l_lovrFilesystemRead(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  size_t size;
-  char* content = lovrFilesystemRead(path, &size);
-  lovrAssert(content, "Could not read file '%s'", path);
-  lua_pushlstring(L, content, size);
+  lua_Integer luaSize = luaL_optinteger(L, 2, -1);
+  size_t size = MAX(luaSize, -1);
+  size_t bytesRead;
+  void* content = lovrFilesystemRead(path, size, &bytesRead);
+  if (!content) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lua_pushlstring(L, content, bytesRead);
+  lua_pushinteger(L, bytesRead);
   free(content);
-  return 1;
+  return 2;
 }
 
 static int l_lovrFilesystemRemove(lua_State* L) {

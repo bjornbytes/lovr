@@ -20,7 +20,7 @@ typedef vec_t(objGroup) vec_group_t;
 
 static void parseMtl(char* path, vec_void_t* textures, vec_material_t* materials, map_int_t* names, char* base) {
   size_t length = 0;
-  char* data = lovrFilesystemRead(path, &length);
+  char* data = lovrFilesystemRead(path, -1, &length);
   lovrAssert(data && length > 0, "Unable to read mtl from '%s'", path);
   char* s = data;
 
@@ -54,7 +54,7 @@ static void parseMtl(char* path, vec_void_t* textures, vec_material_t* materials
       char path[1024];
       snprintf(path, 1023, "%s/%s", base, filename);
       size_t size = 0;
-      void* data = lovrFilesystemRead(path, &size);
+      void* data = lovrFilesystemRead(path, -1, &size);
       lovrAssert(data && size > 0, "Unable to read texture from %s", path);
       Blob* blob = lovrBlobCreate(data, size, NULL);
 

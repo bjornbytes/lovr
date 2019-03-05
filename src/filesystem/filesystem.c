@@ -212,7 +212,7 @@ int lovrFilesystemMount(const char* path, const char* mountpoint, bool append, c
   return !success;
 }
 
-void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
+void* lovrFilesystemRead(const char* path, size_t bytes, size_t* bytesRead) {
   File file;
   lovrFileInit(memset(&file, 0, sizeof(File)), path);
 
@@ -220,30 +220,25 @@ void* lovrFilesystemRead(const char* path, size_t* bytesRead) {
     return NULL;
   }
 
-  // Get file size
-  size_t size = lovrFileGetSize(&file);
-  if (size == (unsigned int) -1) {
-    lovrFileDestroy(&file);
-    return NULL;
+  // Get file size if no size was specified
+  if (bytes == (size_t) -1) {
+    bytes = lovrFileGetSize(&file);
+    if (bytes == (size_t) -1) {
+      lovrFileDestroy(&file);
+      return NULL;
+    }
   }
 
   // Allocate buffer
-  void* data = malloc(size);
+  void* data = malloc(bytes);
   if (!data) {
     lovrFileDestroy(&file);
     return NULL;
   }
 
   // Perform read
-  *bytesRead = lovrFileRead(&file, data, size);
+  *bytesRead = lovrFileRead(&file, data, bytes);
   lovrFileDestroy(&file);
-
-  // Make sure we got everything
-  if (*bytesRead != (size_t) size) {
-    free(data);
-    return NULL;
-  }
-
   return data;
 }
 
