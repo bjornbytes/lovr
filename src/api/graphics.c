@@ -1184,7 +1184,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
 
       switch (attributes[i].type) {
         case I8: case U8: stride += 1 * attributes[i].components; break;
-        case I16: case U16: stride += 2 * attributes[i].components; break; 
+        case I16: case U16: stride += 2 * attributes[i].components; break;
         case I32: case U32: case F32: stride += 4 * attributes[i].components; break;
       }
       lua_pop(L, 4);
