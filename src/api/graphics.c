@@ -1125,6 +1125,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   int dataIndex = 0;
   int formatIndex = 0;
   int drawModeIndex = 2;
+  Blob* blob = NULL;
 
   if (lua_isnumber(L, 1)) {
     count = lua_tointeger(L, 1);
@@ -1138,6 +1139,10 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
       drawModeIndex++;
       formatIndex = 1;
       count = lua_objlen(L, 2);
+      dataIndex = 2;
+    } else if ((blob = luax_totype(L, 2, Blob)) != NULL) {
+      drawModeIndex++;
+      formatIndex = 1;
       dataIndex = 2;
     } else {
       count = lua_objlen(L, 1);
@@ -1186,6 +1191,10 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     }
   }
 
+  if (blob) {
+    count = blob->size / stride;
+  }
+
   DrawMode mode = luaL_checkoption(L, drawModeIndex, "fan", DrawModes);
   BufferUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", BufferUsages);
   bool readable = lua_toboolean(L, drawModeIndex + 2);
@@ -1213,29 +1222,33 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   if (dataIndex) {
     AttributeData data = { .raw = lovrBufferMap(vertexBuffer, 0) };
 
-    for (uint32_t i = 0; i < count; i++) {
-      lua_rawgeti(L, dataIndex, i + 1);
-      lovrAssert(lua_istable(L, -1), "Vertices should be specified as a table of tables");
+    if (blob) {
+      memcpy(data.raw, blob->data, count * stride);
+    } else {
+      for (uint32_t i = 0; i < count; i++) {
+        lua_rawgeti(L, dataIndex, i + 1);
+        lovrAssert(lua_istable(L, -1), "Vertices should be specified as a table of tables");
 
-      int component = 0;
-      for (int j = 0; j < attributeCount; j++) {
-        MeshAttribute* attribute = &attributes[j];
-        for (int k = 0; k < attribute->components; k++) {
-          lua_rawgeti(L, -1, ++component);
-          switch (attribute->type) {
-            case I8: *data.i8++ = luaL_optinteger(L, -1, 0); break;
-            case U8: *data.u8++ = luaL_optinteger(L, -1, 0); break;
-            case I16: *data.i16++ = luaL_optinteger(L, -1, 0); break;
-            case U16: *data.u16++ = luaL_optinteger(L, -1, 0); break;
-            case I32: *data.i32++ = luaL_optinteger(L, -1, 0); break;
-            case U32: *data.u32++ = luaL_optinteger(L, -1, 0); break;
-            case F32: *data.f32++ = luaL_optnumber(L, -1, 0.); break;
+        int component = 0;
+        for (int j = 0; j < attributeCount; j++) {
+          MeshAttribute* attribute = &attributes[j];
+          for (int k = 0; k < attribute->components; k++) {
+            lua_rawgeti(L, -1, ++component);
+            switch (attribute->type) {
+              case I8: *data.i8++ = luaL_optinteger(L, -1, 0); break;
+              case U8: *data.u8++ = luaL_optinteger(L, -1, 0); break;
+              case I16: *data.i16++ = luaL_optinteger(L, -1, 0); break;
+              case U16: *data.u16++ = luaL_optinteger(L, -1, 0); break;
+              case I32: *data.i32++ = luaL_optinteger(L, -1, 0); break;
+              case U32: *data.u32++ = luaL_optinteger(L, -1, 0); break;
+              case F32: *data.f32++ = luaL_optnumber(L, -1, 0.); break;
+            }
+            lua_pop(L, 1);
           }
-          lua_pop(L, 1);
         }
-      }
 
-      lua_pop(L, 1);
+        lua_pop(L, 1);
+      }
     }
   }
 
