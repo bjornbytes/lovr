@@ -307,7 +307,7 @@ static void bridgeLovrInitState() {
   // Copypaste the init sequence from lovrRun:
   // Load libraries
   L = luaL_newstate(); // FIXME: Can this be handed off to main.c?
-  luax_setmainstate(L);
+  luax_setmainthread(L);
   lua_atpanic(L, luax_custom_atpanic);
   luaL_openlibs(L);
   lovrLog("\n OPENED LIB\n");
@@ -409,7 +409,6 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   if (lua_resume(Lcoroutine, coroutineArgs) != LUA_YIELD) {
     if (lua_type(Lcoroutine, -1) == LUA_TSTRING && !strcmp(lua_tostring(Lcoroutine, -1), "restart")) {
       lua_close(L);
-      luax_setmainstate(NULL);
       bridgeLovrInitState();
     } else {
       lovrLog("\n LUA REQUESTED A QUIT\n");
