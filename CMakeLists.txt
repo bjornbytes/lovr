@@ -522,12 +522,12 @@ if(WIN32)
     target_compile_definitions(lovr PUBLIC -Dinline=__inline -Dsnprintf=_snprintf)
   endif()
 
-  function(move_dll ARG_TARGET)
-    if(TARGET ${ARG_TARGET})
+  function(move_dll)
+    if(TARGET ${ARGV0})
       add_custom_command(TARGET lovr POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-        $<TARGET_FILE:${ARG_TARGET}>
-        ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION>/$<TARGET_FILE_NAME:${ARG_TARGET}>
+        $<TARGET_FILE:${ARGV0}>
+        ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION>/$<TARGET_FILE_NAME:${ARGV0}>
       )
     endif()
   endfunction()
