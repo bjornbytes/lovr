@@ -76,9 +76,8 @@ static HeadsetRenderData headsetRenderData;
 
 static void renderHelper(void* userdata) {
   HeadsetRenderData* renderData = userdata;
+  lua_State* L = renderData->L;
 #ifdef LOVR_HEADSET_HELPER_USES_REGISTRY
-  // Emscripten and Oculus Mobile path
-  lua_State* L = luax_getmainstate();
   lua_getglobal(L, "_lovrHeadsetRenderError");
   bool noError = lua_isnil(L, -1);
   lua_pop(L, 1);
@@ -91,9 +90,6 @@ static void renderHelper(void* userdata) {
     lua_pop(L, 1); // pop luax_getstack
   }
 #else
-  // Normal path
-  lua_State* L = renderData->L;
-  lua_pushvalue(L, -1);
   lua_call(L, 0, 0);
 #endif
 }
@@ -279,8 +275,12 @@ static int l_lovrHeadsetRenderTo(lua_State* L) {
   }
 
   headsetRenderData.ref = luaL_ref(L, LUA_REGISTRYINDEX);
-#endif
+  lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
+  headsetRenderData.L = lua_tothread(L, -1);
+  lua_pop(L, 1);
+#else
   headsetRenderData.L = L;
+#endif
   lovrHeadsetDriver->renderTo(renderHelper, &headsetRenderData);
   return 0;
 }

@@ -28,5 +28,10 @@ void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
 Color luax_checkcolor(lua_State* L, int index);
 int luax_pushLovrHeadsetRenderError(lua_State *L);
-lua_State *luax_getmainstate(void);
-void luax_setmainstate(lua_State *L);
+
+#if LUA_VERSION_NUM < 502
+#define LUA_RIDX_MAINTHREAD 1
+void luax_setmainthread(lua_State* L);
+#else
+#define luax_setmainthread
+#endif

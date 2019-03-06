@@ -301,12 +301,9 @@ int luax_pushLovrHeadsetRenderError(lua_State *L) {
   return haveRenderError;
 }
 
-static lua_State *luax_mainstate;
-
-lua_State *luax_getmainstate() {
-  return luax_mainstate;
+#if LUA_VERSION_NUM < 502
+void luax_setmainthread(lua_State *L) {
+  lua_pushthread(L);
+  lua_rawseti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
 }
-
-void luax_setmainstate(lua_State *L) {
-  luax_mainstate = L;
-}
+#endif
