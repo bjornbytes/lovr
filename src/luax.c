@@ -289,18 +289,6 @@ Color luax_checkcolor(lua_State* L, int index) {
   return color;
 }
 
-int luax_pushLovrHeadsetRenderError(lua_State *L) {
-  lua_getglobal(L, "_lovrHeadsetRenderError"); // renderCallback failed
-  bool haveRenderError = !lua_isnil(L, -1);
-  if (haveRenderError) {
-    lua_pushnil(L); // Now the error is on the stack remove it from globals
-    lua_setglobal(L, "_lovrHeadsetRenderError");
-  } else {
-    lua_pop(L, 1); // pop stray nil
-  }
-  return haveRenderError;
-}
-
 #if LUA_VERSION_NUM < 502
 void luax_setmainthread(lua_State *L) {
   lua_pushthread(L);

@@ -10,6 +10,9 @@
 #define luax_checktype(L, i, T) ((T*) _luax_checktype(L, i, #T))
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
+#define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")
+#define luax_seterror(L) lua_setfield(L, LUA_REGISTRYINDEX, "_lovrerror")
+#define luax_clearerror(L) lua_pushnil(L), luax_seterror(L)
 typedef void (*luax_destructor)(void);
 
 int luax_print(lua_State* L);
@@ -27,7 +30,6 @@ int luax_getstack_panic(lua_State *L);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
 Color luax_checkcolor(lua_State* L, int index);
-int luax_pushLovrHeadsetRenderError(lua_State *L);
 
 #if LUA_VERSION_NUM < 502
 #define LUA_RIDX_MAINTHREAD 1

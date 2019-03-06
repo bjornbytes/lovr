@@ -405,8 +405,9 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
     luaL_unref (Lcoroutine, LUA_REGISTRYINDEX, coroutineStartFunctionRef);
     coroutineStartFunctionRef = LUA_NOREF; // No longer needed
   }
-  int coroutineArgs = luax_pushLovrHeadsetRenderError(Lcoroutine);
-  if (lua_resume(Lcoroutine, coroutineArgs) != LUA_YIELD) {
+
+  luax_geterror(L);
+  if (lua_resume(Lcoroutine, 1) != LUA_YIELD) {
     if (lua_type(Lcoroutine, -1) == LUA_TSTRING && !strcmp(lua_tostring(Lcoroutine, -1), "restart")) {
       lua_close(L);
       bridgeLovrInitState();

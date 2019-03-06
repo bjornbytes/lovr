@@ -78,17 +78,16 @@ static void renderHelper(void* userdata) {
   HeadsetRenderData* renderData = userdata;
   lua_State* L = renderData->L;
 #ifdef LOVR_HEADSET_HELPER_USES_REGISTRY
-  lua_getglobal(L, "_lovrHeadsetRenderError");
-  bool noError = lua_isnil(L, -1);
-  lua_pop(L, 1);
-  if (noError) { // Skip if there's already an error waiting to show
+  luax_geterror(L);
+  if (lua_isnil(L, -1)) {
     lua_pushcfunction(L, luax_getstack);
     lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
     if (lua_pcall(L, 0, 0, -2)) {
-      lua_setglobal(L, "_lovrHeadsetRenderError");
+      luax_seterror(L);
     }
     lua_pop(L, 1); // pop luax_getstack
   }
+  lua_pop(L, 1);
 #else
   lua_call(L, 0, 0);
 #endif
