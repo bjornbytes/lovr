@@ -34,6 +34,7 @@ void lovrDestroy(void* arg) {
 
 static void emscriptenLoop(void* arg) {
   lovrEmscriptenContext* context = arg;
+  lua_State* L = context->L;
   luax_geterror(L);
   luax_clearerror(L);
 

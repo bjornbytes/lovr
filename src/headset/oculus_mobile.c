@@ -407,6 +407,7 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   }
 
   luax_geterror(L);
+  luax_clearerror(L);
   if (lua_resume(Lcoroutine, 1) != LUA_YIELD) {
     if (lua_type(Lcoroutine, -1) == LUA_TSTRING && !strcmp(lua_tostring(Lcoroutine, -1), "restart")) {
       lua_close(L);
