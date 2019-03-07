@@ -12,8 +12,8 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa) 
     HeadsetInterface* interface = NULL;
 
     switch (drivers[i]) {
-#ifdef LOVR_USE_FAKE_HEADSET
-      case DRIVER_FAKE: interface = &lovrHeadsetFakeDriver; break;
+#ifdef LOVR_USE_DESKTOP_HEADSET
+      case DRIVER_DESKTOP: interface = &lovrHeadsetDesktopDriver; break;
 #endif
 #ifdef LOVR_USE_OCULUS
       case DRIVER_OCULUS: interface = &lovrHeadsetOculusDriver; break;

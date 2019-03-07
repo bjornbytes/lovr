@@ -37,7 +37,7 @@ const char* ControllerHands[] = {
 };
 
 const char* HeadsetDrivers[] = {
-  [DRIVER_FAKE] = "fake",
+  [DRIVER_DESKTOP] = "desktop",
   [DRIVER_OCULUS] = "oculus",
   [DRIVER_OCULUS_MOBILE] = "oculusmobile",
   [DRIVER_OPENVR] = "openvr",
