@@ -262,7 +262,7 @@ bool lovrPlatformHasWindow() {
 extern unsigned char boot_lua[];
 extern unsigned int boot_lua_len;
 
-static lua_State *L, *Lcoroutine;
+static lua_State *L, *T;
 static int coroutineRef = LUA_NOREF;
 static int coroutineStartFunctionRef = LUA_NOREF;
 
@@ -358,8 +358,8 @@ static void bridgeLovrInitState() {
   }
 
   coroutineStartFunctionRef = luaL_ref(L, LUA_REGISTRYINDEX); // Value returned by boot.lua
-  Lcoroutine = lua_newthread(L); // Leave L clear to be used by the draw function
-  lua_atpanic(Lcoroutine, luax_custom_atpanic);
+  T = lua_newthread(L); // Leave L clear to be used by the draw function
+  lua_atpanic(T, luax_custom_atpanic);
   coroutineRef = luaL_ref(L, LUA_REGISTRYINDEX); // Hold on to the Lua-side coroutine object so it isn't GC'd
 
   lovrLog("\n STATE INIT COMPLETE\n");
@@ -401,15 +401,15 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
 
   // Go
   if (coroutineStartFunctionRef != LUA_NOREF) {
-    lua_rawgeti(Lcoroutine, LUA_REGISTRYINDEX, coroutineStartFunctionRef);
-    luaL_unref (Lcoroutine, LUA_REGISTRYINDEX, coroutineStartFunctionRef);
+    lua_rawgeti(T, LUA_REGISTRYINDEX, coroutineStartFunctionRef);
+    luaL_unref (T, LUA_REGISTRYINDEX, coroutineStartFunctionRef);
     coroutineStartFunctionRef = LUA_NOREF; // No longer needed
   }
 
-  luax_geterror(Lcoroutine);
-  luax_clearerror(Lcoroutine);
-  if (lua_resume(Lcoroutine, 1) != LUA_YIELD) {
-    if (lua_type(Lcoroutine, -1) == LUA_TSTRING && !strcmp(lua_tostring(Lcoroutine, -1), "restart")) {
+  luax_geterror(T);
+  luax_clearerror(T);
+  if (lua_resume(T, 1) != LUA_YIELD) {
+    if (lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart")) {
       lua_close(L);
       bridgeLovrInitState();
     } else {
