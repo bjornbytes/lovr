@@ -34,17 +34,13 @@ void lovrDestroy(void* arg) {
 
 static void emscriptenLoop(void* arg) {
   lovrEmscriptenContext* context = arg;
-  lua_getglobal(context->L, "_lovrHeadsetRenderError"); // webvr.c renderCallback failed
-  bool haveRenderError = !lua_isnil(context->L, -1);
-  if (!haveRenderError) {
-    lua_pop(context->L, 1);
-  }
+  lua_State* T = context->T;
 
-  int coroutineArgs = luax_pushLovrHeadsetRenderError(context->T);
-
-  if (lua_resume(context->T, coroutineArgs) != LUA_YIELD) {
-    bool restart = lua_type(context->T, -1) == LUA_TSTRING && !strcmp(lua_tostring(context->T, -1), "restart");
-    int status = lua_tonumber(context->T, -1);
+  luax_geterror(T);
+  luax_clearerror(T);
+  if (lua_resume(T, 1) != LUA_YIELD) {
+    bool restart = lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart");
+    int status = lua_tonumber(T, -1);
 
     lua_close(context->L);
     emscripten_cancel_main_loop();
