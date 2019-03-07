@@ -405,10 +405,10 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
 static void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeViewMatrix, float *projectionMatrix) {
   lovrGpuDirtyTexture();
 
-  CanvasFlags flags = {0};
-  Canvas *canvas = lovrCanvasCreateFromHandle(width, height, flags, framebuffer, 0, 0, 1, true);
+  Canvas canvas = { 0 };
+  lovrCanvasInitFromHandle(&canvas, width, height, (CanvasFlags) { 0 }, framebuffer, 0, 0, 1, true);
 
-  Camera camera = { .canvas = canvas, .stereo = false };
+  Camera camera = { .canvas = &canvas, .stereo = false };
   memcpy(camera.viewMatrix[0], eyeViewMatrix, sizeof(camera.viewMatrix[0]));
   mat4_translate(camera.viewMatrix[0], 0, -offset, 0);
 
@@ -416,11 +416,12 @@ static void lovrOculusMobileDraw(int framebuffer, int width, int height, float *
 
   lovrGraphicsSetCamera(&camera, true);
 
-  if (renderCallback)
+  if (renderCallback) {
     renderCallback(renderUserdata);
+  }
 
   lovrGraphicsSetCamera(NULL, false);
-  lovrRelease(canvas);
+  lovrCanvasDestroy(&canvas);
 }
 
 void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
