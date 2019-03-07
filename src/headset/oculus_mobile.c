@@ -77,22 +77,15 @@ static void oculusMobileGetPose(float* x, float* y, float* z, float* angle, floa
   *x = bridgeLovrMobileData.updateData.lastHeadPose.x;
   *y = bridgeLovrMobileData.updateData.lastHeadPose.y + offset; // Correct for head height
   *z = bridgeLovrMobileData.updateData.lastHeadPose.z;
-
-  // Notice: Ax and Az are both swapped and inverted. Experimentally, if you do the Oculus Go controller position
-  // lines up with Lovr visually, and if you don't it doesn't. This is probably needed because of different axis standards.
-  quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, az, ay, ax);
-  *ax = -*ax;
-  *az = -*az;
+  quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, ax, ay, az);
 }
 
-// TODO: This has never been tested
 static void oculusMobileGetVelocity(float* vx, float* vy, float* vz) {
   *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.x;
   *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.y;
   *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.z;
 }
 
-// TODO: This has never been tested
 static void oculusMobileGetAngularVelocity(float* vx, float* vy, float* vz) {
   *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.ax;
   *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.ay;
@@ -120,12 +113,7 @@ static void oculusMobileControllerGetPose(Controller* controller, float* x, floa
   *x = bridgeLovrMobileData.updateData.goPose.x;
   *y = bridgeLovrMobileData.updateData.goPose.y + offset; // Correct for head height
   *z = bridgeLovrMobileData.updateData.goPose.z;
-
-  // Notice: Ax and Az are both swapped and inverted. Experimentally, if you do the Oculus Go controller position
-  // lines up with Lovr visually, and if you don't it doesn't. This is probably needed because of different axis standards.
-  quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, az, ay, ax);
-  *ax = -*ax;
-  *az = -*az;
+  quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, ax, ay, az);
 }
 
 static void oculusMobileControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
