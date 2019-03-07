@@ -10,66 +10,75 @@
 // happens through the functions and data structures in this file.
 
 typedef struct {
-	int width;
-	int height;
+  int width;
+  int height;
 } BridgeLovrDimensions;
 
 typedef struct {
-	float x; float y; float z; float q[4];
+  float x;
+  float y;
+  float z;
+  float q[4];
 } BridgeLovrPose;
 
 typedef struct {
-	float x; float y; float z; float ax; float ay; float az;
+  float x;
+  float y;
+  float z;
+  float ax;
+  float ay;
+  float az;
 } BridgeLovrVel;
 
 typedef struct {
-	float x; float y;
+  float x;
+  float y;
 } BridgeLovrTrackpad;
 
 // Bit identical with VrApi_Input.h ovrButton
 typedef enum
 {
-	BRIDGE_LOVR_BUTTON_NONE = 0,
+  BRIDGE_LOVR_BUTTON_NONE = 0,
 
-	BRIDGE_LOVR_BUTTON_SHOULDER = 0x00000001,	// "Set for trigger pulled on the Gear VR and Go Controllers"
-	BRIDGE_LOVR_BUTTON_TOUCHPAD = 0x00100000,	// "Set for touchpad click on the Gear VR and Go Controllers"
-	BRIDGE_LOVR_BUTTON_MENU     = 0x00200000,	// "Back button on the headset or Gear VR Controller (only set when a short press comes up)"
+  BRIDGE_LOVR_BUTTON_SHOULDER = 0x00000001, // "Set for trigger pulled on the Gear VR and Go Controllers"
+  BRIDGE_LOVR_BUTTON_TOUCHPAD = 0x00100000, // "Set for touchpad click on the Gear VR and Go Controllers"
+  BRIDGE_LOVR_BUTTON_MENU     = 0x00200000, // "Back button on the headset or Gear VR Controller (only set when a short press comes up)"
 } BridgeLovrButton;
 
 // Values identical with headset.h HeadsetType
 typedef enum
 {
-	BRIDGE_LOVR_DEVICE_UNKNOWN,
-	BRIDGE_LOVR_DEVICE_GEAR = 3,
-	BRIDGE_LOVR_DEVICE_GO = 4
+  BRIDGE_LOVR_DEVICE_UNKNOWN,
+  BRIDGE_LOVR_DEVICE_GEAR = 3,
+  BRIDGE_LOVR_DEVICE_GO = 4
 } BridgeLovrDevice;
 
 // Data passed from Lovr_NativeActivity to BridgeLovr at update time
 typedef struct {
-	double displayTime; // Projected
+  double displayTime; // Projected
 
-	BridgeLovrPose lastHeadPose;
-	BridgeLovrVel lastHeadVelocity;
-	float eyeViewMatrix[2][16];
-	float projectionMatrix[2][16];
+  BridgeLovrPose lastHeadPose;
+  BridgeLovrVel lastHeadVelocity;
+  float eyeViewMatrix[2][16];
+  float projectionMatrix[2][16];
 
-	// TODO: Controller object
-	bool goPresent;
-	BridgeLovrPose goPose;
-	BridgeLovrVel goVelocity;
-	BridgeLovrTrackpad goTrackpad;
-	bool goTrackpadTouch;
-	BridgeLovrButton goButtonDown;
-	BridgeLovrButton goButtonTouch;
+  // TODO: Controller object
+  bool goPresent;
+  BridgeLovrPose goPose;
+  BridgeLovrVel goVelocity;
+  BridgeLovrTrackpad goTrackpad;
+  bool goTrackpadTouch;
+  BridgeLovrButton goButtonDown;
+  BridgeLovrButton goButtonTouch;
 } BridgeLovrUpdateData;
 
 // Data passed from Lovr_NativeActivity to BridgeLovr at init time
 typedef struct {
-	const char *writablePath;
-	const char *apkPath;
-	BridgeLovrDimensions suggestedEyeTexture;
-	double zeroDisplayTime;
-	BridgeLovrDevice deviceType;
+  const char *writablePath;
+  const char *apkPath;
+  BridgeLovrDimensions suggestedEyeTexture;
+  double zeroDisplayTime;
+  BridgeLovrDevice deviceType;
 } BridgeLovrInitData;
 
 void bridgeLovrInit(BridgeLovrInitData *initData);
@@ -77,8 +86,8 @@ void bridgeLovrInit(BridgeLovrInitData *initData);
 void bridgeLovrUpdate(BridgeLovrUpdateData *updateData);
 
 typedef struct {
-	int eye;
-	int framebuffer;
+  int eye;
+  int framebuffer;
 } BridgeLovrDrawData;
 
 void bridgeLovrDraw(BridgeLovrDrawData *drawData);

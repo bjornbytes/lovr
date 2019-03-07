@@ -35,10 +35,11 @@ static bool oculusMobileInit(float _offset, int msaa) {
 }
 
 static void oculusMobileDestroy() {
+  //
 }
 
 static HeadsetType oculusMobileGetType() {
-  return (HeadsetType)(int)bridgeLovrMobileData.deviceType;
+  return (HeadsetType) bridgeLovrMobileData.deviceType;
 }
 
 static HeadsetOrigin oculusMobileGetOriginType() {
@@ -46,7 +47,7 @@ static HeadsetOrigin oculusMobileGetOriginType() {
 }
 
 static bool oculusMobileIsMounted() {
-  return true; // ???
+  return true;
 }
 
 static void oculusMobileGetDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -63,8 +64,8 @@ static void oculusMobileSetClipDistance(float clipNear, float clipFar) {
 }
 
 static void oculusMobileGetBoundsDimensions(float* width, float* depth) {
-  *width = 0;
-  *depth = 0;
+  *width = 0.f;
+  *depth = 0.f;
 }
 
 static const float* oculusMobileGetBoundsGeometry(int* count) {
@@ -142,26 +143,22 @@ static void oculusMobileControllerGetAngularVelocity(Controller* controller, flo
 static float oculusMobileControllerGetAxis(Controller* controller, ControllerAxis axis) {
   switch (axis) {
     case CONTROLLER_AXIS_TOUCHPAD_X:
-      return (bridgeLovrMobileData.updateData.goTrackpad.x-160)/160.0;
+      return (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f;
     case CONTROLLER_AXIS_TOUCHPAD_Y:
-      return (bridgeLovrMobileData.updateData.goTrackpad.y-160)/160.0;
+      return (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f;
     case CONTROLLER_AXIS_TRIGGER:
-      return bridgeLovrMobileData.updateData.goButtonDown ? 1.0 : 0.0;
+      return bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f;
     default:
-      return 0;
+      return 0.f;
   }
 }
 
 static bool buttonCheck(BridgeLovrButton field, ControllerButton button) {
   switch (button) {
-    case CONTROLLER_BUTTON_MENU:
-      return field & BRIDGE_LOVR_BUTTON_MENU;
-    case CONTROLLER_BUTTON_TRIGGER:
-      return field & BRIDGE_LOVR_BUTTON_SHOULDER;
-    case CONTROLLER_BUTTON_TOUCHPAD:
-      return field & BRIDGE_LOVR_BUTTON_TOUCHPAD;
-    default:
-      return false;
+    case CONTROLLER_BUTTON_MENU: return field & BRIDGE_LOVR_BUTTON_MENU;
+    case CONTROLLER_BUTTON_TRIGGER: return field & BRIDGE_LOVR_BUTTON_SHOULDER;
+    case CONTROLLER_BUTTON_TOUCHPAD: return field & BRIDGE_LOVR_BUTTON_TOUCHPAD;
+    default: return false;
   }
 }
 
@@ -174,6 +171,7 @@ static bool oculusMobileControllerIsTouched(Controller* controller, ControllerBu
 }
 
 static void oculusMobileControllerVibrate(Controller* controller, float duration, float power) {
+  //
 }
 
 static ModelData* oculusMobileControllerNewModelData(Controller* controller) {
@@ -184,9 +182,6 @@ static ModelData* oculusMobileControllerNewModelData(Controller* controller) {
 static void oculusMobileRenderTo(void (*callback)(void*), void* userdata) {
   renderCallback = callback;
   renderUserdata = userdata;
-}
-
-static void oculusMobileUpdate(float dt) {
 }
 
 HeadsetInterface lovrHeadsetOculusMobileDriver = {
@@ -216,8 +211,8 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   oculusMobileControllerVibrate,
   oculusMobileControllerNewModelData,
   oculusMobileRenderTo,
-  NULL, // No mirror texture
-  oculusMobileUpdate
+  .getMirrorTexture = NULL,
+  .update = NULL
 };
 
 // Oculus-specific platform functions
