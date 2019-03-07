@@ -1,4 +1,4 @@
-/* stb_image_write - v1.08 - public domain - http://nothings.org/stb/stb_image_write.h
+/* stb_image_write - v1.13 - public domain - http://nothings.org/stb/stb_image_write.h
    writes out PNG/BMP/TGA/JPEG/HDR images to C stdio - Sean Barrett 2010-2015
                                      no warranty implied; use at your own risk
 
@@ -17,8 +17,7 @@
 
 ABOUT:
 
-   This header file is a library for writing images to C stdio. It could be
-   adapted to write to memory or a general streaming interface; let me know.
+   This header file is a library for writing images to C stdio or a callback.
 
    The PNG output is not optimal; it is 20-50% larger than the file
    written by a decent optimizing implementation; though providing a custom
@@ -38,6 +37,14 @@ BUILDING:
    The returned data will be freed with STBIW_FREE() (free() by default),
    so it must be heap allocated with STBIW_MALLOC() (malloc() by default),
 
+UNICODE:
+
+   If compiling for Windows and you wish to use Unicode filenames, compile
+   with
+       #define STBIW_WINDOWS_UTF8
+   and pass utf8-encoded filenames. Call stbiw_convert_wchar_to_utf8 to convert
+   Windows wchar_t filenames to utf8.
+
 USAGE:
 
    There are five functions, one for each image file format:
@@ -45,8 +52,8 @@ USAGE:
      int stbi_write_png(char const *filename, int w, int h, int comp, const void *data, int stride_in_bytes);
      int stbi_write_bmp(char const *filename, int w, int h, int comp, const void *data);
      int stbi_write_tga(char const *filename, int w, int h, int comp, const void *data);
+     int stbi_write_jpg(char const *filename, int w, int h, int comp, const void *data, int quality);
      int stbi_write_hdr(char const *filename, int w, int h, int comp, const float *data);
-     int stbi_write_jpg(char const *filename, int w, int h, int comp, const float *data, int quality);
 
      void stbi_flip_vertically_on_write(int flag); // flag is non-zero to flip data vertically
 
@@ -95,7 +102,7 @@ USAGE:
    at the end of the line.)
 
    PNG allows you to set the deflate compression level by setting the global
-   variable 'stbi_write_png_level' (it defaults to 8).
+   variable 'stbi_write_png_compression_level' (it defaults to 8).
 
    HDR expects linear float data. Since the format is always 32-bit rgb(e)
    data, alpha (if provided) is discarded, and for monochrome data it is
@@ -133,7 +140,12 @@ CREDITS:
       github:poppolopoppo
       Patrick Boettcher
       github:xeekworx
-      
+      Cap Petschulat
+      Simon Rodriguez
+      Ivan Tikhonov
+      github:ignotion
+      Adam Schackart
+
 LICENSE
 
   See end of file for license information.
@@ -143,19 +155,26 @@ LICENSE
 #ifndef INCLUDE_STB_IMAGE_WRITE_H
 #define INCLUDE_STB_IMAGE_WRITE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <stdlib.h>
 
+// if STB_IMAGE_WRITE_STATIC causes problems, try defining STBIWDEF to 'inline' or 'static inline'
+#ifndef STBIWDEF
 #ifdef STB_IMAGE_WRITE_STATIC
-#define STBIWDEF static
+#define STBIWDEF  static
 #else
-#define STBIWDEF extern
+#ifdef __cplusplus
+#define STBIWDEF  extern "C"
+#else
+#define STBIWDEF  extern
+#endif
+#endif
 #endif
 
-STBIWDEF int stbi_write_tga_with_rle;
-STBIWDEF int stbi_write_png_comperssion_level;
-STBIWDEF int stbi_write_force_png_filter;
+#ifndef STB_IMAGE_WRITE_STATIC  // C++ forbids static forward declarations
+extern int stbi_write_tga_with_rle;
+extern int stbi_write_png_compression_level;
+extern int stbi_write_force_png_filter;
+#endif
 
 #ifndef STBI_WRITE_NO_STDIO
 STBIWDEF int stbi_write_png(char const *filename, int w, int h, int comp, const void  *data, int stride_in_bytes);
@@ -163,6 +182,10 @@ STBIWDEF int stbi_write_bmp(char const *filename, int w, int h, int comp, const 
 STBIWDEF int stbi_write_tga(char const *filename, int w, int h, int comp, const void  *data);
 STBIWDEF int stbi_write_hdr(char const *filename, int w, int h, int comp, const float *data);
 STBIWDEF int stbi_write_jpg(char const *filename, int x, int y, int comp, const void  *data, int quality);
+
+#ifdef STBI_WINDOWS_UTF8
+STBIWDEF int stbiw_convert_wchar_to_utf8(char *buffer, size_t bufferlen, const wchar_t* input);
+#endif
 #endif
 
 typedef void stbi_write_func(void *context, void *data, int size);
@@ -174,10 +197,6 @@ STBIWDEF int stbi_write_hdr_to_func(stbi_write_func *func, void *context, int w,
 STBIWDEF int stbi_write_jpg_to_func(stbi_write_func *func, void *context, int x, int y, int comp, const void  *data, int quality);
 
 STBIWDEF void stbi_flip_vertically_on_write(int flip_boolean);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif//INCLUDE_STB_IMAGE_WRITE_H
 
@@ -233,8 +252,8 @@ STBIWDEF void stbi_flip_vertically_on_write(int flip_boolean);
 #define STBIW_UCHAR(x) (unsigned char) ((x) & 0xff)
 
 #ifdef STB_IMAGE_WRITE_STATIC
-static stbi__flip_vertically_on_write=0;
-static int stbi_write_png_compression level = 8;
+static int stbi__flip_vertically_on_write=0;
+static int stbi_write_png_compression_level = 8;
 static int stbi_write_tga_with_rle = 1;
 static int stbi_write_force_png_filter = -1;
 #else
@@ -269,15 +288,52 @@ static void stbi__stdio_write(void *context, void *data, int size)
    fwrite(data,1,size,(FILE*) context);
 }
 
-static int stbi__start_write_file(stbi__write_context *s, const char *filename)
+#if defined(_MSC_VER) && defined(STBI_WINDOWS_UTF8)
+#ifdef __cplusplus
+#define STBIW_EXTERN extern "C"
+#else
+#define STBIW_EXTERN extern
+#endif
+STBIW_EXTERN __declspec(dllimport) int __stdcall MultiByteToWideChar(unsigned int cp, unsigned long flags, const char *str, int cbmb, wchar_t *widestr, int cchwide);
+STBIW_EXTERN __declspec(dllimport) int __stdcall WideCharToMultiByte(unsigned int cp, unsigned long flags, const wchar_t *widestr, int cchwide, char *str, int cbmb, const char *defchar, int *used_default);
+
+STBIWDEF int stbiw_convert_wchar_to_utf8(char *buffer, size_t bufferlen, const wchar_t* input)
+{
+	return WideCharToMultiByte(65001 /* UTF8 */, 0, input, -1, buffer, (int) bufferlen, NULL, NULL);
+}
+#endif
+
+static FILE *stbiw__fopen(char const *filename, char const *mode)
 {
    FILE *f;
-#ifdef STBI_MSC_SECURE_CRT
-   if (fopen_s(&f, filename, "wb"))
-      f = NULL;
+#if defined(_MSC_VER) && defined(STBI_WINDOWS_UTF8)
+   wchar_t wMode[64];
+   wchar_t wFilename[1024];
+	if (0 == MultiByteToWideChar(65001 /* UTF8 */, 0, filename, -1, wFilename, sizeof(wFilename)))
+      return 0;
+	
+	if (0 == MultiByteToWideChar(65001 /* UTF8 */, 0, mode, -1, wMode, sizeof(wMode)))
+      return 0;
+
+#if _MSC_VER >= 1400
+	if (0 != _wfopen_s(&f, wFilename, wMode))
+		f = 0;
 #else
-   f = fopen(filename, "wb");
+   f = _wfopen(wFilename, wMode);
 #endif
+
+#elif defined(_MSC_VER) && _MSC_VER >= 1400
+   if (0 != fopen_s(&f, filename, mode))
+      f=0;
+#else
+   f = fopen(filename, mode);
+#endif
+   return f;
+}
+
+static int stbi__start_write_file(stbi__write_context *s, const char *filename)
+{
+   FILE *f = stbiw__fopen(filename, "wb");
    stbi__start_write_callbacks(s, stbi__stdio_write, (void *) f);
    return f != NULL;
 }
@@ -337,7 +393,7 @@ static void stbiw__putc(stbi__write_context *s, unsigned char c)
 static void stbiw__write3(stbi__write_context *s, unsigned char a, unsigned char b, unsigned char c)
 {
    unsigned char arr[3];
-   arr[0] = a, arr[1] = b, arr[2] = c;
+   arr[0] = a; arr[1] = b; arr[2] = c;
    s->func(s->context, arr, 3);
 }
 
@@ -385,10 +441,11 @@ static void stbiw__write_pixels(stbi__write_context *s, int rgb_dir, int vdir, i
    if (stbi__flip_vertically_on_write)
       vdir *= -1;
 
-   if (vdir < 0)
-      j_end = -1, j = y-1;
-   else
-      j_end =  y, j = 0;
+   if (vdir < 0) {
+      j_end = -1; j = y-1;
+   } else {
+      j_end =  y; j = 0;
+   }
 
    for (; j != j_end; j += vdir) {
       for (i=0; i < x; ++i) {
@@ -543,10 +600,11 @@ STBIWDEF int stbi_write_tga(char const *filename, int x, int y, int comp, const 
 // *************************************************************************************************
 // Radiance RGBE HDR writer
 // by Baldur Karlsson
+#ifndef STBI_WRITE_NO_STDIO
 
 #define stbiw__max(a, b)  ((a) > (b) ? (a) : (b))
 
-void stbiw__linear_to_rgbe(unsigned char *rgbe, float *linear)
+static void stbiw__linear_to_rgbe(unsigned char *rgbe, float *linear)
 {
    int exponent;
    float maxcomp = stbiw__max(linear[0], stbiw__max(linear[1], linear[2]));
@@ -563,7 +621,7 @@ void stbiw__linear_to_rgbe(unsigned char *rgbe, float *linear)
    }
 }
 
-void stbiw__write_run_data(stbi__write_context *s, int length, unsigned char databyte)
+static void stbiw__write_run_data(stbi__write_context *s, int length, unsigned char databyte)
 {
    unsigned char lengthbyte = STBIW_UCHAR(length+128);
    STBIW_ASSERT(length+128 <= 255);
@@ -571,7 +629,7 @@ void stbiw__write_run_data(stbi__write_context *s, int length, unsigned char dat
    s->func(s->context, &databyte, 1);
 }
 
-void stbiw__write_dump_data(stbi__write_context *s, int length, unsigned char *data)
+static void stbiw__write_dump_data(stbi__write_context *s, int length, unsigned char *data)
 {
    unsigned char lengthbyte = STBIW_UCHAR(length);
    STBIW_ASSERT(length <= 128); // inconsistent with spec but consistent with official code
@@ -579,7 +637,7 @@ void stbiw__write_dump_data(stbi__write_context *s, int length, unsigned char *d
    s->func(s->context, data, length);
 }
 
-void stbiw__write_hdr_scanline(stbi__write_context *s, int width, int ncomp, unsigned char *scratch, float *scanline)
+static void stbiw__write_hdr_scanline(stbi__write_context *s, int width, int ncomp, unsigned char *scratch, float *scanline)
 {
    unsigned char scanlineheader[4] = { 2, 2, 0, 0 };
    unsigned char rgbe[4];
@@ -680,15 +738,15 @@ static int stbi_write_hdr_core(stbi__write_context *s, int x, int y, int comp, f
       char header[] = "#?RADIANCE\n# Written by stb_image_write.h\nFORMAT=32-bit_rle_rgbe\n";
       s->func(s->context, header, sizeof(header)-1);
 
-#ifdef STBI_MSC_SECURE_CRT
-      len = sprintf_s(buffer, "EXPOSURE=          1.0000000000000\n\n-Y %d +X %d\n", y, x);
+#ifdef __STDC_WANT_SECURE_LIB__
+      len = sprintf_s(buffer, sizeof(buffer), "EXPOSURE=          1.0000000000000\n\n-Y %d +X %d\n", y, x);
 #else
       len = sprintf(buffer, "EXPOSURE=          1.0000000000000\n\n-Y %d +X %d\n", y, x);
 #endif
       s->func(s->context, buffer, len);
 
       for(i=0; i < y; i++)
-         stbiw__write_hdr_scanline(s, x, comp, scratch, data + comp*x*(stbi__flip_vertically_on_write ? y-1-i : i)*x);
+         stbiw__write_hdr_scanline(s, x, comp, scratch, data + comp*x*(stbi__flip_vertically_on_write ? y-1-i : i));
       STBIW_FREE(scratch);
       return 1;
    }
@@ -701,7 +759,6 @@ STBIWDEF int stbi_write_hdr_to_func(stbi_write_func *func, void *context, int x,
    return stbi_write_hdr_core(&s, x, y, comp, (float *) data);
 }
 
-#ifndef STBI_WRITE_NO_STDIO
 STBIWDEF int stbi_write_hdr(char const *filename, int x, int y, int comp, const float *data)
 {
    stbi__write_context s;
@@ -803,7 +860,7 @@ static unsigned int stbiw__zhash(unsigned char *data)
 
 #endif // STBIW_ZLIB_COMPRESS
 
-unsigned char * stbi_zlib_compress(unsigned char *data, int data_len, int *out_len, int quality)
+STBIWDEF unsigned char * stbi_zlib_compress(unsigned char *data, int data_len, int *out_len, int quality)
 {
 #ifdef STBIW_ZLIB_COMPRESS
    // user provided a zlib compress implementation, use that
@@ -839,7 +896,7 @@ unsigned char * stbi_zlib_compress(unsigned char *data, int data_len, int *out_l
       for (j=0; j < n; ++j) {
          if (hlist[j]-data > i-32768) { // if entry lies within window
             int d = stbiw__zlib_countm(hlist[j], data+i, data_len-i);
-            if (d >= best) best=d,bestloc=hlist[j];
+            if (d >= best) { best=d; bestloc=hlist[j]; }
          }
       }
       // when hash table entry is too long, delete half the entries
@@ -898,8 +955,8 @@ unsigned char * stbi_zlib_compress(unsigned char *data, int data_len, int *out_l
       int blocklen = (int) (data_len % 5552);
       j=0;
       while (j < data_len) {
-         for (i=0; i < blocklen; ++i) s1 += data[j+i], s2 += s1;
-         s1 %= 65521, s2 %= 65521;
+         for (i=0; i < blocklen; ++i) { s1 += data[j+i]; s2 += s1; }
+         s1 %= 65521; s2 %= 65521;
          j += blocklen;
          blocklen = 5552;
       }
@@ -917,6 +974,9 @@ unsigned char * stbi_zlib_compress(unsigned char *data, int data_len, int *out_l
 
 static unsigned int stbiw__crc32(unsigned char *buffer, int len)
 {
+#ifdef STBIW_CRC32
+    return STBIW_CRC32(buffer, len);
+#else
    static unsigned int crc_table[256] =
    {
       0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
@@ -958,6 +1018,7 @@ static unsigned int stbiw__crc32(unsigned char *buffer, int len)
    for (i=0; i < len; ++i)
       crc = (crc >> 8) ^ crc_table[buffer[i] ^ (crc & 0xff)];
    return ~crc;
+#endif
 }
 
 #define stbiw__wpng4(o,a,b,c,d) ((o)[0]=STBIW_UCHAR(a),(o)[1]=STBIW_UCHAR(b),(o)[2]=STBIW_UCHAR(c),(o)[3]=STBIW_UCHAR(d),(o)+=4)
@@ -987,31 +1048,35 @@ static void stbiw__encode_png_line(unsigned char *pixels, int stride_bytes, int 
    int i;
    int type = mymap[filter_type];
    unsigned char *z = pixels + stride_bytes * (stbi__flip_vertically_on_write ? height-1-y : y);
+   int signed_stride = stbi__flip_vertically_on_write ? -stride_bytes : stride_bytes;
+    
+   if (type==0) {
+      memcpy(line_buffer, z, width*n);
+      return;
+   }
+
+   // first loop isn't optimized since it's just one pixel    
    for (i = 0; i < n; ++i) {
       switch (type) {
-         case 0: line_buffer[i] = z[i]; break;
          case 1: line_buffer[i] = z[i]; break;
-         case 2: line_buffer[i] = z[i] - z[i-stride_bytes]; break;
-         case 3: line_buffer[i] = z[i] - (z[i-stride_bytes]>>1); break;
-         case 4: line_buffer[i] = (signed char) (z[i] - stbiw__paeth(0,z[i-stride_bytes],0)); break;
+         case 2: line_buffer[i] = z[i] - z[i-signed_stride]; break;
+         case 3: line_buffer[i] = z[i] - (z[i-signed_stride]>>1); break;
+         case 4: line_buffer[i] = (signed char) (z[i] - stbiw__paeth(0,z[i-signed_stride],0)); break;
          case 5: line_buffer[i] = z[i]; break;
          case 6: line_buffer[i] = z[i]; break;
       }
    }
-   for (i=n; i < width*n; ++i) {
-      switch (type) {
-         case 0: line_buffer[i] = z[i]; break;
-         case 1: line_buffer[i] = z[i] - z[i-n]; break;
-         case 2: line_buffer[i] = z[i] - z[i-stride_bytes]; break;
-         case 3: line_buffer[i] = z[i] - ((z[i-n] + z[i-stride_bytes])>>1); break;
-         case 4: line_buffer[i] = z[i] - stbiw__paeth(z[i-n], z[i-stride_bytes], z[i-stride_bytes-n]); break;
-         case 5: line_buffer[i] = z[i] - (z[i-n]>>1); break;
-         case 6: line_buffer[i] = z[i] - stbiw__paeth(z[i-n], 0,0); break;
-      }
+   switch (type) {
+      case 1: for (i=n; i < width*n; ++i) line_buffer[i] = z[i] - z[i-n]; break;
+      case 2: for (i=n; i < width*n; ++i) line_buffer[i] = z[i] - z[i-signed_stride]; break;
+      case 3: for (i=n; i < width*n; ++i) line_buffer[i] = z[i] - ((z[i-n] + z[i-signed_stride])>>1); break;
+      case 4: for (i=n; i < width*n; ++i) line_buffer[i] = z[i] - stbiw__paeth(z[i-n], z[i-signed_stride], z[i-signed_stride-n]); break;
+      case 5: for (i=n; i < width*n; ++i) line_buffer[i] = z[i] - (z[i-n]>>1); break;
+      case 6: for (i=n; i < width*n; ++i) line_buffer[i] = z[i] - stbiw__paeth(z[i-n], 0,0); break;
    }
 }
 
-unsigned char *stbi_write_png_to_mem(unsigned char *pixels, int stride_bytes, int x, int y, int n, int *out_len)
+STBIWDEF unsigned char *stbi_write_png_to_mem(const unsigned char *pixels, int stride_bytes, int x, int y, int n, int *out_len)
 {
    int force_filter = stbi_write_force_png_filter;
    int ctype[5] = { -1, 0, 4, 2, 6 };
@@ -1033,11 +1098,11 @@ unsigned char *stbi_write_png_to_mem(unsigned char *pixels, int stride_bytes, in
       int filter_type;
       if (force_filter > -1) {
          filter_type = force_filter;
-         stbiw__encode_png_line(pixels, stride_bytes, x, y, j, n, force_filter, line_buffer);
+         stbiw__encode_png_line((unsigned char*)(pixels), stride_bytes, x, y, j, n, force_filter, line_buffer);
       } else { // Estimate the best filter by running through all of them:
          int best_filter = 0, best_filter_val = 0x7fffffff, est, i;
          for (filter_type = 0; filter_type < 5; filter_type++) {
-            stbiw__encode_png_line(pixels, stride_bytes, x, y, j, n, filter_type, line_buffer);
+            stbiw__encode_png_line((unsigned char*)(pixels), stride_bytes, x, y, j, n, filter_type, line_buffer);
 
             // Estimate the entropy of the line using this filter; the less, the better.
             est = 0;
@@ -1050,7 +1115,7 @@ unsigned char *stbi_write_png_to_mem(unsigned char *pixels, int stride_bytes, in
             }
          }
          if (filter_type != best_filter) {  // If the last iteration already got us the best filter, don't redo it
-            stbiw__encode_png_line(pixels, stride_bytes, x, y, j, n, best_filter, line_buffer);
+            stbiw__encode_png_line((unsigned char*)(pixels), stride_bytes, x, y, j, n, best_filter, line_buffer);
             filter_type = best_filter;
          }
       }
@@ -1102,14 +1167,10 @@ STBIWDEF int stbi_write_png(char const *filename, int x, int y, int comp, const 
 {
    FILE *f;
    int len;
-   unsigned char *png = stbi_write_png_to_mem((unsigned char *) data, stride_bytes, x, y, comp, &len);
+   unsigned char *png = stbi_write_png_to_mem((const unsigned char *) data, stride_bytes, x, y, comp, &len);
    if (png == NULL) return 0;
-#ifdef STBI_MSC_SECURE_CRT
-   if (fopen_s(&f, filename, "wb"))
-      f = NULL;
-#else
-   f = fopen(filename, "wb");
-#endif
+
+   f = stbiw__fopen(filename, "wb");
    if (!f) { STBIW_FREE(png); return 0; }
    fwrite(png, 1, len, f);
    fclose(f);
@@ -1121,7 +1182,7 @@ STBIWDEF int stbi_write_png(char const *filename, int x, int y, int comp, const 
 STBIWDEF int stbi_write_png_to_func(stbi_write_func *func, void *context, int x, int y, int comp, const void *data, int stride_bytes)
 {
    int len;
-   unsigned char *png = stbi_write_png_to_mem((unsigned char *) data, stride_bytes, x, y, comp, &len);
+   unsigned char *png = stbi_write_png_to_mem((const unsigned char *) data, stride_bytes, x, y, comp, &len);
    if (png == NULL) return 0;
    func(context, png, len);
    STBIW_FREE(png);
@@ -1416,15 +1477,13 @@ static int stbi_write_jpg_core(stbi__write_context *s, int width, int height, in
          for(x = 0; x < width; x += 8) {
             float YDU[64], UDU[64], VDU[64];
             for(row = y, pos = 0; row < y+8; ++row) {
+               // row >= height => use last input row
+               int clamped_row = (row < height) ? row : height - 1;
+               int base_p = (stbi__flip_vertically_on_write ? (height-1-clamped_row) : clamped_row)*width*comp;
                for(col = x; col < x+8; ++col, ++pos) {
-                  int p = (stbi__flip_vertically_on_write ? height-1-row : row)*width*comp + col*comp;
                   float r, g, b;
-                  if(row >= height) {
-                     p -= width*comp*(row+1 - height);
-                  }
-                  if(col >= width) {
-                     p -= comp*(col+1 - width);
-                  }
+                  // if col >= width => use pixel from last input column
+                  int p = base_p + ((col < width) ? col : (width-1))*comp;
 
                   r = imageData[p+0];
                   g = imageData[p+ofsG];
@@ -1476,6 +1535,10 @@ STBIWDEF int stbi_write_jpg(char const *filename, int x, int y, int comp, const 
 #endif // STB_IMAGE_WRITE_IMPLEMENTATION
 
 /* Revision history
+      1.10  (2019-02-07)
+             support utf8 filenames in Windows; fix warnings and platform ifdefs 
+      1.09  (2018-02-11)
+             fix typo in zlib quality API, improve STB_I_W_STATIC in C++
       1.08  (2018-01-29)
              add stbi__flip_vertically_on_write, external zlib, zlib quality, choose PNG filter
       1.07  (2017-07-24)
