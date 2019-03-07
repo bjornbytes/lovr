@@ -251,7 +251,7 @@ static void oculusControllerGetPose(Controller* controller, float* x, float* y, 
 
 static void oculusControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
   ovrTrackingState *ts = refreshTracking();
-  ovrVector3f vel = ts->HandPoses[controller->id].ThePose.LinearVelocity;
+  ovrVector3f vel = ts->HandPoses[controller->id].LinearVelocity;
   *vx = vel.x;
   *vy = vel.y;
   *vz = vel.z;
@@ -259,7 +259,7 @@ static void oculusControllerGetVelocity(Controller* controller, float* vx, float
 
 static void oculusControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
   ovrTrackingState *ts = refreshTracking();
-  ovrVector3f vel = ts->HandPoses[controller->id].ThePose.AngularVelocity;
+  ovrVector3f vel = ts->HandPoses[controller->id].AngularVelocity;
   *vx = vel.x;
   *vy = vel.y;
   *vz = vel.z;
@@ -342,7 +342,7 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
     };
     lovrAssert(OVR_SUCCESS(ovr_CreateMirrorTextureWithOptionsGL(state.session, &mdesc, &state.mirror)), "Unable to create mirror texture");
 
-    CanvasFlags flags = { .depth = FORMAT_D24S8, .stereo = true };
+    CanvasFlags flags = { .depth = { .enabled = true, .format = FORMAT_D24S8 }, .stereo = true };
     state.canvas = lovrCanvasCreate(2 * state.size.w, state.size.h, flags);
   }
 
@@ -375,7 +375,7 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
     mat4_identity(transform);
     mat4_rotateQuat(transform, orient);
     transform[12] = -(transform[0] * pos[0] + transform[4] * pos[1] + transform[8] * pos[2]);
-    transform[13] = -(transform[1] * pos[0] + transform[5] * pos[1] + transform[9] * pos[2] + state.offset);
+    transform[13] = -(transform[1] * pos[0] + transform[5] * pos[1] + transform[9] * pos[2]);
     transform[14] = -(transform[2] * pos[0] + transform[6] * pos[1] + transform[10] * pos[2]);
 
     ovrMatrix4f projection = ovrMatrix4f_Projection(desc.DefaultEyeFov[eye], state.clipNear, state.clipFar, ovrProjection_ClipRangeOpenGL);
