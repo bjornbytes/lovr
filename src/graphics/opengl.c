@@ -1631,7 +1631,14 @@ static GLuint compileShader(GLenum type, const char** sources, int count) {
     char* log = malloc(logLength);
     lovrAssert(log, "Out of memory");
     glGetShaderInfoLog(shader, logLength, &logLength, log);
-    lovrThrow("Could not compile shader:\n%s", log);
+    const char* name;
+    switch (type) {
+      case GL_VERTEX_SHADER: name = "vertex shader"; break;
+      case GL_FRAGMENT_SHADER: name = "fragment shader"; break;
+      case GL_COMPUTE_SHADER: name = "compute shader"; break;
+      default: name = "shader"; break;
+    }
+    lovrThrow("Could not compile %s:\n%s", name, log);
   }
 
   return shader;
