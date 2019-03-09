@@ -33,8 +33,6 @@ static int luax_checkattachment(lua_State* L, int index, Attachment* attachment)
     attachment->slice = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) - 1 : 0;
     attachment->level = lua_type(L, index) == LUA_TNUMBER ? luax_optmipmap(L, index++, attachment->texture) : 0;
   }
-  bool isValidSlice = attachment->slice >= 0 && attachment->slice < lovrTextureGetDepth(attachment->texture, 0);
-  lovrAssert(isValidSlice, "Invalid slice %d\n", attachment->slice + 1);
   return index;
 }
 

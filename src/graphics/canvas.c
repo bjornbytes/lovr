@@ -18,11 +18,17 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
 
   for (int i = 0; i < count; i++) {
     Texture* texture = attachments[i].texture;
-    int width = lovrTextureGetWidth(texture, attachments[i].level);
-    int height = lovrTextureGetHeight(texture, attachments[i].level);
-    bool hasDepth = canvas->flags.depth.enabled;
-    lovrAssert(!hasDepth || width == canvas->width, "Texture width of %d does not match Canvas width (%d)", width, canvas->width);
-    lovrAssert(!hasDepth || height == canvas->height, "Texture height of %d does not match Canvas height (%d)", height, canvas->height);
+    int slice = attachments[i].slice;
+    int level = attachments[i].level;
+    int width = lovrTextureGetWidth(texture, level);
+    int height = lovrTextureGetHeight(texture, level);
+    int depth = lovrTextureGetDepth(texture, level);
+    int mipmaps = lovrTextureGetMipmapCount(texture);
+    bool hasDepthBuffer = canvas->flags.depth.enabled;
+    lovrAssert(slice >= 0 && slice < depth, "Invalid attachment slice (Texture has %d, got %d)", depth, slice + 1);
+    lovrAssert(level >= 0 && level < mipmaps, "Invalid attachment mipmap level (Texture has %d, got %d)", mipmaps, level + 1);
+    lovrAssert(!hasDepthBuffer || width == canvas->width, "Texture width of %d does not match Canvas width (%d)", width, canvas->width);
+    lovrAssert(!hasDepthBuffer || height == canvas->height, "Texture height of %d does not match Canvas height (%d)", height, canvas->height);
     lovrAssert(texture->msaa == canvas->flags.msaa, "Texture MSAA does not match Canvas MSAA");
     lovrRetain(texture);
   }
