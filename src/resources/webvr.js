@@ -50,7 +50,7 @@ var LibraryLOVR = {
       };
 
       webvr.onvrdisplaypresentchange = function() {
-        Runtime.dynCall('vi', webvr.mount, [display.isPresenting]);
+        {{{ makeDynCall('vi') }}}(webvr.mount, display.isPresenting);
       };
 
       webvr.frameId = display.requestAnimationFrame(function onAnimationFrame() {
@@ -74,7 +74,7 @@ var LibraryLOVR = {
           HEAPF32.set(webvr.frameData.rightProjectionMatrix, d >> 2);
           Module._mat4_multiply(a, e);
           Module._mat4_multiply(b, e);
-          Runtime.dynCall('viiiii', webvr.renderCallback, [a, b, c, d, webvr.renderUserdata]);
+          {{{ makeDynCall('viiiii') }}}(webvr.renderCallback, a, b, c, d, webvr.renderUserdata);
         }
 
         if (display.isPresenting) {
@@ -399,7 +399,7 @@ var LibraryLOVR = {
         for (var i = 0; i < gamepad.buttons.length; i++) {
           webvr.lastGamepadState[gamepad.index][i] = gamepad.buttons[i].pressed;
         }
-        webvr.controlleradded && Runtime.dynCall('vi', webvr.controlleradded, [gamepad.index]);
+        webvr.controlleradded && {{{ makeDynCall('vi') }}}(webvr.controlleradded, gamepad.index);
       }
     }
 
@@ -407,7 +407,7 @@ var LibraryLOVR = {
     for (var index in webvr.gamepads) {
       var gamepad = webvr.gamepads[index];
       if (!gamepad.connected || !gamepad.pose.position || !gamepad.pose.orientation) {
-        webvr.controllerremoved && Runtime.dynCall('vi', webvr.controllerremoved, [gamepad.index]);
+        webvr.controllerremoved && {{{ makeDynCall('vi') }}}(webvr.controllerremoved, gamepad.index);
         delete webvr.lastGamepadState[gamepad.index];
         delete webvr.gamepads[gamepad.index];
       } else {
@@ -420,9 +420,9 @@ var LibraryLOVR = {
             if (lastState[buttonIndex] !== pressed) {
               lastState[buttonIndex] = pressed;
               if (pressed) {
-                Runtime.dynCall('vii', webvr.controllerpressed, [gamepad.index, button]);
+                {{{ makeDynCall('vii') }}}(webvr.controllerpressed, gamepad.index, button);
               } else {
-                Runtime.dynCall('vii', webvr.controllerreleased, [gamepad.index, button]);
+                {{{ makeDynCall('vii') }}}(webvr.controllerreleased, gamepad.index, button);
               }
             }
           }
