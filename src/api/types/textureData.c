@@ -51,9 +51,9 @@ static int l_lovrTextureDataSetPixel(lua_State* L) {
   int x = luaL_checkinteger(L, 2);
   int y = luaL_checkinteger(L, 3);
   Color color = {
-    luax_checkfloat(L, 4),
-    luax_checkfloat(L, 5),
-    luax_checkfloat(L, 6),
+    luax_optfloat(L, 4, 1.f),
+    luax_optfloat(L, 5, 1.f),
+    luax_optfloat(L, 6, 1.f),
     luax_optfloat(L, 7, 1.f)
   };
   lovrTextureDataSetPixel(textureData, x, y, color);

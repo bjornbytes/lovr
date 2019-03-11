@@ -8,6 +8,27 @@
 
 #define FOUR_CC(a, b, c, d) ((uint32_t) (((d)<<24) | ((c)<<16) | ((b)<<8) | (a)))
 
+static int getPixelSize(TextureFormat format) {
+  switch (format) {
+    case FORMAT_RGB: return 3;
+    case FORMAT_RGBA: return 4;
+    case FORMAT_RGBA4: return 2;
+    case FORMAT_RGBA16F: return 8;
+    case FORMAT_RGBA32F: return 16;
+    case FORMAT_R16F: return 2;
+    case FORMAT_R32F: return 4;
+    case FORMAT_RG16F: return 4;
+    case FORMAT_RG32F: return 8;
+    case FORMAT_RGB5A1: return 2;
+    case FORMAT_RGB10A2: return 4;
+    case FORMAT_RG11B10F: return 4;
+    case FORMAT_D16: return 2;
+    case FORMAT_D32F: return 4;
+    case FORMAT_D24S8: return 4;
+    default: return 0;
+  }
+}
+
 // Modified from ddsparse (https://bitbucket.org/slime73/ddsparse)
 static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
   if (size < sizeof(uint32_t) + sizeof(DDSHeader) || *(uint32_t*) data != FOUR_CC('D', 'D', 'S', ' ')) {
@@ -113,32 +134,9 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 }
 
 TextureData* lovrTextureDataInit(TextureData* textureData, int width, int height, uint8_t value, TextureFormat format) {
-  size_t pixelSize = 0;
-  switch (format) {
-    case FORMAT_RGB: pixelSize = 3; break;
-    case FORMAT_RGBA: pixelSize = 4; break;
-    case FORMAT_RGBA4: pixelSize = 2; break;
-    case FORMAT_RGBA16F: pixelSize = 8; break;
-    case FORMAT_RGBA32F: pixelSize = 16; break;
-    case FORMAT_R16F: pixelSize = 2; break;
-    case FORMAT_R32F: pixelSize = 4; break;
-    case FORMAT_RG16F: pixelSize = 4; break;
-    case FORMAT_RG32F: pixelSize = 8; break;
-    case FORMAT_RGB5A1: pixelSize = 2; break;
-    case FORMAT_RGB10A2: pixelSize = 4; break;
-    case FORMAT_RG11B10F: pixelSize = 4; break;
-    case FORMAT_D16: pixelSize = 2; break;
-    case FORMAT_D32F: pixelSize = 4; break;
-    case FORMAT_D24S8: pixelSize = 4; break;
-
-    case FORMAT_DXT1:
-    case FORMAT_DXT3:
-    case FORMAT_DXT5:
-      lovrThrow("Unable to create a blank compressed texture");
-      return NULL;
-  }
-
   lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");
+  lovrAssert(format != FORMAT_DXT1 && format != FORMAT_DXT3 && format != FORMAT_DXT5, "Blank TextureData cannot be compressed");
+  size_t pixelSize = getPixelSize(format);
   size_t size = width * height * pixelSize;
   textureData->width = width;
   textureData->height = height;
@@ -179,32 +177,61 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
 }
 
 Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y) {
-  if (!textureData->blob.data) {
-    return (Color) { 0, 0, 0, 0 };
+  lovrAssert(textureData->blob.data, "TextureData does not have any pixel data");
+  lovrAssert(x >= 0 && y >= 0 && x < textureData->width && y < textureData->height, "getPixel coordinates must be within TextureData bounds");
+  int index = (textureData->height - (y + 1)) * textureData->width + x;
+  int pixelSize = getPixelSize(textureData->format);
+  uint8_t* u8 = (uint8_t*) textureData->blob.data + pixelSize * index;
+  float* f32 = (float*) u8;
+  switch (textureData->format) {
+    case FORMAT_RGB: return (Color) { u8[0] / 255.f, u8[1] / 255.f, u8[2] / 255.f, 1.f };
+    case FORMAT_RGBA: return (Color) { u8[0] / 255.f, u8[1] / 255.f, u8[2] / 255.f, u8[3] / 255.f };
+    case FORMAT_RGBA32F: return (Color) { f32[0], f32[1], f32[2], f32[3] };
+    case FORMAT_R32F: return (Color) { f32[0], 1.f, 1.f, 1.f };
+    case FORMAT_RG32F: return (Color) { f32[0], f32[1], 1.f, 1.f };
+    default: lovrThrow("Unsupported format for TextureData:getPixel");
   }
-
-  bool inside = x >= 0 && y >= 0 && x <= (textureData->width - 1) && y <= (textureData->height - 1);
-  lovrAssert(inside, "getPixel coordinates must be in TextureData bounds");
-  lovrAssert(textureData->format == FORMAT_RGBA, "TextureData:getPixel currently only works with rgba formats");
-  size_t offset = 4 * ((textureData->height - (y + 1)) * textureData->width + x);
-  uint8_t* data = (uint8_t*) textureData->blob.data + offset;
-  return (Color) { data[0] / 255.f, data[1] / 255.f, data[2] / 255.f, data[3] / 255.f };
 }
 
 void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color) {
-  if (!textureData->blob.data) {
-    return;
-  }
+  lovrAssert(textureData->blob.data, "TextureData does not have any pixel data");
+  lovrAssert(x >= 0 && y >= 0 && x < textureData->width && y < textureData->height, "setPixel coordinates must be within TextureData bounds");
+  int index = (textureData->height - (y + 1)) * textureData->width + x;
+  int pixelSize = getPixelSize(textureData->format);
+  uint8_t* u8 = (uint8_t*) textureData->blob.data + pixelSize * index;
+  float* f32 = (float*) u8;
+  switch (textureData->format) {
+    case FORMAT_RGB:
+      u8[0] = (uint8_t) (color.r * 255.f + .5f);
+      u8[1] = (uint8_t) (color.g * 255.f + .5f);
+      u8[2] = (uint8_t) (color.b * 255.f + .5f);
+      break;
 
-  bool inside = x >= 0 && y >= 0 && x <= (textureData->width - 1) && y <= (textureData->height - 1);
-  lovrAssert(inside, "setPixel coordinates must be in TextureData bounds");
-  lovrAssert(textureData->format == FORMAT_RGBA, "TextureData:setPixel currently only works with rgba formats");
-  size_t offset = 4 * ((textureData->height - (y + 1)) * textureData->width + x);
-  uint8_t* data = (uint8_t*) textureData->blob.data + offset;
-  data[0] = (uint8_t) (color.r * 255.f + .5f);
-  data[1] = (uint8_t) (color.g * 255.f + .5f);
-  data[2] = (uint8_t) (color.b * 255.f + .5f);
-  data[3] = (uint8_t) (color.a * 255.f + .5f);
+    case FORMAT_RGBA:
+      u8[0] = (uint8_t) (color.r * 255.f + .5f);
+      u8[1] = (uint8_t) (color.g * 255.f + .5f);
+      u8[2] = (uint8_t) (color.b * 255.f + .5f);
+      u8[3] = (uint8_t) (color.a * 255.f + .5f);
+      break;
+
+    case FORMAT_RGBA32F:
+      f32[0] = color.r;
+      f32[1] = color.g;
+      f32[2] = color.b;
+      f32[3] = color.a;
+      break;
+
+    case FORMAT_R32F:
+      f32[0] = color.r;
+      break;
+
+    case FORMAT_RG32F:
+      f32[0] = color.r;
+      f32[1] = color.g;
+      break;
+
+    default: lovrThrow("Unsupported format for TextureData:setPixel");
+  }
 }
 
 static void writeCallback(void* context, void* data, int size) {
