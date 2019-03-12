@@ -1154,12 +1154,15 @@ void lovrGpuDirtyTexture() {
   state.textures[state.activeTexture] = NULL;
 }
 
+// We only need to sync when using persistently mapped buffers
+// There also seems to be a driver quirk where fencing before submitting GPU work messes up the
+// whole frame (observed on WASM and Android)
 void* lovrGpuLock() {
-  return (void*) glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+  return GLAD_GL_ARB_buffer_storage ? (void*) glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0) : NULL;
 }
 
 void lovrGpuUnlock(void* lock) {
-  if (!lock) return;
+  if (!lock || !GLAD_GL_ARB_buffer_storage) return;
   GLsync sync = (GLsync) lock;
   if (glClientWaitSync(sync, 0, 0) == GL_TIMEOUT_EXPIRED) {
     while (glClientWaitSync(sync, GL_SYNC_FLUSH_COMMANDS_BIT, 32768) == GL_TIMEOUT_EXPIRED) {
@@ -1169,7 +1172,7 @@ void lovrGpuUnlock(void* lock) {
 }
 
 void lovrGpuDestroyLock(void* lock) {
-  if (lock) glDeleteSync((GLsync) lock);
+  if (lock && GLAD_GL_ARB_buffer_storage) glDeleteSync((GLsync) lock);
 }
 
 const GpuFeatures* lovrGpuGetSupported() {
