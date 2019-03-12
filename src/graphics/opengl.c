@@ -1158,10 +1158,16 @@ void lovrGpuDirtyTexture() {
 // There also seems to be a driver quirk where fencing before submitting GPU work messes up the
 // whole frame (observed on WASM and Android)
 void* lovrGpuLock() {
-  return GLAD_GL_ARB_buffer_storage ? (void*) glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0) : NULL;
+#ifndef LOVR_WEBGL
+  if (GLAD_GL_ARB_buffer_storage) {
+    return (void*) glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+  }
+#endif
+  return NULL;
 }
 
 void lovrGpuUnlock(void* lock) {
+#ifndef LOVR_WEBGL
   if (!lock || !GLAD_GL_ARB_buffer_storage) return;
   GLsync sync = (GLsync) lock;
   if (glClientWaitSync(sync, 0, 0) == GL_TIMEOUT_EXPIRED) {
@@ -1169,10 +1175,13 @@ void lovrGpuUnlock(void* lock) {
       continue;
     }
   }
+#endif
 }
 
 void lovrGpuDestroyLock(void* lock) {
+#ifndef LOVR_WEBGL
   if (lock && GLAD_GL_ARB_buffer_storage) glDeleteSync((GLsync) lock);
+#endif
 }
 
 const GpuFeatures* lovrGpuGetSupported() {
