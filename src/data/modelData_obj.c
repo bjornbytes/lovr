@@ -66,7 +66,7 @@ static void parseMtl(char* path, vec_void_t* textures, vec_material_t* materials
       material->filters[TEXTURE_DIFFUSE].mode = FILTER_TRILINEAR;
       material->wraps[TEXTURE_DIFFUSE] = (TextureWrap) { .s = WRAP_REPEAT, .t = WRAP_REPEAT };
       vec_push(textures, texture);
-      lovrRelease(blob);
+      lovrRelease(Blob, blob);
     } else {
       char* newline = memchr(s, '\n', length);
       lineLength = newline - s + 1;

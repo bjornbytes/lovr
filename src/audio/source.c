@@ -36,8 +36,8 @@ void lovrSourceDestroy(void* ref) {
   Source* source = ref;
   alDeleteSources(1, &source->id);
   alDeleteBuffers(source->type == SOURCE_STATIC ? 1 : SOURCE_BUFFERS, source->buffers);
-  lovrRelease(source->soundData);
-  lovrRelease(source->stream);
+  lovrRelease(SoundData, source->soundData);
+  lovrRelease(Source, source->stream);
 }
 
 SourceType lovrSourceGetType(Source* source) {

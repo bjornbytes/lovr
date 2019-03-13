@@ -28,27 +28,6 @@ void lovrThrow(const char* format, ...) {
   }
 }
 
-void* _lovrAlloc(const char* type, size_t size, void (*destructor)(void*)) {
-  Ref* ref = calloc(1, size);
-  lovrAssert(ref, "Out of memory");
-  ref->destructor = destructor;
-  ref->type = type;
-  ref->count = 1;
-  return ref;
-}
-
-void lovrRetain(void* object) {
-  if (object) ((Ref*) object)->count++;
-}
-
-void lovrRelease(void* object) {
-  Ref* ref = object;
-  if (ref && --ref->count == 0) {
-    if (ref->destructor) ref->destructor(object);
-    free(object);
-  }
-}
-
 // https://github.com/starwing/luautf8
 size_t utf8_decode(const char *s, const char *e, unsigned *pch) {
   unsigned ch;

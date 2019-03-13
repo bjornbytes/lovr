@@ -61,7 +61,7 @@ bool lovrChannelPop(Channel* channel, Variant* variant, double timeout) {
     if (channel->messages.length > 0) {
       *variant = vec_pop(&channel->messages);
       if (channel->messages.length == 0) {
-        lovrRelease(channel);
+        lovrRelease(Channel, channel);
       }
       channel->received++;
       cnd_broadcast(&channel->cond);
@@ -110,7 +110,7 @@ void lovrChannelClear(Channel* channel) {
     if (variant.type == TYPE_STRING) {
       free(variant.value.string);
     } else if (variant.type == TYPE_OBJECT) {
-      lovrRelease(variant.value.ref);
+      //lovrRelease(variant.value.ref);
     }
   }
   channel->received = channel->sent;

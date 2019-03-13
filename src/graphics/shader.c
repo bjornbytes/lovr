@@ -148,7 +148,7 @@ void lovrShaderSetBlock(Shader* shader, const char* name, Buffer* buffer, size_t
   if (block->source != buffer || block->offset != offset || block->size != size) {
     lovrGraphicsFlushShader(shader);
     lovrRetain(buffer);
-    lovrRelease(block->source);
+    lovrRelease(Buffer, block->source);
     block->access = access;
     block->source = buffer;
     block->offset = offset;
@@ -195,7 +195,7 @@ ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, BlockType type, Buffer* buf
 
 void lovrShaderBlockDestroy(void* ref) {
   ShaderBlock* block = ref;
-  lovrRelease(block->buffer);
+  lovrRelease(Buffer, block->buffer);
   vec_deinit(&block->uniforms);
   map_deinit(&block->uniformMap);
 }

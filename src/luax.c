@@ -6,13 +6,22 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
+typedef struct {
+  Type type;
+  Ref* ref;
+} Proxy;
+
 static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "name");
   return 1;
 }
 
 static int luax_meta__gc(lua_State* L) {
-  lovrRelease(*(Ref**) lua_touserdata(L, 1));
+  lovrDestructor* destructor = (lovrDestructor*) lua_tocfunction(L, lua_upvalueindex(1));
+  Proxy* p = lua_touserdata(L, 1);
+  if (p && destructor && --(p->ref->count) <= 0) {
+    destructor(p->ref);
+  }
   return 0;
 }
 
@@ -93,7 +102,7 @@ void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
   lua_pop(L, 1);
 }
 
-void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions) {
+void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, lovrDestructor* destructor) {
 
   // Push metatable
   luaL_newmetatable(L, name);
@@ -104,7 +113,8 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   lua_setfield(L, -1, "__index");
 
   // m.__gc = gc
-  lua_pushcfunction(L, luax_meta__gc);
+  lua_pushcfunction(L, (lua_CFunction) destructor);
+  lua_pushcclosure(L, luax_meta__gc, 1);
   lua_setfield(L, -2, "__gc");
 
   // m.name = name
@@ -124,53 +134,26 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   lua_pop(L, 1);
 }
 
-void luax_extendtype(lua_State* L, const char* base, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions) {
-  luax_registertype(L, name, functions);
+void _luax_extendtype(lua_State* L, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions, lovrDestructor* destructor) {
+  _luax_registertype(L, name, functions, destructor);
   luaL_getmetatable(L, name);
-
-  lua_pushstring(L, base);
-  lua_setfield(L, -2, "super");
-
-  if (baseFunctions) {
-    luaL_register(L, NULL, baseFunctions);
-  }
-
+  luaL_register(L, NULL, baseFunctions);
   lua_pop(L, 1);
 }
 
-void* _luax_totype(lua_State* L, int index, const char* type) {
-  void** p = lua_touserdata(L, index);
-
-  if (p) {
-    Ref* object = *(Ref**) p;
-    if (!strcmp(object->type, type)) {
-      return object;
-    }
-
-    if (lua_getmetatable(L, index)) {
-      lua_getfield(L, -1, "super");
-      const char* super = lua_tostring(L, -1);
-      lua_pop(L, 2);
-      return (!super || strcmp(super, type)) ? NULL : object;
-    }
-  }
-
-  return NULL;
+void* _luax_totype(lua_State* L, int index, Type type) {
+  Proxy* p = lua_touserdata(L, index);
+  return p && (p->type == type || lovrSupertypes[p->type] == type) ? p->ref : NULL;
 }
 
-void* _luax_checktype(lua_State* L, int index, const char* type) {
-  void* object = _luax_totype(L, index, type);
-
-  if (!object) {
-    luaL_typerror(L, index, type);
-  }
-
-  return object;
+void* _luax_checktype(lua_State* L, int index, Type type, const char* debug) {
+  Ref* ref = _luax_totype(L, index, type);
+  return ref ? ref : (luaL_typerror(L, index, debug), NULL);
 }
 
 // Registers the userdata on the top of the stack in the registry.
-void luax_pushobject(lua_State* L, void* object) {
-  if (!object) {
+void _luax_pushtype(lua_State* L, void* ref, Type type, const char* name) {
+  if (!ref) {
     lua_pushnil(L);
     return;
   }
@@ -197,7 +180,7 @@ void luax_pushobject(lua_State* L, void* object) {
     lua_setfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
   }
 
-  lua_pushlightuserdata(L, object);
+  lua_pushlightuserdata(L, ref);
   lua_gettable(L, -2);
 
   if (lua_isnil(L, -1)) {
@@ -208,14 +191,17 @@ void luax_pushobject(lua_State* L, void* object) {
   }
 
   // Allocate userdata
-  void** u = (void**) lua_newuserdata(L, sizeof(void**));
-  luaL_getmetatable(L, ((Ref*) object)->type);
-  lua_setmetatable(L, -2);
-  lovrRetain(object);
-  *u = object;
+  Proxy* proxy = lua_newuserdata(L, sizeof(Proxy));
+  proxy->type = type;
+  proxy->ref = ref;
+  lovrRetain(ref);
 
-  // Write to registry and remove registry, leaving userdata on stack
-  lua_pushlightuserdata(L, object);
+  // Assign metatable
+  luaL_getmetatable(L, name);
+  lua_setmetatable(L, -2);
+
+  // Write to registry and pop registry, leaving userdata on stack
+  lua_pushlightuserdata(L, ref);
   lua_pushvalue(L, -2);
   lua_settable(L, -4);
   lua_remove(L, -2);

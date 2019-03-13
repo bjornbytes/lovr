@@ -178,7 +178,7 @@ static bool openvrInit(float offset, int msaa) {
 }
 
 static void openvrDestroy() {
-  lovrRelease(state.canvas);
+  lovrRelease(Canvas, state.canvas);
   for (int i = 0; i < 16; i++) {
     if (state.deviceModels[i]) {
       state.renderModels->FreeRenderModel(state.deviceModels[i]);
@@ -191,7 +191,7 @@ static void openvrDestroy() {
   }
   Controller* controller; int i;
   vec_foreach(&state.controllers, controller, i) {
-    lovrRelease(controller);
+    lovrRelease(Controller, controller);
   }
   vec_deinit(&state.boundsGeometry);
   vec_deinit(&state.controllers);
@@ -494,7 +494,7 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
     Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, false, state.msaa);
     lovrTextureAllocate(texture, width * 2, height, 1, FORMAT_RGBA);
     lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
-    lovrRelease(texture);
+    lovrRelease(Texture, texture);
   }
 
   Camera camera = { .canvas = state.canvas, .viewMatrix = { MAT4_IDENTITY, MAT4_IDENTITY } };
@@ -552,7 +552,7 @@ static void openvrUpdate(float dt) {
             lovrRetain(controller);
             lovrEventPush((Event) { .type = EVENT_CONTROLLER_REMOVED, .data.controller = { controller, 0 } });
             vec_swapsplice(&state.controllers, i, 1);
-            lovrRelease(controller);
+            lovrRelease(Controller, controller);
             break;
           }
         }

@@ -33,7 +33,11 @@ typedef union {
   bool boolean;
   double number;
   char* string;
-  Ref* ref;
+  struct {
+    Type type;
+    Ref* pointer;
+    const char* name;
+  } ref;
 } VariantValue;
 
 typedef struct {

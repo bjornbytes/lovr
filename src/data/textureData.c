@@ -231,7 +231,7 @@ bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
 
 void lovrTextureDataDestroy(void* ref) {
   TextureData* textureData = ref;
-  lovrRelease(textureData->source);
+  lovrRelease(Blob, textureData->source);
   vec_deinit(&textureData->mipmaps);
   lovrBlobDestroy(ref);
 }

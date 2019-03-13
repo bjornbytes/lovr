@@ -46,13 +46,16 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
 
     case LUA_TUSERDATA:
       variant->type = TYPE_OBJECT;
-      variant->value.ref = *(Ref**) lua_touserdata(L, index);
-      lovrRetain(variant->value.ref);
+      variant->value.ref.pointer = lua_touserdata(L, index);
+      lua_getmetatable(L, index);
+      lua_getfield(L, -1, "name");
+      lovrAssert(lua_isstring(L, -1), "Variant does not have a type name");
+      variant->value.ref.name = lua_tostring(L, -1);
+      lua_pop(L, 1);
+      lovrRetain(variant->value.ref.pointer);
       break;
 
-    default:
-      lovrThrow("Bad type for Channel:push: %s", lua_typename(L, type));
-      return;
+    default: luaL_typerror(L, index, "nil, boolean, number, string, or object"); return;
   }
 }
 
@@ -62,7 +65,7 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
     case TYPE_STRING: lua_pushstring(L, variant->value.string); return 1;
-    case TYPE_OBJECT: luax_pushobject(L, variant->value.ref); return 1;
+    case TYPE_OBJECT: _luax_pushtype(L, variant->value.ref.pointer, variant->value.ref.type, variant->value.ref.name); return 1;
     default: return 0;
   }
 }
@@ -95,7 +98,7 @@ static int nextEvent(lua_State* L) {
       return 2;
 
     case EVENT_THREAD_ERROR:
-      luax_pushobject(L, event.data.thread.thread);
+      luax_pushtype(L, Thread, event.data.thread.thread);
       lua_pushstring(L, event.data.thread.error);
       free((void*) event.data.thread.error);
       return 3;
@@ -103,13 +106,13 @@ static int nextEvent(lua_State* L) {
 #ifdef LOVR_ENABLE_HEADSET
     case EVENT_CONTROLLER_ADDED:
     case EVENT_CONTROLLER_REMOVED:
-      luax_pushobject(L, event.data.controller.controller);
-      lovrRelease(event.data.controller.controller);
+      luax_pushtype(L, Controller, event.data.controller.controller);
+      lovrRelease(Controller, event.data.controller.controller);
       return 2;
 
     case EVENT_CONTROLLER_PRESSED:
     case EVENT_CONTROLLER_RELEASED:
-      luax_pushobject(L, event.data.controller.controller);
+      luax_pushtype(L, Controller, event.data.controller.controller);
       lua_pushstring(L, ControllerButtons[event.data.controller.button]);
       return 3;
 #endif

@@ -251,7 +251,7 @@ static int l_lovrHeadsetGetControllers(lua_State* L) {
   Controller** controllers = lovrHeadsetDriver->getControllers(&count);
   lua_createtable(L, count, 0);
   for (uint8_t i = 0; i < count; i++) {
-    luax_pushobject(L, controllers[i]);
+    luax_pushtype(L, Controller, controllers[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
@@ -294,9 +294,10 @@ static int l_lovrHeadsetUpdate(lua_State* L) {
 
 static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
   Texture *texture = NULL;
-  if (lovrHeadsetDriver->getMirrorTexture)
+  if (lovrHeadsetDriver->getMirrorTexture) {
     texture = lovrHeadsetDriver->getMirrorTexture();
-  luax_pushobject(L, texture);
+  }
+  luax_pushtype(L, Texture, texture);
 
   return 1;
 }
@@ -331,7 +332,7 @@ static const luaL_Reg lovrHeadset[] = {
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
-  luax_registertype(L, "Controller", lovrController);
+  luax_registertype(L, Controller);
 
   luax_pushconf(L);
   lua_getfield(L, -1, "headset");

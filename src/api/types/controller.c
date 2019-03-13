@@ -106,9 +106,9 @@ static int l_lovrControllerNewModel(lua_State* L) {
   ModelData* modelData = lovrHeadsetDriver->controllerNewModelData(controller);
   if (modelData) {
     Model* model = lovrModelCreate(modelData);
-    luax_pushobject(L, model);
-    lovrRelease(modelData);
-    lovrRelease(model);
+    luax_pushtype(L, Model, model);
+    lovrRelease(ModelData, modelData);
+    lovrRelease(Model, model);
   } else {
     lua_pushnil(L);
   }

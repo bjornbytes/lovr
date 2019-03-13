@@ -38,7 +38,7 @@ void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
   lovrAssert(index, "No attached attribute named '%s' was found", name);
   MeshAttribute* attribute = &mesh->attributes[*index];
   lovrGraphicsFlushMesh(mesh);
-  lovrRelease(attribute->buffer);
+  lovrRelease(Buffer, attribute->buffer);
   map_remove(&mesh->attributeMap, name);
   mesh->attributeNames[*index][0] = '\0';
   memmove(mesh->attributeNames + *index, mesh->attributeNames + *index + 1, (mesh->attributeCount - *index - 1) * MAX_ATTRIBUTE_NAME_LENGTH * sizeof(char));
@@ -100,6 +100,6 @@ Material* lovrMeshGetMaterial(Mesh* mesh) {
 
 void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
   lovrRetain(material);
-  lovrRelease(mesh->material);
+  lovrRelease(Material, mesh->material);
   mesh->material = material;
 }

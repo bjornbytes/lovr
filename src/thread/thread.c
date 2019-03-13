@@ -16,7 +16,7 @@ void lovrThreadModuleDestroy() {
   map_iter_t iter = map_iter(&state.channels);
   while ((key = map_next(&state.channels, &iter)) != NULL) {
     Channel* channel = *(Channel**) map_get(&state.channels, key);
-    lovrRelease(channel);
+    lovrRelease(Channel, channel);
   }
   map_deinit(&state.channels);
   state.initialized = false;

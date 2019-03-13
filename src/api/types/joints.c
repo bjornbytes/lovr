@@ -1,6 +1,15 @@
 #include "api.h"
 #include "physics/physics.h"
 
+void luax_pushjoint(lua_State* L, Joint* joint) {
+  switch (joint->type) {
+    case JOINT_BALL: luax_pushtype(L, BallJoint, joint); break;
+    case JOINT_DISTANCE: luax_pushtype(L, DistanceJoint, joint); break;
+    case JOINT_HINGE: luax_pushtype(L, HingeJoint, joint); break;
+    case JOINT_SLIDER: luax_pushtype(L, SliderJoint, joint); break;
+  }
+}
+
 static int l_lovrJointDestroy(lua_State* L) {
   Joint* joint = luax_checktype(L, 1, Joint);
   lovrJointDestroyData(joint);
@@ -18,8 +27,8 @@ static int l_lovrJointGetColliders(lua_State* L) {
   Collider* a;
   Collider* b;
   lovrJointGetColliders(joint, &a, &b);
-  luax_pushobject(L, a);
-  luax_pushobject(L, b);
+  luax_pushtype(L, Collider, a);
+  luax_pushtype(L, Collider, b);
   return 2;
 }
 

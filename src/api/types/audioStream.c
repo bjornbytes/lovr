@@ -8,8 +8,8 @@ static int l_lovrAudioStreamDecode(lua_State* L) {
   if (samples > 0) {
     SoundData* soundData = lovrSoundDataCreate(samples / stream->channelCount, stream->sampleRate, stream->bitDepth, stream->channelCount);
     memcpy(soundData->blob.data, stream->buffer, samples * (stream->bitDepth / 8));
-    luax_pushobject(L, soundData);
-    lovrRelease(soundData);
+    luax_pushtype(L, SoundData, soundData);
+    lovrRelease(SoundData, soundData);
   } else {
     lua_pushnil(L);
   }

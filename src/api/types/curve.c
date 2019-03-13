@@ -46,7 +46,7 @@ static int l_lovrCurveSlice(lua_State* L) {
   float t1 = luax_checkfloat(L, 2);
   float t2 = luax_checkfloat(L, 3);
   Curve* subcurve = lovrCurveSlice(curve, t1, t2);
-  luax_pushobject(L, subcurve);
+  luax_pushtype(L, Curve, subcurve);
   return 1;
 }
 

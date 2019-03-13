@@ -52,7 +52,7 @@ void lovrAudioDestroy() {
   alcDestroyContext(state.context);
   alcCloseDevice(state.device);
   for (int i = 0; i < state.sources.length; i++) {
-    lovrRelease(state.sources.data[i]);
+    lovrRelease(Source, state.sources.data[i]);
   }
   vec_deinit(&state.sources);
   memset(&state, 0, sizeof(AudioState));
@@ -79,7 +79,7 @@ void lovrAudioUpdate() {
     } else if (isStopped) {
       lovrAudioStreamRewind(source->stream);
       vec_splice(&state.sources, i, 1);
-      lovrRelease(source);
+      lovrRelease(Source, source);
     }
   }
 }

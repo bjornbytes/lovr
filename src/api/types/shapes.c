@@ -1,5 +1,15 @@
 #include "api.h"
+#include "api/physics.h"
 #include "physics/physics.h"
+
+void luax_pushshape(lua_State* L, Shape* shape) {
+  switch (shape->type) {
+    case SHAPE_SPHERE: luax_pushtype(L, SphereShape, shape); break;
+    case SHAPE_BOX: luax_pushtype(L, BoxShape, shape); break;
+    case SHAPE_CAPSULE: luax_pushtype(L, CapsuleShape, shape); break;
+    case SHAPE_CYLINDER: luax_pushtype(L, CylinderShape, shape); break;
+  }
+}
 
 static int l_lovrShapeDestroy(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
@@ -15,7 +25,7 @@ static int l_lovrShapeGetType(lua_State* L) {
 
 static int l_lovrShapeGetCollider(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
-  luax_pushobject(L, lovrShapeGetCollider(shape));
+  luax_pushtype(L, Collider, lovrShapeGetCollider(shape));
   return 1;
 }
 

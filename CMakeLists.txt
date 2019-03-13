@@ -300,6 +300,7 @@ endif()
 set(LOVR_SRC
   src/main.c
   src/util.c
+  src/types.c
   src/luax.c
   src/api/lovr.c
   src/lib/math.c

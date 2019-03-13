@@ -59,7 +59,7 @@ static void onControllerRemoved(uint32_t id) {
         .data.controller = { controller, 0 }
       });
       vec_splice(&state.controllers, i, 1);
-      lovrRelease(controller);
+      lovrRelease(Controller, controller);
       break;
     }
   }

@@ -61,7 +61,7 @@ static bool desktopInit(float offset, int msaa) {
 static void desktopDestroy() {
   Controller *controller; int i;
   vec_foreach(&state.controllers, controller, i) {
-    lovrRelease(controller);
+    lovrRelease(Controller, controller);
   }
   vec_deinit(&state.controllers);
   memset(&state, 0, sizeof(state));
