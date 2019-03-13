@@ -52,3 +52,8 @@ with a file for each type of object.
 - `src/resources` contains embedded resources.  These are compiled to binary headers using `xxd`.
 - `src/data` has stuff for loading various file formats into LÖVR data structures.
 - Each module has a folder in `src`.
+
+Note that currently the internal C API may change at any time.  The Lua API will change less
+frequently but breaking changes will still occur before version 1.0.
+
+Branches other than master will be force-pushed during development to organize commit history.
