@@ -986,8 +986,8 @@ void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2
     .params.cylinder.r2 = r2 / length,
     .params.cylinder.capped = capped,
     .params.cylinder.segments = segments,
-    .transform = transform,
-    .material = material
+    .material = material,
+    .transform = transform
   });
 }
 
