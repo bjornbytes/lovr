@@ -92,6 +92,10 @@ static void oculusMobileGetAngularVelocity(float* vx, float* vy, float* vz) {
   *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.az;
 }
 
+static float* oculusMobileGetFrustm(float* frustum) {
+  return NULL;
+}
+
 static Controller *controller;
 
 static Controller** oculusMobileGetControllers(uint8_t* count) {
@@ -187,6 +191,7 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   oculusMobileGetPose,
   oculusMobileGetVelocity,
   oculusMobileGetAngularVelocity,
+  oculusMobileGetFrustm,
   oculusMobileGetControllers,
   oculusMobileControllerIsConnected,
   oculusMobileControllerGetHand,

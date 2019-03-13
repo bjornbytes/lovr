@@ -244,6 +244,10 @@ var LibraryLOVR = {
     }
   },
 
+  webvrGetFrustum: function(frustum) {
+    return 0;
+  },
+
   webvrControllerIsConnected: function(controller) {
     var gamepad = webvr.controllerToGamepad(controller);
     return gamepad && gamepad.connected;

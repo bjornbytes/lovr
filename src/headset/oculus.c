@@ -215,6 +215,10 @@ static void oculusGetAngularVelocity(float* vx, float* vy, float* vz) {
   *vz = vel.z;
 }
 
+static float* oculusGetFrustm(float* frustum) {
+  return NULL;
+}
+
 static Controller** oculusGetControllers(uint8_t* count) {
   *count = state.controllers.length;
   return state.controllers.data;
@@ -474,6 +478,7 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   oculusGetPose,
   oculusGetVelocity,
   oculusGetAngularVelocity,
+  oculusGetFrustum,
   oculusGetControllers,
   oculusControllerIsConnected,
   oculusControllerGetHand,
