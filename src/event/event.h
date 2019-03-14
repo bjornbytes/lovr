@@ -33,15 +33,12 @@ typedef union {
   bool boolean;
   double number;
   char* string;
-  struct {
-    Type type;
-    Ref* pointer;
-    const char* name;
-  } ref;
+  void* object;
 } VariantValue;
 
 typedef struct {
   VariantType type;
+  Type lovrType; // This could go in the union, but having it here keeps the struct 16 bytes
   VariantValue value;
 } Variant;
 

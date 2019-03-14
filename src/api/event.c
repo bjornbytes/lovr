@@ -46,13 +46,10 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
 
     case LUA_TUSERDATA:
       variant->type = TYPE_OBJECT;
-      variant->value.ref.pointer = lua_touserdata(L, index);
-      lua_getmetatable(L, index);
-      lua_getfield(L, -1, "name");
-      lovrAssert(lua_isstring(L, -1), "Variant does not have a type name");
-      variant->value.ref.name = lua_tostring(L, -1);
-      lua_pop(L, 1);
-      lovrRetain(variant->value.ref.pointer);
+      Proxy* proxy = lua_touserdata(L, index);
+      variant->lovrType = proxy->type;
+      variant->value.object = proxy->ref;
+      lovrRetain(proxy->ref);
       break;
 
     default: luaL_typerror(L, index, "nil, boolean, number, string, or object"); return;
@@ -65,7 +62,11 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
     case TYPE_STRING: lua_pushstring(L, variant->value.string); return 1;
-    case TYPE_OBJECT: _luax_pushtype(L, variant->value.ref.pointer, variant->value.ref.type, variant->value.ref.name); return 1;
+    case TYPE_OBJECT:
+      switch (variant->lovrType) {
+        case T_Animator: luax_pushtype(L, Animator, variant->value.object); return 1;
+        default: lua_pushnil(L); return 1;
+      }
     default: return 0;
   }
 }

@@ -7,6 +7,11 @@
 
 #pragma once
 
+typedef struct {
+  Type type;
+  Ref* ref;
+} Proxy;
+
 #define luax_registertype(L, T) _luax_registertype(L, #T, lovr ## T, lovr ## T ## Destroy)
 #define luax_extendtype(L, S, T) _luax_extendtype(L, #T, lovr ## S, lovr ## T, lovr ## T ## Destroy)
 #define luax_totype(L, i, T) (T*) _luax_totype(L, i, T_ ## T)

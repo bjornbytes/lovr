@@ -6,11 +6,6 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-typedef struct {
-  Type type;
-  Ref* ref;
-} Proxy;
-
 static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "name");
   return 1;
