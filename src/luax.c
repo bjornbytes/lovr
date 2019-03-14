@@ -53,6 +53,13 @@ int luax_print(lua_State* L) {
   return 0;
 }
 
+void luax_setmainthread(lua_State *L) {
+#if LUA_VERSION_NUM < 502
+  lua_pushthread(L);
+  lua_rawseti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
+#endif
+}
+
 void luax_atexit(lua_State* L, luax_destructor destructor) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
 
@@ -288,10 +295,3 @@ Color luax_checkcolor(lua_State* L, int index) {
 
   return color;
 }
-
-#if LUA_VERSION_NUM < 502
-void luax_setmainthread(lua_State *L) {
-  lua_pushthread(L);
-  lua_rawseti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
-}
-#endif

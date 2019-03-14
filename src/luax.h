@@ -6,6 +6,10 @@
 
 #pragma once
 
+#ifndef LUA_RIDX_MAINTHERAD
+#define LUA_RIDX_MAINTHREAD 1
+#endif
+
 #define luax_totype(L, i, T) ((T*) _luax_totype(L, i, #T))
 #define luax_checktype(L, i, T) ((T*) _luax_checktype(L, i, #T))
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
@@ -16,6 +20,7 @@
 typedef void (*luax_destructor)(void);
 
 int luax_print(lua_State* L);
+void luax_setmainthread(lua_State* L);
 void luax_atexit(lua_State* L, luax_destructor destructor);
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
 void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions);
@@ -30,10 +35,3 @@ int luax_getstack_panic(lua_State *L);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
 Color luax_checkcolor(lua_State* L, int index);
-
-#if LUA_VERSION_NUM < 502
-#define LUA_RIDX_MAINTHREAD 1
-void luax_setmainthread(lua_State* L);
-#else
-#define luax_setmainthread
-#endif
