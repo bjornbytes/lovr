@@ -34,7 +34,11 @@ static const size_t BUFFER_COUNTS[] = {
   [STREAM_VERTEX] = (1 << 16) - 1,
   [STREAM_INDEX] = 1 << 16,
   [STREAM_DRAW_ID] = (1 << 16) - 1,
+#ifdef LOVR_WEBGL // Temporarily work around bug where big UBOs don't work
+  [STREAM_DRAW_DATA] = 768
+#else
   [STREAM_DRAW_DATA] = 256 * MAX_BATCHES * 2
+#endif
 };
 
 static const size_t BUFFER_STRIDES[] = {
