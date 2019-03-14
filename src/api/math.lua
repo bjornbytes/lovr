@@ -98,21 +98,33 @@ local vec3 = {
     return v
   end,
 
-  add = function(v, u)
+  add = function(v, x, y, z)
     checkvec3(v)
-    checkvec3(u, 1)
-    v.x = v.x + u.x
-    v.y = v.y + u.y
-    v.z = v.z + u.z
+    if type(x) == 'number' then
+      v.x = v.x + x
+      v.y = v.y + (y or x)
+      v.z = v.z + (z or x)
+    else
+      checkvec3(x, 1, 'vec3 or number')
+      v.x = v.x + x.x
+      v.y = v.y + x.y
+      v.z = v.z + x.z
+    end
     return v
   end,
 
   sub = function(v, u)
     checkvec3(v)
-    checkvec3(u, 1)
-    v.x = v.x - u.x
-    v.y = v.y - u.y
-    v.z = v.z - u.z
+    if type(x) == 'number' then
+      v.x = v.x - x
+      v.y = v.y - (y or x)
+      v.z = v.z - (z or x)
+    else
+      checkvec3(x, 1, 'vec3 or number')
+      v.x = v.x - x.x
+      v.y = v.y - x.y
+      v.z = v.z - x.z
+    end
     return v
   end,
 
