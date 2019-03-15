@@ -1184,7 +1184,7 @@ void lovrGpuDestroyLock(void* lock) {
 #endif
 }
 
-const GpuFeatures* lovrGpuGetSupported() {
+const GpuFeatures* lovrGpuGetFeatures() {
   return &state.features;
 }
 

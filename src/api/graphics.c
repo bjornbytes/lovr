@@ -352,8 +352,8 @@ static int l_lovrGraphicsHasWindow(lua_State *L) {
   return 1;
 }
 
-static int l_lovrGraphicsGetSupported(lua_State* L) {
-  const GpuFeatures* features = lovrGraphicsGetSupported();
+static int l_lovrGraphicsGetFeatures(lua_State* L) {
+  const GpuFeatures* features = lovrGraphicsGetFeatures();
   lua_newtable(L);
   lua_pushboolean(L, features->compute);
   lua_setfield(L, -2, "compute");
@@ -362,7 +362,7 @@ static int l_lovrGraphicsGetSupported(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsGetSystemLimits(lua_State* L) {
+static int l_lovrGraphicsGetLimits(lua_State* L) {
   const GpuLimits* limits = lovrGraphicsGetLimits();
   lua_newtable(L);
   lua_pushnumber(L, limits->pointSizes[1]);
@@ -957,7 +957,7 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  lovrAssert(type == BLOCK_UNIFORM || lovrGraphicsGetSupported()->compute, "Compute blocks are not supported on this system");
+  lovrAssert(type == BLOCK_UNIFORM || lovrGraphicsGetFeatures()->compute, "Compute blocks are not supported on this system");
   size_t size = lovrShaderComputeUniformLayout(&uniforms);
   Buffer* buffer = lovrBufferCreate(size, NULL, type == BLOCK_COMPUTE ? BUFFER_SHADER_STORAGE : BUFFER_UNIFORM, usage, readable);
   ShaderBlock* block = lovrShaderBlockCreate(type, buffer, &uniforms);
@@ -1417,8 +1417,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "getDimensions", l_lovrGraphicsGetDimensions },
   { "getPixelDensity", l_lovrGraphicsGetPixelDensity },
   { "hasWindow", l_lovrGraphicsHasWindow },
-  { "getSupported", l_lovrGraphicsGetSupported },
-  { "getSystemLimits", l_lovrGraphicsGetSystemLimits },
+  { "getFeatures", l_lovrGraphicsGetFeatures },
+  { "getLimits", l_lovrGraphicsGetLimits },
   { "getStats", l_lovrGraphicsGetStats },
 
   // State

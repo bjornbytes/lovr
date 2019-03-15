@@ -202,7 +202,7 @@ int lovrGraphicsGetHeight(void);
 float lovrGraphicsGetPixelDensity(void);
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
 Buffer* lovrGraphicsGetIdentityBuffer(void);
-#define lovrGraphicsGetSupported lovrGpuGetSupported
+#define lovrGraphicsGetFeatures lovrGpuGetFeatures
 #define lovrGraphicsGetLimits lovrGpuGetLimits
 #define lovrGraphicsGetStats lovrGpuGetStats
 
@@ -322,6 +322,6 @@ void lovrGpuDirtyTexture(void);
 void* lovrGpuLock(void);
 void lovrGpuUnlock(void* lock);
 void lovrGpuDestroyLock(void* lock);
-const GpuFeatures* lovrGpuGetSupported(void);
+const GpuFeatures* lovrGpuGetFeatures(void);
 const GpuLimits* lovrGpuGetLimits(void);
 const GpuStats* lovrGpuGetStats(void);
