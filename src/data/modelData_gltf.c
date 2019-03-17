@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <ctype.h>
 
 #define MAX_STACK_TOKENS 1024
@@ -120,10 +121,13 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
   size_t jsonLength, binLength;
   ptrdiff_t binOffset;
 
-  char basePath[1024];
-  strncpy(basePath, source->name, 1023);
-  char* slash = strrchr(basePath, '/');
-  if (slash) *slash = 0;
+  char filename[1024];
+  lovrAssert(strlen(source->name) < sizeof(filename), "glTF filename is too long");
+  strcpy(filename, source->name);
+  char* slash = strrchr(filename, '/');
+  char* root = slash ? (slash + 1) : filename;
+  size_t maxPathLength = sizeof(filename) - (root - filename);
+  *root = '\0';
 
   if (glb) {
     gltfChunkHeader* jsonHeader = (gltfChunkHeader*) &header[1];
@@ -418,13 +422,13 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
       }
 
       if (uri.data) {
-        lovrAssert(strncmp("data:", uri.data, strlen("data:")), "Base64 URIs aren't supported yet");;
         size_t bytesRead;
-        char filename[1024];
-        lovrAssert(uri.length < 1024, "Buffer filename is too long");
-        snprintf(filename, 1023, "%s/%.*s", basePath, (int) uri.length, uri.data);
+        lovrAssert(uri.length < 5 || strncmp("data:", uri.data, 5), "Base64 URIs aren't supported yet");
+        lovrAssert(uri.length < maxPathLength, "Buffer filename is too long");
+        strncat(filename, uri.data, uri.length);
         *blob = lovrBlobCreate(lovrFilesystemRead(filename, -1, &bytesRead), size, NULL);
         lovrAssert((*blob)->data && bytesRead == size, "Unable to read %s", filename);
+        *root = '\0';
       } else {
         lovrAssert(glb, "Buffer is missing URI");
         lovrRetain(source);
@@ -595,19 +599,20 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           ModelBuffer* buffer = &model->buffers[NOM_INT(json, token)];
           Blob* blob = lovrBlobCreate(buffer->data, buffer->size, NULL);
           *texture = lovrTextureDataCreateFromBlob(blob, false);
-          blob->data = NULL; // FIXME
+          blob->data = NULL; // XXX Blob data ownership
           lovrRelease(blob);
         } else if (STR_EQ(key, "uri")) {
           size_t size = 0;
-          char filename[1024];
           gltfString uri = NOM_STR(json, token);
-          lovrAssert(strncmp("data:", uri.data, strlen("data:")), "Base64 URIs aren't supported yet");
-          snprintf(filename, 1024, "%s/%.*s%c", basePath, (int) uri.length, uri.data, 0);
+          lovrAssert(uri.length < 5 || strncmp("data:", uri.data, 5), "Base64 URIs aren't supported yet");
+          lovrAssert(uri.length < maxPathLength, "Image filename is too long");
+          strncat(filename, uri.data, uri.length);
           void* data = lovrFilesystemRead(filename, -1, &size);
           lovrAssert(data && size > 0, "Unable to read texture from '%s'", filename);
           Blob* blob = lovrBlobCreate(data, size, NULL);
           *texture = lovrTextureDataCreateFromBlob(blob, false);
           lovrRelease(blob);
+          *root = '\0';
         } else {
           token += NOM_VALUE(json, token);
         }

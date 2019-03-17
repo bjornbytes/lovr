@@ -52,7 +52,7 @@ static void parseMtl(char* path, vec_void_t* textures, vec_material_t* materials
       bool hasFilename = sscanf(s + 7, "%s\n%n", filename, &lineLength);
       lovrAssert(hasFilename, "Bad OBJ: Expected a texture filename");
       char path[1024];
-      snprintf(path, 1023, "%s/%s", base, filename);
+      snprintf(path, 1023, "%s%s", base, filename);
       size_t size = 0;
       void* data = lovrFilesystemRead(path, -1, &size);
       lovrAssert(data && size > 0, "Unable to read texture from %s", path);
@@ -113,9 +113,11 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   vec_push(&groups, ((objGroup) { .material = -1 }));
 
   char base[1024];
-  strncpy(base, source->name, 1023);
+  lovrAssert(strlen(source->name) < sizeof(base), "OBJ filename is too long");
+  strcpy(base, source->name);
   char* slash = strrchr(base, '/');
-  if (slash) *slash = 0;
+  char* root = slash ? (slash + 1) : base;
+  *root = '\0';
 
   while (length > 0) {
     int lineLength = 0;
@@ -182,7 +184,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
       bool hasName = sscanf(data + 7, "%1024s\n%n", filename, &lineLength);
       lovrAssert(hasName, "Bad OBJ: Expected filename after mtllib");
       char path[1024];
-      snprintf(path, 1023, "%s/%s", base, filename);
+      snprintf(path, 1023, "%s%s", base, filename);
       parseMtl(path, &textures, &materials, &materialNames, base);
     } else if (STARTS_WITH(data, "usemtl ")) {
       char name[128];
