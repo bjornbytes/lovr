@@ -1830,8 +1830,8 @@ static void lovrShaderSetupUniforms(Shader* shader) {
       int location = uniform.location;
 
       if (uniform.count > 1) {
-        char name[LOVR_MAX_UNIFORM_LENGTH];
-        snprintf(name, LOVR_MAX_UNIFORM_LENGTH, "%s[%d]", uniform.name, j);
+        char name[76 /* LOVR_MAX_UNIFORM_LENGTH + 2 + 10 */];
+        snprintf(name, sizeof(name), "%s[%d]", uniform.name, j);
         location = glGetUniformLocation(program, name);
       }
 
