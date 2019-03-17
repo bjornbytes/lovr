@@ -42,7 +42,7 @@ void luax_readattachments(lua_State* L, int index, Attachment* attachments, int*
   int n;
 
   if (lua_istable(L, index)) {
-    n = lua_objlen(L, index);
+    n = luax_len(L, index);
     n = MIN(n, 3 * MAX_CANVAS_ATTACHMENTS);
     for (int i = 0; i < n; i++) {
       lua_rawgeti(L, index, i + 1);

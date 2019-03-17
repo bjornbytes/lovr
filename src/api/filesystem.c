@@ -26,7 +26,7 @@ Blob* luax_readblob(lua_State* L, int index, const char* debug) {
 
 static int pushDirectoryItem(void* userdata, const char* path, const char* filename) {
   lua_State* L = userdata;
-  int n = lua_objlen(L, -1);
+  int n = luax_len(L, -1);
   lua_pushstring(L, filename);
   lua_rawseti(L, -2, n + 1);
   return 1;

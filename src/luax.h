@@ -10,6 +10,7 @@
 #define LUA_RIDX_MAINTHREAD 1
 #endif
 
+#define luax_len(L, i) (int) lua_objlen(L, i)
 #define luax_totype(L, i, T) ((T*) _luax_totype(L, i, #T))
 #define luax_checktype(L, i, T) ((T*) _luax_checktype(L, i, #T))
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)

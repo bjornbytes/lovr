@@ -13,7 +13,6 @@
 #include "data/textureData.h"
 #include "filesystem/filesystem.h"
 #include "util.h"
-#define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdbool.h>
 
@@ -205,7 +204,7 @@ const char* WrapModes[] = {
 static uint32_t luax_getvertexcount(lua_State* L, int index) {
   int type = lua_type(L, index);
   if (type == LUA_TTABLE) {
-    size_t count = lua_objlen(L, index);
+    int count = luax_len(L, index);
     lua_rawgeti(L, index, 1);
     int tableType = lua_type(L, -1);
     lua_pop(L, 1);
@@ -1138,14 +1137,14 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     } else if (lua_istable(L, 2)) {
       drawModeIndex++;
       formatIndex = 1;
-      count = lua_objlen(L, 2);
+      count = luax_len(L, 2);
       dataIndex = 2;
     } else if ((blob = luax_totype(L, 2, Blob)) != NULL) {
       drawModeIndex++;
       formatIndex = 1;
       dataIndex = 2;
     } else {
-      count = lua_objlen(L, 1);
+      count = luax_len(L, 1);
       dataIndex = 1;
     }
   } else {
@@ -1168,7 +1167,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     attributeNames[1] = "lovrNormal";
     attributeNames[2] = "lovrTexCoord";
   } else {
-    attributeCount = lua_objlen(L, formatIndex);
+    attributeCount = luax_len(L, formatIndex);
     lovrAssert(attributeCount >= 0 && attributeCount <= MAX_ATTRIBUTES, "Attribute count must be between 0 and %d", MAX_ATTRIBUTES);
     for (int i = 0; i < attributeCount; i++) {
       lua_rawgeti(L, formatIndex, i + 1);
@@ -1178,7 +1177,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
       lua_rawgeti(L, -3, 1);
 
       attributeNames[i] = lua_tostring(L, -1);
-      attributes[i].offset = stride;
+      attributes[i].offset = (uint32_t) stride;
       attributes[i].type = luaL_checkoption(L, -2, "float", AttributeTypes);
       attributes[i].components = luaL_optinteger(L, -3, 1);
 
@@ -1192,7 +1191,8 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   }
 
   if (blob) {
-    count = blob->size / stride;
+    lovrAssert(blob->size / stride < UINT32_MAX, "Too many vertices in Blob");
+    count = (uint32_t) (blob->size / stride);
   }
 
   DrawMode mode = luaL_checkoption(L, drawModeIndex, "fan", DrawModes);
@@ -1232,7 +1232,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
         int component = 0;
         for (int j = 0; j < attributeCount; j++) {
           MeshAttribute* attribute = &attributes[j];
-          for (int k = 0; k < attribute->components; k++) {
+          for (unsigned k = 0; k < attribute->components; k++) {
             lua_rawgeti(L, -1, ++component);
             switch (attribute->type) {
               case I8: *data.i8++ = luaL_optinteger(L, -1, 0); break;
@@ -1341,7 +1341,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     depth = 1;
     index++;
   } else {
-    depth = lua_objlen(L, index++);
+    depth = luax_len(L, index++);
     type = depth > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE;
   }
 

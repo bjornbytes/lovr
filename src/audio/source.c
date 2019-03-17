@@ -1,7 +1,6 @@
 #include "audio/source.h"
 #include "audio/audio.h"
 #include "data/audioStream.h"
-#define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdlib.h>
 
@@ -17,7 +16,7 @@ Source* lovrSourceInitStatic(Source* source, SoundData* soundData) {
   source->soundData = soundData;
   alGenSources(1, &source->id);
   alGenBuffers(1, source->buffers);
-  alBufferData(source->buffers[0], format, soundData->blob.data, soundData->blob.size, soundData->sampleRate);
+  alBufferData(source->buffers[0], format, soundData->blob.data, (ALsizei) soundData->blob.size, soundData->sampleRate);
   alSourcei(source->id, AL_BUFFER, source->buffers[0]);
   lovrRetain(soundData);
   return source;

@@ -107,34 +107,34 @@ sds sdsnewlen(const void *init, size_t initlen) {
     fp = ((unsigned char*)s)-1;
     switch(type) {
         case SDS_TYPE_5: {
-            *fp = type | (initlen << SDS_TYPE_BITS);
+            *fp = (unsigned char) (type | (initlen << SDS_TYPE_BITS));
             break;
         }
         case SDS_TYPE_8: {
             SDS_HDR_VAR(8,s);
-            sh->len = initlen;
-            sh->alloc = initlen;
+            sh->len = (uint8_t) initlen;
+            sh->alloc = (uint8_t) initlen;
             *fp = type;
             break;
         }
         case SDS_TYPE_16: {
             SDS_HDR_VAR(16,s);
-            sh->len = initlen;
-            sh->alloc = initlen;
+            sh->len = (uint16_t) initlen;
+            sh->alloc = (uint16_t) initlen;
             *fp = type;
             break;
         }
         case SDS_TYPE_32: {
             SDS_HDR_VAR(32,s);
-            sh->len = initlen;
-            sh->alloc = initlen;
+            sh->len = (uint32_t) initlen;
+            sh->alloc = (uint32_t) initlen;
             *fp = type;
             break;
         }
         case SDS_TYPE_64: {
             SDS_HDR_VAR(64,s);
-            sh->len = initlen;
-            sh->alloc = initlen;
+            sh->len = (uint64_t) initlen;
+            sh->alloc = (uint64_t) initlen;
             *fp = type;
             break;
         }
@@ -472,7 +472,7 @@ int sdsll2str(char *s, long long value) {
         s++;
         p--;
     }
-    return l;
+    return (int) l;
 }
 
 /* Identical sdsll2str(), but for unsigned long long type. */
@@ -501,7 +501,7 @@ int sdsull2str(char *s, unsigned long long v) {
         s++;
         p--;
     }
-    return l;
+    return (int) l;
 }
 
 /* Create an sds string from a long long value. It is much faster than:
@@ -602,7 +602,7 @@ sds sdscatfmt(sds s, char const *fmt, ...) {
 
     va_start(ap,fmt);
     f = fmt;    /* Next format specifier byte to process. */
-    i = initlen; /* Position of the next byte to write to dest str. */
+    i = (long) initlen; /* Position of the next byte to write to dest str. */
     while(*f) {
         char next, *str;
         size_t l;
@@ -628,7 +628,7 @@ sds sdscatfmt(sds s, char const *fmt, ...) {
                 }
                 memcpy(s+i,str,l);
                 sdsinclen(s,l);
-                i += l;
+                i += (long) l;
                 break;
             case 'i':
             case 'I':
@@ -644,7 +644,7 @@ sds sdscatfmt(sds s, char const *fmt, ...) {
                     }
                     memcpy(s+i,buf,l);
                     sdsinclen(s,l);
-                    i += l;
+                    i += (long) l;
                 }
                 break;
             case 'u':
@@ -661,7 +661,7 @@ sds sdscatfmt(sds s, char const *fmt, ...) {
                     }
                     memcpy(s+i,buf,l);
                     sdsinclen(s,l);
-                    i += l;
+                    i += (long) l;
                 }
                 break;
             default: /* Handle %% and generally %<unknown>. */

@@ -41,8 +41,7 @@ bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t character) {
 }
 
 bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str) {
-  int len = strlen(str);
-  const char* end = str + len;
+  const char* end = str + strlen(str);
   unsigned int codepoint;
   size_t bytes;
 

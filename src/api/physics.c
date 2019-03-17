@@ -25,7 +25,7 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
   const char* tags[16];
   int tagCount;
   if (lua_type(L, 5) == LUA_TTABLE) {
-    tagCount = lua_objlen(L, 5);
+    tagCount = luax_len(L, 5);
     for (int i = 0; i < tagCount; i++) {
       lua_rawgeti(L, -1, i + 1);
       if (lua_isstring(L, -1)) {

@@ -25,16 +25,16 @@ static int l_lovrJointGetColliders(lua_State* L) {
 
 static int l_lovrJointGetUserData(lua_State* L) {
   Joint* joint = luax_checktype(L, 1, Joint);
-  int ref = (int) lovrJointGetUserData(joint);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+  union { int i; void* p; } ref = { .p = lovrJointGetUserData(joint) };
+  lua_rawgeti(L, LUA_REGISTRYINDEX, ref.i);
   return 1;
 }
 
 static int l_lovrJointSetUserData(lua_State* L) {
   Joint* joint = luax_checktype(L, 1, Joint);
-  uint64_t ref = (int) lovrJointGetUserData(joint);
-  if (ref) {
-    luaL_unref(L, LUA_REGISTRYINDEX, ref);
+  union { int i; void* p; } ref = { .p = lovrJointGetUserData(joint) };
+  if (ref.i) {
+    luaL_unref(L, LUA_REGISTRYINDEX, ref.i);
   }
 
   if (lua_gettop(L) < 2) {
@@ -42,8 +42,8 @@ static int l_lovrJointSetUserData(lua_State* L) {
   }
 
   lua_settop(L, 2);
-  ref = luaL_ref(L, LUA_REGISTRYINDEX);
-  lovrJointSetUserData(joint, (void*) ref);
+  ref.i = luaL_ref(L, LUA_REGISTRYINDEX);
+  lovrJointSetUserData(joint, ref.p);
   return 0;
 }
 

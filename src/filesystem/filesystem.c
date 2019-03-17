@@ -118,7 +118,7 @@ int lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
 }
 
 void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata) {
-  PHYSFS_enumerate(path, callback, userdata);
+  PHYSFS_enumerate(path, (PHYSFS_EnumerateCallback) callback, userdata);
 }
 
 int lovrFilesystemGetExecutablePath(char* path, uint32_t size) {

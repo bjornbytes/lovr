@@ -163,7 +163,7 @@ size_t lovrShaderComputeUniformLayout(vec_uniform_t* uniforms) {
   size_t size = 0;
   Uniform* uniform; int i;
   vec_foreach_ptr(uniforms, uniform, i) {
-    size_t align;
+    int align;
     if (uniform->count > 1 || uniform->type == UNIFORM_MATRIX) {
       align = 16 * (uniform->type == UNIFORM_MATRIX ? uniform->components : 1);
       uniform->size = align * uniform->count;

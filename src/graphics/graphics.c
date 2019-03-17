@@ -8,7 +8,6 @@
 #include "lib/stb/stb_image.h"
 #include <stdlib.h>
 #include <string.h>
-#define _USE_MATH_DEFINES
 #include <math.h>
 
 static GraphicsState state;
@@ -21,7 +20,7 @@ static void gammaCorrectColor(Color* color) {
   }
 }
 
-static void onCloseWindow() {
+static void onCloseWindow(void) {
   lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { false, 0 } });
 }
 
@@ -30,7 +29,7 @@ static void onResizeWindow(int width, int height) {
   state.height = height;
 }
 
-static const size_t BUFFER_COUNTS[] = {
+static const uint32_t BUFFER_COUNTS[] = {
   [STREAM_VERTEX] = (1 << 16) - 1,
   [STREAM_INDEX] = 1 << 16,
   [STREAM_DRAW_ID] = (1 << 16) - 1,
@@ -61,7 +60,7 @@ static void lovrGraphicsInitBuffers() {
   }
 
   // Compute the max number of draws per batch, since the hard cap of 256 won't always fit in a UBO
-  size_t maxBlockSize = lovrGpuGetLimits()->blockSize;
+  int maxBlockSize = lovrGpuGetLimits()->blockSize;
   state.maxDraws = MIN(maxBlockSize / sizeof(DrawData) / 64 * 64, 256);
 
   // The identity buffer is used for autoinstanced meshes and instanced primitives and maps the
@@ -95,7 +94,7 @@ static void lovrGraphicsInitBuffers() {
 
 static void* lovrGraphicsMapBuffer(BufferRole role, uint32_t count) {
   Buffer* buffer = state.buffers[role];
-  size_t limit = BUFFER_COUNTS[role];
+  uint32_t limit = BUFFER_COUNTS[role];
   lovrAssert(count <= limit, "Whoa there!  Tried to get %d elements from a buffer that only has %d elements.", count, limit);
 
   if (state.cursors[role] + count > limit) {
@@ -239,8 +238,8 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
     memset(&state.camera, 0, sizeof(Camera));
     mat4_identity(state.camera.viewMatrix[0]);
     mat4_identity(state.camera.viewMatrix[1]);
-    mat4_perspective(state.camera.projection[0], .01f, 100.f, 67. * M_PI / 180., (float) state.width / state.height);
-    mat4_perspective(state.camera.projection[1], .01f, 100.f, 67. * M_PI / 180., (float) state.width / state.height);
+    mat4_perspective(state.camera.projection[0], .01f, 100.f, 67.f * M_PI / 180.f, (float) state.width / state.height);
+    mat4_perspective(state.camera.projection[1], .01f, 100.f, 67.f * M_PI / 180.f, (float) state.width / state.height);
   } else {
     state.camera = *camera;
   }
@@ -496,7 +495,7 @@ void lovrGraphicsBatch(BatchRequest* req) {
 
   if (req->type == BATCH_MESH) {
     float* pose = req->params.mesh.pose ? req->params.mesh.pose : (float[]) MAT4_IDENTITY;
-    size_t count = req->params.mesh.pose ? (MAX_BONES * 16) : 16;
+    int count = req->params.mesh.pose ? (MAX_BONES * 16) : 16;
     lovrShaderSetMatrices(shader, "lovrPose", pose, 0, count);
   }
 
@@ -537,7 +536,7 @@ void lovrGraphicsBatch(BatchRequest* req) {
 
   for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
     if (streamRequirements[i] > 0 && state.cursors[i] + streamRequirements[i] > BUFFER_COUNTS[i]) {
-      size_t oldCursor = state.cursors[i];
+      uint32_t oldCursor = state.cursors[i];
       lovrGraphicsFlush();
       state.locks[i][MAX_LOCKS - 1] = lovrGpuLock();
       state.cursors[i] = state.cursors[i] >= oldCursor ? 0 : state.cursors[i];
@@ -821,9 +820,9 @@ void lovrGraphicsFlush() {
 
     if (batch->vertexCount > 0) {
       size_t lockSize = BUFFER_COUNTS[STREAM_VERTEX] / MAX_LOCKS + 1;
-      int firstLock = batch->vertexStart / lockSize;
-      int lastLock = (batch->vertexStart + batch->vertexCount) / lockSize;
-      for (int i = firstLock; i < lastLock; i++) {
+      size_t firstLock = batch->vertexStart / lockSize;
+      size_t lastLock = (batch->vertexStart + batch->vertexCount) / lockSize;
+      for (size_t i = firstLock; i < lastLock; i++) {
         state.locks[STREAM_VERTEX][i] = lovrGpuLock();
         if (!instanced) {
           state.locks[STREAM_DRAW_ID][i] = lovrGpuLock();
@@ -833,18 +832,18 @@ void lovrGraphicsFlush() {
 
     if (batch->indexCount > 0) {
       size_t lockSize = BUFFER_COUNTS[STREAM_INDEX] / MAX_LOCKS + 1;
-      int firstLock = batch->indexStart / lockSize;
-      int lastLock = (batch->indexStart + batch->indexCount) / lockSize;
-      for (int i = firstLock; i < lastLock; i++) {
+      size_t firstLock = batch->indexStart / lockSize;
+      size_t lastLock = (batch->indexStart + batch->indexCount) / lockSize;
+      for (size_t i = firstLock; i < lastLock; i++) {
         state.locks[STREAM_INDEX][i] = lovrGpuLock();
       }
     }
 
     if (batch->drawCount > 0) {
       size_t lockSize = BUFFER_COUNTS[STREAM_DRAW_DATA] / MAX_LOCKS;
-      int firstLock = batch->drawStart / lockSize;
-      int lastLock = MIN(batch->drawStart + state.maxDraws, BUFFER_COUNTS[STREAM_DRAW_DATA] - 1) / lockSize;
-      for (int i = firstLock; i < lastLock; i++) {
+      size_t firstLock = batch->drawStart / lockSize;
+      size_t lastLock = MIN(batch->drawStart + state.maxDraws, BUFFER_COUNTS[STREAM_DRAW_DATA] - 1) / lockSize;
+      for (size_t i = firstLock; i < lastLock; i++) {
         state.locks[STREAM_DRAW_DATA][i] = lovrGpuLock();
       }
     }

@@ -34,16 +34,16 @@ static int l_lovrShapeSetEnabled(lua_State* L) {
 
 static int l_lovrShapeGetUserData(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
-  int ref = (int) lovrShapeGetUserData(shape);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+  union { int i; void* p; } ref = { .p = lovrShapeGetUserData(shape) };
+  lua_rawgeti(L, LUA_REGISTRYINDEX, ref.i);
   return 1;
 }
 
 static int l_lovrShapeSetUserData(lua_State* L) {
   Shape* shape = luax_checktype(L, 1, Shape);
-  uint64_t ref = (int) lovrShapeGetUserData(shape);
-  if (ref) {
-    luaL_unref(L, LUA_REGISTRYINDEX, ref);
+  union { int i; void* p; } ref = { .p = lovrShapeGetUserData(shape) };
+  if (ref.i) {
+    luaL_unref(L, LUA_REGISTRYINDEX, ref.i);
   }
 
   if (lua_gettop(L) < 2) {
@@ -51,8 +51,8 @@ static int l_lovrShapeSetUserData(lua_State* L) {
   }
 
   lua_settop(L, 2);
-  ref = luaL_ref(L, LUA_REGISTRYINDEX);
-  lovrShapeSetUserData(shape, (void*) ref);
+  ref.i = luaL_ref(L, LUA_REGISTRYINDEX);
+  lovrShapeSetUserData(shape, ref.p);
   return 0;
 }
 

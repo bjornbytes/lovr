@@ -10,6 +10,8 @@
 #include <stdint.h>
 #ifndef WIN32
 #pragma pack(push, 4)
+#else
+#undef EXTERN_C
 #endif
 #include <openvr_capi.h>
 #ifndef WIN32
@@ -177,7 +179,7 @@ static bool openvrInit(float offset, int msaa) {
   return true;
 }
 
-static void openvrDestroy() {
+static void openvrDestroy(void) {
   lovrRelease(state.canvas);
   for (int i = 0; i < 16; i++) {
     if (state.deviceModels[i]) {
@@ -199,11 +201,11 @@ static void openvrDestroy() {
   memset(&state, 0, sizeof(HeadsetState));
 }
 
-static HeadsetType openvrGetType() {
+static HeadsetType openvrGetType(void) {
   return state.type;
 }
 
-static HeadsetOrigin openvrGetOriginType() {
+static HeadsetOrigin openvrGetOriginType(void) {
   switch (state.compositor->GetTrackingSpace()) {
     case ETrackingUniverseOrigin_TrackingUniverseSeated: return ORIGIN_HEAD;
     case ETrackingUniverseOrigin_TrackingUniverseStanding: return ORIGIN_FLOOR;
@@ -211,7 +213,7 @@ static HeadsetOrigin openvrGetOriginType() {
   }
 }
 
-static bool openvrIsMounted() {
+static bool openvrIsMounted(void) {
   VRControllerState_t input;
   state.system->GetControllerState(HEADSET_INDEX, &input, sizeof(input));
   return (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
@@ -592,7 +594,7 @@ static void openvrUpdate(float dt) {
   }
 }
 
-static Texture* openvrGetMirrorTexture() {
+static Texture* openvrGetMirrorTexture(void) {
   return lovrCanvasGetAttachments(state.canvas, NULL)[0].texture;
 }
 

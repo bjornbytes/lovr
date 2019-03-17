@@ -160,7 +160,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
   int tokenCount = 0;
 
   if ((tokenCount = jsmn_parse(&parser, json, jsonLength, stackTokens, MAX_STACK_TOKENS)) == JSMN_ERROR_NOMEM) {
-    size_t capacity = MAX_STACK_TOKENS;
+    int capacity = MAX_STACK_TOKENS;
     jsmn_init(&parser); // This shouldn't be necessary but not doing it caused an infinite loop?
 
     do {

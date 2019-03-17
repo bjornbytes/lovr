@@ -31,7 +31,7 @@ typedef struct {
   int width;
   int height;
   void* data;
-  size_t size;
+  int size;
 } Mipmap;
 
 typedef vec_t(Mipmap) vec_mipmap_t;

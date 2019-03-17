@@ -25,5 +25,5 @@ void lovrBufferFlush(Buffer* buffer) {
 
   lovrBufferFlushRange(buffer, buffer->flushFrom, buffer->flushTo - buffer->flushFrom);
   buffer->flushFrom = SIZE_MAX;
-  buffer->flushTo = -SIZE_MAX;
+  buffer->flushTo = 0;
 }

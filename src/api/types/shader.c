@@ -49,7 +49,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
 
   if (components == 1) {
     bool isTable = lua_istable(L, index);
-    int length = isTable ? lua_objlen(L, index) : count;
+    int length = isTable ? luax_len(L, index) : count;
     length = MIN(length, count);
     for (int i = 0; i < count; i++) {
       int j = index + i;
@@ -95,7 +95,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
     }
 
     if (wrappedTable) {
-      int length = lua_objlen(L, index);
+      int length = luax_len(L, index);
       length = MIN(length, count);
       for (int i = 0; i < length; i++) {
         lua_rawgeti(L, index, i + 1);

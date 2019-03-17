@@ -3,8 +3,8 @@
 #include "util.h"
 #include <stdlib.h>
 
-AudioStream* lovrAudioStreamInit(AudioStream* stream, Blob* blob, size_t bufferSize) {
-  stb_vorbis* decoder = stb_vorbis_open_memory(blob->data, blob->size, NULL, NULL);
+AudioStream* lovrAudioStreamInit(AudioStream* stream, Blob* blob, int bufferSize) {
+  stb_vorbis* decoder = stb_vorbis_open_memory(blob->data, (int) blob->size, NULL, NULL);
   lovrAssert(decoder, "Could not create audio stream for '%s'", blob->name);
 
   stb_vorbis_info info = stb_vorbis_get_info(decoder);
@@ -30,7 +30,7 @@ void lovrAudioStreamDestroy(void* ref) {
   free(stream->buffer);
 }
 
-int lovrAudioStreamDecode(AudioStream* stream, short* destination, size_t size) {
+int lovrAudioStreamDecode(AudioStream* stream, short* destination, int size) {
   stb_vorbis* decoder = (stb_vorbis*) stream->decoder;
   short* buffer = destination ? destination : (short*) stream->buffer;
   int capacity = destination ? size : (stream->bufferSize / sizeof(short));

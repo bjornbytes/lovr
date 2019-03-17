@@ -345,7 +345,7 @@ int luaopen_lovr_headset(lua_State* L) {
 
     // Drivers
     lua_getfield(L, -1, "drivers");
-    int n = lua_objlen(L, -1);
+    int n = luax_len(L, -1);
     for (int i = 0; i < n; i++) {
       lua_rawgeti(L, -1, i + 1);
       vec_push(&drivers, luaL_checkoption(L, -1, NULL, HeadsetDrivers));

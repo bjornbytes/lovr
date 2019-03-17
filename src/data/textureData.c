@@ -111,9 +111,9 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 
   // Load mipmaps
   for (int i = 0; i < mipmapCount; i++) {
-    size_t numBlocksWide = width ? MAX(1, (width + 3) / 4) : 0;
-    size_t numBlocksHigh = height ? MAX(1, (height + 3) / 4) : 0;
-    size_t mipmapSize = numBlocksWide * numBlocksHigh * blockBytes;
+    int numBlocksWide = width ? MAX(1, (width + 3) / 4) : 0;
+    int numBlocksHigh = height ? MAX(1, (height + 3) / 4) : 0;
+    int mipmapSize = numBlocksWide * numBlocksHigh * blockBytes;
 
     // Overflow check
     if (mipmapSize == 0 || (offset + mipmapSize) > size) {
@@ -158,13 +158,14 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
     return textureData;
   }
 
+  int length = (int) blob->size;
   stbi_set_flip_vertically_on_load(flip);
-  if (stbi_is_hdr_from_memory(blob->data, blob->size)) {
+  if (stbi_is_hdr_from_memory(blob->data, length)) {
     textureData->format = FORMAT_RGBA32F;
-    textureData->blob.data = stbi_loadf_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
+    textureData->blob.data = stbi_loadf_from_memory(blob->data, length, &textureData->width, &textureData->height, NULL, 4);
   } else {
     textureData->format = FORMAT_RGBA;
-    textureData->blob.data = stbi_load_from_memory(blob->data, blob->size, &textureData->width, &textureData->height, NULL, 4);
+    textureData->blob.data = stbi_load_from_memory(blob->data, length, &textureData->width, &textureData->height, NULL, 4);
   }
 
   if (!textureData->blob.data) {
@@ -250,7 +251,7 @@ bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
   int width = textureData->width;
   int height = textureData->height;
   void* data = (uint8_t*) textureData->blob.data + (textureData->height - 1) * textureData->width * components;
-  size_t stride = -textureData->width * components;
+  int stride = -textureData->width * components;
   bool success = stbi_write_png_to_func(writeCallback, &file, width, height, components, data, stride);
   lovrFileDestroy(&file);
   return success;

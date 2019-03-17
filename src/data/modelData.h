@@ -106,7 +106,7 @@ typedef struct {
 } ModelBuffer;
 
 typedef struct {
-  size_t offset;
+  uint32_t offset;
   uint32_t buffer;
   uint32_t count;
   AttributeType type;

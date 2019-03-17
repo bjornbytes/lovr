@@ -37,7 +37,7 @@ static int l_lovrDataNewBlob(lua_State* L) {
 
 static int l_lovrDataNewAudioStream(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "AudioStream");
-  size_t bufferSize = luaL_optinteger(L, 2, 4096);
+  int bufferSize = luaL_optinteger(L, 2, 4096);
   AudioStream* stream = lovrAudioStreamCreate(blob, bufferSize);
   luax_pushobject(L, stream);
   lovrRelease(blob);

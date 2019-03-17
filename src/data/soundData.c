@@ -24,9 +24,9 @@ SoundData* lovrSoundDataInitFromAudioStream(SoundData* soundData, AudioStream* a
 
   int samples;
   short* buffer = soundData->blob.data;
-  size_t offset = 0;
+  int offset = 0;
   lovrAudioStreamRewind(audioStream);
-  while ((samples = lovrAudioStreamDecode(audioStream, buffer + offset, soundData->blob.size - (offset * sizeof(short)))) != 0) {
+  while ((samples = lovrAudioStreamDecode(audioStream, buffer + offset, (int) soundData->blob.size - (offset * sizeof(short)))) != 0) {
     offset += samples;
   }
 
@@ -35,7 +35,7 @@ SoundData* lovrSoundDataInitFromAudioStream(SoundData* soundData, AudioStream* a
 
 SoundData* lovrSoundDataInitFromBlob(SoundData* soundData, Blob* blob) {
   soundData->bitDepth = 16;
-  soundData->samples = stb_vorbis_decode_memory(blob->data, blob->size, &soundData->channelCount, &soundData->sampleRate, (short**) &soundData->blob.data);
+  soundData->samples = stb_vorbis_decode_memory(blob->data, (int) blob->size, &soundData->channelCount, &soundData->sampleRate, (short**) &soundData->blob.data);
   soundData->blob.size = soundData->samples * soundData->channelCount * (soundData->bitDepth / 8);
   return soundData;
 }

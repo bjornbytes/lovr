@@ -82,7 +82,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
 
   if (lua_istable(L, 1)) {
     int pointIndex = 0;
-    int length = lua_objlen(L, 1);
+    int length = luax_len(L, 1);
     for (int i = 1; i <= length;) {
       lua_rawgeti(L, 1, i + 0);
       lua_rawgeti(L, 1, i + 1);

@@ -53,16 +53,16 @@ static int l_lovrColliderGetJoints(lua_State* L) {
 
 static int l_lovrColliderGetUserData(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  int ref = (int) lovrColliderGetUserData(collider);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+  union { int i; void* p; } ref = { .p = lovrColliderGetUserData(collider) };
+  lua_rawgeti(L, LUA_REGISTRYINDEX, ref.i);
   return 1;
 }
 
 static int l_lovrColliderSetUserData(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  uint64_t ref = (int) lovrColliderGetUserData(collider);
-  if (ref) {
-    luaL_unref(L, LUA_REGISTRYINDEX, ref);
+  union { int i; void* p; } ref = { .p = lovrColliderGetUserData(collider) };
+  if (ref.i) {
+    luaL_unref(L, LUA_REGISTRYINDEX, ref.i);
   }
 
   if (lua_gettop(L) < 2) {
@@ -70,8 +70,8 @@ static int l_lovrColliderSetUserData(lua_State* L) {
   }
 
   lua_settop(L, 2);
-  ref = luaL_ref(L, LUA_REGISTRYINDEX);
-  lovrColliderSetUserData(collider, (void*) ref);
+  ref.i = luaL_ref(L, LUA_REGISTRYINDEX);
+  lovrColliderSetUserData(collider, ref.p);
   return 0;
 }
 
@@ -164,7 +164,7 @@ static int l_lovrColliderSetMassData(lua_State* L) {
   float cz = luax_checkfloat(L, 4);
   float mass = luax_checkfloat(L, 5);
   float inertia[6];
-  if (lua_istable(L, 6) && lua_objlen(L, 6) >= 6) {
+  if (lua_istable(L, 6) && luax_len(L, 6) >= 6) {
     for (int i = 0; i < 6; i++) {
       lua_rawgeti(L, 6, i + 1);
       if (!lua_isnumber(L, -1)) {

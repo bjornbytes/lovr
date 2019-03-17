@@ -38,6 +38,7 @@ static int convertMouseButton(MouseButton button) {
   switch (button) {
     case MOUSE_LEFT: return GLFW_MOUSE_BUTTON_LEFT;
     case MOUSE_RIGHT: return GLFW_MOUSE_BUTTON_RIGHT;
+    default: lovrThrow("Unreachable");
   }
 }
 
@@ -53,6 +54,7 @@ static int convertKeyCode(KeyCode key) {
     case KEY_DOWN: return GLFW_KEY_DOWN;
     case KEY_LEFT: return GLFW_KEY_LEFT;
     case KEY_RIGHT: return GLFW_KEY_RIGHT;
+    default: lovrThrow("Unreachable");
   }
 }
 

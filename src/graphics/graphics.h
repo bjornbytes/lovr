@@ -185,7 +185,7 @@ typedef struct {
   Mesh* instancedMesh;
   Buffer* identityBuffer;
   Buffer* buffers[MAX_BUFFER_ROLES];
-  size_t cursors[MAX_BUFFER_ROLES];
+  uint32_t cursors[MAX_BUFFER_ROLES];
   void* locks[MAX_BUFFER_ROLES][MAX_LOCKS];
   Batch cachedGeometry;
   Batch batches[MAX_BATCHES];

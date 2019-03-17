@@ -2,7 +2,6 @@
 #include "graphics/graphics.h"
 #include "lib/math.h"
 #include "platform.h"
-#define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -58,7 +57,7 @@ static bool desktopInit(float offset, int msaa) {
   return true;
 }
 
-static void desktopDestroy() {
+static void desktopDestroy(void) {
   Controller *controller; int i;
   vec_foreach(&state.controllers, controller, i) {
     lovrRelease(controller);
@@ -67,15 +66,15 @@ static void desktopDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
-static HeadsetType desktopGetType() {
+static HeadsetType desktopGetType(void) {
   return HEADSET_UNKNOWN;
 }
 
-static HeadsetOrigin desktopGetOriginType() {
+static HeadsetOrigin desktopGetOriginType(void) {
   return ORIGIN_HEAD;
 }
 
-static bool desktopIsMounted() {
+static bool desktopIsMounted(void) {
   return true;
 }
 
@@ -181,7 +180,7 @@ static void desktopRenderTo(void (*callback)(void*), void* userdata) {
   uint32_t width, height;
   desktopGetDisplayDimensions(&width, &height);
   Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = true };
-  mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67 * M_PI / 180., (float) width / 2.f / height);
+  mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67.f * M_PI / 180.f, (float) width / 2.f / height);
   mat4_multiply(camera.viewMatrix[0], state.transform);
   mat4_invertPose(camera.viewMatrix[0]);
   mat4_set(camera.projection[1], camera.projection[0]);
