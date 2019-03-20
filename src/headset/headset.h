@@ -69,6 +69,16 @@ typedef struct Controller {
 
 typedef vec_t(Controller*) vec_controller_t;
 
+typedef enum {
+  PATH_NONE,
+  PATH_HEAD
+} Subpath;
+
+typedef union {
+  uint8_t pieces[8];
+  uint64_t u64;
+} Path;
+
 // The interface implemented by headset backends
 //   - The 'next' pointer is used internally to create a linked list of tracking drivers.
 //   - If the renderTo function is implemented, the backend is a "display" backend.  Only the first
@@ -88,9 +98,9 @@ typedef struct HeadsetInterface {
   void (*setClipDistance)(float clipNear, float clipFar);
   void (*getBoundsDimensions)(float* width, float* depth);
   const float* (*getBoundsGeometry)(int* count);
-  bool (*getPose)(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-  bool (*getVelocity)(float* vx, float* vy, float* vz);
-  bool (*getAngularVelocity)(float* vx, float* vy, float* vz);
+  bool (*getPose)(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+  bool (*getVelocity)(Path path, float* vx, float* vy, float* vz);
+  bool (*getAngularVelocity)(Path path, float* vx, float* vy, float* vz);
   Controller** (*getControllers)(uint8_t* count);
   bool (*controllerIsConnected)(Controller* controller);
   ControllerHand (*controllerGetHand)(Controller* controller);
