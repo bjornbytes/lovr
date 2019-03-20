@@ -104,7 +104,7 @@ static const float* desktopGetBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool desktopGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool desktopGetPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = *y = *z = 0;
   mat4_transform(state.transform, x, y, z);
   float q[4];
@@ -113,14 +113,14 @@ static bool desktopGetPose(float* x, float* y, float* z, float* angle, float* ax
   return true;
 }
 
-static bool desktopGetVelocity(float* vx, float* vy, float* vz) {
+static bool desktopGetVelocity(Path path, float* vx, float* vy, float* vz) {
   *vx = state.velocity[0];
   *vy = state.velocity[1];
   *vz = state.velocity[2];
   return true;
 }
 
-static bool desktopGetAngularVelocity(float* vx, float* vy, float* vz) {
+static bool desktopGetAngularVelocity(Path path, float* vx, float* vy, float* vz) {
   *vx = state.angularVelocity[0];
   *vy = state.angularVelocity[1];
   *vz = state.angularVelocity[2];

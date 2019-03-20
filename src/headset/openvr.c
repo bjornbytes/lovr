@@ -256,7 +256,7 @@ static const float* openvrGetBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool openvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool openvrGetPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   float transform[16];
   if (getTransform(HEADSET_INDEX, transform)) {
     mat4_getPose(transform, x, y, z, angle, ax, ay, az);
@@ -265,27 +265,45 @@ static bool openvrGetPose(float* x, float* y, float* z, float* angle, float* ax,
   return false;
 }
 
-static bool openvrGetVelocity(float* vx, float* vy, float* vz) {
-  TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    return false;
-  } else {
-    *vx = pose.vVelocity.v[0];
-    *vy = pose.vVelocity.v[1];
-    *vz = pose.vVelocity.v[2];
-    return true;
+static bool openvrGetVelocity(Path path, float* vx, float* vy, float* vz) {
+  switch (path.pieces[0]) {
+    case PATH_HEAD:
+      switch (path.pieces[1]) {
+        case PATH_NONE: {
+          TrackedDevicePose_t* pose = &state.poses[HEADSET_INDEX];
+          if (!pose->bPoseIsValid || !pose->bDeviceIsConnected) {
+            return false;
+          } else {
+            *vx = pose->vVelocity.v[0];
+            *vy = pose->vVelocity.v[1];
+            *vz = pose->vVelocity.v[2];
+            return true;
+          }
+        }
+        default: return false;
+      }
+    default: return false;
   }
 }
 
-static bool openvrGetAngularVelocity(float* vx, float* vy, float* vz) {
-  TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    return false;
-  } else {
-    *vx = pose.vAngularVelocity.v[0];
-    *vy = pose.vAngularVelocity.v[1];
-    *vz = pose.vAngularVelocity.v[2];
-    return true;
+static bool openvrGetAngularVelocity(Path path, float* vx, float* vy, float* vz) {
+  switch (path.pieces[0]) {
+    case PATH_HEAD:
+      switch (path.pieces[1]) {
+        case PATH_NONE: {
+          TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
+          if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+            return false;
+          } else {
+            *vx = pose.vAngularVelocity.v[0];
+            *vy = pose.vAngularVelocity.v[1];
+            *vz = pose.vAngularVelocity.v[2];
+            return true;
+          }
+        }
+        default: return false;
+      }
+    default: return false;
   }
 }
 
