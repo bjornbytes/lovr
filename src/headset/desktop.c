@@ -104,24 +104,27 @@ static const float* desktopGetBoundsGeometry(int* count) {
   return NULL;
 }
 
-static void desktopGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool desktopGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = *y = *z = 0;
   mat4_transform(state.transform, x, y, z);
   float q[4];
   quat_fromMat4(q, state.transform);
   quat_getAngleAxis(q, angle, ax, ay, az);
+  return true;
 }
 
-static void desktopGetVelocity(float* vx, float* vy, float* vz) {
+static bool desktopGetVelocity(float* vx, float* vy, float* vz) {
   *vx = state.velocity[0];
   *vy = state.velocity[1];
   *vz = state.velocity[2];
+  return true;
 }
 
-static void desktopGetAngularVelocity(float* vx, float* vy, float* vz) {
+static bool desktopGetAngularVelocity(float* vx, float* vy, float* vz) {
   *vx = state.angularVelocity[0];
   *vy = state.angularVelocity[1];
   *vz = state.angularVelocity[2];
+  return true;
 }
 
 static Controller** desktopGetControllers(uint8_t* count) {
@@ -253,32 +256,31 @@ static void desktopUpdate(float dt) {
 }
 
 HeadsetInterface lovrHeadsetDesktopDriver = {
-  DRIVER_DESKTOP,
-  desktopInit,
-  desktopDestroy,
-  desktopGetType,
-  desktopGetOriginType,
-  desktopIsMounted,
-  desktopGetDisplayDimensions,
-  desktopGetClipDistance,
-  desktopSetClipDistance,
-  desktopGetBoundsDimensions,
-  desktopGetBoundsGeometry,
-  desktopGetPose,
-  desktopGetVelocity,
-  desktopGetAngularVelocity,
-  desktopGetControllers,
-  desktopControllerIsConnected,
-  desktopControllerGetHand,
-  desktopControllerGetPose,
-  desktopControllerGetVelocity,
-  desktopControllerGetAngularVelocity,
-  desktopControllerGetAxis,
-  desktopControllerIsDown,
-  desktopControllerIsTouched,
-  desktopControllerVibrate,
-  desktopControllerNewModelData,
-  desktopRenderTo,
-  NULL, // No mirror texture
-  desktopUpdate
+  .driverType = DRIVER_DESKTOP,
+  .init = desktopInit,
+  .destroy = desktopDestroy,
+  .getType = desktopGetType,
+  .getOriginType = desktopGetOriginType,
+  .isMounted = desktopIsMounted,
+  .getDisplayDimensions = desktopGetDisplayDimensions,
+  .getClipDistance = desktopGetClipDistance,
+  .setClipDistance = desktopSetClipDistance,
+  .getBoundsDimensions = desktopGetBoundsDimensions,
+  .getBoundsGeometry = desktopGetBoundsGeometry,
+  .getPose = desktopGetPose,
+  .getVelocity = desktopGetVelocity,
+  .getAngularVelocity = desktopGetAngularVelocity,
+  .getControllers = desktopGetControllers,
+  .controllerIsConnected = desktopControllerIsConnected,
+  .controllerGetHand = desktopControllerGetHand,
+  .controllerGetPose = desktopControllerGetPose,
+  .controllerGetVelocity = desktopControllerGetVelocity,
+  .controllerGetAngularVelocity = desktopControllerGetAngularVelocity,
+  .controllerGetAxis = desktopControllerGetAxis,
+  .controllerIsDown = desktopControllerIsDown,
+  .controllerIsTouched = desktopControllerIsTouched,
+  .controllerVibrate = desktopControllerVibrate,
+  .controllerNewModelData = desktopControllerNewModelData,
+  .renderTo = desktopRenderTo,
+  .update = desktopUpdate
 };

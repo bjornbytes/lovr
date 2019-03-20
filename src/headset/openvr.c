@@ -48,13 +48,14 @@ typedef struct {
 
 static HeadsetState state;
 
-static void getTransform(unsigned int device, mat4 transform) {
+static bool getTransform(unsigned int device, mat4 transform) {
   TrackedDevicePose_t pose = state.poses[device];
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    mat4_identity(transform);
+    return false;
   } else {
     mat4_fromMat34(transform, pose.mDeviceToAbsoluteTracking.m);
     transform[13] += state.offset;
+    return true;
   }
 }
 
@@ -255,31 +256,36 @@ static const float* openvrGetBoundsGeometry(int* count) {
   return NULL;
 }
 
-static void openvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool openvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   float transform[16];
-  getTransform(HEADSET_INDEX, transform);
-  mat4_getPose(transform, x, y, z, angle, ax, ay, az);
+  if (getTransform(HEADSET_INDEX, transform)) {
+    mat4_getPose(transform, x, y, z, angle, ax, ay, az);
+    return true;
+  }
+  return false;
 }
 
-static void openvrGetVelocity(float* vx, float* vy, float* vz) {
+static bool openvrGetVelocity(float* vx, float* vy, float* vz) {
   TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *vx = *vy = *vz = 0.f;
+    return false;
   } else {
     *vx = pose.vVelocity.v[0];
     *vy = pose.vVelocity.v[1];
     *vz = pose.vVelocity.v[2];
+    return true;
   }
 }
 
-static void openvrGetAngularVelocity(float* vx, float* vy, float* vz) {
+static bool openvrGetAngularVelocity(float* vx, float* vy, float* vz) {
   TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *vx = *vy = *vz = 0.f;
+    return false;
   } else {
     *vx = pose.vAngularVelocity.v[0];
     *vy = pose.vAngularVelocity.v[1];
     *vz = pose.vAngularVelocity.v[2];
+    return true;
   }
 }
 
@@ -599,32 +605,32 @@ static Texture* openvrGetMirrorTexture(void) {
 }
 
 HeadsetInterface lovrHeadsetOpenVRDriver = {
-  DRIVER_OPENVR,
-  openvrInit,
-  openvrDestroy,
-  openvrGetType,
-  openvrGetOriginType,
-  openvrIsMounted,
-  openvrGetDisplayDimensions,
-  openvrGetClipDistance,
-  openvrSetClipDistance,
-  openvrGetBoundsDimensions,
-  openvrGetBoundsGeometry,
-  openvrGetPose,
-  openvrGetVelocity,
-  openvrGetAngularVelocity,
-  openvrGetControllers,
-  openvrControllerIsConnected,
-  openvrControllerGetHand,
-  openvrControllerGetPose,
-  openvrControllerGetVelocity,
-  openvrControllerGetAngularVelocity,
-  openvrControllerGetAxis,
-  openvrControllerIsDown,
-  openvrControllerIsTouched,
-  openvrControllerVibrate,
-  openvrControllerNewModelData,
-  openvrRenderTo,
-  openvrGetMirrorTexture,
-  openvrUpdate
+  .driverType = DRIVER_OPENVR,
+  .init = openvrInit,
+  .destroy = openvrDestroy,
+  .getType = openvrGetType,
+  .getOriginType = openvrGetOriginType,
+  .isMounted = openvrIsMounted,
+  .getDisplayDimensions = openvrGetDisplayDimensions,
+  .getClipDistance = openvrGetClipDistance,
+  .setClipDistance = openvrSetClipDistance,
+  .getBoundsDimensions = openvrGetBoundsDimensions,
+  .getBoundsGeometry = openvrGetBoundsGeometry,
+  .getPose = openvrGetPose,
+  .getVelocity = openvrGetVelocity,
+  .getAngularVelocity = openvrGetAngularVelocity,
+  .getControllers = openvrGetControllers,
+  .controllerIsConnected = openvrControllerIsConnected,
+  .controllerGetHand = openvrControllerGetHand,
+  .controllerGetPose = openvrControllerGetPose,
+  .controllerGetVelocity = openvrControllerGetVelocity,
+  .controllerGetAngularVelocity = openvrControllerGetAngularVelocity,
+  .controllerGetAxis = openvrControllerGetAxis,
+  .controllerIsDown = openvrControllerIsDown,
+  .controllerIsTouched = openvrControllerIsTouched,
+  .controllerVibrate = openvrControllerVibrate,
+  .controllerNewModelData = openvrControllerNewModelData,
+  .renderTo = openvrRenderTo,
+  .getMirrorTexture = openvrGetMirrorTexture,
+  .update = openvrUpdate
 };

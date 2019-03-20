@@ -15,9 +15,9 @@ extern void webvrGetClipDistance(float* near, float* far);
 extern void webvrSetClipDistance(float near, float far);
 extern void webvrGetBoundsDimensions(float* width, float* depth);
 extern const float* webvrGetBoundsGeometry(int* count);
-extern void webvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-extern void webvrGetVelocity(float* vx, float* vy, float* vz);
-extern void webvrGetAngularVelocity(float* vx, float* vy, float* vz);
+extern bool webvrGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+extern bool webvrGetVelocity(float* vx, float* vy, float* vz);
+extern bool webvrGetAngularVelocity(float* vx, float* vy, float* vz);
 extern bool webvrControllerIsConnected(Controller* controller);
 extern ControllerHand webvrControllerGetHand(Controller* controller);
 extern void webvrControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
@@ -125,32 +125,31 @@ void webvrRenderTo(void (*callback)(void*), void* userdata) {
 }
 
 HeadsetInterface lovrHeadsetWebVRDriver = {
-  DRIVER_WEBVR,
-  webvrDriverInit,
-  webvrDriverDestroy,
-  webvrGetType,
-  webvrGetOriginType,
-  webvrIsMounted,
-  webvrGetDisplayDimensions,
-  webvrGetClipDistance,
-  webvrSetClipDistance,
-  webvrGetBoundsDimensions,
-  webvrGetBoundsGeometry,
-  webvrGetPose,
-  webvrGetVelocity,
-  webvrGetAngularVelocity,
-  webvrGetControllers,
-  webvrControllerIsConnected,
-  webvrControllerGetHand,
-  webvrControllerGetPose,
-  webvrControllerGetVelocity,
-  webvrControllerGetAngularVelocity,
-  webvrControllerGetAxis,
-  webvrControllerIsDown,
-  webvrControllerIsTouched,
-  webvrControllerVibrate,
-  webvrControllerNewModelData,
-  webvrRenderTo,
-  NULL, // No mirror texture
-  webvrUpdate
+  .driverType = DRIVER_WEBVR,
+  .init = webvrDriverInit,
+  .destroy = webvrDriverDestroy,
+  .getType = webvrGetType,
+  .getOriginType = webvrGetOriginType,
+  .isMounted = webvrIsMounted,
+  .getDisplayDimensions = webvrGetDisplayDimensions,
+  .getClipDistance = webvrGetClipDistance,
+  .setClipDistance = webvrSetClipDistance,
+  .getBoundsDimensions = webvrGetBoundsDimensions,
+  .getBoundsGeometry = webvrGetBoundsGeometry,
+  .getPose = webvrGetPose,
+  .getVelocity = webvrGetVelocity,
+  .getAngularVelocity = webvrGetAngularVelocity,
+  .getControllers = webvrGetControllers,
+  .controllerIsConnected = webvrControllerIsConnected,
+  .controllerGetHand = webvrControllerGetHand,
+  .controllerGetPose = webvrControllerGetPose,
+  .controllerGetVelocity = webvrControllerGetVelocity,
+  .controllerGetAngularVelocity = webvrControllerGetAngularVelocity,
+  .controllerGetAxis = webvrControllerGetAxis,
+  .controllerIsDown = webvrControllerIsDown,
+  .controllerIsTouched = webvrControllerIsTouched,
+  .controllerVibrate = webvrControllerVibrate,
+  .controllerNewModelData = webvrControllerNewModelData,
+  .renderTo = webvrRenderTo,
+  .update = webvrUpdate
 };

@@ -74,23 +74,26 @@ static const float* oculusMobileGetBoundsGeometry(int* count) {
   return NULL;
 }
 
-static void oculusMobileGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool oculusMobileGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = bridgeLovrMobileData.updateData.lastHeadPose.x;
   *y = bridgeLovrMobileData.updateData.lastHeadPose.y + offset; // Correct for head height
   *z = bridgeLovrMobileData.updateData.lastHeadPose.z;
   quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, ax, ay, az);
+  return true;
 }
 
-static void oculusMobileGetVelocity(float* vx, float* vy, float* vz) {
+static bool oculusMobileGetVelocity(float* vx, float* vy, float* vz) {
   *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.x;
   *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.y;
   *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.z;
+  return true;
 }
 
-static void oculusMobileGetAngularVelocity(float* vx, float* vy, float* vz) {
+static bool oculusMobileGetAngularVelocity(float* vx, float* vy, float* vz) {
   *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.ax;
   *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.ay;
   *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.az;
+  return true;
 }
 
 static Controller *controller;
@@ -174,34 +177,32 @@ static void oculusMobileRenderTo(void (*callback)(void*), void* userdata) {
 }
 
 HeadsetInterface lovrHeadsetOculusMobileDriver = {
-  DRIVER_OCULUS_MOBILE,
-  oculusMobileInit,
-  oculusMobileDestroy,
-  oculusMobileGetType,
-  oculusMobileGetOriginType,
-  oculusMobileIsMounted,
-  oculusMobileGetDisplayDimensions,
-  oculusMobileGetClipDistance,
-  oculusMobileSetClipDistance,
-  oculusMobileGetBoundsDimensions,
-  oculusMobileGetBoundsGeometry,
-  oculusMobileGetPose,
-  oculusMobileGetVelocity,
-  oculusMobileGetAngularVelocity,
-  oculusMobileGetControllers,
-  oculusMobileControllerIsConnected,
-  oculusMobileControllerGetHand,
-  oculusMobileControllerGetPose,
-  oculusMobileControllerGetVelocity,
-  oculusMobileControllerGetAngularVelocity,
-  oculusMobileControllerGetAxis,
-  oculusMobileControllerIsDown,
-  oculusMobileControllerIsTouched,
-  oculusMobileControllerVibrate,
-  oculusMobileControllerNewModelData,
-  oculusMobileRenderTo,
-  .getMirrorTexture = NULL,
-  .update = NULL
+  .driverType = DRIVER_OCULUS_MOBILE,
+  .init = oculusMobileInit,
+  .destroy = oculusMobileDestroy,
+  .getType = oculusMobileGetType,
+  .getOriginType = oculusMobileGetOriginType,
+  .isMounted = oculusMobileIsMounted,
+  .getDisplayDimensions = oculusMobileGetDisplayDimensions,
+  .getClipDistance = oculusMobileGetClipDistance,
+  .setClipDistance = oculusMobileSetClipDistance,
+  .getBoundsDimensions = oculusMobileGetBoundsDimensions,
+  .getBoundsGeometry = oculusMobileGetBoundsGeometry,
+  .getPose = oculusMobileGetPose,
+  .getVelocity = oculusMobileGetVelocity,
+  .getAngularVelocity = oculusMobileGetAngularVelocity,
+  .getControllers = oculusMobileGetControllers,
+  .controllerIsConnected = oculusMobileControllerIsConnected,
+  .controllerGetHand = oculusMobileControllerGetHand,
+  .controllerGetPose = oculusMobileControllerGetPose,
+  .controllerGetVelocity = oculusMobileControllerGetVelocity,
+  .controllerGetAngularVelocity = oculusMobileControllerGetAngularVelocity,
+  .controllerGetAxis = oculusMobileControllerGetAxis,
+  .controllerIsDown = oculusMobileControllerIsDown,
+  .controllerIsTouched = oculusMobileControllerIsTouched,
+  .controllerVibrate = oculusMobileControllerVibrate,
+  .controllerNewModelData = oculusMobileControllerNewModelData,
+  .renderTo = oculusMobileRenderTo
 };
 
 // Oculus-specific platform functions
