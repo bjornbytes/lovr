@@ -188,7 +188,7 @@ static const float* oculusGetBoundsGeometry(int* count) {
   return NULL;
 }
 
-static void oculusGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool oculusGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   ovrTrackingState *ts = refreshTracking();
   ovrVector3f pos = ts->HeadPose.ThePose.Position;
   *x = pos.x;
@@ -197,22 +197,25 @@ static void oculusGetPose(float* x, float* y, float* z, float* angle, float* ax,
   ovrQuatf oq = ts->HeadPose.ThePose.Orientation;
   float quat[] = { oq.x, oq.y, oq.z, oq.w };
   quat_getAngleAxis(quat, angle, ax, ay, az);
+  return true;
 }
 
-static void oculusGetVelocity(float* vx, float* vy, float* vz) {
+static bool oculusGetVelocity(float* vx, float* vy, float* vz) {
   ovrTrackingState *ts = refreshTracking();
   ovrVector3f vel = ts->HeadPose.LinearVelocity;
   *vx = vel.x;
   *vy = vel.y;
   *vz = vel.z;
+  return true;
 }
 
-static void oculusGetAngularVelocity(float* vx, float* vy, float* vz) {
+static bool oculusGetAngularVelocity(float* vx, float* vy, float* vz) {
   ovrTrackingState *ts = refreshTracking();
   ovrVector3f vel = ts->HeadPose.AngularVelocity;
   *vx = vel.x;
   *vy = vel.y;
   *vz = vel.z;
+  return true;
 }
 
 static Controller** oculusGetControllers(uint8_t* count) {
@@ -460,32 +463,32 @@ static void oculusUpdate(float dt) {
 }
 
 HeadsetInterface lovrHeadsetOculusDriver = {
-  DRIVER_OCULUS,
-  oculusInit,
-  oculusDestroy,
-  oculusGetType,
-  oculusGetOriginType,
-  oculusIsMounted,
-  oculusGetDisplayDimensions,
-  oculusGetClipDistance,
-  oculusSetClipDistance,
-  oculusGetBoundsDimensions,
-  oculusGetBoundsGeometry,
-  oculusGetPose,
-  oculusGetVelocity,
-  oculusGetAngularVelocity,
-  oculusGetControllers,
-  oculusControllerIsConnected,
-  oculusControllerGetHand,
-  oculusControllerGetPose,
-  oculusControllerGetVelocity,
-  oculusControllerGetAngularVelocity,
-  oculusControllerGetAxis,
-  oculusControllerIsDown,
-  oculusControllerIsTouched,
-  oculusControllerVibrate,
-  oculusControllerNewModelData,
-  oculusRenderTo,
-  oculusGetMirrorTexture,
-  oculusUpdate
+  .driverType = DRIVER_OCULUS,
+  .init = oculusInit,
+  .destroy = oculusDestroy,
+  .getType = oculusGetType,
+  .getOriginType = oculusGetOriginType,
+  .isMounted = oculusIsMounted,
+  .getDisplayDimensions = oculusGetDisplayDimensions,
+  .getClipDistance = oculusGetClipDistance,
+  .setClipDistance = oculusSetClipDistance,
+  .getBoundsDimensions = oculusGetBoundsDimensions,
+  .getBoundsGeometry = oculusGetBoundsGeometry,
+  .getPose = oculusGetPose,
+  .getVelocity = oculusGetVelocity,
+  .getAngularVelocity = oculusGetAngularVelocity,
+  .getControllers = oculusGetControllers,
+  .controllerIsConnected = oculusControllerIsConnected,
+  .controllerGetHand = oculusControllerGetHand,
+  .controllerGetPose = oculusControllerGetPose,
+  .controllerGetVelocity = oculusControllerGetVelocity,
+  .controllerGetAngularVelocity = oculusControllerGetAngularVelocity,
+  .controllerGetAxis = oculusControllerGetAxis,
+  .controllerIsDown = oculusControllerIsDown,
+  .controllerIsTouched = oculusControllerIsTouched,
+  .controllerVibrate = oculusControllerVibrate,
+  .controllerNewModelData = oculusControllerNewModelData,
+  .renderTo = oculusRenderTo,
+  .getMirrorTexture = oculusGetMirrorTexture,
+  .update = oculusUpdate
 };

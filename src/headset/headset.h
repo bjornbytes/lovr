@@ -69,7 +69,14 @@ typedef struct Controller {
 
 typedef vec_t(Controller*) vec_controller_t;
 
-typedef struct {
+// The interface implemented by headset backends
+//   - The 'next' pointer is used internally to create a linked list of tracking drivers.
+//   - If the renderTo function is implemented, the backend is a "display" backend.  Only the first
+//     successfully initialized display backend will be used, the rest will be ignored.  If this
+//     becomes undesirable in the future, we could initialize subsequent display backends in a
+//     special "headless" mode to let them know that they won't need to do any rendering.
+typedef struct HeadsetInterface {
+  struct HeadsetInterface* next;
   HeadsetDriver driverType;
   bool (*init)(float offset, int msaa);
   void (*destroy)(void);
@@ -81,9 +88,9 @@ typedef struct {
   void (*setClipDistance)(float clipNear, float clipFar);
   void (*getBoundsDimensions)(float* width, float* depth);
   const float* (*getBoundsGeometry)(int* count);
-  void (*getPose)(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-  void (*getVelocity)(float* vx, float* vy, float* vz);
-  void (*getAngularVelocity)(float* vx, float* vy, float* vz);
+  bool (*getPose)(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+  bool (*getVelocity)(float* vx, float* vy, float* vz);
+  bool (*getAngularVelocity)(float* vx, float* vy, float* vz);
   Controller** (*getControllers)(uint8_t* count);
   bool (*controllerIsConnected)(Controller* controller);
   ControllerHand (*controllerGetHand)(Controller* controller);
@@ -107,8 +114,12 @@ extern HeadsetInterface lovrHeadsetWebVRDriver;
 extern HeadsetInterface lovrHeadsetDesktopDriver;
 extern HeadsetInterface lovrHeadsetOculusMobileDriver;
 
-// Active driver
+// Active drivers
 extern HeadsetInterface* lovrHeadsetDriver;
+extern HeadsetInterface* lovrHeadsetTrackingDrivers;
+
+#define FOREACH_TRACKING_DRIVER(i)\
+  for (HeadsetInterface* i = lovrHeadsetTrackingDrivers; i != NULL; i = i->next)
 
 bool lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa);
 void lovrHeadsetDestroy(void);

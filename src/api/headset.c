@@ -198,34 +198,46 @@ static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
 
 static int l_lovrHeadsetGetPose(lua_State* L) {
   float x, y, z, angle, ax, ay, az;
-  lovrHeadsetDriver->getPose(&x, &y, &z, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 7;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->getPose(&x, &y, &z, &angle, &ax, &ay, &az)) {
+      lua_pushnumber(L, x);
+      lua_pushnumber(L, y);
+      lua_pushnumber(L, z);
+      lua_pushnumber(L, angle);
+      lua_pushnumber(L, ax);
+      lua_pushnumber(L, ay);
+      lua_pushnumber(L, az);
+      return 7;
+    }
+  }
+  return 0;
 }
 
 static int l_lovrHeadsetGetPosition(lua_State* L) {
   float position[3], angle, ax, ay, az;
-  lovrHeadsetDriver->getPose(&position[0], &position[1], &position[2], &angle, &ax, &ay, &az);
-  lua_pushnumber(L, position[0]);
-  lua_pushnumber(L, position[1]);
-  lua_pushnumber(L, position[2]);
-  return 3;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->getPose(&position[0], &position[1], &position[2], &angle, &ax, &ay, &az)) {
+      lua_pushnumber(L, position[0]);
+      lua_pushnumber(L, position[1]);
+      lua_pushnumber(L, position[2]);
+      return 3;
+    }
+  }
+  return 0;
 }
 
 static int l_lovrHeadsetGetOrientation(lua_State* L) {
   float x, y, z, angle, ax, ay, az;
-  lovrHeadsetDriver->getPose(&x, &y, &z, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 4;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->getPose(&x, &y, &z, &angle, &ax, &ay, &az)) {
+      lua_pushnumber(L, angle);
+      lua_pushnumber(L, ax);
+      lua_pushnumber(L, ay);
+      lua_pushnumber(L, az);
+      return 4;
+    }
+  }
+  return 0;
 }
 
 static int l_lovrHeadsetGetDirection(lua_State* L) {
@@ -242,21 +254,29 @@ static int l_lovrHeadsetGetDirection(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetVelocity(lua_State* L) {
-  float velocity[3];
-  lovrHeadsetDriver->getVelocity(&velocity[0], &velocity[1], &velocity[2]);
-  lua_pushnumber(L, velocity[0]);
-  lua_pushnumber(L, velocity[1]);
-  lua_pushnumber(L, velocity[2]);
-  return 3;
+  float vx, vy, vz;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->getVelocity(&vx, &vy, &vz)) {
+      lua_pushnumber(L, vx);
+      lua_pushnumber(L, vy);
+      lua_pushnumber(L, vz);
+      return 3;
+    }
+  }
+  return 0;
 }
 
 static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
-  float velocity[3];
-  lovrHeadsetDriver->getAngularVelocity(&velocity[0], &velocity[1], &velocity[2]);
-  lua_pushnumber(L, velocity[0]);
-  lua_pushnumber(L, velocity[1]);
-  lua_pushnumber(L, velocity[2]);
-  return 3;
+  float vx, vy, vz;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->getAngularVelocity(&vx, &vy, &vz)) {
+      lua_pushnumber(L, vx);
+      lua_pushnumber(L, vy);
+      lua_pushnumber(L, vz);
+      return 3;
+    }
+  }
+  return 0;
 }
 
 static int l_lovrHeadsetGetControllers(lua_State* L) {

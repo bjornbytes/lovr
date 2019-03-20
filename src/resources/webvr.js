@@ -204,6 +204,8 @@ var LibraryLOVR = {
     } else {
       HEAPF32[angle >> 2] = HEAPF32[ax >> 2] = HEAPF32[ay >> 2] = HEAPF32[az >> 2] = 0;
     }
+
+    return true;
   },
 
   webvrGetVelocity: function(vx, vy, vz) {
@@ -223,6 +225,8 @@ var LibraryLOVR = {
     } else {
       HEAPF32[vx >> 2] = HEAPF32[vy >> 2] = HEAPF32[vz >> 2] = 0;
     }
+
+    return true;
   },
 
   webvrGetAngularVelocity: function(vx, vy, vz) {
@@ -242,6 +246,8 @@ var LibraryLOVR = {
     } else {
       HEAPF32[vx >> 2] = HEAPF32[vy >> 2] = HEAPF32[vz >> 2] = 0;
     }
+
+    return true;
   },
 
   webvrControllerIsConnected: function(controller) {
