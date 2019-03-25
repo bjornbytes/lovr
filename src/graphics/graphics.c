@@ -626,7 +626,6 @@ void lovrGraphicsFlush() {
     Mesh* mesh = NULL;
     DrawMode drawMode;
     bool instanced = batch->vertexCount == 0 && batch->drawCount >= 4;
-    bool flushGeometry = batch->vertexCount > 0;
     int instances = instanced ? batch->drawCount : 1;
     uint32_t vertexCount = 0;
     uint32_t indexCount = 0;
@@ -740,7 +739,6 @@ void lovrGraphicsFlush() {
         batch->indexStart = cached->indexStart = state.cursors[STREAM_INDEX];
         batch->vertexCount = cached->vertexCount = vertexCount * n;
         batch->indexCount = cached->indexCount = indexCount * n;
-        flushGeometry = true;
 
         uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, batch->vertexCount);
         for (int i = 0; i < n; i++) {
@@ -757,7 +755,7 @@ void lovrGraphicsFlush() {
     }
 
     // Flush vertex buffer
-    if (flushGeometry && batch->vertexCount > 0) {
+    if (batch->vertexCount > 0) {
       size_t stride = BUFFER_STRIDES[STREAM_VERTEX];
       lovrBufferFlushRange(state.buffers[STREAM_VERTEX], batch->vertexStart * stride, batch->vertexCount * stride);
 
@@ -767,7 +765,7 @@ void lovrGraphicsFlush() {
     }
 
     // Flush index buffer
-    if (flushGeometry && batch->indexCount > 0) {
+    if (batch->indexCount > 0) {
       size_t stride = BUFFER_STRIDES[STREAM_INDEX];
       lovrBufferFlushRange(state.buffers[STREAM_INDEX], batch->indexStart * stride, batch->indexCount * stride);
     }
