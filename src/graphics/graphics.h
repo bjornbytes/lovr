@@ -155,13 +155,11 @@ typedef struct {
   Shader* shader;
   Pipeline pipeline;
   Material* material;
-  uint32_t vertexStart;
-  uint32_t vertexCount;
-  uint32_t indexStart;
-  uint32_t indexCount;
-  uint32_t drawStart;
-  uint32_t drawCount;
   DrawData* drawData;
+  struct {
+    uint32_t start;
+    uint32_t count;
+  } cursors[MAX_BUFFER_ROLES];
   bool instanced;
 } Batch;
 
