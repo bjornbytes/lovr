@@ -132,6 +132,7 @@ typedef union {
 typedef struct {
   BatchType type;
   BatchParams params;
+  DrawMode drawMode;
   DefaultShader shader;
   Pipeline* pipeline;
   Material* material;
@@ -143,11 +144,13 @@ typedef struct {
   float** vertices;
   uint16_t** indices;
   uint16_t* baseVertex;
+  bool instanced;
 } BatchRequest;
 
 typedef struct {
   BatchType type;
   BatchParams params;
+  DrawMode drawMode;
   Canvas* canvas;
   Shader* shader;
   Pipeline pipeline;
@@ -159,6 +162,7 @@ typedef struct {
   uint32_t drawStart;
   uint32_t drawCount;
   DrawData* drawData;
+  bool instanced;
 } Batch;
 
 typedef struct {
@@ -187,7 +191,6 @@ typedef struct {
   Buffer* buffers[MAX_BUFFER_ROLES];
   uint32_t cursors[MAX_BUFFER_ROLES];
   void* locks[MAX_BUFFER_ROLES][MAX_LOCKS];
-  Batch cachedGeometry;
   Batch batches[MAX_BATCHES];
   uint8_t batchCount;
 } GraphicsState;

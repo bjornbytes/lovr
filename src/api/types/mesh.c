@@ -90,6 +90,7 @@ static int l_lovrMeshDraw(lua_State* L) {
       .rangeCount = rangeCount ? rangeCount : defaultCount,
       .instances = instances
     },
+    .drawMode = lovrMeshGetDrawMode(mesh),
     .transform = transform,
     .material = lovrMeshGetMaterial(mesh)
   });
