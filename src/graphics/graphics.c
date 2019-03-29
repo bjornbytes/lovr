@@ -34,9 +34,11 @@ static const uint32_t BUFFER_COUNTS[] = {
   [STREAM_INDEX] = 1 << 16,
   [STREAM_DRAW_ID] = (1 << 16) - 1,
 #ifdef LOVR_WEBGL // Temporarily work around bug where big UBOs don't work
-  [STREAM_DRAW_DATA] = 768
+  [STREAM_TRANSFORM] = MAX_DRAWS,
+  [STREAM_COLOR] = MAX_DRAWS
 #else
-  [STREAM_DRAW_DATA] = 256 * MAX_BATCHES * 2
+  [STREAM_TRANSFORM] = MAX_DRAWS * MAX_BATCHES * 2,
+  [STREAM_COLOR] = MAX_DRAWS * MAX_BATCHES * 2
 #endif
 };
 
@@ -44,14 +46,16 @@ static const size_t BUFFER_STRIDES[] = {
   [STREAM_VERTEX] = 8 * sizeof(float),
   [STREAM_INDEX] = sizeof(uint16_t),
   [STREAM_DRAW_ID] = sizeof(uint8_t),
-  [STREAM_DRAW_DATA] = sizeof(DrawData)
+  [STREAM_TRANSFORM] = 16 * sizeof(float),
+  [STREAM_COLOR] = 4 * sizeof(float)
 };
 
 static const BufferType BUFFER_TYPES[] = {
   [STREAM_VERTEX] = BUFFER_VERTEX,
   [STREAM_INDEX] = BUFFER_INDEX,
   [STREAM_DRAW_ID] = BUFFER_GENERIC,
-  [STREAM_DRAW_DATA] = BUFFER_UNIFORM
+  [STREAM_TRANSFORM] = BUFFER_UNIFORM,
+  [STREAM_COLOR] = BUFFER_UNIFORM
 };
 
 static void lovrGraphicsInitBuffers() {
@@ -59,16 +63,12 @@ static void lovrGraphicsInitBuffers() {
     state.buffers[i] = lovrBufferCreate(BUFFER_COUNTS[i] * BUFFER_STRIDES[i], NULL, BUFFER_TYPES[i], USAGE_STREAM, false);
   }
 
-  // Compute the max number of draws per batch, since the hard cap of 256 won't always fit in a UBO
-  int maxBlockSize = lovrGpuGetLimits()->blockSize;
-  state.maxDraws = MIN(maxBlockSize / sizeof(DrawData) / 64 * 64, 256);
-
   // The identity buffer is used for autoinstanced meshes and instanced primitives and maps the
   // instance ID to a vertex attribute.  Its contents never change, so they are initialized here.
-  state.identityBuffer = lovrBufferCreate(256, NULL, BUFFER_VERTEX, USAGE_STATIC, false);
+  state.identityBuffer = lovrBufferCreate(MAX_DRAWS, NULL, BUFFER_VERTEX, USAGE_STATIC, false);
   uint8_t* id = lovrBufferMap(state.identityBuffer, 0);
-  for (int i = 0; i < 256; i++) id[i] = i;
-  lovrBufferFlushRange(state.identityBuffer, 0, 256);
+  for (int i = 0; i < MAX_DRAWS; i++) id[i] = i;
+  lovrBufferFlushRange(state.identityBuffer, 0, MAX_DRAWS);
 
   Buffer* vertexBuffer = state.buffers[STREAM_VERTEX];
   size_t stride = BUFFER_STRIDES[STREAM_VERTEX];
@@ -498,7 +498,7 @@ void lovrGraphicsBatch(BatchRequest* req) {
     for (int i = state.batchCount - 1; i >= 0; i--) {
       Batch* b = &state.batches[i];
 
-      if (b->cursors[STREAM_DRAW_DATA].count >= state.maxDraws) { continue; }
+      if (b->count >= MAX_DRAWS) { continue; }
       if (!areBatchParamsEqual(req->type, b->type, &req->params, &b->params)) { continue; }
       if (b->canvas == canvas && b->shader == shader && !memcmp(&b->pipeline, pipeline, sizeof(Pipeline)) && b->material == material) {
         batch = b;
@@ -516,7 +516,7 @@ void lovrGraphicsBatch(BatchRequest* req) {
   if (!req->instanced || !batch) {
     *(req->vertices) = lovrGraphicsMapBuffer(STREAM_VERTEX, req->vertexCount);
     uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, req->vertexCount);
-    memset(ids, batch ? batch->cursors[STREAM_DRAW_DATA].count : 0, req->vertexCount * sizeof(uint8_t));
+    memset(ids, batch ? batch->count : 0, req->vertexCount * sizeof(uint8_t));
 
     if (req->indexCount > 0) {
       *(req->indices) = lovrGraphicsMapBuffer(STREAM_INDEX, req->indexCount);
@@ -526,7 +526,9 @@ void lovrGraphicsBatch(BatchRequest* req) {
 
   // Start a new batch
   if (!batch) {
-    DrawData* drawData = lovrGraphicsMapBuffer(STREAM_DRAW_DATA, state.maxDraws);
+    float* transforms = lovrGraphicsMapBuffer(STREAM_TRANSFORM, MAX_DRAWS);
+    Color* colors = lovrGraphicsMapBuffer(STREAM_COLOR, MAX_DRAWS);
+
     batch = &state.batches[state.batchCount++];
     *batch = (Batch) {
       .type = req->type,
@@ -536,34 +538,34 @@ void lovrGraphicsBatch(BatchRequest* req) {
       .shader = shader,
       .pipeline = *pipeline,
       .material = material,
-      .cursors[STREAM_VERTEX].start = state.cursors[STREAM_VERTEX],
-      .cursors[STREAM_INDEX].start = state.cursors[STREAM_INDEX],
-      .cursors[STREAM_DRAW_ID].start = state.cursors[STREAM_DRAW_ID],
-      .cursors[STREAM_DRAW_DATA].start = state.cursors[STREAM_DRAW_DATA],
-      .drawData = drawData,
+      .transforms = transforms,
+      .colors = colors,
       .instanced = req->instanced
     };
 
-    state.cursors[STREAM_DRAW_DATA] += state.maxDraws;
-  }
+    for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
+      batch->cursors[i].start = state.cursors[i];
+    }
 
-  int drawId = batch->cursors[STREAM_DRAW_DATA].count;
+    state.cursors[STREAM_TRANSFORM] += MAX_DRAWS;
+    state.cursors[STREAM_COLOR] += MAX_DRAWS;
+  }
 
   // Transform
   if (req->transform) {
     float transform[16];
     mat4_multiply(mat4_init(transform, state.transforms[state.transform]), req->transform);
-    memcpy(batch->drawData[drawId].transform, transform, 16 * sizeof(float));
+    memcpy(&batch->transforms[16 * batch->count], transform, 16 * sizeof(float));
   } else {
-    memcpy(batch->drawData[drawId].transform, state.transforms[state.transform], 16 * sizeof(float));
+    memcpy(&batch->transforms[16 * batch->count], state.transforms[state.transform], 16 * sizeof(float));
   }
 
   // Color
   Color color = state.color;
   gammaCorrectColor(&color);
-  batch->drawData[drawId].color = color;
+  batch->colors[batch->count] = color;
 
-  if (!req->instanced || drawId == 0) {
+  if (!req->instanced || batch->count == 0) {
     batch->cursors[STREAM_VERTEX].count += req->vertexCount;
     batch->cursors[STREAM_INDEX].count += req->indexCount;
     batch->cursors[STREAM_DRAW_ID].count += req->vertexCount;
@@ -573,7 +575,9 @@ void lovrGraphicsBatch(BatchRequest* req) {
     state.cursors[STREAM_DRAW_ID] += req->vertexCount;
   }
 
-  batch->cursors[STREAM_DRAW_DATA].count++;
+  batch->cursors[STREAM_TRANSFORM].count++;
+  batch->cursors[STREAM_COLOR].count++;
+  batch->count++;
 }
 
 void lovrGraphicsFlush() {
@@ -589,7 +593,7 @@ void lovrGraphicsFlush() {
     Batch* batch = &state.batches[b];
     BatchParams* params = &batch->params;
     Mesh* mesh = batch->type == BATCH_MESH ? params->mesh.object : (batch->instanced ? state.instancedMesh : state.mesh);
-    int instances = batch->instanced ? batch->cursors[STREAM_DRAW_DATA].count : 1;
+    int instances = batch->instanced ? batch->cursors[STREAM_TRANSFORM].count : 1;
 
     // Flush buffers
     for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
@@ -599,9 +603,9 @@ void lovrGraphicsFlush() {
       }
     }
 
-    // Bind UBO
-    size_t drawDataOffset = batch->cursors[STREAM_DRAW_DATA].start * BUFFER_STRIDES[STREAM_DRAW_DATA];
-    lovrShaderSetBlock(batch->shader, "lovrDrawData", state.buffers[STREAM_DRAW_DATA], drawDataOffset, state.maxDraws * BUFFER_STRIDES[STREAM_DRAW_DATA], ACCESS_READ);
+    // Bind UBOs
+    lovrShaderSetBlock(batch->shader, "lovrModelBlock", state.buffers[STREAM_TRANSFORM], batch->cursors[STREAM_TRANSFORM].start * BUFFER_STRIDES[STREAM_TRANSFORM], MAX_DRAWS * BUFFER_STRIDES[STREAM_TRANSFORM], ACCESS_READ);
+    lovrShaderSetBlock(batch->shader, "lovrColorBlock", state.buffers[STREAM_COLOR], batch->cursors[STREAM_COLOR].start * BUFFER_STRIDES[STREAM_COLOR], MAX_DRAWS * BUFFER_STRIDES[STREAM_COLOR], ACCESS_READ);
 
     // Uniforms
     lovrMaterialBind(batch->material, batch->shader);
@@ -621,7 +625,7 @@ void lovrGraphicsFlush() {
         instances = params->mesh.instances;
       } else {
         lovrMeshSetAttributeEnabled(mesh, "lovrDrawID", true);
-        instances = batch->cursors[STREAM_DRAW_DATA].count;
+        instances = batch->count;
       }
     } else {
       bool indexed = batch->cursors[STREAM_INDEX].count > 0;

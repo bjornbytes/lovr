@@ -1869,13 +1869,9 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
     "#extension GL_ARB_fragment_layer_viewport : require\n" "#define SINGLEPASS 1\n" :
     "#define SINGLEPASS 0\n";
 
-  size_t maxDraws = MIN(state.limits.blockSize / (20 * sizeof(float)) / 64 * 64, 256);
-  char maxDrawSource[32];
-  snprintf(maxDrawSource, 31, "#define MAX_DRAWS %zu\n", maxDraws);
-
   // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
-  const char* vertexSources[] = { vertexHeader, vertexSinglepass, maxDrawSource, lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
+  const char* vertexSources[] = { vertexHeader, vertexSinglepass, lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, sizeof(vertexSources) / sizeof(vertexSources[0]));
 
   // Fragment

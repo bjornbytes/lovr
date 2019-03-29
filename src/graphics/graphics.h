@@ -14,6 +14,7 @@
 
 #define MAX_TRANSFORMS 64
 #define MAX_BATCHES 16
+#define MAX_DRAWS 256
 #define MAX_LOCKS 4
 
 typedef void (*StencilCallback)(void* userdata);
@@ -99,7 +100,8 @@ typedef enum {
   STREAM_VERTEX,
   STREAM_INDEX,
   STREAM_DRAW_ID,
-  STREAM_DRAW_DATA,
+  STREAM_TRANSFORM,
+  STREAM_COLOR,
   MAX_BUFFER_ROLES
 } BufferRole;
 
@@ -155,11 +157,10 @@ typedef struct {
   Shader* shader;
   Pipeline pipeline;
   Material* material;
-  DrawData* drawData;
-  struct {
-    uint32_t start;
-    uint32_t count;
-  } cursors[MAX_BUFFER_ROLES];
+  mat4 transforms;
+  Color* colors;
+  struct { uint32_t start; uint32_t count; } cursors[MAX_BUFFER_ROLES];
+  uint32_t count;
   bool instanced;
 } Batch;
 
@@ -182,7 +183,6 @@ typedef struct {
   Pipeline pipeline;
   float pointSize;
   Shader* shader;
-  uint32_t maxDraws;
   Mesh* mesh;
   Mesh* instancedMesh;
   Buffer* identityBuffer;
