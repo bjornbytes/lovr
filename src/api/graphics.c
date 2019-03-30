@@ -216,27 +216,29 @@ static uint32_t luax_getvertexcount(lua_State* L, int index) {
   }
 }
 
-static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t count) {
+static void luax_readvertices(lua_State* L, int index, float* v, uint32_t count) {
   switch (lua_type(L, index)) {
     case LUA_TTABLE:
       lua_rawgeti(L, index, 1);
       if (lua_type(L, -1) == LUA_TNUMBER) {
         lua_pop(L, 1);
         for (uint32_t i = 0; i < count; i++) {
-          for (int j = 1; j <= 3; j++) {
-            lua_rawgeti(L, index, 3 * i + j);
-            vertices[j] = lua_tonumber(L, -1);
+          for (int j = 0; j < 3; j++) {
+            lua_rawgeti(L, index, 3 * i + j + 1);
+            v[j] = lua_tonumber(L, -1);
             lua_pop(L, 1);
           }
-          vertices += 8;
+          v[3] = v[4] = v[5] = v[6] = v[7] = 0.f;
+          v += 8;
         }
       } else {
         lua_pop(L, 1);
         for (uint32_t i = 0; i < count; i++) {
           lua_rawgeti(L, index, i + 1);
-          vec3_init(vertices, luax_checkmathtype(L, -1, MATH_VEC3, NULL));
+          vec3_init(v, luax_checkmathtype(L, -1, MATH_VEC3, NULL));
           lua_pop(L, 1);
-          vertices += 8;
+          v[3] = v[4] = v[5] = v[6] = v[7] = 0.f;
+          v += 8;
         }
       }
       break;
@@ -244,16 +246,18 @@ static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t
     case LUA_TNUMBER:
       for (uint32_t i = 0; i < count; i++) {
         for (int j = 0; j < 3; j++) {
-          vertices[j] = lua_tonumber(L, index + 3 * i + j);
+          v[j] = lua_tonumber(L, index + 3 * i + j);
         }
-        vertices += 8;
+        v[3] = v[4] = v[5] = v[6] = v[7] = 0.f;
+        v += 8;
       }
       break;
 
     default:
       for (uint32_t i = 0; i < count; i++) {
-        vec3_init(vertices, luax_checkmathtype(L, index + i, MATH_VEC3, NULL));
-        vertices += 8;
+        vec3_init(v, luax_checkmathtype(L, index + i, MATH_VEC3, NULL));
+        v[3] = v[4] = v[5] = v[6] = v[7] = 0.f;
+        v += 8;
       }
       break;
   }
