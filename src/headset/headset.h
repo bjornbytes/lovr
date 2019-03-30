@@ -71,13 +71,20 @@ typedef vec_t(Controller*) vec_controller_t;
 
 typedef enum {
   PATH_NONE,
-  PATH_HEAD
+  PATH_HEAD,
+  PATH_HANDS,
+  PATH_LEFT,
+  PATH_RIGHT
 } Subpath;
 
 typedef union {
   uint8_t pieces[8];
   uint64_t u64;
 } Path;
+
+#define MAKE_PATH(...) ((Path) { { __VA_ARGS__ } })
+#define PATH_EQ(p, ...) ((p).u64 == MAKE_PATH(__VA_ARGS__).u64)
+#define PATH_STARTS_WITH(p, ...) ((MAKE_PATH(__VA_ARGS__).u64 ^ p.u64 & MAKE_PATH(__VA_ARGS__).u64) == 0)
 
 // The interface implemented by headset backends
 //   - The 'next' pointer is used internally to create a linked list of tracking drivers.
