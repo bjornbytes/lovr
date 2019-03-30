@@ -105,26 +105,49 @@ static const float* desktopGetBoundsGeometry(int* count) {
 }
 
 static bool desktopGetPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  *x = *y = *z = 0;
-  mat4_transform(state.transform, x, y, z);
+  if (PATH_EQ(path, PATH_HEAD)) {
+    *x = *y = *z = 0.f;
+  } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+    *x  = 0.f;
+    *y  = 0.f;
+    *z = -.75f;
+  } else {
+    return false;
+  }
+
   float q[4];
+  mat4_transform(state.transform, x, y, z);
   quat_fromMat4(q, state.transform);
   quat_getAngleAxis(q, angle, ax, ay, az);
   return true;
 }
 
 static bool desktopGetVelocity(Path path, float* vx, float* vy, float* vz) {
-  *vx = state.velocity[0];
-  *vy = state.velocity[1];
-  *vz = state.velocity[2];
-  return true;
+  if (PATH_EQ(path, PATH_HEAD)) {
+    *vx = state.velocity[0];
+    *vy = state.velocity[1];
+    *vz = state.velocity[2];
+    return true;
+  } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+    *vx = *vy = *vz = 0.f;
+    return true;
+  }
+
+  return false;
 }
 
 static bool desktopGetAngularVelocity(Path path, float* vx, float* vy, float* vz) {
-  *vx = state.angularVelocity[0];
-  *vy = state.angularVelocity[1];
-  *vz = state.angularVelocity[2];
-  return true;
+  if (PATH_EQ(path, PATH_HEAD)) {
+    *vx = state.angularVelocity[0];
+    *vy = state.angularVelocity[1];
+    *vz = state.angularVelocity[2];
+    return true;
+  } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+    *vx = *vy = *vz = 0.f;
+    return true;
+  }
+
+  return false;
 }
 
 static Controller** desktopGetControllers(uint8_t* count) {
