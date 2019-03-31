@@ -1,4 +1,5 @@
 #include "api.h"
+#include "api/headset.h"
 #include "api/math.h"
 #include "headset/headset.h"
 #include "data/modelData.h"
@@ -19,37 +20,21 @@ static int l_lovrControllerGetHand(lua_State* L) {
 
 static int l_lovrControllerGetPose(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  float x, y, z, angle, ax, ay, az;
-  lovrHeadsetDriver->controllerGetPose(controller, &x, &y, &z, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 7;
+  luax_pushpath(L, controller->path);
+  lua_replace(L, 1);
+  return l_lovrHeadsetGetPose(L);
 }
 
 static int l_lovrControllerGetPosition(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  float position[3], angle, ax, ay, az;
-  lovrHeadsetDriver->controllerGetPose(controller, &position[0], &position[1], &position[2], &angle, &ax, &ay, &az);
-  lua_pushnumber(L, position[0]);
-  lua_pushnumber(L, position[1]);
-  lua_pushnumber(L, position[2]);
-  return 3;
+  luax_pushpath(L, controller->path);
+  return l_lovrHeadsetGetPosition(L);
 }
 
 static int l_lovrControllerGetOrientation(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  float x, y, z, angle, ax, ay, az;
-  lovrHeadsetDriver->controllerGetPose(controller, &x, &y, &z, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 4;
+  luax_pushpath(L, controller->path);
+  return l_lovrHeadsetGetOrientation(L);
 }
 
 static int l_lovrControllerGetDirection(lua_State* L) {
@@ -68,22 +53,14 @@ static int l_lovrControllerGetDirection(lua_State* L) {
 
 static int l_lovrControllerGetVelocity(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  float velocity[3];
-  lovrHeadsetDriver->controllerGetVelocity(controller, &velocity[0], &velocity[1], &velocity[2]);
-  lua_pushnumber(L, velocity[0]);
-  lua_pushnumber(L, velocity[1]);
-  lua_pushnumber(L, velocity[2]);
-  return 3;
+  luax_pushpath(L, controller->path);
+  return l_lovrHeadsetGetVelocity(L);
 }
 
 static int l_lovrControllerGetAngularVelocity(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  float velocity[3];
-  lovrHeadsetDriver->controllerGetAngularVelocity(controller, &velocity[0], &velocity[1], &velocity[2]);
-  lua_pushnumber(L, velocity[0]);
-  lua_pushnumber(L, velocity[1]);
-  lua_pushnumber(L, velocity[2]);
-  return 3;
+  luax_pushpath(L, controller->path);
+  return l_lovrHeadsetGetAngularVelocity(L);
 }
 
 static int l_lovrControllerGetAxis(lua_State* L) {

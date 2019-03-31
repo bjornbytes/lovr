@@ -25,6 +25,7 @@ extern bool VR_IsHmdPresent();
 extern intptr_t VR_GetGenericInterface(const char* pchInterfaceVersion, EVRInitError* peError);
 extern bool VR_IsRuntimeInstalled();
 #define HEADSET_INDEX k_unTrackedDeviceIndex_Hmd
+#define INVALID_INDEX k_unTrackedDeviceIndexInvalid
 
 static ControllerHand openvrControllerGetHand(Controller* controller);
 
@@ -256,9 +257,22 @@ static const float* openvrGetBoundsGeometry(int* count) {
   return NULL;
 }
 
+static TrackedDeviceIndex_t getDeviceIndexForPath(Path path) {
+  if (PATH_EQ(path, PATH_HEAD)) {
+    return HEADSET_INDEX;
+  } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT)) {
+    return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
+  } else if (PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+    return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
+  } else {
+    return k_unTrackedDeviceIndexInvalid;
+  }
+}
+
 static bool openvrGetPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
   float transform[16];
-  if (getTransform(HEADSET_INDEX, transform)) {
+  if (deviceIndex != INVALID_INDEX && getTransform(deviceIndex, transform)) {
     mat4_getPose(transform, x, y, z, angle, ax, ay, az);
     return true;
   }
@@ -266,44 +280,36 @@ static bool openvrGetPose(Path path, float* x, float* y, float* z, float* angle,
 }
 
 static bool openvrGetVelocity(Path path, float* vx, float* vy, float* vz) {
-  switch (path.pieces[0]) {
-    case PATH_HEAD:
-      switch (path.pieces[1]) {
-        case PATH_NONE: {
-          TrackedDevicePose_t* pose = &state.poses[HEADSET_INDEX];
-          if (!pose->bPoseIsValid || !pose->bDeviceIsConnected) {
-            return false;
-          } else {
-            *vx = pose->vVelocity.v[0];
-            *vy = pose->vVelocity.v[1];
-            *vz = pose->vVelocity.v[2];
-            return true;
-          }
-        }
-        default: return false;
-      }
-    default: return false;
+  TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
+  if (deviceIndex == INVALID_INDEX) {
+    return false;
+  }
+
+  TrackedDevicePose_t* pose = &state.poses[deviceIndex];
+  if (!pose->bPoseIsValid || !pose->bDeviceIsConnected) {
+    return false;
+  } else {
+    *vx = pose->vVelocity.v[0];
+    *vy = pose->vVelocity.v[1];
+    *vz = pose->vVelocity.v[2];
+    return true;
   }
 }
 
 static bool openvrGetAngularVelocity(Path path, float* vx, float* vy, float* vz) {
-  switch (path.pieces[0]) {
-    case PATH_HEAD:
-      switch (path.pieces[1]) {
-        case PATH_NONE: {
-          TrackedDevicePose_t pose = state.poses[HEADSET_INDEX];
-          if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-            return false;
-          } else {
-            *vx = pose.vAngularVelocity.v[0];
-            *vy = pose.vAngularVelocity.v[1];
-            *vz = pose.vAngularVelocity.v[2];
-            return true;
-          }
-        }
-        default: return false;
-      }
-    default: return false;
+  TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
+  if (deviceIndex == INVALID_INDEX) {
+    return false;
+  }
+
+  TrackedDevicePose_t* pose = &state.poses[deviceIndex];
+  if (!pose->bPoseIsValid || !pose->bDeviceIsConnected) {
+    return false;
+  } else {
+    *vx = pose->vAngularVelocity.v[0];
+    *vy = pose->vAngularVelocity.v[1];
+    *vz = pose->vAngularVelocity.v[2];
+    return true;
   }
 }
 
@@ -321,34 +327,6 @@ static ControllerHand openvrControllerGetHand(Controller* controller) {
     case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
     case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
     default: return HAND_UNKNOWN;
-  }
-}
-
-static void openvrControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  float transform[16];
-  getTransform(controller->id, transform);
-  mat4_getPose(transform, x, y, z, angle, ax, ay, az);
-}
-
-static void openvrControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
-  TrackedDevicePose_t pose = state.poses[controller->id];
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *vx = *vy = *vz = 0.f;
-  } else {
-    *vx = pose.vVelocity.v[0];
-    *vy = pose.vVelocity.v[1];
-    *vz = pose.vVelocity.v[2];
-  }
-}
-
-static void openvrControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
-  TrackedDevicePose_t pose = state.poses[controller->id];
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
-    *vx = *vy = *vz = 0.f;
-  } else {
-    *vx = pose.vAngularVelocity.v[0];
-    *vy = pose.vAngularVelocity.v[1];
-    *vz = pose.vAngularVelocity.v[2];
   }
 }
 
@@ -640,9 +618,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getControllers = openvrGetControllers,
   .controllerIsConnected = openvrControllerIsConnected,
   .controllerGetHand = openvrControllerGetHand,
-  .controllerGetPose = openvrControllerGetPose,
-  .controllerGetVelocity = openvrControllerGetVelocity,
-  .controllerGetAngularVelocity = openvrControllerGetAngularVelocity,
   .controllerGetAxis = openvrControllerGetAxis,
   .controllerIsDown = openvrControllerIsDown,
   .controllerIsTouched = openvrControllerIsTouched,
