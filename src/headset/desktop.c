@@ -163,25 +163,6 @@ static ControllerHand desktopControllerGetHand(Controller* controller) {
   return HAND_UNKNOWN;
 }
 
-static void desktopControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  *x = 0;
-  *y = 0;
-  *z = -.75f;
-  mat4_transform(state.transform, x, y, z);
-
-  float q[4];
-  quat_fromMat4(q, state.transform);
-  quat_getAngleAxis(q, angle, ax, ay, az);
-}
-
-static void desktopControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
-  *vx = *vy = *vz = 0.f;
-}
-
-static void desktopControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
-  *vx = *vy = *vz = 0.f;
-}
-
 static float desktopControllerGetAxis(Controller* controller, ControllerAxis axis) {
   return 0.f;
 }
@@ -296,9 +277,6 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getControllers = desktopGetControllers,
   .controllerIsConnected = desktopControllerIsConnected,
   .controllerGetHand = desktopControllerGetHand,
-  .controllerGetPose = desktopControllerGetPose,
-  .controllerGetVelocity = desktopControllerGetVelocity,
-  .controllerGetAngularVelocity = desktopControllerGetAngularVelocity,
   .controllerGetAxis = desktopControllerGetAxis,
   .controllerIsDown = desktopControllerIsDown,
   .controllerIsTouched = desktopControllerIsTouched,

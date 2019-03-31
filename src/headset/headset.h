@@ -37,6 +37,23 @@ typedef enum {
 } HeadsetType;
 
 typedef enum {
+  PATH_NONE,
+  PATH_HEAD,
+  PATH_HANDS,
+  PATH_LEFT,
+  PATH_RIGHT
+} Subpath;
+
+typedef union {
+  uint8_t pieces[8];
+  uint64_t u64;
+} Path;
+
+#define MAKE_PATH(...) ((Path) { { __VA_ARGS__ } })
+#define PATH_EQ(p, ...) ((p).u64 == MAKE_PATH(__VA_ARGS__).u64)
+#define PATH_STARTS_WITH(p, ...) ((MAKE_PATH(__VA_ARGS__).u64 ^ p.u64 & MAKE_PATH(__VA_ARGS__).u64) == 0)
+
+typedef enum {
   CONTROLLER_AXIS_TRIGGER,
   CONTROLLER_AXIS_GRIP,
   CONTROLLER_AXIS_TOUCHPAD_X,
@@ -65,26 +82,10 @@ typedef enum {
 typedef struct Controller {
   Ref ref;
   uint32_t id;
+  Path path;
 } Controller;
 
 typedef vec_t(Controller*) vec_controller_t;
-
-typedef enum {
-  PATH_NONE,
-  PATH_HEAD,
-  PATH_HANDS,
-  PATH_LEFT,
-  PATH_RIGHT
-} Subpath;
-
-typedef union {
-  uint8_t pieces[8];
-  uint64_t u64;
-} Path;
-
-#define MAKE_PATH(...) ((Path) { { __VA_ARGS__ } })
-#define PATH_EQ(p, ...) ((p).u64 == MAKE_PATH(__VA_ARGS__).u64)
-#define PATH_STARTS_WITH(p, ...) ((MAKE_PATH(__VA_ARGS__).u64 ^ p.u64 & MAKE_PATH(__VA_ARGS__).u64) == 0)
 
 // The interface implemented by headset backends
 //   - The 'next' pointer is used internally to create a linked list of tracking drivers.
@@ -111,9 +112,6 @@ typedef struct HeadsetInterface {
   Controller** (*getControllers)(uint8_t* count);
   bool (*controllerIsConnected)(Controller* controller);
   ControllerHand (*controllerGetHand)(Controller* controller);
-  void (*controllerGetPose)(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-  void (*controllerGetVelocity)(Controller* controller, float* vx, float* vy, float* vz);
-  void (*controllerGetAngularVelocity)(Controller* controller, float* vx, float* vy, float* vz);
   float (*controllerGetAxis)(Controller* controller, ControllerAxis axis);
   bool (*controllerIsDown)(Controller* controller, ControllerButton button);
   bool (*controllerIsTouched)(Controller* controller, ControllerButton button);
