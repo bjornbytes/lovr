@@ -65,9 +65,9 @@ static int l_lovrControllerGetAngularVelocity(lua_State* L) {
 
 static int l_lovrControllerGetAxis(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  ControllerAxis axis = luaL_checkoption(L, 2, NULL, ControllerAxes);
-  lua_pushnumber(L, lovrHeadsetDriver->controllerGetAxis(controller, axis));
-  return 1;
+  luax_pushpath(L, controller->path);
+  lua_replace(L, 1);
+  return l_lovrHeadsetGetAxis(L);
 }
 
 static int l_lovrControllerIsDown(lua_State* L) {

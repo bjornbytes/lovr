@@ -78,7 +78,10 @@ const char* Subpaths[] = {
   [PATH_HEAD] = "head",
   [PATH_HANDS] = "hands",
   [PATH_LEFT] = "left",
-  [PATH_RIGHT] = "right"
+  [PATH_RIGHT] = "right",
+  [PATH_TRIGGER] = "trigger",
+  [PATH_GRIP] = "grip",
+  [PATH_TOUCHPAD] = "touchpad"
 };
 
 typedef struct {
@@ -336,6 +339,22 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   return 0;
 }
 
+int l_lovrHeadsetGetAxis(lua_State* L) {
+  Path path = luax_optpath(L, 1, "head");
+  float x, y, z;
+  int count;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if ((count = driver->getAxis(path, &x, &y, &z)) > 0) {
+      lua_pushnumber(L, x);
+      lua_pushnumber(L, y);
+      lua_pushnumber(L, z);
+      lua_pop(L, 3 - count);
+      return count;
+    }
+  }
+  return 0;
+}
+
 static int l_lovrHeadsetGetControllers(lua_State* L) {
   uint8_t count;
   Controller** controllers = lovrHeadsetDriver->getControllers(&count);
@@ -411,6 +430,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDirection", l_lovrHeadsetGetDirection },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
+  { "getAxis", l_lovrHeadsetGetAxis },
   { "getControllers", l_lovrHeadsetGetControllers },
   { "getControllerCount", l_lovrHeadsetGetControllerCount },
   { "renderTo", l_lovrHeadsetRenderTo },
