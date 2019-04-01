@@ -365,6 +365,18 @@ static int openvrGetAxis(Path path, float* x, float* y, float* z) {
   return 0;
 }
 
+static bool openvrVibrate(Path path, float strength, float duration, float frequency) {
+  if (duration <= 0) return false;
+  if (!PATH_STARTS_WITH(path, PATH_HANDS)) return false;
+
+  TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
+  if (deviceIndex == INVALID_INDEX) return false;
+
+  unsigned short uSeconds = (unsigned short) (duration * 1e6f);
+  state.system->TriggerHapticPulse(deviceIndex, 0, uSeconds);
+  return true;
+}
+
 static Controller** openvrGetControllers(uint8_t* count) {
   *count = state.controllers.length;
   return state.controllers.data;
@@ -394,13 +406,6 @@ static bool openvrControllerIsTouched(Controller* controller, ControllerButton b
   state.system->GetControllerState(controller->id, &input, sizeof(input));
   ControllerHand hand = openvrControllerGetHand(controller);
   return getButtonState(input.ulButtonTouched, button, hand);
-}
-
-static void openvrControllerVibrate(Controller* controller, float duration, float power) {
-  if (duration <= 0) return;
-  uint32_t axis = 0;
-  unsigned short uSeconds = (unsigned short) (duration * 1e6f);
-  state.system->TriggerHapticPulse(controller->id, axis, uSeconds);
 }
 
 static ModelData* openvrControllerNewModelData(Controller* controller) {
@@ -640,12 +645,12 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getVelocity = openvrGetVelocity,
   .getAngularVelocity = openvrGetAngularVelocity,
   .getAxis = openvrGetAxis,
+  .vibrate = openvrVibrate,
   .getControllers = openvrGetControllers,
   .controllerIsConnected = openvrControllerIsConnected,
   .controllerGetHand = openvrControllerGetHand,
   .controllerIsDown = openvrControllerIsDown,
   .controllerIsTouched = openvrControllerIsTouched,
-  .controllerVibrate = openvrControllerVibrate,
   .controllerNewModelData = openvrControllerNewModelData,
   .renderTo = openvrRenderTo,
   .getMirrorTexture = openvrGetMirrorTexture,
