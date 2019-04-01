@@ -41,7 +41,10 @@ typedef enum {
   PATH_HEAD,
   PATH_HANDS,
   PATH_LEFT,
-  PATH_RIGHT
+  PATH_RIGHT,
+  PATH_TRIGGER,
+  PATH_GRIP,
+  PATH_TOUCHPAD
 } Subpath;
 
 typedef union {
@@ -109,10 +112,10 @@ typedef struct HeadsetInterface {
   bool (*getPose)(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   bool (*getVelocity)(Path path, float* vx, float* vy, float* vz);
   bool (*getAngularVelocity)(Path path, float* vx, float* vy, float* vz);
+  int (*getAxis)(Path path, float* x, float* y, float* z);
   Controller** (*getControllers)(uint8_t* count);
   bool (*controllerIsConnected)(Controller* controller);
   ControllerHand (*controllerGetHand)(Controller* controller);
-  float (*controllerGetAxis)(Controller* controller, ControllerAxis axis);
   bool (*controllerIsDown)(Controller* controller, ControllerButton button);
   bool (*controllerIsTouched)(Controller* controller, ControllerButton button);
   void (*controllerVibrate)(Controller* controller, float duration, float power);

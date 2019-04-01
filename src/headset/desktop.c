@@ -150,6 +150,10 @@ static bool desktopGetAngularVelocity(Path path, float* vx, float* vy, float* vz
   return false;
 }
 
+static int desktopGetAxis(Path path, float* x, float* y, float* z) {
+  return 0;
+}
+
 static Controller** desktopGetControllers(uint8_t* count) {
   *count = state.controllers.length;
   return state.controllers.data;
@@ -161,10 +165,6 @@ static bool desktopControllerIsConnected(Controller* controller) {
 
 static ControllerHand desktopControllerGetHand(Controller* controller) {
   return HAND_UNKNOWN;
-}
-
-static float desktopControllerGetAxis(Controller* controller, ControllerAxis axis) {
-  return 0.f;
 }
 
 static bool desktopControllerIsDown(Controller* controller, ControllerButton button) {
@@ -274,10 +274,10 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getPose = desktopGetPose,
   .getVelocity = desktopGetVelocity,
   .getAngularVelocity = desktopGetAngularVelocity,
+  .getAxis = desktopGetAxis,
   .getControllers = desktopGetControllers,
   .controllerIsConnected = desktopControllerIsConnected,
   .controllerGetHand = desktopControllerGetHand,
-  .controllerGetAxis = desktopControllerGetAxis,
   .controllerIsDown = desktopControllerIsDown,
   .controllerIsTouched = desktopControllerIsTouched,
   .controllerVibrate = desktopControllerVibrate,

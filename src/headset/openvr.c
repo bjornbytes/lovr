@@ -313,6 +313,58 @@ static bool openvrGetAngularVelocity(Path path, float* vx, float* vy, float* vz)
   }
 }
 
+static int openvrGetAxis(Path path, float* x, float* y, float* z) {
+  if (path.pieces[3] != PATH_NONE) {
+    return 0;
+  }
+
+  TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
+  if (deviceIndex == INVALID_INDEX) {
+    return 0;
+  }
+
+  VRControllerState_t input;
+  if (!state.system->GetControllerState(deviceIndex, &input, sizeof(input))) {
+    return 0;
+  }
+
+  switch (state.type) {
+    case HEADSET_RIFT:
+      switch (path.pieces[2]) {
+        case PATH_TRIGGER:
+          *x = input.rAxis[1].x;
+          return 1;
+
+        case PATH_GRIP:
+          *x = input.rAxis[2].x;
+          return 1;
+
+        case PATH_TOUCHPAD:
+          *x = input.rAxis[0].x;
+          *y = input.rAxis[0].y;
+          return 2;
+
+        default: return 0;
+      }
+
+    default:
+      switch (path.pieces[2]) {
+        case PATH_TRIGGER:
+          *x = input.rAxis[1].x;
+          return 1;
+
+        case PATH_TOUCHPAD:
+          *x = input.rAxis[0].x;
+          *y = input.rAxis[0].y;
+          return 2;
+
+        default: return 0;
+      }
+  }
+
+  return 0;
+}
+
 static Controller** openvrGetControllers(uint8_t* count) {
   *count = state.controllers.length;
   return state.controllers.data;
@@ -328,34 +380,6 @@ static ControllerHand openvrControllerGetHand(Controller* controller) {
     case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
     default: return HAND_UNKNOWN;
   }
-}
-
-static float openvrControllerGetAxis(Controller* controller, ControllerAxis axis) {
-  if (!controller) return 0;
-
-  VRControllerState_t input;
-  state.system->GetControllerState(controller->id, &input, sizeof(input));
-
-  switch (state.type) {
-    case HEADSET_RIFT:
-      switch (axis) {
-        case CONTROLLER_AXIS_TRIGGER: return input.rAxis[1].x;
-        case CONTROLLER_AXIS_GRIP: return input.rAxis[2].x;
-        case CONTROLLER_AXIS_TOUCHPAD_X: return input.rAxis[0].x;
-        case CONTROLLER_AXIS_TOUCHPAD_Y: return input.rAxis[0].y;
-        default: return 0;
-      }
-
-    default:
-      switch (axis) {
-        case CONTROLLER_AXIS_TRIGGER: return input.rAxis[1].x;
-        case CONTROLLER_AXIS_TOUCHPAD_X: return input.rAxis[0].x;
-        case CONTROLLER_AXIS_TOUCHPAD_Y: return input.rAxis[0].y;
-        default: return 0;
-      }
-  }
-
-  return 0;
 }
 
 static bool openvrControllerIsDown(Controller* controller, ControllerButton button) {
@@ -615,10 +639,10 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getPose = openvrGetPose,
   .getVelocity = openvrGetVelocity,
   .getAngularVelocity = openvrGetAngularVelocity,
+  .getAxis = openvrGetAxis,
   .getControllers = openvrGetControllers,
   .controllerIsConnected = openvrControllerIsConnected,
   .controllerGetHand = openvrControllerGetHand,
-  .controllerGetAxis = openvrControllerGetAxis,
   .controllerIsDown = openvrControllerIsDown,
   .controllerIsTouched = openvrControllerIsTouched,
   .controllerVibrate = openvrControllerVibrate,
