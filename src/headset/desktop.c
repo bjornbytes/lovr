@@ -154,6 +154,10 @@ static int desktopGetAxis(Path path, float* x, float* y, float* z) {
   return 0;
 }
 
+static bool desktopVibrate(Path path, float strength, float duration, float frequency) {
+  return false;
+}
+
 static Controller** desktopGetControllers(uint8_t* count) {
   *count = state.controllers.length;
   return state.controllers.data;
@@ -173,10 +177,6 @@ static bool desktopControllerIsDown(Controller* controller, ControllerButton but
 
 static bool desktopControllerIsTouched(Controller* controller, ControllerButton button) {
   return false;
-}
-
-static void desktopControllerVibrate(Controller* controller, float duration, float power) {
-  //
 }
 
 static ModelData* desktopControllerNewModelData(Controller* controller) {
@@ -275,12 +275,12 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getVelocity = desktopGetVelocity,
   .getAngularVelocity = desktopGetAngularVelocity,
   .getAxis = desktopGetAxis,
+  .vibrate = desktopVibrate,
   .getControllers = desktopGetControllers,
   .controllerIsConnected = desktopControllerIsConnected,
   .controllerGetHand = desktopControllerGetHand,
   .controllerIsDown = desktopControllerIsDown,
   .controllerIsTouched = desktopControllerIsTouched,
-  .controllerVibrate = desktopControllerVibrate,
   .controllerNewModelData = desktopControllerNewModelData,
   .renderTo = desktopRenderTo,
   .update = desktopUpdate

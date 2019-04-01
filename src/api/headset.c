@@ -355,6 +355,21 @@ int l_lovrHeadsetGetAxis(lua_State* L) {
   return 0;
 }
 
+int l_lovrHeadsetVibrate(lua_State* L) {
+  Path path = luax_optpath(L, 1, "head");
+  float strength = luax_optfloat(L, 2, 1.f);
+  float duration = luax_optfloat(L, 3, .5f);
+  float frequency = luax_optfloat(L, 4, 0.f);
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->vibrate(path, strength, duration, frequency)) {
+      lua_pushboolean(L, true);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
+  return 1;
+}
+
 static int l_lovrHeadsetGetControllers(lua_State* L) {
   uint8_t count;
   Controller** controllers = lovrHeadsetDriver->getControllers(&count);
@@ -431,6 +446,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
   { "getAxis", l_lovrHeadsetGetAxis },
+  { "vibrate", l_lovrHeadsetVibrate },
   { "getControllers", l_lovrHeadsetGetControllers },
   { "getControllerCount", l_lovrHeadsetGetControllerCount },
   { "renderTo", l_lovrHeadsetRenderTo },
