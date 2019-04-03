@@ -124,7 +124,6 @@ typedef struct HeadsetInterface {
   struct ModelData* (*newModelData)(Path path);
   Controller** (*getControllers)(uint8_t* count);
   bool (*controllerIsConnected)(Controller* controller);
-  ControllerHand (*controllerGetHand)(Controller* controller);
   void (*renderTo)(void (*callback)(void*), void* userdata);
   struct Texture* (*getMirrorTexture)(void);
   void (*update)(float dt);

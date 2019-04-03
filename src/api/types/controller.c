@@ -11,13 +11,6 @@ static int l_lovrControllerIsConnected(lua_State* L) {
   return 1;
 }
 
-static int l_lovrControllerGetHand(lua_State* L) {
-  Controller* controller = luax_checktype(L, 1, Controller);
-  ControllerHand hand = lovrHeadsetDriver->controllerGetHand(controller);
-  lua_pushstring(L, ControllerHands[hand]);
-  return 1;
-}
-
 static int l_lovrControllerGetPose(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   luax_pushpath(L, controller->path);
@@ -100,7 +93,6 @@ static int l_lovrControllerNewModel(lua_State* L) {
 
 const luaL_Reg lovrController[] = {
   { "isConnected", l_lovrControllerIsConnected },
-  { "getHand", l_lovrControllerGetHand },
   { "getPose", l_lovrControllerGetPose },
   { "getPosition", l_lovrControllerGetPosition },
   { "getOrientation", l_lovrControllerGetOrientation },
