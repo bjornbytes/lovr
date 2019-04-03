@@ -377,62 +377,30 @@ static bool openvrVibrate(Path path, float strength, float duration, float frequ
   return true;
 }
 
-static Controller** openvrGetControllers(uint8_t* count) {
-  *count = state.controllers.length;
-  return state.controllers.data;
-}
-
-static bool openvrControllerIsConnected(Controller* controller) {
-  return state.system->IsTrackedDeviceConnected(controller->id);
-}
-
-static ControllerHand openvrControllerGetHand(Controller* controller) {
-  switch (state.system->GetControllerRoleForTrackedDeviceIndex(controller->id)) {
-    case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
-    case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
-    default: return HAND_UNKNOWN;
-  }
-}
-
-static bool openvrControllerIsDown(Controller* controller, ControllerButton button) {
-  VRControllerState_t input;
-  state.system->GetControllerState(controller->id, &input, sizeof(input));
-  ControllerHand hand = openvrControllerGetHand(controller);
-  return getButtonState(input.ulButtonPressed, button, hand);
-}
-
-static bool openvrControllerIsTouched(Controller* controller, ControllerButton button) {
-  VRControllerState_t input;
-  state.system->GetControllerState(controller->id, &input, sizeof(input));
-  ControllerHand hand = openvrControllerGetHand(controller);
-  return getButtonState(input.ulButtonTouched, button, hand);
-}
-
-static ModelData* openvrControllerNewModelData(Controller* controller) {
-  if (!controller) return NULL;
-
-  int id = controller->id;
+static ModelData* openvrNewModelData(Path path) {
+  TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
+  if (deviceIndex == INVALID_INDEX) return false;
 
   // Get model name
   char renderModelName[1024];
   ETrackedDeviceProperty renderModelNameProperty = ETrackedDeviceProperty_Prop_RenderModelName_String;
-  state.system->GetStringTrackedDeviceProperty(controller->id, renderModelNameProperty, renderModelName, 1024, NULL);
+  state.system->GetStringTrackedDeviceProperty(deviceIndex, renderModelNameProperty, renderModelName, 1024, NULL);
 
   // Load model
-  if (!state.deviceModels[id]) {
-    while (state.renderModels->LoadRenderModel_Async(renderModelName, &state.deviceModels[id]) == EVRRenderModelError_VRRenderModelError_Loading) {
+  if (!state.deviceModels[deviceIndex]) {
+    while (state.renderModels->LoadRenderModel_Async(renderModelName, &state.deviceModels[deviceIndex]) == EVRRenderModelError_VRRenderModelError_Loading) {
       lovrSleep(.001);
     }
   }
 
   // Load texture
-  if (!state.deviceTextures[id]) {
-    while (state.renderModels->LoadTexture_Async(state.deviceModels[id]->diffuseTextureId, &state.deviceTextures[id]) == EVRRenderModelError_VRRenderModelError_Loading) {
+  if (!state.deviceTextures[deviceIndex]) {
+    while (state.renderModels->LoadTexture_Async(state.deviceModels[deviceIndex]->diffuseTextureId, &state.deviceTextures[deviceIndex]) == EVRRenderModelError_VRRenderModelError_Loading) {
       lovrSleep(.001);
     }
   }
 
-  RenderModel_t* vrModel = state.deviceModels[id];
+  RenderModel_t* vrModel = state.deviceModels[deviceIndex];
   ModelData* model = lovrAlloc(ModelData);
   size_t vertexSize = sizeof(RenderModel_Vertex_t);
 
@@ -488,7 +456,7 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
     .components = 1
   };
 
-  RenderModel_TextureMap_t* vrTexture = state.deviceTextures[id];
+  RenderModel_TextureMap_t* vrTexture = state.deviceTextures[deviceIndex];
   model->textures[0] = lovrTextureDataCreate(vrTexture->unWidth, vrTexture->unHeight, 0, FORMAT_RGBA);
   memcpy(model->textures[0]->blob.data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
 
@@ -516,6 +484,37 @@ static ModelData* openvrControllerNewModelData(Controller* controller) {
   };
 
   return model;
+}
+
+static Controller** openvrGetControllers(uint8_t* count) {
+  *count = state.controllers.length;
+  return state.controllers.data;
+}
+
+static bool openvrControllerIsConnected(Controller* controller) {
+  return state.system->IsTrackedDeviceConnected(controller->id);
+}
+
+static ControllerHand openvrControllerGetHand(Controller* controller) {
+  switch (state.system->GetControllerRoleForTrackedDeviceIndex(controller->id)) {
+    case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
+    case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
+    default: return HAND_UNKNOWN;
+  }
+}
+
+static bool openvrControllerIsDown(Controller* controller, ControllerButton button) {
+  VRControllerState_t input;
+  state.system->GetControllerState(controller->id, &input, sizeof(input));
+  ControllerHand hand = openvrControllerGetHand(controller);
+  return getButtonState(input.ulButtonPressed, button, hand);
+}
+
+static bool openvrControllerIsTouched(Controller* controller, ControllerButton button) {
+  VRControllerState_t input;
+  state.system->GetControllerState(controller->id, &input, sizeof(input));
+  ControllerHand hand = openvrControllerGetHand(controller);
+  return getButtonState(input.ulButtonTouched, button, hand);
 }
 
 static void openvrRenderTo(void (*callback)(void*), void* userdata) {
@@ -646,12 +645,12 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getAngularVelocity = openvrGetAngularVelocity,
   .getAxis = openvrGetAxis,
   .vibrate = openvrVibrate,
+  .newModelData = openvrNewModelData,
   .getControllers = openvrGetControllers,
   .controllerIsConnected = openvrControllerIsConnected,
   .controllerGetHand = openvrControllerGetHand,
   .controllerIsDown = openvrControllerIsDown,
   .controllerIsTouched = openvrControllerIsTouched,
-  .controllerNewModelData = openvrControllerNewModelData,
   .renderTo = openvrRenderTo,
   .getMirrorTexture = openvrGetMirrorTexture,
   .update = openvrUpdate
