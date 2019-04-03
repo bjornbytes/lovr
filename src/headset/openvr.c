@@ -27,8 +27,6 @@ extern bool VR_IsRuntimeInstalled();
 #define HEADSET_INDEX k_unTrackedDeviceIndex_Hmd
 #define INVALID_INDEX k_unTrackedDeviceIndexInvalid
 
-static ControllerHand openvrControllerGetHand(Controller* controller);
-
 typedef struct {
   struct VR_IVRSystem_FnTable* system;
   struct VR_IVRCompositor_FnTable* compositor;
@@ -76,6 +74,14 @@ static bool isController(TrackedDeviceIndex_t id) {
   return state.system->IsTrackedDeviceConnected(id) &&
     (state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_Controller ||
     state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_GenericTracker);
+}
+
+static ControllerHand getControllerHand(Controller* controller) {
+  switch (state.system->GetControllerRoleForTrackedDeviceIndex(controller->id)) {
+    case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
+    case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
+    default: return HAND_UNKNOWN;
+  }
 }
 
 static ControllerButton getButton(uint32_t button, ControllerHand hand) {
@@ -558,14 +564,6 @@ static bool openvrControllerIsConnected(Controller* controller) {
   return state.system->IsTrackedDeviceConnected(controller->id);
 }
 
-static ControllerHand openvrControllerGetHand(Controller* controller) {
-  switch (state.system->GetControllerRoleForTrackedDeviceIndex(controller->id)) {
-    case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
-    case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
-    default: return HAND_UNKNOWN;
-  }
-}
-
 static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   if (!state.canvas) {
     uint32_t width, height;
@@ -652,7 +650,7 @@ static void openvrUpdate(float dt) {
         for (int i = 0; i < state.controllers.length; i++) {
           Controller* controller = state.controllers.data[i];
           if (controller->id == vrEvent.trackedDeviceIndex) {
-            ControllerButton button = getButton(vrEvent.data.controller.button, openvrControllerGetHand(controller));
+            ControllerButton button = getButton(vrEvent.data.controller.button, getControllerHand(controller));
             EventType type = isPress ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED;
             lovrEventPush((Event) { .type = type, .data.controller = { controller, button } });
             break;
@@ -699,7 +697,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .newModelData = openvrNewModelData,
   .getControllers = openvrGetControllers,
   .controllerIsConnected = openvrControllerIsConnected,
-  .controllerGetHand = openvrControllerGetHand,
   .renderTo = openvrRenderTo,
   .getMirrorTexture = openvrGetMirrorTexture,
   .update = openvrUpdate

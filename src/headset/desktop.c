@@ -185,10 +185,6 @@ static bool desktopControllerIsConnected(Controller* controller) {
   return true;
 }
 
-static ControllerHand desktopControllerGetHand(Controller* controller) {
-  return HAND_UNKNOWN;
-}
-
 static void desktopRenderTo(void (*callback)(void*), void* userdata) {
   uint32_t width, height;
   desktopGetDisplayDimensions(&width, &height);
@@ -287,7 +283,6 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .newModelData = desktopNewModelData,
   .getControllers = desktopGetControllers,
   .controllerIsConnected = desktopControllerIsConnected,
-  .controllerGetHand = desktopControllerGetHand,
   .renderTo = desktopRenderTo,
   .update = desktopUpdate
 };
