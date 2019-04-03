@@ -51,6 +51,7 @@ static bool desktopInit(float offset, int msaa) {
   vec_init(&state.controllers);
   Controller* controller = lovrAlloc(Controller);
   controller->id = 0;
+  controller->path = MAKE_PATH(PATH_HANDS, PATH_LEFT);
   vec_push(&state.controllers, controller);
 
   lovrPlatformOnMouseButton(onMouseButton);

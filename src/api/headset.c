@@ -106,7 +106,7 @@ Path luax_optpath(lua_State* L, int index, const char* fallback) {
 
     Subpath subpath = PATH_NONE;
     for (size_t i = 0; i < sizeof(Subpaths) / sizeof(Subpaths[0]); i++) {
-      if (!strcmp(str, Subpaths[0])) {
+      if (!strcmp(str, Subpaths[i])) {
         subpath = i;
         break;
       }
@@ -129,11 +129,13 @@ Path luax_optpath(lua_State* L, int index, const char* fallback) {
 void luax_pushpath(lua_State* L, Path path) {
   for (int i = 0; i < 8; i++) {
     if (path.pieces[i] == PATH_NONE) {
-      lua_concat(L, i + 1);
-      break;
+      lua_pop(L, 1);
+      lua_concat(L, 2 * i - 1);
+      return;
     }
 
     lua_pushstring(L, Subpaths[path.pieces[i]]);
+    lua_pushstring(L, "/");
   }
 
   lovrThrow("Unreachable");
