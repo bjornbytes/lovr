@@ -77,8 +77,13 @@ const char* Subpaths[] = {
   [PATH_LEFT] = "left",
   [PATH_RIGHT] = "right",
   [PATH_TRIGGER] = "trigger",
+  [PATH_TRACKPAD] = "trackpad",
+  [PATH_MENU] = "menu",
   [PATH_GRIP] = "grip",
-  [PATH_TOUCHPAD] = "touchpad"
+  [PATH_A] = "a",
+  [PATH_B] = "b",
+  [PATH_X] = "x",
+  [PATH_Y] = "y"
 };
 
 typedef struct {
@@ -338,6 +343,30 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   return 0;
 }
 
+int l_lovrHeadsetIsDown(lua_State* L) {
+  Path path = luax_optpath(L, 1, "head");
+  bool down;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->isDown(path, &down)) {
+      lua_pushboolean(L, down);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+int l_lovrHeadsetIsTouched(lua_State* L) {
+  Path path = luax_optpath(L, 1, "head");
+  bool touched;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->isDown(path, &touched)) {
+      lua_pushboolean(L, touched);
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int l_lovrHeadsetGetAxis(lua_State* L) {
   Path path = luax_optpath(L, 1, "head");
   float x, y, z;
@@ -465,6 +494,8 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDirection", l_lovrHeadsetGetDirection },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
+  { "isDown", l_lovrHeadsetIsDown },
+  { "isTouched", l_lovrHeadsetIsTouched },
   { "getAxis", l_lovrHeadsetGetAxis },
   { "vibrate", l_lovrHeadsetVibrate },
   { "newModel", l_lovrHeadsetNewModel },

@@ -60,6 +60,18 @@ static bool getTransform(unsigned int device, mat4 transform) {
   }
 }
 
+static TrackedDeviceIndex_t getDeviceIndexForPath(Path path) {
+  if (PATH_EQ(path, PATH_HEAD)) {
+    return HEADSET_INDEX;
+  } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT)) {
+    return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
+  } else if (PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+    return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
+  } else {
+    return k_unTrackedDeviceIndexInvalid;
+  }
+}
+
 static bool isController(TrackedDeviceIndex_t id) {
   return state.system->IsTrackedDeviceConnected(id) &&
     (state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_Controller ||
@@ -103,28 +115,83 @@ static ControllerButton getButton(uint32_t button, ControllerHand hand) {
   return CONTROLLER_BUTTON_UNKNOWN;
 }
 
-static int getButtonState(uint64_t mask, ControllerButton button, ControllerHand hand) {
+static bool getButtonState(Path path, bool touch, bool* value) {
+  if (!PATH_EQ(path, PATH_HANDS, PATH_LEFT) && !PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+    return false;
+  }
+
+  TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
+  if (deviceIndex == INVALID_INDEX) {
+    return false;
+  }
+
+  VRControllerState_t input;
+  if (!state.system->GetControllerState(deviceIndex, &input, sizeof(input))) {
+    return false;
+  }
+
+  uint64_t mask = touch ? input.ulButtonTouched : input.ulButtonPressed;
+
+  ControllerHand hand = HAND_UNKNOWN;
+  switch (state.system->GetControllerRoleForTrackedDeviceIndex(deviceIndex)) {
+    case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
+    case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
+    default: break;
+  }
+
   switch (state.type) {
     case HEADSET_RIFT:
-      switch (button) {
-        case CONTROLLER_BUTTON_TRIGGER: return (mask >> EVRButtonId_k_EButton_Axis1) & 1;
-        case CONTROLLER_BUTTON_GRIP: return (mask >> EVRButtonId_k_EButton_Axis2) & 1;
-        case CONTROLLER_BUTTON_TOUCHPAD: return (mask >> EVRButtonId_k_EButton_Axis0) & 1;
-        case CONTROLLER_BUTTON_A: return hand == HAND_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
-        case CONTROLLER_BUTTON_B: return hand == HAND_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
-        case CONTROLLER_BUTTON_X: return hand == HAND_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
-        case CONTROLLER_BUTTON_Y: return hand == HAND_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
-        default: return 0;
+      switch (path.pieces[2]) {
+        case PATH_TRIGGER:
+          *value = (mask >> EVRButtonId_k_EButton_Axis1) & 1;
+          return true;
+
+        case PATH_GRIP:
+          *value = (mask >> EVRButtonId_k_EButton_Axis2) & 1;
+          return true;
+
+        case PATH_TRACKPAD:
+          *value = (mask >> EVRButtonId_k_EButton_Axis0) & 1;
+          return true;
+
+        case PATH_A:
+          *value = hand == HAND_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
+          return true;
+
+        case PATH_B:
+          *value = hand == HAND_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+          return true;
+
+        case PATH_X:
+          *value = hand == HAND_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
+          return true;
+
+        case PATH_Y:
+          *value = hand == HAND_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+          return true;
+
+        default: return false;
       }
 
     default:
-      switch (button) {
-        case CONTROLLER_BUTTON_SYSTEM: return (mask >> EVRButtonId_k_EButton_System) & 1;
-        case CONTROLLER_BUTTON_MENU: return (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
-        case CONTROLLER_BUTTON_TRIGGER: return (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1;
-        case CONTROLLER_BUTTON_GRIP: return (mask >> EVRButtonId_k_EButton_Grip) & 1;
-        case CONTROLLER_BUTTON_TOUCHPAD: return (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1;
-        default: return 0;
+      switch (path.pieces[2]) {
+        case PATH_TRIGGER:
+          *value = (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1;
+          return true;
+
+        case PATH_TRACKPAD:
+          *value = (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1;
+          return true;
+
+        case PATH_MENU:
+          *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+          return true;
+
+        case PATH_GRIP:
+          *value = (mask >> EVRButtonId_k_EButton_Grip) & 1;
+          return true;
+
+        default: return false;
       }
   }
 }
@@ -257,18 +324,6 @@ static const float* openvrGetBoundsGeometry(int* count) {
   return NULL;
 }
 
-static TrackedDeviceIndex_t getDeviceIndexForPath(Path path) {
-  if (PATH_EQ(path, PATH_HEAD)) {
-    return HEADSET_INDEX;
-  } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT)) {
-    return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
-  } else if (PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
-    return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
-  } else {
-    return k_unTrackedDeviceIndexInvalid;
-  }
-}
-
 static bool openvrGetPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
   float transform[16];
@@ -313,6 +368,14 @@ static bool openvrGetAngularVelocity(Path path, float* vx, float* vy, float* vz)
   }
 }
 
+static bool openvrIsDown(Path path, bool* down) {
+  return getButtonState(path, false, down);
+}
+
+static bool openvrIsTouched(Path path, bool* touched) {
+  return getButtonState(path, true, touched);
+}
+
 static int openvrGetAxis(Path path, float* x, float* y, float* z) {
   if (path.pieces[3] != PATH_NONE) {
     return 0;
@@ -339,7 +402,7 @@ static int openvrGetAxis(Path path, float* x, float* y, float* z) {
           *x = input.rAxis[2].x;
           return 1;
 
-        case PATH_TOUCHPAD:
+        case PATH_TRACKPAD:
           *x = input.rAxis[0].x;
           *y = input.rAxis[0].y;
           return 2;
@@ -353,7 +416,7 @@ static int openvrGetAxis(Path path, float* x, float* y, float* z) {
           *x = input.rAxis[1].x;
           return 1;
 
-        case PATH_TOUCHPAD:
+        case PATH_TRACKPAD:
           *x = input.rAxis[0].x;
           *y = input.rAxis[0].y;
           return 2;
@@ -503,20 +566,6 @@ static ControllerHand openvrControllerGetHand(Controller* controller) {
   }
 }
 
-static bool openvrControllerIsDown(Controller* controller, ControllerButton button) {
-  VRControllerState_t input;
-  state.system->GetControllerState(controller->id, &input, sizeof(input));
-  ControllerHand hand = openvrControllerGetHand(controller);
-  return getButtonState(input.ulButtonPressed, button, hand);
-}
-
-static bool openvrControllerIsTouched(Controller* controller, ControllerButton button) {
-  VRControllerState_t input;
-  state.system->GetControllerState(controller->id, &input, sizeof(input));
-  ControllerHand hand = openvrControllerGetHand(controller);
-  return getButtonState(input.ulButtonTouched, button, hand);
-}
-
 static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   if (!state.canvas) {
     uint32_t width, height;
@@ -643,14 +692,14 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getPose = openvrGetPose,
   .getVelocity = openvrGetVelocity,
   .getAngularVelocity = openvrGetAngularVelocity,
+  .isDown = openvrIsDown,
+  .isTouched = openvrIsTouched,
   .getAxis = openvrGetAxis,
   .vibrate = openvrVibrate,
   .newModelData = openvrNewModelData,
   .getControllers = openvrGetControllers,
   .controllerIsConnected = openvrControllerIsConnected,
   .controllerGetHand = openvrControllerGetHand,
-  .controllerIsDown = openvrControllerIsDown,
-  .controllerIsTouched = openvrControllerIsTouched,
   .renderTo = openvrRenderTo,
   .getMirrorTexture = openvrGetMirrorTexture,
   .update = openvrUpdate

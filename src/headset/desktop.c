@@ -151,6 +151,19 @@ static bool desktopGetAngularVelocity(Path path, float* vx, float* vy, float* vz
   return false;
 }
 
+static bool desktopIsDown(Path path, bool* down) {
+  if (PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+    *down = lovrPlatformIsMouseDown(MOUSE_RIGHT);
+    return true;
+  }
+
+  return false;
+}
+
+static bool desktopIsTouched(Path path, bool* touched) {
+  return false;
+}
+
 static int desktopGetAxis(Path path, float* x, float* y, float* z) {
   return 0;
 }
@@ -174,14 +187,6 @@ static bool desktopControllerIsConnected(Controller* controller) {
 
 static ControllerHand desktopControllerGetHand(Controller* controller) {
   return HAND_UNKNOWN;
-}
-
-static bool desktopControllerIsDown(Controller* controller, ControllerButton button) {
-  return lovrPlatformIsMouseDown(MOUSE_RIGHT);
-}
-
-static bool desktopControllerIsTouched(Controller* controller, ControllerButton button) {
-  return false;
 }
 
 static void desktopRenderTo(void (*callback)(void*), void* userdata) {
@@ -275,14 +280,14 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getPose = desktopGetPose,
   .getVelocity = desktopGetVelocity,
   .getAngularVelocity = desktopGetAngularVelocity,
+  .isDown = desktopIsDown,
+  .isTouched = desktopIsTouched,
   .getAxis = desktopGetAxis,
   .vibrate = desktopVibrate,
   .newModelData = desktopNewModelData,
   .getControllers = desktopGetControllers,
   .controllerIsConnected = desktopControllerIsConnected,
   .controllerGetHand = desktopControllerGetHand,
-  .controllerIsDown = desktopControllerIsDown,
-  .controllerIsTouched = desktopControllerIsTouched,
   .renderTo = desktopRenderTo,
   .update = desktopUpdate
 };

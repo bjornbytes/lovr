@@ -72,16 +72,16 @@ static int l_lovrControllerGetAxis(lua_State* L) {
 
 static int l_lovrControllerIsDown(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  ControllerButton button = luaL_checkoption(L, 2, NULL, ControllerButtons);
-  lua_pushboolean(L, lovrHeadsetDriver->controllerIsDown(controller, button));
-  return 1;
+  luax_pushpath(L, controller->path);
+  lua_replace(L, 1);
+  return l_lovrHeadsetIsDown(L);
 }
 
 static int l_lovrControllerIsTouched(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  ControllerButton button = luaL_checkoption(L, 2, NULL, ControllerButtons);
-  lua_pushboolean(L, lovrHeadsetDriver->controllerIsTouched(controller, button));
-  return 1;
+  luax_pushpath(L, controller->path);
+  lua_replace(L, 1);
+  return l_lovrHeadsetIsTouched(L);
 }
 
 static int l_lovrControllerVibrate(lua_State* L) {
