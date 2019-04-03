@@ -2,13 +2,10 @@
 #include "api/headset.h"
 #include "api/math.h"
 #include "headset/headset.h"
-<<<<<<< HEAD
-#include "lib/maf.h"
-#include "lib/map/map.h"
-=======
-#include "lib/math.h"
->>>>>>> Controller polyfill; rm Controller pose functions; OpenVR paths;
+#include "data/modelData.h"
+#include "graphics/model.h"
 #include "graphics/texture.h"
+#include "lib/math.h"
 
 #if defined(EMSCRIPTEN) || defined(LOVR_USE_OCULUS_MOBILE)
 #define LOVR_HEADSET_HELPER_USES_REGISTRY
@@ -370,6 +367,27 @@ int l_lovrHeadsetVibrate(lua_State* L) {
   return 1;
 }
 
+int l_lovrHeadsetNewModel(lua_State* L) {
+  Path path = luax_optpath(L, 1, "head");
+
+  ModelData* modelData = NULL;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if ((modelData = driver->newModelData(path)) != NULL) {
+      break;
+    }
+  }
+
+  if (modelData) {
+    Model* model = lovrModelCreate(modelData);
+    luax_pushobject(L, model);
+    lovrRelease(ModelData, modelData);
+    lovrRelease(Model, model);
+    return 1;
+  }
+
+  return 0;
+}
+
 static int l_lovrHeadsetGetControllers(lua_State* L) {
   uint8_t count;
   Controller** controllers = lovrHeadsetDriver->getControllers(&count);
@@ -447,6 +465,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
   { "getAxis", l_lovrHeadsetGetAxis },
   { "vibrate", l_lovrHeadsetVibrate },
+  { "newModel", l_lovrHeadsetNewModel },
   { "getControllers", l_lovrHeadsetGetControllers },
   { "getControllerCount", l_lovrHeadsetGetControllerCount },
   { "renderTo", l_lovrHeadsetRenderTo },

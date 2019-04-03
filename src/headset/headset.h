@@ -114,12 +114,12 @@ typedef struct HeadsetInterface {
   bool (*getAngularVelocity)(Path path, float* vx, float* vy, float* vz);
   int (*getAxis)(Path path, float* x, float* y, float* z);
   bool (*vibrate)(Path path, float strength, float duration, float frequency);
+  struct ModelData* (*newModelData)(Path path);
   Controller** (*getControllers)(uint8_t* count);
   bool (*controllerIsConnected)(Controller* controller);
   ControllerHand (*controllerGetHand)(Controller* controller);
   bool (*controllerIsDown)(Controller* controller, ControllerButton button);
   bool (*controllerIsTouched)(Controller* controller, ControllerButton button);
-  struct ModelData* (*controllerNewModelData)(Controller* controller);
   void (*renderTo)(void (*callback)(void*), void* userdata);
   struct Texture* (*getMirrorTexture)(void);
   void (*update)(float dt);

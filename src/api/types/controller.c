@@ -93,16 +93,9 @@ static int l_lovrControllerVibrate(lua_State* L) {
 
 static int l_lovrControllerNewModel(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
-  ModelData* modelData = lovrHeadsetDriver->controllerNewModelData(controller);
-  if (modelData) {
-    Model* model = lovrModelCreate(modelData);
-    luax_pushobject(L, model);
-    lovrRelease(ModelData, modelData);
-    lovrRelease(Model, model);
-  } else {
-    lua_pushnil(L);
-  }
-  return 1;
+  luax_pushpath(L, controller->path);
+  lua_replace(L, 1);
+  return l_lovrHeadsetNewModel(L);
 }
 
 const luaL_Reg lovrController[] = {
