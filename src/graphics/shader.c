@@ -1,5 +1,6 @@
 #include "graphics/shader.h"
 #include "graphics/graphics.h"
+#include "graphics/buffer.h"
 #include "math/math.h"
 #include "resources/shaders.h"
 #include <math.h>

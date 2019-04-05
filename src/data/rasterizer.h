@@ -10,7 +10,7 @@
 struct Blob;
 struct TextureData;
 
-typedef struct {
+typedef struct Rasterizer {
   Ref ref;
   stbtt_fontinfo font;
   struct Blob* blob;

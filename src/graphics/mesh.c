@@ -1,5 +1,7 @@
 #include "graphics/mesh.h"
+#include "Graphics/buffer.h"
 #include "graphics/graphics.h"
+#include "graphics/material.h"
 
 Buffer* lovrMeshGetVertexBuffer(Mesh* mesh) {
   return mesh->vertexBuffer;

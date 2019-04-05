@@ -1,7 +1,10 @@
 #include "api.h"
 #include "api/data.h"
 #include "api/math.h"
+#include "graphics/buffer.h"
 #include "graphics/graphics.h"
+#include "graphics/material.h"
+#include "graphics/mesh.h"
 #include <limits.h>
 
 static int l_lovrMeshAttachAttributes(lua_State* L) {

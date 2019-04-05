@@ -1,9 +1,5 @@
-#include "graphics/canvas.h"
 #include "graphics/font.h"
-#include "graphics/material.h"
-#include "graphics/mesh.h"
 #include "graphics/shader.h"
-#include "graphics/texture.h"
 #include "lib/math.h"
 #include "util.h"
 #include "platform.h"
@@ -16,6 +12,14 @@
 #define MAX_BATCHES 16
 #define MAX_DRAWS 256
 #define MAX_LOCKS 4
+
+struct Buffer;
+struct Canvas;
+struct Font;
+struct Material;
+struct Mesh;
+struct Shader;
+struct Texture;
 
 typedef void (*StencilCallback)(void* userdata);
 
@@ -72,7 +76,7 @@ typedef enum {
 
 typedef struct {
   bool stereo;
-  Canvas* canvas;
+  struct Canvas* canvas;
   float viewMatrix[2][16];
   float projection[2][16];
 } Camera;
@@ -128,7 +132,7 @@ typedef union {
   struct { float r1; float r2; bool capped; int segments; } cylinder;
   struct { int segments; } sphere;
   struct { float u; float v; float w; float h; } fill;
-  struct { Mesh* object; DrawMode mode; uint32_t rangeStart; uint32_t rangeCount; uint32_t instances; float* pose; } mesh;
+  struct { struct Mesh* object; DrawMode mode; uint32_t rangeStart; uint32_t rangeCount; uint32_t instances; float* pose; } mesh;
 } BatchParams;
 
 typedef struct {
@@ -137,9 +141,9 @@ typedef struct {
   DrawMode drawMode;
   DefaultShader shader;
   Pipeline* pipeline;
-  Material* material;
-  Texture* diffuseTexture;
-  Texture* environmentMap;
+  struct Material* material;
+  struct Texture* diffuseTexture;
+  struct Texture* environmentMap;
   mat4 transform;
   uint32_t vertexCount;
   uint32_t indexCount;
@@ -153,10 +157,10 @@ typedef struct {
   BatchType type;
   BatchParams params;
   DrawMode drawMode;
-  Canvas* canvas;
-  Shader* shader;
+  struct Canvas* canvas;
+  struct Shader* shader;
   Pipeline pipeline;
-  Material* material;
+  struct Material* material;
   mat4 transforms;
   Color* colors;
   struct { uint32_t start; uint32_t count; } cursors[MAX_BUFFER_ROLES];
@@ -170,23 +174,23 @@ typedef struct {
   int width;
   int height;
   Camera camera;
-  Shader* defaultShaders[MAX_DEFAULT_SHADERS];
-  Material* defaultMaterial;
-  Font* defaultFont;
+  struct Shader* defaultShaders[MAX_DEFAULT_SHADERS];
+  struct Material* defaultMaterial;
+  struct Font* defaultFont;
   TextureFilter defaultFilter;
   float transforms[MAX_TRANSFORMS][16];
   int transform;
   Color backgroundColor;
-  Canvas* canvas;
+  struct Canvas* canvas;
   Color color;
-  Font* font;
+  struct Font* font;
   Pipeline pipeline;
   float pointSize;
-  Shader* shader;
-  Mesh* mesh;
-  Mesh* instancedMesh;
-  Buffer* identityBuffer;
-  Buffer* buffers[MAX_BUFFER_ROLES];
+  struct Shader* shader;
+  struct Mesh* mesh;
+  struct Mesh* instancedMesh;
+  struct Buffer* identityBuffer;
+  struct Buffer* buffers[MAX_BUFFER_ROLES];
   uint32_t cursors[MAX_BUFFER_ROLES];
   void* locks[MAX_BUFFER_ROLES][MAX_LOCKS];
   Batch batches[MAX_BATCHES];
@@ -202,7 +206,7 @@ int lovrGraphicsGetWidth(void);
 int lovrGraphicsGetHeight(void);
 float lovrGraphicsGetPixelDensity(void);
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
-Buffer* lovrGraphicsGetIdentityBuffer(void);
+struct Buffer* lovrGraphicsGetIdentityBuffer(void);
 #define lovrGraphicsGetFeatures lovrGpuGetFeatures
 #define lovrGraphicsGetLimits lovrGpuGetLimits
 #define lovrGraphicsGetStats lovrGpuGetStats
@@ -215,8 +219,8 @@ Color lovrGraphicsGetBackgroundColor(void);
 void lovrGraphicsSetBackgroundColor(Color color);
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
-Canvas* lovrGraphicsGetCanvas(void);
-void lovrGraphicsSetCanvas(Canvas* canvas);
+struct Canvas* lovrGraphicsGetCanvas(void);
+void lovrGraphicsSetCanvas(struct Canvas* canvas);
 Color lovrGraphicsGetColor(void);
 void lovrGraphicsSetColor(Color color);
 bool lovrGraphicsIsCullingEnabled(void);
@@ -225,15 +229,15 @@ TextureFilter lovrGraphicsGetDefaultFilter(void);
 void lovrGraphicsSetDefaultFilter(TextureFilter filter);
 void lovrGraphicsGetDepthTest(CompareMode* mode, bool* write);
 void lovrGraphicsSetDepthTest(CompareMode depthTest, bool write);
-Font* lovrGraphicsGetFont(void);
-void lovrGraphicsSetFont(Font* font);
+struct Font* lovrGraphicsGetFont(void);
+void lovrGraphicsSetFont(struct Font* font);
 bool lovrGraphicsIsGammaCorrect(void);
 float lovrGraphicsGetLineWidth(void);
 void lovrGraphicsSetLineWidth(uint8_t width);
 float lovrGraphicsGetPointSize(void);
 void lovrGraphicsSetPointSize(float size);
-Shader* lovrGraphicsGetShader(void);
-void lovrGraphicsSetShader(Shader* shader);
+struct Shader* lovrGraphicsGetShader(void);
+void lovrGraphicsSetShader(struct Shader* shader);
 void lovrGraphicsGetStencilTest(CompareMode* mode, int* value);
 void lovrGraphicsSetStencilTest(CompareMode mode, int value);
 Winding lovrGraphicsGetWinding(void);
@@ -256,22 +260,22 @@ void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
 void lovrGraphicsBatch(BatchRequest* req);
 void lovrGraphicsFlush(void);
-void lovrGraphicsFlushCanvas(Canvas* canvas);
-void lovrGraphicsFlushShader(Shader* shader);
-void lovrGraphicsFlushMaterial(Material* material);
-void lovrGraphicsFlushMesh(Mesh* mesh);
+void lovrGraphicsFlushCanvas(struct Canvas* canvas);
+void lovrGraphicsFlushShader(struct Shader* shader);
+void lovrGraphicsFlushMaterial(struct Material* material);
+void lovrGraphicsFlushMesh(struct Mesh* mesh);
 void lovrGraphicsPoints(uint32_t count, float** vertices);
 void lovrGraphicsLine(uint32_t count, float** vertices);
-void lovrGraphicsTriangle(DrawStyle style, Material* material, uint32_t count, float** vertices);
-void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform);
-void lovrGraphicsBox(DrawStyle style, Material* material, mat4 transform);
-void lovrGraphicsArc(DrawStyle style, ArcMode mode, Material* material, mat4 transform, float r1, float r2, int segments);
-void lovrGraphicsCircle(DrawStyle style, Material* material, mat4 transform, int segments);
-void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2, bool capped, int segments);
-void lovrGraphicsSphere(Material* material, mat4 transform, int segments);
-void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az);
+void lovrGraphicsTriangle(DrawStyle style, struct Material* material, uint32_t count, float** vertices);
+void lovrGraphicsPlane(DrawStyle style, struct Material* material, mat4 transform);
+void lovrGraphicsBox(DrawStyle style, struct Material* material, mat4 transform);
+void lovrGraphicsArc(DrawStyle style, ArcMode mode, struct Material* material, mat4 transform, float r1, float r2, int segments);
+void lovrGraphicsCircle(DrawStyle style, struct Material* material, mat4 transform, int segments);
+void lovrGraphicsCylinder(struct Material* material, mat4 transform, float r1, float r2, bool capped, int segments);
+void lovrGraphicsSphere(struct Material* material, mat4 transform, int segments);
+void lovrGraphicsSkybox(struct Texture* texture, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
-void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h);
+void lovrGraphicsFill(struct Texture* texture, float u, float v, float w, float h);
 #define lovrGraphicsStencil lovrGpuStencil
 #define lovrGraphicsCompute lovrGpuCompute
 
@@ -298,9 +302,9 @@ typedef struct {
 } GpuStats;
 
 typedef struct {
-  Mesh* mesh;
-  Canvas* canvas;
-  Shader* shader;
+  struct Mesh* mesh;
+  struct Canvas* canvas;
+  struct Shader* shader;
   Pipeline pipeline;
   DrawMode drawMode;
   uint32_t instances;
@@ -313,9 +317,9 @@ typedef struct {
 
 void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress);
 void lovrGpuDestroy(void);
-void lovrGpuClear(Canvas* canvas, Color* color, float* depth, int* stencil);
-void lovrGpuCompute(Shader* shader, int x, int y, int z);
-void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil);
+void lovrGpuClear(struct Canvas* canvas, Color* color, float* depth, int* stencil);
+void lovrGpuCompute(struct Shader* shader, int x, int y, int z);
+void lovrGpuDiscard(struct Canvas* canvas, bool color, bool depth, bool stencil);
 void lovrGpuDraw(DrawCommand* draw);
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGpuPresent(void);

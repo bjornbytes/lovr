@@ -1,4 +1,3 @@
-#include "graphics/buffer.h"
 #include "graphics/texture.h"
 #include "graphics/opengl.h"
 #include "lib/map/map.h"
@@ -9,6 +8,9 @@
 
 #define LOVR_MAX_UNIFORM_LENGTH 64
 #define LOVR_MAX_ATTRIBUTE_LENGTH 64
+
+struct Buffer;
+struct Texture;
 
 typedef enum {
   ACCESS_READ,
@@ -44,7 +46,7 @@ typedef enum {
 } DefaultShader;
 
 typedef struct {
-  Texture* texture;
+  struct Texture* texture;
   int slice;
   int mipmap;
   UniformAccess access;
@@ -63,7 +65,7 @@ typedef struct {
     char* bytes;
     int* ints;
     float* floats;
-    Texture** textures;
+    struct Texture** textures;
     Image* images;
   } value;
   TextureType textureType;
@@ -79,13 +81,13 @@ typedef struct {
   BlockType type;
   vec_uniform_t uniforms;
   map_int_t uniformMap;
-  Buffer* buffer;
+  struct Buffer* buffer;
 } ShaderBlock;
 
 typedef struct {
   vec_uniform_t uniforms;
   UniformAccess access;
-  Buffer* source;
+  struct Buffer* source;
   size_t offset;
   size_t size;
   int slot;
@@ -93,7 +95,7 @@ typedef struct {
 
 typedef vec_t(UniformBlock) vec_block_t;
 
-typedef struct {
+typedef struct Shader {
   Ref ref;
   ShaderType type;
   vec_uniform_t uniforms;
@@ -120,19 +122,19 @@ const Uniform* lovrShaderGetUniform(Shader* shader, const char* name);
 void lovrShaderSetFloats(Shader* shader, const char* name, float* data, int start, int count);
 void lovrShaderSetInts(Shader* shader, const char* name, int* data, int start, int count);
 void lovrShaderSetMatrices(Shader* shader, const char* name, float* data, int start, int count);
-void lovrShaderSetTextures(Shader* shader, const char* name, Texture** data, int start, int count);
+void lovrShaderSetTextures(Shader* shader, const char* name, struct Texture** data, int start, int count);
 void lovrShaderSetImages(Shader* shader, const char* name, Image* data, int start, int count);
 void lovrShaderSetColor(Shader* shader, const char* name, Color color);
-void lovrShaderSetBlock(Shader* shader, const char* name, Buffer* buffer, size_t offset, size_t size, UniformAccess access);
+void lovrShaderSetBlock(Shader* shader, const char* name, struct Buffer* buffer, size_t offset, size_t size, UniformAccess access);
 
 // ShaderBlock
 
 size_t lovrShaderComputeUniformLayout(vec_uniform_t* uniforms);
 
-ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, BlockType type, Buffer* buffer, vec_uniform_t* uniforms);
+ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, BlockType type, struct Buffer* buffer, vec_uniform_t* uniforms);
 #define lovrShaderBlockCreate(...) lovrShaderBlockInit(lovrAlloc(ShaderBlock), __VA_ARGS__)
 void lovrShaderBlockDestroy(void* ref);
 BlockType lovrShaderBlockGetType(ShaderBlock* block);
 char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, size_t* length);
 const Uniform* lovrShaderBlockGetUniform(ShaderBlock* block, const char* name);
-Buffer* lovrShaderBlockGetBuffer(ShaderBlock* block);
+struct Buffer* lovrShaderBlockGetBuffer(ShaderBlock* block);

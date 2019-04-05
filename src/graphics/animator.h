@@ -1,11 +1,12 @@
-#include "data/modelData.h"
-#include "util.h"
+#include "types.h"
 #include "lib/math.h"
 #include "lib/map/map.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
 
 #pragma once
+
+struct ModelData;
 
 typedef struct {
   float time;
@@ -18,15 +19,15 @@ typedef struct {
 
 typedef vec_t(Track) vec_track_t;
 
-typedef struct {
+typedef struct Animator {
   Ref ref;
-  ModelData* data;
+  struct ModelData* data;
   map_int_t animations;
   vec_track_t tracks;
   float speed;
 } Animator;
 
-Animator* lovrAnimatorInit(Animator* animator, ModelData* modelData);
+Animator* lovrAnimatorInit(Animator* animator, struct ModelData* modelData);
 #define lovrAnimatorCreate(...) lovrAnimatorInit(lovrAlloc(Animator), __VA_ARGS__)
 void lovrAnimatorDestroy(void* ref);
 void lovrAnimatorReset(Animator* animator);

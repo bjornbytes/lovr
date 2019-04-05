@@ -5,8 +5,11 @@
 
 #define MAX_CANVAS_ATTACHMENTS 4
 
+struct Texture;
+struct TextureData;
+
 typedef struct {
-  Texture* texture;
+  struct Texture* texture;
   int slice;
   int level;
 } Attachment;
@@ -22,7 +25,7 @@ typedef struct {
   bool mipmaps;
 } CanvasFlags;
 
-typedef struct {
+typedef struct Canvas {
   Ref ref;
   int width;
   int height;
@@ -47,5 +50,5 @@ bool lovrCanvasIsStereo(Canvas* canvas);
 int lovrCanvasGetWidth(Canvas* canvas);
 int lovrCanvasGetHeight(Canvas* canvas);
 int lovrCanvasGetMSAA(Canvas* canvas);
-Texture* lovrCanvasGetDepthTexture(Canvas* canvas);
-TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index);
+struct Texture* lovrCanvasGetDepthTexture(Canvas* canvas);
+struct TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index);

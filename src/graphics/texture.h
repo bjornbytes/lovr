@@ -1,9 +1,12 @@
 #include "data/textureData.h"
 #include "graphics/opengl.h"
 #include "data/modelData.h"
+#include "types.h"
 #include <stdbool.h>
 
 #pragma once
+
+struct TextureData;
 
 typedef enum {
   TEXTURE_2D,
@@ -12,7 +15,7 @@ typedef enum {
   TEXTURE_VOLUME
 } TextureType;
 
-typedef struct {
+typedef struct Texture {
   Ref ref;
   TextureType type;
   TextureFormat format;
@@ -29,13 +32,13 @@ typedef struct {
   GPU_TEXTURE_FIELDS
 } Texture;
 
-Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps, int msaa);
+Texture* lovrTextureInit(Texture* texture, TextureType type, struct TextureData** slices, int sliceCount, bool srgb, bool mipmaps, int msaa);
 Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureType type);
 #define lovrTextureCreate(...) lovrTextureInit(lovrAlloc(Texture), __VA_ARGS__)
 #define lovrTextureCreateFromHandle(...) lovrTextureInitFromHandle(lovrAlloc(Texture), __VA_ARGS__)
 void lovrTextureDestroy(void* ref);
 void lovrTextureAllocate(Texture* texture, int width, int height, int depth, TextureFormat format);
-void lovrTextureReplacePixels(Texture* texture, TextureData* data, int x, int y, int slice, int mipmap);
+void lovrTextureReplacePixels(Texture* texture, struct TextureData* data, int x, int y, int slice, int mipmap);
 int lovrTextureGetWidth(Texture* texture, int mipmap);
 int lovrTextureGetHeight(Texture* texture, int mipmap);
 int lovrTextureGetDepth(Texture* texture, int mipmap);

@@ -4,6 +4,7 @@
 #include "api/math.h"
 #include "graphics/graphics.h"
 #include "graphics/animator.h"
+#include "graphics/buffer.h"
 #include "graphics/canvas.h"
 #include "graphics/material.h"
 #include "graphics/mesh.h"

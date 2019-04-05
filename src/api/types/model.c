@@ -1,5 +1,7 @@
 #include "api.h"
 #include "api/math.h"
+#include "graphics/animator.h"
+#include "graphics/material.h"
 #include "graphics/model.h"
 
 static int l_lovrModelDraw(lua_State* L) {

@@ -1,6 +1,7 @@
 #include "graphics/animator.h"
-#include <math.h>
+#include "data/modelData.h"
 #include <stdlib.h>
+#include <math.h>
 
 static int trackSortCallback(const void* a, const void* b) {
   return ((Track*) a)->priority < ((Track*) b)->priority;

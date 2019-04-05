@@ -1,8 +1,10 @@
 #include "graphics/material.h"
 #include "graphics/graphics.h"
+#include "graphics/shader.h"
+#include "graphics/texture.h"
 #include "resources/shaders.h"
-#include <math.h>
 #include <stdlib.h>
+#include <math.h>
 
 Material* lovrMaterialInit(Material* material) {
   for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {

@@ -1,5 +1,9 @@
 #include "graphics/model.h"
+#include "graphics/animator.h"
+#include "graphics/buffer.h"
 #include "graphics/graphics.h"
+#include "graphics/material.h"
+#include "graphics/mesh.h"
 #include "resources/shaders.h"
 #include <float.h>
 

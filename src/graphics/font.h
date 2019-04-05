@@ -1,11 +1,13 @@
 #include "data/rasterizer.h"
-#include "util.h"
-#include "graphics/texture.h"
+#include "types.h"
 #include "lib/map/map.h"
 #include <stdint.h>
 #include <stdbool.h>
 
 #pragma once
+
+struct Rasterizer;
+struct Texture;
 
 typedef map_t(Glyph) map_glyph_t;
 
@@ -31,10 +33,10 @@ typedef struct {
   map_glyph_t glyphs;
 } FontAtlas;
 
-typedef struct {
+typedef struct Font {
   Ref ref;
-  Rasterizer* rasterizer;
-  Texture* texture;
+  struct Rasterizer* rasterizer;
+  struct Texture* texture;
   FontAtlas atlas;
   map_int_t kerning;
   float lineHeight;
@@ -42,10 +44,10 @@ typedef struct {
   bool flip;
 } Font;
 
-Font* lovrFontInit(Font* font, Rasterizer* rasterizer);
+Font* lovrFontInit(Font* font, struct Rasterizer* rasterizer);
 #define lovrFontCreate(...) lovrFontInit(lovrAlloc(Font), __VA_ARGS__)
 void lovrFontDestroy(void* ref);
-Rasterizer* lovrFontGetRasterizer(Font* font);
+struct Rasterizer* lovrFontGetRasterizer(Font* font);
 void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, float* vertices, uint16_t* indices, uint16_t baseVertex);
 void lovrFontMeasure(Font* font, const char* string, size_t length, float wrap, float* width, uint32_t* lineCount, uint32_t* glyphCount);
 float lovrFontGetHeight(Font* font);

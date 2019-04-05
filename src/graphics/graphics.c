@@ -1,11 +1,13 @@
 #include "graphics/graphics.h"
+#include "graphics/buffer.h"
+#include "graphics/canvas.h"
+#include "graphics/material.h"
+#include "graphics/mesh.h"
+#include "graphics/texture.h"
 #include "data/rasterizer.h"
 #include "event/event.h"
-#include "filesystem/filesystem.h"
 #include "math/math.h"
-#include "util.h"
 #include "lib/math.h"
-#include "lib/stb/stb_image.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>

@@ -2,6 +2,7 @@
 #include "graphics/graphics.h"
 #include "graphics/buffer.h"
 #include "graphics/canvas.h"
+#include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/shader.h"
 #include "graphics/texture.h"

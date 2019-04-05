@@ -175,7 +175,7 @@ typedef struct {
   float* inverseBindMatrices;
 } ModelSkin;
 
-typedef struct {
+typedef struct ModelData {
   Ref ref;
   void* data;
   struct Blob** blobs;

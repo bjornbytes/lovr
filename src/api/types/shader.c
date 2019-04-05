@@ -1,6 +1,7 @@
 #include "api.h"
 #include "api/graphics.h"
 #include "api/math.h"
+#include "graphics/buffer.h"
 #include "graphics/shader.h"
 
 struct TempData {

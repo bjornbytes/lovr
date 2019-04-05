@@ -1,6 +1,6 @@
 #include "graphics/opengl.h"
-#include "util.h"
-#include <stdlib.h>
+#include "types.h"
+#include <stddef.h>
 #include <stdbool.h>
 
 #pragma once
@@ -20,7 +20,7 @@ typedef enum {
   USAGE_STREAM
 } BufferUsage;
 
-typedef struct {
+typedef struct Buffer {
   Ref ref;
   void* data;
   size_t size;
