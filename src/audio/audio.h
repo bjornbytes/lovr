@@ -4,6 +4,7 @@
 #include <AL/alc.h>
 #include <AL/alext.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #pragma once
 

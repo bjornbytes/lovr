@@ -7,6 +7,8 @@
 #include "lib/glad/glad.h"
 #endif
 
+#include <stdint.h>
+
 #pragma once
 
 #define GPU_BUFFER_FIELDS \

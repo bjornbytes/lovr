@@ -303,7 +303,9 @@ set(LOVR_SRC
   src/main.c
   src/util.c
   src/luax.c
+  src/types.c
   src/api/lovr.c
+  src/lib/utf.c
   src/lib/math.c
   src/lib/map/map.c
   src/lib/vec/vec.c

@@ -4,6 +4,7 @@
 #include "lib/stb/stb_vorbis.h"
 #include <limits.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 SoundData* lovrSoundDataInit(SoundData* soundData, int samples, int sampleRate, int bitDepth, int channelCount) {
   soundData->samples = samples;
