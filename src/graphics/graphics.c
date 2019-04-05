@@ -513,7 +513,7 @@ void lovrGraphicsBatch(BatchRequest* req) {
     }
   }
 
-  if (!req->instanced || !batch) {
+  if (req->vertexCount > 0 && (!req->instanced || !batch)) {
     *(req->vertices) = lovrGraphicsMapBuffer(STREAM_VERTEX, req->vertexCount);
     uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, req->vertexCount);
     memset(ids, batch ? batch->count : 0, req->vertexCount * sizeof(uint8_t));
