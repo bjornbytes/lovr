@@ -34,7 +34,7 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count
   }
 
   for (int i = 0; i < canvas->attachmentCount; i++) {
-    lovrRelease(canvas->attachments[i].texture);
+    lovrRelease(Texture, canvas->attachments[i].texture);
   }
 
   memcpy(canvas->attachments, attachments, count * sizeof(Attachment));

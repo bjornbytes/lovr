@@ -51,13 +51,13 @@ Font* lovrFontInit(Font* font, Rasterizer* rasterizer) {
 
 void lovrFontDestroy(void* ref) {
   Font* font = ref;
-  lovrRelease(font->rasterizer);
-  lovrRelease(font->texture);
+  lovrRelease(Rasterizer, font->rasterizer);
+  lovrRelease(Texture, font->texture);
   const char* key;
   map_iter_t iter = map_iter(&font->atlas.glyphs);
   while ((key = map_next(&font->atlas.glyphs, &iter)) != NULL) {
     Glyph* glyph = map_get(&font->atlas.glyphs, key);
-    lovrRelease(glyph->data);
+    lovrRelease(TextureData, glyph->data);
   }
   map_deinit(&font->atlas.glyphs);
   map_deinit(&font->kerning);
@@ -342,10 +342,10 @@ void lovrFontExpandTexture(Font* font) {
 // TODO we only need the TextureData here to clear the texture, but it's a big waste of memory.
 // Could look into using glClearTexImage when supported to make this more efficient.
 void lovrFontCreateTexture(Font* font) {
-  lovrRelease(font->texture);
+  lovrRelease(Texture, font->texture);
   TextureData* textureData = lovrTextureDataCreate(font->atlas.width, font->atlas.height, 0x0, FORMAT_RGB);
   font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false, false, 0);
   lovrTextureSetFilter(font->texture, (TextureFilter) { .mode = FILTER_BILINEAR });
   lovrTextureSetWrap(font->texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP });
-  lovrRelease(textureData);
+  lovrRelease(TextureData, textureData);
 }

@@ -28,7 +28,7 @@ static int threadRunner(void* data) {
   mtx_lock(&thread->lock);
   thread->running = false;
   mtx_unlock(&thread->lock);
-  lovrRelease(thread);
+  lovrRelease(Thread, thread);
 
   if (thread->error) {
     lovrEventPush((Event) {
@@ -47,7 +47,7 @@ static int l_lovrThreadNewThread(lua_State* L) {
   const char* body = luaL_checkstring(L, 1);
   Thread* thread = lovrThreadCreate(threadRunner, body);
   luax_pushobject(L, thread);
-  lovrRelease(thread);
+  lovrRelease(Thread, thread);
   return 1;
 }
 

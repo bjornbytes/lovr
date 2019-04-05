@@ -323,7 +323,7 @@ static Texture* lovrGpuGetDefaultTexture() {
   if (!state.defaultTexture) {
     TextureData* textureData = lovrTextureDataCreate(1, 1, 0xff, FORMAT_RGBA);
     state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false, 0);
-    lovrRelease(textureData);
+    lovrRelease(TextureData, textureData);
   }
 
   return state.defaultTexture;
@@ -453,7 +453,7 @@ static void lovrGpuBindTexture(Texture* texture, int slot) {
 
   if (texture != state.textures[slot]) {
     lovrRetain(texture);
-    lovrRelease(state.textures[slot]);
+    lovrRelease(Texture, state.textures[slot]);
     state.textures[slot] = texture;
     if (state.activeTexture != slot) {
       glActiveTexture(GL_TEXTURE0 + slot);
@@ -481,7 +481,7 @@ static void lovrGpuBindImage(Image* image, int slot) {
     int slice = layered ? 0 : image->slice;
 
     lovrRetain(texture);
-    lovrRelease(state.images[slot].texture);
+    lovrRelease(Texture, state.images[slot].texture);
     glBindImageTexture(slot, texture->id, image->mipmap, layered, slice, glAccess, glFormat);
     memcpy(state.images + slot, image, sizeof(Image));
   }
@@ -994,12 +994,12 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
 }
 
 void lovrGpuDestroy() {
-  lovrRelease(state.defaultTexture);
+  lovrRelease(Texture, state.defaultTexture);
   for (int i = 0; i < MAX_TEXTURES; i++) {
-    lovrRelease(state.textures[i]);
+    lovrRelease(Texture, state.textures[i]);
   }
   for (int i = 0; i < MAX_IMAGES; i++) {
-    lovrRelease(state.images[i].texture);
+    lovrRelease(Texture, state.images[i].texture);
   }
   for (int i = 0; i < MAX_BARRIERS; i++) {
     vec_deinit(&state.incoherents[i]);
@@ -1482,9 +1482,9 @@ void lovrCanvasDestroy(void* ref) {
     glDeleteFramebuffers(1, &canvas->resolveBuffer);
   }
   for (int i = 0; i < canvas->attachmentCount; i++) {
-    lovrRelease(canvas->attachments[i].texture);
+    lovrRelease(Texture, canvas->attachments[i].texture);
   }
-  lovrRelease(canvas->depth.texture);
+  lovrRelease(Texture, canvas->depth.texture);
 }
 
 void lovrCanvasResolve(Canvas* canvas) {
@@ -1952,7 +1952,7 @@ void lovrShaderDestroy(void* ref) {
   for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_COMPUTE; type++) {
     UniformBlock* block; int i;
     vec_foreach_ptr(&shader->blocks[type], block, i) {
-      lovrRelease(block->source);
+      lovrRelease(Buffer, block->source);
     }
   }
   vec_deinit(&shader->uniforms);
@@ -1981,19 +1981,19 @@ void lovrMeshDestroy(void* ref) {
   lovrGraphicsFlushMesh(mesh);
   glDeleteVertexArrays(1, &mesh->vao);
   for (int i = 0; i < mesh->attributeCount; i++) {
-    lovrRelease(mesh->attributes[i].buffer);
+    lovrRelease(Buffer, mesh->attributes[i].buffer);
   }
   map_deinit(&mesh->attributeMap);
-  lovrRelease(mesh->vertexBuffer);
-  lovrRelease(mesh->indexBuffer);
-  lovrRelease(mesh->material);
+  lovrRelease(Buffer, mesh->vertexBuffer);
+  lovrRelease(Buffer, mesh->indexBuffer);
+  lovrRelease(Material, mesh->material);
 }
 
 void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer, uint32_t indexCount, size_t indexSize, size_t offset) {
   if (mesh->indexBuffer != buffer || mesh->indexCount != indexCount || mesh->indexSize != indexSize) {
     lovrGraphicsFlushMesh(mesh);
     lovrRetain(buffer);
-    lovrRelease(mesh->indexBuffer);
+    lovrRelease(Buffer, mesh->indexBuffer);
     mesh->indexBuffer = buffer;
     mesh->indexCount = indexCount;
     mesh->indexSize = indexSize;

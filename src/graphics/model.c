@@ -187,12 +187,12 @@ Model* lovrModelInit(Model* model, ModelData* data) {
 void lovrModelDestroy(void* ref) {
   Model* model = ref;
   for (int i = 0; i < model->data->bufferCount; i++) {
-    lovrRelease(model->buffers[i]);
+    lovrRelease(Buffer, model->buffers[i]);
   }
   for (int i = 0; i < model->data->primitiveCount; i++) {
-    lovrRelease(model->meshes[i]);
+    lovrRelease(Mesh, model->meshes[i]);
   }
-  lovrRelease(model->data);
+  lovrRelease(ModelData, model->data);
 }
 
 void lovrModelDraw(Model* model, mat4 transform, int instances) {
@@ -207,7 +207,7 @@ Animator* lovrModelGetAnimator(Model* model) {
 void lovrModelSetAnimator(Model* model, Animator* animator) {
   if (model->animator != animator) {
     lovrRetain(animator);
-    lovrRelease(model->animator);
+    lovrRelease(Animator, model->animator);
     model->animator = animator;
   }
 }
@@ -218,7 +218,7 @@ Material* lovrModelGetMaterial(Model* model) {
 
 void lovrModelSetMaterial(Model* model, Material* material) {
   lovrRetain(material);
-  lovrRelease(model->userMaterial);
+  lovrRelease(Material, model->userMaterial);
   model->userMaterial = material;
 }
 

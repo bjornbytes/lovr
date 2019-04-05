@@ -316,7 +316,7 @@ void lovrColliderDestroyData(Collider* collider) {
   vec_void_t* joints = lovrColliderGetJoints(collider);
   Joint* joint; int j;
   vec_foreach(joints, joint, j) {
-    lovrRelease(joint);
+    lovrRelease(Joint, joint);
   }
 
   dBodyDestroy(collider->body);
@@ -328,7 +328,7 @@ void lovrColliderDestroyData(Collider* collider) {
   collider->next = collider->prev = NULL;
 
   // If the Collider is destroyed, the world lets go of its reference to this Collider
-  lovrRelease(collider);
+  lovrRelease(Collider, collider);
 }
 
 World* lovrColliderGetWorld(Collider* collider) {
@@ -353,7 +353,7 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
     dSpaceRemove(collider->world->space, shape->id);
     dGeomSetBody(shape->id, 0);
     shape->collider = NULL;
-    lovrRelease(shape);
+    lovrRelease(Shape, shape);
   }
 }
 

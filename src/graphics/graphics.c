@@ -160,19 +160,19 @@ void lovrGraphicsDestroy() {
   lovrGraphicsSetFont(NULL);
   lovrGraphicsSetCanvas(NULL);
   for (int i = 0; i < MAX_DEFAULT_SHADERS; i++) {
-    lovrRelease(state.defaultShaders[i]);
+    lovrRelease(Shader, state.defaultShaders[i]);
   }
   for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
-    lovrRelease(state.buffers[i]);
+    lovrRelease(Buffer, state.buffers[i]);
     for (int j = 0; j < MAX_LOCKS; j++) {
       lovrGpuDestroyLock(state.locks[i][j]);
     }
   }
-  lovrRelease(state.mesh);
-  lovrRelease(state.instancedMesh);
-  lovrRelease(state.identityBuffer);
-  lovrRelease(state.defaultMaterial);
-  lovrRelease(state.defaultFont);
+  lovrRelease(Mesh, state.mesh);
+  lovrRelease(Mesh, state.instancedMesh);
+  lovrRelease(Buffer, state.identityBuffer);
+  lovrRelease(Material, state.defaultMaterial);
+  lovrRelease(Font, state.defaultFont);
   lovrGpuDestroy();
   memset(&state, 0, sizeof(GraphicsState));
 }
@@ -306,7 +306,7 @@ void lovrGraphicsSetCanvas(Canvas* canvas) {
   }
 
   lovrRetain(canvas);
-  lovrRelease(state.canvas);
+  lovrRelease(Canvas, state.canvas);
   state.canvas = canvas;
 }
 
@@ -349,7 +349,7 @@ Font* lovrGraphicsGetFont() {
     if (!state.defaultFont) {
       Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
       state.defaultFont = lovrFontCreate(rasterizer);
-      lovrRelease(rasterizer);
+      lovrRelease(Rasterizer, rasterizer);
     }
 
     lovrGraphicsSetFont(state.defaultFont);
@@ -360,7 +360,7 @@ Font* lovrGraphicsGetFont() {
 
 void lovrGraphicsSetFont(Font* font) {
   lovrRetain(font);
-  lovrRelease(state.font);
+  lovrRelease(Font, state.font);
   state.font = font;
 }
 
@@ -392,7 +392,7 @@ Shader* lovrGraphicsGetShader() {
 void lovrGraphicsSetShader(Shader* shader) {
   lovrAssert(!shader || lovrShaderGetType(shader) == SHADER_GRAPHICS, "Compute shaders can not be set as the active shader");
   lovrRetain(shader);
-  lovrRelease(state.shader);
+  lovrRelease(Shader, state.shader);
   state.shader = shader;
 }
 

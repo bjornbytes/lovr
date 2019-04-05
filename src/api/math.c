@@ -103,7 +103,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
   }
 
   luax_pushobject(L, curve);
-  lovrRelease(curve);
+  lovrRelease(Curve, curve);
   return 1;
 }
 
@@ -111,7 +111,7 @@ static int l_lovrMathNewPool(lua_State* L) {
   size_t size = luaL_optinteger(L, 1, DEFAULT_POOL_SIZE);
   Pool* pool = lovrPoolCreate(size);
   luax_pushobject(L, pool);
-  lovrRelease(pool);
+  lovrRelease(Pool, pool);
   return 1;
 }
 
@@ -122,7 +122,7 @@ static int l_lovrMathNewRandomGenerator(lua_State* L) {
     lovrRandomGeneratorSetSeed(generator, seed);
   }
   luax_pushobject(L, generator);
-  lovrRelease(generator);
+  lovrRelease(RandomGenerator, generator);
   return 1;
 }
 

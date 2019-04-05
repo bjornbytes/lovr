@@ -12,7 +12,7 @@ static int luax_meta__tostring(lua_State* L) {
 }
 
 static int luax_meta__gc(lua_State* L) {
-  lovrRelease(*(Ref**) lua_touserdata(L, 1));
+  lovrGenericRelease(*(Ref**) lua_touserdata(L, 1));
   return 0;
 }
 

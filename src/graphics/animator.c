@@ -34,7 +34,7 @@ Animator* lovrAnimatorInit(Animator* animator, ModelData* data) {
 
 void lovrAnimatorDestroy(void* ref) {
   Animator* animator = ref;
-  lovrRelease(animator->data);
+  lovrRelease(ModelData, animator->data);
   vec_deinit(&animator->tracks);
 }
 

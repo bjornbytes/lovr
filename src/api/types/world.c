@@ -44,7 +44,7 @@ static int l_lovrWorldNewCollider(lua_State* L) {
   float z = luax_optfloat(L, 4, 0.f);
   Collider* collider = lovrColliderCreate(world, x, y, z);
   luax_pushobject(L, collider);
-  lovrRelease(collider);
+  lovrRelease(Collider, collider);
   return 1;
 }
 
@@ -60,8 +60,8 @@ static int l_lovrWorldNewBoxCollider(lua_State* L) {
   BoxShape* shape = lovrBoxShapeCreate(sx, sy, sz);
   lovrColliderAddShape(collider, shape);
   luax_pushobject(L, collider);
-  lovrRelease(collider);
-  lovrRelease(shape);
+  lovrRelease(Collider, collider);
+  lovrRelease(Shape, shape);
   return 1;
 }
 
@@ -76,8 +76,8 @@ static int l_lovrWorldNewCapsuleCollider(lua_State* L) {
   CapsuleShape* shape = lovrCapsuleShapeCreate(radius, length);
   lovrColliderAddShape(collider, shape);
   luax_pushobject(L, collider);
-  lovrRelease(collider);
-  lovrRelease(shape);
+  lovrRelease(Collider, collider);
+  lovrRelease(Shape, shape);
   return 1;
 }
 
@@ -92,8 +92,8 @@ static int l_lovrWorldNewCylinderCollider(lua_State* L) {
   CylinderShape* shape = lovrCylinderShapeCreate(radius, length);
   lovrColliderAddShape(collider, shape);
   luax_pushobject(L, collider);
-  lovrRelease(collider);
-  lovrRelease(shape);
+  lovrRelease(Collider, collider);
+  lovrRelease(Shape, shape);
   return 1;
 }
 
@@ -107,8 +107,8 @@ static int l_lovrWorldNewSphereCollider(lua_State* L) {
   SphereShape* shape = lovrSphereShapeCreate(radius);
   lovrColliderAddShape(collider, shape);
   luax_pushobject(L, collider);
-  lovrRelease(collider);
-  lovrRelease(shape);
+  lovrRelease(Collider, collider);
+  lovrRelease(Shape, shape);
   return 1;
 }
 

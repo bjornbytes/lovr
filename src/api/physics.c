@@ -40,7 +40,7 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
   }
   World* world = lovrWorldCreate(xg, yg, zg, allowSleep, tags, tagCount);
   luax_pushobject(L, world);
-  lovrRelease(world);
+  lovrRelease(World, world);
   return 1;
 }
 
@@ -52,7 +52,7 @@ static int l_lovrPhysicsNewBallJoint(lua_State* L) {
   float z = luax_checkfloat(L, 5);
   BallJoint* joint = lovrBallJointCreate(a, b, x, y, z);
   luax_pushobject(L, joint);
-  lovrRelease(joint);
+  lovrRelease(Joint, joint);
   return 1;
 }
 
@@ -62,7 +62,7 @@ static int l_lovrPhysicsNewBoxShape(lua_State* L) {
   float z = luax_optfloat(L, 3, x);
   BoxShape* box = lovrBoxShapeCreate(x, y, z);
   luax_pushobject(L, box);
-  lovrRelease(box);
+  lovrRelease(Shape, box);
   return 1;
 }
 
@@ -71,7 +71,7 @@ static int l_lovrPhysicsNewCapsuleShape(lua_State* L) {
   float length = luax_optfloat(L, 2, 1.f);
   CapsuleShape* capsule = lovrCapsuleShapeCreate(radius, length);
   luax_pushobject(L, capsule);
-  lovrRelease(capsule);
+  lovrRelease(Shape, capsule);
   return 1;
 }
 
@@ -80,7 +80,7 @@ static int l_lovrPhysicsNewCylinderShape(lua_State* L) {
   float length = luax_optfloat(L, 2, 1.f);
   CylinderShape* cylinder = lovrCylinderShapeCreate(radius, length);
   luax_pushobject(L, cylinder);
-  lovrRelease(cylinder);
+  lovrRelease(Shape, cylinder);
   return 1;
 }
 
@@ -95,7 +95,7 @@ static int l_lovrPhysicsNewDistanceJoint(lua_State* L) {
   float z2 = luax_checkfloat(L, 8);
   DistanceJoint* joint = lovrDistanceJointCreate(a, b, x1, y1, z1, x2, y2, z2);
   luax_pushobject(L, joint);
-  lovrRelease(joint);
+  lovrRelease(Joint, joint);
   return 1;
 }
 
@@ -110,7 +110,7 @@ static int l_lovrPhysicsNewHingeJoint(lua_State* L) {
   float az = luax_checkfloat(L, 8);
   HingeJoint* joint = lovrHingeJointCreate(a, b, x, y, z, ax, ay, az);
   luax_pushobject(L, joint);
-  lovrRelease(joint);
+  lovrRelease(Joint, joint);
   return 1;
 }
 
@@ -122,7 +122,7 @@ static int l_lovrPhysicsNewSliderJoint(lua_State* L) {
   float az = luax_checkfloat(L, 5);
   SliderJoint* joint = lovrSliderJointCreate(a, b, ax, ay, az);
   luax_pushobject(L, joint);
-  lovrRelease(joint);
+  lovrRelease(Joint, joint);
   return 1;
 }
 
@@ -130,7 +130,7 @@ static int l_lovrPhysicsNewSphereShape(lua_State* L) {
   float radius = luax_optfloat(L, 1, 1.f);
   SphereShape* sphere = lovrSphereShapeCreate(radius);
   luax_pushobject(L, sphere);
-  lovrRelease(sphere);
+  lovrRelease(Shape, sphere);
   return 1;
 }
 
