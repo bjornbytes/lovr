@@ -283,12 +283,12 @@ static int l_lovrLightUserdataOp(lua_State* L) {
 int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrMath);
-  luax_registertype(L, "Curve", lovrCurve);
-  luax_registertype(L, "Pool", lovrPool);
-  luax_registertype(L, "RandomGenerator", lovrRandomGenerator);
+  luax_registertype(L, Curve);
+  luax_registertype(L, Pool);
+  luax_registertype(L, RandomGenerator);
 
   for (int i = 0; i < MAX_MATH_TYPES; i++) {
-    luax_registertype(L, lovrMathTypeNames[i], lovrMathTypes[i]);
+    _luax_registertype(L, lovrMathTypeNames[i], lovrMathTypes[i]);
     luaL_getmetatable(L, lovrMathTypeNames[i]);
 
     // Remove usual __gc handler

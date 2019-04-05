@@ -150,16 +150,16 @@ static const luaL_Reg lovrPhysics[] = {
 int luaopen_lovr_physics(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrPhysics);
-  luax_registertype(L, "World", lovrWorld);
-  luax_registertype(L, "Collider", lovrCollider);
-  luax_extendtype(L, "Joint", "BallJoint", lovrJoint, lovrBallJoint);
-  luax_extendtype(L, "Joint", "DistanceJoint", lovrJoint, lovrDistanceJoint);
-  luax_extendtype(L, "Joint", "HingeJoint", lovrJoint, lovrHingeJoint);
-  luax_extendtype(L, "Joint", "SliderJoint", lovrJoint, lovrSliderJoint);
-  luax_extendtype(L, "Shape", "SphereShape", lovrShape, lovrSphereShape);
-  luax_extendtype(L, "Shape", "BoxShape", lovrShape, lovrBoxShape);
-  luax_extendtype(L, "Shape", "CapsuleShape", lovrShape, lovrCapsuleShape);
-  luax_extendtype(L, "Shape", "CylinderShape", lovrShape, lovrCylinderShape);
+  luax_registertype(L, World);
+  luax_registertype(L, Collider);
+  luax_extendtype(L, Joint, BallJoint);
+  luax_extendtype(L, Joint, DistanceJoint);
+  luax_extendtype(L, Joint, HingeJoint);
+  luax_extendtype(L, Joint, SliderJoint);
+  luax_extendtype(L, Shape, SphereShape);
+  luax_extendtype(L, Shape, BoxShape);
+  luax_extendtype(L, Shape, CapsuleShape);
+  luax_extendtype(L, Shape, CylinderShape);
   if (lovrPhysicsInit()) {
     luax_atexit(L, lovrPhysicsDestroy);
   }

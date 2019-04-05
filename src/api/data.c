@@ -132,11 +132,11 @@ static const luaL_Reg lovrData[] = {
 int luaopen_lovr_data(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrData);
-  luax_registertype(L, "Blob", lovrBlob);
-  luax_registertype(L, "AudioStream", lovrAudioStream);
-  luax_registertype(L, "ModelData", lovrModelData);
-  luax_registertype(L, "Rasterizer", lovrRasterizer);
-  luax_extendtype(L, "Blob", "SoundData", lovrBlob, lovrSoundData);
-  luax_extendtype(L, "Blob", "TextureData", lovrBlob, lovrTextureData);
+  luax_registertype(L, Blob);
+  luax_registertype(L, AudioStream);
+  luax_registertype(L, ModelData);
+  luax_registertype(L, Rasterizer);
+  luax_extendtype(L, Blob, SoundData);
+  luax_extendtype(L, Blob, TextureData);
   return 1;
 }

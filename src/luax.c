@@ -100,7 +100,7 @@ void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
   lua_pop(L, 1);
 }
 
-void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions) {
+void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions) {
 
   // Push metatable
   luaL_newmetatable(L, name);
@@ -131,17 +131,10 @@ void luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions
   lua_pop(L, 1);
 }
 
-void luax_extendtype(lua_State* L, const char* base, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions) {
-  luax_registertype(L, name, functions);
+void _luax_extendtype(lua_State* L, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions) {
+  _luax_registertype(L, name, functions);
   luaL_getmetatable(L, name);
-
-  lua_pushstring(L, base);
-  lua_setfield(L, -2, "super");
-
-  if (baseFunctions) {
-    luaL_register(L, NULL, baseFunctions);
-  }
-
+  luaL_register(L, NULL, baseFunctions);
   lua_pop(L, 1);
 }
 

@@ -1508,15 +1508,15 @@ static const luaL_Reg lovrGraphics[] = {
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
-  luax_registertype(L, "Animator", lovrAnimator);
-  luax_registertype(L, "Font", lovrFont);
-  luax_registertype(L, "Material", lovrMaterial);
-  luax_registertype(L, "Mesh", lovrMesh);
-  luax_registertype(L, "Model", lovrModel);
-  luax_registertype(L, "Shader", lovrShader);
-  luax_registertype(L, "ShaderBlock", lovrShaderBlock);
-  luax_registertype(L, "Texture", lovrTexture);
-  luax_registertype(L, "Canvas", lovrCanvas);
+  luax_registertype(L, Animator);
+  luax_registertype(L, Font);
+  luax_registertype(L, Material);
+  luax_registertype(L, Mesh);
+  luax_registertype(L, Model);
+  luax_registertype(L, Shader);
+  luax_registertype(L, ShaderBlock);
+  luax_registertype(L, Texture);
+  luax_registertype(L, Canvas);
 
   luax_pushconf(L);
 
