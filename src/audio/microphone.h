@@ -7,7 +7,7 @@
 
 struct SoundData;
 
-typedef struct {
+typedef struct Microphone {
   Ref ref;
   ALCdevice* device;
   const char* name;
