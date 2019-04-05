@@ -18,7 +18,6 @@ void lovrMicrophoneDestroy(void* ref) {
   Microphone* microphone = ref;
   lovrMicrophoneStopRecording(microphone);
   alcCaptureCloseDevice(microphone->device);
-  free(microphone);
 }
 
 int lovrMicrophoneGetBitDepth(Microphone* microphone) {

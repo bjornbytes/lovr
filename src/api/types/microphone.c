@@ -1,6 +1,7 @@
 #include "api.h"
 #include "audio/microphone.h"
 #include "data/soundData.h"
+#include <stdlib.h>
 
 static int l_lovrMicrophoneGetBitDepth(lua_State* L) {
   Microphone* microphone = luax_checktype(L, 1, Microphone);
