@@ -1,4 +1,6 @@
 #include "data/modelData.h"
+#include "data/blob.h"
+#include "data/textureData.h"
 #include "filesystem/filesystem.h"
 #include "lib/math.h"
 #include "lib/map/map.h"

@@ -1,4 +1,5 @@
 #include "data/blob.h"
+#include "types.h"
 #include "util.h"
 #include "lib/vec/vec.h"
 #include <stdint.h>
@@ -36,7 +37,7 @@ typedef struct {
 
 typedef vec_t(Mipmap) vec_mipmap_t;
 
-typedef struct {
+typedef struct TextureData {
   Blob blob;
   int width;
   int height;

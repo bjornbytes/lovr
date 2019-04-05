@@ -1,7 +1,8 @@
 #include "data/blob.h"
-#include "data/audioStream.h"
 
 #pragma once
+
+struct AudioStream;
 
 typedef struct SoundData {
   Blob blob;
@@ -12,7 +13,7 @@ typedef struct SoundData {
 } SoundData;
 
 SoundData* lovrSoundDataInit(SoundData* soundData, int samples, int sampleRate, int bitDepth, int channels);
-SoundData* lovrSoundDataInitFromAudioStream(SoundData* soundData, AudioStream* audioStream);
+SoundData* lovrSoundDataInitFromAudioStream(SoundData* soundData, struct AudioStream* audioStream);
 SoundData* lovrSoundDataInitFromBlob(SoundData* soundData, Blob* blob);
 #define lovrSoundDataCreate(...) lovrSoundDataInit(lovrAlloc(SoundData), __VA_ARGS__)
 #define lovrSoundDataCreateFromAudioStream(...) lovrSoundDataInitFromAudioStream(lovrAlloc(SoundData), __VA_ARGS__)

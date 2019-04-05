@@ -1,4 +1,6 @@
 #include "data/modelData.h"
+#include "data/blob.h"
+#include "data/textureData.h"
 
 ModelData* lovrModelDataInit(ModelData* model, Blob* source) {
   if (lovrModelDataInitGltf(model, source)) {

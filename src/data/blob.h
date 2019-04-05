@@ -1,9 +1,9 @@
-#include "util.h"
-#include <stdlib.h>
+#include "types.h"
+#include <stddef.h>
 
 #pragma once
 
-typedef struct {
+typedef struct Blob {
   Ref ref;
   void* data;
   size_t size;

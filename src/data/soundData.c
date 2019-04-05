@@ -1,6 +1,9 @@
 #include "data/soundData.h"
+#include "data/audioStream.h"
+#include "util.h"
 #include "lib/stb/stb_vorbis.h"
 #include <limits.h>
+#include <stdlib.h>
 
 SoundData* lovrSoundDataInit(SoundData* soundData, int samples, int sampleRate, int bitDepth, int channelCount) {
   soundData->samples = samples;

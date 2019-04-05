@@ -1,10 +1,14 @@
-#include "data/blob.h"
-#include "data/textureData.h"
+#include "types.h"
 #include "util.h"
+#include <stdint.h>
+#include <stdbool.h>
 
 #pragma once
 
 #define MAX_BONES 48
+
+struct TextureData;
+struct Blob;
 
 typedef enum {
   ATTR_POSITION,
@@ -174,9 +178,9 @@ typedef struct {
 typedef struct {
   Ref ref;
   void* data;
-  Blob** blobs;
+  struct Blob** blobs;
   ModelBuffer* buffers;
-  TextureData** textures;
+  struct TextureData** textures;
   ModelMaterial* materials;
   ModelAttribute* attributes;
   ModelPrimitive* primitives;
@@ -205,9 +209,9 @@ typedef struct {
   int charCount;
 } ModelData;
 
-ModelData* lovrModelDataInit(ModelData* model, Blob* blob);
+ModelData* lovrModelDataInit(ModelData* model, struct Blob* blob);
 #define lovrModelDataCreate(...) lovrModelDataInit(lovrAlloc(ModelData), __VA_ARGS__)
-ModelData* lovrModelDataInitGltf(ModelData* model, Blob* blob);
-ModelData* lovrModelDataInitObj(ModelData* model, Blob* blob);
+ModelData* lovrModelDataInitGltf(ModelData* model, struct Blob* blob);
+ModelData* lovrModelDataInitObj(ModelData* model, struct Blob* blob);
 void lovrModelDataDestroy(void* ref);
 void lovrModelDataAllocate(ModelData* model);

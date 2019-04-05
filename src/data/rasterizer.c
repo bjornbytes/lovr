@@ -1,8 +1,11 @@
 #include "data/rasterizer.h"
+#include "data/blob.h"
+#include "data/textureData.h"
 #include "resources/VarelaRound.ttf.h"
 #include "lib/utf.h"
 #include "lib/stb/stb_truetype.h"
 #include "msdfgen-c.h"
+#include <stdlib.h>
 #include <math.h>
 
 Rasterizer* lovrRasterizerInit(Rasterizer* rasterizer, Blob* blob, float size) {

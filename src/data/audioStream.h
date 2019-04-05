@@ -1,7 +1,8 @@
-#include "data/blob.h"
-#include "util.h"
+#include "types.h"
 
 #pragma once
+
+struct Blob;
 
 typedef struct AudioStream {
   Ref ref;
@@ -12,10 +13,10 @@ typedef struct AudioStream {
   int bufferSize;
   void* buffer;
   void* decoder;
-  Blob* blob;
+  struct Blob* blob;
 } AudioStream;
 
-AudioStream* lovrAudioStreamInit(AudioStream* stream, Blob* blob, int bufferSize);
+AudioStream* lovrAudioStreamInit(AudioStream* stream, struct Blob* blob, int bufferSize);
 #define lovrAudioStreamCreate(...) lovrAudioStreamInit(lovrAlloc(AudioStream), __VA_ARGS__)
 void lovrAudioStreamDestroy(void* ref);
 int lovrAudioStreamDecode(AudioStream* stream, short* destination, int size);

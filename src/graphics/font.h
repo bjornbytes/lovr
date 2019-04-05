@@ -7,6 +7,8 @@
 
 #pragma once
 
+typedef map_t(Glyph) map_glyph_t;
+
 typedef enum {
   ALIGN_LEFT,
   ALIGN_CENTER,
