@@ -105,7 +105,6 @@ void lovrSetErrorCallback(lovrErrorHandler callback, void* context);
 void _Noreturn lovrThrow(const char* format, ...);
 void* _lovrAlloc(size_t size, Type type);
 size_t utf8_decode(const char *s, const char *e, unsigned *pch);
-uint32_t nextPo2(uint32_t x);
 
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 #define lovrAlloc(T) (T*) _lovrAlloc(sizeof(T), T_ ## T)
