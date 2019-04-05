@@ -1,5 +1,6 @@
 #include "util.h"
 #include <stdbool.h>
+#include <stdint.h>
 
 #define POOL_ALIGN 16
 #define DEFAULT_POOL_SIZE (640 * 1024)
