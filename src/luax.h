@@ -1,10 +1,11 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "lib/map/map.h"
-#include "util.h"
+#include "types.h"
 
 #pragma once
+
+struct Color;
 
 #ifndef LUA_RIDX_MAINTHERAD
 #define LUA_RIDX_MAINTHREAD 1
@@ -37,4 +38,4 @@ int luax_getstack(lua_State* L);
 int luax_getstack_panic(lua_State *L);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
-Color luax_checkcolor(lua_State* L, int index);
+void luax_readcolor(lua_State* L, int index, struct Color* color);

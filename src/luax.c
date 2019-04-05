@@ -258,26 +258,24 @@ int luax_setconf(lua_State* L) {
   return 0;
 }
 
-Color luax_checkcolor(lua_State* L, int index) {
-  Color color = { 1., 1., 1., 1. };
+void luax_readcolor(lua_State* L, int index, Color* color) {
+  color->r = color->g = color->b = color->a = 1.f;
 
   if (lua_istable(L, 1)) {
     for (int i = 1; i <= 4; i++) {
       lua_rawgeti(L, 1, i);
     }
-    color.r = luax_checkfloat(L, -4);
-    color.g = luax_checkfloat(L, -3);
-    color.b = luax_checkfloat(L, -2);
-    color.a = luax_optfloat(L, -1, 1.);
+    color->r = luax_checkfloat(L, -4);
+    color->g = luax_checkfloat(L, -3);
+    color->b = luax_checkfloat(L, -2);
+    color->a = luax_optfloat(L, -1, 1.);
     lua_pop(L, 4);
   } else if (lua_gettop(L) >= index + 2) {
-    color.r = luax_checkfloat(L, index);
-    color.g = luax_checkfloat(L, index + 1);
-    color.b = luax_checkfloat(L, index + 2);
-    color.a = luax_optfloat(L, index + 3, 1.);
+    color->r = luax_checkfloat(L, index);
+    color->g = luax_checkfloat(L, index + 1);
+    color->b = luax_checkfloat(L, index + 2);
+    color->a = luax_optfloat(L, index + 3, 1.);
   } else {
     luaL_error(L, "Invalid color, expected 3 numbers, 4 numbers, or a table");
   }
-
-  return color;
 }

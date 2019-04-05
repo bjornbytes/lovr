@@ -426,7 +426,8 @@ static int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
 }
 
 static int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
-  Color color = luax_checkcolor(L, 1);
+  Color color;
+  luax_readcolor(L, 1, &color);
   lovrGraphicsSetBackgroundColor(color);
   return 0;
 }
@@ -469,7 +470,8 @@ static int l_lovrGraphicsGetColor(lua_State* L) {
 }
 
 static int l_lovrGraphicsSetColor(lua_State* L) {
-  Color color = luax_checkcolor(L, 1);
+  Color color;
+  luax_readcolor(L, 1, &color);
   lovrGraphicsSetColor(color);
   return 0;
 }
@@ -1116,7 +1118,8 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
   }
 
   if (lua_isnumber(L, index)) {
-    Color color = luax_checkcolor(L, index);
+    Color color;
+    luax_readcolor(L, index, &color);
     lovrMaterialSetColor(material, COLOR_DIFFUSE, color);
   }
 

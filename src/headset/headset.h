@@ -1,10 +1,12 @@
-#include "data/modelData.h"
 #include "lib/vec/vec.h"
-#include "util.h"
+#include "types.h"
 #include <stdbool.h>
-#include "graphics/texture.h"
+#include <stdint.h>
 
 #pragma once
+
+struct ModelData;
+struct Texture;
 
 typedef enum {
   EYE_BOTH = -1,
@@ -67,8 +69,6 @@ typedef struct Controller {
 
 typedef vec_t(Controller*) vec_controller_t;
 
-struct Texture;
-
 typedef struct {
   HeadsetDriver driverType;
   bool (*init)(float offset, int msaa);
@@ -94,9 +94,9 @@ typedef struct {
   bool (*controllerIsDown)(Controller* controller, ControllerButton button);
   bool (*controllerIsTouched)(Controller* controller, ControllerButton button);
   void (*controllerVibrate)(Controller* controller, float duration, float power);
-  ModelData* (*controllerNewModelData)(Controller* controller);
+  struct ModelData* (*controllerNewModelData)(Controller* controller);
   void (*renderTo)(void (*callback)(void*), void* userdata);
-  Texture* (*getMirrorTexture)(void);
+  struct Texture* (*getMirrorTexture)(void);
   void (*update)(float dt);
 } HeadsetInterface;
 

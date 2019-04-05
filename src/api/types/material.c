@@ -21,7 +21,8 @@ static int l_lovrMaterialSetColor(lua_State* L) {
     colorType = luaL_checkoption(L, index, NULL, MaterialColors);
     index++;
   }
-  Color color = luax_checkcolor(L, index);
+  Color color;
+  luax_readcolor(L, index, &color);
   lovrMaterialSetColor(material, colorType, color);
   return 0;
 }

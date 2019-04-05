@@ -1,6 +1,7 @@
 #include "api.h"
 #include "data/audioStream.h"
 #include "data/soundData.h"
+#include <string.h>
 
 static int l_lovrAudioStreamDecode(lua_State* L) {
   AudioStream* stream = luax_checktype(L, 1, AudioStream);

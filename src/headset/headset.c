@@ -1,5 +1,5 @@
 #include "headset/headset.h"
-#include "event/event.h"
+#include "util.h"
 
 HeadsetInterface* lovrHeadsetDriver = NULL;
 static bool initialized = false;

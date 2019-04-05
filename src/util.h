@@ -37,7 +37,7 @@
 #define M_PI 3.14159265358979323846264f
 #endif
 
-typedef struct { float r, g, b, a; } Color;
+typedef struct Color { float r, g, b, a; } Color;
 
 typedef void (*lovrErrorHandler)(void* userdata, const char* format, va_list args);
 extern _Thread_local lovrErrorHandler lovrErrorCallback;

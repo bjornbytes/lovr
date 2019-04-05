@@ -1,4 +1,5 @@
 #include "luax.h"
+#include "util.h"
 
 // Module loaders
 LOVR_EXPORT int luaopen_lovr(lua_State* L);
