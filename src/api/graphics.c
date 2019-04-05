@@ -763,8 +763,12 @@ static int l_lovrGraphicsPlane(lua_State* L) {
     style = luaL_checkoption(L, 1, NULL, DrawStyles);
   }
   float transform[16];
-  luax_readmat4(L, 2, transform, 2);
-  lovrGraphicsPlane(style, material, transform);
+  int index = luax_readmat4(L, 2, transform, 2);
+  float u = luax_optfloat(L, index, 0.f);
+  float v = luax_optfloat(L, index, 0.f);
+  float w = luax_optfloat(L, index, 1.f - u);
+  float h = luax_optfloat(L, index, 1.f - v);
+  lovrGraphicsPlane(style, material, transform, u, v, w, h);
   return 0;
 }
 

@@ -764,7 +764,7 @@ void lovrGraphicsTriangle(DrawStyle style, Material* material, uint32_t count, f
   }
 }
 
-void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform) {
+void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform, float u, float v, float w, float h) {
   float* vertices = NULL;
   uint16_t* indices = NULL;
   uint16_t baseVertex;
@@ -779,41 +779,38 @@ void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform) {
     .indexCount = style == STYLE_LINE ? 5 : 6,
     .vertices = &vertices,
     .indices = &indices,
-    .baseVertex = &baseVertex,
-    .instanced = true
+    .baseVertex = &baseVertex
   });
 
-  if (vertices) {
-    if (style == STYLE_LINE) {
-      static float vertexData[] = {
-        -.5, .5, 0,  0, 0, 0, 0, 0,
-        .5, .5, 0,   0, 0, 0, 0, 0,
-        .5, -.5, 0,  0, 0, 0, 0, 0,
-        -.5, -.5, 0, 0, 0, 0, 0, 0
-      };
+  if (style == STYLE_LINE) {
+    static float vertexData[] = {
+      -.5f,  .5f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+       .5f,  .5f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+       .5f, -.5f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+      -.5f, -.5f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f
+    };
 
-      memcpy(vertices, vertexData, sizeof(vertexData));
+    memcpy(vertices, vertexData, sizeof(vertexData));
 
-      indices[0] = 0xffff;
-      indices[1] = 0 + baseVertex;
-      indices[2] = 1 + baseVertex;
-      indices[3] = 2 + baseVertex;
-      indices[4] = 3 + baseVertex;
-    } else {
-      static float vertexData[] = {
-        -.5, .5, 0,  0, 0, -1, 0, 1,
-        -.5, -.5, 0, 0, 0, -1, 0, 0,
-        .5, .5, 0,   0, 0, -1, 1, 1,
-        .5, -.5, 0,  0, 0, -1, 1, 0
-      };
+    indices[0] = 0xffff;
+    indices[1] = 0 + baseVertex;
+    indices[2] = 1 + baseVertex;
+    indices[3] = 2 + baseVertex;
+    indices[4] = 3 + baseVertex;
+  } else {
+    float vertexData[] = {
+      -.5, .5, 0,  0, 0, -1, u, v + h,
+      -.5, -.5, 0, 0, 0, -1, u, v,
+      .5, .5, 0,   0, 0, -1, u + w, v + h,
+      .5, -.5, 0,  0, 0, -1, u + w, v
+    };
 
-      memcpy(vertices, vertexData, sizeof(vertexData));
+    memcpy(vertices, vertexData, sizeof(vertexData));
 
-      static uint16_t indexData[] = { 0, 1, 2, 2, 1, 3 };
+    static uint16_t indexData[] = { 0, 1, 2, 2, 1, 3 };
 
-      for (size_t i = 0; i < sizeof(indexData) / sizeof(indexData[0]); i++) {
-        indices[i] = indexData[i] + baseVertex;
-      }
+    for (size_t i = 0; i < sizeof(indexData) / sizeof(indexData[0]); i++) {
+      indices[i] = indexData[i] + baseVertex;
     }
   }
 }
