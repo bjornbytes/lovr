@@ -61,6 +61,7 @@ void lovrFontDestroy(void* ref) {
   }
   map_deinit(&font->atlas.glyphs);
   map_deinit(&font->kerning);
+  free(font);
 }
 
 Rasterizer* lovrFontGetRasterizer(Font* font) {

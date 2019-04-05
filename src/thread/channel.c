@@ -15,6 +15,7 @@ void lovrChannelDestroy(void* ref) {
   vec_deinit(&channel->messages);
   mtx_destroy(&channel->lock);
   cnd_destroy(&channel->cond);
+  free(channel);
 }
 
 bool lovrChannelPush(Channel* channel, Variant variant, double timeout, uint64_t* id) {

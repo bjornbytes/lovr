@@ -1241,6 +1241,7 @@ void lovrTextureDestroy(void* ref) {
   glDeleteTextures(1, &texture->id);
   glDeleteRenderbuffers(1, &texture->msaaId);
   lovrGpuDestroySyncResource(texture, texture->incoherent);
+  free(texture);
 }
 
 void lovrTextureAllocate(Texture* texture, int width, int height, int depth, TextureFormat format) {
@@ -1485,6 +1486,7 @@ void lovrCanvasDestroy(void* ref) {
     lovrRelease(Texture, canvas->attachments[i].texture);
   }
   lovrRelease(Texture, canvas->depth.texture);
+  free(canvas);
 }
 
 void lovrCanvasResolve(Canvas* canvas) {
@@ -1597,6 +1599,7 @@ void lovrBufferDestroy(void* ref) {
 #ifndef LOVR_WEBGL
   }
 #endif
+  free(buffer);
 }
 
 void* lovrBufferMap(Buffer* buffer, size_t offset) {
@@ -1961,6 +1964,7 @@ void lovrShaderDestroy(void* ref) {
   map_deinit(&shader->attributes);
   map_deinit(&shader->uniformMap);
   map_deinit(&shader->blockMap);
+  free(shader);
 }
 
 // Mesh
@@ -1987,6 +1991,7 @@ void lovrMeshDestroy(void* ref) {
   lovrRelease(Buffer, mesh->vertexBuffer);
   lovrRelease(Buffer, mesh->indexBuffer);
   lovrRelease(Material, mesh->material);
+  free(mesh);
 }
 
 void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer, uint32_t indexCount, size_t indexSize, size_t offset) {

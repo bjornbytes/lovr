@@ -68,6 +68,7 @@ void lovrWorldDestroy(void* ref) {
   lovrWorldDestroyData(world);
   vec_deinit(&world->overlaps);
   map_deinit(&world->tags);
+  free(world);
 }
 
 void lovrWorldDestroyData(World* world) {
@@ -300,6 +301,7 @@ void lovrColliderDestroy(void* ref) {
   lovrColliderDestroyData(collider);
   vec_deinit(&collider->shapes);
   vec_deinit(&collider->joints);
+  free(collider);
 }
 
 void lovrColliderDestroyData(Collider* collider) {
@@ -662,6 +664,7 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
 void lovrShapeDestroy(void* ref) {
   Shape* shape = ref;
   lovrShapeDestroyData(shape);
+  free(shape);
 }
 
 void lovrShapeDestroyData(Shape* shape) {
@@ -871,6 +874,7 @@ void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
 void lovrJointDestroy(void* ref) {
   Joint* joint = ref;
   lovrJointDestroyData(joint);
+  free(joint);
 }
 
 void lovrJointDestroyData(Joint* joint) {

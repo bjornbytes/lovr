@@ -51,5 +51,5 @@ void lovrHeadsetDestroy() {
 }
 
 void lovrControllerDestroy(void* ref) {
-  //
+  free(ref);
 }

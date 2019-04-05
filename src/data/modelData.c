@@ -20,6 +20,7 @@ void lovrModelDataDestroy(void* ref) {
     lovrRelease(TextureData, model->textures[i]);
   }
   free(model->data);
+  free(model);
 }
 
 // Note: this code is a scary optimization

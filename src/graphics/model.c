@@ -193,6 +193,7 @@ void lovrModelDestroy(void* ref) {
     lovrRelease(Mesh, model->meshes[i]);
   }
   lovrRelease(ModelData, model->data);
+  free(model);
 }
 
 void lovrModelDraw(Model* model, mat4 transform, int instances) {

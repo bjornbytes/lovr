@@ -18,6 +18,7 @@ Pool* lovrPoolInit(Pool* pool, size_t size) {
 void lovrPoolDestroy(void* ref) {
   Pool* pool = ref;
   free(pool->data);
+  free(pool);
 }
 
 float* lovrPoolAllocate(Pool* pool, MathType type) {

@@ -12,6 +12,7 @@ void lovrFileDestroy(void* ref) {
   if (file->handle) {
     PHYSFS_close(file->handle);
   }
+  free(file);
 }
 
 int lovrFileOpen(File* file, FileMode mode) {

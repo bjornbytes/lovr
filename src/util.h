@@ -110,5 +110,5 @@ uint32_t nextPo2(uint32_t x);
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 #define lovrAlloc(T) (T*) _lovrAlloc(sizeof(T), T_ ## T)
 #define lovrRetain(r) if (r && ++(((Ref*) r)->count) >= 0xff) lovrThrow("Ref count overflow")
-#define lovrRelease(T, r) if (r && --(((Ref*) r)->count) == 0) lovr ## T ## Destroy(r), free(r)
-#define lovrGenericRelease(r) if (r && --(((Ref*) r)->count) == 0) lovrTypeInfo[((Ref*) r)->type].destructor(r), free(r)
+#define lovrRelease(T, r) if (r && --(((Ref*) r)->count) == 0) lovr ## T ## Destroy(r)
+#define lovrGenericRelease(r) if (r && --(((Ref*) r)->count) == 0) lovrTypeInfo[((Ref*) r)->type].destructor(r)

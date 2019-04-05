@@ -198,6 +198,7 @@ void lovrShaderBlockDestroy(void* ref) {
   lovrRelease(Buffer, block->buffer);
   vec_deinit(&block->uniforms);
   map_deinit(&block->uniformMap);
+  free(block);
 }
 
 BlockType lovrShaderBlockGetType(ShaderBlock* block) {

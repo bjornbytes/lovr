@@ -27,6 +27,7 @@ void lovrMaterialDestroy(void* ref) {
   for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
     lovrRelease(Texture, material->textures[i]);
   }
+  free(material);
 }
 
 void lovrMaterialBind(Material* material, Shader* shader) {
