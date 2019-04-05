@@ -28,6 +28,10 @@ RandomGenerator* lovrRandomGeneratorInit(RandomGenerator* generator) {
   return generator;
 }
 
+void lovrRandomGeneratorDestroy(void* ref) {
+  //
+}
+
 Seed lovrRandomGeneratorGetSeed(RandomGenerator* generator) {
   return generator->seed;
 }

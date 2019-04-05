@@ -145,31 +145,24 @@ void luax_extendtype(lua_State* L, const char* base, const char* name, const lua
   lua_pop(L, 1);
 }
 
-void* _luax_totype(lua_State* L, int index, const char* type) {
+void* _luax_totype(lua_State* L, int index, Type type) {
   void** p = lua_touserdata(L, index);
 
   if (p) {
     Ref* object = *(Ref**) p;
-    if (!strcmp(object->type, type)) {
+    if (object->type == type || lovrTypeInfo[object->type].super == type) {
       return object;
-    }
-
-    if (lua_getmetatable(L, index)) {
-      lua_getfield(L, -1, "super");
-      const char* super = lua_tostring(L, -1);
-      lua_pop(L, 2);
-      return (!super || strcmp(super, type)) ? NULL : object;
     }
   }
 
   return NULL;
 }
 
-void* _luax_checktype(lua_State* L, int index, const char* type) {
+void* _luax_checktype(lua_State* L, int index, Type type, const char* debug) {
   void* object = _luax_totype(L, index, type);
 
   if (!object) {
-    luaL_typerror(L, index, type);
+    luaL_typerror(L, index, debug);
   }
 
   return object;
@@ -216,7 +209,7 @@ void luax_pushobject(lua_State* L, void* object) {
 
   // Allocate userdata
   void** u = (void**) lua_newuserdata(L, sizeof(void**));
-  luaL_getmetatable(L, ((Ref*) object)->type);
+  luaL_getmetatable(L, lovrTypeInfo[((Ref*) object)->type].name);
   lua_setmetatable(L, -2);
   lovrRetain(object);
   *u = object;

@@ -49,3 +49,7 @@ void lovrHeadsetDestroy() {
     lovrHeadsetDriver = NULL;
   }
 }
+
+void lovrControllerDestroy(void* ref) {
+  //
+}
