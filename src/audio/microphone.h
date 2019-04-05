@@ -1,10 +1,11 @@
-#include "util.h"
-#include "data/soundData.h"
+#include "types.h"
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <stdbool.h>
 
 #pragma once
+
+struct SoundData;
 
 typedef struct {
   Ref ref;
@@ -21,7 +22,7 @@ Microphone* lovrMicrophoneInit(Microphone* microphone, const char* name, int sam
 void lovrMicrophoneDestroy(void* ref);
 int lovrMicrophoneGetBitDepth(Microphone* microphone);
 int lovrMicrophoneGetChannelCount(Microphone* microphone);
-SoundData* lovrMicrophoneGetData(Microphone* microphone);
+struct SoundData* lovrMicrophoneGetData(Microphone* microphone);
 const char* lovrMicrophoneGetName(Microphone* microphone);
 int lovrMicrophoneGetSampleCount(Microphone* microphone);
 int lovrMicrophoneGetSampleRate(Microphone* microphone);

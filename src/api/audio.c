@@ -2,8 +2,10 @@
 #include "api/data.h"
 #include "api/math.h"
 #include "audio/audio.h"
+#include "audio/microphone.h"
 #include "audio/source.h"
 #include "data/audioStream.h"
+#include "data/soundData.h"
 
 const char* SourceTypes[] = {
   [SOURCE_STATIC] = "static",

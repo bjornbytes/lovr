@@ -3,7 +3,7 @@
 
 #pragma once
 
-typedef struct {
+typedef struct SoundData {
   Blob blob;
   int channelCount;
   int sampleRate;

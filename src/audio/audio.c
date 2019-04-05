@@ -1,4 +1,6 @@
 #include "audio/audio.h"
+#include "audio/source.h"
+#include "data/audioStream.h"
 #include "lib/math.h"
 #include "util.h"
 #include <stdlib.h>

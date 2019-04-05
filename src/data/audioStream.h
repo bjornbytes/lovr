@@ -3,7 +3,7 @@
 
 #pragma once
 
-typedef struct {
+typedef struct AudioStream {
   Ref ref;
   int bitDepth;
   int channelCount;

@@ -1,5 +1,7 @@
 #include "audio/microphone.h"
 #include "audio/audio.h"
+#include "data/soundData.h"
+#include "types.h"
 
 Microphone* lovrMicrophoneInit(Microphone* microphone, const char* name, int samples, int sampleRate, int bitDepth, int channelCount) {
   ALCdevice* device = alcCaptureOpenDevice(name, sampleRate, lovrAudioConvertFormat(bitDepth, channelCount), samples);

@@ -1,7 +1,5 @@
-#include "data/audioStream.h"
-#include "data/soundData.h"
 #include "lib/math.h"
-#include "util.h"
+#include "types.h"
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <stdbool.h>
@@ -9,6 +7,9 @@
 #pragma once
 
 #define SOURCE_BUFFERS 4
+
+struct AudioStream;
+struct SoundData;
 
 typedef enum {
   SOURCE_STATIC,
@@ -20,18 +21,18 @@ typedef enum {
   UNIT_SAMPLES
 } TimeUnit;
 
-typedef struct {
+typedef struct Source {
   Ref ref;
   SourceType type;
-  SoundData* soundData;
-  AudioStream* stream;
+  struct SoundData* soundData;
+  struct AudioStream* stream;
   ALuint id;
   ALuint buffers[SOURCE_BUFFERS];
   bool isLooping;
 } Source;
 
-Source* lovrSourceInitStatic(Source* source, SoundData* soundData);
-Source* lovrSourceInitStream(Source* source, AudioStream* stream);
+Source* lovrSourceInitStatic(Source* source, struct SoundData* soundData);
+Source* lovrSourceInitStream(Source* source, struct AudioStream* stream);
 #define lovrSourceCreateStatic(...) lovrSourceInitStatic(lovrAlloc(Source), __VA_ARGS__)
 #define lovrSourceCreateStream(...) lovrSourceInitStream(lovrAlloc(Source), __VA_ARGS__)
 void lovrSourceDestroy(void* ref);
