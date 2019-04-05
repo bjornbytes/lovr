@@ -1,4 +1,5 @@
 #include "filesystem/file.h"
+#include "util.h"
 #include <physfs.h>
 #include <stdlib.h>
 

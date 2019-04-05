@@ -5,6 +5,7 @@
 #include <physfs.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
