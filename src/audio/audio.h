@@ -1,48 +1,37 @@
-#include "lib/math.h"
-#include "lib/vec/vec.h"
-#include <AL/al.h>
-#include <AL/alc.h>
-#include <AL/alext.h>
+#include "types.h"
 #include <stdbool.h>
-#include <stdint.h>
 
 #pragma once
 
-#define MAX_MICROPHONES 8
+struct SoundData;
+struct Decoder;
 
-struct Source;
+typedef enum {
+  TIME_FRAMES,
+  TIME_SECONDS
+} TimeUnit;
 
-typedef struct {
-  bool initialized;
-  ALCdevice* device;
-  ALCcontext* context;
-  vec_void_t sources;
-  bool isSpatialized;
-  float orientation[4];
-  float position[3];
-  float velocity[3];
-} AudioState;
-
-ALenum lovrAudioConvertFormat(int bitDepth, int channelCount);
+typedef struct Source {
+  Ref ref;
+  struct Source* next;
+  struct Decoder* decoder;
+  float volume;
+  bool playing : 1;
+  bool looping : 1;
+  bool tracked : 1;
+} Source;
 
 bool lovrAudioInit(void);
 void lovrAudioDestroy(void);
-void lovrAudioUpdate(void);
-void lovrAudioAdd(struct Source* source);
-void lovrAudioGetDopplerEffect(float* factor, float* speedOfSound);
-void lovrAudioGetMicrophoneNames(const char* names[MAX_MICROPHONES], uint8_t* count);
-void lovrAudioGetOrientation(quat orientation);
-void lovrAudioGetPosition(vec3 position);
-void lovrAudioGetVelocity(vec3 velocity);
-float lovrAudioGetVolume(void);
-bool lovrAudioHas(struct Source* source);
-bool lovrAudioIsSpatialized(void);
-void lovrAudioPause(void);
-void lovrAudioResume(void);
-void lovrAudioRewind(void);
-void lovrAudioSetDopplerEffect(float factor, float speedOfSound);
-void lovrAudioSetOrientation(quat orientation);
-void lovrAudioSetPosition(vec3 position);
-void lovrAudioSetVelocity(vec3 velocity);
-void lovrAudioSetVolume(float volume);
-void lovrAudioStop(void);
+
+Source* lovrSourceInit(Source* source, struct Decoder* decoder);
+#define lovrSourceCreate(...) lovrSourceInit(lovrAlloc(Source), __VA_ARGS__)
+void lovrSourceDestroy(void* ref);
+void lovrSourcePlay(Source* source);
+void lovrSourcePause(Source* source);
+bool lovrSourceIsPlaying(Source* source);
+bool lovrSourceIsLooping(Source* source);
+void lovrSourceSetLooping(Source* source, bool loop);
+float lovrSourceGetVolume(Source* source);
+void lovrSourceSetVolume(Source* source, float volume);
+struct Decoder* lovrSourceGetDecoder(Source* source);

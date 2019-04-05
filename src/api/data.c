@@ -1,6 +1,5 @@
 #include "api.h"
 #include "api/data.h"
-#include "data/audioStream.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "data/soundData.h"
@@ -35,16 +34,6 @@ static int l_lovrDataNewBlob(lua_State* L) {
   return 1;
 }
 
-static int l_lovrDataNewAudioStream(lua_State* L) {
-  Blob* blob = luax_readblob(L, 1, "AudioStream");
-  int bufferSize = luaL_optinteger(L, 2, 4096);
-  AudioStream* stream = lovrAudioStreamCreate(blob, bufferSize);
-  luax_pushobject(L, stream);
-  lovrRelease(Blob, blob);
-  lovrRelease(AudioStream, stream);
-  return 1;
-}
-
 static int l_lovrDataNewModelData(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
   ModelData* modelData = lovrModelDataCreate(blob);
@@ -75,18 +64,8 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
 static int l_lovrDataNewSoundData(lua_State* L) {
   if (lua_type(L, 1) == LUA_TNUMBER) {
     int samples = luaL_checkinteger(L, 1);
-    int sampleRate = luaL_optinteger(L, 2, 44100);
-    int bitDepth = luaL_optinteger(L, 3, 16);
-    int channelCount = luaL_optinteger(L, 4, 2);
-    SoundData* soundData = lovrSoundDataCreate(samples, sampleRate, bitDepth, channelCount);
-    luax_pushobject(L, soundData);
-    lovrRelease(SoundData, soundData);
-    return 1;
-  }
-
-  AudioStream* audioStream = luax_totype(L, 1, AudioStream);
-  if (audioStream) {
-    SoundData* soundData = lovrSoundDataCreateFromAudioStream(audioStream);
+    int channelCount = luaL_optinteger(L, 2, 2);
+    SoundData* soundData = lovrSoundDataCreate(samples, channelCount);
     luax_pushobject(L, soundData);
     lovrRelease(SoundData, soundData);
     return 1;
@@ -121,7 +100,6 @@ static int l_lovrDataNewTextureData(lua_State* L) {
 
 static const luaL_Reg lovrData[] = {
   { "newBlob", l_lovrDataNewBlob },
-  { "newAudioStream", l_lovrDataNewAudioStream },
   { "newModelData", l_lovrDataNewModelData },
   { "newRasterizer", l_lovrDataNewRasterizer },
   { "newSoundData", l_lovrDataNewSoundData },
@@ -133,7 +111,6 @@ int luaopen_lovr_data(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrData);
   luax_registertype(L, Blob);
-  luax_registertype(L, AudioStream);
   luax_registertype(L, ModelData);
   luax_registertype(L, Rasterizer);
   luax_extendtype(L, Blob, SoundData);

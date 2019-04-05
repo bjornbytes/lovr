@@ -339,18 +339,14 @@ if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
     src/audio/audio.c
-    src/audio/microphone.c
-    src/audio/source.c
     src/api/audio.c
     src/api/types/source.c
-    src/api/types/microphone.c
   )
 endif()
 
 if(LOVR_ENABLE_DATA)
   add_definitions(-DLOVR_ENABLE_DATA)
   target_sources(lovr PRIVATE
-    src/data/audioStream.c
     src/data/blob.c
     src/data/modelData.c
     src/data/modelData_gltf.c
@@ -359,7 +355,6 @@ if(LOVR_ENABLE_DATA)
     src/data/soundData.c
     src/data/textureData.c
     src/api/data.c
-    src/api/types/audioStream.c
     src/api/types/blob.c
     src/api/types/modelData.c
     src/api/types/rasterizer.c

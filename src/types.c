@@ -3,7 +3,6 @@
 #include <stdlib.h>
 
 void lovrAnimatorDestroy(void*);
-void lovrAudioStreamDestroy(void*);
 void lovrBlobDestroy(void*);
 void lovrBufferDestroy(void*);
 void lovrCanvasDestroy(void*);
@@ -11,11 +10,11 @@ void lovrChannelDestroy(void*);
 void lovrColliderDestroy(void*);
 void lovrControllerDestroy(void*);
 void lovrCurveDestroy(void*);
+void lovrDecoderDestroy(void*);
 void lovrFontDestroy(void*);
 void lovrJointDestroy(void*);
 void lovrMaterialDestroy(void*);
 void lovrMeshDestroy(void*);
-void lovrMicrophoneDestroy(void*);
 void lovrModelDestroy(void*);
 void lovrModelDataDestroy(void*);
 void lovrPoolDestroy(void*);
@@ -34,7 +33,6 @@ void lovrWorldDestroy(void*);
 #define SUPERINFO(T, S) [T_ ## T] = { #T, lovr ## S ## Destroy, T_ ## S }
 const TypeInfo lovrTypeInfo[T_MAX] = {
   INFO(Animator),
-  INFO(AudioStream),
   SUPERINFO(BallJoint, Joint),
   INFO(Blob),
   SUPERINFO(BoxShape, Shape),
@@ -46,13 +44,13 @@ const TypeInfo lovrTypeInfo[T_MAX] = {
   INFO(Controller),
   INFO(Curve),
   SUPERINFO(CylinderShape, Shape),
+  INFO(Decoder),
   SUPERINFO(DistanceJoint, Joint),
   INFO(Font),
   SUPERINFO(HingeJoint, Joint),
   INFO(Joint),
   INFO(Material),
   INFO(Mesh),
-  INFO(Microphone),
   INFO(Model),
   INFO(ModelData),
   INFO(Pool),
