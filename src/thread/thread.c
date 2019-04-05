@@ -1,5 +1,6 @@
 #include "thread/thread.h"
 #include "thread/channel.h"
+#include "util.h"
 #include <stdlib.h>
 
 static ThreadState state;

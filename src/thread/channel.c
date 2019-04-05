@@ -1,4 +1,5 @@
 #include "thread/channel.h"
+#include "util.h"
 #include <math.h>
 #include <stdlib.h>
 

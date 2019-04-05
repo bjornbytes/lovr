@@ -1,5 +1,5 @@
 #include "event/event.h"
-#include "util.h"
+#include "types.h"
 #include "lib/tinycthread/tinycthread.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
