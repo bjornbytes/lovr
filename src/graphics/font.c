@@ -3,7 +3,7 @@
 #include "graphics/texture.h"
 #include "data/rasterizer.h"
 #include "data/textureData.h"
-#include "util.h"
+#include "lib/utf.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

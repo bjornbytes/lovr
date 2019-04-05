@@ -1,6 +1,6 @@
 #include "data/rasterizer.h"
 #include "resources/VarelaRound.ttf.h"
-#include "util.h"
+#include "lib/utf.h"
 #include "lib/stb/stb_truetype.h"
 #include "msdfgen-c.h"
 #include <math.h>
