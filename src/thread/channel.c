@@ -108,12 +108,7 @@ bool lovrChannelPeek(Channel* channel, Variant* variant) {
 void lovrChannelClear(Channel* channel) {
   mtx_lock(&channel->lock);
   for (int i = 0; i < channel->messages.length; i++) {
-    Variant variant = channel->messages.data[i];
-    if (variant.type == TYPE_STRING) {
-      free(variant.value.string);
-    } else if (variant.type == TYPE_OBJECT) {
-      lovrGenericRelease(variant.value.ref);
-    }
+    lovrVariantDestroy(&channel->messages.data[i]);
   }
   channel->received = channel->sent;
   vec_clear(&channel->messages);
