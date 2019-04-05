@@ -1,5 +1,5 @@
 #include "graphics/mesh.h"
-#include "Graphics/buffer.h"
+#include "graphics/buffer.h"
 #include "graphics/graphics.h"
 #include "graphics/material.h"
 

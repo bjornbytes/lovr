@@ -118,7 +118,7 @@ static bool oculusInit(float offset, int msaa) {
 static void oculusDestroy() {
   Controller *controller; int i;
   vec_foreach(&state.controllers, controller, i) {
-    lovrRelease(controller);
+    lovrRelease(Controller, controller);
   }
   vec_deinit(&state.controllers);
 
@@ -126,7 +126,7 @@ static void oculusDestroy() {
   map_iter_t iter = map_iter(&state.textureLookup);
   while ((key = map_next(&state.textureLookup, &iter)) != NULL) {
     Texture* texture = *(Texture**) map_get(&state.textureLookup, key);
-    lovrRelease(texture);
+    lovrRelease(Texture, texture);
   }
   map_deinit(&state.textureLookup);
 
@@ -140,7 +140,7 @@ static void oculusDestroy() {
     state.chain = NULL;
   }
 
-  lovrRelease(state.canvas);
+  lovrRelease(Canvas, state.canvas);
   ovr_Destroy(state.session);
   ovr_Shutdown();
   memset(&state, 0, sizeof(state));
