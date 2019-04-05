@@ -61,6 +61,7 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
           .instances = instances,
           .pose = node->skin >= 0 ? pose : NULL
         },
+        .drawMode = primitive->mode,
         .transform = globalTransform,
         .material = material
       });
