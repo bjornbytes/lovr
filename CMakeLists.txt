@@ -62,7 +62,6 @@ if(EMSCRIPTEN)
   set(LOVR_USE_WEBVR ON)
   set(LOVR_USE_OPENVR OFF)
   set(LOVR_USE_OCULUS OFF)
-  set(LOVR_USE_SSE OFF)
   set(LOVR_ENABLE_THREAD OFF)
 elseif(ANDROID)
   set(LOVR_USE_OPENVR OFF)
@@ -70,13 +69,16 @@ elseif(ANDROID)
   set(LOVR_USE_DESKTOP_HEADSET OFF)
   set(LOVR_USE_OCULUS_MOBILE ON)
   set(LOVR_USE_LUAJIT OFF) # Until buildvm re-invoke works
-  set(LOVR_USE_SSE OFF) # Assume ARM. Technically wrong on Android X86…?
   set(LOVR_BUILD_SHARED ON) # Android has only "activities"
 elseif(UNIX)
   if(APPLE)
     set(CMAKE_MACOSX_RPATH 1)
   endif()
   find_package(PkgConfig)
+endif()
+
+if(EMSCRIPTEN OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm")
+  set(LOVR_USE_SSE OFF)
 endif()
 
 # PhysicsFS
