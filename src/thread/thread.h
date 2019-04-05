@@ -5,14 +5,14 @@
 
 #pragma once
 
-typedef struct Channel Channel;
+struct Channel;
 
 typedef struct {
   bool initialized;
   map_void_t channels;
 } ThreadState;
 
-typedef struct {
+typedef struct Thread {
   Ref ref;
   thrd_t handle;
   mtx_t lock;

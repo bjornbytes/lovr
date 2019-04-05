@@ -7,14 +7,14 @@
 
 #pragma once
 
-struct Channel {
+typedef struct Channel {
   Ref ref;
   mtx_t lock;
   cnd_t cond;
-  vec_variant_t messages;
+  vec_t(Variant) messages;
   uint64_t sent;
   uint64_t received;
-};
+} Channel;
 
 Channel* lovrChannelInit(Channel* channel);
 #define lovrChannelCreate() lovrChannelInit(lovrAlloc(Channel))

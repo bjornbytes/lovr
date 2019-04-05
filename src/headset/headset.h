@@ -60,7 +60,7 @@ typedef enum {
   HAND_RIGHT
 } ControllerHand;
 
-typedef struct {
+typedef struct Controller {
   Ref ref;
   uint32_t id;
 } Controller;

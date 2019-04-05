@@ -1,11 +1,13 @@
 #include "headset/headset.h"
-#include "thread/thread.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
 
 #pragma once
 
 #define MAX_EVENT_NAME_LENGTH 32
+
+struct Controller;
+struct Thread;
 
 typedef enum {
   EVENT_QUIT,
@@ -41,8 +43,6 @@ typedef struct {
   VariantValue value;
 } Variant;
 
-typedef vec_t(Variant) vec_variant_t;
-
 typedef struct {
   bool restart;
   int exitCode;
@@ -53,12 +53,12 @@ typedef struct {
 } BoolEvent;
 
 typedef struct {
-  Thread* thread;
+  struct Thread* thread;
   const char* error;
 } ThreadEvent;
 
 typedef struct {
-  Controller* controller;
+  struct Controller* controller;
   ControllerButton button;
 } ControllerEvent;
 
@@ -83,13 +83,10 @@ typedef struct {
 
 typedef void (*EventPump)(void);
 
-typedef vec_t(EventPump) vec_pump_t;
-typedef vec_t(Event) vec_event_t;
-
 typedef struct {
   bool initialized;
-  vec_pump_t pumps;
-  vec_event_t events;
+  vec_t(EventPump) pumps;
+  vec_t(Event) events;
 } EventState;
 
 void lovrVariantDestroy(Variant* variant);
