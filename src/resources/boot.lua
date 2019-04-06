@@ -1,15 +1,6 @@
 lovr = require 'lovr'
 
 local function nogame()
-  local logo, controllers
-  local function refreshControllers()
-    controllers = {}
-    if not lovr.headset then return end
-    for _, controller in pairs(lovr.headset.getControllers()) do
-      controllers[controller] = controller:newModel()
-    end
-  end
-
   function lovr.conf(t)
     t.modules.audio = false
     t.modules.math = false
@@ -26,15 +17,10 @@ local function nogame()
     local texture = lovr.graphics.newTexture(lovr.data.newBlob(lovr._logo, 'logo.png'))
     logo = lovr.graphics.newMaterial(texture)
     lovr.graphics.setBackgroundColor(.960, .988, 1.0)
-    refreshControllers()
   end
 
   function lovr.draw()
     lovr.graphics.setColor(1.0, 1.0, 1.0)
-    for controller, model in pairs(controllers) do
-      local x, y, z = controller:getPosition()
-      model:draw(x, y, z, 1, controller:getOrientation())
-    end
     local padding = .1
     local font = lovr.graphics.getFont()
     local fade = .315 + .685 * math.abs(math.sin(lovr.timer.getTime() * 2))
@@ -47,9 +33,6 @@ local function nogame()
     lovr.graphics.print('No game :(', -.01, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
     lovr.graphics.setColor(1, 1, 1)
   end
-
-  lovr.controlleradded = refreshControllers
-  lovr.controllerremoved = refreshControllers
 end
 
 -- Note: Cannot be overloaded
