@@ -69,7 +69,13 @@ static TrackedDeviceIndex_t getDeviceIndexForPath(Path path) {
 }
 
 static bool getButtonState(Path path, bool touch, bool* value) {
-  if (!PATH_EQ(path, PATH_HANDS, PATH_LEFT) && !PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+  VRControllerState_t input;
+
+  if (PATH_EQ(path, PATH_HEAD, PATH_PROXIMITY) && !touch) {
+    state.system->GetControllerState(HEADSET_INDEX, &input, sizeof(input));
+    *value = (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
+    return true;
+  } else if (!PATH_EQ(path, PATH_HANDS, PATH_LEFT) && !PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
     return false;
   }
 
@@ -78,7 +84,6 @@ static bool getButtonState(Path path, bool touch, bool* value) {
     return false;
   }
 
-  VRControllerState_t input;
   if (!state.system->GetControllerState(deviceIndex, &input, sizeof(input))) {
     return false;
   }
