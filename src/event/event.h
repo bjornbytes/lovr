@@ -1,12 +1,11 @@
-#include "headset/headset.h"
 #include "lib/vec/vec.h"
+#include "types.h"
 #include <stdbool.h>
 
 #pragma once
 
 #define MAX_EVENT_NAME_LENGTH 32
 
-struct Controller;
 struct Thread;
 
 typedef enum {
@@ -14,12 +13,6 @@ typedef enum {
   EVENT_FOCUS,
   EVENT_MOUNT,
   EVENT_THREAD_ERROR,
-#ifdef LOVR_ENABLE_HEADSET
-  EVENT_CONTROLLER_ADDED,
-  EVENT_CONTROLLER_REMOVED,
-  EVENT_CONTROLLER_PRESSED,
-  EVENT_CONTROLLER_RELEASED,
-#endif
   EVENT_CUSTOM
 } EventType;
 
@@ -58,11 +51,6 @@ typedef struct {
 } ThreadEvent;
 
 typedef struct {
-  struct Controller* controller;
-  ControllerButton button;
-} ControllerEvent;
-
-typedef struct {
   char name[MAX_EVENT_NAME_LENGTH];
   Variant data[4];
   int count;
@@ -72,7 +60,6 @@ typedef union {
   QuitEvent quit;
   BoolEvent boolean;
   ThreadEvent thread;
-  ControllerEvent controller;
   CustomEvent custom;
 } EventData;
 

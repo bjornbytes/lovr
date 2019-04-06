@@ -1,4 +1,4 @@
-#include "event/event.h"
+#include "headset/headset.h"
 #include "graphics/graphics.h"
 #include "lib/maf.h"
 #include "platform.h"
@@ -10,8 +10,6 @@
 static struct {
   HeadsetType type;
   float offset;
-
-  vec_controller_t controllers;
 
   float clipNear;
   float clipFar;
@@ -29,41 +27,15 @@ static struct {
   double prevCursorY;
 } state;
 
-static void onMouseButton(MouseButton button, ButtonAction action) {
-  if (button == MOUSE_RIGHT) {
-    Controller* controller; int i;
-    vec_foreach(&state.controllers, controller, i) {
-      lovrEventPush((Event) {
-        .type = action == BUTTON_PRESSED ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED,
-        .data.controller = { controller, CONTROLLER_BUTTON_TRIGGER }
-      });
-    }
-  }
-}
-
 static bool desktopInit(float offset, int msaa) {
   state.offset = offset;
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
-
   mat4_identity(state.transform);
-
-  vec_init(&state.controllers);
-  Controller* controller = lovrAlloc(Controller);
-  controller->id = 0;
-  controller->path = MAKE_PATH(PATH_HANDS, PATH_LEFT);
-  vec_push(&state.controllers, controller);
-
-  lovrPlatformOnMouseButton(onMouseButton);
   return true;
 }
 
 static void desktopDestroy(void) {
-  Controller *controller; int i;
-  vec_foreach(&state.controllers, controller, i) {
-    lovrRelease(Controller, controller);
-  }
-  vec_deinit(&state.controllers);
   memset(&state, 0, sizeof(state));
 }
 
@@ -176,15 +148,6 @@ static ModelData* desktopNewModelData(Path path) {
   return NULL;
 }
 
-static Controller** desktopGetControllers(uint8_t* count) {
-  *count = state.controllers.length;
-  return state.controllers.data;
-}
-
-static bool desktopControllerIsConnected(Controller* controller) {
-  return true;
-}
-
 static void desktopRenderTo(void (*callback)(void*), void* userdata) {
   uint32_t width, height;
   desktopGetDisplayDimensions(&width, &height);
@@ -281,8 +244,6 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getAxis = desktopGetAxis,
   .vibrate = desktopVibrate,
   .newModelData = desktopNewModelData,
-  .getControllers = desktopGetControllers,
-  .controllerIsConnected = desktopControllerIsConnected,
   .renderTo = desktopRenderTo,
   .update = desktopUpdate
 };

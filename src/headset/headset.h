@@ -9,10 +9,9 @@ struct ModelData;
 struct Texture;
 
 typedef enum {
-  EYE_BOTH = -1,
-  EYE_LEFT,
-  EYE_RIGHT
-} HeadsetEye;
+  SIDE_LEFT,
+  SIDE_RIGHT
+} Chirality;
 
 typedef enum {
   ORIGIN_HEAD,
@@ -61,40 +60,6 @@ typedef union {
 #define PATH_EQ(p, ...) ((p).u64 == MAKE_PATH(__VA_ARGS__).u64)
 #define PATH_STARTS_WITH(p, ...) ((MAKE_PATH(__VA_ARGS__).u64 ^ p.u64 & MAKE_PATH(__VA_ARGS__).u64) == 0)
 
-typedef enum {
-  CONTROLLER_AXIS_TRIGGER,
-  CONTROLLER_AXIS_GRIP,
-  CONTROLLER_AXIS_TOUCHPAD_X,
-  CONTROLLER_AXIS_TOUCHPAD_Y
-} ControllerAxis;
-
-typedef enum {
-  CONTROLLER_BUTTON_SYSTEM,
-  CONTROLLER_BUTTON_MENU,
-  CONTROLLER_BUTTON_TRIGGER,
-  CONTROLLER_BUTTON_GRIP,
-  CONTROLLER_BUTTON_TOUCHPAD,
-  CONTROLLER_BUTTON_A,
-  CONTROLLER_BUTTON_B,
-  CONTROLLER_BUTTON_X,
-  CONTROLLER_BUTTON_Y,
-  CONTROLLER_BUTTON_UNKNOWN // Must be last item
-} ControllerButton;
-
-typedef enum {
-  HAND_UNKNOWN,
-  HAND_LEFT,
-  HAND_RIGHT
-} ControllerHand;
-
-typedef struct Controller {
-  Ref ref;
-  uint32_t id;
-  Path path;
-} Controller;
-
-typedef vec_t(Controller*) vec_controller_t;
-
 // The interface implemented by headset backends
 //   - The 'next' pointer is used internally to create a linked list of tracking drivers.
 //   - If the renderTo function is implemented, the backend is a "display" backend.  Only the first
@@ -122,8 +87,6 @@ typedef struct HeadsetInterface {
   int (*getAxis)(Path path, float* x, float* y, float* z);
   bool (*vibrate)(Path path, float strength, float duration, float frequency);
   struct ModelData* (*newModelData)(Path path);
-  Controller** (*getControllers)(uint8_t* count);
-  bool (*controllerIsConnected)(Controller* controller);
   void (*renderTo)(void (*callback)(void*), void* userdata);
   struct Texture* (*getMirrorTexture)(void);
   void (*update)(float dt);
@@ -145,4 +108,3 @@ extern HeadsetInterface* lovrHeadsetTrackingDrivers;
 
 bool lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa);
 void lovrHeadsetDestroy(void);
-void lovrControllerDestroy(void* ref);

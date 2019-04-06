@@ -1,3 +1,4 @@
+#include "headset/headset.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
@@ -37,7 +38,6 @@ typedef struct {
   RenderModel_TextureMap_t* deviceTextures[16];
   Canvas* canvas;
   vec_float_t boundsGeometry;
-  vec_controller_t controllers;
   HeadsetType type;
   float clipNear;
   float clipFar;
@@ -70,57 +70,6 @@ static TrackedDeviceIndex_t getDeviceIndexForPath(Path path) {
   }
 }
 
-static bool isController(TrackedDeviceIndex_t id) {
-  return state.system->IsTrackedDeviceConnected(id) &&
-    (state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_Controller ||
-    state.system->GetTrackedDeviceClass(id) == ETrackedDeviceClass_TrackedDeviceClass_GenericTracker);
-}
-
-static ControllerHand getControllerHand(Controller* controller) {
-  switch (state.system->GetControllerRoleForTrackedDeviceIndex(controller->id)) {
-    case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
-    case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
-    default: return HAND_UNKNOWN;
-  }
-}
-
-static ControllerButton getButton(uint32_t button, ControllerHand hand) {
-  switch (state.type) {
-    case HEADSET_RIFT:
-      switch (button) {
-        case EVRButtonId_k_EButton_Axis1: return CONTROLLER_BUTTON_TRIGGER;
-        case EVRButtonId_k_EButton_Axis2: return CONTROLLER_BUTTON_GRIP;
-        case EVRButtonId_k_EButton_Axis0: return CONTROLLER_BUTTON_TOUCHPAD;
-        case EVRButtonId_k_EButton_A:
-          switch (hand) {
-            case HAND_LEFT: return CONTROLLER_BUTTON_X;
-            case HAND_RIGHT: return CONTROLLER_BUTTON_A;
-            default: return CONTROLLER_BUTTON_UNKNOWN;
-          }
-        case EVRButtonId_k_EButton_ApplicationMenu:
-          switch (hand) {
-            case HAND_LEFT: return CONTROLLER_BUTTON_Y;
-            case HAND_RIGHT: return CONTROLLER_BUTTON_B;
-            default: return CONTROLLER_BUTTON_UNKNOWN;
-          }
-        default: return CONTROLLER_BUTTON_UNKNOWN;
-      }
-      break;
-
-    default:
-      switch (button) {
-        case EVRButtonId_k_EButton_System: return CONTROLLER_BUTTON_SYSTEM;
-        case EVRButtonId_k_EButton_ApplicationMenu: return CONTROLLER_BUTTON_MENU;
-        case EVRButtonId_k_EButton_SteamVR_Trigger: return CONTROLLER_BUTTON_TRIGGER;
-        case EVRButtonId_k_EButton_Grip: return CONTROLLER_BUTTON_GRIP;
-        case EVRButtonId_k_EButton_SteamVR_Touchpad: return CONTROLLER_BUTTON_TOUCHPAD;
-        default: return CONTROLLER_BUTTON_UNKNOWN;
-      }
-  }
-
-  return CONTROLLER_BUTTON_UNKNOWN;
-}
-
 static bool getButtonState(Path path, bool touch, bool* value) {
   if (!PATH_EQ(path, PATH_HANDS, PATH_LEFT) && !PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
     return false;
@@ -138,10 +87,10 @@ static bool getButtonState(Path path, bool touch, bool* value) {
 
   uint64_t mask = touch ? input.ulButtonTouched : input.ulButtonPressed;
 
-  ControllerHand hand = HAND_UNKNOWN;
+  Chirality hand = SIDE_LEFT;
   switch (state.system->GetControllerRoleForTrackedDeviceIndex(deviceIndex)) {
-    case ETrackedControllerRole_TrackedControllerRole_LeftHand: return HAND_LEFT;
-    case ETrackedControllerRole_TrackedControllerRole_RightHand: return HAND_RIGHT;
+    case ETrackedControllerRole_TrackedControllerRole_LeftHand: hand = SIDE_LEFT; break;
+    case ETrackedControllerRole_TrackedControllerRole_RightHand: hand = SIDE_RIGHT; break;
     default: break;
   }
 
@@ -161,19 +110,19 @@ static bool getButtonState(Path path, bool touch, bool* value) {
           return true;
 
         case PATH_A:
-          *value = hand == HAND_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
+          *value = hand == SIDE_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
           return true;
 
         case PATH_B:
-          *value = hand == HAND_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+          *value = hand == SIDE_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
           return true;
 
         case PATH_X:
-          *value = hand == HAND_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
+          *value = hand == SIDE_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
           return true;
 
         case PATH_Y:
-          *value = hand == HAND_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+          *value = hand == SIDE_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
           return true;
 
         default: return false;
@@ -242,15 +191,6 @@ static bool openvrInit(float offset, int msaa) {
   state.msaa = msaa;
 
   vec_init(&state.boundsGeometry);
-  vec_init(&state.controllers);
-  for (uint32_t i = 0; i < k_unMaxTrackedDeviceCount; i++) {
-    if (isController(i)) {
-      Controller* controller = lovrAlloc(Controller);
-      controller->id = i;
-      vec_push(&state.controllers, controller);
-    }
-  }
-
   return true;
 }
 
@@ -266,12 +206,7 @@ static void openvrDestroy(void) {
     state.deviceModels[i] = NULL;
     state.deviceTextures[i] = NULL;
   }
-  Controller* controller; int i;
-  vec_foreach(&state.controllers, controller, i) {
-    lovrRelease(Controller, controller);
-  }
   vec_deinit(&state.boundsGeometry);
-  vec_deinit(&state.controllers);
   VR_ShutdownInternal();
   memset(&state, 0, sizeof(HeadsetState));
 }
@@ -555,15 +490,6 @@ static ModelData* openvrNewModelData(Path path) {
   return model;
 }
 
-static Controller** openvrGetControllers(uint8_t* count) {
-  *count = state.controllers.length;
-  return state.controllers.data;
-}
-
-static bool openvrControllerIsConnected(Controller* controller) {
-  return state.system->IsTrackedDeviceConnected(controller->id);
-}
-
 static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   if (!state.canvas) {
     uint32_t width, height;
@@ -609,56 +535,9 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
 static void openvrUpdate(float dt) {
   state.compositor->WaitGetPoses(state.poses, 16, NULL, 0);
 
-  // Poll for new events after waiting for poses (to get as many events as possible)
   struct VREvent_t vrEvent;
   while (state.system->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
     switch (vrEvent.eventType) {
-      case EVREventType_VREvent_TrackedDeviceActivated: {
-        uint32_t id = vrEvent.trackedDeviceIndex;
-        if (isController(id)) {
-          Controller* controller = lovrAlloc(Controller);
-          controller->id = id;
-          vec_push(&state.controllers, controller);
-          lovrRetain(controller);
-          lovrEventPush((Event) { .type = EVENT_CONTROLLER_ADDED, .data.controller = { controller, 0 } });
-        }
-        break;
-      }
-
-      case EVREventType_VREvent_TrackedDeviceDeactivated:
-        for (int i = 0; i < state.controllers.length; i++) {
-          Controller* controller = state.controllers.data[i];
-          if (controller->id == vrEvent.trackedDeviceIndex) {
-            lovrRetain(controller);
-            lovrEventPush((Event) { .type = EVENT_CONTROLLER_REMOVED, .data.controller = { controller, 0 } });
-            vec_swapsplice(&state.controllers, i, 1);
-            lovrRelease(Controller, controller);
-            break;
-          }
-        }
-        break;
-
-      case EVREventType_VREvent_ButtonPress:
-      case EVREventType_VREvent_ButtonUnpress: {
-        bool isPress = vrEvent.eventType == EVREventType_VREvent_ButtonPress;
-
-        if (vrEvent.trackedDeviceIndex == HEADSET_INDEX && vrEvent.data.controller.button == EVRButtonId_k_EButton_ProximitySensor) {
-          lovrEventPush((Event) { .type = EVENT_MOUNT, .data.boolean = { isPress } });
-          break;
-        }
-
-        for (int i = 0; i < state.controllers.length; i++) {
-          Controller* controller = state.controllers.data[i];
-          if (controller->id == vrEvent.trackedDeviceIndex) {
-            ControllerButton button = getButton(vrEvent.data.controller.button, getControllerHand(controller));
-            EventType type = isPress ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED;
-            lovrEventPush((Event) { .type = type, .data.controller = { controller, button } });
-            break;
-          }
-        }
-        break;
-      }
-
       case EVREventType_VREvent_InputFocusCaptured:
       case EVREventType_VREvent_InputFocusReleased: {
         bool isFocused = vrEvent.eventType == EVREventType_VREvent_InputFocusReleased;
@@ -695,8 +574,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getAxis = openvrGetAxis,
   .vibrate = openvrVibrate,
   .newModelData = openvrNewModelData,
-  .getControllers = openvrGetControllers,
-  .controllerIsConnected = openvrControllerIsConnected,
   .renderTo = openvrRenderTo,
   .getMirrorTexture = openvrGetMirrorTexture,
   .update = openvrUpdate

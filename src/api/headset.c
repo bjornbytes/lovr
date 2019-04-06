@@ -5,39 +5,11 @@
 #include "data/modelData.h"
 #include "graphics/model.h"
 #include "graphics/texture.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 
 #if defined(EMSCRIPTEN) || defined(LOVR_USE_OCULUS_MOBILE)
 #define LOVR_HEADSET_HELPER_USES_REGISTRY
 #endif
-
-const char* ControllerAxes[] = {
-  [CONTROLLER_AXIS_TRIGGER] = "trigger",
-  [CONTROLLER_AXIS_GRIP] = "grip",
-  [CONTROLLER_AXIS_TOUCHPAD_X] = "touchx",
-  [CONTROLLER_AXIS_TOUCHPAD_Y] = "touchy",
-  NULL
-};
-
-const char* ControllerButtons[] = {
-  [CONTROLLER_BUTTON_SYSTEM] = "system",
-  [CONTROLLER_BUTTON_MENU] = "menu",
-  [CONTROLLER_BUTTON_TRIGGER] = "trigger",
-  [CONTROLLER_BUTTON_GRIP] = "grip",
-  [CONTROLLER_BUTTON_TOUCHPAD] = "touchpad",
-  [CONTROLLER_BUTTON_A] = "a",
-  [CONTROLLER_BUTTON_B] = "b",
-  [CONTROLLER_BUTTON_X] = "x",
-  [CONTROLLER_BUTTON_Y] = "y",
-  NULL
-};
-
-const char* ControllerHands[] = {
-  [HAND_UNKNOWN] = "unknown",
-  [HAND_LEFT] = "left",
-  [HAND_RIGHT] = "right",
-  NULL
-};
 
 const char* HeadsetDrivers[] = {
   [DRIVER_DESKTOP] = "desktop",
@@ -45,12 +17,6 @@ const char* HeadsetDrivers[] = {
   [DRIVER_OCULUS_MOBILE] = "oculusmobile",
   [DRIVER_OPENVR] = "openvr",
   [DRIVER_WEBVR] = "webvr",
-  NULL
-};
-
-const char* HeadsetEyes[] = {
-  [EYE_LEFT] = "left",
-  [EYE_RIGHT] = "right",
   NULL
 };
 
@@ -419,24 +385,6 @@ int l_lovrHeadsetNewModel(lua_State* L) {
   return 0;
 }
 
-static int l_lovrHeadsetGetControllers(lua_State* L) {
-  uint8_t count;
-  Controller** controllers = lovrHeadsetDriver->getControllers(&count);
-  lua_createtable(L, count, 0);
-  for (uint8_t i = 0; i < count; i++) {
-    luax_pushobject(L, controllers[i]);
-    lua_rawseti(L, -2, i + 1);
-  }
-  return 1;
-}
-
-static int l_lovrHeadsetGetControllerCount(lua_State* L) {
-  uint8_t count;
-  lovrHeadsetDriver->getControllers(&count);
-  lua_pushnumber(L, count);
-  return 1;
-}
-
 static int l_lovrHeadsetRenderTo(lua_State* L) {
   lua_settop(L, 1);
   luaL_checktype(L, 1, LUA_TFUNCTION);
@@ -491,7 +439,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
-  { "getDirection", l_lovrHeadsetGetDirection },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
   { "isDown", l_lovrHeadsetIsDown },
@@ -499,8 +446,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "getAxis", l_lovrHeadsetGetAxis },
   { "vibrate", l_lovrHeadsetVibrate },
   { "newModel", l_lovrHeadsetNewModel },
-  { "getControllers", l_lovrHeadsetGetControllers },
-  { "getControllerCount", l_lovrHeadsetGetControllerCount },
   { "renderTo", l_lovrHeadsetRenderTo },
   { "update", l_lovrHeadsetUpdate },
   { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
@@ -510,7 +455,6 @@ static const luaL_Reg lovrHeadset[] = {
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
-  luax_registertype(L, Controller);
 
   luax_pushconf(L);
   lua_getfield(L, -1, "headset");
