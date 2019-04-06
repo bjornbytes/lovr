@@ -26,7 +26,7 @@ extern bool VR_IsRuntimeInstalled();
 #define HEADSET_INDEX k_unTrackedDeviceIndex_Hmd
 #define INVALID_INDEX k_unTrackedDeviceIndexInvalid
 
-typedef struct {
+static struct {
   struct VR_IVRSystem_FnTable* system;
   struct VR_IVRCompositor_FnTable* compositor;
   struct VR_IVRChaperone_FnTable* chaperone;
@@ -42,9 +42,7 @@ typedef struct {
   float clipFar;
   float offset;
   int msaa;
-} HeadsetState;
-
-static HeadsetState state;
+} state;
 
 static bool getTransform(unsigned int device, mat4 transform) {
   TrackedDevicePose_t pose = state.poses[device];
@@ -200,7 +198,7 @@ static void destroy(void) {
   }
   vec_deinit(&state.boundsGeometry);
   VR_ShutdownInternal();
-  memset(&state, 0, sizeof(HeadsetState));
+  memset(&state, 0, sizeof(state));
 }
 
 static const char* getName(void) {
