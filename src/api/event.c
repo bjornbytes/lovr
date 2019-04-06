@@ -5,7 +5,6 @@
 const char* EventTypes[] = {
   [EVENT_QUIT] = "quit",
   [EVENT_FOCUS] = "focus",
-  [EVENT_MOUNT] = "mount",
   [EVENT_THREAD_ERROR] = "threaderror",
 };
 
@@ -84,7 +83,6 @@ static int nextEvent(lua_State* L) {
       return 2;
 
     case EVENT_FOCUS:
-    case EVENT_MOUNT:
       lua_pushboolean(L, event.data.boolean.value);
       return 2;
 

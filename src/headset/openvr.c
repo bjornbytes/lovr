@@ -2,8 +2,6 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
-#include "platform.h"
-#include "util.h"
 #include "lib/maf.h"
 #include <stdbool.h>
 #include <stdio.h>
@@ -221,12 +219,6 @@ static HeadsetOrigin openvrGetOriginType(void) {
     case ETrackingUniverseOrigin_TrackingUniverseStanding: return ORIGIN_FLOOR;
     default: return ORIGIN_HEAD;
   }
-}
-
-static bool openvrIsMounted(void) {
-  VRControllerState_t input;
-  state.system->GetControllerState(HEADSET_INDEX, &input, sizeof(input));
-  return (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
 }
 
 static void openvrGetDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -560,7 +552,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .destroy = openvrDestroy,
   .getType = openvrGetType,
   .getOriginType = openvrGetOriginType,
-  .isMounted = openvrIsMounted,
   .getDisplayDimensions = openvrGetDisplayDimensions,
   .getClipDistance = openvrGetClipDistance,
   .setClipDistance = openvrSetClipDistance,

@@ -146,11 +146,6 @@ static int l_lovrHeadsetGetOriginType(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetIsMounted(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetDriver->isMounted());
-  return 1;
-}
-
 static int l_lovrHeadsetGetDisplayWidth(lua_State* L) {
   uint32_t width, height;
   lovrHeadsetDriver->getDisplayDimensions(&width, &height);
@@ -426,7 +421,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getType", l_lovrHeadsetGetType },
   { "getOriginType", l_lovrHeadsetGetOriginType },
-  { "isMounted", l_lovrHeadsetIsMounted },
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },

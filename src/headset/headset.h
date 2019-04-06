@@ -73,7 +73,6 @@ typedef struct HeadsetInterface {
   void (*destroy)(void);
   HeadsetType (*getType)(void);
   HeadsetOrigin (*getOriginType)(void);
-  bool (*isMounted)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
   void (*getClipDistance)(float* clipNear, float* clipFar);
   void (*setClipDistance)(float clipNear, float clipFar);

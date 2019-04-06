@@ -47,10 +47,6 @@ static HeadsetOrigin desktopGetOriginType(void) {
   return ORIGIN_HEAD;
 }
 
-static bool desktopIsMounted(void) {
-  return true;
-}
-
 static void desktopGetDisplayDimensions(uint32_t* width, uint32_t* height) {
   int w, h;
   lovrPlatformGetFramebufferSize(&w, &h);
@@ -230,7 +226,6 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .destroy = desktopDestroy,
   .getType = desktopGetType,
   .getOriginType = desktopGetOriginType,
-  .isMounted = desktopIsMounted,
   .getDisplayDimensions = desktopGetDisplayDimensions,
   .getClipDistance = desktopGetClipDistance,
   .setClipDistance = desktopSetClipDistance,
