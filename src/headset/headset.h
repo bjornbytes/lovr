@@ -27,15 +27,6 @@ typedef enum {
 } HeadsetDriver;
 
 typedef enum {
-  HEADSET_UNKNOWN,
-  HEADSET_VIVE,
-  HEADSET_RIFT,
-  HEADSET_GEAR,
-  HEADSET_GO,
-  HEADSET_WINDOWS_MR
-} HeadsetType;
-
-typedef enum {
   PATH_NONE,
   PATH_HEAD,
   PATH_HANDS,
@@ -61,24 +52,19 @@ typedef union {
 #define PATH_EQ(p, ...) ((p).u64 == MAKE_PATH(__VA_ARGS__).u64)
 #define PATH_STARTS_WITH(p, ...) ((MAKE_PATH(__VA_ARGS__).u64 ^ p.u64 & MAKE_PATH(__VA_ARGS__).u64) == 0)
 
-// The interface implemented by headset backends
-//   - The 'next' pointer is used internally to create a linked list of tracking drivers.
-//   - If the renderTo function is implemented, the backend is a "display" backend.  Only the first
-//     successfully initialized display backend will be used, the rest will be ignored.  If this
-//     becomes undesirable in the future, we could initialize subsequent display backends in a
-//     special "headless" mode to let them know that they won't need to do any rendering.
 typedef struct HeadsetInterface {
   struct HeadsetInterface* next;
   HeadsetDriver driverType;
   bool (*init)(float offset, int msaa);
   void (*destroy)(void);
-  HeadsetType (*getType)(void);
+  const char* (*getName)(void);
   HeadsetOrigin (*getOriginType)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
   void (*getClipDistance)(float* clipNear, float* clipFar);
   void (*setClipDistance)(float clipNear, float clipFar);
   void (*getBoundsDimensions)(float* width, float* depth);
   const float* (*getBoundsGeometry)(int* count);
+  bool (*isTracked)(Path path, bool* tracked);
   bool (*getPose)(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   bool (*getVelocity)(Path path, float* vx, float* vy, float* vz);
   bool (*getAngularVelocity)(Path path, float* vx, float* vy, float* vz);

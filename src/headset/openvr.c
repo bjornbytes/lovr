@@ -36,7 +36,8 @@ typedef struct {
   RenderModel_TextureMap_t* deviceTextures[16];
   Canvas* canvas;
   vec_float_t boundsGeometry;
-  HeadsetType type;
+  char name[128];
+  bool rift;
   float clipNear;
   float clipFar;
   float offset;
@@ -90,67 +91,65 @@ static bool getButtonState(Path path, bool touch, bool* value) {
 
   uint64_t mask = touch ? input.ulButtonTouched : input.ulButtonPressed;
 
-  Chirality hand = SIDE_LEFT;
-  switch (state.system->GetControllerRoleForTrackedDeviceIndex(deviceIndex)) {
-    case ETrackedControllerRole_TrackedControllerRole_LeftHand: hand = SIDE_LEFT; break;
-    case ETrackedControllerRole_TrackedControllerRole_RightHand: hand = SIDE_RIGHT; break;
-    default: break;
-  }
+  if (state.rift) {
+    Chirality hand = SIDE_LEFT;
+    switch (state.system->GetControllerRoleForTrackedDeviceIndex(deviceIndex)) {
+      case ETrackedControllerRole_TrackedControllerRole_LeftHand: hand = SIDE_LEFT; break;
+      case ETrackedControllerRole_TrackedControllerRole_RightHand: hand = SIDE_RIGHT; break;
+      default: break;
+    }
 
-  switch (state.type) {
-    case HEADSET_RIFT:
-      switch (path.pieces[2]) {
-        case PATH_TRIGGER:
-          *value = (mask >> EVRButtonId_k_EButton_Axis1) & 1;
-          return true;
+    switch (path.pieces[2]) {
+      case PATH_TRIGGER:
+        *value = (mask >> EVRButtonId_k_EButton_Axis1) & 1;
+        return true;
 
-        case PATH_GRIP:
-          *value = (mask >> EVRButtonId_k_EButton_Axis2) & 1;
-          return true;
+      case PATH_GRIP:
+        *value = (mask >> EVRButtonId_k_EButton_Axis2) & 1;
+        return true;
 
-        case PATH_TRACKPAD:
-          *value = (mask >> EVRButtonId_k_EButton_Axis0) & 1;
-          return true;
+      case PATH_TRACKPAD:
+        *value = (mask >> EVRButtonId_k_EButton_Axis0) & 1;
+        return true;
 
-        case PATH_A:
-          *value = hand == SIDE_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
-          return true;
+      case PATH_A:
+        *value = hand == SIDE_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
+        return true;
 
-        case PATH_B:
-          *value = hand == SIDE_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
-          return true;
+      case PATH_B:
+        *value = hand == SIDE_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+        return true;
 
-        case PATH_X:
-          *value = hand == SIDE_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
-          return true;
+      case PATH_X:
+        *value = hand == SIDE_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
+        return true;
 
-        case PATH_Y:
-          *value = hand == SIDE_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
-          return true;
+      case PATH_Y:
+        *value = hand == SIDE_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+        return true;
 
-        default: return false;
-      }
+      default: return false;
+    }
+  } else {
+    switch (path.pieces[2]) {
+      case PATH_TRIGGER:
+        *value = (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1;
+        return true;
 
-    default:
-      switch (path.pieces[2]) {
-        case PATH_TRIGGER:
-          *value = (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1;
-          return true;
+      case PATH_TRACKPAD:
+        *value = (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1;
+        return true;
 
-        case PATH_TRACKPAD:
-          *value = (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1;
-          return true;
+      case PATH_MENU:
+        *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+        return true;
 
-        case PATH_MENU:
-          *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
-          return true;
+      case PATH_GRIP:
+        *value = (mask >> EVRButtonId_k_EButton_Grip) & 1;
+        return true;
 
-        case PATH_GRIP:
-          *value = (mask >> EVRButtonId_k_EButton_Grip) & 1;
-          return true;
-
-        default: return false;
-      }
+      default: return false;
+    }
   }
 }
 
@@ -176,18 +175,8 @@ static bool openvrInit(float offset, int msaa) {
     return false;
   }
 
-  state.system->GetStringTrackedDeviceProperty(HEADSET_INDEX, ETrackedDeviceProperty_Prop_ManufacturerName_String, buffer, 128, NULL);
-
-  if (!strncmp(buffer, "HTC", 128)) {
-    state.type = HEADSET_VIVE;
-  } else if (!strncmp(buffer, "Oculus", 128)) {
-    state.type = HEADSET_RIFT;
-  } else if (!strncmp(buffer, "WindowsMR", 128)) {
-    state.type = HEADSET_WINDOWS_MR;
-  } else {
-    state.type = HEADSET_UNKNOWN;
-  }
-
+  state.system->GetStringTrackedDeviceProperty(HEADSET_INDEX, ETrackedDeviceProperty_Prop_ManufacturerName_String, state.name, sizeof(state.name), NULL);
+  state.rift = !strncmp(state.name, "Oculus", sizeof(state.name));
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
@@ -214,8 +203,8 @@ static void openvrDestroy(void) {
   memset(&state, 0, sizeof(HeadsetState));
 }
 
-static HeadsetType openvrGetType(void) {
-  return state.type;
+static const char* openvrGetName(void) {
+  return state.name;
 }
 
 static HeadsetOrigin openvrGetOriginType(void) {
@@ -329,38 +318,36 @@ static int openvrGetAxis(Path path, float* x, float* y, float* z) {
     return 0;
   }
 
-  switch (state.type) {
-    case HEADSET_RIFT:
-      switch (path.pieces[2]) {
-        case PATH_TRIGGER:
-          *x = input.rAxis[1].x;
-          return 1;
+  if (state.rift) {
+    switch (path.pieces[2]) {
+      case PATH_TRIGGER:
+        *x = input.rAxis[1].x;
+        return 1;
 
-        case PATH_GRIP:
-          *x = input.rAxis[2].x;
-          return 1;
+      case PATH_GRIP:
+        *x = input.rAxis[2].x;
+        return 1;
 
-        case PATH_TRACKPAD:
-          *x = input.rAxis[0].x;
-          *y = input.rAxis[0].y;
-          return 2;
+      case PATH_TRACKPAD:
+        *x = input.rAxis[0].x;
+        *y = input.rAxis[0].y;
+        return 2;
 
-        default: return 0;
-      }
+      default: return 0;
+    }
+  } else {
+    switch (path.pieces[2]) {
+      case PATH_TRIGGER:
+        *x = input.rAxis[1].x;
+        return 1;
 
-    default:
-      switch (path.pieces[2]) {
-        case PATH_TRIGGER:
-          *x = input.rAxis[1].x;
-          return 1;
+      case PATH_TRACKPAD:
+        *x = input.rAxis[0].x;
+        *y = input.rAxis[0].y;
+        return 2;
 
-        case PATH_TRACKPAD:
-          *x = input.rAxis[0].x;
-          *y = input.rAxis[0].y;
-          return 2;
-
-        default: return 0;
-      }
+      default: return 0;
+    }
   }
 
   return 0;
@@ -555,7 +542,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .driverType = DRIVER_OPENVR,
   .init = openvrInit,
   .destroy = openvrDestroy,
-  .getType = openvrGetType,
+  .getName = openvrGetName,
   .getOriginType = openvrGetOriginType,
   .getDisplayDimensions = openvrGetDisplayDimensions,
   .getClipDistance = openvrGetClipDistance,
