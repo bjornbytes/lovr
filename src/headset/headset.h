@@ -64,7 +64,6 @@ typedef struct HeadsetInterface {
   void (*setClipDistance)(float clipNear, float clipFar);
   void (*getBoundsDimensions)(float* width, float* depth);
   const float* (*getBoundsGeometry)(int* count);
-  bool (*isTracked)(Path path, bool* tracked);
   bool (*getPose)(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
   bool (*getVelocity)(Path path, float* vx, float* vy, float* vz);
   bool (*getAngularVelocity)(Path path, float* vx, float* vy, float* vz);

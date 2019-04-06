@@ -26,7 +26,7 @@ static struct {
   double prevCursorY;
 } state;
 
-static bool desktopInit(float offset, int msaa) {
+static bool init(float offset, int msaa) {
   state.offset = offset;
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
@@ -34,54 +34,45 @@ static bool desktopInit(float offset, int msaa) {
   return true;
 }
 
-static void desktopDestroy(void) {
+static void destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-static const char* desktopGetName(void) {
+static const char* getName(void) {
   return "VR Simulator";
 }
 
-static HeadsetOrigin desktopGetOriginType(void) {
+static HeadsetOrigin getOriginType(void) {
   return ORIGIN_HEAD;
 }
 
-static void desktopGetDisplayDimensions(uint32_t* width, uint32_t* height) {
+static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
   int w, h;
   lovrPlatformGetFramebufferSize(&w, &h);
   *width = (uint32_t) w;
   *height = (uint32_t) h;
 }
 
-static void desktopGetClipDistance(float* clipNear, float* clipFar) {
+static void getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
 }
 
-static void desktopSetClipDistance(float clipNear, float clipFar) {
+static void setClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
 }
 
-static void desktopGetBoundsDimensions(float* width, float* depth) {
+static void getBoundsDimensions(float* width, float* depth) {
   *width = *depth = 0.f;
 }
 
-static const float* desktopGetBoundsGeometry(int* count) {
+static const float* getBoundsGeometry(int* count) {
   *count = 0;
   return NULL;
 }
 
-static bool desktopIsTracked(Path path, bool* tracked) {
-  if (PATH_EQ(path, PATH_HEAD) || PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
-    *tracked = true;
-    return true;
-  }
-
-  return false;
-}
-
-static bool desktopGetPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool getPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (PATH_EQ(path, PATH_HEAD)) {
     *x = *y = *z = 0.f;
   } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
@@ -99,7 +90,7 @@ static bool desktopGetPose(Path path, float* x, float* y, float* z, float* angle
   return true;
 }
 
-static bool desktopGetVelocity(Path path, float* vx, float* vy, float* vz) {
+static bool getVelocity(Path path, float* vx, float* vy, float* vz) {
   if (PATH_EQ(path, PATH_HEAD)) {
     *vx = state.velocity[0];
     *vy = state.velocity[1];
@@ -113,7 +104,7 @@ static bool desktopGetVelocity(Path path, float* vx, float* vy, float* vz) {
   return false;
 }
 
-static bool desktopGetAngularVelocity(Path path, float* vx, float* vy, float* vz) {
+static bool getAngularVelocity(Path path, float* vx, float* vy, float* vz) {
   if (PATH_EQ(path, PATH_HEAD)) {
     *vx = state.angularVelocity[0];
     *vy = state.angularVelocity[1];
@@ -127,7 +118,7 @@ static bool desktopGetAngularVelocity(Path path, float* vx, float* vy, float* vz
   return false;
 }
 
-static bool desktopIsDown(Path path, bool* down) {
+static bool isDown(Path path, bool* down) {
   if (PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
     *down = lovrPlatformIsMouseDown(MOUSE_RIGHT);
     return true;
@@ -136,25 +127,25 @@ static bool desktopIsDown(Path path, bool* down) {
   return false;
 }
 
-static bool desktopIsTouched(Path path, bool* touched) {
+static bool isTouched(Path path, bool* touched) {
   return false;
 }
 
-static int desktopGetAxis(Path path, float* x, float* y, float* z) {
+static int getAxis(Path path, float* x, float* y, float* z) {
   return 0;
 }
 
-static bool desktopVibrate(Path path, float strength, float duration, float frequency) {
+static bool vibrate(Path path, float strength, float duration, float frequency) {
   return false;
 }
 
-static ModelData* desktopNewModelData(Path path) {
+static ModelData* newModelData(Path path) {
   return NULL;
 }
 
-static void desktopRenderTo(void (*callback)(void*), void* userdata) {
+static void renderTo(void (*callback)(void*), void* userdata) {
   uint32_t width, height;
-  desktopGetDisplayDimensions(&width, &height);
+  getDisplayDimensions(&width, &height);
   Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = true };
   mat4_perspective(camera.projection[0], state.clipNear, state.clipFar, 67.f * M_PI / 180.f, (float) width / 2.f / height);
   mat4_multiply(camera.viewMatrix[0], state.transform);
@@ -166,7 +157,7 @@ static void desktopRenderTo(void (*callback)(void*), void* userdata) {
   lovrGraphicsSetCamera(NULL, false);
 }
 
-static void desktopUpdate(float dt) {
+static void update(float dt) {
   bool front = lovrPlatformIsKeyDown(KEY_W) || lovrPlatformIsKeyDown(KEY_UP);
   bool back = lovrPlatformIsKeyDown(KEY_S) || lovrPlatformIsKeyDown(KEY_DOWN);
   bool left = lovrPlatformIsKeyDown(KEY_A) || lovrPlatformIsKeyDown(KEY_LEFT);
@@ -230,24 +221,23 @@ static void desktopUpdate(float dt) {
 
 HeadsetInterface lovrHeadsetDesktopDriver = {
   .driverType = DRIVER_DESKTOP,
-  .init = desktopInit,
-  .destroy = desktopDestroy,
-  .getName = desktopGetName,
-  .getOriginType = desktopGetOriginType,
-  .getDisplayDimensions = desktopGetDisplayDimensions,
-  .getClipDistance = desktopGetClipDistance,
-  .setClipDistance = desktopSetClipDistance,
-  .getBoundsDimensions = desktopGetBoundsDimensions,
-  .getBoundsGeometry = desktopGetBoundsGeometry,
-  .isTracked = desktopIsTracked,
-  .getPose = desktopGetPose,
-  .getVelocity = desktopGetVelocity,
-  .getAngularVelocity = desktopGetAngularVelocity,
-  .isDown = desktopIsDown,
-  .isTouched = desktopIsTouched,
-  .getAxis = desktopGetAxis,
-  .vibrate = desktopVibrate,
-  .newModelData = desktopNewModelData,
-  .renderTo = desktopRenderTo,
-  .update = desktopUpdate
+  .init = init,
+  .destroy = destroy,
+  .getName = getName,
+  .getOriginType = getOriginType,
+  .getDisplayDimensions = getDisplayDimensions,
+  .getClipDistance = getClipDistance,
+  .setClipDistance = setClipDistance,
+  .getBoundsDimensions = getBoundsDimensions,
+  .getBoundsGeometry = getBoundsGeometry,
+  .getPose = getPose,
+  .getVelocity = getVelocity,
+  .getAngularVelocity = getAngularVelocity,
+  .isDown = isDown,
+  .isTouched = isTouched,
+  .getAxis = getAxis,
+  .vibrate = vibrate,
+  .newModelData = newModelData,
+  .renderTo = renderTo,
+  .update = update
 };
