@@ -11,7 +11,6 @@ struct Thread;
 typedef enum {
   EVENT_QUIT,
   EVENT_FOCUS,
-  EVENT_MOUNT,
   EVENT_THREAD_ERROR,
   EVENT_CUSTOM
 } EventType;
