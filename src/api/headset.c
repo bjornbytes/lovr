@@ -32,6 +32,7 @@ const char* Subpaths[] = {
   [PATH_HANDS] = "hands",
   [PATH_LEFT] = "left",
   [PATH_RIGHT] = "right",
+  [PATH_PROXIMITY] = "proximity",
   [PATH_TRIGGER] = "trigger",
   [PATH_TRACKPAD] = "trackpad",
   [PATH_MENU] = "menu",
