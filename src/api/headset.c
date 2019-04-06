@@ -26,16 +26,6 @@ const char* HeadsetOrigins[] = {
   NULL
 };
 
-const char* HeadsetTypes[] = {
-  [HEADSET_UNKNOWN] = "unknown",
-  [HEADSET_VIVE] = "vive",
-  [HEADSET_RIFT] = "rift",
-  [HEADSET_GEAR] = "gear",
-  [HEADSET_GO] = "go",
-  [HEADSET_WINDOWS_MR] = "windowsmr",
-  NULL
-};
-
 const char* Subpaths[] = {
   [PATH_NONE] = "",
   [PATH_HEAD] = "head",
@@ -136,8 +126,8 @@ static int l_lovrHeadsetGetDriver(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetGetType(lua_State* L) {
-  lua_pushstring(L, HeadsetTypes[lovrHeadsetDriver->getType()]);
+static int l_lovrHeadsetGetName(lua_State* L) {
+  lua_pushstring(L, lovrHeadsetDriver->getName());
   return 1;
 }
 
@@ -419,7 +409,7 @@ static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
 
 static const luaL_Reg lovrHeadset[] = {
   { "getDriver", l_lovrHeadsetGetDriver },
-  { "getType", l_lovrHeadsetGetType },
+  { "getName", l_lovrHeadsetGetName },
   { "getOriginType", l_lovrHeadsetGetOriginType },
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },

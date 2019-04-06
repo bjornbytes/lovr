@@ -8,7 +8,6 @@
 #include <stdbool.h>
 
 static struct {
-  HeadsetType type;
   float offset;
 
   float clipNear;
@@ -39,8 +38,8 @@ static void desktopDestroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-static HeadsetType desktopGetType(void) {
-  return HEADSET_UNKNOWN;
+static const char* desktopGetName(void) {
+  return "VR Simulator";
 }
 
 static HeadsetOrigin desktopGetOriginType(void) {
@@ -71,6 +70,15 @@ static void desktopGetBoundsDimensions(float* width, float* depth) {
 static const float* desktopGetBoundsGeometry(int* count) {
   *count = 0;
   return NULL;
+}
+
+static bool desktopIsTracked(Path path, bool* tracked) {
+  if (PATH_EQ(path, PATH_HEAD) || PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+    *tracked = true;
+    return true;
+  }
+
+  return false;
 }
 
 static bool desktopGetPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
@@ -224,13 +232,14 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .driverType = DRIVER_DESKTOP,
   .init = desktopInit,
   .destroy = desktopDestroy,
-  .getType = desktopGetType,
+  .getName = desktopGetName,
   .getOriginType = desktopGetOriginType,
   .getDisplayDimensions = desktopGetDisplayDimensions,
   .getClipDistance = desktopGetClipDistance,
   .setClipDistance = desktopSetClipDistance,
   .getBoundsDimensions = desktopGetBoundsDimensions,
   .getBoundsGeometry = desktopGetBoundsGeometry,
+  .isTracked = desktopIsTracked,
   .getPose = desktopGetPose,
   .getVelocity = desktopGetVelocity,
   .getAngularVelocity = desktopGetAngularVelocity,
