@@ -71,7 +71,10 @@ static bool getButtonState(Path path, bool touch, bool* value) {
   VRControllerState_t input;
 
   if (PATH_EQ(path, PATH_HEAD, PATH_PROXIMITY) && !touch) {
-    state.system->GetControllerState(HEADSET_INDEX, &input, sizeof(input));
+    if (!state.system->GetControllerState(HEADSET_INDEX, &input, sizeof(input))) {
+      return false;
+    }
+
     *value = (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
     return true;
   } else if (!PATH_EQ(path, PATH_HANDS, PATH_LEFT) && !PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
@@ -90,13 +93,6 @@ static bool getButtonState(Path path, bool touch, bool* value) {
   uint64_t mask = touch ? input.ulButtonTouched : input.ulButtonPressed;
 
   if (state.rift) {
-    Chirality hand = SIDE_LEFT;
-    switch (state.system->GetControllerRoleForTrackedDeviceIndex(deviceIndex)) {
-      case ETrackedControllerRole_TrackedControllerRole_LeftHand: hand = SIDE_LEFT; break;
-      case ETrackedControllerRole_TrackedControllerRole_RightHand: hand = SIDE_RIGHT; break;
-      default: break;
-    }
-
     switch (path.pieces[2]) {
       case PATH_TRIGGER:
         *value = (mask >> EVRButtonId_k_EButton_Axis1) & 1;
@@ -111,19 +107,19 @@ static bool getButtonState(Path path, bool touch, bool* value) {
         return true;
 
       case PATH_A:
-        *value = hand == SIDE_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
+        *value = path.pieces[1] == PATH_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
         return true;
 
       case PATH_B:
-        *value = hand == SIDE_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+        *value = path.pieces[1] == PATH_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
         return true;
 
       case PATH_X:
-        *value = hand == SIDE_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
+        *value = path.pieces[1] == PATH_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
         return true;
 
       case PATH_Y:
-        *value = hand == SIDE_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+        *value = path.pieces[1] == PATH_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
         return true;
 
       default: return false;
