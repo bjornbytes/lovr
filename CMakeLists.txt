@@ -426,7 +426,6 @@ if(LOVR_ENABLE_HEADSET)
   add_definitions(-DLOVR_ENABLE_HEADSET)
   target_sources(lovr PRIVATE
     src/api/headset.c
-    src/api/types/controller.c
     src/headset/headset.c
   )
 
