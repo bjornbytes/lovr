@@ -9,200 +9,193 @@
 
 // Data passed from bridge code to headset code
 
-typedef struct {
+static struct {
   BridgeLovrDimensions displayDimensions;
   BridgeLovrDevice deviceType;
   BridgeLovrUpdateData updateData;
-} BridgeLovrMobileData;
-BridgeLovrMobileData bridgeLovrMobileData;
+} bridgeLovrMobileData;
 
 // Headset
 
-static void (*renderCallback)(void*);
-static void* renderUserdata;
-
-static float offset;
+static struct {
+  void (*renderCallback)(void*);
+  void* renderUserdata;
+  float offset;
+} state;
 
 // Headset driver object
 
-static bool oculusMobileInit(float _offset, int msaa) {
+static bool init(float offset, int msaa) {
+
   // Make sure HeadsetDriver and BridgeLovrDevice have not gone out of sync
   assert(BRIDGE_LOVR_DEVICE_UNKNOWN == HEADSET_UNKNOWN);
   assert(BRIDGE_LOVR_DEVICE_GEAR == HEADSET_GEAR);
   assert(BRIDGE_LOVR_DEVICE_GO == HEADSET_GO);
 
-  offset = _offset;
+  state.offset = offset;
   return true;
 }
 
-static void oculusMobileDestroy() {
+static void destroy() {
   //
 }
 
-static HeadsetType oculusMobileGetType() {
-  return (HeadsetType) bridgeLovrMobileData.deviceType;
+static const char* getName() {
+  switch (bridgeLovrMobileData.deviceType) {
+    case BRIDGE_LOVR_DEVICE_GEAR: return "Gear VR";
+    case BRIDGE_LOVR_DEVICE_GO: return "Oculus Go";
+    default: return NULL;
+  }
 }
 
-static HeadsetOrigin oculusMobileGetOriginType() {
+static HeadsetOrigin getOriginType() {
   return ORIGIN_HEAD;
 }
 
-static bool oculusMobileIsMounted() {
-  return true;
-}
-
-static void oculusMobileGetDisplayDimensions(uint32_t* width, uint32_t* height) {
+static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *width = bridgeLovrMobileData.displayDimensions.width;
   *height = bridgeLovrMobileData.displayDimensions.height;
 }
 
-static void oculusMobileGetClipDistance(float* clipNear, float* clipFar) {
+static void getClipDistance(float* clipNear, float* clipFar) {
   // TODO
 }
 
-static void oculusMobileSetClipDistance(float clipNear, float clipFar) {
+static void setClipDistance(float clipNear, float clipFar) {
   // TODO
 }
 
-static void oculusMobileGetBoundsDimensions(float* width, float* depth) {
+static void getBoundsDimensions(float* width, float* depth) {
   *width = 0.f;
   *depth = 0.f;
 }
 
-static const float* oculusMobileGetBoundsGeometry(int* count) {
+static const float* getBoundsGeometry(int* count) {
   *count = 0;
   return NULL;
 }
 
-static bool oculusMobileGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  *x = bridgeLovrMobileData.updateData.lastHeadPose.x;
-  *y = bridgeLovrMobileData.updateData.lastHeadPose.y + offset; // Correct for head height
-  *z = bridgeLovrMobileData.updateData.lastHeadPose.z;
-  quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, ax, ay, az);
-  return true;
-}
-
-static bool oculusMobileGetVelocity(float* vx, float* vy, float* vz) {
-  *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.x;
-  *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.y;
-  *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.z;
-  return true;
-}
-
-static bool oculusMobileGetAngularVelocity(float* vx, float* vy, float* vz) {
-  *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.ax;
-  *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.ay;
-  *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.az;
-  return true;
-}
-
-static Controller *controller;
-
-static Controller** oculusMobileGetControllers(uint8_t* count) {
-  if (!controller)
-    controller = lovrAlloc(Controller);
-  *count = bridgeLovrMobileData.updateData.goPresent; // TODO: Figure out what multi controller Oculus Mobile looks like and support it
-  return &controller;
-}
-
-static bool oculusMobileControllerIsConnected(Controller* controller) {
-  return bridgeLovrMobileData.updateData.goPresent;
-}
-
-static ControllerHand oculusMobileControllerGetHand(Controller* controller) {
-  return HAND_UNKNOWN;
-}
-
-static void oculusMobileControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  *x = bridgeLovrMobileData.updateData.goPose.x;
-  *y = bridgeLovrMobileData.updateData.goPose.y + offset; // Correct for head height
-  *z = bridgeLovrMobileData.updateData.goPose.z;
-  quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, ax, ay, az);
-}
-
-static void oculusMobileControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
-  *vx = bridgeLovrMobileData.updateData.goVelocity.x;
-  *vy = bridgeLovrMobileData.updateData.goVelocity.y;
-  *vz = bridgeLovrMobileData.updateData.goVelocity.z;
-}
-
-static void oculusMobileControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
-  *vx = bridgeLovrMobileData.updateData.goVelocity.ax;
-  *vy = bridgeLovrMobileData.updateData.goVelocity.ay;
-  *vz = bridgeLovrMobileData.updateData.goVelocity.az;
-}
-
-static float oculusMobileControllerGetAxis(Controller* controller, ControllerAxis axis) {
-  switch (axis) {
-    case CONTROLLER_AXIS_TOUCHPAD_X:
-      return (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f;
-    case CONTROLLER_AXIS_TOUCHPAD_Y:
-      return (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f;
-    case CONTROLLER_AXIS_TRIGGER:
-      return bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f;
-    default:
-      return 0.f;
+static bool getPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  if (PATH_EQ(path, P_HEAD)) {
+    *x = bridgeLovrMobileData.updateData.lastHeadPose.x;
+    *y = bridgeLovrMobileData.updateData.lastHeadPose.y + state.offset; // Correct for head height
+    *z = bridgeLovrMobileData.updateData.lastHeadPose.z;
+    quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, ax, ay, az);
+    return true;
+  } else if (PATH_EQ(path, P_HAND)) {
+    *x = bridgeLovrMobileData.updateData.goPose.x;
+    *y = bridgeLovrMobileData.updateData.goPose.y + state.offset; // Correct for head height
+    *z = bridgeLovrMobileData.updateData.goPose.z;
+    quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, ax, ay, az);
+    return true;
   }
+  return false;
 }
 
-static bool buttonCheck(BridgeLovrButton field, ControllerButton button) {
-  switch (button) {
-    case CONTROLLER_BUTTON_MENU: return field & BRIDGE_LOVR_BUTTON_MENU;
-    case CONTROLLER_BUTTON_TRIGGER: return field & BRIDGE_LOVR_BUTTON_SHOULDER;
-    case CONTROLLER_BUTTON_TOUCHPAD: return field & BRIDGE_LOVR_BUTTON_TOUCHPAD;
+static bool getVelocity(Path path, float* vx, float* vy, float* vz) {
+  if (PATH_EQ(path, P_HEAD)) {
+    *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.x;
+    *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.y;
+    *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.z;
+    return true;
+  } else if (PATH_EQ(path, P_HAND)) {
+    *vx = bridgeLovrMobileData.updateData.goVelocity.x;
+    *vy = bridgeLovrMobileData.updateData.goVelocity.y;
+    *vz = bridgeLovrMobileData.updateData.goVelocity.z;
+    return true;
+  }
+  return false;
+}
+
+static bool getAngularVelocity(Path path, float* vx, float* vy, float* vz) {
+  if (PATH_EQ(path, P_HEAD)) {
+    *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.ax;
+    *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.ay;
+    *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.az;
+    return true;
+  } else if (PATH_EQ(path, P_HAND)) {
+    *vx = bridgeLovrMobileData.updateData.goVelocity.ax;
+    *vy = bridgeLovrMobileData.updateData.goVelocity.ay;
+    *vz = bridgeLovrMobileData.updateData.goVelocity.az;
+    return true;
+  }
+  return false;
+}
+
+static bool buttonCheck(BridgeLovrButton field, Path path, bool* result) {
+  if (!PATH_EQ(path, PATH_HAND) || path.p[2] != PATH_NONE) {
+    return false; // Path needs to start with /hand and have exactly one more piece
+  }
+
+  switch (path.p[1]) {
+    case P_MENU: *result = (field & BRIDGE_LOVR_BUTTON_MENU); return true;
+    case P_TRIGGER: *result = (field & BRIDGE_LOVR_BUTTON_SHOULDER); return true;
+    case P_TRACKPAD: *result = (field & BRIDGE_LOVR_BUTTON_TOUCHPAD); return true;
     default: return false;
   }
 }
 
-static bool oculusMobileControllerIsDown(Controller* controller, ControllerButton button) {
-  return buttonCheck(bridgeLovrMobileData.updateData.goButtonDown, button);
+static bool isDown(Path path, bool* down) {
+  return buttonCheck(bridgeLovrMobileData.updateData.goButtonDown, path, down);
 }
 
-static bool oculusMobileControllerIsTouched(Controller* controller, ControllerButton button) {
-  return buttonCheck(bridgeLovrMobileData.updateData.goButtonTouch, button);
+static bool isTouched(Path path, bool* touched) {
+  return buttonCheck(bridgeLovrMobileData.updateData.goButtonTouch, path, touched);
 }
 
-static void oculusMobileControllerVibrate(Controller* controller, float duration, float power) {
-  //
+static int getAxis(Path path, float* x, float* y, float* z) {
+  if (!PATH_EQ(path, PATH_HAND) || path.p[2] != PATH_NONE) {
+    return 0; // Path needs to start with /hand and have exactly one more piece
+  }
+
+  switch (path.p[1]) {
+    case P_TOUCHPAD:
+      *x = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f;
+      *y = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f;
+      return 2;
+    case P_TRIGGER:
+      *x = bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f;
+      return 1;
+    default:
+      return 0;
+  }
 }
 
-static ModelData* oculusMobileControllerNewModelData(Controller* controller) {
+static bool vibrate(Path path, float strength, float duration, float frequency) {
+  return false;
+}
+
+static ModelData* newModelData(Path path) {
   return NULL;
 }
 
 // TODO: need to set up swap chain textures for the eyes and finish view transforms
-static void oculusMobileRenderTo(void (*callback)(void*), void* userdata) {
-  renderCallback = callback;
-  renderUserdata = userdata;
+static void renderTo(void (*callback)(void*), void* userdata) {
+  state.renderCallback = callback;
+  state.renderUserdata = userdata;
 }
 
 HeadsetInterface lovrHeadsetOculusMobileDriver = {
   .driverType = DRIVER_OCULUS_MOBILE,
-  .init = oculusMobileInit,
-  .destroy = oculusMobileDestroy,
-  .getType = oculusMobileGetType,
-  .getOriginType = oculusMobileGetOriginType,
-  .isMounted = oculusMobileIsMounted,
-  .getDisplayDimensions = oculusMobileGetDisplayDimensions,
-  .getClipDistance = oculusMobileGetClipDistance,
-  .setClipDistance = oculusMobileSetClipDistance,
-  .getBoundsDimensions = oculusMobileGetBoundsDimensions,
-  .getBoundsGeometry = oculusMobileGetBoundsGeometry,
-  .getPose = oculusMobileGetPose,
-  .getVelocity = oculusMobileGetVelocity,
-  .getAngularVelocity = oculusMobileGetAngularVelocity,
-  .getControllers = oculusMobileGetControllers,
-  .controllerIsConnected = oculusMobileControllerIsConnected,
-  .controllerGetHand = oculusMobileControllerGetHand,
-  .controllerGetPose = oculusMobileControllerGetPose,
-  .controllerGetVelocity = oculusMobileControllerGetVelocity,
-  .controllerGetAngularVelocity = oculusMobileControllerGetAngularVelocity,
-  .controllerGetAxis = oculusMobileControllerGetAxis,
-  .controllerIsDown = oculusMobileControllerIsDown,
-  .controllerIsTouched = oculusMobileControllerIsTouched,
-  .controllerVibrate = oculusMobileControllerVibrate,
-  .controllerNewModelData = oculusMobileControllerNewModelData,
-  .renderTo = oculusMobileRenderTo
+  .init = init,
+  .destroy = destroy,
+  .getType = getType,
+  .getOriginType = getOriginType,
+  .isMounted = isMounted,
+  .getDisplayDimensions = getDisplayDimensions,
+  .getClipDistance = getClipDistance,
+  .setClipDistance = setClipDistance,
+  .getBoundsDimensions = getBoundsDimensions,
+  .getBoundsGeometry = getBoundsGeometry,
+  .getPose = getPose,
+  .getVelocity = getVelocity,
+  .getAngularVelocity = getAngularVelocity,
+  .isDown = isDown,
+  .isTouched = isTouched,
+  .getAxis = getAxis,
+  .vibrate = vibrate,
+  .newModelData = newModelData,
+  .renderTo = renderTo
 };
 
 // Oculus-specific platform functions
@@ -412,14 +405,14 @@ static void lovrOculusMobileDraw(int framebuffer, int width, int height, float *
 
   Camera camera = { .canvas = &canvas, .stereo = false };
   memcpy(camera.viewMatrix[0], eyeViewMatrix, sizeof(camera.viewMatrix[0]));
-  mat4_translate(camera.viewMatrix[0], 0, -offset, 0);
+  mat4_translate(camera.viewMatrix[0], 0, -state.offset, 0);
 
   memcpy(camera.projection[0], projectionMatrix, sizeof(camera.projection[0]));
 
   lovrGraphicsSetCamera(&camera, true);
 
-  if (renderCallback) {
-    renderCallback(renderUserdata);
+  if (state.renderCallback) {
+    state.renderCallback(state.renderUserdata);
   }
 
   lovrGraphicsSetCamera(NULL, false);
