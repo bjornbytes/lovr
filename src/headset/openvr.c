@@ -56,11 +56,11 @@ static bool getTransform(unsigned int device, mat4 transform) {
 }
 
 static TrackedDeviceIndex_t getDeviceIndexForPath(Path path) {
-  if (PATH_EQ(path, PATH_HEAD)) {
+  if (PATH_EQ(path, P_HEAD)) {
     return HEADSET_INDEX;
-  } else if (PATH_EQ(path, PATH_HAND, PATH_LEFT)) {
+  } else if (PATH_EQ(path, P_HAND, P_LEFT)) {
     return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
-  } else if (PATH_EQ(path, PATH_HAND, PATH_RIGHT)) {
+  } else if (PATH_EQ(path, P_HAND, P_RIGHT)) {
     return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
   } else {
     return k_unTrackedDeviceIndexInvalid;
@@ -70,14 +70,14 @@ static TrackedDeviceIndex_t getDeviceIndexForPath(Path path) {
 static bool getButtonState(Path path, bool touch, bool* value) {
   VRControllerState_t input;
 
-  if (PATH_EQ(path, PATH_HEAD, PATH_PROXIMITY) && !touch) {
+  if (PATH_EQ(path, P_HEAD, P_PROXIMITY) && !touch) {
     if (!state.system->GetControllerState(HEADSET_INDEX, &input, sizeof(input))) {
       return false;
     }
 
     *value = (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
     return true;
-  } else if (!PATH_EQ(path, PATH_HAND, PATH_LEFT) && !PATH_EQ(path, PATH_HAND, PATH_RIGHT)) {
+  } else if (!PATH_EQ(path, P_HAND, P_LEFT) && !PATH_EQ(path, P_HAND, P_RIGHT)) {
     return false;
   }
 
@@ -94,51 +94,51 @@ static bool getButtonState(Path path, bool touch, bool* value) {
 
   if (state.rift) {
     switch (path.pieces[2]) {
-      case PATH_TRIGGER:
+      case P_TRIGGER:
         *value = (mask >> EVRButtonId_k_EButton_Axis1) & 1;
         return true;
 
-      case PATH_GRIP:
+      case P_GRIP:
         *value = (mask >> EVRButtonId_k_EButton_Axis2) & 1;
         return true;
 
-      case PATH_TRACKPAD:
+      case P_TRACKPAD:
         *value = (mask >> EVRButtonId_k_EButton_Axis0) & 1;
         return true;
 
-      case PATH_A:
-        *value = path.pieces[1] == PATH_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
+      case P_A:
+        *value = path.pieces[1] == P_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
         return true;
 
-      case PATH_B:
-        *value = path.pieces[1] == PATH_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+      case P_B:
+        *value = path.pieces[1] == P_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
         return true;
 
-      case PATH_X:
-        *value = path.pieces[1] == PATH_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
+      case P_X:
+        *value = path.pieces[1] == P_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
         return true;
 
-      case PATH_Y:
-        *value = path.pieces[1] == PATH_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+      case P_Y:
+        *value = path.pieces[1] == P_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
         return true;
 
       default: return false;
     }
   } else {
     switch (path.pieces[2]) {
-      case PATH_TRIGGER:
+      case P_TRIGGER:
         *value = (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1;
         return true;
 
-      case PATH_TRACKPAD:
+      case P_TRACKPAD:
         *value = (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1;
         return true;
 
-      case PATH_MENU:
+      case P_MENU:
         *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
         return true;
 
-      case PATH_GRIP:
+      case P_GRIP:
         *value = (mask >> EVRButtonId_k_EButton_Grip) & 1;
         return true;
 
@@ -298,7 +298,7 @@ static bool isTouched(Path path, bool* touched) {
 }
 
 static int getAxis(Path path, float* x, float* y, float* z) {
-  if (path.pieces[3] != PATH_NONE) {
+  if (path.pieces[3] != P_NONE) {
     return 0;
   }
 
@@ -314,15 +314,15 @@ static int getAxis(Path path, float* x, float* y, float* z) {
 
   if (state.rift) {
     switch (path.pieces[2]) {
-      case PATH_TRIGGER:
+      case P_TRIGGER:
         *x = input.rAxis[1].x;
         return 1;
 
-      case PATH_GRIP:
+      case P_GRIP:
         *x = input.rAxis[2].x;
         return 1;
 
-      case PATH_TRACKPAD:
+      case P_TRACKPAD:
         *x = input.rAxis[0].x;
         *y = input.rAxis[0].y;
         return 2;
@@ -331,11 +331,11 @@ static int getAxis(Path path, float* x, float* y, float* z) {
     }
   } else {
     switch (path.pieces[2]) {
-      case PATH_TRIGGER:
+      case P_TRIGGER:
         *x = input.rAxis[1].x;
         return 1;
 
-      case PATH_TRACKPAD:
+      case P_TRACKPAD:
         *x = input.rAxis[0].x;
         *y = input.rAxis[0].y;
         return 2;
@@ -349,7 +349,7 @@ static int getAxis(Path path, float* x, float* y, float* z) {
 
 static bool vibrate(Path path, float strength, float duration, float frequency) {
   if (duration <= 0) return false;
-  if (!PATH_STARTS_WITH(path, PATH_HAND)) return false;
+  if (!PATH_STARTS_WITH(path, P_HAND)) return false;
 
   TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
   if (deviceIndex == INVALID_INDEX) return false;

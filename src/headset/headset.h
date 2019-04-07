@@ -22,21 +22,21 @@ typedef enum {
 } HeadsetDriver;
 
 typedef enum {
-  PATH_NONE,
-  PATH_HEAD,
-  PATH_EYE,
-  PATH_HAND,
-  PATH_LEFT,
-  PATH_RIGHT,
-  PATH_PROXIMITY,
-  PATH_TRIGGER,
-  PATH_TRACKPAD,
-  PATH_MENU,
-  PATH_GRIP,
-  PATH_A,
-  PATH_B,
-  PATH_X,
-  PATH_Y
+  P_NONE,
+  P_HEAD,
+  P_EYE,
+  P_HAND,
+  P_LEFT,
+  P_RIGHT,
+  P_PROXIMITY,
+  P_TRIGGER,
+  P_TRACKPAD,
+  P_MENU,
+  P_GRIP,
+  P_A,
+  P_B,
+  P_X,
+  P_Y
 } Subpath;
 
 typedef union {
