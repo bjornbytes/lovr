@@ -75,7 +75,7 @@ static const float* getBoundsGeometry(int* count) {
 static bool getPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (PATH_EQ(path, PATH_HEAD)) {
     *x = *y = *z = 0.f;
-  } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+  } else if (PATH_EQ(path, PATH_HAND, PATH_LEFT) || PATH_EQ(path, PATH_HAND, PATH_RIGHT)) {
     *x  = 0.f;
     *y  = 0.f;
     *z = -.75f;
@@ -96,7 +96,7 @@ static bool getVelocity(Path path, float* vx, float* vy, float* vz) {
     *vy = state.velocity[1];
     *vz = state.velocity[2];
     return true;
-  } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+  } else if (PATH_EQ(path, PATH_HAND, PATH_LEFT) || PATH_EQ(path, PATH_HAND, PATH_RIGHT)) {
     *vx = *vy = *vz = 0.f;
     return true;
   }
@@ -110,7 +110,7 @@ static bool getAngularVelocity(Path path, float* vx, float* vy, float* vz) {
     *vy = state.angularVelocity[1];
     *vz = state.angularVelocity[2];
     return true;
-  } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+  } else if (PATH_EQ(path, PATH_HAND, PATH_LEFT) || PATH_EQ(path, PATH_HAND, PATH_RIGHT)) {
     *vx = *vy = *vz = 0.f;
     return true;
   }
@@ -119,7 +119,7 @@ static bool getAngularVelocity(Path path, float* vx, float* vy, float* vz) {
 }
 
 static bool isDown(Path path, bool* down) {
-  if (PATH_EQ(path, PATH_HANDS, PATH_LEFT) || PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+  if (PATH_EQ(path, PATH_HAND, PATH_LEFT) || PATH_EQ(path, PATH_HAND, PATH_RIGHT)) {
     *down = lovrPlatformIsMouseDown(MOUSE_RIGHT);
     return true;
   }

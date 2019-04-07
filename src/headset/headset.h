@@ -24,7 +24,7 @@ typedef enum {
 typedef enum {
   PATH_NONE,
   PATH_HEAD,
-  PATH_HANDS,
+  PATH_HAND,
   PATH_LEFT,
   PATH_RIGHT,
   PATH_PROXIMITY,

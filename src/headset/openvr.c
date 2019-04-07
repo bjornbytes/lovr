@@ -58,9 +58,9 @@ static bool getTransform(unsigned int device, mat4 transform) {
 static TrackedDeviceIndex_t getDeviceIndexForPath(Path path) {
   if (PATH_EQ(path, PATH_HEAD)) {
     return HEADSET_INDEX;
-  } else if (PATH_EQ(path, PATH_HANDS, PATH_LEFT)) {
+  } else if (PATH_EQ(path, PATH_HAND, PATH_LEFT)) {
     return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
-  } else if (PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+  } else if (PATH_EQ(path, PATH_HAND, PATH_RIGHT)) {
     return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
   } else {
     return k_unTrackedDeviceIndexInvalid;
@@ -77,7 +77,7 @@ static bool getButtonState(Path path, bool touch, bool* value) {
 
     *value = (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
     return true;
-  } else if (!PATH_EQ(path, PATH_HANDS, PATH_LEFT) && !PATH_EQ(path, PATH_HANDS, PATH_RIGHT)) {
+  } else if (!PATH_EQ(path, PATH_HAND, PATH_LEFT) && !PATH_EQ(path, PATH_HAND, PATH_RIGHT)) {
     return false;
   }
 
@@ -349,7 +349,7 @@ static int getAxis(Path path, float* x, float* y, float* z) {
 
 static bool vibrate(Path path, float strength, float duration, float frequency) {
   if (duration <= 0) return false;
-  if (!PATH_STARTS_WITH(path, PATH_HANDS)) return false;
+  if (!PATH_STARTS_WITH(path, PATH_HAND)) return false;
 
   TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
   if (deviceIndex == INVALID_INDEX) return false;
