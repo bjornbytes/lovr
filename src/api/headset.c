@@ -29,6 +29,7 @@ const char* HeadsetOrigins[] = {
 const char* Subpaths[] = {
   [PATH_NONE] = "",
   [PATH_HEAD] = "head",
+  [PATH_EYE] = "eye",
   [PATH_HAND] = "hand",
   [PATH_LEFT] = "left",
   [PATH_RIGHT] = "right",
