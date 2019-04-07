@@ -89,21 +89,6 @@ Path luax_optpath(lua_State* L, int index, const char* fallback) {
   return path;
 }
 
-void luax_pushpath(lua_State* L, Path path) {
-  for (int i = 0; i < 8; i++) {
-    if (path.pieces[i] == P_NONE) {
-      lua_pop(L, 1);
-      lua_concat(L, 2 * i - 1);
-      return;
-    }
-
-    lua_pushstring(L, Subpaths[path.pieces[i]]);
-    lua_pushstring(L, "/");
-  }
-
-  lovrThrow("Unreachable");
-}
-
 static void renderHelper(void* userdata) {
   HeadsetRenderData* renderData = userdata;
   lua_State* L = renderData->L;
