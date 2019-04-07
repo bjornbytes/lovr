@@ -77,7 +77,7 @@ static bool getButtonState(Path path, bool touch, bool* value) {
 
     *value = (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1;
     return true;
-  } else if (!PATH_EQ(path, P_HAND, P_LEFT) && !PATH_EQ(path, P_HAND, P_RIGHT)) {
+  } else if (!PATH_STARTS_WITH(path, P_HAND, P_LEFT) && !PATH_STARTS_WITH(path, P_HAND, P_RIGHT)) {
     return false;
   }
 
@@ -93,7 +93,7 @@ static bool getButtonState(Path path, bool touch, bool* value) {
   uint64_t mask = touch ? input.ulButtonTouched : input.ulButtonPressed;
 
   if (state.rift) {
-    switch (path.pieces[2]) {
+    switch (path.p[2]) {
       case P_TRIGGER:
         *value = (mask >> EVRButtonId_k_EButton_Axis1) & 1;
         return true;
@@ -107,25 +107,25 @@ static bool getButtonState(Path path, bool touch, bool* value) {
         return true;
 
       case P_A:
-        *value = path.pieces[1] == P_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
+        *value = path.p[1] == P_RIGHT && (mask >> EVRButtonId_k_EButton_A) & 1;
         return true;
 
       case P_B:
-        *value = path.pieces[1] == P_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+        *value = path.p[1] == P_RIGHT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
         return true;
 
       case P_X:
-        *value = path.pieces[1] == P_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
+        *value = path.p[1] == P_LEFT && (mask >> EVRButtonId_k_EButton_A) & 1;
         return true;
 
       case P_Y:
-        *value = path.pieces[1] == P_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
+        *value = path.p[1] == P_LEFT && (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1;
         return true;
 
       default: return false;
     }
   } else {
-    switch (path.pieces[2]) {
+    switch (path.p[2]) {
       case P_TRIGGER:
         *value = (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1;
         return true;
@@ -298,7 +298,7 @@ static bool isTouched(Path path, bool* touched) {
 }
 
 static int getAxis(Path path, float* x, float* y, float* z) {
-  if (path.pieces[3] != P_NONE) {
+  if (path.p[3] != P_NONE) {
     return 0;
   }
 
@@ -313,7 +313,7 @@ static int getAxis(Path path, float* x, float* y, float* z) {
   }
 
   if (state.rift) {
-    switch (path.pieces[2]) {
+    switch (path.p[2]) {
       case P_TRIGGER:
         *x = input.rAxis[1].x;
         return 1;
@@ -330,7 +330,7 @@ static int getAxis(Path path, float* x, float* y, float* z) {
       default: return 0;
     }
   } else {
-    switch (path.pieces[2]) {
+    switch (path.p[2]) {
       case P_TRIGGER:
         *x = input.rAxis[1].x;
         return 1;
