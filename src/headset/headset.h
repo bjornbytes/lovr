@@ -24,8 +24,8 @@ typedef enum {
 typedef enum {
   P_NONE,
   P_HEAD,
-  P_EYE,
   P_HAND,
+  P_EYE,
   P_LEFT,
   P_RIGHT,
   P_PROXIMITY,
