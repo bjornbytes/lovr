@@ -31,6 +31,7 @@ typedef enum {
   P_PROXIMITY,
   P_TRIGGER,
   P_TRACKPAD,
+  P_JOYSTICK,
   P_MENU,
   P_GRIP,
   P_A,
@@ -40,7 +41,7 @@ typedef enum {
 } Subpath;
 
 typedef union {
-  uint8_t pieces[8];
+  uint8_t p[8];
   uint64_t u64;
 } Path;
 

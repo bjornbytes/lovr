@@ -76,7 +76,7 @@ Path luax_optpath(lua_State* L, int index, const char* fallback) {
     }
 
     lovrAssert(subpath != P_NONE, "Unknown path component '%s'", str);
-    path.pieces[count++] = subpath;
+    path.p[count++] = subpath;
 
     if (slash) {
       *slash = '/';

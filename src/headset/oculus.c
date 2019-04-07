@@ -1,6 +1,7 @@
 #include "headset/headset.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
+#include "graphics/canvas.h"
 #include "graphics/texture.h"
 #include "lib/maf.h"
 #include "lib/vec/vec.h"
@@ -9,25 +10,20 @@
 #include <OVR_CAPI.h>
 #include <OVR_CAPI_GL.h>
 
-typedef struct {
-  bool hmdPresent;
+static struct {
   bool needRefreshTracking;
   bool needRefreshButtons;
-  vec_controller_t controllers;
   ovrSession session;
   ovrGraphicsLuid luid;
   float clipNear;
   float clipFar;
   float offset;
-  int lastButtonState;
   ovrSizei size;
   Canvas* canvas;
   ovrTextureSwapChain chain;
   ovrMirrorTexture mirror;
-  map_void_t textureLookup;
-} HeadsetState;
-
-static HeadsetState state;
+  map_t(Texture*) textureLookup;
+} state;
 
 static Texture* lookupTexture(uint32_t handle) {
   char key[4 + 1] = { 0 };
@@ -39,15 +35,6 @@ static Texture* lookupTexture(uint32_t handle) {
     texture = map_get(&state.textureLookup, key);
   }
   return *texture;
-}
-
-static void checkInput(Controller *controller, int diff, int state, ovrButton button, ControllerButton target) {
-  if ((diff & button) > 0) {
-    lovrEventPush((Event) {
-      .type = (state & button) ? EVENT_CONTROLLER_PRESSED : EVENT_CONTROLLER_RELEASED,
-      .data.controller = { controller, target }
-    });
-  }
 }
 
 static ovrTrackingState *refreshTracking() {
@@ -82,7 +69,7 @@ static ovrInputState *refreshButtons() {
   return &is;
 }
 
-static bool oculusInit(float offset, int msaa) {
+static bool init(float offset, int msaa) {
   ovrResult result = ovr_Initialize(NULL);
   if (OVR_FAILURE(result)) {
     return false;
@@ -96,18 +83,9 @@ static bool oculusInit(float offset, int msaa) {
 
   state.needRefreshTracking = true;
   state.needRefreshButtons = true;
-  state.lastButtonState = 0;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
   state.offset = offset;
-
-  vec_init(&state.controllers);
-
-  for (ovrHandType hand = ovrHand_Left; hand < ovrHand_Count; hand++) {
-    Controller* controller = lovrAlloc(Controller);
-    controller->id = hand;
-    vec_push(&state.controllers, controller);
-  }
 
   map_init(&state.textureLookup);
 
@@ -115,17 +93,11 @@ static bool oculusInit(float offset, int msaa) {
   return true;
 }
 
-static void oculusDestroy() {
-  Controller *controller; int i;
-  vec_foreach(&state.controllers, controller, i) {
-    lovrRelease(Controller, controller);
-  }
-  vec_deinit(&state.controllers);
-
+static void destroy() {
   const char* key;
   map_iter_t iter = map_iter(&state.textureLookup);
   while ((key = map_next(&state.textureLookup, &iter)) != NULL) {
-    Texture* texture = *(Texture**) map_get(&state.textureLookup, key);
+    Texture* texture = *map_get(&state.textureLookup, key);
     lovrRelease(Texture, texture);
   }
   map_deinit(&state.textureLookup);
@@ -146,19 +118,16 @@ static void oculusDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
-static HeadsetType oculusGetType() {
-  return HEADSET_RIFT;
+static const char* getName() {
+  // return ovr_GetHmdDesc(state.session).ProductName; // MEMORY
+  return NULL;
 }
 
-static HeadsetOrigin oculusGetOriginType() {
+static HeadsetOrigin getOriginType() {
   return ORIGIN_FLOOR;
 }
 
-static bool oculusIsMounted() {
-  return true;
-}
-
-static void oculusGetDisplayDimensions(uint32_t* width, uint32_t* height) {
+static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
   ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
   ovrSizei size = ovr_GetFovTextureSize(state.session, ovrEye_Left, desc.DefaultEyeFov[0], 1.0f);
 
@@ -166,161 +135,170 @@ static void oculusGetDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = size.h;
 }
 
-static void oculusGetClipDistance(float* clipNear, float* clipFar) {
+static void getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
 }
 
-static void oculusSetClipDistance(float clipNear, float clipFar) {
+static void setClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
 }
 
-static void oculusGetBoundsDimensions(float* width, float* depth) {
+static void getBoundsDimensions(float* width, float* depth) {
   ovrVector3f dimensions;
   ovr_GetBoundaryDimensions(state.session, ovrBoundary_PlayArea, &dimensions);
   *width = dimensions.x;
   *depth = dimensions.z;
 }
 
-static const float* oculusGetBoundsGeometry(int* count) {
+static const float* getBoundsGeometry(int* count) {
   *count = 0;
   return NULL;
 }
 
-static bool oculusGetPose(float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool getPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   ovrTrackingState *ts = refreshTracking();
-  ovrVector3f pos = ts->HeadPose.ThePose.Position;
-  *x = pos.x;
-  *y = pos.y + state.offset;
-  *z = pos.z;
-  ovrQuatf oq = ts->HeadPose.ThePose.Orientation;
-  float quat[] = { oq.x, oq.y, oq.z, oq.w };
+  ovrPosef* pose;
+
+  if (PATH_EQ(path, P_HEAD)) {
+    pose = &ts->HeadPose.ThePose;
+  } else if (PATH_STARTS_WITH(path, P_HAND) && (path.p[1] == P_LEFT || path.p[1] == P_RIGHT)) {
+    pose = &ts->HandPoses[path.p[1] - P_LEFT].ThePose;
+  } else {
+    return false;
+  }
+
+  *x = pose->Position.x;;
+  *y = pose->Position.y + state.offset;
+  *z = pose->Position.z;
+
+  float quat[4] = { pose->Orientation.x, pose->Orientation.y, pose->Orientation.z, pose->Orientation.w };
   quat_getAngleAxis(quat, angle, ax, ay, az);
   return true;
 }
 
-static bool oculusGetVelocity(float* vx, float* vy, float* vz) {
+static bool getVelocity(Path path, float* vx, float* vy, float* vz) {
   ovrTrackingState *ts = refreshTracking();
-  ovrVector3f vel = ts->HeadPose.LinearVelocity;
-  *vx = vel.x;
-  *vy = vel.y;
-  *vz = vel.z;
-  return true;
-}
+  ovrVector3f* velocity;
 
-static bool oculusGetAngularVelocity(float* vx, float* vy, float* vz) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrVector3f vel = ts->HeadPose.AngularVelocity;
-  *vx = vel.x;
-  *vy = vel.y;
-  *vz = vel.z;
-  return true;
-}
-
-static Controller** oculusGetControllers(uint8_t* count) {
-  *count = state.controllers.length;
-  return state.controllers.data;
-}
-
-static bool oculusControllerIsConnected(Controller* controller) {
-  ovrInputState *is = refreshButtons();
-  switch (controller->id) {
-    case ovrHand_Left: return (is->ControllerType & ovrControllerType_LTouch) == ovrControllerType_LTouch;
-    case ovrHand_Right: return (is->ControllerType & ovrControllerType_RTouch) == ovrControllerType_RTouch;
-    default: return false;
+  if (PATH_EQ(path, P_HEAD)) {
+    velocity = &ts->HeadPose.LinearVelocity;
+  } else if (PATH_STARTS_WITH(path, P_HAND) && (path.p[1] == P_LEFT || path.p[1] == P_RIGHT)) {
+    velocity = &ts->HandPoses[path.p[1] - P_LEFT].LinearVelocity;
+  } else {
+    return false;
   }
+
+  *vx = velocity->x;
+  *vy = velocity->y;
+  *vz = velocity->z;
+  return true;
+}
+
+static bool getAngularVelocity(Path path, float* vx, float* vy, float* vz) {
+  ovrTrackingState *ts = refreshTracking();
+  ovrVector3f* velocity;
+
+  if (PATH_EQ(path, P_HEAD)) {
+    velocity = &ts->HeadPose.AngularVelocity;
+  } else if (PATH_STARTS_WITH(path, P_HAND) && (path.p[1] == P_LEFT || path.p[1] == P_RIGHT)) {
+    velocity = &ts->HandPoses[path.p[1] - P_LEFT].AngularVelocity;
+  } else {
+    return false;
+  }
+
+  *vx = velocity->x;
+  *vy = velocity->y;
+  *vz = velocity->z;
+  return true;
+}
+
+static bool isDown(Path path, bool* down) {
+  if (PATH_EQ(path, P_HEAD, P_PROXIMITY)) {
+    ovrSessionStatus status;
+    ovr_GetSessionStatus(state.session, &status);
+    *down = status.HmdMounted;
+    return true;
+  }
+
+  // Make sure the path starts with /hand/left or /hand/right and only has 3 pieces
+  if (path.p[0] != P_HAND || (path.p[1] != P_LEFT && path.p[1] != P_RIGHT) || path.p[3] != P_NONE) {
+    return false;
+  }
+
+  ovrHandType hand = path.p[1] - P_LEFT;
+  ovrInputState* is = refreshButtons();
+  uint32_t mask = is->Buttons & (hand == ovrHand_Left ? ovrButton_LMask : ovrButton_RMask);
+
+  switch (path.p[2]) {
+    case P_A: *down = (mask & ovrButton_A); return true;
+    case P_B: *down = (mask & ovrButton_B); return true;
+    case P_X: *down = (mask & ovrButton_X); return true;
+    case P_Y: *down = (mask & ovrButton_Y); return true;
+    case P_MENU: *down = (mask & ovrButton_Enter); return true;
+    case P_TRIGGER: *down = (is->IndexTriggerNoDeadzone[hand] > 0.5f); return true;
+    case P_JOYSTICK: *down = (mask & (ovrButton_LThumb | ovrButton_RThumb)); return true;
+    case P_GRIP: *down = (is->HandTrigger[hand] > 0.9f); return true;
+  }
+
   return false;
 }
 
-static ControllerHand oculusControllerGetHand(Controller* controller) {
-  switch (controller->id) {
-    case ovrHand_Left: return HAND_LEFT;
-    case ovrHand_Right: return HAND_RIGHT;
-    default: return HAND_UNKNOWN;
+static bool isTouched(Path path, bool* touched) {
+
+  // Make sure the path starts with /hand/left or /hand/right and only has 3 pieces
+  if (path.p[0] != P_HAND || (path.p[1] != P_LEFT && path.p[1] != P_RIGHT) || path.p[3] != P_NONE) {
+    return false;
   }
+
+  ovrHandType hand = path.p[1] - P_LEFT;
+  ovrInputState* is = refreshButtons();
+  uint32_t mask = is->Buttons & (hand == ovrHand_Left ? ovrButton_LMask : ovrButton_RMask);
+
+  switch (path.p[2]) {
+    case P_A: *touched = (mask & ovrTouch_A); return true;
+    case P_B: *touched = (mask & ovrTouch_B); return true;
+    case P_X: *touched = (mask & ovrTouch_X); return true;
+    case P_Y: *touched = (mask & ovrTouch_Y); return true;
+    case P_TRIGGER: *touched = (mask & (ovrTouch_LIndexTrigger | ovrTouch_RIndexTrigger)); return true;
+    case P_JOYSTICK: *touched = (mask & (ovrTouch_LThumb | ovrTouch_RThumb)); return true;
+  }
+
+  return false;
 }
 
-static void oculusControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrVector3f pos = ts->HandPoses[controller->id].ThePose.Position;
-  *x = pos.x;
-  *y = pos.y + state.offset;
-  *z = pos.z;
-  ovrQuatf orient = ts->HandPoses[controller->id].ThePose.Orientation;
-  float quat[4] = { orient.x, orient.y, orient.z, orient.w };
-  quat_getAngleAxis(quat, angle, ax, ay, az);
-}
+static int getAxis(Path path, float* x, float* y, float* z) {
 
-static void oculusControllerGetVelocity(Controller* controller, float* vx, float* vy, float* vz) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrVector3f vel = ts->HandPoses[controller->id].LinearVelocity;
-  *vx = vel.x;
-  *vy = vel.y;
-  *vz = vel.z;
-}
+  // Make sure the path starts with /hand/left or /hand/right and only has 3 pieces
+  if (path.p[0] != P_HAND || (path.p[1] != P_LEFT && path.p[1] != P_RIGHT) || path.p[3] != P_NONE) {
+    return false;
+  }
 
-static void oculusControllerGetAngularVelocity(Controller* controller, float* vx, float* vy, float* vz) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrVector3f vel = ts->HandPoses[controller->id].AngularVelocity;
-  *vx = vel.x;
-  *vy = vel.y;
-  *vz = vel.z;
-}
-
-static float oculusControllerGetAxis(Controller* controller, ControllerAxis axis) {
   ovrInputState *is = refreshButtons();
-  switch (axis) {
-    case CONTROLLER_AXIS_GRIP: return is->HandTriggerNoDeadzone[controller->id];
-    case CONTROLLER_AXIS_TRIGGER: return is->IndexTriggerNoDeadzone[controller->id];
-    case CONTROLLER_AXIS_TOUCHPAD_X: return is->ThumbstickNoDeadzone[controller->id].x;
-    case CONTROLLER_AXIS_TOUCHPAD_Y: return is->ThumbstickNoDeadzone[controller->id].y;
-    default: return 0.0f;
+  ovrHandType hand = path.p[1] - P_LEFT;
+
+  switch (path.p[2]) {
+    case P_GRIP: *x = is->HandTriggerNoDeadzone[hand]; return 1;
+    case P_TRIGGER: *x = is->IndexTriggerNoDeadzone[hand]; return 1;
+    case P_JOYSTICK:
+      *x = is->ThumbstickNoDeadzone[hand].x;
+      *y = is->ThumbstickNoDeadzone[hand].y;
+      return 2;
   }
-  return 0.0f;
+
+  return 0;
 }
 
-static int oculusControllerIsDown(Controller* controller, ControllerButton button) {
-  ovrInputState *is = refreshButtons();
-  int relevant = is->Buttons & ((controller->id == ovrHand_Left) ? ovrButton_LMask : ovrButton_RMask);
-  switch (button) {
-    case CONTROLLER_BUTTON_A: return (relevant & ovrButton_A) > 0;
-    case CONTROLLER_BUTTON_B: return (relevant & ovrButton_B) > 0;
-    case CONTROLLER_BUTTON_X: return (relevant & ovrButton_X) > 0;
-    case CONTROLLER_BUTTON_Y: return (relevant & ovrButton_Y) > 0;
-    case CONTROLLER_BUTTON_MENU: return (relevant & ovrButton_Enter) > 0;
-    case CONTROLLER_BUTTON_TRIGGER: return is->IndexTriggerNoDeadzone[controller->id] > 0.5f;
-    case CONTROLLER_BUTTON_TOUCHPAD: return (relevant & (ovrButton_LThumb | ovrButton_RThumb)) > 0;
-    case CONTROLLER_BUTTON_GRIP: return is->HandTrigger[controller->id] > 0.9f;
-    default: return 0;
-  }
+static bool vibrate(Path path, float strength, float duration, float frequency) {
+  return false; // TODO
 }
 
-static bool oculusControllerIsTouched(Controller* controller, ControllerButton button) {
-  ovrInputState *is = refreshButtons();
-  int relevant = is->Touches & ((controller->id == ovrHand_Left) ? ovrTouch_LButtonMask : ovrTouch_RButtonMask);
-  switch (button) {
-    case CONTROLLER_BUTTON_A: return (relevant & ovrTouch_A) > 0;
-    case CONTROLLER_BUTTON_B: return (relevant & ovrTouch_B) > 0;
-    case CONTROLLER_BUTTON_X: return (relevant & ovrTouch_X) > 0;
-    case CONTROLLER_BUTTON_Y: return (relevant & ovrTouch_Y) > 0;
-    case CONTROLLER_BUTTON_TRIGGER: return (relevant & (ovrTouch_LIndexTrigger | ovrTouch_RIndexTrigger)) > 0;
-    case CONTROLLER_BUTTON_TOUCHPAD:return (relevant & (ovrTouch_LThumb | ovrTouch_RThumb)) > 0;
-    default: return false;
-  }
+static ModelData* newModelData(Path path) {
+  return NULL; // TODO
 }
 
-static void oculusControllerVibrate(Controller* controller, float duration, float power) {
-  //ovr_SetControllerVibration(state.session, ovrControllerType_LTouch, freq, power);
-  // TODO
-}
-
-static ModelData* oculusControllerNewModelData(Controller* controller) {
-  // TODO
-  return NULL;
-}
-
-static void oculusRenderTo(void (*callback)(void*), void* userdata) {
+static void renderTo(void (*callback)(void*), void* userdata) {
   ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
   if (!state.canvas) {
     state.size = ovr_GetFovTextureSize(state.session, ovrEye_Left, desc.DefaultEyeFov[ovrEye_Left], 1.0f);
@@ -362,7 +340,7 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
 
   Camera camera = { .canvas = state.canvas };
 
-  for (HeadsetEye eye = EYE_LEFT; eye <= EYE_RIGHT; eye++) {
+  for (int eye = 0; eye < 2; eye++) {
     float orient[] = {
       EyeRenderPose[eye].Orientation.x,
       EyeRenderPose[eye].Orientation.y,
@@ -414,22 +392,20 @@ static void oculusRenderTo(void (*callback)(void*), void* userdata) {
     ld.SensorSampleTime = sensorSampleTime;
   }
 
-  ovrLayerHeader* layers = &ld.Header;
+  const ovrLayerHeader* layers = &ld.Header;
   ovr_SubmitFrame(state.session, 0, NULL, &layers, 1);
 
   state.needRefreshTracking = true;
   state.needRefreshButtons = true;
 }
 
-static Texture* oculusGetMirrorTexture() {
+static Texture* getMirrorTexture() {
   uint32_t handle;
   ovr_GetMirrorTextureBufferGL(state.session, state.mirror, &handle);
   return lookupTexture(handle);
 }
 
-static void oculusUpdate(float dt) {
-  ovrInputState *is = refreshButtons();
-
+static void update(float dt) {
   ovrSessionStatus status;
   ovr_GetSessionStatus(state.session, &status);
 
@@ -439,56 +415,28 @@ static void oculusUpdate(float dt) {
     e.data.quit.exitCode = 0;
     lovrEventPush(e);
   }
-
-  //if (!status.HmdMounted) // TODO: update mirror only?
-
-  state.hmdPresent = (status.HmdPresent == ovrTrue)? true : false;
-
-  Controller* left = state.controllers.data[ovrHand_Left];
-  Controller* right = state.controllers.data[ovrHand_Right];
-  int diff = is->Buttons ^ state.lastButtonState;
-  int istate = is->Buttons;
-  checkInput(right, diff, istate, ovrButton_A, CONTROLLER_BUTTON_A);
-  checkInput(right, diff, istate, ovrButton_B, CONTROLLER_BUTTON_B);
-  checkInput(right, diff, istate, ovrButton_RShoulder, CONTROLLER_BUTTON_TRIGGER);
-  checkInput(right, diff, istate, ovrButton_RThumb, CONTROLLER_BUTTON_TOUCHPAD);
-
-  checkInput(left, diff, istate, ovrButton_X, CONTROLLER_BUTTON_X);
-  checkInput(left, diff, istate, ovrButton_Y, CONTROLLER_BUTTON_Y);
-  checkInput(left, diff, istate, ovrButton_LShoulder, CONTROLLER_BUTTON_TRIGGER);
-  checkInput(left, diff, istate, ovrButton_LThumb, CONTROLLER_BUTTON_TOUCHPAD);
-  checkInput(left, diff, istate, ovrButton_Enter, CONTROLLER_BUTTON_MENU);
-
-  state.lastButtonState = is->Buttons;
 }
 
 HeadsetInterface lovrHeadsetOculusDriver = {
   .driverType = DRIVER_OCULUS,
-  .init = oculusInit,
-  .destroy = oculusDestroy,
-  .getType = oculusGetType,
-  .getOriginType = oculusGetOriginType,
-  .isMounted = oculusIsMounted,
-  .getDisplayDimensions = oculusGetDisplayDimensions,
-  .getClipDistance = oculusGetClipDistance,
-  .setClipDistance = oculusSetClipDistance,
-  .getBoundsDimensions = oculusGetBoundsDimensions,
-  .getBoundsGeometry = oculusGetBoundsGeometry,
-  .getPose = oculusGetPose,
-  .getVelocity = oculusGetVelocity,
-  .getAngularVelocity = oculusGetAngularVelocity,
-  .getControllers = oculusGetControllers,
-  .controllerIsConnected = oculusControllerIsConnected,
-  .controllerGetHand = oculusControllerGetHand,
-  .controllerGetPose = oculusControllerGetPose,
-  .controllerGetVelocity = oculusControllerGetVelocity,
-  .controllerGetAngularVelocity = oculusControllerGetAngularVelocity,
-  .controllerGetAxis = oculusControllerGetAxis,
-  .controllerIsDown = oculusControllerIsDown,
-  .controllerIsTouched = oculusControllerIsTouched,
-  .controllerVibrate = oculusControllerVibrate,
-  .controllerNewModelData = oculusControllerNewModelData,
-  .renderTo = oculusRenderTo,
-  .getMirrorTexture = oculusGetMirrorTexture,
-  .update = oculusUpdate
+  .init = init,
+  .destroy = destroy,
+  .getName = getName,
+  .getOriginType = getOriginType,
+  .getDisplayDimensions = getDisplayDimensions,
+  .getClipDistance = getClipDistance,
+  .setClipDistance = setClipDistance,
+  .getBoundsDimensions = getBoundsDimensions,
+  .getBoundsGeometry = getBoundsGeometry,
+  .getPose = getPose,
+  .getVelocity = getVelocity,
+  .getAngularVelocity = getAngularVelocity,
+  .isDown = isDown,
+  .isTouched = isTouched,
+  .getAxis = getAxis,
+  .vibrate = vibrate,
+  .newModelData = newModelData,
+  .renderTo = renderTo,
+  .getMirrorTexture = getMirrorTexture,
+  .update = update
 };
