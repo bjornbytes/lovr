@@ -26,12 +26,6 @@ static struct {
 // Headset driver object
 
 static bool init(float offset, int msaa) {
-
-  // Make sure HeadsetDriver and BridgeLovrDevice have not gone out of sync
-  assert(BRIDGE_LOVR_DEVICE_UNKNOWN == HEADSET_UNKNOWN);
-  assert(BRIDGE_LOVR_DEVICE_GEAR == HEADSET_GEAR);
-  assert(BRIDGE_LOVR_DEVICE_GO == HEADSET_GO);
-
   state.offset = offset;
   return true;
 }
@@ -123,7 +117,7 @@ static bool getAngularVelocity(Path path, float* vx, float* vy, float* vz) {
 }
 
 static bool buttonCheck(BridgeLovrButton field, Path path, bool* result) {
-  if (!PATH_EQ(path, PATH_HAND) || path.p[2] != PATH_NONE) {
+  if (!PATH_EQ(path, P_HAND) || path.p[2] != P_NONE) {
     return false; // Path needs to start with /hand and have exactly one more piece
   }
 
@@ -144,12 +138,12 @@ static bool isTouched(Path path, bool* touched) {
 }
 
 static int getAxis(Path path, float* x, float* y, float* z) {
-  if (!PATH_EQ(path, PATH_HAND) || path.p[2] != PATH_NONE) {
+  if (!PATH_EQ(path, P_HAND) || path.p[2] != P_NONE) {
     return 0; // Path needs to start with /hand and have exactly one more piece
   }
 
   switch (path.p[1]) {
-    case P_TOUCHPAD:
+    case P_TRACKPAD:
       *x = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f;
       *y = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f;
       return 2;
@@ -179,9 +173,8 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   .driverType = DRIVER_OCULUS_MOBILE,
   .init = init,
   .destroy = destroy,
-  .getType = getType,
+  .getName = getName,
   .getOriginType = getOriginType,
-  .isMounted = isMounted,
   .getDisplayDimensions = getDisplayDimensions,
   .getClipDistance = getClipDistance,
   .setClipDistance = setClipDistance,
