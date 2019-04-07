@@ -9,11 +9,6 @@ struct ModelData;
 struct Texture;
 
 typedef enum {
-  SIDE_LEFT,
-  SIDE_RIGHT
-} Chirality;
-
-typedef enum {
   ORIGIN_HEAD,
   ORIGIN_FLOOR
 } HeadsetOrigin;
