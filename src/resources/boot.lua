@@ -12,12 +12,18 @@ local function nogame()
 
   function lovr.conf(t)
     t.modules.audio = false
+    t.modules.graphics = false
     t.modules.math = false
     t.modules.physics = false
     t.modules.thread = false
   end
 
   function lovr.load()
+    if not lovr.graphics then
+      print(string.format('LÖVR %d.%d.%d (No game)', lovr.getVersion()))
+      lovr.event.quit()
+      return
+    end
     local texture = lovr.graphics.newTexture(lovr.data.newBlob(lovr._logo, 'logo.png'))
     logo = lovr.graphics.newMaterial(texture)
     lovr.graphics.setBackgroundColor(.960, .988, 1.0)
