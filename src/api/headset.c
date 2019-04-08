@@ -36,6 +36,7 @@ const char* Subpaths[] = {
   [P_PROXIMITY] = "proximity",
   [P_TRIGGER] = "trigger",
   [P_TRACKPAD] = "trackpad",
+  [P_JOYSTICK] = "joystick",
   [P_MENU] = "menu",
   [P_GRIP] = "grip",
   [P_A] = "a",
