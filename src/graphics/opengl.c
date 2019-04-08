@@ -1152,6 +1152,7 @@ void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback call
 }
 
 void lovrGpuDirtyTexture() {
+  lovrRelease(Texture, state.textures[state.activeTexture]);
   state.textures[state.activeTexture] = NULL;
 }
 
