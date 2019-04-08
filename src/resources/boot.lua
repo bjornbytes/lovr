@@ -12,7 +12,6 @@ local function nogame()
 
   function lovr.conf(t)
     t.modules.audio = false
-    t.modules.graphics = false
     t.modules.math = false
     t.modules.physics = false
     t.modules.thread = false
@@ -20,7 +19,7 @@ local function nogame()
 
   function lovr.load()
     if not lovr.graphics then
-      print(string.format('LÖVR %d.%d.%d (No game)', lovr.getVersion()))
+      print(string.format('LÖVR %d.%d.%d\nNo game', lovr.getVersion()))
       lovr.event.quit()
       return
     end
