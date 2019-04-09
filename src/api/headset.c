@@ -12,6 +12,7 @@
 
 const char* HeadsetDrivers[] = {
   [DRIVER_DESKTOP] = "desktop",
+  [DRIVER_LEAP_MOTION] = "leap",
   [DRIVER_OCULUS] = "oculus",
   [DRIVER_OCULUS_MOBILE] = "oculusmobile",
   [DRIVER_OPENVR] = "openvr",
@@ -349,8 +350,14 @@ static int l_lovrHeadsetRenderTo(lua_State* L) {
 }
 
 static int l_lovrHeadsetUpdate(lua_State* L) {
+  float dt = luax_checkfloat(L, 1);
+
   if (lovrHeadsetDriver->update) {
-    lovrHeadsetDriver->update(luax_checkfloat(L, 1));
+    lovrHeadsetDriver->update(dt);
+  }
+
+  FOREACH_TRACKING_DRIVER(driver) {
+    driver->update(dt);
   }
 
   return 0;

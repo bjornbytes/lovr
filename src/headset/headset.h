@@ -15,6 +15,7 @@ typedef enum {
 
 typedef enum {
   DRIVER_DESKTOP,
+  DRIVER_LEAP_MOTION,
   DRIVER_OCULUS,
   DRIVER_OCULUS_MOBILE,
   DRIVER_OPENVR,
@@ -29,6 +30,7 @@ typedef struct HeadsetInterface {
   bool (*getName)(char* name, size_t length);
   HeadsetOrigin (*getOriginType)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
+  double (*getDisplayTime)();
   void (*getClipDistance)(float* clipNear, float* clipFar);
   void (*setClipDistance)(float clipNear, float clipFar);
   void (*getBoundsDimensions)(float* width, float* depth);
@@ -51,6 +53,7 @@ extern HeadsetInterface lovrHeadsetOpenVRDriver;
 extern HeadsetInterface lovrHeadsetWebVRDriver;
 extern HeadsetInterface lovrHeadsetDesktopDriver;
 extern HeadsetInterface lovrHeadsetOculusMobileDriver;
+extern HeadsetInterface lovrHeadsetLeapMotionDriver;
 
 // Active drivers
 extern HeadsetInterface* lovrHeadsetDriver;
