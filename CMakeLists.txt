@@ -23,6 +23,7 @@ option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
 option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
+option(LOVR_USE_LEAP_MOTION "Enable the Leap Motion backend for the headset module" ON)
 option(LOVR_USE_SSE "Enable SIMD use of intrinsics" ON)
 
 option(LOVR_SYSTEM_PHYSFS "Use the system-provided PhysFS" OFF)
@@ -270,10 +271,27 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENVR)
   )
 endif()
 
+# Leap Motion
+if(LOVR_ENABLE_HEADSET AND LOVR_USE_LEAP_MOTION)
+  if(NOT LOVR_LEAP_PATH)
+    message(FATAL_ERROR "LOVR_USE_LEAP_MOTION requires the LOVR_LEAP_PATH to be set to the location of the Leap Motion SDK (LeapSDK) folder")
+  endif()
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(LEAP_ARCH "x64")
+  else()
+    set(LEAP_ARCH "x86")
+  endif()
+  add_library(LeapC SHARED IMPORTED)
+  include_directories("${LOVR_LEAP_PATH}/include")
+  set_target_properties(LeapC PROPERTIES IMPORTED_IMPLIB "${LOVR_LEAP_PATH}/lib/${LEAP_ARCH}/LeapC.lib")
+  set_target_properties(LeapC PROPERTIES IMPORTED_LOCATION "${LOVR_LEAP_PATH}/lib/${LEAP_ARCH}/LeapC.dll")
+  set(LOVR_LEAP LeapC)
+endif()
+
 # Oculus SDK -- expects Oculus SDK 1.26.0 or later
-if (LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
+if(LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
   if(NOT LOVR_OCULUS_PATH)
-    message(FATAL_ERROR "LOVR_USE_OCULUS requires the LOVR_OCULUS_PATH to be set to the location of the Oculus Desktop SDK")
+    message(FATAL_ERROR "LOVR_USE_OCULUS requires the LOVR_OCULUS_PATH to be set to the location of the Oculus Desktop SDK (LibOVR) folder")
   endif()
   if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(OCULUS_BUILD_TYPE "Release")
@@ -333,6 +351,7 @@ target_link_libraries(lovr
   ${LOVR_OPENGL}
   ${LOVR_OPENVR}
   ${LOVR_OCULUS}
+  ${LOVR_LEAP}
   ${LOVR_PHYSFS}
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
@@ -449,6 +468,10 @@ if(LOVR_ENABLE_HEADSET)
     add_definitions(-DLOVR_USE_DESKTOP_HEADSET)
     target_sources(lovr PRIVATE src/headset/desktop.c)
   endif()
+  if(LOVR_USE_LEAP_MOTION)
+    add_definitions(-DLOVR_USE_LEAP_MOTION)
+    target_sources(lovr PRIVATE src/headset/leap.c)
+  endif()
 endif()
 
 if(LOVR_ENABLE_MATH)
@@ -545,6 +568,7 @@ if(WIN32)
   move_dll(${LOVR_OPENAL})
   move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_PHYSFS})
+  move_dll(${LOVR_LEAP})
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 elseif(APPLE)
   target_sources(lovr PRIVATE src/platform/macos.c)

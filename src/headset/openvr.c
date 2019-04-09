@@ -133,6 +133,17 @@ static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
   state.system->GetRecommendedRenderTargetSize(width, height);
 }
 
+static double getDisplayTime() {
+  float secondsSinceVsync;
+  state.system->GetTimeSinceLastVsync(&secondsSinceVsync, NULL);
+
+  float frequency = state.system->GetFloatTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_DisplayFrequency_Float, NULL);
+  float frameDuration = 1.f / frequency;
+  float vsyncToPhotons = state.system->GetFloatTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_SecondsFromVsyncToPhotons_Float, NULL);
+
+  return (double) (frameDuration - secondsSinceVsync + vsyncToPhotons);
+}
+
 static void getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
@@ -179,7 +190,7 @@ static bool getTransform(unsigned int device, mat4 transform) {
 static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   float transform[16];
   TrackedDeviceIndex_t device = pathToDevice(path, NULL);
-  if (device == INVALID_DEVICE && !getTransform(device, transform)) {
+  if (device == INVALID_DEVICE || !getTransform(device, transform)) {
     return false;
   }
 
@@ -451,6 +462,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getName = getName,
   .getOriginType = getOriginType,
   .getDisplayDimensions = getDisplayDimensions,
+  .getDisplayTime = getDisplayTime,
   .getClipDistance = getClipDistance,
   .setClipDistance = setClipDistance,
   .getBoundsDimensions = getBoundsDimensions,
