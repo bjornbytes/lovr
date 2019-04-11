@@ -2,6 +2,7 @@
 #include "oculus_mobile_bridge.h"
 #include "math.h"
 #include "graphics/graphics.h"
+#include "graphics/canvas.h"
 #include "lib/glad/glad.h"
 #include <assert.h>
 #include "platform.h"

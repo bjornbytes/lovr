@@ -77,7 +77,7 @@ elseif(UNIX)
   find_package(PkgConfig)
 endif()
 
-if(EMSCRIPTEN OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm")
+if(EMSCRIPTEN OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
   set(LOVR_USE_SSE OFF)
 endif()
 
