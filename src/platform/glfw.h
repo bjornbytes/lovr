@@ -4,6 +4,7 @@
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
 
 getProcAddressProc lovrGetProcAddress = glfwGetProcAddress;
 
@@ -190,3 +191,13 @@ bool lovrPlatformIsMouseDown(MouseButton button) {
 bool lovrPlatformIsKeyDown(KeyCode key) {
   return state.window ? glfwGetKey(state.window, convertKeyCode(key)) == GLFW_PRESS : false;
 }
+
+#ifdef _WIN32
+HANDLE lovrPlatformGetWindow() {
+  return (HANDLE) glfwGetWin32Window();
+}
+
+HGLRC lovrPlatformGetContext() {
+  return glfwGetWGLContext();
+}
+#endif

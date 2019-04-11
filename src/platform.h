@@ -89,3 +89,8 @@ bool lovrPlatformIsKeyDown(KeyCode key);
 void lovrSleep(double seconds);
 int lovrGetExecutablePath(char* dest, uint32_t size);
 sds lovrGetApplicationId(void);
+#ifdef _WIN32
+#include <windows.h>
+HANDLE lovrPlatformGetWindow(void);
+HGLRC lovrPlatformGetContext(void);
+#endif
