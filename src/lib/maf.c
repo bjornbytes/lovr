@@ -545,6 +545,23 @@ mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, float a
   return m;
 }
 
+mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float clipNear, float clipFar) {
+  float idx = 1.f / (right - left);
+  float idy = 1.f / (down - up);
+  float idz = 1.f / (clipFar - clipNear);
+  float sx = right + left;
+  float sy = down + up;
+  memset(m, 0, 16 * sizeof(float));
+  m[0] = 2.f * idx;
+  m[5] = 2.f * idy;
+  m[8] = sx * idx;
+  m[9] = sy * idy;
+  m[10] = -clipFar * idz;
+  m[11] = -1.f;
+  m[14] = -clipFar * clipNear * idz;
+  return m;
+}
+
 // Modified from gl-matrix.c
 mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   float x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
