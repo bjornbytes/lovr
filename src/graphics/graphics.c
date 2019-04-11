@@ -549,6 +549,8 @@ void lovrGraphicsBatch(BatchRequest* req) {
       batch->cursors[i].start = state.cursors[i];
     }
 
+    batch->cursors[STREAM_TRANSFORM].count = MAX_DRAWS;
+    batch->cursors[STREAM_COLOR].count = MAX_DRAWS;
     state.cursors[STREAM_TRANSFORM] += MAX_DRAWS;
     state.cursors[STREAM_COLOR] += MAX_DRAWS;
   }
@@ -577,8 +579,6 @@ void lovrGraphicsBatch(BatchRequest* req) {
     state.cursors[STREAM_DRAW_ID] += req->vertexCount;
   }
 
-  batch->cursors[STREAM_TRANSFORM].count++;
-  batch->cursors[STREAM_COLOR].count++;
   batch->count++;
 }
 
@@ -595,7 +595,7 @@ void lovrGraphicsFlush() {
     Batch* batch = &state.batches[b];
     BatchParams* params = &batch->params;
     Mesh* mesh = batch->type == BATCH_MESH ? params->mesh.object : (batch->instanced ? state.instancedMesh : state.mesh);
-    int instances = batch->instanced ? batch->cursors[STREAM_TRANSFORM].count : 1;
+    int instances = batch->instanced ? batch->count : 1;
 
     // Flush buffers
     for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
@@ -660,7 +660,7 @@ void lovrGraphicsFlush() {
       if (batch->cursors[i].count > 0) {
         size_t lockSize = BUFFER_COUNTS[i] / MAX_LOCKS;
         size_t start = batch->cursors[i].start;
-        size_t count = batch->cursors[i].count;
+        size_t count = batch->cursors[i].count + 1;
         size_t firstLock = start / lockSize;
         size_t lastLock = MIN(start + count, BUFFER_COUNTS[i] - 1) / lockSize;
         for (size_t j = firstLock; j < lastLock; j++) {
