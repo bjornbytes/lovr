@@ -21,6 +21,7 @@ typedef enum {
   T_Curve,
   T_CylinderShape,
   T_DistanceJoint,
+  T_File,
   T_Font,
   T_HingeJoint,
   T_Joint,

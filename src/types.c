@@ -11,6 +11,7 @@ void lovrChannelDestroy(void*);
 void lovrColliderDestroy(void*);
 void lovrControllerDestroy(void*);
 void lovrCurveDestroy(void*);
+void lovrFileDestroy(void*);
 void lovrFontDestroy(void*);
 void lovrJointDestroy(void*);
 void lovrMaterialDestroy(void*);
@@ -47,6 +48,7 @@ const TypeInfo lovrTypeInfo[T_MAX] = {
   INFO(Curve),
   SUPERINFO(CylinderShape, Shape),
   SUPERINFO(DistanceJoint, Joint),
+  INFO(File),
   INFO(Font),
   SUPERINFO(HingeJoint, Joint),
   INFO(Joint),
