@@ -169,12 +169,17 @@ static bool getPose(Path path, float* x, float* y, float* z, float* angle, float
     return false;
   }
 
-  *x = pose->Position.x;;
-  *y = pose->Position.y + state.offset;
-  *z = pose->Position.z;
+  if (x) {
+    *x = pose->Position.x;;
+    *y = pose->Position.y + state.offset;
+    *z = pose->Position.z;
+  }
 
-  float quat[4] = { pose->Orientation.x, pose->Orientation.y, pose->Orientation.z, pose->Orientation.w };
-  quat_getAngleAxis(quat, angle, ax, ay, az);
+  if (angle) {
+    float quat[4] = { pose->Orientation.x, pose->Orientation.y, pose->Orientation.z, pose->Orientation.w };
+    quat_getAngleAxis(quat, angle, ax, ay, az);
+  }
+
   return true;
 }
 

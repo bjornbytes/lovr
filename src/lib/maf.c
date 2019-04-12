@@ -491,28 +491,27 @@ mat4 mat4_scale(mat4 m, float x, float y, float z) {
   return m;
 }
 
-void mat4_getPose(mat4 m, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  *x = m[12];
-  *y = m[13];
-  *z = m[14];
-  float quat[4];
-  quat_fromMat4(quat, m);
-  quat_getAngleAxis(quat, angle, ax, ay, az);
-}
-
 void mat4_getTransform(mat4 m, float* x, float* y, float* z, float* sx, float* sy, float* sz, float* angle, float* ax, float* ay, float* az) {
-  *x = m[12];
-  *y = m[13];
-  *z = m[14];
-  float a[3] = { m[0], m[1], m[2] };
-  float b[3] = { m[4], m[5], m[6] };
-  float c[3] = { m[8], m[9], m[10] };
-  *sx = vec3_length(a);
-  *sy = vec3_length(b);
-  *sz = vec3_length(c);
-  float quat[4];
-  quat_fromMat4(quat, m);
-  quat_getAngleAxis(quat, angle, ax, ay, az);
+  if (x) {
+    *x = m[12];
+    *y = m[13];
+    *z = m[14];
+  }
+
+  if (sx) {
+    float a[3] = { m[0], m[1], m[2] };
+    float b[3] = { m[4], m[5], m[6] };
+    float c[3] = { m[8], m[9], m[10] };
+    *sx = vec3_length(a);
+    *sy = vec3_length(b);
+    *sz = vec3_length(c);
+  }
+
+  if (angle) {
+    float quat[4];
+    quat_fromMat4(quat, m);
+    quat_getAngleAxis(quat, angle, ax, ay, az);
+  }
 }
 
 mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float clipNear, float clipFar) {
