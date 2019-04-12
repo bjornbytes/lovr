@@ -249,7 +249,7 @@ static bool getPose(Path path, float* x, float* y, float* z, float* angle, float
   TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
   float transform[16];
   if (deviceIndex != INVALID_INDEX && getTransform(deviceIndex, transform)) {
-    mat4_getPose(transform, x, y, z, angle, ax, ay, az);
+    mat4_getTransform(transform, x, y, z, NULL, NULL, NULL, angle, ax, ay, az);
     return true;
   }
   return false;

@@ -73,20 +73,25 @@ static const float* getBoundsGeometry(int* count) {
 }
 
 static bool getPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  if (PATH_EQ(path, P_HEAD)) {
-    *x = *y = *z = 0.f;
-  } else if (PATH_EQ(path, P_HAND, P_LEFT) || PATH_EQ(path, P_HAND, P_RIGHT)) {
-    *x  = 0.f;
-    *y  = 0.f;
-    *z = -.75f;
-  } else {
+  bool head = PATH_EQ(path, P_HEAD);
+  bool hand = PATH_EQ(path, P_HAND, P_LEFT) || PATH_EQ(path, P_HAND, P_RIGHT);
+
+  if (!head && !hand) {
     return false;
   }
 
-  float q[4];
-  mat4_transform(state.transform, x, y, z);
-  quat_fromMat4(q, state.transform);
-  quat_getAngleAxis(q, angle, ax, ay, az);
+  if (x) {
+    *x = *y = 0.f;
+    *z = hand ? -.75f : 0.f;
+    mat4_transform(state.transform, x, y, z);
+  }
+
+  if (angle) {
+    float q[4];
+    quat_fromMat4(q, state.transform);
+    quat_getAngleAxis(q, angle, ax, ay, az);
+  }
+
   return true;
 }
 

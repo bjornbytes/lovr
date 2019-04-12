@@ -227,12 +227,12 @@ int l_lovrHeadsetGetPose(lua_State* L) {
 
 int l_lovrHeadsetGetPosition(lua_State* L) {
   Path path = luax_optpath(L, 1, "head");
-  float position[3], angle, ax, ay, az;
+  float x, y, z;
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(path, &position[0], &position[1], &position[2], &angle, &ax, &ay, &az)) {
-      lua_pushnumber(L, position[0]);
-      lua_pushnumber(L, position[1]);
-      lua_pushnumber(L, position[2]);
+    if (driver->getPose(path, &x, &y, &z, NULL, NULL, NULL, NULL)) {
+      lua_pushnumber(L, x);
+      lua_pushnumber(L, y);
+      lua_pushnumber(L, z);
       return 3;
     }
   }
@@ -241,9 +241,9 @@ int l_lovrHeadsetGetPosition(lua_State* L) {
 
 int l_lovrHeadsetGetOrientation(lua_State* L) {
   Path path = luax_optpath(L, 1, "head");
-  float x, y, z, angle, ax, ay, az;
+  float angle, ax, ay, az;
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(path, &x, &y, &z, &angle, &ax, &ay, &az)) {
+    if (driver->getPose(path, NULL, NULL, NULL, &angle, &ax, &ay, &az)) {
       lua_pushnumber(L, angle);
       lua_pushnumber(L, ax);
       lua_pushnumber(L, ay);

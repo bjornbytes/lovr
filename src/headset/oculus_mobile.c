@@ -71,16 +71,28 @@ static const float* getBoundsGeometry(int* count) {
 
 static bool getPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   if (PATH_EQ(path, P_HEAD)) {
-    *x = bridgeLovrMobileData.updateData.lastHeadPose.x;
-    *y = bridgeLovrMobileData.updateData.lastHeadPose.y + state.offset; // Correct for head height
-    *z = bridgeLovrMobileData.updateData.lastHeadPose.z;
-    quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, ax, ay, az);
+    if (x) {
+      *x = bridgeLovrMobileData.updateData.lastHeadPose.x;
+      *y = bridgeLovrMobileData.updateData.lastHeadPose.y + state.offset; // Correct for head height
+      *z = bridgeLovrMobileData.updateData.lastHeadPose.z;
+    }
+
+    if (angle) {
+      quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, ax, ay, az);
+    }
+
     return true;
   } else if (PATH_EQ(path, P_HAND)) {
-    *x = bridgeLovrMobileData.updateData.goPose.x;
-    *y = bridgeLovrMobileData.updateData.goPose.y + state.offset; // Correct for head height
-    *z = bridgeLovrMobileData.updateData.goPose.z;
-    quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, ax, ay, az);
+    if (x) {
+      *x = bridgeLovrMobileData.updateData.goPose.x;
+      *y = bridgeLovrMobileData.updateData.goPose.y + state.offset; // Correct for head height
+      *z = bridgeLovrMobileData.updateData.goPose.z;
+    }
+
+    if (angle) {
+      quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, ax, ay, az);
+    }
+
     return true;
   }
   return false;
