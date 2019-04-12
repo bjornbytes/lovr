@@ -228,6 +228,19 @@ static int l_lovrHeadsetGetOrientation(lua_State* L) {
   return 4;
 }
 
+static int l_lovrHeadsetGetDirection(lua_State* L) {
+  float x, y, z, angle, ax, ay, az;
+  lovrHeadsetDriver->getPose(&x, &y, &z, &angle, &ax, &ay, &az);
+  float q[4];
+  quat_fromAngleAxis(q, angle, ax, ay, az);
+  float v[3] = { 0.f, 0.f, -1.f };
+  quat_rotate(q, v);
+  lua_pushnumber(L, v[0]);
+  lua_pushnumber(L, v[1]);
+  lua_pushnumber(L, v[2]);
+  return 3;
+}
+
 static int l_lovrHeadsetGetVelocity(lua_State* L) {
   float velocity[3];
   lovrHeadsetDriver->getVelocity(&velocity[0], &velocity[1], &velocity[2]);
@@ -318,6 +331,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
+  { "getDirection", l_lovrHeadsetGetDirection },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
   { "getControllers", l_lovrHeadsetGetControllers },

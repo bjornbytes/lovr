@@ -52,6 +52,20 @@ static int l_lovrControllerGetOrientation(lua_State* L) {
   return 4;
 }
 
+static int l_lovrControllerGetDirection(lua_State* L) {
+  Controller* controller = luax_checktype(L, 1, Controller);
+  float x, y, z, angle, ax, ay, az;
+  lovrHeadsetDriver->controllerGetPose(controller, &x, &y, &z, &angle, &ax, &ay, &az);
+  float q[4];
+  quat_fromAngleAxis(q, angle, ax, ay, az);
+  float v[3] = { 0.f, 0.f, -1.f };
+  quat_rotate(q, v);
+  lua_pushnumber(L, v[0]);
+  lua_pushnumber(L, v[1]);
+  lua_pushnumber(L, v[2]);
+  return 3;
+}
+
 static int l_lovrControllerGetVelocity(lua_State* L) {
   Controller* controller = luax_checktype(L, 1, Controller);
   float velocity[3];
@@ -121,6 +135,7 @@ const luaL_Reg lovrController[] = {
   { "getPose", l_lovrControllerGetPose },
   { "getPosition", l_lovrControllerGetPosition },
   { "getOrientation", l_lovrControllerGetOrientation },
+  { "getDirection", l_lovrControllerGetDirection },
   { "getVelocity", l_lovrControllerGetVelocity },
   { "getAngularVelocity", l_lovrControllerGetAngularVelocity },
   { "getAxis", l_lovrControllerGetAxis },
