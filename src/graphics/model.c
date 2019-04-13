@@ -108,7 +108,8 @@ Model* lovrModelInit(Model* model, ModelData* data) {
             .stride = data->buffers[attribute->buffer].stride,
             .type = attribute->type,
             .components = attribute->components,
-            .integer = j == ATTR_BONES
+            .integer = j == ATTR_BONES,
+            .normalized = attribute->normalized
           });
 
           if (!setDrawRange && !primitive->indices) {

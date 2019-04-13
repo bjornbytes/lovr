@@ -1220,7 +1220,8 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
       .offset = attributes[i].offset,
       .stride = stride,
       .type = attributes[i].type,
-      .components = attributes[i].components
+      .components = attributes[i].components,
+      .normalized = attributes[i].type == I8 || attributes[i].type == U8
     });
   }
 
