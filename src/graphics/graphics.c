@@ -524,6 +524,13 @@ void lovrGraphicsBatch(BatchRequest* req) {
       *(req->indices) = lovrGraphicsMapBuffer(STREAM_INDEX, req->indexCount);
       *(req->baseVertex) = state.cursors[STREAM_VERTEX];
     }
+
+    // The buffer mapping here could have triggered a flush, so if we were hoping to batch with
+    // something but the batch count is zero now, we just start a new batch.  Maybe there's a better
+    // way to detect this.
+    if (batch && state.batchCount == 0) {
+      batch = NULL;
+    }
   }
 
   // Start a new batch
