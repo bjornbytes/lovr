@@ -442,6 +442,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
+  { "getDirection", l_lovrHeadsetGetDirection },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
   { "isDown", l_lovrHeadsetIsDown },
