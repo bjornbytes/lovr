@@ -70,62 +70,53 @@ static const float* getBoundsGeometry(int* count) {
 }
 
 static bool getPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  BridgeLovrPose* pose;
+
   if (PATH_EQ(path, P_HEAD)) {
-    if (x) {
-      *x = bridgeLovrMobileData.updateData.lastHeadPose.x;
-      *y = bridgeLovrMobileData.updateData.lastHeadPose.y + state.offset; // Correct for head height
-      *z = bridgeLovrMobileData.updateData.lastHeadPose.z;
-    }
-
-    if (angle) {
-      quat_getAngleAxis(bridgeLovrMobileData.updateData.lastHeadPose.q, angle, ax, ay, az);
-    }
-
-    return true;
+    pose = &bridgeLovrMobileData.updateData.lastHeadPose;
   } else if (PATH_EQ(path, P_HAND)) {
-    if (x) {
-      *x = bridgeLovrMobileData.updateData.goPose.x;
-      *y = bridgeLovrMobileData.updateData.goPose.y + state.offset; // Correct for head height
-      *z = bridgeLovrMobileData.updateData.goPose.z;
-    }
-
-    if (angle) {
-      quat_getAngleAxis(bridgeLovrMobileData.updateData.goPose.q, angle, ax, ay, az);
-    }
-
-    return true;
+    pose = &bridgeLovrMobileData.updateData.goPose;
+  } else {
+    return false;
   }
-  return false;
+
+  if (x) {
+    *x = pose->x;
+    *y = pose->y + state.offset; // Correct for head height
+    *z = pose->z;
+  }
+
+  if (angle) {
+    quat_getAngleAxis(pose->q, angle, ax, ay, az);
+  }
+
+  return true;
 }
 
-static bool getVelocity(Path path, float* vx, float* vy, float* vz) {
-  if (PATH_EQ(path, P_HEAD)) {
-    *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.x;
-    *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.y;
-    *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.z;
-    return true;
-  } else if (PATH_EQ(path, P_HAND)) {
-    *vx = bridgeLovrMobileData.updateData.goVelocity.x;
-    *vy = bridgeLovrMobileData.updateData.goVelocity.y;
-    *vz = bridgeLovrMobileData.updateData.goVelocity.z;
-    return true;
-  }
-  return false;
-}
+static bool getVelocity(Path path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+  BridgeLovrVel* velocity;
 
-static bool getAngularVelocity(Path path, float* vx, float* vy, float* vz) {
   if (PATH_EQ(path, P_HEAD)) {
-    *vx = bridgeLovrMobileData.updateData.lastHeadVelocity.ax;
-    *vy = bridgeLovrMobileData.updateData.lastHeadVelocity.ay;
-    *vz = bridgeLovrMobileData.updateData.lastHeadVelocity.az;
-    return true;
+    velocity = &bridgeLovrMobileData.updateData.lastHeadVelocity;
   } else if (PATH_EQ(path, P_HAND)) {
-    *vx = bridgeLovrMobileData.updateData.goVelocity.ax;
-    *vy = bridgeLovrMobileData.updateData.goVelocity.ay;
-    *vz = bridgeLovrMobileData.updateData.goVelocity.az;
-    return true;
+    velocity = &bridgeLovrMobileData.updateData.goVelocity;
+  } else {
+    return false;
   }
-  return false;
+
+  if (vx) {
+    *vx = velocity->x;
+    *vy = velocity->y;
+    *vz = velocity->z;
+  }
+
+  if (vax) {
+    *vax = velocity->ax;
+    *vay = velocity->ay;
+    *vaz = velocity->az;
+  }
+
+  return true;
 }
 
 static bool buttonCheck(BridgeLovrButton field, Path path, bool* result) {
@@ -194,7 +185,6 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   .getBoundsGeometry = getBoundsGeometry,
   .getPose = getPose,
   .getVelocity = getVelocity,
-  .getAngularVelocity = getAngularVelocity,
   .isDown = isDown,
   .isTouched = isTouched,
   .getAxis = getAxis,

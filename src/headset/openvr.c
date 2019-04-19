@@ -255,7 +255,7 @@ static bool getPose(Path path, float* x, float* y, float* z, float* angle, float
   return false;
 }
 
-static bool getVelocity(Path path, float* vx, float* vy, float* vz) {
+static bool getVelocity(Path path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
   TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
   if (deviceIndex == INVALID_INDEX) {
     return false;
@@ -265,26 +265,17 @@ static bool getVelocity(Path path, float* vx, float* vy, float* vz) {
   if (!pose->bPoseIsValid || !pose->bDeviceIsConnected) {
     return false;
   } else {
-    *vx = pose->vVelocity.v[0];
-    *vy = pose->vVelocity.v[1];
-    *vz = pose->vVelocity.v[2];
-    return true;
-  }
-}
+    if (vx) {
+      *vx = pose->vVelocity.v[0];
+      *vy = pose->vVelocity.v[1];
+      *vz = pose->vVelocity.v[2];
+    }
 
-static bool getAngularVelocity(Path path, float* vx, float* vy, float* vz) {
-  TrackedDeviceIndex_t deviceIndex = getDeviceIndexForPath(path);
-  if (deviceIndex == INVALID_INDEX) {
-    return false;
-  }
-
-  TrackedDevicePose_t* pose = &state.poses[deviceIndex];
-  if (!pose->bPoseIsValid || !pose->bDeviceIsConnected) {
-    return false;
-  } else {
-    *vx = pose->vAngularVelocity.v[0];
-    *vy = pose->vAngularVelocity.v[1];
-    *vz = pose->vAngularVelocity.v[2];
+    if (vax) {
+      *vax = pose->vAngularVelocity.v[0];
+      *vay = pose->vAngularVelocity.v[1];
+      *vaz = pose->vAngularVelocity.v[2];
+    }
     return true;
   }
 }
@@ -545,7 +536,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getBoundsGeometry = getBoundsGeometry,
   .getPose = getPose,
   .getVelocity = getVelocity,
-  .getAngularVelocity = getAngularVelocity,
   .isDown = isDown,
   .isTouched = isTouched,
   .getAxis = getAxis,

@@ -62,8 +62,7 @@ typedef struct HeadsetInterface {
   void (*getBoundsDimensions)(float* width, float* depth);
   const float* (*getBoundsGeometry)(int* count);
   bool (*getPose)(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-  bool (*getVelocity)(Path path, float* vx, float* vy, float* vz);
-  bool (*getAngularVelocity)(Path path, float* vx, float* vy, float* vz);
+  bool (*getVelocity)(Path path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz);
   bool (*isDown)(Path path, bool* down);
   bool (*isTouched)(Path path, bool* touched);
   int (*getAxis)(Path path, float* x, float* y, float* z);

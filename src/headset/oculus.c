@@ -183,39 +183,30 @@ static bool getPose(Path path, float* x, float* y, float* z, float* angle, float
   return true;
 }
 
-static bool getVelocity(Path path, float* vx, float* vy, float* vz) {
+static bool getVelocity(Path path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
   ovrTrackingState *ts = refreshTracking();
-  ovrVector3f* velocity;
+  ovrPosef* pose;
 
   if (PATH_EQ(path, P_HEAD)) {
-    velocity = &ts->HeadPose.LinearVelocity;
+    velocity = &ts->HeadPose;
   } else if (PATH_STARTS_WITH(path, P_HAND) && (path.p[1] == P_LEFT || path.p[1] == P_RIGHT)) {
-    velocity = &ts->HandPoses[path.p[1] - P_LEFT].LinearVelocity;
+    velocity = &ts->HandPoses[path.p[1] - P_LEFT];
   } else {
     return false;
   }
 
-  *vx = velocity->x;
-  *vy = velocity->y;
-  *vz = velocity->z;
-  return true;
-}
-
-static bool getAngularVelocity(Path path, float* vx, float* vy, float* vz) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrVector3f* velocity;
-
-  if (PATH_EQ(path, P_HEAD)) {
-    velocity = &ts->HeadPose.AngularVelocity;
-  } else if (PATH_STARTS_WITH(path, P_HAND) && (path.p[1] == P_LEFT || path.p[1] == P_RIGHT)) {
-    velocity = &ts->HandPoses[path.p[1] - P_LEFT].AngularVelocity;
-  } else {
-    return false;
+  if (vx) {
+    *vx = pose->LinearVelocity.x;
+    *vy = pose->LinearVelocity.y;
+    *vz = pose->LinearVelocity.z;
   }
 
-  *vx = velocity->x;
-  *vy = velocity->y;
-  *vz = velocity->z;
+  if (vax) {
+    *vax = pose->AngularVelocity.x;
+    *vay = pose->AngularVelocity.y;
+    *vaz = pose->AngularVelocity.z;
+  }
+
   return true;
 }
 
@@ -435,7 +426,6 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   .getBoundsGeometry = getBoundsGeometry,
   .getPose = getPose,
   .getVelocity = getVelocity,
-  .getAngularVelocity = getAngularVelocity,
   .isDown = isDown,
   .isTouched = isTouched,
   .getAxis = getAxis,
