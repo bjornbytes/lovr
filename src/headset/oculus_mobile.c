@@ -34,12 +34,17 @@ static void destroy() {
   //
 }
 
-static const char* getName() {
+static bool getName(char* buffer, size_t length) {
+  const char* name;
   switch (bridgeLovrMobileData.deviceType) {
-    case BRIDGE_LOVR_DEVICE_GEAR: return "Gear VR";
-    case BRIDGE_LOVR_DEVICE_GO: return "Oculus Go";
-    default: return NULL;
+    case BRIDGE_LOVR_DEVICE_GEAR: name = "Gear VR"; break;
+    case BRIDGE_LOVR_DEVICE_GO: name = "Oculus Go"; break;
+    default: return false;
   }
+
+  strncpy(buffer, name, length - 1);
+  buffer[length - 1] = '\0';
+  return true;
 }
 
 static HeadsetOrigin getOriginType() {

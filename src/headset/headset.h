@@ -54,7 +54,7 @@ typedef struct HeadsetInterface {
   HeadsetDriver driverType;
   bool (*init)(float offset, int msaa);
   void (*destroy)(void);
-  const char* (*getName)(void);
+  bool (*getName)(char* name, size_t length);
   HeadsetOrigin (*getOriginType)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
   void (*getClipDistance)(float* clipNear, float* clipFar);

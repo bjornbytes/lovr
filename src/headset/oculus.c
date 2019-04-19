@@ -118,9 +118,11 @@ static void destroy() {
   memset(&state, 0, sizeof(state));
 }
 
-static const char* getName() {
-  // return ovr_GetHmdDesc(state.session).ProductName; // MEMORY
-  return NULL;
+static bool getName(char* name, size_t length) {
+  ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
+  strncpy(name, desc.ProductName, length - 1);
+  name[length - 1] = '\0';
+  return true;
 }
 
 static HeadsetOrigin getOriginType() {

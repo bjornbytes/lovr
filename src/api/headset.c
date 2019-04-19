@@ -115,7 +115,12 @@ static int l_lovrHeadsetGetDriver(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetName(lua_State* L) {
-  lua_pushstring(L, lovrHeadsetDriver->getName());
+  char name[256];
+  if (lovrHeadsetDriver->getName(name, sizeof(name))) {
+    lua_pushstring(L, name);
+  } else {
+    lua_pushnil(L);
+  }
   return 1;
 }
 

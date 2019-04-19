@@ -36,7 +36,6 @@ static struct {
   RenderModel_TextureMap_t* deviceTextures[16];
   Canvas* canvas;
   vec_float_t boundsGeometry;
-  char name[128];
   bool rift;
   float clipNear;
   float clipFar;
@@ -147,6 +146,7 @@ static bool getButtonState(Path path, bool touch, bool* value) {
   }
 }
 
+static bool getName(char* name, size_t length);
 static bool init(float offset, int msaa) {
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
     return false;
@@ -169,8 +169,8 @@ static bool init(float offset, int msaa) {
     return false;
   }
 
-  state.system->GetStringTrackedDeviceProperty(HEADSET_INDEX, ETrackedDeviceProperty_Prop_ManufacturerName_String, state.name, sizeof(state.name), NULL);
-  state.rift = !strncmp(state.name, "Oculus", sizeof(state.name));
+  getName(buffer, sizeof(buffer));
+  state.rift = !strncmp(buffer, "Oculus", sizeof(buffer));
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
@@ -197,8 +197,10 @@ static void destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-static const char* getName(void) {
-  return state.name;
+static bool getName(char* name, size_t length) {
+  ETrackedPropertyError error;
+  state.system->GetStringTrackedDeviceProperty(HEADSET_INDEX, ETrackedDeviceProperty_Prop_ManufacturerName_String, name, length, &error);
+  return error == ETrackedPropertyError_TrackedProp_Success;
 }
 
 static HeadsetOrigin getOriginType(void) {
