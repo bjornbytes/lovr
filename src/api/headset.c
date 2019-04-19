@@ -254,6 +254,24 @@ int l_lovrHeadsetGetOrientation(lua_State* L) {
   return 0;
 }
 
+int l_lovrHeadsetGetDirection(lua_State* L) {
+  Path path = luax_optpath(L, 1, "head");
+  float angle, ax, ay, az;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->getPose(path, NULL, NULL, NULL, &angle, &ax, &ay, &az)) {
+      float q[4];
+      quat_fromAngleAxis(q, angle, ax, ay, az);
+      float v[3] = { 0.f, 0.f, -1.f };
+      quat_rotate(q, v);
+      lua_pushnumber(L, v[0]);
+      lua_pushnumber(L, v[1]);
+      lua_pushnumber(L, v[2]);
+      return 3;
+    }
+  }
+  return 0;
+}
+
 int l_lovrHeadsetGetVelocity(lua_State* L) {
   Path path = luax_optpath(L, 1, "head");
   float vx, vy, vz;
