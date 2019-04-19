@@ -31,6 +31,7 @@ const char* Subpaths[] = {
   [P_HEAD] = "head",
   [P_HAND] = "hand",
   [P_EYE] = "eye",
+  [P_TRACKER] = "tracker",
   [P_LEFT] = "left",
   [P_RIGHT] = "right",
   [P_PROXIMITY] = "proximity",
@@ -42,7 +43,15 @@ const char* Subpaths[] = {
   [P_A] = "a",
   [P_B] = "b",
   [P_X] = "x",
-  [P_Y] = "y"
+  [P_Y] = "y",
+  [P_1] = "1",
+  [P_2] = "2",
+  [P_3] = "3",
+  [P_4] = "4",
+  [P_5] = "5",
+  [P_6] = "6",
+  [P_7] = "7",
+  [P_8] = "8"
 };
 
 typedef struct {

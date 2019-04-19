@@ -26,6 +26,7 @@ typedef enum {
   P_HEAD,
   P_HAND,
   P_EYE,
+  P_TRACKER,
   P_LEFT,
   P_RIGHT,
   P_PROXIMITY,
@@ -37,7 +38,15 @@ typedef enum {
   P_A,
   P_B,
   P_X,
-  P_Y
+  P_Y,
+  P_1,
+  P_2,
+  P_3,
+  P_4,
+  P_5,
+  P_6,
+  P_7,
+  P_8
 } Subpath;
 
 typedef union {
