@@ -95,32 +95,24 @@ static bool getPose(Path path, float* x, float* y, float* z, float* angle, float
   return true;
 }
 
-static bool getVelocity(Path path, float* vx, float* vy, float* vz) {
-  if (PATH_EQ(path, P_HEAD)) {
+static bool getVelocity(Path path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+  if (!PATH_EQ(path, P_HEAD)) {
+    return false;
+  }
+
+  if (vx) {
     *vx = state.velocity[0];
     *vy = state.velocity[1];
     *vz = state.velocity[2];
-    return true;
-  } else if (PATH_EQ(path, P_HAND, P_LEFT) || PATH_EQ(path, P_HAND, P_RIGHT)) {
-    *vx = *vy = *vz = 0.f;
-    return true;
   }
 
-  return false;
-}
-
-static bool getAngularVelocity(Path path, float* vx, float* vy, float* vz) {
-  if (PATH_EQ(path, P_HEAD)) {
-    *vx = state.angularVelocity[0];
-    *vy = state.angularVelocity[1];
-    *vz = state.angularVelocity[2];
-    return true;
-  } else if (PATH_EQ(path, P_HAND, P_LEFT) || PATH_EQ(path, P_HAND, P_RIGHT)) {
-    *vx = *vy = *vz = 0.f;
-    return true;
+  if (vax) {
+    *vax = state.angularVelocity[0];
+    *vay = state.angularVelocity[1];
+    *vaz = state.angularVelocity[2];
   }
 
-  return false;
+  return true;
 }
 
 static bool isDown(Path path, bool* down) {
@@ -237,7 +229,6 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getBoundsGeometry = getBoundsGeometry,
   .getPose = getPose,
   .getVelocity = getVelocity,
-  .getAngularVelocity = getAngularVelocity,
   .isDown = isDown,
   .isTouched = isTouched,
   .getAxis = getAxis,
