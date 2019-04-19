@@ -39,7 +39,7 @@ static void destroy(void) {
 }
 
 static bool getName(char* name, size_t length) {
-  strncpy(name, "VR Simulator", length - 1);
+  strncpy(name, "Simulator", length - 1);
   name[length - 1] = '\0';
   return true;
 }
