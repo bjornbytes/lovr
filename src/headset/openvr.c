@@ -61,6 +61,11 @@ static TrackedDeviceIndex_t getDeviceIndexForPath(Path path) {
     return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
   } else if (PATH_EQ(path, P_HAND, P_RIGHT)) {
     return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
+  } else if (path.p[0] == P_TRACKER && path.p[1] >= P_1 && path.p[1] <= P_8 && path.p[2] == P_NONE) {
+    TrackedDeviceIndex_t indices[8];
+    uint32_t trackerCount = state.system->GetSortedTrackedDeviceIndicesOfClass(ETrackedDeviceClass_TrackedDeviceClass_GenericTracker, indices, 8, 0);
+    uint32_t index = path.p[1] - P_1;
+    return index < trackerCount ? indices[index] : k_unTrackedDeviceIndexInvalid;
   } else {
     return k_unTrackedDeviceIndexInvalid;
   }
