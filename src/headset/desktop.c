@@ -38,8 +38,10 @@ static void destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-static const char* getName(void) {
-  return "VR Simulator";
+static bool getName(char* name, size_t length) {
+  strncpy(name, "VR Simulator", length - 1);
+  name[length - 1] = '\0';
+  return true;
 }
 
 static HeadsetOrigin getOriginType(void) {
