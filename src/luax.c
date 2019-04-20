@@ -275,7 +275,13 @@ void luax_readcolor(lua_State* L, int index, Color* color) {
     color->g = luax_checkfloat(L, index + 1);
     color->b = luax_checkfloat(L, index + 2);
     color->a = luax_optfloat(L, index + 3, 1.);
+  } else if (lua_gettop(L) == index) {
+    uint32_t x = luaL_checkinteger(L, index);
+    color->r = ((x >> 16) & 0xff) / 255.f;
+    color->g = ((x >> 8) & 0xff) / 255.f;
+    color->b = ((x >> 0) & 0xff) / 255.f;
+    color->a = 1.f;
   } else {
-    luaL_error(L, "Invalid color, expected 3 numbers, 4 numbers, or a table");
+    luaL_error(L, "Invalid color, expected a hexcode, 3 numbers, 4 numbers, or a table");
   }
 }
