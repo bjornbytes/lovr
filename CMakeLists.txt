@@ -307,7 +307,7 @@ set(LOVR_SRC
   src/types.c
   src/api/lovr.c
   src/lib/utf.c
-  src/lib/math.c
+  src/lib/maf.c
   src/lib/map/map.c
   src/lib/vec/vec.c
   src/lib/sds/sds.c
