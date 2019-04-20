@@ -1,6 +1,7 @@
 // Functions on the Lovr side of the wall, called from the Oculus side of the wall.
 #pragma once
 
+#include "../util.h"
 #include <stdbool.h>
 
 // What's going on here:
@@ -81,18 +82,17 @@ typedef struct {
   BridgeLovrDevice deviceType;
 } BridgeLovrInitData;
 
-void bridgeLovrInit(BridgeLovrInitData *initData);
+LOVR_EXPORT void bridgeLovrInit(BridgeLovrInitData *initData);
 
-void bridgeLovrUpdate(BridgeLovrUpdateData *updateData);
+LOVR_EXPORT void bridgeLovrUpdate(BridgeLovrUpdateData *updateData);
 
 typedef struct {
   int eye;
   int framebuffer;
 } BridgeLovrDrawData;
 
-void bridgeLovrDraw(BridgeLovrDrawData *drawData);
+LOVR_EXPORT void bridgeLovrDraw(BridgeLovrDrawData *drawData);
 
-void bridgeLovrPaused(bool paused);
+LOVR_EXPORT void bridgeLovrPaused(bool paused);
 
-void bridgeLovrClose();
-
+LOVR_EXPORT void bridgeLovrClose();

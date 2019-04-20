@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.1.0)
+cmake_policy(SET CMP0063 NEW)
 project(lovr)
 
 # Options
@@ -319,6 +320,7 @@ else()
   add_executable(lovr ${LOVR_SRC})
 endif()
 
+set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET default)
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
 target_include_directories(lovr PRIVATE src)
 target_link_libraries(lovr

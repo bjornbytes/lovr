@@ -6,7 +6,7 @@
 #ifdef _WIN32
 #define LOVR_EXPORT __declspec(dllexport)
 #else
-#define LOVR_EXPORT
+#define LOVR_EXPORT __attribute__((visibility("default")))
 #endif
 
 #ifndef _Noreturn
