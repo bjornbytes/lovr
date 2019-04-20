@@ -74,9 +74,9 @@ static const float* getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool getPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  bool head = PATH_EQ(path, P_HEAD);
-  bool hand = PATH_EQ(path, P_HAND, P_LEFT) || PATH_EQ(path, P_HAND, P_RIGHT);
+static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+  bool head = !strcmp(path, "head");
+  bool hand = !strcmp(path, "hand/left") || !strcmp(path, "hand/right");
 
   if (!head && !hand) {
     return false;
@@ -97,8 +97,8 @@ static bool getPose(Path path, float* x, float* y, float* z, float* angle, float
   return true;
 }
 
-static bool getVelocity(Path path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
-  if (!PATH_EQ(path, P_HEAD)) {
+static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+  if (strcmp(path, "head")) {
     return false;
   }
 
@@ -117,8 +117,8 @@ static bool getVelocity(Path path, float* vx, float* vy, float* vz, float* vax, 
   return true;
 }
 
-static bool isDown(Path path, bool* down) {
-  if (PATH_EQ(path, P_HAND, P_LEFT) || PATH_EQ(path, P_HAND, P_RIGHT)) {
+static bool isDown(const char* path, bool* down) {
+  if (!strcmp(path, "hand/left") || !strcmp(path, "hand/right")) {
     *down = lovrPlatformIsMouseDown(MOUSE_RIGHT);
     return true;
   }
@@ -126,19 +126,19 @@ static bool isDown(Path path, bool* down) {
   return false;
 }
 
-static bool isTouched(Path path, bool* touched) {
+static bool isTouched(const char* path, bool* touched) {
   return false;
 }
 
-static int getAxis(Path path, float* x, float* y, float* z) {
+static int getAxis(const char* path, float* x, float* y, float* z) {
   return 0;
 }
 
-static bool vibrate(Path path, float strength, float duration, float frequency) {
+static bool vibrate(const char* path, float strength, float duration, float frequency) {
   return false;
 }
 
-static ModelData* newModelData(Path path) {
+static ModelData* newModelData(const char* path) {
   return NULL;
 }
 

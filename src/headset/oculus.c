@@ -159,14 +159,16 @@ static const float* getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool getPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   ovrTrackingState *ts = refreshTracking();
   ovrPosef* pose;
 
-  if (PATH_EQ(path, P_HEAD)) {
+  if (!strcmp(path, "head")) {
     pose = &ts->HeadPose.ThePose;
-  } else if (PATH_STARTS_WITH(path, P_HAND) && (path.p[1] == P_LEFT || path.p[1] == P_RIGHT)) {
-    pose = &ts->HandPoses[path.p[1] - P_LEFT].ThePose;
+  } else if (!strcmp(path, "hand/left")) {
+    pose = &ts->HandPoses[0].ThePose;
+  } else if (!strcmp(path, "hand/right")) {
+    pose = &ts->HandPoses[1].ThePose;
   } else {
     return false;
   }
@@ -185,14 +187,16 @@ static bool getPose(Path path, float* x, float* y, float* z, float* angle, float
   return true;
 }
 
-static bool getVelocity(Path path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
   ovrTrackingState *ts = refreshTracking();
-  ovrPosef* pose;
+  ovrPoseStatef* pose;
 
-  if (PATH_EQ(path, P_HEAD)) {
-    velocity = &ts->HeadPose;
-  } else if (PATH_STARTS_WITH(path, P_HAND) && (path.p[1] == P_LEFT || path.p[1] == P_RIGHT)) {
-    velocity = &ts->HandPoses[path.p[1] - P_LEFT];
+  if (!strcmp(path, "head")) {
+    pose = &ts->HeadPose;
+  } else if (!strcmp(path, "hand/left")) {
+    pose = &ts->HandPoses[ovrHand_Left];
+  } else if (!strcmp(path, "hand/right")) {
+    pose = &ts->HandPoses[ovrHand_Right];
   } else {
     return false;
   }
@@ -212,87 +216,86 @@ static bool getVelocity(Path path, float* vx, float* vy, float* vz, float* vax, 
   return true;
 }
 
-static bool isDown(Path path, bool* down) {
-  if (PATH_EQ(path, P_HEAD, P_PROXIMITY)) {
+static bool getHandInfo(const char* path, ovrHandType* hand, uint32_t* mask, const char** next) {
+  if (!strncmp("hand/left", path, strlen("hand/left"))) {
+    *hand = ovrHand_Left;
+    *mask = ovrButton_LMask;
+    *next = path + strlen("hand/left/");
+    return true;
+  } else if (!strncmp("hand/right", path, strlen("hand/right"))) {
+    *hand = ovrHand_Right;
+    *mask = ovrButton_RMask;
+    *next = path + strlen("hand/right/");
+    return true;
+  } else {
+    return false;
+  }
+}
+
+static bool isDown(const char* path, bool* down) {
+  if (!strcmp(path, "head/proximity")) {
     ovrSessionStatus status;
     ovr_GetSessionStatus(state.session, &status);
     *down = status.HmdMounted;
     return true;
   }
 
-  // Make sure the path starts with /hand/left or /hand/right and only has 3 pieces
-  if (path.p[0] != P_HAND || (path.p[1] != P_LEFT && path.p[1] != P_RIGHT) || path.p[3] != P_NONE) {
-    return false;
-  }
+  ovrHandType hand;
+  uint32_t mask;
+  const char* button;
 
-  ovrHandType hand = path.p[1] - P_LEFT;
-  ovrInputState* is = refreshButtons();
-  uint32_t mask = is->Buttons & (hand == ovrHand_Left ? ovrButton_LMask : ovrButton_RMask);
-
-  switch (path.p[2]) {
-    case P_A: *down = (mask & ovrButton_A); return true;
-    case P_B: *down = (mask & ovrButton_B); return true;
-    case P_X: *down = (mask & ovrButton_X); return true;
-    case P_Y: *down = (mask & ovrButton_Y); return true;
-    case P_MENU: *down = (mask & ovrButton_Enter); return true;
-    case P_TRIGGER: *down = (is->IndexTriggerNoDeadzone[hand] > 0.5f); return true;
-    case P_JOYSTICK: *down = (mask & (ovrButton_LThumb | ovrButton_RThumb)); return true;
-    case P_GRIP: *down = (is->HandTrigger[hand] > 0.9f); return true;
+  if (getHandInfo(path, &hand, &mask, &button)) {
+    ovrInputState* is = refreshButtons();
+    if (!strcmp(path, "a")) { return *down = (mask & ovrButton_A), true; }
+    else if (!strcmp(path, "b")) { return *down = (mask & ovrButton_B), true; }
+    else if (!strcmp(path, "x")) { return *down = (mask & ovrButton_X), true; }
+    else if (!strcmp(path, "y")) { return *down = (mask & ovrButton_Y), true; }
+    else if (!strcmp(path, "menu")) { return *down = (mask & ovrButton_Enter), true; }
+    else if (!strcmp(path, "trigger")) { return *down = (is->IndexTriggerNoDeadzone[hand] > .5f), true; }
+    else if (!strcmp(path, "joystick")) { return *down = (mask & (ovrButton_LThumb | ovrButton_RThumb)), true; }
+    else if (!strcmp(path, "grip")) { return *down = (is->HandTrigger[hand] > .9f), true; }
   }
 
   return false;
 }
 
-static bool isTouched(Path path, bool* touched) {
+static bool isTouched(const char* path, bool* touched) {
+  ovrHandType hand;
+  uint32_t mask;
+  const char* button;
 
-  // Make sure the path starts with /hand/left or /hand/right and only has 3 pieces
-  if (path.p[0] != P_HAND || (path.p[1] != P_LEFT && path.p[1] != P_RIGHT) || path.p[3] != P_NONE) {
-    return false;
-  }
-
-  ovrHandType hand = path.p[1] - P_LEFT;
-  ovrInputState* is = refreshButtons();
-  uint32_t mask = is->Buttons & (hand == ovrHand_Left ? ovrButton_LMask : ovrButton_RMask);
-
-  switch (path.p[2]) {
-    case P_A: *touched = (mask & ovrTouch_A); return true;
-    case P_B: *touched = (mask & ovrTouch_B); return true;
-    case P_X: *touched = (mask & ovrTouch_X); return true;
-    case P_Y: *touched = (mask & ovrTouch_Y); return true;
-    case P_TRIGGER: *touched = (mask & (ovrTouch_LIndexTrigger | ovrTouch_RIndexTrigger)); return true;
-    case P_JOYSTICK: *touched = (mask & (ovrTouch_LThumb | ovrTouch_RThumb)); return true;
+  if (getHandInfo(path, &hand, &mask, &button)) {
+    if (!strcmp(path, "a")) { return *touched = (mask & ovrTouch_A), true; }
+    else if (!strcmp(path, "b")) { return *touched = (mask & ovrTouch_B), true; }
+    else if (!strcmp(path, "x")) { return *touched = (mask & ovrTouch_X), true; }
+    else if (!strcmp(path, "y")) { return *touched = (mask & ovrTouch_Y), true; }
+    else if (!strcmp(path, "trigger")) { return *touched = (mask & (ovrTouch_LIndexTrigger | ovrTouch_RIndexTrigger)), true; }
+    else if (!strcmp(path, "joystick")) { return *touched = (mask & (ovrTouch_LThumb | ovrTouch_RThumb)), true; }
   }
 
   return false;
 }
 
-static int getAxis(Path path, float* x, float* y, float* z) {
+static int getAxis(const char* path, float* x, float* y, float* z) {
+  ovrHandType hand;
+  uint32_t mask;
+  const char* button;
 
-  // Make sure the path starts with /hand/left or /hand/right and only has 3 pieces
-  if (path.p[0] != P_HAND || (path.p[1] != P_LEFT && path.p[1] != P_RIGHT) || path.p[3] != P_NONE) {
-    return false;
-  }
-
-  ovrInputState *is = refreshButtons();
-  ovrHandType hand = path.p[1] - P_LEFT;
-
-  switch (path.p[2]) {
-    case P_GRIP: *x = is->HandTriggerNoDeadzone[hand]; return 1;
-    case P_TRIGGER: *x = is->IndexTriggerNoDeadzone[hand]; return 1;
-    case P_JOYSTICK:
-      *x = is->ThumbstickNoDeadzone[hand].x;
-      *y = is->ThumbstickNoDeadzone[hand].y;
-      return 2;
+  if (getHandInfo(path, &hand, &mask, &button)) {
+    ovrInputState* is = refreshButtons();
+    if (!strcmp(path, "grip")) { return *x = is->HandTriggerNoDeadzone[hand], 1; }
+    if (!strcmp(path, "trigger")) { return *x = is->IndexTriggerNoDeadzone[hand], 1; }
+    if (!strcmp(path, "joystick")) { return *x = is->ThumbstickNoDeadzone[hand].x, *y = is->ThumbstickNoDeadzone[hand].y, 2; }
   }
 
   return 0;
 }
 
-static bool vibrate(Path path, float strength, float duration, float frequency) {
+static bool vibrate(const char* path, float strength, float duration, float frequency) {
   return false; // TODO
 }
 
-static ModelData* newModelData(Path path) {
+static ModelData* newModelData(const char* path) {
   return NULL; // TODO
 }
 

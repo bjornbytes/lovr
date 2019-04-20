@@ -21,43 +21,6 @@ typedef enum {
   DRIVER_WEBVR
 } HeadsetDriver;
 
-typedef enum {
-  P_NONE,
-  P_HEAD,
-  P_HAND,
-  P_EYE,
-  P_TRACKER,
-  P_LEFT,
-  P_RIGHT,
-  P_PROXIMITY,
-  P_TRIGGER,
-  P_TRACKPAD,
-  P_JOYSTICK,
-  P_MENU,
-  P_GRIP,
-  P_A,
-  P_B,
-  P_X,
-  P_Y,
-  P_1,
-  P_2,
-  P_3,
-  P_4,
-  P_5,
-  P_6,
-  P_7,
-  P_8
-} Subpath;
-
-typedef union {
-  uint8_t p[8];
-  uint64_t u64;
-} Path;
-
-#define MAKE_PATH(...) ((Path) { { __VA_ARGS__ } })
-#define PATH_EQ(p, ...) ((p).u64 == MAKE_PATH(__VA_ARGS__).u64)
-#define PATH_STARTS_WITH(p, ...) ((MAKE_PATH(__VA_ARGS__).u64 ^ p.u64 & MAKE_PATH(__VA_ARGS__).u64) == 0)
-
 typedef struct HeadsetInterface {
   struct HeadsetInterface* next;
   HeadsetDriver driverType;
@@ -70,13 +33,13 @@ typedef struct HeadsetInterface {
   void (*setClipDistance)(float clipNear, float clipFar);
   void (*getBoundsDimensions)(float* width, float* depth);
   const float* (*getBoundsGeometry)(int* count);
-  bool (*getPose)(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
-  bool (*getVelocity)(Path path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz);
-  bool (*isDown)(Path path, bool* down);
-  bool (*isTouched)(Path path, bool* touched);
-  int (*getAxis)(Path path, float* x, float* y, float* z);
-  bool (*vibrate)(Path path, float strength, float duration, float frequency);
-  struct ModelData* (*newModelData)(Path path);
+  bool (*getPose)(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az);
+  bool (*getVelocity)(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz);
+  bool (*isDown)(const char* path, bool* down);
+  bool (*isTouched)(const char* path, bool* touched);
+  int (*getAxis)(const char* path, float* x, float* y, float* z);
+  bool (*vibrate)(const char* path, float strength, float duration, float frequency);
+  struct ModelData* (*newModelData)(const char* path);
   void (*renderTo)(void (*callback)(void*), void* userdata);
   struct Texture* (*getMirrorTexture)(void);
   void (*update)(float dt);
