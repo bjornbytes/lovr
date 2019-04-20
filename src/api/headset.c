@@ -252,16 +252,6 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   return 0;
 }
 
-int l_lovrHeadsetIsTracked(lua_State* L) {
-  const char* path = luax_optpath(L, 1);
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(path, NULL, NULL, NULL, NULL, NULL, NULL, NULL)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 int l_lovrHeadsetIsDown(lua_State* L) {
   const char* path = luax_optpath(L, 1);
   bool down;
@@ -394,7 +384,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDirection", l_lovrHeadsetGetDirection },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
-  { "isTracked", l_lovrHeadsetIsTracked },
   { "isDown", l_lovrHeadsetIsDown },
   { "isTouched", l_lovrHeadsetIsTouched },
   { "getAxis", l_lovrHeadsetGetAxis },
