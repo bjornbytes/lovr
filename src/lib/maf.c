@@ -88,13 +88,13 @@ vec3 vec3_min(vec3 v, vec3 u) {
   v[2] = MIN(v[2], u[2]);
   return v;
 }
+
 vec3 vec3_max(vec3 v, vec3 u) {
   v[0] = MAX(v[0], u[0]);
   v[1] = MAX(v[1], u[1]);
   v[2] = MAX(v[2], u[2]);
   return v;
 }
-
 
 // quat
 
