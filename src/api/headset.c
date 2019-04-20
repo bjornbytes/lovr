@@ -25,34 +25,6 @@ const char* HeadsetOrigins[] = {
   NULL
 };
 
-const char* Subpaths[] = {
-  [P_NONE] = "",
-  [P_HEAD] = "head",
-  [P_HAND] = "hand",
-  [P_EYE] = "eye",
-  [P_TRACKER] = "tracker",
-  [P_LEFT] = "left",
-  [P_RIGHT] = "right",
-  [P_PROXIMITY] = "proximity",
-  [P_TRIGGER] = "trigger",
-  [P_TRACKPAD] = "trackpad",
-  [P_JOYSTICK] = "joystick",
-  [P_MENU] = "menu",
-  [P_GRIP] = "grip",
-  [P_A] = "a",
-  [P_B] = "b",
-  [P_X] = "x",
-  [P_Y] = "y",
-  [P_1] = "1",
-  [P_2] = "2",
-  [P_3] = "3",
-  [P_4] = "4",
-  [P_5] = "5",
-  [P_6] = "6",
-  [P_7] = "7",
-  [P_8] = "8"
-};
-
 typedef struct {
   lua_State* L;
   int ref;
@@ -60,42 +32,9 @@ typedef struct {
 
 static HeadsetRenderData headsetRenderData;
 
-Path luax_optpath(lua_State* L, int index, const char* fallback) {
-  char* str = (char*) luaL_optstring(L, index, fallback);
-  Path path = { { P_NONE } };
-  int count = 0;
-
-  if (str[0] == '/') {
-    str++;
-  }
-
-  while (1) {
-    char* slash = strchr(str, '/');
-
-    if (slash) {
-      *slash = '\0';
-    }
-
-    Subpath subpath = P_NONE;
-    for (size_t i = 0; i < sizeof(Subpaths) / sizeof(Subpaths[0]); i++) {
-      if (!strcmp(str, Subpaths[i])) {
-        subpath = i;
-        break;
-      }
-    }
-
-    lovrAssert(subpath != P_NONE, "Unknown path component '%s'", str);
-    path.p[count++] = subpath;
-
-    if (slash) {
-      *slash = '/';
-      str = slash + 1;
-    } else {
-      break;
-    }
-  }
-
-  return path;
+static const char* luax_optpath(lua_State* L, int index) {
+  const char* str = luaL_optstring(L, index, "head");
+  return str[0] == '/' ? ++str : str;
 }
 
 static void renderHelper(void* userdata) {
@@ -221,7 +160,7 @@ static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
 }
 
 int l_lovrHeadsetGetPose(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   float x, y, z, angle, ax, ay, az;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getPose(path, &x, &y, &z, &angle, &ax, &ay, &az)) {
@@ -239,7 +178,7 @@ int l_lovrHeadsetGetPose(lua_State* L) {
 }
 
 int l_lovrHeadsetGetPosition(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   float x, y, z;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getPose(path, &x, &y, &z, NULL, NULL, NULL, NULL)) {
@@ -253,7 +192,7 @@ int l_lovrHeadsetGetPosition(lua_State* L) {
 }
 
 int l_lovrHeadsetGetOrientation(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   float angle, ax, ay, az;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getPose(path, NULL, NULL, NULL, &angle, &ax, &ay, &az)) {
@@ -268,7 +207,7 @@ int l_lovrHeadsetGetOrientation(lua_State* L) {
 }
 
 int l_lovrHeadsetGetDirection(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   float angle, ax, ay, az;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getPose(path, NULL, NULL, NULL, &angle, &ax, &ay, &az)) {
@@ -286,7 +225,7 @@ int l_lovrHeadsetGetDirection(lua_State* L) {
 }
 
 int l_lovrHeadsetGetVelocity(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   float vx, vy, vz;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getVelocity(path, &vx, &vy, &vz, NULL, NULL, NULL)) {
@@ -300,7 +239,7 @@ int l_lovrHeadsetGetVelocity(lua_State* L) {
 }
 
 int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   float vax, vay, vaz;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getVelocity(path, NULL, NULL, NULL, &vax, &vay, &vaz)) {
@@ -314,7 +253,7 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 }
 
 int l_lovrHeadsetIsTracked(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getPose(path, NULL, NULL, NULL, NULL, NULL, NULL, NULL)) {
       return true;
@@ -324,7 +263,7 @@ int l_lovrHeadsetIsTracked(lua_State* L) {
 }
 
 int l_lovrHeadsetIsDown(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   bool down;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->isDown(path, &down)) {
@@ -336,7 +275,7 @@ int l_lovrHeadsetIsDown(lua_State* L) {
 }
 
 int l_lovrHeadsetIsTouched(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   bool touched;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->isDown(path, &touched)) {
@@ -348,7 +287,7 @@ int l_lovrHeadsetIsTouched(lua_State* L) {
 }
 
 int l_lovrHeadsetGetAxis(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   float x, y, z;
   int count;
   FOREACH_TRACKING_DRIVER(driver) {
@@ -364,7 +303,7 @@ int l_lovrHeadsetGetAxis(lua_State* L) {
 }
 
 int l_lovrHeadsetVibrate(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
   float strength = luax_optfloat(L, 2, 1.f);
   float duration = luax_optfloat(L, 3, .5f);
   float frequency = luax_optfloat(L, 4, 0.f);
@@ -379,7 +318,7 @@ int l_lovrHeadsetVibrate(lua_State* L) {
 }
 
 int l_lovrHeadsetNewModel(lua_State* L) {
-  Path path = luax_optpath(L, 1, "head");
+  const char* path = luax_optpath(L, 1);
 
   ModelData* modelData = NULL;
   FOREACH_TRACKING_DRIVER(driver) {

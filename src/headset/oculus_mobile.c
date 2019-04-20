@@ -74,12 +74,12 @@ static const float* getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool getPose(Path path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   BridgeLovrPose* pose;
 
-  if (PATH_EQ(path, P_HEAD)) {
+  if (!strcmp(path, "head")) {
     pose = &bridgeLovrMobileData.updateData.lastHeadPose;
-  } else if (PATH_EQ(path, P_HAND)) {
+  } else if (!strcmp(path, "hand")) {
     pose = &bridgeLovrMobileData.updateData.goPose;
   } else {
     return false;
@@ -98,12 +98,12 @@ static bool getPose(Path path, float* x, float* y, float* z, float* angle, float
   return true;
 }
 
-static bool getVelocity(Path path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
   BridgeLovrVel* velocity;
 
-  if (PATH_EQ(path, P_HEAD)) {
+  if (!strcmp(path, "head")) {
     velocity = &bridgeLovrMobileData.updateData.lastHeadVelocity;
-  } else if (PATH_EQ(path, P_HAND)) {
+  } else if (!strcmp(path, "hand")) {
     velocity = &bridgeLovrMobileData.updateData.goVelocity;
   } else {
     return false;
@@ -124,50 +124,46 @@ static bool getVelocity(Path path, float* vx, float* vy, float* vz, float* vax, 
   return true;
 }
 
-static bool buttonCheck(BridgeLovrButton field, Path path, bool* result) {
-  if (!PATH_EQ(path, P_HAND) || path.p[2] != P_NONE) {
-    return false; // Path needs to start with /hand and have exactly one more piece
+static bool buttonCheck(BridgeLovrButton field, const char* path, bool* result) {
+  if (!strcmp("hand", path, strlen("hand"))) {
+    path += strlen("hand/");
+    if (!strcmp(path, "menu")) { return *result = (field & BRIDGE_LOVR_BUTTON_MENU), true; }
+    else if (!strcmp(path, "trigger")) { return *result = (field & BRIDGE_LOVR_BUTTON_SHOULDER), true; }
+    else if (!strcmp(path, "trackpad")) { return *result = (field & BRIDGE_LOVR_BUTTON_TOUCHPAD), true; }
   }
 
-  switch (path.p[1]) {
-    case P_MENU: *result = (field & BRIDGE_LOVR_BUTTON_MENU); return true;
-    case P_TRIGGER: *result = (field & BRIDGE_LOVR_BUTTON_SHOULDER); return true;
-    case P_TRACKPAD: *result = (field & BRIDGE_LOVR_BUTTON_TOUCHPAD); return true;
-    default: return false;
-  }
-}
-
-static bool isDown(Path path, bool* down) {
-  return buttonCheck(bridgeLovrMobileData.updateData.goButtonDown, path, down);
-}
-
-static bool isTouched(Path path, bool* touched) {
-  return buttonCheck(bridgeLovrMobileData.updateData.goButtonTouch, path, touched);
-}
-
-static int getAxis(Path path, float* x, float* y, float* z) {
-  if (!PATH_EQ(path, P_HAND) || path.p[2] != P_NONE) {
-    return 0; // Path needs to start with /hand and have exactly one more piece
-  }
-
-  switch (path.p[1]) {
-    case P_TRACKPAD:
-      *x = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f;
-      *y = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f;
-      return 2;
-    case P_TRIGGER:
-      *x = bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f;
-      return 1;
-    default:
-      return 0;
-  }
-}
-
-static bool vibrate(Path path, float strength, float duration, float frequency) {
   return false;
 }
 
-static ModelData* newModelData(Path path) {
+static bool isDown(const char* path, bool* down) {
+  return buttonCheck(bridgeLovrMobileData.updateData.goButtonDown, path, down);
+}
+
+static bool isTouched(const char* path, bool* touched) {
+  return buttonCheck(bridgeLovrMobileData.updateData.goButtonTouch, path, touched);
+}
+
+static int getAxis(const char* path, float* x, float* y, float* z) {
+  if (!strcmp("hand", path, strlen("hand"))) {
+    path += strlen("hand/");
+    if (!strcmp(path, "trackpad")) {
+      *x = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f;
+      *y = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f;
+      return 2;
+    } else if (!strcmp(path, "trigger")) {
+      *x = bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f;
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+static bool vibrate(const char* path, float strength, float duration, float frequency) {
+  return false;
+}
+
+static ModelData* newModelData(const char* path) {
   return NULL;
 }
 
