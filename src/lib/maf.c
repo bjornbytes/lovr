@@ -117,11 +117,7 @@ quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az) {
   if (length > 0.f) {
     s /= length;
   }
-  q[0] = s * ax;
-  q[1] = s * ay;
-  q[2] = s * az;
-  q[3] = c;
-  return q;
+  return quat_set(q, s * ax, s * ay, s * az, c);
 }
 
 quat quat_fromMat4(quat q, mat4 m) {
@@ -132,11 +128,7 @@ quat quat_fromMat4(quat q, mat4 m) {
   x = (m[9] - m[6]) > 0.f ? -x : x;
   y = (m[2] - m[8]) > 0.f ? -y : y;
   z = (m[4] - m[1]) > 0.f ? -z : z;
-  q[0] = x;
-  q[1] = y;
-  q[2] = z;
-  q[3] = w;
-  return q;
+  return quat_set(q, x, y, z, w);
 }
 
 quat quat_mul(quat q, quat r) {

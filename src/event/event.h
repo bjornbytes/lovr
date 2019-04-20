@@ -54,7 +54,7 @@ typedef struct {
 
 typedef struct {
   struct Thread* thread;
-  const char* error;
+  char* error;
 } ThreadEvent;
 
 typedef struct {

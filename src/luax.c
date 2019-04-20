@@ -20,7 +20,7 @@ static int luax_module__gc(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
   for (int i = luax_len(L, 2); i >= 1; i--) {
     lua_rawgeti(L, 2, i);
-    luax_destructor destructor = (luax_destructor) lua_touserdata(L, -1);
+    luax_destructor destructor = (luax_destructor) lua_tocfunction(L, -1);
     destructor();
     lua_pop(L, 1);
   }
@@ -81,7 +81,7 @@ void luax_atexit(lua_State* L, luax_destructor destructor) {
   }
 
   int length = luax_len(L, -1);
-  lua_pushlightuserdata(L, (void*) destructor);
+  lua_pushcfunction(L, (lua_CFunction) destructor);
   lua_rawseti(L, -2, length + 1);
   lua_pop(L, 1);
 }

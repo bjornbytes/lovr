@@ -279,7 +279,7 @@ static int l_lovrFilesystemNewBlob(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   uint8_t* data = lovrFilesystemRead(path, -1, &size);
   lovrAssert(data, "Could not load file '%s'", path);
-  Blob* blob = lovrBlobCreate((void*) data, size, path);
+  Blob* blob = lovrBlobCreate(data, size, path);
   luax_pushobject(L, blob);
   lovrRelease(Blob, blob);
   return 1;
