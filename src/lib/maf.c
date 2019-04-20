@@ -515,13 +515,6 @@ void mat4_getTransform(mat4 m, float* x, float* y, float* z, float* sx, float* s
   quat_getAngleAxis(quat, angle, ax, ay, az);
 }
 
-mat4 mat4_setTransform(mat4 m, float x, float y, float z, float sx, float sy, float sz, float angle, float ax, float ay, float az) {
-  mat4_identity(m);
-  mat4_translate(m, x, y, z);
-  mat4_rotate(m, angle, ax, ay, az);
-  return mat4_scale(m, sx, sy, sz);
-}
-
 mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float clipNear, float clipFar) {
   float rl = right - left;
   float tb = top - bottom;
