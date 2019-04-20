@@ -27,7 +27,7 @@ ffi.cdef [[
   quat* lovrPoolAllocateQuat(Pool* pool);
   mat4* lovrPoolAllocateMat4(Pool* pool);
 
-  // Careful, the declarations below are using the structs above, not the usual C types in lib/math.h
+  // Careful, the declarations below are using the structs above, not the usual C types in lib/maf.h
 
   vec3* vec3_normalize(vec3* v);
   float vec3_length(vec3* v);
