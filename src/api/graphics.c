@@ -676,6 +676,12 @@ static int l_lovrGraphicsClear(lua_State* L) {
   float depth = 1.f;
   int stencil = 0;
 
+  if (top == 1) {
+    luax_readcolor(L, index, &color);
+    lovrGraphicsClear(&color, NULL, NULL);
+    return 0;
+  }
+
   if (top >= index) {
     if (lua_type(L, index) == LUA_TNUMBER) {
       color.r = luax_checkfloat(L, index++);
