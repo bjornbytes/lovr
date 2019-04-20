@@ -8,7 +8,6 @@
 #include "graphics/texture.h"
 #include "resources/shaders.h"
 #include "data/modelData.h"
-#include "lib/math.h"
 #include "lib/vec/vec.h"
 #include <math.h>
 #include <limits.h>

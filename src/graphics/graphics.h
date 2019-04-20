@@ -1,6 +1,6 @@
 #include "graphics/font.h"
 #include "graphics/shader.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "util.h"
 #include "platform.h"
 #include <stdbool.h>

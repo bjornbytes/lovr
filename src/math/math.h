@@ -1,5 +1,5 @@
 #include "math/randomGenerator.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 #include <stdbool.h>
 
 #pragma once

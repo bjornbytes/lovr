@@ -7,7 +7,7 @@
 #include "data/rasterizer.h"
 #include "event/event.h"
 #include "math/math.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -375,7 +375,6 @@ float lovrGraphicsGetLineWidth() {
 }
 
 void lovrGraphicsSetLineWidth(uint8_t width) {
-  lovrAssert(width > 0 && width <= 255, "Line width must be between 0 and 255");
   state.pipeline.lineWidth = width;
 }
 

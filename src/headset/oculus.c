@@ -2,7 +2,7 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "graphics/texture.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "lib/vec/vec.h"
 
 #include <stdbool.h>

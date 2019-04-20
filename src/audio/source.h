@@ -1,4 +1,4 @@
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "types.h"
 #include <AL/al.h>
 #include <AL/alc.h>

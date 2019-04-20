@@ -1,4 +1,4 @@
-#include "math.h"
+#include "maf.h"
 #include <math.h>
 #include <string.h>
 #ifdef LOVR_USE_SSE

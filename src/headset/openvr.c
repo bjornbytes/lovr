@@ -3,7 +3,7 @@
 #include "graphics/canvas.h"
 #include "platform.h"
 #include "util.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>

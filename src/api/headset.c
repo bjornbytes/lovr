@@ -1,7 +1,7 @@
 #include "api.h"
 #include "api/math.h"
 #include "headset/headset.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "graphics/texture.h"
 
 #if defined(EMSCRIPTEN) || defined(LOVR_USE_OCULUS_MOBILE)

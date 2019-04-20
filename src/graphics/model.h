@@ -1,4 +1,4 @@
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "types.h"
 
 #pragma once

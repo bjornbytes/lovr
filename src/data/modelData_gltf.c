@@ -2,7 +2,7 @@
 #include "data/blob.h"
 #include "data/textureData.h"
 #include "filesystem/filesystem.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "lib/jsmn/jsmn.h"
 #include <stdbool.h>
 #include <stdlib.h>

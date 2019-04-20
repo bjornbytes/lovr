@@ -1,5 +1,5 @@
 #include "types.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "lib/vec/vec.h"
 
 typedef struct {

@@ -1,6 +1,6 @@
 #include "event/event.h"
 #include "graphics/graphics.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "platform.h"
 #include <math.h>
 #include <stdlib.h>

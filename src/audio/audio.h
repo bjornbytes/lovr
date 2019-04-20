@@ -1,4 +1,4 @@
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "lib/vec/vec.h"
 #include <AL/al.h>
 #include <AL/alc.h>

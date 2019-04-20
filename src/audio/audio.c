@@ -1,7 +1,7 @@
 #include "audio/audio.h"
 #include "audio/source.h"
 #include "data/audioStream.h"
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "util.h"
 #include <stdlib.h>
 

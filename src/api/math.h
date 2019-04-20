@@ -1,4 +1,4 @@
-#include "lib/math.h"
+#include "lib/maf.h"
 #include "math/pool.h"
 #include "math/randomGenerator.h"
 
