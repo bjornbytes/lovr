@@ -522,8 +522,8 @@ static void openvrRenderTo(void (*callback)(void*), void* userdata) {
   ptrdiff_t id = attachments[0].texture->id;
   EColorSpace colorSpace = lovrGraphicsIsGammaCorrect() ? EColorSpace_ColorSpace_Linear : EColorSpace_ColorSpace_Gamma;
   Texture_t eyeTexture = { (void*) id, ETextureType_TextureType_OpenGL, colorSpace };
-  VRTextureBounds_t left = { 0, 0, .5, 1. };
-  VRTextureBounds_t right = { .5, 0, 1., 1. };
+  VRTextureBounds_t left = { 0.f, 0.f, .5f, 1.f };
+  VRTextureBounds_t right = { .5f, 0.f, 1.f, 1.f };
   state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
   state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
   lovrGpuDirtyTexture();

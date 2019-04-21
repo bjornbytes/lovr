@@ -69,11 +69,11 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
   FontAtlas* atlas = &font->atlas;
   bool flip = font->flip;
 
-  float cx = 0;
-  float cy = -font->rasterizer->height * .8 * (flip ? -1 : 1);
+  float cx = 0.f;
+  float cy = -font->rasterizer->height * .8f * (flip ? -1.f : 1.f);
   float u = atlas->width;
   float v = atlas->height;
-  float scale = 1 / font->pixelDensity;
+  float scale = 1.f / font->pixelDensity;
 
   const char* start = str;
   const char* end = str + length;
@@ -91,8 +91,8 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
     // Newlines
     if (codepoint == '\n' || (wrap && cx * scale > wrap && codepoint == ' ')) {
       lineStart = lovrFontAlignLine(lineStart, vertexCursor, cx, halign);
-      cx = 0;
-      cy -= font->rasterizer->height * font->lineHeight * (flip ? -1 : 1);
+      cx = 0.f;
+      cy -= font->rasterizer->height * font->lineHeight * (flip ? -1.f : 1.f);
       previous = '\0';
       str += bytes;
       continue;
@@ -101,7 +101,7 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
     // Tabs
     if (codepoint == '\t') {
       Glyph* space = lovrFontGetGlyph(font, ' ');
-      cx += space->advance * 4;
+      cx += space->advance * 4.f;
       str += bytes;
       continue;
     }
@@ -122,19 +122,19 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
     // Triangles
     if (glyph->w > 0 && glyph->h > 0) {
       float x1 = cx + glyph->dx - GLYPH_PADDING;
-      float y1 = cy + (glyph->dy + GLYPH_PADDING) * (flip ? -1 : 1);
+      float y1 = cy + (glyph->dy + GLYPH_PADDING) * (flip ? -1.f : 1.f);
       float x2 = x1 + glyph->tw;
-      float y2 = y1 - glyph->th * (flip ? -1 : 1);
+      float y2 = y1 - glyph->th * (flip ? -1.f : 1.f);
       float s1 = glyph->x / u;
       float t1 = (glyph->y + glyph->th) / v;
       float s2 = (glyph->x + glyph->tw) / u;
       float t2 = glyph->y / v;
 
       memcpy(vertexCursor, (float[32]) {
-        x1, y1, 0, 0, 0, 0, s1, t1,
-        x1, y2, 0, 0, 0, 0, s1, t2,
-        x2, y1, 0, 0, 0, 0, s2, t1,
-        x2, y2, 0, 0, 0, 0, s2, t2
+        x1, y1, 0.f, 0.f, 0.f, 0.f, s1, t1,
+        x1, y2, 0.f, 0.f, 0.f, 0.f, s1, t2,
+        x2, y1, 0.f, 0.f, 0.f, 0.f, s2, t1,
+        x2, y2, 0.f, 0.f, 0.f, 0.f, s2, t2
       }, 32 * sizeof(float));
 
       memcpy(indexCursor, (uint16_t[6]) { I + 0, I + 1, I + 2, I + 2, I + 1, I + 3 }, 6 * sizeof(uint16_t));
@@ -154,12 +154,12 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
 }
 
 void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, float* width, uint32_t* lineCount, uint32_t* glyphCount) {
-  float x = 0;
+  float x = 0.f;
   const char* end = str + length;
   size_t bytes;
   unsigned int previous = '\0';
   unsigned int codepoint;
-  float scale = 1 / font->pixelDensity;
+  float scale = 1.f / font->pixelDensity;
   *width = 0.f;
   *lineCount = 0;
   *glyphCount = 0;
@@ -168,7 +168,7 @@ void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, flo
     if (codepoint == '\n' || (wrap && x * scale > wrap && codepoint == ' ')) {
       *width = MAX(*width, x * scale);
       (*lineCount)++;
-      x = 0;
+      x = 0.f;
       previous = '\0';
       str += bytes;
       continue;
@@ -177,7 +177,7 @@ void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, flo
     // Tabs
     if (codepoint == '\t') {
       Glyph* space = lovrFontGetGlyph(font, ' ');
-      x += space->advance * 4;
+      x += space->advance * 4.f;
       str += bytes;
       continue;
     }

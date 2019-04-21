@@ -140,7 +140,7 @@ static ControllerHand desktopControllerGetHand(Controller* controller) {
 static void desktopControllerGetPose(Controller* controller, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
   *x = 0;
   *y = 0;
-  *z = -.75;
+  *z = -.75f;
   mat4_transform(state.transform, x, y, z);
 
   float q[4];

@@ -109,7 +109,7 @@ bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
 
         switch (channel->smoothing) {
           case SMOOTH_STEP:
-            if (z >= .5) {
+            if (z >= .5f) {
               memcpy(value, next, n * sizeof(float));
             }
             break;

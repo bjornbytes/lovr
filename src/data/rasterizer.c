@@ -65,8 +65,8 @@ void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, Glyph* 
   int vertexCount = stbtt_GetGlyphShape(&rasterizer->font, glyphIndex, &vertices);
   msShape* shape = msShapeCreate();
   msContour* contour = NULL;
-  float x = 0;
-  float y = 0;
+  float x = 0.f;
+  float y = 0.f;
 
   for (int i = 0; i < vertexCount; i++) {
     stbtt_vertex vertex = vertices[i];
@@ -127,8 +127,8 @@ void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, Glyph* 
   float tx = GLYPH_PADDING + -glyph->dx;
   float ty = GLYPH_PADDING + glyph->h - glyph->dy;
   msShapeNormalize(shape);
-  msEdgeColoringSimple(shape, 3.0, 0);
-  msGenerateMSDF(glyph->data->blob.data, glyph->tw, glyph->th, shape, 4., 1, 1, tx, ty);
+  msEdgeColoringSimple(shape, 3., 0);
+  msGenerateMSDF(glyph->data->blob.data, glyph->tw, glyph->th, shape, 4.f, 1.f, 1.f, tx, ty);
   msShapeDestroy(shape);
 }
 
