@@ -98,8 +98,8 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
 
   GLFWmonitor* monitor = glfwGetPrimaryMonitor();
   const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-  uint32_t width = flags->width ? flags->width : mode->width;
-  uint32_t height = flags->height ? flags->height : mode->height;
+  uint32_t width = flags->width ? flags->width : (uint32_t) mode->width;
+  uint32_t height = flags->height ? flags->height : (uint32_t) mode->height;
 
   if (flags->fullscreen) {
     glfwWindowHint(GLFW_RED_BITS, mode->redBits);

@@ -1136,6 +1136,7 @@ void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback call
     case STENCIL_INCREMENT_WRAP: glAction = GL_INCR_WRAP; break;
     case STENCIL_DECREMENT_WRAP: glAction = GL_DECR_WRAP; break;
     case STENCIL_INVERT: glAction = GL_INVERT; break;
+    default: lovrThrow("Unreachable");
   }
 
   glStencilFunc(GL_ALWAYS, replaceValue, 0xff);

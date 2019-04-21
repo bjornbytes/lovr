@@ -30,7 +30,7 @@
 #define MAX(a, b) (a > b ? a : b)
 #define MIN(a, b) (a < b ? a : b)
 #define CLAMP(x, min, max) MAX(min, MIN(max, x))
-#define ALIGN(p, n) ((uintptr_t) p & -n)
+#define ALIGN(p, n) ((uintptr_t) (p) & -n)
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846264f

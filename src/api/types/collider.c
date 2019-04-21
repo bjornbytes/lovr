@@ -177,7 +177,7 @@ static int l_lovrColliderSetMassData(lua_State* L) {
   } else {
     for (int i = 6; i < 12; i++) {
       if (lua_isnumber(L, i)) {
-        inertia[i] = lua_tonumber(L, i);
+        inertia[i - 6] = lua_tonumber(L, i);
       } else {
         return luaL_argerror(L, i, "Expected 6 numbers or a table with 6 numbers");
       }

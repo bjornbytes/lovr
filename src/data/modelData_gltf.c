@@ -120,7 +120,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
   gltfHeader* header = (gltfHeader*) data;
   bool glb = header->magic == MAGIC_glTF;
   const char *json, *binData;
-  size_t jsonLength, binLength;
+  size_t jsonLength;
   ptrdiff_t binOffset;
 
   char filename[1024];
@@ -142,13 +142,11 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
     lovrAssert(binHeader->type == MAGIC_BIN, "Invalid BIN header");
 
     binData = (char*) &binHeader[1];
-    binLength = binHeader->length;
     binOffset = (char*) binData - (char*) source->data;
   } else {
     json = (char*) data;
     jsonLength = source->size;
     binData = NULL;
-    binLength = 0;
     binOffset = 0;
   }
 

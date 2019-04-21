@@ -41,7 +41,7 @@ void luax_readattachments(lua_State* L, int index, Attachment* attachments, int*
   int top = table ? -1 : lua_gettop(L);
   int n;
 
-  if (lua_istable(L, index)) {
+  if (table) {
     n = luax_len(L, index);
     n = MIN(n, 3 * MAX_CANVAS_ATTACHMENTS);
     for (int i = 0; i < n; i++) {
