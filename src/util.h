@@ -1,4 +1,3 @@
-#include <stddef.h>
 #include <stdarg.h>
 
 #pragma once
