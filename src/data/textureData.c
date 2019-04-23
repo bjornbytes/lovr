@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include "platform.h"
 
 #define FOUR_CC(a, b, c, d) ((uint32_t) (((d)<<24) | ((c)<<16) | ((b)<<8) | (a)))
 
