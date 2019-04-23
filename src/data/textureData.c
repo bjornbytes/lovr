@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include "platform.h"
 
 #define FOUR_CC(a, b, c, d) ((uint32_t) (((d)<<24) | ((c)<<16) | ((b)<<8) | (a)))
 
@@ -99,7 +100,7 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 
   int width = textureData->width = header->width;
   int height = textureData->height = header->height;
-  int mipmapCount = header->mipMapCount;
+  int mipmapCount = MAX(header->mipMapCount, 1);
   int blockBytes = 0;
 
   switch (textureData->format) {
