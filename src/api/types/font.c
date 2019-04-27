@@ -11,7 +11,8 @@ static int l_lovrFontGetWidth(lua_State* L) {
   uint32_t glyphCount;
   lovrFontMeasure(font, string, length, wrap, &width, &lineCount, &glyphCount);
   lua_pushnumber(L, width);
-  return 1;
+  lua_pushnumber(L, lineCount + 1);
+  return 2;
 }
 
 static int l_lovrFontGetHeight(lua_State* L) {
