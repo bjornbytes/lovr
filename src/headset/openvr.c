@@ -65,8 +65,8 @@ static TrackedDeviceIndex_t pathToDevice(const char* path, const char** next) {
   }
 }
 
-static bool getName(char* name, size_t length);
-static bool init(float offset, int msaa) {
+static bool openvr_getName(char* name, size_t length);
+static bool openvr_init(float offset, int msaa) {
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
     return false;
   }
@@ -88,7 +88,7 @@ static bool init(float offset, int msaa) {
     return false;
   }
 
-  getName(buffer, sizeof(buffer));
+  openvr_getName(buffer, sizeof(buffer));
   state.rift = !strncmp(buffer, "Oculus", sizeof(buffer));
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
@@ -99,7 +99,7 @@ static bool init(float offset, int msaa) {
   return true;
 }
 
-static void destroy(void) {
+static void openvr_destroy(void) {
   lovrRelease(Canvas, state.canvas);
   for (int i = 0; i < 16; i++) {
     if (state.deviceModels[i]) {
@@ -116,13 +116,13 @@ static void destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-static bool getName(char* name, size_t length) {
+static bool openvr_getName(char* name, size_t length) {
   ETrackedPropertyError error;
   state.system->GetStringTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_ManufacturerName_String, name, length, &error);
   return error == ETrackedPropertyError_TrackedProp_Success;
 }
 
-static HeadsetOrigin getOriginType(void) {
+static HeadsetOrigin openvr_getOriginType(void) {
   switch (state.compositor->GetTrackingSpace()) {
     case ETrackingUniverseOrigin_TrackingUniverseSeated: return ORIGIN_HEAD;
     case ETrackingUniverseOrigin_TrackingUniverseStanding: return ORIGIN_FLOOR;
@@ -130,11 +130,11 @@ static HeadsetOrigin getOriginType(void) {
   }
 }
 
-static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
+static void openvr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   state.system->GetRecommendedRenderTargetSize(width, height);
 }
 
-static double getDisplayTime(void) {
+static double openvr_getDisplayTime(void) {
   float secondsSinceVsync;
   state.system->GetTimeSinceLastVsync(&secondsSinceVsync, NULL);
 
@@ -145,21 +145,21 @@ static double getDisplayTime(void) {
   return lovrPlatformGetTime() + (double) (frameDuration - secondsSinceVsync + vsyncToPhotons);
 }
 
-static void getClipDistance(float* clipNear, float* clipFar) {
+static void openvr_getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
 }
 
-static void setClipDistance(float clipNear, float clipFar) {
+static void openvr_setClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
 }
 
-static void getBoundsDimensions(float* width, float* depth) {
+static void openvr_getBoundsDimensions(float* width, float* depth) {
   state.chaperone->GetPlayAreaSize(width, depth);
 }
 
-static const float* getBoundsGeometry(int* count) {
+static const float* openvr_getBoundsGeometry(int* count) {
   struct HmdQuad_t quad;
   if (state.chaperone->GetPlayAreaRect(&quad)) {
     vec_clear(&state.boundsGeometry);
@@ -188,7 +188,7 @@ static bool getTransform(unsigned int device, mat4 transform) {
   }
 }
 
-static bool getPose(const char* path, vec3 position, quat orientation) {
+static bool openvr_getPose(const char* path, vec3 position, quat orientation) {
   float transform[16];
   TrackedDeviceIndex_t device = pathToDevice(path, NULL);
   if (device == INVALID_DEVICE || !getTransform(device, transform)) {
@@ -200,7 +200,7 @@ static bool getPose(const char* path, vec3 position, quat orientation) {
   return true;
 }
 
-static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+static bool openvr_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   TrackedDeviceIndex_t device = pathToDevice(path, NULL);
   TrackedDevicePose_t* pose = &state.poses[device];
   if (device == INVALID_DEVICE || !pose->bPoseIsValid || !pose->bDeviceIsConnected) {
@@ -251,15 +251,15 @@ static bool getButtonState(const char* path, bool touch, bool* value) {
   return false;
 }
 
-static bool isDown(const char* path, bool* down) {
+static bool openvr_isDown(const char* path, bool* down) {
   return getButtonState(path, false, down);
 }
 
-static bool isTouched(const char* path, bool* touched) {
+static bool openvr_isTouched(const char* path, bool* touched) {
   return getButtonState(path, true, touched);
 }
 
-static int getAxis(const char* path, float* x, float* y, float* z) {
+static int openvr_getAxis(const char* path, float* x, float* y, float* z) {
   const char* axis;
   TrackedDeviceIndex_t device = pathToDevice(path, &axis);
 
@@ -273,7 +273,7 @@ static int getAxis(const char* path, float* x, float* y, float* z) {
   return 0;
 }
 
-static bool vibrate(const char* path, float strength, float duration, float frequency) {
+static bool openvr_vibrate(const char* path, float strength, float duration, float frequency) {
   if (duration <= 0) return false;
 
   TrackedDeviceIndex_t device = pathToDevice(path, NULL);
@@ -284,7 +284,7 @@ static bool vibrate(const char* path, float strength, float duration, float freq
   return true;
 }
 
-static ModelData* newModelData(const char* path) {
+static ModelData* openvr_newModelData(const char* path) {
   TrackedDeviceIndex_t device = pathToDevice(path, NULL);
   if (device == INVALID_DEVICE) return false;
 
@@ -390,7 +390,7 @@ static ModelData* newModelData(const char* path) {
   return model;
 }
 
-static void renderTo(void (*callback)(void*), void* userdata) {
+static void openvr_renderTo(void (*callback)(void*), void* userdata) {
   if (!state.canvas) {
     uint32_t width, height;
     state.system->GetRecommendedRenderTargetSize(&width, &height);
@@ -431,7 +431,7 @@ static void renderTo(void (*callback)(void*), void* userdata) {
   lovrGpuDirtyTexture();
 }
 
-static void update(float dt) {
+static void openvr_update(float dt) {
   state.compositor->WaitGetPoses(state.poses, 16, NULL, 0);
 
   struct VREvent_t vrEvent;
@@ -449,30 +449,30 @@ static void update(float dt) {
   }
 }
 
-static Texture* getMirrorTexture(void) {
+static Texture* openvr_getMirrorTexture(void) {
   return lovrCanvasGetAttachments(state.canvas, NULL)[0].texture;
 }
 
 HeadsetInterface lovrHeadsetOpenVRDriver = {
   .driverType = DRIVER_OPENVR,
-  .init = init,
-  .destroy = destroy,
-  .getName = getName,
-  .getOriginType = getOriginType,
-  .getDisplayDimensions = getDisplayDimensions,
-  .getDisplayTime = getDisplayTime,
-  .getClipDistance = getClipDistance,
-  .setClipDistance = setClipDistance,
-  .getBoundsDimensions = getBoundsDimensions,
-  .getBoundsGeometry = getBoundsGeometry,
-  .getPose = getPose,
-  .getVelocity = getVelocity,
-  .isDown = isDown,
-  .isTouched = isTouched,
-  .getAxis = getAxis,
-  .vibrate = vibrate,
-  .newModelData = newModelData,
-  .renderTo = renderTo,
-  .getMirrorTexture = getMirrorTexture,
-  .update = update
+  .init = openvr_init,
+  .destroy = openvr_destroy,
+  .getName = openvr_getName,
+  .getOriginType = openvr_getOriginType,
+  .getDisplayDimensions = openvr_getDisplayDimensions,
+  .getDisplayTime = openvr_getDisplayTime,
+  .getClipDistance = openvr_getClipDistance,
+  .setClipDistance = openvr_setClipDistance,
+  .getBoundsDimensions = openvr_getBoundsDimensions,
+  .getBoundsGeometry = openvr_getBoundsGeometry,
+  .getPose = openvr_getPose,
+  .getVelocity = openvr_getVelocity,
+  .isDown = openvr_isDown,
+  .isTouched = openvr_isTouched,
+  .getAxis = openvr_getAxis,
+  .vibrate = openvr_vibrate,
+  .newModelData = openvr_newModelData,
+  .renderTo = openvr_renderTo,
+  .getMirrorTexture = openvr_getMirrorTexture,
+  .update = openvr_update
 };

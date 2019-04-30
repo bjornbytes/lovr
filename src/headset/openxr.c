@@ -200,9 +200,9 @@ static struct {
   XrPath actionFilters[2];
 } state;
 
-static void destroy();
+static void openxr_destroy();
 
-static bool init(float offset, int msaa) {
+static bool openxr_init(float offset, int msaa) {
 
   { // Instance
     XrInstanceCreateInfo info = {
@@ -363,7 +363,7 @@ static bool init(float offset, int msaa) {
   return true;
 }
 
-static void destroy() {
+static void openxr_destroy() {
   lovrRelease(Canvas, state.canvas);
   for (uint32_t i = 0; i < state.imageCount; i++) {
     lovrRelease(Texture, &state.textures[i]);
@@ -383,7 +383,7 @@ static void destroy() {
   xrDestroyInstance(state.instance);
 }
 
-static bool getName(char* name, size_t length) {
+static bool openxr_getName(char* name, size_t length) {
   XrSystemProperties properties;
   XR(xrGetSystemProperties(state.instance, state.system, &properties));
   strncpy(name, properties.systemName, length - 1);
@@ -391,37 +391,37 @@ static bool getName(char* name, size_t length) {
   return true;
 }
 
-static HeadsetOrigin getOriginType() {
+static HeadsetOrigin openxr_getOriginType() {
   return state.spaceType == XR_REFERENCE_SPACE_TYPE_STAGE ? ORIGIN_FLOOR : ORIGIN_HEAD;
 }
 
-static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
+static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *width = state.width;
   *height = state.height;
 }
 
-static double getDisplayTime(void) {
+static double openxr_getDisplayTime(void) {
   return state.displayTime / 1e9;
 }
 
-static void getClipDistance(float* clipNear, float* clipFar) {
+static void openxr_getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
 }
 
-static void setClipDistance(float clipNear, float clipFar) {
+static void openxr_setClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
 }
 
-static void getBoundsDimensions(float* width, float* depth) {
+static void openxr_getBoundsDimensions(float* width, float* depth) {
   XrExtent2Df bounds;
   XR(xrGetReferenceSpaceBoundsRect(state.session, state.spaceType, &bounds));
   *width = bounds.width;
   *depth = bounds.height;
 }
 
-static const float* getBoundsGeometry(int* count) {
+static const float* openxr_getBoundsGeometry(int* count) {
   *count = 0;
   return NULL;
 }
@@ -443,7 +443,7 @@ static bool getRelation(const char* path, XrSpaceRelation* relation) {
   return true;
 }
 
-static bool getPose(const char* path, vec3 position, quat orientation) {
+static bool openxr_getPose(const char* path, vec3 position, quat orientation) {
   XrSpaceRelation relation;
 
   if (getRelation(path, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_POSITION_VALID_BIT | XR_SPACE_RELATION_ORIENTATION_VALID_BIT))) {
@@ -463,7 +463,7 @@ static bool getPose(const char* path, vec3 position, quat orientation) {
   return false;
 }
 
-static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+static bool openxr_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   XrSpaceRelation relation;
 
   if (getRelation(path, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_LINEAR_VELOCITY_VALID_BIT | XR_SPACE_RELATION_ANGULAR_VELOCITY_VALID_BIT))) {
@@ -519,15 +519,15 @@ static bool getButtonState(const char* path, bool* value, bool touch) {
   return false;
 }
 
-static bool isDown(const char* path, bool* down) {
+static bool openxr_isDown(const char* path, bool* down) {
   return getButtonState(path, down, false);
 }
 
-static bool isTouched(const char* path, bool* touched) {
+static bool openxr_isTouched(const char* path, bool* touched) {
   return getButtonState(path, touched, true);
 }
 
-static int getAxis(const char* path, float* x, float* y, float* z) {
+static int openxr_getAxis(const char* path, float* x, float* y, float* z) {
   XrPath filter;
   const char* axis;
 
@@ -553,7 +553,7 @@ static int getAxis(const char* path, float* x, float* y, float* z) {
   return 0;
 }
 
-static bool vibrate(const char* path, float power, float duration, float frequency) {
+static bool openxr_vibrate(const char* path, float power, float duration, float frequency) {
   XrPath filter;
 
   if (!getActionFilter(path, &filter, &path)) {
@@ -572,11 +572,11 @@ static bool vibrate(const char* path, float power, float duration, float frequen
   return true;
 }
 
-static struct ModelData* newModelData(const char* path) {
+static struct ModelData* openxr_newModelData(const char* path) {
   return NULL;
 }
 
-static void renderTo(void (*callback)(void*), void* userdata) {
+static void openxr_renderTo(void (*callback)(void*), void* userdata) {
   if (!SESSION_RUNNING(state.sessionState)) { return; }
 
   XrFrameBeginInfo beginInfo = { XR_TYPE_FRAME_BEGIN_INFO, NULL };
@@ -633,7 +633,7 @@ static void renderTo(void (*callback)(void*), void* userdata) {
   XR(xrEndFrame(state.session, &endInfo));
 }
 
-static void update(float dt) {
+static void openxr_update(float dt) {
   if (SESSION_RUNNING(state.sessionState)) {
     XrFrameState frameState;
     XR(xrWaitFrame(state.session, NULL, &frameState));
@@ -683,23 +683,23 @@ static void update(float dt) {
 
 HeadsetInterface lovrHeadsetOpenXRDriver = {
   .driverType = DRIVER_OPENXR,
-  .init = init,
-  .destroy = destroy,
-  .getName = getName,
-  .getOriginType = getOriginType,
-  .getDisplayDimensions = getDisplayDimensions,
-  .getDisplayTime = getDisplayTime,
-  .getClipDistance = getClipDistance,
-  .setClipDistance = setClipDistance,
-  .getBoundsDimensions = getBoundsDimensions,
-  .getBoundsGeometry = getBoundsGeometry,
-  .getPose = getPose,
-  .getVelocity = getVelocity,
-  .isDown = isDown,
-  .isTouched = isTouched,
-  .getAxis = getAxis,
-  .vibrate = vibrate,
-  .newModelData = newModelData,
-  .renderTo = renderTo,
-  .update = update
+  .init = openxr_init,
+  .destroy = openxr_destroy,
+  .getName = openxr_getName,
+  .getOriginType = openxr_getOriginType,
+  .getDisplayDimensions = openxr_getDisplayDimensions,
+  .getDisplayTime = openxr_getDisplayTime,
+  .getClipDistance = openxr_getClipDistance,
+  .setClipDistance = openxr_setClipDistance,
+  .getBoundsDimensions = openxr_getBoundsDimensions,
+  .getBoundsGeometry = openxr_getBoundsGeometry,
+  .getPose = openxr_getPose,
+  .getVelocity = openxr_getVelocity,
+  .isDown = openxr_isDown,
+  .isTouched = openxr_isTouched,
+  .getAxis = openxr_getAxis,
+  .vibrate = openxr_vibrate,
+  .newModelData = openxr_newModelData,
+  .renderTo = openxr_renderTo,
+  .update = openxr_update
 };

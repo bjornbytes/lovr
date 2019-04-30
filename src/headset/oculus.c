@@ -69,7 +69,7 @@ static ovrInputState *refreshButtons() {
   return &is;
 }
 
-static bool init(float offset, int msaa) {
+static bool oculus_init(float offset, int msaa) {
   ovrResult result = ovr_Initialize(NULL);
   if (OVR_FAILURE(result)) {
     return false;
@@ -93,7 +93,7 @@ static bool init(float offset, int msaa) {
   return true;
 }
 
-static void destroy() {
+static void oculus_destroy() {
   const char* key;
   map_iter_t iter = map_iter(&state.textureLookup);
   while ((key = map_next(&state.textureLookup, &iter)) != NULL) {
@@ -118,18 +118,18 @@ static void destroy() {
   memset(&state, 0, sizeof(state));
 }
 
-static bool getName(char* name, size_t length) {
+static bool oculus_getName(char* name, size_t length) {
   ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
   strncpy(name, desc.ProductName, length - 1);
   name[length - 1] = '\0';
   return true;
 }
 
-static HeadsetOrigin getOriginType() {
+static HeadsetOrigin oculus_getOriginType() {
   return ORIGIN_FLOOR;
 }
 
-static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
+static void oculus_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
   ovrSizei size = ovr_GetFovTextureSize(state.session, ovrEye_Left, desc.DefaultEyeFov[0], 1.0f);
 
@@ -137,33 +137,33 @@ static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = size.h;
 }
 
-static double getDisplayTime(void) {
+static double oculus_getDisplayTime(void) {
   return ovr_GetPredictedDisplayTime(state.session, 0);
 }
 
-static void getClipDistance(float* clipNear, float* clipFar) {
+static void oculus_getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
 }
 
-static void setClipDistance(float clipNear, float clipFar) {
+static void oculus_setClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
 }
 
-static void getBoundsDimensions(float* width, float* depth) {
+static void oculus_getBoundsDimensions(float* width, float* depth) {
   ovrVector3f dimensions;
   ovr_GetBoundaryDimensions(state.session, ovrBoundary_PlayArea, &dimensions);
   *width = dimensions.x;
   *depth = dimensions.z;
 }
 
-static const float* getBoundsGeometry(int* count) {
+static const float* oculus_getBoundsGeometry(int* count) {
   *count = 0;
   return NULL;
 }
 
-static bool getPose(const char* path, vec3 position, quat orientation) {
+static bool oculus_getPose(const char* path, vec3 position, quat orientation) {
   ovrTrackingState *ts = refreshTracking();
   ovrPosef* pose;
 
@@ -188,7 +188,7 @@ static bool getPose(const char* path, vec3 position, quat orientation) {
   return true;
 }
 
-static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+static bool oculus_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   ovrTrackingState *ts = refreshTracking();
   ovrPoseStatef* pose;
 
@@ -229,7 +229,7 @@ static bool getHandInfo(const char* path, ovrHandType* hand, uint32_t* mask, con
   }
 }
 
-static bool isDown(const char* path, bool* down) {
+static bool oculus_isDown(const char* path, bool* down) {
   if (!strcmp(path, "head/proximity")) {
     ovrSessionStatus status;
     ovr_GetSessionStatus(state.session, &status);
@@ -256,7 +256,7 @@ static bool isDown(const char* path, bool* down) {
   return false;
 }
 
-static bool isTouched(const char* path, bool* touched) {
+static bool oculus_isTouched(const char* path, bool* touched) {
   ovrHandType hand;
   uint32_t mask;
   const char* button;
@@ -273,7 +273,7 @@ static bool isTouched(const char* path, bool* touched) {
   return false;
 }
 
-static int getAxis(const char* path, float* x, float* y, float* z) {
+static int oculus_getAxis(const char* path, float* x, float* y, float* z) {
   ovrHandType hand;
   uint32_t mask;
   const char* button;
@@ -288,15 +288,15 @@ static int getAxis(const char* path, float* x, float* y, float* z) {
   return 0;
 }
 
-static bool vibrate(const char* path, float strength, float duration, float frequency) {
+static bool oculus_vibrate(const char* path, float strength, float duration, float frequency) {
   return false; // TODO
 }
 
-static ModelData* newModelData(const char* path) {
+static ModelData* oculus_newModelData(const char* path) {
   return NULL; // TODO
 }
 
-static void renderTo(void (*callback)(void*), void* userdata) {
+static void oculus_renderTo(void (*callback)(void*), void* userdata) {
   ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
   if (!state.canvas) {
     state.size = ovr_GetFovTextureSize(state.session, ovrEye_Left, desc.DefaultEyeFov[ovrEye_Left], 1.0f);
@@ -397,13 +397,13 @@ static void renderTo(void (*callback)(void*), void* userdata) {
   state.needRefreshButtons = true;
 }
 
-static Texture* getMirrorTexture() {
+static Texture* oculus_getMirrorTexture() {
   uint32_t handle;
   ovr_GetMirrorTextureBufferGL(state.session, state.mirror, &handle);
   return lookupTexture(handle);
 }
 
-static void update(float dt) {
+static void oculus_update(float dt) {
   ovrSessionStatus status;
   ovr_GetSessionStatus(state.session, &status);
 
@@ -417,24 +417,24 @@ static void update(float dt) {
 
 HeadsetInterface lovrHeadsetOculusDriver = {
   .driverType = DRIVER_OCULUS,
-  .init = init,
-  .destroy = destroy,
-  .getName = getName,
-  .getOriginType = getOriginType,
-  .getDisplayDimensions = getDisplayDimensions,
-  .getDisplayTime = getDisplayTime,
-  .getClipDistance = getClipDistance,
-  .setClipDistance = setClipDistance,
-  .getBoundsDimensions = getBoundsDimensions,
-  .getBoundsGeometry = getBoundsGeometry,
-  .getPose = getPose,
-  .getVelocity = getVelocity,
-  .isDown = isDown,
-  .isTouched = isTouched,
-  .getAxis = getAxis,
-  .vibrate = vibrate,
-  .newModelData = newModelData,
-  .renderTo = renderTo,
-  .getMirrorTexture = getMirrorTexture,
-  .update = update
+  .init = oculus_init,
+  .destroy = oculus_destroy,
+  .getName = oculus_getName,
+  .getOriginType = oculus_getOriginType,
+  .getDisplayDimensions = oculus_getDisplayDimensions,
+  .getDisplayTime = oculus_getDisplayTime,
+  .getClipDistance = oculus_getClipDistance,
+  .setClipDistance = oculus_setClipDistance,
+  .getBoundsDimensions = oculus_getBoundsDimensions,
+  .getBoundsGeometry = oculus_getBoundsGeometry,
+  .getPose = oculus_getPose,
+  .getVelocity = oculus_getVelocity,
+  .isDown = oculus_isDown,
+  .isTouched = oculus_isTouched,
+  .getAxis = oculus_getAxis,
+  .vibrate = oculus_vibrate,
+  .newModelData = oculus_newModelData,
+  .renderTo = oculus_renderTo,
+  .getMirrorTexture = oculus_getMirrorTexture,
+  .update = oculus_update
 };

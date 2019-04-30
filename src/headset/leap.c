@@ -39,8 +39,8 @@ static int loop(void* userdata) {
   return 0;
 }
 
-static void destroy(void);
-static bool init(float offset, int msaa) {
+static void leap_destroy(void);
+static bool leap_init(float offset, int msaa) {
   if (LeapCreateConnection(NULL, &state.connection) == eLeapRS_Success) {
     if (LeapOpenConnection(state.connection) == eLeapRS_Success) {
       LeapCreateClockRebaser(&state.clock);
@@ -50,10 +50,10 @@ static bool init(float offset, int msaa) {
     }
   }
 
-  return destroy(), false;
+  return leap_destroy(), false;
 }
 
-static void destroy(void) {
+static void leap_destroy(void) {
   free(state.frame);
   thrd_detach(state.thread);
   LeapDestroyClockRebaser(state.clock);
@@ -62,7 +62,7 @@ static void destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-static bool getPose(const char* path, vec3 position, quat orientation) {
+static bool leap_getPose(const char* path, vec3 position, quat orientation) {
   LEAP_HAND* hand;
   if (state.leftHand && !strncmp("hand/left", path, strlen("hand/left"))) {
     hand = state.leftHand;
@@ -136,7 +136,7 @@ static bool getPose(const char* path, vec3 position, quat orientation) {
   return true;
 }
 
-static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+static bool leap_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   LEAP_HAND* hand;
   if (state.leftHand && !strcmp(path, "hand/left")) {
     hand = state.leftHand;
@@ -152,11 +152,11 @@ static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   return true;
 }
 
-static bool isDown(const char* path, bool* down) {
+static bool leap_isDown(const char* path, bool* down) {
   return false;
 }
 
-static int getAxis(const char* path, float* x, float* y, float* z) {
+static int leap_getAxis(const char* path, float* x, float* y, float* z) {
   LEAP_HAND* hand;
   if (state.leftHand && !strncmp("hand/left", path, strlen("hand/left"))) {
     hand = state.leftHand;
@@ -179,15 +179,15 @@ static int getAxis(const char* path, float* x, float* y, float* z) {
   return 0;
 }
 
-static bool vibrate(const char* path, float strength, float duration, float frequency) {
+static bool leap_vibrate(const char* path, float strength, float duration, float frequency) {
   return false;
 }
 
-static struct ModelData* newModelData(const char* path) {
+static struct ModelData* leap_newModelData(const char* path) {
   return NULL;
 }
 
-static void update(float dt) {
+static void leap_update(float dt) {
   if (!state.connected) {
     return;
   }
@@ -232,13 +232,13 @@ static void update(float dt) {
 
 HeadsetInterface lovrHeadsetLeapMotionDriver = {
   .driverType = DRIVER_LEAP_MOTION,
-  .init = init,
-  .destroy = destroy,
-  .getPose = getPose,
-  .getVelocity = getVelocity,
-  .isDown = isDown,
-  .getAxis = getAxis,
-  .vibrate = vibrate,
-  .newModelData = newModelData,
-  .update = update
+  .init = leap_init,
+  .destroy = leap_destroy,
+  .getPose = leap_getPose,
+  .getVelocity = leap_getVelocity,
+  .isDown = leap_isDown,
+  .getAxis = leap_getAxis,
+  .vibrate = leap_vibrate,
+  .newModelData = leap_newModelData,
+  .update = leap_update
 };

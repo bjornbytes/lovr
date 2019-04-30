@@ -25,16 +25,16 @@ static struct {
 
 // Headset driver object
 
-static bool init(float offset, int msaa) {
+static bool vrapi_init(float offset, int msaa) {
   state.offset = offset;
   return true;
 }
 
-static void destroy() {
+static void vrapi_destroy() {
   //
 }
 
-static bool getName(char* buffer, size_t length) {
+static bool vrapi_getName(char* buffer, size_t length) {
   const char* name;
   switch (bridgeLovrMobileData.deviceType) {
     case BRIDGE_LOVR_DEVICE_GEAR: name = "Gear VR"; break;
@@ -47,34 +47,34 @@ static bool getName(char* buffer, size_t length) {
   return true;
 }
 
-static HeadsetOrigin getOriginType() {
+static HeadsetOrigin vrapi_getOriginType() {
   return ORIGIN_HEAD;
 }
 
-static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
+static void vrapi_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *width = bridgeLovrMobileData.displayDimensions.width;
   *height = bridgeLovrMobileData.displayDimensions.height;
 }
 
-static void getClipDistance(float* clipNear, float* clipFar) {
+static void vrapi_getClipDistance(float* clipNear, float* clipFar) {
   // TODO
 }
 
-static void setClipDistance(float clipNear, float clipFar) {
+static void vrapi_setClipDistance(float clipNear, float clipFar) {
   // TODO
 }
 
-static void getBoundsDimensions(float* width, float* depth) {
+static void vrapi_getBoundsDimensions(float* width, float* depth) {
   *width = 0.f;
   *depth = 0.f;
 }
 
-static const float* getBoundsGeometry(int* count) {
+static const float* vrapi_getBoundsGeometry(int* count) {
   *count = 0;
   return NULL;
 }
 
-static bool getPose(const char* path, vec3 position, quat orientation) {
+static bool vrapi_getPose(const char* path, vec3 position, quat orientation) {
   BridgeLovrPose* pose;
 
   if (!strcmp(path, "head")) {
@@ -96,7 +96,7 @@ static bool getPose(const char* path, vec3 position, quat orientation) {
   return true;
 }
 
-static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+static bool vrapi_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   BridgeLovrVel* v;
 
   if (!strcmp(path, "head")) {
@@ -129,15 +129,15 @@ static bool buttonCheck(BridgeLovrButton field, const char* path, bool* result) 
   return false;
 }
 
-static bool isDown(const char* path, bool* down) {
+static bool vrapi_isDown(const char* path, bool* down) {
   return buttonCheck(bridgeLovrMobileData.updateData.goButtonDown, path, down);
 }
 
-static bool isTouched(const char* path, bool* touched) {
+static bool vrapi_isTouched(const char* path, bool* touched) {
   return buttonCheck(bridgeLovrMobileData.updateData.goButtonTouch, path, touched);
 }
 
-static int getAxis(const char* path, float* x, float* y, float* z) {
+static int vrapi_getAxis(const char* path, float* x, float* y, float* z) {
   if (!strcmp("hand", path, strlen("hand"))) {
     path += strlen("hand/");
     if (!strcmp(path, "trackpad")) {
@@ -153,39 +153,39 @@ static int getAxis(const char* path, float* x, float* y, float* z) {
   return 0;
 }
 
-static bool vibrate(const char* path, float strength, float duration, float frequency) {
+static bool vrapi_vibrate(const char* path, float strength, float duration, float frequency) {
   return false;
 }
 
-static ModelData* newModelData(const char* path) {
+static ModelData* vrapi_newModelData(const char* path) {
   return NULL;
 }
 
 // TODO: need to set up swap chain textures for the eyes and finish view transforms
-static void renderTo(void (*callback)(void*), void* userdata) {
+static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
   state.renderCallback = callback;
   state.renderUserdata = userdata;
 }
 
 HeadsetInterface lovrHeadsetOculusMobileDriver = {
   .driverType = DRIVER_OCULUS_MOBILE,
-  .init = init,
-  .destroy = destroy,
-  .getName = getName,
-  .getOriginType = getOriginType,
-  .getDisplayDimensions = getDisplayDimensions,
-  .getClipDistance = getClipDistance,
-  .setClipDistance = setClipDistance,
-  .getBoundsDimensions = getBoundsDimensions,
-  .getBoundsGeometry = getBoundsGeometry,
-  .getPose = getPose,
-  .getVelocity = getVelocity,
-  .isDown = isDown,
-  .isTouched = isTouched,
-  .getAxis = getAxis,
-  .vibrate = vibrate,
-  .newModelData = newModelData,
-  .renderTo = renderTo
+  .init = vrapi_init,
+  .destroy = vrapi_destroy,
+  .getName = vrapi_getName,
+  .getOriginType = vrapi_getOriginType,
+  .getDisplayDimensions = vrapi_getDisplayDimensions,
+  .getClipDistance = vrapi_getClipDistance,
+  .setClipDistance = vrapi_setClipDistance,
+  .getBoundsDimensions = vrapi_getBoundsDimensions,
+  .getBoundsGeometry = vrapi_getBoundsGeometry,
+  .getPose = vrapi_getPose,
+  .getVelocity = vrapi_getVelocity,
+  .isDown = vrapi_isDown,
+  .isTouched = vrapi_isTouched,
+  .getAxis = vrapi_getAxis,
+  .vibrate = vrapi_vibrate,
+  .newModelData = vrapi_newModelData,
+  .renderTo = vrapi_renderTo
 };
 
 // Oculus-specific platform functions
