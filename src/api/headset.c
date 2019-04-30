@@ -16,6 +16,7 @@ const char* HeadsetDrivers[] = {
   [DRIVER_OCULUS] = "oculus",
   [DRIVER_OCULUS_MOBILE] = "oculusmobile",
   [DRIVER_OPENVR] = "openvr",
+  [DRIVER_OPENXR] = "openxr",
   [DRIVER_WEBVR] = "webvr",
   NULL
 };
