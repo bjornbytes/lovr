@@ -615,7 +615,9 @@ static void renderTo(void (*callback)(void*), void* userdata) {
         XrQuaternionf* q = &view->pose.orientation;
         XrFovf* fov = &view->fov;
         mat4_fov(camera.projection[eye], fov->angleLeft, fov->angleRight, fov->angleUp, fov->angleDown, state.clipNear, state.clipFar);
-        mat4_setTransform(camera.viewMatrix[eye], v->x, v->y, v->z, 1.f, 1.f, 1.f, q->x, q->y, q->z, q->w);
+        mat4_identity(camera.viewMatrix[eye]);
+        mat4_translate(camera.viewMatrix[eye], v->x, v->y, v->z);
+        mat4_rotateQuat(camera.viewMatrix[eye], (float[4]) { q->x, q->y, q->z, q->w });
         mat4_invert(camera.viewMatrix[eye]);
       }
 
