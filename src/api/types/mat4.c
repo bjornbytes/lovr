@@ -43,14 +43,18 @@ static int l_lovrMat4Unpack(lua_State* L) {
     }
     return 16;
   } else {
-    float x, y, z, sx, sy, sz, angle, ax, ay, az;
-    mat4_getTransform(m, &x, &y, &z, &sx, &sy, &sz, &angle, &ax, &ay, &az);
-    lua_pushnumber(L, x);
-    lua_pushnumber(L, y);
-    lua_pushnumber(L, z);
-    lua_pushnumber(L, sx);
-    lua_pushnumber(L, sy);
-    lua_pushnumber(L, sz);
+    float angle, ax, ay, az;
+    float position[3], orientation[4], scale[3];
+    mat4_getPosition(m, position);
+    mat4_getScale(m, scale);
+    mat4_getOrientation(m, orientation);
+    quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, position[0]);
+    lua_pushnumber(L, position[1]);
+    lua_pushnumber(L, position[2]);
+    lua_pushnumber(L, scale[0]);
+    lua_pushnumber(L, scale[1]);
+    lua_pushnumber(L, scale[2]);
     lua_pushnumber(L, angle);
     lua_pushnumber(L, ax);
     lua_pushnumber(L, ay);

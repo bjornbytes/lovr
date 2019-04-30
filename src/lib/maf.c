@@ -499,27 +499,8 @@ void mat4_getOrientation(mat4 m, quat orientation) {
   quat_fromMat4(orientation, m);
 }
 
-void mat4_getTransform(mat4 m, float* x, float* y, float* z, float* sx, float* sy, float* sz, float* angle, float* ax, float* ay, float* az) {
-  if (x) {
-    *x = m[12];
-    *y = m[13];
-    *z = m[14];
-  }
-
-  if (sx) {
-    float a[3] = { m[0], m[1], m[2] };
-    float b[3] = { m[4], m[5], m[6] };
-    float c[3] = { m[8], m[9], m[10] };
-    *sx = vec3_length(a);
-    *sy = vec3_length(b);
-    *sz = vec3_length(c);
-  }
-
-  if (angle) {
-    float quat[4];
-    quat_fromMat4(quat, m);
-    quat_getAngleAxis(quat, angle, ax, ay, az);
-  }
+void mat4_getScale(mat4 m, vec3 scale) {
+  vec3_set(scale, vec3_length(m + 0), vec3_length(m + 4), vec3_length(m + 8));
 }
 
 mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float clipNear, float clipFar) {

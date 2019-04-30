@@ -54,7 +54,9 @@ ffi.cdef [[
   mat4* mat4_rotate(mat4* m, float angle, float x, float y, float z);
   mat4* mat4_rotateQuat(mat4* m, quat* q);
   mat4* mat4_scale(mat4* m, float x, float y, float z);
-  void mat4_getTransform(mat4* m, float* x, float* y, float* z, float* sx, float* sy, float* sz, float* angle, float* ax, float* ay, float* az);
+  mat4* mat4_getPosition(mat4* m, float* position);
+  mat4* mat4_getOrientation(mat4* m, float* orientation);
+  mat4* mat4_getScale(mat4* m, float* scale);
   mat4* mat4_orthographic(mat4* m, float left, float right, float top, float bottom, float near, float far);
   mat4* mat4_perspective(mat4* m, float near, float far, float fov, float aspect);
   void mat4_transform(mat4* m, float* x, float* y, float* z);
@@ -375,9 +377,12 @@ local mat4 = {
         m.m[8], m.m[9], m.m[10], m.m[11],
         m.m[12], m.m[13], m.m[14], m.m[15]
     else
-      local f = new('float[10]')
-      C.mat4_getTransform(m, f + 0, f + 1, f + 2, f + 3, f + 4, f + 5, f + 6, f + 7, f + 8, f + 9)
-      return f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9]
+      local f = new('float[14]')
+      C.mat4_getPosition(m, f + 0)
+      C.mat4_getScale(m, f + 3)
+      C.mat4_getOrientation(m, f + 6)
+      C.quat_getAngleAxis(f + 6, f + 10, f + 11, f + 12, f + 13)
+      return f[0], f[1], f[2], f[3], f[4], f[5], f[10], f[11], f[12], f[13]
     end
   end,
 
