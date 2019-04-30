@@ -400,6 +400,10 @@ static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = state.height;
 }
 
+static double getDisplayTime(void) {
+  return state.displayTime / 1e9;
+}
+
 static void getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
@@ -689,6 +693,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getName = getName,
   .getOriginType = getOriginType,
   .getDisplayDimensions = getDisplayDimensions,
+  .getDisplayTime = getDisplayTime,
   .getClipDistance = getClipDistance,
   .setClipDistance = setClipDistance,
   .getBoundsDimensions = getBoundsDimensions,
