@@ -491,6 +491,14 @@ mat4 mat4_scale(mat4 m, float x, float y, float z) {
   return m;
 }
 
+void mat4_getPosition(mat4 m, vec3 position) {
+  vec3_init(position, m + 12);
+}
+
+void mat4_getOrientation(mat4 m, quat orientation) {
+  quat_fromMat4(orientation, m);
+}
+
 void mat4_getTransform(mat4 m, float* x, float* y, float* z, float* sx, float* sy, float* sz, float* angle, float* ax, float* ay, float* az) {
   if (x) {
     *x = m[12];

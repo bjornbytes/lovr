@@ -443,21 +443,18 @@ static bool getRelation(const char* path, XrSpaceRelation* relation) {
   return true;
 }
 
-static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool getPose(const char* path, vec3 position, quat orientation) {
   XrSpaceRelation relation;
 
   if (getRelation(path, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_POSITION_VALID_BIT | XR_SPACE_RELATION_ORIENTATION_VALID_BIT))) {
     XrPosef* pose = &relation.pose;
 
-    if (x) {
-      *x = pose->position.x;
-      *y = pose->position.y;
-      *z = pose->position.z;
+    if (position) {
+      vec3_set(position, pose->position.x, pose->position.y, pose->position.z);
     }
 
-    if (angle) {
-      float q[4] = { pose->orientation.x, pose->orientation.y, pose->orientation.z, pose->orientation.w };
-      quat_getAngleAxis(q, angle, ax, ay, az);
+    if (orientation) {
+      quat_set(orientation, pose->orientation.x, pose->orientation.y, pose->orientation.z, pose->orientation.w);
     }
 
     return true;
@@ -466,20 +463,16 @@ static bool getPose(const char* path, float* x, float* y, float* z, float* angle
   return false;
 }
 
-static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   XrSpaceRelation relation;
 
   if (getRelation(path, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_LINEAR_VELOCITY_VALID_BIT | XR_SPACE_RELATION_ANGULAR_VELOCITY_VALID_BIT))) {
-    if (vx) {
-      *vx = relation.linearVelocity.x;
-      *vy = relation.linearVelocity.y;
-      *vz = relation.linearVelocity.z;
+    if (velocity) {
+      vec3_set(velocity, relation.linearVelocity.x, relation.linearVelocity.y, relation.linearVelocity.z);
     }
 
-    if (vax) {
-      *vax = relation.angularVelocity.x;
-      *vay = relation.angularVelocity.y;
-      *vaz = relation.angularVelocity.z;
+    if (angularVelocity) {
+      vec3_set(angularVelocity, relation.angularVelocity.x, relation.angularVelocity.y, relation.angularVelocity.z);
     }
 
     return true;

@@ -159,7 +159,7 @@ static const float* getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool getPose(const char* path, vec3 position, quat orientation) {
   ovrTrackingState *ts = refreshTracking();
   ovrPosef* pose;
 
@@ -173,21 +173,18 @@ static bool getPose(const char* path, float* x, float* y, float* z, float* angle
     return false;
   }
 
-  if (x) {
-    *x = pose->Position.x;;
-    *y = pose->Position.y + state.offset;
-    *z = pose->Position.z;
+  if (position) {
+    vec3_set(position, pose->Position.x, pose->Position.y + state.offset, pose->Position.z);
   }
 
-  if (angle) {
-    float quat[4] = { pose->Orientation.x, pose->Orientation.y, pose->Orientation.z, pose->Orientation.w };
-    quat_getAngleAxis(quat, angle, ax, ay, az);
+  if (orientation) {
+    quat_set(orientation, pose->Orientation.x, pose->Orientation.y, pose->Orientation.z, pose->Orientation.w);
   }
 
   return true;
 }
 
-static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   ovrTrackingState *ts = refreshTracking();
   ovrPoseStatef* pose;
 
@@ -201,16 +198,12 @@ static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float
     return false;
   }
 
-  if (vx) {
-    *vx = pose->LinearVelocity.x;
-    *vy = pose->LinearVelocity.y;
-    *vz = pose->LinearVelocity.z;
+  if (velocity) {
+    vec3_set(velocity, pose->LinearVelocity.x, pose->LinearVelocity.y, pose->LinearVelocity.z);
   }
 
-  if (vax) {
-    *vax = pose->AngularVelocity.x;
-    *vay = pose->AngularVelocity.y;
-    *vaz = pose->AngularVelocity.z;
+  if (angularVelocity) {
+    vec3_set(angularVelocity, pose->AngularVelocity.x, pose->AngularVelocity.y, pose->AngularVelocity.z);
   }
 
   return true;

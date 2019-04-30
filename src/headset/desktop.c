@@ -74,7 +74,7 @@ static const float* getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool getPose(const char* path, vec3 position, quat orientation) {
   bool head = !strcmp(path, "head");
   bool hand = !strcmp(path, "hand/left") || !strcmp(path, "hand/right");
 
@@ -82,36 +82,29 @@ static bool getPose(const char* path, float* x, float* y, float* z, float* angle
     return false;
   }
 
-  if (x) {
-    *x = *y = 0.f;
-    *z = hand ? -.75f : 0.f;
-    mat4_transform(state.transform, x, y, z);
+  if (position) {
+    vec3_set(position, 0.f, 0.f, hand ? -.75f : 0.f);
+    mat4_transform(state.transform, &position[0], &position[1], &position[2]);
   }
 
-  if (angle) {
-    float q[4];
-    quat_fromMat4(q, state.transform);
-    quat_getAngleAxis(q, angle, ax, ay, az);
+  if (orientation) {
+    quat_fromMat4(orientation, state.transform);
   }
 
   return true;
 }
 
-static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   if (strcmp(path, "head")) {
     return false;
   }
 
-  if (vx) {
-    *vx = state.velocity[0];
-    *vy = state.velocity[1];
-    *vz = state.velocity[2];
+  if (velocity) {
+    vec3_init(velocity, state.velocity);
   }
 
-  if (vax) {
-    *vax = state.angularVelocity[0];
-    *vay = state.angularVelocity[1];
-    *vaz = state.angularVelocity[2];
+  if (angularVelocity) {
+    vec3_init(angularVelocity, state.angularVelocity);
   }
 
   return true;

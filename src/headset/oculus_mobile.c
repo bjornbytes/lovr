@@ -74,7 +74,7 @@ static const float* getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool getPose(const char* path, vec3 position, quat orientation) {
   BridgeLovrPose* pose;
 
   if (!strcmp(path, "head")) {
@@ -85,40 +85,34 @@ static bool getPose(const char* path, float* x, float* y, float* z, float* angle
     return false;
   }
 
-  if (x) {
-    *x = pose->x;
-    *y = pose->y + state.offset; // Correct for head height
-    *z = pose->z;
+  if (position) {
+    vec3_set(position, pose->x, pose->y + state.offset, pose->z);
   }
 
-  if (angle) {
-    quat_getAngleAxis(pose->q, angle, ax, ay, az);
+  if (orientation) {
+    quat_init(orientation, pose->q);
   }
 
   return true;
 }
 
-static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
-  BridgeLovrVel* velocity;
+static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+  BridgeLovrVel* v;
 
   if (!strcmp(path, "head")) {
-    velocity = &bridgeLovrMobileData.updateData.lastHeadVelocity;
+    v = &bridgeLovrMobileData.updateData.lastHeadVelocity;
   } else if (!strcmp(path, "hand")) {
-    velocity = &bridgeLovrMobileData.updateData.goVelocity;
+    v = &bridgeLovrMobileData.updateData.goVelocity;
   } else {
     return false;
   }
 
-  if (vx) {
-    *vx = velocity->x;
-    *vy = velocity->y;
-    *vz = velocity->z;
+  if (velocity) {
+    vec3_set(velocity, v->x, v->y, v->z);
   }
 
-  if (vax) {
-    *vax = velocity->ax;
-    *vay = velocity->ay;
-    *vaz = velocity->az;
+  if (angularVelocity) {
+    vec3_set(angularVelocity, v->ax, v->ay, v->az);
   }
 
   return true;

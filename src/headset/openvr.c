@@ -188,34 +188,31 @@ static bool getTransform(unsigned int device, mat4 transform) {
   }
 }
 
-static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool getPose(const char* path, vec3 position, quat orientation) {
   float transform[16];
   TrackedDeviceIndex_t device = pathToDevice(path, NULL);
   if (device == INVALID_DEVICE || !getTransform(device, transform)) {
     return false;
   }
 
-  mat4_getTransform(transform, x, y, z, NULL, NULL, NULL, angle, ax, ay, az);
+  mat4_getPosition(transform, position);
+  mat4_getOrientation(transform, orientation);
   return true;
 }
 
-static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   TrackedDeviceIndex_t device = pathToDevice(path, NULL);
   TrackedDevicePose_t* pose = &state.poses[device];
   if (device == INVALID_DEVICE || !pose->bPoseIsValid || !pose->bDeviceIsConnected) {
     return false;
   }
 
-  if (vx) {
-    *vx = pose->vVelocity.v[0];
-    *vy = pose->vVelocity.v[1];
-    *vz = pose->vVelocity.v[2];
+  if (velocity) {
+    vec3_init(velocity, pose->vVelocity.v);
   }
 
-  if (vax) {
-    *vax = pose->vAngularVelocity.v[0];
-    *vay = pose->vAngularVelocity.v[1];
-    *vaz = pose->vAngularVelocity.v[2];
+  if (angularVelocity) {
+    vec3_init(angularVelocity, pose->vAngularVelocity.v);
   }
 
   return true;

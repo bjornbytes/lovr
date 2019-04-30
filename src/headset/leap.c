@@ -62,7 +62,7 @@ static void destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
+static bool getPose(const char* path, vec3 position, quat orientation) {
   LEAP_HAND* hand;
   if (state.leftHand && !strncmp("hand/left", path, strlen("hand/left"))) {
     hand = state.leftHand;
@@ -77,9 +77,7 @@ static bool getPose(const char* path, float* x, float* y, float* z, float* angle
   float direction[3];
 
   if (*path == '\0') {
-    *x = hand->palm.position.x;
-    *y = hand->palm.position.z;
-    *z = hand->palm.position.y;
+    vec3_set(position, hand->palm.position.x, hand->palm.position.z, hand->palm.position.y);
     vec3_init(direction, hand->palm.normal.v);
   } else if (!strncmp("/finger/", path, strlen("/finger/"))) {
     path += strlen("/finger/");
@@ -99,9 +97,7 @@ static bool getPose(const char* path, float* x, float* y, float* z, float* angle
     if (*path == '\0') {
       tip = finger->distal.next_joint.v;
       base = finger->distal.prev_joint.v;
-      *x = tip[0];
-      *y = tip[2];
-      *z = tip[1];
+      vec3_set(position, tip[0], tip[2], tip[1]);
     } else if (!strncmp("/bone/", path, strlen("/bone/"))) {
       path += strlen("/bone/");
 
@@ -115,9 +111,7 @@ static bool getPose(const char* path, float* x, float* y, float* z, float* angle
       LEAP_BONE* bone = &finger->bones[boneIndex];
       tip = bone->next_joint.v;
       base = bone->prev_joint.v;
-      *x = base[0];
-      *y = base[2];
-      *z = base[1];
+      vec3_set(position, base[0], base[2], base[1]);
     } else {
       return false;
     }
@@ -127,11 +121,9 @@ static bool getPose(const char* path, float* x, float* y, float* z, float* angle
 
   // Convert hand positions to meters, and push them back a bit to account for the discrepancy
   // between the leap motion device and the HMD
-  *x *= -.001f;
-  *y *= -.001f;
-  *z *= -.001f;
-  *z += -.080f;
-  mat4_transform(state.headPose, x, y, z);
+  vec3_scale(position, -.001f);
+  position[2] -= .080f;
+  mat4_transform(state.headPose, &position[0], &position[1], &position[2]);
 
   vec3_normalize(direction);
   vec3_scale(direction, -1.f);
@@ -140,13 +132,11 @@ static bool getPose(const char* path, float* x, float* y, float* z, float* angle
   direction[2] = temp;
   mat4_transformDirection(state.headPose, &direction[0], &direction[1], &direction[2]);
 
-  float orientation[4];
   quat_between(orientation, (float[3]) { 0.f, 0.f, -1.f }, direction);
-  quat_getAngleAxis(orientation, angle, ax, ay, az);
   return true;
 }
 
-static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+static bool getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
   LEAP_HAND* hand;
   if (state.leftHand && !strcmp(path, "hand/left")) {
     hand = state.leftHand;
@@ -156,10 +146,9 @@ static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float
     return false;
   }
 
-  *vx = -hand->palm.velocity.x * .001f;
-  *vy = -hand->palm.velocity.z * .001f;
-  *vz = -hand->palm.velocity.y * .001f;
-  mat4_transformDirection(state.headPose, vx, vy, vz);
+  vec3_set(velocity, hand->palm.velocity.x, hand->palm.velocity.z, hand->palm.velocity.y);
+  vec3_scale(velocity, -.001f);
+  mat4_transformDirection(state.headPose, &velocity[0], &velocity[1], &velocity[2]);
   return true;
 }
 
