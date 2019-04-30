@@ -357,7 +357,9 @@ static int l_lovrHeadsetUpdate(lua_State* L) {
   }
 
   FOREACH_TRACKING_DRIVER(driver) {
-    driver->update(dt);
+    if (driver->update && driver != lovrHeadsetDriver) {
+      driver->update(dt);
+    }
   }
 
   return 0;
