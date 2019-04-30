@@ -5,13 +5,15 @@
 #include "lib/tinycthread/tinycthread.h"
 #include <LeapC.h>
 #include <stdlib.h>
-#include <inttypes.h>
 
 static struct {
   LEAP_CONNECTION connection;
   LEAP_CLOCK_REBASER clock;
   LEAP_TRACKING_EVENT* frame;
+  LEAP_HAND* leftHand;
+  LEAP_HAND* rightHand;
   uint64_t frameSize;
+  float headPose[16];
   thrd_t thread;
   bool connected;
 } state;
@@ -61,112 +63,139 @@ static void destroy(void) {
 }
 
 static bool getPose(const char* path, float* x, float* y, float* z, float* angle, float* ax, float* ay, float* az) {
-  if (!state.frame) {
-    return false;
-  }
-
-  eLeapHandType handType;
-  if (!strncmp("hand/left", path, strlen("hand/left"))) {
-    handType = eLeapHandType_Left;
+  LEAP_HAND* hand;
+  if (state.leftHand && !strncmp("hand/left", path, strlen("hand/left"))) {
+    hand = state.leftHand;
     path += strlen("hand/left");
-  } else if (!strncmp("hand/right", path, strlen("hand/right"))) {
-    handType = eLeapHandType_Right;
+  } else if (state.rightHand && !strncmp("hand/right", path, strlen("hand/right"))) {
+    hand = state.rightHand;
     path += strlen("hand/right");
   } else {
     return false;
   }
 
-  for (uint32_t i = 0; i < state.frame->nHands; i++) {
-    LEAP_HAND* hand = &state.frame->pHands[i];
+  float direction[3];
 
-    if (hand->type != handType) {
-      continue;
-    }
+  if (*path == '\0') {
+    *x = hand->palm.position.x;
+    *y = hand->palm.position.z;
+    *z = hand->palm.position.y;
+    vec3_init(direction, hand->palm.normal.v);
+  } else if (!strncmp("/finger/", path, strlen("/finger/"))) {
+    path += strlen("/finger/");
 
-    float orientation[4];
+    int fingerIndex;
+    if (!strncmp("thumb", path, strlen("thumb"))) { fingerIndex = 0; path += strlen("thumb"); }
+    else if (!strncmp("index", path, strlen("index"))) { fingerIndex = 1; path += strlen("index"); }
+    else if (!strncmp("middle", path, strlen("middle"))) { fingerIndex = 2; path += strlen("middle"); }
+    else if (!strncmp("ring", path, strlen("ring"))) { fingerIndex = 3; path += strlen("ring"); }
+    else if (!strncmp("pinky", path, strlen("pinky"))) { fingerIndex = 4; path += strlen("pinky"); }
+    else { return false; }
+
+    LEAP_DIGIT* finger = &hand->digits[fingerIndex];
+    vec3 base;
+    vec3 tip;
 
     if (*path == '\0') {
-      *x = hand->palm.position.x;
-      *y = hand->palm.position.y;
-      *z = hand->palm.position.z;
-      quat_init(orientation, hand->palm.orientation.v);
-    } else if (!strcmp(path, "/palm")) {
-      *x = hand->palm.position.x;
-      *y = hand->palm.position.y;
-      *z = hand->palm.position.z;
-      quat_between(orientation, (float[3]) { 0.f, 0.f, -1.f }, hand->palm.normal.v);
-    } else if (!strncmp("/finger/", path, strlen("/finger/"))) {
-      path += strlen("/finger/");
+      tip = finger->distal.next_joint.v;
+      base = finger->distal.prev_joint.v;
+      *x = tip[0];
+      *y = tip[2];
+      *z = tip[1];
+    } else if (!strncmp("/bone/", path, strlen("/bone/"))) {
+      path += strlen("/bone/");
 
-      int fingerIndex;
-      if (!strncmp("thumb", path, strlen("thumb"))) { fingerIndex = 0; path += strlen("thumb"); }
-      else if (!strncmp("index", path, strlen("index"))) { fingerIndex = 1; path += strlen("index"); }
-      else if (!strncmp("middle", path, strlen("middle"))) { fingerIndex = 2; path += strlen("middle"); }
-      else if (!strncmp("ring", path, strlen("ring"))) { fingerIndex = 3; path += strlen("ring"); }
-      else if (!strncmp("pinky", path, strlen("pinky"))) { fingerIndex = 4; path += strlen("pinky"); }
+      int boneIndex;
+      if (!strcmp(path, "metacarpal")) { boneIndex = 0; }
+      else if (!strcmp(path, "proximal")) { boneIndex = 1; }
+      else if (!strcmp(path, "intermediate")) { boneIndex = 2; }
+      else if (!strcmp(path, "distal")) { boneIndex = 3; }
       else { return false; }
 
-      LEAP_DIGIT* finger = &hand->digits[fingerIndex];
-      vec3 base;
-      vec3 tip;
-
-      if (*path == '\0') {
-        tip = finger->distal.next_joint.v;
-        base = finger->distal.prev_joint.v;
-        *x = tip[0];
-        *y = tip[1];
-        *z = tip[2];
-      } else if (!strncmp("/bone/", path, strlen("/bone/"))) {
-        path += strlen("/bone/");
-
-        int boneIndex;
-        if (!strcmp(path, "metacarpal")) { boneIndex = 0; }
-        else if (!strcmp(path, "proximal")) { boneIndex = 1; }
-        else if (!strcmp(path, "intermediate")) { boneIndex = 2; }
-        else if (!strcmp(path, "distal")) { boneIndex = 3; }
-        else { return false; }
-
-        LEAP_BONE* bone = &finger->bones[boneIndex];
-        tip = bone->next_joint.v;
-        base = bone->prev_joint.v;
-        *x = base[0];
-        *y = base[1];
-        *z = base[2];
-      } else {
-        return false;
-      }
-
-      float direction[3];
-      vec3_sub(vec3_init(direction, tip), base);
-      quat_between(orientation, (float[3]) { 0.f, 0.f, -1.f }, direction);
+      LEAP_BONE* bone = &finger->bones[boneIndex];
+      tip = bone->next_joint.v;
+      base = bone->prev_joint.v;
+      *x = base[0];
+      *y = base[2];
+      *z = base[1];
+    } else {
+      return false;
     }
 
-    float hx, hy, hz, hangle, hax, hay, haz;
-    float head[16] = MAT4_IDENTITY;
-
-    // A lot of the matrix stuff here could be cached
-    if (lovrHeadsetDriver && lovrHeadsetDriver->getPose("head", &hx, &hy, &hz, &hangle, &hax, &hay, &haz)) {
-      mat4_translate(head, hx, hy, hz);
-      mat4_rotate(head, hangle, hax, hay, haz);
-    }
-
-    float remap[16] = { -1.f, 0.f, 0.f, 0.f, 0.f, 0.f, -1.f, 0.f, 0.f, -1.f, 0.f, 0.f, 0.f, 0.f, -80.f, 1.f };
-    mat4_scale(head, .001f, .001f, .001f);
-    mat4_multiply(head, remap);
-
-    mat4_transform(head, x, y, z);
-    mat4_rotateQuat(head, orientation);
-
-    quat_fromMat4(orientation, head);
-    quat_getAngleAxis(orientation, angle, ax, ay, az);
-    return true;
+    vec3_sub(vec3_init(direction, tip), base);
   }
 
-  return false;
+  // Convert hand positions to meters, and push them back a bit to account for the discrepancy
+  // between the leap motion device and the HMD
+  *x *= -.001f;
+  *y *= -.001f;
+  *z *= -.001f;
+  *z += -.080f;
+  mat4_transform(state.headPose, x, y, z);
+
+  vec3_normalize(direction);
+  vec3_scale(direction, -1.f);
+  float temp = direction[1];
+  direction[1] = direction[2];
+  direction[2] = temp;
+  mat4_transformDirection(state.headPose, &direction[0], &direction[1], &direction[2]);
+
+  float orientation[4];
+  quat_between(orientation, (float[3]) { 0.f, 0.f, -1.f }, direction);
+  quat_getAngleAxis(orientation, angle, ax, ay, az);
+  return true;
 }
 
 static bool getVelocity(const char* path, float* vx, float* vy, float* vz, float* vax, float* vay, float* vaz) {
+  LEAP_HAND* hand;
+  if (state.leftHand && !strcmp(path, "hand/left")) {
+    hand = state.leftHand;
+  } else if (state.rightHand && !strcmp(path, "hand/right")) {
+    hand = state.rightHand;
+  } else {
+    return false;
+  }
+
+  *vx = -hand->palm.velocity.x * .001f;
+  *vy = -hand->palm.velocity.z * .001f;
+  *vz = -hand->palm.velocity.y * .001f;
+  mat4_transformDirection(state.headPose, vx, vy, vz);
+  return true;
+}
+
+static bool isDown(const char* path, bool* down) {
   return false;
+}
+
+static int getAxis(const char* path, float* x, float* y, float* z) {
+  LEAP_HAND* hand;
+  if (state.leftHand && !strncmp("hand/left", path, strlen("hand/left"))) {
+    hand = state.leftHand;
+    path += strlen("hand/left");
+  } else if (state.rightHand && !strncmp("hand/right", path, strlen("hand/right"))) {
+    hand = state.rightHand;
+    path += strlen("hand/right");
+  } else {
+    return 0;
+  }
+
+  if (!strcmp(path, "/pinch")) {
+    *x = hand->pinch_strength;
+    return 1;
+  } else if (!strcmp(path, "/grip")) {
+    *x = hand->grab_strength;
+    return 1;
+  }
+
+  return 0;
+}
+
+static bool vibrate(const char* path, float strength, float duration, float frequency) {
+  return false;
+}
+
+static struct ModelData* newModelData(const char* path) {
+  return NULL;
 }
 
 static void update(float dt) {
@@ -174,9 +203,9 @@ static void update(float dt) {
     return;
   }
 
-  double relativePredictedDisplayTime = lovrHeadsetDriver ? lovrHeadsetDriver->getDisplayTime() : 0.;
+  double displayTime = lovrHeadsetDriver ? lovrHeadsetDriver->getDisplayTime() : 0.;
   int64_t now = (int64_t) ((lovrPlatformGetTime() * (double) 1e6) + .5);
-  int64_t predicted = now + (int64_t) ((relativePredictedDisplayTime * (double) 1e6) + .5);
+  int64_t predicted = (int64_t) ((displayTime * (double) 1e6) + .5);
   LeapUpdateRebase(state.clock, now, LeapGetNow());
 
   int64_t targetTime;
@@ -192,6 +221,23 @@ static void update(float dt) {
     }
 
     LeapInterpolateFrame(state.connection, targetTime, state.frame, size);
+
+    state.leftHand = state.rightHand = NULL;
+    for (uint32_t i = 0; i < state.frame->nHands; i++) {
+      if (!state.leftHand && state.frame->pHands[i].type == eLeapHandType_Left) {
+        state.leftHand = &state.frame->pHands[i];
+      } else if (!state.rightHand && state.frame->pHands[i].type == eLeapHandType_Right) {
+        state.rightHand = &state.frame->pHands[i];
+      }
+    }
+
+    float x, y, z, angle, ax, ay, az;
+    if (lovrHeadsetDriver && lovrHeadsetDriver->getPose("head", &x, &y, &z, &angle, &ax, &ay, &az)) {
+      mat4 m = state.headPose;
+      mat4_identity(m);
+      mat4_translate(m, x, y, z);
+      mat4_rotate(m, angle, ax, ay, az);
+    }
   }
 }
 
@@ -201,5 +247,9 @@ HeadsetInterface lovrHeadsetLeapMotionDriver = {
   .destroy = destroy,
   .getPose = getPose,
   .getVelocity = getVelocity,
+  .isDown = isDown,
+  .getAxis = getAxis,
+  .vibrate = vibrate,
+  .newModelData = newModelData,
   .update = update
 };

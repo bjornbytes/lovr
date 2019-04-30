@@ -3,6 +3,7 @@
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "lib/maf.h"
+#include "platform.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -141,7 +142,7 @@ static double getDisplayTime() {
   float frameDuration = 1.f / frequency;
   float vsyncToPhotons = state.system->GetFloatTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_SecondsFromVsyncToPhotons_Float, NULL);
 
-  return (double) (frameDuration - secondsSinceVsync + vsyncToPhotons);
+  return lovrPlatformGetTime() + (double) (frameDuration - secondsSinceVsync + vsyncToPhotons);
 }
 
 static void getClipDistance(float* clipNear, float* clipFar) {
