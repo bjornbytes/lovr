@@ -137,6 +137,10 @@ static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = size.h;
 }
 
+static double getDisplayTime(void) {
+  return ovr_GetPredictedDisplayTime(state.session, 0);
+}
+
 static void getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
@@ -418,6 +422,7 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   .getName = getName,
   .getOriginType = getOriginType,
   .getDisplayDimensions = getDisplayDimensions,
+  .getDisplayTime = getDisplayTime,
   .getClipDistance = getClipDistance,
   .setClipDistance = setClipDistance,
   .getBoundsDimensions = getBoundsDimensions,
