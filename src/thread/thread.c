@@ -35,7 +35,8 @@ Channel* lovrThreadGetChannel(const char* name) {
   }
 }
 
-Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), const char* body) {
+Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), Blob* body) {
+  lovrRetain(body);
   thread->runner = runner;
   thread->body = body;
   thread->error = NULL;
@@ -48,6 +49,7 @@ void lovrThreadDestroy(void* ref) {
   Thread* thread = ref;
   mtx_destroy(&thread->lock);
   thrd_detach(thread->handle);
+  lovrRelease(Blob, thread->body);
 }
 
 void lovrThreadStart(Thread* thread) {

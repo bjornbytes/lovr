@@ -1,5 +1,6 @@
 #include "api.h"
 #include "event/event.h"
+#include "filesystem/filesystem.h"
 #include "thread/thread.h"
 #include "thread/channel.h"
 
@@ -22,7 +23,7 @@ static int threadRunner(void* data) {
   luaL_register(L, NULL, lovrModules);
   lua_pop(L, 2);
 
-  if (luaL_loadbuffer(L, thread->body, strlen(thread->body), "thread") || lua_pcall(L, 0, 0, 0)) {
+  if (luaL_loadbuffer(L, thread->body->data, thread->body->size, "thread") || lua_pcall(L, 0, 0, 0)) {
     thread->error = lua_tostring(L, -1);
   }
 
@@ -45,10 +46,24 @@ static int threadRunner(void* data) {
 }
 
 static int l_lovrThreadNewThread(lua_State* L) {
-  const char* body = luaL_checkstring(L, 1);
-  Thread* thread = lovrThreadCreate(threadRunner, body);
+  Blob* blob = luax_totype(L, 1, Blob);
+  if (!blob) {
+    size_t length;
+    const char* str = lua_tolstring(L, 1, &length);
+    if (memchr(str, '\n', MIN(1024, length))) {
+      blob = lovrBlobCreate(strdup(str), length, "thread code");
+    } else {
+      void* code = lovrFilesystemRead(str, -1, &length);
+      lovrAssert(code, "Could not read thread code from %s", str);
+      blob = lovrBlobCreate(code, length, str);
+    }
+  } else {
+    lovrRetain(blob);
+  }
+  Thread* thread = lovrThreadCreate(threadRunner, blob);
   luax_pushobject(L, thread);
   lovrRelease(Thread, thread);
+  lovrRelease(Blob, blob);
   return 1;
 }
 
