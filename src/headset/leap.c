@@ -220,12 +220,12 @@ static void update(float dt) {
       }
     }
 
-    float x, y, z, angle, ax, ay, az;
-    if (lovrHeadsetDriver && lovrHeadsetDriver->getPose("head", &x, &y, &z, &angle, &ax, &ay, &az)) {
+    float position[3], orientation[4];
+    if (lovrHeadsetDriver && lovrHeadsetDriver->getPose("head", position, orientation)) {
       mat4 m = state.headPose;
       mat4_identity(m);
-      mat4_translate(m, x, y, z);
-      mat4_rotate(m, angle, ax, ay, az);
+      mat4_translate(m, position[0], position[1], position[2]);
+      mat4_rotateQuat(m, orientation);
     }
   }
 }

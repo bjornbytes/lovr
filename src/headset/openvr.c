@@ -134,7 +134,7 @@ static void getDisplayDimensions(uint32_t* width, uint32_t* height) {
   state.system->GetRecommendedRenderTargetSize(width, height);
 }
 
-static double getDisplayTime() {
+static double getDisplayTime(void) {
   float secondsSinceVsync;
   state.system->GetTimeSinceLastVsync(&secondsSinceVsync, NULL);
 
