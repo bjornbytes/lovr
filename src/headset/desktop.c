@@ -111,7 +111,7 @@ static bool desktop_getVelocity(const char* path, vec3 velocity, vec3 angularVel
 }
 
 static bool desktop_isDown(const char* path, bool* down) {
-  if (!strcmp(path, "hand/left") || !strcmp(path, "hand/right")) {
+  if (!strcmp(path, "hand/left/trigger") || !strcmp(path, "hand/right/trigger")) {
     *down = lovrPlatformIsMouseDown(MOUSE_RIGHT);
     return true;
   }
