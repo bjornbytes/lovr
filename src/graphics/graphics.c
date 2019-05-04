@@ -15,11 +15,9 @@
 static GraphicsState state;
 
 static void gammaCorrectColor(Color* color) {
-  if (state.gammaCorrect) {
-    color->r = lovrMathGammaToLinear(color->r);
-    color->g = lovrMathGammaToLinear(color->g);
-    color->b = lovrMathGammaToLinear(color->b);
-  }
+  color->r = lovrMathGammaToLinear(color->r);
+  color->g = lovrMathGammaToLinear(color->g);
+  color->b = lovrMathGammaToLinear(color->b);
 }
 
 static void onCloseWindow(void) {
@@ -151,9 +149,8 @@ static bool areBatchParamsEqual(BatchType typeA, BatchType typeB, BatchParams* a
 
 // Base
 
-bool lovrGraphicsInit(bool gammaCorrect) {
-  state.gammaCorrect = gammaCorrect;
-  return false;
+bool lovrGraphicsInit() {
+  return false; // Graphics is only initialized when the window is created, because OpenGL
 }
 
 void lovrGraphicsDestroy() {
@@ -187,7 +184,6 @@ void lovrGraphicsPresent() {
 
 void lovrGraphicsCreateWindow(WindowFlags* flags) {
   lovrAssert(!state.initialized, "Window is already created");
-  flags->srgb = state.gammaCorrect;
 #ifdef EMSCRIPTEN
   flags->vsync = 1;
 #else
@@ -197,7 +193,7 @@ void lovrGraphicsCreateWindow(WindowFlags* flags) {
   lovrPlatformOnWindowClose(onCloseWindow);
   lovrPlatformOnWindowResize(onResizeWindow);
   lovrPlatformGetFramebufferSize(&state.width, &state.height);
-  lovrGpuInit(state.gammaCorrect, lovrGetProcAddress);
+  lovrGpuInit(lovrGetProcAddress);
   lovrGraphicsInitBuffers();
   lovrGraphicsReset();
   state.initialized = true;
@@ -364,10 +360,6 @@ void lovrGraphicsSetFont(Font* font) {
   lovrRetain(font);
   lovrRelease(Font, state.font);
   state.font = font;
-}
-
-bool lovrGraphicsIsGammaCorrect() {
-  return state.gammaCorrect;
 }
 
 float lovrGraphicsGetLineWidth() {

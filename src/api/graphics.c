@@ -531,12 +531,6 @@ static int l_lovrGraphicsSetFont(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsIsGammaCorrect(lua_State* L) {
-  bool gammaCorrect = lovrGraphicsIsGammaCorrect();
-  lua_pushboolean(L, gammaCorrect);
-  return 1;
-}
-
 static int l_lovrGraphicsGetLineWidth(lua_State* L) {
   lua_pushnumber(L, lovrGraphicsGetLineWidth());
   return 1;
@@ -1461,7 +1455,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "setDepthTest", l_lovrGraphicsSetDepthTest },
   { "getFont", l_lovrGraphicsGetFont },
   { "setFont", l_lovrGraphicsSetFont },
-  { "isGammaCorrect", l_lovrGraphicsIsGammaCorrect },
   { "getLineWidth", l_lovrGraphicsGetLineWidth },
   { "setLineWidth", l_lovrGraphicsSetLineWidth },
   { "getPointSize", l_lovrGraphicsGetPointSize },
@@ -1532,19 +1525,12 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, ShaderBlock);
   luax_registertype(L, Texture);
   luax_registertype(L, Canvas);
+  lovrGraphicsInit();
 
   luax_pushconf(L);
-
-  lua_getfield(L, -1, "gammacorrect");
-  bool gammaCorrect = lua_toboolean(L, -1);
-  lua_pop(L, 1);
-
-  lovrGraphicsInit(gammaCorrect);
-
   lua_pushcfunction(L, l_lovrGraphicsCreateWindow);
   lua_getfield(L, -2, "window");
   lua_call(L, 1, 0);
-
-  lua_pop(L, 1); // conf
+  lua_pop(L, 1);
   return 1;
 }

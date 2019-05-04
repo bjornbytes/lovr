@@ -74,7 +74,6 @@ static struct {
   float viewports[2][4];
   uint32_t viewportCount;
   vec_void_t incoherents[MAX_BARRIERS];
-  bool srgb;
   GpuFeatures features;
   GpuLimits limits;
   GpuStats stats;
@@ -913,7 +912,7 @@ static void lovrGpuSetViewports(float* viewport, uint32_t count) {
 
 // GPU
 
-void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
+void lovrGpuInit(getProcAddressProc getProcAddress) {
 #ifdef LOVR_GL
   gladLoadGLLoader((GLADloadproc) getProcAddress);
 #elif defined(LOVR_GLES)
@@ -925,11 +924,7 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   state.features.singlepass = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PROGRAM_POINT_SIZE);
-  if (srgb) {
-    glEnable(GL_FRAMEBUFFER_SRGB);
-  } else {
-    glDisable(GL_FRAMEBUFFER_SRGB);
-  }
+  glEnable(GL_FRAMEBUFFER_SRGB);
   glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
 #else
   glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, state.limits.pointSizes);
@@ -941,7 +936,6 @@ void lovrGpuInit(bool srgb, getProcAddressProc getProcAddress) {
   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &state.limits.blockAlign);
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &state.limits.textureAnisotropy);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  state.srgb = srgb;
 
 #ifdef LOVR_GLES
   glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
@@ -1272,9 +1266,8 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
     return;
   }
 
-  bool srgb = state.srgb && texture->srgb;
   GLenum glFormat = convertTextureFormat(format);
-  GLenum internalFormat = convertTextureFormatInternal(format, srgb);
+  GLenum internalFormat = convertTextureFormatInternal(format, texture->srgb);
 #ifndef LOVR_WEBGL
   if (GLAD_GL_ARB_texture_storage) {
 #endif

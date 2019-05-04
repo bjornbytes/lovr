@@ -94,7 +94,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
   glfwWindowHint(GLFW_SAMPLES, flags->msaa);
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-  glfwWindowHint(GLFW_SRGB_CAPABLE, flags->srgb);
+  glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 
   GLFWmonitor* monitor = glfwGetPrimaryMonitor();
   const GLFWvidmode* mode = glfwGetVideoMode(monitor);

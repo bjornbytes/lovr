@@ -129,12 +129,9 @@ void lovrShaderSetImages(Shader* shader, const char* name, Image* data, int star
 }
 
 void lovrShaderSetColor(Shader* shader, const char* name, Color color) {
-  if (lovrGraphicsIsGammaCorrect()) {
-    color.r = lovrMathGammaToLinear(color.r);
-    color.g = lovrMathGammaToLinear(color.g);
-    color.b = lovrMathGammaToLinear(color.b);
-  }
-
+  color.r = lovrMathGammaToLinear(color.r);
+  color.g = lovrMathGammaToLinear(color.g);
+  color.b = lovrMathGammaToLinear(color.b);
   lovrShaderSetUniform(shader, name, UNIFORM_FLOAT, (float*) &color, 0, 4, sizeof(float), "float");
 }
 

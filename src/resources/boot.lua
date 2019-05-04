@@ -66,7 +66,6 @@ function lovr.boot()
       thread = true,
       timer = true
     },
-    gammacorrect = false,
     headset = {
       drivers = { 'oculus', 'oculusmobile', 'openvr', 'webvr', 'desktop' },
       offset = 1.7,
