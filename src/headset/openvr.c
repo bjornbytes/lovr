@@ -198,6 +198,10 @@ static bool openvr_getPose(Device device, vec3 position, quat orientation) {
   return true;
 }
 
+static bool openvr_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
+  return false;
+}
+
 static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   TrackedDeviceIndex_t index = getDeviceIndex(device);
   TrackedDevicePose_t* pose = &state.poses[device];
@@ -214,6 +218,10 @@ static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
   }
 
   return true;
+}
+
+static bool openvr_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
+  return false;
 }
 
 static bool getButtonState(Device device, DeviceButton button, bool touch, bool* value) {
@@ -475,7 +483,9 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getBoundsDimensions = openvr_getBoundsDimensions,
   .getBoundsGeometry = openvr_getBoundsGeometry,
   .getPose = openvr_getPose,
+  .getBonePose = openvr_getBonePose,
   .getVelocity = openvr_getVelocity,
+  .getAcceleration = openvr_getAcceleration,
   .isDown = openvr_isDown,
   .isTouched = openvr_isTouched,
   .getAxis = openvr_getAxis,

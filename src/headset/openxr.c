@@ -460,6 +460,10 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
   return false;
 }
 
+static bool openxr_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
+  return false;
+}
+
 static bool openxr_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   XrSpaceRelation relation;
 
@@ -470,6 +474,24 @@ static bool openxr_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
 
     if (angularVelocity) {
       vec3_set(angularVelocity, relation.angularVelocity.x, relation.angularVelocity.y, relation.angularVelocity.z);
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+static bool openxr_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
+  XrSpaceRelation relation;
+
+  if (getRelation(device, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_LINEAR_ACCELERATION_VALID_BIT | XR_SPACE_RELATION_ANGULAR_ACCELERATION_VALID_BIT))) {
+    if (acceleration) {
+      vec3_set(acceleration, relation.linearAcceleration.x, relation.linearAcceleration.y, relation.linearAcceleration.z);
+    }
+
+    if (angularAcceleration) {
+      vec3_set(angularAcceleration, relation.angularAcceleration.x, relation.angularAcceleration.y, relation.angularAcceleration.z);
     }
 
     return true;
@@ -678,7 +700,9 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getBoundsDimensions = openxr_getBoundsDimensions,
   .getBoundsGeometry = openxr_getBoundsGeometry,
   .getPose = openxr_getPose,
+  .getBonePose = openxr_getBonePose,
   .getVelocity = openxr_getVelocity,
+  .getAcceleration = openxr_getAcceleration,
   .isDown = openxr_isDown,
   .isTouched = openxr_isTouched,
   .getAxis = openxr_getAxis,

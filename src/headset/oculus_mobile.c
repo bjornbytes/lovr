@@ -94,6 +94,10 @@ static bool vrapi_getPose(Device device, vec3 position, quat orientation) {
   return true;
 }
 
+static bool vrapi_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
+  return false;
+}
+
 static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   BridgeLovrVel* v;
 
@@ -112,6 +116,10 @@ static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity
   }
 
   return true;
+}
+
+static bool vrapi_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
+  return false;
 }
 
 static bool buttonCheck(BridgeLovrButton field, Device device, DeviceButton button, bool* result) {
@@ -174,7 +182,9 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   .getBoundsDimensions = vrapi_getBoundsDimensions,
   .getBoundsGeometry = vrapi_getBoundsGeometry,
   .getPose = vrapi_getPose,
+  .getBonePose = vrapi_getBonePose,
   .getVelocity = vrapi_getVelocity,
+  .getAcceleration = vrapi_getAcceleration,
   .isDown = vrapi_isDown,
   .isTouched = vrapi_isTouched,
   .getAxis = vrapi_getAxis,

@@ -163,16 +163,21 @@ static const float* oculus_getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool oculus_getPose(Device device, vec3 position, quat orientation) {
+ovrPoseStatef* getPose(Device device) {
   ovrTrackingState *ts = refreshTracking();
-  ovrPosef* pose;
-
   switch (device) {
-    case DEVICE_HEAD: pose = &ts->HeadPose.ThePose; break;
-    case DEVICE_HAND_LEFT: pose = &ts->HandPoses[ovrHand_Left].ThePose; break;
-    case DEVICE_HAND_RIGHT: pose = &ts->HandPoses[ovrHand_Right].ThePose; break;
-    default: return false;
+    case DEVICE_HEAD: return &ts->HeadPose;
+    case DEVICE_HAND_LEFT: return &ts->HandPoses[ovrHand_Left];
+    case DEVICE_HAND_RIGHT: return &ts->HandPoses[ovrHand_Right];
+    default: return NULL;
   }
+}
+
+static bool oculus_getPose(Device device, vec3 position, quat orientation) {
+  ovrPoseStatef* poseState = getPose(device);
+  if (!poseState) return false;
+
+  ovrPosef* pose = poseState->ThePose;
 
   if (position) {
     vec3_set(position, pose->Position.x, pose->Position.y + state.offset, pose->Position.z);
@@ -185,16 +190,13 @@ static bool oculus_getPose(Device device, vec3 position, quat orientation) {
   return true;
 }
 
-static bool oculus_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
-  ovrTrackingState *ts = refreshTracking();
-  ovrPoseStatef* pose;
+static bool oculus_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
+  return false;
+}
 
-  switch (device) {
-    case DEVICE_HEAD: pose = &ts->HeadPose; break;
-    case DEVICE_HAND_LEFT: pose = &ts->HandPoses[ovrHand_Left]; break;
-    case DEVICE_HAND_RIGHT: pose = &ts->HandPoses[ovrHand_Right]; break;
-    default: return false;
-  }
+static bool oculus_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+  ovrPoseStatef* pose = getPose(device);
+  if (!pose) return false;
 
   if (velocity) {
     vec3_set(velocity, pose->LinearVelocity.x, pose->LinearVelocity.y, pose->LinearVelocity.z);
@@ -202,6 +204,21 @@ static bool oculus_getVelocity(const char* path, vec3 velocity, vec3 angularVelo
 
   if (angularVelocity) {
     vec3_set(angularVelocity, pose->AngularVelocity.x, pose->AngularVelocity.y, pose->AngularVelocity.z);
+  }
+
+  return true;
+}
+
+static bool oculus_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
+  ovrPoseStatef* pose = getPose(device);
+  if (!pose) return false;
+
+  if (acceleration) {
+    vec3_set(acceleration, pose->LinearAcceleration.x, pose->LinearAcceleration.y, pose->LinearAcceleration.z);
+  }
+
+  if (angularAcceleration) {
+    vec3_set(angularAcceleration, pose->AngularAcceleration.x, pose->AngularAcceleration.y, pose->AngularAcceleration.z);
   }
 
   return true;
@@ -411,7 +428,9 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   .getBoundsDimensions = oculus_getBoundsDimensions,
   .getBoundsGeometry = oculus_getBoundsGeometry,
   .getPose = oculus_getPose,
+  .getBonePose = oculus_getBonePose,
   .getVelocity = oculus_getVelocity,
+  .getAcceleration = oculus_getAcceleration,
   .isDown = oculus_isDown,
   .isTouched = oculus_isTouched,
   .getAxis = oculus_getAxis,

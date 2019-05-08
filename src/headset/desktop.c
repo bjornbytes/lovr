@@ -91,6 +91,10 @@ static bool desktop_getPose(Device device, vec3 position, quat orientation) {
   return true;
 }
 
+static bool desktop_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
+  return false;
+}
+
 static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   if (device != DEVICE_HEAD) {
     return false;
@@ -105,6 +109,10 @@ static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVeloci
   }
 
   return true;
+}
+
+static bool desktop_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
+  return false;
 }
 
 static bool desktop_isDown(Device device, DeviceButton button, bool* down) {
@@ -220,7 +228,9 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getBoundsDimensions = desktop_getBoundsDimensions,
   .getBoundsGeometry = desktop_getBoundsGeometry,
   .getPose = desktop_getPose,
+  .getBonePose = desktop_getBonePose,
   .getVelocity = desktop_getVelocity,
+  .getAcceleration = desktop_getAcceleration,
   .isDown = desktop_isDown,
   .isTouched = desktop_isTouched,
   .getAxis = desktop_getAxis,

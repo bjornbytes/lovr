@@ -148,6 +148,10 @@ static bool leap_getVelocity(const char* path, vec3 velocity, vec3 angularVeloci
   return true;
 }
 
+static bool leap_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
+  return false;
+}
+
 static bool leap_isDown(const char* path, bool* down) {
   return false;
 }
@@ -233,6 +237,7 @@ HeadsetInterface lovrHeadsetLeapMotionDriver = {
   .getPose = leap_getPose,
   .getBonePose = leap_getBonePose,
   .getVelocity = leap_getVelocity,
+  .getAcceleration = leap_getAcceleration,
   .isDown = leap_isDown,
   .getAxis = leap_getAxis,
   .vibrate = leap_vibrate,
