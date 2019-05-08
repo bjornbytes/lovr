@@ -132,8 +132,19 @@ static Device luax_optdevice(lua_State* L, int index) {
 }
 
 static int l_lovrHeadsetGetDriver(lua_State* L) {
-  lua_pushstring(L, HeadsetDrivers[lovrHeadsetDriver->driverType]);
-  return 1;
+  if (lua_gettop(L) == 0) {
+    lua_pushstring(L, HeadsetDrivers[lovrHeadsetDriver->driverType]);
+    return 1;
+  } else {
+    Device device = luax_optdevice(L, 1);
+    FOREACH_TRACKING_DRIVER(driver) {
+      if (driver->getPose(device, NULL, NULL)) {
+        lua_pushstring(L, HeadsetDrivers[driver->driverType]);
+        return 1;
+      }
+    }
+  }
+  return 0;
 }
 
 static int l_lovrHeadsetGetName(lua_State* L) {
