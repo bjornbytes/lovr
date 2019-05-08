@@ -498,6 +498,55 @@ static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
   return 1;
 }
 
+static int deviceIterator(lua_State* L) {
+  size_t index = lua_tointeger(L, lua_upvalueindex(1));
+  Device* devices = (Device*) lua_touserdata(L, lua_upvalueindex(2));
+  size_t count = lua_tointeger(L, lua_upvalueindex(3));
+
+  while (index < count) {
+    FOREACH_TRACKING_DRIVER(driver) {
+      if (driver->getPose(devices[index], NULL, NULL)) {
+        lua_pushstring(L, Devices[devices[index]]);
+        lua_pushinteger(L, ++index);
+        lua_replace(L, lua_upvalueindex(1));
+        return 1;
+      }
+    }
+    index++;
+  }
+
+  return 0;
+}
+
+static Device hands[] = {
+  DEVICE_HAND,
+  DEVICE_HAND_LEFT,
+  DEVICE_HAND_RIGHT
+};
+
+static Device trackers[] = {
+  DEVICE_TRACKER_1,
+  DEVICE_TRACKER_2,
+  DEVICE_TRACKER_3,
+  DEVICE_TRACKER_4
+};
+
+static int l_lovrHeadsetHands(lua_State* L) {
+  lua_pushinteger(L, 0);
+  lua_pushlightuserdata(L, hands);
+  lua_pushinteger(L, sizeof(hands) / sizeof(hands[0]));
+  lua_pushcclosure(L, deviceIterator, 3);
+  return 1;
+}
+
+static int l_lovrHeadsetTrackers(lua_State* L) {
+  lua_pushinteger(L, 0);
+  lua_pushlightuserdata(L, trackers);
+  lua_pushinteger(L, sizeof(trackers) / sizeof(trackers[0]));
+  lua_pushcclosure(L, deviceIterator, 3);
+  return 1;
+}
+
 static const luaL_Reg lovrHeadset[] = {
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getName", l_lovrHeadsetGetName },
@@ -528,6 +577,8 @@ static const luaL_Reg lovrHeadset[] = {
   { "renderTo", l_lovrHeadsetRenderTo },
   { "update", l_lovrHeadsetUpdate },
   { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
+  { "hands", l_lovrHeadsetHands },
+  { "trackers", l_lovrHeadsetTrackers },
   { NULL, NULL }
 };
 
