@@ -130,7 +130,7 @@ static bool buttonCheck(BridgeLovrButton field, Device device, DeviceButton butt
   switch (button) {
     case BUTTON_MENU: return *result = (field & BRIDGE_LOVR_BUTTON_MENU), true;
     case BUTTON_TRIGGER: return *result = (field & BRIDGE_LOVR_BUTTON_SHOULDER), true;
-    case BUTTON_TRACKPAD: return *result = (field & BRIDGE_LOVR_BUTTON_TOUCHPAD), true;
+    case BUTTON_TOUCHPAD: return *result = (field & BRIDGE_LOVR_BUTTON_TOUCHPAD), true;
     default: return false;
   }
 }
@@ -149,8 +149,8 @@ static int vrapi_getAxis(Device device, DeviceAxis axis, float* x, float* y, flo
   }
 
   switch (axis) {
-    case AXIS_TRACKPAD_X: return *value = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f, true;
-    case AXIS_TRACKPAD_Y: return *value = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f, true;
+    case AXIS_TOUCHPAD_X: return *value = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f, true;
+    case AXIS_TOUCHPAD_Y: return *value = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f, true;
     case AXIS_TRIGGER: return *value = bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f, true;
     default: return false;
   }

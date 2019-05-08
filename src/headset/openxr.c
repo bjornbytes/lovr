@@ -518,7 +518,7 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
   Action type;
   switch (button) {
     case BUTTON_TRIGGER: type = ACTION_TRIGGER_DOWN + touch; break;
-    case BUTTON_TRACKPAD: type = ACTION_TRACKPAD_DOWN + touch; break;
+    case BUTTON_TOUCHPAD: type = ACTION_TRACKPAD_DOWN + touch; break;
     case BUTTON_MENU: type = ACTION_MENU_DOWN + touch; break;
     case BUTTON_GRIP: type = ACTION_GRIP_DOWN + touch; break;
     default: return false;
@@ -548,8 +548,8 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
   Action type;
   switch (axis) {
     case AXIS_TRIGGER: type = ACTION_TRIGGER_AXIS; break;
-    case AXIS_TRACKPAD_X: type = ACTION_TRACKPAD_X; break;
-    case AXIS_TRACKPAD_Y: type = ACTION_TRACKPAD_Y; break;
+    case AXIS_TOUCHPAD_X: type = ACTION_TRACKPAD_X; break;
+    case AXIS_TOUCHPAD_Y: type = ACTION_TRACKPAD_Y; break;
     case AXIS_GRIP: type = ACTION_GRIP_AXIS; break;
     default: return false;
   }

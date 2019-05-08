@@ -252,7 +252,7 @@ static bool getButtonState(Device device, DeviceButton button, bool touch, bool*
     } else {
       switch (button) {
         case BUTTON_TRIGGER: return *value = (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1, true;
-        case BUTTON_TRACKPAD: return *value = (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1, true;
+        case BUTTON_TOUCHPAD: return *value = (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1, true;
         case BUTTON_MENU: return *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1, true;
         case BUTTON_GRIP: return *value = (mask >> EVRButtonId_k_EButton_Grip) & 1, true;
         default: return false;
@@ -279,8 +279,8 @@ static bool openvr_getAxis(Device device, DeviceAxis axis, float* value) {
     switch (axis) {
       case AXIS_TRIGGER: return *value = input.rAxis[1].x, true;
       case AXIS_GRIP: return *value = input.rAxis[2].x, state.rift;
-      case AXIS_TRACKPAD_X: return *value = input.rAxis[0].x, !state.rift;
-      case AXIS_TRACKPAD_Y: return *value = input.rAxis[0].y, !state.rift;
+      case AXIS_TOUCHPAD_X: return *value = input.rAxis[0].x, !state.rift;
+      case AXIS_TOUCHPAD_Y: return *value = input.rAxis[0].y, !state.rift;
       case AXIS_THUMBSTICK_X: return *value = input.rAxis[0].x, state.rift;
       case AXIS_THUMBSTICK_Y: return *value = input.rAxis[0].y, state.rift;
       default: return false;
