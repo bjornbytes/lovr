@@ -23,6 +23,70 @@ typedef enum {
   DRIVER_WEBVR
 } HeadsetDriver;
 
+typedef enum {
+  DEVICE_HEAD,
+  DEVICE_HAND,
+  DEVICE_HAND_LEFT,
+  DEVICE_HAND_RIGHT,
+  DEVICE_EYE_LEFT,
+  DEVICE_EYE_RIGHT,
+  DEVICE_TRACKER_1,
+  DEVICE_TRACKER_2,
+  DEVICE_TRACKER_3,
+  DEVICE_TRACKER_4
+} Device;
+
+typedef enum {
+  BUTTON_TRIGGER,
+  BUTTON_THUMBSTICK,
+  BUTTON_TRACKPAD,
+  BUTTON_GRIP,
+  BUTTON_MENU,
+  BUTTON_A,
+  BUTTON_B,
+  BUTTON_X,
+  BUTTON_Y,
+  BUTTON_PROXIMITY
+} DeviceButton;
+
+typedef enum {
+  AXIS_TRIGGER,
+  AXIS_THUMBSTICK_X,
+  AXIS_THUMBSTICK_Y,
+  AXIS_TRACKPAD_X,
+  AXIS_TRACKPAD_Y,
+  AXIS_PINCH,
+  AXIS_GRIP
+} DeviceAxis;
+
+typedef enum {
+  BONE_THUMB,
+  BONE_INDEX,
+  BONE_MIDDLE,
+  BONE_RING,
+  BONE_PINKY,
+  BONE_THUMB_NULL,
+  BONE_THUMB_1,
+  BONE_THUMB_2,
+  BONE_THUMB_3,
+  BONE_INDEX_1,
+  BONE_INDEX_2,
+  BONE_INDEX_3,
+  BONE_INDEX_4,
+  BONE_MIDDLE_1,
+  BONE_MIDDLE_2,
+  BONE_MIDDLE_3,
+  BONE_MIDDLE_4,
+  BONE_RING_1,
+  BONE_RING_2,
+  BONE_RING_3,
+  BONE_RING_4,
+  BONE_PINKY_1,
+  BONE_PINKY_2,
+  BONE_PINKY_3,
+  BONE_PINKY_4
+} DeviceBone;
+
 typedef struct HeadsetInterface {
   struct HeadsetInterface* next;
   HeadsetDriver driverType;
@@ -36,13 +100,14 @@ typedef struct HeadsetInterface {
   void (*setClipDistance)(float clipNear, float clipFar);
   void (*getBoundsDimensions)(float* width, float* depth);
   const float* (*getBoundsGeometry)(int* count);
-  bool (*getPose)(const char* path, float* position, float* orientation);
-  bool (*getVelocity)(const char* path, float* velocity, float* angularVelocity);
-  bool (*isDown)(const char* path, bool* down);
-  bool (*isTouched)(const char* path, bool* touched);
-  int (*getAxis)(const char* path, float* x, float* y, float* z);
-  bool (*vibrate)(const char* path, float strength, float duration, float frequency);
-  struct ModelData* (*newModelData)(const char* path);
+  bool (*getPose)(Device device, float* position, float* orientation);
+  bool (*getBonePose)(Device device, DeviceBone bone, float* position, float* orientation);
+  bool (*getVelocity)(Device device, float* velocity, float* angularVelocity);
+  bool (*isDown)(Device device, DeviceButton button, bool* down);
+  bool (*isTouched)(Device device, DeviceButton button, bool* touched);
+  bool (*getAxis)(Device device, DeviceAxis axis, float* value);
+  bool (*vibrate)(Device device, float strength, float duration, float frequency);
+  struct ModelData* (*newModelData)(Device device);
   void (*renderTo)(void (*callback)(void*), void* userdata);
   struct Texture* (*getMirrorTexture)(void);
   void (*update)(float dt);

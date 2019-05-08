@@ -426,27 +426,24 @@ static const float* openxr_getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool getRelation(const char* path, XrSpaceRelation* relation) {
+static bool getRelation(Device device, XrSpaceRelation* relation) {
   XrSpace space;
 
-  if (!strcmp(path, "head")) {
-    space = state.headSpace;
-  } else if (!strcmp(path, "hand/left")) {
-    space = state.leftHandSpace;
-  } else if (!strcmp(path, "hand/right")) {
-    space = state.rightHandSpace;
-  } else {
-    return false;
+  switch (device) {
+    case DEVICE_HEAD: space = state.headSpace; break;
+    case DEVICE_HAND_LEFT: space = state.leftHandSpace; break;
+    case DEVICE_HAND_RIGHT: space = state.rightHandSpace; break;
+    default: return false;
   }
 
   XR(xrLocateSpace(space, state.space, state.displayTime, relation));
   return true;
 }
 
-static bool openxr_getPose(const char* path, vec3 position, quat orientation) {
+static bool openxr_getPose(Device device, vec3 position, quat orientation) {
   XrSpaceRelation relation;
 
-  if (getRelation(path, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_POSITION_VALID_BIT | XR_SPACE_RELATION_ORIENTATION_VALID_BIT))) {
+  if (getRelation(device, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_POSITION_VALID_BIT | XR_SPACE_RELATION_ORIENTATION_VALID_BIT))) {
     XrPosef* pose = &relation.pose;
 
     if (position) {
@@ -463,10 +460,10 @@ static bool openxr_getPose(const char* path, vec3 position, quat orientation) {
   return false;
 }
 
-static bool openxr_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+static bool openxr_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   XrSpaceRelation relation;
 
-  if (getRelation(path, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_LINEAR_VELOCITY_VALID_BIT | XR_SPACE_RELATION_ANGULAR_VELOCITY_VALID_BIT))) {
+  if (getRelation(device, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_LINEAR_VELOCITY_VALID_BIT | XR_SPACE_RELATION_ANGULAR_VELOCITY_VALID_BIT))) {
     if (velocity) {
       vec3_set(velocity, relation.linearVelocity.x, relation.linearVelocity.y, relation.linearVelocity.z);
     }
@@ -481,82 +478,70 @@ static bool openxr_getVelocity(const char* path, vec3 velocity, vec3 angularVelo
   return false;
 }
 
-static bool getActionFilter(const char* path, XrPath* filter, const char** next) {
-  if (!strncmp("hand/left", path, strlen("hand/left"))) {
-    *filter = state.actionFilters[0];
-    *next = path + strlen("hand/left/");
-    return true;
-  } else if (!strncmp("hand/right", path, strlen("hand/right"))) {
-    *filter = state.actionFilters[1];
-    *next = path + strlen("hand/right/");
-    return true;
-  } else {
+static XrPath getActionFilter(Device device) {
+  switch (device) {
+    case DEVICE_HAND_LEFT: return state.actionFilters[0];
+    case DEVICE_HAND_RIGHT: return state.actionFilters[1];
+    default: return XR_NULL_PATH;
+  }
+}
+
+static bool getButtonState(Device device, DeviceButton button, bool* value, bool touch) {
+  XrPath filter = getActionFilter(device);
+
+  if (filter == XR_NULL_PATH) {
     return false;
   }
-}
 
-static bool getButtonState(const char* path, bool* value, bool touch) {
-  XrPath filter;
-  const char* button;
-
-  if (getActionFilter(path, &filter, &button)) {
-    Action type;
-    if (!strcmp(button, "trigger")) { type = ACTION_TRIGGER_DOWN + touch; }
-    else if (!strcmp(button, "trackpad")) { type = ACTION_TRACKPAD_DOWN + touch; }
-    else if (!strcmp(button, "menu")) { type = ACTION_MENU_DOWN + touch; }
-    else if (!strcmp(button, "grip")) { type = ACTION_GRIP_DOWN + touch; }
-    else { return false; }
-
-    XrActionStateBoolean actionState;
-    XR(xrGetActionStateBoolean(state.actions[type], 1, &filter, &actionState));
-
-    if (actionState.isActive) {
-      *value = actionState.currentState;
-      return true;
-    }
+  Action type;
+  switch (button) {
+    case BUTTON_TRIGGER: type = ACTION_TRIGGER_DOWN + touch; break;
+    case BUTTON_TRACKPAD: type = ACTION_TRACKPAD_DOWN + touch; break;
+    case BUTTON_MENU: type = ACTION_MENU_DOWN + touch; break;
+    case BUTTON_GRIP: type = ACTION_GRIP_DOWN + touch; break;
+    default: return false;
   }
 
-  return false;
+  XrActionStateBoolean actionState;
+  XR(xrGetActionStateBoolean(state.actions[type], 1, &filter, &actionState));
+  *value = actionState.currentState;
+  return actionState.isActive;
 }
 
-static bool openxr_isDown(const char* path, bool* down) {
-  return getButtonState(path, down, false);
+static bool openxr_isDown(Device device, DeviceButton button, bool* down) {
+  return getButtonState(device, button, down, false);
 }
 
-static bool openxr_isTouched(const char* path, bool* touched) {
-  return getButtonState(path, touched, true);
+static bool openxr_isTouched(Device device, DeviceButton button, bool* touched) {
+  return getButtonState(device, button, touched, true);
 }
 
-static int openxr_getAxis(const char* path, float* x, float* y, float* z) {
-  XrPath filter;
-  const char* axis;
+static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
+  XrPath filter = getActionFilter(device);
 
-  if (getActionFilter(path, &filter, &axis)) {
-    XrActionStateVector1f actionState;
-    if (!strcmp(axis, "trigger")) {
-      XR(xrGetActionStateVector1f(state.actions[ACTION_TRIGGER_AXIS], 1, &filter, &actionState));
-      *x = actionState.currentState;
-      return 1;
-    } else if (!strcmp(axis, "trackpad")) {
-      XR(xrGetActionStateVector1f(state.actions[ACTION_TRACKPAD_X], 1, &filter, &actionState));
-      *x = actionState.currentState;
-      XR(xrGetActionStateVector1f(state.actions[ACTION_TRACKPAD_Y], 1, &filter, &actionState));
-      *y = actionState.currentState;
-      return 2;
-    } else if (!strcmp(axis, "grip")) {
-      XR(xrGetActionStateVector1f(state.actions[ACTION_GRIP_AXIS], 1, &filter, &actionState));
-      *x = actionState.currentState;
-      return 1;
-    }
+  if (filter == XR_NULL_PATH) {
+    return false;
   }
 
-  return 0;
+  Action type;
+  switch (axis) {
+    case AXIS_TRIGGER: type = ACTION_TRIGGER_AXIS; break;
+    case AXIS_TRACKPAD_X: type = ACTION_TRACKPAD_X; break;
+    case AXIS_TRACKPAD_Y: type = ACTION_TRACKPAD_Y; break;
+    case AXIS_GRIP: type = ACTION_GRIP_AXIS; break;
+    default: return false;
+  }
+
+  XrActionStateVector1f actionState;
+  XR(xrGetActionStateVector1f(state.actions[type], 1, &filter, &actionState));
+  *value = actionState.currentState;
+  return true;
 }
 
-static bool openxr_vibrate(const char* path, float power, float duration, float frequency) {
-  XrPath filter;
+static bool openxr_vibrate(Device device, float power, float duration, float frequency) {
+  XrPath filter = getActionFilter(device);
 
-  if (!getActionFilter(path, &filter, &path)) {
+  if (filter == XR_NULL_PATH) {
     return false;
   }
 
@@ -568,11 +553,10 @@ static bool openxr_vibrate(const char* path, float power, float duration, float 
   };
 
   XR(xrApplyHapticFeedback(state.actions[ACTION_VIBRATE], 1, &filter, (XrHapticBaseHeader*) &vibration));
-
   return true;
 }
 
-static struct ModelData* openxr_newModelData(const char* path) {
+static struct ModelData* openxr_newModelData(Device device) {
   return NULL;
 }
 

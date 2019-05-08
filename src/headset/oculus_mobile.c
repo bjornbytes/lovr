@@ -74,15 +74,13 @@ static const float* vrapi_getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool vrapi_getPose(const char* path, vec3 position, quat orientation) {
+static bool vrapi_getPose(Device device, vec3 position, quat orientation) {
   BridgeLovrPose* pose;
 
-  if (!strcmp(path, "head")) {
-    pose = &bridgeLovrMobileData.updateData.lastHeadPose;
-  } else if (!strcmp(path, "hand")) {
-    pose = &bridgeLovrMobileData.updateData.goPose;
-  } else {
-    return false;
+  switch (device) {
+    case DEVICE_HEAD: pose = &bridgeLovrMobileData.updateData.lastHeadPose; break;
+    case DEVICE_HAND: pose = &bridgeLovrMobileData.updateData.goPose; break;
+    default: return false;
   }
 
   if (position) {
@@ -96,15 +94,13 @@ static bool vrapi_getPose(const char* path, vec3 position, quat orientation) {
   return true;
 }
 
-static bool vrapi_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   BridgeLovrVel* v;
 
-  if (!strcmp(path, "head")) {
-    v = &bridgeLovrMobileData.updateData.lastHeadVelocity;
-  } else if (!strcmp(path, "hand")) {
-    v = &bridgeLovrMobileData.updateData.goVelocity;
-  } else {
-    return false;
+  switch (device) {
+    case DEVICE_HEAD: v = &bridgeLovrMobileData.updateData.lastHeadVelocity; break;
+    case DEVICE_HAND: v = &bridgeLovrMobileData.updateData.goVelocity; break;
+    default: return false;
   }
 
   if (velocity) {
@@ -118,46 +114,45 @@ static bool vrapi_getVelocity(const char* path, vec3 velocity, vec3 angularVeloc
   return true;
 }
 
-static bool buttonCheck(BridgeLovrButton field, const char* path, bool* result) {
-  if (!strcmp("hand", path, strlen("hand"))) {
-    path += strlen("hand/");
-    if (!strcmp(path, "menu")) { return *result = (field & BRIDGE_LOVR_BUTTON_MENU), true; }
-    else if (!strcmp(path, "trigger")) { return *result = (field & BRIDGE_LOVR_BUTTON_SHOULDER), true; }
-    else if (!strcmp(path, "trackpad")) { return *result = (field & BRIDGE_LOVR_BUTTON_TOUCHPAD), true; }
+static bool buttonCheck(BridgeLovrButton field, Device device, DeviceButton button, bool* result) {
+  if (device != DEVICE_HAND) {
+    return false;
   }
 
+  switch (button) {
+    case BUTTON_MENU: return *result = (field & BRIDGE_LOVR_BUTTON_MENU), true;
+    case BUTTON_TRIGGER: return *result = (field & BRIDGE_LOVR_BUTTON_SHOULDER), true;
+    case BUTTON_TRACKPAD: return *result = (field & BRIDGE_LOVR_BUTTON_TOUCHPAD), true;
+    default: return false;
+  }
+}
+
+static bool vrapi_isDown(Device device, DeviceButton button, bool* down) {
+  return buttonCheck(bridgeLovrMobileData.updateData.goButtonDown, device, button, down);
+}
+
+static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
+  return buttonCheck(bridgeLovrMobileData.updateData.goButtonTouch, device, button, touched);
+}
+
+static int vrapi_getAxis(Device device, DeviceAxis axis, float* x, float* y, float* z) {
+  if (device != DEVICE_HAND) {
+    return false;
+  }
+
+  switch (axis) {
+    case AXIS_TRACKPAD_X: return *value = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f, true;
+    case AXIS_TRACKPAD_Y: return *value = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f, true;
+    case AXIS_TRIGGER: return *value = bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f, true;
+    default: return false;
+  }
+}
+
+static bool vrapi_vibrate(Device device, float strength, float duration, float frequency) {
   return false;
 }
 
-static bool vrapi_isDown(const char* path, bool* down) {
-  return buttonCheck(bridgeLovrMobileData.updateData.goButtonDown, path, down);
-}
-
-static bool vrapi_isTouched(const char* path, bool* touched) {
-  return buttonCheck(bridgeLovrMobileData.updateData.goButtonTouch, path, touched);
-}
-
-static int vrapi_getAxis(const char* path, float* x, float* y, float* z) {
-  if (!strcmp("hand", path, strlen("hand"))) {
-    path += strlen("hand/");
-    if (!strcmp(path, "trackpad")) {
-      *x = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f;
-      *y = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f;
-      return 2;
-    } else if (!strcmp(path, "trigger")) {
-      *x = bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f;
-      return 1;
-    }
-  }
-
-  return 0;
-}
-
-static bool vrapi_vibrate(const char* path, float strength, float duration, float frequency) {
-  return false;
-}
-
-static ModelData* vrapi_newModelData(const char* path) {
+static ModelData* vrapi_newModelData(Device device) {
   return NULL;
 }
 

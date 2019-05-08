@@ -62,76 +62,72 @@ static void leap_destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-static bool leap_getPose(const char* path, vec3 position, quat orientation) {
-  LEAP_HAND* hand;
-  if (state.leftHand && !strncmp("hand/left", path, strlen("hand/left"))) {
-    hand = state.leftHand;
-    path += strlen("hand/left");
-  } else if (state.rightHand && !strncmp("hand/right", path, strlen("hand/right"))) {
-    hand = state.rightHand;
-    path += strlen("hand/right");
-  } else {
-    return false;
-  }
+static void adjustPose(vec3 position, vec3 direction) {
+  float temp;
 
-  float direction[3];
-
-  if (*path == '\0') {
-    vec3_set(position, hand->palm.position.x, hand->palm.position.z, hand->palm.position.y);
-    vec3_init(direction, hand->palm.normal.v);
-  } else if (!strncmp("/finger/", path, strlen("/finger/"))) {
-    path += strlen("/finger/");
-
-    int fingerIndex;
-    if (!strncmp("thumb", path, strlen("thumb"))) { fingerIndex = 0; path += strlen("thumb"); }
-    else if (!strncmp("index", path, strlen("index"))) { fingerIndex = 1; path += strlen("index"); }
-    else if (!strncmp("middle", path, strlen("middle"))) { fingerIndex = 2; path += strlen("middle"); }
-    else if (!strncmp("ring", path, strlen("ring"))) { fingerIndex = 3; path += strlen("ring"); }
-    else if (!strncmp("pinky", path, strlen("pinky"))) { fingerIndex = 4; path += strlen("pinky"); }
-    else { return false; }
-
-    LEAP_DIGIT* finger = &hand->digits[fingerIndex];
-    vec3 base;
-    vec3 tip;
-
-    if (*path == '\0') {
-      tip = finger->distal.next_joint.v;
-      base = finger->distal.prev_joint.v;
-      vec3_set(position, tip[0], tip[2], tip[1]);
-    } else if (!strncmp("/bone/", path, strlen("/bone/"))) {
-      path += strlen("/bone/");
-
-      int boneIndex;
-      if (!strcmp(path, "metacarpal")) { boneIndex = 0; }
-      else if (!strcmp(path, "proximal")) { boneIndex = 1; }
-      else if (!strcmp(path, "intermediate")) { boneIndex = 2; }
-      else if (!strcmp(path, "distal")) { boneIndex = 3; }
-      else { return false; }
-
-      LEAP_BONE* bone = &finger->bones[boneIndex];
-      tip = bone->next_joint.v;
-      base = bone->prev_joint.v;
-      vec3_set(position, base[0], base[2], base[1]);
-    } else {
-      return false;
-    }
-
-    vec3_sub(vec3_init(direction, tip), base);
-  }
-
-  // Convert hand positions to meters, and push them back a bit to account for the discrepancy
-  // between the leap motion device and the HMD
+  // Convert units from mm to meters, apply a z offset (leap is in front of HMD), and swap y/z
   vec3_scale(position, -.001f);
+  temp = position[1];
+  position[1] = position[2];
+  position[2] = position[1];
   position[2] -= .080f;
   mat4_transform(state.headPose, &position[0], &position[1], &position[2]);
 
+  // Just swap y/z
   vec3_normalize(direction);
   vec3_scale(direction, -1.f);
-  float temp = direction[1];
+  temp = direction[1];
   direction[1] = direction[2];
   direction[2] = temp;
   mat4_transformDirection(state.headPose, &direction[0], &direction[1], &direction[2]);
+}
 
+static bool leap_getPose(Device device, vec3 position, quat orientation) {
+  LEAP_HAND* hand;
+
+  switch (device) {
+    case DEVICE_HAND_LEFT: hand = state.leftHand; break;
+    case DEVICE_HAND_RIGHT: hand = state.rightHand; break;
+    default: return false;
+  }
+
+  float direction[3];
+  vec3_init(position, hand->palm.position);
+  vec3_init(direction, hand->palm.normal.v);
+  adjustPose(position, direction);
+  quat_between(orientation, (float[3]) { 0.f, 0.f, -1.f }, direction);
+  return true;
+}
+
+static bool leap_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
+  LEAP_HAND* hand;
+
+  switch (device) {
+    case DEVICE_HAND_LEFT: hand = state.leftHand; break;
+    case DEVICE_HAND_RIGHT: hand = state.rightHand; break;
+    default: return false;
+  }
+
+  // Assumes that enum values for non-tip bones are grouped by finger, and start after BONE_PINKY,
+  // could be less clever and use a switch if needed
+  float direction[3];
+  if (bone <= BONE_PINKY) {
+    LEAP_DIGIT* finger = &hand->digits[bone];
+    vec3 base = finger->distal.prev_joint.v;
+    vec3 tip = finger->distal.next_joint.v;
+    vec3_sub(vec3_init(direction, tip), base);
+    vec3_init(position, tip);
+  } else {
+    bone -= BONE_PINKY + 1;
+    LEAP_DIGIT* finger = &hand->digits[bone / 4];
+    LEAP_BONE* leapBone = finger->bones[bone % 4];
+    vec3 base = leapBone->prev_joint.v;
+    vec3 tip = leapBone->next_joint.v;
+    vec3_sub(vec3_init(direction, tip), base);
+    vec3_init(position, base);
+  }
+
+  adjustPose(position, direction);
   quat_between(orientation, (float[3]) { 0.f, 0.f, -1.f }, direction);
   return true;
 }
@@ -235,6 +231,7 @@ HeadsetInterface lovrHeadsetLeapMotionDriver = {
   .init = leap_init,
   .destroy = leap_destroy,
   .getPose = leap_getPose,
+  .getBonePose = leap_getBonePose,
   .getVelocity = leap_getVelocity,
   .isDown = leap_isDown,
   .getAxis = leap_getAxis,

@@ -44,24 +44,22 @@ static struct {
   int msaa;
 } state;
 
-static TrackedDeviceIndex_t pathToDevice(const char* path, const char** next) {
-  if (!strcmp(path, "head")) {
-    if (next) *next = path + strlen("head/");
-    return HEADSET;
-  } else if (!strcmp(path, "hand/left")) {
-    if (next) *next = path + strlen("hand/left/");
-    return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
-  } else if (!strcmp(path, "hand/right")) {
-    if (next) *next = path + strlen("hand/right/");
-    return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
-  } else if (!strncmp("tracker/", path, strlen("tracker/"))) {
-    path += strlen("tracker/");
-    uint32_t index = (path[0] - '0') - 1;
-    TrackedDeviceIndex_t indices[8];
-    uint32_t trackerCount = state.system->GetSortedTrackedDeviceIndicesOfClass(ETrackedDeviceClass_TrackedDeviceClass_GenericTracker, indices, 8, 0);
-    return (index >= 0 && index < trackerCount) ? indices[index] : INVALID_DEVICE;
-  } else {
-    return INVALID_DEVICE;
+static TrackedDeviceIndex_t getDeviceIndex(Device device) {
+  switch (device) {
+    case DEVICE_HEAD: return HEADSET;
+    case DEVICE_HAND: return INVALID_DEVICE;
+    case DEVICE_HAND_LEFT: return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
+    case DEVICE_HAND_RIGHT: return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
+    case DEVICE_TRACKER_1:
+    case DEVICE_TRACKER_2:
+    case DEVICE_TRACKER_3:
+    case DEVICE_TRACKER_4: {
+      TrackedDeviceIndex_t trackers[4];
+      uint32_t trackerCount = state.system->GetSortedTrackedDeviceIndicesOfClass(ETrackedDeviceClass_TrackedDeviceClass_GenericTracker, trackers, 4, 0);
+      uint32_t i = device - DEVICE_TRACKER_1;
+      return i < trackerCount ? trackers[i] : INVALID_DEVICE;
+    }
+    default: return INVALID_DEVICE;
   }
 }
 
@@ -177,8 +175,8 @@ static const float* openvr_getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool getTransform(unsigned int device, mat4 transform) {
-  TrackedDevicePose_t pose = state.poses[device];
+static bool getTransform(unsigned int index, mat4 transform) {
+  TrackedDevicePose_t pose = state.poses[index];
   if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
     return false;
   } else {
@@ -188,10 +186,10 @@ static bool getTransform(unsigned int device, mat4 transform) {
   }
 }
 
-static bool openvr_getPose(const char* path, vec3 position, quat orientation) {
+static bool openvr_getPose(Device device, vec3 position, quat orientation) {
   float transform[16];
-  TrackedDeviceIndex_t device = pathToDevice(path, NULL);
-  if (device == INVALID_DEVICE || !getTransform(device, transform)) {
+  TrackedDeviceIndex_t index = getDeviceIndex(device);
+  if (index == INVALID_DEVICE || !getTransform(index, transform)) {
     return false;
   }
 
@@ -200,10 +198,10 @@ static bool openvr_getPose(const char* path, vec3 position, quat orientation) {
   return true;
 }
 
-static bool openvr_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
-  TrackedDeviceIndex_t device = pathToDevice(path, NULL);
+static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
+  TrackedDeviceIndex_t index = getDeviceIndex(device);
   TrackedDevicePose_t* pose = &state.poses[device];
-  if (device == INVALID_DEVICE || !pose->bPoseIsValid || !pose->bDeviceIsConnected) {
+  if (index == INVALID_DEVICE || !pose->bPoseIsValid || !pose->bDeviceIsConnected) {
     return false;
   }
 
@@ -218,10 +216,10 @@ static bool openvr_getVelocity(const char* path, vec3 velocity, vec3 angularVelo
   return true;
 }
 
-static bool getButtonState(const char* path, bool touch, bool* value) {
+static bool getButtonState(Device device, DeviceButton button, bool touch, bool* value) {
   VRControllerState_t input;
 
-  if (!strcmp(path, "head/proximity") && !touch) {
+  if (device == DEVICE_HEAD && button == BUTTON_PROXIMITY && !touch) {
     if (!state.system->GetControllerState(HEADSET, &input, sizeof(input))) {
       return false;
     }
@@ -229,82 +227,93 @@ static bool getButtonState(const char* path, bool touch, bool* value) {
     return *value = (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1, true;
   }
 
-  const char* button;
-  TrackedDeviceIndex_t device = pathToDevice(path, &button);
-  if (device != INVALID_DEVICE || state.system->GetControllerState(device, &input, sizeof(input))) {
+  TrackedDeviceIndex_t index = getDeviceIndex(device);
+  if (index != INVALID_DEVICE || state.system->GetControllerState(index, &input, sizeof(input))) {
     uint64_t mask = touch ? input.ulButtonTouched : input.ulButtonPressed;
 
     if (state.rift) {
-      if (!strcmp(button, "trigger")) { return *value = (mask >> EVRButtonId_k_EButton_Axis1) & 1, true; }
-      else if (!strcmp(button, "grip")) { return *value = (mask >> EVRButtonId_k_EButton_Axis2) & 1, true; }
-      else if (!strcmp(button, "trackpad")) { return *value = (mask >> EVRButtonId_k_EButton_Axis0) & 1, true; }
-      else if (!strcmp(path, "hand/right/a") || !strcmp(path, "hand/left/x")) { return *value = (mask >> EVRButtonId_k_EButton_A) & 1, true; }
-      else if (!strcmp(path, "hand/right/b") || !strcmp(path, "hand/left/y")) { return *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1, true; }
+      switch (button) {
+        case BUTTON_TRIGGER: return *value = (mask >> EVRButtonId_k_EButton_Axis1) & 1, true;
+        case BUTTON_GRIP: return *value = (mask >> EVRButtonId_k_EButton_Axis2) & 1, true;
+        case BUTTON_A: return *value = (mask >> EVRButtonId_k_EButton_A) & 1, device == DEVICE_HAND_RIGHT;
+        case BUTTON_B: return *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1, device == DEVICE_HAND_RIGHT;
+        case BUTTON_X: return *value = (mask >> EVRButtonId_k_EButton_A) & 1, device == DEVICE_HAND_LEFT;
+        case BUTTON_Y: return *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1, device == DEVICE_HAND_LEFT;
+        default: return false;
+      }
     } else {
-      if (!strcmp(button, "trigger")) { return *value = (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1, true; }
-      else if (!strcmp(button, "trackpad")) { return *value = (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1, true; }
-      else if (!strcmp(button, "menu")) { return *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1, true; }
-      else if (!strcmp(button, "grip")) { return *value = (mask >> EVRButtonId_k_EButton_Grip) & 1, true; }
+      switch (button) {
+        case BUTTON_TRIGGER: return *value = (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1, true;
+        case BUTTON_TRACKPAD: return *value = (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1, true;
+        case BUTTON_MENU: return *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1, true;
+        case BUTTON_GRIP: return *value = (mask >> EVRButtonId_k_EButton_Grip) & 1, true;
+        default: return false;
+      }
     }
   }
 
   return false;
 }
 
-static bool openvr_isDown(const char* path, bool* down) {
-  return getButtonState(path, false, down);
+static bool openvr_isDown(Device device, DeviceButton button, bool* down) {
+  return getButtonState(device, button, false, down);
 }
 
-static bool openvr_isTouched(const char* path, bool* touched) {
-  return getButtonState(path, true, touched);
+static bool openvr_isTouched(Device device, DeviceButton button, bool* touched) {
+  return getButtonState(device, button, true, touched);
 }
 
-static int openvr_getAxis(const char* path, float* x, float* y, float* z) {
-  const char* axis;
-  TrackedDeviceIndex_t device = pathToDevice(path, &axis);
+static bool openvr_getAxis(Device device, DeviceAxis axis, float* value) {
+  TrackedDeviceIndex_t index = getDeviceIndex(device);
 
   VRControllerState_t input;
-  if (device != INVALID_DEVICE || state.system->GetControllerState(device, &input, sizeof(input))) {
-    if (!strcmp(axis, "trigger")) { return *x = input.rAxis[1].x, 1; }
-    else if (state.rift && !strcmp(axis, "grip")) { return *x = input.rAxis[2].x, 1; }
-    else if (!strcmp(axis, "trackpad")) { return *x = input.rAxis[0].x, *y = input.rAxis[0].y, 2; }
+  if (index != INVALID_DEVICE || state.system->GetControllerState(index, &input, sizeof(input))) {
+    switch (axis) {
+      case AXIS_TRIGGER: return *value = input.rAxis[1].x, true;
+      case AXIS_GRIP: return *value = input.rAxis[2].x, state.rift;
+      case AXIS_TRACKPAD_X: return *value = input.rAxis[0].x, !state.rift;
+      case AXIS_TRACKPAD_Y: return *value = input.rAxis[0].y, !state.rift;
+      case AXIS_THUMBSTICK_X: return *value = input.rAxis[0].x, state.rift;
+      case AXIS_THUMBSTICK_Y: return *value = input.rAxis[0].y, state.rift;
+      default: return false;
+    }
   }
 
-  return 0;
+  return false;
 }
 
-static bool openvr_vibrate(const char* path, float strength, float duration, float frequency) {
+static bool openvr_vibrate(Device device, float strength, float duration, float frequency) {
   if (duration <= 0) return false;
 
-  TrackedDeviceIndex_t device = pathToDevice(path, NULL);
-  if (device == INVALID_DEVICE) return false;
+  TrackedDeviceIndex_t index = getDeviceIndex(device);
+  if (index == INVALID_DEVICE) return false;
 
   unsigned short uSeconds = (unsigned short) (duration * 1e6f + .5f);
-  state.system->TriggerHapticPulse(device, 0, uSeconds);
+  state.system->TriggerHapticPulse(index, 0, uSeconds);
   return true;
 }
 
-static ModelData* openvr_newModelData(const char* path) {
-  TrackedDeviceIndex_t device = pathToDevice(path, NULL);
-  if (device == INVALID_DEVICE) return false;
+static ModelData* openvr_newModelData(Device device) {
+  TrackedDeviceIndex_t index = getDeviceIndex(device);
+  if (index == INVALID_DEVICE) return false;
 
   char renderModelName[1024];
   ETrackedDeviceProperty renderModelNameProperty = ETrackedDeviceProperty_Prop_RenderModelName_String;
-  state.system->GetStringTrackedDeviceProperty(device, renderModelNameProperty, renderModelName, 1024, NULL);
+  state.system->GetStringTrackedDeviceProperty(index, renderModelNameProperty, renderModelName, 1024, NULL);
 
-  if (!state.deviceModels[device]) {
-    while (state.renderModels->LoadRenderModel_Async(renderModelName, &state.deviceModels[device]) == EVRRenderModelError_VRRenderModelError_Loading) {
+  if (!state.deviceModels[index]) {
+    while (state.renderModels->LoadRenderModel_Async(renderModelName, &state.deviceModels[index]) == EVRRenderModelError_VRRenderModelError_Loading) {
       lovrSleep(.001);
     }
   }
 
-  if (!state.deviceTextures[device]) {
-    while (state.renderModels->LoadTexture_Async(state.deviceModels[device]->diffuseTextureId, &state.deviceTextures[device]) == EVRRenderModelError_VRRenderModelError_Loading) {
+  if (!state.deviceTextures[index]) {
+    while (state.renderModels->LoadTexture_Async(state.deviceModels[index]->diffuseTextureId, &state.deviceTextures[index]) == EVRRenderModelError_VRRenderModelError_Loading) {
       lovrSleep(.001);
     }
   }
 
-  RenderModel_t* vrModel = state.deviceModels[device];
+  RenderModel_t* vrModel = state.deviceModels[index];
   ModelData* model = lovrAlloc(ModelData);
   size_t vertexSize = sizeof(RenderModel_Vertex_t);
 
@@ -360,7 +369,7 @@ static ModelData* openvr_newModelData(const char* path) {
     .components = 1
   };
 
-  RenderModel_TextureMap_t* vrTexture = state.deviceTextures[device];
+  RenderModel_TextureMap_t* vrTexture = state.deviceTextures[index];
   model->textures[0] = lovrTextureDataCreate(vrTexture->unWidth, vrTexture->unHeight, 0, FORMAT_RGBA);
   memcpy(model->textures[0]->blob.data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
 

@@ -74,16 +74,13 @@ static const float* desktop_getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool desktop_getPose(const char* path, vec3 position, quat orientation) {
-  bool head = !strcmp(path, "head");
-  bool hand = !strcmp(path, "hand/left") || !strcmp(path, "hand/right");
-
-  if (!head && !hand) {
+static bool desktop_getPose(Device device, vec3 position, quat orientation) {
+  if (device != DEVICE_HEAD && device != DEVICE_HAND) {
     return false;
   }
 
   if (position) {
-    vec3_set(position, 0.f, 0.f, hand ? -.75f : 0.f);
+    vec3_set(position, 0.f, 0.f, device == DEVICE_HAND ? -.75f : 0.f);
     mat4_transform(state.transform, &position[0], &position[1], &position[2]);
   }
 
@@ -94,8 +91,8 @@ static bool desktop_getPose(const char* path, vec3 position, quat orientation) {
   return true;
 }
 
-static bool desktop_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
-  if (strcmp(path, "head")) {
+static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
+  if (device != DEVICE_HEAD) {
     return false;
   }
 
@@ -110,28 +107,28 @@ static bool desktop_getVelocity(const char* path, vec3 velocity, vec3 angularVel
   return true;
 }
 
-static bool desktop_isDown(const char* path, bool* down) {
-  if (!strcmp(path, "hand/left/trigger") || !strcmp(path, "hand/right/trigger")) {
-    *down = lovrPlatformIsMouseDown(MOUSE_RIGHT);
-    return true;
+static bool desktop_isDown(Device device, DeviceButton button, bool* down) {
+  if (device != DEVICE_HAND || button != BUTTON_TRIGGER) {
+    return false;
   }
 
+  *down = lovrPlatformIsMouseDown(MOUSE_RIGHT);
+  return true;
+}
+
+static bool desktop_isTouched(Device device, DeviceButton button, bool* touched) {
   return false;
 }
 
-static bool desktop_isTouched(const char* path, bool* touched) {
+static bool desktop_getAxis(Device device, DeviceAxis axis, float* value) {
   return false;
 }
 
-static int desktop_getAxis(const char* path, float* x, float* y, float* z) {
-  return 0;
-}
-
-static bool desktop_vibrate(const char* path, float strength, float duration, float frequency) {
+static bool desktop_vibrate(Device device, float strength, float duration, float frequency) {
   return false;
 }
 
-static ModelData* desktop_newModelData(const char* path) {
+static ModelData* desktop_newModelData(Device device) {
   return NULL;
 }
 

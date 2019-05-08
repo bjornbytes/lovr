@@ -163,18 +163,15 @@ static const float* oculus_getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool oculus_getPose(const char* path, vec3 position, quat orientation) {
+static bool oculus_getPose(Device device, vec3 position, quat orientation) {
   ovrTrackingState *ts = refreshTracking();
   ovrPosef* pose;
 
-  if (!strcmp(path, "head")) {
-    pose = &ts->HeadPose.ThePose;
-  } else if (!strcmp(path, "hand/left")) {
-    pose = &ts->HandPoses[0].ThePose;
-  } else if (!strcmp(path, "hand/right")) {
-    pose = &ts->HandPoses[1].ThePose;
-  } else {
-    return false;
+  switch (device) {
+    case DEVICE_HEAD: pose = &ts->HeadPose.ThePose; break;
+    case DEVICE_HAND_LEFT: pose = &ts->HandPoses[ovrHand_Left].ThePose; break;
+    case DEVICE_HAND_RIGHT: pose = &ts->HandPoses[ovrHand_Right].ThePose; break;
+    default: return false;
   }
 
   if (position) {
@@ -192,14 +189,11 @@ static bool oculus_getVelocity(const char* path, vec3 velocity, vec3 angularVelo
   ovrTrackingState *ts = refreshTracking();
   ovrPoseStatef* pose;
 
-  if (!strcmp(path, "head")) {
-    pose = &ts->HeadPose;
-  } else if (!strcmp(path, "hand/left")) {
-    pose = &ts->HandPoses[ovrHand_Left];
-  } else if (!strcmp(path, "hand/right")) {
-    pose = &ts->HandPoses[ovrHand_Right];
-  } else {
-    return false;
+  switch (device) {
+    case DEVICE_HEAD: pose = &ts->HeadPose; break;
+    case DEVICE_HAND_LEFT: pose = &ts->HandPoses[ovrHand_Left]; break;
+    case DEVICE_HAND_RIGHT: pose = &ts->HandPoses[ovrHand_Right]; break;
+    default: return false;
   }
 
   if (velocity) {
@@ -213,86 +207,75 @@ static bool oculus_getVelocity(const char* path, vec3 velocity, vec3 angularVelo
   return true;
 }
 
-static bool getHandInfo(const char* path, ovrHandType* hand, uint32_t* mask, const char** next) {
-  if (!strncmp("hand/left", path, strlen("hand/left"))) {
-    *hand = ovrHand_Left;
-    *mask = ovrButton_LMask;
-    *next = path + strlen("hand/left/");
-    return true;
-  } else if (!strncmp("hand/right", path, strlen("hand/right"))) {
-    *hand = ovrHand_Right;
-    *mask = ovrButton_RMask;
-    *next = path + strlen("hand/right/");
-    return true;
-  } else {
-    return false;
-  }
-}
-
-static bool oculus_isDown(const char* path, bool* down) {
-  if (!strcmp(path, "head/proximity")) {
+static bool oculus_isDown(Device device, DeviceButton button, bool* down) {
+  if (device == DEVICE_HEAD && button == BUTTON_PROXIMITY) {
     ovrSessionStatus status;
     ovr_GetSessionStatus(state.session, &status);
     *down = status.HmdMounted;
     return true;
+  } else if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
   }
 
-  ovrHandType hand;
-  uint32_t mask;
-  const char* button;
+  ovrInputState* is = refreshButtons();
+  ovrHand hand = device == DEVICE_HAND_LEFT ? ovrHand_Left : ovrHand_Right;
+  uint32_t buttons = is->Buttons & (device == DEVICE_HAND_LEFT ? ovrButton_LMask : ovrButton_RMask);
 
-  if (getHandInfo(path, &hand, &mask, &button)) {
-    ovrInputState* is = refreshButtons();
-    if (!strcmp(path, "a")) { return *down = (mask & ovrButton_A), true; }
-    else if (!strcmp(path, "b")) { return *down = (mask & ovrButton_B), true; }
-    else if (!strcmp(path, "x")) { return *down = (mask & ovrButton_X), true; }
-    else if (!strcmp(path, "y")) { return *down = (mask & ovrButton_Y), true; }
-    else if (!strcmp(path, "menu")) { return *down = (mask & ovrButton_Enter), true; }
-    else if (!strcmp(path, "trigger")) { return *down = (is->IndexTriggerNoDeadzone[hand] > .5f), true; }
-    else if (!strcmp(path, "joystick")) { return *down = (mask & (ovrButton_LThumb | ovrButton_RThumb)), true; }
-    else if (!strcmp(path, "grip")) { return *down = (is->HandTrigger[hand] > .9f), true; }
+  switch (button) {
+    case BUTTON_A: return *down = (buttons & ovrButton_A), true;
+    case BUTTON_B: return *down = (buttons & ovrButton_B), true;
+    case BUTTON_X: return *down = (buttons & ovrButton_X), true;
+    case BUTTON_Y: return *down = (buttons & ovrButton_Y), true;
+    case BUTTON_MENU: return *down = (buttons & ovrButton_Enter), true;
+    case BUTTON_TRIGGER: return *down = (is->IndexTriggerNoDeadzone[hand] > .5f), true;
+    case BUTTON_THUMBSTICK: return *down = (buttons & (ovrButton_LThumb | ovrButton_RThumb), true;
+    case BUTTON_GRIP: return *down = (masks->HandTrigger[hand] > .9f), true;
+    default: return false;
   }
-
-  return false;
 }
 
-static bool oculus_isTouched(const char* path, bool* touched) {
-  ovrHandType hand;
-  uint32_t mask;
-  const char* button;
-
-  if (getHandInfo(path, &hand, &mask, &button)) {
-    if (!strcmp(path, "a")) { return *touched = (mask & ovrTouch_A), true; }
-    else if (!strcmp(path, "b")) { return *touched = (mask & ovrTouch_B), true; }
-    else if (!strcmp(path, "x")) { return *touched = (mask & ovrTouch_X), true; }
-    else if (!strcmp(path, "y")) { return *touched = (mask & ovrTouch_Y), true; }
-    else if (!strcmp(path, "trigger")) { return *touched = (mask & (ovrTouch_LIndexTrigger | ovrTouch_RIndexTrigger)), true; }
-    else if (!strcmp(path, "joystick")) { return *touched = (mask & (ovrTouch_LThumb | ovrTouch_RThumb)), true; }
+static bool oculus_isTouched(Device device, DeviceButton button, bool* touched) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
   }
 
-  return false;
+  ovrInputState* is = refreshButtons();
+  ovrHand hand = device == DEVICE_HAND_LEFT ? ovrHand_Left : ovrHand_Right;
+  uint32_t touches = is->Touches & (device == DEVICE_HAND_LEFT ? ovrTouch_LButtonMask : ovrTouch_RButtonMask);
+
+  switch (button) {
+    case BUTTON_A: return *touched = (touches & ovrTouch_A), true;
+    case BUTTON_B: return *touched = (touches & ovrTouch_B), true;
+    case BUTTON_X: return *touched = (touches & ovrTouch_X), true;
+    case BUTTON_Y: return *touched = (touches & ovrTouch_Y), true;
+    case BUTTON_TRIGGER: return *touched = (touches & (ovrTouch_LIndexTrigger | ovrTouch_RIndexTrigger)), true;
+    case BUTTON_THUMBSTICK: return *touched = (touches & (ovrTouch_LThumb | ovrTouch_RThumb)), true;
+    default: return false;
+  }
 }
 
-static int oculus_getAxis(const char* path, float* x, float* y, float* z) {
-  ovrHandType hand;
-  uint32_t mask;
-  const char* button;
-
-  if (getHandInfo(path, &hand, &mask, &button)) {
-    ovrInputState* is = refreshButtons();
-    if (!strcmp(path, "grip")) { return *x = is->HandTriggerNoDeadzone[hand], 1; }
-    if (!strcmp(path, "trigger")) { return *x = is->IndexTriggerNoDeadzone[hand], 1; }
-    if (!strcmp(path, "joystick")) { return *x = is->ThumbstickNoDeadzone[hand].x, *y = is->ThumbstickNoDeadzone[hand].y, 2; }
+static bool oculus_getAxis(Device device, DeviceAxis axis, float* value) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
   }
 
-  return 0;
+  ovrInputState* is = refreshButtons();
+  ovrHand hand = device == DEVICE_HAND_LEFT ? ovrHand_Left : ovrHand_Right;
+
+  switch (axis) {
+    case AXIS_GRIP: return *value = is->HandTriggerNoDeadzone[hand], true;
+    case AXIS_TRIGGER: return *value = is->IndexTriggerNoDeadzone[hand], true;
+    case AXIS_THUMBSTICK_X: return *value = is->ThumbstickNoDeadzone[hand].x, true;
+    case AXIS_THUMBSTICK_Y: return *value = is->ThumbstickNoDeadzone[hand].y, true;
+    default: return false;
+  }
 }
 
-static bool oculus_vibrate(const char* path, float strength, float duration, float frequency) {
+static bool oculus_vibrate(Device device, float strength, float duration, float frequency) {
   return false; // TODO
 }
 
-static ModelData* oculus_newModelData(const char* path) {
+static ModelData* oculus_newModelData(Device device) {
   return NULL; // TODO
 }
 
