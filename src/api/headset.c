@@ -267,9 +267,9 @@ int l_lovrHeadsetGetPose(lua_State* L) {
 
 int l_lovrHeadsetGetPosition(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float position[3];
+  float position[3], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(device, position, NULL)) {
+    if (driver->getPose(device, position, orientation)) {
       lua_pushnumber(L, position[0]);
       lua_pushnumber(L, position[1]);
       lua_pushnumber(L, position[2]);
@@ -281,9 +281,9 @@ int l_lovrHeadsetGetPosition(lua_State* L) {
 
 int l_lovrHeadsetGetOrientation(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float orientation[4];
+  float position[3], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(device, NULL, orientation)) {
+    if (driver->getPose(device, position, orientation)) {
       float angle, ax, ay, az;
       quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
       lua_pushnumber(L, angle);
@@ -298,9 +298,9 @@ int l_lovrHeadsetGetOrientation(lua_State* L) {
 
 int l_lovrHeadsetGetDirection(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float orientation[4];
+  float position[3], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(device, NULL, orientation)) {
+    if (driver->getPose(device, position, orientation)) {
       float v[3] = { 0.f, 0.f, -1.f };
       quat_rotate(orientation, v);
       lua_pushnumber(L, v[0]);
@@ -335,9 +335,9 @@ int l_lovrHeadsetGetBonePose(lua_State* L) {
 
 int l_lovrHeadsetGetVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float velocity[3];
+  float velocity[3], angularVelocity[3];
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getVelocity(device, velocity, NULL)) {
+    if (driver->getVelocity(device, velocity, angularVelocity)) {
       lua_pushnumber(L, velocity[0]);
       lua_pushnumber(L, velocity[1]);
       lua_pushnumber(L, velocity[2]);
@@ -349,9 +349,9 @@ int l_lovrHeadsetGetVelocity(lua_State* L) {
 
 int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float angularVelocity[3];
+  float velocity[3], angularVelocity[3];
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getVelocity(device, NULL, angularVelocity)) {
+    if (driver->getVelocity(device, velocity, angularVelocity)) {
       lua_pushnumber(L, angularVelocity[0]);
       lua_pushnumber(L, angularVelocity[1]);
       lua_pushnumber(L, angularVelocity[2]);
@@ -363,9 +363,9 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 
 int l_lovrHeadsetGetAcceleration(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float acceleration[3];
+  float acceleration[3], angularAcceleration[3];
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getAcceleration(device, acceleration, NULL)) {
+    if (driver->getAcceleration(device, acceleration, angularAcceleration)) {
       lua_pushnumber(L, acceleration[0]);
       lua_pushnumber(L, acceleration[1]);
       lua_pushnumber(L, acceleration[2]);
@@ -377,9 +377,9 @@ int l_lovrHeadsetGetAcceleration(lua_State* L) {
 
 int l_lovrHeadsetGetAngularAcceleration(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float angularAcceleration[3];
+  float acceleration[3], angularAcceleration[3];
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getAcceleration(device, NULL, angularAcceleration)) {
+    if (driver->getAcceleration(device, acceleration, angularAcceleration)) {
       lua_pushnumber(L, angularAcceleration[0]);
       lua_pushnumber(L, angularAcceleration[1]);
       lua_pushnumber(L, angularAcceleration[2]);

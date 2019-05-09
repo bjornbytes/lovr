@@ -83,14 +83,8 @@ static bool vrapi_getPose(Device device, vec3 position, quat orientation) {
     default: return false;
   }
 
-  if (position) {
-    vec3_set(position, pose->x, pose->y + state.offset, pose->z);
-  }
-
-  if (orientation) {
-    quat_init(orientation, pose->q);
-  }
-
+  vec3_set(position, pose->x, pose->y + state.offset, pose->z);
+  quat_init(orientation, pose->q);
   return true;
 }
 
@@ -107,14 +101,8 @@ static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity
     default: return false;
   }
 
-  if (velocity) {
-    vec3_set(velocity, v->x, v->y, v->z);
-  }
-
-  if (angularVelocity) {
-    vec3_set(angularVelocity, v->ax, v->ay, v->az);
-  }
-
+  vec3_set(velocity, v->x, v->y, v->z);
+  vec3_set(angularVelocity, v->ax, v->ay, v->az);
   return true;
 }
 

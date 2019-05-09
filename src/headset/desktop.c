@@ -79,15 +79,9 @@ static bool desktop_getPose(Device device, vec3 position, quat orientation) {
     return false;
   }
 
-  if (position) {
-    vec3_set(position, 0.f, 0.f, device == DEVICE_HAND ? -.75f : 0.f);
-    mat4_transform(state.transform, position);
-  }
-
-  if (orientation) {
-    quat_fromMat4(orientation, state.transform);
-  }
-
+  vec3_set(position, 0.f, 0.f, device == DEVICE_HAND ? -.75f : 0.f);
+  mat4_transform(state.transform, position);
+  quat_fromMat4(orientation, state.transform);
   return true;
 }
 

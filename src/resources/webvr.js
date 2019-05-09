@@ -156,14 +156,14 @@ var LibraryLOVR = {
     var pose = webvr.poses[device];
     if (!pose) { return false; }
 
-    if (position && pose.position) {
+    if (pose.position) {
       HEAPF32.set(pose.position, position >> 2);
       Module._mat4_transform(webvr.poseTransform, position);
     } else {
       HEAPF32.fill(0, position >> 2, position >> 2 + 3);
     }
 
-    if (orientation && pose.orientation) {
+    if (pose.orientation) {
       HEAPF32.set(pose.orientation, orientation >> 2);
       Module._mat4_rotateQuat(Module._mat4_init(webvr.matA, webvr.poseTransform), orientation);
       Module._quat_fromMat4(orientation, webvr.matA);
@@ -182,14 +182,14 @@ var LibraryLOVR = {
     var pose = webvr.poses[device];
     if (!pose) { return false; }
 
-    if (velocity && pose.linearVelocity) {
+    if (pose.linearVelocity) {
       HEAPF32.set(pose.linearVelocity, velocity >> 2);
       Module._mat4_transformDirection(webvr.poseTransform, velocity);
     } else {
       HEAPF32.fill(0, velocity >> 2, velocity >> 2 + 3);
     }
 
-    if (angularVelocity && pose.angularVelocity) {
+    if (pose.angularVelocity) {
       HEAPF32.set(pose.angularVelocity, angularVelocity >> 2);
       Module._mat4_transformDirection(webvr.poseTransform, angularVelocity);
     } else {
@@ -203,14 +203,14 @@ var LibraryLOVR = {
     var pose = webvr.poses[device];
     if (!pose) { return false; }
 
-    if (acceleration && pose.linearAcceleration) {
+    if (pose.linearAcceleration) {
       HEAPF32.set(pose.linearAcceleration, acceleration >> 2);
       Module._mat4_transformDirection(webvr.poseTransform, acceleration);
     } else {
       HEAPF32.fill(0, accleration >> 2, accleration >> 2 + 3);
     }
 
-    if (angularAcceleration && pose.angularAcceleration) {
+    if (pose.angularAcceleration) {
       HEAPF32.set(pose.angularAcceleration, angularAcceleration >> 2);
       Module._mat4_transformDirection(webvr.poseTransform, angularAcceleration);
     } else {

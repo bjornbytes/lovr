@@ -209,14 +209,8 @@ static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
     return false;
   }
 
-  if (velocity) {
-    vec3_init(velocity, pose->vVelocity.v);
-  }
-
-  if (angularVelocity) {
-    vec3_init(angularVelocity, pose->vAngularVelocity.v);
-  }
-
+  vec3_init(velocity, pose->vVelocity.v);
+  vec3_init(angularVelocity, pose->vAngularVelocity.v);
   return true;
 }
 

@@ -445,15 +445,8 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
 
   if (getRelation(device, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_POSITION_VALID_BIT | XR_SPACE_RELATION_ORIENTATION_VALID_BIT))) {
     XrPosef* pose = &relation.pose;
-
-    if (position) {
-      vec3_set(position, pose->position.x, pose->position.y, pose->position.z);
-    }
-
-    if (orientation) {
-      quat_set(orientation, pose->orientation.x, pose->orientation.y, pose->orientation.z, pose->orientation.w);
-    }
-
+    vec3_set(position, pose->position.x, pose->position.y, pose->position.z);
+    quat_set(orientation, pose->orientation.x, pose->orientation.y, pose->orientation.z, pose->orientation.w);
     return true;
   }
 
@@ -468,14 +461,8 @@ static bool openxr_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
   XrSpaceRelation relation;
 
   if (getRelation(device, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_LINEAR_VELOCITY_VALID_BIT | XR_SPACE_RELATION_ANGULAR_VELOCITY_VALID_BIT))) {
-    if (velocity) {
-      vec3_set(velocity, relation.linearVelocity.x, relation.linearVelocity.y, relation.linearVelocity.z);
-    }
-
-    if (angularVelocity) {
-      vec3_set(angularVelocity, relation.angularVelocity.x, relation.angularVelocity.y, relation.angularVelocity.z);
-    }
-
+    vec3_set(velocity, relation.linearVelocity.x, relation.linearVelocity.y, relation.linearVelocity.z);
+    vec3_set(angularVelocity, relation.angularVelocity.x, relation.angularVelocity.y, relation.angularVelocity.z);
     return true;
   }
 
@@ -486,14 +473,8 @@ static bool openxr_getAcceleration(Device device, vec3 acceleration, vec3 angula
   XrSpaceRelation relation;
 
   if (getRelation(device, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_LINEAR_ACCELERATION_VALID_BIT | XR_SPACE_RELATION_ANGULAR_ACCELERATION_VALID_BIT))) {
-    if (acceleration) {
-      vec3_set(acceleration, relation.linearAcceleration.x, relation.linearAcceleration.y, relation.linearAcceleration.z);
-    }
-
-    if (angularAcceleration) {
-      vec3_set(angularAcceleration, relation.angularAcceleration.x, relation.angularAcceleration.y, relation.angularAcceleration.z);
-    }
-
+    vec3_set(acceleration, relation.linearAcceleration.x, relation.linearAcceleration.y, relation.linearAcceleration.z);
+    vec3_set(angularAcceleration, relation.angularAcceleration.x, relation.angularAcceleration.y, relation.angularAcceleration.z);
     return true;
   }
 

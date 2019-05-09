@@ -178,15 +178,8 @@ static bool oculus_getPose(Device device, vec3 position, quat orientation) {
   if (!poseState) return false;
 
   ovrPosef* pose = poseState->ThePose;
-
-  if (position) {
-    vec3_set(position, pose->Position.x, pose->Position.y + state.offset, pose->Position.z);
-  }
-
-  if (orientation) {
-    quat_set(orientation, pose->Orientation.x, pose->Orientation.y, pose->Orientation.z, pose->Orientation.w);
-  }
-
+  vec3_set(position, pose->Position.x, pose->Position.y + state.offset, pose->Position.z);
+  quat_set(orientation, pose->Orientation.x, pose->Orientation.y, pose->Orientation.z, pose->Orientation.w);
   return true;
 }
 
@@ -198,14 +191,8 @@ static bool oculus_getVelocity(const char* path, vec3 velocity, vec3 angularVelo
   ovrPoseStatef* pose = getPose(device);
   if (!pose) return false;
 
-  if (velocity) {
-    vec3_set(velocity, pose->LinearVelocity.x, pose->LinearVelocity.y, pose->LinearVelocity.z);
-  }
-
-  if (angularVelocity) {
-    vec3_set(angularVelocity, pose->AngularVelocity.x, pose->AngularVelocity.y, pose->AngularVelocity.z);
-  }
-
+  vec3_set(velocity, pose->LinearVelocity.x, pose->LinearVelocity.y, pose->LinearVelocity.z);
+  vec3_set(angularVelocity, pose->AngularVelocity.x, pose->AngularVelocity.y, pose->AngularVelocity.z);
   return true;
 }
 
@@ -213,14 +200,8 @@ static bool oculus_getAcceleration(Device device, vec3 acceleration, vec3 angula
   ovrPoseStatef* pose = getPose(device);
   if (!pose) return false;
 
-  if (acceleration) {
-    vec3_set(acceleration, pose->LinearAcceleration.x, pose->LinearAcceleration.y, pose->LinearAcceleration.z);
-  }
-
-  if (angularAcceleration) {
-    vec3_set(angularAcceleration, pose->AngularAcceleration.x, pose->AngularAcceleration.y, pose->AngularAcceleration.z);
-  }
-
+  vec3_set(acceleration, pose->LinearAcceleration.x, pose->LinearAcceleration.y, pose->LinearAcceleration.z);
+  vec3_set(angularAcceleration, pose->AngularAcceleration.x, pose->AngularAcceleration.y, pose->AngularAcceleration.z);
   return true;
 }
 
