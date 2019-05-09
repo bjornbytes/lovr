@@ -251,6 +251,7 @@ Buffer* lovrGraphicsGetIdentityBuffer() {
 void lovrGraphicsReset() {
   state.transform = 0;
   lovrGraphicsSetCamera(NULL, false);
+  lovrGraphicsSetAlphaSampling(false);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
   lovrGraphicsSetCanvas(NULL);
