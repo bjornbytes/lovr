@@ -132,19 +132,19 @@ static bool leap_getBonePose(Device device, DeviceBone bone, vec3 position, quat
   return true;
 }
 
-static bool leap_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+static bool leap_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   LEAP_HAND* hand;
-  if (state.leftHand && !strcmp(path, "hand/left")) {
-    hand = state.leftHand;
-  } else if (state.rightHand && !strcmp(path, "hand/right")) {
-    hand = state.rightHand;
-  } else {
-    return false;
+
+  switch (device) {
+    case DEVICE_HAND_LEFT: hand = state.leftHand; break;
+    case DEVICE_HAND_RIGHT: hand = state.rightHand; break;
+    default: return false;
   }
 
   vec3_set(velocity, hand->palm.velocity.x, hand->palm.velocity.z, hand->palm.velocity.y);
   vec3_scale(velocity, -.001f);
   mat4_transformDirection(state.headPose, velocity);
+  vec3_set(angularVelocity, 0.f, 0.f, 0.f);
   return true;
 }
 
@@ -152,38 +152,35 @@ static bool leap_getAcceleration(Device device, vec3 acceleration, vec3 angularA
   return false;
 }
 
-static bool leap_isDown(const char* path, bool* down) {
+static bool leap_isDown(Device device, DeviceButton button, bool* down) {
   return false;
 }
 
-static int leap_getAxis(const char* path, float* x, float* y, float* z) {
+static bool leap_isTouched(Device device, DeviceButton button, bool* touched) {
+  return false;
+}
+
+static bool leap_getAxis(Device device, DeviceAxis axis, float* value) {
   LEAP_HAND* hand;
-  if (state.leftHand && !strncmp("hand/left", path, strlen("hand/left"))) {
-    hand = state.leftHand;
-    path += strlen("hand/left");
-  } else if (state.rightHand && !strncmp("hand/right", path, strlen("hand/right"))) {
-    hand = state.rightHand;
-    path += strlen("hand/right");
-  } else {
-    return 0;
+
+  switch (device) {
+    case DEVICE_HAND_LEFT: hand = state.leftHand; break;
+    case DEVICE_HAND_RIGHT: hand = state.rightHand; break;
+    default: return false;
   }
 
-  if (!strcmp(path, "/pinch")) {
-    *x = hand->pinch_strength;
-    return 1;
-  } else if (!strcmp(path, "/grip")) {
-    *x = hand->grab_strength;
-    return 1;
+  switch (button) {
+    case BUTTON_PINCH: return *value = hand->pinch_strength, true;
+    case BUTTON_GRIP: return *value = hand->grab_strength, true;
+    default: return false;
   }
-
-  return 0;
 }
 
-static bool leap_vibrate(const char* path, float strength, float duration, float frequency) {
+static bool leap_vibrate(Device device, float strength, float duration, float frequency) {
   return false;
 }
 
-static struct ModelData* leap_newModelData(const char* path) {
+static struct ModelData* leap_newModelData(Device device) {
   return NULL;
 }
 
@@ -239,6 +236,7 @@ HeadsetInterface lovrHeadsetLeapMotionDriver = {
   .getVelocity = leap_getVelocity,
   .getAcceleration = leap_getAcceleration,
   .isDown = leap_isDown,
+  .isTouched = leap_isTouched,
   .getAxis = leap_getAxis,
   .vibrate = leap_vibrate,
   .newModelData = leap_newModelData,
