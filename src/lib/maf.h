@@ -62,8 +62,8 @@ MAF_EXPORT mat4 mat4_orthographic(mat4 m, float left, float right, float top, fl
 MAF_EXPORT mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fov, float aspect);
 MAF_EXPORT mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float clipNear, float clipFar);
 MAF_EXPORT mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up);
-MAF_EXPORT void mat4_transform(mat4 m, float* x, float* y, float* z);
-MAF_EXPORT void mat4_transformDirection(mat4 m, float* x, float* y, float* z);
+MAF_EXPORT void mat4_transform(mat4 m, vec3 v);
+MAF_EXPORT void mat4_transformDirection(mat4 m, vec3 v);
 
 #ifdef LOVR_USE_SSE
 MAF_EXPORT mat4 mat4_invertPose(mat4 m);

@@ -7,7 +7,9 @@ void lovrAudioStreamDestroy(void*);
 void lovrBlobDestroy(void*);
 void lovrBufferDestroy(void*);
 void lovrCanvasDestroy(void*);
+#ifdef LOVR_ENABLE_THREAD
 void lovrChannelDestroy(void*);
+#endif
 void lovrColliderDestroy(void*);
 void lovrControllerDestroy(void*);
 void lovrCurveDestroy(void*);
@@ -29,7 +31,9 @@ void lovrSoundDataDestroy(void*);
 void lovrSourceDestroy(void*);
 void lovrTextureDestroy(void*);
 void lovrTextureDataDestroy(void*);
+#ifdef LOVR_ENABLE_THREAD
 void lovrThreadDestroy(void*);
+#endif
 void lovrWorldDestroy(void*);
 #define INFO(T) [T_ ## T] = { #T, lovr ## T ## Destroy, T_NONE }
 #define SUPERINFO(T, S) [T_ ## T] = { #T, lovr ## S ## Destroy, T_ ## S }
@@ -42,7 +46,9 @@ const TypeInfo lovrTypeInfo[T_MAX] = {
   INFO(Buffer),
   INFO(Canvas),
   SUPERINFO(CapsuleShape, Shape),
+#ifdef LOVR_ENABLE_THREAD
   INFO(Channel),
+#endif
   INFO(Collider),
   INFO(Controller),
   INFO(Curve),
@@ -69,7 +75,9 @@ const TypeInfo lovrTypeInfo[T_MAX] = {
   SUPERINFO(SphereShape, Shape),
   INFO(Texture),
   INFO(TextureData),
+#ifdef LOVR_ENABLE_THREAD
   INFO(Thread),
+#endif
   INFO(World)
 };
 #undef INFO

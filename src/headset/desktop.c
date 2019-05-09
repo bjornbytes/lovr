@@ -81,7 +81,7 @@ static bool desktop_getPose(Device device, vec3 position, quat orientation) {
 
   if (position) {
     vec3_set(position, 0.f, 0.f, device == DEVICE_HAND ? -.75f : 0.f);
-    mat4_transform(state.transform, &position[0], &position[1], &position[2]);
+    mat4_transform(state.transform, position);
   }
 
   if (orientation) {
@@ -198,7 +198,7 @@ static void desktop_update(float dt) {
   state.localVelocity[1] = up ? movespeed : (down ? -movespeed : state.localVelocity[1]);
   state.localVelocity[2] = front ? -movespeed : (back ? movespeed : state.localVelocity[2]);
   vec3_init(state.velocity, state.localVelocity);
-  mat4_transformDirection(state.transform, &state.velocity[0], &state.velocity[1], &state.velocity[2]);
+  mat4_transformDirection(state.transform, state.velocity);
   vec3_scale(state.localVelocity, damping);
 
   // Update position

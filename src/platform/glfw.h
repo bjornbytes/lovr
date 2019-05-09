@@ -4,7 +4,9 @@
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+#ifndef EMSCRIPTEN
 #include <GLFW/glfw3native.h>
+#endif
 
 getProcAddressProc lovrGetProcAddress = glfwGetProcAddress;
 

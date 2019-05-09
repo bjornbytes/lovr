@@ -143,17 +143,18 @@ static int l_lovrMat4Mul(lua_State* L) {
     lua_settop(L, 1);
     return 1;
   } else if (n && type == MATH_VEC3) {
-    mat4_transform(m, &n[0], &n[1], &n[2]);
+    mat4_transform(m, n);
     lua_settop(L, 2);
     return 1;
   } else if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = luaL_checknumber(L, 2);
     float y = luaL_optnumber(L, 3, 0.f);
     float z = luaL_optnumber(L, 4, 0.f);
-    mat4_transform(m, &x, &y, &z);
-    lua_pushnumber(L, x);
-    lua_pushnumber(L, y);
-    lua_pushnumber(L, z);
+    float v[3] = { x, y, z };
+    mat4_transform(m, v);
+    lua_pushnumber(L, v[0]);
+    lua_pushnumber(L, v[1]);
+    lua_pushnumber(L, v[2]);
     return 3;
   } else {
     return luaL_typerror(L, 2, "mat4, vec3, or number");
@@ -195,7 +196,7 @@ static int l_lovrMat4__mul(lua_State* L) {
   } else {
     vec3 out = luax_newmathtype(L, MATH_VEC3);
     vec3_init(out, n);
-    mat4_transform(m, &n[0], &n[1], &n[2]);
+    mat4_transform(m, n);
   }
   return 1;
 }

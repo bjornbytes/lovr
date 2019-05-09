@@ -71,7 +71,7 @@ static void adjustPose(vec3 position, vec3 direction) {
   position[1] = position[2];
   position[2] = position[1];
   position[2] -= .080f;
-  mat4_transform(state.headPose, &position[0], &position[1], &position[2]);
+  mat4_transform(state.headPose, position);
 
   // Just swap y/z
   vec3_normalize(direction);
@@ -79,7 +79,7 @@ static void adjustPose(vec3 position, vec3 direction) {
   temp = direction[1];
   direction[1] = direction[2];
   direction[2] = temp;
-  mat4_transformDirection(state.headPose, &direction[0], &direction[1], &direction[2]);
+  mat4_transformDirection(state.headPose, direction);
 }
 
 static bool leap_getPose(Device device, vec3 position, quat orientation) {
@@ -144,7 +144,7 @@ static bool leap_getVelocity(const char* path, vec3 velocity, vec3 angularVeloci
 
   vec3_set(velocity, hand->palm.velocity.x, hand->palm.velocity.z, hand->palm.velocity.y);
   vec3_scale(velocity, -.001f);
-  mat4_transformDirection(state.headPose, &velocity[0], &velocity[1], &velocity[2]);
+  mat4_transformDirection(state.headPose, velocity);
   return true;
 }
 
