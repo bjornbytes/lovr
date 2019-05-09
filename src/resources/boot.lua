@@ -8,6 +8,8 @@ local function nogame()
     t.modules.thread = false
   end
 
+  local models = {}
+
   function lovr.load()
     if not lovr.graphics then
       print(string.format('LÖVR %d.%d.%d\nNo game', lovr.getVersion()))
@@ -21,6 +23,15 @@ local function nogame()
 
   function lovr.draw()
     lovr.graphics.setColor(1.0, 1.0, 1.0)
+
+    for hand in lovr.headset.hands() do
+      models[hand] = models[hand] or lovr.headset.newModel(hand)
+      if models[hand] then
+        local x, y, z, angle ax, ay, az = lovr.headset.getPose(hand)
+        models[hand]:draw(x, y, z, 1.0, angle, ax, ay, az)
+      end
+    end
+
     local padding = .1
     local font = lovr.graphics.getFont()
     local fade = .315 + .685 * math.abs(math.sin(lovr.timer.getTime() * 2))
