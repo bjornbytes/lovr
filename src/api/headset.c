@@ -513,10 +513,11 @@ static int deviceIterator(lua_State* L) {
   size_t index = lua_tointeger(L, lua_upvalueindex(1));
   Device* devices = (Device*) lua_touserdata(L, lua_upvalueindex(2));
   size_t count = lua_tointeger(L, lua_upvalueindex(3));
+  float position[3], orientation[4];
 
   while (index < count) {
     FOREACH_TRACKING_DRIVER(driver) {
-      if (driver->getPose(devices[index], NULL, NULL)) {
+      if (driver->getPose(devices[index], position, orientation)) {
         lua_pushstring(L, Devices[devices[index]]);
         lua_pushinteger(L, ++index);
         lua_replace(L, lua_upvalueindex(1));
