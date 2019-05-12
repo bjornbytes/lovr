@@ -480,10 +480,12 @@ void lovrGraphicsBatch(BatchRequest* req) {
     lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, req->environmentMap);
   }
 
-  if (req->type == BATCH_MESH) {
-    float* pose = req->params.mesh.pose ? req->params.mesh.pose : (float[]) MAT4_IDENTITY;
-    int count = req->params.mesh.pose ? (MAX_BONES * 16) : 16;
-    lovrShaderSetMatrices(shader, "lovrPose", pose, 0, count);
+  if (lovrShaderHasUniform(shader, "lovrPose")) {
+    if (req->type == BATCH_MESH && req->params.mesh.pose) {
+      lovrShaderSetMatrices(shader, "lovrPose", req->params.mesh.pose, 0, MAX_BONES * 16);
+    } else {
+      lovrShaderSetMatrices(shader, "lovrPose", (float[]) MAT4_IDENTITY, 0, 16);
+    }
   }
 
   // Try to find an existing batch to use
