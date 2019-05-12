@@ -5,7 +5,7 @@
 #ifdef _WIN32
 #define MAF_EXPORT __declspec(dllexport)
 #else
-#define MAF_EXPORT
+#define MAF_EXPORT __attribute__((visibility("default")))
 #endif
 
 typedef float* vec3;
