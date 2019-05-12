@@ -492,8 +492,8 @@ void lovrGraphicsBatch(BatchRequest* req) {
     for (int i = state.batchCount - 1; i >= 0; i--) {
       Batch* b = &state.batches[i];
 
-      if (b->count >= MAX_DRAWS) { continue; }
-      if (!areBatchParamsEqual(req->type, b->type, &req->params, &b->params)) { continue; }
+      if (b->count >= MAX_DRAWS) { goto next; }
+      if (!areBatchParamsEqual(req->type, b->type, &req->params, &b->params)) { goto next; }
       if (b->canvas == canvas && b->shader == shader && !memcmp(&b->pipeline, pipeline, sizeof(Pipeline)) && b->material == material) {
         batch = b;
         break;
@@ -501,9 +501,10 @@ void lovrGraphicsBatch(BatchRequest* req) {
 
       // Draws can't be reordered when blending is on, depth test is off, or either of the batches
       // are streaming their vertices (since buffers are append-only)
+next:
       if (b->pipeline.blendMode != BLEND_NONE || pipeline->blendMode != BLEND_NONE) { break; }
       if (b->pipeline.depthTest == COMPARE_NONE || pipeline->depthTest == COMPARE_NONE) { break; }
-      if (!b->instanced || !req->instanced) { break; }
+      if (!req->instanced) { break; }
     }
   }
 
