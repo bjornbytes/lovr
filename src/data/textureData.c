@@ -133,6 +133,53 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
   return 0;
 }
 
+static int parseKTX(uint8_t* d, size_t size, TextureData* textureData) {
+  union {
+    uint8_t* u8;
+    uint32_t* u32;
+    KTXHeader* ktx;
+  } data = { .u8 = d };
+
+  uint8_t magic[] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x31, 0x31, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
+
+  if (size < sizeof(magic) || memcmp(data.ktx->header, magic, sizeof(magic))) {
+    return 1;
+  }
+
+  if (data.ktx->endianness != 0x04030201 || data.ktx->numberOfArrayElements > 0 || data.ktx->numberOfFaces > 1 || data.ktx->pixelDepth > 1) {
+    return 1;
+  }
+
+  // TODO RGBA DXT1, SRGB DXT formats
+  switch (data.ktx->glInternalFormat) {
+    case 0x83F0: textureData->format = FORMAT_DXT1; break;
+    case 0x83F2: textureData->format = FORMAT_DXT3; break;
+    case 0x83F3: textureData->format = FORMAT_DXT5; break;
+    default: return 1;
+  }
+
+  uint32_t width = textureData->width = data.ktx->pixelWidth;
+  uint32_t height = textureData->height = data.ktx->pixelHeight;
+  uint32_t mipmapCount = data.ktx->numberOfMipmapLevels;
+  vec_reserve(&textureData->mipmaps, mipmapCount);
+
+  data.u8 += sizeof(KTXHeader) + data.ktx->bytesOfKeyValueData;
+  for (uint32_t i = 0; i < mipmapCount; i++) {
+    vec_push(&textureData->mipmaps, ((Mipmap) {
+      .width = width,
+      .height = height,
+      .data = data.u8 + sizeof(uint32_t),
+      .size = *data.u32
+    }));
+
+    width = MAX(width >> 1, 1u);
+    height = MAX(height >> 1, 1u);
+    data.u8 = (uint8_t*) ALIGN(data.u8 + sizeof(uint32_t) + *data.u32 + 3, 4);
+  }
+
+  return 0;
+}
+
 TextureData* lovrTextureDataInit(TextureData* textureData, int width, int height, uint8_t value, TextureFormat format) {
   lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");
   lovrAssert(format != FORMAT_DXT1 && format != FORMAT_DXT3 && format != FORMAT_DXT5, "Blank TextureData cannot be compressed");
@@ -153,6 +200,10 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
   vec_init(&textureData->mipmaps);
 
   if (!parseDDS(blob->data, blob->size, textureData)) {
+    textureData->source = blob;
+    lovrRetain(blob);
+    return textureData;
+  } else if (!parseKTX(blob->data, blob->size, textureData)) {
     textureData->source = blob;
     lovrRetain(blob);
     return textureData;
