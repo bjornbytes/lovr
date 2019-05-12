@@ -528,6 +528,10 @@ next:
 
   // Start a new batch
   if (!batch) {
+    if (state.batchCount >= MAX_BATCHES) {
+      lovrGraphicsFlush();
+    }
+
     float* transforms = lovrGraphicsMapBuffer(STREAM_TRANSFORM, MAX_DRAWS);
     Color* colors = lovrGraphicsMapBuffer(STREAM_COLOR, MAX_DRAWS);
 
