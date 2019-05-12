@@ -193,7 +193,9 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
     jsmntok_t* scenes;
     jsmntok_t* skins;
     int sceneCount;
-  } info = { 0 };
+  } info;
+
+  memset(&info, 0, sizeof(info));
 
   gltfAnimationSampler* animationSamplers = NULL;
   gltfMesh* meshes = NULL;
@@ -411,7 +413,8 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
     jsmntok_t* token = info.buffers;
     Blob** blob = model->blobs;
     for (int i = (token++)->size; i > 0; i--, blob++) {
-      gltfString uri = { 0 };
+      gltfString uri;
+      memset(&uri, 0, sizeof(uri));
       size_t size = 0;
 
       for (int k = (token++)->size; k > 0; k--) {
@@ -708,7 +711,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
               } else if (STR_EQ(key, "attributes")) {
                 int attributeCount = (token++)->size;
                 for (int a = 0; a < attributeCount; a++) {
-                  DefaultAttribute attributeType = -1;
+                  DefaultAttribute attributeType = ~0;
                   gltfString name = NOM_STR(json, token);
                   int attributeIndex = NOM_INT(json, token);
                   if (STR_EQ(name, "POSITION")) { attributeType = ATTR_POSITION; }
@@ -718,7 +721,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
                   else if (STR_EQ(name, "TANGENT")) { attributeType = ATTR_TANGENT; }
                   else if (STR_EQ(name, "JOINTS_0")) { attributeType = ATTR_BONES; }
                   else if (STR_EQ(name, "WEIGHTS_0")) { attributeType = ATTR_WEIGHTS; }
-                  if (attributeType >= 0) {
+                  if (attributeType != (DefaultAttribute) ~0) {
                     primitive->attributes[attributeType] = &model->attributes[attributeIndex];
                   }
                 }
