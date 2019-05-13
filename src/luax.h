@@ -7,6 +7,11 @@
 
 struct Color;
 
+typedef struct {
+  Type type;
+  Ref* ref;
+} Proxy;
+
 #ifndef LUA_RIDX_MAINTHERAD
 #define LUA_RIDX_MAINTHREAD 1
 #endif

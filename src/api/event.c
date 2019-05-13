@@ -39,7 +39,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
 
     case LUA_TUSERDATA:
       variant->type = TYPE_OBJECT;
-      variant->value.ref = *(Ref**) lua_touserdata(L, index);
+      variant->value.ref = ((Proxy*) lua_touserdata(L, index))->ref;
       lovrRetain(variant->value.ref);
       break;
 
