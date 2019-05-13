@@ -2,7 +2,17 @@
 #include "platform.h"
 #include <string.h>
 
-static TimerState state;
+static struct {
+  bool initialized;
+  double lastTime;
+  double time;
+  double dt;
+  int tickIndex;
+  double tickSum;
+  double tickBuffer[TICK_SAMPLES];
+  double averageDelta;
+  int fps;
+} state;
 
 bool lovrTimerInit() {
   if (state.initialized) return false;
@@ -12,7 +22,7 @@ bool lovrTimerInit() {
 
 void lovrTimerDestroy() {
   if (!state.initialized) return;
-  memset(&state, 0, sizeof(TimerState));
+  memset(&state, 0, sizeof(state));
 }
 
 double lovrTimerGetDelta() {
