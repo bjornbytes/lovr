@@ -572,6 +572,10 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
   lovrGpuDirtyTexture();
 }
 
+static Texture* openvr_getMirrorTexture(void) {
+  return lovrCanvasGetAttachments(state.canvas, NULL)[0].texture;
+}
+
 static void openvr_update(float dt) {
   state.compositor->WaitGetPoses(&state.renderPose, 1, NULL, 0);
   VRActiveActionSet_t activeActionSet = { .ulActionSet = state.actionSet };
@@ -590,10 +594,6 @@ static void openvr_update(float dt) {
       default: break;
     }
   }
-}
-
-static Texture* openvr_getMirrorTexture(void) {
-  return lovrCanvasGetAttachments(state.canvas, NULL)[0].texture;
 }
 
 HeadsetInterface lovrHeadsetOpenVRDriver = {
