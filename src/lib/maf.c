@@ -232,7 +232,7 @@ quat quat_between(quat q, vec3 u, vec3 v) {
       vec3_cross(vec3_set(axis, 0.f, 1.f, 0.f), u);
     }
     vec3_normalize(axis);
-    quat_fromAngleAxis(q, M_PI, axis[0], axis[1], axis[2]);
+    quat_fromAngleAxis(q, (float) M_PI, axis[0], axis[1], axis[2]);
     return q;
   }
   vec3_cross(vec3_init(q, u), v);
