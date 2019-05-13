@@ -85,7 +85,6 @@ static struct {
   RenderModel_TextureMap_t* deviceTextures[16];
   Canvas* canvas;
   vec_float_t boundsGeometry;
-  bool rift;
   float clipNear;
   float clipFar;
   float offset;
@@ -208,8 +207,6 @@ static bool openvr_init(float offset, int msaa) {
   state.input->GetActionHandle("/actions/lovr/out/leftHandBZZ", &state.hapticActions[0]);
   state.input->GetActionHandle("/actions/lovr/out/rightHandBZZ", &state.hapticActions[1]);
 
-  openvr_getName(buffer, sizeof(buffer));
-  state.rift = !strncmp(buffer, "Oculus", sizeof(buffer));
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
