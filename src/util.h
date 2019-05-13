@@ -31,10 +31,6 @@
 #define CLAMP(x, min, max) MAX(min, MIN(max, x))
 #define ALIGN(p, n) ((uintptr_t) (p) & -n)
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846264f
-#endif
-
 typedef struct Color { float r, g, b, a; } Color;
 
 typedef void (*lovrErrorHandler)(void* userdata, const char* format, va_list args);
