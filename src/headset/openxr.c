@@ -60,8 +60,7 @@ typedef enum {
   ACTION_TRIGGER_AXIS,
   ACTION_TRACKPAD_DOWN,
   ACTION_TRACKPAD_TOUCH,
-  ACTION_TRACKPAD_X,
-  ACTION_TRACKPAD_Y,
+  ACTION_TRACKPAD_AXIS,
   ACTION_MENU_DOWN,
   ACTION_MENU_TOUCH,
   ACTION_GRIP_DOWN,
@@ -77,8 +76,7 @@ static XrActionCreateInfo defaultActions[MAX_ACTIONS] = {
   [ACTION_TRIGGER_DOWN] = action("triggerDown", "Trigger Down", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
   [ACTION_TRIGGER_TOUCH] = action("triggerTouch", "Trigger Touch", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
   [ACTION_TRIGGER_AXIS] = action("triggerAxis", "Trigger Axis", XR_INPUT_ACTION_TYPE_VECTOR1F, 2),
-  [ACTION_TRACKPAD_X] = action("trackpadX", "Trackpad X", XR_INPUT_ACTION_TYPE_VECTOR1F, 2),
-  [ACTION_TRACKPAD_Y] = action("trackpadY", "Trackpad Y", XR_INPUT_ACTION_TYPE_VECTOR1F, 2),
+  [ACTION_TRACKPAD_AXIS] = action("trackpadAxis", "Trackpad Axis", XR_INPUT_ACTION_TYPE_VECTOR2F, 2),
   [ACTION_MENU_DOWN] = action("menuDown", "Menu Down", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
   [ACTION_MENU_TOUCH] = action("menuTouch", "Menu Touch", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
   [ACTION_GRIP_DOWN] = action("gripDown", "Grip Down", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
@@ -106,10 +104,8 @@ static const char* defaultBindings[MAX_PROFILES][MAX_ACTIONS][2] = {
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
     [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
     [ACTION_TRIGGER_AXIS][1] = "/user/hand/right/input/trigger/value",
-    [ACTION_TRACKPAD_X][0] = "/user/hand/left/input/trackpad/x",
-    [ACTION_TRACKPAD_X][1] = "/user/hand/right/input/trackpad/x",
-    [ACTION_TRACKPAD_Y][0] = "/user/hand/left/input/trackpad/y",
-    [ACTION_TRACKPAD_Y][1] = "/user/hand/right/input/trackpad/y",
+    [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
+    [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad",
     [ACTION_MENU_DOWN][0] = "/user/hand/left/input/menu/click",
     [ACTION_MENU_DOWN][1] = "/user/hand/right/input/menu/click",
     [ACTION_GRIP_DOWN][0] = "/user/hand/left/input/grip/click",
@@ -126,10 +122,8 @@ static const char* defaultBindings[MAX_PROFILES][MAX_ACTIONS][2] = {
     [ACTION_TRIGGER_TOUCH][1] = "/user/hand/right/input/trigger/touch",
     [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
     [ACTION_TRIGGER_AXIS][1] = "/user/hand/right/input/trigger/value",
-    [ACTION_TRACKPAD_X][0] = "/user/hand/left/input/trackpad/x",
-    [ACTION_TRACKPAD_X][1] = "/user/hand/right/input/trackpad/x",
-    [ACTION_TRACKPAD_Y][0] = "/user/hand/left/input/trackpad/y",
-    [ACTION_TRACKPAD_Y][1] = "/user/hand/right/input/trackpad/y",
+    [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
+    [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad",
     [ACTION_MENU_DOWN][0] = "/user/hand/left/input/menu/click",
     [ACTION_MENU_DOWN][1] = "/user/hand/right/input/menu/click",
     [ACTION_MENU_TOUCH][0] = "/user/hand/left/input/menu/touch",
@@ -148,10 +142,8 @@ static const char* defaultBindings[MAX_PROFILES][MAX_ACTIONS][2] = {
     [ACTION_HAND_POSE][1] = "/user/hand/right/input/pointer/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
-    [ACTION_TRACKPAD_X][0] = "/user/hand/left/input/trackpad/x",
-    [ACTION_TRACKPAD_X][1] = "/user/hand/right/input/trackpad/x",
-    [ACTION_TRACKPAD_Y][0] = "/user/hand/left/input/trackpad/y",
-    [ACTION_TRACKPAD_Y][1] = "/user/hand/right/input/trackpad/y"
+    [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
+    [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad"
   },
   [PROFILE_KNUCKLES] = {
     [ACTION_HAND_POSE][0] = "/user/hand/left/input/pointer/pose",
@@ -162,10 +154,8 @@ static const char* defaultBindings[MAX_PROFILES][MAX_ACTIONS][2] = {
     [ACTION_TRIGGER_TOUCH][1] = "/user/hand/right/input/trigger/touch",
     [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
     [ACTION_TRIGGER_AXIS][1] = "/user/hand/right/input/trigger/value",
-    [ACTION_TRACKPAD_X][0] = "/user/hand/left/input/trackpad/x",
-    [ACTION_TRACKPAD_X][1] = "/user/hand/right/input/trackpad/x",
-    [ACTION_TRACKPAD_Y][0] = "/user/hand/left/input/trackpad/y",
-    [ACTION_TRACKPAD_Y][1] = "/user/hand/right/input/trackpad/y",
+    [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
+    [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad",
     [ACTION_GRIP_AXIS][0] = "/user/hand/left/input/grip/value",
     [ACTION_GRIP_AXIS][1] = "/user/hand/right/input/grip/value",
     [ACTION_VIBRATE][0] = "/user/hand/left/output/vibrate",
@@ -529,8 +519,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
   Action type;
   switch (axis) {
     case AXIS_TRIGGER: type = ACTION_TRIGGER_AXIS; break;
-    case AXIS_TOUCHPAD_X: type = ACTION_TRACKPAD_X; break;
-    case AXIS_TOUCHPAD_Y: type = ACTION_TRACKPAD_Y; break;
+    case AXIS_TOUCHPAD: type = ACTION_TRACKPAD_AXIS; break;
     case AXIS_GRIP: type = ACTION_GRIP_AXIS; break;
     default: return false;
   }

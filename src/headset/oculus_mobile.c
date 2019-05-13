@@ -131,16 +131,21 @@ static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
   return buttonCheck(bridgeLovrMobileData.updateData.goButtonTouch, device, button, touched);
 }
 
-static int vrapi_getAxis(Device device, DeviceAxis axis, float* x, float* y, float* z) {
+static int vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
   if (device != DEVICE_HAND) {
     return false;
   }
 
   switch (axis) {
-    case AXIS_TOUCHPAD_X: return *value = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f, true;
-    case AXIS_TOUCHPAD_Y: return *value = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f, true;
-    case AXIS_TRIGGER: return *value = bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f, true;
-    default: return false;
+    case AXIS_TOUCHPAD:
+      value[0] = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f, true;
+      value[1] = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f, true;
+      return true;
+    case AXIS_TRIGGER:
+      value[0] = bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f;
+      return true;
+    default:
+      return false;
   }
 }
 

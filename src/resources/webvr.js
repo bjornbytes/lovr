@@ -252,25 +252,33 @@ var LibraryLOVR = {
     if (gamepad.id.startsWith('OpenVR')) {
       switch (axis) {
         case C.AXIS_TRIGGER: HEAPF32[value >> 2] = gamepad.buttons[1].value; return true;
-        case C.AXIS_TRACKPAD_X: HEAPF32[value >> 2] = gamepad.axes[0]; return true;
-        case C.AXIS_TRACKPAD_Y: HEAPF32[value >> 2] = gamepad.axes[1]; return true;
+        case C.AXIS_TRACKPAD:
+          HEAPF32[value >> 2 + 0] = gamepad.axes[0];
+          HEAPF32[value >> 2 + 1] = gamepad.axes[1];
+          return true;
         default: return false;
       }
     } else if (gamepad.id.startsWith('Oculus')) {
       switch (axis) {
         case C.AXIS_TRIGGER: HEAPF32[value >> 2] = gamepad.buttons[1].value; return true;
         case C.AXIS_GRIP: HEAPF32[value >> 2] = gamepad.buttons[2].value; return true;
-        case C.AXIS_THUMBSTICK_X: HEAPF32[value >> 2] = gamepad.axes[0]; return true;
-        case C.AXIS_THUMBSTICK_Y: HEAPF32[value >> 2] = gamepad.axes[1]; return true;
+        case C.AXIS_THUMBSTICK:
+          HEAPF32[value >> 2 + 0] = gamepad.axes[0];
+          HEAPF32[value >> 2 + 1] = gamepad.axes[1];
+          return true;
         default: return false;
       }
     } else if (gamepad.id.startsWith('Spatial Controller')) {
       switch (axis) {
         case C.AXIS_TRIGGER: HEAPF32[value >> 2] = gamepad.buttons[0].value; return true;
-        case C.AXIS_THUMBSTICK_X: HEAPF32[value >> 2] = gamepad.axes[0]; return true;
-        case C.AXIS_THUMBSTICK_Y: HEAPF32[value >> 2] = gamepad.axes[1]; return true;
-        case C.AXIS_TRACKPAD_X: HEAPF32[value >> 2] = gamepad.axes[2]; return true;
-        case C.AXIS_TRACKPAD_Y: HEAPF32[value >> 2] = gamepad.axes[3]; return true;
+        case C.AXIS_THUMBSTICK:
+          HEAPF32[value >> 2 + 0] = gamepad.axes[0];
+          HEAPF32[value >> 2 + 1] = gamepad.axes[1];
+          return true;
+        case C.AXIS_TRACKPAD:
+          HEAPF32[value >> 2 + 0] = gamepad.axes[2];
+          HEAPF32[value >> 2 + 1] = gamepad.axes[3];
+          return true;
         default: return false;
       }
     }
@@ -306,10 +314,8 @@ var LibraryLOVR = {
 
     // DeviceAxis
     AXIS_TRIGGER: 0,
-    AXIS_THUMBSTICK_X: 1,
-    AXIS_THUMBSTICK_Y: 2,
-    AXIS_TRACKPAD_X: 3,
-    AXIS_TRACKPAD_Y: 4,
+    AXIS_THUMBSTICK: 1,
+    AXIS_TRACKPAD: 2,
     AXIS_PINCH: 5,
     AXIS_GRIP: 6
   }

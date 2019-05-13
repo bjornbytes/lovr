@@ -33,7 +33,8 @@ typedef enum {
   DEVICE_TRACKER_1,
   DEVICE_TRACKER_2,
   DEVICE_TRACKER_3,
-  DEVICE_TRACKER_4
+  DEVICE_TRACKER_4,
+  MAX_DEVICES
 } Device;
 
 typedef enum {
@@ -46,17 +47,17 @@ typedef enum {
   BUTTON_B,
   BUTTON_X,
   BUTTON_Y,
-  BUTTON_PROXIMITY
+  BUTTON_PROXIMITY,
+  MAX_BUTTONS
 } DeviceButton;
 
 typedef enum {
   AXIS_TRIGGER,
-  AXIS_THUMBSTICK_X,
-  AXIS_THUMBSTICK_Y,
-  AXIS_TOUCHPAD_X,
-  AXIS_TOUCHPAD_Y,
+  AXIS_THUMBSTICK,
+  AXIS_TOUCHPAD,
   AXIS_PINCH,
-  AXIS_GRIP
+  AXIS_GRIP,
+  MAX_AXES
 } DeviceAxis;
 
 typedef enum {

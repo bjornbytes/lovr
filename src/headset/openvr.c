@@ -1,5 +1,9 @@
 #include "headset/headset.h"
+#include "resources/actions.json.h"
+#include "resources/bindings_vive.json.h"
+#include "resources/bindings_knuckles.json.h"
 #include "event/event.h"
+#include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "lib/maf.h"
@@ -24,6 +28,42 @@ extern void VR_ShutdownInternal();
 extern bool VR_IsHmdPresent();
 extern intptr_t VR_GetGenericInterface(const char* pchInterfaceVersion, EVRInitError* peError);
 extern bool VR_IsRuntimeInstalled();
+
+typedef enum {
+	eBone_Root = 0,
+	eBone_Wrist,
+	eBone_Thumb0,
+	eBone_Thumb1,
+	eBone_Thumb2,
+	eBone_Thumb3,
+	eBone_IndexFinger0,
+	eBone_IndexFinger1,
+	eBone_IndexFinger2,
+	eBone_IndexFinger3,
+	eBone_IndexFinger4,
+	eBone_MiddleFinger0,
+	eBone_MiddleFinger1,
+	eBone_MiddleFinger2,
+	eBone_MiddleFinger3,
+	eBone_MiddleFinger4,
+	eBone_RingFinger0,
+	eBone_RingFinger1,
+	eBone_RingFinger2,
+	eBone_RingFinger3,
+	eBone_RingFinger4,
+	eBone_PinkyFinger0,
+	eBone_PinkyFinger1,
+	eBone_PinkyFinger2,
+	eBone_PinkyFinger3,
+	eBone_PinkyFinger4,
+	eBone_Aux_Thumb,
+	eBone_Aux_IndexFinger,
+	eBone_Aux_MiddleFinger,
+	eBone_Aux_RingFinger,
+	eBone_Aux_PinkyFinger,
+	eBone_Count
+} OpenVRBone;
+
 #define HEADSET k_unTrackedDeviceIndex_Hmd
 #define INVALID_DEVICE k_unTrackedDeviceIndexInvalid
 
@@ -32,7 +72,15 @@ static struct {
   struct VR_IVRCompositor_FnTable* compositor;
   struct VR_IVRChaperone_FnTable* chaperone;
   struct VR_IVRRenderModels_FnTable* renderModels;
-  TrackedDevicePose_t poses[16];
+  struct VR_IVRInput_FnTable* input;
+  VRActionSetHandle_t actionSet;
+  VRActionHandle_t poseActions[MAX_DEVICES];
+  VRActionHandle_t buttonActions[2][MAX_BUTTONS];
+  VRActionHandle_t touchActions[2][MAX_BUTTONS];
+  VRActionHandle_t axisActions[2][MAX_AXES];
+  VRActionHandle_t skeletonActions[2];
+  VRActionHandle_t hapticActions[2];
+  TrackedDevicePose_t renderPose;
   RenderModel_t* deviceModels[16];
   RenderModel_TextureMap_t* deviceTextures[16];
   Canvas* canvas;
@@ -80,11 +128,85 @@ static bool openvr_init(float offset, int msaa) {
   sprintf(buffer, "FnTable:%s", IVRCompositor_Version), state.compositor = (struct VR_IVRCompositor_FnTable*) VR_GetGenericInterface(buffer, &vrError);
   sprintf(buffer, "FnTable:%s", IVRChaperone_Version), state.chaperone = (struct VR_IVRChaperone_FnTable*) VR_GetGenericInterface(buffer, &vrError);
   sprintf(buffer, "FnTable:%s", IVRRenderModels_Version), state.renderModels = (struct VR_IVRRenderModels_FnTable*) VR_GetGenericInterface(buffer, &vrError);
+  sprintf(buffer, "FnTable:%s", IVRInput_Version), state.input = (struct VR_IVRInput_FnTable*) VR_GetGenericInterface(buffer, &vrError);
 
-  if (!state.system || !state.compositor || !state.chaperone || !state.renderModels) {
+  if (!state.system || !state.compositor || !state.chaperone || !state.renderModels || !state.input) {
     VR_ShutdownInternal();
     return false;
   }
+
+  // Find the location of the action manifest, create it if it doesn't exist or isn't in the save directory
+  const char* actionManifestLocation = lovrFilesystemGetRealDirectory("actions.json");
+  if (!actionManifestLocation || strcmp(actionManifestLocation, lovrFilesystemGetSaveDirectory())) {
+    if (lovrFilesystemWrite("actions.json", (const char*) actions_json, actions_json_len, false) != actions_json_len) { return VR_ShutdownInternal(), false; }
+    if (lovrFilesystemWrite("bindings_vive.json", (const char*) bindings_vive_json, bindings_vive_json_len, false) != bindings_vive_json_len) { return VR_ShutdownInternal(), false; }
+    if (lovrFilesystemWrite("bindings_knuckles.json", (const char*) bindings_knuckles_json, bindings_knuckles_json_len, false) != bindings_knuckles_json_len) { return VR_ShutdownInternal(), false; }
+  }
+
+  char path[LOVR_PATH_MAX];
+  snprintf(path, sizeof(path), "%s%cactions.json", lovrFilesystemGetSaveDirectory(), lovrDirSep);
+  state.input->SetActionManifestPath(path);
+  state.input->GetActionSetHandle("/actions/lovr", &state.actionSet);
+
+  state.input->GetActionHandle("/actions/lovr/in/headPose", &state.poseActions[DEVICE_HEAD]);
+  state.input->GetActionHandle("/actions/lovr/in/leftHandPose", &state.poseActions[DEVICE_HAND_LEFT]);
+  state.input->GetActionHandle("/actions/lovr/in/rightHandPose", &state.poseActions[DEVICE_HAND_RIGHT]);
+
+  state.input->GetActionHandle("/actions/lovr/in/leftTriggerDown", &state.buttonActions[0][BUTTON_TRIGGER]);
+  state.input->GetActionHandle("/actions/lovr/in/leftThumbstickDown", &state.buttonActions[0][BUTTON_THUMBSTICK]);
+  state.input->GetActionHandle("/actions/lovr/in/leftTouchpadDown", &state.buttonActions[0][BUTTON_TOUCHPAD]);
+  state.input->GetActionHandle("/actions/lovr/in/leftGripDown", &state.buttonActions[0][BUTTON_GRIP]);
+  state.input->GetActionHandle("/actions/lovr/in/leftMenuDown", &state.buttonActions[0][BUTTON_MENU]);
+  state.input->GetActionHandle("/actions/lovr/in/leftADown", &state.buttonActions[0][BUTTON_A]);
+  state.input->GetActionHandle("/actions/lovr/in/leftBDown", &state.buttonActions[0][BUTTON_B]);
+  state.input->GetActionHandle("/actions/lovr/in/leftXDown", &state.buttonActions[0][BUTTON_X]);
+  state.input->GetActionHandle("/actions/lovr/in/leftYDown", &state.buttonActions[0][BUTTON_Y]);
+
+  state.input->GetActionHandle("/actions/lovr/in/rightTriggerDown", &state.buttonActions[1][BUTTON_TRIGGER]);
+  state.input->GetActionHandle("/actions/lovr/in/rightThumbstickDown", &state.buttonActions[1][BUTTON_THUMBSTICK]);
+  state.input->GetActionHandle("/actions/lovr/in/rightTouchpadDown", &state.buttonActions[1][BUTTON_TOUCHPAD]);
+  state.input->GetActionHandle("/actions/lovr/in/rightGripDown", &state.buttonActions[1][BUTTON_GRIP]);
+  state.input->GetActionHandle("/actions/lovr/in/rightMenuDown", &state.buttonActions[1][BUTTON_MENU]);
+  state.input->GetActionHandle("/actions/lovr/in/rightADown", &state.buttonActions[1][BUTTON_A]);
+  state.input->GetActionHandle("/actions/lovr/in/rightBDown", &state.buttonActions[1][BUTTON_B]);
+  state.input->GetActionHandle("/actions/lovr/in/rightXDown", &state.buttonActions[1][BUTTON_X]);
+  state.input->GetActionHandle("/actions/lovr/in/rightYDown", &state.buttonActions[1][BUTTON_Y]);
+
+  state.input->GetActionHandle("/actions/lovr/in/leftTriggerTouch", &state.touchActions[0][BUTTON_TRIGGER]);
+  state.input->GetActionHandle("/actions/lovr/in/leftThumbstickTouch", &state.touchActions[0][BUTTON_THUMBSTICK]);
+  state.input->GetActionHandle("/actions/lovr/in/leftTouchpadTouch", &state.touchActions[0][BUTTON_TOUCHPAD]);
+  state.input->GetActionHandle("/actions/lovr/in/leftGripTouch", &state.touchActions[0][BUTTON_GRIP]);
+  state.input->GetActionHandle("/actions/lovr/in/leftMenuTouch", &state.touchActions[0][BUTTON_MENU]);
+  state.input->GetActionHandle("/actions/lovr/in/leftATouch", &state.touchActions[0][BUTTON_A]);
+  state.input->GetActionHandle("/actions/lovr/in/leftBTouch", &state.touchActions[0][BUTTON_B]);
+  state.input->GetActionHandle("/actions/lovr/in/leftXTouch", &state.touchActions[0][BUTTON_X]);
+  state.input->GetActionHandle("/actions/lovr/in/leftYTouch", &state.touchActions[0][BUTTON_Y]);
+
+  state.input->GetActionHandle("/actions/lovr/in/rightTriggerTouch", &state.touchActions[1][BUTTON_TRIGGER]);
+  state.input->GetActionHandle("/actions/lovr/in/rightThumbstickTouch", &state.touchActions[1][BUTTON_THUMBSTICK]);
+  state.input->GetActionHandle("/actions/lovr/in/rightTouchpadTouch", &state.touchActions[1][BUTTON_TOUCHPAD]);
+  state.input->GetActionHandle("/actions/lovr/in/rightGripTouch", &state.touchActions[1][BUTTON_GRIP]);
+  state.input->GetActionHandle("/actions/lovr/in/rightMenuTouch", &state.touchActions[1][BUTTON_MENU]);
+  state.input->GetActionHandle("/actions/lovr/in/rightATouch", &state.touchActions[1][BUTTON_A]);
+  state.input->GetActionHandle("/actions/lovr/in/rightBTouch", &state.touchActions[1][BUTTON_B]);
+  state.input->GetActionHandle("/actions/lovr/in/rightXTouch", &state.touchActions[1][BUTTON_X]);
+  state.input->GetActionHandle("/actions/lovr/in/rightYTouch", &state.touchActions[1][BUTTON_Y]);
+
+  state.input->GetActionHandle("/actions/lovr/in/leftTriggerAxis", &state.axisActions[0][AXIS_TRIGGER]);
+  state.input->GetActionHandle("/actions/lovr/in/leftThumbstickAxis", &state.axisActions[0][AXIS_THUMBSTICK]);
+  state.input->GetActionHandle("/actions/lovr/in/leftTouchpadAxis", &state.axisActions[0][AXIS_TOUCHPAD]);
+  state.input->GetActionHandle("/actions/lovr/in/leftGripAxis", &state.axisActions[0][AXIS_GRIP]);
+
+  state.input->GetActionHandle("/actions/lovr/in/rightTriggerAxis", &state.axisActions[1][AXIS_TRIGGER]);
+  state.input->GetActionHandle("/actions/lovr/in/rightThumbstickAxis", &state.axisActions[1][AXIS_THUMBSTICK]);
+  state.input->GetActionHandle("/actions/lovr/in/rightTouchpadAxis", &state.axisActions[1][AXIS_TOUCHPAD]);
+  state.input->GetActionHandle("/actions/lovr/in/rightGripAxis", &state.axisActions[1][AXIS_GRIP]);
+
+  state.input->GetActionHandle("/actions/lovr/in/leftHandSkeleton", &state.skeletonActions[0]);
+  state.input->GetActionHandle("/actions/lovr/in/rightHandSkeleton", &state.skeletonActions[1]);
+
+  state.input->GetActionHandle("/actions/lovr/out/leftHandBZZ", &state.hapticActions[0]);
+  state.input->GetActionHandle("/actions/lovr/out/rightHandBZZ", &state.hapticActions[1]);
 
   openvr_getName(buffer, sizeof(buffer));
   state.rift = !strncmp(buffer, "Oculus", sizeof(buffer));
@@ -175,123 +297,134 @@ static const float* openvr_getBoundsGeometry(int* count) {
   return NULL;
 }
 
-static bool getTransform(unsigned int index, mat4 transform) {
-  TrackedDevicePose_t pose = state.poses[index];
-  if (!pose.bPoseIsValid || !pose.bDeviceIsConnected) {
+static bool getTransform(Device device, mat4 transform) {
+  if (!state.poseActions[device]) {
     return false;
-  } else {
-    mat4_fromMat34(transform, pose.mDeviceToAbsoluteTracking.m);
-    transform[13] += state.offset;
-    return true;
   }
+
+  InputPoseActionData_t actionData;
+  state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
+  mat4_fromMat34(transform, actionData.pose.mDeviceToAbsoluteTracking.m);
+  transform[13] += state.offset;
+  return actionData.bActive;
 }
 
 static bool openvr_getPose(Device device, vec3 position, quat orientation) {
   float transform[16];
-  TrackedDeviceIndex_t index = getDeviceIndex(device);
-  if (index == INVALID_DEVICE || !getTransform(index, transform)) {
+  if (getTransform(device, transform)) {
+    mat4_getPosition(transform, position);
+    mat4_getOrientation(transform, orientation);
+    return true;
+  }
+  return false;
+}
+
+static bool openvr_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;
   }
 
+  float transform[16];
+  if (!getTransform(device, transform)) {
+    return false;
+  }
+
+  InputSkeletalActionData_t actionData;
+  state.input->GetSkeletalActionData(state.skeletonActions[device - DEVICE_HAND_LEFT], &actionData, sizeof(actionData));
+
+  if (!actionData.bActive) {
+    return false;
+  }
+
+  VRBoneTransform_t bones[31];
+  EVRSkeletalTransformSpace transformSpace = EVRSkeletalTransformSpace_VRSkeletalTransformSpace_Model;
+  EVRSkeletalMotionRange motionRange = EVRSkeletalMotionRange_VRSkeletalMotionRange_WithController;
+  state.input->GetSkeletalBoneData(state.skeletonActions[device - DEVICE_HAND_LEFT], transformSpace, motionRange, bones, sizeof(bones) / sizeof(bones[0]));
+
+  int index;
+  switch (bone) {
+    case BONE_THUMB_1: index = eBone_Thumb0; break;
+    case BONE_THUMB_2: index = eBone_Thumb1; break;
+    case BONE_THUMB_3: index = eBone_Thumb2; break;
+    case BONE_THUMB: index = eBone_Thumb3; break;
+    case BONE_INDEX_1: index = eBone_IndexFinger0; break;
+    case BONE_INDEX_2: index = eBone_IndexFinger1; break;
+    case BONE_INDEX_3: index = eBone_IndexFinger2; break;
+    case BONE_INDEX_4: index = eBone_IndexFinger3; break;
+    case BONE_INDEX: index = eBone_IndexFinger4; break;
+    case BONE_MIDDLE_1: index = eBone_MiddleFinger0; break;
+    case BONE_MIDDLE_2: index = eBone_MiddleFinger1; break;
+    case BONE_MIDDLE_3: index = eBone_MiddleFinger2; break;
+    case BONE_MIDDLE_4: index = eBone_MiddleFinger3; break;
+    case BONE_MIDDLE: index = eBone_MiddleFinger4; break;
+    case BONE_RING_1: index = eBone_RingFinger0; break;
+    case BONE_RING_2: index = eBone_RingFinger1; break;
+    case BONE_RING_3: index = eBone_RingFinger2; break;
+    case BONE_RING_4: index = eBone_RingFinger3; break;
+    case BONE_RING: index = eBone_RingFinger4; break;
+    case BONE_PINKY_1: index = eBone_PinkyFinger0; break;
+    case BONE_PINKY_2: index = eBone_PinkyFinger1; break;
+    case BONE_PINKY_3: index = eBone_PinkyFinger2; break;
+    case BONE_PINKY_4: index = eBone_PinkyFinger3; break;
+    case BONE_PINKY: index = eBone_PinkyFinger4; break;
+    default: return false;
+  }
+
+  VRBoneTransform_t* b = &bones[index];
+  mat4_translate(transform, b->position.v[0], b->position.v[1], b->position.v[2]);
+  mat4_rotateQuat(transform, (float[4]) { b->orientation.x, b->orientation.y, b->orientation.z, b->orientation.w });
   mat4_getPosition(transform, position);
   mat4_getOrientation(transform, orientation);
   return true;
 }
 
-static bool openvr_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
-  return false;
-}
-
 static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  TrackedDeviceIndex_t index = getDeviceIndex(device);
-  TrackedDevicePose_t* pose = &state.poses[device];
-  if (index == INVALID_DEVICE || !pose->bPoseIsValid || !pose->bDeviceIsConnected) {
+  if (!state.poseActions[device]) {
     return false;
   }
 
-  vec3_init(velocity, pose->vVelocity.v);
-  vec3_init(angularVelocity, pose->vAngularVelocity.v);
-  return true;
+  InputPoseActionData_t actionData;
+  state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
+  vec3_init(velocity, actionData.pose.vVelocity.v);
+  vec3_init(angularVelocity, actionData.pose.vAngularVelocity.v);
+  return actionData.bActive;
 }
 
 static bool openvr_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
   return false;
 }
 
-static bool getButtonState(Device device, DeviceButton button, bool touch, bool* value) {
-  VRControllerState_t input;
-
-  if (device == DEVICE_HEAD && button == BUTTON_PROXIMITY && !touch) {
-    if (!state.system->GetControllerState(HEADSET, &input, sizeof(input))) {
-      return false;
-    }
-
-    return *value = (input.ulButtonPressed >> EVRButtonId_k_EButton_ProximitySensor) & 1, true;
+static bool getButtonState(Device device, DeviceButton button, VRActionHandle_t actions[2][MAX_BUTTONS], bool* value) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
   }
 
-  TrackedDeviceIndex_t index = getDeviceIndex(device);
-  if (index != INVALID_DEVICE || state.system->GetControllerState(index, &input, sizeof(input))) {
-    uint64_t mask = touch ? input.ulButtonTouched : input.ulButtonPressed;
-
-    if (state.rift) {
-      switch (button) {
-        case BUTTON_TRIGGER: return *value = (mask >> EVRButtonId_k_EButton_Axis1) & 1, true;
-        case BUTTON_GRIP: return *value = (mask >> EVRButtonId_k_EButton_Axis2) & 1, true;
-        case BUTTON_A: return *value = (mask >> EVRButtonId_k_EButton_A) & 1, device == DEVICE_HAND_RIGHT;
-        case BUTTON_B: return *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1, device == DEVICE_HAND_RIGHT;
-        case BUTTON_X: return *value = (mask >> EVRButtonId_k_EButton_A) & 1, device == DEVICE_HAND_LEFT;
-        case BUTTON_Y: return *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1, device == DEVICE_HAND_LEFT;
-        default: return false;
-      }
-    } else {
-      switch (button) {
-        case BUTTON_TRIGGER: return *value = (mask >> EVRButtonId_k_EButton_SteamVR_Trigger) & 1, true;
-        case BUTTON_TOUCHPAD: return *value = (mask >> EVRButtonId_k_EButton_SteamVR_Touchpad) & 1, true;
-        case BUTTON_MENU: return *value = (mask >> EVRButtonId_k_EButton_ApplicationMenu) & 1, true;
-        case BUTTON_GRIP: return *value = (mask >> EVRButtonId_k_EButton_Grip) & 1, true;
-        default: return false;
-      }
-    }
-  }
-
-  return false;
+  InputDigitalActionData_t actionData;
+  state.input->GetDigitalActionData(actions[device - DEVICE_HAND_LEFT][button], &actionData, sizeof(actionData), 0);
+  return *value = actionData.bState, actionData.bActive;
 }
 
 static bool openvr_isDown(Device device, DeviceButton button, bool* down) {
-  return getButtonState(device, button, false, down);
+  return getButtonState(device, button, state.buttonActions, down);
 }
 
 static bool openvr_isTouched(Device device, DeviceButton button, bool* touched) {
-  return getButtonState(device, button, true, touched);
+  return getButtonState(device, button, state.touchActions, touched);
 }
 
-static bool openvr_getAxis(Device device, DeviceAxis axis, float* value) {
-  TrackedDeviceIndex_t index = getDeviceIndex(device);
-
-  VRControllerState_t input;
-  if (index != INVALID_DEVICE || state.system->GetControllerState(index, &input, sizeof(input))) {
-    switch (axis) {
-      case AXIS_TRIGGER: return *value = input.rAxis[1].x, true;
-      case AXIS_GRIP: return *value = input.rAxis[2].x, state.rift;
-      case AXIS_TOUCHPAD_X: return *value = input.rAxis[0].x, !state.rift;
-      case AXIS_TOUCHPAD_Y: return *value = input.rAxis[0].y, !state.rift;
-      case AXIS_THUMBSTICK_X: return *value = input.rAxis[0].x, state.rift;
-      case AXIS_THUMBSTICK_Y: return *value = input.rAxis[0].y, state.rift;
-      default: return false;
-    }
+static bool openvr_getAxis(Device device, DeviceAxis axis, vec3 value) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
   }
 
-  return false;
+  InputAnalogActionData_t actionData;
+  state.input->GetAnalogActionData(state.axisActions[device - DEVICE_HAND_LEFT][axis], &actionData, sizeof(actionData), 0);
+  return vec3_set(value, actionData.x, actionData.y, actionData.z), actionData.bActive;
 }
 
 static bool openvr_vibrate(Device device, float strength, float duration, float frequency) {
-  if (duration <= 0) return false;
-
-  TrackedDeviceIndex_t index = getDeviceIndex(device);
-  if (index == INVALID_DEVICE) return false;
-
-  unsigned short uSeconds = (unsigned short) (duration * 1e6f + .5f);
-  state.system->TriggerHapticPulse(index, 0, uSeconds);
+  if (duration <= 0 || (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT)) return false;
+  state.input->TriggerHapticVibrationAction(state.hapticActions[device - DEVICE_HAND_LEFT], 0.f, duration, frequency, strength, 0);
   return true;
 }
 
@@ -417,7 +550,7 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
   Camera camera = { .canvas = state.canvas, .viewMatrix = { MAT4_IDENTITY, MAT4_IDENTITY } };
 
   float head[16], eye[16];
-  getTransform(HEADSET, head);
+  mat4_fromMat34(head, state.renderPose.mDeviceToAbsoluteTracking.m);
 
   for (int i = 0; i < 2; i++) {
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
@@ -443,7 +576,9 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
 }
 
 static void openvr_update(float dt) {
-  state.compositor->WaitGetPoses(state.poses, 16, NULL, 0);
+  state.compositor->WaitGetPoses(&state.renderPose, 1, NULL, 0);
+  VRActiveActionSet_t activeActionSet = { .ulActionSet = state.actionSet };
+  state.input->UpdateActionState(&activeActionSet, sizeof(activeActionSet), 1);
 
   struct VREvent_t vrEvent;
   while (state.system->PollNextEvent(&vrEvent, sizeof(vrEvent))) {

@@ -252,7 +252,7 @@ static bool oculus_isTouched(Device device, DeviceButton button, bool* touched) 
   }
 }
 
-static bool oculus_getAxis(Device device, DeviceAxis axis, float* value) {
+static bool oculus_getAxis(Device device, DeviceAxis axis, vec3* value) {
   if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;
   }
@@ -263,8 +263,10 @@ static bool oculus_getAxis(Device device, DeviceAxis axis, float* value) {
   switch (axis) {
     case AXIS_GRIP: return *value = is->HandTriggerNoDeadzone[hand], true;
     case AXIS_TRIGGER: return *value = is->IndexTriggerNoDeadzone[hand], true;
-    case AXIS_THUMBSTICK_X: return *value = is->ThumbstickNoDeadzone[hand].x, true;
-    case AXIS_THUMBSTICK_Y: return *value = is->ThumbstickNoDeadzone[hand].y, true;
+    case AXIS_THUMBSTICK:
+      value[0] = is->ThumbstickNoDeadzone[hand].x;
+      value[1] = is->ThumbstickNoDeadzone[hand].y;
+      return true;
     default: return false;
   }
 }

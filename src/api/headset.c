@@ -57,10 +57,8 @@ const char* DeviceButtons[] = {
 
 const char* DeviceAxes[] = {
   [AXIS_TRIGGER] = "trigger",
-  [AXIS_THUMBSTICK_X] = "thumbstick/x",
-  [AXIS_THUMBSTICK_Y] = "thumbstick/y",
-  [AXIS_TOUCHPAD_X] = "touchpad/x",
-  [AXIS_TOUCHPAD_Y] = "touchpad/y",
+  [AXIS_THUMBSTICK] = "thumbstick",
+  [AXIS_TOUCHPAD] = "touchpad",
   [AXIS_PINCH] = "pinch",
   [AXIS_GRIP] = "grip",
   NULL
@@ -418,11 +416,22 @@ int l_lovrHeadsetIsTouched(lua_State* L) {
 int l_lovrHeadsetGetAxis(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceAxis axis = luaL_checkoption(L, 2, NULL, DeviceAxes);
-  float value;
+  float value[3];
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getAxis(device, axis, &value)) {
-      lua_pushnumber(L, value);
-      return 1;
+    if (driver->getAxis(device, axis, value)) {
+      switch (axis) {
+        case MAX_AXES:
+        case AXIS_TRIGGER:
+        case AXIS_PINCH:
+        case AXIS_GRIP:
+          lua_pushnumber(L, value[0]);
+          return 1;
+        case AXIS_THUMBSTICK:
+        case AXIS_TOUCHPAD:
+          lua_pushnumber(L, value[0]);
+          lua_pushnumber(L, value[1]);
+          return 2;
+      }
     }
   }
   return 0;

@@ -122,7 +122,7 @@ static bool desktop_isTouched(Device device, DeviceButton button, bool* touched)
   return false;
 }
 
-static bool desktop_getAxis(Device device, DeviceAxis axis, float* value) {
+static bool desktop_getAxis(Device device, DeviceAxis axis, vec3 value) {
   return false;
 }
 
