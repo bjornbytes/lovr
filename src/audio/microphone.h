@@ -1,7 +1,8 @@
 #include "types.h"
+#include <stdbool.h>
+#include <stdint.h>
 #include <AL/al.h>
 #include <AL/alc.h>
-#include <stdbool.h>
 
 #pragma once
 
@@ -12,20 +13,20 @@ typedef struct Microphone {
   ALCdevice* device;
   const char* name;
   bool isRecording;
-  int sampleRate;
-  int bitDepth;
-  int channelCount;
+  uint32_t sampleRate;
+  uint32_t bitDepth;
+  uint32_t channelCount;
 } Microphone;
 
-Microphone* lovrMicrophoneInit(Microphone* microphone, const char* name, int samples, int sampleRate, int bitDepth, int channelCount);
+Microphone* lovrMicrophoneInit(Microphone* microphone, const char* name, size_t samples, uint32_t sampleRate, uint32_t bitDepth, uint32_t channelCount);
 #define lovrMicrophoneCreate(...) lovrMicrophoneInit(lovrAlloc(Microphone), __VA_ARGS__)
 void lovrMicrophoneDestroy(void* ref);
-int lovrMicrophoneGetBitDepth(Microphone* microphone);
-int lovrMicrophoneGetChannelCount(Microphone* microphone);
+uint32_t lovrMicrophoneGetBitDepth(Microphone* microphone);
+uint32_t lovrMicrophoneGetChannelCount(Microphone* microphone);
 struct SoundData* lovrMicrophoneGetData(Microphone* microphone);
 const char* lovrMicrophoneGetName(Microphone* microphone);
-int lovrMicrophoneGetSampleCount(Microphone* microphone);
-int lovrMicrophoneGetSampleRate(Microphone* microphone);
+size_t lovrMicrophoneGetSampleCount(Microphone* microphone);
+uint32_t lovrMicrophoneGetSampleRate(Microphone* microphone);
 bool lovrMicrophoneIsRecording(Microphone* microphone);
 void lovrMicrophoneStartRecording(Microphone* microphone);
 void lovrMicrophoneStopRecording(Microphone* microphone);

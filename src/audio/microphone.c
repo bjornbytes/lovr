@@ -1,9 +1,9 @@
 #include "audio/microphone.h"
 #include "audio/audio.h"
 #include "data/soundData.h"
-#include "types.h"
+#include "util.h"
 
-Microphone* lovrMicrophoneInit(Microphone* microphone, const char* name, int samples, int sampleRate, int bitDepth, int channelCount) {
+Microphone* lovrMicrophoneInit(Microphone* microphone, const char* name, size_t samples, uint32_t sampleRate, uint32_t bitDepth, uint32_t channelCount) {
   ALCdevice* device = alcCaptureOpenDevice(name, sampleRate, lovrAudioConvertFormat(bitDepth, channelCount), samples);
   lovrAssert(device, "Error opening capture device for microphone '%s'", name);
   microphone->device = device;
@@ -20,11 +20,11 @@ void lovrMicrophoneDestroy(void* ref) {
   alcCaptureCloseDevice(microphone->device);
 }
 
-int lovrMicrophoneGetBitDepth(Microphone* microphone) {
+uint32_t lovrMicrophoneGetBitDepth(Microphone* microphone) {
   return microphone->bitDepth;
 }
 
-int lovrMicrophoneGetChannelCount(Microphone* microphone) {
+uint32_t lovrMicrophoneGetChannelCount(Microphone* microphone) {
   return microphone->channelCount;
 }
 
@@ -33,7 +33,7 @@ SoundData* lovrMicrophoneGetData(Microphone* microphone) {
     return NULL;
   }
 
-  int samples = lovrMicrophoneGetSampleCount(microphone);
+  size_t samples = lovrMicrophoneGetSampleCount(microphone);
   if (samples == 0) {
     return NULL;
   }
@@ -47,17 +47,17 @@ const char* lovrMicrophoneGetName(Microphone* microphone) {
   return microphone->name;
 }
 
-int lovrMicrophoneGetSampleCount(Microphone* microphone) {
+size_t lovrMicrophoneGetSampleCount(Microphone* microphone) {
   if (!microphone->isRecording) {
     return 0;
   }
 
   ALCint samples;
   alcGetIntegerv(microphone->device, ALC_CAPTURE_SAMPLES, sizeof(ALCint), &samples);
-  return (int) samples;
+  return (size_t) samples;
 }
 
-int lovrMicrophoneGetSampleRate(Microphone* microphone) {
+uint32_t lovrMicrophoneGetSampleRate(Microphone* microphone) {
   return microphone->sampleRate;
 }
 

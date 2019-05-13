@@ -6,6 +6,7 @@
 #include "audio/source.h"
 #include "data/audioStream.h"
 #include "data/soundData.h"
+#include <stdlib.h>
 
 const char* SourceTypes[] = {
   [SOURCE_STATIC] = "static",
@@ -34,7 +35,7 @@ static int l_lovrAudioGetDopplerEffect(lua_State* L) {
 
 static int l_lovrAudioGetMicrophoneNames(lua_State* L) {
   const char* names[MAX_MICROPHONES];
-  uint8_t count;
+  uint32_t count;
   lovrAudioGetMicrophoneNames(names, &count);
 
   if (lua_istable(L, 1)) {
@@ -44,7 +45,7 @@ static int l_lovrAudioGetMicrophoneNames(lua_State* L) {
     lua_createtable(L, count, 0);
   }
 
-  for (int i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < count; i++) {
     lua_pushstring(L, names[i]);
     lua_rawseti(L, -2, i + 1);
   }

@@ -1,8 +1,9 @@
-#include "lib/maf.h"
 #include "types.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
 #include <AL/al.h>
 #include <AL/alc.h>
-#include <stdbool.h>
 
 #pragma once
 
@@ -37,16 +38,16 @@ Source* lovrSourceInitStream(Source* source, struct AudioStream* stream);
 #define lovrSourceCreateStream(...) lovrSourceInitStream(lovrAlloc(Source), __VA_ARGS__)
 void lovrSourceDestroy(void* ref);
 SourceType lovrSourceGetType(Source* source);
-int lovrSourceGetBitDepth(Source* source);
-int lovrSourceGetChannelCount(Source* source);
+uint32_t lovrSourceGetBitDepth(Source* source);
+uint32_t lovrSourceGetChannelCount(Source* source);
 void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, float* outerGain);
-void lovrSourceGetOrientation(Source* source, quat orientation);
-int lovrSourceGetDuration(Source* source);
+void lovrSourceGetOrientation(Source* source, float* orientation);
+size_t lovrSourceGetDuration(Source* source);
 void lovrSourceGetFalloff(Source* source, float* reference, float* max, float* rolloff);
 float lovrSourceGetPitch(Source* source);
-void lovrSourceGetPosition(Source* source, vec3 position);
-void lovrSourceGetVelocity(Source* source, vec3 velocity);
-int lovrSourceGetSampleRate(Source* source);
+void lovrSourceGetPosition(Source* source, float* position);
+void lovrSourceGetVelocity(Source* source, float* velocity);
+uint32_t lovrSourceGetSampleRate(Source* source);
 float lovrSourceGetVolume(Source* source);
 void lovrSourceGetVolumeLimits(Source* source, float* min, float* max);
 bool lovrSourceIsLooping(Source* source);
@@ -58,17 +59,17 @@ void lovrSourcePause(Source* source);
 void lovrSourcePlay(Source* source);
 void lovrSourceResume(Source* source);
 void lovrSourceRewind(Source* source);
-void lovrSourceSeek(Source* source, int sample);
+void lovrSourceSeek(Source* source, size_t sample);
 void lovrSourceSetCone(Source* source, float inner, float outer, float outerGain);
-void lovrSourceSetOrientation(Source* source, quat orientation);
+void lovrSourceSetOrientation(Source* source, float* orientation);
 void lovrSourceSetFalloff(Source* source, float reference, float max, float rolloff);
 void lovrSourceSetLooping(Source* source, bool isLooping);
 void lovrSourceSetPitch(Source* source, float pitch);
-void lovrSourceSetPosition(Source* source, vec3 position);
+void lovrSourceSetPosition(Source* source, float* position);
 void lovrSourceSetRelative(Source* source, bool isRelative);
-void lovrSourceSetVelocity(Source* source, vec3 velocity);
+void lovrSourceSetVelocity(Source* source, float* velocity);
 void lovrSourceSetVolume(Source* source, float volume);
 void lovrSourceSetVolumeLimits(Source* source, float min, float max);
 void lovrSourceStop(Source* source);
-void lovrSourceStream(Source* source, ALuint* buffers, int count);
-int lovrSourceTell(Source* source);
+void lovrSourceStream(Source* source, uint32_t* buffers, size_t count);
+size_t lovrSourceTell(Source* source);

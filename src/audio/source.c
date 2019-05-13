@@ -2,6 +2,7 @@
 #include "audio/audio.h"
 #include "data/audioStream.h"
 #include "data/soundData.h"
+#include "lib/maf.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -44,7 +45,7 @@ SourceType lovrSourceGetType(Source* source) {
   return source->type;
 }
 
-int lovrSourceGetBitDepth(Source* source) {
+uint32_t lovrSourceGetBitDepth(Source* source) {
   return source->type == SOURCE_STATIC ? source->soundData->bitDepth : source->stream->bitDepth;
 }
 
@@ -56,7 +57,7 @@ void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, flo
   *outerAngle *= (float) M_PI / 180.f;
 }
 
-int lovrSourceGetChannelCount(Source* source) {
+uint32_t lovrSourceGetChannelCount(Source* source) {
   return source->type == SOURCE_STATIC ? source->soundData->channelCount : source->stream->channelCount;
 }
 
@@ -66,7 +67,7 @@ void lovrSourceGetOrientation(Source* source, quat orientation) {
   quat_between(orientation, forward, v);
 }
 
-int lovrSourceGetDuration(Source* source) {
+size_t lovrSourceGetDuration(Source* source) {
   return source->type == SOURCE_STATIC ? source->soundData->samples : source->stream->samples;
 }
 
@@ -86,7 +87,7 @@ void lovrSourceGetPosition(Source* source, vec3 position) {
   alGetSourcefv(source->id, AL_POSITION, position);
 }
 
-int lovrSourceGetSampleRate(Source* source) {
+uint32_t lovrSourceGetSampleRate(Source* source) {
   return source->type == SOURCE_STATIC ? source->soundData->sampleRate : source->stream->sampleRate;
 }
 
@@ -165,7 +166,7 @@ void lovrSourceRewind(Source* source) {
   }
 }
 
-void lovrSourceSeek(Source* source, int sample) {
+void lovrSourceSeek(Source* source, size_t sample) {
   switch (source->type) {
     case SOURCE_STATIC:
       alSourcef(source->id, AL_SAMPLE_OFFSET, sample);
@@ -265,16 +266,16 @@ void lovrSourceStop(Source* source) {
 }
 
 // Fills buffers with data and queues them, called once initially and over time to stream more data
-void lovrSourceStream(Source* source, ALuint* buffers, int count) {
+void lovrSourceStream(Source* source, ALuint* buffers, size_t count) {
   if (source->type == SOURCE_STATIC) {
     return;
   }
 
   AudioStream* stream = source->stream;
   ALenum format = lovrAudioConvertFormat(stream->bitDepth, stream->channelCount);
-  int frequency = stream->sampleRate;
-  int samples = 0;
-  int n = 0;
+  uint32_t frequency = stream->sampleRate;
+  size_t samples = 0;
+  size_t n = 0;
 
   // Keep decoding until there is nothing left to decode or all the buffers are filled
   while (n < count && (samples = lovrAudioStreamDecode(stream, NULL, 0)) != 0) {
@@ -290,7 +291,7 @@ void lovrSourceStream(Source* source, ALuint* buffers, int count) {
   }
 }
 
-int lovrSourceTell(Source* source) {
+size_t lovrSourceTell(Source* source) {
   switch (source->type) {
     case SOURCE_STATIC: {
       float offset;
@@ -299,13 +300,13 @@ int lovrSourceTell(Source* source) {
     }
 
     case SOURCE_STREAM: {
-      int decoderOffset = lovrAudioStreamTell(source->stream);
-      int samplesPerBuffer = source->stream->bufferSize / source->stream->channelCount / sizeof(ALshort);
-      int queuedBuffers, sampleOffset;
+      size_t decoderOffset = lovrAudioStreamTell(source->stream);
+      size_t samplesPerBuffer = source->stream->bufferSize / source->stream->channelCount / sizeof(ALshort);
+      ALsizei queuedBuffers, sampleOffset;
       alGetSourcei(source->id, AL_BUFFERS_QUEUED, &queuedBuffers);
       alGetSourcei(source->id, AL_SAMPLE_OFFSET, &sampleOffset);
 
-      int offset = decoderOffset - queuedBuffers * samplesPerBuffer + sampleOffset;
+      size_t offset = decoderOffset - queuedBuffers * samplesPerBuffer + sampleOffset;
 
       if (offset < 0) {
         return offset + source->stream->samples;

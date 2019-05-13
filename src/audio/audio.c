@@ -2,10 +2,23 @@
 #include "audio/source.h"
 #include "data/audioStream.h"
 #include "lib/maf.h"
+#include "lib/vec/vec.h"
 #include "util.h"
 #include <stdlib.h>
+#include <AL/al.h>
+#include <AL/alc.h>
+#include <AL/alext.h>
 
-static AudioState state;
+static struct {
+  bool initialized;
+  ALCdevice* device;
+  ALCcontext* context;
+  vec_void_t sources;
+  bool isSpatialized;
+  float orientation[4];
+  float position[3];
+  float velocity[3];
+} state;
 
 ALenum lovrAudioConvertFormat(int bitDepth, int channelCount) {
   if (bitDepth == 8 && channelCount == 1) {
@@ -57,7 +70,7 @@ void lovrAudioDestroy() {
     lovrRelease(Source, state.sources.data[i]);
   }
   vec_deinit(&state.sources);
-  memset(&state, 0, sizeof(AudioState));
+  memset(&state, 0, sizeof(state));
 }
 
 void lovrAudioUpdate() {
@@ -98,7 +111,7 @@ void lovrAudioGetDopplerEffect(float* factor, float* speedOfSound) {
   alGetFloatv(AL_SPEED_OF_SOUND, speedOfSound);
 }
 
-void lovrAudioGetMicrophoneNames(const char* names[MAX_MICROPHONES], uint8_t* count) {
+void lovrAudioGetMicrophoneNames(const char* names[MAX_MICROPHONES], uint32_t* count) {
   const char* name = alcGetString(NULL, ALC_CAPTURE_DEVICE_SPECIFIER);
   *count = 0;
   while (*name) {
@@ -164,8 +177,8 @@ void lovrAudioSetDopplerEffect(float factor, float speedOfSound) {
 void lovrAudioSetOrientation(quat orientation) {
 
   // Rotate the unit forward/up vectors by the quaternion derived from the specified angle/axis
-  float f[3] = { 0, 0, -1 };
-  float u[3] = { 0, 1, 0 };
+  float f[3] = { 0.f, 0.f, -1.f };
+  float u[3] = { 0.f, 1.f,  0.f };
   quat_init(state.orientation, orientation);
   quat_rotate(state.orientation, f);
   quat_rotate(state.orientation, u);
