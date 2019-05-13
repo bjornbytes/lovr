@@ -50,7 +50,6 @@ end
 function lovr.boot()
   local conf = {
     version = '0.12.0',
-    compat = false,
     modules = {
       audio = true,
       data = true,
@@ -97,10 +96,6 @@ function lovr.boot()
         lovr[module] = result
       end
     end
-  end
-
-  if conf.compat then
-    assert(loadstring(lovr._compat))(conf.version)
   end
 
   lovr.handlers = setmetatable({}, { __index = lovr })

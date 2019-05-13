@@ -1,7 +1,6 @@
 #include "api.h"
 #include "version.h"
 #include "resources/logo.png.h"
-#include "resources/compat.lua.h"
 #include "lib/lua-cjson/lua_cjson.h"
 #include "lib/lua-enet/enet.h"
 
@@ -82,7 +81,5 @@ int luaopen_lovr(lua_State* L) {
   luaL_register(L, NULL, lovr);
   lua_pushlstring(L, (const char*) logo_png, logo_png_len);
   lua_setfield(L, -2, "_logo");
-  lua_pushlstring(L, (const char*) compat_lua, compat_lua_len);
-  lua_setfield(L, -2, "_compat");
   return 1;
 }
