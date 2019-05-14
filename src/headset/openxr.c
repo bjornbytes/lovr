@@ -574,6 +574,7 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
       if (!state.canvas) {
         CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = true, .msaa = state.msaa };
         state.canvas = lovrCanvasCreate(state.width, state.height, flags);
+        lovrPlatformSetSwapInterval(0);
       }
 
       Camera camera = { .canvas = state.canvas, .stereo = true };

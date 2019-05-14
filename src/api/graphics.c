@@ -325,6 +325,10 @@ static int l_lovrGraphicsCreateWindow(lua_State* L) {
   }
   lua_pop(L, 1);
 
+  lua_getfield(L, 1, "vsync");
+  flags.vsync = lua_tointeger(L, -1);
+  lua_pop(L, 1);
+
   lovrGraphicsCreateWindow(&flags);
   luax_atexit(L, lovrGraphicsDestroy); // The lua_State that creates the window shall be the one to destroy it
   lovrRelease(TextureData, textureData);

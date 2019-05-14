@@ -542,6 +542,7 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
     lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
     lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
     lovrRelease(Texture, texture);
+    lovrPlatformSetSwapInterval(0);
   }
 
   Camera camera = { .canvas = state.canvas, .viewMatrix = { MAT4_IDENTITY, MAT4_IDENTITY } };

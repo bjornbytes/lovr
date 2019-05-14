@@ -72,7 +72,8 @@ function lovr.boot()
       fullscreen = false,
       msaa = 0,
       title = 'LÖVR',
-      icon = nil
+      icon = nil,
+      vsync = 1
     }
   }
 

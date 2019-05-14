@@ -185,11 +185,6 @@ void lovrGraphicsPresent() {
 
 void lovrGraphicsCreateWindow(WindowFlags* flags) {
   lovrAssert(!state.initialized, "Window is already created");
-#ifdef EMSCRIPTEN
-  flags->vsync = 1;
-#else
-  flags->vsync = 0;
-#endif
   lovrAssert(lovrPlatformCreateWindow(flags), "Could not create window");
   lovrPlatformOnWindowClose(onCloseWindow);
   lovrPlatformOnWindowResize(onResizeWindow);

@@ -129,7 +129,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   glfwSetWindowCloseCallback(state.window, onWindowClose);
   glfwSetWindowSizeCallback(state.window, onWindowResize);
   glfwSetMouseButtonCallback(state.window, onMouseButton);
-  glfwSwapInterval(flags->vsync);
+  lovrPlatformSetSwapInterval(flags->vsync);
   return true;
 }
 
@@ -153,6 +153,14 @@ void lovrPlatformGetFramebufferSize(int* width, int* height) {
     if (*width) *width = 0;
     if (*height) *height = 0;
   }
+}
+
+void lovrPlatformSetSwapInterval(int interval) {
+#if EMSCRIPTEN
+  glfwSwapInterval(1);
+#else
+  glfwSwapInterval(interval);
+#endif
 }
 
 void lovrPlatformSwapBuffers() {
