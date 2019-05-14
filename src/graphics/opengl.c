@@ -1557,20 +1557,20 @@ Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type,
   GLenum glType = convertBufferType(type);
 
 #ifdef LOVR_WEBGL
-  if (GLAD_GL_ARB_buffer_storage) {
-    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | (readable ? GL_MAP_READ_BIT : 0);
-    glBufferStorage(glType, size, data, flags);
-    buffer->data = glMapBufferRange(glType, 0, size, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
-  } else {
-    glBufferData(glType, size, data, convertBufferUsage(usage));
-  }
-#else
   buffer->data = malloc(size);
   lovrAssert(buffer->data, "Out of memory");
   glBufferData(glType, size, data, convertBufferUsage(usage));
 
   if (data) {
     memcpy(buffer->data, data, size);
+  }
+#else
+  if (GLAD_GL_ARB_buffer_storage) {
+    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | (readable ? GL_MAP_READ_BIT : 0);
+    glBufferStorage(glType, size, data, flags);
+    buffer->data = glMapBufferRange(glType, 0, size, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
+  } else {
+    glBufferData(glType, size, data, convertBufferUsage(usage));
   }
 #endif
 
