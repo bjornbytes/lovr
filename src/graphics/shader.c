@@ -59,11 +59,11 @@ static const char* getUniformTypeName(const Uniform* uniform) {
 
 Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type) {
   switch (type) {
-    case SHADER_DEFAULT: return lovrShaderInitGraphics(shader, NULL, NULL);
-    case SHADER_CUBE: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrCubeFragmentShader);
-    case SHADER_PANO: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrPanoFragmentShader);
-    case SHADER_FONT: return lovrShaderInitGraphics(shader, NULL, lovrFontFragmentShader);
-    case SHADER_FILL: return lovrShaderInitGraphics(shader, lovrFillVertexShader, NULL);
+    case SHADER_DEFAULT: return lovrShaderInitGraphics(shader, NULL, NULL, NULL, 0);
+    case SHADER_CUBE: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrCubeFragmentShader, NULL, 0);
+    case SHADER_PANO: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrPanoFragmentShader, NULL, 0);
+    case SHADER_FONT: return lovrShaderInitGraphics(shader, NULL, lovrFontFragmentShader, NULL, 0);
+    case SHADER_FILL: return lovrShaderInitGraphics(shader, lovrFillVertexShader, NULL, NULL, 0);
     default: lovrThrow("Unknown default shader type"); return NULL;
   }
 }

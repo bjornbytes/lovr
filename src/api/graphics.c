@@ -1322,12 +1322,60 @@ static void luax_readshadersource(lua_State* L, int index) {
   free(contents);
 }
 
+#define MAX_SHADER_FLAGS 32
+static void luax_parseshaderflags(lua_State* L, int index, ShaderFlag flags[MAX_SHADER_FLAGS], uint32_t* count) {
+  if (lua_isnil(L, -1)) {
+    *count = 0;
+    return;
+  }
+
+  lovrAssert(lua_istable(L, -1), "Shader flags must be a table");
+  lua_pushnil(L);
+  while (lua_next(L, -2) != 0) {
+    ShaderFlag* flag = &flags[++*count];
+
+    lovrAssert(*count < MAX_SHADER_FLAGS, "Too many shader flags (max is %d)", MAX_SHADER_FLAGS);
+
+    if (lua_type(L, -2) == LUA_TSTRING) {
+      flag->name = lua_tostring(L, -2);
+    } else if (lua_isnumber(L, -2)) {
+      flag->index = lua_tointeger(L, -2);
+    } else {
+      lovrThrow("Shader flag names must be strings or numbers");
+    }
+
+    switch (lua_type(L, -1)) {
+      case LUA_TBOOLEAN:
+        flag->type = FLAG_BOOL;
+        flag->value.b32 = lua_toboolean(L, -1);
+        break;
+      case LUA_TNUMBER:
+        flag->type = FLAG_INT;
+        flag->value.i32 = lua_tointeger(L, -1);
+        break;
+      default:
+        lovrThrow("Shader flag values must be booleans or integers");
+    }
+
+    lua_pop(L, 1);
+  }
+}
+
 static int l_lovrGraphicsNewShader(lua_State* L) {
   luax_readshadersource(L, 1);
   luax_readshadersource(L, 2);
   const char* vertexSource = lua_tostring(L, 1);
   const char* fragmentSource = lua_tostring(L, 2);
-  Shader* shader = lovrShaderCreateGraphics(vertexSource, fragmentSource);
+  ShaderFlag flags[MAX_SHADER_FLAGS];
+  uint32_t flagCount = 0;
+
+  if (lua_istable(L, 3)) {
+    lua_getfield(L, 3, "flags");
+    luax_parseshaderflags(L, -1, flags, &flagCount);
+    lua_pop(L, 1);
+  }
+
+  Shader* shader = lovrShaderCreateGraphics(vertexSource, fragmentSource, flags, flagCount);
   luax_pushobject(L, shader);
   lovrRelease(Shader, shader);
   return 1;
@@ -1336,7 +1384,16 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 static int l_lovrGraphicsNewComputeShader(lua_State* L) {
   luax_readshadersource(L, 1);
   const char* source = lua_tostring(L, 1);
-  Shader* shader = lovrShaderCreateCompute(source);
+  ShaderFlag flags[MAX_SHADER_FLAGS];
+  uint32_t flagCount = 0;
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "flags");
+    luax_parseshaderflags(L, -1, flags, &flagCount);
+    lua_pop(L, 1);
+  }
+
+  Shader* shader = lovrShaderCreateCompute(source, flags, flagCount);
   luax_pushobject(L, shader);
   lovrRelease(Shader, shader);
   return 1;

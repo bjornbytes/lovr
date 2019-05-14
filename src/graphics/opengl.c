@@ -1861,7 +1861,45 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   }
 }
 
-Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource) {
+static char* lovrShaderGetFlagCode(ShaderFlag* flags, uint32_t flagCount) {
+  if (flagCount == 0) {
+    return NULL;
+  }
+
+  // Figure out how much space we need
+  size_t length = 0;
+  for (uint32_t i = 0; i < flagCount; i++) {
+    if (flags[i].name) {
+      length += strlen("#define FLAG_");
+      length += strlen(flags[i].name) + 1;
+      if (flags[i].type == FLAG_BOOL) {
+        length += flags[i].value.b32 ? strlen("true") : strlen("false");
+      } else {
+        length += snprintf(NULL, 0, "%d", flags[i].value.i32);
+      }
+      length += strlen("\n");
+    }
+  }
+
+  // Generate the string
+  char* code = malloc(length + 1);
+  code[length] = '\0';
+  char* s = code;
+  for (uint32_t i = 0; i < flagCount; i++) {
+    if (flags[i].name) {
+      s += sprintf(s, "#define FLAG_%s ", flags[i].name);
+      if (flags[i].type == FLAG_BOOL) {
+        s += sprintf(s, "%s\n", flags[i].value.b32 ? "true" : "false");
+      } else {
+        s += sprintf(s, "%d\n", flags[i].value.i32);
+      }
+    }
+  }
+
+  return code;
+}
+
+Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource, ShaderFlag* flags, uint32_t flagCount) {
 #if defined(LOVR_WEBGL) || defined(LOVR_GLES)
   const char* vertexHeader = "#version 300 es\nprecision mediump float;\nprecision mediump int;\n";
   const char* fragmentHeader = vertexHeader;
@@ -1878,15 +1916,19 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
     "#extension GL_ARB_fragment_layer_viewport : require\n" "#define SINGLEPASS 1\n" :
     "#define SINGLEPASS 0\n";
 
+  char* flagSource = lovrShaderGetFlagCode(flags, flagCount);
+
   // Vertex
   vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
-  const char* vertexSources[] = { vertexHeader, vertexSinglepass, lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
+  const char* vertexSources[] = { vertexHeader, vertexSinglepass, flagSource ? flagSource : "", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, sizeof(vertexSources) / sizeof(vertexSources[0]));
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
-  const char* fragmentSources[] = { fragmentHeader, fragmentSinglepass, lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
+  const char* fragmentSources[] = { fragmentHeader, fragmentSinglepass, flagSource ? flagSource : "", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, sizeof(fragmentSources) / sizeof(fragmentSources[0]));
+
+  free(flagSource);
 
   // Link
   uint32_t program = glCreateProgram();
@@ -1932,13 +1974,15 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
   return shader;
 }
 
-Shader* lovrShaderInitCompute(Shader* shader, const char* source) {
+Shader* lovrShaderInitCompute(Shader* shader, const char* source, ShaderFlag* flags, uint32_t flagCount) {
 #ifdef LOVR_WEBGL
   lovrThrow("Compute shaders are not supported on this system");
 #else
   lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
-  const char* sources[] = { lovrShaderComputePrefix, source, lovrShaderComputeSuffix };
+  char* flagSource = lovrShaderGetFlagCode(flags, flagCount);
+  const char* sources[] = { lovrShaderComputePrefix, flagSource ? flagSource : "", source, lovrShaderComputeSuffix };
   GLuint computeShader = compileShader(GL_COMPUTE_SHADER, sources, sizeof(sources) / sizeof(sources[0]));
+  free(flagSource);
   GLuint program = glCreateProgram();
   glAttachShader(program, computeShader);
   linkProgram(program);

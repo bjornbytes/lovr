@@ -37,6 +37,21 @@ typedef enum {
 } ShaderType;
 
 typedef enum {
+  FLAG_BOOL,
+  FLAG_INT
+} ShaderFlagType;
+
+typedef struct {
+  uint32_t index;
+  const char* name;
+  ShaderFlagType type;
+  union {
+    bool b32;
+    int32_t i32;
+  } value;
+} ShaderFlag;
+
+typedef enum {
   SHADER_DEFAULT,
   SHADER_CUBE,
   SHADER_PANO,
@@ -108,8 +123,8 @@ typedef struct Shader {
 
 // Shader
 
-Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource);
-Shader* lovrShaderInitCompute(Shader* shader, const char* source);
+Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource, ShaderFlag* flags, uint32_t flagCount);
+Shader* lovrShaderInitCompute(Shader* shader, const char* source, ShaderFlag* flags, uint32_t flagCount);
 Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type);
 #define lovrShaderCreateGraphics(...) lovrShaderInitGraphics(lovrAlloc(Shader), __VA_ARGS__)
 #define lovrShaderCreateCompute(...) lovrShaderInitCompute(lovrAlloc(Shader), __VA_ARGS__)
