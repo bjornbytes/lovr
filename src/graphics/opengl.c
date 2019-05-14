@@ -492,7 +492,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int baseDivisor) {
 
   if (mesh->indexBuffer && mesh->indexCount > 0) {
     lovrGpuBindBuffer(BUFFER_INDEX, mesh->indexBuffer->id);
-    lovrBufferFlush(mesh->indexBuffer);
+    lovrBufferUnmap(mesh->indexBuffer);
 #ifdef LOVR_GL
     uint32_t primitiveRestart = mesh->indexSize == 4 ? 0xffffffff : 0xffff;
     if (state.primitiveRestart != primitiveRestart) {
@@ -510,7 +510,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int baseDivisor) {
     if ((attribute = &mesh->attributes[i])->disabled) { continue; }
     if ((location = lovrShaderGetAttributeLocation(shader, mesh->attributeNames[i])) < 0) { continue; }
 
-    lovrBufferFlush(attribute->buffer);
+    lovrBufferUnmap(attribute->buffer);
     enabledLocations |= (1 << location);
 
     uint16_t divisor = attribute->divisor * baseDivisor;
@@ -885,7 +885,7 @@ static void lovrGpuBindShader(Shader* shader) {
           vec_push(&state.incoherents[BARRIER_BLOCK], block->source);
         }
 
-        lovrBufferFlush(block->source);
+        lovrBufferUnmap(block->source);
         lovrGpuBindBlockBuffer(type, block->source->id, block->slot, block->offset, block->size);
       } else {
         lovrGpuBindBlockBuffer(type, 0, block->slot, 0, 0);
@@ -1150,21 +1150,17 @@ void lovrGpuDirtyTexture() {
   state.textures[state.activeTexture] = NULL;
 }
 
-// We only need to sync when using persistently mapped buffers
-// There also seems to be a driver quirk where fencing before submitting GPU work messes up the
-// whole frame (observed on WASM and Android)
+// We only need to sync when using mapped buffers
 void* lovrGpuLock() {
 #ifndef LOVR_WEBGL
-  if (GLAD_GL_ARB_buffer_storage) {
-    return (void*) glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-  }
+  return (void*) glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 #endif
   return NULL;
 }
 
 void lovrGpuUnlock(void* lock) {
 #ifndef LOVR_WEBGL
-  if (!lock || !GLAD_GL_ARB_buffer_storage) return;
+  if (!lock) return;
   GLsync sync = (GLsync) lock;
   if (glClientWaitSync(sync, 0, 0) == GL_TIMEOUT_EXPIRED) {
     while (glClientWaitSync(sync, GL_SYNC_FLUSH_COMMANDS_BIT, 32768) == GL_TIMEOUT_EXPIRED) {
@@ -1176,7 +1172,7 @@ void lovrGpuUnlock(void* lock) {
 
 void lovrGpuDestroyLock(void* lock) {
 #ifndef LOVR_WEBGL
-  if (lock && GLAD_GL_ARB_buffer_storage) glDeleteSync((GLsync) lock);
+  if (lock) glDeleteSync((GLsync) lock);
 #endif
 }
 
@@ -1560,21 +1556,21 @@ Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type,
   lovrGpuBindBuffer(type, buffer->id);
   GLenum glType = convertBufferType(type);
 
-#ifndef LOVR_WEBGL
+#ifdef LOVR_WEBGL
   if (GLAD_GL_ARB_buffer_storage) {
     GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | (readable ? GL_MAP_READ_BIT : 0);
     glBufferStorage(glType, size, data, flags);
     buffer->data = glMapBufferRange(glType, 0, size, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
   } else {
-#endif
-    buffer->data = malloc(size);
-    lovrAssert(buffer->data, "Out of memory");
     glBufferData(glType, size, data, convertBufferUsage(usage));
+  }
+#else
+  buffer->data = malloc(size);
+  lovrAssert(buffer->data, "Out of memory");
+  glBufferData(glType, size, data, convertBufferUsage(usage));
 
-    if (data) {
-      memcpy(buffer->data, data, size);
-    }
-#ifndef LOVR_WEBGL
+  if (data) {
+    memcpy(buffer->data, data, size);
   }
 #endif
 
@@ -1585,30 +1581,48 @@ void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
   lovrGpuDestroySyncResource(buffer, buffer->incoherent);
   glDeleteBuffers(1, &buffer->id);
-#ifndef LOVR_WEBGL
-  if (!GLAD_GL_ARB_buffer_storage) {
-#endif
-    free(buffer->data);
-#ifndef LOVR_WEBGL
-  }
+#ifdef LOVR_WEBGL
+  free(buffer->data);
 #endif
 }
 
 void* lovrBufferMap(Buffer* buffer, size_t offset) {
+#ifndef LOVR_WEBGL
+  if (!GLAD_GL_ARB_buffer_storage && !buffer->mapped) {
+    buffer->mapped = true;
+    lovrGpuBindBuffer(buffer->type, buffer->id);
+    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT | (buffer->readable ? GL_MAP_READ_BIT : 0);
+    buffer->data = glMapBufferRange(convertBufferType(buffer->type), 0, buffer->size, flags);
+  }
+#endif
   return (uint8_t*) buffer->data + offset;
 }
 
-void lovrBufferFlushRange(Buffer* buffer, size_t offset, size_t size) {
-  lovrGpuBindBuffer(buffer->type, buffer->id);
-#ifndef LOVR_WEBGL
-  if (GLAD_GL_ARB_buffer_storage) {
-    glFlushMappedBufferRange(convertBufferType(buffer->type), offset, size);
-  } else {
-#endif
-    glBufferSubData(convertBufferType(buffer->type), offset, size, (GLvoid*) ((uint8_t*) buffer->data + offset));
-#ifndef LOVR_WEBGL
+void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size) {
+  buffer->flushFrom = MIN(buffer->flushFrom, offset);
+  buffer->flushTo = MAX(buffer->flushTo, offset + size);
+}
+
+void lovrBufferUnmap(Buffer* buffer) {
+#ifdef LOVR_WEBGL
+  if (buffer->flushTo > buffer->flushFrom) {
+    lovrGpuBindBuffer(buffer->type, buffer->id);
+    void* data = (uint8_t*) buffer->data + buffer->flushFrom;
+    glBufferSubData(convertBufferType(buffer->type), buffer->flushFrom, buffer->flushTo - buffer->flushFrom, data);
+  }
+#else
+  if (buffer->flushTo > buffer->flushFrom) {
+    lovrGpuBindBuffer(buffer->type, buffer->id);
+    glFlushMappedBufferRange(convertBufferType(buffer->type), buffer->flushFrom, buffer->flushTo - buffer->flushFrom);
+  }
+
+  if (!GLAD_GL_ARB_buffer_storage) {
+    glUnmapBuffer(convertBufferType(buffer->type));
+    buffer->mapped = false;
   }
 #endif
+  buffer->flushFrom = SIZE_MAX;
+  buffer->flushTo = 0;
 }
 
 // Shader

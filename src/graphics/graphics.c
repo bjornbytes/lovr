@@ -68,7 +68,8 @@ static void lovrGraphicsInitBuffers() {
   state.identityBuffer = lovrBufferCreate(MAX_DRAWS, NULL, BUFFER_VERTEX, USAGE_STATIC, false);
   uint8_t* id = lovrBufferMap(state.identityBuffer, 0);
   for (int i = 0; i < MAX_DRAWS; i++) id[i] = i;
-  lovrBufferFlushRange(state.identityBuffer, 0, MAX_DRAWS);
+  lovrBufferFlush(state.identityBuffer, 0, MAX_DRAWS);
+  lovrBufferUnmap(state.identityBuffer);
 
   Buffer* vertexBuffer = state.buffers[STREAM_VERTEX];
   size_t stride = BUFFER_STRIDES[STREAM_VERTEX];
@@ -597,19 +598,22 @@ void lovrGraphicsFlush() {
   int batchCount = state.batchCount;
   state.batchCount = 0;
 
+  // Flush buffers
+  Batch* firstBatch = &state.batches[0];
+  Batch* lastBatch = &state.batches[batchCount - 1];
+  for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
+    size_t offset = firstBatch->cursors[i].start * BUFFER_STRIDES[i];
+    size_t size = (lastBatch->cursors[i].start + lastBatch->cursors[i].count - firstBatch->cursors[i].start) * BUFFER_STRIDES[i];
+    lovrBufferFlush(state.buffers[i], offset, size);
+    lovrBufferUnmap(state.buffers[i]);
+  }
+
+
   for (int b = 0; b < batchCount; b++) {
     Batch* batch = &state.batches[b];
     BatchParams* params = &batch->params;
     Mesh* mesh = batch->type == BATCH_MESH ? params->mesh.object : (batch->instanced ? state.instancedMesh : state.mesh);
     int instances = batch->instanced ? batch->count : 1;
-
-    // Flush buffers
-    for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
-      if (batch->cursors[i].count > 0) {
-        size_t stride = BUFFER_STRIDES[i];
-        lovrBufferFlushRange(state.buffers[i], batch->cursors[i].start * stride, batch->cursors[i].count * stride);
-      }
-    }
 
     // Bind UBOs
     lovrShaderSetBlock(batch->shader, "lovrModelBlock", state.buffers[STREAM_TRANSFORM], batch->cursors[STREAM_TRANSFORM].start * BUFFER_STRIDES[STREAM_TRANSFORM], MAX_DRAWS * BUFFER_STRIDES[STREAM_TRANSFORM], ACCESS_READ);

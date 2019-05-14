@@ -1268,7 +1268,8 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     }
   }
 
-  lovrBufferMarkRange(vertexBuffer, 0, count * stride);
+  lovrBufferFlush(vertexBuffer, 0, count * stride);
+  lovrBufferUnmap(vertexBuffer);
   lovrRelease(Buffer, vertexBuffer);
 
   luax_pushobject(L, mesh);

@@ -212,7 +212,7 @@ static int l_lovrMeshSetVertex(lua_State* L) {
       }
     }
   }
-  lovrBufferMarkRange(mesh->vertexBuffer, index * stride, (index + 1) * stride);
+  lovrBufferFlush(mesh->vertexBuffer, index * stride, stride);
   return 0;
 }
 
@@ -272,7 +272,17 @@ static int l_lovrMeshSetVertexAttribute(lua_State* L) {
       lua_pop(L, 1);
     }
   }
-  lovrBufferMarkRange(mesh->vertexBuffer, vertexIndex * attribute->stride, (vertexIndex + 1) * attribute->stride);
+  size_t attributeSize = 0;
+  switch (attribute->type) {
+    case I8: attributeSize = attribute->components * sizeof(int8_t); break;
+    case U8: attributeSize = attribute->components * sizeof(uint8_t); break;
+    case I16: attributeSize = attribute->components * sizeof(int16_t); break;
+    case U16: attributeSize = attribute->components * sizeof(uint16_t); break;
+    case I32: attributeSize = attribute->components * sizeof(int32_t); break;
+    case U32: attributeSize = attribute->components * sizeof(uint32_t); break;
+    case F32: attributeSize = attribute->components * sizeof(float); break;
+  }
+  lovrBufferFlush(mesh->vertexBuffer, vertexIndex * attribute->stride + attribute->offset, attributeSize);
   return 0;
 }
 
@@ -322,7 +332,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  lovrBufferMarkRange(mesh->vertexBuffer, start * stride, (start + count) * stride);
+  lovrBufferFlush(mesh->vertexBuffer, start * stride, count * stride);
   return 0;
 }
 
@@ -385,7 +395,7 @@ static int l_lovrMeshSetVertexMap(lua_State* L) {
     } else {
       void* indices = lovrBufferMap(indexBuffer, 0);
       memcpy(indices, blob->data, blob->size);
-      lovrBufferMarkRange(indexBuffer, 0, blob->size);
+      lovrBufferFlush(indexBuffer, 0, blob->size);
     }
   } else {
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -424,7 +434,7 @@ static int l_lovrMeshSetVertexMap(lua_State* L) {
     }
 
     lovrMeshSetIndexBuffer(mesh, indexBuffer, count, size, 0);
-    lovrBufferMarkRange(indexBuffer, 0, count * size);
+    lovrBufferFlush(indexBuffer, 0, count * size);
   }
 
   return 0;
