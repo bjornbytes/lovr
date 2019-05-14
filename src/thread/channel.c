@@ -1,7 +1,6 @@
 #include "thread/channel.h"
 #include "util.h"
 #include <math.h>
-#include <stdlib.h>
 
 Channel* lovrChannelInit(Channel* channel) {
   vec_init(&channel->messages);

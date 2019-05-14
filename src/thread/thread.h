@@ -1,17 +1,11 @@
 #include "types.h"
 #include "data/blob.h"
 #include "lib/tinycthread/tinycthread.h"
-#include "lib/map/map.h"
 #include <stdbool.h>
 
 #pragma once
 
 struct Channel;
-
-typedef struct {
-  bool initialized;
-  map_void_t channels;
-} ThreadState;
 
 typedef struct Thread {
   Ref ref;
