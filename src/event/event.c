@@ -1,9 +1,15 @@
 #include "event/event.h"
 #include "platform.h"
+#include "types.h"
+#include "lib/vec/vec.h"
 #include <stdlib.h>
 #include <string.h>
 
-static EventState state;
+static struct {
+  bool initialized;
+  vec_t(EventPump) pumps;
+  vec_t(Event) events;
+} state;
 
 void lovrVariantDestroy(Variant* variant) {
   switch (variant->type) {
@@ -25,7 +31,7 @@ void lovrEventDestroy() {
   if (!state.initialized) return;
   vec_deinit(&state.pumps);
   vec_deinit(&state.events);
-  memset(&state, 0, sizeof(EventState));
+  memset(&state, 0, sizeof(state));
 }
 
 void lovrEventAddPump(EventPump pump) {

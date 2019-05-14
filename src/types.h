@@ -56,7 +56,7 @@ typedef struct {
 
 extern const TypeInfo lovrTypeInfo[T_MAX];
 
-typedef struct {
+typedef struct Ref {
   Type type;
   int count;
 } Ref;
