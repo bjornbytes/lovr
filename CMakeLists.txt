@@ -361,8 +361,6 @@ if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
     src/audio/audio.c
-    src/audio/microphone.c
-    src/audio/source.c
     src/api/audio.c
     src/api/types/source.c
     src/api/types/microphone.c

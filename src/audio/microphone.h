@@ -1,25 +1,13 @@
-#include "types.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include <AL/al.h>
-#include <AL/alc.h>
+#include <stddef.h>
 
 #pragma once
 
 struct SoundData;
 
-typedef struct Microphone {
-  Ref ref;
-  ALCdevice* device;
-  const char* name;
-  bool isRecording;
-  uint32_t sampleRate;
-  uint32_t bitDepth;
-  uint32_t channelCount;
-} Microphone;
-
-Microphone* lovrMicrophoneInit(Microphone* microphone, const char* name, size_t samples, uint32_t sampleRate, uint32_t bitDepth, uint32_t channelCount);
-#define lovrMicrophoneCreate(...) lovrMicrophoneInit(lovrAlloc(Microphone), __VA_ARGS__)
+typedef struct Microphone Microphone;
+Microphone* lovrMicrophoneCreate(const char* name, size_t samples, uint32_t sampleRate, uint32_t bitDepth, uint32_t channelCount);
 void lovrMicrophoneDestroy(void* ref);
 uint32_t lovrMicrophoneGetBitDepth(Microphone* microphone);
 uint32_t lovrMicrophoneGetChannelCount(Microphone* microphone);

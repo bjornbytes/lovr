@@ -9,6 +9,9 @@
 #include <AL/alc.h>
 #include <AL/alext.h>
 
+#include "microphone.c"
+#include "source.c"
+
 static struct {
   bool initialized;
   ALCdevice* device;
@@ -76,7 +79,7 @@ void lovrAudioDestroy() {
 void lovrAudioUpdate() {
   int i; Source* source;
   vec_foreach_rev(&state.sources, source, i) {
-    if (source->type == SOURCE_STATIC) {
+    if (lovrSourceGetType(source) == SOURCE_STATIC) {
       continue;
     }
 

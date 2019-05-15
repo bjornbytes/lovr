@@ -1,9 +1,6 @@
-#include "types.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <AL/al.h>
-#include <AL/alc.h>
 
 #pragma once
 
@@ -22,20 +19,9 @@ typedef enum {
   UNIT_SAMPLES
 } TimeUnit;
 
-typedef struct Source {
-  Ref ref;
-  SourceType type;
-  struct SoundData* soundData;
-  struct AudioStream* stream;
-  ALuint id;
-  ALuint buffers[SOURCE_BUFFERS];
-  bool isLooping;
-} Source;
-
-Source* lovrSourceInitStatic(Source* source, struct SoundData* soundData);
-Source* lovrSourceInitStream(Source* source, struct AudioStream* stream);
-#define lovrSourceCreateStatic(...) lovrSourceInitStatic(lovrAlloc(Source), __VA_ARGS__)
-#define lovrSourceCreateStream(...) lovrSourceInitStream(lovrAlloc(Source), __VA_ARGS__)
+typedef struct Source Source;
+Source* lovrSourceCreateStatic(struct SoundData* soundData);
+Source* lovrSourceCreateStream(struct AudioStream* stream);
 void lovrSourceDestroy(void* ref);
 SourceType lovrSourceGetType(Source* source);
 uint32_t lovrSourceGetBitDepth(Source* source);

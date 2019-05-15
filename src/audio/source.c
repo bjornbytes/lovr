@@ -3,8 +3,23 @@
 #include "data/audioStream.h"
 #include "data/soundData.h"
 #include "lib/maf.h"
+#include "types.h"
 #include <math.h>
 #include <stdlib.h>
+#include <AL/al.h>
+#include <AL/alc.h>
+
+#define SOURCE_BUFFERS 4
+
+struct Source {
+  Ref ref;
+  SourceType type;
+  struct SoundData* soundData;
+  struct AudioStream* stream;
+  ALuint id;
+  ALuint buffers[SOURCE_BUFFERS];
+  bool isLooping;
+};
 
 static ALenum lovrSourceGetState(Source* source) {
   ALenum state;
@@ -12,7 +27,8 @@ static ALenum lovrSourceGetState(Source* source) {
   return state;
 }
 
-Source* lovrSourceInitStatic(Source* source, SoundData* soundData) {
+Source* lovrSourceCreateStatic(SoundData* soundData) {
+  Source* source = lovrAlloc(Source);
   ALenum format = lovrAudioConvertFormat(soundData->bitDepth, soundData->channelCount);
   source->type = SOURCE_STATIC;
   source->soundData = soundData;
@@ -24,7 +40,8 @@ Source* lovrSourceInitStatic(Source* source, SoundData* soundData) {
   return source;
 }
 
-Source* lovrSourceInitStream(Source* source, AudioStream* stream) {
+Source* lovrSourceCreateStream(AudioStream* stream) {
+  Source* source = lovrAlloc(Source);
   source->type = SOURCE_STREAM;
   source->stream = stream;
   alGenSources(1, &source->id);
