@@ -62,6 +62,14 @@ SourceType lovrSourceGetType(Source* source) {
   return source->type;
 }
 
+uint32_t lovrSourceGetId(Source* source) {
+  return source->id;
+}
+
+AudioStream* lovrSourceGetStream(Source* source) {
+  return source->stream;
+}
+
 uint32_t lovrSourceGetBitDepth(Source* source) {
   return source->type == SOURCE_STATIC ? source->soundData->bitDepth : source->stream->bitDepth;
 }

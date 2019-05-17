@@ -9,9 +9,6 @@
 #include <AL/alc.h>
 #include <AL/alext.h>
 
-#include "microphone.c"
-#include "source.c"
-
 static struct {
   bool initialized;
   ALCdevice* device;
@@ -83,19 +80,20 @@ void lovrAudioUpdate() {
       continue;
     }
 
+    uint32_t id = lovrSourceGetId(source);
     bool isStopped = lovrSourceIsStopped(source);
     ALint processed;
-    alGetSourcei(source->id, AL_BUFFERS_PROCESSED, &processed);
+    alGetSourcei(id, AL_BUFFERS_PROCESSED, &processed);
 
     if (processed) {
       ALuint buffers[SOURCE_BUFFERS];
-      alSourceUnqueueBuffers(source->id, processed, buffers);
+      alSourceUnqueueBuffers(id, processed, buffers);
       lovrSourceStream(source, buffers, processed);
       if (isStopped) {
-        alSourcePlay(source->id);
+        alSourcePlay(id);
       }
     } else if (isStopped) {
-      lovrAudioStreamRewind(source->stream);
+      lovrAudioStreamRewind(lovrSourceGetStream(source));
       vec_splice(&state.sources, i, 1);
       lovrRelease(Source, source);
     }
