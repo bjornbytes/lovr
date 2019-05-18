@@ -27,8 +27,10 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
   mat4 globalTransform = model->globalNodeTransforms + 16 * nodeIndex;
 
   if (node->primitiveCount > 0) {
+    bool animated = node->skin >= 0 && model->animator;
     float pose[16 * MAX_BONES];
-    if (node->skin >= 0 && model->animator) {
+
+    if (animated) {
       ModelSkin* skin = &model->data->skins[node->skin];
 
       for (uint32_t j = 0; j < skin->jointCount; j++) {
@@ -63,7 +65,7 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
           .rangeStart = rangeStart,
           .rangeCount = rangeCount,
           .instances = instances,
-          .pose = node->skin >= 0 ? pose : NULL
+          .pose = animated ? pose : NULL
         },
         .drawMode = primitive->mode,
         .transform = globalTransform,
