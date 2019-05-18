@@ -322,6 +322,8 @@ static Texture* lovrGpuGetDefaultTexture() {
   if (!state.defaultTexture) {
     TextureData* textureData = lovrTextureDataCreate(1, 1, 0xff, FORMAT_RGBA);
     state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false, 0);
+    lovrTextureSetFilter(state.defaultTexture, (TextureFilter) { .mode = FILTER_NEAREST });
+    lovrTextureSetWrap(state.defaultTexture, (TextureWrap) { WRAP_CLAMP, WRAP_CLAMP, WRAP_CLAMP });
     lovrRelease(TextureData, textureData);
   }
 
