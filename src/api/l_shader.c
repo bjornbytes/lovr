@@ -1,8 +1,7 @@
 #include "api.h"
-#include "api/graphics.h"
-#include "api/math.h"
 #include "graphics/buffer.h"
 #include "graphics/shader.h"
+#include "lib/maf.h"
 
 struct TempData {
   void* data;
@@ -181,35 +180,6 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
   }
 
   return 0;
-}
-
-void luax_checkuniformtype(lua_State* L, int index, UniformType* baseType, int* components) {
-  size_t length;
-  lovrAssert(lua_type(L, index) == LUA_TSTRING, "Uniform types must be strings, got %s", lua_typename(L, index));
-  const char* type = lua_tolstring(L, index, &length);
-
-  if (!strcmp(type, "float")) {
-    *baseType = UNIFORM_FLOAT;
-    *components = 1;
-  } else if (!strcmp(type, "int")) {
-    *baseType = UNIFORM_INT;
-    *components = 1;
-  } else {
-    int n = type[length - 1] - '0';
-    lovrAssert(n >= 2 && n <= 4, "Unknown uniform type '%s'", type);
-    if (type[0] == 'v' && type[1] == 'e' && type[2] == 'c' && length == 4) {
-      *baseType = UNIFORM_FLOAT;
-      *components = n;
-    } else if (type[0] == 'i' && type[1] == 'v' && type[2] == 'e' && type[3] == 'c' && length == 5) {
-      *baseType = UNIFORM_INT;
-      *components = n;
-    } else if (type[0] == 'm' && type[1] == 'a' && type[2] == 't' && length == 4) {
-      *baseType = UNIFORM_MATRIX;
-      *components = n;
-    } else {
-      lovrThrow("Unknown uniform type '%s'", type);
-    }
-  }
 }
 
 static int l_lovrShaderGetType(lua_State* L) {

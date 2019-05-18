@@ -1,10 +1,17 @@
 #include "api.h"
-#include "api/math.h"
-#include "api/math.lua.h"
 #include "math/math.h"
 #include "math/curve.h"
 #include "math/pool.h"
 #include "math/randomGenerator.h"
+#include "resources/math.lua.h"
+
+int l_lovrRandomGeneratorRandom(lua_State* L);
+int l_lovrRandomGeneratorRandomNormal(lua_State* L);
+int l_lovrRandomGeneratorGetSeed(lua_State* L);
+int l_lovrRandomGeneratorSetSeed(lua_State* L);
+int l_lovrVec3Set(lua_State* L);
+int l_lovrQuatSet(lua_State* L);
+int l_lovrMat4Set(lua_State* L);
 
 static const char* lovrMathTypeNames[] = {
   [MATH_VEC3] = "vec3",

@@ -324,7 +324,7 @@ set(LOVR_SRC
   src/util.c
   src/luax.c
   src/types.c
-  src/api/lovr.c
+  src/api/l_lovr.c
   src/lib/utf.c
   src/lib/maf.c
   src/lib/map/map.c
@@ -363,9 +363,9 @@ if(LOVR_ENABLE_AUDIO)
     src/audio/audio.c
     src/audio/source.c
     src/audio/microphone.c
-    src/api/audio.c
-    src/api/types/source.c
-    src/api/types/microphone.c
+    src/api/l_audio.c
+    src/api/l_source.c
+    src/api/l_microphone.c
   )
 endif()
 
@@ -380,13 +380,13 @@ if(LOVR_ENABLE_DATA)
     src/data/rasterizer.c
     src/data/soundData.c
     src/data/textureData.c
-    src/api/data.c
-    src/api/types/audioStream.c
-    src/api/types/blob.c
-    src/api/types/modelData.c
-    src/api/types/rasterizer.c
-    src/api/types/soundData.c
-    src/api/types/textureData.c
+    src/api/l_data.c
+    src/api/l_audioStream.c
+    src/api/l_blob.c
+    src/api/l_modelData.c
+    src/api/l_rasterizer.c
+    src/api/l_soundData.c
+    src/api/l_textureData.c
     src/lib/stb/stb_image.c
     src/lib/stb/stb_image_write.c
     src/lib/stb/stb_truetype.c
@@ -399,7 +399,7 @@ if(LOVR_ENABLE_EVENT)
   add_definitions(-DLOVR_ENABLE_EVENT)
   target_sources(lovr PRIVATE
     src/event/event.c
-    src/api/event.c
+    src/api/l_event.c
   )
 endif()
 
@@ -408,7 +408,7 @@ if(LOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
     src/filesystem/file.c
     src/filesystem/filesystem.c
-    src/api/filesystem.c
+    src/api/l_filesystem.c
   )
 endif()
 
@@ -426,16 +426,16 @@ if(LOVR_ENABLE_GRAPHICS)
     src/graphics/opengl.c
     src/graphics/shader.c
     src/graphics/texture.c
-    src/api/graphics.c
-    src/api/types/animator.c
-    src/api/types/canvas.c
-    src/api/types/font.c
-    src/api/types/material.c
-    src/api/types/mesh.c
-    src/api/types/model.c
-    src/api/types/shader.c
-    src/api/types/shaderBlock.c
-    src/api/types/texture.c
+    src/api/l_graphics.c
+    src/api/l_animator.c
+    src/api/l_canvas.c
+    src/api/l_font.c
+    src/api/l_material.c
+    src/api/l_mesh.c
+    src/api/l_model.c
+    src/api/l_shader.c
+    src/api/l_shaderBlock.c
+    src/api/l_texture.c
     src/resources/shaders.c
     src/lib/glad/glad.c
   )
@@ -444,7 +444,7 @@ endif()
 if(LOVR_ENABLE_HEADSET)
   add_definitions(-DLOVR_ENABLE_HEADSET)
   target_sources(lovr PRIVATE
-    src/api/headset.c
+    src/api/l_headset.c
     src/headset/headset.c
   )
 
@@ -481,13 +481,13 @@ if(LOVR_ENABLE_MATH)
     src/math/curve.c
     src/math/pool.c
     src/math/randomGenerator.c
-    src/api/math.c
-    src/api/types/curve.c
-    src/api/types/pool.c
-    src/api/types/randomGenerator.c
-    src/api/types/vec3.c
-    src/api/types/quat.c
-    src/api/types/mat4.c
+    src/api/l_math.c
+    src/api/l_curve.c
+    src/api/l_pool.c
+    src/api/l_randomGenerator.c
+    src/api/l_vec3.c
+    src/api/l_quat.c
+    src/api/l_mat4.c
     src/lib/noise1234/noise1234.c
   )
 
@@ -500,11 +500,11 @@ if(LOVR_ENABLE_PHYSICS)
   add_definitions(-DLOVR_ENABLE_PHYSICS)
   target_sources(lovr PRIVATE
     src/physics/physics.c
-    src/api/physics.c
-    src/api/types/collider.c
-    src/api/types/joints.c
-    src/api/types/shapes.c
-    src/api/types/world.c
+    src/api/l_physics.c
+    src/api/l_collider.c
+    src/api/l_joints.c
+    src/api/l_shapes.c
+    src/api/l_world.c
   )
 endif()
 
@@ -513,16 +513,16 @@ if(LOVR_ENABLE_THREAD)
   target_sources(lovr PRIVATE
     src/thread/channel.c
     src/thread/thread.c
-    src/api/thread.c
-    src/api/types/channel.c
-    src/api/types/thread.c
+    src/api/l_thread_module.c
+    src/api/l_channel.c
+    src/api/l_thread.c
     src/lib/tinycthread/tinycthread.c
   )
 endif()
 
 if(LOVR_ENABLE_TIMER)
   add_definitions(-DLOVR_ENABLE_TIMER)
-  target_sources(lovr PRIVATE src/timer/timer.c src/api/timer.c)
+  target_sources(lovr PRIVATE src/timer/timer.c src/api/l_timer.c)
 endif()
 
 if(LOVR_ENABLE_ENET)

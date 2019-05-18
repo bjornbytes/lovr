@@ -1,7 +1,7 @@
 #include "api.h"
-#include "api/math.h"
 #include "audio/audio.h"
 #include "audio/source.h"
+#include "lib/maf.h"
 #include <stdbool.h>
 
 static int l_lovrSourceGetBitDepth(lua_State* L) {

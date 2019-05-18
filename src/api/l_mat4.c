@@ -1,6 +1,6 @@
 #include "api.h"
-#include "api/math.h"
 #include "math/math.h"
+#include "math/pool.h"
 #include "lib/maf.h"
 
 int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {

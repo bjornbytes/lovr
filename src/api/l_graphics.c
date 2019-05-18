@@ -1,7 +1,4 @@
 #include "api.h"
-#include "api/data.h"
-#include "api/graphics.h"
-#include "api/math.h"
 #include "graphics/graphics.h"
 #include "graphics/animator.h"
 #include "graphics/buffer.h"
@@ -9,6 +6,7 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
+#include "data/blob.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "data/textureData.h"
@@ -861,7 +859,7 @@ static int l_lovrGraphicsSphere(lua_State* L) {
 }
 
 static int l_lovrGraphicsSkybox(lua_State* L) {
-  Texture* texture = luax_checktexture(L, 1);
+  Texture* texture = luax_checktype(L, 1, Texture);
   float angle = luax_optfloat(L, 2, 0.f);
   float ax = luax_optfloat(L, 3, 0.f);
   float ay = luax_optfloat(L, 4, 1.f);
@@ -897,7 +895,15 @@ static int l_lovrGraphicsStencil(lua_State* L) {
 }
 
 static int l_lovrGraphicsFill(lua_State* L) {
-  Texture* texture = lua_isnoneornil(L, 1) ? NULL : luax_checktexture(L, 1);
+  Texture* texture = NULL;
+  if (!lua_isnoneornil(L, 1)) {
+    Canvas* canvas = luax_totype(L, 1, Canvas);
+    if (canvas) {
+      texture = lovrCanvasGetAttachments(canvas, NULL)->texture;
+    } else {
+      texture = luax_checktype(L, 1, Texture);
+    }
+  }
   float u = luax_optfloat(L, 2, 0.f);
   float v = luax_optfloat(L, 3, 0.f);
   float w = luax_optfloat(L, 4, 1.f - u);
@@ -923,6 +929,35 @@ static int l_lovrGraphicsNewAnimator(lua_State* L) {
   luax_pushobject(L, animator);
   lovrRelease(Animator, animator);
   return 1;
+}
+
+static void luax_checkuniformtype(lua_State* L, int index, UniformType* baseType, int* components) {
+  size_t length;
+  lovrAssert(lua_type(L, index) == LUA_TSTRING, "Uniform types must be strings, got %s", lua_typename(L, index));
+  const char* type = lua_tolstring(L, index, &length);
+
+  if (!strcmp(type, "float")) {
+    *baseType = UNIFORM_FLOAT;
+    *components = 1;
+  } else if (!strcmp(type, "int")) {
+    *baseType = UNIFORM_INT;
+    *components = 1;
+  } else {
+    int n = type[length - 1] - '0';
+    lovrAssert(n >= 2 && n <= 4, "Unknown uniform type '%s'", type);
+    if (type[0] == 'v' && type[1] == 'e' && type[2] == 'c' && length == 4) {
+      *baseType = UNIFORM_FLOAT;
+      *components = n;
+    } else if (type[0] == 'i' && type[1] == 'v' && type[2] == 'e' && type[3] == 'c' && length == 5) {
+      *baseType = UNIFORM_INT;
+      *components = n;
+    } else if (type[0] == 'm' && type[1] == 'a' && type[2] == 't' && length == 4) {
+      *baseType = UNIFORM_MATRIX;
+      *components = n;
+    } else {
+      lovrThrow("Unknown uniform type '%s'", type);
+    }
+  }
 }
 
 static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
@@ -1122,7 +1157,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     lovrRelease(TextureData, textureData);
     lovrRelease(Texture, texture);
   } else if (lua_isuserdata(L, index)) {
-    Texture* texture = luax_checktexture(L, index);
+    Texture* texture = luax_checktype(L, index, Texture);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
     index++;
   }

@@ -1,12 +1,14 @@
 #include "api.h"
-#include "api/data.h"
-#include "api/math.h"
 #include "audio/audio.h"
 #include "audio/microphone.h"
 #include "audio/source.h"
+#include "data/blob.h"
 #include "data/audioStream.h"
 #include "data/soundData.h"
+#include "lib/maf.h"
 #include <stdlib.h>
+
+struct Blob* luax_readblob(lua_State* L, int index, const char* debug);
 
 const char* SourceTypes[] = {
   [SOURCE_STATIC] = "static",

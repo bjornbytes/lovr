@@ -30,7 +30,7 @@ typedef union {
   struct Ref* ref;
 } VariantValue;
 
-typedef struct {
+typedef struct Variant {
   VariantType type;
   VariantValue value;
 } Variant;

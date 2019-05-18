@@ -67,7 +67,7 @@ typedef struct {
   UniformAccess access;
 } Image;
 
-typedef struct {
+typedef struct Uniform {
   char name[LOVR_MAX_UNIFORM_LENGTH];
   UniformType type;
   int components;

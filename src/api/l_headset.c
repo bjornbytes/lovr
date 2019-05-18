@@ -1,5 +1,4 @@
 #include "api.h"
-#include "api/math.h"
 #include "headset/headset.h"
 #include "data/modelData.h"
 #include "graphics/model.h"

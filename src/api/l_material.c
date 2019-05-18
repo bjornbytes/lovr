@@ -1,6 +1,6 @@
 #include "api.h"
-#include "api/graphics.h"
 #include "graphics/material.h"
+#include "graphics/texture.h"
 
 static int l_lovrMaterialGetColor(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
@@ -59,7 +59,7 @@ static int l_lovrMaterialSetTexture(lua_State* L) {
     textureType = luaL_checkoption(L, index, NULL, MaterialTextures);
     index++;
   }
-  Texture* texture = lua_isnoneornil(L, index) ? NULL : luax_checktexture(L, index);
+  Texture* texture = lua_isnoneornil(L, index) ? NULL : luax_checktype(L, index, Texture);
   lovrMaterialSetTexture(material, textureType, texture);
   return 0;
 }

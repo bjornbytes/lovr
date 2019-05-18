@@ -1,5 +1,4 @@
 #include "api.h"
-#include "api/math.h"
 #include "math/math.h"
 
 int luax_readquat(lua_State* L, int index, quat q, const char* expected) {

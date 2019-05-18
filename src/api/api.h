@@ -1,7 +1,7 @@
 #include "luax.h"
 #include "util.h"
 
-// Module loaders
+// Modules
 LOVR_EXPORT int luaopen_lovr(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_audio(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_data(lua_State* L);
@@ -87,3 +87,40 @@ extern const char* UniformAccesses[];
 extern const char* VerticalAligns[];
 extern const char* Windings[];
 extern const char* WrapModes[];
+
+// Helpers
+
+#ifdef LOVR_ENABLE_DATA
+struct Blob;
+struct Blob* luax_readblob(lua_State* L, int index, const char* debug);
+#endif
+
+#ifdef LOVR_ENABLE_EVENT
+struct Variant;
+void luax_checkvariant(lua_State* L, int index, struct Variant* variant);
+int luax_pushvariant(lua_State* L, struct Variant* variant);
+#endif
+
+#ifdef LOVR_ENABLE_GRAPHICS
+struct Attachment;
+struct Texture;
+struct Uniform;
+int luax_checkuniform(lua_State* L, int index, const struct Uniform* uniform, void* dest, const char* debug);
+int luax_optmipmap(lua_State* L, int index, struct Texture* texture);
+void luax_readattachments(lua_State* L, int index, struct Attachment* attachments, int* count);
+#endif
+
+#ifdef LOVR_ENABLE_MATH
+#include <stdint.h>
+#include "math/pool.h" // TODO
+#include "math/randomGenerator.h" // TODO
+void luax_pushlightmathtype(lua_State* L, float* p, MathType type);
+float* luax_tomathtype(lua_State* L, int index, MathType* type);
+float* luax_checkmathtype(lua_State* L, int index, MathType type, const char* expected);
+float* luax_newmathtype(lua_State* L, MathType type);
+int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
+int luax_readscale(lua_State* L, int index, float* v, int components, const char* expected);
+int luax_readquat(lua_State* L, int index, float* q, const char* expected);
+int luax_readmat4(lua_State* L, int index, float* m, int scaleComponents);
+Seed luax_checkrandomseed(lua_State* L, int index);
+#endif

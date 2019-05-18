@@ -1,7 +1,10 @@
 #include "api.h"
-#include "api/math.h"
 #include "math/pool.h"
 #include "lib/maf.h"
+
+int l_lovrVec3Set(lua_State* L);
+int l_lovrQuatSet(lua_State* L);
+int l_lovrMat4Set(lua_State* L);
 
 static int l_lovrPoolVec3(lua_State* L) {
   Pool* pool = luax_checktype(L, 1, Pool);

@@ -8,7 +8,7 @@
 struct Texture;
 struct TextureData;
 
-typedef struct {
+typedef struct Attachment {
   struct Texture* texture;
   int slice;
   int level;

@@ -1,5 +1,4 @@
 #include "api.h"
-#include "api/event.h"
 #include "thread/channel.h"
 #include <math.h>
 
