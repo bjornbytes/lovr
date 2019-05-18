@@ -603,7 +603,6 @@ void lovrGraphicsFlush() {
     lovrBufferUnmap(state.buffers[i]);
   }
 
-
   for (int b = 0; b < batchCount; b++) {
     Batch* batch = &state.batches[b];
     BatchParams* params = &batch->params;
