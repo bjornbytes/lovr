@@ -340,7 +340,7 @@ endif()
 
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET default)
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
-target_include_directories(lovr PRIVATE src)
+target_include_directories(lovr PRIVATE src src/modules)
 target_link_libraries(lovr
   ${LOVR_ENET}
   ${LOVR_GLFW}
@@ -360,9 +360,9 @@ target_link_libraries(lovr
 if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
-    src/audio/audio.c
-    src/audio/source.c
-    src/audio/microphone.c
+    src/modules/audio/audio.c
+    src/modules/audio/source.c
+    src/modules/audio/microphone.c
     src/api/l_audio.c
     src/api/l_source.c
     src/api/l_microphone.c
@@ -372,14 +372,14 @@ endif()
 if(LOVR_ENABLE_DATA)
   add_definitions(-DLOVR_ENABLE_DATA)
   target_sources(lovr PRIVATE
-    src/data/audioStream.c
-    src/data/blob.c
-    src/data/modelData.c
-    src/data/modelData_gltf.c
-    src/data/modelData_obj.c
-    src/data/rasterizer.c
-    src/data/soundData.c
-    src/data/textureData.c
+    src/modules/data/audioStream.c
+    src/modules/data/blob.c
+    src/modules/data/modelData.c
+    src/modules/data/modelData_gltf.c
+    src/modules/data/modelData_obj.c
+    src/modules/data/rasterizer.c
+    src/modules/data/soundData.c
+    src/modules/data/textureData.c
     src/api/l_data.c
     src/api/l_audioStream.c
     src/api/l_blob.c
@@ -398,7 +398,7 @@ endif()
 if(LOVR_ENABLE_EVENT)
   add_definitions(-DLOVR_ENABLE_EVENT)
   target_sources(lovr PRIVATE
-    src/event/event.c
+    src/modules/event/event.c
     src/api/l_event.c
   )
 endif()
@@ -406,8 +406,8 @@ endif()
 if(LOVR_ENABLE_FILESYSTEM)
   add_definitions(-DLOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
-    src/filesystem/file.c
-    src/filesystem/filesystem.c
+    src/modules/filesystem/file.c
+    src/modules/filesystem/filesystem.c
     src/api/l_filesystem.c
   )
 endif()
@@ -415,17 +415,17 @@ endif()
 if(LOVR_ENABLE_GRAPHICS)
   add_definitions(-DLOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
-    src/graphics/animator.c
-    src/graphics/buffer.c
-    src/graphics/canvas.c
-    src/graphics/font.c
-    src/graphics/graphics.c
-    src/graphics/material.c
-    src/graphics/mesh.c
-    src/graphics/model.c
-    src/graphics/opengl.c
-    src/graphics/shader.c
-    src/graphics/texture.c
+    src/modules/graphics/animator.c
+    src/modules/graphics/buffer.c
+    src/modules/graphics/canvas.c
+    src/modules/graphics/font.c
+    src/modules/graphics/graphics.c
+    src/modules/graphics/material.c
+    src/modules/graphics/mesh.c
+    src/modules/graphics/model.c
+    src/modules/graphics/opengl.c
+    src/modules/graphics/shader.c
+    src/modules/graphics/texture.c
     src/api/l_graphics.c
     src/api/l_animator.c
     src/api/l_canvas.c
@@ -445,42 +445,42 @@ if(LOVR_ENABLE_HEADSET)
   add_definitions(-DLOVR_ENABLE_HEADSET)
   target_sources(lovr PRIVATE
     src/api/l_headset.c
-    src/headset/headset.c
+    src/modules/headset/headset.c
   )
 
   if(LOVR_USE_OPENVR)
     add_definitions(-DLOVR_USE_OPENVR)
-    target_sources(lovr PRIVATE src/headset/openvr.c)
+    target_sources(lovr PRIVATE src/modules/headset/openvr.c)
   endif()
   if(LOVR_USE_OCULUS)
     add_definitions(-DLOVR_USE_OCULUS)
-    target_sources(lovr PRIVATE src/headset/oculus.c)
+    target_sources(lovr PRIVATE src/modules/headset/oculus.c)
   endif()
   if(LOVR_USE_OCULUS_MOBILE)
     add_definitions(-DLOVR_USE_OCULUS_MOBILE)
-    target_sources(lovr PRIVATE src/headset/oculus_mobile.c)
+    target_sources(lovr PRIVATE src/modules/headset/oculus_mobile.c)
   endif()
   if(LOVR_USE_WEBVR)
     add_definitions(-DLOVR_USE_WEBVR)
-    target_sources(lovr PRIVATE src/headset/webvr.c)
+    target_sources(lovr PRIVATE src/modules/headset/webvr.c)
   endif()
   if(LOVR_USE_DESKTOP_HEADSET)
     add_definitions(-DLOVR_USE_DESKTOP_HEADSET)
-    target_sources(lovr PRIVATE src/headset/desktop.c)
+    target_sources(lovr PRIVATE src/modules/headset/desktop.c)
   endif()
   if(LOVR_USE_LEAP)
     add_definitions(-DLOVR_USE_LEAP)
-    target_sources(lovr PRIVATE src/headset/leap.c)
+    target_sources(lovr PRIVATE src/modules/headset/leap.c)
   endif()
 endif()
 
 if(LOVR_ENABLE_MATH)
   add_definitions(-DLOVR_ENABLE_MATH)
   target_sources(lovr PRIVATE
-    src/math/math.c
-    src/math/curve.c
-    src/math/pool.c
-    src/math/randomGenerator.c
+    src/modules/math/math.c
+    src/modules/math/curve.c
+    src/modules/math/pool.c
+    src/modules/math/randomGenerator.c
     src/api/l_math.c
     src/api/l_curve.c
     src/api/l_pool.c
@@ -499,7 +499,7 @@ endif()
 if(LOVR_ENABLE_PHYSICS)
   add_definitions(-DLOVR_ENABLE_PHYSICS)
   target_sources(lovr PRIVATE
-    src/physics/physics.c
+    src/modules/physics/physics.c
     src/api/l_physics.c
     src/api/l_collider.c
     src/api/l_joints.c
@@ -511,8 +511,8 @@ endif()
 if(LOVR_ENABLE_THREAD)
   add_definitions(-DLOVR_ENABLE_THREAD)
   target_sources(lovr PRIVATE
-    src/thread/channel.c
-    src/thread/thread.c
+    src/modules/thread/channel.c
+    src/modules/thread/thread.c
     src/api/l_thread_module.c
     src/api/l_channel.c
     src/api/l_thread.c
@@ -522,7 +522,7 @@ endif()
 
 if(LOVR_ENABLE_TIMER)
   add_definitions(-DLOVR_ENABLE_TIMER)
-  target_sources(lovr PRIVATE src/timer/timer.c src/api/l_timer.c)
+  target_sources(lovr PRIVATE src/modules/timer/timer.c src/api/l_timer.c)
 endif()
 
 if(LOVR_ENABLE_ENET)
