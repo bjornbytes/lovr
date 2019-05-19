@@ -1613,15 +1613,14 @@ void lovrBufferUnmap(Buffer* buffer) {
     glBufferSubData(convertBufferType(buffer->type), buffer->flushFrom, buffer->flushTo - buffer->flushFrom, data);
   }
 #else
-  if (buffer->flushTo > buffer->flushFrom) {
+  if (buffer->flushTo > buffer->flushFrom && (GLAD_GL_ARB_buffer_storage || buffer->mapped)) {
     lovrGpuBindBuffer(buffer->type, buffer->id);
     glFlushMappedBufferRange(convertBufferType(buffer->type), buffer->flushFrom, buffer->flushTo - buffer->flushFrom);
-  }
 
-  if (!GLAD_GL_ARB_buffer_storage && buffer->mapped) {
-    lovrGpuBindBuffer(buffer->type, buffer->id);
-    glUnmapBuffer(convertBufferType(buffer->type));
-    buffer->mapped = false;
+    if (buffer->mapped) {
+      glUnmapBuffer(convertBufferType(buffer->type));
+      buffer->mapped = false;
+    }
   }
 #endif
   buffer->flushFrom = SIZE_MAX;
