@@ -68,7 +68,11 @@ void lovrAnimatorUpdate(Animator* animator, float dt) {
 }
 
 bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
-  float properties[3][4] = { { 0, 0, 0 }, { 0, 0, 0, 1 }, { 1, 1, 1 } };
+  float properties[3][4];
+  ModelNode* node = &animator->data->nodes[nodeIndex];
+  vec3_init(properties[PROP_TRANSLATION], node->translation);
+  quat_init(properties[PROP_ROTATION], node->rotation);
+  vec3_init(properties[PROP_SCALE], node->scale);
   bool touched = false;
 
   for (int i = 0; i < animator->data->animationCount; i++) {
@@ -138,6 +142,8 @@ bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform) {
     mat4_translate(transform, T[0], T[1], T[2]);
     mat4_rotateQuat(transform, R);
     mat4_scale(transform, S[0], S[1], S[2]);
+  } else {
+    mat4_multiply(transform, node->transform);
   }
 
   return touched;

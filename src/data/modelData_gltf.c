@@ -743,9 +743,9 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
     jsmntok_t* token = info.nodes;
     ModelNode* node = model->nodes;
     for (int i = (token++)->size; i > 0; i--, node++) {
-      float translation[3] = { 0, 0, 0 };
-      float rotation[4] = { 0, 0, 0, 0 };
-      float scale[3] = { 1, 1, 1 };
+      vec3 translation = vec3_set(node->translation, 0.f, 0.f, 0.f);
+      quat rotation = quat_set(node->rotation, 0.f, 0.f, 0.f, 1.f);
+      vec3 scale = vec3_set(node->scale, 1.f, 1.f, 1.f);
       bool matrix = false;
       node->primitiveCount = 0;
       node->skin = -1;

@@ -13,8 +13,8 @@ static void updateGlobalNodeTransform(Model* model, uint32_t nodeIndex, mat4 tra
   mat4 globalTransform = model->globalNodeTransforms + 16 * nodeIndex;
   mat4_set(globalTransform, transform);
 
-  if (!model->animator || !lovrAnimatorEvaluate(model->animator, nodeIndex, globalTransform)) {
-    mat4_multiply(globalTransform, node->transform);
+  if (model->animator) {
+    lovrAnimatorEvaluate(model->animator, nodeIndex, globalTransform);
   }
 
   for (uint32_t i = 0; i < node->childCount; i++) {
