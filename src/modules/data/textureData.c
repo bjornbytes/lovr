@@ -294,7 +294,7 @@ static void writeCallback(void* context, void* data, int size) {
 bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
   File file;
   lovrFileInit(memset(&file, 0, sizeof(File)), filename);
-  if (lovrFileOpen(&file, OPEN_WRITE)) {
+  if (!lovrFileOpen(&file, OPEN_WRITE)) {
     return false;
   }
   lovrAssert(textureData->format == FORMAT_RGB || textureData->format == FORMAT_RGBA, "Only RGB and RGBA TextureData can be encoded");

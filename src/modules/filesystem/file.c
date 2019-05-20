@@ -15,7 +15,7 @@ void lovrFileDestroy(void* ref) {
   }
 }
 
-int lovrFileOpen(File* file, FileMode mode) {
+bool lovrFileOpen(File* file, FileMode mode) {
   lovrAssert(!file->handle, "File is already open");
   file->mode = mode;
 
@@ -25,7 +25,7 @@ int lovrFileOpen(File* file, FileMode mode) {
     case OPEN_APPEND: file->handle = PHYSFS_openAppend(file->path); break;
   }
 
-  return file->handle == NULL;
+  return file->handle != NULL;
 }
 
 void lovrFileClose(File* file) {
@@ -49,9 +49,9 @@ size_t lovrFileGetSize(File* file) {
   return PHYSFS_fileLength(file->handle);
 }
 
-int lovrFileSeek(File* file, size_t position) {
+bool lovrFileSeek(File* file, size_t position) {
   lovrAssert(file->handle, "File must be open to seek");
-  return !PHYSFS_seek(file->handle, position);
+  return PHYSFS_seek(file->handle, position);
 }
 
 size_t lovrFileTell(File* file) {
