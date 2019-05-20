@@ -2,8 +2,8 @@
 #include "platform.h"
 #include <stdlib.h>
 
-_Thread_local lovrErrorHandler lovrErrorCallback = NULL;
-_Thread_local void* lovrErrorUserdata = NULL;
+LOVR_THREAD_LOCAL lovrErrorHandler lovrErrorCallback = NULL;
+LOVR_THREAD_LOCAL void* lovrErrorUserdata = NULL;
 
 void lovrSetErrorCallback(lovrErrorHandler callback, void* userdata) {
   lovrErrorCallback = callback;
