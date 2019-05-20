@@ -9,24 +9,12 @@
 
 #ifdef _WIN32
 #define LOVR_EXPORT __declspec(dllexport)
+#define LOVR_NORETURN  __declspec(noreturn)
+#define LOVR_THREAD_LOCAL  __declspec(thread)
 #else
 #define LOVR_EXPORT __attribute__((visibility("default")))
-#endif
-
-#ifndef _Noreturn
-#ifdef _WIN32
-#define _Noreturn  __declspec(noreturn)
-#else
-#define _Noreturn __attribute__((noreturn))
-#endif
-#endif
-
-#ifndef _Thread_local
-#ifdef _WIN32
-#define _Thread_local  __declspec(thread)
-#else
-#define _Thread_local __thread
-#endif
+#define LOVR_NORETURN __attribute__((noreturn))
+#define LOVR_THREAD_LOCAL __thread
 #endif
 
 #define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
@@ -39,10 +27,10 @@
 typedef struct Color { float r, g, b, a; } Color;
 
 typedef void (*lovrErrorHandler)(void* userdata, const char* format, va_list args);
-extern _Thread_local lovrErrorHandler lovrErrorCallback;
-extern _Thread_local void* lovrErrorUserdata;
+extern LOVR_THREAD_LOCAL lovrErrorHandler lovrErrorCallback;
+extern LOVR_THREAD_LOCAL void* lovrErrorUserdata;
 
 void lovrSetErrorCallback(lovrErrorHandler callback, void* context);
-void _Noreturn lovrThrow(const char* format, ...);
+void LOVR_NORETURN lovrThrow(const char* format, ...);
 
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
