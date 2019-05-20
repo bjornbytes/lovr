@@ -4,11 +4,11 @@
 
 #include "platform_glfw.c.h"
 
-void lovrSleep(double seconds) {
+void lovrPlatformSleep(double seconds) {
   usleep((unsigned int) (seconds * 1000000));
 }
 
-int lovrGetExecutablePath(char* dest, uint32_t size) {
+int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
   memset(dest, 0, size);
   if (readlink("/proc/self/exe", dest, size) != -1) {
     return 0;
@@ -16,6 +16,6 @@ int lovrGetExecutablePath(char* dest, uint32_t size) {
   return 1;
 }
 
-sds lovrGetApplicationId() {
+sds lovrPlatformGetApplicationId() {
 	return NULL;
 }

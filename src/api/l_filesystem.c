@@ -337,7 +337,7 @@ static int l_lovrFilesystemWrite(lua_State* L) {
 }
 
 static int l_lovrFilesystemGetApplicationId(lua_State *L) {
-  sds applicationId = lovrGetApplicationId();
+  sds applicationId = lovrPlatformGetApplicationId();
   if (applicationId) {
     lua_pushstring(L, applicationId);
     sdsfree(applicationId);

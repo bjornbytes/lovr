@@ -3,14 +3,14 @@
 
 #include "platform_glfw.c.h"
 
-void lovrSleep(double seconds) {
+void lovrPlatformSleep(double seconds) {
   Sleep((unsigned int) (seconds * 1000));
 }
 
-int lovrGetExecutablePath(char* dest, uint32_t size) {
+int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
   return !GetModuleFileName(NULL, dest, size);
 }
 
-sds lovrGetApplicationId() {
+sds lovrPlatformGetApplicationId() {
 	return NULL;
 }

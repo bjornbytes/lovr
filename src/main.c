@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
     return 0;
 #else
     while (lua_resume(T, 0) == LUA_YIELD) {
-      lovrSleep(.001);
+      lovrPlatformSleep(.001);
     }
 
     restart = lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart");

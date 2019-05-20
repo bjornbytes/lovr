@@ -57,5 +57,5 @@ int lovrTimerGetFPS() {
 }
 
 void lovrTimerSleep(double seconds) {
-  lovrSleep(seconds);
+  lovrPlatformSleep(seconds);
 }

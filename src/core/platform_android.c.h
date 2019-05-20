@@ -70,15 +70,15 @@ bool lovrPlatformIsKeyDown(KeyCode key) {
   return false;
 }
 
-void lovrSleep(double seconds) {
+void lovrPlatformSleep(double seconds) {
   usleep((unsigned int) (seconds * 1000000));
 }
 
-int lovrGetExecutablePath(char* dest, uint32_t size) {
+int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
   return 1;
 }
 
-sds lovrGetApplicationId() {
+sds lovrPlatformGetApplicationId() {
   pid_t pid = getpid();
   sds procPath = sdscatfmt(sdsempty(), "/proc/%i/cmdline", (int)pid);
   FILE *procFile = fopen(procPath, "r");

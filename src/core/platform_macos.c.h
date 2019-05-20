@@ -4,15 +4,15 @@
 
 #include "platform_glfw.c.h"
 
-void lovrSleep(double seconds) {
+void lovrPlatformSleep(double seconds) {
   usleep((unsigned int) (seconds * 1000000));
 }
 
-int lovrGetExecutablePath(char* dest, uint32_t size) {
+int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
   return _NSGetExecutablePath(dest, &size);
 }
 
 // TODO: Actually, this could perfectly well return the bundle ID, but who would need it?
-sds lovrGetApplicationId() {
+sds lovrPlatformGetApplicationId() {
 	return NULL;
 }

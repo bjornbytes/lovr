@@ -86,9 +86,9 @@ void lovrPlatformGetMousePosition(double* x, double* y);
 void lovrPlatformSetMouseMode(MouseMode mode);
 bool lovrPlatformIsMouseDown(MouseButton button);
 bool lovrPlatformIsKeyDown(KeyCode key);
-void lovrSleep(double seconds);
-int lovrGetExecutablePath(char* dest, uint32_t size);
-sds lovrGetApplicationId(void);
+void lovrPlatformSleep(double seconds);
+int lovrPlatformGetExecutablePath(char* dest, uint32_t size);
+sds lovrPlatformGetApplicationId(void);
 #ifdef _WIN32
 #include <windows.h>
 HANDLE lovrPlatformGetWindow(void);

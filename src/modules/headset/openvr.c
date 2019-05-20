@@ -435,13 +435,13 @@ static ModelData* openvr_newModelData(Device device) {
 
   if (!state.deviceModels[index]) {
     while (state.renderModels->LoadRenderModel_Async(renderModelName, &state.deviceModels[index]) == EVRRenderModelError_VRRenderModelError_Loading) {
-      lovrSleep(.001);
+      lovrPlatformSleep(.001);
     }
   }
 
   if (!state.deviceTextures[index]) {
     while (state.renderModels->LoadTexture_Async(state.deviceModels[index]->diffuseTextureId, &state.deviceTextures[index]) == EVRRenderModelError_VRRenderModelError_Loading) {
-      lovrSleep(.001);
+      lovrPlatformSleep(.001);
     }
   }
 
