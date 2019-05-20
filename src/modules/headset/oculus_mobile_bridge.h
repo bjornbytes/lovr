@@ -1,7 +1,7 @@
 // Functions on the Lovr side of the wall, called from the Oculus side of the wall.
 #pragma once
 
-#include "../util.h"
+#include "../../core/util.h"
 #include <stdbool.h>
 
 // What's going on here:
