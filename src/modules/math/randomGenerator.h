@@ -1,5 +1,5 @@
-#include "types.h"
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -14,7 +14,6 @@ typedef union {
 } Seed;
 
 typedef struct {
-  Ref ref;
   Seed seed;
   Seed state;
   double lastRandomNormal;

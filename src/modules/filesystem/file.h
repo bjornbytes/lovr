@@ -1,5 +1,5 @@
-#include "types.h"
 #include <stdbool.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -10,14 +10,12 @@ typedef enum {
 } FileMode;
 
 typedef struct {
-  Ref ref;
   const char* path;
   void* handle;
   FileMode mode;
 } File;
 
 File* lovrFileInit(File* file, const char* filename);
-#define lovrFileCreate(...) lovrFileInit(lovrAlloc(File), __VA_ARGS__)
 void lovrFileDestroy(void* ref);
 bool lovrFileOpen(File* file, FileMode mode);
 void lovrFileClose(File* file);

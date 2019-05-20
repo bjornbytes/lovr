@@ -3,6 +3,7 @@
 #include "graphics/buffer.h"
 #include "math/math.h"
 #include "resources/shaders.h"
+#include "types.h"
 #include <math.h>
 
 static size_t getUniformTypeLength(const Uniform* uniform) {

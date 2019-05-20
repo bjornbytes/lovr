@@ -7,7 +7,6 @@
 #include <AL/alc.h>
 
 struct Microphone {
-  Ref ref;
   ALCdevice* device;
   const char* name;
   bool isRecording;

@@ -1,5 +1,4 @@
 #include "data/modelData.h"
-#include "types.h"
 #include "util.h"
 
 #pragma once
@@ -8,7 +7,6 @@ struct Texture;
 struct Shader;
 
 typedef struct Material {
-  Ref ref;
   float scalars[MAX_MATERIAL_SCALARS];
   Color colors[MAX_MATERIAL_COLORS];
   struct Texture* textures[MAX_MATERIAL_TEXTURES];

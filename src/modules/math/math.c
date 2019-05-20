@@ -1,6 +1,7 @@
 #include "math.h"
 #include "core/maf.h"
 #include "lib/noise1234/noise1234.h"
+#include "types.h"
 #include "util.h"
 #include <math.h>
 #include <string.h>

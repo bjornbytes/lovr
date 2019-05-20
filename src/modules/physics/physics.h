@@ -1,4 +1,3 @@
-#include "types.h"
 #include "lib/vec/vec.h"
 #include "lib/map/map.h"
 #include <stdint.h>
@@ -28,7 +27,6 @@ typedef enum {
 typedef struct Collider Collider;
 
 typedef struct {
-  Ref ref;
   dWorldID id;
   dSpaceID space;
   dJointGroupID contactGroup;
@@ -39,7 +37,6 @@ typedef struct {
 } World;
 
 struct Collider {
-  Ref ref;
   dBodyID body;
   World* world;
   Collider* prev;
@@ -53,7 +50,6 @@ struct Collider {
 };
 
 typedef struct {
-  Ref ref;
   ShapeType type;
   dGeomID id;
   Collider* collider;
@@ -66,7 +62,6 @@ typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
 
 typedef struct {
-  Ref ref;
   JointType type;
   dJointID id;
   void* userdata;

@@ -1,5 +1,3 @@
-#include "types.h"
-
 #pragma once
 
 struct Animator;
@@ -10,7 +8,6 @@ struct ModelData;
 struct Texture;
 
 typedef struct {
-  Ref ref;
   struct ModelData* data;
   struct Animator* animator;
   struct Buffer** buffers;

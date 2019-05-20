@@ -1,4 +1,5 @@
 #include "math/curve.h"
+#include "types.h"
 #include <math.h>
 
 // Explicit curve evaluation, unroll simple cases to avoid pow overhead

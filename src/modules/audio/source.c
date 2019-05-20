@@ -12,7 +12,6 @@
 #define SOURCE_BUFFERS 4
 
 struct Source {
-  Ref ref;
   SourceType type;
   struct SoundData* soundData;
   struct AudioStream* stream;

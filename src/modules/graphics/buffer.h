@@ -1,5 +1,4 @@
 #include "graphics/opengl.h"
-#include "types.h"
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -21,7 +20,6 @@ typedef enum {
 } BufferUsage;
 
 typedef struct Buffer {
-  Ref ref;
   void* data;
   size_t size;
   size_t flushFrom;

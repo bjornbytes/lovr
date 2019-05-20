@@ -40,8 +40,8 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
 
     case LUA_TUSERDATA:
       variant->type = TYPE_OBJECT;
-      variant->value.ref = ((Proxy*) lua_touserdata(L, index))->ref;
-      lovrRetain(variant->value.ref);
+      variant->value.object = ((Proxy*) lua_touserdata(L, index))->object;
+      lovrRetain(variant->value.object);
       break;
 
     default:
@@ -56,7 +56,7 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
     case TYPE_STRING: lua_pushstring(L, variant->value.string); return 1;
-    case TYPE_OBJECT: luax_pushobject(L, variant->value.ref); return 1;
+    case TYPE_OBJECT: luax_pushobject(L, variant->value.object); return 1;
     default: return 0;
   }
 }

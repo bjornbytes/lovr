@@ -1,4 +1,3 @@
-#include "types.h"
 #include "lib/map/map.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
@@ -19,7 +18,6 @@ typedef struct {
 typedef vec_t(Track) vec_track_t;
 
 typedef struct Animator {
-  Ref ref;
   struct ModelData* data;
   map_int_t animations;
   vec_track_t tracks;

@@ -1,8 +1,7 @@
 #include "data/rasterizer.h"
-#include "types.h"
 #include "lib/map/map.h"
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #pragma once
 
@@ -34,7 +33,6 @@ typedef struct {
 } FontAtlas;
 
 typedef struct Font {
-  Ref ref;
   struct Rasterizer* rasterizer;
   struct Texture* texture;
   FontAtlas atlas;

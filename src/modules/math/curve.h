@@ -1,9 +1,7 @@
-#include "types.h"
 #include "core/maf.h"
 #include "lib/vec/vec.h"
 
 typedef struct {
-  Ref ref;
   vec_float_t points;
 } Curve;
 

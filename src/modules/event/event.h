@@ -5,7 +5,6 @@
 
 #define MAX_EVENT_NAME_LENGTH 32
 
-struct Ref;
 struct Thread;
 
 typedef enum {
@@ -27,7 +26,7 @@ typedef union {
   bool boolean;
   double number;
   char* string;
-  struct Ref* ref;
+  void* object;
 } VariantValue;
 
 typedef struct Variant {

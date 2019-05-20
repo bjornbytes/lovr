@@ -1,10 +1,8 @@
-#include "types.h"
 #include <stddef.h>
 
 #pragma once
 
 typedef struct Blob {
-  Ref ref;
   void* data;
   size_t size;
   const char* name;

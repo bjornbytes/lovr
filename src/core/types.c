@@ -83,10 +83,10 @@ const TypeInfo lovrTypeInfo[T_MAX] = {
 #undef INFO
 #undef SUPERINFO
 
-Ref* _lovrAlloc(size_t size, Type type) {
-  Ref* ref = calloc(1, size);
+void* _lovrAlloc(size_t size, Type type) {
+  Ref* ref = calloc(1, sizeof(Ref) + size);
   lovrAssert(ref, "Out of memory");
   ref->type = type;
   ref->count = 1;
-  return ref;
+  return ref + 1;
 }

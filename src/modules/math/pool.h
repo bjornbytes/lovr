@@ -1,6 +1,6 @@
-#include "types.h"
 #include "util.h"
 #include <stdint.h>
+#include <stddef.h>
 
 #define POOL_ALIGN 16
 #define DEFAULT_POOL_SIZE (640 * 1024)
@@ -15,7 +15,6 @@ typedef enum {
 } MathType;
 
 typedef struct {
-  Ref ref;
   float* data;
   size_t size;
   size_t usage;

@@ -1,4 +1,3 @@
-#include "types.h"
 #include "lib/stb/stb_truetype.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -11,7 +10,6 @@ struct Blob;
 struct TextureData;
 
 typedef struct Rasterizer {
-  Ref ref;
   stbtt_fontinfo font;
   struct Blob* blob;
   float size;

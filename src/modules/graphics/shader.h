@@ -92,7 +92,6 @@ typedef struct Uniform {
 typedef vec_t(Uniform) vec_uniform_t;
 
 typedef struct {
-  Ref ref;
   BlockType type;
   vec_uniform_t uniforms;
   map_int_t uniformMap;
@@ -111,7 +110,6 @@ typedef struct {
 typedef vec_t(UniformBlock) vec_block_t;
 
 typedef struct Shader {
-  Ref ref;
   ShaderType type;
   vec_uniform_t uniforms;
   vec_block_t blocks[2];

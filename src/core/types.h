@@ -61,9 +61,9 @@ typedef struct Ref {
   int count;
 } Ref;
 
-Ref* _lovrAlloc(size_t size, Type type);
-
+void* _lovrAlloc(size_t size, Type type);
+#define _ref(o) ((Ref*) o - 1)
 #define lovrAlloc(T) (T*) _lovrAlloc(sizeof(T), T_ ## T)
-#define lovrRetain(r) if (r && ++(((Ref*) r)->count) >= 0xff) lovrThrow("Ref count overflow")
-#define lovrRelease(T, r) if (r && --(((Ref*) r)->count) == 0) lovr ## T ## Destroy(r), free(r)
-#define lovrGenericRelease(r) if (r && --(((Ref*) r)->count) == 0) lovrTypeInfo[((Ref*) r)->type].destructor(r), free(r)
+#define lovrRetain(o) if (o && ++(_ref(o)->count) >= 0xff) lovrThrow("Ref count overflow")
+#define lovrRelease(T, o) if (o && --(_ref(o)->count) == 0) lovr ## T ## Destroy(o), free(_ref(o))
+#define lovrGenericRelease(o) if (o && --(_ref(o)->count) == 0) lovrTypeInfo[_ref(o)->type].destructor(o), free(_ref(o))

@@ -9,7 +9,7 @@ struct Color;
 
 typedef struct {
   Type type;
-  Ref* ref;
+  void* object;
 } Proxy;
 
 #ifndef LUA_RIDX_MAINTHERAD

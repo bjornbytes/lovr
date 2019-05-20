@@ -1,5 +1,4 @@
 #include "event/event.h"
-#include "types.h"
 #include "lib/tinycthread/tinycthread.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
@@ -8,7 +7,6 @@
 #pragma once
 
 typedef struct Channel {
-  Ref ref;
   mtx_t lock;
   cnd_t cond;
   vec_t(Variant) messages;

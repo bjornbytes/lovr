@@ -26,7 +26,6 @@ typedef struct {
 } CanvasFlags;
 
 typedef struct Canvas {
-  Ref ref;
   uint32_t width;
   uint32_t height;
   CanvasFlags flags;

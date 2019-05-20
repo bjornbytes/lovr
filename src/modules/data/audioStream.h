@@ -1,4 +1,3 @@
-#include "types.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -7,7 +6,6 @@
 struct Blob;
 
 typedef struct AudioStream {
-  Ref ref;
   uint32_t bitDepth;
   uint32_t channelCount;
   uint32_t sampleRate;

@@ -1,7 +1,7 @@
-#include "types.h"
 #include "util.h"
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -179,7 +179,6 @@ typedef struct {
 } ModelSkin;
 
 typedef struct ModelData {
-  Ref ref;
   void* data;
   struct Blob** blobs;
   ModelBuffer* buffers;

@@ -1,6 +1,5 @@
 #include "data/modelData.h"
 #include "graphics/opengl.h"
-#include "types.h"
 #include "lib/map/map.h"
 #include <stdbool.h>
 
@@ -25,7 +24,6 @@ typedef struct {
 } MeshAttribute;
 
 typedef struct Mesh {
-  Ref ref;
   DrawMode mode;
   char attributeNames[MAX_ATTRIBUTES][MAX_ATTRIBUTE_NAME_LENGTH];
   MeshAttribute attributes[MAX_ATTRIBUTES];

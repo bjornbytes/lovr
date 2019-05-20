@@ -1,7 +1,6 @@
 #include "data/textureData.h"
 #include "graphics/opengl.h"
 #include "data/modelData.h"
-#include "types.h"
 #include <stdbool.h>
 
 #pragma once
@@ -16,7 +15,6 @@ typedef enum {
 } TextureType;
 
 typedef struct Texture {
-  Ref ref;
   TextureType type;
   TextureFormat format;
   uint32_t width;

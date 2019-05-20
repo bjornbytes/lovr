@@ -3,6 +3,7 @@
 #include "data/audioStream.h"
 #include "core/maf.h"
 #include "lib/vec/vec.h"
+#include "types.h"
 #include "util.h"
 #include <stdlib.h>
 #include <AL/al.h>

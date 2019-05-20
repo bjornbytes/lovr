@@ -13,7 +13,7 @@ static int luax_meta__tostring(lua_State* L) {
 
 static int luax_meta__gc(lua_State* L) {
   Proxy* p = lua_touserdata(L, 1);
-  lovrGenericRelease(p->ref);
+  lovrGenericRelease(p->object);
   return 0;
 }
 
@@ -143,7 +143,7 @@ void* _luax_totype(lua_State* L, int index, Type type) {
   Proxy* p = lua_touserdata(L, index);
 
   if (p && (p->type == type || lovrTypeInfo[p->type].super == type)) {
-    return p->ref;
+    return p->object;
   }
 
   return NULL;
@@ -199,13 +199,13 @@ void luax_pushobject(lua_State* L, void* object) {
   }
 
   // Allocate userdata
-  Ref* ref = (Ref*) object;
+  Ref* ref = _ref(object);
   Proxy* p = (Proxy*) lua_newuserdata(L, sizeof(Proxy));
   luaL_getmetatable(L, lovrTypeInfo[ref->type].name);
   lua_setmetatable(L, -2);
   lovrRetain(object);
   p->type = ref->type;
-  p->ref = ref;
+  p->object = object;
 
   // Write to registry and remove registry, leaving userdata on stack
   lua_pushlightuserdata(L, object);

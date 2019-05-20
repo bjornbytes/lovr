@@ -1,7 +1,6 @@
-#include "lib/vec/vec.h"
-#include "types.h"
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
