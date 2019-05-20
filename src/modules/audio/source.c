@@ -2,7 +2,7 @@
 #include "audio/audio.h"
 #include "data/audioStream.h"
 #include "data/soundData.h"
-#include "lib/maf.h"
+#include "core/maf.h"
 #include "types.h"
 #include <math.h>
 #include <stdlib.h>

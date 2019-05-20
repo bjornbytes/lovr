@@ -1,7 +1,7 @@
 #include "api.h"
 #include "math/math.h"
 #include "math/pool.h"
-#include "lib/maf.h"
+#include "core/maf.h"
 
 int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
   switch (lua_type(L, index)) {

@@ -1,5 +1,4 @@
 #include "types.h"
-#include "lib/maf.h"
 #include "lib/map/map.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
@@ -32,7 +31,7 @@ Animator* lovrAnimatorInit(Animator* animator, struct ModelData* modelData);
 void lovrAnimatorDestroy(void* ref);
 void lovrAnimatorReset(Animator* animator);
 void lovrAnimatorUpdate(Animator* animator, float dt);
-bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, mat4 transform);
+bool lovrAnimatorEvaluate(Animator* animator, int nodeIndex, float* transform);
 int lovrAnimatorGetAnimationCount(Animator* animator);
 int* lovrAnimatorGetAnimationIndex(Animator* animator, const char* name);
 const char* lovrAnimatorGetAnimationName(Animator* animator, int index);

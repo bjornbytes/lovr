@@ -3,7 +3,7 @@
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "graphics/texture.h"
-#include "lib/maf.h"
+#include "core/maf.h"
 #include "lib/vec/vec.h"
 
 #include <stdbool.h>

@@ -1,5 +1,4 @@
 #include "math/randomGenerator.h"
-#include "lib/maf.h"
 #include <stdbool.h>
 
 #pragma once
@@ -12,7 +11,7 @@ typedef struct {
 bool lovrMathInit(void);
 void lovrMathDestroy(void);
 RandomGenerator* lovrMathGetRandomGenerator(void);
-void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, vec3 v);
+void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, float* v);
 float lovrMathGammaToLinear(float x);
 float lovrMathLinearToGamma(float x);
 float lovrMathNoise1(float x);

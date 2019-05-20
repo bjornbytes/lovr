@@ -5,7 +5,7 @@
 #include "data/blob.h"
 #include "data/audioStream.h"
 #include "data/soundData.h"
-#include "lib/maf.h"
+#include "core/maf.h"
 #include <stdlib.h>
 
 struct Blob* luax_readblob(lua_State* L, int index, const char* debug);

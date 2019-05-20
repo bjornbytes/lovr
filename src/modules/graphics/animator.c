@@ -1,5 +1,6 @@
 #include "graphics/animator.h"
 #include "data/modelData.h"
+#include "core/maf.h"
 #include <stdlib.h>
 #include <math.h>
 

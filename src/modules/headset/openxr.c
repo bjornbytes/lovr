@@ -4,7 +4,6 @@
 #include "graphics/canvas.h"
 #include "graphics/texture.h"
 #include "graphics/opengl.h"
-#include "version.h"
 #include "util.h"
 #include <math.h>
 

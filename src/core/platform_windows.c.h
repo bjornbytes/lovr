@@ -1,7 +1,7 @@
 #include "platform.h"
 #include <Windows.h>
 
-#include "platform/glfw.h"
+#include "platform_glfw.c.h"
 
 void lovrSleep(double seconds) {
   Sleep((unsigned int) (seconds * 1000));

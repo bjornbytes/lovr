@@ -1,5 +1,6 @@
 #include "api.h"
 #include "math/math.h"
+#include "core/maf.h"
 
 int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
   float angle, ax, ay, az;

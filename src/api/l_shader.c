@@ -1,7 +1,7 @@
 #include "api.h"
 #include "graphics/buffer.h"
 #include "graphics/shader.h"
-#include "lib/maf.h"
+#include "core/maf.h"
 
 struct TempData {
   void* data;

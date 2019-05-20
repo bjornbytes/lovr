@@ -1,5 +1,5 @@
 #include "api.h"
-#include "version.h"
+#include "util.h"
 #include "resources/logo.png.h"
 #include "lib/lua-cjson/lua_cjson.h"
 #include "lib/lua-enet/enet.h"

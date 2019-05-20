@@ -321,12 +321,13 @@ endif()
 
 set(LOVR_SRC
   src/main.c
-  src/util.c
-  src/luax.c
-  src/types.c
+  src/core/luax.c
+  src/core/maf.c
+  src/core/platform.c
+  src/core/types.c
+  src/core/utf.c
+  src/core/util.c
   src/api/l_lovr.c
-  src/lib/utf.c
-  src/lib/maf.c
   src/lib/map/map.c
   src/lib/vec/vec.c
   src/lib/sds/sds.c
@@ -340,7 +341,7 @@ endif()
 
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET default)
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
-target_include_directories(lovr PRIVATE src src/modules)
+target_include_directories(lovr PRIVATE src src/core src/modules)
 target_link_libraries(lovr
   ${LOVR_ENET}
   ${LOVR_GLFW}
@@ -541,7 +542,6 @@ endif()
 
 # Platforms
 if(WIN32)
-  target_sources(lovr PRIVATE src/platform/windows.c)
   set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
@@ -572,16 +572,12 @@ if(WIN32)
   move_dll(${LOVR_LEAP})
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 elseif(APPLE)
-  target_sources(lovr PRIVATE src/platform/macos.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 elseif(EMSCRIPTEN)
-  target_sources(lovr PRIVATE src/platform/web.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_WEBGL)
 elseif(ANDROID)
   target_link_libraries(lovr log EGL GLESv3)
-  target_sources(lovr PRIVATE src/platform/android.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GLES)
 elseif(UNIX)
-  target_sources(lovr PRIVATE src/platform/linux.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 endif()

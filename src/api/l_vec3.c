@@ -1,6 +1,6 @@
 #include "api.h"
 #include "math/math.h"
-#include "lib/maf.h"
+#include "core/maf.h"
 
 int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected) {
   switch (lua_type(L, index)) {

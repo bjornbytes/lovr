@@ -1,5 +1,4 @@
 #include "resources/boot.lua.h"
-#include "version.h"
 #include "api/api.h"
 #include "luax.h"
 #include "platform.h"

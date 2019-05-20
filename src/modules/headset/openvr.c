@@ -6,7 +6,7 @@
 #include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
-#include "lib/maf.h"
+#include "core/maf.h"
 #include "platform.h"
 #include <stdbool.h>
 #include <stdio.h>

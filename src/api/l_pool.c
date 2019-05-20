@@ -1,6 +1,6 @@
 #include "api.h"
 #include "math/pool.h"
-#include "lib/maf.h"
+#include "core/maf.h"
 
 int l_lovrVec3Set(lua_State* L);
 int l_lovrQuatSet(lua_State* L);

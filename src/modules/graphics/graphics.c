@@ -7,7 +7,7 @@
 #include "data/rasterizer.h"
 #include "event/event.h"
 #include "math/math.h"
-#include "lib/maf.h"
+#include "core/maf.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>

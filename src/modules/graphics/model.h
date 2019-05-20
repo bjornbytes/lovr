@@ -1,4 +1,3 @@
-#include "lib/maf.h"
 #include "types.h"
 
 #pragma once
@@ -25,7 +24,7 @@ typedef struct {
 Model* lovrModelInit(Model* model, struct ModelData* data);
 #define lovrModelCreate(...) lovrModelInit(lovrAlloc(Model), __VA_ARGS__)
 void lovrModelDestroy(void* ref);
-void lovrModelDraw(Model* model, mat4 transform, int instances);
+void lovrModelDraw(Model* model, float* transform, int instances);
 struct Animator* lovrModelGetAnimator(Model* model);
 void lovrModelSetAnimator(Model* model, struct Animator* animator);
 struct Material* lovrModelGetMaterial(Model* model);

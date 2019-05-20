@@ -3,7 +3,7 @@ build
 /lovr
 /data
 /*.lua
-src/obj
+.obj
 **/Tupfile
 Tuprules.tup
 /watch.sh

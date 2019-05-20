@@ -1,7 +1,7 @@
 #include "platform.h"
 #include <emscripten.h>
 
-#include "platform/glfw.h"
+#include "platform_glfw.c.h"
 
 void lovrSleep(double seconds) {
   emscripten_sleep((unsigned int) (seconds * 1000));
