@@ -7,7 +7,7 @@
 
 struct Source;
 
-int lovrAudioConvertFormat(int bitDepth, int channelCount);
+int lovrAudioConvertFormat(uint32_t bitDepth, uint32_t channelCount);
 
 bool lovrAudioInit(void);
 void lovrAudioDestroy(void);

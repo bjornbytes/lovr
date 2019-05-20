@@ -50,8 +50,8 @@ void luax_readattachments(lua_State* L, int index, Attachment* attachments, int*
 
 static int l_lovrCanvasNewTextureData(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
-  int index = luaL_optinteger(L, 2, 1) - 1;
-  int count;
+  uint32_t index = luaL_optinteger(L, 2, 1) - 1;
+  uint32_t count;
   lovrCanvasGetAttachments(canvas, &count);
   lovrAssert(index >= 0 && index < count, "Can not create a TextureData from Texture #%d of Canvas (it only has %d textures)", index, count);
   TextureData* textureData = lovrCanvasNewTextureData(canvas, index);
@@ -73,9 +73,9 @@ static int l_lovrCanvasRenderTo(lua_State* L) {
 
 static int l_lovrCanvasGetTexture(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
-  int count;
+  uint32_t count;
   const Attachment* attachments = lovrCanvasGetAttachments(canvas, &count);
-  for (int i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < count; i++) {
     luax_pushobject(L, attachments[i].texture);
   }
   return count;

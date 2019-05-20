@@ -2,8 +2,8 @@
 #include "graphics/texture.h"
 
 int luax_optmipmap(lua_State* L, int index, Texture* texture) {
-  int mipmap = luaL_optinteger(L, index, 1);
-  lovrAssert(mipmap > 0 && mipmap <= lovrTextureGetMipmapCount(texture), "Invalid mipmap %d\n", mipmap);
+  uint32_t mipmap = luaL_optinteger(L, index, 1);
+  lovrAssert(mipmap <= lovrTextureGetMipmapCount(texture), "Invalid mipmap %d\n", mipmap);
   return mipmap - 1;
 }
 

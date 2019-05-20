@@ -20,7 +20,7 @@ static struct {
   float velocity[3];
 } state;
 
-ALenum lovrAudioConvertFormat(int bitDepth, int channelCount) {
+ALenum lovrAudioConvertFormat(uint32_t bitDepth, uint32_t channelCount) {
   if (bitDepth == 8 && channelCount == 1) {
     return AL_FORMAT_MONO8;
   } else if (bitDepth == 8 && channelCount == 2) {

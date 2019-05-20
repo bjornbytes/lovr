@@ -474,8 +474,8 @@ static void lovrGpuBindImage(Image* image, int slot) {
     lovrAssert(!texture->srgb, "sRGB textures can not be used as image uniforms");
     lovrAssert(!isTextureFormatCompressed(texture->format), "Compressed textures can not be used as image uniforms");
     lovrAssert(texture->format != FORMAT_RGB && texture->format != FORMAT_RGBA4 && texture->format != FORMAT_RGB5A1, "Unsupported texture format for image uniform");
-    lovrAssert(image->mipmap >= 0 && image->mipmap < texture->mipmapCount, "Invalid mipmap level '%d' for image uniform", image->mipmap);
-    lovrAssert(image->slice < texture->depth, "Invalid texture slice '%d' for image uniform", image->slice);
+    lovrAssert(image->mipmap < (int) texture->mipmapCount, "Invalid mipmap level '%d' for image uniform", image->mipmap);
+    lovrAssert(image->slice < (int) texture->depth, "Invalid texture slice '%d' for image uniform", image->slice);
     GLenum glAccess = convertAccess(image->access);
     GLenum glFormat = convertTextureFormatInternal(texture->format, false);
     bool layered = image->slice == -1;
@@ -566,7 +566,7 @@ static void lovrGpuBindCanvas(Canvas* canvas, bool willDraw) {
 
   // We need to synchronize if any of the Canvas attachments have pending writes on them
 #ifndef LOVR_WEBGL
-  for (int i = 0; i < canvas->attachmentCount; i++) {
+  for (uint32_t i = 0; i < canvas->attachmentCount; i++) {
     Texture* texture = canvas->attachments[i].texture;
     if (texture->incoherent && (texture->incoherent >> BARRIER_CANVAS) & 1) {
       lovrGpuSync(1 << BARRIER_CANVAS);
@@ -581,12 +581,12 @@ static void lovrGpuBindCanvas(Canvas* canvas, bool willDraw) {
   }
 
   GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
-  for (int i = 0; i < canvas->attachmentCount; i++) {
+  for (uint32_t i = 0; i < canvas->attachmentCount; i++) {
     GLenum buffer = buffers[i] = GL_COLOR_ATTACHMENT0 + i;
     Attachment* attachment = &canvas->attachments[i];
     Texture* texture = attachment->texture;
-    int slice = attachment->slice;
-    int level = attachment->level;
+    uint32_t slice = attachment->slice;
+    uint32_t level = attachment->level;
 
     if (canvas->flags.msaa) {
       glFramebufferRenderbuffer(GL_FRAMEBUFFER, buffer, GL_RENDERBUFFER, texture->msaaId);
@@ -1192,7 +1192,7 @@ const GpuStats* lovrGpuGetStats() {
 
 // Texture
 
-Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slices, int sliceCount, bool srgb, bool mipmaps, int msaa) {
+Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slices, uint32_t sliceCount, bool srgb, bool mipmaps, uint32_t msaa) {
   texture->type = type;
   texture->srgb = srgb;
   texture->mipmaps = mipmaps;
@@ -1210,7 +1210,7 @@ Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slice
 
   if (sliceCount > 0) {
     lovrTextureAllocate(texture, slices[0]->width, slices[0]->height, sliceCount, slices[0]->format);
-    for (int i = 0; i < sliceCount; i++) {
+    for (uint32_t i = 0; i < sliceCount; i++) {
       lovrTextureReplacePixels(texture, slices[i], 0, 0, i, 0);
     }
   }
@@ -1223,9 +1223,12 @@ Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureTyp
   texture->id = handle;
   texture->target = convertTextureTarget(type);
 
+  int width, height;
   lovrGpuBindTexture(texture, 0);
-  glGetTexLevelParameteriv(texture->target, 0, GL_TEXTURE_WIDTH, &texture->width);
-  glGetTexLevelParameteriv(texture->target, 0, GL_TEXTURE_HEIGHT, &texture->height);
+  glGetTexLevelParameteriv(texture->target, 0, GL_TEXTURE_WIDTH, &width);
+  glGetTexLevelParameteriv(texture->target, 0, GL_TEXTURE_HEIGHT, &height);
+  texture->width = (uint32_t) width;
+  texture->height = (uint32_t) height;
 
   return texture;
 }
@@ -1237,8 +1240,8 @@ void lovrTextureDestroy(void* ref) {
   lovrGpuDestroySyncResource(texture, texture->incoherent);
 }
 
-void lovrTextureAllocate(Texture* texture, int width, int height, int depth, TextureFormat format) {
-  int maxSize = state.limits.textureSize;
+void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint32_t depth, TextureFormat format) {
+  uint32_t maxSize = (uint32_t) state.limits.textureSize;
   lovrAssert(!texture->allocated, "Texture is already allocated");
   lovrAssert(texture->type != TEXTURE_CUBE || width == height, "Cubemap images must be square");
   lovrAssert(texture->type != TEXTURE_CUBE || depth == 6, "6 images are required for a cube texture\n");
@@ -1254,7 +1257,7 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
   texture->format = format;
 
   if (texture->mipmaps) {
-    int dimension = texture->type == TEXTURE_VOLUME ? (MAX(MAX(width, height), depth)) : MAX(width, height);
+    uint32_t dimension = texture->type == TEXTURE_VOLUME ? (MAX(MAX(width, height), depth)) : MAX(width, height);
     texture->mipmapCount = texture->mipmaps ? (log2(dimension) + 1) : 1;
   } else {
     texture->mipmapCount = 1;
@@ -1276,14 +1279,14 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
   }
 #ifndef LOVR_WEBGL
   } else {
-    for (int i = 0; i < texture->mipmapCount; i++) {
+    for (uint32_t i = 0; i < texture->mipmapCount; i++) {
       switch (texture->type) {
         case TEXTURE_2D:
           glTexImage2D(texture->target, i, internalFormat, width, height, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
           break;
 
         case TEXTURE_CUBE:
-          for (int face = 0; face < 6; face++) {
+          for (uint32_t face = 0; face < 6; face++) {
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, i, internalFormat, width, height, 0, glFormat, GL_UNSIGNED_BYTE, NULL);
           }
           break;
@@ -1306,7 +1309,7 @@ void lovrTextureAllocate(Texture* texture, int width, int height, int depth, Tex
   }
 }
 
-void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x, int y, int slice, int mipmap) {
+void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32_t x, uint32_t y, uint32_t slice, uint32_t mipmap) {
   lovrGraphicsFlush();
   lovrAssert(texture->allocated, "Texture is not allocated");
 
@@ -1316,10 +1319,10 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, int x,
   }
 #endif
 
-  int maxWidth = lovrTextureGetWidth(texture, mipmap);
-  int maxHeight = lovrTextureGetHeight(texture, mipmap);
-  int width = textureData->width;
-  int height = textureData->height;
+  uint32_t maxWidth = lovrTextureGetWidth(texture, mipmap);
+  uint32_t maxHeight = lovrTextureGetHeight(texture, mipmap);
+  uint32_t width = textureData->width;
+  uint32_t height = textureData->height;
   bool overflow = (x + width > maxWidth) || (y + height > maxHeight);
   lovrAssert(!overflow, "Trying to replace pixels outside the texture's bounds");
   lovrAssert(mipmap >= 0 && mipmap < texture->mipmapCount, "Invalid mipmap level %d", mipmap);
@@ -1423,7 +1426,7 @@ void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
 
 // Canvas
 
-Canvas* lovrCanvasInit(Canvas* canvas, int width, int height, CanvasFlags flags) {
+Canvas* lovrCanvasInit(Canvas* canvas, uint32_t width, uint32_t height, CanvasFlags flags) {
   canvas->width = width;
   canvas->height = height;
   canvas->flags = flags;
@@ -1454,7 +1457,7 @@ Canvas* lovrCanvasInit(Canvas* canvas, int width, int height, CanvasFlags flags)
   return canvas;
 }
 
-Canvas* lovrCanvasInitFromHandle(Canvas* canvas, int width, int height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, int attachmentCount, bool immortal) {
+Canvas* lovrCanvasInitFromHandle(Canvas* canvas, uint32_t width, uint32_t height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, uint32_t attachmentCount, bool immortal) {
   canvas->framebuffer = framebuffer;
   canvas->depthBuffer = depthBuffer;
   canvas->resolveBuffer = resolveBuffer;
@@ -1474,7 +1477,7 @@ void lovrCanvasDestroy(void* ref) {
     glDeleteRenderbuffers(1, &canvas->depthBuffer);
     glDeleteFramebuffers(1, &canvas->resolveBuffer);
   }
-  for (int i = 0; i < canvas->attachmentCount; i++) {
+  for (uint32_t i = 0; i < canvas->attachmentCount; i++) {
     lovrRelease(Texture, canvas->attachments[i].texture);
   }
   lovrRelease(Texture, canvas->depth.texture);
@@ -1488,8 +1491,8 @@ void lovrCanvasResolve(Canvas* canvas) {
   lovrGraphicsFlushCanvas(canvas);
 
   if (canvas->flags.msaa) {
-    int w = canvas->width;
-    int h = canvas->height;
+    uint32_t w = canvas->width;
+    uint32_t h = canvas->height;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, canvas->resolveBuffer);
     state.framebuffer = canvas->resolveBuffer;
@@ -1498,7 +1501,7 @@ void lovrCanvasResolve(Canvas* canvas) {
       glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     } else {
       GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
-      for (int i = 0; i < canvas->attachmentCount; i++) {
+      for (uint32_t i = 0; i < canvas->attachmentCount; i++) {
         buffers[i] = GL_COLOR_ATTACHMENT0 + i;
         glReadBuffer(i);
         glDrawBuffers(1, &buffers[i]);
@@ -1510,7 +1513,7 @@ void lovrCanvasResolve(Canvas* canvas) {
   }
 
   if (canvas->flags.mipmaps) {
-    for (int i = 0; i < canvas->attachmentCount; i++) {
+    for (uint32_t i = 0; i < canvas->attachmentCount; i++) {
       Texture* texture = canvas->attachments[i].texture;
       if (texture->mipmapCount > 1) {
         lovrGpuBindTexture(texture, 0);
@@ -1522,7 +1525,7 @@ void lovrCanvasResolve(Canvas* canvas) {
   canvas->needsResolve = false;
 }
 
-TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index) {
+TextureData* lovrCanvasNewTextureData(Canvas* canvas, uint32_t index) {
   lovrGraphicsFlushCanvas(canvas);
   lovrGpuBindCanvas(canvas, false);
 

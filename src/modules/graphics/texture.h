@@ -19,31 +19,31 @@ typedef struct Texture {
   Ref ref;
   TextureType type;
   TextureFormat format;
-  int width;
-  int height;
-  int depth;
-  int mipmapCount;
+  uint32_t width;
+  uint32_t height;
+  uint32_t depth;
+  uint32_t mipmapCount;
   TextureFilter filter;
   TextureWrap wrap;
-  int msaa;
+  uint32_t msaa;
   bool srgb;
   bool mipmaps;
   bool allocated;
   GPU_TEXTURE_FIELDS
 } Texture;
 
-Texture* lovrTextureInit(Texture* texture, TextureType type, struct TextureData** slices, int sliceCount, bool srgb, bool mipmaps, int msaa);
+Texture* lovrTextureInit(Texture* texture, TextureType type, struct TextureData** slices, uint32_t sliceCount, bool srgb, bool mipmaps, uint32_t msaa);
 Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureType type);
 #define lovrTextureCreate(...) lovrTextureInit(lovrAlloc(Texture), __VA_ARGS__)
 #define lovrTextureCreateFromHandle(...) lovrTextureInitFromHandle(lovrAlloc(Texture), __VA_ARGS__)
 void lovrTextureDestroy(void* ref);
-void lovrTextureAllocate(Texture* texture, int width, int height, int depth, TextureFormat format);
-void lovrTextureReplacePixels(Texture* texture, struct TextureData* data, int x, int y, int slice, int mipmap);
-int lovrTextureGetWidth(Texture* texture, int mipmap);
-int lovrTextureGetHeight(Texture* texture, int mipmap);
-int lovrTextureGetDepth(Texture* texture, int mipmap);
-int lovrTextureGetMipmapCount(Texture* texture);
-int lovrTextureGetMSAA(Texture* texture);
+void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint32_t depth, TextureFormat format);
+void lovrTextureReplacePixels(Texture* texture, struct TextureData* data, uint32_t x, uint32_t y, uint32_t slice, uint32_t mipmap);
+uint32_t lovrTextureGetWidth(Texture* texture, uint32_t mipmap);
+uint32_t lovrTextureGetHeight(Texture* texture, uint32_t mipmap);
+uint32_t lovrTextureGetDepth(Texture* texture, uint32_t mipmap);
+uint32_t lovrTextureGetMipmapCount(Texture* texture);
+uint32_t lovrTextureGetMSAA(Texture* texture);
 TextureType lovrTextureGetType(Texture* texture);
 TextureFormat lovrTextureGetFormat(Texture* texture);
 TextureFilter lovrTextureGetFilter(Texture* texture);

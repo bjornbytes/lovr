@@ -10,8 +10,8 @@ struct TextureData;
 
 typedef struct Attachment {
   struct Texture* texture;
-  int slice;
-  int level;
+  uint32_t slice;
+  uint32_t level;
 } Attachment;
 
 typedef struct {
@@ -21,34 +21,34 @@ typedef struct {
     TextureFormat format;
   } depth;
   bool stereo;
-  int msaa;
+  uint32_t msaa;
   bool mipmaps;
 } CanvasFlags;
 
 typedef struct Canvas {
   Ref ref;
-  int width;
-  int height;
+  uint32_t width;
+  uint32_t height;
   CanvasFlags flags;
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
   Attachment depth;
-  int attachmentCount;
+  uint32_t attachmentCount;
   bool needsAttach;
   bool needsResolve;
   GPU_CANVAS_FIELDS
 } Canvas;
 
-Canvas* lovrCanvasInit(Canvas* canvas, int width, int height, CanvasFlags flags);
-Canvas* lovrCanvasInitFromHandle(Canvas* canvas, int width, int height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, int attachmentCount, bool immortal);
+Canvas* lovrCanvasInit(Canvas* canvas, uint32_t width, uint32_t height, CanvasFlags flags);
+Canvas* lovrCanvasInitFromHandle(Canvas* canvas, uint32_t width, uint32_t height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, uint32_t attachmentCount, bool immortal);
 #define lovrCanvasCreate(...) lovrCanvasInit(lovrAlloc(Canvas), __VA_ARGS__)
 #define lovrCanvasCreateFromHandle(...) lovrCanvasInitFromHandle(lovrAlloc(Canvas), __VA_ARGS__)
 void lovrCanvasDestroy(void* ref);
-const Attachment* lovrCanvasGetAttachments(Canvas* canvas, int* count);
-void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, int count);
+const Attachment* lovrCanvasGetAttachments(Canvas* canvas, uint32_t* count);
+void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, uint32_t count);
 void lovrCanvasResolve(Canvas* canvas);
 bool lovrCanvasIsStereo(Canvas* canvas);
-int lovrCanvasGetWidth(Canvas* canvas);
-int lovrCanvasGetHeight(Canvas* canvas);
-int lovrCanvasGetMSAA(Canvas* canvas);
+uint32_t lovrCanvasGetWidth(Canvas* canvas);
+uint32_t lovrCanvasGetHeight(Canvas* canvas);
+uint32_t lovrCanvasGetMSAA(Canvas* canvas);
 struct Texture* lovrCanvasGetDepthTexture(Canvas* canvas);
-struct TextureData* lovrCanvasNewTextureData(Canvas* canvas, int index);
+struct TextureData* lovrCanvasNewTextureData(Canvas* canvas, uint32_t index);

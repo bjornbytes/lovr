@@ -29,29 +29,29 @@ typedef enum {
 } TextureFormat;
 
 typedef struct {
-  int width;
-  int height;
+  uint32_t width;
+  uint32_t height;
+  size_t size;
   void* data;
-  int size;
 } Mipmap;
 
 typedef vec_t(Mipmap) vec_mipmap_t;
 
 typedef struct TextureData {
   Blob blob;
-  int width;
-  int height;
+  uint32_t width;
+  uint32_t height;
   Blob* source;
   TextureFormat format;
   vec_mipmap_t mipmaps;
 } TextureData;
 
-TextureData* lovrTextureDataInit(TextureData* textureData, int width, int height, uint8_t value, TextureFormat format);
+TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint32_t height, uint8_t value, TextureFormat format);
 TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, bool flip);
 #define lovrTextureDataCreate(...) lovrTextureDataInit(lovrAlloc(TextureData), __VA_ARGS__)
 #define lovrTextureDataCreateFromBlob(...) lovrTextureDataInitFromBlob(lovrAlloc(TextureData), __VA_ARGS__)
-Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y);
-void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color);
+Color lovrTextureDataGetPixel(TextureData* textureData, uint32_t x, uint32_t y);
+void lovrTextureDataSetPixel(TextureData* textureData, uint32_t x, uint32_t y, Color color);
 bool lovrTextureDataEncode(TextureData* textureData, const char* filename);
 void lovrTextureDataDestroy(void* ref);
 

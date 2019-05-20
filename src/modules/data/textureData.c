@@ -8,7 +8,7 @@
 
 #define FOUR_CC(a, b, c, d) ((uint32_t) (((d)<<24) | ((c)<<16) | ((b)<<8) | (a)))
 
-static int getPixelSize(TextureFormat format) {
+static size_t getPixelSize(TextureFormat format) {
   switch (format) {
     case FORMAT_RGB: return 3;
     case FORMAT_RGBA: return 4;
@@ -30,9 +30,9 @@ static int getPixelSize(TextureFormat format) {
 }
 
 // Modified from ddsparse (https://bitbucket.org/slime73/ddsparse)
-static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
+static bool parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
   if (size < sizeof(uint32_t) + sizeof(DDSHeader) || *(uint32_t*) data != FOUR_CC('D', 'D', 'S', ' ')) {
-    return 1;
+    return false;
   }
 
   // Header
@@ -40,13 +40,13 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
   DDSHeader* header = (DDSHeader*) (data + offset);
   offset += sizeof(DDSHeader);
   if (header->size != sizeof(DDSHeader) || header->format.size != sizeof(DDSPixelFormat)) {
-    return 1;
+    return false;
   }
 
   // DX10 header
   if ((header->format.flags & DDPF_FOURCC) && (header->format.fourCC == FOUR_CC('D', 'X', '1', '0'))) {
     if (size < (sizeof(uint32_t) + sizeof(DDSHeader) + sizeof(DDSHeader10))) {
-      return 1;
+      return false;
     }
 
     DDSHeader10* header10 = (DDSHeader10*) (data + offset);
@@ -55,12 +55,12 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
     // Only accept 2D textures
     D3D10ResourceDimension dimension = header10->resourceDimension;
     if (dimension != D3D10_RESOURCE_DIMENSION_TEXTURE2D && dimension != D3D10_RESOURCE_DIMENSION_UNKNOWN) {
-      return 1;
+      return false;
     }
 
     // Can't deal with texture arrays and cubemaps.
     if (header10->arraySize > 1) {
-      return 1;
+      return false;
     }
 
     // Ensure DXT 1/3/5
@@ -85,7 +85,7 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
     }
   } else {
     if ((header->format.flags & DDPF_FOURCC) == 0) {
-      return 1;
+      return false;
     }
 
     // Ensure DXT 1/3/5
@@ -93,14 +93,14 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
       case FOUR_CC('D', 'X', 'T', '1'): textureData->format = FORMAT_DXT1; break;
       case FOUR_CC('D', 'X', 'T', '3'): textureData->format = FORMAT_DXT3; break;
       case FOUR_CC('D', 'X', 'T', '5'): textureData->format = FORMAT_DXT5; break;
-      default: return 1;
+      default: return false;
     }
   }
 
-  int width = textureData->width = header->width;
-  int height = textureData->height = header->height;
-  int mipmapCount = MAX(header->mipMapCount, 1);
-  int blockBytes = 0;
+  uint32_t width = textureData->width = header->width;
+  uint32_t height = textureData->height = header->height;
+  uint32_t mipmapCount = MAX(header->mipMapCount, 1);
+  size_t blockBytes = 0;
 
   switch (textureData->format) {
     case FORMAT_DXT1: blockBytes = 8; break;
@@ -110,15 +110,15 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
   }
 
   // Load mipmaps
-  for (int i = 0; i < mipmapCount; i++) {
-    int numBlocksWide = width ? MAX(1, (width + 3) / 4) : 0;
-    int numBlocksHigh = height ? MAX(1, (height + 3) / 4) : 0;
-    int mipmapSize = numBlocksWide * numBlocksHigh * blockBytes;
+  for (uint32_t i = 0; i < mipmapCount; i++) {
+    uint32_t numBlocksWide = width ? MAX(1, (width + 3) / 4) : 0;
+    uint32_t numBlocksHigh = height ? MAX(1, (height + 3) / 4) : 0;
+    size_t mipmapSize = numBlocksWide * numBlocksHigh * blockBytes;
 
     // Overflow check
     if (mipmapSize == 0 || (offset + mipmapSize) > size) {
       vec_deinit(&textureData->mipmaps);
-      return 1;
+      return false;
     }
 
     Mipmap mipmap = { .width = width, .height = height, .data = &data[offset], .size = mipmapSize };
@@ -130,10 +130,10 @@ static int parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 
   textureData->blob.data = NULL;
 
-  return 0;
+  return true;
 }
 
-static int parseKTX(uint8_t* d, size_t size, TextureData* textureData) {
+static bool parseKTX(uint8_t* d, size_t size, TextureData* textureData) {
   union {
     uint8_t* u8;
     uint32_t* u32;
@@ -143,11 +143,11 @@ static int parseKTX(uint8_t* d, size_t size, TextureData* textureData) {
   uint8_t magic[] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x31, 0x31, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
 
   if (size < sizeof(magic) || memcmp(data.ktx->header, magic, sizeof(magic))) {
-    return 1;
+    return false;
   }
 
   if (data.ktx->endianness != 0x04030201 || data.ktx->numberOfArrayElements > 0 || data.ktx->numberOfFaces > 1 || data.ktx->pixelDepth > 1) {
-    return 1;
+    return false;
   }
 
   // TODO RGBA DXT1, SRGB DXT formats
@@ -155,7 +155,7 @@ static int parseKTX(uint8_t* d, size_t size, TextureData* textureData) {
     case 0x83F0: textureData->format = FORMAT_DXT1; break;
     case 0x83F2: textureData->format = FORMAT_DXT3; break;
     case 0x83F3: textureData->format = FORMAT_DXT5; break;
-    default: return 1;
+    default: return false;
   }
 
   uint32_t width = textureData->width = data.ktx->pixelWidth;
@@ -177,10 +177,10 @@ static int parseKTX(uint8_t* d, size_t size, TextureData* textureData) {
     data.u8 = (uint8_t*) ALIGN(data.u8 + sizeof(uint32_t) + *data.u32 + 3, 4);
   }
 
-  return 0;
+  return true;
 }
 
-TextureData* lovrTextureDataInit(TextureData* textureData, int width, int height, uint8_t value, TextureFormat format) {
+TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint32_t height, uint8_t value, TextureFormat format) {
   lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");
   lovrAssert(format != FORMAT_DXT1 && format != FORMAT_DXT3 && format != FORMAT_DXT5, "Blank TextureData cannot be compressed");
   size_t pixelSize = getPixelSize(format);
@@ -199,24 +199,25 @@ TextureData* lovrTextureDataInit(TextureData* textureData, int width, int height
 TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, bool flip) {
   vec_init(&textureData->mipmaps);
 
-  if (!parseDDS(blob->data, blob->size, textureData)) {
+  if (parseDDS(blob->data, blob->size, textureData)) {
     textureData->source = blob;
     lovrRetain(blob);
     return textureData;
-  } else if (!parseKTX(blob->data, blob->size, textureData)) {
+  } else if (parseKTX(blob->data, blob->size, textureData)) {
     textureData->source = blob;
     lovrRetain(blob);
     return textureData;
   }
 
+  int width, height;
   int length = (int) blob->size;
   stbi_set_flip_vertically_on_load(flip);
   if (stbi_is_hdr_from_memory(blob->data, length)) {
     textureData->format = FORMAT_RGBA32F;
-    textureData->blob.data = stbi_loadf_from_memory(blob->data, length, &textureData->width, &textureData->height, NULL, 4);
+    textureData->blob.data = stbi_loadf_from_memory(blob->data, length, &width, &height, NULL, 4);
   } else {
     textureData->format = FORMAT_RGBA;
-    textureData->blob.data = stbi_load_from_memory(blob->data, length, &textureData->width, &textureData->height, NULL, 4);
+    textureData->blob.data = stbi_load_from_memory(blob->data, length, &width, &height, NULL, 4);
   }
 
   if (!textureData->blob.data) {
@@ -225,14 +226,16 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
     return NULL;
   }
 
+  textureData->width = width;
+  textureData->height = height;
   return textureData;
 }
 
-Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y) {
+Color lovrTextureDataGetPixel(TextureData* textureData, uint32_t x, uint32_t y) {
   lovrAssert(textureData->blob.data, "TextureData does not have any pixel data");
-  lovrAssert(x >= 0 && y >= 0 && x < textureData->width && y < textureData->height, "getPixel coordinates must be within TextureData bounds");
-  int index = (textureData->height - (y + 1)) * textureData->width + x;
-  int pixelSize = getPixelSize(textureData->format);
+  lovrAssert(x < textureData->width && y < textureData->height, "getPixel coordinates must be within TextureData bounds");
+  size_t index = (textureData->height - (y + 1)) * textureData->width + x;
+  size_t pixelSize = getPixelSize(textureData->format);
   uint8_t* u8 = (uint8_t*) textureData->blob.data + pixelSize * index;
   float* f32 = (float*) u8;
   switch (textureData->format) {
@@ -245,11 +248,11 @@ Color lovrTextureDataGetPixel(TextureData* textureData, int x, int y) {
   }
 }
 
-void lovrTextureDataSetPixel(TextureData* textureData, int x, int y, Color color) {
+void lovrTextureDataSetPixel(TextureData* textureData, uint32_t x, uint32_t y, Color color) {
   lovrAssert(textureData->blob.data, "TextureData does not have any pixel data");
-  lovrAssert(x >= 0 && y >= 0 && x < textureData->width && y < textureData->height, "setPixel coordinates must be within TextureData bounds");
-  int index = (textureData->height - (y + 1)) * textureData->width + x;
-  int pixelSize = getPixelSize(textureData->format);
+  lovrAssert(x < textureData->width && y < textureData->height, "setPixel coordinates must be within TextureData bounds");
+  size_t index = (textureData->height - (y + 1)) * textureData->width + x;
+  size_t pixelSize = getPixelSize(textureData->format);
   uint8_t* u8 = (uint8_t*) textureData->blob.data + pixelSize * index;
   float* f32 = (float*) u8;
   switch (textureData->format) {
