@@ -4,8 +4,7 @@ build
 /data
 /*.lua
 .obj
-**/Tupfile
-Tuprules.tup
+**/Tup*
 /watch.sh
 .DS_Store
 bin

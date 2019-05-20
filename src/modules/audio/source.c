@@ -331,9 +331,9 @@ size_t lovrSourceTell(Source* source) {
       alGetSourcei(source->id, AL_BUFFERS_QUEUED, &queuedBuffers);
       alGetSourcei(source->id, AL_SAMPLE_OFFSET, &sampleOffset);
 
-      size_t offset = decoderOffset - queuedBuffers * samplesPerBuffer + sampleOffset;
+      size_t offset = decoderOffset + sampleOffset;
 
-      if (offset < 0) {
+      if (queuedBuffers * samplesPerBuffer > offset) {
         return offset + source->stream->samples;
       } else {
         return offset;
