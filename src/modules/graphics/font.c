@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 static float* lovrFontAlignLine(float* x, float* lineEnd, float width, HorizontalAlign halign) {
-  while(x < lineEnd) {
+  while (x < lineEnd) {
     if (halign == ALIGN_CENTER) {
       *x -= width / 2.f;
     } else if (halign == ALIGN_RIGHT) {

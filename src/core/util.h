@@ -17,12 +17,11 @@
 #define LOVR_THREAD_LOCAL __thread
 #endif
 
-#define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
-
 #define MAX(a, b) (a > b ? a : b)
 #define MIN(a, b) (a < b ? a : b)
 #define CLAMP(x, min, max) MAX(min, MIN(max, x))
 #define ALIGN(p, n) ((uintptr_t) (p) & -n)
+#define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
 
 typedef struct Color { float r, g, b, a; } Color;
 
