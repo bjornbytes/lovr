@@ -7,9 +7,6 @@
 [submodule "deps/lua"]
 	path = deps/lua
 	url = https://github.com/LuaDist/lua
-[submodule "deps/luajit"]
-	path = deps/luajit
-	url = https://github.com/LuaDist/luajit
 [submodule "deps/msdfgen"]
 	path = deps/msdfgen
 	url = https://github.com/bjornbytes/msdfgen
@@ -25,3 +22,6 @@
 [submodule "deps/physfs"]
 	path = deps/physfs
 	url = https://github.com/Didstopia/physfs.git
+[submodule "deps/luajit"]
+	path = deps/luajit
+	url = https://github.com/WohlSoft/LuaJIT

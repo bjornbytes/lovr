@@ -70,7 +70,6 @@ elseif(ANDROID)
   set(LOVR_USE_OCULUS OFF)
   set(LOVR_USE_DESKTOP_HEADSET OFF)
   set(LOVR_USE_OCULUS_MOBILE ON)
-  set(LOVR_USE_LUAJIT OFF) # Until buildvm re-invoke works
   set(LOVR_BUILD_SHARED ON) # Android has only "activities"
 elseif(UNIX)
   if(APPLE)
@@ -149,7 +148,7 @@ if(NOT (EMSCRIPTEN OR ANDROID))
 endif()
 
 # Lua
-if(LOVR_USE_LUAJIT AND NOT (EMSCRIPTEN OR ANDROID))
+if(LOVR_USE_LUAJIT AND NOT EMSCRIPTEN)
   if (APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pagezero_size 10000 -image_base 100000000")
   endif()
@@ -160,11 +159,7 @@ if(LOVR_USE_LUAJIT AND NOT (EMSCRIPTEN OR ANDROID))
   else()
     add_subdirectory(deps/luajit luajit)
     include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
-    set(LOVR_LUA liblua)
-  endif()
-  set_target_properties(luajit minilua liblua PROPERTIES EXCLUDE_FROM_ALL 1)
-  if(WIN32)
-    set_target_properties(wluajit PROPERTIES EXCLUDE_FROM_ALL 1)
+    set(LOVR_LUA libluajit)
   endif()
 else()
   if(EMSCRIPTEN)
@@ -357,6 +352,10 @@ target_link_libraries(lovr
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
+
+if(LOVR_USE_LUAJIT)
+  target_compile_definitions(lovr PUBLIC -DLOVR_USE_LUAJIT)
+endif()
 
 if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)
