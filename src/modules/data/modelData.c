@@ -15,10 +15,10 @@ ModelData* lovrModelDataInit(ModelData* model, Blob* source) {
 
 void lovrModelDataDestroy(void* ref) {
   ModelData* model = ref;
-  for (int i = 0; i < model->blobCount; i++) {
+  for (uint32_t i = 0; i < model->blobCount; i++) {
     lovrRelease(Blob, model->blobs[i]);
   }
-  for (int i = 0; i < model->textureCount; i++) {
+  for (uint32_t i = 0; i < model->textureCount; i++) {
     lovrRelease(TextureData, model->textures[i]);
   }
   free(model->data);

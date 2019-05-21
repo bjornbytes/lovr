@@ -1,22 +1,22 @@
 #include "api.h"
 #include "graphics/animator.h"
 
-static int luax_checkanimation(lua_State* L, int index, Animator* animator) {
+static uint32_t luax_checkanimation(lua_State* L, int index, Animator* animator) {
   switch (lua_type(L, index)) {
     case LUA_TNUMBER: {
-      int i = lua_tointeger(L, index) - 1;
-      lovrAssert(i < lovrAnimatorGetAnimationCount(animator), "Invalid animation '%d'", i + 1);
-      return i;
+      uint32_t i = lua_tointeger(L, index);
+      lovrAssert(i >= 1 && i <= lovrAnimatorGetAnimationCount(animator), "Invalid animation '%d'", i);
+      return i - 1;
     }
     case LUA_TSTRING: {
       const char* name = lua_tostring(L, index);
-      int* i = lovrAnimatorGetAnimationIndex(animator, name);
+      uint32_t* i = lovrAnimatorGetAnimationIndex(animator, name);
       lovrAssert(i, "Unknown animation '%s'", name);
       return *i;
     }
     default:
       luaL_typerror(L, index, "number or string");
-      return -1;
+      return ~0u;
   }
 }
 

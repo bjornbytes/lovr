@@ -31,7 +31,7 @@ typedef struct Mesh {
   uint16_t enabledLocations;
   uint16_t divisors[MAX_ATTRIBUTES];
   map_int_t attributeMap;
-  int attributeCount;
+  uint32_t attributeCount;
   struct Buffer* vertexBuffer;
   struct Buffer* indexBuffer;
   uint32_t vertexCount;

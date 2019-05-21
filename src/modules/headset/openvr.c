@@ -111,7 +111,7 @@ static TrackedDeviceIndex_t getDeviceIndex(Device device) {
 }
 
 static bool openvr_getName(char* name, size_t length);
-static bool openvr_init(float offset, int msaa) {
+static bool openvr_init(float offset, uint32_t msaa) {
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
     return false;
   }
@@ -276,7 +276,7 @@ static void openvr_getBoundsDimensions(float* width, float* depth) {
   state.chaperone->GetPlayAreaSize(width, depth);
 }
 
-static const float* openvr_getBoundsGeometry(int* count) {
+static const float* openvr_getBoundsGeometry(uint32_t* count) {
   struct HmdQuad_t quad;
   if (state.chaperone->GetPlayAreaRect(&quad)) {
     vec_clear(&state.boundsGeometry);

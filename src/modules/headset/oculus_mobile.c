@@ -25,7 +25,7 @@ static struct {
 
 // Headset driver object
 
-static bool vrapi_init(float offset, int msaa) {
+static bool vrapi_init(float offset, uint32_t msaa) {
   state.offset = offset;
   return true;
 }
@@ -69,7 +69,7 @@ static void vrapi_getBoundsDimensions(float* width, float* depth) {
   *depth = 0.f;
 }
 
-static const float* vrapi_getBoundsGeometry(int* count) {
+static const float* vrapi_getBoundsGeometry(uint32_t* count) {
   *count = 0;
   return NULL;
 }

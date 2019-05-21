@@ -26,7 +26,7 @@ static struct {
   double prevCursorY;
 } state;
 
-static bool desktop_init(float offset, int msaa) {
+static bool desktop_init(float offset, uint32_t msaa) {
   state.offset = offset;
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
@@ -69,7 +69,7 @@ static void desktop_getBoundsDimensions(float* width, float* depth) {
   *width = *depth = 0.f;
 }
 
-static const float* desktop_getBoundsGeometry(int* count) {
+static const float* desktop_getBoundsGeometry(uint32_t* count) {
   *count = 0;
   return NULL;
 }

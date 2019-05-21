@@ -13,13 +13,13 @@ Material* lovrMaterialInit(Material* material) {
 
   for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {
     if (i == COLOR_EMISSIVE) {
-      material->colors[i] = (Color) { 0, 0, 0, 0 };
+      material->colors[i] = (Color) { 0.f, 0.f, 0.f, 0.f };
     } else {
-      material->colors[i] = (Color) { 1, 1, 1, 1 };
+      material->colors[i] = (Color) { 1.f, 1.f, 1.f, 1.f };
     }
   }
 
-  lovrMaterialSetTransform(material, 0, 0, 1, 1, 0);
+  lovrMaterialSetTransform(material, 0.f, 0.f, 1.f, 1.f, 0.f);
   return material;
 }
 

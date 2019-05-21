@@ -22,12 +22,12 @@ static void updateGlobalNodeTransform(Model* model, uint32_t nodeIndex, mat4 tra
   }
 }
 
-static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
+static void renderNode(Model* model, uint32_t nodeIndex, uint32_t instances) {
   ModelNode* node = &model->data->nodes[nodeIndex];
   mat4 globalTransform = model->globalNodeTransforms + 16 * nodeIndex;
 
   if (node->primitiveCount > 0) {
-    bool animated = node->skin >= 0 && model->animator;
+    bool animated = node->skin != ~0u && model->animator;
     float pose[16 * MAX_BONES];
 
     if (animated) {
@@ -48,7 +48,7 @@ static void renderNode(Model* model, uint32_t nodeIndex, int instances) {
     for (uint32_t i = 0; i < node->primitiveCount; i++) {
       ModelPrimitive* primitive = &model->data->primitives[node->primitiveIndex + i];
       Mesh* mesh = model->meshes[node->primitiveIndex + i];
-      Material* material = primitive->material >= 0 ? model->materials[primitive->material] : NULL;
+      Material* material = primitive->material == ~0u ? NULL : model->materials[primitive->material];
 
       if (model->userMaterial) {
         material = model->userMaterial;
@@ -90,12 +90,12 @@ Model* lovrModelInit(Model* model, ModelData* data) {
     }
 
     model->meshes = calloc(data->primitiveCount, sizeof(Mesh*));
-    for (int i = 0; i < data->primitiveCount; i++) {
+    for (uint32_t i = 0; i < data->primitiveCount; i++) {
       ModelPrimitive* primitive = &data->primitives[i];
       model->meshes[i] = lovrMeshCreate(primitive->mode, NULL, 0);
 
       bool setDrawRange = false;
-      for (int j = 0; j < MAX_DEFAULT_ATTRIBUTES; j++) {
+      for (uint32_t j = 0; j < MAX_DEFAULT_ATTRIBUTES; j++) {
         if (primitive->attributes[j]) {
           ModelAttribute* attribute = primitive->attributes[j];
 
@@ -152,21 +152,21 @@ Model* lovrModelInit(Model* model, ModelData* data) {
       model->textures = calloc(data->textureCount, sizeof(Texture*));
     }
 
-    for (int i = 0; i < data->materialCount; i++) {
+    for (uint32_t i = 0; i < data->materialCount; i++) {
       Material* material = lovrMaterialCreate();
 
-      for (int j = 0; j < MAX_MATERIAL_SCALARS; j++) {
+      for (uint32_t j = 0; j < MAX_MATERIAL_SCALARS; j++) {
         lovrMaterialSetScalar(material, j, data->materials[i].scalars[j]);
       }
 
-      for (int j = 0; j < MAX_MATERIAL_COLORS; j++) {
+      for (uint32_t j = 0; j < MAX_MATERIAL_COLORS; j++) {
         lovrMaterialSetColor(material, j, data->materials[i].colors[j]);
       }
 
-      for (int j = 0; j < MAX_MATERIAL_TEXTURES; j++) {
-        int index = data->materials[i].textures[j];
+      for (uint32_t j = 0; j < MAX_MATERIAL_TEXTURES; j++) {
+        uint32_t index = data->materials[i].textures[j];
 
-        if (index != -1) {
+        if (index != ~0u) {
           if (!model->textures[index]) {
             TextureData* textureData = data->textures[index];
             bool srgb = j == TEXTURE_DIFFUSE || j == TEXTURE_EMISSIVE;
@@ -184,7 +184,7 @@ Model* lovrModelInit(Model* model, ModelData* data) {
   }
 
   model->globalNodeTransforms = malloc(16 * sizeof(float) * model->data->nodeCount);
-  for (int i = 0; i < model->data->nodeCount; i++) {
+  for (uint32_t i = 0; i < model->data->nodeCount; i++) {
     mat4_identity(model->globalNodeTransforms + 16 * i);
   }
 
@@ -193,16 +193,16 @@ Model* lovrModelInit(Model* model, ModelData* data) {
 
 void lovrModelDestroy(void* ref) {
   Model* model = ref;
-  for (int i = 0; i < model->data->bufferCount; i++) {
+  for (uint32_t i = 0; i < model->data->bufferCount; i++) {
     lovrRelease(Buffer, model->buffers[i]);
   }
-  for (int i = 0; i < model->data->primitiveCount; i++) {
+  for (uint32_t i = 0; i < model->data->primitiveCount; i++) {
     lovrRelease(Mesh, model->meshes[i]);
   }
   lovrRelease(ModelData, model->data);
 }
 
-void lovrModelDraw(Model* model, mat4 transform, int instances) {
+void lovrModelDraw(Model* model, mat4 transform, uint32_t instances) {
   updateGlobalNodeTransform(model, model->data->rootNode, transform);
   renderNode(model, model->data->rootNode, instances);
 }
@@ -229,7 +229,7 @@ void lovrModelSetMaterial(Model* model, Material* material) {
   model->userMaterial = material;
 }
 
-static void applyAABB(Model* model, int nodeIndex, float aabb[6]) {
+static void applyAABB(Model* model, uint32_t nodeIndex, float aabb[6]) {
   ModelNode* node = &model->data->nodes[nodeIndex];
 
   for (uint32_t i = 0; i < node->primitiveCount; i++) {

@@ -17,7 +17,6 @@ typedef enum {
   T_CapsuleShape,
   T_Channel,
   T_Collider,
-  T_Controller,
   T_Curve,
   T_CylinderShape,
   T_DistanceJoint,

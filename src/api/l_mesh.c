@@ -11,7 +11,7 @@ static int l_lovrMeshAttachAttributes(lua_State* L) {
   Mesh* other = luax_checktype(L, 2, Mesh);
   int instanceDivisor = luaL_optinteger(L, 3, 0);
   if (lua_isnoneornil(L, 4)) {
-    for (int i = 0; i < other->attributeCount; i++) {
+    for (uint32_t i = 0; i < other->attributeCount; i++) {
       MeshAttribute attachment = other->attributes[i];
       if (attachment.buffer != other->vertexBuffer) {
         break;
@@ -50,7 +50,7 @@ static int l_lovrMeshDetachAttributes(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   if (lua_isuserdata(L, 2)) {
     Mesh* other = luax_checktype(L, 2, Mesh);
-    for (int i = 0; i < other->attributeCount; i++) {
+    for (uint32_t i = 0; i < other->attributeCount; i++) {
       const MeshAttribute* attachment = &other->attributes[i];
       if (attachment->buffer != other->vertexBuffer) {
         break;
@@ -115,7 +115,7 @@ static int l_lovrMeshSetDrawMode(lua_State* L) {
 static int l_lovrMeshGetVertexFormat(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   lua_createtable(L, mesh->attributeCount, 0);
-  for (int i = 0; i < mesh->attributeCount; i++) {
+  for (uint32_t i = 0; i < mesh->attributeCount; i++) {
     const MeshAttribute* attribute = &mesh->attributes[i];
     if (attribute->buffer != mesh->vertexBuffer) {
       break;
@@ -150,7 +150,7 @@ static int l_lovrMeshGetVertex(lua_State* L) {
   AttributeData data = { .raw = lovrBufferMap(mesh->vertexBuffer, index * mesh->attributes[0].stride) };
 
   int components = 0;
-  for (int i = 0; i < mesh->attributeCount; i++) {
+  for (uint32_t i = 0; i < mesh->attributeCount; i++) {
     const MeshAttribute* attribute = &mesh->attributes[i];
     if (attribute->buffer != mesh->vertexBuffer) {
       break;
@@ -183,7 +183,7 @@ static int l_lovrMeshSetVertex(lua_State* L) {
   size_t stride = mesh->attributes[0].stride;
   AttributeData data = { .raw = lovrBufferMap(mesh->vertexBuffer, index * stride) };
   int component = 0;
-  for (int i = 0; i < mesh->attributeCount; i++) {
+  for (uint32_t i = 0; i < mesh->attributeCount; i++) {
     const MeshAttribute* attribute = &mesh->attributes[i];
     if (attribute->buffer != mesh->vertexBuffer) {
       break;
@@ -218,11 +218,11 @@ static int l_lovrMeshSetVertex(lua_State* L) {
 static int l_lovrMeshGetVertexAttribute(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   uint32_t vertexIndex = luaL_checkinteger(L, 2) - 1;
-  int attributeIndex = luaL_checkinteger(L, 3) - 1;
+  uint32_t attributeIndex = luaL_checkinteger(L, 3) - 1;
   Buffer* buffer = lovrMeshGetVertexBuffer(mesh);
   lovrAssert(lovrBufferIsReadable(buffer), "Mesh:getVertex can only be used if the Mesh was created with the readable flag");
   lovrAssert(vertexIndex >= 0 && vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
-  lovrAssert(attributeIndex >= 0 && attributeIndex < mesh->attributeCount, "Invalid mesh attribute: %d", attributeIndex + 1);
+  lovrAssert(attributeIndex < mesh->attributeCount, "Invalid mesh attribute: %d", attributeIndex + 1);
   lovrAssert(mesh->attributes[attributeIndex].buffer == mesh->vertexBuffer, "Invalid mesh attribute: %d", attributeIndex + 1);
   MeshAttribute* attribute = &mesh->attributes[attributeIndex];
   AttributeData data = { .raw = lovrBufferMap(buffer, vertexIndex * attribute->stride + attribute->offset) };
@@ -243,10 +243,10 @@ static int l_lovrMeshGetVertexAttribute(lua_State* L) {
 static int l_lovrMeshSetVertexAttribute(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   uint32_t vertexIndex = luaL_checkinteger(L, 2) - 1;
-  int attributeIndex = luaL_checkinteger(L, 3) - 1;
+  uint32_t attributeIndex = luaL_checkinteger(L, 3) - 1;
   bool table = lua_istable(L, 4);
   lovrAssert(vertexIndex >= 0 && vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
-  lovrAssert(attributeIndex >= 0 && attributeIndex < mesh->attributeCount, "Invalid mesh attribute: %d", attributeIndex + 1);
+  lovrAssert(attributeIndex < mesh->attributeCount, "Invalid mesh attribute: %d", attributeIndex + 1);
   lovrAssert(mesh->attributes[attributeIndex].buffer == mesh->vertexBuffer, "Invalid mesh attribute: %d", attributeIndex + 1);
   MeshAttribute* attribute = &mesh->attributes[attributeIndex];
   AttributeData data = { .raw = lovrBufferMap(mesh->vertexBuffer, vertexIndex * attribute->stride + attribute->offset) };
@@ -306,7 +306,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
     lua_rawgeti(L, 2, i + 1);
     luaL_checktype(L, -1, LUA_TTABLE);
     int component = 0;
-    for (int j = 0; j < mesh->attributeCount; j++) {
+    for (uint32_t j = 0; j < mesh->attributeCount; j++) {
       const MeshAttribute* attribute = &mesh->attributes[j];
       if (attribute->buffer != mesh->vertexBuffer) {
         break;

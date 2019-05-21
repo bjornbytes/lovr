@@ -114,20 +114,20 @@ typedef struct {
   uint32_t buffer;
   uint32_t count;
   AttributeType type;
-  unsigned int components : 3;
-  bool normalized : 1;
-  bool matrix : 1;
-  bool hasMin : 1;
-  bool hasMax : 1;
+  unsigned components : 3;
+  unsigned normalized : 1;
+  unsigned matrix : 1;
+  unsigned hasMin : 1;
+  unsigned hasMax : 1;
   float min[4];
   float max[4];
 } ModelAttribute;
 
 typedef struct {
-  int nodeIndex;
+  uint32_t nodeIndex;
   AnimationProperty property;
   SmoothMode smoothing;
-  int keyframeCount;
+  uint32_t keyframeCount;
   float* times;
   float* data;
 } ModelAnimationChannel;
@@ -135,20 +135,14 @@ typedef struct {
 typedef struct {
   const char* name;
   ModelAnimationChannel* channels;
-  int channelCount;
+  uint32_t channelCount;
   float duration;
 } ModelAnimation;
 
 typedef struct {
-  int imageIndex;
-  TextureFilter filter;
-  TextureWrap wrap;
-} ModelTexture;
-
-typedef struct {
   float scalars[MAX_MATERIAL_SCALARS];
   Color colors[MAX_MATERIAL_COLORS];
-  int textures[MAX_MATERIAL_TEXTURES];
+  uint32_t textures[MAX_MATERIAL_TEXTURES];
   TextureFilter filters[MAX_MATERIAL_TEXTURES];
   TextureWrap wraps[MAX_MATERIAL_TEXTURES];
 } ModelMaterial;
@@ -157,7 +151,7 @@ typedef struct {
   ModelAttribute* attributes[MAX_DEFAULT_ATTRIBUTES];
   ModelAttribute* indices;
   DrawMode mode;
-  int material;
+  uint32_t material;
 } ModelPrimitive;
 
 typedef struct {
@@ -169,7 +163,7 @@ typedef struct {
   uint32_t childCount;
   uint32_t primitiveIndex;
   uint32_t primitiveCount;
-  int skin;
+  uint32_t skin;
 } ModelNode;
 
 typedef struct {
@@ -189,26 +183,26 @@ typedef struct ModelData {
   ModelAnimation* animations;
   ModelSkin* skins;
   ModelNode* nodes;
-  int rootNode;
+  uint32_t rootNode;
 
-  int blobCount;
-  int bufferCount;
-  int textureCount;
-  int materialCount;
-  int attributeCount;
-  int primitiveCount;
-  int animationCount;
-  int skinCount;
-  int nodeCount;
+  uint32_t blobCount;
+  uint32_t bufferCount;
+  uint32_t textureCount;
+  uint32_t materialCount;
+  uint32_t attributeCount;
+  uint32_t primitiveCount;
+  uint32_t animationCount;
+  uint32_t skinCount;
+  uint32_t nodeCount;
 
   ModelAnimationChannel* channels;
   uint32_t* children;
   uint32_t* joints;
   char* chars;
-  int channelCount;
-  int childCount;
-  int jointCount;
-  int charCount;
+  uint32_t channelCount;
+  uint32_t childCount;
+  uint32_t jointCount;
+  uint32_t charCount;
 } ModelData;
 
 ModelData* lovrModelDataInit(ModelData* model, struct Blob* blob);

@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 // Provided by resources/lovr.js
-extern bool webvr_init(float offset, int msaa);
+extern bool webvr_init(float offset, uint32_t msaa);
 extern void webvr_destroy(void);
 extern bool webvr_getName(char* name, size_t length);
 extern HeadsetOrigin webvr_getOriginType(void);
@@ -11,7 +11,7 @@ extern void webvr_getDisplayDimensions(uint32_t* width, uint32_t* height);
 extern void webvr_getClipDistance(float* near, float* far);
 extern void webvr_setClipDistance(float near, float far);
 extern void webvr_getBoundsDimensions(float* width, float* depth);
-extern const float* webvr_getBoundsGeometry(int* count);
+extern const float* webvr_getBoundsGeometry(uint32_t* count);
 extern bool webvr_getPose(Device device, float* position, float* orientation);
 extern bool webvr_getBonePose(Device device, DeviceBone bone, float* position, float* orientation);
 extern bool webvr_getVelocity(Device device, float* velocity, float* angularVelocity);

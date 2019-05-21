@@ -132,6 +132,6 @@ void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, Glyph* 
   msShapeDestroy(shape);
 }
 
-int lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t left, uint32_t right) {
+int32_t lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t left, uint32_t right) {
   return stbtt_GetCodepointKernAdvance(&rasterizer->font, left, right) * rasterizer->scale;
 }

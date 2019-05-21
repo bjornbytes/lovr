@@ -46,7 +46,7 @@ void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
   memmove(mesh->attributeNames + *index, mesh->attributeNames + *index + 1, (mesh->attributeCount - *index - 1) * MAX_ATTRIBUTE_NAME_LENGTH * sizeof(char));
   memmove(mesh->attributes + *index, mesh->attributes + *index + 1, (mesh->attributeCount - *index - 1) * sizeof(MeshAttribute));
   mesh->attributeCount--;
-  for (int i = 0; i < MAX_ATTRIBUTES; i++) {
+  for (uint32_t i = 0; i < MAX_ATTRIBUTES; i++) {
     if (mesh->locations[i] > *index) {
       mesh->locations[i]--;
     } else if (mesh->locations[i] == *index) {

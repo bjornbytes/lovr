@@ -28,7 +28,7 @@ Font* lovrFontInit(Font* font, Rasterizer* rasterizer) {
   map_init(&font->kerning);
 
   // Atlas
-  int padding = 1;
+  uint32_t padding = 1;
   font->atlas.x = padding;
   font->atlas.y = padding;
   font->atlas.width = 128;
@@ -228,7 +228,7 @@ void lovrFontSetFlipEnabled(Font* font, bool flip) {
   font->flip = flip;
 }
 
-int lovrFontGetKerning(Font* font, unsigned int left, unsigned int right) {
+int32_t lovrFontGetKerning(Font* font, unsigned int left, unsigned int right) {
   char key[12];
   snprintf(key, 12, "%d,%d", left, right);
 
@@ -237,7 +237,7 @@ int lovrFontGetKerning(Font* font, unsigned int left, unsigned int right) {
     return *entry;
   }
 
-  int kerning = lovrRasterizerGetKerning(font->rasterizer, left, right);
+  int32_t kerning = lovrRasterizerGetKerning(font->rasterizer, left, right);
   map_set(&font->kerning, key, kerning);
   return kerning;
 }

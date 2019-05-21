@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #pragma once
 
 struct Animator;
@@ -21,7 +23,7 @@ typedef struct {
 Model* lovrModelInit(Model* model, struct ModelData* data);
 #define lovrModelCreate(...) lovrModelInit(lovrAlloc(Model), __VA_ARGS__)
 void lovrModelDestroy(void* ref);
-void lovrModelDraw(Model* model, float* transform, int instances);
+void lovrModelDraw(Model* model, float* transform, uint32_t instances);
 struct Animator* lovrModelGetAnimator(Model* model);
 void lovrModelSetAnimator(Model* model, struct Animator* animator);
 struct Material* lovrModelGetMaterial(Model* model);

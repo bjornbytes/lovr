@@ -505,7 +505,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int baseDivisor) {
   }
 
   uint16_t enabledLocations = 0;
-  for (int i = 0; i < mesh->attributeCount; i++) {
+  for (uint32_t i = 0; i < mesh->attributeCount; i++) {
     MeshAttribute* attribute;
     int location;
 
@@ -537,7 +537,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int baseDivisor) {
 
   uint16_t diff = enabledLocations ^ mesh->enabledLocations;
   if (diff != 0) {
-    for (int i = 0; i < MAX_ATTRIBUTES; i++) {
+    for (uint32_t i = 0; i < MAX_ATTRIBUTES; i++) {
       if (diff & (1 << i)) {
         if (enabledLocations & (1 << i)) {
           glEnableVertexAttribArray(i);
@@ -2038,7 +2038,7 @@ void lovrMeshDestroy(void* ref) {
   Mesh* mesh = ref;
   lovrGraphicsFlushMesh(mesh);
   glDeleteVertexArrays(1, &mesh->vao);
-  for (int i = 0; i < mesh->attributeCount; i++) {
+  for (uint32_t i = 0; i < mesh->attributeCount; i++) {
     lovrRelease(Buffer, mesh->attributes[i].buffer);
   }
   map_deinit(&mesh->attributeMap);

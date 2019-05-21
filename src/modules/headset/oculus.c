@@ -69,7 +69,7 @@ static ovrInputState *refreshButtons() {
   return &is;
 }
 
-static bool oculus_init(float offset, int msaa) {
+static bool oculus_init(float offset, uint32_t msaa) {
   ovrResult result = ovr_Initialize(NULL);
   if (OVR_FAILURE(result)) {
     return false;
@@ -158,7 +158,7 @@ static void oculus_getBoundsDimensions(float* width, float* depth) {
   *depth = dimensions.z;
 }
 
-static const float* oculus_getBoundsGeometry(int* count) {
+static const float* oculus_getBoundsGeometry(uint32_t* count) {
   *count = 0;
   return NULL;
 }

@@ -40,8 +40,8 @@ typedef struct {
 } gltfChunkHeader;
 
 typedef struct {
-  int input;
-  int output;
+  uint32_t input;
+  uint32_t output;
   SmoothMode smoothing;
 } gltfAnimationSampler;
 
@@ -65,12 +65,11 @@ typedef struct {
   uint32_t nodeCount;
 } gltfScene;
 
-static int nomInt(const char* s) {
-  int n = 0;
-  bool negative = (*s == '-');
-  s += negative;
+static uint32_t nomInt(const char* s) {
+  uint32_t n = 0;
+  lovrAssert(*s != '-', "Expected a positive number");
   while (isdigit(*s)) { n = 10 * n + (*s++ - '0'); }
-  return negative ? -n : n;
+  return n;
 }
 
 static int nomValue(const char* data, jsmntok_t* token, int count, int sum) {
@@ -82,14 +81,14 @@ static int nomValue(const char* data, jsmntok_t* token, int count, int sum) {
   }
 }
 
-// Kinda like total += sum(map(arr, obj => #obj[key]))
-static jsmntok_t* aggregate(const char* json, jsmntok_t* token, const char* target, int* total) {
+// Kinda like count += sum(map(arr, obj => #obj[key]))
+static jsmntok_t* aggregate(const char* json, jsmntok_t* token, const char* target, uint32_t* count) {
   for (int i = (token++)->size; i > 0; i--) {
     if (token->size > 0) {
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, target)) {
-          *total += token->size;
+          *count += token->size;
         }
         token += NOM_VALUE(json, token);
       }
@@ -102,7 +101,7 @@ static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMateri
   for (int k = (token++)->size; k > 0; k--) {
     gltfString key = NOM_STR(json, token);
     if (STR_EQ(key, "index")) {
-      int index = NOM_INT(json, token);
+      uint32_t index = NOM_INT(json, token);
       material->textures[type] = textures[index].image;
       material->filters[type] = samplers[textures[index].sampler].filter;
       material->wraps[type] = samplers[textures[index].sampler].wrap;
@@ -237,8 +236,8 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           gltfString key = NOM_STR(json, token);
           if (STR_EQ(key, "samplers")) {
             for (int j = (token++)->size; j > 0; j--, sampler++) {
-              sampler->input = -1;
-              sampler->output = -1;
+              sampler->input = ~0u;
+              sampler->output = ~0u;
               sampler->smoothing = SMOOTH_LINEAR;
               for (int kk = (token++)->size; kk > 0; kk--) {
                 gltfString key = NOM_STR(json, token);
@@ -527,7 +526,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           animation->channelCount = (token++)->size;
           animation->channels = model->channels + channelIndex;
           channelIndex += animation->channelCount;
-          for (int j = 0; j < animation->channelCount; j++) {
+          for (uint32_t j = 0; j < animation->channelCount; j++) {
             ModelAnimationChannel* channel = &animation->channels[j];
             ModelAttribute* times = NULL;
             ModelAttribute* data = NULL;
@@ -632,7 +631,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
       material->scalars[SCALAR_ROUGHNESS] = 1.f;
       material->colors[COLOR_DIFFUSE] = (Color) { 1.f, 1.f, 1.f, 1.f };
       material->colors[COLOR_EMISSIVE] = (Color) { 0.f, 0.f, 0.f, 0.f };
-      memset(material->textures, 0xff, MAX_MATERIAL_TEXTURES * sizeof(int));
+      memset(material->textures, 0xff, MAX_MATERIAL_TEXTURES * sizeof(uint32_t));
 
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
@@ -688,7 +687,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
         if (STR_EQ(key, "primitives")) {
           for (uint32_t j = (token++)->size; j > 0; j--, primitive++) {
             primitive->mode = DRAW_TRIANGLES;
-            primitive->material = -1;
+            primitive->material = ~0u;
 
             for (int kk = (token++)->size; kk > 0; kk--) {
               gltfString key = NOM_STR(json, token);
@@ -713,7 +712,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
                 for (int a = 0; a < attributeCount; a++) {
                   DefaultAttribute attributeType = ~0;
                   gltfString name = NOM_STR(json, token);
-                  int attributeIndex = NOM_INT(json, token);
+                  uint32_t attributeIndex = NOM_INT(json, token);
                   if (STR_EQ(name, "POSITION")) { attributeType = ATTR_POSITION; }
                   else if (STR_EQ(name, "NORMAL")) { attributeType = ATTR_NORMAL; }
                   else if (STR_EQ(name, "TEXCOORD_0")) { attributeType = ATTR_TEXCOORD; }
@@ -738,7 +737,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
   }
 
   // Nodes
-  int childIndex = 0;
+  uint32_t childIndex = 0;
   if (model->nodeCount > 0) {
     jsmntok_t* token = info.nodes;
     ModelNode* node = model->nodes;
@@ -748,7 +747,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
       vec3 scale = vec3_set(node->scale, 1.f, 1.f, 1.f);
       bool matrix = false;
       node->primitiveCount = 0;
-      node->skin = -1;
+      node->skin = ~0u;
 
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
@@ -836,7 +835,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
     lastNode->children = &model->children[childIndex];
     mat4_identity(lastNode->transform);
     lastNode->primitiveCount = 0;
-    lastNode->skin = -1;
+    lastNode->skin = ~0u;
 
     jsmntok_t* token = info.scenes;
     int sceneCount = (token++)->size;

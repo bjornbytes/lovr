@@ -22,15 +22,15 @@ typedef struct Rasterizer {
 } Rasterizer;
 
 typedef struct {
-  int x;
-  int y;
-  int w;
-  int h;
-  int tw;
-  int th;
-  int dx;
-  int dy;
-  int advance;
+  int32_t x;
+  int32_t y;
+  uint32_t w;
+  uint32_t h;
+  uint32_t tw;
+  uint32_t th;
+  int32_t dx;
+  int32_t dy;
+  int32_t advance;
   struct TextureData* data;
 } Glyph;
 
@@ -40,4 +40,4 @@ void lovrRasterizerDestroy(void* ref);
 bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
 bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);
 void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, Glyph* glyph);
-int lovrRasterizerGetKerning(Rasterizer* fontData, uint32_t left, uint32_t right);
+int32_t lovrRasterizerGetKerning(Rasterizer* fontData, uint32_t left, uint32_t right);

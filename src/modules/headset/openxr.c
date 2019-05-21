@@ -191,7 +191,7 @@ static struct {
 
 static void openxr_destroy();
 
-static bool openxr_init(float offset, int msaa) {
+static bool openxr_init(float offset, uint32_t msaa) {
 
   { // Instance
     XrInstanceCreateInfo info = {
@@ -410,7 +410,7 @@ static void openxr_getBoundsDimensions(float* width, float* depth) {
   *depth = bounds.height;
 }
 
-static const float* openxr_getBoundsGeometry(int* count) {
+static const float* openxr_getBoundsGeometry(uint32_t* count) {
   *count = 0;
   return NULL;
 }

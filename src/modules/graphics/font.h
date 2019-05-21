@@ -23,12 +23,12 @@ typedef enum {
 } VerticalAlign;
 
 typedef struct {
-  int x;
-  int y;
-  int width;
-  int height;
-  int rowHeight;
-  int padding;
+  uint32_t x;
+  uint32_t y;
+  uint32_t width;
+  uint32_t height;
+  uint32_t rowHeight;
+  uint32_t padding;
   map_glyph_t glyphs;
 } FontAtlas;
 
@@ -56,7 +56,7 @@ float lovrFontGetLineHeight(Font* font);
 void lovrFontSetLineHeight(Font* font, float lineHeight);
 bool lovrFontIsFlipEnabled(Font* font);
 void lovrFontSetFlipEnabled(Font* font, bool flip);
-int lovrFontGetKerning(Font* font, unsigned int a, unsigned int b);
+int32_t lovrFontGetKerning(Font* font, unsigned int a, unsigned int b);
 float lovrFontGetPixelDensity(Font* font);
 void lovrFontSetPixelDensity(Font* font, float pixelDensity);
 Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint);

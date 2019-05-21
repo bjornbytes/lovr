@@ -5,13 +5,13 @@ HeadsetInterface* lovrHeadsetDriver = NULL;
 HeadsetInterface* lovrHeadsetTrackingDrivers = NULL;
 static bool initialized = false;
 
-bool lovrHeadsetInit(HeadsetDriver* drivers, int count, float offset, int msaa) {
+bool lovrHeadsetInit(HeadsetDriver* drivers, uint32_t count, float offset, uint32_t msaa) {
   if (initialized) return false;
   initialized = true;
 
   HeadsetInterface* lastTrackingDriver = NULL;
 
-  for (int i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < count; i++) {
     HeadsetInterface* interface = NULL;
 
     switch (drivers[i]) {
@@ -76,8 +76,4 @@ void lovrHeadsetDestroy() {
     lovrHeadsetDriver->destroy();
     lovrHeadsetDriver = NULL;
   }
-}
-
-void lovrControllerDestroy(void* ref) {
-  //
 }
