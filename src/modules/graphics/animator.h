@@ -1,6 +1,7 @@
 #include "lib/map/map.h"
 #include "lib/vec/vec.h"
 #include <stdbool.h>
+#include <stdint.h>
 
 #pragma once
 
