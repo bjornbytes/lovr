@@ -3,6 +3,10 @@
 
 #include "platform_glfw.c.h"
 
+const char* lovrPlatformGetName() {
+  return "Windows";
+}
+
 void lovrPlatformSleep(double seconds) {
   Sleep((unsigned int) (seconds * 1000));
 }

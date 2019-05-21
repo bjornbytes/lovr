@@ -70,6 +70,7 @@ extern getProcAddressProc lovrGetProcAddress;
 
 bool lovrPlatformInit(void);
 void lovrPlatformDestroy(void);
+const char* lovrPlatformGetName();
 void lovrPlatformPollEvents(void);
 double lovrPlatformGetTime(void);
 void lovrPlatformSetTime(double t);

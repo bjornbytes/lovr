@@ -10,6 +10,10 @@ void lovrPlatformDestroy() {
   //
 }
 
+const char* lovrPlatformGetName() {
+  return "Android";
+}
+
 void lovrPlatformPollEvents() {
   //
 }

@@ -4,6 +4,10 @@
 
 #include "platform_glfw.c.h"
 
+const char* lovrPlatformGetName() {
+  return "macOS";
+}
+
 void lovrPlatformSleep(double seconds) {
   usleep((unsigned int) (seconds * 1000000));
 }

@@ -1,5 +1,6 @@
 #include "api.h"
 #include "util.h"
+#include "platform.h"
 #include "resources/logo.png.h"
 #include "lib/lua-cjson/lua_cjson.h"
 #include "lib/lua-enet/enet.h"
@@ -46,19 +47,7 @@ const luaL_Reg lovrModules[] = {
 };
 
 static int l_lovrGetOS(lua_State* L) {
-#ifdef _WIN32
-  lua_pushliteral(L, "Windows");
-#elif __APPLE__
-  lua_pushliteral(L, "macOS");
-#elif EMSCRIPTEN
-  lua_pushliteral(L, "Web");
-#elif __ANDROID__
-  lua_pushliteral(L, "Android");
-#elif __linux__
-  lua_pushliteral(L, "Linux");
-#else
-  lua_pushnil(L);
-#endif
+  lua_pushstring(L, lovrPlatformGetName());
   return 1;
 }
 
