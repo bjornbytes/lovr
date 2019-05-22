@@ -73,6 +73,15 @@ const char* CompareModes[] = {
   NULL
 };
 
+const char* DefaultShaders[] = {
+  [SHADER_UNLIT] = "unlit",
+  [SHADER_CUBE] = "cube",
+  [SHADER_PANO] = "pano",
+  [SHADER_FONT] = "font",
+  [SHADER_FILL] = "screenspace",
+  NULL
+};
+
 const char* DrawModes[] = {
   [DRAW_POINTS] = "points",
   [DRAW_LINES] = "lines",
