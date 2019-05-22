@@ -52,7 +52,7 @@ typedef struct {
 } ShaderFlag;
 
 typedef enum {
-  SHADER_DEFAULT,
+  SHADER_UNLIT,
   SHADER_CUBE,
   SHADER_PANO,
   SHADER_FONT,

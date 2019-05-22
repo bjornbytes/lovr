@@ -60,7 +60,7 @@ static const char* getUniformTypeName(const Uniform* uniform) {
 
 Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type) {
   switch (type) {
-    case SHADER_DEFAULT: return lovrShaderInitGraphics(shader, NULL, NULL, NULL, 0);
+    case SHADER_UNLIT: return lovrShaderInitGraphics(shader, NULL, NULL, NULL, 0);
     case SHADER_CUBE: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrCubeFragmentShader, NULL, 0);
     case SHADER_PANO: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrPanoFragmentShader, NULL, 0);
     case SHADER_FONT: return lovrShaderInitGraphics(shader, NULL, lovrFontFragmentShader, NULL, 0);
