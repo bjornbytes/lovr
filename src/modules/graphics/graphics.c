@@ -467,7 +467,7 @@ void lovrGraphicsBatch(BatchRequest* req) {
 
   // Resolve objects
   Canvas* canvas = state.canvas ? state.canvas : state.camera.canvas;
-  Shader* shader = state.shader ? state.shader : (state.defaultShaders[req->shader] ? state.defaultShaders[req->shader] : (state.defaultShaders[req->shader] = lovrShaderCreateDefault(req->shader)));
+  Shader* shader = state.shader ? state.shader : (state.defaultShaders[req->shader] ? state.defaultShaders[req->shader] : (state.defaultShaders[req->shader] = lovrShaderCreateDefault(req->shader, NULL, 0)));
   Pipeline* pipeline = req->pipeline ? req->pipeline : &state.pipeline;
   Material* material = req->material ? req->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
 

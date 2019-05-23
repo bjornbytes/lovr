@@ -1406,20 +1406,35 @@ static void luax_parseshaderflags(lua_State* L, int index, ShaderFlag flags[MAX_
 }
 
 static int l_lovrGraphicsNewShader(lua_State* L) {
-  luax_readshadersource(L, 1);
-  luax_readshadersource(L, 2);
-  const char* vertexSource = lua_tostring(L, 1);
-  const char* fragmentSource = lua_tostring(L, 2);
   ShaderFlag flags[MAX_SHADER_FLAGS];
   uint32_t flagCount = 0;
+  Shader* shader;
 
-  if (lua_istable(L, 3)) {
-    lua_getfield(L, 3, "flags");
-    luax_parseshaderflags(L, -1, flags, &flagCount);
-    lua_pop(L, 1);
+  if (lua_isstring(L, 1) && (lua_istable(L, 2) || lua_gettop(L) == 1)) {
+    DefaultShader shaderType = luaL_checkoption(L, 1, NULL, DefaultShaders);
+
+    if (lua_istable(L, 2)) {
+      lua_getfield(L, 2, "flags");
+      luax_parseshaderflags(L, -1, flags, &flagCount);
+      lua_pop(L, 1);
+    }
+
+    shader = lovrShaderCreateDefault(shaderType, flags, flagCount);
+  } else {
+    luax_readshadersource(L, 1);
+    luax_readshadersource(L, 2);
+    const char* vertexSource = lua_tostring(L, 1);
+    const char* fragmentSource = lua_tostring(L, 2);
+
+    if (lua_istable(L, 3)) {
+      lua_getfield(L, 3, "flags");
+      luax_parseshaderflags(L, -1, flags, &flagCount);
+      lua_pop(L, 1);
+    }
+
+    shader = lovrShaderCreateGraphics(vertexSource, fragmentSource, flags, flagCount);
   }
 
-  Shader* shader = lovrShaderCreateGraphics(vertexSource, fragmentSource, flags, flagCount);
   luax_pushobject(L, shader);
   lovrRelease(Shader, shader);
   return 1;

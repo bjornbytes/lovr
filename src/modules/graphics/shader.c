@@ -58,13 +58,13 @@ static const char* getUniformTypeName(const Uniform* uniform) {
   return "";
 }
 
-Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type) {
+Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type, ShaderFlag* flags, uint32_t flagCount) {
   switch (type) {
-    case SHADER_UNLIT: return lovrShaderInitGraphics(shader, NULL, NULL, NULL, 0);
-    case SHADER_CUBE: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrCubeFragmentShader, NULL, 0);
-    case SHADER_PANO: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrPanoFragmentShader, NULL, 0);
-    case SHADER_FONT: return lovrShaderInitGraphics(shader, NULL, lovrFontFragmentShader, NULL, 0);
-    case SHADER_FILL: return lovrShaderInitGraphics(shader, lovrFillVertexShader, NULL, NULL, 0);
+    case SHADER_UNLIT: return lovrShaderInitGraphics(shader, NULL, NULL, flags, flagCount);
+    case SHADER_CUBE: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrCubeFragmentShader, flags, flagCount);
+    case SHADER_PANO: return lovrShaderInitGraphics(shader, lovrCubeVertexShader, lovrPanoFragmentShader, flags, flagCount);
+    case SHADER_FONT: return lovrShaderInitGraphics(shader, NULL, lovrFontFragmentShader, flags, flagCount);
+    case SHADER_FILL: return lovrShaderInitGraphics(shader, lovrFillVertexShader, NULL, flags, flagCount);
     default: lovrThrow("Unknown default shader type"); return NULL;
   }
 }
