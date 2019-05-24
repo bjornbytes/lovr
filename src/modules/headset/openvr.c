@@ -543,7 +543,9 @@ static ModelData* openvr_newModelData(Device device) {
   model->nodes[0] = (ModelNode) {
     .transform = MAT4_IDENTITY,
     .primitiveIndex = 0,
-    .primitiveCount = 1
+    .primitiveCount = 1,
+    .skin = ~0u,
+    .matrix = true
   };
 
   return model;

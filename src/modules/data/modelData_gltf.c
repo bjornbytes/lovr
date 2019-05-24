@@ -271,7 +271,6 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
             gltfString key = NOM_STR(json, t);
             if (STR_EQ(key, "channels")) { model->channelCount += t->size; }
             else if (STR_EQ(key, "samplers")) { samplerCount += t->size; }
-            else if (STR_EQ(key, "name")) { model->charCount += t->end - t->start + 1; }
             t += NOM_VALUE(json, t);
           }
         }
@@ -576,7 +575,6 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
     ModelAnimation* animation = model->animations;
     for (int i = (token++)->size; i > 0; i--, animation++) {
       int samplerCount = 0;
-      animation->name = NULL;
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "channels")) {
@@ -635,10 +633,9 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           token += NOM_VALUE(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
-          memcpy(model->chars, name.data, name.length);
-          model->chars[name.length] = '\0';
-          animation->name = model->chars;
-          model->chars += name.length;
+          name.data[name.length] = '\0';
+          map_set(&model->animationMap, name.data, model->animationCount - i);
+          name.data[name.length] = '"';
         } else {
           token += NOM_VALUE(json, token);
         }
@@ -802,7 +799,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
       vec3 translation = vec3_set(node->translation, 0.f, 0.f, 0.f);
       quat rotation = quat_set(node->rotation, 0.f, 0.f, 0.f, 1.f);
       vec3 scale = vec3_set(node->scale, 1.f, 1.f, 1.f);
-      bool matrix = false;
+      node->matrix = false;
       node->primitiveCount = 0;
       node->skin = ~0u;
 
@@ -822,7 +819,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           }
         } else if (STR_EQ(key, "matrix")) {
           lovrAssert((token++)->size == 16, "Node matrix needs 16 elements");
-          matrix = true;
+          node->matrix = true;
           for (int j = 0; j < 16; j++) {
             node->transform[j] = NOM_FLOAT(json, token);
           }
@@ -842,17 +839,14 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           scale[0] = NOM_FLOAT(json, token);
           scale[1] = NOM_FLOAT(json, token);
           scale[2] = NOM_FLOAT(json, token);
+        } else if (STR_EQ(key, "name")) {
+          gltfString name = NOM_STR(json, token);
+          name.data[name.length] = '\0';
+          map_set(&model->nodeMap, name.data, model->nodeCount - i);
+          name.data[name.length] = '"';
         } else {
           token += NOM_VALUE(json, token);
         }
-      }
-
-      // Fix it in post
-      if (!matrix) {
-        mat4_identity(node->transform);
-        mat4_translate(node->transform, translation[0], translation[1], translation[2]);
-        mat4_rotateQuat(node->transform, rotation);
-        mat4_scale(node->transform, scale[0], scale[1], scale[2]);
       }
     }
   }

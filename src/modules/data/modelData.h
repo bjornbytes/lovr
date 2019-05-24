@@ -1,4 +1,5 @@
 #include "util.h"
+#include "lib/map/map.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -133,7 +134,6 @@ typedef struct {
 } ModelAnimationChannel;
 
 typedef struct {
-  const char* name;
   ModelAnimationChannel* channels;
   uint32_t channelCount;
   float duration;
@@ -164,6 +164,7 @@ typedef struct {
   uint32_t primitiveIndex;
   uint32_t primitiveCount;
   uint32_t skin;
+  bool matrix;
 } ModelNode;
 
 typedef struct {
@@ -198,11 +199,12 @@ typedef struct ModelData {
   ModelAnimationChannel* channels;
   uint32_t* children;
   uint32_t* joints;
-  char* chars;
   uint32_t channelCount;
   uint32_t childCount;
   uint32_t jointCount;
-  uint32_t charCount;
+
+  map_t(uint32_t) animationMap;
+  map_t(uint32_t) nodeMap;
 } ModelData;
 
 ModelData* lovrModelDataInit(ModelData* model, struct Blob* blob);

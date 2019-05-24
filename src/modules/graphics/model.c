@@ -1,45 +1,67 @@
 #include "graphics/model.h"
-#include "graphics/animator.h"
 #include "graphics/buffer.h"
 #include "graphics/graphics.h"
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/texture.h"
 #include "resources/shaders.h"
+#include "core/maf.h"
 #include "core/ref.h"
 #include <stdlib.h>
 #include <float.h>
+#include <math.h>
 
-static void updateGlobalNodeTransform(Model* model, uint32_t nodeIndex, mat4 transform) {
+typedef struct {
+  float properties[3][4];
+} NodeTransform;
+
+struct Model {
+  struct ModelData* data;
+  struct Buffer** buffers;
+  struct Mesh** meshes;
+  struct Texture** textures;
+  struct Material** materials;
+  struct Material* userMaterial;
+  NodeTransform* localTransforms;
+  float* globalTransforms;
+  bool transformsDirty;
+};
+
+static void updateGlobalTransform(Model* model, uint32_t nodeIndex, mat4 parent) {
   ModelNode* node = &model->data->nodes[nodeIndex];
+  mat4 global = model->globalTransforms + 16 * nodeIndex;
+  mat4_init(global, parent);
 
-  mat4 globalTransform = model->globalNodeTransforms + 16 * nodeIndex;
-  mat4_set(globalTransform, transform);
-
-  if (model->animator) {
-    lovrAnimatorEvaluate(model->animator, nodeIndex, globalTransform);
+  if (node->matrix) {
+    mat4_multiply(global, node->transform);
   } else {
-    mat4_multiply(globalTransform, node->transform);
+    NodeTransform* local = &model->localTransforms[nodeIndex];
+    vec3 T = local->properties[PROP_TRANSLATION];
+    quat R = local->properties[PROP_ROTATION];
+    vec3 S = local->properties[PROP_SCALE];
+    mat4_translate(global, T[0], T[1], T[2]);
+    mat4_rotateQuat(global, R);
+    mat4_scale(global, S[0], S[1], S[2]);
   }
 
   for (uint32_t i = 0; i < node->childCount; i++) {
-    updateGlobalNodeTransform(model, node->children[i], globalTransform);
+    updateGlobalTransform(model, node->children[i], global);
   }
 }
 
 static void renderNode(Model* model, uint32_t nodeIndex, uint32_t instances) {
   ModelNode* node = &model->data->nodes[nodeIndex];
-  mat4 globalTransform = model->globalNodeTransforms + 16 * nodeIndex;
+  mat4 globalTransform = model->globalTransforms + 16 * nodeIndex;
 
   if (node->primitiveCount > 0) {
-    bool animated = node->skin != ~0u && model->animator;
+    bool animated = node->skin != ~0u;
     float pose[16 * MAX_BONES];
 
     if (animated) {
       ModelSkin* skin = &model->data->skins[node->skin];
 
       for (uint32_t j = 0; j < skin->jointCount; j++) {
-        mat4 globalJointTransform = model->globalNodeTransforms + 16 * skin->joints[j];
+        mat4 globalJointTransform = model->globalTransforms + 16 * skin->joints[j];
         mat4 inverseBindMatrix = skin->inverseBindMatrices + 16 * j;
         mat4 jointPose = pose + 16 * j;
 
@@ -65,7 +87,8 @@ static void renderNode(Model* model, uint32_t nodeIndex, uint32_t instances) {
   }
 }
 
-Model* lovrModelInit(Model* model, ModelData* data) {
+Model* lovrModelCreate(ModelData* data) {
+  Model* model = lovrAlloc(Model);
   model->data = data;
   lovrRetain(data);
 
@@ -169,9 +192,20 @@ Model* lovrModelInit(Model* model, ModelData* data) {
     }
   }
 
-  model->globalNodeTransforms = malloc(16 * sizeof(float) * model->data->nodeCount);
-  for (uint32_t i = 0; i < model->data->nodeCount; i++) {
-    mat4_identity(model->globalNodeTransforms + 16 * i);
+  model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
+  model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
+  model->transformsDirty = true;
+
+  for (uint32_t i = 0; i < data->nodeCount; i++) {
+    if (data->nodes[i].matrix) {
+      vec3_set(model->localTransforms[i].properties[PROP_TRANSLATION], 0.f, 0.f, 0.f);
+      quat_set(model->localTransforms[i].properties[PROP_ROTATION], 0.f, 0.f, 0.f, 1.f);
+      vec3_set(model->localTransforms[i].properties[PROP_SCALE], 1.f, 1.f, 1.f);
+    } else {
+      vec3_init(model->localTransforms[i].properties[PROP_TRANSLATION], data->nodes[i].translation);
+      quat_init(model->localTransforms[i].properties[PROP_ROTATION], data->nodes[i].rotation);
+      vec3_init(model->localTransforms[i].properties[PROP_SCALE], data->nodes[i].scale);
+    }
   }
 
   return model;
@@ -192,26 +226,82 @@ void lovrModelDestroy(void* ref) {
     lovrRelease(Material, model->materials[i]);
   }
   lovrRelease(Material, model->userMaterial);
-  lovrRelease(Animator, model->animator);
   lovrRelease(ModelData, model->data);
-  free(model->globalNodeTransforms);
+  free(model->globalTransforms);
+  free(model->localTransforms);
+}
+
+ModelData* lovrModelGetModelData(Model* model) {
+  return model->data;
 }
 
 void lovrModelDraw(Model* model, mat4 transform, uint32_t instances) {
-  updateGlobalNodeTransform(model, model->data->rootNode, transform);
-  renderNode(model, model->data->rootNode, instances);
-}
-
-Animator* lovrModelGetAnimator(Model* model) {
-  return model->animator;
-}
-
-void lovrModelSetAnimator(Model* model, Animator* animator) {
-  if (model->animator != animator) {
-    lovrRetain(animator);
-    lovrRelease(Animator, model->animator);
-    model->animator = animator;
+  if (model->transformsDirty) {
+    updateGlobalTransform(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+    model->transformsDirty = false;
   }
+
+  lovrGraphicsPush();
+  lovrGraphicsMatrixTransform(transform);
+  renderNode(model, model->data->rootNode, instances);
+  lovrGraphicsPop();
+}
+
+void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float alpha) {
+  if (alpha == 0.f) {
+    return;
+  }
+
+  lovrAssert(animationIndex < model->data->animationCount, "Invalid animation index #%d (Model only has %d animations)", animationIndex, model->data->animationCount);
+  ModelAnimation* animation = &model->data->animations[animationIndex];
+  time = fmodf(time, animation->duration);
+
+  for (uint32_t i = 0; i < animation->channelCount; i++) {
+    ModelAnimationChannel* channel = &animation->channels[i];
+    uint32_t nodeIndex = channel->nodeIndex;
+    NodeTransform* transform = &model->localTransforms[nodeIndex];
+
+    uint32_t keyframe = 0;
+    while (keyframe < channel->keyframeCount && channel->times[keyframe] < time) {
+      keyframe++;
+    }
+
+    float property[4];
+    bool rotate = channel->property == PROP_ROTATION;
+    size_t n = 3 + rotate;
+    float* (*lerp)(float* a, float* b, float t) = rotate ? quat_slerp : vec3_lerp;
+
+    if (keyframe >= channel->keyframeCount) {
+      memcpy(property, channel->data + CLAMP(keyframe, 0, channel->keyframeCount - 1) * n, n * sizeof(float));
+    } else {
+      float t1 = channel->times[keyframe - 1];
+      float t2 = channel->times[keyframe];
+      float z = (time - t1) / (t2 - t1);
+      float next[4];
+
+      memcpy(property, channel->data + (keyframe - 1) * n, n * sizeof(float));
+      memcpy(next, channel->data + keyframe * n, n * sizeof(float));
+
+      switch (channel->smoothing) {
+        case SMOOTH_STEP:
+          if (z >= .5f) {
+            memcpy(property, next, n * sizeof(float));
+          }
+          break;
+        case SMOOTH_LINEAR: lerp(property, next, z); break;
+        case SMOOTH_CUBIC: lovrThrow("Cubic spline interpolation is not supported yet"); break;
+        default: break;
+      }
+    }
+
+    if (alpha == 1.f) {
+      memcpy(transform->properties[channel->property], property, n * sizeof(float));
+    } else {
+      lerp(transform->properties[channel->property], property, alpha);
+    }
+  }
+
+  model->transformsDirty = true;
 }
 
 Material* lovrModelGetMaterial(Model* model) {
@@ -230,7 +320,7 @@ static void applyAABB(Model* model, uint32_t nodeIndex, float aabb[6]) {
   for (uint32_t i = 0; i < node->primitiveCount; i++) {
     ModelAttribute* position = model->data->primitives[node->primitiveIndex + i].attributes[ATTR_POSITION];
     if (position && position->hasMin && position->hasMax) {
-      mat4 m = model->globalNodeTransforms + 16 * nodeIndex;
+      mat4 m = model->globalTransforms + 16 * nodeIndex;
 
       float xa[3] = { position->min[0] * m[0], position->min[0] * m[1], position->min[0] * m[2] };
       float xb[3] = { position->max[0] * m[0], position->max[0] * m[1], position->max[0] * m[2] };
@@ -268,8 +358,12 @@ static void applyAABB(Model* model, uint32_t nodeIndex, float aabb[6]) {
 }
 
 void lovrModelGetAABB(Model* model, float aabb[6]) {
+  if (model->transformsDirty) {
+    updateGlobalTransform(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+    model->transformsDirty = false;
+  }
+
   aabb[0] = aabb[2] = aabb[4] = FLT_MAX;
   aabb[1] = aabb[3] = aabb[5] = -FLT_MAX;
-  updateGlobalNodeTransform(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
   applyAABB(model, model->data->rootNode, aabb);
 }

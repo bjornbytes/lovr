@@ -17,7 +17,6 @@ extern const luaL_Reg lovrModules[];
 
 // Objects
 extern const luaL_Reg lovrLightUserdata[];
-extern const luaL_Reg lovrAnimator[];
 extern const luaL_Reg lovrAudioStream[];
 extern const luaL_Reg lovrBallJoint[];
 extern const luaL_Reg lovrBlob[];

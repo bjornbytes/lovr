@@ -1,6 +1,5 @@
 #include "api.h"
 #include "graphics/graphics.h"
-#include "graphics/animator.h"
 #include "graphics/buffer.h"
 #include "graphics/canvas.h"
 #include "graphics/material.h"
@@ -973,14 +972,6 @@ static int l_lovrGraphicsCompute(lua_State* L) {
 
 // Types
 
-static int l_lovrGraphicsNewAnimator(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  Animator* animator = lovrAnimatorCreate(model->data);
-  luax_pushtype(L, Animator, animator);
-  lovrRelease(Animator, animator);
-  return 1;
-}
-
 static void luax_checkuniformtype(lua_State* L, int index, UniformType* baseType, int* components) {
   size_t length;
   lovrAssert(lua_type(L, index) == LUA_TSTRING, "Uniform types must be strings, got %s", lua_typename(L, index));
@@ -1674,7 +1665,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "compute", l_lovrGraphicsCompute },
 
   // Types
-  { "newAnimator", l_lovrGraphicsNewAnimator },
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newFont", l_lovrGraphicsNewFont },
   { "newMaterial", l_lovrGraphicsNewMaterial },
@@ -1691,7 +1681,7 @@ static const luaL_Reg lovrGraphics[] = {
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
-  luax_registertype(L, Animator);
+  luax_registertype(L, Canvas);
   luax_registertype(L, Font);
   luax_registertype(L, Material);
   luax_registertype(L, Mesh);
@@ -1699,7 +1689,6 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Shader);
   luax_registertype(L, ShaderBlock);
   luax_registertype(L, Texture);
-  luax_registertype(L, Canvas);
   lovrGraphicsInit();
 
   luax_pushconf(L);

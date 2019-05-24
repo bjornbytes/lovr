@@ -1,7 +1,7 @@
 #include "api.h"
-#include "graphics/animator.h"
 #include "graphics/material.h"
 #include "graphics/model.h"
+#include "data/modelData.h"
 
 static int l_lovrModelDraw(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
@@ -12,20 +12,29 @@ static int l_lovrModelDraw(lua_State* L) {
   return 0;
 }
 
-static int l_lovrModelGetAnimator(lua_State* L) {
+static int l_lovrModelAnimate(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  luax_pushtype(L, Aniamtor, lovrModelGetAnimator(model));
-  return 1;
-}
 
-static int l_lovrModelSetAnimator(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  if (lua_isnoneornil(L, 2)) {
-    lovrModelSetAnimator(model, NULL);
-  } else {
-    Animator* animator = luax_checktype(L, 2, Animator);
-    lovrModelSetAnimator(model, animator);
+  uint32_t animation = ~0u;
+  switch (lua_type(L, 2)) {
+    case LUA_TSTRING: {
+      const char* name = lua_tostring(L, 2);
+      ModelData* modelData = lovrModelGetModelData(model);
+      uint32_t* index = map_get(&modelData->animationMap, name);
+      lovrAssert(index, "Model has no animation named '%s'", name);
+      animation = *index;
+      break;
+    }
+    case LUA_TNUMBER:
+      animation = lua_tointeger(L, 2) - 1;
+      break;
+    default:
+      return luaL_typerror(L, 2, "number or string");
   }
+
+  float time = luaL_checknumber(L, 3);
+  float alpha = luax_optfloat(L, 4, 1.f);
+  lovrModelAnimate(model, animation, time, alpha);
   return 0;
 }
 
@@ -59,8 +68,7 @@ static int l_lovrModelGetAABB(lua_State* L) {
 
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
-  { "getAnimator", l_lovrModelGetAnimator },
-  { "setAnimator", l_lovrModelSetAnimator },
+  { "animate", l_lovrModelAnimate },
   { "getMaterial", l_lovrModelGetMaterial },
   { "setMaterial", l_lovrModelSetMaterial },
   { "getAABB", l_lovrModelGetAABB },

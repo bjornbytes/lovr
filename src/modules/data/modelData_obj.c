@@ -304,7 +304,9 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   model->nodes[0] = (ModelNode) {
     .transform = MAT4_IDENTITY,
     .primitiveIndex = 0,
-    .primitiveCount = groups.length
+    .primitiveCount = groups.length,
+    .skin = ~0u,
+    .matrix = true
   };
 
   arr_free(&groups);
