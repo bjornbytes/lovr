@@ -404,7 +404,7 @@ int l_lovrHeadsetIsTouched(lua_State* L) {
   DeviceButton button = luaL_checkoption(L, 2, NULL, DeviceButtons);
   bool touched;
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->isDown(device, button, &touched)) {
+    if (driver->isTouched(device, button, &touched)) {
       lua_pushboolean(L, touched);
       return 1;
     }
