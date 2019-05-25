@@ -48,6 +48,7 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
     lovrThrow("Could not initialize filesystem: %s", PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
   }
 
+  PHYSFS_permitSymbolicLinks(1);
   state.source = malloc(LOVR_PATH_MAX * sizeof(char));
   lovrAssert(state.source, "Out of memory");
   state.identity = NULL;
