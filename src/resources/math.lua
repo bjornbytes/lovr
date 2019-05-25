@@ -386,7 +386,7 @@ local mat4 = {
       C.mat4_getPosition(m, f + 0)
       C.mat4_getScale(m, f + 3)
       C.mat4_getOrientation(m, f + 6)
-      C.quat_getAngleAxis(f + 6, f + 10, f + 11, f + 12, f + 13)
+      C.quat_getAngleAxis(cast('quat*', f + 6), f + 10, f + 11, f + 12, f + 13)
       return f[0], f[1], f[2], f[3], f[4], f[5], f[10], f[11], f[12], f[13]
     end
   end,
@@ -494,9 +494,9 @@ local mat4 = {
     if istype(mat4_t, x) then
       return C.mat4_multiply(m, x)
     elseif type(x) == 'number' then
-      local f = new('float[3]', x or 0, y or 0, z or 0)
-      C.mat4_transform(m, f)
-      return f[0], f[1], f[2]
+      local v = vec3(x or 0, y or 0, z or 0)
+      C.mat4_transform(m, v)
+      return v:unpack()
     else
       checkvec3(x, 2, 'mat4, vec3, or number')
       C.mat4_transform(m, x)
