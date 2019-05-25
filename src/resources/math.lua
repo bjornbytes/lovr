@@ -21,6 +21,11 @@ ffi.cdef [[
     float _p[16];
   } mat4;
 
+  typedef struct {
+    int type;
+    void* object;
+  } Proxy;
+
   typedef struct Pool Pool;
   enum { MATH_VEC3, MATH_QUAT, MATH_MAT4 };
   vec3* lovrPoolAllocateVec3(Pool* pool);
@@ -534,6 +539,6 @@ math.mat4 = setmetatable(mat4, {
   end
 })
 
-function Pool:vec3(...) return C.lovrPoolAllocateVec3(cast('Pool**', self)[0])[0]:set(...) end
-function Pool:quat(...) return C.lovrPoolAllocateQuat(cast('Pool**', self)[0])[0]:set(...) end
-function Pool:mat4(...) return C.lovrPoolAllocateMat4(cast('Pool**', self)[0])[0]:set(...) end
+function Pool:vec3(...) return C.lovrPoolAllocateVec3(cast('Proxy*', self).object)[0]:set(...) end
+function Pool:quat(...) return C.lovrPoolAllocateQuat(cast('Proxy*', self).object)[0]:set(...) end
+function Pool:mat4(...) return C.lovrPoolAllocateMat4(cast('Proxy*', self).object)[0]:set(...) end
