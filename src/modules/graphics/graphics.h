@@ -206,6 +206,8 @@ int lovrGraphicsGetHeight(void);
 float lovrGraphicsGetPixelDensity(void);
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
 struct Buffer* lovrGraphicsGetIdentityBuffer(void);
+#define lovrGraphicsTick lovrGpuTick
+#define lovrGraphicsTock lovrGpuTock
 #define lovrGraphicsGetFeatures lovrGpuGetFeatures
 #define lovrGraphicsGetLimits lovrGpuGetLimits
 #define lovrGraphicsGetStats lovrGpuGetStats
@@ -282,6 +284,7 @@ void lovrGraphicsFill(struct Texture* texture, float u, float v, float w, float 
 typedef struct {
   bool compute;
   bool singlepass;
+  bool timers;
 } GpuFeatures;
 
 typedef struct {
@@ -295,8 +298,14 @@ typedef struct {
 } GpuLimits;
 
 typedef struct {
+  const char* label;
+  double time;
+} GpuTimer;
+
+typedef struct {
   int shaderSwitches;
   int drawCalls;
+  vec_t(GpuTimer) timers;
 } GpuStats;
 
 typedef struct {
@@ -325,6 +334,8 @@ void lovrGpuDirtyTexture(void);
 void* lovrGpuLock(void);
 void lovrGpuUnlock(void* lock);
 void lovrGpuDestroyLock(void* lock);
+void lovrGpuTick(const char* label);
+void lovrGpuTock(const char* label);
 const GpuFeatures* lovrGpuGetFeatures(void);
 const GpuLimits* lovrGpuGetLimits(void);
 const GpuStats* lovrGpuGetStats(void);

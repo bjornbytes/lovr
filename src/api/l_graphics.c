@@ -369,6 +369,19 @@ static int l_lovrGraphicsHasWindow(lua_State *L) {
   return 1;
 }
 
+static int l_lovrGraphicsTick(lua_State* L) {
+  const char* label = luaL_checkstring(L, 1);
+  lovrGraphicsTick(label);
+  return 0;
+}
+
+static int l_lovrGraphicsTock(lua_State* L) {
+  lovrGraphicsFlush();
+  const char* label = luaL_checkstring(L, 1);
+  lovrGraphicsTock(label);
+  return 0;
+}
+
 static int l_lovrGraphicsGetFeatures(lua_State* L) {
   const GpuFeatures* features = lovrGraphicsGetFeatures();
   lua_newtable(L);
@@ -409,6 +422,13 @@ static int l_lovrGraphicsGetStats(lua_State* L) {
   lua_setfield(L, 1, "drawcalls");
   lua_pushinteger(L, stats->shaderSwitches);
   lua_setfield(L, 1, "shaderswitches");
+  lua_createtable(L, 0, stats->timers.length);
+  for (int i = 0; i < stats->timers.length; i++) {
+    lua_pushstring(L, stats->timers.data[i].label);
+    lua_pushnumber(L, stats->timers.data[i].time);
+    lua_settable(L, -3);
+  }
+  lua_setfield(L, 1, "timers");
   return 1;
 }
 
@@ -1554,6 +1574,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "getDimensions", l_lovrGraphicsGetDimensions },
   { "getPixelDensity", l_lovrGraphicsGetPixelDensity },
   { "hasWindow", l_lovrGraphicsHasWindow },
+  { "tick", l_lovrGraphicsTick },
+  { "tock", l_lovrGraphicsTock },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
   { "getStats", l_lovrGraphicsGetStats },
