@@ -33,7 +33,8 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
 }
 
 void lovrPlatformGetWindowSize(int* width, int* height) {
-  *width = *height = 0;
+  if (width) *width = 0;
+  if (height) *height = 0;
 }
 
 /* Temporarily implemented elsewhere

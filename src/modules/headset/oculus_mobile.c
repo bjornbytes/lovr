@@ -162,14 +162,17 @@ static bool buttonDown(BridgeLovrButton field, DeviceButton button, bool *result
 }
 
 static bool buttonTouch(BridgeLovrTouch field, DeviceButton button, bool *result) {
+  // Only Go touch sensor is the touchpad
+  if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_GO && button != BUTTON_TOUCHPAD)
+    return false;
+
   switch (button) {
-    case BUTTON_TRIGGER: return field & BRIDGE_LOVR_TOUCH_TRIGGER; break;
-    //case BUTTON_GRIP: return field & BRIDGE_LOVR_BUTTON_GRIP; break;
-    case BUTTON_TOUCHPAD: return field & (BRIDGE_LOVR_TOUCH_TOUCHPAD | BRIDGE_LOVR_TOUCH_JOYSTICK); break;
-    case BUTTON_A: return field & BRIDGE_LOVR_TOUCH_A; break;
-    case BUTTON_B: return field & BRIDGE_LOVR_TOUCH_B; break;
-    case BUTTON_X: return field & BRIDGE_LOVR_TOUCH_X; break;
-    case BUTTON_Y: return field & BRIDGE_LOVR_TOUCH_Y; break;
+    case BUTTON_TRIGGER: *result = field & (BRIDGE_LOVR_TOUCH_TRIGGER); break;
+    case BUTTON_TOUCHPAD: *result = field & (BRIDGE_LOVR_TOUCH_TOUCHPAD | BRIDGE_LOVR_TOUCH_JOYSTICK); break;
+    case BUTTON_A: *result = field & BRIDGE_LOVR_TOUCH_A; break;
+    case BUTTON_B: *result = field & BRIDGE_LOVR_TOUCH_B; break;
+    case BUTTON_X: *result = field & BRIDGE_LOVR_TOUCH_X; break;
+    case BUTTON_Y: *result = field & BRIDGE_LOVR_TOUCH_Y; break;
     default: return false;
   }
   return true;
@@ -277,8 +280,10 @@ double lovrPlatformGetTime(void) {
 }
 
 void lovrPlatformGetFramebufferSize(int* width, int* height) {
-  *width = bridgeLovrMobileData.displayDimensions.width;
-  *height = bridgeLovrMobileData.displayDimensions.height;
+  if (width)
+    *width = bridgeLovrMobileData.displayDimensions.width;
+  if (height)
+    *height = bridgeLovrMobileData.displayDimensions.height;
 }
 
 bool lovrPlatformHasWindow() {
