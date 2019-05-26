@@ -125,7 +125,7 @@ void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, Glyph* 
 
   // Render SDF
   float tx = GLYPH_PADDING + -glyph->dx;
-  float ty = GLYPH_PADDING + glyph->h - glyph->dy;
+  float ty = GLYPH_PADDING + (float) glyph->h - glyph->dy;
   msShapeNormalize(shape);
   msEdgeColoringSimple(shape, 3., 0);
   msGenerateMSDF(glyph->data->blob.data, glyph->tw, glyph->th, shape, 4.f, 1.f, 1.f, tx, ty);
