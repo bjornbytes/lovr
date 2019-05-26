@@ -631,7 +631,7 @@ static void openxr_update(float dt) {
         state.sessionState = event->state;
 
         switch (event->state) {
-          case XR_SESSION_STATE_RUNNING:
+          case XR_SESSION_STATE_READY:
             XR(xrBeginSession(state.session, &(XrSessionBeginInfo) {
               .type = XR_TYPE_SESSION_BEGIN_INFO,
               .primaryViewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO
