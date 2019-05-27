@@ -81,6 +81,53 @@ static int nomValue(const char* data, jsmntok_t* token, int count, int sum) {
   }
 }
 
+static void* decodeBase64(char* str, size_t length, size_t decodedSize) {
+  str = memchr(str, ',', length);
+  if (!str) {
+    return NULL;
+  } else {
+    str++;
+  }
+
+  uint8_t* data = malloc(decodedSize);
+  if (!data) {
+    return NULL;
+  }
+
+  uint32_t num = 0;
+  uint32_t bits = 0;
+  for (size_t i = 0; i < decodedSize; i++) {
+    while (bits < 8) {
+      char c = *str++;
+
+      uint32_t n;
+      if (c >= 'A' && c <= 'Z') {
+        n = c - 'A';
+      } else if (c >= 'a' && c <= 'z') {
+        n = c - 'a' + 26;
+      } else if (c >= '0' && c <= '9') {
+        n = c - '0' + 52;
+      } else if (c == '+') {
+        n = 62;
+      } else if (c == '/') {
+        n = 63;
+      } else {
+        free(data);
+        return NULL;
+      }
+
+      num <<= 6;
+      num |= n;
+      bits += 6;
+    }
+
+    data[i] = num >> (bits - 8);
+    bits -= 8;
+  }
+
+  return data;
+}
+
 // Kinda like count += sum(map(arr, obj => #obj[key]))
 static jsmntok_t* aggregate(const char* json, jsmntok_t* token, const char* target, uint32_t* count) {
   for (int i = (token++)->size; i > 0; i--) {
@@ -425,12 +472,17 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
 
       if (uri.data) {
         size_t bytesRead;
-        lovrAssert(uri.length < 5 || strncmp("data:", uri.data, 5), "Base64 URIs aren't supported yet");
-        lovrAssert(uri.length < maxPathLength, "Buffer filename is too long");
-        strncat(filename, uri.data, uri.length);
-        *blob = lovrBlobCreate(lovrFilesystemRead(filename, -1, &bytesRead), size, NULL);
-        lovrAssert((*blob)->data && bytesRead == size, "Unable to read %s", filename);
-        *root = '\0';
+        if (uri.length >= 5 && !strncmp("data:", uri.data, 5)) {
+          void* bufferData = decodeBase64(uri.data, uri.length, size);
+          lovrAssert(bufferData, "Could not decode base64 buffer");
+          *blob = lovrBlobCreate(bufferData, size, NULL);
+        } else {
+          lovrAssert(uri.length < maxPathLength, "Buffer filename is too long");
+          strncat(filename, uri.data, uri.length);
+          *blob = lovrBlobCreate(lovrFilesystemRead(filename, -1, &bytesRead), size, NULL);
+          lovrAssert((*blob)->data && bytesRead == size, "Unable to read %s", filename);
+          *root = '\0';
+        }
       } else {
         lovrAssert(glb, "Buffer is missing URI");
         lovrRetain(source);
@@ -606,7 +658,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
         } else if (STR_EQ(key, "uri")) {
           size_t size = 0;
           gltfString uri = NOM_STR(json, token);
-          lovrAssert(uri.length < 5 || strncmp("data:", uri.data, 5), "Base64 URIs aren't supported yet");
+          lovrAssert(uri.length < 5 || strncmp("data:", uri.data, 5), "Base64 images aren't supported yet");
           lovrAssert(uri.length < maxPathLength, "Image filename is too long");
           strncat(filename, uri.data, uri.length);
           void* data = lovrFilesystemRead(filename, -1, &size);
