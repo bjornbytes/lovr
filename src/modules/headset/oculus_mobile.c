@@ -116,25 +116,32 @@ static bool vrapi_getBonePose(Device device, DeviceBone bone, vec3 position, qua
   return false;
 }
 
-static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  BridgeLovrVel* v;
+// Shared code for velocity/acceleration
+static bool vrapi_getAngularVector(Device device, vec3 linear, vec3 angular, bool isAcceleration) {
+  BridgeLovrMovement* m;
 
   if (device == DEVICE_HEAD) {
-    v = &bridgeLovrMobileData.updateData.lastHeadVelocity;
+    m = &bridgeLovrMobileData.updateData.lastHeadMovement;
   } else {
     int idx = getHandIdx(device);
     if (idx < 0)
       return false;
-    v = &bridgeLovrMobileData.updateData.controllers[idx].velocity;
+    m = &bridgeLovrMobileData.updateData.controllers[idx].movement;
   }
 
-  vec3_set(velocity, v->x, v->y, v->z);
-  vec3_set(angularVelocity, v->ax, v->ay, v->az);
+  BridgeLovrAngularVector* v = isAcceleration ? &m->acceleration : &m->velocity;
+
+  vec3_set(linear, v->x, v->y, v->z);
+  vec3_set(angular, v->ax, v->ay, v->az);
   return true;
 }
 
+static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
+  return vrapi_getAngularVector(device, velocity, angularVelocity, false);
+}
+
 static bool vrapi_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
-  return false;
+  return vrapi_getAngularVector(device, acceleration, angularAcceleration, true);
 }
 
 static bool buttonDown(BridgeLovrButton field, DeviceButton button, bool *result) {

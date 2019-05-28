@@ -29,7 +29,12 @@ typedef struct {
   float ax;
   float ay;
   float az;
-} BridgeLovrVel;
+} BridgeLovrAngularVector;
+
+typedef struct {
+  BridgeLovrAngularVector velocity;
+  BridgeLovrAngularVector acceleration;
+} BridgeLovrMovement;
 
 typedef struct {
   float x;
@@ -89,7 +94,7 @@ typedef struct {
   bool handset;
   BridgeLovrHand hand;
   BridgeLovrPose pose;
-  BridgeLovrVel velocity;
+  BridgeLovrMovement movement;
   BridgeLovrTrackpad trackpad;
   float trigger, grip;
   BridgeLovrButton buttonDown;
@@ -103,7 +108,7 @@ typedef struct {
   double displayTime; // Projected
 
   BridgeLovrPose lastHeadPose;
-  BridgeLovrVel lastHeadVelocity;
+  BridgeLovrMovement lastHeadMovement;
   float eyeViewMatrix[2][16];
   float projectionMatrix[2][16];
 
