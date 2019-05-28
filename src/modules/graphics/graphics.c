@@ -33,7 +33,7 @@ static const uint32_t BUFFER_COUNTS[] = {
   [STREAM_VERTEX] = (1 << 16) - 1,
   [STREAM_INDEX] = 1 << 16,
   [STREAM_DRAW_ID] = (1 << 16) - 1,
-#ifdef LOVR_WEBGL // Temporarily work around bug where big UBOs don't work
+#if defined(LOVR_WEBGL) || defined(__APPLE__) // Work around bugs where big UBOs don't work
   [STREAM_TRANSFORM] = MAX_DRAWS,
   [STREAM_COLOR] = MAX_DRAWS
 #else
