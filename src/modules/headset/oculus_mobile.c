@@ -39,6 +39,7 @@ static bool vrapi_getName(char* buffer, size_t length) {
   switch (bridgeLovrMobileData.deviceType) {
     case BRIDGE_LOVR_DEVICE_GEAR: name = "Gear VR"; break;
     case BRIDGE_LOVR_DEVICE_GO: name = "Oculus Go"; break;
+    case BRIDGE_LOVR_DEVICE_QUEST: name = "Oculus Quest"; break;
     default: return false;
   }
 
@@ -74,13 +75,36 @@ static const float* vrapi_getBoundsGeometry(uint32_t* count) {
   return NULL;
 }
 
+static int getHandIdx(Device device) {
+  switch (device) {
+    case DEVICE_HAND:
+      if (bridgeLovrMobileData.deviceType != BRIDGE_LOVR_DEVICE_GO || bridgeLovrMobileData.updateData.controllerCount <= 0)
+        return -1;
+      return 0;
+    case DEVICE_HAND_LEFT:
+    case DEVICE_HAND_RIGHT:
+      if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_QUEST) {
+        for(int c = 0; c < BRIDGE_LOVR_CONTROLLERMAX && c < bridgeLovrMobileData.updateData.controllerCount; c++) {
+          BridgeLovrHand hand = (device == DEVICE_HAND_LEFT ? BRIDGE_LOVR_HAND_LEFT : BRIDGE_LOVR_HAND_RIGHT);
+          if (bridgeLovrMobileData.updateData.controllers[c].hand & hand)
+            return c;
+        }
+      }
+    default: // FALLTHROUGH
+      return -1;
+  }
+}
+
 static bool vrapi_getPose(Device device, vec3 position, quat orientation) {
   BridgeLovrPose* pose;
 
-  switch (device) {
-    case DEVICE_HEAD: pose = &bridgeLovrMobileData.updateData.lastHeadPose; break;
-    case DEVICE_HAND: pose = &bridgeLovrMobileData.updateData.goPose; break;
-    default: return false;
+  if (device == DEVICE_HEAD) {
+    pose = &bridgeLovrMobileData.updateData.lastHeadPose;
+  } else {
+    int idx = getHandIdx(device);
+    if (idx < 0)
+      return false;
+    pose = &bridgeLovrMobileData.updateData.controllers[idx].pose;
   }
 
   vec3_set(position, pose->x, pose->y + state.offset, pose->z);
@@ -92,61 +116,125 @@ static bool vrapi_getBonePose(Device device, DeviceBone bone, vec3 position, qua
   return false;
 }
 
-static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  BridgeLovrVel* v;
+// Shared code for velocity/acceleration
+static bool vrapi_getAngularVector(Device device, vec3 linear, vec3 angular, bool isAcceleration) {
+  BridgeLovrMovement* m;
 
-  switch (device) {
-    case DEVICE_HEAD: v = &bridgeLovrMobileData.updateData.lastHeadVelocity; break;
-    case DEVICE_HAND: v = &bridgeLovrMobileData.updateData.goVelocity; break;
-    default: return false;
+  if (device == DEVICE_HEAD) {
+    m = &bridgeLovrMobileData.updateData.lastHeadMovement;
+  } else {
+    int idx = getHandIdx(device);
+    if (idx < 0)
+      return false;
+    m = &bridgeLovrMobileData.updateData.controllers[idx].movement;
   }
 
-  vec3_set(velocity, v->x, v->y, v->z);
-  vec3_set(angularVelocity, v->ax, v->ay, v->az);
+  BridgeLovrAngularVector* v = isAcceleration ? &m->acceleration : &m->velocity;
+
+  vec3_set(linear, v->x, v->y, v->z);
+  vec3_set(angular, v->ax, v->ay, v->az);
   return true;
 }
 
-static bool vrapi_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
-  return false;
+static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
+  return vrapi_getAngularVector(device, velocity, angularVelocity, false);
 }
 
-static bool buttonCheck(BridgeLovrButton field, Device device, DeviceButton button, bool* result) {
-  if (device != DEVICE_HAND) {
-    return false;
+static bool vrapi_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
+  return vrapi_getAngularVector(device, acceleration, angularAcceleration, true);
+}
+
+static bool buttonDown(BridgeLovrButton field, DeviceButton button, bool *result) {
+  if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_QUEST) {
+    switch (button) {
+      case BUTTON_MENU: *result = field & BRIDGE_LOVR_BUTTON_MENU; break; // Technically "LMENU" but only fires on left controller
+      case BUTTON_TRIGGER: *result = field & BRIDGE_LOVR_BUTTON_SHOULDER; break;
+      case BUTTON_GRIP: *result = field & BRIDGE_LOVR_BUTTON_GRIP; break;
+      case BUTTON_TOUCHPAD: *result = field & BRIDGE_LOVR_BUTTON_JOYSTICK; break;
+      case BUTTON_A: *result = field & BRIDGE_LOVR_BUTTON_A; break;
+      case BUTTON_B: *result = field & BRIDGE_LOVR_BUTTON_B; break;
+      case BUTTON_X: *result = field & BRIDGE_LOVR_BUTTON_X; break;
+      case BUTTON_Y: *result = field & BRIDGE_LOVR_BUTTON_Y; break;
+      default: return false;
+    }
+  } else {
+    switch (button) {
+      case BUTTON_MENU: *result = field & BRIDGE_LOVR_BUTTON_GOMENU; break; // Technically "RMENU" but quest only has one
+      case BUTTON_TRIGGER: *result = field & BRIDGE_LOVR_BUTTON_GOSHOULDER; break;
+      case BUTTON_TOUCHPAD: *result = field & BRIDGE_LOVR_BUTTON_TOUCHPAD; break;
+      default: return false;
+    }
   }
+  return true;
+}
+
+static bool buttonTouch(BridgeLovrTouch field, DeviceButton button, bool *result) {
+  // Only Go touch sensor is the touchpad
+  if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_GO && button != BUTTON_TOUCHPAD)
+    return false;
 
   switch (button) {
-    case BUTTON_MENU: return *result = (field & BRIDGE_LOVR_BUTTON_MENU), true;
-    case BUTTON_TRIGGER: return *result = (field & BRIDGE_LOVR_BUTTON_SHOULDER), true;
-    case BUTTON_TOUCHPAD: return *result = (field & BRIDGE_LOVR_BUTTON_TOUCHPAD), true;
+    case BUTTON_TRIGGER: *result = field & (BRIDGE_LOVR_TOUCH_TRIGGER); break;
+    case BUTTON_TOUCHPAD: *result = field & (BRIDGE_LOVR_TOUCH_TOUCHPAD | BRIDGE_LOVR_TOUCH_JOYSTICK); break;
+    case BUTTON_A: *result = field & BRIDGE_LOVR_TOUCH_A; break;
+    case BUTTON_B: *result = field & BRIDGE_LOVR_TOUCH_B; break;
+    case BUTTON_X: *result = field & BRIDGE_LOVR_TOUCH_X; break;
+    case BUTTON_Y: *result = field & BRIDGE_LOVR_TOUCH_Y; break;
     default: return false;
   }
+  return true;
 }
 
 static bool vrapi_isDown(Device device, DeviceButton button, bool* down) {
-  return buttonCheck(bridgeLovrMobileData.updateData.goButtonDown, device, button, down);
+  int idx = getHandIdx(device);
+  if (idx < 0)
+    return false;
+
+  return buttonDown(bridgeLovrMobileData.updateData.controllers[idx].buttonDown, button, down);
 }
 
 static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
-  return buttonCheck(bridgeLovrMobileData.updateData.goButtonTouch, device, button, touched);
+  int idx = getHandIdx(device);
+  if (idx < 0)
+    return false;
+
+  return buttonTouch(bridgeLovrMobileData.updateData.controllers[idx].buttonTouch, button, touched);
 }
 
 static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
-  if (device != DEVICE_HAND) {
+  int idx = getHandIdx(device);
+  if (idx < 0)
     return false;
-  }
 
-  switch (axis) {
-    case AXIS_TOUCHPAD:
-      value[0] = (bridgeLovrMobileData.updateData.goTrackpad.x - 160.f) / 160.f;
-      value[1] = (bridgeLovrMobileData.updateData.goTrackpad.y - 160.f) / 160.f;
-      return true;
-    case AXIS_TRIGGER:
-      value[0] = bridgeLovrMobileData.updateData.goButtonDown ? 1.f : 0.f;
-      return true;
-    default:
-      return false;
+  BridgeLovrController *data = &bridgeLovrMobileData.updateData.controllers[idx];
+    
+  if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_QUEST) {
+    switch (axis) {
+      case AXIS_THUMBSTICK:
+        value[0] = data->trackpad.x;
+        value[1] = data->trackpad.y;
+        break;
+      case AXIS_TRIGGER: value[0] = data->trigger; break;
+      case AXIS_GRIP: value[0] = data->grip; break;
+      default: return false;
+    }
+  } else {
+    switch (axis) {
+      case AXIS_TOUCHPAD:
+        value[0] = (data->trackpad.x - 160) / 160.f;
+        value[1] = (data->trackpad.y - 160) / 160.f;
+        break;
+      case AXIS_TRIGGER: {
+        bool down;
+        if (!buttonDown(data->buttonDown, BUTTON_TRIGGER, &down))
+          return false;
+        value[0] = down ? 1.f : 0.f;
+        break;
+      }
+      default: return false;
+    }
   }
+  return true;
 }
 
 static bool vrapi_vibrate(Device device, float strength, float duration, float frequency) {
@@ -199,8 +287,10 @@ double lovrPlatformGetTime(void) {
 }
 
 void lovrPlatformGetFramebufferSize(int* width, int* height) {
-  *width = bridgeLovrMobileData.displayDimensions.width;
-  *height = bridgeLovrMobileData.displayDimensions.height;
+  if (width)
+    *width = bridgeLovrMobileData.displayDimensions.width;
+  if (height)
+    *height = bridgeLovrMobileData.displayDimensions.height;
 }
 
 bool lovrPlatformHasWindow() {
@@ -356,6 +446,8 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
 void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   // Unpack update data
   bridgeLovrMobileData.updateData = *updateData;
+
+//  for(int c = 0; c < updateData->controllerCount; c++) lovrLog("%d: d %x t %x\n", c, (uint32_t)updateData->controllers[c].buttonDown, (uint32_t)updateData->controllers[c].buttonTouch);
 
   if (pauseState == PAUSESTATE_BUG) { // Bad frame-- replace bad time with last known good oculus time
     bridgeLovrMobileData.updateData.displayTime = lastPauseAtRaw;
