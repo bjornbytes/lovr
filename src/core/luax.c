@@ -13,7 +13,14 @@ static int luax_meta__tostring(lua_State* L) {
 
 static int luax_meta__gc(lua_State* L) {
   Proxy* p = lua_touserdata(L, 1);
-  lovrGenericRelease(p->object);
+  if (p) {
+    lua_getmetatable(L, 1);
+    lua_getfield(L, -1, "__destructor");
+    lovrDestructor* destructor = (lovrDestructor*) lua_tocfunction(L, -1);
+    if (destructor) {
+      _lovrRelease(destructor, p->object);
+    }
+  }
   return 0;
 }
 
@@ -101,7 +108,7 @@ void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
   lua_pop(L, 1);
 }
 
-void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions) {
+void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, lovrDestructor* destructor) {
 
   // Push metatable
   luaL_newmetatable(L, name);
@@ -114,6 +121,10 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
   // m.__gc = gc
   lua_pushcfunction(L, luax_meta__gc);
   lua_setfield(L, -2, "__gc");
+
+  // m.__destructor = destructor (used to release reference)
+  lua_pushcfunction(L, (lua_CFunction) destructor);
+  lua_setfield(L, -2, "__destructor");
 
   // m.name = name
   lua_pushstring(L, name);
@@ -132,8 +143,8 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
   lua_pop(L, 1);
 }
 
-void _luax_extendtype(lua_State* L, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions) {
-  _luax_registertype(L, name, functions);
+void _luax_extendtype(lua_State* L, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions, lovrDestructor* destructor) {
+  _luax_registertype(L, name, functions, destructor);
   luaL_getmetatable(L, name);
   luaL_register(L, NULL, baseFunctions);
   lua_pop(L, 1);

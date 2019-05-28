@@ -86,3 +86,4 @@ void* _lovrAlloc(size_t size, Type type);
 #define lovrRetain(o) if (o && refcount_increment(_ref(o)->count) >= 0xff) lovrThrow("Ref count overflow")
 #define lovrRelease(T, o) if (o && refcount_decrement(_ref(o)->count) == 0) lovr ## T ## Destroy(o), free(_ref(o))
 #define lovrGenericRelease(o) if (o && refcount_decrement(_ref(o)->count) == 0) lovrTypeInfo[_ref(o)->type].destructor(o), free(_ref(o))
+#define _lovrRelease(f, o) if (o && refcount_decrement(_ref(o)->count) == 0) f(o), free(_ref(o))

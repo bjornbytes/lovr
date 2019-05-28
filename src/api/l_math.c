@@ -295,7 +295,7 @@ int luaopen_lovr_math(lua_State* L) {
   luax_registertype(L, RandomGenerator);
 
   for (int i = 0; i < MAX_MATH_TYPES; i++) {
-    _luax_registertype(L, lovrMathTypeNames[i], lovrMathTypes[i]);
+    _luax_registertype(L, lovrMathTypeNames[i], lovrMathTypes[i], NULL);
     luaL_getmetatable(L, lovrMathTypeNames[i]);
 
     // Remove usual __gc handler
