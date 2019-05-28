@@ -40,6 +40,9 @@ const char* lovrShaderVertexPrefix = ""
 "#else \n"
 "uniform int lovrViewportIndex; \n"
 "#endif \n"
+"#ifndef FLAG_skinned \n"
+"#define FLAG_skinned false \n"
+"#endif \n"
 "#line 0 \n";
 
 const char* lovrShaderVertexSuffix = ""
@@ -51,7 +54,11 @@ const char* lovrShaderVertexSuffix = ""
 "  gl_ViewportIndex = gl_InstanceID % lovrViewportCount; \n"
 "#endif \n"
 "  gl_PointSize = lovrPointSize; \n"
-"  gl_Position = position(lovrProjection, lovrTransform, vec4(lovrPosition, 1.0)); \n"
+"  vec4 vertexPosition = vec4(lovrPosition, 1.); \n"
+"  if (FLAG_skinned) { \n"
+"    vertexPosition = lovrPoseMatrix * vertexPosition; \n"
+"  } \n"
+"  gl_Position = position(lovrProjection, lovrTransform, vertexPosition); \n"
 "}";
 
 const char* lovrShaderFragmentPrefix = ""
