@@ -1376,9 +1376,9 @@ static void luax_parseshaderflags(lua_State* L, int index, ShaderFlag flags[MAX_
   lovrAssert(lua_istable(L, -1), "Shader flags must be a table");
   lua_pushnil(L);
   while (lua_next(L, -2) != 0) {
-    ShaderFlag* flag = &flags[++*count];
+    ShaderFlag* flag = &flags[(*count)++];
 
-    lovrAssert(*count < MAX_SHADER_FLAGS, "Too many shader flags (max is %d)", MAX_SHADER_FLAGS);
+    lovrAssert(*count <= MAX_SHADER_FLAGS, "Too many shader flags (max is %d)", MAX_SHADER_FLAGS);
 
     if (lua_type(L, -2) == LUA_TSTRING) {
       flag->name = lua_tostring(L, -2);
