@@ -549,6 +549,27 @@ static Device trackers[] = {
   DEVICE_TRACKER_4
 };
 
+static int l_lovrHeadsetGetHands(lua_State* L) {
+  if (lua_istable(L, 1)) {
+    lua_settop(L, 1);
+  } else {
+    lua_newtable(L);
+  }
+  int count = 0;
+  float position[3], orientation[4];
+  for (size_t i = 0; i < sizeof(hands) / sizeof(hands[0]); i++) {
+    FOREACH_TRACKING_DRIVER(driver) {
+      if (driver->getPose(hands[i], position, orientation)) {
+        lua_pushstring(L, Devices[hands[i]]);
+        lua_rawseti(L, -2, ++count);
+      }
+    }
+  }
+  lua_pushnil(L);
+  lua_rawseti(L, -2, ++count);
+  return 1;
+}
+
 static int l_lovrHeadsetHands(lua_State* L) {
   lua_pushinteger(L, 0);
   lua_pushlightuserdata(L, hands);
@@ -595,6 +616,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "renderTo", l_lovrHeadsetRenderTo },
   { "update", l_lovrHeadsetUpdate },
   { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
+  { "getHands", l_lovrHeadsetGetHands },
   { "hands", l_lovrHeadsetHands },
   { "trackers", l_lovrHeadsetTrackers },
   { NULL, NULL }
