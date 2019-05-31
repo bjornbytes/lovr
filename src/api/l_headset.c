@@ -32,10 +32,6 @@ const char* Devices[] = {
   [DEVICE_HAND_RIGHT] = "hand/right",
   [DEVICE_EYE_LEFT] = "eye/left",
   [DEVICE_EYE_RIGHT] = "eye/right",
-  [DEVICE_TRACKER_1] = "tracker/1",
-  [DEVICE_TRACKER_2] = "tracker/2",
-  [DEVICE_TRACKER_3] = "tracker/3",
-  [DEVICE_TRACKER_4] = "tracker/4",
   NULL
 };
 
@@ -516,47 +512,16 @@ static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
   return 1;
 }
 
-static int deviceIterator(lua_State* L) {
-  size_t index = lua_tointeger(L, lua_upvalueindex(1));
-  Device* devices = (Device*) lua_touserdata(L, lua_upvalueindex(2));
-  size_t count = lua_tointeger(L, lua_upvalueindex(3));
-  float position[3], orientation[4];
-
-  while (index < count) {
-    FOREACH_TRACKING_DRIVER(driver) {
-      if (driver->getPose(devices[index], position, orientation)) {
-        lua_pushstring(L, Devices[devices[index]]);
-        lua_pushinteger(L, ++index);
-        lua_replace(L, lua_upvalueindex(1));
-        return 1;
-      }
-    }
-    index++;
-  }
-
-  return 0;
-}
-
-static Device hands[] = {
-  DEVICE_HAND_LEFT,
-  DEVICE_HAND_RIGHT
-};
-
-static Device trackers[] = {
-  DEVICE_TRACKER_1,
-  DEVICE_TRACKER_2,
-  DEVICE_TRACKER_3,
-  DEVICE_TRACKER_4
-};
-
 static int l_lovrHeadsetGetHands(lua_State* L) {
   if (lua_istable(L, 1)) {
     lua_settop(L, 1);
   } else {
     lua_newtable(L);
   }
+
   int count = 0;
   float position[3], orientation[4];
+  Device hands[] = { DEVICE_HAND_LEFT, DEVICE_HAND_RIGHT };
   for (size_t i = 0; i < sizeof(hands) / sizeof(hands[0]); i++) {
     FOREACH_TRACKING_DRIVER(driver) {
       if (driver->getPose(hands[i], position, orientation)) {
@@ -570,19 +535,29 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetHands(lua_State* L) {
-  lua_pushinteger(L, 0);
-  lua_pushlightuserdata(L, hands);
-  lua_pushinteger(L, sizeof(hands) / sizeof(hands[0]));
-  lua_pushcclosure(L, deviceIterator, 3);
-  return 1;
+static int handIterator(lua_State* L) {
+  Device hands[] = { DEVICE_HAND_LEFT, DEVICE_HAND_RIGHT };
+  size_t index = lua_tointeger(L, lua_upvalueindex(1));
+  float position[3], orientation[4];
+
+  while (index < 2) {
+    FOREACH_TRACKING_DRIVER(driver) {
+      if (driver->getPose(hands[index], position, orientation)) {
+        lua_pushstring(L, Devices[hands[index]]);
+        lua_pushinteger(L, ++index);
+        lua_replace(L, lua_upvalueindex(1));
+        return 1;
+      }
+    }
+    index++;
+  }
+
+  return 0;
 }
 
-static int l_lovrHeadsetTrackers(lua_State* L) {
+static int l_lovrHeadsetHands(lua_State* L) {
   lua_pushinteger(L, 0);
-  lua_pushlightuserdata(L, trackers);
-  lua_pushinteger(L, sizeof(trackers) / sizeof(trackers[0]));
-  lua_pushcclosure(L, deviceIterator, 3);
+  lua_pushcclosure(L, handIterator, 1);
   return 1;
 }
 
@@ -618,7 +593,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
   { "getHands", l_lovrHeadsetGetHands },
   { "hands", l_lovrHeadsetHands },
-  { "trackers", l_lovrHeadsetTrackers },
   { NULL, NULL }
 };
 
