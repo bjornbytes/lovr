@@ -32,6 +32,7 @@ typedef enum {
 } Device;
 
 typedef enum {
+  BUTTON_PRIMARY,
   BUTTON_TRIGGER,
   BUTTON_THUMBSTICK,
   BUTTON_TOUCHPAD,
@@ -46,6 +47,7 @@ typedef enum {
 } DeviceButton;
 
 typedef enum {
+  AXIS_PRIMARY,
   AXIS_TRIGGER,
   AXIS_THUMBSTICK,
   AXIS_TOUCHPAD,

@@ -139,6 +139,7 @@ static bool buttonDown(BridgeLovrButton field, DeviceButton button, bool *result
   if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_QUEST) {
     switch (button) {
       case BUTTON_MENU: *result = field & BRIDGE_LOVR_BUTTON_MENU; break; // Technically "LMENU" but only fires on left controller
+      case BUTTON_PRIMARY:
       case BUTTON_TRIGGER: *result = field & BRIDGE_LOVR_BUTTON_SHOULDER; break;
       case BUTTON_GRIP: *result = field & BRIDGE_LOVR_BUTTON_GRIP; break;
       case BUTTON_TOUCHPAD: *result = field & BRIDGE_LOVR_BUTTON_JOYSTICK; break;
@@ -151,6 +152,7 @@ static bool buttonDown(BridgeLovrButton field, DeviceButton button, bool *result
   } else {
     switch (button) {
       case BUTTON_MENU: *result = field & BRIDGE_LOVR_BUTTON_GOMENU; break; // Technically "RMENU" but quest only has one
+      case BUTTON_PRIMARY:
       case BUTTON_TRIGGER: *result = field & BRIDGE_LOVR_BUTTON_GOSHOULDER; break;
       case BUTTON_TOUCHPAD: *result = field & BRIDGE_LOVR_BUTTON_TOUCHPAD; break;
       default: return false;
@@ -165,6 +167,7 @@ static bool buttonTouch(BridgeLovrTouch field, DeviceButton button, bool *result
     return false;
 
   switch (button) {
+    case BUTTON_PRIMARY:
     case BUTTON_TRIGGER: *result = field & (BRIDGE_LOVR_TOUCH_TRIGGER); break;
     case BUTTON_TOUCHPAD: *result = field & (BRIDGE_LOVR_TOUCH_TOUCHPAD | BRIDGE_LOVR_TOUCH_JOYSTICK); break;
     case BUTTON_A: *result = field & BRIDGE_LOVR_TOUCH_A; break;
@@ -198,9 +201,10 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
     return false;
 
   BridgeLovrController *data = &bridgeLovrMobileData.updateData.controllers[idx];
-    
+
   if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_QUEST) {
     switch (axis) {
+      case AXIS_PRIMARY:
       case AXIS_THUMBSTICK:
         value[0] = data->trackpad.x;
         value[1] = data->trackpad.y;
@@ -211,6 +215,7 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
     }
   } else {
     switch (axis) {
+      case AXIS_PRIMARY:
       case AXIS_TOUCHPAD:
         value[0] = (data->trackpad.x - 160) / 160.f;
         value[1] = (data->trackpad.y - 160) / 160.f;

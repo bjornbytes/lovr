@@ -36,6 +36,7 @@ const char* Devices[] = {
 };
 
 const char* DeviceButtons[] = {
+  [BUTTON_PRIMARY] = "primary",
   [BUTTON_TRIGGER] = "trigger",
   [BUTTON_THUMBSTICK] = "thumbstick",
   [BUTTON_TOUCHPAD] = "touchpad",
@@ -50,6 +51,7 @@ const char* DeviceButtons[] = {
 };
 
 const char* DeviceAxes[] = {
+  [AXIS_PRIMARY] = "primary",
   [AXIS_TRIGGER] = "trigger",
   [AXIS_THUMBSTICK] = "thumbstick",
   [AXIS_TOUCHPAD] = "touchpad",
@@ -420,6 +422,7 @@ int l_lovrHeadsetGetAxis(lua_State* L) {
         case AXIS_GRIP:
           lua_pushnumber(L, value[0]);
           return 1;
+        case AXIS_PRIMARY:
         case AXIS_THUMBSTICK:
         case AXIS_TOUCHPAD:
           lua_pushnumber(L, value[0]);

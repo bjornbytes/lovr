@@ -1,10 +1,10 @@
 var LibraryLOVR = {
   $webvr: {
     buttonMap: {
-      'OpenVR Gamepad': [1, null, 0, 2],
-      'Oculus Touch (Left)': [1, 0, null, 2, null, null, null, 3, 4],
-      'Oculus Touch (Right)': [1, 0, null, 2, null, 3, 4, null, null],
-      'Spatial Controller (Spatial Interaction Source) 045E-065D': [0, 1, 3, 2, 4]
+      'OpenVR Gamepad': [1, 1, null, 0, 2],
+      'Oculus Touch (Left)': [1, 1, 0, null, 2, null, null, null, 3, 4],
+      'Oculus Touch (Right)': [1, 1, 0, null, 2, null, 3, 4, null, null],
+      'Spatial Controller (Spatial Interaction Source) 045E-065D': [0, 0, 1, 3, 2, 4]
     },
 
     refreshGamepads: function(event) {
@@ -228,7 +228,7 @@ var LibraryLOVR = {
       return false;
     }
 
-    HEAPF32[down >> 2] = gamepad.buttons[webvr.buttonMaps[gamepad.id][button]].pressed;
+    HEAPF32[down >> 2] = gamepad.buttons[webvr.buttonMap[gamepad.id][button]].pressed;
     return true;
   },
 
@@ -239,7 +239,7 @@ var LibraryLOVR = {
       return false;
     }
 
-    HEAPF32[touched >> 2] = gamepad.buttons[webvr.buttonMaps[gamepad.id][button]].touched;
+    HEAPF32[touched >> 2] = gamepad.buttons[webvr.buttonMap[gamepad.id][button]].touched;
     return true;
   },
 
@@ -253,7 +253,8 @@ var LibraryLOVR = {
     if (gamepad.id.startsWith('OpenVR')) {
       switch (axis) {
         case C.AXIS_TRIGGER: HEAPF32[value >> 2] = gamepad.buttons[1].value; return true;
-        case C.AXIS_TRACKPAD:
+        case C.AXIS_PRIMARY:
+        case C.AXIS_TOUCHPAD:
           HEAPF32[value >> 2 + 0] = gamepad.axes[0];
           HEAPF32[value >> 2 + 1] = gamepad.axes[1];
           return true;
@@ -263,6 +264,7 @@ var LibraryLOVR = {
       switch (axis) {
         case C.AXIS_TRIGGER: HEAPF32[value >> 2] = gamepad.buttons[1].value; return true;
         case C.AXIS_GRIP: HEAPF32[value >> 2] = gamepad.buttons[2].value; return true;
+        case C.AXIS_PRIMARY:
         case C.AXIS_THUMBSTICK:
           HEAPF32[value >> 2 + 0] = gamepad.axes[0];
           HEAPF32[value >> 2 + 1] = gamepad.axes[1];
@@ -272,11 +274,12 @@ var LibraryLOVR = {
     } else if (gamepad.id.startsWith('Spatial Controller')) {
       switch (axis) {
         case C.AXIS_TRIGGER: HEAPF32[value >> 2] = gamepad.buttons[0].value; return true;
+        case C.AXIS_PRIMARY:
         case C.AXIS_THUMBSTICK:
           HEAPF32[value >> 2 + 0] = gamepad.axes[0];
           HEAPF32[value >> 2 + 1] = gamepad.axes[1];
           return true;
-        case C.AXIS_TRACKPAD:
+        case C.AXIS_TOUCHPAD:
           HEAPF32[value >> 2 + 0] = gamepad.axes[2];
           HEAPF32[value >> 2 + 1] = gamepad.axes[3];
           return true;
@@ -314,11 +317,12 @@ var LibraryLOVR = {
     ORIGIN_FLOOR: 1,
 
     // DeviceAxis
-    AXIS_TRIGGER: 0,
-    AXIS_THUMBSTICK: 1,
-    AXIS_TRACKPAD: 2,
-    AXIS_PINCH: 5,
-    AXIS_GRIP: 6
+    AXIS_PRIMARY: 0,
+    AXIS_TRIGGER: 1,
+    AXIS_THUMBSTICK: 2,
+    AXIS_TOUCHPAD: 3,
+    AXIS_PINCH: 4,
+    AXIS_GRIP: 5
   }
 };
 

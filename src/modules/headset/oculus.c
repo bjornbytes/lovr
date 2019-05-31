@@ -225,6 +225,7 @@ static bool oculus_isDown(Device device, DeviceButton button, bool* down) {
     case BUTTON_X: return *down = (buttons & ovrButton_X), true;
     case BUTTON_Y: return *down = (buttons & ovrButton_Y), true;
     case BUTTON_MENU: return *down = (buttons & ovrButton_Enter), true;
+    case BUTTON_PRIMARY:
     case BUTTON_TRIGGER: return *down = (is->IndexTriggerNoDeadzone[hand] > .5f), true;
     case BUTTON_THUMBSTICK: return *down = (buttons & (ovrButton_LThumb | ovrButton_RThumb), true;
     case BUTTON_GRIP: return *down = (masks->HandTrigger[hand] > .9f), true;
@@ -246,6 +247,7 @@ static bool oculus_isTouched(Device device, DeviceButton button, bool* touched) 
     case BUTTON_B: return *touched = (touches & ovrTouch_B), true;
     case BUTTON_X: return *touched = (touches & ovrTouch_X), true;
     case BUTTON_Y: return *touched = (touches & ovrTouch_Y), true;
+    case BUTTON_PRIMARY:
     case BUTTON_TRIGGER: return *touched = (touches & (ovrTouch_LIndexTrigger | ovrTouch_RIndexTrigger)), true;
     case BUTTON_THUMBSTICK: return *touched = (touches & (ovrTouch_LThumb | ovrTouch_RThumb)), true;
     default: return false;
@@ -263,6 +265,7 @@ static bool oculus_getAxis(Device device, DeviceAxis axis, vec3* value) {
   switch (axis) {
     case AXIS_GRIP: return *value = is->HandTriggerNoDeadzone[hand], true;
     case AXIS_TRIGGER: return *value = is->IndexTriggerNoDeadzone[hand], true;
+    case AXIS_PRIMARY:
     case AXIS_THUMBSTICK:
       value[0] = is->ThumbstickNoDeadzone[hand].x;
       value[1] = is->ThumbstickNoDeadzone[hand].y;
