@@ -76,23 +76,14 @@ static const float* vrapi_getBoundsGeometry(uint32_t* count) {
 }
 
 static int getHandIdx(Device device) {
-  switch (device) {
-    case DEVICE_HAND:
-      if (bridgeLovrMobileData.deviceType != BRIDGE_LOVR_DEVICE_GO || bridgeLovrMobileData.updateData.controllerCount <= 0)
-        return -1;
-      return 0;
-    case DEVICE_HAND_LEFT:
-    case DEVICE_HAND_RIGHT:
-      if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_QUEST) {
-        for(int c = 0; c < BRIDGE_LOVR_CONTROLLERMAX && c < bridgeLovrMobileData.updateData.controllerCount; c++) {
-          BridgeLovrHand hand = (device == DEVICE_HAND_LEFT ? BRIDGE_LOVR_HAND_LEFT : BRIDGE_LOVR_HAND_RIGHT);
-          if (bridgeLovrMobileData.updateData.controllers[c].hand & hand)
-            return c;
-        }
-      }
-    default: // FALLTHROUGH
-      return -1;
+  if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
+    for(int c = 0; c < BRIDGE_LOVR_CONTROLLERMAX && c < bridgeLovrMobileData.updateData.controllerCount; c++) {
+      BridgeLovrHand hand = (device == DEVICE_HAND_LEFT ? BRIDGE_LOVR_HAND_LEFT : BRIDGE_LOVR_HAND_RIGHT);
+      if (bridgeLovrMobileData.updateData.controllers[c].hand & hand)
+        return c;
+    }
   }
+  return -1;
 }
 
 static bool vrapi_getPose(Device device, vec3 position, quat orientation) {
