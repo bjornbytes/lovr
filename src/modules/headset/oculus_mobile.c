@@ -438,8 +438,6 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   // Unpack update data
   bridgeLovrMobileData.updateData = *updateData;
 
-//  for(int c = 0; c < updateData->controllerCount; c++) lovrLog("%d: d %x t %x\n", c, (uint32_t)updateData->controllers[c].buttonDown, (uint32_t)updateData->controllers[c].buttonTouch);
-
   if (pauseState == PAUSESTATE_BUG) { // Bad frame-- replace bad time with last known good oculus time
     bridgeLovrMobileData.updateData.displayTime = lastPauseAtRaw;
     pauseState = PAUSESTATE_RESUME;

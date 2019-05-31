@@ -94,7 +94,6 @@ static struct {
 static TrackedDeviceIndex_t getDeviceIndex(Device device) {
   switch (device) {
     case DEVICE_HEAD: return HEADSET;
-    case DEVICE_HAND: return INVALID_DEVICE;
     case DEVICE_HAND_LEFT: return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
     case DEVICE_HAND_RIGHT: return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
     case DEVICE_TRACKER_1:

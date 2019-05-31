@@ -10,13 +10,14 @@ var LibraryLOVR = {
     refreshGamepads: function(event) {
       if (event.gamepad.hand) {
         var device = ({
-          '': C.DEVICE_HAND,
           'left': C.DEVICE_HAND_LEFT,
           'right': C.DEVICE_HAND_RIGHT
         })[event.gamepad.hand];
 
-        webvr.gamepads[device] = event.gamepad;
-        webvr.poses[device] = event.gamepad.pose;
+        if (device) {
+          webvr.gamepads[device] = event.gamepad;
+          webvr.poses[device] = event.gamepad.pose;
+        }
       }
     }
   },

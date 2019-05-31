@@ -24,7 +24,6 @@ typedef enum {
 
 typedef enum {
   DEVICE_HEAD,
-  DEVICE_HAND,
   DEVICE_HAND_LEFT,
   DEVICE_HAND_RIGHT,
   DEVICE_EYE_LEFT,

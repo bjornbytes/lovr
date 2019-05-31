@@ -28,7 +28,6 @@ const char* HeadsetOrigins[] = {
 
 const char* Devices[] = {
   [DEVICE_HEAD] = "head",
-  [DEVICE_HAND] = "hand",
   [DEVICE_HAND_LEFT] = "hand/left",
   [DEVICE_HAND_RIGHT] = "hand/right",
   [DEVICE_EYE_LEFT] = "eye/left",
@@ -539,7 +538,6 @@ static int deviceIterator(lua_State* L) {
 }
 
 static Device hands[] = {
-  DEVICE_HAND,
   DEVICE_HAND_LEFT,
   DEVICE_HAND_RIGHT
 };

@@ -75,11 +75,11 @@ static const float* desktop_getBoundsGeometry(uint32_t* count) {
 }
 
 static bool desktop_getPose(Device device, vec3 position, quat orientation) {
-  if (device != DEVICE_HEAD && device != DEVICE_HAND) {
+  if (device != DEVICE_HEAD && device != DEVICE_HAND_LEFT) {
     return false;
   }
 
-  vec3_set(position, 0.f, 0.f, device == DEVICE_HAND ? -.75f : 0.f);
+  vec3_set(position, 0.f, 0.f, device == DEVICE_HAND_LEFT ? -.75f : 0.f);
   mat4_transform(state.transform, position);
   quat_fromMat4(orientation, state.transform);
   return true;
@@ -110,7 +110,7 @@ static bool desktop_getAcceleration(Device device, vec3 acceleration, vec3 angul
 }
 
 static bool desktop_isDown(Device device, DeviceButton button, bool* down) {
-  if (device != DEVICE_HAND || button != BUTTON_TRIGGER) {
+  if (device != DEVICE_HAND_LEFT || button != BUTTON_TRIGGER) {
     return false;
   }
 
