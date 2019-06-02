@@ -27,11 +27,3 @@ void lovrThrow(const char* format, ...) {
     exit(EXIT_FAILURE);
   }
 }
-
-uint32_t hash(const char* str) {
-  uint32_t x = 0;
-  while (*str) {
-    x = (x * 65599) + *str++;
-  }
-  return x;
-}
