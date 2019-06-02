@@ -10,8 +10,6 @@ static struct {
   int tickIndex;
   double tickSum;
   double tickBuffer[TICK_SAMPLES];
-  double averageDelta;
-  int fps;
 } state;
 
 bool lovrTimerInit() {
@@ -40,8 +38,6 @@ double lovrTimerStep() {
   state.tickSum -= state.tickBuffer[state.tickIndex];
   state.tickSum += state.dt;
   state.tickBuffer[state.tickIndex] = state.dt;
-  state.averageDelta = state.tickSum / TICK_SAMPLES;
-  state.fps = (int) (1 / (state.tickSum / TICK_SAMPLES) + .5);
   if (++state.tickIndex == TICK_SAMPLES) {
     state.tickIndex = 0;
   }
@@ -49,11 +45,11 @@ double lovrTimerStep() {
 }
 
 double lovrTimerGetAverageDelta() {
-  return state.averageDelta;
+  return state.tickSum / TICK_SAMPLES;
 }
 
 int lovrTimerGetFPS() {
-  return state.fps;
+  return (int) (1 / (state.tickSum / TICK_SAMPLES) + .5);
 }
 
 void lovrTimerSleep(double seconds) {
