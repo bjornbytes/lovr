@@ -52,7 +52,9 @@ typedef enum {
   KEY_UP,
   KEY_DOWN,
   KEY_LEFT,
-  KEY_RIGHT
+  KEY_RIGHT,
+  KEY_ESCAPE,
+  KEY_F5
 } KeyCode;
 
 typedef enum {
@@ -63,6 +65,7 @@ typedef enum {
 typedef void (*windowCloseCallback)(void);
 typedef void (*windowResizeCallback)(int width, int height);
 typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action);
+typedef void (*keyboardCallback)(KeyCode key, ButtonAction action);
 
 typedef void (*gpuProc)(void);
 typedef gpuProc (*getProcAddressProc)(const char*);
@@ -83,6 +86,7 @@ void lovrPlatformSwapBuffers(void);
 void lovrPlatformOnWindowClose(windowCloseCallback callback);
 void lovrPlatformOnWindowResize(windowResizeCallback callback);
 void lovrPlatformOnMouseButton(mouseButtonCallback callback);
+void lovrPlatformOnKeyboardEvent(keyboardCallback callback);
 void lovrPlatformGetMousePosition(double* x, double* y);
 void lovrPlatformSetMouseMode(MouseMode mode);
 bool lovrPlatformIsMouseDown(MouseButton button);

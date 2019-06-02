@@ -50,6 +50,7 @@ end
 function lovr.boot()
   local conf = {
     version = '0.12.0',
+    hotkeys = true,
     modules = {
       audio = true,
       data = true,

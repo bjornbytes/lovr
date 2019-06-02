@@ -1,5 +1,6 @@
 #include "api.h"
 #include "event/event.h"
+#include "core/platform.h"
 #include "core/ref.h"
 #include <stdlib.h>
 #include <string.h>
@@ -120,6 +121,14 @@ static int nextEvent(lua_State* L) {
   }
 }
 
+static void hotkeyHandler(KeyCode key, ButtonAction action) {
+  if (key == KEY_ESCAPE) {
+    lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit.restart = false, .data.quit.exitCode = 0 });
+  } else if (key == KEY_F5) {
+    lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit.restart = true });
+  }
+}
+
 static int l_lovrEventClear(lua_State* L) {
   lovrEventClear();
   return 0;
@@ -189,5 +198,11 @@ int luaopen_lovr_event(lua_State* L) {
     luax_atexit(L, lovrEventDestroy);
   }
 
+  luax_pushconf(L);
+  lua_getfield(L, -1, "hotkeys");
+  if (lua_toboolean(L, -1)) {
+    lovrPlatformOnKeyboardEvent(hotkeyHandler);
+  }
+  lua_pop(L, 2);
   return 1;
 }

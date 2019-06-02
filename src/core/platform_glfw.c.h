@@ -15,6 +15,7 @@ static struct {
   windowCloseCallback onWindowClose;
   windowResizeCallback onWindowResize;
   mouseButtonCallback onMouseButton;
+  keyboardCallback onKeyboardEvent;
 } state;
 
 static void onWindowClose(GLFWwindow* window) {
@@ -34,6 +35,29 @@ static void onMouseButton(GLFWwindow* window, int b, int a, int mods) {
     MouseButton button = (b == GLFW_MOUSE_BUTTON_LEFT) ? MOUSE_LEFT : MOUSE_RIGHT;
     ButtonAction action = (a == GLFW_PRESS) ? BUTTON_PRESSED : BUTTON_RELEASED;
     state.onMouseButton(button, action);
+  }
+}
+
+static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int mods) {
+  if (state.onKeyboardEvent) {
+    KeyCode key;
+    switch (k) {
+      case GLFW_KEY_W: key = KEY_W; break;
+      case GLFW_KEY_A: key = KEY_A; break;
+      case GLFW_KEY_S: key = KEY_S; break;
+      case GLFW_KEY_D: key = KEY_D; break;
+      case GLFW_KEY_Q: key = KEY_Q; break;
+      case GLFW_KEY_E: key = KEY_E; break;
+      case GLFW_KEY_UP: key = KEY_UP; break;
+      case GLFW_KEY_DOWN: key = KEY_DOWN; break;
+      case GLFW_KEY_LEFT: key = KEY_LEFT; break;
+      case GLFW_KEY_RIGHT: key = KEY_RIGHT; break;
+      case GLFW_KEY_ESCAPE: key = KEY_ESCAPE; break;
+      case GLFW_KEY_F5: key = KEY_F5; break;
+      default: return;
+    }
+    ButtonAction action = (a == GLFW_PRESS) ? BUTTON_PRESSED : BUTTON_RELEASED;
+    state.onKeyboardEvent(key, action);
   }
 }
 
@@ -57,6 +81,8 @@ static int convertKeyCode(KeyCode key) {
     case KEY_DOWN: return GLFW_KEY_DOWN;
     case KEY_LEFT: return GLFW_KEY_LEFT;
     case KEY_RIGHT: return GLFW_KEY_RIGHT;
+    case KEY_ESCAPE: return GLFW_KEY_ESCAPE;
+    case KEY_F5: return GLFW_KEY_F5;
     default: lovrThrow("Unreachable");
   }
 }
@@ -129,6 +155,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   glfwSetWindowCloseCallback(state.window, onWindowClose);
   glfwSetWindowSizeCallback(state.window, onWindowResize);
   glfwSetMouseButtonCallback(state.window, onMouseButton);
+  glfwSetKeyCallback(state.window, onKeyboardEvent);
   lovrPlatformSetSwapInterval(flags->vsync);
   return true;
 }
@@ -177,6 +204,10 @@ void lovrPlatformOnWindowResize(windowResizeCallback callback) {
 
 void lovrPlatformOnMouseButton(mouseButtonCallback callback) {
   state.onMouseButton = callback;
+}
+
+void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
+  state.onKeyboardEvent = callback;
 }
 
 void lovrPlatformGetMousePosition(double* x, double* y) {
