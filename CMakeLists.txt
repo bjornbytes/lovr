@@ -319,7 +319,7 @@ set(LOVR_SRC
   src/core/luax.c
   src/core/maf.c
   src/core/platform.c
-  src/core/types.c
+  src/core/ref.c
   src/core/utf.c
   src/core/util.c
   src/api/l_lovr.c
