@@ -1,6 +1,6 @@
 #include "event/event.h"
 #include "platform.h"
-#include "types.h"
+#include "core/ref.h"
 #include "lib/vec/vec.h"
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +14,7 @@ static struct {
 void lovrVariantDestroy(Variant* variant) {
   switch (variant->type) {
     case TYPE_STRING: free(variant->value.string); return;
-    case TYPE_OBJECT: lovrGenericRelease(variant->value.object); return;
+    case TYPE_OBJECT: _lovrRelease(variant->value.object.pointer, variant->value.object.destructor); return;
     default: return;
   }
 }

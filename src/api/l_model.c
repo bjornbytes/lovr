@@ -14,7 +14,7 @@ static int l_lovrModelDraw(lua_State* L) {
 
 static int l_lovrModelGetAnimator(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  luax_pushobject(L, lovrModelGetAnimator(model));
+  luax_pushtype(L, Aniamtor, lovrModelGetAnimator(model));
   return 1;
 }
 
@@ -32,7 +32,7 @@ static int l_lovrModelSetAnimator(lua_State* L) {
 static int l_lovrModelGetMaterial(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Material* material = lovrModelGetMaterial(model);
-  luax_pushobject(L, material);
+  luax_pushtype(L, Material, material);
   return 1;
 }
 

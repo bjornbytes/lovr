@@ -3,10 +3,10 @@
 #include "data/textureData.h"
 #include "filesystem/filesystem.h"
 #include "core/maf.h"
+#include "core/ref.h"
 #include "lib/jsmn/jsmn.h"
 #include <stdbool.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 

@@ -4,6 +4,7 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "data/blob.h"
+#include "core/ref.h"
 #include <limits.h>
 
 static int l_lovrMeshAttachAttributes(lua_State* L) {
@@ -485,7 +486,7 @@ static int l_lovrMeshSetDrawRange(lua_State* L) {
 static int l_lovrMeshGetMaterial(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   Material* material = lovrMeshGetMaterial(mesh);
-  luax_pushobject(L, material);
+  luax_pushtype(L, Material, material);
   return 1;
 }
 

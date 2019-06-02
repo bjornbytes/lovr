@@ -3,9 +3,11 @@
 #include "data/textureData.h"
 #include "filesystem/filesystem.h"
 #include "core/maf.h"
+#include "core/ref.h"
 #include "lib/map/map.h"
 #include "lib/vec/vec.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 
 typedef vec_t(ModelMaterial) vec_material_t;

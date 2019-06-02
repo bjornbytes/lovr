@@ -11,9 +11,11 @@
 #include "data/rasterizer.h"
 #include "data/textureData.h"
 #include "filesystem/filesystem.h"
+#include "core/ref.h"
 #include "util.h"
 #include <math.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 const char* ArcModes[] = {
   [ARC_MODE_PIE] = "pie",
@@ -483,7 +485,7 @@ static int l_lovrGraphicsSetBlendMode(lua_State* L) {
 
 static int l_lovrGraphicsGetCanvas(lua_State* L) {
   Canvas* canvas = lovrGraphicsGetCanvas();
-  luax_pushobject(L, canvas);
+  luax_pushtype(L, Canvas, canvas);
   return 1;
 }
 
@@ -554,7 +556,7 @@ static int l_lovrGraphicsSetDepthTest(lua_State* L) {
 
 static int l_lovrGraphicsGetFont(lua_State* L) {
   Font* font = lovrGraphicsGetFont();
-  luax_pushobject(L, font);
+  luax_pushtype(L, Font, font);
   return 1;
 }
 
@@ -588,7 +590,7 @@ static int l_lovrGraphicsSetPointSize(lua_State* L) {
 
 static int l_lovrGraphicsGetShader(lua_State* L) {
   Shader* shader = lovrGraphicsGetShader();
-  luax_pushobject(L, shader);
+  luax_pushtype(L, Shader, shader);
   return 1;
 }
 
@@ -955,7 +957,7 @@ static int l_lovrGraphicsCompute(lua_State* L) {
 static int l_lovrGraphicsNewAnimator(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   Animator* animator = lovrAnimatorCreate(model->data);
-  luax_pushobject(L, animator);
+  luax_pushtype(L, Animator, animator);
   lovrRelease(Animator, animator);
   return 1;
 }
@@ -1042,7 +1044,7 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   size_t size = lovrShaderComputeUniformLayout(&uniforms);
   Buffer* buffer = lovrBufferCreate(size, NULL, type == BLOCK_COMPUTE ? BUFFER_SHADER_STORAGE : BUFFER_UNIFORM, usage, readable);
   ShaderBlock* block = lovrShaderBlockCreate(type, buffer, &uniforms);
-  luax_pushobject(L, block);
+  luax_pushtype(L, ShaderBlock, block);
   vec_deinit(&uniforms);
   lovrRelease(Buffer, buffer);
   lovrRelease(ShaderBlock, block);
@@ -1142,7 +1144,7 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
     }
   }
 
-  luax_pushobject(L, canvas);
+  luax_pushtype(L, Canvas, canvas);
   lovrRelease(Canvas, canvas);
   return 1;
 }
@@ -1166,7 +1168,7 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
   }
 
   Font* font = lovrFontCreate(rasterizer);
-  luax_pushobject(L, font);
+  luax_pushtype(L, Font, font);
   lovrRelease(Rasterizer, rasterizer);
   lovrRelease(Font, font);
   return 1;
@@ -1197,7 +1199,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     lovrMaterialSetColor(material, COLOR_DIFFUSE, color);
   }
 
-  luax_pushobject(L, material);
+  luax_pushtype(L, Material, material);
   lovrRelease(Material, material);
   return 1;
 }
@@ -1340,7 +1342,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   lovrBufferUnmap(vertexBuffer);
   lovrRelease(Buffer, vertexBuffer);
 
-  luax_pushobject(L, mesh);
+  luax_pushtype(L, Mesh, mesh);
   lovrRelease(Mesh, mesh);
   return 1;
 }
@@ -1355,7 +1357,7 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   }
 
   Model* model = lovrModelCreate(modelData);
-  luax_pushobject(L, model);
+  luax_pushtype(L, Model, model);
   lovrRelease(ModelData, modelData);
   lovrRelease(Model, model);
   return 1;
@@ -1455,7 +1457,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     shader = lovrShaderCreateGraphics(vertexSource, fragmentSource, flags, flagCount);
   }
 
-  luax_pushobject(L, shader);
+  luax_pushtype(L, Shader, shader);
   lovrRelease(Shader, shader);
   return 1;
 }
@@ -1473,7 +1475,7 @@ static int l_lovrGraphicsNewComputeShader(lua_State* L) {
   }
 
   Shader* shader = lovrShaderCreateCompute(source, flags, flagCount);
-  luax_pushobject(L, shader);
+  luax_pushtype(L, Shader, shader);
   lovrRelease(Shader, shader);
   return 1;
 }
@@ -1559,7 +1561,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     }
   }
 
-  luax_pushobject(L, texture);
+  luax_pushtype(L, Texture, texture);
   lovrRelease(Texture, texture);
   return 1;
 }

@@ -1,6 +1,7 @@
 #include "physics.h"
 #include "core/maf.h"
-#include "types.h"
+#include "core/ref.h"
+#include "core/util.h"
 #include <stdlib.h>
 #include <stdbool.h>
 

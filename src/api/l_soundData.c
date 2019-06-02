@@ -46,6 +46,12 @@ static int l_lovrSoundDataSetSample(lua_State* L) {
   return 0;
 }
 
+static int l_lovrSoundDataGetPointer(lua_State* L) {
+  SoundData* soundData = luax_checktype(L, 1, SoundData);
+  lua_pushlightuserdata(L, soundData->blob.data);
+  return 1;
+}
+
 const luaL_Reg lovrSoundData[] = {
   { "getBitDepth", l_lovrSoundDataGetBitDepth },
   { "getChannelCount", l_lovrSoundDataGetChannelCount },
@@ -54,5 +60,6 @@ const luaL_Reg lovrSoundData[] = {
   { "getSampleCount", l_lovrSoundDataGetSampleCount },
   { "getSampleRate", l_lovrSoundDataGetSampleRate },
   { "setSample", l_lovrSoundDataSetSample },
+  { "getPointer", l_lovrSoundDataGetPointer },
   { NULL, NULL }
 };

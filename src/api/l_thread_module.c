@@ -3,6 +3,8 @@
 #include "filesystem/filesystem.h"
 #include "thread/thread.h"
 #include "thread/channel.h"
+#include "core/ref.h"
+#include <stdlib.h>
 
 static int threadRunner(void* data) {
   Thread* thread = (Thread*) data;
@@ -16,7 +18,7 @@ static int threadRunner(void* data) {
   // Lua state
   lua_State* L = luaL_newstate();
   luaL_openlibs(L);
-  lovrSetErrorCallback((lovrErrorHandler) luax_vthrow, L);
+  lovrSetErrorCallback((errorFn*) luax_vthrow, L);
 
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "preload");
@@ -61,7 +63,7 @@ static int l_lovrThreadNewThread(lua_State* L) {
     lovrRetain(blob);
   }
   Thread* thread = lovrThreadCreate(threadRunner, blob);
-  luax_pushobject(L, thread);
+  luax_pushtype(L, Thread, thread);
   lovrRelease(Thread, thread);
   lovrRelease(Blob, blob);
   return 1;
@@ -70,7 +72,7 @@ static int l_lovrThreadNewThread(lua_State* L) {
 static int l_lovrThreadGetChannel(lua_State* L) {
   const char* name = luaL_checkstring(L, 1);
   Channel* channel = lovrThreadGetChannel(name);
-  luax_pushobject(L, channel);
+  luax_pushtype(L, Channel, channel);
   return 1;
 }
 

@@ -1,5 +1,6 @@
 #include "api.h"
 #include "event/event.h"
+#include "core/ref.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -40,8 +41,21 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
 
     case LUA_TUSERDATA:
       variant->type = TYPE_OBJECT;
-      variant->value.object = ((Proxy*) lua_touserdata(L, index))->object;
-      lovrRetain(variant->value.object);
+      Proxy* proxy = lua_touserdata(L, index);
+      lua_getmetatable(L, index);
+
+      lua_pushliteral(L, "__name");
+      lua_rawget(L, -2);
+      variant->value.object.type = (const char*) lua_touserdata(L, -1);
+      lua_pop(L, 1);
+
+      lua_pushliteral(L, "__destructor");
+      lua_rawget(L, -2);
+      variant->value.object.destructor = (destructorFn*) lua_tocfunction(L, -1);
+      lua_pop(L, 1);
+
+      variant->value.object.pointer = proxy->object;
+      lovrRetain(proxy->object);
       break;
 
     default:
@@ -56,7 +70,7 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
     case TYPE_STRING: lua_pushstring(L, variant->value.string); return 1;
-    case TYPE_OBJECT: luax_pushobject(L, variant->value.object); return 1;
+    case TYPE_OBJECT: _luax_pushtype(L, variant->value.object.type, hash(variant->value.object.type), variant->value.object.pointer); return 1;
     default: return 0;
   }
 }
@@ -88,7 +102,7 @@ static int nextEvent(lua_State* L) {
       return 2;
 
     case EVENT_THREAD_ERROR:
-      luax_pushobject(L, event.data.thread.thread);
+      luax_pushtype(L, Thread, event.data.thread.thread);
       lua_pushstring(L, event.data.thread.error);
       free(event.data.thread.error);
       return 3;

@@ -1,4 +1,6 @@
 #include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #pragma once
 
@@ -25,11 +27,16 @@
 
 typedef struct Color { float r, g, b, a; } Color;
 
-typedef void (*lovrErrorHandler)(void* userdata, const char* format, va_list args);
-extern LOVR_THREAD_LOCAL lovrErrorHandler lovrErrorCallback;
+typedef void voidFn(void);
+typedef void destructorFn(void*);
+typedef void errorFn(void*, const char*, va_list);
+
+extern LOVR_THREAD_LOCAL errorFn* lovrErrorCallback;
 extern LOVR_THREAD_LOCAL void* lovrErrorUserdata;
 
-void lovrSetErrorCallback(lovrErrorHandler callback, void* context);
+void lovrSetErrorCallback(errorFn* callback, void* context);
 void LOVR_NORETURN lovrThrow(const char* format, ...);
 
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
+
+uint32_t hash(const char* str);

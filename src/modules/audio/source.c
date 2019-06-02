@@ -3,7 +3,8 @@
 #include "data/audioStream.h"
 #include "data/soundData.h"
 #include "core/maf.h"
-#include "types.h"
+#include "core/ref.h"
+#include "core/util.h"
 #include <math.h>
 #include <stdlib.h>
 #include <AL/al.h>

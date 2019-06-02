@@ -4,6 +4,8 @@
 #include "math/pool.h"
 #include "math/randomGenerator.h"
 #include "resources/math.lua.h"
+#include "core/ref.h"
+#include <stdlib.h>
 
 int l_lovrRandomGeneratorRandom(lua_State* L);
 int l_lovrRandomGeneratorRandomNormal(lua_State* L);
@@ -81,7 +83,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
 
   if (top == 1 && lua_type(L, 1) == LUA_TNUMBER) {
     Curve* curve = lovrCurveCreate(luaL_checkinteger(L, 1));
-    luax_pushobject(L, curve);
+    luax_pushtype(L, Curve, curve);
     return 1;
   }
 
@@ -109,7 +111,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
     }
   }
 
-  luax_pushobject(L, curve);
+  luax_pushtype(L, Curve, curve);
   lovrRelease(Curve, curve);
   return 1;
 }
@@ -117,7 +119,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
 static int l_lovrMathNewPool(lua_State* L) {
   size_t size = luaL_optinteger(L, 1, DEFAULT_POOL_SIZE);
   Pool* pool = lovrPoolCreate(size);
-  luax_pushobject(L, pool);
+  luax_pushtype(L, Pool, pool);
   lovrRelease(Pool, pool);
   return 1;
 }
@@ -128,7 +130,7 @@ static int l_lovrMathNewRandomGenerator(lua_State* L) {
     Seed seed = luax_checkrandomseed(L, 1);
     lovrRandomGeneratorSetSeed(generator, seed);
   }
-  luax_pushobject(L, generator);
+  luax_pushtype(L, RandomGenerator, generator);
   lovrRelease(RandomGenerator, generator);
   return 1;
 }
@@ -175,25 +177,25 @@ static int l_lovrMathNoise(lua_State* L) {
 }
 
 static int l_lovrMathRandom(lua_State* L) {
-  luax_pushobject(L, lovrMathGetRandomGenerator());
+  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorRandom(L);
 }
 
 static int l_lovrMathRandomNormal(lua_State* L) {
-  luax_pushobject(L, lovrMathGetRandomGenerator());
+  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorRandomNormal(L);
 }
 
 static int l_lovrMathGetRandomSeed(lua_State* L) {
-  luax_pushobject(L, lovrMathGetRandomGenerator());
+  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorGetSeed(L);
 }
 
 static int l_lovrMathSetRandomSeed(lua_State* L) {
-  luax_pushobject(L, lovrMathGetRandomGenerator());
+  luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorSetSeed(L);
 }

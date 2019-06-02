@@ -1,6 +1,7 @@
 #include "thread/channel.h"
-#include "types.h"
+#include "core/ref.h"
 #include "util.h"
+#include <stdlib.h>
 #include <math.h>
 
 Channel* lovrChannelInit(Channel* channel) {

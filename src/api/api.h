@@ -31,7 +31,6 @@ extern const luaL_Reg lovrCylinderShape[];
 extern const luaL_Reg lovrDistanceJoint[];
 extern const luaL_Reg lovrFont[];
 extern const luaL_Reg lovrHingeJoint[];
-extern const luaL_Reg lovrJoint[];
 extern const luaL_Reg lovrMat4[];
 extern const luaL_Reg lovrMaterial[];
 extern const luaL_Reg lovrMesh[];
@@ -44,7 +43,6 @@ extern const luaL_Reg lovrRandomGenerator[];
 extern const luaL_Reg lovrRasterizer[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrShaderBlock[];
-extern const luaL_Reg lovrShape[];
 extern const luaL_Reg lovrSliderJoint[];
 extern const luaL_Reg lovrSoundData[];
 extern const luaL_Reg lovrSource[];
@@ -123,4 +121,13 @@ int luax_readscale(lua_State* L, int index, float* v, int components, const char
 int luax_readquat(lua_State* L, int index, float* q, const char* expected);
 int luax_readmat4(lua_State* L, int index, float* m, int scaleComponents);
 Seed luax_checkrandomseed(lua_State* L, int index);
+#endif
+
+#ifdef LOVR_ENABLE_PHYSICS
+struct Joint;
+struct Shape;
+void luax_pushjoint(lua_State* L, struct Joint* joint);
+void luax_pushshape(lua_State* L, struct Shape* shape);
+struct Joint* luax_checkjoint(lua_State* L, int index);
+struct Shape* luax_checkshape(lua_State* L, int index);
 #endif

@@ -60,6 +60,12 @@ static int l_lovrTextureDataSetPixel(lua_State* L) {
   return 0;
 }
 
+static int l_lovrTextureDataGetPointer(lua_State* L) {
+  TextureData* textureData = luax_checktype(L, 1, TextureData);
+  lua_pushlightuserdata(L, textureData->blob.data);
+  return 1;
+}
+
 const luaL_Reg lovrTextureData[] = {
   { "encode", l_lovrTextureDataEncode },
   { "getWidth", l_lovrTextureDataGetWidth },
@@ -68,5 +74,6 @@ const luaL_Reg lovrTextureData[] = {
   { "getFormat", l_lovrTextureDataGetFormat },
   { "getPixel", l_lovrTextureDataGetPixel },
   { "setPixel", l_lovrTextureDataSetPixel },
+  { "getPointer", l_lovrTextureDataGetPointer },
   { NULL, NULL }
 };

@@ -1,4 +1,5 @@
 #include "luax.h"
+#include "core/ref.h"
 #include "platform.h"
 #include "util.h"
 #include "lib/sds/sds.h"
@@ -8,6 +9,7 @@
 
 static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "name");
+  lua_pushstring(L, (const char*) lua_touserdata(L, -1));
   return 1;
 }
 
@@ -16,9 +18,9 @@ static int luax_meta__gc(lua_State* L) {
   if (p) {
     lua_getmetatable(L, 1);
     lua_getfield(L, -1, "__destructor");
-    lovrDestructor* destructor = (lovrDestructor*) lua_tocfunction(L, -1);
+    destructorFn* destructor = (destructorFn*) lua_tocfunction(L, -1);
     if (destructor) {
-      _lovrRelease(destructor, p->object);
+      _lovrRelease(p->object, destructor);
     }
   }
   return 0;
@@ -28,87 +30,14 @@ static int luax_module__gc(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
   for (int i = luax_len(L, 2); i >= 1; i--) {
     lua_rawgeti(L, 2, i);
-    luax_destructor destructor = (luax_destructor) lua_tocfunction(L, -1);
+    voidFn* destructor = (voidFn*) lua_tocfunction(L, -1);
     destructor();
     lua_pop(L, 1);
   }
   return 0;
 }
 
-// A version of print that uses lovrLog, for platforms that need it (Android)
-int luax_print(lua_State* L) {
-  sds str = sdsempty();
-  int n = lua_gettop(L);  /* number of arguments */
-  int i;
-
-  lua_getglobal(L, "tostring");
-  for (i=1; i<=n; i++) {
-    const char *s;
-    lua_pushvalue(L, -1);  /* function to be called */
-    lua_pushvalue(L, i);   /* value to print */
-    lua_call(L, 1, 1);
-    s = lua_tostring(L, -1);  /* get result */
-    if (s == NULL)
-      return luaL_error(L, LUA_QL("tostring") " must return a string to "
-                           LUA_QL("print"));
-    if (i>1) str = sdscat(str, "\t");
-    str = sdscat(str, s);
-    lua_pop(L, 1);  /* pop result */
-  }
-  lovrLog("%s", str);
-
-  sdsfree(str);
-  return 0;
-}
-
-void luax_setmainthread(lua_State *L) {
-#if LUA_VERSION_NUM < 502
-  lua_pushthread(L);
-  lua_rawseti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
-#endif
-}
-
-void luax_atexit(lua_State* L, luax_destructor destructor) {
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
-
-  if (lua_isnil(L, -1)) {
-    lua_newtable(L);
-    lua_replace(L, -2);
-
-    // Userdata sentinel since tables don't have __gc (yet)
-    lua_newuserdata(L, sizeof(void*));
-    lua_createtable(L, 0, 1);
-    lua_pushcfunction(L, luax_module__gc);
-    lua_setfield(L, -2, "__gc");
-    lua_setmetatable(L, -2);
-    lua_setfield(L, -2, "");
-
-    // Write to the registry
-    lua_pushvalue(L, -1);
-    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
-  }
-
-  int length = luax_len(L, -1);
-  lua_pushcfunction(L, (lua_CFunction) destructor);
-  lua_rawseti(L, -2, length + 1);
-  lua_pop(L, 1);
-}
-
-void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
-  lua_getglobal(L, "table");
-  lua_getfield(L, -1, "insert");
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "loaders");
-  lua_remove(L, -2);
-  if (lua_istable(L, -1)) {
-    lua_pushinteger(L, index);
-    lua_pushcfunction(L, loader);
-    lua_call(L, 3, 0);
-  }
-  lua_pop(L, 1);
-}
-
-void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, lovrDestructor* destructor) {
+void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, destructorFn* destructor) {
 
   // Push metatable
   luaL_newmetatable(L, name);
@@ -126,9 +55,9 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
   lua_pushcfunction(L, (lua_CFunction) destructor);
   lua_setfield(L, -2, "__destructor");
 
-  // m.name = name
-  lua_pushstring(L, name);
-  lua_setfield(L, -2, "name");
+  // m.__name = name
+  lua_pushlightuserdata(L, (void*) name);
+  lua_setfield(L, -2, "__name");
 
   // m.__tostring
   lua_pushcfunction(L, luax_meta__tostring);
@@ -143,25 +72,18 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
   lua_pop(L, 1);
 }
 
-void _luax_extendtype(lua_State* L, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions, lovrDestructor* destructor) {
-  _luax_registertype(L, name, functions, destructor);
-  luaL_getmetatable(L, name);
-  luaL_register(L, NULL, baseFunctions);
-  lua_pop(L, 1);
-}
-
-void* _luax_totype(lua_State* L, int index, Type type) {
+void* _luax_totype(lua_State* L, int index, uint32_t hash) {
   Proxy* p = lua_touserdata(L, index);
 
-  if (p && (p->type == type || lovrTypeInfo[p->type].super == type)) {
+  if (p && p->hash == hash) {
     return p->object;
   }
 
   return NULL;
 }
 
-void* _luax_checktype(lua_State* L, int index, Type type, const char* debug) {
-  void* object = _luax_totype(L, index, type);
+void* _luax_checktype(lua_State* L, int index, uint32_t hash, const char* debug) {
+  void* object = _luax_totype(L, index, hash);
 
   if (!object) {
     luaL_typerror(L, index, debug);
@@ -171,7 +93,7 @@ void* _luax_checktype(lua_State* L, int index, Type type, const char* debug) {
 }
 
 // Registers the userdata on the top of the stack in the registry.
-void luax_pushobject(lua_State* L, void* object) {
+void _luax_pushtype(lua_State* L, const char* type, uint32_t hash, void* object) {
   if (!object) {
     lua_pushnil(L);
     return;
@@ -210,19 +132,32 @@ void luax_pushobject(lua_State* L, void* object) {
   }
 
   // Allocate userdata
-  Ref* ref = _ref(object);
   Proxy* p = (Proxy*) lua_newuserdata(L, sizeof(Proxy));
-  luaL_getmetatable(L, lovrTypeInfo[ref->type].name);
+  luaL_getmetatable(L, type);
   lua_setmetatable(L, -2);
   lovrRetain(object);
-  p->type = ref->type;
   p->object = object;
+  p->hash = hash;
 
   // Write to registry and remove registry, leaving userdata on stack
   lua_pushlightuserdata(L, object);
   lua_pushvalue(L, -2);
   lua_settable(L, -4);
   lua_remove(L, -2);
+}
+
+void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
+  lua_getglobal(L, "table");
+  lua_getfield(L, -1, "insert");
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "loaders");
+  lua_remove(L, -2);
+  if (lua_istable(L, -1)) {
+    lua_pushinteger(L, index);
+    lua_pushcfunction(L, loader);
+    lua_call(L, 3, 0);
+  }
+  lua_pop(L, 1);
 }
 
 void luax_vthrow(lua_State* L, const char* format, va_list args) {
@@ -257,6 +192,32 @@ int luax_getstack(lua_State *L) {
   return 1;
 }
 
+// A version of print that uses lovrLog, for platforms that need it (Android)
+int luax_print(lua_State* L) {
+  sds str = sdsempty();
+  int n = lua_gettop(L);  /* number of arguments */
+  int i;
+
+  lua_getglobal(L, "tostring");
+  for (i=1; i<=n; i++) {
+    const char *s;
+    lua_pushvalue(L, -1);  /* function to be called */
+    lua_pushvalue(L, i);   /* value to print */
+    lua_call(L, 1, 1);
+    s = lua_tostring(L, -1);  /* get result */
+    if (s == NULL)
+      return luaL_error(L, LUA_QL("tostring") " must return a string to "
+                           LUA_QL("print"));
+    if (i>1) str = sdscat(str, "\t");
+    str = sdscat(str, s);
+    lua_pop(L, 1);  /* pop result */
+  }
+  lovrLog("%s", str);
+
+  sdsfree(str);
+  return 0;
+}
+
 void luax_pushconf(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrconf");
 }
@@ -267,6 +228,39 @@ int luax_setconf(lua_State* L) {
   lua_pop(L, 1);
   lua_setfield(L, LUA_REGISTRYINDEX, "_lovrconf");
   return 0;
+}
+
+void luax_setmainthread(lua_State *L) {
+#if LUA_VERSION_NUM < 502
+  lua_pushthread(L);
+  lua_rawseti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
+#endif
+}
+
+void luax_atexit(lua_State* L, voidFn* destructor) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+
+  if (lua_isnil(L, -1)) {
+    lua_newtable(L);
+    lua_replace(L, -2);
+
+    // Userdata sentinel since tables don't have __gc (yet)
+    lua_newuserdata(L, sizeof(void*));
+    lua_createtable(L, 0, 1);
+    lua_pushcfunction(L, luax_module__gc);
+    lua_setfield(L, -2, "__gc");
+    lua_setmetatable(L, -2);
+    lua_setfield(L, -2, "");
+
+    // Write to the registry
+    lua_pushvalue(L, -1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+  }
+
+  int length = luax_len(L, -1);
+  lua_pushcfunction(L, (lua_CFunction) destructor);
+  lua_rawseti(L, -2, length + 1);
+  lua_pop(L, 1);
 }
 
 void luax_readcolor(lua_State* L, int index, Color* color) {

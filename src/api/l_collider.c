@@ -11,7 +11,7 @@ static int l_lovrColliderDestroy(lua_State* L) {
 static int l_lovrColliderGetWorld(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   World* world = lovrColliderGetWorld(collider);
-  luax_pushobject(L, world);
+  luax_pushtype(L, World, world);
   return 1;
 }
 
@@ -34,7 +34,7 @@ static int l_lovrColliderGetShapes(lua_State* L) {
   lua_newtable(L);
   vec_void_t* shapes = lovrColliderGetShapes(collider);
   for (int i = 0; i < shapes->length; i++) {
-    luax_pushobject(L, shapes->data[i]);
+    luax_pushshape(L, shapes->data[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
@@ -45,7 +45,7 @@ static int l_lovrColliderGetJoints(lua_State* L) {
   lua_newtable(L);
   vec_void_t* joints = lovrColliderGetJoints(collider);
   for (int i = 0; i < joints->length; i++) {
-    luax_pushobject(L, joints->data[i]);
+    luax_pushjoint(L, joints->data[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;

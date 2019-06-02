@@ -3,7 +3,6 @@
 #include "core/maf.h"
 #include "platform.h"
 #include <math.h>
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 

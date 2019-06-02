@@ -2,6 +2,7 @@
 #include "graphics/buffer.h"
 #include "graphics/shader.h"
 #include "core/maf.h"
+#include <stdlib.h>
 
 struct TempData {
   void* data;

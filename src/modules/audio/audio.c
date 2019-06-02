@@ -2,9 +2,9 @@
 #include "audio/source.h"
 #include "data/audioStream.h"
 #include "core/maf.h"
-#include "lib/vec/vec.h"
-#include "types.h"
+#include "core/ref.h"
 #include "util.h"
+#include "lib/vec/vec.h"
 #include <stdlib.h>
 #include <AL/al.h>
 #include <AL/alc.h>

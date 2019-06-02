@@ -8,6 +8,7 @@
 #include "event/event.h"
 #include "math/math.h"
 #include "core/maf.h"
+#include "core/ref.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>

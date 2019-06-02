@@ -1,6 +1,7 @@
 #include "graphics/font.h"
 #include "graphics/texture.h"
 #include "data/textureData.h"
+#include "core/ref.h"
 #include "core/utf.h"
 #include <string.h>
 #include <stdlib.h>

@@ -1,6 +1,7 @@
 #include "api.h"
 #include "audio/microphone.h"
 #include "data/soundData.h"
+#include "core/ref.h"
 #include <stdlib.h>
 
 static int l_lovrMicrophoneGetBitDepth(lua_State* L) {
@@ -18,7 +19,7 @@ static int l_lovrMicrophoneGetChannelCount(lua_State* L) {
 static int l_lovrMicrophoneGetData(lua_State* L) {
   Microphone* microphone = luax_checktype(L, 1, Microphone);
   SoundData* soundData = lovrMicrophoneGetData(microphone);
-  luax_pushobject(L, soundData);
+  luax_pushtype(L, SoundData, soundData);
   lovrRelease(SoundData, soundData);
   return 1;
 }

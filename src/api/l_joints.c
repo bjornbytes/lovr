@@ -1,37 +1,55 @@
 #include "api.h"
 #include "physics/physics.h"
 
+void luax_pushjoint(lua_State* L, Joint* joint) {
+  switch (joint->type) {
+    case JOINT_BALL: luax_pushtype(L, BallJoint, joint); break;
+    case JOINT_DISTANCE: luax_pushtype(L, DistanceJoint, joint); break;
+    case JOINT_HINGE: luax_pushtype(L, HingeJoint, joint); break;
+    case JOINT_SLIDER: luax_pushtype(L, SliderJoint, joint); break;
+  }
+}
+
+Joint* luax_checkjoint(lua_State* L, int index) {
+  Proxy* p = lua_touserdata(L, index);
+  if (!p || (p->hash != hash("BallJoint") && p->hash != hash("DistanceJoint") && p->hash != hash("HingeJoint") && p->hash != hash("SliderJoint"))) {
+    luaL_typerror(L, index, "Joint");
+    return NULL;
+  }
+  return p->object;
+}
+
 static int l_lovrJointDestroy(lua_State* L) {
-  Joint* joint = luax_checktype(L, 1, Joint);
+  Joint* joint = luax_checkjoint(L, 1);
   lovrJointDestroyData(joint);
   return 0;
 }
 
 static int l_lovrJointGetType(lua_State* L) {
-  Joint* joint = luax_checktype(L, 1, Joint);
+  Joint* joint = luax_checkjoint(L, 1);
   lua_pushstring(L, JointTypes[lovrJointGetType(joint)]);
   return 1;
 }
 
 static int l_lovrJointGetColliders(lua_State* L) {
-  Joint* joint = luax_checktype(L, 1, Joint);
+  Joint* joint = luax_checkjoint(L, 1);
   Collider* a;
   Collider* b;
   lovrJointGetColliders(joint, &a, &b);
-  luax_pushobject(L, a);
-  luax_pushobject(L, b);
+  luax_pushtype(L, Collider, a);
+  luax_pushtype(L, Collider, b);
   return 2;
 }
 
 static int l_lovrJointGetUserData(lua_State* L) {
-  Joint* joint = luax_checktype(L, 1, Joint);
+  Joint* joint = luax_checkjoint(L, 1);
   union { int i; void* p; } ref = { .p = lovrJointGetUserData(joint) };
   lua_rawgeti(L, LUA_REGISTRYINDEX, ref.i);
   return 1;
 }
 
 static int l_lovrJointSetUserData(lua_State* L) {
-  Joint* joint = luax_checktype(L, 1, Joint);
+  Joint* joint = luax_checkjoint(L, 1);
   union { int i; void* p; } ref = { .p = lovrJointGetUserData(joint) };
   if (ref.i) {
     luaL_unref(L, LUA_REGISTRYINDEX, ref.i);
@@ -47,14 +65,12 @@ static int l_lovrJointSetUserData(lua_State* L) {
   return 0;
 }
 
-const luaL_Reg lovrJoint[] = {
-  { "destroy", l_lovrJointDestroy },
-  { "getType", l_lovrJointGetType },
-  { "getColliders", l_lovrJointGetColliders },
-  { "getUserData", l_lovrJointGetUserData },
-  { "setUserData", l_lovrJointSetUserData },
-  { NULL, NULL }
-};
+#define lovrJoint \
+  { "destroy", l_lovrJointDestroy }, \
+  { "getType", l_lovrJointGetType }, \
+  { "getColliders", l_lovrJointGetColliders }, \
+  { "getUserData", l_lovrJointGetUserData }, \
+  { "setUserData", l_lovrJointSetUserData }
 
 static int l_lovrBallJointGetAnchors(lua_State* L) {
   BallJoint* joint = luax_checktype(L, 1, BallJoint);
@@ -79,6 +95,7 @@ static int l_lovrBallJointSetAnchor(lua_State* L) {
 }
 
 const luaL_Reg lovrBallJoint[] = {
+  lovrJoint,
   { "getAnchors", l_lovrBallJointGetAnchors },
   { "setAnchor", l_lovrBallJointSetAnchor },
   { NULL, NULL }
@@ -123,6 +140,7 @@ static int l_lovrDistanceJointSetDistance(lua_State* L) {
 }
 
 const luaL_Reg lovrDistanceJoint[] = {
+  lovrJoint,
   { "getAnchors", l_lovrDistanceJointGetAnchors },
   { "setAnchors", l_lovrDistanceJointSetAnchors },
   { "getDistance", l_lovrDistanceJointGetDistance },
@@ -220,6 +238,7 @@ static int l_lovrHingeJointSetLimits(lua_State* L) {
 }
 
 const luaL_Reg lovrHingeJoint[] = {
+  lovrJoint,
   { "getAnchors", l_lovrHingeJointGetAnchors },
   { "setAnchor", l_lovrHingeJointSetAnchor },
   { "getAxis", l_lovrHingeJointGetAxis },
@@ -302,6 +321,7 @@ static int l_lovrSliderJointSetLimits(lua_State* L) {
 }
 
 const luaL_Reg lovrSliderJoint[] = {
+  lovrJoint,
   { "getAxis", l_lovrSliderJointGetAxis },
   { "setAxis", l_lovrSliderJointSetAxis },
   { "getPosition", l_lovrSliderJointGetPosition },

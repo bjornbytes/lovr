@@ -49,7 +49,7 @@ struct Collider {
   float restitution;
 };
 
-typedef struct {
+typedef struct Shape {
   ShapeType type;
   dGeomID id;
   Collider* collider;
@@ -61,7 +61,7 @@ typedef Shape BoxShape;
 typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
 
-typedef struct {
+typedef struct Joint {
   JointType type;
   dJointID id;
   void* userdata;

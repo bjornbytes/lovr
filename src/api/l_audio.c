@@ -6,6 +6,7 @@
 #include "data/audioStream.h"
 #include "data/soundData.h"
 #include "core/maf.h"
+#include "core/ref.h"
 #include <stdlib.h>
 
 struct Blob* luax_readblob(lua_State* L, int index, const char* debug);
@@ -116,7 +117,7 @@ static int l_lovrAudioNewMicrophone(lua_State* L) {
   int bitDepth = luaL_optinteger(L, 4, 16);
   int channelCount = luaL_optinteger(L, 5, 1);
   Microphone* microphone = lovrMicrophoneCreate(name, samples, sampleRate, bitDepth, channelCount);
-  luax_pushobject(L, microphone);
+  luax_pushtype(L, Microphone, microphone);
   lovrRelease(Microphone, microphone);
   return 1;
 }
@@ -156,7 +157,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
     }
   }
 
-  luax_pushobject(L, source);
+  luax_pushtype(L, Source, source);
   lovrRelease(Source, source);
   return 1;
 }

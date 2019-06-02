@@ -26,7 +26,11 @@ typedef union {
   bool boolean;
   double number;
   char* string;
-  void* object;
+  struct {
+    void* pointer;
+    const char* type;
+    void (*destructor)(void*);
+  } object;
 } VariantValue;
 
 typedef struct Variant {

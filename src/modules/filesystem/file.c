@@ -1,7 +1,6 @@
 #include "filesystem/file.h"
 #include "util.h"
 #include <physfs.h>
-#include <stdlib.h>
 
 File* lovrFileInit(File* file ,const char* path) {
   file->path = path;

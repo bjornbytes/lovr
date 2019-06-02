@@ -4,6 +4,8 @@
 #include "graphics/model.h"
 #include "graphics/texture.h"
 #include "core/maf.h"
+#include "core/ref.h"
+#include <stdlib.h>
 
 #if defined(EMSCRIPTEN) || defined(LOVR_USE_OCULUS_MOBILE)
 #define LOVR_HEADSET_HELPER_USES_REGISTRY
@@ -463,7 +465,7 @@ int l_lovrHeadsetNewModel(lua_State* L) {
 
   if (modelData) {
     Model* model = lovrModelCreate(modelData);
-    luax_pushobject(L, model);
+    luax_pushtype(L, Model, model);
     lovrRelease(ModelData, modelData);
     lovrRelease(Model, model);
     return 1;
@@ -512,7 +514,7 @@ static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
   Texture *texture = NULL;
   if (lovrHeadsetDriver->getMirrorTexture)
     texture = lovrHeadsetDriver->getMirrorTexture();
-  luax_pushobject(L, texture);
+  luax_pushtype(L, Texture, texture);
 
   return 1;
 }

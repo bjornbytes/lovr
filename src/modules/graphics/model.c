@@ -5,6 +5,8 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "resources/shaders.h"
+#include "core/ref.h"
+#include <stdlib.h>
 #include <float.h>
 
 static void updateGlobalNodeTransform(Model* model, uint32_t nodeIndex, mat4 transform) {

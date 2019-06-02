@@ -1,7 +1,7 @@
 #include "audio/microphone.h"
 #include "audio/audio.h"
 #include "data/soundData.h"
-#include "types.h"
+#include "core/ref.h"
 #include "util.h"
 #include <AL/al.h>
 #include <AL/alc.h>

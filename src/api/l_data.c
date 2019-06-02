@@ -5,6 +5,8 @@
 #include "data/rasterizer.h"
 #include "data/soundData.h"
 #include "data/textureData.h"
+#include "core/ref.h"
+#include <stdlib.h>
 
 static int l_lovrDataNewBlob(lua_State* L) {
   size_t size;
@@ -30,7 +32,7 @@ static int l_lovrDataNewBlob(lua_State* L) {
   }
   const char* name = luaL_optstring(L, 2, "");
   Blob* blob = lovrBlobCreate(data, size, name);
-  luax_pushobject(L, blob);
+  luax_pushtype(L, Blob, blob);
   lovrRelease(Blob, blob);
   return 1;
 }
@@ -39,7 +41,7 @@ static int l_lovrDataNewAudioStream(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "AudioStream");
   int bufferSize = luaL_optinteger(L, 2, 4096);
   AudioStream* stream = lovrAudioStreamCreate(blob, bufferSize);
-  luax_pushobject(L, stream);
+  luax_pushtype(L, AudioStream, stream);
   lovrRelease(Blob, blob);
   lovrRelease(AudioStream, stream);
   return 1;
@@ -48,7 +50,7 @@ static int l_lovrDataNewAudioStream(lua_State* L) {
 static int l_lovrDataNewModelData(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
   ModelData* modelData = lovrModelDataCreate(blob);
-  luax_pushobject(L, modelData);
+  luax_pushtype(L, ModelData, modelData);
   lovrRelease(Blob, blob);
   lovrRelease(ModelData, modelData);
   return 1;
@@ -66,7 +68,7 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
   }
 
   Rasterizer* rasterizer = lovrRasterizerCreate(blob, size);
-  luax_pushobject(L, rasterizer);
+  luax_pushtype(L, Rasterizer, rasterizer);
   lovrRelease(Blob, blob);
   lovrRelease(Rasterizer, rasterizer);
   return 1;
@@ -79,7 +81,7 @@ static int l_lovrDataNewSoundData(lua_State* L) {
     int bitDepth = luaL_optinteger(L, 3, 16);
     int channelCount = luaL_optinteger(L, 4, 2);
     SoundData* soundData = lovrSoundDataCreate(samples, sampleRate, bitDepth, channelCount);
-    luax_pushobject(L, soundData);
+    luax_pushtype(L, SoundData, soundData);
     lovrRelease(SoundData, soundData);
     return 1;
   }
@@ -87,14 +89,14 @@ static int l_lovrDataNewSoundData(lua_State* L) {
   AudioStream* audioStream = luax_totype(L, 1, AudioStream);
   if (audioStream) {
     SoundData* soundData = lovrSoundDataCreateFromAudioStream(audioStream);
-    luax_pushobject(L, soundData);
+    luax_pushtype(L, SoundData, soundData);
     lovrRelease(SoundData, soundData);
     return 1;
   }
 
   Blob* blob = luax_readblob(L, 1, "SoundData");
   SoundData* soundData = lovrSoundDataCreateFromBlob(blob);
-  luax_pushobject(L, soundData);
+  luax_pushtype(L, SoundData, soundData);
   lovrRelease(Blob, blob);
   lovrRelease(SoundData, soundData);
   return 1;
@@ -114,7 +116,7 @@ static int l_lovrDataNewTextureData(lua_State* L) {
     lovrRelease(Blob, blob);
   }
 
-  luax_pushobject(L, textureData);
+  luax_pushtype(L, TextureData, textureData);
   lovrRelease(TextureData, textureData);
   return 1;
 }
@@ -136,7 +138,7 @@ int luaopen_lovr_data(lua_State* L) {
   luax_registertype(L, AudioStream);
   luax_registertype(L, ModelData);
   luax_registertype(L, Rasterizer);
-  luax_extendtype(L, Blob, SoundData);
-  luax_extendtype(L, Blob, TextureData);
+  luax_registertype(L, SoundData);
+  luax_registertype(L, TextureData);
   return 1;
 }

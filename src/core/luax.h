@@ -1,14 +1,14 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "types.h"
+#include "util.h"
 
 #pragma once
 
 struct Color;
 
 typedef struct {
-  Type type;
+  uint32_t hash;
   void* object;
 } Proxy;
 
@@ -18,29 +18,26 @@ typedef struct {
 
 #define luax_len(L, i) (int) lua_objlen(L, i)
 #define luax_registertype(L, T) _luax_registertype(L, #T, lovr ## T, lovr ## T ## Destroy)
-#define luax_extendtype(L, S, T) _luax_extendtype(L, #T, lovr ## S, lovr ## T, lovr ## T ## Destroy)
-#define luax_totype(L, i, T) ((T*) _luax_totype(L, i, T_ ## T))
-#define luax_checktype(L, i, T) ((T*) _luax_checktype(L, i, T_ ## T, #T))
+#define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash(#T))
+#define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash(#T), #T)
+#define luax_pushtype(L, T, o) _luax_pushtype(L, #T, hash(#T), o)
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
 #define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")
 #define luax_seterror(L) lua_setfield(L, LUA_REGISTRYINDEX, "_lovrerror")
 #define luax_clearerror(L) lua_pushnil(L), luax_seterror(L)
-typedef void (*luax_destructor)(void);
 
-int luax_print(lua_State* L);
-void luax_setmainthread(lua_State* L);
-void luax_atexit(lua_State* L, luax_destructor destructor);
+void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, destructorFn* destructor);
+void* _luax_totype(lua_State* L, int index, uint32_t hash);
+void* _luax_checktype(lua_State* L, int index, uint32_t hash, const char* debug);
+void _luax_pushtype(lua_State* L, const char* name, uint32_t hash, void* object);
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
-void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, lovrDestructor* destructor);
-void _luax_extendtype(lua_State* L, const char* name, const luaL_Reg* baseFunctions, const luaL_Reg* functions, lovrDestructor* destructor);
-void* _luax_totype(lua_State* L, int index, Type type);
-void* _luax_checktype(lua_State* L, int index, Type type, const char* debug);
-void luax_pushobject(lua_State* L, void* object);
 void luax_vthrow(lua_State* L, const char* format, va_list args);
 void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);
 int luax_getstack(lua_State* L);
-int luax_getstack_panic(lua_State *L);
+int luax_print(lua_State* L);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
+void luax_setmainthread(lua_State* L);
+void luax_atexit(lua_State* L, voidFn* destructor);
 void luax_readcolor(lua_State* L, int index, struct Color* color);

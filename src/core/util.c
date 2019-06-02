@@ -2,10 +2,10 @@
 #include "platform.h"
 #include <stdlib.h>
 
-LOVR_THREAD_LOCAL lovrErrorHandler lovrErrorCallback = NULL;
+LOVR_THREAD_LOCAL errorFn* lovrErrorCallback = NULL;
 LOVR_THREAD_LOCAL void* lovrErrorUserdata = NULL;
 
-void lovrSetErrorCallback(lovrErrorHandler callback, void* userdata) {
+void lovrSetErrorCallback(errorFn* callback, void* userdata) {
   lovrErrorCallback = callback;
   lovrErrorUserdata = userdata;
 }
@@ -28,3 +28,10 @@ void lovrThrow(const char* format, ...) {
   }
 }
 
+uint32_t hash(const char* str) {
+  uint32_t x = 0;
+  while (*str) {
+    x = (x * 65599) + *str++;
+  }
+  return x;
+}

@@ -1,6 +1,7 @@
 #include "api.h"
 #include "filesystem/filesystem.h"
 #include "data/blob.h"
+#include "core/ref.h"
 #include <stdlib.h>
 #include "platform.h"
 
@@ -279,7 +280,7 @@ static int l_lovrFilesystemNewBlob(lua_State* L) {
   uint8_t* data = lovrFilesystemRead(path, -1, &size);
   lovrAssert(data, "Could not load file '%s'", path);
   Blob* blob = lovrBlobCreate(data, size, path);
-  luax_pushobject(L, blob);
+  luax_pushtype(L, Blob, blob);
   lovrRelease(Blob, blob);
   return 1;
 }

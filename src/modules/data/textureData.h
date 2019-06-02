@@ -1,5 +1,4 @@
 #include "data/blob.h"
-#include "types.h"
 #include "util.h"
 #include "lib/vec/vec.h"
 #include <stdint.h>
