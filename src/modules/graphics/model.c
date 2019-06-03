@@ -203,7 +203,16 @@ void lovrModelDestroy(void* ref) {
   for (uint32_t i = 0; i < model->data->primitiveCount; i++) {
     lovrRelease(Mesh, model->meshes[i]);
   }
+  for (uint32_t i = 0; i < model->data->textureCount; i++) {
+    lovrRelease(Texture, model->textures[i]);
+  }
+  for (uint32_t i = 0; i < model->data->materialCount; i++) {
+    lovrRelease(Material, model->materials[i]);
+  }
+  lovrRelease(Material, model->userMaterial);
+  lovrRelease(Animator, model->animator);
   lovrRelease(ModelData, model->data);
+  free(model->globalNodeTransforms);
 }
 
 void lovrModelDraw(Model* model, mat4 transform, uint32_t instances) {
