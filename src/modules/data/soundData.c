@@ -38,10 +38,10 @@ SoundData* lovrSoundDataInitFromAudioStream(SoundData* soundData, AudioStream* a
 }
 
 SoundData* lovrSoundDataInitFromBlob(SoundData* soundData, Blob* blob) {
-  int samples, channels;
+  int sampleRate, channels;
   soundData->bitDepth = 16;
-  soundData->samples = stb_vorbis_decode_memory(blob->data, (int) blob->size, &channels, &samples, (int16_t**) &soundData->blob.data);
-  soundData->samples = samples;
+  soundData->samples = stb_vorbis_decode_memory(blob->data, (int) blob->size, &channels, &sampleRate, (int16_t**) &soundData->blob.data);
+  soundData->sampleRate = sampleRate;
   soundData->channelCount = channels;
   soundData->blob.size = soundData->samples * soundData->channelCount * (soundData->bitDepth / 8);
   return soundData;
