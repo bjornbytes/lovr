@@ -12,13 +12,13 @@
 
 static struct {
   bool initialized;
+  bool spatialized;
   ALCdevice* device;
   ALCcontext* context;
   vec_void_t sources;
-  bool isSpatialized;
-  float orientation[4];
-  float position[3];
-  float velocity[3];
+  float LOVR_ALIGN(16) orientation[4];
+  float LOVR_ALIGN(16) position[4];
+  float LOVR_ALIGN(16) velocity[4];
 } state;
 
 ALenum lovrAudioConvertFormat(uint32_t bitDepth, uint32_t channelCount) {
@@ -49,9 +49,9 @@ bool lovrAudioInit() {
 #if ALC_SOFT_HRTF
   static LPALCRESETDEVICESOFT alcResetDeviceSOFT;
   alcResetDeviceSOFT = (LPALCRESETDEVICESOFT) alcGetProcAddress(device, "alcResetDeviceSOFT");
-  state.isSpatialized = alcIsExtensionPresent(device, "ALC_SOFT_HRTF");
+  state.spatialized = alcIsExtensionPresent(device, "ALC_SOFT_HRTF");
 
-  if (state.isSpatialized) {
+  if (state.spatialized) {
     alcResetDeviceSOFT(device, (ALCint[]) { ALC_HRTF_SOFT, ALC_TRUE, 0 });
   }
 #endif
@@ -147,7 +147,7 @@ bool lovrAudioHas(Source* source) {
 }
 
 bool lovrAudioIsSpatialized() {
-  return state.isSpatialized;
+  return state.spatialized;
 }
 
 void lovrAudioPause() {

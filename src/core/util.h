@@ -13,10 +13,12 @@
 #define LOVR_EXPORT __declspec(dllexport)
 #define LOVR_NORETURN  __declspec(noreturn)
 #define LOVR_THREAD_LOCAL  __declspec(thread)
+#define LOVR_ALIGN(n) __declspec(align(n))
 #else
 #define LOVR_EXPORT __attribute__((visibility("default")))
 #define LOVR_NORETURN __attribute__((noreturn))
 #define LOVR_THREAD_LOCAL __thread
+#define LOVR_ALIGN(n) __attribute__((aligned(n)))
 #endif
 
 #define MAX(a, b) (a > b ? a : b)

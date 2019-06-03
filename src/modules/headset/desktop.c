@@ -7,22 +7,20 @@
 #include <stdbool.h>
 
 static struct {
-  float offset;
-
-  float clipNear;
-  float clipFar;
-
-  float position[3];
-  float velocity[3];
-  float localVelocity[3];
-  float angularVelocity[3];
-
-  float yaw;
-  float pitch;
-  float transform[16];
+  float LOVR_ALIGN(16) position[4];
+  float LOVR_ALIGN(16) velocity[4];
+  float LOVR_ALIGN(16) localVelocity[4];
+  float LOVR_ALIGN(16) angularVelocity[4];
+  float LOVR_ALIGN(16) transform[16];
 
   double prevCursorX;
   double prevCursorY;
+
+  float offset;
+  float clipNear;
+  float clipFar;
+  float pitch;
+  float yaw;
 } state;
 
 static bool desktop_init(float offset, uint32_t msaa) {
