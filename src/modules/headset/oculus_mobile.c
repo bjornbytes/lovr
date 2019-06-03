@@ -76,23 +76,14 @@ static const float* vrapi_getBoundsGeometry(uint32_t* count) {
 }
 
 static int getHandIdx(Device device) {
-  switch (device) {
-    case DEVICE_HAND:
-      if (bridgeLovrMobileData.deviceType != BRIDGE_LOVR_DEVICE_GO || bridgeLovrMobileData.updateData.controllerCount <= 0)
-        return -1;
-      return 0;
-    case DEVICE_HAND_LEFT:
-    case DEVICE_HAND_RIGHT:
-      if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_QUEST) {
-        for(int c = 0; c < BRIDGE_LOVR_CONTROLLERMAX && c < bridgeLovrMobileData.updateData.controllerCount; c++) {
-          BridgeLovrHand hand = (device == DEVICE_HAND_LEFT ? BRIDGE_LOVR_HAND_LEFT : BRIDGE_LOVR_HAND_RIGHT);
-          if (bridgeLovrMobileData.updateData.controllers[c].hand & hand)
-            return c;
-        }
-      }
-    default: // FALLTHROUGH
-      return -1;
+  if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
+    for(int c = 0; c < BRIDGE_LOVR_CONTROLLERMAX && c < bridgeLovrMobileData.updateData.controllerCount; c++) {
+      BridgeLovrHand hand = (device == DEVICE_HAND_LEFT ? BRIDGE_LOVR_HAND_LEFT : BRIDGE_LOVR_HAND_RIGHT);
+      if (bridgeLovrMobileData.updateData.controllers[c].hand & hand)
+        return c;
+    }
   }
+  return -1;
 }
 
 static bool vrapi_getPose(Device device, vec3 position, quat orientation) {
@@ -148,6 +139,7 @@ static bool buttonDown(BridgeLovrButton field, DeviceButton button, bool *result
   if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_QUEST) {
     switch (button) {
       case BUTTON_MENU: *result = field & BRIDGE_LOVR_BUTTON_MENU; break; // Technically "LMENU" but only fires on left controller
+      case BUTTON_PRIMARY:
       case BUTTON_TRIGGER: *result = field & BRIDGE_LOVR_BUTTON_SHOULDER; break;
       case BUTTON_GRIP: *result = field & BRIDGE_LOVR_BUTTON_GRIP; break;
       case BUTTON_TOUCHPAD: *result = field & BRIDGE_LOVR_BUTTON_JOYSTICK; break;
@@ -160,6 +152,7 @@ static bool buttonDown(BridgeLovrButton field, DeviceButton button, bool *result
   } else {
     switch (button) {
       case BUTTON_MENU: *result = field & BRIDGE_LOVR_BUTTON_GOMENU; break; // Technically "RMENU" but quest only has one
+      case BUTTON_PRIMARY:
       case BUTTON_TRIGGER: *result = field & BRIDGE_LOVR_BUTTON_GOSHOULDER; break;
       case BUTTON_TOUCHPAD: *result = field & BRIDGE_LOVR_BUTTON_TOUCHPAD; break;
       default: return false;
@@ -174,6 +167,7 @@ static bool buttonTouch(BridgeLovrTouch field, DeviceButton button, bool *result
     return false;
 
   switch (button) {
+    case BUTTON_PRIMARY:
     case BUTTON_TRIGGER: *result = field & (BRIDGE_LOVR_TOUCH_TRIGGER); break;
     case BUTTON_TOUCHPAD: *result = field & (BRIDGE_LOVR_TOUCH_TOUCHPAD | BRIDGE_LOVR_TOUCH_JOYSTICK); break;
     case BUTTON_A: *result = field & BRIDGE_LOVR_TOUCH_A; break;
@@ -207,9 +201,10 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
     return false;
 
   BridgeLovrController *data = &bridgeLovrMobileData.updateData.controllers[idx];
-    
+
   if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_QUEST) {
     switch (axis) {
+      case AXIS_PRIMARY:
       case AXIS_THUMBSTICK:
         value[0] = data->trackpad.x;
         value[1] = data->trackpad.y;
@@ -220,6 +215,7 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
     }
   } else {
     switch (axis) {
+      case AXIS_PRIMARY:
       case AXIS_TOUCHPAD:
         value[0] = (data->trackpad.x - 160) / 160.f;
         value[1] = (data->trackpad.y - 160) / 160.f;
@@ -446,8 +442,6 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
 void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   // Unpack update data
   bridgeLovrMobileData.updateData = *updateData;
-
-//  for(int c = 0; c < updateData->controllerCount; c++) lovrLog("%d: d %x t %x\n", c, (uint32_t)updateData->controllers[c].buttonDown, (uint32_t)updateData->controllers[c].buttonTouch);
 
   if (pauseState == PAUSESTATE_BUG) { // Bad frame-- replace bad time with last known good oculus time
     bridgeLovrMobileData.updateData.displayTime = lastPauseAtRaw;

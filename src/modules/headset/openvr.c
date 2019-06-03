@@ -95,18 +95,8 @@ static struct {
 static TrackedDeviceIndex_t getDeviceIndex(Device device) {
   switch (device) {
     case DEVICE_HEAD: return HEADSET;
-    case DEVICE_HAND: return INVALID_DEVICE;
     case DEVICE_HAND_LEFT: return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_LeftHand);
     case DEVICE_HAND_RIGHT: return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
-    case DEVICE_TRACKER_1:
-    case DEVICE_TRACKER_2:
-    case DEVICE_TRACKER_3:
-    case DEVICE_TRACKER_4: {
-      TrackedDeviceIndex_t trackers[4];
-      uint32_t trackerCount = state.system->GetSortedTrackedDeviceIndicesOfClass(ETrackedDeviceClass_TrackedDeviceClass_GenericTracker, trackers, 4, 0);
-      uint32_t i = device - DEVICE_TRACKER_1;
-      return i < trackerCount ? trackers[i] : INVALID_DEVICE;
-    }
     default: return INVALID_DEVICE;
   }
 }
