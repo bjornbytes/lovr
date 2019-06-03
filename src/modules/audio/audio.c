@@ -179,8 +179,8 @@ void lovrAudioSetDopplerEffect(float factor, float speedOfSound) {
 void lovrAudioSetOrientation(quat orientation) {
 
   // Rotate the unit forward/up vectors by the quaternion derived from the specified angle/axis
-  float f[3] = { 0.f, 0.f, -1.f };
-  float u[3] = { 0.f, 1.f,  0.f };
+  float f[4] = { 0.f, 0.f, -1.f };
+  float u[4] = { 0.f, 1.f,  0.f };
   quat_init(state.orientation, orientation);
   quat_rotate(state.orientation, f);
   quat_rotate(state.orientation, u);

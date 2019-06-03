@@ -961,7 +961,7 @@ void lovrGraphicsCircle(DrawStyle style, Material* material, mat4 transform, int
 }
 
 void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2, bool capped, int segments) {
-  float length = vec3_length((float[3]) { transform[8], transform[9], transform[10] });
+  float length = vec3_length((float[4]) { transform[8], transform[9], transform[10] });
   r1 /= length;
   r2 /= length;
 

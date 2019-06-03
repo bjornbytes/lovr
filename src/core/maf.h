@@ -27,24 +27,29 @@ MAF vec3 vec3_set(vec3 v, float x, float y, float z) {
 }
 
 MAF vec3 vec3_init(vec3 v, const vec3 u) {
-  float x = u[0], y = u[1], z = u[2];
+  float x = u[0], y = u[1], z = u[2], w = u[3];
   v[0] = x;
   v[1] = y;
   v[2] = z;
+  v[3] = w;
   return v;
 }
 
 MAF vec3 vec3_add(vec3 v, const vec3 u) {
-  v[0] += u[0];
-  v[1] += u[1];
-  v[2] += u[2];
+  float x = v[0] + u[0], y = v[1] + u[1], z = v[2] + u[2], w = v[3] + u[3];
+  v[0] = x;
+  v[1] = y;
+  v[2] = z;
+  v[3] = w;
   return v;
 }
 
 MAF vec3 vec3_sub(vec3 v, const vec3 u) {
-  v[0] -= u[0];
-  v[1] -= u[1];
-  v[2] -= u[2];
+  float x = v[0] - u[0], y = v[1] - u[1], z = v[2] - u[2], w = v[3] - u[3];
+  v[0] = x;
+  v[1] = y;
+  v[2] = z;
+  v[3] = w;
   return v;
 }
 
@@ -52,6 +57,7 @@ MAF vec3 vec3_scale(vec3 v, float s) {
   v[0] *= s;
   v[1] *= s;
   v[2] *= s;
+  v[3] *= s;
   return v;
 }
 
@@ -84,23 +90,38 @@ MAF vec3 vec3_cross(vec3 v, const vec3 u) {
 }
 
 MAF vec3 vec3_lerp(vec3 v, const vec3 u, float t) {
-  v[0] = v[0] + (u[0] - v[0]) * t;
-  v[1] = v[1] + (u[1] - v[1]) * t;
-  v[2] = v[2] + (u[2] - v[2]) * t;
+  float x = v[0] + (u[0] - v[0]) * t;
+  float y = v[1] + (u[1] - v[1]) * t;
+  float z = v[2] + (u[2] - v[2]) * t;
+  float w = v[3] + (u[3] - v[3]) * t;
+  v[0] = x;
+  v[1] = y;
+  v[2] = z;
+  v[3] = w;
   return v;
 }
 
 MAF vec3 vec3_min(vec3 v, const vec3 u) {
-  v[0] = MIN(v[0], u[0]);
-  v[1] = MIN(v[1], u[1]);
-  v[2] = MIN(v[2], u[2]);
+  float x = MIN(v[0], u[0]);
+  float y = MIN(v[1], u[1]);
+  float z = MIN(v[2], u[2]);
+  float w = MIN(v[3], u[3]);
+  v[0] = x;
+  v[1] = y;
+  v[2] = z;
+  v[3] = w;
   return v;
 }
 
 MAF vec3 vec3_max(vec3 v, const vec3 u) {
-  v[0] = MAX(v[0], u[0]);
-  v[1] = MAX(v[1], u[1]);
-  v[2] = MAX(v[2], u[2]);
+  float x = MAX(v[0], u[0]);
+  float y = MAX(v[1], u[1]);
+  float z = MAX(v[2], u[2]);
+  float w = MAX(v[3], u[3]);
+  v[0] = x;
+  v[1] = y;
+  v[2] = z;
+  v[3] = w;
   return v;
 }
 

@@ -299,7 +299,7 @@ local quat = {
       if istype(vec3_t, y) then
         C.quat_between(q, x, y)
       else
-        local forward = new('float[3]', 0, 0, -1)
+        local forward = new('float[4]', 0, 0, -1)
         C.quat_between(forward, x)
       end
     elseif istype(quat_t, x) then

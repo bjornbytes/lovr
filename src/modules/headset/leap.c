@@ -95,11 +95,11 @@ static bool leap_getPose(Device device, vec3 position, quat orientation) {
     return false;
   }
 
-  float direction[3];
+  float direction[4];
   vec3_init(position, hand->palm.position.v);
   vec3_init(direction, hand->palm.normal.v);
   adjustPose(position, direction);
-  quat_between(orientation, (float[3]) { 0.f, 0.f, -1.f }, direction);
+  quat_between(orientation, (float[4]) { 0.f, 0.f, -1.f }, direction);
   return true;
 }
 
@@ -118,7 +118,7 @@ static bool leap_getBonePose(Device device, DeviceBone bone, vec3 position, quat
 
   // Assumes that enum values for non-tip bones are grouped by finger, and start after BONE_PINKY,
   // could be less clever and use a switch if needed
-  float direction[3];
+  float direction[4];
   if (bone <= BONE_PINKY) {
     LEAP_DIGIT* finger = &hand->digits[bone];
     vec3 base = finger->distal.prev_joint.v;
@@ -136,7 +136,7 @@ static bool leap_getBonePose(Device device, DeviceBone bone, vec3 position, quat
   }
 
   adjustPose(position, direction);
-  quat_between(orientation, (float[3]) { 0.f, 0.f, -1.f }, direction);
+  quat_between(orientation, (float[4]) { 0.f, 0.f, -1.f }, direction);
   return true;
 }
 
@@ -233,7 +233,7 @@ static void leap_update(float dt) {
       }
     }
 
-    float position[3], orientation[4];
+    float position[4], orientation[4];
     if (lovrHeadsetDriver && lovrHeadsetDriver->getPose(DEVICE_HEAD, position, orientation)) {
       mat4 m = state.headPose;
       mat4_identity(m);

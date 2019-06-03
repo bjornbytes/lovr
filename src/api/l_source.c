@@ -69,7 +69,7 @@ static int l_lovrSourceGetPitch(lua_State* L) {
 }
 
 static int l_lovrSourceGetPose(lua_State* L) {
-  float position[3], orientation[4], angle, ax, ay, az;
+  float position[4], orientation[4], angle, ax, ay, az;
   Source* source = luax_checktype(L, 1, Source);
   lovrSourceGetPosition(source, position);
   lovrSourceGetOrientation(source, orientation);
@@ -85,7 +85,7 @@ static int l_lovrSourceGetPose(lua_State* L) {
 }
 
 static int l_lovrSourceGetPosition(lua_State* L) {
-  float position[3];
+  float position[4];
   lovrSourceGetPosition(luax_checktype(L, 1, Source), position);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
@@ -106,7 +106,7 @@ static int l_lovrSourceGetType(lua_State* L) {
 }
 
 static int l_lovrSourceGetVelocity(lua_State* L) {
-  float velocity[3];
+  float velocity[4];
   lovrSourceGetVelocity(luax_checktype(L, 1, Source), velocity);
   lua_pushnumber(L, velocity[0]);
   lua_pushnumber(L, velocity[1]);
@@ -228,7 +228,7 @@ static int l_lovrSourceSetPitch(lua_State* L) {
 }
 
 static int l_lovrSourceSetPose(lua_State* L) {
-  float position[3], orientation[4];
+  float position[4], orientation[4];
   int index = 2;
   Source* source = luax_checktype(L, 1, Source);
   index = luax_readvec3(L, index, position, NULL);
@@ -240,7 +240,7 @@ static int l_lovrSourceSetPose(lua_State* L) {
 
 static int l_lovrSourceSetPosition(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float position[3];
+  float position[4];
   luax_readvec3(L, 2, position, NULL);
   lovrSourceSetPosition(source, position);
   return 0;
@@ -255,7 +255,7 @@ static int l_lovrSourceSetRelative(lua_State* L) {
 
 static int l_lovrSourceSetVelocity(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float velocity[3];
+  float velocity[4];
   luax_readvec3(L, 2, velocity, NULL);
   lovrSourceSetVelocity(source, velocity);
   return 0;

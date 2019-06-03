@@ -658,7 +658,7 @@ static int l_lovrGraphicsOrigin(lua_State* L) {
 }
 
 static int l_lovrGraphicsTranslate(lua_State* L) {
-  float translation[3];
+  float translation[4];
   luax_readvec3(L, 1, translation, NULL);
   lovrGraphicsTranslate(translation);
   return 0;
@@ -672,7 +672,7 @@ static int l_lovrGraphicsRotate(lua_State* L) {
 }
 
 static int l_lovrGraphicsScale(lua_State* L) {
-  float scale[3];
+  float scale[4];
   luax_readscale(L, 1, scale, 3, NULL);
   lovrGraphicsScale(scale);
   return 0;

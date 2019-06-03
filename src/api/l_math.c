@@ -96,7 +96,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
       lua_rawgeti(L, 1, i + 0);
       lua_rawgeti(L, 1, i + 1);
       lua_rawgeti(L, 1, i + 2);
-      float point[3];
+      float point[4];
       int components = luax_readvec3(L, -3, point, "vec3 or number");
       lovrCurveAddPoint(curve, point, pointIndex++);
       i += 3 + components;
@@ -105,7 +105,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
   } else {
     int pointIndex = 0;
     for (int i = 1; i <= top;) {
-      float point[3];
+      float point[4];
       i = luax_readvec3(L, i, point, "vec3, number, or table");
       lovrCurveAddPoint(curve, point, pointIndex++);
     }
@@ -136,9 +136,9 @@ static int l_lovrMathNewRandomGenerator(lua_State* L) {
 }
 
 static int l_lovrMathLookAt(lua_State* L) {
-  float from[3] = { luax_checkfloat(L, 1), luax_checkfloat(L, 2), luax_checkfloat(L, 3) };
-  float to[3] = { luax_checkfloat(L, 4), luax_checkfloat(L, 5), luax_checkfloat(L, 6) };
-  float up[3] = { luax_optfloat(L, 7, 0.f), luax_optfloat(L, 8, 1.f), luax_optfloat(L, 9, 0.f) };
+  float from[4] = { luax_checkfloat(L, 1), luax_checkfloat(L, 2), luax_checkfloat(L, 3) };
+  float to[4] = { luax_checkfloat(L, 4), luax_checkfloat(L, 5), luax_checkfloat(L, 6) };
+  float up[4] = { luax_optfloat(L, 7, 0.f), luax_optfloat(L, 8, 1.f), luax_optfloat(L, 9, 0.f) };
   float m[16], q[4], angle, ax, ay, az;
   mat4_lookAt(m, from, to, up);
   quat_fromMat4(q, m);
@@ -155,7 +155,7 @@ static int l_lovrMathOrientationToDirection(lua_State* L) {
   float ax = luax_optfloat(L, 2, 0.f);
   float ay = luax_optfloat(L, 3, 1.f);
   float az = luax_optfloat(L, 4, 0.f);
-  float v[3];
+  float v[4];
   lovrMathOrientationToDirection(angle, ax, ay, az, v);
   lua_pushnumber(L, v[0]);
   lua_pushnumber(L, v[1]);

@@ -87,7 +87,7 @@ uint32_t lovrSourceGetChannelCount(Source* source) {
 }
 
 void lovrSourceGetOrientation(Source* source, quat orientation) {
-  float v[3], forward[3] = { 0.f, 0.f, -1.f };
+  float v[4], forward[4] = { 0.f, 0.f, -1.f };
   alGetSourcefv(source->id, AL_DIRECTION, v);
   quat_between(orientation, forward, v);
 }
@@ -217,7 +217,7 @@ void lovrSourceSetCone(Source* source, float innerAngle, float outerAngle, float
 }
 
 void lovrSourceSetOrientation(Source* source, quat orientation) {
-  float v[3] = { 0.f, 0.f, -1.f };
+  float v[4] = { 0.f, 0.f, -1.f };
   quat_rotate(orientation, v);
   alSource3f(source->id, AL_DIRECTION, v[0], v[1], v[2]);
 }

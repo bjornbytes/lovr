@@ -243,7 +243,7 @@ static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
 
 int l_lovrHeadsetGetPose(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float position[3], orientation[4];
+  float position[4], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getPose(device, position, orientation)) {
       float angle, ax, ay, az;
@@ -263,7 +263,7 @@ int l_lovrHeadsetGetPose(lua_State* L) {
 
 int l_lovrHeadsetGetPosition(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float position[3], orientation[4];
+  float position[4], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getPose(device, position, orientation)) {
       lua_pushnumber(L, position[0]);
@@ -277,7 +277,7 @@ int l_lovrHeadsetGetPosition(lua_State* L) {
 
 int l_lovrHeadsetGetOrientation(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float position[3], orientation[4];
+  float position[4], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getPose(device, position, orientation)) {
       float angle, ax, ay, az;
@@ -294,10 +294,10 @@ int l_lovrHeadsetGetOrientation(lua_State* L) {
 
 int l_lovrHeadsetGetDirection(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float position[3], orientation[4];
+  float position[4], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getPose(device, position, orientation)) {
-      float v[3] = { 0.f, 0.f, -1.f };
+      float v[4] = { 0.f, 0.f, -1.f };
       quat_rotate(orientation, v);
       lua_pushnumber(L, v[0]);
       lua_pushnumber(L, v[1]);
@@ -311,7 +311,7 @@ int l_lovrHeadsetGetDirection(lua_State* L) {
 int l_lovrHeadsetGetBonePose(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceBone bone = luaL_checkoption(L, 2, NULL, DeviceBones);
-  float position[3], orientation[4];
+  float position[4], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getBonePose(device, bone, position, orientation)) {
       float angle, ax, ay, az;
@@ -331,7 +331,7 @@ int l_lovrHeadsetGetBonePose(lua_State* L) {
 
 int l_lovrHeadsetGetVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float velocity[3], angularVelocity[3];
+  float velocity[4], angularVelocity[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getVelocity(device, velocity, angularVelocity)) {
       lua_pushnumber(L, velocity[0]);
@@ -345,7 +345,7 @@ int l_lovrHeadsetGetVelocity(lua_State* L) {
 
 int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float velocity[3], angularVelocity[3];
+  float velocity[4], angularVelocity[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getVelocity(device, velocity, angularVelocity)) {
       lua_pushnumber(L, angularVelocity[0]);
@@ -359,7 +359,7 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 
 int l_lovrHeadsetGetAcceleration(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float acceleration[3], angularAcceleration[3];
+  float acceleration[4], angularAcceleration[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getAcceleration(device, acceleration, angularAcceleration)) {
       lua_pushnumber(L, acceleration[0]);
@@ -373,7 +373,7 @@ int l_lovrHeadsetGetAcceleration(lua_State* L) {
 
 int l_lovrHeadsetGetAngularAcceleration(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float acceleration[3], angularAcceleration[3];
+  float acceleration[4], angularAcceleration[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getAcceleration(device, acceleration, angularAcceleration)) {
       lua_pushnumber(L, angularAcceleration[0]);
@@ -414,7 +414,7 @@ int l_lovrHeadsetIsTouched(lua_State* L) {
 int l_lovrHeadsetGetAxis(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceAxis axis = luaL_checkoption(L, 2, NULL, DeviceAxes);
-  float value[3];
+  float value[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getAxis(device, axis, value)) {
       switch (axis) {
@@ -543,7 +543,7 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
 static int handIterator(lua_State* L) {
   Device hands[] = { DEVICE_HAND_LEFT, DEVICE_HAND_RIGHT };
   size_t index = lua_tointeger(L, lua_upvalueindex(1));
-  float position[3], orientation[4];
+  float position[4], orientation[4];
 
   while (index < 2) {
     FOREACH_TRACKING_DRIVER(driver) {

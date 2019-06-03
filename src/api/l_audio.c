@@ -68,7 +68,7 @@ static int l_lovrAudioGetOrientation(lua_State* L) {
 }
 
 static int l_lovrAudioGetPose(lua_State* L) {
-  float position[3], orientation[4], angle, ax, ay, az;
+  float position[4], orientation[4], angle, ax, ay, az;
   lovrAudioGetPosition(position);
   lovrAudioGetOrientation(orientation);
   quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
@@ -83,7 +83,7 @@ static int l_lovrAudioGetPose(lua_State* L) {
 }
 
 static int l_lovrAudioGetPosition(lua_State* L) {
-  float position[3];
+  float position[4];
   lovrAudioGetPosition(position);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
@@ -92,7 +92,7 @@ static int l_lovrAudioGetPosition(lua_State* L) {
 }
 
 static int l_lovrAudioGetVelocity(lua_State* L) {
-  float velocity[3];
+  float velocity[4];
   lovrAudioGetVelocity(velocity);
   lua_pushnumber(L, velocity[0]);
   lua_pushnumber(L, velocity[1]);
@@ -192,7 +192,7 @@ static int l_lovrAudioSetOrientation(lua_State* L) {
 }
 
 static int l_lovrAudioSetPose(lua_State* L) {
-  float position[3], orientation[4];
+  float position[4], orientation[4];
   int index = 1;
   index = luax_readvec3(L, index, position, NULL);
   index = luax_readquat(L, index, orientation, NULL);
@@ -202,14 +202,14 @@ static int l_lovrAudioSetPose(lua_State* L) {
 }
 
 static int l_lovrAudioSetPosition(lua_State* L) {
-  float position[3];
+  float position[4];
   luax_readvec3(L, 1, position, NULL);
   lovrAudioSetPosition(position);
   return 0;
 }
 
 static int l_lovrAudioSetVelocity(lua_State* L) {
-  float velocity[3];
+  float velocity[4];
   luax_readvec3(L, 1, velocity, NULL);
   lovrAudioSetVelocity(velocity);
   return 0;

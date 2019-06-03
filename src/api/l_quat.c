@@ -71,7 +71,7 @@ int l_lovrQuatSet(lua_State* L) {
         vec3 u = luax_checkmathtype(L, 3, MATH_VEC3, "vec3");
         quat_between(q, p, u);
       } else {
-        quat_between(q, (float[3]) { 0.f, 0.f, -1.f }, p);
+        quat_between(q, (float[4]) { 0.f, 0.f, -1.f }, p);
       }
     } else if (type == MATH_QUAT) {
       quat_init(q, p);

@@ -22,7 +22,7 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
     } // Fall through
 
     case LUA_TNUMBER: {
-      float S[3];
+      float S[4];
       float R[4];
       mat4_identity(m);
       index = luax_readvec3(L, index, m + 12, "mat4, vec3, or number");
@@ -44,7 +44,7 @@ static int l_lovrMat4Unpack(lua_State* L) {
     return 16;
   } else {
     float angle, ax, ay, az;
-    float position[3], orientation[4], scale[3];
+    float position[4], orientation[4], scale[4];
     mat4_getPosition(m, position);
     mat4_getScale(m, scale);
     mat4_getOrientation(m, orientation);
@@ -150,7 +150,7 @@ static int l_lovrMat4Mul(lua_State* L) {
     float x = luaL_checknumber(L, 2);
     float y = luaL_optnumber(L, 3, 0.f);
     float z = luaL_optnumber(L, 4, 0.f);
-    float v[3] = { x, y, z };
+    float v[4] = { x, y, z };
     mat4_transform(m, v);
     lua_pushnumber(L, v[0]);
     lua_pushnumber(L, v[1]);
