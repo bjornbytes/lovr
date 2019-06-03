@@ -91,14 +91,8 @@ static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVeloci
     return false;
   }
 
-  if (velocity) {
-    vec3_init(velocity, state.velocity);
-  }
-
-  if (angularVelocity) {
-    vec3_init(angularVelocity, state.angularVelocity);
-  }
-
+  vec3_init(velocity, state.velocity);
+  vec3_init(angularVelocity, state.angularVelocity);
   return true;
 }
 

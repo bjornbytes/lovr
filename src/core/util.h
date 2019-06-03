@@ -14,11 +14,13 @@
 #define LOVR_NORETURN  __declspec(noreturn)
 #define LOVR_THREAD_LOCAL  __declspec(thread)
 #define LOVR_ALIGN(n) __declspec(align(n))
+#define LOVR_INLINE __inline
 #else
 #define LOVR_EXPORT __attribute__((visibility("default")))
 #define LOVR_NORETURN __attribute__((noreturn))
 #define LOVR_THREAD_LOCAL __thread
 #define LOVR_ALIGN(n) __attribute__((aligned(n)))
+#define LOVR_INLINE inline
 #endif
 
 #define MAX(a, b) (a > b ? a : b)

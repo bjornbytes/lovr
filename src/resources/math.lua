@@ -32,7 +32,7 @@ ffi.cdef [[
   quat* lovrPoolAllocateQuat(Pool* pool);
   mat4* lovrPoolAllocateMat4(Pool* pool);
 
-  // Careful, the declarations below are using the structs above, not the usual C types in lib/maf.h
+  // Careful, the declarations below are using the structs above, not the usual C types in core/maf.h
 
   vec3* vec3_normalize(vec3* v);
   float vec3_length(vec3* v);
@@ -173,8 +173,7 @@ local vec3 = {
 
   normalize = function(v)
     checkvec3(v)
-    C.vec3_normalize(v)
-    return v
+    return C.vec3_normalize(v)
   end,
 
   distance = function(v, u)
@@ -192,15 +191,13 @@ local vec3 = {
   cross = function(v, u)
     checkvec3(v)
     checkvec3(u, 1)
-    C.vec3_cross(v, u)
-    return v
+    return C.vec3_cross(v, u)
   end,
 
   lerp = function(v, u, t)
     checkvec3(v)
     checkvec3(u, 1)
-    C.vec3_lerp(v, u, t)
-    return v
+    return C.vec3_lerp(v, u, t)
   end,
 
   min = function(v, u, t)
