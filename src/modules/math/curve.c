@@ -4,7 +4,7 @@
 #include <math.h>
 
 // Explicit curve evaluation, unroll simple cases to avoid pow overhead
-static void evaluate(float* restrict P, int n, float t, vec3 p) {
+static void evaluate(float* P, int n, float t, vec3 p) {
   if (n == 2) {
     p[0] = P[0] + (P[4] - P[0]) * t;
     p[1] = P[1] + (P[5] - P[1]) * t;
