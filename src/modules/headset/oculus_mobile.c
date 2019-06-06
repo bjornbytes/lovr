@@ -364,7 +364,7 @@ static void bridgeLovrInitState() {
   luaL_openlibs(L);
   lovrLog("\n OPENED LIB\n");
 
-  lovrSetErrorCallback((lovrErrorHandler) android_vthrow, L);
+  lovrSetErrorCallback((errorFn*) android_vthrow, L);
 
   // Install custom print
   lua_pushcfunction(L, luax_print);
