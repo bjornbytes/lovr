@@ -2,6 +2,7 @@
 #include "resources/actions.json.h"
 #include "resources/bindings_vive.json.h"
 #include "resources/bindings_knuckles.json.h"
+#include "resources/bindings_touch.json.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
@@ -131,6 +132,7 @@ static bool openvr_init(float offset, uint32_t msaa) {
     if (lovrFilesystemWrite("actions.json", (const char*) actions_json, actions_json_len, false) != actions_json_len) { return VR_ShutdownInternal(), false; }
     if (lovrFilesystemWrite("bindings_vive.json", (const char*) bindings_vive_json, bindings_vive_json_len, false) != bindings_vive_json_len) { return VR_ShutdownInternal(), false; }
     if (lovrFilesystemWrite("bindings_knuckles.json", (const char*) bindings_knuckles_json, bindings_knuckles_json_len, false) != bindings_knuckles_json_len) { return VR_ShutdownInternal(), false; }
+    if (lovrFilesystemWrite("bindings_touch.json", (const char*) bindings_touch_json, bindings_touch_json_len, false) != bindings_touch_json_len) { return VR_ShutdownInternal(), false; }
   }
 
   char path[LOVR_PATH_MAX];
