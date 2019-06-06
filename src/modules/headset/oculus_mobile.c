@@ -462,6 +462,8 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   luax_clearerror(T);
   if (lua_resume(T, 1) != LUA_YIELD) {
     if (lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart")) {
+      state.renderCallback = NULL;
+      state.renderUserdata = NULL;
       lua_close(L);
       bridgeLovrInitState();
     } else {
