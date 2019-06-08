@@ -31,10 +31,11 @@ static int l_lovrColliderRemoveShape(lua_State* L) {
 
 static int l_lovrColliderGetShapes(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  lua_newtable(L);
-  vec_void_t* shapes = lovrColliderGetShapes(collider);
-  for (int i = 0; i < shapes->length; i++) {
-    luax_pushshape(L, shapes->data[i]);
+  size_t count;
+  Shape** shapes = lovrColliderGetShapes(collider, &count);
+  lua_createtable(L, count, 0);
+  for (size_t i = 0; i < count; i++) {
+    luax_pushshape(L, shapes[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
@@ -42,10 +43,11 @@ static int l_lovrColliderGetShapes(lua_State* L) {
 
 static int l_lovrColliderGetJoints(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  lua_newtable(L);
-  vec_void_t* joints = lovrColliderGetJoints(collider);
-  for (int i = 0; i < joints->length; i++) {
-    luax_pushjoint(L, joints->data[i]);
+  size_t count;
+  Joint** joints = lovrColliderGetJoints(collider, &count);
+  lua_createtable(L, count, 0);
+  for (size_t i = 0; i < count; i++) {
+    luax_pushjoint(L, joints[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;

@@ -31,13 +31,12 @@ const char lovrDirSep = '/';
 
 static struct {
   bool initialized;
+  bool fused;
   char* source;
   const char* identity;
   char* savePathRelative;
   char* savePathFull;
-  bool isFused;
-  char* requirePath[2];
-  vec_str_t requirePattern[2];
+  char requirePath[2][1024];
 } state;
 
 bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* argRoot) {
@@ -52,16 +51,14 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   state.source = malloc(LOVR_PATH_MAX * sizeof(char));
   lovrAssert(state.source, "Out of memory");
   state.identity = NULL;
-  state.isFused = true;
-  vec_init(&state.requirePattern[0]);
-  vec_init(&state.requirePattern[1]);
+  state.fused = true;
   lovrFilesystemSetRequirePath("?.lua;?/init.lua;lua_modules/?.lua;lua_modules/?/init.lua;deps/?.lua;deps/?/init.lua");
   lovrFilesystemSetCRequirePath("??;lua_modules/??;deps/??");
 
   // Try to mount either an archive fused to the executable or an archive from the command line
   lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
   if (!lovrFilesystemMount(state.source, NULL, 1, argRoot)) { // Attempt to load fused. If that fails...
-    state.isFused = false;
+    state.fused = false;
 
     if (argGame) {
       strncpy(state.source, argGame, LOVR_PATH_MAX);
@@ -82,10 +79,6 @@ void lovrFilesystemDestroy() {
   free(state.source);
   free(state.savePathFull);
   free(state.savePathRelative);
-  for (int i = 0; i < 2; i++) {
-    free(state.requirePath[i]);
-    vec_deinit(&state.requirePattern[i]);
-  }
   PHYSFS_deinit();
   memset(&state, 0, sizeof(state));
 }
@@ -151,12 +144,12 @@ const char* lovrFilesystemGetRealDirectory(const char* path) {
   return PHYSFS_getRealDir(path);
 }
 
-vec_str_t* lovrFilesystemGetRequirePath() {
-  return &state.requirePattern[0];
+const char* lovrFilesystemGetRequirePath() {
+  return state.requirePath[0];
 }
 
-vec_str_t* lovrFilesystemGetCRequirePath() {
-  return &state.requirePattern[1];
+const char* lovrFilesystemGetCRequirePath() {
+  return state.requirePath[1];
 }
 
 const char* lovrFilesystemGetSaveDirectory() {
@@ -213,7 +206,7 @@ bool lovrFilesystemIsFile(const char* path) {
 }
 
 bool lovrFilesystemIsFused() {
-  return state.isFused;
+  return state.fused;
 }
 
 // Returns zero on success, nonzero on failure
@@ -227,7 +220,7 @@ bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, 
 
 void* lovrFilesystemRead(const char* path, size_t bytes, size_t* bytesRead) {
   File file;
-  lovrFileInit(memset(&file, 0, sizeof(File)), path);
+  lovrFileInit(&file, path);
 
   if (!lovrFileOpen(&file, OPEN_READ)) {
     return NULL;
@@ -293,30 +286,12 @@ bool lovrFilesystemSetIdentity(const char* identity) {
   return PHYSFS_mount(state.savePathFull, NULL, 0);
 }
 
-static void setRequirePath(int i, const char* requirePath) {
-  if (state.requirePath[i]) {
-    free(state.requirePath[i]);
-    vec_clear(&state.requirePattern[i]);
-  }
-
-  char* p = state.requirePath[i] = strdup(requirePath);
-
-  while (1) {
-    vec_push(&state.requirePattern[i], p);
-    if ((p = strchr(p, ';')) != NULL) {
-      *p++ = '\0';
-    } else {
-      break;
-    }
-  }
-}
-
 void lovrFilesystemSetRequirePath(const char* requirePath) {
-  setRequirePath(0, requirePath);
+  strncpy(state.requirePath[0], requirePath, sizeof(state.requirePath[0]) - 1);
 }
 
 void lovrFilesystemSetCRequirePath(const char* requirePath) {
-  setRequirePath(1, requirePath);
+  strncpy(state.requirePath[1], requirePath, sizeof(state.requirePath[1]) - 1);
 }
 
 bool lovrFilesystemUnmount(const char* path) {

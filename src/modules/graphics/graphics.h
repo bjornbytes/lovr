@@ -1,5 +1,6 @@
 #include "graphics/font.h"
 #include "graphics/shader.h"
+#include "core/arr.h"
 #include "core/maf.h"
 #include "util.h"
 #include "platform.h"
@@ -307,7 +308,7 @@ typedef struct {
 typedef struct {
   int shaderSwitches;
   int drawCalls;
-  vec_t(GpuTimer) timers;
+  arr_t(GpuTimer, 4) timers;
 } GpuStats;
 
 typedef struct {

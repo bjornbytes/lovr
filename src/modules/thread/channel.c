@@ -5,7 +5,7 @@
 #include <math.h>
 
 Channel* lovrChannelInit(Channel* channel) {
-  vec_init(&channel->messages);
+  arr_init(&channel->messages);
   mtx_init(&channel->lock, mtx_plain | mtx_timed);
   cnd_init(&channel->cond);
   return channel;
@@ -14,7 +14,7 @@ Channel* lovrChannelInit(Channel* channel) {
 void lovrChannelDestroy(void* ref) {
   Channel* channel = ref;
   lovrChannelClear(channel);
-  vec_deinit(&channel->messages);
+  arr_free(&channel->messages);
   mtx_destroy(&channel->lock);
   cnd_destroy(&channel->cond);
 }
@@ -24,7 +24,7 @@ bool lovrChannelPush(Channel* channel, Variant variant, double timeout, uint64_t
   if (channel->messages.length == 0) {
     lovrRetain(channel);
   }
-  vec_insert(&channel->messages, 0, variant);
+  arr_push(&channel->messages, variant);
   *id = ++channel->sent;
   cnd_broadcast(&channel->cond);
 
@@ -47,7 +47,7 @@ bool lovrChannelPush(Channel* channel, Variant variant, double timeout, uint64_t
       until.tv_nsec = start.tv_nsec + fraction * 1e9;
       cnd_timedwait(&channel->cond, &channel->lock, &until);
       timespec_get(&stop, TIME_UTC);
-      timeout -= (stop.tv_sec - start.tv_sec) + (stop.tv_nsec - start.tv_nsec) / (double) 1e9;
+      timeout -= (stop.tv_sec - start.tv_sec) + (stop.tv_nsec - start.tv_nsec) / 1e9;
     }
   }
 
@@ -60,9 +60,10 @@ bool lovrChannelPop(Channel* channel, Variant* variant, double timeout) {
   mtx_lock(&channel->lock);
 
   do {
-    if (channel->messages.length > 0) {
-      *variant = vec_pop(&channel->messages);
-      if (channel->messages.length == 0) {
+    if (channel->head < channel->messages.length) {
+      *variant = channel->messages.data[channel->head++];
+      if (channel->head == channel->messages.length) {
+        channel->head = channel->messages.length = 0;
         lovrRelease(Channel, channel);
       }
       channel->received++;
@@ -89,14 +90,14 @@ bool lovrChannelPop(Channel* channel, Variant* variant, double timeout) {
       timespec_get(&stop, TIME_UTC);
       timeout -= (stop.tv_sec - start.tv_sec) + (stop.tv_nsec - start.tv_nsec) / (double) 1e9;
     }
-  } while (true);
+  } while (1);
 }
 
 bool lovrChannelPeek(Channel* channel, Variant* variant) {
   mtx_lock(&channel->lock);
 
-  if (channel->messages.length > 0) {
-    *variant = vec_last(&channel->messages);
+  if (channel->head < channel->messages.length) {
+    *variant = channel->messages.data[channel->head];
     mtx_unlock(&channel->lock);
     return true;
   }
@@ -107,18 +108,19 @@ bool lovrChannelPeek(Channel* channel, Variant* variant) {
 
 void lovrChannelClear(Channel* channel) {
   mtx_lock(&channel->lock);
-  for (int i = 0; i < channel->messages.length; i++) {
+  for (size_t i = channel->head; i < channel->messages.length; i++) {
     lovrVariantDestroy(&channel->messages.data[i]);
   }
   channel->received = channel->sent;
-  vec_clear(&channel->messages);
+  arr_clear(&channel->messages);
+  channel->head = 0;
   cnd_broadcast(&channel->cond);
   mtx_unlock(&channel->lock);
 }
 
 uint64_t lovrChannelGetCount(Channel* channel) {
   mtx_lock(&channel->lock);
-  uint64_t length = channel->messages.length;
+  uint64_t length = channel->messages.length - channel->head;
   mtx_unlock(&channel->lock);
   return length;
 }

@@ -1,5 +1,5 @@
+#include "core/arr.h"
 #include "lib/map/map.h"
-#include "lib/vec/vec.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -16,12 +16,10 @@ typedef struct {
   bool looping;
 } Track;
 
-typedef vec_t(Track) vec_track_t;
-
 typedef struct Animator {
   struct ModelData* data;
   map_t(uint32_t) animations;
-  vec_track_t tracks;
+  arr_t(Track, 1) tracks;
   float speed;
 } Animator;
 

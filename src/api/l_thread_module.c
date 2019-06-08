@@ -5,6 +5,7 @@
 #include "thread/channel.h"
 #include "core/ref.h"
 #include <stdlib.h>
+#include <string.h>
 
 static int threadRunner(void* data) {
   Thread* thread = (Thread*) data;

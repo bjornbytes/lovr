@@ -7,6 +7,7 @@
 #include "lib/stb/stb_truetype.h"
 #include <msdfgen-c.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 Rasterizer* lovrRasterizerInit(Rasterizer* rasterizer, Blob* blob, float size) {

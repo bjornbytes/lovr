@@ -1,10 +1,10 @@
 #include "audio/audio.h"
 #include "audio/source.h"
 #include "data/audioStream.h"
+#include "core/arr.h"
 #include "core/maf.h"
 #include "core/ref.h"
 #include "util.h"
-#include "lib/vec/vec.h"
 #include <stdlib.h>
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -15,10 +15,10 @@ static struct {
   bool spatialized;
   ALCdevice* device;
   ALCcontext* context;
-  vec_void_t sources;
   float LOVR_ALIGN(16) orientation[4];
   float LOVR_ALIGN(16) position[4];
   float LOVR_ALIGN(16) velocity[4];
+  arr_t(Source*, 32) sources;
 } state;
 
 ALenum lovrAudioConvertFormat(uint32_t bitDepth, uint32_t channelCount) {
@@ -58,7 +58,7 @@ bool lovrAudioInit() {
 
   state.device = device;
   state.context = context;
-  vec_init(&state.sources);
+  arr_init(&state.sources);
   return state.initialized = true;
 }
 
@@ -67,16 +67,17 @@ void lovrAudioDestroy() {
   alcMakeContextCurrent(NULL);
   alcDestroyContext(state.context);
   alcCloseDevice(state.device);
-  for (int i = 0; i < state.sources.length; i++) {
+  for (size_t i = 0; i < state.sources.length; i++) {
     lovrRelease(Source, state.sources.data[i]);
   }
-  vec_deinit(&state.sources);
+  arr_free(&state.sources);
   memset(&state, 0, sizeof(state));
 }
 
 void lovrAudioUpdate() {
-  int i; Source* source;
-  vec_foreach_rev(&state.sources, source, i) {
+  for (size_t i = state.sources.length; i-- > 0;) {
+    Source* source = state.sources.data[i];
+
     if (lovrSourceGetType(source) == SOURCE_STATIC) {
       continue;
     }
@@ -95,7 +96,7 @@ void lovrAudioUpdate() {
       }
     } else if (isStopped) {
       lovrAudioStreamRewind(lovrSourceGetStream(source));
-      vec_splice(&state.sources, i, 1);
+      arr_splice(&state.sources, i, 1);
       lovrRelease(Source, source);
     }
   }
@@ -104,7 +105,7 @@ void lovrAudioUpdate() {
 void lovrAudioAdd(Source* source) {
   if (!lovrAudioHas(source)) {
     lovrRetain(source);
-    vec_push(&state.sources, source);
+    arr_push(&state.sources, source);
   }
 }
 
@@ -141,9 +142,13 @@ float lovrAudioGetVolume() {
 }
 
 bool lovrAudioHas(Source* source) {
-  int index;
-  vec_find(&state.sources, source, index);
-  return index >= 0;
+  for (size_t i = 0; i < state.sources.length; i++) {
+    if (state.sources.data[i] == source) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool lovrAudioIsSpatialized() {
@@ -151,23 +156,20 @@ bool lovrAudioIsSpatialized() {
 }
 
 void lovrAudioPause() {
-  int i; Source* source;
-  vec_foreach(&state.sources, source, i) {
-    lovrSourcePause(source);
+  for (size_t i = 0; i < state.sources.length; i++) {
+    lovrSourcePause(state.sources.data[i]);
   }
 }
 
 void lovrAudioResume() {
-  int i; Source* source;
-  vec_foreach(&state.sources, source, i) {
-    lovrSourceResume(source);
+  for (size_t i = 0; i < state.sources.length; i++) {
+    lovrSourceResume(state.sources.data[i]);
   }
 }
 
 void lovrAudioRewind() {
-  int i; Source* source;
-  vec_foreach(&state.sources, source, i) {
-    lovrSourceRewind(source);
+  for (size_t i = 0; i < state.sources.length; i++) {
+    lovrSourceRewind(state.sources.data[i]);
   }
 }
 
@@ -205,8 +207,7 @@ void lovrAudioSetVolume(float volume) {
 }
 
 void lovrAudioStop() {
-  int i; Source* source;
-  vec_foreach(&state.sources, source, i) {
-    lovrSourceStop(source);
+  for (size_t i = 0; i < state.sources.length; i++) {
+    lovrSourceStop(state.sources.data[i]);
   }
 }

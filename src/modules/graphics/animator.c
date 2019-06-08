@@ -13,12 +13,12 @@ Animator* lovrAnimatorInit(Animator* animator, ModelData* data) {
   lovrRetain(data);
   animator->data = data;
   map_init(&animator->animations);
-  vec_init(&animator->tracks);
-  vec_reserve(&animator->tracks, data->animationCount);
+  arr_init(&animator->tracks);
+  arr_reserve(&animator->tracks, data->animationCount);
   animator->speed = 1.f;
 
   for (uint32_t i = 0; i < data->animationCount; i++) {
-    vec_push(&animator->tracks, ((Track) {
+    arr_push(&animator->tracks, ((Track) {
       .time = 0.f,
       .speed = 1.f,
       .alpha = 1.f,
@@ -38,12 +38,12 @@ Animator* lovrAnimatorInit(Animator* animator, ModelData* data) {
 void lovrAnimatorDestroy(void* ref) {
   Animator* animator = ref;
   lovrRelease(ModelData, animator->data);
-  vec_deinit(&animator->tracks);
+  arr_free(&animator->tracks);
 }
 
 void lovrAnimatorReset(Animator* animator) {
-  Track* track; int i;
-  vec_foreach_ptr(&animator->tracks, track, i) {
+  for (size_t i = 0; i < animator->tracks.length; i++) {
+    Track* track = &animator->tracks.data[i];
     track->time = 0.f;
     track->speed = 1.f;
     track->playing = false;
@@ -53,8 +53,8 @@ void lovrAnimatorReset(Animator* animator) {
 }
 
 void lovrAnimatorUpdate(Animator* animator, float dt) {
-  Track* track; int i;
-  vec_foreach_ptr(&animator->tracks, track, i) {
+  for (size_t i = 0; i < animator->tracks.length; i++) {
+    Track* track = &animator->tracks.data[i];
     if (track->playing) {
       track->time += dt * track->speed * animator->speed;
       float duration = animator->data->animations[i].duration;
@@ -247,7 +247,7 @@ int32_t lovrAnimatorGetPriority(Animator* animator, uint32_t animation) {
 void lovrAnimatorSetPriority(Animator* animator, uint32_t animation, int32_t priority) {
   Track* track = &animator->tracks.data[animation];
   track->priority = priority;
-  vec_sort(&animator->tracks, trackSortCallback);
+  qsort(animator->tracks.data, animator->tracks.length, sizeof(Track), trackSortCallback);
 }
 
 float lovrAnimatorGetSpeed(Animator* animator, uint32_t animation) {

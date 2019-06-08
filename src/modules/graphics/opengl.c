@@ -10,7 +10,6 @@
 #include "data/modelData.h"
 #include "core/ref.h"
 #include "lib/map/map.h"
-#include "lib/vec/vec.h"
 #include <math.h>
 #include <limits.h>
 #include <string.h>
@@ -82,7 +81,7 @@ static struct {
   Image images[MAX_IMAGES];
   float viewports[2][4];
   uint32_t viewportCount;
-  vec_void_t incoherents[MAX_BARRIERS];
+  arr_t(void*, 2) incoherents[MAX_BARRIERS];
   map_t(TimerList) timers;
   GpuFeatures features;
   GpuLimits limits;
@@ -420,18 +419,18 @@ static void lovrGpuSync(uint8_t flags) {
     }
 
     if (i == BARRIER_BLOCK) {
-      for (int j = 0; j < state.incoherents[i].length; j++) {
+      for (size_t j = 0; j < state.incoherents[i].length; j++) {
         Buffer* buffer = state.incoherents[i].data[j];
         buffer->incoherent &= ~(1 << i);
       }
     } else {
-      for (int j = 0; j < state.incoherents[i].length; j++) {
+      for (size_t j = 0; j < state.incoherents[i].length; j++) {
         Texture* texture = state.incoherents[i].data[j];
         texture->incoherent &= ~(1 << i);
       }
     }
 
-    vec_clear(&state.incoherents[i]);
+    arr_clear(&state.incoherents[i]);
 
     switch (i) {
       case BARRIER_BLOCK: bits |= GL_SHADER_STORAGE_BARRIER_BIT; break;
@@ -453,11 +452,11 @@ static void lovrGpuDestroySyncResource(void* resource, uint8_t incoherent) {
     return;
   }
 
-  for (int i = 0; i < MAX_BARRIERS; i++) {
+  for (uint32_t i = 0; i < MAX_BARRIERS; i++) {
     if (incoherent & (1 << i)) {
-      for (int j = 0; j < state.incoherents[i].length; j++) {
+      for (size_t j = 0; j < state.incoherents[i].length; j++) {
         if (state.incoherents[i].data[j] == resource) {
-          vec_swapsplice(&state.incoherents[i], j, 1);
+          arr_splice(&state.incoherents[i], j, 1);
           break;
         }
       }
@@ -839,23 +838,21 @@ static void lovrGpuBindPipeline(Pipeline* pipeline) {
 }
 
 static void lovrGpuBindShader(Shader* shader) {
-  UniformBlock* block;
-  Uniform* uniform;
-  int i;
-
   lovrGpuUseProgram(shader->program);
 
   // Figure out if we need to wait for pending writes on resources to complete
 #ifndef LOVR_WEBGL
   uint8_t flags = 0;
-  vec_foreach_ptr(&shader->blocks[BLOCK_COMPUTE], block, i) {
+  for (size_t i = 0; i < shader->blocks[BLOCK_COMPUTE].length; i++) {
+    UniformBlock* block = &shader->blocks[BLOCK_COMPUTE].data[i];
     if (block->source && (block->source->incoherent >> BARRIER_BLOCK) & 1) {
       flags |= 1 << BARRIER_BLOCK;
       break;
     }
   }
 
-  vec_foreach_ptr(&shader->uniforms, uniform, i) {
+  for (size_t i = 0; i < shader->uniforms.length; i++) {
+    Uniform* uniform = &shader->uniforms.data[i];
     if (uniform->type == UNIFORM_SAMPLER) {
       for (int i = 0; i < uniform->count; i++) {
         Texture* texture = uniform->value.textures[i];
@@ -883,7 +880,9 @@ static void lovrGpuBindShader(Shader* shader) {
 #endif
 
   // Bind uniforms
-  vec_foreach_ptr(&shader->uniforms, uniform, i) {
+  for (size_t i = 0; i < shader->uniforms.length; i++) {
+    Uniform* uniform = &shader->uniforms.data[i];
+
     if (uniform->type != UNIFORM_SAMPLER && uniform->type != UNIFORM_IMAGE && !uniform->dirty) {
       continue;
     }
@@ -930,7 +929,7 @@ static void lovrGpuBindShader(Shader* shader) {
           if (texture && image->access != ACCESS_READ) {
             for (Barrier barrier = BARRIER_BLOCK + 1; barrier < MAX_BARRIERS; barrier++) {
               texture->incoherent |= 1 << barrier;
-              vec_push(&state.incoherents[barrier], texture);
+              arr_push(&state.incoherents[barrier], texture);
             }
           }
 
@@ -951,11 +950,12 @@ static void lovrGpuBindShader(Shader* shader) {
 
   // Bind uniform blocks
   for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_COMPUTE; type++) {
-    vec_foreach_ptr(&shader->blocks[type], block, i) {
+    for (size_t i = 0; i < shader->blocks[type].length; i++) {
+      UniformBlock* block = &shader->blocks[type].data[i];
       if (block->source) {
         if (type == BLOCK_COMPUTE && block->access != ACCESS_READ) {
           block->source->incoherent |= (1 << BARRIER_BLOCK);
-          vec_push(&state.incoherents[BARRIER_BLOCK], block->source);
+          arr_push(&state.incoherents[BARRIER_BLOCK], block->source);
         }
 
         lovrBufferUnmap(block->source);
@@ -1059,7 +1059,7 @@ void lovrGpuInit(getProcAddressProc getProcAddress) {
 #endif
 
   for (int i = 0; i < MAX_BARRIERS; i++) {
-    vec_init(&state.incoherents[i]);
+    arr_init(&state.incoherents[i]);
   }
 }
 
@@ -1072,7 +1072,7 @@ void lovrGpuDestroy() {
     lovrRelease(Texture, state.images[i].texture);
   }
   for (int i = 0; i < MAX_BARRIERS; i++) {
-    vec_deinit(&state.incoherents[i]);
+    arr_free(&state.incoherents[i]);
   }
   memset(&state, 0, sizeof(state));
 }
@@ -1183,7 +1183,7 @@ void lovrGpuDraw(DrawCommand* draw) {
 
 void lovrGpuPresent() {
   state.stats.drawCalls = state.stats.shaderSwitches = 0;
-  vec_clear(&state.stats.timers);
+  arr_clear(&state.stats.timers);
 #ifdef __APPLE__
   // For some reason instancing doesn't work on macOS unless you reset the shader every frame
   lovrGpuUseProgram(0);
@@ -1284,7 +1284,7 @@ void lovrGpuTock(const char* label) {
     }
 
     glGetQueryObjectui64v(timer->timers[timer->oldest], GL_QUERY_RESULT, &timer->ns);
-    vec_push(&state.stats.timers, ((GpuTimer) { .label = label, .time = timer->ns / 1e9 }));
+    arr_push(&state.stats.timers, ((GpuTimer) { .label = label, .time = timer->ns / 1e9 }));
     timer->oldest = (timer->oldest + 1) % 4;
   }
 }
@@ -1445,16 +1445,16 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32
   if (isTextureFormatCompressed(textureData->format)) {
     lovrAssert(width == maxWidth && height == maxHeight, "Compressed texture pixels must be fully replaced");
     lovrAssert(mipmap == 0, "Unable to replace a specific mipmap of a compressed texture");
-    Mipmap m; int i;
-    vec_foreach(&textureData->mipmaps, m, i) {
+    for (uint32_t i = 0; i < textureData->mipmapCount; i++) {
+      Mipmap* m = textureData->mipmaps + i;
       switch (texture->type) {
         case TEXTURE_2D:
         case TEXTURE_CUBE:
-          glCompressedTexImage2D(binding, i, glInternalFormat, m.width, m.height, 0, m.size, m.data);
+          glCompressedTexImage2D(binding, i, glInternalFormat, m->width, m->height, 0, m->size, m->data);
           break;
         case TEXTURE_ARRAY:
         case TEXTURE_VOLUME:
-          glCompressedTexSubImage3D(binding, i, x, y, slice, m.width, m.height, 1, glInternalFormat, m.size, m.data);
+          glCompressedTexSubImage3D(binding, i, x, y, slice, m->width, m->height, 1, glInternalFormat, m->size, m->data);
           break;
       }
     }
@@ -1795,42 +1795,42 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &blockCount);
   lovrAssert(blockCount <= MAX_BLOCK_BUFFERS, "Shader has too many uniform blocks (%d) the max is %d", blockCount, MAX_BLOCK_BUFFERS);
   map_init(&shader->blockMap);
-  vec_block_t* uniformBlocks = &shader->blocks[BLOCK_UNIFORM];
-  vec_init(uniformBlocks);
-  vec_reserve(uniformBlocks, blockCount);
+  arr_block_t* uniformBlocks = &shader->blocks[BLOCK_UNIFORM];
+  arr_init(uniformBlocks);
+  arr_reserve(uniformBlocks, (size_t) blockCount);
   for (int i = 0; i < blockCount; i++) {
     UniformBlock block = { .slot = i, .source = NULL };
     glUniformBlockBinding(program, i, block.slot);
-    vec_init(&block.uniforms);
+    arr_init(&block.uniforms);
 
     char name[LOVR_MAX_UNIFORM_LENGTH];
     glGetActiveUniformBlockName(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, name);
     int blockId = (i << 1) + BLOCK_UNIFORM;
     map_set(&shader->blockMap, name, blockId);
-    vec_push(uniformBlocks, block);
+    arr_push(uniformBlocks, block);
   }
 
   // Shader storage buffers and their buffer variables
-  vec_block_t* computeBlocks = &shader->blocks[BLOCK_COMPUTE];
-  vec_init(computeBlocks);
+  arr_block_t* computeBlocks = &shader->blocks[BLOCK_COMPUTE];
+  arr_init(computeBlocks);
 #ifndef LOVR_WEBGL
   if (GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_program_interface_query) {
 
     // Iterate over compute blocks, setting their binding and pushing them onto the block vector
-    int computeBlockCount;
+    int32_t computeBlockCount;
     glGetProgramInterfaceiv(program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &computeBlockCount);
     lovrAssert(computeBlockCount <= MAX_BLOCK_BUFFERS, "Shader has too many compute blocks (%d) the max is %d", computeBlockCount, MAX_BLOCK_BUFFERS);
-    vec_reserve(computeBlocks, computeBlockCount);
+    arr_reserve(computeBlocks, (size_t) computeBlockCount);
     for (int i = 0; i < computeBlockCount; i++) {
       UniformBlock block = { .slot = i, .source = NULL };
       glShaderStorageBlockBinding(program, i, block.slot);
-      vec_init(&block.uniforms);
+      arr_init(&block.uniforms);
 
       char name[LOVR_MAX_UNIFORM_LENGTH];
       glGetProgramResourceName(program, GL_SHADER_STORAGE_BLOCK, i, LOVR_MAX_UNIFORM_LENGTH, NULL, name);
       int blockId = (i << 1) + BLOCK_COMPUTE;
       map_set(&shader->blockMap, name, blockId);
-      vec_push(computeBlocks, block);
+      arr_push(computeBlocks, block);
     }
 
     // Iterate over buffer variables, pushing them onto the uniform list of the correct block
@@ -1854,7 +1854,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
       } else {
         uniform.size = 4 * (uniform.components == 3 ? 4 : uniform.components);
       }
-      vec_push(&computeBlocks->data[values[blockIndex]].uniforms, uniform);
+      arr_push(&computeBlocks->data[values[blockIndex]].uniforms, uniform);
     }
   }
 #endif
@@ -1864,7 +1864,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   int textureSlot = 0;
   int imageSlot = 0;
   map_init(&shader->uniformMap);
-  vec_init(&shader->uniforms);
+  arr_init(&shader->uniforms);
   glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &uniformCount);
   for (uint32_t i = 0; i < (uint32_t) uniformCount; i++) {
     Uniform uniform;
@@ -1910,7 +1910,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
         uniform.size = 4 * (uniform.components == 3 ? 4 : uniform.components);
       }
 
-      vec_push(&block->uniforms, uniform);
+      arr_push(&block->uniforms, uniform);
       continue;
     } else if (uniform.location == -1) {
       continue;
@@ -1971,7 +1971,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
     }
 
     map_set(&shader->uniformMap, uniform.name, shader->uniforms.length);
-    vec_push(&shader->uniforms, uniform);
+    arr_push(&shader->uniforms, uniform);
     textureSlot += uniform.type == UNIFORM_SAMPLER ? uniform.count : 0;
     imageSlot += uniform.type == UNIFORM_IMAGE ? uniform.count : 0;
   }
@@ -2115,18 +2115,17 @@ void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
   lovrGraphicsFlushShader(shader);
   glDeleteProgram(shader->program);
-  for (int i = 0; i < shader->uniforms.length; i++) {
+  for (size_t i = 0; i < shader->uniforms.length; i++) {
     free(shader->uniforms.data[i].value.data);
   }
   for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_COMPUTE; type++) {
-    UniformBlock* block; int i;
-    vec_foreach_ptr(&shader->blocks[type], block, i) {
-      lovrRelease(Buffer, block->source);
+    for (size_t i = 0; i < shader->blocks[type].length; i++) {
+      lovrRelease(Buffer, shader->blocks[type].data[i].source);
     }
   }
-  vec_deinit(&shader->uniforms);
-  vec_deinit(&shader->blocks[BLOCK_UNIFORM]);
-  vec_deinit(&shader->blocks[BLOCK_COMPUTE]);
+  arr_free(&shader->uniforms);
+  arr_free(&shader->blocks[BLOCK_UNIFORM]);
+  arr_free(&shader->blocks[BLOCK_COMPUTE]);
   map_deinit(&shader->attributes);
   map_deinit(&shader->uniformMap);
   map_deinit(&shader->blockMap);

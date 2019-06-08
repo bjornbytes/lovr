@@ -1,7 +1,7 @@
 #include "graphics/texture.h"
 #include "graphics/opengl.h"
+#include "core/arr.h"
 #include "lib/map/map.h"
-#include "lib/vec/vec.h"
 #include <stdbool.h>
 
 #pragma once
@@ -89,17 +89,17 @@ typedef struct Uniform {
   bool dirty;
 } Uniform;
 
-typedef vec_t(Uniform) vec_uniform_t;
+typedef arr_t(Uniform, 8) arr_uniform_t;
 
 typedef struct {
   BlockType type;
-  vec_uniform_t uniforms;
+  arr_uniform_t uniforms;
   map_int_t uniformMap;
   struct Buffer* buffer;
 } ShaderBlock;
 
 typedef struct {
-  vec_uniform_t uniforms;
+  arr_uniform_t uniforms;
   UniformAccess access;
   struct Buffer* source;
   size_t offset;
@@ -107,12 +107,12 @@ typedef struct {
   int slot;
 } UniformBlock;
 
-typedef vec_t(UniformBlock) vec_block_t;
+typedef arr_t(UniformBlock, 1) arr_block_t;
 
 typedef struct Shader {
   ShaderType type;
-  vec_uniform_t uniforms;
-  vec_block_t blocks[2];
+  arr_uniform_t uniforms;
+  arr_block_t blocks[2];
   map_int_t attributes;
   map_int_t uniformMap;
   map_int_t blockMap;
@@ -142,9 +142,9 @@ void lovrShaderSetBlock(Shader* shader, const char* name, struct Buffer* buffer,
 
 // ShaderBlock
 
-size_t lovrShaderComputeUniformLayout(vec_uniform_t* uniforms);
+size_t lovrShaderComputeUniformLayout(arr_uniform_t* uniforms);
 
-ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, BlockType type, struct Buffer* buffer, vec_uniform_t* uniforms);
+ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, BlockType type, struct Buffer* buffer, arr_uniform_t* uniforms);
 #define lovrShaderBlockCreate(...) lovrShaderBlockInit(lovrAlloc(ShaderBlock), __VA_ARGS__)
 void lovrShaderBlockDestroy(void* ref);
 BlockType lovrShaderBlockGetType(ShaderBlock* block);

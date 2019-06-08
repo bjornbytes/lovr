@@ -11,8 +11,8 @@ static void defaultNearCallback(void* data, dGeomID a, dGeomID b) {
 
 static void customNearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
   World* world = data;
-  vec_push(&world->overlaps, dGeomGetData(shapeA));
-  vec_push(&world->overlaps, dGeomGetData(shapeB));
+  arr_push(&world->overlaps, dGeomGetData(shapeA));
+  arr_push(&world->overlaps, dGeomGetData(shapeB));
 }
 
 static void raycastCallback(void* data, dGeomID a, dGeomID b) {
@@ -50,7 +50,7 @@ World* lovrWorldInit(World* world, float xg, float yg, float zg, bool allowSleep
   world->space = dHashSpaceCreate(0);
   dHashSpaceSetLevels(world->space, -4, 8);
   world->contactGroup = dJointGroupCreate(0);
-  vec_init(&world->overlaps);
+  arr_init(&world->overlaps);
   lovrWorldSetGravity(world, xg, yg, zg);
   lovrWorldSetSleepingAllowed(world, allowSleep);
   map_init(&world->tags);
@@ -68,7 +68,7 @@ World* lovrWorldInit(World* world, float xg, float yg, float zg, bool allowSleep
 void lovrWorldDestroy(void* ref) {
   World* world = ref;
   lovrWorldDestroyData(world);
-  vec_deinit(&world->overlaps);
+  arr_free(&world->overlaps);
   map_deinit(&world->tags);
 }
 
@@ -110,7 +110,7 @@ void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* u
 }
 
 void lovrWorldComputeOverlaps(World* world) {
-  vec_clear(&world->overlaps);
+  arr_clear(&world->overlaps);
   dSpaceCollide(world->space, world, customNearCallback);
 }
 
@@ -120,8 +120,8 @@ int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b) {
     return 0;
   }
 
-  *a = vec_pop(&world->overlaps);
-  *b = vec_pop(&world->overlaps);
+  *a = arr_pop(&world->overlaps);
+  *b = arr_pop(&world->overlaps);
   return 1;
 }
 
@@ -278,8 +278,8 @@ Collider* lovrColliderInit(Collider* collider, World* world, float x, float y, f
   collider->restitution = 0;
   collider->tag = NO_TAG;
   dBodySetData(collider->body, collider);
-  vec_init(&collider->shapes);
-  vec_init(&collider->joints);
+  arr_init(&collider->shapes);
+  arr_init(&collider->joints);
 
   lovrColliderSetPosition(collider, x, y, z);
 
@@ -300,8 +300,8 @@ Collider* lovrColliderInit(Collider* collider, World* world, float x, float y, f
 void lovrColliderDestroy(void* ref) {
   Collider* collider = ref;
   lovrColliderDestroyData(collider);
-  vec_deinit(&collider->shapes);
-  vec_deinit(&collider->joints);
+  arr_free(&collider->shapes);
+  arr_free(&collider->joints);
 }
 
 void lovrColliderDestroyData(Collider* collider) {
@@ -309,16 +309,16 @@ void lovrColliderDestroyData(Collider* collider) {
     return;
   }
 
-  vec_void_t* shapes = lovrColliderGetShapes(collider);
-  Shape* shape; int i;
-  vec_foreach(shapes, shape, i) {
-    lovrColliderRemoveShape(collider, shape);
+  size_t count;
+
+  Shape** shapes = lovrColliderGetShapes(collider, &count);
+  for (size_t i = 0; i < count; i++) {
+    lovrColliderRemoveShape(collider, shapes[i]);
   }
 
-  vec_void_t* joints = lovrColliderGetJoints(collider);
-  Joint* joint; int j;
-  vec_foreach(joints, joint, j) {
-    lovrRelease(Joint, joint);
+  Joint** joints = lovrColliderGetJoints(collider, &count);
+  for (size_t i = 0; i < count; i++) {
+    lovrRelease(Joint, joints[i]);
   }
 
   dBodyDestroy(collider->body);
@@ -359,27 +359,27 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   }
 }
 
-vec_void_t* lovrColliderGetShapes(Collider* collider) {
-  vec_clear(&collider->shapes);
+Shape** lovrColliderGetShapes(Collider* collider, size_t* count) {
+  arr_clear(&collider->shapes);
   for (dGeomID geom = dBodyGetFirstGeom(collider->body); geom; geom = dBodyGetNextGeom(geom)) {
     Shape* shape = dGeomGetData(geom);
     if (shape) {
-      vec_push(&collider->shapes, shape);
+      arr_push(&collider->shapes, shape);
     }
   }
-  return &collider->shapes;
+  return *count = collider->shapes.length, collider->shapes.data;
 }
 
-vec_void_t* lovrColliderGetJoints(Collider* collider) {
-  vec_clear(&collider->joints);
+Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
+  arr_clear(&collider->joints);
   int jointCount = dBodyGetNumJoints(collider->body);
   for (int i = 0; i < jointCount; i++) {
     Joint* joint = dJointGetData(dBodyGetJoint(collider->body, i));
     if (joint) {
-      vec_push(&collider->joints, joint);
+      arr_push(&collider->joints, joint);
     }
   }
-  return &collider->joints;
+  return *count = collider->joints.length, collider->joints.data;
 }
 
 void* lovrColliderGetUserData(Collider* collider) {

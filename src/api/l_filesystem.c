@@ -1,8 +1,10 @@
 #include "api.h"
 #include "filesystem/filesystem.h"
+#include "filesystem/file.h"
 #include "data/blob.h"
 #include "core/ref.h"
 #include <stdlib.h>
+#include <string.h>
 #include "platform.h"
 
 // Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
@@ -32,65 +34,28 @@ static int pushDirectoryItem(void* userdata, const char* path, const char* filen
   return 1;
 }
 
-static int l_lovrFilesystemLoad(lua_State* L);
+typedef struct {
+  File file;
+  char buffer[4096];
+} luax_Reader;
 
-static int moduleLoader(lua_State* L) {
-  const char* module = luaL_gsub(L, lua_tostring(L, -1), ".", "/");
-  lua_pop(L, 2);
-
-  char* path; int i;
-  vec_foreach(lovrFilesystemGetRequirePath(), path, i) {
-    const char* filename = luaL_gsub(L, path, "?", module);
-    if (lovrFilesystemIsFile(filename)) {
-      return l_lovrFilesystemLoad(L);
-    }
-    lua_pop(L, 1);
-  }
-
-  return 0;
+static const char* readCallback(lua_State* L, void* data, size_t* size) {
+  luax_Reader* reader = data;
+  *size = lovrFileRead(&reader->file, reader->buffer, sizeof(reader->buffer));
+  return *size == 0 ? NULL : reader->buffer;
 }
 
-static const char* libraryExtensions[] = {
-#ifdef _WIN32
-  ".dll", NULL
-#elif __APPLE__
-  ".so", ".dylib", NULL
-#else
-  ".so", NULL
-#endif
-};
-
-static int libraryLoader(lua_State* L) {
-  const char* modulePath = luaL_gsub(L, lua_tostring(L, -1), ".", "/");
-  const char* moduleFunction = luaL_gsub(L, lua_tostring(L, -1), ".", "_");
-  char* hyphen = strchr(moduleFunction, '-');
-  moduleFunction = hyphen ? hyphen + 1 : moduleFunction;
-  lua_pop(L, 3);
-
-  char* path; int i;
-  vec_foreach(lovrFilesystemGetCRequirePath(), path, i) {
-    for (const char** extension = libraryExtensions; *extension != NULL; extension++) {
-      char buffer[64];
-      snprintf(buffer, 63, "%s%s", modulePath, *extension);
-      const char* filename = luaL_gsub(L, path, "??", buffer);
-      filename = luaL_gsub(L, filename, "?", modulePath);
-      lua_pop(L, 2);
-
-      if (lovrFilesystemIsFile(filename)) {
-        char fullPath[LOVR_PATH_MAX];
-        const char* realPath = lovrFilesystemGetRealDirectory(filename);
-        snprintf(fullPath, LOVR_PATH_MAX - 1, "%s%c%s", realPath, lovrDirSep, filename);
-        lua_getglobal(L, "package");
-        lua_getfield(L, -1, "loadlib");
-        lua_pushstring(L, fullPath);
-        lua_pushfstring(L, "luaopen_%s", moduleFunction);
-        lua_call(L, 2, 1);
-        return 1;
-      }
-    }
+static int luax_loadfile(lua_State* L, const char* path, const char* debug) {
+  luax_Reader reader;
+  lovrFileInit(&reader.file, path);
+  lovrAssert(lovrFileOpen(&reader.file, OPEN_READ), "Could not open file %s", path);
+  int status = lua_load(L, readCallback, &reader, debug);
+  lovrFileDestroy(&reader.file);
+  switch (status) {
+    case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1));
+    case LUA_ERRSYNTAX: return luaL_error(L, "Syntax error: %s", lua_tostring(L, -1));
+    default: return 1;
   }
-
-  return 0;
 }
 
 static int l_lovrFilesystemAppend(lua_State* L) {
@@ -167,19 +132,9 @@ static int l_lovrFilesystemGetRealDirectory(lua_State* L) {
   return 1;
 }
 
-static void pushRequirePath(lua_State* L, vec_str_t* path) {
-  char* pattern; int i;
-  vec_foreach(path, pattern, i) {
-    lua_pushstring(L, pattern);
-    lua_pushliteral(L, ";");
-  }
-  lua_pop(L, 1);
-  lua_concat(L, path->length * 2 - 1);
-}
-
 static int l_lovrFilesystemGetRequirePath(lua_State* L) {
-  pushRequirePath(L, lovrFilesystemGetRequirePath());
-  pushRequirePath(L, lovrFilesystemGetCRequirePath());
+  lua_pushstring(L, lovrFilesystemGetRequirePath());
+  lua_pushstring(L, lovrFilesystemGetCRequirePath());
   return 2;
 }
 
@@ -246,23 +201,9 @@ static int l_lovrFilesystemIsFused(lua_State* L) {
 
 static int l_lovrFilesystemLoad(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  size_t size;
-  char* content = lovrFilesystemRead(path, -1, &size);
-
-  if (!content) {
-    return luaL_error(L, "Could not read file '%s'", path);
-  }
-
-  char debug[LOVR_PATH_MAX];
-  snprintf(debug, LOVR_PATH_MAX, "@%s", path);
-
-  int status = luaL_loadbuffer(L, content, size, debug);
-  free(content);
-  switch (status) {
-    case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1));
-    case LUA_ERRSYNTAX: return luaL_error(L, "Syntax error: %s", lua_tostring(L, -1));
-    default: return 1;
-  }
+  lua_pushfstring(L, "@%s", path);
+  const char* debug = lua_tostring(L, -1);
+  return luax_loadfile(L, path, debug);
 }
 
 static int l_lovrFilesystemMount(lua_State* L) {
@@ -318,8 +259,8 @@ static int l_lovrFilesystemSetIdentity(lua_State* L) {
 }
 
 static int l_lovrFilesystemSetRequirePath(lua_State* L) {
-  if (lua_type(L, 1) == LUA_TSTRING) lovrFilesystemSetRequirePath(luaL_checkstring(L, 1));
-  if (lua_type(L, 2) == LUA_TSTRING) lovrFilesystemSetCRequirePath(luaL_checkstring(L, 2));
+  if (lua_type(L, 1) == LUA_TSTRING) lovrFilesystemSetRequirePath(lua_tostring(L, 1));
+  if (lua_type(L, 2) == LUA_TSTRING) lovrFilesystemSetCRequirePath(lua_tostring(L, 2));
   return 0;
 }
 
@@ -379,6 +320,129 @@ static const luaL_Reg lovrFilesystem[] = {
   { NULL, NULL }
 };
 
+static int luaLoader(lua_State* L) {
+  const char* module = lua_tostring(L, 1);
+  const char* p = lovrFilesystemGetRequirePath();
+
+  char buffer[1024] = { '@' };
+  char* debug = &buffer[0];
+  char* filename = &buffer[1];
+  char* f = filename;
+  size_t n = sizeof(buffer) - 1;
+
+  // Loop over the require path, character by character, and:
+  //   - Replace question marks with the module that's being required, converting '.' to '/'.
+  //   - If there's a semicolon/eof, treat it as the end of a potential filename and try to load it.
+  // The filename buffer has an '@' before it so it can also be used as the debug label for the Lua
+  // chunk without additional memory allocation.
+
+  while (1) {
+    if (*p == ';' || *p == '\0') {
+      *f = '\0';
+
+      if (lovrFilesystemIsFile(filename)) {
+        return luax_loadfile(L, filename, debug);
+      }
+
+      if (*p == '\0') {
+        break;
+      } else {
+        p++;
+        f = filename;
+        n = sizeof(buffer) - 1;
+      }
+    } else if (*p == '?') {
+      for (const char* m = module; n && *m; n--, m++) {
+        *f++ = *m == '.' ? '/' : *m;
+      }
+      p++;
+    } else {
+      *f++ = *p++;
+      n--;
+    }
+
+    lovrAssert(n > 0, "Tried to require a filename that was too long (%s)", module);
+  }
+
+  return 0;
+}
+
+static int libLoader(lua_State* L) {
+#ifdef _WIN32
+  const char* extension = ".dll";
+#else
+  const char* extension = ".so";
+#endif
+
+  const char* module = lua_tostring(L, 1);
+  const char* hyphen = strchr(module, '-');
+  const char* symbol = hyphen ? hyphen + 1 : module;
+  const char* p = lovrFilesystemGetCRequirePath();
+
+  char filename[1024];
+  char* f = filename;
+  size_t n = sizeof(filename);
+
+  lua_getglobal(L, "package");
+  while (1) {
+    if (*p == ';' || *p == '\0') {
+      *f = '\0';
+
+      if (lovrFilesystemIsFile(filename)) {
+        lua_getfield(L, -1, "loadlib");
+
+        // Synthesize the absolute path to the library on disk (outside of physfs)
+        luaL_Buffer buffer;
+        luaL_buffinit(L, &buffer);
+        luaL_addstring(&buffer, lovrFilesystemGetRealDirectory(filename));
+        luaL_addchar(&buffer, lovrDirSep);
+        luaL_addstring(&buffer, filename);
+        luaL_pushresult(&buffer);
+
+        // Synthesize the symbol to load: luaopen_ followed by the module name with dots converted
+        // to underscores, starting after the first hyphen (if there is one).
+        luaL_buffinit(L, &buffer);
+        luaL_addstring(&buffer, "luaopen_");
+        for (const char* s = symbol; *s; s++) {
+          luaL_addchar(&buffer, *s == '.' ? '_' : *s);
+        }
+        luaL_pushresult(&buffer);
+
+        // Finally call package.loadlib with the library path and symbol name
+        lua_call(L, 2, 1);
+        return 1;
+      }
+
+      if (*p == '\0') {
+        break;
+      } else {
+        p++;
+        f = filename;
+        n = sizeof(filename);
+      }
+    } else if (*p == '?') {
+      for (const char* m = module; n && *m; n--, m++) {
+        *f++ = *m == '.' ? lovrDirSep : *m;
+      }
+      p++;
+
+      if (*p == '?') {
+        for (const char* e = extension; n && *e; n--, e++) {
+          *f++ = *e;
+        }
+        p++;
+      }
+    } else {
+      *f++ = *p++;
+      n--;
+    }
+
+    lovrAssert(n > 0, "Tried to require a filename that was too long (%s)", module);
+  }
+
+  return 0;
+}
+
 int luaopen_lovr_filesystem(lua_State* L) {
   lua_getglobal(L, "arg");
   if (lua_istable(L, -1)) {
@@ -401,7 +465,7 @@ int luaopen_lovr_filesystem(lua_State* L) {
 
   lua_newtable(L);
   luaL_register(L, NULL, lovrFilesystem);
-  luax_registerloader(L, moduleLoader, 2);
-  luax_registerloader(L, libraryLoader, 3);
+  luax_registerloader(L, luaLoader, 2);
+  luax_registerloader(L, libLoader, 3);
   return 1;
 }

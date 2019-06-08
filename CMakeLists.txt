@@ -316,6 +316,7 @@ endif()
 
 set(LOVR_SRC
   src/main.c
+  src/core/arr.c
   src/core/luax.c
   src/core/maf.c
   src/core/platform.c
@@ -324,7 +325,6 @@ set(LOVR_SRC
   src/core/util.c
   src/api/l_lovr.c
   src/lib/map/map.c
-  src/lib/vec/vec.c
   src/lib/sds/sds.c
 )
 

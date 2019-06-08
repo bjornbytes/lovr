@@ -7,6 +7,7 @@
 #include "data/textureData.h"
 #include "core/ref.h"
 #include <stdlib.h>
+#include <string.h>
 
 static int l_lovrDataNewBlob(lua_State* L) {
   size_t size;

@@ -1,6 +1,6 @@
-#include "lib/vec/vec.h"
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -19,8 +19,8 @@ int lovrFilesystemGetExecutablePath(char* path, uint32_t size);
 const char* lovrFilesystemGetIdentity(void);
 long lovrFilesystemGetLastModified(const char* path);
 const char* lovrFilesystemGetRealDirectory(const char* path);
-vec_str_t* lovrFilesystemGetRequirePath(void);
-vec_str_t* lovrFilesystemGetCRequirePath(void);
+const char* lovrFilesystemGetRequirePath();
+const char* lovrFilesystemGetCRequirePath();
 const char* lovrFilesystemGetSaveDirectory(void);
 size_t lovrFilesystemGetSize(const char* path);
 const char* lovrFilesystemGetSource(void);

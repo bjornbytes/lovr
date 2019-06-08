@@ -79,15 +79,8 @@ float* luax_newmathtype(lua_State* L, MathType type) {
 }
 
 static int l_lovrMathNewCurve(lua_State* L) {
+  Curve* curve = lovrCurveCreate();
   int top = lua_gettop(L);
-
-  if (top == 1 && lua_type(L, 1) == LUA_TNUMBER) {
-    Curve* curve = lovrCurveCreate(luaL_checkinteger(L, 1));
-    luax_pushtype(L, Curve, curve);
-    return 1;
-  }
-
-  Curve* curve = lovrCurveCreate(3);
 
   if (lua_istable(L, 1)) {
     int pointIndex = 0;

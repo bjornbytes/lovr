@@ -159,11 +159,11 @@ void lovrShaderSetBlock(Shader* shader, const char* name, Buffer* buffer, size_t
 // ShaderBlock
 
 // Calculates uniform size and byte offsets using std140 rules, returning the total buffer size
-size_t lovrShaderComputeUniformLayout(vec_uniform_t* uniforms) {
+size_t lovrShaderComputeUniformLayout(arr_uniform_t* uniforms) {
   size_t size = 0;
-  Uniform* uniform; int i;
-  vec_foreach_ptr(uniforms, uniform, i) {
+  for (size_t i = 0; i < uniforms->length; i++) {
     int align;
+    Uniform* uniform = &uniforms->data[i];
     if (uniform->count > 1 || uniform->type == UNIFORM_MATRIX) {
       align = 16 * (uniform->type == UNIFORM_MATRIX ? uniform->components : 1);
       uniform->size = align * uniform->count;
@@ -177,14 +177,14 @@ size_t lovrShaderComputeUniformLayout(vec_uniform_t* uniforms) {
   return size;
 }
 
-ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, BlockType type, Buffer* buffer, vec_uniform_t* uniforms) {
-  vec_init(&block->uniforms);
+ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, BlockType type, Buffer* buffer, arr_uniform_t* uniforms) {
+  arr_init(&block->uniforms);
   map_init(&block->uniformMap);
 
-  Uniform* uniform; int i;
-  vec_extend(&block->uniforms, uniforms);
-  vec_foreach_ptr(&block->uniforms, uniform, i) {
-    map_set(&block->uniformMap, uniform->name, i);
+  arr_append(&block->uniforms, uniforms->data, uniforms->length);
+
+  for (size_t i = 0; i < block->uniforms.length; i++) {
+    map_set(&block->uniformMap, block->uniforms.data[i].name, i);
   }
 
   block->type = type;
@@ -196,7 +196,7 @@ ShaderBlock* lovrShaderBlockInit(ShaderBlock* block, BlockType type, Buffer* buf
 void lovrShaderBlockDestroy(void* ref) {
   ShaderBlock* block = ref;
   lovrRelease(Buffer, block->buffer);
-  vec_deinit(&block->uniforms);
+  arr_free(&block->uniforms);
   map_deinit(&block->uniformMap);
 }
 
@@ -215,7 +215,7 @@ char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, si
   size += 1; // " "
   size += strlen(blockName);
   size += 3; // " {\n"
-  for (int i = 0; i < block->uniforms.length; i++) {
+  for (size_t i = 0; i < block->uniforms.length; i++) {
     size += tab;
     size += getUniformTypeLength(&block->uniforms.data[i]);
     size += 1; // " "
@@ -231,7 +231,7 @@ char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, si
   // Concatenate
   char* s = code;
   s += sprintf(s, "layout(std140) %s %s {\n", block->type == BLOCK_UNIFORM ? "uniform" : "buffer", blockName);
-  for (int i = 0; i < block->uniforms.length; i++) {
+  for (size_t i = 0; i < block->uniforms.length; i++) {
     const Uniform* uniform = &block->uniforms.data[i];
     if (uniform->count > 1) {
       s += sprintf(s, "  %s %s[%d];\n", getUniformTypeName(uniform), uniform->name, uniform->count);

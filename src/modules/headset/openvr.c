@@ -86,7 +86,7 @@ static struct {
   RenderModel_t* deviceModels[16];
   RenderModel_TextureMap_t* deviceTextures[16];
   Canvas* canvas;
-  vec_float_t boundsGeometry;
+  float boundsGeometry[16];
   float clipNear;
   float clipFar;
   float offset;
@@ -205,7 +205,6 @@ static bool openvr_init(float offset, uint32_t msaa) {
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
   state.msaa = msaa;
 
-  vec_init(&state.boundsGeometry);
   return true;
 }
 
@@ -221,7 +220,6 @@ static void openvr_destroy(void) {
     state.deviceModels[i] = NULL;
     state.deviceTextures[i] = NULL;
   }
-  vec_deinit(&state.boundsGeometry);
   VR_ShutdownInternal();
   memset(&state, 0, sizeof(state));
 }
@@ -272,16 +270,13 @@ static void openvr_getBoundsDimensions(float* width, float* depth) {
 static const float* openvr_getBoundsGeometry(uint32_t* count) {
   struct HmdQuad_t quad;
   if (state.chaperone->GetPlayAreaRect(&quad)) {
-    vec_clear(&state.boundsGeometry);
-
     for (int i = 0; i < 4; i++) {
-      vec_push(&state.boundsGeometry, quad.vCorners[i].v[0]);
-      vec_push(&state.boundsGeometry, quad.vCorners[i].v[1]);
-      vec_push(&state.boundsGeometry, quad.vCorners[i].v[2]);
+      state.boundsGeometry[4 * i + 0] = quad.vCorners[i].v[0];
+      state.boundsGeometry[4 * i + 1] = quad.vCorners[i].v[1];
+      state.boundsGeometry[4 * i + 2] = quad.vCorners[i].v[2];
     }
 
-    *count = state.boundsGeometry.length;
-    return state.boundsGeometry.data;
+    return *count = 16, state.boundsGeometry;
   }
 
   return NULL;

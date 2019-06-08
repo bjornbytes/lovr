@@ -1,6 +1,5 @@
 #include "data/blob.h"
 #include "util.h"
-#include "lib/vec/vec.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -48,15 +47,14 @@ typedef struct {
   void* data;
 } Mipmap;
 
-typedef vec_t(Mipmap) vec_mipmap_t;
-
 typedef struct TextureData {
   Blob blob;
   uint32_t width;
   uint32_t height;
   Blob* source;
   TextureFormat format;
-  vec_mipmap_t mipmaps;
+  Mipmap* mipmaps;
+  uint32_t mipmapCount;
 } TextureData;
 
 TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint32_t height, uint8_t value, TextureFormat format);

@@ -1,14 +1,14 @@
 #include "event/event.h"
 #include "platform.h"
+#include "core/arr.h"
 #include "core/ref.h"
-#include "lib/vec/vec.h"
 #include <stdlib.h>
 #include <string.h>
 
 static struct {
   bool initialized;
-  vec_t(EventPump) pumps;
-  vec_t(Event) events;
+  arr_t(Event, 8) events;
+  size_t head;
 } state;
 
 void lovrVariantDestroy(Variant* variant) {
@@ -21,47 +21,35 @@ void lovrVariantDestroy(Variant* variant) {
 
 bool lovrEventInit() {
   if (state.initialized) return false;
-  vec_init(&state.pumps);
-  vec_init(&state.events);
-  lovrEventAddPump(lovrPlatformPollEvents);
+  arr_init(&state.events);
   return state.initialized = true;
 }
 
 void lovrEventDestroy() {
   if (!state.initialized) return;
-  vec_deinit(&state.pumps);
-  vec_deinit(&state.events);
+  arr_free(&state.events);
   memset(&state, 0, sizeof(state));
 }
 
-void lovrEventAddPump(EventPump pump) {
-  vec_push(&state.pumps, pump);
-}
-
-void lovrEventRemovePump(EventPump pump) {
-  vec_remove(&state.pumps, pump);
-}
-
 void lovrEventPump() {
-  int i; EventPump pump;
-  vec_foreach(&state.pumps, pump, i) {
-    pump();
-  }
+  lovrPlatformPollEvents();
 }
 
 void lovrEventPush(Event event) {
-  vec_insert(&state.events, 0, event);
+  arr_push(&state.events, event);
 }
 
 bool lovrEventPoll(Event* event) {
-  if (state.events.length == 0) {
+  if (state.head == state.events.length) {
+    state.head = state.events.length = 0;
     return false;
   }
 
-  *event = vec_pop(&state.events);
+  *event = state.events.data[state.head++];
   return true;
 }
 
 void lovrEventClear() {
-  vec_clear(&state.events);
+  arr_clear(&state.events);
+  state.head = 0;
 }

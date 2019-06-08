@@ -285,7 +285,8 @@ static bool parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 
   uint32_t width = textureData->width = header->width;
   uint32_t height = textureData->height = header->height;
-  uint32_t mipmapCount = MAX(header->mipMapCount, 1);
+  uint32_t mipmapCount = textureData->mipmapCount = MAX(header->mipMapCount, 1);
+  textureData->mipmaps = malloc(mipmapCount * sizeof(Mipmap));
   size_t blockBytes = 0;
 
   switch (textureData->format) {
@@ -303,12 +304,11 @@ static bool parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 
     // Overflow check
     if (mipmapSize == 0 || (offset + mipmapSize) > size) {
-      vec_deinit(&textureData->mipmaps);
+      free(textureData->mipmaps);
       return false;
     }
 
-    Mipmap mipmap = { .width = width, .height = height, .data = &data[offset], .size = mipmapSize };
-    vec_push(&textureData->mipmaps, mipmap);
+    textureData->mipmaps[i] = (Mipmap) { .width = width, .height = height, .data = &data[offset], .size = mipmapSize };
     offset += mipmapSize;
     width = MAX(width >> 1, 1);
     height = MAX(height >> 1, 1);
@@ -363,18 +363,12 @@ static bool parseKTX(uint8_t* bytes, size_t size, TextureData* textureData) {
 
   uint32_t width = textureData->width = data.ktx->pixelWidth;
   uint32_t height = textureData->height = data.ktx->pixelHeight;
-  uint32_t mipmapCount = data.ktx->numberOfMipmapLevels;
-  vec_reserve(&textureData->mipmaps, mipmapCount);
+  uint32_t mipmapCount = textureData->mipmapCount = data.ktx->numberOfMipmapLevels;
+  textureData->mipmaps = malloc(mipmapCount * sizeof(Mipmap));
 
   data.u8 += sizeof(KTXHeader) + data.ktx->bytesOfKeyValueData;
   for (uint32_t i = 0; i < mipmapCount; i++) {
-    vec_push(&textureData->mipmaps, ((Mipmap) {
-      .width = width,
-      .height = height,
-      .data = data.u8 + sizeof(uint32_t),
-      .size = *data.u32
-    }));
-
+    textureData->mipmaps[i] = (Mipmap) { .width = width, .height = height, .data = data.u8 + sizeof(uint32_t), .size = *data.u32 };
     width = MAX(width >> 1, 1u);
     height = MAX(height >> 1, 1u);
     data.u8 = (uint8_t*) ALIGN(data.u8 + sizeof(uint32_t) + *data.u32 + 3, 4);
@@ -425,13 +419,13 @@ static bool parseASTC(uint8_t* bytes, size_t size, TextureData* textureData) {
 
   textureData->width = data.astc->width[0] + (data.astc->width[1] << 8) + (data.astc->width[2] << 16);
   textureData->height = data.astc->height[0] + (data.astc->height[1] << 8) + (data.astc->height[2] << 16);
-
-  vec_push(&textureData->mipmaps, ((Mipmap) {
+  textureData->mipmaps = malloc(sizeof(Mipmap));
+  textureData->mipmaps[0] = (Mipmap) {
     .width = textureData->width,
     .height = textureData->height,
     .data = data.astc + 1,
     .size = size - sizeof(*data.astc)
-  }));
+  };
 
   return true;
 }
@@ -448,13 +442,10 @@ TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint3
   textureData->blob.data = malloc(size);
   lovrAssert(textureData->blob.data, "Out of memory");
   memset(textureData->blob.data, value, size);
-  vec_init(&textureData->mipmaps);
   return textureData;
 }
 
 TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, bool flip) {
-  vec_init(&textureData->mipmaps);
-
   if (parseDDS(blob->data, blob->size, textureData)) {
     textureData->source = blob;
     lovrRetain(blob);
@@ -488,6 +479,7 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
 
   textureData->width = width;
   textureData->height = height;
+  textureData->mipmapCount = 0;
   return textureData;
 }
 
@@ -574,6 +566,6 @@ bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
 void lovrTextureDataDestroy(void* ref) {
   TextureData* textureData = ref;
   lovrRelease(Blob, textureData->source);
-  vec_deinit(&textureData->mipmaps);
+  free(textureData->mipmaps);
   lovrBlobDestroy(ref);
 }

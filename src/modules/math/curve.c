@@ -4,7 +4,7 @@
 #include <math.h>
 
 // Explicit curve evaluation, unroll simple cases to avoid pow overhead
-static void evaluate(float* P, int n, float t, vec3 p) {
+static void evaluate(float* P, size_t n, float t, vec3 p) {
   if (n == 2) {
     p[0] = P[0] + (P[4] - P[0]) * t;
     p[1] = P[1] + (P[5] - P[1]) * t;
@@ -32,7 +32,7 @@ static void evaluate(float* P, int n, float t, vec3 p) {
   } else {
     float b = 1.f;
     p[0] = p[1] = p[2] = p[3] = 0.f;
-    for (int i = 0; i < n; i++, b *= (float) (n - i) / i) {
+    for (size_t i = 0; i < n; i++, b *= (float) (n - i) / i) {
       float c1 = powf(1 - t, n - (i + 1));
       float c2 = powf(t, i);
       p[0] += b * c1 * c2 * P[i * 4 + 0];
@@ -43,15 +43,14 @@ static void evaluate(float* P, int n, float t, vec3 p) {
   }
 }
 
-Curve* lovrCurveInit(Curve* curve, int sizeHint) {
-  vec_init(&curve->points);
-  lovrAssert(!vec_reserve(&curve->points, sizeHint * 4), "Out of memory");
+Curve* lovrCurveInit(Curve* curve) {
+  arr_init(&curve->points);
   return curve;
 }
 
 void lovrCurveDestroy(void* ref) {
   Curve* curve = ref;
-  vec_deinit(&curve->points);
+  arr_free(&curve->points);
 }
 
 void lovrCurveEvaluate(Curve* curve, float t, vec3 p) {
@@ -62,18 +61,18 @@ void lovrCurveEvaluate(Curve* curve, float t, vec3 p) {
 
 void lovrCurveGetTangent(Curve* curve, float t, vec3 p) {
   float q[4];
-  int n = curve->points.length / 4;
+  size_t n = curve->points.length / 4;
   evaluate(curve->points.data, n - 1, t, q);
   evaluate(curve->points.data + 4, n - 1, t, p);
   vec3_add(p, vec3_scale(q, -1.f));
   vec3_normalize(p);
 }
 
-void lovrCurveRender(Curve* curve, float t1, float t2, vec3 points, int n) {
+void lovrCurveRender(Curve* curve, float t1, float t2, vec3 points, uint32_t n) {
   lovrAssert(curve->points.length >= 8, "Need at least 2 points to render a Curve");
   lovrAssert(t1 >= 0.f && t2 <= 1.f, "Curve render interval must be within [0, 1]");
   float step = 1.f / (n - 1);
-  for (int i = 0; i < n; i++) {
+  for (uint32_t i = 0; i < n; i++) {
     evaluate(curve->points.data, curve->points.length / 4, t1 + (t2 - t1) * i * step, points + 4 * i);
   }
 }
@@ -82,13 +81,14 @@ Curve* lovrCurveSlice(Curve* curve, float t1, float t2) {
   lovrAssert(curve->points.length >= 8, "Need at least 2 points to slice a Curve");
   lovrAssert(t1 >= 0.f && t2 <= 1.f, "Curve slice interval must be within [0, 1]");
 
-  Curve* new = lovrCurveCreate(curve->points.length / 4);
+  Curve* new = lovrCurveCreate();
+  arr_reserve(&new->points, curve->points.length);
   new->points.length = curve->points.length;
 
-  int n = curve->points.length / 4;
+  size_t n = curve->points.length / 4;
 
   // Right half of split at t1
-  for (int i = 0; i < n - 1; i++) {
+  for (size_t i = 0; i < n - 1; i++) {
     evaluate(curve->points.data + 4 * i, n - i, t1, new->points.data + 4 * i);
   }
 
@@ -96,29 +96,29 @@ Curve* lovrCurveSlice(Curve* curve, float t1, float t2) {
 
   // Split segment at t2, taking left half
   float t = (t2 - t1) / (1.f - t1);
-  for (int i = n - 1; i >= 1; i--) {
+  for (size_t i = n - 1; i >= 1; i--) {
     evaluate(new->points.data, i + 1, t, new->points.data + 4 * i);
   }
 
   return new;
 }
 
-int lovrCurveGetPointCount(Curve* curve) {
+size_t lovrCurveGetPointCount(Curve* curve) {
   return curve->points.length / 4;
 }
 
-void lovrCurveGetPoint(Curve* curve, int index, vec3 point) {
+void lovrCurveGetPoint(Curve* curve, size_t index, vec3 point) {
   vec3_init(point, curve->points.data + 4 * index);
 }
 
-void lovrCurveSetPoint(Curve* curve, int index, vec3 point) {
+void lovrCurveSetPoint(Curve* curve, size_t index, vec3 point) {
   vec3_init(curve->points.data + 4 * index, point);
 }
 
-void lovrCurveAddPoint(Curve* curve, vec3 point, int index) {
+void lovrCurveAddPoint(Curve* curve, vec3 point, size_t index) {
 
   // Reserve enough memory for 4 more floats, then record destination once memory is allocated
-  lovrAssert(!vec_reserve(&curve->points, curve->points.length + 4), "Out of memory");
+  arr_reserve(&curve->points, curve->points.length + 4);
   float* dest = curve->points.data + index * 4;
 
   // Shift remaining points over (if any) to create empty space
@@ -131,6 +131,6 @@ void lovrCurveAddPoint(Curve* curve, vec3 point, int index) {
   memcpy(dest, point, 4 * sizeof(float));
 }
 
-void lovrCurveRemovePoint(Curve* curve, int index) {
-  vec_swapsplice(&curve->points, index * 4, 4);
+void lovrCurveRemovePoint(Curve* curve, size_t index) {
+  arr_splice(&curve->points, index * 4, 4);
 }

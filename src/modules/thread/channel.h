@@ -1,15 +1,17 @@
 #include "event/event.h"
+#include "core/arr.h"
 #include "lib/tinycthread/tinycthread.h"
-#include "lib/vec/vec.h"
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
 typedef struct Channel {
   mtx_t lock;
   cnd_t cond;
-  vec_t(Variant) messages;
+  arr_t(Variant, 1) messages;
+  size_t head;
   uint64_t sent;
   uint64_t received;
 } Channel;

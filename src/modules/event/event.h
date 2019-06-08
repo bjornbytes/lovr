@@ -70,14 +70,10 @@ typedef struct {
   EventData data;
 } Event;
 
-typedef void (*EventPump)(void);
-
 void lovrVariantDestroy(Variant* variant);
 
 bool lovrEventInit(void);
 void lovrEventDestroy(void);
-void lovrEventAddPump(EventPump pump);
-void lovrEventRemovePump(EventPump pump);
 void lovrEventPump(void);
 void lovrEventPush(Event event);
 bool lovrEventPoll(Event* event);

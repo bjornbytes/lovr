@@ -11,6 +11,7 @@
 #include "data/rasterizer.h"
 #include "data/textureData.h"
 #include "filesystem/filesystem.h"
+#include "core/arr.h"
 #include "core/ref.h"
 #include "util.h"
 #include <math.h>
@@ -443,7 +444,7 @@ static int l_lovrGraphicsGetStats(lua_State* L) {
   lua_pushinteger(L, stats->shaderSwitches);
   lua_setfield(L, 1, "shaderswitches");
   lua_createtable(L, 0, stats->timers.length);
-  for (int i = 0; i < stats->timers.length; i++) {
+  for (size_t i = 0; i < stats->timers.length; i++) {
     lua_pushstring(L, stats->timers.data[i].label);
     lua_pushnumber(L, stats->timers.data[i].time);
     lua_settable(L, -3);
@@ -1010,8 +1011,8 @@ static void luax_checkuniformtype(lua_State* L, int index, UniformType* baseType
 }
 
 static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
-  vec_uniform_t uniforms;
-  vec_init(&uniforms);
+  arr_uniform_t uniforms;
+  arr_init(&uniforms);
 
   BlockType type = luaL_checkoption(L, 1, NULL, BlockTypes);
 
@@ -1039,7 +1040,7 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
     }
 
     lovrAssert(uniform.count >= 1, "Uniform count must be positive, got %d for '%s'", uniform.count, uniform.name);
-    vec_push(&uniforms, uniform);
+    arr_push(&uniforms, uniform);
 
     // Pop the table, leaving the key for lua_next to nom
     lua_pop(L, 1);
@@ -1063,7 +1064,7 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   Buffer* buffer = lovrBufferCreate(size, NULL, type == BLOCK_COMPUTE ? BUFFER_SHADER_STORAGE : BUFFER_UNIFORM, usage, readable);
   ShaderBlock* block = lovrShaderBlockCreate(type, buffer, &uniforms);
   luax_pushtype(L, ShaderBlock, block);
-  vec_deinit(&uniforms);
+  arr_free(&uniforms);
   lovrRelease(Buffer, buffer);
   lovrRelease(ShaderBlock, block);
   return 1;

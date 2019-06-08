@@ -4,6 +4,8 @@
 
 File* lovrFileInit(File* file ,const char* path) {
   file->path = path;
+  file->handle = NULL;
+  file->mode = 0;
   return file;
 }
 

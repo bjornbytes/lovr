@@ -1,4 +1,4 @@
-#include "lib/vec/vec.h"
+#include "core/arr.h"
 #include "lib/map/map.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -25,12 +25,14 @@ typedef enum {
 } JointType;
 
 typedef struct Collider Collider;
+typedef struct Shape Shape;
+typedef struct Joint Joint;
 
 typedef struct {
   dWorldID id;
   dSpaceID space;
   dJointGroupID contactGroup;
-  vec_void_t overlaps;
+  arr_t(Shape*, 8) overlaps;
   map_int_t tags;
   uint16_t masks[MAX_TAGS];
   Collider* head;
@@ -43,29 +45,29 @@ struct Collider {
   Collider* next;
   void* userdata;
   int tag;
-  vec_void_t shapes;
-  vec_void_t joints;
+  arr_t(Shape*, 2) shapes;
+  arr_t(Joint*, 2) joints;
   float friction;
   float restitution;
 };
 
-typedef struct Shape {
+struct Shape {
   ShapeType type;
   dGeomID id;
   Collider* collider;
   void* userdata;
-} Shape;
+};
 
 typedef Shape SphereShape;
 typedef Shape BoxShape;
 typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
 
-typedef struct Joint {
+struct Joint {
   JointType type;
   dJointID id;
   void* userdata;
-} Joint;
+};
 
 typedef Joint BallJoint;
 typedef Joint DistanceJoint;
@@ -112,8 +114,8 @@ void lovrColliderDestroyData(Collider* collider);
 World* lovrColliderGetWorld(Collider* collider);
 void lovrColliderAddShape(Collider* collider, Shape* shape);
 void lovrColliderRemoveShape(Collider* collider, Shape* shape);
-vec_void_t* lovrColliderGetShapes(Collider* collider);
-vec_void_t* lovrColliderGetJoints(Collider* collider);
+Shape** lovrColliderGetShapes(Collider* collider, size_t* count);
+Joint** lovrColliderGetJoints(Collider* collider, size_t* count);
 void* lovrColliderGetUserData(Collider* collider);
 void lovrColliderSetUserData(Collider* collider, void* data);
 const char* lovrColliderGetTag(Collider* collider);

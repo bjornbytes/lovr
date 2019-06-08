@@ -3,6 +3,7 @@
 #include "data/modelData.h"
 #include "graphics/model.h"
 #include "graphics/texture.h"
+#include "core/arr.h"
 #include "core/maf.h"
 #include "core/ref.h"
 #include <stdlib.h>
@@ -230,12 +231,17 @@ static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
     lua_settop(L, 1);
   } else {
     lua_settop(L, 0);
-    lua_createtable(L, count, 0);
+    lua_createtable(L, count / 4, 0);
   }
 
-  for (uint32_t i = 0; i < count; i++) {
-    lua_pushnumber(L, points[i]);
-    lua_rawseti(L, 1, i + 1);
+  int j = 1;
+  for (uint32_t i = 0; i < count; i += 4) {
+    lua_pushnumber(L, points[i + 0]);
+    lua_rawseti(L, 1, j++);
+    lua_pushnumber(L, points[i + 1]);
+    lua_rawseti(L, 1, j++);
+    lua_pushnumber(L, points[i + 2]);
+    lua_rawseti(L, 1, j++);
   }
 
   return 1;
@@ -608,8 +614,8 @@ int luaopen_lovr_headset(lua_State* L) {
   luax_pushconf(L);
   lua_getfield(L, -1, "headset");
 
-  vec_t(HeadsetDriver) drivers;
-  vec_init(&drivers);
+  arr_t(HeadsetDriver, 8) drivers;
+  arr_init(&drivers);
   float offset = 1.7f;
   int msaa = 4;
 
@@ -620,7 +626,7 @@ int luaopen_lovr_headset(lua_State* L) {
     int n = luax_len(L, -1);
     for (int i = 0; i < n; i++) {
       lua_rawgeti(L, -1, i + 1);
-      vec_push(&drivers, luaL_checkoption(L, -1, NULL, HeadsetDrivers));
+      arr_push(&drivers, luaL_checkoption(L, -1, NULL, HeadsetDrivers));
       lua_pop(L, 1);
     }
     lua_pop(L, 1);
@@ -640,7 +646,7 @@ int luaopen_lovr_headset(lua_State* L) {
     luax_atexit(L, lovrHeadsetDestroy);
   }
 
-  vec_deinit(&drivers);
+  arr_free(&drivers);
   lua_pop(L, 2);
 
   headsetRenderData.ref = LUA_NOREF;
