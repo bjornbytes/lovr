@@ -143,6 +143,21 @@ static GLenum convertTextureFormat(TextureFormat format) {
     case FORMAT_DXT1: return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+    case FORMAT_ASTC_4x4:
+    case FORMAT_ASTC_5x4:
+    case FORMAT_ASTC_5x5:
+    case FORMAT_ASTC_6x5:
+    case FORMAT_ASTC_6x6:
+    case FORMAT_ASTC_8x5:
+    case FORMAT_ASTC_8x6:
+    case FORMAT_ASTC_8x8:
+    case FORMAT_ASTC_10x5:
+    case FORMAT_ASTC_10x6:
+    case FORMAT_ASTC_10x8:
+    case FORMAT_ASTC_10x10:
+    case FORMAT_ASTC_12x10:
+    case FORMAT_ASTC_12x12:
+      return GL_RGBA;
     default: lovrThrow("Unreachable");
   }
 }
@@ -167,6 +182,20 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
     case FORMAT_DXT1: return srgb ? GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+    case FORMAT_ASTC_4x4: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4 : GL_COMPRESSED_RGBA_ASTC_4x4;
+    case FORMAT_ASTC_5x4: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4 : GL_COMPRESSED_RGBA_ASTC_5x4;
+    case FORMAT_ASTC_5x5: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5 : GL_COMPRESSED_RGBA_ASTC_5x5;
+    case FORMAT_ASTC_6x5: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5 : GL_COMPRESSED_RGBA_ASTC_6x5;
+    case FORMAT_ASTC_6x6: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6 : GL_COMPRESSED_RGBA_ASTC_6x6;
+    case FORMAT_ASTC_8x5: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5 : GL_COMPRESSED_RGBA_ASTC_8x5;
+    case FORMAT_ASTC_8x6: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6 : GL_COMPRESSED_RGBA_ASTC_8x6;
+    case FORMAT_ASTC_8x8: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8 : GL_COMPRESSED_RGBA_ASTC_8x8;
+    case FORMAT_ASTC_10x5: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5 : GL_COMPRESSED_RGBA_ASTC_10x5;
+    case FORMAT_ASTC_10x6: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6 : GL_COMPRESSED_RGBA_ASTC_10x6;
+    case FORMAT_ASTC_10x8: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8 : GL_COMPRESSED_RGBA_ASTC_10x8;
+    case FORMAT_ASTC_10x10: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10 : GL_COMPRESSED_RGBA_ASTC_10x10;
+    case FORMAT_ASTC_12x10: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10 : GL_COMPRESSED_RGBA_ASTC_12x10;
+    case FORMAT_ASTC_12x12: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12 : GL_COMPRESSED_RGBA_ASTC_12x12;
     default: lovrThrow("Unreachable");
   }
 }
@@ -191,6 +220,20 @@ static GLenum convertTextureFormatType(TextureFormat format) {
     case FORMAT_DXT1:
     case FORMAT_DXT3:
     case FORMAT_DXT5:
+    case FORMAT_ASTC_4x4:
+    case FORMAT_ASTC_5x4:
+    case FORMAT_ASTC_5x5:
+    case FORMAT_ASTC_6x5:
+    case FORMAT_ASTC_6x6:
+    case FORMAT_ASTC_8x5:
+    case FORMAT_ASTC_8x6:
+    case FORMAT_ASTC_8x8:
+    case FORMAT_ASTC_10x5:
+    case FORMAT_ASTC_10x6:
+    case FORMAT_ASTC_10x8:
+    case FORMAT_ASTC_10x10:
+    case FORMAT_ASTC_12x10:
+    case FORMAT_ASTC_12x12:
     default:
       lovrThrow("Unreachable");
       return GL_UNSIGNED_BYTE;
@@ -199,8 +242,26 @@ static GLenum convertTextureFormatType(TextureFormat format) {
 
 static bool isTextureFormatCompressed(TextureFormat format) {
   switch (format) {
-    case FORMAT_DXT1: case FORMAT_DXT3: case FORMAT_DXT5: return true;
-    default: return false;
+    case FORMAT_DXT1:
+    case FORMAT_DXT3:
+    case FORMAT_DXT5:
+    case FORMAT_ASTC_4x4:
+    case FORMAT_ASTC_5x4:
+    case FORMAT_ASTC_5x5:
+    case FORMAT_ASTC_6x5:
+    case FORMAT_ASTC_6x6:
+    case FORMAT_ASTC_8x5:
+    case FORMAT_ASTC_8x6:
+    case FORMAT_ASTC_8x8:
+    case FORMAT_ASTC_10x5:
+    case FORMAT_ASTC_10x6:
+    case FORMAT_ASTC_10x8:
+    case FORMAT_ASTC_10x10:
+    case FORMAT_ASTC_12x10:
+    case FORMAT_ASTC_12x12:
+      return true;
+    default:
+      return false;
   }
 }
 
@@ -1194,7 +1255,7 @@ void lovrGpuTick(const char* label) {
   TimerList* timer = map_get(&state.timers, label);
 
   if (!timer) {
-    map_set(&state.timers, label, ((TimerList) { 0 }));
+    map_set(&state.timers, label, ((TimerList) { .oldest = 0 }));
     timer = map_get(&state.timers, label);
     glGenQueries(sizeof(timer->timers) / sizeof(timer->timers[0]), timer->timers);
   }

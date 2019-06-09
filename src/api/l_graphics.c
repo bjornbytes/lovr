@@ -174,6 +174,20 @@ const char* TextureFormats[] = {
   [FORMAT_DXT1] = "dxt1",
   [FORMAT_DXT3] = "dxt3",
   [FORMAT_DXT5] = "dxt5",
+  [FORMAT_ASTC_4x4] = "astc4x4",
+  [FORMAT_ASTC_5x4] = "astc5x4",
+  [FORMAT_ASTC_5x5] = "astc5x5",
+  [FORMAT_ASTC_6x5] = "astc6x5",
+  [FORMAT_ASTC_6x6] = "astc6x6",
+  [FORMAT_ASTC_8x5] = "astc8x5",
+  [FORMAT_ASTC_8x6] = "astc8x6",
+  [FORMAT_ASTC_8x8] = "astc8x8",
+  [FORMAT_ASTC_10x5] = "astc10x5",
+  [FORMAT_ASTC_10x6] = "astc10x6",
+  [FORMAT_ASTC_10x8] = "astc10x8",
+  [FORMAT_ASTC_10x10] = "astc10x10",
+  [FORMAT_ASTC_12x10] = "astc12x10",
+  [FORMAT_ASTC_12x12] = "astc12x12",
   NULL
 };
 
