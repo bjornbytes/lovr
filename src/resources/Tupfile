@@ -1,0 +1,4 @@
+include_rules
+
+: shaders.c |> !compile |>
+: foreach *.ttf *.lua *.json *.png |> !embed |> %f.h
