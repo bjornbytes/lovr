@@ -2017,8 +2017,8 @@ static char* lovrShaderGetFlagCode(ShaderFlag* flags, uint32_t flagCount) {
 
 Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource, ShaderFlag* flags, uint32_t flagCount) {
 #if defined(LOVR_WEBGL) || defined(LOVR_GLES)
-  const char* vertexHeader = "#version 300 es\nprecision mediump float;\nprecision mediump int;\n";
-  const char* fragmentHeader = vertexHeader;
+  const char* vertexHeader = "#version 300 es\nprecision highp float;\nprecision highp int;\n";
+  const char* fragmentHeader = "#version 300 es\nprecision mediump float;\nprecision mediump int;\n";
 #else
   const char* vertexHeader = state.features.compute ? "#version 430\n" : "#version 150\n";
   const char* fragmentHeader = "#version 150\n";
