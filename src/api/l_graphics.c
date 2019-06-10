@@ -401,8 +401,12 @@ static int l_lovrGraphicsTock(lua_State* L) {
 static int l_lovrGraphicsGetFeatures(lua_State* L) {
   const GpuFeatures* features = lovrGraphicsGetFeatures();
   lua_newtable(L);
+  lua_pushboolean(L, features->astc);
+  lua_setfield(L, -2, "astc");
   lua_pushboolean(L, features->compute);
   lua_setfield(L, -2, "compute");
+  lua_pushboolean(L, features->dxt);
+  lua_setfield(L, -2, "dxt");
   lua_pushboolean(L, features->singlepass);
   lua_setfield(L, -2, "singlepass");
   return 1;
