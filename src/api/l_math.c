@@ -343,14 +343,23 @@ int luaopen_lovr_math(lua_State* L) {
 
   // Inject LuaJIT superjuice
 #ifdef LOVR_USE_LUAJIT
-  lua_pushcfunction(L, luax_getstack);
-  lovrAssert(!luaL_loadbuffer(L, (const char*) math_lua, math_lua_len, "math.lua"), "Could not load math.lua");
-  lua_pushvalue(L, -3); // lovr.math
-  luaL_getmetatable(L, "Pool");
-  if (lua_pcall(L, 2, 0, -4)) {
-    lovrThrow(lua_tostring(L, -1));
+  luax_pushconf(L);
+  lua_getfield(L, -1, "math");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "ffi");
+    if (lua_toboolean(L, -1)) {
+      lua_pushcfunction(L, luax_getstack);
+      lovrAssert(!luaL_loadbuffer(L, (const char*) math_lua, math_lua_len, "math.lua"), "Could not load math.lua");
+      lua_pushvalue(L, -6); // lovr.math
+      luaL_getmetatable(L, "Pool");
+      if (lua_pcall(L, 2, 0, -4)) {
+        lovrThrow(lua_tostring(L, -1));
+      }
+      lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
   }
-  lua_pop(L, 1);
+  lua_pop(L, 2);
 #endif
 
   return 1;

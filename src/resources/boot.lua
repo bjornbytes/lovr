@@ -67,6 +67,9 @@ function lovr.boot()
       offset = 1.7,
       msaa = 4
     },
+    math = {
+      ffi = true
+    },
     window = {
       width = 1080,
       height = 600,
