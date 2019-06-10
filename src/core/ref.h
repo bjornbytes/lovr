@@ -20,8 +20,8 @@ static inline uint32_t ref_dec(Ref* ref) { return atomic_fetch_sub(ref, 1) - 1; 
 #else
 
 typedef uint32_t Ref;
-static inline uint32_t ref_inc(Ref* ref) { return ++ref; }
-static inline uint32_t ref_dec(Ref* ref) { return --ref; }
+static inline uint32_t ref_inc(Ref* ref) { return ++*ref; }
+static inline uint32_t ref_dec(Ref* ref) { return --*ref; }
 
 #endif
 
