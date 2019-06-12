@@ -55,7 +55,7 @@ static int l_lovrCanvasNewTextureData(lua_State* L) {
   uint32_t index = luaL_optinteger(L, 2, 1) - 1;
   uint32_t count;
   lovrCanvasGetAttachments(canvas, &count);
-  lovrAssert(index >= 0 && index < count, "Can not create a TextureData from Texture #%d of Canvas (it only has %d textures)", index, count);
+  lovrAssert(index < count, "Can not create a TextureData from Texture #%d of Canvas (it only has %d textures)", index, count);
   TextureData* textureData = lovrCanvasNewTextureData(canvas, index);
   luax_pushtype(L, TextureData, textureData);
   lovrRelease(TextureData, textureData);

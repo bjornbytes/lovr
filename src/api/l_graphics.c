@@ -1538,11 +1538,11 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, index, "type");
-    type = lua_isnil(L, -1) ? type : luaL_checkoption(L, -1, NULL, TextureTypes);
+    type = lua_isnil(L, -1) ? type : (TextureType) luaL_checkoption(L, -1, NULL, TextureTypes);
     lua_pop(L, 1);
 
     lua_getfield(L, index, "format");
-    format = lua_isnil(L, -1) ? format : luaL_checkoption(L, -1, NULL, TextureFormats);
+    format = lua_isnil(L, -1) ? format : (TextureFormat) luaL_checkoption(L, -1, NULL, TextureFormats);
     lua_pop(L, 1);
 
     lua_getfield(L, index, "msaa");

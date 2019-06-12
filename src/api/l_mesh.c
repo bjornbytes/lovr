@@ -174,7 +174,7 @@ static int l_lovrMeshGetVertex(lua_State* L) {
 static int l_lovrMeshSetVertex(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
   uint32_t index = luaL_checkinteger(L, 2) - 1;
-  lovrAssert(index >= 0 && index < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex index: %d", index + 1);
+  lovrAssert(index < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex index: %d", index + 1);
   bool table = lua_istable(L, 3);
 
   if (!mesh->vertexBuffer || mesh->attributeCount == 0 || mesh->attributes[0].buffer != mesh->vertexBuffer) {
@@ -222,7 +222,7 @@ static int l_lovrMeshGetVertexAttribute(lua_State* L) {
   uint32_t attributeIndex = luaL_checkinteger(L, 3) - 1;
   Buffer* buffer = lovrMeshGetVertexBuffer(mesh);
   lovrAssert(lovrBufferIsReadable(buffer), "Mesh:getVertex can only be used if the Mesh was created with the readable flag");
-  lovrAssert(vertexIndex >= 0 && vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
+  lovrAssert(vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
   lovrAssert(attributeIndex < mesh->attributeCount, "Invalid mesh attribute: %d", attributeIndex + 1);
   lovrAssert(mesh->attributes[attributeIndex].buffer == mesh->vertexBuffer, "Invalid mesh attribute: %d", attributeIndex + 1);
   MeshAttribute* attribute = &mesh->attributes[attributeIndex];
@@ -246,7 +246,7 @@ static int l_lovrMeshSetVertexAttribute(lua_State* L) {
   uint32_t vertexIndex = luaL_checkinteger(L, 2) - 1;
   uint32_t attributeIndex = luaL_checkinteger(L, 3) - 1;
   bool table = lua_istable(L, 4);
-  lovrAssert(vertexIndex >= 0 && vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
+  lovrAssert(vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
   lovrAssert(attributeIndex < mesh->attributeCount, "Invalid mesh attribute: %d", attributeIndex + 1);
   lovrAssert(mesh->attributes[attributeIndex].buffer == mesh->vertexBuffer, "Invalid mesh attribute: %d", attributeIndex + 1);
   MeshAttribute* attribute = &mesh->attributes[attributeIndex];
