@@ -15,7 +15,7 @@ CFLAGS += -Wno-typedef-redefinition
 CFLAGS += -Wno-unused-parameter
 
 # stdatomic.h is used for atomic refcounts when threads are enabled, and that's a C11 feature.
-ifeq (@(MODULE_THREAD),y)
+ifeq (@(THREAD),y)
   CFLAGS += -std=c11
 else
   CFLAGS += -std=c99
@@ -83,6 +83,9 @@ LDFLAGS += @(ODE_LDFLAGS)
 LDFLAGS += @(OPENVR_LDFLAGS)
 LDFLAGS += @(OPENXR_LDFLAGS)
 LDFLAGS += @(ENET_LDFLAGS)
+
+CFLAGS += @(CFLAGS)
+LDFLAGS += @(LDFLAGS)
 
 # Macros
 !compile = |> ^ CC %f^ @(CC) $(CFLAGS) $(CFLAGS_y) -c %f -o %o |> $(ROOT)/.obj/%B.o $(ROOT)/<objects>
