@@ -119,7 +119,7 @@ local vec3 = {
     return v
   end,
 
-  sub = function(v, u)
+  sub = function(v, x, y, z)
     checkvec3(v)
     if type(x) == 'number' then
       v.x = v.x - x
