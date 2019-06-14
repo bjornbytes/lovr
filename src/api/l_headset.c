@@ -525,7 +525,7 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   }
 
   int count = 0;
-  float position[3], orientation[4];
+  float position[4], orientation[4];
   Device hands[] = { DEVICE_HAND_LEFT, DEVICE_HAND_RIGHT };
   for (size_t i = 0; i < sizeof(hands) / sizeof(hands[0]); i++) {
     FOREACH_TRACKING_DRIVER(driver) {
