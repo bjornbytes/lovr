@@ -284,7 +284,10 @@ local quat = {
 
   set = function(q, x, y, z, w, raw)
     checkquat(q)
-    if type(x) == 'number' then
+    if x == nil then
+      q.x, q.y, q.z = 0, 0, 0
+      q.w = 1
+    elseif type(x) == 'number' then
       if type(y) == 'number' then
         if raw then
           q.x, q.y, q.z, q.w = x, y, z, w
