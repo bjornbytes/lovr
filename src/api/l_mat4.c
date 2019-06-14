@@ -30,6 +30,7 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
       index = luax_readquat(L, index, R, NULL);
       mat4_rotateQuat(m, R);
       mat4_scale(m, S[0], S[1], S[2]);
+      m[15] = 1.f;
       return index;
     }
   }
