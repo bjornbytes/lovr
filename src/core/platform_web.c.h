@@ -15,6 +15,10 @@ int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
   return 1;
 }
 
+void lovrPlatformOpenConsole() {
+  //
+}
+
 sds lovrPlatformGetApplicationId() {
 	return NULL;
 }

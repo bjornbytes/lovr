@@ -28,6 +28,10 @@ void lovrPlatformSetTime(double t) {
 }
 */
 
+void lovrPlatformOpenConsole() {
+  //
+}
+
 bool lovrPlatformCreateWindow(WindowFlags* flags) {
   return true;
 }

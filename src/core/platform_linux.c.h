@@ -12,6 +12,10 @@ void lovrPlatformSleep(double seconds) {
   usleep((unsigned int) (seconds * 1000000));
 }
 
+void lovrPlatformOpenConsole() {
+  //
+}
+
 int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
   memset(dest, 0, size);
   if (readlink("/proc/self/exe", dest, size) != -1) {

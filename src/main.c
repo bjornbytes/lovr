@@ -55,6 +55,8 @@ static void emscriptenLoop(void* arg) {
 #endif
 
 int main(int argc, char** argv) {
+  lovrPlatformOpenConsole();
+
   if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
     lovrLog("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
     exit(0);
