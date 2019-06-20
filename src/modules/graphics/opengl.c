@@ -387,19 +387,6 @@ static TextureType getUniformTextureType(GLenum type) {
   }
 }
 
-// TODO really ought to have TextureType-specific default textures
-static Texture* lovrGpuGetDefaultTexture() {
-  if (!state.defaultTexture) {
-    TextureData* textureData = lovrTextureDataCreate(1, 1, 0xff, FORMAT_RGBA);
-    state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false, 0);
-    lovrTextureSetFilter(state.defaultTexture, (TextureFilter) { .mode = FILTER_NEAREST });
-    lovrTextureSetWrap(state.defaultTexture, (TextureWrap) { WRAP_CLAMP, WRAP_CLAMP, WRAP_CLAMP });
-    lovrRelease(TextureData, textureData);
-  }
-
-  return state.defaultTexture;
-}
-
 // Syncing resources is only relevant for compute shaders
 #ifndef LOVR_WEBGL
 static void lovrGpuSync(uint8_t flags) {
@@ -520,7 +507,7 @@ static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot, si
 
 static void lovrGpuBindTexture(Texture* texture, int slot) {
   lovrAssert(slot >= 0 && slot < MAX_TEXTURES, "Invalid texture slot %d", slot);
-  texture = texture ? texture : lovrGpuGetDefaultTexture();
+  texture = texture ? texture : state.defaultTexture;
 
   if (texture != state.textures[slot]) {
     lovrRetain(texture);
@@ -540,7 +527,7 @@ static void lovrGpuBindImage(Image* image, int slot) {
 
   // This is a risky way to compare the two structs
   if (memcmp(state.images + slot, image, sizeof(Image))) {
-    Texture* texture = image->texture ? image->texture : lovrGpuGetDefaultTexture();
+    Texture* texture = image->texture ? image->texture : state.defaultTexture;
     lovrAssert(!texture->srgb, "sRGB textures can not be used as image uniforms");
     lovrAssert(!isTextureFormatCompressed(texture->format), "Compressed textures can not be used as image uniforms");
     lovrAssert(texture->format != FORMAT_RGB && texture->format != FORMAT_RGBA4 && texture->format != FORMAT_RGB5A1, "Unsupported texture format for image uniform");
@@ -1061,6 +1048,12 @@ void lovrGpuInit(getProcAddressProc getProcAddress) {
   for (int i = 0; i < MAX_BARRIERS; i++) {
     arr_init(&state.incoherents[i]);
   }
+
+  TextureData* textureData = lovrTextureDataCreate(1, 1, 0xff, FORMAT_RGBA);
+  state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false, 0);
+  lovrTextureSetFilter(state.defaultTexture, (TextureFilter) { .mode = FILTER_NEAREST });
+  lovrTextureSetWrap(state.defaultTexture, (TextureWrap) { WRAP_CLAMP, WRAP_CLAMP, WRAP_CLAMP });
+  lovrRelease(TextureData, textureData);
 }
 
 void lovrGpuDestroy() {
