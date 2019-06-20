@@ -1049,6 +1049,8 @@ void lovrGpuInit(getProcAddressProc getProcAddress) {
     arr_init(&state.incoherents[i]);
   }
 
+  arr_init(&state.stats.timers);
+
   TextureData* textureData = lovrTextureDataCreate(1, 1, 0xff, FORMAT_RGBA);
   state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false, 0);
   lovrTextureSetFilter(state.defaultTexture, (TextureFilter) { .mode = FILTER_NEAREST });
@@ -1067,6 +1069,7 @@ void lovrGpuDestroy() {
   for (int i = 0; i < MAX_BARRIERS; i++) {
     arr_free(&state.incoherents[i]);
   }
+  arr_free(&state.stats.timers);
   memset(&state, 0, sizeof(state));
 }
 
