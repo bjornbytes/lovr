@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 static int luax_meta__tostring(lua_State* L) {
-  lua_getfield(L, -1, "name");
+  lua_getfield(L, -1, "__name");
   lua_pushstring(L, (const char*) lua_touserdata(L, -1));
   return 1;
 }
