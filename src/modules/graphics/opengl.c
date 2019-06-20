@@ -2028,12 +2028,12 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
   char* flagSource = lovrShaderGetFlagCode(flags, flagCount);
 
   // Vertex
-  vertexSource = vertexSource == NULL ? lovrDefaultVertexShader : vertexSource;
+  vertexSource = vertexSource == NULL ? lovrUnlitVertexShader : vertexSource;
   const char* vertexSources[] = { vertexHeader, vertexSinglepass, flagSource ? flagSource : "", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, sizeof(vertexSources) / sizeof(vertexSources[0]));
 
   // Fragment
-  fragmentSource = fragmentSource == NULL ? lovrDefaultFragmentShader : fragmentSource;
+  fragmentSource = fragmentSource == NULL ? lovrUnlitFragmentShader : fragmentSource;
   const char* fragmentSources[] = { fragmentHeader, fragmentSinglepass, flagSource ? flagSource : "", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, sizeof(fragmentSources) / sizeof(fragmentSources[0]));
 

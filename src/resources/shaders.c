@@ -105,12 +105,12 @@ const char* lovrShaderComputeSuffix = ""
 "  compute(); \n"
 "}";
 
-const char* lovrDefaultVertexShader = ""
+const char* lovrUnlitVertexShader = ""
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  return projection * transform * vertex; \n"
 "}";
 
-const char* lovrDefaultFragmentShader = ""
+const char* lovrUnlitFragmentShader = ""
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  return graphicsColor * lovrDiffuseColor * vertexColor * texture(image, uv); \n"
 "}";
