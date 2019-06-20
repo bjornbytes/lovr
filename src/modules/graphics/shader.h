@@ -53,6 +53,7 @@ typedef struct {
 
 typedef enum {
   SHADER_UNLIT,
+  SHADER_STANDARD,
   SHADER_CUBE,
   SHADER_PANO,
   SHADER_FONT,

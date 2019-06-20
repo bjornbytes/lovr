@@ -8,6 +8,8 @@ extern const char* lovrShaderComputePrefix;
 extern const char* lovrShaderComputeSuffix;
 extern const char* lovrUnlitVertexShader;
 extern const char* lovrUnlitFragmentShader;
+extern const char* lovrStandardVertexShader;
+extern const char* lovrStandardFragmentShader;
 extern const char* lovrCubeVertexShader;
 extern const char* lovrCubeFragmentShader;
 extern const char* lovrPanoFragmentShader;

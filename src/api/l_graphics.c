@@ -78,6 +78,7 @@ const char* CompareModes[] = {
 
 const char* DefaultShaders[] = {
   [SHADER_UNLIT] = "unlit",
+  [SHADER_STANDARD] = "standard",
   [SHADER_CUBE] = "cube",
   [SHADER_PANO] = "pano",
   [SHADER_FONT] = "font",

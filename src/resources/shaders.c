@@ -115,6 +115,22 @@ const char* lovrUnlitFragmentShader = ""
 "  return graphicsColor * lovrDiffuseColor * vertexColor * texture(image, uv); \n"
 "}";
 
+const char* lovrStandardVertexShader = ""
+"out vec3 vWorldPosition; \n"
+"out vec3 vWorldNormal; \n"
+"vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
+"  vWorldPosition = vec3(lovrModel * vertex); \n"
+"  vWorldNormal = mat3(lovrModel) * lovrNormal; // TODO non-uniform scale \n"
+"  return projection * lovrView * vec4(vWorldPosition, 1.); \n"
+"}";
+
+const char* lovrStandardFragmentShader = ""
+"in vec3 vWorldPosition; \n"
+"in vec3 vWorldNormal; \n"
+"vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
+"  return vec4(1., 0., 0., 1.); \n"
+"}";
+
 const char* lovrCubeVertexShader = ""
 "out vec3 texturePosition[2]; \n"
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
