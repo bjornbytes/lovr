@@ -5,6 +5,7 @@
 #include "graphics/canvas.h"
 #include "lib/glad/glad.h"
 #include <assert.h>
+#include <stdlib.h>
 #include "platform.h"
 
 // Data passed from bridge code to headset code
