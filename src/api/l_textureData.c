@@ -34,6 +34,19 @@ static int l_lovrTextureDataGetFormat(lua_State* L) {
   return 1;
 }
 
+static int l_lovrTextureDataPaste(lua_State* L) {
+  TextureData* textureData = luax_checktype(L, 1, TextureData);
+  TextureData* source = luax_checktype(L, 2, TextureData);
+  uint32_t dx = luaL_optinteger(L, 3, 0);
+  uint32_t dy = luaL_optinteger(L, 4, 0);
+  uint32_t sx = luaL_optinteger(L, 5, 0);
+  uint32_t sy = luaL_optinteger(L, 6, 0);
+  uint32_t w = luaL_optinteger(L, 7, source->width);
+  uint32_t h = luaL_optinteger(L, 8, source->height);
+  lovrTextureDataPaste(textureData, source, dx, dy, sx, sy, w, h);
+  return 0;
+}
+
 static int l_lovrTextureDataGetPixel(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
   int x = luaL_checkinteger(L, 2);
@@ -72,6 +85,7 @@ const luaL_Reg lovrTextureData[] = {
   { "getHeight", l_lovrTextureDataGetHeight },
   { "getDimensions", l_lovrTextureDataGetDimensions },
   { "getFormat", l_lovrTextureDataGetFormat },
+  { "paste", l_lovrTextureDataPaste },
   { "getPixel", l_lovrTextureDataGetPixel },
   { "setPixel", l_lovrTextureDataSetPixel },
   { "getPointer", l_lovrTextureDataGetPointer },

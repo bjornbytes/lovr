@@ -563,6 +563,21 @@ bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
   return success;
 }
 
+void lovrTextureDataPaste(TextureData* textureData, TextureData* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h) {
+  lovrAssert(textureData->format == source->format, "Currently TextureData must have the same format to paste");
+  lovrAssert(textureData->format < FORMAT_DXT1, "Compressed TextureData cannot be pasted");
+  size_t pixelSize = getPixelSize(textureData->format);
+  lovrAssert(dx + w <= textureData->width && dy + h <= textureData->height, "Attempt to paste outside of destination TextureData bounds");
+  lovrAssert(sx + w <= source->width && sy + h <= source->height, "Attempt to paste from outside of source TextureData bounds");
+  uint8_t* src = (uint8_t*) source->blob.data + ((source->height - 1 - sy) * source->width + sx) * pixelSize;
+  uint8_t* dst = (uint8_t*) textureData->blob.data + ((textureData->height - 1 - dy) * textureData->width + sx) * pixelSize;
+  for (uint32_t y = 0; y < h; y++) {
+    memcpy(dst, src, w * pixelSize);
+    src -= source->width * pixelSize;
+    dst -= textureData->width * pixelSize;
+  }
+}
+
 void lovrTextureDataDestroy(void* ref) {
   TextureData* textureData = ref;
   lovrRelease(Blob, textureData->source);
