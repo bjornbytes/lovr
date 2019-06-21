@@ -23,6 +23,10 @@
 #define LOVR_INLINE inline
 #endif
 
+#ifndef M_PI
+#define M_PI 3.14159265358979
+#endif
+
 #define MAX(a, b) (a > b ? a : b)
 #define MIN(a, b) (a < b ? a : b)
 #define CLAMP(x, min, max) MAX(min, MIN(max, x))

@@ -83,7 +83,7 @@ double lovrRandomGeneratorRandomNormal(RandomGenerator* generator) {
   double a = lovrRandomGeneratorRandom(generator);
   double b = lovrRandomGeneratorRandom(generator);
   double r = sqrt(-2. * log(1. - a));
-  double phi = 2 * M_PI * (1. - b);
+  double phi = 2. * M_PI * (1. - b);
   generator->lastRandomNormal = r * cos(phi);
   return r * sin(phi);
 }

@@ -1,6 +1,7 @@
 #include "headset/headset.h"
 #include "graphics/graphics.h"
 #include "core/maf.h"
+#include "core/util.h"
 #include "platform.h"
 #include <math.h>
 #include <stdint.h>

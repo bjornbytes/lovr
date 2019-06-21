@@ -865,8 +865,8 @@ static int l_lovrGraphicsArc(lua_State* L) {
   float transform[16];
   index = luax_readmat4(L, index, transform, 1);
   float r1 = luax_optfloat(L, index++, 0.f);
-  float r2 = luax_optfloat(L, index++, 2.f * M_PI);
-  int segments = luaL_optinteger(L, index, 64) * (MIN(fabsf(r2 - r1), 2 * M_PI) / (2 * M_PI));
+  float r2 = luax_optfloat(L, index++, 2.f * (float) M_PI);
+  int segments = luaL_optinteger(L, index, 64) * (MIN(fabsf(r2 - r1), 2.f * (float) M_PI) / (2.f * (float) M_PI));
   lovrGraphicsArc(style, mode, material, transform, r1, r2, segments);
   return 0;
 }
