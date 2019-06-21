@@ -44,8 +44,6 @@ Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), Blob* body) {
   lovrRetain(body);
   thread->runner = runner;
   thread->body = body;
-  thread->error = NULL;
-  thread->running = false;
   mtx_init(&thread->lock, mtx_plain);
   return thread;
 }
@@ -55,6 +53,7 @@ void lovrThreadDestroy(void* ref) {
   mtx_destroy(&thread->lock);
   thrd_detach(thread->handle);
   lovrRelease(Blob, thread->body);
+  free(thread->error);
 }
 
 void lovrThreadStart(Thread* thread) {
@@ -64,10 +63,9 @@ void lovrThreadStart(Thread* thread) {
     return;
   }
 
-  if (thrd_create(&thread->handle, thread->runner, thread) != thrd_success) {
-    lovrThrow("Could not create thread...sorry");
-    return;
-  }
+  free(thread->error);
+  thread->error = NULL;
+  lovrAssert(thrd_create(&thread->handle, thread->runner, thread) == thrd_success, "Could not create thread...sorry");
 }
 
 void lovrThreadWait(Thread* thread) {

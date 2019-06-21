@@ -432,7 +432,10 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   bridgeLovrMobileData.deviceType = initData->deviceType;
 
   free(apkPath);
-  apkPath = strdup(initData->apkPath);
+  size_t length = strlen(initData->apkPath);
+  apkPath = malloc(length + 1);
+  lovrAssert(apkPath, "Out of memory");
+  memcpy(apkPath, initData->apkPath, length + 1);
 
   bridgeLovrInitState();
 

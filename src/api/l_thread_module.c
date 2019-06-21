@@ -13,10 +13,8 @@ static int threadRunner(void* data) {
   lovrRetain(thread);
   mtx_lock(&thread->lock);
   thread->running = true;
-  thread->error = NULL;
   mtx_unlock(&thread->lock);
 
-  // Lua state
   lua_State* L = luaL_newstate();
   luaL_openlibs(L);
   lovrSetErrorCallback((errorFn*) luax_vthrow, L);
@@ -27,23 +25,28 @@ static int threadRunner(void* data) {
   lua_pop(L, 2);
 
   if (luaL_loadbuffer(L, thread->body->data, thread->body->size, "thread") || lua_pcall(L, 0, 0, 0)) {
-    thread->error = lua_tostring(L, -1);
+    size_t length;
+    const char* error = lua_tolstring(L, -1, &length);
+    mtx_lock(&thread->lock);
+    thread->error = malloc(length + 1);
+    if (thread->error) {
+      memcpy(thread->error, error, length + 1);
+      lovrEventPush((Event) {
+        .type = EVENT_THREAD_ERROR,
+        .data.thread = { thread, thread->error }
+      });
+    }
+    thread->running = false;
+    mtx_unlock(&thread->lock);
+    lovrRelease(Thread, thread);
+    lua_close(L);
+    return 1;
   }
 
   mtx_lock(&thread->lock);
   thread->running = false;
   mtx_unlock(&thread->lock);
   lovrRelease(Thread, thread);
-
-  if (thread->error) {
-    lovrEventPush((Event) {
-      .type = EVENT_THREAD_ERROR,
-      .data.thread = { thread, strdup(thread->error) }
-    });
-    lua_close(L);
-    return 1;
-  }
-
   lua_close(L);
   return 0;
 }
@@ -54,10 +57,13 @@ static int l_lovrThreadNewThread(lua_State* L) {
     size_t length;
     const char* str = lua_tolstring(L, 1, &length);
     if (memchr(str, '\n', MIN(1024, length))) {
-      blob = lovrBlobCreate(strdup(str), length, "thread code");
+      void* data = malloc(length + 1);
+      lovrAssert(data, "Out of memory");
+      memcpy(data, str, length + 1);
+      blob = lovrBlobCreate(data, length, "thread code");
     } else {
       void* code = lovrFilesystemRead(str, -1, &length);
-      lovrAssert(code, "Could not read thread code from %s", str);
+      lovrAssert(code, "Could not read thread code from file '%s'", str);
       blob = lovrBlobCreate(code, length, str);
     }
   } else {

@@ -1,5 +1,6 @@
 #include "api.h"
 #include "event/event.h"
+#include "thread/thread.h"
 #include "core/platform.h"
 #include "core/ref.h"
 #include <stdlib.h>
@@ -105,7 +106,7 @@ static int nextEvent(lua_State* L) {
     case EVENT_THREAD_ERROR:
       luax_pushtype(L, Thread, event.data.thread.thread);
       lua_pushstring(L, event.data.thread.error);
-      free(event.data.thread.error);
+      lovrRelease(Thread, event.data.thread.thread);
       return 3;
 
     case EVENT_CUSTOM:

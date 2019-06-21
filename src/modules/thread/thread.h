@@ -11,7 +11,7 @@ typedef struct Thread {
   mtx_t lock;
   Blob* body;
   int (*runner)(void*);
-  const char* error;
+  char* error;
   bool running;
 } Thread;
 

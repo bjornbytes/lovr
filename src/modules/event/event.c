@@ -2,6 +2,7 @@
 #include "platform.h"
 #include "core/arr.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -36,6 +37,10 @@ void lovrEventPump() {
 }
 
 void lovrEventPush(Event event) {
+  if (event.type == EVENT_THREAD_ERROR) {
+    lovrRetain(event.data.thread.thread);
+  }
+
   arr_push(&state.events, event);
 }
 
