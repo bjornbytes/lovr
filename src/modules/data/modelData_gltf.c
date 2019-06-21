@@ -56,8 +56,8 @@ typedef struct {
 } gltfSampler;
 
 typedef struct {
-  int image;
-  int sampler;
+  uint32_t image;
+  uint32_t sampler;
 } gltfTexture;
 
 typedef struct {
@@ -144,14 +144,16 @@ static jsmntok_t* aggregate(const char* json, jsmntok_t* token, const char* targ
   return token;
 }
 
-static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMaterial* material, MaterialTexture type, gltfTexture* textures, gltfSampler* samplers) {
+static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMaterial* material, MaterialTexture textureType, gltfTexture* textures, gltfSampler* samplers) {
   for (int k = (token++)->size; k > 0; k--) {
     gltfString key = NOM_STR(json, token);
     if (STR_EQ(key, "index")) {
       uint32_t index = NOM_INT(json, token);
-      material->textures[type] = textures[index].image;
-      material->filters[type] = samplers[textures[index].sampler].filter;
-      material->wraps[type] = samplers[textures[index].sampler].wrap;
+      gltfTexture* texture = &textures[index];
+      gltfSampler* sampler = texture->sampler == ~0u ? NULL : &samplers[texture->sampler];
+      material->textures[textureType] = texture->image;
+      material->filters[textureType] = sampler ? sampler->filter : (TextureFilter) { .mode = FILTER_BILINEAR };
+      material->wraps[textureType] = sampler ? sampler->wrap : (TextureWrap) { .s = WRAP_REPEAT, .t = WRAP_REPEAT, .r = WRAP_REPEAT };
     } else if (STR_EQ(key, "texCoord")) {
       lovrAssert(NOM_INT(json, token) == 0, "Only one set of texture coordinates is supported");
     } else {
@@ -327,7 +329,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
       lovrAssert(samplers, "Out of memory");
       gltfSampler* sampler = samplers;
       for (int i = (token++)->size; i > 0; i--, sampler++) {
-        sampler->filter.mode = FILTER_TRILINEAR;
+        sampler->filter.mode = FILTER_BILINEAR;
         sampler->wrap.s = sampler->wrap.t = sampler->wrap.r = WRAP_REPEAT;
         int min = -1;
         int mag = -1;
@@ -371,6 +373,8 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
       lovrAssert(textures, "Out of memory");
       gltfTexture* texture = textures;
       for (int i = (token++)->size; i > 0; i--, texture++) {
+        texture->image = ~0u;
+        texture->sampler = ~0u;
         for (int k = (token++)->size; k > 0; k--) {
           gltfString key = NOM_STR(json, token);
           if (STR_EQ(key, "source")) {
@@ -381,6 +385,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
             token += NOM_VALUE(json, token);
           }
         }
+        lovrAssert(texture->image != ~0u, "Texture is missing an image (maybe an unsupported extension is used?)");
       }
 
     } else if (STR_EQ(key, "materials")) {
