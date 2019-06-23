@@ -397,7 +397,7 @@ MAF mat4 mat4_invert(mat4 m) {
         d = (b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06),
         invDet;
 
-  if (!d) { return NULL; }
+  if (!d) { return m; }
   invDet = 1 / d;
 
   m[0] = (a11 * b11 - a12 * b10 + a13 * b09) * invDet;
