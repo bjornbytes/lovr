@@ -55,6 +55,7 @@ typedef struct {
 
 static struct {
   Texture* defaultTexture;
+  enum { NONE, INSTANCED_STEREO, MULTIVIEW } singlepass;
   bool alphaToCoverage;
   bool blendEnabled;
   BlendMode blendMode;
@@ -502,6 +503,10 @@ static void lovrGpuBindBlockBuffer(BlockType type, uint32_t buffer, int slot, si
     block->offset = offset;
     block->size = size;
     glBindBufferRange(target, slot, buffer, offset, size);
+
+    // Binding to an indexed target also binds to the generic target
+    BufferType bufferType = type == BLOCK_UNIFORM ? BUFFER_UNIFORM : BUFFER_SHADER_STORAGE;
+    state.buffers[bufferType] = buffer;
   }
 }
 
@@ -639,21 +644,25 @@ static void lovrGpuBindCanvas(Canvas* canvas, bool willDraw) {
 
   GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
   for (uint32_t i = 0; i < canvas->attachmentCount; i++) {
-    GLenum buffer = buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+    GLenum drawBuffer = buffers[i] = GL_COLOR_ATTACHMENT0 + i;
     Attachment* attachment = &canvas->attachments[i];
     Texture* texture = attachment->texture;
     uint32_t slice = attachment->slice;
     uint32_t level = attachment->level;
 
-    if (canvas->flags.msaa) {
-      glFramebufferRenderbuffer(GL_FRAMEBUFFER, buffer, GL_RENDERBUFFER, texture->msaaId);
-    }
+    if (canvas->flags.stereo && state.singlepass == MULTIVIEW) {
+      glFramebufferTextureMultisampleMultiviewOVR(GL_READ_FRAMEBUFFER, drawBuffer, texture->id, level, canvas->flags.msaa, slice, 2);
+    } else {
+      if (canvas->flags.msaa) {
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, drawBuffer, GL_RENDERBUFFER, texture->msaaId);
+      }
 
-    switch (texture->type) {
-      case TEXTURE_2D: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_2D, texture->id, level); break;
-      case TEXTURE_CUBE: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, buffer, GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice, texture->id, level); break;
-      case TEXTURE_ARRAY: glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, buffer, texture->id, level, slice); break;
-      case TEXTURE_VOLUME: glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, buffer, texture->id, level, slice); break;
+      switch (texture->type) {
+        case TEXTURE_2D: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, drawBuffer, GL_TEXTURE_2D, texture->id, level); break;
+        case TEXTURE_CUBE: glFramebufferTexture2D(GL_READ_FRAMEBUFFER, drawBuffer, GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice, texture->id, level); break;
+        case TEXTURE_ARRAY: glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, drawBuffer, texture->id, level, slice); break;
+        case TEXTURE_VOLUME: glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, drawBuffer, texture->id, level, slice); break;
+      }
     }
   }
   glDrawBuffers(canvas->attachmentCount, buffers);
@@ -983,12 +992,14 @@ void lovrGpuInit(getProcAddressProc getProcAddress) {
   state.features.astc = GLAD_GL_ES_VERSION_3_2;
   state.features.compute = GLAD_GL_ARB_compute_shader;
   state.features.dxt = GLAD_GL_EXT_texture_compression_s3tc;
-  state.features.singlepass = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
+  state.features.instancedStereo = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
+  state.features.multiview = GLAD_GL_OVR_multiview2 && GLAD_GL_OVR_multiview_multisampled_render_to_texture;
   state.features.timers = GLAD_GL_VERSION_3_3 || GLAD_GL_EXT_disjoint_timer_query;
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PROGRAM_POINT_SIZE);
   glEnable(GL_FRAMEBUFFER_SRGB);
   glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
+  state.singlepass = (state.features.multiview && GLAD_GL_ES_VERSION_3_0) ? MULTIVIEW : (state.features.instancedStereo ? INSTANCED_STEREO : NONE);
 #else
   glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, state.limits.pointSizes);
 #endif
@@ -1136,23 +1147,25 @@ void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil) {
 }
 
 void lovrGpuDraw(DrawCommand* draw) {
-  uint32_t viewCount = 1 + draw->stereo;
-  uint32_t drawCount = state.features.singlepass ? 1 : viewCount;
-  uint32_t viewsPerDraw = state.features.singlepass ? viewCount : 1;
-  uint32_t instances = MAX(draw->instances, 1) * viewsPerDraw;
+  lovrAssert(state.singlepass != MULTIVIEW || draw->shader->multiview == draw->canvas->flags.stereo, "Shader and Canvas multiview settings must match!");
+  uint32_t viewportCount = (draw->stereo && state.singlepass != MULTIVIEW) ? 2 : 1;
+  uint32_t drawCount = state.singlepass == NONE ? viewportCount : 1;
+  uint32_t instanceMultiplier = state.singlepass == INSTANCED_STEREO ? viewportCount : 1;
+  uint32_t viewportsPerDraw = instanceMultiplier;
+  uint32_t instances = MAX(draw->instances, 1) * instanceMultiplier;
 
-  float w = draw->width / (float) viewCount;
+  float w = state.singlepass == MULTIVIEW ? draw->width : draw->width / (float) viewportCount;
   float h = draw->height;
-  float viewports[2][4] = { { 0, 0, w, h }, { w, 0, w, h } };
-  lovrShaderSetInts(draw->shader, "lovrViewportCount", &(int) { viewCount }, 0, 1);
+  float viewports[2][4] = { { 0.f, 0.f, w, h }, { w, 0.f, w, h } };
+  lovrShaderSetInts(draw->shader, "lovrViewportCount", &(int) { viewportCount }, 0, 1);
 
   lovrGpuBindCanvas(draw->canvas, true);
   lovrGpuBindPipeline(&draw->pipeline);
-  lovrGpuBindMesh(draw->mesh, draw->shader, viewsPerDraw);
+  lovrGpuBindMesh(draw->mesh, draw->shader, instanceMultiplier);
 
   for (uint32_t i = 0; i < drawCount; i++) {
-    lovrGpuSetViewports(&viewports[i][0], viewsPerDraw);
-    lovrShaderSetInts(draw->shader, "lovrViewportIndex", &(int) { i }, 0, 1);
+    lovrGpuSetViewports(&viewports[i][0], viewportsPerDraw);
+    lovrShaderSetInts(draw->shader, "lovrViewID", &(int) { i }, 0, 1);
     lovrGpuBindShader(draw->shader);
 
     Mesh* mesh = draw->mesh;
@@ -1508,6 +1521,10 @@ void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
 // Canvas
 
 Canvas* lovrCanvasInit(Canvas* canvas, uint32_t width, uint32_t height, CanvasFlags flags) {
+  if (flags.stereo && state.singlepass != MULTIVIEW) {
+    width *= 2;
+  }
+
   canvas->width = width;
   canvas->height = height;
   canvas->flags = flags;
@@ -1518,7 +1535,11 @@ Canvas* lovrCanvasInit(Canvas* canvas, uint32_t width, uint32_t height, CanvasFl
   if (flags.depth.enabled) {
     lovrAssert(isTextureFormatDepth(flags.depth.format), "Canvas depth buffer can't use a color TextureFormat");
     GLenum attachment = flags.depth.format == FORMAT_D24S8 ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
-    if (flags.depth.readable) {
+    if (flags.stereo && state.singlepass == MULTIVIEW) {
+      canvas->depth.texture = lovrTextureCreate(TEXTURE_ARRAY, NULL, 0, false, flags.mipmaps, flags.msaa);
+      lovrTextureAllocate(canvas->depth.texture, width, height, 2, flags.depth.format);
+      glFramebufferTextureMultisampleMultiviewOVR(GL_FRAMEBUFFER, attachment, canvas->depth.texture->id, 0, flags.msaa, 0, 2);
+    } else if (flags.depth.readable) {
       canvas->depth.texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, false, flags.mipmaps, flags.msaa);
       lovrTextureAllocate(canvas->depth.texture, width, height, 1, flags.depth.format);
       glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, canvas->depth.texture->id, 0);
@@ -2005,33 +2026,33 @@ static char* lovrShaderGetFlagCode(ShaderFlag* flags, uint32_t flagCount) {
   return code;
 }
 
-Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource, ShaderFlag* flags, uint32_t flagCount) {
+Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource, ShaderFlag* flags, uint32_t flagCount, bool multiview) {
 #if defined(LOVR_WEBGL) || defined(LOVR_GLES)
-  const char* vertexHeader = "#version 300 es\nprecision highp float;\nprecision highp int;\n";
-  const char* fragmentHeader = "#version 300 es\nprecision mediump float;\nprecision mediump int;\n";
+  const char* version = "#version 300 es\n";
+  const char* precision[2] = { "precision highp float;\nprecision highp int;\n", "precision mediump float;\nprecision mediump int;\n" };
 #else
-  const char* vertexHeader = state.features.compute ? "#version 430\n" : "#version 150\n";
-  const char* fragmentHeader = "#version 150\n";
+  const char* version = state.features.compute ? "#version 430\n" : "#version 150\n";
+  const char* precision[2] = { "", "" };
 #endif
 
-  const char* vertexSinglepass = state.features.singlepass ?
-    "#extension GL_AMD_vertex_shader_viewport_index : require\n" "#define SINGLEPASS 1\n" :
-    "#define SINGLEPASS 0\n";
-
-  const char* fragmentSinglepass = state.features.singlepass ?
-    "#extension GL_ARB_fragment_layer_viewport : require\n" "#define SINGLEPASS 1\n" :
-    "#define SINGLEPASS 0\n";
+  const char* singlepass[2] = { "", "" };
+  if (multiview && state.singlepass == MULTIVIEW) {
+    singlepass[0] = singlepass[1] = "#extension GL_OVR_multiview2 : require\n#define MULTIVIEW\n";
+  } else if (state.singlepass == INSTANCED_STEREO) {
+    singlepass[0] = "#extension GL_AMD_vertex_shader_viewport_index : require\n""#define INSTANCED_STEREO\n";
+    singlepass[1] = "#extension GL_AMD_fragment_layer_viewport : require\n""#define INSTANCED_STEREO\n";
+  }
 
   char* flagSource = lovrShaderGetFlagCode(flags, flagCount);
 
   // Vertex
   vertexSource = vertexSource == NULL ? lovrUnlitVertexShader : vertexSource;
-  const char* vertexSources[] = { vertexHeader, vertexSinglepass, flagSource ? flagSource : "", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
+  const char* vertexSources[] = { version, singlepass[0], precision[0], flagSource ? flagSource : "", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, sizeof(vertexSources) / sizeof(vertexSources[0]));
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrUnlitFragmentShader : fragmentSource;
-  const char* fragmentSources[] = { fragmentHeader, fragmentSinglepass, flagSource ? flagSource : "", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
+  const char* fragmentSources[] = { version, singlepass[1], precision[1], flagSource ? flagSource : "", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, sizeof(fragmentSources) / sizeof(fragmentSources[0]));
 
   free(flagSource);
@@ -2076,6 +2097,8 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
     glGetActiveAttrib(program, i, LOVR_MAX_ATTRIBUTE_LENGTH, NULL, &size, &type, name);
     map_set(&shader->attributes, name, glGetAttribLocation(program, name));
   }
+
+  shader->multiview = multiview;
 
   return shader;
 }

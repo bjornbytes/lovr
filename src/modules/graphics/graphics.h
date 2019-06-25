@@ -284,7 +284,8 @@ typedef struct {
   bool astc;
   bool compute;
   bool dxt;
-  bool singlepass;
+  bool instancedStereo;
+  bool multiview;
   bool timers;
 } GpuFeatures;
 

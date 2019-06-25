@@ -477,17 +477,24 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   }
 }
 
-static void lovrOculusMobileDraw(int framebuffer, int width, int height, float *eyeViewMatrix, float *projectionMatrix) {
-  lovrGpuDirtyTexture();
+void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
+  lovrGpuDirtyTexture(); // Clear texture state since LÖVR doesn't completely own the GL context
 
+  // Initialize a temporary Canvas from the framebuffer handle created by lovr-oculus-mobile
   Canvas canvas = { 0 };
-  lovrCanvasInitFromHandle(&canvas, width, height, (CanvasFlags) { 0 }, framebuffer, 0, 0, 1, true);
+  CanvasFlags flags = { .stereo = true };
+  uint32_t width = bridgeLovrMobileData.displayDimensions.width;
+  uint32_t height = bridgeLovrMobileData.displayDimensions.height;
+  lovrCanvasInitFromHandle(&canvas, width, height, flags, drawData->framebuffer, 0, 0, 1, true);
 
-  Camera camera = { .canvas = &canvas, .stereo = false };
-  memcpy(camera.viewMatrix[0], eyeViewMatrix, sizeof(camera.viewMatrix[0]));
-  mat4_translate(camera.viewMatrix[0], 0, -state.offset, 0);
-
-  memcpy(camera.projection[0], projectionMatrix, sizeof(camera.projection[0]));
+  // Set up a camera using the view and projection matrices from lovr-oculus-mobile
+  Camera camera = { .canvas = &canvas };
+  mat4_init(camera.viewMatrix[0], bridgeLovrMobileData.updateData.eyeViewMatrix[0]);
+  mat4_init(camera.viewMatrix[1], bridgeLovrMobileData.updateData.eyeViewMatrix[1]);
+  mat4_init(camera.projection[0], bridgeLovrMobileData.updateData.projectionMatrix[0]);
+  mat4_init(camera.projection[1], bridgeLovrMobileData.updateData.projectionMatrix[1]);
+  mat4_translate(camera.viewMatrix[0], 0.f, -state.offset, 0.f);
+  mat4_translate(camera.viewMatrix[1], 0.f, -state.offset, 0.f);
 
   lovrGraphicsSetCamera(&camera, true);
 
@@ -497,12 +504,6 @@ static void lovrOculusMobileDraw(int framebuffer, int width, int height, float *
 
   lovrGraphicsSetCamera(NULL, false);
   lovrCanvasDestroy(&canvas);
-}
-
-void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
-  int eye = drawData->eye;
-  lovrOculusMobileDraw(drawData->framebuffer, bridgeLovrMobileData.displayDimensions.width, bridgeLovrMobileData.displayDimensions.height,
-    bridgeLovrMobileData.updateData.eyeViewMatrix[eye], bridgeLovrMobileData.updateData.projectionMatrix[eye]); // Is this indexing safe?
 }
 
 // Android activity has been stopped or resumed

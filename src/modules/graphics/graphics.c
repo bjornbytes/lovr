@@ -55,7 +55,7 @@ static const size_t BUFFER_STRIDES[] = {
 static const BufferType BUFFER_TYPES[] = {
   [STREAM_VERTEX] = BUFFER_VERTEX,
   [STREAM_INDEX] = BUFFER_INDEX,
-  [STREAM_DRAW_ID] = BUFFER_GENERIC,
+  [STREAM_DRAW_ID] = BUFFER_GENERIC, // So it doesn't thrash vertex buffer binding as much
   [STREAM_TRANSFORM] = BUFFER_UNIFORM,
   [STREAM_COLOR] = BUFFER_UNIFORM
 };
@@ -641,7 +641,7 @@ void lovrGraphicsFlush() {
       .rangeCount = rangeCount,
       .width = batch->canvas ? lovrCanvasGetWidth(batch->canvas) : state.width,
       .height = batch->canvas ? lovrCanvasGetHeight(batch->canvas) : state.height,
-      .stereo = batch->type != BATCH_FILL && (batch->canvas ? lovrCanvasIsStereo(batch->canvas) : state.camera.stereo)
+      .stereo = batch->canvas ? lovrCanvasIsStereo(batch->canvas) : state.camera.stereo
     });
   }
 }
@@ -1147,18 +1147,18 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
     .params.fill = { .u = u, .v = v, .w = w, .h = h },
     .drawMode = DRAW_TRIANGLE_STRIP,
     .shader = SHADER_FILL,
-    .pipeline = &pipeline,
     .diffuseTexture = texture,
+    .pipeline = &pipeline,
     .vertexCount = 4,
     .vertices = &vertices
   });
 
   if (vertices) {
     memcpy(vertices, (float[32]) {
-      -1, 1, 0,  0, 0, 0, u, v + h,
-      -1, -1, 0, 0, 0, 0, u, v,
-      1, 1, 0,   0, 0, 0, u + w, v + h,
-      1, -1, 0,  0, 0, 0, u + w, v
+      -1.f,  1.f, 0.f, 0.f, 0.f, 0.f, u, v + h,
+      -1.f, -1.f, 0.f, 0.f, 0.f, 0.f, u, v,
+       1.f,  1.f, 0.f, 0.f, 0.f, 0.f, u + w, v + h,
+       1.f, -1.f, 0.f, 0.f, 0.f, 0.f, u + w, v
     }, 32 * sizeof(float));
   }
 }

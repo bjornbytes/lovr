@@ -409,8 +409,10 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
   lua_setfield(L, -2, "compute");
   lua_pushboolean(L, features->dxt);
   lua_setfield(L, -2, "dxt");
-  lua_pushboolean(L, features->singlepass);
-  lua_setfield(L, -2, "singlepass");
+  lua_pushboolean(L, features->instancedStereo);
+  lua_setfield(L, -2, "instancedstereo");
+  lua_pushboolean(L, features->multiview);
+  lua_setfield(L, -2, "multiview");
   return 1;
 }
 
@@ -1093,15 +1095,15 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
     index = 3;
   }
 
+  TextureFormat format = FORMAT_RGBA;
+  bool anonymous = attachmentCount == 0;
+
   CanvasFlags flags = {
     .depth = { .enabled = true, .readable = false, .format = FORMAT_D16 },
-    .stereo = true,
+    .stereo = anonymous,
     .msaa = 0,
     .mipmaps = true
   };
-
-  TextureFormat format = FORMAT_RGBA;
-  bool anonymous = attachmentCount == 0;
 
   if (lua_istable(L, index)) {
     lua_getfield(L, index, "depth");
@@ -1142,20 +1144,20 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
     }
   }
 
-  if (anonymous) {
-    Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, flags.mipmaps, flags.msaa);
-    lovrTextureAllocate(texture, width, height, 1, format);
-    lovrTextureSetWrap(texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP, .r = WRAP_CLAMP });
-    attachments[0] = (Attachment) { texture, 0, 0 };
-    attachmentCount++;
-  }
-
   if (width == 0 && height == 0 && attachmentCount > 0) {
     width = lovrTextureGetWidth(attachments[0].texture, attachments[0].level);
     height = lovrTextureGetHeight(attachments[0].texture, attachments[0].level);
   }
 
   Canvas* canvas = lovrCanvasCreate(width, height, flags);
+
+  if (anonymous) {
+    Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, flags.mipmaps, flags.msaa);
+    lovrTextureAllocate(texture, lovrCanvasGetWidth(canvas), lovrCanvasGetHeight(canvas), 1, format);
+    lovrTextureSetWrap(texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP, .r = WRAP_CLAMP });
+    attachments[0] = (Attachment) { texture, 0, 0 };
+    attachmentCount++;
+  }
 
   if (attachmentCount > 0) {
     lovrCanvasSetAttachments(canvas, attachments, attachmentCount);
@@ -1450,6 +1452,7 @@ static void luax_parseshaderflags(lua_State* L, int index, ShaderFlag flags[MAX_
 static int l_lovrGraphicsNewShader(lua_State* L) {
   ShaderFlag flags[MAX_SHADER_FLAGS];
   uint32_t flagCount = 0;
+  bool multiview = true;
   Shader* shader;
 
   if (lua_isstring(L, 1) && (lua_istable(L, 2) || lua_gettop(L) == 1)) {
@@ -1458,6 +1461,10 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     if (lua_istable(L, 2)) {
       lua_getfield(L, 2, "flags");
       luax_parseshaderflags(L, -1, flags, &flagCount);
+      lua_pop(L, 1);
+
+      lua_getfield(L, 2, "stereo");
+      multiview = lua_isnil(L, -1) ? multiview : lua_toboolean(L, -1);
       lua_pop(L, 1);
     }
 
@@ -1472,9 +1479,13 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       lua_getfield(L, 3, "flags");
       luax_parseshaderflags(L, -1, flags, &flagCount);
       lua_pop(L, 1);
+
+      lua_getfield(L, 2, "stereo");
+      multiview = lua_isnil(L, -1) ? multiview : lua_toboolean(L, -1);
+      lua_pop(L, 1);
     }
 
-    shader = lovrShaderCreateGraphics(vertexSource, fragmentSource, flags, flagCount);
+    shader = lovrShaderCreateGraphics(vertexSource, fragmentSource, flags, flagCount, multiview);
   }
 
   luax_pushtype(L, Shader, shader);
