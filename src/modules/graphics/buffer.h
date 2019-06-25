@@ -40,3 +40,4 @@ BufferUsage lovrBufferGetUsage(Buffer* buffer);
 void* lovrBufferMap(Buffer* buffer, size_t offset);
 void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size);
 void lovrBufferUnmap(Buffer* buffer);
+void lovrBufferDiscard(Buffer* buffer);

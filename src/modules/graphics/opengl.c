@@ -1711,6 +1711,26 @@ void lovrBufferUnmap(Buffer* buffer) {
   buffer->flushTo = 0;
 }
 
+void lovrBufferDiscard(Buffer* buffer) {
+  lovrGpuBindBuffer(buffer->type, buffer->id);
+  GLenum glType = convertBufferType(buffer->type);
+#ifdef LOVR_WEBGL
+  glBufferData(glType, buffer->size, NULL, convertBufferUsage(buffer->usage));
+#else
+  if (GLAD_GL_ARB_buffer_storage) {
+    // TODO
+  } else {
+    if (buffer->mapped) {
+      glUnmapBuffer(glType);
+    }
+
+    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_INVALIDATE_BUFFER_BIT | (buffer->readable ? GL_MAP_READ_BIT : 0);
+    buffer->data = glMapBufferRange(glType, 0, buffer->size, flags);
+    buffer->mapped = true;
+  }
+#endif
+}
+
 // Shader
 
 static GLuint compileShader(GLenum type, const char** sources, int count) {

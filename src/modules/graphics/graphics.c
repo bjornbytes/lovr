@@ -102,6 +102,7 @@ static void* lovrGraphicsMapBuffer(BufferRole role, uint32_t count) {
 
   if (state.cursors[role] + count > limit) {
     lovrGraphicsFlush();
+    lovrBufferDiscard(buffer);
     state.cursors[role] = 0;
   }
 
