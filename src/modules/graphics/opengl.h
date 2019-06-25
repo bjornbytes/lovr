@@ -12,7 +12,6 @@
 #pragma once
 
 #define GPU_BUFFER_FIELDS \
-  GLsync lock; \
   uint32_t id; \
   uint8_t incoherent;
 

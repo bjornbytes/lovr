@@ -12,7 +12,6 @@
 #define MAX_TRANSFORMS 64
 #define MAX_BATCHES 16
 #define MAX_DRAWS 256
-#define MAX_LOCKS 4
 
 struct Buffer;
 struct Canvas;
@@ -192,7 +191,6 @@ typedef struct {
   struct Buffer* identityBuffer;
   struct Buffer* buffers[MAX_BUFFER_ROLES];
   uint32_t cursors[MAX_BUFFER_ROLES];
-  void* locks[MAX_BUFFER_ROLES][MAX_LOCKS];
   Batch batches[MAX_BATCHES];
   uint8_t batchCount;
 } GraphicsState;
@@ -334,9 +332,6 @@ void lovrGpuDraw(DrawCommand* draw);
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGpuPresent(void);
 void lovrGpuDirtyTexture(void);
-void* lovrGpuLock(void);
-void lovrGpuUnlock(void* lock);
-void lovrGpuDestroyLock(void* lock);
 void lovrGpuTick(const char* label);
 void lovrGpuTock(const char* label);
 const GpuFeatures* lovrGpuGetFeatures(void);

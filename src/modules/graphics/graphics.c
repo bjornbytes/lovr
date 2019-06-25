@@ -103,21 +103,6 @@ static void* lovrGraphicsMapBuffer(BufferRole role, uint32_t count) {
   if (state.cursors[role] + count > limit) {
     lovrGraphicsFlush();
     state.cursors[role] = 0;
-
-    // Locks are placed as late as possible, causing the last lock to never get placed.  Whenever we
-    // wrap around a buffer, we gotta place that last missing lock.
-    state.locks[role][MAX_LOCKS - 1] = lovrGpuLock();
-  }
-
-  // Wait on any pending locks for the mapped region(s)
-  int firstLock = state.cursors[role] / (BUFFER_COUNTS[role] / MAX_LOCKS);
-  int lastLock = MIN(state.cursors[role] + count, BUFFER_COUNTS[role] - 1) / (BUFFER_COUNTS[role] / MAX_LOCKS);
-  for (int i = firstLock; i <= lastLock; i++) {
-    if (state.locks[role][i]) {
-      lovrGpuUnlock(state.locks[role][i]);
-      lovrGpuDestroyLock(state.locks[role][i]);
-      state.locks[role][i] = NULL;
-    }
   }
 
   return lovrBufferMap(buffer, state.cursors[role] * BUFFER_STRIDES[role]);
@@ -166,9 +151,6 @@ void lovrGraphicsDestroy() {
   }
   for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
     lovrRelease(Buffer, state.buffers[i]);
-    for (int j = 0; j < MAX_LOCKS; j++) {
-      lovrGpuDestroyLock(state.locks[i][j]);
-    }
   }
   lovrRelease(Mesh, state.mesh);
   lovrRelease(Mesh, state.instancedMesh);
@@ -660,20 +642,6 @@ void lovrGraphicsFlush() {
       .height = batch->canvas ? lovrCanvasGetHeight(batch->canvas) : state.height,
       .stereo = batch->type != BATCH_FILL && (batch->canvas ? lovrCanvasIsStereo(batch->canvas) : state.camera.stereo)
     });
-
-    // Pop lock and drop it
-    for (int i = 0; i < MAX_BUFFER_ROLES; i++) {
-      if (batch->cursors[i].count > 0) {
-        size_t lockSize = BUFFER_COUNTS[i] / MAX_LOCKS;
-        size_t start = batch->cursors[i].start;
-        size_t count = batch->cursors[i].count + 1;
-        size_t firstLock = start / lockSize;
-        size_t lastLock = MIN(start + count, BUFFER_COUNTS[i] - 1) / lockSize;
-        for (size_t j = firstLock; j < lastLock; j++) {
-          state.locks[i][j] = lovrGpuLock();
-        }
-      }
-    }
   }
 }
 

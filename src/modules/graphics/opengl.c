@@ -1223,32 +1223,6 @@ void lovrGpuDirtyTexture() {
   state.textures[state.activeTexture] = NULL;
 }
 
-// We only need to sync when using mapped buffers
-void* lovrGpuLock() {
-#ifndef LOVR_WEBGL
-  return (void*) glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-#endif
-  return NULL;
-}
-
-void lovrGpuUnlock(void* lock) {
-#ifndef LOVR_WEBGL
-  if (!lock) return;
-  GLsync sync = (GLsync) lock;
-  if (glClientWaitSync(sync, 0, 0) == GL_TIMEOUT_EXPIRED) {
-    while (glClientWaitSync(sync, GL_SYNC_FLUSH_COMMANDS_BIT, 32768) == GL_TIMEOUT_EXPIRED) {
-      continue;
-    }
-  }
-#endif
-}
-
-void lovrGpuDestroyLock(void* lock) {
-#ifndef LOVR_WEBGL
-  if (lock) glDeleteSync((GLsync) lock);
-#endif
-}
-
 void lovrGpuTick(const char* label) {
   TimerList* timer = map_get(&state.timers, label);
 
