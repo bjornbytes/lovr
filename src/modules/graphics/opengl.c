@@ -2042,7 +2042,7 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
     singlepass[0] = singlepass[1] = "#extension GL_OVR_multiview2 : require\n#define MULTIVIEW\n";
   } else if (state.singlepass == INSTANCED_STEREO) {
     singlepass[0] = "#extension GL_AMD_vertex_shader_viewport_index : require\n""#define INSTANCED_STEREO\n";
-    singlepass[1] = "#extension GL_AMD_fragment_layer_viewport : require\n""#define INSTANCED_STEREO\n";
+    singlepass[1] = "#extension GL_ARB_fragment_layer_viewport : require\n""#define INSTANCED_STEREO\n";
   }
 
   char* flagSource = lovrShaderGetFlagCode(flags, flagCount);
