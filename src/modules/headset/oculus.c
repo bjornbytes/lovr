@@ -4,7 +4,6 @@
 #include "graphics/canvas.h"
 #include "graphics/texture.h"
 #include "core/maf.h"
-#include "lib/vec/vec.h"
 
 #include <stdbool.h>
 #include <OVR_CAPI.h>
