@@ -239,7 +239,6 @@ static bool oculus_isTouched(Device device, DeviceButton button, bool* touched) 
   }
 
   ovrInputState* is = refreshButtons();
-  ovrHandType hand = device == DEVICE_HAND_LEFT ? ovrHand_Left : ovrHand_Right;
   uint32_t touches = is->Touches & (device == DEVICE_HAND_LEFT ? ovrTouch_LButtonMask : ovrTouch_RButtonMask);
 
   switch (button) {
