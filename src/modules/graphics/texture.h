@@ -31,7 +31,7 @@ typedef struct Texture {
 } Texture;
 
 Texture* lovrTextureInit(Texture* texture, TextureType type, struct TextureData** slices, uint32_t sliceCount, bool srgb, bool mipmaps, uint32_t msaa);
-Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureType type);
+Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureType type, uint32_t depth);
 #define lovrTextureCreate(...) lovrTextureInit(lovrAlloc(Texture), __VA_ARGS__)
 #define lovrTextureCreateFromHandle(...) lovrTextureInitFromHandle(lovrAlloc(Texture), __VA_ARGS__)
 void lovrTextureDestroy(void* ref);

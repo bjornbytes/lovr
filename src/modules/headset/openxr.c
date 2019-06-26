@@ -267,7 +267,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
     XR_INIT(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
 
     for (uint32_t i = 0; i < state.imageCount; i++) {
-      lovrTextureInitFromHandle(&state.textures[i], images[i].image, TEXTURE_2D);
+      lovrTextureInitFromHandle(&state.textures[i], images[i].image, TEXTURE_2D, 1);
     }
 
     // Pre-init composition layer

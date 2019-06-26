@@ -1312,7 +1312,7 @@ Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slice
   return texture;
 }
 
-Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureType type) {
+Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureType type, uint32_t depth) {
   texture->type = type;
   texture->id = handle;
   texture->target = convertTextureTarget(type);
@@ -1323,6 +1323,7 @@ Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureTyp
   glGetTexLevelParameteriv(texture->target, 0, GL_TEXTURE_HEIGHT, &height);
   texture->width = (uint32_t) width;
   texture->height = (uint32_t) height;
+  texture->depth = depth; // There isn't an easy way to get depth/layer count, so it's passed in...
 
   return texture;
 }

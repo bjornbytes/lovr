@@ -31,7 +31,7 @@ static Texture* lookupTexture(uint32_t handle) {
   sprintf(key, "%d", handle);
   Texture** texture = map_get(&state.textureLookup, key);
   if (!texture) {
-    map_set(&state.textureLookup, key, lovrTextureCreateFromHandle(handle, TEXTURE_2D));
+    map_set(&state.textureLookup, key, lovrTextureCreateFromHandle(handle, TEXTURE_2D, 1));
     texture = map_get(&state.textureLookup, key);
   }
   return *texture;
