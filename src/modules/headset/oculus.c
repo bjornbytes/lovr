@@ -216,7 +216,7 @@ static bool oculus_isDown(Device device, DeviceButton button, bool* down) {
   }
 
   ovrInputState* is = refreshButtons();
-  ovrHand hand = device == DEVICE_HAND_LEFT ? ovrHand_Left : ovrHand_Right;
+  ovrHandType hand = device == DEVICE_HAND_LEFT ? ovrHand_Left : ovrHand_Right;
   uint32_t buttons = is->Buttons & (device == DEVICE_HAND_LEFT ? ovrButton_LMask : ovrButton_RMask);
 
   switch (button) {
@@ -239,7 +239,7 @@ static bool oculus_isTouched(Device device, DeviceButton button, bool* touched) 
   }
 
   ovrInputState* is = refreshButtons();
-  ovrHand hand = device == DEVICE_HAND_LEFT ? ovrHand_Left : ovrHand_Right;
+  ovrHandType hand = device == DEVICE_HAND_LEFT ? ovrHand_Left : ovrHand_Right;
   uint32_t touches = is->Touches & (device == DEVICE_HAND_LEFT ? ovrTouch_LButtonMask : ovrTouch_RButtonMask);
 
   switch (button) {
@@ -260,7 +260,7 @@ static bool oculus_getAxis(Device device, DeviceAxis axis, vec3 value) {
   }
 
   ovrInputState* is = refreshButtons();
-  ovrHand hand = device == DEVICE_HAND_LEFT ? ovrHand_Left : ovrHand_Right;
+  ovrHandType hand = device == DEVICE_HAND_LEFT ? ovrHand_Left : ovrHand_Right;
 
   switch (axis) {
     case AXIS_GRIP: return *value = is->HandTriggerNoDeadzone[hand], true;
