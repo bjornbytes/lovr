@@ -37,7 +37,7 @@ static Texture* lookupTexture(uint32_t handle) {
   return *texture;
 }
 
-static ovrTrackingState *refreshTracking() {
+static ovrTrackingState *refreshTracking(void) {
   static ovrTrackingState ts;
   if (!state.needRefreshTracking) {
     return &ts;
@@ -58,7 +58,7 @@ static ovrTrackingState *refreshTracking() {
   return &ts;
 }
 
-static ovrInputState *refreshButtons() {
+static ovrInputState *refreshButtons(void) {
   static ovrInputState is;
   if (!state.needRefreshButtons) {
     return &is;
@@ -93,7 +93,7 @@ static bool oculus_init(float offset, uint32_t msaa) {
   return true;
 }
 
-static void oculus_destroy() {
+static void oculus_destroy(void) {
   const char* key;
   map_iter_t iter = map_iter(&state.textureLookup);
   while ((key = map_next(&state.textureLookup, &iter)) != NULL) {
@@ -125,7 +125,7 @@ static bool oculus_getName(char* name, size_t length) {
   return true;
 }
 
-static HeadsetOrigin oculus_getOriginType() {
+static HeadsetOrigin oculus_getOriginType(void) {
   return ORIGIN_FLOOR;
 }
 
@@ -385,7 +385,7 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
   state.needRefreshButtons = true;
 }
 
-static Texture* oculus_getMirrorTexture() {
+static Texture* oculus_getMirrorTexture(void) {
   uint32_t handle;
   ovr_GetMirrorTextureBufferGL(state.session, state.mirror, &handle);
   return lookupTexture(handle);
