@@ -1740,15 +1740,15 @@ void lovrBufferDiscard(Buffer* buffer) {
 #ifdef LOVR_WEBGL
   glBufferData(glType, buffer->size, NULL, convertBufferUsage(buffer->usage));
 #else
-  if (GLAD_GL_ARB_buffer_storage) {
-    // TODO
-  } else {
-    if (buffer->mapped) {
-      glUnmapBuffer(glType);
-    }
+  // We unmap even if persistent mapping is supported
+  // TODO investigate glInvalidateBufferData and its interactions with persistently mapped buffers.
+  glUnmapBuffer(glType);
 
-    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_INVALIDATE_BUFFER_BIT | (buffer->readable ? GL_MAP_READ_BIT : 0);
-    buffer->data = glMapBufferRange(glType, 0, buffer->size, flags);
+  GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_INVALIDATE_BUFFER_BIT | (buffer->readable ? GL_MAP_READ_BIT : 0);
+  flags |= GLAD_GL_ARB_buffer_storage ? GL_MAP_PERSISTENT_BIT : 0;
+  buffer->data = glMapBufferRange(glType, 0, buffer->size, flags);
+
+  if (!GLAD_GL_ARB_buffer_storage) {
     buffer->mapped = true;
   }
 #endif
