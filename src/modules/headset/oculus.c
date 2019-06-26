@@ -4,6 +4,7 @@
 #include "graphics/canvas.h"
 #include "graphics/texture.h"
 #include "core/maf.h"
+#include "core/ref.h"
 
 #include <stdbool.h>
 #include <OVR_CAPI.h>
@@ -176,7 +177,7 @@ static bool oculus_getPose(Device device, vec3 position, quat orientation) {
   ovrPoseStatef* poseState = getPose(device);
   if (!poseState) return false;
 
-  ovrPosef* pose = poseState->ThePose;
+  ovrPosef* pose = &poseState->ThePose;
   vec3_set(position, pose->Position.x, pose->Position.y + state.offset, pose->Position.z);
   quat_set(orientation, pose->Orientation.x, pose->Orientation.y, pose->Orientation.z, pose->Orientation.w);
   return true;
@@ -186,7 +187,7 @@ static bool oculus_getBonePose(Device device, DeviceBone bone, vec3 position, qu
   return false;
 }
 
-static bool oculus_getVelocity(const char* path, vec3 velocity, vec3 angularVelocity) {
+static bool oculus_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   ovrPoseStatef* pose = getPose(device);
   if (!pose) return false;
 
@@ -226,8 +227,8 @@ static bool oculus_isDown(Device device, DeviceButton button, bool* down) {
     case BUTTON_MENU: return *down = (buttons & ovrButton_Enter), true;
     case BUTTON_PRIMARY:
     case BUTTON_TRIGGER: return *down = (is->IndexTriggerNoDeadzone[hand] > .5f), true;
-    case BUTTON_THUMBSTICK: return *down = (buttons & (ovrButton_LThumb | ovrButton_RThumb), true;
-    case BUTTON_GRIP: return *down = (masks->HandTrigger[hand] > .9f), true;
+    case BUTTON_THUMBSTICK: return *down = (buttons & (ovrButton_LThumb | ovrButton_RThumb)), true;
+    case BUTTON_GRIP: return *down = (is->HandTrigger[hand] > .9f), true;
     default: return false;
   }
 }
@@ -253,7 +254,7 @@ static bool oculus_isTouched(Device device, DeviceButton button, bool* touched) 
   }
 }
 
-static bool oculus_getAxis(Device device, DeviceAxis axis, vec3* value) {
+static bool oculus_getAxis(Device device, DeviceAxis axis, vec3 value) {
   if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;
   }
