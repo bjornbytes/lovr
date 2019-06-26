@@ -1324,6 +1324,7 @@ Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureTyp
   texture->width = (uint32_t) width;
   texture->height = (uint32_t) height;
   texture->depth = depth; // There isn't an easy way to get depth/layer count, so it's passed in...
+  texture->mipmapCount = 1;
 
   return texture;
 }
