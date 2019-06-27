@@ -79,24 +79,7 @@ static int l_lovrMeshDraw(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1);
   int instances = luaL_optinteger(L, index, 1);
-  uint32_t vertexCount = lovrMeshGetVertexCount(mesh);
-  uint32_t indexCount = lovrMeshGetIndexCount(mesh);
-  uint32_t defaultCount = indexCount > 0 ? indexCount : vertexCount;
-  uint32_t rangeStart, rangeCount;
-  lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
-  lovrGraphicsBatch(&(BatchRequest) {
-    .type = BATCH_MESH,
-    .params.mesh = {
-      .object = mesh,
-      .mode = lovrMeshGetDrawMode(mesh),
-      .rangeStart = rangeStart,
-      .rangeCount = rangeCount ? rangeCount : defaultCount,
-      .instances = instances
-    },
-    .drawMode = lovrMeshGetDrawMode(mesh),
-    .transform = transform,
-    .material = lovrMeshGetMaterial(mesh)
-  });
+  lovrGraphicsDrawMesh(mesh, transform, instances, NULL);
   return 0;
 }
 

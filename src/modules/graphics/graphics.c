@@ -1195,3 +1195,29 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
     }, 32 * sizeof(float));
   }
 }
+
+void lovrGraphicsDrawMesh(Mesh* mesh, mat4 transform, uint32_t instances, float* pose) {
+  uint32_t vertexCount = lovrMeshGetVertexCount(mesh);
+  uint32_t indexCount = lovrMeshGetIndexCount(mesh);
+  uint32_t defaultCount = indexCount > 0 ? indexCount : vertexCount;
+  uint32_t rangeStart, rangeCount;
+  lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
+  rangeCount = rangeCount > 0 ? rangeCount : defaultCount;
+  DrawMode mode = lovrMeshGetDrawMode(mesh);
+  Material* material = lovrMeshGetMaterial(mesh);
+
+  lovrGraphicsBatch(&(BatchRequest) {
+    .type = BATCH_MESH,
+    .params.mesh = {
+      .object = mesh,
+      .mode = mode,
+      .rangeStart = rangeStart,
+      .rangeCount = rangeCount,
+      .instances = instances,
+      .pose = pose
+    },
+    .drawMode = mode,
+    .transform = transform,
+    .material = material
+  });
+}

@@ -224,6 +224,7 @@ void lovrGraphicsSphere(struct Material* material, mat4 transform, int segments)
 void lovrGraphicsSkybox(struct Texture* texture, float angle, float ax, float ay, float az);
 void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsFill(struct Texture* texture, float u, float v, float w, float h);
+void lovrGraphicsDrawMesh(struct Mesh* mesh, mat4 transform, uint32_t instances, float* pose);
 #define lovrGraphicsStencil lovrGpuStencil
 #define lovrGraphicsCompute lovrGpuCompute
 

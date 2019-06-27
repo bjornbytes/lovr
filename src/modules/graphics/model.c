@@ -53,28 +53,9 @@ static void renderNode(Model* model, uint32_t nodeIndex, uint32_t instances) {
       ModelPrimitive* primitive = &model->data->primitives[node->primitiveIndex + i];
       Mesh* mesh = model->meshes[node->primitiveIndex + i];
       Material* material = primitive->material == ~0u ? NULL : model->materials[primitive->material];
-
-      if (model->userMaterial) {
-        material = model->userMaterial;
-      }
-
-      uint32_t rangeStart, rangeCount;
-      lovrMeshGetDrawRange(mesh, &rangeStart, &rangeCount);
-
-      lovrGraphicsBatch(&(BatchRequest) {
-        .type = BATCH_MESH,
-        .params.mesh = {
-          .object = mesh,
-          .mode = primitive->mode,
-          .rangeStart = rangeStart,
-          .rangeCount = rangeCount,
-          .instances = instances,
-          .pose = animated ? pose : NULL
-        },
-        .drawMode = primitive->mode,
-        .transform = globalTransform,
-        .material = material
-      });
+      lovrMeshSetMaterial(mesh, model->userMaterial ? model->userMaterial : material);
+      lovrMeshSetDrawMode(mesh, primitive->mode);
+      lovrGraphicsDrawMesh(mesh, globalTransform, instances, animated ? pose : NULL);
     }
   }
 
