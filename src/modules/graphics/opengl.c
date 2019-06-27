@@ -999,7 +999,14 @@ void lovrGpuInit(getProcAddressProc getProcAddress) {
   glEnable(GL_PROGRAM_POINT_SIZE);
   glEnable(GL_FRAMEBUFFER_SRGB);
   glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
-  state.singlepass = (state.features.multiview && GLAD_GL_ES_VERSION_3_0) ? MULTIVIEW : (state.features.instancedStereo ? INSTANCED_STEREO : NONE);
+
+  if (state.features.multiview && GLAD_GL_ES_VERSION_3_0) {
+    state.singlepass = MULTIVIEW;
+  } else if (state.features.instancedStereo) {
+    state.singlepass = INSTANCED_STEREO;
+  } else {
+    state.singlepass = NONE;
+  }
 #else
   glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, state.limits.pointSizes);
 #endif
