@@ -102,8 +102,10 @@ static struct {
   float transforms[MAX_TRANSFORMS][16];
   int transform;
   Color backgroundColor;
+  Color linearBackgroundColor;
   Canvas* canvas;
   Color color;
+  Color linearColor;
   Font* font;
   Pipeline pipeline;
   float pointSize;
@@ -146,7 +148,7 @@ static const BufferType bufferType[] = {
   [STREAM_COLOR] = BUFFER_UNIFORM
 };
 
-static void gammaCorrectColor(Color* color) {
+static void gammaCorrect(Color* color) {
   color->r = lovrMathGammaToLinear(color->r);
   color->g = lovrMathGammaToLinear(color->g);
   color->b = lovrMathGammaToLinear(color->b);
@@ -299,9 +301,7 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   }
 
   if (clear) {
-    Color background = state.backgroundColor;
-    gammaCorrectColor(&background);
-    lovrGpuClear(state.camera.canvas, &background, &(float) { 1. }, &(int) { 0 });
+    lovrGpuClear(state.camera.canvas, &state.linearBackgroundColor, &(float) { 1. }, &(int) { 0 });
   }
 }
 
@@ -345,7 +345,8 @@ Color lovrGraphicsGetBackgroundColor() {
 }
 
 void lovrGraphicsSetBackgroundColor(Color color) {
-  state.backgroundColor = color;
+  state.backgroundColor = state.linearBackgroundColor = color;
+  gammaCorrect(&state.linearBackgroundColor);
 }
 
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
@@ -377,7 +378,8 @@ Color lovrGraphicsGetColor() {
 }
 
 void lovrGraphicsSetColor(Color color) {
-  state.color = color;
+  state.color = state.linearColor = color;
+  gammaCorrect(&state.linearColor);
 }
 
 bool lovrGraphicsIsCullingEnabled() {
@@ -520,7 +522,7 @@ void lovrGraphicsSetProjection(mat4 projection) {
 // Rendering
 
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
-  if (color) gammaCorrectColor(color);
+  if (color) gammaCorrect(color);
   if (color || depth || stencil) lovrGraphicsFlush();
   lovrGpuClear(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
 }
@@ -652,9 +654,7 @@ next:
   }
 
   // Color
-  Color color = state.color;
-  gammaCorrectColor(&color);
-  batch->colors[batch->count] = color;
+  batch->colors[batch->count] = state.linearColor;
 
   if (!req->instanced || batch->count == 0) {
     batch->cursors[STREAM_VERTEX].count += req->vertexCount;
