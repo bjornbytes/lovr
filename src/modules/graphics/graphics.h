@@ -1,5 +1,5 @@
 #include "graphics/font.h"
-#include "graphics/shader.h"
+#include "data/modelData.h"
 #include "core/arr.h"
 #include "core/maf.h"
 #include "util.h"

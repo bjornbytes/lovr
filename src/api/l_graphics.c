@@ -6,6 +6,7 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/model.h"
+#include "graphics/shader.h"
 #include "data/blob.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"

@@ -4,6 +4,7 @@
 #include "graphics/graphics.h"
 #include "graphics/material.h"
 #include "graphics/mesh.h"
+#include "graphics/texture.h"
 #include "resources/shaders.h"
 #include "core/ref.h"
 #include <stdlib.h>

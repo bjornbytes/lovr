@@ -3,6 +3,7 @@
 #include "graphics/canvas.h"
 #include "graphics/material.h"
 #include "graphics/mesh.h"
+#include "graphics/shader.h"
 #include "graphics/texture.h"
 #include "data/rasterizer.h"
 #include "event/event.h"
