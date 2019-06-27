@@ -101,15 +101,6 @@ typedef struct {
 } Pipeline;
 
 typedef enum {
-  STREAM_VERTEX,
-  STREAM_INDEX,
-  STREAM_DRAW_ID,
-  STREAM_TRANSFORM,
-  STREAM_COLOR,
-  MAX_BUFFER_ROLES
-} BufferRole;
-
-typedef enum {
   BATCH_POINTS,
   BATCH_LINES,
   BATCH_TRIANGLES,
