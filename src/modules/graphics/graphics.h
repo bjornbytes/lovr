@@ -9,10 +9,6 @@
 
 #pragma once
 
-#define MAX_TRANSFORMS 64
-#define MAX_BATCHES 16
-#define MAX_DRAWS 256
-
 struct Buffer;
 struct Canvas;
 struct Font;
@@ -82,11 +78,6 @@ typedef struct {
 } Camera;
 
 typedef struct {
-  float transform[16];
-  Color color;
-} DrawData;
-
-typedef struct {
   bool alphaSampling : 1;
   uint8_t blendMode : 3; // BlendMode
   uint8_t blendAlphaMode : 1; // BlendAlphaMode
@@ -99,50 +90,6 @@ typedef struct {
   uint8_t winding : 1; // Winding
   bool wireframe : 1;
 } Pipeline;
-
-typedef enum {
-  BATCH_POINTS,
-  BATCH_LINES,
-  BATCH_TRIANGLES,
-  BATCH_PLANE,
-  BATCH_BOX,
-  BATCH_ARC,
-  BATCH_SPHERE,
-  BATCH_CYLINDER,
-  BATCH_SKYBOX,
-  BATCH_TEXT,
-  BATCH_FILL,
-  BATCH_MESH
-} BatchType;
-
-typedef union {
-  struct { DrawStyle style; } triangles;
-  struct { DrawStyle style; } plane;
-  struct { DrawStyle style; } box;
-  struct { DrawStyle style; ArcMode mode; float r1; float r2; int segments; } arc;
-  struct { float r1; float r2; bool capped; int segments; } cylinder;
-  struct { int segments; } sphere;
-  struct { float u; float v; float w; float h; } fill;
-  struct { struct Mesh* object; DrawMode mode; uint32_t rangeStart; uint32_t rangeCount; uint32_t instances; float* pose; } mesh;
-} BatchParams;
-
-typedef struct {
-  BatchType type;
-  BatchParams params;
-  DrawMode drawMode;
-  DefaultShader shader;
-  Pipeline* pipeline;
-  struct Material* material;
-  struct Texture* diffuseTexture;
-  struct Texture* environmentMap;
-  mat4 transform;
-  uint32_t vertexCount;
-  uint32_t indexCount;
-  float** vertices;
-  uint16_t** indices;
-  uint16_t* baseVertex;
-  bool instanced;
-} BatchRequest;
 
 // Base
 bool lovrGraphicsInit();
@@ -206,7 +153,6 @@ void lovrGraphicsSetProjection(mat4 projection);
 // Rendering
 void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
-void lovrGraphicsBatch(BatchRequest* req);
 void lovrGraphicsFlush(void);
 void lovrGraphicsFlushCanvas(struct Canvas* canvas);
 void lovrGraphicsFlushShader(struct Shader* shader);

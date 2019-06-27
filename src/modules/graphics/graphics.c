@@ -14,6 +14,10 @@
 #include <string.h>
 #include <math.h>
 
+#define MAX_TRANSFORMS 64
+#define MAX_BATCHES 16
+#define MAX_DRAWS 256
+
 typedef enum {
   STREAM_VERTEX,
   STREAM_DRAW_ID,
@@ -22,6 +26,50 @@ typedef enum {
   STREAM_COLOR,
   MAX_STREAMS
 } StreamType;
+
+typedef enum {
+  BATCH_POINTS,
+  BATCH_LINES,
+  BATCH_TRIANGLES,
+  BATCH_PLANE,
+  BATCH_BOX,
+  BATCH_ARC,
+  BATCH_SPHERE,
+  BATCH_CYLINDER,
+  BATCH_SKYBOX,
+  BATCH_TEXT,
+  BATCH_FILL,
+  BATCH_MESH
+} BatchType;
+
+typedef union {
+  struct { DrawStyle style; } triangles;
+  struct { DrawStyle style; } plane;
+  struct { DrawStyle style; } box;
+  struct { DrawStyle style; ArcMode mode; float r1; float r2; int segments; } arc;
+  struct { float r1; float r2; bool capped; int segments; } cylinder;
+  struct { int segments; } sphere;
+  struct { float u; float v; float w; float h; } fill;
+  struct { struct Mesh* object; DrawMode mode; uint32_t rangeStart; uint32_t rangeCount; uint32_t instances; float* pose; } mesh;
+} BatchParams;
+
+typedef struct {
+  BatchType type;
+  BatchParams params;
+  DrawMode drawMode;
+  DefaultShader shader;
+  Pipeline* pipeline;
+  struct Material* material;
+  struct Texture* diffuseTexture;
+  struct Texture* environmentMap;
+  mat4 transform;
+  uint32_t vertexCount;
+  uint32_t indexCount;
+  float** vertices;
+  uint16_t** indices;
+  uint16_t* baseVertex;
+  bool instanced;
+} BatchRequest;
 
 typedef struct {
   BatchType type;
