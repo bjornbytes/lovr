@@ -121,37 +121,10 @@ static void* lovrGraphicsMapBuffer(StreamType type, uint32_t count) {
   return lovrBufferMap(state.buffers[type], state.cursors[type] * bufferStride[type]);
 }
 
-static bool areBatchParamsEqual(BatchType typeA, BatchType typeB, BatchParams* a, BatchParams* b) {
-  if (typeA != typeB) return false;
-
-  switch (typeA) {
-    case BATCH_TRIANGLES:
-      return a->triangles.style == b->triangles.style;
-    case BATCH_BOX:
-      return a->box.style == b->box.style;
-    case BATCH_ARC:
-      return
-        a->arc.style == b->arc.style && a->arc.mode == b->arc.mode &&
-        a->arc.r1 == b->arc.r1 && a->arc.r2 == b->arc.r2 && a->arc.segments == b->arc.segments;
-    case BATCH_CYLINDER:
-      return
-        a->cylinder.r1 == b->cylinder.r1 && a->cylinder.r2 == b->cylinder.r2 &&
-        a->cylinder.capped == b->cylinder.capped && a->cylinder.segments == b->cylinder.segments;
-    case BATCH_SPHERE:
-      return a->sphere.segments == b->sphere.segments;
-    case BATCH_MESH:
-      return
-        a->mesh.object == b->mesh.object && a->mesh.mode == b->mesh.mode &&
-        a->mesh.rangeStart == b->mesh.rangeStart && a->mesh.rangeCount == b->mesh.rangeCount;
-    default:
-      return true;
-  }
-}
-
 // Base
 
 bool lovrGraphicsInit() {
-  return false; // Graphics is only initialized when the window is created, because OpenGL
+  return false; // See lovrGraphicsCreateWindow for actual initialization
 }
 
 void lovrGraphicsDestroy() {
@@ -519,17 +492,32 @@ void lovrGraphicsBatch(BatchRequest* req) {
   if (req->type != BATCH_MESH || req->params.mesh.instances == 1) {
     for (int i = state.batchCount - 1; i >= 0; i--) {
       Batch* b = &state.batches[i];
+      BatchParams* p = &b->params;
+      BatchParams* q = &req->params;
 
+      if (b->type != req->type) { goto next; }
       if (b->count >= MAX_DRAWS) { goto next; }
-      if (!areBatchParamsEqual(req->type, b->type, &req->params, &b->params)) { goto next; }
-      if (b->canvas == canvas && b->shader == shader && !memcmp(&b->pipeline, pipeline, sizeof(Pipeline)) && b->material == material) {
-        batch = b;
-        break;
-      }
+      if (b->canvas != canvas) { goto next; }
+      if (b->shader != shader) { goto next; }
+      if (b->material != material) { goto next; }
+      if (memcmp(&b->pipeline, pipeline, sizeof(Pipeline))) { goto next; }
 
+      // Sorry, this is an ugly manual memcmp between the different BatchParam unions
+      if (b->type == BATCH_TRIANGLES && p->triangles.style != q->triangles.style) { goto next; }
+      else if (b->type == BATCH_PLANE && p->plane.style != q->plane.style) { goto next; }
+      else if (b->type == BATCH_BOX && p->box.style != q->box.style) { goto next; }
+      else if (b->type == BATCH_ARC && (p->arc.style != q->arc.style || p->arc.mode != q->arc.mode || p->arc.r1 != q->arc.r1 || p->arc.r2 != q->arc.r2 || p->arc.segments != q->arc.segments)) { goto next; }
+      else if (b->type == BATCH_SPHERE && p->sphere.segments != q->sphere.segments) { goto next; }
+      else if (b->type == BATCH_CYLINDER && (p->cylinder.r1 != q->cylinder.r1 || p->cylinder.r2 != q->cylinder.r2 || p->cylinder.capped != q->cylinder.capped || p->cylinder.segments != q->cylinder.segments)) { goto next; }
+      else if (b->type == BATCH_MESH && (p->mesh.object != q->mesh.object || p->mesh.mode != q->mesh.mode || p->mesh.rangeStart != q->mesh.rangeStart || p->mesh.rangeCount != q->mesh.rangeCount)) { goto next; }
+
+      // If we made it here, then we found a compatible batch to use
+      batch = b;
+      break;
+
+next:
       // Draws can't be reordered when blending is on, depth test is off, or either of the batches
       // are streaming their vertices (since buffers are append-only)
-next:
       if (b->pipeline.blendMode != BLEND_NONE || pipeline->blendMode != BLEND_NONE) { break; }
       if (b->pipeline.depthTest == COMPARE_NONE || pipeline->depthTest == COMPARE_NONE) { break; }
       if (!req->instanced) { break; }
@@ -603,12 +591,12 @@ next:
 
   if (!req->instanced || batch->count == 0) {
     batch->cursors[STREAM_VERTEX].count += req->vertexCount;
-    batch->cursors[STREAM_INDEX].count += req->indexCount;
     batch->cursors[STREAM_DRAW_ID].count += req->vertexCount;
+    batch->cursors[STREAM_INDEX].count += req->indexCount;
 
     state.cursors[STREAM_VERTEX] += req->vertexCount;
-    state.cursors[STREAM_INDEX] += req->indexCount;
     state.cursors[STREAM_DRAW_ID] += req->vertexCount;
+    state.cursors[STREAM_INDEX] += req->indexCount;
   }
 
   batch->count++;
