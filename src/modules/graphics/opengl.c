@@ -1200,10 +1200,6 @@ void lovrGpuDraw(DrawCommand* draw) {
 void lovrGpuPresent() {
   state.stats.drawCalls = state.stats.shaderSwitches = 0;
   arr_clear(&state.stats.timers);
-#ifdef __APPLE__
-  // For some reason instancing doesn't work on macOS unless you reset the shader every frame
-  lovrGpuUseProgram(0);
-#endif
 }
 
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
