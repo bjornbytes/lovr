@@ -14,7 +14,47 @@
 #include <string.h>
 #include <math.h>
 
-static GraphicsState state;
+typedef struct {
+  BatchType type;
+  BatchParams params;
+  DrawMode drawMode;
+  struct Canvas* canvas;
+  struct Shader* shader;
+  Pipeline pipeline;
+  struct Material* material;
+  mat4 transforms;
+  Color* colors;
+  struct { uint32_t start; uint32_t count; } cursors[MAX_BUFFER_ROLES];
+  uint32_t count;
+  bool instanced;
+} Batch;
+
+static struct {
+  bool initialized;
+  int width;
+  int height;
+  Camera camera;
+  struct Shader* defaultShaders[MAX_DEFAULT_SHADERS];
+  struct Material* defaultMaterial;
+  struct Font* defaultFont;
+  TextureFilter defaultFilter;
+  float transforms[MAX_TRANSFORMS][16];
+  int transform;
+  Color backgroundColor;
+  struct Canvas* canvas;
+  Color color;
+  struct Font* font;
+  Pipeline pipeline;
+  float pointSize;
+  struct Shader* shader;
+  struct Mesh* mesh;
+  struct Mesh* instancedMesh;
+  struct Buffer* identityBuffer;
+  struct Buffer* buffers[MAX_BUFFER_ROLES];
+  uint32_t cursors[MAX_BUFFER_ROLES];
+  Batch batches[MAX_BATCHES];
+  uint8_t batchCount;
+} state;
 
 static void gammaCorrectColor(Color* color) {
   color->r = lovrMathGammaToLinear(color->r);
@@ -159,7 +199,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(Material, state.defaultMaterial);
   lovrRelease(Font, state.defaultFont);
   lovrGpuDestroy();
-  memset(&state, 0, sizeof(GraphicsState));
+  memset(&state, 0, sizeof(state));
 }
 
 void lovrGraphicsPresent() {
