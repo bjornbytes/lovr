@@ -215,9 +215,6 @@ typedef struct {
   uint32_t instances;
   uint32_t rangeStart;
   uint32_t rangeCount;
-  uint32_t width : 15;
-  uint32_t height : 15;
-  bool stereo : 1;
 } DrawCommand;
 
 void lovrGpuInit(getProcAddressProc getProcAddress);

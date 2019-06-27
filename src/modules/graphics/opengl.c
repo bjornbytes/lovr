@@ -614,13 +614,13 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int baseDivisor) {
 }
 
 static void lovrGpuBindCanvas(Canvas* canvas, bool willDraw) {
-  if (canvas) {
-    lovrGpuBindFramebuffer(canvas->framebuffer);
-    canvas->needsResolve = willDraw;
-  } else {
-    lovrGpuBindFramebuffer(0);
+  lovrGpuBindFramebuffer(canvas->framebuffer);
+
+  if (canvas->framebuffer == 0) {
     return;
   }
+
+  canvas->needsResolve = willDraw;
 
   if (!canvas->needsAttach) {
     return;
@@ -1135,7 +1135,7 @@ void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil) {
   int count = 0;
 
   if (color) {
-    int n = canvas ? canvas->attachmentCount : 1;
+    int n = MAX(canvas->attachmentCount, 1);
     for (int i = 0; i < n; i++) {
       attachments[count++] = GL_COLOR_ATTACHMENT0 + i;
     }
@@ -1155,14 +1155,14 @@ void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil) {
 
 void lovrGpuDraw(DrawCommand* draw) {
   lovrAssert(state.singlepass != MULTIVIEW || draw->shader->multiview == draw->canvas->flags.stereo, "Shader and Canvas multiview settings must match!");
-  uint32_t viewportCount = (draw->stereo && state.singlepass != MULTIVIEW) ? 2 : 1;
+  uint32_t viewportCount = (draw->canvas->flags.stereo && state.singlepass != MULTIVIEW) ? 2 : 1;
   uint32_t drawCount = state.singlepass == NONE ? viewportCount : 1;
   uint32_t instanceMultiplier = state.singlepass == INSTANCED_STEREO ? viewportCount : 1;
   uint32_t viewportsPerDraw = instanceMultiplier;
   uint32_t instances = MAX(draw->instances, 1) * instanceMultiplier;
 
-  float w = state.singlepass == MULTIVIEW ? draw->width : draw->width / (float) viewportCount;
-  float h = draw->height;
+  float w = state.singlepass == MULTIVIEW ? draw->canvas->width : draw->canvas->width / (float) viewportCount;
+  float h = draw->canvas->height;
   float viewports[2][4] = { { 0.f, 0.f, w, h }, { w, 0.f, w, h } };
   lovrShaderSetInts(draw->shader, "lovrViewportCount", &(int) { viewportCount }, 0, 1);
 

@@ -94,6 +94,7 @@ static struct {
   int width;
   int height;
   Camera camera;
+  Canvas* defaultCanvas;
   Shader* defaultShaders[MAX_DEFAULT_SHADERS];
   Material* defaultMaterial;
   Font* defaultFont;
@@ -158,6 +159,8 @@ static void onCloseWindow(void) {
 static void onResizeWindow(int width, int height) {
   state.width = width;
   state.height = height;
+  state.defaultCanvas->width = width;
+  state.defaultCanvas->height = height;
 }
 
 static void* lovrGraphicsMapBuffer(StreamType type, uint32_t count) {
@@ -194,6 +197,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(Buffer, state.identityBuffer);
   lovrRelease(Material, state.defaultMaterial);
   lovrRelease(Font, state.defaultFont);
+  lovrRelease(Canvas, state.defaultCanvas);
   lovrGpuDestroy();
   memset(&state, 0, sizeof(state));
 }
@@ -211,6 +215,8 @@ void lovrGraphicsCreateWindow(WindowFlags* flags) {
   lovrPlatformOnWindowResize(onResizeWindow);
   lovrPlatformGetFramebufferSize(&state.width, &state.height);
   lovrGpuInit(lovrGetProcAddress);
+
+  state.defaultCanvas = lovrCanvasCreateFromHandle(state.width, state.height, (CanvasFlags) { .stereo = false }, 0, 0, 0, 1, true);
 
   for (int i = 0; i < MAX_STREAMS; i++) {
     state.buffers[i] = lovrBufferCreate(bufferCount[i] * bufferStride[i], NULL, bufferType[i], USAGE_STREAM, false);
@@ -281,8 +287,15 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
     mat4_identity(state.camera.viewMatrix[1]);
     mat4_perspective(state.camera.projection[0], .01f, 100.f, 67.f * (float) M_PI / 180.f, (float) state.width / state.height);
     mat4_perspective(state.camera.projection[1], .01f, 100.f, 67.f * (float) M_PI / 180.f, (float) state.width / state.height);
+    state.camera.canvas = state.defaultCanvas;
+    state.camera.canvas->flags.stereo = false;
   } else {
     state.camera = *camera;
+
+    if (!state.camera.canvas) {
+      state.camera.canvas = state.defaultCanvas;
+      state.camera.canvas->flags.stereo = camera->stereo;
+    }
   }
 
   if (clear) {
@@ -724,10 +737,7 @@ void lovrGraphicsFlush() {
       .drawMode = batch->drawMode,
       .instances = instances,
       .rangeStart = rangeStart,
-      .rangeCount = rangeCount,
-      .width = batch->canvas ? lovrCanvasGetWidth(batch->canvas) : state.width,
-      .height = batch->canvas ? lovrCanvasGetHeight(batch->canvas) : state.height,
-      .stereo = batch->canvas ? lovrCanvasIsStereo(batch->canvas) : state.camera.stereo
+      .rangeCount = rangeCount
     });
   }
 }
