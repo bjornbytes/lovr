@@ -51,13 +51,13 @@ typedef union {
   struct { float r1; float r2; bool capped; int segments; } cylinder;
   struct { int segments; } sphere;
   struct { float u; float v; float w; float h; } fill;
-  struct { DrawMode mode; uint32_t rangeStart; uint32_t rangeCount; uint32_t instances; float* pose; } mesh;
+  struct { uint32_t rangeStart; uint32_t rangeCount; uint32_t instances; float* pose; } mesh;
 } BatchParams;
 
 typedef struct {
   BatchType type;
   BatchParams params;
-  DrawMode drawMode;
+  DrawMode topology;
   DefaultShader shader;
   Mesh* mesh;
   Pipeline* pipeline;
@@ -76,17 +76,13 @@ typedef struct {
 typedef struct {
   BatchType type;
   BatchParams params;
-  DrawMode drawMode;
-  Mesh* mesh;
-  Canvas* canvas;
-  Shader* shader;
-  Pipeline pipeline;
+  DrawCommand draw;
   Material* material;
   mat4 transforms;
   Color* colors;
-  struct { uint32_t start; uint32_t count; } cursors[MAX_STREAMS];
-  uint32_t count;
-  bool instanced;
+  uint32_t drawStart;
+  uint32_t drawCount;
+  bool indexed;
 } Batch;
 
 static struct {
@@ -114,7 +110,8 @@ static struct {
   Mesh* instancedMesh;
   Buffer* identityBuffer;
   Buffer* buffers[MAX_STREAMS];
-  uint32_t cursors[MAX_STREAMS];
+  uint32_t head[MAX_STREAMS];
+  uint32_t tail[MAX_STREAMS];
   Batch batches[MAX_BATCHES];
   uint8_t batchCount;
 } state;
@@ -168,13 +165,14 @@ static void onResizeWindow(int width, int height) {
 static void* lovrGraphicsMapBuffer(StreamType type, uint32_t count) {
   lovrAssert(count <= bufferCount[type], "Whoa there!  Tried to get %d elements from a buffer that only has %d elements.", count, bufferCount[type]);
 
-  if (state.cursors[type] + count > bufferCount[type]) {
+  if (state.head[type] + count > bufferCount[type]) {
     lovrGraphicsFlush();
     lovrBufferDiscard(state.buffers[type]);
-    state.cursors[type] = 0;
+    state.tail[type] = 0;
+    state.head[type] = 0;
   }
 
-  return lovrBufferMap(state.buffers[type], state.cursors[type] * bufferStride[type]);
+  return lovrBufferMap(state.buffers[type], state.head[type] * bufferStride[type]);
 }
 
 // Base
@@ -556,44 +554,37 @@ void lovrGraphicsBatch(BatchRequest* req) {
 
   // Try to find an existing batch to use
   Batch* batch = NULL;
-  if (req->type != BATCH_MESH || req->params.mesh.instances == 1) {
-    for (int i = state.batchCount - 1; i >= 0; i--) {
-      Batch* b = &state.batches[i];
-      if (b->type != req->type) { goto next; }
-      if (b->count >= MAX_DRAWS) { goto next; }
-      if (b->mesh != mesh) { goto next; }
-      if (b->canvas != canvas) { goto next; }
-      if (b->shader != shader) { goto next; }
-      if (b->material != material) { goto next; }
-      if (memcmp(&b->pipeline, pipeline, sizeof(Pipeline))) { goto next; }
-      if (memcmp(&b->params, &req->params, sizeof(BatchParams))) { goto next; }
-      batch = b;
-      break;
+  for (int i = state.batchCount - 1; i >= 0; i--) {
+    if (req->type == BATCH_MESH && req->params.mesh.instances > 1) { break; }
+
+    Batch* b = &state.batches[i];
+    if (b->type != req->type) { goto next; }
+    if (b->drawCount >= MAX_DRAWS) { goto next; }
+    if (b->draw.mesh != mesh) { goto next; }
+    if (b->draw.canvas != canvas) { goto next; }
+    if (b->draw.shader != shader) { goto next; }
+    if (b->material != material) { goto next; }
+    if (memcmp(&b->draw.pipeline, pipeline, sizeof(Pipeline))) { goto next; }
+    if (memcmp(&b->params, &req->params, sizeof(BatchParams))) { goto next; }
+    batch = b;
+    break;
 
 next:
-      // Draws can't be reordered when blending is on, depth test is off, or either of the batches
-      // are streaming their vertices (since the vertices of a batch must be contiguous)
-      if (b->pipeline.blendMode != BLEND_NONE || pipeline->blendMode != BLEND_NONE) { break; }
-      if (b->pipeline.depthTest == COMPARE_NONE || pipeline->depthTest == COMPARE_NONE) { break; }
-      if (!req->instanced) { break; }
-    }
+    // Draws can't be reordered when blending is on, depth test is off, or either of the batches
+    // are streaming their vertices (since the vertices of a batch must be contiguous)
+    if (b->draw.pipeline.blendMode != BLEND_NONE || pipeline->blendMode != BLEND_NONE) { break; }
+    if (b->draw.pipeline.depthTest == COMPARE_NONE || pipeline->depthTest == COMPARE_NONE) { break; }
+    if (!req->instanced) { break; }
   }
 
   if (req->vertexCount > 0 && (!req->instanced || !batch)) {
     *(req->vertices) = lovrGraphicsMapBuffer(STREAM_VERTEX, req->vertexCount);
     uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, req->vertexCount);
-    memset(ids, batch ? batch->count : 0, req->vertexCount * sizeof(uint8_t));
+    memset(ids, batch ? batch->drawCount : 0, req->vertexCount * sizeof(uint8_t));
 
     if (req->indexCount > 0) {
       *(req->indices) = lovrGraphicsMapBuffer(STREAM_INDEX, req->indexCount);
-      *(req->baseVertex) = state.cursors[STREAM_VERTEX];
-    }
-
-    // The buffer mapping here could have triggered a flush, so if we were hoping to batch with
-    // something but the batch count is zero now, we just start a new batch.  Maybe there's a better
-    // way to detect this.
-    if (batch && state.batchCount == 0) {
-      batch = NULL;
+      *(req->baseVertex) = state.head[STREAM_VERTEX];
     }
   }
 
@@ -606,54 +597,67 @@ next:
     float* transforms = lovrGraphicsMapBuffer(STREAM_TRANSFORM, MAX_DRAWS);
     Color* colors = lovrGraphicsMapBuffer(STREAM_COLOR, MAX_DRAWS);
 
+    uint32_t rangeStart, rangeCount, instances;
+    if (req->type == BATCH_MESH) {
+      rangeStart = req->params.mesh.rangeStart;
+      rangeCount = req->params.mesh.rangeCount;
+      instances = req->params.mesh.instances;
+    } else {
+      rangeStart = req->indexCount > 0 ? state.head[STREAM_INDEX] : state.head[STREAM_VERTEX];
+      rangeCount = 0;
+      instances = 0;
+    }
+
     batch = &state.batches[state.batchCount++];
     *batch = (Batch) {
       .type = req->type,
       .params = req->params,
-      .drawMode = req->drawMode,
-      .mesh = mesh,
-      .canvas = canvas,
-      .shader = shader,
-      .pipeline = *pipeline,
+      .draw = {
+        .mesh = mesh,
+        .canvas = canvas,
+        .shader = shader,
+        .pipeline = *pipeline,
+        .topology = req->topology,
+        .rangeStart = rangeStart,
+        .rangeCount = rangeCount,
+        .instances = instances
+      },
       .material = material,
       .transforms = transforms,
+      .drawStart = state.head[STREAM_TRANSFORM],
       .colors = colors,
-      .instanced = req->instanced
+      .indexed = req->indexCount > 0
     };
 
-    for (int i = 0; i < MAX_STREAMS; i++) {
-      batch->cursors[i].start = state.cursors[i];
-    }
-
-    batch->cursors[STREAM_TRANSFORM].count = MAX_DRAWS;
-    batch->cursors[STREAM_COLOR].count = MAX_DRAWS;
-    state.cursors[STREAM_TRANSFORM] += MAX_DRAWS;
-    state.cursors[STREAM_COLOR] += MAX_DRAWS;
+    state.head[STREAM_TRANSFORM] += MAX_DRAWS;
+    state.head[STREAM_COLOR] += MAX_DRAWS;
   }
 
   // Transform
   if (req->transform) {
     float transform[16];
     mat4_multiply(mat4_init(transform, state.transforms[state.transform]), req->transform);
-    memcpy(&batch->transforms[16 * batch->count], transform, 16 * sizeof(float));
+    memcpy(&batch->transforms[16 * batch->drawCount], transform, 16 * sizeof(float));
   } else {
-    memcpy(&batch->transforms[16 * batch->count], state.transforms[state.transform], 16 * sizeof(float));
+    memcpy(&batch->transforms[16 * batch->drawCount], state.transforms[state.transform], 16 * sizeof(float));
   }
 
   // Color
-  batch->colors[batch->count] = state.linearColor;
+  batch->colors[batch->drawCount] = state.linearColor;
 
-  if (!req->instanced || batch->count == 0) {
-    batch->cursors[STREAM_VERTEX].count += req->vertexCount;
-    batch->cursors[STREAM_DRAW_ID].count += req->vertexCount;
-    batch->cursors[STREAM_INDEX].count += req->indexCount;
-
-    state.cursors[STREAM_VERTEX] += req->vertexCount;
-    state.cursors[STREAM_DRAW_ID] += req->vertexCount;
-    state.cursors[STREAM_INDEX] += req->indexCount;
+  // Cursors
+  if (!req->instanced || batch->drawCount == 0) {
+    batch->draw.rangeCount += batch->indexed ? req->indexCount : req->vertexCount;
+    state.head[STREAM_VERTEX] += req->vertexCount;
+    state.head[STREAM_DRAW_ID] += req->vertexCount;
+    state.head[STREAM_INDEX] += req->indexCount;
   }
 
-  batch->count++;
+  if (req->instanced) {
+    batch->draw.instances++;
+  }
+
+  batch->drawCount++;
 }
 
 void lovrGraphicsFlush() {
@@ -666,72 +670,43 @@ void lovrGraphicsFlush() {
   state.batchCount = 0;
 
   // Flush buffers
-  Batch* firstBatch = &state.batches[0];
-  Batch* lastBatch = &state.batches[batchCount - 1];
   for (int i = 0; i < MAX_STREAMS; i++) {
-    size_t offset = firstBatch->cursors[i].start * bufferStride[i];
-    size_t size = (lastBatch->cursors[i].start + lastBatch->cursors[i].count - firstBatch->cursors[i].start) * bufferStride[i];
-    lovrBufferFlush(state.buffers[i], offset, size);
+    lovrBufferFlush(state.buffers[i], state.tail[i] * bufferStride[i], (state.head[i] - state.tail[i]) * bufferStride[i]);
     lovrBufferUnmap(state.buffers[i]);
+    state.tail[i] = state.head[i];
   }
 
   for (int b = 0; b < batchCount; b++) {
     Batch* batch = &state.batches[b];
-    BatchParams* params = &batch->params;
-    int instances = batch->instanced ? batch->count : 1;
-
-    // Bind UBOs
-    lovrShaderSetBlock(batch->shader, "lovrModelBlock", state.buffers[STREAM_TRANSFORM], batch->cursors[STREAM_TRANSFORM].start * bufferStride[STREAM_TRANSFORM], MAX_DRAWS * bufferStride[STREAM_TRANSFORM], ACCESS_READ);
-    lovrShaderSetBlock(batch->shader, "lovrColorBlock", state.buffers[STREAM_COLOR], batch->cursors[STREAM_COLOR].start * bufferStride[STREAM_COLOR], MAX_DRAWS * bufferStride[STREAM_COLOR], ACCESS_READ);
 
     // Uniforms
-    lovrMaterialBind(batch->material, batch->shader);
-    lovrShaderSetMatrices(batch->shader, "lovrViews", state.camera.viewMatrix[0], 0, 32);
-    lovrShaderSetMatrices(batch->shader, "lovrProjections", state.camera.projection[0], 0, 32);
-
-    if (batch->drawMode == DRAW_POINTS) {
-      lovrShaderSetFloats(batch->shader, "lovrPointSize", &state.pointSize, 0, 1);
+    lovrMaterialBind(batch->material, batch->draw.shader);
+    lovrShaderSetMatrices(batch->draw.shader, "lovrViews", state.camera.viewMatrix[0], 0, 32);
+    lovrShaderSetMatrices(batch->draw.shader, "lovrProjections", state.camera.projection[0], 0, 32);
+    lovrShaderSetBlock(batch->draw.shader, "lovrModelBlock", state.buffers[STREAM_TRANSFORM], batch->drawStart * bufferStride[STREAM_TRANSFORM], MAX_DRAWS * bufferStride[STREAM_TRANSFORM], ACCESS_READ);
+    lovrShaderSetBlock(batch->draw.shader, "lovrColorBlock", state.buffers[STREAM_COLOR], batch->drawStart * bufferStride[STREAM_COLOR], MAX_DRAWS * bufferStride[STREAM_COLOR], ACCESS_READ);
+    if (batch->draw.topology == DRAW_POINTS) {
+      lovrShaderSetFloats(batch->draw.shader, "lovrPointSize", &state.pointSize, 0, 1);
     }
 
-    uint32_t rangeStart, rangeCount;
+    // Other bindings (TODO try to get rid of all this!)
     if (batch->type == BATCH_MESH) {
-      rangeStart = params->mesh.rangeStart;
-      rangeCount = params->mesh.rangeCount;
-      if (params->mesh.instances > 1) {
-        lovrMeshSetAttributeEnabled(batch->mesh, "lovrDrawID", false);
-        instances = params->mesh.instances;
-      } else {
-        lovrMeshSetAttributeEnabled(batch->mesh, "lovrDrawID", true);
-        instances = batch->count;
-      }
+      lovrMeshSetAttributeEnabled(batch->draw.mesh, "lovrDrawID", batch->params.mesh.instances <= 1);
     } else {
-      bool indexed = batch->cursors[STREAM_INDEX].count > 0;
-      rangeStart = batch->cursors[indexed ? STREAM_INDEX : STREAM_VERTEX].start;
-      rangeCount = batch->cursors[indexed ? STREAM_INDEX : STREAM_VERTEX].count;
-      if (indexed) {
-        lovrMeshSetIndexBuffer(batch->mesh, state.buffers[STREAM_INDEX], bufferCount[STREAM_INDEX], sizeof(uint16_t), 0);
+      if (batch->indexed) {
+        lovrMeshSetIndexBuffer(batch->draw.mesh, state.buffers[STREAM_INDEX], bufferCount[STREAM_INDEX], sizeof(uint16_t), 0);
       } else {
-        lovrMeshSetIndexBuffer(batch->mesh, NULL, 0, 0, 0);
+        lovrMeshSetIndexBuffer(batch->draw.mesh, NULL, 0, 0, 0);
       }
     }
 
-    // Draw!
-    lovrGpuDraw(&(DrawCommand) {
-      .mesh = batch->mesh,
-      .shader = batch->shader,
-      .canvas = batch->canvas,
-      .pipeline = batch->pipeline,
-      .drawMode = batch->drawMode,
-      .instances = instances,
-      .rangeStart = rangeStart,
-      .rangeCount = rangeCount
-    });
+    lovrGpuDraw(&batch->draw);
   }
 }
 
 void lovrGraphicsFlushCanvas(Canvas* canvas) {
   for (int i = state.batchCount - 1; i >= 0; i--) {
-    if (state.batches[i].canvas == canvas) {
+    if (state.batches[i].draw.canvas == canvas) {
       lovrGraphicsFlush();
       return;
     }
@@ -740,7 +715,7 @@ void lovrGraphicsFlushCanvas(Canvas* canvas) {
 
 void lovrGraphicsFlushShader(Shader* shader) {
   for (int i = state.batchCount - 1; i >= 0; i--) {
-    if (state.batches[i].shader == shader) {
+    if (state.batches[i].draw.shader == shader) {
       lovrGraphicsFlush();
       return;
     }
@@ -758,7 +733,7 @@ void lovrGraphicsFlushMaterial(Material* material) {
 
 void lovrGraphicsFlushMesh(Mesh* mesh) {
   for (int i = state.batchCount - 1; i >= 0; i--) {
-    if (state.batches[i].mesh == mesh) {
+    if (state.batches[i].draw.mesh == mesh) {
       lovrGraphicsFlush();
       return;
     }
@@ -768,7 +743,7 @@ void lovrGraphicsFlushMesh(Mesh* mesh) {
 void lovrGraphicsPoints(uint32_t count, float** vertices) {
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_POINTS,
-    .drawMode = DRAW_POINTS,
+    .topology = DRAW_POINTS,
     .vertexCount = count,
     .vertices = vertices
   });
@@ -781,7 +756,7 @@ void lovrGraphicsLine(uint32_t count, float** vertices) {
 
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_LINES,
-    .drawMode = DRAW_LINE_STRIP,
+    .topology = DRAW_LINE_STRIP,
     .vertexCount = count,
     .vertices = vertices,
     .indexCount = indexCount,
@@ -803,7 +778,7 @@ void lovrGraphicsTriangle(DrawStyle style, Material* material, uint32_t count, f
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_TRIANGLES,
     .params.triangles.style = style,
-    .drawMode = style == STYLE_LINE ? DRAW_LINE_LOOP : DRAW_TRIANGLES,
+    .topology = style == STYLE_LINE ? DRAW_LINE_LOOP : DRAW_TRIANGLES,
     .material = material,
     .vertexCount = count,
     .vertices = vertices,
@@ -830,7 +805,7 @@ void lovrGraphicsPlane(DrawStyle style, Material* material, mat4 transform, floa
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_PLANE,
     .params.plane.style = style,
-    .drawMode = style == STYLE_LINE ? DRAW_LINE_LOOP : DRAW_TRIANGLES,
+    .topology = style == STYLE_LINE ? DRAW_LINE_LOOP : DRAW_TRIANGLES,
     .material = material,
     .transform = transform,
     .vertexCount = 4,
@@ -881,7 +856,7 @@ void lovrGraphicsBox(DrawStyle style, Material* material, mat4 transform) {
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_BOX,
     .params.box.style = style,
-    .drawMode = style == STYLE_LINE ? DRAW_LINES : DRAW_TRIANGLES,
+    .topology = style == STYLE_LINE ? DRAW_LINES : DRAW_TRIANGLES,
     .material = material,
     .transform = transform,
     .vertexCount = style == STYLE_LINE ? 8 : 24,
@@ -982,7 +957,7 @@ void lovrGraphicsArc(DrawStyle style, ArcMode mode, Material* material, mat4 tra
     .params.arc.mode = mode,
     .params.arc.style = style,
     .params.arc.segments = segments,
-    .drawMode = style == STYLE_LINE ? (mode == ARC_MODE_OPEN ? DRAW_LINE_STRIP : DRAW_LINE_LOOP) : DRAW_TRIANGLE_FAN,
+    .topology = style == STYLE_LINE ? (mode == ARC_MODE_OPEN ? DRAW_LINE_STRIP : DRAW_LINE_LOOP) : DRAW_TRIANGLE_FAN,
     .material = material,
     .transform = transform,
     .vertexCount = vertexCount,
@@ -1030,7 +1005,7 @@ void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2
     .params.cylinder.r2 = r2,
     .params.cylinder.capped = capped,
     .params.cylinder.segments = segments,
-    .drawMode = DRAW_TRIANGLES,
+    .topology = DRAW_TRIANGLES,
     .material = material,
     .transform = transform,
     .vertexCount = vertexCount,
@@ -1107,7 +1082,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_SPHERE,
     .params.sphere.segments = segments,
-    .drawMode = DRAW_TRIANGLES,
+    .topology = DRAW_TRIANGLES,
     .material = material,
     .transform = transform,
     .vertexCount = (segments + 1) * (segments + 1),
@@ -1160,7 +1135,7 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
 
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_SKYBOX,
-    .drawMode = DRAW_TRIANGLE_STRIP,
+    .topology = DRAW_TRIANGLE_STRIP,
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
     .pipeline = &pipeline,
     .transform = transform,
@@ -1203,7 +1178,7 @@ void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wra
   uint16_t baseVertex;
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_TEXT,
-    .drawMode = DRAW_TRIANGLES,
+    .topology = DRAW_TRIANGLES,
     .shader = SHADER_FONT,
     .pipeline = &pipeline,
     .transform = transform,
@@ -1228,7 +1203,7 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_FILL,
     .params.fill = { .u = u, .v = v, .w = w, .h = h },
-    .drawMode = DRAW_TRIANGLE_STRIP,
+    .topology = DRAW_TRIANGLE_STRIP,
     .shader = SHADER_FILL,
     .diffuseTexture = texture,
     .pipeline = &pipeline,
@@ -1258,16 +1233,14 @@ void lovrGraphicsDrawMesh(Mesh* mesh, mat4 transform, uint32_t instances, float*
 
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_MESH,
-    .params.mesh = {
-      .mode = mode,
-      .rangeStart = rangeStart,
-      .rangeCount = rangeCount,
-      .instances = instances,
-      .pose = pose
-    },
+    .params.mesh.rangeStart = rangeStart,
+    .params.mesh.rangeCount = rangeCount,
+    .params.mesh.instances = instances,
+    .params.mesh.pose = pose,
     .mesh = mesh,
-    .drawMode = mode,
+    .topology = mode,
     .transform = transform,
-    .material = material
+    .material = material,
+    .instanced = instances <= 1
   });
 }

@@ -316,8 +316,8 @@ static GLenum convertAccess(UniformAccess access) {
 }
 #endif
 
-static GLenum convertDrawMode(DrawMode mode) {
-  switch (mode) {
+static GLenum convertTopology(DrawMode topology) {
+  switch (topology) {
     case DRAW_POINTS: return GL_POINTS;
     case DRAW_LINES: return GL_LINES;
     case DRAW_LINE_STRIP: return GL_LINE_STRIP;
@@ -1176,20 +1176,20 @@ void lovrGpuDraw(DrawCommand* draw) {
     lovrGpuBindShader(draw->shader);
 
     Mesh* mesh = draw->mesh;
-    GLenum mode = convertDrawMode(draw->drawMode);
+    GLenum topology = convertTopology(draw->topology);
     if (mesh->indexCount > 0) {
       GLenum indexType = mesh->indexSize == sizeof(uint16_t) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
       GLvoid* offset = (GLvoid*) (mesh->indexOffset + draw->rangeStart * mesh->indexSize);
       if (instances > 1) {
-        glDrawElementsInstanced(mode, draw->rangeCount, indexType, offset, instances);
+        glDrawElementsInstanced(topology, draw->rangeCount, indexType, offset, instances);
       } else {
-        glDrawElements(mode, draw->rangeCount, indexType, offset);
+        glDrawElements(topology, draw->rangeCount, indexType, offset);
       }
     } else {
       if (instances > 1) {
-        glDrawArraysInstanced(mode, draw->rangeStart, draw->rangeCount, instances);
+        glDrawArraysInstanced(topology, draw->rangeStart, draw->rangeCount, instances);
       } else {
-        glDrawArrays(mode, draw->rangeStart, draw->rangeCount);
+        glDrawArrays(topology, draw->rangeStart, draw->rangeCount);
       }
     }
 

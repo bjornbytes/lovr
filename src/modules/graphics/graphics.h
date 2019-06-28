@@ -211,10 +211,10 @@ typedef struct {
   struct Canvas* canvas;
   struct Shader* shader;
   Pipeline pipeline;
-  DrawMode drawMode;
-  uint32_t instances;
+  DrawMode topology;
   uint32_t rangeStart;
   uint32_t rangeCount;
+  uint32_t instances;
 } DrawCommand;
 
 void lovrGpuInit(getProcAddressProc getProcAddress);
