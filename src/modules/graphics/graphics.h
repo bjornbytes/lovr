@@ -151,13 +151,13 @@ void lovrGraphicsMatrixTransform(mat4 transform);
 void lovrGraphicsSetProjection(mat4 projection);
 
 // Rendering
-void lovrGraphicsClear(Color* color, float* depth, int* stencil);
-void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
 void lovrGraphicsFlush(void);
 void lovrGraphicsFlushCanvas(struct Canvas* canvas);
 void lovrGraphicsFlushShader(struct Shader* shader);
 void lovrGraphicsFlushMaterial(struct Material* material);
 void lovrGraphicsFlushMesh(struct Mesh* mesh);
+void lovrGraphicsClear(Color* color, float* depth, int* stencil);
+void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
 void lovrGraphicsPoints(uint32_t count, float** vertices);
 void lovrGraphicsLine(uint32_t count, float** vertices);
 void lovrGraphicsTriangle(DrawStyle style, struct Material* material, uint32_t count, float** vertices);

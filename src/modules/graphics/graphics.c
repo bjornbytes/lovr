@@ -519,18 +519,7 @@ void lovrGraphicsSetProjection(mat4 projection) {
 
 // Rendering
 
-void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
-  if (color) gammaCorrect(color);
-  if (color || depth || stencil) lovrGraphicsFlush();
-  lovrGpuClear(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
-}
-
-void lovrGraphicsDiscard(bool color, bool depth, bool stencil) {
-  if (color || depth || stencil) lovrGraphicsFlush();
-  lovrGpuDiscard(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
-}
-
-void lovrGraphicsBatch(BatchRequest* req) {
+static void lovrGraphicsBatch(BatchRequest* req) {
 
   // Resolve objects
   Mesh* mesh = req->mesh ? req->mesh : (req->instanced ? state.instancedMesh : state.mesh);
@@ -738,6 +727,17 @@ void lovrGraphicsFlushMesh(Mesh* mesh) {
       return;
     }
   }
+}
+
+void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
+  if (color) gammaCorrect(color);
+  if (color || depth || stencil) lovrGraphicsFlush();
+  lovrGpuClear(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
+}
+
+void lovrGraphicsDiscard(bool color, bool depth, bool stencil) {
+  if (color || depth || stencil) lovrGraphicsFlush();
+  lovrGpuDiscard(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
 }
 
 void lovrGraphicsPoints(uint32_t count, float** vertices) {
