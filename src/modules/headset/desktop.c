@@ -53,6 +53,10 @@ static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = (uint32_t) h;
 }
 
+static const float* desktop_getDisplayMask(uint32_t* count) {
+  return *count = 0, NULL;
+}
+
 static void desktop_getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
@@ -209,6 +213,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getName = desktop_getName,
   .getOriginType = desktop_getOriginType,
   .getDisplayDimensions = desktop_getDisplayDimensions,
+  .getDisplayMask = desktop_getDisplayMask,
   .getClipDistance = desktop_getClipDistance,
   .setClipDistance = desktop_setClipDistance,
   .getBoundsDimensions = desktop_getBoundsDimensions,

@@ -86,6 +86,7 @@ static struct {
   RenderModel_t* deviceModels[16];
   RenderModel_TextureMap_t* deviceTextures[16];
   Canvas* canvas;
+  float* mask;
   float boundsGeometry[16];
   float clipNear;
   float clipFar;
@@ -221,6 +222,7 @@ static void openvr_destroy(void) {
     state.deviceTextures[i] = NULL;
   }
   VR_ShutdownInternal();
+  free(state.mask);
   memset(&state, 0, sizeof(state));
 }
 
@@ -240,6 +242,24 @@ static HeadsetOrigin openvr_getOriginType(void) {
 
 static void openvr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   state.system->GetRecommendedRenderTargetSize(width, height);
+}
+
+static const float* openvr_getDisplayMask(uint32_t* count) {
+  struct HiddenAreaMesh_t hiddenAreaMesh = state.system->GetHiddenAreaMesh(EVREye_Eye_Left, EHiddenAreaMeshType_k_eHiddenAreaMesh_Standard);
+
+  if (hiddenAreaMesh.unTriangleCount == 0) {
+    return *count = 0, NULL;
+  }
+
+  state.mask = realloc(state.mask, hiddenAreaMesh.unTriangleCount * 3 * 2 * sizeof(float));
+  lovrAssert(state.mask, "Out of memory");
+
+  for (uint32_t i = 0; i < 3 * hiddenAreaMesh.unTriangleCount; i++) {
+    state.mask[2 * i + 0] = hiddenAreaMesh.pVertexData[i].v[0];
+    state.mask[2 * i + 1] = hiddenAreaMesh.pVertexData[i].v[1];
+  }
+
+  return *count = hiddenAreaMesh.unTriangleCount * 3 * 2, state.mask;
 }
 
 static double openvr_getDisplayTime(void) {
@@ -592,6 +612,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getName = openvr_getName,
   .getOriginType = openvr_getOriginType,
   .getDisplayDimensions = openvr_getDisplayDimensions,
+  .getDisplayMask = openvr_getDisplayMask,
   .getDisplayTime = openvr_getDisplayTime,
   .getClipDistance = openvr_getClipDistance,
   .setClipDistance = openvr_setClipDistance,

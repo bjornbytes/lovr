@@ -389,6 +389,10 @@ static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = state.height;
 }
 
+static const float* openxr_getDisplayMask(uint32_t* count) {
+  return *count = 0, NULL;
+}
+
 static double openxr_getDisplayTime(void) {
   return state.displayTime / 1e9;
 }
@@ -664,6 +668,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getName = openxr_getName,
   .getOriginType = openxr_getOriginType,
   .getDisplayDimensions = openxr_getDisplayDimensions,
+  .getDisplayMask = openxr_getDisplayMask,
   .getDisplayTime = openxr_getDisplayTime,
   .getClipDistance = openxr_getClipDistance,
   .setClipDistance = openxr_setClipDistance,

@@ -137,6 +137,10 @@ static void oculus_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = size.h;
 }
 
+static const float* oculus_getDisplayMask(uint32_t* count) {
+  return *count = 0, NULL;
+}
+
 static double oculus_getDisplayTime(void) {
   return ovr_GetPredictedDisplayTime(state.session, 0);
 }
@@ -409,6 +413,7 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   .getName = oculus_getName,
   .getOriginType = oculus_getOriginType,
   .getDisplayDimensions = oculus_getDisplayDimensions,
+  .getDisplayMask = oculus_getDisplayMask,
   .getDisplayTime = oculus_getDisplayTime,
   .getClipDistance = oculus_getClipDistance,
   .setClipDistance = oculus_setClipDistance,

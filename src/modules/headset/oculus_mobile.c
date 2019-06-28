@@ -58,6 +58,10 @@ static void vrapi_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = bridgeLovrMobileData.displayDimensions.height;
 }
 
+static const float* vrapi_getDisplayMask(uint32_t* count) {
+  return *count = 0, NULL;
+}
+
 static void vrapi_getClipDistance(float* clipNear, float* clipFar) {
   // TODO
 }
@@ -255,6 +259,7 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   .getName = vrapi_getName,
   .getOriginType = vrapi_getOriginType,
   .getDisplayDimensions = vrapi_getDisplayDimensions,
+  .getDisplayMask = vrapi_getDisplayMask,
   .getClipDistance = vrapi_getClipDistance,
   .setClipDistance = vrapi_setClipDistance,
   .getBoundsDimensions = vrapi_getBoundsDimensions,

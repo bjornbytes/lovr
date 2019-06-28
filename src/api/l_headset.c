@@ -181,6 +181,30 @@ static int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
   return 2;
 }
 
+static int l_lovrHeadsetGetDisplayMask(lua_State* L) {
+  uint32_t count;
+  const float* points = lovrHeadsetDriver->getDisplayMask(&count);
+
+  if (!points) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  lua_createtable(L, count, 0);
+  for (uint32_t i = 0; i < count; i += 2) {
+    lua_createtable(L, 2, 0);
+
+    lua_pushnumber(L, points[i + 0]);
+    lua_rawseti(L, -2, 1);
+    lua_pushnumber(L, points[i + 1]);
+    lua_rawseti(L, -2, 2);
+
+    lua_rawseti(L, -2, i / 2 + 1);
+  }
+
+  return 1;
+}
+
 static int l_lovrHeadsetGetClipDistance(lua_State* L) {
   float clipNear, clipFar;
   lovrHeadsetDriver->getClipDistance(&clipNear, &clipFar);
@@ -579,6 +603,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
+  { "getDisplayMask", l_lovrHeadsetGetDisplayMask },
   { "getClipDistance", l_lovrHeadsetGetClipDistance },
   { "setClipDistance", l_lovrHeadsetSetClipDistance },
   { "getBoundsWidth", l_lovrHeadsetGetBoundsWidth },

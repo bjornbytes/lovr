@@ -8,6 +8,7 @@ extern void webvr_destroy(void);
 extern bool webvr_getName(char* name, size_t length);
 extern HeadsetOrigin webvr_getOriginType(void);
 extern void webvr_getDisplayDimensions(uint32_t* width, uint32_t* height);
+extern const float* webvr_getDisplayMask(uint32_t* count);
 extern void webvr_getClipDistance(float* near, float* far);
 extern void webvr_setClipDistance(float near, float far);
 extern void webvr_getBoundsDimensions(float* width, float* depth);
@@ -51,6 +52,7 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   .getName = webvr_getName,
   .getOriginType = webvr_getOriginType,
   .getDisplayDimensions = webvr_getDisplayDimensions,
+  .getDisplayMask = webvr_getDisplayMask,
   .getClipDistance = webvr_getClipDistance,
   .setClipDistance = webvr_setClipDistance,
   .getBoundsDimensions = webvr_getBoundsDimensions,

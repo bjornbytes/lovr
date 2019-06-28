@@ -128,6 +128,11 @@ var LibraryLOVR = {
     HEAPU32[height >> 2] = webvr.height;
   },
 
+  webvr_getDisplayMask: function(count) {
+    HEAPU32[count >> 2] = 0;
+    return 0;
+  },
+
   webvr_getClipDistance: function(clipNear, clipFar) {
     HEAPF32[clipNear >> 2] = webvr.display.depthNear;
     HEAPF32[clipFar >> 2] = webvr.display.depthFar;
