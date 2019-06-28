@@ -16,7 +16,7 @@
 #include <math.h>
 
 #define MAX_TRANSFORMS 64
-#define MAX_BATCHES 16
+#define MAX_BATCHES 4
 #define MAX_DRAWS 256
 
 typedef enum {
@@ -226,7 +226,7 @@ void lovrGraphicsCreateWindow(WindowFlags* flags) {
 
   // The identity buffer is used for autoinstanced meshes and instanced primitives and maps the
   // instance ID to a vertex attribute.  Its contents never change, so they are initialized here.
-  state.identityBuffer = lovrBufferCreate(MAX_DRAWS, NULL, BUFFER_VERTEX, USAGE_STATIC, false);
+  state.identityBuffer = lovrBufferCreate(MAX_DRAWS * sizeof(uint8_t), NULL, BUFFER_VERTEX, USAGE_STATIC, false);
   uint8_t* id = lovrBufferMap(state.identityBuffer, 0);
   for (int i = 0; i < MAX_DRAWS; i++) id[i] = i;
   lovrBufferFlush(state.identityBuffer, 0, MAX_DRAWS);
@@ -559,9 +559,6 @@ void lovrGraphicsBatch(BatchRequest* req) {
   if (req->type != BATCH_MESH || req->params.mesh.instances == 1) {
     for (int i = state.batchCount - 1; i >= 0; i--) {
       Batch* b = &state.batches[i];
-      BatchParams* p = &b->params;
-      BatchParams* q = &req->params;
-
       if (b->type != req->type) { goto next; }
       if (b->count >= MAX_DRAWS) { goto next; }
       if (b->mesh != mesh) { goto next; }
@@ -569,23 +566,13 @@ void lovrGraphicsBatch(BatchRequest* req) {
       if (b->shader != shader) { goto next; }
       if (b->material != material) { goto next; }
       if (memcmp(&b->pipeline, pipeline, sizeof(Pipeline))) { goto next; }
-
-      // Sorry, this is an ugly manual memcmp between the different BatchParam unions
-      if (b->type == BATCH_TRIANGLES && p->triangles.style != q->triangles.style) { goto next; }
-      else if (b->type == BATCH_PLANE && p->plane.style != q->plane.style) { goto next; }
-      else if (b->type == BATCH_BOX && p->box.style != q->box.style) { goto next; }
-      else if (b->type == BATCH_ARC && (p->arc.style != q->arc.style || p->arc.mode != q->arc.mode || p->arc.r1 != q->arc.r1 || p->arc.r2 != q->arc.r2 || p->arc.segments != q->arc.segments)) { goto next; }
-      else if (b->type == BATCH_SPHERE && p->sphere.segments != q->sphere.segments) { goto next; }
-      else if (b->type == BATCH_CYLINDER && (p->cylinder.r1 != q->cylinder.r1 || p->cylinder.r2 != q->cylinder.r2 || p->cylinder.capped != q->cylinder.capped || p->cylinder.segments != q->cylinder.segments)) { goto next; }
-      else if (b->type == BATCH_MESH && (p->mesh.mode != q->mesh.mode || p->mesh.rangeStart != q->mesh.rangeStart || p->mesh.rangeCount != q->mesh.rangeCount)) { goto next; }
-
-      // If we made it here, then we found a compatible batch to use
+      if (memcmp(&b->params, &req->params, sizeof(BatchParams))) { goto next; }
       batch = b;
       break;
 
 next:
       // Draws can't be reordered when blending is on, depth test is off, or either of the batches
-      // are streaming their vertices (since buffers are append-only)
+      // are streaming their vertices (since the vertices of a batch must be contiguous)
       if (b->pipeline.blendMode != BLEND_NONE || pipeline->blendMode != BLEND_NONE) { break; }
       if (b->pipeline.depthTest == COMPARE_NONE || pipeline->depthTest == COMPARE_NONE) { break; }
       if (!req->instanced) { break; }
