@@ -21,10 +21,11 @@
 
 typedef enum {
   STREAM_VERTEX,
-  STREAM_DRAW_ID,
+  STREAM_DRAWID,
   STREAM_INDEX,
-  STREAM_TRANSFORM,
+  STREAM_MODEL,
   STREAM_COLOR,
+  STREAM_FRAME,
   MAX_STREAMS
 } StreamType;
 
@@ -85,11 +86,18 @@ typedef struct {
   bool indexed;
 } Batch;
 
+typedef struct {
+  float viewMatrix[2][16];
+  float projection[2][16];
+} FrameData;
+
 static struct {
   bool initialized;
   int width;
   int height;
   Camera camera;
+  FrameData frameData;
+  bool frameDataDirty;
   Canvas* defaultCanvas;
   Shader* defaultShaders[MAX_DEFAULT_SHADERS];
   Material* defaultMaterial;
@@ -118,31 +126,34 @@ static struct {
 
 static const uint32_t bufferCount[] = {
   [STREAM_VERTEX] = (1 << 16) - 1,
-  [STREAM_DRAW_ID] = (1 << 16) - 1,
+  [STREAM_DRAWID] = (1 << 16) - 1,
   [STREAM_INDEX] = 1 << 16,
 #if defined(LOVR_WEBGL) || defined(__APPLE__) // Work around bugs where big UBOs don't work
-  [STREAM_TRANSFORM] = MAX_DRAWS,
-  [STREAM_COLOR] = MAX_DRAWS
+  [STREAM_MODEL] = MAX_DRAWS,
+  [STREAM_COLOR] = MAX_DRAWS,
 #else
-  [STREAM_TRANSFORM] = MAX_DRAWS * MAX_BATCHES,
-  [STREAM_COLOR] = MAX_DRAWS * MAX_BATCHES
+  [STREAM_MODEL] = MAX_DRAWS * MAX_BATCHES,
+  [STREAM_COLOR] = MAX_DRAWS * MAX_BATCHES,
 #endif
+  [STREAM_FRAME] = 4
 };
 
 static const size_t bufferStride[] = {
   [STREAM_VERTEX] = 8 * sizeof(float),
-  [STREAM_DRAW_ID] = sizeof(uint8_t),
+  [STREAM_DRAWID] = sizeof(uint8_t),
   [STREAM_INDEX] = sizeof(uint16_t),
-  [STREAM_TRANSFORM] = 16 * sizeof(float),
-  [STREAM_COLOR] = 4 * sizeof(float)
+  [STREAM_MODEL] = 16 * sizeof(float),
+  [STREAM_COLOR] = 4 * sizeof(float),
+  [STREAM_FRAME] = sizeof(FrameData)
 };
 
 static const BufferType bufferType[] = {
   [STREAM_VERTEX] = BUFFER_VERTEX,
-  [STREAM_DRAW_ID] = BUFFER_GENERIC,
+  [STREAM_DRAWID] = BUFFER_GENERIC,
   [STREAM_INDEX] = BUFFER_INDEX,
-  [STREAM_TRANSFORM] = BUFFER_UNIFORM,
-  [STREAM_COLOR] = BUFFER_UNIFORM
+  [STREAM_MODEL] = BUFFER_UNIFORM,
+  [STREAM_COLOR] = BUFFER_UNIFORM,
+  [STREAM_FRAME] = BUFFER_UNIFORM
 };
 
 static void gammaCorrect(Color* color) {
@@ -236,7 +247,7 @@ void lovrGraphicsCreateWindow(WindowFlags* flags) {
   MeshAttribute position = { .buffer = vertexBuffer, .offset = 0, .stride = stride, .type = F32, .components = 3 };
   MeshAttribute normal = { .buffer = vertexBuffer, .offset = 12, .stride = stride, .type = F32, .components = 3 };
   MeshAttribute texCoord = { .buffer = vertexBuffer, .offset = 24, .stride = stride, .type = F32, .components = 2 };
-  MeshAttribute drawId = { .buffer = state.buffers[STREAM_DRAW_ID], .type = U8, .components = 1, .integer = true };
+  MeshAttribute drawId = { .buffer = state.buffers[STREAM_DRAWID], .type = U8, .components = 1, .integer = true };
   MeshAttribute identity = { .buffer = state.identityBuffer, .type = U8, .components = 1, .divisor = 1, .integer = true };
 
   state.mesh = lovrMeshCreate(DRAW_TRIANGLES, NULL, 0);
@@ -297,6 +308,9 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
       state.camera.canvas->flags.stereo = camera->stereo;
     }
   }
+
+  memcpy(&state.frameData, &state.camera.viewMatrix[0][0], sizeof(FrameData));
+  state.frameDataDirty = true;
 
   if (clear) {
     lovrGpuClear(state.camera.canvas, &state.linearBackgroundColor, &(float) { 1. }, &(int) { 0 });
@@ -568,7 +582,7 @@ next:
 
   if (req->vertexCount > 0 && (!req->instanced || !batch)) {
     *(req->vertices) = lovrGraphicsMapBuffer(STREAM_VERTEX, req->vertexCount);
-    uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAW_ID, req->vertexCount);
+    uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAWID, req->vertexCount);
     memset(ids, batch ? batch->drawCount : 0, req->vertexCount * sizeof(uint8_t));
 
     if (req->indexCount > 0) {
@@ -583,7 +597,7 @@ next:
       lovrGraphicsFlush();
     }
 
-    float* transforms = lovrGraphicsMapBuffer(STREAM_TRANSFORM, MAX_DRAWS);
+    float* transforms = lovrGraphicsMapBuffer(STREAM_MODEL, MAX_DRAWS);
     Color* colors = lovrGraphicsMapBuffer(STREAM_COLOR, MAX_DRAWS);
 
     uint32_t rangeStart, rangeCount, instances;
@@ -613,12 +627,12 @@ next:
       },
       .material = material,
       .transforms = transforms,
-      .drawStart = state.head[STREAM_TRANSFORM],
+      .drawStart = state.head[STREAM_MODEL],
       .colors = colors,
       .indexed = req->indexCount > 0
     };
 
-    state.head[STREAM_TRANSFORM] += MAX_DRAWS;
+    state.head[STREAM_MODEL] += MAX_DRAWS;
     state.head[STREAM_COLOR] += MAX_DRAWS;
   }
 
@@ -638,7 +652,7 @@ next:
   if (!req->instanced || batch->drawCount == 0) {
     batch->draw.rangeCount += batch->indexed ? req->indexCount : req->vertexCount;
     state.head[STREAM_VERTEX] += req->vertexCount;
-    state.head[STREAM_DRAW_ID] += req->vertexCount;
+    state.head[STREAM_DRAWID] += req->vertexCount;
     state.head[STREAM_INDEX] += req->indexCount;
   }
 
@@ -658,6 +672,13 @@ void lovrGraphicsFlush() {
   int batchCount = state.batchCount;
   state.batchCount = 0;
 
+  if (state.frameDataDirty) {
+    state.frameDataDirty = false;
+    void* data = lovrGraphicsMapBuffer(STREAM_FRAME, 1);
+    memcpy(data, &state.frameData, sizeof(FrameData));
+    state.head[STREAM_FRAME]++;
+  }
+
   // Flush buffers
   for (int i = 0; i < MAX_STREAMS; i++) {
     lovrBufferFlush(state.buffers[i], state.tail[i] * bufferStride[i], (state.head[i] - state.tail[i]) * bufferStride[i]);
@@ -670,10 +691,9 @@ void lovrGraphicsFlush() {
 
     // Uniforms
     lovrMaterialBind(batch->material, batch->draw.shader);
-    lovrShaderSetMatrices(batch->draw.shader, "lovrViews", state.camera.viewMatrix[0], 0, 32);
-    lovrShaderSetMatrices(batch->draw.shader, "lovrProjections", state.camera.projection[0], 0, 32);
-    lovrShaderSetBlock(batch->draw.shader, "lovrModelBlock", state.buffers[STREAM_TRANSFORM], batch->drawStart * bufferStride[STREAM_TRANSFORM], MAX_DRAWS * bufferStride[STREAM_TRANSFORM], ACCESS_READ);
+    lovrShaderSetBlock(batch->draw.shader, "lovrModelBlock", state.buffers[STREAM_MODEL], batch->drawStart * bufferStride[STREAM_MODEL], MAX_DRAWS * bufferStride[STREAM_MODEL], ACCESS_READ);
     lovrShaderSetBlock(batch->draw.shader, "lovrColorBlock", state.buffers[STREAM_COLOR], batch->drawStart * bufferStride[STREAM_COLOR], MAX_DRAWS * bufferStride[STREAM_COLOR], ACCESS_READ);
+    lovrShaderSetBlock(batch->draw.shader, "lovrFrameBlock", state.buffers[STREAM_FRAME], (state.head[STREAM_FRAME] - 1) * bufferStride[STREAM_FRAME], bufferStride[STREAM_FRAME], ACCESS_READ);
     if (batch->draw.topology == DRAW_POINTS) {
       lovrShaderSetFloats(batch->draw.shader, "lovrPointSize", &state.pointSize, 0, 1);
     }
