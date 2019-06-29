@@ -675,6 +675,17 @@ MAF void mat4_transform(mat4 m, vec3 v) {
   );
 }
 
+MAF void mat4_transform_project(mat4 m, vec3 v) {
+  vec3_set(v,
+    v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12],
+    v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13],
+    v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14]
+  );
+  float w =
+    v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
+  vec3_set(v, v[0]/w, v[1]/w, v[2]/w);
+}
+
 MAF void mat4_transformDirection(mat4 m, vec3 v) {
   vec3_set(v,
     v[0] * m[0] + v[1] * m[4] + v[2] * m[8],
