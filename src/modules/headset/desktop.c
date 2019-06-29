@@ -22,7 +22,16 @@ static struct {
   float clipFar;
   float pitch;
   float yaw;
+
+  bool kbamBlocked;
 } state;
+
+void lovrHeadsetFakeKbamBlock(bool block) {
+  if (block != state.kbamBlocked) {
+    lovrLog("%s fake headset keyboard/mouse controls\n", block?"Disabling":"Re-enabling");
+    state.kbamBlocked = block;
+  }
+}
 
 static bool desktop_init(float offset, uint32_t msaa) {
   state.offset = offset;
@@ -102,7 +111,7 @@ static bool desktop_getAcceleration(Device device, vec3 acceleration, vec3 angul
 }
 
 static bool desktop_isDown(Device device, DeviceButton button, bool* down) {
-  if (device != DEVICE_HAND_LEFT || (button != BUTTON_TRIGGER && button != BUTTON_PRIMARY)) {
+  if (state.kbamBlocked || device != DEVICE_HAND_LEFT || (button != BUTTON_TRIGGER && button != BUTTON_PRIMARY)) {
     return false;
   }
 
@@ -141,6 +150,8 @@ static void desktop_renderTo(void (*callback)(void*), void* userdata) {
 }
 
 static void desktop_update(float dt) {
+  if (state.kbamBlocked) return;
+
   bool front = lovrPlatformIsKeyDown(KEY_W) || lovrPlatformIsKeyDown(KEY_UP);
   bool back = lovrPlatformIsKeyDown(KEY_S) || lovrPlatformIsKeyDown(KEY_DOWN);
   bool left = lovrPlatformIsKeyDown(KEY_A) || lovrPlatformIsKeyDown(KEY_LEFT);

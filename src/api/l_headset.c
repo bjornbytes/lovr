@@ -642,6 +642,15 @@ int luaopen_lovr_headset(lua_State* L) {
     lua_pop(L, 1);
   }
 
+#if LOVR_USE_DESKTOP_HEADSET
+  // Special conf only used by desktop driver
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrconf");
+  lua_getfield(L, -1, "headset"); // FIXME: Could be nil?
+  lua_getfield(L, -1, "fakeKbamBlock");
+  lovrHeadsetFakeKbamBlock(lua_toboolean(L, -1));
+  lua_pop(L, 3);
+#endif
+
   if (lovrHeadsetInit(drivers.data, drivers.length, offset, msaa)) {
     luax_atexit(L, lovrHeadsetDestroy);
   }

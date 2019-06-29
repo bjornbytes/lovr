@@ -129,3 +129,5 @@ extern HeadsetInterface* lovrHeadsetTrackingDrivers;
 
 bool lovrHeadsetInit(HeadsetDriver* drivers, uint32_t count, float offset, uint32_t msaa);
 void lovrHeadsetDestroy(void);
+
+void lovrHeadsetFakeKbamBlock(bool block);
