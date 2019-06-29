@@ -510,12 +510,13 @@ MAF mat4 mat4_translate(mat4 m, float x, float y, float z) {
 
 MAF mat4 mat4_rotateQuat(mat4 m, quat q) {
   float x = q[0], y = q[1], z = q[2], w = q[3];
-  return mat4_multiply(m, (float[16]) {
+  float m2[16] = {
     1 - 2 * y * y - 2 * z * z, 2 * x * y + 2 * w * z, 2 * x * z - 2 * w * y, 0,
     2 * x * y - 2 * w * z, 1 - 2 * x * x - 2 * z * z, 2 * y * z + 2 * w * x, 0,
     2 * x * z + 2 * w * y, 2 * y * z - 2 * w * x, 1 - 2 * x * x - 2 * y * y, 0,
     0, 0, 0, 1
-  });
+  };
+  return mat4_multiply(m, m2);
 }
 
 MAF mat4 mat4_rotate(mat4 m, float angle, float x, float y, float z) {
