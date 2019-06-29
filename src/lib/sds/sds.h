@@ -43,6 +43,12 @@ extern const char *SDS_NOINIT;
 
 typedef char *sds;
 
+#ifdef __cplusplus
+#define DUMMY_ELEMENT 1
+#else
+#define DUMMY_ELEMENT
+#endif
+
 #ifdef _MSC_VER
 #define PACK(decl) __pragma(pack(push, 1)) decl __pragma(pack(pop))
 
@@ -60,31 +66,31 @@ typedef long ssize_t;
  * However is here to document the layout of type 5 SDS strings. */
 PACK(struct sdshdr5 {
     unsigned char flags; /* 3 lsb of type, and 5 msb of string length */
-    char buf[];
+    char buf[DUMMY_ELEMENT];
 });
 PACK(struct sdshdr8 {
     uint8_t len; /* used */
     uint8_t alloc; /* excluding the header and null terminator */
     unsigned char flags; /* 3 lsb of type, 5 unused bits */
-    char buf[];
+    char buf[DUMMY_ELEMENT];
 });
 PACK(struct sdshdr16 {
     uint16_t len; /* used */
     uint16_t alloc; /* excluding the header and null terminator */
     unsigned char flags; /* 3 lsb of type, 5 unused bits */
-    char buf[];
+    char buf[DUMMY_ELEMENT];
 });
 PACK(struct sdshdr32 {
     uint32_t len; /* used */
     uint32_t alloc; /* excluding the header and null terminator */
     unsigned char flags; /* 3 lsb of type, 5 unused bits */
-    char buf[];
+    char buf[DUMMY_ELEMENT];
 });
 PACK(struct sdshdr64 {
     uint64_t len; /* used */
     uint64_t alloc; /* excluding the header and null terminator */
     unsigned char flags; /* 3 lsb of type, 5 unused bits */
-    char buf[];
+    char buf[DUMMY_ELEMENT];
 });
 
 #undef PACK
