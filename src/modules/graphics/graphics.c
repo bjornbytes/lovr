@@ -128,7 +128,7 @@ static const uint32_t bufferCount[] = {
   [STREAM_VERTEX] = (1 << 16) - 1,
   [STREAM_DRAWID] = (1 << 16) - 1,
   [STREAM_INDEX] = 1 << 16,
-#if defined(LOVR_WEBGL) || defined(__APPLE__) // Work around bugs where big UBOs don't work
+#if defined(LOVR_WEBGL) // Work around bugs where big UBOs don't work
   [STREAM_MODEL] = MAX_DRAWS,
   [STREAM_COLOR] = MAX_DRAWS,
 #else
@@ -592,7 +592,7 @@ next:
   }
 
   // Start a new batch
-  if (!batch) {
+  if (!batch || state.batchCount == 0) {
     if (state.batchCount >= MAX_BATCHES) {
       lovrGraphicsFlush();
     }
@@ -706,6 +706,10 @@ void lovrGraphicsFlush() {
         lovrMeshSetIndexBuffer(batch->draw.mesh, state.buffers[STREAM_INDEX], bufferCount[STREAM_INDEX], sizeof(uint16_t), 0);
       } else {
         lovrMeshSetIndexBuffer(batch->draw.mesh, NULL, 0, 0, 0);
+      }
+
+      if (batch->draw.mesh == state.instancedMesh && batch->draw.instances <= 1) {
+        batch->draw.mesh = state.mesh;
       }
     }
 
