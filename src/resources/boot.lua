@@ -18,11 +18,35 @@ local function nogame()
     end
     local texture = lovr.graphics.newTexture(lovr.data.newBlob(lovr._logo, 'logo.png'))
     logo = lovr.graphics.newMaterial(texture)
-    lovr.graphics.setBackgroundColor(.960, .988, 1.0)
+    lovr.graphics.setBackgroundColor(.894, .933, .949)
+
+    shader = lovr.graphics.newShader([[
+      vec4 position(mat4 projection, mat4 transform, vec4 vertex) {
+        return projection * transform * vertex;
+      }
+    ]], [[
+      vec4 color(vec4, sampler2D, vec2 uv) {
+        float y = (1. - uv.y);
+        uv = uv * 4. - 2.;
+        const float k = sqrt(3.);
+        uv.x = abs(uv.x) - 1.;
+        uv.y = uv.y + 1. / k + .25;
+        if (uv.x + k * uv.y > 0.) {
+          uv = vec2(uv.x - k * uv.y, -k * uv.x - uv.y) / 2.;
+        }
+        uv.x -= clamp(uv.x, -2., 0.);
+        float sdf = -length(uv) * sign(uv.y) - .5;
+        float w = fwidth(sdf);
+        float alpha = smoothstep(.22 + w, .22 - w, sdf);
+        vec3 color = mix(vec3(.094, .662, .890), vec3(.913, .275, .6), clamp(y * 1.5 - .25, 0., 1.));
+        color = mix(color, vec3(1.), smoothstep(-.12 + w, -.12 - w, sdf));
+        return vec4(pow(color, vec3(2.2)), alpha);
+      }
+    ]])
   end
 
   function lovr.draw()
-    lovr.graphics.setColor(1.0, 1.0, 1.0)
+    lovr.graphics.setColor(0xffffff)
 
     for hand in lovr.headset.hands() do
       models[hand] = models[hand] or lovr.headset.newModel(hand)
@@ -37,12 +61,18 @@ local function nogame()
     local fade = .315 + .685 * math.abs(math.sin(lovr.timer.getTime() * 2))
     local titlePosition = 1.4 - padding
     local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
-    lovr.graphics.plane(logo, 0, 1.9, -3, 1, 1, 0, 0, 1)
+
+    lovr.graphics.setShader(shader)
+    lovr.graphics.plane('fill', 0, 1.9, -3, 1, 1, 0, 0, 1)
+    lovr.graphics.setShader()
+
     lovr.graphics.setColor(.059, .059, .059)
-    lovr.graphics.print('LÖVR', -.01, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
+    lovr.graphics.print('LÖVR', -.012, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
+
     lovr.graphics.setColor(.059, .059, .059, fade)
-    lovr.graphics.print('No game :(', -.01, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
-    lovr.graphics.setColor(1, 1, 1)
+    lovr.graphics.print('No game :(', -.005, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
+
+    lovr.graphics.setColor(0xffffff)
   end
 end
 
