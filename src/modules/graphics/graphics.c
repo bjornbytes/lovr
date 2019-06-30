@@ -1145,15 +1145,12 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
   }
 }
 
-void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float az) {
+void lovrGraphicsSkybox(Texture* texture) {
   TextureType type = lovrTextureGetType(texture);
   lovrAssert(type == TEXTURE_CUBE || type == TEXTURE_2D, "Only 2D and cube textures can be used as skyboxes");
 
   Pipeline pipeline = state.pipeline;
   pipeline.winding = WINDING_COUNTERCLOCKWISE;
-
-  float transform[16] = MAT4_IDENTITY;
-  mat4_rotate(transform, angle, ax, ay, az);
 
   float* vertices = NULL;
 
@@ -1162,7 +1159,6 @@ void lovrGraphicsSkybox(Texture* texture, float angle, float ax, float ay, float
     .topology = DRAW_TRIANGLE_STRIP,
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
     .pipeline = &pipeline,
-    .transform = transform,
     .diffuseTexture = type == TEXTURE_2D ? texture : NULL,
     .environmentMap = type == TEXTURE_CUBE ? texture : NULL,
     .vertexCount = 4,

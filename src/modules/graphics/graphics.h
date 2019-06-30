@@ -167,7 +167,7 @@ void lovrGraphicsArc(DrawStyle style, ArcMode mode, struct Material* material, m
 void lovrGraphicsCircle(DrawStyle style, struct Material* material, mat4 transform, int segments);
 void lovrGraphicsCylinder(struct Material* material, mat4 transform, float r1, float r2, bool capped, int segments);
 void lovrGraphicsSphere(struct Material* material, mat4 transform, int segments);
-void lovrGraphicsSkybox(struct Texture* texture, float angle, float ax, float ay, float az);
+void lovrGraphicsSkybox(struct Texture* texture);
 void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsFill(struct Texture* texture, float u, float v, float w, float h);
 void lovrGraphicsDrawMesh(struct Mesh* mesh, mat4 transform, uint32_t instances, float* pose);

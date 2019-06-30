@@ -914,11 +914,7 @@ static int l_lovrGraphicsSphere(lua_State* L) {
 
 static int l_lovrGraphicsSkybox(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  float angle = luax_optfloat(L, 2, 0.f);
-  float ax = luax_optfloat(L, 3, 0.f);
-  float ay = luax_optfloat(L, 4, 1.f);
-  float az = luax_optfloat(L, 5, 0.f);
-  lovrGraphicsSkybox(texture, angle, ax, ay, az);
+  lovrGraphicsSkybox(texture);
   return 0;
 }
 
