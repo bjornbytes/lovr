@@ -702,14 +702,14 @@ void lovrGraphicsFlush() {
     if (batch->type == BATCH_MESH) {
       lovrMeshSetAttributeEnabled(batch->draw.mesh, "lovrDrawID", batch->params.mesh.instances <= 1);
     } else {
+      if (batch->draw.mesh == state.instancedMesh && batch->draw.instances <= 1) {
+        batch->draw.mesh = state.mesh;
+      }
+
       if (batch->indexed) {
         lovrMeshSetIndexBuffer(batch->draw.mesh, state.buffers[STREAM_INDEX], bufferCount[STREAM_INDEX], sizeof(uint16_t), 0);
       } else {
         lovrMeshSetIndexBuffer(batch->draw.mesh, NULL, 0, 0, 0);
-      }
-
-      if (batch->draw.mesh == state.instancedMesh && batch->draw.instances <= 1) {
-        batch->draw.mesh = state.mesh;
       }
     }
 
