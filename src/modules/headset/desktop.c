@@ -1,8 +1,8 @@
 #include "headset/headset.h"
 #include "graphics/graphics.h"
 #include "core/maf.h"
+#include "core/platform.h"
 #include "core/util.h"
-#include "platform.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -44,6 +44,10 @@ static bool desktop_getName(char* name, size_t length) {
 
 static HeadsetOrigin desktop_getOriginType(void) {
   return ORIGIN_HEAD;
+}
+
+static double desktop_getDisplayTime(void) {
+  return lovrPlatformGetTime();
 }
 
 static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -212,6 +216,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .destroy = desktop_destroy,
   .getName = desktop_getName,
   .getOriginType = desktop_getOriginType,
+  .getDisplayTime = desktop_getDisplayTime,
   .getDisplayDimensions = desktop_getDisplayDimensions,
   .getDisplayMask = desktop_getDisplayMask,
   .getClipDistance = desktop_getClipDistance,

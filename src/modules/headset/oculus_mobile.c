@@ -53,6 +53,10 @@ static HeadsetOrigin vrapi_getOriginType() {
   return ORIGIN_HEAD;
 }
 
+static double vrapi_getDisplayTime(void) {
+  return bridgeLovrMobileData.updateData.displayTime;
+}
+
 static void vrapi_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *width = bridgeLovrMobileData.displayDimensions.width;
   *height = bridgeLovrMobileData.displayDimensions.height;
@@ -258,6 +262,7 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   .destroy = vrapi_destroy,
   .getName = vrapi_getName,
   .getOriginType = vrapi_getOriginType,
+  .getDisplayTime = vrapi_getDisplayTime,
   .getDisplayDimensions = vrapi_getDisplayDimensions,
   .getDisplayMask = vrapi_getDisplayMask,
   .getClipDistance = vrapi_getClipDistance,

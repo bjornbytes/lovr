@@ -123,6 +123,10 @@ var LibraryLOVR = {
     return webvr.display.stageParameters ? C.ORIGIN_FLOOR : C.ORIGIN_HEAD;
   },
 
+  webvr_getDisplayTime: function() {
+    return webvr.frameData.timestamp / 1000;
+  },
+
   webvr_getDisplayDimensions: function(width, height) {
     HEAPU32[width >> 2] = webvr.width;
     HEAPU32[height >> 2] = webvr.height;
