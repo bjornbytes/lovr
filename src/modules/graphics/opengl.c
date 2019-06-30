@@ -1744,8 +1744,10 @@ void lovrBufferDiscard(Buffer* buffer) {
   glBufferData(glType, buffer->size, NULL, convertBufferUsage(buffer->usage));
 #else
   // We unmap even if persistent mapping is supported
-  // TODO investigate glInvalidateBufferData and its interactions with persistently mapped buffers.
-  glUnmapBuffer(glType);
+  if (buffer->mapped || GLAD_GL_ARB_buffer_storage) {
+    glUnmapBuffer(glType);
+    buffer->mapped = false;
+  }
 
   GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_INVALIDATE_BUFFER_BIT | (buffer->readable ? GL_MAP_READ_BIT : 0);
   flags |= GLAD_GL_ARB_buffer_storage ? GL_MAP_PERSISTENT_BIT : 0;
