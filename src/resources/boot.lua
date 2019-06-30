@@ -8,6 +8,7 @@ local function nogame()
     t.modules.thread = false
   end
 
+  local shader
   local models = {}
 
   function lovr.load()
@@ -16,8 +17,7 @@ local function nogame()
       lovr.event.quit()
       return
     end
-    local texture = lovr.graphics.newTexture(lovr.data.newBlob(lovr._logo, 'logo.png'))
-    logo = lovr.graphics.newMaterial(texture)
+
     lovr.graphics.setBackgroundColor(.894, .933, .949)
 
     shader = lovr.graphics.newShader([[

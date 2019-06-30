@@ -1,7 +1,6 @@
 #include "api.h"
 #include "util.h"
 #include "platform.h"
-#include "resources/logo.png.h"
 #include "lib/lua-cjson/lua_cjson.h"
 #include "lib/lua-enet/enet.h"
 
@@ -68,7 +67,5 @@ static const luaL_Reg lovr[] = {
 int luaopen_lovr(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovr);
-  lua_pushlstring(L, (const char*) logo_png, logo_png_len);
-  lua_setfield(L, -2, "_logo");
   return 1;
 }
