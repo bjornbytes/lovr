@@ -98,7 +98,8 @@ function lovr.boot()
       msaa = 4
     },
     math = {
-      ffi = true
+      ffi = true,
+      globals = true
     },
     window = {
       width = 1080,
@@ -173,6 +174,9 @@ function lovr.run()
         end
       end
       lovr.graphics.present()
+    end
+    if lovr.math then
+      lovr.math.drain()
     end
   end
 end

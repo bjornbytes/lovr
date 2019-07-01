@@ -6,78 +6,102 @@
 #include "resources/math.lua.h"
 #include "core/maf.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include <stdlib.h>
 
 int l_lovrRandomGeneratorRandom(lua_State* L);
 int l_lovrRandomGeneratorRandomNormal(lua_State* L);
 int l_lovrRandomGeneratorGetSeed(lua_State* L);
 int l_lovrRandomGeneratorSetSeed(lua_State* L);
+int l_lovrVec2Set(lua_State* L);
 int l_lovrVec3Set(lua_State* L);
 int l_lovrQuatSet(lua_State* L);
 int l_lovrMat4Set(lua_State* L);
 
-static const char* lovrMathTypeNames[] = {
-  [MATH_VEC3] = "vec3",
-  [MATH_QUAT] = "quat",
-  [MATH_MAT4] = "mat4"
+static LOVR_THREAD_LOCAL Pool* pool;
+
+static const luaL_Reg* lovrVectorMetatables[] = {
+  [V_VEC2] = lovrVec2,
+  [V_VEC3] = lovrVec3,
+  [V_QUAT] = lovrQuat,
+  [V_MAT4] = lovrMat4
 };
 
-static const luaL_Reg* lovrMathTypes[] = {
-  [MATH_VEC3] = lovrVec3,
-  [MATH_QUAT] = lovrQuat,
-  [MATH_MAT4] = lovrMat4
+static int lovrVectorMetatableRefs[] = {
+  [V_VEC2] = LUA_REFNIL,
+  [V_VEC3] = LUA_REFNIL,
+  [V_QUAT] = LUA_REFNIL,
+  [V_MAT4] = LUA_REFNIL
 };
 
-static const int lovrMathTypeComponents[] = {
-  [MATH_VEC3] = 3,
-  [MATH_QUAT] = 4,
-  [MATH_MAT4] = 16
+static const char* lovrVectorTypeNames[] = {
+  [V_VEC2] = "vec2",
+  [V_VEC3] = "vec3",
+  [V_QUAT] = "quat",
+  [V_MAT4] = "mat4"
 };
 
-static float* luax_tolightmathtype(lua_State* L, int index, MathType* type) {
-  uintptr_t p = (uintptr_t) lua_touserdata(L, index), aligned = ALIGN(p, POOL_ALIGN);
-  *type = p - aligned;
-  return p ? (float*) aligned : NULL;
+static void luax_destroypool(void) {
+  lovrRelease(Pool, pool);
 }
 
-void luax_pushlightmathtype(lua_State* L, float* p, MathType type) {
-  lua_pushlightuserdata(L, (uint8_t*) p + type);
-}
-
-float* luax_tomathtype(lua_State* L, int index, MathType* type) {
+float* luax_tovector(lua_State* L, int index, VectorType* type) {
   int luaType = lua_type(L, index);
   if (luaType == LUA_TLIGHTUSERDATA) {
-    return luax_tolightmathtype(L, index, type);
-  } else if (luaType == LUA_TUSERDATA) {
-    MathType* x = lua_touserdata(L, index);
-    *type = *x;
-    return (float*) (x + 1);
+    union { void* pointer; Vector handle; } u;
+    u.pointer = lua_touserdata(L, index);
+    if (u.pointer && u.handle.type > V_NONE && u.handle.type < MAX_VECTOR_TYPES) {
+      *type = u.handle.type;
+      return lovrPoolResolve(pool, u.handle);
+    }
   } else if (luaType > LUA_TTHREAD) { // cdata
-    lua_getfield(L, index, "_type");
-    *type = lua_tonumber(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, index, "_p");
-    float* p = *(float**) lua_topointer(L, -1);
-    lua_pop(L, 1);
-    return p;
+    Vector* handle = (Vector*) lua_topointer(L, index);
+    if (handle && handle->type > V_NONE && handle->type < MAX_VECTOR_TYPES) {
+      *type = handle->type;
+      return lovrPoolResolve(pool, *handle);
+    }
+  } else if (luaType == LUA_TUSERDATA) {
+    VectorType* p = lua_touserdata(L, index);
+    if (p && *p > V_NONE && *p < MAX_VECTOR_TYPES) {
+      *type = *p;
+      return (float*) (p + 1);
+    }
   }
+  *type = V_NONE;
   return NULL;
 }
 
-float* luax_checkmathtype(lua_State* L, int index, MathType type, const char* expected) {
-  MathType t;
-  float* p = luax_tomathtype(L, index, &t);
-  if (!p || t != type) luaL_typerror(L, index, expected ? expected : lovrMathTypeNames[type]);
+float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected) {
+  VectorType t;
+  float* p = luax_tovector(L, index, &t);
+  if (!p || t != type) luaL_typerror(L, index, expected ? expected : lovrVectorTypeNames[type]);
   return p;
 }
 
-float* luax_newmathtype(lua_State* L, MathType type) {
-  MathType* x = (MathType*) lua_newuserdata(L, sizeof(MathType) + lovrMathTypeComponents[type] * sizeof(float));
-  luaL_getmetatable(L, lovrMathTypeNames[type]);
+static float* luax_newvector(lua_State* L, VectorType type, size_t components) {
+  VectorType* p = lua_newuserdata(L, sizeof(VectorType) + components * sizeof(float));
+  *p = type;
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorMetatableRefs[type]);
   lua_setmetatable(L, -2);
-  *x = type;
-  return (float*) (x + 1);
+  return (float*) (p + 1);
+}
+
+float* luax_newtempvector(lua_State* L, VectorType type) {
+  float* data;
+  Vector handle = lovrPoolAllocate(pool, type, &data);
+  union { void* pointer; Vector handle; } u;
+  u.handle = handle;
+  lua_pushlightuserdata(L, u.pointer);
+  return data;
+}
+
+static int l_lovrVectorGetPointer(lua_State* L) {
+  if (lua_type(L, 1) == LUA_TUSERDATA) {
+    VectorType* p = lua_touserdata(L, 1);
+    lua_pushlightuserdata(L, p + 1);
+    return 1;
+  }
+  return 0;
 }
 
 static int l_lovrMathNewCurve(lua_State* L) {
@@ -111,14 +135,6 @@ static int l_lovrMathNewCurve(lua_State* L) {
   return 1;
 }
 
-static int l_lovrMathNewPool(lua_State* L) {
-  size_t size = luaL_optinteger(L, 1, DEFAULT_POOL_SIZE);
-  Pool* pool = lovrPoolCreate(size);
-  luax_pushtype(L, Pool, pool);
-  lovrRelease(Pool, pool);
-  return 1;
-}
-
 static int l_lovrMathNewRandomGenerator(lua_State* L) {
   RandomGenerator* generator = lovrRandomGeneratorCreate();
   if (lua_gettop(L) > 0){
@@ -128,34 +144,6 @@ static int l_lovrMathNewRandomGenerator(lua_State* L) {
   luax_pushtype(L, RandomGenerator, generator);
   lovrRelease(RandomGenerator, generator);
   return 1;
-}
-
-static int l_lovrMathLookAt(lua_State* L) {
-  float from[4] = { luax_checkfloat(L, 1), luax_checkfloat(L, 2), luax_checkfloat(L, 3) };
-  float to[4] = { luax_checkfloat(L, 4), luax_checkfloat(L, 5), luax_checkfloat(L, 6) };
-  float up[4] = { luax_optfloat(L, 7, 0.f), luax_optfloat(L, 8, 1.f), luax_optfloat(L, 9, 0.f) };
-  float m[16], q[4], angle, ax, ay, az;
-  mat4_lookAt(m, from, to, up);
-  quat_fromMat4(q, m);
-  quat_getAngleAxis(q, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, -angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 4;
-}
-
-static int l_lovrMathOrientationToDirection(lua_State* L) {
-  float angle = luax_checkfloat(L, 1);
-  float ax = luax_optfloat(L, 2, 0.f);
-  float ay = luax_optfloat(L, 3, 1.f);
-  float az = luax_optfloat(L, 4, 0.f);
-  float v[4];
-  lovrMathOrientationToDirection(angle, ax, ay, az, v);
-  lua_pushnumber(L, v[0]);
-  lua_pushnumber(L, v[1]);
-  lua_pushnumber(L, v[2]);
-  return 3;
 }
 
 static int l_lovrMathNoise(lua_State* L) {
@@ -229,30 +217,62 @@ static int l_lovrMathLinearToGamma(lua_State* L) {
   }
 }
 
-static int l_lovrVec3__call(lua_State* L) {
-  luax_newmathtype(L, MATH_VEC3);
-  lua_replace(L, 1);
+static int l_lovrMathNewVec2(lua_State* L) {
+  luax_newvector(L, V_VEC2, 2);
+  lua_insert(L, 1);
+  return l_lovrVec2Set(L);
+}
+
+static int l_lovrMathNewVec3(lua_State* L) {
+  luax_newvector(L, V_VEC3, 4);
+  lua_insert(L, 1);
   return l_lovrVec3Set(L);
 }
 
-static int l_lovrQuat__call(lua_State* L) {
-  luax_newmathtype(L, MATH_QUAT);
-  lua_replace(L, 1);
+static int l_lovrMathNewQuat(lua_State* L) {
+  luax_newvector(L, V_QUAT, 4);
+  lua_insert(L, 1);
   return l_lovrQuatSet(L);
 }
 
-static int l_lovrMat4__call(lua_State* L) {
-  luax_newmathtype(L, MATH_MAT4);
-  lua_replace(L, 1);
+static int l_lovrMathNewMat4(lua_State* L) {
+  luax_newvector(L, V_MAT4, 16);
+  lua_insert(L, 1);
   return l_lovrMat4Set(L);
+}
+
+static int l_lovrMathVec2(lua_State* L) {
+  luax_newtempvector(L, V_VEC2);
+  lua_insert(L, 1);
+  return l_lovrVec2Set(L);
+}
+
+static int l_lovrMathVec3(lua_State* L) {
+  luax_newtempvector(L, V_VEC3);
+  lua_insert(L, 1);
+  return l_lovrVec3Set(L);
+}
+
+static int l_lovrMathQuat(lua_State* L) {
+  luax_newtempvector(L, V_QUAT);
+  lua_insert(L, 1);
+  return l_lovrQuatSet(L);
+}
+
+static int l_lovrMathMat4(lua_State* L) {
+  luax_newtempvector(L, V_MAT4);
+  lua_insert(L, 1);
+  return l_lovrMat4Set(L);
+}
+
+static int l_lovrMathDrain(lua_State* L) {
+  lovrPoolDrain(pool);
+  return 0;
 }
 
 static const luaL_Reg lovrMath[] = {
   { "newCurve", l_lovrMathNewCurve },
-  { "newPool", l_lovrMathNewPool },
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
-  { "orientationToDirection", l_lovrMathOrientationToDirection },
-  { "lookAt", l_lovrMathLookAt },
   { "noise", l_lovrMathNoise },
   { "random", l_lovrMathRandom },
   { "randomNormal", l_lovrMathRandomNormal },
@@ -260,27 +280,63 @@ static const luaL_Reg lovrMath[] = {
   { "setRandomSeed", l_lovrMathSetRandomSeed },
   { "gammaToLinear", l_lovrMathGammaToLinear },
   { "linearToGamma", l_lovrMathLinearToGamma },
+  { "newVec2", l_lovrMathNewVec2 },
+  { "newVec3", l_lovrMathNewVec3 },
+  { "newQuat", l_lovrMathNewQuat },
+  { "newMat4", l_lovrMathNewMat4 },
+  { "vec2", l_lovrMathVec2 },
+  { "vec3", l_lovrMathVec3 },
+  { "quat", l_lovrMathQuat },
+  { "mat4", l_lovrMathMat4 },
+  { "drain", l_lovrMathDrain },
   { NULL, NULL }
 };
 
 static int l_lovrLightUserdata__index(lua_State* L) {
-  MathType type;
-  luax_tolightmathtype(L, 1, &type);
-  luaL_getmetatable(L, lovrMathTypeNames[type]);
+  VectorType type;
+  if (!luax_tovector(L, 1, &type)) {
+    return 0;
+  }
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorMetatableRefs[type]);
   lua_pushvalue(L, 2);
   lua_rawget(L, -2);
+  if (lua_isnil(L, -1)) {
+    lua_pop(L, 1);
+    lua_pushliteral(L, "__index");
+    lua_rawget(L, -2);
+    if (!lua_isnil(L, -1)) {
+      lua_pushvalue(L, 1);
+      lua_pushvalue(L, 2);
+      lua_call(L, 2, 1);
+      return 1;
+    } else {
+      return 0;
+    }
+  }
   return 1;
 }
 
 static int l_lovrLightUserdataOp(lua_State* L) {
-  MathType type;
-  luax_tolightmathtype(L, 1, &type);
-  luaL_getmetatable(L, lovrMathTypeNames[type]);
+  VectorType type;
+  if (!luax_tovector(L, 1, &type)) {
+    lua_pushliteral(L, "__tostring");
+    if (lua_rawequal(L, -1, lua_upvalueindex(1))) {
+      lua_pop(L, 1);
+      lua_pushfstring(L, "%s: %p", lua_typename(L, lua_type(L, 1)), lua_topointer(L, 1));
+      return 1;
+    }
+    lua_pop(L, 1);
+    return luaL_error(L, "Unsupported lightuserdata operator %q", lua_tostring(L, lua_upvalueindex(1)));
+  }
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorMetatableRefs[type]);
   lua_pushvalue(L, lua_upvalueindex(1));
   lua_gettable(L, -2);
   lua_pushvalue(L, 1);
   lua_pushvalue(L, 2);
-  lua_call(L, 2, 1);
+  lua_pushvalue(L, 3);
+  lua_call(L, 3, 1);
   return 1;
 }
 
@@ -288,46 +344,29 @@ int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrMath);
   luax_registertype(L, Curve);
-  luax_registertype(L, Pool);
   luax_registertype(L, RandomGenerator);
 
-  for (int i = 0; i < MAX_MATH_TYPES; i++) {
-    _luax_registertype(L, lovrMathTypeNames[i], lovrMathTypes[i], NULL);
-    luaL_getmetatable(L, lovrMathTypeNames[i]);
-
-    // Remove usual __gc handler
-    lua_pushnil(L);
-    lua_setfield(L, -2, "__gc");
-
-    // Allow metatable to be called as a function
+  for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
     lua_newtable(L);
-    switch (i) {
-      case MATH_VEC3: lua_pushcfunction(L, l_lovrVec3__call); break;
-      case MATH_QUAT: lua_pushcfunction(L, l_lovrQuat__call); break;
-      case MATH_MAT4: lua_pushcfunction(L, l_lovrMat4__call); break;
-      default: break;
-    }
-    lua_setfield(L, -2, "__call");
-    lua_setmetatable(L, -2);
-
-    // Assign into the lovr.math table
-    lua_setfield(L, -2, lovrMathTypeNames[i]);
+    lua_pushstring(L, lovrVectorTypeNames[i]);
+    lua_setfield(L, -2, "__name");
+    lua_pushcfunction(L, l_lovrVectorGetPointer);
+    lua_setfield(L, -2, "getPointer");
+    luaL_register(L, NULL, lovrVectorMetatables[i]);
+    lovrVectorMetatableRefs[i] = luaL_ref(L, LUA_REGISTRYINDEX);
   }
 
   // Global lightuserdata metatable
   lua_pushlightuserdata(L, NULL);
   lua_newtable(L);
-
   lua_pushcfunction(L, l_lovrLightUserdata__index);
   lua_setfield(L, -2, "__index");
-
-  const char* ops[] = { "__add", "__sub", "__mul", "__div", "__unm", "__len", "__tostring" };
+  const char* ops[] = { "__add", "__sub", "__mul", "__div", "__unm", "__len", "__tostring", "__newindex" };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
     lua_pushstring(L, ops[i]);
     lua_pushcclosure(L, l_lovrLightUserdataOp, 1);
     lua_setfield(L, -2, ops[i]);
   }
-
   lua_setmetatable(L, -2);
   lua_pop(L, 1);
 
@@ -336,26 +375,39 @@ int luaopen_lovr_math(lua_State* L) {
     luax_atexit(L, lovrMathDestroy);
   }
 
+  pool = lovrPoolCreate();
+  luax_atexit(L, luax_destroypool);
+
   // Inject LuaJIT superjuice
-#ifdef LOVR_USE_LUAJIT
   luax_pushconf(L);
   lua_getfield(L, -1, "math");
   if (lua_istable(L, -1)) {
+#ifdef LOVR_USE_LUAJIT
     lua_getfield(L, -1, "ffi");
     if (lua_toboolean(L, -1)) {
       lua_pushcfunction(L, luax_getstack);
-      lovrAssert(!luaL_loadbuffer(L, (const char*) math_lua, math_lua_len, "math.lua"), "Could not load math.lua");
+      if (luaL_loadbuffer(L, (const char*) math_lua, math_lua_len, "math.lua")) {
+        lovrThrow(lua_tostring(L, -1));
+      }
       lua_pushvalue(L, -6); // lovr.math
-      luaL_getmetatable(L, "Pool");
+      lua_pushlightuserdata(L, pool);
       if (lua_pcall(L, 2, 0, -4)) {
         lovrThrow(lua_tostring(L, -1));
       }
       lua_pop(L, 1);
     }
     lua_pop(L, 1);
+#endif
+    lua_getfield(L, -1, "globals");
+    if (lua_toboolean(L, -1)) {
+      for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
+        lua_getfield(L, -4, lovrVectorTypeNames[i]);
+        lua_setglobal(L, lovrVectorTypeNames[i]);
+      }
+    }
+    lua_pop(L, 1);
   }
   lua_pop(L, 2);
-#endif
 
   return 1;
 }

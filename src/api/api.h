@@ -16,7 +16,6 @@ LOVR_EXPORT int luaopen_lovr_timer(lua_State* L);
 extern const luaL_Reg lovrModules[];
 
 // Objects
-extern const luaL_Reg lovrLightUserdata[];
 extern const luaL_Reg lovrAudioStream[];
 extern const luaL_Reg lovrBallJoint[];
 extern const luaL_Reg lovrBlob[];
@@ -36,7 +35,6 @@ extern const luaL_Reg lovrMesh[];
 extern const luaL_Reg lovrMicrophone[];
 extern const luaL_Reg lovrModel[];
 extern const luaL_Reg lovrModelData[];
-extern const luaL_Reg lovrPool[];
 extern const luaL_Reg lovrQuat[];
 extern const luaL_Reg lovrRandomGenerator[];
 extern const luaL_Reg lovrRasterizer[];
@@ -49,6 +47,7 @@ extern const luaL_Reg lovrSphereShape[];
 extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrTextureData[];
 extern const luaL_Reg lovrThread[];
+extern const luaL_Reg lovrVec2[];
 extern const luaL_Reg lovrVec3[];
 extern const luaL_Reg lovrWorld[];
 
@@ -112,10 +111,9 @@ void luax_readattachments(lua_State* L, int index, struct Attachment* attachment
 #include <stdint.h>
 #include "math/pool.h" // TODO
 #include "math/randomGenerator.h" // TODO
-void luax_pushlightmathtype(lua_State* L, float* p, MathType type);
-float* luax_tomathtype(lua_State* L, int index, MathType* type);
-float* luax_checkmathtype(lua_State* L, int index, MathType type, const char* expected);
-float* luax_newmathtype(lua_State* L, MathType type);
+float* luax_tovector(lua_State* L, int index, VectorType* type);
+float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected);
+float* luax_newtempvector(lua_State* L, VectorType type);
 int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
 int luax_readscale(lua_State* L, int index, float* v, int components, const char* expected);
 int luax_readquat(lua_State* L, int index, float* q, const char* expected);

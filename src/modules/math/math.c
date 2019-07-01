@@ -32,14 +32,6 @@ RandomGenerator* lovrMathGetRandomGenerator() {
   return state.generator;
 }
 
-void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, vec3 v) {
-  float sinTheta = sinf(angle);
-  float cosTheta = cosf(angle);
-  v[0] = sinTheta * -ay + (1.f - cosTheta) * -az * ax;
-  v[1] = sinTheta * ax + (1.f - cosTheta) * -az * ay;
-  v[2] = -cosTheta + (1.f - cosTheta) * -az * az;
-}
-
 float lovrMathGammaToLinear(float x) {
   if (x <= .04045f) {
     return x / 12.92f;

@@ -1,17 +1,17 @@
 #include "math/pool.h"
 #include <stdlib.h>
 
-static const size_t sizeOfMathType[] = {
-  [MATH_VEC3] = 4 * sizeof(float),
-  [MATH_QUAT] = 4 * sizeof(float),
-  [MATH_MAT4] = 16 * sizeof(float)
+#define POOL_ALIGN 16
+
+static const size_t vectorComponents[] = {
+  [V_VEC2] = 2,
+  [V_VEC3] = 4,
+  [V_QUAT] = 4,
+  [V_MAT4] = 16
 };
 
-Pool* lovrPoolInit(Pool* pool, size_t size) {
-  pool->size = size;
-  pool->data = malloc(pool->size + POOL_ALIGN - 1);
-  pool->head = (uint8_t*) ALIGN((uint8_t*) pool->data + POOL_ALIGN - 1, POOL_ALIGN);
-  lovrAssert(pool->data, "Out of memory");
+Pool* lovrPoolInit(Pool* pool) {
+  lovrPoolGrow(pool, 1 << 12);
   return pool;
 }
 
@@ -20,26 +20,33 @@ void lovrPoolDestroy(void* ref) {
   free(pool->data);
 }
 
-float* lovrPoolAllocate(Pool* pool, MathType type) {
-  size_t size = sizeOfMathType[type];
-  lovrAssert(pool->usage + size <= pool->size, "Pool overflow");
-  float* p = (float*) (pool->head + pool->usage);
-  pool->usage += size;
-  return p;
+void lovrPoolGrow(Pool* pool, size_t count) {
+  lovrAssert(count <= (1 << 16), "Congratulations!  You have run out of memory for vectors.  Try using lovr.math.drain to drain the vector Pool periodically."); // Only 24 bits for vector handles
+  pool->count = count;
+  pool->data = realloc(pool->data, pool->count * sizeof(float));
+  lovrAssert(pool->data, "Out of memory");
+  pool->floats = (float*) ALIGN((uint8_t*) pool->data + POOL_ALIGN - 1, POOL_ALIGN);
+}
+
+Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
+  size_t count = vectorComponents[type];
+  if (pool->cursor + count > pool->count - 4) { // Leave 4 floats of padding for alignment adjustment
+    lovrPoolGrow(pool, pool->count * 2);
+  }
+  Vector v = { type, pool->generation, pool->cursor };
+  if (data) {
+    *data = pool->floats + pool->cursor;
+  }
+  pool->cursor += count;
+  return v;
+}
+
+float* lovrPoolResolve(Pool* pool, Vector vector) {
+  lovrAssert(vector.generation == pool->generation, "Attempt to use a vector in a different generation than the one it was created in (vectors can not be saved into variables)");
+  return pool->floats + vector.index;
 }
 
 void lovrPoolDrain(Pool* pool) {
-  pool->usage = 0;
+  pool->cursor = 0;
+  pool->generation = (pool->generation + 1) & 0xff;
 }
-
-size_t lovrPoolGetSize(Pool* pool) {
-  return pool->size;
-}
-
-size_t lovrPoolGetUsage(Pool* pool) {
-  return pool->usage;
-}
-
-float* lovrPoolAllocateVec3(Pool* pool) { return lovrPoolAllocate(pool, MATH_VEC3); }
-float* lovrPoolAllocateQuat(Pool* pool) { return lovrPoolAllocate(pool, MATH_QUAT); }
-float* lovrPoolAllocateMat4(Pool* pool) { return lovrPoolAllocate(pool, MATH_MAT4); }

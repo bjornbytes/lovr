@@ -267,7 +267,7 @@ static void luax_readvertices(lua_State* L, int index, float* v, uint32_t count)
         lua_pop(L, 1);
         for (uint32_t i = 0; i < count; i++) {
           lua_rawgeti(L, index, i + 1);
-          vec3_init(v, luax_checkmathtype(L, -1, MATH_VEC3, NULL));
+          vec3_init(v, luax_checkvector(L, -1, V_VEC3, NULL));
           lua_pop(L, 1);
           v[3] = v[4] = v[5] = v[6] = v[7] = 0.f;
           v += 8;
@@ -287,7 +287,7 @@ static void luax_readvertices(lua_State* L, int index, float* v, uint32_t count)
 
     default:
       for (uint32_t i = 0; i < count; i++) {
-        vec3_init(v, luax_checkmathtype(L, index + i, MATH_VEC3, NULL));
+        vec3_init(v, luax_checkvector(L, index + i, V_VEC3, NULL));
         v[3] = v[4] = v[5] = v[6] = v[7] = 0.f;
         v += 8;
       }

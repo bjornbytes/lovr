@@ -184,6 +184,19 @@ MAF quat quat_normalize(quat q) {
   return q;
 }
 
+MAF void quat_getDirection(quat q, float* x, float* y, float* z) {
+  *x = -(2.f * q[0] * q[2] + 2.f * q[3] * q[1]);
+  *y = -(2.f * q[1] * q[2] + 2.f * q[3] * q[0]);
+  *z = -(1.f - 2.f * q[0] * q[0] - 2.f * q[1] * q[1]);
+}
+
+MAF quat quat_conjugate(quat q) {
+  q[0] = -q[0];
+  q[1] = -q[1];
+  q[2] = -q[2];
+  return q;
+}
+
 MAF quat quat_slerp(quat q, quat r, float t) {
   float dot = q[0] * r[0] + q[1] * r[1] + q[2] * r[2] + q[3] * r[3];
   if (fabsf(dot) >= 1.f) {
@@ -602,78 +615,40 @@ MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float c
 }
 
 MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
-  float x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
-
-  if (from[0] == to[0] && from[1] == to[1] && from[2] == to[2]) {
-    return mat4_identity(m);
-  }
-
-  z0 = from[0] - to[0];
-  z1 = from[1] - to[1];
-  z2 = from[2] - to[2];
-
-  len = 1.f / sqrtf(z0 * z0 + z1 * z1 + z2 * z2);
-  z0 *= len;
-  z1 *= len;
-  z2 *= len;
-
-  x0 = up[1] * z2 - up[2] * z1;
-  x1 = up[2] * z0 - up[0] * z2;
-  x2 = up[0] * z1 - up[1] * z0;
-  len = sqrtf(x0 * x0 + x1 * x1 + x2 * x2);
-  if (!len) {
-    x0 = 0;
-    x1 = 0;
-    x2 = 0;
-  } else {
-    len = 1 / len;
-    x0 *= len;
-    x1 *= len;
-    x2 *= len;
-  }
-
-  y0 = z1 * x2 - z2 * x1;
-  y1 = z2 * x0 - z0 * x2;
-  y2 = z0 * x1 - z1 * x0;
-
-  len = sqrtf(y0 * y0 + y1 * y1 + y2 * y2);
-  if (!len) {
-    y0 = 0;
-    y1 = 0;
-    y2 = 0;
-  } else {
-    len = 1 / len;
-    y0 *= len;
-    y1 *= len;
-    y2 *= len;
-  }
-
-  m[0] = x0;
-  m[1] = y0;
-  m[2] = z0;
-  m[3] = 0;
-  m[4] = x1;
-  m[5] = y1;
-  m[6] = z1;
-  m[7] = 0;
-  m[8] = x2;
-  m[9] = y2;
-  m[10] = z2;
-  m[11] = 0;
-  m[12] = -(x0 * from[0] + x1 * from[1] + x2 * from[2]);
-  m[13] = -(y0 * from[0] + y1 * from[1] + y2 * from[2]);
-  m[14] = -(z0 * from[0] + z1 * from[1] + z2 * from[2]);
-  m[15] = 1;
-
+  float z[4];
+  float x[4];
+  float y[4];
+  vec3_sub(vec3_init(z, to), from);
+  vec3_normalize(vec3_cross(vec3_init(x, up), z));
+  vec3_cross(vec3_init(y, z), x);
+  m[0] = x[0];
+  m[1] = y[0];
+  m[2] = z[0];
+  m[3] = 0.f;
+  m[4] = x[1];
+  m[5] = y[1];
+  m[6] = z[1];
+  m[7] = 0.f;
+  m[8] = x[2];
+  m[9] = y[2];
+  m[10] = z[2];
+  m[11] = 0.f;
+  m[12] = 0.f;
+  m[13] = 0.f;
+  m[14] = 0.f;
+  m[15] = 1.f;
   return m;
 }
 
 MAF void mat4_transform(mat4 m, vec3 v) {
-  vec3_set(v,
-    v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12],
-    v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13],
-    v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14]
-  );
+  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
+  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
+  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
+  float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
+  v[0] = x / w;
+  v[1] = y / w;
+  v[2] = z / w;
+  v[3] = w / w;
 }
 
 MAF void mat4_transform_project(mat4 m, vec3 v) {
@@ -688,9 +663,12 @@ MAF void mat4_transform_project(mat4 m, vec3 v) {
 }
 
 MAF void mat4_transformDirection(mat4 m, vec3 v) {
-  vec3_set(v,
-    v[0] * m[0] + v[1] * m[4] + v[2] * m[8],
-    v[0] * m[1] + v[1] * m[5] + v[2] * m[9],
-    v[0] * m[2] + v[1] * m[6] + v[2] * m[10]
-  );
+  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8];
+  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9];
+  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10];
+  float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11];
+  v[0] = x;
+  v[1] = y;
+  v[2] = z;
+  v[3] = w;
 }

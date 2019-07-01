@@ -2,34 +2,35 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define POOL_ALIGN 16
-#define DEFAULT_POOL_SIZE (640 * 1024)
-
 #pragma once
 
 typedef enum {
-  MATH_VEC3,
-  MATH_QUAT,
-  MATH_MAT4,
-  MAX_MATH_TYPES
-} MathType;
+  V_NONE,
+  V_VEC2,
+  V_VEC3,
+  V_QUAT,
+  V_MAT4,
+  MAX_VECTOR_TYPES
+} VectorType;
 
 typedef struct {
-  float* data;
-  size_t size;
-  size_t usage;
-  uint8_t* head;
+  uint8_t type;
+  uint8_t generation;
+  uint16_t index;
+} Vector;
+
+typedef struct Pool {
+  void* data;
+  float* floats;
+  size_t count;
+  size_t cursor;
+  size_t generation;
 } Pool;
 
-Pool* lovrPoolInit(Pool* pool, size_t size);
-#define lovrPoolCreate(...) lovrPoolInit(lovrAlloc(Pool), __VA_ARGS__)
+Pool* lovrPoolInit(Pool* pool);
+#define lovrPoolCreate(...) lovrPoolInit(lovrAlloc(Pool))
 void lovrPoolDestroy(void* ref);
-float* lovrPoolAllocate(Pool* pool, MathType type);
+LOVR_EXPORT void lovrPoolGrow(Pool* pool, size_t count);
+Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data);
+float* lovrPoolResolve(Pool* pool, Vector vector);
 void lovrPoolDrain(Pool* pool);
-size_t lovrPoolGetSize(Pool* pool);
-size_t lovrPoolGetUsage(Pool* pool);
-
-// For you, LuaJIT
-LOVR_EXPORT float* lovrPoolAllocateVec3(Pool* pool);
-LOVR_EXPORT float* lovrPoolAllocateQuat(Pool* pool);
-LOVR_EXPORT float* lovrPoolAllocateMat4(Pool* pool);
