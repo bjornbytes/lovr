@@ -583,12 +583,14 @@ next:
   if (req->vertexCount > 0 && (!req->instanced || !batch)) {
     *(req->vertices) = lovrGraphicsMapBuffer(STREAM_VERTEX, req->vertexCount);
     uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAWID, req->vertexCount);
-    memset(ids, batch ? batch->drawCount : 0, req->vertexCount * sizeof(uint8_t));
 
     if (req->indexCount > 0) {
       *(req->indices) = lovrGraphicsMapBuffer(STREAM_INDEX, req->indexCount);
       *(req->baseVertex) = state.head[STREAM_VERTEX];
     }
+
+    // The final draw id isn't known until all the maps are done, since they could flush and reset the id
+    memset(ids, (batch && state.batchCount > 0) ? batch->drawCount : 0, req->vertexCount * sizeof(uint8_t));
   }
 
   // Start a new batch
@@ -627,8 +629,8 @@ next:
       },
       .material = material,
       .transforms = transforms,
-      .drawStart = state.head[STREAM_MODEL],
       .colors = colors,
+      .drawStart = state.head[STREAM_MODEL],
       .indexed = req->indexCount > 0
     };
 
