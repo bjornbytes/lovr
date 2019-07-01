@@ -197,6 +197,7 @@ static void desktop_update(float dt) {
   state.localVelocity[0] = left ? -movespeed : (right ? movespeed : state.localVelocity[0]);
   state.localVelocity[1] = up ? movespeed : (down ? -movespeed : state.localVelocity[1]);
   state.localVelocity[2] = front ? -movespeed : (back ? movespeed : state.localVelocity[2]);
+  state.localVelocity[3] = 0.f;
   vec3_init(state.velocity, state.localVelocity);
   mat4_transformDirection(state.transform, state.velocity);
   vec3_scale(state.localVelocity, damping);

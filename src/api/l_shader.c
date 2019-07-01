@@ -102,17 +102,17 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         lua_rawgeti(L, index, i + 1);
 
         if (uniformType == UNIFORM_MATRIX && components == 16) {
-          MathType type;
-          mat4 m = luax_tomathtype(L, -1, &type);
-          if (m && type == MATH_MAT4) {
+          VectorType type;
+          mat4 m = luax_tovector(L, -1, &type);
+          if (m && type == V_MAT4) {
             mat4_init((float*) dest + i * components, m);
             lua_pop(L, 1);
             continue;
           }
         } else if (uniformType == UNIFORM_FLOAT && components == 3) {
-          MathType type;
-          vec3 v = luax_tomathtype(L, -1, &type);
-          if (v && type == MATH_VEC3) {
+          VectorType type;
+          vec3 v = luax_tovector(L, -1, &type);
+          if (v && type == V_VEC3) {
             vec3_init((float*) dest + i * components, v);
             lua_pop(L, 1);
             continue;
@@ -143,16 +143,16 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
     } else {
       for (int i = 0; i < count; i++) {
         if (uniformType == UNIFORM_MATRIX && components == 16) {
-          MathType type;
-          mat4 m = luax_tomathtype(L, index + i, &type);
-          if (m && type == MATH_MAT4) {
+          VectorType type;
+          mat4 m = luax_tovector(L, index + i, &type);
+          if (m && type == V_MAT4) {
             mat4_init((float*) dest + i * components, m);
             continue;
           }
         } else if (uniformType == UNIFORM_FLOAT && components == 3) {
-          MathType type;
-          vec3 v = luax_tomathtype(L, index + i, &type);
-          if (v && type == MATH_VEC3) {
+          VectorType type;
+          vec3 v = luax_tovector(L, index + i, &type);
+          if (v && type == V_VEC3) {
             vec3_init((float*) dest + i * components, v);
             continue;
           }
