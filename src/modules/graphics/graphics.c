@@ -606,7 +606,7 @@ next:
     if (req->type == BATCH_MESH) {
       rangeStart = req->params.mesh.rangeStart;
       rangeCount = req->params.mesh.rangeCount;
-      instances = req->params.mesh.instances;
+      instances = req->instanced ? 0 : req->params.mesh.instances;
     } else {
       rangeStart = req->indexCount > 0 ? state.head[STREAM_INDEX] : state.head[STREAM_VERTEX];
       rangeCount = 0;
