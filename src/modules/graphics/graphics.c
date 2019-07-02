@@ -580,17 +580,19 @@ next:
     if (!req->instanced) { break; }
   }
 
+  // The final draw id isn't known until the batch is fully resolved and all the potential flushes
+  // have occurred, so we have to do this weird thing where we map the draw id buffer early on but
+  // write the ids much later.
+  uint8_t* ids = NULL;
+
   if (req->vertexCount > 0 && (!req->instanced || !batch)) {
     *(req->vertices) = lovrGraphicsMapBuffer(STREAM_VERTEX, req->vertexCount);
-    uint8_t* ids = lovrGraphicsMapBuffer(STREAM_DRAWID, req->vertexCount);
+    ids = lovrGraphicsMapBuffer(STREAM_DRAWID, req->vertexCount);
 
     if (req->indexCount > 0) {
       *(req->indices) = lovrGraphicsMapBuffer(STREAM_INDEX, req->indexCount);
       *(req->baseVertex) = state.head[STREAM_VERTEX];
     }
-
-    // The final draw id isn't known until all the maps are done, since they could flush and reset the id
-    memset(ids, (batch && state.batchCount > 0) ? batch->drawCount : 0, req->vertexCount * sizeof(uint8_t));
   }
 
   // Start a new batch
@@ -652,6 +654,10 @@ next:
 
   // Cursors
   if (!req->instanced || batch->drawCount == 0) {
+    if (ids) {
+      memset(ids, batch->drawCount, req->vertexCount * sizeof(uint8_t));
+    }
+
     batch->draw.rangeCount += batch->indexed ? req->indexCount : req->vertexCount;
     state.head[STREAM_VERTEX] += req->vertexCount;
     state.head[STREAM_DRAWID] += req->vertexCount;
