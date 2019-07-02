@@ -2089,7 +2089,7 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
   glVertexAttrib4fv(LOVR_SHADER_VERTEX_COLOR, (float[4]) { 1., 1., 1., 1. });
   glVertexAttribI4uiv(LOVR_SHADER_BONES, (uint32_t[4]) { 0., 0., 0., 0. });
   glVertexAttrib4fv(LOVR_SHADER_BONE_WEIGHTS, (float[4]) { 1., 0., 0., 0. });
-  glVertexAttribI1ui(LOVR_SHADER_DRAW_ID, 0);
+  glVertexAttribI4ui(LOVR_SHADER_DRAW_ID, 0, 0, 0, 0);
 
   lovrShaderSetupUniforms(shader);
 
