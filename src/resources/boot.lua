@@ -25,7 +25,7 @@ local function nogame()
         return projection * transform * vertex;
       }
     ]], [[
-      vec4 color(vec4, sampler2D, vec2 uv) {
+      vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) {
         float y = (1. - uv.y);
         uv = uv * 4. - 2.;
         const float k = sqrt(3.);
