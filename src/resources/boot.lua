@@ -214,8 +214,10 @@ function lovr.errhand(message, traceback)
     lovr.headset.update(0)
     lovr.graphics.origin()
     if lovr.headset then lovr.headset.renderTo(render) end
-    lovr.graphics.clear()
-    render()
+    if lovr.graphics.hasWindow() then
+      lovr.graphics.clear()
+      render()
+    end
     lovr.graphics.present()
   end
 end
