@@ -17,7 +17,6 @@ static struct {
   ovrGraphicsLuid luid;
   float clipNear;
   float clipFar;
-  float offset;
   ovrSizei size;
   Canvas* canvas;
   ovrTextureSwapChain chain;
@@ -85,7 +84,6 @@ static bool oculus_init(float offset, uint32_t msaa) {
   state.needRefreshButtons = true;
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
-  state.offset = offset;
 
   map_init(&state.textureLookup);
 
@@ -182,7 +180,7 @@ static bool oculus_getPose(Device device, vec3 position, quat orientation) {
   if (!poseState) return false;
 
   ovrPosef* pose = &poseState->ThePose;
-  vec3_set(position, pose->Position.x, pose->Position.y + state.offset, pose->Position.z);
+  vec3_set(position, pose->Position.x, pose->Position.y, pose->Position.z);
   quat_set(orientation, pose->Orientation.x, pose->Orientation.y, pose->Orientation.z, pose->Orientation.w);
   return true;
 }
