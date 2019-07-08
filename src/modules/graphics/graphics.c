@@ -527,8 +527,12 @@ void lovrGraphicsMatrixTransform(mat4 transform) {
 }
 
 void lovrGraphicsSetProjection(mat4 projection) {
+  lovrGraphicsFlush();
   mat4_set(state.camera.projection[0], projection);
   mat4_set(state.camera.projection[1], projection);
+  mat4_set(state.frameData.projection[0], projection);
+  mat4_set(state.frameData.projection[1], projection);
+  state.frameDataDirty = true;
 }
 
 // Rendering
