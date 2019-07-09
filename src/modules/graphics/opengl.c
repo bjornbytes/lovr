@@ -1811,7 +1811,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   // Uniform blocks
   int32_t blockCount;
   glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &blockCount);
-  lovrAssert(blockCount <= MAX_BLOCK_BUFFERS, "Shader has too many uniform blocks (%d) the max is %d", blockCount, MAX_BLOCK_BUFFERS);
+  lovrAssert((size_t) blockCount <= MAX_BLOCK_BUFFERS, "Shader has too many uniform blocks (%d) the max is %d", blockCount, MAX_BLOCK_BUFFERS);
   map_init(&shader->blockMap);
   arr_block_t* uniformBlocks = &shader->blocks[BLOCK_UNIFORM];
   arr_init(uniformBlocks);
@@ -1819,13 +1819,13 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   for (int i = 0; i < blockCount; i++) {
     UniformBlock block = { .slot = i, .source = NULL };
     glUniformBlockBinding(program, i, block.slot);
-    arr_init(&block.uniforms);
 
     char name[LOVR_MAX_UNIFORM_LENGTH];
     glGetActiveUniformBlockName(program, i, LOVR_MAX_UNIFORM_LENGTH, NULL, name);
     int blockId = (i << 1) + BLOCK_UNIFORM;
     map_set(&shader->blockMap, name, blockId);
     arr_push(uniformBlocks, block);
+    arr_init(&uniformBlocks->data[uniformBlocks->length - 1].uniforms); // Initialize arr after copying stack variable
   }
 
   // Shader storage buffers and their buffer variables
