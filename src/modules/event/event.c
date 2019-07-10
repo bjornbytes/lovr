@@ -37,9 +37,11 @@ void lovrEventPump() {
 }
 
 void lovrEventPush(Event event) {
+#ifdef LOVR_ENABLE_THREAD
   if (event.type == EVENT_THREAD_ERROR) {
     lovrRetain(event.data.thread.thread);
   }
+#endif
 
   arr_push(&state.events, event);
 }
