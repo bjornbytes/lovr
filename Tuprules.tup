@@ -10,16 +10,9 @@ endif
 # Warnings
 # -Wno-typedef-redefinition is for OpenVR
 # -Wno-unused-parameter is turned off just because it's kinda annoying
-CFLAGS += -Werror -Wall -Wextra -pedantic
+CFLAGS += -Werror -Wall -Wextra -pedantic -std=c99
 CFLAGS += -Wno-typedef-redefinition
 CFLAGS += -Wno-unused-parameter
-
-# stdatomic.h is used for atomic refcounts when threads are enabled, and that's a C11 feature.
-ifeq (@(THREAD),y)
-  CFLAGS += -std=c11
-else
-  CFLAGS += -std=c99
-endif
 
 # Symbols are manually exported as-needed using the LOVR_EXPORT macro to reduce file size.
 CFLAGS += -fvisibility=hidden
