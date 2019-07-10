@@ -488,6 +488,9 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
 }
 
 void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
+  if (!state.renderCallback) // Do not draw if there is nothing to draw.
+    return;
+
   lovrGpuDirtyTexture(); // Clear texture state since LÖVR doesn't completely own the GL context
 
   // Initialize a temporary Canvas from the framebuffer handle created by lovr-oculus-mobile
@@ -508,9 +511,7 @@ void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
 
   lovrGraphicsSetCamera(&camera, true);
 
-  if (state.renderCallback) {
-    state.renderCallback(state.renderUserdata);
-  }
+  state.renderCallback(state.renderUserdata);
 
   lovrGraphicsSetCamera(NULL, false);
   lovrCanvasDestroy(&canvas);
