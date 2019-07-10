@@ -9,7 +9,9 @@
 const char* EventTypes[] = {
   [EVENT_QUIT] = "quit",
   [EVENT_FOCUS] = "focus",
+#ifdef LOVR_ENABLE_THREAD
   [EVENT_THREAD_ERROR] = "threaderror",
+#endif
 };
 
 static LOVR_THREAD_LOCAL int pollRef;
@@ -103,11 +105,13 @@ static int nextEvent(lua_State* L) {
       lua_pushboolean(L, event.data.boolean.value);
       return 2;
 
+#ifdef LOVR_ENABLE_THREAD
     case EVENT_THREAD_ERROR:
       luax_pushtype(L, Thread, event.data.thread.thread);
       lua_pushstring(L, event.data.thread.error);
       lovrRelease(Thread, event.data.thread.thread);
       return 3;
+#endif
 
     case EVENT_CUSTOM:
       for (uint32_t i = 0; i < event.data.custom.count; i++) {
