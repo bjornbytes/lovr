@@ -1,7 +1,13 @@
 #include "math/curve.h"
+#include "core/arr.h"
+#include "core/maf.h"
 #include "core/ref.h"
 #include "core/util.h"
 #include <math.h>
+
+typedef struct Curve {
+  arr_t(float, 16) points;
+} Curve;
 
 // Explicit curve evaluation, unroll simple cases to avoid pow overhead
 static void evaluate(float* P, size_t n, float t, vec3 p) {
@@ -43,7 +49,8 @@ static void evaluate(float* P, size_t n, float t, vec3 p) {
   }
 }
 
-Curve* lovrCurveInit(Curve* curve) {
+Curve* lovrCurveCreate(void) {
+  Curve* curve = lovrAlloc(Curve);
   arr_init(&curve->points);
   return curve;
 }

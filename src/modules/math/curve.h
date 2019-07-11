@@ -1,19 +1,15 @@
-#include "core/arr.h"
-#include "core/maf.h"
+#include <stdint.h>
+#include <stddef.h>
 
-typedef struct {
-  arr_t(float, 16) points;
-} Curve;
-
-Curve* lovrCurveInit(Curve* curve);
-#define lovrCurveCreate(...) lovrCurveInit(lovrAlloc(Curve))
+typedef struct Curve Curve;
+Curve* lovrCurveCreate(void);
 void lovrCurveDestroy(void* ref);
-void lovrCurveEvaluate(Curve* curve, float t, vec3 point);
-void lovrCurveGetTangent(Curve* curve, float t, vec3 point);
-void lovrCurveRender(Curve* curve, float t1, float t2, vec3 points, uint32_t n);
+void lovrCurveEvaluate(Curve* curve, float t, float point[4]);
+void lovrCurveGetTangent(Curve* curve, float t, float point[4]);
+void lovrCurveRender(Curve* curve, float t1, float t2, float* points, uint32_t n);
 Curve* lovrCurveSlice(Curve* curve, float t1, float t2);
 size_t lovrCurveGetPointCount(Curve* curve);
-void lovrCurveGetPoint(Curve* curve, size_t index, vec3 point);
-void lovrCurveSetPoint(Curve* curve, size_t index, vec3 point);
-void lovrCurveAddPoint(Curve* curve, vec3 point, size_t index);
+void lovrCurveGetPoint(Curve* curve, size_t index, float point[4]);
+void lovrCurveSetPoint(Curve* curve, size_t index, float point[4]);
+void lovrCurveAddPoint(Curve* curve, float point[4], size_t index);
 void lovrCurveRemovePoint(Curve* curve, size_t index);

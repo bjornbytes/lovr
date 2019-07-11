@@ -4,6 +4,7 @@
 #include "math/pool.h"
 #include "math/randomGenerator.h"
 #include "resources/math.lua.h"
+#include "core/maf.h"
 #include "core/ref.h"
 #include <stdlib.h>
 
