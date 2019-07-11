@@ -307,5 +307,6 @@ size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, b
   }
 
   size_t bytesWritten = lovrFileWrite(&file, (void*) content, size);
-  return lovrFileDestroy(&file), bytesWritten;
+  lovrFileDestroy(&file);
+  return bytesWritten;
 }

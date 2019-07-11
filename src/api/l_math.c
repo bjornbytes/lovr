@@ -35,7 +35,8 @@ static const int lovrMathTypeComponents[] = {
 
 static float* luax_tolightmathtype(lua_State* L, int index, MathType* type) {
   uintptr_t p = (uintptr_t) lua_touserdata(L, index), aligned = ALIGN(p, POOL_ALIGN);
-  return *type = p - aligned, p ? (float*) aligned : NULL;
+  *type = p - aligned;
+  return p ? (float*) aligned : NULL;
 }
 
 void luax_pushlightmathtype(lua_State* L, float* p, MathType type) {

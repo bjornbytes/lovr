@@ -63,7 +63,8 @@ static void vrapi_getDisplayDimensions(uint32_t* width, uint32_t* height) {
 }
 
 static const float* vrapi_getDisplayMask(uint32_t* count) {
-  return *count = 0, NULL;
+  *count = 0;
+  return NULL;
 }
 
 static void vrapi_getClipDistance(float* clipNear, float* clipFar) {

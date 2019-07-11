@@ -367,7 +367,8 @@ Shape** lovrColliderGetShapes(Collider* collider, size_t* count) {
       arr_push(&collider->shapes, shape);
     }
   }
-  return *count = collider->shapes.length, collider->shapes.data;
+  *count = collider->shapes.length;
+  return collider->shapes.data;
 }
 
 Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
@@ -379,7 +380,8 @@ Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
       arr_push(&collider->joints, joint);
     }
   }
-  return *count = collider->joints.length, collider->joints.data;
+  *count = collider->joints.length;
+  return collider->joints.data;
 }
 
 void* lovrColliderGetUserData(Collider* collider) {

@@ -219,7 +219,8 @@ static bool openxr_init(float offset, uint32_t msaa) {
       views[0].recommendedImageRectWidth != views[1].recommendedImageRectWidth ||
       views[0].recommendedImageRectHeight != views[1].recommendedImageRectHeight
     ) {
-      return destroy(), false;
+      destroy();
+      return false;
     }
 
     state.msaa = views[0].recommendedSwapchainSampleCount;
@@ -390,7 +391,8 @@ static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
 }
 
 static const float* openxr_getDisplayMask(uint32_t* count) {
-  return *count = 0, NULL;
+  *count = 0;
+  return NULL;
 }
 
 static double openxr_getDisplayTime(void) {

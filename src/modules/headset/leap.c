@@ -50,7 +50,8 @@ static bool leap_init(float offset, uint32_t msaa) {
     }
   }
 
-  return leap_destroy(), false;
+  leap_destroy();
+  return false;
 }
 
 static void leap_destroy(void) {
@@ -186,8 +187,8 @@ static bool leap_getAxis(Device device, DeviceAxis axis, float* value) {
   }
 
   switch (axis) {
-    case AXIS_PINCH: return *value = hand->pinch_strength, true;
-    case AXIS_GRIP: return *value = hand->grab_strength, true;
+    case AXIS_PINCH: *value = hand->pinch_strength; return true;
+    case AXIS_GRIP: *value = hand->grab_strength; return true;
     default: return false;
   }
 }

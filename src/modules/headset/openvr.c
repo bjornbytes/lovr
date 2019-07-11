@@ -130,10 +130,15 @@ static bool openvr_init(float offset, uint32_t msaa) {
   // Find the location of the action manifest, create it if it doesn't exist or isn't in the save directory
   const char* actionManifestLocation = lovrFilesystemGetRealDirectory("actions.json");
   if (!actionManifestLocation || strcmp(actionManifestLocation, lovrFilesystemGetSaveDirectory())) {
-    if (lovrFilesystemWrite("actions.json", (const char*) actions_json, actions_json_len, false) != actions_json_len) { return VR_ShutdownInternal(), false; }
-    if (lovrFilesystemWrite("bindings_vive.json", (const char*) bindings_vive_json, bindings_vive_json_len, false) != bindings_vive_json_len) { return VR_ShutdownInternal(), false; }
-    if (lovrFilesystemWrite("bindings_knuckles.json", (const char*) bindings_knuckles_json, bindings_knuckles_json_len, false) != bindings_knuckles_json_len) { return VR_ShutdownInternal(), false; }
-    if (lovrFilesystemWrite("bindings_touch.json", (const char*) bindings_touch_json, bindings_touch_json_len, false) != bindings_touch_json_len) { return VR_ShutdownInternal(), false; }
+    if (
+      lovrFilesystemWrite("actions.json", (const char*) actions_json, actions_json_len, false) != actions_json_len ||
+      lovrFilesystemWrite("bindings_vive.json", (const char*) bindings_vive_json, bindings_vive_json_len, false) != bindings_vive_json_len ||
+      lovrFilesystemWrite("bindings_knuckles.json", (const char*) bindings_knuckles_json, bindings_knuckles_json_len, false) != bindings_knuckles_json_len ||
+      lovrFilesystemWrite("bindings_touch.json", (const char*) bindings_touch_json, bindings_touch_json_len, false) != bindings_touch_json_len
+    ) {
+      VR_ShutdownInternal();
+      return false;
+    }
   }
 
   char path[LOVR_PATH_MAX];
@@ -248,7 +253,8 @@ static const float* openvr_getDisplayMask(uint32_t* count) {
   struct HiddenAreaMesh_t hiddenAreaMesh = state.system->GetHiddenAreaMesh(EVREye_Eye_Left, EHiddenAreaMeshType_k_eHiddenAreaMesh_Standard);
 
   if (hiddenAreaMesh.unTriangleCount == 0) {
-    return *count = 0, NULL;
+    *count = 0;
+    return NULL;
   }
 
   state.mask = realloc(state.mask, hiddenAreaMesh.unTriangleCount * 3 * 2 * sizeof(float));
@@ -259,7 +265,8 @@ static const float* openvr_getDisplayMask(uint32_t* count) {
     state.mask[2 * i + 1] = hiddenAreaMesh.pVertexData[i].v[1];
   }
 
-  return *count = hiddenAreaMesh.unTriangleCount * 3 * 2, state.mask;
+  *count = hiddenAreaMesh.unTriangleCount * 3 * 2;
+  return state.mask;
 }
 
 static double openvr_getDisplayTime(void) {
@@ -296,7 +303,8 @@ static const float* openvr_getBoundsGeometry(uint32_t* count) {
       state.boundsGeometry[4 * i + 2] = quad.vCorners[i].v[2];
     }
 
-    return *count = 16, state.boundsGeometry;
+    *count = 16;
+    return state.boundsGeometry;
   }
 
   return NULL;
@@ -406,7 +414,8 @@ static bool getButtonState(Device device, DeviceButton button, VRActionHandle_t 
 
   InputDigitalActionData_t actionData;
   state.input->GetDigitalActionData(actions[device - DEVICE_HAND_LEFT][button], &actionData, sizeof(actionData), 0);
-  return *value = actionData.bState, actionData.bActive;
+  *value = actionData.bState;
+  return actionData.bActive;
 }
 
 static bool openvr_isDown(Device device, DeviceButton button, bool* down) {
@@ -424,7 +433,8 @@ static bool openvr_getAxis(Device device, DeviceAxis axis, vec3 value) {
 
   InputAnalogActionData_t actionData;
   state.input->GetAnalogActionData(state.axisActions[device - DEVICE_HAND_LEFT][axis], &actionData, sizeof(actionData), 0);
-  return vec3_set(value, actionData.x, actionData.y, actionData.z), actionData.bActive;
+  vec3_set(value, actionData.x, actionData.y, actionData.z);
+  return actionData.bActive;
 }
 
 static bool openvr_vibrate(Device device, float strength, float duration, float frequency) {

@@ -58,7 +58,8 @@ static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
 }
 
 static const float* desktop_getDisplayMask(uint32_t* count) {
-  return *count = 0, NULL;
+  *count = 0;
+  return NULL;
 }
 
 static void desktop_getClipDistance(float* clipNear, float* clipFar) {
