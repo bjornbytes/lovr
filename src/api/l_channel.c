@@ -1,5 +1,6 @@
 #include "api.h"
 #include "thread/channel.h"
+#include "event/event.h"
 #include <math.h>
 
 static void luax_checktimeout(lua_State* L, int index, double* timeout) {
@@ -24,7 +25,7 @@ static int l_lovrChannelPush(lua_State* L) {
   luax_checkvariant(L, 2, &variant);
   luax_checktimeout(L, 3, &timeout);
   uint64_t id;
-  bool read = lovrChannelPush(channel, variant, timeout, &id);
+  bool read = lovrChannelPush(channel, &variant, timeout, &id);
   lua_pushnumber(L, id);
   lua_pushboolean(L, read);
   return 2;

@@ -1,10 +1,24 @@
 #include "thread/channel.h"
+#include "event/event.h"
+#include "core/arr.h"
 #include "core/ref.h"
 #include "util.h"
+#include "lib/tinycthread/tinycthread.h"
 #include <stdlib.h>
+#include <stddef.h>
 #include <math.h>
 
-Channel* lovrChannelInit(Channel* channel) {
+struct Channel {
+  mtx_t lock;
+  cnd_t cond;
+  arr_t(Variant, 1) messages;
+  size_t head;
+  uint64_t sent;
+  uint64_t received;
+};
+
+Channel* lovrChannelCreate(void) {
+  Channel* channel = lovrAlloc(Channel);
   arr_init(&channel->messages);
   mtx_init(&channel->lock, mtx_plain | mtx_timed);
   cnd_init(&channel->cond);
@@ -19,12 +33,12 @@ void lovrChannelDestroy(void* ref) {
   cnd_destroy(&channel->cond);
 }
 
-bool lovrChannelPush(Channel* channel, Variant variant, double timeout, uint64_t* id) {
+bool lovrChannelPush(Channel* channel, Variant* variant, double timeout, uint64_t* id) {
   mtx_lock(&channel->lock);
   if (channel->messages.length == 0) {
     lovrRetain(channel);
   }
-  arr_push(&channel->messages, variant);
+  arr_push(&channel->messages, *variant);
   *id = ++channel->sent;
   cnd_broadcast(&channel->cond);
 
