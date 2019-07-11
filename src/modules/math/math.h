@@ -1,16 +1,12 @@
-#include "math/randomGenerator.h"
 #include <stdbool.h>
 
 #pragma once
 
-typedef struct {
-  bool initialized;
-  RandomGenerator* generator;
-} MathState;
+struct RandomGenerator;
 
 bool lovrMathInit(void);
 void lovrMathDestroy(void);
-RandomGenerator* lovrMathGetRandomGenerator(void);
+struct RandomGenerator* lovrMathGetRandomGenerator(void);
 void lovrMathOrientationToDirection(float angle, float ax, float ay, float az, float* v);
 float lovrMathGammaToLinear(float x);
 float lovrMathLinearToGamma(float x);

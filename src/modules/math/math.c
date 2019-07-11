@@ -1,4 +1,5 @@
 #include "math.h"
+#include "math/randomGenerator.h"
 #include "core/maf.h"
 #include "core/ref.h"
 #include "lib/noise1234/noise1234.h"
@@ -8,7 +9,10 @@
 #include <stdlib.h>
 #include <time.h>
 
-static MathState state;
+static struct {
+  bool initialized;
+  RandomGenerator* generator;
+} state;
 
 bool lovrMathInit() {
   if (state.initialized) return false;
@@ -21,7 +25,7 @@ bool lovrMathInit() {
 void lovrMathDestroy() {
   if (!state.initialized) return;
   lovrRelease(RandomGenerator, state.generator);
-  memset(&state, 0, sizeof(MathState));
+  memset(&state, 0, sizeof(state));
 }
 
 RandomGenerator* lovrMathGetRandomGenerator() {
