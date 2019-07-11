@@ -415,7 +415,6 @@ endif()
 if(LOVR_ENABLE_GRAPHICS)
   add_definitions(-DLOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
-    src/modules/graphics/animator.c
     src/modules/graphics/buffer.c
     src/modules/graphics/canvas.c
     src/modules/graphics/font.c
@@ -427,7 +426,6 @@ if(LOVR_ENABLE_GRAPHICS)
     src/modules/graphics/shader.c
     src/modules/graphics/texture.c
     src/api/l_graphics.c
-    src/api/l_animator.c
     src/api/l_canvas.c
     src/api/l_font.c
     src/api/l_material.c
