@@ -248,7 +248,7 @@ void lovrModelDraw(Model* model, mat4 transform, uint32_t instances) {
 }
 
 void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float alpha) {
-  if (alpha == 0.f) {
+  if (alpha <= 0.f) {
     return;
   }
 
@@ -277,24 +277,39 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
       float t1 = channel->times[keyframe - 1];
       float t2 = channel->times[keyframe];
       float z = (time - t1) / (t2 - t1);
-      float next[4];
-
-      memcpy(property, channel->data + (keyframe - 1) * n, n * sizeof(float));
-      memcpy(next, channel->data + keyframe * n, n * sizeof(float));
 
       switch (channel->smoothing) {
         case SMOOTH_STEP:
-          if (z >= .5f) {
-            memcpy(property, next, n * sizeof(float));
+          memcpy(property, channel->data + (z >= .5f ? keyframe : keyframe - 1) * n, n * sizeof(float));
+          break;
+        case SMOOTH_LINEAR:
+          memcpy(property, channel->data + (keyframe - 1) * n, n * sizeof(float));
+          lerp(property, channel->data + keyframe * n, z);
+          break;
+        case SMOOTH_CUBIC: {
+          int stride = 3 * n;
+          float* p0 = channel->data + (keyframe - 1) * stride + 1 * n;
+          float* m0 = channel->data + (keyframe - 1) * stride + 2 * n;
+          float* p1 = channel->data + (keyframe - 0) * stride + 1 * n;
+          float* m1 = channel->data + (keyframe - 0) * stride + 0 * n;
+          float dt = t2 - t1;
+          float z2 = z * z;
+          float z3 = z2 * z;
+          float a = 2.f * z3 - 3.f * z2 + 1.f;
+          float b = 2.f * z3 - 3.f * z2 + 1.f;
+          float c = (-2.f * z3 + 3.f * z2);
+          float d = (z3 * -z2) * dt;
+          for (size_t j = 0; j < n; j++) {
+            property[j] = a * p0[j] + b * m0[j] + c * p1[j] + d * m1[j];
           }
           break;
-        case SMOOTH_LINEAR: lerp(property, next, z); break;
-        case SMOOTH_CUBIC: lovrThrow("Cubic spline interpolation is not supported yet"); break;
-        default: break;
+        }
+        default:
+          break;
       }
     }
 
-    if (alpha == 1.f) {
+    if (alpha >= 1.f) {
       memcpy(transform->properties[channel->property], property, n * sizeof(float));
     } else {
       lerp(transform->properties[channel->property], property, alpha);
