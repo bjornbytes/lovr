@@ -13,14 +13,8 @@ typedef union {
   } b32;
 } Seed;
 
-typedef struct {
-  Seed seed;
-  Seed state;
-  double lastRandomNormal;
-} RandomGenerator;
-
-RandomGenerator* lovrRandomGeneratorInit(RandomGenerator* generator);
-#define lovrRandomGeneratorCreate() lovrRandomGeneratorInit(lovrAlloc(RandomGenerator))
+typedef struct RandomGenerator RandomGenerator;
+RandomGenerator* lovrRandomGeneratorCreate(void);
 void lovrRandomGeneratorDestroy(void* ref);
 Seed lovrRandomGeneratorGetSeed(RandomGenerator* generator);
 void lovrRandomGeneratorSetSeed(RandomGenerator* generator, Seed seed);

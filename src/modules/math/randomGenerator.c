@@ -1,9 +1,16 @@
 #include "math/randomGenerator.h"
+#include "core/ref.h"
 #include "util.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+
+struct RandomGenerator {
+  Seed seed;
+  Seed state;
+  double lastRandomNormal;
+};
 
 // Thomas Wang's 64-bit integer hashing function:
 // https://web.archive.org/web/20110807030012/http://www.cris.com/%7ETtwang/tech/inthash.htm
@@ -22,7 +29,8 @@ static uint64_t wangHash64(uint64_t key) {
 // George Marsaglia, "Xorshift RNGs", Journal of Statistical Software, Vol.8 (Issue 14), 2003
 // Use an 'Xorshift*' variant, as shown here: http://xorshift.di.unimi.it
 
-RandomGenerator* lovrRandomGeneratorInit(RandomGenerator* generator) {
+RandomGenerator* lovrRandomGeneratorCreate(void) {
+  RandomGenerator* generator = lovrAlloc(RandomGenerator);
   Seed seed = { .b32 = { .lo = 0xCBBF7A44, .hi = 0x0139408D } };
   lovrRandomGeneratorSetSeed(generator, seed);
   generator->lastRandomNormal = HUGE_VAL;

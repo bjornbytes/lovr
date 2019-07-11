@@ -5,9 +5,9 @@
 #include "core/util.h"
 #include <math.h>
 
-typedef struct Curve {
+struct Curve {
   arr_t(float, 16) points;
-} Curve;
+};
 
 // Explicit curve evaluation, unroll simple cases to avoid pow overhead
 static void evaluate(float* P, size_t n, float t, vec3 p) {
