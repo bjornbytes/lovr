@@ -28,22 +28,18 @@ struct Model {
 };
 
 static void updateGlobalTransform(Model* model, uint32_t nodeIndex, mat4 parent) {
-  ModelNode* node = &model->data->nodes[nodeIndex];
   mat4 global = model->globalTransforms + 16 * nodeIndex;
+  NodeTransform* local = &model->localTransforms[nodeIndex];
+  vec3 T = local->properties[PROP_TRANSLATION];
+  quat R = local->properties[PROP_ROTATION];
+  vec3 S = local->properties[PROP_SCALE];
+
   mat4_init(global, parent);
+  mat4_translate(global, T[0], T[1], T[2]);
+  mat4_rotateQuat(global, R);
+  mat4_scale(global, S[0], S[1], S[2]);
 
-  if (node->matrix) {
-    mat4_multiply(global, node->transform);
-  } else {
-    NodeTransform* local = &model->localTransforms[nodeIndex];
-    vec3 T = local->properties[PROP_TRANSLATION];
-    quat R = local->properties[PROP_ROTATION];
-    vec3 S = local->properties[PROP_SCALE];
-    mat4_translate(global, T[0], T[1], T[2]);
-    mat4_rotateQuat(global, R);
-    mat4_scale(global, S[0], S[1], S[2]);
-  }
-
+  ModelNode* node = &model->data->nodes[nodeIndex];
   for (uint32_t i = 0; i < node->childCount; i++) {
     updateGlobalTransform(model, node->children[i], global);
   }
