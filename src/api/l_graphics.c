@@ -76,6 +76,12 @@ const char* CompareModes[] = {
   NULL
 };
 
+const char* CoordinateSpaces[] = {
+  [SPACE_LOCAL] = "local",
+  [SPACE_GLOBAL] = "global",
+  NULL
+};
+
 const char* DefaultShaders[] = {
   [SHADER_UNLIT] = "unlit",
   [SHADER_STANDARD] = "standard",

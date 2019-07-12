@@ -194,20 +194,7 @@ Model* lovrModelCreate(ModelData* data) {
 
   model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
-  model->transformsDirty = true;
-
-  for (uint32_t i = 0; i < data->nodeCount; i++) {
-    if (data->nodes[i].matrix) {
-      vec3_set(model->localTransforms[i].properties[PROP_TRANSLATION], 0.f, 0.f, 0.f);
-      quat_set(model->localTransforms[i].properties[PROP_ROTATION], 0.f, 0.f, 0.f, 1.f);
-      vec3_set(model->localTransforms[i].properties[PROP_SCALE], 1.f, 1.f, 1.f);
-    } else {
-      vec3_init(model->localTransforms[i].properties[PROP_TRANSLATION], data->nodes[i].translation);
-      quat_init(model->localTransforms[i].properties[PROP_ROTATION], data->nodes[i].rotation);
-      vec3_init(model->localTransforms[i].properties[PROP_SCALE], data->nodes[i].scale);
-    }
-  }
-
+  lovrModelResetPose(model);
   return model;
 }
 
@@ -252,7 +239,7 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
     return;
   }
 
-  lovrAssert(animationIndex < model->data->animationCount, "Invalid animation index #%d (Model only has %d animations)", animationIndex, model->data->animationCount);
+  lovrAssert(animationIndex < model->data->animationCount, "Invalid animation index '%d' (Model only has %d animations)", animationIndex, model->data->animationCount);
   ModelAnimation* animation = &model->data->animations[animationIndex];
   time = fmodf(time, animation->duration);
 
@@ -313,6 +300,55 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
       memcpy(transform->properties[channel->property], property, n * sizeof(float));
     } else {
       lerp(transform->properties[channel->property], property, alpha);
+    }
+  }
+
+  model->transformsDirty = true;
+}
+
+void lovrModelGetNodePose(Model* model, uint32_t nodeIndex, float position[4], float rotation[4], CoordinateSpace space) {
+  lovrAssert(nodeIndex < model->data->nodeCount, "Invalid node index '%d' (Model only has %d nodes)", nodeIndex, model->data->nodeCount);
+  if (space == SPACE_LOCAL) {
+    vec3_init(position, model->localTransforms[nodeIndex].properties[PROP_TRANSLATION]);
+    quat_init(rotation, model->localTransforms[nodeIndex].properties[PROP_ROTATION]);
+  } else {
+    if (model->transformsDirty) {
+      updateGlobalTransform(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+      model->transformsDirty = false;
+    }
+
+    mat4_getPosition(model->globalTransforms + 16 * nodeIndex, position);
+    mat4_getOrientation(model->globalTransforms + 16 * nodeIndex, rotation);
+  }
+}
+
+void lovrModelPose(Model* model, uint32_t nodeIndex, float position[4], float rotation[4], float alpha) {
+  if (alpha <= 0.f) {
+    return;
+  }
+
+  lovrAssert(nodeIndex < model->data->nodeCount, "Invalid node index '%d' (Model only has %d nodes)", nodeIndex, model->data->nodeCount);
+  NodeTransform* transform = &model->localTransforms[nodeIndex];
+  if (alpha >= 1.f) {
+    vec3_init(transform->properties[PROP_TRANSLATION], position);
+    quat_init(transform->properties[PROP_ROTATION], rotation);
+  } else {
+    vec3_lerp(transform->properties[PROP_TRANSLATION], position, alpha);
+    quat_slerp(transform->properties[PROP_ROTATION], rotation, alpha);
+  }
+  model->transformsDirty = true;
+}
+
+void lovrModelResetPose(Model* model) {
+  for (uint32_t i = 0; i < model->data->nodeCount; i++) {
+    if (model->data->nodes[i].matrix) {
+      mat4_getPosition(model->data->nodes[i].transform, model->localTransforms[i].properties[PROP_TRANSLATION]);
+      mat4_getOrientation(model->data->nodes[i].transform, model->localTransforms[i].properties[PROP_ROTATION]);
+      mat4_getScale(model->data->nodes[i].transform, model->localTransforms[i].properties[PROP_SCALE]);
+    } else {
+      vec3_init(model->localTransforms[i].properties[PROP_TRANSLATION], model->data->nodes[i].translation);
+      quat_init(model->localTransforms[i].properties[PROP_ROTATION], model->data->nodes[i].rotation);
+      vec3_init(model->localTransforms[i].properties[PROP_SCALE], model->data->nodes[i].scale);
     }
   }
 

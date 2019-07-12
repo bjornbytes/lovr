@@ -60,6 +60,7 @@ extern const char* BlendModes[];
 extern const char* BlockTypes[];
 extern const char* BufferUsages[];
 extern const char* CompareModes[];
+extern const char* CoordinateSpaces[];
 extern const char* DrawModes[];
 extern const char* DrawStyles[];
 extern const char* EventTypes[];
