@@ -8,6 +8,8 @@
 #include <stdbool.h>
 
 static struct {
+  bool initialized;
+
   float LOVR_ALIGN(16) position[4];
   float LOVR_ALIGN(16) velocity[4];
   float LOVR_ALIGN(16) localVelocity[4];
@@ -28,12 +30,15 @@ static bool desktop_init(float offset, uint32_t msaa) {
   state.offset = offset;
   state.clipNear = 0.1f;
   state.clipFar = 100.f;
-  mat4_identity(state.transform);
+
+  if (!state.initialized) {
+    mat4_identity(state.transform);
+    state.initialized = true;
+  }
   return true;
 }
 
 static void desktop_destroy(void) {
-  memset(&state, 0, sizeof(state));
 }
 
 static bool desktop_getName(char* name, size_t length) {
