@@ -481,11 +481,8 @@ if(LOVR_ENABLE_MATH)
     src/modules/math/randomGenerator.c
     src/api/l_math.c
     src/api/l_curve.c
-    src/api/l_pool.c
     src/api/l_randomGenerator.c
-    src/api/l_vec3.c
-    src/api/l_quat.c
-    src/api/l_mat4.c
+    src/api/l_vectors.c
     src/lib/noise1234/noise1234.c
   )
 
