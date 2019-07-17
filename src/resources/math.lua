@@ -1016,9 +1016,9 @@ quat = {
       q[2] = value
     elseif key == 'w' or key == 4 then
       q[3] = value
+    else
+      error(string.format('attempt to assign property %q of quat (invalid property)', key), 2)
     end
-
-    error(string.format('attempt to assign property %q of quat (invalid property)', key), 2)
   end,
 
   __index = function(self, key)
