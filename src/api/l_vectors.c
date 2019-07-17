@@ -512,7 +512,7 @@ static int l_lovrVec3Sub(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
-    v[0] -= x, v[1] += x, v[2] -= x, v[3] -= x;
+    v[0] -= x, v[1] -= x, v[2] -= x, v[3] -= x;
   } else {
     vec3 u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
     vec3_sub(v, u);
