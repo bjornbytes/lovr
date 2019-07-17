@@ -6,6 +6,7 @@
 static const size_t vectorComponents[] = {
   [V_VEC2] = 2,
   [V_VEC3] = 4,
+  [V_VEC4] = 4,
   [V_QUAT] = 4,
   [V_MAT4] = 16
 };
