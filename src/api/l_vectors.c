@@ -1366,7 +1366,8 @@ static int l_lovrQuat__newindex(lua_State* L) {
     const char* key = lua_tolstring(L, 2, &length);
     float x = luax_checkfloat(L, 3);
     if (length == 1 && key[0] >= 'w' && key[0] <= 'z') {
-      q[(key[0] - 'x') % 4] = x;
+      int index = key[0] == 'w' ? 3 : key[0] - 'x';
+      q[index] = x;
       return 0;
     }
   }
@@ -1400,7 +1401,8 @@ static int l_lovrQuat__index(lua_State* L) {
     size_t length;
     const char* key = lua_tolstring(L, 2, &length);
     if (length == 1 && key[0] >= 'w' && key[0] <= 'z') {
-      lua_pushnumber(L, q[(key[0] - 'x') % 4]);
+      int index = key[0] == 'w' ? 3 : key[0] - 'x';
+      lua_pushnumber(L, q[index]);
       return 1;
     }
   }
