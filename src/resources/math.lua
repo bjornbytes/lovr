@@ -10,12 +10,14 @@ typedef enum {
   NONE,
   VEC2,
   VEC3,
+  VEC4,
   QUAT,
   MAT4
 } VectorType;
 
 typedef struct { uint8_t type; uint8_t generation; uint16_t index; } vec2;
 typedef struct { uint8_t type; uint8_t generation; uint16_t index; } vec3;
+typedef struct { uint8_t type; uint8_t generation; uint16_t index; } vec4;
 typedef struct { uint8_t type; uint8_t generation; uint16_t index; } quat;
 typedef struct { uint8_t type; uint8_t generation; uint16_t index; } mat4;
 
@@ -75,18 +77,21 @@ end
 
 local vec2_t = ffi.typeof('vec2')
 local vec3_t = ffi.typeof('vec3')
+local vec4_t = ffi.typeof('vec4')
 local quat_t = ffi.typeof('quat')
 local mat4_t = ffi.typeof('mat4')
 local checkvec2 = checktype(C.VEC2, 'vec2')
 local checkvec3 = checktype(C.VEC3, 'vec3')
+local checkvec4 = checktype(C.VEC4, 'vec4')
 local checkquat = checktype(C.QUAT, 'quat')
 local checkmat4 = checktype(C.MAT4, 'mat4')
 local isvec2 = istype(C.VEC2, 'vec2')
 local isvec3 = istype(C.VEC3, 'vec3')
+local isvec4 = istype(C.VEC4, 'vec4')
 local isquat = istype(C.QUAT, 'quat')
 local ismat4 = istype(C.MAT4, 'mat4')
 
-local vec2, vec3, quat, mat4
+local vec2, vec3, vec4, quat, mat4
 
 vec2 = {
   unpack = function(self)
@@ -298,6 +303,11 @@ vec2 = {
         local a, b, c = swizzles[key:sub(1, 1)], swizzles[key:sub(2, 2)], swizzles[key:sub(3, 3)]
         if a and b and c then
           return lovr_math.vec3(v[a], v[b], v[c])
+        end
+      elseif #key == 4 then
+        local a, b, c, d = swizzles[key:sub(1, 1)], swizzles[key:sub(2, 2)], swizzles[key:sub(3, 3)], swizzles[key:sub(4, 4)]
+        if a and b and c and d then
+          return lovr_math.vec4(v[a], v[b], v[c], v[d])
         end
       end
     elseif key == 1 or key == 2 then
@@ -554,14 +564,294 @@ vec3 = {
         if a and b and c then
           return lovr_math.vec3(v[a], v[b], v[c])
         end
+      elseif #key == 4 then
+        local a, b, c, d = swizzles[key:sub(1, 1)], swizzles[key:sub(2, 2)], swizzles[key:sub(3, 3)], swizzles[key:sub(4, 4)]
+        if a and b and c and d then
+          return lovr_math.vec4(v[a], v[b], v[c], v[d])
+        end
       end
     elseif type(key) == 'number' and key >= 1 and key <= 3 then
       return v[key - 1]
     end
 
-    error(string.format('attempt to index vec3 using %s (invalid type)', type(key)), 2)
+    error(string.format('attempt to index field %q of vec3 (invalid property)', type(key)), 2)
   end
 }
+
+vec4 = {
+  unpack = function(self)
+    local v = checkvec4(self)
+    return v[0], v[1], v[2], v[3]
+  end,
+
+  set = function(self, x, y, z, w)
+    local v = checkvec4(self)
+    if x == nil then
+      v[0], v[1], v[2], v[3] = 0, 0, 0, 0
+    elseif type(x) == 'number' then
+      v[0], v[1], v[2], v[3] = x, y or x, z or x, w or x
+    else
+      local u = checkvec4(x, 1, 'vec4 or number')
+      v[0], v[1], v[2], v[3] = u[0], u[1], u[2], u[3]
+    end
+    return self
+  end,
+
+  add = function(self, x)
+    local v = checkvec3(self)
+    if type(x) == 'number' then
+      v[0] = v[0] + x
+      v[1] = v[1] + x
+      v[2] = v[2] + x
+      v[3] = v[3] + x
+    else
+      local u = checkvec4(x, 1, 'vec4 or number')
+      v[0] = v[0] + u[0]
+      v[1] = v[1] + u[1]
+      v[2] = v[2] + u[2]
+      v[3] = v[3] + u[3]
+    end
+    return self
+  end,
+
+  sub = function(self, x)
+    local v = checkvec4(self)
+    if type(x) == 'number' then
+      v[0] = v[0] - x
+      v[1] = v[1] - x
+      v[2] = v[2] - x
+      v[3] = v[3] - x
+    else
+      local u = checkvec4(x, 1, 'vec4 or number')
+      v[0] = v[0] - u[0]
+      v[1] = v[1] - u[1]
+      v[2] = v[2] - u[2]
+      v[3] = v[3] - u[3]
+    end
+    return self
+  end,
+
+  mul = function(self, x)
+    local v = checkvec4(self)
+    if type(x) == 'number' then
+      v[0] = v[0] * x
+      v[1] = v[1] * x
+      v[2] = v[2] * x
+      v[3] = v[3] * x
+    else
+      local u = checkvec4(x, 1, 'vec4 or number')
+      v[0] = v[0] * u[0]
+      v[1] = v[1] * u[1]
+      v[2] = v[2] * u[2]
+      v[3] = v[3] * u[3]
+    end
+    return self
+  end,
+
+  div = function(self, x)
+    local v = checkvec4(self)
+    if type(x) == 'number' then
+      v[0] = v[0] / x
+      v[1] = v[1] / x
+      v[2] = v[2] / x
+      v[3] = v[3] / x
+    else
+      local u = checkvec4(x, 1, 'vec4 or number')
+      v[0] = v[0] / u[0]
+      v[1] = v[1] / u[1]
+      v[2] = v[2] / u[2]
+      v[3] = v[3] / u[3]
+    end
+    return self
+  end,
+
+  length = function(self)
+    local v = checkvec4(self)
+    return math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3])
+  end,
+
+  normalize = function(self)
+    local v = checkvec4(self)
+    local length2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3]
+    if length2 ~= 0 then
+      local n = 1 / math.sqrt(length2)
+      v[0] = v[0] * n
+      v[1] = v[1] * n
+      v[2] = v[2] * n
+      v[3] = v[3] * n
+    end
+    return self
+  end,
+
+  distance = function(self, other)
+    local v = checkvec4(self)
+    local u = checkvec4(other, 1)
+    local dx = v[0] - u[0]
+    local dy = v[1] - u[1]
+    local dz = v[2] - u[2]
+    local dw = v[3] - u[3]
+    return math.sqrt(dx * dx + dy * dy + dz * dz + dw * dw)
+  end,
+
+  dot = function(self, other)
+    local v = checkvec4(self)
+    local u = checkvec4(other, 1)
+    return v[0] * u[0] + v[1] * u[1] + v[2] * u[2] + u[3] * v[3]
+  end,
+
+  lerp = function(self, other, t)
+    local v = checkvec4(self)
+    local u = checkvec4(other, 1)
+    v[0] = v[0] + (u[0] - v[0]) * t
+    v[1] = v[1] + (u[1] - v[1]) * t
+    v[2] = v[2] + (u[2] - v[2]) * t
+    v[3] = v[3] + (u[3] - v[3]) * t
+    return self
+  end,
+
+  __add = function(a, b)
+    checkvec4(a, 1)
+    return lovr_math.vec4(a):add(b)
+  end,
+
+  __sub = function(a, b)
+    checkvec4(a, 1)
+    return lovr_math.vec4(a):sub(b)
+  end,
+
+  __mul = function(a, b)
+    checkvec4(a, 1)
+    return lovr_math.vec4(a):mul(b)
+  end,
+
+  __div = function(a, b)
+    checkvec4(a, 1)
+    return lovr_math.vec4(a):div(b)
+  end,
+
+  __unm = function(self)
+    checkvec4(self)
+    return lovr_math.vec4(self):mul(-1)
+  end,
+
+  __len = function(self)
+    checkvec4(self)
+    return self:length()
+  end,
+
+  __tostring = function(self)
+    local v = checkvec4(self)
+    return string.format('(%f, %f, %f, %f)', v[0], v[1], v[2], v[3])
+  end,
+
+  __newindex = function(self, key, value)
+    local v = checkvec3(self)
+
+    local swizzles = {
+      x = 0,
+      y = 1,
+      z = 2,
+      w = 3,
+      r = 0,
+      g = 1,
+      b = 2,
+      a = 3,
+      s = 0,
+      t = 1,
+      p = 2,
+      q = 3
+    }
+
+    if type(key) == 'string' then
+      if #key == 1 then
+        local a = swizzles[key:sub(1, 1)]
+        if a then
+          v[a] = value
+          return
+        end
+      elseif #key == 2 then
+        local a, b = swizzles[key:sub(1, 1)], swizzles[key:sub(2, 2)]
+        if a and b then
+          local u = checkvec2(value, 1)
+          v[a], v[b] = u[0], u[1]
+          return
+        end
+      elseif #key == 3 then
+        local a, b, c = swizzles[key:sub(1, 1)], swizzles[key:sub(2, 2)], swizzles[key:sub(3, 3)]
+        if a and b and c then
+          local u = checkvec3(value, 1)
+          v[a], v[b], v[c] = u[0], u[1], u[2]
+          return
+        end
+      elseif #key == 4 then
+        local a, b, c, d = swizzles[key:sub(1, 1)], swizzles[key:sub(2, 2)], swizzles[key:sub(3, 3)], swizzles[key:sub(4, 4)]
+        if a and b and c and d then
+          local u = checkvec4(value, 1)
+          v[a], v[b], v[c], v[d] = u[0], u[1], u[2], u[3]
+          return
+        end
+      end
+    elseif type(key) == 'number' then
+      if key >= 1 and key <= 4 then
+        v[key - 1] = value
+      end
+    end
+
+    error(string.format('attempt to assign property %q of vec4 (invalid property)', key), 2)
+  end,
+
+  __index = function(self, key)
+    if vec4[key] then
+      return vec4[key]
+    end
+
+    local v = checkvec4(self)
+
+    if type(key) == 'string' then
+      local swizzles = {
+        x = 0,
+        y = 1,
+        z = 2,
+        w = 3,
+        r = 0,
+        g = 1,
+        b = 2,
+        a = 3,
+        s = 0,
+        t = 1,
+        p = 2,
+        q = 3
+      }
+
+      if #key == 1 then
+        local a = swizzles[key:sub(1, 1)]
+        if a then
+          return v[a]
+        end
+      elseif #key == 2 then
+        local a, b = swizzles[key:sub(1, 1)], swizzles[key:sub(2, 2)]
+        if a and b then
+          return lovr_math.vec2(v[a], v[b])
+        end
+      elseif #key == 3 then
+        local a, b, c = swizzles[key:sub(1, 1)], swizzles[key:sub(2, 2)], swizzles[key:sub(3, 3)]
+        if a and b and c then
+          return lovr_math.vec3(v[a], v[b], v[c])
+        end
+      elseif #key == 4 then
+        local a, b, c, d = swizzles[key:sub(1, 1)], swizzles[key:sub(2, 2)], swizzles[key:sub(3, 3)], swizzles[key:sub(4, 4)]
+        if a and b and c and d then
+          return lovr_math.vec4(v[a], v[b], v[c], v[d])
+        end
+      end
+    elseif type(key) == 'number' and key >= 1 and key <= 4 then
+      return v[key - 1]
+    end
+
+    error(string.format('attempt to index field %q of vec4 (invalid property)', type(key)), 2)
+  end
+}
+
 
 quat = {
   unpack = function(self, raw)
@@ -748,7 +1038,7 @@ quat = {
       return q[3]
     end
 
-    error(string.format('attempt to index property %q of quat (invalid property)', key), 2)
+    error(string.format('attempt to index field %q of quat (invalid property)', key), 2)
   end
 }
 
@@ -1062,18 +1352,20 @@ mat4 = {
       return m[key - 1]
     end
 
-    error(string.format('attempt to index property %q of mat4 (invalid property)', key), 2)
+    error(string.format('attempt to index field %q of mat4 (invalid property)', key), 2)
   end
 }
 
 ffi.metatype(vec2_t, vec2)
 ffi.metatype(vec3_t, vec3)
+ffi.metatype(vec4_t, vec4)
 ffi.metatype(quat_t, quat)
 ffi.metatype(mat4_t, mat4)
 
 local new = ffi.new
 lovr_math.vec2 = function(...) return allocate(vec2_t, C.VEC2, 2):set(...) end
 lovr_math.vec3 = function(...) return allocate(vec3_t, C.VEC3, 4):set(...) end
+lovr_math.vec4 = function(...) return allocate(vec4_t, C.VEC4, 4):set(...) end
 lovr_math.quat = function(...) return allocate(quat_t, C.QUAT, 4):set(...) end
 lovr_math.mat4 = function(...) return allocate(mat4_t, C.MAT4, 16):set(...) end
 lovr_math.drain = function()

@@ -48,6 +48,7 @@ extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrTextureData[];
 extern const luaL_Reg lovrThread[];
 extern const luaL_Reg lovrVec2[];
+extern const luaL_Reg lovrVec4[];
 extern const luaL_Reg lovrVec3[];
 extern const luaL_Reg lovrWorld[];
 

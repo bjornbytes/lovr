@@ -15,6 +15,7 @@ int l_lovrRandomGeneratorGetSeed(lua_State* L);
 int l_lovrRandomGeneratorSetSeed(lua_State* L);
 int l_lovrVec2Set(lua_State* L);
 int l_lovrVec3Set(lua_State* L);
+int l_lovrVec4Set(lua_State* L);
 int l_lovrQuatSet(lua_State* L);
 int l_lovrMat4Set(lua_State* L);
 
@@ -23,6 +24,7 @@ static LOVR_THREAD_LOCAL Pool* pool;
 static const luaL_Reg* lovrVectorMetatables[] = {
   [V_VEC2] = lovrVec2,
   [V_VEC3] = lovrVec3,
+  [V_VEC4] = lovrVec4,
   [V_QUAT] = lovrQuat,
   [V_MAT4] = lovrMat4
 };
@@ -30,6 +32,7 @@ static const luaL_Reg* lovrVectorMetatables[] = {
 static int lovrVectorMetatableRefs[] = {
   [V_VEC2] = LUA_REFNIL,
   [V_VEC3] = LUA_REFNIL,
+  [V_VEC4] = LUA_REFNIL,
   [V_QUAT] = LUA_REFNIL,
   [V_MAT4] = LUA_REFNIL
 };
@@ -37,6 +40,7 @@ static int lovrVectorMetatableRefs[] = {
 static const char* lovrVectorTypeNames[] = {
   [V_VEC2] = "vec2",
   [V_VEC3] = "vec3",
+  [V_VEC4] = "vec4",
   [V_QUAT] = "quat",
   [V_MAT4] = "mat4"
 };
@@ -229,6 +233,12 @@ static int l_lovrMathNewVec3(lua_State* L) {
   return l_lovrVec3Set(L);
 }
 
+static int l_lovrMathNewVec4(lua_State* L) {
+  luax_newvector(L, V_VEC4, 4);
+  lua_insert(L, 1);
+  return l_lovrVec4Set(L);
+}
+
 static int l_lovrMathNewQuat(lua_State* L) {
   luax_newvector(L, V_QUAT, 4);
   lua_insert(L, 1);
@@ -251,6 +261,12 @@ static int l_lovrMathVec3(lua_State* L) {
   luax_newtempvector(L, V_VEC3);
   lua_insert(L, 1);
   return l_lovrVec3Set(L);
+}
+
+static int l_lovrMathVec4(lua_State* L) {
+  luax_newtempvector(L, V_VEC4);
+  lua_insert(L, 1);
+  return l_lovrVec4Set(L);
 }
 
 static int l_lovrMathQuat(lua_State* L) {
@@ -282,10 +298,12 @@ static const luaL_Reg lovrMath[] = {
   { "linearToGamma", l_lovrMathLinearToGamma },
   { "newVec2", l_lovrMathNewVec2 },
   { "newVec3", l_lovrMathNewVec3 },
+  { "newVec4", l_lovrMathNewVec4 },
   { "newQuat", l_lovrMathNewQuat },
   { "newMat4", l_lovrMathNewMat4 },
   { "vec2", l_lovrMathVec2 },
   { "vec3", l_lovrMathVec3 },
+  { "vec4", l_lovrMathVec4 },
   { "quat", l_lovrMathQuat },
   { "mat4", l_lovrMathMat4 },
   { "drain", l_lovrMathDrain },
