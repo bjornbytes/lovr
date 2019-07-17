@@ -1207,6 +1207,8 @@ mat4 = {
       checkvec3(sx, 1, 'vec3 or number')
       sx, sy, sz = sx.x, sx.y, sx.z
     end
+    sy = sy or sx
+    sz = sz or sx
     m[0] = m[0] * sx
     m[1] = m[1] * sx
     m[2] = m[2] * sx
