@@ -1459,12 +1459,57 @@ static int l_lovrMat4Unpack(lua_State* L) {
 
 int l_lovrMat4Set(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
-  if (lua_gettop(L) >= 17) {
+  int top = lua_gettop(L);
+  int type = lua_type(L, 2);
+  if (type == LUA_TNONE || type == LUA_TNIL || (top == 2 && type == LUA_TNUMBER)) {
+    float x = luax_optfloat(L, 2, 1.f);
+    memset(m, 0, 16 * sizeof(float));
+    m[0] = m[5] = m[10] = m[15] = x;
+  } else if (top == 17) {
     for (int i = 2; i <= 17; i++) {
-      *m++ = luaL_checknumber(L, i);
+      *m++ = luax_checkfloat(L, i);
     }
   } else {
-    luax_readmat4(L, 2, m, 3);
+    VectorType vectorType;
+    float* v = luax_tovector(L, 2, &vectorType);
+    if (vectorType == V_MAT4) {
+      mat4_init(m, v);
+    } else {
+      int index = 2;
+      mat4_identity(m);
+
+      float LOVR_ALIGN(16) position[4];
+      index = luax_readvec3(L, index, position, "nil, number, vec3, or mat4");
+      m[12] = position[0];
+      m[13] = position[1];
+      m[14] = position[2];
+
+      float* v = luax_tovector(L, index, &vectorType);
+      if (vectorType == V_QUAT) {
+        mat4_rotateQuat(m, v);
+      } else if ((top - index) == 3 && lua_type(L, top) == LUA_TNUMBER) {
+        float angle = luax_checkfloat(L, index++);
+        float ax = luax_checkfloat(L, index++);
+        float ay = luax_checkfloat(L, index++);
+        float az = luax_checkfloat(L, index++);
+        mat4_rotate(m, angle, ax, ay, az);
+      } else {
+        if (vectorType == V_VEC3) {
+          m[0] = v[0];
+          m[5] = v[1];
+          m[10] = v[2];
+          index++;
+        } else if (lua_type(L, index) == LUA_TNUMBER) {
+          m[0] = luax_checkfloat(L, index++);
+          m[5] = luax_checkfloat(L, index++);
+          m[10] = luax_checkfloat(L, index++);
+        }
+
+        float LOVR_ALIGN(16) rotation[4];
+        luax_readquat(L, index, rotation, NULL);
+        mat4_rotateQuat(m, rotation);
+      }
+    }
   }
   lua_settop(L, 1);
   return 1;
