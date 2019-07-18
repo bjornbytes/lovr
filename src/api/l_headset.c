@@ -276,6 +276,19 @@ static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
   return 1;
 }
 
+int l_lovrHeadsetIsTracked(lua_State* L) {
+  Device device = luax_optdevice(L, 1);
+  float position[4], orientation[4];
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->getPose(device, position, orientation)) {
+      lua_pushboolean(L, true);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
+  return 1;
+}
+
 int l_lovrHeadsetGetPose(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float position[4], orientation[4];
@@ -629,6 +642,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
   { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
   { "getBoundsGeometry", l_lovrHeadsetGetBoundsGeometry },
+  { "isTracked", l_lovrHeadsetIsTracked },
   { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
