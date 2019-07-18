@@ -39,7 +39,6 @@ const char* Devices[] = {
 };
 
 const char* DeviceButtons[] = {
-  [BUTTON_PRIMARY] = "primary",
   [BUTTON_TRIGGER] = "trigger",
   [BUTTON_THUMBSTICK] = "thumbstick",
   [BUTTON_TOUCHPAD] = "touchpad",
@@ -54,7 +53,6 @@ const char* DeviceButtons[] = {
 };
 
 const char* DeviceAxes[] = {
-  [AXIS_PRIMARY] = "primary",
   [AXIS_TRIGGER] = "trigger",
   [AXIS_THUMBSTICK] = "thumbstick",
   [AXIS_TOUCHPAD] = "touchpad",
@@ -449,7 +447,6 @@ static const size_t axisCounts[MAX_AXES] = {
   [AXIS_TRIGGER] = 1,
   [AXIS_PINCH] = 1,
   [AXIS_GRIP] = 1,
-  [AXIS_PRIMARY] = 2,
   [AXIS_THUMBSTICK] = 2,
   [AXIS_TOUCHPAD] = 2
 };

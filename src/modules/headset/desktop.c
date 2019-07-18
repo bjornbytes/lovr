@@ -116,7 +116,7 @@ static bool desktop_getAcceleration(Device device, vec3 acceleration, vec3 angul
 }
 
 static bool desktop_isDown(Device device, DeviceButton button, bool* down) {
-  if (device != DEVICE_HAND_LEFT || (button != BUTTON_TRIGGER && button != BUTTON_PRIMARY)) {
+  if (device != DEVICE_HAND_LEFT || button != BUTTON_TRIGGER) {
     return false;
   }
 
