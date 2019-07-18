@@ -293,7 +293,10 @@ int l_lovrHeadsetGetPose(lua_State* L) {
       return 7;
     }
   }
-  return 0;
+  for (int i = 0; i < 7; i++) {
+    lua_pushnumber(L, 0.);
+  }
+  return 7;
 }
 
 int l_lovrHeadsetGetPosition(lua_State* L) {
@@ -307,7 +310,10 @@ int l_lovrHeadsetGetPosition(lua_State* L) {
       return 3;
     }
   }
-  return 0;
+  for (int i = 0; i < 3; i++) {
+    lua_pushnumber(L, 0.);
+  }
+  return 3;
 }
 
 int l_lovrHeadsetGetOrientation(lua_State* L) {
@@ -324,44 +330,10 @@ int l_lovrHeadsetGetOrientation(lua_State* L) {
       return 4;
     }
   }
-  return 0;
-}
-
-int l_lovrHeadsetGetDirection(lua_State* L) {
-  Device device = luax_optdevice(L, 1);
-  float position[4], orientation[4];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(device, position, orientation)) {
-      float v[4] = { 0.f, 0.f, -1.f };
-      quat_rotate(orientation, v);
-      lua_pushnumber(L, v[0]);
-      lua_pushnumber(L, v[1]);
-      lua_pushnumber(L, v[2]);
-      return 3;
-    }
+  for (int i = 0; i < 4; i++) {
+    lua_pushnumber(L, 0.);
   }
-  return 0;
-}
-
-int l_lovrHeadsetGetBonePose(lua_State* L) {
-  Device device = luax_optdevice(L, 1);
-  DeviceBone bone = luaL_checkoption(L, 2, NULL, DeviceBones);
-  float position[4], orientation[4];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getBonePose(device, bone, position, orientation)) {
-      float angle, ax, ay, az;
-      quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
-      lua_pushnumber(L, position[0]);
-      lua_pushnumber(L, position[1]);
-      lua_pushnumber(L, position[2]);
-      lua_pushnumber(L, angle);
-      lua_pushnumber(L, ax);
-      lua_pushnumber(L, ay);
-      lua_pushnumber(L, az);
-      return 7;
-    }
-  }
-  return 0;
+  return 4;
 }
 
 int l_lovrHeadsetGetVelocity(lua_State* L) {
@@ -375,7 +347,10 @@ int l_lovrHeadsetGetVelocity(lua_State* L) {
       return 3;
     }
   }
-  return 0;
+  for (int i = 0; i < 3; i++) {
+    lua_pushnumber(L, 0.);
+  }
+  return 3;
 }
 
 int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
@@ -389,7 +364,10 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
       return 3;
     }
   }
-  return 0;
+  for (int i = 0; i < 3; i++) {
+    lua_pushnumber(L, 0.);
+  }
+  return 3;
 }
 
 int l_lovrHeadsetGetAcceleration(lua_State* L) {
@@ -403,7 +381,10 @@ int l_lovrHeadsetGetAcceleration(lua_State* L) {
       return 3;
     }
   }
-  return 0;
+  for (int i = 0; i < 3; i++) {
+    lua_pushnumber(L, 0.);
+  }
+  return 3;
 }
 
 int l_lovrHeadsetGetAngularAcceleration(lua_State* L) {
@@ -417,7 +398,10 @@ int l_lovrHeadsetGetAngularAcceleration(lua_State* L) {
       return 3;
     }
   }
-  return 0;
+  for (int i = 0; i < 3; i++) {
+    lua_pushnumber(L, 0.);
+  }
+  return 3;
 }
 
 int l_lovrHeadsetIsDown(lua_State* L) {
@@ -430,7 +414,8 @@ int l_lovrHeadsetIsDown(lua_State* L) {
       return 1;
     }
   }
-  return 0;
+  lua_pushboolean(L, false);
+  return 1;
 }
 
 int l_lovrHeadsetIsTouched(lua_State* L) {
@@ -443,32 +428,36 @@ int l_lovrHeadsetIsTouched(lua_State* L) {
       return 1;
     }
   }
-  return 0;
+  lua_pushboolean(L, 1);
+  return false;
 }
+
+static const size_t axisCounts[MAX_AXES] = {
+  [AXIS_TRIGGER] = 1,
+  [AXIS_PINCH] = 1,
+  [AXIS_GRIP] = 1,
+  [AXIS_PRIMARY] = 2,
+  [AXIS_THUMBSTICK] = 2,
+  [AXIS_TOUCHPAD] = 2
+};
 
 int l_lovrHeadsetGetAxis(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceAxis axis = luaL_checkoption(L, 2, NULL, DeviceAxes);
+  size_t count = axisCounts[axis];
   float value[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getAxis(device, axis, value)) {
-      switch (axis) {
-        case MAX_AXES:
-        case AXIS_TRIGGER:
-        case AXIS_PINCH:
-        case AXIS_GRIP:
-          lua_pushnumber(L, value[0]);
-          return 1;
-        case AXIS_PRIMARY:
-        case AXIS_THUMBSTICK:
-        case AXIS_TOUCHPAD:
-          lua_pushnumber(L, value[0]);
-          lua_pushnumber(L, value[1]);
-          return 2;
+      for (size_t i = 0; i < count; i++) {
+        lua_pushnumber(L, value[i]);
       }
+      return count;
     }
   }
-  return 0;
+  for (size_t i = 0; i < count; i++) {
+    lua_pushnumber(L, 0.);
+  }
+  return count;
 }
 
 int l_lovrHeadsetVibrate(lua_State* L) {
@@ -505,6 +494,30 @@ int l_lovrHeadsetNewModel(lua_State* L) {
   }
 
   return 0;
+}
+
+int l_lovrHeadsetGetBonePose(lua_State* L) {
+  Device device = luax_optdevice(L, 1);
+  DeviceBone bone = luaL_checkoption(L, 2, NULL, DeviceBones);
+  float position[4], orientation[4];
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->getBonePose(device, bone, position, orientation)) {
+      float angle, ax, ay, az;
+      quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+      lua_pushnumber(L, position[0]);
+      lua_pushnumber(L, position[1]);
+      lua_pushnumber(L, position[2]);
+      lua_pushnumber(L, angle);
+      lua_pushnumber(L, ax);
+      lua_pushnumber(L, ay);
+      lua_pushnumber(L, az);
+      return 7;
+    }
+  }
+  for (int i = 0; i < 7; i++) {
+    lua_pushnumber(L, 0.);
+  }
+  return 7;
 }
 
 static int l_lovrHeadsetRenderTo(lua_State* L) {
@@ -619,8 +632,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
-  { "getDirection", l_lovrHeadsetGetDirection },
-  { "getBonePose", l_lovrHeadsetGetBonePose },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
   { "getAcceleration", l_lovrHeadsetGetAcceleration },
@@ -630,6 +641,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getAxis", l_lovrHeadsetGetAxis },
   { "vibrate", l_lovrHeadsetVibrate },
   { "newModel", l_lovrHeadsetNewModel },
+  { "getBonePose", l_lovrHeadsetGetBonePose },
   { "renderTo", l_lovrHeadsetRenderTo },
   { "update", l_lovrHeadsetUpdate },
   { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
