@@ -254,7 +254,7 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
     size_t n = 3 + rotate;
     float* (*lerp)(float* a, float* b, float t) = rotate ? quat_slerp : vec3_lerp;
 
-    if (keyframe >= channel->keyframeCount) {
+    if (keyframe == 0 || keyframe >= channel->keyframeCount) {
       memcpy(property, channel->data + CLAMP(keyframe, 0, channel->keyframeCount - 1) * n, n * sizeof(float));
     } else {
       float t1 = channel->times[keyframe - 1];
