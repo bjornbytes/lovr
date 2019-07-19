@@ -885,6 +885,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
     lastNode->childCount = scenes[rootScene].nodeCount;
     lastNode->children = &model->children[childIndex];
     mat4_identity(lastNode->transform);
+    lastNode->matrix = true;
     lastNode->primitiveCount = 0;
     lastNode->skin = ~0u;
 
