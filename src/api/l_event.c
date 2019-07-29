@@ -127,6 +127,10 @@ static int nextEvent(lua_State* L) {
 }
 
 static void hotkeyHandler(KeyCode key, ButtonAction action) {
+  if (action != BUTTON_PRESSED) {
+    return;
+  }
+
   if (key == KEY_ESCAPE) {
     lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit.restart = false, .data.quit.exitCode = 0 });
   } else if (key == KEY_F5) {
