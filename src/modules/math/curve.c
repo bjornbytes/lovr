@@ -3,6 +3,7 @@
 #include "core/maf.h"
 #include "core/ref.h"
 #include "core/util.h"
+#include <stdlib.h>
 #include <math.h>
 
 struct Curve {

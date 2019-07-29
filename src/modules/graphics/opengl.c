@@ -182,6 +182,22 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
     case FORMAT_DXT1: return srgb ? GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
     case FORMAT_DXT3: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
     case FORMAT_DXT5: return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+#ifdef LOVR_WEBGL
+    case FORMAT_ASTC_4x4: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR : GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
+    case FORMAT_ASTC_5x4: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR : GL_COMPRESSED_RGBA_ASTC_5x4_KHR;
+    case FORMAT_ASTC_5x5: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR : GL_COMPRESSED_RGBA_ASTC_5x5_KHR;
+    case FORMAT_ASTC_6x5: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR : GL_COMPRESSED_RGBA_ASTC_6x5_KHR;
+    case FORMAT_ASTC_6x6: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR : GL_COMPRESSED_RGBA_ASTC_6x6_KHR;
+    case FORMAT_ASTC_8x5: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR : GL_COMPRESSED_RGBA_ASTC_8x5_KHR;
+    case FORMAT_ASTC_8x6: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR : GL_COMPRESSED_RGBA_ASTC_8x6_KHR;
+    case FORMAT_ASTC_8x8: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR : GL_COMPRESSED_RGBA_ASTC_8x8_KHR;
+    case FORMAT_ASTC_10x5: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR : GL_COMPRESSED_RGBA_ASTC_10x5_KHR;
+    case FORMAT_ASTC_10x6: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR : GL_COMPRESSED_RGBA_ASTC_10x6_KHR;
+    case FORMAT_ASTC_10x8: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR : GL_COMPRESSED_RGBA_ASTC_10x8_KHR;
+    case FORMAT_ASTC_10x10: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR : GL_COMPRESSED_RGBA_ASTC_10x10_KHR;
+    case FORMAT_ASTC_12x10: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR : GL_COMPRESSED_RGBA_ASTC_12x10_KHR;
+    case FORMAT_ASTC_12x12: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR : GL_COMPRESSED_RGBA_ASTC_12x12_KHR;
+#else
     case FORMAT_ASTC_4x4: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4 : GL_COMPRESSED_RGBA_ASTC_4x4;
     case FORMAT_ASTC_5x4: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4 : GL_COMPRESSED_RGBA_ASTC_5x4;
     case FORMAT_ASTC_5x5: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5 : GL_COMPRESSED_RGBA_ASTC_5x5;
@@ -196,6 +212,7 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
     case FORMAT_ASTC_10x10: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10 : GL_COMPRESSED_RGBA_ASTC_10x10;
     case FORMAT_ASTC_12x10: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10 : GL_COMPRESSED_RGBA_ASTC_12x10;
     case FORMAT_ASTC_12x12: return srgb ? GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12 : GL_COMPRESSED_RGBA_ASTC_12x12;
+#endif
     default: lovrThrow("Unreachable");
   }
 }
@@ -651,7 +668,11 @@ static void lovrGpuBindCanvas(Canvas* canvas, bool willDraw) {
     uint32_t level = attachment->level;
 
     if (canvas->flags.stereo && state.singlepass == MULTIVIEW) {
+#ifdef LOVR_WEBGL
+      lovrThrow("Unreachable");
+#else
       glFramebufferTextureMultisampleMultiviewOVR(GL_READ_FRAMEBUFFER, drawBuffer, texture->id, level, canvas->flags.msaa, slice, 2);
+#endif
     } else {
       if (canvas->flags.msaa) {
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, drawBuffer, GL_RENDERBUFFER, texture->msaaId);
@@ -1240,6 +1261,7 @@ void lovrGpuDirtyTexture() {
 }
 
 void lovrGpuTick(const char* label) {
+#ifndef LOVR_WEBGL
   TimerList* timer = map_get(&state.timers, label);
 
   if (!timer) {
@@ -1254,9 +1276,11 @@ void lovrGpuTick(const char* label) {
   if (next != timer->oldest) {
     timer->next = next;
   }
+#endif
 }
 
 void lovrGpuTock(const char* label) {
+#ifndef LOVR_WEBGL
   TimerList* timer = map_get(&state.timers, label);
   if (!timer) return;
 
@@ -1273,6 +1297,7 @@ void lovrGpuTock(const char* label) {
     arr_push(&state.stats.timers, ((GpuTimer) { .label = label, .time = timer->ns / 1e9 }));
     timer->oldest = (timer->oldest + 1) % 4;
   }
+#endif
 }
 
 const GpuFeatures* lovrGpuGetFeatures() {
@@ -1543,7 +1568,11 @@ Canvas* lovrCanvasInit(Canvas* canvas, uint32_t width, uint32_t height, CanvasFl
     if (flags.stereo && state.singlepass == MULTIVIEW) {
       canvas->depth.texture = lovrTextureCreate(TEXTURE_ARRAY, NULL, 0, false, flags.mipmaps, flags.msaa);
       lovrTextureAllocate(canvas->depth.texture, width, height, 2, flags.depth.format);
+#ifdef LOVR_WEBGL
+      lovrThrow("Unreachable");
+#else
       glFramebufferTextureMultisampleMultiviewOVR(GL_FRAMEBUFFER, attachment, canvas->depth.texture->id, 0, flags.msaa, 0, 2);
+#endif
     } else if (flags.depth.readable) {
       canvas->depth.texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, false, flags.mipmaps, flags.msaa);
       lovrTextureAllocate(canvas->depth.texture, width, height, 1, flags.depth.format);
