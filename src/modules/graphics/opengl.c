@@ -2035,13 +2035,11 @@ static char* lovrShaderGetFlagCode(ShaderFlag* flags, uint32_t flagCount) {
   // Figure out how much space we need
   size_t length = 0;
   for (uint32_t i = 0; i < flagCount; i++) {
-    if (flags[i].name) {
+    if (flags[i].name && !(flags[i].type == FLAG_BOOL && flags[i].value.b32 == false)) {
       length += strlen("#define FLAG_");
-      length += strlen(flags[i].name) + 1;
-      if (flags[i].type == FLAG_BOOL) {
-        length += flags[i].value.b32 ? strlen("true") : strlen("false");
-      } else {
-        length += snprintf(NULL, 0, "%d", flags[i].value.i32);
+      length += strlen(flags[i].name);
+      if (flags[i].type == FLAG_INT) {
+        length += snprintf(NULL, 0, " %d", flags[i].value.i32);
       }
       length += strlen("\n");
     }
@@ -2053,11 +2051,9 @@ static char* lovrShaderGetFlagCode(ShaderFlag* flags, uint32_t flagCount) {
   char* s = code;
   for (uint32_t i = 0; i < flagCount; i++) {
     if (flags[i].name) {
-      s += sprintf(s, "#define FLAG_%s ", flags[i].name);
-      if (flags[i].type == FLAG_BOOL) {
-        s += sprintf(s, "%s\n", flags[i].value.b32 ? "true" : "false");
-      } else {
-        s += sprintf(s, "%d\n", flags[i].value.i32);
+      s += sprintf(s, "#define FLAG_%s", flags[i].name);
+      if (flags[i].type == FLAG_INT) {
+        s += sprintf(s, " %d\n", flags[i].value.i32);
       }
     }
   }
