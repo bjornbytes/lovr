@@ -301,10 +301,13 @@ static void stencilCallback(void* userdata) {
   lua_call(L, 0, 0);
 }
 
+// Must be released when done
 static TextureData* luax_checktexturedata(lua_State* L, int index, bool flip) {
   TextureData* textureData = luax_totype(L, index, TextureData);
 
-  if (!textureData) {
+  if (textureData) {
+    lovrRetain(textureData);
+  } else {
     Blob* blob = luax_readblob(L, index, "Texture");
     textureData = lovrTextureDataCreateFromBlob(blob, flip);
     lovrRelease(Blob, blob);
@@ -353,6 +356,7 @@ static int l_lovrGraphicsCreateWindow(lua_State* L) {
     flags.icon.data = textureData->blob.data;
     flags.icon.width = textureData->width;
     flags.icon.height = textureData->height;
+    lovrRelease(TextureData, textureData);
   }
   lua_pop(L, 1);
 
