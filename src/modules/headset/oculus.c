@@ -199,15 +199,6 @@ static bool oculus_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
   return true;
 }
 
-static bool oculus_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
-  ovrPoseStatef* pose = getPose(device);
-  if (!pose) return false;
-
-  vec3_set(acceleration, pose->LinearAcceleration.x, pose->LinearAcceleration.y, pose->LinearAcceleration.z);
-  vec3_set(angularAcceleration, pose->AngularAcceleration.x, pose->AngularAcceleration.y, pose->AngularAcceleration.z);
-  return true;
-}
-
 static bool oculus_isDown(Device device, DeviceButton button, bool* down) {
   if (device == DEVICE_HEAD && button == BUTTON_PROXIMITY) {
     ovrSessionStatus status;
@@ -418,7 +409,6 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   .getPose = oculus_getPose,
   .getBonePose = oculus_getBonePose,
   .getVelocity = oculus_getVelocity,
-  .getAcceleration = oculus_getAcceleration,
   .isDown = oculus_isDown,
   .isTouched = oculus_isTouched,
   .getAxis = oculus_getAxis,

@@ -99,7 +99,6 @@ typedef struct HeadsetInterface {
   bool (*getPose)(Device device, float* position, float* orientation);
   bool (*getBonePose)(Device device, DeviceBone bone, float* position, float* orientation);
   bool (*getVelocity)(Device device, float* velocity, float* angularVelocity);
-  bool (*getAcceleration)(Device device, float* acceleration, float* angularAcceleration);
   bool (*isDown)(Device device, DeviceButton button, bool* down);
   bool (*isTouched)(Device device, DeviceButton button, bool* touched);
   bool (*getAxis)(Device device, DeviceAxis axis, float* value);

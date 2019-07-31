@@ -403,10 +403,6 @@ static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
   return actionData.bActive;
 }
 
-static bool openvr_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
-  return false;
-}
-
 static bool getButtonState(Device device, DeviceButton button, VRActionHandle_t actions[2][MAX_BUTTONS], bool* value) {
   if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;
@@ -633,7 +629,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getPose = openvr_getPose,
   .getBonePose = openvr_getBonePose,
   .getVelocity = openvr_getVelocity,
-  .getAcceleration = openvr_getAcceleration,
   .isDown = openvr_isDown,
   .isTouched = openvr_isTouched,
   .getAxis = openvr_getAxis,

@@ -117,32 +117,21 @@ static bool vrapi_getBonePose(Device device, DeviceBone bone, vec3 position, qua
   return false;
 }
 
-// Shared code for velocity/acceleration
-static bool vrapi_getAngularVector(Device device, vec3 linear, vec3 angular, bool isAcceleration) {
-  BridgeLovrMovement* m;
+static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
+  BridgeLovrAngularVector* v;
 
   if (device == DEVICE_HEAD) {
-    m = &bridgeLovrMobileData.updateData.lastHeadMovement;
+    v = &bridgeLovrMobileData.updateData.lastHeadMovement.velocity;
   } else {
     int idx = getHandIdx(device);
     if (idx < 0)
       return false;
-    m = &bridgeLovrMobileData.updateData.controllers[idx].movement;
+    v = &bridgeLovrMobileData.updateData.controllers[idx].movement.velocity;
   }
 
-  BridgeLovrAngularVector* v = isAcceleration ? &m->acceleration : &m->velocity;
-
-  vec3_set(linear, v->x, v->y, v->z);
-  vec3_set(angular, v->ax, v->ay, v->az);
+  vec3_set(velocity, v->x, v->y, v->z);
+  vec3_set(angularVelocity, v->ax, v->ay, v->az);
   return true;
-}
-
-static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  return vrapi_getAngularVector(device, velocity, angularVelocity, false);
-}
-
-static bool vrapi_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
-  return vrapi_getAngularVector(device, acceleration, angularAcceleration, true);
 }
 
 static bool buttonDown(BridgeLovrButton field, DeviceButton button, bool *result) {
@@ -268,7 +257,6 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   .getPose = vrapi_getPose,
   .getBonePose = vrapi_getBonePose,
   .getVelocity = vrapi_getVelocity,
-  .getAcceleration = vrapi_getAcceleration,
   .isDown = vrapi_isDown,
   .isTouched = vrapi_isTouched,
   .getAxis = vrapi_getAxis,

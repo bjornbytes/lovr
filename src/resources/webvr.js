@@ -209,27 +209,6 @@ var LibraryLOVR = {
     return true;
   },
 
-  webvr_getAcceleration: function(device, acceleration, angularAcceleration) {
-    var pose = webvr.poses[device];
-    if (!pose) { return false; }
-
-    if (pose.linearAcceleration) {
-      HEAPF32.set(pose.linearAcceleration, acceleration >> 2);
-      Module._mat4_transformDirection(webvr.poseTransform, acceleration);
-    } else {
-      HEAPF32.fill(0, accleration >> 2, accleration >> 2 + 3);
-    }
-
-    if (pose.angularAcceleration) {
-      HEAPF32.set(pose.angularAcceleration, angularAcceleration >> 2);
-      Module._mat4_transformDirection(webvr.poseTransform, angularAcceleration);
-    } else {
-      HEAPF32.fill(0, angularAcceleration >> 2, angularAcceleration >> 2 + 3);
-    }
-
-    return true;
-  },
-
   webvr_isDown: function(device, button, down) {
     var gamepad = webvr.gamepads[device];
 

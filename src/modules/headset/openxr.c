@@ -464,18 +464,6 @@ static bool openxr_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
   return false;
 }
 
-static bool openxr_getAcceleration(Device device, vec3 acceleration, vec3 angularAcceleration) {
-  XrSpaceRelation relation;
-
-  if (getRelation(device, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_LINEAR_ACCELERATION_VALID_BIT | XR_SPACE_RELATION_ANGULAR_ACCELERATION_VALID_BIT))) {
-    vec3_set(acceleration, relation.linearAcceleration.x, relation.linearAcceleration.y, relation.linearAcceleration.z);
-    vec3_set(angularAcceleration, relation.angularAcceleration.x, relation.angularAcceleration.y, relation.angularAcceleration.z);
-    return true;
-  }
-
-  return false;
-}
-
 static XrPath getActionFilter(Device device) {
   switch (device) {
     case DEVICE_HAND_LEFT: return state.actionFilters[0];
@@ -679,7 +667,6 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getPose = openxr_getPose,
   .getBonePose = openxr_getBonePose,
   .getVelocity = openxr_getVelocity,
-  .getAcceleration = openxr_getAcceleration,
   .isDown = openxr_isDown,
   .isTouched = openxr_isTouched,
   .getAxis = openxr_getAxis,
