@@ -27,7 +27,7 @@ static inline uint32_t ref_dec(Ref* ref) { return _InterlockedDecrement(ref); }
 
 typedef uint32_t Ref;
 static inline uint32_t ref_inc(Ref* ref) { return __atomic_add_fetch(ref, 1, __ATOMIC_SEQ_CST); }
-static inline uint32_t ref_dec(Ref* ref) { return __atomic_add_fetch(ref, 1, __ATOMIC_SEQ_CST); }
+static inline uint32_t ref_dec(Ref* ref) { return __atomic_sub_fetch(ref, 1, __ATOMIC_SEQ_CST); }
 
 #else
 
