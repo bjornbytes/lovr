@@ -35,10 +35,16 @@
             },
             {
                "inputs" : {
-                  "pull" : { "output" : "/actions/lovr/in/leftGripAxis" },
                   "touch" : { "output" : "/actions/lovr/in/leftGripTouch" }
                },
                "mode" : "trigger",
+               "path" : "/user/hand/left/input/grip"
+            },
+            {
+               "inputs" : {
+                  "force" : { "output" : "/actions/lovr/in/leftGripAxis" }
+               },
+               "mode" : "force_sensor",
                "path" : "/user/hand/left/input/grip"
             },
             {
@@ -60,10 +66,16 @@
             },
             {
                "inputs" : {
-                  "pull" : { "output" : "/actions/lovr/in/rightGripAxis" },
                   "touch" : { "output" : "/actions/lovr/in/rightGripTouch" }
                },
                "mode" : "trigger",
+               "path" : "/user/hand/right/input/grip"
+            },
+            {
+               "inputs" : {
+                  "force" : { "output" : "/actions/lovr/in/rightGripAxis" }
+               },
+               "mode" : "force_sensor",
                "path" : "/user/hand/right/input/grip"
             },
             {
