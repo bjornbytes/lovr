@@ -598,32 +598,6 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   return 1;
 }
 
-static int handIterator(lua_State* L) {
-  Device hands[] = { DEVICE_HAND_LEFT, DEVICE_HAND_RIGHT };
-  size_t index = lua_tointeger(L, lua_upvalueindex(1));
-  float position[4], orientation[4];
-
-  while (index < 2) {
-    FOREACH_TRACKING_DRIVER(driver) {
-      if (driver->getPose(hands[index], position, orientation)) {
-        lua_pushstring(L, Devices[hands[index]]);
-        lua_pushinteger(L, ++index);
-        lua_replace(L, lua_upvalueindex(1));
-        return 1;
-      }
-    }
-    index++;
-  }
-
-  return 0;
-}
-
-static int l_lovrHeadsetHands(lua_State* L) {
-  lua_pushinteger(L, 0);
-  lua_pushcclosure(L, handIterator, 1);
-  return 1;
-}
-
 static const luaL_Reg lovrHeadset[] = {
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getName", l_lovrHeadsetGetName },
@@ -657,7 +631,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "update", l_lovrHeadsetUpdate },
   { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
   { "getHands", l_lovrHeadsetGetHands },
-  { "hands", l_lovrHeadsetHands },
   { NULL, NULL }
 };
 

@@ -48,7 +48,7 @@ local function nogame()
   function lovr.draw()
     lovr.graphics.setColor(0xffffff)
 
-    for hand in lovr.headset.hands() do
+    for i, hand in ipairs(lovr.headset.getHands()) do
       models[hand] = models[hand] or lovr.headset.newModel(hand)
       if models[hand] then
         local x, y, z, angle ax, ay, az = lovr.headset.getPose(hand)
