@@ -434,7 +434,12 @@ static bool openvr_getAxis(Device device, DeviceAxis axis, vec3 value) {
 }
 
 static bool openvr_vibrate(Device device, float strength, float duration, float frequency) {
-  if (duration <= 0 || (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT)) return false;
+  if (duration <= 0.f || (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT)) return false;
+
+  if (frequency <= 0.f) {
+    frequency = 1.f;
+  }
+
   state.input->TriggerHapticVibrationAction(state.hapticActions[device - DEVICE_HAND_LEFT], 0.f, duration, frequency, strength, 0);
   return true;
 }
