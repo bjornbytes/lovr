@@ -456,7 +456,7 @@ static int l_lovrGraphicsGetStats(lua_State* L) {
   lua_setfield(L, 1, "drawcalls");
   lua_pushinteger(L, stats->shaderSwitches);
   lua_setfield(L, 1, "shaderswitches");
-  lua_createtable(L, 0, stats->timers.length);
+  lua_createtable(L, 0, (int) stats->timers.length);
   for (size_t i = 0; i < stats->timers.length; i++) {
     lua_pushstring(L, stats->timers.data[i].label);
     lua_pushnumber(L, stats->timers.data[i].time);

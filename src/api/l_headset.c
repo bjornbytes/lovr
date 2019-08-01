@@ -409,7 +409,7 @@ int l_lovrHeadsetIsTouched(lua_State* L) {
   return false;
 }
 
-static const size_t axisCounts[MAX_AXES] = {
+static const int axisCounts[MAX_AXES] = {
   [AXIS_TRIGGER] = 1,
   [AXIS_PINCH] = 1,
   [AXIS_GRIP] = 1,
@@ -420,7 +420,7 @@ static const size_t axisCounts[MAX_AXES] = {
 int l_lovrHeadsetGetAxis(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceAxis axis = luaL_checkoption(L, 2, NULL, DeviceAxes);
-  size_t count = axisCounts[axis];
+  int count = axisCounts[axis];
   float value[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getAxis(device, axis, value)) {

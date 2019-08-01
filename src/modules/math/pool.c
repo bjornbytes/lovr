@@ -34,7 +34,7 @@ Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
   if (pool->cursor + count > pool->count - 4) { // Leave 4 floats of padding for alignment adjustment
     lovrPoolGrow(pool, pool->count * 2);
   }
-  Vector v = { type, pool->generation, pool->cursor };
+  Vector v = { type, (uint8_t) pool->generation, (uint16_t) pool->cursor };
   if (data) {
     *data = pool->floats + pool->cursor;
   }

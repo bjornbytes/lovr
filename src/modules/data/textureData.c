@@ -557,7 +557,7 @@ bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
   int width = textureData->width;
   int height = textureData->height;
   void* data = (uint8_t*) textureData->blob.data + (textureData->height - 1) * textureData->width * components;
-  int stride = -textureData->width * components;
+  int stride = -1 * (int) (textureData->width * components);
   bool success = stbi_write_png_to_func(writeCallback, &file, width, height, components, data, stride);
   lovrFileDestroy(&file);
   return success;

@@ -233,7 +233,7 @@ static void openvr_destroy(void) {
 
 static bool openvr_getName(char* name, size_t length) {
   ETrackedPropertyError error;
-  state.system->GetStringTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_ManufacturerName_String, name, length, &error);
+  state.system->GetStringTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_ManufacturerName_String, name, (uint32_t) length, &error);
   return error == ETrackedPropertyError_TrackedProp_Success;
 }
 

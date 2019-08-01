@@ -95,7 +95,7 @@ typedef arr_t(Uniform, 8) arr_uniform_t;
 typedef struct {
   BlockType type;
   arr_uniform_t uniforms;
-  map_int_t uniformMap;
+  map_t(size_t) uniformMap;
   struct Buffer* buffer;
 } ShaderBlock;
 
@@ -115,7 +115,7 @@ typedef struct Shader {
   arr_uniform_t uniforms;
   arr_block_t blocks[2];
   map_int_t attributes;
-  map_int_t uniformMap;
+  map_t(size_t) uniformMap;
   map_int_t blockMap;
   bool multiview;
   GPU_SHADER_FIELDS

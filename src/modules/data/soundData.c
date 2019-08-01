@@ -28,9 +28,9 @@ SoundData* lovrSoundDataInitFromAudioStream(SoundData* soundData, AudioStream* a
 
   size_t samples;
   int16_t* buffer = soundData->blob.data;
-  int offset = 0;
+  size_t offset = 0;
   lovrAudioStreamRewind(audioStream);
-  while ((samples = lovrAudioStreamDecode(audioStream, buffer + offset, (int) soundData->blob.size - (offset * sizeof(int16_t)))) != 0) {
+  while ((samples = lovrAudioStreamDecode(audioStream, buffer + offset, soundData->blob.size - (offset * sizeof(int16_t)))) != 0) {
     offset += samples;
   }
 

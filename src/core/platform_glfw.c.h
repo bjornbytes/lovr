@@ -5,6 +5,10 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #ifndef EMSCRIPTEN
+#ifdef _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#define GLFW_EXPOSE_NATIVE_WGL
+#endif
 #include <GLFW/glfw3native.h>
 #endif
 
@@ -235,10 +239,10 @@ bool lovrPlatformIsKeyDown(KeyCode key) {
 
 #ifdef _WIN32
 HANDLE lovrPlatformGetWindow() {
-  return (HANDLE) glfwGetWin32Window();
+  return (HANDLE) glfwGetWin32Window(state.window);
 }
 
 HGLRC lovrPlatformGetContext() {
-  return glfwGetWGLContext();
+  return glfwGetWGLContext(state.window);
 }
 #endif

@@ -17,7 +17,7 @@ struct Microphone {
 
 Microphone* lovrMicrophoneCreate(const char* name, size_t samples, uint32_t sampleRate, uint32_t bitDepth, uint32_t channelCount) {
   Microphone* microphone = lovrAlloc(Microphone);
-  ALCdevice* device = alcCaptureOpenDevice(name, sampleRate, lovrAudioConvertFormat(bitDepth, channelCount), samples);
+  ALCdevice* device = alcCaptureOpenDevice(name, sampleRate, lovrAudioConvertFormat(bitDepth, channelCount), (ALCsizei) samples);
   lovrAssert(device, "Error opening capture device for microphone '%s'", name);
   microphone->device = device;
   microphone->name = name ? name : alcGetString(device, ALC_CAPTURE_DEVICE_SPECIFIER);
@@ -52,7 +52,7 @@ SoundData* lovrMicrophoneGetData(Microphone* microphone) {
   }
 
   SoundData* soundData = lovrSoundDataCreate(samples, microphone->sampleRate, microphone->bitDepth, microphone->channelCount);
-  alcCaptureSamples(microphone->device, soundData->blob.data, samples);
+  alcCaptureSamples(microphone->device, soundData->blob.data, (ALCsizei) samples);
   return soundData;
 }
 

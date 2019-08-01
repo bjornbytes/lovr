@@ -85,7 +85,7 @@ bool lovrShaderHasUniform(Shader* shader, const char* name) {
 }
 
 const Uniform* lovrShaderGetUniform(Shader* shader, const char* name) {
-  int* index = map_get(&shader->uniformMap, name);
+  size_t* index = map_get(&shader->uniformMap, name);
   if (!index) {
     return false;
   }
@@ -94,7 +94,7 @@ const Uniform* lovrShaderGetUniform(Shader* shader, const char* name) {
 }
 
 static void lovrShaderSetUniform(Shader* shader, const char* name, UniformType type, void* data, int start, int count, int size, const char* debug) {
-  int* index = map_get(&shader->uniformMap, name);
+  size_t* index = map_get(&shader->uniformMap, name);
   if (!index) {
     return;
   }
@@ -248,7 +248,7 @@ char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, si
 }
 
 const Uniform* lovrShaderBlockGetUniform(ShaderBlock* block, const char* name) {
-  int* index = map_get(&block->uniformMap, name);
+  size_t* index = map_get(&block->uniformMap, name);
   if (!index) return NULL;
 
   return &block->uniforms.data[*index];

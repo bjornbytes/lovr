@@ -7,7 +7,7 @@
 
 static int l_lovrAudioStreamDecode(lua_State* L) {
   AudioStream* stream = luax_checktype(L, 1, AudioStream);
-  int samples = lovrAudioStreamDecode(stream, NULL, 0);
+  size_t samples = lovrAudioStreamDecode(stream, NULL, 0);
   if (samples > 0) {
     SoundData* soundData = lovrSoundDataCreate(samples / stream->channelCount, stream->sampleRate, stream->bitDepth, stream->channelCount);
     memcpy(soundData->blob.data, stream->buffer, samples * (stream->bitDepth / 8));

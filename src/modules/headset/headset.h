@@ -125,5 +125,5 @@ extern HeadsetInterface* lovrHeadsetTrackingDrivers;
 #define FOREACH_TRACKING_DRIVER(i)\
   for (HeadsetInterface* i = lovrHeadsetTrackingDrivers; i != NULL; i = i->next)
 
-bool lovrHeadsetInit(HeadsetDriver* drivers, uint32_t count, float offset, uint32_t msaa);
+bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float offset, uint32_t msaa);
 void lovrHeadsetDestroy(void);

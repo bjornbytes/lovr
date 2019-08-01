@@ -29,7 +29,7 @@ static int l_lovrSourceGetCone(lua_State* L) {
 static int l_lovrSourceGetDuration(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   TimeUnit unit = luaL_checkoption(L, 2, "seconds", TimeUnits);
-  int duration = lovrSourceGetDuration(source);
+  size_t duration = lovrSourceGetDuration(source);
 
   if (unit == UNIT_SECONDS) {
     lua_pushnumber(L, (float) duration / lovrSourceGetSampleRate(source));
@@ -279,7 +279,7 @@ static int l_lovrSourceStop(lua_State* L) {
 static int l_lovrSourceTell(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   TimeUnit unit = luaL_checkoption(L, 2, "seconds", TimeUnits);
-  int offset = lovrSourceTell(source);
+  size_t offset = lovrSourceTell(source);
 
   if (unit == UNIT_SECONDS) {
     lua_pushnumber(L, (float) offset / lovrSourceGetSampleRate(source));

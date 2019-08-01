@@ -39,7 +39,7 @@ size_t lovrAudioStreamDecode(AudioStream* stream, int16_t* destination, size_t s
   size_t samples = 0;
 
   while (samples < capacity) {
-    int count = stb_vorbis_get_samples_short_interleaved(decoder, channelCount, buffer + samples, capacity - samples);
+    int count = stb_vorbis_get_samples_short_interleaved(decoder, channelCount, buffer + samples, (int) (capacity - samples));
     if (count == 0) break;
     samples += count * channelCount;
   }
@@ -54,7 +54,7 @@ void lovrAudioStreamRewind(AudioStream* stream) {
 
 void lovrAudioStreamSeek(AudioStream* stream, size_t sample) {
   stb_vorbis* decoder = (stb_vorbis*) stream->decoder;
-  stb_vorbis_seek(decoder, sample);
+  stb_vorbis_seek(decoder, (int) sample);
 }
 
 size_t lovrAudioStreamTell(AudioStream* stream) {

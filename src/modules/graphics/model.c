@@ -270,7 +270,7 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
           lerp(property, channel->data + keyframe * n, z);
           break;
         case SMOOTH_CUBIC: {
-          int stride = 3 * n;
+          size_t stride = 3 * n;
           float* p0 = channel->data + (keyframe - 1) * stride + 1 * n;
           float* m0 = channel->data + (keyframe - 1) * stride + 2 * n;
           float* p1 = channel->data + (keyframe - 0) * stride + 1 * n;

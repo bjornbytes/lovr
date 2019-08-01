@@ -1463,11 +1463,11 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32
       switch (texture->type) {
         case TEXTURE_2D:
         case TEXTURE_CUBE:
-          glCompressedTexImage2D(binding, i, glInternalFormat, m->width, m->height, 0, m->size, m->data);
+          glCompressedTexImage2D(binding, i, glInternalFormat, m->width, m->height, 0, (GLsizei) m->size, m->data);
           break;
         case TEXTURE_ARRAY:
         case TEXTURE_VOLUME:
-          glCompressedTexSubImage3D(binding, i, x, y, slice, m->width, m->height, 1, glInternalFormat, m->size, m->data);
+          glCompressedTexSubImage3D(binding, i, x, y, slice, m->width, m->height, 1, glInternalFormat, (GLsizei) m->size, m->data);
           break;
       }
     }
@@ -2020,7 +2020,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
       offset += uniform.components * (uniform.type == UNIFORM_MATRIX ? uniform.components : 1);
     }
 
-    map_set(&shader->uniformMap, uniform.name, shader->uniforms.length);
+    map_set(&shader->uniformMap, uniform.name, (int) shader->uniforms.length);
     arr_push(&shader->uniforms, uniform);
     textureSlot += uniform.type == UNIFORM_SAMPLER ? uniform.count : 0;
     imageSlot += uniform.type == UNIFORM_IMAGE ? uniform.count : 0;

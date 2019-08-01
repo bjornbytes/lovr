@@ -35,7 +35,7 @@ static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* ma
       char name[128];
       bool hasName = sscanf(s + 7, "%s\n%n", name, &lineLength);
       lovrAssert(hasName, "Bad OBJ: Expected a material name");
-      map_set(names, name, materials->length);
+      map_set(names, name, (int) materials->length);
       arr_push(materials, ((ModelMaterial) {
         .scalars[SCALAR_METALNESS] = 1.f,
         .scalars[SCALAR_ROUGHNESS] = 1.f,
@@ -66,7 +66,7 @@ static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* ma
       TextureData* texture = lovrTextureDataCreateFromBlob(blob, true);
       lovrAssert(materials->length > 0, "Tried to set a material property without declaring a material first");
       ModelMaterial* material = &materials->data[materials->length - 1];
-      material->textures[TEXTURE_DIFFUSE] = textures->length;
+      material->textures[TEXTURE_DIFFUSE] = (uint32_t) textures->length;
       material->filters[TEXTURE_DIFFUSE].mode = FILTER_TRILINEAR;
       material->wraps[TEXTURE_DIFFUSE] = (TextureWrap) { .s = WRAP_REPEAT, .t = WRAP_REPEAT };
       arr_push(textures, texture);
@@ -153,7 +153,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
             arr_push(&indexBlob, *index);
           } else {
             int v, vt, vn;
-            int newIndex = vertexBlob.length / 8;
+            int newIndex = (int) vertexBlob.length / 8;
             arr_push(&indexBlob, newIndex);
             map_set(&vertexMap, s, newIndex);
 
@@ -227,11 +227,11 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
 
   model->blobCount = 2;
   model->bufferCount = 2;
-  model->attributeCount = 3 + groups.length;
-  model->primitiveCount = groups.length;
+  model->attributeCount = 3 + (uint32_t) groups.length;
+  model->primitiveCount = (uint32_t) groups.length;
   model->nodeCount = 1;
-  model->textureCount = textures.length;
-  model->materialCount = materials.length;
+  model->textureCount = (uint32_t) textures.length;
+  model->materialCount = (uint32_t) materials.length;
   lovrModelDataAllocate(model);
 
   model->blobs[0] = lovrBlobCreate(vertexBlob.data, vertexBlob.length * sizeof(float), "obj vertex data");
@@ -255,7 +255,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   model->attributes[0] = (ModelAttribute) {
     .buffer = 0,
     .offset = 0,
-    .count = vertexBlob.length / 8,
+    .count = (uint32_t)vertexBlob.length / 8,
     .type = F32,
     .components = 3
   };
@@ -263,7 +263,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   model->attributes[1] = (ModelAttribute) {
     .buffer = 0,
     .offset = 3 * sizeof(float),
-    .count = vertexBlob.length / 8,
+    .count = (uint32_t) vertexBlob.length / 8,
     .type = F32,
     .components = 3
   };
@@ -271,7 +271,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   model->attributes[2] = (ModelAttribute) {
     .buffer = 0,
     .offset = 6 * sizeof(float),
-    .count = vertexBlob.length / 8,
+    .count = (uint32_t) vertexBlob.length / 8,
     .type = F32,
     .components = 2
   };
@@ -304,7 +304,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   model->nodes[0] = (ModelNode) {
     .transform = MAT4_IDENTITY,
     .primitiveIndex = 0,
-    .primitiveCount = groups.length,
+    .primitiveCount = (uint32_t) groups.length,
     .skin = ~0u,
     .matrix = true
   };

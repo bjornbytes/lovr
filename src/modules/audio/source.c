@@ -304,10 +304,10 @@ void lovrSourceStream(Source* source, ALuint* buffers, size_t count) {
 
   // Keep decoding until there is nothing left to decode or all the buffers are filled
   while (n < count && (samples = lovrAudioStreamDecode(stream, NULL, 0)) != 0) {
-    alBufferData(buffers[n++], format, stream->buffer, samples * sizeof(ALshort), frequency);
+    alBufferData(buffers[n++], format, stream->buffer, (ALsizei) (samples * sizeof(ALshort)), frequency);
   }
 
-  alSourceQueueBuffers(source->id, n, buffers);
+  alSourceQueueBuffers(source->id, (ALsizei) n, buffers);
 
   if (samples == 0 && source->isLooping && n < count) {
     lovrAudioStreamRewind(stream);
