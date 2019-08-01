@@ -424,13 +424,13 @@ int l_lovrHeadsetGetAxis(lua_State* L) {
   float value[4];
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->getAxis(device, axis, value)) {
-      for (size_t i = 0; i < count; i++) {
+      for (int i = 0; i < count; i++) {
         lua_pushnumber(L, value[i]);
       }
       return count;
     }
   }
-  for (size_t i = 0; i < count; i++) {
+  for (int i = 0; i < count; i++) {
     lua_pushnumber(L, 0.);
   }
   return count;
