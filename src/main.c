@@ -55,9 +55,8 @@ static void emscriptenLoop(void* arg) {
 #endif
 
 int main(int argc, char** argv) {
-  lovrPlatformOpenConsole();
-
   if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
+    lovrPlatformOpenConsole();
     lovrLog("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
     exit(0);
   }
@@ -139,8 +138,11 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
         currentFlag = ARGFLAG_NONE;
 
       // This argument is a -- flag
-      } else if (!strcmp(argv[1], "--root") || !strcmp(argv[1], "-r")) {
+      } else if (!strcmp(argv[i], "--root") || !strcmp(argv[i], "-r")) {
         currentFlag = ARGFLAG_ROOT;
+
+      } else if (!strcmp(argv[i], "--console")) {
+        lovrPlatformOpenConsole();
 
       // This is the game path
       } else {
