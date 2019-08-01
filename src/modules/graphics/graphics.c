@@ -358,7 +358,9 @@ Color lovrGraphicsGetBackgroundColor() {
 
 void lovrGraphicsSetBackgroundColor(Color color) {
   state.backgroundColor = state.linearBackgroundColor = color;
+#ifndef LOVR_WEBGL
   gammaCorrect(&state.linearBackgroundColor);
+#endif
 }
 
 void lovrGraphicsGetBlendMode(BlendMode* mode, BlendAlphaMode* alphaMode) {
@@ -766,7 +768,9 @@ void lovrGraphicsFlushMesh(Mesh* mesh) {
 }
 
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
+#ifndef LOVR_WEBGL
   if (color) gammaCorrect(color);
+#endif
   if (color || depth || stencil) lovrGraphicsFlush();
   lovrGpuClear(state.canvas ? state.canvas : state.camera.canvas, color, depth, stencil);
 }

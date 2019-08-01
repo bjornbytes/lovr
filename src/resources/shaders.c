@@ -94,6 +94,9 @@ const char* lovrShaderFragmentSuffix = ""
 "  colors(lovrColor, lovrDiffuseTexture, texCoord); \n"
 "#else \n"
 "  lovrCanvas[0] = color(lovrColor, lovrDiffuseTexture, texCoord); \n"
+#ifdef LOVR_WEBGL
+"  lovrCanvas[0].rgb = pow(lovrCanvas[0].rgb, vec3(.4545)); \n"
+#endif
 "#endif \n"
 "}";
 
