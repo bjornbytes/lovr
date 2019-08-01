@@ -3,6 +3,10 @@
 
 #pragma once
 
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
 #ifndef LOVR_ENABLE_THREAD
 
 // Thread module is off, don't use atomics
@@ -21,7 +25,7 @@ static inline uint32_t ref_inc(Ref* ref) { return _InterlockedIncrement(ref); }
 static inline uint32_t ref_dec(Ref* ref) { return _InterlockedDecrement(ref); }
 
 #elif (defined(__GNUC_MINOR__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7))) \
-   || (defined(__has_builtin) && __has_builtin(__atomic_add_fetch) && __has_builtin(__atomic_sub_fetch))
+   || (__has_builtin(__atomic_add_fetch) && __has_builtin(__atomic_sub_fetch))
 
 // GCC/Clang atomics
 
