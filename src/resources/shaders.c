@@ -247,6 +247,7 @@ const char* lovrFontFragmentShader = ""
 
 const char* lovrFillVertexShader = ""
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
+"  texCoord.x = texCoord.x * (1. / lovrViewportCount) + (lovrViewID * 1. / float(lovrViewportCount)); \n"
 "  return vertex; \n"
 "}";
 
