@@ -325,7 +325,7 @@ return function()
 
   while true do
     if type(continuation) == 'string' then -- LuaJIT returns a fixed string if an error occurs in an xpcall error handler
-      print('Error occurred while trying to display another error.')
+      print('Error occurred while trying to display another error: ' .. continuation)
       return 1
     end
 
