@@ -954,15 +954,7 @@ static int l_lovrGraphicsStencil(lua_State* L) {
 }
 
 static int l_lovrGraphicsFill(lua_State* L) {
-  Texture* texture = NULL;
-  if (!lua_isnoneornil(L, 1)) {
-    Canvas* canvas = luax_totype(L, 1, Canvas);
-    if (canvas) {
-      texture = lovrCanvasGetAttachments(canvas, NULL)->texture;
-    } else {
-      texture = luax_checktype(L, 1, Texture);
-    }
-  }
+  Texture* texture = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Texture);
   float u = luax_optfloat(L, 2, 0.f);
   float v = luax_optfloat(L, 3, 0.f);
   float w = luax_optfloat(L, 4, 1.f - u);
