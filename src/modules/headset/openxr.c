@@ -1,16 +1,17 @@
 #include "headset/headset.h"
 #include "event/event.h"
+#include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "graphics/texture.h"
 #include "graphics/opengl.h"
-#include "util.h"
+#include "core/ref.h"
+#include "core/util.h"
 #include <math.h>
 
 #ifdef _WIN32
 #define XR_USE_PLATFORM_WIN32
 #define GRAPIHCS_BINDING { XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR, NULL, lovrPlatformGetWindow(), lovrPlatformGetContext() }
-#elif __linux__
 #else
 #define GRAPHICS_BINDING NULL
 #endif
@@ -30,9 +31,9 @@ static XrResult handleResult(XrResult result, const char* file, int line) {
 }
 
 #define XR(f) handleResult(f, __FILE__, __LINE__)
-#define XR_INIT(f) if (XR_FAILED(f)) return destroy(), false;
+#define XR_INIT(f) if (XR_FAILED(f)) return openxr_destroy(), false;
 #define SESSION_VISIBLE(s) (s == XR_SESSION_STATE_VISIBLE || s == XR_SESSION_STATE_FOCUSED)
-#define SESSION_RUNNING(s) (s == XR_SESSION_STATE_RUNNING || SESSION_VISIBLE(s))
+#define SESSION_SYNCHRONIZED(s) (s == XR_SESSION_STATE_SYNCHRONIZED || SESSION_VISIBLE(s))
 #define MAX_IMAGES 4
 
 enum {
@@ -40,7 +41,7 @@ enum {
   PROFILE_VIVE,
   PROFILE_TOUCH,
   PROFILE_GO,
-  PROFILE_KNUCKLES,
+  PROFILE_INDEX,
   MAX_PROFILES
 } Profile;
 
@@ -49,7 +50,7 @@ const char* profilePaths[MAX_PROFILES] = {
   [PROFILE_VIVE] = "/interaction_profiles/htc/vive_controller",
   [PROFILE_TOUCH] = "/interaction_profiles/oculus/touch_controller",
   [PROFILE_GO] = "/interaction_profiles/oculus/go_controller",
-  [PROFILE_KNUCKLES] = "/interaction_profiles/valve/knuckles_controller"
+  [PROFILE_INDEX] = "/interaction_profiles/valve/index_controller"
 };
 
 typedef enum {
@@ -60,105 +61,135 @@ typedef enum {
   ACTION_TRACKPAD_DOWN,
   ACTION_TRACKPAD_TOUCH,
   ACTION_TRACKPAD_AXIS,
+  ACTION_THUMBSTICK_DOWN,
+  ACTION_THUMBSTICK_TOUCH,
+  ACTION_THUMBSTICK_AXIS,
   ACTION_MENU_DOWN,
   ACTION_MENU_TOUCH,
   ACTION_GRIP_DOWN,
   ACTION_GRIP_TOUCH,
   ACTION_GRIP_AXIS,
-  ACTION_VIBRATE
+  ACTION_VIBRATE,
+  MAX_ACTIONS
 } Action;
-#define MAX_ACTIONS 14
 
 #define action(id, name, type, subactions) { XR_TYPE_ACTION_CREATE_INFO, NULL, id, type, subactions, NULL, name }
 static XrActionCreateInfo defaultActions[MAX_ACTIONS] = {
-  [ACTION_HAND_POSE] = action("handPose", "Hand Pose", XR_INPUT_ACTION_TYPE_POSE, 2),
-  [ACTION_TRIGGER_DOWN] = action("triggerDown", "Trigger Down", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
-  [ACTION_TRIGGER_TOUCH] = action("triggerTouch", "Trigger Touch", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
-  [ACTION_TRIGGER_AXIS] = action("triggerAxis", "Trigger Axis", XR_INPUT_ACTION_TYPE_VECTOR1F, 2),
-  [ACTION_TRACKPAD_AXIS] = action("trackpadAxis", "Trackpad Axis", XR_INPUT_ACTION_TYPE_VECTOR2F, 2),
-  [ACTION_MENU_DOWN] = action("menuDown", "Menu Down", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
-  [ACTION_MENU_TOUCH] = action("menuTouch", "Menu Touch", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
-  [ACTION_GRIP_DOWN] = action("gripDown", "Grip Down", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
-  [ACTION_GRIP_TOUCH] = action("gripTouch", "Grip Touch", XR_INPUT_ACTION_TYPE_BOOLEAN, 2),
-  [ACTION_GRIP_AXIS] = action("gripAxis", "Grip Axis", XR_INPUT_ACTION_TYPE_VECTOR1F, 2),
-  [ACTION_VIBRATE] = action("vibrate", "Vibrate", XR_OUTPUT_ACTION_TYPE_VIBRATION, 2),
+  [ACTION_HAND_POSE] = action("handPose", "Hand Pose", XR_ACTION_TYPE_POSE_INPUT, 2),
+  [ACTION_TRIGGER_DOWN] = action("triggerDown", "Trigger Down", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
+  [ACTION_TRIGGER_TOUCH] = action("triggerTouch", "Trigger Touch", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
+  [ACTION_TRIGGER_AXIS] = action("triggerAxis", "Trigger Axis", XR_ACTION_TYPE_FLOAT_INPUT, 2),
+  [ACTION_TRACKPAD_DOWN] = action("trackpadDown", "Trackpad Down", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
+  [ACTION_TRACKPAD_TOUCH] = action("trackpadTouch", "Trackpad Touch", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
+  [ACTION_TRACKPAD_AXIS] = action("trackpadAxis", "Trackpad Axis", XR_ACTION_TYPE_VECTOR2F_INPUT, 2),
+  [ACTION_THUMBSTICK_DOWN] = action("thumbstickDown", "Thumbstick Down", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
+  [ACTION_THUMBSTICK_TOUCH] = action("thumbstickTouch", "Thumbstick Touch", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
+  [ACTION_THUMBSTICK_AXIS] = action("thumbstickAxis", "Thumbstick Axis", XR_ACTION_TYPE_VECTOR2F_INPUT, 2),
+  [ACTION_MENU_DOWN] = action("menuDown", "Menu Down", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
+  [ACTION_MENU_TOUCH] = action("menuTouch", "Menu Touch", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
+  [ACTION_GRIP_DOWN] = action("gripDown", "Grip Down", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
+  [ACTION_GRIP_TOUCH] = action("gripTouch", "Grip Touch", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
+  [ACTION_GRIP_AXIS] = action("gripAxis", "Grip Axis", XR_ACTION_TYPE_FLOAT_INPUT, 2),
+  [ACTION_VIBRATE] = action("vibrate", "Vibrate", XR_ACTION_TYPE_VIBRATION_OUTPUT, 2),
 };
 #undef action
 
 static const char* defaultBindings[MAX_PROFILES][MAX_ACTIONS][2] = {
   [PROFILE_SIMPLE] = {
-    [ACTION_HAND_POSE][0] = "/user/hand/left/input/pointer/pose",
-    [ACTION_HAND_POSE][1] = "/user/hand/right/input/pointer/pose",
+    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
+    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/select/click",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/select/click",
     [ACTION_MENU_DOWN][0] = "/user/hand/left/input/menu/click",
     [ACTION_MENU_DOWN][1] = "/user/hand/right/input/menu/click",
-    [ACTION_VIBRATE][0] = "/user/hand/left/output/vibrate",
-    [ACTION_VIBRATE][1] = "/user/hand/right/output/vibrate"
+    [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
+    [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
   },
   [PROFILE_VIVE] = {
-    [ACTION_HAND_POSE][0] = "/user/hand/left/input/pointer/pose",
-    [ACTION_HAND_POSE][1] = "/user/hand/right/input/pointer/pose",
+    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
+    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
     [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
     [ACTION_TRIGGER_AXIS][1] = "/user/hand/right/input/trigger/value",
+    [ACTION_TRACKPAD_DOWN][0] = "/user/hand/left/input/trackpad/click",
+    [ACTION_TRACKPAD_DOWN][1] = "/user/hand/right/input/trackpad/click",
+    [ACTION_TRACKPAD_TOUCH][0] = "/user/hand/left/input/trackpad/touch",
+    [ACTION_TRACKPAD_TOUCH][1] = "/user/hand/right/input/trackpad/touch",
     [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
     [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad",
     [ACTION_MENU_DOWN][0] = "/user/hand/left/input/menu/click",
     [ACTION_MENU_DOWN][1] = "/user/hand/right/input/menu/click",
-    [ACTION_GRIP_DOWN][0] = "/user/hand/left/input/grip/click",
-    [ACTION_GRIP_DOWN][1] = "/user/hand/right/input/grip/click",
-    [ACTION_VIBRATE][0] = "/user/hand/left/output/vibrate",
-    [ACTION_VIBRATE][1] = "/user/hand/right/output/vibrate"
+    [ACTION_GRIP_DOWN][0] = "/user/hand/left/input/squeeze/click",
+    [ACTION_GRIP_DOWN][1] = "/user/hand/right/input/squeeze/click",
+    [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
+    [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
   },
   [PROFILE_TOUCH] = {
-    [ACTION_HAND_POSE][0] = "/user/hand/left/input/pointer/pose",
-    [ACTION_HAND_POSE][1] = "/user/hand/right/input/pointer/pose",
+    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
+    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
     [ACTION_TRIGGER_TOUCH][0] = "/user/hand/left/input/trigger/touch",
     [ACTION_TRIGGER_TOUCH][1] = "/user/hand/right/input/trigger/touch",
     [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
     [ACTION_TRIGGER_AXIS][1] = "/user/hand/right/input/trigger/value",
-    [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
-    [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad",
+    [ACTION_THUMBSTICK_DOWN][0] = "/user/hand/left/input/thumbstick/click",
+    [ACTION_THUMBSTICK_DOWN][1] = "/user/hand/right/input/thumbstick/click",
+    [ACTION_THUMBSTICK_TOUCH][0] = "/user/hand/left/input/thumbstick/touch",
+    [ACTION_THUMBSTICK_TOUCH][1] = "/user/hand/right/input/thumbstick/touch",
+    [ACTION_THUMBSTICK_AXIS][0] = "/user/hand/left/input/thumbstick",
+    [ACTION_THUMBSTICK_AXIS][1] = "/user/hand/right/input/thumbstick",
     [ACTION_MENU_DOWN][0] = "/user/hand/left/input/menu/click",
     [ACTION_MENU_DOWN][1] = "/user/hand/right/input/menu/click",
     [ACTION_MENU_TOUCH][0] = "/user/hand/left/input/menu/touch",
     [ACTION_MENU_TOUCH][1] = "/user/hand/right/input/menu/touch",
-    [ACTION_GRIP_DOWN][0] = "/user/hand/left/input/grip/click",
-    [ACTION_GRIP_DOWN][1] = "/user/hand/right/input/grip/click",
-    [ACTION_GRIP_TOUCH][0] = "/user/hand/left/input/grip/touch",
-    [ACTION_GRIP_TOUCH][1] = "/user/hand/right/input/grip/touch",
-    [ACTION_GRIP_AXIS][0] = "/user/hand/left/input/grip/value",
-    [ACTION_GRIP_AXIS][1] = "/user/hand/right/input/grip/value",
-    [ACTION_VIBRATE][0] = "/user/hand/left/output/vibrate",
-    [ACTION_VIBRATE][1] = "/user/hand/right/output/vibrate"
+    [ACTION_GRIP_DOWN][0] = "/user/hand/left/input/squeeze/click",
+    [ACTION_GRIP_DOWN][1] = "/user/hand/right/input/squeeze/click",
+    [ACTION_GRIP_TOUCH][0] = "/user/hand/left/input/squeeze/touch",
+    [ACTION_GRIP_TOUCH][1] = "/user/hand/right/input/squeeze/touch",
+    [ACTION_GRIP_AXIS][0] = "/user/hand/left/input/squeeze/value",
+    [ACTION_GRIP_AXIS][1] = "/user/hand/right/input/squeeze/value",
+    [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
+    [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
   },
   [PROFILE_GO] = {
-    [ACTION_HAND_POSE][0] = "/user/hand/left/input/pointer/pose",
-    [ACTION_HAND_POSE][1] = "/user/hand/right/input/pointer/pose",
+    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
+    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
+    [ACTION_TRACKPAD_DOWN][0] = "/user/hand/left/input/trackpad/click",
+    [ACTION_TRACKPAD_DOWN][1] = "/user/hand/right/input/trackpad/click",
+    [ACTION_TRACKPAD_TOUCH][0] = "/user/hand/left/input/trackpad/touch",
+    [ACTION_TRACKPAD_TOUCH][1] = "/user/hand/right/input/trackpad/touch",
     [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
     [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad"
   },
-  [PROFILE_KNUCKLES] = {
-    [ACTION_HAND_POSE][0] = "/user/hand/left/input/pointer/pose",
-    [ACTION_HAND_POSE][1] = "/user/hand/right/input/pointer/pose",
+  [PROFILE_INDEX] = {
+    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
+    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
     [ACTION_TRIGGER_TOUCH][0] = "/user/hand/left/input/trigger/touch",
     [ACTION_TRIGGER_TOUCH][1] = "/user/hand/right/input/trigger/touch",
     [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
     [ACTION_TRIGGER_AXIS][1] = "/user/hand/right/input/trigger/value",
+    [ACTION_TRACKPAD_DOWN][0] = "/user/hand/left/input/trackpad/click",
+    [ACTION_TRACKPAD_DOWN][1] = "/user/hand/right/input/trackpad/click",
+    [ACTION_TRACKPAD_TOUCH][0] = "/user/hand/left/input/trackpad/touch",
+    [ACTION_TRACKPAD_TOUCH][1] = "/user/hand/right/input/trackpad/touch",
     [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
     [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad",
-    [ACTION_GRIP_AXIS][0] = "/user/hand/left/input/grip/value",
-    [ACTION_GRIP_AXIS][1] = "/user/hand/right/input/grip/value",
-    [ACTION_VIBRATE][0] = "/user/hand/left/output/vibrate",
-    [ACTION_VIBRATE][1] = "/user/hand/right/output/vibrate",
+    [ACTION_THUMBSTICK_DOWN][0] = "/user/hand/left/input/thumbstick/click",
+    [ACTION_THUMBSTICK_DOWN][1] = "/user/hand/right/input/thumbstick/click",
+    [ACTION_THUMBSTICK_TOUCH][0] = "/user/hand/left/input/thumbstick/touch",
+    [ACTION_THUMBSTICK_TOUCH][1] = "/user/hand/right/input/thumbstick/touch",
+    [ACTION_THUMBSTICK_AXIS][0] = "/user/hand/left/input/thumbstick",
+    [ACTION_THUMBSTICK_AXIS][1] = "/user/hand/right/input/thumbstick",
+    [ACTION_GRIP_AXIS][0] = "/user/hand/left/input/squeeze/value",
+    [ACTION_GRIP_AXIS][1] = "/user/hand/right/input/squeeze/value",
+    [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
+    [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
   }
 };
 
@@ -167,15 +198,13 @@ static struct {
   XrSystemId system;
   XrSession session;
   XrSessionState sessionState;
-  XrSpace space;
-  XrSpace headSpace;
-  XrSpace leftHandSpace;
-  XrSpace rightHandSpace;
-  XrReferenceSpaceType spaceType;
+  XrSpace referenceSpace;
+  XrReferenceSpaceType referenceSpaceType;
+  XrSpace spaces[MAX_DEVICES];
   XrSwapchain swapchain;
   XrCompositionLayerProjection layers[1];
   XrCompositionLayerProjectionView layerViews[2];
-  XrTime displayTime;
+  XrFrameState frameState;
   Canvas* canvas;
   Texture textures[MAX_IMAGES];
   uint32_t imageCount;
@@ -197,16 +226,22 @@ static bool openxr_init(float offset, uint32_t msaa) {
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
       .applicationInfo.engineName = "LÖVR",
-      .applicationInfo.engineVersion = LOVR_VERSION_MAJOR * 1000 + LOVR_VERSION_MINOR,
+      .applicationInfo.engineVersion = ((LOVR_VERSION_MAJOR & 0xff) << 24) + ((LOVR_VERSION_MINOR & 0xff) << 16) + (LOVR_VERSION_PATCH & 0xffff),
+      .applicationInfo.apiVersion = XR_CURRENT_API_VERSION,
       .enabledExtensionCount = 1,
       .enabledExtensionNames = (const char*[1]) { "XR_KHR_opengl_enable" }
     };
 
+    strncpy(info.applicationInfo.applicationName, lovrFilesystemGetIdentity(), XR_MAX_APPLICATION_NAME_SIZE - 1);
     XR_INIT(xrCreateInstance(&info, &state.instance));
   }
 
   { // System
-    XrSystemGetInfo info = { XR_TYPE_SYSTEM_GET_INFO, NULL, XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY };
+    XrSystemGetInfo info = {
+      .type = XR_TYPE_SYSTEM_GET_INFO,
+      .formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY
+    };
+
     XR_INIT(xrGetSystem(state.instance, &info, &state.system));
 
     uint32_t viewCount;
@@ -219,7 +254,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
       views[0].recommendedImageRectWidth != views[1].recommendedImageRectWidth ||
       views[0].recommendedImageRectHeight != views[1].recommendedImageRectHeight
     ) {
-      destroy();
+      openxr_destroy();
       return false;
     }
 
@@ -228,39 +263,119 @@ static bool openxr_init(float offset, uint32_t msaa) {
     state.height = views[0].recommendedImageRectHeight;
   }
 
+  { // Actions...
+    XrActionSetCreateInfo info = {
+      .type = XR_TYPE_ACTION_SET_CREATE_INFO,
+      .actionSetName = "default",
+      .localizedActionSetName = "Default",
+      .priority = 0
+    };
+
+    XR_INIT(xrCreateActionSet(state.instance, &info, &state.actionSet));
+    XR_INIT(xrStringToPath(state.instance, "/user/hand/left", &state.actionFilters[0]));
+    XR_INIT(xrStringToPath(state.instance, "/user/hand/right", &state.actionFilters[1]));
+
+    for (size_t action = 0; action < MAX_ACTIONS; action++) {
+      defaultActions[action].subactionPaths = defaultActions[action].countSubactionPaths == 2 ? state.actionFilters : NULL;
+      XR_INIT(xrCreateAction(state.actionSet, &defaultActions[action], &state.actions[action]));
+    }
+
+    XrActionSuggestedBinding bindings[2 * MAX_ACTIONS];
+    for (size_t profile = 0; profile < MAX_PROFILES; profile++) {
+      int bindingCount = 0;
+
+      for (size_t action = 0; action < MAX_ACTIONS; action++) {
+        for (size_t i = 0; i < 2; i++) {
+          if (defaultBindings[profile][action][i]) {
+            bindings[bindingCount].action = state.actions[action];
+            XR_INIT(xrStringToPath(state.instance, defaultBindings[profile][action][i], &bindings[bindingCount].binding));
+            bindingCount++;
+          }
+        }
+      }
+
+      XrPath profilePath;
+      XR_INIT(xrStringToPath(state.instance, profilePaths[profile], &profilePath));
+      XR_INIT(xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
+        .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+        .interactionProfile = profilePath,
+        .countSuggestedBindings = bindingCount,
+        .suggestedBindings = bindings
+      }));
+    }
+  }
+
   { // Session
-    XrSessionCreateInfo createInfo = { XR_TYPE_SESSION_CREATE_INFO, GRAPHICS_BINDING, 0, state.system };
-    XR_INIT(xrCreateSession(state.instance, &createInfo, &state.session));
+    XrSessionCreateInfo info = {
+      .type = XR_TYPE_SESSION_CREATE_INFO,
+      .next = GRAPHICS_BINDING,
+      .systemId = state.system
+    };
+
+    XrSessionActionSetsAttachInfo attachInfo = {
+      .type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO,
+      .countActionSets = 1,
+      .actionSets = &state.actionSet
+    };
+
+    XR_INIT(xrCreateSession(state.instance, &info, &state.session));
+    XR_INIT(xrAttachSessionActionSets(state.session, &attachInfo));
   }
 
   { // Spaaaaace
+
+    // Main reference space (can be stage or local)
     XrReferenceSpaceCreateInfo info = {
       .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
       .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE
     };
 
-    // First try to create a stage space, then fall back to local space (head-level)
-    if (XR_FAILED(xrCreateReferenceSpace(state.session, &info, &state.space))) {
+    if (XR_FAILED(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace))) {
       info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
       info.poseInReferenceSpace.position.y = -offset;
-      XR_INIT(xrCreateReferenceSpace(state.session, &info, &state.space));
+      XR_INIT(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace));
     }
 
-    // For getOriginType
-    state.spaceType = info.referenceSpaceType;
+    state.referenceSpaceType = info.referenceSpaceType;
+
+    // Head space (for head pose)
+    XrReferenceSpaceCreateInfo headSpaceInfo = {
+      .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
+      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW
+    };
+
+    XR_INIT(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]));
+
+    // Left hand space
+    XrActionSpaceCreateInfo leftHandSpaceInfo = {
+      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
+      .action = state.actions[ACTION_HAND_POSE],
+      .subactionPath = state.actionFilters[0]
+    };
+
+    XR_INIT(xrCreateActionSpace(state.session, &leftHandSpaceInfo, &state.spaces[DEVICE_HAND_LEFT]));
+
+    // Right hand space
+    XrActionSpaceCreateInfo rightHandSpaceInfo = {
+      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
+      .action = state.actions[ACTION_HAND_POSE],
+      .subactionPath = state.actionFilters[1]
+    };
+
+    XR_INIT(xrCreateActionSpace(state.session, &rightHandSpaceInfo, &state.spaces[DEVICE_HAND_RIGHT]));
   }
 
   { // Swapchain
     XrSwapchainCreateInfo info = {
       .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
       .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
-      .format = GL_RGBA8,
+      .format = GL_SRGB8_ALPHA8,
       .sampleCount = state.msaa,
       .width = state.width * 2,
       .height = state.height,
       .faceCount = 1,
       .arraySize = 1,
-      .mipCount = log2(MAX(state.width, state.height) + 1)
+      .mipCount = 1
     };
 
     XrSwapchainImageOpenGLKHR images[MAX_IMAGES];
@@ -274,80 +389,20 @@ static bool openxr_init(float offset, uint32_t msaa) {
     // Pre-init composition layer
     state.layers[0] = (XrCompositionLayerProjection) {
       .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
-      .space = state.space,
+      .space = state.referenceSpace,
       .viewCount = 2,
       .views = state.layerViews
     };
 
     // Pre-init composition layer views
-    state.layerViews[0] = state.layerViews[1] = (XrCompositionLayerProjectionView) {
+    state.layerViews[0] = (XrCompositionLayerProjectionView) {
       .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
       .subImage = { state.swapchain, { { 0, 0 }, { state.width, state.height } }, 0 }
     };
 
-    // Offset the right view for side-by-side submission
+    // Copy the left view to the right view and offset for side-by-side submission
+    state.layerViews[1] = state.layerViews[0];
     state.layerViews[1].subImage.imageRect.offset.x += state.width;
-  }
-
-  { // Actions
-    XrActionSetCreateInfo info = {
-      .type = XR_TYPE_ACTION_SET_CREATE_INFO,
-      .actionSetName = "default",
-      .localizedActionSetName = "Default",
-      .priority = 0
-    };
-
-    XR_INIT(xrCreateActionSet(state.session, &info, &state.actionSet));
-    XR_INIT(xrStringToPath(state.instance, "/user/hand/left", &state.actionFilters[0]));
-    XR_INIT(xrStringToPath(state.instance, "/user/hand/right", &state.actionFilters[1]));
-
-    for (int action = 0; action < MAX_ACTIONS; action++) {
-      defaultActions[action].subactionPaths = defaultActions[action].countSubactionPaths == 2 ? state.actionFilters : NULL;
-      XR_INIT(xrCreateAction(state.actionSet, &defaultActions[action], &state.actions[0]));
-    }
-
-    XrActionSuggestedBinding bindings[2 * MAX_ACTIONS];
-    for (int profile = 0; profile < MAX_PROFILES; profile++) {
-      int bindingCount = 0;
-
-      for (int action = 0; action < MAX_ACTIONS; action++) {
-        for (int i = 0; i < 2; i++) {
-          if (defaultBindings[profile][action][i]) {
-            bindings[bindingCount].action = state.actions[action];
-            XR_INIT(xrStringToPath(state.instance, defaultBindings[profile][action][i], &bindings[bindingCount].binding));
-            bindingCount++;
-          }
-        }
-      }
-
-      XrPath profilePath;
-      XR_INIT(xrStringToPath(state.instance, profilePaths[profile], &profilePath));
-      XR_INIT(xrSetInteractionProfileSuggestedBindings(state.session, &(XrInteractionProfileSuggestedBinding) {
-        .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
-        .interactionProfile = profilePath,
-        .countSuggestedBindings = bindingCount,
-        .suggestedBindings = bindings
-      }));
-    }
-
-    XrReferenceSpaceCreateInfo headSpaceInfo = {
-      .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
-      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW
-    };
-
-    XrActionSpaceCreateInfo leftHandSpaceInfo = {
-      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
-      .subactionPath = state.actionFilters[0]
-    };
-
-    XrActionSpaceCreateInfo rightHandSpaceInfo = {
-      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
-      .subactionPath = state.actionFilters[1]
-    };
-
-    XR_INIT(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.headSpace));
-    XR_INIT(xrCreateActionSpace(state.actions[ACTION_HAND_POSE], &leftHandSpaceInfo, &state.leftHandSpace));
-    XR_INIT(xrCreateActionSpace(state.actions[ACTION_HAND_POSE], &rightHandSpaceInfo, &state.rightHandSpace));
   }
 
   return true;
@@ -363,14 +418,18 @@ static void openxr_destroy() {
     xrDestroyAction(state.actions[i]);
   }
 
+  for (size_t i = 0; i < MAX_DEVICES; i++) {
+    if (state.spaces[i]) {
+      xrDestroySpace(state.spaces[i]);
+    }
+  }
+
   xrDestroyActionSet(state.actionSet);
   xrDestroySwapchain(state.swapchain);
-  xrDestroySpace(state.rightHandSpace);
-  xrDestroySpace(state.leftHandSpace);
-  xrDestroySpace(state.headSpace);
-  xrDestroySpace(state.space);
+  xrDestroySpace(state.referenceSpace);
   xrEndSession(state.session);
   xrDestroyInstance(state.instance);
+  memset(&state, 0, sizeof(state));
 }
 
 static bool openxr_getName(char* name, size_t length) {
@@ -382,7 +441,7 @@ static bool openxr_getName(char* name, size_t length) {
 }
 
 static HeadsetOrigin openxr_getOriginType() {
-  return state.spaceType == XR_REFERENCE_SPACE_TYPE_STAGE ? ORIGIN_FLOOR : ORIGIN_HEAD;
+  return state.referenceSpaceType == XR_REFERENCE_SPACE_TYPE_STAGE ? ORIGIN_FLOOR : ORIGIN_HEAD;
 }
 
 static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -396,7 +455,7 @@ static const float* openxr_getDisplayMask(uint32_t* count) {
 }
 
 static double openxr_getDisplayTime(void) {
-  return state.displayTime / 1e9;
+  return state.frameState.predictedDisplayTime / 1e9;
 }
 
 static void openxr_getClipDistance(float* clipNear, float* clipFar) {
@@ -411,9 +470,13 @@ static void openxr_setClipDistance(float clipNear, float clipFar) {
 
 static void openxr_getBoundsDimensions(float* width, float* depth) {
   XrExtent2Df bounds;
-  XR(xrGetReferenceSpaceBoundsRect(state.session, state.spaceType, &bounds));
-  *width = bounds.width;
-  *depth = bounds.height;
+  if (XR_SUCCEEDED(xrGetReferenceSpaceBoundsRect(state.session, state.referenceSpaceType, &bounds))) {
+    *width = bounds.width;
+    *depth = bounds.height;
+  } else {
+    *width = 0.f;
+    *depth = 0.f;
+  }
 }
 
 static const float* openxr_getBoundsGeometry(uint32_t* count) {
@@ -421,47 +484,33 @@ static const float* openxr_getBoundsGeometry(uint32_t* count) {
   return NULL;
 }
 
-static bool getRelation(Device device, XrSpaceRelation* relation) {
-  XrSpace space;
-
-  switch (device) {
-    case DEVICE_HEAD: space = state.headSpace; break;
-    case DEVICE_HAND_LEFT: space = state.leftHandSpace; break;
-    case DEVICE_HAND_RIGHT: space = state.rightHandSpace; break;
-    default: return false;
-  }
-
-  XR(xrLocateSpace(space, state.space, state.displayTime, relation));
-  return true;
-}
-
 static bool openxr_getPose(Device device, vec3 position, quat orientation) {
-  XrSpaceRelation relation;
-
-  if (getRelation(device, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_POSITION_VALID_BIT | XR_SPACE_RELATION_ORIENTATION_VALID_BIT))) {
-    XrPosef* pose = &relation.pose;
-    vec3_set(position, pose->position.x, pose->position.y, pose->position.z);
-    quat_set(orientation, pose->orientation.x, pose->orientation.y, pose->orientation.z, pose->orientation.w);
-    return true;
+  if (!state.spaces[device]) {
+    return false;
   }
 
-  return false;
+  XrSpaceLocation location;
+  XR(xrLocateSpace(state.spaces[device], state.referenceSpace, state.frameState.predictedDisplayTime, &location));
+  memcpy(orientation, &location.pose.orientation, 4 * sizeof(float));
+  memcpy(position, &location.pose.position, 3 * sizeof(float));
+  return location.locationFlags & (XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
 }
 
 static bool openxr_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
   return false;
 }
 
-static bool openxr_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  XrSpaceRelation relation;
-
-  if (getRelation(device, &relation) && (relation.relationFlags & (XR_SPACE_RELATION_LINEAR_VELOCITY_VALID_BIT | XR_SPACE_RELATION_ANGULAR_VELOCITY_VALID_BIT))) {
-    vec3_set(velocity, relation.linearVelocity.x, relation.linearVelocity.y, relation.linearVelocity.z);
-    vec3_set(angularVelocity, relation.angularVelocity.x, relation.angularVelocity.y, relation.angularVelocity.z);
-    return true;
+static bool openxr_getVelocity(Device device, vec3 linearVelocity, vec3 angularVelocity) {
+  if (!state.spaces[device]) {
+    return false;
   }
 
-  return false;
+  XrSpaceVelocity velocity = { .type = XR_TYPE_SPACE_VELOCITY };
+  XrSpaceLocation location = { .next = &velocity };
+  XR(xrLocateSpace(state.spaces[device], state.referenceSpace, state.frameState.predictedDisplayTime, &location));
+  memcpy(linearVelocity, &velocity.linearVelocity, 3 * sizeof(float));
+  memcpy(angularVelocity, &velocity.angularVelocity, 3 * sizeof(float));
+  return velocity.velocityFlags & (XR_SPACE_VELOCITY_LINEAR_VALID_BIT | XR_SPACE_VELOCITY_ANGULAR_VALID_BIT);
 }
 
 static XrPath getActionFilter(Device device) {
@@ -473,23 +522,25 @@ static XrPath getActionFilter(Device device) {
 }
 
 static bool getButtonState(Device device, DeviceButton button, bool* value, bool touch) {
-  XrPath filter = getActionFilter(device);
+  XrActionStateGetInfo info = {
+    .type = XR_TYPE_ACTION_STATE_GET_INFO,
+    .subactionPath = getActionFilter(device)
+  };
 
-  if (filter == XR_NULL_PATH) {
+  if (info.subactionPath == XR_NULL_PATH) {
     return false;
   }
 
-  Action type;
   switch (button) {
-    case BUTTON_TRIGGER: type = ACTION_TRIGGER_DOWN + touch; break;
-    case BUTTON_TOUCHPAD: type = ACTION_TRACKPAD_DOWN + touch; break;
-    case BUTTON_MENU: type = ACTION_MENU_DOWN + touch; break;
-    case BUTTON_GRIP: type = ACTION_GRIP_DOWN + touch; break;
+    case BUTTON_TRIGGER: info.action = state.actions[ACTION_TRIGGER_DOWN + touch]; break;
+    case BUTTON_TOUCHPAD: info.action = state.actions[ACTION_TRACKPAD_DOWN + touch]; break;
+    case BUTTON_MENU: info.action = state.actions[ACTION_MENU_DOWN + touch]; break;
+    case BUTTON_GRIP: info.action = state.actions[ACTION_GRIP_DOWN + touch]; break;
     default: return false;
   }
 
   XrActionStateBoolean actionState;
-  XR(xrGetActionStateBoolean(state.actions[type], 1, &filter, &actionState));
+  XR(xrGetActionStateBoolean(state.session, &info, &actionState));
   *value = actionState.currentState;
   return actionState.isActive;
 }
@@ -503,41 +554,63 @@ static bool openxr_isTouched(Device device, DeviceButton button, bool* touched) 
 }
 
 static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
-  XrPath filter = getActionFilter(device);
+  XrActionStateGetInfo info = {
+    .type = XR_TYPE_ACTION_STATE_GET_INFO,
+    .subactionPath = getActionFilter(device)
+  };
 
-  if (filter == XR_NULL_PATH) {
+  if (info.subactionPath == XR_NULL_PATH) {
     return false;
   }
 
-  Action type;
   switch (axis) {
-    case AXIS_TRIGGER: type = ACTION_TRIGGER_AXIS; break;
-    case AXIS_TOUCHPAD: type = ACTION_TRACKPAD_AXIS; break;
-    case AXIS_GRIP: type = ACTION_GRIP_AXIS; break;
+    case AXIS_TRIGGER: info.action = state.actions[ACTION_TRIGGER_AXIS]; break;
+    case AXIS_TOUCHPAD: info.action = state.actions[ACTION_TRACKPAD_AXIS]; break;
+    case AXIS_GRIP: info.action = state.actions[ACTION_GRIP_AXIS]; break;
     default: return false;
   }
 
-  XrActionStateVector1f actionState;
-  XR(xrGetActionStateVector1f(state.actions[type], 1, &filter, &actionState));
-  *value = actionState.currentState;
-  return true;
+  switch (axis) {
+    case AXIS_TRIGGER:
+    case AXIS_GRIP: {
+      XrActionStateFloat actionState;
+      XR(xrGetActionStateFloat(state.session, &info, &actionState));
+      *value = actionState.currentState;
+      return actionState.isActive;
+    }
+
+    case AXIS_THUMBSTICK:
+    case AXIS_TOUCHPAD: {
+      XrActionStateVector2f actionState;
+      XR(xrGetActionStateVector2f(state.session, &info, &actionState));
+      value[0] = actionState.currentState.x;
+      value[1] = actionState.currentState.y;
+      return actionState.isActive;
+    }
+
+    default: return false;
+  }
 }
 
 static bool openxr_vibrate(Device device, float power, float duration, float frequency) {
-  XrPath filter = getActionFilter(device);
+  XrHapticActionInfo info = {
+    .type = XR_TYPE_HAPTIC_ACTION_INFO,
+    .action = state.actions[ACTION_VIBRATE],
+    .subactionPath = getActionFilter(device)
+  };
 
-  if (filter == XR_NULL_PATH) {
+  if (info.subactionPath == XR_NULL_PATH) {
     return false;
   }
 
   XrHapticVibration vibration = {
     .type = XR_TYPE_HAPTIC_VIBRATION,
-    .duration = (int64_t) (duration * 1e9f + .5f),
+    .duration = (XrDuration) (duration * 1e9f + .5f),
     .frequency = frequency,
     .amplitude = power
   };
 
-  XR(xrApplyHapticFeedback(state.actions[ACTION_VIBRATE], 1, &filter, (XrHapticBaseHeader*) &vibration));
+  XR(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration));
   return true;
 }
 
@@ -546,22 +619,28 @@ static struct ModelData* openxr_newModelData(Device device) {
 }
 
 static void openxr_renderTo(void (*callback)(void*), void* userdata) {
-  if (!SESSION_RUNNING(state.sessionState)) { return; }
+  if (!SESSION_SYNCHRONIZED(state.sessionState)) { return; }
 
   XrFrameBeginInfo beginInfo = { XR_TYPE_FRAME_BEGIN_INFO, NULL };
-  XrFrameEndInfo endInfo = { XR_TYPE_FRAME_END_INFO, NULL, state.displayTime, XR_ENVIRONMENT_BLEND_MODE_OPAQUE, 0, NULL };
+  XrFrameEndInfo endInfo = { XR_TYPE_FRAME_END_INFO, NULL, state.frameState.predictedDisplayTime, XR_ENVIRONMENT_BLEND_MODE_OPAQUE, 0, NULL };
 
   XR(xrBeginFrame(state.session, &beginInfo));
 
-  if (SESSION_VISIBLE(state.sessionState)) {
+  if (state.frameState.shouldRender) {
     uint32_t imageIndex;
     XR(xrAcquireSwapchainImage(state.swapchain, NULL, &imageIndex));
     XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = 1e9 };
 
     if (XR(xrWaitSwapchainImage(state.swapchain, &waitInfo)) != XR_TIMEOUT_EXPIRED) {
+      XrViewLocateInfo viewLocateInfo = {
+        .type = XR_TYPE_VIEW_LOCATE_INFO,
+        .viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
+        .displayTime = state.frameState.predictedDisplayTime,
+        .space = state.referenceSpace
+      };
+
       XrView views[2];
       XrViewState viewState;
-      XrViewLocateInfo viewLocateInfo = { XR_TYPE_VIEW_LOCATE_INFO, NULL, state.displayTime, state.space };
       XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2, NULL, views));
 
       if (!state.canvas) {
@@ -604,13 +683,19 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
 }
 
 static void openxr_update(float dt) {
-  if (SESSION_RUNNING(state.sessionState)) {
-    XrFrameState frameState;
-    XR(xrWaitFrame(state.session, NULL, &frameState));
-    state.displayTime = frameState.predictedDisplayTime;
+  if (SESSION_SYNCHRONIZED(state.sessionState)) {
+    XR(xrWaitFrame(state.session, NULL, &state.frameState));
 
-    XrActiveActionSet set = { XR_TYPE_ACTIVE_ACTION_SET, NULL, state.actionSet, XR_NULL_PATH };
-    XR(xrSyncActionData(state.session, 1, &set));
+    XrActionsSyncInfo syncInfo = {
+      .type = XR_TYPE_ACTIONS_SYNC_INFO,
+      .countActiveActionSets = 1,
+      .activeActionSets = (XrActiveActionSet[]) {
+        { state.actionSet, state.actionFilters[0] },
+        { state.actionSet, state.actionFilters[1] }
+      }
+    };
+
+    XR(xrSyncActions(state.session, &syncInfo));
   }
 
   // Not using designated initializers here to avoid an implicit 4k zero
