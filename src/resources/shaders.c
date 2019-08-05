@@ -77,7 +77,6 @@ const char* lovrShaderFragmentPrefix = ""
 "uniform sampler2D lovrRoughnessTexture; \n"
 "uniform sampler2D lovrOcclusionTexture; \n"
 "uniform sampler2D lovrNormalTexture; \n"
-"uniform samplerCube lovrEnvironmentTexture; \n"
 "uniform lowp int lovrViewportCount; \n"
 "#if defined MULTIVIEW \n"
 "#define lovrViewID gl_ViewID_OVR \n"
@@ -222,8 +221,9 @@ const char* lovrCubeVertexShader = ""
 
 const char* lovrCubeFragmentShader = ""
 "in vec3 texturePosition[2]; \n"
+"uniform samplerCube lovrSkyboxTexture; \n"
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
-"  return graphicsColor * texture(lovrEnvironmentTexture, texturePosition[lovrViewID] * vec3(-1, 1, 1)); \n"
+"  return graphicsColor * texture(lovrSkyboxTexture, texturePosition[lovrViewID] * vec3(-1, 1, 1)); \n"
 "}";
 
 const char* lovrPanoFragmentShader = ""
@@ -271,8 +271,7 @@ const char* lovrShaderTextureUniforms[] = {
   "lovrMetalnessTexture",
   "lovrRoughnessTexture",
   "lovrOcclusionTexture",
-  "lovrNormalTexture",
-  "lovrEnvironmentTexture"
+  "lovrNormalTexture"
 };
 
 const char* lovrShaderAttributeNames[] = {

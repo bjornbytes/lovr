@@ -63,8 +63,7 @@ typedef struct {
   Mesh* mesh;
   Pipeline* pipeline;
   Material* material;
-  Texture* diffuseTexture;
-  Texture* environmentMap;
+  Texture* texture;
   mat4 transform;
   uint32_t vertexCount;
   uint32_t indexCount;
@@ -548,13 +547,16 @@ static void lovrGraphicsBatch(BatchRequest* req) {
   Pipeline* pipeline = req->pipeline ? req->pipeline : &state.pipeline;
   Material* material = req->material ? req->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
 
-  if (!req->material) {
-    lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, req->diffuseTexture);
-    lovrMaterialSetTexture(material, TEXTURE_ENVIRONMENT_MAP, req->environmentMap);
+  if (req->texture) {
+    if (req->type == BATCH_SKYBOX && lovrTextureGetType(req->texture) == TEXTURE_CUBE) {
+      lovrShaderSetTextures(shader, "lovrSkyboxTexture", &req->texture, 0, 1);
+    } else {
+      lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, req->texture);
+    }
   }
 
-  if (lovrShaderHasUniform(shader, "lovrPose")) {
-    if (req->type == BATCH_MESH && req->params.mesh.pose) {
+  if (req->type == BATCH_MESH && lovrShaderHasUniform(shader, "lovrPose")) {
+    if (req->params.mesh.pose) {
       lovrShaderSetMatrices(shader, "lovrPose", req->params.mesh.pose, 0, MAX_BONES * 16);
     } else {
       lovrShaderSetMatrices(shader, "lovrPose", (float[]) MAT4_IDENTITY, 0, 16);
@@ -1175,8 +1177,7 @@ void lovrGraphicsSkybox(Texture* texture) {
     .topology = DRAW_TRIANGLE_STRIP,
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
     .pipeline = &pipeline,
-    .diffuseTexture = type == TEXTURE_2D ? texture : NULL,
-    .environmentMap = type == TEXTURE_CUBE ? texture : NULL,
+    .texture = texture,
     .vertexCount = 4,
     .vertices = &vertices,
     .instanced = true
@@ -1184,10 +1185,10 @@ void lovrGraphicsSkybox(Texture* texture) {
 
   if (vertices) {
     static float vertexData[] = {
-      -1, 1, 1,  0, 0, 0, 0, 0,
-      -1, -1, 1, 0, 0, 0, 0, 0,
-      1, 1, 1,   0, 0, 0, 0, 0,
-      1, -1, 1,  0, 0, 0, 0, 0
+      -1.f,  1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+      -1.f, -1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+       1.f,  1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+       1.f, -1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f
     };
 
     memcpy(vertices, vertexData, sizeof(vertexData));
@@ -1218,7 +1219,7 @@ void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wra
     .shader = SHADER_FONT,
     .pipeline = &pipeline,
     .transform = transform,
-    .diffuseTexture = font->texture,
+    .texture = font->texture,
     .vertexCount = glyphCount * 4,
     .indexCount = glyphCount * 6,
     .vertices = &vertices,
@@ -1241,7 +1242,7 @@ void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {
     .params.fill = { .u = u, .v = v, .w = w, .h = h },
     .topology = DRAW_TRIANGLE_STRIP,
     .shader = SHADER_FILL,
-    .diffuseTexture = texture,
+    .texture = texture,
     .pipeline = &pipeline,
     .vertexCount = 4,
     .vertices = &vertices

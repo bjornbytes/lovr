@@ -143,7 +143,6 @@ const char* MaterialTextures[] = {
   [TEXTURE_ROUGHNESS] = "roughness",
   [TEXTURE_OCCLUSION] = "occlusion",
   [TEXTURE_NORMAL] = "normal",
-  [TEXTURE_ENVIRONMENT_MAP] = "environment",
   NULL
 };
 
