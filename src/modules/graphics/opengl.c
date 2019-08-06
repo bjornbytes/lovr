@@ -2053,8 +2053,9 @@ static char* lovrShaderGetFlagCode(ShaderFlag* flags, uint32_t flagCount) {
     if (flags[i].name) {
       s += sprintf(s, "#define FLAG_%s", flags[i].name);
       if (flags[i].type == FLAG_INT) {
-        s += sprintf(s, " %d\n", flags[i].value.i32);
+        s += sprintf(s, " %d", flags[i].value.i32);
       }
+      *s++ = '\n';
     }
   }
 
