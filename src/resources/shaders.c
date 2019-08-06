@@ -120,36 +120,47 @@ const char* lovrUnlitFragmentShader = ""
 
 const char* lovrStandardVertexShader = ""
 "out vec3 vViewPosition; \n"
-"out vec3 vWorldPosition; \n"
+"#ifdef FLAG_normalTexture \n"
 "out mat3 vTangentMatrix; \n"
+"#else \n"
+"out vec3 vNormal; \n"
+"#endif \n"
+
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  vViewPosition = vec3(transform * vertex); \n"
-"  vWorldPosition = vec3(lovrModel * vertex); \n"
+"#ifdef FLAG_normalTexture \n"
 "  vec3 normal = normalize(mat3(lovrModel) * lovrNormal); // TODO non-uniform scale \n"
 "  vec3 tangent = normalize(mat3(lovrModel) * lovrTangent.xyz); \n"
 "  vec3 bitangent = cross(normal, tangent) * lovrTangent.w; \n"
 "  vTangentMatrix = mat3(tangent, bitangent, normal); \n"
+"#else \n"
+"  vNormal = normalize(mat3(lovrModel) * lovrNormal); \n"
+"#endif \n"
 "  return projection * transform * vertex; \n"
 "}";
 
 const char* lovrStandardFragmentShader = ""
 "#define PI 3.14159265358979 \n"
 "in vec3 vViewPosition; \n"
-"in vec3 vWorldPosition; \n"
+"#ifdef FLAG_normalTexture \n"
 "in mat3 vTangentMatrix; \n"
-"uniform sampler2D lovrBRDFLookup; \n"
-"uniform samplerCube lovrSpecularIrradianceTexture; \n"
-"uniform vec3 lovrIrradiance[9]; \n"
+"#else \n"
+"in vec3 vNormal; \n"
+"#endif \n"
+
 "uniform vec3 lovrLightDirection = vec3(-1., -1., -1.); \n"
+"uniform samplerCube lovrSpecularIrradianceTexture; \n"
+"uniform sampler2D lovrBRDFLookup; \n"
+"uniform vec3 lovrIrradiance[9]; \n"
 "uniform float lovrExposure = 1.; \n"
-""
+
 "float D_GGX(float NoH, float roughness) { \n"
 "  float alpha = roughness * roughness; \n"
 "  float alpha2 = alpha * alpha; \n"
 "  float denom = (NoH * NoH) * (alpha2 - 1.) + 1.; \n"
 "  return alpha2 / (PI * denom * denom); \n"
 "} \n"
-""
+
 "float G_SmithGGXCorrelated(float NoV, float NoL, float roughness) { \n"
 "  float alpha = roughness * roughness; \n"
 "  float alpha2 = alpha * alpha; \n"
@@ -157,11 +168,11 @@ const char* lovrStandardFragmentShader = ""
 "  float GGXL = NoV * sqrt(alpha2 + (1. - alpha2) * (NoL * NoL)); \n"
 "  return .5 / max(GGXV + GGXL, 1e-5); \n"
 "} \n"
-""
+
 "vec3 F_Schlick(vec3 F0, float VoH) { \n"
 "  return F0 + (vec3(1.) - F0) * pow(1. - VoH, 5.); \n"
 "} \n"
-""
+
 "vec3 E_SphericalHarmonics(vec3 sh[9], vec3 n) { \n"
 "  n = -n; // WHY \n"
 "  return max("
@@ -176,7 +187,7 @@ const char* lovrStandardFragmentShader = ""
     "sh[8] * (n.x * n.x - n.y * n.y)"
   ", 0.); \n"
 "} \n"
-""
+
 "vec3 tonemap_ACES(vec3 color) { \n"
 "  float a = 2.51; \n"
 "  float b = 0.03; \n"
@@ -185,43 +196,70 @@ const char* lovrStandardFragmentShader = ""
 "  float e = 0.14; \n"
 "  return (color * (a * color + b)) / (color * (c * color + d) + e); \n"
 "} \n"
-""
+
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
-"  vec3 normal = vTangentMatrix * (texture(lovrNormalTexture, uv).rgb * 2. - 1.); \n"
-"  vec3 baseColor = texture(lovrDiffuseTexture, uv).rgb * lovrDiffuseColor.rgb; \n"
-"  vec3 emissive = texture(lovrEmissiveTexture, uv).rgb * lovrEmissiveColor.rgb; \n"
-"  float occlusion = texture(lovrOcclusionTexture, uv).r; \n"
-"  float metalness = texture(lovrMetalnessTexture, uv).b * lovrMetalness; \n"
-"  float roughness = max(texture(lovrRoughnessTexture, uv).g * lovrRoughness, .05); \n"
-"  vec3 F0 = mix(vec3(.04), baseColor, metalness); \n"
-""
-"  vec3 N = normalize(normal); \n"
+"  vec3 color = vec3(0.); \n"
+
+// Base color
+"  vec3 baseColor = lovrDiffuseColor.rgb; \n"
+"  baseColor *= texture(lovrDiffuseTexture, uv).rgb; \n"
+
+// Metalness
+"  float metalness = lovrMetalness; \n"
+"  metalness *= texture(lovrMetalnessTexture, uv).b; \n"
+
+// Roughness
+"  float roughness = lovrRoughness; \n"
+"  roughness *= texture(lovrRoughnessTexture, uv).g; \n"
+"  roughness = max(roughness, .05); \n"
+
+// Parameters
+"#ifdef FLAG_normalTexture \n"
+"  vec3 N = normalize(vTangentMatrix * (texture(lovrNormalTexture, uv).rgb * 2. - 1.)); \n"
+"#else \n"
+"  vec3 N = normalize(vNormal); \n"
+"#endif \n"
 "  vec3 V = normalize(-vViewPosition); \n"
 "  vec3 L = normalize(-lovrLightDirection); \n"
 "  vec3 H = normalize(V + L); \n"
 "  vec3 R = normalize(reflect(-V, N)); \n"
-""
 "  float NoV = abs(dot(N, V)) + 1e-5; \n"
 "  float NoL = clamp(dot(N, L), 0., 1.); \n"
 "  float NoH = clamp(dot(N, H), 0., 1.); \n"
 "  float VoH = clamp(dot(V, H), 0., 1.); \n"
-""
+
+// Specular BRDF
+"  vec3 F0 = mix(vec3(.04), baseColor, metalness); \n"
 "  float D = D_GGX(NoH, roughness); \n"
 "  float G = G_SmithGGXCorrelated(NoV, NoL, roughness); \n"
 "  vec3 F = F_Schlick(F0, VoH); \n"
-""
+
+// Direct lighting
 "  vec3 specularDirect = vec3(D * G * F); \n"
 "  vec3 diffuseDirect = (vec3(1.) - F) * (1. - metalness) * baseColor; \n"
-"  vec3 direct = (diffuseDirect / PI + specularDirect) * NoL * occlusion; \n"
-""
+"  color += (diffuseDirect / PI + specularDirect) * NoL; \n"
+
+// Indirect lighting
+"#ifdef FLAG_indirectLighting \n"
 "  vec2 lookup = texture(lovrBRDFLookup, vec2(NoV, roughness)).rg; \n"
 "  vec3 specularIndirect = (F0 * lookup.r + lookup.g) * textureLod(lovrSpecularIrradianceTexture, R, roughness * 1.).rgb; \n"
 "  vec3 diffuseIndirect = diffuseDirect * E_SphericalHarmonics(lovrIrradiance, N); \n"
-"  vec3 indirect = diffuseIndirect + specularIndirect; \n"
-""
-"  vec3 color = direct + indirect + emissive; \n"
+"#ifdef FLAG_occlusion \n" // Occlusion only affects indirect diffuse light
+"  diffuseIndirect *= texture(lovrOcclusionTexture, uv).r; \n"
+"#endif \n"
+"  color += diffuseIndirect + specularIndirect; \n"
+"#endif \n"
+
+// Emissive
+"#ifdef FLAG_emissive \n" // Currently emissive texture and color have to be used together
+"  color += texture(lovrEmissiveTexture, uv).rgb * lovrEmissiveColor.rgb; \n"
+"#endif \n"
+
+// Tonemapping
+"#ifdef FLAG_tonemap \n"
 "  color = tonemap_ACES(color * lovrExposure); \n"
-""
+"#endif \n"
+
 "  return vec4(color, 1.); \n"
 "}";
 
