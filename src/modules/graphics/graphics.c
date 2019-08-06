@@ -547,7 +547,7 @@ static void lovrGraphicsBatch(BatchRequest* req) {
   Pipeline* pipeline = req->pipeline ? req->pipeline : &state.pipeline;
   Material* material = req->material ? req->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
 
-  if (req->texture) {
+  if (!req->material) {
     if (req->type == BATCH_SKYBOX && lovrTextureGetType(req->texture) == TEXTURE_CUBE) {
       lovrShaderSetTextures(shader, "lovrSkyboxTexture", &req->texture, 0, 1);
     } else {
