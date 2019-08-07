@@ -1565,6 +1565,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
       for (int i = 0; i < 6; i++) {
         lua_pushstring(L, faces[i]);
         lua_rawget(L, 1);
+        lovrAssert(!lua_isnil(L, -1), "Could not load cubemap texture: missing '%s' face", faces[i]);
         lua_rawseti(L, 1, i + 1);
       }
     }
