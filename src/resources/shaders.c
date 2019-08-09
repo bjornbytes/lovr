@@ -152,6 +152,7 @@ const char* lovrStandardFragmentShader = ""
 "#endif \n"
 
 "uniform vec3 lovrLightDirection = vec3(-1., -1., -1.); \n"
+"uniform vec4 lovrLightColor = vec4(1.); \n"
 "uniform samplerCube lovrSpecularIrradianceTexture; \n"
 "uniform sampler2D lovrBRDFLookup; \n"
 "uniform vec3 lovrIrradiance[9]; \n"
@@ -240,7 +241,7 @@ const char* lovrStandardFragmentShader = ""
 // Direct lighting
 "  vec3 specularDirect = vec3(D * G * F); \n"
 "  vec3 diffuseDirect = (vec3(1.) - F) * (1. - metalness) * baseColor; \n"
-"  color += (diffuseDirect / PI + specularDirect) * NoL; \n"
+"  color += (diffuseDirect / PI + specularDirect) * NoL * lovrLightColor.rgb * lovrLightColor.a; \n"
 
 // Indirect lighting
 "#ifdef FLAG_indirectLighting \n"
