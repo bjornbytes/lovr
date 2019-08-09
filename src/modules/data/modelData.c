@@ -24,6 +24,7 @@ void lovrModelDataDestroy(void* ref) {
     lovrRelease(TextureData, model->textures[i]);
   }
   map_deinit(&model->animationMap);
+  map_deinit(&model->materialMap);
   map_deinit(&model->nodeMap);
   free(model->data);
 }
@@ -62,5 +63,6 @@ void lovrModelDataAllocate(ModelData* model) {
   model->joints = (uint32_t*) (p + offset), offset += sizes[11];
 
   map_init(&model->animationMap);
+  map_init(&model->materialMap);
   map_init(&model->nodeMap);
 }

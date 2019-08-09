@@ -11,7 +11,7 @@
 #include <ctype.h>
 
 typedef struct {
-  int material;
+  uint32_t material;
   int start;
   int count;
 } objGroup;
@@ -22,7 +22,7 @@ typedef arr_t(objGroup, 1) arr_group_t;
 
 #define STARTS_WITH(a, b) !strncmp(a, b, strlen(b))
 
-static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* materials, map_int_t* names, char* base) {
+static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* materials, map_u32_t* names, char* base) {
   size_t length = 0;
   char* data = lovrFilesystemRead(path, -1, &length);
   lovrAssert(data && length > 0, "Unable to read mtl from '%s'", path);
@@ -35,7 +35,7 @@ static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* ma
       char name[128];
       bool hasName = sscanf(s + 7, "%s\n%n", name, &lineLength);
       lovrAssert(hasName, "Bad OBJ: Expected a material name");
-      map_set(names, name, (int) materials->length);
+      map_set(names, name, (uint32_t) materials->length);
       arr_push(materials, ((ModelMaterial) {
         .scalars[SCALAR_METALNESS] = 1.f,
         .scalars[SCALAR_ROUGHNESS] = 1.f,
@@ -95,9 +95,9 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   arr_group_t groups;
   arr_texturedata_t textures;
   arr_material_t materials;
-  map_int_t materialNames;
   arr_t(float, 1) vertexBlob;
   arr_t(int, 1) indexBlob;
+  map_u32_t materialMap;
   map_int_t vertexMap;
   arr_t(float, 1) positions;
   arr_t(float, 1) normals;
@@ -106,7 +106,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   arr_init(&groups);
   arr_init(&textures);
   arr_init(&materials);
-  map_init(&materialNames);
+  map_init(&materialMap);
   arr_init(&vertexBlob);
   arr_init(&indexBlob);
   map_init(&vertexMap);
@@ -189,12 +189,12 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
       lovrAssert(hasName, "Bad OBJ: Expected filename after mtllib");
       char path[1024];
       snprintf(path, sizeof(path), "%s%s", base, filename);
-      parseMtl(path, &textures, &materials, &materialNames, base);
+      parseMtl(path, &textures, &materials, &materialMap, base);
     } else if (STARTS_WITH(data, "usemtl ")) {
       char name[128];
       bool hasName = sscanf(data + 7, "%s\n%n", name, &lineLength);
-      int* material = map_get(&materialNames, name);
-      lovrAssert(hasName, "Bad OBJ: Expected a material name");
+      uint32_t* material = map_get(&materialMap, name);
+      lovrAssert(hasName, "Bad OBJ: Expected a valid material name");
 
       // If the last group didn't have any faces, just reuse it, otherwise make a new group
       objGroup* group = &groups.data[groups.length - 1];
@@ -251,11 +251,12 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
 
   memcpy(model->textures, textures.data, model->textureCount * sizeof(TextureData*));
   memcpy(model->materials, materials.data, model->materialCount * sizeof(ModelMaterial));
+  model->materialMap = materialMap; // Copy by value, no need to free original, questionable
 
   model->attributes[0] = (ModelAttribute) {
     .buffer = 0,
     .offset = 0,
-    .count = (uint32_t)vertexBlob.length / 8,
+    .count = (uint32_t) vertexBlob.length / 8,
     .type = F32,
     .components = 3
   };
@@ -312,7 +313,6 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   arr_free(&groups);
   arr_free(&textures);
   arr_free(&materials);
-  map_deinit(&materialNames);
   map_deinit(&vertexMap);
   arr_free(&positions);
   arr_free(&normals);

@@ -724,6 +724,11 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           material->colors[COLOR_EMISSIVE].r = NOM_FLOAT(json, token);
           material->colors[COLOR_EMISSIVE].g = NOM_FLOAT(json, token);
           material->colors[COLOR_EMISSIVE].b = NOM_FLOAT(json, token);
+        } else if (STR_EQ(key, "name")) {
+          gltfString name = NOM_STR(json, token);
+          name.data[name.length] = '\0';
+          map_set(&model->materialMap, name.data, model->materialCount - i);
+          name.data[name.length] = '"';
         } else {
           token += NOM_VALUE(json, token);
         }
