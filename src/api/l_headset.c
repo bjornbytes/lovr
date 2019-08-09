@@ -157,11 +157,6 @@ static int l_lovrHeadsetGetOriginType(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetGetDisplayTime(lua_State* L) {
-  lua_pushnumber(L, lovrHeadsetDriver->getDisplayTime());
-  return 1;
-}
-
 static int l_lovrHeadsetGetDisplayWidth(lua_State* L) {
   uint32_t width, height;
   lovrHeadsetDriver->getDisplayDimensions(&width, &height);
@@ -568,7 +563,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getName", l_lovrHeadsetGetName },
   { "getOriginType", l_lovrHeadsetGetOriginType },
-  { "getDisplayTime", l_lovrHeadsetGetDisplayTime },
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
