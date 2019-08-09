@@ -93,7 +93,7 @@ function lovr.boot()
       timer = true
     },
     headset = {
-      drivers = { 'oculus', 'oculusmobile', 'openvr', 'webvr', 'desktop' },
+      drivers = { 'leap', 'openxr', 'oculus', 'oculusmobile', 'openvr', 'webvr', 'desktop' },
       offset = 1.7,
       msaa = 4
     },
