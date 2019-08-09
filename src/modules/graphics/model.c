@@ -21,7 +21,6 @@ struct Model {
   struct Mesh** meshes;
   struct Texture** textures;
   struct Material** materials;
-  struct Material* userMaterial;
   NodeTransform* localTransforms;
   float* globalTransforms;
   bool transformsDirty;
@@ -48,34 +47,27 @@ static void updateGlobalTransform(Model* model, uint32_t nodeIndex, mat4 parent)
 static void renderNode(Model* model, uint32_t nodeIndex, uint32_t instances) {
   ModelNode* node = &model->data->nodes[nodeIndex];
   mat4 globalTransform = model->globalTransforms + 16 * nodeIndex;
+  float poseMatrix[16 * MAX_BONES];
+  float* pose = NULL;
 
-  if (node->primitiveCount > 0) {
-    bool animated = node->skin != ~0u;
-    float pose[16 * MAX_BONES];
+  if (node->skin != ~0u) {
+    ModelSkin* skin = &model->data->skins[node->skin];
+    pose = poseMatrix;
 
-    if (animated) {
-      ModelSkin* skin = &model->data->skins[node->skin];
+    for (uint32_t j = 0; j < skin->jointCount; j++) {
+      mat4 globalJointTransform = model->globalTransforms + 16 * skin->joints[j];
+      mat4 inverseBindMatrix = skin->inverseBindMatrices + 16 * j;
+      mat4 jointPose = pose + 16 * j;
 
-      for (uint32_t j = 0; j < skin->jointCount; j++) {
-        mat4 globalJointTransform = model->globalTransforms + 16 * skin->joints[j];
-        mat4 inverseBindMatrix = skin->inverseBindMatrices + 16 * j;
-        mat4 jointPose = pose + 16 * j;
-
-        mat4_set(jointPose, globalTransform);
-        mat4_invert(jointPose);
-        mat4_multiply(jointPose, globalJointTransform);
-        mat4_multiply(jointPose, inverseBindMatrix);
-      }
+      mat4_set(jointPose, globalTransform);
+      mat4_invert(jointPose);
+      mat4_multiply(jointPose, globalJointTransform);
+      mat4_multiply(jointPose, inverseBindMatrix);
     }
+  }
 
-    for (uint32_t i = 0; i < node->primitiveCount; i++) {
-      ModelPrimitive* primitive = &model->data->primitives[node->primitiveIndex + i];
-      Mesh* mesh = model->meshes[node->primitiveIndex + i];
-      Material* material = primitive->material == ~0u ? NULL : model->materials[primitive->material];
-      lovrMeshSetMaterial(mesh, model->userMaterial ? model->userMaterial : material);
-      lovrMeshSetDrawMode(mesh, primitive->mode);
-      lovrGraphicsDrawMesh(mesh, globalTransform, instances, animated ? pose : NULL);
-    }
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    lovrGraphicsDrawMesh(model->meshes[node->primitiveIndex + i], globalTransform, instances, pose);
   }
 
   for (uint32_t i = 0; i < node->childCount; i++) {
@@ -88,6 +80,45 @@ Model* lovrModelCreate(ModelData* data) {
   model->data = data;
   lovrRetain(data);
 
+  // Materials
+  if (data->materialCount > 0) {
+    model->materials = malloc(data->materialCount * sizeof(Material*));
+
+    if (data->textureCount > 0) {
+      model->textures = calloc(data->textureCount, sizeof(Texture*));
+    }
+
+    for (uint32_t i = 0; i < data->materialCount; i++) {
+      Material* material = lovrMaterialCreate();
+
+      for (uint32_t j = 0; j < MAX_MATERIAL_SCALARS; j++) {
+        lovrMaterialSetScalar(material, j, data->materials[i].scalars[j]);
+      }
+
+      for (uint32_t j = 0; j < MAX_MATERIAL_COLORS; j++) {
+        lovrMaterialSetColor(material, j, data->materials[i].colors[j]);
+      }
+
+      for (uint32_t j = 0; j < MAX_MATERIAL_TEXTURES; j++) {
+        uint32_t index = data->materials[i].textures[j];
+
+        if (index != ~0u) {
+          if (!model->textures[index]) {
+            TextureData* textureData = data->textures[index];
+            bool srgb = j == TEXTURE_DIFFUSE || j == TEXTURE_EMISSIVE;
+            model->textures[index] = lovrTextureCreate(TEXTURE_2D, &textureData, 1, srgb, true, 0);
+            lovrTextureSetFilter(model->textures[index], data->materials[i].filters[j]);
+            lovrTextureSetWrap(model->textures[index], data->materials[i].wraps[j]);
+          }
+
+          lovrMaterialSetTexture(material, j, model->textures[index]);
+        }
+      }
+
+      model->materials[i] = material;
+    }
+  }
+
   // Geometry
   if (data->primitiveCount > 0) {
     if (data->bufferCount > 0) {
@@ -98,6 +129,10 @@ Model* lovrModelCreate(ModelData* data) {
     for (uint32_t i = 0; i < data->primitiveCount; i++) {
       ModelPrimitive* primitive = &data->primitives[i];
       model->meshes[i] = lovrMeshCreate(primitive->mode, NULL, 0);
+
+      if (primitive->material != ~0u) {
+        lovrMeshSetMaterial(model->meshes[i], model->materials[primitive->material]);
+      }
 
       bool setDrawRange = false;
       for (uint32_t j = 0; j < MAX_DEFAULT_ATTRIBUTES; j++) {
@@ -149,45 +184,6 @@ Model* lovrModelCreate(ModelData* data) {
     }
   }
 
-  // Materials
-  if (data->materialCount > 0) {
-    model->materials = malloc(data->materialCount * sizeof(Material*));
-
-    if (data->textureCount > 0) {
-      model->textures = calloc(data->textureCount, sizeof(Texture*));
-    }
-
-    for (uint32_t i = 0; i < data->materialCount; i++) {
-      Material* material = lovrMaterialCreate();
-
-      for (uint32_t j = 0; j < MAX_MATERIAL_SCALARS; j++) {
-        lovrMaterialSetScalar(material, j, data->materials[i].scalars[j]);
-      }
-
-      for (uint32_t j = 0; j < MAX_MATERIAL_COLORS; j++) {
-        lovrMaterialSetColor(material, j, data->materials[i].colors[j]);
-      }
-
-      for (uint32_t j = 0; j < MAX_MATERIAL_TEXTURES; j++) {
-        uint32_t index = data->materials[i].textures[j];
-
-        if (index != ~0u) {
-          if (!model->textures[index]) {
-            TextureData* textureData = data->textures[index];
-            bool srgb = j == TEXTURE_DIFFUSE || j == TEXTURE_EMISSIVE;
-            model->textures[index] = lovrTextureCreate(TEXTURE_2D, &textureData, 1, srgb, true, 0);
-            lovrTextureSetFilter(model->textures[index], data->materials[i].filters[j]);
-            lovrTextureSetWrap(model->textures[index], data->materials[i].wraps[j]);
-          }
-
-          lovrMaterialSetTexture(material, j, model->textures[index]);
-        }
-      }
-
-      model->materials[i] = material;
-    }
-  }
-
   model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
   lovrModelResetPose(model);
@@ -208,7 +204,6 @@ void lovrModelDestroy(void* ref) {
   for (uint32_t i = 0; i < model->data->materialCount; i++) {
     lovrRelease(Material, model->materials[i]);
   }
-  lovrRelease(Material, model->userMaterial);
   lovrRelease(ModelData, model->data);
   free(model->globalTransforms);
   free(model->localTransforms);
@@ -323,7 +318,7 @@ void lovrModelPose(Model* model, uint32_t nodeIndex, float position[4], float ro
     return;
   }
 
-  lovrAssert(nodeIndex < model->data->nodeCount, "Invalid node index '%d' (Model only has %d nodes)", nodeIndex, model->data->nodeCount);
+  lovrAssert(nodeIndex < model->data->nodeCount, "Invalid node index '%d' (Model only has %d node)", nodeIndex + 1, model->data->nodeCount, model->data->nodeCount == 1 ? "" : "s");
   NodeTransform* transform = &model->localTransforms[nodeIndex];
   if (alpha >= 1.f) {
     vec3_init(transform->properties[PROP_TRANSLATION], position);
@@ -351,14 +346,9 @@ void lovrModelResetPose(Model* model) {
   model->transformsDirty = true;
 }
 
-Material* lovrModelGetMaterial(Model* model) {
-  return model->userMaterial;
-}
-
-void lovrModelSetMaterial(Model* model, Material* material) {
-  lovrRetain(material);
-  lovrRelease(Material, model->userMaterial);
-  model->userMaterial = material;
+Material* lovrModelGetMaterial(Model* model, uint32_t material) {
+  lovrAssert(material < model->data->materialCount, "Invalid material index '%d' (Model only has %d material%s)", material + 1, model->data->materialCount, model->data->materialCount == 1 ? "" : "s");
+  return model->materials[material];
 }
 
 static void applyAABB(Model* model, uint32_t nodeIndex, float aabb[6]) {

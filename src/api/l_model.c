@@ -74,20 +74,26 @@ static int l_lovrModelPose(lua_State* L) {
 
 static int l_lovrModelGetMaterial(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  Material* material = lovrModelGetMaterial(model);
-  luax_pushtype(L, Material, material);
-  return 1;
-}
 
-static int l_lovrModelSetMaterial(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  if (lua_isnoneornil(L, 2)) {
-    lovrModelSetMaterial(model, NULL);
-  } else {
-    Material* material = luax_checktype(L, 2, Material);
-    lovrModelSetMaterial(model, material);
+  uint32_t material;
+  switch (lua_type(L, 2)) {
+    case LUA_TNUMBER:
+      material = lua_tointeger(L, 2) - 1;
+      break;
+    case LUA_TSTRING: {
+      const char* name = lua_tostring(L, 2);
+      ModelData* modelData = lovrModelGetModelData(model);
+      uint32_t* index = map_get(&modelData->materialMap, name);
+      lovrAssert(index, "Model has no material named '%s'", name);
+      material = *index;
+      break;
+    }
+    default:
+      return luaL_typerror(L, 2, "nil, number, or string");
   }
-  return 0;
+
+  luax_pushtype(L, Material, lovrModelGetMaterial(model, material));
+  return 1;
 }
 
 static int l_lovrModelGetAABB(lua_State* L) {
@@ -138,7 +144,6 @@ const luaL_Reg lovrModel[] = {
   { "animate", l_lovrModelAnimate },
   { "pose", l_lovrModelPose },
   { "getMaterial", l_lovrModelGetMaterial },
-  { "setMaterial", l_lovrModelSetMaterial },
   { "getAABB", l_lovrModelGetAABB },
   { "getNodePose", l_lovrModelGetNodePose },
   { NULL, NULL }

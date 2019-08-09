@@ -20,6 +20,5 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
 void lovrModelGetNodePose(Model* model, uint32_t nodeIndex, float position[4], float rotation[4], CoordinateSpace space);
 void lovrModelPose(Model* model, uint32_t nodeIndex, float position[4], float rotation[4], float alpha);
 void lovrModelResetPose(Model* model);
-struct Material* lovrModelGetMaterial(Model* model);
-void lovrModelSetMaterial(Model* model, struct Material* material);
+struct Material* lovrModelGetMaterial(Model* model, uint32_t material);
 void lovrModelGetAABB(Model* model, float aabb[6]);
