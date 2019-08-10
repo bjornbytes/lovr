@@ -1458,6 +1458,13 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     }
 
     shader = lovrShaderCreateDefault(shaderType, flags, flagCount);
+
+    // Builtin uniforms
+    if (shaderType == SHADER_STANDARD) {
+      lovrShaderSetFloats(shader, "lovrExposure", (float[1]) { 1.f }, 0, 1);
+      lovrShaderSetFloats(shader, "lovrLightDirection", (float[3]) { -1.f, -1.f, -1.f }, 0, 3);
+      lovrShaderSetFloats(shader, "lovrLightColor", (float[4]) { 1.f, 1.f, 1.f, 1.f }, 0, 4);
+    }
   } else {
     luax_readshadersource(L, 1);
     luax_readshadersource(L, 2);
