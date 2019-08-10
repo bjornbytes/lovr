@@ -1019,6 +1019,9 @@ void lovrGpuInit(getProcAddressProc getProcAddress) {
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PROGRAM_POINT_SIZE);
   glEnable(GL_FRAMEBUFFER_SRGB);
+#ifdef LOVR_GL
+  glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+#endif
   glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
 
   if (state.features.multiview && GLAD_GL_ES_VERSION_3_0) {
