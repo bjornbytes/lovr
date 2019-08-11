@@ -266,9 +266,9 @@ void luax_atexit(lua_State* L, voidFn* destructor) {
 void luax_readcolor(lua_State* L, int index, Color* color) {
   color->r = color->g = color->b = color->a = 1.f;
 
-  if (lua_istable(L, 1)) {
+  if (lua_istable(L, index)) {
     for (int i = 1; i <= 4; i++) {
-      lua_rawgeti(L, 1, i);
+      lua_rawgeti(L, index, i);
     }
     color->r = luax_checkfloat(L, -4);
     color->g = luax_checkfloat(L, -3);
