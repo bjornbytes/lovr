@@ -197,7 +197,7 @@ const char* lovrStandardFragmentShader = ""
 // Indirect lighting
 "#ifdef FLAG_indirectLighting \n"
 "  vec2 lookup = prefilteredBRDF(NoV, roughness); \n"
-"  float mipmapCount = log2(textureSize(lovrEnvironmentMap, 0).x); \n"
+"  float mipmapCount = log2(float(textureSize(lovrEnvironmentMap, 0).x)); \n"
 "  vec3 specularIndirect = (F0 * lookup.r + lookup.g) * textureLod(lovrEnvironmentMap, R, roughness * mipmapCount).rgb; \n"
 "  vec3 diffuseIndirect = diffuseDirect * E_SphericalHarmonics(lovrSphericalHarmonics, N); \n"
 "#ifdef FLAG_occlusion \n" // Occlusion only affects indirect diffuse light
