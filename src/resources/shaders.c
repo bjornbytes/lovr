@@ -119,8 +119,8 @@ const char* lovrUnlitFragmentShader = ""
 "}";
 
 const char* lovrStandardVertexShader = ""
-"out vec3 vWorldPosition; \n"
-"out vec3 vCameraPosition; \n"
+"out vec3 vVertexPositionWorld; \n"
+"out vec3 vCameraPositionWorld; \n"
 "#ifdef FLAG_normalTexture \n"
 "out mat3 vTangentMatrix; \n"
 "#else \n"
@@ -128,8 +128,8 @@ const char* lovrStandardVertexShader = ""
 "#endif \n"
 
 "vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
-"  vWorldPosition = vec3(lovrModel * vertex); \n"
-"  vCameraPosition = -lovrView[3].xyz * mat3(lovrView); \n"
+"  vVertexPositionWorld = vec3(lovrModel * vertex); \n"
+"  vCameraPositionWorld = -lovrView[3].xyz * mat3(lovrView); \n"
 "#ifdef FLAG_normalTexture \n"
 "  vec3 normal = normalize(mat3(lovrModel) * lovrNormal); // TODO non-uniform scale \n"
 "  vec3 tangent = normalize(mat3(lovrModel) * lovrTangent.xyz); \n"
@@ -143,8 +143,8 @@ const char* lovrStandardVertexShader = ""
 
 const char* lovrStandardFragmentShader = ""
 "#define PI 3.14159265358979 \n"
-"in vec3 vWorldPosition; \n"
-"in vec3 vCameraPosition; \n"
+"in vec3 vVertexPositionWorld; \n"
+"in vec3 vCameraPositionWorld; \n"
 "#ifdef FLAG_normalTexture \n"
 "in mat3 vTangentMatrix; \n"
 "#else \n"
@@ -153,8 +153,8 @@ const char* lovrStandardFragmentShader = ""
 
 "uniform vec3 lovrLightDirection; \n"
 "uniform vec4 lovrLightColor; \n"
-"uniform samplerCube lovrSpecularIrradianceTexture; \n"
-"uniform vec3 lovrIrradiance[9]; \n"
+"uniform samplerCube lovrEnvironmentMap; \n"
+"uniform vec3 lovrSphericalHarmonics[9]; \n"
 "uniform float lovrExposure; \n"
 
 "float D_GGX(float NoH, float roughness); \n"
@@ -165,7 +165,7 @@ const char* lovrStandardFragmentShader = ""
 "vec3 tonemap_ACES(vec3 color); \n"
 
 "vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
-"  vec3 color = vec3(0.); \n"
+"  vec3 result = vec3(0.); \n"
 
 // Parameters
 "  vec3 baseColor = texture(lovrDiffuseTexture, uv).rgb * lovrDiffuseColor.rgb; \n"
@@ -176,7 +176,7 @@ const char* lovrStandardFragmentShader = ""
 "#else \n"
 "  vec3 N = normalize(vNormal); \n"
 "#endif \n"
-"  vec3 V = normalize(vCameraPosition - vWorldPosition); \n"
+"  vec3 V = normalize(vCameraPositionWorld - vVertexPositionWorld); \n"
 "  vec3 L = normalize(-lovrLightDirection); \n"
 "  vec3 H = normalize(V + L); \n"
 "  vec3 R = normalize(reflect(-V, N)); \n"
@@ -192,31 +192,31 @@ const char* lovrStandardFragmentShader = ""
 "  vec3 F = F_Schlick(F0, VoH); \n"
 "  vec3 specularDirect = vec3(D * G * F); \n"
 "  vec3 diffuseDirect = (vec3(1.) - F) * (1. - metalness) * baseColor; \n"
-"  color += (diffuseDirect / PI + specularDirect) * NoL * lovrLightColor.rgb * lovrLightColor.a; \n"
+"  result += (diffuseDirect / PI + specularDirect) * NoL * lovrLightColor.rgb * lovrLightColor.a; \n"
 
 // Indirect lighting
 "#ifdef FLAG_indirectLighting \n"
 "  vec2 lookup = prefilteredBRDF(NoV, roughness); \n"
-"  float mipmapCount = log2(textureSize(lovrSpecularIrradianceTexture, 0).x); \n"
-"  vec3 specularIndirect = (F0 * lookup.r + lookup.g) * textureLod(lovrSpecularIrradianceTexture, R, roughness * mipmapCount).rgb; \n"
-"  vec3 diffuseIndirect = diffuseDirect * E_SphericalHarmonics(lovrIrradiance, N); \n"
+"  float mipmapCount = log2(textureSize(lovrEnvironmentMap, 0).x); \n"
+"  vec3 specularIndirect = (F0 * lookup.r + lookup.g) * textureLod(lovrEnvironmentMap, R, roughness * mipmapCount).rgb; \n"
+"  vec3 diffuseIndirect = diffuseDirect * E_SphericalHarmonics(lovrSphericalHarmonics, N); \n"
 "#ifdef FLAG_occlusion \n" // Occlusion only affects indirect diffuse light
 "  diffuseIndirect *= texture(lovrOcclusionTexture, uv).r; \n"
 "#endif \n"
-"  color += diffuseIndirect + specularIndirect; \n"
+"  result += diffuseIndirect + specularIndirect; \n"
 "#endif \n"
 
 // Emissive
 "#ifdef FLAG_emissive \n" // Currently emissive texture and color have to be used together
-"  color += texture(lovrEmissiveTexture, uv).rgb * lovrEmissiveColor.rgb; \n"
+"  result += texture(lovrEmissiveTexture, uv).rgb * lovrEmissiveColor.rgb; \n"
 "#endif \n"
 
 // Tonemap
 "#ifdef FLAG_tonemap \n"
-"  color = tonemap_ACES(color * lovrExposure); \n"
+"  result = tonemap_ACES(result * lovrExposure); \n"
 "#endif \n"
 
-"  return vec4(color, 1.); \n"
+"  return vec4(result, 1.); \n"
 "}"
 
 // Helpers
