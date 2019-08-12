@@ -212,7 +212,7 @@ const char* lovrStandardFragmentShader = ""
 "#endif \n"
 
 // Tonemap
-"#ifdef FLAG_tonemap \n"
+"#ifndef FLAG_skipTonemap \n"
 "  result = tonemap_ACES(result * lovrExposure); \n"
 "#endif \n"
 
