@@ -1100,11 +1100,11 @@ void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2
     // Indices
     for (int i = 0; i < segments; i++) {
       int j = 2 * i + baseVertex;
-      memcpy(indices, (uint16_t[6]) { j, j + 1, j + 2, j + 1, j + 3, j + 2 }, 6 * sizeof(uint16_t));
+      memcpy(indices, (uint16_t[6]) { j, j + 2, j + 1, j + 1, j + 2, j + 3 }, 6 * sizeof(uint16_t));
       indices += 6;
 
       if (capped && r1 != 0.f) {
-        memcpy(indices, (uint16_t[3]) { top, top + i + 1, top + i + 2 }, 3 * sizeof(uint16_t));
+        memcpy(indices, (uint16_t[3]) { top, top + i + 2, top + i + 1 }, 3 * sizeof(uint16_t));
         indices += 3;
       }
 
