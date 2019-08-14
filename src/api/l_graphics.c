@@ -422,6 +422,8 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
   lua_setfield(L, -2, "instancedstereo");
   lua_pushboolean(L, features->multiview);
   lua_setfield(L, -2, "multiview");
+  lua_pushboolean(L, features->timers);
+  lua_setfield(L, -2, "timers");
   return 1;
 }
 
