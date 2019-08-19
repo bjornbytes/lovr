@@ -901,8 +901,8 @@ static int l_lovrGraphicsCircle(lua_State* L) {
 
 static int l_lovrGraphicsCylinder(lua_State* L) {
   float transform[16];
-  int index = 1;
-  Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
+  Material* material = luax_totype(L, 1, Material);
+  int index = material ? 2 : 1;
   index = luax_readmat4(L, index, transform, 1);
   float r1 = luax_optfloat(L, index++, 1.f);
   float r2 = luax_optfloat(L, index++, 1.f);
@@ -914,8 +914,8 @@ static int l_lovrGraphicsCylinder(lua_State* L) {
 
 static int l_lovrGraphicsSphere(lua_State* L) {
   float transform[16];
-  int index = 1;
-  Material* material = lua_isuserdata(L, index) ? luax_checktype(L, index++, Material) : NULL;
+  Material* material = luax_totype(L, 1, Material);
+  int index = material ? 2 : 1;
   index = luax_readmat4(L, index, transform, 1);
   int segments = luaL_optinteger(L, index, 30);
   lovrGraphicsSphere(material, transform, segments);

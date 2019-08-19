@@ -75,7 +75,7 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
 void* _luax_totype(lua_State* L, int index, uint32_t hash) {
   Proxy* p = lua_touserdata(L, index);
 
-  if (p && p->hash == hash) {
+  if (p && lua_type(L, index) != LUA_TLIGHTUSERDATA && p->hash == hash) {
     return p->object;
   }
 
