@@ -98,7 +98,6 @@ function lovr.boot()
       msaa = 4
     },
     math = {
-      ffi = true,
       globals = true
     },
     window = {

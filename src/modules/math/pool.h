@@ -1,4 +1,3 @@
-#include "util.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -14,10 +13,13 @@ typedef enum {
   MAX_VECTOR_TYPES
 } VectorType;
 
-typedef struct {
-  uint8_t type;
-  uint8_t generation;
-  uint16_t index;
+typedef union {
+  void* pointer;
+  struct {
+    uint8_t type;
+    uint8_t generation;
+    uint16_t index;
+  } handle;
 } Vector;
 
 typedef struct Pool {
@@ -31,7 +33,7 @@ typedef struct Pool {
 Pool* lovrPoolInit(Pool* pool);
 #define lovrPoolCreate(...) lovrPoolInit(lovrAlloc(Pool))
 void lovrPoolDestroy(void* ref);
-LOVR_EXPORT void lovrPoolGrow(Pool* pool, size_t count);
+void lovrPoolGrow(Pool* pool, size_t count);
 Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data);
 float* lovrPoolResolve(Pool* pool, Vector vector);
 void lovrPoolDrain(Pool* pool);

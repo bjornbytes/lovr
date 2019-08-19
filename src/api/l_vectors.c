@@ -391,7 +391,7 @@ static int l_lovrVec2__newindex(lua_State* L) {
   lua_getglobal(L, "tostring");
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
-  return luaL_error(L, "attempt to assign property %q of vec2 (invalid property)", lua_tostring(L, -1));
+  return luaL_error(L, "attempt to assign property %s of vec2 (invalid property)", lua_tostring(L, -1));
 }
 
 static int l_lovrVec2__index(lua_State* L) {
@@ -445,7 +445,7 @@ static int l_lovrVec2__index(lua_State* L) {
   lua_getglobal(L, "tostring");
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
-  return luaL_error(L, "attempt to index field %q of vec2 (invalid property)", lua_tostring(L, -1));
+  return luaL_error(L, "attempt to index field %s of vec2 (invalid property)", lua_tostring(L, -1));
 }
 
 const luaL_Reg lovrVec2[] = {
@@ -723,7 +723,7 @@ static int l_lovrVec3__newindex(lua_State* L) {
   lua_getglobal(L, "tostring");
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
-  return luaL_error(L, "attempt to assign property %q of vec3 (invalid property)", lua_tostring(L, -1));
+  return luaL_error(L, "attempt to assign property %s of vec3 (invalid property)", lua_tostring(L, -1));
 }
 
 static int l_lovrVec3__index(lua_State* L) {
@@ -777,7 +777,7 @@ static int l_lovrVec3__index(lua_State* L) {
   lua_getglobal(L, "tostring");
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
-  return luaL_error(L, "attempt to index field %q of vec3 (invalid property)", lua_tostring(L, -1));
+  return luaL_error(L, "attempt to index field %s of vec3 (invalid property)", lua_tostring(L, -1));
 }
 
 const luaL_Reg lovrVec3[] = {
@@ -1130,7 +1130,7 @@ static int l_lovrVec4__newindex(lua_State* L) {
   lua_getglobal(L, "tostring");
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
-  return luaL_error(L, "attempt to assign property %q of vec4 (invalid property)", lua_tostring(L, -1));
+  return luaL_error(L, "attempt to assign property %s of vec4 (invalid property)", lua_tostring(L, -1));
 }
 
 static int l_lovrVec4__index(lua_State* L) {
@@ -1184,7 +1184,7 @@ static int l_lovrVec4__index(lua_State* L) {
   lua_getglobal(L, "tostring");
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
-  return luaL_error(L, "attempt to index field %q of vec4 (invalid property)", lua_tostring(L, -1));
+  return luaL_error(L, "attempt to index field %s of vec4 (invalid property)", lua_tostring(L, -1));
 }
 
 const luaL_Reg lovrVec4[] = {
@@ -1374,7 +1374,7 @@ static int l_lovrQuat__newindex(lua_State* L) {
   lua_getglobal(L, "tostring");
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
-  return luaL_error(L, "attempt to assign property %q of quat (invalid property)", lua_tostring(L, -1));
+  return luaL_error(L, "attempt to assign property %s of quat (invalid property)", lua_tostring(L, -1));
 }
 
 static int l_lovrQuat__index(lua_State* L) {
@@ -1409,7 +1409,7 @@ static int l_lovrQuat__index(lua_State* L) {
   lua_getglobal(L, "tostring");
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
-  return luaL_error(L, "attempt to index field %q of quat (invalid property)", lua_tostring(L, -1));
+  return luaL_error(L, "attempt to index field %s of quat (invalid property)", lua_tostring(L, -1));
 }
 
 const luaL_Reg lovrQuat[] = {
@@ -1683,7 +1683,7 @@ static int l_lovrMat4__newindex(lua_State* L) {
   lua_getglobal(L, "tostring");
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
-  return luaL_error(L, "attempt to assign property %q of mat4 (invalid property)", lua_tostring(L, -1));
+  return luaL_error(L, "attempt to assign property %s of mat4 (invalid property)", lua_tostring(L, -1));
 }
 
 static int l_lovrMat4__index(lua_State* L) {
@@ -1709,7 +1709,7 @@ static int l_lovrMat4__index(lua_State* L) {
   lua_getglobal(L, "tostring");
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
-  return luaL_error(L, "attempt to index field %q of mat4 (invalid property)", lua_tostring(L, -1));
+  return luaL_error(L, "attempt to index field %s of mat4 (invalid property)", lua_tostring(L, -1));
 }
 
 const luaL_Reg lovrMat4[] = {

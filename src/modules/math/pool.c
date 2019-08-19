@@ -1,4 +1,5 @@
 #include "math/pool.h"
+#include "core/util.h"
 #include <stdlib.h>
 
 #define POOL_ALIGN 16
@@ -22,7 +23,7 @@ void lovrPoolDestroy(void* ref) {
 }
 
 void lovrPoolGrow(Pool* pool, size_t count) {
-  lovrAssert(count <= (1 << 16), "Congratulations!  You have run out of memory for vectors.  Try using lovr.math.drain to drain the vector Pool periodically."); // Only 24 bits for vector handles
+  lovrAssert(count <= (1 << 16), "Temporary vector space exhausted.  Try using lovr.math.drain to drain the vector pool periodically.");
   pool->count = count;
   pool->data = realloc(pool->data, pool->count * sizeof(float));
   lovrAssert(pool->data, "Out of memory");
@@ -31,20 +32,27 @@ void lovrPoolGrow(Pool* pool, size_t count) {
 
 Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
   size_t count = vectorComponents[type];
+
   if (pool->cursor + count > pool->count - 4) { // Leave 4 floats of padding for alignment adjustment
     lovrPoolGrow(pool, pool->count * 2);
   }
-  Vector v = { type, (uint8_t) pool->generation, (uint16_t) pool->cursor };
-  if (data) {
-    *data = pool->floats + pool->cursor;
-  }
+
+  Vector v = {
+    .handle = {
+      .type = type,
+      .generation = (uint8_t) pool->generation,
+      .index = (uint16_t) pool->cursor
+    }
+  };
+
+  *data = pool->floats + pool->cursor;
   pool->cursor += count;
   return v;
 }
 
 float* lovrPoolResolve(Pool* pool, Vector vector) {
-  lovrAssert(vector.generation == pool->generation, "Attempt to use a vector in a different generation than the one it was created in (vectors can not be saved into variables)");
-  return pool->floats + vector.index;
+  lovrAssert(vector.handle.generation == pool->generation, "Attempt to use a vector in a different generation than the one it was created in (vectors can not be saved into variables)");
+  return pool->floats + vector.handle.index;
 }
 
 void lovrPoolDrain(Pool* pool) {

@@ -3,7 +3,6 @@
 #include "math/curve.h"
 #include "math/pool.h"
 #include "math/randomGenerator.h"
-#include "resources/math.lua.h"
 #include "core/maf.h"
 #include "core/ref.h"
 #include "core/util.h"
@@ -50,27 +49,23 @@ static void luax_destroypool(void) {
 }
 
 float* luax_tovector(lua_State* L, int index, VectorType* type) {
-  int luaType = lua_type(L, index);
-  if (luaType == LUA_TLIGHTUSERDATA) {
-    union { void* pointer; Vector handle; } u;
-    u.pointer = lua_touserdata(L, index);
-    if (u.pointer && u.handle.type > V_NONE && u.handle.type < MAX_VECTOR_TYPES) {
-      *type = u.handle.type;
-      return lovrPoolResolve(pool, u.handle);
-    }
-  } else if (luaType > LUA_TTHREAD) { // cdata
-    Vector* handle = (Vector*) lua_topointer(L, index);
-    if (handle && handle->type > V_NONE && handle->type < MAX_VECTOR_TYPES) {
-      *type = handle->type;
-      return lovrPoolResolve(pool, *handle);
-    }
-  } else if (luaType == LUA_TUSERDATA) {
-    VectorType* p = lua_touserdata(L, index);
-    if (p && *p > V_NONE && *p < MAX_VECTOR_TYPES) {
-      *type = *p;
-      return (float*) (p + 1);
+  void* p = lua_touserdata(L, index);
+
+  if (p) {
+    if (lua_type(L, index) == LUA_TLIGHTUSERDATA) {
+      Vector v = { .pointer = p };
+      if (v.handle.type > V_NONE && v.handle.type < MAX_VECTOR_TYPES) {
+        *type = v.handle.type;
+        return lovrPoolResolve(pool, v);
+      }
+    } else {
+      *type = *(VectorType*) p;
+      if (*type > V_NONE || *type < MAX_VECTOR_TYPES) {
+        return (float*) (type + 1);
+      }
     }
   }
+
   *type = V_NONE;
   return NULL;
 }
@@ -92,20 +87,9 @@ static float* luax_newvector(lua_State* L, VectorType type, size_t components) {
 
 float* luax_newtempvector(lua_State* L, VectorType type) {
   float* data;
-  Vector handle = lovrPoolAllocate(pool, type, &data);
-  union { void* pointer; Vector handle; } u;
-  u.handle = handle;
-  lua_pushlightuserdata(L, u.pointer);
+  Vector vector = lovrPoolAllocate(pool, type, &data);
+  lua_pushlightuserdata(L, vector.pointer);
   return data;
-}
-
-static int l_lovrVectorGetPointer(lua_State* L) {
-  if (lua_type(L, 1) == LUA_TUSERDATA) {
-    VectorType* p = lua_touserdata(L, 1);
-    lua_pushlightuserdata(L, p + 1);
-    return 1;
-  }
-  return 0;
 }
 
 static int l_lovrMathNewCurve(lua_State* L) {
@@ -368,8 +352,6 @@ int luaopen_lovr_math(lua_State* L) {
     lua_newtable(L);
     lua_pushstring(L, lovrVectorTypeNames[i]);
     lua_setfield(L, -2, "__name");
-    lua_pushcfunction(L, l_lovrVectorGetPointer);
-    lua_setfield(L, -2, "getPointer");
     luaL_register(L, NULL, lovrVectorMetatables[i]);
     lovrVectorMetatableRefs[i] = luaL_ref(L, LUA_REGISTRYINDEX);
   }
@@ -393,29 +375,14 @@ int luaopen_lovr_math(lua_State* L) {
     luax_atexit(L, lovrMathDestroy);
   }
 
+  // Each Lua state gets its own thread-local Pool
   pool = lovrPoolCreate();
   luax_atexit(L, luax_destroypool);
 
-  // Inject LuaJIT superjuice
+  // Globals
   luax_pushconf(L);
   lua_getfield(L, -1, "math");
   if (lua_istable(L, -1)) {
-#ifdef LOVR_USE_LUAJIT
-    lua_getfield(L, -1, "ffi");
-    if (lua_toboolean(L, -1)) {
-      lua_pushcfunction(L, luax_getstack);
-      if (luaL_loadbuffer(L, (const char*) math_lua, math_lua_len, "math.lua")) {
-        lovrThrow(lua_tostring(L, -1));
-      }
-      lua_pushvalue(L, -6); // lovr.math
-      lua_pushlightuserdata(L, pool);
-      if (lua_pcall(L, 2, 0, -4)) {
-        lovrThrow(lua_tostring(L, -1));
-      }
-      lua_pop(L, 1);
-    }
-    lua_pop(L, 1);
-#endif
     lua_getfield(L, -1, "globals");
     if (lua_toboolean(L, -1)) {
       for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
