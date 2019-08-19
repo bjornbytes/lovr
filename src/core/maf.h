@@ -184,10 +184,10 @@ MAF quat quat_normalize(quat q) {
   return q;
 }
 
-MAF void quat_getDirection(quat q, float* x, float* y, float* z) {
-  *x = -2.f * q[0] * q[2] - 2.f * q[3] * q[1];
-  *y = -2.f * q[1] * q[2] + 2.f * q[3] * q[0];
-  *z = -1.f + 2.f * q[0] * q[0] + 2.f * q[1] * q[1];
+MAF void quat_getDirection(quat q, vec3 v) {
+  v[0] = -2.f * q[0] * q[2] - 2.f * q[3] * q[1];
+  v[1] = -2.f * q[1] * q[2] + 2.f * q[3] * q[0];
+  v[2] = -1.f + 2.f * q[0] * q[0] + 2.f * q[1] * q[1];
 }
 
 MAF quat quat_conjugate(quat q) {

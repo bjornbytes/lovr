@@ -1301,12 +1301,9 @@ static int l_lovrQuatNormalize(lua_State* L) {
 
 static int l_lovrQuatDirection(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
-  float x, y, z;
-  quat_getDirection(q, &x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 3;
+  vec3 v = luax_newtempvector(L, V_VEC3);
+  quat_getDirection(q, v);
+  return 1;
 }
 
 static int l_lovrQuatConjugate(lua_State* L) {
