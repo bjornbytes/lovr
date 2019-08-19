@@ -314,7 +314,7 @@ static bool getTransform(Device device, mat4 transform) {
   if (device == DEVICE_HEAD) {
     mat4_fromMat34(transform, state.headPose.mDeviceToAbsoluteTracking.m);
     transform[13] += state.offset;
-    return true;
+    return state.headPose.bPoseIsValid;
   }
 
   if (!state.poseActions[device]) {
