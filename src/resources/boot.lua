@@ -203,77 +203,23 @@ function lovr.errhand(message, traceback)
   if not lovr.graphics then return function() return 1 end end
 
   lovr.graphics.reset()
-  lovr.graphics.setBackgroundColor(.105, .098, .137)
+  lovr.graphics.setBackgroundColor(.11, .10, .14)
+  lovr.graphics.setColor(.85, .85, .85)
   local font = lovr.graphics.getFont()
   font:setFlipEnabled(false)
-  local maxWidth = .55 * font:getPixelDensity()
-  local messageWidth = font:getWidth(message, maxWidth)
-  local fontHeight = font:getHeight()
-
-  local buttons = {
-    { 'Quit', messageWidth / 2 - 4, 5, 4, 1.6 },
-    { 'Restart', messageWidth / 2 - 8.5, 5, 4, 1.6 }
-  }
-
-  local cursor = lovr.math.newVec2(0, 2)
-  local hover = {}
-  local alpha = 0
-
+  local wrap = .7 * font:getPixelDensity()
+  local width, lines = font:getWidth(message, wrap)
+  local height = 2.6 + lines
+  local y = math.min(height / 2, 10)
   local function render(window)
-    if not window then
-      for i, button in ipairs(buttons) do
-        local text, x, y, w, h = unpack(button)
-        x, y = x + w * .5, y - h * .5
-        lovr.graphics.setColor(0, 0, 0, hover[i] and 1 or .3)
-        lovr.graphics.plane('fill', x, y, -20, w, h)
-        lovr.graphics.setColor(1, 1, 1, hover[i] and .5 or 1)
-        lovr.graphics.print(text, x, y, -19.999)
-      end
-    end
-
-    lovr.graphics.setColor(.8, .8, .8)
-    lovr.graphics.print('Error', -messageWidth / 2, 5, -20, 1.6, 0, 0, 0, 0, nil, 'left', 'top')
-    lovr.graphics.print(message, -messageWidth / 2, 5 - fontHeight * 2.6, -20, 1, 0, 0, 0, 0, maxWidth, 'left', 'top')
-
-    if alpha > 0 then
-      lovr.graphics.setColor(1, 1, 1, alpha ^ 2)
-      lovr.graphics.circle('fill', cursor.x, cursor.y, -19.998, .06)
-    end
+    lovr.graphics.print('Error', -width / 2, y, -20, 1.6, 0, 0, 0, 0, nil, 'left', 'top')
+    lovr.graphics.print(message, -width / 2, y - 2.6, -20, 1.0, 0, 0, 0, 0, wrap, 'left', 'top')
   end
 
   return function()
     lovr.event.pump()
     for name, a in lovr.event.poll() do if name == 'quit' then return a or 1 end end
-
     lovr.headset.update(0)
-    alpha, hover[1], hover[2] = 0, false, false
-    for _, hand in ipairs(lovr.headset.getHands()) do
-      local trigger = lovr.headset.getAxis(hand, 'trigger')
-      alpha = math.max(alpha, trigger)
-      if trigger > 0 then
-        cursor:add(vec3(lovr.headset.getVelocity(hand)).xy)
-        for i, button in ipairs(buttons) do
-          local _, x, y, w, h = unpack(button)
-          local hovered = cursor.x >= x and cursor.x <= x + w and cursor.y <= y and cursor.y >= y - h
-          local wasHovered = hover[hand] == i
-
-          if hovered then
-            hover[hand] = i
-            hover[i] = true
-            if not wasHovered then
-              lovr.headset.vibrate(hand, .2, .004, 10)
-            end
-          elseif wasHovered then
-            hover[hand] = nil
-            lovr.headset.vibrate(hand, .1, .004, 10)
-          end
-        end
-      elseif hover[hand] then
-        lovr.event.quit(hover[hand] == 2 and 'restart' or 0)
-      end
-    end
-    lovr.math.drain()
-
     lovr.graphics.origin()
     if lovr.headset then lovr.headset.renderTo(render) end
     if lovr.graphics.hasWindow() then
