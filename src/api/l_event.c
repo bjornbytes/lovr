@@ -63,7 +63,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       break;
 
     default:
-      lovrThrow("Bad type for Channel:push: %s", lua_typename(L, type));
+      lovrThrow("Bad variant type: %s", lua_typename(L, type));
       return;
   }
 }
