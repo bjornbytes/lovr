@@ -35,8 +35,6 @@
 
 typedef struct Color { float r, g, b, a; } Color;
 
-typedef void voidFn(void);
-typedef void destructorFn(void*);
 typedef void errorFn(void*, const char*, va_list);
 
 extern LOVR_THREAD_LOCAL errorFn* lovrErrorCallback;

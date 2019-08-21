@@ -55,7 +55,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
 
       lua_pushliteral(L, "__destructor");
       lua_rawget(L, -2);
-      variant->value.object.destructor = (destructorFn*) lua_tocfunction(L, -1);
+      variant->value.object.destructor = (void (*)(void*)) lua_tocfunction(L, -1);
       lua_pop(L, 1);
 
       variant->value.object.pointer = proxy->object;

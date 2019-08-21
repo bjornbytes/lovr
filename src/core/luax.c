@@ -7,6 +7,9 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
+typedef void voidFn(void);
+typedef void destructorFn(void*);
+
 static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "__name");
   lua_pushstring(L, (const char*) lua_touserdata(L, -1));

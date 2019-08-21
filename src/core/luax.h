@@ -1,7 +1,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "util.h"
+#include <stdint.h>
 
 #pragma once
 
@@ -27,7 +27,7 @@ typedef struct {
 #define luax_seterror(L) lua_setfield(L, LUA_REGISTRYINDEX, "_lovrerror")
 #define luax_clearerror(L) lua_pushnil(L), luax_seterror(L)
 
-void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, destructorFn* destructor);
+void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, void (*destructor)(void*));
 void* _luax_totype(lua_State* L, int index, uint32_t hash);
 void* _luax_checktype(lua_State* L, int index, uint32_t hash, const char* debug);
 void _luax_pushtype(lua_State* L, const char* name, uint32_t hash, void* object);
@@ -39,5 +39,5 @@ int luax_print(lua_State* L);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
 void luax_setmainthread(lua_State* L);
-void luax_atexit(lua_State* L, voidFn* destructor);
+void luax_atexit(lua_State* L, void (*destructor)(void));
 void luax_readcolor(lua_State* L, int index, struct Color* color);
