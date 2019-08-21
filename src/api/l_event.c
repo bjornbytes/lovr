@@ -1,4 +1,5 @@
 #include "api.h"
+#include "util.h"
 #include "event/event.h"
 #include "thread/thread.h"
 #include "core/platform.h"
@@ -195,7 +196,7 @@ static const luaL_Reg lovrEvent[] = {
   { NULL, NULL }
 };
 
-int luaopen_lovr_event(lua_State* L) {
+LOVR_EXPORT int luaopen_lovr_event(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrEvent);
 

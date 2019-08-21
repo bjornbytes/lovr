@@ -1,6 +1,5 @@
 #include <stdarg.h>
 #include <stddef.h>
-#include <stdint.h>
 
 #pragma once
 
@@ -44,11 +43,3 @@ void lovrSetErrorCallback(errorFn* callback, void* context);
 void LOVR_NORETURN lovrThrow(const char* format, ...);
 
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
-
-static inline uint32_t hash(const char* str) {
-  uint32_t x = 0;
-  while (*str) {
-    x = (x * 65599) + *str++;
-  }
-  return x;
-}

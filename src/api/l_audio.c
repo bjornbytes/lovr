@@ -9,8 +9,6 @@
 #include "core/ref.h"
 #include <stdlib.h>
 
-struct Blob* luax_readblob(lua_State* L, int index, const char* debug);
-
 const char* SourceTypes[] = {
   [SOURCE_STATIC] = "static",
   [SOURCE_STREAM] = "stream",
@@ -251,7 +249,7 @@ static const luaL_Reg lovrAudio[] = {
   { NULL, NULL }
 };
 
-int luaopen_lovr_audio(lua_State* L) {
+LOVR_EXPORT int luaopen_lovr_audio(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrAudio);
   luax_registertype(L, Microphone);

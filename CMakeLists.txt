@@ -317,12 +317,12 @@ endif()
 set(LOVR_SRC
   src/main.c
   src/core/arr.c
-  src/core/luax.c
   src/core/maf.c
   src/core/platform.c
   src/core/ref.c
   src/core/utf.c
   src/core/util.c
+  src/api/api.c
   src/api/l_lovr.c
   src/lib/map/map.c
   src/lib/sds/sds.c

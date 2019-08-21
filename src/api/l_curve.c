@@ -1,4 +1,5 @@
 #include "api.h"
+#include "util.h"
 #include "math/curve.h"
 #include <stdlib.h>
 

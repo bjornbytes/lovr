@@ -297,7 +297,6 @@ bool lovrPlatformHasWindow() {
 #include <assert.h>
 
 #include "oculus_mobile_bridge.h"
-#include "luax.h"
 #include "lib/sds/sds.h"
 
 #include "api/api.h"
