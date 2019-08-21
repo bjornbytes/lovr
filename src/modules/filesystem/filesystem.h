@@ -14,6 +14,7 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
 void lovrFilesystemDestroy(void);
 bool lovrFilesystemCreateDirectory(const char* path);
 bool lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size);
+bool lovrFilesystemGetApplicationId(char* dest, size_t size);
 void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata);
 int lovrFilesystemGetExecutablePath(char* path, uint32_t size);
 const char* lovrFilesystemGetIdentity(void);

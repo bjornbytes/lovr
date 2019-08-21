@@ -325,7 +325,6 @@ set(LOVR_SRC
   src/api/api.c
   src/api/l_lovr.c
   src/lib/map/map.c
-  src/lib/sds/sds.c
 )
 
 if (LOVR_BUILD_SHARED)

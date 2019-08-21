@@ -85,6 +85,19 @@ static int l_lovrFilesystemGetAppdataDirectory(lua_State* L) {
   return 1;
 }
 
+
+static int l_lovrFilesystemGetApplicationId(lua_State *L) {
+  char buffer[LOVR_PATH_MAX];
+
+  if (lovrFilesystemGetApplicationId(buffer, sizeof(buffer))) {
+    lua_pushstring(L, buffer);
+  } else {
+    lua_pushnil(L);
+  }
+
+  return 1;
+}
+
 static int l_lovrFilesystemGetDirectoryItems(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_newtable(L);
@@ -279,21 +292,11 @@ static int l_lovrFilesystemWrite(lua_State* L) {
   return 1;
 }
 
-static int l_lovrFilesystemGetApplicationId(lua_State *L) {
-  sds applicationId = lovrPlatformGetApplicationId();
-  if (applicationId) {
-    lua_pushstring(L, applicationId);
-    sdsfree(applicationId);
-  } else {
-    lua_pushnil(L);
-  }
-  return 1;
-}
-
 static const luaL_Reg lovrFilesystem[] = {
   { "append", l_lovrFilesystemAppend },
   { "createDirectory", l_lovrFilesystemCreateDirectory },
   { "getAppdataDirectory", l_lovrFilesystemGetAppdataDirectory },
+  { "getApplicationId", l_lovrFilesystemGetApplicationId },
   { "getDirectoryItems", l_lovrFilesystemGetDirectoryItems },
   { "getExecutablePath", l_lovrFilesystemGetExecutablePath },
   { "getIdentity", l_lovrFilesystemGetIdentity },
@@ -317,7 +320,6 @@ static const luaL_Reg lovrFilesystem[] = {
   { "setIdentity", l_lovrFilesystemSetIdentity },
   { "unmount", l_lovrFilesystemUnmount },
   { "write", l_lovrFilesystemWrite },
-  { "getApplicationId", l_lovrFilesystemGetApplicationId },
   { NULL, NULL }
 };
 

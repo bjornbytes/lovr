@@ -123,6 +123,23 @@ bool lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
   return false;
 }
 
+bool lovrFilesystemGetApplicationId(char* dest, size_t size) {
+#ifdef __ANDROID__
+  pid_t pid = getpid();
+  char path[32];
+  snprintf(path, LOVR_PATH_MAX, "/proc/%i/cmdline", (int) pid);
+  FILE* file = fopen(path, "r");
+  if (file) {
+    size_t read = fread(dest, 1, size, file);
+    fclose(file);
+    return true;
+  }
+  return false;
+#else
+  return false;
+#endif
+}
+
 void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata) {
   PHYSFS_enumerate(path, (PHYSFS_EnumerateCallback) callback, userdata);
 }

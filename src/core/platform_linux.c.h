@@ -23,7 +23,3 @@ int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
   }
   return 1;
 }
-
-sds lovrPlatformGetApplicationId() {
-	return NULL;
-}

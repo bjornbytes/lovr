@@ -297,7 +297,6 @@ bool lovrPlatformHasWindow() {
 #include <assert.h>
 
 #include "oculus_mobile_bridge.h"
-#include "lib/sds/sds.h"
 
 #include "api/api.h"
 #include "lib/lua-cjson/lua_cjson.h"
@@ -330,8 +329,6 @@ enum {
 } pauseState;
 
 int lovr_luaB_print_override (lua_State *L);
-
-#define SDS(...) sdscatfmt(sdsempty(), __VA_ARGS__)
 
 static void android_vthrow(lua_State* L, const char* format, va_list args) {
   #define MAX_ERROR_LENGTH 1024
@@ -416,7 +413,10 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
 
   // Save writable data directory for LovrFilesystemInit later
   {
-    lovrOculusMobileWritablePath = sdsRemoveFreeSpace(SDS("%s/data", initData->writablePath));
+    size_t length = strlen(initData->writablePath);
+    lovrOculusMobileWritablePath = malloc(length + strlen("/data") + 1);
+    memcpy(lovrOculusMobileWritablePath, initData->writablePath, length);
+    memcpy(lovrOculusMobileWritablePath + length, "/data", strlen("/data") + 1);
     mkdir(lovrOculusMobileWritablePath, 0777);
   }
 
@@ -519,4 +519,5 @@ void bridgeLovrPaused(bool paused) {
 void bridgeLovrClose() {
   pauseState = PAUSESTATE_NONE;
   lua_close(L);
+  free(lovrOculusMobileWritablePath);
 }

@@ -205,7 +205,6 @@ BlockType lovrShaderBlockGetType(ShaderBlock* block) {
   return block->type;
 }
 
-// TODO use sds!
 char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, size_t* length) {
 
   // Calculate

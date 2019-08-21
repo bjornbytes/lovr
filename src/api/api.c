@@ -2,7 +2,6 @@
 #include "util.h"
 #include "core/ref.h"
 #include "core/platform.h"
-#include "lib/sds/sds.h"
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -197,27 +196,22 @@ int luax_getstack(lua_State *L) {
 
 // A version of print that uses lovrLog, for platforms that need it (Android)
 int luax_print(lua_State* L) {
-  sds str = sdsempty();
-  int n = lua_gettop(L);  /* number of arguments */
-  int i;
-
+  luaL_Buffer buffer;
+  int n = lua_gettop(L);
   lua_getglobal(L, "tostring");
-  for (i=1; i<=n; i++) {
-    const char *s;
-    lua_pushvalue(L, -1);  /* function to be called */
-    lua_pushvalue(L, i);   /* value to print */
+  luaL_buffinit(L, &buffer);
+  for (int i = 1; i <= n; i++) {
+    lua_pushvalue(L, -1);
+    lua_pushvalue(L, i);
     lua_call(L, 1, 1);
-    s = lua_tostring(L, -1);  /* get result */
-    if (s == NULL)
-      return luaL_error(L, LUA_QL("tostring") " must return a string to "
-                           LUA_QL("print"));
-    if (i>1) str = sdscat(str, "\t");
-    str = sdscat(str, s);
-    lua_pop(L, 1);  /* pop result */
+    lovrAssert(lua_type(L, -1) == LUA_TSTRING, LUA_QL("tostring") " must return a string to " LUA_QL("print"));
+    luaL_addvalue(&buffer);
+    if (i > 1) {
+      luaL_addchar(&buffer, '\t');
+    }
   }
-  lovrLog("%s", str);
-
-  sdsfree(str);
+  luaL_pushresult(&buffer);
+  lovrLog("%s", lua_tostring(L, -1));
   return 0;
 }
 
