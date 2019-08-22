@@ -130,7 +130,6 @@ void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
 void luax_vthrow(lua_State* L, const char* format, va_list args);
 void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);
 int luax_getstack(lua_State* L);
-int luax_print(lua_State* L);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
 void luax_setmainthread(lua_State* L);

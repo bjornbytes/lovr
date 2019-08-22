@@ -6,7 +6,11 @@
 #include "lib/glad/glad.h"
 #include <assert.h>
 #include <stdlib.h>
+#include <android/log.h>
 #include "platform.h"
+
+#define LOG(...) __android_log_print(ANDROID_LOG_DEBUG, "LOVR", __VA_ARGS__)
+#define WARN(...) __android_log_print(ANDROID_LOG_WARN, "LOVR", __VA_ARGS__)
 
 // Data passed from bridge code to headset code
 
@@ -328,13 +332,32 @@ enum {
   PAUSESTATE_RESUME  // We have resumed, and the next frame will need to adjust the clock
 } pauseState;
 
-int lovr_luaB_print_override (lua_State *L);
+// A version of print that uses LOG, since stdout does not work on Android
+int luax_print(lua_State* L) {
+  luaL_Buffer buffer;
+  int n = lua_gettop(L);
+  lua_getglobal(L, "tostring");
+  luaL_buffinit(L, &buffer);
+  for (int i = 1; i <= n; i++) {
+    lua_pushvalue(L, -1);
+    lua_pushvalue(L, i);
+    lua_call(L, 1, 1);
+    lovrAssert(lua_type(L, -1) == LUA_TSTRING, LUA_QL("tostring") " must return a string to " LUA_QL("print"));
+    luaL_addvalue(&buffer);
+    if (i > 1) {
+      luaL_addchar(&buffer, '\t');
+    }
+  }
+  luaL_pushresult(&buffer);
+  LOG("%s", lua_tostring(L, -1));
+  return 0;
+}
 
 static void android_vthrow(lua_State* L, const char* format, va_list args) {
   #define MAX_ERROR_LENGTH 1024
   char lovrErrorMessage[MAX_ERROR_LENGTH];
   vsnprintf(lovrErrorMessage, MAX_ERROR_LENGTH, format, args);
-  lovrWarn("Error: %s\n", lovrErrorMessage);
+  WARN("Error: %s\n", lovrErrorMessage);
   assert(0);
 }
 
@@ -353,7 +376,7 @@ static void bridgeLovrInitState() {
   luax_setmainthread(L);
   lua_atpanic(L, luax_custom_atpanic);
   luaL_openlibs(L);
-  lovrLog("\n OPENED LIB\n");
+  LOG("\n OPENED LIB\n");
 
   lovrSetErrorCallback((errorFn*) android_vthrow, L);
 
@@ -395,7 +418,7 @@ static void bridgeLovrInitState() {
 
   lua_pushcfunction(L, luax_getstack);
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
-    lovrWarn("\n LUA STARTUP FAILED: %s\n", lua_tostring(L, -1));
+    WARN("\n LUA STARTUP FAILED: %s\n", lua_tostring(L, -1));
     lua_close(L);
     assert(0);
   }
@@ -405,11 +428,11 @@ static void bridgeLovrInitState() {
   lua_atpanic(T, luax_custom_atpanic);
   coroutineRef = luaL_ref(L, LUA_REGISTRYINDEX); // Hold on to the Lua-side coroutine object so it isn't GC'd
 
-  lovrLog("\n STATE INIT COMPLETE\n");
+  LOG("\n STATE INIT COMPLETE\n");
 }
 
 void bridgeLovrInit(BridgeLovrInitData *initData) {
-  lovrLog("\n INSIDE LOVR\n");
+  LOG("\n INSIDE LOVR\n");
 
   // Save writable data directory for LovrFilesystemInit later
   {
@@ -433,7 +456,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
 
   bridgeLovrInitState();
 
-  lovrLog("\n BRIDGE INIT COMPLETE\n");
+  LOG("\n BRIDGE INIT COMPLETE\n");
 }
 
 void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
@@ -464,7 +487,7 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
       lua_close(L);
       bridgeLovrInitState();
     } else {
-      lovrLog("\n LUA REQUESTED A QUIT\n");
+      LOG("\n LUA REQUESTED A QUIT\n");
       assert(0);
     }
   }

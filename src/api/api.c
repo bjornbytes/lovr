@@ -194,27 +194,6 @@ int luax_getstack(lua_State *L) {
   return 1;
 }
 
-// A version of print that uses lovrLog, for platforms that need it (Android)
-int luax_print(lua_State* L) {
-  luaL_Buffer buffer;
-  int n = lua_gettop(L);
-  lua_getglobal(L, "tostring");
-  luaL_buffinit(L, &buffer);
-  for (int i = 1; i <= n; i++) {
-    lua_pushvalue(L, -1);
-    lua_pushvalue(L, i);
-    lua_call(L, 1, 1);
-    lovrAssert(lua_type(L, -1) == LUA_TSTRING, LUA_QL("tostring") " must return a string to " LUA_QL("print"));
-    luaL_addvalue(&buffer);
-    if (i > 1) {
-      luaL_addchar(&buffer, '\t');
-    }
-  }
-  luaL_pushresult(&buffer);
-  lovrLog("%s", lua_tostring(L, -1));
-  return 0;
-}
-
 void luax_pushconf(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrconf");
 }

@@ -56,7 +56,7 @@ static void emscriptenLoop(void* arg) {
 int main(int argc, char** argv) {
   if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
     lovrPlatformOpenConsole();
-    lovrLog("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
+    printf("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
     exit(0);
   }
 
@@ -169,7 +169,7 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
 
   lua_pushcfunction(L, luax_getstack);
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
-    lovrWarn("%s\n", lua_tostring(L, -1));
+    fprintf(stderr, "%s\n", lua_tostring(L, -1));
     return NULL;
   }
 

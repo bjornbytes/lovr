@@ -5,6 +5,7 @@
 #include "resources/shaders.h"
 #include "core/ref.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 
 static size_t getUniformTypeLength(const Uniform* uniform) {
