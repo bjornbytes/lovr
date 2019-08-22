@@ -16,9 +16,9 @@ typedef struct {
   int count;
 } objGroup;
 
-typedef arr_t(ModelMaterial, 1) arr_material_t;
-typedef arr_t(TextureData*, 1) arr_texturedata_t;
-typedef arr_t(objGroup, 1) arr_group_t;
+typedef arr_t(ModelMaterial) arr_material_t;
+typedef arr_t(TextureData*) arr_texturedata_t;
+typedef arr_t(objGroup) arr_group_t;
 
 #define STARTS_WITH(a, b) !strncmp(a, b, strlen(b))
 
@@ -95,13 +95,13 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   arr_group_t groups;
   arr_texturedata_t textures;
   arr_material_t materials;
-  arr_t(float, 1) vertexBlob;
-  arr_t(int, 1) indexBlob;
+  arr_t(float) vertexBlob;
+  arr_t(int) indexBlob;
   map_u32_t materialMap;
   map_int_t vertexMap;
-  arr_t(float, 1) positions;
-  arr_t(float, 1) normals;
-  arr_t(float, 1) uvs;
+  arr_t(float) positions;
+  arr_t(float) normals;
+  arr_t(float) uvs;
 
   arr_init(&groups);
   arr_init(&textures);

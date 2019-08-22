@@ -90,7 +90,7 @@ typedef struct Uniform {
   bool dirty;
 } Uniform;
 
-typedef arr_t(Uniform, 8) arr_uniform_t;
+typedef arr_t(Uniform) arr_uniform_t;
 
 typedef struct {
   BlockType type;
@@ -108,7 +108,7 @@ typedef struct {
   int slot;
 } UniformBlock;
 
-typedef arr_t(UniformBlock, 1) arr_block_t;
+typedef arr_t(UniformBlock) arr_block_t;
 
 typedef struct Shader {
   ShaderType type;

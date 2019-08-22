@@ -203,7 +203,7 @@ typedef struct {
 typedef struct {
   int shaderSwitches;
   int drawCalls;
-  arr_t(GpuTimer, 4) timers;
+  arr_t(GpuTimer) timers;
 } GpuStats;
 
 typedef struct {

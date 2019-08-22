@@ -7,7 +7,7 @@
 #include <math.h>
 
 struct Curve {
-  arr_t(float, 16) points;
+  arr_t(float) points;
 };
 
 // Explicit curve evaluation, unroll simple cases to avoid pow overhead
@@ -53,6 +53,7 @@ static void evaluate(float* P, size_t n, float t, vec3 p) {
 Curve* lovrCurveCreate(void) {
   Curve* curve = lovrAlloc(Curve);
   arr_init(&curve->points);
+  arr_reserve(&curve->points, 16);
   return curve;
 }
 

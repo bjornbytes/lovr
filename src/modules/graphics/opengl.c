@@ -82,7 +82,7 @@ static struct {
   Image images[MAX_IMAGES];
   float viewports[2][4];
   uint32_t viewportCount;
-  arr_t(void*, 2) incoherents[MAX_BARRIERS];
+  arr_t(void*) incoherents[MAX_BARRIERS];
   map_t(TimerList) timers;
   GpuFeatures features;
   GpuLimits limits;
@@ -1860,7 +1860,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
     int blockId = (i << 1) + BLOCK_UNIFORM;
     map_set(&shader->blockMap, name, blockId);
     arr_push(uniformBlocks, block);
-    arr_init(&uniformBlocks->data[uniformBlocks->length - 1].uniforms); // Initialize arr after copying stack variable
+    arr_init(&uniformBlocks->data[uniformBlocks->length - 1].uniforms);
   }
 
   // Shader storage buffers and their buffer variables
@@ -1918,6 +1918,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   int imageSlot = 0;
   map_init(&shader->uniformMap);
   arr_init(&shader->uniforms);
+  arr_reserve(&shader->uniforms, 4);
   glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &uniformCount);
   for (uint32_t i = 0; i < (uint32_t) uniformCount; i++) {
     Uniform uniform;

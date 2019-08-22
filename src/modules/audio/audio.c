@@ -18,7 +18,7 @@ static struct {
   float LOVR_ALIGN(16) orientation[4];
   float LOVR_ALIGN(16) position[4];
   float LOVR_ALIGN(16) velocity[4];
-  arr_t(Source*, 32) sources;
+  arr_t(Source*) sources;
 } state;
 
 ALenum lovrAudioConvertFormat(uint32_t bitDepth, uint32_t channelCount) {

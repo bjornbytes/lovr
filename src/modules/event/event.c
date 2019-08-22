@@ -8,7 +8,7 @@
 
 static struct {
   bool initialized;
-  arr_t(Event, 8) events;
+  arr_t(Event) events;
   size_t head;
 } state;
 

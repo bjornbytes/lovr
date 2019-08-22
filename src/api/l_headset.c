@@ -599,8 +599,8 @@ LOVR_EXPORT int luaopen_lovr_headset(lua_State* L) {
   luax_pushconf(L);
   lua_getfield(L, -1, "headset");
 
-  arr_t(HeadsetDriver, 8) drivers;
-  arr_init(&drivers);
+  size_t driverCount = 0;
+  HeadsetDriver drivers[8];
   float offset = 1.7f;
   int msaa = 4;
 
@@ -611,7 +611,8 @@ LOVR_EXPORT int luaopen_lovr_headset(lua_State* L) {
     int n = luax_len(L, -1);
     for (int i = 0; i < n; i++) {
       lua_rawgeti(L, -1, i + 1);
-      arr_push(&drivers, luaL_checkoption(L, -1, NULL, HeadsetDrivers));
+      drivers[driverCount++] = luaL_checkoption(L, -1, NULL, HeadsetDrivers);
+      lovrAssert(driverCount < sizeof(drivers) / sizeof(drivers[0]), "Too many headset drivers specified in conf.lua");
       lua_pop(L, 1);
     }
     lua_pop(L, 1);
@@ -627,14 +628,11 @@ LOVR_EXPORT int luaopen_lovr_headset(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  if (lovrHeadsetInit(drivers.data, drivers.length, offset, msaa)) {
+  if (lovrHeadsetInit(drivers, driverCount, offset, msaa)) {
     luax_atexit(L, lovrHeadsetDestroy);
   }
 
-  arr_free(&drivers);
   lua_pop(L, 2);
-
   headsetRenderData.ref = LUA_NOREF;
-
   return 1;
 }

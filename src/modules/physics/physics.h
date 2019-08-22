@@ -32,7 +32,7 @@ typedef struct {
   dWorldID id;
   dSpaceID space;
   dJointGroupID contactGroup;
-  arr_t(Shape*, 8) overlaps;
+  arr_t(Shape*) overlaps;
   map_int_t tags;
   uint16_t masks[MAX_TAGS];
   Collider* head;
@@ -45,8 +45,8 @@ struct Collider {
   Collider* next;
   void* userdata;
   int tag;
-  arr_t(Shape*, 2) shapes;
-  arr_t(Joint*, 2) joints;
+  arr_t(Shape*) shapes;
+  arr_t(Joint*) joints;
   float friction;
   float restitution;
 };

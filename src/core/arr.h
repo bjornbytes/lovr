@@ -2,22 +2,20 @@
 
 #pragma once
 
-// A dynamic array that uses the stack initially and switches to the heap if it gets big enough.
-
-#define arr_t(T, n)\
-  struct { T *data; T temp[n]; size_t length, capacity; }
+#define arr_t(T)\
+  struct { T *data; size_t length, capacity; }
 
 #define arr_init(a)\
-  (a)->data = (a)->temp,\
+  (a)->data = NULL,\
   (a)->length = 0,\
-  (a)->capacity = sizeof((a)->temp) / sizeof((a)->temp[0])
+  (a)->capacity = 0
 
 #define arr_free(a)\
-  if ((a)->data != (a)->temp) free((a)->data)
+  free((a)->data)
 
 #define arr_reserve(a, n)\
   n > (a)->capacity ?\
-    _arr_reserve((void**) &((a)->data), (a)->temp, n, &(a)->capacity, sizeof(*(a)->data)) :\
+    _arr_reserve((void**) &((a)->data), n, &(a)->capacity, sizeof(*(a)->data)) :\
     (void) 0
 
 #define arr_push(a, x)\
@@ -39,4 +37,4 @@
 #define arr_clear(a)\
   (a)->length = 0
 
-void _arr_reserve(void** data, void* temp, size_t n, size_t* capacity, size_t stride);
+void _arr_reserve(void** data, size_t n, size_t* capacity, size_t stride);

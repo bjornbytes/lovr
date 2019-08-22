@@ -11,7 +11,7 @@
 struct Channel {
   mtx_t lock;
   cnd_t cond;
-  arr_t(Variant, 1) messages;
+  arr_t(Variant) messages;
   size_t head;
   uint64_t sent;
   uint64_t received;
