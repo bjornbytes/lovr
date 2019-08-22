@@ -326,6 +326,10 @@ static int l_lovrGraphicsCreateWindow(lua_State* L) {
   WindowFlags flags;
   memset(&flags, 0, sizeof(flags));
 
+  if (!lua_toboolean(L, 1)) {
+    return 0;
+  }
+
   luaL_checktype(L, 1, LUA_TTABLE);
 
   lua_getfield(L, 1, "width");
