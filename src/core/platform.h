@@ -58,11 +58,11 @@ extern getProcAddressProc lovrGetProcAddress;
 
 bool lovrPlatformInit(void);
 void lovrPlatformDestroy(void);
-const char* lovrPlatformGetName();
+const char* lovrPlatformGetName(void);
 void lovrPlatformPollEvents(void);
 double lovrPlatformGetTime(void);
 void lovrPlatformSetTime(double t);
-void lovrPlatformOpenConsole();
+void lovrPlatformOpenConsole(void);
 bool lovrPlatformCreateWindow(WindowFlags* flags);
 bool lovrPlatformHasWindow(void);
 void lovrPlatformGetWindowSize(int* width, int* height);
