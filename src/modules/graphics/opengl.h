@@ -12,8 +12,8 @@
 #pragma once
 
 #define GPU_BUFFER_FIELDS \
-  uint32_t id; \
-  uint8_t incoherent;
+  uint8_t incoherent; \
+  uint32_t id;
 
 #define GPU_CANVAS_FIELDS \
   uint32_t framebuffer; \

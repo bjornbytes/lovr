@@ -24,10 +24,10 @@ typedef struct Buffer {
   size_t size;
   size_t flushFrom;
   size_t flushTo;
-  bool mapped;
-  bool readable;
   BufferType type;
   BufferUsage usage;
+  bool mapped;
+  bool readable;
   GPU_BUFFER_FIELDS
 } Buffer;
 
