@@ -29,7 +29,7 @@
   uint32_t program;
 
 #define GPU_TEXTURE_FIELDS \
+  uint8_t incoherent; \
   GLuint id; \
   GLuint msaaId; \
-  GLenum target; \
-  uint8_t incoherent;
+  GLenum target;
