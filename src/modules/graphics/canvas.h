@@ -20,8 +20,8 @@ typedef struct {
     bool readable;
     TextureFormat format;
   } depth;
-  bool stereo;
   uint32_t msaa;
+  bool stereo;
   bool mipmaps;
 } CanvasFlags;
 
