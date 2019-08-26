@@ -343,7 +343,7 @@ static int l_lovrLightUserdataOp(lua_State* L) {
   return 1;
 }
 
-LOVR_EXPORT int luaopen_lovr_math(lua_State* L) {
+int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrMath);
   luax_registertype(L, Curve);

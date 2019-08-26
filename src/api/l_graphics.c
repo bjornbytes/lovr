@@ -13,7 +13,6 @@
 #include "filesystem/filesystem.h"
 #include "core/arr.h"
 #include "core/ref.h"
-#include "util.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -1693,7 +1692,7 @@ static const luaL_Reg lovrGraphics[] = {
   { NULL, NULL }
 };
 
-LOVR_EXPORT int luaopen_lovr_graphics(lua_State* L) {
+int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrGraphics);
   luax_registertype(L, Canvas);

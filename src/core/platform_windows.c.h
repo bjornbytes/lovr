@@ -1,5 +1,6 @@
 #include "platform.h"
 #include <Windows.h>
+#include <stdio.h>
 
 #include "platform_glfw.c.h"
 

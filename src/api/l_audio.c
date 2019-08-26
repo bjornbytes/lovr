@@ -249,7 +249,7 @@ static const luaL_Reg lovrAudio[] = {
   { NULL, NULL }
 };
 
-LOVR_EXPORT int luaopen_lovr_audio(lua_State* L) {
+int luaopen_lovr_audio(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrAudio);
   luax_registertype(L, Microphone);

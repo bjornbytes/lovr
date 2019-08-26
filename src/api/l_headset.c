@@ -592,7 +592,7 @@ static const luaL_Reg lovrHeadset[] = {
   { NULL, NULL }
 };
 
-LOVR_EXPORT int luaopen_lovr_headset(lua_State* L) {
+int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrHeadset);
 

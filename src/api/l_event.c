@@ -196,7 +196,7 @@ static const luaL_Reg lovrEvent[] = {
   { NULL, NULL }
 };
 
-LOVR_EXPORT int luaopen_lovr_event(lua_State* L) {
+int luaopen_lovr_event(lua_State* L) {
   lua_newtable(L);
   luaL_register(L, NULL, lovrEvent);
 

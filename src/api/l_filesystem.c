@@ -1,5 +1,4 @@
 #include "api.h"
-#include "util.h"
 #include "filesystem/filesystem.h"
 #include "filesystem/file.h"
 #include "data/blob.h"
@@ -446,7 +445,7 @@ static int libLoader(lua_State* L) {
   return 0;
 }
 
-LOVR_EXPORT int luaopen_lovr_filesystem(lua_State* L) {
+int luaopen_lovr_filesystem(lua_State* L) {
   lua_getglobal(L, "arg");
   if (lua_istable(L, -1)) {
     lua_getfield(L, -1, "exe");
