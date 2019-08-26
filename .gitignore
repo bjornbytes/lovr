@@ -11,4 +11,4 @@ bin
 /data
 /*.lua
 .DS_Store
-test
+/test
