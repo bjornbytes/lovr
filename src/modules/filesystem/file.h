@@ -1,13 +1,16 @@
 #include <stdbool.h>
 #include <stddef.h>
+#include "core/fs.h"
 
 #pragma once
 
+/*
 typedef enum {
   OPEN_READ,
   OPEN_WRITE,
   OPEN_APPEND
 } FileMode;
+*/
 
 typedef struct {
   const char* path;
