@@ -343,10 +343,10 @@ int luax_print(lua_State* L) {
     lua_pushvalue(L, i);
     lua_call(L, 1, 1);
     lovrAssert(lua_type(L, -1) == LUA_TSTRING, LUA_QL("tostring") " must return a string to " LUA_QL("print"));
-    luaL_addvalue(&buffer);
     if (i > 1) {
       luaL_addchar(&buffer, '\t');
     }
+    luaL_addvalue(&buffer);
   }
   luaL_pushresult(&buffer);
   LOG("%s", lua_tostring(L, -1));
