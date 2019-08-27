@@ -1481,7 +1481,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       luax_parseshaderflags(L, -1, flags, &flagCount);
       lua_pop(L, 1);
 
-      lua_getfield(L, 2, "stereo");
+      lua_getfield(L, 3, "stereo");
       multiview = lua_isnil(L, -1) ? multiview : lua_toboolean(L, -1);
       lua_pop(L, 1);
     }
