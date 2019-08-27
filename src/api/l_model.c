@@ -139,6 +139,24 @@ static int l_lovrModelGetNodePose(lua_State* L) {
   return 7;
 }
 
+static int l_lovrModelGetAnimationCount(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  lua_pushinteger(L, lovrModelGetModelData(model)->animationCount);
+  return 1;
+}
+
+static int l_lovrModelGetMaterialCount(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  lua_pushinteger(L, lovrModelGetModelData(model)->materialCount);
+  return 1;
+}
+
+static int l_lovrModelGetNodeCount(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  lua_pushinteger(L, lovrModelGetModelData(model)->nodeCount);
+  return 1;
+}
+
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
   { "animate", l_lovrModelAnimate },
@@ -146,5 +164,8 @@ const luaL_Reg lovrModel[] = {
   { "getMaterial", l_lovrModelGetMaterial },
   { "getAABB", l_lovrModelGetAABB },
   { "getNodePose", l_lovrModelGetNodePose },
+  { "getAnimationCount", l_lovrModelGetAnimationCount },
+  { "getMaterialCount", l_lovrModelGetMaterialCount },
+  { "getNodeCount", l_lovrModelGetNodeCount },
   { NULL, NULL }
 };
