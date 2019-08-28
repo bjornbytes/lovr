@@ -356,6 +356,9 @@ if(LOVR_USE_LUAJIT)
 endif()
 
 if(LOVR_ENABLE_AUDIO)
+  if (ANDROID)
+    target_link_libraries(lovr OpenSLES)
+  endif()
   add_definitions(-DLOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
     src/lib/miniaudio/miniaudio.c
