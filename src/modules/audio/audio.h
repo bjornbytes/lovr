@@ -3,30 +3,34 @@
 
 #pragma once
 
-#define MAX_MICROPHONES 8
+struct SoundData;
+struct Decoder;
 
-struct Source;
+typedef enum {
+  TIME_FRAMES,
+  TIME_SECONDS
+} TimeUnit;
 
-int lovrAudioConvertFormat(uint32_t bitDepth, uint32_t channelCount);
+typedef struct Source {
+  struct Source* next;
+  struct Decoder* decoder;
+  float volume;
+  bool playing : 1;
+  bool looping : 1;
+  bool tracked : 1;
+} Source;
 
 bool lovrAudioInit(void);
 void lovrAudioDestroy(void);
-void lovrAudioUpdate(void);
-void lovrAudioAdd(struct Source* source);
-void lovrAudioGetDopplerEffect(float* factor, float* speedOfSound);
-void lovrAudioGetMicrophoneNames(const char* names[MAX_MICROPHONES], uint32_t* count);
-void lovrAudioGetOrientation(float* orientation);
-void lovrAudioGetPosition(float* position);
-void lovrAudioGetVelocity(float* velocity);
-float lovrAudioGetVolume(void);
-bool lovrAudioHas(struct Source* source);
-bool lovrAudioIsSpatialized(void);
-void lovrAudioPause(void);
-void lovrAudioResume(void);
-void lovrAudioRewind(void);
-void lovrAudioSetDopplerEffect(float factor, float speedOfSound);
-void lovrAudioSetOrientation(float* orientation);
-void lovrAudioSetPosition(float* position);
-void lovrAudioSetVelocity(float* velocity);
-void lovrAudioSetVolume(float volume);
-void lovrAudioStop(void);
+
+Source* lovrSourceInit(Source* source, struct Decoder* decoder);
+#define lovrSourceCreate(...) lovrSourceInit(lovrAlloc(Source), __VA_ARGS__)
+void lovrSourceDestroy(void* ref);
+void lovrSourcePlay(Source* source);
+void lovrSourcePause(Source* source);
+bool lovrSourceIsPlaying(Source* source);
+bool lovrSourceIsLooping(Source* source);
+void lovrSourceSetLooping(Source* source, bool loop);
+float lovrSourceGetVolume(Source* source);
+void lovrSourceSetVolume(Source* source, float volume);
+struct Decoder* lovrSourceGetDecoder(Source* source);

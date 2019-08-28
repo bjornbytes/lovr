@@ -1,213 +1,151 @@
 #include "audio/audio.h"
 #include "audio/source.h"
-#include "data/audioStream.h"
+#include "modules/data/soundData.h"
 #include "core/arr.h"
 #include "core/maf.h"
 #include "core/ref.h"
 #include "util.h"
+#include "lib/miniaudio/miniaudio.h"
+#include <string.h>
 #include <stdlib.h>
-#include <AL/al.h>
-#include <AL/alc.h>
-#include <AL/alext.h>
 
 static struct {
   bool initialized;
-  bool spatialized;
-  ALCdevice* device;
-  ALCcontext* context;
-  float LOVR_ALIGN(16) orientation[4];
-  float LOVR_ALIGN(16) position[4];
-  float LOVR_ALIGN(16) velocity[4];
-  arr_t(Source*) sources;
+  Source* sources;
+  ma_device device;
+  ma_mutex lock;
 } state;
 
-ALenum lovrAudioConvertFormat(uint32_t bitDepth, uint32_t channelCount) {
-  if (bitDepth == 8 && channelCount == 1) {
-    return AL_FORMAT_MONO8;
-  } else if (bitDepth == 8 && channelCount == 2) {
-    return AL_FORMAT_STEREO8;
-  } else if (bitDepth == 16 && channelCount == 1) {
-    return AL_FORMAT_MONO16;
-  } else if (bitDepth == 16 && channelCount == 2) {
-    return AL_FORMAT_STEREO16;
+static void handler(ma_device* device, void* output, const void* input, uint32_t frames) {
+  ma_mutex_lock(&state.lock);
+
+  //float buffer[256];
+
+  for (Source** s = &state.sources; *s;) {
+    Source* source = *s;
+
+    if (!source->playing) {
+      remove:
+      *s = source->next;
+      source->tracked = false;
+      lovrRelease(Source, source);
+      continue;
+    }
+
+    uint32_t n = 0;
+    decode:
+    n += lovrDecoderDecode(source->decoder, frames - n, (uint8_t*) output + n * FRAME_SIZE(device->playback.channels));
+
+    if (n < frames) {
+      if (source->looping) {
+        lovrDecoderSeek(source->decoder, 0);
+        goto decode;
+      } else {
+        source->playing = false;
+        goto remove;
+      }
+    }
+
+    s = &source->next;
   }
 
-  return 0;
+  ma_mutex_unlock(&state.lock);
 }
 
 bool lovrAudioInit() {
   if (state.initialized) return false;
 
-  ALCdevice* device = alcOpenDevice(NULL);
-  lovrAssert(device, "Unable to open default audio device");
+  ma_device_config config = ma_device_config_init(ma_device_type_playback);
+  config.playback.format = ma_format_f32;
+  config.playback.channels = 2;
+  config.sampleRate = SAMPLE_RATE;
+  config.dataCallback = handler;
 
-  ALCcontext* context = alcCreateContext(device, NULL);
-  if (!context || !alcMakeContextCurrent(context) || alcGetError(device) != ALC_NO_ERROR) {
-    lovrThrow("Unable to create OpenAL context");
+  if (ma_device_init(NULL, &config, &state.device)) {
+    return false;
   }
 
-#if ALC_SOFT_HRTF
-  static LPALCRESETDEVICESOFT alcResetDeviceSOFT;
-  alcResetDeviceSOFT = (LPALCRESETDEVICESOFT) alcGetProcAddress(device, "alcResetDeviceSOFT");
-  state.spatialized = alcIsExtensionPresent(device, "ALC_SOFT_HRTF");
-
-  if (state.spatialized) {
-    alcResetDeviceSOFT(device, (ALCint[]) { ALC_HRTF_SOFT, ALC_TRUE, 0 });
+  if (ma_mutex_init(state.device.pContext, &state.lock)) {
+    ma_device_uninit(&state.device);
+    return false;
   }
-#endif
 
-  state.device = device;
-  state.context = context;
-  arr_init(&state.sources);
+  if (ma_device_start(&state.device)) {
+    ma_device_uninit(&state.device);
+    return false;
+  }
+
   return state.initialized = true;
 }
 
 void lovrAudioDestroy() {
   if (!state.initialized) return;
-  alcMakeContextCurrent(NULL);
-  alcDestroyContext(state.context);
-  alcCloseDevice(state.device);
-  for (size_t i = 0; i < state.sources.length; i++) {
-    lovrRelease(Source, state.sources.data[i]);
+  ma_device_uninit(&state.device);
+  ma_mutex_uninit(&state.lock);
+  while (state.sources) {
+    Source* source = state.sources;
+    state.sources = source->next;
+    source->next = NULL;
+    source->tracked = false;
+    lovrRelease(Source, source);
   }
-  arr_free(&state.sources);
   memset(&state, 0, sizeof(state));
 }
 
-void lovrAudioUpdate() {
-  for (size_t i = state.sources.length; i-- > 0;) {
-    Source* source = state.sources.data[i];
-
-    if (lovrSourceGetType(source) == SOURCE_STATIC) {
-      continue;
-    }
-
-    uint32_t id = lovrSourceGetId(source);
-    bool isStopped = lovrSourceIsStopped(source);
-    ALint processed;
-    alGetSourcei(id, AL_BUFFERS_PROCESSED, &processed);
-
-    if (processed) {
-      ALuint buffers[SOURCE_BUFFERS];
-      alSourceUnqueueBuffers(id, processed, buffers);
-      lovrSourceStream(source, buffers, processed);
-      if (isStopped) {
-        alSourcePlay(id);
-      }
-    } else if (isStopped) {
-      lovrAudioStreamRewind(lovrSourceGetStream(source));
-      arr_splice(&state.sources, i, 1);
-      lovrRelease(Source, source);
-    }
-  }
+Source* lovrSourceInit(Source* source, Decoder* decoder) {
+  source->volume = 1.f;
+  source->decoder = decoder;
+  lovrRetain(decoder);
+  return source;
 }
 
-void lovrAudioAdd(Source* source) {
-  if (!lovrAudioHas(source)) {
+void lovrSourceDestroy(void* ref) {
+  Source* source = ref;
+  lovrAssert(!source->tracked, "Unreachable");
+  lovrRelease(Decoder, source->decoder);
+}
+
+void lovrSourcePlay(Source* source) {
+  ma_mutex_lock(&state.lock);
+
+  source->playing = true;
+
+  if (!source->tracked) {
     lovrRetain(source);
-    arr_push(&state.sources, source);
-  }
-}
-
-void lovrAudioGetDopplerEffect(float* factor, float* speedOfSound) {
-  alGetFloatv(AL_DOPPLER_FACTOR, factor);
-  alGetFloatv(AL_SPEED_OF_SOUND, speedOfSound);
-}
-
-void lovrAudioGetMicrophoneNames(const char* names[MAX_MICROPHONES], uint32_t* count) {
-  const char* name = alcGetString(NULL, ALC_CAPTURE_DEVICE_SPECIFIER);
-  *count = 0;
-  while (*name) {
-    names[(*count)++] = name;
-    name += strlen(name);
-  }
-}
-
-void lovrAudioGetOrientation(quat orientation) {
-  quat_init(orientation, state.orientation);
-}
-
-void lovrAudioGetPosition(vec3 position) {
-  vec3_init(position, state.position);
-}
-
-void lovrAudioGetVelocity(vec3 velocity) {
-  vec3_init(velocity, state.velocity);
-}
-
-float lovrAudioGetVolume() {
-  float volume;
-  alGetListenerf(AL_GAIN, &volume);
-  return volume;
-}
-
-bool lovrAudioHas(Source* source) {
-  for (size_t i = 0; i < state.sources.length; i++) {
-    if (state.sources.data[i] == source) {
-      return true;
-    }
+    source->tracked = true;
+    source->next = state.sources;
+    state.sources = source;
   }
 
-  return false;
+  ma_mutex_unlock(&state.lock);
 }
 
-bool lovrAudioIsSpatialized() {
-  return state.spatialized;
+void lovrSourcePause(Source* source) {
+  source->playing = false;
 }
 
-void lovrAudioPause() {
-  for (size_t i = 0; i < state.sources.length; i++) {
-    lovrSourcePause(state.sources.data[i]);
-  }
+bool lovrSourceIsPlaying(Source* source) {
+  return source->playing;
 }
 
-void lovrAudioResume() {
-  for (size_t i = 0; i < state.sources.length; i++) {
-    lovrSourceResume(state.sources.data[i]);
-  }
+bool lovrSourceIsLooping(Source* source) {
+  return source->looping;
 }
 
-void lovrAudioRewind() {
-  for (size_t i = 0; i < state.sources.length; i++) {
-    lovrSourceRewind(state.sources.data[i]);
-  }
+void lovrSourceSetLooping(Source* source, bool loop) {
+  source->looping = loop;
 }
 
-void lovrAudioSetDopplerEffect(float factor, float speedOfSound) {
-  alDopplerFactor(factor);
-  alSpeedOfSound(speedOfSound);
+float lovrSourceGetVolume(Source* source) {
+  return source->volume;
 }
 
-void lovrAudioSetOrientation(quat orientation) {
-
-  // Rotate the unit forward/up vectors by the quaternion derived from the specified angle/axis
-  float f[4] = { 0.f, 0.f, -1.f };
-  float u[4] = { 0.f, 1.f,  0.f };
-  quat_init(state.orientation, orientation);
-  quat_rotate(state.orientation, f);
-  quat_rotate(state.orientation, u);
-
-  // Pass the rotated orientation vectors to OpenAL
-  ALfloat directionVectors[6] = { f[0], f[1], f[2], u[0], u[1], u[2] };
-  alListenerfv(AL_ORIENTATION, directionVectors);
+void lovrSourceSetVolume(Source* source, float volume) {
+  ma_mutex_lock(&state.lock);
+  source->volume = volume;
+  ma_mutex_unlock(&state.lock);
 }
 
-void lovrAudioSetPosition(vec3 position) {
-  vec3_init(state.position, position);
-  alListenerfv(AL_POSITION, position);
-}
-
-void lovrAudioSetVelocity(vec3 velocity) {
-  vec3_init(state.velocity, velocity);
-  alListenerfv(AL_VELOCITY, velocity);
-}
-
-void lovrAudioSetVolume(float volume) {
-  alListenerf(AL_GAIN, volume);
-}
-
-void lovrAudioStop() {
-  for (size_t i = 0; i < state.sources.length; i++) {
-    lovrSourceStop(state.sources.data[i]);
-  }
+Decoder* lovrSourceGetDecoder(Source* source) {
+  return source->decoder;
 }

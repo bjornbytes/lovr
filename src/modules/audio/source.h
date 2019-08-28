@@ -14,12 +14,6 @@ typedef enum {
   SOURCE_STREAM
 } SourceType;
 
-typedef enum {
-  UNIT_SECONDS,
-  UNIT_SAMPLES
-} TimeUnit;
-
-typedef struct Source Source;
 Source* lovrSourceCreateStatic(struct SoundData* soundData);
 Source* lovrSourceCreateStream(struct AudioStream* stream);
 void lovrSourceDestroy(void* ref);

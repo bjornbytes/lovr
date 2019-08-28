@@ -1,70 +1,124 @@
 #include "data/soundData.h"
-#include "data/audioStream.h"
 #include "util.h"
 #include "lib/stb/stb_vorbis.h"
 #include <limits.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
+#include "core/ref.h"
 
-SoundData* lovrSoundDataInit(SoundData* soundData, size_t samples, uint32_t sampleRate, uint32_t bitDepth, uint32_t channelCount) {
-  soundData->samples = samples;
-  soundData->sampleRate = sampleRate;
-  soundData->bitDepth = bitDepth;
-  soundData->channelCount = channelCount;
-  soundData->blob.size = samples * channelCount * (bitDepth / 8);
+// SoundData
+
+SoundData* lovrSoundDataInit(SoundData* soundData, int frames, int channels) {
+  soundData->frames = frames;
+  soundData->channels = channels;
+  soundData->blob.size = frames * FRAME_SIZE(channels);
   soundData->blob.data = calloc(1, soundData->blob.size);
   lovrAssert(soundData->blob.data, "Out of memory");
-  return soundData;
-}
-
-SoundData* lovrSoundDataInitFromAudioStream(SoundData* soundData, AudioStream* audioStream) {
-  soundData->samples = audioStream->samples;
-  soundData->sampleRate = audioStream->sampleRate;
-  soundData->bitDepth = audioStream->bitDepth;
-  soundData->channelCount = audioStream->channelCount;
-  soundData->blob.size = audioStream->samples * audioStream->channelCount * (audioStream->bitDepth / 8);
-  soundData->blob.data = calloc(1, soundData->blob.size);
-  lovrAssert(soundData->blob.data, "Out of memory");
-
-  size_t samples;
-  int16_t* buffer = soundData->blob.data;
-  size_t offset = 0;
-  lovrAudioStreamRewind(audioStream);
-  while ((samples = lovrAudioStreamDecode(audioStream, buffer + offset, soundData->blob.size - (offset * sizeof(int16_t)))) != 0) {
-    offset += samples;
-  }
-
   return soundData;
 }
 
 SoundData* lovrSoundDataInitFromBlob(SoundData* soundData, Blob* blob) {
-  int sampleRate, channels;
-  soundData->bitDepth = 16;
-  soundData->samples = stb_vorbis_decode_memory(blob->data, (int) blob->size, &channels, &sampleRate, (int16_t**) &soundData->blob.data);
-  soundData->sampleRate = sampleRate;
-  soundData->channelCount = channels;
-  soundData->blob.size = soundData->samples * soundData->channelCount * (soundData->bitDepth / 8);
+  Decoder decoder;
+  memset(&decoder, 0, sizeof(decoder));
+  lovrDecoderInitOgg(&decoder, blob);
+  soundData->channels = decoder.channels;
+
+  Blob* raw = &soundData->blob;
+  int frameLimit = 256;
+
+  do {
+    frameLimit *= 2;
+    raw->size = frameLimit * FRAME_SIZE(soundData->channels);
+    raw->data = realloc(raw->data, raw->size);
+    lovrAssert(raw->data, "Out of memory");
+
+    uint8_t* dest = (uint8_t*) raw->data + soundData->frames * FRAME_SIZE(soundData->channels);
+    soundData->frames += lovrDecoderDecode(&decoder, frameLimit - soundData->frames, dest);
+  } while (soundData->frames == frameLimit);
+
+  lovrDecoderDestroy(&decoder);
   return soundData;
 }
 
-float lovrSoundDataGetSample(SoundData* soundData, size_t index) {
-  lovrAssert(index < soundData->blob.size / (soundData->bitDepth / 8), "Sample index out of range");
-  switch (soundData->bitDepth) {
-    case 8: return ((int8_t*) soundData->blob.data)[index] / (float) CHAR_MAX;
-    case 16: return ((int16_t*) soundData->blob.data)[index] / (float) SHRT_MAX;
-    default: lovrThrow("Unsupported SoundData bit depth %d\n", soundData->bitDepth); return 0;
-  }
-}
-
-void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value) {
-  lovrAssert(index < soundData->blob.size / (soundData->bitDepth / 8), "Sample index out of range");
-  switch (soundData->bitDepth) {
-    case 8: ((int8_t*) soundData->blob.data)[index] = value * CHAR_MAX; break;
-    case 16: ((int16_t*) soundData->blob.data)[index] = value * SHRT_MAX; break;
-    default: lovrThrow("Unsupported SoundData bit depth %d\n", soundData->bitDepth); break;
-  }
-}
-
 void lovrSoundDataDestroy(void* ref) {
-  lovrBlobDestroy(ref);
+lovrBlobDestroy(ref);
+}
+
+
+// Raw decoder
+
+static void lovrRawDecoderDestroy(Decoder* decoder) {
+  lovrRelease(Blob, decoder->blob);
+}
+
+static uint32_t lovrRawDecoderDecode(Decoder* decoder, uint32_t frames, void* data) {
+  int stride = FRAME_SIZE(decoder->channels);
+  frames = MIN(frames, decoder->frames - decoder->internal.i);
+  memcpy(data, (uint8_t*) decoder->blob->data + decoder->internal.i * stride, frames * stride);
+  decoder->internal.i += frames;
+  return frames;
+}
+
+static void lovrRawDecoderSeek(Decoder* decoder, uint32_t frame) {
+  decoder->internal.i = frame;
+}
+
+static uint32_t lovrRawDecoderTell(Decoder* decoder) {
+  return decoder->internal.i;
+}
+
+// ogg decoder
+
+static void lovrOggDecoderDestroy(Decoder* decoder) {
+  stb_vorbis_close(decoder->internal.p);
+  lovrRelease(Blob, decoder->blob);
+}
+
+static uint32_t lovrOggDecoderDecode(Decoder* decoder, uint32_t frames, void* data) {
+  return stb_vorbis_get_samples_float_interleaved(decoder->internal.p, decoder->channels, data, frames * decoder->channels);
+}
+
+static void lovrOggDecoderSeek(Decoder* decoder, uint32_t frame) {
+  stb_vorbis_seek(decoder->internal.p, frame);
+}
+
+static uint32_t lovrOggDecoderTell(Decoder* decoder) {
+  return stb_vorbis_get_sample_offset(decoder->internal.p);
+}
+
+// Decoder
+
+Decoder* lovrDecoderInitRaw(Decoder* decoder, SoundData* soundData) {
+  decoder->blob = &soundData->blob;
+  decoder->frames = soundData->frames;
+  decoder->channels = soundData->channels;
+  decoder->destroy = lovrRawDecoderDestroy;
+  decoder->decode = lovrRawDecoderDecode;
+  decoder->seek = lovrRawDecoderSeek;
+  decoder->tell = lovrRawDecoderTell;
+  lovrRetain(decoder->blob);
+  return decoder;
+}
+
+Decoder* lovrDecoderInitOgg(Decoder* decoder, Blob* blob) {
+  decoder->blob = blob;
+  decoder->internal.p = stb_vorbis_open_memory(blob->data, (int) blob->size, NULL, NULL);
+  lovrAssert(decoder->internal.p, "Could not decode ogg audio from '%s'", blob->name);
+
+  stb_vorbis_info info = stb_vorbis_get_info(decoder->internal.p);
+  lovrAssert(info.sample_rate == 44100, "Audio data must have a sample rate of 44100, got %d in %s", info.sample_rate, blob->name);
+  decoder->frames = stb_vorbis_stream_length_in_samples(decoder->internal.p);
+  decoder->channels = info.channels;
+
+  decoder->destroy = lovrOggDecoderDestroy;
+  decoder->decode = lovrOggDecoderDecode;
+  decoder->seek = lovrOggDecoderSeek;
+  decoder->tell = lovrOggDecoderTell;
+  lovrRetain(blob);
+  return decoder;
+}
+
+void lovrDecoderDestroy(Decoder* decoder) {
+  decoder->destroy(decoder);
 }
