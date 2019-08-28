@@ -36,8 +36,8 @@ typedef struct Decoder {
     uint32_t i;
   } internal;
   void (*destroy)(struct Decoder*);
-  uint32_t (*decode)(struct Decoder*, uint32_t, uint32_t, void*); // Decoder, Frames, Channels, dataPointer
-  void (*seek)(struct Decoder*, uint32_t); // Decoder, To
+  uint32_t (*decode)(struct Decoder* decoder, uint32_t frames, uint32_t channels, void* data);
+  void (*seek)(struct Decoder* decoder, uint32_t to);
   uint32_t (*tell)(struct Decoder*);
 } Decoder;
 

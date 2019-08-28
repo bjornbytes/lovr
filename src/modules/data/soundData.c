@@ -52,7 +52,8 @@ static void lovrRawDecoderDestroy(Decoder* decoder) {
   lovrRelease(Blob, decoder->blob);
 }
 
-static uint32_t lovrRawDecoderDecode(Decoder* decoder, uint32_t frames, void* data) {
+static uint32_t lovrRawDecoderDecode(Decoder* decoder, uint32_t frames, uint32_t channels, void* data) {
+  lovrAssert(channels == decoder->channels); // Currently only mono audio sources can be created, so this is okay
   int stride = FRAME_SIZE(decoder->channels);
   frames = MIN(frames, decoder->frames - decoder->internal.i);
   memcpy(data, (uint8_t*) decoder->blob->data + decoder->internal.i * stride, frames * stride);
