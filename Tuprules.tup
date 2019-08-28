@@ -1,0 +1,87 @@
+ROOT = $(TUP_CWD)
+
+# Optimization
+ifeq (@(DEBUG),y)
+  CFLAGS += -g
+else
+  CFLAGS += -Os
+endif
+
+# Warnings
+# -Wno-typedef-redefinition is for OpenVR
+# -Wno-unused-parameter is turned off just because it's kinda annoying
+CFLAGS += -Werror -Wall -Wextra -pedantic -std=c99
+CFLAGS += -Wno-typedef-redefinition
+CFLAGS += -Wno-unused-parameter
+
+# Symbols are manually exported as-needed using the LOVR_EXPORT macro to reduce file size.
+CFLAGS += -fvisibility=hidden
+
+# Include paths
+CFLAGS += -I$(ROOT)/src
+CFLAGS += -I$(ROOT)/src/core
+CFLAGS += -I$(ROOT)/src/modules
+
+# Modules
+CFLAGS_@(AUDIO) += -DLOVR_ENABLE_AUDIO
+CFLAGS_@(DATA) += -DLOVR_ENABLE_DATA
+CFLAGS_@(EVENT) += -DLOVR_ENABLE_EVENT
+CFLAGS_@(FILESYSTEM) += -DLOVR_ENABLE_FILESYSTEM
+CFLAGS_@(GRAPHICS) += -DLOVR_ENABLE_GRAPHICS
+CFLAGS_@(HEADSET) += -DLOVR_ENABLE_HEADSET
+CFLAGS_@(MATH) += -DLOVR_ENABLE_MATH
+CFLAGS_@(PHYSICS) += -DLOVR_ENABLE_PHYSICS
+CFLAGS_@(THREAD) += -DLOVR_ENABLE_THREAD
+CFLAGS_@(TIMER) += -DLOVR_ENABLE_TIMER
+CFLAGS_@(JSON) += -DLOVR_ENABLE_JSON
+CFLAGS_@(ENET) += -DLOVR_ENABLE_ENET
+
+# Headset backends
+CFLAGS_@(SIMULATOR) += -DLOVR_USE_DESKTOP_HEADSET
+CFLAGS_@(OPENVR) += -DLOVR_USE_OPENVR
+CFLAGS_@(OPENXR) += -DLOVR_USE_OPENXR
+CFLAGS_@(OCULUS) += -DLOVR_USE_OCULUS
+CFLAGS_@(OCULUS) += -I@(OCULUS_PATH)/LibOVR/Include
+CFLAGS_@(VRAPI) += -DLOVR_USE_OCULUS_MOBILE
+CFLAGS_@(WEBVR) += LOVR_USE_WEBVR
+CFLAGS_@(LEAP) += LOVR_USE_LEAP
+
+# SIMD
+ifeq (@(TUP_ARCH),x86_64)
+  CFLAGS += -DLOVR_USE_SSE
+endif
+
+# Lua
+CFLAGS_@(LUAJIT) += -DLOVR_USE_LUAJIT
+
+# OpenGL
+CFLAGS += -DLOVR_@(GL)
+
+# Libraries
+CFLAGS += @(LUA_CFLAGS)
+CFLAGS += @(GLFW_CFLAGS)
+CFLAGS += @(OPENAL_CFLAGS)
+CFLAGS += @(PHYSFS_CFLAGS)
+CFLAGS += @(MSDFGEN_CFLAGS)
+CFLAGS += @(ODE_CFLAGS)
+CFLAGS += @(OPENVR_CFLAGS)
+CFLAGS += @(OPENXR_CFLAGS)
+CFLAGS += @(ENET_CFLAGS)
+
+LDFLAGS += @(LUA_LDFLAGS)
+LDFLAGS += @(GLFW_LDFLAGS)
+LDFLAGS += @(OPENAL_LDFLAGS)
+LDFLAGS += @(PHYSFS_LDFLAGS)
+LDFLAGS += @(MSDFGEN_LDFLAGS)
+LDFLAGS += @(ODE_LDFLAGS)
+LDFLAGS += @(OPENVR_LDFLAGS)
+LDFLAGS += @(OPENXR_LDFLAGS)
+LDFLAGS += @(ENET_LDFLAGS)
+
+CFLAGS += @(CFLAGS)
+LDFLAGS += @(LDFLAGS)
+
+# Macros
+!compile = |> ^ CC %f^ @(CC) $(CFLAGS) $(CFLAGS_y) -c %f -o %o |> $(ROOT)/.obj/%B.o $(ROOT)/<objects>
+!link = |> ^ LD %o^ @(CC) $(LDFLAGS) -o %o |>
+!embed = |> ^ XD %f^ xxd -i %f > %o |>

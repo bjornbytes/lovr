@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.1.0)
+cmake_policy(SET CMP0063 NEW)
 project(lovr)
 
 # Options
@@ -22,6 +23,7 @@ option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
 option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
+option(LOVR_USE_LEAP "Enable the Leap Motion backend for the headset module" OFF)
 option(LOVR_USE_SSE "Enable SIMD use of intrinsics" ON)
 
 option(LOVR_SYSTEM_PHYSFS "Use the system-provided PhysFS" OFF)
@@ -68,7 +70,6 @@ elseif(ANDROID)
   set(LOVR_USE_OCULUS OFF)
   set(LOVR_USE_DESKTOP_HEADSET OFF)
   set(LOVR_USE_OCULUS_MOBILE ON)
-  set(LOVR_USE_LUAJIT OFF) # Until buildvm re-invoke works
   set(LOVR_BUILD_SHARED ON) # Android has only "activities"
 elseif(UNIX)
   if(APPLE)
@@ -77,7 +78,7 @@ elseif(UNIX)
   find_package(PkgConfig)
 endif()
 
-if(EMSCRIPTEN OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm")
+if(EMSCRIPTEN OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
   set(LOVR_USE_SSE OFF)
 endif()
 
@@ -138,6 +139,7 @@ if(NOT (EMSCRIPTEN OR ANDROID))
     set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
     set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "")
     add_subdirectory(deps/glfw glfw)
     include_directories(deps/glfw/include)
     set(LOVR_GLFW glfw ${GLFW_LIBRARIES})
@@ -146,7 +148,7 @@ if(NOT (EMSCRIPTEN OR ANDROID))
 endif()
 
 # Lua
-if(LOVR_USE_LUAJIT AND NOT (EMSCRIPTEN OR ANDROID))
+if(LOVR_USE_LUAJIT AND NOT EMSCRIPTEN)
   if (APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pagezero_size 10000 -image_base 100000000")
   endif()
@@ -157,11 +159,7 @@ if(LOVR_USE_LUAJIT AND NOT (EMSCRIPTEN OR ANDROID))
   else()
     add_subdirectory(deps/luajit luajit)
     include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
-    set(LOVR_LUA liblua)
-  endif()
-  set_target_properties(luajit minilua liblua PROPERTIES EXCLUDE_FROM_ALL 1)
-  if(WIN32)
-    set_target_properties(wluajit PROPERTIES EXCLUDE_FROM_ALL 1)
+    set(LOVR_LUA libluajit)
   endif()
 else()
   if(EMSCRIPTEN)
@@ -268,10 +266,27 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENVR)
   )
 endif()
 
+# Leap Motion
+if(LOVR_ENABLE_HEADSET AND LOVR_USE_LEAP)
+  if(NOT LOVR_LEAP_PATH)
+    message(FATAL_ERROR "LOVR_USE_LEAP requires the LOVR_LEAP_PATH to be set to the location of the Leap Motion SDK (LeapSDK) folder")
+  endif()
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(LEAP_ARCH "x64")
+  else()
+    set(LEAP_ARCH "x86")
+  endif()
+  add_library(LeapC SHARED IMPORTED)
+  include_directories("${LOVR_LEAP_PATH}/include")
+  set_target_properties(LeapC PROPERTIES IMPORTED_IMPLIB "${LOVR_LEAP_PATH}/lib/${LEAP_ARCH}/LeapC.lib")
+  set_target_properties(LeapC PROPERTIES IMPORTED_LOCATION "${LOVR_LEAP_PATH}/lib/${LEAP_ARCH}/LeapC.dll")
+  set(LOVR_LEAP LeapC)
+endif()
+
 # Oculus SDK -- expects Oculus SDK 1.26.0 or later
-if (LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
+if(LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
   if(NOT LOVR_OCULUS_PATH)
-    message(FATAL_ERROR "LOVR_USE_OCULUS requires the LOVR_OCULUS_PATH to be set to the location of the Oculus Desktop SDK")
+    message(FATAL_ERROR "LOVR_USE_OCULUS requires the LOVR_OCULUS_PATH to be set to the location of the Oculus Desktop SDK (LibOVR) folder")
   endif()
   if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(OCULUS_BUILD_TYPE "Release")
@@ -301,15 +316,14 @@ endif()
 
 set(LOVR_SRC
   src/main.c
-  src/util.c
-  src/luax.c
-  src/types.c
-  src/api/lovr.c
-  src/lib/utf.c
-  src/lib/math.c
+  src/core/arr.c
+  src/core/platform.c
+  src/core/ref.c
+  src/core/utf.c
+  src/core/util.c
+  src/api/api.c
+  src/api/l_lovr.c
   src/lib/map/map.c
-  src/lib/vec/vec.c
-  src/lib/sds/sds.c
 )
 
 if (LOVR_BUILD_SHARED)
@@ -318,8 +332,9 @@ else()
   add_executable(lovr ${LOVR_SRC})
 endif()
 
+set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET default)
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
-target_include_directories(lovr PRIVATE src)
+target_include_directories(lovr PRIVATE src src/core src/modules)
 target_link_libraries(lovr
   ${LOVR_ENET}
   ${LOVR_GLFW}
@@ -330,36 +345,42 @@ target_link_libraries(lovr
   ${LOVR_OPENGL}
   ${LOVR_OPENVR}
   ${LOVR_OCULUS}
+  ${LOVR_LEAP}
   ${LOVR_PHYSFS}
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
 
+if(LOVR_USE_LUAJIT)
+  target_compile_definitions(lovr PUBLIC -DLOVR_USE_LUAJIT)
+endif()
+
 if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
-    src/audio/audio.c
-    src/api/audio.c
-    src/api/types/source.c
+    src/lib/miniaudio/miniaudio.c
+    src/modules/audio/audio.c
+    src/api/l_audio.c
+    src/api/l_source.c
   )
 endif()
 
 if(LOVR_ENABLE_DATA)
   add_definitions(-DLOVR_ENABLE_DATA)
   target_sources(lovr PRIVATE
-    src/data/blob.c
-    src/data/modelData.c
-    src/data/modelData_gltf.c
-    src/data/modelData_obj.c
-    src/data/rasterizer.c
-    src/data/soundData.c
-    src/data/textureData.c
-    src/api/data.c
-    src/api/types/blob.c
-    src/api/types/modelData.c
-    src/api/types/rasterizer.c
-    src/api/types/soundData.c
-    src/api/types/textureData.c
+    src/modules/data/blob.c
+    src/modules/data/modelData.c
+    src/modules/data/modelData_gltf.c
+    src/modules/data/modelData_obj.c
+    src/modules/data/rasterizer.c
+    src/modules/data/soundData.c
+    src/modules/data/textureData.c
+    src/api/l_data.c
+    src/api/l_blob.c
+    src/api/l_modelData.c
+    src/api/l_rasterizer.c
+    src/api/l_soundData.c
+    src/api/l_textureData.c
     src/lib/stb/stb_image.c
     src/lib/stb/stb_image_write.c
     src/lib/stb/stb_truetype.c
@@ -371,44 +392,42 @@ endif()
 if(LOVR_ENABLE_EVENT)
   add_definitions(-DLOVR_ENABLE_EVENT)
   target_sources(lovr PRIVATE
-    src/event/event.c
-    src/api/event.c
+    src/modules/event/event.c
+    src/api/l_event.c
   )
 endif()
 
 if(LOVR_ENABLE_FILESYSTEM)
   add_definitions(-DLOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
-    src/filesystem/file.c
-    src/filesystem/filesystem.c
-    src/api/filesystem.c
+    src/modules/filesystem/file.c
+    src/modules/filesystem/filesystem.c
+    src/api/l_filesystem.c
   )
 endif()
 
 if(LOVR_ENABLE_GRAPHICS)
   add_definitions(-DLOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
-    src/graphics/animator.c
-    src/graphics/buffer.c
-    src/graphics/canvas.c
-    src/graphics/font.c
-    src/graphics/graphics.c
-    src/graphics/material.c
-    src/graphics/mesh.c
-    src/graphics/model.c
-    src/graphics/opengl.c
-    src/graphics/shader.c
-    src/graphics/texture.c
-    src/api/graphics.c
-    src/api/types/animator.c
-    src/api/types/canvas.c
-    src/api/types/font.c
-    src/api/types/material.c
-    src/api/types/mesh.c
-    src/api/types/model.c
-    src/api/types/shader.c
-    src/api/types/shaderBlock.c
-    src/api/types/texture.c
+    src/modules/graphics/buffer.c
+    src/modules/graphics/canvas.c
+    src/modules/graphics/font.c
+    src/modules/graphics/graphics.c
+    src/modules/graphics/material.c
+    src/modules/graphics/mesh.c
+    src/modules/graphics/model.c
+    src/modules/graphics/opengl.c
+    src/modules/graphics/shader.c
+    src/modules/graphics/texture.c
+    src/api/l_graphics.c
+    src/api/l_canvas.c
+    src/api/l_font.c
+    src/api/l_material.c
+    src/api/l_mesh.c
+    src/api/l_model.c
+    src/api/l_shader.c
+    src/api/l_shaderBlock.c
+    src/api/l_texture.c
     src/resources/shaders.c
     src/lib/glad/glad.c
   )
@@ -417,47 +436,47 @@ endif()
 if(LOVR_ENABLE_HEADSET)
   add_definitions(-DLOVR_ENABLE_HEADSET)
   target_sources(lovr PRIVATE
-    src/api/headset.c
-    src/api/types/controller.c
-    src/headset/headset.c
+    src/api/l_headset.c
+    src/modules/headset/headset.c
   )
 
   if(LOVR_USE_OPENVR)
     add_definitions(-DLOVR_USE_OPENVR)
-    target_sources(lovr PRIVATE src/headset/openvr.c)
+    target_sources(lovr PRIVATE src/modules/headset/openvr.c)
   endif()
   if(LOVR_USE_OCULUS)
     add_definitions(-DLOVR_USE_OCULUS)
-    target_sources(lovr PRIVATE src/headset/oculus.c)
+    target_sources(lovr PRIVATE src/modules/headset/oculus.c)
   endif()
   if(LOVR_USE_OCULUS_MOBILE)
     add_definitions(-DLOVR_USE_OCULUS_MOBILE)
-    target_sources(lovr PRIVATE src/headset/oculus_mobile.c)
+    target_sources(lovr PRIVATE src/modules/headset/oculus_mobile.c)
   endif()
   if(LOVR_USE_WEBVR)
     add_definitions(-DLOVR_USE_WEBVR)
-    target_sources(lovr PRIVATE src/headset/webvr.c)
+    target_sources(lovr PRIVATE src/modules/headset/webvr.c)
   endif()
   if(LOVR_USE_DESKTOP_HEADSET)
     add_definitions(-DLOVR_USE_DESKTOP_HEADSET)
-    target_sources(lovr PRIVATE src/headset/desktop.c)
+    target_sources(lovr PRIVATE src/modules/headset/desktop.c)
+  endif()
+  if(LOVR_USE_LEAP)
+    add_definitions(-DLOVR_USE_LEAP)
+    target_sources(lovr PRIVATE src/modules/headset/leap.c)
   endif()
 endif()
 
 if(LOVR_ENABLE_MATH)
   add_definitions(-DLOVR_ENABLE_MATH)
   target_sources(lovr PRIVATE
-    src/math/math.c
-    src/math/curve.c
-    src/math/pool.c
-    src/math/randomGenerator.c
-    src/api/math.c
-    src/api/types/curve.c
-    src/api/types/pool.c
-    src/api/types/randomGenerator.c
-    src/api/types/vec3.c
-    src/api/types/quat.c
-    src/api/types/mat4.c
+    src/modules/math/math.c
+    src/modules/math/curve.c
+    src/modules/math/pool.c
+    src/modules/math/randomGenerator.c
+    src/api/l_math.c
+    src/api/l_curve.c
+    src/api/l_randomGenerator.c
+    src/api/l_vectors.c
     src/lib/noise1234/noise1234.c
   )
 
@@ -469,30 +488,30 @@ endif()
 if(LOVR_ENABLE_PHYSICS)
   add_definitions(-DLOVR_ENABLE_PHYSICS)
   target_sources(lovr PRIVATE
-    src/physics/physics.c
-    src/api/physics.c
-    src/api/types/collider.c
-    src/api/types/joints.c
-    src/api/types/shapes.c
-    src/api/types/world.c
+    src/modules/physics/physics.c
+    src/api/l_physics.c
+    src/api/l_collider.c
+    src/api/l_joints.c
+    src/api/l_shapes.c
+    src/api/l_world.c
   )
 endif()
 
 if(LOVR_ENABLE_THREAD)
   add_definitions(-DLOVR_ENABLE_THREAD)
   target_sources(lovr PRIVATE
-    src/thread/channel.c
-    src/thread/thread.c
-    src/api/thread.c
-    src/api/types/channel.c
-    src/api/types/thread.c
+    src/modules/thread/channel.c
+    src/modules/thread/thread.c
+    src/api/l_thread_module.c
+    src/api/l_channel.c
+    src/api/l_thread.c
     src/lib/tinycthread/tinycthread.c
   )
 endif()
 
 if(LOVR_ENABLE_TIMER)
   add_definitions(-DLOVR_ENABLE_TIMER)
-  target_sources(lovr PRIVATE src/timer/timer.c src/api/timer.c)
+  target_sources(lovr PRIVATE src/modules/timer/timer.c src/api/l_timer.c)
 endif()
 
 if(LOVR_ENABLE_ENET)
@@ -511,7 +530,6 @@ endif()
 
 # Platforms
 if(WIN32)
-  target_sources(lovr PRIVATE src/platform/windows.c)
   set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
@@ -538,18 +556,15 @@ if(WIN32)
   move_dll(${LOVR_OPENAL})
   move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_PHYSFS})
+  move_dll(${LOVR_LEAP})
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 elseif(APPLE)
-  target_sources(lovr PRIVATE src/platform/macos.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 elseif(EMSCRIPTEN)
-  target_sources(lovr PRIVATE src/platform/web.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_WEBGL)
 elseif(ANDROID)
   target_link_libraries(lovr log EGL GLESv3)
-  target_sources(lovr PRIVATE src/platform/android.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GLES)
 elseif(UNIX)
-  target_sources(lovr PRIVATE src/platform/linux.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 endif()

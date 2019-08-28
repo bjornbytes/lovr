@@ -1,15 +1,6 @@
 lovr = require 'lovr'
 
 local function nogame()
-  local logo, controllers
-  local function refreshControllers()
-    controllers = {}
-    if not lovr.headset then return end
-    for _, controller in pairs(lovr.headset.getControllers()) do
-      controllers[controller] = controller:newModel()
-    end
-  end
-
   function lovr.conf(t)
     t.modules.audio = false
     t.modules.math = false
@@ -17,39 +8,79 @@ local function nogame()
     t.modules.thread = false
   end
 
+  local shader
+  local models = {}
+
   function lovr.load()
-    local texture = lovr.graphics.newTexture(lovr.data.newBlob(lovr._logo, 'logo.png'))
-    logo = lovr.graphics.newMaterial(texture)
-    lovr.graphics.setBackgroundColor(.960, .988, 1.0)
-    refreshControllers()
+    if not lovr.graphics then
+      print(string.format('LÖVR %d.%d.%d\nNo game', lovr.getVersion()))
+      lovr.event.quit()
+      return
+    end
+
+    lovr.graphics.setBackgroundColor(.894, .933, .949)
+
+    shader = lovr.graphics.newShader([[
+      vec4 position(mat4 projection, mat4 transform, vec4 vertex) {
+        return projection * transform * vertex;
+      }
+    ]], [[
+      vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) {
+        float y = (1. - uv.y);
+        uv = uv * 4. - 2.;
+        const float k = sqrt(3.);
+        uv.x = abs(uv.x) - 1.;
+        uv.y = uv.y + 1. / k + .25;
+        if (uv.x + k * uv.y > 0.) {
+          uv = vec2(uv.x - k * uv.y, -k * uv.x - uv.y) / 2.;
+        }
+        uv.x -= clamp(uv.x, -2., 0.);
+        float sdf = -length(uv) * sign(uv.y) - .5;
+        float w = fwidth(sdf);
+        float alpha = smoothstep(.22 + w, .22 - w, sdf);
+        vec3 color = mix(vec3(.094, .662, .890), vec3(.913, .275, .6), clamp(y * 1.5 - .25, 0., 1.));
+        color = mix(color, vec3(1.), smoothstep(-.12 + w, -.12 - w, sdf));
+        return vec4(pow(color, vec3(2.2)), alpha);
+      }
+    ]])
   end
 
   function lovr.draw()
-    lovr.graphics.setColor(1.0, 1.0, 1.0)
-    for controller, model in pairs(controllers) do
-      local x, y, z = controller:getPosition()
-      model:draw(x, y, z, 1, controller:getOrientation())
+    lovr.graphics.setColor(0xffffff)
+
+    for i, hand in ipairs(lovr.headset.getHands()) do
+      models[hand] = models[hand] or lovr.headset.newModel(hand)
+      if models[hand] then
+        local x, y, z, angle ax, ay, az = lovr.headset.getPose(hand)
+        models[hand]:draw(x, y, z, 1.0, angle, ax, ay, az)
+      end
     end
+
     local padding = .1
     local font = lovr.graphics.getFont()
     local fade = .315 + .685 * math.abs(math.sin(lovr.timer.getTime() * 2))
     local titlePosition = 1.4 - padding
     local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
-    lovr.graphics.plane(logo, 0, 1.9, -3, 1, 1, 0, 0, 1)
-    lovr.graphics.setColor(.059, .059, .059)
-    lovr.graphics.print('LÖVR', -.01, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
-    lovr.graphics.setColor(.059, .059, .059, fade)
-    lovr.graphics.print('No game :(', -.01, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
-    lovr.graphics.setColor(1, 1, 1)
-  end
 
-  lovr.controlleradded = refreshControllers
-  lovr.controllerremoved = refreshControllers
+    lovr.graphics.setShader(shader)
+    lovr.graphics.plane('fill', 0, 1.9, -3, 1, 1, 0, 0, 1)
+    lovr.graphics.setShader()
+
+    lovr.graphics.setColor(.059, .059, .059)
+    lovr.graphics.print('LÖVR', -.012, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
+
+    lovr.graphics.setColor(.059, .059, .059, fade)
+    lovr.graphics.print('No game :(', -.005, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
+
+    lovr.graphics.setColor(0xffffff)
+  end
 end
 
 -- Note: Cannot be overloaded
 function lovr.boot()
   local conf = {
+    version = '0.12.0',
+    hotkeys = true,
     modules = {
       audio = true,
       data = true,
@@ -61,11 +92,13 @@ function lovr.boot()
       thread = true,
       timer = true
     },
-    gammacorrect = false,
     headset = {
-      drivers = { 'oculus', 'oculusmobile', 'openvr', 'webvr', 'desktop' },
+      drivers = { 'leap', 'openxr', 'oculus', 'oculusmobile', 'openvr', 'webvr', 'desktop' },
       offset = 1.7,
       msaa = 4
+    },
+    math = {
+      globals = true
     },
     window = {
       width = 1080,
@@ -73,7 +106,8 @@ function lovr.boot()
       fullscreen = false,
       msaa = 0,
       title = 'LÖVR',
-      icon = nil
+      icon = nil,
+      vsync = 1
     }
   }
 
@@ -133,6 +167,9 @@ function lovr.run()
       end
       lovr.graphics.present()
     end
+    if lovr.math then
+      lovr.math.drain()
+    end
   end
 end
 
@@ -154,26 +191,34 @@ end
 
 function lovr.errhand(message, traceback)
   message = tostring(message)
-  message = 'Error:\n' .. message .. formatTraceback(traceback or debug.traceback('', 4))
-  print(message)
+  message = message .. formatTraceback(traceback or debug.traceback('', 4))
+  print('Error:\n' .. message)
   if not lovr.graphics then return function() return 1 end end
+
   lovr.graphics.reset()
-  lovr.graphics.setBackgroundColor(.105, .098, .137)
-  lovr.graphics.setColor(.863, .863, .863)
+  lovr.graphics.setBackgroundColor(.11, .10, .14)
+  lovr.graphics.setColor(.85, .85, .85)
   local font = lovr.graphics.getFont()
-  local pixelDensity = font:getPixelDensity()
-  local width = font:getWidth(message, .55 * pixelDensity)
-  local function render()
-    lovr.graphics.print(message, -width / 2, 0, -20, 1, 0, 0, 0, 0, .55 * pixelDensity, 'left')
+  font:setFlipEnabled(false)
+  local wrap = .7 * font:getPixelDensity()
+  local width, lines = font:getWidth(message, wrap)
+  local height = 2.6 + lines
+  local y = math.min(height / 2, 10)
+  local function render(window)
+    lovr.graphics.print('Error', -width / 2, y, -20, 1.6, 0, 0, 0, 0, nil, 'left', 'top')
+    lovr.graphics.print(message, -width / 2, y - 2.6, -20, 1.0, 0, 0, 0, 0, wrap, 'left', 'top')
   end
+
   return function()
     lovr.event.pump()
-    for name in lovr.event.poll() do if name == 'quit' then return 1 end end
+    for name, a in lovr.event.poll() do if name == 'quit' then return a or 1 end end
     lovr.headset.update(0)
     lovr.graphics.origin()
     if lovr.headset then lovr.headset.renderTo(render) end
-    lovr.graphics.clear()
-    render()
+    if lovr.graphics.hasWindow() then
+      lovr.graphics.clear()
+      render(true)
+    end
     lovr.graphics.present()
   end
 end
@@ -218,7 +263,7 @@ return function()
 
   while true do
     if type(continuation) == 'string' then -- LuaJIT returns a fixed string if an error occurs in an xpcall error handler
-      print('Error occurred while trying to display another error.')
+      print('Error occurred while trying to display another error: ' .. continuation)
       return 1
     end
 

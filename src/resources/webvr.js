@@ -1,160 +1,153 @@
 var LibraryLOVR = {
   $webvr: {
     buttonMap: {
-      'OpenVR Gamepad': [null, null, 3, 1, 2, 0],
-      'Oculus Touch (Right)': [null, null, 3, 1, 2, 0, null, 3, 4],
-      'Oculus Touch (Left)': [null, null, 3, 1, 2, 0, null, null, null, 3, 4],
-      'Spatial Controller': [null, null, 3, 1, 2, 4]
+      'OpenVR Gamepad': [1, 1, null, 0, 2],
+      'Oculus Touch (Left)': [1, 1, 0, null, 2, null, null, null, 3, 4],
+      'Oculus Touch (Right)': [1, 1, 0, null, 2, null, 3, 4, null, null],
+      'Spatial Controller (Spatial Interaction Source) 045E-065D': [0, 0, 1, 3, 2, 4]
     },
 
-    init: function(offset, added, removed, pressed, released, mount) {
-      if (webvr.initialized || !Module.lovrDisplay) {
-        return;
+    refreshGamepads: function(event) {
+      if (event.gamepad.hand) {
+        var device = ({
+          'left': C.DEVICE_HAND_LEFT,
+          'right': C.DEVICE_HAND_RIGHT
+        })[event.gamepad.hand];
+
+        if (device) {
+          webvr.gamepads[device] = event.gamepad;
+          webvr.poses[device] = event.gamepad.pose;
+        }
       }
-
-      var a, b, c, d, e, canvas, display;
-      webvr.initialized = true;
-      webvr.display = display = Module.lovrDisplay;
-      webvr.canvas = canvas = Module.canvas;
-      webvr.frameData = new VRFrameData();
-      webvr.gamepads = [];
-      webvr.lastGamepadState = [];
-      webvr.offset = offset;
-      webvr.controlleradded = added;
-      webvr.controllerremoved = removed;
-      webvr.controllerpressed = pressed;
-      webvr.controllerreleased = released;
-      webvr.mount = mount;
-      webvr.renderCallback = C.NULL;
-      webvr.renderUserdata = C.NULL;
-      webvr.matA = a = Module._malloc(64);
-      webvr.matB = b = Module._malloc(64);
-      webvr.matC = c = Module._malloc(64);
-      webvr.matD = d = Module._malloc(64);
-      webvr.matE = e = Module._malloc(64);
-      webvr.quat = Module._malloc(16);
-      webvr.width = display.getEyeParameters('left').renderWidth * 2;
-      webvr.height = display.getEyeParameters('left').renderHeight;
-      Browser.setCanvasSize(webvr.width, webvr.height);
-
-      webvr.onentervr = function() {
-        if (!display.isPresenting) {
-          display.requestPresent([{ source: canvas }]);
-        }
-      };
-
-      webvr.onexitvr = function() {
-        if (display.isPresenting) {
-          display.exitPresent();
-        }
-      };
-
-      webvr.onvrdisplaypresentchange = function() {
-        {{{ makeDynCall('vi') }}}(webvr.mount, display.isPresenting);
-      };
-
-      webvr.frameId = display.requestAnimationFrame(function onAnimationFrame() {
-        webvr.frameId = display.requestAnimationFrame(onAnimationFrame);
-        display.getFrameData(webvr.frameData);
-
-        if (webvr.renderCallback) {
-          var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
-
-          if (sittingToStanding) {
-            HEAPF32.set(sittingToStanding, e >> 2);
-            Module._mat4_invert(e);
-          } else {
-            Module._mat4_identity(e);
-            HEAPF32[(e + 4 * 13) >> 2] = -webvr.offset;
-          }
-
-          HEAPF32.set(webvr.frameData.leftViewMatrix, a >> 2);
-          HEAPF32.set(webvr.frameData.rightViewMatrix, b >> 2);
-          HEAPF32.set(webvr.frameData.leftProjectionMatrix, c >> 2);
-          HEAPF32.set(webvr.frameData.rightProjectionMatrix, d >> 2);
-          Module._mat4_multiply(a, e);
-          Module._mat4_multiply(b, e);
-          {{{ makeDynCall('viiiii') }}}(webvr.renderCallback, a, b, c, d, webvr.renderUserdata);
-        }
-
-        if (display.isPresenting) {
-          display.submitFrame();
-        }
-      });
-
-      window.addEventListener('lovr.entervr', webvr.onentervr);
-      window.addEventListener('lovr.exitvr', webvr.onexitvr);
-      window.addEventListener('vrdisplaypresentchange', webvr.onvrdisplaypresentchange);
-    },
-
-    destroy: function() {
-      if (!webvr.initialized) {
-        return;
-      }
-
-      webvr.initialized = false;
-      Module._free(webvr.matA);
-      Module._free(webvr.matB);
-      Module._free(webvr.matC);
-      Module._free(webvr.matD);
-      Module._free(webvr.matE);
-      Module._free(webvr.quat);
-
-      window.removeEventListener('lovr.entervr', webvr.onentervr);
-      window.removeEventListener('lovr.exitvr', webvr.onexitvr);
-      window.removeEventListener('vrdisplaypresentchange', webvr.onvrdisplaypresentchange);
-
-      if (webvr.frameId) {
-        webvr.display.cancelAnimationFrame(webvr.frameId);
-      }
-    },
-
-    controllerToGamepad: function(controller) {
-      return webvr.gamepads[HEAPU32[(controller + C.sizeofRef) >> 2]];
     }
   },
 
-  webvrInit: function(offset, added, removed, pressed, released, mount) {
-    if (Module.lovrDisplay) {
-      webvr.init(offset, added, removed, pressed, released, mount);
-      return true;
-    } else {
+  webvr_init: function(offset, msaa) {
+    if (webvr.initialized || !Module.lovrDisplay) {
       return false;
     }
+
+    var a, b, c, d, e, canvas, display;
+    webvr.initialized = true;
+    webvr.display = display = Module.lovrDisplay;
+    webvr.canvas = canvas = Module.canvas;
+    webvr.frameData = new VRFrameData();
+    webvr.gamepads = [];
+    webvr.poses = [];
+    webvr.offset = offset;
+    webvr.poseTransform = Module._malloc(64);
+    webvr.matA = a = Module._malloc(64);
+    webvr.matB = b = Module._malloc(64);
+    webvr.matC = c = Module._malloc(64);
+    webvr.matD = d = Module._malloc(64);
+    webvr.matE = e = Module._malloc(64);
+    webvr.width = display.getEyeParameters('left').renderWidth * 2;
+    webvr.height = display.getEyeParameters('left').renderHeight;
+    Browser.setCanvasSize(webvr.width, webvr.height);
+
+    webvr.onentervr = function() {
+      if (!display.isPresenting) {
+        display.requestPresent([{ source: canvas }]);
+      }
+    };
+
+    webvr.onexitvr = function() {
+      if (display.isPresenting) {
+        display.exitPresent();
+      }
+    };
+
+    webvr.frameId = display.requestAnimationFrame(function onAnimationFrame() {
+      webvr.frameId = display.requestAnimationFrame(onAnimationFrame);
+      display.getFrameData(webvr.frameData);
+      webvr.poses[0] = webvr.frameData.pose;
+
+      if (webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform) {
+        HEAPF32.set(webvr.display.stageParameters.sittingToStandingTransform, webvr.poseTransform >> 2);
+      } else {
+        Module._mat4_identity(webvr.poseTransform);
+        HEAPF32[webvr.poseTransform >> 2 + 13] = webvr.offset;
+      }
+
+      Module._mat4_invert(Module._mat4_init(e, webvr.poseTransform));
+      HEAPF32.set(webvr.frameData.leftViewMatrix, a >> 2);
+      HEAPF32.set(webvr.frameData.rightViewMatrix, b >> 2);
+      HEAPF32.set(webvr.frameData.leftProjectionMatrix, c >> 2);
+      HEAPF32.set(webvr.frameData.rightProjectionMatrix, d >> 2);
+      Module._mat4_multiply(a, e);
+      Module._mat4_multiply(b, e);
+      Module._webvr_onAnimationFrame(a, b, c, d);
+
+      if (display.isPresenting) {
+        display.submitFrame();
+      }
+    });
+
+    window.addEventListener('lovr.entervr', webvr.onentervr);
+    window.addEventListener('lovr.exitvr', webvr.onexitvr);
+    window.addEventListener('vrdisplaypresentchange', webvr.onvrdisplaypresentchange);
+    window.addEventListener('gamepadconnected', webvr.refreshGamepads);
+    window.addEventListener('gamepaddisconnected', webvr.refreshGamepads);
+    return true;
   },
 
-  webvrDestroy: function() {
-    webvr.destroy();
+  webvr_destroy: function() {
+    if (!webvr.initialized) {
+      return;
+    }
+
+    webvr.initialized = false;
+    Module._free(webvr.poseTransform);
+    Module._free(webvr.matA);
+    Module._free(webvr.matB);
+    Module._free(webvr.matC);
+    Module._free(webvr.matD);
+    Module._free(webvr.matE);
+
+    window.removeEventListener('lovr.entervr', webvr.onentervr);
+    window.removeEventListener('lovr.exitvr', webvr.onexitvr);
+    window.removeEventListener('vrdisplaypresentchange', webvr.onvrdisplaypresentchange);
+    window.removeEventListener('gamepadconnected', webvr.refreshGamepads);
+    window.removeEventListener('gamepaddisconnected', webvr.refreshGamepads);
+
+    if (webvr.frameId) {
+      webvr.display.cancelAnimationFrame(webvr.frameId);
+    }
   },
 
-  webvrGetType: function() {
-    return C.HEADSET_UNKNOWN;
+  webvr_getName: function() {
+    return false;
   },
 
-  webvrGetOriginType: function() {
+  webvr_getOriginType: function() {
     return webvr.display.stageParameters ? C.ORIGIN_FLOOR : C.ORIGIN_HEAD;
   },
 
-  webvrIsMounted: function() {
-    return webvr.display.isPresenting;
+  webvr_getDisplayTime: function() {
+    return webvr.frameData.timestamp / 1000;
   },
 
-  webvrGetDisplayDimensions: function(width, height) {
+  webvr_getDisplayDimensions: function(width, height) {
     HEAPU32[width >> 2] = webvr.width;
     HEAPU32[height >> 2] = webvr.height;
   },
 
-  webvrGetClipDistance: function(clipNear, clipFar) {
+  webvr_getDisplayMask: function(count) {
+    HEAPU32[count >> 2] = 0;
+    return 0;
+  },
+
+  webvr_getClipDistance: function(clipNear, clipFar) {
     HEAPF32[clipNear >> 2] = webvr.display.depthNear;
     HEAPF32[clipFar >> 2] = webvr.display.depthFar;
   },
 
-  webvrSetClipDistance: function(clipNear, clipFar) {
+  webvr_setClipDistance: function(clipNear, clipFar) {
     webvr.display.depthNear = clipNear;
     webvr.display.depthFar = clipFar;
   },
 
-  webvrGetBoundsDimensions: function(width, depth) {
+  webvr_getBoundsDimensions: function(width, depth) {
     var stage = webvr.display.stageParameters;
     if (stage) {
       HEAPF32[width >> 2] = stage.sizeX;
@@ -164,288 +157,156 @@ var LibraryLOVR = {
     }
   },
 
-  webvrGetBoundsGeometry: function(count) {
+  webvr_getBoundsGeometry: function(count) {
     HEAP32[count >> 2] = 0;
     return 0;
   },
 
-  webvrGetPose: function(x, y, z, angle, ax, ay, az) {
-    var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
-    var pose = webvr.frameData.pose;
-    var matA = webvr.matA;
-    var quat = webvr.quat;
+  webvr_getPose: function(device, position, orientation) {
+    var pose = webvr.poses[device];
+    if (!pose) { return false; }
 
     if (pose.position) {
-      HEAPF32[x >> 2] = pose.position[0];
-      HEAPF32[y >> 2] = pose.position[1];
-      HEAPF32[z >> 2] = pose.position[2];
-
-      if (sittingToStanding) {
-        HEAPF32.set(sittingToStanding, matA >> 2);
-        Module._mat4_transform(matA, x, y, z);
-      } else {
-        HEAPF32[y >> 2] += webvr.offset;
-      }
+      HEAPF32.set(pose.position, position >> 2);
+      Module._mat4_transform(webvr.poseTransform, position);
     } else {
-      HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
+      HEAPF32.fill(0, position >> 2, position >> 2 + 3);
     }
 
     if (pose.orientation) {
-      HEAPF32.set(pose.orientation, quat >> 2);
-
-      if (sittingToStanding) {
-        HEAPF32.set(sittingToStanding, matA >> 2);
-        Module._mat4_rotateQuat(matA, quat);
-        Module._quat_fromMat4(quat, matA);
-        Module._quat_getAngleAxis(quat, angle, ax, ay, az);
-      } else {
-        Module._quat_getAngleAxis(quat, angle, ax, ay, az);
-      }
+      HEAPF32.set(pose.orientation, orientation >> 2);
+      Module._mat4_rotateQuat(Module._mat4_init(webvr.matA, webvr.poseTransform), orientation);
+      Module._quat_fromMat4(orientation, webvr.matA);
     } else {
-      HEAPF32[angle >> 2] = HEAPF32[ax >> 2] = HEAPF32[ay >> 2] = HEAPF32[az >> 2] = 0;
+      HEAPF32.fill(0, orientation >> 2, orientation >> 2 + 4);
     }
+
+    return true;
   },
 
-  webvrGetVelocity: function(vx, vy, vz) {
-    var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
-    var pose = webvr.frameData.pose;
-    var matA = webvr.matA;
+  webvr_getBonePose: function(device, bone, position, orientation) {
+    return false;
+  },
+
+  webvr_getVelocity: function(device, velocity, angularVelocity) {
+    var pose = webvr.poses[device];
+    if (!pose) { return false; }
 
     if (pose.linearVelocity) {
-      HEAPF32[vx >> 2] = pose.linearVelocity[0];
-      HEAPF32[vy >> 2] = pose.linearVelocity[1];
-      HEAPF32[vz >> 2] = pose.linearVelocity[2];
-
-      if (sittingToStanding) {
-        HEAPF32.set(sittingToStanding, matA >> 2);
-        Module._mat4_transformDirection(matA, vx, vy, vz);
-      }
+      HEAPF32.set(pose.linearVelocity, velocity >> 2);
+      Module._mat4_transformDirection(webvr.poseTransform, velocity);
     } else {
-      HEAPF32[vx >> 2] = HEAPF32[vy >> 2] = HEAPF32[vz >> 2] = 0;
+      HEAPF32.fill(0, velocity >> 2, velocity >> 2 + 3);
     }
-  },
-
-  webvrGetAngularVelocity: function(vx, vy, vz) {
-    var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
-    var pose = webvr.frameData.pose;
-    var matA = webvr.matA;
 
     if (pose.angularVelocity) {
-      HEAPF32[vx >> 2] = pose.angularVelocity[0];
-      HEAPF32[vy >> 2] = pose.angularVelocity[1];
-      HEAPF32[vz >> 2] = pose.angularVelocity[2];
-
-      if (sittingToStanding) {
-        HEAPF32.set(sittingToStanding, matA >> 2);
-        Module._mat4_transformDirection(matA, vx, vy, vz);
-      }
+      HEAPF32.set(pose.angularVelocity, angularVelocity >> 2);
+      Module._mat4_transformDirection(webvr.poseTransform, angularVelocity);
     } else {
-      HEAPF32[vx >> 2] = HEAPF32[vy >> 2] = HEAPF32[vz >> 2] = 0;
+      HEAPF32.fill(0, angularVelocity >> 2, angularVelocity >> 2 + 3);
     }
+
+    return true;
   },
 
-  webvrControllerIsConnected: function(controller) {
-    var gamepad = webvr.controllerToGamepad(controller);
-    return gamepad && gamepad.connected;
+  webvr_isDown: function(device, button, down) {
+    var gamepad = webvr.gamepads[device];
+
+    if (!gamepad || !gamepad.id || !webvr.buttonMap[gamepad.id] || !webvr.buttonMap[gamepad.id][button]) {
+      return false;
+    }
+
+    HEAPF32[down >> 2] = gamepad.buttons[webvr.buttonMap[gamepad.id][button]].pressed;
+    return true;
   },
 
-  webvrControllerGetHand: function(controller) {
-    var gamepad = webvr.controllerToGamepad(controller);
-    var handMap = { '': 0, left: 1, right: 2 };
-    return gamepad && handMap[gamepad.hand || ''];
+  webvr_isTouched: function(device, button, touched) {
+    var gamepad = webvr.gamepads[device];
+
+    if (!gamepad || !gamepad.id || !webvr.buttonMap[gamepad.id] || !webvr.buttonMap[gamepad.id][button]) {
+      return false;
+    }
+
+    HEAPF32[touched >> 2] = gamepad.buttons[webvr.buttonMap[gamepad.id][button]].touched;
+    return true;
   },
 
-  webvrControllerGetPose: function(controller, x, y, z, angle, ax, ay, az) {
-    var gamepad = webvr.controllerToGamepad(controller);
-    var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
-    var matA = webvr.matA;
-    var quat = webvr.quat;
-
-    if (!gamepad || !gamepad.pose || !gamepad.pose.position || !gamepad.pose.orientation) {
-      HEAPF32[x >> 2] = HEAPF32[y >> 2] = HEAPF32[z >> 2] = 0;
-      HEAPF32[angle >> 2] = HEAPF32[ax >> 2] = HEAPF32[ay >> 2] = HEAPF32[az >> 2] = 0;
-      return;
-    }
-
-    HEAPF32[x >> 2] = gamepad.pose.position[0];
-    HEAPF32[y >> 2] = gamepad.pose.position[1];
-    HEAPF32[z >> 2] = gamepad.pose.position[2];
-
-    HEAPF32.set(gamepad.pose.orientation, quat >> 2);
-    if (sittingToStanding) {
-      HEAPF32.set(sittingToStanding, matA >> 2);
-      Module._mat4_transform(matA, x, y, z);
-      Module._mat4_rotateQuat(matA, quat);
-      Module._quat_fromMat4(quat, matA);
-      Module._quat_getAngleAxis(quat, angle, ax, ay, az);
-    } else {
-      HEAPF32[y >> 2] += webvr.offset;
-      Module._quat_getAngleAxis(quat, angle, ax, ay, az);
-    }
-  },
-
-  webvrControllerGetVelocity: function(controller, vx, vy, vz) {
-    var gamepad = webvr.controllerToGamepad(controller);
-    var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
-    var matA = webvr.matA;
-
-    if (!gamepad || !gamepad.pose || !gamepad.pose.linearVelocity) {
-      HEAPF32[vx >> 2] = HEAPF32[vy >> 2] = HEAPF32[vz >> 2] = 0;
-      return;
-    }
-
-    HEAPF32[vx >> 2] = gamepad.pose.linearVelocity[0];
-    HEAPF32[vy >> 2] = gamepad.pose.linearVelocity[1];
-    HEAPF32[vz >> 2] = gamepad.pose.linearVelocity[2];
-
-    if (sittingToStanding) {
-      HEAPF32.set(sittingToStanding, matA >> 2);
-      Module._mat4_transformDirection(matA, vx, vy, vz);
-    }
-  },
-
-  webvrControllerGetAngularVelocity: function(controller, vx, vy, vz) {
-    var gamepad = webvr.controllerToGamepad(controller);
-    var sittingToStanding = webvr.display.stageParameters && webvr.display.stageParameters.sittingToStandingTransform;
-    var matA = webvr.matA;
-
-    if (!gamepad || !gamepad.pose || !gamepad.pose.angularVelocity) {
-      HEAPF32[vx >> 2] = HEAPF32[vy >> 2] = HEAPF32[vz >> 2] = 0;
-      return;
-    }
-
-    HEAPF32[vx >> 2] = gamepad.pose.angularVelocity[0];
-    HEAPF32[vy >> 2] = gamepad.pose.angularVelocity[1];
-    HEAPF32[vz >> 2] = gamepad.pose.angularVelocity[2];
-
-    if (sittingToStanding) {
-      HEAPF32.set(sittingToStanding, matA >> 2);
-      Module._mat4_transformDirection(matA, vx, vy, vz);
-    }
-  },
-
-  webvrControllerGetAxis: function(controller, axis) {
-    var gamepad = webvr.controllerToGamepad(controller);
+  webvr_getAxis: function(device, axis, value) {
+    var gamepad = webvr.gamepads[device];
 
     if (!gamepad) {
-      return 0;
+      return false;
     }
 
     if (gamepad.id.startsWith('OpenVR')) {
       switch (axis) {
-        case C.CONTROLLER_AXIS_TRIGGER: return gamepad.buttons[1].value;
-        case C.CONTROLLER_AXIS_TOUCHPAD_X: return gamepad.axes[0];
-        case C.CONTROLLER_AXIS_TOUCHPAD_Y: return gamepad.axes[1];
-        default: return 0;
+        case C.AXIS_TRIGGER: HEAPF32[value >> 2] = gamepad.buttons[1].value; return true;
+        case C.AXIS_TOUCHPAD:
+          HEAPF32[value >> 2 + 0] = gamepad.axes[0];
+          HEAPF32[value >> 2 + 1] = gamepad.axes[1];
+          return true;
+        default: return false;
       }
     } else if (gamepad.id.startsWith('Oculus')) {
       switch (axis) {
-        case C.CONTROLLER_AXIS_TRIGGER: return gamepad.axes[3 /* ? */];
-        case C.CONTROLLER_AXIS_GRIP: return gamepad.axes[2 /* ? */];
-        case C.CONTROLLER_AXIS_TOUCHPAD_X: return gamepad.axes[0];
-        case C.CONTROLLER_AXIS_TOUCHPAD_Y: return gamepad.axes[1];
-        default: return 0;
+        case C.AXIS_TRIGGER: HEAPF32[value >> 2] = gamepad.buttons[1].value; return true;
+        case C.AXIS_GRIP: HEAPF32[value >> 2] = gamepad.buttons[2].value; return true;
+        case C.AXIS_THUMBSTICK:
+          HEAPF32[value >> 2 + 0] = gamepad.axes[0];
+          HEAPF32[value >> 2 + 1] = gamepad.axes[1];
+          return true;
+        default: return false;
       }
     } else if (gamepad.id.startsWith('Spatial Controller')) {
       switch (axis) {
-        case C.CONTROLLER_AXIS_TRIGGER: return gamepad.buttons[1].value;
-        case C.CONTROLLER_AXIS_TOUCHPAD_X: return gamepad.axes[2];
-        case C.CONTROLLER_AXIS_TOUCHPAD_Y: return gamepad.axes[3];
-        default: return 0;
+        case C.AXIS_TRIGGER: HEAPF32[value >> 2] = gamepad.buttons[0].value; return true;
+        case C.AXIS_THUMBSTICK:
+          HEAPF32[value >> 2 + 0] = gamepad.axes[0];
+          HEAPF32[value >> 2 + 1] = gamepad.axes[1];
+          return true;
+        case C.AXIS_TOUCHPAD:
+          HEAPF32[value >> 2 + 0] = gamepad.axes[2];
+          HEAPF32[value >> 2 + 1] = gamepad.axes[3];
+          return true;
+        default: return false;
       }
     }
 
-    return 0;
+    return false;
   },
 
-  webvrControllerIsDown: function(controller, button) {
-    var gamepad = webvr.controllerToGamepad(controller);
-    var buttonMap = webvr.buttonMap[gamepad.id] || webvr.buttonMap[gamepad.id.substr(0, 18)]; // substr for Spatial Controller prefix
-    return gamepad && buttonMap && buttonMap[button] && gamepad.buttons[buttonMap[button]].pressed;
-  },
-
-  webvrControllerIsTouched: function(controller, button) {
-    var gamepad = webvr.controllerToGamepad(controller);
-    var buttonMap = webvr.buttonMap[gamepad.id] || webvr.buttonMap[gamepad.id.substr(0, 18)]; // substr for Spatial Controller prefix
-    return gamepad && buttonMap && buttonMap[button] && gamepad.buttons[buttonMap[button]].touched;
-  },
-
-  webvrControllerVibrate: function(controller, duration, power) {
-    var gamepad = webvr.controllerToGamepad(controller);
+  webvr_vibrate: function(device, strength, duration, frequency) {
+    var gamepad = webvr.gamepads[device];
 
     if (gamepad && gamepad.hapticActuators && gamepad.hapticActuators[0]) {
-      gamepad.hapticActuators[0].pulse(power, duration * 1000);
-    }
-  },
-
-  webvrControllerNewModelData: function(controller) {
-    return 0;
-  },
-
-  webvrSetRenderCallback: function(callback, userdata) {
-    webvr.renderCallback = callback;
-    webvr.renderUserdata = userdata;
-  },
-
-  webvrUpdate: function(dt) {
-    var gamepads = navigator.getGamepads();
-
-    // Poll for new gamepads
-    for (var i = 0; i < gamepads.length; i++) {
-      var gamepad = gamepads[i];
-      if (gamepad && gamepad.pose && !webvr.gamepads[gamepad.index] && gamepad.displayId === webvr.display.displayId && gamepad.pose.position && gamepad.pose.orientation) {
-        webvr.gamepads[gamepad.index] = gamepad;
-        webvr.lastGamepadState[gamepad.index] = [];
-        for (var i = 0; i < gamepad.buttons.length; i++) {
-          webvr.lastGamepadState[gamepad.index][i] = gamepad.buttons[i].pressed;
-        }
-        webvr.controlleradded && {{{ makeDynCall('vi') }}}(webvr.controlleradded, gamepad.index);
-      }
+      gamepad.hapticActuators[0].pulse(strength, duration * 1000);
+      return true;
     }
 
-    // Process existing gamepads, checking for disconnection and button state changes
-    for (var index in webvr.gamepads) {
-      var gamepad = webvr.gamepads[index];
-      if (!gamepad.connected || !gamepad.pose.position || !gamepad.pose.orientation) {
-        webvr.controllerremoved && {{{ makeDynCall('vi') }}}(webvr.controllerremoved, gamepad.index);
-        delete webvr.lastGamepadState[gamepad.index];
-        delete webvr.gamepads[gamepad.index];
-      } else {
-        var lastState = webvr.lastGamepadState[index];
-        var buttonMap = webvr.buttonMap[gamepad.id] || webvr.buttonMap[gamepad.id.substr(0, 18)]; // substr for Spatial Controller prefix
-        for (var button in buttonMap) {
-          var buttonIndex = buttonMap[button];
-          if (buttonIndex !== null) {
-            var pressed = gamepad.buttons[buttonIndex].pressed;
-            if (lastState[buttonIndex] !== pressed) {
-              lastState[buttonIndex] = pressed;
-              if (pressed) {
-                {{{ makeDynCall('vii') }}}(webvr.controllerpressed, gamepad.index, button);
-              } else {
-                {{{ makeDynCall('vii') }}}(webvr.controllerreleased, gamepad.index, button);
-              }
-            }
-          }
-        }
-      }
-    }
+    return false;
+  },
+
+  webvr_newModelData: function(device) {
+    return C.NULL;
+  },
+
+  webvr_update: function(dt) {
+    //
   },
 
   $C: {
     NULL: 0,
+
+    // HeadsetOrigin
     ORIGIN_HEAD: 0,
     ORIGIN_FLOOR: 1,
-    HEADSET_UNKNOWN: 0,
-    EYE_LEFT: 0,
-    EYE_RIGHT: 1,
-    HAND_UNKNOWN: 0,
-    HAND_LEFT: 1,
-    HAND_RIGHT: 2,
-    CONTROLLER_AXIS_TRIGGER: 0,
-    CONTROLLER_AXIS_GRIP: 1,
-    CONTROLLER_AXIS_TOUCHPAD_X: 2,
-    CONTROLLER_AXIS_TOUCHPAD_Y: 3,
-    sizeofRef: 8
+
+    // DeviceAxis
+    AXIS_TRIGGER: 0,
+    AXIS_THUMBSTICK: 1,
+    AXIS_TOUCHPAD: 2,
+    AXIS_PINCH: 3,
+    AXIS_GRIP: 4
   }
 };
 

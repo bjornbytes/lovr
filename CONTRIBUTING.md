@@ -47,11 +47,12 @@ An overview of the folder structure:
 
 - `deps` contains submodules for external dependencies.  Some smaller dependencies are also included
 in the `src/lib` folder.
-- `src/api` contains Lua bindings.  There's a file for each module in there, and a `types` folder
-with a file for each type of object.
-- `src/resources` contains embedded resources.  These are compiled to binary headers using `xxd`.
-- `src/data` has stuff for loading various file formats into LÖVR data structures.
-- Each module has a folder in `src`.
+- `src/api` contains Lua bindings.  There's a file for each module and a file for each object.
+- `src/core` contains shared engine code.  It's usually lower-level and not specific to LÖVR.
+- `src/lib` contains smaller third party libraries.
+- `src/modules` has a folder for each module in the project.  It's good to keep them separated as
+  much as possible, there's inevitably some overlap.
+- `src/resources` contains embedded files.  These are compiled to binary headers using `xxd`.
 
 Note that currently the internal C API may change at any time.  The Lua API will change less
 frequently but breaking changes will still occur before version 1.0.

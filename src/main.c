@@ -1,7 +1,5 @@
 #include "resources/boot.lua.h"
-#include "version.h"
-#include "api.h"
-#include "luax.h"
+#include "api/api.h"
 #include "platform.h"
 #include "util.h"
 #include <stdbool.h>
@@ -57,7 +55,8 @@ static void emscriptenLoop(void* arg) {
 
 int main(int argc, char** argv) {
   if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
-    lovrLog("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
+    lovrPlatformOpenConsole();
+    printf("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
     exit(0);
   }
 
@@ -74,7 +73,7 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    lovrSetErrorCallback((lovrErrorHandler) luax_vthrow, T);
+    lovrSetErrorCallback((errorFn*) luax_vthrow, T);
 
 #ifdef EMSCRIPTEN
     lovrEmscriptenContext context = { L, T, argc, argv };
@@ -82,7 +81,7 @@ int main(int argc, char** argv) {
     return 0;
 #else
     while (lua_resume(T, 0) == LUA_YIELD) {
-      lovrSleep(.001);
+      lovrPlatformSleep(.001);
     }
 
     restart = lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart");
@@ -105,6 +104,7 @@ typedef enum { // What flag is being searched for?
 
 lua_State* lovrInit(lua_State* L, int argc, char** argv) {
   lovrAssert(lovrPlatformInit(), "Failed to initialize platform");
+  lovrPlatformSetTime(0.);
 
   // arg table
   // Args follow the lua standard https://en.wikibooks.org/wiki/Lua_Programming/command_line_parameter
@@ -137,8 +137,11 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
         currentFlag = ARGFLAG_NONE;
 
       // This argument is a -- flag
-      } else if (!strcmp(argv[1], "--root") || !strcmp(argv[1], "-r")) {
+      } else if (!strcmp(argv[i], "--root") || !strcmp(argv[i], "-r")) {
         currentFlag = ARGFLAG_ROOT;
+
+      } else if (!strcmp(argv[i], "--console")) {
+        lovrPlatformOpenConsole();
 
       // This is the game path
       } else {
@@ -166,7 +169,7 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
 
   lua_pushcfunction(L, luax_getstack);
   if (luaL_loadbuffer(L, (const char*) boot_lua, boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
-    lovrWarn("%s\n", lua_tostring(L, -1));
+    fprintf(stderr, "%s\n", lua_tostring(L, -1));
     return NULL;
   }
 
