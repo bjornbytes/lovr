@@ -16,11 +16,19 @@ static struct {
   ma_mutex lock;
 } state;
 
+static struct {
+  arr_t(float) monoBuffer; // "Dummy" spatializer ignores position
+} spatializer;
+
 static void handler(ma_device* device, void* output, const void* input, uint32_t frames) {
   ma_mutex_lock(&state.lock);
 
-  //float buffer[256];
+  if (frames > spatializer.monoBuffer.capacity)
+    arr_reserve(&spatializer.monoBuffer, frames); // Warning: Potentially allocates
+  spatializer.monoBuffer.length = frames;
+  float *mono = spatializer.monoBuffer.data;
 
+  uint32_t n = 0; // How much data has been written into mono buffer?
   for (Source** s = &state.sources; *s;) {
     Source* source = *s;
 
@@ -32,9 +40,8 @@ static void handler(ma_device* device, void* output, const void* input, uint32_t
       continue;
     }
 
-    uint32_t n = 0;
     decode:
-    n += lovrDecoderDecode(source->decoder, frames - n, device->playback.channels, (uint8_t*) output + n * FRAME_SIZE(device->playback.channels));
+    n += lovrDecoderDecode(source->decoder, frames - n, 1, (uint8_t*) mono + n * FRAME_SIZE(1));
 
     if (n < frames) {
       if (source->looping) {
@@ -47,6 +54,16 @@ static void handler(ma_device* device, void* output, const void* input, uint32_t
     }
 
     s = &source->next;
+  }
+  for(; n < frames; n++) {
+    mono[n] = 0;
+  }
+
+  float *outputFloat = (float *)output; // Interleave mono buffer into output buffer
+  for(int f = 0, o = 0; f < frames; f++) {
+    for(int c = 0; c < device->playback.channels; c++, o++) {
+      outputFloat[o] = mono[f];
+    }
   }
 
   ma_mutex_unlock(&state.lock);
