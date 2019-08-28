@@ -34,7 +34,7 @@ static void handler(ma_device* device, void* output, const void* input, uint32_t
 
     uint32_t n = 0;
     decode:
-    n += lovrDecoderDecode(source->decoder, frames - n, (uint8_t*) output + n * FRAME_SIZE(device->playback.channels));
+    n += lovrDecoderDecode(source->decoder, frames - n, device->playback.channels, (uint8_t*) output + n * FRAME_SIZE(device->playback.channels));
 
     if (n < frames) {
       if (source->looping) {
