@@ -104,6 +104,7 @@ function lovr.boot()
       width = 1080,
       height = 600,
       fullscreen = false,
+      resizable = false,
       msaa = 0,
       title = 'LÖVR',
       icon = nil,

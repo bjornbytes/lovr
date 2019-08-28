@@ -343,6 +343,10 @@ static int l_lovrGraphicsCreateWindow(lua_State* L) {
   flags.fullscreen = lua_toboolean(L, -1);
   lua_pop(L, 1);
 
+  lua_getfield(L, 1, "resizable");
+  flags.resizable = lua_toboolean(L, -1);
+  lua_pop(L, 1);
+
   lua_getfield(L, 1, "msaa");
   flags.msaa = lua_tointeger(L, -1);
   lua_pop(L, 1);

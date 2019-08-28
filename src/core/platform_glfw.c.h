@@ -30,6 +30,7 @@ static void onWindowClose(GLFWwindow* window) {
 
 static void onWindowResize(GLFWwindow* window, int width, int height) {
   if (state.onWindowResize) {
+    glfwGetFramebufferSize(window, &width, &height);
     state.onWindowResize(width, height);
   }
 }
@@ -126,7 +127,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
   glfwWindowHint(GLFW_SAMPLES, flags->msaa);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+  glfwWindowHint(GLFW_RESIZABLE, flags->resizable);
   glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 
   GLFWmonitor* monitor = glfwGetPrimaryMonitor();
