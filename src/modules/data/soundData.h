@@ -36,8 +36,8 @@ typedef struct Decoder {
     uint32_t i;
   } internal;
   void (*destroy)(struct Decoder*);
-  uint32_t (*decode)(struct Decoder*, uint32_t, void*);
-  void (*seek)(struct Decoder*, uint32_t);
+  uint32_t (*decode)(struct Decoder* decoder, uint32_t frames, uint32_t channels, void* data);
+  void (*seek)(struct Decoder* decoder, uint32_t to);
   uint32_t (*tell)(struct Decoder*);
 } Decoder;
 
@@ -46,6 +46,8 @@ Decoder* lovrDecoderInitOgg(Decoder* decoder, Blob* blob);
 #define lovrDecoderCreateRaw(...) lovrDecoderInitRaw(lovrAlloc(Decoder), __VA_ARGS__)
 #define lovrDecoderCreateOgg(...) lovrDecoderInitOgg(lovrAlloc(Decoder), __VA_ARGS__)
 void lovrDecoderDestroy(Decoder* decoder);
-#define lovrDecoderDecode(d, f, p) (d)->decode(d, f, p)
+// Warning: When lovrDecoderDecode is called, f*c samples will be written into the buffer. There must be enough room.
+// The number returned is the number of frames written, not the number of samples.
+#define lovrDecoderDecode(d, f, c, p) (d)->decode(d, f, c, p)
 #define lovrDecoderSeek(d, f) (d)->seek(d, f)
 #define lovrDecoderTell(d) (d)->tell(d)

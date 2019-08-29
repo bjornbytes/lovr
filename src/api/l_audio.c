@@ -29,6 +29,8 @@ static int l_lovrAudioNewSource(lua_State* L) {
       lovrRelease(SoundData, soundData);
     }
   }
+
+  lovrAssert(decoder->channels == 1, "Audio sources must be mono");
   
   Source* source = lovrSourceCreate(decoder);
   luax_pushtype(L, Source, source);

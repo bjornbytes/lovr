@@ -34,7 +34,7 @@ SoundData* lovrSoundDataInitFromBlob(SoundData* soundData, Blob* blob) {
     lovrAssert(raw->data, "Out of memory");
 
     uint8_t* dest = (uint8_t*) raw->data + soundData->frames * FRAME_SIZE(soundData->channels);
-    soundData->frames += lovrDecoderDecode(&decoder, frameLimit - soundData->frames, dest);
+    soundData->frames += lovrDecoderDecode(&decoder, frameLimit - soundData->frames, decoder.channels, dest);
   } while (soundData->frames == frameLimit);
 
   lovrDecoderDestroy(&decoder);
@@ -52,7 +52,8 @@ static void lovrRawDecoderDestroy(Decoder* decoder) {
   lovrRelease(Blob, decoder->blob);
 }
 
-static uint32_t lovrRawDecoderDecode(Decoder* decoder, uint32_t frames, void* data) {
+static uint32_t lovrRawDecoderDecode(Decoder* decoder, uint32_t frames, uint32_t channels, void* data) {
+  lovrAssert(channels == decoder->channels); // Currently only mono audio sources can be created, so this is okay
   int stride = FRAME_SIZE(decoder->channels);
   frames = MIN(frames, decoder->frames - decoder->internal.i);
   memcpy(data, (uint8_t*) decoder->blob->data + decoder->internal.i * stride, frames * stride);
@@ -75,8 +76,8 @@ static void lovrOggDecoderDestroy(Decoder* decoder) {
   lovrRelease(Blob, decoder->blob);
 }
 
-static uint32_t lovrOggDecoderDecode(Decoder* decoder, uint32_t frames, void* data) {
-  return stb_vorbis_get_samples_float_interleaved(decoder->internal.p, decoder->channels, data, frames * decoder->channels);
+static uint32_t lovrOggDecoderDecode(Decoder* decoder, uint32_t frames, uint32_t channels, void* data) {
+  return stb_vorbis_get_samples_float_interleaved(decoder->internal.p, channels, data, frames * channels);
 }
 
 static void lovrOggDecoderSeek(Decoder* decoder, uint32_t frame) {
