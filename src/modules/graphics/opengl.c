@@ -366,6 +366,7 @@ static UniformType getUniformType(GLenum type, const char* debug) {
     case GL_SAMPLER_3D:
     case GL_SAMPLER_CUBE:
     case GL_SAMPLER_2D_ARRAY:
+    case GL_SAMPLER_2D_SHADOW:
       return UNIFORM_SAMPLER;
 #ifdef GL_ARB_shader_image_load_store
     case GL_IMAGE_2D:
@@ -395,6 +396,7 @@ static TextureType getUniformTextureType(GLenum type) {
     case GL_SAMPLER_3D: return TEXTURE_VOLUME;
     case GL_SAMPLER_CUBE: return TEXTURE_CUBE;
     case GL_SAMPLER_2D_ARRAY: return TEXTURE_ARRAY;
+    case GL_SAMPLER_2D_SHADOW: return TEXTURE_2D;
 #ifdef GL_ARB_shader_image_load_store
     case GL_IMAGE_2D: return TEXTURE_2D;
     case GL_IMAGE_3D: return TEXTURE_VOLUME;
@@ -940,7 +942,7 @@ static void lovrGpuBindShader(Shader* shader) {
         for (int i = 0; i < count; i++) {
           Image* image = &uniform->value.images[i];
           Texture* texture = image->texture;
-          lovrAssert(!texture || texture->type == uniform->textureType, "Uniform texture type mismatch for uniform %s", uniform->name);
+          lovrAssert(!texture || texture->type == uniform->textureType, "Uniform texture type mismatch for uniform '%s'", uniform->name);
 
           // If the Shader can write to the texture, mark it as incoherent
           if (texture && image->access != ACCESS_READ) {
@@ -958,7 +960,8 @@ static void lovrGpuBindShader(Shader* shader) {
       case UNIFORM_SAMPLER:
         for (int i = 0; i < count; i++) {
           Texture* texture = uniform->value.textures[i];
-          lovrAssert(!texture || texture->type == uniform->textureType, "Uniform texture type mismatch for uniform %s", uniform->name);
+          lovrAssert(!texture || texture->type == uniform->textureType, "Uniform texture type mismatch for uniform '%s'", uniform->name);
+          lovrAssert(!texture || (uniform->shadow == (texture->compareMode != COMPARE_NONE)), "Uniform '%s' requires a Texture with%s a compare mode", uniform->name, uniform->shadow ? "" : "out");
           lovrGpuBindTexture(texture, uniform->baseSlot + i);
         }
         break;
@@ -1320,6 +1323,7 @@ Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slice
   texture->srgb = srgb;
   texture->mipmaps = mipmaps;
   texture->target = convertTextureTarget(type);
+  texture->compareMode = COMPARE_NONE;
 
   WrapMode wrap = type == TEXTURE_CUBE ? WRAP_CLAMP : WRAP_REPEAT;
   glGenTextures(1, &texture->id);
@@ -1497,6 +1501,21 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32
 #else
       glGenerateMipmap(texture->target);
 #endif
+    }
+  }
+}
+
+void lovrTextureSetCompareMode(Texture* texture, CompareMode compareMode) {
+  if (texture->compareMode != compareMode) {
+    lovrGraphicsFlush();
+    lovrGpuBindTexture(texture, 0);
+    texture->compareMode = compareMode;
+    if (compareMode == COMPARE_NONE) {
+      glTexParameteri(texture->target, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+    } else {
+      lovrAssert(isTextureFormatDepth(texture->format), "Only depth textures can set a compare mode");
+      glTexParameteri(texture->target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+      glTexParameteri(texture->target, GL_TEXTURE_COMPARE_FUNC, convertCompareMode(compareMode));
     }
   }
 }
@@ -1935,6 +1954,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
     uniform.location = glGetUniformLocation(program, uniform.name);
     uniform.type = getUniformType(glType, uniform.name);
     uniform.components = getUniformComponents(glType);
+    uniform.shadow = glType == GL_SAMPLER_2D_SHADOW;
 #ifdef LOVR_WEBGL
     uniform.image = false;
 #else

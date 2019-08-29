@@ -7,6 +7,12 @@ int luax_optmipmap(lua_State* L, int index, Texture* texture) {
   return mipmap - 1;
 }
 
+static int l_lovrTextureGetCompareMode(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  lua_pushstring(L, CompareModes[lovrTextureGetCompareMode(texture)]);
+  return 1;
+}
+
 static int l_lovrTextureGetDepth(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   lua_pushnumber(L, lovrTextureGetDepth(texture, luax_optmipmap(L, 2, texture)));
@@ -89,6 +95,13 @@ static int l_lovrTextureReplacePixels(lua_State* L) {
   return 0;
 }
 
+static int l_lovrTextureSetCompareMode(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  CompareMode mode = lua_isnoneornil(L, 2) ? COMPARE_NONE : luaL_checkoption(L, 2, NULL, CompareModes);
+  lovrTextureSetCompareMode(texture, mode);
+  return 0;
+}
+
 static int l_lovrTextureSetFilter(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   FilterMode mode = luaL_checkoption(L, 2, NULL, FilterModes);
@@ -109,6 +122,7 @@ static int l_lovrTextureSetWrap(lua_State* L) {
 }
 
 const luaL_Reg lovrTexture[] = {
+  { "getCompareMode", l_lovrTextureGetCompareMode },
   { "getDepth", l_lovrTextureGetDepth },
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getFilter", l_lovrTextureGetFilter },
@@ -119,6 +133,7 @@ const luaL_Reg lovrTexture[] = {
   { "getWidth", l_lovrTextureGetWidth },
   { "getWrap", l_lovrTextureGetWrap },
   { "replacePixels", l_lovrTextureReplacePixels },
+  { "setCompareMode", l_lovrTextureSetCompareMode },
   { "setFilter", l_lovrTextureSetFilter },
   { "setWrap", l_lovrTextureSetWrap },
   { NULL, NULL }

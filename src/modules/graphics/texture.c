@@ -24,6 +24,10 @@ TextureFormat lovrTextureGetFormat(Texture* texture) {
   return texture->format;
 }
 
+CompareMode lovrTextureGetCompareMode(Texture* texture) {
+  return texture->compareMode;
+}
+
 TextureFilter lovrTextureGetFilter(Texture* texture) {
   return texture->filter;
 }

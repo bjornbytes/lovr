@@ -86,6 +86,7 @@ typedef struct Uniform {
   } value;
   TextureType textureType;
   int baseSlot;
+  bool shadow;
   bool image;
   bool dirty;
 } Uniform;
