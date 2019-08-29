@@ -23,8 +23,7 @@ static struct {
 static void handler(ma_device* device, void* output, const void* input, uint32_t frames) {
   ma_mutex_lock(&state.lock);
 
-  if (frames > spatializer.monoBuffer.capacity)
-    arr_reserve(&spatializer.monoBuffer, frames); // Warning: Potentially allocates
+  arr_reserve(&spatializer.monoBuffer, frames);
   spatializer.monoBuffer.length = frames;
   float *mono = spatializer.monoBuffer.data;
 
@@ -55,13 +54,14 @@ static void handler(ma_device* device, void* output, const void* input, uint32_t
 
     s = &source->next;
   }
-  for(; n < frames; n++) {
-    mono[n] = 0;
+
+  for (; n < frames; n++) {
+    mono[n] = 0.f;
   }
 
-  float *outputFloat = (float *)output; // Interleave mono buffer into output buffer
-  for(int f = 0, o = 0; f < frames; f++) {
-    for(int c = 0; c < device->playback.channels; c++, o++) {
+  float *outputFloat = (float*) output; // Interleave mono buffer into output buffer
+  for (int f = 0, o = 0; f < frames; f++) {
+    for (int c = 0; c < device->playback.channels; c++, o++) {
       outputFloat[o] = mono[f];
     }
   }
