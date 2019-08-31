@@ -1640,7 +1640,7 @@ static int l_lovrMat4LookAt(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
   vec3 from = luax_checkvector(L, 2, V_VEC3, NULL);
   vec3 to = luax_checkvector(L, 3, V_VEC3, NULL);
-  vec3 up = lua_isnoneornil(L, 4) ? (float[4]) { 0.f, 1.f, 0.f } : luax_checkvector(L, 3, V_VEC3, NULL);
+  vec3 up = lua_isnoneornil(L, 4) ? (float[4]) { 0.f, 1.f, 0.f } : luax_checkvector(L, 4, V_VEC3, NULL);
   mat4_lookAt(m, from, to, up);
   lua_settop(L, 1);
   return 1;

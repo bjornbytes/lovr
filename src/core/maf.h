@@ -611,27 +611,27 @@ MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float c
 }
 
 MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
-  float z[4];
   float x[4];
   float y[4];
-  vec3_sub(vec3_init(z, to), from);
+  float z[4];
+  vec3_normalize(vec3_sub(vec3_init(z, from), to));
   vec3_normalize(vec3_cross(vec3_init(x, up), z));
   vec3_cross(vec3_init(y, z), x);
   m[0] = x[0];
-  m[1] = y[0];
-  m[2] = z[0];
+  m[1] = x[1];
+  m[2] = x[2];
   m[3] = 0.f;
-  m[4] = x[1];
+  m[4] = y[0];
   m[5] = y[1];
-  m[6] = z[1];
+  m[6] = y[2];
   m[7] = 0.f;
-  m[8] = x[2];
-  m[9] = y[2];
+  m[8] = z[0];
+  m[9] = z[1];
   m[10] = z[2];
   m[11] = 0.f;
-  m[12] = 0.f;
-  m[13] = 0.f;
-  m[14] = 0.f;
+  m[12] = from[0];
+  m[13] = from[1];
+  m[14] = from[2];
   m[15] = 1.f;
   return m;
 }
