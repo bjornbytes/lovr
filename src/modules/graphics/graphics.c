@@ -1156,7 +1156,7 @@ void lovrGraphicsSphere(Material* material, mat4 transform, int segments) {
       for (int j = 0; j < segments; j++) {
         uint16_t i0 = offset0 + j;
         uint16_t i1 = offset1 + j;
-        memcpy(indices, ((uint16_t[]) { i0, i1, i0 + 1, i1, i1 + 1, i0 + 1 }), 6 * sizeof(uint16_t));
+        memcpy(indices, ((uint16_t[]) { i0, i0 + 1, i1, i1, i0 + 1, i1 + 1 }), 6 * sizeof(uint16_t));
         indices += 6;
       }
     }
