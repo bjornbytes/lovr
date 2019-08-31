@@ -19,6 +19,7 @@ typedef union {
     uint8_t type;
     uint8_t generation;
     uint16_t index;
+    uint32_t padding;
   } handle;
 } Vector;
 
