@@ -1,0 +1,7 @@
+include_rules
+
+SRC_y += file.c
+SRC_y += filesystem2.c
+#SRC_y += filesystem.c
+
+: foreach $(SRC_y) |> !compile |>
