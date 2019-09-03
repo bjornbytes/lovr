@@ -220,9 +220,11 @@ function lovr.errhand(message, traceback)
   return function()
     lovr.event.pump()
     for name, a in lovr.event.poll() do if name == 'quit' then return a or 1 end end
-    lovr.headset.update(0)
     lovr.graphics.origin()
-    if lovr.headset then lovr.headset.renderTo(render) end
+    if lovr.headset then
+      lovr.headset.update(0)
+      lovr.headset.renderTo(render)
+    end
     if lovr.graphics.hasWindow() then
       lovr.graphics.clear()
       render(true)
