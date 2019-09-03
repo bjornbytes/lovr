@@ -30,7 +30,8 @@ bool fs_remove(const char* path);
 bool fs_mkdir(const char* path);
 bool fs_list(const char* path, fs_list_cb* callback, void* context);
 
-size_t fs_getUserDirectory(char buffer[static FS_PATH_MAX]);
-size_t fs_getDataDirectory(char buffer[static FS_PATH_MAX]);
-size_t fs_getWorkingDirectory(char buffer[static FS_PATH_MAX]);
-size_t fs_getExecutablePath(char buffer[static FS_PATH_MAX]);
+// Returns length written to buffer
+size_t fs_getUserDirectory(char* buffer, size_t size);
+size_t fs_getDataDirectory(char* buffer, size_t size);
+size_t fs_getWorkingDirectory(char* buffer, size_t size);
+size_t fs_getExecutablePath(char* buffer, size_t size);

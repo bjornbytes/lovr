@@ -81,6 +81,7 @@ end
 -- Note: Cannot be overloaded
 function lovr.boot()
   local conf = {
+    identity = 'default',
     version = '0.12.0',
     hotkeys = true,
     modules = {

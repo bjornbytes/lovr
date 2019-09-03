@@ -25,7 +25,7 @@ const char* lovrFilesystemGetCRequirePath();
 const char* lovrFilesystemGetSaveDirectory(void);
 size_t lovrFilesystemGetSize(const char* path);
 const char* lovrFilesystemGetSource(void);
-const char* lovrFilesystemGetUserDirectory(void);
+bool lovrFilesystemGetUserDirectory(char* buffer, size_t size);
 bool lovrFilesystemGetWorkingDirectory(char* dest, unsigned int size);
 bool lovrFilesystemIsDirectory(const char* path);
 bool lovrFilesystemIsFile(const char* path);

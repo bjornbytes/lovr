@@ -1,25 +1,36 @@
 #include "filesystem/filesystem.h"
 #include "core/fs.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-// TODO no
 const char lovrDirSep = '/';
 
-static bool isValidPath(const char* path) {
-  return !strstr(path, ".."); // TODO check it's bounded by slashes / \0s
+#define MAX_ARCHIVES 8
+#define FOREACH_ARCHIVE(a) for (Archive* a = state.archives; a != NULL; a = a->next)
+
+// This check is a little too strict (.. can be valid), but for now it's good enough
+static bool validate(const char* path) {
+  const char* p = path;
+  while (*p) {
+    if (*p == ':' || *p == '\\' || (p[0] == '.' && p[1] == '.')) {
+      return false;
+    }
+    p++;
+  }
+  return true;
 }
 
-static bool joinPaths(char buffer[/* static LOVR_PATH_MAX */], const char* p1, const char* p2) {
-  // TODO maybe do some normalization (trailing/leading slashes)
-  // TODO do we need snprintf? maybe just memcpys, try to avoid stdio
-  return snprintf(buffer, LOVR_PATH_MAX, "%s/%s", p1, p2) >= LOVR_PATH_MAX;
+static bool joinPaths(char* buffer, const char* p1, const char* p2) {
+  return snprintf(buffer, LOVR_PATH_MAX, "%s/%s", p1, p2) < LOVR_PATH_MAX;
 }
 
 typedef struct Archive {
   struct Archive* next;
-  char* path;
+  char path[FS_PATH_MAX];
+  char mountpoint[64];
+  char root[64];
 } Archive;
 
 bool dir_read(Archive* archive, const char* path, size_t bytes, size_t* bytesRead, void** data) {
@@ -75,23 +86,27 @@ void dir_list(Archive* archive, const char* path, fs_list_cb callback, void* con
 
 static struct {
   bool initialized;
-  char source[LOVR_PATH_MAX];
-  char requirePath[2][LOVR_PATH_MAX];
+  Archive* archives;
+  Archive* waitlist;
+  Archive pool[MAX_ARCHIVES];
   char savePath[LOVR_PATH_MAX];
+  char requirePath[2][LOVR_PATH_MAX];
+  char source[LOVR_PATH_MAX];
   char* identity;
-  Archive* head;
   bool fused;
 } state;
-
-#define FOREACH_ARCHIVE(a) for (Archive* a = state.head; a != NULL; a = a->next)
 
 bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* argRoot) {
   if (state.initialized) return false;
   state.initialized = true;
 
-  // TODO this is Lua's problem
   lovrFilesystemSetRequirePath("?.lua;?/init.lua;lua_modules/?.lua;lua_modules/?/init.lua;deps/?.lua;deps/?/init.lua");
   lovrFilesystemSetCRequirePath("??;lua_modules/??;deps/??");
+
+  state.waitlist = state.pool;
+  for (size_t i = 0; i < MAX_ARCHIVES - 1; i++) {
+    state.pool[i].next = &state.pool[i + 1];
+  }
 
   // First, try to mount a source archive fused to the executable
   if (lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX) && lovrFilesystemMount(state.source, NULL, true, argRoot)) {
@@ -115,7 +130,6 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
 
 void lovrFilesystemDestroy() {
   if (!state.initialized) return;
-  // TODO
   memset(&state, 0, sizeof(state));
 }
 
@@ -135,20 +149,19 @@ bool lovrFilesystemGetApplicationId(char* dest, size_t size) {
 }
 
 bool lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
-  //return fs_getDataDirectory(dest);
-  return false;
+  return fs_getDataDirectory(dest, size) > 0;
 }
 
 int lovrFilesystemGetExecutablePath(char* path, uint32_t size) {
-  return 1;
+  return !fs_getExecutablePath(path, size);
 }
 
-const char* lovrFilesystemGetUserDirectory() {
-  return NULL;
+bool lovrFilesystemGetUserDirectory(char* buffer, size_t size) {
+  return fs_getUserDirectory(buffer, size) > 0;
 }
 
-bool lovrFilesystemGetWorkingDirectory(char* dest, unsigned int size) {
-  return false;
+bool lovrFilesystemGetWorkingDirectory(char* buffer, unsigned int size) {
+  return fs_getWorkingDirectory(buffer, size);
 }
 
 // Archives
@@ -160,57 +173,58 @@ bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, 
     }
   }
 
+  size_t length = strlen(path);
+  if (length > FS_PATH_MAX - 1) {
+    return false;
+  }
+
   FileInfo info;
   if (!fs_stat(path, &info) || info.type != FILE_DIRECTORY) {
     return false;
   }
 
-  Archive* archive = malloc(sizeof(Archive)); // TODO no allocation
-  if (!archive) {
-    return false;
-  }
-
-  archive->path = strdup(path); // TODO no allocation
-  if (!archive->path) {
-    return false;
-  }
+  lovrAssert(state.waitlist, "Too many mounted archives (up to %d are supported)", MAX_ARCHIVES);
+  Archive* archive = state.waitlist;
+  state.waitlist = state.waitlist->next;
+  memcpy(archive->path, path, length);
+  archive->path[length] = '\0';
 
   // TODO mountpoint
   // TODO root
 
-  // TODO append (actually append is too complicated / not useful?  known ordering is very nice)
-  archive->next = state.head;
-  state.head = archive;
+  if (!state.archives) {
+    state.archives = archive;
+  } else if (append) {
+    Archive* tail = state.archives;
+    while (tail->next) tail = tail->next;
+    tail->next = archive;
+  } else {
+    archive->next = state.archives;
+    state.archives = archive;
+  }
+
   return true;
 }
 
 bool lovrFilesystemUnmount(const char* path) {
-  Archive* prev = NULL;
+  Archive** prev = &state.archives;
 
   FOREACH_ARCHIVE(archive) {
-    if (!strcmp(archive->path, path)) {
-      if (prev) {
-        prev->next = archive->next;
-      }
-
-      if (archive == state.head) {
-        state.head = archive->next;
-      }
-
-      // TODO no allocation
-      free(archive->path);
-      free(archive);
+    if (!strncmp(archive->path, path, sizeof(archive->path))) {
+      *prev = archive->next;
+      archive->next = state.waitlist;
+      state.waitlist = archive;
       return true;
     }
 
-    prev = archive;
+    prev = &archive->next;
   }
 
   return false;
 }
 
 const char* lovrFilesystemGetRealDirectory(const char* path) {
-  if (isValidPath(path)) {
+  if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {
       if (dir_stat(archive, path, &info)) {
@@ -222,7 +236,7 @@ const char* lovrFilesystemGetRealDirectory(const char* path) {
 }
 
 bool lovrFilesystemIsFile(const char* path) {
-  if (isValidPath(path)) {
+  if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {
       if (dir_stat(archive, path, &info)) {
@@ -234,7 +248,7 @@ bool lovrFilesystemIsFile(const char* path) {
 }
 
 bool lovrFilesystemIsDirectory(const char* path) {
-  if (isValidPath(path)) {
+  if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {
       if (dir_stat(archive, path, &info)) {
@@ -247,7 +261,7 @@ bool lovrFilesystemIsDirectory(const char* path) {
 
 // TODO return a uint64, this isn't memory
 size_t lovrFilesystemGetSize(const char* path) {
-  if (isValidPath(path)) {
+  if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {
       if (dir_stat(archive, path, &info)) {
@@ -260,7 +274,7 @@ size_t lovrFilesystemGetSize(const char* path) {
 
 // TODO lol long
 long lovrFilesystemGetLastModified(const char* path) {
-  if (isValidPath(path)) {
+  if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {
       if (dir_stat(archive, path, &info)) {
@@ -272,7 +286,7 @@ long lovrFilesystemGetLastModified(const char* path) {
 }
 
 void* lovrFilesystemRead(const char* path, size_t bytes, size_t* bytesRead) {
-  if (isValidPath(path)) {
+  if (validate(path)) {
     void* data;
     FOREACH_ARCHIVE(archive) {
       if (dir_read(archive, path, bytes, bytesRead, &data)) {
@@ -286,7 +300,7 @@ void* lovrFilesystemRead(const char* path, size_t bytes, size_t* bytesRead) {
 // TODO callback casting
 // TODO dedupe / sort (or use Lua for it)
 void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* context) {
-  if (isValidPath(path)) {
+  if (validate(path)) {
     FOREACH_ARCHIVE(archive) {
       dir_list(archive, path, (fs_list_cb*) callback, context);
     }
@@ -300,25 +314,46 @@ const char* lovrFilesystemGetIdentity() {
 }
 
 bool lovrFilesystemSetIdentity(const char* identity) {
+  size_t length = strlen(identity);
 
   // Identity can only be set once
   if (state.identity) {
     return false;
   }
 
-  char buffer[LOVR_PATH_MAX];
-  if (!lovrFilesystemGetAppdataDirectory(buffer, LOVR_PATH_MAX)) {
+  // Initialize the save path to the data path
+  size_t cursor = fs_getDataDirectory(state.savePath, sizeof(state.savePath));
+
+  // If the data path was too long or unavailable, fail
+  if (cursor == 0) {
     return false;
   }
 
-  // Get appdata
-  // Append LOVR, mkdir or stat
-  // Append identity, mkdir or stat
-  // Set savePath to final buffer contents
-  // Mount the savePath
-  // Seriously consider setting identity to just be a pointer to the leaf of the savePath, instead
-  // of copying into its own weird buffer
+  // Make sure there is enough room to tack on /LOVR/<identity>
+  if (cursor + strlen("/LOVR") + 1 + strlen(identity) >= sizeof(state.savePath)) {
+    return false;
+  }
 
+  // Append /LOVR, mkdir
+  memcpy(state.savePath + cursor, "/LOVR", strlen("/LOVR"));
+  cursor += strlen("/LOVR");
+  state.savePath[cursor] = '\0';
+  fs_mkdir(state.savePath);
+
+  // Append /<identity>, mkdir
+  state.savePath[cursor++] = '/';
+  memcpy(state.savePath + cursor, identity, length);
+  cursor += length;
+  state.savePath[cursor] = '\0';
+  fs_mkdir(state.savePath);
+
+  // Mount the fully resolved and created save path
+  if (!lovrFilesystemMount(state.savePath, "/", false, NULL)) {
+    return false;
+  }
+
+  // Stash a pointer for the identity string (the leaf of the save path)
+  state.identity = state.savePath + cursor - length;
   return true;
 }
 
@@ -326,20 +361,36 @@ const char* lovrFilesystemGetSaveDirectory() {
   return state.savePath;
 }
 
-// TODO mkdir_p
 bool lovrFilesystemCreateDirectory(const char* path) {
   char resolved[LOVR_PATH_MAX];
-  return isValidPath(path) && joinPaths(resolved, state.savePath, path) && fs_mkdir(resolved);
+
+  if (!validate(path) || !joinPaths(resolved, state.savePath, path)) {
+    return false;
+  }
+
+  char* cursor = resolved + strlen(state.savePath);
+  while (*cursor == '/') cursor++;
+
+  while (*cursor) {
+    if (*cursor == '/') {
+      *cursor = '\0';
+      fs_mkdir(resolved);
+      *cursor = '/';
+    }
+    cursor++;
+  }
+
+  return fs_mkdir(resolved);
 }
 
 bool lovrFilesystemRemove(const char* path) {
   char resolved[LOVR_PATH_MAX];
-  return isValidPath(path) && joinPaths(resolved, state.savePath, path) && fs_remove(resolved);
+  return validate(path) && joinPaths(resolved, state.savePath, path) && fs_remove(resolved);
 }
 
 size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append) {
   char resolved[LOVR_PATH_MAX];
-  if (!isValidPath(path) || !joinPaths(resolved, state.savePath, path)) {
+  if (!validate(path) || !joinPaths(resolved, state.savePath, path)) {
     return 0;
   }
 
@@ -354,7 +405,6 @@ size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, b
 }
 
 // Require path
-// TODO rm
 
 const char* lovrFilesystemGetRequirePath() {
   return state.requirePath[0];

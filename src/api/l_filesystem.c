@@ -179,7 +179,14 @@ static int l_lovrFilesystemGetSource(lua_State* L) {
 }
 
 static int l_lovrFilesystemGetUserDirectory(lua_State* L) {
-  lua_pushstring(L, lovrFilesystemGetUserDirectory());
+  char buffer[FS_PATH_MAX];
+
+  if (lovrFilesystemGetUserDirectory(buffer, sizeof(buffer))) {
+    lua_pushstring(L, buffer);
+  } else {
+    lua_pushnil(L);
+  }
+
   return 1;
 }
 
@@ -262,12 +269,8 @@ static int l_lovrFilesystemRemove(lua_State* L) {
 }
 
 static int l_lovrFilesystemSetIdentity(lua_State* L) {
-  if (lua_isnoneornil(L, 1)) {
-    lovrFilesystemSetIdentity(NULL);
-  } else {
-    const char* identity = luaL_checkstring(L, 1);
-    lovrFilesystemSetIdentity(identity);
-  }
+  const char* identity = luaL_checkstring(L, 1);
+  lovrFilesystemSetIdentity(identity);
   return 0;
 }
 
