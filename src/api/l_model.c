@@ -96,6 +96,25 @@ static int l_lovrModelGetMaterial(lua_State* L) {
   return 1;
 }
 
+static int l_lovrModelGetMaterialName(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  int idx = luaL_checknumber(L, 2);
+  ModelData* modelData = lovrModelGetModelData(model);
+  if (idx < 1 || idx > modelData->materialCount)
+    lovrThrow("Model has no material at index %d", idx);
+  map_iter_t iter = map_iter(&modelData->materialMap);
+  const char* key;
+  while ((key = map_next(&modelData->materialMap, &iter)) != NULL) {
+    uint32_t iterIdx = *map_get(&modelData->materialMap, key);
+    if (iterIdx == idx-1) { // Map is 0 indexed
+      lua_pushstring(L, key);
+      return 1;
+    }
+  }
+  lua_pushnil(L);
+  return 1;
+}
+
 static int l_lovrModelGetAABB(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   float aabb[6];
@@ -162,6 +181,7 @@ const luaL_Reg lovrModel[] = {
   { "animate", l_lovrModelAnimate },
   { "pose", l_lovrModelPose },
   { "getMaterial", l_lovrModelGetMaterial },
+  { "getMaterialName", l_lovrModelGetMaterialName },
   { "getAABB", l_lovrModelGetAABB },
   { "getNodePose", l_lovrModelGetNodePose },
   { "getAnimationCount", l_lovrModelGetAnimationCount },
