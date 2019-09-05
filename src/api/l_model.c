@@ -4,6 +4,22 @@
 #include "data/modelData.h"
 #include "core/maf.h"
 
+static int luax_reverseModelDataNameMap(lua_State *L, ModelData *modelData, int idx, map_u32_t *t, int count, const char *noun) {
+  if (idx < 1 || idx > count)
+    lovrThrow("Model has no %s at index %d", idx, noun);
+  map_iter_t iter = map_iter(t);
+  const char* key;
+  while ((key = map_next(t, &iter)) != NULL) {
+    uint32_t iterIdx = *map_get(t, key);
+    if (iterIdx == idx-1) { // Map is 0 indexed
+      lua_pushstring(L, key);
+      return 1;
+    }
+  }
+  lua_pushnil(L);
+  return 1;
+}
+
 static int l_lovrModelDraw(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   float transform[16];
@@ -139,6 +155,27 @@ static int l_lovrModelGetNodePose(lua_State* L) {
   return 7;
 }
 
+static int l_lovrModelGetAnimationName(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  int idx = luaL_checknumber(L, 2);
+  ModelData* modelData = lovrModelGetModelData(model);
+  return luax_reverseModelDataNameMap(L, modelData, idx, &modelData->animationMap, modelData->animationCount, "animation");
+}
+
+static int l_lovrModelGetMaterialName(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  int idx = luaL_checknumber(L, 2);
+  ModelData* modelData = lovrModelGetModelData(model);
+  return luax_reverseModelDataNameMap(L, modelData, idx, &modelData->materialMap, modelData->materialCount, "material");
+}
+
+static int l_lovrModelGetNodeName(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  int idx = luaL_checknumber(L, 2);
+  ModelData* modelData = lovrModelGetModelData(model);
+  return luax_reverseModelDataNameMap(L, modelData, idx, &modelData->nodeMap, modelData->nodeCount, "node");
+}
+
 static int l_lovrModelGetAnimationCount(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   lua_pushinteger(L, lovrModelGetModelData(model)->animationCount);
@@ -164,6 +201,9 @@ const luaL_Reg lovrModel[] = {
   { "getMaterial", l_lovrModelGetMaterial },
   { "getAABB", l_lovrModelGetAABB },
   { "getNodePose", l_lovrModelGetNodePose },
+  { "getAnimationName", l_lovrModelGetAnimationName },
+  { "getMaterialName", l_lovrModelGetMaterialName },
+  { "getNodeName", l_lovrModelGetNodeName },
   { "getAnimationCount", l_lovrModelGetAnimationCount },
   { "getMaterialCount", l_lovrModelGetMaterialCount },
   { "getNodeCount", l_lovrModelGetNodeCount },
