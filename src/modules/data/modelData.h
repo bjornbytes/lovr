@@ -1,5 +1,5 @@
 #include "util.h"
-#include "lib/map/map.h"
+#include "core/map.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -133,12 +133,14 @@ typedef struct {
 } ModelAnimationChannel;
 
 typedef struct {
+  const char* name;
   ModelAnimationChannel* channels;
   uint32_t channelCount;
   float duration;
 } ModelAnimation;
 
 typedef struct {
+  const char* name;
   float scalars[MAX_MATERIAL_SCALARS];
   Color colors[MAX_MATERIAL_COLORS];
   uint32_t textures[MAX_MATERIAL_TEXTURES];
@@ -154,6 +156,7 @@ typedef struct {
 } ModelPrimitive;
 
 typedef struct {
+  const char* name;
   float transform[16];
   float translation[4];
   float rotation[4];
@@ -171,8 +174,6 @@ typedef struct {
   uint32_t jointCount;
   float* inverseBindMatrices;
 } ModelSkin;
-
-typedef map_t(uint32_t) map_u32_t;
 
 typedef struct ModelData {
   void* data;
@@ -200,13 +201,15 @@ typedef struct ModelData {
   ModelAnimationChannel* channels;
   uint32_t* children;
   uint32_t* joints;
+  char* chars;
   uint32_t channelCount;
   uint32_t childCount;
   uint32_t jointCount;
+  uint32_t charCount;
 
-  map_u32_t animationMap;
-  map_u32_t materialMap;
-  map_u32_t nodeMap;
+  map_t animationMap;
+  map_t materialMap;
+  map_t nodeMap;
 } ModelData;
 
 ModelData* lovrModelDataInit(ModelData* model, struct Blob* blob);

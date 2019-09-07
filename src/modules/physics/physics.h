@@ -1,5 +1,4 @@
 #include "core/arr.h"
-#include "lib/map/map.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <ode/ode.h>
@@ -8,7 +7,7 @@
 
 #define MAX_CONTACTS 4
 #define MAX_TAGS 16
-#define NO_TAG ~0
+#define NO_TAG ~0u
 
 typedef enum {
   SHAPE_SPHERE,
@@ -33,7 +32,7 @@ typedef struct {
   dSpaceID space;
   dJointGroupID contactGroup;
   arr_t(Shape*) overlaps;
-  map_int_t tags;
+  char* tags[MAX_TAGS];
   uint16_t masks[MAX_TAGS];
   Collider* head;
 } World;
@@ -44,7 +43,7 @@ struct Collider {
   Collider* prev;
   Collider* next;
   void* userdata;
-  int tag;
+  uint32_t tag;
   arr_t(Shape*) shapes;
   arr_t(Joint*) joints;
   float friction;
@@ -85,7 +84,7 @@ typedef struct {
 bool lovrPhysicsInit(void);
 void lovrPhysicsDestroy(void);
 
-World* lovrWorldInit(World* world, float xg, float yg, float zg, bool allowSleep, const char** tags, int tagCount);
+World* lovrWorldInit(World* world, float xg, float yg, float zg, bool allowSleep, const char** tags, uint32_t tagCount);
 #define lovrWorldCreate(...) lovrWorldInit(lovrAlloc(World), __VA_ARGS__)
 void lovrWorldDestroy(void* ref);
 void lovrWorldDestroyData(World* world);
@@ -102,7 +101,7 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
 bool lovrWorldIsSleepingAllowed(World* world);
 void lovrWorldSetSleepingAllowed(World* world, bool allowed);
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata);
-const char* lovrWorldGetTagName(World* world, int tag);
+const char* lovrWorldGetTagName(World* world, uint32_t tag);
 int lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
 int lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
 int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
@@ -119,7 +118,7 @@ Joint** lovrColliderGetJoints(Collider* collider, size_t* count);
 void* lovrColliderGetUserData(Collider* collider);
 void lovrColliderSetUserData(Collider* collider, void* data);
 const char* lovrColliderGetTag(Collider* collider);
-int lovrColliderSetTag(Collider* collider, const char* tag);
+bool lovrColliderSetTag(Collider* collider, const char* tag);
 float lovrColliderGetFriction(Collider* collider);
 void lovrColliderSetFriction(Collider* collider, float friction);
 float lovrColliderGetRestitution(Collider* collider);

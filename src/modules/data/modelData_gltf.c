@@ -2,6 +2,7 @@
 #include "data/blob.h"
 #include "data/textureData.h"
 #include "filesystem/filesystem.h"
+#include "core/hash.h"
 #include "core/maf.h"
 #include "core/ref.h"
 #include "lib/jsmn/jsmn.h"
@@ -126,22 +127,6 @@ static void* decodeBase64(char* str, size_t length, size_t decodedSize) {
   }
 
   return data;
-}
-
-// Kinda like count += sum(map(arr, obj => #obj[key]))
-static jsmntok_t* aggregate(const char* json, jsmntok_t* token, const char* target, uint32_t* count) {
-  for (int i = (token++)->size; i > 0; i--) {
-    if (token->size > 0) {
-      for (int k = (token++)->size; k > 0; k--) {
-        gltfString key = NOM_STR(json, token);
-        if (STR_EQ(key, target)) {
-          *count += token->size;
-        }
-        token += NOM_VALUE(json, token);
-      }
-    }
-  }
-  return token;
 }
 
 static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMaterial* material, MaterialTexture textureType, gltfTexture* textures, gltfSampler* samplers) {
@@ -271,6 +256,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
             gltfString key = NOM_STR(json, t);
             if (STR_EQ(key, "channels")) { model->channelCount += t->size; }
             else if (STR_EQ(key, "samplers")) { samplerCount += t->size; }
+            else if (STR_EQ(key, "name")) { model->charCount += t->end - t->start + 1; }
             t += NOM_VALUE(json, t);
           }
         }
@@ -390,7 +376,13 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
     } else if (STR_EQ(key, "materials")) {
       info.materials = token;
       model->materialCount = token->size;
-      token += NOM_VALUE(json, token);
+      for (int i = (token++)->size; i > 0; i--) {
+        for (int k = (token++)->size; k > 0; k--) {
+          gltfString key = NOM_STR(json, token);
+          if (STR_EQ(key, "name")) { model->charCount += token->end - token->start + 1; }
+          token += NOM_VALUE(json, token);
+        }
+      }
 
     } else if (STR_EQ(key, "meshes")) {
       info.meshes = token;
@@ -414,7 +406,16 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
     } else if (STR_EQ(key, "nodes")) {
       info.nodes = token;
       model->nodeCount = token->size;
-      token = aggregate(json, token, "children", &model->childCount);
+      for (int i = (token++)->size; i > 0; i--) {
+        if (token->size > 0) {
+          for (int k = (token++)->size; k > 0; k--) {
+            gltfString key = NOM_STR(json, token);
+            if (STR_EQ(key, "children")) { model->childCount += token->size; }
+            else if (STR_EQ(key, "name")) { model->charCount += token->end - token->start + 1; }
+            token += NOM_VALUE(json, token);
+          }
+        }
+      }
 
     } else if (STR_EQ(key, "scene")) {
       rootScene = NOM_INT(json, token);
@@ -440,7 +441,13 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
     } else if (STR_EQ(key, "skins")) {
       info.skins = token;
       model->skinCount = token->size;
-      token = aggregate(json, token, "joints", &model->jointCount);
+      for (int i = (token++)->size; i > 0; i--) {
+        for (int k = (token++)->size; k > 0; k--) {
+          gltfString key = NOM_STR(json, token);
+          if (STR_EQ(key, "joints")) { model->jointCount += token->size; }
+          token += NOM_VALUE(json, token);
+        }
+      }
 
     } else {
       token += NOM_VALUE(json, token);
@@ -633,9 +640,10 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           token += NOM_VALUE(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
-          name.data[name.length] = '\0';
-          map_set(&model->animationMap, name.data, model->animationCount - i);
-          name.data[name.length] = '"';
+          map_set(&model->animationMap, hash64(name.data, name.length), model->animationCount - i);
+          memcpy(model->chars, name.data, name.length);
+          animation->name = model->chars;
+          model->chars += name.length + 1;
         } else {
           token += NOM_VALUE(json, token);
         }
@@ -726,9 +734,10 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           material->colors[COLOR_EMISSIVE].b = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
-          name.data[name.length] = '\0';
-          map_set(&model->materialMap, name.data, model->materialCount - i);
-          name.data[name.length] = '"';
+          map_set(&model->materialMap, hash64(name.data, name.length), model->materialCount - i);
+          memcpy(model->chars, name.data, name.length);
+          material->name = model->chars;
+          model->chars += name.length + 1;
         } else {
           token += NOM_VALUE(json, token);
         }
@@ -846,9 +855,10 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           scale[2] = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
-          name.data[name.length] = '\0';
-          map_set(&model->nodeMap, name.data, model->nodeCount - i);
-          name.data[name.length] = '"';
+          map_set(&model->nodeMap, hash64(name.data, name.length), model->nodeCount - i);
+          memcpy(model->chars, name.data, name.length);
+          node->name = model->chars;
+          model->chars += name.length + 1;
         } else {
           token += NOM_VALUE(json, token);
         }

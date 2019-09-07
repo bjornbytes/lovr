@@ -3,10 +3,11 @@
 #include "data/textureData.h"
 #include "filesystem/filesystem.h"
 #include "core/arr.h"
+#include "core/hash.h"
 #include "core/maf.h"
+#include "core/map.h"
 #include "core/ref.h"
 #include "core/util.h"
-#include "lib/map/map.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
@@ -24,7 +25,7 @@ typedef arr_t(objGroup) arr_group_t;
 
 #define STARTS_WITH(a, b) !strncmp(a, b, strlen(b))
 
-static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* materials, map_u32_t* names, char* base) {
+static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* materials, map_t* names, char* base) {
   size_t length = 0;
   char* data = lovrFilesystemRead(path, -1, &length);
   lovrAssert(data && length > 0, "Unable to read mtl from '%s'", path);
@@ -35,9 +36,9 @@ static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* ma
 
     if (STARTS_WITH(s, "newmtl ")) {
       char name[128];
-      bool hasName = sscanf(s + 7, "%s\n%n", name, &lineLength);
-      lovrAssert(hasName, "Bad OBJ: Expected a material name");
-      map_set(names, name, (uint32_t) materials->length);
+      size_t length = sscanf(s + 7, "%s\n%n", name, &lineLength);
+      lovrAssert(length > 0, "Bad OBJ: Expected a material name");
+      map_set(names, hash64(name, length), materials->length);
       arr_push(materials, ((ModelMaterial) {
         .scalars[SCALAR_METALNESS] = 1.f,
         .scalars[SCALAR_ROUGHNESS] = 1.f,
@@ -102,8 +103,8 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   arr_material_t materials;
   arr_t(float) vertexBlob;
   arr_t(int) indexBlob;
-  map_u32_t materialMap;
-  map_int_t vertexMap;
+  map_t materialMap;
+  map_t vertexMap;
   arr_t(float) positions;
   arr_t(float) normals;
   arr_t(float) uvs;
@@ -111,10 +112,10 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   arr_init(&groups);
   arr_init(&textures);
   arr_init(&materials);
-  map_init(&materialMap);
+  map_init(&materialMap, 0);
   arr_init(&vertexBlob);
   arr_init(&indexBlob);
-  map_init(&vertexMap);
+  map_init(&vertexMap, 0);
   arr_init(&positions);
   arr_init(&normals);
   arr_init(&uvs);
@@ -158,15 +159,15 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
         char terminator = i == 2 ? '\n' : ' ';
         char* space = strchr(s, terminator);
         if (space) {
-          *space = '\0'; // I'll be back
-          int* index = map_get(&vertexMap, s);
-          if (index) {
-            arr_push(&indexBlob, *index);
+          uint64_t hash = hash64(s, space - s);
+          uint64_t index = map_get(&vertexMap, hash);
+          if (index != MAP_NIL) {
+            arr_push(&indexBlob, index);
           } else {
             int v, vt, vn;
-            int newIndex = (int) vertexBlob.length / 8;
+            uint64_t newIndex = vertexBlob.length / 8;
             arr_push(&indexBlob, newIndex);
-            map_set(&vertexMap, s, newIndex);
+            map_set(&vertexMap, hash, newIndex);
 
             // Can be improved
             if (sscanf(s, "%d/%d/%d", &v, &vt, &vn) == 3) {
@@ -188,7 +189,6 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
               lovrThrow("Bad OBJ: Unknown face format");
             }
           }
-          *space = terminator;
           s = space + 1;
         }
       }
@@ -203,21 +203,21 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
       parseMtl(path, &textures, &materials, &materialMap, base);
     } else if (STARTS_WITH(data, "usemtl ")) {
       char name[128];
-      bool hasName = sscanf(data + 7, "%s\n%n", name, &lineLength);
-      uint32_t* material = map_get(&materialMap, name);
-      lovrAssert(hasName, "Bad OBJ: Expected a valid material name");
+      uint64_t length = sscanf(data + 7, "%s\n%n", name, &lineLength);
+      uint64_t material = map_get(&materialMap, hash64(name, length));
+      lovrAssert(length > 0, "Bad OBJ: Expected a valid material name");
 
       // If the last group didn't have any faces, just reuse it, otherwise make a new group
       objGroup* group = &groups.data[groups.length - 1];
       if (group->count > 0) {
         int start = group->start + group->count; // Don't put this in the compound literal (realloc)
         arr_push(&groups, ((objGroup) {
-          .material = material ? *material : -1,
+          .material = material == MAP_NIL ? -1 : material,
           .start = start,
           .count = 0
         }));
       } else {
-        group->material = material ? *material : -1;
+        group->material = material == MAP_NIL ? -1 : material;
       }
     } else {
       char* newline = memchr(data, '\n', length);
@@ -332,7 +332,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
   arr_free(&groups);
   arr_free(&textures);
   arr_free(&materials);
-  map_deinit(&vertexMap);
+  map_free(&vertexMap);
   arr_free(&positions);
   arr_free(&normals);
   arr_free(&uvs);

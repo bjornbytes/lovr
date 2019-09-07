@@ -1,6 +1,6 @@
 #include "data/modelData.h"
 #include "graphics/opengl.h"
-#include "lib/map/map.h"
+#include "core/map.h"
 #include <stdbool.h>
 
 #pragma once
@@ -30,7 +30,7 @@ typedef struct Mesh {
   uint8_t locations[MAX_ATTRIBUTES];
   uint16_t enabledLocations;
   uint16_t divisors[MAX_ATTRIBUTES];
-  map_int_t attributeMap;
+  map_t attributeMap;
   uint32_t attributeCount;
   struct Buffer* vertexBuffer;
   struct Buffer* indexBuffer;

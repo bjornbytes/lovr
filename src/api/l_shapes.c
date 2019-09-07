@@ -12,11 +12,24 @@ void luax_pushshape(lua_State* L, Shape* shape) {
 
 Shape* luax_checkshape(lua_State* L, int index) {
   Proxy* p = lua_touserdata(L, index);
-  if (!p || (p->hash != hash("SphereShape") && p->hash != hash("BoxShape") && p->hash != hash("CapsuleShape") && p->hash != hash("CylinderShape"))) {
-    luaL_typerror(L, index, "Shape");
-    return NULL;
+
+  if (p) {
+    const uint64_t hashes[] = {
+      hash64("SphereShape", strlen("SphereShape")),
+      hash64("BoxShape", strlen("BoxShape")),
+      hash64("CapsuleShape", strlen("CapsuleShape")),
+      hash64("CylinderShape", strlen("CylinderShape"))
+    };
+
+    for (size_t i = 0; i < sizeof(hashes) / sizeof(hashes[0]); i++) {
+      if (p->hash == hashes[i]) {
+        return p->object;
+      }
+    }
   }
-  return p->object;
+
+  luaL_typerror(L, index, "Shape");
+  return NULL;
 }
 
 static int l_lovrShapeDestroy(lua_State* L) {

@@ -2,6 +2,8 @@
 #include <lauxlib.h>
 #include <lualib.h>
 #include <stdint.h>
+#include <string.h>
+#include "core/hash.h"
 #include "util.h"
 
 #pragma once
@@ -97,17 +99,9 @@ extern const char* WrapModes[];
 struct Color;
 
 typedef struct {
-  uint32_t hash;
+  uint64_t hash;
   void* object;
 } Proxy;
-
-static inline uint32_t hash(const char* str) {
-  uint32_t x = 0;
-  while (*str) {
-    x = (x * 65599) + *str++;
-  }
-  return x;
-}
 
 #ifndef LUA_RIDX_MAINTHERAD
 #define LUA_RIDX_MAINTHREAD 1
@@ -115,9 +109,9 @@ static inline uint32_t hash(const char* str) {
 
 #define luax_len(L, i) (int) lua_objlen(L, i)
 #define luax_registertype(L, T) _luax_registertype(L, #T, lovr ## T, lovr ## T ## Destroy)
-#define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash(#T))
-#define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash(#T), #T)
-#define luax_pushtype(L, T, o) _luax_pushtype(L, #T, hash(#T), o)
+#define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash64(#T, strlen(#T)))
+#define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash64(#T, strlen(#T)), #T)
+#define luax_pushtype(L, T, o) _luax_pushtype(L, #T, hash64(#T, strlen(#T)), o)
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
 #define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")
