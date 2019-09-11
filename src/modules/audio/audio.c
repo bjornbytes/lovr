@@ -110,8 +110,6 @@ static void lovrAudioFalloffMix(float* output, float* residue, int frames) {
 
 #define LOVR_SOURCE_MAX 16 // If this increases, change spatializerId size in Source
 
-const static uint32_t lovrOvrFlags = 0; //ovrAudioSourceFlag_DirectTimeOfArrival;
-
 static struct {
   uint32_t sampleRate;
   uint32_t bufferSize;
@@ -173,7 +171,7 @@ static void handler(ma_device* device, void* output, const void* input, uint32_t
     if (source) { // A source is present; tell Oculus Audio its position
       ovrAudio_SetAudioSourcePos(oastate.context, idx, source->position[0], source->position[1], source->position[2]);
     } else if (oastate.sources[idx].occupied) { // No source is present but an echo tailoff is playing
-      uint32_t outStatus = lovrOvrFlags;
+      uint32_t outStatus = 0;
       ovrAudio_SpatializeMonoSourceInterleaved(oastate.context, idx, &outStatus, unpack, NULL);
       if (outStatus & ovrAudioSpatializationStatus_Finished) {
         oastate.sources[idx].occupied = false;
