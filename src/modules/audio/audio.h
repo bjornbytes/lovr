@@ -15,6 +15,12 @@ typedef struct Source {
   struct Source* next;
   struct Decoder* decoder;
   float volume;
+  float position[4];
+#ifdef LOVR_ENABLE_OCULUS_AUDIO
+  unsigned spatializerId: 4; // Only meaningful while playing
+#else
+  float residue; // Used to prevent pops if the sound ends suddenly
+#endif
   bool playing : 1;
   bool looping : 1;
   bool tracked : 1;
@@ -22,6 +28,9 @@ typedef struct Source {
 
 bool lovrAudioInit(void);
 void lovrAudioDestroy(void);
+
+void lovrAudioLock(void);
+void lovrAudioUnlock(void);
 
 Source* lovrSourceInit(Source* source, struct Decoder* decoder);
 #define lovrSourceCreate(...) lovrSourceInit(lovrAlloc(Source), __VA_ARGS__)
