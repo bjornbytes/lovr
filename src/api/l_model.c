@@ -5,13 +5,12 @@
 #include "core/maf.h"
 
 static int luax_reverseModelDataNameMap(lua_State *L, ModelData *modelData, int idx, map_u32_t *t, int count, const char *noun) {
-  if (idx < 1 || idx > count)
-    lovrThrow("Model has no %s at index %d", idx, noun);
+  lovrAssert(idx > 0 && idx <= count, "Model has no %s at index %d", idx, noun);
   map_iter_t iter = map_iter(t);
   const char* key;
   while ((key = map_next(t, &iter)) != NULL) {
     uint32_t iterIdx = *map_get(t, key);
-    if (iterIdx == idx-1) { // Map is 0 indexed
+    if (iterIdx == (uint32_t) idx - 1) { // Map is 0 indexed
       lua_pushstring(L, key);
       return 1;
     }
