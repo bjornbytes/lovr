@@ -9,8 +9,9 @@
 #include <android/log.h>
 #include "platform.h"
 
-#define LOG(...) __android_log_print(ANDROID_LOG_DEBUG, "LOVR", __VA_ARGS__)
-#define WARN(...) __android_log_print(ANDROID_LOG_WARN, "LOVR", __VA_ARGS__)
+#define LOG(...)  __android_log_print(ANDROID_LOG_DEBUG, "LOVR", __VA_ARGS__)
+#define INFO(...) __android_log_print(ANDROID_LOG_INFO,  "LOVR", __VA_ARGS__)
+#define WARN(...) __android_log_print(ANDROID_LOG_WARN,  "LOVR", __VA_ARGS__)
 
 // Data passed from bridge code to headset code
 
@@ -349,7 +350,7 @@ int luax_print(lua_State* L) {
     luaL_addvalue(&buffer);
   }
   luaL_pushresult(&buffer);
-  LOG("%s", lua_tostring(L, -1));
+  INFO("%s", lua_tostring(L, -1));
   return 0;
 }
 
