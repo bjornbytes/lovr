@@ -10,8 +10,7 @@ static struct {
   LEAP_CONNECTION connection;
   LEAP_CLOCK_REBASER clock;
   LEAP_TRACKING_EVENT* frame;
-  LEAP_HAND* leftHand;
-  LEAP_HAND* rightHand;
+  LEAP_HAND* hands[2];
   uint64_t frameSize;
   float headPose[16];
   thrd_t thread;
@@ -84,19 +83,12 @@ static void adjustPose(vec3 position, vec3 direction) {
 }
 
 static bool leap_getPose(Device device, vec3 position, quat orientation) {
-  LEAP_HAND* hand;
-
-  switch (device) {
-    case DEVICE_HAND_LEFT: hand = state.leftHand; break;
-    case DEVICE_HAND_RIGHT: hand = state.rightHand; break;
-    default: return false;
-  }
-
-  if (!hand) {
+  if ((device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) || !state.hands[device - DEVICE_HAND_LEFT]) {
     return false;
   }
 
   float direction[4];
+  LEAP_HAND* hand = state.hands[device - DEVICE_HAND_LEFT];
   vec3_init(position, hand->palm.position.v);
   vec3_init(direction, hand->palm.normal.v);
   adjustPose(position, direction);
@@ -104,57 +96,13 @@ static bool leap_getPose(Device device, vec3 position, quat orientation) {
   return true;
 }
 
-static bool leap_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
-  LEAP_HAND* hand;
-
-  switch (device) {
-    case DEVICE_HAND_LEFT: hand = state.leftHand; break;
-    case DEVICE_HAND_RIGHT: hand = state.rightHand; break;
-    default: return false;
-  }
-
-  if (!hand) {
-    return false;
-  }
-
-  // Assumes that enum values for non-tip bones are grouped by finger, and start after BONE_PINKY,
-  // could be less clever and use a switch if needed
-  float direction[4];
-  if (bone <= BONE_PINKY) {
-    LEAP_DIGIT* finger = &hand->digits[bone];
-    vec3 base = finger->distal.prev_joint.v;
-    vec3 tip = finger->distal.next_joint.v;
-    vec3_sub(vec3_init(direction, tip), base);
-    vec3_init(position, tip);
-  } else {
-    bone -= BONE_PINKY + 1;
-    LEAP_DIGIT* finger = &hand->digits[bone / 4];
-    LEAP_BONE* leapBone = &finger->bones[bone % 4];
-    vec3 base = leapBone->prev_joint.v;
-    vec3 tip = leapBone->next_joint.v;
-    vec3_sub(vec3_init(direction, tip), base);
-    vec3_init(position, base);
-  }
-
-  adjustPose(position, direction);
-  quat_between(orientation, (float[4]) { 0.f, 0.f, -1.f }, direction);
-  return true;
-}
-
 static bool leap_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  LEAP_HAND* hand;
-
-  switch (device) {
-    case DEVICE_HAND_LEFT: hand = state.leftHand; break;
-    case DEVICE_HAND_RIGHT: hand = state.rightHand; break;
-    default: return false;
-  }
-
-  if (!hand) {
+  if ((device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) || !state.hands[device - DEVICE_HAND_LEFT]) {
     return false;
   }
 
-  vec3_set(velocity, hand->palm.velocity.x, hand->palm.velocity.z, hand->palm.velocity.y);
+  LEAP_HAND* hand = state.hands[device - DEVICE_HAND_LEFT];
+  vec3_set(velocity, hand->palm.velocity.x, hand->palm.velocity.z, hand->palm.velocity.y); // Swap z and y
   vec3_scale(velocity, -.001f);
   mat4_transformDirection(state.headPose, velocity);
   vec3_set(angularVelocity, 0.f, 0.f, 0.f);
@@ -162,7 +110,17 @@ static bool leap_getVelocity(Device device, vec3 velocity, vec3 angularVelocity)
 }
 
 static bool leap_isDown(Device device, DeviceButton button, bool* down) {
-  return false;
+  if ((device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) || !state.hands[device - DEVICE_HAND_LEFT]) {
+    return false;
+  }
+
+  LEAP_HAND* hand = state.hands[device - DEVICE_HAND_LEFT];
+
+  switch (button) {
+    case BUTTON_TRIGGER: *down = hand->pinch_strength > .5f; return true;
+    case BUTTON_GRIP: *down = hand->grab_strength > .5f; return true;
+    default: return false;
+  }
 }
 
 static bool leap_isTouched(Device device, DeviceButton button, bool* touched) {
@@ -170,20 +128,14 @@ static bool leap_isTouched(Device device, DeviceButton button, bool* touched) {
 }
 
 static bool leap_getAxis(Device device, DeviceAxis axis, float* value) {
-  LEAP_HAND* hand;
-
-  switch (device) {
-    case DEVICE_HAND_LEFT: hand = state.leftHand; break;
-    case DEVICE_HAND_RIGHT: hand = state.rightHand; break;
-    default: return false;
-  }
-
-  if (!hand) {
+  if ((device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) || !state.hands[device - DEVICE_HAND_LEFT]) {
     return false;
   }
 
+  LEAP_HAND* hand = state.hands[device - DEVICE_HAND_LEFT];
+
   switch (axis) {
-    case AXIS_PINCH: *value = hand->pinch_strength; return true;
+    case AXIS_TRIGGER: *value = hand->pinch_strength; return true;
     case AXIS_GRIP: *value = hand->grab_strength; return true;
     default: return false;
   }
@@ -221,13 +173,10 @@ static void leap_update(float dt) {
 
     LeapInterpolateFrame(state.connection, targetTime, state.frame, size);
 
-    state.leftHand = state.rightHand = NULL;
+    state.hands[0] = state.hands[1] = NULL;
     for (uint32_t i = 0; i < state.frame->nHands; i++) {
-      if (!state.leftHand && state.frame->pHands[i].type == eLeapHandType_Left) {
-        state.leftHand = &state.frame->pHands[i];
-      } else if (!state.rightHand && state.frame->pHands[i].type == eLeapHandType_Right) {
-        state.rightHand = &state.frame->pHands[i];
-      }
+      LEAP_HAND* hand = &state.frame->pHands[i];
+      state.hands[hand->type == eLeapHandType_Right] = hand;
     }
 
     float position[4], orientation[4];
@@ -245,7 +194,6 @@ HeadsetInterface lovrHeadsetLeapMotionDriver = {
   .init = leap_init,
   .destroy = leap_destroy,
   .getPose = leap_getPose,
-  .getBonePose = leap_getBonePose,
   .getVelocity = leap_getVelocity,
   .isDown = leap_isDown,
   .isTouched = leap_isTouched,

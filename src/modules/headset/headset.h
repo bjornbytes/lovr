@@ -26,8 +26,6 @@ typedef enum {
   DEVICE_HEAD,
   DEVICE_HAND_LEFT,
   DEVICE_HAND_RIGHT,
-  DEVICE_EYE_LEFT,
-  DEVICE_EYE_RIGHT,
   MAX_DEVICES
 } Device;
 
@@ -49,38 +47,9 @@ typedef enum {
   AXIS_TRIGGER,
   AXIS_THUMBSTICK,
   AXIS_TOUCHPAD,
-  AXIS_PINCH,
   AXIS_GRIP,
   MAX_AXES
 } DeviceAxis;
-
-typedef enum {
-  BONE_THUMB,
-  BONE_INDEX,
-  BONE_MIDDLE,
-  BONE_RING,
-  BONE_PINKY,
-  BONE_THUMB_NULL,
-  BONE_THUMB_1,
-  BONE_THUMB_2,
-  BONE_THUMB_3,
-  BONE_INDEX_1,
-  BONE_INDEX_2,
-  BONE_INDEX_3,
-  BONE_INDEX_4,
-  BONE_MIDDLE_1,
-  BONE_MIDDLE_2,
-  BONE_MIDDLE_3,
-  BONE_MIDDLE_4,
-  BONE_RING_1,
-  BONE_RING_2,
-  BONE_RING_3,
-  BONE_RING_4,
-  BONE_PINKY_1,
-  BONE_PINKY_2,
-  BONE_PINKY_3,
-  BONE_PINKY_4
-} DeviceBone;
 
 typedef struct HeadsetInterface {
   struct HeadsetInterface* next;
@@ -97,7 +66,6 @@ typedef struct HeadsetInterface {
   void (*getBoundsDimensions)(float* width, float* depth);
   const float* (*getBoundsGeometry)(uint32_t* count);
   bool (*getPose)(Device device, float* position, float* orientation);
-  bool (*getBonePose)(Device device, DeviceBone bone, float* position, float* orientation);
   bool (*getVelocity)(Device device, float* velocity, float* angularVelocity);
   bool (*isDown)(Device device, DeviceButton button, bool* down);
   bool (*isTouched)(Device device, DeviceButton button, bool* touched);

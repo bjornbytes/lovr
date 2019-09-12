@@ -15,7 +15,6 @@ extern void webvr_setClipDistance(float near, float far);
 extern void webvr_getBoundsDimensions(float* width, float* depth);
 extern const float* webvr_getBoundsGeometry(uint32_t* count);
 extern bool webvr_getPose(Device device, float* position, float* orientation);
-extern bool webvr_getBonePose(Device device, DeviceBone bone, float* position, float* orientation);
 extern bool webvr_getVelocity(Device device, float* velocity, float* angularVelocity);
 extern bool webvr_isDown(Device device, DeviceButton button, bool* down);
 extern bool webvr_isTouched(Device device, DeviceButton button, bool* touched);
@@ -59,7 +58,6 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   .getBoundsDimensions = webvr_getBoundsDimensions,
   .getBoundsGeometry = webvr_getBoundsGeometry,
   .getPose = webvr_getPose,
-  .getBonePose = webvr_getBonePose,
   .getVelocity = webvr_getVelocity,
   .isDown = webvr_isDown,
   .isTouched = webvr_isTouched,

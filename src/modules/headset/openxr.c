@@ -496,10 +496,6 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
   return location.locationFlags & (XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
 }
 
-static bool openxr_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
-  return false;
-}
-
 static bool openxr_getVelocity(Device device, vec3 linearVelocity, vec3 angularVelocity) {
   if (!state.spaces[device]) {
     return false;
@@ -750,7 +746,6 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getBoundsDimensions = openxr_getBoundsDimensions,
   .getBoundsGeometry = openxr_getBoundsGeometry,
   .getPose = openxr_getPose,
-  .getBonePose = openxr_getBonePose,
   .getVelocity = openxr_getVelocity,
   .isDown = openxr_isDown,
   .isTouched = openxr_isTouched,

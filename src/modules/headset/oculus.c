@@ -186,10 +186,6 @@ static bool oculus_getPose(Device device, vec3 position, quat orientation) {
   return true;
 }
 
-static bool oculus_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
-  return false;
-}
-
 static bool oculus_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   ovrPoseStatef* pose = getPose(device);
   if (!pose) return false;
@@ -407,7 +403,6 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   .getBoundsDimensions = oculus_getBoundsDimensions,
   .getBoundsGeometry = oculus_getBoundsGeometry,
   .getPose = oculus_getPose,
-  .getBonePose = oculus_getBonePose,
   .getVelocity = oculus_getVelocity,
   .isDown = oculus_isDown,
   .isTouched = oculus_isTouched,

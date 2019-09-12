@@ -184,10 +184,6 @@ var LibraryLOVR = {
     return true;
   },
 
-  webvr_getBonePose: function(device, bone, position, orientation) {
-    return false;
-  },
-
   webvr_getVelocity: function(device, velocity, angularVelocity) {
     var pose = webvr.poses[device];
     if (!pose) { return false; }

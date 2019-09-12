@@ -31,41 +31,6 @@ extern bool VR_IsHmdPresent();
 extern intptr_t VR_GetGenericInterface(const char* pchInterfaceVersion, EVRInitError* peError);
 extern bool VR_IsRuntimeInstalled();
 
-typedef enum {
-	eBone_Root = 0,
-	eBone_Wrist,
-	eBone_Thumb0,
-	eBone_Thumb1,
-	eBone_Thumb2,
-	eBone_Thumb3,
-	eBone_IndexFinger0,
-	eBone_IndexFinger1,
-	eBone_IndexFinger2,
-	eBone_IndexFinger3,
-	eBone_IndexFinger4,
-	eBone_MiddleFinger0,
-	eBone_MiddleFinger1,
-	eBone_MiddleFinger2,
-	eBone_MiddleFinger3,
-	eBone_MiddleFinger4,
-	eBone_RingFinger0,
-	eBone_RingFinger1,
-	eBone_RingFinger2,
-	eBone_RingFinger3,
-	eBone_RingFinger4,
-	eBone_PinkyFinger0,
-	eBone_PinkyFinger1,
-	eBone_PinkyFinger2,
-	eBone_PinkyFinger3,
-	eBone_PinkyFinger4,
-	eBone_Aux_Thumb,
-	eBone_Aux_IndexFinger,
-	eBone_Aux_MiddleFinger,
-	eBone_Aux_RingFinger,
-	eBone_Aux_PinkyFinger,
-	eBone_Count
-} OpenVRBone;
-
 #define HEADSET k_unTrackedDeviceIndex_Hmd
 #define INVALID_DEVICE k_unTrackedDeviceIndexInvalid
 
@@ -310,103 +275,43 @@ static const float* openvr_getBoundsGeometry(uint32_t* count) {
   return NULL;
 }
 
-static bool getTransform(Device device, mat4 transform) {
-  if (device == DEVICE_HEAD) {
-    mat4_fromMat34(transform, state.headPose.mDeviceToAbsoluteTracking.m);
-    transform[13] += state.offset;
-    return state.headPose.bPoseIsValid;
-  }
-
-  if (!state.poseActions[device]) {
-    return false;
-  }
-
-  InputPoseActionData_t actionData;
-  state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
-  mat4_fromMat34(transform, actionData.pose.mDeviceToAbsoluteTracking.m);
-  transform[13] += state.offset;
-  return actionData.bActive;
-}
-
 static bool openvr_getPose(Device device, vec3 position, quat orientation) {
-  float transform[16];
-  if (getTransform(device, transform)) {
-    mat4_getPosition(transform, position);
-    mat4_getOrientation(transform, orientation);
-    return true;
-  }
-  return false;
-}
+  InputPoseActionData_t actionData;
+	TrackedDevicePose_t* pose;
 
-static bool openvr_getBonePose(Device device, DeviceBone bone, vec3 position, quat orientation) {
-  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+  if (device == DEVICE_HEAD) {
+    pose = &state.headPose;
+  } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
+    state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
+    pose = &actionData.pose;
+  } else {
     return false;
   }
 
   float transform[16];
-  if (!getTransform(device, transform)) {
-    return false;
-  }
-
-  InputSkeletalActionData_t actionData;
-  state.input->GetSkeletalActionData(state.skeletonActions[device - DEVICE_HAND_LEFT], &actionData, sizeof(actionData));
-
-  if (!actionData.bActive) {
-    return false;
-  }
-
-  VRBoneTransform_t bones[31];
-  EVRSkeletalTransformSpace transformSpace = EVRSkeletalTransformSpace_VRSkeletalTransformSpace_Model;
-  EVRSkeletalMotionRange motionRange = EVRSkeletalMotionRange_VRSkeletalMotionRange_WithController;
-  state.input->GetSkeletalBoneData(state.skeletonActions[device - DEVICE_HAND_LEFT], transformSpace, motionRange, bones, sizeof(bones) / sizeof(bones[0]));
-
-  int index;
-  switch (bone) {
-    case BONE_THUMB_1: index = eBone_Thumb0; break;
-    case BONE_THUMB_2: index = eBone_Thumb1; break;
-    case BONE_THUMB_3: index = eBone_Thumb2; break;
-    case BONE_THUMB: index = eBone_Thumb3; break;
-    case BONE_INDEX_1: index = eBone_IndexFinger0; break;
-    case BONE_INDEX_2: index = eBone_IndexFinger1; break;
-    case BONE_INDEX_3: index = eBone_IndexFinger2; break;
-    case BONE_INDEX_4: index = eBone_IndexFinger3; break;
-    case BONE_INDEX: index = eBone_IndexFinger4; break;
-    case BONE_MIDDLE_1: index = eBone_MiddleFinger0; break;
-    case BONE_MIDDLE_2: index = eBone_MiddleFinger1; break;
-    case BONE_MIDDLE_3: index = eBone_MiddleFinger2; break;
-    case BONE_MIDDLE_4: index = eBone_MiddleFinger3; break;
-    case BONE_MIDDLE: index = eBone_MiddleFinger4; break;
-    case BONE_RING_1: index = eBone_RingFinger0; break;
-    case BONE_RING_2: index = eBone_RingFinger1; break;
-    case BONE_RING_3: index = eBone_RingFinger2; break;
-    case BONE_RING_4: index = eBone_RingFinger3; break;
-    case BONE_RING: index = eBone_RingFinger4; break;
-    case BONE_PINKY_1: index = eBone_PinkyFinger0; break;
-    case BONE_PINKY_2: index = eBone_PinkyFinger1; break;
-    case BONE_PINKY_3: index = eBone_PinkyFinger2; break;
-    case BONE_PINKY_4: index = eBone_PinkyFinger3; break;
-    case BONE_PINKY: index = eBone_PinkyFinger4; break;
-    default: return false;
-  }
-
-  VRBoneTransform_t* b = &bones[index];
-  mat4_translate(transform, b->position.v[0], b->position.v[1], b->position.v[2]);
-  mat4_rotateQuat(transform, (float[4]) { b->orientation.x, b->orientation.y, b->orientation.z, b->orientation.w });
+  mat4_fromMat34(transform, pose->mDeviceToAbsoluteTracking.m);
   mat4_getPosition(transform, position);
   mat4_getOrientation(transform, orientation);
-  return true;
+  transform[13] += state.offset;
+  return pose->bPoseIsValid;
 }
 
 static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  if (!state.poseActions[device]) {
+  InputPoseActionData_t actionData;
+	TrackedDevicePose_t* pose;
+
+  if (device == DEVICE_HEAD) {
+    pose = &state.headPose;
+  } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
+    state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
+    pose = &actionData.pose;
+  } else {
     return false;
   }
 
-  InputPoseActionData_t actionData;
-  state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
-  vec3_init(velocity, actionData.pose.vVelocity.v);
-  vec3_init(angularVelocity, actionData.pose.vAngularVelocity.v);
-  return actionData.bActive;
+  vec3_init(velocity, pose->vVelocity.v);
+  vec3_init(angularVelocity, pose->vAngularVelocity.v);
+  return pose->bPoseIsValid;
 }
 
 static bool getButtonState(Device device, DeviceButton button, VRActionHandle_t actions[2][MAX_BUTTONS], bool* value) {
@@ -638,7 +543,6 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getBoundsDimensions = openvr_getBoundsDimensions,
   .getBoundsGeometry = openvr_getBoundsGeometry,
   .getPose = openvr_getPose,
-  .getBonePose = openvr_getBonePose,
   .getVelocity = openvr_getVelocity,
   .isDown = openvr_isDown,
   .isTouched = openvr_isTouched,
