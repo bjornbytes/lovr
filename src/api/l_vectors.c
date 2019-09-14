@@ -1577,7 +1577,7 @@ static int l_lovrMat4Translate(lua_State* L) {
 static int l_lovrMat4Rotate(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
   if (lua_type(L, 2) == LUA_TNUMBER) {
-    mat4_rotate(m, luax_checkfloat(L, 2), luax_checkfloat(L, 3), luax_checkfloat(L, 4), luax_checkfloat(L, 5));
+    mat4_rotate(m, luax_checkfloat(L, 2), luax_optfloat(L, 3, 0.f), luax_optfloat(L, 4, 1.f), luax_optfloat(L, 5, 0.f));
   } else {
     float* q = luax_checkvector(L, 2, V_QUAT, "quat or number");
     mat4_rotateQuat(m, q);
