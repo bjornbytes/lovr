@@ -277,7 +277,7 @@ static const float* openvr_getBoundsGeometry(uint32_t* count) {
 
 static bool openvr_getPose(Device device, vec3 position, quat orientation) {
   InputPoseActionData_t actionData;
-	TrackedDevicePose_t* pose;
+  TrackedDevicePose_t* pose;
 
   if (device == DEVICE_HEAD) {
     pose = &state.headPose;
@@ -298,7 +298,7 @@ static bool openvr_getPose(Device device, vec3 position, quat orientation) {
 
 static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   InputPoseActionData_t actionData;
-	TrackedDevicePose_t* pose;
+  TrackedDevicePose_t* pose;
 
   if (device == DEVICE_HEAD) {
     pose = &state.headPose;

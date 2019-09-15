@@ -534,7 +534,7 @@ endif()
 
 # Platforms
 if(WIN32)
-  set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244")
+  set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244 /MP")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
   target_compile_definitions(lovr PUBLIC -D_CRT_SECURE_NO_WARNINGS)
