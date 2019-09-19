@@ -1091,8 +1091,6 @@ void lovrGpuInit(getProcAddressProc getProcAddress) {
     arr_init(&state.incoherents[i]);
   }
 
-  arr_init(&state.stats.timers);
-
   TextureData* textureData = lovrTextureDataCreate(1, 1, 0xff, FORMAT_RGBA);
   state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false, 0);
   lovrTextureSetFilter(state.defaultTexture, (TextureFilter) { .mode = FILTER_NEAREST });
@@ -1111,7 +1109,6 @@ void lovrGpuDestroy() {
   for (int i = 0; i < MAX_BARRIERS; i++) {
     arr_free(&state.incoherents[i]);
   }
-  arr_free(&state.stats.timers);
   memset(&state, 0, sizeof(state));
 }
 
@@ -1222,8 +1219,7 @@ void lovrGpuDraw(DrawCommand* draw) {
 }
 
 void lovrGpuPresent() {
-  state.stats.drawCalls = state.stats.shaderSwitches = 0;
-  arr_clear(&state.stats.timers);
+  memset(&state.stats, 0, sizeof(state.stats));
 }
 
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
@@ -1282,10 +1278,10 @@ void lovrGpuTick(const char* label) {
 #endif
 }
 
-void lovrGpuTock(const char* label) {
+double lovrGpuTock(const char* label) {
 #ifndef LOVR_WEBGL
   TimerList* timer = map_get(&state.timers, label);
-  if (!timer) return;
+  if (!timer) return 0.;
 
   glEndQuery(GL_TIME_ELAPSED);
 
@@ -1297,9 +1293,10 @@ void lovrGpuTock(const char* label) {
     }
 
     glGetQueryObjectui64v(timer->timers[timer->oldest], GL_QUERY_RESULT, &timer->ns);
-    arr_push(&state.stats.timers, ((GpuTimer) { .label = label, .time = timer->ns / 1e9 }));
     timer->oldest = (timer->oldest + 1) % 4;
   }
+
+  return timer->ns / 1e9;
 #endif
 }
 

@@ -1,6 +1,5 @@
 #include "graphics/font.h"
 #include "data/modelData.h"
-#include "core/arr.h"
 #include "core/maf.h"
 #include "util.h"
 #include "platform.h"
@@ -196,14 +195,8 @@ typedef struct {
 } GpuLimits;
 
 typedef struct {
-  const char* label;
-  double time;
-} GpuTimer;
-
-typedef struct {
   int shaderSwitches;
   int drawCalls;
-  arr_t(GpuTimer) timers;
 } GpuStats;
 
 typedef struct {
@@ -227,7 +220,7 @@ void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback call
 void lovrGpuPresent(void);
 void lovrGpuDirtyTexture(void);
 void lovrGpuTick(const char* label);
-void lovrGpuTock(const char* label);
+double lovrGpuTock(const char* label);
 const GpuFeatures* lovrGpuGetFeatures(void);
 const GpuLimits* lovrGpuGetLimits(void);
 const GpuStats* lovrGpuGetStats(void);

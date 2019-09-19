@@ -412,8 +412,8 @@ static int l_lovrGraphicsTick(lua_State* L) {
 static int l_lovrGraphicsTock(lua_State* L) {
   lovrGraphicsFlush();
   const char* label = luaL_checkstring(L, 1);
-  lovrGraphicsTock(label);
-  return 0;
+  lua_pushnumber(L, lovrGraphicsTock(label));
+  return 1;
 }
 
 static int l_lovrGraphicsGetFeatures(lua_State* L) {
@@ -464,13 +464,6 @@ static int l_lovrGraphicsGetStats(lua_State* L) {
   lua_setfield(L, 1, "drawcalls");
   lua_pushinteger(L, stats->shaderSwitches);
   lua_setfield(L, 1, "shaderswitches");
-  lua_createtable(L, 0, (int) stats->timers.length);
-  for (size_t i = 0; i < stats->timers.length; i++) {
-    lua_pushstring(L, stats->timers.data[i].label);
-    lua_pushnumber(L, stats->timers.data[i].time);
-    lua_settable(L, -3);
-  }
-  lua_setfield(L, 1, "timers");
   return 1;
 }
 
