@@ -19,6 +19,20 @@ static int luax_reverseModelDataNameMap(lua_State *L, ModelData *modelData, int 
   return 1;
 }
 
+static uint32_t luax_checkanimation(lua_State* L, int index, Model* model) {
+  switch (lua_type(L, index)) {
+    case LUA_TSTRING: {
+      const char* name = lua_tostring(L, index);
+      ModelData* modelData = lovrModelGetModelData(model);
+      uint32_t* index = map_get(&modelData->animationMap, name);
+      lovrAssert(index, "Model has no animation named '%s'", name);
+      return *index;
+    }
+    case LUA_TNUMBER: return lua_tointeger(L, index) - 1;
+    default: return luaL_typerror(L, index, "number or string");
+  }
+}
+
 static int l_lovrModelDraw(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   float transform[16];
@@ -30,24 +44,7 @@ static int l_lovrModelDraw(lua_State* L) {
 
 static int l_lovrModelAnimate(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-
-  uint32_t animation;
-  switch (lua_type(L, 2)) {
-    case LUA_TSTRING: {
-      const char* name = lua_tostring(L, 2);
-      ModelData* modelData = lovrModelGetModelData(model);
-      uint32_t* index = map_get(&modelData->animationMap, name);
-      lovrAssert(index, "Model has no animation named '%s'", name);
-      animation = *index;
-      break;
-    }
-    case LUA_TNUMBER:
-      animation = lua_tointeger(L, 2) - 1;
-      break;
-    default:
-      return luaL_typerror(L, 2, "number or string");
-  }
-
+  uint32_t animation = luax_checkanimation(L, 2, model);
   float time = luaL_checknumber(L, 3);
   float alpha = luax_optfloat(L, 4, 1.f);
   lovrModelAnimate(model, animation, time, alpha);
@@ -193,6 +190,13 @@ static int l_lovrModelGetNodeCount(lua_State* L) {
   return 1;
 }
 
+static int l_lovrModelGetAnimationDuration(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t animation = luax_checkanimation(L, 2, model);
+  lua_pushnumber(L, lovrModelGetModelData(model)->animations[animation].duration);
+  return 1;
+}
+
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
   { "animate", l_lovrModelAnimate },
@@ -206,5 +210,6 @@ const luaL_Reg lovrModel[] = {
   { "getAnimationCount", l_lovrModelGetAnimationCount },
   { "getMaterialCount", l_lovrModelGetMaterialCount },
   { "getNodeCount", l_lovrModelGetNodeCount },
+  { "getAnimationDuration", l_lovrModelGetAnimationDuration },
   { NULL, NULL }
 };
