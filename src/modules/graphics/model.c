@@ -192,18 +192,35 @@ Model* lovrModelCreate(ModelData* data) {
 
 void lovrModelDestroy(void* ref) {
   Model* model = ref;
-  for (uint32_t i = 0; i < model->data->bufferCount; i++) {
-    lovrRelease(Buffer, model->buffers[i]);
+
+  if (model->buffers) {
+    for (uint32_t i = 0; i < model->data->bufferCount; i++) {
+      lovrRelease(Buffer, model->buffers[i]);
+    }
+    free(model->buffers);
   }
-  for (uint32_t i = 0; i < model->data->primitiveCount; i++) {
-    lovrRelease(Mesh, model->meshes[i]);
+
+  if (model->meshes) {
+    for (uint32_t i = 0; i < model->data->primitiveCount; i++) {
+      lovrRelease(Mesh, model->meshes[i]);
+    }
+    free(model->meshes);
   }
-  for (uint32_t i = 0; i < model->data->textureCount; i++) {
-    lovrRelease(Texture, model->textures[i]);
+
+  if (model->textures) {
+    for (uint32_t i = 0; i < model->data->textureCount; i++) {
+      lovrRelease(Texture, model->textures[i]);
+    }
+    free(model->textures);
   }
-  for (uint32_t i = 0; i < model->data->materialCount; i++) {
-    lovrRelease(Material, model->materials[i]);
+
+  if (model->materials) {
+    for (uint32_t i = 0; i < model->data->materialCount; i++) {
+      lovrRelease(Material, model->materials[i]);
+    }
+    free(model->materials);
   }
+
   lovrRelease(ModelData, model->data);
   free(model->globalTransforms);
   free(model->localTransforms);
