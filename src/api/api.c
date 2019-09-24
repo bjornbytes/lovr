@@ -162,7 +162,8 @@ void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
   lua_pop(L, 1);
 }
 
-void luax_vthrow(lua_State* L, const char* format, va_list args) {
+void luax_vthrow(void* context, const char* format, va_list args) {
+  lua_State* L = (lua_State*) context;
   lua_pushvfstring(L, format, args);
   lua_error(L);
 }
@@ -172,17 +173,20 @@ void luax_traceback(lua_State* L, lua_State* T, const char* message, int level) 
   if (!lua_checkstack(L, 5)) {
     return;
   }
+
   lua_getglobal(L, "debug");
   if (!lua_istable(L, -1)) {
     lua_pop(L, 1);
     return;
   }
+
   lua_getfield(L, -1, "traceback");
   if (!lua_isfunction(L, -1)) {
     lua_pop(L, 2);
     return;
   }
-  lua_remove(L, -2); // Pop debug object
+
+  lua_remove(L, -2);
   lua_pushthread(T);
   lua_pushstring(L, message);
   lua_pushinteger(L, level);

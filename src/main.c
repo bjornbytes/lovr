@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    lovrSetErrorCallback((errorFn*) luax_vthrow, T);
+    lovrSetErrorCallback(luax_vthrow, T);
 
 #ifdef EMSCRIPTEN
     lovrEmscriptenContext context = { L, T, argc, argv };
