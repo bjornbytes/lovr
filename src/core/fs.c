@@ -49,6 +49,17 @@ bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
   }
 }
 
+bool fs_seek(fs_handle file, int64_t offset, SeekMode origin) {
+  int whence;
+  switch (origin) {
+    case FROM_START: whence = SEEK_SET; break;
+    case FROM_CURRENT: whence = SEEK_CUR; break;
+    case FROM_END: whence = SEEK_END; break;
+    default: return false;
+  }
+  return lseek(file, offset, whence) >= 0;
+}
+
 bool fs_stat(const char* path, FileInfo* info) {
   struct stat stats;
   if (stat(path, &stats)) {
