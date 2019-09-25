@@ -8,6 +8,7 @@
 #include <stdio.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
+#include <objc/objc-runtime.h>
 #endif
 #if _WIN32
 #include <windows.h>
@@ -58,6 +59,23 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   // Try to mount either an archive fused to the executable or an archive from the command line
   lovrFilesystemGetExecutablePath(state.source, LOVR_PATH_MAX);
   if (!lovrFilesystemMount(state.source, NULL, 1, argRoot)) { // Attempt to load fused. If that fails...
+#ifdef __APPLE__
+    // NSString* path = [[NSBundle mainBundle] pathForResource:nil ofType:@"lovr"]
+    // if (!path || !lovrFilesystemMount(path.UTF8string, NULL, 1, argRoot)) {
+    //
+    // }
+
+    id lovrNSString = objc_msgSend((id) objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "lovr");
+    id mainBundle = objc_msgSend((id) objc_getClass("NSBundle"), sel_registerName("mainBundle"));
+    id resource = objc_msgSend(mainBundle, sel_registerName("pathForResource:ofType:"), nil, lovrNSString);
+    const char* resourcePath = NULL;
+    if (resource != nil) {
+      object_getInstanceVariable(resource, "UTF8String", (void**) &resourcePath);
+    }
+
+    if (!resourcePath || !lovrFilesystemMount(resourcePath, NULL, 1, argRoot)) {
+#endif
+
     state.fused = false;
 
     if (argGame) {
@@ -69,6 +87,10 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
 
     free(state.source); // Couldn't load from argProject, so apparently it isn't the source
     state.source = NULL;
+
+#ifdef __APPLE__
+    }
+#endif
   }
 
   return true;
