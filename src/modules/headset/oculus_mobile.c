@@ -18,6 +18,7 @@
 static struct {
   BridgeLovrDimensions displayDimensions;
   BridgeLovrDevice deviceType;
+  BridgeLovrVibrateFunction* vibrateFunction;
   BridgeLovrUpdateData updateData;
 } bridgeLovrMobileData;
 
@@ -229,7 +230,14 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
 }
 
 static bool vrapi_vibrate(Device device, float strength, float duration, float frequency) {
-  return false;
+  int controller;
+  if (device == DEVICE_HAND_LEFT)
+    controller = 0;
+  else if (device == DEVICE_HAND_RIGHT)
+    controller = 1;
+  else
+    return false;
+  return bridgeLovrMobileData.vibrateFunction(controller, strength, duration); // Frequency currently discarded
 }
 
 static ModelData* vrapi_newModelData(Device device) {
@@ -443,6 +451,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   bridgeLovrMobileData.displayDimensions = initData->suggestedEyeTexture;
   bridgeLovrMobileData.updateData.displayTime = initData->zeroDisplayTime;
   bridgeLovrMobileData.deviceType = initData->deviceType;
+  bridgeLovrMobileData.vibrateFunction = initData->vibrateFunction;
 
   free(apkPath);
   size_t length = strlen(initData->apkPath);
