@@ -18,7 +18,7 @@
 static struct {
   BridgeLovrDimensions displayDimensions;
   BridgeLovrDevice deviceType;
-  BridgeLovrVibrateFunctionPtr vibrateFunction;
+  BridgeLovrVibrateFunction* vibrateFunction;
   BridgeLovrUpdateData updateData;
 } bridgeLovrMobileData;
 
@@ -237,8 +237,7 @@ static bool vrapi_vibrate(Device device, float strength, float duration, float f
     controller = 1;
   else
     return false;
-  bridgeLovrMobileData.vibrateFunction(controller, strength, duration); // Frequency currently discarded
-  return true;
+  return bridgeLovrMobileData.vibrateFunction(controller, strength, duration); // Frequency currently discarded
 }
 
 static ModelData* vrapi_newModelData(Device device) {
