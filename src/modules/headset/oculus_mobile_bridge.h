@@ -116,6 +116,8 @@ typedef struct {
   BridgeLovrController controllers[BRIDGE_LOVR_CONTROLLERMAX];
 } BridgeLovrUpdateData;
 
+typedef void (*BridgeLovrVibrateFunctionPtr)(int controller, float strength, float duration);
+
 // Data passed from Lovr_NativeActivity to BridgeLovr at init time
 typedef struct {
   const char *writablePath;
@@ -123,6 +125,7 @@ typedef struct {
   BridgeLovrDimensions suggestedEyeTexture;
   double zeroDisplayTime;
   BridgeLovrDevice deviceType;
+  BridgeLovrVibrateFunctionPtr vibrateFunction;
 } BridgeLovrInitData;
 
 LOVR_EXPORT void bridgeLovrInit(BridgeLovrInitData *initData);
