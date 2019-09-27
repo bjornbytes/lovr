@@ -357,18 +357,8 @@ int luax_print(lua_State* L) {
   return 0;
 }
 
-static void android_vthrow(lua_State* L, const char* format, va_list args) {
-  #define MAX_ERROR_LENGTH 1024
-  char lovrErrorMessage[MAX_ERROR_LENGTH];
-  vsnprintf(lovrErrorMessage, MAX_ERROR_LENGTH, format, args);
-  WARN("Error: %s\n", lovrErrorMessage);
-  assert(0);
-}
-
 static int luax_custom_atpanic(lua_State *L) {
-  // This doesn't appear to get a sensible stack. Maybe Luajit would work better?
-  luax_traceback(L, L, lua_tostring(L, -1), 0); // Pushes the traceback onto the stack
-  lovrThrow("Lua panic: %s", lua_tostring(L, -1));
+  WARN("PANIC: unprotected error in call to Lua API (%s)\n", lua_tostring(L, -1));
   return 0;
 }
 
@@ -377,12 +367,10 @@ static void bridgeLovrInitState() {
   // Copypaste the init sequence from lovrRun:
   // Load libraries
   L = luaL_newstate(); // FIXME: Can this be handed off to main.c?
-  luax_setmainthread(L);
-  lua_atpanic(L, luax_custom_atpanic);
   luaL_openlibs(L);
   LOG("\n OPENED LIB\n");
-
-  lovrSetErrorCallback((errorFn*) android_vthrow, L);
+  lua_atpanic(L, luax_custom_atpanic);
+  luax_setmainthread(L);
 
   // Install custom print
   lua_pushcfunction(L, luax_print);
@@ -429,7 +417,7 @@ static void bridgeLovrInitState() {
 
   coroutineStartFunctionRef = luaL_ref(L, LUA_REGISTRYINDEX); // Value returned by boot.lua
   T = lua_newthread(L); // Leave L clear to be used by the draw function
-  lua_atpanic(T, luax_custom_atpanic);
+  lovrSetErrorCallback(luax_vthrow, T);
   coroutineRef = luaL_ref(L, LUA_REGISTRYINDEX); // Hold on to the Lua-side coroutine object so it isn't GC'd
 
   LOG("\n STATE INIT COMPLETE\n");
