@@ -62,7 +62,7 @@ static int l_lovrFilesystemAppend(lua_State* L) {
   size_t size;
   const char* path = luaL_checkstring(L, 1);
   const char* content = luaL_checklstring(L, 2, &size);
-  lua_pushnumber(L, lovrFilesystemWrite(path, content, size, 1));
+  lua_pushnumber(L, lovrFilesystemWrite(path, content, size, true));
   return 1;
 }
 
@@ -287,7 +287,7 @@ static int l_lovrFilesystemWrite(lua_State* L) {
   size_t size;
   const char* path = luaL_checkstring(L, 1);
   const char* content = luaL_checklstring(L, 2, &size);
-  lua_pushnumber(L, lovrFilesystemWrite(path, content, size, 0));
+  lua_pushnumber(L, lovrFilesystemWrite(path, content, size, false));
   return 1;
 }
 
