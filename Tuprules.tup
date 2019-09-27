@@ -81,6 +81,11 @@ LDFLAGS += @(ENET_LDFLAGS)
 CFLAGS += @(CFLAGS)
 LDFLAGS += @(LDFLAGS)
 
+# Platforms
+ifeq (@(TUP_PLATFORM),macosx)
+  LDFLAGS += -lobjc
+endif
+
 # Macros
 !compile = |> ^ CC %f^ @(CC) $(CFLAGS) $(CFLAGS_y) -c %f -o %o |> $(ROOT)/.obj/%B.o $(ROOT)/<objects>
 !link = |> ^ LD %o^ @(CC) $(LDFLAGS) -o %o |>
