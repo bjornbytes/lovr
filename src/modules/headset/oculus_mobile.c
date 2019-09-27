@@ -417,7 +417,6 @@ static void bridgeLovrInitState() {
 
   coroutineStartFunctionRef = luaL_ref(L, LUA_REGISTRYINDEX); // Value returned by boot.lua
   T = lua_newthread(L); // Leave L clear to be used by the draw function
-  lovrSetErrorCallback(luax_vthrow, T);
   coroutineRef = luaL_ref(L, LUA_REGISTRYINDEX); // Hold on to the Lua-side coroutine object so it isn't GC'd
 
   LOG("\n STATE INIT COMPLETE\n");
@@ -473,6 +472,7 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
 
   luax_geterror(T);
   luax_clearerror(T);
+  lovrSetErrorCallback(luax_vthrow, T);
   if (lua_resume(T, 1) != LUA_YIELD) {
     if (lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart")) {
       state.renderCallback = NULL;
@@ -510,6 +510,7 @@ void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
 
   lovrGraphicsSetCamera(&camera, true);
 
+  lovrSetErrorCallback(luax_vthrow, L);
   state.renderCallback(state.renderUserdata);
 
   lovrGraphicsSetCamera(NULL, false);
