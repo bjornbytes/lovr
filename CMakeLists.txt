@@ -19,6 +19,7 @@ option(LOVR_ENABLE_JSON "Bundle with lua-cjson" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
+option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" OFF)
 option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
 option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for the headset module" OFF)
@@ -266,6 +267,13 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENVR)
   )
 endif()
 
+# OpenXR
+if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
+  include_directories(deps/openxr/include)
+  add_subdirectory(deps/openxr openxr)
+  set(LOVR_OPENXR openxr_loader)
+endif()
+
 # Leap Motion
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_LEAP)
   if(NOT LOVR_LEAP_PATH)
@@ -344,6 +352,7 @@ target_link_libraries(lovr
   ${LOVR_OPENAL}
   ${LOVR_OPENGL}
   ${LOVR_OPENVR}
+  ${LOVR_OPENXR}
   ${LOVR_OCULUS}
   ${LOVR_LEAP}
   ${LOVR_PHYSFS}
@@ -447,6 +456,10 @@ if(LOVR_ENABLE_HEADSET)
   if(LOVR_USE_OPENVR)
     add_definitions(-DLOVR_USE_OPENVR)
     target_sources(lovr PRIVATE src/modules/headset/openvr.c)
+  endif()
+  if(LOVR_USE_OPENXR)
+    add_definitions(-DLOVR_USE_OPENXR)
+    target_sources(lovr PRIVATE src/modules/headset/openxr.c)
   endif()
   if(LOVR_USE_OCULUS)
     add_definitions(-DLOVR_USE_OCULUS)

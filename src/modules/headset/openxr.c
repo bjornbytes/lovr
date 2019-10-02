@@ -11,9 +11,6 @@
 
 #ifdef _WIN32
 #define XR_USE_PLATFORM_WIN32
-#define GRAPIHCS_BINDING { XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR, NULL, lovrPlatformGetWindow(), lovrPlatformGetContext() }
-#else
-#define GRAPHICS_BINDING NULL
 #endif
 
 #define XR_USE_GRAPHICS_API_OPENGL
@@ -227,12 +224,13 @@ static bool openxr_init(float offset, uint32_t msaa) {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
       .applicationInfo.engineName = "LÖVR",
       .applicationInfo.engineVersion = ((LOVR_VERSION_MAJOR & 0xff) << 24) + ((LOVR_VERSION_MINOR & 0xff) << 16) + (LOVR_VERSION_PATCH & 0xffff),
+      .applicationInfo.applicationName = "LÖVR",
+      .applicationInfo.applicationVersion = 0,
       .applicationInfo.apiVersion = XR_CURRENT_API_VERSION,
       .enabledExtensionCount = 1,
       .enabledExtensionNames = (const char*[1]) { "XR_KHR_opengl_enable" }
     };
 
-    strncpy(info.applicationInfo.applicationName, lovrFilesystemGetIdentity(), XR_MAX_APPLICATION_NAME_SIZE - 1);
     XR_INIT(xrCreateInstance(&info, &state.instance));
   }
 
@@ -244,8 +242,13 @@ static bool openxr_init(float offset, uint32_t msaa) {
 
     XR_INIT(xrGetSystem(state.instance, &info, &state.system));
 
+    uint32_t viewConfigurationCount;
+    XrViewConfigurationType viewConfigurations[2];
+    XR_INIT(xrEnumerateViewConfigurations(state.instance, state.system, 2, &viewConfigurationCount, viewConfigurations));
+
     uint32_t viewCount;
-    XrViewConfigurationView views[2];
+    XrViewConfigurationView views[2] = { [0].type = XR_TYPE_VIEW_CONFIGURATION_VIEW, [1].type = XR_TYPE_VIEW_CONFIGURATION_VIEW };
+    XR_INIT(xrEnumerateViewConfigurationViews(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 0, &viewCount, NULL));
     XR_INIT(xrEnumerateViewConfigurationViews(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 2, &viewCount, views));
 
     if ( // Only 2 views are supported, and since they're rendered together they must be identical
@@ -308,7 +311,15 @@ static bool openxr_init(float offset, uint32_t msaa) {
   { // Session
     XrSessionCreateInfo info = {
       .type = XR_TYPE_SESSION_CREATE_INFO,
-      .next = GRAPHICS_BINDING,
+#ifdef _WIN32
+      .next = &(XrGraphicsBindingOpenGLWin32KHR) {
+        .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
+        .hDC = lovrPlatformGetWindow(),
+        .hGLRC = lovrPlatformGetContext()
+      },
+#else
+#error "OpenXR is not supported on this platform!"
+#endif
       .systemId = state.system
     };
 
@@ -415,7 +426,9 @@ static void openxr_destroy() {
   }
 
   for (size_t i = 0; i < MAX_ACTIONS; i++) {
-    xrDestroyAction(state.actions[i]);
+    if (state.actions[i]) {
+      xrDestroyAction(state.actions[i]);
+    }
   }
 
   for (size_t i = 0; i < MAX_DEVICES; i++) {
@@ -424,11 +437,11 @@ static void openxr_destroy() {
     }
   }
 
-  xrDestroyActionSet(state.actionSet);
-  xrDestroySwapchain(state.swapchain);
-  xrDestroySpace(state.referenceSpace);
-  xrEndSession(state.session);
-  xrDestroyInstance(state.instance);
+  if (state.actionSet) xrDestroyActionSet(state.actionSet);
+  if (state.swapchain) xrDestroySwapchain(state.swapchain);
+  if (state.referenceSpace) xrDestroySpace(state.referenceSpace);
+  if (state.session) xrEndSession(state.session);
+  if (state.instance) xrDestroyInstance(state.instance);
   memset(&state, 0, sizeof(state));
 }
 
