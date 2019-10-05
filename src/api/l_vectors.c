@@ -1436,12 +1436,10 @@ static int l_lovrMat4Unpack(lua_State* L) {
     }
     return 16;
   } else {
-    float angle, ax, ay, az;
-    float position[4], orientation[4], scale[4];
+    float position[4], scale[4], angle, ax, ay, az;
     mat4_getPosition(m, position);
     mat4_getScale(m, scale);
-    mat4_getOrientation(m, orientation);
-    quat_getAngleAxis(orientation, &angle, &ax, &ay, &az); // TODO mat4_getAngleAxis (see math.lua)
+    mat4_getAngleAxis(m, &angle, &ax, &ay, &az);
     lua_pushnumber(L, position[0]);
     lua_pushnumber(L, position[1]);
     lua_pushnumber(L, position[2]);
