@@ -17,14 +17,14 @@ static int l_lovrColliderGetWorld(lua_State* L) {
 
 static int l_lovrColliderAddShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = luax_checktype(L, 2, Shape);
+  Shape* shape = luax_checkshape(L, 2);
   lovrColliderAddShape(collider, shape);
   return 0;
 }
 
 static int l_lovrColliderRemoveShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = luax_checktype(L, 2, Shape);
+  Shape* shape = luax_checkshape(L, 2);
   lovrColliderRemoveShape(collider, shape);
   return 0;
 }
