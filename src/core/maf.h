@@ -562,6 +562,22 @@ MAF void mat4_getOrientation(mat4 m, quat orientation) {
   quat_fromMat4(orientation, m);
 }
 
+MAF void mat4_getAngleAxis(mat4 m, float* angle, float* ax, float* ay, float* az) {
+  float sx = vec3_length(m + 0);
+  float sy = vec3_length(m + 4);
+  float sz = vec3_length(m + 8);
+  float diagonal[4] = { m[0], m[5], m[10] };
+  float axis[4] = { m[6] - m[9], m[8] - m[2], m[1] - m[4] };
+  diagonal[0] /= sx;
+  diagonal[1] /= sy;
+  diagonal[2] /= sz;
+  vec3_normalize(axis);
+  *angle = acosf((diagonal[0] + diagonal[1] + diagonal[2] - 1.f) / 2.f);
+  *ax = axis[0];
+  *ay = axis[1];
+  *az = axis[2];
+}
+
 MAF void mat4_getScale(mat4 m, vec3 scale) {
   vec3_set(scale, vec3_length(m + 0), vec3_length(m + 4), vec3_length(m + 8));
 }
