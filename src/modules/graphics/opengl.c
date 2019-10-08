@@ -1298,6 +1298,7 @@ double lovrGpuTock(const char* label) {
 
   return timer->ns / 1e9;
 #endif
+  return 0.;
 }
 
 const GpuFeatures* lovrGpuGetFeatures() {

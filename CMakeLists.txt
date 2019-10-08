@@ -325,6 +325,7 @@ endif()
 set(LOVR_SRC
   src/main.c
   src/core/arr.c
+  src/core/maf.c
   src/core/platform.c
   src/core/ref.c
   src/core/utf.c

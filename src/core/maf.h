@@ -7,7 +7,11 @@
 
 #pragma once
 
+#ifdef MAF_EXPORT
+#define MAF LOVR_EXPORT
+#else
 #define MAF static LOVR_INLINE
+#endif
 
 typedef float* vec3;
 typedef float* quat;
