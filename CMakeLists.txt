@@ -25,7 +25,7 @@ option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sur
 option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_LEAP "Enable the Leap Motion backend for the headset module" OFF)
-option(LOVR_USE_SSE "Enable SIMD use of intrinsics" ON)
+option(LOVR_USE_SSE "Enable use of SIMD intrinsics" ON)
 
 option(LOVR_SYSTEM_PHYSFS "Use the system-provided PhysFS" OFF)
 option(LOVR_SYSTEM_ENET "Use the system-provided enet" OFF)
