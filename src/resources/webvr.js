@@ -69,7 +69,8 @@ var LibraryLOVR = {
         HEAPF32[webvr.poseTransform >> 2 + 13] = webvr.offset;
       }
 
-      Module._mat4_invert(Module._mat4_init(e, webvr.poseTransform));
+      Module._mat4_set(e, webvr.poseTransform);
+      Module._mat4_invert(e);
       HEAPF32.set(webvr.frameData.leftViewMatrix, a >> 2);
       HEAPF32.set(webvr.frameData.rightViewMatrix, b >> 2);
       HEAPF32.set(webvr.frameData.leftProjectionMatrix, c >> 2);
@@ -175,7 +176,8 @@ var LibraryLOVR = {
 
     if (pose.orientation) {
       HEAPF32.set(pose.orientation, orientation >> 2);
-      Module._mat4_rotateQuat(Module._mat4_init(webvr.matA, webvr.poseTransform), orientation);
+      Module._mat4_set(webvr.matA, webvr.poseTransform);
+      Module._mat4_rotateQuat(webvr.matA, orientation);
       Module._quat_fromMat4(orientation, webvr.matA);
     } else {
       HEAPF32.fill(0, orientation >> 2, orientation >> 2 + 4);
@@ -296,6 +298,10 @@ var LibraryLOVR = {
     // HeadsetOrigin
     ORIGIN_HEAD: 0,
     ORIGIN_FLOOR: 1,
+
+    // Device
+    DEVICE_HAND_LEFT: 0,
+    DEVICE_HAND_RIGHT: 1,
 
     // DeviceAxis
     AXIS_TRIGGER: 0,

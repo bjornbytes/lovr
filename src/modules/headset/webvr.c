@@ -28,7 +28,7 @@ static struct {
   void* renderData;
 } state;
 
-static void webvr_onAnimationFrame(float* leftView, float* rightView, float* leftProjection, float* rightProjection) {
+void webvr_onAnimationFrame(float* leftView, float* rightView, float* leftProjection, float* rightProjection) {
   Camera camera = { .canvas = NULL, .stereo = true };
   memcpy(camera.projection[0], leftProjection, 16 * sizeof(float));
   memcpy(camera.projection[1], rightProjection, 16 * sizeof(float));
