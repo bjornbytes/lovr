@@ -39,8 +39,7 @@ option(LOVR_BUILD_SHARED "Build as a shared library instead of an executable" OF
 # Setup
 if(EMSCRIPTEN)
   string(CONCAT LOVR_EMSCRIPTEN_FLAGS
-    "-O3 "
-    "-s WASM=1 "
+    "-Os "
     "-s USE_GLFW=3 "
     "-s USE_WEBGL2=1 "
     "-s GL_PREINITIALIZED_CONTEXT=1 "
@@ -52,7 +51,7 @@ if(EMSCRIPTEN)
     "-s ALLOW_MEMORY_GROWTH=1 "
     "-s \"EXPORTED_FUNCTIONS=[ "
       "'_main','_lovrDestroy',"
-      "'_mat4_identity','_mat4_invert','_mat4_multiply','_mat4_rotateQuat','_mat4_transform','_mat4_transformDirection','_mat4_translate',"
+      "'_mat4_identity','_mat4_invert','_mat4_multiply','_mat4_rotateQuat','_mat4_transform','_mat4_transformDirection',"
       "'_quat_fromMat4','_quat_getAngleAxis'"
     "]\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
