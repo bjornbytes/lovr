@@ -98,6 +98,7 @@ void lovrGraphicsCreateWindow(WindowFlags* flags);
 int lovrGraphicsGetWidth(void);
 int lovrGraphicsGetHeight(void);
 float lovrGraphicsGetPixelDensity(void);
+const Camera* lovrGraphicsGetCamera(void);
 void lovrGraphicsSetCamera(Camera* camera, bool clear);
 struct Buffer* lovrGraphicsGetIdentityBuffer(void);
 #define lovrGraphicsTick lovrGpuTick

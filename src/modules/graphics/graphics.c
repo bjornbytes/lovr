@@ -284,6 +284,10 @@ float lovrGraphicsGetPixelDensity() {
   }
 }
 
+const Camera* lovrGraphicsGetCamera() {
+  return &state.camera;
+}
+
 void lovrGraphicsSetCamera(Camera* camera, bool clear) {
   lovrGraphicsFlush();
 
