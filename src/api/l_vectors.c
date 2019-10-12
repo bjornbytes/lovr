@@ -1275,7 +1275,7 @@ static int l_lovrQuatMul(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
   VectorType type;
   float* r = luax_tovector(L, 2, &type);
-  if (!r || type == V_MAT4) return luaL_typerror(L, 2, "quat or vec3");
+  if (!r || (type != V_VEC3 && type != V_QUAT)) return luaL_typerror(L, 2, "quat or vec3");
   if (type == V_VEC3) {
     quat_rotate(q, r);
     lua_settop(L, 2);
