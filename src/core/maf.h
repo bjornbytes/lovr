@@ -513,6 +513,18 @@ MAF mat4 mat4_multiply(mat4 m, mat4 n) {
   return m;
 }
 
+MAF float* mat4_multiplyVec4(mat4 m, float* v) {
+  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + v[3] * m[12];
+  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + v[3] * m[13];
+  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + v[3] * m[14];
+  float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + v[3] * m[15];
+  v[0] = x;
+  v[1] = y;
+  v[2] = z;
+  v[3] = w;
+  return v;
+}
+
 MAF mat4 mat4_translate(mat4 m, float x, float y, float z) {
   m[12] = m[0] * x + m[4] * y + m[8] * z + m[12];
   m[13] = m[1] * x + m[5] * y + m[9] * z + m[13];
