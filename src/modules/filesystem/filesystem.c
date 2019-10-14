@@ -48,15 +48,16 @@ static bool getBundlePath(char* buffer, size_t size) {
   id extension = objc_msgSend((id) objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "lovr");
   id bundle = objc_msgSend((id) objc_getClass("NSBundle"), sel_registerName("mainBundle"));
   id path = objc_msgSend(bundle, sel_registerName("pathForResource:ofType:"), nil, extension);
-
   if (path == nil) {
     return false;
   }
 
-  char* cpath = NULL;
-  object_getInstanceVariable(path, "UTF8String", (void**) &cpath);
-  size_t length = strlen(cpath);
+  const char* cpath = (const char*) objc_msgSend(path, sel_registerName("UTF8String"));
+  if (!cpath) {
+    return false;
+  }
 
+  size_t length = strlen(cpath);
   if (length >= size) {
     return false;
   }
