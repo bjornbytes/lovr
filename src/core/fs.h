@@ -13,9 +13,9 @@ typedef enum {
 } FileMode;
 
 typedef enum {
-  FROM_START,
-  FROM_CURRENT,
-  FROM_END
+  FROM_START = -1,
+  FROM_CURRENT = 0,
+  FROM_END = 1
 } SeekMode;
 
 typedef struct {
@@ -25,7 +25,7 @@ typedef struct {
 } FileInfo;
 
 typedef void fs_list_cb(void*, char*);
-typedef int fs_handle;
+typedef struct { int handle; } fs_handle;
 
 bool fs_open(const char* path, FileMode mode, fs_handle* file);
 bool fs_close(fs_handle file);

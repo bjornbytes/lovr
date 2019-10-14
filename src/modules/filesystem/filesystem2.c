@@ -1,5 +1,8 @@
 #include "filesystem/filesystem.h"
+#include "core/arr.h"
 #include "core/fs.h"
+#include "core/hash.h"
+#include "core/map.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
@@ -26,12 +29,30 @@ static bool joinPaths(char* buffer, const char* p1, const char* p2) {
   return snprintf(buffer, LOVR_PATH_MAX, "%s/%s", p1, p2) < LOVR_PATH_MAX;
 }
 
+typedef struct {
+  uint32_t firstChild;
+  uint32_t nextSibling;
+  uint64_t offset;
+  FileInfo info;
+} zip_node;
+
 typedef struct Archive {
   struct Archive* next;
+  fs_handle file;
+  arr_t(zip_node) nodes;
+  map_t lookup;
+  uint32_t rootNode;
   char path[FS_PATH_MAX];
   char mountpoint[64];
   char root[64];
 } Archive;
+
+// Archive: directory
+
+bool dir_init(Archive* archive, const char* path) {
+  FileInfo info;
+  return fs_stat(path, &info) && info.type == FILE_DIRECTORY;
+}
 
 bool dir_read(Archive* archive, const char* path, size_t bytes, size_t* bytesRead, void** data) {
   char resolved[LOVR_PATH_MAX];
@@ -83,6 +104,147 @@ void dir_list(Archive* archive, const char* path, fs_list_cb callback, void* con
     fs_list(resolved, callback, context);
   }
 }
+
+// Archive: zip
+
+#define ZIP_HEADER_SIZE 22
+#define ZIP_ENTRY_SIZE 46
+#define ZIP_HEADER_MAGIC 0x06054b50
+#define ZIP_ENTRY_MAGIC 0x02014b50
+
+typedef struct {
+  uint32_t magic;
+  uint16_t disk;
+  uint16_t startDisk;
+  uint16_t localEntryCount;
+  uint16_t totalEntryCount;
+  uint32_t centralDirectorySize;
+  uint32_t centralDirectoryOffset;
+  uint16_t commentLength;
+} zip_header;
+
+typedef struct {
+  uint32_t magic;
+  uint16_t version;
+  uint16_t minimumVersion;
+  uint16_t flags;
+  uint16_t compression;
+  uint16_t lastModifiedTime;
+  uint16_t lastModifiedDate;
+  uint32_t crc32;
+  uint32_t compressedSize;
+  uint32_t size;
+  uint16_t nameLength;
+  uint16_t extraLength;
+  uint16_t commentLength;
+  uint16_t disk;
+  uint16_t internalAttributes;
+  uint16_t externalAttributes;
+  uint32_t offset;
+} zip_entry;
+
+bool zip_init(Archive* archive, const char* path) {
+  if (!fs_open(path, OPEN_READ, &archive->file)) {
+    return false;
+  }
+
+  // Seek to the end of the file, minus the header size
+  if (!fs_seek(archive->file, -ZIP_HEADER_SIZE, FROM_END)) {
+    return false;
+  }
+
+  // Read the header
+  size_t size = ZIP_HEADER_SIZE;
+  uint8_t headerData[ZIP_HEADER_SIZE];
+  if (!fs_read(archive->file, headerData, &size) || size != sizeof(headerData)) {
+    return false;
+  }
+
+  // "Validate"
+  zip_header* header = (zip_header*) headerData;
+  if (header->magic != ZIP_HEADER_MAGIC) {
+    return false;
+  }
+
+  // Seek to the entry list
+  if (!fs_seek(archive->file, header->centralDirectoryOffset, FROM_START)) {
+    return false;
+  }
+
+  // Data structure memory
+  arr_init(&archive->nodes);
+  arr_reserve(&archive->nodes, header->totalEntryCount);
+  map_init(&archive->lookup, header->totalEntryCount);
+
+  // Process entries
+  for (uint32_t i = 0; i < header->totalEntryCount; i++) {
+    size_t size = ZIP_ENTRY_SIZE;
+    uint8_t entryData[ZIP_ENTRY_SIZE];
+
+    // Read the metadata
+    if (!fs_read(archive->file, entryData, &size) || size != sizeof(entryData)) {
+      return false;
+    }
+
+    zip_entry* entry = (zip_entry*) entryData;
+
+    // "Validate"
+    if (entry->magic != ZIP_ENTRY_MAGIC || entry->nameLength >= FS_PATH_MAX) {
+      return false;
+    }
+
+    // Create node
+    zip_node node = {
+      .firstChild = ~0u,
+      .nextSibling = ~0u,
+      .offset = entry->offset,
+      .info.size = entry->size,
+      // TODO info.lastmodified
+      // TODO info.type
+    };
+
+    // Read filename
+    char name[FS_PATH_MAX];
+    size_t length = entry->nameLength;
+    if (!fs_read(archive->file, name, &length)) {
+      return false;
+    }
+
+    // Add node to lookups
+    uint32_t index = archive->nodes.length;
+
+    char* slash = strrchr(name + length - 1, '/');
+    if (!slash) {
+      if (archive->rootNode != ~0u) {
+        node.nextSibling = archive->rootNode;
+        archive->rootNode = index;
+      }
+    } else {
+      *slash = '\0';
+      uint64_t hash = hash64(name, slash - name);
+      uint64_t parent = map_get(&archive->lookup, hash);
+      if (parent == MAP_NIL) {
+        // Add it
+      } else {
+        node.nextSibling = archive->nodes[parent].firstChild;
+        archive->nodes[parent].firstChild = index;
+      }
+      *slash = '/';
+    }
+
+    map_set(&archive->lookup, hash64(name, length), index);
+    arr_push(&archive->nodes, node);
+
+    // Jump to next entry
+    if (!fs_seek(archive->file, entry->extraLength + entry->commentLength, FROM_CURRENT)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Filesystem module
 
 static struct {
   bool initialized;
@@ -178,17 +340,16 @@ bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, 
     return false;
   }
 
-  FileInfo info;
-  if (!fs_stat(path, &info) || info.type != FILE_DIRECTORY) {
+  lovrAssert(state.waitlist, "Too many mounted archives (up to %d are supported)", MAX_ARCHIVES);
+  Archive* archive = state.waitlist;
+
+  if (!(dir_init(archive, path) || zip_init(archive, path))) {
     return false;
   }
 
-  lovrAssert(state.waitlist, "Too many mounted archives (up to %d are supported)", MAX_ARCHIVES);
-  Archive* archive = state.waitlist;
   state.waitlist = state.waitlist->next;
   memcpy(archive->path, path, length);
   archive->path[length] = '\0';
-
   // TODO mountpoint
   // TODO root
 

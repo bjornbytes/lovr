@@ -19,16 +19,16 @@ bool fs_open(const char* path, FileMode mode, fs_handle* file) {
   if (fd == -1) {
     return false;
   }
-  *file = fd;
+  file->handle = fd;
   return true;
 }
 
-bool fs_close(fs_handle handle) {
-  return close(handle) == 0;
+bool fs_close(fs_handle file) {
+  return close(file.handle) == 0;
 }
 
 bool fs_read(fs_handle file, void* buffer, size_t* bytes) {
-  ssize_t result = read(file, buffer, *bytes);
+  ssize_t result = read(file.handle, buffer, *bytes);
   if (result < 0) {
     *bytes = 0;
     return false;
@@ -39,7 +39,7 @@ bool fs_read(fs_handle file, void* buffer, size_t* bytes) {
 }
 
 bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
-  ssize_t result = write(file, buffer, *bytes);
+  ssize_t result = write(file.handle, buffer, *bytes);
   if (result < 0) {
     *bytes = 0;
     return false;
@@ -57,7 +57,7 @@ bool fs_seek(fs_handle file, int64_t offset, SeekMode origin) {
     case FROM_END: whence = SEEK_END; break;
     default: return false;
   }
-  return lseek(file, offset, whence) >= 0;
+  return lseek(file.handle, offset, whence) >= 0;
 }
 
 bool fs_stat(const char* path, FileInfo* info) {
