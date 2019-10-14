@@ -35,6 +35,7 @@ option(LOVR_SYSTEM_ODE "Use the system-provided ODE" OFF)
 option(LOVR_SYSTEM_OPENAL "Use the system-provided OpenAL" OFF)
 
 option(LOVR_BUILD_SHARED "Build as a shared library instead of an executable" OFF)
+option(LOVR_BUILD_BUNDLE "On macOS, build a .app instead of an executable" OFF)
 
 # Setup
 if(EMSCRIPTEN)
@@ -73,9 +74,6 @@ elseif(ANDROID)
   set(LOVR_USE_OCULUS_MOBILE ON)
   set(LOVR_BUILD_SHARED ON) # Android has only "activities"
 elseif(UNIX)
-  if(APPLE)
-    set(CMAKE_MACOSX_RPATH 1)
-  endif()
   find_package(PkgConfig)
 endif()
 
@@ -578,6 +576,34 @@ if(WIN32)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 elseif(APPLE)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
+  if(LOVR_BUILD_BUNDLE)
+    function(move_lib)
+      if(TARGET ${ARGV0})
+        add_custom_command(TARGET lovr POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_SONAME_FILE:${ARGV0}>
+          ${CMAKE_CURRENT_BINARY_DIR}/lovr.app/Contents/MacOS/$<TARGET_SONAME_FILE_NAME:${ARGV0}> # Bad
+        )
+      endif()
+    endfunction()
+
+    move_lib(${LOVR_GLFW})
+    move_lib(${LOVR_LUA})
+    move_lib(${LOVR_ODE})
+    move_lib(${LOVR_OPENAL})
+    move_lib(${LOVR_OPENVR})
+    move_lib(${LOVR_PHYSFS})
+
+    target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns")
+    set_target_properties(lovr PROPERTIES
+      MACOSX_BUNDLE TRUE
+      MACOSX_RPATH TRUE
+      BUILD_WITH_INSTALL_RPATH TRUE
+      INSTALL_RPATH "@executable_path"
+      MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Info.plist"
+      RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns"
+    )
+  endif()
 elseif(EMSCRIPTEN)
   target_compile_definitions(lovr PRIVATE -DLOVR_WEBGL)
 elseif(ANDROID)
