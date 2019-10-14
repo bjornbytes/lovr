@@ -86,7 +86,7 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   lovrFilesystemSetRequirePath("?.lua;?/init.lua;lua_modules/?.lua;lua_modules/?/init.lua;deps/?.lua;deps/?/init.lua");
   lovrFilesystemSetCRequirePath("??;lua_modules/??;deps/??");
 
-  // Try to mount either an archive fused to the executable
+  // Try to mount an archive fused to the executable
   if (!getBundlePath(state.source, LOVR_PATH_MAX) || !lovrFilesystemMount(state.source, NULL, 1, argRoot)) {
     state.fused = false;
 
