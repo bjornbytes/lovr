@@ -87,14 +87,42 @@ static const float* desktop_getBoundsGeometry(uint32_t* count) {
 }
 
 static bool desktop_getPose(Device device, vec3 position, quat orientation) {
-  if (device != DEVICE_HEAD && device != DEVICE_HAND_LEFT) {
-    return false;
+  if (device == DEVICE_HEAD) {
+    vec3_set(position, 0.f, 0.f, 0.f);
+    mat4_transform(state.transform, position);
+    quat_fromMat4(orientation, state.transform);
+    return true;
+  } else if ( device == DEVICE_HAND_LEFT ) {
+    int w, h;
+    double x, y, aspect = 1;
+    lovrPlatformGetWindowSize(&w, &h);
+    lovrPlatformGetMousePosition(&x, &y);
+    if (w > 0 && h > 0) {
+      // change coordinate system to -1.0 to 1.0
+      x = (x / w)*2 - 1.0;
+      y = (y / h)*2 - 1.0;
+      aspect = h/(double)w;
+      
+      x +=  0.2; // neutral position = pointing towards center-ish
+      x *= 0.6; // fudged range to juuust cover pointing at the whole scene, but not outside it
+    }
+    
+    float leftHandTransform[16];
+    mat4_set(leftHandTransform, state.transform);
+    double xrange = M_PI*0.2;
+    double yrange = xrange * aspect;
+    mat4_translate(leftHandTransform, -.1f, -.1f, -0.10f);
+    mat4_rotate(leftHandTransform, -x * xrange, 0, 1, 0);
+    mat4_rotate(leftHandTransform, -y * yrange, 1, 0, 0);
+    mat4_translate(leftHandTransform, 0, 0, -.20f);
+    mat4_rotate(leftHandTransform, -x * xrange, 0, 1, 0);
+    mat4_rotate(leftHandTransform, -y * yrange, 1, 0, 0);
+    
+    mat4_getPosition(leftHandTransform, position);
+    quat_fromMat4(orientation, leftHandTransform);
+    return true;
   }
-
-  vec3_set(position, 0.f, 0.f, device == DEVICE_HAND_LEFT ? -.75f : 0.f);
-  mat4_transform(state.transform, position);
-  quat_fromMat4(orientation, state.transform);
-  return true;
+  return false;
 }
 
 static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
