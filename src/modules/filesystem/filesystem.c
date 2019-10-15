@@ -45,14 +45,14 @@ static struct {
 // On macOS, we have to use Objective C to find it inside the .app folder.
 static bool getBundlePath(char* buffer, size_t size) {
 #ifdef __APPLE__
-  id extension = objc_msgSend((id) objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "lovr");
-  id bundle = objc_msgSend((id) objc_getClass("NSBundle"), sel_registerName("mainBundle"));
-  id path = objc_msgSend(bundle, sel_registerName("pathForResource:ofType:"), nil, extension);
+  id extension = ((id(*)(Class, SEL, char*))objc_msgSend)(objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "lovr");
+  id bundle = ((id(*)(Class, SEL))objc_msgSend)(objc_getClass("NSBundle"), sel_registerName("mainBundle"));
+  id path = ((id(*)(id, SEL, char*, id))objc_msgSend)(bundle, sel_registerName("pathForResource:ofType:"), nil, extension);
   if (path == nil) {
     return false;
   }
 
-  const char* cpath = (const char*) objc_msgSend(path, sel_registerName("UTF8String"));
+  const char* cpath = ((const char*(*)(id, SEL))objc_msgSend)(path, sel_registerName("UTF8String"));
   if (!cpath) {
     return false;
   }
