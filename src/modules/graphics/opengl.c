@@ -1050,6 +1050,9 @@ void lovrGpuInit(getProcAddressProc getProcAddress) {
   glPrimitiveRestartIndex(state.primitiveRestart);
 #endif
 
+  state.activeTexture = 0;
+  glActiveTexture(GL_TEXTURE0 + state.activeTexture);
+
   state.alphaToCoverage = false;
   glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
