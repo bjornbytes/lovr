@@ -217,7 +217,7 @@ void lovrGpuClear(struct Canvas* canvas, Color* color, float* depth, int* stenci
 void lovrGpuCompute(struct Shader* shader, int x, int y, int z);
 void lovrGpuDiscard(struct Canvas* canvas, bool color, bool depth, bool stencil);
 void lovrGpuDraw(DrawCommand* draw);
-void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
+void lovrGpuStencil(StencilAction action, int replaceValue, bool drawVisible, StencilCallback callback, void* userdata);
 void lovrGpuPresent(void);
 void lovrGpuDirtyTexture(void);
 void lovrGpuTick(const char* label);

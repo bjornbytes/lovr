@@ -949,8 +949,9 @@ static int l_lovrGraphicsStencil(lua_State* L) {
     int clearTo = lua_isnumber(L, 4) ? lua_tonumber(L, 4) : 0;
     lovrGraphicsClear(NULL, NULL, &clearTo);
   }
+  bool drawVisible = lua_toboolean(L, 5);
   lua_settop(L, 1);
-  lovrGraphicsStencil(action, replaceValue, stencilCallback, L);
+  lovrGraphicsStencil(action, replaceValue, drawVisible, stencilCallback, L);
   return 0;
 }
 
