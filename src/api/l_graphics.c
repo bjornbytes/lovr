@@ -950,8 +950,14 @@ static int l_lovrGraphicsStencil(lua_State* L) {
     lovrGraphicsClear(NULL, NULL, &clearTo);
   }
   bool drawVisible = lua_toboolean(L, 5);
+  CompareMode stencilMode;
+  if (lua_isnoneornil(L, 6)) {
+    stencilMode = COMPARE_NONE;
+  } else {
+    stencilMode = luaL_checkoption(L, 6, NULL, CompareModes);
+  }
   lua_settop(L, 1);
-  lovrGraphicsStencil(action, replaceValue, drawVisible, stencilCallback, L);
+  lovrGraphicsStencil(action, replaceValue, drawVisible, stencilMode, stencilCallback, L);
   return 0;
 }
 

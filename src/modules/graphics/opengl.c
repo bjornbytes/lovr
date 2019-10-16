@@ -820,16 +820,7 @@ static void lovrGpuBindPipeline(Pipeline* pipeline) {
         glEnable(GL_STENCIL_TEST);
       }
 
-      GLenum glMode = GL_ALWAYS;
-      switch (state.stencilMode) {
-        case COMPARE_EQUAL: glMode = GL_EQUAL; break;
-        case COMPARE_NEQUAL: glMode = GL_NOTEQUAL; break;
-        case COMPARE_LESS: glMode = GL_GREATER; break;
-        case COMPARE_LEQUAL: glMode = GL_GEQUAL; break;
-        case COMPARE_GREATER: glMode = GL_LESS; break;
-        case COMPARE_GEQUAL: glMode = GL_LEQUAL; break;
-        default: break;
-      }
+      GLenum glMode = convertCompareMode(state.stencilMode);
 
       glStencilFunc(glMode, state.stencilValue, 0xff);
       glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
@@ -1225,7 +1216,7 @@ void lovrGpuPresent() {
   memset(&state.stats, 0, sizeof(state.stats));
 }
 
-void lovrGpuStencil(StencilAction action, int replaceValue, bool visibleDraw, StencilCallback callback, void* userdata) {
+void lovrGpuStencil(StencilAction action, int replaceValue, bool visibleDraw, CompareMode stencilMode, StencilCallback callback, void* userdata) {
   lovrGraphicsFlush();
   if (!visibleDraw)
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -1246,7 +1237,9 @@ void lovrGpuStencil(StencilAction action, int replaceValue, bool visibleDraw, St
     default: lovrThrow("Unreachable");
   }
 
-  glStencilFunc(GL_ALWAYS, replaceValue, 0xff);
+  GLenum glMode = convertCompareMode(stencilMode); // Should usually be COMPARE_NONE
+
+  glStencilFunc(glMode, replaceValue, 0xff);
   glStencilOp(GL_KEEP, GL_KEEP, glAction);
 
   state.stencilWriting = true;
