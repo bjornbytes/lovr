@@ -61,6 +61,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
 
       variant->value.object.pointer = proxy->object;
       lovrRetain(proxy->object);
+      lua_pop(L, 1);
       break;
 
     default:
