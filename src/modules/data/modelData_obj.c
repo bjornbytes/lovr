@@ -5,9 +5,11 @@
 #include "core/arr.h"
 #include "core/maf.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include "lib/map/map.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <float.h>
 #include <ctype.h>
 
 typedef struct {
@@ -92,6 +94,9 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
     return NULL;
   }
 
+  float min[4] = { FLT_MAX };
+  float max[4] = { FLT_MIN };
+
   arr_group_t groups;
   arr_texturedata_t textures;
   arr_material_t materials;
@@ -130,6 +135,12 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
       float x, y, z;
       int count = sscanf(data + 2, "%f %f %f\n%n", &x, &y, &z, &lineLength);
       lovrAssert(count == 3, "Bad OBJ: Expected 3 coordinates for vertex position");
+      min[0] = MIN(min[0], x);
+      max[0] = MAX(max[0], x);
+      min[1] = MIN(min[1], y);
+      max[1] = MAX(max[1], y);
+      min[2] = MIN(min[2], z);
+      max[2] = MAX(max[2], z);
       arr_append(&positions, ((float[3]) { x, y, z }), 3);
     } else if (STARTS_WITH(data, "vn ")) {
       float x, y, z;
@@ -258,7 +269,15 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
     .offset = 0,
     .count = (uint32_t) vertexBlob.length / 8,
     .type = F32,
-    .components = 3
+    .components = 3,
+    .hasMin = true,
+    .hasMax = true,
+    .min[0] = min[0],
+    .min[1] = min[1],
+    .min[2] = min[2],
+    .max[0] = max[0],
+    .max[1] = max[1],
+    .max[2] = max[2]
   };
 
   model->attributes[1] = (ModelAttribute) {
