@@ -355,10 +355,6 @@ target_link_libraries(lovr
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
 
-if(LOVR_USE_LUAJIT)
-  target_compile_definitions(lovr PUBLIC -DLOVR_USE_LUAJIT)
-endif()
-
 if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
