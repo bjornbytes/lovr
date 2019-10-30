@@ -4,29 +4,15 @@
 #include "data/modelData.h"
 #include "core/maf.h"
 
-static int luax_reverseModelDataNameMap(lua_State *L, ModelData *modelData, int idx, map_u32_t *t, int count, const char *noun) {
-  lovrAssert(idx > 0 && idx <= count, "Model has no %s at index %d", idx, noun);
-  map_iter_t iter = map_iter(t);
-  const char* key;
-  while ((key = map_next(t, &iter)) != NULL) {
-    uint32_t iterIdx = *map_get(t, key);
-    if (iterIdx == (uint32_t) idx - 1) { // Map is 0 indexed
-      lua_pushstring(L, key);
-      return 1;
-    }
-  }
-  lua_pushnil(L);
-  return 1;
-}
-
 static uint32_t luax_checkanimation(lua_State* L, int index, Model* model) {
   switch (lua_type(L, index)) {
     case LUA_TSTRING: {
-      const char* name = lua_tostring(L, index);
+      size_t length;
+      const char* name = lua_tolstring(L, index, &length);
       ModelData* modelData = lovrModelGetModelData(model);
-      uint32_t* index = map_get(&modelData->animationMap, name);
-      lovrAssert(index, "Model has no animation named '%s'", name);
-      return *index;
+      uint64_t index = map_get(&modelData->animationMap, hash64(name, length));
+      lovrAssert(index != MAP_NIL, "Model has no animation named '%s'", name);
+      return (uint32_t) index;
     }
     case LUA_TNUMBER: return lua_tointeger(L, index) - 1;
     default: return luaL_typerror(L, index, "number or string");
@@ -64,11 +50,12 @@ static int l_lovrModelPose(lua_State* L) {
       node = lua_tointeger(L, 2) - 1;
       break;
     case LUA_TSTRING: {
-      const char* name = lua_tostring(L, 2);
+      size_t length;
+      const char* name = lua_tolstring(L, 2, &length);
       ModelData* modelData = lovrModelGetModelData(model);
-      uint32_t* index = map_get(&modelData->nodeMap, name);
-      lovrAssert(index, "Model has no node named '%s'", name);
-      node = *index;
+      uint64_t index = map_get(&modelData->nodeMap, hash64(name, length));
+      lovrAssert(index != MAP_NIL, "Model has no node named '%s'", name);
+      node = (uint32_t) index;
       break;
     }
     default:
@@ -93,11 +80,12 @@ static int l_lovrModelGetMaterial(lua_State* L) {
       material = lua_tointeger(L, 2) - 1;
       break;
     case LUA_TSTRING: {
-      const char* name = lua_tostring(L, 2);
+      size_t length;
+      const char* name = lua_tolstring(L, 2, &length);
       ModelData* modelData = lovrModelGetModelData(model);
-      uint32_t* index = map_get(&modelData->materialMap, name);
-      lovrAssert(index, "Model has no material named '%s'", name);
-      material = *index;
+      uint64_t index = map_get(&modelData->materialMap, hash64(name, length));
+      lovrAssert(index != MAP_NIL, "Model has no material named '%s'", name);
+      material = (uint32_t) index;
       break;
     }
     default:
@@ -126,11 +114,12 @@ static int l_lovrModelGetNodePose(lua_State* L) {
       node = lua_tointeger(L, 2) - 1;
       break;
     case LUA_TSTRING: {
-      const char* name = lua_tostring(L, 2);
+      size_t length;
+      const char* name = lua_tolstring(L, 2, &length);
       ModelData* modelData = lovrModelGetModelData(model);
-      uint32_t* index = map_get(&modelData->nodeMap, name);
-      lovrAssert(index, "Model has no node named '%s'", name);
-      node = *index;
+      uint64_t index = map_get(&modelData->nodeMap, hash64(name, length));
+      lovrAssert(index != MAP_NIL, "Model has no node named '%s'", name);
+      node = (uint32_t) index;
       break;
     }
     default:
@@ -153,23 +142,29 @@ static int l_lovrModelGetNodePose(lua_State* L) {
 
 static int l_lovrModelGetAnimationName(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  int idx = luaL_checknumber(L, 2);
+  uint32_t index = luaL_checkinteger(L, 2);
   ModelData* modelData = lovrModelGetModelData(model);
-  return luax_reverseModelDataNameMap(L, modelData, idx, &modelData->animationMap, modelData->animationCount, "animation");
+  lovrAssert(index > 0 && index <= modelData->animationCount, "Model has no animation at index %d", index);
+  lua_pushstring(L, modelData->animations[index - 1].name);
+  return 1;
 }
 
 static int l_lovrModelGetMaterialName(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  int idx = luaL_checknumber(L, 2);
+  uint32_t index = luaL_checkinteger(L, 2);
   ModelData* modelData = lovrModelGetModelData(model);
-  return luax_reverseModelDataNameMap(L, modelData, idx, &modelData->materialMap, modelData->materialCount, "material");
+  lovrAssert(index > 0 && index <= modelData->materialCount, "Model has no material at index %d", index);
+  lua_pushstring(L, modelData->materials[index - 1].name);
+  return 1;
 }
 
 static int l_lovrModelGetNodeName(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  int idx = luaL_checknumber(L, 2);
+  uint32_t index = luaL_checkinteger(L, 2);
   ModelData* modelData = lovrModelGetModelData(model);
-  return luax_reverseModelDataNameMap(L, modelData, idx, &modelData->nodeMap, modelData->nodeCount, "node");
+  lovrAssert(index > 0 && index <= modelData->nodeCount, "Model has no node at index %d", index);
+  lua_pushstring(L, modelData->nodes[index - 1].name);
+  return 1;
 }
 
 static int l_lovrModelGetAnimationCount(lua_State* L) {

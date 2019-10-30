@@ -3,7 +3,7 @@
 #pragma once
 
 #define arr_t(T)\
-  struct { T *data; size_t length, capacity; }
+  struct { T* data; size_t length, capacity; }
 
 #define arr_init(a)\
   (a)->data = NULL,\

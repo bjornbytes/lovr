@@ -12,11 +12,24 @@ void luax_pushjoint(lua_State* L, Joint* joint) {
 
 Joint* luax_checkjoint(lua_State* L, int index) {
   Proxy* p = lua_touserdata(L, index);
-  if (!p || (p->hash != hash("BallJoint") && p->hash != hash("DistanceJoint") && p->hash != hash("HingeJoint") && p->hash != hash("SliderJoint"))) {
-    luaL_typerror(L, index, "Joint");
-    return NULL;
+
+  if (p) {
+    const uint64_t hashes[] = {
+      hash64("BallJoint", strlen("BallJoint")),
+      hash64("DistanceJoint", strlen("DistanceJoint")),
+      hash64("HingeJoint", strlen("HingeJoint")),
+      hash64("SliderJoint", strlen("SliderJoint"))
+    };
+
+    for (size_t i = 0; i < sizeof(hashes) / sizeof(hashes[0]); i++) {
+      if (p->hash == hashes[i]) {
+        return p->object;
+      }
+    }
   }
-  return p->object;
+
+  luaL_typerror(L, index, "Joint");
+  return NULL;
 }
 
 static int l_lovrJointDestroy(lua_State* L) {

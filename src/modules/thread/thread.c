@@ -1,43 +1,47 @@
 #include "thread/thread.h"
 #include "thread/channel.h"
+#include "core/arr.h"
+#include "core/hash.h"
+#include "core/map.h"
 #include "core/ref.h"
 #include "util.h"
-#include "lib/map/map.h"
 #include <stdlib.h>
+#include <string.h>
 
 static struct {
   bool initialized;
-  map_void_t channels;
+  arr_t(Channel*) channels;
+  map_t channelMap;
 } state;
 
 bool lovrThreadModuleInit() {
   if (state.initialized) return false;
-  map_init(&state.channels);
+  arr_init(&state.channels);
+  map_init(&state.channelMap, 0);
   return state.initialized = true;
 }
 
 void lovrThreadModuleDestroy() {
   if (!state.initialized) return;
-  const char* key;
-  map_iter_t iter = map_iter(&state.channels);
-  while ((key = map_next(&state.channels, &iter)) != NULL) {
-    Channel* channel = *(Channel**) map_get(&state.channels, key);
-    lovrRelease(Channel, channel);
+  for (size_t i = 0; i < state.channels.length; i++) {
+    lovrRelease(Channel, state.channels.data[i]);
   }
-  map_deinit(&state.channels);
+  arr_free(&state.channels);
+  map_free(&state.channelMap);
   state.initialized = false;
 }
 
 Channel* lovrThreadGetChannel(const char* name) {
-  Channel** channel = (Channel**) map_get(&state.channels, name);
+  uint64_t hash = hash64(name, strlen(name));
+  uint64_t index = map_get(&state.channelMap, hash);
 
-  if (channel) {
-    return *channel;
-  } else {
-    Channel* channel = lovrChannelCreate();
-    map_set(&state.channels, name, channel);
-    return channel;
+  if (index == MAP_NIL) {
+    index = state.channels.length;
+    map_set(&state.channelMap, hash, index);
+    arr_push(&state.channels, lovrChannelCreate());
   }
+
+  return state.channels.data[index];
 }
 
 Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), Blob* body) {

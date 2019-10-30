@@ -3,12 +3,15 @@
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "graphics/texture.h"
+#include "core/arr.h"
+#include "core/hash.h"
 #include "core/maf.h"
+#include "core/map.h"
 #include "core/ref.h"
-
-#include <stdbool.h>
 #include <OVR_CAPI.h>
 #include <OVR_CAPI_GL.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
 static struct {
   bool needRefreshTracking;
@@ -21,19 +24,21 @@ static struct {
   Canvas* canvas;
   ovrTextureSwapChain chain;
   ovrMirrorTexture mirror;
-  map_t(Texture*) textureLookup;
+  arr_t(Texture*) textures;
+  map_t textureLookup;
 } state;
 
 static Texture* lookupTexture(uint32_t handle) {
-  char key[4 + 1] = { 0 };
-  lovrAssert(handle < 9999, "Texture handle overflow");
-  sprintf(key, "%d", handle);
-  Texture** texture = map_get(&state.textureLookup, key);
-  if (!texture) {
-    map_set(&state.textureLookup, key, lovrTextureCreateFromHandle(handle, TEXTURE_2D, 1));
-    texture = map_get(&state.textureLookup, key);
+  uint64_t hash = hash64(&handle, sizeof(handle));
+  uint64_t index = map_get(&state.textureLookup, hash);
+
+  if (index == MAP_NIL) {
+    index = state.textures.length;
+    map_set(&state.textureLookup, hash, index);
+    arr_push(&state.textures, lovrTextureCreateFromHandle(handle, TEXTURE_2D, 1));
   }
-  return *texture;
+
+  return state.textures.data[index];
 }
 
 static ovrTrackingState *refreshTracking(void) {
@@ -85,20 +90,17 @@ static bool oculus_init(float offset, uint32_t msaa) {
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
 
-  map_init(&state.textureLookup);
+  map_init(&state.textureLookup, 4);
 
   ovr_SetTrackingOriginType(state.session, ovrTrackingOrigin_FloorLevel);
   return true;
 }
 
 static void oculus_destroy(void) {
-  const char* key;
-  map_iter_t iter = map_iter(&state.textureLookup);
-  while ((key = map_next(&state.textureLookup, &iter)) != NULL) {
-    Texture* texture = *map_get(&state.textureLookup, key);
-    lovrRelease(Texture, texture);
+  for (size_t i = 0; i < state.textures.length; i++) {
+    lovrRelease(Texture, state.textures.data[i]);
   }
-  map_deinit(&state.textureLookup);
+  map_free(&state.textureLookup);
 
   if (state.mirror) {
     ovr_DestroyMirrorTexture(state.session, state.mirror);

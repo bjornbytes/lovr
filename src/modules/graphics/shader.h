@@ -1,7 +1,6 @@
 #include "graphics/texture.h"
 #include "graphics/opengl.h"
 #include "core/arr.h"
-#include "lib/map/map.h"
 #include <stdbool.h>
 
 #pragma once
@@ -95,7 +94,7 @@ typedef arr_t(Uniform) arr_uniform_t;
 typedef struct {
   BlockType type;
   arr_uniform_t uniforms;
-  map_t(size_t) uniformMap;
+  map_t uniformMap;
   struct Buffer* buffer;
 } ShaderBlock;
 
@@ -114,9 +113,9 @@ typedef struct Shader {
   ShaderType type;
   arr_uniform_t uniforms;
   arr_block_t blocks[2];
-  map_int_t attributes;
-  map_t(size_t) uniformMap;
-  map_int_t blockMap;
+  map_t attributes;
+  map_t uniformMap;
+  map_t blockMap;
   bool multiview;
   GPU_SHADER_FIELDS
 } Shader;

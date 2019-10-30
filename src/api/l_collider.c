@@ -495,7 +495,7 @@ static int l_lovrColliderSetTag(lua_State* L) {
   }
 
   const char* tag = luaL_checkstring(L, 2);
-  if (lovrColliderSetTag(collider, tag)) {
+  if (!lovrColliderSetTag(collider, tag)) {
     return luaL_error(L, "Invalid tag %s", tag);
   }
 

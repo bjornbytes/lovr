@@ -1201,15 +1201,15 @@ void lovrGraphicsSkybox(Texture* texture) {
 
 void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   float width;
+  float height;
   uint32_t lineCount;
   uint32_t glyphCount;
   Font* font = lovrGraphicsGetFont();
-  lovrFontMeasure(font, str, length, wrap, &width, &lineCount, &glyphCount);
+  lovrFontMeasure(font, str, length, wrap, &width, &height, &lineCount, &glyphCount);
 
-  float scale = 1.f / font->pixelDensity;
-  float offsetY = ((lineCount + 1) * font->rasterizer->height * font->lineHeight) * (valign / 2.f) * (font->flip ? -1 : 1);
+  float scale = 1.f / lovrFontGetPixelDensity(font);
   mat4_scale(transform, scale, scale, scale);
-  mat4_translate(transform, 0.f, offsetY, 0.f);
+  mat4_translate(transform, 0.f, height * (valign / 2.f), 0.f);
 
   Pipeline pipeline = state.pipeline;
   pipeline.blendMode = pipeline.blendMode == BLEND_NONE ? BLEND_ALPHA : pipeline.blendMode;
@@ -1223,7 +1223,7 @@ void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wra
     .shader = SHADER_FONT,
     .pipeline = &pipeline,
     .transform = transform,
-    .texture = font->texture,
+    .texture = lovrFontGetTexture(font),
     .vertexCount = glyphCount * 4,
     .indexCount = glyphCount * 6,
     .vertices = &vertices,
