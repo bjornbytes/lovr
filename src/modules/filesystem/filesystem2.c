@@ -34,6 +34,7 @@ typedef struct {
   uint32_t nextSibling;
   uint64_t offset;
   FileInfo info;
+  char filename[1024];
 } zip_node;
 
 typedef struct Archive {
@@ -41,18 +42,13 @@ typedef struct Archive {
   fs_handle file;
   arr_t(zip_node) nodes;
   map_t lookup;
-  uint32_t rootNode;
+  bool (*stat)(struct Archive* archive, const char* path, FileInfo* info);
   char path[FS_PATH_MAX];
   char mountpoint[64];
   char root[64];
 } Archive;
 
 // Archive: directory
-
-bool dir_init(Archive* archive, const char* path) {
-  FileInfo info;
-  return fs_stat(path, &info) && info.type == FILE_DIRECTORY;
-}
 
 bool dir_read(Archive* archive, const char* path, size_t bytes, size_t* bytesRead, void** data) {
   char resolved[LOVR_PATH_MAX];
@@ -105,6 +101,16 @@ void dir_list(Archive* archive, const char* path, fs_list_cb callback, void* con
   }
 }
 
+bool dir_init(Archive* archive, const char* path) {
+  FileInfo info;
+  if (fs_stat(path, &info) && info.type == FILE_DIRECTORY) {
+    archive->stat = dir_stat;
+    return true;
+  }
+
+  return false;
+}
+
 // Archive: zip
 
 #define ZIP_HEADER_SIZE 22
@@ -143,6 +149,35 @@ typedef struct {
   uint32_t offset;
 } zip_entry;
 
+bool zip_stat(Archive* archive, const char* path, FileInfo *info) {
+  uint64_t hash = hash64(path, strlen(path));
+  uint64_t index = map_get(&archive->lookup, hash);
+
+  if (index == MAP_NIL) {
+    return false;
+  }
+
+  *info = archive->nodes.data[index].info;
+  return true;
+}
+
+void zip_list(Archive* archive, const char* path, fs_list_cb callback, void* context) {
+  uint64_t hash = hash64(path, strlen(path));
+  uint64_t index = map_get(&archive->lookup, hash);
+
+  if (index == MAP_NIL) {
+    return;
+  }
+
+  zip_node* dir = &archive->nodes.data[index];
+  uint32_t i = dir->firstChild;
+  while (i != ~0u) {
+    zip_node* child = &archive->nodes.data[i];
+    callback(context, child->filename);
+    i = child->nextSibling;
+  }
+}
+
 bool zip_init(Archive* archive, const char* path) {
   if (!fs_open(path, OPEN_READ, &archive->file)) {
     return false;
@@ -153,15 +188,16 @@ bool zip_init(Archive* archive, const char* path) {
     return false;
   }
 
-  // Read the header
   size_t size = ZIP_HEADER_SIZE;
   uint8_t headerData[ZIP_HEADER_SIZE];
+  zip_header* header = (zip_header*) headerData;
+
+  // Read the header
   if (!fs_read(archive->file, headerData, &size) || size != sizeof(headerData)) {
     return false;
   }
 
   // "Validate"
-  zip_header* header = (zip_header*) headerData;
   if (header->magic != ZIP_HEADER_MAGIC) {
     return false;
   }
@@ -180,13 +216,12 @@ bool zip_init(Archive* archive, const char* path) {
   for (uint32_t i = 0; i < header->totalEntryCount; i++) {
     size_t size = ZIP_ENTRY_SIZE;
     uint8_t entryData[ZIP_ENTRY_SIZE];
+    zip_entry* entry = (zip_entry*) entryData;
 
     // Read the metadata
     if (!fs_read(archive->file, entryData, &size) || size != sizeof(entryData)) {
       return false;
     }
-
-    zip_entry* entry = (zip_entry*) entryData;
 
     // "Validate"
     if (entry->magic != ZIP_ENTRY_MAGIC || entry->nameLength >= FS_PATH_MAX) {
@@ -204,43 +239,66 @@ bool zip_init(Archive* archive, const char* path) {
     };
 
     // Read filename
-    char name[FS_PATH_MAX];
     size_t length = entry->nameLength;
-    if (!fs_read(archive->file, name, &length)) {
+    if (!fs_read(archive->file, node.filename, &length)) {
       return false;
     }
 
-    // Add node to lookups
-    uint32_t index = archive->nodes.length;
-
-    char* slash = strrchr(name + length - 1, '/');
-    if (!slash) {
-      if (archive->rootNode != ~0u) {
-        node.nextSibling = archive->rootNode;
-        archive->rootNode = index;
-      }
-    } else {
-      *slash = '\0';
-      uint64_t hash = hash64(name, slash - name);
-      uint64_t parent = map_get(&archive->lookup, hash);
-      if (parent == MAP_NIL) {
-        // Add it
-      } else {
-        node.nextSibling = archive->nodes[parent].firstChild;
-        archive->nodes[parent].firstChild = index;
-      }
-      *slash = '/';
+    // Filenames that end in slashes are directories, but should have trailing slash stripped
+    if (node.filename[length - 1] == '/') {
+      node.info.type = FILE_DIRECTORY;
+      length--;
     }
 
-    map_set(&archive->lookup, hash64(name, length), index);
-    arr_push(&archive->nodes, node);
+    node.filename[length] = '\0';
 
-    // Jump to next entry
+    // Add node to lookups if not already added by a previous ancestor add
+    uint64_t hash = hash64(node.filename, length);
+    uint64_t child = map_get(&archive->lookup, hash);
+
+    if (child == MAP_NIL) {
+      child = archive->nodes.length;
+      map_set(&archive->lookup, hash, child);
+      arr_push(&archive->nodes, node);
+    } else if (node.info.type != FILE_DIRECTORY) {
+      return false; // Only directories should be able to get indexed twice
+    }
+
+    // Update directory tree adding ancestors, iterating backwards to allow for early out
+    for (char* s = node.filename + length; s-- > node.filename;) {
+      if (*s == '/') {
+        uint64_t hash = hash64(node.filename, s - node.filename);
+        uint64_t parent = map_get(&archive->lookup, hash);
+
+        // If we encounter a parent, then we can add ourselves as a child of that parent and exit
+        if (parent != MAP_NIL) {
+          archive->nodes.data[child].nextSibling = archive->nodes.data[parent].firstChild;
+          archive->nodes.data[parent].firstChild = child;
+          break;
+        }
+
+        // Otherwise, index the parent directory and recurse
+        parent = archive->nodes.length;
+        map_set(&archive->lookup, hash, parent);
+        arr_push(&archive->nodes, ((zip_node) {
+          .firstChild = child,
+          .nextSibling = ~0u,
+          .offset = ~0u,
+          .info.size = 0,
+          .info.type = FILE_DIRECTORY
+        }));
+
+        child = parent;
+      }
+    }
+
+    // Seek to next entry, skipping over extra/comment strings
     if (!fs_seek(archive->file, entry->extraLength + entry->commentLength, FROM_CURRENT)) {
       return false;
     }
   }
 
+  archive->stat = zip_stat;
   return true;
 }
 
@@ -353,12 +411,15 @@ bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, 
   // TODO mountpoint
   // TODO root
 
-  if (!state.archives) {
-    state.archives = archive;
-  } else if (append) {
-    Archive* tail = state.archives;
-    while (tail->next) tail = tail->next;
-    tail->next = archive;
+  if (append) {
+    archive->next = NULL;
+    if (state.archives) {
+      Archive* tail = state.archives;
+      while (tail->next) tail = tail->next;
+      tail->next = archive;
+    } else {
+      state.archives = archive;
+    }
   } else {
     archive->next = state.archives;
     state.archives = archive;
@@ -388,7 +449,7 @@ const char* lovrFilesystemGetRealDirectory(const char* path) {
   if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {
-      if (dir_stat(archive, path, &info)) {
+      if (archive->stat(archive, path, &info)) {
         return archive->path;
       }
     }
@@ -400,7 +461,7 @@ bool lovrFilesystemIsFile(const char* path) {
   if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {
-      if (dir_stat(archive, path, &info)) {
+      if (archive->stat(archive, path, &info)) {
         return info.type == FILE_REGULAR;
       }
     }
@@ -412,7 +473,7 @@ bool lovrFilesystemIsDirectory(const char* path) {
   if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {
-      if (dir_stat(archive, path, &info)) {
+      if (archive->stat(archive, path, &info)) {
         return info.type == FILE_DIRECTORY;
       }
     }
@@ -425,7 +486,7 @@ size_t lovrFilesystemGetSize(const char* path) {
   if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {
-      if (dir_stat(archive, path, &info)) {
+      if (archive->stat(archive, path, &info)) {
         return info.size;
       }
     }
@@ -438,7 +499,7 @@ long lovrFilesystemGetLastModified(const char* path) {
   if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {
-      if (dir_stat(archive, path, &info)) {
+      if (archive->stat(archive, path, &info)) {
         return info.lastModified;
       }
     }
