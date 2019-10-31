@@ -205,7 +205,7 @@ const char* lovrFilesystemGetSaveDirectory() {
   return state.savePathFull;
 }
 
-size_t lovrFilesystemGetSize(const char* path) {
+uint64_t lovrFilesystemGetSize(const char* path) {
   PHYSFS_Stat stat;
   return PHYSFS_stat(path, &stat) ? stat.filesize : -1;
 }

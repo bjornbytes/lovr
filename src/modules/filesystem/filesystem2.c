@@ -481,8 +481,7 @@ bool lovrFilesystemIsDirectory(const char* path) {
   return false;
 }
 
-// TODO return a uint64, this isn't memory
-size_t lovrFilesystemGetSize(const char* path) {
+uint64_t lovrFilesystemGetSize(const char* path) {
   if (validate(path)) {
     FileInfo info;
     FOREACH_ARCHIVE(archive) {

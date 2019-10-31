@@ -158,8 +158,8 @@ static int l_lovrFilesystemGetSaveDirectory(lua_State* L) {
 
 static int l_lovrFilesystemGetSize(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  size_t size = lovrFilesystemGetSize(path);
-  if ((int) size == -1) {
+  uint64_t size = lovrFilesystemGetSize(path);
+  if (size == (uint64_t) -1) {
     return luaL_error(L, "File does not exist");
   }
   lua_pushinteger(L, size);
