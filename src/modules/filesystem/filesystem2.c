@@ -26,7 +26,16 @@ static bool validate(const char* path) {
 }
 
 static bool joinPaths(char* buffer, const char* p1, const char* p2) {
-  return snprintf(buffer, LOVR_PATH_MAX, "%s/%s", p1, p2) < LOVR_PATH_MAX;
+  size_t length1 = strlen(p1);
+  size_t length2 = strlen(p2);
+  if (length1 + 1 + length2 >= LOVR_PATH_MAX) {
+    return false;
+  }
+  memcpy(buffer, p1, length1);
+  buffer[length1] = '/';
+  memcpy(buffer + length1 + 1, p2, length2);
+  buffer[length1 + 1 + length2] = '\0';
+  return true;
 }
 
 typedef struct {
