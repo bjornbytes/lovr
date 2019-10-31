@@ -43,6 +43,7 @@ typedef struct Archive {
   arr_t(zip_node) nodes;
   map_t lookup;
   bool (*stat)(struct Archive* archive, const char* path, FileInfo* info);
+  void (*list)(struct Archive* archive, const char* path, void (*callback)(void* context, char* path), void* context);
   char path[FS_PATH_MAX];
   char mountpoint[64];
   char root[64];
@@ -105,6 +106,7 @@ bool dir_init(Archive* archive, const char* path) {
   FileInfo info;
   if (fs_stat(path, &info) && info.type == FILE_DIRECTORY) {
     archive->stat = dir_stat;
+    archive->list = dir_list;
     return true;
   }
 
@@ -266,8 +268,10 @@ bool zip_init(Archive* archive, const char* path) {
 
     // Update directory tree adding ancestors, iterating backwards to allow for early out
     for (char* s = node.filename + length; s-- > node.filename;) {
-      if (*s == '/') {
-        uint64_t hash = hash64(node.filename, s - node.filename);
+      bool root = (s == node.filename);
+
+      if (*s == '/' || root) {
+        uint64_t hash = root ? hash64("/", 1) : hash64(node.filename, s - node.filename);
         uint64_t parent = map_get(&archive->lookup, hash);
 
         // If we encounter a parent, then we can add ourselves as a child of that parent and exit
@@ -299,6 +303,7 @@ bool zip_init(Archive* archive, const char* path) {
   }
 
   archive->stat = zip_stat;
+  archive->list = zip_list;
   return true;
 }
 
@@ -518,12 +523,11 @@ void* lovrFilesystemRead(const char* path, size_t bytes, size_t* bytesRead) {
   return NULL;
 }
 
-// TODO callback casting
 // TODO dedupe / sort (or use Lua for it)
-void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* context) {
+void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* context, char* path), void* context) {
   if (validate(path)) {
     FOREACH_ARCHIVE(archive) {
-      dir_list(archive, path, (fs_list_cb*) callback, context);
+      archive->list(archive, path, callback, context);
     }
   }
 }

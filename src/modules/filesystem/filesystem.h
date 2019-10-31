@@ -8,14 +8,12 @@
 
 extern const char lovrDirSep;
 
-typedef int (*getDirectoryItemsCallback)(void* userdata, const char* dir, const char* file);
-
 bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* argRoot);
 void lovrFilesystemDestroy(void);
 bool lovrFilesystemCreateDirectory(const char* path);
 bool lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size);
 bool lovrFilesystemGetApplicationId(char* dest, size_t size);
-void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata);
+void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* context, char* path), void* context);
 int lovrFilesystemGetExecutablePath(char* path, uint32_t size);
 const char* lovrFilesystemGetIdentity(void);
 long lovrFilesystemGetLastModified(const char* path);

@@ -172,8 +172,8 @@ bool lovrFilesystemGetApplicationId(char* dest, size_t size) {
 #endif
 }
 
-void lovrFilesystemGetDirectoryItems(const char* path, getDirectoryItemsCallback callback, void* userdata) {
-  PHYSFS_enumerate(path, (PHYSFS_EnumerateCallback) callback, userdata);
+void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* context, char* path), void* context) {
+  PHYSFS_enumerate(path, (PHYSFS_EnumerateCallback) callback, context);
 }
 
 int lovrFilesystemGetExecutablePath(char* path, uint32_t size) {
