@@ -378,23 +378,23 @@ bool lovrFilesystemIsFused() {
 // Known paths
 // TODO wtf are these function sigs
 
-bool lovrFilesystemGetApplicationId(char* dest, size_t size) {
+bool lovrFilesystemGetApplicationId(char* buffer, size_t size) {
   return false;
 }
 
-bool lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
-  return fs_getDataDirectory(dest, size) > 0;
+bool lovrFilesystemGetAppdataDirectory(char* buffer, size_t size) {
+  return fs_getDataDirectory(buffer, size);
 }
 
-int lovrFilesystemGetExecutablePath(char* path, uint32_t size) {
-  return !fs_getExecutablePath(path, size);
+bool lovrFilesystemGetExecutablePath(char* buffer, size_t size) {
+  return fs_getExecutablePath(buffer, size);
 }
 
 bool lovrFilesystemGetUserDirectory(char* buffer, size_t size) {
-  return fs_getUserDirectory(buffer, size) > 0;
+  return fs_getUserDirectory(buffer, size);
 }
 
-bool lovrFilesystemGetWorkingDirectory(char* buffer, unsigned int size) {
+bool lovrFilesystemGetWorkingDirectory(char* buffer, size_t size) {
   return fs_getWorkingDirectory(buffer, size);
 }
 

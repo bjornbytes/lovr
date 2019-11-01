@@ -119,26 +119,26 @@ bool lovrFilesystemCreateDirectory(const char* path) {
   return PHYSFS_mkdir(path);
 }
 
-bool lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
+bool lovrFilesystemGetAppdataDirectory(char* buffer, size_t size) {
 #ifdef __APPLE__
   const char* home;
   if ((home = getenv("HOME")) == NULL) {
     home = getpwuid(getuid())->pw_dir;
   }
 
-  snprintf(dest, size, "%s/Library/Application Support", home);
+  snprintf(buffer, size, "%s/Library/Application Support", home);
   return true;
 #elif _WIN32
   PWSTR appData = NULL;
   SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &appData);
-  PHYSFS_utf8FromUtf16(appData, dest, size);
+  PHYSFS_utf8FromUtf16(appData, buffer, size);
   CoTaskMemFree(appData);
   return true;
 #elif EMSCRIPTEN
-  strncpy(dest, "/home/web_user", size);
+  strncpy(buffer, "/home/web_user", size);
   return true;
 #elif LOVR_USE_OCULUS_MOBILE
-  strncpy(dest, lovrOculusMobileWritablePath, size);
+  strncpy(buffer, lovrOculusMobileWritablePath, size);
   return true;
 #elif __linux__
   const char* home;
@@ -146,7 +146,7 @@ bool lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
     home = getpwuid(getuid())->pw_dir;
   }
 
-  snprintf(dest, size, "%s/.config", home);
+  snprintf(buffer, size, "%s/.config", home);
   return true;
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetAppdataDirectory"
@@ -155,14 +155,14 @@ bool lovrFilesystemGetAppdataDirectory(char* dest, unsigned int size) {
   return false;
 }
 
-bool lovrFilesystemGetApplicationId(char* dest, size_t size) {
+bool lovrFilesystemGetApplicationId(char* buffer, size_t size) {
 #ifdef __ANDROID__
   pid_t pid = getpid();
   char path[32];
   snprintf(path, LOVR_PATH_MAX, "/proc/%i/cmdline", (int) pid);
   FILE* file = fopen(path, "r");
   if (file) {
-    size_t read = fread(dest, 1, size, file);
+    size_t read = fread(buffer, 1, size, file);
     fclose(file);
     return true;
   }
@@ -176,8 +176,8 @@ void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* co
   PHYSFS_enumerate(path, (PHYSFS_EnumerateCallback) callback, context);
 }
 
-int lovrFilesystemGetExecutablePath(char* path, uint32_t size) {
-  return lovrPlatformGetExecutablePath(path, size);
+bool lovrFilesystemGetExecutablePath(char* buffer, size_t size) {
+  return lovrPlatformGetExecutablePath(buffer, size) == 0;
 }
 
 const char* lovrFilesystemGetIdentity() {
@@ -214,30 +214,34 @@ const char* lovrFilesystemGetSource() {
   return state.source;
 }
 
-const char* lovrFilesystemGetUserDirectory() {
+bool lovrFilesystemGetUserDirectory(char* buffer, size_t size) {
 #if defined(__APPLE__) || defined(__linux__)
   const char* home;
   if ((home = getenv("HOME")) == NULL) {
     home = getpwuid(getuid())->pw_dir;
   }
-  return home;
+  strncpy(buffer, home, size);
+  return true;
 #elif _WIN32
-  return getenv("USERPROFILE");
+  const char* home = getenv("USERPROFILE");
+  strncpy(buffer, home, size);
+  return true;
 #elif EMSCRIPTEN
-  return "/home/web_user";
+  strcpy(buffer, "/home/web_user");
+  return true;
 #else
 #error "This platform is missing an implementation for lovrFilesystemGetUserDirectory"
 #endif
 }
 
-bool lovrFilesystemGetWorkingDirectory(char* dest, unsigned int size) {
+bool lovrFilesystemGetWorkingDirectory(char* buffer, size_t size) {
 #ifdef _WIN32
   WCHAR w_cwd[LOVR_PATH_MAX];
   _wgetcwd(w_cwd, LOVR_PATH_MAX);
-  PHYSFS_utf8FromUtf16(w_cwd, dest, size);
+  PHYSFS_utf8FromUtf16(w_cwd, buffer, size);
   return true;
 #else
-  if (getcwd(dest, size)) {
+  if (getcwd(buffer, size)) {
     return true;
   }
 #endif
