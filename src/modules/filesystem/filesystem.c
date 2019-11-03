@@ -86,24 +86,25 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   lovrFilesystemSetRequirePath("?.lua;?/init.lua;lua_modules/?.lua;lua_modules/?/init.lua;deps/?.lua;deps/?/init.lua");
   lovrFilesystemSetCRequirePath("??;lua_modules/??;deps/??");
 
-  // Try to mount an archive fused to the executable
-  if (!getBundlePath(state.source, LOVR_PATH_MAX) || !lovrFilesystemMount(state.source, NULL, 1, argRoot)) {
-    state.fused = false;
-
-    // If that didn't work, try loading an archive from the command line
-    if (argGame) {
-      strncpy(state.source, argGame, LOVR_PATH_MAX);
-      if (lovrFilesystemMount(state.source, NULL, 1, argRoot)) {
-        return true;
-      }
+  // 1. Try loading an archive from the command line
+  if (argGame) {
+    strncpy(state.source, argGame, LOVR_PATH_MAX);
+    if (lovrFilesystemMount(state.source, NULL, 1, argRoot)) {
+      state.fused = false;
+      return true;
     }
-
-    // Otherwise, give up
-    free(state.source);
-    state.source = NULL;
   }
 
-  return true;
+  // 2. Try to mount an archive fused to the executable
+  if (getBundlePath(state.source, LOVR_PATH_MAX) && lovrFilesystemMount(state.source, NULL, 1, argRoot)) {
+    state.fused = true;
+    return true;
+  }
+
+  // No game in arg nor in executable? Give up.
+  free(state.source);
+  state.source = NULL;
+  return false;
 }
 
 void lovrFilesystemDestroy() {
