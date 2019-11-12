@@ -7,6 +7,7 @@ void luax_pushjoint(lua_State* L, Joint* joint) {
     case JOINT_DISTANCE: luax_pushtype(L, DistanceJoint, joint); break;
     case JOINT_HINGE: luax_pushtype(L, HingeJoint, joint); break;
     case JOINT_SLIDER: luax_pushtype(L, SliderJoint, joint); break;
+    default: lovrThrow("Unreachable");
   }
 }
 
@@ -78,12 +79,27 @@ static int l_lovrJointSetUserData(lua_State* L) {
   return 0;
 }
 
+static int l_lovrJointIsEnabled(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  lua_pushboolean(L, lovrJointIsEnabled(joint));
+  return 1;
+}
+
+static int l_lovrJointSetEnabled(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  bool enable = lua_toboolean(L, 2);
+  lovrJointSetEnabled(joint, enable);
+  return 0;
+}
+
 #define lovrJoint \
   { "destroy", l_lovrJointDestroy }, \
   { "getType", l_lovrJointGetType }, \
   { "getColliders", l_lovrJointGetColliders }, \
   { "getUserData", l_lovrJointGetUserData }, \
-  { "setUserData", l_lovrJointSetUserData }
+  { "setUserData", l_lovrJointSetUserData }, \
+  { "isEnabled", l_lovrJointIsEnabled }, \
+  { "setEnabled", l_lovrJointSetEnabled }
 
 static int l_lovrBallJointGetAnchors(lua_State* L) {
   BallJoint* joint = luax_checktype(L, 1, BallJoint);

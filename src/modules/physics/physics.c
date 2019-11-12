@@ -900,6 +900,18 @@ void lovrJointSetUserData(Joint* joint, void* data) {
   joint->userdata = data;
 }
 
+bool lovrJointIsEnabled(Joint* joint) {
+  return dJointIsEnabled(joint->id);
+}
+
+void lovrJointSetEnabled(Joint* joint, bool enable) {
+  if (enable) {
+    dJointEnable(joint->id);
+  } else {
+    dJointDisable(joint->id);
+  }
+}
+
 BallJoint* lovrBallJointInit(BallJoint* joint, Collider* a, Collider* b, float x, float y, float z) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   joint->type = JOINT_BALL;
