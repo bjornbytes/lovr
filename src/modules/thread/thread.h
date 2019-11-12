@@ -1,6 +1,7 @@
 #include "data/blob.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <stdbool.h>
+#include <stdint.h>
 
 #pragma once
 
@@ -18,6 +19,7 @@ typedef struct Thread {
 bool lovrThreadModuleInit(void);
 void lovrThreadModuleDestroy(void);
 struct Channel* lovrThreadGetChannel(const char* name);
+void lovrThreadRemoveChannel(uint64_t hash);
 
 Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), Blob* body);
 #define lovrThreadCreate(...) lovrThreadInit(lovrAlloc(Thread), __VA_ARGS__)

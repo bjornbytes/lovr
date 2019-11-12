@@ -38,10 +38,21 @@ Channel* lovrThreadGetChannel(const char* name) {
   if (index == MAP_NIL) {
     index = state.channels.length;
     map_set(&state.channelMap, hash, index);
-    arr_push(&state.channels, lovrChannelCreate());
+    arr_push(&state.channels, lovrChannelCreate(hash));
   }
 
   return state.channels.data[index];
+}
+
+void lovrThreadRemoveChannel(uint64_t hash) {
+  uint64_t index = map_get(&state.channelMap, hash);
+
+  if (index == MAP_NIL) {
+    return;
+  }
+
+  map_remove(&state.channelMap, hash);
+  arr_splice(&state.channels, index, 1);
 }
 
 Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), Blob* body) {

@@ -6,7 +6,7 @@
 struct Variant;
 
 typedef struct Channel Channel;
-Channel* lovrChannelCreate(void);
+Channel* lovrChannelCreate(uint64_t hash);
 void lovrChannelDestroy(void* ref);
 bool lovrChannelPush(Channel* channel, struct Variant* variant, double timeout, uint64_t* id);
 bool lovrChannelPop(Channel* channel, struct Variant* variant, double timeout);

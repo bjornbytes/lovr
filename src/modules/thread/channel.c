@@ -15,18 +15,22 @@ struct Channel {
   size_t head;
   uint64_t sent;
   uint64_t received;
+  uint64_t hash;
 };
 
-Channel* lovrChannelCreate(void) {
+Channel* lovrChannelCreate(uint64_t hash) {
   Channel* channel = lovrAlloc(Channel);
   arr_init(&channel->messages);
   mtx_init(&channel->lock, mtx_plain | mtx_timed);
   cnd_init(&channel->cond);
+  channel->hash = hash;
   return channel;
 }
 
+extern void lovrThreadRemoveChannel(uint64_t hash);
 void lovrChannelDestroy(void* ref) {
   Channel* channel = ref;
+  lovrThreadRemoveChannel(channel->hash);
   lovrChannelClear(channel);
   arr_free(&channel->messages);
   mtx_destroy(&channel->lock);
