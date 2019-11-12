@@ -23,6 +23,7 @@ static int luax_meta__gc(lua_State* L) {
     destructorFn* destructor = (destructorFn*) lua_tocfunction(L, -1);
     if (destructor) {
       _lovrRelease(p->object, destructor);
+      p->object = NULL;
     }
   }
   return 0;
@@ -69,6 +70,10 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
   if (functions) {
     luaL_register(L, NULL, functions);
   }
+
+  // :release function
+  lua_pushcfunction(L, luax_meta__gc);
+  lua_setfield(L, -2, "release");
 
   // Pop metatable
   lua_pop(L, 1);
