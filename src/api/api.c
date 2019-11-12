@@ -74,7 +74,7 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
   lua_pop(L, 1);
 }
 
-void* _luax_totype(lua_State* L, int index, uint32_t hash) {
+void* _luax_totype(lua_State* L, int index, uint64_t hash) {
   Proxy* p = lua_touserdata(L, index);
 
   if (p && lua_type(L, index) != LUA_TLIGHTUSERDATA && p->hash == hash) {
@@ -84,7 +84,7 @@ void* _luax_totype(lua_State* L, int index, uint32_t hash) {
   return NULL;
 }
 
-void* _luax_checktype(lua_State* L, int index, uint32_t hash, const char* debug) {
+void* _luax_checktype(lua_State* L, int index, uint64_t hash, const char* debug) {
   void* object = _luax_totype(L, index, hash);
 
   if (!object) {
@@ -95,7 +95,7 @@ void* _luax_checktype(lua_State* L, int index, uint32_t hash, const char* debug)
 }
 
 // Registers the userdata on the top of the stack in the registry.
-void _luax_pushtype(lua_State* L, const char* type, uint32_t hash, void* object) {
+void _luax_pushtype(lua_State* L, const char* type, uint64_t hash, void* object) {
   if (!object) {
     lua_pushnil(L);
     return;

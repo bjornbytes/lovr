@@ -119,9 +119,9 @@ typedef struct {
 #define luax_clearerror(L) lua_pushnil(L), luax_seterror(L)
 
 void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, void (*destructor)(void*));
-void* _luax_totype(lua_State* L, int index, uint32_t hash);
-void* _luax_checktype(lua_State* L, int index, uint32_t hash, const char* debug);
-void _luax_pushtype(lua_State* L, const char* name, uint32_t hash, void* object);
+void* _luax_totype(lua_State* L, int index, uint64_t hash);
+void* _luax_checktype(lua_State* L, int index, uint64_t hash, const char* debug);
+void _luax_pushtype(lua_State* L, const char* name, uint64_t hash, void* object);
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
 void luax_vthrow(void* L, const char* format, va_list args);
 void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);
