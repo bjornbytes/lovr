@@ -41,21 +41,28 @@ uint32_t lovrMicrophoneGetChannelCount(Microphone* microphone) {
   return microphone->channelCount;
 }
 
-SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples) {
-  if (!microphone->isRecording) {
+SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples, SoundData* soundData, size_t offset) {
+  size_t availableSamples = lovrMicrophoneGetSampleCount(microphone);
+
+  if (!microphone->isRecording || availableSamples == 0) {
     return NULL;
   }
 
-  size_t availableSamples = lovrMicrophoneGetSampleCount(microphone);
-  if (availableSamples == 0) {
-    return NULL;
+  if (soundData == NULL) {
+    soundData = lovrSoundDataCreate(samples, microphone->sampleRate, microphone->bitDepth, microphone->channelCount);
+  } else {
+    lovrAssert(soundData->channelCount == microphone->channelCount, "Microphone and SoundData channel counts must match");
+    lovrAssert(soundData->sampleRate == microphone->sampleRate, "Microphone and SoundData sample rates must match");
+    lovrAssert(soundData->bitDepth == microphone->bitDepth, "Microphone and SoundData bit depths must match");
+    lovrAssert(offset + samples <= soundData->samples, "Tried to write samples past the end of a SoundData buffer");
   }
+
   if (samples == 0 || samples > availableSamples) {
     samples = availableSamples;
   }
 
-  SoundData* soundData = lovrSoundDataCreate(samples, microphone->sampleRate, microphone->bitDepth, microphone->channelCount);
-  alcCaptureSamples(microphone->device, soundData->blob->data, (ALCsizei) samples);
+  uint8_t* data = (uint8_t*) soundData->blob->data + offset * (microphone->bitDepth / 8) * microphone->channelCount;
+  alcCaptureSamples(microphone->device, data, (ALCsizei) samples);
   return soundData;
 }
 
