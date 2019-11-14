@@ -1813,7 +1813,8 @@ void* lovrBufferMap(Buffer* buffer, size_t offset) {
   if (!GLAD_GL_ARB_buffer_storage && !buffer->mapped) {
     buffer->mapped = true;
     lovrGpuBindBuffer(buffer->type, buffer->id);
-    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT | (buffer->readable ? GL_MAP_READ_BIT : 0);
+    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT;
+    flags |= buffer->readable ? GL_MAP_READ_BIT : GL_MAP_UNSYNCHRONIZED_BIT;
     buffer->data = glMapBufferRange(convertBufferType(buffer->type), 0, buffer->size, flags);
   }
 #endif
@@ -1862,7 +1863,8 @@ void lovrBufferDiscard(Buffer* buffer) {
     buffer->mapped = false;
   }
 
-  GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_INVALIDATE_BUFFER_BIT | (buffer->readable ? GL_MAP_READ_BIT : 0);
+  GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT;
+  flags |= buffer->readable ? GL_MAP_READ_BIT : (GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
   flags |= GLAD_GL_ARB_buffer_storage ? GL_MAP_PERSISTENT_BIT : 0;
   buffer->data = glMapBufferRange(glType, 0, buffer->size, flags);
 
