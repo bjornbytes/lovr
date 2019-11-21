@@ -170,9 +170,11 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
 
   int contactCount = dCollide(a->id, b->id, MAX_CONTACTS, &contacts[0].geom, sizeof(dContact));
 
-  for (int i = 0; i < contactCount; i++) {
-    dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[i]);
-    dJointAttach(joint, colliderA->body, colliderB->body);
+  if (!a->sensor && !b->sensor) {
+    for (int i = 0; i < contactCount; i++) {
+      dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[i]);
+      dJointAttach(joint, colliderA->body, colliderB->body);
+    }
   }
 
   return contactCount;
@@ -684,6 +686,14 @@ void lovrShapeSetEnabled(Shape* shape, bool enabled) {
   } else {
     dGeomDisable(shape->id);
   }
+}
+
+bool lovrShapeIsSensor(Shape* shape) {
+  return shape->sensor;
+}
+
+void lovrShapeSetSensor(Shape* shape, bool sensor) {
+  shape->sensor = sensor;
 }
 
 void* lovrShapeGetUserData(Shape* shape) {

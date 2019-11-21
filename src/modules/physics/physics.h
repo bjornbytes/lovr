@@ -55,6 +55,7 @@ struct Shape {
   dGeomID id;
   Collider* collider;
   void* userdata;
+  bool sensor;
 };
 
 typedef Shape SphereShape;
@@ -165,6 +166,8 @@ ShapeType lovrShapeGetType(Shape* shape);
 Collider* lovrShapeGetCollider(Shape* shape);
 bool lovrShapeIsEnabled(Shape* shape);
 void lovrShapeSetEnabled(Shape* shape, bool enabled);
+bool lovrShapeIsSensor(Shape* shape);
+void lovrShapeSetSensor(Shape* shape, bool sensor);
 void* lovrShapeGetUserData(Shape* shape);
 void lovrShapeSetUserData(Shape* shape, void* data);
 void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z);

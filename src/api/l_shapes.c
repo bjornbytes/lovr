@@ -64,6 +64,19 @@ static int l_lovrShapeSetEnabled(lua_State* L) {
   return 0;
 }
 
+static int l_lovrShapeIsSensor(lua_State* L) {
+  Shape* shape = luax_checkshape(L, 1);
+  lua_pushboolean(L, lovrShapeIsSensor(shape));
+  return 1;
+}
+
+static int l_lovrShapeSetSensor(lua_State* L) {
+  Shape* shape = luax_checkshape(L, 1);
+  bool sensor = lua_toboolean(L, 2);
+  lovrShapeSetSensor(shape, sensor);
+  return 0;
+}
+
 static int l_lovrShapeGetUserData(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
   union { int i; void* p; } ref = { .p = lovrShapeGetUserData(shape) };
@@ -162,6 +175,8 @@ static int l_lovrShapeGetAABB(lua_State* L) {
   { "getCollider", l_lovrShapeGetCollider }, \
   { "isEnabled", l_lovrShapeIsEnabled }, \
   { "setEnabled", l_lovrShapeSetEnabled }, \
+  { "isSensor", l_lovrShapeIsSensor }, \
+  { "setSensor", l_lovrShapeSetSensor }, \
   { "getUserData", l_lovrShapeGetUserData }, \
   { "setUserData", l_lovrShapeSetUserData }, \
   { "getPosition", l_lovrShapeGetPosition }, \
