@@ -98,7 +98,9 @@ static void onGlfwError(int code, const char* description) {
 
 bool lovrPlatformInit() {
   glfwSetErrorCallback(onGlfwError);
+#ifndef EMSCRIPTEN
   glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
+#endif
   return glfwInit();
 }
 
