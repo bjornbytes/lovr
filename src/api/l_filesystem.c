@@ -1,7 +1,7 @@
 #include "api.h"
 #include "filesystem/filesystem.h"
-#include "filesystem/file.h"
 #include "data/blob.h"
+#include "core/fs.h"
 #include "core/ref.h"
 #include <stdlib.h>
 #include <string.h>
@@ -35,22 +35,21 @@ static int pushDirectoryItem(void* userdata, const char* path, const char* filen
 }
 
 typedef struct {
-  File file;
+  fs_handle file;
   char buffer[4096];
 } luax_Reader;
 
 static const char* readCallback(lua_State* L, void* data, size_t* size) {
   luax_Reader* reader = data;
-  *size = lovrFileRead(&reader->file, reader->buffer, sizeof(reader->buffer));
-  return *size == 0 ? NULL : reader->buffer;
+  *size = sizeof(reader->buffer);
+  return fs_read(reader->file, reader->buffer, size) ? reader->buffer : NULL;
 }
 
 static int luax_loadfile(lua_State* L, const char* path, const char* debug) {
   luax_Reader reader;
-  lovrFileInit(&reader.file, path);
-  lovrAssert(lovrFileOpen(&reader.file, OPEN_READ), "Could not open file %s", path);
+  lovrAssert(fs_open(path, OPEN_READ, &reader.file), "Could not open file %s", path);
   int status = lua_load(L, readCallback, &reader, debug);
-  lovrFileDestroy(&reader.file);
+  fs_close(reader.file);
   switch (status) {
     case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1));
     case LUA_ERRSYNTAX: return luaL_error(L, "Syntax error: %s", lua_tostring(L, -1));
