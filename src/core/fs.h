@@ -21,13 +21,15 @@ typedef struct {
   FileType type;
 } FileInfo;
 
-typedef void fs_list_cb(void*, char*);
+typedef void fs_list_cb(void*, const char*);
 typedef struct { int handle; } fs_handle;
 
 bool fs_open(const char* path, OpenMode mode, fs_handle* file);
 bool fs_close(fs_handle file);
 bool fs_read(fs_handle file, void* buffer, size_t* bytes);
 bool fs_write(fs_handle file, const void* buffer, size_t* bytes);
+void* fs_map(const char* path, size_t* size);
+bool fs_unmap(void* data, size_t size);
 bool fs_stat(const char* path, FileInfo* info);
 bool fs_remove(const char* path);
 bool fs_mkdir(const char* path);
@@ -38,3 +40,5 @@ size_t fs_getHomeDir(char* buffer, size_t size);
 size_t fs_getDataDir(char* buffer, size_t size);
 size_t fs_getWorkDir(char* buffer, size_t size);
 size_t fs_getExecutablePath(char* buffer, size_t size);
+size_t fs_getBundlePath(char* buffer, size_t size);
+size_t fs_getBundleId(char* buffer, size_t size);

@@ -19,7 +19,3 @@ void lovrPlatformOpenConsole() {
     freopen("CONOUT$", "w", stderr);
   }
 }
-
-int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
-  return !GetModuleFileName(NULL, dest, size);
-}

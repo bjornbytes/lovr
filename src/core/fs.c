@@ -1,6 +1,7 @@
 #include "fs.h"
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <stdlib.h>
@@ -49,6 +50,22 @@ bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
   }
 }
 
+void* fs_map(const char* path, size_t* size) {
+  FileInfo info;
+  fs_handle file;
+  if (!fs_stat(path, &info) || !fs_open(path, OPEN_READ, &file)) {
+    return NULL;
+  }
+  *size = info.size;
+  void* data = mmap(NULL, *size, PROT_READ, MAP_PRIVATE, file.handle, 0);
+  fs_close(file);
+  return data;
+}
+
+bool fs_unmap(void* data, size_t size) {
+  return munmap(data, size) == 0;
+}
+
 bool fs_stat(const char* path, FileInfo* info) {
   struct stat stats;
   if (stat(path, &stats)) {
@@ -57,7 +74,7 @@ bool fs_stat(const char* path, FileInfo* info) {
 
   if (info) {
     info->size = (uint64_t) stats.st_size;
-    info->lastModified = (uint64_t) stats.st_mtimespec.tv_sec;
+    info->lastModified = (uint64_t) stats.st_mtime;
     info->type = (stats.st_mode & S_IFDIR) ? FILE_DIRECTORY : FILE_REGULAR;
   }
 
@@ -114,10 +131,13 @@ size_t fs_getDataDir(char* buffer, size_t size) {
 
   if (cursor > 0) {
     const char* suffix = "/Library/Application Support";
-    return copy(buffer + cursor, size - cursor, suffix, strlen(suffix));
+    return cursor + copy(buffer + cursor, size - cursor, suffix, strlen(suffix));
   }
 
   return 0;
+#elif EMSCRIPTEN
+  const char* path = "/home/web_user";
+  return copy(buffer, size, path, strlen(path));
 #else
   const char* xdg = getenv("XDG_DATA_HOME");
 
@@ -127,7 +147,7 @@ size_t fs_getDataDir(char* buffer, size_t size) {
     size_t cursor = fs_getHomeDir(buffer, size);
     if (cursor > 0) {
       const char* suffix = "/.local/share";
-      return copy(buffer + cursor, size - cursor, suffix, strlen(suffix));
+      return cursor + copy(buffer + cursor, size - cursor, suffix, strlen(suffix));
     }
   }
 
@@ -142,8 +162,59 @@ size_t fs_getWorkDir(char* buffer, size_t size) {
 size_t fs_getExecutablePath(char* buffer, size_t size) {
 #if __APPLE_
   return _NSGetExecutablePath(buffer, &size) ? 0 : size;
+#elif EMSCRIPTEN
+  return 0;
 #else
   ssize_t length = readlink("/proc/self/exe", buffer, size);
   return (length < 0) ? 0 : (size_t) length;
+#endif
+}
+
+#ifdef __APPLE__
+#include <objc/objc-runtime.h>
+#endif
+
+size_t fs_getBundlePath(char* buffer, size_t size) {
+#ifdef __APPLE__
+  id extension = ((id(*)(Class, SEL, char*)) objc_msgSend)(objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "lovr");
+  id bundle = ((id(*)(Class, SEL)) objc_msgSend)(objc_getClass("NSBundle"), sel_registerName("mainBundle"));
+  id path = ((id(*)(id, SEL, char*, id)) objc_msgSend)(bundle, sel_registerName("pathForResource:ofType:"), nil, extension);
+  if (path == nil) {
+    return 0;
+  }
+
+  const char* cpath = ((const char*(*)(id, SEL)) objc_msgSend)(path, sel_registerName("UTF8String"));
+  if (!cpath) {
+    return 0;
+  }
+
+  size_t length = strlen(cpath);
+  if (length >= size) {
+    return 0;
+  }
+
+  memcpy(buffer, cpath, length);
+  buffer[length] = '\0';
+  return length;
+#else
+  return fs_getExecutablePath(buffer, size);
+#endif
+}
+
+size_t fs_getBundleId(char* buffer, size_t size) {
+#ifdef __ANDROID__
+  // TODO
+  pid_t pid = getpid();
+  char path[32];
+  snprintf(path, LOVR_PATH_MAX, "/proc/%i/cmdline", (int) pid);
+  FILE* file = fopen(path, "r");
+  if (file) {
+    size_t read = fread(dest, 1, size, file);
+    fclose(file);
+    return true;
+  }
+  return 0;
+#else
+  return 0;
 #endif
 }

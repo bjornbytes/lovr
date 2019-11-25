@@ -87,10 +87,6 @@ void lovrPlatformSleep(double seconds) {
   usleep((unsigned int) (seconds * 1000000));
 }
 
-int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
-  return 1;
-}
-
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 getProcAddressProc lovrGetProcAddress = eglGetProcAddress;

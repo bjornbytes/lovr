@@ -18,6 +18,9 @@
     _arr_reserve((void**) &((a)->data), n, &(a)->capacity, sizeof(*(a)->data)) :\
     (void) 0
 
+#define arr_expand(a, n)\
+  arr_reserve(a, (a)->length + n)
+
 #define arr_push(a, x)\
   arr_reserve(a, (a)->length + 1),\
   (a)->data[(a)->length++] = x
@@ -31,7 +34,7 @@
   (a)->length += n
 
 #define arr_splice(a, i, n)\
-  memmove((a)->data + i, (a)->data + (i + n), ((a)->length - (n)) * sizeof(*(a)->data)),\
+  memmove((a)->data + (i), (a)->data + ((i) + n), ((a)->length - (n)) * sizeof(*(a)->data)),\
   (a)->length -= n
 
 #define arr_clear(a)\

@@ -26,7 +26,6 @@ option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for th
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_LEAP "Enable the Leap Motion backend for the headset module" OFF)
 
-option(LOVR_SYSTEM_PHYSFS "Use the system-provided PhysFS" OFF)
 option(LOVR_SYSTEM_ENET "Use the system-provided enet" OFF)
 option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
 option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
@@ -75,30 +74,6 @@ elseif(UNIX)
   find_package(PkgConfig)
   if(NOT APPLE)
     set(CMAKE_SKIP_RPATH OFF)
-  endif()
-endif()
-
-# PhysicsFS
-if(LOVR_ENABLE_FILESYSTEM)
-  if(LOVR_SYSTEM_PHYSFS)
-    find_package(PhysFS REQUIRED)
-    include_directories(${PHYSFS_INCLUDE_DIR})
-    set(LOVR_PHYSFS ${PHYSFS_LIBRARY})
-  else()
-    set(PHYSFS_BUILD_STATIC OFF CACHE BOOL "")
-    set(PHYSFS_ARCHIVE_7Z OFF CACHE BOOL "")
-    set(PHYSFS_ARCHIVE_GRP OFF CACHE BOOL "")
-    set(PHYSFS_ARCHIVE_WAD OFF CACHE BOOL "")
-    set(PHYSFS_ARCHIVE_HOG OFF CACHE BOOL "")
-    set(PHYSFS_ARCHIVE_MVL OFF CACHE BOOL "")
-    set(PHYSFS_ARCHIVE_QPAK OFF CACHE BOOL "")
-    set(PHYSFS_ARCHIVE_SLB OFF CACHE BOOL "")
-    set(PHYSFS_ARCHIVE_ISO9660 OFF CACHE BOOL "")
-    set(PHYSFS_ARCHIVE_VDF OFF CACHE BOOL "")
-    set(PHYSFS_BUILD_TEST OFF CACHE BOOL "")
-    add_subdirectory(deps/physfs physfs)
-    include_directories(deps/physfs/src)
-    set(LOVR_PHYSFS physfs)
   endif()
 endif()
 
@@ -319,12 +294,14 @@ endif()
 set(LOVR_SRC
   src/main.c
   src/core/arr.c
+  src/core/fs.c
   src/core/maf.c
   src/core/map.c
   src/core/platform.c
   src/core/ref.c
   src/core/utf.c
   src/core/util.c
+  src/core/zip.c
   src/api/api.c
   src/api/l_lovr.c
 )
@@ -350,7 +327,6 @@ target_link_libraries(lovr
   ${LOVR_OPENXR}
   ${LOVR_OCULUS}
   ${LOVR_LEAP}
-  ${LOVR_PHYSFS}
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
@@ -404,7 +380,6 @@ endif()
 if(LOVR_ENABLE_FILESYSTEM)
   add_definitions(-DLOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
-    src/modules/filesystem/file.c
     src/modules/filesystem/filesystem.c
     src/api/l_filesystem.c
   )
@@ -562,7 +537,6 @@ if(WIN32)
   move_dll(${LOVR_ODE})
   move_dll(${LOVR_OPENAL})
   move_dll(${LOVR_OPENVR})
-  move_dll(${LOVR_PHYSFS})
   move_dll(${LOVR_LEAP})
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 elseif(APPLE)
@@ -583,7 +557,6 @@ elseif(APPLE)
     move_lib(${LOVR_ODE})
     move_lib(${LOVR_OPENAL})
     move_lib(${LOVR_OPENVR})
-    move_lib(${LOVR_PHYSFS})
 
     target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns")
     set_target_properties(lovr PROPERTIES

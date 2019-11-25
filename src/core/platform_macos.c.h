@@ -15,7 +15,3 @@ void lovrPlatformSleep(double seconds) {
 void lovrPlatformOpenConsole() {
   //
 }
-
-int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
-  return _NSGetExecutablePath(dest, &size);
-}

@@ -15,11 +15,3 @@ void lovrPlatformSleep(double seconds) {
 void lovrPlatformOpenConsole() {
   //
 }
-
-int lovrPlatformGetExecutablePath(char* dest, uint32_t size) {
-  memset(dest, 0, size);
-  if (readlink("/proc/self/exe", dest, size) != -1) {
-    return 0;
-  }
-  return 1;
-}
