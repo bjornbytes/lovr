@@ -2013,6 +2013,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
         continue;
       } else {
         *subscript = '\0';
+        length = subscript - uniform.name;
       }
     }
 
