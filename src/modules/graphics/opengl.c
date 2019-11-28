@@ -2027,6 +2027,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
 #endif
     uniform.textureType = getUniformTextureType(glType);
     uniform.baseSlot = uniform.type == UNIFORM_SAMPLER ? textureSlot : (uniform.type == UNIFORM_IMAGE ? imageSlot : -1);
+    uniform.dirty = false;
 
     int blockIndex;
     glGetActiveUniformsiv(program, 1, &i, GL_UNIFORM_BLOCK_INDEX, &blockIndex);
