@@ -24,8 +24,7 @@ typedef union {
 } Vector;
 
 typedef struct Pool {
-  void* data;
-  float* floats;
+  float* data;
   size_t count;
   size_t cursor;
   size_t generation;
