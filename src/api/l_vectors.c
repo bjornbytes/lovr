@@ -84,7 +84,7 @@ int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
   switch (lua_type(L, index)) {
     case LUA_TNIL:
     case LUA_TNONE:
-      quat_set(q, 0, 0, 0, 0);
+      quat_set(q, 0.f, 0.f, 0.f, 1.f);
       return ++index;
     case LUA_TNUMBER:
       angle = luax_optfloat(L, index++, 0.f);
