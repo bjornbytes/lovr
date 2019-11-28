@@ -31,7 +31,7 @@
   (a)->length += n
 
 #define arr_splice(a, i, n)\
-  memmove((a)->data + i, (a)->data + (i + n), n * sizeof(*(a)->data)),\
+  memmove((a)->data + i, (a)->data + (i + n), ((a)->length - (n)) * sizeof(*(a)->data)),\
   (a)->length -= n
 
 #define arr_clear(a)\
