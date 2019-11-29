@@ -11,27 +11,27 @@
 
 // Thread module is off, don't use atomics
 
-typedef uint32_t Ref;
-static inline uint32_t ref_inc(Ref* ref) { return ++*ref; }
-static inline uint32_t ref_dec(Ref* ref) { return --*ref; }
+typedef uint64_t Ref;
+static inline uint64_t ref_inc(Ref* ref) { return ++*ref; }
+static inline uint64_t ref_dec(Ref* ref) { return --*ref; }
 
 #elif defined(_MSC_VER)
 
 // MSVC atomics
 
 #include <intrin.h>
-typedef uint32_t Ref;
-static inline uint32_t ref_inc(Ref* ref) { return _InterlockedIncrement(ref); }
-static inline uint32_t ref_dec(Ref* ref) { return _InterlockedDecrement(ref); }
+typedef uint64_t Ref;
+static inline uint64_t ref_inc(Ref* ref) { return _InterlockedIncrement(ref); }
+static inline uint64_t ref_dec(Ref* ref) { return _InterlockedDecrement(ref); }
 
 #elif (defined(__GNUC_MINOR__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7))) \
    || (__has_builtin(__atomic_add_fetch) && __has_builtin(__atomic_sub_fetch))
 
 // GCC/Clang atomics
 
-typedef uint32_t Ref;
-static inline uint32_t ref_inc(Ref* ref) { return __atomic_add_fetch(ref, 1, __ATOMIC_SEQ_CST); }
-static inline uint32_t ref_dec(Ref* ref) { return __atomic_sub_fetch(ref, 1, __ATOMIC_SEQ_CST); }
+typedef uint64_t Ref;
+static inline uint64_t ref_inc(Ref* ref) { return __atomic_add_fetch(ref, 1, __ATOMIC_SEQ_CST); }
+static inline uint64_t ref_dec(Ref* ref) { return __atomic_sub_fetch(ref, 1, __ATOMIC_SEQ_CST); }
 
 #else
 
@@ -43,9 +43,9 @@ static inline uint32_t ref_dec(Ref* ref) { return __atomic_sub_fetch(ref, 1, __A
 #endif
 
 #include <stdatomic.h>
-typedef _Atomic(uint32_t) Ref;
-static inline uint32_t ref_inc(Ref* ref) { return atomic_fetch_add(ref, 1) + 1; }
-static inline uint32_t ref_dec(Ref* ref) { return atomic_fetch_sub(ref, 1) - 1; }
+typedef _Atomic(uint64_t) Ref;
+static inline uint64_t ref_inc(Ref* ref) { return atomic_fetch_add(ref, 1) + 1; }
+static inline uint64_t ref_dec(Ref* ref) { return atomic_fetch_sub(ref, 1) - 1; }
 
 #endif
 
