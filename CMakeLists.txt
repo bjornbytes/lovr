@@ -74,6 +74,9 @@ elseif(ANDROID)
   set(LOVR_BUILD_SHARED ON) # Android has only "activities"
 elseif(UNIX)
   find_package(PkgConfig)
+  if(NOT APPLE)
+    set(CMAKE_SKIP_RPATH OFF)
+  endif()
 endif()
 
 # PhysicsFS
