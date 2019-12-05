@@ -43,11 +43,9 @@ if(EMSCRIPTEN)
     "-s USE_GLFW=3 "
     "-s USE_WEBGL2=1 "
     "-s GL_PREINITIALIZED_CONTEXT=1 "
-    "-s USE_PTHREADS=0 "
     "-s FULL_ES2=1 "
     "-s FULL_ES3=1 "
     "-s FORCE_FILESYSTEM=1 "
-    "-s ALLOW_MEMORY_GROWTH=1 "
     "-s \"EXPORTED_FUNCTIONS=[ "
       "'_main','_lovrDestroy',"
       "'_webvr_onAnimationFrame',"
@@ -58,13 +56,15 @@ if(EMSCRIPTEN)
     "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/webvr.js\" "
     "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.html\""
   )
+  if(LOVR_ENABLE_THREAD)
+    set(LOVR_EMSCRIPTEN_FLAGS "${LOVR_EMSCRIPTEN_FLAGS} -s USE_PTHREADS=1")
+  endif()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_EXECUTABLE_SUFFIX ".html")
   set(LOVR_USE_WEBVR ON)
   set(LOVR_USE_OPENVR OFF)
   set(LOVR_USE_OCULUS OFF)
-  set(LOVR_ENABLE_THREAD OFF)
 elseif(ANDROID)
   set(LOVR_USE_OPENVR OFF)
   set(LOVR_USE_OCULUS OFF)
