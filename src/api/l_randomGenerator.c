@@ -12,7 +12,7 @@ static double luax_checkrandomseedpart(lua_State* L, int index) {
   return x;
 }
 
-Seed luax_checkrandomseed(lua_State* L, int index) {
+uint64_t luax_checkrandomseed(lua_State* L, int index) {
   Seed seed;
 
   if (lua_isnoneornil(L, index + 1)) {
@@ -22,7 +22,7 @@ Seed luax_checkrandomseed(lua_State* L, int index) {
     seed.b32.hi = luax_checkrandomseedpart(L, index + 1);
   }
 
-  return seed;
+  return seed.b64;
 }
 
 int l_lovrRandomGeneratorGetSeed(lua_State* L) {
@@ -35,7 +35,7 @@ int l_lovrRandomGeneratorGetSeed(lua_State* L) {
 
 int l_lovrRandomGeneratorSetSeed(lua_State* L) {
   RandomGenerator* generator = luax_checktype(L, 1, RandomGenerator);
-  Seed seed = luax_checkrandomseed(L, 2);
+  Seed seed = { .b64 = luax_checkrandomseed(L, 2) };
   lovrRandomGeneratorSetSeed(generator, seed);
   return 0;
 }

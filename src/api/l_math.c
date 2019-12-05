@@ -127,7 +127,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
 static int l_lovrMathNewRandomGenerator(lua_State* L) {
   RandomGenerator* generator = lovrRandomGeneratorCreate();
   if (lua_gettop(L) > 0){
-    Seed seed = luax_checkrandomseed(L, 1);
+    Seed seed = { .b64 = luax_checkrandomseed(L, 1) };
     lovrRandomGeneratorSetSeed(generator, seed);
   }
   luax_pushtype(L, RandomGenerator, generator);

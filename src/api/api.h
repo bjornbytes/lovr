@@ -156,7 +156,6 @@ void luax_readattachments(lua_State* L, int index, struct Attachment* attachment
 
 #ifdef LOVR_ENABLE_MATH
 #include "math/pool.h" // TODO
-#include "math/randomGenerator.h" // TODO
 float* luax_tovector(lua_State* L, int index, VectorType* type);
 float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected);
 float* luax_newtempvector(lua_State* L, VectorType type);
@@ -164,7 +163,7 @@ int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
 int luax_readscale(lua_State* L, int index, float* v, int components, const char* expected);
 int luax_readquat(lua_State* L, int index, float* q, const char* expected);
 int luax_readmat4(lua_State* L, int index, float* m, int scaleComponents);
-Seed luax_checkrandomseed(lua_State* L, int index);
+uint64_t luax_checkrandomseed(lua_State* L, int index);
 #endif
 
 #ifdef LOVR_ENABLE_PHYSICS
