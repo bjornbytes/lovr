@@ -111,6 +111,7 @@ Contributors
 - [@shakesoda](https://github.com/shakesoda)
 - [@bcampbell](https://github.com/bcampbell)
 - [@mcclure](https://github.com/mcclure)
+- [@nevyn](https://github.com/nevyn)
 
 License
 ---
