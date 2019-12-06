@@ -22,7 +22,7 @@ typedef struct {
 } FileInfo;
 
 typedef void fs_list_cb(void*, const char*);
-typedef struct { int handle; } fs_handle;
+typedef union { int fd; void* handle; } fs_handle;
 
 bool fs_open(const char* path, OpenMode mode, fs_handle* file);
 bool fs_close(fs_handle file);

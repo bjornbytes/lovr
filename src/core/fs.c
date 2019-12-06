@@ -1,3 +1,133 @@
+#ifdef _WIN32
+
+#include "fs.h"
+#include <windows.h>
+#include <KnownFolders.h>
+#include <ShlObj.h>
+
+#define FS_PATH_MAX 1024
+
+bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
+  WCHAR wpath[FS_PATH_MAX];
+  if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
+    return false;
+  }
+
+  DWORD access;
+  DWORD creation;
+  switch (mode) {
+    case OPEN_READ: access = GENERIC_READ; creation = OPEN_EXISTING; break;
+    case OPEN_WRITE: access = GENERIC_WRITE; creation = CREATE_ALWAYS; break;
+    case OPEN_APPEND: access = GENERIC_WRITE; creation = OPEN_ALWAYS; break;
+    default: return false;
+  }
+  DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE;
+  file->handle = CreateFileW(wpath, access, share, NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
+  // TODO seek to end of file if appending
+  return file->handle != INVALID_HANDLE_VALUE;
+}
+
+bool fs_close(fs_handle file) {
+  return CloseHandle(file.handle);
+}
+
+bool fs_read(fs_handle file, void* buffer, size_t* bytes) {
+  return ReadFile(file.handle, buffer, *bytes, bytes, NULL);
+}
+
+bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
+  return WriteFile(file.handle, buffer, *bytes, bytes, NULL);
+}
+
+void* fs_map(const char* path, size_t* size) {
+  return NULL;
+}
+
+bool fs_unmap(void* data, size_t size) {
+  return false;
+}
+
+bool fs_stat(const char* path, FileInfo* info) {
+  WCHAR wpath[FS_PATH_MAX];
+  if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
+    return false;
+  }
+
+  WIN32_FILE_ATTRIBUTE_DATA attributes;
+  if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &attributes)) {
+    return false;
+  }
+
+  FILETIME lastModified = attributes.ftLastWriteTime;
+  info->type = attributes.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+  info->lastModified = ((uint64_t) lastModified.dwHighDateTime << 32) | lastModified.dwLowDateTime;
+  info->size = ((uint64_t) attributes.nFileSizeHigh << 32) | attributes.nFileSizeLow;
+  return true;
+}
+
+bool fs_remove(const char* path) {
+  WCHAR wpath[FS_PATH_MAX];
+  if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
+    return false;
+  }
+  return DeleteFileW(wpath) || RemoveDirectoryW(wpath);
+}
+
+bool fs_mkdir(const char* path) {
+  WCHAR wpath[FS_PATH_MAX];
+  if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
+    return false;
+  }
+  return CreateDirectoryW(wpath, NULL);
+}
+
+bool fs_list(const char* path, fs_list_cb* callback, void* context) {
+  return false;
+}
+
+size_t fs_getHomeDir(char* buffer, size_t size) {
+  PWSTR wpath = NULL;
+  if (SHGetKnownFolderPath(&FOLDERID_Profile, 0, NULL, &wpath) == S_OK) {
+    size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, size, NULL, NULL);
+    CoTaskMemFree(wpath);
+    return bytes;
+  }
+  return 0;
+}
+
+size_t fs_getDataDir(char* buffer, size_t size) {
+  PWSTR wpath = NULL;
+  if (SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &wpath) == S_OK) {
+    size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, size, NULL, NULL);
+    CoTaskMemFree(wpath);
+    return bytes;
+  }
+  return 0;
+}
+
+size_t fs_getWorkDir(char* buffer, size_t size) {
+  WCHAR wpath[FS_PATH_MAX];
+  int length = GetCurrentDirectoryW(size, wpath);
+  if (length) {
+    return WideCharToMultiByte(CP_UTF8, 0, wpath, length, buffer, size, NULL, NULL);
+  }
+  return 0;
+}
+
+size_t fs_getExecutablePath(char* buffer, size_t size) {
+  return 0;
+}
+
+size_t fs_getBundlePath(char* buffer, size_t size) {
+  return fs_getExecutablePath(buffer, size);
+}
+
+size_t fs_getBundleId(char* buffer, size_t size) {
+  return 0;
+}
+
+#else // !_WIN32
+
 #include "fs.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -16,12 +146,8 @@ bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
     case OPEN_APPEND: flags = O_WRONLY | O_CREAT; break;
     default: return false;
   }
-  int fd = open(path, flags, S_IRUSR | S_IWUSR);
-  if (fd == -1) {
-    return false;
-  }
-  file->handle = fd;
-  return true;
+  file->fd = open(path, flags, S_IRUSR | S_IWUSR);
+  return file->fd >= 0;
 }
 
 bool fs_close(fs_handle file) {
@@ -218,3 +344,5 @@ size_t fs_getBundleId(char* buffer, size_t size) {
   return 0;
 #endif
 }
+
+#endif
