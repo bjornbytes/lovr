@@ -24,9 +24,10 @@ typedef struct {
 typedef struct {
   uint64_t offset;
   uint64_t size;
-  uint64_t modtime;
   const char* name;
   uint16_t length;
+  uint16_t mdate;
+  uint16_t mtime;
 } zip_file;
 
 bool zip_open(zip_state* zip);

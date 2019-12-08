@@ -1,6 +1,5 @@
 #include "api.h"
 #include "event/event.h"
-#include "filesystem/filesystem.h"
 #include "thread/thread.h"
 #include "thread/channel.h"
 #include "core/ref.h"
@@ -62,7 +61,7 @@ static int l_lovrThreadNewThread(lua_State* L) {
       memcpy(data, str, length + 1);
       blob = lovrBlobCreate(data, length, "thread code");
     } else {
-      void* code = lovrFilesystemRead(str, -1, &length);
+      void* code = luax_readfile(str, &length);
       lovrAssert(code, "Could not read thread code from file '%s'", str);
       blob = lovrBlobCreate(code, length, str);
     }

@@ -145,6 +145,10 @@ void luax_checkvariant(lua_State* L, int index, struct Variant* variant);
 int luax_pushvariant(lua_State* L, struct Variant* variant);
 #endif
 
+#ifdef LOVR_ENABLE_FILESYSTEM
+void* luax_readfile(const char* filename, size_t* bytesRead);
+#endif
+
 #ifdef LOVR_ENABLE_GRAPHICS
 struct Attachment;
 struct Texture;

@@ -13,6 +13,10 @@ const char lovrDirSep = '\\';
 const char lovrDirSep = '/';
 #endif
 
+void* luax_readfile(const char* filename, size_t* bytesRead) {
+  return lovrFilesystemRead(filename, -1, bytesRead);
+}
+
 // Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
 Blob* luax_readblob(lua_State* L, int index, const char* debug) {
   if (lua_type(L, index) == LUA_TUSERDATA) {
@@ -23,7 +27,7 @@ Blob* luax_readblob(lua_State* L, int index, const char* debug) {
     const char* path = luaL_checkstring(L, index);
 
     size_t size;
-    void* data = lovrFilesystemRead(path, -1, &size);
+    void* data = luax_readfile(path, &size);
     if (!data) {
       luaL_error(L, "Could not read %s from '%s'", debug, path);
     }
@@ -60,7 +64,7 @@ static void pushDirectoryItem(void* context, const char* path) {
 
 static int luax_loadfile(lua_State* L, const char* path, const char* debug) {
   size_t size;
-  void* buffer = lovrFilesystemRead(path, -1, &size);
+  void* buffer = luax_readfile(path, &size);
   int status = luaL_loadbuffer(L, buffer, size, debug);
   free(buffer);
   switch (status) {
@@ -259,7 +263,7 @@ static int l_lovrFilesystemLoad(lua_State* L) {
 static int l_lovrFilesystemMount(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   const char* mountpoint = luaL_optstring(L, 2, NULL);
-  bool append = lua_isnoneornil(L, 3) ? 0 : lua_toboolean(L, 3);
+  bool append = lua_toboolean(L, 3);
   const char* root = luaL_optstring(L, 4, NULL);
   lua_pushboolean(L, lovrFilesystemMount(path, mountpoint, append, root));
   return 1;
@@ -268,7 +272,7 @@ static int l_lovrFilesystemMount(lua_State* L) {
 static int l_lovrFilesystemNewBlob(lua_State* L) {
   size_t size;
   const char* path = luaL_checkstring(L, 1);
-  uint8_t* data = lovrFilesystemRead(path, -1, &size);
+  uint8_t* data = luax_readfile(path, &size);
   lovrAssert(data, "Could not load file '%s'", path);
   Blob* blob = lovrBlobCreate(data, size, path);
   luax_pushtype(L, Blob, blob);

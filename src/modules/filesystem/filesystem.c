@@ -7,6 +7,7 @@
 #include "lib/stb/stb_image.h"
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define FOREACH_ARCHIVE(a) for (Archive* a = state.archives.data; a != state.archives.data + state.archives.length; a++)
 
@@ -30,12 +31,14 @@ typedef struct {
   uint32_t nextSibling;
   size_t filename;
   uint64_t offset;
+  uint16_t mdate;
+  uint16_t mtime;
   FileInfo info;
 } zip_node;
 
 typedef struct Archive {
   bool (*stat)(struct Archive* archive, const char* path, FileInfo* info);
-  void (*list)(struct Archive* archive, const char* path, void (*callback)(void* context, const char* path), void* context);
+  void (*list)(struct Archive* archive, const char* path, fs_list_cb callback, void* context);
   bool (*read)(struct Archive* archive, const char* path, size_t bytes, size_t* bytesRead, void** data);
   bool (*close)(struct Archive* archive);
   zip_state zip;
@@ -60,16 +63,25 @@ static struct {
 } state;
 
 static bool valid(const char* path) {
-  char c;
+  if (path[0] == '.' && (path[1] == '\0' || path[1] == '.')) {
+    return false;
+  }
+
   do {
-    c = *path++;
-    if (c == ':' || c == '\\' || (c == '.' && *path == '.')) {
+    if (
+      *path == ':' ||
+      *path == '\\' ||
+      (*path == '/' && path[1] == '.' &&
+      (path[2] == '.' ? (path[3] == '/' || path[3] == '\0') : (path[2] == '/' || path[2] == '\0')))
+    ) {
       return false;
     }
-  } while (c != '\0');
+  } while (*path++ != '\0');
+
   return true;
 }
 
+// Does not work with empty strings
 static bool concat(char* buffer, const char* p1, size_t length1, const char* p2, size_t length2) {
   if (length1 + 1 + length2 >= LOVR_PATH_MAX) return false;
   memcpy(buffer + length1 + 1, p2, length2);
@@ -142,6 +154,12 @@ static bool dir_init(Archive* archive, const char* path, const char* mountpoint,
 static bool zip_init(Archive* archive, const char* path, const char* mountpoint, const char* root);
 
 bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char* root) {
+  FOREACH_ARCHIVE(archive) {
+    if (!strcmp(strpool_resolve(&archive->strings, archive->path), path)) {
+      return false;
+    }
+  }
+
   Archive archive;
   arr_init(&archive.strings);
 
@@ -472,8 +490,25 @@ static zip_node* zip_lookup(Archive* archive, const char* path) {
 }
 
 static bool zip_stat(Archive* archive, const char* path, FileInfo* info) {
-  const zip_node* node = zip_lookup(archive, path);
+  zip_node* node = zip_lookup(archive, path);
   if (!node) return false;
+
+  // zip stores timestamps in dos time, conversion is slow so we do it only on request
+  if (node->info.lastModified == ~0ull) {
+    uint16_t mdate = node->mdate;
+    uint16_t mtime = node->mtime;
+    struct tm t;
+    memset(&t, 0, sizeof(t));
+    t.tm_isdst = -1;
+    t.tm_year = ((mdate >> 9) & 127) + 80;
+    t.tm_mon = ((mdate >> 5) & 15) - 1;
+    t.tm_mday = mdate & 31;
+    t.tm_hour = (mtime >> 11) & 31;
+    t.tm_min = (mtime >> 5) & 63;
+    t.tm_sec = (mtime << 1) & 62;
+    node->info.lastModified = mktime(&t);
+  }
+
   *info = node->info;
   return true;
 }
@@ -513,15 +548,15 @@ static bool zip_read(Archive* archive, const char* path, size_t bytes, size_t* b
     return true;
   }
 
-  *bytesRead = (bytes == (size_t) -1 || bytes > dstSize) ? dstSize : bytes;
+  *bytesRead = (bytes == (size_t) -1 || bytes > dstSize) ? (uint32_t) dstSize : bytes;
 
   if (compressed) {
-    if (stbi_zlib_decode_noheader_buffer(*dst, dstSize, src, srcSize) < 0) {
+    if (stbi_zlib_decode_noheader_buffer(*dst, (int) dstSize, src, (int) srcSize) < 0) {
       free(*dst);
       *dst = NULL;
     }
   } else {
-    memcpy(*dst, src, bytes);
+    memcpy(*dst, src, *bytesRead);
   }
 
   return true;
@@ -536,6 +571,7 @@ static bool zip_close(Archive* archive) {
 static bool zip_init(Archive* archive, const char* filename, const char* mountpoint, const char* root) {
   char path[LOVR_PATH_MAX];
   memset(&archive->lookup, 0, sizeof(archive->lookup));
+  arr_init(&archive->nodes);
 
   // mmap the zip file, try to parse it, and figure out how many files there are
   archive->zip.data = fs_map(filename, &archive->zip.size);
@@ -564,7 +600,6 @@ static bool zip_init(Archive* archive, const char* filename, const char* mountpo
   while (root && root[rootLength - 1] == '/') rootLength--;
 
   // Allocate
-  arr_init(&archive->nodes);
   map_init(&archive->lookup, archive->zip.count);
   arr_reserve(&archive->nodes, archive->zip.count);
 
@@ -581,8 +616,10 @@ static bool zip_init(Archive* archive, const char* filename, const char* mountpo
       .nextSibling = ~0u,
       .filename = (size_t) -1,
       .offset = info.offset,
+      .mdate = info.mdate,
+      .mtime = info.mtime,
       .info.size = info.size,
-      .info.lastModified = info.modtime,
+      .info.lastModified = ~0ull,
       .info.type = FILE_REGULAR
     };
 

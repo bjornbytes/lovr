@@ -4,10 +4,10 @@
 #include "core/ref.h"
 #include <stdlib.h>
 
-ModelData* lovrModelDataInit(ModelData* model, Blob* source) {
-  if (lovrModelDataInitGltf(model, source)) {
+ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO* io) {
+  if (lovrModelDataInitGltf(model, source, io)) {
     return model;
-  } else if (lovrModelDataInitObj(model, source)) {
+  } else if (lovrModelDataInitObj(model, source, io)) {
     return model;
   }
 

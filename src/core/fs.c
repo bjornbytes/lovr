@@ -21,10 +21,19 @@ bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
     case OPEN_APPEND: access = GENERIC_WRITE; creation = OPEN_ALWAYS; break;
     default: return false;
   }
+
   DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE;
   file->handle = CreateFileW(wpath, access, share, NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
-  // TODO seek to end of file if appending
-  return file->handle != INVALID_HANDLE_VALUE;
+  if (file->handle == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+
+  if (mode == OPEN_APPEND && SetFilePointer(file->handle, 0, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+    CloseHandle(file->handle);
+    return false;
+  }
+
+  return true;
 }
 
 bool fs_close(fs_handle file) {
@@ -32,19 +41,62 @@ bool fs_close(fs_handle file) {
 }
 
 bool fs_read(fs_handle file, void* buffer, size_t* bytes) {
-  return ReadFile(file.handle, buffer, *bytes, bytes, NULL);
+  uint32_t bytes32 = *bytes > UINT32_MAX ? UINT32_MAX : (uint32_t) *bytes;
+  bool success = ReadFile(file.handle, buffer, bytes32, &bytes32, NULL);
+  *bytes = bytes32;
+  return success;
 }
 
 bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
-  return WriteFile(file.handle, buffer, *bytes, bytes, NULL);
+  uint32_t bytes32 = *bytes > UINT32_MAX ? UINT32_MAX : (uint32_t) *bytes;
+  bool success = WriteFile(file.handle, buffer, bytes32, &bytes32, NULL);
+  *bytes = bytes32;
+  return success;
 }
 
 void* fs_map(const char* path, size_t* size) {
-  return NULL;
+  WCHAR wpath[FS_PATH_MAX];
+  if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
+    return false;
+  }
+
+  fs_handle file;
+  file.handle = CreateFileW(wpath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (file.handle == INVALID_HANDLE_VALUE) {
+    return NULL;
+  }
+
+  DWORD hi;
+  DWORD lo = GetFileSize(file.handle, &hi);
+  if (lo == INVALID_FILE_SIZE) {
+    CloseHandle(file.handle);
+    return NULL;
+  }
+
+  if (SIZE_MAX > UINT32_MAX) {
+    *size = ((size_t) hi << 32) | lo;
+  } else if (hi > 0) {
+    CloseHandle(file.handle);
+    return NULL;
+  } else {
+    *size = lo;
+  }
+
+  HANDLE mapping = CreateFileMappingA(file.handle, NULL, PAGE_READONLY, hi, lo, NULL);
+  if (mapping == NULL) {
+    CloseHandle(file.handle);
+    return NULL;
+  }
+
+  void* data = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, *size);
+
+  CloseHandle(mapping);
+  CloseHandle(file.handle);
+  return data;
 }
 
 bool fs_unmap(void* data, size_t size) {
-  return false;
+  return UnmapViewOfFile(data);
 }
 
 bool fs_stat(const char* path, FileInfo* info) {
@@ -59,8 +111,10 @@ bool fs_stat(const char* path, FileInfo* info) {
   }
 
   FILETIME lastModified = attributes.ftLastWriteTime;
-  info->type = attributes.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+  info->type = (attributes.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? FILE_DIRECTORY : FILE_REGULAR;
   info->lastModified = ((uint64_t) lastModified.dwHighDateTime << 32) | lastModified.dwLowDateTime;
+  info->lastModified /= 10000000ULL; // Convert windows 100ns ticks to seconds
+  info->lastModified -= 11644473600ULL; // Convert windows epoch (1601) to POSIX epoch (1970)
   info->size = ((uint64_t) attributes.nFileSizeHigh << 32) | attributes.nFileSizeLow;
   return true;
 }
@@ -82,13 +136,35 @@ bool fs_mkdir(const char* path) {
 }
 
 bool fs_list(const char* path, fs_list_cb* callback, void* context) {
-  return false;
+  WCHAR wpath[FS_PATH_MAX];
+  if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
+    return false;
+  }
+
+  WIN32_FIND_DATAW findData;
+  HANDLE handle = FindFirstFileW(wpath, &findData);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+
+  char filename[FS_PATH_MAX];
+  do {
+    if (!WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, filename, FS_PATH_MAX, NULL, NULL)) {
+      FindClose(handle);
+      return false;
+    }
+
+    callback(context, filename);
+  } while (FindNextFileW(handle, &findData));
+
+  FindClose(handle);
+  return true;
 }
 
 size_t fs_getHomeDir(char* buffer, size_t size) {
   PWSTR wpath = NULL;
   if (SHGetKnownFolderPath(&FOLDERID_Profile, 0, NULL, &wpath) == S_OK) {
-    size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, size, NULL, NULL);
+    size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, (int) size, NULL, NULL) - 1;
     CoTaskMemFree(wpath);
     return bytes;
   }
@@ -98,7 +174,7 @@ size_t fs_getHomeDir(char* buffer, size_t size) {
 size_t fs_getDataDir(char* buffer, size_t size) {
   PWSTR wpath = NULL;
   if (SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &wpath) == S_OK) {
-    size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, size, NULL, NULL);
+    size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, (int) size, NULL, NULL) - 1;
     CoTaskMemFree(wpath);
     return bytes;
   }
@@ -107,14 +183,19 @@ size_t fs_getDataDir(char* buffer, size_t size) {
 
 size_t fs_getWorkDir(char* buffer, size_t size) {
   WCHAR wpath[FS_PATH_MAX];
-  int length = GetCurrentDirectoryW(size, wpath);
+  int length = GetCurrentDirectoryW((int) size, wpath);
   if (length) {
-    return WideCharToMultiByte(CP_UTF8, 0, wpath, length, buffer, size, NULL, NULL);
+    return WideCharToMultiByte(CP_UTF8, 0, wpath, length + 1, buffer, (int) size, NULL, NULL) - 1;
   }
   return 0;
 }
 
 size_t fs_getExecutablePath(char* buffer, size_t size) {
+  WCHAR wpath[FS_PATH_MAX];
+  DWORD length = GetModuleFileNameW(NULL, wpath, FS_PATH_MAX);
+  if (length < FS_PATH_MAX) {
+    return WideCharToMultiByte(CP_UTF8, 0, wpath, length + 1, buffer, (int) size, NULL, NULL) - 1;
+  }
   return 0;
 }
 
@@ -151,27 +232,27 @@ bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
 }
 
 bool fs_close(fs_handle file) {
-  return close(file.handle) == 0;
+  return close(file.fd) == 0;
 }
 
 bool fs_read(fs_handle file, void* buffer, size_t* bytes) {
-  ssize_t result = read(file.handle, buffer, *bytes);
-  if (result < 0) {
+  ssize_t result = read(file.fd, buffer, *bytes);
+  if (result < 0 || result > UINT32_MAX) {
     *bytes = 0;
     return false;
   } else {
-    *bytes = (size_t) result;
+    *bytes = (uint32_t) result;
     return true;
   }
 }
 
 bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
-  ssize_t result = write(file.handle, buffer, *bytes);
-  if (result < 0) {
+  ssize_t result = write(file.fd, buffer, *bytes);
+  if (result < 0 || result > UINT32_MAX) {
     *bytes = 0;
     return false;
   } else {
-    *bytes = (size_t) result;
+    *bytes = (uint32_t) result;
     return true;
   }
 }
@@ -183,7 +264,7 @@ void* fs_map(const char* path, size_t* size) {
     return NULL;
   }
   *size = info.size;
-  void* data = mmap(NULL, *size, PROT_READ, MAP_PRIVATE, file.handle, 0);
+  void* data = mmap(NULL, *size, PROT_READ, MAP_PRIVATE, file.fd, 0);
   fs_close(file);
   return data;
 }
@@ -251,6 +332,7 @@ size_t fs_getHomeDir(char* buffer, size_t size) {
   return copy(buffer, size, home, strlen(home));
 }
 
+extern const char* lovrOculusMobileWritablePath; // TODO
 size_t fs_getDataDir(char* buffer, size_t size) {
 #if __APPLE__
   size_t cursor = fs_getHomeDir(buffer, size);
@@ -264,6 +346,8 @@ size_t fs_getDataDir(char* buffer, size_t size) {
 #elif EMSCRIPTEN
   const char* path = "/home/web_user";
   return copy(buffer, size, path, strlen(path));
+#elif __ANDROID__
+  return copy(buffer, size, lovrOculusMobileWritablePath, strlen(lovrOculusMobileWritablePath));
 #else
   const char* xdg = getenv("XDG_DATA_HOME");
 

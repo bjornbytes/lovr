@@ -1,7 +1,6 @@
 #include "data/modelData.h"
 #include "data/blob.h"
 #include "data/textureData.h"
-#include "filesystem/filesystem.h"
 #include "core/hash.h"
 #include "core/maf.h"
 #include "core/ref.h"
@@ -148,7 +147,7 @@ static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMateri
   return token;
 }
 
-ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
+ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io) {
   uint8_t* data = source->data;
   gltfHeader* header = (gltfHeader*) data;
   bool glb = header->magic == MAGIC_glTF;
@@ -490,7 +489,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
         } else {
           lovrAssert(uri.length < maxPathLength, "Buffer filename is too long");
           strncat(filename, uri.data, uri.length);
-          *blob = lovrBlobCreate(lovrFilesystemRead(filename, -1, &bytesRead), size, NULL);
+          *blob = lovrBlobCreate(io(filename, &bytesRead), size, NULL);
           lovrAssert((*blob)->data && bytesRead == size, "Unable to read %s", filename);
           *root = '\0';
         }
@@ -671,7 +670,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source) {
           lovrAssert(uri.length < 5 || strncmp("data:", uri.data, 5), "Base64 images aren't supported yet");
           lovrAssert(uri.length < maxPathLength, "Image filename is too long");
           strncat(filename, uri.data, uri.length);
-          void* data = lovrFilesystemRead(filename, -1, &size);
+          void* data = io(filename, &size);
           lovrAssert(data && size > 0, "Unable to read texture from '%s'", filename);
           Blob* blob = lovrBlobCreate(data, size, NULL);
           *texture = lovrTextureDataCreateFromBlob(blob, false);

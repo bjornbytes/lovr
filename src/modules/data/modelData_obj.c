@@ -1,7 +1,6 @@
 #include "data/modelData.h"
 #include "data/blob.h"
 #include "data/textureData.h"
-#include "filesystem/filesystem.h"
 #include "core/arr.h"
 #include "core/hash.h"
 #include "core/maf.h"
@@ -25,9 +24,9 @@ typedef arr_t(objGroup) arr_group_t;
 
 #define STARTS_WITH(a, b) !strncmp(a, b, strlen(b))
 
-static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* materials, map_t* names, char* base) {
+static void parseMtl(char* path, ModelDataIO* io, arr_texturedata_t* textures, arr_material_t* materials, map_t* names, char* base) {
   size_t length = 0;
-  char* data = lovrFilesystemRead(path, -1, &length);
+  char* data = io(path, &length);
   lovrAssert(data && length > 0, "Unable to read mtl from '%s'", path);
   char* s = data;
 
@@ -61,7 +60,7 @@ static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* ma
       char path[1024];
       snprintf(path, sizeof(path), "%s%s", base, filename);
       size_t size = 0;
-      void* data = lovrFilesystemRead(path, -1, &size);
+      void* data = io(path, &size);
       lovrAssert(data && size > 0, "Unable to read texture from %s", path);
       Blob* blob = lovrBlobCreate(data, size, NULL);
 
@@ -87,7 +86,7 @@ static void parseMtl(char* path, arr_texturedata_t* textures, arr_material_t* ma
   free(data);
 }
 
-ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
+ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io) {
   char* data = (char*) source->data;
   size_t length = source->size;
 
@@ -200,7 +199,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source) {
       lovrAssert(hasName, "Bad OBJ: Expected filename after mtllib");
       char path[1024];
       snprintf(path, sizeof(path), "%s%s", base, filename);
-      parseMtl(path, &textures, &materials, &materialMap, base);
+      parseMtl(path, io, &textures, &materials, &materialMap, base);
     } else if (STARTS_WITH(data, "usemtl ")) {
       char name[128];
       uint64_t length = sscanf(data + 7, "%s\n%n", name, &lineLength);

@@ -10,7 +10,6 @@
 #include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "data/textureData.h"
-#include "filesystem/filesystem.h"
 #include "core/arr.h"
 #include "core/ref.h"
 #include <math.h>
@@ -1365,7 +1364,7 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
 
   if (!modelData) {
     Blob* blob = luax_readblob(L, 1, "Model");
-    modelData = lovrModelDataCreate(blob);
+    modelData = lovrModelDataCreate(blob, luax_readfile);
     lovrRelease(Blob, blob);
   }
 
@@ -1376,29 +1375,25 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   return 1;
 }
 
-static void luax_readshadersource(lua_State* L, int index) {
+static const char* luax_checkshadersource(lua_State* L, int index) {
   if (lua_isnoneornil(L, index)) {
-    return;
+    return NULL;
   }
 
   Blob* blob = luax_totype(L, index, Blob);
   if (blob) {
-    lua_pushlstring(L, blob->data, blob->size);
-    lua_replace(L, index);
-    return;
+    return blob->data;
   }
 
-  const char* source = luaL_checkstring(L, index);
-  if (!lovrFilesystemIsFile(source)) {
-    return;
+  size_t length;
+  const char* source = luaL_checklstring(L, index, &length);
+  if (memchr(source, '\n', MIN(1024, length))) {
+    return source;
+  } else {
+    void* contents = luax_readfile(source, &length);
+    lovrAssert(contents, "Could not read shader from file '%s'", source);
+    return contents;
   }
-
-  size_t bytesRead;
-  char* contents = lovrFilesystemRead(source, -1, &bytesRead);
-  lovrAssert(bytesRead > 0, "Could not read shader from file '%s'", source);
-  lua_pushlstring(L, contents, bytesRead);
-  lua_replace(L, index);
-  free(contents);
 }
 
 #define MAX_SHADER_FLAGS 32
@@ -1468,10 +1463,8 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       lovrShaderSetFloats(shader, "lovrLightColor", (float[4]) { 1.f, 1.f, 1.f, 1.f }, 0, 4);
     }
   } else {
-    luax_readshadersource(L, 1);
-    luax_readshadersource(L, 2);
-    const char* vertexSource = lua_tostring(L, 1);
-    const char* fragmentSource = lua_tostring(L, 2);
+    const char* vertexSource = luax_checkshadersource(L, 1);
+    const char* fragmentSource = luax_checkshadersource(L, 2);
 
     if (lua_istable(L, 3)) {
       lua_getfield(L, 3, "flags");
@@ -1492,8 +1485,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewComputeShader(lua_State* L) {
-  luax_readshadersource(L, 1);
-  const char* source = lua_tostring(L, 1);
+  const char* source = luax_checkshadersource(L, 1);
   ShaderFlag flags[MAX_SHADER_FLAGS];
   uint32_t flagCount = 0;
 

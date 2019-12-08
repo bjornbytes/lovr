@@ -1,10 +1,8 @@
 #include "zip.h"
 #include <string.h>
-#include <time.h>
 
 static uint16_t readu16(const uint8_t* p) { uint16_t x; memcpy(&x, p, sizeof(x)); return x; }
 static uint32_t readu32(const uint8_t* p) { uint32_t x; memcpy(&x, p, sizeof(x)); return x; }
-//static uint64_t readu64(const uint8_t* p) { uint64_t x; memcpy(&x, p, sizeof(x)); return x; }
 
 bool zip_open(zip_state* zip) {
   const uint8_t* p = zip->data + zip->size - 22;
@@ -47,7 +45,6 @@ bool zip_open(zip_state* zip) {
   return true;
 }
 
-#include <stdio.h>
 bool zip_next(zip_state* zip, zip_file* file) {
   const uint8_t* p = zip->data + zip->cursor;
 
@@ -55,19 +52,8 @@ bool zip_next(zip_state* zip, zip_file* file) {
     return false;
   }
 
-  uint16_t mtime = readu16(p + 12);
-  uint16_t mdate = readu16(p + 14);
-  struct tm t;
-  memset(&t, 0, sizeof(t));
-  t.tm_isdst = -1;
-  t.tm_year = ((mdate >> 9) & 127) + 80;
-  t.tm_mon = ((mdate >> 5) & 15) - 1;
-  t.tm_mday = mdate & 31;
-  t.tm_hour = (mtime >> 11) & 31;
-  t.tm_min = (mtime >> 5) & 63;
-  t.tm_sec = (mtime << 1) & 62;
-  file->modtime = mktime(&t);
-
+  file->mtime = readu16(p + 12);
+  file->mdate = readu16(p + 14);
   file->size = readu32(p + 24);
   file->length = readu16(p + 28);
   file->offset = readu32(p + 42) + zip->base;
@@ -95,28 +81,4 @@ void* zip_load(zip_state* zip, size_t offset, size_t* csize, bool* compressed) {
   *csize = readu32(p + 18);
   uint32_t skip = readu16(p + 26) + readu16(p + 28);
   return offset + 30 + skip + *csize > zip->size ? NULL : (p + 30 + skip);
-}
-
-int LLVMFuzzerTestOneInput(const char *data, long long size) {
-  zip_state zip = {
-    .data = (uint8_t*) data,
-    .size = size
-  };
-
-  if (!zip_open(&zip)) {
-    return 0;
-  }
-
-  zip_file file;
-  for (uint64_t i = 0; i < zip.count; i++) {
-    if (!zip_next(&zip, &file)) {
-      return 0;
-    }
-
-    size_t csize;
-    bool compressed;
-    zip_load(&zip, file.offset, &csize, &compressed);
-  }
-
-  return 0;
 }
