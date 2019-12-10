@@ -66,11 +66,12 @@ static struct {
   bool blendEnabled;
   BlendMode blendMode;
   BlendAlphaMode blendAlphaMode;
+  uint8_t colorMask;
   bool culling;
   bool depthEnabled;
   CompareMode depthTest;
   bool depthWrite;
-  uint8_t lineWidth;
+  float lineWidth;
   uint32_t primitiveRestart;
   bool stencilEnabled;
   CompareMode stencilMode;
@@ -782,6 +783,12 @@ static void lovrGpuBindPipeline(Pipeline* pipeline) {
     }
   }
 
+  // Color mask
+  if (state.colorMask != pipeline->colorMask) {
+    state.colorMask = pipeline->colorMask;
+    glColorMask(state.colorMask & 0x8, state.colorMask & 0x4, state.colorMask & 0x2, state.colorMask & 0x1);
+  }
+
   // Culling
   if (state.culling != pipeline->culling) {
     state.culling = pipeline->culling;
@@ -1072,6 +1079,9 @@ void lovrGpuInit(void* (*getProcAddress)(const char*)) {
   glBlendEquation(GL_FUNC_ADD);
   glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
+  state.colorMask = 0xf;
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
   state.culling = false;
   glDisable(GL_CULL_FACE);
 
@@ -1082,7 +1092,7 @@ void lovrGpuInit(void* (*getProcAddress)(const char*)) {
   glDepthFunc(convertCompareMode(state.depthTest));
   glDepthMask(state.depthWrite);
 
-  state.lineWidth = 1;
+  state.lineWidth = 1.f;
   glLineWidth(state.lineWidth);
 
   state.stencilEnabled = false;
@@ -1244,8 +1254,6 @@ void lovrGpuPresent() {
 
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
   lovrGraphicsFlush();
-  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
   if (!state.stencilEnabled) {
     state.stencilEnabled = true;
     glEnable(GL_STENCIL_TEST);
@@ -1269,8 +1277,6 @@ void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback call
   callback(userdata);
   lovrGraphicsFlush();
   state.stencilWriting = false;
-
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   state.stencilMode = ~0; // Dirty
 }
 

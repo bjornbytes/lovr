@@ -543,6 +543,25 @@ static int l_lovrGraphicsSetColor(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsGetColorMask(lua_State* L) {
+  bool r, b, g, a;
+  lovrGraphicsGetColorMask(&r, &g, &b, &a);
+  lua_pushboolean(L, r);
+  lua_pushboolean(L, g);
+  lua_pushboolean(L, b);
+  lua_pushboolean(L, a);
+  return 4;
+}
+
+static int l_lovrGraphicsSetColorMask(lua_State* L) {
+  bool r = lua_toboolean(L, 1);
+  bool g = lua_toboolean(L, 2);
+  bool b = lua_toboolean(L, 3);
+  bool a = lua_toboolean(L, 4);
+  lovrGraphicsSetColorMask(r, g, b, a);
+  return 0;
+}
+
 static int l_lovrGraphicsIsCullingEnabled(lua_State* L) {
   lua_pushboolean(L, lovrGraphicsIsCullingEnabled());
   return 1;
@@ -949,7 +968,11 @@ static int l_lovrGraphicsStencil(lua_State* L) {
     lovrGraphicsClear(NULL, NULL, &clearTo);
   }
   lua_settop(L, 1);
+  bool r, g, b, a;
+  lovrGraphicsGetColorMask(&r, &g, &b, &a);
+  lovrGraphicsSetColorMask(false, false, false, false);
   lovrGraphicsStencil(action, replaceValue, stencilCallback, L);
+  lovrGraphicsSetColorMask(r, g, b, a);
   return 0;
 }
 
@@ -1616,6 +1639,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "setCanvas", l_lovrGraphicsSetCanvas },
   { "getColor", l_lovrGraphicsGetColor },
   { "setColor", l_lovrGraphicsSetColor },
+  { "getColorMask", l_lovrGraphicsGetColorMask },
+  { "setColorMask", l_lovrGraphicsSetColorMask },
   { "isCullingEnabled", l_lovrGraphicsIsCullingEnabled },
   { "setCullingEnabled", l_lovrGraphicsSetCullingEnabled },
   { "getDefaultFilter", l_lovrGraphicsGetDefaultFilter },

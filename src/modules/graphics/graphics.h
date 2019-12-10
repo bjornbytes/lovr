@@ -77,17 +77,18 @@ typedef struct {
 } Camera;
 
 typedef struct {
-  bool alphaSampling : 1;
-  uint8_t blendMode : 3; // BlendMode
-  uint8_t blendAlphaMode : 1; // BlendAlphaMode
-  bool culling : 1;
-  uint8_t depthTest : 3; // CompareMode
-  bool depthWrite : 1;
-  uint8_t lineWidth : 8;
-  uint8_t stencilValue: 8;
-  uint8_t stencilMode : 3; // CompareMode
-  uint8_t winding : 1; // Winding
-  bool wireframe : 1;
+  float lineWidth;
+  unsigned alphaSampling : 1;
+  unsigned blendMode : 3; // BlendMode
+  unsigned blendAlphaMode : 1; // BlendAlphaMode
+  unsigned colorMask : 4;
+  unsigned culling : 1;
+  unsigned depthTest : 3; // CompareMode
+  unsigned depthWrite : 1;
+  unsigned stencilValue: 8;
+  unsigned stencilMode : 3; // CompareMode
+  unsigned winding : 1; // Winding
+  unsigned wireframe : 1;
 } Pipeline;
 
 // Base
@@ -119,6 +120,8 @@ struct Canvas* lovrGraphicsGetCanvas(void);
 void lovrGraphicsSetCanvas(struct Canvas* canvas);
 Color lovrGraphicsGetColor(void);
 void lovrGraphicsSetColor(Color color);
+void lovrGraphicsGetColorMask(bool* r, bool* g, bool* b, bool* a);
+void lovrGraphicsSetColorMask(bool r, bool g, bool b, bool a);
 bool lovrGraphicsIsCullingEnabled(void);
 void lovrGraphicsSetCullingEnabled(bool culling);
 TextureFilter lovrGraphicsGetDefaultFilter(void);
@@ -128,7 +131,7 @@ void lovrGraphicsSetDepthTest(CompareMode depthTest, bool write);
 struct Font* lovrGraphicsGetFont(void);
 void lovrGraphicsSetFont(struct Font* font);
 float lovrGraphicsGetLineWidth(void);
-void lovrGraphicsSetLineWidth(uint8_t width);
+void lovrGraphicsSetLineWidth(float width);
 float lovrGraphicsGetPointSize(void);
 void lovrGraphicsSetPointSize(float size);
 struct Shader* lovrGraphicsGetShader(void);
