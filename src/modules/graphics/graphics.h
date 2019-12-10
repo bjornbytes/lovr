@@ -211,7 +211,7 @@ typedef struct {
   uint32_t instances;
 } DrawCommand;
 
-void lovrGpuInit(getProcAddressProc getProcAddress);
+void lovrGpuInit(void* (*getProcAddress)(const char*));
 void lovrGpuDestroy(void);
 void lovrGpuClear(struct Canvas* canvas, Color* color, float* depth, int* stencil);
 void lovrGpuCompute(struct Shader* shader, int x, int y, int z);

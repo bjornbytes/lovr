@@ -53,10 +53,6 @@ typedef void (*windowResizeCallback)(int width, int height);
 typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action);
 typedef void (*keyboardCallback)(KeyCode key, ButtonAction action);
 
-typedef void (*gpuProc)(void);
-typedef gpuProc (*getProcAddressProc)(const char*);
-extern getProcAddressProc lovrGetProcAddress;
-
 bool lovrPlatformInit(void);
 void lovrPlatformDestroy(void);
 const char* lovrPlatformGetName(void);
@@ -70,6 +66,7 @@ void lovrPlatformGetWindowSize(int* width, int* height);
 void lovrPlatformGetFramebufferSize(int* width, int* height);
 void lovrPlatformSetSwapInterval(int interval);
 void lovrPlatformSwapBuffers(void);
+void* lovrPlatformGetProcAddress(const char* function);
 void lovrPlatformOnWindowClose(windowCloseCallback callback);
 void lovrPlatformOnWindowResize(windowResizeCallback callback);
 void lovrPlatformOnMouseButton(mouseButtonCallback callback);

@@ -1,6 +1,8 @@
 #include "platform.h"
 #include <stdio.h>
 #include <unistd.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 bool lovrPlatformInit() {
   return true;
@@ -51,6 +53,10 @@ void lovrPlatformSwapBuffers() {
   //
 }
 
+void* lovrPlatformGetProcAddress(const char* function) {
+  return (void*) eglGetProcAddress(function)
+}
+
 void lovrPlatformOnWindowClose(windowCloseCallback callback) {
   //
 }
@@ -86,7 +92,3 @@ bool lovrPlatformIsKeyDown(KeyCode key) {
 void lovrPlatformSleep(double seconds) {
   usleep((unsigned int) (seconds * 1000000));
 }
-
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-getProcAddressProc lovrGetProcAddress = eglGetProcAddress;

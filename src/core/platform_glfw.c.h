@@ -12,8 +12,6 @@
 #include <GLFW/glfw3native.h>
 #endif
 
-getProcAddressProc lovrGetProcAddress = glfwGetProcAddress;
-
 static struct {
   GLFWwindow* window;
   windowCloseCallback onWindowClose;
@@ -200,6 +198,10 @@ void lovrPlatformSetSwapInterval(int interval) {
 
 void lovrPlatformSwapBuffers() {
   glfwSwapBuffers(state.window);
+}
+
+void* lovrPlatformGetProcAddress(const char* function) {
+  return (void*) glfwGetProcAddress(function);
 }
 
 void lovrPlatformOnWindowClose(windowCloseCallback callback) {

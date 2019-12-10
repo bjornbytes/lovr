@@ -224,7 +224,7 @@ void lovrGraphicsCreateWindow(WindowFlags* flags) {
   lovrPlatformOnWindowClose(onCloseWindow);
   lovrPlatformOnWindowResize(onResizeWindow);
   lovrPlatformGetFramebufferSize(&state.width, &state.height);
-  lovrGpuInit(lovrGetProcAddress);
+  lovrGpuInit(lovrPlatformGetProcAddress);
 
   state.defaultCanvas = lovrCanvasCreateFromHandle(state.width, state.height, (CanvasFlags) { .stereo = false }, 0, 0, 0, 1, true);
 
