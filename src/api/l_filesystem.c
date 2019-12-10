@@ -430,7 +430,7 @@ static int libLoader(lua_State* L) {
       if (lovrFilesystemIsFile(filename)) {
         lua_getfield(L, -1, "loadlib");
 
-        // Synthesize the absolute path to the library on disk (outside of physfs)
+        // Synthesize the absolute path to the library on disk
         luaL_Buffer buffer;
         luaL_buffinit(L, &buffer);
         luaL_addstring(&buffer, lovrFilesystemGetRealDirectory(filename));

@@ -300,7 +300,6 @@ bool lovrPlatformHasWindow() {
 
 #include <stdio.h>
 #include <android/log.h>
-#include "physfs.h"
 #include <sys/stat.h>
 #include <assert.h>
 
