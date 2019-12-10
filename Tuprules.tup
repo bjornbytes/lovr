@@ -19,7 +19,6 @@ CFLAGS += -fvisibility=hidden
 
 # Include paths
 CFLAGS += -I$(ROOT)/src
-CFLAGS += -I$(ROOT)/src/core
 CFLAGS += -I$(ROOT)/src/modules
 
 # Modules

@@ -1,6 +1,6 @@
 #include "event/event.h"
-#include "platform.h"
 #include "core/arr.h"
+#include "core/platform.h"
 #include "core/ref.h"
 #include "core/util.h"
 #include <stdlib.h>

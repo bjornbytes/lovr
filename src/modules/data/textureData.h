@@ -1,5 +1,5 @@
 #include "data/blob.h"
-#include "util.h"
+#include "core/util.h"
 #include <stdint.h>
 #include <stdbool.h>
 

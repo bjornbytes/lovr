@@ -1,7 +1,7 @@
 #include "api.h"
-#include "util.h"
 #include "core/ref.h"
 #include "core/platform.h"
+#include "core/util.h"
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>

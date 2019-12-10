@@ -1,9 +1,9 @@
 #include "api.h"
-#include "util.h"
 #include "event/event.h"
 #include "thread/thread.h"
 #include "core/platform.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include <stdlib.h>
 #include <string.h>
 

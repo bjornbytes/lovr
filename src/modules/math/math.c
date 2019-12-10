@@ -2,8 +2,8 @@
 #include "math/randomGenerator.h"
 #include "core/maf.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include "lib/noise1234/noise1234.h"
-#include "util.h"
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>

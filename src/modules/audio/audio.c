@@ -4,7 +4,7 @@
 #include "core/arr.h"
 #include "core/maf.h"
 #include "core/ref.h"
-#include "util.h"
+#include "core/util.h"
 #include <stdlib.h>
 #include <AL/al.h>
 #include <AL/alc.h>

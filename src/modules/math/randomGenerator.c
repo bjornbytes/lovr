@@ -1,6 +1,6 @@
 #include "math/randomGenerator.h"
 #include "core/ref.h"
-#include "util.h"
+#include "core/util.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

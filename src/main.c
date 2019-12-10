@@ -1,7 +1,7 @@
 #include "resources/boot.lua.h"
 #include "api/api.h"
-#include "platform.h"
-#include "util.h"
+#include "core/platform.h"
+#include "core/util.h"
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>

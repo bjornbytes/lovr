@@ -1,5 +1,5 @@
 #include "headset/headset.h"
-#include "util.h"
+#include "core/util.h"
 
 HeadsetInterface* lovrHeadsetDriver = NULL;
 HeadsetInterface* lovrHeadsetTrackingDrivers = NULL;

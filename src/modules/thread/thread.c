@@ -4,7 +4,7 @@
 #include "core/hash.h"
 #include "core/map.h"
 #include "core/ref.h"
-#include "util.h"
+#include "core/util.h"
 #include <stdlib.h>
 #include <string.h>
 

@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "core/hash.h"
-#include "util.h"
+#include "core/util.h"
 
 #pragma once
 

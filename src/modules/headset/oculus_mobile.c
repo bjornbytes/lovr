@@ -1,13 +1,13 @@
 #include "headset/headset.h"
 #include "oculus_mobile_bridge.h"
-#include "math.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
+#include "core/platform.h"
 #include "lib/glad/glad.h"
+#include <android/log.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <android/log.h>
-#include "platform.h"
+#include <math.h>
 
 #define LOG(...)  __android_log_print(ANDROID_LOG_DEBUG, "LOVR", __VA_ARGS__)
 #define INFO(...) __android_log_print(ANDROID_LOG_INFO,  "LOVR", __VA_ARGS__)

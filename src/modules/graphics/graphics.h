@@ -1,8 +1,8 @@
 #include "graphics/font.h"
 #include "data/modelData.h"
 #include "core/maf.h"
-#include "util.h"
-#include "platform.h"
+#include "core/platform.h"
+#include "core/util.h"
 #include <stdbool.h>
 #include <stdint.h>
 

@@ -2,10 +2,10 @@
 #include "filesystem/filesystem.h"
 #include "data/blob.h"
 #include "core/fs.h"
+#include "core/platform.h"
 #include "core/ref.h"
 #include <stdlib.h>
 #include <string.h>
-#include "platform.h"
 
 #ifdef _WIN32
 const char lovrDirSep = '\\';

@@ -1,8 +1,8 @@
 #include "data/audioStream.h"
 #include "data/blob.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include "lib/stb/stb_vorbis.h"
-#include "util.h"
 #include <stdlib.h>
 
 AudioStream* lovrAudioStreamInit(AudioStream* stream, Blob* blob, size_t bufferSize) {

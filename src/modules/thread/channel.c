@@ -2,7 +2,7 @@
 #include "event/event.h"
 #include "core/arr.h"
 #include "core/ref.h"
-#include "util.h"
+#include "core/util.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <stdlib.h>
 #include <stddef.h>
