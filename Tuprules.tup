@@ -69,7 +69,7 @@ ifeq (@(CMAKE_DEPS),y)
   # msdfgen
   CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
   LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
-  LIBS += $(ROOT)/build/lib_msdfgen/libmsdfgen.$(SO)
+  LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.$(SO)
 
   # ode
   CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
