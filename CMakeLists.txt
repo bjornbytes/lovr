@@ -152,9 +152,7 @@ endif()
 
 # MSDF
 if(LOVR_ENABLE_DATA)
-  set(BUILD_SHARED_LIBS OFF)
   add_subdirectory(deps/msdfgen lib_msdfgen)
-  set(BUILD_SHARED_LIBS ON)
   include_directories(deps/msdfgen)
   set(LOVR_MSDF lib_msdfgen)
 endif()

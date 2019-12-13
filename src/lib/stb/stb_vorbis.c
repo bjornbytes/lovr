@@ -226,7 +226,7 @@
    #ifdef _MSC_VER
       #include <malloc.h>
    #endif
-   #if defined(__linux__) || defined(__linux) || defined(__EMSCRIPTEN__)
+   #if defined(__linux__) || defined(__linux) || defined(__EMSCRIPTEN__) || defined(__APPLE__)
       #include <alloca.h>
    #endif
 #else // STB_VORBIS_NO_CRT

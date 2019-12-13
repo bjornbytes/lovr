@@ -40,6 +40,20 @@ CFLAGS_@(VRAPI) += -DLOVR_USE_OCULUS_MOBILE
 CFLAGS_@(WEBVR) += LOVR_USE_WEBVR
 CFLAGS_@(LEAP) += LOVR_USE_LEAP
 
+## Platforms
+# $(LDFLAGS_@(TUP_PLATFORM)) doesn't seem to work, oh well
+ifeq (@(TUP_PLATFORM),macosx)
+  LDFLAGS += -lobjc
+  LDFLAGS += -pagezero_size 10000 -image_base 100000000
+  ORIGIN = @executable_path
+  SO = dylib
+endif
+ifeq (@(TUP_PLATFORM),linux)
+  LDFLAGS += -lm -lpthread
+  ORIGIN = \$ORIGIN
+  SO = so
+endif
+
 ## Libraries
 ifeq (@(CMAKE_DEPS),y)
 
@@ -50,45 +64,36 @@ ifeq (@(CMAKE_DEPS),y)
   # LuaJIT
   CFLAGS += -I$(ROOT)/deps/luajit/src
   LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit
-  LIBS += $(ROOT)/build/luajit/src/libluajit.so
+  LIBS += $(ROOT)/build/luajit/src/libluajit.$(SO)
 
   # msdfgen
   CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
   LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
-  LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.so
+  LIBS += $(ROOT)/build/lib_msdfgen/libmsdfgen.$(SO)
 
   # ode
   CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
   LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
-  LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.so
+  LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.$(SO)
 
   # glfw
   CFLAGS += -I$(ROOT)/deps/glfw/include
   LDFLAGS += -L$(ROOT)/build/glfw/src -lglfw
-  LIBS += $(ROOT)/build/glfw/src/libglfw.so*
+  LIBS += $(ROOT)/build/glfw/src/libglfw.*$(SO)*
 
   # OpenVR
   CFLAGS_@(OPENVR) += -I$(ROOT)/deps/openvr/headers
   LDFLAGS_@(OPENVR) += -L$(ROOT)/build/openvr_api -lopenvr_api
-  LIBS_@(OPENVR) += $(ROOT)/build/openvr_api/libopenvr_api.so
+  LIBS_@(OPENVR) += $(ROOT)/build/openvr_api/libopenvr_api.$(SO)
 
   # OpenAL
   CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
   LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal -lopenal
-  LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.so*
+  LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*$(SO)*
 
   # Configure rpath to look for libraries in a `libs` folder next to the executable
-  LDFLAGS += -Wl,-rpath,\$ORIGIN/libs
+  LDFLAGS += -Wl,-rpath,$(ORIGIN)/libs
   LIBS += $(LIBS_y)
-endif
-
-## Platforms
-# $(LDFLAGS_@(TUP_PLATFORM)) doesn't seem to work, oh well
-ifeq (@(TUP_PLATFORM),macosx)
-  LDFLAGS += -lobjc
-endif
-ifeq (@(TUP_PLATFORM),linux)
-  LDFLAGS += -lm -lpthread
 endif
 
 CFLAGS += @(EXTRA_CFLAGS)
