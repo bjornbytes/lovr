@@ -1,3 +1,0 @@
-include_rules
-
-: foreach *.c | $(ROOT)/src/resources/*.h |> !compile |>

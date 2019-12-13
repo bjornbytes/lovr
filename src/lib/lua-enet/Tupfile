@@ -1,5 +1,0 @@
-include_rules
-
-SRC_@(ENET) += enet.c
-
-: foreach $(SRC_y) |> !compile |>

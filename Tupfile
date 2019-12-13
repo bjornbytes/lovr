@@ -1,3 +1,103 @@
 include_rules
 
-: <objects> |> !link %<objects> |> lovr
+SRC += src/main.c
+SRC += src/core/arr.c
+SRC += src/core/fs.c
+SRC += src/core/maf.c
+SRC += src/core/map.c
+SRC += src/core/platform.c
+SRC += src/core/ref.c
+SRC += src/core/utf.c
+SRC += src/core/util.c
+SRC += src/core/zip.c
+SRC += src/api/api.c
+SRC += src/api/l_lovr.c
+SRC += src/lib/stb/*.c
+
+SRC_@(AUDIO) += src/modules/audio/*.c
+SRC_@(AUDIO) += src/api/l_audio.c
+SRC_@(AUDIO) += src/api/l_microphone.c
+SRC_@(AUDIO) += src/api/l_source.c
+
+SRC_@(DATA) += src/modules/data/*.c
+SRC_@(DATA) += src/lib/jsmn/jsmn.c
+SRC_@(DATA) += src/api/l_data.c
+SRC_@(DATA) += src/api/l_audioStream.c
+SRC_@(DATA) += src/api/l_blob.c
+SRC_@(DATA) += src/api/l_modelData.c
+SRC_@(DATA) += src/api/l_rasterizer.c
+SRC_@(DATA) += src/api/l_soundData.c
+SRC_@(DATA) += src/api/l_textureData.c
+
+SRC_@(EVENT) += src/modules/event/*.c
+SRC_@(EVENT) += src/api/l_event.c
+
+SRC_@(FILESYSTEM) += src/modules/filesystem/*.c
+SRC_@(FILESYSTEM) += src/api/l_filesystem.c
+
+SRC_@(GRAPHICS) += src/modules/graphics/*.c
+SRC_@(GRAPHICS) += src/resources/shaders.c
+SRC_@(GRAPHICS) += src/lib/glad/glad.c
+SRC_@(GRAPHICS) += src/api/l_graphics.c
+SRC_@(GRAPHICS) += src/api/l_canvas.c
+SRC_@(GRAPHICS) += src/api/l_font.c
+SRC_@(GRAPHICS) += src/api/l_material.c
+SRC_@(GRAPHICS) += src/api/l_mesh.c
+SRC_@(GRAPHICS) += src/api/l_model.c
+SRC_@(GRAPHICS) += src/api/l_shader.c
+SRC_@(GRAPHICS) += src/api/l_shaderBlock.c
+SRC_@(GRAPHICS) += src/api/l_texture.c
+
+SRC_@(HEADSET) += src/modules/headset/headset.c
+SRC_@(HEADSET) += src/api/l_headset.c
+ifeq (@(HEADSET),y)
+  SRC_@(SIMULATOR) += src/modules/headset/desktop.c
+  SRC_@(OPENVR) += src/modules/headset/openvr.c
+  SRC_@(OPENXR) += src/modules/headset/openxr.c
+  SRC_@(OCULUS) += src/modules/headset/oculus.c
+  SRC_@(VRAPI) += src/modules/headset/oculus_mobile.c
+  SRC_@(WEBVR) += src/modules/headset/webvr.c
+  SRC_@(LEAP) += src/modules/headset/leap.c
+endif
+
+SRC_@(MATH) += src/modules/math/*.c
+SRC_@(MATH) += src/lib/noise1234/noise1234.c
+SRC_@(MATH) += src/api/l_math.c
+SRC_@(MATH) += src/api/l_curve.c
+SRC_@(MATH) += src/api/l_randomGenerator.c
+SRC_@(MATH) += src/api/l_vectors.c
+
+SRC_@(PHYSICS) += src/modules/physics/*.c
+SRC_@(PHYSICS) += src/api/l_physics.c
+SRC_@(PHYSICS) += src/api/l_collider.c
+SRC_@(PHYSICS) += src/api/l_joints.c
+SRC_@(PHYSICS) += src/api/l_shapes.c
+SRC_@(PHYSICS) += src/api/l_world.c
+
+SRC_@(THREAD) += src/modules/thread/*.c
+SRC_@(THREAD) += src/lib/tinycthread/tinycthread.c
+SRC_@(THREAD) += src/api/l_thread_module.c
+SRC_@(THREAD) += src/api/l_thread.c
+SRC_@(THREAD) += src/api/l_channel.c
+
+SRC_@(TIMER) += src/modules/timer/*.c
+SRC_@(TIMER) += src/api/l_timer.c
+
+SRC_@(JSON) += src/lib/lua-cjson/*.c
+SRC_@(ENET) += src/lib/lua-enet/*.c
+
+RES += src/resources/boot.lua
+RES += src/resources/VarelaRound.ttf
+RES_@(OPENVR) += src/resources/*.json
+
+# Convert resources to binary headers using xxd
+: foreach $(RES) $(RES_y) |> !xxd |> %f.h
+
+# Compile C source files to object files
+: foreach $(SRC) $(SRC_y) | src/resources/*.h |> !cc |> .obj/%B.o
+
+# Link object files into executable
+: .obj/*.o |> !ld |> lovr
+
+# Copy external shared libraries to libs folder
+: foreach $(LIBS) |> !cp |> libs/%b

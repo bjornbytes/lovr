@@ -1,27 +1,27 @@
 ROOT = $(TUP_CWD)
 
-# Base
+## Base
 CFLAGS += -std=c99 -pedantic
 CFLAGS += -D_POSIX_C_SOURCE=200809L
-CFLAGS += -Werror -Wall -Wextra
-CFLAGS += -Wno-typedef-redefinition
-CFLAGS += -Wno-unused-parameter
-CFLAGS += -fvisibility=hidden
 CFLAGS += -I$(ROOT)/src
 CFLAGS += -I$(ROOT)/src/modules
+CFLAGS += -fvisibility=hidden
+CFLAGS += -Wall -Wextra
+CFLAGS += -Wno-unused-parameter
+CFLAGS_@(OPENVR) += -Wno-typedef-redefinition
+CFLAGS_@(STRICT) += -Werror
+CFLAGS_@(DEBUG) += -g
+CFLAGS_@(OPTIMIZE) += -Os
+CFLAGS_@(SANITIZE) += -fsanitize=address,undefined
+LDFLAGS_@(SANITIZE) += -fsanitize=address,undefined
 
-ifeq (@(DEBUG),y)
-  CFLAGS += -g
-else
-  CFLAGS += -Os
-endif
-
-# Modules
+## Modules
 CFLAGS_@(AUDIO) += -DLOVR_ENABLE_AUDIO
 CFLAGS_@(DATA) += -DLOVR_ENABLE_DATA
 CFLAGS_@(EVENT) += -DLOVR_ENABLE_EVENT
 CFLAGS_@(FILESYSTEM) += -DLOVR_ENABLE_FILESYSTEM
 CFLAGS_@(GRAPHICS) += -DLOVR_ENABLE_GRAPHICS
+CFLAGS_@(GRAPHICS) += -DLOVR_@(GL)
 CFLAGS_@(HEADSET) += -DLOVR_ENABLE_HEADSET
 CFLAGS_@(MATH) += -DLOVR_ENABLE_MATH
 CFLAGS_@(PHYSICS) += -DLOVR_ENABLE_PHYSICS
@@ -30,7 +30,7 @@ CFLAGS_@(TIMER) += -DLOVR_ENABLE_TIMER
 CFLAGS_@(JSON) += -DLOVR_ENABLE_JSON
 CFLAGS_@(ENET) += -DLOVR_ENABLE_ENET
 
-# Headset backends
+## Headset backends
 CFLAGS_@(SIMULATOR) += -DLOVR_USE_DESKTOP_HEADSET
 CFLAGS_@(OPENVR) += -DLOVR_USE_OPENVR
 CFLAGS_@(OPENXR) += -DLOVR_USE_OPENXR
@@ -40,28 +40,50 @@ CFLAGS_@(VRAPI) += -DLOVR_USE_OCULUS_MOBILE
 CFLAGS_@(WEBVR) += LOVR_USE_WEBVR
 CFLAGS_@(LEAP) += LOVR_USE_LEAP
 
-# OpenGL
-CFLAGS += -DLOVR_@(GL)
+## Libraries
+ifeq (@(CMAKE_DEPS),y)
 
-# Libraries
-CFLAGS += @(LUA_CFLAGS)
-CFLAGS += @(GLFW_CFLAGS)
-CFLAGS += @(OPENAL_CFLAGS)
-CFLAGS += @(MSDFGEN_CFLAGS)
-CFLAGS += @(ODE_CFLAGS)
-CFLAGS += @(OPENVR_CFLAGS)
-CFLAGS += @(OPENXR_CFLAGS)
-CFLAGS += @(ENET_CFLAGS)
+  # enet
+  CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
+  LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
 
-LDFLAGS += @(LUA_LDFLAGS)
-LDFLAGS += @(GLFW_LDFLAGS)
-LDFLAGS += @(OPENAL_LDFLAGS)
-LDFLAGS += @(MSDFGEN_LDFLAGS)
-LDFLAGS += @(ODE_LDFLAGS)
-LDFLAGS += @(OPENVR_LDFLAGS)
-LDFLAGS += @(OPENXR_LDFLAGS)
-LDFLAGS += @(ENET_LDFLAGS)
+  # LuaJIT
+  CFLAGS += -I$(ROOT)/deps/luajit/src
+  LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit
+  LIBS += $(ROOT)/build/luajit/src/libluajit.so
 
+  # msdfgen
+  CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
+  LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
+  LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.so
+
+  # ode
+  CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
+  LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
+  LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.so
+
+  # glfw
+  CFLAGS += -I$(ROOT)/deps/glfw/include
+  LDFLAGS += -L$(ROOT)/build/glfw/src -lglfw
+  LIBS += $(ROOT)/build/glfw/src/libglfw.so*
+
+  # OpenVR
+  CFLAGS_@(OPENVR) += -I$(ROOT)/deps/openvr/headers
+  LDFLAGS_@(OPENVR) += -L$(ROOT)/build/openvr_api -lopenvr_api
+  LIBS_@(OPENVR) += $(ROOT)/build/openvr_api/libopenvr_api.so
+
+  # OpenAL
+  CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
+  LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal -lopenal
+  LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.so*
+
+  # Configure rpath to look for libraries in a `libs` folder next to the executable
+  LDFLAGS += -Wl,-rpath,\$ORIGIN/libs
+  LIBS += $(LIBS_y)
+endif
+
+## Platforms
+# $(LDFLAGS_@(TUP_PLATFORM)) doesn't seem to work, oh well
 ifeq (@(TUP_PLATFORM),macosx)
   LDFLAGS += -lobjc
 endif
@@ -72,7 +94,8 @@ endif
 CFLAGS += @(EXTRA_CFLAGS)
 LDFLAGS += @(EXTRA_LDFLAGS)
 
-# Macros
-!compile = |> ^ CC %f^ @(CC) $(CFLAGS) $(CFLAGS_y) -c %f -o %o |> $(ROOT)/.obj/%B.o $(ROOT)/<objects>
-!link = |> ^ LD %o^ @(CC) $(LDFLAGS) -o %o |>
-!embed = |> ^ XD %f^ xxd -i %f > %o |>
+## Macros
+!cc = |> ^ CC %b^ @(CC) $(CFLAGS_y) $(CFLAGS) -c %f -o %o |>
+!ld = |> ^ LD %o^ @(CC) -o %o %f $(LDFLAGS_y) $(LDFLAGS) |>
+!xxd = |> ^ XD %f^ xxd -i %f > %o |>
+!cp = |> ^ CP %b^ cp %f %o |>

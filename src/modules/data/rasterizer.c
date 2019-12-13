@@ -12,7 +12,7 @@
 
 Rasterizer* lovrRasterizerInit(Rasterizer* rasterizer, Blob* blob, float size) {
   stbtt_fontinfo* font = &rasterizer->font;
-  unsigned char* data = blob ? blob->data : VarelaRound_ttf;
+  unsigned char* data = blob ? blob->data : src_resources_VarelaRound_ttf;
   if (!stbtt_InitFont(font, data, stbtt_GetFontOffsetForIndex(data, 0))) {
     lovrThrow("Problem loading font");
   }
