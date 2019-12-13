@@ -1,9 +1,12 @@
 #include "data/blob.h"
+#include "event/event.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 #pragma once
+
+#define MAX_THREAD_ARGUMENTS 4
 
 struct Channel;
 
@@ -11,6 +14,8 @@ typedef struct Thread {
   thrd_t handle;
   mtx_t lock;
   Blob* body;
+  Variant arguments[MAX_THREAD_ARGUMENTS];
+  size_t argumentCount;
   int (*runner)(void*);
   char* error;
   bool running;
@@ -24,7 +29,7 @@ void lovrThreadRemoveChannel(uint64_t hash);
 Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), Blob* body);
 #define lovrThreadCreate(...) lovrThreadInit(lovrAlloc(Thread), __VA_ARGS__)
 void lovrThreadDestroy(void* ref);
-void lovrThreadStart(Thread* thread);
+void lovrThreadStart(Thread* thread, Variant* arguments, size_t argumentCount);
 void lovrThreadWait(Thread* thread);
 const char* lovrThreadGetError(Thread* thread);
 bool lovrThreadIsRunning(Thread* thread);

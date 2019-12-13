@@ -65,7 +65,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       break;
 
     default:
-      lovrThrow("Bad variant type: %s", lua_typename(L, type));
+      lovrThrow("Bad variant type for argument %d: %s", index, lua_typename(L, type));
       return;
   }
 }
