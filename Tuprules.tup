@@ -1,25 +1,20 @@
 ROOT = $(TUP_CWD)
 
-# Optimization
+# Base
+CFLAGS += -std=c99 -pedantic
+CFLAGS += -D_POSIX_C_SOURCE=200809L
+CFLAGS += -Werror -Wall -Wextra
+CFLAGS += -Wno-typedef-redefinition
+CFLAGS += -Wno-unused-parameter
+CFLAGS += -fvisibility=hidden
+CFLAGS += -I$(ROOT)/src
+CFLAGS += -I$(ROOT)/src/modules
+
 ifeq (@(DEBUG),y)
   CFLAGS += -g
 else
   CFLAGS += -Os
 endif
-
-# Warnings
-# -Wno-typedef-redefinition is for OpenVR
-# -Wno-unused-parameter is turned off just because it's kinda annoying
-CFLAGS += -Werror -Wall -Wextra -pedantic -std=c99
-CFLAGS += -Wno-typedef-redefinition
-CFLAGS += -Wno-unused-parameter
-
-# Symbols are manually exported as-needed using the LOVR_EXPORT macro to reduce file size.
-CFLAGS += -fvisibility=hidden
-
-# Include paths
-CFLAGS += -I$(ROOT)/src
-CFLAGS += -I$(ROOT)/src/modules
 
 # Modules
 CFLAGS_@(AUDIO) += -DLOVR_ENABLE_AUDIO
@@ -67,13 +62,15 @@ LDFLAGS += @(OPENVR_LDFLAGS)
 LDFLAGS += @(OPENXR_LDFLAGS)
 LDFLAGS += @(ENET_LDFLAGS)
 
-CFLAGS += @(CFLAGS)
-LDFLAGS += @(LDFLAGS)
-
-# Platforms
 ifeq (@(TUP_PLATFORM),macosx)
   LDFLAGS += -lobjc
 endif
+ifeq (@(TUP_PLATFORM),linux)
+  LDFLAGS += -lm -lpthread
+endif
+
+CFLAGS += @(EXTRA_CFLAGS)
+LDFLAGS += @(EXTRA_LDFLAGS)
 
 # Macros
 !compile = |> ^ CC %f^ @(CC) $(CFLAGS) $(CFLAGS_y) -c %f -o %o |> $(ROOT)/.obj/%B.o $(ROOT)/<objects>
