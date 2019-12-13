@@ -282,7 +282,7 @@ bool fs_stat(const char* path, FileInfo* info) {
   if (info) {
     info->size = (uint64_t) stats.st_size;
     info->lastModified = (uint64_t) stats.st_mtime;
-    info->type = (stats.st_mode & S_IFDIR) ? FILE_DIRECTORY : FILE_REGULAR;
+    info->type = S_ISDIR(stats.st_mode) ? FILE_DIRECTORY : FILE_REGULAR;
   }
 
   return true;

@@ -67,6 +67,8 @@
 
 #ifdef _WIN32
 #define strncasecmp _strnicmp
+#else
+#include <strings.h>
 #endif
 
 #define DEFAULT_SPARSE_CONVERT 0
