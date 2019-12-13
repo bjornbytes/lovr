@@ -32,8 +32,9 @@ option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
 option(LOVR_SYSTEM_ODE "Use the system-provided ODE" OFF)
 option(LOVR_SYSTEM_OPENAL "Use the system-provided OpenAL" OFF)
 
-option(LOVR_BUILD_SHARED "Build as a shared library instead of an executable" OFF)
-option(LOVR_BUILD_BUNDLE "On macOS, build a .app instead of an executable" OFF)
+option(LOVR_BUILD_EXE "Build an executable" ON)
+option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUILD_EXE)" OFF)
+option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
 
 # Setup
 if(EMSCRIPTEN)
@@ -306,10 +307,12 @@ set(LOVR_SRC
   src/api/l_lovr.c
 )
 
-if (LOVR_BUILD_SHARED)
+if(LOVR_BUILD_SHARED)
   add_library(lovr SHARED ${LOVR_SRC})
-else()
+elseif(LOVR_BUILD_EXE)
   add_executable(lovr ${LOVR_SRC})
+else()
+  return()
 endif()
 
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET default)
