@@ -18,31 +18,35 @@ static struct {
   windowResizeCallback onWindowResize;
   mouseButtonCallback onMouseButton;
   keyboardCallback onKeyboardEvent;
-} state;
+} glfwState;
+
+static void onError(int code, const char* description) {
+  lovrThrow(description);
+}
 
 static void onWindowClose(GLFWwindow* window) {
-  if (state.onWindowClose) {
-    state.onWindowClose();
+  if (glfwState.onWindowClose) {
+    glfwState.onWindowClose();
   }
 }
 
 static void onWindowResize(GLFWwindow* window, int width, int height) {
-  if (state.onWindowResize) {
+  if (glfwState.onWindowResize) {
     glfwGetFramebufferSize(window, &width, &height);
-    state.onWindowResize(width, height);
+    glfwState.onWindowResize(width, height);
   }
 }
 
 static void onMouseButton(GLFWwindow* window, int b, int a, int mods) {
-  if (state.onMouseButton && (b == GLFW_MOUSE_BUTTON_LEFT || b == GLFW_MOUSE_BUTTON_RIGHT)) {
+  if (glfwState.onMouseButton && (b == GLFW_MOUSE_BUTTON_LEFT || b == GLFW_MOUSE_BUTTON_RIGHT)) {
     MouseButton button = (b == GLFW_MOUSE_BUTTON_LEFT) ? MOUSE_LEFT : MOUSE_RIGHT;
     ButtonAction action = (a == GLFW_PRESS) ? BUTTON_PRESSED : BUTTON_RELEASED;
-    state.onMouseButton(button, action);
+    glfwState.onMouseButton(button, action);
   }
 }
 
 static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int mods) {
-  if (state.onKeyboardEvent) {
+  if (glfwState.onKeyboardEvent) {
     KeyCode key;
     switch (k) {
       case GLFW_KEY_W: key = KEY_W; break;
@@ -60,7 +64,7 @@ static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int 
       default: return;
     }
     ButtonAction action = (a == GLFW_PRESS) ? BUTTON_PRESSED : BUTTON_RELEASED;
-    state.onKeyboardEvent(key, action);
+    glfwState.onKeyboardEvent(key, action);
   }
 }
 
@@ -90,37 +94,23 @@ static int convertKeyCode(KeyCode key) {
   }
 }
 
-static void onGlfwError(int code, const char* description) {
-  lovrThrow(description);
-}
-
-bool lovrPlatformInit() {
-  glfwSetErrorCallback(onGlfwError);
-#ifndef EMSCRIPTEN
-  glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
-#endif
-  return glfwInit();
-}
-
-void lovrPlatformDestroy() {
-  glfwTerminate();
-}
-
 void lovrPlatformPollEvents() {
-  glfwPollEvents();
-}
-
-double lovrPlatformGetTime() {
-  return glfwGetTime();
-}
-
-void lovrPlatformSetTime(double t) {
-  glfwSetTime(t);
+  if (glfwState.window) {
+    glfwPollEvents();
+  }
 }
 
 bool lovrPlatformCreateWindow(WindowFlags* flags) {
-  if (state.window) {
+  if (glfwState.window) {
     return true;
+  }
+
+  glfwSetErrorCallback(onError);
+#ifdef __APPLE__
+  glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
+#endif
+  if (!glfwInit()) {
+    return false;
   }
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -143,36 +133,36 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
     glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
   }
 
-  state.window = glfwCreateWindow(width, height, flags->title, flags->fullscreen ? monitor : NULL, NULL);
+  glfwState.window = glfwCreateWindow(width, height, flags->title, flags->fullscreen ? monitor : NULL, NULL);
 
-  if (!state.window) {
+  if (!glfwState.window) {
     return false;
   }
 
   if (flags->icon.data) {
-    glfwSetWindowIcon(state.window, 1, &(GLFWimage) {
+    glfwSetWindowIcon(glfwState.window, 1, &(GLFWimage) {
       .pixels = flags->icon.data,
       .width = flags->icon.width,
       .height = flags->icon.height
     });
   }
 
-  glfwMakeContextCurrent(state.window);
-  glfwSetWindowCloseCallback(state.window, onWindowClose);
-  glfwSetWindowSizeCallback(state.window, onWindowResize);
-  glfwSetMouseButtonCallback(state.window, onMouseButton);
-  glfwSetKeyCallback(state.window, onKeyboardEvent);
+  glfwMakeContextCurrent(glfwState.window);
+  glfwSetWindowCloseCallback(glfwState.window, onWindowClose);
+  glfwSetWindowSizeCallback(glfwState.window, onWindowResize);
+  glfwSetMouseButtonCallback(glfwState.window, onMouseButton);
+  glfwSetKeyCallback(glfwState.window, onKeyboardEvent);
   lovrPlatformSetSwapInterval(flags->vsync);
   return true;
 }
 
 bool lovrPlatformHasWindow() {
-  return state.window;
+  return glfwState.window;
 }
 
 void lovrPlatformGetWindowSize(int* width, int* height) {
-  if (state.window) {
-    glfwGetWindowSize(state.window, width, height);
+  if (glfwState.window) {
+    glfwGetWindowSize(glfwState.window, width, height);
   } else {
     if (*width) *width = 0;
     if (*height) *height = 0;
@@ -180,8 +170,8 @@ void lovrPlatformGetWindowSize(int* width, int* height) {
 }
 
 void lovrPlatformGetFramebufferSize(int* width, int* height) {
-  if (state.window) {
-    glfwGetFramebufferSize(state.window, width, height);
+  if (glfwState.window) {
+    glfwGetFramebufferSize(glfwState.window, width, height);
   } else {
     if (*width) *width = 0;
     if (*height) *height = 0;
@@ -197,7 +187,7 @@ void lovrPlatformSetSwapInterval(int interval) {
 }
 
 void lovrPlatformSwapBuffers() {
-  glfwSwapBuffers(state.window);
+  glfwSwapBuffers(glfwState.window);
 }
 
 void* lovrPlatformGetProcAddress(const char* function) {
@@ -205,50 +195,50 @@ void* lovrPlatformGetProcAddress(const char* function) {
 }
 
 void lovrPlatformOnWindowClose(windowCloseCallback callback) {
-  state.onWindowClose = callback;
+  glfwState.onWindowClose = callback;
 }
 
 void lovrPlatformOnWindowResize(windowResizeCallback callback) {
-  state.onWindowResize = callback;
+  glfwState.onWindowResize = callback;
 }
 
 void lovrPlatformOnMouseButton(mouseButtonCallback callback) {
-  state.onMouseButton = callback;
+  glfwState.onMouseButton = callback;
 }
 
 void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
-  state.onKeyboardEvent = callback;
+  glfwState.onKeyboardEvent = callback;
 }
 
 void lovrPlatformGetMousePosition(double* x, double* y) {
-  if (state.window) {
-    glfwGetCursorPos(state.window, x, y);
+  if (glfwState.window) {
+    glfwGetCursorPos(glfwState.window, x, y);
   } else {
     *x = *y = 0.;
   }
 }
 
 void lovrPlatformSetMouseMode(MouseMode mode) {
-  if (state.window) {
+  if (glfwState.window) {
     int m = (mode == MOUSE_MODE_GRABBED) ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
-    glfwSetInputMode(state.window, GLFW_CURSOR, m);
+    glfwSetInputMode(glfwState.window, GLFW_CURSOR, m);
   }
 }
 
 bool lovrPlatformIsMouseDown(MouseButton button) {
-  return state.window ? glfwGetMouseButton(state.window, convertMouseButton(button)) == GLFW_PRESS : false;
+  return glfwState.window ? glfwGetMouseButton(glfwState.window, convertMouseButton(button)) == GLFW_PRESS : false;
 }
 
 bool lovrPlatformIsKeyDown(KeyCode key) {
-  return state.window ? glfwGetKey(state.window, convertKeyCode(key)) == GLFW_PRESS : false;
+  return glfwState.window ? glfwGetKey(glfwState.window, convertKeyCode(key)) == GLFW_PRESS : false;
 }
 
 #ifdef _WIN32
 HANDLE lovrPlatformGetWindow() {
-  return (HANDLE) glfwGetWin32Window(state.window);
+  return (HANDLE) glfwGetWin32Window(glfwState.window);
 }
 
 HGLRC lovrPlatformGetContext() {
-  return glfwGetWGLContext(state.window);
+  return glfwGetWGLContext(glfwState.window);
 }
 #endif

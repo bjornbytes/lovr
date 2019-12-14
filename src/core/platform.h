@@ -56,10 +56,11 @@ typedef void (*keyboardCallback)(KeyCode key, ButtonAction action);
 bool lovrPlatformInit(void);
 void lovrPlatformDestroy(void);
 const char* lovrPlatformGetName(void);
-void lovrPlatformPollEvents(void);
 double lovrPlatformGetTime(void);
 void lovrPlatformSetTime(double t);
+void lovrPlatformSleep(double seconds);
 void lovrPlatformOpenConsole(void);
+void lovrPlatformPollEvents(void);
 bool lovrPlatformCreateWindow(WindowFlags* flags);
 bool lovrPlatformHasWindow(void);
 void lovrPlatformGetWindowSize(int* width, int* height);
@@ -75,7 +76,6 @@ void lovrPlatformGetMousePosition(double* x, double* y);
 void lovrPlatformSetMouseMode(MouseMode mode);
 bool lovrPlatformIsMouseDown(MouseButton button);
 bool lovrPlatformIsKeyDown(KeyCode key);
-void lovrPlatformSleep(double seconds);
 #ifdef _WIN32
 #include <windows.h>
 HANDLE lovrPlatformGetWindow(void);

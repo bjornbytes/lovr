@@ -1,15 +1,47 @@
 #include "platform.h"
 #include <mach-o/dyld.h>
-#include <unistd.h>
+#include <mach/mach_time.h>
+#include <time.h>
 
 #include "platform_glfw.c.h"
+
+static uint64_t epoch;
+static uint64_t frequency;
+
+static uint64_t getTime() {
+  return mach_absolute_time();
+}
+
+bool lovrPlatformInit() {
+  mach_timebase_info_data_t info;
+  mach_timebase_info(&info);
+  frequency = (info.denom * 1e9) / info.numer;
+  epoch = getTime();
+  return true;
+}
+
+void lovrPlatformDestroy() {
+  glfwTerminate();
+}
 
 const char* lovrPlatformGetName() {
   return "macOS";
 }
 
+double lovrPlatformGetTime() {
+  return (getTime() - epoch) / (double) frequency;
+}
+
+void lovrPlatformSetTime(double t) {
+  epoch = getTime() - (uint64_t) (t * frequency + .5);
+}
+
 void lovrPlatformSleep(double seconds) {
-  usleep((unsigned int) (seconds * 1000000));
+  seconds += .5e-9;
+  struct timespec t;
+  t.tv_sec = seconds;
+  t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
+  while (nanosleep(&t, &t));
 }
 
 void lovrPlatformOpenConsole() {
