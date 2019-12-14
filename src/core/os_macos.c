@@ -1,9 +1,9 @@
-#include "platform.h"
+#include "os.h"
 #include <mach-o/dyld.h>
 #include <mach/mach_time.h>
 #include <time.h>
 
-#include "platform_glfw.c.h"
+#include "os_glfw.c.h"
 
 static uint64_t epoch;
 static uint64_t frequency;

@@ -1,4 +1,4 @@
-#include "platform.h"
+#include "os.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <EGL/egl.h>
