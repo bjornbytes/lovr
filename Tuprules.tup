@@ -53,7 +53,7 @@ ifeq ($(PLATFORM),macosx)
   PLATFORM = macos
 endif
 
-ifeq ($(PLATFORM),macosx)
+ifeq ($(PLATFORM),macos)
   LDFLAGS += -lobjc
   LDFLAGS += -pagezero_size 10000 -image_base 100000000
   ORIGIN = @executable_path
