@@ -2,7 +2,7 @@
 #include <Windows.h>
 #include <stdio.h>
 
-#include "os_glfw.c.h"
+#include "os_glfw.h"
 
 static uint64_t epoch;
 static uint64_t frequency;

@@ -1,7 +1,7 @@
 #include "os.h"
 #include <emscripten.h>
 
-#include "os_glfw.c.h"
+#include "os_glfw.h"
 
 static double epoch;
 #define TIMER_FREQUENCY 1000

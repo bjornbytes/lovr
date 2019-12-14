@@ -3,7 +3,7 @@
 #include <mach/mach_time.h>
 #include <time.h>
 
-#include "os_glfw.c.h"
+#include "os_glfw.h"
 
 static uint64_t epoch;
 static uint64_t frequency;
@@ -40,7 +40,7 @@ void lovrPlatformSleep(double seconds) {
   seconds += .5e-9;
   struct timespec t;
   t.tv_sec = seconds;
-  t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
+  t.tv_nsec = (seconds - t.tv_sec) * 1e9;
   while (nanosleep(&t, &t));
 }
 
