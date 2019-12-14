@@ -296,7 +296,6 @@ set(LOVR_SRC
   src/core/fs.c
   src/core/maf.c
   src/core/map.c
-  src/core/platform.c
   src/core/ref.c
   src/core/utf.c
   src/core/util.c
@@ -513,6 +512,7 @@ endif()
 
 # Platforms
 if(WIN32)
+  target_sources(lovr PRIVATE src/core/os_win32.c)
   set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244 /MP")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
@@ -541,6 +541,7 @@ if(WIN32)
   move_dll(${LOVR_LEAP})
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 elseif(APPLE)
+  target_sources(lovr PRIVATE src/core/os_macos.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
   if(LOVR_BUILD_BUNDLE)
     function(move_lib)
@@ -570,10 +571,13 @@ elseif(APPLE)
     )
   endif()
 elseif(EMSCRIPTEN)
+  target_sources(lovr PRIVATE src/core/os_web.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_WEBGL)
 elseif(ANDROID)
+  target_sources(lovr PRIVATE src/core/os_android.c)
   target_link_libraries(lovr log EGL GLESv3)
   target_compile_definitions(lovr PRIVATE -DLOVR_GLES)
 elseif(UNIX)
+  target_sources(lovr PRIVATE src/core/os_linux.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 endif()

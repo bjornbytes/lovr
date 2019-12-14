@@ -1,5 +1,5 @@
 #include "timer/timer.h"
-#include "core/platform.h"
+#include "core/os.h"
 #include <string.h>
 
 static struct {

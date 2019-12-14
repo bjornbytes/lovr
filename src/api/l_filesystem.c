@@ -2,7 +2,7 @@
 #include "filesystem/filesystem.h"
 #include "data/blob.h"
 #include "core/fs.h"
-#include "core/platform.h"
+#include "core/os.h"
 #include "core/ref.h"
 #include <stdlib.h>
 #include <string.h>

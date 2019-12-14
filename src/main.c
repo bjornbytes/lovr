@@ -1,6 +1,6 @@
 #include "resources/boot.lua.h"
 #include "api/api.h"
-#include "core/platform.h"
+#include "core/os.h"
 #include "core/util.h"
 #include <stdbool.h>
 #include <string.h>

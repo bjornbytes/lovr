@@ -1,8 +1,8 @@
-#include "platform.h"
+#include "os.h"
 #include <string.h>
 #include <time.h>
 
-#include "platform_glfw.c.h"
+#include "os_glfw.h"
 
 static uint64_t epoch;
 #define NS_PER_SEC 1000000000ULL

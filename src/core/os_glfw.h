@@ -1,7 +1,5 @@
 #include "util.h"
 
-// Include this in ONE translation unit
-
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #ifndef EMSCRIPTEN

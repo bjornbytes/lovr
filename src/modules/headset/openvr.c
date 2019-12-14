@@ -8,7 +8,7 @@
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "core/maf.h"
-#include "core/platform.h"
+#include "core/os.h"
 #include "core/ref.h"
 #include <stdbool.h>
 #include <stdio.h>

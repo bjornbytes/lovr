@@ -41,14 +41,25 @@ CFLAGS_@(WEBVR) += LOVR_USE_WEBVR
 CFLAGS_@(LEAP) += LOVR_USE_LEAP
 
 ## Platforms
-# $(LDFLAGS_@(TUP_PLATFORM)) doesn't seem to work, oh well
-ifeq (@(TUP_PLATFORM),macosx)
+# A little gnarly, but basically you can set CONFIG_PLATFORM to pick a specific one, otherwise
+# we use the builtin TUP_PLATFORM which is the current OS (so it won't work with android/web).
+# Also macosx gets converted to macos
+ifeq (@(PLATFORM),)
+  PLATFORM = @(TUP_PLATFORM)
+else
+  PLATFORM = @(PLATFORM)
+endif
+ifeq ($(PLATFORM),macosx)
+  PLATFORM = macos
+endif
+
+ifeq ($(PLATFORM),macosx)
   LDFLAGS += -lobjc
   LDFLAGS += -pagezero_size 10000 -image_base 100000000
   ORIGIN = @executable_path
   SO = dylib
 endif
-ifeq (@(TUP_PLATFORM),linux)
+ifeq ($(PLATFORM),linux)
   LDFLAGS += -lm -lpthread
   ORIGIN = \$ORIGIN
   SO = so

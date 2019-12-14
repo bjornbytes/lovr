@@ -1,7 +1,7 @@
 #include "graphics/font.h"
 #include "data/modelData.h"
 #include "core/maf.h"
-#include "core/platform.h"
+#include "core/os.h"
 #include "core/util.h"
 #include <stdbool.h>
 #include <stdint.h>

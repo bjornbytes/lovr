@@ -2,7 +2,7 @@
 #include "oculus_mobile_bridge.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
-#include "core/platform.h"
+#include "core/os.h"
 #include "lib/glad/glad.h"
 #include <android/log.h>
 #include <assert.h>

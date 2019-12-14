@@ -1,6 +1,6 @@
 #include "headset/headset.h"
 #include "core/maf.h"
-#include "core/platform.h"
+#include "core/os.h"
 #include "core/util.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <LeapC.h>
