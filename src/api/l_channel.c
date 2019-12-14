@@ -49,10 +49,13 @@ static int l_lovrChannelPeek(lua_State* L) {
   Variant variant;
   Channel* channel = luax_checktype(L, 1, Channel);
   if (lovrChannelPeek(channel, &variant)) {
-    return luax_pushvariant(L, &variant);
+    luax_pushvariant(L, &variant);
+    lua_pushboolean(L, true);
+    return 2;
   }
   lua_pushnil(L);
-  return 1;
+  lua_pushboolean(L, false);
+  return 2;
 }
 
 static int l_lovrChannelClear(lua_State* L) {
