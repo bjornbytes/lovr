@@ -1,4 +1,5 @@
 #include "data/textureData.h"
+#include "graphics/graphics.h"
 #include "graphics/opengl.h"
 #include "data/modelData.h"
 #include <stdbool.h>
@@ -21,6 +22,7 @@ typedef struct Texture {
   uint32_t height;
   uint32_t depth;
   uint32_t mipmapCount;
+  CompareMode compareMode;
   TextureFilter filter;
   TextureWrap wrap;
   uint32_t msaa;
@@ -44,6 +46,8 @@ uint32_t lovrTextureGetMipmapCount(Texture* texture);
 uint32_t lovrTextureGetMSAA(Texture* texture);
 TextureType lovrTextureGetType(Texture* texture);
 TextureFormat lovrTextureGetFormat(Texture* texture);
+CompareMode lovrTextureGetCompareMode(Texture* texture);
+void lovrTextureSetCompareMode(Texture* texture, CompareMode compareMode);
 TextureFilter lovrTextureGetFilter(Texture* texture);
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter);
 TextureWrap lovrTextureGetWrap(Texture* texture);
