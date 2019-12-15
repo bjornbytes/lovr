@@ -50,7 +50,7 @@ static inline uint32_t ref_dec(Ref* ref) { return atomic_fetch_sub(ref, 1) - 1; 
 #endif
 
 void* _lovrAlloc(size_t size);
-#define toRef(o) (Ref*) (o) - 1
+#define toRef(o) ((Ref*) (((char*) (o)) - sizeof(size_t)))
 #define lovrAlloc(T) (T*) _lovrAlloc(sizeof(T))
 #define lovrRetain(o) if (o && !ref_inc(toRef(o))) { lovrThrow("Refcount overflow in %s:%d", __FILE__, __LINE__); }
 #define lovrRelease(T, o) if (o && !ref_dec(toRef(o))) lovr ## T ## Destroy(o), free(toRef(o));
