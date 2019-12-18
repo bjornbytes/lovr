@@ -416,15 +416,16 @@ size_t fs_getBundleId(char* buffer, size_t size) {
   // TODO
   pid_t pid = getpid();
   char path[32];
-  snprintf(path, LOVR_PATH_MAX, "/proc/%i/cmdline", (int) pid);
+  snprintf(path, 32, "/proc/%i/cmdline", (int) pid);
   FILE* file = fopen(path, "r");
   if (file) {
-    size_t read = fread(dest, 1, size, file);
+    size_t read = fread(buffer, 1, size, file);
     fclose(file);
     return true;
   }
   return 0;
 #else
+  buffer[0] = '\0';
   return 0;
 #endif
 }

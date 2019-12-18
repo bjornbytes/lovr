@@ -54,7 +54,7 @@ void lovrPlatformSwapBuffers() {
 }
 
 void* lovrPlatformGetProcAddress(const char* function) {
-  return (void*) eglGetProcAddress(function)
+  return (void*) eglGetProcAddress(function);
 }
 
 void lovrPlatformOnWindowClose(windowCloseCallback callback) {
