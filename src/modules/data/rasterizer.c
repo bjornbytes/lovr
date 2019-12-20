@@ -105,6 +105,8 @@ void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, Glyph* 
     y = y2;
   }
 
+  stbtt_FreeShape(&rasterizer->font, vertices);
+
   int advance, bearing;
   stbtt_GetGlyphHMetrics(&rasterizer->font, glyphIndex, &advance, &bearing);
 

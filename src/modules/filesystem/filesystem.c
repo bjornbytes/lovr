@@ -137,6 +137,11 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
 
 void lovrFilesystemDestroy() {
   if (!state.initialized) return;
+  for (size_t i = 0; i < state.archives.length; i++) {
+    Archive* archive = &state.archives.data[i];
+    archive->close(archive);
+  }
+  arr_free(&state.archives);
   memset(&state, 0, sizeof(state));
 }
 
@@ -195,7 +200,6 @@ bool lovrFilesystemUnmount(const char* path) {
   FOREACH_ARCHIVE(archive) {
     if (!strcmp(strpool_resolve(&archive->strings, archive->path), path)) {
       archive->close(archive);
-      arr_free(&archive->strings);
       arr_splice(&state.archives, archive - state.archives.data, 1);
       return true;
     }
@@ -461,6 +465,7 @@ static bool dir_read(Archive* archive, const char* path, size_t bytes, size_t* b
 }
 
 static bool dir_close(Archive* archive) {
+  arr_free(&archive->strings);
   return true;
 }
 
@@ -565,6 +570,7 @@ static bool zip_read(Archive* archive, const char* path, size_t bytes, size_t* b
 static bool zip_close(Archive* archive) {
   arr_free(&archive->nodes);
   map_free(&archive->lookup);
+  arr_free(&archive->strings);
   return fs_unmap(archive->zip.data, archive->zip.size);
 }
 
