@@ -4,6 +4,7 @@
 /build.sh
 /watch.sh
 /debug.sh
+/db
 /lovr
 build
 build-*
