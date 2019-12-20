@@ -1389,6 +1389,8 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
     Blob* blob = luax_readblob(L, 1, "Model");
     modelData = lovrModelDataCreate(blob, luax_readfile);
     lovrRelease(Blob, blob);
+  } else {
+    lovrRetain(modelData);
   }
 
   Model* model = lovrModelCreate(modelData);
