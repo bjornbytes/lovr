@@ -995,7 +995,15 @@ static float   *stbi__ldr_to_hdr(stbi_uc *data, int x, int y, int comp);
 static stbi_uc *stbi__hdr_to_ldr(float   *data, int x, int y, int comp);
 #endif
 
-static int stbi__vertically_flip_on_load = 0;
+#define LOVR_STBI_VFLIP_PATCH
+#ifdef USE_LOVR_STBI_THREADLOCAL
+#include "lib/tinycthread/tinycthread.h"
+#define THREADLOCAL_IF_AVAILABLE _Thread_local
+#else
+#define THREADLOCAL_IF_AVAILABLE
+#endif
+
+static THREADLOCAL_IF_AVAILABLE int stbi__vertically_flip_on_load = 0;
 
 STBIDEF void stbi_set_flip_vertically_on_load(int flag_true_if_should_flip)
 {

@@ -36,6 +36,8 @@ option(LOVR_BUILD_EXE "Build an executable" ON)
 option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUILD_EXE)" OFF)
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
 
+option(LOVR_USE_THREADLOCAL "Allow use of thread local storage; disable to run on Windows XP as a DLL" ON)
+
 # Setup
 if(EMSCRIPTEN)
   string(CONCAT LOVR_EMSCRIPTEN_FLAGS
@@ -285,6 +287,9 @@ if(LOVR_ENABLE_THREAD)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
     set(LOVR_PTHREADS Threads::Threads)
+  endif()
+  if (LOVR_USE_THREADLOCAL)
+    add_definitions(-DUSE_LOVR_STBI_THREADLOCAL)
   endif()
 endif()
 
