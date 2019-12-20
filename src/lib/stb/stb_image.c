@@ -5,3 +5,7 @@
 #define STBI_ONLY_HDR
 #define STBI_ASSERT(x)
 #include "stb_image.h"
+
+#ifndef LOVR_STBI_VFLIP_PATCH
+#error "Somebody updated stb_image.h without replacing the thread-local patch"
+#endif
