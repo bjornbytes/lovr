@@ -408,7 +408,7 @@ static void bridgeLovrInitState() {
   // Run init
 
   lua_pushcfunction(L, luax_getstack);
-  if (luaL_loadbuffer(L, (const char*) src_resources_boot_lua, src_resources_boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
+  if (luaL_loadbuffer(L, (const char*) src_resources_boot_lua, src_resources_boot_lua_len, "@boot.lua") || lua_pcall(L, 0, 1, -2)) {
     WARN("\n LUA STARTUP FAILED: %s\n", lua_tostring(L, -1));
     lua_close(L);
     assert(0);

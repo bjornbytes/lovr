@@ -167,7 +167,7 @@ lua_State* lovrInit(lua_State* L, int argc, char** argv) {
   lua_pop(L, 2);
 
   lua_pushcfunction(L, luax_getstack);
-  if (luaL_loadbuffer(L, (const char*) src_resources_boot_lua, src_resources_boot_lua_len, "boot.lua") || lua_pcall(L, 0, 1, -2)) {
+  if (luaL_loadbuffer(L, (const char*) src_resources_boot_lua, src_resources_boot_lua_len, "@boot.lua") || lua_pcall(L, 0, 1, -2)) {
     fprintf(stderr, "%s\n", lua_tostring(L, -1));
     return NULL;
   }
