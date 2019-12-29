@@ -1,6 +1,7 @@
 .tup
 .obj
-*.config
+tup.config
+config/*
 /build.sh
 /watch.sh
 /debug.sh
