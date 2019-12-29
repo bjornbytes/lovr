@@ -587,3 +587,22 @@ elseif(UNIX)
   target_sources(lovr PRIVATE src/core/os_linux.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 endif()
+
+# Resources
+file(GLOB LOVR_RESOURCES "src/resources/*.ttf" "src/resources/*.json" "src/resources/*.lua")
+foreach(path ${LOVR_RESOURCES})
+
+  # Turn the absolute path into a C variable like src_resources_boot_lua
+  file(RELATIVE_PATH identifier ${CMAKE_CURRENT_SOURCE_DIR} ${path})
+  string(MAKE_C_IDENTIFIER ${identifier} identifier)
+
+  # Read the file and turn the bytes into comma-separated hex literals
+  file(READ ${path} data HEX)
+  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," data ${data})
+
+  # Generate the output filename by adding .h to the input filename
+  string(CONCAT output ${path} ".h")
+
+  # Write some xxd-compatible C code!
+  file(WRITE ${output} "const unsigned char ${identifier}[] = {${data}};\nconst unsigned int ${identifier}_len = sizeof(${identifier});\n")
+endforeach()
