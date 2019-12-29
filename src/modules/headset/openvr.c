@@ -107,7 +107,7 @@ static bool openvr_init(float offset, uint32_t msaa) {
   }
 
   char path[LOVR_PATH_MAX];
-  snprintf(path, sizeof(path), "%s%cactions.json", lovrFilesystemGetSaveDirectory(), lovrDirSep);
+  snprintf(path, sizeof(path), "%s%cactions.json", lovrFilesystemGetSaveDirectory(), LOVR_PATH_SEP);
   state.input->SetActionManifestPath(path);
   state.input->GetActionSetHandle("/actions/lovr", &state.actionSet);
 

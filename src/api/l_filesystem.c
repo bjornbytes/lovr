@@ -7,12 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef _WIN32
-const char lovrDirSep = '\\';
-#else
-const char lovrDirSep = '/';
-#endif
-
 void* luax_readfile(const char* filename, size_t* bytesRead) {
   return lovrFilesystemRead(filename, -1, bytesRead);
 }
@@ -434,7 +428,7 @@ static int libLoader(lua_State* L) {
         luaL_Buffer buffer;
         luaL_buffinit(L, &buffer);
         luaL_addstring(&buffer, lovrFilesystemGetRealDirectory(filename));
-        luaL_addchar(&buffer, lovrDirSep);
+        luaL_addchar(&buffer, LOVR_PATH_SEP);
         luaL_addstring(&buffer, filename);
         luaL_pushresult(&buffer);
 
@@ -461,7 +455,7 @@ static int libLoader(lua_State* L) {
       }
     } else if (*p == '?') {
       for (const char* m = module; n && *m; n--, m++) {
-        *f++ = *m == '.' ? lovrDirSep : *m;
+        *f++ = *m == '.' ? LOVR_PATH_SEP : *m;
       }
       p++;
 

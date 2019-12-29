@@ -6,7 +6,11 @@
 
 #define LOVR_PATH_MAX 1024
 
-extern const char lovrDirSep;
+#ifdef _WIN32
+#define LOVR_PATH_SEP '\\'
+#else
+#define LOVR_PATH_SEP '/'
+#endif
 
 bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* argRoot);
 void lovrFilesystemDestroy(void);
