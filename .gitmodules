@@ -22,6 +22,3 @@
 [submodule "deps/luajit"]
 	path = deps/luajit
 	url = https://github.com/WohlSoft/LuaJIT
-[submodule "deps/openxr"]
-	path = deps/openxr
-	url = https://github.com/khronosgroup/openxr-sdk
