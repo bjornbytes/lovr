@@ -101,7 +101,7 @@ Resources
 - [**matrix.org**](https://matrix.to/#/!XVAslexgYDYQnYnZBP:matrix.org): Decentralized alternative to Slack.
 - [**Nightly Builds**](https://lovr.org/download/nightly): Nightly builds for Windows.
 - [**Compiling Guide**](https://lovr.org/docs/Compiling): Information on compiling LÖVR from source.
-- [**Contributing**](CONTRIBUTING.md): Guide for helping out with development 💜
+- [**Contributing**](https://lovr.org/docs/Contributing): Guide for helping out with development 💜
 - [**LÖVE**](https://love2d.org): LÖVR is heavily inspired by LÖVE, a 2D game framework.
 
 Contributors
