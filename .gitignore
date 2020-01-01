@@ -2,7 +2,9 @@
 .obj
 tup.config
 config/*
-src/resources/*.{ttf,json,lua}.h
+*.ttf.h
+*.json.h
+*.lua.h
 /build.sh
 /watch.sh
 /debug.sh
