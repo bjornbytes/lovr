@@ -345,8 +345,8 @@ if(LOVR_ENABLE_AUDIO)
     src/modules/audio/source.c
     src/modules/audio/microphone.c
     src/api/l_audio.c
-    src/api/l_source.c
-    src/api/l_microphone.c
+    src/api/l_audio_source.c
+    src/api/l_audio_microphone.c
   )
 endif()
 
@@ -362,12 +362,12 @@ if(LOVR_ENABLE_DATA)
     src/modules/data/soundData.c
     src/modules/data/textureData.c
     src/api/l_data.c
-    src/api/l_audioStream.c
-    src/api/l_blob.c
-    src/api/l_modelData.c
-    src/api/l_rasterizer.c
-    src/api/l_soundData.c
-    src/api/l_textureData.c
+    src/api/l_data_audioStream.c
+    src/api/l_data_blob.c
+    src/api/l_data_modelData.c
+    src/api/l_data_rasterizer.c
+    src/api/l_data_soundData.c
+    src/api/l_data_textureData.c
     src/lib/stb/stb_image.c
     src/lib/stb/stb_image_write.c
     src/lib/stb/stb_truetype.c
@@ -407,14 +407,14 @@ if(LOVR_ENABLE_GRAPHICS)
     src/modules/graphics/shader.c
     src/modules/graphics/texture.c
     src/api/l_graphics.c
-    src/api/l_canvas.c
-    src/api/l_font.c
-    src/api/l_material.c
-    src/api/l_mesh.c
-    src/api/l_model.c
-    src/api/l_shader.c
-    src/api/l_shaderBlock.c
-    src/api/l_texture.c
+    src/api/l_graphics_canvas.c
+    src/api/l_graphics_font.c
+    src/api/l_graphics_material.c
+    src/api/l_graphics_mesh.c
+    src/api/l_graphics_model.c
+    src/api/l_graphics_shader.c
+    src/api/l_graphics_shaderBlock.c
+    src/api/l_graphics_texture.c
     src/resources/shaders.c
     src/lib/glad/glad.c
   )
@@ -468,9 +468,9 @@ if(LOVR_ENABLE_MATH)
     src/modules/math/pool.c
     src/modules/math/randomGenerator.c
     src/api/l_math.c
-    src/api/l_curve.c
-    src/api/l_randomGenerator.c
-    src/api/l_vectors.c
+    src/api/l_math_curve.c
+    src/api/l_math_randomGenerator.c
+    src/api/l_math_vectors.c
     src/lib/noise1234/noise1234.c
   )
 endif()
@@ -480,10 +480,10 @@ if(LOVR_ENABLE_PHYSICS)
   target_sources(lovr PRIVATE
     src/modules/physics/physics.c
     src/api/l_physics.c
-    src/api/l_collider.c
-    src/api/l_joints.c
-    src/api/l_shapes.c
-    src/api/l_world.c
+    src/api/l_physics_collider.c
+    src/api/l_physics_joints.c
+    src/api/l_physics_shapes.c
+    src/api/l_physics_world.c
   )
 endif()
 
@@ -492,9 +492,9 @@ if(LOVR_ENABLE_THREAD)
   target_sources(lovr PRIVATE
     src/modules/thread/channel.c
     src/modules/thread/thread.c
-    src/api/l_thread_module.c
-    src/api/l_channel.c
     src/api/l_thread.c
+    src/api/l_thread_channel.c
+    src/api/l_thread_thread.c
     src/lib/tinycthread/tinycthread.c
   )
 endif()

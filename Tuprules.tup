@@ -113,5 +113,5 @@ LDFLAGS += @(EXTRA_LDFLAGS)
 ## Macros
 !cc = |> ^ CC %b^ @(CC) $(CFLAGS_y) $(CFLAGS) -c %f -o %o |>
 !ld = |> ^ LD %o^ @(CC) -o %o %f $(LDFLAGS_y) $(LDFLAGS) |>
-!xxd = |> ^ XD %f^ xxd -i %f > %o |>
+!xd = |> ^ XD %f^ xxd -i %f > %o |>
 !cp = |> ^ CP %b^ cp %f %o |>
