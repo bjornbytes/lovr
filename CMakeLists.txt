@@ -238,6 +238,8 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENVR)
 endif()
 
 # OpenXR
+# Currently, to use OpenXR, add the OpenXR SDK to the deps folder:
+#   git submodule add https://github.com/khronosgroup/openxr-sdk deps/openxr
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
   include_directories(deps/openxr/include)
   add_subdirectory(deps/openxr openxr)
