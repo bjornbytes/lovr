@@ -14,15 +14,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#ifndef WIN32
-#pragma pack(push, 4)
-#else
 #undef EXTERN_C
-#endif
 #include <openvr_capi.h>
-#ifndef WIN32
-#pragma pack(pop)
-#endif
 
 // From openvr_capi.h
 extern intptr_t VR_InitInternal(EVRInitError *peError, EVRApplicationType eType);
