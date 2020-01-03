@@ -165,6 +165,11 @@ void lovrSourcePlay(Source* source) {
     return;
   }
 
+  // in case we're replaying an already-used stream, make sure to rewind it if applicable
+  if (!lovrAudioStreamIsRaw(source->stream)) {
+    lovrAudioStreamRewind(source->stream);
+  }
+
   lovrSourceStream(source, source->buffers, SOURCE_BUFFERS);
   alSourcePlay(source->id);
 }
@@ -285,7 +290,9 @@ void lovrSourceStop(Source* source) {
       alSourcei(source->id, AL_BUFFER, AL_NONE);
 
       // Rewind the decoder
-      lovrAudioStreamRewind(source->stream);
+      if (!lovrAudioStreamIsRaw(source->stream)) {
+        lovrAudioStreamRewind(source->stream);
+      }
       break;
     }
   }

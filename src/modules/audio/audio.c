@@ -95,7 +95,6 @@ void lovrAudioUpdate() {
         alSourcePlay(id);
       }
     } else if (isStopped) {
-      lovrAudioStreamRewind(lovrSourceGetStream(source));
       arr_splice(&state.sources, i, 1);
       lovrRelease(Source, source);
     }
