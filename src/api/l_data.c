@@ -39,11 +39,19 @@ static int l_lovrDataNewBlob(lua_State* L) {
 }
 
 static int l_lovrDataNewAudioStream(lua_State* L) {
-  Blob* blob = luax_readblob(L, 1, "AudioStream");
-  int bufferSize = luaL_optinteger(L, 2, 4096);
-  AudioStream* stream = lovrAudioStreamCreate(blob, bufferSize);
+  AudioStream* stream = NULL;
+  if (lua_type(L, 1) == LUA_TNUMBER && lua_type(L, 2) == LUA_TNUMBER) {
+    int channelCount = lua_tonumber(L, 1);
+    int sampleRate = lua_tonumber(L, 2);
+    int bufferSize = luaL_optinteger(L, 3, 4096);
+    stream = lovrAudioStreamCreateRaw(channelCount, sampleRate, bufferSize);
+  } else {
+    Blob* blob = luax_readblob(L, 1, "AudioStream");
+    int bufferSize = luaL_optinteger(L, 2, 4096);
+    stream = lovrAudioStreamCreate(blob, bufferSize);
+    lovrRelease(Blob, blob);
+  }
   luax_pushtype(L, AudioStream, stream);
-  lovrRelease(Blob, blob);
   lovrRelease(AudioStream, stream);
   return 1;
 }

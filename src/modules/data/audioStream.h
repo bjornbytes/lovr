@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include "core/arr.h"
 
 #pragma once
@@ -21,12 +22,12 @@ typedef struct AudioStream {
 
 AudioStream* lovrAudioStreamInit(AudioStream* stream, struct Blob* blob, size_t bufferSize);
 #define lovrAudioStreamCreate(...) lovrAudioStreamInit(lovrAlloc(AudioStream), __VA_ARGS__)
-AudioStream* lovrAudioStreamInitRaw(AudioStream* stream, size_t bufferSize, int channelCount, int sampleRate);
+AudioStream* lovrAudioStreamInitRaw(AudioStream* stream, int channelCount, int sampleRate, size_t bufferSize);
 #define lovrAudioStreamCreateRaw(...) lovrAudioStreamInitRaw(lovrAlloc(AudioStream), __VA_ARGS__)
 void lovrAudioStreamDestroy(void* ref);
 size_t lovrAudioStreamDecode(AudioStream* stream, int16_t* destination, size_t size);
-void lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob);
-void lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound);
+bool lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob);
+bool lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound);
 void lovrAudioStreamRewind(AudioStream* stream);
 void lovrAudioStreamSeek(AudioStream* stream, size_t sample);
 size_t lovrAudioStreamTell(AudioStream* stream);

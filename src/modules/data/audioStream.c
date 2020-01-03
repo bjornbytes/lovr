@@ -5,6 +5,7 @@
 #include "core/util.h"
 #include "lib/stb/stb_vorbis.h"
 #include <stdlib.h>
+#include <memory.h>
 
 AudioStream* lovrAudioStreamInit(AudioStream* stream, Blob* blob, size_t bufferSize) {
   stb_vorbis* decoder = stb_vorbis_open_memory(blob->data, (int) blob->size, NULL, NULL);
@@ -25,7 +26,7 @@ AudioStream* lovrAudioStreamInit(AudioStream* stream, Blob* blob, size_t bufferS
   return stream;
 }
 
-AudioStream* lovrAudioStreamInitRaw(AudioStream* stream, size_t bufferSize, int channelCount, int sampleRate) {
+AudioStream* lovrAudioStreamInitRaw(AudioStream* stream, int channelCount, int sampleRate, size_t bufferSize) {
   stream->bitDepth = 16;
   stream->channelCount = channelCount;
   stream->sampleRate = sampleRate;
@@ -76,7 +77,7 @@ size_t lovrAudioStreamDecode(AudioStream* stream, int16_t* destination, size_t s
   size_t samples = 0;
 
   while (samples < capacity) {
-    int count = 0;
+    size_t count = 0;
     if (decoder) {
       count = stb_vorbis_get_samples_short_interleaved(decoder, channelCount, buffer + samples, (int)(capacity - samples));
     } else {
@@ -89,16 +90,19 @@ size_t lovrAudioStreamDecode(AudioStream* stream, int16_t* destination, size_t s
   return samples;
 }
 
-void lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob)
+bool lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob)
 {
+  lovrAssert(stream->decoder == NULL, "Raw PCM data can only be appended to a raw AudioStream (see constructor that takes channel count and sample rate)")
   lovrRetain(blob);
   arr_push(&stream->queuedRawBuffers, blob);
+  return true;
 }
 
-void lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound)
+bool lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound)
 {
   lovrAssert(sound->channelCount == stream->channelCount && sound->bitDepth == stream->bitDepth && sound->sampleRate == stream->sampleRate, "SoundData and AudioStream formats must match");
   lovrAudioStreamAppendRawBlob(stream, &sound->blob);
+  return true;
 }
 
 void lovrAudioStreamRewind(AudioStream* stream) {
