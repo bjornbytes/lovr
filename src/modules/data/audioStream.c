@@ -58,14 +58,17 @@ static size_t dequeue_raw(AudioStream* stream, int16_t* destination, size_t size
     memcpy(destination, blob->data, blob->size);
     lovrRelease(Blob, blob);
     arr_splice(&stream->queuedRawBuffers, 0, 1);
-    return size;
+    return blob->size;
   } else {
     // blob is too big. copy all that fits, and put remainder in a new blob in its place.
     memcpy(destination, blob->data, size);
     void* oldData = blob->data;
-    lovrBlobInit(blob, (char*)blob->data + size, blob->size - size, "raw audiostream remainder");
+    size_t remainingLength = blob->size - size;
+    void* copiedRemainder = malloc(remainingLength);
+    memcpy(copiedRemainder, (char*)blob->data + size, remainingLength);
+    lovrBlobInit(blob, copiedRemainder, remainingLength, "raw audiostream remainder");
     free(oldData);
-    return blob->size;
+    return size;
   }
 }
 
