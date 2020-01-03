@@ -92,7 +92,7 @@ size_t lovrAudioStreamDecode(AudioStream* stream, int16_t* destination, size_t s
 
 bool lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob)
 {
-  lovrAssert(stream->decoder == NULL, "Raw PCM data can only be appended to a raw AudioStream (see constructor that takes channel count and sample rate)")
+  lovrAssert(lovrAudioStreamIsRaw(stream), "Raw PCM data can only be appended to a raw AudioStream (see constructor that takes channel count and sample rate)")
   lovrRetain(blob);
   arr_push(&stream->queuedRawBuffers, blob);
   return true;
@@ -105,20 +105,25 @@ bool lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound)
   return true;
 }
 
+bool lovrAudioStreamIsRaw(AudioStream* stream)
+{
+  return stream->decoder == NULL;
+}
+
 void lovrAudioStreamRewind(AudioStream* stream) {
-  lovrAssert(stream->decoder, "Can't rewind raw stream");
+  lovrAssert(!lovrAudioStreamIsRaw(stream), "Can't rewind raw stream");
   stb_vorbis* decoder = (stb_vorbis*) stream->decoder;
   stb_vorbis_seek_start(decoder);
 }
 
 void lovrAudioStreamSeek(AudioStream* stream, size_t sample) {
-  lovrAssert(stream->decoder, "Can't seek raw stream");
+  lovrAssert(!lovrAudioStreamIsRaw(stream), "Can't seek raw stream");
   stb_vorbis* decoder = (stb_vorbis*) stream->decoder;
   stb_vorbis_seek(decoder, (int) sample);
 }
 
 size_t lovrAudioStreamTell(AudioStream* stream) {
-  lovrAssert(stream->decoder, "No position available in raw stream");
+  lovrAssert(!lovrAudioStreamIsRaw(stream), "No position available in raw stream");
   stb_vorbis* decoder = (stb_vorbis*) stream->decoder;
   return stb_vorbis_get_sample_offset(decoder);
 }
