@@ -30,6 +30,7 @@ void lovrAudioStreamDestroy(void* ref);
 size_t lovrAudioStreamDecode(AudioStream* stream, int16_t* destination, size_t size);
 bool lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob);
 bool lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound);
+size_t lovrAudioStreamGetQueueLength(AudioStream* stream);
 bool lovrAudioStreamIsRaw(AudioStream* stream);
 void lovrAudioStreamRewind(AudioStream* stream);
 void lovrAudioStreamSeek(AudioStream* stream, size_t sample);

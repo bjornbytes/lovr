@@ -117,6 +117,12 @@ bool lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound)
   return true;
 }
 
+size_t lovrAudioStreamGetQueueLength(AudioStream* stream)
+{
+  lovrAssert(lovrAudioStreamIsRaw(stream), "Queue length is only available on raw streams");
+  return stream->queueLengthInSamples;
+}
+
 bool lovrAudioStreamIsRaw(AudioStream* stream)
 {
   return stream->decoder == NULL;

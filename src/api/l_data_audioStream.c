@@ -58,6 +58,13 @@ static int l_lovrAudioStreamAppend(lua_State* L) {
   return 1;
 }
 
+static int l_lovrAudioStreamGetQueueLength(lua_State* L) {
+  AudioStream* stream = luax_checktype(L, 1, AudioStream);
+  size_t length = lovrAudioStreamGetQueueLength(stream);
+  lua_pushnumber(L, length);
+  return 1;
+}
+
 const luaL_Reg lovrAudioStream[] = {
   { "decode", l_lovrAudioStreamDecode },
   { "getBitDepth", l_lovrAudioStreamGetBitDepth },
@@ -65,5 +72,6 @@ const luaL_Reg lovrAudioStream[] = {
   { "getDuration", l_lovrAudioStreamGetDuration },
   { "getSampleRate", l_lovrAudioStreamGetSampleRate },
   { "append", l_lovrAudioStreamAppend},
+  { "getQueueLength", l_lovrAudioStreamGetQueueLength},
   { NULL, NULL }
 };
