@@ -47,29 +47,30 @@ void lovrAudioStreamDestroy(void* ref) {
   free(stream->buffer);
 }
 
-static size_t dequeue_raw(AudioStream* stream, int16_t* destination, size_t size)
+static size_t dequeue_raw(AudioStream* stream, int16_t* destination, size_t sampleCount)
 {
   if (stream->queuedRawBuffers.length == 0) {
     return 0;
   }
+  size_t byteCount = sampleCount * sizeof(int16_t);
   Blob* blob = stream->queuedRawBuffers.data[0];
-  if (blob->size <= size) {
+  if (blob->size <= byteCount) {
     size_t blobSize = blob->size;
     // blob fits in destination in its entirety. Copy over, free it and remove from start of array.
     memcpy(destination, blob->data, blobSize);
     lovrRelease(Blob, blob);
     arr_splice(&stream->queuedRawBuffers, 0, 1);
-    return blobSize;
+    return blobSize / sizeof(int16_t);
   } else {
     // blob is too big. copy all that fits, and put remainder in a new blob in its place.
-    memcpy(destination, blob->data, size);
+    memcpy(destination, blob->data, byteCount);
     void* oldData = blob->data;
-    size_t remainingLength = blob->size - size;
+    size_t remainingLength = blob->size - byteCount;
     void* copiedRemainder = malloc(remainingLength);
-    memcpy(copiedRemainder, (char*)blob->data + size, remainingLength);
+    memcpy(copiedRemainder, (char*)blob->data + byteCount, remainingLength);
     lovrBlobInit(blob, copiedRemainder, remainingLength, "raw audiostream remainder");
     free(oldData);
-    return size;
+    return sampleCount;
   }
 }
 
