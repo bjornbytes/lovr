@@ -170,6 +170,12 @@ void lovrSourcePlay(Source* source) {
     lovrAudioStreamRewind(source->stream);
   }
 
+  // in case we have some queued buffers, make sure to unqueue them before streaming more data into them.
+  ALint processed;
+  alGetSourcei(lovrSourceGetId(source), AL_BUFFERS_PROCESSED, &processed);
+  ALuint buffers[SOURCE_BUFFERS];
+  alSourceUnqueueBuffers(source->id, processed, buffers);
+
   lovrSourceStream(source, source->buffers, SOURCE_BUFFERS);
   alSourcePlay(source->id);
 }
