@@ -54,11 +54,12 @@ static size_t dequeue_raw(AudioStream* stream, int16_t* destination, size_t size
   }
   Blob* blob = stream->queuedRawBuffers.data[0];
   if (blob->size <= size) {
+    size_t blobSize = blob->size;
     // blob fits in destination in its entirety. Copy over, free it and remove from start of array.
-    memcpy(destination, blob->data, blob->size);
+    memcpy(destination, blob->data, blobSize);
     lovrRelease(Blob, blob);
     arr_splice(&stream->queuedRawBuffers, 0, 1);
-    return blob->size;
+    return blobSize;
   } else {
     // blob is too big. copy all that fits, and put remainder in a new blob in its place.
     memcpy(destination, blob->data, size);
