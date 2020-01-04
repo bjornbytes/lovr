@@ -18,11 +18,13 @@ typedef struct AudioStream {
   void* decoder; // null if stream is raw
   struct Blob* blob;
   arr_t(struct Blob*) queuedRawBuffers;
+  size_t queueLengthInSamples;
+  size_t queueLimitInSamples;
 } AudioStream;
 
 AudioStream* lovrAudioStreamInit(AudioStream* stream, struct Blob* blob, size_t bufferSize);
 #define lovrAudioStreamCreate(...) lovrAudioStreamInit(lovrAlloc(AudioStream), __VA_ARGS__)
-AudioStream* lovrAudioStreamInitRaw(AudioStream* stream, int channelCount, int sampleRate, size_t bufferSize);
+AudioStream* lovrAudioStreamInitRaw(AudioStream* stream, int channelCount, int sampleRate, size_t bufferSize, size_t queueLimitInSamples);
 #define lovrAudioStreamCreateRaw(...) lovrAudioStreamInitRaw(lovrAlloc(AudioStream), __VA_ARGS__)
 void lovrAudioStreamDestroy(void* ref);
 size_t lovrAudioStreamDecode(AudioStream* stream, int16_t* destination, size_t size);
