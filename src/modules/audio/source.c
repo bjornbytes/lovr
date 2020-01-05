@@ -291,9 +291,7 @@ void lovrSourceStop(Source* source) {
       alSourceUnqueueBuffers(source->id, count, NULL);
 
       // Rewind the decoder
-      if (!lovrAudioStreamIsRaw(source->stream)) {
-        lovrAudioStreamRewind(source->stream);
-      }
+      lovrAudioStreamRewind(source->stream);
       break;
     }
   }
