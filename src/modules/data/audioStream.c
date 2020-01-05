@@ -44,8 +44,15 @@ AudioStream* lovrAudioStreamInitRaw(AudioStream* stream, int channelCount, int s
 
 void lovrAudioStreamDestroy(void* ref) {
   AudioStream* stream = ref;
-  stb_vorbis_close(stream->decoder);
-  lovrRelease(Blob, stream->blob);
+  if (stream->decoder) {
+    stb_vorbis_close(stream->decoder);
+    lovrRelease(Blob, stream->blob);
+  } else {
+    for (int i = 0; i < stream->queuedRawBuffers.length; i++) {
+      lovrRelease(Blob, stream->queuedRawBuffers.data[i]);
+    }
+    arr_free(&stream->queuedRawBuffers);
+  }
   free(stream->buffer);
 }
 
