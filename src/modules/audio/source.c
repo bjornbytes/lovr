@@ -281,14 +281,14 @@ void lovrSourceStop(Source* source) {
 
     case SOURCE_STREAM: {
 
+      // Stop the source
+      alSourceStop(source->id);
+      alSourcei(source->id, AL_BUFFER, AL_NONE);
+
       // Empty the buffers
       int count = 0;
       alGetSourcei(source->id, AL_BUFFERS_QUEUED, &count);
       alSourceUnqueueBuffers(source->id, count, NULL);
-
-      // Stop the source
-      alSourceStop(source->id);
-      alSourcei(source->id, AL_BUFFER, AL_NONE);
 
       // Rewind the decoder
       if (!lovrAudioStreamIsRaw(source->stream)) {
