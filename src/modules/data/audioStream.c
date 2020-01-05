@@ -129,9 +129,16 @@ bool lovrAudioStreamIsRaw(AudioStream* stream)
 }
 
 void lovrAudioStreamRewind(AudioStream* stream) {
-  lovrAssert(!lovrAudioStreamIsRaw(stream), "Can't rewind raw stream");
   stb_vorbis* decoder = (stb_vorbis*) stream->decoder;
-  stb_vorbis_seek_start(decoder);
+  if (decoder) {
+    stb_vorbis_seek_start(decoder);
+  } else {
+    stream->queueLengthInSamples = 0;
+    for (int i = 0; i < stream->queuedRawBuffers.length; i++) {
+      lovrRelease(Blob, stream->queuedRawBuffers.data[i]);
+    }
+    arr_clear(&stream->queuedRawBuffers);
+  }
 }
 
 void lovrAudioStreamSeek(AudioStream* stream, size_t sample) {

@@ -165,11 +165,6 @@ void lovrSourcePlay(Source* source) {
     return;
   }
 
-  // in case we're replaying an already-used stream, make sure to rewind it if applicable
-  if (!lovrAudioStreamIsRaw(source->stream)) {
-    lovrAudioStreamRewind(source->stream);
-  }
-
   // in case we have some queued buffers, make sure to unqueue them before streaming more data into them.
   ALint processed;
   alGetSourcei(lovrSourceGetId(source), AL_BUFFERS_PROCESSED, &processed);
