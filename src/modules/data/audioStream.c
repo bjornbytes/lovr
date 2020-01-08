@@ -55,8 +55,7 @@ void lovrAudioStreamDestroy(void* ref) {
   free(stream->buffer);
 }
 
-static size_t dequeue_raw(AudioStream* stream, int16_t* destination, size_t sampleCount)
-{
+static size_t dequeue_raw(AudioStream* stream, int16_t* destination, size_t sampleCount) {
   if (stream->queuedRawBuffers.length == 0) {
     return 0;
   }
@@ -104,8 +103,7 @@ size_t lovrAudioStreamDecode(AudioStream* stream, int16_t* destination, size_t s
   return samples;
 }
 
-bool lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob)
-{
+bool lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob) {
   lovrAssert(lovrAudioStreamIsRaw(stream), "Raw PCM data can only be appended to a raw AudioStream (see constructor that takes channel count and sample rate)")
   if (stream->queueLimitInSamples != 0 && stream->samples + blob->size/sizeof(int16_t) >= stream->queueLimitInSamples) {
     return false;
@@ -116,20 +114,16 @@ bool lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob)
   return true;
 }
 
-bool lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound)
-{
+bool lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound) {
   lovrAssert(sound->channelCount == stream->channelCount && sound->bitDepth == stream->bitDepth && sound->sampleRate == stream->sampleRate, "SoundData and AudioStream formats must match");
-  lovrAudioStreamAppendRawBlob(stream, &sound->blob);
-  return true;
+  return lovrAudioStreamAppendRawBlob(stream, &sound->blob);
 }
 
-bool lovrAudioStreamIsRaw(AudioStream* stream)
-{
+bool lovrAudioStreamIsRaw(AudioStream* stream) {
   return stream->decoder == NULL;
 }
 
-double lovrAudioStreamGetDurationInSeconds(AudioStream* stream)
-{
+double lovrAudioStreamGetDurationInSeconds(AudioStream* stream) {
   return stream->samples / stream->channelCount / stream->sampleRate;
 }
 
