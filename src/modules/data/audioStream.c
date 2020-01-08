@@ -37,6 +37,7 @@ AudioStream* lovrAudioStreamInitRaw(AudioStream* stream, int channelCount, int s
   stream->blob = NULL;
   arr_init(&stream->queuedRawBuffers);
   stream->samples = 0;
+  stream->firstBlobCursor = 0;
   stream->queueLimitInSamples = queueLimitInSamples;
   return stream;
 }
@@ -61,22 +62,19 @@ static size_t dequeue_raw(AudioStream* stream, int16_t* destination, size_t samp
   }
   size_t byteCount = sampleCount * sizeof(int16_t);
   Blob* blob = stream->queuedRawBuffers.data[0];
-  if (blob->size <= byteCount) {
-    size_t blobSize = blob->size;
+  size_t remainingBlobSize = blob->size - stream->firstBlobCursor;
+  if (remainingBlobSize <= byteCount) {
+    
     // blob fits in destination in its entirety. Copy over, free it and remove from start of array.
-    memcpy(destination, blob->data, blobSize);
+    memcpy(destination, (char*)blob->data + stream->firstBlobCursor, remainingBlobSize);
     lovrRelease(Blob, blob);
     arr_splice(&stream->queuedRawBuffers, 0, 1);
-    return blobSize / sizeof(int16_t);
+    stream->firstBlobCursor = 0;
+    return remainingBlobSize / sizeof(int16_t);
   } else {
-    // blob is too big. copy all that fits, and put remainder in a new blob in its place.
-    memcpy(destination, blob->data, byteCount);
-    void* oldData = blob->data;
-    size_t remainingLength = blob->size - byteCount;
-    void* copiedRemainder = malloc(remainingLength);
-    memcpy(copiedRemainder, (char*)blob->data + byteCount, remainingLength);
-    lovrBlobInit(blob, copiedRemainder, remainingLength, "raw audiostream remainder");
-    free(oldData);
+    // blob is too big. copy all that fits, and advance cursor.
+    memcpy(destination, (char*)blob->data + stream->firstBlobCursor, byteCount);
+    stream->firstBlobCursor += byteCount;
     return sampleCount;
   }
 }
@@ -133,6 +131,7 @@ void lovrAudioStreamRewind(AudioStream* stream) {
     stb_vorbis_seek_start(decoder);
   } else {
     stream->samples = 0;
+    stream->firstBlobCursor = 0;
     for (int i = 0; i < stream->queuedRawBuffers.length; i++) {
       lovrRelease(Blob, stream->queuedRawBuffers.data[i]);
     }

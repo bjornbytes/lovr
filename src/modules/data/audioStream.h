@@ -19,6 +19,7 @@ typedef struct AudioStream {
   struct Blob* blob;
   arr_t(struct Blob*) queuedRawBuffers;
   size_t queueLimitInSamples;
+  size_t firstBlobCursor; // bytes into queuedRawBuffers.data[0] at which to do the next read
 } AudioStream;
 
 AudioStream* lovrAudioStreamInit(AudioStream* stream, struct Blob* blob, size_t bufferSize);
