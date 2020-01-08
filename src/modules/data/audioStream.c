@@ -5,7 +5,7 @@
 #include "core/util.h"
 #include "lib/stb/stb_vorbis.h"
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>
 
 AudioStream* lovrAudioStreamInit(AudioStream* stream, Blob* blob, size_t bufferSize) {
   stb_vorbis* decoder = stb_vorbis_open_memory(blob->data, (int) blob->size, NULL, NULL);
