@@ -30,14 +30,13 @@ AudioStream* lovrAudioStreamInitRaw(AudioStream* stream, int channelCount, int s
   stream->bitDepth = 16;
   stream->channelCount = channelCount;
   stream->sampleRate = sampleRate;
-  stream->samples = SIZE_MAX;
   stream->decoder = NULL;
   stream->bufferSize = stream->channelCount * bufferSize * sizeof(int16_t);
   stream->buffer = malloc(stream->bufferSize);
   lovrAssert(stream->buffer, "Out of memory");
   stream->blob = NULL;
   arr_init(&stream->queuedRawBuffers);
-  stream->queueLengthInSamples = 0;
+  stream->samples = 0;
   stream->queueLimitInSamples = queueLimitInSamples;
   return stream;
 }
@@ -96,7 +95,7 @@ size_t lovrAudioStreamDecode(AudioStream* stream, int16_t* destination, size_t s
       count = stb_vorbis_get_samples_short_interleaved(decoder, channelCount, buffer + samples, (int)(capacity - samples));
     } else {
       count = dequeue_raw(stream, buffer + samples, (int)(capacity - samples));
-      stream->queueLengthInSamples -= count;
+      stream->samples -= count;
     }
     if (count == 0) break;
     samples += count * channelCount;
@@ -108,12 +107,12 @@ size_t lovrAudioStreamDecode(AudioStream* stream, int16_t* destination, size_t s
 bool lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob)
 {
   lovrAssert(lovrAudioStreamIsRaw(stream), "Raw PCM data can only be appended to a raw AudioStream (see constructor that takes channel count and sample rate)")
-  if (stream->queueLimitInSamples != 0 && stream->queueLengthInSamples + blob->size/sizeof(int16_t) >= stream->queueLimitInSamples) {
+  if (stream->queueLimitInSamples != 0 && stream->samples + blob->size/sizeof(int16_t) >= stream->queueLimitInSamples) {
     return false;
   }
   lovrRetain(blob);
   arr_push(&stream->queuedRawBuffers, blob);
-  stream->queueLengthInSamples += blob->size / sizeof(int16_t);
+  stream->samples += blob->size / sizeof(int16_t);
   return true;
 }
 
@@ -122,12 +121,6 @@ bool lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound)
   lovrAssert(sound->channelCount == stream->channelCount && sound->bitDepth == stream->bitDepth && sound->sampleRate == stream->sampleRate, "SoundData and AudioStream formats must match");
   lovrAudioStreamAppendRawBlob(stream, &sound->blob);
   return true;
-}
-
-size_t lovrAudioStreamGetQueueLength(AudioStream* stream)
-{
-  lovrAssert(lovrAudioStreamIsRaw(stream), "Queue length is only available on raw streams");
-  return stream->queueLengthInSamples;
 }
 
 bool lovrAudioStreamIsRaw(AudioStream* stream)
@@ -140,7 +133,7 @@ void lovrAudioStreamRewind(AudioStream* stream) {
   if (decoder) {
     stb_vorbis_seek_start(decoder);
   } else {
-    stream->queueLengthInSamples = 0;
+    stream->samples = 0;
     for (int i = 0; i < stream->queuedRawBuffers.length; i++) {
       lovrRelease(Blob, stream->queuedRawBuffers.data[i]);
     }
