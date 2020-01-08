@@ -122,7 +122,7 @@ bool lovrAudioStreamIsRaw(AudioStream* stream) {
 }
 
 double lovrAudioStreamGetDurationInSeconds(AudioStream* stream) {
-  return stream->samples / stream->channelCount / stream->sampleRate;
+  return (double)stream->samples / stream->channelCount / stream->sampleRate;
 }
 
 void lovrAudioStreamRewind(AudioStream* stream) {
