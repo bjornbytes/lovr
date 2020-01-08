@@ -16,7 +16,7 @@ AudioStream* lovrAudioStreamInit(AudioStream* stream, Blob* blob, size_t bufferS
   stream->bitDepth = 16;
   stream->channelCount = info.channels;
   stream->sampleRate = info.sample_rate;
-  stream->samples = stb_vorbis_stream_length_in_samples(decoder);
+  stream->samples = stb_vorbis_stream_length_in_samples(decoder) * info.channels;
   stream->decoder = decoder;
   stream->bufferSize = stream->channelCount * bufferSize * sizeof(int16_t);
   stream->buffer = malloc(stream->bufferSize);
@@ -126,6 +126,11 @@ bool lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound)
 bool lovrAudioStreamIsRaw(AudioStream* stream)
 {
   return stream->decoder == NULL;
+}
+
+double lovrAudioStreamGetDurationInSeconds(AudioStream* stream)
+{
+  return stream->samples / stream->channelCount / stream->sampleRate;
 }
 
 void lovrAudioStreamRewind(AudioStream* stream) {

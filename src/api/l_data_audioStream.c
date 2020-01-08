@@ -33,7 +33,7 @@ static int l_lovrAudioStreamGetChannelCount(lua_State* L) {
 
 static int l_lovrAudioStreamGetDuration(lua_State* L) {
   AudioStream* stream = luax_checktype(L, 1, AudioStream);
-  lua_pushnumber(L, (float) stream->samples / stream->sampleRate);
+  lua_pushnumber(L, (float)lovrAudioStreamGetDurationInSeconds(stream));
   return 1;
 }
 
