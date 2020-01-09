@@ -165,11 +165,12 @@ void lovrSourcePlay(Source* source) {
     return;
   }
 
-  // in case we have some queued buffers, make sure to unqueue them before streaming more data into them.
+  // There is no guarantee that lovrAudioUpdate is called AFTER the state of source becomes STOPPED but
+  // BEFORE user code calls source:play(). This means that some buffers may still be queued (but processed
+  // and completely finished playing). These must be unqueued before we can start using the source again.
   ALint processed;
   alGetSourcei(lovrSourceGetId(source), AL_BUFFERS_PROCESSED, &processed);
-  ALuint buffers[SOURCE_BUFFERS];
-  alSourceUnqueueBuffers(source->id, processed, buffers);
+  alSourceUnqueueBuffers(source->id, processed, NULL);
 
   lovrSourceStream(source, source->buffers, SOURCE_BUFFERS);
   alSourcePlay(source->id);
