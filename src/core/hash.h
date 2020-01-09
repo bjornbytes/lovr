@@ -1,6 +1,8 @@
 #include "util.h"
 #include <stdint.h>
 
+#pragma once
+
 // FNV1a
 static LOVR_INLINE uint64_t hash64(const void* data, size_t length) {
   const uint8_t* bytes = (uint8_t *)data;
