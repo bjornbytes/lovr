@@ -164,8 +164,8 @@ size_t lovrShaderComputeUniformLayout(arr_uniform_t* uniforms) {
     int align;
     Uniform* uniform = &uniforms->data[i];
     if (uniform->count > 1 || uniform->type == UNIFORM_MATRIX) {
-      align = 16 * (uniform->type == UNIFORM_MATRIX ? uniform->components : 1);
-      uniform->size = align * uniform->count;
+      align = 16;
+      uniform->size = align * uniform->count * (uniform->type == UNIFORM_MATRIX ? uniform->components : 1);
     } else {
       align = (uniform->components + (uniform->components == 3)) * 4;
       uniform->size = uniform->components * 4;
