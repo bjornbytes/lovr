@@ -169,8 +169,9 @@ void lovrSourcePlay(Source* source) {
   // BEFORE user code calls source:play(). This means that some buffers may still be queued (but processed
   // and completely finished playing). These must be unqueued before we can start using the source again.
   ALint processed;
+  ALuint _unused[SOURCE_BUFFERS];
   alGetSourcei(lovrSourceGetId(source), AL_BUFFERS_PROCESSED, &processed);
-  alSourceUnqueueBuffers(source->id, processed, NULL);
+  alSourceUnqueueBuffers(source->id, processed, &_unused);
 
   lovrSourceStream(source, source->buffers, SOURCE_BUFFERS);
   alSourcePlay(source->id);
