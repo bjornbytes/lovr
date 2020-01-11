@@ -61,7 +61,7 @@ static int l_lovrThreadNewThread(lua_State* L) {
   Blob* blob = luax_totype(L, 1, Blob);
   if (!blob) {
     size_t length;
-    const char* str = lua_tolstring(L, 1, &length);
+    const char* str = luaL_checklstring(L, 1, &length);
     if (memchr(str, '\n', MIN(1024, length))) {
       void* data = malloc(length + 1);
       lovrAssert(data, "Out of memory");
