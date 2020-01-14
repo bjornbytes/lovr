@@ -165,6 +165,14 @@ void lovrSourcePlay(Source* source) {
     return;
   }
 
+  // There is no guarantee that lovrAudioUpdate is called AFTER the state of source becomes STOPPED but
+  // BEFORE user code calls source:play(). This means that some buffers may still be queued (but processed
+  // and completely finished playing). These must be unqueued before we can start using the source again.
+  ALint processed;
+  ALuint _unused[SOURCE_BUFFERS];
+  alGetSourcei(lovrSourceGetId(source), AL_BUFFERS_PROCESSED, &processed);
+  alSourceUnqueueBuffers(source->id, processed, &_unused);
+
   lovrSourceStream(source, source->buffers, SOURCE_BUFFERS);
   alSourcePlay(source->id);
 }
@@ -230,6 +238,7 @@ void lovrSourceSetFalloff(Source* source, float reference, float max, float roll
 }
 
 void lovrSourceSetLooping(Source* source, bool isLooping) {
+  lovrAssert(!source->stream || lovrAudioStreamIsRaw(source->stream), "Can't loop a raw stream");
   source->isLooping = isLooping;
   if (source->type == SOURCE_STATIC) {
     alSourcei(source->id, AL_LOOPING, isLooping ? AL_TRUE : AL_FALSE);
@@ -274,14 +283,14 @@ void lovrSourceStop(Source* source) {
 
     case SOURCE_STREAM: {
 
+      // Stop the source
+      alSourceStop(source->id);
+      alSourcei(source->id, AL_BUFFER, AL_NONE);
+
       // Empty the buffers
       int count = 0;
       alGetSourcei(source->id, AL_BUFFERS_QUEUED, &count);
       alSourceUnqueueBuffers(source->id, count, NULL);
-
-      // Stop the source
-      alSourceStop(source->id);
-      alSourcei(source->id, AL_BUFFER, AL_NONE);
 
       // Rewind the decoder
       lovrAudioStreamRewind(source->stream);

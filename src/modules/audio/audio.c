@@ -95,7 +95,9 @@ void lovrAudioUpdate() {
         alSourcePlay(id);
       }
     } else if (isStopped) {
+      // in case we'll play this source in the future, rewind it now. This also frees up queued raw buffers.
       lovrAudioStreamRewind(lovrSourceGetStream(source));
+
       arr_splice(&state.sources, i, 1);
       lovrRelease(Source, source);
     }
