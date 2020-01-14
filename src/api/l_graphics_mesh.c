@@ -271,19 +271,30 @@ static int l_lovrMeshSetVertexAttribute(lua_State* L) {
 
 static int l_lovrMeshSetVertices(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  uint32_t capacity = lovrMeshGetVertexCount(mesh);
-  luaL_checktype(L, 2, LUA_TTABLE);
-  uint32_t sourceSize = luax_len(L, 2);
-  uint32_t start = luaL_optinteger(L, 3, 1) - 1;
-  uint32_t count = luaL_optinteger(L, 4, sourceSize);
-  lovrAssert(start + count <= capacity, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", capacity);
-  lovrAssert(count <= sourceSize, "Cannot set %d vertices on Mesh: source only has %d vertices", count, sourceSize);
 
   if (!mesh->vertexBuffer || mesh->attributeCount == 0 || mesh->attributes[0].buffer != mesh->vertexBuffer) {
-    lovrThrow("Mesh does not have a vertex buffer");
+    lovrThrow("Mesh:setVertices does not work when the Mesh does not have a vertex buffer");
   }
 
+  uint32_t capacity = lovrMeshGetVertexCount(mesh);
+  uint32_t start = luaL_optinteger(L, 3, 1) - 1;
+  uint32_t count = luaL_optinteger(L, 4, capacity - start);
   size_t stride = mesh->attributes[0].stride;
+
+  Blob* blob = luax_totype(L, 2, Blob);
+  if (blob) {
+    count = MIN(count, blob->size / stride);
+    lovrAssert(start + count <= capacity, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", capacity);
+    void* data = lovrBufferMap(mesh->vertexBuffer, start * stride);
+    memcpy(data, blob->data, count * stride);
+    lovrBufferFlush(mesh->vertexBuffer, start * stride, count * stride);
+    return 0;
+  }
+
+  luaL_checktype(L, 2, LUA_TTABLE);
+  count = MIN(count, lua_objlen(L, 2));
+  lovrAssert(start + count <= capacity, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", capacity);
+
   AttributeData data = { .raw = lovrBufferMap(mesh->vertexBuffer, start * stride) };
 
   for (uint32_t i = 0; i < count; i++) {
