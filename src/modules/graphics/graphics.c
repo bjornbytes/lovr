@@ -1219,6 +1219,10 @@ void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wra
   Font* font = lovrGraphicsGetFont();
   lovrFontMeasure(font, str, length, wrap, &width, &height, &lineCount, &glyphCount);
 
+  if (glyphCount == 0) {
+    return;
+  }
+
   float scale = 1.f / lovrFontGetPixelDensity(font);
   mat4_scale(transform, scale, scale, scale);
   mat4_translate(transform, 0.f, height * (valign / 2.f), 0.f);
