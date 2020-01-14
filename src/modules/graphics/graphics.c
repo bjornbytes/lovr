@@ -571,8 +571,8 @@ static void lovrGraphicsBatch(BatchRequest* req) {
     }
   }
 
-  if (req->type == BATCH_MESH && lovrShaderHasUniform(shader, "lovrPose")) {
-    if (req->params.mesh.pose) {
+  if (lovrShaderHasUniform(shader, "lovrPose")) {
+    if (req->type == BATCH_MESH && req->params.mesh.pose) {
       lovrShaderSetMatrices(shader, "lovrPose", req->params.mesh.pose, 0, MAX_BONES * 16);
     } else {
       lovrShaderSetMatrices(shader, "lovrPose", (float[]) MAT4_IDENTITY, 0, 16);
