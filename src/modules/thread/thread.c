@@ -54,19 +54,6 @@ Channel* lovrThreadGetChannel(const char* name) {
   return entry.channel;
 }
 
-void lovrThreadRemoveChannel(uint64_t hash) {
-  mtx_lock(&state.channelLock);
-  ChannelEntry entry = { map_get(&state.channels, hash) };
-
-  if (entry.u64 == MAP_NIL) {
-    mtx_unlock(&state.channelLock);
-    return;
-  }
-
-  map_remove(&state.channels, hash);
-  mtx_unlock(&state.channelLock);
-}
-
 Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), Blob* body) {
   lovrRetain(body);
   thread->runner = runner;

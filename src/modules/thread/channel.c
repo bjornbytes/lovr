@@ -27,10 +27,8 @@ Channel* lovrChannelCreate(uint64_t hash) {
   return channel;
 }
 
-extern void lovrThreadRemoveChannel(uint64_t hash);
 void lovrChannelDestroy(void* ref) {
   Channel* channel = ref;
-  lovrThreadRemoveChannel(channel->hash);
   lovrChannelClear(channel);
   arr_free(&channel->messages);
   mtx_destroy(&channel->lock);
