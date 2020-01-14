@@ -30,6 +30,7 @@ static int l_lovrDataNewBlob(lua_State* L) {
     size = blob->size;
     data = malloc(size);
     lovrAssert(data, "Out of memory");
+    memcpy(data, blob->data, size);
   }
   const char* name = luaL_optstring(L, 2, "");
   Blob* blob = lovrBlobCreate(data, size, name);
