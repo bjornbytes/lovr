@@ -31,7 +31,9 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, uint32_t 
     lovrAssert(level < mipmaps, "Invalid attachment mipmap level (Texture has %d, got %d)", mipmaps, level + 1);
     lovrAssert(!hasDepthBuffer || width == canvas->width, "Texture width of %d does not match Canvas width (%d)", width, canvas->width);
     lovrAssert(!hasDepthBuffer || height == canvas->height, "Texture height of %d does not match Canvas height (%d)", height, canvas->height);
+#ifndef __ANDROID__ // On multiview canvases, the multisample settings can be different
     lovrAssert(texture->msaa == canvas->flags.msaa, "Texture MSAA does not match Canvas MSAA");
+#endif
     lovrRetain(texture);
   }
 

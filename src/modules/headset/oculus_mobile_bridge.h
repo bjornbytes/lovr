@@ -126,6 +126,8 @@ typedef struct {
   double zeroDisplayTime;
   BridgeLovrDevice deviceType;
   BridgeLovrVibrateFunction* vibrateFunction; // Returns true on success
+  unsigned int textureHandles[4];
+  unsigned int textureCount;
 } BridgeLovrInitData;
 
 LOVR_EXPORT void bridgeLovrInit(BridgeLovrInitData *initData);
@@ -135,6 +137,7 @@ LOVR_EXPORT void bridgeLovrUpdate(BridgeLovrUpdateData *updateData);
 typedef struct {
   int eye;
   int framebuffer;
+  unsigned int textureIndex;
 } BridgeLovrDrawData;
 
 LOVR_EXPORT void bridgeLovrDraw(BridgeLovrDrawData *drawData);
