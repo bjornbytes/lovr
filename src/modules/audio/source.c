@@ -171,7 +171,7 @@ void lovrSourcePlay(Source* source) {
   ALint processed;
   ALuint _unused[SOURCE_BUFFERS];
   alGetSourcei(lovrSourceGetId(source), AL_BUFFERS_PROCESSED, &processed);
-  alSourceUnqueueBuffers(source->id, processed, &_unused);
+  alSourceUnqueueBuffers(source->id, processed, _unused);
 
   lovrSourceStream(source, source->buffers, SOURCE_BUFFERS);
   alSourcePlay(source->id);
