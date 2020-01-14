@@ -382,18 +382,21 @@ int luaopen_lovr_math(lua_State* L) {
 
   // Globals
   luax_pushconf(L);
-  lua_getfield(L, -1, "math");
   if (lua_istable(L, -1)) {
-    lua_getfield(L, -1, "globals");
-    if (lua_toboolean(L, -1)) {
-      for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
-        lua_getfield(L, -4, lovrVectorTypeNames[i]);
-        lua_setglobal(L, lovrVectorTypeNames[i]);
+    lua_getfield(L, -1, "math");
+    if (lua_istable(L, -1)) {
+      lua_getfield(L, -1, "globals");
+      if (lua_toboolean(L, -1)) {
+        for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
+          lua_getfield(L, -4, lovrVectorTypeNames[i]);
+          lua_setglobal(L, lovrVectorTypeNames[i]);
+        }
       }
+      lua_pop(L, 1);
     }
     lua_pop(L, 1);
   }
-  lua_pop(L, 2);
+  lua_pop(L, 1);
 
   return 1;
 }
