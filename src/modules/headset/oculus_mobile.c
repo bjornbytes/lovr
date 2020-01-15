@@ -533,6 +533,7 @@ void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
   lovrSetErrorCallback(luax_vthrow, L);
   state.renderCallback(state.renderUserdata);
 
+  lovrGraphicsDiscard(false, true, true);
   lovrGraphicsSetCamera(NULL, false);
 }
 
