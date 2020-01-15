@@ -1480,7 +1480,7 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
 
   GLenum glFormat = convertTextureFormat(format);
   GLenum internalFormat = convertTextureFormatInternal(format, texture->srgb);
-#ifndef LOVR_WEBGL
+#ifdef LOVR_GL
   if (GLAD_GL_ARB_texture_storage) {
 #endif
   if (texture->type == TEXTURE_ARRAY) {
@@ -1488,7 +1488,7 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
   } else {
     glTexStorage2D(texture->target, texture->mipmapCount, internalFormat, width, height);
   }
-#ifndef LOVR_WEBGL
+#ifdef LOVR_GL
   } else {
     for (uint32_t i = 0; i < texture->mipmapCount; i++) {
       switch (texture->type) {
