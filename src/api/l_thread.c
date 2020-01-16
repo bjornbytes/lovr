@@ -86,9 +86,7 @@ static int l_lovrThreadGetChannel(lua_State* L) {
   const char* name = luaL_checkstring(L, 1);
   Channel* channel = lovrThreadGetChannel(name);
   luax_pushtype(L, Channel, channel);
-  // Note: Channels are intentionally not released here
-  // Because the ownership of Channels is different from most objects, it is simpler to clean them
-  // all up in lovrThreadModuleDestroy.
+  // Note: Channels are intentionally not released here (see thread.h)
   return 1;
 }
 
