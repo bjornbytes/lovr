@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Note: Channels retrieved with lovrThreadGetChannel don't need to be released.  They're just all
+// cleaned up when the thread module is destroyed.
+
 #pragma once
 
 #define MAX_THREAD_ARGUMENTS 4

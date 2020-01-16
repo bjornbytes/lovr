@@ -8,51 +8,50 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef union {
+  uint64_t u64;
+  Channel* channel;
+} ChannelEntry;
+
 static struct {
   bool initialized;
-  arr_t(Channel*) channels;
-  map_t channelMap;
+  mtx_t channelLock;
+  map_t channels;
 } state;
 
 bool lovrThreadModuleInit() {
   if (state.initialized) return false;
-  arr_init(&state.channels);
-  map_init(&state.channelMap, 0);
+  mtx_init(&state.channelLock, mtx_plain);
+  map_init(&state.channels, 0);
   return state.initialized = true;
 }
 
 void lovrThreadModuleDestroy() {
   if (!state.initialized) return;
-  for (size_t i = 0; i < state.channels.length; i++) {
-    lovrRelease(Channel, state.channels.data[i]);
+  for (size_t i = 0; i < state.channels.size; i++) {
+    if (state.channels.values[i] != MAP_NIL) {
+      ChannelEntry entry = { state.channels.values[i] };
+      lovrRelease(Channel, entry.channel);
+    }
   }
-  arr_free(&state.channels);
-  map_free(&state.channelMap);
+  mtx_destroy(&state.channelLock);
+  map_free(&state.channels);
   state.initialized = false;
 }
 
 Channel* lovrThreadGetChannel(const char* name) {
   uint64_t hash = hash64(name, strlen(name));
-  uint64_t index = map_get(&state.channelMap, hash);
 
-  if (index == MAP_NIL) {
-    index = state.channels.length;
-    map_set(&state.channelMap, hash, index);
-    arr_push(&state.channels, lovrChannelCreate(hash));
+  mtx_lock(&state.channelLock);
+  ChannelEntry entry = { map_get(&state.channels, hash) };
+
+  if (entry.u64 == MAP_NIL) {
+    entry.channel = lovrChannelCreate(hash);
+    map_set(&state.channels, hash, entry.u64);
   }
 
-  return state.channels.data[index];
-}
-
-void lovrThreadRemoveChannel(uint64_t hash) {
-  uint64_t index = map_get(&state.channelMap, hash);
-
-  if (index == MAP_NIL) {
-    return;
-  }
-
-  map_remove(&state.channelMap, hash);
-  arr_splice(&state.channels, index, 1);
+  mtx_unlock(&state.channelLock);
+  return entry.channel;
 }
 
 Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), Blob* body) {
