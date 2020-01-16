@@ -1,5 +1,6 @@
 #include "resources/boot.lua.h"
 #include "api/api.h"
+#include "core/log.h"
 #include "core/os.h"
 #include "core/util.h"
 #include <stdbool.h>
@@ -74,6 +75,7 @@ int main(int argc, char** argv) {
     }
 
     lovrSetErrorCallback(luax_vthrow, T);
+    log_register(luax_vlog, T);
 
 #ifdef EMSCRIPTEN
     lovrEmscriptenContext context = { L, T, argc, argv };

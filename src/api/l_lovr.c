@@ -1,4 +1,5 @@
 #include "api.h"
+#include "core/log.h"
 #include "core/os.h"
 #include "core/util.h"
 #include "lib/lua-cjson/lua_cjson.h"
@@ -57,10 +58,31 @@ static int l_lovrGetVersion(lua_State* L) {
   return 3;
 }
 
+static int l_lovrLog(lua_State* L) {
+  luaL_Buffer buffer;
+  int n = lua_gettop(L);
+  lua_getglobal(L, "tostring");
+  luaL_buffinit(L, &buffer);
+  for (int i = 1; i <= n; i++) {
+    lua_pushvalue(L, -1);
+    lua_pushvalue(L, i);
+    lua_call(L, 1, 1);
+    lovrAssert(lua_type(L, -1) == LUA_TSTRING, LUA_QL("tostring") " must return a string to " LUA_QL("print"));
+    if (i > 1) {
+      luaL_addchar(&buffer, '\t');
+    }
+    luaL_addvalue(&buffer);
+  }
+  luaL_pushresult(&buffer);
+  log_write(LOG_INFO, "%s\n", lua_tostring(L, -1));
+  return 0;
+}
+
 static const luaL_Reg lovr[] = {
   { "_setConf", luax_setconf },
   { "getOS", l_lovrGetOS },
   { "getVersion", l_lovrGetVersion },
+  { "log", l_lovrLog },
   { NULL, NULL }
 };
 

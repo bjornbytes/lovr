@@ -174,6 +174,21 @@ void luax_vthrow(void* context, const char* format, va_list args) {
   lua_error(L);
 }
 
+void luax_vlog(void* context, int level, const char* format, va_list args) {
+  lua_State* L = (lua_State*) context;
+  lua_getglobal(L, "lovr");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "log");
+    if (lua_isfunction(L, -1)) {
+      lua_pushvfstring(L, format, args);
+      lua_call(L, 1, 0);
+    } else {
+      lua_pop(L, 1);
+    }
+  }
+  lua_pop(L, 1);
+}
+
 // An implementation of luaL_traceback for Lua 5.1
 void luax_traceback(lua_State* L, lua_State* T, const char* message, int level) {
   if (!lua_checkstack(L, 5)) {

@@ -320,6 +320,7 @@ set(LOVR_SRC
   src/main.c
   src/core/arr.c
   src/core/fs.c
+  src/core/log.c
   src/core/maf.c
   src/core/map.c
   src/core/ref.c
