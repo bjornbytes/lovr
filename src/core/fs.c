@@ -378,8 +378,7 @@ size_t fs_getWorkDir(char* buffer, size_t size) {
 size_t fs_getExecutablePath(char* buffer, size_t size) {
 #if __APPLE__
   uint32_t size32 = size;
-  _NSGetExecutablePath(buffer, &size32);
-  return size32;
+  return _NSGetExecutablePath(buffer, &size32) ? 0 : size32;
 #elif EMSCRIPTEN
   return 0;
 #else
