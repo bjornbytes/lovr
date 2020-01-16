@@ -311,6 +311,13 @@ bool fs_list(const char* path, fs_list_cb* callback, void* context) {
   return true;
 }
 
+#ifdef __APPLE__
+#include <objc/objc-runtime.h>
+#include <mach-o/dyld.h>
+#elif __ANDROID__
+extern const char* lovrOculusMobileWritablePath; // TODO
+#endif
+
 static size_t copy(char* buffer, size_t size, const char* string, size_t length) {
   if (length >= size) { return 0; }
   memcpy(buffer, string, length);
@@ -332,7 +339,6 @@ size_t fs_getHomeDir(char* buffer, size_t size) {
   return copy(buffer, size, home, strlen(home));
 }
 
-extern const char* lovrOculusMobileWritablePath; // TODO
 size_t fs_getDataDir(char* buffer, size_t size) {
 #if __APPLE__
   size_t cursor = fs_getHomeDir(buffer, size);
@@ -370,8 +376,10 @@ size_t fs_getWorkDir(char* buffer, size_t size) {
 }
 
 size_t fs_getExecutablePath(char* buffer, size_t size) {
-#if __APPLE_
-  return _NSGetExecutablePath(buffer, &size) ? 0 : size;
+#if __APPLE__
+  uint32_t size32 = size;
+  _NSGetExecutablePath(buffer, &size32);
+  return size32;
 #elif EMSCRIPTEN
   return 0;
 #else
@@ -379,10 +387,6 @@ size_t fs_getExecutablePath(char* buffer, size_t size) {
   return (length < 0) ? 0 : (size_t) length;
 #endif
 }
-
-#ifdef __APPLE__
-#include <objc/objc-runtime.h>
-#endif
 
 size_t fs_getBundlePath(char* buffer, size_t size) {
 #ifdef __APPLE__
