@@ -3,6 +3,7 @@
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "core/os.h"
+#include "core/ref.h"
 #include "lib/glad/glad.h"
 #include <android/log.h>
 #include <assert.h>
@@ -20,6 +21,9 @@ static struct {
   BridgeLovrDevice deviceType;
   BridgeLovrVibrateFunction* vibrateFunction;
   BridgeLovrUpdateData updateData;
+  uint32_t textureHandles[4];
+  uint32_t textureCount;
+  Canvas* canvases[4];
 } bridgeLovrMobileData;
 
 // Headset
@@ -438,6 +442,8 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
   bridgeLovrMobileData.updateData.displayTime = initData->zeroDisplayTime;
   bridgeLovrMobileData.deviceType = initData->deviceType;
   bridgeLovrMobileData.vibrateFunction = initData->vibrateFunction;
+  memcpy(bridgeLovrMobileData.textureHandles, initData->textureHandles, initData->textureCount * sizeof(uint32_t));
+  bridgeLovrMobileData.textureCount = initData->textureCount;
 
   free(apkPath);
   size_t length = strlen(initData->apkPath);
@@ -491,15 +497,30 @@ void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
 
   lovrGpuDirtyTexture(); // Clear texture state since LÖVR doesn't completely own the GL context
 
-  // Initialize a temporary Canvas from the framebuffer handle created by lovr-oculus-mobile
-  Canvas canvas = { 0 };
-  CanvasFlags flags = { .stereo = true };
-  uint32_t width = bridgeLovrMobileData.displayDimensions.width;
-  uint32_t height = bridgeLovrMobileData.displayDimensions.height;
-  lovrCanvasInitFromHandle(&canvas, width, height, flags, drawData->framebuffer, 0, 0, 1, true);
+  // Lazily create Canvas objects on the first frame
+  if (!bridgeLovrMobileData.canvases[0]) {
+    for (uint32_t i = 0; i < bridgeLovrMobileData.textureCount; i++) {
+      uint32_t width = bridgeLovrMobileData.displayDimensions.width;
+      uint32_t height = bridgeLovrMobileData.displayDimensions.height;
+
+      bridgeLovrMobileData.canvases[i] = lovrCanvasCreate(width, height, (CanvasFlags) {
+        .depth.enabled = true,
+        .depth.readable = false,
+        .depth.format = FORMAT_D24S8,
+        .msaa = 4,
+        .stereo = true,
+        .mipmaps = false
+      });
+
+      uint32_t handle = bridgeLovrMobileData.textureHandles[i];
+      Texture* texture = lovrTextureCreateFromHandle(handle, TEXTURE_ARRAY, 2);
+      lovrCanvasSetAttachments(bridgeLovrMobileData.canvases[i], &(Attachment) { .texture = texture }, 1);
+      lovrRelease(Texture, texture);
+    }
+  }
 
   // Set up a camera using the view and projection matrices from lovr-oculus-mobile
-  Camera camera = { .canvas = &canvas };
+  Camera camera = { .canvas = bridgeLovrMobileData.canvases[drawData->textureIndex] };
   mat4_init(camera.viewMatrix[0], bridgeLovrMobileData.updateData.eyeViewMatrix[0]);
   mat4_init(camera.viewMatrix[1], bridgeLovrMobileData.updateData.eyeViewMatrix[1]);
   mat4_init(camera.projection[0], bridgeLovrMobileData.updateData.projectionMatrix[0]);
@@ -512,8 +533,8 @@ void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
   lovrSetErrorCallback(luax_vthrow, L);
   state.renderCallback(state.renderUserdata);
 
+  lovrGraphicsDiscard(false, true, true);
   lovrGraphicsSetCamera(NULL, false);
-  lovrCanvasDestroy(&canvas);
 }
 
 // Android activity has been stopped or resumed
@@ -536,4 +557,8 @@ void bridgeLovrClose() {
   pauseState = PAUSESTATE_NONE;
   lua_close(L);
   free(lovrOculusMobileWritablePath);
+  for (uint32_t i = 0; i < bridgeLovrMobileData.textureCount; i++) {
+    lovrRelease(Canvas, bridgeLovrMobileData.canvases[i]);
+  }
+  memset(&bridgeLovrMobileData, 0, sizeof(bridgeLovrMobileData));
 }

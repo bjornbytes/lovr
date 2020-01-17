@@ -666,11 +666,6 @@ static void lovrGpuBindCanvas(Canvas* canvas, bool willDraw) {
   }
 #endif
 
-  // Use the read framebuffer as a binding point to bind resolve textures
-  if (canvas->flags.msaa) {
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->resolveBuffer);
-  }
-
   GLenum buffers[MAX_CANVAS_ATTACHMENTS] = { GL_NONE };
   for (uint32_t i = 0; i < canvas->attachmentCount; i++) {
     GLenum drawBuffer = buffers[i] = GL_COLOR_ATTACHMENT0 + i;
@@ -683,11 +678,12 @@ static void lovrGpuBindCanvas(Canvas* canvas, bool willDraw) {
 #ifdef LOVR_WEBGL
       lovrThrow("Unreachable");
 #else
-      glFramebufferTextureMultisampleMultiviewOVR(GL_READ_FRAMEBUFFER, drawBuffer, texture->id, level, canvas->flags.msaa, slice, 2);
+      glFramebufferTextureMultisampleMultiviewOVR(GL_FRAMEBUFFER, drawBuffer, texture->id, level, canvas->flags.msaa, slice, 2);
 #endif
     } else {
       if (canvas->flags.msaa) {
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, drawBuffer, GL_RENDERBUFFER, texture->msaaId);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->resolveBuffer);
       }
 
       switch (texture->type) {
@@ -1484,7 +1480,7 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
 
   GLenum glFormat = convertTextureFormat(format);
   GLenum internalFormat = convertTextureFormatInternal(format, texture->srgb);
-#ifndef LOVR_WEBGL
+#ifdef LOVR_GL
   if (GLAD_GL_ARB_texture_storage) {
 #endif
   if (texture->type == TEXTURE_ARRAY) {
@@ -1492,7 +1488,7 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
   } else {
     glTexStorage2D(texture->target, texture->mipmapCount, internalFormat, width, height);
   }
-#ifndef LOVR_WEBGL
+#ifdef LOVR_GL
   } else {
     for (uint32_t i = 0; i < texture->mipmapCount; i++) {
       switch (texture->type) {
@@ -1672,7 +1668,8 @@ Canvas* lovrCanvasInit(Canvas* canvas, uint32_t width, uint32_t height, CanvasFl
     lovrAssert(isTextureFormatDepth(flags.depth.format), "Canvas depth buffer can't use a color TextureFormat");
     GLenum attachment = flags.depth.format == FORMAT_D24S8 ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
     if (flags.stereo && state.singlepass == MULTIVIEW) {
-      canvas->depth.texture = lovrTextureCreate(TEXTURE_ARRAY, NULL, 0, false, flags.mipmaps, flags.msaa);
+      // Zero MSAA is intentional here, we attach it to the Canvas using legacy MSAA technique
+      canvas->depth.texture = lovrTextureCreate(TEXTURE_ARRAY, NULL, 0, false, flags.mipmaps, 0);
       lovrTextureAllocate(canvas->depth.texture, width, height, 2, flags.depth.format);
 #ifdef LOVR_WEBGL
       lovrThrow("Unreachable");
@@ -1692,7 +1689,7 @@ Canvas* lovrCanvasInit(Canvas* canvas, uint32_t width, uint32_t height, CanvasFl
     }
   }
 
-  if (flags.msaa) {
+  if (flags.msaa && (!flags.stereo || state.singlepass != MULTIVIEW)) {
     glGenFramebuffers(1, &canvas->resolveBuffer);
   }
 
@@ -1732,7 +1729,9 @@ void lovrCanvasResolve(Canvas* canvas) {
 
   lovrGraphicsFlushCanvas(canvas);
 
-  if (canvas->flags.msaa) {
+  // We don't need to resolve a multiview Canvas because it uses the legacy multisampling method in
+  // which the driver does an implicit multisample resolve whenever the canvas textures are read.
+  if (canvas->flags.msaa && (!canvas->flags.stereo || state.singlepass != MULTIVIEW)) {
     uint32_t w = canvas->width;
     uint32_t h = canvas->height;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->framebuffer);
