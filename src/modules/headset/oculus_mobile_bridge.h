@@ -75,10 +75,16 @@ typedef enum
   BRIDGE_LOVR_TOUCH_TRIGGER_ANTI  = 0x00000200, // "The finger is sufficiently far away from the trigger to not be considered in proximity to it."
 } BridgeLovrTouch;
 
-// Bit identical with VrApi_Input.h ovrControllerCapabilties
 typedef enum {
-  BRIDGE_LOVR_HAND_LEFT = 0x00000004,
-  BRIDGE_LOVR_HAND_RIGHT = 0x00000008,
+  BRIDGE_LOVR_HAND_LEFT =  0x00000001, // Bit identical with VrApi_Input.h ovrHandTrackingStatus
+  BRIDGE_LOVR_HAND_RIGHT = 0x00000002, // Bit identical with VrApi_Input.h ovrHandTrackingStatus
+
+  BRIDGE_LOVR_HAND_HANDMASK = BRIDGE_LOVR_HAND_LEFT | BRIDGE_LOVR_HAND_RIGHT, // Bits to mask a ovrHandTrackingStatus by
+  BRIDGE_LOVR_HAND_CAPSHIFT = 2, // Right shift a ovrControllerCapabilities by this many bits to let BRIDGE_LOVR_HAND_HANDMASK work
+
+  BRIDGE_LOVR_HAND_HANDSET   = 0x00000004, // If true, a tracked handset (as opposed to a "controller")
+  BRIDGE_LOVR_HAND_RIFTY     = 0x00000008, // If true, handset is "oculus quest style"
+  BRIDGE_LOVR_HAND_TRACKING  = 0x00000010, // If true, hand tracking
 } BridgeLovrHand;
 
 // Values identical with headset.h HeadsetType
@@ -90,15 +96,41 @@ typedef enum
   BRIDGE_LOVR_DEVICE_QUEST = 5,
 } BridgeLovrDevice;
 
+typedef struct { // Assumed constant
+  int members;
+  const char **strings;
+} BridgeLovrStringList;
+
+typedef struct { // Assumed constant
+  int members;
+  float *numbers;
+} BridgeLovrFloatList;
+
+typedef struct { // Assumed constant
+  int members;
+  BridgeLovrPose *poses;
+} BridgeLovrPoseList;
+
 typedef struct {
-  bool handset;
   BridgeLovrHand hand;
   BridgeLovrPose pose;
   BridgeLovrMovement movement;
-  BridgeLovrTrackpad trackpad;
-  float trigger, grip;
-  BridgeLovrButton buttonDown;
-  BridgeLovrTouch  buttonTouch;
+  union {
+    struct {
+      BridgeLovrTrackpad trackpad;
+      float trigger, grip;
+      BridgeLovrButton buttonDown;
+      BridgeLovrTouch  buttonTouch;
+    } handset;
+    struct {
+      bool live;
+      float confidence;
+      float handScale;
+      BridgeLovrStringList *bones;
+      BridgeLovrPoseList *poses;
+      BridgeLovrFloatList *fingerConfidence;
+    } tracking;
+  };
 } BridgeLovrController;
 
 #define BRIDGE_LOVR_CONTROLLERMAX 3
