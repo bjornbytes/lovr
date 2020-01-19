@@ -114,7 +114,7 @@ bool lovrAudioStreamAppendRawBlob(AudioStream* stream, struct Blob* blob) {
 
 bool lovrAudioStreamAppendRawSound(AudioStream* stream, struct SoundData* sound) {
   lovrAssert(sound->channelCount == stream->channelCount && sound->bitDepth == stream->bitDepth && sound->sampleRate == stream->sampleRate, "SoundData and AudioStream formats must match");
-  return lovrAudioStreamAppendRawBlob(stream, &sound->blob);
+  return lovrAudioStreamAppendRawBlob(stream, sound->blob);
 }
 
 bool lovrAudioStreamIsRaw(AudioStream* stream) {
