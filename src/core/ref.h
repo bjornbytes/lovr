@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #pragma once
 
@@ -49,9 +50,21 @@ static inline uint32_t ref_dec(Ref* ref) { return atomic_fetch_sub(ref, 1) - 1; 
 
 #endif
 
+typedef bool (*RefDestructor)(void* o, void *extra);
+typedef struct RefHeader {
+  Ref ref;
+  RefDestructor destructor;
+  void* destructorExtra;
+} RefHeader;
+
 void* _lovrAlloc(size_t size);
-#define toRef(o) ((Ref*) (((char*) (o)) - sizeof(size_t)))
+#define toRefHeader(o) ((RefHeader*) (((char*) (o)) - sizeof(RefHeader)))
+#define toRef(o) (&toRefHeader(o)->ref)
 #define lovrAlloc(T) (T*) _lovrAlloc(sizeof(T))
 #define lovrRetain(o) if (o && !ref_inc(toRef(o))) { lovrThrow("Refcount overflow in %s:%d", __FILE__, __LINE__); }
-#define lovrRelease(T, o) if (o && !ref_dec(toRef(o))) lovr ## T ## Destroy(o), free(toRef(o));
-#define _lovrRelease(o, f) if (o && !ref_dec(toRef(o))) f(o), free(toRef(o));
+#define lovrRelease(T, o) if (o && !ref_dec(toRef(o))) { \
+  RefHeader *h = toRefHeader(o);\
+  if(h->destructor == NULL || h->destructor(o, h->destructorExtra) == true) \
+    lovr ## T ## Destroy(o), free(toRefHeader(o)); \
+}
+#define _lovrRelease(o, f) if (o && !ref_dec(toRef(o))) f(o), free(toRefHeader(o));

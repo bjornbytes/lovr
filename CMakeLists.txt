@@ -379,6 +379,7 @@ if(LOVR_ENABLE_DATA)
     src/modules/data/modelData_obj.c
     src/modules/data/rasterizer.c
     src/modules/data/soundData.c
+    src/modules/data/soundDataPool.c
     src/modules/data/textureData.c
     src/api/l_data.c
     src/api/l_data_audioStream.c
@@ -386,6 +387,7 @@ if(LOVR_ENABLE_DATA)
     src/api/l_data_modelData.c
     src/api/l_data_rasterizer.c
     src/api/l_data_soundData.c
+    src/api/l_data_soundDataPool.c
     src/api/l_data_textureData.c
     src/lib/stb/stb_image.c
     src/lib/stb/stb_image_write.c
