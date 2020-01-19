@@ -1559,17 +1559,17 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32
       }
     }
   } else {
-    lovrAssert(textureData->blob.data, "Trying to replace Texture pixels with empty pixel data");
+    lovrAssert(textureData->blob->data, "Trying to replace Texture pixels with empty pixel data");
     GLenum glType = convertTextureFormatType(textureData->format);
 
     switch (texture->type) {
       case TEXTURE_2D:
       case TEXTURE_CUBE:
-        glTexSubImage2D(binding, mipmap, x, y, width, height, glFormat, glType, textureData->blob.data);
+        glTexSubImage2D(binding, mipmap, x, y, width, height, glFormat, glType, textureData->blob->data);
         break;
       case TEXTURE_ARRAY:
       case TEXTURE_VOLUME:
-        glTexSubImage3D(binding, mipmap, x, y, slice, width, height, 1, glFormat, glType, textureData->blob.data);
+        glTexSubImage3D(binding, mipmap, x, y, slice, width, height, 1, glFormat, glType, textureData->blob->data);
         break;
     }
 
@@ -1782,7 +1782,7 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, uint32_t index) {
   }
 
   TextureData* textureData = lovrTextureDataCreate(canvas->width, canvas->height, 0x0, FORMAT_RGBA);
-  glReadPixels(0, 0, canvas->width, canvas->height, GL_RGBA, GL_UNSIGNED_BYTE, textureData->blob.data);
+  glReadPixels(0, 0, canvas->width, canvas->height, GL_RGBA, GL_UNSIGNED_BYTE, textureData->blob->data);
 
   if (index != 0) {
     glReadBuffer(0);
