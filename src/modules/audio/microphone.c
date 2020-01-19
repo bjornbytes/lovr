@@ -41,14 +41,18 @@ uint32_t lovrMicrophoneGetChannelCount(Microphone* microphone) {
   return microphone->channelCount;
 }
 
-SoundData* lovrMicrophoneGetData(Microphone* microphone) {
+SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples) {
   if (!microphone->isRecording) {
     return NULL;
   }
 
-  size_t samples = lovrMicrophoneGetSampleCount(microphone);
-  if (samples == 0) {
+  size_t maxSamples = lovrMicrophoneGetSampleCount(microphone);
+  if (maxSamples == 0) {
     return NULL;
+  }
+  lovrAssert(samples <= maxSamples, "Requested more audio data than is buffered by the microphone");
+  if (samples == 0) {
+    samples = maxSamples;
   }
 
   SoundData* soundData = lovrSoundDataCreate(samples, microphone->sampleRate, microphone->bitDepth, microphone->channelCount);
