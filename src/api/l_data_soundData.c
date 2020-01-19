@@ -48,7 +48,7 @@ static int l_lovrSoundDataSetSample(lua_State* L) {
 
 static int l_lovrSoundDataGetPointer(lua_State* L) {
   SoundData* soundData = luax_checktype(L, 1, SoundData);
-  lua_pushlightuserdata(L, soundData->blob.data);
+  lua_pushlightuserdata(L, soundData->blob->data);
   return 1;
 }
 

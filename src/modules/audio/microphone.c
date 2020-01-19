@@ -56,7 +56,7 @@ SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples) {
   }
 
   SoundData* soundData = lovrSoundDataCreate(samples, microphone->sampleRate, microphone->bitDepth, microphone->channelCount);
-  alcCaptureSamples(microphone->device, soundData->blob.data, (ALCsizei) samples);
+  alcCaptureSamples(microphone->device, soundData->blob->data, (ALCsizei) samples);
   return soundData;
 }
 
