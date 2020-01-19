@@ -1,6 +1,6 @@
 #include "audio/microphone.h"
 #include "audio/audio.h"
-#include "data/soundData.h"
+#include "data/soundDataPool.h"
 #include "core/ref.h"
 #include "core/util.h"
 #include <AL/al.h>
@@ -13,6 +13,7 @@ struct Microphone {
   uint32_t sampleRate;
   uint32_t bitDepth;
   uint32_t channelCount;
+  SoundDataPool* pool;
 };
 
 Microphone* lovrMicrophoneCreate(const char* name, size_t samples, uint32_t sampleRate, uint32_t bitDepth, uint32_t channelCount) {
@@ -30,6 +31,7 @@ Microphone* lovrMicrophoneCreate(const char* name, size_t samples, uint32_t samp
 void lovrMicrophoneDestroy(void* ref) {
   Microphone* microphone = ref;
   lovrMicrophoneStopRecording(microphone);
+  lovrRelease(SoundDataPool, microphone->pool);
   alcCaptureCloseDevice(microphone->device);
 }
 
@@ -46,16 +48,33 @@ SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples) {
     return NULL;
   }
 
-  size_t maxSamples = lovrMicrophoneGetSampleCount(microphone);
-  if (maxSamples == 0) {
+  bool usePool = true;
+  size_t availableSamples = lovrMicrophoneGetSampleCount(microphone);
+  if (availableSamples == 0) {
     return NULL;
   }
-  lovrAssert(samples <= maxSamples, "Requested more audio data than is buffered by the microphone");
+  lovrAssert(samples <= availableSamples, "Requested more audio data than is buffered by the microphone");
   if (samples == 0) {
-    samples = maxSamples;
+    samples = availableSamples;
+    // if client code is just getting the full ringbuffer every time, sample size will differ every time and
+    // pool will just make malloc churn worse, not better.
+    usePool = false;
   }
 
-  SoundData* soundData = lovrSoundDataCreate(samples, microphone->sampleRate, microphone->bitDepth, microphone->channelCount);
+  SoundData* soundData = NULL;
+  if (usePool) {
+    if (microphone->pool && microphone->pool->samples != samples) {
+      lovrRelease(SoundDataPool, microphone->pool);
+      microphone->pool = NULL;
+    }
+    if (!microphone->pool) {
+      microphone->pool = lovrSoundDataPoolCreate(samples, microphone->sampleRate, microphone->bitDepth, microphone->channelCount);
+    }
+    soundData = lovrSoundDataPoolCreateSoundData(microphone->pool);
+  } else {
+    soundData = lovrSoundDataCreate(samples, microphone->sampleRate, microphone->bitDepth, microphone->channelCount);
+  }
+
   alcCaptureSamples(microphone->device, soundData->blob->data, (ALCsizei) samples);
   return soundData;
 }
