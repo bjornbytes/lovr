@@ -78,7 +78,6 @@ static int l_lovrTextureDataGetBlob(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
   Blob* blob = textureData->blob;
   luax_pushtype(L, Blob, blob);
-  lovrRelease(Blob, blob);
   return 1;
 }
 

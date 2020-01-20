@@ -18,7 +18,7 @@ static int l_lovrMicrophoneGetChannelCount(lua_State* L) {
 
 static int l_lovrMicrophoneGetData(lua_State* L) {
   Microphone* microphone = luax_checktype(L, 1, Microphone);
-  size_t samples = luax_optfloat(L, 2, 0);
+  size_t samples = luaL_optinteger(L, 2, 0);
   SoundData* soundData = lovrMicrophoneGetData(microphone, samples);
   luax_pushtype(L, SoundData, soundData);
   lovrRelease(SoundData, soundData);

@@ -51,7 +51,6 @@ static int l_lovrSoundDataGetBlob(lua_State* L) {
   SoundData* soundData = luax_checktype(L, 1, SoundData);
   Blob* blob = soundData->blob;
   luax_pushtype(L, Blob, blob);
-  lovrRelease(Blob, blob);
   return 1;
 }
 
