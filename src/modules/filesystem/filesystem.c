@@ -177,8 +177,12 @@ bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, 
   archive.path = strpool_append(&archive.strings, path, archive.pathLength);
 
   if (mountpoint) {
-    archive.mountpointLength = strlen(mountpoint);
-    archive.mountpoint = strpool_append(&archive.strings, mountpoint, archive.mountpointLength);
+    char buffer[LOVR_PATH_MAX];
+    size_t length = strlen(mountpoint);
+    if (length >= sizeof(buffer)) return false;
+    length = normalize(buffer, mountpoint, length);
+    archive.mountpointLength = length;
+    archive.mountpoint = strpool_append(&archive.strings, buffer, archive.mountpointLength);
   } else {
     archive.mountpointLength = 0;
     archive.mountpoint = 0;
@@ -403,7 +407,11 @@ void lovrFilesystemSetCRequirePath(const char* requirePath) {
 // Archive: dir
 
 static bool dir_resolve(char* buffer, Archive* archive, const char* path) {
+  char innerBuffer[LOVR_PATH_MAX];
   size_t length = strlen(path);
+  if (length >= sizeof(innerBuffer)) return NULL;
+  length = normalize(innerBuffer, path, length);
+  path = innerBuffer;
 
   if (archive->mountpoint) {
     if (strncmp(path, strpool_resolve(&archive->strings, archive->mountpoint), archive->mountpointLength)) {
@@ -487,7 +495,7 @@ static bool dir_init(Archive* archive, const char* path, const char* mountpoint,
 static zip_node* zip_lookup(Archive* archive, const char* path) {
   char buffer[LOVR_PATH_MAX];
   size_t length = strlen(path);
-  if (length > sizeof(buffer)) return NULL;
+  if (length >= sizeof(buffer)) return NULL;
   length = normalize(buffer, path, length);
   uint64_t hash = hash64(buffer, length);
   uint64_t index = map_get(&archive->lookup, hash);
