@@ -40,7 +40,7 @@ typedef struct Archive {
   bool (*stat)(struct Archive* archive, const char* path, FileInfo* info);
   void (*list)(struct Archive* archive, const char* path, fs_list_cb callback, void* context);
   bool (*read)(struct Archive* archive, const char* path, size_t bytes, size_t* bytesRead, void** data);
-  bool (*close)(struct Archive* archive);
+  void (*close)(struct Archive* archive);
   zip_state zip;
   strpool strings;
   arr_t(zip_node) nodes;
@@ -472,9 +472,8 @@ static bool dir_read(Archive* archive, const char* path, size_t bytes, size_t* b
   return true;
 }
 
-static bool dir_close(Archive* archive) {
+static void dir_close(Archive* archive) {
   arr_free(&archive->strings);
-  return true;
 }
 
 static bool dir_init(Archive* archive, const char* path, const char* mountpoint, const char* root) {
@@ -575,11 +574,11 @@ static bool zip_read(Archive* archive, const char* path, size_t bytes, size_t* b
   return true;
 }
 
-static bool zip_close(Archive* archive) {
+static void zip_close(Archive* archive) {
   arr_free(&archive->nodes);
   map_free(&archive->lookup);
   arr_free(&archive->strings);
-  return fs_unmap(archive->zip.data, archive->zip.size);
+  if (archive->zip.data) fs_unmap(archive->zip.data, archive->zip.size);
 }
 
 static bool zip_init(Archive* archive, const char* filename, const char* mountpoint, const char* root) {
