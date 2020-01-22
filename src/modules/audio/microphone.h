@@ -11,7 +11,7 @@ Microphone* lovrMicrophoneCreate(const char* name, size_t samples, uint32_t samp
 void lovrMicrophoneDestroy(void* ref);
 uint32_t lovrMicrophoneGetBitDepth(Microphone* microphone);
 uint32_t lovrMicrophoneGetChannelCount(Microphone* microphone);
-struct SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples);
+struct SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples, struct SoundData* soundData, size_t offset);
 const char* lovrMicrophoneGetName(Microphone* microphone);
 size_t lovrMicrophoneGetSampleCount(Microphone* microphone);
 uint32_t lovrMicrophoneGetSampleRate(Microphone* microphone);
