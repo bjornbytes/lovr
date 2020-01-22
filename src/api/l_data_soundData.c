@@ -1,6 +1,5 @@
 #include "api.h"
 #include "data/soundData.h"
-#include "core/ref.h"
 
 static int l_lovrSoundDataGetBitDepth(lua_State* L) {
   SoundData* soundData = luax_checktype(L, 1, SoundData);

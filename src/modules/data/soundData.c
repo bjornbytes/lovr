@@ -71,6 +71,6 @@ void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value) {
 }
 
 void lovrSoundDataDestroy(void* ref) {
-  SoundData* sd = (SoundData*)ref;
-  lovrRelease(Blob, sd->blob);
+  SoundData* soundData = (SoundData*) ref;
+  lovrRelease(Blob, soundData->blob);
 }

@@ -1,6 +1,5 @@
 #include "api.h"
 #include "data/textureData.h"
-#include "core/ref.h"
 
 static int l_lovrTextureDataEncode(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
