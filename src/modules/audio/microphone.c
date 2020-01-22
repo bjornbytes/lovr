@@ -41,18 +41,21 @@ uint32_t lovrMicrophoneGetChannelCount(Microphone* microphone) {
   return microphone->channelCount;
 }
 
-SoundData* lovrMicrophoneGetData(Microphone* microphone) {
+SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples) {
   if (!microphone->isRecording) {
     return NULL;
   }
 
-  size_t samples = lovrMicrophoneGetSampleCount(microphone);
-  if (samples == 0) {
+  size_t availableSamples = lovrMicrophoneGetSampleCount(microphone);
+  if (availableSamples == 0) {
     return NULL;
+  }
+  if (samples == 0 || samples > availableSamples) {
+    samples = availableSamples;
   }
 
   SoundData* soundData = lovrSoundDataCreate(samples, microphone->sampleRate, microphone->bitDepth, microphone->channelCount);
-  alcCaptureSamples(microphone->device, soundData->blob.data, (ALCsizei) samples);
+  alcCaptureSamples(microphone->device, soundData->blob->data, (ALCsizei) samples);
   return soundData;
 }
 

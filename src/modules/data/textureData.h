@@ -48,7 +48,7 @@ typedef struct {
 } Mipmap;
 
 typedef struct TextureData {
-  Blob blob;
+  Blob *blob;
   uint32_t width;
   uint32_t height;
   Blob* source;

@@ -1,5 +1,6 @@
 #include "api.h"
 #include "data/soundData.h"
+#include "core/ref.h"
 
 static int l_lovrSoundDataGetBitDepth(lua_State* L) {
   SoundData* soundData = luax_checktype(L, 1, SoundData);
@@ -46,9 +47,10 @@ static int l_lovrSoundDataSetSample(lua_State* L) {
   return 0;
 }
 
-static int l_lovrSoundDataGetPointer(lua_State* L) {
+static int l_lovrSoundDataGetBlob(lua_State* L) {
   SoundData* soundData = luax_checktype(L, 1, SoundData);
-  lua_pushlightuserdata(L, soundData->blob.data);
+  Blob* blob = soundData->blob;
+  luax_pushtype(L, Blob, blob);
   return 1;
 }
 
@@ -60,6 +62,6 @@ const luaL_Reg lovrSoundData[] = {
   { "getSampleCount", l_lovrSoundDataGetSampleCount },
   { "getSampleRate", l_lovrSoundDataGetSampleRate },
   { "setSample", l_lovrSoundDataSetSample },
-  { "getPointer", l_lovrSoundDataGetPointer },
+  { "getBlob", l_lovrSoundDataGetBlob },
   { NULL, NULL }
 };

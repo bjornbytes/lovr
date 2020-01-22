@@ -314,7 +314,7 @@ static bool parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
     height = MAX(height >> 1, 1);
   }
 
-  textureData->blob.data = NULL;
+  textureData->blob->data = NULL;
 
   return true;
 }
@@ -438,14 +438,15 @@ TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint3
   textureData->width = width;
   textureData->height = height;
   textureData->format = format;
-  textureData->blob.size = size;
-  textureData->blob.data = malloc(size);
-  lovrAssert(textureData->blob.data, "Out of memory");
-  memset(textureData->blob.data, value, size);
+  void *data = malloc(size);
+  lovrAssert(data, "Out of memory");
+  memset(data, value, size);
+  textureData->blob = lovrBlobCreate(data, size, "TextureData plain");
   return textureData;
 }
 
 TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, bool flip) {
+  textureData->blob = lovrAlloc(Blob);
   if (parseDDS(blob->data, blob->size, textureData)) {
     textureData->source = blob;
     lovrRetain(blob);
@@ -465,14 +466,15 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
   stbi_set_flip_vertically_on_load(flip);
   if (stbi_is_hdr_from_memory(blob->data, length)) {
     textureData->format = FORMAT_RGBA32F;
-    textureData->blob.data = stbi_loadf_from_memory(blob->data, length, &width, &height, NULL, 4);
+    textureData->blob->data = stbi_loadf_from_memory(blob->data, length, &width, &height, NULL, 4);
   } else {
     textureData->format = FORMAT_RGBA;
-    textureData->blob.data = stbi_load_from_memory(blob->data, length, &width, &height, NULL, 4);
+    textureData->blob->data = stbi_load_from_memory(blob->data, length, &width, &height, NULL, 4);
   }
 
-  if (!textureData->blob.data) {
+  if (!textureData->blob->data) {
     lovrThrow("Could not load texture data from '%s'", blob->name);
+    lovrRelease(Blob, textureData->blob);
     free(textureData);
     return NULL;
   }
@@ -484,11 +486,11 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
 }
 
 Color lovrTextureDataGetPixel(TextureData* textureData, uint32_t x, uint32_t y) {
-  lovrAssert(textureData->blob.data, "TextureData does not have any pixel data");
+  lovrAssert(textureData->blob->data, "TextureData does not have any pixel data");
   lovrAssert(x < textureData->width && y < textureData->height, "getPixel coordinates must be within TextureData bounds");
   size_t index = (textureData->height - (y + 1)) * textureData->width + x;
   size_t pixelSize = getPixelSize(textureData->format);
-  uint8_t* u8 = (uint8_t*) textureData->blob.data + pixelSize * index;
+  uint8_t* u8 = (uint8_t*) textureData->blob->data + pixelSize * index;
   float* f32 = (float*) u8;
   switch (textureData->format) {
     case FORMAT_RGB: return (Color) { u8[0] / 255.f, u8[1] / 255.f, u8[2] / 255.f, 1.f };
@@ -501,11 +503,11 @@ Color lovrTextureDataGetPixel(TextureData* textureData, uint32_t x, uint32_t y) 
 }
 
 void lovrTextureDataSetPixel(TextureData* textureData, uint32_t x, uint32_t y, Color color) {
-  lovrAssert(textureData->blob.data, "TextureData does not have any pixel data");
+  lovrAssert(textureData->blob->data, "TextureData does not have any pixel data");
   lovrAssert(x < textureData->width && y < textureData->height, "setPixel coordinates must be within TextureData bounds");
   size_t index = (textureData->height - (y + 1)) * textureData->width + x;
   size_t pixelSize = getPixelSize(textureData->format);
-  uint8_t* u8 = (uint8_t*) textureData->blob.data + pixelSize * index;
+  uint8_t* u8 = (uint8_t*) textureData->blob->data + pixelSize * index;
   float* f32 = (float*) u8;
   switch (textureData->format) {
     case FORMAT_RGB:
@@ -551,7 +553,7 @@ bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
   int components = textureData->format == FORMAT_RGB ? 3 : 4;
   int width = textureData->width;
   int height = textureData->height;
-  void* data = (uint8_t*) textureData->blob.data + (textureData->height - 1) * textureData->width * components;
+  void* data = (uint8_t*) textureData->blob->data + (textureData->height - 1) * textureData->width * components;
   int stride = -1 * (int) (textureData->width * components);
   return stbi_write_png_to_func(writeCallback, (void*) filename, width, height, components, data, stride);
 }
@@ -562,8 +564,8 @@ void lovrTextureDataPaste(TextureData* textureData, TextureData* source, uint32_
   size_t pixelSize = getPixelSize(textureData->format);
   lovrAssert(dx + w <= textureData->width && dy + h <= textureData->height, "Attempt to paste outside of destination TextureData bounds");
   lovrAssert(sx + w <= source->width && sy + h <= source->height, "Attempt to paste from outside of source TextureData bounds");
-  uint8_t* src = (uint8_t*) source->blob.data + ((source->height - 1 - sy) * source->width + sx) * pixelSize;
-  uint8_t* dst = (uint8_t*) textureData->blob.data + ((textureData->height - 1 - dy) * textureData->width + sx) * pixelSize;
+  uint8_t* src = (uint8_t*) source->blob->data + ((source->height - 1 - sy) * source->width + sx) * pixelSize;
+  uint8_t* dst = (uint8_t*) textureData->blob->data + ((textureData->height - 1 - dy) * textureData->width + sx) * pixelSize;
   for (uint32_t y = 0; y < h; y++) {
     memcpy(dst, src, w * pixelSize);
     src -= source->width * pixelSize;
@@ -575,5 +577,5 @@ void lovrTextureDataDestroy(void* ref) {
   TextureData* textureData = ref;
   lovrRelease(Blob, textureData->source);
   free(textureData->mipmaps);
-  lovrBlobDestroy(ref);
+  lovrRelease(Blob, textureData->blob);
 }
