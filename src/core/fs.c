@@ -137,8 +137,13 @@ bool fs_mkdir(const char* path) {
 
 bool fs_list(const char* path, fs_list_cb* callback, void* context) {
   WCHAR wpath[FS_PATH_MAX];
-  if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
+
+  int length = MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX);
+
+  if (length == 0 || length + 3 >= FS_PATH_MAX) {
     return false;
+  } else {
+    wcscat(wpath, L"/*");
   }
 
   WIN32_FIND_DATAW findData;
