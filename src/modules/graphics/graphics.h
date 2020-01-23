@@ -92,7 +92,7 @@ typedef struct {
 } Pipeline;
 
 // Base
-bool lovrGraphicsInit();
+bool lovrGraphicsInit(void);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsPresent(void);
 void lovrGraphicsCreateWindow(WindowFlags* flags);

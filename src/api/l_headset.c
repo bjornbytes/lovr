@@ -237,7 +237,7 @@ static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
   return 1;
 }
 
-int l_lovrHeadsetIsTracked(lua_State* L) {
+static int l_lovrHeadsetIsTracked(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float position[4], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
@@ -250,7 +250,7 @@ int l_lovrHeadsetIsTracked(lua_State* L) {
   return 1;
 }
 
-int l_lovrHeadsetGetPose(lua_State* L) {
+static int l_lovrHeadsetGetPose(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float position[4], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
@@ -273,7 +273,7 @@ int l_lovrHeadsetGetPose(lua_State* L) {
   return 7;
 }
 
-int l_lovrHeadsetGetPosition(lua_State* L) {
+static int l_lovrHeadsetGetPosition(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float position[4], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
@@ -290,7 +290,7 @@ int l_lovrHeadsetGetPosition(lua_State* L) {
   return 3;
 }
 
-int l_lovrHeadsetGetOrientation(lua_State* L) {
+static int l_lovrHeadsetGetOrientation(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float position[4], orientation[4];
   FOREACH_TRACKING_DRIVER(driver) {
@@ -310,7 +310,7 @@ int l_lovrHeadsetGetOrientation(lua_State* L) {
   return 4;
 }
 
-int l_lovrHeadsetGetVelocity(lua_State* L) {
+static int l_lovrHeadsetGetVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float velocity[4], angularVelocity[4];
   FOREACH_TRACKING_DRIVER(driver) {
@@ -327,7 +327,7 @@ int l_lovrHeadsetGetVelocity(lua_State* L) {
   return 3;
 }
 
-int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
+static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float velocity[4], angularVelocity[4];
   FOREACH_TRACKING_DRIVER(driver) {
@@ -344,7 +344,7 @@ int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   return 3;
 }
 
-int l_lovrHeadsetIsDown(lua_State* L) {
+static int l_lovrHeadsetIsDown(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceButton button = luaL_checkoption(L, 2, NULL, DeviceButtons);
   bool down;
@@ -358,7 +358,7 @@ int l_lovrHeadsetIsDown(lua_State* L) {
   return 1;
 }
 
-int l_lovrHeadsetIsTouched(lua_State* L) {
+static int l_lovrHeadsetIsTouched(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceButton button = luaL_checkoption(L, 2, NULL, DeviceButtons);
   bool touched;
@@ -379,7 +379,7 @@ static const int axisCounts[MAX_AXES] = {
   [AXIS_GRIP] = 1
 };
 
-int l_lovrHeadsetGetAxis(lua_State* L) {
+static int l_lovrHeadsetGetAxis(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceAxis axis = luaL_checkoption(L, 2, NULL, DeviceAxes);
   int count = axisCounts[axis];
@@ -398,7 +398,7 @@ int l_lovrHeadsetGetAxis(lua_State* L) {
   return count;
 }
 
-int l_lovrHeadsetVibrate(lua_State* L) {
+static int l_lovrHeadsetVibrate(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float strength = luax_optfloat(L, 2, 1.f);
   float duration = luax_optfloat(L, 3, .5f);
@@ -413,7 +413,7 @@ int l_lovrHeadsetVibrate(lua_State* L) {
   return 1;
 }
 
-int l_lovrHeadsetNewModel(lua_State* L) {
+static int l_lovrHeadsetNewModel(lua_State* L) {
   Device device = luax_optdevice(L, 1);
 
   ModelData* modelData = NULL;
