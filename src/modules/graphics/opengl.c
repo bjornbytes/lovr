@@ -885,8 +885,8 @@ static void lovrGpuBindShader(Shader* shader) {
   for (size_t i = 0; i < shader->uniforms.length; i++) {
     Uniform* uniform = &shader->uniforms.data[i];
     if (uniform->type == UNIFORM_SAMPLER) {
-      for (int i = 0; i < uniform->count; i++) {
-        Texture* texture = uniform->value.textures[i];
+      for (int j = 0; j < uniform->count; j++) {
+        Texture* texture = uniform->value.textures[j];
         if (texture && texture->incoherent && (texture->incoherent >> BARRIER_UNIFORM_TEXTURE) & 1) {
           flags |= 1 << BARRIER_UNIFORM_TEXTURE;
           if (flags & (1 << BARRIER_UNIFORM_IMAGE)) {
@@ -895,8 +895,8 @@ static void lovrGpuBindShader(Shader* shader) {
         }
       }
     } else if (uniform->type == UNIFORM_IMAGE) {
-      for (int i = 0; i < uniform->count; i++) {
-        Texture* texture = uniform->value.images[i].texture;
+      for (int j = 0; j < uniform->count; j++) {
+        Texture* texture = uniform->value.images[j].texture;
         if (texture && texture->incoherent && (texture->incoherent >> BARRIER_UNIFORM_IMAGE) & 1) {
           flags |= 1 << BARRIER_UNIFORM_IMAGE;
           if (flags & (1 << BARRIER_UNIFORM_TEXTURE)) {
@@ -951,8 +951,8 @@ static void lovrGpuBindShader(Shader* shader) {
 
       case UNIFORM_IMAGE:
 #ifndef LOVR_WEBGL
-        for (int i = 0; i < count; i++) {
-          Image* image = &uniform->value.images[i];
+        for (int j = 0; j < count; j++) {
+          Image* image = &uniform->value.images[j];
           Texture* texture = image->texture;
           lovrAssert(!texture || texture->type == uniform->textureType, "Uniform texture type mismatch for uniform '%s'", uniform->name);
 
@@ -964,17 +964,17 @@ static void lovrGpuBindShader(Shader* shader) {
             }
           }
 
-          lovrGpuBindImage(image, uniform->baseSlot + i);
+          lovrGpuBindImage(image, uniform->baseSlot + j);
         }
 #endif
         break;
 
       case UNIFORM_SAMPLER:
-        for (int i = 0; i < count; i++) {
-          Texture* texture = uniform->value.textures[i];
+        for (int j = 0; j < count; j++) {
+          Texture* texture = uniform->value.textures[j];
           lovrAssert(!texture || texture->type == uniform->textureType, "Uniform texture type mismatch for uniform '%s'", uniform->name);
           lovrAssert(!texture || (uniform->shadow == (texture->compareMode != COMPARE_NONE)), "Uniform '%s' requires a Texture with%s a compare mode", uniform->name, uniform->shadow ? "" : "out");
-          lovrGpuBindTexture(texture, uniform->baseSlot + i);
+          lovrGpuBindTexture(texture, uniform->baseSlot + j);
         }
         break;
     }
@@ -2105,8 +2105,8 @@ static void lovrShaderSetupUniforms(Shader* shader) {
         lovrAssert(uniform.value.data, "Out of memory");
 
         // Use the value for ints to bind texture slots, but use the value for textures afterwards.
-        for (int i = 0; i < uniform.count; i++) {
-          uniform.value.ints[i] = uniform.baseSlot + i;
+        for (int j = 0; j < uniform.count; j++) {
+          uniform.value.ints[j] = uniform.baseSlot + j;
         }
         glUniform1iv(uniform.location, uniform.count, uniform.value.ints);
         memset(uniform.value.data, 0, uniform.size);

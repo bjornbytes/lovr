@@ -62,11 +62,12 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
       switch (uniformType) {
         case UNIFORM_FLOAT: *((float*) dest + i) = luax_optfloat(L, j, 0.f); break;
         case UNIFORM_INT: *((int*) dest + i) = luaL_optinteger(L, j, 0); break;
-        case UNIFORM_SAMPLER:
+        case UNIFORM_SAMPLER: {
           *((Texture**) dest + i) = luax_checktype(L, j, Texture);
           TextureType type = lovrTextureGetType(*((Texture**) dest + i));
           lovrAssert(type == uniform->textureType, "Attempt to send %s texture to %s sampler uniform", TextureTypes[type], TextureTypes[uniform->textureType]);
           break;
+        }
 
         case UNIFORM_IMAGE: {
           Image* image = (Image*) dest + i;

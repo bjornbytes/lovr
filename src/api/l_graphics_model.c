@@ -10,9 +10,9 @@ static uint32_t luax_checkanimation(lua_State* L, int index, Model* model) {
       size_t length;
       const char* name = lua_tolstring(L, index, &length);
       ModelData* modelData = lovrModelGetModelData(model);
-      uint64_t index = map_get(&modelData->animationMap, hash64(name, length));
-      lovrAssert(index != MAP_NIL, "Model has no animation named '%s'", name);
-      return (uint32_t) index;
+      uint64_t animationIndex = map_get(&modelData->animationMap, hash64(name, length));
+      lovrAssert(animationIndex != MAP_NIL, "Model has no animation named '%s'", name);
+      return (uint32_t) animationIndex;
     }
     case LUA_TNUMBER: return lua_tointeger(L, index) - 1;
     default: return luaL_typerror(L, index, "number or string");

@@ -157,22 +157,22 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
   }
 
   dContact contacts[MAX_CONTACTS];
-  for (int i = 0; i < MAX_CONTACTS; i++) {
-    contacts[i].surface.mode = 0;
-    contacts[i].surface.mu = friction;
-    contacts[i].surface.bounce = restitution;
-    contacts[i].surface.mu = dInfinity;
+  for (int c = 0; c < MAX_CONTACTS; c++) {
+    contacts[c].surface.mode = 0;
+    contacts[c].surface.mu = friction;
+    contacts[c].surface.bounce = restitution;
+    contacts[c].surface.mu = dInfinity;
 
     if (restitution > 0) {
-      contacts[i].surface.mode |= dContactBounce;
+      contacts[c].surface.mode |= dContactBounce;
     }
   }
 
   int contactCount = dCollide(a->id, b->id, MAX_CONTACTS, &contacts[0].geom, sizeof(dContact));
 
   if (!a->sensor && !b->sensor) {
-    for (int i = 0; i < contactCount; i++) {
-      dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[i]);
+    for (int c = 0; c < contactCount; c++) {
+      dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[c]);
       dJointAttach(joint, colliderA->body, colliderB->body);
     }
   }

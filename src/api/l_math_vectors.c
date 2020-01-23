@@ -1468,9 +1468,9 @@ int l_lovrMat4Set(lua_State* L) {
     }
   } else {
     VectorType vectorType;
-    float* v = luax_tovector(L, 2, &vectorType);
+    float* n = luax_tovector(L, 2, &vectorType);
     if (vectorType == V_MAT4) {
-      mat4_init(m, v);
+      mat4_init(m, n);
     } else {
       int index = 2;
       mat4_identity(m);
