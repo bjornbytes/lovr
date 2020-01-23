@@ -87,8 +87,8 @@ static bool oculus_init(float offset, uint32_t msaa) {
 
   state.needRefreshTracking = true;
   state.needRefreshButtons = true;
-  state.clipNear = 0.1f;
-  state.clipFar = 30.f;
+  state.clipNear = .1f;
+  state.clipFar = 100.f;
 
   map_init(&state.textureLookup, 4);
 

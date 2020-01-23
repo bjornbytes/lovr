@@ -30,6 +30,8 @@ var LibraryLOVR = {
     var a, b, c, d, e, canvas, display;
     webvr.initialized = true;
     webvr.display = display = Module.lovrDisplay;
+    webvr.display.depthNear = .1;
+    webvr.display.depthFar = 100;
     webvr.canvas = canvas = Module.canvas;
     webvr.frameData = new VRFrameData();
     webvr.gamepads = [];

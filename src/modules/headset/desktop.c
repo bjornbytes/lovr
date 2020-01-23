@@ -29,7 +29,7 @@ static struct {
 
 static bool desktop_init(float offset, uint32_t msaa) {
   state.offset = offset;
-  state.clipNear = 0.1f;
+  state.clipNear = .1f;
   state.clipFar = 100.f;
 
   if (!state.initialized) {

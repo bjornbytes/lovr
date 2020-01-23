@@ -416,6 +416,9 @@ static bool openxr_init(float offset, uint32_t msaa) {
     state.layerViews[1].subImage.imageRect.offset.x += state.width;
   }
 
+  state.clipNear = .1f;
+  state.clipNear = 100.f;
+
   return true;
 }
 
