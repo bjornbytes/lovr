@@ -35,6 +35,16 @@ const char* Devices[] = {
   [DEVICE_HAND_RIGHT] = "hand/right",
   [DEVICE_EYE_LEFT] = "eye/left",
   [DEVICE_EYE_RIGHT] = "eye/right",
+  [DEVICE_HAND_LEFT_FINGER_THUMB] = "hand/left/finger/thumb",
+  [DEVICE_HAND_LEFT_FINGER_INDEX] = "hand/left/finger/index",
+  [DEVICE_HAND_LEFT_FINGER_MIDDLE] = "hand/left/finger/middle",
+  [DEVICE_HAND_LEFT_FINGER_RING] = "hand/left/finger/ring",
+  [DEVICE_HAND_LEFT_FINGER_PINKY] = "hand/left/finger/pinky",
+  [DEVICE_HAND_RIGHT_FINGER_THUMB] = "hand/right/finger/thumb",
+  [DEVICE_HAND_RIGHT_FINGER_INDEX] = "hand/right/finger/index",
+  [DEVICE_HAND_RIGHT_FINGER_MIDDLE] = "hand/right/finger/middle",
+  [DEVICE_HAND_RIGHT_FINGER_RING] = "hand/right/finger/ring",
+  [DEVICE_HAND_RIGHT_FINGER_PINKY] = "hand/right/finger/pinky",
   NULL
 };
 
@@ -57,6 +67,8 @@ const char* DeviceAxes[] = {
   [AXIS_THUMBSTICK] = "thumbstick",
   [AXIS_TOUCHPAD] = "touchpad",
   [AXIS_GRIP] = "grip",
+  [AXIS_CURL] = "curl",
+  [AXIS_SPLAY] = "splay",
   NULL
 };
 
