@@ -591,6 +591,7 @@ elseif(APPLE)
     move_lib(${LOVR_ODE})
     move_lib(${LOVR_OPENAL})
     move_lib(${LOVR_OPENVR})
+    move_lib(${LOVR_MSDF})
 
     target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns")
     set_target_properties(lovr PROPERTIES
