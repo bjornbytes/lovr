@@ -67,7 +67,7 @@ typedef struct HeadsetInterface {
   const float* (*getBoundsGeometry)(uint32_t* count);
   bool (*getPose)(Device device, float* position, float* orientation);
   bool (*getVelocity)(Device device, float* velocity, float* angularVelocity);
-  bool (*isDown)(Device device, DeviceButton button, bool* down);
+  bool (*isDown)(Device device, DeviceButton button, bool* down, bool* changed);
   bool (*isTouched)(Device device, DeviceButton button, bool* touched);
   bool (*getAxis)(Device device, DeviceAxis axis, float* value);
   bool (*vibrate)(Device device, float strength, float duration, float frequency);

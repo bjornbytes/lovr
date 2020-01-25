@@ -109,12 +109,14 @@ static bool leap_getVelocity(Device device, vec3 velocity, vec3 angularVelocity)
   return true;
 }
 
-static bool leap_isDown(Device device, DeviceButton button, bool* down) {
+static bool leap_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
   if ((device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) || !state.hands[device - DEVICE_HAND_LEFT]) {
     return false;
   }
 
   LEAP_HAND* hand = state.hands[device - DEVICE_HAND_LEFT];
+
+  *changed = false; // TODO
 
   switch (button) {
     case BUTTON_TRIGGER: *down = hand->pinch_strength > .5f; return true;

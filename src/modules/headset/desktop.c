@@ -113,12 +113,13 @@ static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVeloci
   return true;
 }
 
-static bool desktop_isDown(Device device, DeviceButton button, bool* down) {
+static bool desktop_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
   if (device != DEVICE_HAND_LEFT || button != BUTTON_TRIGGER) {
     return false;
   }
 
   *down = lovrPlatformIsMouseDown(MOUSE_RIGHT);
+  *changed = false; // TODO
   return true;
 }
 

@@ -243,6 +243,10 @@ static bool oculus_isTouched(Device device, DeviceButton button, bool* touched) 
   }
 }
 
+static bool oculus_didChange(Device device, DeviceButton button, bool* changed) {
+  return false; // TODO
+}
+
 static bool oculus_getAxis(Device device, DeviceAxis axis, vec3 value) {
   if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;

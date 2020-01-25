@@ -554,15 +554,17 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
   XrActionStateBoolean actionState;
   XR(xrGetActionStateBoolean(state.session, &info, &actionState));
   *value = actionState.currentState;
+  *changed = actionState.changedSinceLastSync;
   return actionState.isActive;
 }
 
-static bool openxr_isDown(Device device, DeviceButton button, bool* down) {
-  return getButtonState(device, button, down, false);
+static bool openxr_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
+  return getButtonState(device, button, down, changed, false);
 }
 
 static bool openxr_isTouched(Device device, DeviceButton button, bool* touched) {
-  return getButtonState(device, button, touched, true);
+  bool unused;
+  return getButtonState(device, button, touched, &unused, true);
 }
 
 static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {

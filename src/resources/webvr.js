@@ -209,7 +209,7 @@ var LibraryLOVR = {
     return true;
   },
 
-  webvr_isDown: function(device, button, down) {
+  webvr_isDown: function(device, button, down, changed) {
     var gamepad = webvr.gamepads[device];
 
     if (!gamepad || !gamepad.id || !webvr.buttonMap[gamepad.id] || !webvr.buttonMap[gamepad.id][button]) {
@@ -217,6 +217,7 @@ var LibraryLOVR = {
     }
 
     HEAPF32[down >> 2] = gamepad.buttons[webvr.buttonMap[gamepad.id][button]].pressed;
+    HEAPF32[changed >> 2] = false; // TODO
     return true;
   },
 

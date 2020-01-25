@@ -347,10 +347,38 @@ static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 static int l_lovrHeadsetIsDown(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceButton button = luaL_checkoption(L, 2, NULL, DeviceButtons);
-  bool down;
+  bool down, changed;
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->isDown(device, button, &down)) {
+    if (driver->isDown(device, button, &down, &changed)) {
       lua_pushboolean(L, down);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
+  return 1;
+}
+
+static int l_lovrHeadsetWasPressed(lua_State* L) {
+  Device device = luax_optdevice(L, 1);
+  DeviceButton button = luaL_checkoption(L, 2, NULL, DeviceButtons);
+  bool down, changed;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->isDown(device, button, &down, &changed)) {
+      lua_pushboolean(L, down && changed);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
+  return 1;
+}
+
+static int l_lovrHeadsetWasReleased(lua_State* L) {
+  Device device = luax_optdevice(L, 1);
+  DeviceButton button = luaL_checkoption(L, 2, NULL, DeviceButtons);
+  bool down, changed;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->isDown(device, button, &down, &changed)) {
+      lua_pushboolean(L, !down && changed);
       return 1;
     }
   }
@@ -523,6 +551,8 @@ static const luaL_Reg lovrHeadset[] = {
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
   { "isDown", l_lovrHeadsetIsDown },
+  { "wasPressed", l_lovrHeadsetWasPressed },
+  { "wasReleased", l_lovrHeadsetWasReleased },
   { "isTouched", l_lovrHeadsetIsTouched },
   { "getAxis", l_lovrHeadsetGetAxis },
   { "vibrate", l_lovrHeadsetVibrate },

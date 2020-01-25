@@ -181,11 +181,12 @@ static bool buttonTouch(BridgeLovrTouch field, DeviceButton button, bool *result
   return true;
 }
 
-static bool vrapi_isDown(Device device, DeviceButton button, bool* down) {
+static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
   int idx = getHandIdx(device);
   if (idx < 0)
     return false;
 
+  *changed = false; // TODO
   return buttonDown(bridgeLovrMobileData.updateData.controllers[idx].buttonDown, button, down);
 }
 

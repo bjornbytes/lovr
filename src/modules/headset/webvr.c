@@ -16,7 +16,7 @@ extern void webvr_getBoundsDimensions(float* width, float* depth);
 extern const float* webvr_getBoundsGeometry(uint32_t* count);
 extern bool webvr_getPose(Device device, float* position, float* orientation);
 extern bool webvr_getVelocity(Device device, float* velocity, float* angularVelocity);
-extern bool webvr_isDown(Device device, DeviceButton button, bool* down);
+extern bool webvr_isDown(Device device, DeviceButton button, bool* down, bool* changed);
 extern bool webvr_isTouched(Device device, DeviceButton button, bool* touched);
 extern bool webvr_getAxis(Device device, DeviceAxis axis, float* value);
 extern bool webvr_vibrate(Device device, float strength, float duration, float frequency);

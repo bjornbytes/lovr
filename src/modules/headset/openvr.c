@@ -307,23 +307,27 @@ static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
   return pose->bPoseIsValid;
 }
 
-static bool getButtonState(Device device, DeviceButton button, VRActionHandle_t actions[2][MAX_BUTTONS], bool* value) {
+static bool openvr_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
   if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;
   }
 
   InputDigitalActionData_t actionData;
-  state.input->GetDigitalActionData(actions[device - DEVICE_HAND_LEFT][button], &actionData, sizeof(actionData), 0);
-  *value = actionData.bState;
+  state.input->GetDigitalActionData(state.buttonActions[device - DEVICE_HAND_LEFT][button], &actionData, sizeof(actionData), 0);
+  *down = actionData.bState;
+  *changed = actionData.bChanged;
   return actionData.bActive;
 }
 
-static bool openvr_isDown(Device device, DeviceButton button, bool* down) {
-  return getButtonState(device, button, state.buttonActions, down);
-}
-
 static bool openvr_isTouched(Device device, DeviceButton button, bool* touched) {
-  return getButtonState(device, button, state.touchActions, touched);
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  InputDigitalActionData_t actionData;
+  state.input->GetDigitalActionData(state.touchActions[device - DEVICE_HAND_LEFT][button], &actionData, sizeof(actionData), 0);
+  *touched = actionData.bState;
+  return actionData.bActive;
 }
 
 static bool openvr_getAxis(Device device, DeviceAxis axis, vec3 value) {
