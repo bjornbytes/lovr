@@ -157,6 +157,9 @@ if(LOVR_ENABLE_DATA)
   add_subdirectory(deps/msdfgen lib_msdfgen)
   include_directories(deps/msdfgen)
   set(LOVR_MSDF lib_msdfgen)
+  if(APPLE)
+    set_target_properties(lib_msdfgen PROPERTIES MACOSX_RPATH ON)
+  endif()
 endif()
 
 # ODE
