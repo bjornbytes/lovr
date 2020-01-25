@@ -207,6 +207,10 @@ static void openvr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   state.system->GetRecommendedRenderTargetSize(width, height);
 }
 
+static float openvr_getDisplayFrequency() {
+  return state.system->GetFloatTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_DisplayFrequency_Float, NULL);
+}
+
 static const float* openvr_getDisplayMask(uint32_t* count) {
   struct HiddenAreaMesh_t hiddenAreaMesh = state.system->GetHiddenAreaMesh(EVREye_Eye_Left, EHiddenAreaMeshType_k_eHiddenAreaMesh_Standard);
 
@@ -231,7 +235,7 @@ static double openvr_getDisplayTime(void) {
   float secondsSinceVsync;
   state.system->GetTimeSinceLastVsync(&secondsSinceVsync, NULL);
 
-  float frequency = state.system->GetFloatTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_DisplayFrequency_Float, NULL);
+  float frequency = openvr_getDisplayFrequency();
   float frameDuration = 1.f / frequency;
   float vsyncToPhotons = state.system->GetFloatTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_SecondsFromVsyncToPhotons_Float, NULL);
 
@@ -533,6 +537,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getName = openvr_getName,
   .getOriginType = openvr_getOriginType,
   .getDisplayDimensions = openvr_getDisplayDimensions,
+  .getDisplayFrequency = openvr_getDisplayFrequency,
   .getDisplayMask = openvr_getDisplayMask,
   .getDisplayTime = openvr_getDisplayTime,
   .getClipDistance = openvr_getClipDistance,
