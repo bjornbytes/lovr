@@ -372,7 +372,7 @@ static bool openvr_getPose(Device device, vec3 position, quat orientation) {
 
   VRBoneTransform_t bones[31];
   EVRSkeletalTransformSpace space = EVRSkeletalTransformSpace_VRSkeletalTransformSpace_Model;
-  EVRSkeletalMotionRange motionRange = EVRSkeletalMotionRange_VRSkeletalMotionRange_WithoutController;
+  EVRSkeletalMotionRange motionRange = EVRSkeletalMotionRange_VRSkeletalMotionRange_WithController;
   error = state.input->GetSkeletalBoneData(state.skeletonActions[hand - DEVICE_HAND_LEFT], space, motionRange, bones, sizeof(bones) / sizeof(bones[0]));
   if (error) {
     return false;
@@ -391,7 +391,7 @@ static bool openvr_getPose(Device device, vec3 position, quat orientation) {
 
   VRBoneTransform_t* bone = &bones[boneIndex];
   mat4_translate(transform, bone->position.v[0], bone->position.v[1], bone->position.v[2]);
-  mat4_rotateQuat(transform, (float[4]) { bone->orientation.x, bone->orientation.y, bone->orientation.z, bone->orientation.w });
+  mat4_rotateQuat(transform, (float[4]) { bone->orientation.w, bone->orientation.x, bone->orientation.y, bone->orientation.z });
   mat4_getPosition(transform, position);
   mat4_getOrientation(transform, orientation);
   return true;
