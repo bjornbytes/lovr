@@ -466,7 +466,9 @@ static const int axisCounts[MAX_AXES] = {
   [AXIS_TRIGGER] = 1,
   [AXIS_THUMBSTICK] = 2,
   [AXIS_TOUCHPAD] = 2,
-  [AXIS_GRIP] = 1
+  [AXIS_GRIP] = 1,
+  [AXIS_CURL] = 1,
+  [AXIS_SPLAY] = 2
 };
 
 static int l_lovrHeadsetGetAxis(lua_State* L) {

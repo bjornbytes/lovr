@@ -69,7 +69,7 @@ static struct {
   struct VR_IVRRenderModels_FnTable* renderModels;
   struct VR_IVRInput_FnTable* input;
   VRActionSetHandle_t actionSet;
-  VRActionHandle_t poseActions[MAX_DEVICES];
+  VRActionHandle_t poseActions[3];
   VRActionHandle_t buttonActions[2][MAX_BUTTONS];
   VRActionHandle_t touchActions[2][MAX_BUTTONS];
   VRActionHandle_t axisActions[2][MAX_AXES];
@@ -439,14 +439,40 @@ static bool openvr_isTouched(Device device, DeviceButton button, bool* touched) 
 }
 
 static bool openvr_getAxis(Device device, DeviceAxis axis, vec3 value) {
-  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+  if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
+    InputAnalogActionData_t actionData;
+    state.input->GetAnalogActionData(state.axisActions[device - DEVICE_HAND_LEFT][axis], &actionData, sizeof(actionData), 0);
+    vec3_set(value, actionData.x, actionData.y, actionData.z);
+    return actionData.bActive;
+  }
+
+  uint32_t finger;
+  VRActionHandle_t skeletonAction;
+  if (device >= DEVICE_HAND_LEFT_FINGER_THUMB && device <= DEVICE_HAND_LEFT_FINGER_PINKY) {
+    finger = device - DEVICE_HAND_LEFT_FINGER_THUMB;
+    skeletonAction = state.skeletonActions[0];
+  } else if (device >= DEVICE_HAND_RIGHT_FINGER_THUMB && device <= DEVICE_HAND_RIGHT_FINGER_PINKY) {
+    finger = device - DEVICE_HAND_RIGHT_FINGER_THUMB;
+    skeletonAction = state.skeletonActions[1];
+  } else {
     return false;
   }
 
-  InputAnalogActionData_t actionData;
-  state.input->GetAnalogActionData(state.axisActions[device - DEVICE_HAND_LEFT][axis], &actionData, sizeof(actionData), 0);
-  vec3_set(value, actionData.x, actionData.y, actionData.z);
-  return actionData.bActive;
+  VRSkeletalSummaryData_t summary;
+  if (state.input->GetSkeletalSummaryData(skeletonAction, &summary)) {
+    return false;
+  }
+
+  if (axis == AXIS_CURL) {
+    value[0] = summary.flFingerCurl[finger];
+    return true;
+  } else if (axis == AXIS_SPLAY) {
+    value[0] = finger > 0 ? summary.flFingerSplay[finger - 1] : 0.f;
+    value[1] = finger < 4 ? summary.flFingerSplay[finger - 0] : 0.f;
+    return true;
+  }
+
+  return false;
 }
 
 static bool openvr_vibrate(Device device, float strength, float duration, float frequency) {
