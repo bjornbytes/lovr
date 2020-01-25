@@ -62,6 +62,7 @@ typedef enum {
   AXIS_GRIP,
   AXIS_CURL,
   AXIS_SPLAY,
+  AXIS_PINCH,
   MAX_AXES
 } DeviceAxis;
 
