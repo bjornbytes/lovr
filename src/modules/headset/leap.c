@@ -83,14 +83,33 @@ static void adjustPose(vec3 position, vec3 direction) {
 }
 
 static bool leap_getPose(Device device, vec3 position, quat orientation) {
-  if ((device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) || !state.hands[device - DEVICE_HAND_LEFT]) {
+  if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
+    LEAP_HAND* hand = state.hands[device - DEVICE_HAND_LEFT];
+    if (hand) {
+      float direction[4];
+      vec3_init(position, hand->palm.position.v);
+      vec3_init(direction, hand->palm.normal.v);
+      adjustPose(position, direction);
+      quat_between(orientation, (float[4]) { 0.f, 0.f, -1.f }, direction);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  LEAP_BONE* distal;
+  if (state.hands[0] && device >= DEVICE_HAND_LEFT_FINGER_THUMB && device <= DEVICE_HAND_LEFT_FINGER_PINKY) {
+    distal = &state.hands[0]->digits[device - DEVICE_HAND_LEFT_FINGER_THUMB].distal;
+  } else if (state.hands[1] && device >= DEVICE_HAND_RIGHT_FINGER_THUMB && device <= DEVICE_HAND_RIGHT_FINGER_PINKY) {
+    distal = &state.hands[1]->digits[device - DEVICE_HAND_RIGHT_FINGER_THUMB].distal;
+  } else {
     return false;
   }
 
   float direction[4];
-  LEAP_HAND* hand = state.hands[device - DEVICE_HAND_LEFT];
-  vec3_init(position, hand->palm.position.v);
-  vec3_init(direction, hand->palm.normal.v);
+  vec3_init(position, distal->next_joint.v);
+  vec3_init(direction, distal->next_joint.v);
+  vec3_sub(direction, distal->prev_joint.v);
   adjustPose(position, direction);
   quat_between(orientation, (float[4]) { 0.f, 0.f, -1.f }, direction);
   return true;
