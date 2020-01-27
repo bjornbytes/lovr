@@ -1900,9 +1900,9 @@ void lovrBufferDiscard(Buffer* buffer) {
 
 // Shader
 
-static GLuint compileShader(GLenum type, const char** sources, int count) {
+static GLuint compileShader(GLenum type, const char** sources, int* lengths, int count) {
   GLuint shader = glCreateShader(type);
-  glShaderSource(shader, count, sources, NULL);
+  glShaderSource(shader, count, sources, lengths);
   glCompileShader(shader);
 
   int isShaderCompiled;
@@ -2175,7 +2175,7 @@ static char* lovrShaderGetFlagCode(ShaderFlag* flags, uint32_t flagCount) {
   return code;
 }
 
-Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const char* fragmentSource, ShaderFlag* flags, uint32_t flagCount, bool multiview) {
+Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, int vertexSourceLength, const char* fragmentSource, int fragmentSourceLength, ShaderFlag* flags, uint32_t flagCount, bool multiview) {
 #if defined(LOVR_WEBGL) || defined(LOVR_GLES)
   const char* version = "#version 300 es\n";
   const char* precision[2] = { "precision highp float;\nprecision highp int;\n", "precision mediump float;\nprecision mediump int;\n" };
@@ -2197,12 +2197,16 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
   // Vertex
   vertexSource = vertexSource == NULL ? lovrUnlitVertexShader : vertexSource;
   const char* vertexSources[] = { version, singlepass[0], precision[0], flagSource ? flagSource : "", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
-  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, sizeof(vertexSources) / sizeof(vertexSources[0]));
+  int vertexSourceLengths[] = { -1, -1, -1, -1, -1, vertexSourceLength, -1 };
+  size_t vertexSourceCount = sizeof(vertexSources) / sizeof(vertexSources[0]);
+  GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, vertexSourceLengths, vertexSourceCount);
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrUnlitFragmentShader : fragmentSource;
   const char* fragmentSources[] = { version, singlepass[1], precision[1], flagSource ? flagSource : "", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
-  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, sizeof(fragmentSources) / sizeof(fragmentSources[0]));
+  int fragmentSourceLengths[] = { -1, -1, -1, -1, -1, fragmentSourceLength, -1 };
+  size_t fragmentSourceCount = sizeof(fragmentSources) / sizeof(fragmentSources[0]);
+  GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, fragmentSourceLengths, fragmentSourceCount);
 
   free(flagSource);
 
@@ -2253,14 +2257,16 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, const c
   return shader;
 }
 
-Shader* lovrShaderInitCompute(Shader* shader, const char* source, ShaderFlag* flags, uint32_t flagCount) {
+Shader* lovrShaderInitCompute(Shader* shader, const char* source, int length, ShaderFlag* flags, uint32_t flagCount) {
 #ifdef LOVR_WEBGL
   lovrThrow("Compute shaders are not supported on this system");
 #else
   lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
   char* flagSource = lovrShaderGetFlagCode(flags, flagCount);
   const char* sources[] = { lovrShaderComputePrefix, flagSource ? flagSource : "", source, lovrShaderComputeSuffix };
-  GLuint computeShader = compileShader(GL_COMPUTE_SHADER, sources, sizeof(sources) / sizeof(sources[0]));
+  int lengths[] = { -1, -1, length, -1 };
+  size_t count = sizeof(sources) / sizeof(sources[0]);
+  GLuint computeShader = compileShader(GL_COMPUTE_SHADER, sources, lengths, count);
   free(flagSource);
   GLuint program = glCreateProgram();
   glAttachShader(program, computeShader);
