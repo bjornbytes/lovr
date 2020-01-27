@@ -1400,23 +1400,26 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   return 1;
 }
 
-static const char* luax_checkshadersource(lua_State* L, int index) {
+static const char* luax_checkshadersource(lua_State* L, int index, int *outLength) {
   if (lua_isnoneornil(L, index)) {
     return NULL;
   }
 
   Blob* blob = luax_totype(L, index, Blob);
   if (blob) {
+    *outLength = blob->size;
     return blob->data;
   }
 
   size_t length;
   const char* source = luaL_checklstring(L, index, &length);
   if (memchr(source, '\n', MIN(1024, length))) {
+    *outLength = length;
     return source;
   } else {
     void* contents = luax_readfile(source, &length);
     lovrAssert(contents, "Could not read shader from file '%s'", source);
+    *outLength = length;
     return contents;
   }
 }
@@ -1488,8 +1491,10 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       lovrShaderSetFloats(shader, "lovrLightColor", (float[4]) { 1.f, 1.f, 1.f, 1.f }, 0, 4);
     }
   } else {
-    const char* vertexSource = luax_checkshadersource(L, 1);
-    const char* fragmentSource = luax_checkshadersource(L, 2);
+    int vertexSourceLength;
+    const char* vertexSource = luax_checkshadersource(L, 1, &vertexSourceLength);
+    int fragmentSourceLength;
+    const char* fragmentSource = luax_checkshadersource(L, 2, &fragmentSourceLength);
 
     if (lua_istable(L, 3)) {
       lua_getfield(L, 3, "flags");
@@ -1501,7 +1506,9 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       lua_pop(L, 1);
     }
 
-    shader = lovrShaderCreateGraphics(vertexSource, fragmentSource, flags, flagCount, multiview);
+    shader = lovrShaderCreateGraphics(
+      vertexSource, vertexSourceLength, fragmentSource, fragmentSourceLength,
+      flags, flagCount, multiview);
   }
 
   luax_pushtype(L, Shader, shader);
@@ -1510,7 +1517,8 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewComputeShader(lua_State* L) {
-  const char* source = luax_checkshadersource(L, 1);
+  int sourceLength;
+  const char* source = luax_checkshadersource(L, 1, &sourceLength);
   ShaderFlag flags[MAX_SHADER_FLAGS];
   uint32_t flagCount = 0;
 
@@ -1520,7 +1528,7 @@ static int l_lovrGraphicsNewComputeShader(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  Shader* shader = lovrShaderCreateCompute(source, flags, flagCount);
+  Shader* shader = lovrShaderCreateCompute(source, sourceLength, flags, flagCount);
   luax_pushtype(L, Shader, shader);
   lovrRelease(Shader, shader);
   return 1;
