@@ -1026,66 +1026,6 @@ static void luax_checkuniformtype(lua_State* L, int index, UniformType* baseType
   }
 }
 
-static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
-  arr_uniform_t uniforms;
-  arr_init(&uniforms);
-
-  BlockType type = luaL_checkoption(L, 1, NULL, BlockTypes);
-
-  luaL_checktype(L, 2, LUA_TTABLE);
-  lua_pushnil(L);
-  while (lua_next(L, 2) != 0) {
-    Uniform uniform;
-
-    // Name
-    strncpy(uniform.name, luaL_checkstring(L, -2), LOVR_MAX_UNIFORM_LENGTH - 1);
-
-    if (lua_type(L, -1) == LUA_TSTRING) {
-      uniform.count = 1;
-      luax_checkuniformtype(L, -1, &uniform.type, &uniform.components);
-    } else {
-      luaL_checktype(L, -1, LUA_TTABLE);
-
-      lua_rawgeti(L, -1, 1);
-      luax_checkuniformtype(L, -1, &uniform.type, &uniform.components);
-      lua_pop(L, 1);
-
-      lua_rawgeti(L, -1, 2);
-      uniform.count = luaL_optinteger(L, -1, 1);
-      lua_pop(L, 1);
-    }
-
-    lovrAssert(uniform.count >= 1, "Uniform count must be positive, got %d for '%s'", uniform.count, uniform.name);
-    arr_push(&uniforms, uniform);
-
-    // Pop the table, leaving the key for lua_next to nom
-    lua_pop(L, 1);
-  }
-
-  BufferUsage usage = USAGE_DYNAMIC;
-  bool readable = false;
-
-  if (lua_istable(L, 3)) {
-    lua_getfield(L, 3, "usage");
-    usage = luaL_checkoption(L, -1, "dynamic", BufferUsages);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 3, "readable");
-    readable = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-  }
-
-  lovrAssert(type == BLOCK_UNIFORM || lovrGraphicsGetFeatures()->compute, "Compute blocks are not supported on this system");
-  size_t size = lovrShaderComputeUniformLayout(&uniforms);
-  Buffer* buffer = lovrBufferCreate(size, NULL, type == BLOCK_COMPUTE ? BUFFER_SHADER_STORAGE : BUFFER_UNIFORM, usage, readable);
-  ShaderBlock* block = lovrShaderBlockCreate(type, buffer, &uniforms);
-  luax_pushtype(L, ShaderBlock, block);
-  arr_free(&uniforms);
-  lovrRelease(Buffer, buffer);
-  lovrRelease(ShaderBlock, block);
-  return 1;
-}
-
 static int l_lovrGraphicsNewCanvas(lua_State* L) {
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
   int attachmentCount = 0;
@@ -1531,6 +1471,66 @@ static int l_lovrGraphicsNewComputeShader(lua_State* L) {
   Shader* shader = lovrShaderCreateCompute(source, sourceLength, flags, flagCount);
   luax_pushtype(L, Shader, shader);
   lovrRelease(Shader, shader);
+  return 1;
+}
+
+static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
+  arr_uniform_t uniforms;
+  arr_init(&uniforms);
+
+  BlockType type = luaL_checkoption(L, 1, NULL, BlockTypes);
+
+  luaL_checktype(L, 2, LUA_TTABLE);
+  lua_pushnil(L);
+  while (lua_next(L, 2) != 0) {
+    Uniform uniform;
+
+    // Name
+    strncpy(uniform.name, luaL_checkstring(L, -2), LOVR_MAX_UNIFORM_LENGTH - 1);
+
+    if (lua_type(L, -1) == LUA_TSTRING) {
+      uniform.count = 1;
+      luax_checkuniformtype(L, -1, &uniform.type, &uniform.components);
+    } else {
+      luaL_checktype(L, -1, LUA_TTABLE);
+
+      lua_rawgeti(L, -1, 1);
+      luax_checkuniformtype(L, -1, &uniform.type, &uniform.components);
+      lua_pop(L, 1);
+
+      lua_rawgeti(L, -1, 2);
+      uniform.count = luaL_optinteger(L, -1, 1);
+      lua_pop(L, 1);
+    }
+
+    lovrAssert(uniform.count >= 1, "Uniform count must be positive, got %d for '%s'", uniform.count, uniform.name);
+    arr_push(&uniforms, uniform);
+
+    // Pop the table, leaving the key for lua_next to nom
+    lua_pop(L, 1);
+  }
+
+  BufferUsage usage = USAGE_DYNAMIC;
+  bool readable = false;
+
+  if (lua_istable(L, 3)) {
+    lua_getfield(L, 3, "usage");
+    usage = luaL_checkoption(L, -1, "dynamic", BufferUsages);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "readable");
+    readable = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+
+  lovrAssert(type == BLOCK_UNIFORM || lovrGraphicsGetFeatures()->compute, "Compute blocks are not supported on this system");
+  size_t size = lovrShaderComputeUniformLayout(&uniforms);
+  Buffer* buffer = lovrBufferCreate(size, NULL, type == BLOCK_COMPUTE ? BUFFER_SHADER_STORAGE : BUFFER_UNIFORM, usage, readable);
+  ShaderBlock* block = lovrShaderBlockCreate(type, buffer, &uniforms);
+  luax_pushtype(L, ShaderBlock, block);
+  arr_free(&uniforms);
+  lovrRelease(Buffer, buffer);
+  lovrRelease(ShaderBlock, block);
   return 1;
 }
 
