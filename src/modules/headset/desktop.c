@@ -1,4 +1,5 @@
 #include "headset/headset.h"
+#include "event/event.h"
 #include "graphics/graphics.h"
 #include "core/maf.h"
 #include "core/os.h"
@@ -6,6 +7,10 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdbool.h>
+
+static void onFocus(bool focused) {
+  lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { focused } });
+}
 
 static struct {
   bool initialized;
@@ -37,6 +42,9 @@ static bool desktop_init(float offset, uint32_t msaa) {
     mat4_identity(state.leftHandTransform);
     state.initialized = true;
   }
+
+  lovrPlatformOnWindowFocus(onFocus);
+
   return true;
 }
 

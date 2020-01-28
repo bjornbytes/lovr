@@ -13,6 +13,7 @@
 static struct {
   GLFWwindow* window;
   windowCloseCallback onWindowClose;
+  windowFocusCallback onWindowFocus;
   windowResizeCallback onWindowResize;
   mouseButtonCallback onMouseButton;
   keyboardCallback onKeyboardEvent;
@@ -25,6 +26,12 @@ static void onError(int code, const char* description) {
 static void onWindowClose(GLFWwindow* window) {
   if (glfwState.onWindowClose) {
     glfwState.onWindowClose();
+  }
+}
+
+static void onWindowFocus(GLFWwindow* window, int focused) {
+  if (glfwState.onWindowFocus) {
+    glfwState.onWindowFocus(focused);
   }
 }
 
@@ -147,6 +154,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
 
   glfwMakeContextCurrent(glfwState.window);
   glfwSetWindowCloseCallback(glfwState.window, onWindowClose);
+  glfwSetWindowFocusCallback(glfwState.window, onWindowFocus);
   glfwSetWindowSizeCallback(glfwState.window, onWindowResize);
   glfwSetMouseButtonCallback(glfwState.window, onMouseButton);
   glfwSetKeyCallback(glfwState.window, onKeyboardEvent);
@@ -194,6 +202,10 @@ void* lovrPlatformGetProcAddress(const char* function) {
 
 void lovrPlatformOnWindowClose(windowCloseCallback callback) {
   glfwState.onWindowClose = callback;
+}
+
+void lovrPlatformOnWindowFocus(windowFocusCallback callback) {
+  glfwState.onWindowFocus = callback;
 }
 
 void lovrPlatformOnWindowResize(windowResizeCallback callback) {

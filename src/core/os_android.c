@@ -61,6 +61,10 @@ void lovrPlatformOnWindowClose(windowCloseCallback callback) {
   //
 }
 
+void lovrPlatformOnWindowFocus(windowFocusCallback callback) {
+  //
+}
+
 void lovrPlatformOnWindowResize(windowResizeCallback callback) {
   //
 }
