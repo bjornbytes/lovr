@@ -98,7 +98,7 @@ static struct {
   FrameData frameData;
   bool frameDataDirty;
   Canvas* defaultCanvas;
-  Shader* defaultShaders[MAX_DEFAULT_SHADERS];
+  Shader* defaultShaders[MAX_DEFAULT_SHADERS][2];
   Material* defaultMaterial;
   Font* defaultFont;
   TextureFilter defaultFilter;
@@ -197,7 +197,8 @@ void lovrGraphicsDestroy() {
   lovrGraphicsSetFont(NULL);
   lovrGraphicsSetCanvas(NULL);
   for (int i = 0; i < MAX_DEFAULT_SHADERS; i++) {
-    lovrRelease(Shader, state.defaultShaders[i]);
+    lovrRelease(Shader, state.defaultShaders[i][false]);
+    lovrRelease(Shader, state.defaultShaders[i][true]);
   }
   for (int i = 0; i < MAX_STREAMS; i++) {
     lovrRelease(Buffer, state.buffers[i]);
@@ -559,7 +560,8 @@ static void lovrGraphicsBatch(BatchRequest* req) {
   // Resolve objects
   Mesh* mesh = req->mesh ? req->mesh : (req->instanced ? state.instancedMesh : state.mesh);
   Canvas* canvas = state.canvas ? state.canvas : state.camera.canvas;
-  Shader* shader = state.shader ? state.shader : (state.defaultShaders[req->shader] ? state.defaultShaders[req->shader] : (state.defaultShaders[req->shader] = lovrShaderCreateDefault(req->shader, NULL, 0)));
+  bool stereo = lovrCanvasIsStereo(canvas);
+  Shader* shader = state.shader ? state.shader : (state.defaultShaders[req->shader][stereo] ? state.defaultShaders[req->shader][stereo] : (state.defaultShaders[req->shader][stereo] = lovrShaderCreateDefault(req->shader, NULL, 0, stereo)));
   Pipeline* pipeline = req->pipeline ? req->pipeline : &state.pipeline;
   Material* material = req->material ? req->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
 

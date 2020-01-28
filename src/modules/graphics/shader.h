@@ -125,7 +125,7 @@ typedef struct Shader {
 
 Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, int vertexSourceLength, const char* fragmentSource, int fragmentSourceLength, ShaderFlag* flags, uint32_t flagCount, bool multiview);
 Shader* lovrShaderInitCompute(Shader* shader, const char* source, int length, ShaderFlag* flags, uint32_t flagCount);
-Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type, ShaderFlag* flags, uint32_t flagCount);
+Shader* lovrShaderInitDefault(Shader* shader, DefaultShader type, ShaderFlag* flags, uint32_t flagCount, bool multiview);
 #define lovrShaderCreateGraphics(...) lovrShaderInitGraphics(lovrAlloc(Shader), __VA_ARGS__)
 #define lovrShaderCreateCompute(...) lovrShaderInitCompute(lovrAlloc(Shader), __VA_ARGS__)
 #define lovrShaderCreateDefault(...) lovrShaderInitDefault(lovrAlloc(Shader), __VA_ARGS__)

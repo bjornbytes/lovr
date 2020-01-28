@@ -1422,7 +1422,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       lua_pop(L, 1);
     }
 
-    shader = lovrShaderCreateDefault(shaderType, flags, flagCount);
+    shader = lovrShaderCreateDefault(shaderType, flags, flagCount, multiview);
 
     // Builtin uniforms
     if (shaderType == SHADER_STANDARD) {
