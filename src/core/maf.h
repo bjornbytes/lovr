@@ -576,6 +576,10 @@ MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float c
   return m;
 }
 
+MAF void mat4_getFov(mat4 m, float* left, float* right, float* up, float* down) {
+  // TODO
+}
+
 MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   float x[4];
   float y[4];

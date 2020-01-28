@@ -77,6 +77,26 @@ static const float* vrapi_getDisplayMask(uint32_t* count) {
   return NULL;
 }
 
+static uint32_t vrapi_getViewCount(void) {
+  return 2;
+}
+
+static void vrapi_getViewPose(uint32_t view, float* position, float* orientation) {
+  if (view > 1) return false;
+  float transform[16];
+  mat4_init(transform, bridgeLovrMobileData.updateData.eyeViewMatrix[view]);
+  mat4_invert(transform); // :(
+  mat4_getPosition(transform, position);
+  mat4_getOrientation(transform, orientation);
+  return true;
+}
+
+static void vrapi_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
+  if (view > 1) return false;
+  mat4_getFov(bridgeLovrMobileData.updateData.projectionMatrix[view], left, right, up, down);
+  return true;
+}
+
 static void vrapi_getClipDistance(float* clipNear, float* clipFar) {
   // TODO
 }
@@ -264,6 +284,9 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   .getDisplayTime = vrapi_getDisplayTime,
   .getDisplayDimensions = vrapi_getDisplayDimensions,
   .getDisplayMask = vrapi_getDisplayMask,
+  .getViewCount = vrapi_getViewCount,
+  .getViewPose = vrapi_getViewPose,
+  .getViewAngles = vrapi_getViewAngles,
   .getClipDistance = vrapi_getClipDistance,
   .setClipDistance = vrapi_setClipDistance,
   .getBoundsDimensions = vrapi_getBoundsDimensions,
