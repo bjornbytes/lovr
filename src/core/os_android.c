@@ -4,6 +4,29 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+// Currently, the Android entrypoint is in lovr-oculus-mobile, so this one is not enabled.
+#if 0
+#include <android_native_app_glue.h>
+#include <android/log.h>
+
+static JavaVM* lovrJavaVM;
+static JNIEnv* lovrJNIEnv;
+
+int main(int argc, char** argv);
+
+static void onAppCmd(struct android_app* app, int32_t cmd) {
+  // pause, resume, events, etc.
+}
+
+void android_main(struct android_app* app) {
+  lovrJavaVM = app->activity->vm;
+  lovrJavaVM->AttachCurrentThread(&lovrJNIEnv, NULL);
+  app->onAppCmd = onAppCmd;
+  main(0, NULL);
+  lovrJavaVM->DetachCurrentThread();
+}
+#endif
+
 bool lovrPlatformInit() {
   return true;
 }
@@ -17,21 +40,11 @@ const char* lovrPlatformGetName() {
 }
 
 void lovrPlatformPollEvents() {
-  //
+  // TODO
 }
-
-/* Temporarily implemented elsewhere
-double lovrPlatformGetTime() {
-
-}
-
-void lovrPlatformSetTime(double t) {
-
-}
-*/
 
 void lovrPlatformOpenConsole() {
-  //
+  // TODO
 }
 
 bool lovrPlatformCreateWindow(WindowFlags* flags) {
@@ -42,12 +55,6 @@ void lovrPlatformGetWindowSize(int* width, int* height) {
   if (width) *width = 0;
   if (height) *height = 0;
 }
-
-/* Temporarily implemented elsewhere
-void lovrPlatformGetFramebufferSize(int* width, int* height) {
-  *width = *height = 0;
-}
-*/
 
 void lovrPlatformSwapBuffers() {
   //
