@@ -181,6 +181,44 @@ static int l_lovrHeadsetGetDisplayMask(lua_State* L) {
   return 1;
 }
 
+static int l_lovrHeadsetGetViewCount(lua_State* L) {
+  lua_pushinteger(L, lovrHeadsetDriver->getViewCount());
+  return 1;
+}
+
+static int l_lovrHeadsetGetViewPose(lua_State* L) {
+  float position[4], orientation[4];
+  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  if (!lovrHeadsetDriver->getViewPose(view, position, orientation)) {
+    lua_pushnil(L);
+    return 1;
+  }
+  float angle, ax, ay, az;
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
+}
+
+static int l_lovrHeadsetGetViewAngles(lua_State* L) {
+  float left, right, up, down;
+  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  if (!lovrHeadsetDriver->getViewAngles(view, &left, &right, &up, &down)) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lua_pushnumber(L, left);
+  lua_pushnumber(L, right);
+  lua_pushnumber(L, up);
+  lua_pushnumber(L, down);
+  return 4;
+}
+
 static int l_lovrHeadsetGetClipDistance(lua_State* L) {
   float clipNear, clipFar;
   lovrHeadsetDriver->getClipDistance(&clipNear, &clipFar);
@@ -549,6 +587,9 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
   { "getDisplayFrequency", l_lovrHeadsetGetDisplayFrequency },
   { "getDisplayMask", l_lovrHeadsetGetDisplayMask },
+  { "getViewCount", l_lovrHeadsetGetViewCount },
+  { "getViewPose", l_lovrHeadsetGetViewPose },
+  { "getViewAngles", l_lovrHeadsetGetViewAngles },
   { "getClipDistance", l_lovrHeadsetGetClipDistance },
   { "setClipDistance", l_lovrHeadsetSetClipDistance },
   { "getBoundsWidth", l_lovrHeadsetGetBoundsWidth },

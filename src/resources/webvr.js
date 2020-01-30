@@ -140,6 +140,18 @@ var LibraryLOVR = {
     return 0;
   },
 
+  webvr_getViewCount: function() {
+    return 2;
+  },
+
+  webvr_getViewPose: function(view, position, orientation) {
+    return false; // TODO
+  },
+
+  webvr_getViewAngles: function(view, left, right, up, down) {
+    return false; // TODO
+  },
+
   webvr_getClipDistance: function(clipNear, clipFar) {
     HEAPF32[clipNear >> 2] = webvr.display.depthNear;
     HEAPF32[clipFar >> 2] = webvr.display.depthFar;

@@ -242,6 +242,28 @@ static double openvr_getDisplayTime(void) {
   return lovrPlatformGetTime() + (double) (frameDuration - secondsSinceVsync + vsyncToPhotons);
 }
 
+static uint32_t openvr_getViewCount(void) {
+  return 2;
+}
+
+static bool openvr_getViewPose(uint32_t view, float* position, float* orientation) {
+  EVREye eye = view ? EVREye_Eye_Right : EVREye_Eye_Left;
+
+  float transform[16], offset[16];
+  mat4_fromMat34(transform, state.headPose.mDeviceToAbsoluteTracking.m);
+  mat4_multiply(transform, mat4_fromMat34(offset, state.system->GetEyeToHeadTransform(eye).m));
+  mat4_getPosition(transform, position);
+  mat4_getOrientation(transform, orientation);
+
+  return view < 2;
+}
+
+static bool openvr_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
+  EVREye eye = view ? EVREye_Eye_Right : EVREye_Eye_Left;
+  state.system->GetProjectionRaw(eye, left, right, up, down);
+  return view < 2;
+}
+
 static void openvr_getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
@@ -467,7 +489,7 @@ static ModelData* openvr_newModelData(Device device) {
 static void openvr_renderTo(void (*callback)(void*), void* userdata) {
   if (!state.canvas) {
     uint32_t width, height;
-    state.system->GetRecommendedRenderTargetSize(&width, &height);
+    openvr_getDisplayDimensions(&width, &height);
     CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = true, .msaa = state.msaa };
     state.canvas = lovrCanvasCreate(width, height, flags);
     Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, true, state.msaa);
@@ -478,15 +500,17 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
     lovrPlatformSetSwapInterval(0);
   }
 
-  Camera camera = { .canvas = state.canvas, .viewMatrix = { MAT4_IDENTITY, MAT4_IDENTITY } };
+  Camera camera = { .canvas = state.canvas };
 
-  float head[16], eye[16];
+  float head[16];
   mat4_fromMat34(head, state.headPose.mDeviceToAbsoluteTracking.m);
 
   for (int i = 0; i < 2; i++) {
+    float left, right, up, down, eye[16];
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
-    mat4_fromMat44(camera.projection[i], state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
-    mat4_multiply(camera.viewMatrix[i], head);
+    openvr_getViewAngles(i, &left, &right, &up, &down);
+    mat4_fov(camera.projection[i], left, right, up, down, state.clipNear, state.clipFar);
+    mat4_init(camera.viewMatrix[i], head);
     mat4_multiply(camera.viewMatrix[i], mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
     mat4_invert(camera.viewMatrix[i]);
   }
@@ -540,6 +564,9 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getDisplayFrequency = openvr_getDisplayFrequency,
   .getDisplayMask = openvr_getDisplayMask,
   .getDisplayTime = openvr_getDisplayTime,
+  .getViewCount = openvr_getViewCount,
+  .getViewPose = openvr_getViewPose,
+  .getViewAngles = openvr_getViewAngles,
   .getClipDistance = openvr_getClipDistance,
   .setClipDistance = openvr_setClipDistance,
   .getBoundsDimensions = openvr_getBoundsDimensions,

@@ -474,6 +474,53 @@ static double openxr_getDisplayTime(void) {
   return state.frameState.predictedDisplayTime / 1e9;
 }
 
+static void getViews(XrView views[2], uint32_t* count) {
+  XrViewLocateInfo viewLocateInfo = {
+    .type = XR_TYPE_VIEW_LOCATE_INFO,
+    .viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
+    .displayTime = state.frameState.predictedDisplayTime,
+    .space = state.referenceSpace
+  };
+
+  XrViewState viewState;
+  XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, sizeof(views) / sizeof(views[0]), count, views));
+}
+
+static uint32_t openxr_getViewCount(void) {
+  uint32_t count;
+  XrView views[2];
+  getViews(views, &count);
+  return count;
+}
+
+static bool openxr_getViewPose(uint32_t view, float* position, float* orientation) {
+  uint32_t count;
+  XrView views[2];
+  getViews(views, &count);
+  if (view < count) {
+    memcpy(position, views[view].pose.position, 3 * sizeof(float));
+    memcpy(orientation, views[view].pose.orientation, 4 * sizeof(float));
+    return true;
+  } else {
+    return false;
+  }
+}
+
+static bool openxr_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
+  uint32_t count;
+  XrView views[2];
+  getViews(views, &count);
+  if (view < count) {
+    *left = views[view].fov.angleLeft;
+    *right = views[view].fov.angleRight;
+    *up = views[view].fov.angleUp;
+    *down = views[view].fov.angleDown;
+    return true;
+  } else {
+    return false;
+  }
+}
+
 static void openxr_getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
@@ -646,17 +693,6 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
     XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = 1e9 };
 
     if (XR(xrWaitSwapchainImage(state.swapchain, &waitInfo)) != XR_TIMEOUT_EXPIRED) {
-      XrViewLocateInfo viewLocateInfo = {
-        .type = XR_TYPE_VIEW_LOCATE_INFO,
-        .viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
-        .displayTime = state.frameState.predictedDisplayTime,
-        .space = state.referenceSpace
-      };
-
-      XrView views[2];
-      XrViewState viewState;
-      XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2, NULL, views));
-
       if (!state.canvas) {
         CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = true, .msaa = state.msaa };
         state.canvas = lovrCanvasCreate(state.width, state.height, flags);
@@ -664,6 +700,10 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
       }
 
       Camera camera = { .canvas = state.canvas, .stereo = true };
+
+      uint32_t count;
+      XrView views[2];
+      getViews(views, &count);
 
       for (int eye = 0; eye < 2; eye++) {
         XrView* view = &views[eye];
@@ -759,6 +799,9 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getDisplayDimensions = openxr_getDisplayDimensions,
   .getDisplayMask = openxr_getDisplayMask,
   .getDisplayTime = openxr_getDisplayTime,
+  .getViewCount = openxr_getViewCount,
+  .getViewPose = openxr_getViewPose,
+  .getViewAngles = openxr_getViewAngles,
   .getClipDistance = openxr_getClipDistance,
   .setClipDistance = openxr_setClipDistance,
   .getBoundsDimensions = openxr_getBoundsDimensions,

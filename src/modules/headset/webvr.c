@@ -1,6 +1,7 @@
 #include "headset/headset.h"
 #include "graphics/graphics.h"
 #include <stdbool.h>
+#include <stdint.h>
 
 // Provided by resources/webvr.js
 extern bool webvr_init(float offset, uint32_t msaa);
@@ -10,6 +11,9 @@ extern HeadsetOrigin webvr_getOriginType(void);
 extern double webvr_getDisplayTime(void);
 extern void webvr_getDisplayDimensions(uint32_t* width, uint32_t* height);
 extern const float* webvr_getDisplayMask(uint32_t* count);
+extern uint32_t webvr_getViewCount(void);
+extern bool webvr_getViewPose(uint32_t view, float* position, float* orientation);
+extern bool webvr_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down);
 extern void webvr_getClipDistance(float* near, float* far);
 extern void webvr_setClipDistance(float near, float far);
 extern void webvr_getBoundsDimensions(float* width, float* depth);
@@ -53,6 +57,9 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   .getDisplayTime = webvr_getDisplayTime,
   .getDisplayDimensions = webvr_getDisplayDimensions,
   .getDisplayMask = webvr_getDisplayMask,
+  .getViewCount = webvr_getViewCount,
+  .getViewPose = webvr_getViewPose,
+  .getViewAngles = webvr_getViewAngles,
   .getClipDistance = webvr_getClipDistance,
   .setClipDistance = webvr_setClipDistance,
   .getBoundsDimensions = webvr_getBoundsDimensions,

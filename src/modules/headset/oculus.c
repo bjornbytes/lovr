@@ -12,10 +12,12 @@
 #include <OVR_CAPI_GL.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <math.h>
 
 static struct {
   bool needRefreshTracking;
   bool needRefreshButtons;
+  ovrHmdDesc desc;
   ovrSession session;
   ovrGraphicsLuid luid;
   float clipNear;
@@ -85,6 +87,8 @@ static bool oculus_init(float offset, uint32_t msaa) {
     return false;
   }
 
+  state.desc = ovr_GetHmdDesc(state.session);
+
   state.needRefreshTracking = true;
   state.needRefreshButtons = true;
   state.clipNear = .1f;
@@ -119,8 +123,7 @@ static void oculus_destroy(void) {
 }
 
 static bool oculus_getName(char* name, size_t length) {
-  ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
-  strncpy(name, desc.ProductName, length - 1);
+  strncpy(name, state.desc.ProductName, length - 1);
   name[length - 1] = '\0';
   return true;
 }
@@ -130,9 +133,7 @@ static HeadsetOrigin oculus_getOriginType(void) {
 }
 
 static void oculus_getDisplayDimensions(uint32_t* width, uint32_t* height) {
-  ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
-  ovrSizei size = ovr_GetFovTextureSize(state.session, ovrEye_Left, desc.DefaultEyeFov[0], 1.0f);
-
+  ovrSizei size = ovr_GetFovTextureSize(state.session, ovrEye_Left, state.desc.DefaultEyeFov[0], 1.0f);
   *width = size.w;
   *height = size.h;
 }
@@ -144,6 +145,44 @@ static const float* oculus_getDisplayMask(uint32_t* count) {
 
 static double oculus_getDisplayTime(void) {
   return ovr_GetPredictedDisplayTime(state.session, 0);
+}
+
+static void getEyePoses(ovrPosef poses[2], double* sensorSampleTime) {
+  ovrEyeRenderDesc eyeRenderDesc[2] = {
+    ovr_GetRenderDesc(state.session, ovrEye_Left, state.desc.DefaultEyeFov[0]),
+    ovr_GetRenderDesc(state.session, ovrEye_Right, state.desc.DefaultEyeFov[1])
+  };
+
+  ovrPosef offsets[2] = {
+    eyeRenderDesc[0].HmdToEyePose,
+    eyeRenderDesc[1].HmdToEyePose
+  };
+
+  ovr_GetEyePoses(state.session, 0, ovrFalse, offsets, poses, sensorSampleTime);
+}
+
+static uint32_t oculus_getViewCount(void) {
+  return 2;
+}
+
+static bool oculus_getViewPose(uint32_t view, float* position, float* orientation) {
+  if (view > 1) return false;
+  ovrPosef poses[2];
+  getEyePoses(poses, NULL);
+  ovrPosef* pose = &poses[view];
+  vec3_set(position, pose->Position.x, pose->Position.y, pose->Position.z);
+  quat_set(orientation, pose->Orientation.x, pose->Orientation.y, pose->Orientation.z, pose->Orientation.w);
+  return true;
+}
+
+static bool oculus_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
+  if (view > 1) return false;
+  ovrFovPort* fov = &state.desc.DefaultEyeFov[view];
+  *left = atanf(fov->LeftTan);
+  *right = atanf(fov->RightTan);
+  *up = atanf(fov->UpTan);
+  *down = atanf(fov->DownTan);
+  return true;
 }
 
 static void oculus_getClipDistance(float* clipNear, float* clipFar) {
@@ -275,9 +314,8 @@ static ModelData* oculus_newModelData(Device device) {
 }
 
 static void oculus_renderTo(void (*callback)(void*), void* userdata) {
-  ovrHmdDesc desc = ovr_GetHmdDesc(state.session);
   if (!state.canvas) {
-    state.size = ovr_GetFovTextureSize(state.session, ovrEye_Left, desc.DefaultEyeFov[ovrEye_Left], 1.0f);
+    state.size = ovr_GetFovTextureSize(state.session, ovrEye_Left, state.desc.DefaultEyeFov[ovrEye_Left], 1.0f);
 
     ovrTextureSwapChainDesc swdesc = {
       .Type = ovrTexture_2D,
@@ -305,16 +343,9 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
     lovrPlatformSetSwapInterval(0);
   }
 
-  ovrEyeRenderDesc eyeRenderDesc[2];
-  eyeRenderDesc[0] = ovr_GetRenderDesc(state.session, ovrEye_Left, desc.DefaultEyeFov[0]);
-  eyeRenderDesc[1] = ovr_GetRenderDesc(state.session, ovrEye_Right, desc.DefaultEyeFov[1]);
-  ovrPosef HmdToEyeOffset[2] = {
-    eyeRenderDesc[0].HmdToEyePose,
-    eyeRenderDesc[1].HmdToEyePose
-  };
   ovrPosef EyeRenderPose[2];
   double sensorSampleTime;
-  ovr_GetEyePoses(state.session, 0, ovrTrue, HmdToEyeOffset, EyeRenderPose, &sensorSampleTime);
+  getEyePoses(EyeRenderPose, &sensorSampleTime);
 
   Camera camera = { .canvas = state.canvas };
 
@@ -328,7 +359,7 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
     float pos[] = {
       EyeRenderPose[eye].Position.x,
       EyeRenderPose[eye].Position.y,
-      EyeRenderPose[eye].Position.z,
+      EyeRenderPose[eye].Position.z
     };
     mat4 transform = camera.viewMatrix[eye];
     mat4_identity(transform);
@@ -337,7 +368,7 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
     transform[13] = -(transform[1] * pos[0] + transform[5] * pos[1] + transform[9] * pos[2]);
     transform[14] = -(transform[2] * pos[0] + transform[6] * pos[1] + transform[10] * pos[2]);
 
-    ovrMatrix4f projection = ovrMatrix4f_Projection(desc.DefaultEyeFov[eye], state.clipNear, state.clipFar, ovrProjection_ClipRangeOpenGL);
+    ovrMatrix4f projection = ovrMatrix4f_Projection(state.desc.DefaultEyeFov[eye], state.clipNear, state.clipFar, ovrProjection_ClipRangeOpenGL);
     mat4_fromMat44(camera.projection[eye], projection.M);
   }
 
@@ -365,7 +396,7 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
     vp.Size.w = state.size.w;
     vp.Size.h = state.size.h;
     ld.Viewport[eye] = vp;
-    ld.Fov[eye] = desc.DefaultEyeFov[eye];
+    ld.Fov[eye] = state.desc.DefaultEyeFov[eye];
     ld.RenderPose[eye] = EyeRenderPose[eye];
     ld.SensorSampleTime = sensorSampleTime;
   }
@@ -404,6 +435,9 @@ HeadsetInterface lovrHeadsetOculusDriver = {
   .getDisplayDimensions = oculus_getDisplayDimensions,
   .getDisplayMask = oculus_getDisplayMask,
   .getDisplayTime = oculus_getDisplayTime,
+  .getViewCount = oculus_getViewCount,
+  .getViewPose = oculus_getViewPose,
+  .getViewAngles = oculus_getViewAngles,
   .getClipDistance = oculus_getClipDistance,
   .setClipDistance = oculus_setClipDistance,
   .getBoundsDimensions = oculus_getBoundsDimensions,

@@ -51,6 +51,12 @@ typedef enum {
   MAX_AXES
 } DeviceAxis;
 
+// Notes:
+// - getDisplayFrequency may return 0.f if the information is unavailable.
+// - For isDown, changed can be set to false if change information is unavailable or inconvenient.
+// - getAxis may write 4 floats to the output value.  The expected number is a constant (see axisCounts in l_headset).
+// - In general, most input results should be kept constant between calls to update.
+
 typedef struct HeadsetInterface {
   struct HeadsetInterface* next;
   HeadsetDriver driverType;
@@ -62,6 +68,9 @@ typedef struct HeadsetInterface {
   float (*getDisplayFrequency)(void);
   const float* (*getDisplayMask)(uint32_t* count);
   double (*getDisplayTime)(void);
+  uint32_t (*getViewCount)(void);
+  bool (*getViewPose)(uint32_t view, float* position, float* orientation);
+  bool (*getViewAngles)(uint32_t view, float* left, float* right, float* up, float* down);
   void (*getClipDistance)(float* clipNear, float* clipFar);
   void (*setClipDistance)(float clipNear, float clipFar);
   void (*getBoundsDimensions)(float* width, float* depth);
