@@ -1169,7 +1169,7 @@ void lovrGpuCompute(Shader* shader, int x, int y, int z) {
 #ifdef LOVR_WEBGL
   lovrThrow("Compute shaders are not supported on this system");
 #else
-  lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
+  lovrAssert(state.features.compute, "Compute shaders are not supported on this system");
   lovrAssert(shader->type == SHADER_COMPUTE, "Attempt to use a non-compute shader for a compute operation");
   lovrGraphicsFlush();
   lovrGpuBindShader(shader);
@@ -2261,7 +2261,7 @@ Shader* lovrShaderInitCompute(Shader* shader, const char* source, int length, Sh
 #ifdef LOVR_WEBGL
   lovrThrow("Compute shaders are not supported on this system");
 #else
-  lovrAssert(GLAD_GL_ARB_compute_shader, "Compute shaders are not supported on this system");
+  lovrAssert(state.features.compute, "Compute shaders are not supported on this system");
   char* flagSource = lovrShaderGetFlagCode(flags, flagCount);
   const char* sources[] = { lovrShaderComputePrefix, flagSource ? flagSource : "", source, lovrShaderComputeSuffix };
   int lengths[] = { -1, -1, length, -1 };
