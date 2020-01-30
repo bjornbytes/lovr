@@ -33,6 +33,8 @@ const char* Devices[] = {
   [DEVICE_HEAD] = "head",
   [DEVICE_HAND_LEFT] = "hand/left",
   [DEVICE_HAND_RIGHT] = "hand/right",
+  [DEVICE_EYE_LEFT] = "eye/left",
+  [DEVICE_EYE_RIGHT] = "eye/right",
   NULL
 };
 
