@@ -92,9 +92,7 @@ static void vrapi_getViewPose(uint32_t view, float* position, float* orientation
 }
 
 static void vrapi_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
-  if (view > 1) return false;
-  mat4_getFov(bridgeLovrMobileData.updateData.projectionMatrix[view], left, right, up, down);
-  return true;
+  return false; // TODO decompose projection matrix into fov angles
 }
 
 static void vrapi_getClipDistance(float* clipNear, float* clipFar) {
