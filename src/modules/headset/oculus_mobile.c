@@ -81,7 +81,7 @@ static uint32_t vrapi_getViewCount(void) {
   return 2;
 }
 
-static void vrapi_getViewPose(uint32_t view, float* position, float* orientation) {
+static bool vrapi_getViewPose(uint32_t view, float* position, float* orientation) {
   if (view > 1) return false;
   float transform[16];
   mat4_init(transform, bridgeLovrMobileData.updateData.eyeViewMatrix[view]);
@@ -91,7 +91,7 @@ static void vrapi_getViewPose(uint32_t view, float* position, float* orientation
   return true;
 }
 
-static void vrapi_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
+static bool vrapi_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
   return false; // TODO decompose projection matrix into fov angles
 }
 
