@@ -197,6 +197,13 @@ static int l_lovrShaderHasUniform(lua_State* L) {
   return 1;
 }
 
+static int l_lovrShaderHasBlock(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  const char* name = luaL_checkstring(L, 2);
+  lua_pushboolean(L, lovrShaderHasBlock(shader, name));
+  return 1;
+}
+
 static int l_lovrShaderSend(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
@@ -222,6 +229,7 @@ static int l_lovrShaderSend(lua_State* L) {
 static int l_lovrShaderSendBlock(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
+  lovrAssert(lovrShaderHasBlock(shader, name), "Unknown shader block '%s'", name);
   ShaderBlock* block = luax_checktype(L, 3, ShaderBlock);
   UniformAccess access = luaL_checkoption(L, 4, "readwrite", UniformAccesses);
   Buffer* buffer = lovrShaderBlockGetBuffer(block);
@@ -251,6 +259,7 @@ static int l_lovrShaderSendImage(lua_State* L) {
 const luaL_Reg lovrShader[] = {
   { "getType", l_lovrShaderGetType },
   { "hasUniform", l_lovrShaderHasUniform },
+  { "hasBlock", l_lovrShaderHasBlock },
   { "send", l_lovrShaderSend },
   { "sendBlock", l_lovrShaderSendBlock },
   { "sendImage", l_lovrShaderSendImage },

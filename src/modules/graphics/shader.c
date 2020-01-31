@@ -86,6 +86,10 @@ bool lovrShaderHasUniform(Shader* shader, const char* name) {
   return map_get(&shader->uniformMap, hash64(name, strlen(name))) != MAP_NIL;
 }
 
+bool lovrShaderHasBlock(Shader* shader, const char* name) {
+  return map_get(&shader->blockMap, hash64(name, strlen(name))) != MAP_NIL;
+}
+
 const Uniform* lovrShaderGetUniform(Shader* shader, const char* name) {
   uint64_t index = map_get(&shader->uniformMap, hash64(name, strlen(name)));
   return index == MAP_NIL ? NULL : &shader->uniforms.data[index];

@@ -133,6 +133,7 @@ void lovrShaderDestroy(void* ref);
 ShaderType lovrShaderGetType(Shader* shader);
 int lovrShaderGetAttributeLocation(Shader* shader, const char* name);
 bool lovrShaderHasUniform(Shader* shader, const char* name);
+bool lovrShaderHasBlock(Shader* shader, const char* name);
 const Uniform* lovrShaderGetUniform(Shader* shader, const char* name);
 void lovrShaderSetFloats(Shader* shader, const char* name, float* data, int start, int count);
 void lovrShaderSetInts(Shader* shader, const char* name, int* data, int start, int count);
