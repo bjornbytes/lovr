@@ -29,6 +29,7 @@
   uint32_t program;
 
 #define GPU_TEXTURE_FIELDS \
+  bool native; \
   uint8_t incoherent; \
   GLuint id; \
   GLuint msaaId; \

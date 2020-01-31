@@ -299,6 +299,51 @@ static bool isTextureFormatDepth(TextureFormat format) {
   }
 }
 
+static uint64_t getTextureMemorySize(Texture* texture) {
+  if (texture->native) return 0;
+  float size = 0.f;
+  float bitrate;
+  switch (texture->format) {
+    case FORMAT_RGB: bitrate = 24.f; break;
+    case FORMAT_RGBA: bitrate = 32.f; break;
+    case FORMAT_RGBA4: bitrate = 16.f; break;
+    case FORMAT_RGBA16F: bitrate = 64.f; break;
+    case FORMAT_RGBA32F: bitrate = 128.f; break;
+    case FORMAT_R16F: bitrate = 16.f; break;
+    case FORMAT_R32F: bitrate = 32.f; break;
+    case FORMAT_RG16F: bitrate = 32.f; break;
+    case FORMAT_RG32F: bitrate = 64.f; break;
+    case FORMAT_RGB5A1: bitrate = 16.f; break;
+    case FORMAT_RGB10A2: bitrate = 32.f; break;
+    case FORMAT_RG11B10F: bitrate = 32.f; break;
+    case FORMAT_D16: bitrate = 16.f; break;
+    case FORMAT_D32F: bitrate = 32.f; break;
+    case FORMAT_D24S8: bitrate = 32.f; break;
+    case FORMAT_DXT1: bitrate = 4.f; break;
+    case FORMAT_DXT3: bitrate = 8.f; break;
+    case FORMAT_DXT5: bitrate = 8.f; break;
+    // Divide fixed-size 128-bit blocks by block size:
+    case FORMAT_ASTC_4x4: bitrate = 8.00f; break;
+    case FORMAT_ASTC_5x4: bitrate = 6.40f; break;
+    case FORMAT_ASTC_5x5: bitrate = 5.12f; break;
+    case FORMAT_ASTC_6x5: bitrate = 4.27f; break;
+    case FORMAT_ASTC_6x6: bitrate = 3.56f; break;
+    case FORMAT_ASTC_8x5: bitrate = 3.20f; break;
+    case FORMAT_ASTC_8x6: bitrate = 2.67f; break;
+    case FORMAT_ASTC_8x8: bitrate = 2.00f; break;
+    case FORMAT_ASTC_10x5: bitrate = 2.56f; break;
+    case FORMAT_ASTC_10x6: bitrate = 2.13f; break;
+    case FORMAT_ASTC_10x8: bitrate = 1.60f; break;
+    case FORMAT_ASTC_10x10: bitrate = 1.28f; break;
+    case FORMAT_ASTC_12x10: bitrate = 1.07f; break;
+    case FORMAT_ASTC_12x12: bitrate = 0.89f; break;
+    default: lovrThrow("Unreachable");
+  }
+  size = texture->width * texture->height * texture->depth * (bitrate / 8.f) * (texture->mipmaps ? 1.33f : 1.f);
+  size += texture->msaa > 1 ? (texture->width * texture->height * texture->msaa * (bitrate / 8.f)) : 0.f;
+  return (uint64_t) (size + .5f);
+}
+
 static GLenum convertAttributeType(AttributeType type) {
   switch (type) {
     case I8: return GL_BYTE;
@@ -485,6 +530,7 @@ static void lovrGpuBindFramebuffer(uint32_t framebuffer) {
   if (state.framebuffer != framebuffer) {
     state.framebuffer = framebuffer;
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    state.stats.renderPasses++;
   }
 }
 
@@ -1248,7 +1294,9 @@ void lovrGpuDraw(DrawCommand* draw) {
 }
 
 void lovrGpuPresent() {
-  memset(&state.stats, 0, sizeof(state.stats));
+  state.stats.shaderSwitches = 0;
+  state.stats.renderPasses = 0;
+  state.stats.drawCalls = 0;
 }
 
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
@@ -1401,6 +1449,7 @@ const GpuStats* lovrGpuGetStats() {
 // Texture
 
 Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slices, uint32_t sliceCount, bool srgb, bool mipmaps, uint32_t msaa) {
+  state.stats.textureCount++;
   texture->type = type;
   texture->srgb = srgb;
   texture->mipmaps = mipmaps;
@@ -1412,7 +1461,7 @@ Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slice
   lovrGpuBindTexture(texture, 0);
   lovrTextureSetWrap(texture, (TextureWrap) { .s = wrap, .t = wrap, .r = wrap });
 
-  if (msaa > 0) {
+  if (msaa > 1) {
     texture->msaa = msaa;
     glGenRenderbuffers(1, &texture->msaaId);
   }
@@ -1428,9 +1477,11 @@ Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slice
 }
 
 Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureType type, uint32_t depth) {
+  state.stats.textureCount++;
   texture->type = type;
   texture->id = handle;
   texture->target = convertTextureTarget(type);
+  texture->native = true;
 
   int width, height;
   lovrGpuBindTexture(texture, 0);
@@ -1449,6 +1500,8 @@ void lovrTextureDestroy(void* ref) {
   glDeleteTextures(1, &texture->id);
   glDeleteRenderbuffers(1, &texture->msaaId);
   lovrGpuDestroySyncResource(texture, texture->incoherent);
+  state.stats.textureMemory -= getTextureMemorySize(texture);
+  state.stats.textureCount--;
 }
 
 void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint32_t depth, TextureFormat format) {
@@ -1518,6 +1571,8 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
     glBindRenderbuffer(GL_RENDERBUFFER, texture->msaaId);
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, texture->msaa, internalFormat, width, height);
   }
+
+  state.stats.textureMemory += getTextureMemorySize(texture);
 }
 
 void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32_t x, uint32_t y, uint32_t slice, uint32_t mipmap) {
@@ -1794,6 +1849,8 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, uint32_t index) {
 // Buffer
 
 Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type, BufferUsage usage, bool readable) {
+  state.stats.bufferCount++;
+  state.stats.bufferMemory += size;
   buffer->size = size;
   buffer->readable = readable;
   buffer->type = type;
@@ -1830,6 +1887,8 @@ void lovrBufferDestroy(void* ref) {
 #ifdef LOVR_WEBGL
   free(buffer->data);
 #endif
+  state.stats.bufferMemory -= buffer->size;
+  state.stats.bufferCount--;
 }
 
 void* lovrBufferMap(Buffer* buffer, size_t offset) {

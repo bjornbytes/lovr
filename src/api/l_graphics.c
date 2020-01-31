@@ -454,15 +454,25 @@ static int l_lovrGraphicsGetStats(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
   } else {
-    lua_createtable(L, 0, 2);
+    lua_createtable(L, 0, 7);
   }
 
   lovrGraphicsFlush();
   const GpuStats* stats = lovrGraphicsGetStats();
-  lua_pushinteger(L, stats->drawCalls);
-  lua_setfield(L, 1, "drawcalls");
   lua_pushinteger(L, stats->shaderSwitches);
   lua_setfield(L, 1, "shaderswitches");
+  lua_pushinteger(L, stats->renderPasses);
+  lua_setfield(L, 1, "renderpasses");
+  lua_pushinteger(L, stats->drawCalls);
+  lua_setfield(L, 1, "drawcalls");
+  lua_pushinteger(L, stats->bufferCount);
+  lua_setfield(L, 1, "buffers");
+  lua_pushinteger(L, stats->textureCount);
+  lua_setfield(L, 1, "textures");
+  lua_pushinteger(L, stats->bufferMemory);
+  lua_setfield(L, 1, "buffermemory");
+  lua_pushinteger(L, stats->textureMemory);
+  lua_setfield(L, 1, "texturememory");
   return 1;
 }
 
