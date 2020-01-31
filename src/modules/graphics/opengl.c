@@ -1026,7 +1026,7 @@ void lovrGpuInit(void* (*getProcAddress)(const char*)) {
 
 #ifndef LOVR_WEBGL
   state.features.astc = GLAD_GL_ES_VERSION_3_2;
-  state.features.compute = GLAD_GL_ES_VERSION_3_2 || GLAD_GL_ARB_compute_shader;
+  state.features.compute = GLAD_GL_ES_VERSION_3_1 || GLAD_GL_ARB_compute_shader;
   state.features.dxt = GLAD_GL_EXT_texture_compression_s3tc;
   state.features.instancedStereo = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
   state.features.multiview = GLAD_GL_ES_VERSION_3_0 && GLAD_GL_OVR_multiview2 && GLAD_GL_OVR_multiview_multisampled_render_to_texture;
@@ -1972,7 +1972,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   arr_block_t* computeBlocks = &shader->blocks[BLOCK_COMPUTE];
   arr_init(computeBlocks);
 #ifndef LOVR_WEBGL
-  if (GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_program_interface_query) {
+  if ((GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_program_interface_query) || GLAD_GL_ES_VERSION_3_1) {
 
     // Iterate over compute blocks, setting their binding and pushing them onto the block vector
     int32_t computeBlockCount;
@@ -1981,7 +1981,11 @@ static void lovrShaderSetupUniforms(Shader* shader) {
     arr_reserve(computeBlocks, (size_t) computeBlockCount);
     for (int i = 0; i < computeBlockCount; i++) {
       UniformBlock block = { .slot = i, .source = NULL };
+#ifdef LOVR_GLES // GLES can only set the block binding in shader code, so for now we only support one 0-bound block
+      block.slot = 0;
+#else
       glShaderStorageBlockBinding(program, i, block.slot);
+#endif
       arr_init(&block.uniforms);
 
       GLsizei length;
