@@ -125,9 +125,15 @@ const char* lovrShaderFragmentSuffix = ""
 "#endif \n"
 "}";
 
+#ifdef LOVR_GLES
+const char* lovrShaderComputePrefix = ""
+"#version 310 es \n"
+"#line 0 \n";
+#else
 const char* lovrShaderComputePrefix = ""
 "#version 430 \n"
 "#line 0 \n";
+#endif
 
 const char* lovrShaderComputeSuffix = ""
 "void main() { \n"
