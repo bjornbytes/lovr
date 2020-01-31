@@ -1105,8 +1105,11 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
   Canvas* canvas = lovrCanvasCreate(width, height, flags);
 
   if (anonymous) {
-    Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, flags.mipmaps, flags.msaa);
-    lovrTextureAllocate(texture, lovrCanvasGetWidth(canvas), lovrCanvasGetHeight(canvas), 1, format);
+    bool multiview = flags.stereo && lovrGraphicsGetFeatures()->multiview;
+    TextureType textureType = multiview ? TEXTURE_ARRAY : TEXTURE_2D;
+    uint32_t depth = multiview ? 2 : 1;
+    Texture* texture = lovrTextureCreate(textureType, NULL, 0, true, flags.mipmaps, flags.msaa);
+    lovrTextureAllocate(texture, lovrCanvasGetWidth(canvas), lovrCanvasGetHeight(canvas), depth, format);
     lovrTextureSetWrap(texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP, .r = WRAP_CLAMP });
     attachments[0] = (Attachment) { texture, 0, 0 };
     attachmentCount++;
