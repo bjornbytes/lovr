@@ -90,7 +90,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
     EGL_NONE
   };
 
-  EGLconfig config = 0;
+  EGLConfig config = 0;
   for (EGLint i = 0; i < configCount && !config; i++) {
     EGLint value, mask;
 
@@ -121,7 +121,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
     EGL_NONE
   };
 
-  if ((state.context = eglCreateContext(state.display, configs[i], EGL_NO_CONTEXT, contextAttributes)) == EGL_NO_CONTEXT) {
+  if ((state.context = eglCreateContext(state.display, config, EGL_NO_CONTEXT, contextAttributes)) == EGL_NO_CONTEXT) {
     return false;
   }
 
@@ -132,13 +132,13 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   };
 
   if ((state.surface = eglCreatePbufferSurface(state.display, config, surfaceAttributes)) == EGL_NO_SURFACE) {
-    eglDestroyContext(state.context);
+    eglDestroyContext(state.display, state.context);
     return false;
   }
 
   if (eglMakeCurrent(state.display, state.surface, state.surface, state.context) == EGL_FALSE) {
-    eglDestroySurface(state.surface);
-    eglDestroyContext(state.context);
+    eglDestroySurface(state.display, state.surface);
+    eglDestroyContext(state.display, state.context);
   }
 #endif
   return true;
