@@ -95,10 +95,10 @@ static bool desktop_getViewAngles(uint32_t view, float* left, float* right, floa
   uint32_t width, height;
   desktop_getDisplayDimensions(&width, &height);
   aspect = (float) width / 2.f / height;
-  *left = state.fov * aspect;
-  *right = state.fov * aspect;
-  *up = state.fov;
-  *down = state.fov;
+  *left = -state.fov * aspect * .5f;
+  *right = state.fov * aspect * .5f;
+  *up = state.fov * .5f;
+  *down = -state.fov * .5f;
   return view < 2;
 }
 
@@ -175,7 +175,7 @@ static void desktop_renderTo(void (*callback)(void*), void* userdata) {
   float left, right, up, down;
   desktop_getViewAngles(0, &left, &right, &up, &down);
   Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = true };
-  mat4_fov(camera.projection[0], state.clipNear, state.clipFar, left, right, up, down);
+  mat4_fov(camera.projection[0], left, right, up, down, state.clipNear, state.clipFar);
   mat4_multiply(camera.viewMatrix[0], state.headTransform);
   mat4_invert(camera.viewMatrix[0]);
   mat4_set(camera.projection[1], camera.projection[0]);
