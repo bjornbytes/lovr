@@ -31,12 +31,14 @@ static struct {
 static struct {
   void (*renderCallback)(void*);
   void* renderUserdata;
+  uint32_t msaa;
   float offset;
 } state;
 
 // Headset driver object
 
 static bool vrapi_init(float offset, uint32_t msaa) {
+  state.msaa = msaa;
   state.offset = offset;
   return true;
 }
@@ -529,7 +531,7 @@ void bridgeLovrDraw(BridgeLovrDrawData *drawData) {
         .depth.enabled = true,
         .depth.readable = false,
         .depth.format = FORMAT_D24S8,
-        .msaa = 4,
+        .msaa = state.msaa,
         .stereo = true,
         .mipmaps = false
       });
