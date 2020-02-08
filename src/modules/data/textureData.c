@@ -353,12 +353,26 @@ static bool parseKTX(uint8_t* bytes, size_t size, TextureData* textureData) {
     return false;
   }
 
-  // TODO RGBA DXT1, SRGB DXT formats
+  // TODO MOAR FORMATS, GIMME COOOBMAPS
   switch (data.ktx->glInternalFormat) {
     case 0x83F0: textureData->format = FORMAT_DXT1; break;
     case 0x83F2: textureData->format = FORMAT_DXT3; break;
     case 0x83F3: textureData->format = FORMAT_DXT5; break;
-    default: return false;
+    case 0x93B0: case 0x93D0: textureData->format = FORMAT_ASTC_4x4; break;
+    case 0x93B1: case 0x93D1: textureData->format = FORMAT_ASTC_5x4; break;
+    case 0x93B2: case 0x93D2: textureData->format = FORMAT_ASTC_5x5; break;
+    case 0x93B3: case 0x93D3: textureData->format = FORMAT_ASTC_6x5; break;
+    case 0x93B4: case 0x93D4: textureData->format = FORMAT_ASTC_6x6; break;
+    case 0x93B5: case 0x93D5: textureData->format = FORMAT_ASTC_8x5; break;
+    case 0x93B6: case 0x93D6: textureData->format = FORMAT_ASTC_8x6; break;
+    case 0x93B7: case 0x93D7: textureData->format = FORMAT_ASTC_8x8; break;
+    case 0x93B8: case 0x93D8: textureData->format = FORMAT_ASTC_10x5; break;
+    case 0x93B9: case 0x93D9: textureData->format = FORMAT_ASTC_10x6; break;
+    case 0x93BA: case 0x93DA: textureData->format = FORMAT_ASTC_10x8; break;
+    case 0x93BB: case 0x93DB: textureData->format = FORMAT_ASTC_10x10; break;
+    case 0x93BC: case 0x93DC: textureData->format = FORMAT_ASTC_12x10; break;
+    case 0x93BD: case 0x93DD: textureData->format = FORMAT_ASTC_12x12; break;
+    default: lovrThrow("Unsupported KTX format '%d' (please open an issue)", data.ktx->glInternalFormat);
   }
 
   uint32_t width = textureData->width = data.ktx->pixelWidth;
