@@ -2241,10 +2241,8 @@ static char* lovrShaderGetFlagCode(ShaderFlag* flags, uint32_t flagCount) {
 Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, int vertexSourceLength, const char* fragmentSource, int fragmentSourceLength, ShaderFlag* flags, uint32_t flagCount, bool multiview) {
 #if defined(LOVR_WEBGL) || defined(LOVR_GLES)
   const char* version = "#version 300 es\n";
-  const char* precision[2] = { "precision highp float;\nprecision highp int;\n", "precision mediump float;\nprecision mediump int;\n" };
 #else
   const char* version = state.features.compute ? "#version 430\n" : "#version 150\n";
-  const char* precision[2] = { "", "" };
 #endif
 
   const char* singlepass[2] = { "", "" };
@@ -2259,15 +2257,15 @@ Shader* lovrShaderInitGraphics(Shader* shader, const char* vertexSource, int ver
 
   // Vertex
   vertexSource = vertexSource == NULL ? lovrUnlitVertexShader : vertexSource;
-  const char* vertexSources[] = { version, singlepass[0], precision[0], flagSource ? flagSource : "", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
-  int vertexSourceLengths[] = { -1, -1, -1, -1, -1, vertexSourceLength, -1 };
+  const char* vertexSources[] = { version, singlepass[0], flagSource ? flagSource : "", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
+  int vertexSourceLengths[] = { -1, -1, -1, -1, vertexSourceLength, -1 };
   size_t vertexSourceCount = sizeof(vertexSources) / sizeof(vertexSources[0]);
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, vertexSourceLengths, vertexSourceCount);
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrUnlitFragmentShader : fragmentSource;
-  const char* fragmentSources[] = { version, singlepass[1], precision[1], flagSource ? flagSource : "", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
-  int fragmentSourceLengths[] = { -1, -1, -1, -1, -1, fragmentSourceLength, -1 };
+  const char* fragmentSources[] = { version, singlepass[1], flagSource ? flagSource : "", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
+  int fragmentSourceLengths[] = { -1, -1, -1, -1, fragmentSourceLength, -1 };
   size_t fragmentSourceCount = sizeof(fragmentSources) / sizeof(fragmentSources[0]);
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, fragmentSourceLengths, fragmentSourceCount);
 
