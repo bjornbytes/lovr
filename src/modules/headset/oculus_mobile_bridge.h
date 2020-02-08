@@ -99,6 +99,7 @@ typedef struct {
   float trigger, grip;
   BridgeLovrButton buttonDown;
   BridgeLovrTouch  buttonTouch;
+  BridgeLovrButton buttonChanged;
 } BridgeLovrController;
 
 #define BRIDGE_LOVR_CONTROLLERMAX 3
