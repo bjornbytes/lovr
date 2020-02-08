@@ -419,12 +419,20 @@ static bool parseASTC(uint8_t* bytes, size_t size, TextureData* textureData) {
 
   textureData->width = data.astc->width[0] + (data.astc->width[1] << 8) + (data.astc->width[2] << 16);
   textureData->height = data.astc->height[0] + (data.astc->height[1] << 8) + (data.astc->height[2] << 16);
+
+  size_t imageSize = ((textureData->width + bx - 1) / bx) * ((textureData->height + by - 1) / by) * (128 / 8);
+
+  if (imageSize > size - sizeof(ASTCHeader)) {
+    return false;
+  }
+
+  textureData->mipmapCount = 1;
   textureData->mipmaps = malloc(sizeof(Mipmap));
   textureData->mipmaps[0] = (Mipmap) {
     .width = textureData->width,
     .height = textureData->height,
-    .data = data.astc + 1,
-    .size = size - sizeof(*data.astc)
+    .data = data.u8 + sizeof(ASTCHeader),
+    .size = imageSize
   };
 
   return true;
