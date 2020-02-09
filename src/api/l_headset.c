@@ -548,6 +548,11 @@ static int l_lovrHeadsetUpdate(lua_State* L) {
   return 0;
 }
 
+static int l_lovrHeadsetGetTime(lua_State* L) {
+  lua_pushnumber(L, lovrHeadsetDriver->getDisplayTime());
+  return 1;
+}
+
 static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
   Texture *texture = NULL;
   if (lovrHeadsetDriver->getMirrorTexture)
@@ -613,6 +618,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "newModel", l_lovrHeadsetNewModel },
   { "renderTo", l_lovrHeadsetRenderTo },
   { "update", l_lovrHeadsetUpdate },
+  { "getTime", l_lovrHeadsetGetTime },
   { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
   { "getHands", l_lovrHeadsetGetHands },
   { NULL, NULL }
