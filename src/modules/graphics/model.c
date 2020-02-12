@@ -357,13 +357,13 @@ void lovrModelPose(Model* model, uint32_t nodeIndex, float position[4], float ro
 void lovrModelResetPose(Model* model) {
   for (uint32_t i = 0; i < model->data->nodeCount; i++) {
     if (model->data->nodes[i].matrix) {
-      mat4_getPosition(model->data->nodes[i].transform, model->localTransforms[i].properties[PROP_TRANSLATION]);
-      mat4_getOrientation(model->data->nodes[i].transform, model->localTransforms[i].properties[PROP_ROTATION]);
-      mat4_getScale(model->data->nodes[i].transform, model->localTransforms[i].properties[PROP_SCALE]);
+      mat4_getPosition(model->data->nodes[i].transform.matrix, model->localTransforms[i].properties[PROP_TRANSLATION]);
+      mat4_getOrientation(model->data->nodes[i].transform.matrix, model->localTransforms[i].properties[PROP_ROTATION]);
+      mat4_getScale(model->data->nodes[i].transform.matrix, model->localTransforms[i].properties[PROP_SCALE]);
     } else {
-      vec3_init(model->localTransforms[i].properties[PROP_TRANSLATION], model->data->nodes[i].translation);
-      quat_init(model->localTransforms[i].properties[PROP_ROTATION], model->data->nodes[i].rotation);
-      vec3_init(model->localTransforms[i].properties[PROP_SCALE], model->data->nodes[i].scale);
+      vec3_init(model->localTransforms[i].properties[PROP_TRANSLATION], model->data->nodes[i].transform.properties.translation);
+      quat_init(model->localTransforms[i].properties[PROP_ROTATION], model->data->nodes[i].transform.properties.rotation);
+      vec3_init(model->localTransforms[i].properties[PROP_SCALE], model->data->nodes[i].transform.properties.scale);
     }
   }
 

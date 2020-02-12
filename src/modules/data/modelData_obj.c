@@ -321,7 +321,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   }
 
   model->nodes[0] = (ModelNode) {
-    .transform = MAT4_IDENTITY,
+    .transform.matrix = MAT4_IDENTITY,
     .primitiveIndex = 0,
     .primitiveCount = (uint32_t) groups.length,
     .skin = ~0u,

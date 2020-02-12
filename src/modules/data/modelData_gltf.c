@@ -809,9 +809,9 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     jsmntok_t* token = info.nodes;
     ModelNode* node = model->nodes;
     for (int i = (token++)->size; i > 0; i--, node++) {
-      vec3 translation = vec3_set(node->translation, 0.f, 0.f, 0.f);
-      quat rotation = quat_set(node->rotation, 0.f, 0.f, 0.f, 1.f);
-      vec3 scale = vec3_set(node->scale, 1.f, 1.f, 1.f);
+      vec3 translation = vec3_set(node->transform.properties.translation, 0.f, 0.f, 0.f);
+      quat rotation = quat_set(node->transform.properties.rotation, 0.f, 0.f, 0.f, 1.f);
+      vec3 scale = vec3_set(node->transform.properties.scale, 1.f, 1.f, 1.f);
       node->matrix = false;
       node->primitiveCount = 0;
       node->skin = ~0u;
@@ -834,7 +834,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           lovrAssert((token++)->size == 16, "Node matrix needs 16 elements");
           node->matrix = true;
           for (int j = 0; j < 16; j++) {
-            node->transform[j] = NOM_FLOAT(json, token);
+            node->transform.matrix[j] = NOM_FLOAT(json, token);
           }
         } else if (STR_EQ(key, "translation")) {
           lovrAssert((token++)->size == 3, "Node translation needs 3 elements");
@@ -898,7 +898,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     ModelNode* lastNode = &model->nodes[model->rootNode];
     lastNode->childCount = scenes[rootScene].nodeCount;
     lastNode->children = &model->children[childIndex];
-    mat4_identity(lastNode->transform);
+    mat4_identity(lastNode->transform.matrix);
     lastNode->matrix = true;
     lastNode->primitiveCount = 0;
     lastNode->skin = ~0u;
