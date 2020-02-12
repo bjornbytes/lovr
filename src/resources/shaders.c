@@ -148,12 +148,12 @@ const char* lovrShaderComputeSuffix = ""
 "}";
 
 const char* lovrUnlitVertexShader = ""
-"vec4 position(mat4, mat4, vec4) { \n"
+"vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  return lovrProjection * lovrTransform * lovrVertex; \n"
 "}";
 
 const char* lovrUnlitFragmentShader = ""
-"vec4 color(vec4, sampler2D, vec2) { \n"
+"vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  return lovrGraphicsColor * lovrVertexColor * lovrDiffuseColor * texture(lovrDiffuseTexture, lovrTexCoord); \n"
 "}";
 
@@ -166,7 +166,7 @@ const char* lovrStandardVertexShader = ""
 "out vec3 vNormal; \n"
 "#endif \n"
 
-"vec4 position(mat4, mat4, vec4) { \n"
+"vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  vVertexPositionWorld = vec3(lovrModel * lovrVertex); \n"
 "  vCameraPositionWorld = -lovrView[3].xyz * mat3(lovrView); \n"
 "#ifdef FLAG_normalMap \n"
@@ -209,7 +209,7 @@ const char* lovrStandardFragmentShader = ""
 "vec2 prefilteredBRDF(float NoV, float roughness); \n"
 "vec3 tonemap_ACES(vec3 color); \n"
 
-"vec4 color(vec4, sampler2D, vec2) { \n"
+"vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  vec3 result = vec3(0.); \n"
 
 // Parameters
@@ -319,7 +319,7 @@ const char* lovrStandardFragmentShader = ""
 
 const char* lovrCubeVertexShader = ""
 "out vec3 texturePosition[2]; \n"
-"vec4 position(mat4, mat4, vec4) { \n"
+"vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  texturePosition[lovrViewID] = inverse(mat3(lovrTransform)) * (inverse(lovrProjection) * lovrVertex).xyz; \n"
 "  return lovrVertex; \n"
 "}";
@@ -327,14 +327,14 @@ const char* lovrCubeVertexShader = ""
 const char* lovrCubeFragmentShader = ""
 "in vec3 texturePosition[2]; \n"
 "uniform samplerCube lovrSkyboxTexture; \n"
-"vec4 color(vec4, sampler2D, vec2) { \n"
+"vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  return lovrGraphicsColor * texture(lovrSkyboxTexture, texturePosition[lovrViewID] * vec3(-1, 1, 1)); \n"
 "}";
 
 const char* lovrPanoFragmentShader = ""
 "in vec3 texturePosition[2]; \n"
 "#define PI 3.141592653589 \n"
-"vec4 color(vec4, sampler2D, vec2) { \n"
+"vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  vec3 direction = texturePosition[lovrViewID]; \n"
 "  float theta = acos(-direction.y / length(direction)); \n"
 "  float phi = atan(direction.x, -direction.z); \n"
@@ -346,7 +346,7 @@ const char* lovrFontFragmentShader = ""
 "float median(float r, float g, float b) { \n"
 "  return max(min(r, g), min(max(r, g), b)); \n"
 "} \n"
-"vec4 color(vec4, sampler2D, vec2) { \n"
+"vec4 color(vec4 graphicsColor, sampler2D image, vec2 uv) { \n"
 "  vec3 col = texture(lovrDiffuseTexture, lovrTexCoord).rgb; \n"
 "  float sdf = median(col.r, col.g, col.b); \n"
 "  float w = fwidth(sdf); \n"
@@ -356,7 +356,7 @@ const char* lovrFontFragmentShader = ""
 "}";
 
 const char* lovrFillVertexShader = ""
-"vec4 position(mat4, mat4, vec4) { \n"
+"vec4 position(mat4 projection, mat4 transform, vec4 vertex) { \n"
 "  return lovrVertex; \n"
 "}";
 
