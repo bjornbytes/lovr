@@ -469,7 +469,7 @@ static const int axisCounts[MAX_AXES] = {
   [AXIS_TOUCHPAD] = 2,
   [AXIS_GRIP] = 1,
   [AXIS_CURL] = 1,
-  [AXIS_SPLAY] = 2,
+  [AXIS_SPLAY] = 1,
   [AXIS_PINCH] = 1
 };
 

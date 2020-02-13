@@ -466,9 +466,8 @@ static bool openvr_getAxis(Device device, DeviceAxis axis, vec3 value) {
   if (axis == AXIS_CURL) {
     value[0] = summary.flFingerCurl[finger];
     return true;
-  } else if (axis == AXIS_SPLAY) {
-    value[0] = finger > 0 ? summary.flFingerSplay[finger - 1] : 0.f;
-    value[1] = finger < 4 ? summary.flFingerSplay[finger - 0] : 0.f;
+  } else if (axis == AXIS_SPLAY && finger < 4) {
+    value[0] = summary.flFingerSplay[finger];
     return true;
   }
 
