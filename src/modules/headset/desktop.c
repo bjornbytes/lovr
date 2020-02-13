@@ -24,6 +24,8 @@ static struct {
 
   double prevCursorX;
   double prevCursorY;
+  bool mouseDown;
+  bool prevMouseDown;
 
   float offset;
   float clipNear;
@@ -149,9 +151,8 @@ static bool desktop_isDown(Device device, DeviceButton button, bool* down, bool*
   if (device != DEVICE_HAND_LEFT || button != BUTTON_TRIGGER) {
     return false;
   }
-
-  *down = lovrPlatformIsMouseDown(MOUSE_RIGHT);
-  *changed = false; // TODO
+  *down = state.mouseDown;
+  *changed = state.mouseDown != state.prevMouseDown;
   return true;
 }
 
@@ -224,6 +225,9 @@ static void desktop_update(float dt) {
     vec3_scale(state.angularVelocity, damping);
     state.prevCursorX = state.prevCursorY = -1;
   }
+
+  state.prevMouseDown = state.mouseDown;
+  state.mouseDown = lovrPlatformIsMouseDown(MOUSE_RIGHT);
 
   // Update velocity
   state.localVelocity[0] = left ? -movespeed : (right ? movespeed : state.localVelocity[0]);
