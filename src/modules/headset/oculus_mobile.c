@@ -111,8 +111,8 @@ static void vrapi_setClipDistance(float clipNear, float clipFar) {
 }
 
 static void vrapi_getBoundsDimensions(float* width, float* depth) {
-  *width = 0.f;
-  *depth = 0.f;
+  *width = bridgeLovrMobileData.updateData.boundsWidth;
+  *depth = bridgeLovrMobileData.updateData.boundsDepth;
 }
 
 static const float* vrapi_getBoundsGeometry(uint32_t* count) {

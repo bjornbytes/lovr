@@ -113,6 +113,9 @@ typedef struct {
   float eyeViewMatrix[2][16];
   float projectionMatrix[2][16];
 
+  float boundsWidth;
+  float boundsDepth;
+
   int controllerCount;
   BridgeLovrController controllers[BRIDGE_LOVR_CONTROLLERMAX];
 } BridgeLovrUpdateData;
