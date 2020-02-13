@@ -4,13 +4,10 @@
 
 #pragma once
 
+#define MAX_HEADSET_BONES 32
+
 struct ModelData;
 struct Texture;
-
-typedef enum {
-  ORIGIN_HEAD,
-  ORIGIN_FLOOR
-} HeadsetOrigin;
 
 typedef enum {
   DRIVER_DESKTOP,
@@ -21,6 +18,11 @@ typedef enum {
   DRIVER_OPENXR,
   DRIVER_WEBVR
 } HeadsetDriver;
+
+typedef enum {
+  ORIGIN_HEAD,
+  ORIGIN_FLOOR
+} HeadsetOrigin;
 
 typedef enum {
   DEVICE_HEAD,
@@ -95,6 +97,7 @@ typedef struct HeadsetInterface {
   bool (*isDown)(Device device, DeviceButton button, bool* down, bool* changed);
   bool (*isTouched)(Device device, DeviceButton button, bool* touched);
   bool (*getAxis)(Device device, DeviceAxis axis, float* value);
+  bool (*getSkeleton)(Device device, float* poses, uint32_t* poseCount);
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
   struct ModelData* (*newModelData)(Device device);
   void (*renderTo)(void (*callback)(void*), void* userdata);

@@ -239,6 +239,10 @@ static bool leap_getAxis(Device device, DeviceAxis axis, float* value) {
   return false;
 }
 
+static bool leap_getSkeleton(Device device, float* poses, uint32_t* poseCount) {
+  return false;
+}
+
 static bool leap_vibrate(Device device, float strength, float duration, float frequency) {
   return false;
 }
@@ -296,6 +300,7 @@ HeadsetInterface lovrHeadsetLeapMotionDriver = {
   .isDown = leap_isDown,
   .isTouched = leap_isTouched,
   .getAxis = leap_getAxis,
+  .getSkeleton = leap_getSkeleton,
   .vibrate = leap_vibrate,
   .newModelData = leap_newModelData,
   .update = leap_update

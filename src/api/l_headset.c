@@ -492,6 +492,49 @@ static int l_lovrHeadsetGetAxis(lua_State* L) {
   return count;
 }
 
+static int l_lovrHeadsetGetSkeleton(lua_State* L) {
+  Device device = luax_optdevice(L, 1);
+  float poses[MAX_HEADSET_BONES * 8];
+  uint32_t poseCount = MAX_HEADSET_BONES;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->getSkeleton(device, poses, &poseCount)) {
+      if (!lua_istable(L, 2)) {
+        lua_createtable(L, poseCount, 0);
+      } else {
+        lua_settop(L, 2);
+      }
+
+      for (uint32_t i = 0; i < poseCount; i++) {
+        lua_createtable(L, 7, 0);
+
+        float angle, ax, ay, az;
+        float* pose = poses + i * 8;
+        quat_getAngleAxis(pose + 4, &angle, &ax, &ay, &az);
+        lua_pushnumber(L, pose[0]);
+        lua_pushnumber(L, pose[1]);
+        lua_pushnumber(L, pose[2]);
+        lua_pushnumber(L, angle);
+        lua_pushnumber(L, ax);
+        lua_pushnumber(L, ay);
+        lua_pushnumber(L, az);
+        lua_rawseti(L, -8, 7);
+        lua_rawseti(L, -7, 6);
+        lua_rawseti(L, -6, 5);
+        lua_rawseti(L, -5, 4);
+        lua_rawseti(L, -4, 3);
+        lua_rawseti(L, -3, 2);
+        lua_rawseti(L, -2, 1);
+
+        lua_rawseti(L, -2, i + 1);
+      }
+
+      return 1;
+    }
+  }
+  lua_pushnil(L);
+  return 1;
+}
+
 static int l_lovrHeadsetVibrate(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float strength = luax_optfloat(L, 2, 1.f);
@@ -632,6 +675,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getAxis", l_lovrHeadsetGetAxis },
   { "vibrate", l_lovrHeadsetVibrate },
   { "newModel", l_lovrHeadsetNewModel },
+  { "getSkeleton", l_lovrHeadsetGetSkeleton },
   { "renderTo", l_lovrHeadsetRenderTo },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },

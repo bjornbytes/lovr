@@ -475,6 +475,46 @@ static bool openvr_getAxis(Device device, DeviceAxis axis, vec3 value) {
   return false;
 }
 
+static bool openvr_getSkeleton(Device device, float* poses, uint32_t* poseCount) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  InputSkeletalActionData_t info;
+  VRActionHandle_t action = state.skeletonActions[device - DEVICE_HAND_LEFT];
+  EVRInputError error = state.input->GetSkeletalActionData(action, &info, sizeof(info));
+  if (error || !info.bActive) {
+    return false;
+  }
+
+  uint32_t boneCount;
+  error = state.input->GetBoneCount(action, &boneCount);
+  if (error || boneCount > MAX_HEADSET_BONES || boneCount > *poseCount) {
+    return false;
+  }
+
+  VRBoneTransform_t bones[MAX_HEADSET_BONES];
+  EVRSkeletalTransformSpace space = EVRSkeletalTransformSpace_VRSkeletalTransformSpace_Parent;
+  EVRSkeletalMotionRange motionRange = EVRSkeletalMotionRange_VRSkeletalMotionRange_WithController;
+  error = state.input->GetSkeletalBoneData(action, space, motionRange, bones, boneCount);
+  if (error) {
+    return false;
+  }
+
+  float* p = poses;
+  for (uint32_t i = 0; i < boneCount; i++) {
+    memcpy(p, bones[i].position.v, 4 * sizeof(float));
+    p[4] = bones[i].orientation.x;
+    p[5] = bones[i].orientation.y;
+    p[6] = bones[i].orientation.z;
+    p[7] = bones[i].orientation.w;
+    p += 8;
+  }
+
+  *poseCount = boneCount;
+  return true;
+}
+
 static bool openvr_vibrate(Device device, float strength, float duration, float frequency) {
   if (duration <= 0.f || (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT)) return false;
 
@@ -684,6 +724,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .isDown = openvr_isDown,
   .isTouched = openvr_isTouched,
   .getAxis = openvr_getAxis,
+  .getSkeleton = openvr_getSkeleton,
   .vibrate = openvr_vibrate,
   .newModelData = openvr_newModelData,
   .renderTo = openvr_renderTo,
