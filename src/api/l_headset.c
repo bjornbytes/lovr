@@ -60,6 +60,23 @@ const char* DeviceAxes[] = {
   NULL
 };
 
+const char* TrackingTypes[] = {
+  [TRACKING_POSE] = "pose",
+  [TRACKING_VELOCITY] = "velocity",
+  [TRACKING_BUTTON] = "button",
+  [TRACKING_TOUCH] = "touch",
+  [TRACKING_AXIS] = "axis",
+  [TRACKING_SKELETON] = "skeleton",
+  NULL
+};
+
+const char* TrackingStatuses[] = {
+  [STATUS_UNAVAILABLE] = "unavailable",
+  [STATUS_ESTIMATED] = "estimated",
+  [STATUS_TRACKED] = "tracked",
+  NULL
+};
+
 typedef struct {
   lua_State* L;
   int ref;
@@ -97,19 +114,8 @@ static Device luax_optdevice(lua_State* L, int index) {
 }
 
 static int l_lovrHeadsetGetDriver(lua_State* L) {
-  if (lua_gettop(L) == 0) {
-    lua_pushstring(L, HeadsetDrivers[lovrHeadsetDriver->driverType]);
-    return 1;
-  } else {
-    Device device = luax_optdevice(L, 1);
-    FOREACH_TRACKING_DRIVER(driver) {
-      if (driver->getPose(device, NULL, NULL)) {
-        lua_pushstring(L, HeadsetDrivers[driver->driverType]);
-        return 1;
-      }
-    }
-  }
-  return 0;
+  lua_pushstring(L, HeadsetDrivers[lovrHeadsetDriver->driverType]);
+  return 1;
 }
 
 static int l_lovrHeadsetGetName(lua_State* L) {
@@ -287,16 +293,75 @@ static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetIsTracked(lua_State* L) {
+static int l_lovrHeadsetGetStatus(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float position[4], orientation[4];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(device, position, orientation)) {
-      lua_pushboolean(L, true);
-      return 1;
-    }
+  TrackingType property = luaL_checkoption(L, 2, "pose", TrackingTypes);
+  DeviceButton button;
+  DeviceAxis axis;
+  float value[4], linear[4], angular[4];
+  bool down, changed;
+
+  switch (property) {
+    case TRACKING_POSE:
+      FOREACH_TRACKING_DRIVER(driver) {
+        if (driver->getPose(device, linear, angular)) {
+          lua_pushstring(L, TrackingStatuses[STATUS_TRACKED]);
+          lua_pushstring(L, HeadsetDrivers[driver->driverType]);
+          return 2;
+        }
+      }
+      break;
+
+    case TRACKING_VELOCITY:
+      FOREACH_TRACKING_DRIVER(driver) {
+        if (driver->getVelocity(device, linear, angular)) {
+          lua_pushstring(L, TrackingStatuses[STATUS_TRACKED]);
+          lua_pushstring(L, HeadsetDrivers[driver->driverType]);
+          return 2;
+        }
+      }
+      break;
+
+    case TRACKING_BUTTON:
+      button = luaL_checkoption(L, 3, NULL, DeviceButtons);
+      FOREACH_TRACKING_DRIVER(driver) {
+        if (driver->isDown(device, button, &down, &changed)) {
+          lua_pushstring(L, TrackingStatuses[STATUS_TRACKED]);
+          lua_pushstring(L, HeadsetDrivers[driver->driverType]);
+          return 2;
+        }
+      }
+      break;
+
+    case TRACKING_TOUCH:
+      button = luaL_checkoption(L, 3, NULL, DeviceButtons);
+      FOREACH_TRACKING_DRIVER(driver) {
+        if (driver->isTouched(device, button, &down)) {
+          lua_pushstring(L, TrackingStatuses[STATUS_TRACKED]);
+          lua_pushstring(L, HeadsetDrivers[driver->driverType]);
+          return 2;
+        }
+      }
+      break;
+
+    case TRACKING_AXIS:
+      axis = luaL_checkoption(L, 3, NULL, DeviceAxes);
+      FOREACH_TRACKING_DRIVER(driver) {
+        if (driver->getAxis(device, axis, value)) {
+          lua_pushstring(L, TrackingStatuses[STATUS_TRACKED]);
+          lua_pushstring(L, HeadsetDrivers[driver->driverType]);
+          return 2;
+        }
+      }
+      break;
+
+    case TRACKING_SKELETON:
+      break;
+
+    default: lovrThrow("Unreachable");
   }
-  lua_pushboolean(L, false);
+
+  lua_pushstring(L, TrackingStatuses[STATUS_UNAVAILABLE]);
   return 1;
 }
 
@@ -585,6 +650,49 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   return 1;
 }
 
+static int l_lovrHeadsetGlob(lua_State* L) {
+  int top = lua_gettop(L);
+  bool pattern = lua_type(L, 1) == LUA_TSTRING;
+  int count = 0;
+  lua_newtable(L);
+  for (size_t i = 0; i < MAX_DEVICES; i++) {
+    if (pattern) {
+      lua_getglobal(L, "string");
+      lua_getfield(L, -1, "match");
+      if (lua_isfunction(L, -1)) {
+        lua_pushstring(L, Devices[i]);
+        lua_pushvalue(L, 1);
+        lua_call(L, 2, 1);
+        if (lua_isnil(L, -1)) {
+          lua_pop(L, 2);
+          continue;
+        }
+        lua_pop(L, 1);
+      }
+      lua_pop(L, 1);
+    }
+
+    if (top > 1) {
+      lua_pushcfunction(L, l_lovrHeadsetGetStatus);
+      lua_pushstring(L, Devices[i]);
+      for (int i = 2; i <= top; i++) {
+        lua_pushvalue(L, i);
+      }
+      lua_call(L, top, 2);
+      lua_pop(L, 1);
+      if (!strcmp(lua_tostring(L, -1), "unavailable")) {
+        lua_pop(L, 1);
+        continue;
+      }
+      lua_pop(L, 1);
+    }
+
+    lua_pushstring(L, Devices[i]);
+    lua_rawseti(L, top + 1, ++count);
+  }
+  return 1;
+}
+
 static const luaL_Reg lovrHeadset[] = {
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getName", l_lovrHeadsetGetName },
@@ -603,7 +711,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
   { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
   { "getBoundsGeometry", l_lovrHeadsetGetBoundsGeometry },
-  { "isTracked", l_lovrHeadsetIsTracked },
+  { "getStatus", l_lovrHeadsetGetStatus },
   { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
@@ -621,6 +729,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getTime", l_lovrHeadsetGetTime },
   { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
   { "getHands", l_lovrHeadsetGetHands },
+  { "glob", l_lovrHeadsetGlob },
   { NULL, NULL }
 };
 

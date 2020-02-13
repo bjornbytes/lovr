@@ -53,6 +53,22 @@ typedef enum {
   MAX_AXES
 } DeviceAxis;
 
+// TODO separate pose and velocity into linear/angular components, maybe keep composite ones though
+typedef enum {
+  TRACKING_POSE,
+  TRACKING_VELOCITY,
+  TRACKING_BUTTON,
+  TRACKING_TOUCH,
+  TRACKING_AXIS,
+  TRACKING_SKELETON
+} TrackingType;
+
+typedef enum {
+  STATUS_UNAVAILABLE,
+  STATUS_ESTIMATED,
+  STATUS_TRACKED
+} TrackingStatus;
+
 // Notes:
 // - getDisplayFrequency may return 0.f if the information is unavailable.
 // - For isDown, changed can be set to false if change information is unavailable or inconvenient.
