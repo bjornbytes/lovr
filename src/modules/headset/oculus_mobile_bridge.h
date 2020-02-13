@@ -123,6 +123,7 @@ typedef struct {
   const char *writablePath;
   const char *apkPath;
   BridgeLovrDimensions suggestedEyeTexture;
+  float displayFrequency;
   double zeroDisplayTime;
   BridgeLovrDevice deviceType;
   BridgeLovrVibrateFunction* vibrateFunction; // Returns true on success

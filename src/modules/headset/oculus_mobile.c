@@ -18,6 +18,7 @@
 
 static struct {
   BridgeLovrDimensions displayDimensions;
+  float displayFrequency;
   BridgeLovrDevice deviceType;
   BridgeLovrVibrateFunction* vibrateFunction;
   BridgeLovrUpdateData updateData;
@@ -65,18 +66,22 @@ static HeadsetOrigin vrapi_getOriginType() {
   return ORIGIN_HEAD;
 }
 
-static double vrapi_getDisplayTime(void) {
-  return bridgeLovrMobileData.updateData.displayTime;
-}
-
 static void vrapi_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *width = bridgeLovrMobileData.displayDimensions.width;
   *height = bridgeLovrMobileData.displayDimensions.height;
 }
 
+static float vrapi_getDisplayFrequency(void) {
+  return bridgeLovrMobileData.displayFrequency;
+}
+
 static const float* vrapi_getDisplayMask(uint32_t* count) {
   *count = 0;
   return NULL;
+}
+
+static double vrapi_getDisplayTime(void) {
+  return bridgeLovrMobileData.updateData.displayTime;
 }
 
 static uint32_t vrapi_getViewCount(void) {
@@ -281,9 +286,10 @@ HeadsetInterface lovrHeadsetOculusMobileDriver = {
   .destroy = vrapi_destroy,
   .getName = vrapi_getName,
   .getOriginType = vrapi_getOriginType,
-  .getDisplayTime = vrapi_getDisplayTime,
   .getDisplayDimensions = vrapi_getDisplayDimensions,
+  .getDisplayFrequency = vrapi_getDisplayFrequency,
   .getDisplayMask = vrapi_getDisplayMask,
+  .getDisplayTime = vrapi_getDisplayTime,
   .getViewCount = vrapi_getViewCount,
   .getViewPose = vrapi_getViewPose,
   .getViewAngles = vrapi_getViewAngles,
@@ -463,6 +469,7 @@ void bridgeLovrInit(BridgeLovrInitData *initData) {
 
   // Unpack init data
   bridgeLovrMobileData.displayDimensions = initData->suggestedEyeTexture;
+  bridgeLovrMobileData.displayFrequency = initData->displayFrequency;
   bridgeLovrMobileData.updateData.displayTime = initData->zeroDisplayTime;
   bridgeLovrMobileData.deviceType = initData->deviceType;
   bridgeLovrMobileData.vibrateFunction = initData->vibrateFunction;
