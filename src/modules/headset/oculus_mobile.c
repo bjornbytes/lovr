@@ -211,7 +211,7 @@ static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* c
   if (idx < 0)
     return false;
 
-  *changed = false; // TODO
+  buttonDown(bridgeLovrMobileData.updateData.controllers[idx].buttonChanged, button, changed);
   return buttonDown(bridgeLovrMobileData.updateData.controllers[idx].buttonDown, button, down);
 }
 
