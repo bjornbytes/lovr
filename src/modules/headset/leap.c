@@ -163,77 +163,16 @@ static bool leap_getAxis(Device device, DeviceAxis axis, float* value) {
     }
   }
 
-  uint32_t finger;
-  LEAP_HAND* hand;
   if (state.hands[0] && device >= DEVICE_HAND_LEFT_FINGER_THUMB && device <= DEVICE_HAND_LEFT_FINGER_PINKY) {
-    hand = state.hands[0];
-    finger = device - DEVICE_HAND_LEFT_FINGER_THUMB;
+    LEAP_HAND* hand = state.hands[0];
+    LEAP_DIGIT* digit = &hand->digits[device - DEVICE_HAND_LEFT_FINGER_THUMB];
+    *value = digit->is_extended ? 0.f : 1.f;
+    return axis == AXIS_CURL;
   } else if (state.hands[1] && device >= DEVICE_HAND_RIGHT_FINGER_THUMB && device <= DEVICE_HAND_RIGHT_FINGER_PINKY) {
-    hand = state.hands[1];
-    finger = device - DEVICE_HAND_RIGHT_FINGER_THUMB;
-  } else {
-    return false;
-  }
-
-  if (axis == AXIS_CURL) {
-    float curl = 1.f;
-    float direction[4];
-    float lastDirection[4];
-
-    bool thumb = (finger == 0);
-    LEAP_DIGIT* digit = &hand->digits[finger];
-    vec3_init(lastDirection, digit->bones[0 + thumb].next_joint.v);
-    vec3_sub(lastDirection, digit->bones[0 + thumb].prev_joint.v);
-    vec3_normalize(lastDirection);
-
-    // Multiply the dot products of all successive finger bone directions
-    for (uint32_t i = 1 + thumb; i < 4; i++) {
-      vec3_init(direction, digit->bones[i].next_joint.v);
-      vec3_sub(direction, digit->bones[i].prev_joint.v);
-      vec3_normalize(direction);
-      curl *= vec3_dot(direction, lastDirection);
-      vec3_init(lastDirection, direction);
-    }
-
-    // Exaggerate thumb curliness, it has fewer bones
-    if (thumb) {
-      curl = curl * curl * curl;
-    }
-
-    value[0] = 1.f - curl;
-    return true;
-  } else if (axis == AXIS_SPLAY) {
-    float direction[4];
-    float otherDirection[4];
-
-    // Get the direction of the first knuckle, comparing it to the knuckles of any adjacent fingers
-    vec3_init(direction, hand->digits[finger].bones[1 + (finger == 0)].next_joint.v);
-    vec3_sub(direction, hand->digits[finger].bones[1 + (finger == 0)].prev_joint.v);
-    vec3_normalize(direction);
-
-    if (finger > 0) {
-      LEAP_BONE* proximal = &hand->digits[finger - 1].bones[1 + ((finger - 1) == 0)];
-      vec3_init(otherDirection, proximal->next_joint.v);
-      vec3_sub(otherDirection, proximal->prev_joint.v);
-      vec3_normalize(otherDirection);
-      float divisor = ((finger - 1) == 0) ? .9f : .12f;
-      value[0] = MIN((1.f - vec3_dot(direction, otherDirection)) / divisor, 1.f);
-    } else {
-      value[0] = 0.f;
-    }
-
-    if (finger < 4) {
-      LEAP_BONE* proximal = &hand->digits[finger + 1].bones[1];
-      vec3_init(otherDirection, proximal->next_joint.v);
-      vec3_sub(otherDirection, proximal->prev_joint.v);
-      vec3_normalize(otherDirection);
-      float divisor = (finger == 0) ? .9f : .12f;
-      value[1] = MIN((1.f - vec3_dot(direction, otherDirection)) / divisor, 1.f);
-    } else {
-      value[1] = 0.f;
-    }
-
-    return true;
+    LEAP_HAND* hand = state.hands[1];
+    LEAP_DIGIT* digit = &hand->digits[device - DEVICE_HAND_RIGHT_FINGER_THUMB];
+    *value = digit->is_extended ? 0.f : 1.f;
+    return axis == AXIS_CURL;
   }
 
   return false;
