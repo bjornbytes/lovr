@@ -176,7 +176,7 @@ static void desktop_renderTo(void (*callback)(void*), void* userdata) {
   float left, right, up, down;
   desktop_getViewAngles(0, &left, &right, &up, &down);
   Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = true };
-  mat4_fov(camera.projection[0], left, right, up, down, state.clipNear, state.clipFar);
+  mat4_fov(camera.projection[0], tanf(left), tanf(right), tanf(up), tanf(down), state.clipNear, state.clipFar);
   mat4_multiply(camera.viewMatrix[0], state.headTransform);
   mat4_invert(camera.viewMatrix[0]);
   mat4_set(camera.projection[1], camera.projection[0]);

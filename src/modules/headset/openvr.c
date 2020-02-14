@@ -296,6 +296,10 @@ static bool openvr_getViewPose(uint32_t view, float* position, float* orientatio
 static bool openvr_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
   EVREye eye = view ? EVREye_Eye_Right : EVREye_Eye_Left;
   state.system->GetProjectionRaw(eye, left, right, up, down);
+  *left = atanf(*left);
+  *right = atanf(*right);
+  *up = atanf(*up);
+  *down = atanf(*down);
   return view < 2;
 }
 
@@ -653,10 +657,9 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
   mat4_fromMat34(head, state.headPose.mDeviceToAbsoluteTracking.m);
 
   for (int i = 0; i < 2; i++) {
-    float left, right, up, down, eye[16];
+    float eye[16];
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
-    openvr_getViewAngles(i, &left, &right, &up, &down);
-    mat4_fov(camera.projection[i], left, right, up, down, state.clipNear, state.clipFar);
+    mat4_fromMat44(camera.projection[i], state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
     mat4_init(camera.viewMatrix[i], head);
     mat4_multiply(camera.viewMatrix[i], mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
     mat4_invert(camera.viewMatrix[i]);
