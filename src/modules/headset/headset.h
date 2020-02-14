@@ -4,13 +4,10 @@
 
 #pragma once
 
+#define MAX_HEADSET_BONES 32
+
 struct ModelData;
 struct Texture;
-
-typedef enum {
-  ORIGIN_HEAD,
-  ORIGIN_FLOOR
-} HeadsetOrigin;
 
 typedef enum {
   DRIVER_DESKTOP,
@@ -23,11 +20,26 @@ typedef enum {
 } HeadsetDriver;
 
 typedef enum {
+  ORIGIN_HEAD,
+  ORIGIN_FLOOR
+} HeadsetOrigin;
+
+typedef enum {
   DEVICE_HEAD,
   DEVICE_HAND_LEFT,
   DEVICE_HAND_RIGHT,
   DEVICE_EYE_LEFT,
   DEVICE_EYE_RIGHT,
+  DEVICE_HAND_LEFT_FINGER_THUMB,
+  DEVICE_HAND_LEFT_FINGER_INDEX,
+  DEVICE_HAND_LEFT_FINGER_MIDDLE,
+  DEVICE_HAND_LEFT_FINGER_RING,
+  DEVICE_HAND_LEFT_FINGER_PINKY,
+  DEVICE_HAND_RIGHT_FINGER_THUMB,
+  DEVICE_HAND_RIGHT_FINGER_INDEX,
+  DEVICE_HAND_RIGHT_FINGER_MIDDLE,
+  DEVICE_HAND_RIGHT_FINGER_RING,
+  DEVICE_HAND_RIGHT_FINGER_PINKY,
   MAX_DEVICES
 } Device;
 
@@ -50,6 +62,9 @@ typedef enum {
   AXIS_THUMBSTICK,
   AXIS_TOUCHPAD,
   AXIS_GRIP,
+  AXIS_CURL,
+  AXIS_SPLAY,
+  AXIS_PINCH,
   MAX_AXES
 } DeviceAxis;
 
@@ -82,6 +97,7 @@ typedef struct HeadsetInterface {
   bool (*isDown)(Device device, DeviceButton button, bool* down, bool* changed);
   bool (*isTouched)(Device device, DeviceButton button, bool* touched);
   bool (*getAxis)(Device device, DeviceAxis axis, float* value);
+  bool (*getSkeleton)(Device device, float* poses, uint32_t* poseCount);
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
   struct ModelData* (*newModelData)(Device device);
   void (*renderTo)(void (*callback)(void*), void* userdata);

@@ -35,6 +35,16 @@ const char* Devices[] = {
   [DEVICE_HAND_RIGHT] = "hand/right",
   [DEVICE_EYE_LEFT] = "eye/left",
   [DEVICE_EYE_RIGHT] = "eye/right",
+  [DEVICE_HAND_LEFT_FINGER_THUMB] = "hand/left/finger/thumb",
+  [DEVICE_HAND_LEFT_FINGER_INDEX] = "hand/left/finger/index",
+  [DEVICE_HAND_LEFT_FINGER_MIDDLE] = "hand/left/finger/middle",
+  [DEVICE_HAND_LEFT_FINGER_RING] = "hand/left/finger/ring",
+  [DEVICE_HAND_LEFT_FINGER_PINKY] = "hand/left/finger/pinky",
+  [DEVICE_HAND_RIGHT_FINGER_THUMB] = "hand/right/finger/thumb",
+  [DEVICE_HAND_RIGHT_FINGER_INDEX] = "hand/right/finger/index",
+  [DEVICE_HAND_RIGHT_FINGER_MIDDLE] = "hand/right/finger/middle",
+  [DEVICE_HAND_RIGHT_FINGER_RING] = "hand/right/finger/ring",
+  [DEVICE_HAND_RIGHT_FINGER_PINKY] = "hand/right/finger/pinky",
   NULL
 };
 
@@ -57,6 +67,9 @@ const char* DeviceAxes[] = {
   [AXIS_THUMBSTICK] = "thumbstick",
   [AXIS_TOUCHPAD] = "touchpad",
   [AXIS_GRIP] = "grip",
+  [AXIS_CURL] = "curl",
+  [AXIS_SPLAY] = "splay",
+  [AXIS_PINCH] = "pinch",
   NULL
 };
 
@@ -454,7 +467,10 @@ static const int axisCounts[MAX_AXES] = {
   [AXIS_TRIGGER] = 1,
   [AXIS_THUMBSTICK] = 2,
   [AXIS_TOUCHPAD] = 2,
-  [AXIS_GRIP] = 1
+  [AXIS_GRIP] = 1,
+  [AXIS_CURL] = 1,
+  [AXIS_SPLAY] = 1,
+  [AXIS_PINCH] = 1
 };
 
 static int l_lovrHeadsetGetAxis(lua_State* L) {
@@ -474,6 +490,49 @@ static int l_lovrHeadsetGetAxis(lua_State* L) {
     lua_pushnumber(L, 0.);
   }
   return count;
+}
+
+static int l_lovrHeadsetGetSkeleton(lua_State* L) {
+  Device device = luax_optdevice(L, 1);
+  float poses[MAX_HEADSET_BONES * 8];
+  uint32_t poseCount = MAX_HEADSET_BONES;
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->getSkeleton(device, poses, &poseCount)) {
+      if (!lua_istable(L, 2)) {
+        lua_createtable(L, poseCount, 0);
+      } else {
+        lua_settop(L, 2);
+      }
+
+      for (uint32_t i = 0; i < poseCount; i++) {
+        lua_createtable(L, 7, 0);
+
+        float angle, ax, ay, az;
+        float* pose = poses + i * 8;
+        quat_getAngleAxis(pose + 4, &angle, &ax, &ay, &az);
+        lua_pushnumber(L, pose[0]);
+        lua_pushnumber(L, pose[1]);
+        lua_pushnumber(L, pose[2]);
+        lua_pushnumber(L, angle);
+        lua_pushnumber(L, ax);
+        lua_pushnumber(L, ay);
+        lua_pushnumber(L, az);
+        lua_rawseti(L, -8, 7);
+        lua_rawseti(L, -7, 6);
+        lua_rawseti(L, -6, 5);
+        lua_rawseti(L, -5, 4);
+        lua_rawseti(L, -4, 3);
+        lua_rawseti(L, -3, 2);
+        lua_rawseti(L, -2, 1);
+
+        lua_rawseti(L, -2, i + 1);
+      }
+
+      return 1;
+    }
+  }
+  lua_pushnil(L);
+  return 1;
 }
 
 static int l_lovrHeadsetVibrate(lua_State* L) {
@@ -616,6 +675,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getAxis", l_lovrHeadsetGetAxis },
   { "vibrate", l_lovrHeadsetVibrate },
   { "newModel", l_lovrHeadsetNewModel },
+  { "getSkeleton", l_lovrHeadsetGetSkeleton },
   { "renderTo", l_lovrHeadsetRenderTo },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },
