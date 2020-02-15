@@ -69,7 +69,7 @@ static struct {
   struct VR_IVRRenderModels_FnTable* renderModels;
   struct VR_IVRInput_FnTable* input;
   VRActionSetHandle_t actionSet;
-  VRActionHandle_t poseActions[3];
+  VRActionHandle_t poseActions[5];
   VRActionHandle_t buttonActions[2][MAX_BUTTONS];
   VRActionHandle_t touchActions[2][MAX_BUTTONS];
   VRActionHandle_t axisActions[2][MAX_AXES];
@@ -142,6 +142,8 @@ static bool openvr_init(float offset, uint32_t msaa) {
   state.input->GetActionHandle("/actions/lovr/in/headPose", &state.poseActions[DEVICE_HEAD]);
   state.input->GetActionHandle("/actions/lovr/in/leftHandPose", &state.poseActions[DEVICE_HAND_LEFT]);
   state.input->GetActionHandle("/actions/lovr/in/rightHandPose", &state.poseActions[DEVICE_HAND_RIGHT]);
+  state.input->GetActionHandle("/actions/lovr/in/leftHandPoint", &state.poseActions[DEVICE_HAND_LEFT_POINT]);
+  state.input->GetActionHandle("/actions/lovr/in/rightHandPoint", &state.poseActions[DEVICE_HAND_RIGHT_POINT]);
 
   state.input->GetActionHandle("/actions/lovr/in/leftTriggerDown", &state.buttonActions[0][BUTTON_TRIGGER]);
   state.input->GetActionHandle("/actions/lovr/in/leftThumbstickDown", &state.buttonActions[0][BUTTON_THUMBSTICK]);
