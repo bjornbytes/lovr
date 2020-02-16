@@ -325,6 +325,7 @@ set(LOVR_SRC
   src/core/fs.c
   src/core/maf.c
   src/core/map.c
+  src/core/png.c
   src/core/ref.c
   src/core/utf.c
   src/core/util.c
@@ -391,7 +392,6 @@ if(LOVR_ENABLE_DATA)
     src/api/l_data_soundData.c
     src/api/l_data_textureData.c
     src/lib/stb/stb_image.c
-    src/lib/stb/stb_image_write.c
     src/lib/stb/stb_truetype.c
     src/lib/stb/stb_vorbis.c
     src/lib/jsmn/jsmn.c
