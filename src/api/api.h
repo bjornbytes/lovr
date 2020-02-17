@@ -96,7 +96,12 @@ extern const char* WrapModes[];
 
 // General helpers
 
-struct Color;
+typedef struct {
+  uint8_t length;
+  char string[31];
+} StringEntry;
+
+#define ENTRY(s) { sizeof(s) - 1, s }
 
 typedef struct {
   uint64_t hash;
@@ -112,6 +117,7 @@ typedef struct {
 #define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash64(#T, strlen(#T)))
 #define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash64(#T, strlen(#T)), #T)
 #define luax_pushtype(L, T, o) _luax_pushtype(L, #T, hash64(#T, strlen(#T)), o)
+#define luax_pushoption(L, m, x) lua_pushlstring(L, m[x].string, m[x].length)
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
 #define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")
@@ -122,6 +128,7 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
 void* _luax_totype(lua_State* L, int index, uint64_t hash);
 void* _luax_checktype(lua_State* L, int index, uint64_t hash, const char* debug);
 void _luax_pushtype(lua_State* L, const char* name, uint64_t hash, void* object);
+int luax_checkoption(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label);
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
 void luax_vthrow(void* L, const char* format, va_list args);
 void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);
