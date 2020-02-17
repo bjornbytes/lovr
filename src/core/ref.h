@@ -17,12 +17,18 @@ static inline uint32_t ref_dec(Ref* ref) { return --*ref; }
 
 #elif defined(_MSC_VER)
 
+#ifdef __cplusplus
+#define _LOVR_REF_H_CPP_CAST (volatile long *)
+#else
+#define _LOVR_REF_H_CPP_CAST
+#endif
+
 // MSVC atomics
 
 #include <intrin.h>
 typedef uint32_t Ref;
-static inline uint32_t ref_inc(Ref* ref) { return _InterlockedIncrement(ref); }
-static inline uint32_t ref_dec(Ref* ref) { return _InterlockedDecrement(ref); }
+static inline uint32_t ref_inc(Ref* ref) { return _InterlockedIncrement(_LOVR_REF_H_CPP_CAST ref); }
+static inline uint32_t ref_dec(Ref* ref) { return _InterlockedDecrement(_LOVR_REF_H_CPP_CAST ref); }
 
 #elif (defined(__GNUC_MINOR__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7))) \
    || (__has_builtin(__atomic_add_fetch) && __has_builtin(__atomic_sub_fetch))
