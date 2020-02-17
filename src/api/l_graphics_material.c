@@ -4,7 +4,7 @@
 
 static int l_lovrMaterialGetColor(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
-  MaterialColor colorType = luaL_checkoption(L, 2, "diffuse", MaterialColors);
+  MaterialColor colorType = luax_checkenum(L, 2, MaterialColors, "diffuse", "MaterialColor");
   Color color = lovrMaterialGetColor(material, colorType);
   lua_pushnumber(L, color.r);
   lua_pushnumber(L, color.g);
@@ -18,7 +18,7 @@ static int l_lovrMaterialSetColor(lua_State* L) {
   MaterialColor colorType = COLOR_DIFFUSE;
   int index = 2;
   if (lua_type(L, index) == LUA_TSTRING) {
-    colorType = luaL_checkoption(L, index, NULL, MaterialColors);
+    colorType = luax_checkenum(L, index, MaterialColors, NULL, "MaterialColor");
     index++;
   }
   Color color;
@@ -29,7 +29,7 @@ static int l_lovrMaterialSetColor(lua_State* L) {
 
 static int l_lovrMaterialGetScalar(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
-  MaterialScalar scalarType = luaL_checkoption(L, 2, NULL, MaterialScalars);
+  MaterialScalar scalarType = luax_checkenum(L, 2, MaterialScalars, NULL, "MaterialScalar");
   float value = lovrMaterialGetScalar(material, scalarType);
   lua_pushnumber(L, value);
   return 1;
@@ -37,7 +37,7 @@ static int l_lovrMaterialGetScalar(lua_State* L) {
 
 static int l_lovrMaterialSetScalar(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
-  MaterialScalar scalarType = luaL_checkoption(L, 2, NULL, MaterialScalars);
+  MaterialScalar scalarType = luax_checkenum(L, 2, MaterialScalars, NULL, "MaterialScalar");
   float value = luax_checkfloat(L, 3);
   lovrMaterialSetScalar(material, scalarType, value);
   return 0;
@@ -45,7 +45,7 @@ static int l_lovrMaterialSetScalar(lua_State* L) {
 
 static int l_lovrMaterialGetTexture(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
-  MaterialTexture textureType = luaL_checkoption(L, 2, "diffuse", MaterialTextures);
+  MaterialTexture textureType = luax_checkenum(L, 2, MaterialTextures, "diffuse", "MaterialTexture");
   Texture* texture = lovrMaterialGetTexture(material, textureType);
   luax_pushtype(L, Texture, texture);
   return 1;
@@ -56,7 +56,7 @@ static int l_lovrMaterialSetTexture(lua_State* L) {
   MaterialTexture textureType = TEXTURE_DIFFUSE;
   int index = 2;
   if (lua_type(L, index) == LUA_TSTRING) {
-    textureType = luaL_checkoption(L, index, NULL, MaterialTextures);
+    textureType = luax_checkenum(L, index, MaterialTextures, NULL, "MaterialTexture");
     index++;
   }
   Texture* texture = lua_isnoneornil(L, index) ? NULL : luax_checktype(L, index, Texture);

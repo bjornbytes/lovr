@@ -12,67 +12,67 @@
 #define LOVR_HEADSET_HELPER_USES_REGISTRY
 #endif
 
-const char* HeadsetDrivers[] = {
-  [DRIVER_DESKTOP] = "desktop",
-  [DRIVER_LEAP_MOTION] = "leap",
-  [DRIVER_OCULUS] = "oculus",
-  [DRIVER_OCULUS_MOBILE] = "oculusmobile",
-  [DRIVER_OPENVR] = "openvr",
-  [DRIVER_OPENXR] = "openxr",
-  [DRIVER_WEBVR] = "webvr",
-  NULL
+StringEntry HeadsetDrivers[] = {
+  [DRIVER_DESKTOP] = ENTRY("desktop"),
+  [DRIVER_LEAP_MOTION] = ENTRY("leap"),
+  [DRIVER_OCULUS] = ENTRY("oculus"),
+  [DRIVER_OCULUS_MOBILE] = ENTRY("oculusmobile"),
+  [DRIVER_OPENVR] = ENTRY("openvr"),
+  [DRIVER_OPENXR] = ENTRY("openxr"),
+  [DRIVER_WEBVR] = ENTRY("webvr"),
+  { 0 }
 };
 
-const char* HeadsetOrigins[] = {
-  [ORIGIN_HEAD] = "head",
-  [ORIGIN_FLOOR] = "floor",
-  NULL
+StringEntry HeadsetOrigins[] = {
+  [ORIGIN_HEAD] = ENTRY("head"),
+  [ORIGIN_FLOOR] = ENTRY("floor"),
+  { 0 }
 };
 
-const char* Devices[] = {
-  [DEVICE_HEAD] = "head",
-  [DEVICE_HAND_LEFT] = "hand/left",
-  [DEVICE_HAND_RIGHT] = "hand/right",
-  [DEVICE_HAND_LEFT_POINT] = "hand/left/point",
-  [DEVICE_HAND_RIGHT_POINT] = "hand/right/point",
-  [DEVICE_EYE_LEFT] = "eye/left",
-  [DEVICE_EYE_RIGHT] = "eye/right",
-  [DEVICE_HAND_LEFT_FINGER_THUMB] = "hand/left/finger/thumb",
-  [DEVICE_HAND_LEFT_FINGER_INDEX] = "hand/left/finger/index",
-  [DEVICE_HAND_LEFT_FINGER_MIDDLE] = "hand/left/finger/middle",
-  [DEVICE_HAND_LEFT_FINGER_RING] = "hand/left/finger/ring",
-  [DEVICE_HAND_LEFT_FINGER_PINKY] = "hand/left/finger/pinky",
-  [DEVICE_HAND_RIGHT_FINGER_THUMB] = "hand/right/finger/thumb",
-  [DEVICE_HAND_RIGHT_FINGER_INDEX] = "hand/right/finger/index",
-  [DEVICE_HAND_RIGHT_FINGER_MIDDLE] = "hand/right/finger/middle",
-  [DEVICE_HAND_RIGHT_FINGER_RING] = "hand/right/finger/ring",
-  [DEVICE_HAND_RIGHT_FINGER_PINKY] = "hand/right/finger/pinky",
-  NULL
+StringEntry Devices[] = {
+  [DEVICE_HEAD] = ENTRY("head"),
+  [DEVICE_HAND_LEFT] = ENTRY("hand/left"),
+  [DEVICE_HAND_RIGHT] = ENTRY("hand/right"),
+  [DEVICE_HAND_LEFT_POINT] = ENTRY("hand/left/point"),
+  [DEVICE_HAND_RIGHT_POINT] = ENTRY("hand/right/point"),
+  [DEVICE_EYE_LEFT] = ENTRY("eye/left"),
+  [DEVICE_EYE_RIGHT] = ENTRY("eye/right"),
+  [DEVICE_HAND_LEFT_FINGER_THUMB] = ENTRY("hand/left/finger/thumb"),
+  [DEVICE_HAND_LEFT_FINGER_INDEX] = ENTRY("hand/left/finger/index"),
+  [DEVICE_HAND_LEFT_FINGER_MIDDLE] = ENTRY("hand/left/finger/middle"),
+  [DEVICE_HAND_LEFT_FINGER_RING] = ENTRY("hand/left/finger/ring"),
+  [DEVICE_HAND_LEFT_FINGER_PINKY] = ENTRY("hand/left/finger/pinky"),
+  [DEVICE_HAND_RIGHT_FINGER_THUMB] = ENTRY("hand/right/finger/thumb"),
+  [DEVICE_HAND_RIGHT_FINGER_INDEX] = ENTRY("hand/right/finger/index"),
+  [DEVICE_HAND_RIGHT_FINGER_MIDDLE] = ENTRY("hand/right/finger/middle"),
+  [DEVICE_HAND_RIGHT_FINGER_RING] = ENTRY("hand/right/finger/ring"),
+  [DEVICE_HAND_RIGHT_FINGER_PINKY] = ENTRY("hand/right/finger/pinky"),
+  { 0 }
 };
 
-const char* DeviceButtons[] = {
-  [BUTTON_TRIGGER] = "trigger",
-  [BUTTON_THUMBSTICK] = "thumbstick",
-  [BUTTON_TOUCHPAD] = "touchpad",
-  [BUTTON_GRIP] = "grip",
-  [BUTTON_MENU] = "menu",
-  [BUTTON_A] = "a",
-  [BUTTON_B] = "b",
-  [BUTTON_X] = "x",
-  [BUTTON_Y] = "y",
-  [BUTTON_PROXIMITY] = "proximity",
-  NULL
+StringEntry DeviceButtons[] = {
+  [BUTTON_TRIGGER] = ENTRY("trigger"),
+  [BUTTON_THUMBSTICK] = ENTRY("thumbstick"),
+  [BUTTON_TOUCHPAD] = ENTRY("touchpad"),
+  [BUTTON_GRIP] = ENTRY("grip"),
+  [BUTTON_MENU] = ENTRY("menu"),
+  [BUTTON_A] = ENTRY("a"),
+  [BUTTON_B] = ENTRY("b"),
+  [BUTTON_X] = ENTRY("x"),
+  [BUTTON_Y] = ENTRY("y"),
+  [BUTTON_PROXIMITY] = ENTRY("proximity"),
+  { 0 }
 };
 
-const char* DeviceAxes[] = {
-  [AXIS_TRIGGER] = "trigger",
-  [AXIS_THUMBSTICK] = "thumbstick",
-  [AXIS_TOUCHPAD] = "touchpad",
-  [AXIS_GRIP] = "grip",
-  [AXIS_CURL] = "curl",
-  [AXIS_SPLAY] = "splay",
-  [AXIS_PINCH] = "pinch",
-  NULL
+StringEntry DeviceAxes[] = {
+  [AXIS_TRIGGER] = ENTRY("trigger"),
+  [AXIS_THUMBSTICK] = ENTRY("thumbstick"),
+  [AXIS_TOUCHPAD] = ENTRY("touchpad"),
+  [AXIS_GRIP] = ENTRY("grip"),
+  [AXIS_CURL] = ENTRY("curl"),
+  [AXIS_SPLAY] = ENTRY("splay"),
+  [AXIS_PINCH] = ENTRY("pinch"),
+  { 0 }
 };
 
 typedef struct {
@@ -108,18 +108,18 @@ static Device luax_optdevice(lua_State* L, int index) {
   } else if (!strcmp(str, "right")) {
     return DEVICE_HAND_RIGHT;
   }
-  return luaL_checkoption(L, 1, "head", Devices);
+  return luax_checkenum(L, 1, Devices, "head", "Device");
 }
 
 static int l_lovrHeadsetGetDriver(lua_State* L) {
   if (lua_gettop(L) == 0) {
-    lua_pushstring(L, HeadsetDrivers[lovrHeadsetDriver->driverType]);
+    luax_pushenum(L, HeadsetDrivers, lovrHeadsetDriver->driverType);
     return 1;
   } else {
     Device device = luax_optdevice(L, 1);
     FOREACH_TRACKING_DRIVER(driver) {
       if (driver->getPose(device, NULL, NULL)) {
-        lua_pushstring(L, HeadsetDrivers[driver->driverType]);
+        luax_pushenum(L, HeadsetDrivers, driver->driverType);
         return 1;
       }
     }
@@ -138,7 +138,7 @@ static int l_lovrHeadsetGetName(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetOriginType(lua_State* L) {
-  lua_pushstring(L, HeadsetOrigins[lovrHeadsetDriver->getOriginType()]);
+  luax_pushenum(L, HeadsetOrigins, lovrHeadsetDriver->getOriginType());
   return 1;
 }
 
@@ -411,7 +411,7 @@ static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
 
 static int l_lovrHeadsetIsDown(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  DeviceButton button = luaL_checkoption(L, 2, NULL, DeviceButtons);
+  DeviceButton button = luax_checkenum(L, 2, DeviceButtons, NULL, "DeviceButton");
   bool down, changed;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->isDown(device, button, &down, &changed)) {
@@ -425,7 +425,7 @@ static int l_lovrHeadsetIsDown(lua_State* L) {
 
 static int l_lovrHeadsetWasPressed(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  DeviceButton button = luaL_checkoption(L, 2, NULL, DeviceButtons);
+  DeviceButton button = luax_checkenum(L, 2, DeviceButtons, NULL, "DeviceButton");
   bool down, changed;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->isDown(device, button, &down, &changed)) {
@@ -439,7 +439,7 @@ static int l_lovrHeadsetWasPressed(lua_State* L) {
 
 static int l_lovrHeadsetWasReleased(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  DeviceButton button = luaL_checkoption(L, 2, NULL, DeviceButtons);
+  DeviceButton button = luax_checkenum(L, 2, DeviceButtons, NULL, "DeviceButton");
   bool down, changed;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->isDown(device, button, &down, &changed)) {
@@ -453,7 +453,7 @@ static int l_lovrHeadsetWasReleased(lua_State* L) {
 
 static int l_lovrHeadsetIsTouched(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  DeviceButton button = luaL_checkoption(L, 2, NULL, DeviceButtons);
+  DeviceButton button = luax_checkenum(L, 2, DeviceButtons, NULL, "DeviceButton");
   bool touched;
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->isTouched(device, button, &touched)) {
@@ -477,7 +477,7 @@ static const int axisCounts[MAX_AXES] = {
 
 static int l_lovrHeadsetGetAxis(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  DeviceAxis axis = luaL_checkoption(L, 2, NULL, DeviceAxes);
+  DeviceAxis axis = luax_checkenum(L, 2, DeviceAxes, NULL, "DeviceAxis");
   int count = axisCounts[axis];
   float value[4];
   FOREACH_TRACKING_DRIVER(driver) {
@@ -636,7 +636,7 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   for (size_t i = 0; i < sizeof(hands) / sizeof(hands[0]); i++) {
     FOREACH_TRACKING_DRIVER(driver) {
       if (driver->getPose(hands[i], position, orientation)) {
-        lua_pushstring(L, Devices[hands[i]]);
+        luax_pushenum(L, Devices, hands[i]);
         lua_rawseti(L, -2, ++count);
       }
     }
@@ -705,7 +705,7 @@ int luaopen_lovr_headset(lua_State* L) {
     int n = luax_len(L, -1);
     for (int i = 0; i < n; i++) {
       lua_rawgeti(L, -1, i + 1);
-      drivers[driverCount++] = luaL_checkoption(L, -1, NULL, HeadsetDrivers);
+      drivers[driverCount++] = luax_checkenum(L, -1, HeadsetDrivers, NULL, "HeadsetDriver");
       lovrAssert(driverCount < sizeof(drivers) / sizeof(drivers[0]), "Too many headset drivers specified in conf.lua");
       lua_pop(L, 1);
     }

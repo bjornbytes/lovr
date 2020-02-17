@@ -6,7 +6,7 @@
 
 static int l_lovrShaderBlockGetType(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
-  lua_pushstring(L, BlockTypes[lovrShaderBlockGetType(block)]);
+  luax_pushenum(L, BlockTypes, lovrShaderBlockGetType(block));
   return 1;
 }
 

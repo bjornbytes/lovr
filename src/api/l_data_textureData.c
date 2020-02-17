@@ -30,7 +30,7 @@ static int l_lovrTextureDataGetDimensions(lua_State* L) {
 
 static int l_lovrTextureDataGetFormat(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
-  lua_pushstring(L, TextureFormats[textureData->format]);
+  luax_pushenum(L, TextureFormats, textureData->format);
   return 1;
 }
 

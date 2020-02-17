@@ -186,7 +186,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
 
 static int l_lovrShaderGetType(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
-  lua_pushstring(L, ShaderTypes[lovrShaderGetType(shader)]);
+  luax_pushenum(L, ShaderTypes, lovrShaderGetType(shader));
   return 1;
 }
 
@@ -231,7 +231,7 @@ static int l_lovrShaderSendBlock(lua_State* L) {
   const char* name = luaL_checkstring(L, 2);
   lovrAssert(lovrShaderHasBlock(shader, name), "Unknown shader block '%s'", name);
   ShaderBlock* block = luax_checktype(L, 3, ShaderBlock);
-  UniformAccess access = luaL_checkoption(L, 4, "readwrite", UniformAccesses);
+  UniformAccess access = luax_checkenum(L, 4, UniformAccesses, "readwrite", "UniformAccess");
   Buffer* buffer = lovrShaderBlockGetBuffer(block);
   lovrShaderSetBlock(shader, name, buffer, 0, lovrBufferGetSize(buffer), access);
   return 0;
@@ -250,7 +250,7 @@ static int l_lovrShaderSendImage(lua_State* L) {
   Texture* texture = luax_checktype(L, index++, Texture);
   int slice = luaL_optinteger(L, index++, 0) - 1; // Default is -1
   int mipmap = luax_optmipmap(L, index++, texture);
-  UniformAccess access = luaL_checkoption(L, index++, "readwrite", UniformAccesses);
+  UniformAccess access = luax_checkenum(L, index++, UniformAccesses, "readwrite", "UniformAccess");
   Image image = { .texture = texture, .slice = slice, .mipmap = mipmap, .access = access };
   lovrShaderSetImages(shader, name, &image, start, 1);
   return 0;

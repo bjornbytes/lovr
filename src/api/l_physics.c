@@ -2,20 +2,20 @@
 #include "physics/physics.h"
 #include "core/ref.h"
 
-const char* ShapeTypes[] = {
-  [SHAPE_SPHERE] = "sphere",
-  [SHAPE_BOX] = "box",
-  [SHAPE_CAPSULE] = "capsule",
-  [SHAPE_CYLINDER] = "cylinder",
-  NULL
+StringEntry ShapeTypes[] = {
+  [SHAPE_SPHERE] = ENTRY("sphere"),
+  [SHAPE_BOX] = ENTRY("box"),
+  [SHAPE_CAPSULE] = ENTRY("capsule"),
+  [SHAPE_CYLINDER] = ENTRY("cylinder"),
+  { 0 }
 };
 
-const char* JointTypes[] = {
-  [JOINT_BALL] = "ball",
-  [JOINT_DISTANCE] = "distance",
-  [JOINT_HINGE] = "hinge",
-  [JOINT_SLIDER] = "slider",
-  NULL
+StringEntry JointTypes[] = {
+  [JOINT_BALL] = ENTRY("ball"),
+  [JOINT_DISTANCE] = ENTRY("distance"),
+  [JOINT_HINGE] = ENTRY("hinge"),
+  [JOINT_SLIDER] = ENTRY("slider"),
+  { 0 }
 };
 
 static int l_lovrPhysicsNewWorld(lua_State* L) {

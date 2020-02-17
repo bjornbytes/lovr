@@ -16,218 +16,219 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-const char* ArcModes[] = {
-  [ARC_MODE_PIE] = "pie",
-  [ARC_MODE_OPEN] = "open",
-  [ARC_MODE_CLOSED] = "closed",
-  NULL
+StringEntry ArcModes[] = {
+  [ARC_MODE_PIE] = ENTRY("pie"),
+  [ARC_MODE_OPEN] = ENTRY("open"),
+  [ARC_MODE_CLOSED] = ENTRY("closed"),
+  { 0 }
 };
 
-const char* AttributeTypes[] = {
-  [I8] = "byte",
-  [U8] = "ubyte",
-  [I16] = "short",
-  [U16] = "ushort",
-  [I32] = "int",
-  [U32] = "uint",
-  [F32] = "float",
-  NULL
+StringEntry AttributeTypes[] = {
+  [I8] = ENTRY("byte"),
+  [U8] = ENTRY("ubyte"),
+  [I16] = ENTRY("short"),
+  [U16] = ENTRY("ushort"),
+  [I32] = ENTRY("int"),
+  [U32] = ENTRY("uint"),
+  [F32] = ENTRY("float"),
+  { 0 }
 };
 
-const char* BlendAlphaModes[] = {
-  [BLEND_ALPHA_MULTIPLY] = "alphamultiply",
-  [BLEND_PREMULTIPLIED] = "premultiplied",
-  NULL
+StringEntry BlendAlphaModes[] = {
+  [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
+  [BLEND_PREMULTIPLIED] = ENTRY("premultiplied"),
+  { 0 }
 };
 
-const char* BlendModes[] = {
-  [BLEND_ALPHA] = "alpha",
-  [BLEND_ADD] = "add",
-  [BLEND_SUBTRACT] = "subtract",
-  [BLEND_MULTIPLY] = "multiply",
-  [BLEND_LIGHTEN] = "lighten",
-  [BLEND_DARKEN] = "darken",
-  [BLEND_SCREEN] = "screen",
-  NULL
+StringEntry BlendModes[] = {
+  [BLEND_ALPHA] = ENTRY("alpha"),
+  [BLEND_ADD] = ENTRY("add"),
+  [BLEND_SUBTRACT] = ENTRY("subtract"),
+  [BLEND_MULTIPLY] = ENTRY("multiply"),
+  [BLEND_LIGHTEN] = ENTRY("lighten"),
+  [BLEND_DARKEN] = ENTRY("darken"),
+  [BLEND_SCREEN] = ENTRY("screen"),
+  { 0 }
 };
 
-const char* BlockTypes[] = {
-  [BLOCK_UNIFORM] = "uniform",
-  [BLOCK_COMPUTE] = "compute",
-  NULL
+StringEntry BlockTypes[] = {
+  [BLOCK_UNIFORM] = ENTRY("uniform"),
+  [BLOCK_COMPUTE] = ENTRY("compute"),
+  { 0 }
 };
 
-const char* BufferUsages[] = {
-  [USAGE_STATIC] = "static",
-  [USAGE_DYNAMIC] = "dynamic",
-  [USAGE_STREAM] = "stream",
-  NULL
+StringEntry BufferUsages[] = {
+  [USAGE_STATIC] = ENTRY("static"),
+  [USAGE_DYNAMIC] = ENTRY("dynamic"),
+  [USAGE_STREAM] = ENTRY("stream"),
+  { 0 }
 };
 
-const char* CompareModes[] = {
-  [COMPARE_EQUAL] = "equal",
-  [COMPARE_NEQUAL] = "notequal",
-  [COMPARE_LESS] = "less",
-  [COMPARE_LEQUAL] = "lequal",
-  [COMPARE_GREATER] = "greater",
-  [COMPARE_GEQUAL] = "gequal",
-  NULL
+StringEntry CompareModes[] = {
+  [COMPARE_EQUAL] = ENTRY("equal"),
+  [COMPARE_NEQUAL] = ENTRY("notequal"),
+  [COMPARE_LESS] = ENTRY("less"),
+  [COMPARE_LEQUAL] = ENTRY("lequal"),
+  [COMPARE_GREATER] = ENTRY("greater"),
+  [COMPARE_GEQUAL] = ENTRY("gequal"),
+  { 0 }
 };
 
-const char* CoordinateSpaces[] = {
-  [SPACE_LOCAL] = "local",
-  [SPACE_GLOBAL] = "global",
-  NULL
+StringEntry CoordinateSpaces[] = {
+  [SPACE_LOCAL] = ENTRY("local"),
+  [SPACE_GLOBAL] = ENTRY("global"),
+  { 0 }
 };
 
-const char* DefaultShaders[] = {
-  [SHADER_UNLIT] = "unlit",
-  [SHADER_STANDARD] = "standard",
-  [SHADER_CUBE] = "cube",
-  [SHADER_PANO] = "pano",
-  [SHADER_FONT] = "font",
-  [SHADER_FILL] = "screenspace",
-  NULL
+StringEntry DefaultShaders[] = {
+  [SHADER_UNLIT] = ENTRY("unlit"),
+  [SHADER_STANDARD] = ENTRY("standard"),
+  [SHADER_CUBE] = ENTRY("cube"),
+  [SHADER_PANO] = ENTRY("pano"),
+  [SHADER_FONT] = ENTRY("font"),
+  [SHADER_FILL] = ENTRY("screenspace"),
+  { 0 }
 };
 
-const char* DrawModes[] = {
-  [DRAW_POINTS] = "points",
-  [DRAW_LINES] = "lines",
-  [DRAW_LINE_STRIP] = "linestrip",
-  [DRAW_LINE_LOOP] = "lineloop",
-  [DRAW_TRIANGLE_STRIP] = "strip",
-  [DRAW_TRIANGLES] = "triangles",
-  [DRAW_TRIANGLE_FAN] = "fan",
-  NULL
+StringEntry DrawModes[] = {
+  [DRAW_POINTS] = ENTRY("points"),
+  [DRAW_LINES] = ENTRY("lines"),
+  [DRAW_LINE_STRIP] = ENTRY("linestrip"),
+  [DRAW_LINE_LOOP] = ENTRY("lineloop"),
+  [DRAW_TRIANGLE_STRIP] = ENTRY("strip"),
+  [DRAW_TRIANGLES] = ENTRY("triangles"),
+  [DRAW_TRIANGLE_FAN] = ENTRY("fan"),
+  { 0 }
 };
 
-const char* DrawStyles[] = {
-  [STYLE_FILL] = "fill",
-  [STYLE_LINE] = "line",
-  NULL
+StringEntry DrawStyles[] = {
+  [STYLE_FILL] = ENTRY("fill"),
+  [STYLE_LINE] = ENTRY("line"),
+  { 0 }
 };
 
-const char* FilterModes[] = {
-  [FILTER_NEAREST] = "nearest",
-  [FILTER_BILINEAR] = "bilinear",
-  [FILTER_TRILINEAR] = "trilinear",
-  [FILTER_ANISOTROPIC] = "anisotropic",
-  NULL
+StringEntry FilterModes[] = {
+  [FILTER_NEAREST] = ENTRY("nearest"),
+  [FILTER_BILINEAR] = ENTRY("bilinear"),
+  [FILTER_TRILINEAR] = ENTRY("trilinear"),
+  [FILTER_ANISOTROPIC] = ENTRY("anisotropic"),
+  { 0 }
 };
 
-const char* HorizontalAligns[] = {
-  [ALIGN_LEFT] = "left",
-  [ALIGN_CENTER] = "center",
-  [ALIGN_RIGHT] = "right",
-  NULL
+StringEntry HorizontalAligns[] = {
+  [ALIGN_LEFT] = ENTRY("left"),
+  [ALIGN_CENTER] = ENTRY("center"),
+  [ALIGN_RIGHT] = ENTRY("right"),
+  { 0 }
 };
 
-const char* MaterialColors[] = {
-  [COLOR_DIFFUSE] = "diffuse",
-  [COLOR_EMISSIVE] = "emissive",
-  NULL
+StringEntry MaterialColors[] = {
+  [COLOR_DIFFUSE] = ENTRY("diffuse"),
+  [COLOR_EMISSIVE] = ENTRY("emissive"),
+  { 0 }
 };
 
-const char* MaterialScalars[] = {
-  [SCALAR_METALNESS] = "metalness",
-  [SCALAR_ROUGHNESS] = "roughness",
-  NULL
+StringEntry MaterialScalars[] = {
+  [SCALAR_METALNESS] = ENTRY("metalness"),
+  [SCALAR_ROUGHNESS] = ENTRY("roughness"),
+  { 0 }
 };
 
-const char* MaterialTextures[] = {
-  [TEXTURE_DIFFUSE] = "diffuse",
-  [TEXTURE_EMISSIVE] = "emissive",
-  [TEXTURE_METALNESS] = "metalness",
-  [TEXTURE_ROUGHNESS] = "roughness",
-  [TEXTURE_OCCLUSION] = "occlusion",
-  [TEXTURE_NORMAL] = "normal",
-  NULL
+StringEntry MaterialTextures[] = {
+  [TEXTURE_DIFFUSE] = ENTRY("diffuse"),
+  [TEXTURE_EMISSIVE] = ENTRY("emissive"),
+  [TEXTURE_METALNESS] = ENTRY("metalness"),
+  [TEXTURE_ROUGHNESS] = ENTRY("roughness"),
+  [TEXTURE_OCCLUSION] = ENTRY("occlusion"),
+  [TEXTURE_NORMAL] = ENTRY("normal"),
+  { 0 }
 };
 
-const char* ShaderTypes[] = {
-  [SHADER_GRAPHICS] = "graphics",
-  [SHADER_COMPUTE] = "compute",
-  NULL
+StringEntry ShaderTypes[] = {
+  [SHADER_GRAPHICS] = ENTRY("graphics"),
+  [SHADER_COMPUTE] = ENTRY("compute"),
+  { 0 }
 };
 
-const char* StencilActions[] = {
-  [STENCIL_REPLACE] = "replace",
-  [STENCIL_INCREMENT] = "increment",
-  [STENCIL_DECREMENT] = "decrement",
-  [STENCIL_INCREMENT_WRAP] = "incrementwrap",
-  [STENCIL_DECREMENT_WRAP] = "decrementwrap",
-  [STENCIL_INVERT] = "invert",
-  NULL
+StringEntry StencilActions[] = {
+  [STENCIL_REPLACE] = ENTRY("replace"),
+  [STENCIL_INCREMENT] = ENTRY("increment"),
+  [STENCIL_DECREMENT] = ENTRY("decrement"),
+  [STENCIL_INCREMENT_WRAP] = ENTRY("incrementwrap"),
+  [STENCIL_DECREMENT_WRAP] = ENTRY("decrementwrap"),
+  [STENCIL_INVERT] = ENTRY("invert"),
+  { 0 }
 };
 
-const char* TextureFormats[] = {
-  [FORMAT_RGB] = "rgb",
-  [FORMAT_RGBA] = "rgba",
-  [FORMAT_RGBA4] = "rgba4",
-  [FORMAT_RGBA16F] = "rgba16f",
-  [FORMAT_RGBA32F] = "rgba32f",
-  [FORMAT_R16F] = "r16f",
-  [FORMAT_R32F] = "r32f",
-  [FORMAT_RG16F] = "rg16f",
-  [FORMAT_RG32F] = "rg32f",
-  [FORMAT_RGB5A1] = "rgb5a1",
-  [FORMAT_RGB10A2] = "rgb10a2",
-  [FORMAT_RG11B10F] = "rg11b10f",
-  [FORMAT_D16] = "d16",
-  [FORMAT_D32F] = "d32f",
-  [FORMAT_D24S8] = "d24s8",
-  [FORMAT_DXT1] = "dxt1",
-  [FORMAT_DXT3] = "dxt3",
-  [FORMAT_DXT5] = "dxt5",
-  [FORMAT_ASTC_4x4] = "astc4x4",
-  [FORMAT_ASTC_5x4] = "astc5x4",
-  [FORMAT_ASTC_5x5] = "astc5x5",
-  [FORMAT_ASTC_6x5] = "astc6x5",
-  [FORMAT_ASTC_6x6] = "astc6x6",
-  [FORMAT_ASTC_8x5] = "astc8x5",
-  [FORMAT_ASTC_8x6] = "astc8x6",
-  [FORMAT_ASTC_8x8] = "astc8x8",
-  [FORMAT_ASTC_10x5] = "astc10x5",
-  [FORMAT_ASTC_10x6] = "astc10x6",
-  [FORMAT_ASTC_10x8] = "astc10x8",
-  [FORMAT_ASTC_10x10] = "astc10x10",
-  [FORMAT_ASTC_12x10] = "astc12x10",
-  [FORMAT_ASTC_12x12] = "astc12x12",
-  NULL
+StringEntry TextureFormats[] = {
+  [FORMAT_RGB] = ENTRY("rgb"),
+  [FORMAT_RGBA] = ENTRY("rgba"),
+  [FORMAT_RGBA4] = ENTRY("rgba4"),
+  [FORMAT_RGBA16F] = ENTRY("rgba16f"),
+  [FORMAT_RGBA32F] = ENTRY("rgba32f"),
+  [FORMAT_R16F] = ENTRY("r16f"),
+  [FORMAT_R32F] = ENTRY("r32f"),
+  [FORMAT_RG16F] = ENTRY("rg16f"),
+  [FORMAT_RG32F] = ENTRY("rg32f"),
+  [FORMAT_RGB5A1] = ENTRY("rgb5a1"),
+  [FORMAT_RGB10A2] = ENTRY("rgb10a2"),
+  [FORMAT_RG11B10F] = ENTRY("rg11b10f"),
+  [FORMAT_D16] = ENTRY("d16"),
+  [FORMAT_D32F] = ENTRY("d32f"),
+  [FORMAT_D24S8] = ENTRY("d24s8"),
+  [FORMAT_DXT1] = ENTRY("dxt1"),
+  [FORMAT_DXT3] = ENTRY("dxt3"),
+  [FORMAT_DXT5] = ENTRY("dxt5"),
+  [FORMAT_ASTC_4x4] = ENTRY("astc4x4"),
+  [FORMAT_ASTC_5x4] = ENTRY("astc5x4"),
+  [FORMAT_ASTC_5x5] = ENTRY("astc5x5"),
+  [FORMAT_ASTC_6x5] = ENTRY("astc6x5"),
+  [FORMAT_ASTC_6x6] = ENTRY("astc6x6"),
+  [FORMAT_ASTC_8x5] = ENTRY("astc8x5"),
+  [FORMAT_ASTC_8x6] = ENTRY("astc8x6"),
+  [FORMAT_ASTC_8x8] = ENTRY("astc8x8"),
+  [FORMAT_ASTC_10x5] = ENTRY("astc10x5"),
+  [FORMAT_ASTC_10x6] = ENTRY("astc10x6"),
+  [FORMAT_ASTC_10x8] = ENTRY("astc10x8"),
+  [FORMAT_ASTC_10x10] = ENTRY("astc10x10"),
+  [FORMAT_ASTC_12x10] = ENTRY("astc12x10"),
+  [FORMAT_ASTC_12x12] = ENTRY("astc12x12"),
+  { 0 }
 };
 
-const char* TextureTypes[] = {
-  [TEXTURE_2D] = "2d",
-  [TEXTURE_ARRAY] = "array",
-  [TEXTURE_CUBE] = "cube",
-  [TEXTURE_VOLUME] = "volume",
-  NULL
+StringEntry TextureTypes[] = {
+  [TEXTURE_2D] = ENTRY("2d"),
+  [TEXTURE_ARRAY] = ENTRY("array"),
+  [TEXTURE_CUBE] = ENTRY("cube"),
+  [TEXTURE_VOLUME] = ENTRY("volume"),
+  { 0 }
 };
 
-const char* UniformAccesses[] = {
-  [ACCESS_READ] = "read",
-  [ACCESS_WRITE] = "write",
-  [ACCESS_READ_WRITE] = "readwrite"
+StringEntry UniformAccesses[] = {
+  [ACCESS_READ] = ENTRY("read"),
+  [ACCESS_WRITE] = ENTRY("write"),
+  [ACCESS_READ_WRITE] = ENTRY("readwrite"),
+  { 0 }
 };
 
-const char* VerticalAligns[] = {
-  [ALIGN_TOP] = "top",
-  [ALIGN_MIDDLE] = "middle",
-  [ALIGN_BOTTOM] = "bottom",
-  NULL
+StringEntry VerticalAligns[] = {
+  [ALIGN_TOP] = ENTRY("top"),
+  [ALIGN_MIDDLE] = ENTRY("middle"),
+  [ALIGN_BOTTOM] = ENTRY("bottom"),
+  { 0 }
 };
 
-const char* Windings[] = {
-  [WINDING_CLOCKWISE] = "clockwise",
-  [WINDING_COUNTERCLOCKWISE] = "counterclockwise",
-  NULL
+StringEntry Windings[] = {
+  [WINDING_CLOCKWISE] = ENTRY("clockwise"),
+  [WINDING_COUNTERCLOCKWISE] = ENTRY("counterclockwise"),
+  { 0 }
 };
 
-const char* WrapModes[] = {
-  [WRAP_CLAMP] = "clamp",
-  [WRAP_REPEAT] = "repeat",
-  [WRAP_MIRRORED_REPEAT] = "mirroredrepeat",
-  NULL
+StringEntry WrapModes[] = {
+  [WRAP_CLAMP] = ENTRY("clamp"),
+  [WRAP_REPEAT] = ENTRY("repeat"),
+  [WRAP_MIRRORED_REPEAT] = ENTRY("mirroredrepeat"),
+  { 0 }
 };
 
 static uint32_t luax_getvertexcount(lua_State* L, int index) {
@@ -513,14 +514,14 @@ static int l_lovrGraphicsGetBlendMode(lua_State* L) {
   BlendMode mode;
   BlendAlphaMode alphaMode;
   lovrGraphicsGetBlendMode(&mode, &alphaMode);
-  lua_pushstring(L, BlendModes[mode]);
-  lua_pushstring(L, BlendAlphaModes[alphaMode]);
+  luax_pushenum(L, BlendModes, mode);
+  luax_pushenum(L, BlendAlphaModes, alphaMode);
   return 2;
 }
 
 static int l_lovrGraphicsSetBlendMode(lua_State* L) {
-  BlendMode mode = lua_isnoneornil(L, 1) ? BLEND_NONE : luaL_checkoption(L, 1, NULL, BlendModes);
-  BlendAlphaMode alphaMode = luaL_checkoption(L, 2, "alphamultiply", BlendAlphaModes);
+  BlendMode mode = lua_isnoneornil(L, 1) ? BLEND_NONE : luax_checkenum(L, 1, BlendModes, NULL, "BlendMode");
+  BlendAlphaMode alphaMode = luax_checkenum(L, 2, BlendAlphaModes, "alphamultiply", "BlendAlphaMode");
   lovrGraphicsSetBlendMode(mode, alphaMode);
   return 0;
 }
@@ -584,7 +585,7 @@ static int l_lovrGraphicsSetCullingEnabled(lua_State* L) {
 
 static int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
   TextureFilter filter = lovrGraphicsGetDefaultFilter();
-  lua_pushstring(L, FilterModes[filter.mode]);
+  luax_pushenum(L, FilterModes, filter.mode);
   if (filter.mode == FILTER_ANISOTROPIC) {
     lua_pushnumber(L, filter.anisotropy);
     return 2;
@@ -593,7 +594,7 @@ static int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
 }
 
 static int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
-  FilterMode mode = luaL_checkoption(L, 1, NULL, FilterModes);
+  FilterMode mode = luax_checkenum(L, 1, FilterModes, NULL, "FilterMode");
   float anisotropy = luax_optfloat(L, 2, 1.f);
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = mode, .anisotropy = anisotropy });
   return 0;
@@ -603,13 +604,13 @@ static int l_lovrGraphicsGetDepthTest(lua_State* L) {
   CompareMode mode;
   bool write;
   lovrGraphicsGetDepthTest(&mode, &write);
-  lua_pushstring(L, CompareModes[mode]);
+  luax_pushenum(L, CompareModes, mode);
   lua_pushboolean(L, write);
   return 2;
 }
 
 static int l_lovrGraphicsSetDepthTest(lua_State* L) {
-  CompareMode mode = lua_isnoneornil(L, 1) ? COMPARE_NONE : luaL_checkoption(L, 1, NULL, CompareModes);
+  CompareMode mode = lua_isnoneornil(L, 1) ? COMPARE_NONE : luax_checkenum(L, 1, CompareModes, NULL, "CompareMode");
   bool write = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
   lovrGraphicsSetDepthTest(mode, write);
   return 0;
@@ -665,7 +666,7 @@ static int l_lovrGraphicsGetStencilTest(lua_State* L) {
   CompareMode mode;
   int value;
   lovrGraphicsGetStencilTest(&mode, &value);
-  lua_pushstring(L, CompareModes[mode]);
+  luax_pushenum(L, CompareModes, mode);
   lua_pushinteger(L, value);
   return 2;
 }
@@ -674,7 +675,7 @@ static int l_lovrGraphicsSetStencilTest(lua_State* L) {
   if (lua_isnoneornil(L, 1)) {
     lovrGraphicsSetStencilTest(COMPARE_NONE, 0);
   } else {
-    CompareMode mode = luaL_checkoption(L, 1, NULL, CompareModes);
+    CompareMode mode = luax_checkenum(L, 1, CompareModes, NULL, "CompareMode");
     int value = luaL_checkinteger(L, 2);
     lovrGraphicsSetStencilTest(mode, value);
   }
@@ -682,12 +683,13 @@ static int l_lovrGraphicsSetStencilTest(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetWinding(lua_State* L) {
-  lua_pushstring(L, Windings[lovrGraphicsGetWinding()]);
+  luax_pushenum(L, Windings, lovrGraphicsGetWinding());
   return 1;
 }
 
 static int l_lovrGraphicsSetWinding(lua_State* L) {
-  lovrGraphicsSetWinding(luaL_checkoption(L, 1, NULL, Windings));
+  Winding winding = luax_checkenum(L, 1, Windings, NULL, "Winding");
+  lovrGraphicsSetWinding(winding);
   return 0;
 }
 
@@ -839,7 +841,7 @@ static int l_lovrGraphicsTriangle(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    style = luaL_checkoption(L, 1, NULL, DrawStyles);
+    style = luax_checkenum(L, 1, DrawStyles, NULL, "DrawStyle");
   }
 
   float* vertices;
@@ -856,7 +858,7 @@ static int l_lovrGraphicsPlane(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    style = luaL_checkoption(L, 1, NULL, DrawStyles);
+    style = luax_checkenum(L, 1, DrawStyles, NULL, "DrawStyle");
   }
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 2);
@@ -874,7 +876,7 @@ static int luax_rectangularprism(lua_State* L, int scaleComponents) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    style = luaL_checkoption(L, 1, NULL, DrawStyles);
+    style = luax_checkenum(L, 1, DrawStyles, NULL, "DrawStyle");
   }
   float transform[16];
   luax_readmat4(L, 2, transform, scaleComponents);
@@ -896,12 +898,12 @@ static int l_lovrGraphicsArc(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    style = luaL_checkoption(L, 1, NULL, DrawStyles);
+    style = luax_checkenum(L, 1, DrawStyles, NULL, "DrawStyle");
   }
   ArcMode mode = ARC_MODE_PIE;
   int index = 2;
   if (lua_type(L, index) == LUA_TSTRING) {
-    mode = luaL_checkoption(L, index++, NULL, ArcModes);
+    mode = luax_checkenum(L, index++, ArcModes, NULL, "ArcMode");
   }
   float transform[16];
   index = luax_readmat4(L, index, transform, 1);
@@ -918,7 +920,7 @@ static int l_lovrGraphicsCircle(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    style = luaL_checkoption(L, 1, NULL, DrawStyles);
+    style = luax_checkenum(L, 1, DrawStyles, NULL, "DrawStyle");
   }
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1);
@@ -962,15 +964,15 @@ static int l_lovrGraphicsPrint(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1);
   float wrap = luax_optfloat(L, index++, 0.f);
-  HorizontalAlign halign = luaL_checkoption(L, index++, "center", HorizontalAligns);
-  VerticalAlign valign = luaL_checkoption(L, index++, "middle", VerticalAligns);
+  HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAligns, "center", "HorizontalAlign");
+  VerticalAlign valign = luax_checkenum(L, index++, VerticalAligns, "middle", "VerticalAlign");
   lovrGraphicsPrint(str, length, transform, wrap, halign, valign);
   return 0;
 }
 
 static int l_lovrGraphicsStencil(lua_State* L) {
   luaL_checktype(L, 1, LUA_TFUNCTION);
-  StencilAction action = luaL_checkoption(L, 2, "replace", StencilActions);
+  StencilAction action = luax_checkenum(L, 2, StencilActions, "replace", "StencilAction");
   int replaceValue = luaL_optinteger(L, 3, 1);
   bool keepValues = lua_toboolean(L, 4);
   if (!keepValues) {
@@ -1073,14 +1075,14 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
     switch (lua_type(L, -1)) {
       case LUA_TNIL: break;
       case LUA_TBOOLEAN: flags.depth.enabled = lua_toboolean(L, -1); break;
-      case LUA_TSTRING: flags.depth.format = luaL_checkoption(L, -1, NULL, TextureFormats); break;
+      case LUA_TSTRING: flags.depth.format = luax_checkenum(L, -1, TextureFormats, NULL, "TextureFormat"); break;
       case LUA_TTABLE:
         lua_getfield(L, -1, "readable");
         flags.depth.readable = lua_toboolean(L, -1);
         lua_pop(L, 1);
 
         lua_getfield(L, -1, "format");
-        flags.depth.format = luaL_checkoption(L, -1, NULL, TextureFormats);
+        flags.depth.format = luax_checkenum(L, -1, TextureFormats, NULL, "TextureFormat");
         lua_pop(L, 1);
         break;
       default: lovrThrow("Expected boolean, string, or table for Canvas depth flag");
@@ -1101,7 +1103,7 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
 
     if (attachmentCount == 0) {
       lua_getfield(L, index, "format");
-      format = luaL_checkoption(L, -1, "rgba", TextureFormats);
+      format = luax_checkenum(L, -1, TextureFormats, "rgba", "TextureFormat");
       anonymous = lua_isnil(L, -1) || lua_toboolean(L, -1);
       lua_pop(L, 1);
     }
@@ -1251,7 +1253,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
 
       attributeNames[i] = lua_tostring(L, -1);
       attributes[i].offset = (uint32_t) stride;
-      attributes[i].type = luaL_checkoption(L, -2, "float", AttributeTypes);
+      attributes[i].type = luax_checkenum(L, -2, AttributeTypes, "float", "AttributeType");
       attributes[i].components = luaL_optinteger(L, -3, 1);
 
       switch (attributes[i].type) {
@@ -1268,8 +1270,8 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     count = (uint32_t) (blob->size / stride);
   }
 
-  DrawMode mode = luaL_checkoption(L, drawModeIndex, "fan", DrawModes);
-  BufferUsage usage = luaL_checkoption(L, drawModeIndex + 1, "dynamic", BufferUsages);
+  DrawMode mode = luax_checkenum(L, drawModeIndex, DrawModes, "fan", "DrawMode");
+  BufferUsage usage = luax_checkenum(L, drawModeIndex + 1, BufferUsages, "dynamic", "BufferUsage");
   bool readable = lua_toboolean(L, drawModeIndex + 2);
   Buffer* vertexBuffer = lovrBufferCreate(count * stride, NULL, BUFFER_VERTEX, usage, readable);
   Mesh* mesh = lovrMeshCreate(mode, vertexBuffer, count);
@@ -1423,7 +1425,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   Shader* shader;
 
   if (lua_isstring(L, 1) && (lua_istable(L, 2) || lua_gettop(L) == 1)) {
-    DefaultShader shaderType = luaL_checkoption(L, 1, NULL, DefaultShaders);
+    DefaultShader shaderType = luax_checkenum(L, 1, DefaultShaders, NULL, "DefaultShader");
 
     if (lua_istable(L, 2)) {
       lua_getfield(L, 2, "flags");
@@ -1491,7 +1493,7 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   arr_uniform_t uniforms;
   arr_init(&uniforms);
 
-  BlockType type = luaL_checkoption(L, 1, NULL, BlockTypes);
+  BlockType type = luax_checkenum(L, 1, BlockTypes, NULL, "Blocktype");
 
   luaL_checktype(L, 2, LUA_TTABLE);
   lua_pushnil(L);
@@ -1528,7 +1530,7 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
 
   if (lua_istable(L, 3)) {
     lua_getfield(L, 3, "usage");
-    usage = luaL_checkoption(L, -1, "dynamic", BufferUsages);
+    usage = luax_checkenum(L, -1, BufferUsages, "dynamic", "BufferUsage");
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "readable");
@@ -1587,11 +1589,11 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, index, "type");
-    type = lua_isnil(L, -1) ? type : (TextureType) luaL_checkoption(L, -1, NULL, TextureTypes);
+    type = lua_isnil(L, -1) ? type : (TextureType) luax_checkenum(L, -1, TextureTypes, NULL, "TextureType");
     lua_pop(L, 1);
 
     lua_getfield(L, index, "format");
-    format = lua_isnil(L, -1) ? format : (TextureFormat) luaL_checkoption(L, -1, NULL, TextureFormats);
+    format = lua_isnil(L, -1) ? format : (TextureFormat) luax_checkenum(L, -1, TextureFormats, NULL, "TextureFormat");
     lua_pop(L, 1);
 
     lua_getfield(L, index, "msaa");
