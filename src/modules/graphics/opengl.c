@@ -1536,7 +1536,7 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
 #ifdef LOVR_GL
   if (GLAD_GL_ARB_texture_storage) {
 #endif
-  if (texture->type == TEXTURE_ARRAY) {
+  if (texture->type == TEXTURE_ARRAY || texture->type == TEXTURE_VOLUME) {
     glTexStorage3D(texture->target, texture->mipmapCount, internalFormat, width, height, depth);
   } else {
     glTexStorage2D(texture->target, texture->mipmapCount, internalFormat, width, height);
