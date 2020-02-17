@@ -164,7 +164,11 @@ int luax_checkoption(lua_State* L, int index, const StringEntry* map, const char
     }
   }
 
-  return luaL_argerror(L, index, lua_pushfstring(L, "Invalid %s '%s'", label, string));
+  if (index > 0) {
+    return luaL_argerror(L, index, lua_pushfstring(L, "invalid %s '%s'", label, string));
+  } else {
+    return luaL_error(L, "invalid %s '%s'", label, string);
+  }
 }
 
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
