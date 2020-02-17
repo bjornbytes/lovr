@@ -244,26 +244,7 @@ static GLenum convertTextureFormatType(TextureFormat format) {
     case FORMAT_D16: return GL_UNSIGNED_SHORT;
     case FORMAT_D32F: return GL_UNSIGNED_INT;
     case FORMAT_D24S8: return GL_UNSIGNED_INT_24_8;
-    case FORMAT_DXT1:
-    case FORMAT_DXT3:
-    case FORMAT_DXT5:
-    case FORMAT_ASTC_4x4:
-    case FORMAT_ASTC_5x4:
-    case FORMAT_ASTC_5x5:
-    case FORMAT_ASTC_6x5:
-    case FORMAT_ASTC_6x6:
-    case FORMAT_ASTC_8x5:
-    case FORMAT_ASTC_8x6:
-    case FORMAT_ASTC_8x8:
-    case FORMAT_ASTC_10x5:
-    case FORMAT_ASTC_10x6:
-    case FORMAT_ASTC_10x8:
-    case FORMAT_ASTC_10x10:
-    case FORMAT_ASTC_12x10:
-    case FORMAT_ASTC_12x12:
-    default:
-      lovrThrow("Unreachable");
-      return GL_UNSIGNED_BYTE;
+    default: lovrThrow("Unreachable");
   }
 }
 
