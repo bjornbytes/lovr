@@ -188,7 +188,11 @@ function lovr.mirror()
   if lovr.headset then -- On some systems, headset module will be disabled
     local texture = lovr.headset.getMirrorTexture()
     if texture then    -- On some drivers, texture is printed directly to the window
-      lovr.graphics.fill(texture)
+      if lovr.headset.getDriver() == 'oculus' then
+        lovr.graphics.fill(lovr.headset.getMirrorTexture(), 0, 1, 1, -1)
+      else
+        lovr.graphics.fill(lovr.headset.getMirrorTexture())
+      end
     end
   else
     lovr.graphics.clear()
