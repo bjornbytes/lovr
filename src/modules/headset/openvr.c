@@ -244,7 +244,7 @@ static void openvr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   state.system->GetRecommendedRenderTargetSize(width, height);
 }
 
-static float openvr_getDisplayFrequency() {
+static float openvr_getDisplayFrequency(void) {
   return state.system->GetFloatTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_DisplayFrequency_Float, NULL);
 }
 

@@ -236,7 +236,8 @@ static bool oculus_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
   return true;
 }
 
-static bool oculus_isDown(Device device, DeviceButton button, bool* down) {
+// FIXME: Write "changed"
+static bool oculus_isDown(Device device, DeviceButton button, bool* down, bool *changed) {
   if (device == DEVICE_HEAD && button == BUTTON_PROXIMITY) {
     ovrSessionStatus status;
     ovr_GetSessionStatus(state.session, &status);

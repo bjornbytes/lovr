@@ -82,7 +82,7 @@ static const float* desktop_getDisplayMask(uint32_t* count) {
   return NULL;
 }
 
-static uint32_t desktop_getViewCount() {
+static uint32_t desktop_getViewCount(void) {
   return 2;
 }
 
