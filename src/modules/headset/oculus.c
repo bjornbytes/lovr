@@ -334,7 +334,7 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
       .Width = lovrGraphicsGetWidth(),
       .Height = lovrGraphicsGetHeight(),
       .Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB,
-      .MirrorOptions = ovrMirrorOption_PostDistortion
+      .MirrorOptions = ovrMirrorOption_LeftEyeOnly
     };
     lovrAssert(OVR_SUCCESS(ovr_CreateMirrorTextureWithOptionsGL(state.session, &mdesc, &state.mirror)), "Unable to create mirror texture");
 
