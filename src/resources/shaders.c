@@ -338,8 +338,8 @@ const char* lovrPanoFragmentShader = ""
 "  vec3 direction = texturePosition[lovrViewID]; \n"
 "  float theta = acos(-direction.y / length(direction)); \n"
 "  float phi = atan(direction.x, -direction.z); \n"
-"  vec2 uv = vec2(.5 + phi / (2. * PI), theta / PI); \n"
-"  return lovrGraphicsColor * texture(lovrDiffuseTexture, uv); \n"
+"  vec2 cubeUv = vec2(.5 + phi / (2. * PI), theta / PI); \n"
+"  return lovrGraphicsColor * texture(lovrDiffuseTexture, cubeUv); \n"
 "}";
 
 const char* lovrFontFragmentShader = ""
