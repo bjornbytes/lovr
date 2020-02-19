@@ -1462,6 +1462,7 @@ Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureTyp
   texture->type = type;
   texture->id = handle;
   texture->target = convertTextureTarget(type);
+  texture->compareMode = COMPARE_NONE;
   texture->native = true;
 
   int width, height;
