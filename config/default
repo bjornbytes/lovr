@@ -54,3 +54,9 @@ CONFIG_LEAP_PATH=
 ## OpenGL flavor
 # Can be GL, GLES, or WEBGL.  Ideally this should be autodetected though.
 CONFIG_GL=GL
+
+## Experimental renderer settings
+# GPU enables the core/gpu renderer
+# GPU_BACKEND is used to select the backend (gl, vk, wg)
+CONFIG_GPU=n
+CONFIG_GPU_BACKEND=gl
