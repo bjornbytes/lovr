@@ -127,7 +127,7 @@ static int l_lovrModelGetNodePose(lua_State* L) {
   }
 
   float position[4], rotation[4], angle, ax, ay, az;
-  CoordinateSpace space = luaL_checkoption(L, 3, "global", CoordinateSpaces);
+  CoordinateSpace space = luax_checkenum(L, 3, CoordinateSpaces, "global", "CoordinateSpace");
   lovrModelGetNodePose(model, node, position, rotation, space);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);

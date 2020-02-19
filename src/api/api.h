@@ -60,43 +60,48 @@ extern const luaL_Reg lovrVec3[];
 extern const luaL_Reg lovrWorld[];
 
 // Enums
-extern const char* ArcModes[];
-extern const char* AttributeTypes[];
-extern const char* BlendAlphaModes[];
-extern const char* BlendModes[];
-extern const char* BlockTypes[];
-extern const char* BufferUsages[];
-extern const char* CompareModes[];
-extern const char* CoordinateSpaces[];
-extern const char* Devices[];
-extern const char* DeviceAxes[];
-extern const char* DeviceButtons[];
-extern const char* DrawModes[];
-extern const char* DrawStyles[];
-extern const char* EventTypes[];
-extern const char* FilterModes[];
-extern const char* HeadsetDrivers[];
-extern const char* HeadsetOrigins[];
-extern const char* HorizontalAligns[];
-extern const char* JointTypes[];
-extern const char* MaterialColors[];
-extern const char* MaterialScalars[];
-extern const char* MaterialTextures[];
-extern const char* ShaderTypes[];
-extern const char* ShapeTypes[];
-extern const char* SourceTypes[];
-extern const char* StencilActions[];
-extern const char* TextureFormats[];
-extern const char* TextureTypes[];
-extern const char* TimeUnits[];
-extern const char* UniformAccesses[];
-extern const char* VerticalAligns[];
-extern const char* Windings[];
-extern const char* WrapModes[];
+typedef struct {
+  uint8_t length;
+  char string[31];
+} StringEntry;
+
+#define ENTRY(s) { sizeof(s) - 1, s }
+
+extern StringEntry ArcModes[];
+extern StringEntry AttributeTypes[];
+extern StringEntry BlendAlphaModes[];
+extern StringEntry BlendModes[];
+extern StringEntry BlockTypes[];
+extern StringEntry BufferUsages[];
+extern StringEntry CompareModes[];
+extern StringEntry CoordinateSpaces[];
+extern StringEntry Devices[];
+extern StringEntry DeviceAxes[];
+extern StringEntry DeviceButtons[];
+extern StringEntry DrawModes[];
+extern StringEntry DrawStyles[];
+extern StringEntry EventTypes[];
+extern StringEntry FilterModes[];
+extern StringEntry HeadsetDrivers[];
+extern StringEntry HeadsetOrigins[];
+extern StringEntry HorizontalAligns[];
+extern StringEntry JointTypes[];
+extern StringEntry MaterialColors[];
+extern StringEntry MaterialScalars[];
+extern StringEntry MaterialTextures[];
+extern StringEntry ShaderTypes[];
+extern StringEntry ShapeTypes[];
+extern StringEntry SourceTypes[];
+extern StringEntry StencilActions[];
+extern StringEntry TextureFormats[];
+extern StringEntry TextureTypes[];
+extern StringEntry TimeUnits[];
+extern StringEntry UniformAccesses[];
+extern StringEntry VerticalAligns[];
+extern StringEntry Windings[];
+extern StringEntry WrapModes[];
 
 // General helpers
-
-struct Color;
 
 typedef struct {
   uint64_t hash;
@@ -112,6 +117,7 @@ typedef struct {
 #define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash64(#T, strlen(#T)))
 #define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash64(#T, strlen(#T)), #T)
 #define luax_pushtype(L, T, o) _luax_pushtype(L, #T, hash64(#T, strlen(#T)), o)
+#define luax_pushenum(L, m, x) lua_pushlstring(L, m[x].string, m[x].length)
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
 #define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")
@@ -122,6 +128,7 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
 void* _luax_totype(lua_State* L, int index, uint64_t hash);
 void* _luax_checktype(lua_State* L, int index, uint64_t hash, const char* debug);
 void _luax_pushtype(lua_State* L, const char* name, uint64_t hash, void* object);
+int luax_checkenum(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label);
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
 void luax_vthrow(void* L, const char* format, va_list args);
 void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);

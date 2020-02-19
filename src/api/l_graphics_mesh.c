@@ -85,13 +85,13 @@ static int l_lovrMeshDraw(lua_State* L) {
 
 static int l_lovrMeshGetDrawMode(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  lua_pushstring(L, DrawModes[lovrMeshGetDrawMode(mesh)]);
+  luax_pushenum(L, DrawModes, lovrMeshGetDrawMode(mesh));
   return 1;
 }
 
 static int l_lovrMeshSetDrawMode(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  DrawMode mode = luaL_checkoption(L, 2, NULL, DrawModes);
+  DrawMode mode = luax_checkenum(L, 2, DrawModes, NULL, "DrawMode");
   lovrMeshSetDrawMode(mesh, mode);
   return 0;
 }
@@ -107,7 +107,7 @@ static int l_lovrMeshGetVertexFormat(lua_State* L) {
     lua_createtable(L, 3, 0);
     lua_pushstring(L, mesh->attributeNames[i]);
     lua_rawseti(L, -2, 1);
-    lua_pushstring(L, AttributeTypes[attribute->type]);
+    luax_pushenum(L, AttributeTypes, attribute->type);
     lua_rawseti(L, -2, 2);
     lua_pushinteger(L, attribute->components);
     lua_rawseti(L, -2, 3);

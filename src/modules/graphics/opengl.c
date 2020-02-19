@@ -244,26 +244,7 @@ static GLenum convertTextureFormatType(TextureFormat format) {
     case FORMAT_D16: return GL_UNSIGNED_SHORT;
     case FORMAT_D32F: return GL_UNSIGNED_INT;
     case FORMAT_D24S8: return GL_UNSIGNED_INT_24_8;
-    case FORMAT_DXT1:
-    case FORMAT_DXT3:
-    case FORMAT_DXT5:
-    case FORMAT_ASTC_4x4:
-    case FORMAT_ASTC_5x4:
-    case FORMAT_ASTC_5x5:
-    case FORMAT_ASTC_6x5:
-    case FORMAT_ASTC_6x6:
-    case FORMAT_ASTC_8x5:
-    case FORMAT_ASTC_8x6:
-    case FORMAT_ASTC_8x8:
-    case FORMAT_ASTC_10x5:
-    case FORMAT_ASTC_10x6:
-    case FORMAT_ASTC_10x8:
-    case FORMAT_ASTC_10x10:
-    case FORMAT_ASTC_12x10:
-    case FORMAT_ASTC_12x12:
-    default:
-      lovrThrow("Unreachable");
-      return GL_UNSIGNED_BYTE;
+    default: lovrThrow("Unreachable");
   }
 }
 
@@ -1077,10 +1058,10 @@ void lovrGpuInit(void* (*getProcAddress)(const char*)) {
   state.features.instancedStereo = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
   state.features.multiview = GLAD_GL_ES_VERSION_3_0 && GLAD_GL_OVR_multiview2 && GLAD_GL_OVR_multiview_multisampled_render_to_texture;
   state.features.timers = GLAD_GL_VERSION_3_3 || GLAD_GL_EXT_disjoint_timer_query;
+#ifdef LOVR_GL
   glEnable(GL_LINE_SMOOTH);
   glEnable(GL_PROGRAM_POINT_SIZE);
   glEnable(GL_FRAMEBUFFER_SRGB);
-#ifdef LOVR_GL
   glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 #endif
   glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
@@ -1536,7 +1517,7 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
 #ifdef LOVR_GL
   if (GLAD_GL_ARB_texture_storage) {
 #endif
-  if (texture->type == TEXTURE_ARRAY) {
+  if (texture->type == TEXTURE_ARRAY || texture->type == TEXTURE_VOLUME) {
     glTexStorage3D(texture->target, texture->mipmapCount, internalFormat, width, height, depth);
   } else {
     glTexStorage2D(texture->target, texture->mipmapCount, internalFormat, width, height);

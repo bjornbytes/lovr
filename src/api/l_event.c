@@ -7,12 +7,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-const char* EventTypes[] = {
-  [EVENT_QUIT] = "quit",
-  [EVENT_FOCUS] = "focus",
+StringEntry EventTypes[] = {
+  [EVENT_QUIT] = ENTRY("quit"),
+  [EVENT_FOCUS] = ENTRY("focus"),
 #ifdef LOVR_ENABLE_THREAD
-  [EVENT_THREAD_ERROR] = "threaderror",
+  [EVENT_THREAD_ERROR] = ENTRY("threaderror"),
 #endif
+  { 0 }
 };
 
 static LOVR_THREAD_LOCAL int pollRef;
@@ -91,7 +92,7 @@ static int nextEvent(lua_State* L) {
   if (event.type == EVENT_CUSTOM) {
     lua_pushstring(L, event.data.custom.name);
   } else {
-    lua_pushstring(L, EventTypes[event.type]);
+    luax_pushenum(L, EventTypes, event.type);
   }
 
   switch (event.type) {

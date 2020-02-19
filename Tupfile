@@ -7,6 +7,7 @@ SRC += src/core/fs.c
 SRC += src/core/maf.c
 SRC += src/core/map.c
 SRC += src/core/os_$(PLATFORM).c
+SRC += src/core/png.c
 SRC += src/core/ref.c
 SRC += src/core/utf.c
 SRC += src/core/util.c

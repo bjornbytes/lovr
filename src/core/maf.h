@@ -561,10 +561,6 @@ MAF mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, flo
 
 // This is currently specific to OpenGL
 MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float clipNear, float clipFar) {
-  left = tanf(left);
-  right = tanf(right);
-  up = tanf(up);
-  down = tanf(down);
   float idx = 1.f / (right - left);
   float idy = 1.f / (up - down);
   float idz = 1.f / (clipFar - clipNear);

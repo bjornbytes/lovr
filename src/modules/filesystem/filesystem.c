@@ -409,7 +409,7 @@ void lovrFilesystemSetCRequirePath(const char* requirePath) {
 static bool dir_resolve(char* buffer, Archive* archive, const char* path) {
   char innerBuffer[LOVR_PATH_MAX];
   size_t length = strlen(path);
-  if (length >= sizeof(innerBuffer)) return NULL;
+  if (length >= sizeof(innerBuffer)) return false;
   length = normalize(innerBuffer, path, length);
   path = innerBuffer;
 

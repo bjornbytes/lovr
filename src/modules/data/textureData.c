@@ -1,8 +1,8 @@
 #include "data/textureData.h"
 #include "filesystem/filesystem.h"
+#include "core/png.h"
 #include "core/ref.h"
 #include "lib/stb/stb_image.h"
-#include "lib/stb/stb_image_write.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -565,19 +565,16 @@ void lovrTextureDataSetPixel(TextureData* textureData, uint32_t x, uint32_t y, C
   }
 }
 
-static void writeCallback(void* context, void* data, int size) {
-  const char* filename = context;
-  lovrFilesystemWrite(filename, data, size, false);
-}
-
 bool lovrTextureDataEncode(TextureData* textureData, const char* filename) {
-  lovrAssert(textureData->format == FORMAT_RGB || textureData->format == FORMAT_RGBA, "Only RGB and RGBA TextureData can be encoded");
-  int components = textureData->format == FORMAT_RGB ? 3 : 4;
-  int width = textureData->width;
-  int height = textureData->height;
-  void* data = (uint8_t*) textureData->blob->data + (textureData->height - 1) * textureData->width * components;
-  int stride = -1 * (int) (textureData->width * components);
-  return stbi_write_png_to_func(writeCallback, (void*) filename, width, height, components, data, stride);
+  lovrAssert(textureData->format == FORMAT_RGBA, "Only RGBA TextureData can be encoded");
+  uint8_t* pixels = (uint8_t*) textureData->blob->data + (textureData->height - 1) * textureData->width * 4;
+  int32_t stride = -1 * (int) (textureData->width * 4);
+  size_t size;
+  void* data = png_encode(pixels, textureData->width, textureData->height, stride, &size);
+  if (!data) return false;
+  lovrFilesystemWrite(filename, data, size, false);
+  free(data);
+  return true;
 }
 
 void lovrTextureDataPaste(TextureData* textureData, TextureData* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h) {

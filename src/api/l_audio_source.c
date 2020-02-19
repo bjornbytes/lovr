@@ -28,7 +28,7 @@ static int l_lovrSourceGetCone(lua_State* L) {
 
 static int l_lovrSourceGetDuration(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  TimeUnit unit = luaL_checkoption(L, 2, "seconds", TimeUnits);
+  TimeUnit unit = luax_checkenum(L, 2, TimeUnits, "seconds", "TimeUnit");
   size_t duration = lovrSourceGetDuration(source);
 
   if (unit == UNIT_SECONDS) {
@@ -101,7 +101,7 @@ static int l_lovrSourceGetSampleRate(lua_State* L) {
 
 static int l_lovrSourceGetType(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  lua_pushstring(L, SourceTypes[lovrSourceGetType(source)]);
+  luax_pushenum(L, SourceTypes, lovrSourceGetType(source));
   return 1;
 }
 
@@ -178,7 +178,7 @@ static int l_lovrSourceRewind(lua_State* L) {
 
 static int l_lovrSourceSeek(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  TimeUnit unit = luaL_checkoption(L, 3, "seconds", TimeUnits);
+  TimeUnit unit = luax_checkenum(L, 3, TimeUnits, "seconds", "TimeUnit");
 
   if (unit == UNIT_SECONDS) {
     float seconds = luax_checkfloat(L, 2);
@@ -278,7 +278,7 @@ static int l_lovrSourceStop(lua_State* L) {
 
 static int l_lovrSourceTell(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  TimeUnit unit = luaL_checkoption(L, 2, "seconds", TimeUnits);
+  TimeUnit unit = luax_checkenum(L, 2, TimeUnits, "seconds", "TimeUnit");
   size_t offset = lovrSourceTell(source);
 
   if (unit == UNIT_SECONDS) {

@@ -273,11 +273,7 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
   if(NOT LOVR_OCULUS_PATH)
     message(FATAL_ERROR "LOVR_USE_OCULUS requires the LOVR_OCULUS_PATH to be set to the location of the Oculus Desktop SDK (LibOVR) folder")
   endif()
-  if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(OCULUS_BUILD_TYPE "Release")
-  else()
-    set(OCULUS_BUILD_TYPE "Debug")
-  endif()
+  set(OCULUS_BUILD_TYPE "Release")
   if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(OCULUS_ARCH "x64")
   else()
@@ -327,6 +323,7 @@ set(LOVR_SRC
   src/core/fs.c
   src/core/maf.c
   src/core/map.c
+  src/core/png.c
   src/core/ref.c
   src/core/utf.c
   src/core/util.c
@@ -393,7 +390,6 @@ if(LOVR_ENABLE_DATA)
     src/api/l_data_soundData.c
     src/api/l_data_textureData.c
     src/lib/stb/stb_image.c
-    src/lib/stb/stb_image_write.c
     src/lib/stb/stb_truetype.c
     src/lib/stb/stb_vorbis.c
     src/lib/jsmn/jsmn.c
