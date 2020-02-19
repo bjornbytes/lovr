@@ -10,9 +10,6 @@
 #include <GLFW/glfw3native.h>
 #endif
 
-#ifdef OS_GLFW_H
-#define OS_GLFW_H
-
 static struct {
   GLFWwindow* window;
   windowCloseCallback onWindowClose;
@@ -254,6 +251,4 @@ HANDLE lovrPlatformGetWindow() {
 HGLRC lovrPlatformGetContext() {
   return glfwGetWGLContext(glfwState.window);
 }
-#endif
-
 #endif

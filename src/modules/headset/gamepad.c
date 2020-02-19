@@ -3,8 +3,9 @@
 #include "core/util.h"
 #include "core/maf.h"
 #include <stdlib.h>
-#define OS_GLFW_H
-#include "core/os_glfw.h"
+
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 
 #define GAMEPAD_COUNT (DEVICE_GAMEPAD_LAST - DEVICE_GAMEPAD_FIRST + 1)
 
