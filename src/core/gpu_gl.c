@@ -11,6 +11,7 @@
   X(glVertexBindingDivisor, GLVERTEXBINDINGDIVISOR)\
   X(glVertexAttribBinding, GLVERTEXATTRIBBINDING)\
   X(glVertexAttribFormat, GLVERTEXATTRIBFORMAT)\
+  X(glVertexAttribIFormat, GLVERTEXATTRIBIFORMAT)\
   X(glBindVertexBuffer, GLBINDVERTEXBUFFER)\
   X(glCullFace, GLCULLFACE)\
   X(glFrontFace, GLFRONTFACE)\
@@ -22,6 +23,8 @@
   X(glBlendEquationSeparate, GLBLENDEQUATIONSEPARATE)\
   X(glDrawArraysInstanced, GLDRAWARRAYSINSTANCED)\
   X(glDrawElementsInstancedBaseVertex, GLDRAWELEMENTSINSTANCEDBASEVERTEX)\
+  X(glMultiDrawArraysIndirect, GLMULTIDRAWARRAYSINDIRECT)\
+  X(glMultiDrawElementsIndirect, GLMULTIDRAWELEMENTSINDIRECT)\
   X(glDispatchCompute, GLDISPATCHCOMPUTE)\
   X(glGenVertexArrays, GLGENVERTEXARRAYS)\
   X(glDeleteVertexArrays, GLDELETEVERTEXARRAYS)\
@@ -32,6 +35,7 @@
   X(glBufferStorage, GLBUFFERSTORAGE)\
   X(glMapBufferRange, GLMAPBUFFERRANGE)\
   X(glFlushMappedBufferRange, GLFLUSHMAPPEDBUFFERRANGE)\
+  X(glUnmapBuffer, GLUNMAPBUFFER)\
   X(glInvalidateBufferData, GLINVALIDATEBUFFERDATA)\
   X(glGenTextures, GLGENTEXTURES)\
   X(glDeleteTextures, GLDELETETEXTURES)\
@@ -43,14 +47,14 @@
   X(glGenFramebuffers, GLGENFRAMEBUFFERS)\
   X(glDeleteFramebuffers, GLDELETEFRAMEBUFFERS)\
   X(glBindFramebuffer, GLBINDFRAMEBUFFER)\
-  X(glFramebufferTexture2D, GLBINDFRAMEBUFFER)\
-  X(glFramebufferTextureLayer, GLBINDFRAMEBUFFER)\
-  X(glCheckFramebufferStatus, GLBINDFRAMEBUFFER)\
-  X(glDrawBuffers, GLBINDFRAMEBUFFER)\
+  X(glFramebufferTexture2D, GLFRAMEBUFFERTEXTURE2D)\
+  X(glFramebufferTextureLayer, GLFRAMEBUFFERTEXTURELAYER)\
+  X(glCheckFramebufferStatus, GLCHECKFRAMEBUFFERSTATUS)\
+  X(glDrawBuffers, GLDRAWBUFFERS)\
   X(glUseProgram, GLUSEPROGRAM)\
 
 #define GL_DECLARE(fn, upper) static PFN##upper##PROC fn;
-#define GL_LOAD(fn, upper) fn = (upper) config->getProcAddress(#fn);
+#define GL_LOAD(fn, upper) fn = (PFN##upper##PROC) config->getProcAddress(#fn);
 
 // Types
 
@@ -118,7 +122,7 @@ void gpu_frame_finish(void) {
 }
 
 void gpu_render_begin(gpu_canvas* canvas) {
-  glBindFramebuffer(canvas->id);
+  glBindFramebuffer(GL_FRAMEBUFFER, canvas->id);
   state.canvas = canvas;
 }
 
@@ -246,7 +250,7 @@ void gpu_set_pipeline(gpu_pipeline* pipeline) {
 
   if (my->colorMask != new->colorMask) {
     glColorMask(new->colorMask & 0x8, new->colorMask & 0x4, new->colorMask & 0x2, new->colorMask & 0x1);
-    my->colorMask != new->colorMask;
+    my->colorMask = new->colorMask;
   }
 
   if (my->blend.enabled != new->blend.enabled) {
@@ -305,26 +309,26 @@ static const GLenum drawModes[] = {
 };
 
 void gpu_draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex) {
-  GLenum mode = drawModes[state.pipeline->drawMode];
+  GLenum mode = drawModes[state.pipeline->info.drawMode];
   glDrawArraysInstanced(mode, firstVertex, vertexCount, instanceCount);
 }
 
 void gpu_draw_indexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex) {
-  GLenum mode = drawModes[state.pipeline->drawMode];
-  GLenum type = state.pipeline->indexStride == GPU_INDEX_U16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-  GLvoid* offset = (GLvoid*) (firstIndex * (type == GL_UNSIGNED_SHORT ? 2 : 4));
+  GLenum mode = drawModes[state.pipeline->info.drawMode];
+  GLenum type = state.pipeline->info.indexStride == GPU_INDEX_U16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+  GLvoid* offset = (GLvoid*) ((uint64_t) firstIndex * (type == GL_UNSIGNED_SHORT ? 2 : 4));
   glDrawElementsInstancedBaseVertex(mode, indexCount, type, offset, instanceCount, baseVertex);
 }
 
 void gpu_draw_indirect(gpu_buffer* buffer, uint64_t offset, uint32_t drawCount) {
-  GLenum mode = drawModes[state.pipeline->drawMode];
+  GLenum mode = drawModes[state.pipeline->info.drawMode];
   glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buffer->id);
   glMultiDrawArraysIndirect(mode, (GLvoid*) offset, drawCount, 0);
 }
 
 void gpu_draw_indirect_indexed(gpu_buffer* buffer, uint64_t offset, uint32_t drawCount) {
-  GLenum mode = drawModes[state.pipeline->drawMode];
-  GLenum type = state.pipeline->indexStride == GPU_INDEX_U16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+  GLenum mode = drawModes[state.pipeline->info.drawMode];
+  GLenum type = state.pipeline->info.indexStride == GPU_INDEX_U16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
   glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buffer->id);
   glMultiDrawElementsIndirect(mode, type, (GLvoid*) offset, drawCount, 0);
 }
@@ -378,7 +382,7 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
   glDeleteBuffers(1, &buffer->id);
 }
 
-uint8_t* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset) {
+uint8_t* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
   return buffer->data + offset;
 }
 
@@ -451,8 +455,8 @@ void gpu_texture_write(gpu_texture* texture, uint8_t* data, uint16_t offset[4], 
   switch (texture->target) {
     case GL_TEXTURE_2D: glTexSubImage2D(GL_TEXTURE_2D, mip, x, y, w, h, format, type, data);
     case GL_TEXTURE_3D: glTexSubImage3D(GL_TEXTURE_3D, mip, x, y, z, w, h, d, format, type, data);
-    case GL_TEXTURE_CUBE: glTexSubImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + z, mip, x, y, w, h, format, type, data);
-    case GL_TEXTURE_ARRAY: glTexSubImage3D(GL_TEXTURE_2D_ARRAY, mip, x, y, i, w, h, n, format, type, data);
+    case GL_TEXTURE_CUBE_MAP: glTexSubImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + z, mip, x, y, w, h, format, type, data);
+    case GL_TEXTURE_2D_ARRAY: glTexSubImage3D(GL_TEXTURE_2D_ARRAY, mip, x, y, i, w, h, n, format, type, data);
     default: break;
   }
 }
@@ -466,7 +470,7 @@ size_t gpu_sizeof_canvas(void) {
 bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
   glGenFramebuffers(1, &canvas->id);
   glBindFramebuffer(GL_FRAMEBUFFER, canvas->id);
-  uint32_t bufferCount = 0;
+  GLsizei bufferCount = 0;
   GLenum buffers[4] = { GL_NONE };
   for (uint32_t i = 0; i < 4 && info->color[i].texture; i++, bufferCount++) {
     buffers[i] = GL_COLOR_ATTACHMENT0 + i;
@@ -498,6 +502,7 @@ void gpu_canvas_destroy(gpu_canvas* canvas) {
 
 bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
   pipeline->info = *info;
+  return true;
 }
 
 void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
