@@ -142,10 +142,26 @@ void gpu_shader_destroy(gpu_shader* shader);
 // Pipeline
 
 typedef enum {
-  GPU_ATTR_FLOAT,
-  GPU_ATTR_VEC2,
-  GPU_ATTR_VEC3,
-  GPU_ATTR_VEC4
+  GPU_FLOAT_F32,
+  GPU_VEC2_F32,
+  GPU_VEC2_F16,
+  GPU_VEC2_U16N,
+  GPU_VEC2_I16N,
+  GPU_VEC3_F32,
+  GPU_VEC4_F32,
+  GPU_VEC4_F16,
+  GPU_VEC4_U16N,
+  GPU_VEC4_I16N,
+  GPU_VEC4_U8N,
+  GPU_VEC4_I8N,
+  GPU_UINT_U32,
+  GPU_UVEC2_U32,
+  GPU_UVEC3_U32,
+  GPU_UVEC4_U32,
+  GPU_INT_I32,
+  GPU_IVEC2_I32,
+  GPU_IVEC3_I32,
+  GPU_IVEC4_I32
 } gpu_attribute_format;
 
 typedef struct {

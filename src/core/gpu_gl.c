@@ -149,20 +149,38 @@ void gpu_set_pipeline(gpu_pipeline* pipeline) {
 
   for (uint32_t i = 0; i < 16; i++) {
     static const struct { GLint count; GLenum type; GLboolean normalized; } formats[] = {
-      [GPU_ATTR_FLOAT] = { 1, GL_FLOAT },
-      [GPU_ATTR_VEC2] = { 2, GL_FLOAT },
-      [GPU_ATTR_VEC3] = { 3, GL_FLOAT },
-      [GPU_ATTR_VEC4] = { 4, GL_FLOAT }
+      [GPU_FLOAT_F32] = { 1, GL_FLOAT, GL_FALSE },
+      [GPU_VEC2_F32] = { 2, GL_FLOAT, GL_FALSE },
+      [GPU_VEC2_U16N] = { 2, GL_UNSIGNED_SHORT, GL_TRUE },
+      [GPU_VEC2_I16N] = { 2, GL_SHORT, GL_TRUE },
+      [GPU_VEC3_F32] = { 3, GL_FLOAT, GL_FALSE },
+      [GPU_VEC4_F32] = { 4, GL_FLOAT, GL_FALSE },
+      [GPU_VEC4_F16] = { 4, GL_HALF_FLOAT, GL_FALSE },
+      [GPU_VEC4_U16N] = { 4, GL_UNSIGNED_SHORT, GL_TRUE },
+      [GPU_VEC4_I16N] = { 4, GL_SHORT, GL_TRUE },
+      [GPU_VEC4_U8N] = { 4, GL_UNSIGNED_BYTE, GL_TRUE },
+      [GPU_VEC4_I8N] = { 4, GL_BYTE, GL_TRUE },
+      [GPU_UINT_U32] = { 1, GL_UNSIGNED_INT },
+      [GPU_UVEC2_U32] = { 2, GL_UNSIGNED_INT },
+      [GPU_UVEC3_U32] = { 3, GL_UNSIGNED_INT },
+      [GPU_UVEC4_U32] = { 4, GL_UNSIGNED_INT },
+      [GPU_INT_I32] = { 1, GL_INT },
+      [GPU_IVEC2_I32] = { 2, GL_INT },
+      [GPU_IVEC3_I32] = { 3, GL_INT },
+      [GPU_IVEC4_I32] = { 4, GL_INT }
     };
     if (memcmp(&my->attributes[i], &new->attributes[i], sizeof(gpu_attribute))) {
-      glVertexAttribBinding(new->attributes[i].location, new->attributes[i].buffer);
-      glVertexAttribFormat(
-        new->attributes[i].location,
-        formats[new->attributes[i].format].count,
-        formats[new->attributes[i].format].type,
-        formats[new->attributes[i].format].normalized,
-        new->attributes[i].offset
-      );
+      GLuint location = new->attributes[i].location;
+      GLint size = formats[new->attributes[i].format].count;
+      GLenum type = formats[new->attributes[i].format].type;
+      GLboolean normalized = formats[new->attributes[i].format].normalized;
+      GLuint offset = new->attributes[i].offset;
+      glVertexAttribBinding(location, new->attributes[i].buffer);
+      if (new->attributes[i].format >= GPU_UINT_U32) {
+        glVertexAttribIFormat(location, size, type, offset);
+      } else {
+        glVertexAttribFormat(location, size, type, normalized, offset);
+      }
       memcpy(&my->attributes[i], &new->attributes[i], sizeof(gpu_attribute));
     }
   }
