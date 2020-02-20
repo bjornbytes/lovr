@@ -11,6 +11,7 @@
   X(glVertexBindingDivisor, GLVERTEXBINDINGDIVISOR)\
   X(glVertexAttribBinding, GLVERTEXATTRIBBINDING)\
   X(glVertexAttribFormat, GLVERTEXATTRIBFORMAT)\
+  X(glBindVertexBuffer, GLBINDVERTEXBUFFER)\
   X(glCullFace, GLCULLFACE)\
   X(glFrontFace, GLFRONTFACE)\
   X(glPolygonOffset, GLPOLYGONOFFSET)\
@@ -22,6 +23,7 @@
   X(glDispatchCompute, GLDISPATCHCOMPUTE)\
   X(glGenVertexArrays, GLGENVERTEXARRAYS)\
   X(glDeleteVertexArrays, GLDELETEVERTEXARRAYS)\
+  X(glBindVertexArray, GLBINDVERTEXARRAY)\
   X(glGenBuffers, GLGENBUFFERS)\
   X(glDeleteBuffers, GLDELETEBUFFERS)\
   X(glBindBuffer, GLBINDBUFFER)\
@@ -141,7 +143,6 @@ void gpu_set_pipeline(gpu_pipeline* pipeline) {
       glVertexBindingDivisor(i, new->buffers[i].divisor);
       my->buffers[i].divisor = new->buffers[i].divisor;
     }
-    state.bufferStrides[i] = new->buffers[i].stride;
   }
 
   for (uint32_t i = 0; i < 16; i++) {
@@ -233,8 +234,10 @@ void gpu_set_pipeline(gpu_pipeline* pipeline) {
   state.pipeline = pipeline;
 }
 
-void gpu_set_vertex_buffers(gpu_buffer* buffers, uint64_t* offsets, uint32_t count) {
-  //
+void gpu_set_vertex_buffers(gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
+  for (uint32_t i = 0; i < count; i++) { // Not convinced multibind would be any better here
+    glBindVertexBuffer(i, buffers[i] ? buffers[i]->id : 0, offsets[i], state.bufferStrides[i]);
+  }
 }
 
 void gpu_set_index_buffer(gpu_buffer* buffer, uint64_t offset) {

@@ -221,6 +221,7 @@ typedef struct {
   bool alphaToCoverage;
   uint8_t colorMask;
   // blend
+  const char* label;
 } gpu_pipeline_info;
 
 size_t gpu_sizeof_pipeline(void);
@@ -231,7 +232,7 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
 typedef struct {
   bool debug;
-  void (*getProcAddress)(const char*);
+  void* (*getProcAddress)(const char*);
 } gpu_config;
 
 typedef struct {
@@ -256,7 +257,7 @@ void gpu_frame_finish(void);
 void gpu_render_begin(gpu_canvas* canvas);
 void gpu_render_finish(void);
 void gpu_set_pipeline(gpu_pipeline* pipeline);
-void gpu_set_vertex_buffers(gpu_buffer* buffers, uint64_t* offsets, uint32_t count);
+void gpu_set_vertex_buffers(gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
 void gpu_set_index_buffer(gpu_buffer* buffer, uint64_t offset);
 void gpu_draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex);
 void gpu_draw_indexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex);
