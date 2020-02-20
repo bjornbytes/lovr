@@ -203,6 +203,36 @@ typedef struct {
   uint8_t reference;
 } gpu_stencil_state;
 
+typedef enum {
+  GPU_BLEND_ZERO,
+  GPU_BLEND_ONE,
+  GPU_BLEND_SRC_COLOR,
+  GPU_BLEND_ONE_MINUS_SRC_COLOR,
+  GPU_BLEND_SRC_ALPHA,
+  GPU_BLEND_ONE_MINUS_SRC_ALPHA,
+  GPU_BLEND_DST_COLOR,
+  GPU_BLEND_ONE_MINUS_DST_COLOR,
+  GPU_BLEND_DST_ALPHA,
+  GPU_BLEND_ONE_MINUS_DST_ALPHA
+} gpu_blend_factor;
+
+typedef enum {
+  GPU_BLEND_ADD,
+  GPU_BLEND_SUB,
+  GPU_BLEND_RSUB,
+  GPU_BLEND_MIN,
+  GPU_BLEND_MAX
+} gpu_blend_op;
+
+typedef struct {
+  struct {
+    gpu_blend_factor src;
+    gpu_blend_factor dst;
+    gpu_blend_op op;
+  } color, alpha;
+  bool enabled;
+} gpu_blend_state;
+
 typedef struct {
   gpu_shader* shader;
   gpu_canvas* canvas;
@@ -220,7 +250,7 @@ typedef struct {
   gpu_stencil_state stencilBack;
   bool alphaToCoverage;
   uint8_t colorMask;
-  // blend
+  gpu_blend_state blend;
   const char* label;
 } gpu_pipeline_info;
 

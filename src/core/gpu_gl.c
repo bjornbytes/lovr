@@ -18,6 +18,8 @@
   X(glDepthMask, GLDEPTHMASK)\
   X(glDepthFunc, GLDEPTHFUNC)\
   X(glColorMask, GLCOLORMASK)\
+  X(glBlendFuncSeparate, GLBLENDFUNCSEPARATE)\
+  X(glBlendEquationSeparate, GLBLENDEQUATIONSEPARATE)\
   X(glDrawArraysInstanced, GLDRAWARRAYSINSTANCED)\
   X(glDrawElementsInstancedBaseVertex, GLDRAWELEMENTSINSTANCEDBASEVERTEX)\
   X(glDispatchCompute, GLDISPATCHCOMPUTE)\
@@ -229,7 +231,39 @@ void gpu_set_pipeline(gpu_pipeline* pipeline) {
     my->colorMask != new->colorMask;
   }
 
-  // blend
+  if (my->blend.enabled != new->blend.enabled) {
+    if (new->blend.enabled) {
+      glEnable(GL_BLEND);
+    } else {
+      glDisable(GL_BLEND);
+    }
+    my->blend.enabled = new->blend.enabled;
+  }
+
+  if (memcmp(&my->blend, &new->blend, sizeof(my->blend))) {
+    static const GLenum factors[] = {
+      [GPU_BLEND_ZERO] = GL_ZERO,
+      [GPU_BLEND_ONE] = GL_ONE,
+      [GPU_BLEND_SRC_COLOR] = GL_SRC_COLOR,
+      [GPU_BLEND_ONE_MINUS_SRC_COLOR] = GL_ONE_MINUS_SRC_COLOR,
+      [GPU_BLEND_SRC_ALPHA] = GL_SRC_ALPHA,
+      [GPU_BLEND_ONE_MINUS_SRC_ALPHA] = GL_ONE_MINUS_SRC_ALPHA,
+      [GPU_BLEND_DST_COLOR] = GL_DST_COLOR,
+      [GPU_BLEND_ONE_MINUS_DST_COLOR] = GL_ONE_MINUS_DST_COLOR,
+      [GPU_BLEND_DST_ALPHA] = GL_DST_ALPHA,
+      [GPU_BLEND_ONE_MINUS_DST_ALPHA] = GL_ONE_MINUS_DST_ALPHA
+    };
+    static const GLenum opps[] = {
+      [GPU_BLEND_ADD] = GL_FUNC_ADD,
+      [GPU_BLEND_SUB] = GL_FUNC_SUBTRACT,
+      [GPU_BLEND_RSUB] = GL_FUNC_REVERSE_SUBTRACT,
+      [GPU_BLEND_MIN] = GL_MIN,
+      [GPU_BLEND_MAX] = GL_MAX
+    };
+    glBlendFuncSeparate(factors[new->blend.color.src], factors[new->blend.color.dst], factors[new->blend.alpha.src], factors[new->blend.alpha.dst]);
+    glBlendEquationSeparate(opps[new->blend.color.op], opps[new->blend.alpha.op]);
+    memcpy(&my->blend, &new->blend, sizeof(my->blend));
+  }
 
   state.pipeline = pipeline;
 }
