@@ -31,7 +31,7 @@ typedef struct {
 size_t gpu_sizeof_buffer(void);
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info);
 void gpu_buffer_destroy(gpu_buffer* buffer);
-uint8_t* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset);
+uint8_t* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size);
 void gpu_buffer_flush(gpu_buffer* buffer, uint64_t offset, uint64_t size);
 void gpu_buffer_discard(gpu_buffer* buffer);
 
@@ -131,8 +131,13 @@ typedef enum {
 } gpu_shader_stage;
 
 typedef struct {
-  gpu_shader_stage stage;
-  const char* source;
+  const void* code;
+  size_t size;
+} gpu_shader_source;
+
+typedef struct {
+  gpu_shader_source vertex, fragment, compute;
+  const char* label;
 } gpu_shader_info;
 
 size_t gpu_sizeof_shader(void);
@@ -291,6 +296,8 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 typedef struct {
   bool debug;
   void* (*getProcAddress)(const char*);
+  void (*callback)(void* context, const char* message, int level);
+  void* context;
 } gpu_config;
 
 typedef struct {
