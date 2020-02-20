@@ -260,6 +260,8 @@ void gpu_set_vertex_buffers(gpu_buffer* buffers, uint64_t* offsets, uint32_t cou
 void gpu_set_index_buffer(gpu_buffer* buffer, uint64_t offset);
 void gpu_draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex);
 void gpu_draw_indexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex);
+void gpu_draw_indirect(gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
+void gpu_draw_indirect_indexed(gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
 void gpu_compute(gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z);
 void gpu_get_features(gpu_features* features);
 void gpu_get_limits(gpu_limits* limits);

@@ -261,6 +261,19 @@ void gpu_draw_indexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firs
   glDrawElementsInstancedBaseVertex(mode, indexCount, type, offset, instanceCount, baseVertex);
 }
 
+void gpu_draw_indirect(gpu_buffer* buffer, uint64_t offset, uint32_t drawCount) {
+  GLenum mode = drawModes[state.pipeline->drawMode];
+  glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buffer->id);
+  glMultiDrawArraysIndirect(mode, (GLvoid*) offset, drawCount, 0);
+}
+
+void gpu_draw_indirect_indexed(gpu_buffer* buffer, uint64_t offset, uint32_t drawCount) {
+  GLenum mode = drawModes[state.pipeline->drawMode];
+  GLenum type = state.pipeline->indexStride == GPU_INDEX_U16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+  glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buffer->id);
+  glMultiDrawElementsIndirect(mode, type, (GLvoid*) offset, drawCount, 0);
+}
+
 void gpu_compute(gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z) {
   glUseProgram(shader->id);
   glDispatchCompute(x, y, z);
