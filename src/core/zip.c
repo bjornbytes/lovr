@@ -54,6 +54,7 @@ bool zip_next(zip_state* zip, zip_file* file) {
 
   file->mtime = readu16(p + 12);
   file->mdate = readu16(p + 14);
+  file->csize = readu32(p + 20);
   file->size = readu32(p + 24);
   file->length = readu16(p + 28);
   file->offset = readu32(p + 42) + zip->base;
@@ -62,7 +63,7 @@ bool zip_next(zip_state* zip, zip_file* file) {
   return zip->cursor < zip->size;
 }
 
-void* zip_load(zip_state* zip, size_t offset, size_t* csize, bool* compressed) {
+void* zip_load(zip_state* zip, size_t offset, bool* compressed) {
   if (zip->size < 30 || offset > zip->size - 30) {
     return NULL;
   }
@@ -78,7 +79,6 @@ void* zip_load(zip_state* zip, size_t offset, size_t* csize, bool* compressed) {
     return false;
   }
 
-  *csize = readu32(p + 18);
   uint32_t skip = readu16(p + 26) + readu16(p + 28);
-  return offset + 30 + skip + *csize > zip->size ? NULL : (p + 30 + skip);
+  return p + 30 + skip;
 }

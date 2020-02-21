@@ -23,6 +23,7 @@ typedef struct {
 
 typedef struct {
   uint64_t offset;
+  uint64_t csize;
   uint64_t size;
   const char* name;
   uint16_t length;
@@ -32,4 +33,4 @@ typedef struct {
 
 bool zip_open(zip_state* zip);
 bool zip_next(zip_state* zip, zip_file* info);
-void* zip_load(zip_state* zip, size_t offset, size_t* csize, bool* compressed);
+void* zip_load(zip_state* zip, size_t offset, bool* compressed);

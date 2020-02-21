@@ -31,6 +31,7 @@ typedef struct {
   uint32_t nextSibling;
   size_t filename;
   uint64_t offset;
+  uint64_t csize;
   uint16_t mdate;
   uint16_t mtime;
   FileInfo info;
@@ -547,11 +548,11 @@ static bool zip_read(Archive* archive, const char* path, size_t bytes, size_t* b
   }
 
   size_t dstSize = node->info.size;
-  size_t srcSize;
+  size_t srcSize = node->csize;
   bool compressed;
   const void* src;
 
-  if ((src = zip_load(&archive->zip, node->offset, &srcSize, &compressed)) == NULL) {
+  if ((src = zip_load(&archive->zip, node->offset, &compressed)) == NULL) {
     *dst = NULL;
     return true;
   }
@@ -629,6 +630,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* mountpo
       .nextSibling = ~0u,
       .filename = (size_t) -1,
       .offset = info.offset,
+      .csize = info.csize,
       .mdate = info.mdate,
       .mtime = info.mtime,
       .info.size = info.size,
