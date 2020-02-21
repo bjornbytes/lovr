@@ -69,6 +69,16 @@ typedef enum {
 } gpu_texture_format;
 
 typedef struct {
+  gpu_texture* source;
+  gpu_texture_type type;
+  gpu_texture_format format;
+  uint32_t baseMipmap;
+  uint32_t mipmapCount;
+  uint32_t baseLayer;
+  uint32_t layerCount;
+} gpu_texture_view_info;
+
+typedef struct {
   gpu_texture_type type;
   gpu_texture_format format;
   uint32_t size[3];
@@ -80,6 +90,7 @@ typedef struct {
 
 size_t gpu_sizeof_texture(void);
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info);
+bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info);
 void gpu_texture_destroy(gpu_texture* texture);
 void gpu_texture_write(gpu_texture* texture, uint8_t* data, uint16_t offset[4], uint16_t extent[4], uint16_t mip);
 

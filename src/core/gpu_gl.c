@@ -401,36 +401,38 @@ void gpu_buffer_discard(gpu_buffer* buffer) {
 
 // Texture
 
+static const GLenum textureTargets[] = {
+  [GPU_TEXTURE_TYPE_2D] = GL_TEXTURE_2D,
+  [GPU_TEXTURE_TYPE_3D] = GL_TEXTURE_3D,
+  [GPU_TEXTURE_TYPE_CUBE] = GL_TEXTURE_CUBE_MAP,
+  [GPU_TEXTURE_TYPE_ARRAY] = GL_TEXTURE_2D_ARRAY
+};
+
+static const struct { GLenum format, pixelFormat, pixelType; } textureFormats[] = {
+  [GPU_TEXTURE_FORMAT_RGBA8] = { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE },
+  [GPU_TEXTURE_FORMAT_RGBA4] = { GL_RGBA4, GL_RGBA, GL_UNSIGNED_BYTE },
+  [GPU_TEXTURE_FORMAT_R16F] = { GL_R16F, GL_RED, GL_HALF_FLOAT },
+  [GPU_TEXTURE_FORMAT_RG16F] = { GL_RG16F, GL_RG, GL_HALF_FLOAT },
+  [GPU_TEXTURE_FORMAT_RGBA16F] = { GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT },
+  [GPU_TEXTURE_FORMAT_R32F] = { GL_R32F, GL_RED, GL_FLOAT },
+  [GPU_TEXTURE_FORMAT_RG32F] = { GL_RG32F, GL_RG, GL_FLOAT },
+  [GPU_TEXTURE_FORMAT_RGBA32F] = { GL_RGBA32F, GL_RGBA, GL_FLOAT },
+  [GPU_TEXTURE_FORMAT_RGB10A2] = { GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV },
+  [GPU_TEXTURE_FORMAT_RG11B10F] = { GL_R11F_G11F_B10F, GL_RGBA, GL_UNSIGNED_INT_10F_11F_11F_REV },
+  [GPU_TEXTURE_FORMAT_D16] = { GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT },
+  [GPU_TEXTURE_FORMAT_D32F] = { GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT },
+  [GPU_TEXTURE_FORMAT_D24S8] = { GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8 }
+};
+
 size_t gpu_sizeof_texture(void) {
   return sizeof(gpu_texture);
 }
 
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
-  static const GLenum targets[] = {
-    [GPU_TEXTURE_TYPE_2D] = GL_TEXTURE_2D,
-    [GPU_TEXTURE_TYPE_3D] = GL_TEXTURE_3D,
-    [GPU_TEXTURE_TYPE_CUBE] = GL_TEXTURE_CUBE_MAP,
-    [GPU_TEXTURE_TYPE_ARRAY] = GL_TEXTURE_2D_ARRAY
-  };
-  static const struct { GLenum format, pixelFormat, pixelType; } formats[] = {
-    [GPU_TEXTURE_FORMAT_RGBA8] = { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE },
-    [GPU_TEXTURE_FORMAT_RGBA4] = { GL_RGBA4, GL_RGBA, GL_UNSIGNED_BYTE },
-    [GPU_TEXTURE_FORMAT_R16F] = { GL_R16F, GL_RED, GL_HALF_FLOAT },
-    [GPU_TEXTURE_FORMAT_RG16F] = { GL_RG16F, GL_RG, GL_HALF_FLOAT },
-    [GPU_TEXTURE_FORMAT_RGBA16F] = { GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT },
-    [GPU_TEXTURE_FORMAT_R32F] = { GL_R32F, GL_RED, GL_FLOAT },
-    [GPU_TEXTURE_FORMAT_RG32F] = { GL_RG32F, GL_RG, GL_FLOAT },
-    [GPU_TEXTURE_FORMAT_RGBA32F] = { GL_RGBA32F, GL_RGBA, GL_FLOAT },
-    [GPU_TEXTURE_FORMAT_RGB10A2] = { GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV },
-    [GPU_TEXTURE_FORMAT_RG11B10F] = { GL_R11F_G11F_B10F, GL_RGBA, GL_UNSIGNED_INT_10F_11F_11F_REV },
-    [GPU_TEXTURE_FORMAT_D16] = { GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT },
-    [GPU_TEXTURE_FORMAT_D32F] = { GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT },
-    [GPU_TEXTURE_FORMAT_D24S8] = { GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8 }
-  };
-  texture->target = targets[info->type];
-  texture->format = formats[info->format].format;
-  texture->pixelFormat = formats[info->format].pixelFormat;
-  texture->pixelType = formats[info->format].pixelType;
+  texture->target = textureTargets[info->type];
+  texture->format = textureTormats[info->format].format;
+  texture->pixelFormat = textureTormats[info->format].pixelFormat;
+  texture->pixelType = textureTormats[info->format].pixelType;
   glGenTextures(1, &texture->id);
   glBindTexture(texture->target, texture->id);
   if (info->type == GPU_TEXTURE_TYPE_2D || info->type == GPU_TEXTURE_TYPE_CUBE) {
@@ -439,6 +441,16 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     uint32_t depth = info->type == GPU_TEXTURE_TYPE_ARRAY ? info->layers : info->size[2];
     glTexStorage3D(texture->target, info->mipmaps, texture->format, info->size[0], info->size[1], depth);
   }
+  return true;
+}
+
+bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
+  texture->target = textureTargets[info->type];
+  texture->format = textureTormats[info->format].format;
+  texture->pixelFormat = textureTormats[info->format].pixelFormat;
+  texture->pixelType = textureTormats[info->format].pixelType;
+  glGenTextures(1, &texture->id);
+  glTextureView(texture->id, texture->target, info->source, texture->format, info->baseMipmap, info->mipmapCount, info->baseLayer, info->layerCount);
   return true;
 }
 

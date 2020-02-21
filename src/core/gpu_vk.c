@@ -767,27 +767,24 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-  /*
-  if (!gpu_texture_init_view(texture, texture, NULL)) {
+  if (!gpu_texture_init_view(texture, &(gpu_texture_view_info) { .source = texture })) {
     vkDestroyImage(state.device, texture->handle, NULL);
     vkFreeMemory(state.device, texture->memory, NULL);
     return false;
   }
-  */
 
   return true;
 }
 
-/*
-bool gpu_texture_init_view(gpu_texture* texture, gpu_texture* source, gpu_texture_view_info* info) {
-  if (texture != source) {
+bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
+  if (texture != info->source) {
     texture->handle = VK_NULL_HANDLE;
     texture->memory = VK_NULL_HANDLE;
     texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    texture->source = source;
-    texture->type = info ? info->type : source->type;
-    texture->format = (info && info->format) ? convertTextureFormat(info->format) : source->format;
-    texture->aspect = source->aspect;
+    texture->source = info->source;
+    texture->type = info ? info->type : info->source->type;
+    texture->format = textureInfo[info->format].format;
+    texture->aspect = info->source->aspect;
   }
 
   VkImageViewType type;
@@ -801,7 +798,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture* source, gpu_textur
 
   VkImageViewCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-    .image = source->handle,
+    .image = info->source->handle,
     .viewType = type,
     .format = texture->format,
     .subresourceRange = {
@@ -817,7 +814,6 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture* source, gpu_textur
 
   return true;
 }
-*/
 
 void gpu_texture_destroy(gpu_texture* texture) {
   if (texture->handle) condemn(texture->handle, VK_OBJECT_TYPE_IMAGE);
