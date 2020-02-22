@@ -238,7 +238,7 @@ void lovrSourceSetFalloff(Source* source, float reference, float max, float roll
 }
 
 void lovrSourceSetLooping(Source* source, bool isLooping) {
-  lovrAssert(!source->stream || lovrAudioStreamIsRaw(source->stream), "Can't loop a raw stream");
+  lovrAssert(!source->stream || !lovrAudioStreamIsRaw(source->stream), "Can't loop a raw stream");
   source->isLooping = isLooping;
   if (source->type == SOURCE_STATIC) {
     alSourcei(source->id, AL_LOOPING, isLooping ? AL_TRUE : AL_FALSE);
