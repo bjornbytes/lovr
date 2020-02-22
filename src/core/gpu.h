@@ -32,7 +32,6 @@ size_t gpu_sizeof_buffer(void);
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info);
 void gpu_buffer_destroy(gpu_buffer* buffer);
 uint8_t* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size);
-void gpu_buffer_flush(gpu_buffer* buffer, uint64_t offset, uint64_t size);
 void gpu_buffer_discard(gpu_buffer* buffer);
 
 // Texture
@@ -135,19 +134,16 @@ void gpu_canvas_destroy(gpu_canvas* canvas);
 
 // Shader
 
-typedef enum {
-  GPU_SHADER_VERTEX,
-  GPU_SHADER_FRAGMENT,
-  GPU_SHADER_COMPUTE
-} gpu_shader_stage;
-
 typedef struct {
   const void* code;
   size_t size;
+  const char* entry;
 } gpu_shader_source;
 
 typedef struct {
-  gpu_shader_source vertex, fragment, compute;
+  gpu_shader_source vertex;
+  gpu_shader_source fragment;
+  gpu_shader_source compute;
   const char* label;
 } gpu_shader_info;
 

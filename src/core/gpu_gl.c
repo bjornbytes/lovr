@@ -51,6 +51,8 @@
   X(glFramebufferTextureLayer, GLFRAMEBUFFERTEXTURELAYER)\
   X(glCheckFramebufferStatus, GLCHECKFRAMEBUFFERSTATUS)\
   X(glDrawBuffers, GLDRAWBUFFERS)\
+  X(glCreateProgram, GLCREATEPROGRAM)\
+  X(glDeleteProgram, GLDELETEPROGRAM)\
   X(glUseProgram, GLUSEPROGRAM)\
 
 #define GL_DECLARE(fn, upper) static PFN##upper##PROC fn;
@@ -370,10 +372,9 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   else buffer->target = GL_TRANSFORM_FEEDBACK_BUFFER; // Haha no one uses this r-right
   glGenBuffers(1, &buffer->id);
   glBindBuffer(buffer->target, buffer->id);
-  GLbitfield flags = GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT;
+  GLbitfield flags = GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
   glBufferStorage(buffer->target, info->size, info->data, flags);
-  GLbitfield access = flags | GL_MAP_FLUSH_EXPLICIT_BIT;
-  buffer->data = glMapBufferRange(buffer->target, 0, info->size, access);
+  buffer->data = glMapBufferRange(buffer->target, 0, info->size, flags);
   buffer->size = info->size;
   return true;
 }
@@ -386,17 +387,8 @@ uint8_t* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
   return buffer->data + offset;
 }
 
-void gpu_buffer_flush(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
-  glBindBuffer(buffer->target, buffer->id);
-  glFlushMappedBufferRange(buffer->target, offset, size);
-}
-
 void gpu_buffer_discard(gpu_buffer* buffer) {
-  glBindBuffer(buffer->target, buffer->id);
-  glUnmapBuffer(buffer->target);
-  glInvalidateBufferData(buffer->target);
-  GLbitfield flags = GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_FLUSH_EXPLICIT_BIT;
-  buffer->data = glMapBufferRange(buffer->target, 0, buffer->size, flags);
+  glInvalidateBufferData(buffer->id);
 }
 
 // Texture
@@ -508,7 +500,14 @@ void gpu_canvas_destroy(gpu_canvas* canvas) {
 
 // Shader
 
-/* */
+bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
+  shader->id = glCreateProgram();
+  return true;
+}
+
+void gpu_shader_destroy(gpu_shader* shader) {
+  glDeleteProgram(shader->id);
+}
 
 // Pipeline
 
