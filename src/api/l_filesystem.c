@@ -59,6 +59,11 @@ static void pushDirectoryItem(void* context, const char* path) {
 static int luax_loadfile(lua_State* L, const char* path, const char* debug) {
   size_t size;
   void* buffer = luax_readfile(path, &size);
+  if (!buffer) {
+    lua_pushnil(L);
+    lua_pushfstring(L, "Could not load file '%s'", path);
+    return 2;
+  }
   int status = luaL_loadbuffer(L, buffer, size, debug);
   free(buffer);
   switch (status) {
