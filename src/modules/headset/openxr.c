@@ -203,7 +203,7 @@ static struct {
   XrCompositionLayerProjectionView layerViews[2];
   XrFrameState frameState;
   Canvas* canvas;
-  Texture textures[MAX_IMAGES];
+  Texture* textures[MAX_IMAGES];
   uint32_t imageCount;
   uint32_t msaa;
   uint32_t width;
@@ -394,7 +394,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
     XR_INIT(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
 
     for (uint32_t i = 0; i < state.imageCount; i++) {
-      lovrTextureInitFromHandle(&state.textures[i], images[i].image, TEXTURE_2D, 1);
+      state.textures[i] = lovrTextureCreateFromHandle(images[i].image, TEXTURE_2D, 1);
     }
 
     // Pre-init composition layer
@@ -425,7 +425,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
 static void openxr_destroy() {
   lovrRelease(Canvas, state.canvas);
   for (uint32_t i = 0; i < state.imageCount; i++) {
-    lovrRelease(Texture, &state.textures[i]);
+    lovrRelease(Texture, state.textures[i]);
   }
 
   for (size_t i = 0; i < MAX_ACTIONS; i++) {
@@ -721,7 +721,7 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
         mat4_invert(camera.viewMatrix[eye]);
       }
 
-      lovrCanvasSetAttachments(state.canvas, &(Attachment) { &state.textures[imageIndex], 0, 0 }, 1);
+      lovrCanvasSetAttachments(state.canvas, &(Attachment) { state.textures[imageIndex], 0, 0 }, 1);
       lovrGraphicsSetCamera(&camera, true);
       callback(userdata);
       lovrGraphicsSetCamera(NULL, false);

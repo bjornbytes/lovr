@@ -44,6 +44,27 @@ struct Buffer {
   uint8_t incoherent;
 };
 
+struct Texture {
+  GLuint id;
+  GLuint msaaId;
+  GLenum target;
+  TextureType type;
+  TextureFormat format;
+  uint32_t width;
+  uint32_t height;
+  uint32_t depth;
+  uint32_t mipmapCount;
+  CompareMode compareMode;
+  TextureFilter filter;
+  TextureWrap wrap;
+  uint32_t msaa;
+  bool srgb;
+  bool mipmaps;
+  bool allocated;
+  bool native;
+  uint8_t incoherent;
+};
+
 typedef enum {
   BARRIER_BLOCK,
   BARRIER_UNIFORM_TEXTURE,
@@ -1442,7 +1463,8 @@ const GpuStats* lovrGpuGetStats() {
 
 // Texture
 
-Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slices, uint32_t sliceCount, bool srgb, bool mipmaps, uint32_t msaa) {
+Texture* lovrTextureCreate(TextureType type, TextureData** slices, uint32_t sliceCount, bool srgb, bool mipmaps, uint32_t msaa) {
+  Texture* texture = lovrAlloc(Texture);
   state.stats.textureCount++;
   texture->type = type;
   texture->srgb = srgb;
@@ -1470,7 +1492,8 @@ Texture* lovrTextureInit(Texture* texture, TextureType type, TextureData** slice
   return texture;
 }
 
-Texture* lovrTextureInitFromHandle(Texture* texture, uint32_t handle, TextureType type, uint32_t depth) {
+Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type, uint32_t depth) {
+  Texture* texture = lovrAlloc(Texture);
   state.stats.textureCount++;
   texture->type = type;
   texture->id = handle;
@@ -1635,6 +1658,46 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32
 #endif
     }
   }
+}
+
+uint32_t lovrTextureGetWidth(Texture* texture, uint32_t mipmap) {
+  return MAX(texture->width >> mipmap, 1);
+}
+
+uint32_t lovrTextureGetHeight(Texture* texture, uint32_t mipmap) {
+  return MAX(texture->height >> mipmap, 1);
+}
+
+uint32_t lovrTextureGetDepth(Texture* texture, uint32_t mipmap) {
+  return texture->type == TEXTURE_VOLUME ? MAX(texture->depth >> mipmap, 1) : texture->depth;
+}
+
+uint32_t lovrTextureGetMipmapCount(Texture* texture) {
+  return texture->mipmapCount;
+}
+
+uint32_t lovrTextureGetMSAA(Texture* texture) {
+  return texture->msaa;
+}
+
+TextureType lovrTextureGetType(Texture* texture) {
+  return texture->type;
+}
+
+TextureFormat lovrTextureGetFormat(Texture* texture) {
+  return texture->format;
+}
+
+CompareMode lovrTextureGetCompareMode(Texture* texture) {
+  return texture->compareMode;
+}
+
+TextureFilter lovrTextureGetFilter(Texture* texture) {
+  return texture->filter;
+}
+
+TextureWrap lovrTextureGetWrap(Texture* texture) {
+  return texture->wrap;
 }
 
 void lovrTextureSetCompareMode(Texture* texture, CompareMode compareMode) {
