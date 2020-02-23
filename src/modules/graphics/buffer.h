@@ -1,6 +1,5 @@
-#include "graphics/opengl.h"
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -19,20 +18,8 @@ typedef enum {
   USAGE_STREAM
 } BufferUsage;
 
-typedef struct Buffer {
-  void* data;
-  size_t size;
-  size_t flushFrom;
-  size_t flushTo;
-  BufferType type;
-  BufferUsage usage;
-  bool mapped;
-  bool readable;
-  GPU_BUFFER_FIELDS
-} Buffer;
-
-Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type, BufferUsage usage, bool readable);
-#define lovrBufferCreate(...) lovrBufferInit(lovrAlloc(Buffer), __VA_ARGS__)
+typedef struct Buffer Buffer;
+Buffer* lovrBufferCreate(size_t size, void* data, BufferType type, BufferUsage usage, bool readable);
 void lovrBufferDestroy(void* ref);
 size_t lovrBufferGetSize(Buffer* buffer);
 bool lovrBufferIsReadable(Buffer* buffer);

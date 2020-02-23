@@ -31,6 +31,19 @@
 #define LOVR_SHADER_BONE_WEIGHTS 6
 #define LOVR_SHADER_DRAW_ID 7
 
+struct Buffer {
+  uint32_t id;
+  void* data;
+  size_t size;
+  size_t flushFrom;
+  size_t flushTo;
+  BufferType type;
+  BufferUsage usage;
+  bool mapped;
+  bool readable;
+  uint8_t incoherent;
+};
+
 typedef enum {
   BARRIER_BLOCK,
   BARRIER_UNIFORM_TEXTURE,
@@ -1830,7 +1843,8 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, uint32_t index) {
 
 // Buffer
 
-Buffer* lovrBufferInit(Buffer* buffer, size_t size, void* data, BufferType type, BufferUsage usage, bool readable) {
+Buffer* lovrBufferCreate(size_t size, void* data, BufferType type, BufferUsage usage, bool readable) {
+  Buffer* buffer = lovrAlloc(Buffer);
   state.stats.bufferCount++;
   state.stats.bufferMemory += size;
   buffer->size = size;
@@ -1871,6 +1885,18 @@ void lovrBufferDestroy(void* ref) {
 #endif
   state.stats.bufferMemory -= buffer->size;
   state.stats.bufferCount--;
+}
+
+size_t lovrBufferGetSize(Buffer* buffer) {
+  return buffer->size;
+}
+
+bool lovrBufferIsReadable(Buffer* buffer) {
+  return buffer->readable;
+}
+
+BufferUsage lovrBufferGetUsage(Buffer* buffer) {
+  return buffer->usage;
 }
 
 void* lovrBufferMap(Buffer* buffer, size_t offset) {

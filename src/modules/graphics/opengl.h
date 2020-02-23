@@ -11,10 +11,6 @@
 
 #pragma once
 
-#define GPU_BUFFER_FIELDS \
-  uint8_t incoherent; \
-  uint32_t id;
-
 #define GPU_CANVAS_FIELDS \
   bool immortal; \
   uint32_t framebuffer; \
