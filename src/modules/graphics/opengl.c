@@ -1776,6 +1776,10 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32
   }
 }
 
+uint64_t lovrTextureGetId(Texture* texture) {
+  return texture->id;
+}
+
 uint32_t lovrTextureGetWidth(Texture* texture, uint32_t mipmap) {
   return MAX(texture->width >> mipmap, 1);
 }

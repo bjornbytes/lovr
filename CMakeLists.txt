@@ -414,16 +414,11 @@ endif()
 if(LOVR_ENABLE_GRAPHICS)
   add_definitions(-DLOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
-    src/modules/graphics/buffer.c
-    src/modules/graphics/canvas.c
     src/modules/graphics/font.c
     src/modules/graphics/graphics.c
     src/modules/graphics/material.c
-    src/modules/graphics/mesh.c
     src/modules/graphics/model.c
     src/modules/graphics/opengl.c
-    src/modules/graphics/shader.c
-    src/modules/graphics/texture.c
     src/api/l_graphics.c
     src/api/l_graphics_canvas.c
     src/api/l_graphics_font.c

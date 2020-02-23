@@ -673,7 +673,7 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
 
   // Submit
   const Attachment* attachments = lovrCanvasGetAttachments(state.canvas, NULL);
-  ptrdiff_t id = attachments[0].texture->id;
+  ptrdiff_t id = lovrTextureGetId(attachments[0].texture);
   Texture_t eyeTexture = { (void*) id, ETextureType_TextureType_OpenGL, EColorSpace_ColorSpace_Linear };
   VRTextureBounds_t left = { 0.f, 0.f, .5f, 1.f };
   VRTextureBounds_t right = { .5f, 0.f, 1.f, 1.f };
