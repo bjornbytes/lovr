@@ -1,6 +1,4 @@
 #include "data/modelData.h"
-#include "graphics/opengl.h"
-#include "core/map.h"
 #include <stdbool.h>
 
 #pragma once
@@ -23,29 +21,8 @@ typedef struct {
   unsigned disabled : 1;
 } MeshAttribute;
 
-typedef struct Mesh {
-  DrawMode mode;
-  char attributeNames[MAX_ATTRIBUTES][MAX_ATTRIBUTE_NAME_LENGTH];
-  MeshAttribute attributes[MAX_ATTRIBUTES];
-  uint8_t locations[MAX_ATTRIBUTES];
-  uint16_t enabledLocations;
-  uint16_t divisors[MAX_ATTRIBUTES];
-  map_t attributeMap;
-  uint32_t attributeCount;
-  struct Buffer* vertexBuffer;
-  struct Buffer* indexBuffer;
-  uint32_t vertexCount;
-  uint32_t indexCount;
-  size_t indexSize;
-  size_t indexOffset;
-  uint32_t drawStart;
-  uint32_t drawCount;
-  struct Material* material;
-  GPU_MESH_FIELDS
-} Mesh;
-
-Mesh* lovrMeshInit(Mesh* mesh, DrawMode mode, struct Buffer* vertexBuffer, uint32_t vertexCount);
-#define lovrMeshCreate(...) lovrMeshInit(lovrAlloc(Mesh), __VA_ARGS__)
+typedef struct Mesh Mesh;
+Mesh* lovrMeshCreate(DrawMode mode, struct Buffer* vertexBuffer, uint32_t vertexCount);
 void lovrMeshDestroy(void* ref);
 struct Buffer* lovrMeshGetVertexBuffer(Mesh* mesh);
 struct Buffer* lovrMeshGetIndexBuffer(Mesh* mesh);
@@ -53,9 +30,12 @@ void lovrMeshSetIndexBuffer(Mesh* mesh, struct Buffer* buffer, uint32_t indexCou
 uint32_t lovrMeshGetVertexCount(Mesh* mesh);
 uint32_t lovrMeshGetIndexCount(Mesh* mesh);
 size_t lovrMeshGetIndexSize(Mesh* mesh);
+uint32_t lovrMeshGetAttributeCount(Mesh* mesh);
 void lovrMeshAttachAttribute(Mesh* mesh, const char* name, MeshAttribute* attribute);
 void lovrMeshDetachAttribute(Mesh* mesh, const char* name);
-const MeshAttribute* lovrMeshGetAttribute(Mesh* mesh, const char* name);
+const MeshAttribute* lovrMeshGetAttribute(Mesh* mesh, uint32_t index);
+uint32_t lovrMeshGetAttributeIndex(Mesh* mesh, const char* name);
+const char* lovrMeshGetAttributeName(Mesh* mesh, uint32_t index);
 bool lovrMeshIsAttributeEnabled(Mesh* mesh, const char* name);
 void lovrMeshSetAttributeEnabled(Mesh* mesh, const char* name, bool enabled);
 DrawMode lovrMeshGetDrawMode(Mesh* mesh);

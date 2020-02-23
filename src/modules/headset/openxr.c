@@ -4,7 +4,6 @@
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "graphics/texture.h"
-#include "graphics/opengl.h"
 #include "core/ref.h"
 #include "core/util.h"
 #include <math.h>
@@ -14,6 +13,7 @@
 #endif
 
 #define XR_USE_GRAPHICS_API_OPENGL
+#define GL_SRGB8_ALPHA8 0x8C43
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
