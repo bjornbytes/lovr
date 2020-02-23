@@ -352,10 +352,6 @@ void gpu_get_limits(gpu_limits* limits) {
   glGetIntegerv(GL_MAX_FRAMEBUFFER_SAMPLES, &limits->framebufferSamples);
 }
 
-void gpu_get_stats(gpu_stats* stats) {
-  stats->drawCalls = 0;
-}
-
 // Buffer
 
 size_t gpu_sizeof_buffer(void) {

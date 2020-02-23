@@ -309,6 +309,7 @@ typedef struct {
 
 typedef struct {
   bool anisotropy;
+  bool astc;
   bool dxt;
 } gpu_features;
 
@@ -317,10 +318,6 @@ typedef struct {
   uint32_t framebufferSize[2];
   uint32_t framebufferSamples;
 } gpu_limits;
-
-typedef struct {
-  uint32_t drawCalls;
-} gpu_stats;
 
 bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
@@ -338,4 +335,3 @@ void gpu_draw_indirect_indexed(gpu_buffer* buffer, uint64_t offset, uint32_t dra
 void gpu_compute(gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z);
 void gpu_get_features(gpu_features* features);
 void gpu_get_limits(gpu_limits* limits);
-void gpu_get_stats(gpu_stats* stats);

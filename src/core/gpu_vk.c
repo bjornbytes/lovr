@@ -23,6 +23,7 @@
   X(vkDestroyDebugUtilsMessengerEXT)\
   X(vkEnumeratePhysicalDevices)\
   X(vkGetPhysicalDeviceProperties)\
+  X(vkGetPhysicalDeviceFeatures)\
   X(vkGetPhysicalDeviceMemoryProperties)\
   X(vkGetPhysicalDeviceQueueFamilyProperties)\
   X(vkCreateDevice)\
@@ -184,6 +185,7 @@ typedef struct {
 
 static struct {
   gpu_config config;
+  gpu_features features;
   void* library;
   VkInstance instance;
   VkDebugUtilsMessengerEXT messenger;
@@ -368,6 +370,12 @@ bool gpu_init(gpu_config* config) {
       return false;
     }
 
+    VkPhysicalDeviceFeatures features;
+    vkGetPhysicalDeviceFeatures(physicalDevice, &features);
+    state.features.anisotropy = features.samplerAnisotropy;
+    state.features.astc = features.textureCompressionASTC_LDR;
+    state.features.dxt = features.textureCompressionBC;
+
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &state.memoryProperties);
 
     VkDeviceQueueCreateInfo queueInfo = {
@@ -379,6 +387,18 @@ bool gpu_init(gpu_config* config) {
 
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+      .pNext = &(VkPhysicalDeviceFeatures2) {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = &(VkPhysicalDeviceMultiviewFeatures) {
+          .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
+          .multiview = VK_TRUE
+        },
+        .features = {
+          .fullDrawIndexUint32 = VK_TRUE,
+          .multiDrawIndirect = VK_TRUE,
+          .shaderSampledImageArrayDynamicIndexing = VK_TRUE
+        }
+      },
       .queueCreateInfoCount = 1,
       .pQueueCreateInfos = &queueInfo
     };
@@ -556,14 +576,10 @@ void gpu_compute(gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z) {
 }
 
 void gpu_get_features(gpu_features* features) {
-  //
+  *features = state.features;
 }
 
 void gpu_get_limits(gpu_limits* limits) {
-  //
-}
-
-void gpu_get_stats(gpu_stats* stats) {
   //
 }
 
