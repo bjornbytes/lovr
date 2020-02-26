@@ -22,6 +22,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
   int type = lua_type(L, index);
   switch (type) {
     case LUA_TNIL:
+    case LUA_TNONE:
       variant->type = TYPE_NIL;
       break;
 
@@ -99,10 +100,12 @@ static int nextEvent(lua_State* L) {
     case EVENT_QUIT:
       if (event.data.quit.restart) {
         lua_pushliteral(L, "restart");
+        luax_pushvariant(L, &event.data.quit.cookie);
+        return 3;
       } else {
         lua_pushnumber(L, event.data.quit.exitCode);
+        return 2;
       }
-      return 2;
 
     case EVENT_FOCUS:
       lua_pushboolean(L, event.data.boolean.value);
@@ -173,9 +176,10 @@ static int l_lovrEventQuit(lua_State* L) {
   EventData data;
 
   int argType = lua_type(L, 1);
-  if (argType == LUA_TSTRING && 0 == strcmp("restart", lua_tostring(L, 1))) {
+  if (argType == LUA_TSTRING && !strcmp("restart", lua_tostring(L, 1))) {
     data.quit.restart = true;
     data.quit.exitCode = 0;
+    luax_checkvariant(L, 2, &data.quit.cookie);
   } else if (argType == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
     data.quit.restart = false;
     data.quit.exitCode = luaL_optint(L, 1, 0);
@@ -189,12 +193,24 @@ static int l_lovrEventQuit(lua_State* L) {
   return 0;
 }
 
+static int l_lovrEventRestart(lua_State* L) {
+  EventData data;
+  data.quit.exitCode = 0;
+  data.quit.restart = true;
+  luax_checkvariant(L, 1, &data.quit.cookie);
+  EventType type = EVENT_QUIT;
+  Event event = { .type = type, .data = data };
+  lovrEventPush(event);
+  return 0;
+}
+
 static const luaL_Reg lovrEvent[] = {
   { "clear", l_lovrEventClear },
   { "poll", l_lovrEventPoll },
   { "pump", l_lovrEventPump },
   { "push", l_lovrEventPush },
   { "quit", l_lovrEventQuit },
+  { "restart", l_lovrEventRestart },
   { NULL, NULL }
 };
 

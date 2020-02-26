@@ -162,7 +162,7 @@ static void gammaCorrect(Color* color) {
 }
 
 static void onCloseWindow(void) {
-  lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { false, 0 } });
+  lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { .exitCode = 0 } });
 }
 
 static void onResizeWindow(int width, int height) {

@@ -150,7 +150,7 @@ function lovr.run()
     lovr.event.pump()
     for name, a, b, c, d in lovr.event.poll() do
       if name == 'quit' and (not lovr.quit or not lovr.quit()) then
-        return a or 0
+        return a or 0, b
       end
       if lovr.handlers[name] then lovr.handlers[name](a, b, c, d) end
     end
@@ -284,8 +284,8 @@ return function()
       return 1
     end
 
-    local ok, result = xpcall(continuation, onerror)
-    if result and ok then return result -- Result is value returned by function. Return it.
+    local ok, result, extra = xpcall(continuation, onerror)
+    if result and ok then return result, extra -- Result is value returned by function. Return it.
     elseif not ok then continuation = result end -- Result is value returned by error handler. Make it the new error handler.
 
     local externerror = coroutine.yield() -- Return control to C code

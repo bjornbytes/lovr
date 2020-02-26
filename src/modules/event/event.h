@@ -43,6 +43,7 @@ typedef struct Variant {
 typedef struct {
   bool restart;
   int exitCode;
+  Variant cookie;
 } QuitEvent;
 
 typedef struct {

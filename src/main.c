@@ -1,5 +1,6 @@
 #include "resources/boot.lua.h"
 #include "api/api.h"
+#include "event/event.h"
 #include "core/os.h"
 #include "core/util.h"
 #include <stdbool.h>
@@ -62,6 +63,8 @@ int main(int argc, char** argv) {
 
   int status;
   bool restart;
+  Variant cookie;
+  cookie.type = TYPE_NIL;
 
   do {
     lovrPlatformSetTime(0.);
@@ -87,6 +90,9 @@ int main(int argc, char** argv) {
     // push dummy "lovr" in case argv is empty
     lua_pushliteral(L, "lovr");
     lua_setfield(L, -2, "exe");
+
+    luax_pushvariant(L, &cookie);
+    lua_setfield(L, -2, "restart");
 
     typedef enum { // What flag is being searched for?
       ARGFLAG_NONE, // Not processing a flag
@@ -157,8 +163,13 @@ int main(int argc, char** argv) {
       lovrPlatformSleep(0.);
     }
 
-    restart = lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart");
-    status = lua_tonumber(T, -1);
+    restart = lua_type(T, 1) == LUA_TSTRING && !strcmp(lua_tostring(T, 1), "restart");
+    status = lua_tonumber(T, 1);
+    luax_checkvariant(T, 2, &cookie);
+    if (cookie.type == TYPE_OBJECT) {
+      cookie.type = TYPE_NIL;
+      memset(&cookie.value, 0, sizeof(cookie.value));
+    }
     lua_close(L);
   } while (restart);
 
