@@ -64,13 +64,13 @@ bool lovrAudioInit() {
 
 void lovrAudioDestroy() {
   if (!state.initialized) return;
-  alcMakeContextCurrent(NULL);
-  alcDestroyContext(state.context);
-  alcCloseDevice(state.device);
   for (size_t i = 0; i < state.sources.length; i++) {
     lovrRelease(Source, state.sources.data[i]);
   }
   arr_free(&state.sources);
+  alcMakeContextCurrent(NULL);
+  alcDestroyContext(state.context);
+  alcCloseDevice(state.device);
   memset(&state, 0, sizeof(state));
 }
 
@@ -83,7 +83,9 @@ void lovrAudioUpdate() {
     }
 
     uint32_t id = lovrSourceGetId(source);
-    bool isStopped = lovrSourceIsStopped(source);
+    ALenum sourceState;
+    alGetSourcei(id, AL_SOURCE_STATE, &sourceState);
+    bool isStopped = sourceState == AL_STOPPED;
     ALint processed;
     alGetSourcei(id, AL_BUFFERS_PROCESSED, &processed);
 
@@ -160,18 +162,6 @@ bool lovrAudioIsSpatialized() {
 void lovrAudioPause() {
   for (size_t i = 0; i < state.sources.length; i++) {
     lovrSourcePause(state.sources.data[i]);
-  }
-}
-
-void lovrAudioResume() {
-  for (size_t i = 0; i < state.sources.length; i++) {
-    lovrSourceResume(state.sources.data[i]);
-  }
-}
-
-void lovrAudioRewind() {
-  for (size_t i = 0; i < state.sources.length; i++) {
-    lovrSourceRewind(state.sources.data[i]);
   }
 }
 

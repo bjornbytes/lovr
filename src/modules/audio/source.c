@@ -21,7 +21,7 @@ struct Source {
   bool isLooping;
 };
 
-static ALenum lovrSourceGetState(Source* source) {
+static ALenum getState(Source* source) {
   ALenum state;
   alGetSourcei(source->id, AL_SOURCE_STATE, &state);
   return state;
@@ -135,12 +135,8 @@ bool lovrSourceIsLooping(Source* source) {
   return source->isLooping;
 }
 
-bool lovrSourceIsPaused(Source* source) {
-  return lovrSourceGetState(source) == AL_PAUSED;
-}
-
 bool lovrSourceIsPlaying(Source* source) {
-  return lovrSourceGetState(source) == AL_PLAYING;
+  return getState(source) == AL_PLAYING;
 }
 
 bool lovrSourceIsRelative(Source* source) {
@@ -149,71 +145,42 @@ bool lovrSourceIsRelative(Source* source) {
   return isRelative == AL_TRUE;
 }
 
-bool lovrSourceIsStopped(Source* source) {
-  return lovrSourceGetState(source) == AL_STOPPED;
-}
-
 void lovrSourcePause(Source* source) {
   alSourcePause(source->id);
 }
 
 void lovrSourcePlay(Source* source) {
-  if (lovrSourceIsPlaying(source)) {
-    return;
-  } else if (lovrSourceIsPaused(source)) {
-    lovrSourceResume(source);
-    return;
-  }
-
-  // There is no guarantee that lovrAudioUpdate is called AFTER the state of source becomes STOPPED but
-  // BEFORE user code calls source:play(). This means that some buffers may still be queued (but processed
-  // and completely finished playing). These must be unqueued before we can start using the source again.
-  ALint processed;
-  ALuint _unused[SOURCE_BUFFERS];
-  alGetSourcei(lovrSourceGetId(source), AL_BUFFERS_PROCESSED, &processed);
-  alSourceUnqueueBuffers(source->id, processed, _unused);
-
-  lovrSourceStream(source, source->buffers, SOURCE_BUFFERS);
-  alSourcePlay(source->id);
-}
-
-void lovrSourceResume(Source* source) {
-  if (!lovrSourceIsPaused(source)) {
-    return;
-  }
-
-  alSourcePlay(source->id);
-}
-
-void lovrSourceRewind(Source* source) {
-  if (lovrSourceIsStopped(source)) {
-    return;
-  }
-
-  bool wasPaused = lovrSourceIsPaused(source);
-  alSourceRewind(source->id);
-  lovrSourceStop(source);
-  lovrSourcePlay(source);
-  if (wasPaused) {
-    lovrSourcePause(source);
+  if (source->type == SOURCE_STATIC) {
+    if (getState(source) != AL_PLAYING) {
+      alSourcePlay(source->id);
+    }
+  } else {
+    switch (getState(source)) {
+      case AL_INITIAL:
+      case AL_STOPPED:
+        alSourcei(source->id, AL_BUFFER, AL_NONE);
+        lovrSourceStream(source, source->buffers, SOURCE_BUFFERS);
+        alSourcePlay(source->id);
+        break;
+      case AL_PAUSED:
+        alSourcePlay(source->id);
+        break;
+      case AL_PLAYING:
+        break;
+    }
   }
 }
 
 void lovrSourceSeek(Source* source, size_t sample) {
-  switch (source->type) {
-    case SOURCE_STATIC:
-      alSourcef(source->id, AL_SAMPLE_OFFSET, sample);
-      break;
-
-    case SOURCE_STREAM: {
-      bool wasPaused = lovrSourceIsPaused(source);
-      lovrSourceStop(source);
-      lovrAudioStreamSeek(source->stream, sample);
-      lovrSourcePlay(source);
-      if (wasPaused) {
-        lovrSourcePause(source);
-      }
-      break;
+  if (source->type == SOURCE_STATIC) {
+    alSourcef(source->id, AL_SAMPLE_OFFSET, sample);
+  } else {
+    bool wasPaused = getState(source) == AL_PAUSED;
+    alSourceStop(source->id);
+    lovrAudioStreamSeek(source->stream, sample);
+    lovrSourcePlay(source);
+    if (wasPaused) {
+      lovrSourcePause(source);
     }
   }
 }
@@ -272,30 +239,12 @@ void lovrSourceSetVolumeLimits(Source* source, float min, float max) {
 }
 
 void lovrSourceStop(Source* source) {
-  if (lovrSourceIsStopped(source)) {
-    return;
-  }
-
-  switch (source->type) {
-    case SOURCE_STATIC:
-      alSourceStop(source->id);
-      break;
-
-    case SOURCE_STREAM: {
-
-      // Stop the source
-      alSourceStop(source->id);
-      alSourcei(source->id, AL_BUFFER, AL_NONE);
-
-      // Empty the buffers
-      int count = 0;
-      alGetSourcei(source->id, AL_BUFFERS_QUEUED, &count);
-      alSourceUnqueueBuffers(source->id, count, NULL);
-
-      // Rewind the decoder
-      lovrAudioStreamRewind(source->stream);
-      break;
-    }
+  if (source->type == SOURCE_STATIC) {
+    alSourceStop(source->id);
+  } else {
+    alSourceStop(source->id);
+    alSourcei(source->id, AL_BUFFER, AL_NONE);
+    lovrAudioStreamRewind(source->stream);
   }
 }
 

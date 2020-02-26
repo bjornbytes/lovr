@@ -134,11 +134,6 @@ static int l_lovrSourceIsLooping(lua_State* L) {
   return 1;
 }
 
-static int l_lovrSourceIsPaused(lua_State* L) {
-  lua_pushboolean(L, lovrSourceIsPaused(luax_checktype(L, 1, Source)));
-  return 1;
-}
-
 static int l_lovrSourceIsPlaying(lua_State* L) {
   lua_pushboolean(L, lovrSourceIsPlaying(luax_checktype(L, 1, Source)));
   return 1;
@@ -146,11 +141,6 @@ static int l_lovrSourceIsPlaying(lua_State* L) {
 
 static int l_lovrSourceIsRelative(lua_State* L) {
   lua_pushboolean(L, lovrSourceIsRelative(luax_checktype(L, 1, Source)));
-  return 1;
-}
-
-static int l_lovrSourceIsStopped(lua_State* L) {
-  lua_pushboolean(L, lovrSourceIsStopped(luax_checktype(L, 1, Source)));
   return 1;
 }
 
@@ -163,16 +153,6 @@ static int l_lovrSourcePlay(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   lovrSourcePlay(source);
   lovrAudioAdd(source);
-  return 0;
-}
-
-static int l_lovrSourceResume(lua_State* L) {
-  lovrSourceResume(luax_checktype(L, 1, Source));
-  return 0;
-}
-
-static int l_lovrSourceRewind(lua_State* L) {
-  lovrSourceRewind(luax_checktype(L, 1, Source));
   return 0;
 }
 
@@ -306,14 +286,10 @@ const luaL_Reg lovrSource[] = {
   { "getVolume", l_lovrSourceGetVolume },
   { "getVolumeLimits", l_lovrSourceGetVolumeLimits },
   { "isLooping", l_lovrSourceIsLooping },
-  { "isPaused", l_lovrSourceIsPaused },
   { "isPlaying", l_lovrSourceIsPlaying },
   { "isRelative", l_lovrSourceIsRelative },
-  { "isStopped", l_lovrSourceIsStopped },
   { "pause", l_lovrSourcePause },
   { "play", l_lovrSourcePlay },
-  { "resume", l_lovrSourceResume },
-  { "rewind", l_lovrSourceRewind },
   { "seek", l_lovrSourceSeek },
   { "setCone", l_lovrSourceSetCone },
   { "setFalloff", l_lovrSourceSetFalloff },

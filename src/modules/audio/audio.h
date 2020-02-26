@@ -22,8 +22,6 @@ float lovrAudioGetVolume(void);
 bool lovrAudioHas(struct Source* source);
 bool lovrAudioIsSpatialized(void);
 void lovrAudioPause(void);
-void lovrAudioResume(void);
-void lovrAudioRewind(void);
 void lovrAudioSetDopplerEffect(float factor, float speedOfSound);
 void lovrAudioSetOrientation(float* orientation);
 void lovrAudioSetPosition(float* position);

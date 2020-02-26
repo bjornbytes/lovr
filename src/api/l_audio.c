@@ -165,16 +165,6 @@ static int l_lovrAudioPause(lua_State* L) {
   return 0;
 }
 
-static int l_lovrAudioResume(lua_State* L) {
-  lovrAudioResume();
-  return 0;
-}
-
-static int l_lovrAudioRewind(lua_State* L) {
-  lovrAudioRewind();
-  return 0;
-}
-
 static int l_lovrAudioSetDopplerEffect(lua_State* L) {
   float factor = luax_optfloat(L, 1, 1.f);
   float speedOfSound = luax_optfloat(L, 2, 343.29f);
@@ -237,8 +227,6 @@ static const luaL_Reg lovrAudio[] = {
   { "newMicrophone", l_lovrAudioNewMicrophone },
   { "newSource", l_lovrAudioNewSource },
   { "pause", l_lovrAudioPause },
-  { "resume", l_lovrAudioResume },
-  { "rewind", l_lovrAudioRewind },
   { "setDopplerEffect", l_lovrAudioSetDopplerEffect },
   { "setOrientation", l_lovrAudioSetOrientation },
   { "setPose", l_lovrAudioSetPose },
