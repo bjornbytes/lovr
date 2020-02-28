@@ -208,7 +208,10 @@ static int l_lovrShaderSend(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   const char* name = luaL_checkstring(L, 2);
   const Uniform* uniform = lovrShaderGetUniform(shader, name);
-  lovrAssert(uniform, "Unknown shader variable '%s'", name);
+  if (!uniform) {
+    lua_pushboolean(L, false);
+    return 1;
+  }
 
   if (tempData.size < uniform->size) {
     tempData.size = uniform->size;
@@ -223,7 +226,8 @@ static int l_lovrShaderSend(lua_State* L) {
     case UNIFORM_SAMPLER: lovrShaderSetTextures(shader, uniform->name, tempData.data, 0, uniform->count); break;
     case UNIFORM_IMAGE: lovrShaderSetImages(shader, uniform->name, tempData.data, 0, uniform->count); break;
   }
-  return 0;
+  lua_pushboolean(L, true);
+  return 1;
 }
 
 static int l_lovrShaderSendBlock(lua_State* L) {
