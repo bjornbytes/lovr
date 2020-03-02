@@ -2,6 +2,7 @@
 #pragma once
 
 #include "../../core/util.h"
+#include "data/modelData.h"
 #include <stdbool.h>
 
 // What's going on here:
@@ -133,6 +134,7 @@ typedef struct {
   BridgeLovrVibrateFunction* vibrateFunction; // Returns true on success
   unsigned int textureHandles[4];
   unsigned int textureCount;
+  ModelData* handModels[2];
 } BridgeLovrInitData;
 
 LOVR_EXPORT void bridgeLovrInit(BridgeLovrInitData *initData);
