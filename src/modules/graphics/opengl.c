@@ -1665,7 +1665,6 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
     return;
   }
 
-  GLenum glFormat = convertTextureFormat(format);
   GLenum internalFormat = convertTextureFormatInternal(format, texture->srgb);
 #ifdef LOVR_GL
   if (GLAD_GL_ARB_texture_storage) {
@@ -1677,6 +1676,7 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
   }
 #ifdef LOVR_GL
   } else {
+    GLenum glFormat = convertTextureFormat(format);
     for (uint32_t i = 0; i < texture->mipmapCount; i++) {
       switch (texture->type) {
         case TEXTURE_2D:
