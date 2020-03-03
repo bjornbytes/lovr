@@ -148,7 +148,7 @@ else()
     add_subdirectory(deps/lua lua)
     include_directories(deps/lua/src ${CMAKE_BINARY_DIR}/lua)
     set(LOVR_LUA liblua_static)
-    set_target_properties(lua luac liblua liblua_static PROPERTIES EXCLUDE_FROM_ALL 1)
+    set_target_properties(lua luac PROPERTIES EXCLUDE_FROM_ALL 1)
   endif()
 endif()
 
