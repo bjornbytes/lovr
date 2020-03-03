@@ -51,6 +51,9 @@ CONFIG_LEAP=n
 CONFIG_OCULUS_PATH=
 CONFIG_LEAP_PATH=
 
+## LuaJIT
+CONFIG_LUAJIT=y
+
 ## OpenGL flavor
 # Can be GL, GLES, or WEBGL.  Ideally this should be autodetected though.
 CONFIG_GL=GL

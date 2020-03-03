@@ -41,41 +41,62 @@ CFLAGS_@(WEBVR) += -DLOVR_USE_WEBVR
 CFLAGS_@(LEAP) += -DLOVR_USE_LEAP
 
 ## Platforms
-# A little gnarly, but basically you can set CONFIG_PLATFORM to pick a specific one, otherwise
-# we use the builtin TUP_PLATFORM which is the current OS (so it won't work with android/web).
-# Also macosx gets converted to macos
 ifeq (@(PLATFORM),)
   PLATFORM = @(TUP_PLATFORM)
 else
   PLATFORM = @(PLATFORM)
 endif
+
 ifeq ($(PLATFORM),macosx)
   PLATFORM = macos
-endif
-
-ifeq ($(PLATFORM),macos)
   LDFLAGS += -lobjc
-  LDFLAGS += -pagezero_size 10000 -image_base 100000000
-  ORIGIN = @executable_path
+  LDFLAGS_@(LUAJIT) += -pagezero_size 10000 -image_base 100000000
+  LDFLAGS += -Wl,-rpath,@executable_path/libs
   SO = dylib
 endif
+
 ifeq ($(PLATFORM),linux)
   LDFLAGS += -lm -lpthread
-  ORIGIN = \$ORIGIN
+  LDFLAGS += -Wl,-rpath,\$ORIGIN/libs
   SO = so
 endif
 
+ifeq ($(PLATFORM),web)
+  SUFFIX = .html
+  EXTRAS = lovr.js lovr.wasm
+  LDFLAGS += -s USE_GLFW=3
+  LDFLAGS += -s USE_WEBGL2=1
+  CFLAGS_@(THREAD) += -s USE_PTHREADS=1
+  LDFLAGS_@(THREAD) += -s USE_PTHREADS=1
+  EXTRAS_@(THREAD) += lovr.worker.js
+endif
+
 ## Libraries
+ifeq ($(PLATFORM),web)
+  CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
+  STATIC_LIBS += $(ROOT)/build/lua/liblua.a
+
+  CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
+  STATIC_LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.a
+
+  CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
+  STATIC_LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.a
+else
 ifeq (@(CMAKE_DEPS),y)
 
   # enet
   CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
   LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
 
-  # LuaJIT
-  CFLAGS += -I$(ROOT)/deps/luajit/src
-  LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit
-  LIBS += $(ROOT)/build/luajit/src/libluajit.$(SO)
+  # Lua
+  ifeq (@(LUAJIT),y)
+    CFLAGS += -I$(ROOT)/deps/luajit/src
+    LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit
+    LIBS += $(ROOT)/build/luajit/src/libluajit.$(SO)
+  else
+    CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
+    LDFLAGS += -L$(ROOT)/build/lua -llua
+  endif
 
   # msdfgen
   CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
@@ -102,9 +123,8 @@ ifeq (@(CMAKE_DEPS),y)
   LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal -lopenal
   LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*$(SO)*
 
-  # Configure rpath to look for libraries in a `libs` folder next to the executable
-  LDFLAGS += -Wl,-rpath,$(ORIGIN)/libs
   LIBS += $(LIBS_y)
+endif
 endif
 
 CFLAGS += @(EXTRA_CFLAGS)

@@ -70,5 +70,5 @@ SRC_@(GRAPHICS) += src/resources/shaders.c
 
 : foreach $(RES) $(RES_y) |> !xd |> %f.h
 : foreach $(SRC) $(SRC_y) $(SRC_yy) | src/resources/*.h |> !cc |> .obj/%B.o
-: .obj/*.o |> !ld |> lovr
+: .obj/*.o $(STATIC_LIBS) $(STATIC_LIBS_y) |> !ld |> lovr$(SUFFIX) | $(EXTRAS) $(EXTRAS_y)
 : foreach $(LIBS) |> !cp |> libs/%b

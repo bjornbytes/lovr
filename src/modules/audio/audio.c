@@ -8,7 +8,9 @@
 #include <stdlib.h>
 #include <AL/al.h>
 #include <AL/alc.h>
+#ifndef EMSCRIPTEN
 #include <AL/alext.h>
+#endif
 
 static struct {
   bool initialized;
