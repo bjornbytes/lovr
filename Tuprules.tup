@@ -38,6 +38,7 @@ CFLAGS_@(OCULUS) += -DLOVR_USE_OCULUS
 CFLAGS_@(OCULUS) += -I@(OCULUS_PATH)/LibOVR/Include
 CFLAGS_@(VRAPI) += -DLOVR_USE_OCULUS_MOBILE
 CFLAGS_@(WEBVR) += -DLOVR_USE_WEBVR
+CFLAGS_@(WEBXR) += -DLOVR_USE_WEBXR
 CFLAGS_@(LEAP) += -DLOVR_USE_LEAP
 
 ## Platforms
@@ -72,11 +73,18 @@ ifeq ($(PLATFORM),web)
   LDFLAGS += -s GL_PREINITIALIZED_CONTEXT
   LDFLAGS += -s FORCE_FILESYSTEM
   LDFLAGS += -s EXPORTED_FUNCTIONS="[
-    LDFLAGS += '_main','_webvr_onAnimationFrame',
+    LDFLAGS += '_main',
+    ifeq (@(WEBVR),y)
+    LDFLAGS += '_webvr_onAnimationFrame',
+    endif
+    ifeq (@(WEBXR),y)
+    LDFLAGS += '_lovrCanvasCreateFromHandle','_lovrGraphicsSetCamera',
+    endif
     LDFLAGS += '_mat4_set','_mat4_identity','_mat4_invert','_mat4_multiply','_mat4_rotateQuat',
     LDFLAGS += '_mat4_transform','_mat4_transformDirection'
   LDFLAGS += ]"
-  LDFLAGS += --js-library $(ROOT)/src/resources/webvr.js
+  LDFLAGS_@(WEBVR) += --js-library $(ROOT)/src/resources/webvr.js
+  LDFLAGS_@(WEBXR) += --js-library $(ROOT)/src/resources/webxr.js
   LDFLAGS += --shell-file $(ROOT)/src/resources/lovr.html
   CFLAGS_@(THREAD) += -s USE_PTHREADS=1
   LDFLAGS_@(THREAD) += -s USE_PTHREADS=1

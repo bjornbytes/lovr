@@ -20,6 +20,7 @@ StringEntry HeadsetDrivers[] = {
   [DRIVER_OPENVR] = ENTRY("openvr"),
   [DRIVER_OPENXR] = ENTRY("openxr"),
   [DRIVER_WEBVR] = ENTRY("webvr"),
+  [DRIVER_WEBXR] = ENTRY("webxr"),
   { 0 }
 };
 
@@ -694,7 +695,7 @@ int luaopen_lovr_headset(lua_State* L) {
   lua_getfield(L, -1, "headset");
 
   size_t driverCount = 0;
-  HeadsetDriver drivers[8];
+  HeadsetDriver drivers[16];
   float offset = 1.7f;
   int msaa = 4;
 
