@@ -1837,7 +1837,6 @@ void lovrTextureSetCompareMode(Texture* texture, CompareMode compareMode) {
 
 void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
   lovrGraphicsFlush();
-  float anisotropy = filter.mode == FILTER_ANISOTROPIC ? MAX(filter.anisotropy, 1.f) : 1.f;
   lovrGpuBindTexture(texture, 0);
   texture->filter = filter;
 
@@ -1858,7 +1857,6 @@ void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
       break;
 
     case FILTER_TRILINEAR:
-    case FILTER_ANISOTROPIC:
       if (texture->mipmaps) {
         glTexParameteri(texture->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(texture->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -1869,7 +1867,7 @@ void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
       break;
   }
 
-  glTexParameteri(texture->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
+  glTexParameteri(texture->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, MAX(filter.anisotropy, 1.f));
 }
 
 void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {

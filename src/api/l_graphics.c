@@ -111,7 +111,6 @@ StringEntry FilterModes[] = {
   [FILTER_NEAREST] = ENTRY("nearest"),
   [FILTER_BILINEAR] = ENTRY("bilinear"),
   [FILTER_TRILINEAR] = ENTRY("trilinear"),
-  [FILTER_ANISOTROPIC] = ENTRY("anisotropic"),
   { 0 }
 };
 

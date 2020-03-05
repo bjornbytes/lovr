@@ -35,11 +35,8 @@ static int l_lovrTextureGetFilter(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   TextureFilter filter = lovrTextureGetFilter(texture);
   luax_pushenum(L, FilterModes, filter.mode);
-  if (filter.mode == FILTER_ANISOTROPIC) {
-    lua_pushnumber(L, filter.anisotropy);
-    return 2;
-  }
-  return 1;
+  lua_pushnumber(L, filter.anisotropy);
+  return 2;
 }
 
 static int l_lovrTextureGetFormat(lua_State* L) {

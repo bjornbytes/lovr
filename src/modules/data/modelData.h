@@ -35,8 +35,7 @@ typedef enum {
 typedef enum {
   FILTER_NEAREST,
   FILTER_BILINEAR,
-  FILTER_TRILINEAR,
-  FILTER_ANISOTROPIC
+  FILTER_TRILINEAR
 } FilterMode;
 
 typedef struct {
