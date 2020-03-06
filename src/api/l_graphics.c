@@ -585,11 +585,8 @@ static int l_lovrGraphicsSetCullingEnabled(lua_State* L) {
 static int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
   TextureFilter filter = lovrGraphicsGetDefaultFilter();
   luax_pushenum(L, FilterModes, filter.mode);
-  if (filter.mode == FILTER_ANISOTROPIC) {
-    lua_pushnumber(L, filter.anisotropy);
-    return 2;
-  }
-  return 1;
+  lua_pushnumber(L, filter.anisotropy);
+  return 2;
 }
 
 static int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
