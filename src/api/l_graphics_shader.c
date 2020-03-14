@@ -65,7 +65,7 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         case UNIFORM_SAMPLER: {
           *((Texture**) dest + i) = luax_checktype(L, j, Texture);
           TextureType type = lovrTextureGetType(*((Texture**) dest + i));
-          lovrAssert(type == uniform->textureType, "Attempt to send %s texture to %s sampler uniform", TextureTypes[type], TextureTypes[uniform->textureType]);
+          lovrAssert(type == uniform->textureType, "Attempt to send %s texture to %s sampler uniform", TextureTypes[type].string, TextureTypes[uniform->textureType].string);
           break;
         }
 
