@@ -452,17 +452,22 @@ static bool parseASTC(uint8_t* bytes, size_t size, TextureData* textureData) {
   return true;
 }
 
-TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint32_t height, uint8_t value, TextureFormat format) {
-  lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");
-  lovrAssert(format < FORMAT_DXT1, "Blank TextureData cannot be compressed");
+TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint32_t height, Blob* contents, uint8_t value, TextureFormat format) {
   size_t pixelSize = getPixelSize(format);
   size_t size = width * height * pixelSize;
+  lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");
+  lovrAssert(format < FORMAT_DXT1, "Blank TextureData cannot be compressed");
+  lovrAssert(!contents || contents->size >= size, "TextureData Blob is too small (%d bytes needed, got %d)", size, contents->size);
   textureData->width = width;
   textureData->height = height;
   textureData->format = format;
-  void *data = malloc(size);
+  void* data = malloc(size);
   lovrAssert(data, "Out of memory");
-  memset(data, value, size);
+  if (contents) {
+    memcpy(data, contents->data, size);
+  } else {
+    memset(data, value, size);
+  }
   textureData->blob = lovrBlobCreate(data, size, "TextureData plain");
   return textureData;
 }
@@ -489,9 +494,11 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
   if (stbi_is_hdr_from_memory(blob->data, length)) {
     textureData->format = FORMAT_RGBA32F;
     textureData->blob->data = stbi_loadf_from_memory(blob->data, length, &width, &height, NULL, 4);
+    textureData->blob->size = 16 * width * height;
   } else {
     textureData->format = FORMAT_RGBA;
     textureData->blob->data = stbi_load_from_memory(blob->data, length, &width, &height, NULL, 4);
+    textureData->blob->size = 4 * width * height;
   }
 
   if (!textureData->blob->data) {

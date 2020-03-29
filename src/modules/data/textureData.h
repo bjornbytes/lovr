@@ -57,7 +57,7 @@ typedef struct TextureData {
   uint32_t mipmapCount;
 } TextureData;
 
-TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint32_t height, uint8_t value, TextureFormat format);
+TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint32_t height, Blob* contents, uint8_t value, TextureFormat format);
 TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, bool flip);
 #define lovrTextureDataCreate(...) lovrTextureDataInit(lovrAlloc(TextureData), __VA_ARGS__)
 #define lovrTextureDataCreateFromBlob(...) lovrTextureDataInitFromBlob(lovrAlloc(TextureData), __VA_ARGS__)

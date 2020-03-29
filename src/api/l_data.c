@@ -119,12 +119,18 @@ static int l_lovrDataNewTextureData(lua_State* L) {
     int width = luaL_checkinteger(L, 1);
     int height = luaL_checkinteger(L, 2);
     TextureFormat format = luax_checkenum(L, 3, TextureFormats, "rgba", "TextureFormat");
-    textureData = lovrTextureDataCreate(width, height, 0x0, format);
+    Blob* blob = lua_isnoneornil(L, 4) ? NULL : luax_checktype(L, 4, Blob);
+    textureData = lovrTextureDataCreate(width, height, blob, 0x0, format);
   } else {
-    Blob* blob = luax_readblob(L, 1, "Texture");
-    bool flip = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
-    textureData = lovrTextureDataCreateFromBlob(blob, flip);
-    lovrRelease(Blob, blob);
+    TextureData* source = luax_totype(L, 1, TextureData);
+    if (source) {
+      textureData = lovrTextureDataCreate(source->width, source->height, source->blob, 0x0, source->format);
+    } else {
+      Blob* blob = luax_readblob(L, 1, "Texture");
+      bool flip = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
+      textureData = lovrTextureDataCreateFromBlob(blob, flip);
+      lovrRelease(Blob, blob);
+    }
   }
 
   luax_pushtype(L, TextureData, textureData);

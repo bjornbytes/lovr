@@ -608,7 +608,7 @@ static ModelData* openvr_newModelData(Device device) {
   };
 
   RenderModel_TextureMap_t* vrTexture = state.deviceTextures[index];
-  model->textures[0] = lovrTextureDataCreate(vrTexture->unWidth, vrTexture->unHeight, 0, FORMAT_RGBA);
+  model->textures[0] = lovrTextureDataCreate(vrTexture->unWidth, vrTexture->unHeight, NULL, 0, FORMAT_RGBA);
   memcpy(model->textures[0]->blob->data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
 
   model->materials[0] = (ModelMaterial) {

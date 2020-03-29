@@ -1289,7 +1289,7 @@ void lovrGpuInit(void* (*getProcAddress)(const char*)) {
     arr_init(&state.incoherents[i]);
   }
 
-  TextureData* textureData = lovrTextureDataCreate(1, 1, 0xff, FORMAT_RGBA);
+  TextureData* textureData = lovrTextureDataCreate(1, 1, NULL, 0xff, FORMAT_RGBA);
   state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false, 0);
   lovrTextureSetFilter(state.defaultTexture, (TextureFilter) { .mode = FILTER_NEAREST });
   lovrTextureSetWrap(state.defaultTexture, (TextureWrap) { WRAP_CLAMP, WRAP_CLAMP, WRAP_CLAMP });
@@ -2014,7 +2014,7 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, uint32_t index) {
     glReadBuffer(index);
   }
 
-  TextureData* textureData = lovrTextureDataCreate(canvas->width, canvas->height, 0x0, FORMAT_RGBA);
+  TextureData* textureData = lovrTextureDataCreate(canvas->width, canvas->height, NULL, 0x0, FORMAT_RGBA);
   glReadPixels(0, 0, canvas->width, canvas->height, GL_RGBA, GL_UNSIGNED_BYTE, textureData->blob->data);
 
   if (index != 0) {
