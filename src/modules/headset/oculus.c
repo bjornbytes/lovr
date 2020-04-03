@@ -19,6 +19,7 @@ static struct {
   bool needRefreshButtons;
   ovrHmdDesc desc;
   ovrSession session;
+  long long frameIndex;
   ovrGraphicsLuid luid;
   float clipNear;
   float clipFar;
@@ -58,7 +59,7 @@ static ovrTrackingState *refreshTracking(void) {
 
   // get the state head and controllers are predicted to be in at display time,
   // per the manual (frame timing section).
-  double predicted = ovr_GetPredictedDisplayTime(state.session, 0);
+  double predicted = ovr_GetPredictedDisplayTime(state.session, state.frameIndex);
   ts = ovr_GetTrackingState(state.session, predicted, true);
   state.needRefreshTracking = false;
   return &ts;
@@ -144,7 +145,7 @@ static const float* oculus_getDisplayMask(uint32_t* count) {
 }
 
 static double oculus_getDisplayTime(void) {
-  return ovr_GetPredictedDisplayTime(state.session, 0);
+  return ovr_GetPredictedDisplayTime(state.session, state.frameIndex);
 }
 
 static void getEyePoses(ovrPosef poses[2], double* sensorSampleTime) {
@@ -373,6 +374,9 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
     mat4_fromMat44(camera.projection[eye], projection.M);
   }
 
+  ovr_WaitToBeginFrame(state.session, state.frameIndex);
+  ovr_BeginFrame(state.session, state.frameIndex);
+
   int curIndex;
   uint32_t curTexId;
   ovr_GetTextureSwapChainCurrentIndex(state.session, state.chain, &curIndex);
@@ -403,7 +407,8 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
   }
 
   const ovrLayerHeader* layers = &ld.Header;
-  ovr_SubmitFrame(state.session, 0, NULL, &layers, 1);
+  ovr_EndFrame(state.session, state.frameIndex, NULL, &layers, 1);
+  ++state.frameIndex;
 
   state.needRefreshTracking = true;
   state.needRefreshButtons = true;
