@@ -417,6 +417,7 @@ MAF mat4 mat4_invert(mat4 m) {
   return m;
 }
 
+// Calculate matrix equivalent to "apply n, then m"
 MAF mat4 mat4_multiply(mat4 m, mat4 n) {
   float m00 = m[0], m01 = m[1], m02 = m[2], m03 = m[3],
         m10 = m[4], m11 = m[5], m12 = m[6], m13 = m[7],
@@ -603,6 +604,8 @@ MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   return m;
 }
 
+// Apply matrix to a vec3
+// Difference from mat4_multiplyVec4: w normalize is performed, w in vec3 is ignored
 MAF void mat4_transform(mat4 m, vec3 v) {
   float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
   float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
@@ -612,17 +615,6 @@ MAF void mat4_transform(mat4 m, vec3 v) {
   v[1] = y / w;
   v[2] = z / w;
   v[3] = w / w;
-}
-
-MAF void mat4_transform_project(mat4 m, vec3 v) {
-  vec3_set(v,
-    v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12],
-    v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13],
-    v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14]
-  );
-  float w =
-    v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
-  vec3_set(v, v[0]/w, v[1]/w, v[2]/w);
 }
 
 MAF void mat4_transformDirection(mat4 m, vec3 v) {
