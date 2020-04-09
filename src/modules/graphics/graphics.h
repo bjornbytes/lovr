@@ -69,6 +69,13 @@ typedef enum {
   WINDING_COUNTERCLOCKWISE
 } Winding;
 
+typedef enum {
+  MATRIX_REQUEST_MODEL,
+  MATRIX_REQUEST_VIEW,
+  MATRIX_REQUEST_PROJECTION,
+  MATRIX_REQUEST_MVP, // Combined
+} MatrixRequest;
+
 typedef struct {
   bool stereo;
   struct Canvas* canvas;
@@ -152,6 +159,9 @@ void lovrGraphicsRotate(quat rotation);
 void lovrGraphicsScale(vec3 scale);
 void lovrGraphicsMatrixTransform(mat4 transform);
 void lovrGraphicsSetProjection(mat4 projection);
+bool lovrGraphicsGetIsStereo();
+void lovrGraphicsMatrixGetTransform(mat4 dst, int* count, MatrixRequest request); // dst must be an array of 32 values
+void lovrGraphicsGetViewport(float* viewport, int* count); // Viewport should be 8 values, x y width height per-eye.
 
 // Rendering
 void lovrGraphicsFlush(void);

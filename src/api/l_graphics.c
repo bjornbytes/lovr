@@ -143,6 +143,14 @@ StringEntry MaterialTextures[] = {
   { 0 }
 };
 
+StringEntry MatrixRequests[] = {
+  [MATRIX_REQUEST_MODEL] = ENTRY("model"),
+  [MATRIX_REQUEST_VIEW] = ENTRY("view"),
+  [MATRIX_REQUEST_PROJECTION] = ENTRY("projection"),
+  [MATRIX_REQUEST_MVP] = ENTRY("mvp"),
+  { 0 }
+};
+
 StringEntry ShaderTypes[] = {
   [SHADER_GRAPHICS] = ENTRY("graphics"),
   [SHADER_COMPUTE] = ENTRY("compute"),
@@ -676,6 +684,35 @@ static int l_lovrGraphicsSetStencilTest(lua_State* L) {
     lovrGraphicsSetStencilTest(mode, value);
   }
   return 0;
+}
+
+static int l_lovrGraphicsGetTransforms(lua_State* L) {
+  MatrixRequest request = luax_checkenum(L, 1, MatrixRequests, "mvp", "MatrixRequest");
+  float transforms[32];
+  int count;
+  lovrGraphicsMatrixGetTransform(transforms, &count, request);
+  for(int tidx = 0; tidx < count; tidx++) {
+    lua_createtable(L, 16, 0);
+    for(int idx = 0; idx < 16; idx++) {
+      lua_pushnumber(L, transforms[tidx*4 + idx]);
+      lua_rawseti(L, -2, idx+1);
+    }
+  }
+  return count;
+}
+
+static int l_lovrGraphicsGetViewports(lua_State* L) {
+  float viewport[8];
+  int count;
+  lovrGraphicsGetViewport(viewport, &count);
+  for(int vidx = 0; vidx < count; vidx++) {
+    lua_createtable(L, 4, 0);
+    for(int idx = 0; idx < 4; idx++) {
+      lua_pushnumber(L, viewport[vidx*4 + idx]);
+      lua_rawseti(L, -2, idx+1);
+    }
+  }
+  return count;
 }
 
 static int l_lovrGraphicsGetWinding(lua_State* L) {
@@ -1678,6 +1715,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "setShader", l_lovrGraphicsSetShader },
   { "getStencilTest", l_lovrGraphicsGetStencilTest },
   { "setStencilTest", l_lovrGraphicsSetStencilTest },
+  { "getTransforms", l_lovrGraphicsGetTransforms },
+  { "getViewports", l_lovrGraphicsGetViewports },
   { "getWinding", l_lovrGraphicsGetWinding },
   { "setWinding", l_lovrGraphicsSetWinding },
   { "isWireframe", l_lovrGraphicsIsWireframe },

@@ -553,6 +553,52 @@ void lovrGraphicsSetProjection(mat4 projection) {
   state.frameDataDirty = true;
 }
 
+void lovrGraphicsMatrixGetTransform(mat4 dst, int* count, MatrixRequest request) {
+  *count = lovrGraphicsGetIsStereo() ? 2 : 1;
+  const size_t matrixSize = 16*sizeof(float);
+  for(int eye = 0; eye < *count; eye++) {
+    mat4 eyeMatrix = dst + 16*eye;
+    switch (request) {
+      case MATRIX_REQUEST_MODEL:
+        memcpy(eyeMatrix, state.transforms[state.transform], matrixSize);
+        break;
+      case MATRIX_REQUEST_VIEW:
+        memcpy(eyeMatrix, state.camera.viewMatrix[eye], matrixSize);
+        break;
+      case MATRIX_REQUEST_PROJECTION:
+        memcpy(eyeMatrix, state.camera.projection[eye], matrixSize);
+        break;
+      case MATRIX_REQUEST_MVP:
+        memcpy(eyeMatrix, state.camera.projection[eye], matrixSize);
+        mat4_multiply(eyeMatrix, state.camera.viewMatrix[eye]);
+        mat4_multiply(eyeMatrix, state.transforms[state.transform]);
+        break;
+      default:
+        lovrThrow("Unreachable");
+    }
+  }
+}
+
+bool lovrGraphicsGetIsStereo() {
+  Canvas* canvas = state.canvas ? state.canvas : state.camera.canvas;
+  return lovrCanvasIsStereo(canvas);
+}
+
+void lovrGraphicsGetViewport(float* viewport, int* count) {
+  Canvas* canvas = state.canvas ? state.canvas : state.camera.canvas;
+#if defined(__ANDROID__)
+  // Android uses OVR_multiview, so only one viewport
+  int viewportCount = 1;
+#else
+  int viewportCount = lovrCanvasIsStereo(canvas) ? 2 : 1;
+#endif
+  float w = lovrCanvasGetWidth(canvas), h = lovrCanvasGetHeight(canvas);
+  if (viewportCount == 2) w /= 2; 
+  float viewports[8] = { 0, 0, w, h, w, 0, w, h };
+  if (viewport) memcpy(viewport, viewports, sizeof(viewports));
+  if (count) *count = viewportCount;
+}
+
 // Rendering
 
 static void lovrGraphicsBatch(BatchRequest* req) {
