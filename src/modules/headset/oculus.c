@@ -316,15 +316,9 @@ static bool oculus_vibrate(Device device, float strength, float duration, float 
     return false;
   }
   int idx = device == DEVICE_HAND_LEFT ? 0 : 1;
-  state.hapticStrength[idx] = strength > 0.0f ? (strength <= 1.0f ? strength : 1.0f) : 0.0f;
-  state.hapticDuration[idx] = duration > 0.0f ? duration : 0.0f;
-  float freq = frequency / 320.0f; // 1.0 = 320hz, limit on Rift CV1 touch controllers.
-  if (freq < 0.0f) {
-    freq = 0.0f;
-  }
-  if (freq > 1.0f) {
-    freq = 1.0f;
-  }
+  state.hapticStrength[idx] = CLAMP(strength, 0.0f, 1.0f);
+  state.hapticDuration[idx] = MAX(duration, 0.0f);
+  float freq = CLAMP(frequency / 320.0f, 0.0f, 1.0f); // 1.0 = 320hz, limit on Rift CV1 touch controllers.
   state.hapticFrequency[idx] = freq;
   return true;
 }
