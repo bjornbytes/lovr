@@ -312,6 +312,9 @@ static bool oculus_getAxis(Device device, DeviceAxis axis, vec3 value) {
 }
 
 static bool oculus_vibrate(Device device, float strength, float duration, float frequency) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
   int idx = device == DEVICE_HAND_LEFT ? 0 : 1;
   state.hapticStrength[idx] = strength > 0.0f ? (strength <= 1.0f ? strength : 1.0f) : 0.0f;
   state.hapticDuration[idx] = duration > 0.0f ? duration : 0.0f;
