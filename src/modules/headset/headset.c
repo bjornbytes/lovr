@@ -39,6 +39,9 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float offset, uint32_
 #ifdef LOVR_USE_WEBXR
       case DRIVER_WEBXR: interface = &lovrHeadsetWebXRDriver; break;
 #endif
+#ifdef LOVR_USE_GAMEPAD
+      case DRIVER_GAMEPAD: interface = &lovrHeadsetGamepadDriver; break;
+#endif
       default: continue;
     }
 

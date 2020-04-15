@@ -25,6 +25,7 @@ option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sur
 option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_LEAP "Enable the Leap Motion backend for the headset module" OFF)
+option(LOVR_USE_GAMEPAD "Enable the gamepad backend for desktop systems" ON)
 
 option(LOVR_SYSTEM_ENET "Use the system-provided enet" OFF)
 option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
@@ -72,6 +73,7 @@ elseif(ANDROID)
   set(LOVR_USE_OCULUS OFF)
   set(LOVR_USE_DESKTOP_HEADSET OFF)
   set(LOVR_USE_OCULUS_MOBILE ON)
+  set(LOVR_USE_GAMEPAD OFF) # Requires GLFW currently
   set(LOVR_BUILD_SHARED ON) # Android has only "activities"
 elseif(UNIX)
   find_package(PkgConfig)
@@ -470,6 +472,10 @@ if(LOVR_ENABLE_HEADSET)
   if(LOVR_USE_LEAP)
     add_definitions(-DLOVR_USE_LEAP)
     target_sources(lovr PRIVATE src/modules/headset/leap.c)
+  endif()
+  if(LOVR_USE_GAMEPAD)
+    add_definitions(-DLOVR_USE_GAMEPAD)
+    target_sources(lovr PRIVATE src/modules/headset/gamepad.c)
   endif()
 endif()
 
