@@ -46,6 +46,7 @@ void discoverGamepads() {
             gamepad->jid = jid;
             state.gamepadsPresent++;
             printf("FOUND NEW GAMEPAD %d: %s\n", gamepadIdx, glfwGetJoystickName(jid));
+            break;
           }
         }
       }

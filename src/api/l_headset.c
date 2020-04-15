@@ -21,6 +21,7 @@ StringEntry HeadsetDrivers[] = {
   [DRIVER_OPENXR] = ENTRY("openxr"),
   [DRIVER_WEBVR] = ENTRY("webvr"),
   [DRIVER_WEBXR] = ENTRY("webxr"),
+  [DRIVER_GAMEPAD] = ENTRY("gamepad"),
   { 0 }
 };
 
