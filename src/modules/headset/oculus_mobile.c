@@ -165,13 +165,14 @@ static bool vrapi_getVelocity(Device device, vec3 velocity, vec3 angularVelocity
   return true;
 }
 
+// Notice: Quest has a thumbstick, Go has a touchpad
 static bool buttonDown(BridgeLovrButton field, DeviceButton button, bool *result) {
   if (bridgeLovrMobileData.deviceType == BRIDGE_LOVR_DEVICE_QUEST) {
     switch (button) {
       case BUTTON_MENU: *result = field & BRIDGE_LOVR_BUTTON_MENU; break; // Technically "LMENU" but only fires on left controller
       case BUTTON_TRIGGER: *result = field & BRIDGE_LOVR_BUTTON_SHOULDER; break;
       case BUTTON_GRIP: *result = field & BRIDGE_LOVR_BUTTON_GRIP; break;
-      case BUTTON_TOUCHPAD: *result = field & BRIDGE_LOVR_BUTTON_JOYSTICK; break;
+      case BUTTON_THUMBSTICK: *result = field & BRIDGE_LOVR_BUTTON_JOYSTICK; break;
       case BUTTON_A: *result = field & BRIDGE_LOVR_BUTTON_A; break;
       case BUTTON_B: *result = field & BRIDGE_LOVR_BUTTON_B; break;
       case BUTTON_X: *result = field & BRIDGE_LOVR_BUTTON_X; break;
@@ -196,7 +197,7 @@ static bool buttonTouch(BridgeLovrTouch field, DeviceButton button, bool *result
 
   switch (button) {
     case BUTTON_TRIGGER: *result = field & (BRIDGE_LOVR_TOUCH_TRIGGER); break;
-    case BUTTON_TOUCHPAD: *result = field & (BRIDGE_LOVR_TOUCH_TOUCHPAD | BRIDGE_LOVR_TOUCH_JOYSTICK); break;
+    case BUTTON_THUMBSTICK: *result = field & (BRIDGE_LOVR_TOUCH_TOUCHPAD | BRIDGE_LOVR_TOUCH_JOYSTICK); break;
     case BUTTON_A: *result = field & BRIDGE_LOVR_TOUCH_A; break;
     case BUTTON_B: *result = field & BRIDGE_LOVR_TOUCH_B; break;
     case BUTTON_X: *result = field & BRIDGE_LOVR_TOUCH_X; break;
