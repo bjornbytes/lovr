@@ -4,6 +4,7 @@
 #include "graphics/canvas.h"
 #include "core/os.h"
 #include "core/ref.h"
+#include "event/event.h"
 #include "lib/glad/glad.h"
 #include <android/log.h>
 #include <assert.h>
@@ -34,6 +35,7 @@ static struct {
   void* renderUserdata;
   uint32_t msaa;
   float offset;
+  Variant nextBootCookie; // Only used during restart event
 } state;
 
 // Headset driver object
@@ -419,6 +421,12 @@ static void bridgeLovrInitState() {
     lua_pushvalue(L, -1); // Double at named key
     lua_setfield(L, -3, "exe");
     lua_rawseti(L, -2, -3);
+    if (state.nextBootCookie.type != TYPE_NIL) {
+      luax_pushvariant(L, &state.nextBootCookie);
+      lovrVariantDestroy(&state.nextBootCookie);
+      state.nextBootCookie.type = TYPE_NIL;
+      lua_setfield(L, -2, "restart");
+    }
 
     // Mimic the arguments "--root /assets" as parsed by lovrInit
     lua_pushliteral(L, "--root");
@@ -512,6 +520,7 @@ void bridgeLovrUpdate(BridgeLovrUpdateData *updateData) {
   lovrSetErrorCallback(luax_vthrow, T);
   if (lua_resume(T, 1) != LUA_YIELD) {
     if (lua_type(T, -2) == LUA_TSTRING && !strcmp(lua_tostring(T, -2), "restart")) {
+      luax_checkvariant(T, -1, &state.nextBootCookie);
       state.renderCallback = NULL;
       state.renderUserdata = NULL;
       lua_close(L);
