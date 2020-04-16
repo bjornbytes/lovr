@@ -9,6 +9,7 @@ struct Thread;
 
 typedef enum {
   EVENT_QUIT,
+  EVENT_RESTART,
   EVENT_FOCUS,
   EVENT_CUSTOM,
 #ifdef LOVR_ENABLE_THREAD
@@ -41,9 +42,7 @@ typedef struct Variant {
 } Variant;
 
 typedef struct {
-  bool restart;
   int exitCode;
-  Variant cookie;
 } QuitEvent;
 
 typedef struct {
