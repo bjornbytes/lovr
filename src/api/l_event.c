@@ -170,12 +170,7 @@ static int l_lovrEventPush(lua_State* L) {
 static int l_lovrEventQuit(lua_State* L) {
   EventData data;
 
-  int argType = lua_type(L, 1);
-  if (argType == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
-    data.quit.exitCode = luaL_optint(L, 1, 0);
-  } else {
-    return luaL_argerror (L, 1, "number or nil expected");
-  }
+  data.quit.exitCode = luaL_optint(L, 1, 0);
 
   EventType type = EVENT_QUIT;
   Event event = { .type = type, .data = data };

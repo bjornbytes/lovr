@@ -152,8 +152,7 @@ function lovr.run()
       if name == 'restart' then
         local cookie = lovr.restart and lovr.restart()
         return 'restart', cookie
-      end
-      if name == 'quit' and (not lovr.quit or not lovr.quit(a)) then
+      elseif name == 'quit' and (not lovr.quit or not lovr.quit(a)) then
         return a or 0
       end
       if lovr.handlers[name] then lovr.handlers[name](a, b, c, d) end
