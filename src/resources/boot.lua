@@ -149,8 +149,11 @@ function lovr.run()
   return function()
     lovr.event.pump()
     for name, a, b, c, d in lovr.event.poll() do
-      if name == 'quit' and (not lovr.quit or not lovr.quit()) then
-        return a or 0, b
+      if name == 'restart' then
+        local cookie = lovr.restart and lovr.restart()
+        return 'restart', cookie
+      elseif name == 'quit' and (not lovr.quit or not lovr.quit(a)) then
+        return a or 0
       end
       if lovr.handlers[name] then lovr.handlers[name](a, b, c, d) end
     end

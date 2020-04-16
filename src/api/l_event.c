@@ -9,6 +9,7 @@
 
 StringEntry EventTypes[] = {
   [EVENT_QUIT] = ENTRY("quit"),
+  [EVENT_RESTART] = ENTRY("restart"),
   [EVENT_FOCUS] = ENTRY("focus"),
 #ifdef LOVR_ENABLE_THREAD
   [EVENT_THREAD_ERROR] = ENTRY("threaderror"),
@@ -98,14 +99,8 @@ static int nextEvent(lua_State* L) {
 
   switch (event.type) {
     case EVENT_QUIT:
-      if (event.data.quit.restart) {
-        lua_pushliteral(L, "restart");
-        luax_pushvariant(L, &event.data.quit.cookie);
-        return 3;
-      } else {
-        lua_pushnumber(L, event.data.quit.exitCode);
-        return 2;
-      }
+      lua_pushnumber(L, event.data.quit.exitCode);
+      return 2;
 
     case EVENT_FOCUS:
       lua_pushboolean(L, event.data.boolean.value);
@@ -138,9 +133,9 @@ static void hotkeyHandler(KeyCode key, ButtonAction action) {
   }
 
   if (key == KEY_ESCAPE) {
-    lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit.restart = false, .data.quit.exitCode = 0 });
+    lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit.exitCode = 0 });
   } else if (key == KEY_F5) {
-    lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit.restart = true });
+    lovrEventPush((Event) { .type = EVENT_RESTART });
   }
 }
 
@@ -175,17 +170,7 @@ static int l_lovrEventPush(lua_State* L) {
 static int l_lovrEventQuit(lua_State* L) {
   EventData data;
 
-  int argType = lua_type(L, 1);
-  if (argType == LUA_TSTRING && !strcmp("restart", lua_tostring(L, 1))) {
-    data.quit.restart = true;
-    data.quit.exitCode = 0;
-    luax_checkvariant(L, 2, &data.quit.cookie);
-  } else if (argType == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
-    data.quit.restart = false;
-    data.quit.exitCode = luaL_optint(L, 1, 0);
-  } else {
-    return luaL_argerror (L, 1, "number, nil or the exact string 'restart' expected");
-  }
+  data.quit.exitCode = luaL_optint(L, 1, 0);
 
   EventType type = EVENT_QUIT;
   Event event = { .type = type, .data = data };
@@ -194,12 +179,8 @@ static int l_lovrEventQuit(lua_State* L) {
 }
 
 static int l_lovrEventRestart(lua_State* L) {
-  EventData data;
-  data.quit.exitCode = 0;
-  data.quit.restart = true;
-  luax_checkvariant(L, 1, &data.quit.cookie);
-  EventType type = EVENT_QUIT;
-  Event event = { .type = type, .data = data };
+  EventType type = EVENT_RESTART;
+  Event event = { .type = type };
   lovrEventPush(event);
   return 0;
 }
