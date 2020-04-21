@@ -974,25 +974,28 @@ static void lovrGpuBindPipeline(Pipeline* pipeline) {
     }
   }
 
-  // Depth test
-  if (state.depthTest != pipeline->depthTest) {
-    state.depthTest = pipeline->depthTest;
-    if (state.depthTest != COMPARE_NONE) {
-      if (!state.depthEnabled) {
-        state.depthEnabled = true;
-        glEnable(GL_DEPTH_TEST);
-      }
-      glDepthFunc(convertCompareMode(state.depthTest));
-    } else if (state.depthEnabled) {
-      state.depthEnabled = false;
+  // Depth test and depth write
+  bool updateDepthTest = pipeline->depthTest != state.depthTest;
+  bool updateDepthWrite = state.depthWrite != (pipeline->depthWrite && !state.stencilWriting);
+  if (updateDepthTest || updateDepthWrite) {
+    bool enable = state.depthTest != COMPARE_NONE || state.depthWrite;
+
+    if (enable && !state.depthEnabled) {
+      glEnable(GL_DEPTH_TEST);
+    } else if (!enable && state.depthEnabled) {
       glDisable(GL_DEPTH_TEST);
     }
-  }
+    state.depthEnabled = enable;
 
-  // Depth write
-  if (state.depthWrite != (pipeline->depthWrite && !state.stencilWriting)) {
-    state.depthWrite = pipeline->depthWrite && !state.stencilWriting;
-    glDepthMask(state.depthWrite);
+    if (enable && updateDepthTest) {
+      state.depthTest = pipeline->depthTest;
+      glDepthFunc(convertCompareMode(state.depthTest));
+    }
+
+    if (enable && updateDepthWrite) {
+      state.depthWrite = pipeline->depthWrite && !state.stencilWriting;
+      glDepthMask(state.depthWrite);
+    }
   }
 
   // Line width
