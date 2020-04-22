@@ -63,6 +63,7 @@ static struct {
   bool fused;
 } state;
 
+// Rejects any path component that would escape the virtual filesystem (./, ../, :, and \)
 static bool valid(const char* path) {
   if (path[0] == '.' && (path[1] == '\0' || path[1] == '.')) {
     return false;
