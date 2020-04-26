@@ -139,7 +139,7 @@ void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, f
 void lovrColliderGetPosition(Collider* collider, float* x, float* y, float* z);
 void lovrColliderSetPosition(Collider* collider, float x, float y, float z);
 void lovrColliderGetOrientation(Collider* collider, float* angle, float* x, float* y, float* z);
-void lovrColliderSetOrientation(Collider* collider, float angle, float x, float y, float z);
+void lovrColliderSetOrientation(Collider* collider, float* quaternion);
 void lovrColliderGetLinearVelocity(Collider* collider, float* x, float* y, float* z);
 void lovrColliderSetLinearVelocity(Collider* collider, float x, float y, float z);
 void lovrColliderGetAngularVelocity(Collider* collider, float* x, float* y, float* z);

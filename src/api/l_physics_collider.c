@@ -222,7 +222,7 @@ static int l_lovrColliderSetOrientation(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   float orientation[4];
   luax_readquat(L, 2, orientation, NULL);
-  lovrColliderSetOrientation(collider, orientation[0], orientation[1], orientation[2], orientation[3]);
+  lovrColliderSetOrientation(collider, orientation);
   return 0;
 }
 
@@ -247,7 +247,7 @@ static int l_lovrColliderSetPose(lua_State* L) {
   int index = luax_readvec3(L, 2, position, NULL);
   luax_readquat(L, index, orientation, NULL);
   lovrColliderSetPosition(collider, position[0], position[1], position[2]);
-  lovrColliderSetOrientation(collider, orientation[0], orientation[1], orientation[2], orientation[3]);
+  lovrColliderSetOrientation(collider, orientation);
   return 0;
 }
 
