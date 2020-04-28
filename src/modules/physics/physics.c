@@ -517,9 +517,7 @@ void lovrColliderGetOrientation(Collider* collider, float* angle, float* x, floa
   quat_getAngleAxis(quaternion, angle, x, y, z);
 }
 
-void lovrColliderSetOrientation(Collider* collider, float angle, float x, float y, float z) {
-  float quaternion[4];
-  quat_fromAngleAxis(quaternion, angle, x, y, z);
+void lovrColliderSetOrientation(Collider* collider, float* quaternion) {
   float q[4] = { quaternion[3], quaternion[0], quaternion[1], quaternion[2] };
   dBodySetQuaternion(collider->body, q);
 }
