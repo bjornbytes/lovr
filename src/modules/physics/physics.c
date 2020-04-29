@@ -332,6 +332,14 @@ void lovrColliderDestroyData(Collider* collider) {
   lovrRelease(Collider, collider);
 }
 
+void lovrColliderInitInertia(Collider* collider, Shape * shape) {
+  // compute inertia matrix for default density
+  const float density = 1.0f;
+  float cx, cy, cz, mass, inertia[6];
+  lovrShapeGetMass(shape, density, &cx, &cy, &cz, &mass, inertia);
+  lovrColliderSetMassData(collider, cx, cy, cz, mass, inertia);
+}
+
 World* lovrColliderGetWorld(Collider* collider) {
   return collider->world;
 }
