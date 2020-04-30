@@ -111,7 +111,7 @@ Collider* lovrColliderInit(Collider* collider, World* world, float x, float y, f
 #define lovrColliderCreate(...) lovrColliderInit(lovrAlloc(Collider), __VA_ARGS__)
 void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
-void lovrColliderInitInertia(Collider* collider, Shape * shape);
+void lovrColliderInitInertia(Collider* collider, Shape* shape);
 World* lovrColliderGetWorld(Collider* collider);
 void lovrColliderAddShape(Collider* collider, Shape* shape);
 void lovrColliderRemoveShape(Collider* collider, Shape* shape);
