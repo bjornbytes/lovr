@@ -11,6 +11,7 @@ StringEntry EventTypes[] = {
   [EVENT_QUIT] = ENTRY("quit"),
   [EVENT_RESTART] = ENTRY("restart"),
   [EVENT_FOCUS] = ENTRY("focus"),
+  [EVENT_RESIZE] = ENTRY("resize"),
 #ifdef LOVR_ENABLE_THREAD
   [EVENT_THREAD_ERROR] = ENTRY("threaderror"),
 #endif
@@ -105,6 +106,11 @@ static int nextEvent(lua_State* L) {
     case EVENT_FOCUS:
       lua_pushboolean(L, event.data.boolean.value);
       return 2;
+
+    case EVENT_RESIZE:
+      lua_pushinteger(L, event.data.resize.width);
+      lua_pushinteger(L, event.data.resize.height);
+      return 3;
 
 #ifdef LOVR_ENABLE_THREAD
     case EVENT_THREAD_ERROR:

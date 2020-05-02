@@ -170,6 +170,7 @@ static void onResizeWindow(int width, int height) {
   state.height = height;
   lovrCanvasSetWidth(state.defaultCanvas, width);
   lovrCanvasSetHeight(state.defaultCanvas, height);
+  lovrEventPush((Event) { .type = EVENT_RESIZE, .data.resize = { width, height } });
 }
 
 static void* lovrGraphicsMapBuffer(StreamType type, uint32_t count) {
