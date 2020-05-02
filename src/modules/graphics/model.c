@@ -184,6 +184,12 @@ Model* lovrModelCreate(ModelData* data) {
     }
   }
 
+  // Ensure skin bone count doesn't exceed the maximum supported limit
+  for (uint32_t i = 0; i < data->skinCount; i++) {
+    uint32_t jointCount = data->skins[i].jointCount;
+    lovrAssert(jointCount < MAX_BONES, "ModelData skin '%d' has too many joints (%d, max is %d)", i, jointCount, MAX_BONES);
+  }
+
   model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
   lovrModelResetPose(model);
