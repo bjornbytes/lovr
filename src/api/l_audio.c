@@ -1,7 +1,5 @@
 #include "api.h"
 #include "audio/audio.h"
-#include "audio/microphone.h"
-#include "audio/source.h"
 #include "data/blob.h"
 #include "data/audioStream.h"
 #include "data/soundData.h"
