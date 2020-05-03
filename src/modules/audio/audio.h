@@ -46,8 +46,6 @@ Source* lovrSourceCreateStatic(struct SoundData* soundData);
 Source* lovrSourceCreateStream(struct AudioStream* stream);
 void lovrSourceDestroy(void* ref);
 SourceType lovrSourceGetType(Source* source);
-uint32_t lovrSourceGetId(Source* source);
-struct AudioStream* lovrSourceGetStream(Source* source);
 uint32_t lovrSourceGetBitDepth(Source* source);
 uint32_t lovrSourceGetChannelCount(Source* source);
 void lovrSourceGetCone(Source* source, float* innerAngle, float* outerAngle, float* outerGain);

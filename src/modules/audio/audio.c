@@ -103,23 +103,22 @@ void lovrAudioUpdate() {
       continue;
     }
 
-    uint32_t id = lovrSourceGetId(source);
     ALenum sourceState;
-    alGetSourcei(id, AL_SOURCE_STATE, &sourceState);
+    alGetSourcei(source->id, AL_SOURCE_STATE, &sourceState);
     bool isStopped = sourceState == AL_STOPPED;
     ALint processed;
-    alGetSourcei(id, AL_BUFFERS_PROCESSED, &processed);
+    alGetSourcei(source->id, AL_BUFFERS_PROCESSED, &processed);
 
     if (processed) {
       ALuint buffers[SOURCE_BUFFERS];
-      alSourceUnqueueBuffers(id, processed, buffers);
+      alSourceUnqueueBuffers(source->id, processed, buffers);
       lovrSourceStream(source, buffers, processed);
       if (isStopped) {
-        alSourcePlay(id);
+        alSourcePlay(source->id);
       }
     } else if (isStopped) {
       // in case we'll play this source in the future, rewind it now. This also frees up queued raw buffers.
-      lovrAudioStreamRewind(lovrSourceGetStream(source));
+      lovrAudioStreamRewind(source->stream);
 
       arr_splice(&state.sources, i, 1);
       lovrRelease(Source, source);
@@ -260,14 +259,6 @@ void lovrSourceDestroy(void* ref) {
 
 SourceType lovrSourceGetType(Source* source) {
   return source->type;
-}
-
-uint32_t lovrSourceGetId(Source* source) {
-  return source->id;
-}
-
-AudioStream* lovrSourceGetStream(Source* source) {
-  return source->stream;
 }
 
 uint32_t lovrSourceGetBitDepth(Source* source) {
