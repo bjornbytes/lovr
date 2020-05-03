@@ -1,5 +1,5 @@
 #include "api.h"
-#include "audio/microphone.h"
+#include "audio/audio.h"
 #include "data/soundData.h"
 #include "core/ref.h"
 #include <stdlib.h>
