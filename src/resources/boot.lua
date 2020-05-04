@@ -52,7 +52,7 @@ local function nogame()
       for i, hand in ipairs(lovr.headset.getHands()) do
         models[hand] = models[hand] or lovr.headset.newModel(hand)
         if models[hand] then
-          local x, y, z, angle ax, ay, az = lovr.headset.getPose(hand)
+          local x, y, z, angle, ax, ay, az = lovr.headset.getPose(hand)
           models[hand]:draw(x, y, z, 1.0, angle, ax, ay, az)
         end
       end
