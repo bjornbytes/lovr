@@ -21,6 +21,7 @@ option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" OFF)
 option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
+option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
 option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
@@ -50,12 +51,15 @@ if(EMSCRIPTEN)
     "-s FORCE_FILESYSTEM=1 "
     "-s \"EXPORTED_FUNCTIONS=[ "
       "'_main','_lovrDestroy',"
+      "'_lovrCanvasCreateFromHandle',"
+      "'_lovrGraphicsSetCamera',"
       "'_webvr_onAnimationFrame',"
       "'_mat4_set','_mat4_identity','_mat4_invert','_mat4_multiply','_mat4_rotateQuat','_mat4_transform','_mat4_transformDirection',"
       "'_quat_fromMat4','_quat_getAngleAxis'"
     "]\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
     "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/webvr.js\" "
+    "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/webxr.js\" "
     "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.html\""
   )
   if(LOVR_ENABLE_THREAD)
@@ -65,6 +69,7 @@ if(EMSCRIPTEN)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_EXECUTABLE_SUFFIX ".html")
   set(LOVR_USE_WEBVR ON)
+  set(LOVR_USE_WEBXR ON)
   set(LOVR_USE_OPENVR OFF)
   set(LOVR_USE_OCULUS OFF)
 elseif(ANDROID)
@@ -460,6 +465,10 @@ if(LOVR_ENABLE_HEADSET)
   if(LOVR_USE_WEBVR)
     add_definitions(-DLOVR_USE_WEBVR)
     target_sources(lovr PRIVATE src/modules/headset/webvr.c)
+  endif()
+  if(LOVR_USE_WEBXR)
+    add_definitions(-DLOVR_USE_WEBXR)
+    target_sources(lovr PRIVATE src/modules/headset/webxr.c)
   endif()
   if(LOVR_USE_DESKTOP_HEADSET)
     add_definitions(-DLOVR_USE_DESKTOP_HEADSET)
