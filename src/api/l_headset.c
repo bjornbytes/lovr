@@ -48,6 +48,10 @@ StringEntry Devices[] = {
   [DEVICE_HAND_RIGHT_FINGER_MIDDLE] = ENTRY("hand/right/finger/middle"),
   [DEVICE_HAND_RIGHT_FINGER_RING] = ENTRY("hand/right/finger/ring"),
   [DEVICE_HAND_RIGHT_FINGER_PINKY] = ENTRY("hand/right/finger/pinky"),
+  [DEVICE_BEACON_1] = ENTRY("beacon/1"),
+  [DEVICE_BEACON_2] = ENTRY("beacon/2"),
+  [DEVICE_BEACON_3] = ENTRY("beacon/3"),
+  [DEVICE_BEACON_4] = ENTRY("beacon/4"),
   { 0 }
 };
 

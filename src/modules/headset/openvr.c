@@ -75,9 +75,9 @@ static struct {
   VRActionHandle_t axisActions[2][MAX_AXES];
   VRActionHandle_t skeletonActions[2];
   VRActionHandle_t hapticActions[2];
-  TrackedDevicePose_t headPose;
-  RenderModel_t* deviceModels[16];
-  RenderModel_TextureMap_t* deviceTextures[16];
+  TrackedDevicePose_t renderPoses[64];
+  RenderModel_t* deviceModels[64];
+  RenderModel_TextureMap_t* deviceTextures[64];
   Canvas* canvas;
   float* mask;
   float boundsGeometry[16];
@@ -287,7 +287,7 @@ static bool openvr_getViewPose(uint32_t view, float* position, float* orientatio
   EVREye eye = view ? EVREye_Eye_Right : EVREye_Eye_Left;
 
   float transform[16], offset[16];
-  mat4_fromMat34(transform, state.headPose.mDeviceToAbsoluteTracking.m);
+  mat4_fromMat34(transform, state.renderPoses[k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking.m);
   mat4_multiply(transform, mat4_fromMat34(offset, state.system->GetEyeToHeadTransform(eye).m));
   mat4_getPosition(transform, position);
   mat4_getOrientation(transform, orientation);
@@ -340,11 +340,25 @@ static bool openvr_getPose(Device device, vec3 position, quat orientation) {
 
   // Early exit for head pose
   if (device == DEVICE_HEAD) {
-    mat4_fromMat34(transform, state.headPose.mDeviceToAbsoluteTracking.m);
+    mat4_fromMat34(transform, state.renderPoses[k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking.m);
     transform[13] += state.offset;
     mat4_getPosition(transform, position);
     mat4_getOrientation(transform, orientation);
-    return state.headPose.bPoseIsValid;
+    return state.renderPoses[k_unTrackedDeviceIndex_Hmd].bPoseIsValid;
+  }
+
+  if (device >= DEVICE_BEACON_1 && device <= DEVICE_BEACON_4) {
+    TrackedDeviceIndex_t devices[4];
+    ETrackedDeviceClass class = ETrackedDeviceClass_TrackedDeviceClass_TrackingReference;
+    uint32_t count = state.system->GetSortedTrackedDeviceIndicesOfClass(class, devices, 4, 0);
+    uint32_t index = device - DEVICE_BEACON_1;
+    if (index >= count) return false;
+    TrackedDevicePose_t* pose = &state.renderPoses[devices[index]];
+    mat4_fromMat34(transform, pose->mDeviceToAbsoluteTracking.m);
+    transform[13] += state.offset;
+    mat4_getPosition(transform, position);
+    mat4_getOrientation(transform, orientation);
+    return pose->bPoseIsValid;
   }
 
   Device hand;
@@ -408,7 +422,7 @@ static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
   TrackedDevicePose_t* pose;
 
   if (device == DEVICE_HEAD) {
-    pose = &state.headPose;
+    pose = &state.renderPoses[k_unTrackedDeviceIndex_Hmd];
   } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
     state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
     pose = &actionData.pose;
@@ -656,7 +670,7 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
   Camera camera = { .canvas = state.canvas };
 
   float head[16];
-  mat4_fromMat34(head, state.headPose.mDeviceToAbsoluteTracking.m);
+  mat4_fromMat34(head, state.renderPoses[k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking.m);
 
   for (int i = 0; i < 2; i++) {
     float eye[16];
@@ -687,7 +701,7 @@ static Texture* openvr_getMirrorTexture(void) {
 }
 
 static void openvr_update(float dt) {
-  state.compositor->WaitGetPoses(&state.headPose, 1, NULL, 0);
+  state.compositor->WaitGetPoses(state.renderPoses, sizeof(state.renderPoses) / sizeof(state.renderPoses[0]), NULL, 0);
   VRActiveActionSet_t activeActionSet = { .ulActionSet = state.actionSet };
   state.input->UpdateActionState(&activeActionSet, sizeof(activeActionSet), 1);
 
