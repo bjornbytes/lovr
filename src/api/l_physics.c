@@ -48,20 +48,18 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
 static int l_lovrPhysicsNewBallJoint(lua_State* L) {
   Collider* a = luax_checktype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float x = luax_checkfloat(L, 3);
-  float y = luax_checkfloat(L, 4);
-  float z = luax_checkfloat(L, 5);
-  BallJoint* joint = lovrBallJointCreate(a, b, x, y, z);
+  float anchor[4];
+  luax_readvec3(L, 3, anchor, NULL);
+  BallJoint* joint = lovrBallJointCreate(a, b, anchor[0], anchor[1], anchor[2]);
   luax_pushtype(L, BallJoint, joint);
   lovrRelease(Joint, joint);
   return 1;
 }
 
 static int l_lovrPhysicsNewBoxShape(lua_State* L) {
-  float x = luax_optfloat(L, 1, 1.f);
-  float y = luax_optfloat(L, 2, x);
-  float z = luax_optfloat(L, 3, x);
-  BoxShape* box = lovrBoxShapeCreate(x, y, z);
+  float size[4];
+  luax_readscale(L, 1, size, 1, NULL);
+  BoxShape* box = lovrBoxShapeCreate(size[0], size[1], size[2]);
   luax_pushtype(L, BoxShape, box);
   lovrRelease(Shape, box);
   return 1;
@@ -88,13 +86,11 @@ static int l_lovrPhysicsNewCylinderShape(lua_State* L) {
 static int l_lovrPhysicsNewDistanceJoint(lua_State* L) {
   Collider* a = luax_checktype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float x1 = luax_checkfloat(L, 3);
-  float y1 = luax_checkfloat(L, 4);
-  float z1 = luax_checkfloat(L, 5);
-  float x2 = luax_checkfloat(L, 6);
-  float y2 = luax_checkfloat(L, 7);
-  float z2 = luax_checkfloat(L, 8);
-  DistanceJoint* joint = lovrDistanceJointCreate(a, b, x1, y1, z1, x2, y2, z2);
+  float anchor1[4], anchor2[4];
+  int index = luax_readvec3(L, 3, anchor1, NULL);
+  luax_readvec3(L, index, anchor2, NULL);
+  DistanceJoint* joint = lovrDistanceJointCreate(a, b, anchor1[0], anchor1[1], anchor1[2],
+    anchor2[0], anchor2[1], anchor2[2]);
   luax_pushtype(L, DistanceJoint, joint);
   lovrRelease(Joint, joint);
   return 1;
@@ -103,13 +99,10 @@ static int l_lovrPhysicsNewDistanceJoint(lua_State* L) {
 static int l_lovrPhysicsNewHingeJoint(lua_State* L) {
   Collider* a = luax_checktype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float x = luax_checkfloat(L, 3);
-  float y = luax_checkfloat(L, 4);
-  float z = luax_checkfloat(L, 5);
-  float ax = luax_checkfloat(L, 6);
-  float ay = luax_checkfloat(L, 7);
-  float az = luax_checkfloat(L, 8);
-  HingeJoint* joint = lovrHingeJointCreate(a, b, x, y, z, ax, ay, az);
+  float anchor[4], axis[4];
+  int index = luax_readvec3(L, 3, anchor, NULL);
+  luax_readvec3(L, index, axis, NULL);
+  HingeJoint* joint = lovrHingeJointCreate(a, b, anchor[0], anchor[1], anchor[2], axis[0], axis[1], axis[2]);
   luax_pushtype(L, HingeJoint, joint);
   lovrRelease(Joint, joint);
   return 1;
@@ -118,10 +111,9 @@ static int l_lovrPhysicsNewHingeJoint(lua_State* L) {
 static int l_lovrPhysicsNewSliderJoint(lua_State* L) {
   Collider* a = luax_checktype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float ax = luax_checkfloat(L, 3);
-  float ay = luax_checkfloat(L, 4);
-  float az = luax_checkfloat(L, 5);
-  SliderJoint* joint = lovrSliderJointCreate(a, b, ax, ay, az);
+  float axis[4];
+  luax_readvec3(L, 3, axis, NULL);
+  SliderJoint* joint = lovrSliderJointCreate(a, b, axis[0], axis[1], axis[2]);
   luax_pushtype(L, SliderJoint, joint);
   lovrRelease(Joint, joint);
   return 1;
