@@ -113,10 +113,9 @@ static int l_lovrShapeGetPosition(lua_State* L) {
 
 static int l_lovrShapeSetPosition(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
-  float x = luax_checkfloat(L, 2);
-  float y = luax_checkfloat(L, 3);
-  float z = luax_checkfloat(L, 4);
-  lovrShapeSetPosition(shape, x, y, z);
+  float position[4]; 
+  luax_readvec3(L, 2, position, NULL);
+  lovrShapeSetPosition(shape, position[0], position[1], position[2]);
   return 0;
 }
 
@@ -133,11 +132,9 @@ static int l_lovrShapeGetOrientation(lua_State* L) {
 
 static int l_lovrShapeSetOrientation(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
-  float angle = luax_checkfloat(L, 2);
-  float x = luax_checkfloat(L, 3);
-  float y = luax_checkfloat(L, 4);
-  float z = luax_checkfloat(L, 5);
-  lovrShapeSetOrientation(shape, angle, x, y, z);
+  float orientation[4];
+  luax_readquat(L, 2, orientation, NULL);
+  lovrShapeSetOrientation(shape, orientation);
   return 0;
 }
 
@@ -218,10 +215,9 @@ static int l_lovrBoxShapeGetDimensions(lua_State* L) {
 
 static int l_lovrBoxShapeSetDimensions(lua_State* L) {
   BoxShape* box = luax_checktype(L, 1, BoxShape);
-  float x = luax_checkfloat(L, 2);
-  float y = luax_checkfloat(L, 3);
-  float z = luax_checkfloat(L, 4);
-  lovrBoxShapeSetDimensions(box, x, y, z);
+  float size[4];
+  luax_readscale(L, 2, size, 3, NULL);
+  lovrBoxShapeSetDimensions(box, size[0], size[1], size[2]);
   return 0;
 }
 
