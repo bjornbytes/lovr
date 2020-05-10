@@ -116,10 +116,9 @@ static int l_lovrBallJointGetAnchors(lua_State* L) {
 
 static int l_lovrBallJointSetAnchor(lua_State* L) {
   BallJoint* joint = luax_checktype(L, 1, BallJoint);
-  float x = luax_checkfloat(L, 2);
-  float y = luax_checkfloat(L, 3);
-  float z = luax_checkfloat(L, 4);
-  lovrBallJointSetAnchor(joint, x, y, z);
+  float anchor[4];
+  luax_readvec3(L, 2, anchor, NULL);
+  lovrBallJointSetAnchor(joint, anchor[0], anchor[1], anchor[2]);
   return 0;
 }
 
@@ -145,13 +144,10 @@ static int l_lovrDistanceJointGetAnchors(lua_State* L) {
 
 static int l_lovrDistanceJointSetAnchors(lua_State* L) {
   DistanceJoint* joint = luax_checktype(L, 1, DistanceJoint);
-  float x1 = luax_checkfloat(L, 2);
-  float y1 = luax_checkfloat(L, 3);
-  float z1 = luax_checkfloat(L, 4);
-  float x2 = luax_checkfloat(L, 5);
-  float y2 = luax_checkfloat(L, 6);
-  float z2 = luax_checkfloat(L, 7);
-  lovrDistanceJointSetAnchors(joint, x1, y1, z1, x2, y2, z2);
+  float anchor1[4], anchor2[4];
+  int index = luax_readvec3(L, 2, anchor1, NULL);
+  luax_readvec3(L, index, anchor2, NULL);
+  lovrDistanceJointSetAnchors(joint, anchor1[0], anchor1[1], anchor1[2], anchor2[0], anchor2[1], anchor2[2]);
   return 0;
 }
 
@@ -192,10 +188,9 @@ static int l_lovrHingeJointGetAnchors(lua_State* L) {
 
 static int l_lovrHingeJointSetAnchor(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
-  float x = luax_checkfloat(L, 2);
-  float y = luax_checkfloat(L, 3);
-  float z = luax_checkfloat(L, 4);
-  lovrHingeJointSetAnchor(joint, x, y, z);
+  float anchor[4];
+  luax_readvec3(L, 2, anchor, NULL);
+  lovrHingeJointSetAnchor(joint, anchor[0], anchor[1], anchor[2]);
   return 0;
 }
 
@@ -211,10 +206,9 @@ static int l_lovrHingeJointGetAxis(lua_State* L) {
 
 static int l_lovrHingeJointSetAxis(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
-  float x = luax_checkfloat(L, 2);
-  float y = luax_checkfloat(L, 3);
-  float z = luax_checkfloat(L, 4);
-  lovrHingeJointSetAxis(joint, x, y, z);
+  float axis[4];
+  luax_readvec3(L, 2, axis, NULL);
+  lovrHingeJointSetAxis(joint, axis[0], axis[1], axis[2]);
   return 0;
 }
 
@@ -294,10 +288,9 @@ static int l_lovrSliderJointGetAxis(lua_State* L) {
 
 static int l_lovrSliderJointSetAxis(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
-  float x = luax_checkfloat(L, 2);
-  float y = luax_checkfloat(L, 3);
-  float z = luax_checkfloat(L, 4);
-  lovrSliderJointSetAxis(joint, x, y, z);
+  float axis[4];
+  luax_readvec3(L, 2, axis, NULL);
+  lovrSliderJointSetAxis(joint, axis[0], axis[1], axis[2]);
   return 0;
 }
 

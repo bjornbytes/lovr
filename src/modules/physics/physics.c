@@ -1,5 +1,4 @@
 #include "physics.h"
-#include "core/maf.h"
 #include "core/ref.h"
 #include "core/util.h"
 #include <stdlib.h>
@@ -525,8 +524,8 @@ void lovrColliderGetOrientation(Collider* collider, float* angle, float* x, floa
   quat_getAngleAxis(quaternion, angle, x, y, z);
 }
 
-void lovrColliderSetOrientation(Collider* collider, float* quaternion) {
-  float q[4] = { quaternion[3], quaternion[0], quaternion[1], quaternion[2] };
+void lovrColliderSetOrientation(Collider* collider, quat orientation) {
+  float q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
   dBodySetQuaternion(collider->body, q);
 }
 
@@ -728,10 +727,8 @@ void lovrShapeGetOrientation(Shape* shape, float* angle, float* x, float* y, flo
   quat_getAngleAxis(quaternion, angle, x, y, z);
 }
 
-void lovrShapeSetOrientation(Shape* shape, float angle, float x, float y, float z) {
-  float quaternion[4];
-  quat_fromAngleAxis(quaternion, angle, x, y, z);
-  float q[4] = { quaternion[3], quaternion[0], quaternion[1], quaternion[2] };
+void lovrShapeSetOrientation(Shape* shape, quat orientation) {
+  float q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
   dGeomSetOffsetQuaternion(shape->id, q);
 }
 

@@ -1,4 +1,5 @@
 #include "core/arr.h"
+#include "core/maf.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <ode/ode.h>
@@ -140,7 +141,7 @@ void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, f
 void lovrColliderGetPosition(Collider* collider, float* x, float* y, float* z);
 void lovrColliderSetPosition(Collider* collider, float x, float y, float z);
 void lovrColliderGetOrientation(Collider* collider, float* angle, float* x, float* y, float* z);
-void lovrColliderSetOrientation(Collider* collider, float* quaternion);
+void lovrColliderSetOrientation(Collider* collider, quat orientation);
 void lovrColliderGetLinearVelocity(Collider* collider, float* x, float* y, float* z);
 void lovrColliderSetLinearVelocity(Collider* collider, float x, float y, float z);
 void lovrColliderGetAngularVelocity(Collider* collider, float* x, float* y, float* z);
@@ -174,7 +175,7 @@ void lovrShapeSetUserData(Shape* shape, void* data);
 void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z);
 void lovrShapeSetPosition(Shape* shape, float x, float y, float z);
 void lovrShapeGetOrientation(Shape* shape, float* angle, float* x, float* y, float* z);
-void lovrShapeSetOrientation(Shape* shape, float angle, float x, float y, float z);
+void lovrShapeSetOrientation(Shape* shape, quat orientation);
 void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
 void lovrShapeGetAABB(Shape* shape, float aabb[6]);
 
