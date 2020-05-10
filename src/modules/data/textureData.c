@@ -14,6 +14,9 @@ static size_t getPixelSize(TextureFormat format) {
     case FORMAT_RGB: return 3;
     case FORMAT_RGBA: return 4;
     case FORMAT_RGBA4: return 2;
+    case FORMAT_R16: return 2;
+    case FORMAT_RG16: return 4;
+    case FORMAT_RGBA16: return 8;
     case FORMAT_RGBA16F: return 8;
     case FORMAT_RGBA32F: return 16;
     case FORMAT_R16F: return 2;

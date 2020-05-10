@@ -236,6 +236,9 @@ static GLenum convertTextureFormat(TextureFormat format) {
     case FORMAT_RGB: return GL_RGB;
     case FORMAT_RGBA: return GL_RGBA;
     case FORMAT_RGBA4: return GL_RGBA;
+    case FORMAT_R16: return GL_RED;
+    case FORMAT_RG16: return GL_RG;
+    case FORMAT_RGBA16: return GL_RGBA;
     case FORMAT_RGBA16F: return GL_RGBA;
     case FORMAT_RGBA32F: return GL_RGBA;
     case FORMAT_R16F: return GL_RED;
@@ -275,6 +278,9 @@ static GLenum convertTextureFormatInternal(TextureFormat format, bool srgb) {
     case FORMAT_RGB: return srgb ? GL_SRGB8 : GL_RGB8;
     case FORMAT_RGBA: return srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
     case FORMAT_RGBA4: return GL_RGBA4;
+    case FORMAT_R16: return GL_R16;
+    case FORMAT_RG16: return GL_RG16;
+    case FORMAT_RGBA16: return GL_RGBA16;
     case FORMAT_RGBA16F: return GL_RGBA16F;
     case FORMAT_RGBA32F: return GL_RGBA32F;
     case FORMAT_R16F: return GL_R16F;
@@ -330,6 +336,9 @@ static GLenum convertTextureFormatType(TextureFormat format) {
     case FORMAT_RGB: return GL_UNSIGNED_BYTE;
     case FORMAT_RGBA: return GL_UNSIGNED_BYTE;
     case FORMAT_RGBA4: return GL_UNSIGNED_SHORT_4_4_4_4;
+    case FORMAT_R16: return GL_UNSIGNED_SHORT;
+    case FORMAT_RG16: return GL_UNSIGNED_SHORT;
+    case FORMAT_RGBA16: return GL_UNSIGNED_SHORT;
     case FORMAT_RGBA16F: return GL_HALF_FLOAT;
     case FORMAT_RGBA32F: return GL_FLOAT;
     case FORMAT_R16F: return GL_HALF_FLOAT;
@@ -386,6 +395,9 @@ static uint64_t getTextureMemorySize(Texture* texture) {
     case FORMAT_RGB: bitrate = 24.f; break;
     case FORMAT_RGBA: bitrate = 32.f; break;
     case FORMAT_RGBA4: bitrate = 16.f; break;
+    case FORMAT_R16: bitrate = 16.f; break;
+    case FORMAT_RG16: bitrate = 32.f; break;
+    case FORMAT_RGBA16: bitrate = 64.f; break;
     case FORMAT_RGBA16F: bitrate = 64.f; break;
     case FORMAT_RGBA32F: bitrate = 128.f; break;
     case FORMAT_R16F: bitrate = 16.f; break;
