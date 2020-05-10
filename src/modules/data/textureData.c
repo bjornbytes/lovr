@@ -494,7 +494,26 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
   int width, height;
   int length = (int) blob->size;
   stbi_set_flip_vertically_on_load(flip);
-  if (stbi_is_hdr_from_memory(blob->data, length)) {
+  if (stbi_is_16_bit_from_memory(blob->data, length)) {
+    int channels;
+    textureData->blob->data = stbi_load_16_from_memory(blob->data, length, &width, &height, &channels, 0);
+    switch (channels) {
+      case 1:
+        textureData->format = FORMAT_R16;
+        textureData->blob->size = 2 * width * height;
+        break;
+      case 2:
+        textureData->format = FORMAT_RG16;
+        textureData->blob->size = 4 * width * height;
+        break;
+      case 4:
+        textureData->format = FORMAT_RGBA16;
+        textureData->blob->size = 8 * width * height;
+        break;
+      default:
+        lovrThrow("Unsupported channel count for 16 bit image: %d", channels);
+    }
+  } else if (stbi_is_hdr_from_memory(blob->data, length)) {
     textureData->format = FORMAT_RGBA32F;
     textureData->blob->data = stbi_loadf_from_memory(blob->data, length, &width, &height, NULL, 4);
     textureData->blob->size = 16 * width * height;
