@@ -209,8 +209,9 @@ static int l_lovrColliderSetPosition(lua_State* L) {
 
 static int l_lovrColliderGetOrientation(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float angle, x, y, z;
-  lovrColliderGetOrientation(collider, &angle, &x, &y, &z);
+  float angle, x, y, z, orientation[4];
+  lovrColliderGetOrientation(collider, orientation);
+  quat_getAngleAxis(orientation, &angle, &x, &y, &z);
   lua_pushnumber(L, angle);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
@@ -228,9 +229,10 @@ static int l_lovrColliderSetOrientation(lua_State* L) {
 
 static int l_lovrColliderGetPose(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float x, y, z, angle, ax, ay, az;
+  float x, y, z, angle, ax, ay, az, orientation[4];
   lovrColliderGetPosition(collider, &x, &y, &z);
-  lovrColliderGetOrientation(collider, &angle, &ax, &ay, &az);
+  lovrColliderGetOrientation(collider, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
   lua_pushnumber(L, z);

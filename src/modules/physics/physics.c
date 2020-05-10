@@ -518,10 +518,9 @@ void lovrColliderSetPosition(Collider* collider, float x, float y, float z) {
   dBodySetPosition(collider->body, x, y, z);
 }
 
-void lovrColliderGetOrientation(Collider* collider, float* angle, float* x, float* y, float* z) {
+void lovrColliderGetOrientation(Collider* collider, quat orientation) {
   const dReal* q = dBodyGetQuaternion(collider->body);
-  float quaternion[4] = { q[1], q[2], q[3], q[0] };
-  quat_getAngleAxis(quaternion, angle, x, y, z);
+  quat_set(orientation, q[1], q[2], q[3], q[0]);
 }
 
 void lovrColliderSetOrientation(Collider* collider, quat orientation) {
@@ -720,11 +719,10 @@ void lovrShapeSetPosition(Shape* shape, float x, float y, float z) {
   dGeomSetOffsetPosition(shape->id, x, y, z);
 }
 
-void lovrShapeGetOrientation(Shape* shape, float* angle, float* x, float* y, float* z) {
+void lovrShapeGetOrientation(Shape* shape, quat orientation) {
   dReal q[4];
   dGeomGetOffsetQuaternion(shape->id, q);
-  float quaternion[4] = { q[1], q[2], q[3], q[0] };
-  quat_getAngleAxis(quaternion, angle, x, y, z);
+  quat_set(orientation, q[1], q[2], q[3], q[0]);
 }
 
 void lovrShapeSetOrientation(Shape* shape, quat orientation) {

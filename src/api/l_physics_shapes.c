@@ -121,8 +121,9 @@ static int l_lovrShapeSetPosition(lua_State* L) {
 
 static int l_lovrShapeGetOrientation(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
-  float angle, x, y, z;
-  lovrShapeGetOrientation(shape, &angle, &x, &y, &z);
+  float angle, x, y, z, orientation[4];
+  lovrShapeGetOrientation(shape, orientation);
+  quat_getAngleAxis(orientation, &angle, &x, &y, &z);
   lua_pushnumber(L, angle);
   lua_pushnumber(L, x);
   lua_pushnumber(L, y);
