@@ -42,9 +42,15 @@ void lovrPlatformSleep(double seconds) {
 }
 
 void lovrPlatformOpenConsole() {
-  if (AttachConsole(ATTACH_PARENT_PROCESS)) {
-    freopen("CONOUT$", "w", stdout);
-    freopen("CONIN$", "r", stdin);
-    freopen("CONOUT$", "w", stderr);
+  if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+    if (GetLastError() != ERROR_ACCESS_DENIED) {
+      if (!AllocConsole()) {
+        return;
+      }
+    }
   }
+
+  freopen("CONOUT$", "w", stdout);
+  freopen("CONIN$", "r", stdin);
+  freopen("CONOUT$", "w", stderr);
 }
