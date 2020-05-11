@@ -110,6 +110,27 @@ static int l_lovrWorldNewSphereCollider(lua_State* L) {
   return 1;
 }
 
+static int l_lovrWorldGetColliders(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+
+  if (lua_istable(L, 2)) {
+    lua_settop(L, 2);
+  } else {
+    lua_newtable(L);
+  }
+
+  Collider* collider = lovrWorldGetFirstCollider(world);
+  int index = 1;
+
+  while (collider) {
+    luax_pushtype(L, Collider, collider);
+    lua_rawseti(L, -2, index++);
+    collider = collider->next;
+  }
+
+  return 1;
+}
+
 static int l_lovrWorldDestroy(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   lovrWorldDestroyData(world);
@@ -255,6 +276,7 @@ const luaL_Reg lovrWorld[] = {
   { "newCapsuleCollider", l_lovrWorldNewCapsuleCollider },
   { "newCylinderCollider", l_lovrWorldNewCylinderCollider },
   { "newSphereCollider", l_lovrWorldNewSphereCollider },
+  { "getColliders", l_lovrWorldGetColliders },
   { "destroy", l_lovrWorldDestroy },
   { "update", l_lovrWorldUpdate },
   { "computeOverlaps", l_lovrWorldComputeOverlaps },

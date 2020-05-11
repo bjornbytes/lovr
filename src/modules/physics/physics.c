@@ -179,6 +179,10 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
   return contactCount;
 }
 
+Collider* lovrWorldGetFirstCollider(World* world) {
+  return world->head;
+}
+
 void lovrWorldGetGravity(World* world, float* x, float* y, float* z) {
   dReal gravity[3];
   dWorldGetGravity(world->id, gravity);

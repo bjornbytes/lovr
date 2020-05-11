@@ -94,6 +94,7 @@ void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* u
 void lovrWorldComputeOverlaps(World* world);
 int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
 int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution);
+Collider* lovrWorldGetFirstCollider(World* world);
 void lovrWorldGetGravity(World* world, float* x, float* y, float* z);
 void lovrWorldSetGravity(World* world, float x, float y, float z);
 void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold);
