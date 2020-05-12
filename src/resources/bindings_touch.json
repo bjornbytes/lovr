@@ -73,14 +73,6 @@
             },
             {
                "inputs" : {
-                  "click" : { "output" : "/actions/lovr/in/leftMenuDown" },
-                  "touch" : { "output" : "/actions/lovr/in/leftMenuTouch" }
-               },
-               "mode" : "button",
-               "path" : "/user/hand/left/input/system"
-            },
-            {
-               "inputs" : {
                   "click" : { "output" : "/actions/lovr/in/leftTriggerDown" },
                   "pull" : { "output" : "/actions/lovr/in/leftTriggerAxis" },
                   "touch" : { "output" : "/actions/lovr/in/leftTriggerTouch" }
