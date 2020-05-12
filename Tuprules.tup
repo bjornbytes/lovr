@@ -37,31 +37,92 @@ CFLAGS_@(OPENXR) += -DLOVR_USE_OPENXR
 CFLAGS_@(OCULUS) += -DLOVR_USE_OCULUS
 CFLAGS_@(OCULUS) += -I@(OCULUS_PATH)/LibOVR/Include
 CFLAGS_@(VRAPI) += -DLOVR_USE_OCULUS_MOBILE
-CFLAGS_@(WEBVR) += -DLOVR_USE_WEBVR
 CFLAGS_@(WEBXR) += -DLOVR_USE_WEBXR
 CFLAGS_@(LEAP) += -DLOVR_USE_LEAP
 
-## Platforms
+## Platform
 ifeq (@(PLATFORM),)
   PLATFORM = @(TUP_PLATFORM)
 else
   PLATFORM = @(PLATFORM)
 endif
 
+## macOS
 ifeq ($(PLATFORM),macosx)
   PLATFORM = macos
   LDFLAGS += -lobjc
-  LDFLAGS_@(LUAJIT) += -pagezero_size 10000 -image_base 100000000
   LDFLAGS += -Wl,-rpath,@executable_path/libs
-  SO = dylib
+
+  ifeq (@(CMAKE_DEPS),y)
+    ifeq (@(LUAJIT),y)
+      CFLAGS += -I$(ROOT)/deps/luajit/src
+      LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit -pagezero_size 10000 -image_base 100000000
+      LIBS += $(ROOT)/build/luajit/src/libluajit.dylib
+    else
+      CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
+      LDFLAGS += -L$(ROOT)/build/lua -llua
+    endif
+
+    CFLAGS += -I$(ROOT)/deps/glfw/include
+    CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
+    CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
+    CFLAGS_@(OPENVR) += -I$(ROOT)/deps/openvr/headers
+    CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
+    CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
+
+    LDFLAGS += -L$(ROOT)/build/glfw/src -lglfw
+    LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal -lopenal
+    LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
+    LDFLAGS_@(OPENVR) += -L$(ROOT)/build/openvr_api -lopenvr_api
+    LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
+    LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
+
+    LIBS += $(ROOT)/build/glfw/src/libglfw.*dylib
+    LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*dylib
+    LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.dylib
+    LIBS_@(OPENVR) += $(ROOT)/build/openvr_api/libopenvr_api.dylib
+    LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.dylib
+  endif
 endif
 
+## Linux
 ifeq ($(PLATFORM),linux)
   LDFLAGS += -lm -lpthread
   LDFLAGS += -Wl,-rpath,\$ORIGIN/libs
-  SO = so
+
+  ifeq (@(CMAKE_DEPS),y)
+    ifeq (@(LUAJIT),y)
+      CFLAGS += -I$(ROOT)/deps/luajit/src
+      LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit
+      LIBS += $(ROOT)/build/luajit/src/libluajit.so
+    else
+      CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
+      LDFLAGS += -L$(ROOT)/build/lua -llua
+    endif
+
+    CFLAGS += -I$(ROOT)/deps/glfw/include
+    CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
+    CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
+    CFLAGS_@(OPENVR) += -I$(ROOT)/deps/openvr/headers
+    CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
+    CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
+
+    LDFLAGS += -L$(ROOT)/build/glfw/src -lglfw
+    LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal -lopenal
+    LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
+    LDFLAGS_@(OPENVR) += -L$(ROOT)/build/openvr_api -lopenvr_api
+    LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
+    LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
+
+    LIBS += $(ROOT)/build/glfw/src/libglfw.*so*
+    LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*so*
+    LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.so
+    LIBS_@(OPENVR) += $(ROOT)/build/openvr_api/libopenvr_api.so
+    LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.so
+  endif
 endif
 
+## emscripten
 ifeq ($(PLATFORM),web)
   SUFFIX = .html
   EXTRAS = lovr.js lovr.wasm
@@ -74,78 +135,25 @@ ifeq ($(PLATFORM),web)
   LDFLAGS += -s FORCE_FILESYSTEM
   LDFLAGS += -s EXPORTED_FUNCTIONS="[
     LDFLAGS += '_main',
-    ifeq (@(WEBVR),y)
-    LDFLAGS += '_webvr_onAnimationFrame',
-    endif
-    ifeq (@(WEBXR),y)
     LDFLAGS += '_lovrCanvasCreateFromHandle','_lovrGraphicsSetCamera',
-    endif
     LDFLAGS += '_mat4_set','_mat4_identity','_mat4_invert','_mat4_multiply','_mat4_rotateQuat',
     LDFLAGS += '_mat4_transform','_mat4_transformDirection'
   LDFLAGS += ]"
-  LDFLAGS_@(WEBVR) += --js-library $(ROOT)/src/resources/webvr.js
   LDFLAGS_@(WEBXR) += --js-library $(ROOT)/src/resources/webxr.js
   LDFLAGS += --shell-file $(ROOT)/src/resources/lovr.html
   CFLAGS_@(THREAD) += -s USE_PTHREADS=1
   LDFLAGS_@(THREAD) += -s USE_PTHREADS=1
-endif
 
-## Libraries
-ifeq ($(PLATFORM),web)
   CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
+  CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
+  CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
+
   STATIC_LIBS += $(ROOT)/build/lua/liblua.a
-
-  CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
   STATIC_LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.a
-
-  CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
   STATIC_LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.a
-else
-  ifeq (@(CMAKE_DEPS),y)
-
-  # enet
-  CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
-  LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
-
-  # Lua
-  ifeq (@(LUAJIT),y)
-    CFLAGS += -I$(ROOT)/deps/luajit/src
-    LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit
-    LIBS += $(ROOT)/build/luajit/src/libluajit.$(SO)
-  else
-    CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
-    LDFLAGS += -L$(ROOT)/build/lua -llua
-  endif
-
-  # msdfgen
-  CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
-  LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
-  LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.$(SO)
-
-  # ode
-  CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
-  LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
-  LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.$(SO)
-
-  # glfw
-  CFLAGS += -I$(ROOT)/deps/glfw/include
-  LDFLAGS += -L$(ROOT)/build/glfw/src -lglfw
-  LIBS += $(ROOT)/build/glfw/src/libglfw.*$(SO)*
-
-  # OpenVR
-  CFLAGS_@(OPENVR) += -I$(ROOT)/deps/openvr/headers
-  LDFLAGS_@(OPENVR) += -L$(ROOT)/build/openvr_api -lopenvr_api
-  LIBS_@(OPENVR) += $(ROOT)/build/openvr_api/libopenvr_api.$(SO)
-
-  # OpenAL
-  CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
-  LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal -lopenal
-  LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*$(SO)*
-
-  LIBS += $(LIBS_y)
-  endif
 endif
 
+LIBS += $(LIBS_y)
 CFLAGS += @(EXTRA_CFLAGS)
 LDFLAGS += @(EXTRA_LDFLAGS)
 
