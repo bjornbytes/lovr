@@ -47,6 +47,52 @@ else
   PLATFORM = @(PLATFORM)
 endif
 
+## Windows
+ifeq ($(PLATFORM),win32)
+  CFLAGS += -D_CRT_SECURE_NO_WARNINGS
+  CFLAGS += -Wno-language-extension-token
+  LDFLAGS += -lShell32 -lOle32
+  EXTRAS += lovr.lib lovr.exp
+  SUFFIX = .exe
+
+  ifeq (@(OPTIMIZE),y)
+    CONFIG = Release
+  else
+    CONFIG = Debug
+  endif
+
+  ifeq (@(CMAKE_DEPS),y)
+    ifeq (@(LUAJIT),y)
+      CFLAGS += -I$(ROOT)/deps/luajit/src
+      LDFLAGS += -L$(ROOT)/build/luajit/src/$(CONFIG) -lluajit
+      LIBS += $(ROOT)/build/luajit/src/$(CONFIG)/luajit.dll
+    else
+      CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
+      LDFLAGS += -L$(ROOT)/build/lua/$(CONFIG) -llua
+    endif
+
+    CFLAGS += -I$(ROOT)/deps/glfw/include
+    CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
+    CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
+    CFLAGS_@(OPENVR) += -I$(ROOT)/deps/openvr/headers
+    CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
+    CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
+
+    LDFLAGS += -L$(ROOT)/build/glfw/src/$(CONFIG) -lglfw3dll
+    LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal/$(CONFIG) -lOpenAL32
+    LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen/$(CONFIG) -lmsdfgen
+    LDFLAGS_@(OPENVR) += -L$(ROOT)/deps/openvr/bin/win64/$(CONFIG) -lopenvr_api64
+    LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode/$(CONFIG) -lode
+    LDFLAGS_@(ENET) += -L$(ROOT)/build/enet/$(CONFIG) -lenet
+
+    LIBS += $(ROOT)/build/glfw/src/$(CONFIG)/glfw3.dll
+    LIBS_@(AUDIO) += $(ROOT)/build/glfw/src/$(CONFIG)/glfw3.dll
+    LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/$(CONFIG)/msdfgen.dll
+    LIBS_@(OPENVR) += $(ROOT)/deps/openvr/bin/win64/openvr_api.dll
+    LIBS_@(PHYSICS) += $(ROOT)/build/ode/$(CONFIG)/ode.dll
+  endif
+endif
+
 ## macOS
 ifeq ($(PLATFORM),macosx)
   PLATFORM = macos
