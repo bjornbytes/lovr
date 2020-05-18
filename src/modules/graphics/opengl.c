@@ -745,17 +745,18 @@ static void lovrGpuBindTexture(Texture* texture, int slot) {
 }
 
 #ifndef LOVR_WEBGL
-static void lovrGpuBindImage(Image* image, int slot) {
+static void lovrGpuBindImage(Image* image, int slot, const char* name) {
   lovrAssert(slot >= 0 && slot < MAX_IMAGES, "Invalid image slot %d", slot);
 
   // This is a risky way to compare the two structs
   if (memcmp(state.images + slot, image, sizeof(Image))) {
-    Texture* texture = image->texture ? image->texture : state.defaultTexture;
-    lovrAssert(!texture->srgb, "sRGB textures can not be used as image uniforms");
-    lovrAssert(!isTextureFormatCompressed(texture->format), "Compressed textures can not be used as image uniforms");
-    lovrAssert(texture->format != FORMAT_RGB && texture->format != FORMAT_RGBA4 && texture->format != FORMAT_RGB5A1, "Unsupported texture format for image uniform");
-    lovrAssert(image->mipmap < (int) texture->mipmapCount, "Invalid mipmap level '%d' for image uniform", image->mipmap);
-    lovrAssert(image->slice < (int) texture->depth, "Invalid texture slice '%d' for image uniform", image->slice);
+    Texture* texture = image->texture;
+    lovrAssert(texture, "No Texture bound to image uniform '%s'", name);
+    lovrAssert(!texture->srgb, "Attempt to bind sRGB texture to image uniform '%s'", name);
+    lovrAssert(!isTextureFormatCompressed(texture->format), "Attempt to bind compressed texture to image uniform '%s'", name);
+    lovrAssert(texture->format != FORMAT_RGB && texture->format != FORMAT_RGBA4 && texture->format != FORMAT_RGB5A1, "Unsupported texture format for image uniform '%s'", name);
+    lovrAssert(image->mipmap < (int) texture->mipmapCount, "Invalid mipmap level '%d' for image uniform '%s'", image->mipmap, name);
+    lovrAssert(image->slice < (int) texture->depth, "Invalid texture slice '%d' for image uniform '%s'", image->slice, name);
     GLenum glAccess = convertAccess(image->access);
     GLenum glFormat = convertTextureFormatInternal(texture->format, false);
     bool layered = image->slice == -1;
@@ -1156,7 +1157,7 @@ static void lovrGpuBindShader(Shader* shader) {
             }
           }
 
-          lovrGpuBindImage(image, uniform->baseSlot + j);
+          lovrGpuBindImage(image, uniform->baseSlot + j, uniform->name);
         }
 #endif
         break;
