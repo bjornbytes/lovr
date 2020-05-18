@@ -32,13 +32,15 @@ static uint32_t lovrSoundDataReadOgg(SoundData* soundData, uint32_t offset, uint
   }
 
   uint32_t frames = 0;
+  uint32_t channels = soundData->channels;
   float* p = data;
   int n;
 
   do {
-    n = stb_vorbis_get_samples_float_interleaved(soundData->decoder, soundData->channels, p, (int) (count - frames));
-    p += n * soundData->channels;
+    n = stb_vorbis_get_samples_float_interleaved(soundData->decoder, channels, p, count * channels);
+    p += n * channels;
     frames += n;
+    count -= n;
   } while (frames < count && n > 0);
 
   soundData->cursor += frames;
