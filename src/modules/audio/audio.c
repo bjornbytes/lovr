@@ -28,21 +28,9 @@ static struct {
 static void onPlayback(ma_device* device, void* output, const void* input, uint32_t frames) {
   ma_mutex_lock(&state.locks[0]);
 
-  Source* source = state.sources;
-
-  for (;;) {
-    if (!source) {
-      break;
-    }
-
+  for (Source** list = &state.sources, *source = *list; source != NULL; source = *list) {
     if (!source->playing) {
-
-      continue;
-    }
-  }
-
-  for (Source* source = state.sources; source != NULL; source = source->next) {
-    if (!source->playing) {
+      *list = source->next;
       source->tracked = false;
       lovrRelease(Source, source);
       continue;
@@ -51,10 +39,16 @@ static void onPlayback(ma_device* device, void* output, const void* input, uint3
     uint32_t n = source->sound->read(source->sound, source->offset, frames, output);
 
     if (n < frames) {
-      source->offset = 0;
+      if (source->looping) {
+        source->offset = 0;
+      } else {
+        source->playing = false;
+      }
     } else {
       source->offset += n;
     }
+
+    list = &source->next;
   }
 
   ma_mutex_unlock(&state.locks[0]);
@@ -216,5 +210,5 @@ void lovrSourceSetTime(Source* source, uint32_t time) {
 }
 
 uint32_t lovrSourceGetDuration(Source* source) {
-  return 0; // TODO
+  return source->sound->frames;
 }
