@@ -121,7 +121,7 @@ void* png_encode(uint8_t* pixels, uint32_t w, uint32_t h, int32_t stride, size_t
     memcpy(p, (uint8_t[4]) { s2 >> 8, s2 >> 0, s1 >> 8, s1 >> 0 }, 4);
   }
 
-  crc = crc32(data + 8, idatSize);
+  crc = crc32(data + 4, idatSize + 4);
   memcpy(data + 8 + idatSize, (uint8_t[4]) { crc >> 24, crc >> 16, crc >> 8, crc }, 4);
   data += 8 + idatSize + 4;
 
