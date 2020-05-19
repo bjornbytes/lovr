@@ -28,6 +28,9 @@ static struct {
 static void onPlayback(ma_device* device, void* output, const void* input, uint32_t frames) {
   ma_mutex_lock(&state.locks[0]);
 
+  float buffer[1024];
+  size_t stride = sizeof(buffer) / 2 / sizeof(float);
+
   for (Source** list = &state.sources, *source = *list; source != NULL; source = *list) {
     if (!source->playing) {
       *list = source->next;
@@ -36,16 +39,24 @@ static void onPlayback(ma_device* device, void* output, const void* input, uint3
       continue;
     }
 
-    uint32_t n = source->sound->read(source->sound, source->offset, frames, output);
+    for (uint32_t f = 0; f < frames; f += stride) {
+      uint32_t count = MIN(stride, frames - f);
+      uint32_t n = source->sound->read(source->sound, source->offset, count, buffer);
 
-    if (n < frames) {
-      if (source->looping) {
-        source->offset = 0;
-      } else {
-        source->playing = false;
+      float* p = (float*) output + f * 2;
+      for (uint32_t i = 0; i < n * 2; i++) {
+        p[i] += buffer[i] * source->volume;
       }
-    } else {
-      source->offset += n;
+
+      if (n < count) {
+        source->offset = 0;
+        if (!source->looping) {
+          source->playing = false;
+          continue;
+        }
+      } else {
+        source->offset += n;
+      }
     }
 
     list = &source->next;
