@@ -4,7 +4,6 @@
 #include "graphics/canvas.h"
 #include "graphics/texture.h"
 #include "core/arr.h"
-#include "core/hash.h"
 #include "core/maf.h"
 #include "core/map.h"
 #include "core/ref.h"

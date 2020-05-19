@@ -8,7 +8,6 @@
 #include "resources/shaders.h"
 #include "data/modelData.h"
 #include "math/math.h"
-#include "core/hash.h"
 #include "core/ref.h"
 #include <math.h>
 #include <limits.h>

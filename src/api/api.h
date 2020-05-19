@@ -3,7 +3,6 @@
 #include <lualib.h>
 #include <stdint.h>
 #include <string.h>
-#include "core/hash.h"
 #include "core/util.h"
 
 #pragma once

@@ -1,8 +1,8 @@
 #include "filesystem/filesystem.h"
 #include "core/arr.h"
 #include "core/fs.h"
-#include "core/hash.h"
 #include "core/map.h"
+#include "core/util.h"
 #include "core/zip.h"
 #include "lib/stb/stb_image.h"
 #include <string.h>

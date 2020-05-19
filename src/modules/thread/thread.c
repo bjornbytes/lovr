@@ -1,7 +1,6 @@
 #include "thread/thread.h"
 #include "thread/channel.h"
 #include "core/arr.h"
-#include "core/hash.h"
 #include "core/map.h"
 #include "core/ref.h"
 #include "core/util.h"

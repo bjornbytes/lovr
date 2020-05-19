@@ -1,7 +1,6 @@
 #include "data/modelData.h"
 #include "data/blob.h"
 #include "data/textureData.h"
-#include "core/hash.h"
 #include "core/maf.h"
 #include "core/ref.h"
 #include "lib/jsmn/jsmn.h"

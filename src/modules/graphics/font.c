@@ -3,7 +3,6 @@
 #include "data/rasterizer.h"
 #include "data/textureData.h"
 #include "core/arr.h"
-#include "core/hash.h"
 #include "core/map.h"
 #include "core/ref.h"
 #include "core/utf.h"
