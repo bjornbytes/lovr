@@ -37,7 +37,7 @@ static int l_lovrShaderBlockSend(lua_State* L) {
     lovrBufferFlush(buffer, uniform->offset, uniform->size);
     return 0;
   } else {
-    Blob* blob = luax_checktype(L, 1, Blob);
+    Blob* blob = luax_checktype(L, 2, Blob);
     Buffer* buffer = lovrShaderBlockGetBuffer(block);
     void* data = lovrBufferMap(buffer, 0);
     size_t bufferSize = lovrBufferGetSize(buffer);
