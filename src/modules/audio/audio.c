@@ -1,20 +1,37 @@
 #include "audio/audio.h"
 #include "data/soundData.h"
+#include "core/arr.h"
+#include "core/ref.h"
 #include "core/ref.h"
 #include "core/util.h"
 #include <string.h>
 #include <stdlib.h>
 #include "lib/miniaudio/miniaudio.h"
 
+#define SAMPLE_RATE 44100
+
+static const ma_format formats[] = {
+  [SAMPLE_I16] = ma_format_s16,
+  [SAMPLE_F32] = ma_format_f32
+};
+
 struct Source {
   Source* next;
   SoundData* sound;
+  ma_data_converter* converter;
   uint32_t offset;
   float volume;
+  bool tracked;
   bool playing;
   bool looping;
-  bool tracked;
+  bool spatial;
 };
+
+typedef struct {
+  bool (*init)(void);
+  void (*destroy)(void);
+  void (*apply)(Source* source, const void* input, float* output, uint32_t frames);
+} Spatializer;
 
 static struct {
   bool initialized;
@@ -23,13 +40,19 @@ static struct {
   ma_device devices[2];
   ma_mutex locks[2];
   Source* sources;
+  arr_t(ma_data_converter) converters;
+  Spatializer* spatializer;
 } state;
 
-static void onPlayback(ma_device* device, void* output, const void* input, uint32_t frames) {
+// Device callbacks
+
+static void onPlayback(ma_device* device, void* output, const void* _, uint32_t frames) {
   ma_mutex_lock(&state.locks[0]);
 
-  float buffer[1024];
-  size_t stride = sizeof(buffer) / 2 / sizeof(float);
+  float rawBuffer[1024];
+  float mixBuffer[1024];
+
+  size_t stride = sizeof(rawBuffer) / 2 / sizeof(float);
 
   for (Source** list = &state.sources, *source = *list; source != NULL; source = *list) {
     if (!source->playing) {
@@ -41,11 +64,13 @@ static void onPlayback(ma_device* device, void* output, const void* input, uint3
 
     for (uint32_t f = 0; f < frames; f += stride) {
       uint32_t count = MIN(stride, frames - f);
-      uint32_t n = source->sound->read(source->sound, source->offset, count, buffer);
+      uint32_t n = source->sound->read(source->sound, source->offset, count, rawBuffer);
+
+      memcpy(mixBuffer, rawBuffer, count * stride);
 
       float* p = (float*) output + f * 2;
       for (uint32_t i = 0; i < n * 2; i++) {
-        p[i] += buffer[i] * source->volume;
+        p[i] += mixBuffer[i] * source->volume;
       }
 
       if (n < count) {
@@ -71,6 +96,26 @@ static void onCapture(ma_device* device, void* output, const void* input, uint32
 }
 
 static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };
+
+// Spatializers
+
+static bool phonon_init(void) {
+  return false;
+}
+
+static void phonon_destroy(void) {
+  //
+}
+
+static void phonon_apply(Source* source, const void* input, float* output, uint32_t frames) {
+  //
+}
+
+static Spatializer spatializers[] = {
+  { phonon_init, phonon_destroy, phonon_apply }
+};
+
+// Entry
 
 bool lovrAudioInit(AudioConfig config[2]) {
   if (state.initialized) return false;
@@ -99,6 +144,15 @@ bool lovrAudioInit(AudioConfig config[2]) {
     }
   }
 
+  for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
+    if (spatializers[i].init()) {
+      state.spatializer = &spatializers[i];
+      break;
+    }
+  }
+
+  arr_init(&state.converters);
+
   return state.initialized = true;
 }
 
@@ -109,6 +163,8 @@ void lovrAudioDestroy() {
   ma_mutex_uninit(&state.locks[0]);
   ma_mutex_uninit(&state.locks[1]);
   ma_context_uninit(&state.context);
+  if (state.spatializer) state.spatializer->destroy();
+  arr_free(&state.converters);
   memset(&state, 0, sizeof(state));
 }
 
@@ -118,8 +174,11 @@ bool lovrAudioReset() {
       ma_device_type deviceType = (i == 0) ? ma_device_type_playback : ma_device_type_capture;
 
       ma_device_config config = ma_device_config_init(deviceType);
+      config.sampleRate = SAMPLE_RATE;
       config.playback.format = ma_format_f32;
+      config.capture.format = ma_format_f32;
       config.playback.channels = 2;
+      config.capture.channels = 1;
       config.dataCallback = callbacks[i];
 
       if (ma_device_init(&state.context, &config, &state.devices[i])) {
@@ -156,6 +215,31 @@ Source* lovrSourceCreate(SoundData* sound) {
   source->sound = sound;
   lovrRetain(source->sound);
   source->volume = 1.f;
+
+  for (size_t i = 0; i < state.converters.length; i++) {
+    ma_data_converter* converter = &state.converters.data[i];
+    if (converter->config.formatIn != formats[source->sound->format]) continue;
+    if (converter->config.sampleRateIn != source->sound->sampleRate) continue;
+    if (converter->config.channelsIn != source->sound->channels) continue;
+    if (converter->config.channelsOut != (2 >> source->spatial)) continue;
+    source->converter = converter;
+    break;
+  }
+
+  if (!source->converter) {
+    ma_data_converter_config config = ma_data_converter_config_init_default();
+    config.formatIn = formats[source->sound->format];
+    config.formatOut = ma_format_f32;
+    config.channelsIn = source->sound->channels;
+    config.channelsOut = 2 >> source->spatial;
+    config.sampleRateIn = source->sound->sampleRate;
+    config.sampleRateOut = SAMPLE_RATE;
+    arr_expand(&state.converters, 1);
+    ma_data_converter* converter = &state.converters.data[state.converters.length++];
+    lovrAssert(!ma_data_converter_init(&config, converter), "Problem creating Source data converter");
+    source->converter = converter;
+  }
+
   return source;
 }
 
