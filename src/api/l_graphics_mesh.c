@@ -315,7 +315,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
     luaL_checktype(L, -1, LUA_TTABLE);
     int component = 0;
     for (uint32_t j = 0; j < attributeCount; j++) {
-      const MeshAttribute* attribute = lovrMeshGetAttribute(mesh, i);
+      const MeshAttribute* attribute = lovrMeshGetAttribute(mesh, j);
       if (attribute->buffer != buffer) {
         break;
       }
