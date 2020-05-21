@@ -1290,8 +1290,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     .buffer = lovrGraphicsGetIdentityBuffer(),
     .type = U8,
     .components = 1,
-    .divisor = 1,
-    .integer = true
+    .divisor = 1
   });
 
   if (dataIndex) {

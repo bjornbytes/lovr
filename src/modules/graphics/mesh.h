@@ -17,7 +17,6 @@ typedef struct {
   unsigned type : 3; // AttributeType
   unsigned components : 3;
   unsigned normalized : 1;
-  unsigned integer : 1;
   unsigned disabled : 1;
 } MeshAttribute;
 

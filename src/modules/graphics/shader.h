@@ -110,7 +110,7 @@ Shader* lovrShaderCreateCompute(const char* source, int length, ShaderFlag* flag
 Shader* lovrShaderCreateDefault(DefaultShader type, ShaderFlag* flags, uint32_t flagCount, bool multiview);
 void lovrShaderDestroy(void* ref);
 ShaderType lovrShaderGetType(Shader* shader);
-int lovrShaderGetAttributeLocation(Shader* shader, const char* name);
+int lovrShaderGetAttributeLocation(Shader* shader, const char* name, bool* integer);
 bool lovrShaderHasUniform(Shader* shader, const char* name);
 bool lovrShaderHasBlock(Shader* shader, const char* name);
 const Uniform* lovrShaderGetUniform(Shader* shader, const char* name);

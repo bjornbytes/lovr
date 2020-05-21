@@ -491,6 +491,22 @@ static GLenum convertTopology(DrawMode topology) {
   }
 }
 
+static bool isAttributeTypeInteger(GLenum type) {
+  switch (type) {
+    case GL_INT:
+    case GL_INT_VEC2:
+    case GL_INT_VEC3:
+    case GL_INT_VEC4:
+    case GL_UNSIGNED_INT:
+    case GL_UNSIGNED_INT_VEC2:
+    case GL_UNSIGNED_INT_VEC3:
+    case GL_UNSIGNED_INT_VEC4:
+      return true;
+    default:
+      return false;
+  }
+}
+
 static UniformType getUniformType(GLenum type, const char* debug) {
   switch (type) {
     case GL_FLOAT:
@@ -788,9 +804,10 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int baseDivisor) {
   for (uint32_t i = 0; i < mesh->attributeCount; i++) {
     MeshAttribute* attribute;
     int location;
+    bool integer;
 
     if ((attribute = &mesh->attributes[i])->disabled) { continue; }
-    if ((location = lovrShaderGetAttributeLocation(shader, mesh->attributeNames[i])) < 0) { continue; }
+    if ((location = lovrShaderGetAttributeLocation(shader, mesh->attributeNames[i], &integer)) < 0) { continue; }
 
     lovrBufferUnmap(attribute->buffer);
     enabledLocations |= (1 << location);
@@ -808,7 +825,7 @@ static void lovrGpuBindMesh(Mesh* mesh, Shader* shader, int baseDivisor) {
     GLenum type = convertAttributeType(attribute->type);
     GLvoid* offset = (GLvoid*) (intptr_t) attribute->offset;
 
-    if (attribute->integer) {
+    if (integer) {
       glVertexAttribIPointer(location, attribute->components, type, attribute->stride, offset);
     } else {
       glVertexAttribPointer(location, attribute->components, type, attribute->normalized, attribute->stride, offset);
@@ -2585,14 +2602,14 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLengt
   // Attribute cache
   int32_t attributeCount;
   glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &attributeCount);
-  map_init(&shader->attributes, 0);
+  map_init(&shader->attributes, attributeCount);
   for (int i = 0; i < attributeCount; i++) {
     char name[LOVR_MAX_ATTRIBUTE_LENGTH];
     GLint size;
     GLenum type;
     GLsizei length;
     glGetActiveAttrib(program, i, LOVR_MAX_ATTRIBUTE_LENGTH, &length, &size, &type, name);
-    map_set(&shader->attributes, hash64(name, length), glGetAttribLocation(program, name));
+    map_set(&shader->attributes, hash64(name, length), (glGetAttribLocation(program, name) << 1) | isAttributeTypeInteger(type));
   }
 
   shader->multiview = multiview;
@@ -2660,9 +2677,10 @@ ShaderType lovrShaderGetType(Shader* shader) {
   return shader->type;
 }
 
-int lovrShaderGetAttributeLocation(Shader* shader, const char* name) {
-  uint64_t location = map_get(&shader->attributes, hash64(name, strlen(name)));
-  return location == MAP_NIL ? -1 : (int) location;
+int lovrShaderGetAttributeLocation(Shader* shader, const char* name, bool* integer) {
+  uint64_t info = map_get(&shader->attributes, hash64(name, strlen(name)));
+  *integer = info & 1;
+  return info == MAP_NIL ? -1 : (int) (info >> 1);
 }
 
 bool lovrShaderHasUniform(Shader* shader, const char* name) {

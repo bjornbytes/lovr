@@ -248,8 +248,8 @@ void lovrGraphicsCreateWindow(WindowFlags* flags) {
   MeshAttribute position = { .buffer = vertexBuffer, .offset = 0, .stride = stride, .type = F32, .components = 3 };
   MeshAttribute normal = { .buffer = vertexBuffer, .offset = 12, .stride = stride, .type = F32, .components = 3 };
   MeshAttribute texCoord = { .buffer = vertexBuffer, .offset = 24, .stride = stride, .type = F32, .components = 2 };
-  MeshAttribute drawId = { .buffer = state.buffers[STREAM_DRAWID], .type = U8, .components = 1, .integer = true };
-  MeshAttribute identity = { .buffer = state.identityBuffer, .type = U8, .components = 1, .divisor = 1, .integer = true };
+  MeshAttribute drawId = { .buffer = state.buffers[STREAM_DRAWID], .type = U8, .components = 1 };
+  MeshAttribute identity = { .buffer = state.identityBuffer, .type = U8, .components = 1, .divisor = 1 };
 
   state.mesh = lovrMeshCreate(DRAW_TRIANGLES, NULL, 0);
   lovrMeshAttachAttribute(state.mesh, "lovrPosition", &position);

@@ -150,7 +150,6 @@ Model* lovrModelCreate(ModelData* data) {
             .stride = data->buffers[attribute->buffer].stride,
             .type = attribute->type,
             .components = attribute->components,
-            .integer = j == ATTR_BONES,
             .normalized = attribute->normalized
           });
 
@@ -165,8 +164,7 @@ Model* lovrModelCreate(ModelData* data) {
         .buffer = lovrGraphicsGetIdentityBuffer(),
         .type = U8,
         .components = 1,
-        .divisor = 1,
-        .integer = true
+        .divisor = 1
       });
 
       if (primitive->indices) {
