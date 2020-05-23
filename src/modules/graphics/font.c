@@ -85,6 +85,7 @@ void lovrFontDestroy(void* ref) {
   for (size_t i = 0; i < font->atlas.glyphs.length; i++) {
     lovrRelease(TextureData, font->atlas.glyphs.data[i].data);
   }
+  arr_free(&font->atlas.glyphs);
   map_free(&font->atlas.glyphMap);
   map_free(&font->kerning);
 }

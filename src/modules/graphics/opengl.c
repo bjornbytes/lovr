@@ -2663,6 +2663,7 @@ void lovrShaderDestroy(void* ref) {
   for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_COMPUTE; type++) {
     for (size_t i = 0; i < shader->blocks[type].length; i++) {
       lovrRelease(Buffer, shader->blocks[type].data[i].source);
+      arr_free(&shader->blocks[type].data[i].uniforms);
     }
   }
   arr_free(&shader->uniforms);
