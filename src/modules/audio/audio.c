@@ -15,6 +15,11 @@ static const ma_format formats[] = {
   [SAMPLE_F32] = ma_format_f32
 };
 
+static const ma_format sampleSizes[] = {
+  [SAMPLE_I16] = 2,
+  [SAMPLE_F32] = 4
+};
+
 struct Source {
   Source* next;
   SoundData* sound;
@@ -46,45 +51,61 @@ static struct {
 
 // Device callbacks
 
-static void onPlayback(ma_device* device, void* output, const void* _, uint32_t frames) {
+static bool mix(Source* source, float* output, uint32_t count) {
+  float raw[2048];
+  float aux[2048];
+  float mix[4096];
+
+  // TODO
+  // frameLimitIn =
+  // frameLimitOut =
+
+  while (count > 0) {
+    uint32_t chunk = MIN(sizeof(raw) / (sampleSizes[source->sound->format] * source->sound->channels),
+        ma_data_converter_get_required_input_frame_count(source->converter, count));
+        // ^^^ Note need to min `count` with 'capacity of aux buffer' and 'capacity of mix buffer'
+        // could skip min-ing with one of the buffers if you can guarantee that one is bigger/equal to the other (you can because their formats are known)
+
+    uint64_t framesIn = source->sound->read(source->sound, source->offset, chunk, raw);
+    uint64_t framesOut = sizeof(aux) / (sizeof(float) * (2 >> source->spatial));
+
+    ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, aux, &framesOut);
+
+    memcpy(mix, aux, framesOut * 2 * sizeof(float));
+
+    for (uint32_t i = 0; i < framesOut * 2; i++) {
+      output[i] += mix[i] * source->volume;
+    }
+
+    if (framesIn == 0) {
+      source->offset = 0;
+      if (!source->looping) {
+        source->playing = false;
+        return false;
+      }
+    } else {
+      source->offset += framesIn;
+    }
+
+    count -= framesOut;
+    output += framesOut * 2;
+  }
+
+  return true;
+}
+
+static void onPlayback(ma_device* device, void* output, const void* _, uint32_t count) {
   ma_mutex_lock(&state.locks[0]);
 
-  float rawBuffer[1024];
-  float mixBuffer[1024];
-
-  size_t stride = sizeof(rawBuffer) / 2 / sizeof(float);
-
+  // For each Source, remove it if it isn't playing or process it and remove it if it stops
   for (Source** list = &state.sources, *source = *list; source != NULL; source = *list) {
-    if (!source->playing) {
+    if (source->playing && mix(source, output, count)) {
+      list = &source->next;
+    } else {
       *list = source->next;
       source->tracked = false;
       lovrRelease(Source, source);
-      continue;
     }
-
-    for (uint32_t f = 0; f < frames; f += stride) {
-      uint32_t count = MIN(stride, frames - f);
-      uint32_t n = source->sound->read(source->sound, source->offset, count, rawBuffer);
-
-      memcpy(mixBuffer, rawBuffer, count * stride);
-
-      float* p = (float*) output + f * 2;
-      for (uint32_t i = 0; i < n * 2; i++) {
-        p[i] += mixBuffer[i] * source->volume;
-      }
-
-      if (n < count) {
-        source->offset = 0;
-        if (!source->looping) {
-          source->playing = false;
-          continue;
-        }
-      } else {
-        source->offset += n;
-      }
-    }
-
-    list = &source->next;
   }
 
   ma_mutex_unlock(&state.locks[0]);
@@ -180,6 +201,7 @@ bool lovrAudioReset() {
       config.playback.channels = 2;
       config.capture.channels = 1;
       config.dataCallback = callbacks[i];
+      config.performanceProfile = ma_performance_profile_low_latency;
 
       if (ma_device_init(&state.context, &config, &state.devices[i])) {
         return false;
