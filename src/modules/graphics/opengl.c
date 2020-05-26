@@ -2035,6 +2035,10 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, uint32_t index) {
   lovrGraphicsFlushCanvas(canvas);
   lovrGpuBindCanvas(canvas, false);
 
+  if (canvas->flags.msaa) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->resolveBuffer);
+  }
+
 #ifndef LOVR_WEBGL
   Texture* texture = canvas->attachments[index].texture;
   if ((texture->incoherent >> BARRIER_TEXTURE) & 1) {
