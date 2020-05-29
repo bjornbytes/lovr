@@ -1,19 +1,18 @@
 #include "os.h"
 #include <stdio.h>
-#include <unistd.h>
+#include <string.h>
+#include <time.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <android_native_app_glue.h>
+#include <android/log.h>
 
+#ifndef LOVR_USE_OCULUS_MOBILE
 static struct {
   EGLDisplay display;
   EGLContext context;
   EGLSurface surface;
 } state;
-
-// Currently, the Android entrypoint is in lovr-oculus-mobile, so this one is not enabled.
-#if 0
-#include <android_native_app_glue.h>
-#include <android/log.h>
 
 static JavaVM* lovrJavaVM;
 static JNIEnv* lovrJNIEnv;
@@ -26,10 +25,10 @@ static void onAppCmd(struct android_app* app, int32_t cmd) {
 
 void android_main(struct android_app* app) {
   lovrJavaVM = app->activity->vm;
-  lovrJavaVM->AttachCurrentThread(&lovrJNIEnv, NULL);
+  (*lovrJavaVM)->AttachCurrentThread(lovrJavaVM, &lovrJNIEnv, NULL);
   app->onAppCmd = onAppCmd;
   main(0, NULL);
-  lovrJavaVM->DetachCurrentThread();
+  (*lovrJavaVM)->DetachCurrentThread(lovrJavaVM);
 }
 #endif
 
@@ -38,7 +37,7 @@ bool lovrPlatformInit() {
 }
 
 void lovrPlatformDestroy() {
-#if 0
+#ifndef LOVR_USE_OCULUS_MOBILE
   if (state.display) eglMakeCurrent(state.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
   if (state.surface) eglDestroySurface(state.display, state.surface);
   if (state.context) eglDestroyContext(state.display, state.context);
@@ -51,6 +50,34 @@ const char* lovrPlatformGetName() {
   return "Android";
 }
 
+// lovr-oculus-mobile provides its own implementation of the timing functions
+#ifndef LOVR_USE_OCULUS_MOBILE
+static uint64_t epoch;
+#define NS_PER_SEC 1000000000ULL
+
+static uint64_t getTime() {
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return (uint64_t) t.tv_sec * NS_PER_SEC + (uint64_t) t.tv_nsec;
+}
+
+double lovrPlatformGetTime() {
+  return (getTime() - epoch) / (double) NS_PER_SEC;
+}
+
+void lovrPlatformSetTime(double time) {
+  epoch = getTime() - (uint64_t) (time * NS_PER_SEC + .5);
+}
+
+void lovrPlatformSleep(double seconds) {
+  seconds += .5e-9;
+  struct timespec t;
+  t.tv_sec = seconds;
+  t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
+  while (nanosleep(&t, &t));
+}
+#endif
+
 void lovrPlatformPollEvents() {
   // TODO
 }
@@ -60,7 +87,7 @@ void lovrPlatformOpenConsole() {
 }
 
 bool lovrPlatformCreateWindow(WindowFlags* flags) {
-#if 0 // lovr-oculus-mobile creates the EGL context right now
+#ifndef LOVR_USE_OCULUS_MOBILE // lovr-oculus-mobile creates its own EGL context
   if (state.display) {
     return true;
   }
@@ -104,7 +131,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
       continue;
     }
 
-    for (int a = 0; a < sizeof(attributes) / sizeof(attributes[0]); a += 2) {
+    for (size_t a = 0; a < sizeof(attributes) / sizeof(attributes[0]); a += 2) {
       if (attributes[a] == EGL_NONE) {
         config = configs[i];
         break;
@@ -144,10 +171,23 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   return true;
 }
 
+#ifndef LOVR_USE_OCULUS_MOBILE
+bool lovrPlatformHasWindow() {
+  return false;
+}
+#endif
+
 void lovrPlatformGetWindowSize(int* width, int* height) {
   if (width) *width = 0;
   if (height) *height = 0;
 }
+
+#ifndef LOVR_USE_OCULUS_MOBILE
+void lovrPlatformGetFramebufferSize(int* width, int* height) {
+  *width = 0;
+  *height = 0;
+}
+#endif
 
 void lovrPlatformSwapBuffers() {
   //
@@ -191,8 +231,4 @@ bool lovrPlatformIsMouseDown(MouseButton button) {
 
 bool lovrPlatformIsKeyDown(KeyCode key) {
   return false;
-}
-
-void lovrPlatformSleep(double seconds) {
-  usleep((unsigned int) (seconds * 1000000));
 }

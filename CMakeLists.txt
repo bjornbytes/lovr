@@ -77,7 +77,7 @@ elseif(ANDROID)
   set(LOVR_USE_OCULUS OFF)
   set(LOVR_USE_DESKTOP_HEADSET OFF)
   set(LOVR_USE_OCULUS_MOBILE ON)
-  set(LOVR_BUILD_SHARED ON) # Android has only "activities"
+  #set(LOVR_BUILD_SHARED ON) # Android has only "activities"
 elseif(UNIX)
   find_package(PkgConfig)
   if(NOT APPLE)

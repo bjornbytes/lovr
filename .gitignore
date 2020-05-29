@@ -10,6 +10,7 @@ config/*
 /debug.sh
 /db
 /lovr
+/lovr.apk
 /lovr.exe
 /lovr.exp
 /lovr.lib
@@ -17,9 +18,13 @@ config/*
 /lovr.worker.js
 /lovr.html
 /lovr.wasm
+/classes.dex
 build
 build-*
+/lib
 /libs
+/org
+/tmp
 bin
 /data
 /*.lua

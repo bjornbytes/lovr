@@ -321,7 +321,7 @@ bool fs_list(const char* path, fs_list_cb* callback, void* context) {
 #include <objc/objc-runtime.h>
 #include <mach-o/dyld.h>
 #elif __ANDROID__
-extern const char* lovrOculusMobileWritablePath; // TODO
+//extern const char* lovrOculusMobileWritablePath; // TODO
 #endif
 
 static size_t copy(char* buffer, size_t size, const char* string, size_t length) {
@@ -359,7 +359,8 @@ size_t fs_getDataDir(char* buffer, size_t size) {
   const char* path = "/home/web_user";
   return copy(buffer, size, path, strlen(path));
 #elif __ANDROID__
-  return copy(buffer, size, lovrOculusMobileWritablePath, strlen(lovrOculusMobileWritablePath));
+  return copy(buffer, size, "/data/data/org.lovr.app", strlen("/data/data/org.lovr.app"));
+  //return copy(buffer, size, lovrOculusMobileWritablePath, strlen(lovrOculusMobileWritablePath));
 #else
   const char* xdg = getenv("XDG_DATA_HOME");
 
@@ -428,7 +429,7 @@ size_t fs_getBundleId(char* buffer, size_t size) {
   snprintf(path, 32, "/proc/%i/cmdline", (int) pid);
   FILE* file = fopen(path, "r");
   if (file) {
-    size_t read = fread(buffer, 1, size, file);
+    fread(buffer, 1, size, file);
     fclose(file);
     return true;
   }
