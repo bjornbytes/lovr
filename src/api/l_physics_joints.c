@@ -122,10 +122,42 @@ static int l_lovrBallJointSetAnchor(lua_State* L) {
   return 0;
 }
 
+static int l_lovrBallJointGetResponseTime(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float responseTime = lovrBallJointGetResponseTime(joint);
+  lua_pushnumber(L, responseTime);
+  return 1;
+}
+
+static int l_lovrBallJointSetResponseTime(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float responseTime = luax_checkfloat(L, 2);
+  lovrBallJointSetResponseTime(joint, responseTime);
+  return 0;
+}
+
+static int l_lovrBallJointGetTightness(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float tightness = lovrBallJointGetTightness(joint);
+  lua_pushnumber(L, tightness);
+  return 1;
+}
+
+static int l_lovrBallJointSetTightness(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float tightness = luax_checkfloat(L, 2);
+  lovrBallJointSetTightness(joint, tightness);
+  return 0;
+}
+
 const luaL_Reg lovrBallJoint[] = {
   lovrJoint,
   { "getAnchors", l_lovrBallJointGetAnchors },
   { "setAnchor", l_lovrBallJointSetAnchor },
+  { "getResponseTime", l_lovrBallJointGetResponseTime},
+  { "setResponseTime", l_lovrBallJointSetResponseTime},
+  { "getTightness", l_lovrBallJointGetTightness},
+  { "setTightness", l_lovrBallJointSetTightness},
   { NULL, NULL }
 };
 
@@ -164,12 +196,44 @@ static int l_lovrDistanceJointSetDistance(lua_State* L) {
   return 0;
 }
 
+static int l_lovrDistanceJointGetResponseTime(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float responseTime = lovrDistanceJointGetResponseTime(joint);
+  lua_pushnumber(L, responseTime);
+  return 1;
+}
+
+static int l_lovrDistanceJointSetResponseTime(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float responseTime = luax_checkfloat(L, 2);
+  lovrDistanceJointSetResponseTime(joint, responseTime);
+  return 0;
+}
+
+static int l_lovrDistanceJointGetTightness(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float tightness = lovrDistanceJointGetTightness(joint);
+  lua_pushnumber(L, tightness);
+  return 1;
+}
+
+static int l_lovrDistanceJointSetTightness(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float tightness = luax_checkfloat(L, 2);
+  lovrDistanceJointSetTightness(joint, tightness);
+  return 0;
+}
+
 const luaL_Reg lovrDistanceJoint[] = {
   lovrJoint,
   { "getAnchors", l_lovrDistanceJointGetAnchors },
   { "setAnchors", l_lovrDistanceJointSetAnchors },
   { "getDistance", l_lovrDistanceJointGetDistance },
   { "setDistance", l_lovrDistanceJointSetDistance },
+  { "getResponseTime", l_lovrDistanceJointGetResponseTime},
+  { "setResponseTime", l_lovrDistanceJointSetResponseTime},
+  { "getTightness", l_lovrDistanceJointGetTightness},
+  { "setTightness", l_lovrDistanceJointSetTightness},
   { NULL, NULL }
 };
 

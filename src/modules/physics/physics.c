@@ -195,6 +195,22 @@ void lovrWorldSetGravity(World* world, float x, float y, float z) {
   dWorldSetGravity(world->id, x, y, z);
 }
 
+float lovrWorldGetResponseTime(World* world) {
+  return dWorldGetCFM(world->id);
+}
+
+void lovrWorldSetResponseTime(World* world, float responseTime) {
+  dWorldSetCFM(world->id, responseTime);
+}
+
+float lovrWorldGetTightness(World* world) {
+  return dWorldGetERP(world->id);
+}
+
+void lovrWorldSetTightness(World* world, float tightness) {
+  dWorldSetERP(world->id, tightness);
+}
+
 void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold) {
   *damping = dWorldGetLinearDamping(world->id);
   *threshold = dWorldGetLinearDampingThreshold(world->id);
@@ -954,6 +970,22 @@ void lovrBallJointSetAnchor(BallJoint* joint, float x, float y, float z) {
   dJointSetBallAnchor(joint->id, x, y, z);
 }
 
+float lovrBallJointGetResponseTime(Joint* joint) {
+  return dJointGetBallParam(joint->id, dParamCFM);
+}
+
+void lovrBallJointSetResponseTime(Joint* joint, float responseTime) {
+  dJointSetBallParam(joint->id, dParamCFM, responseTime);
+}
+
+float lovrBallJointGetTightness(Joint* joint) {
+  return dJointGetBallParam(joint->id, dParamERP);
+}
+
+void lovrBallJointSetTightness(Joint* joint, float tightness) {
+  dJointSetBallParam(joint->id, dParamERP, tightness);
+}
+
 DistanceJoint* lovrDistanceJointInit(DistanceJoint* joint, Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   joint->type = JOINT_DISTANCE;
@@ -988,6 +1020,22 @@ float lovrDistanceJointGetDistance(DistanceJoint* joint) {
 
 void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance) {
   dJointSetDBallDistance(joint->id, distance);
+}
+
+float lovrDistanceJointGetResponseTime(Joint* joint) {
+  return dJointGetDBallParam(joint->id, dParamCFM);
+}
+
+void lovrDistanceJointSetResponseTime(Joint* joint, float responseTime) {
+  dJointSetDBallParam(joint->id, dParamCFM, responseTime);
+}
+
+float lovrDistanceJointGetTightness(Joint* joint) {
+  return dJointGetDBallParam(joint->id, dParamERP);
+}
+
+void lovrDistanceJointSetTightness(Joint* joint, float tightness) {
+  dJointSetDBallParam(joint->id, dParamERP, tightness);
 }
 
 HingeJoint* lovrHingeJointInit(HingeJoint* joint, Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az) {

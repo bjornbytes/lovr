@@ -187,6 +187,34 @@ static int l_lovrWorldSetGravity(lua_State* L) {
   return 0;
 }
 
+static int l_lovrWorldGetTightness(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float tightness = lovrWorldGetTightness(world);
+  lua_pushnumber(L, tightness);
+  return 1;
+}
+
+static int l_lovrWorldSetTightness(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float tightness = luax_checkfloat(L, 2);
+  lovrWorldSetTightness(world, tightness);
+  return 0;
+}
+
+static int l_lovrWorldGetResponseTime(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float responseTime = lovrWorldGetResponseTime(world);
+  lua_pushnumber(L, responseTime);
+  return 1;
+}
+
+static int l_lovrWorldSetResponseTime(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float responseTime = luax_checkfloat(L, 2);
+  lovrWorldSetResponseTime(world, responseTime);
+  return 0;
+}
+
 static int l_lovrWorldGetLinearDamping(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float damping, threshold;
@@ -284,6 +312,10 @@ const luaL_Reg lovrWorld[] = {
   { "collide", l_lovrWorldCollide },
   { "getGravity", l_lovrWorldGetGravity },
   { "setGravity", l_lovrWorldSetGravity },
+  { "getTightness", l_lovrWorldGetTightness },
+  { "setTightness", l_lovrWorldSetTightness },
+  { "getResponseTime", l_lovrWorldGetResponseTime },
+  { "setResponseTime", l_lovrWorldSetResponseTime },
   { "getLinearDamping", l_lovrWorldGetLinearDamping },
   { "setLinearDamping", l_lovrWorldSetLinearDamping },
   { "getAngularDamping", l_lovrWorldGetAngularDamping },
