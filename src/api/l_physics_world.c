@@ -190,6 +190,7 @@ static int l_lovrWorldSetGravity(lua_State* L) {
 static int l_lovrWorldGetTightness(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float tightness = lovrWorldGetTightness(world);
+  lovrAssert(tightness >= 0, "Negative tightness factor causes simulation instability");
   lua_pushnumber(L, tightness);
   return 1;
 }
@@ -211,6 +212,7 @@ static int l_lovrWorldGetResponseTime(lua_State* L) {
 static int l_lovrWorldSetResponseTime(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float responseTime = luax_checkfloat(L, 2);
+  lovrAssert(responseTime >= 0, "Negative response time causes simulation instability");
   lovrWorldSetResponseTime(world, responseTime);
   return 0;
 }

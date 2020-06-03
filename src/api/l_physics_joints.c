@@ -132,6 +132,7 @@ static int l_lovrBallJointGetResponseTime(lua_State* L) {
 static int l_lovrBallJointSetResponseTime(lua_State* L) {
   Joint* joint = luax_checkjoint(L, 1);
   float responseTime = luax_checkfloat(L, 2);
+  lovrAssert(responseTime >= 0, "Negative response time causes simulation instability");
   lovrBallJointSetResponseTime(joint, responseTime);
   return 0;
 }
@@ -146,6 +147,7 @@ static int l_lovrBallJointGetTightness(lua_State* L) {
 static int l_lovrBallJointSetTightness(lua_State* L) {
   Joint* joint = luax_checkjoint(L, 1);
   float tightness = luax_checkfloat(L, 2);
+  lovrAssert(tightness >= 0, "Negative tightness factor causes simulation instability");
   lovrBallJointSetTightness(joint, tightness);
   return 0;
 }
@@ -206,6 +208,7 @@ static int l_lovrDistanceJointGetResponseTime(lua_State* L) {
 static int l_lovrDistanceJointSetResponseTime(lua_State* L) {
   Joint* joint = luax_checkjoint(L, 1);
   float responseTime = luax_checkfloat(L, 2);
+  lovrAssert(responseTime >= 0, "Negative response time causes simulation instability");
   lovrDistanceJointSetResponseTime(joint, responseTime);
   return 0;
 }
@@ -220,6 +223,7 @@ static int l_lovrDistanceJointGetTightness(lua_State* L) {
 static int l_lovrDistanceJointSetTightness(lua_State* L) {
   Joint* joint = luax_checkjoint(L, 1);
   float tightness = luax_checkfloat(L, 2);
+  lovrAssert(tightness >= 0, "Negative tightness factor causes simulation instability");
   lovrDistanceJointSetTightness(joint, tightness);
   return 0;
 }
