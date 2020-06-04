@@ -535,6 +535,10 @@ SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples, SoundDa
   if (!microphone->isRecording || availableSamples == 0) {
     return NULL;
   }
+  
+  if (samples == 0 || samples > availableSamples) {
+    samples = availableSamples;
+  }
 
   if (soundData == NULL) {
     soundData = lovrSoundDataCreate(samples, microphone->sampleRate, microphone->bitDepth, microphone->channelCount);
@@ -543,10 +547,6 @@ SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples, SoundDa
     lovrAssert(soundData->sampleRate == microphone->sampleRate, "Microphone and SoundData sample rates must match");
     lovrAssert(soundData->bitDepth == microphone->bitDepth, "Microphone and SoundData bit depths must match");
     lovrAssert(offset + samples <= soundData->samples, "Tried to write samples past the end of a SoundData buffer");
-  }
-
-  if (samples == 0 || samples > availableSamples) {
-    samples = availableSamples;
   }
 
   uint8_t* data = (uint8_t*) soundData->blob->data + offset * (microphone->bitDepth / 8) * microphone->channelCount;
