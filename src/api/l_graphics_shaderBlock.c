@@ -19,8 +19,9 @@ static int l_lovrShaderBlockGetSize(lua_State* L) {
 
 static int l_lovrShaderBlockGetOffset(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
-  const char* field = luaL_checkstring(L, 2);
-  const Uniform* uniform = lovrShaderBlockGetUniform(block, field);
+  const char* name = luaL_checkstring(L, 2);
+  const Uniform* uniform = lovrShaderBlockGetUniform(block, name);
+  lovrAssert(uniform, "Unknown uniform for ShaderBlock '%s'", name);
   lua_pushinteger(L, uniform->offset);
   return 1;
 }
