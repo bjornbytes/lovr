@@ -715,6 +715,10 @@ static void openvr_update(float dt) {
         break;
       }
 
+      case EVREventType_VREvent_Quit:
+        lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { .exitCode = 0 } });
+        break;
+
       default: break;
     }
   }
