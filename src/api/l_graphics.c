@@ -1353,7 +1353,7 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   return 1;
 }
 
-static const char* luax_checkshadersource(lua_State* L, int index, int *outLength) {
+static const char* luax_readshadersource(lua_State* L, int index, int *outLength) {
   if (lua_isnoneornil(L, index)) {
     return NULL;
   }
@@ -1445,9 +1445,9 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     }
   } else {
     int vertexSourceLength;
-    const char* vertexSource = luax_checkshadersource(L, 1, &vertexSourceLength);
+    const char* vertexSource = luax_readshadersource(L, 1, &vertexSourceLength);
     int fragmentSourceLength;
-    const char* fragmentSource = luax_checkshadersource(L, 2, &fragmentSourceLength);
+    const char* fragmentSource = luax_readshadersource(L, 2, &fragmentSourceLength);
 
     if (lua_istable(L, 3)) {
       lua_getfield(L, 3, "flags");
@@ -1471,7 +1471,8 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 
 static int l_lovrGraphicsNewComputeShader(lua_State* L) {
   int sourceLength;
-  const char* source = luax_checkshadersource(L, 1, &sourceLength);
+  const char* source = luax_readshadersource(L, 1, &sourceLength);
+  luaL_argcheck(L, source, 1, "string or Blob expected");
   ShaderFlag flags[MAX_SHADER_FLAGS];
   uint32_t flagCount = 0;
 
