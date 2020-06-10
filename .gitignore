@@ -31,3 +31,4 @@ bin
 .DS_Store
 .vs
 /test
+deps/Vrapi

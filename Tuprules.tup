@@ -37,7 +37,8 @@ CFLAGS_@(OPENVR) += -DLOVR_USE_OPENVR
 CFLAGS_@(OPENXR) += -DLOVR_USE_OPENXR
 CFLAGS_@(OCULUS) += -DLOVR_USE_OCULUS
 CFLAGS_@(OCULUS) += -I@(OCULUS_PATH)/LibOVR/Include
-CFLAGS_@(VRAPI) += -DLOVR_USE_OCULUS_MOBILE
+CFLAGS_@(VRAPI) += -DLOVR_USE_VRAPI
+CFLAGS_@(VRAPI) += -I$(ROOT)/deps/VrApi/Include
 CFLAGS_@(WEBXR) += -DLOVR_USE_WEBXR
 CFLAGS_@(LEAP) += -DLOVR_USE_LEAP
 
@@ -177,6 +178,7 @@ ifeq ($(PLATFORM),android)
   TOOLS = @(ANDROID_SDK)/sdk/build-tools/@(ANDROID_BUILD_TOOLS_VERSION)
   JAR = @(ANDROID_SDK)/sdk/platforms/android-@(ANDROID_API_VERSION)/android.jar
   GLUE = @(ANDROID_SDK)/sdk/ndk-bundle/sources/android/native_app_glue
+  VRAPI_LIB_PATH = $(ROOT)/deps/VrApi/Libs/Android/@(ANDROID_ABI)/Release
   CFLAGS += --target=@(ANDROID_TARGET)
   CFLAGS += -I$(GLUE)
   LDFLAGS += --target=@(ANDROID_TARGET)
@@ -207,9 +209,12 @@ ifeq ($(PLATFORM),android)
     LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
     LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
     LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
+    LDFLAGS_@(VRAPI) += -L$(VRAPI_LIB_PATH)
+    LDFLAGS_@(VRAPI) += -lvrapi
 
     LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*so*
     LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.so
+    LIBS_@(VRAPI) += $(VRAPI_LIB_PATH)/libvrapi.so
   endif
 endif
 

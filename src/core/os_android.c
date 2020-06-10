@@ -7,28 +7,48 @@
 #include <android_native_app_glue.h>
 #include <android/log.h>
 
+// The activity is considered ready if it's resumed and there's an active window.  This is just an
+// artifact of how Oculus' app model works and could be the wrong abstraction, feel free to change.
+typedef void (*activeCallback)(bool active);
+
 #ifndef LOVR_USE_OCULUS_MOBILE
 static struct {
+  struct android_app* app;
+  ANativeWindow* window;
+  bool resumed;
+  JNIEnv* jni;
   EGLDisplay display;
   EGLContext context;
   EGLSurface surface;
+  activeCallback onActive;
+  quitCallback onQuit;
 } state;
-
-static JavaVM* lovrJavaVM;
-static JNIEnv* lovrJNIEnv;
 
 int main(int argc, char** argv);
 
 static void onAppCmd(struct android_app* app, int32_t cmd) {
-  // pause, resume, events, etc.
+  bool wasActive = state.window && state.resumed;
+
+  switch (cmd) {
+    case APP_CMD_RESUME: state.resumed = true; break;
+    case APP_CMD_PAUSE: state.resumed = false; break;
+    case APP_CMD_INIT_WINDOW: state.window = app->window; break;
+    case APP_CMD_TERM_WINDOW: state.window = NULL; break;
+    default: break;
+  }
+
+  bool active = state.window && state.resumed;
+  if (state.onActive && wasActive != active) {
+    state.onActive(active);
+  }
 }
 
 void android_main(struct android_app* app) {
-  lovrJavaVM = app->activity->vm;
-  (*lovrJavaVM)->AttachCurrentThread(lovrJavaVM, &lovrJNIEnv, NULL);
+  state.app = app;
+  (*app->activity->vm)->AttachCurrentThread(app->activity->vm, &state.jni, NULL);
   app->onAppCmd = onAppCmd;
   main(0, NULL);
-  (*lovrJavaVM)->DetachCurrentThread(lovrJavaVM);
+  (*app->activity->vm)->DetachCurrentThread(app->activity->vm);
 }
 #endif
 
@@ -42,8 +62,8 @@ void lovrPlatformDestroy() {
   if (state.surface) eglDestroySurface(state.display, state.surface);
   if (state.context) eglDestroyContext(state.display, state.context);
   if (state.display) eglTerminate(state.display);
-  memset(&state, 0, sizeof(state));
 #endif
+  memset(&state, 0, sizeof(state));
 }
 
 const char* lovrPlatformGetName() {
@@ -79,7 +99,16 @@ void lovrPlatformSleep(double seconds) {
 #endif
 
 void lovrPlatformPollEvents() {
-  // TODO
+#ifndef LOVR_USE_OCULUS_MOBILE
+  int events;
+  struct android_poll_source* source;
+  bool active = state.window && state.resumed;
+  while (ALooper_pollAll(active ? 0 : 0, NULL, &events, (void**) &source) >= 0) {
+    if (source) {
+      source->process(state.app, source);
+    }
+  }
+#endif
 }
 
 void lovrPlatformOpenConsole() {
@@ -197,8 +226,8 @@ void* lovrPlatformGetProcAddress(const char* function) {
   return (void*) eglGetProcAddress(function);
 }
 
-void lovrPlatformOnWindowClose(windowCloseCallback callback) {
-  //
+void lovrPlatformOnQuitRequest(quitCallback callback) {
+  state.onQuit = callback;
 }
 
 void lovrPlatformOnWindowFocus(windowFocusCallback callback) {
@@ -231,4 +260,32 @@ bool lovrPlatformIsMouseDown(MouseButton button) {
 
 bool lovrPlatformIsKeyDown(KeyCode key) {
   return false;
+}
+
+void lovrPlatformOnActive(activeCallback callback) {
+  state.onActive = callback;
+}
+
+struct ANativeActivity* lovrPlatformGetActivity() {
+  return state.app->activity;
+}
+
+ANativeWindow* lovrPlatformGetNativeWindow() {
+  return state.window;
+}
+
+JNIEnv* lovrPlatformGetJNI() {
+  return state.jni;
+}
+
+EGLDisplay lovrPlatformGetEGLDisplay() {
+  return state.display;
+}
+
+EGLContext lovrPlatformGetEGLContext() {
+  return state.context;
+}
+
+EGLSurface lovrPlatformGetEGLSurface() {
+  return state.surface;
 }

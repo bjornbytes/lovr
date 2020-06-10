@@ -48,7 +48,7 @@ typedef enum {
   BUTTON_RELEASED
 } ButtonAction;
 
-typedef void (*windowCloseCallback)(void);
+typedef void (*quitCallback)(void);
 typedef void (*windowFocusCallback)(bool focused);
 typedef void (*windowResizeCallback)(int width, int height);
 typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action);
@@ -69,7 +69,7 @@ void lovrPlatformGetFramebufferSize(int* width, int* height);
 void lovrPlatformSetSwapInterval(int interval);
 void lovrPlatformSwapBuffers(void);
 void* lovrPlatformGetProcAddress(const char* function);
-void lovrPlatformOnWindowClose(windowCloseCallback callback);
+void lovrPlatformOnQuitRequest(quitCallback callback);
 void lovrPlatformOnWindowFocus(windowFocusCallback callback);
 void lovrPlatformOnWindowResize(windowResizeCallback callback);
 void lovrPlatformOnMouseButton(mouseButtonCallback callback);
