@@ -360,13 +360,15 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
   double sensorSampleTime;
   getEyePoses(EyeRenderPose, &sensorSampleTime);
 
-  float delta = (float)(state.hapticLastTime - sensorSampleTime);
+  float delta = (float)(sensorSampleTime - state.hapticLastTime);
+  delta = MAX(delta, 0);
   state.hapticLastTime = sensorSampleTime;
   for (int i = 0; i < 2; ++i) {
     ovr_SetControllerVibration(state.session, ovrControllerType_LTouch + i, state.hapticFrequency[i], state.hapticStrength[i]);
     state.hapticDuration[i] -= delta;
     if (state.hapticDuration[i] <= 0.0f) {
       state.hapticStrength[i] = 0.0f;
+      state.hapticDuration[i] = 0.0f;
     }
   }
 
