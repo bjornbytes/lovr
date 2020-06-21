@@ -83,6 +83,7 @@ function lovr.boot()
   local conf = {
     version = '0.13.0',
     identity = 'default',
+    saveprecedence = true,
     hotkeys = true,
     modules = {
       audio = true,
@@ -124,7 +125,7 @@ function lovr.boot()
   if confOk and lovr.conf then confOk, confError = pcall(lovr.conf, conf) end
 
   lovr._setConf(conf)
-  lovr.filesystem.setIdentity(conf.identity)
+  lovr.filesystem.setIdentity(conf.identity, conf.saveprecedence)
 
   for module in pairs(conf.modules) do
     if conf.modules[module] then

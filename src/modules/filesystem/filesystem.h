@@ -26,7 +26,7 @@ uint64_t lovrFilesystemGetLastModified(const char* path);
 void* lovrFilesystemRead(const char* path, size_t bytes, size_t* bytesRead);
 void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* context, const char* path), void* context);
 const char* lovrFilesystemGetIdentity(void);
-bool lovrFilesystemSetIdentity(const char* identity);
+bool lovrFilesystemSetIdentity(const char* identity, bool precedence);
 const char* lovrFilesystemGetSaveDirectory(void);
 bool lovrFilesystemCreateDirectory(const char* path);
 bool lovrFilesystemRemove(const char* path);
