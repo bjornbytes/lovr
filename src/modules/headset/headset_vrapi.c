@@ -33,16 +33,19 @@ static struct {
   ovrMobile* session;
   ovrDeviceType deviceType;
   uint64_t frameIndex;
+  double displayTime;
   float offset;
   uint32_t msaa;
   ovrVector3f* rawBoundaryPoints;
   float* boundaryPoints;
   uint32_t boundaryPointCount;
   ovrTextureSwapChain* swapchain;
-  Canvas* canvases[3];
+  uint32_t swapchainLength;
+  uint32_t swapchainIndex;
+  Canvas* canvases[4];
   ovrInputTrackedRemoteCapabilities controllerInfo[2];
-  ovrInputStateTrackedRemote controllers[2];
-  ovrInputStateHand hands[2];
+  ovrInputStateTrackedRemote input[2];
+  ovrInputStateHand handInput[2];
 } state;
 
 static void onActive(bool active) {
@@ -116,7 +119,7 @@ static const float* vrapi_getDisplayMask(uint32_t* count) {
 }
 
 static double vrapi_getDisplayTime() {
-  return vrapi_GetPredictedDisplayTime(state.session, state.frameIndex);
+  return state.displayTime;
 }
 
 static uint32_t vrapi_getViewCount() {
@@ -125,7 +128,7 @@ static uint32_t vrapi_getViewCount() {
 
 static bool vrapi_getViewPose(uint32_t view, float* position, float* orientation) {
   if (view >= 2) return false;
-  ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, vrapi_getDisplayTime());
+  ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, state.displayTime);
   float transform[16];
   mat4_init(transform, (float*) &tracking.Eye[view].ViewMatrix);
   mat4_invert(transform);
@@ -137,14 +140,14 @@ static bool vrapi_getViewPose(uint32_t view, float* position, float* orientation
 
 static bool vrapi_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
   if (view >= 2) return false;
-  ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, vrapi_getDisplayTime());
+  ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, state.displayTime);
   ovrMatrix4f_ExtractFov(&tracking.Eye[view].ProjectionMatrix, left, right, up, down);
   uint32_t mask = VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID;
   return (tracking.Status & mask) == mask;
 }
 
 static void vrapi_getClipDistance(float* clipNear, float* clipFar) {
-  // Unsupported
+  *clipNear = *clipFar = 0.f; // Unsupported
 }
 
 static void vrapi_setClipDistance(float clipNear, float clipFar) {
@@ -190,12 +193,12 @@ static const float* vrapi_getBoundsGeometry(uint32_t* count) {
 
 static bool getTracking(Device device, ovrTracking* tracking) {
   if (device == DEVICE_HEAD) {
-    *tracking = vrapi_GetPredictedTracking(state.session, vrapi_getDisplayTime());
+    *tracking = vrapi_GetPredictedTracking(state.session, state.displayTime);
     return true;
   } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
     ovrInputCapabilityHeader* header = &state.controllerInfo[device - DEVICE_HAND_LEFT].Header;
     if (header->Type == ovrControllerType_TrackedRemote) {
-      return vrapi_GetInputTrackingState(state.session, header->DeviceID, vrapi_getDisplayTime(), tracking) == ovrSuccess;
+      return vrapi_GetInputTrackingState(state.session, header->DeviceID, state.displayTime, tracking) == ovrSuccess;
     }
   }
 
@@ -211,8 +214,7 @@ static bool vrapi_getPose(Device device, float* position, float* orientation) {
   ovrPosef* pose = &tracking.HeadPose.Pose;
   vec3_set(position, pose->Position.x, pose->Position.y + state.offset, pose->Position.z);
   quat_init(orientation, &pose->Orientation.x);
-  uint32_t mask = VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID;
-  return (tracking.Status & mask) == mask;
+  return tracking.Status & (VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID);
 }
 
 static bool vrapi_getVelocity(Device device, float* velocity, float* angularVelocity) {
@@ -225,8 +227,7 @@ static bool vrapi_getVelocity(Device device, float* velocity, float* angularVelo
   ovrVector3f* angular = &tracking.HeadPose.AngularVelocity;
   vec3_set(velocity, linear->x, linear->y, linear->z);
   vec3_set(angularVelocity, angular->x, angular->y, angular->z);
-  uint32_t mask = VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID;
-  return (tracking.Status & mask) == mask;
+  return tracking.Status & (VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID);
 }
 
 static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
@@ -243,7 +244,7 @@ static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* c
     return false;
   }
 
-  ovrInputStateTrackedRemote* input = &state.controllers[device - DEVICE_HAND_LEFT];
+  ovrInputStateTrackedRemote* input = &state.input[device - DEVICE_HAND_LEFT];
 
   if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSGO) {
     switch (button) {
@@ -278,11 +279,11 @@ static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
     return false;
   }
 
-  ovrInputStateTrackedRemote* input = &state.controllers[device - DEVICE_HAND_LEFT];
+  ovrInputStateTrackedRemote* input = &state.input[device - DEVICE_HAND_LEFT];
 
   if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSGO) {
     switch (button) {
-      case BUTTON_TOUCHPAD: return input->Touches & ovrTouch_TrackPad; return true;
+      case BUTTON_TOUCHPAD: *touched = input->Touches & ovrTouch_TrackPad; return true;
       default: return false;
     }
   } else if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSQUEST) {
@@ -305,7 +306,7 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
     return false;
   }
 
-  ovrInputStateTrackedRemote* input = &state.controllers[device - DEVICE_HAND_LEFT];
+  ovrInputStateTrackedRemote* input = &state.input[device - DEVICE_HAND_LEFT];
 
   if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSGO) {
     switch (axis) {
@@ -340,6 +341,9 @@ static struct ModelData* vrapi_newModelData(Device device) {
 }
 
 static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
+  if (!state.session) return;
+
+  // Lazily create swapchain and canvases
   if (!state.swapchain) {
     CanvasFlags flags = {
       .depth.enabled = true,
@@ -352,9 +356,11 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
 
     uint32_t width, height;
     vrapi_getDisplayDimensions(&width, &height);
-    vrapi_CreateTextureSwapChain3(VRAPI_TEXTURE_TYPE_2D_ARRAY, GL_SRGB8_ALPHA8, width, height, 1, 3);
+    state.swapchain = vrapi_CreateTextureSwapChain3(VRAPI_TEXTURE_TYPE_2D_ARRAY, GL_SRGB8_ALPHA8, width, height, 1, 3);
+    state.swapchainLength = vrapi_GetTextureSwapChainLength(state.swapchain);
+    lovrAssert(state.swapchainLength <= sizeof(state.canvases) / sizeof(state.canvases[0]), "VrApi: The swapchain is too long");
 
-    for (uint32_t i = 0; i < 3; i++) {
+    for (uint32_t i = 0; i < state.swapchainLength; i++) {
       state.canvases[i] = lovrCanvasCreate(width, height, flags);
       uint32_t handle = vrapi_GetTextureSwapChainHandle(state.swapchain, i);
       Texture* texture = lovrTextureCreateFromHandle(handle, TEXTURE_ARRAY, 2);
@@ -363,47 +369,53 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
     }
   }
 
-  double displayTime = vrapi_getDisplayTime();
-  ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, displayTime);
+  ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, state.displayTime);
 
-  ovrLayerProjection2 layer = vrapi_DefaultLayerProjection2();
-  layer.HeadPose = tracking.HeadPose;
-
+  // Set up camera
   Camera camera;
-  camera.stereo = true;
-  camera.canvas = state.canvases[state.frameIndex % 3];
-
+  camera.canvas = state.canvases[state.swapchainIndex];
   for (uint32_t i = 0; i < 2; i++) {
-    ovrMatrix4f* viewMatrix = &tracking.Eye[i].ViewMatrix;
-    ovrMatrix4f* projection = &tracking.Eye[i].ProjectionMatrix;
-
-    layer.Textures[i].ColorSwapChain = state.swapchain;
-    layer.Textures[i].SwapChainIndex = state.frameIndex % 3;
-    layer.Textures[i].TexCoordsFromTanAngles = ovrMatrix4f_TanAngleMatrixFromProjection(projection);
-
-    mat4_init(camera.viewMatrix[i], &viewMatrix->M[0][0]);
-    mat4_init(camera.projection[i], &projection->M[0][0]);
-    mat4_transpose(camera.viewMatrix[i]);
+    mat4_init(camera.viewMatrix[i], &tracking.Eye[i].ViewMatrix.M[0][0]);
+    mat4_init(camera.projection[i], &tracking.Eye[i].ProjectionMatrix.M[0][0]);
     mat4_transpose(camera.projection[i]);
+    mat4_transpose(camera.viewMatrix[i]);
+    mat4_translate(camera.viewMatrix[i], 0.f, -state.offset, 0.f);
   }
 
+  // Render
   lovrGraphicsSetCamera(&camera, true);
   callback(userdata);
+  lovrGraphicsDiscard(false, true, true);
   lovrGraphicsSetCamera(NULL, false);
+
+  // Submit a layer to VrApi
+  ovrLayerProjection2 layer = vrapi_DefaultLayerProjection2();
+  layer.HeadPose = tracking.HeadPose;
+  layer.Textures[0].ColorSwapChain = state.swapchain;
+  layer.Textures[1].ColorSwapChain = state.swapchain;
+  layer.Textures[0].SwapChainIndex = state.swapchainIndex;
+  layer.Textures[1].SwapChainIndex = state.swapchainIndex;
+  layer.Textures[0].TexCoordsFromTanAngles = ovrMatrix4f_TanAngleMatrixFromProjection(&tracking.Eye[0].ProjectionMatrix);
+  layer.Textures[1].TexCoordsFromTanAngles = ovrMatrix4f_TanAngleMatrixFromProjection(&tracking.Eye[1].ProjectionMatrix);
 
   ovrSubmitFrameDescription2 frame = {
     .SwapInterval = 1,
     .FrameIndex = state.frameIndex,
-    .DisplayTime = displayTime,
+    .DisplayTime = state.displayTime,
     .LayerCount = 1,
     .Layers = (const ovrLayerHeader2*[]) { &layer.Header }
   };
 
   vrapi_SubmitFrame2(state.session, &frame);
-  state.frameIndex++;
+  state.swapchainIndex = (state.swapchainIndex + 1) % state.swapchainLength;
 }
 
 static void vrapi_update(float dt) {
+  if (!state.session) return;
+
+  state.frameIndex++;
+  state.displayTime = vrapi_GetPredictedDisplayTime(state.session, state.frameIndex);
+
   state.controllerInfo[0].Header.Type = ovrControllerType_None;
   state.controllerInfo[1].Header.Type = ovrControllerType_None;
 
@@ -413,16 +425,18 @@ static void vrapi_update(float dt) {
       ovrInputTrackedRemoteCapabilities info;
       info.Header = header;
       vrapi_GetInputDeviceCapabilities(state.session, &info.Header);
-      Device device = info.ControllerCapabilities & ovrControllerCaps_LeftHand ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
+      Device device = (info.ControllerCapabilities & ovrControllerCaps_LeftHand) ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
       state.controllerInfo[device] = info;
-      vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.controllers[device].Header);
+      state.input[device].Header.ControllerType = header.Type;
+      vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.input[device].Header);
     } else if (header.Type == ovrControllerType_Hand) {
       ovrInputHandCapabilities info;
       info.Header = header;
       vrapi_GetInputDeviceCapabilities(state.session, &info.Header);
-      Device device = info.HandCapabilities & ovrHandCaps_LeftHand ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
+      Device device = (info.HandCapabilities & ovrHandCaps_LeftHand) ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
       state.controllerInfo[device].Header.Type = header.Type;
-      vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.controllers[device].Header);
+      state.handInput[device].Header.ControllerType = header.Type;
+      vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.handInput[device].Header);
     }
   }
 }
