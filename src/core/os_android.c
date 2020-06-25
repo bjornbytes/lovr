@@ -4,8 +4,12 @@
 #include <time.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <android_native_app_glue.h>
-#include <android/log.h>
+
+// This is probably bad, but makes things easier to build
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-pedantic"
+#include <android_native_app_glue.c>
+#pragma clang diagnostic pop
 
 // The activity is considered ready if it's resumed and there's an active window.  This is just an
 // artifact of how Oculus' app model works and could be the wrong abstraction, feel free to change.

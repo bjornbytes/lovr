@@ -176,7 +176,7 @@ endif
 ifeq ($(PLATFORM),android)
   CC = @(ANDROID_SDK)/sdk/ndk-bundle/toolchains/llvm/prebuilt/@(ANDROID_HOST_TAG)/bin/clang
   TOOLS = @(ANDROID_SDK)/sdk/build-tools/@(ANDROID_BUILD_TOOLS_VERSION)
-  JAR = @(ANDROID_SDK)/sdk/platforms/android-@(ANDROID_API_VERSION)/android.jar
+  ANDROID_JAR = @(ANDROID_SDK)/sdk/platforms/android-@(ANDROID_API_VERSION)/android.jar
   GLUE = @(ANDROID_SDK)/sdk/ndk-bundle/sources/android/native_app_glue
   VRAPI_LIB_PATH = $(ROOT)/deps/VrApi/Libs/Android/@(ANDROID_ABI)/Release
   CFLAGS += --target=@(ANDROID_TARGET)
@@ -188,7 +188,10 @@ ifeq ($(PLATFORM),android)
   PREFIX = $(LIB)/lib
   SUFFIX = .so
 
-  : |> $(CC) $(CFLAGS) -Wno-format-pedantic -c $(GLUE)/android_native_app_glue.c -o %o |> .obj/android_native_app_glue.o
+  # Macros
+  !dx = |> ^ DX %b^ dx --dex --output=%o %f |>
+  !zipalign = |> ^ ZIPALIGN %f^ $(TOOLS)/zipalign -f 4 %f %o |>
+  !apksigner = |> ^ APKSIGNER %o^ $(TOOLS)/apksigner sign --ks @(ANDROID_KEYSTORE) --ks-pass @(ANDROID_KEYSTORE_PASS) --out %o %f |>
 
   ifeq (@(CMAKE_DEPS),y)
     ifeq (@(LUAJIT),y)
@@ -254,7 +257,7 @@ CFLAGS += @(EXTRA_CFLAGS)
 LDFLAGS += @(EXTRA_LDFLAGS)
 
 ## Macros
-!cc = |> ^ CC %b^ $(CC) $(CFLAGS_y) $(CFLAGS) -c %f -o %o |>
+!cc = |> ^ CC %b^ $(CC) $(CFLAGS_y) $(CFLAGS) -o %o -c %f |>
 !ld = |> ^ LD %o^ $(CC) -o %o %f $(LDFLAGS_y) $(LDFLAGS) |>
 !xd = |> ^ XD %f^ xxd -i %f > %o |>
 !cp = |> ^ CP %b^ cp %f %o |>

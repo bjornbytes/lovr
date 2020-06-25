@@ -5,6 +5,7 @@ config/*
 *.ttf.h
 *.json.h
 *.lua.h
+AndroidManifest*.xml
 /build.sh
 /watch.sh
 /debug.sh

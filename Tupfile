@@ -68,17 +68,25 @@ SRC_@(GRAPHICS) += src/resources/shaders.c
 # 2 [CC] compile .c -> .o
 # 3 [LD] link .o -> exe
 # 4 [CP] copy external libs -> libs folder
-
 : foreach $(RES) $(RES_y) |> !xd |> %f.h
 : foreach $(SRC) $(SRC_y) $(SRC_yy) | src/resources/*.h |> !cc |> .obj/%B.o
 : .obj/*.o $(STATIC_LIBS) $(STATIC_LIBS_y) |> !ld |> $(PREFIX)lovr$(SUFFIX) | $(EXTRAS) $(EXTRAS_y)
 : foreach $(LIBS) |> !cp |> $(LIB)/%b
 
-# Android packaging
+# Android
 ifeq ($(PLATFORM),android)
-  : $(ROOT)/src/resources/LoadLibraries.java |> javac -classpath $(JAR) -d . %f |> org/lovr/app/LoadLibraries.class
-  : $(ROOT)/org/lovr/app/LoadLibraries.class |> dx --dex --output=%o %f |> classes.dex
-  : $(ROOT)/src/resources/AndroidManifest.xml | $(LIB)/*.so classes.dex |> aapt package -F %o -M %f -I $(JAR) && zip -qu0 tmp/lovr.unaligned.apk $(LIB)/*.so classes.dex |> tmp/lovr.unaligned.apk
-  : tmp/lovr.unaligned.apk |> $(TOOLS)/zipalign -f 4 %f %o |> tmp/lovr.unsigned.apk
-  : tmp/lovr.unsigned.apk |> $(TOOLS)/apksigner sign --ks @(ANDROID_KEYSTORE) --ks-pass @(ANDROID_KEYSTORE_PASS) --out %o %f |> lovr.apk
+  # There needs to be a Java class for the activity with 2 lines of code to load native libraries.
+  # It gets compiled to a class file with javac and then into bytecode using dx
+  CLASS = org/lovr/app/Activity.class
+  : src/resources/Activity.java |> ^ JAVAC %b^ javac -classpath $(ANDROID_JAR) -d . %f |> $(CLASS)
+  : $(CLASS) |> !dx |> classes.dex
+
+  # Create an apk from the Android manifest.  The zip command is used afterwards to add raw files
+  # because it is way faster than calling aapt again and apks are just zips (TODO windows).
+  : @(ANDROID_MANIFEST) | $(LIB)/*.so classes.dex |> ^ AAPT %b^ aapt package -F %o -M %f -I $(ANDROID_JAR) -A @(ANDROID_ASSETS) && zip -qu0 %o $(LIB)/*.so classes.dex |> tmp/lovr.unaligned.apk
+
+  # Even though we have an apk, it isn't actually valid yet.  It has to be aligned using the special
+  # zipalign tool, and then signed using apksigner.
+  : tmp/lovr.unaligned.apk |> !zipalign |> tmp/lovr.unsigned.apk
+  : tmp/lovr.unsigned.apk |> !apksigner |> lovr.apk
 endif
