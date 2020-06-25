@@ -2,6 +2,7 @@
 #include "core/arr.h"
 #include "core/fs.h"
 #include "core/map.h"
+#include "core/os.h"
 #include "core/util.h"
 #include "core/zip.h"
 #include "lib/stb/stb_image.h"
@@ -118,7 +119,7 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   lovrFilesystemSetCRequirePath("??;lua_modules/??;deps/??");
 
   // First, try to mount a bundled archive
-  if (fs_getBundlePath(state.source, LOVR_PATH_MAX) && lovrFilesystemMount(state.source, NULL, true, argRoot)) {
+  if (lovrPlatformGetBundlePath(state.source, LOVR_PATH_MAX) && lovrFilesystemMount(state.source, NULL, true, "/assets")) {
     state.fused = true;
     return true;
   }
@@ -285,7 +286,7 @@ bool lovrFilesystemSetIdentity(const char* identity) {
   }
 
   // Initialize the save path to the data path
-  size_t cursor = fs_getDataDir(state.savePath, sizeof(state.savePath));
+  size_t cursor = lovrPlatformGetDataDirectory(state.savePath, sizeof(state.savePath));
 
   // If the data path was too long or unavailable, fail
   if (cursor == 0) {
@@ -371,23 +372,23 @@ size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, b
 // Paths
 
 size_t lovrFilesystemGetApplicationId(char* buffer, size_t size) {
-  return fs_getBundleId(buffer, size);
+  return 0;
 }
 
 size_t lovrFilesystemGetAppdataDirectory(char* buffer, size_t size) {
-  return fs_getDataDir(buffer, size);
+  return lovrPlatformGetDataDirectory(buffer, size);
 }
 
 size_t lovrFilesystemGetExecutablePath(char* buffer, size_t size) {
-  return fs_getExecutablePath(buffer, size);
+  return lovrPlatformGetExecutablePath(buffer, size);
 }
 
 size_t lovrFilesystemGetUserDirectory(char* buffer, size_t size) {
-  return fs_getHomeDir(buffer, size);
+  return lovrPlatformGetHomeDirectory(buffer, size);
 }
 
 size_t lovrFilesystemGetWorkingDirectory(char* buffer, size_t size) {
-  return fs_getWorkDir(buffer, size);
+  return lovrPlatformGetWorkingDirectory(buffer, size);
 }
 
 const char* lovrFilesystemGetRequirePath() {

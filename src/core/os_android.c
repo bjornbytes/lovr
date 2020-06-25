@@ -119,6 +119,45 @@ void lovrPlatformOpenConsole() {
   // TODO
 }
 
+size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
+  return 0;
+}
+
+size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
+  return 0; // externalDataPath
+}
+
+size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
+  return getcwd(buffer, size) ? strlen(buffer) : 0;
+}
+
+size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
+  ssize_t length = readlink("/proc/self/exe", buffer, size);
+  return (length < 0) ? 0 : (size_t) length;
+}
+
+size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
+  jobject activity = state.app->activity->clazz;
+  jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
+  jmethodID getPackageCodePath = (*state.jni)->GetMethodID(state.jni, class, "getPackageCodePath", "()Ljava/lang/String;");
+  if (!getPackageCodePath) {
+    return 0;
+  }
+
+  jstring jpath = (*state.jni)->CallObjectMethod(state.jni, activity, getPackageCodePath);
+  if ((*state.jni)->ExceptionOccurred(state.jni)) {
+    (*state.jni)->ExceptionClear(state.jni);
+    return 0;
+  }
+
+  const char* path = (*state.jni)->GetStringUTFChars(state.jni, jpath, NULL);
+  size_t length = strlen(path);
+  if (length >= size) return 0;
+  memcpy(buffer, path, length);
+  buffer[length] = '\0';
+  return length;
+}
+
 bool lovrPlatformCreateWindow(WindowFlags* flags) {
 #ifndef LOVR_USE_OCULUS_MOBILE // lovr-oculus-mobile creates its own EGL context
   if (state.display) {
@@ -265,6 +304,8 @@ bool lovrPlatformIsMouseDown(MouseButton button) {
 bool lovrPlatformIsKeyDown(KeyCode key) {
   return false;
 }
+
+// Private, must be declared manually to use
 
 void lovrPlatformOnActive(activeCallback callback) {
   state.onActive = callback;

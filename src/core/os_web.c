@@ -34,3 +34,33 @@ void lovrPlatformSleep(double seconds) {
 void lovrPlatformOpenConsole() {
   //
 }
+
+size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
+  const char* path = getenv("HOME");
+  size_t length = strlen(path);
+  if (length >= size) { return 0; }
+  memcpy(buffer, path, length);
+  buffer[length] = '\0';
+  return length;
+}
+
+size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
+  const char* path = "/home/web_user";
+  size_t length = strlen(path);
+  if (length >= size) { return 0; }
+  memcpy(buffer, path, length);
+  buffer[length] = '\0';
+  return length;
+}
+
+size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
+  return getcwd(buffer, size) ? strlen(buffer) : 0;
+}
+
+size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
+  return 0;
+}
+
+size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
+  return 0;
+}

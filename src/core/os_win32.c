@@ -1,5 +1,7 @@
 #include "os.h"
 #include <Windows.h>
+#include <KnownFolders.h>
+#include <ShlObj.h>
 #include <stdio.h>
 
 #include "os_glfw.h"
@@ -53,4 +55,46 @@ void lovrPlatformOpenConsole() {
   freopen("CONOUT$", "w", stdout);
   freopen("CONIN$", "r", stdin);
   freopen("CONOUT$", "w", stderr);
+}
+
+size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
+  PWSTR wpath = NULL;
+  if (SHGetKnownFolderPath(&FOLDERID_Profile, 0, NULL, &wpath) == S_OK) {
+    size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, (int) size, NULL, NULL) - 1;
+    CoTaskMemFree(wpath);
+    return bytes;
+  }
+  return 0;
+}
+
+size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
+  PWSTR wpath = NULL;
+  if (SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &wpath) == S_OK) {
+    size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, (int) size, NULL, NULL) - 1;
+    CoTaskMemFree(wpath);
+    return bytes;
+  }
+  return 0;
+}
+
+size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
+  WCHAR wpath[FS_PATH_MAX];
+  int length = GetCurrentDirectoryW((int) size, wpath);
+  if (length) {
+    return WideCharToMultiByte(CP_UTF8, 0, wpath, length + 1, buffer, (int) size, NULL, NULL) - 1;
+  }
+  return 0;
+}
+
+size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
+  WCHAR wpath[FS_PATH_MAX];
+  DWORD length = GetModuleFileNameW(NULL, wpath, FS_PATH_MAX);
+  if (length < FS_PATH_MAX) {
+    return WideCharToMultiByte(CP_UTF8, 0, wpath, length + 1, buffer, (int) size, NULL, NULL) - 1;
+  }
+  return 0;
+}
+
+size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
+  return lovrPlatformGetExecutablePath(buffer, size);
 }

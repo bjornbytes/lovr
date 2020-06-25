@@ -34,11 +34,3 @@ bool fs_stat(const char* path, FileInfo* info);
 bool fs_remove(const char* path);
 bool fs_mkdir(const char* path);
 bool fs_list(const char* path, fs_list_cb* callback, void* context);
-
-// Returns length written to buffer
-size_t fs_getHomeDir(char* buffer, size_t size);
-size_t fs_getDataDir(char* buffer, size_t size);
-size_t fs_getWorkDir(char* buffer, size_t size);
-size_t fs_getExecutablePath(char* buffer, size_t size);
-size_t fs_getBundlePath(char* buffer, size_t size);
-size_t fs_getBundleId(char* buffer, size_t size);
