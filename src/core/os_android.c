@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
@@ -26,9 +27,26 @@ static struct {
   EGLSurface surface;
   activeCallback onActive;
   quitCallback onQuit;
+  pthread_t log;
 } state;
 
-int main(int argc, char** argv);
+// To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write
+// end of the pipe.  The read end of the pipe is forwarded to __android_log_write.
+static void* log_main(void* data) {
+  int* fd = data;
+  pipe(fd);
+  dup2(fd[1], STDOUT_FILENO);
+  dup2(fd[1], STDERR_FILENO);
+  setvbuf(stdout, 0, _IOLBF, 0);
+  setvbuf(stderr, 0, _IONBF, 0);
+  ssize_t length;
+  char buffer[1024];
+  while ((length = read(fd[0], buffer, sizeof(buffer) - 1)) > 0) {
+    buffer[length] = '\0';
+    __android_log_write(ANDROID_LOG_DEBUG, "LOVR", buffer);
+  }
+  return 0;
+}
 
 static void onAppCmd(struct android_app* app, int32_t cmd) {
   bool wasActive = state.window && state.resumed;
@@ -47,9 +65,14 @@ static void onAppCmd(struct android_app* app, int32_t cmd) {
   }
 }
 
+int main(int argc, char** argv);
+
 void android_main(struct android_app* app) {
   state.app = app;
   (*app->activity->vm)->AttachCurrentThread(app->activity->vm, &state.jni, NULL);
+  int fd[2];
+  pthread_create(&state.log, NULL, log_main, fd);
+  pthread_detach(state.log);
   app->onAppCmd = onAppCmd;
   main(0, NULL);
   (*app->activity->vm)->DetachCurrentThread(app->activity->vm);
