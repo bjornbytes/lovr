@@ -212,8 +212,7 @@ ifeq ($(PLATFORM),android)
     LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
     LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
     LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
-    LDFLAGS_@(VRAPI) += -L$(VRAPI_LIB_PATH)
-    LDFLAGS_@(VRAPI) += -lvrapi
+    LDFLAGS_@(VRAPI) += -L$(VRAPI_LIB_PATH) -lvrapi
 
     LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*so*
     LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.so

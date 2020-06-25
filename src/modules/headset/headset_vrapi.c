@@ -1,4 +1,5 @@
 #include "headset/headset.h"
+#include "event/event.h"
 #include "graphics/canvas.h"
 #include "graphics/graphics.h"
 #include "core/maf.h"
@@ -412,6 +413,21 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
 
 static void vrapi_update(float dt) {
   if (!state.session) return;
+
+  VRAPI_LARGEST_EVENT_TYPE event;
+  while (vrapi_PollEvent(&event.EventHeader) == ovrSuccess) {
+    switch (event.EventHeader.EventType) {
+      case VRAPI_EVENT_FOCUS_GAINED:
+        lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { true } });
+        break;
+
+      case VRAPI_EVENT_FOCUS_LOST:
+        lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { false } });
+        break;
+
+      default: break;
+    }
+  }
 
   state.frameIndex++;
   state.displayTime = vrapi_GetPredictedDisplayTime(state.session, state.frameIndex);
