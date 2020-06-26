@@ -321,11 +321,11 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
   } else if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSQUEST) {
     switch (axis) {
       case AXIS_THUMBSTICK:
-        value[0] = input->TrackpadPosition.x;
-        value[1] = input->TrackpadPosition.y;
-        break;
-      case AXIS_TRIGGER: value[0] = input->IndexTrigger; break;
-      case AXIS_GRIP: value[0] = input->GripTrigger; break;
+        value[0] = input->Joystick.x;
+        value[1] = input->Joystick.y;
+        return true;
+      case AXIS_TRIGGER: value[0] = input->IndexTrigger; return true;
+      case AXIS_GRIP: value[0] = input->GripTrigger; return true;
       default: return false;
     }
   }
@@ -441,18 +441,18 @@ static void vrapi_update(float dt) {
       ovrInputTrackedRemoteCapabilities info;
       info.Header = header;
       vrapi_GetInputDeviceCapabilities(state.session, &info.Header);
-      Device device = (info.ControllerCapabilities & ovrControllerCaps_LeftHand) ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
-      state.controllerInfo[device] = info;
-      state.input[device].Header.ControllerType = header.Type;
-      vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.input[device].Header);
+      uint32_t index = (info.ControllerCapabilities & ovrControllerCaps_LeftHand) ? 0 : 1;
+      state.controllerInfo[index] = info;
+      state.input[index].Header.ControllerType = header.Type;
+      vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.input[index].Header);
     } else if (header.Type == ovrControllerType_Hand) {
       ovrInputHandCapabilities info;
       info.Header = header;
       vrapi_GetInputDeviceCapabilities(state.session, &info.Header);
-      Device device = (info.HandCapabilities & ovrHandCaps_LeftHand) ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
-      state.controllerInfo[device].Header.Type = header.Type;
-      state.handInput[device].Header.ControllerType = header.Type;
-      vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.handInput[device].Header);
+      uint32_t index = (info.HandCapabilities & ovrHandCaps_LeftHand) ? 0 : 1;
+      state.controllerInfo[index].Header.Type = header.Type;
+      state.handInput[index].Header.ControllerType = header.Type;
+      vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.handInput[index].Header);
     }
   }
 }
