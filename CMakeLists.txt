@@ -24,6 +24,7 @@ option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
 option(LOVR_USE_OCULUS_MOBILE "Enable the Oculus Mobile (Android) backend for the headset module" OFF)
+option(LOVR_USE_VRAPI "Enable the VrApi backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_LEAP "Enable the Leap Motion backend for the headset module" OFF)
 
@@ -33,7 +34,7 @@ option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
 option(LOVR_SYSTEM_ODE "Use the system-provided ODE" OFF)
 option(LOVR_SYSTEM_OPENAL "Use the system-provided OpenAL" OFF)
 
-option(LOVR_BUILD_EXE "Build an executable" ON)
+option(LOVR_BUILD_EXE "Build an executable (or an apk on Android)" ON)
 option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUILD_EXE)" OFF)
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
 
@@ -71,13 +72,14 @@ if(EMSCRIPTEN)
   set(LOVR_USE_WEBVR ON)
   set(LOVR_USE_WEBXR ON)
   set(LOVR_USE_OPENVR OFF)
-  set(LOVR_USE_OCULUS OFF)
 elseif(ANDROID)
+  find_package(Java REQUIRED)
   set(LOVR_USE_OPENVR OFF)
-  set(LOVR_USE_OCULUS OFF)
   set(LOVR_USE_DESKTOP_HEADSET OFF)
-  set(LOVR_USE_OCULUS_MOBILE ON)
-  #set(LOVR_BUILD_SHARED ON) # Android has only "activities"
+  set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest.xml" CACHE STRING "An optional path to a custom AndroidManifest.xml")
+  if(LOVR_BUILD_EXE)
+    set(LOVR_BUILD_SHARED ON)
+  endif()
 elseif(UNIX)
   find_package(PkgConfig)
   if(NOT APPLE)
@@ -287,6 +289,12 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
   set(LOVR_OCULUS LibOVR)
 endif()
 
+# VrApi (Oculus Mobile SDK) -- tested on 1.34.0
+if(LOVR_ENABLE_HEADSET AND LOVR_USE_VRAPI)
+  include_directories(deps/VrApi/include)
+  set(LOVR_VRAPI ${CMAKE_CURRENT_SOURCE_DIR}/deps/VrApi/Libs/Android/${ANDROID_ABI}/Release/libvrapi.so)
+endif()
+
 # pthreads
 if(LOVR_ENABLE_THREAD)
   if(NOT WIN32 AND NOT EMSCRIPTEN)
@@ -357,6 +365,7 @@ target_link_libraries(lovr
   ${LOVR_OPENVR}
   ${LOVR_OPENXR}
   ${LOVR_OCULUS}
+  ${LOVR_VRAPI}
   ${LOVR_LEAP}
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
@@ -461,6 +470,10 @@ if(LOVR_ENABLE_HEADSET)
   if(LOVR_USE_OCULUS_MOBILE)
     add_definitions(-DLOVR_USE_OCULUS_MOBILE)
     target_sources(lovr PRIVATE src/modules/headset/headset_oculus_mobile.c)
+  endif()
+  if(LOVR_USE_VRAPI)
+    add_definitions(-DLOVR_USE_VRAPI)
+    target_sources(lovr PRIVATE src/modules/headset/headset_vrapi.c)
   endif()
   if(LOVR_USE_WEBVR)
     add_definitions(-DLOVR_USE_WEBVR)
@@ -606,8 +619,99 @@ elseif(EMSCRIPTEN)
   target_compile_definitions(lovr PRIVATE -DLOVR_WEBGL)
 elseif(ANDROID)
   target_sources(lovr PRIVATE src/core/os_android.c)
-  target_link_libraries(lovr log EGL GLESv3)
+  target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
+  target_link_libraries(lovr log EGL GLESv3 android)
   target_compile_definitions(lovr PRIVATE -DLOVR_GLES)
+
+  # Variables
+  get_filename_component(ANDROID_SDK "${ANDROID_NDK}/.." ABSOLUTE)
+  file(TO_CMAKE_PATH "${ANDROID_SDK}" ANDROID_SDK)
+  set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
+  set(ANDROID_BUILD_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
+  set(ACTIVITY_JAVA "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity.java")
+  set(ACTIVITY_CLASS "org/lovr/app/Activity.class")
+  set(ANDROID_LIBS_SRC "liblovr.so")
+  set(ANDROID_LIBS_DST "lib/${ANDROID_ABI}/liblovr.so")
+
+  if(LOVR_ENABLE_AUDIO)
+    set(ANDROID_LIBS_SRC ${ANDROID_LIBS_SRC} "openal/libopenal.so")
+    set(ANDROID_LIBS_DST ${ANDROID_LIBS_DST} "lib/${ANDROID_ABI}/libopenal.so")
+  endif()
+
+  if(LOVR_ENABLE_PHYSICS)
+    set(ANDROID_LIBS_SRC ${ANDROID_LIBS_SRC} "ode/libode.so")
+    set(ANDROID_LIBS_DST ${ANDROID_LIBS_DST} "lib/${ANDROID_ABI}/libode.so")
+  endif()
+
+  if(LOVR_USE_VRAPI)
+    set(ANDROID_LIBS_SRC ${ANDROID_LIBS_SRC} "${LOVR_VRAPI}")
+    set(ANDROID_LIBS_DST ${ANDROID_LIBS_DST} "lib/${ANDROID_ABI}/libvrapi.so")
+  endif()
+
+  # Compile java file to class file
+  add_custom_command(
+    OUTPUT ${ACTIVITY_CLASS}
+    COMMAND ${Java_JAVAC_EXECUTABLE}
+      -classpath "${ANDROID_JAR}"
+      -d .
+      ${ACTIVITY_JAVA}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
+
+  # Compile class file to dex file
+  add_custom_command(
+    OUTPUT classes.dex
+    COMMAND ${ANDROID_BUILD_TOOLS}/dx
+      --dex
+      --output=classes.dex
+      ${ACTIVITY_CLASS}
+    DEPENDS ${ACTIVITY_CLASS}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
+
+  # Make an apk
+  add_custom_command(
+    OUTPUT lovr.unaligned.apk
+    COMMAND ${CMAKE_COMMAND} -E make_directory lib/${ANDROID_ABI}
+    COMMAND ${CMAKE_COMMAND} -E copy ${ANDROID_LIBS_SRC} lib/${ANDROID_ABI}
+    COMMAND
+      ${ANDROID_BUILD_TOOLS}/aapt
+      package -f
+      -M ${ANDROID_MANIFEST}
+      -I ${ANDROID_JAR}
+      -F lovr.unaligned.apk
+    COMMAND
+      ${ANDROID_BUILD_TOOLS}/aapt
+      add -f
+      lovr.unaligned.apk
+      classes.dex
+      ${ANDROID_LIBS_DST}
+    DEPENDS classes.dex
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
+
+  # Align apk
+  add_custom_command(
+    OUTPUT lovr.unsigned.apk
+    COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 lovr.unaligned.apk lovr.unsigned.apk
+    DEPENDS lovr.unaligned.apk
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
+
+  # Sign apk
+  add_custom_command(
+    OUTPUT lovr.apk
+    COMMAND ${ANDROID_BUILD_TOOLS}/apksigner
+      sign
+      --ks ${ANDROID_KEYSTORE}
+      --ks-pass ${ANDROID_KEYSTORE_PASS}
+      --out=lovr.apk
+      lovr.unsigned.apk
+    DEPENDS lovr.unsigned.apk
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
+
+  add_custom_target(lovr-apk ALL DEPENDS "lovr.apk")
 elseif(UNIX)
   target_sources(lovr PRIVATE src/core/os_linux.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
