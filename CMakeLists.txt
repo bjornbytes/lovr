@@ -648,6 +648,10 @@ elseif(ANDROID)
     set(ANDROID_LIBS_DST ${ANDROID_LIBS_DST} "lib/${ANDROID_ABI}/libvrapi.so")
   endif()
 
+  if(ANDROID_ASSETS)
+    set(ANDROID_ASSETS_FLAG -A ${ANDROID_ASSETS})
+  endif()
+
   # Compile java file to class file
   add_custom_command(
     OUTPUT ${ACTIVITY_CLASS}
@@ -680,6 +684,7 @@ elseif(ANDROID)
       -M ${ANDROID_MANIFEST}
       -I ${ANDROID_JAR}
       -F lovr.unaligned.apk
+      ${ANDROID_ASSETS_FLAG}
     COMMAND
       ${ANDROID_BUILD_TOOLS}/aapt
       add -f

@@ -83,7 +83,7 @@ ifeq ($(PLATFORM),android)
 
   # Create an apk from the Android manifest.  The zip command is used afterwards to add raw files
   # because it is way faster than calling aapt again and apks are just zips (TODO windows).
-  : @(ANDROID_MANIFEST) | $(LIB)/*.so classes.dex |> ^ AAPT %b^ aapt package -F %o -M %f -I $(ANDROID_JAR) -A @(ANDROID_ASSETS) && zip -qu0 %o $(LIB)/*.so classes.dex |> tmp/lovr.unaligned.apk
+  : @(ANDROID_MANIFEST) | $(LIB)/*.so classes.dex |> ^ AAPT %b^ aapt package -F %o -M %f -I $(ANDROID_JAR) $(ANDROID_ASSETS) && zip -qu0 %o $(LIB)/*.so classes.dex |> tmp/lovr.unaligned.apk
 
   # Even though we have an apk, it isn't actually valid yet.  It has to be aligned using the special
   # zipalign tool, and then signed using apksigner.

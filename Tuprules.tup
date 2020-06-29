@@ -188,6 +188,10 @@ ifeq ($(PLATFORM),android)
   PREFIX = $(LIB)/lib
   SUFFIX = .so
 
+  ifneq (@(ANDROID_ASSETS),)
+    ANDROID_ASSETS = -A @(ANDROID_ASSETS)
+  endif
+
   # Macros
   !dx = |> ^ DX %b^ dx --dex --output=%o %f |>
   !zipalign = |> ^ ZIPALIGN %f^ $(TOOLS)/zipalign -f 4 %f %o |>
