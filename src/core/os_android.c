@@ -6,17 +6,23 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+#ifndef LOVR_USE_OCULUS_MOBILE
 // This is probably bad, but makes things easier to build
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-pedantic"
 #include <android_native_app_glue.c>
 #pragma clang diagnostic pop
+#else
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-pedantic"
+#include <android_native_app_glue.h>
+#pragma clang diagnostic pop
+#endif
 
 // The activity is considered ready if it's resumed and there's an active window.  This is just an
 // artifact of how Oculus' app model works and could be the wrong abstraction, feel free to change.
 typedef void (*activeCallback)(bool active);
 
-#ifndef LOVR_USE_OCULUS_MOBILE
 static struct {
   struct android_app* app;
   ANativeWindow* window;
@@ -29,6 +35,8 @@ static struct {
   quitCallback onQuit;
   pthread_t log;
 } state;
+
+#ifndef LOVR_USE_OCULUS_MOBILE
 
 // To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write
 // end of the pipe.  The read end of the pipe is forwarded to __android_log_write.
@@ -98,9 +106,9 @@ const char* lovrPlatformGetName() {
 }
 
 // lovr-oculus-mobile provides its own implementation of the timing functions
+#define NS_PER_SEC 1000000000ULL
 #ifndef LOVR_USE_OCULUS_MOBILE
 static uint64_t epoch;
-#define NS_PER_SEC 1000000000ULL
 
 static uint64_t getTime() {
   struct timespec t;
@@ -116,6 +124,8 @@ void lovrPlatformSetTime(double time) {
   epoch = getTime() - (uint64_t) (time * NS_PER_SEC + .5);
 }
 
+#endif
+
 void lovrPlatformSleep(double seconds) {
   seconds += .5e-9;
   struct timespec t;
@@ -123,7 +133,6 @@ void lovrPlatformSleep(double seconds) {
   t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
   while (nanosleep(&t, &t));
 }
-#endif
 
 void lovrPlatformPollEvents() {
 #ifndef LOVR_USE_OCULUS_MOBILE
@@ -146,13 +155,22 @@ size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
   return 0;
 }
 
+extern const char* lovrOculusMobileWritablePath;
 size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
+#ifdef LOVR_USE_OCULUS_MOBILE
+  size_t length = strlen(lovrOculusMobileWritablePath);
+  if (length >= size) return 0;
+  memcpy(buffer, lovrOculusMobileWritablePath, length);
+  buffer[length] = '\0';
+  return length;
+#else
   const char* path = state.app->activity->externalDataPath;
   size_t length = strlen(path);
   if (length >= size) return 0;
   memcpy(buffer, path, length);
   buffer[length] = '\0';
   return length;
+#endif
 }
 
 size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
@@ -170,6 +188,10 @@ size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
 }
 
 size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
+#ifdef LOVR_USE_OCULUS_MOBILE
+  buffer[0] = '\0';
+  return 0;
+#else
   jobject activity = state.app->activity->clazz;
   jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
   jmethodID getPackageCodePath = (*state.jni)->GetMethodID(state.jni, class, "getPackageCodePath", "()Ljava/lang/String;");
@@ -189,6 +211,7 @@ size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
   memcpy(buffer, path, length);
   buffer[length] = '\0';
   return length;
+#endif
 }
 
 bool lovrPlatformCreateWindow(WindowFlags* flags) {
