@@ -488,8 +488,15 @@ int l_lovrVec3Set(lua_State* L) {
     float x = luax_optfloat(L, 2, 0.f);
     vec3_set(v, x, luax_optfloat(L, 3, x), luax_optfloat(L, 4, x));
   } else {
-    vec3 u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
-    vec3_init(v, u);
+    VectorType t;
+    float* p = luax_tovector(L, 2, &t);
+    if (p && t == V_VEC3) {
+      vec3_init(v, p);
+    } else if (p && t == V_MAT4) {
+      vec3_set(v, p[12], p[13], p[14]);
+    } else{
+      luaL_typerror(L, 2, "vec3, mat4, or number");
+    }
   }
   lua_settop(L, 1);
   return 1;
