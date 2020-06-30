@@ -388,10 +388,6 @@ size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, b
 
 // Paths
 
-size_t lovrFilesystemGetApplicationId(char* buffer, size_t size) {
-  return 0;
-}
-
 size_t lovrFilesystemGetAppdataDirectory(char* buffer, size_t size) {
   return lovrPlatformGetDataDirectory(buffer, size);
 }
