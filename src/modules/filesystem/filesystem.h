@@ -31,7 +31,6 @@ const char* lovrFilesystemGetSaveDirectory(void);
 bool lovrFilesystemCreateDirectory(const char* path);
 bool lovrFilesystemRemove(const char* path);
 size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append);
-size_t lovrFilesystemGetApplicationId(char* buffer, size_t size);
 size_t lovrFilesystemGetAppdataDirectory(char* buffer, size_t size);
 size_t lovrFilesystemGetExecutablePath(char* buffer, size_t size);
 size_t lovrFilesystemGetUserDirectory(char* buffer, size_t size);

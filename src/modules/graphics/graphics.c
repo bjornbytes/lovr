@@ -161,7 +161,7 @@ static void gammaCorrect(Color* color) {
   color->b = lovrMathGammaToLinear(color->b);
 }
 
-static void onCloseWindow(void) {
+static void onQuitRequest(void) {
   lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { .exitCode = 0 } });
 }
 
@@ -223,7 +223,7 @@ void lovrGraphicsPresent() {
 void lovrGraphicsCreateWindow(WindowFlags* flags) {
   lovrAssert(!state.initialized, "Window is already created");
   lovrAssert(lovrPlatformCreateWindow(flags), "Could not create window");
-  lovrPlatformOnWindowClose(onCloseWindow);
+  lovrPlatformOnQuitRequest(onQuitRequest);
   lovrPlatformOnWindowResize(onResizeWindow);
   lovrPlatformGetFramebufferSize(&state.width, &state.height);
   lovrGpuInit(lovrPlatformGetProcAddress);

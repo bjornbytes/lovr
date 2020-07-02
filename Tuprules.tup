@@ -1,6 +1,7 @@
 ROOT = $(TUP_CWD)
 
 ## Base
+CC = @(CC)
 CFLAGS += -std=c99 -pedantic
 CFLAGS += -D_POSIX_C_SOURCE=200809L
 CFLAGS += -I$(ROOT)/src
@@ -36,7 +37,8 @@ CFLAGS_@(OPENVR) += -DLOVR_USE_OPENVR
 CFLAGS_@(OPENXR) += -DLOVR_USE_OPENXR
 CFLAGS_@(OCULUS) += -DLOVR_USE_OCULUS
 CFLAGS_@(OCULUS) += -I@(OCULUS_PATH)/LibOVR/Include
-CFLAGS_@(VRAPI) += -DLOVR_USE_OCULUS_MOBILE
+CFLAGS_@(VRAPI) += -DLOVR_USE_VRAPI
+CFLAGS_@(VRAPI) += -I$(ROOT)/deps/VrApi/Include
 CFLAGS_@(WEBXR) += -DLOVR_USE_WEBXR
 CFLAGS_@(LEAP) += -DLOVR_USE_LEAP
 
@@ -46,6 +48,8 @@ ifeq (@(PLATFORM),)
 else
   PLATFORM = @(PLATFORM)
 endif
+
+LIB = libs
 
 ## Windows
 ifeq ($(PLATFORM),win32)
@@ -97,7 +101,7 @@ endif
 ifeq ($(PLATFORM),macosx)
   PLATFORM = macos
   LDFLAGS += -lobjc
-  LDFLAGS += -Wl,-rpath,@executable_path/libs
+  LDFLAGS += -Wl,-rpath,@executable_path/$(LIB)
 
   ifeq (@(CMAKE_DEPS),y)
     ifeq (@(LUAJIT),y)
@@ -134,7 +138,7 @@ endif
 ## Linux
 ifeq ($(PLATFORM),linux)
   LDFLAGS += -lm -lpthread
-  LDFLAGS += -Wl,-rpath,\$ORIGIN/libs
+  LDFLAGS += -Wl,-rpath,\$ORIGIN/$(LIB)
 
   ifeq (@(CMAKE_DEPS),y)
     ifeq (@(LUAJIT),y)
@@ -165,6 +169,58 @@ ifeq ($(PLATFORM),linux)
     LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.so
     LIBS_@(OPENVR) += $(ROOT)/build/openvr_api/libopenvr_api.so
     LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.so
+  endif
+endif
+
+## Android
+ifeq ($(PLATFORM),android)
+  CC = @(ANDROID_SDK)/sdk/ndk-bundle/toolchains/llvm/prebuilt/@(ANDROID_HOST_TAG)/bin/clang
+  TOOLS = @(ANDROID_SDK)/sdk/build-tools/@(ANDROID_BUILD_TOOLS_VERSION)
+  ANDROID_JAR = @(ANDROID_SDK)/sdk/platforms/android-@(ANDROID_VERSION)/android.jar
+  GLUE = @(ANDROID_SDK)/sdk/ndk-bundle/sources/android/native_app_glue
+  VRAPI_LIB_PATH = $(ROOT)/deps/VrApi/Libs/Android/arm64-v8a/Release
+  CFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
+  CFLAGS += -I$(GLUE)
+  LDFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
+  LDFLAGS += -shared
+  LDFLAGS += -landroid
+  LIB = lib/arm64-v8a
+  PREFIX = $(LIB)/lib
+  SUFFIX = .so
+
+  ifneq (@(ANDROID_ASSETS),)
+    ANDROID_ASSETS = -A @(ANDROID_ASSETS)
+  endif
+
+  # Macros
+  !dx = |> ^ DX %b^ dx --dex --output=%o %f |>
+  !zipalign = |> ^ ZIPALIGN %f^ $(TOOLS)/zipalign -f 4 %f %o |>
+  !apksigner = |> ^ APKSIGNER %o^ $(TOOLS)/apksigner sign --ks @(ANDROID_KEYSTORE) --ks-pass @(ANDROID_KEYSTORE_PASS) --out %o %f |>
+
+  ifeq (@(CMAKE_DEPS),y)
+    ifeq (@(LUAJIT),y)
+      CFLAGS += -I$(ROOT)/deps/luajit/src
+      LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit
+      STATIC_LIBS += $(ROOT)/build/luajit/src/libluajit.a
+    else
+      CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
+      LDFLAGS += -L$(ROOT)/build/lua -llua
+    endif
+
+    CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
+    CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
+    CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
+    CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
+
+    LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal -lopenal
+    LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
+    LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
+    LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
+    LDFLAGS_@(VRAPI) += -L$(VRAPI_LIB_PATH) -lvrapi
+
+    LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*so*
+    LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.so
+    LIBS_@(VRAPI) += $(VRAPI_LIB_PATH)/libvrapi.so
   endif
 endif
 
@@ -204,7 +260,7 @@ CFLAGS += @(EXTRA_CFLAGS)
 LDFLAGS += @(EXTRA_LDFLAGS)
 
 ## Macros
-!cc = |> ^ CC %b^ @(CC) $(CFLAGS_y) $(CFLAGS) -c %f -o %o |>
-!ld = |> ^ LD %o^ @(CC) -o %o %f $(LDFLAGS_y) $(LDFLAGS) |>
+!cc = |> ^ CC %b^ $(CC) $(CFLAGS_y) $(CFLAGS) -o %o -c %f |>
+!ld = |> ^ LD %o^ $(CC) -o %o %f $(LDFLAGS_y) $(LDFLAGS) |>
 !xd = |> ^ XD %f^ xxd -i %f > %o |>
 !cp = |> ^ CP %b^ cp %f %o |>

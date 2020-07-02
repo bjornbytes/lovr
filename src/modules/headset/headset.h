@@ -16,6 +16,7 @@ typedef enum {
   DRIVER_OCULUS_MOBILE,
   DRIVER_OPENVR,
   DRIVER_OPENXR,
+  DRIVER_VRAPI,
   DRIVER_WEBVR,
   DRIVER_WEBXR
 } HeadsetDriver;
@@ -116,6 +117,7 @@ typedef struct HeadsetInterface {
 extern HeadsetInterface lovrHeadsetOculusDriver;
 extern HeadsetInterface lovrHeadsetOpenVRDriver;
 extern HeadsetInterface lovrHeadsetOpenXRDriver;
+extern HeadsetInterface lovrHeadsetVrApiDriver;
 extern HeadsetInterface lovrHeadsetWebVRDriver;
 extern HeadsetInterface lovrHeadsetWebXRDriver;
 extern HeadsetInterface lovrHeadsetDesktopDriver;

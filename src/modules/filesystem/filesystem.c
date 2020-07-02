@@ -2,6 +2,7 @@
 #include "core/arr.h"
 #include "core/fs.h"
 #include "core/map.h"
+#include "core/os.h"
 #include "core/util.h"
 #include "core/zip.h"
 #include "lib/stb/stb_image.h"
@@ -59,7 +60,7 @@ static struct {
   char savePath[1024];
   char source[1024];
   char requirePath[2][1024];
-  char* identity;
+  char identity[64];
   bool fused;
 } state;
 
@@ -118,7 +119,7 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   lovrFilesystemSetCRequirePath("??;lua_modules/??;deps/??");
 
   // First, try to mount a bundled archive
-  if (fs_getBundlePath(state.source, LOVR_PATH_MAX) && lovrFilesystemMount(state.source, NULL, true, argRoot)) {
+  if (lovrPlatformGetBundlePath(state.source, LOVR_PATH_MAX) && lovrFilesystemMount(state.source, NULL, true, "/assets")) {
     state.fused = true;
     return true;
   }
@@ -273,24 +274,38 @@ void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* co
 // Writing
 
 const char* lovrFilesystemGetIdentity() {
-  return state.identity;
+  return state.identity[0] == '\0' ? NULL : state.identity;
 }
 
 bool lovrFilesystemSetIdentity(const char* identity) {
   size_t length = strlen(identity);
 
-  // Identity can only be set once
-  if (state.identity) {
+  // Identity can only be set once, and can't be empty
+  if (state.identity[0] != '\0' || length == 0) {
     return false;
   }
 
   // Initialize the save path to the data path
-  size_t cursor = fs_getDataDir(state.savePath, sizeof(state.savePath));
+  size_t cursor = lovrPlatformGetDataDirectory(state.savePath, sizeof(state.savePath));
 
   // If the data path was too long or unavailable, fail
   if (cursor == 0) {
     return false;
   }
+
+#ifdef __ANDROID__
+  // On Android the data path is the save path, and the identity is always the package id.
+  // The data path ends in /package.id/files, so to extract the identity the '/files' is temporarily
+  // chopped off and everything from the last slash is copied to the identity buffer
+  // FIXME brittle?  could read package id from /proc/self/cmdline instead
+  state.savePath[cursor - 6] = '\0';
+  char* id = strrchr(state.savePath, '/') + 1;
+  length = strlen(id);
+  memcpy(state.identity, id, length);
+  state.identity[length] = '\0';
+  state.savePath[cursor - 6] = '/';
+  state.savePathLength = cursor;
+#else
 
   // Make sure there is enough room to tack on /LOVR/<identity>
   if (cursor + strlen("/LOVR") + 1 + length >= sizeof(state.savePath)) {
@@ -311,13 +326,16 @@ bool lovrFilesystemSetIdentity(const char* identity) {
   state.savePathLength = cursor;
   fs_mkdir(state.savePath);
 
+  // Set the identity string
+  memcpy(state.identity, identity, length + 1);
+#endif
+
   // Mount the fully resolved save path
   if (!lovrFilesystemMount(state.savePath, NULL, false, NULL)) {
+    state.identity[0] = '\0';
     return false;
   }
 
-  // Stash a pointer for the identity string (leaf of save path)
-  state.identity = state.savePath + cursor - length;
   return true;
 }
 
@@ -370,24 +388,20 @@ size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, b
 
 // Paths
 
-size_t lovrFilesystemGetApplicationId(char* buffer, size_t size) {
-  return fs_getBundleId(buffer, size);
-}
-
 size_t lovrFilesystemGetAppdataDirectory(char* buffer, size_t size) {
-  return fs_getDataDir(buffer, size);
+  return lovrPlatformGetDataDirectory(buffer, size);
 }
 
 size_t lovrFilesystemGetExecutablePath(char* buffer, size_t size) {
-  return fs_getExecutablePath(buffer, size);
+  return lovrPlatformGetExecutablePath(buffer, size);
 }
 
 size_t lovrFilesystemGetUserDirectory(char* buffer, size_t size) {
-  return fs_getHomeDir(buffer, size);
+  return lovrPlatformGetHomeDirectory(buffer, size);
 }
 
 size_t lovrFilesystemGetWorkingDirectory(char* buffer, size_t size) {
-  return fs_getWorkDir(buffer, size);
+  return lovrPlatformGetWorkingDirectory(buffer, size);
 }
 
 const char* lovrFilesystemGetRequirePath() {

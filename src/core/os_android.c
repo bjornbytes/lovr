@@ -1,35 +1,89 @@
 #include "os.h"
 #include <stdio.h>
-#include <unistd.h>
+#include <string.h>
+#include <time.h>
+#include <pthread.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+#ifndef LOVR_USE_OCULUS_MOBILE
+// This is probably bad, but makes things easier to build
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-pedantic"
+#include <android_native_app_glue.c>
+#pragma clang diagnostic pop
+#else
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-pedantic"
+#include <android_native_app_glue.h>
+#pragma clang diagnostic pop
+#endif
+
+// The activity is considered ready if it's resumed and there's an active window.  This is just an
+// artifact of how Oculus' app model works and could be the wrong abstraction, feel free to change.
+typedef void (*activeCallback)(bool active);
+
 static struct {
+  struct android_app* app;
+  ANativeWindow* window;
+  bool resumed;
+  JNIEnv* jni;
   EGLDisplay display;
   EGLContext context;
   EGLSurface surface;
+  activeCallback onActive;
+  quitCallback onQuit;
+  pthread_t log;
 } state;
 
-// Currently, the Android entrypoint is in lovr-oculus-mobile, so this one is not enabled.
-#if 0
-#include <android_native_app_glue.h>
-#include <android/log.h>
+#ifndef LOVR_USE_OCULUS_MOBILE
 
-static JavaVM* lovrJavaVM;
-static JNIEnv* lovrJNIEnv;
+// To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write
+// end of the pipe.  The read end of the pipe is forwarded to __android_log_write.
+static void* log_main(void* data) {
+  int* fd = data;
+  pipe(fd);
+  dup2(fd[1], STDOUT_FILENO);
+  dup2(fd[1], STDERR_FILENO);
+  setvbuf(stdout, 0, _IOLBF, 0);
+  setvbuf(stderr, 0, _IONBF, 0);
+  ssize_t length;
+  char buffer[1024];
+  while ((length = read(fd[0], buffer, sizeof(buffer) - 1)) > 0) {
+    buffer[length] = '\0';
+    __android_log_write(ANDROID_LOG_DEBUG, "LOVR", buffer);
+  }
+  return 0;
+}
+
+static void onAppCmd(struct android_app* app, int32_t cmd) {
+  bool wasActive = state.window && state.resumed;
+
+  switch (cmd) {
+    case APP_CMD_RESUME: state.resumed = true; break;
+    case APP_CMD_PAUSE: state.resumed = false; break;
+    case APP_CMD_INIT_WINDOW: state.window = app->window; break;
+    case APP_CMD_TERM_WINDOW: state.window = NULL; break;
+    default: break;
+  }
+
+  bool active = state.window && state.resumed;
+  if (state.onActive && wasActive != active) {
+    state.onActive(active);
+  }
+}
 
 int main(int argc, char** argv);
 
-static void onAppCmd(struct android_app* app, int32_t cmd) {
-  // pause, resume, events, etc.
-}
-
 void android_main(struct android_app* app) {
-  lovrJavaVM = app->activity->vm;
-  lovrJavaVM->AttachCurrentThread(&lovrJNIEnv, NULL);
+  state.app = app;
+  (*app->activity->vm)->AttachCurrentThread(app->activity->vm, &state.jni, NULL);
+  int fd[2];
+  pthread_create(&state.log, NULL, log_main, fd);
+  pthread_detach(state.log);
   app->onAppCmd = onAppCmd;
   main(0, NULL);
-  lovrJavaVM->DetachCurrentThread();
+  (*app->activity->vm)->DetachCurrentThread(app->activity->vm);
 }
 #endif
 
@@ -38,29 +92,130 @@ bool lovrPlatformInit() {
 }
 
 void lovrPlatformDestroy() {
-#if 0
+#ifndef LOVR_USE_OCULUS_MOBILE
   if (state.display) eglMakeCurrent(state.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
   if (state.surface) eglDestroySurface(state.display, state.surface);
   if (state.context) eglDestroyContext(state.display, state.context);
   if (state.display) eglTerminate(state.display);
-  memset(&state, 0, sizeof(state));
 #endif
+  memset(&state, 0, sizeof(state));
 }
 
 const char* lovrPlatformGetName() {
   return "Android";
 }
 
+// lovr-oculus-mobile provides its own implementation of the timing functions
+#define NS_PER_SEC 1000000000ULL
+#ifndef LOVR_USE_OCULUS_MOBILE
+static uint64_t epoch;
+
+static uint64_t getTime() {
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return (uint64_t) t.tv_sec * NS_PER_SEC + (uint64_t) t.tv_nsec;
+}
+
+double lovrPlatformGetTime() {
+  return (getTime() - epoch) / (double) NS_PER_SEC;
+}
+
+void lovrPlatformSetTime(double time) {
+  epoch = getTime() - (uint64_t) (time * NS_PER_SEC + .5);
+}
+
+#endif
+
+void lovrPlatformSleep(double seconds) {
+  seconds += .5e-9;
+  struct timespec t;
+  t.tv_sec = seconds;
+  t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
+  while (nanosleep(&t, &t));
+}
+
 void lovrPlatformPollEvents() {
-  // TODO
+#ifndef LOVR_USE_OCULUS_MOBILE
+  int events;
+  struct android_poll_source* source;
+  bool active = state.window && state.resumed;
+  while (ALooper_pollAll(active ? 0 : 0, NULL, &events, (void**) &source) >= 0) {
+    if (source) {
+      source->process(state.app, source);
+    }
+  }
+#endif
 }
 
 void lovrPlatformOpenConsole() {
   // TODO
 }
 
+size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
+  return 0;
+}
+
+extern const char* lovrOculusMobileWritablePath;
+size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
+#ifdef LOVR_USE_OCULUS_MOBILE
+  size_t length = strlen(lovrOculusMobileWritablePath);
+  if (length >= size) return 0;
+  memcpy(buffer, lovrOculusMobileWritablePath, length);
+  buffer[length] = '\0';
+  return length;
+#else
+  const char* path = state.app->activity->externalDataPath;
+  size_t length = strlen(path);
+  if (length >= size) return 0;
+  memcpy(buffer, path, length);
+  buffer[length] = '\0';
+  return length;
+#endif
+}
+
+size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
+  return getcwd(buffer, size) ? strlen(buffer) : 0;
+}
+
+size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
+  ssize_t length = readlink("/proc/self/exe", buffer, size - 1);
+  if (length >= 0) {
+    buffer[length] = '\0';
+    return length;
+  } else {
+    return 0;
+  }
+}
+
+size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
+#ifdef LOVR_USE_OCULUS_MOBILE
+  buffer[0] = '\0';
+  return 0;
+#else
+  jobject activity = state.app->activity->clazz;
+  jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
+  jmethodID getPackageCodePath = (*state.jni)->GetMethodID(state.jni, class, "getPackageCodePath", "()Ljava/lang/String;");
+  if (!getPackageCodePath) {
+    return 0;
+  }
+
+  jstring jpath = (*state.jni)->CallObjectMethod(state.jni, activity, getPackageCodePath);
+  if ((*state.jni)->ExceptionOccurred(state.jni)) {
+    (*state.jni)->ExceptionClear(state.jni);
+    return 0;
+  }
+
+  const char* path = (*state.jni)->GetStringUTFChars(state.jni, jpath, NULL);
+  size_t length = strlen(path);
+  if (length >= size) return 0;
+  memcpy(buffer, path, length);
+  buffer[length] = '\0';
+  return length;
+#endif
+}
+
 bool lovrPlatformCreateWindow(WindowFlags* flags) {
-#if 0 // lovr-oculus-mobile creates the EGL context right now
+#ifndef LOVR_USE_OCULUS_MOBILE // lovr-oculus-mobile creates its own EGL context
   if (state.display) {
     return true;
   }
@@ -104,7 +259,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
       continue;
     }
 
-    for (int a = 0; a < sizeof(attributes) / sizeof(attributes[0]); a += 2) {
+    for (size_t a = 0; a < sizeof(attributes) / sizeof(attributes[0]); a += 2) {
       if (attributes[a] == EGL_NONE) {
         config = configs[i];
         break;
@@ -144,10 +299,23 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   return true;
 }
 
+#ifndef LOVR_USE_OCULUS_MOBILE
+bool lovrPlatformHasWindow() {
+  return false;
+}
+#endif
+
 void lovrPlatformGetWindowSize(int* width, int* height) {
   if (width) *width = 0;
   if (height) *height = 0;
 }
+
+#ifndef LOVR_USE_OCULUS_MOBILE
+void lovrPlatformGetFramebufferSize(int* width, int* height) {
+  *width = 0;
+  *height = 0;
+}
+#endif
 
 void lovrPlatformSwapBuffers() {
   //
@@ -157,8 +325,8 @@ void* lovrPlatformGetProcAddress(const char* function) {
   return (void*) eglGetProcAddress(function);
 }
 
-void lovrPlatformOnWindowClose(windowCloseCallback callback) {
-  //
+void lovrPlatformOnQuitRequest(quitCallback callback) {
+  state.onQuit = callback;
 }
 
 void lovrPlatformOnWindowFocus(windowFocusCallback callback) {
@@ -193,6 +361,32 @@ bool lovrPlatformIsKeyDown(KeyCode key) {
   return false;
 }
 
-void lovrPlatformSleep(double seconds) {
-  usleep((unsigned int) (seconds * 1000000));
+// Private, must be declared manually to use
+
+void lovrPlatformOnActive(activeCallback callback) {
+  state.onActive = callback;
+}
+
+struct ANativeActivity* lovrPlatformGetActivity() {
+  return state.app->activity;
+}
+
+ANativeWindow* lovrPlatformGetNativeWindow() {
+  return state.window;
+}
+
+JNIEnv* lovrPlatformGetJNI() {
+  return state.jni;
+}
+
+EGLDisplay lovrPlatformGetEGLDisplay() {
+  return state.display;
+}
+
+EGLContext lovrPlatformGetEGLContext() {
+  return state.context;
+}
+
+EGLSurface lovrPlatformGetEGLSurface() {
+  return state.surface;
 }

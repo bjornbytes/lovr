@@ -19,6 +19,7 @@ StringEntry HeadsetDrivers[] = {
   [DRIVER_OCULUS_MOBILE] = ENTRY("oculusmobile"),
   [DRIVER_OPENVR] = ENTRY("openvr"),
   [DRIVER_OPENXR] = ENTRY("openxr"),
+  [DRIVER_VRAPI] = ENTRY("vrapi"),
   [DRIVER_WEBVR] = ENTRY("webvr"),
   [DRIVER_WEBXR] = ENTRY("webxr"),
   { 0 }

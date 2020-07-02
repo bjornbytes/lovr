@@ -45,3 +45,67 @@ void lovrPlatformSleep(double seconds) {
 void lovrPlatformOpenConsole() {
   //
 }
+
+size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
+  const char* path = getenv("HOME");
+
+  if (!path) {
+    struct passwd* entry = getpwuid(getuid());
+    if (!entry) {
+      return 0;
+    }
+    path = entry->pw_dir;
+  }
+
+  size_t length = strlen(path);
+  if (length >= size) { return 0; }
+  memcpy(buffer, path, length);
+  buffer[length] = '\0';
+  return length;
+}
+
+size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
+  const char* xdg = getenv("XDG_DATA_HOME");
+
+  if (xdg) {
+    size_t length = strlen(xdg);
+    if (length < size) {
+      memcpy(buffer, xdg, length);
+      buffer[length] = '\0';
+      return length;
+    }
+  } else {
+    size_t cursor = lovrPlatformGetHomeDirectory(buffer, size);
+    if (cursor > 0) {
+      buffer += cursor;
+      size -= cursor;
+      const char* suffix = "/.local/share";
+      size_t length = strlen(suffix);
+      if (length < size) {
+        memcpy(buffer, suffix, length);
+        buffer[length] = '\0';
+        return cursor + length;
+      }
+    }
+  }
+
+  return 0;
+}
+
+size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
+  return getcwd(buffer, size) ? strlen(buffer) : 0;
+}
+
+size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
+  ssize_t length = readlink("/proc/self/exe", buffer, size - 1);
+  if (length >= 0) {
+    buffer[length] = '\0';
+    return length;
+  } else {
+    return 0;
+  }
+}
+
+size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
+  return lovrPlatformGetExecutablePath(buffer, size);
+}

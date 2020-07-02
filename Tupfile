@@ -25,7 +25,7 @@ SRC_@(HEADSET)@(SIMULATOR) += src/modules/headset/headset_desktop.c
 SRC_@(HEADSET)@(OPENVR) += src/modules/headset/headset_openvr.c
 SRC_@(HEADSET)@(OPENXR) += src/modules/headset/headset_openxr.c
 SRC_@(HEADSET)@(OCULUS) += src/modules/headset/headset_oculus.c
-SRC_@(HEADSET)@(VRAPI) += src/modules/headset/headset_oculus_mobile.c
+SRC_@(HEADSET)@(VRAPI) += src/modules/headset/headset_vrapi.c
 SRC_@(HEADSET)@(WEBVR) += src/modules/headset/headset_webvr.c
 SRC_@(HEADSET)@(WEBXR) += src/modules/headset/headset_webxr.c
 SRC_@(HEADSET)@(LEAP) += src/modules/headset/headset_leap.c
@@ -68,8 +68,25 @@ SRC_@(GRAPHICS) += src/resources/shaders.c
 # 2 [CC] compile .c -> .o
 # 3 [LD] link .o -> exe
 # 4 [CP] copy external libs -> libs folder
-
 : foreach $(RES) $(RES_y) |> !xd |> %f.h
 : foreach $(SRC) $(SRC_y) $(SRC_yy) | src/resources/*.h |> !cc |> .obj/%B.o
-: .obj/*.o $(STATIC_LIBS) $(STATIC_LIBS_y) |> !ld |> lovr$(SUFFIX) | $(EXTRAS) $(EXTRAS_y)
-: foreach $(LIBS) |> !cp |> libs/%b
+: .obj/*.o $(STATIC_LIBS) $(STATIC_LIBS_y) |> !ld |> $(PREFIX)lovr$(SUFFIX) | $(EXTRAS) $(EXTRAS_y)
+: foreach $(LIBS) |> !cp |> $(LIB)/%b
+
+# Android
+ifeq ($(PLATFORM),android)
+  # There needs to be a Java class for the activity with 2 lines of code to load native libraries.
+  # It gets compiled to a class file with javac and then into bytecode using dx
+  CLASS = org/lovr/app/Activity.class
+  : src/resources/Activity.java |> ^ JAVAC %b^ javac -classpath $(ANDROID_JAR) -d . %f |> $(CLASS)
+  : $(CLASS) |> !dx |> classes.dex
+
+  # Create an apk from the Android manifest.  The zip command is used afterwards to add raw files
+  # because it is way faster than calling aapt again and apks are just zips (TODO windows).
+  : @(ANDROID_MANIFEST) | $(LIB)/*.so classes.dex |> ^ AAPT %b^ aapt package -F %o -M %f -I $(ANDROID_JAR) $(ANDROID_ASSETS) && zip -qu0 %o $(LIB)/*.so classes.dex |> tmp/lovr.unaligned.apk
+
+  # Even though we have an apk, it isn't actually valid yet.  It has to be aligned using the special
+  # zipalign tool, and then signed using apksigner.
+  : tmp/lovr.unaligned.apk |> !zipalign |> tmp/lovr.unsigned.apk
+  : tmp/lovr.unsigned.apk |> !apksigner |> lovr.apk
+endif

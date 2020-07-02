@@ -2,8 +2,6 @@
 
 #include "fs.h"
 #include <windows.h>
-#include <KnownFolders.h>
-#include <ShlObj.h>
 
 #define FS_PATH_MAX 1024
 
@@ -166,52 +164,6 @@ bool fs_list(const char* path, fs_list_cb* callback, void* context) {
   return true;
 }
 
-size_t fs_getHomeDir(char* buffer, size_t size) {
-  PWSTR wpath = NULL;
-  if (SHGetKnownFolderPath(&FOLDERID_Profile, 0, NULL, &wpath) == S_OK) {
-    size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, (int) size, NULL, NULL) - 1;
-    CoTaskMemFree(wpath);
-    return bytes;
-  }
-  return 0;
-}
-
-size_t fs_getDataDir(char* buffer, size_t size) {
-  PWSTR wpath = NULL;
-  if (SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &wpath) == S_OK) {
-    size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, (int) size, NULL, NULL) - 1;
-    CoTaskMemFree(wpath);
-    return bytes;
-  }
-  return 0;
-}
-
-size_t fs_getWorkDir(char* buffer, size_t size) {
-  WCHAR wpath[FS_PATH_MAX];
-  int length = GetCurrentDirectoryW((int) size, wpath);
-  if (length) {
-    return WideCharToMultiByte(CP_UTF8, 0, wpath, length + 1, buffer, (int) size, NULL, NULL) - 1;
-  }
-  return 0;
-}
-
-size_t fs_getExecutablePath(char* buffer, size_t size) {
-  WCHAR wpath[FS_PATH_MAX];
-  DWORD length = GetModuleFileNameW(NULL, wpath, FS_PATH_MAX);
-  if (length < FS_PATH_MAX) {
-    return WideCharToMultiByte(CP_UTF8, 0, wpath, length + 1, buffer, (int) size, NULL, NULL) - 1;
-  }
-  return 0;
-}
-
-size_t fs_getBundlePath(char* buffer, size_t size) {
-  return fs_getExecutablePath(buffer, size);
-}
-
-size_t fs_getBundleId(char* buffer, size_t size) {
-  return 0;
-}
-
 #else // !_WIN32
 
 #include "fs.h"
@@ -315,128 +267,6 @@ bool fs_list(const char* path, fs_list_cb* callback, void* context) {
 
   closedir(dir);
   return true;
-}
-
-#ifdef __APPLE__
-#include <objc/objc-runtime.h>
-#include <mach-o/dyld.h>
-#elif __ANDROID__
-extern const char* lovrOculusMobileWritablePath; // TODO
-#endif
-
-static size_t copy(char* buffer, size_t size, const char* string, size_t length) {
-  if (length >= size) { return 0; }
-  memcpy(buffer, string, length);
-  buffer[length + 1] = '\0';
-  return length;
-}
-
-size_t fs_getHomeDir(char* buffer, size_t size) {
-  const char* home = getenv("HOME");
-
-  if (!home) {
-    struct passwd* entry = getpwuid(getuid());
-    if (!entry) {
-      return 0;
-    }
-    home = entry->pw_dir;
-  }
-
-  return copy(buffer, size, home, strlen(home));
-}
-
-size_t fs_getDataDir(char* buffer, size_t size) {
-#if __APPLE__
-  size_t cursor = fs_getHomeDir(buffer, size);
-
-  if (cursor > 0) {
-    const char* suffix = "/Library/Application Support";
-    return cursor + copy(buffer + cursor, size - cursor, suffix, strlen(suffix));
-  }
-
-  return 0;
-#elif EMSCRIPTEN
-  const char* path = "/home/web_user";
-  return copy(buffer, size, path, strlen(path));
-#elif __ANDROID__
-  return copy(buffer, size, lovrOculusMobileWritablePath, strlen(lovrOculusMobileWritablePath));
-#else
-  const char* xdg = getenv("XDG_DATA_HOME");
-
-  if (xdg) {
-    return copy(buffer, size, xdg, strlen(xdg));
-  } else {
-    size_t cursor = fs_getHomeDir(buffer, size);
-    if (cursor > 0) {
-      const char* suffix = "/.local/share";
-      return cursor + copy(buffer + cursor, size - cursor, suffix, strlen(suffix));
-    }
-  }
-
-  return 0;
-#endif
-}
-
-size_t fs_getWorkDir(char* buffer, size_t size) {
-  return getcwd(buffer, size) ? strlen(buffer) : 0;
-}
-
-size_t fs_getExecutablePath(char* buffer, size_t size) {
-#if __APPLE__
-  uint32_t size32 = size;
-  return _NSGetExecutablePath(buffer, &size32) ? 0 : size32;
-#elif EMSCRIPTEN
-  return 0;
-#else
-  ssize_t length = readlink("/proc/self/exe", buffer, size);
-  return (length < 0) ? 0 : (size_t) length;
-#endif
-}
-
-size_t fs_getBundlePath(char* buffer, size_t size) {
-#ifdef __APPLE__
-  id extension = ((id(*)(Class, SEL, char*)) objc_msgSend)(objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "lovr");
-  id bundle = ((id(*)(Class, SEL)) objc_msgSend)(objc_getClass("NSBundle"), sel_registerName("mainBundle"));
-  id path = ((id(*)(id, SEL, char*, id)) objc_msgSend)(bundle, sel_registerName("pathForResource:ofType:"), nil, extension);
-  if (path == nil) {
-    return 0;
-  }
-
-  const char* cpath = ((const char*(*)(id, SEL)) objc_msgSend)(path, sel_registerName("UTF8String"));
-  if (!cpath) {
-    return 0;
-  }
-
-  size_t length = strlen(cpath);
-  if (length >= size) {
-    return 0;
-  }
-
-  memcpy(buffer, cpath, length);
-  buffer[length] = '\0';
-  return length;
-#else
-  return fs_getExecutablePath(buffer, size);
-#endif
-}
-
-size_t fs_getBundleId(char* buffer, size_t size) {
-#ifdef __ANDROID__
-  // TODO
-  pid_t pid = getpid();
-  char path[32];
-  snprintf(path, 32, "/proc/%i/cmdline", (int) pid);
-  FILE* file = fopen(path, "r");
-  if (file) {
-    size_t read = fread(buffer, 1, size, file);
-    fclose(file);
-    return true;
-  }
-  return 0;
-#else
-  buffer[0] = '\0';
-  return 0;
-#endif
 }
 
 #endif
