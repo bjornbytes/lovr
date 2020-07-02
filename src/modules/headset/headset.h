@@ -13,7 +13,6 @@ typedef enum {
   DRIVER_DESKTOP,
   DRIVER_LEAP_MOTION,
   DRIVER_OCULUS,
-  DRIVER_OCULUS_MOBILE,
   DRIVER_OPENVR,
   DRIVER_OPENXR,
   DRIVER_VRAPI,
@@ -121,7 +120,6 @@ extern HeadsetInterface lovrHeadsetVrApiDriver;
 extern HeadsetInterface lovrHeadsetWebVRDriver;
 extern HeadsetInterface lovrHeadsetWebXRDriver;
 extern HeadsetInterface lovrHeadsetDesktopDriver;
-extern HeadsetInterface lovrHeadsetOculusMobileDriver;
 extern HeadsetInterface lovrHeadsetLeapMotionDriver;
 
 // Active drivers

@@ -8,15 +8,10 @@
 #include "core/ref.h"
 #include <stdlib.h>
 
-#if defined(EMSCRIPTEN) || defined(LOVR_USE_OCULUS_MOBILE)
-#define LOVR_HEADSET_HELPER_USES_REGISTRY
-#endif
-
 StringEntry HeadsetDrivers[] = {
   [DRIVER_DESKTOP] = ENTRY("desktop"),
   [DRIVER_LEAP_MOTION] = ENTRY("leap"),
   [DRIVER_OCULUS] = ENTRY("oculus"),
-  [DRIVER_OCULUS_MOBILE] = ENTRY("oculusmobile"),
   [DRIVER_OPENVR] = ENTRY("openvr"),
   [DRIVER_OPENXR] = ENTRY("openxr"),
   [DRIVER_VRAPI] = ENTRY("vrapi"),
@@ -91,7 +86,7 @@ static HeadsetRenderData headsetRenderData;
 static void renderHelper(void* userdata) {
   HeadsetRenderData* renderData = userdata;
   lua_State* L = renderData->L;
-#ifdef LOVR_HEADSET_HELPER_USES_REGISTRY
+#ifdef EMSCRIPTEN
   luax_geterror(L);
   if (lua_isnil(L, -1)) {
     lua_pushcfunction(L, luax_getstack);
@@ -583,7 +578,7 @@ static int l_lovrHeadsetRenderTo(lua_State* L) {
   lua_settop(L, 1);
   luaL_checktype(L, 1, LUA_TFUNCTION);
 
-#ifdef LOVR_HEADSET_HELPER_USES_REGISTRY
+#ifdef EMSCRIPTEN
   if (headsetRenderData.ref != LUA_NOREF) {
     luaL_unref(L, LUA_REGISTRYINDEX, headsetRenderData.ref);
   }
