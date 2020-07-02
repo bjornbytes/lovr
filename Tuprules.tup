@@ -176,7 +176,7 @@ endif
 ifeq ($(PLATFORM),android)
   CC = @(ANDROID_SDK)/sdk/ndk-bundle/toolchains/llvm/prebuilt/@(ANDROID_HOST_TAG)/bin/clang
   TOOLS = @(ANDROID_SDK)/sdk/build-tools/@(ANDROID_BUILD_TOOLS_VERSION)
-  ANDROID_JAR = @(ANDROID_SDK)/sdk/platforms/android-@(ANDROID_API_VERSION)/android.jar
+  ANDROID_JAR = @(ANDROID_SDK)/sdk/platforms/android-@(ANDROID_VERSION)/android.jar
   GLUE = @(ANDROID_SDK)/sdk/ndk-bundle/sources/android/native_app_glue
   VRAPI_LIB_PATH = $(ROOT)/deps/VrApi/Libs/Android/arm64-v8a/Release
   CFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
