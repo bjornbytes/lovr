@@ -47,6 +47,8 @@ static struct {
   ovrInputTrackedRemoteCapabilities controllerInfo[2];
   ovrInputStateTrackedRemote input[2];
   ovrInputStateHand handInput[2];
+  float hapticStrength[2];
+  float hapticDuration[2];
 } state;
 
 static void onActive(bool active) {
@@ -60,6 +62,10 @@ static void onActive(bool active) {
     config.ShareContext = (size_t) lovrPlatformGetEGLContext();
     state.session = vrapi_EnterVrMode(&config);
     state.frameIndex = 0;
+    if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSQUEST) {
+      vrapi_SetTrackingSpace(state.session, VRAPI_TRACKING_SPACE_STAGE);
+      state.offset = 0.f;
+    }
   } else if (state.session && !active) {
     vrapi_LeaveVrMode(state.session);
     state.session = NULL;
@@ -102,7 +108,7 @@ static bool vrapi_getName(char* buffer, size_t length) {
 }
 
 static HeadsetOrigin vrapi_getOriginType(void) {
-  return vrapi_GetTrackingSpace(state.session) == VRAPI_TRACKING_SPACE_LOCAL_FLOOR ? ORIGIN_FLOOR : ORIGIN_HEAD;
+  return vrapi_GetTrackingSpace(state.session) == VRAPI_TRACKING_SPACE_STAGE ? ORIGIN_FLOOR : ORIGIN_HEAD;
 }
 
 static void vrapi_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -189,6 +195,7 @@ static const float* vrapi_getBoundsGeometry(uint32_t* count) {
     state.boundaryPoints[4 * i + 2] = state.rawBoundaryPoints[i].z;
   }
 
+  *count *= 4;
   return state.boundaryPoints;
 }
 
@@ -334,7 +341,14 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
 }
 
 static bool vrapi_vibrate(Device device, float strength, float duration, float frequency) {
-  return false;
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  uint32_t index = device - DEVICE_HAND_LEFT;
+  state.hapticStrength[index] = CLAMP(strength, 0.0f, 1.0f);
+  state.hapticDuration[index] = MAX(duration, 0.0f);
+  return true;
 }
 
 static struct ModelData* vrapi_newModelData(Device device) {
@@ -453,6 +467,15 @@ static void vrapi_update(float dt) {
       state.controllerInfo[index].Header.Type = header.Type;
       state.handInput[index].Header.ControllerType = header.Type;
       vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.handInput[index].Header);
+    }
+  }
+
+  for (uint32_t i = 0; i < 2; i++) {
+    ovrInputCapabilityHeader* header = &state.controllerInfo[i].Header;
+    if (header->Type == ovrControllerType_TrackedRemote) {
+      state.hapticDuration[i] -= dt;
+      float strength = state.hapticDuration[i] > 0.f ? state.hapticStrength[i] : 0.f;
+      vrapi_SetHapticVibrationSimple(state.session, header->DeviceID, strength);
     }
   }
 }
