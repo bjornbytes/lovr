@@ -184,6 +184,8 @@ ifeq ($(PLATFORM),android)
   LDFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
   LDFLAGS += -shared
   LDFLAGS += -landroid
+  LDFLAGS += -lEGL
+  LDFLAGS += -lGLESv3
   LIB = lib/arm64-v8a
   PREFIX = $(LIB)/lib
   SUFFIX = .so
