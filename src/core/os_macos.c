@@ -2,7 +2,11 @@
 #include <objc/objc-runtime.h>
 #include <mach-o/dyld.h>
 #include <mach/mach_time.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <time.h>
+#include <pwd.h>
 
 #include "os_glfw.h"
 

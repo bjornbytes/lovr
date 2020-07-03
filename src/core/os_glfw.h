@@ -12,7 +12,7 @@
 
 static struct {
   GLFWwindow* window;
-  windowCloseCallback onWindowClose;
+  quitCallback onQuitRequest;
   windowFocusCallback onWindowFocus;
   windowResizeCallback onWindowResize;
   mouseButtonCallback onMouseButton;
@@ -24,8 +24,8 @@ static void onError(int code, const char* description) {
 }
 
 static void onWindowClose(GLFWwindow* window) {
-  if (glfwState.onWindowClose) {
-    glfwState.onWindowClose();
+  if (glfwState.onQuitRequest) {
+    glfwState.onQuitRequest();
   }
 }
 
@@ -200,8 +200,8 @@ void* lovrPlatformGetProcAddress(const char* function) {
   return (void*) glfwGetProcAddress(function);
 }
 
-void lovrPlatformOnWindowClose(windowCloseCallback callback) {
-  glfwState.onWindowClose = callback;
+void lovrPlatformOnQuitRequest(quitCallback callback) {
+  glfwState.onQuitRequest = callback;
 }
 
 void lovrPlatformOnWindowFocus(windowFocusCallback callback) {

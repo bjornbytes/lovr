@@ -168,14 +168,11 @@ bool fs_list(const char* path, fs_list_cb* callback, void* context) {
 
 #include "fs.h"
 #include <fcntl.h>
-#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <stdlib.h>
-#include <string.h>
 #include <limits.h>
-#include <pwd.h>
+#include <unistd.h>
 
 bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
   int flags;
