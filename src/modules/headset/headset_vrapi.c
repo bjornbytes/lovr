@@ -22,9 +22,9 @@
 #define GL_SRGB8_ALPHA8 0x8C43
 
 // Private platform functions
-void lovrPlatformOnActive(void (*callback)(bool active));
 JNIEnv* lovrPlatformGetJNI(void);
 struct ANativeActivity* lovrPlatformGetActivity(void);
+int lovrPlatformGetActivityState(void);
 ANativeWindow* lovrPlatformGetNativeWindow(void);
 EGLDisplay lovrPlatformGetEGLDisplay(void);
 EGLContext lovrPlatformGetEGLContext(void);
@@ -52,27 +52,6 @@ static struct {
   float hapticDuration[2];
 } state;
 
-static void onActive(bool active) {
-  if (!state.session && active) {
-    ovrModeParms config = vrapi_DefaultModeParms(&state.java);
-    config.Flags &= ~VRAPI_MODE_FLAG_RESET_WINDOW_FULLSCREEN;
-    config.Flags |= VRAPI_MODE_FLAG_NATIVE_WINDOW;
-    config.Flags |= VRAPI_MODE_FLAG_FRONT_BUFFER_SRGB;
-    config.Display = (size_t) lovrPlatformGetEGLDisplay();
-    config.WindowSurface = (size_t) lovrPlatformGetNativeWindow();
-    config.ShareContext = (size_t) lovrPlatformGetEGLContext();
-    state.session = vrapi_EnterVrMode(&config);
-    state.frameIndex = 0;
-    if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSQUEST) {
-      vrapi_SetTrackingSpace(state.session, VRAPI_TRACKING_SPACE_STAGE);
-      state.offset = 0.f;
-    }
-  } else if (state.session && !active) {
-    vrapi_LeaveVrMode(state.session);
-    state.session = NULL;
-  }
-}
-
 static bool vrapi_init(float offset, uint32_t msaa) {
   ANativeActivity* activity = lovrPlatformGetActivity();
   state.java.Vm = activity->vm;
@@ -85,16 +64,20 @@ static bool vrapi_init(float offset, uint32_t msaa) {
     return false;
   }
   state.deviceType = vrapi_GetSystemPropertyInt(&state.java, VRAPI_SYS_PROP_DEVICE_TYPE);
-  lovrPlatformOnActive(onActive);
   return true;
 }
 
 static void vrapi_destroy() {
+  if (state.session) {
+    vrapi_LeaveVrMode(state.session);
+  }
   vrapi_DestroyTextureSwapChain(state.swapchain);
   vrapi_Shutdown();
   for (uint32_t i = 0; i < 3; i++) {
     lovrRelease(Canvas, state.canvases[i]);
   }
+  free(state.rawBoundaryPoints);
+  free(state.boundaryPoints);
   memset(&state, 0, sizeof(state));
 }
 
@@ -431,6 +414,30 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
 }
 
 static void vrapi_update(float dt) {
+  int appState = lovrPlatformGetActivityState();
+  ANativeWindow* window = lovrPlatformGetNativeWindow();
+
+  if (!state.session && appState == APP_CMD_RESUME && window) {
+    printf("Entering VR\n");
+    ovrModeParms config = vrapi_DefaultModeParms(&state.java);
+    config.Flags &= ~VRAPI_MODE_FLAG_RESET_WINDOW_FULLSCREEN;
+    config.Flags |= VRAPI_MODE_FLAG_NATIVE_WINDOW;
+    config.Flags |= VRAPI_MODE_FLAG_FRONT_BUFFER_SRGB;
+    config.Display = (size_t) lovrPlatformGetEGLDisplay();
+    config.ShareContext = (size_t) lovrPlatformGetEGLContext();
+    config.WindowSurface = (size_t) window;
+    state.session = vrapi_EnterVrMode(&config);
+    state.frameIndex = 0;
+    if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSQUEST) {
+      vrapi_SetTrackingSpace(state.session, VRAPI_TRACKING_SPACE_STAGE);
+      state.offset = 0.f;
+    }
+  } else if (state.session && (appState != APP_CMD_RESUME || !window)) {
+    printf("Leaving VR\n");
+    vrapi_LeaveVrMode(state.session);
+    state.session = NULL;
+  }
+
   if (!state.session) return;
 
   VRAPI_LARGEST_EVENT_TYPE event;

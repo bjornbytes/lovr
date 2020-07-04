@@ -12,55 +12,18 @@
 #include <android_native_app_glue.c>
 #pragma clang diagnostic pop
 
-// The activity is considered ready if it's resumed and there's an active window.  This is just an
-// artifact of how Oculus' app model works and could be the wrong abstraction, feel free to change.
-typedef void (*activeCallback)(bool active);
-
 static struct {
   struct android_app* app;
-  ANativeWindow* window;
-  bool resumed;
   JNIEnv* jni;
   EGLDisplay display;
   EGLContext context;
   EGLSurface surface;
-  activeCallback onActive;
   quitCallback onQuit;
-  pthread_t log;
 } state;
 
-// To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write
-// end of the pipe.  The read end of the pipe is forwarded to __android_log_write.
-static void* log_main(void* data) {
-  int* fd = data;
-  pipe(fd);
-  dup2(fd[1], STDOUT_FILENO);
-  dup2(fd[1], STDERR_FILENO);
-  setvbuf(stdout, 0, _IOLBF, 0);
-  setvbuf(stderr, 0, _IONBF, 0);
-  ssize_t length;
-  char buffer[1024];
-  while ((length = read(fd[0], buffer, sizeof(buffer) - 1)) > 0) {
-    buffer[length] = '\0';
-    __android_log_write(ANDROID_LOG_DEBUG, "LOVR", buffer);
-  }
-  return 0;
-}
-
 static void onAppCmd(struct android_app* app, int32_t cmd) {
-  bool wasActive = state.window && state.resumed;
-
-  switch (cmd) {
-    case APP_CMD_RESUME: state.resumed = true; break;
-    case APP_CMD_PAUSE: state.resumed = false; break;
-    case APP_CMD_INIT_WINDOW: state.window = app->window; break;
-    case APP_CMD_TERM_WINDOW: state.window = NULL; break;
-    default: break;
-  }
-
-  bool active = state.window && state.resumed;
-  if (state.onActive && wasActive != active) {
-    state.onActive(active);
+  if (cmd == APP_CMD_DESTROY && state.onQuit) {
+    state.onQuit();
   }
 }
 
@@ -69,9 +32,7 @@ int main(int argc, char** argv);
 void android_main(struct android_app* app) {
   state.app = app;
   (*app->activity->vm)->AttachCurrentThread(app->activity->vm, &state.jni, NULL);
-  int fd[2];
-  pthread_create(&state.log, NULL, log_main, fd);
-  pthread_detach(state.log);
+  lovrPlatformOpenConsole();
   app->onAppCmd = onAppCmd;
   main(0, NULL);
   (*app->activity->vm)->DetachCurrentThread(app->activity->vm);
@@ -119,18 +80,56 @@ void lovrPlatformSleep(double seconds) {
 }
 
 void lovrPlatformPollEvents() {
-  int events;
-  struct android_poll_source* source;
-  bool active = state.window && state.resumed;
-  while (ALooper_pollAll(active ? 0 : 0, NULL, &events, (void**) &source) >= 0) {
-    if (source) {
-      source->process(state.app, source);
+  // Notes about polling:
+  // - Stop polling if a destroy is requested to give the application a chance to shut down.
+  //   Otherwise this loop would still wait for an event and the app would seem unresponsive.
+  // - Block if the app is paused or no window is present
+  // - If the app was active and becomes inactive after an event, break instead of waiting for
+  //   another event.  This gives the main loop a chance to respond (e.g. exit VR mode).
+  while (!state.app->destroyRequested) {
+    int events;
+    struct android_poll_source* source;
+    int timeout = (state.app->window && state.app->activityState == APP_CMD_RESUME) ? 0 : -1;
+    if (ALooper_pollAll(timeout, NULL, &events, (void**) &source) >= 0) {
+      if (source) {
+        source->process(state.app, source);
+      }
+
+      if (timeout == 0 && (!state.app->window || state.app->activityState != APP_CMD_RESUME)) {
+        break;
+      }
+    } else {
+      break;
     }
   }
 }
 
+// To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write
+// end of the pipe.  The read end of the pipe is forwarded to __android_log_write.
+static struct {
+  int handles[2];
+  pthread_t thread;
+} log;
+
+static void* log_main(void* data) {
+  int* fd = data;
+  pipe(fd);
+  dup2(fd[1], STDOUT_FILENO);
+  dup2(fd[1], STDERR_FILENO);
+  setvbuf(stdout, 0, _IOLBF, 0);
+  setvbuf(stderr, 0, _IONBF, 0);
+  ssize_t length;
+  char buffer[1024];
+  while ((length = read(fd[0], buffer, sizeof(buffer) - 1)) > 0) {
+    buffer[length] = '\0';
+    __android_log_write(ANDROID_LOG_DEBUG, "LOVR", buffer);
+  }
+  return 0;
+}
+
 void lovrPlatformOpenConsole() {
-  // TODO
+  pthread_create(&log.thread, NULL, log_main, log.handles);
+  pthread_detach(log.thread);
 }
 
 size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
@@ -326,16 +325,16 @@ bool lovrPlatformIsKeyDown(KeyCode key) {
 
 // Private, must be declared manually to use
 
-void lovrPlatformOnActive(activeCallback callback) {
-  state.onActive = callback;
-}
-
 struct ANativeActivity* lovrPlatformGetActivity() {
   return state.app->activity;
 }
 
+int lovrPlatformGetActivityState() {
+  return state.app->activityState;
+}
+
 ANativeWindow* lovrPlatformGetNativeWindow() {
-  return state.window;
+  return state.app->window;
 }
 
 JNIEnv* lovrPlatformGetJNI() {
