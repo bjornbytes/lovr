@@ -47,6 +47,7 @@ static struct {
   ovrInputTrackedRemoteCapabilities controllerInfo[2];
   ovrInputStateTrackedRemote input[2];
   ovrInputStateHand handInput[2];
+  uint32_t changedButtons[2];
   float hapticStrength[2];
   float hapticDuration[2];
 } state;
@@ -252,30 +253,34 @@ static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* c
     return false;
   }
 
-  ovrInputStateTrackedRemote* input = &state.input[device - DEVICE_HAND_LEFT];
-
+  uint32_t mask;
   if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSGO) {
     switch (button) {
-      case BUTTON_TRIGGER: *down = input->Buttons & ovrButton_Trigger; return true;
-      case BUTTON_TOUCHPAD: *down = input->Buttons & ovrButton_Enter; return true;
-      case BUTTON_MENU: *down = input->Buttons & ovrButton_Back; return true;
+      case BUTTON_TRIGGER: mask = ovrButton_Trigger; break;
+      case BUTTON_TOUCHPAD: mask = ovrButton_Enter; break;
+      case BUTTON_MENU: mask = ovrButton_Back; break;
       default: return false;
     }
   } else if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSQUEST) {
     switch (button) {
-      case BUTTON_TRIGGER: *down = input->Buttons & ovrButton_Trigger; return true;
-      case BUTTON_THUMBSTICK: *down = input->Buttons & ovrButton_Joystick; return true;
-      case BUTTON_GRIP: *down = input->Buttons & ovrButton_GripTrigger; return true;
-      case BUTTON_MENU: *down = input->Buttons & ovrButton_Enter; return true;
-      case BUTTON_A: *down = input->Buttons & ovrButton_A; return true;
-      case BUTTON_B: *down = input->Buttons & ovrButton_B; return true;
-      case BUTTON_X: *down = input->Buttons & ovrButton_X; return true;
-      case BUTTON_Y: *down = input->Buttons & ovrButton_Y; return true;
+      case BUTTON_TRIGGER: mask = ovrButton_Trigger; break;
+      case BUTTON_THUMBSTICK: mask = ovrButton_Joystick; break;
+      case BUTTON_GRIP: mask = ovrButton_GripTrigger; break;
+      case BUTTON_MENU: mask = ovrButton_Enter; break;
+      case BUTTON_A: mask = ovrButton_A; break;
+      case BUTTON_B: mask = ovrButton_B; break;
+      case BUTTON_X: mask = ovrButton_X; break;
+      case BUTTON_Y: mask = ovrButton_Y; break;
       default: return false;
     }
+  } else {
+    return false;
   }
 
-  return false;
+  uint32_t index = device - DEVICE_HAND_LEFT;
+  *down = state.input[index].Buttons & mask;
+  *changed = state.changedButtons[index] & mask;
+  return true;
 }
 
 static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
@@ -458,7 +463,9 @@ static void vrapi_update(float dt) {
       uint32_t index = (info.ControllerCapabilities & ovrControllerCaps_LeftHand) ? 0 : 1;
       state.controllerInfo[index] = info;
       state.input[index].Header.ControllerType = header.Type;
+      uint32_t lastButtons = state.input[index].Buttons;
       vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.input[index].Header);
+      state.changedButtons[index] = state.input[index].Buttons ^ lastButtons;
     } else if (header.Type == ovrControllerType_Hand) {
       ovrInputHandCapabilities info;
       info.Header = header;
