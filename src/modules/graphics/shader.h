@@ -130,6 +130,6 @@ typedef struct ShaderBlock ShaderBlock;
 ShaderBlock* lovrShaderBlockCreate(BlockType type, struct Buffer* buffer, arr_uniform_t* uniforms);
 void lovrShaderBlockDestroy(void* ref);
 BlockType lovrShaderBlockGetType(ShaderBlock* block);
-char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, size_t* length);
+char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, const char* namespace, size_t* length);
 const Uniform* lovrShaderBlockGetUniform(ShaderBlock* block, const char* name);
 struct Buffer* lovrShaderBlockGetBuffer(ShaderBlock* block);

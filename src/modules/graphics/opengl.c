@@ -2815,7 +2815,7 @@ BlockType lovrShaderBlockGetType(ShaderBlock* block) {
   return block->type;
 }
 
-char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, size_t* length) {
+char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, const char* namespace, size_t* length) {
 
   // Calculate
   size_t size = 0;
@@ -2832,7 +2832,13 @@ char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, si
     size += strlen(block->uniforms.data[i].name);
     size += 2; // ";\n"
   }
-  size += 3; // "};\n"
+  if (namespace) {
+    size += 2; // "} "
+    size += strlen(namespace);
+    size += 2; // ";\n"
+  } else {
+    size += 3; // "};\n"
+  }
 
   // Allocate
   char* code = malloc(size + 1);
@@ -2849,7 +2855,11 @@ char* lovrShaderBlockGetShaderCode(ShaderBlock* block, const char* blockName, si
       s += sprintf(s, "  %s %s;\n", getUniformTypeName(uniform), uniform->name);
     }
   }
-  s += sprintf(s, "};\n");
+  if (namespace) {
+    s += sprintf(s, "} %s;\n", namespace);
+  } else {
+    s += sprintf(s, "};\n");
+  }
   *s = '\0';
 
   *length = size;

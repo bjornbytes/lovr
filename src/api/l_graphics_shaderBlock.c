@@ -103,8 +103,9 @@ static int l_lovrShaderBlockRead(lua_State* L) {
 static int l_lovrShaderBlockGetShaderCode(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
   const char* blockName = luaL_checkstring(L, 2);
+  const char* namespace = luaL_optstring(L, 3, NULL);
   size_t length;
-  char* code = lovrShaderBlockGetShaderCode(block, blockName, &length);
+  char* code = lovrShaderBlockGetShaderCode(block, blockName, namespace, &length);
   lua_pushlstring(L, code, length);
   free(code);
   return 1;
