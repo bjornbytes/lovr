@@ -37,17 +37,21 @@
 
 typedef struct Color { float r, g, b, a; } Color;
 
+// Error handling
 typedef void errorFn(void*, const char*, va_list);
-
 extern LOVR_THREAD_LOCAL errorFn* lovrErrorCallback;
 extern LOVR_THREAD_LOCAL void* lovrErrorUserdata;
-
-void lovrSetErrorCallback(errorFn* callback, void* context);
+void lovrSetErrorCallback(errorFn* callback, void* userdata);
 void LOVR_NORETURN lovrThrow(const char* format, ...);
-
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 
-// FNV1a
+// Logging
+typedef void logFn(void*, int, const char*, const char*, va_list);
+enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
+void lovrSetLogCallback(logFn* callback, void* userdata);
+void lovrLog(int level, const char* tag, const char* format, ...);
+
+// Hash function (FNV1a)
 static LOVR_INLINE uint64_t hash64(const void* data, size_t length) {
   const uint8_t* bytes = (const uint8_t*) data;
   uint64_t hash = 0xcbf29ce484222325;

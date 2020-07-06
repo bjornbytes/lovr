@@ -247,6 +247,10 @@ function lovr.threaderror(thread, err)
   error('Thread error\n\n' .. err, 0)
 end
 
+function lovr.log(message, level, tag)
+  print(message)
+end
+
 -- This splits up the string returned by luax_getstack so it looks like the error message plus the string from
 -- debug.traceback(). This includes splitting on the newline before 'stack traceback:' and appending a newline
 local function splitOnLabelLine(s, t)
