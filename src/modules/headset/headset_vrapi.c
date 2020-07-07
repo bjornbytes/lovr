@@ -418,7 +418,6 @@ static void vrapi_update(float dt) {
   ANativeWindow* window = lovrPlatformGetNativeWindow();
 
   if (!state.session && appState == APP_CMD_RESUME && window) {
-    printf("Entering VR\n");
     ovrModeParms config = vrapi_DefaultModeParms(&state.java);
     config.Flags &= ~VRAPI_MODE_FLAG_RESET_WINDOW_FULLSCREEN;
     config.Flags |= VRAPI_MODE_FLAG_NATIVE_WINDOW;
@@ -433,7 +432,6 @@ static void vrapi_update(float dt) {
       state.offset = 0.f;
     }
   } else if (state.session && (appState != APP_CMD_RESUME || !window)) {
-    printf("Leaving VR\n");
     vrapi_LeaveVrMode(state.session);
     state.session = NULL;
   }
