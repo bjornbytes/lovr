@@ -59,12 +59,6 @@ CONFIG_LUAJIT=y
 # Can be GL, GLES, or WEBGL.  Ideally this should be autodetected though.
 CONFIG_GL=GL
 
-## Experimental renderer settings
-# GPU enables the core/gpu renderer
-# GPU_BACKEND is used to select the backend (gl, vk, wg)
-CONFIG_GPU=n
-CONFIG_GPU_BACKEND=gl
-
 ## Android settings
 # ANDROID_SDK: The path to the Android SDK (should have folder named 'sdk' in it)
 # ANDROID_VERSION: The Android version to build against (usually 21 or 26)
