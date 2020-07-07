@@ -8,7 +8,7 @@
 # DEBUG: Include debug symbols in the build, increasing file size.
 # OPTIMIZE: Make the executable faster and smaller, but compile slower.
 # SANITIZE: Add extra runtime checks to detect memory leaks and undefined behavior (adds overhead).
-# CMAKE_DEPS: Assume libraries were built by CMake in the `build` folder.
+# CMAKE_DEPS: If building dependencies with CMake, set this to the CMake build folder.
 # EXTRA_CFLAGS: Additional compiler flags (e.g. libraries, warnings).
 # EXTRA_LDFLAGS: Additional linker flags.
 # PLATFORM: The platform to compile for (win32, macos, linux, android, web, or blank to autodetect).
@@ -17,7 +17,7 @@ CONFIG_STRICT=y
 CONFIG_DEBUG=y
 CONFIG_OPTIMIZE=n
 CONFIG_SANITIZE=n
-CONFIG_CMAKE_DEPS=y
+CONFIG_CMAKE_DEPS=build
 CONFIG_EXTRA_CFLAGS=
 CONFIG_EXTRA_LDFLAGS=
 CONFIG_PLATFORM=

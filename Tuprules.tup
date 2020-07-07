@@ -38,7 +38,6 @@ CFLAGS_@(OPENXR) += -DLOVR_USE_OPENXR
 CFLAGS_@(OCULUS) += -DLOVR_USE_OCULUS
 CFLAGS_@(OCULUS) += -I@(OCULUS_PATH)/LibOVR/Include
 CFLAGS_@(VRAPI) += -DLOVR_USE_VRAPI
-CFLAGS_@(VRAPI) += -I$(ROOT)/deps/VrApi/Include
 CFLAGS_@(WEBXR) += -DLOVR_USE_WEBXR
 CFLAGS_@(LEAP) += -DLOVR_USE_LEAP
 
@@ -50,6 +49,8 @@ else
 endif
 
 LIB = libs
+BUILD = @(CMAKE_DEPS)
+DEPS = $(ROOT)/deps
 
 ## Windows
 ifeq ($(PLATFORM),win32)
@@ -65,35 +66,35 @@ ifeq ($(PLATFORM),win32)
     CONFIG = Debug
   endif
 
-  ifeq (@(CMAKE_DEPS),y)
+  ifneq ($(BUILD),)
     ifeq (@(LUAJIT),y)
-      CFLAGS += -I$(ROOT)/deps/luajit/src
-      LDFLAGS += -L$(ROOT)/build/luajit/src/$(CONFIG) -lluajit
-      LIBS += $(ROOT)/build/luajit/src/$(CONFIG)/luajit.dll
+      CFLAGS += -I$(DEPS)/luajit/src
+      LDFLAGS += -L$(BUILD)/luajit/src/$(CONFIG) -lluajit
+      LIBS += $(BUILD)/luajit/src/$(CONFIG)/luajit.dll
     else
-      CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
-      LDFLAGS += -L$(ROOT)/build/lua/$(CONFIG) -llua
+      CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
+      LDFLAGS += -L$(BUILD)/lua/$(CONFIG) -llua
     endif
 
-    CFLAGS += -I$(ROOT)/deps/glfw/include
-    CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
-    CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
-    CFLAGS_@(OPENVR) += -I$(ROOT)/deps/openvr/headers
-    CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
-    CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
+    CFLAGS += -I$(DEPS)/glfw/include
+    CFLAGS_@(AUDIO) += -I$(DEPS)/openal-soft/include
+    CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
+    CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers
+    CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
+    CFLAGS_@(ENET) += -I$(DEPS)/enet/include
 
-    LDFLAGS += -L$(ROOT)/build/glfw/src/$(CONFIG) -lglfw3dll
-    LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal/$(CONFIG) -lOpenAL32
-    LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen/$(CONFIG) -lmsdfgen
-    LDFLAGS_@(OPENVR) += -L$(ROOT)/deps/openvr/bin/win64/$(CONFIG) -lopenvr_api64
-    LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode/$(CONFIG) -lode
-    LDFLAGS_@(ENET) += -L$(ROOT)/build/enet/$(CONFIG) -lenet
+    LDFLAGS += -L$(BUILD)/glfw/src/$(CONFIG) -lglfw3dll
+    LDFLAGS_@(AUDIO) += -L$(BUILD)/openal/$(CONFIG) -lOpenAL32
+    LDFLAGS_@(DATA) += -L$(BUILD)/lib_msdfgen/$(CONFIG) -lmsdfgen
+    LDFLAGS_@(OPENVR) += -L$(DEPS)/openvr/bin/win64/$(CONFIG) -lopenvr_api64
+    LDFLAGS_@(PHYSICS) += -L$(BUILD)/ode/$(CONFIG) -lode
+    LDFLAGS_@(ENET) += -L$(BUILD)/enet/$(CONFIG) -lenet
 
-    LIBS += $(ROOT)/build/glfw/src/$(CONFIG)/glfw3.dll
-    LIBS_@(AUDIO) += $(ROOT)/build/glfw/src/$(CONFIG)/glfw3.dll
-    LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/$(CONFIG)/msdfgen.dll
-    LIBS_@(OPENVR) += $(ROOT)/deps/openvr/bin/win64/openvr_api.dll
-    LIBS_@(PHYSICS) += $(ROOT)/build/ode/$(CONFIG)/ode.dll
+    LIBS += $(BUILD)/glfw/src/$(CONFIG)/glfw3.dll
+    LIBS_@(AUDIO) += $(BUILD)/glfw/src/$(CONFIG)/glfw3.dll
+    LIBS_@(DATA) += $(BUILD)/lib_msdfgen/$(CONFIG)/msdfgen.dll
+    LIBS_@(OPENVR) += $(DEPS)/openvr/bin/win64/openvr_api.dll
+    LIBS_@(PHYSICS) += $(BUILD)/ode/$(CONFIG)/ode.dll
   endif
 endif
 
@@ -103,35 +104,35 @@ ifeq ($(PLATFORM),macosx)
   LDFLAGS += -lobjc
   LDFLAGS += -Wl,-rpath,@executable_path/$(LIB)
 
-  ifeq (@(CMAKE_DEPS),y)
+  ifneq ($(BUILD),)
     ifeq (@(LUAJIT),y)
-      CFLAGS += -I$(ROOT)/deps/luajit/src
-      LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit -pagezero_size 10000 -image_base 100000000
-      LIBS += $(ROOT)/build/luajit/src/libluajit.dylib
+      CFLAGS += -I$(DEPS)/luajit/src
+      LDFLAGS += -L$(BUILD)/luajit/src -lluajit -pagezero_size 10000 -image_base 100000000
+      LIBS += $(BUILD)/luajit/src/libluajit.dylib
     else
-      CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
-      LDFLAGS += -L$(ROOT)/build/lua -llua
+      CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
+      LDFLAGS += -L$(BUILD)/lua -llua
     endif
 
-    CFLAGS += -I$(ROOT)/deps/glfw/include
-    CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
-    CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
-    CFLAGS_@(OPENVR) += -I$(ROOT)/deps/openvr/headers
-    CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
-    CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
+    CFLAGS += -I$(DEPS)/glfw/include
+    CFLAGS_@(AUDIO) += -I$(DEPS)/openal-soft/include
+    CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
+    CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers
+    CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
+    CFLAGS_@(ENET) += -I$(DEPS)/enet/include
 
-    LDFLAGS += -L$(ROOT)/build/glfw/src -lglfw
-    LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal -lopenal
-    LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
-    LDFLAGS_@(OPENVR) += -L$(ROOT)/build/openvr_api -lopenvr_api
-    LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
-    LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
+    LDFLAGS += -L$(BUILD)/glfw/src -lglfw
+    LDFLAGS_@(AUDIO) += -L$(BUILD)/openal -lopenal
+    LDFLAGS_@(DATA) += -L$(BUILD)/lib_msdfgen -lmsdfgen
+    LDFLAGS_@(OPENVR) += -L$(BUILD)/openvr_api -lopenvr_api
+    LDFLAGS_@(PHYSICS) += -L$(BUILD)/ode -lode
+    LDFLAGS_@(ENET) += -L$(BUILD)/enet -lenet
 
-    LIBS += $(ROOT)/build/glfw/src/libglfw.*dylib
-    LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*dylib
-    LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.dylib
-    LIBS_@(OPENVR) += $(ROOT)/build/openvr_api/libopenvr_api.dylib
-    LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.dylib
+    LIBS += $(BUILD)/glfw/src/libglfw.*dylib
+    LIBS_@(AUDIO) += $(BUILD)/openal/libopenal.*dylib
+    LIBS_@(DATA) += $(BUILD)/lib_msdfgen/libmsdfgen.dylib
+    LIBS_@(OPENVR) += $(BUILD)/openvr_api/libopenvr_api.dylib
+    LIBS_@(PHYSICS) += $(BUILD)/ode/libode.dylib
   endif
 endif
 
@@ -140,35 +141,35 @@ ifeq ($(PLATFORM),linux)
   LDFLAGS += -lm -lpthread
   LDFLAGS += -Wl,-rpath,\$ORIGIN/$(LIB)
 
-  ifeq (@(CMAKE_DEPS),y)
+  ifneq ($(BUILD),)
     ifeq (@(LUAJIT),y)
-      CFLAGS += -I$(ROOT)/deps/luajit/src
-      LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit
-      LIBS += $(ROOT)/build/luajit/src/libluajit.so
+      CFLAGS += -I$(DEPS)/luajit/src
+      LDFLAGS += -L$(BUILD)/luajit/src -lluajit
+      LIBS += $(BUILD)/luajit/src/libluajit.so
     else
-      CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
-      LDFLAGS += -L$(ROOT)/build/lua -llua
+      CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
+      LDFLAGS += -L$(BUILD)/lua -llua
     endif
 
-    CFLAGS += -I$(ROOT)/deps/glfw/include
-    CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
-    CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
-    CFLAGS_@(OPENVR) += -I$(ROOT)/deps/openvr/headers
-    CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
-    CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
+    CFLAGS += -I$(DEPS)/glfw/include
+    CFLAGS_@(AUDIO) += -I$(DEPS)/openal-soft/include
+    CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
+    CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers
+    CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
+    CFLAGS_@(ENET) += -I$(DEPS)/enet/include
 
-    LDFLAGS += -L$(ROOT)/build/glfw/src -lglfw
-    LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal -lopenal
-    LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
-    LDFLAGS_@(OPENVR) += -L$(ROOT)/build/openvr_api -lopenvr_api
-    LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
-    LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
+    LDFLAGS += -L$(BUILD)/glfw/src -lglfw
+    LDFLAGS_@(AUDIO) += -L$(BUILD)/openal -lopenal
+    LDFLAGS_@(DATA) += -L$(BUILD)/lib_msdfgen -lmsdfgen
+    LDFLAGS_@(OPENVR) += -L$(BUILD)/openvr_api -lopenvr_api
+    LDFLAGS_@(PHYSICS) += -L$(BUILD)/ode -lode
+    LDFLAGS_@(ENET) += -L$(BUILD)/enet -lenet
 
-    LIBS += $(ROOT)/build/glfw/src/libglfw.*so*
-    LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*so*
-    LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.so
-    LIBS_@(OPENVR) += $(ROOT)/build/openvr_api/libopenvr_api.so
-    LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.so
+    LIBS += $(BUILD)/glfw/src/libglfw.*so*
+    LIBS_@(AUDIO) += $(BUILD)/openal/libopenal.*so*
+    LIBS_@(DATA) += $(BUILD)/lib_msdfgen/libmsdfgen.so
+    LIBS_@(OPENVR) += $(BUILD)/openvr_api/libopenvr_api.so
+    LIBS_@(PHYSICS) += $(BUILD)/ode/libode.so
   endif
 endif
 
@@ -178,7 +179,7 @@ ifeq ($(PLATFORM),android)
   TOOLS = @(ANDROID_SDK)/sdk/build-tools/@(ANDROID_BUILD_TOOLS_VERSION)
   ANDROID_JAR = @(ANDROID_SDK)/sdk/platforms/android-@(ANDROID_VERSION)/android.jar
   GLUE = @(ANDROID_SDK)/sdk/ndk-bundle/sources/android/native_app_glue
-  VRAPI_LIB_PATH = $(ROOT)/deps/VrApi/Libs/Android/arm64-v8a/Release
+  VRAPI_LIB_PATH = $(DEPS)/VrApi/Libs/Android/arm64-v8a/Release
   CFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
   CFLAGS += -I$(GLUE)
   LDFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
@@ -199,29 +200,30 @@ ifeq ($(PLATFORM),android)
   !zipalign = |> ^ ZIPALIGN %f^ $(TOOLS)/zipalign -f 4 %f %o |>
   !apksigner = |> ^ APKSIGNER %o^ $(TOOLS)/apksigner sign --ks @(ANDROID_KEYSTORE) --ks-pass @(ANDROID_KEYSTORE_PASS) --out %o %f |>
 
-  ifeq (@(CMAKE_DEPS),y)
+  ifneq ($(BUILD),)
     ifeq (@(LUAJIT),y)
-      CFLAGS += -I$(ROOT)/deps/luajit/src
-      LDFLAGS += -L$(ROOT)/build/luajit/src -lluajit
-      STATIC_LIBS += $(ROOT)/build/luajit/src/libluajit.a
+      CFLAGS += -I$(DEPS)/luajit/src
+      LDFLAGS += -L$(BUILD)/luajit/src -lluajit
+      STATIC_LIBS += $(BUILD)/luajit/src/libluajit.a
     else
-      CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
-      LDFLAGS += -L$(ROOT)/build/lua -llua
+      CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
+      LDFLAGS += -L$(BUILD)/lua -llua
     endif
 
-    CFLAGS_@(AUDIO) += -I$(ROOT)/deps/openal-soft/include
-    CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
-    CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
-    CFLAGS_@(ENET) += -I$(ROOT)/deps/enet/include
+    CFLAGS_@(AUDIO) += -I$(DEPS)/openal-soft/include
+    CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
+    CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
+    CFLAGS_@(ENET) += -I$(DEPS)/enet/include
+    CFLAGS_@(VRAPI) += -I$(DEPS)/VrApi/Include
 
-    LDFLAGS_@(AUDIO) += -L$(ROOT)/build/openal -lopenal
-    LDFLAGS_@(DATA) += -L$(ROOT)/build/lib_msdfgen -lmsdfgen
-    LDFLAGS_@(PHYSICS) += -L$(ROOT)/build/ode -lode
-    LDFLAGS_@(ENET) += -L$(ROOT)/build/enet -lenet
+    LDFLAGS_@(AUDIO) += -L$(BUILD)/openal -lopenal
+    LDFLAGS_@(DATA) += -L$(BUILD)/lib_msdfgen -lmsdfgen
+    LDFLAGS_@(PHYSICS) += -L$(BUILD)/ode -lode
+    LDFLAGS_@(ENET) += -L$(BUILD)/enet -lenet
     LDFLAGS_@(VRAPI) += -L$(VRAPI_LIB_PATH) -lvrapi
 
-    LIBS_@(AUDIO) += $(ROOT)/build/openal/libopenal.*so*
-    LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.so
+    LIBS_@(AUDIO) += $(BUILD)/openal/libopenal.*so*
+    LIBS_@(PHYSICS) += $(BUILD)/ode/libode.so
     LIBS_@(VRAPI) += $(VRAPI_LIB_PATH)/libvrapi.so
   endif
 endif
@@ -248,13 +250,13 @@ ifeq ($(PLATFORM),web)
   CFLAGS_@(THREAD) += -s USE_PTHREADS=1
   LDFLAGS_@(THREAD) += -s USE_PTHREADS=1
 
-  CFLAGS += -I$(ROOT)/deps/lua/src -I$(ROOT)/build/lua
-  CFLAGS_@(DATA) += -I$(ROOT)/deps/msdfgen
-  CFLAGS_@(PHYSICS) += -I$(ROOT)/deps/ode/include -I$(ROOT)/build/ode/include
+  CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
+  CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
+  CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
 
-  STATIC_LIBS += $(ROOT)/build/lua/liblua.a
-  STATIC_LIBS_@(DATA) += $(ROOT)/build/lib_msdfgen/libmsdfgen.a
-  STATIC_LIBS_@(PHYSICS) += $(ROOT)/build/ode/libode.a
+  STATIC_LIBS += $(BUILD)/lua/liblua.a
+  STATIC_LIBS_@(DATA) += $(BUILD)/lib_msdfgen/libmsdfgen.a
+  STATIC_LIBS_@(PHYSICS) += $(BUILD)/ode/libode.a
 endif
 
 LIBS += $(LIBS_y)
