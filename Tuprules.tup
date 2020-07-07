@@ -22,7 +22,6 @@ CFLAGS_@(DATA) += -DLOVR_ENABLE_DATA
 CFLAGS_@(EVENT) += -DLOVR_ENABLE_EVENT
 CFLAGS_@(FILESYSTEM) += -DLOVR_ENABLE_FILESYSTEM
 CFLAGS_@(GRAPHICS) += -DLOVR_ENABLE_GRAPHICS
-CFLAGS_@(GRAPHICS) += -DLOVR_@(GL)
 CFLAGS_@(HEADSET) += -DLOVR_ENABLE_HEADSET
 CFLAGS_@(MATH) += -DLOVR_ENABLE_MATH
 CFLAGS_@(PHYSICS) += -DLOVR_ENABLE_PHYSICS
@@ -57,6 +56,7 @@ ifeq ($(PLATFORM),win32)
   CFLAGS += -D_CRT_SECURE_NO_WARNINGS
   CFLAGS += -Wno-language-extension-token
   LDFLAGS += -lShell32 -lOle32
+  CFLAGS_@(GRAPHICS) += -DLOVR_GL
   EXTRAS += lovr.lib lovr.exp
   SUFFIX = .exe
 
@@ -103,6 +103,7 @@ ifeq ($(PLATFORM),macosx)
   PLATFORM = macos
   LDFLAGS += -lobjc
   LDFLAGS += -Wl,-rpath,@executable_path/$(LIB)
+  CFLAGS_@(GRAPHICS) += -DLOVR_GL
 
   ifneq ($(BUILD),)
     ifeq (@(LUAJIT),y)
@@ -140,6 +141,7 @@ endif
 ifeq ($(PLATFORM),linux)
   LDFLAGS += -lm -lpthread
   LDFLAGS += -Wl,-rpath,\$ORIGIN/$(LIB)
+  CFLAGS_@(GRAPHICS) += -DLOVR_GL
 
   ifneq ($(BUILD),)
     ifeq (@(LUAJIT),y)
@@ -190,6 +192,7 @@ ifeq ($(PLATFORM),android)
   LIB = lib/arm64-v8a
   PREFIX = $(LIB)/lib
   SUFFIX = .so
+  CFLAGS_@(GRAPHICS) += -DLOVR_GLES
 
   ifneq (@(ANDROID_ASSETS),)
     ANDROID_ASSETS = -A @(ANDROID_ASSETS)
@@ -249,6 +252,7 @@ ifeq ($(PLATFORM),web)
   LDFLAGS += --shell-file $(ROOT)/src/resources/lovr.html
   CFLAGS_@(THREAD) += -s USE_PTHREADS=1
   LDFLAGS_@(THREAD) += -s USE_PTHREADS=1
+  CFLAGS_@(GRAPHICS) += -DLOVR_WEBGL
 
   CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
   CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
