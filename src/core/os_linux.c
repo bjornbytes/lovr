@@ -1,6 +1,10 @@
 #include "os.h"
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <pwd.h>
 
 #include "os_glfw.h"
 
@@ -97,7 +101,7 @@ size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
 }
 
 size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
-  ssize_t length = readlink("/proc/self/exe", buffer, size - 1);
+  size_t length = readlink("/proc/self/exe", buffer, size - 1);
   if (length >= 0) {
     buffer[length] = '\0';
     return length;
