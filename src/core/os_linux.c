@@ -101,7 +101,7 @@ size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
 }
 
 size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
-  size_t length = readlink("/proc/self/exe", buffer, size - 1);
+  ssize_t length = readlink("/proc/self/exe", buffer, size - 1);
   if (length >= 0) {
     buffer[length] = '\0';
     return length;
