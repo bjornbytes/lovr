@@ -78,7 +78,7 @@ size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
 }
 
 size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
-  WCHAR wpath[FS_PATH_MAX];
+  WCHAR wpath[1024];
   int length = GetCurrentDirectoryW((int) size, wpath);
   if (length) {
     return WideCharToMultiByte(CP_UTF8, 0, wpath, length + 1, buffer, (int) size, NULL, NULL) - 1;
@@ -87,9 +87,9 @@ size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
 }
 
 size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
-  WCHAR wpath[FS_PATH_MAX];
-  DWORD length = GetModuleFileNameW(NULL, wpath, FS_PATH_MAX);
-  if (length < FS_PATH_MAX) {
+  WCHAR wpath[1024];
+  DWORD length = GetModuleFileNameW(NULL, wpath, 1024);
+  if (length < 1024) {
     return WideCharToMultiByte(CP_UTF8, 0, wpath, length + 1, buffer, (int) size, NULL, NULL) - 1;
   }
   return 0;
