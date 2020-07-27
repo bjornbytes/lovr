@@ -650,7 +650,7 @@ elseif(ANDROID)
       POST_BUILD
       BYPRODUCTS lovr.apk
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity.java Activity.java
+      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ANDROID_ACTIVITY}.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_JAR}" -d . Activity.java
       COMMAND ${ANDROID_TOOLS}/dx --dex --output classes.dex org/lovr/app/Activity.class
       COMMAND
