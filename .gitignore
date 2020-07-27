@@ -34,3 +34,4 @@ bin
 .vs
 /test
 deps/VrApi
+deps/pico

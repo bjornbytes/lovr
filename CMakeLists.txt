@@ -24,6 +24,7 @@ option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
 option(LOVR_USE_VRAPI "Enable the VrApi backend for the headset module" OFF)
+option(LOVR_USE_PICO "Enable the Pico backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_LEAP "Enable the Leap Motion backend for the headset module" OFF)
 
@@ -296,6 +297,14 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_VRAPI)
   set(LOVR_VRAPI VrApi)
 endif()
 
+# Pico Native SDK (1.3.3)
+if(LOVR_ENABLE_HEADSET AND LOVR_USE_PICO)
+  set(LOVR_PICO_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico" CACHE STRING "The path to the Pico SDK folder (unzipped aar)")
+  add_library(Pvr_NativeSDK SHARED IMPORTED)
+  set_target_properties(Pvr_NativeSDK PROPERTIES IMPORTED_LOCATION "${LOVR_PICO_PATH}/jni/${ANDROID_ABI}/libPvr_NativeSDK.so")
+  set(LOVR_PICO Pvr_NativeSDK)
+endif()
+
 # pthreads
 if(LOVR_ENABLE_THREAD)
   if(NOT WIN32 AND NOT EMSCRIPTEN)
@@ -367,6 +376,7 @@ target_link_libraries(lovr
   ${LOVR_OPENXR}
   ${LOVR_OCULUS}
   ${LOVR_VRAPI}
+  ${LOVR_PICO}
   ${LOVR_LEAP}
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
@@ -471,6 +481,10 @@ if(LOVR_ENABLE_HEADSET)
   if(LOVR_USE_VRAPI)
     add_definitions(-DLOVR_USE_VRAPI)
     target_sources(lovr PRIVATE src/modules/headset/headset_vrapi.c)
+  endif()
+  if(LOVR_USE_PICO)
+    add_definitions(-DLOVR_USE_PICO)
+    target_sources(lovr PRIVATE src/modules/headset/headset_pico.c)
   endif()
   if(LOVR_USE_WEBVR)
     add_definitions(-DLOVR_USE_WEBVR)
@@ -636,13 +650,22 @@ elseif(ANDROID)
       PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib/${ANDROID_ABI}"
     )
 
-    # Imported targets need to have their libraries manually copied to lib/<ABI>
-    # We also figure out which Java class (Activity) we're using here
+    # Flavor-specific config:
+    # - Imported targets need to have their libraries manually copied to lib/<ABI>
+    # - Figure out which Java class (Activity) and AndroidManifest.xml to use
+    # - Oculus uses the regular android os layer, pico implements its own in the headset backend
+    # - Some of the Pico SDK is in a jar that has to be added to the classpath and dx invocation
+    # TODO error (probably way earlier) if both USE_VRAPI and USE_PICO aren't defined
     if(LOVR_USE_VRAPI)
       get_target_property(VRAPI_LIB ${LOVR_VRAPI} IMPORTED_LOCATION)
       file(COPY ${VRAPI_LIB} DESTINATION lib/${ANDROID_ABI})
       set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_vrapi.xml" CACHE STRING "The AndroidManifest.xml path")
       set(ANDROID_ACTIVITY "vrapi")
+    elseif(LOVR_USE_PICO)
+      get_target_property(PICO_LIB ${LOVR_PICO} IMPORTED_LOCATION)
+      file(COPY ${PICO_LIB} DESTINATION lib/${ANDROID_ABI})
+      set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_pico.xml" CACHE STRING "The AndroidManifest.xml path")
+      set(ANDROID_ACTIVITY "pico")
     endif()
 
     # Make an apk
