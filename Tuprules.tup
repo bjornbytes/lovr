@@ -37,6 +37,7 @@ CFLAGS_@(OPENXR) += -DLOVR_USE_OPENXR
 CFLAGS_@(OCULUS) += -DLOVR_USE_OCULUS
 CFLAGS_@(OCULUS) += -I@(OCULUS_PATH)/LibOVR/Include
 CFLAGS_@(VRAPI) += -DLOVR_USE_VRAPI
+CFLAGS_@(PICO) += -DLOVR_USE_PICO
 CFLAGS_@(WEBXR) += -DLOVR_USE_WEBXR
 CFLAGS_@(LEAP) += -DLOVR_USE_LEAP
 
@@ -182,6 +183,7 @@ ifeq ($(PLATFORM),android)
   ANDROID_JAR = @(ANDROID_SDK)/sdk/platforms/android-@(ANDROID_VERSION)/android.jar
   GLUE = @(ANDROID_SDK)/sdk/ndk-bundle/sources/android/native_app_glue
   VRAPI_LIB_PATH = $(DEPS)/VrApi/Libs/Android/arm64-v8a/Release
+  PICO_LIB_PATH = $(DEPS)/pico/jni/arm64-v8a
   CFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
   CFLAGS += -I$(GLUE)
   LDFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
@@ -193,9 +195,28 @@ ifeq ($(PLATFORM),android)
   PREFIX = $(LIB)/lib
   SUFFIX = .so
   CFLAGS_@(GRAPHICS) += -DLOVR_GLES
+  ACTIVITY_@(VRAPI) = Activity_vrapi
+  ACTIVITY_@(PICO) = Activity_pico
+
+  ifeq (@(ANDROID_MANIFEST),)
+    ANDROID_MANIFEST_@(VRAPI) = src/resources/AndroidManifest_vrapi.xml
+    ANDROID_MANIFEST_@(PICO) = src/resources/AndroidManifest_pico.xml
+  else
+    ANDROID_MANIFEST_y = @(ANDROID_MANIFEST)
+  endif
 
   ifneq (@(ANDROID_ASSETS),)
     ANDROID_ASSETS = -A @(ANDROID_ASSETS)
+  endif
+
+  CLASSPATH = $(ANDROID_JAR)
+  ifeq (@(PICO),y)
+    EXTRA_JARS = $(DEPS)/pico/classes.jar
+    ifeq (@(TUP_PLATFORM),win32)
+      CLASSPATH = "$(CLASSPATH);$(EXTRA_JARS)"
+    else
+      CLASSPATH = "$(CLASSPATH):$(EXTRA_JARS)"
+    endif
   endif
 
   # Macros
@@ -219,15 +240,17 @@ ifeq ($(PLATFORM),android)
     CFLAGS_@(ENET) += -I$(DEPS)/enet/include
     CFLAGS_@(VRAPI) += -I$(DEPS)/VrApi/Include
 
-    LDFLAGS_@(AUDIO) += -L$(BUILD)/openal -lopenal
+    LDFLAGS_@(AUDIO) += -L$(BUILD)/$(LIB) -lopenal
     LDFLAGS_@(DATA) += -L$(BUILD)/lib_msdfgen -lmsdfgen
-    LDFLAGS_@(PHYSICS) += -L$(BUILD)/ode -lode
+    LDFLAGS_@(PHYSICS) += -L$(BUILD)/$(LIB) -lode
     LDFLAGS_@(ENET) += -L$(BUILD)/enet -lenet
     LDFLAGS_@(VRAPI) += -L$(VRAPI_LIB_PATH) -lvrapi
+    LDFLAGS_@(PICO) += -L$(PICO_LIB_PATH) -lPvr_NativeSDK
 
-    LIBS_@(AUDIO) += $(BUILD)/openal/libopenal.*so*
-    LIBS_@(PHYSICS) += $(BUILD)/ode/libode.so
+    LIBS_@(AUDIO) += $(BUILD)/$(LIB)/libopenal.*so*
+    LIBS_@(PHYSICS) += $(BUILD)/$(LIB)/libode.so
     LIBS_@(VRAPI) += $(VRAPI_LIB_PATH)/libvrapi.so
+    LIBS_@(PICO) += $(PICO_LIB_PATH)/libPvr_NativeSDK.so
   endif
 endif
 

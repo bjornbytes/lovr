@@ -637,6 +637,12 @@ elseif(ANDROID)
   target_compile_definitions(lovr PRIVATE -DLOVR_GLES)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
 
+  # Dynamically linked targets output libraries in lib/<ABI> for easy including in apk with aapt
+  set_target_properties(
+    lovr ${LOVR_ODE} ${LOVR_OPENAL}
+    PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib/${ANDROID_ABI}"
+  )
+
   if(LOVR_BUILD_EXE)
     get_filename_component(ANDROID_SDK "${ANDROID_NDK}" DIRECTORY) # SDK root is parent of NDK dir
     set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
@@ -646,12 +652,6 @@ elseif(ANDROID)
     if(ANDROID_ASSETS)
       set(ANDROID_ASSETS -A ${ANDROID_ASSETS})
     endif()
-
-    # Dynamically linked targets output libraries in lib/<ABI> and are copied to the apk with aapt
-    set_target_properties(
-      lovr ${LOVR_ODE} ${LOVR_OPENAL}
-      PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib/${ANDROID_ABI}"
-    )
 
     # Flavor-specific config:
     # - Imported targets need to have their libraries manually copied to lib/<ABI>

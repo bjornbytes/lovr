@@ -1,12 +1,16 @@
 include_rules
 
 # core
+ifneq (@(PICO),y)
 SRC += src/main.c
+endif
 SRC += src/core/arr.c
 SRC += src/core/fs.c
 SRC += src/core/maf.c
 SRC += src/core/map.c
+ifneq (@(PICO),y)
 SRC += src/core/os_$(PLATFORM).c
+endif
 SRC += src/core/png.c
 SRC += src/core/ref.c
 SRC += src/core/utf.c
@@ -25,6 +29,7 @@ SRC_@(HEADSET)@(OPENVR) += src/modules/headset/headset_openvr.c
 SRC_@(HEADSET)@(OPENXR) += src/modules/headset/headset_openxr.c
 SRC_@(HEADSET)@(OCULUS) += src/modules/headset/headset_oculus.c
 SRC_@(HEADSET)@(VRAPI) += src/modules/headset/headset_vrapi.c
+SRC_@(HEADSET)@(PICO) += src/modules/headset/headset_pico.c
 SRC_@(HEADSET)@(WEBVR) += src/modules/headset/headset_webvr.c
 SRC_@(HEADSET)@(WEBXR) += src/modules/headset/headset_webxr.c
 SRC_@(HEADSET)@(LEAP) += src/modules/headset/headset_leap.c
@@ -77,12 +82,14 @@ ifeq ($(PLATFORM),android)
   # There needs to be a Java class for the activity with 2 lines of code to load native libraries.
   # It gets compiled to a class file with javac and then into bytecode using dx
   CLASS = org/lovr/app/Activity.class
-  : src/resources/Activity.java |> ^ JAVAC %b^ javac -classpath $(ANDROID_JAR) -d . %f |> $(CLASS)
-  : $(CLASS) |> !dx |> classes.dex
+  : src/resources/$(ACTIVITY_y).java |> !cp |> src/resources/Activity.java
+  : src/resources/Activity.java |> ^ JAVAC %b^ javac -classpath $(CLASSPATH) -d . %f |> $(CLASS)
+  : $(CLASS) $(EXTRA_JARS) |> !dx |> classes.dex
 
   # Create an apk from the Android manifest.  The zip command is used afterwards to add raw files
   # because it is way faster than calling aapt again and apks are just zips (TODO windows).
-  : @(ANDROID_MANIFEST) | $(LIB)/*.so classes.dex |> ^ AAPT %b^ aapt package -F %o -M %f -I $(ANDROID_JAR) $(ANDROID_ASSETS) && zip -qu0 %o $(LIB)/*.so classes.dex |> tmp/lovr.unaligned.apk
+  : $(ANDROID_MANIFEST_y) |> !cp |> src/resources/AndroidManifest.xml
+  : src/resources/AndroidManifest.xml | $(LIB)/*.so classes.dex |> ^ AAPT %b^ aapt package -F %o -M %f -I $(ANDROID_JAR) $(ANDROID_ASSETS) && zip -qu0 %o $(LIB)/*.so classes.dex |> tmp/lovr.unaligned.apk
 
   # Even though we have an apk, it isn't actually valid yet.  It has to be aligned using the special
   # zipalign tool, and then signed using apksigner.
