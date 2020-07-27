@@ -672,7 +672,8 @@ elseif(ANDROID)
         --ks-pass ${ANDROID_KEYSTORE_PASS}
         --in lovr.unsigned.apk
         --out lovr.apk
-      COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk
+      COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk Activity.java classes.dex
+      COMMAND ${CMAKE_COMMAND} -E remove_directory org
     )
   endif()
 elseif(UNIX)
