@@ -614,104 +614,66 @@ elseif(EMSCRIPTEN)
   target_compile_definitions(lovr PRIVATE -DLOVR_WEBGL)
 elseif(ANDROID)
   target_sources(lovr PRIVATE src/core/os_android.c)
-  target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
   target_link_libraries(lovr log EGL GLESv3 android)
   target_compile_definitions(lovr PRIVATE -DLOVR_GLES)
+  target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
 
-  # Variables
-  get_filename_component(ANDROID_SDK "${ANDROID_NDK}/.." ABSOLUTE)
-  file(TO_CMAKE_PATH "${ANDROID_SDK}" ANDROID_SDK)
-  set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
-  set(ANDROID_BUILD_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
-  set(ACTIVITY_JAVA "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity.java")
-  set(ACTIVITY_CLASS "org/lovr/app/Activity.class")
-  set(ANDROID_LIBS_SRC "liblovr.so")
-  set(ANDROID_LIBS_DST "lib/${ANDROID_ABI}/liblovr.so")
+  if(LOVR_BUILD_EXE)
+    get_filename_component(ANDROID_SDK "${ANDROID_NDK}" DIRECTORY) # SDK root is parent of NDK dir
+    set(ANDROID_JAR "${ANDROID_SDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/android.jar")
+    set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
 
-  if(LOVR_ENABLE_AUDIO)
-    set(ANDROID_LIBS_SRC ${ANDROID_LIBS_SRC} "openal/libopenal.so")
-    set(ANDROID_LIBS_DST ${ANDROID_LIBS_DST} "lib/${ANDROID_ABI}/libopenal.so")
+    # If assets are included in the apk then add '-A assets' to aapt, otherwise don't add any flags
+    if(ANDROID_ASSETS)
+      set(ANDROID_ASSETS -A ${ANDROID_ASSETS})
+    endif()
+
+    # Dynamically linked targets output libraries in lib/<ABI> and are copied to the apk with aapt
+    set_target_properties(
+      lovr ${LOVR_ODE} ${LOVR_OPENAL}
+      PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib/${ANDROID_ABI}"
+    )
+
+    # Imported targets need to have their libraries manually copied to lib/<ABI>
+    # We also figure out which Java class (Activity) we're using here
+    if(LOVR_USE_VRAPI)
+      file(COPY "${LOVR_VRAPI}" DESTINATION lib/${ANDROID_ABI})
+      set(ANDROID_ACTIVITY "vrapi")
+    endif()
+
+    # Glob all the libraries to include in the apk for aapt to use
+    file(GLOB ANDROID_LIBS RELATIVE ${CMAKE_CURRENT_BINARY_DIR} "${CMAKE_CURRENT_BINARY_DIR}/lib/${ANDROID_ABI}/*.so")
+
+    # Make an apk
+    add_custom_command(
+      TARGET lovr
+      POST_BUILD
+      BYPRODUCTS lovr.apk
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity.java Activity.java
+      COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_JAR}" -d . Activity.java
+      COMMAND ${ANDROID_TOOLS}/dx --dex --output classes.dex org/lovr/app/Activity.class
+      COMMAND
+        ${ANDROID_TOOLS}/aapt
+        package -f
+        -M ${ANDROID_MANIFEST}
+        -I ${ANDROID_JAR}
+        -F lovr.unaligned.apk
+        ${ANDROID_ASSETS}
+      COMMAND
+        ${ANDROID_TOOLS}/aapt
+        add -f lovr.unaligned.apk
+        classes.dex ${ANDROID_LIBS}
+      COMMAND ${ANDROID_TOOLS}/zipalign -f 4 lovr.unaligned.apk lovr.unsigned.apk
+      COMMAND ${ANDROID_TOOLS}/apksigner
+        sign
+        --ks ${ANDROID_KEYSTORE}
+        --ks-pass ${ANDROID_KEYSTORE_PASS}
+        --in lovr.unsigned.apk
+        --out lovr.apk
+      COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk
+    )
   endif()
-
-  if(LOVR_ENABLE_PHYSICS)
-    set(ANDROID_LIBS_SRC ${ANDROID_LIBS_SRC} "ode/libode.so")
-    set(ANDROID_LIBS_DST ${ANDROID_LIBS_DST} "lib/${ANDROID_ABI}/libode.so")
-  endif()
-
-  if(LOVR_USE_VRAPI)
-    set(ANDROID_LIBS_SRC ${ANDROID_LIBS_SRC} "${LOVR_VRAPI}")
-    set(ANDROID_LIBS_DST ${ANDROID_LIBS_DST} "lib/${ANDROID_ABI}/libvrapi.so")
-  endif()
-
-  if(ANDROID_ASSETS)
-    set(ANDROID_ASSETS_FLAG -A ${ANDROID_ASSETS})
-  endif()
-
-  # Compile java file to class file
-  add_custom_command(
-    OUTPUT ${ACTIVITY_CLASS}
-    COMMAND ${Java_JAVAC_EXECUTABLE}
-      -classpath "${ANDROID_JAR}"
-      -d .
-      ${ACTIVITY_JAVA}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-  )
-
-  # Compile class file to dex file
-  add_custom_command(
-    OUTPUT classes.dex
-    COMMAND ${ANDROID_BUILD_TOOLS}/dx
-      --dex
-      --output=classes.dex
-      ${ACTIVITY_CLASS}
-    DEPENDS ${ACTIVITY_CLASS}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-  )
-
-  # Make an apk
-  add_custom_command(
-    OUTPUT lovr.unaligned.apk
-    COMMAND ${CMAKE_COMMAND} -E make_directory lib/${ANDROID_ABI}
-    COMMAND ${CMAKE_COMMAND} -E copy ${ANDROID_LIBS_SRC} lib/${ANDROID_ABI}
-    COMMAND
-      ${ANDROID_BUILD_TOOLS}/aapt
-      package -f
-      -M ${ANDROID_MANIFEST}
-      -I ${ANDROID_JAR}
-      -F lovr.unaligned.apk
-      ${ANDROID_ASSETS_FLAG}
-    COMMAND
-      ${ANDROID_BUILD_TOOLS}/aapt
-      add -f
-      lovr.unaligned.apk
-      classes.dex
-      ${ANDROID_LIBS_DST}
-    DEPENDS classes.dex
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-  )
-
-  # Align apk
-  add_custom_command(
-    OUTPUT lovr.unsigned.apk
-    COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 lovr.unaligned.apk lovr.unsigned.apk
-    DEPENDS lovr.unaligned.apk
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-  )
-
-  # Sign apk
-  add_custom_command(
-    OUTPUT lovr.apk
-    COMMAND ${ANDROID_BUILD_TOOLS}/apksigner
-      sign
-      --ks ${ANDROID_KEYSTORE}
-      --ks-pass ${ANDROID_KEYSTORE_PASS}
-      --out=lovr.apk
-      lovr.unsigned.apk
-    DEPENDS lovr.unsigned.apk
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-  )
-
-  add_custom_target(lovr-apk ALL DEPENDS "lovr.apk")
 elseif(UNIX)
   target_sources(lovr PRIVATE src/core/os_linux.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
