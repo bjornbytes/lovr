@@ -290,8 +290,11 @@ endif()
 
 # VrApi (Oculus Mobile SDK) -- tested on 1.34.0
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_VRAPI)
-  include_directories(deps/VrApi/include)
-  set(LOVR_VRAPI ${CMAKE_CURRENT_SOURCE_DIR}/deps/VrApi/Libs/Android/${ANDROID_ABI}/Release/libvrapi.so)
+  set(LOVR_VRAPI_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/VrApi" CACHE STRING "The path to the VrApi folder of the Oculus Mobile SDK")
+  add_library(VrApi SHARED IMPORTED)
+  include_directories("${LOVR_VRAPI_PATH}/include")
+  set_target_properties(VrApi PROPERTIES IMPORTED_LOCATION "${LOVR_VRAPI_PATH}/Libs/Android/${ANDROID_ABI}/Release/libvrapi.so")
+  set(LOVR_VRAPI VrApi)
 endif()
 
 # pthreads
@@ -637,12 +640,10 @@ elseif(ANDROID)
     # Imported targets need to have their libraries manually copied to lib/<ABI>
     # We also figure out which Java class (Activity) we're using here
     if(LOVR_USE_VRAPI)
-      file(COPY "${LOVR_VRAPI}" DESTINATION lib/${ANDROID_ABI})
+      get_target_property(VRAPI_LIB ${LOVR_VRAPI} IMPORTED_LOCATION)
+      file(COPY ${VRAPI_LIB} DESTINATION lib/${ANDROID_ABI})
       set(ANDROID_ACTIVITY "vrapi")
     endif()
-
-    # Glob all the libraries to include in the apk for aapt to use
-    file(GLOB ANDROID_LIBS RELATIVE ${CMAKE_CURRENT_BINARY_DIR} "${CMAKE_CURRENT_BINARY_DIR}/lib/${ANDROID_ABI}/*.so")
 
     # Make an apk
     add_custom_command(
@@ -663,7 +664,7 @@ elseif(ANDROID)
       COMMAND
         ${ANDROID_TOOLS}/aapt
         add -f lovr.unaligned.apk
-        classes.dex ${ANDROID_LIBS}
+        classes.dex lib/${ANDROID_ABI}/*.so
       COMMAND ${ANDROID_TOOLS}/zipalign -f 4 lovr.unaligned.apk lovr.unsigned.apk
       COMMAND ${ANDROID_TOOLS}/apksigner
         sign
