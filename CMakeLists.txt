@@ -636,7 +636,7 @@ elseif(ANDROID)
 
   if(LOVR_BUILD_EXE)
     get_filename_component(ANDROID_SDK "${ANDROID_NDK}" DIRECTORY) # SDK root is parent of NDK dir
-    set(ANDROID_JAR "${ANDROID_SDK}/platforms/android-${ANDROID_NATIVE_API_LEVEL}/android.jar")
+    set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
     set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
 
     # If assets are included in the apk then add '-A assets' to aapt, otherwise don't add any flags
@@ -657,16 +657,16 @@ elseif(ANDROID)
     # - Some of the Pico SDK is in a jar that has to be added to the classpath and dx invocation
     # TODO error (probably way earlier) if both USE_VRAPI and USE_PICO aren't defined
     if(LOVR_USE_VRAPI)
+      set(ANDROID_FLAVOR "vrapi")
       get_target_property(VRAPI_LIB ${LOVR_VRAPI} IMPORTED_LOCATION)
       file(COPY ${VRAPI_LIB} DESTINATION lib/${ANDROID_ABI})
-      set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_vrapi.xml" CACHE STRING "The AndroidManifest.xml path")
-      set(ANDROID_ACTIVITY "vrapi")
     elseif(LOVR_USE_PICO)
+      set(ANDROID_FLAVOR "pico")
       get_target_property(PICO_LIB ${LOVR_PICO} IMPORTED_LOCATION)
       file(COPY ${PICO_LIB} DESTINATION lib/${ANDROID_ABI})
-      set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_pico.xml" CACHE STRING "The AndroidManifest.xml path")
-      set(ANDROID_ACTIVITY "pico")
     endif()
+
+    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${ANDROID_FLAVOR}.xml" CACHE STRING "The AndroidManifest.xml file to use")
 
     # Make an apk
     add_custom_command(
@@ -674,13 +674,14 @@ elseif(ANDROID)
       POST_BUILD
       BYPRODUCTS lovr.apk
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ANDROID_ACTIVITY}.java Activity.java
+      COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
+      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ANDROID_FLAVOR}.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_JAR}" -d . Activity.java
       COMMAND ${ANDROID_TOOLS}/dx --dex --output classes.dex org/lovr/app/Activity.class
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
-        -M ${ANDROID_MANIFEST}
+        -M AndroidManifest.xml
         -I ${ANDROID_JAR}
         -F lovr.unaligned.apk
         ${ANDROID_ASSETS}
@@ -695,7 +696,7 @@ elseif(ANDROID)
         --ks-pass ${ANDROID_KEYSTORE_PASS}
         --in lovr.unsigned.apk
         --out lovr.apk
-      COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk Activity.java classes.dex
+      COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk AndroidManifest.xml Activity.java classes.dex
       COMMAND ${CMAKE_COMMAND} -E remove_directory org
     )
   endif()
