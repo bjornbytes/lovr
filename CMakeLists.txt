@@ -660,10 +660,17 @@ elseif(ANDROID)
       set(ANDROID_FLAVOR "vrapi")
       get_target_property(VRAPI_LIB ${LOVR_VRAPI} IMPORTED_LOCATION)
       file(COPY ${VRAPI_LIB} DESTINATION lib/${ANDROID_ABI})
+      set(ANDROID_CLASSPATH "${ANDROID_JAR}")
     elseif(LOVR_USE_PICO)
       set(ANDROID_FLAVOR "pico")
       get_target_property(PICO_LIB ${LOVR_PICO} IMPORTED_LOCATION)
       file(COPY ${PICO_LIB} DESTINATION lib/${ANDROID_ABI})
+      set(EXTRA_JAR "${LOVR_PICO_PATH}/classes.jar")
+      if(WIN32)
+        set(ANDROID_CLASSPATH "${ANDROID_JAR};${EXTRA_JAR}")
+      else()
+        set(ANDROID_CLASSPATH "${ANDROID_JAR}:${EXTRA_JAR}")
+      endif()
     endif()
 
     set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${ANDROID_FLAVOR}.xml" CACHE STRING "The AndroidManifest.xml file to use")
@@ -676,8 +683,8 @@ elseif(ANDROID)
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ANDROID_FLAVOR}.java Activity.java
-      COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_JAR}" -d . Activity.java
-      COMMAND ${ANDROID_TOOLS}/dx --dex --output classes.dex org/lovr/app/Activity.class
+      COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_CLASSPATH}" -d . Activity.java
+      COMMAND ${ANDROID_TOOLS}/dx --dex --output classes.dex ${EXTRA_JAR} org/lovr/app/Activity.class
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f

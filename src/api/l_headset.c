@@ -15,6 +15,7 @@ StringEntry HeadsetDrivers[] = {
   [DRIVER_OPENVR] = ENTRY("openvr"),
   [DRIVER_OPENXR] = ENTRY("openxr"),
   [DRIVER_VRAPI] = ENTRY("vrapi"),
+  [DRIVER_PICO] = ENTRY("pico"),
   [DRIVER_WEBVR] = ENTRY("webvr"),
   [DRIVER_WEBXR] = ENTRY("webxr"),
   { 0 }
