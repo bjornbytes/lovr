@@ -1,5 +1,13 @@
 #include "headset/headset.h"
+#include "event/event.h"
+#include "graphics/graphics.h"
+#include "graphics/canvas.h"
+#include "resources/boot.lua.h"
+#include "api/api.h"
+#include "core/arr.h"
+#include "core/maf.h"
 #include "core/os.h"
+#include "core/util.h"
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -8,6 +16,7 @@
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
 #include <android/log.h>
+#include <jni.h>
 
 // Platform
 
@@ -177,34 +186,70 @@ bool lovrPlatformIsKeyDown(KeyCode key) {
 
 // Headset backend
 
+typedef struct {
+  GLint id;
+  Canvas* instance;
+} NativeCanvas;
+
 static struct {
   float offset;
+  float clipNear;
+  float clipFar;
+  uint32_t displayWidth;
+  uint32_t displayHeight;
+  float headPosition[4];
+  float headOrientation[4];
+  float fov;
+  float ipd;
+  struct {
+    bool active;
+    uint16_t buttons;
+    uint16_t changed;
+    float trigger;
+    float thumbstick[2];
+    float position[4];
+    float orientation[4];
+    float hapticStrength;
+    float hapticDuration;
+  } controllers[2];
+  arr_t(NativeCanvas) canvases;
+  void (*renderCallback)(void*);
+  void* renderUserdata;
 } state;
 
 static bool pico_init(float offset, uint32_t msaa) {
   state.offset = offset;
+  state.clipNear = .1f;
+  state.clipFar = 100.f;
   return true;
 }
 
 static void pico_destroy(void) {
+  arr_free(&state.canvases);
   memset(&state, 0, sizeof(state));
 }
 
+// TODO use presence of controllers to determine G2 vs Neo (isControllerServiceExisted)
 static bool pico_getName(char* name, size_t length) {
-  return false;
+  strncpy(name, "Pico", length - 1);
+  name[length - 1] = '\0';
+  return true;
 }
 
+// The Unity/Unreal SDKs expose true origin types (Pvr_SetTrackingOrigin) but there does not appear
+// to be a way to access this from the Native SDK.  Pose information appears to be relative to the
+// initial head pose.
 static HeadsetOrigin pico_getOriginType(void) {
   return ORIGIN_HEAD;
 }
 
 static double pico_getDisplayTime(void) {
-  return 0.;
+  return lovrPlatformGetTime();
 }
 
 static void pico_getDisplayDimensions(uint32_t* width, uint32_t* height) {
-  *width = 0;
-  *height = 0;
+  *width = state.displayWidth;
+  *height = state.displayHeight;
 }
 
 static const float* pico_getDisplayMask(uint32_t* count) {
@@ -217,22 +262,28 @@ static uint32_t pico_getViewCount(void) {
 }
 
 static bool pico_getViewPose(uint32_t view, float* position, float* orientation) {
-  return false;
+  // TODO use HmdState pose info, offset view by half ipd
+  quat_init(orientation, state.headOrientation);
+  return view < 2;
 }
 
 static bool pico_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
-  return false;
+  *left = *right = *up = *down = state.fov;
+  return view < 2;
 }
 
 static void pico_getClipDistance(float* clipNear, float* clipFar) {
-  *clipNear = 0.f;
-  *clipFar = 0.f;
+  *clipNear = state.clipNear;
+  *clipFar = state.clipFar;
 }
 
 static void pico_setClipDistance(float clipNear, float clipFar) {
-  //
+  state.clipNear = clipNear;
+  state.clipFar = clipFar;
 }
 
+// The Unity/Unreal SDKs expose something called "SeeThrough" that is very similar to the Oculus
+// Guardian API, but this does not appear to be in the Native SDK
 static void pico_getBoundsDimensions(float* width, float* depth) {
   *width = *depth = 0.f;
 }
@@ -243,15 +294,56 @@ static const float* pico_getBoundsGeometry(uint32_t* count) {
 }
 
 static bool pico_getPose(Device device, float* position, float* orientation) {
+  if (device == DEVICE_HEAD) {
+    vec3_init(position, state.headPosition);
+    quat_init(orientation, state.headOrientation);
+    position[1] += state.offset;
+    return true;
+  }
+
+  if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
+    uint32_t index = device - DEVICE_HAND_LEFT;
+    vec3_init(position, state.controllers[index].position);
+    quat_init(orientation, state.controllers[index].orientation);
+    return state.controllers[index].active;
+  }
+
   return false;
 }
 
 static bool pico_getVelocity(Device device, float* velocity, float* angularVelocity) {
-  return false;
+  return false; // Controllers only expose acceleration and angular velocity, so we skip it
 }
 
 static bool pico_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
-  return false;
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  uint32_t index = device - DEVICE_HAND_LEFT;
+
+  if (!state.controllers[index].active) {
+    return false;
+  }
+
+  bool active = true;
+  uint16_t mask = 0;
+
+  switch (button) {
+    case BUTTON_TRIGGER: mask = 1 << 0; break;
+    case BUTTON_THUMBSTICK: mask = 1 << 1; break;
+    case BUTTON_GRIP: mask = 1 << 2; break;
+    case BUTTON_MENU: mask = 1 << 3; break;
+    case BUTTON_A: mask = 1 << 4; active = index == 1; break;
+    case BUTTON_X: mask = 1 << 4; active = index == 0; break;
+    case BUTTON_B: mask = 1 << 5; active = index == 1; break;
+    case BUTTON_Y: mask = 1 << 5; active = index == 0; break;
+    default: return false;
+  }
+
+  *down = state.controllers[index].buttons & mask;
+  *changed = state.controllers[index].changed & mask;
+  return active;
 }
 
 static bool pico_isTouched(Device device, DeviceButton button, bool* touched) {
@@ -259,11 +351,39 @@ static bool pico_isTouched(Device device, DeviceButton button, bool* touched) {
 }
 
 static bool pico_getAxis(Device device, DeviceAxis axis, float* value) {
-  return false;
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  uint32_t index = device - DEVICE_HAND_LEFT;
+
+  if (!state.controllers[index].active) {
+    return false;
+  }
+
+  switch (axis) {
+    case AXIS_TRIGGER:
+      *value = state.controllers[index].trigger;
+      return true;
+    case AXIS_THUMBSTICK:
+      value[0] = state.controllers[index].thumbstick[0];
+      value[1] = state.controllers[index].thumbstick[1];
+      return true;
+    default:
+      return false;
+  }
 }
 
 static bool pico_vibrate(Device device, float strength, float duration, float frequency) {
-  return false;
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  uint32_t index = device - DEVICE_HAND_LEFT;
+
+  state.controllers[index].hapticStrength = strength;
+  state.controllers[index].hapticDuration = duration;
+  return true;
 }
 
 static struct ModelData* pico_newModelData(Device device) {
@@ -271,7 +391,8 @@ static struct ModelData* pico_newModelData(Device device) {
 }
 
 static void pico_renderTo(void (*callback)(void*), void* userdata) {
-  //
+  state.renderCallback = callback;
+  state.renderUserdata = userdata;
 }
 
 static void pico_update(float dt) {
@@ -304,3 +425,155 @@ HeadsetInterface lovrHeadsetPicoDriver = {
   .renderTo = pico_renderTo,
   .update = pico_update
 };
+
+// Activity callbacks
+
+static lua_State* L;
+static lua_State* T;
+static Variant cookie;
+
+static void lovrPicoBoot(void) {
+  lovrAssert(lovrPlatformInit(), "Failed to initialize platform");
+  lovrPlatformSetTime(0.);
+
+  L = luaL_newstate();
+  luax_setmainthread(L);
+  luaL_openlibs(L);
+
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "preload");
+  luaL_register(L, NULL, lovrModules);
+  lua_pop(L, 2);
+
+  lua_pushcfunction(L, luax_getstack);
+  if (luaL_loadbuffer(L, (const char*) src_resources_boot_lua, src_resources_boot_lua_len, "@boot.lua") || lua_pcall(L, 0, 1, -2)) {
+    fprintf(stderr, "%s\n", lua_tostring(L, -1));
+    return;
+  }
+
+  T = lua_newthread(L);
+  lua_pushvalue(L, -2);
+  lua_xmove(L, T, 1);
+
+  lovrSetErrorCallback(luax_vthrow, T);
+  lovrSetLogCallback(luax_vlog, T);
+}
+
+JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPicoOnCreate(JNIEnv* jni, jobject activity, jstring apk) {
+  const char* path = (*jni)->GetStringUTFChars(jni, apk, NULL);
+  size_t length = strlen(path);
+  if (length < sizeof(apkPath)) {
+    memcpy(apkPath, path, length);
+  }
+  lovrPicoBoot();
+}
+
+JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPicoSetDisplayDimensions(JNIEnv* jni, jobject activity, int width, int height) {
+  state.displayWidth = width;
+  state.displayHeight = height;
+}
+
+JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPicoUpdateControllerPose(JNIEnv* jni, jobject activity, int hand, bool active, float x, float y, float z, float qx, float qy, float qz, float qw) {
+  state.controllers[hand].active = active;
+  vec3_set(state.controllers[hand].position, x, y, z);
+  quat_set(state.controllers[hand].orientation, -qx, -qy, qz, qw);
+}
+
+JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPicoUpdateControllerInput(JNIEnv* jni, jobject activity, int hand, int buttons, float trigger, float thumbstickX, float thumbstickY) {
+  state.controllers[hand].changed = state.controllers[hand].buttons ^ buttons;
+  state.controllers[hand].buttons = (uint16_t) buttons;
+  state.controllers[hand].trigger = trigger;
+  state.controllers[hand].thumbstick[0] = thumbstickX;
+  state.controllers[hand].thumbstick[1] = thumbstickY;
+}
+
+JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPicoOnFrame(JNIEnv* jni, jobject activity, float x, float y, float z, float qx, float qy, float qz, float qw, float fov, float ipd) {
+  vec3_set(state.headPosition, x, y, z);
+  quat_set(state.headOrientation, qx, qy, qz, qw);
+  state.fov = fov * M_PI / 180.f;
+  state.ipd = ipd;
+
+  // Haptics
+  for (uint32_t i = 0; i < 2; i++) {
+    if (state.controllers[i].hapticStrength > 0.f) {
+      float strength = state.controllers[i].hapticStrength;
+      float duration = state.controllers[i].hapticDuration;
+      jclass class = (*jni)->GetObjectClass(jni, activity);
+      jmethodID vibrate = (*jni)->GetMethodID(jni, class, "vibrate", "(IFF)V");
+      (*jni)->CallObjectMethod(jni, activity, vibrate, i, strength, duration);
+      state.controllers[i].hapticStrength = 0.f;
+    }
+  }
+
+  // Resume the lovr.run coroutine, and if it returns (doesn't yield) then either reboot or exit
+  if (L && T) {
+    luax_geterror(T);
+    luax_clearerror(T);
+    if (lua_resume(T, 1) != LUA_YIELD) {
+      bool restart = lua_type(T, 1) == LUA_TSTRING && !strcmp(lua_tostring(T, 1), "restart");
+      if (restart) {
+        luax_checkvariant(T, 2, &cookie);
+        if (cookie.type == TYPE_OBJECT) {
+          cookie.type = TYPE_NIL;
+          memset(&cookie.value, 0, sizeof(cookie.value));
+        }
+        lua_close(L);
+        lovrPicoBoot();
+      } else {
+        lua_close(L);
+        L = NULL;
+        T = NULL;
+
+        // Call 'finish' method on the Activity
+        jclass class = (*jni)->GetObjectClass(jni, activity);
+        jmethodID finish = (*jni)->GetMethodID(jni, class, "finish", "()V");
+        (*jni)->CallObjectMethod(jni, activity, finish);
+      }
+    }
+  }
+}
+
+JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPicoDrawEye(JNIEnv* jni, jobject object, int eye) {
+  if (!state.renderCallback) return;
+
+  // Pico modifies a lot of global OpenGL state, including the framebuffer binding, VAO binding,
+  // buffer bindings, blending, and depth test settings.  Since there is no swapchain or texture
+  // submission API, we have to render into the currently active OpenGL framebuffer, so a cache of
+  // native Canvas objects is used for that.  For the rest of the states, there is a new "nuke all
+  // OpenGL state" function added to clear any changes made by Pico (lovrGpuResetState) :(
+
+  GLint framebuffer;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &framebuffer);
+
+  Canvas* canvas = NULL;
+  for (uint32_t i = 0; i < state.canvases.length; i++) {
+    if (state.canvases.data[i].id == framebuffer) {
+      canvas = state.canvases.data[i].instance;
+      break;
+    }
+  }
+
+  if (!canvas) {
+    CanvasFlags flags = { .depth.enabled = true };
+    canvas = lovrCanvasCreateFromHandle(state.displayWidth, state.displayHeight, flags, framebuffer, 0, 0, 1, true);
+    arr_push(&state.canvases, ((NativeCanvas) { .id = framebuffer, .instance = canvas }));
+  }
+
+  Camera camera;
+  camera.stereo = false;
+  camera.canvas = canvas;
+  for (uint32_t i = 0; i < 2; i++) {
+    float fov = tanf(state.fov);
+    mat4_fov(camera.projection[i], -fov, fov, fov, -fov, state.clipNear, state.clipFar);
+    mat4_identity(camera.viewMatrix[i]);
+    mat4_translate(camera.viewMatrix[i], state.headPosition[0], state.headPosition[1] + state.offset, state.headPosition[2]);
+    mat4_rotateQuat(camera.viewMatrix[i], state.headOrientation);
+    mat4_translate(camera.viewMatrix[i], state.ipd * (eye == 0 ? -.5f : .5f), 0.f, 0.f);
+    mat4_invert(camera.viewMatrix[i]);
+  }
+
+  lovrGpuResetState();
+  lovrGraphicsSetCamera(&camera, true);
+  state.renderCallback(state.renderUserdata);
+  lovrGraphicsSetCamera(NULL, false);
+}

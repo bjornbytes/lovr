@@ -228,6 +228,7 @@ void lovrGpuDraw(DrawCommand* draw);
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata);
 void lovrGpuPresent(void);
 void lovrGpuDirtyTexture(void);
+void lovrGpuResetState(void);
 void lovrGpuTick(const char* label);
 double lovrGpuTock(const char* label);
 const GpuFeatures* lovrGpuGetFeatures(void);

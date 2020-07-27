@@ -310,7 +310,7 @@ void lovrGraphicsSetCamera(Camera* camera, bool clear) {
 
     if (!state.camera.canvas) {
       state.camera.canvas = state.defaultCanvas;
-    lovrCanvasSetStereo(state.camera.canvas, camera->stereo);
+      lovrCanvasSetStereo(state.camera.canvas, camera->stereo);
     }
   }
 
@@ -364,7 +364,7 @@ Color lovrGraphicsGetBackgroundColor() {
 
 void lovrGraphicsSetBackgroundColor(Color color) {
   state.backgroundColor = state.linearBackgroundColor = color;
-#ifndef LOVR_WEBGL
+#if !defined(LOVR_WEBGL) && !defined(LOVR_USE_PICO)
   gammaCorrect(&state.linearBackgroundColor);
 #endif
 }
@@ -789,7 +789,7 @@ void lovrGraphicsFlushMesh(Mesh* mesh) {
 }
 
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
-#ifndef LOVR_WEBGL
+#if !defined(LOVR_WEBGL) && !defined(LOVR_USE_PICO)
   if (color) gammaCorrect(color);
 #endif
   if (color || depth || stencil) lovrGraphicsFlush();

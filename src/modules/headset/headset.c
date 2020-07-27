@@ -33,6 +33,9 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float offset, uint32_
 #ifdef LOVR_USE_VRAPI
       case DRIVER_VRAPI: interface = &lovrHeadsetVrApiDriver; break;
 #endif
+#ifdef LOVR_USE_PICO
+      case DRIVER_PICO: interface = &lovrHeadsetPicoDriver; break;
+#endif
 #ifdef LOVR_USE_WEBVR
       case DRIVER_WEBVR: interface = &lovrHeadsetWebVRDriver; break;
 #endif

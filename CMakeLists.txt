@@ -353,6 +353,10 @@ set(LOVR_SRC
   src/api/l_lovr.c
 )
 
+if(LOVR_USE_PICO)
+  list(REMOVE_ITEM LOVR_SRC src/main.c)
+endif()
+
 if(LOVR_BUILD_SHARED)
   add_library(lovr SHARED ${LOVR_SRC})
 elseif(LOVR_BUILD_EXE)
