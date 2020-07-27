@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.lovr.app">
-  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="29"/>
+  <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="27"/>
   <application android:allowBackup="false" android:label="LÖVR" android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
     <meta-data android:name="pvr.app.type" android:value="vr"/>
     <activity android:name="Activity">
