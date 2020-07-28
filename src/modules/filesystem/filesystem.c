@@ -308,18 +308,19 @@ bool lovrFilesystemSetIdentity(const char* identity) {
 #else
 
   // Make sure there is enough room to tack on /LOVR/<identity>
-  if (cursor + strlen("/LOVR") + 1 + length >= sizeof(state.savePath)) {
+  if (cursor + 1 + strlen("LOVR") + 1 + length >= sizeof(state.savePath)) {
     return false;
   }
 
   // Append /LOVR, mkdir
-  memcpy(state.savePath + cursor, "/LOVR", strlen("/LOVR"));
-  cursor += strlen("/LOVR");
+  state.savePath[cursor++] = LOVR_PATH_SEP;
+  memcpy(state.savePath + cursor, "LOVR", strlen("LOVR"));
+  cursor += strlen("LOVR");
   state.savePath[cursor] = '\0';
   fs_mkdir(state.savePath);
 
   // Append /<identity>, mkdir
-  state.savePath[cursor++] = '/';
+  state.savePath[cursor++] = LOVR_PATH_SEP;
   memcpy(state.savePath + cursor, identity, length);
   cursor += length;
   state.savePath[cursor] = '\0';
