@@ -1226,7 +1226,7 @@ static void lovrGpuSetViewports(float* viewport, uint32_t count) {
 
 // GPU
 
-void lovrGpuInit(void* (*getProcAddress)(const char*)) {
+void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
 #ifdef LOVR_GL
   gladLoadGLLoader((GLADloadproc) getProcAddress);
 #elif defined(LOVR_GLES)

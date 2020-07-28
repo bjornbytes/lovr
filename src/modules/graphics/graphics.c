@@ -92,6 +92,7 @@ typedef struct {
 
 static struct {
   bool initialized;
+  bool debug;
   int width;
   int height;
   Camera camera;
@@ -188,7 +189,8 @@ static void* lovrGraphicsMapBuffer(StreamType type, uint32_t count) {
 
 // Base
 
-bool lovrGraphicsInit() {
+bool lovrGraphicsInit(bool debug) {
+  state.debug = debug;
   return false; // See lovrGraphicsCreateWindow for actual initialization
 }
 
@@ -221,12 +223,13 @@ void lovrGraphicsPresent() {
 }
 
 void lovrGraphicsCreateWindow(WindowFlags* flags) {
+  flags->debug = state.debug;
   lovrAssert(!state.initialized, "Window is already created");
   lovrAssert(lovrPlatformCreateWindow(flags), "Could not create window");
   lovrPlatformOnQuitRequest(onQuitRequest);
   lovrPlatformOnWindowResize(onResizeWindow);
   lovrPlatformGetFramebufferSize(&state.width, &state.height);
-  lovrGpuInit(lovrPlatformGetProcAddress);
+  lovrGpuInit(lovrPlatformGetProcAddress, state.debug);
 
   state.defaultCanvas = lovrCanvasCreateFromHandle(state.width, state.height, (CanvasFlags) { .stereo = false }, 0, 0, 0, 1, true);
 

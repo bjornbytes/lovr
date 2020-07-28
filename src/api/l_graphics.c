@@ -1741,9 +1741,20 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Shader);
   luax_registertype(L, ShaderBlock);
   luax_registertype(L, Texture);
-  lovrGraphicsInit();
 
   luax_pushconf(L);
+
+  bool debug = false;
+  lua_getfield(L, -1, "graphics");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "debug");
+    debug = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 1);
+
+  lovrGraphicsInit(debug);
+
   lua_pushcfunction(L, l_lovrGraphicsCreateWindow);
   lua_getfield(L, -2, "window");
   lua_call(L, 1, 0);

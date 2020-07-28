@@ -95,6 +95,9 @@ function lovr.boot()
       thread = true,
       timer = true
     },
+    graphics = {
+      debug = false
+    },
     headset = {
       drivers = { 'leap', 'openxr', 'oculus', 'vrapi', 'pico', 'openvr', 'webxr', 'webvr', 'desktop' },
       offset = 1.7,

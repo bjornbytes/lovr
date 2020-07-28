@@ -9,6 +9,7 @@ typedef struct {
   uint32_t height;
   bool fullscreen;
   bool resizable;
+  bool debug;
   int vsync;
   int msaa;
   const char* title;
