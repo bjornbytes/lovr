@@ -207,6 +207,7 @@ void luax_vlog(void* context, int level, const char* tag, const char* format, va
     lua_pushstring(L, tag);
     lua_call(L, 3, 0);
   }
+  lua_pop(L, 1);
 }
 
 // An implementation of luaL_traceback for Lua 5.1
