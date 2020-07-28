@@ -122,6 +122,8 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+  glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, flags->debug);
+  glfwWindowHint(GLFW_CONTEXT_NO_ERROR, !flags->debug);
   glfwWindowHint(GLFW_SAMPLES, flags->msaa);
   glfwWindowHint(GLFW_RESIZABLE, flags->resizable);
   glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);

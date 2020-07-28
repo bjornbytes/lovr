@@ -1226,12 +1226,28 @@ static void lovrGpuSetViewports(float* viewport, uint32_t count) {
 
 // GPU
 
+static void onMessage(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userdata) {
+  int level;
+  switch (severity) {
+    case GL_DEBUG_SEVERITY_HIGH: level = LOG_ERROR; break;
+    case GL_DEBUG_SEVERITY_MEDIUM: level = LOG_WARN; break;
+    case GL_DEBUG_SEVERITY_LOW: level = LOG_INFO; break;
+    default: level = LOG_DEBUG; break;
+  }
+  lovrLog(level, "GL", message);
+}
+
 void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
 #ifdef LOVR_GL
   gladLoadGLLoader((GLADloadproc) getProcAddress);
 #elif defined(LOVR_GLES)
   gladLoadGLES2Loader((GLADloadproc) getProcAddress);
 #endif
+
+  if (debug && GLAD_GL_KHR_debug) {
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(onMessage, NULL);
+  }
 
 #ifndef LOVR_WEBGL
   state.features.astc = GLAD_GL_ES_VERSION_3_2;
