@@ -251,6 +251,7 @@ function lovr.threaderror(thread, err)
 end
 
 function lovr.log(message, level, tag)
+  message = message:gsub('\n$', '')
   print(message)
 end
 
