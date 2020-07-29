@@ -277,7 +277,7 @@ const char* lovrFilesystemGetIdentity() {
   return state.identity[0] == '\0' ? NULL : state.identity;
 }
 
-bool lovrFilesystemSetIdentity(const char* identity) {
+bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
   size_t length = strlen(identity);
 
   // Identity can only be set once, and can't be empty
@@ -332,7 +332,7 @@ bool lovrFilesystemSetIdentity(const char* identity) {
 #endif
 
   // Mount the fully resolved save path
-  if (!lovrFilesystemMount(state.savePath, NULL, false, NULL)) {
+  if (!lovrFilesystemMount(state.savePath, NULL, !precedence, NULL)) {
     return false;
   }
 

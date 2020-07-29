@@ -291,7 +291,8 @@ static int l_lovrFilesystemRemove(lua_State* L) {
 
 static int l_lovrFilesystemSetIdentity(lua_State* L) {
   const char* identity = luaL_checkstring(L, 1);
-  lovrFilesystemSetIdentity(identity);
+  bool precedence = lua_toboolean(L, 2);
+  lovrFilesystemSetIdentity(identity, precedence);
   return 0;
 }
 
