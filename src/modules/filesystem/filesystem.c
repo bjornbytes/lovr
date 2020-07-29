@@ -333,7 +333,6 @@ bool lovrFilesystemSetIdentity(const char* identity) {
 
   // Mount the fully resolved save path
   if (!lovrFilesystemMount(state.savePath, NULL, false, NULL)) {
-    state.identity[0] = '\0';
     return false;
   }
 
