@@ -95,6 +95,7 @@ size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
   return 0;
 }
 
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
+size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
+  *root = NULL;
   return lovrPlatformGetExecutablePath(buffer, size);
 }

@@ -98,7 +98,7 @@ size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
   return _NSGetExecutablePath(buffer, &size32) ? 0 : size32;
 }
 
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
+size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
   id extension = ((id(*)(Class, SEL, char*)) objc_msgSend)(objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "lovr");
   id bundle = ((id(*)(Class, SEL)) objc_msgSend)(objc_getClass("NSBundle"), sel_registerName("mainBundle"));
   id path = ((id(*)(id, SEL, char*, id)) objc_msgSend)(bundle, sel_registerName("pathForResource:ofType:"), nil, extension);
@@ -118,5 +118,6 @@ size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
 
   memcpy(buffer, cpath, length);
   buffer[length] = '\0';
+  *root = NULL;
   return length;
 }

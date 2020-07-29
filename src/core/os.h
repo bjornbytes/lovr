@@ -68,7 +68,7 @@ size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size);
 size_t lovrPlatformGetDataDirectory(char* buffer, size_t size);
 size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size);
 size_t lovrPlatformGetExecutablePath(char* buffer, size_t size);
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size);
+size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root);
 bool lovrPlatformCreateWindow(WindowFlags* flags);
 bool lovrPlatformHasWindow(void);
 void lovrPlatformGetWindowSize(int* width, int* height);

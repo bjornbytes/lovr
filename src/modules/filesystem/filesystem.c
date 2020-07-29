@@ -119,7 +119,8 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   lovrFilesystemSetCRequirePath("??;lua_modules/??;deps/??");
 
   // First, try to mount a bundled archive
-  if (lovrPlatformGetBundlePath(state.source, LOVR_PATH_MAX) && lovrFilesystemMount(state.source, NULL, true, "/assets")) {
+  const char* root = NULL;
+  if (lovrPlatformGetBundlePath(state.source, LOVR_PATH_MAX, &root) && lovrFilesystemMount(state.source, NULL, true, root)) {
     state.fused = true;
     return true;
   }

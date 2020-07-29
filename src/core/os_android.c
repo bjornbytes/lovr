@@ -159,7 +159,7 @@ size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
   }
 }
 
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
+size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
   jobject activity = state.app->activity->clazz;
   jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
   jmethodID getPackageCodePath = (*state.jni)->GetMethodID(state.jni, class, "getPackageCodePath", "()Ljava/lang/String;");
@@ -178,6 +178,7 @@ size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
   if (length >= size) return 0;
   memcpy(buffer, path, length);
   buffer[length] = '\0';
+  *root = "/assets";
   return length;
 }
 
