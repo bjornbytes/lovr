@@ -2655,7 +2655,10 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLengt
     GLenum type;
     GLsizei length;
     glGetActiveAttrib(program, i, LOVR_MAX_ATTRIBUTE_LENGTH, &length, &size, &type, name);
-    map_set(&shader->attributes, hash64(name, length), (glGetAttribLocation(program, name) << 1) | isAttributeTypeInteger(type));
+    int location = glGetAttribLocation(program, name);
+    if (location >= 0) {
+      map_set(&shader->attributes, hash64(name, length), (location << 1) | isAttributeTypeInteger(type));
+    }
   }
 
   shader->multiview = multiview;
