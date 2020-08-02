@@ -201,8 +201,12 @@ var webxr = {
     return false; // TODO
   },
 
-  webxr_newModelData: function(device) {
+  webxr_newModelData: function(device, animated) {
     return 0; /* NULL */ // TODO
+  },
+
+  webxr_animate: function(device, model) {
+    return false;
   },
 
   webxr_renderTo: function(callback, userdata) {

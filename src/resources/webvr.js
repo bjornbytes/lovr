@@ -299,8 +299,12 @@ var LibraryLOVR = {
     return false;
   },
 
-  webvr_newModelData: function(device) {
+  webvr_newModelData: function(device, animated) {
     return C.NULL;
+  },
+
+  webvr_animate: function(device, model) {
+    return false;
   },
 
   webvr_update: function(dt) {

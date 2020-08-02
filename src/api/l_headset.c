@@ -557,10 +557,17 @@ static int l_lovrHeadsetVibrate(lua_State* L) {
 
 static int l_lovrHeadsetNewModel(lua_State* L) {
   Device device = luax_optdevice(L, 1);
+  bool animated = false;
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "animated");
+    animated = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
 
   ModelData* modelData = NULL;
   FOREACH_TRACKING_DRIVER(driver) {
-    if ((modelData = driver->newModelData(device)) != NULL) {
+    if ((modelData = driver->newModelData(device, animated)) != NULL) {
       break;
     }
   }
@@ -574,6 +581,19 @@ static int l_lovrHeadsetNewModel(lua_State* L) {
   }
 
   return 0;
+}
+
+static int l_lovrHeadsetAnimate(lua_State* L) {
+  Device device = luax_optdevice(L, 1);
+  Model* model = luax_checktype(L, 2, Model);
+  FOREACH_TRACKING_DRIVER(driver) {
+    if (driver->animate(device, model)) {
+      lua_pushboolean(L, true);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
+  return 1;
 }
 
 static int l_lovrHeadsetRenderTo(lua_State* L) {
@@ -680,6 +700,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getAxis", l_lovrHeadsetGetAxis },
   { "vibrate", l_lovrHeadsetVibrate },
   { "newModel", l_lovrHeadsetNewModel },
+  { "animate", l_lovrHeadsetAnimate },
   { "getSkeleton", l_lovrHeadsetGetSkeleton },
   { "renderTo", l_lovrHeadsetRenderTo },
   { "update", l_lovrHeadsetUpdate },

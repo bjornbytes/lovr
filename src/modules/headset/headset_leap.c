@@ -186,8 +186,12 @@ static bool leap_vibrate(Device device, float strength, float duration, float fr
   return false;
 }
 
-static struct ModelData* leap_newModelData(Device device) {
+static struct ModelData* leap_newModelData(Device device, bool animated) {
   return NULL;
+}
+
+static bool leap_animate(Device device, struct Model* model) {
+  return false;
 }
 
 static void leap_update(float dt) {
@@ -242,5 +246,6 @@ HeadsetInterface lovrHeadsetLeapMotionDriver = {
   .getSkeleton = leap_getSkeleton,
   .vibrate = leap_vibrate,
   .newModelData = leap_newModelData,
+  .animate = leap_animate,
   .update = leap_update
 };

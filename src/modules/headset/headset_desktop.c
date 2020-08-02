@@ -168,8 +168,12 @@ static bool desktop_vibrate(Device device, float strength, float duration, float
   return false;
 }
 
-static ModelData* desktop_newModelData(Device device) {
+static ModelData* desktop_newModelData(Device device, bool animated) {
   return NULL;
+}
+
+static bool desktop_animate(Device device, struct Model* model) {
+  return false;
 }
 
 static void desktop_renderTo(void (*callback)(void*), void* userdata) {
@@ -297,6 +301,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getAxis = desktop_getAxis,
   .vibrate = desktop_vibrate,
   .newModelData = desktop_newModelData,
+  .animate = desktop_animate,
   .renderTo = desktop_renderTo,
   .update = desktop_update
 };

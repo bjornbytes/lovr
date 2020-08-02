@@ -675,8 +675,12 @@ static bool openxr_vibrate(Device device, float power, float duration, float fre
   return true;
 }
 
-static struct ModelData* openxr_newModelData(Device device) {
+static struct ModelData* openxr_newModelData(Device device, bool animated) {
   return NULL;
+}
+
+static bool openxr_animate(Device device, struct Model* model) {
+  return false;
 }
 
 static void openxr_renderTo(void (*callback)(void*), void* userdata) {

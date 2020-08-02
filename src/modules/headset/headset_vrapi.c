@@ -339,8 +339,12 @@ static bool vrapi_vibrate(Device device, float strength, float duration, float f
   return true;
 }
 
-static struct ModelData* vrapi_newModelData(Device device) {
+static struct ModelData* vrapi_newModelData(Device device, bool animated) {
   return NULL;
+}
+
+static bool vrapi_animate(Device device, struct Model* model) {
+  return false;
 }
 
 static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
@@ -516,6 +520,7 @@ HeadsetInterface lovrHeadsetVrApiDriver = {
   .getAxis = vrapi_getAxis,
   .vibrate = vrapi_vibrate,
   .newModelData = vrapi_newModelData,
+  .animate = vrapi_animate,
   .renderTo = vrapi_renderTo,
   .update = vrapi_update
 };

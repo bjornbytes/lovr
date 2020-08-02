@@ -24,7 +24,8 @@ extern bool webvr_isDown(Device device, DeviceButton button, bool* down, bool* c
 extern bool webvr_isTouched(Device device, DeviceButton button, bool* touched);
 extern bool webvr_getAxis(Device device, DeviceAxis axis, float* value);
 extern bool webvr_vibrate(Device device, float strength, float duration, float frequency);
-extern struct ModelData* webvr_newModelData(Device device);
+extern struct ModelData* webvr_newModelData(Device device, bool animated);
+extern bool webvr_animate(Device device, struct Model* model);
 extern void webvr_update(float dt);
 
 static struct {
@@ -71,6 +72,7 @@ HeadsetInterface lovrHeadsetWebVRDriver = {
   .getAxis = webvr_getAxis,
   .vibrate = webvr_vibrate,
   .newModelData = webvr_newModelData,
+  .animate = webvr_animate,
   .renderTo = webvr_renderTo,
   .update = webvr_update
 };

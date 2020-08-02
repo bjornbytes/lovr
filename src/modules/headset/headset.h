@@ -6,6 +6,7 @@
 
 #define MAX_HEADSET_BONES 32
 
+struct Model;
 struct ModelData;
 struct Texture;
 
@@ -107,7 +108,8 @@ typedef struct HeadsetInterface {
   bool (*getAxis)(Device device, DeviceAxis axis, float* value);
   bool (*getSkeleton)(Device device, float* poses, uint32_t* poseCount);
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
-  struct ModelData* (*newModelData)(Device device);
+  struct ModelData* (*newModelData)(Device device, bool animated);
+  bool (*animate)(Device device, struct Model* model);
   void (*renderTo)(void (*callback)(void*), void* userdata);
   struct Texture* (*getMirrorTexture)(void);
   void (*update)(float dt);

@@ -387,8 +387,12 @@ static bool pico_vibrate(Device device, float strength, float duration, float fr
   return true;
 }
 
-static struct ModelData* pico_newModelData(Device device) {
+static struct ModelData* pico_newModelData(Device device, bool animated) {
   return NULL;
+}
+
+static bool pico_animate(Device device, struct Model* model) {
+  return false;
 }
 
 static void pico_renderTo(void (*callback)(void*), void* userdata) {
@@ -423,6 +427,7 @@ HeadsetInterface lovrHeadsetPicoDriver = {
   .getAxis = pico_getAxis,
   .vibrate = pico_vibrate,
   .newModelData = pico_newModelData,
+  .animate = pico_animate,
   .renderTo = pico_renderTo,
   .update = pico_update
 };

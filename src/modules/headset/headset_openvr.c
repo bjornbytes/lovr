@@ -7,6 +7,7 @@
 #include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
+#include "graphics/model.h"
 #include "core/maf.h"
 #include "core/os.h"
 #include "core/ref.h"
@@ -75,9 +76,8 @@ static struct {
   VRActionHandle_t axisActions[2][MAX_AXES];
   VRActionHandle_t skeletonActions[2];
   VRActionHandle_t hapticActions[2];
+  VRInputValueHandle_t inputSources[3];
   TrackedDevicePose_t renderPoses[64];
-  RenderModel_t* deviceModels[64];
-  RenderModel_TextureMap_t* deviceTextures[64];
   Canvas* canvas;
   float* mask;
   float boundsGeometry[16];
@@ -201,6 +201,10 @@ static bool openvr_init(float offset, uint32_t msaa) {
   state.input->GetActionHandle("/actions/lovr/out/leftHandBZZ", &state.hapticActions[0]);
   state.input->GetActionHandle("/actions/lovr/out/rightHandBZZ", &state.hapticActions[1]);
 
+  state.input->GetInputSourceHandle("/user/head", &state.inputSources[DEVICE_HEAD]);
+  state.input->GetInputSourceHandle("/user/hand/left", &state.inputSources[DEVICE_HAND_LEFT]);
+  state.input->GetInputSourceHandle("/user/hand/right", &state.inputSources[DEVICE_HAND_RIGHT]);
+
   state.clipNear = 0.1f;
   state.clipFar = 30.f;
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
@@ -211,16 +215,6 @@ static bool openvr_init(float offset, uint32_t msaa) {
 
 static void openvr_destroy(void) {
   lovrRelease(Canvas, state.canvas);
-  for (int i = 0; i < 16; i++) {
-    if (state.deviceModels[i]) {
-      state.renderModels->FreeRenderModel(state.deviceModels[i]);
-    }
-    if (state.deviceTextures[i]) {
-      state.renderModels->FreeTexture(state.deviceTextures[i]);
-    }
-    state.deviceModels[i] = NULL;
-    state.deviceTextures[i] = NULL;
-  }
   VR_ShutdownInternal();
   free(state.mask);
   memset(&state, 0, sizeof(state));
@@ -545,112 +539,265 @@ static bool openvr_vibrate(Device device, float strength, float duration, float 
   return true;
 }
 
-static ModelData* openvr_newModelData(Device device) {
+static bool loadRenderModel(char* name, RenderModel_t** model, RenderModel_TextureMap_t** texture) {
+  loadModel:
+  switch (state.renderModels->LoadRenderModel_Async(name, model)) {
+    case EVRRenderModelError_VRRenderModelError_Loading: lovrPlatformSleep(.001); goto loadModel;
+    case EVRRenderModelError_VRRenderModelError_None: break;
+    default: return false;
+  }
+
+  loadTexture:
+  switch (state.renderModels->LoadTexture_Async((*model)->diffuseTextureId, texture)) {
+    case EVRRenderModelError_VRRenderModelError_Loading: lovrPlatformSleep(.001); goto loadTexture;
+    case EVRRenderModelError_VRRenderModelError_None: break;
+    default: state.renderModels->FreeRenderModel(*model); return false;
+  }
+
+  return true;
+}
+
+static ModelData* openvr_newModelData(Device device, bool animated) {
   TrackedDeviceIndex_t index = getDeviceIndex(device);
-  if (index == INVALID_DEVICE) return false;
+  if (index == INVALID_DEVICE) return NULL;
+
+  RenderModel_t* renderModel = NULL;
+  RenderModel_TextureMap_t* renderModelTexture = NULL;
+  RenderModel_t** renderModels = NULL;
+  RenderModel_TextureMap_t** renderModelTextures = NULL;
+  uint32_t modelCount = 0;
 
   char renderModelName[1024];
   ETrackedDeviceProperty renderModelNameProperty = ETrackedDeviceProperty_Prop_RenderModelName_String;
   state.system->GetStringTrackedDeviceProperty(index, renderModelNameProperty, renderModelName, 1024, NULL);
 
-  if (!state.deviceModels[index]) {
-    while (state.renderModels->LoadRenderModel_Async(renderModelName, &state.deviceModels[index]) == EVRRenderModelError_VRRenderModelError_Loading) {
-      lovrPlatformSleep(.001);
+  char* names = NULL;
+  size_t namesSize = 0;
+  uint32_t charCount = 0;
+
+  if (!animated) {
+    modelCount = 1;
+    renderModels = &renderModel;
+    renderModelTextures = &renderModelTexture;
+    if (!loadRenderModel(renderModelName, &renderModel, &renderModelTexture)) {
+      return NULL;
+    }
+  } else {
+    uint32_t componentCount = state.renderModels->GetComponentCount(renderModelName);
+    renderModels = malloc(componentCount * sizeof(*renderModels));
+    renderModelTextures = malloc(componentCount * sizeof(*renderModelTextures));
+    for (uint32_t i = 0; i < componentCount; i++) {
+      if (namesSize < charCount + 256) {
+        namesSize += 256;
+        names = realloc(names, namesSize);
+        lovrAssert(names, "Out of memory");
+      }
+
+      char componentModel[1024];
+      uint32_t size = state.renderModels->GetComponentName(renderModelName, i, names + charCount, 256);
+      if (!state.renderModels->GetComponentRenderModelName(renderModelName, names + charCount, componentModel, sizeof(componentModel))) {
+        continue;
+      }
+
+      // Sadly this loads the components serially...
+      if (!loadRenderModel(componentModel, &renderModels[modelCount], &renderModelTextures[modelCount])) {
+        for (uint32_t j = 0; modelCount > 0 && j < modelCount; j++) {
+          state.renderModels->FreeRenderModel(renderModels[j]);
+          state.renderModels->FreeTexture(renderModelTextures[j]);
+        }
+        free(renderModels);
+        free(renderModelTextures);
+        return NULL;
+      }
+
+      charCount += size;
+      modelCount++;
     }
   }
 
-  if (!state.deviceTextures[index]) {
-    while (state.renderModels->LoadTexture_Async(state.deviceModels[index]->diffuseTextureId, &state.deviceTextures[index]) == EVRRenderModelError_VRRenderModelError_Loading) {
-      lovrPlatformSleep(.001);
-    }
-  }
-
-  RenderModel_t* vrModel = state.deviceModels[index];
   ModelData* model = lovrAlloc(ModelData);
-  size_t vertexSize = sizeof(RenderModel_Vertex_t);
+  model->blobCount = 2;
+  model->nodeCount = animated ? (1 + modelCount) : 1;
+  model->bufferCount = 2 * modelCount;
+  model->attributeCount = 4 * modelCount;
+  model->textureCount = modelCount;
+  model->materialCount = modelCount;
+  model->primitiveCount = modelCount;
+  model->childCount = animated ? modelCount : 0;
+  model->charCount = charCount;
 
-  model->bufferCount = 2;
-  model->attributeCount = 4;
-  model->textureCount = 1;
-  model->materialCount = 1;
-  model->primitiveCount = 1;
-  model->nodeCount = 1;
   lovrModelDataAllocate(model);
 
-  model->buffers[0] = (ModelBuffer) {
-    .data = (char*) vrModel->rVertexData,
-    .size = vrModel->unVertexCount * vertexSize,
-    .stride = vertexSize
-  };
+  memcpy(model->chars, names, charCount);
+  free(names);
 
-  model->buffers[1] = (ModelBuffer) {
-    .data = (char*) vrModel->rIndexData,
-    .size = vrModel->unTriangleCount * 3 * sizeof(uint16_t),
-    .stride = sizeof(uint16_t)
-  };
+  uint32_t totalVertexCount = 0;
+  uint32_t totalIndexCount = 0;
 
-  model->attributes[0] = (ModelAttribute) {
-    .buffer = 0,
-    .offset = offsetof(RenderModel_Vertex_t, vPosition),
-    .count = vrModel->unVertexCount,
-    .type = F32,
-    .components = 3
-  };
+  for (uint32_t i = 0; i < modelCount; i++) {
+    lovrAssert(renderModels[i]->unTriangleCount > 0, "Unsupported OpenVR model: no index buffer (please report this)");
+    totalVertexCount += renderModels[i]->unVertexCount;
+    totalIndexCount += renderModels[i]->unTriangleCount * 3;
+  }
 
-  model->attributes[1] = (ModelAttribute) {
-    .buffer = 0,
-    .offset = offsetof(RenderModel_Vertex_t, vNormal),
-    .count = vrModel->unVertexCount,
-    .type = F32,
-    .components = 3
-  };
+  size_t vertexSize = sizeof(RenderModel_Vertex_t);
+  float* vertices = malloc(totalVertexCount * vertexSize);
+  uint16_t* indices = malloc(totalIndexCount * sizeof(uint16_t));
+  lovrAssert(vertices && indices, "Out of memory");
 
-  model->attributes[2] = (ModelAttribute) {
-    .buffer = 0,
-    .offset = offsetof(RenderModel_Vertex_t, rfTextureCoord),
-    .count = vrModel->unVertexCount,
-    .type = F32,
-    .components = 2
-  };
+  model->blobs[0] = lovrBlobCreate(vertices, totalVertexCount * vertexSize, "OpenVR Model Vertices");
+  model->blobs[1] = lovrBlobCreate(indices, totalIndexCount * sizeof(uint16_t), "OpenVR Model Indices");
 
-  model->attributes[3] = (ModelAttribute) {
-    .buffer = 1,
-    .offset = 0,
-    .count = vrModel->unTriangleCount * 3,
-    .type = U16,
-    .components = 1
-  };
+  char* name = model->chars;
 
-  RenderModel_TextureMap_t* vrTexture = state.deviceTextures[index];
-  model->textures[0] = lovrTextureDataCreate(vrTexture->unWidth, vrTexture->unHeight, NULL, 0, FORMAT_RGBA);
-  memcpy(model->textures[0]->blob->data, vrTexture->rubTextureMapData, vrTexture->unWidth * vrTexture->unHeight * 4);
+  for (uint32_t i = 0; i < modelCount; i++) {
+    uint32_t vertexCount = renderModels[i]->unVertexCount;
+    uint32_t indexCount = renderModels[i]->unTriangleCount * 3;
 
-  model->materials[0] = (ModelMaterial) {
-    .colors[COLOR_DIFFUSE] = { 1.f, 1.f, 1.f, 1.f },
-    .textures[TEXTURE_DIFFUSE] = 0,
-    .filters[TEXTURE_DIFFUSE] = lovrGraphicsGetDefaultFilter()
-  };
+    memcpy(vertices, renderModels[i]->rVertexData, vertexCount * vertexSize);
+    memcpy(indices, renderModels[i]->rIndexData, indexCount * sizeof(uint16_t));
 
-  model->primitives[0] = (ModelPrimitive) {
-    .mode = DRAW_TRIANGLES,
-    .attributes = {
-      [ATTR_POSITION] = &model->attributes[0],
-      [ATTR_NORMAL] = &model->attributes[1],
-      [ATTR_TEXCOORD] = &model->attributes[2]
-    },
-    .indices = &model->attributes[3],
-    .material = 0
-  };
+    model->buffers[2 * i + 0] = (ModelBuffer) { .data = (char*) vertices, .size = vertexCount * vertexSize, .stride = vertexSize };
+    model->buffers[2 * i + 1] = (ModelBuffer) { .data = (char*) indices, .size = indexCount * sizeof(uint16_t), .stride = sizeof(uint16_t) };
 
-  model->nodes[0] = (ModelNode) {
-    .transform.matrix = MAT4_IDENTITY,
-    .primitiveIndex = 0,
-    .primitiveCount = 1,
-    .skin = ~0u,
-    .matrix = true
-  };
+    vertices += vertexCount * vertexSize / sizeof(float);
+    indices += indexCount;
+
+    model->attributes[4 * i + 0] = (ModelAttribute) {
+      .buffer = 2 * i,
+      .offset = offsetof(RenderModel_Vertex_t, vPosition),
+      .count = vertexCount,
+      .type = F32,
+      .components = 3
+    };
+
+    model->attributes[4 * i + 1] = (ModelAttribute) {
+      .buffer = 2 * i,
+      .offset = offsetof(RenderModel_Vertex_t, vNormal),
+      .count = vertexCount,
+      .type = F32,
+      .components = 3
+    };
+
+    model->attributes[4 * i + 2] = (ModelAttribute) {
+      .buffer = 2 * i,
+      .offset = offsetof(RenderModel_Vertex_t, rfTextureCoord),
+      .count = vertexCount,
+      .type = F32,
+      .components = 2
+    };
+
+    model->attributes[4 * i + 3] = (ModelAttribute) {
+      .buffer = 2 * i + 1,
+      .offset = 0,
+      .count = indexCount,
+      .type = U16,
+      .components = 1
+    };
+
+    RenderModel_TextureMap_t* texture = renderModelTextures[i];
+    model->textures[i] = lovrTextureDataCreate(texture->unWidth, texture->unHeight, NULL, 0, FORMAT_RGBA);
+    memcpy(model->textures[i]->blob->data, texture->rubTextureMapData, texture->unWidth * texture->unHeight * 4);
+
+    model->materials[i] = (ModelMaterial) {
+      .colors[COLOR_DIFFUSE] = { 1.f, 1.f, 1.f, 1.f },
+      .textures[TEXTURE_DIFFUSE] = i,
+      .filters[TEXTURE_DIFFUSE] = lovrGraphicsGetDefaultFilter()
+    };
+
+    model->primitives[i] = (ModelPrimitive) {
+      .mode = DRAW_TRIANGLES,
+      .attributes = {
+        [ATTR_POSITION] = &model->attributes[4 * i + 0],
+        [ATTR_NORMAL] = &model->attributes[4 * i + 1],
+        [ATTR_TEXCOORD] = &model->attributes[4 * i + 2]
+      },
+      .indices = &model->attributes[4 * i + 3],
+      .material = i
+    };
+
+    model->nodes[i] = (ModelNode) {
+      .name = name,
+      .transform.matrix = MAT4_IDENTITY,
+      .primitiveIndex = i,
+      .primitiveCount = 1,
+      .skin = ~0u,
+      .matrix = true
+    };
+
+    name = strchr(name, '\0') + 1;
+  }
+
+  for (uint32_t i = 0; i < modelCount; i++) {
+    state.renderModels->FreeRenderModel(renderModels[i]);
+    state.renderModels->FreeTexture(renderModelTextures[i]);
+  }
+
+  // Root node
+  if (animated) {
+    for (uint32_t i = 0; i < modelCount; i++) {
+      model->children[i] = i;
+    }
+
+    model->rootNode = modelCount;
+
+    model->nodes[model->rootNode] = (ModelNode) {
+      .transform.matrix = MAT4_IDENTITY,
+      .matrix = true,
+      .childCount = modelCount,
+      .children = model->children,
+      .skin = ~0u
+    };
+
+    free(renderModels);
+    free(renderModelTextures);
+  }
 
   return model;
+}
+
+static bool openvr_animate(Device device, Model* model) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  TrackedDeviceIndex_t index = getDeviceIndex(device);
+  if (index == INVALID_DEVICE) {
+    return false;
+  }
+
+  char renderModelName[1024];
+  ETrackedDeviceProperty renderModelNameProperty = ETrackedDeviceProperty_Prop_RenderModelName_String;
+  state.system->GetStringTrackedDeviceProperty(index, renderModelNameProperty, renderModelName, 1024, NULL);
+
+  bool success = false;
+  ModelData* modelData = lovrModelGetModelData(model);
+  VRInputValueHandle_t inputSource = state.inputSources[device];
+  for (uint32_t i = 0; i < modelData->nodeCount; i++) {
+    ModelNode* node = &modelData->nodes[i];
+
+    if (!node->name || !state.renderModels->RenderModelHasComponent(renderModelName, (char*) node->name)) {
+      continue;
+    }
+
+    RenderModel_ComponentState_t componentState;
+    if (!state.renderModels->GetComponentStateForDevicePath(renderModelName, (char*) node->name, inputSource, NULL, &componentState)) {
+      continue;
+    }
+
+    float transform[16], position[4], orientation[4];
+    mat4_fromMat34(transform, componentState.mTrackingToComponentRenderModel.m);
+    mat4_getPosition(transform, position);
+    mat4_getOrientation(transform, orientation);
+    if (!(componentState.uProperties & EVRComponentProperty_VRComponentProperty_IsVisible)) {
+      vec3_set(position, 1e10, 1e10, 1e10); // Hide the node somehow (FIXME)
+    }
+
+    lovrModelPose(model, i, position, orientation, 1.f);
+    success = true;
+  }
+
+  return success;
 }
 
 static void openvr_renderTo(void (*callback)(void*), void* userdata) {
@@ -749,6 +896,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .getSkeleton = openvr_getSkeleton,
   .vibrate = openvr_vibrate,
   .newModelData = openvr_newModelData,
+  .animate = openvr_animate,
   .renderTo = openvr_renderTo,
   .getMirrorTexture = openvr_getMirrorTexture,
   .update = openvr_update

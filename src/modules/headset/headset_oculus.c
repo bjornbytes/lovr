@@ -318,7 +318,7 @@ static bool oculus_vibrate(Device device, float strength, float duration, float 
   return true;
 }
 
-static ModelData* oculus_newModelData(Device device) {
+static ModelData* oculus_newModelData(Device device, bool animated) {
   return NULL; // TODO
 }
 
