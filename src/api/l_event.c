@@ -12,10 +12,27 @@ StringEntry EventTypes[] = {
   [EVENT_RESTART] = ENTRY("restart"),
   [EVENT_FOCUS] = ENTRY("focus"),
   [EVENT_RESIZE] = ENTRY("resize"),
+  [EVENT_KEYPRESSED] = ENTRY("keypressed"),
+  [EVENT_KEYRELEASED] = ENTRY("keyreleased"),
 #ifdef LOVR_ENABLE_THREAD
   [EVENT_THREAD_ERROR] = ENTRY("threaderror"),
 #endif
   { 0 }
+};
+
+StringEntry KeyCodes[] = {
+  [KEY_W] = ENTRY("w"),
+  [KEY_A] = ENTRY("a"),
+  [KEY_S] = ENTRY("s"),
+  [KEY_D] = ENTRY("d"),
+  [KEY_Q] = ENTRY("q"),
+  [KEY_E] = ENTRY("e"),
+  [KEY_UP] = ENTRY("up"),
+  [KEY_DOWN] = ENTRY("down"),
+  [KEY_LEFT] = ENTRY("left"),
+  [KEY_RIGHT] = ENTRY("right"),
+  [KEY_ESCAPE] = ENTRY("escape"),
+  [KEY_F5] = ENTRY("f5")
 };
 
 static LOVR_THREAD_LOCAL int pollRef;
@@ -112,6 +129,11 @@ static int nextEvent(lua_State* L) {
       lua_pushinteger(L, event.data.resize.height);
       return 3;
 
+    case EVENT_KEYPRESSED:
+    case EVENT_KEYRELEASED:
+      luax_pushenum(L, KeyCodes, event.data.key.code);
+      return 2;
+
 #ifdef LOVR_ENABLE_THREAD
     case EVENT_THREAD_ERROR:
       luax_pushtype(L, Thread, event.data.thread.thread);
@@ -130,18 +152,6 @@ static int nextEvent(lua_State* L) {
 
     default:
       return 1;
-  }
-}
-
-static void hotkeyHandler(KeyCode key, ButtonAction action) {
-  if (action != BUTTON_PRESSED) {
-    return;
-  }
-
-  if (key == KEY_ESCAPE) {
-    lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit.exitCode = 0 });
-  } else if (key == KEY_F5) {
-    lovrEventPush((Event) { .type = EVENT_RESTART });
   }
 }
 
@@ -213,11 +223,5 @@ int luaopen_lovr_event(lua_State* L) {
     luax_atexit(L, lovrEventDestroy);
   }
 
-  luax_pushconf(L);
-  lua_getfield(L, -1, "hotkeys");
-  if (lua_toboolean(L, -1)) {
-    lovrPlatformOnKeyboardEvent(hotkeyHandler);
-  }
-  lua_pop(L, 2);
   return 1;
 }

@@ -84,7 +84,6 @@ function lovr.boot()
     version = '0.13.0',
     identity = 'default',
     saveprecedence = true,
-    hotkeys = true,
     modules = {
       audio = true,
       data = true,

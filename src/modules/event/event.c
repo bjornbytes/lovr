@@ -12,6 +12,13 @@ static struct {
   size_t head;
 } state;
 
+static void onKeyboardEvent(KeyCode key, ButtonAction action) {
+  lovrEventPush((Event) {
+    .type = action == BUTTON_PRESSED ? EVENT_KEYPRESSED : EVENT_KEYRELEASED,
+    .data.key.code = key
+  });
+}
+
 void lovrVariantDestroy(Variant* variant) {
   switch (variant->type) {
     case TYPE_STRING: free(variant->value.string); return;
@@ -23,12 +30,14 @@ void lovrVariantDestroy(Variant* variant) {
 bool lovrEventInit() {
   if (state.initialized) return false;
   arr_init(&state.events);
+  lovrPlatformOnKeyboardEvent(onKeyboardEvent);
   return state.initialized = true;
 }
 
 void lovrEventDestroy() {
   if (!state.initialized) return;
   arr_free(&state.events);
+  lovrPlatformOnKeyboardEvent(NULL);
   memset(&state, 0, sizeof(state));
 }
 
