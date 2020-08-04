@@ -292,7 +292,7 @@ endif()
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_VRAPI)
   set(LOVR_VRAPI_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/VrApi" CACHE STRING "The path to the VrApi folder of the Oculus Mobile SDK")
   add_library(VrApi SHARED IMPORTED)
-  include_directories("${LOVR_VRAPI_PATH}/include")
+  include_directories("${LOVR_VRAPI_PATH}/Include")
   set_target_properties(VrApi PROPERTIES IMPORTED_LOCATION "${LOVR_VRAPI_PATH}/Libs/Android/${ANDROID_ABI}/Release/libvrapi.so")
   set(LOVR_VRAPI VrApi)
 endif()
@@ -644,7 +644,6 @@ elseif(ANDROID)
   )
 
   if(LOVR_BUILD_EXE)
-    get_filename_component(ANDROID_SDK "${ANDROID_NDK}" DIRECTORY) # SDK root is parent of NDK dir
     set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
     set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
 
