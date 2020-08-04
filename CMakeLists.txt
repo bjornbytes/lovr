@@ -644,7 +644,6 @@ elseif(ANDROID)
   )
 
   if(LOVR_BUILD_EXE)
-    get_filename_component(ANDROID_SDK "${ANDROID_NDK}" DIRECTORY) # SDK root is parent of NDK dir
     set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
     set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
 

@@ -114,11 +114,12 @@ size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
 }
 
 static char apkPath[1024];
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size) {
+size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
   size_t length = strlen(apkPath);
   if (length >= size) return 0;
   memcpy(buffer, apkPath, length);
   buffer[length] = '\0';
+    *root = "/assets";
   return length;
 }
 
