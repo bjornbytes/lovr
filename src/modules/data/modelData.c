@@ -33,18 +33,19 @@ void lovrModelDataDestroy(void* ref) {
 void lovrModelDataAllocate(ModelData* model) {
   size_t totalSize = 0;
   size_t sizes[13];
-  totalSize += sizes[0] = model->blobCount * sizeof(Blob*);
-  totalSize += sizes[1] = model->bufferCount * sizeof(ModelBuffer);
-  totalSize += sizes[2] = model->textureCount * sizeof(TextureData*);
-  totalSize += sizes[3] = model->materialCount * sizeof(ModelMaterial);
-  totalSize += sizes[4] = model->attributeCount * sizeof(ModelAttribute);
-  totalSize += sizes[5] = model->primitiveCount * sizeof(ModelPrimitive);
-  totalSize += sizes[6] = model->animationCount * sizeof(ModelAnimation);
-  totalSize += sizes[7] = model->skinCount * sizeof(ModelSkin);
-  totalSize += sizes[8] = model->nodeCount * sizeof(ModelNode);
-  totalSize += sizes[9] = model->channelCount * sizeof(ModelAnimationChannel);
-  totalSize += sizes[10] = model->childCount * sizeof(uint32_t);
-  totalSize += sizes[11] = model->jointCount * sizeof(uint32_t);
+  size_t alignment = 8;
+  totalSize += sizes[0] = ALIGN(model->blobCount * sizeof(Blob*), alignment);
+  totalSize += sizes[1] = ALIGN(model->bufferCount * sizeof(ModelBuffer), alignment);
+  totalSize += sizes[2] = ALIGN(model->textureCount * sizeof(TextureData*), alignment);
+  totalSize += sizes[3] = ALIGN(model->materialCount * sizeof(ModelMaterial), alignment);
+  totalSize += sizes[4] = ALIGN(model->attributeCount * sizeof(ModelAttribute), alignment);
+  totalSize += sizes[5] = ALIGN(model->primitiveCount * sizeof(ModelPrimitive), alignment);
+  totalSize += sizes[6] = ALIGN(model->animationCount * sizeof(ModelAnimation), alignment);
+  totalSize += sizes[7] = ALIGN(model->skinCount * sizeof(ModelSkin), alignment);
+  totalSize += sizes[8] = ALIGN(model->nodeCount * sizeof(ModelNode), alignment);
+  totalSize += sizes[9] = ALIGN(model->channelCount * sizeof(ModelAnimationChannel), alignment);
+  totalSize += sizes[10] = ALIGN(model->childCount * sizeof(uint32_t), alignment);
+  totalSize += sizes[11] = ALIGN(model->jointCount * sizeof(uint32_t), alignment);
   totalSize += sizes[12] = model->charCount * sizeof(char);
 
   size_t offset = 0;
