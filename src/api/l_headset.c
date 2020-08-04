@@ -119,8 +119,9 @@ static int l_lovrHeadsetGetDriver(lua_State* L) {
     return 1;
   } else {
     Device device = luax_optdevice(L, 1);
+    float position[4], orientation[4];
     FOREACH_TRACKING_DRIVER(driver) {
-      if (driver->getPose(device, NULL, NULL)) {
+      if (driver->getPose(device, position, orientation)) {
         luax_pushenum(L, HeadsetDrivers, driver->driverType);
         return 1;
       }
