@@ -388,7 +388,7 @@ static bool parseKTX(uint8_t* bytes, size_t size, TextureData* textureData) {
     textureData->mipmaps[i] = (Mipmap) { .width = width, .height = height, .data = data.u8 + sizeof(uint32_t), .size = *data.u32 };
     width = MAX(width >> 1, 1u);
     height = MAX(height >> 1, 1u);
-    data.u8 = (uint8_t*) ALIGN(data.u8 + sizeof(uint32_t) + *data.u32 + 3, 4);
+    data.u8 = (uint8_t*) ALIGN(data.u8 + sizeof(uint32_t) + *data.u32, 4);
   }
 
   return true;
