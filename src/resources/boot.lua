@@ -233,7 +233,10 @@ function lovr.errhand(message, traceback)
 
   return function()
     lovr.event.pump()
-    for name, a in lovr.event.poll() do if name == 'quit' then return a or 1 end end
+    for name, a in lovr.event.poll() do
+      if name == 'quit' then return a or 1
+      elseif name == 'restart' then return 'restart', lovr.restart and lovr.restart() end
+    end
     lovr.graphics.origin()
     if lovr.headset then
       lovr.headset.update(0)
