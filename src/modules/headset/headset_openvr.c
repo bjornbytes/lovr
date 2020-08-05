@@ -586,6 +586,7 @@ static ModelData* openvr_newModelData(Device device, bool animated) {
     uint32_t componentCount = state.renderModels->GetComponentCount(renderModelName);
     renderModels = malloc(componentCount * sizeof(*renderModels));
     renderModelTextures = malloc(componentCount * sizeof(*renderModelTextures));
+    lovrAssert(renderModels && renderModelTextures, "Out of memory");
     for (uint32_t i = 0; i < componentCount; i++) {
       if (namesSize < charCount + 256) {
         namesSize += 256;
