@@ -279,9 +279,9 @@ int lovrGraphicsGetHeight() {
 }
 
 float lovrGraphicsGetPixelDensity() {
-  int width, framebufferWidth;
-  lovrPlatformGetWindowSize(&width, NULL);
-  lovrPlatformGetFramebufferSize(&framebufferWidth, NULL);
+  int width, height, framebufferWidth, framebufferHeight;
+  lovrPlatformGetWindowSize(&width, &height);
+  lovrPlatformGetFramebufferSize(&framebufferWidth, &framebufferHeight);
   if (width == 0 || framebufferWidth == 0) {
     return 0.f;
   } else {
