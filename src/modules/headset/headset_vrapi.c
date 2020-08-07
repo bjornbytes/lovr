@@ -2,6 +2,7 @@
 #include "event/event.h"
 #include "graphics/canvas.h"
 #include "graphics/graphics.h"
+#include "graphics/model.h"
 #include "core/maf.h"
 #include "core/os.h"
 #include "core/ref.h"
@@ -44,9 +45,10 @@ static struct {
   uint32_t swapchainLength;
   uint32_t swapchainIndex;
   Canvas* canvases[4];
-  ovrInputTrackedRemoteCapabilities controllerInfo[2];
+  ovrTracking tracking[3];
+  ovrHandPose handPose[2];
+  ovrInputCapabilityHeader hands[2];
   ovrInputStateTrackedRemote input[2];
-  ovrInputStateHand handInput[2];
   uint32_t changedButtons[2];
   float hapticStrength[2];
   float hapticDuration[2];
@@ -183,43 +185,36 @@ static const float* vrapi_getBoundsGeometry(uint32_t* count) {
   return state.boundaryPoints;
 }
 
-static bool getTracking(Device device, ovrTracking* tracking) {
-  if (device == DEVICE_HEAD) {
-    *tracking = vrapi_GetPredictedTracking(state.session, state.displayTime);
-    return true;
-  } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
-    ovrInputCapabilityHeader* header = &state.controllerInfo[device - DEVICE_HAND_LEFT].Header;
-    if (header->Type == ovrControllerType_TrackedRemote) {
-      return vrapi_GetInputTrackingState(state.session, header->DeviceID, state.displayTime, tracking) == ovrSuccess;
-    }
-  }
-
-  return false;
-}
-
 static bool vrapi_getPose(Device device, float* position, float* orientation) {
-  ovrTracking tracking;
-  if (!getTracking(device, &tracking)) {
-    return false;
+  ovrPosef* pose;
+  bool valid;
+
+  uint32_t index = device - DEVICE_HAND_LEFT;
+  if (index < 2 && state.hands[index].Type == ovrControllerType_Hand) {
+    pose = &state.handPose[index].RootPose;
+    valid = state.handPose[index].HandConfidence == ovrConfidence_HIGH;
+  } else {
+    ovrTracking* tracking = &state.tracking[device];
+    pose = &tracking->HeadPose.Pose;
+    valid = tracking->Status & (VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID);
   }
 
-  ovrPosef* pose = &tracking.HeadPose.Pose;
   vec3_set(position, pose->Position.x, pose->Position.y + state.offset, pose->Position.z);
   quat_init(orientation, &pose->Orientation.x);
-  return tracking.Status & (VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID);
+  return valid;
 }
 
 static bool vrapi_getVelocity(Device device, float* velocity, float* angularVelocity) {
-  ovrTracking tracking;
-  if (!getTracking(device, &tracking)) {
+  if (device != DEVICE_HEAD && device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;
   }
 
-  ovrVector3f* linear = &tracking.HeadPose.LinearVelocity;
-  ovrVector3f* angular = &tracking.HeadPose.AngularVelocity;
+  ovrTracking* tracking = &state.tracking[device];
+  ovrVector3f* linear = &tracking->HeadPose.LinearVelocity;
+  ovrVector3f* angular = &tracking->HeadPose.AngularVelocity;
   vec3_set(velocity, linear->x, linear->y, linear->z);
   vec3_set(angularVelocity, angular->x, angular->y, angular->z);
-  return tracking.Status & (VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID);
+  return tracking->Status & (VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID);
 }
 
 static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
@@ -232,7 +227,7 @@ static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* c
     return false;
   }
 
-  if (state.controllerInfo[device - DEVICE_HAND_LEFT].Header.Type != ovrControllerType_TrackedRemote) {
+  if (state.hands[device - DEVICE_HAND_LEFT].Type != ovrControllerType_TrackedRemote) {
     return false;
   }
 
@@ -271,7 +266,7 @@ static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
     return false;
   }
 
-  if (state.controllerInfo[device - DEVICE_HAND_LEFT].Header.Type != ovrControllerType_TrackedRemote) {
+  if (state.hands[device - DEVICE_HAND_LEFT].Type != ovrControllerType_TrackedRemote) {
     return false;
   }
 
@@ -340,11 +335,204 @@ static bool vrapi_vibrate(Device device, float strength, float duration, float f
 }
 
 static struct ModelData* vrapi_newModelData(Device device, bool animated) {
-  return NULL;
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return NULL;
+  }
+
+  if (state.hands[device - DEVICE_HAND_LEFT].Type != ovrControllerType_Hand) {
+    return NULL;
+  }
+
+  ovrHandSkeleton skeleton;
+  skeleton.Header.Version = ovrHandVersion_1;
+  ovrHandedness hand = device == DEVICE_HAND_LEFT ? VRAPI_HAND_LEFT : VRAPI_HAND_RIGHT;
+  if (vrapi_GetHandSkeleton(state.session, hand, &skeleton.Header) != ovrSuccess) {
+    return NULL;
+  }
+
+  ovrHandMesh* mesh = malloc(sizeof(ovrHandMesh));
+  float* inverseBindMatrices = malloc(ovrHandBone_MaxSkinnable * 16 * sizeof(float));
+  lovrAssert(mesh && inverseBindMatrices, "Out of memory");
+
+  mesh->Header.Version = ovrHandVersion_1;
+  if (vrapi_GetHandMesh(state.session, hand, &mesh->Header) != ovrSuccess) {
+    free(mesh);
+    return NULL;
+  }
+
+  ModelData* model = lovrAlloc(ModelData);
+  model->blobCount = 2;
+  model->bufferCount = 6;
+  model->attributeCount = 6;
+  model->primitiveCount = 1;
+  model->skinCount = 1;
+  model->jointCount = ovrHandBone_MaxSkinnable;
+  model->childCount = ovrHandBone_MaxSkinnable + 1;
+  model->nodeCount = 2 + model->jointCount;
+  lovrModelDataAllocate(model);
+
+  model->blobs[0] = lovrBlobCreate(mesh, sizeof(ovrHandMesh), "Oculus Hand Mesh");
+  model->blobs[1] = lovrBlobCreate(inverseBindMatrices, model->jointCount * 16 * sizeof(float), "Hand Mesh Inverse Bind Matrices");
+
+  model->buffers[0] = (ModelBuffer) {
+    .data = (char*) mesh->VertexPositions,
+    .size = sizeof(mesh->VertexPositions),
+    .stride = sizeof(mesh->VertexPositions[0])
+  };
+
+  model->buffers[1] = (ModelBuffer) {
+    .data = (char*) mesh->VertexNormals,
+    .size = sizeof(mesh->VertexNormals),
+    .stride = sizeof(mesh->VertexNormals[0]),
+  };
+
+  model->buffers[2] = (ModelBuffer) {
+    .data = (char*) mesh->VertexUV0,
+    .size = sizeof(mesh->VertexUV0),
+    .stride = sizeof(mesh->VertexUV0[0]),
+  };
+
+  model->buffers[3] = (ModelBuffer) {
+    .data = (char*) mesh->BlendIndices,
+    .size = sizeof(mesh->BlendIndices),
+    .stride = sizeof(mesh->BlendIndices[0]),
+  };
+
+  model->buffers[4] = (ModelBuffer) {
+    .data = (char*) mesh->BlendWeights,
+    .size = sizeof(mesh->BlendWeights),
+    .stride = sizeof(mesh->BlendWeights[0]),
+  };
+
+  model->buffers[5] = (ModelBuffer) {
+    .data = (char*) mesh->Indices,
+    .size = sizeof(mesh->Indices),
+    .stride = sizeof(mesh->Indices[0])
+  };
+
+  model->attributes[0] = (ModelAttribute) { .buffer = 0, .type = F32, .components = 3 };
+  model->attributes[1] = (ModelAttribute) { .buffer = 1, .type = F32, .components = 3 };
+  model->attributes[2] = (ModelAttribute) { .buffer = 2, .type = F32, .components = 2 };
+  model->attributes[3] = (ModelAttribute) { .buffer = 3, .type = I16, .components = 4 };
+  model->attributes[4] = (ModelAttribute) { .buffer = 4, .type = F32, .components = 4 };
+  model->attributes[5] = (ModelAttribute) { .buffer = 5, .type = U16, .count = mesh->NumIndices };
+
+  model->primitives[0] = (ModelPrimitive) {
+    .mode = DRAW_TRIANGLES,
+    .attributes = {
+      [ATTR_POSITION] = &model->attributes[0],
+      [ATTR_NORMAL] = &model->attributes[1],
+      [ATTR_TEXCOORD] = &model->attributes[2],
+      [ATTR_BONES] = &model->attributes[3],
+      [ATTR_WEIGHTS] = &model->attributes[4]
+    },
+    .indices = &model->attributes[5],
+    .material = ~0u
+  };
+
+  // The nodes in the Model correspond directly to the joints in the skin, for convenience
+  ovrMatrix4f globalTransforms[ovrHandBone_MaxSkinnable];
+  uint32_t* children = model->children;
+  model->skins[0].joints = model->joints;
+  model->skins[0].jointCount = model->jointCount;
+  model->skins[0].inverseBindMatrices = inverseBindMatrices;
+  for (uint32_t i = 0; i < model->jointCount; i++) {
+    ovrVector3f* position = &skeleton.BonePoses[i].Position;
+    ovrQuatf* orientation = &skeleton.BonePoses[i].Orientation;
+
+    model->nodes[i] = (ModelNode) {
+      .transform.properties.translation = { position->x, position->y, position->z },
+      .transform.properties.rotation = { orientation->x, orientation->y, orientation->z, orientation->w },
+      .transform.properties.scale = { 1.f, 1.f, 1.f },
+      .skin = ~0u
+    };
+
+    model->joints[i] = i;
+
+    // Turn the bone's pose into a matrix
+    ovrMatrix4f translation = ovrMatrix4f_CreateTranslation(position->x, position->y, position->z);
+    ovrMatrix4f rotation = ovrMatrix4f_CreateFromQuaternion(orientation);
+    ovrMatrix4f localPose = ovrMatrix4f_Multiply(&translation, &rotation);
+
+    // Get the global transform of the bone by multiplying by the parent's global transform
+    // This relies on the bones being ordered in hierarchical order
+    ovrMatrix4f parentTransform = ovrMatrix4f_CreateIdentity();
+    if (skeleton.BoneParentIndices[i] >= 0) {
+      parentTransform = globalTransforms[skeleton.BoneParentIndices[i]];
+    }
+    globalTransforms[i] = ovrMatrix4f_Multiply(&parentTransform, &localPose);
+
+    // The inverse of the global transform is the bone's inverse bind pose
+    // It needs to be transposed because Oculus matrices are row-major
+    ovrMatrix4f inverseBindPose = ovrMatrix4f_Inverse(&globalTransforms[i]);
+    ovrMatrix4f inverseBindPoseTransposed = ovrMatrix4f_Transpose(&inverseBindPose);
+    memcpy(model->skins[0].inverseBindMatrices + 16 * i, &inverseBindPoseTransposed.M[0][0], 16 * sizeof(float));
+
+    // Add child bones by looking for any bones that have a parent of the current bone.
+    // This is somewhat slow, we use the fact that bones are sorted to reduce the work a bit.
+    model->nodes[i].childCount = 0;
+    model->nodes[i].children = children;
+    for (uint32_t j = i + 1; j < model->jointCount && j < skeleton.NumBones; j++) {
+      if ((uint32_t) skeleton.BoneParentIndices[j] == i) {
+        model->nodes[i].children[model->nodes[i].childCount++] = j;
+        children++;
+      }
+    }
+  }
+
+  // Add a node that holds the skinned mesh
+  model->nodes[model->jointCount] = (ModelNode) {
+    .transform.properties.scale = { 1.f, 1.f, 1.f },
+    .primitiveIndex = 0,
+    .primitiveCount = 1,
+    .skin = 0
+  };
+
+  // The root node has the mesh node and root joint as children
+  model->rootNode = model->jointCount + 1;
+  model->nodes[model->rootNode] = (ModelNode) {
+    .matrix = true,
+    .transform = { MAT4_IDENTITY },
+    .childCount = 2,
+    .children = children,
+    .skin = ~0u
+  };
+
+  // Add the children to the root node
+  *children++ = 0;
+  *children++ = model->jointCount;
+
+  return model;
 }
 
 static bool vrapi_animate(Device device, struct Model* model) {
-  return false;
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  ovrInputCapabilityHeader* header = &state.hands[device - DEVICE_HAND_LEFT];
+  ovrHandPose* handPose = &state.handPose[device - DEVICE_HAND_LEFT];
+  if (header->Type != ovrControllerType_Hand || handPose->HandConfidence != ovrConfidence_HIGH) {
+    return false;
+  }
+
+  ModelData* modelData = lovrModelGetModelData(model);
+  if (modelData->nodeCount >= modelData->jointCount) {
+    float scale = handPose->HandScale;
+    vec3_set(modelData->nodes[modelData->jointCount].transform.properties.scale, scale, scale, scale);
+  }
+
+  lovrModelResetPose(model);
+
+  // Replace node rotations with the rotations in the hand pose, keeping the position the same
+  for (uint32_t i = 0; i < ovrHandBone_MaxSkinnable && i < modelData->nodeCount; i++) {
+    float position[4], orientation[4];
+    vec3_init(position, modelData->nodes[i].transform.properties.translation);
+    quat_init(orientation, &handPose->BoneRotations[i].x);
+    lovrModelPose(model, i, position, orientation, 1.f);
+  }
+
+  return true;
 }
 
 static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
@@ -421,6 +609,7 @@ static void vrapi_update(float dt) {
   int appState = lovrPlatformGetActivityState();
   ANativeWindow* window = lovrPlatformGetNativeWindow();
 
+  // Session
   if (!state.session && appState == APP_CMD_RESUME && window) {
     ovrModeParms config = vrapi_DefaultModeParms(&state.java);
     config.Flags &= ~VRAPI_MODE_FLAG_RESET_WINDOW_FULLSCREEN;
@@ -442,6 +631,7 @@ static void vrapi_update(float dt) {
 
   if (!state.session) return;
 
+  // Events
   VRAPI_LARGEST_EVENT_TYPE event;
   while (vrapi_PollEvent(&event.EventHeader) == ovrSuccess) {
     switch (event.EventHeader.EventType) {
@@ -457,41 +647,53 @@ static void vrapi_update(float dt) {
     }
   }
 
+  // Tracking
   state.frameIndex++;
   state.displayTime = vrapi_GetPredictedDisplayTime(state.session, state.frameIndex);
+  state.tracking[DEVICE_HEAD] = vrapi_GetPredictedTracking(state.session, state.displayTime);
 
-  state.controllerInfo[0].Header.Type = ovrControllerType_None;
-  state.controllerInfo[1].Header.Type = ovrControllerType_None;
-
+  // Sort out the controller devices
   ovrInputCapabilityHeader header;
+  state.hands[0].Type = ovrControllerType_None;
+  state.hands[1].Type = ovrControllerType_None;
   for (uint32_t i = 0; vrapi_EnumerateInputDevices(state.session, i, &header) == ovrSuccess; i++) {
     if (header.Type == ovrControllerType_TrackedRemote) {
-      ovrInputTrackedRemoteCapabilities info;
-      info.Header = header;
+      ovrInputTrackedRemoteCapabilities info = { .Header = header };
       vrapi_GetInputDeviceCapabilities(state.session, &info.Header);
-      uint32_t index = (info.ControllerCapabilities & ovrControllerCaps_LeftHand) ? 0 : 1;
-      state.controllerInfo[index] = info;
-      state.input[index].Header.ControllerType = header.Type;
-      uint32_t lastButtons = state.input[index].Buttons;
-      vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.input[index].Header);
-      state.changedButtons[index] = state.input[index].Buttons ^ lastButtons;
+      state.hands[(info.ControllerCapabilities & ovrControllerCaps_LeftHand) ? 0 : 1] = header;
     } else if (header.Type == ovrControllerType_Hand) {
-      ovrInputHandCapabilities info;
-      info.Header = header;
+      ovrInputHandCapabilities info = { .Header = header };
       vrapi_GetInputDeviceCapabilities(state.session, &info.Header);
-      uint32_t index = (info.HandCapabilities & ovrHandCaps_LeftHand) ? 0 : 1;
-      state.controllerInfo[index].Header.Type = header.Type;
-      state.handInput[index].Header.ControllerType = header.Type;
-      vrapi_GetCurrentInputState(state.session, header.DeviceID, &state.handInput[index].Header);
+      state.hands[(info.HandCapabilities & ovrHandCaps_LeftHand) ? 0 : 1] = header;
     }
   }
 
+  // Update controllers
   for (uint32_t i = 0; i < 2; i++) {
-    ovrInputCapabilityHeader* header = &state.controllerInfo[i].Header;
-    if (header->Type == ovrControllerType_TrackedRemote) {
-      state.hapticDuration[i] -= dt;
-      float strength = state.hapticDuration[i] > 0.f ? state.hapticStrength[i] : 0.f;
-      vrapi_SetHapticVibrationSimple(state.session, header->DeviceID, strength);
+    Device device = DEVICE_HAND_LEFT + i;
+    ovrInputCapabilityHeader* header = &state.hands[i];
+    vrapi_GetInputTrackingState(state.session, header->DeviceID, state.displayTime, &state.tracking[device]);
+
+    switch (state.hands[i].Type) {
+      case ovrControllerType_TrackedRemote: {
+        uint32_t lastButtons = state.input[i].Buttons;
+        state.input[i].Header.ControllerType = header->Type;
+        vrapi_GetCurrentInputState(state.session, header->DeviceID, &state.input[i].Header);
+        state.changedButtons[i] = state.input[i].Buttons ^ lastButtons;
+
+        // Haptics
+        state.hapticDuration[i] -= dt;
+        float strength = state.hapticDuration[i] > 0.f ? state.hapticStrength[i] : 0.f;
+        vrapi_SetHapticVibrationSimple(state.session, header->DeviceID, strength);
+        break;
+      }
+
+      case ovrControllerType_Hand:
+        state.handPose[i].Header.Version = ovrHandVersion_1;
+        vrapi_GetHandPose(state.session, header->DeviceID, state.displayTime, &state.handPose[i].Header);
+        break;
+
+      default: break;
     }
   }
 }
