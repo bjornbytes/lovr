@@ -19,12 +19,47 @@ static struct {
   EGLContext context;
   EGLSurface surface;
   quitCallback onQuit;
+  keyboardCallback onKeyboardEvent;
 } state;
 
 static void onAppCmd(struct android_app* app, int32_t cmd) {
   if (cmd == APP_CMD_DESTROY && state.onQuit) {
     state.onQuit();
   }
+}
+
+static int32_t onInputEvent(struct android_app* app, AInputEvent* event) {
+  if (AInputEvent_getType(event) != AINPUT_EVENT_TYPE_KEY || !state.onKeyboardEvent) {
+    return 0;
+  }
+
+  ButtonAction action;
+  switch (AKeyEvent_getAction(event)) {
+    case AKEY_EVENT_ACTION_DOWN: action = BUTTON_PRESSED; break;
+    case AKEY_EVENT_ACTION_UP: action = BUTTON_RELEASED; break;
+    default: return 0;
+  }
+
+  KeyCode key;
+  switch (AKeyEvent_getKeyCode(event)) {
+    case AKEYCODE_W: key = KEY_W; break;
+    case AKEYCODE_A: key = KEY_A; break;
+    case AKEYCODE_S: key = KEY_S; break;
+    case AKEYCODE_D: key = KEY_D; break;
+    case AKEYCODE_Q: key = KEY_Q; break;
+    case AKEYCODE_E: key = KEY_E; break;
+    case AKEYCODE_DPAD_UP: key = KEY_UP; break;
+    case AKEYCODE_DPAD_DOWN: key = KEY_DOWN; break;
+    case AKEYCODE_DPAD_LEFT: key = KEY_LEFT; break;
+    case AKEYCODE_DPAD_RIGHT: key = KEY_RIGHT; break;
+    case AKEYCODE_ESCAPE: key = KEY_ESCAPE; break;
+    case AKEYCODE_F5: key = KEY_F5; break;
+    default: return 0;
+  }
+
+  state.onKeyboardEvent(key, action);
+
+  return 1;
 }
 
 int main(int argc, char** argv);
@@ -34,6 +69,7 @@ void android_main(struct android_app* app) {
   (*app->activity->vm)->AttachCurrentThread(app->activity->vm, &state.jni, NULL);
   lovrPlatformOpenConsole();
   app->onAppCmd = onAppCmd;
+  app->onInputEvent = onInputEvent;
   main(0, NULL);
   (*app->activity->vm)->DetachCurrentThread(app->activity->vm);
 }
@@ -305,7 +341,7 @@ void lovrPlatformOnMouseButton(mouseButtonCallback callback) {
 }
 
 void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
-  //
+  state.onKeyboardEvent = callback;
 }
 
 void lovrPlatformGetMousePosition(double* x, double* y) {
