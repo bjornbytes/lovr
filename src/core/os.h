@@ -55,6 +55,7 @@ typedef void (*windowFocusCallback)(bool focused);
 typedef void (*windowResizeCallback)(int width, int height);
 typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action);
 typedef void (*keyboardCallback)(ButtonAction action, KeyCode key, uint32_t scancode, bool repeat);
+typedef void (*textCallback)(uint32_t codepoint);
 
 bool lovrPlatformInit(void);
 void lovrPlatformDestroy(void);
@@ -81,6 +82,7 @@ void lovrPlatformOnWindowFocus(windowFocusCallback callback);
 void lovrPlatformOnWindowResize(windowResizeCallback callback);
 void lovrPlatformOnMouseButton(mouseButtonCallback callback);
 void lovrPlatformOnKeyboardEvent(keyboardCallback callback);
+void lovrPlatformOnTextEvent(textCallback callback);
 void lovrPlatformGetMousePosition(double* x, double* y);
 void lovrPlatformSetMouseMode(MouseMode mode);
 bool lovrPlatformIsMouseDown(MouseButton button);

@@ -22,6 +22,13 @@ static void onKeyboardEvent(ButtonAction action, KeyCode key, uint32_t scancode,
   });
 }
 
+static void onTextEvent(uint32_t codepoint) {
+  lovrEventPush((Event) {
+    .type = EVENT_TEXTINPUT,
+    .data.text.codepoint = codepoint
+  });
+}
+
 void lovrVariantDestroy(Variant* variant) {
   switch (variant->type) {
     case TYPE_STRING: free(variant->value.string); return;
@@ -34,6 +41,7 @@ bool lovrEventInit() {
   if (state.initialized) return false;
   arr_init(&state.events);
   lovrPlatformOnKeyboardEvent(onKeyboardEvent);
+  lovrPlatformOnTextEvent(onTextEvent);
   return state.initialized = true;
 }
 
@@ -53,6 +61,7 @@ void lovrEventDestroy() {
   }
   arr_free(&state.events);
   lovrPlatformOnKeyboardEvent(NULL);
+  lovrPlatformOnTextEvent(NULL);
   memset(&state, 0, sizeof(state));
 }
 

@@ -17,6 +17,7 @@ static struct {
   windowResizeCallback onWindowResize;
   mouseButtonCallback onMouseButton;
   keyboardCallback onKeyboardEvent;
+  textCallback onTextEvent;
 } glfwState;
 
 static void onError(int code, const char* description) {
@@ -71,6 +72,12 @@ static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int 
     ButtonAction action = (a == GLFW_RELEASE) ? BUTTON_RELEASED : BUTTON_PRESSED;
     bool repeat = (a == GLFW_REPEAT);
     glfwState.onKeyboardEvent(action, key, scancode, repeat);
+  }
+}
+
+static void onTextEvent(GLFWwindow* window, unsigned int codepoint) {
+  if (glfwState.onTextEvent) {
+    glfwState.onTextEvent(codepoint);
   }
 }
 
@@ -161,6 +168,7 @@ bool lovrPlatformCreateWindow(WindowFlags* flags) {
   glfwSetWindowSizeCallback(glfwState.window, onWindowResize);
   glfwSetMouseButtonCallback(glfwState.window, onMouseButton);
   glfwSetKeyCallback(glfwState.window, onKeyboardEvent);
+  glfwSetCharCallback(glfwState.window, onTextEvent);
   lovrPlatformSetSwapInterval(flags->vsync);
   return true;
 }
@@ -221,6 +229,10 @@ void lovrPlatformOnMouseButton(mouseButtonCallback callback) {
 
 void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
   glfwState.onKeyboardEvent = callback;
+}
+
+void lovrPlatformOnTextEvent(textCallback callback) {
+  glfwState.onTextEvent = callback;
 }
 
 void lovrPlatformGetMousePosition(double* x, double* y) {
