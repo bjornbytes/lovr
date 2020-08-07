@@ -58,7 +58,9 @@ typedef struct {
 } ResizeEvent;
 
 typedef struct {
-  int code;
+  uint32_t code;
+  uint32_t scancode;
+  bool repeat;
 } KeyEvent;
 
 typedef struct {

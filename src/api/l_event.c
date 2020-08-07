@@ -130,9 +130,15 @@ static int nextEvent(lua_State* L) {
       return 3;
 
     case EVENT_KEYPRESSED:
+      luax_pushenum(L, KeyCodes, event.data.key.code);
+      lua_pushinteger(L, event.data.key.scancode);
+      lua_pushboolean(L, event.data.key.repeat);
+      return 4;
+
     case EVENT_KEYRELEASED:
       luax_pushenum(L, KeyCodes, event.data.key.code);
-      return 2;
+      lua_pushinteger(L, event.data.key.scancode);
+      return 3;
 
 #ifdef LOVR_ENABLE_THREAD
     case EVENT_THREAD_ERROR:

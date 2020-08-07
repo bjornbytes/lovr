@@ -68,8 +68,9 @@ static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int 
       case GLFW_KEY_F5: key = KEY_F5; break;
       default: return;
     }
-    ButtonAction action = (a == GLFW_PRESS) ? BUTTON_PRESSED : BUTTON_RELEASED;
-    glfwState.onKeyboardEvent(key, action);
+    ButtonAction action = (a == GLFW_RELEASE) ? BUTTON_RELEASED : BUTTON_PRESSED;
+    bool repeat = (a == GLFW_REPEAT);
+    glfwState.onKeyboardEvent(action, key, scancode, repeat);
   }
 }
 

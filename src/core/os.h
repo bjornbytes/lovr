@@ -54,7 +54,7 @@ typedef void (*quitCallback)(void);
 typedef void (*windowFocusCallback)(bool focused);
 typedef void (*windowResizeCallback)(int width, int height);
 typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action);
-typedef void (*keyboardCallback)(KeyCode key, ButtonAction action);
+typedef void (*keyboardCallback)(ButtonAction action, KeyCode key, uint32_t scancode, bool repeat);
 
 bool lovrPlatformInit(void);
 void lovrPlatformDestroy(void);

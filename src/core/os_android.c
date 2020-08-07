@@ -57,7 +57,10 @@ static int32_t onInputEvent(struct android_app* app, AInputEvent* event) {
     default: return 0;
   }
 
-  state.onKeyboardEvent(key, action);
+  uint32_t scancode = AKeyEvent_getScanCode(event);
+  bool repeat = AKeyEvent_getRepeatCount(event) > 0;
+
+  state.onKeyboardEvent(action, key, scancode, repeat);
 
   return 1;
 }
