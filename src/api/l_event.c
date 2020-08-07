@@ -142,8 +142,9 @@ static int nextEvent(lua_State* L) {
       return 3;
 
     case EVENT_TEXTINPUT:
+      lua_pushlstring(L, event.data.text.utf8, strnlen(event.data.text.utf8, 4));
       lua_pushinteger(L, event.data.text.codepoint);
-      return 2;
+      return 3;
 
 #ifdef LOVR_ENABLE_THREAD
     case EVENT_THREAD_ERROR:
