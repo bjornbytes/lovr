@@ -1,4 +1,5 @@
 #include "event/event.h"
+#include "thread/thread.h"
 #include "core/arr.h"
 #include "core/os.h"
 #include "core/ref.h"
@@ -36,6 +37,18 @@ bool lovrEventInit() {
 
 void lovrEventDestroy() {
   if (!state.initialized) return;
+  for (size_t i = 0; i < state.events.length; i++) {
+    Event* event = &state.events.data[i];
+    switch (event->type) {
+      case EVENT_THREAD_ERROR: lovrRelease(Thread, event->data.thread.thread); break;
+      case EVENT_CUSTOM:
+        for (uint32_t j = 0; j < event->data.custom.count; j++) {
+          lovrVariantDestroy(&event->data.custom.data[j]);
+        }
+        break;
+      default: break;
+    }
+  }
   arr_free(&state.events);
   lovrPlatformOnKeyboardEvent(NULL);
   memset(&state, 0, sizeof(state));
