@@ -20,6 +20,7 @@ static struct {
   EGLSurface surface;
   quitCallback onQuit;
   keyboardCallback onKeyboardEvent;
+  textCallback onTextEvent;
 } state;
 
 static void onAppCmd(struct android_app* app, int32_t cmd) {
@@ -61,6 +62,18 @@ static int32_t onInputEvent(struct android_app* app, AInputEvent* event) {
   bool repeat = AKeyEvent_getRepeatCount(event) > 0;
 
   state.onKeyboardEvent(action, key, scancode, repeat);
+
+  // Text event
+  if (action == BUTTON_PRESSED && state.onTextEvent) {
+    jclass jKeyEvent = (*state.jni)->FindClass(state.jni, "android/view/KeyEvent");
+    jmethodID jgetUnicodeChar = (*state.jni)->GetMethodID(state.jni, jKeyEvent, "getUnicodeChar", "(I)I");
+    jmethodID jKeyEventInit = (*state.jni)->GetMethodID(state.jni, jKeyEvent, "<init>", "(II)V");
+    jobject jevent = (*state.jni)->NewObject(state.jni, jKeyEvent, jKeyEventInit, AKEY_EVENT_ACTION_DOWN, AKeyEvent_getKeyCode(event));
+    uint32_t codepoint = (*state.jni)->CallIntMethod(state.jni, jevent, jgetUnicodeChar, AKeyEvent_getMetaState(event));
+    if (codepoint > 0) {
+      state.onTextEvent(codepoint);
+    }
+  }
 
   return 1;
 }
@@ -345,6 +358,10 @@ void lovrPlatformOnMouseButton(mouseButtonCallback callback) {
 
 void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
   state.onKeyboardEvent = callback;
+}
+
+void lovrPlatformOnTextEvent(textCallback callback) {
+  state.onTextEvent = callback;
 }
 
 void lovrPlatformGetMousePosition(double* x, double* y) {

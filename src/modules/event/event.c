@@ -27,6 +27,7 @@ static void onTextEvent(uint32_t codepoint) {
   Event event;
   event.type = EVENT_TEXTINPUT;
   event.data.text.codepoint = codepoint;
+  memset(&event.data.text.utf8, 0, sizeof(event.data.text.utf8));
   utf8_encode(codepoint, event.data.text.utf8);
   lovrEventPush(event);
 }
