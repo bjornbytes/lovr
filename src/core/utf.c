@@ -48,3 +48,21 @@ fallback:
   *pch = ch;
   return 1;
 }
+
+void utf8_encode(uint32_t c, char s[4]) {
+  if (c <= 0x7f) {
+    s[0] = c;
+  } else if (c <= 0x7ff) {
+    s[0] = (0xc0 | ((c >> 6) & 0x1f));
+    s[1] = (0x80 | (c & 0x3f));
+  } else if (c <= 0xffff) {
+    s[0] = (0xe0 | ((c >> 12) & 0x0f));
+    s[1] = (0x80 | ((c >> 6) & 0x3f));
+    s[2] = (0x80 | (c & 0x3f));
+  } else if (c <= 0x10ffff) {
+    s[1] = (0xf0 | ((c >> 18) & 0x07));
+    s[1] = (0x80 | ((c >> 12) & 0x3f));
+    s[2] = (0x80 | ((c >> 6) & 0x3f));
+    s[3] = (0x80 | (c & 0x3f));
+  }
+}

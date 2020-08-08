@@ -4,6 +4,7 @@
 #include "core/os.h"
 #include "core/ref.h"
 #include "core/util.h"
+#include "core/utf.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -23,27 +24,10 @@ static void onKeyboardEvent(ButtonAction action, KeyCode key, uint32_t scancode,
 }
 
 static void onTextEvent(uint32_t codepoint) {
-  Event event = { .type = EVENT_TEXTINPUT, .data.text.codepoint = codepoint };
-
-  uint32_t c = codepoint;
-  char* s = event.data.text.utf8;
-
-  if (c <= 0x7f) {
-    s[0] = codepoint;
-  } else if (c <= 0x7ff) {
-    s[0] = (0xc0 | ((c >> 6) & 0x1f));
-    s[1] = (0x80 | (c & 0x3f));
-  } else if (c <= 0xffff) {
-    s[0] = (0xe0 | ((c >> 12) & 0x0f));
-    s[1] = (0x80 | ((c >> 6) & 0x3f));
-    s[2] = (0x80 | (c & 0x3f));
-  } else if (c <= 0x10ffff) {
-    s[1] = (0xf0 | ((c >> 18) & 0x07));
-    s[1] = (0x80 | ((c >> 12) & 0x3f));
-    s[2] = (0x80 | ((c >> 6) & 0x3f));
-    s[3] = (0x80 | (c & 0x3f));
-  }
-
+  Event event;
+  event.type = EVENT_TEXTINPUT;
+  event.data.text.codepoint = codepoint;
+  utf8_encode(codepoint, event.data.text.utf8);
   lovrEventPush(event);
 }
 
