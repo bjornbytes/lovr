@@ -1244,12 +1244,11 @@ void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
   gladLoadGLES2Loader((GLADloadproc) getProcAddress);
 #endif
 
+#ifndef LOVR_WEBGL
   if (debug && GLAD_GL_KHR_debug) {
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(onMessage, NULL);
   }
-
-#ifndef LOVR_WEBGL
   state.features.astc = GLAD_GL_ES_VERSION_3_2;
   state.features.compute = GLAD_GL_ES_VERSION_3_1 || GLAD_GL_ARB_compute_shader;
   state.features.dxt = GLAD_GL_EXT_texture_compression_s3tc;
