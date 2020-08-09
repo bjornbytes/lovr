@@ -1,5 +1,8 @@
 #include "os.h"
 #include <emscripten.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "os_glfw.h"
 
