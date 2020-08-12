@@ -47,6 +47,7 @@ static struct {
   Canvas* canvases[4];
   ovrTracking tracking[3];
   ovrHandPose handPose[2];
+  ovrHandSkeleton skeleton[2];
   ovrInputCapabilityHeader hands[2];
   ovrInputStateTrackedRemote input[2];
   uint32_t changedButtons[2];
@@ -323,6 +324,75 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
   return false;
 }
 
+static bool vrapi_getSkeleton(Device device, float* poses) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  uint32_t index = device - DEVICE_HAND_LEFT;
+  ovrHandPose* handPose = &state.handPose[index];
+  ovrHandSkeleton* skeleton = &state.skeleton[index];
+  if (state.hands[index].Type != ovrControllerType_Hand || skeleton->Header.Version == 0 || handPose->HandConfidence != ovrConfidence_HIGH) {
+    return false;
+  }
+
+  float LOVR_ALIGN(16) globalPoses[ovrHandBone_Max * 8];
+  for (uint32_t i = 0; i < ovrHandBone_Max; i++) {
+    float* pose = &globalPoses[i * 8];
+
+    if (skeleton->BoneParentIndices[i] >= 0) {
+      memcpy(pose, &globalPoses[skeleton->BoneParentIndices[i] * 8], 8 * sizeof(float));
+    } else {
+      memcpy(pose + 0, &handPose->RootPose.Position.x, 3 * sizeof(float));
+      memcpy(pose + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
+    }
+
+    float LOVR_ALIGN(16) translation[4];
+    memcpy(translation, &skeleton->BonePoses[i].Position.x, 3 * sizeof(float));
+    quat_rotate(pose + 4, translation);
+    vec3_add(pose + 0, translation);
+    quat_mul(pose + 4, &handPose->BoneRotations[i].x);
+  }
+
+  // We try our best, okay?
+  static const uint32_t boneMap[HAND_JOINT_COUNT] = {
+    [JOINT_WRIST] = ovrHandBone_WristRoot,
+    [JOINT_THUMB_METACARPAL] = ovrHandBone_Thumb0,
+    [JOINT_THUMB_PROXIMAL] = ovrHandBone_Thumb2,
+    [JOINT_THUMB_DISTAL] = ovrHandBone_Thumb3,
+    [JOINT_THUMB_TIP] = ovrHandBone_ThumbTip,
+    [JOINT_INDEX_METACARPAL] = ovrHandBone_WristRoot,
+    [JOINT_INDEX_PROXIMAL] = ovrHandBone_Index1,
+    [JOINT_INDEX_INTERMEDIATE] = ovrHandBone_Index2,
+    [JOINT_INDEX_DISTAL] = ovrHandBone_Index3,
+    [JOINT_INDEX_TIP] = ovrHandBone_IndexTip,
+    [JOINT_MIDDLE_METACARPAL] = ovrHandBone_WristRoot,
+    [JOINT_MIDDLE_PROXIMAL] = ovrHandBone_Middle1,
+    [JOINT_MIDDLE_INTERMEDIATE] = ovrHandBone_Middle2,
+    [JOINT_MIDDLE_DISTAL] = ovrHandBone_Middle3,
+    [JOINT_MIDDLE_TIP] = ovrHandBone_MiddleTip,
+    [JOINT_RING_METACARPAL] = ovrHandBone_WristRoot,
+    [JOINT_RING_PROXIMAL] = ovrHandBone_Ring1,
+    [JOINT_RING_INTERMEDIATE] = ovrHandBone_Ring2,
+    [JOINT_RING_DISTAL] = ovrHandBone_Ring3,
+    [JOINT_RING_TIP] = ovrHandBone_RingTip,
+    [JOINT_PINKY_METACARPAL] = ovrHandBone_Pinky0,
+    [JOINT_PINKY_PROXIMAL] = ovrHandBone_Pinky1,
+    [JOINT_PINKY_INTERMEDIATE] = ovrHandBone_Pinky2,
+    [JOINT_PINKY_DISTAL] = ovrHandBone_Pinky3,
+    [JOINT_PINKY_TIP] = ovrHandBone_PinkyTip
+  };
+
+  for (uint32_t i = 1; i < HAND_JOINT_COUNT; i++) {
+    memcpy(&poses[i * 8], &globalPoses[boneMap[i] * 8], 8 * sizeof(float));
+  }
+
+  memcpy(poses + 0, &handPose->RootPose.Position.x, 3 * sizeof(float));
+  memcpy(poses + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
+
+  return true;
+}
+
 static bool vrapi_vibrate(Device device, float strength, float duration, float frequency) {
   if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;
@@ -343,18 +413,18 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
     return NULL;
   }
 
-  ovrHandSkeleton skeleton;
-  skeleton.Header.Version = ovrHandVersion_1;
-  ovrHandedness hand = device == DEVICE_HAND_LEFT ? VRAPI_HAND_LEFT : VRAPI_HAND_RIGHT;
-  if (vrapi_GetHandSkeleton(state.session, hand, &skeleton.Header) != ovrSuccess) {
+  if (state.skeleton[device - DEVICE_HAND_LEFT].Header.Version == 0) {
     return NULL;
   }
+
+  ovrHandSkeleton* skeleton = &state.skeleton[device - DEVICE_HAND_LEFT];
 
   ovrHandMesh* mesh = malloc(sizeof(ovrHandMesh));
   float* inverseBindMatrices = malloc(ovrHandBone_MaxSkinnable * 16 * sizeof(float));
   lovrAssert(mesh && inverseBindMatrices, "Out of memory");
 
   mesh->Header.Version = ovrHandVersion_1;
+  ovrHandedness hand = device == DEVICE_HAND_LEFT ? VRAPI_HAND_LEFT : VRAPI_HAND_RIGHT;
   if (vrapi_GetHandMesh(state.session, hand, &mesh->Header) != ovrSuccess) {
     free(mesh);
     return NULL;
@@ -437,8 +507,8 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
   model->skins[0].jointCount = model->jointCount;
   model->skins[0].inverseBindMatrices = inverseBindMatrices;
   for (uint32_t i = 0; i < model->jointCount; i++) {
-    ovrVector3f* position = &skeleton.BonePoses[i].Position;
-    ovrQuatf* orientation = &skeleton.BonePoses[i].Orientation;
+    ovrVector3f* position = &skeleton->BonePoses[i].Position;
+    ovrQuatf* orientation = &skeleton->BonePoses[i].Orientation;
 
     model->nodes[i] = (ModelNode) {
       .transform.properties.translation = { position->x, position->y, position->z },
@@ -457,8 +527,8 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
     // Get the global transform of the bone by multiplying by the parent's global transform
     // This relies on the bones being ordered in hierarchical order
     ovrMatrix4f parentTransform = ovrMatrix4f_CreateIdentity();
-    if (skeleton.BoneParentIndices[i] >= 0) {
-      parentTransform = globalTransforms[skeleton.BoneParentIndices[i]];
+    if (skeleton->BoneParentIndices[i] >= 0) {
+      parentTransform = globalTransforms[skeleton->BoneParentIndices[i]];
     }
     globalTransforms[i] = ovrMatrix4f_Multiply(&parentTransform, &localPose);
 
@@ -472,8 +542,8 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
     // This is somewhat slow, we use the fact that bones are sorted to reduce the work a bit.
     model->nodes[i].childCount = 0;
     model->nodes[i].children = children;
-    for (uint32_t j = i + 1; j < model->jointCount && j < skeleton.NumBones; j++) {
-      if ((uint32_t) skeleton.BoneParentIndices[j] == i) {
+    for (uint32_t j = i + 1; j < model->jointCount && j < skeleton->NumBones; j++) {
+      if ((uint32_t) skeleton->BoneParentIndices[j] == i) {
         model->nodes[i].children[model->nodes[i].childCount++] = j;
         children++;
       }
@@ -689,6 +759,15 @@ static void vrapi_update(float dt) {
       }
 
       case ovrControllerType_Hand:
+        // Cache hand skeleton
+        if (state.skeleton[i].Header.Version == 0) {
+          state.skeleton[i].Header.Version = ovrHandVersion_1;
+          ovrHandedness hand = i == 0 ? VRAPI_HAND_LEFT : VRAPI_HAND_RIGHT;
+          if (vrapi_GetHandSkeleton(state.session, hand, &state.skeleton[i].Header) != ovrSuccess) {
+            state.skeleton[i].Header.Version = 0;
+          }
+        }
+
         state.handPose[i].Header.Version = ovrHandVersion_1;
         vrapi_GetHandPose(state.session, header->DeviceID, state.displayTime, &state.handPose[i].Header);
         break;
@@ -720,6 +799,7 @@ HeadsetInterface lovrHeadsetVrApiDriver = {
   .isDown = vrapi_isDown,
   .isTouched = vrapi_isTouched,
   .getAxis = vrapi_getAxis,
+  .getSkeleton = vrapi_getSkeleton,
   .vibrate = vrapi_vibrate,
   .newModelData = vrapi_newModelData,
   .animate = vrapi_animate,

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#define MAX_HEADSET_BONES 32
+#define HAND_JOINT_COUNT 26
 
 struct Model;
 struct ModelData;
@@ -77,6 +77,35 @@ typedef enum {
   MAX_AXES
 } DeviceAxis;
 
+typedef enum {
+  JOINT_PALM,
+  JOINT_WRIST,
+  JOINT_THUMB_METACARPAL,
+  JOINT_THUMB_PROXIMAL,
+  JOINT_THUMB_DISTAL,
+  JOINT_THUMB_TIP,
+  JOINT_INDEX_METACARPAL,
+  JOINT_INDEX_PROXIMAL,
+  JOINT_INDEX_INTERMEDIATE,
+  JOINT_INDEX_DISTAL,
+  JOINT_INDEX_TIP,
+  JOINT_MIDDLE_METACARPAL,
+  JOINT_MIDDLE_PROXIMAL,
+  JOINT_MIDDLE_INTERMEDIATE,
+  JOINT_MIDDLE_DISTAL,
+  JOINT_MIDDLE_TIP,
+  JOINT_RING_METACARPAL,
+  JOINT_RING_PROXIMAL,
+  JOINT_RING_INTERMEDIATE,
+  JOINT_RING_DISTAL,
+  JOINT_RING_TIP,
+  JOINT_PINKY_METACARPAL,
+  JOINT_PINKY_PROXIMAL,
+  JOINT_PINKY_INTERMEDIATE,
+  JOINT_PINKY_DISTAL,
+  JOINT_PINKY_TIP
+} HandJoint;
+
 // Notes:
 // - getDisplayFrequency may return 0.f if the information is unavailable.
 // - For isDown, changed can be set to false if change information is unavailable or inconvenient.
@@ -106,7 +135,7 @@ typedef struct HeadsetInterface {
   bool (*isDown)(Device device, DeviceButton button, bool* down, bool* changed);
   bool (*isTouched)(Device device, DeviceButton button, bool* touched);
   bool (*getAxis)(Device device, DeviceAxis axis, float* value);
-  bool (*getSkeleton)(Device device, float* poses, uint32_t* poseCount);
+  bool (*getSkeleton)(Device device, float* poses);
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
   struct ModelData* (*newModelData)(Device device, bool animated);
   bool (*animate)(Device device, struct Model* model);

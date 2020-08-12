@@ -499,18 +499,17 @@ static int l_lovrHeadsetGetAxis(lua_State* L) {
 
 static int l_lovrHeadsetGetSkeleton(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float poses[MAX_HEADSET_BONES * 8];
-  uint32_t poseCount = MAX_HEADSET_BONES;
+  float poses[HAND_JOINT_COUNT * 8];
   FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getSkeleton(device, poses, &poseCount)) {
+    if (driver->getSkeleton(device, poses)) {
       if (!lua_istable(L, 2)) {
-        lua_createtable(L, poseCount, 0);
+        lua_createtable(L, HAND_JOINT_COUNT, 0);
       } else {
         lua_settop(L, 2);
       }
 
-      for (uint32_t i = 0; i < poseCount; i++) {
-        lua_createtable(L, 7, 0);
+      for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
+        lua_createtable(L, 8, 0);
 
         float angle, ax, ay, az;
         float* pose = poses + i * 8;
