@@ -192,6 +192,12 @@ static int l_lovrModelGetAnimationDuration(lua_State* L) {
   return 1;
 }
 
+static int l_lovrModelHasJoints(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  lua_pushboolean(L, lovrModelGetModelData(model)->skinCount > 0);
+  return 1;
+}
+
 const luaL_Reg lovrModel[] = {
   { "draw", l_lovrModelDraw },
   { "animate", l_lovrModelAnimate },
@@ -206,5 +212,6 @@ const luaL_Reg lovrModel[] = {
   { "getMaterialCount", l_lovrModelGetMaterialCount },
   { "getNodeCount", l_lovrModelGetNodeCount },
   { "getAnimationDuration", l_lovrModelGetAnimationDuration },
+  { "hasJoints", l_lovrModelHasJoints },
   { NULL, NULL }
 };
