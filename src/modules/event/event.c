@@ -53,7 +53,9 @@ void lovrEventDestroy() {
   for (size_t i = 0; i < state.events.length; i++) {
     Event* event = &state.events.data[i];
     switch (event->type) {
+#if LOVR_ENABLE_THREAD
       case EVENT_THREAD_ERROR: lovrRelease(Thread, event->data.thread.thread); break;
+#endif
       case EVENT_CUSTOM:
         for (uint32_t j = 0; j < event->data.custom.count; j++) {
           lovrVariantDestroy(&event->data.custom.data[j]);

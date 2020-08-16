@@ -20,7 +20,6 @@ option(LOVR_ENABLE_JSON "Bundle with lua-cjson" ON)
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" OFF)
-option(LOVR_USE_WEBVR "Enable the WebVR backend for the headset module" OFF)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
 option(LOVR_USE_VRAPI "Enable the VrApi backend for the headset module" OFF)
@@ -50,16 +49,8 @@ if(EMSCRIPTEN)
     "-s FULL_ES2=1 "
     "-s FULL_ES3=1 "
     "-s FORCE_FILESYSTEM=1 "
-    "-s \"EXPORTED_FUNCTIONS=[ "
-      "'_main','_lovrDestroy',"
-      "'_lovrCanvasCreateFromHandle',"
-      "'_lovrGraphicsSetCamera',"
-      "'_webvr_onAnimationFrame',"
-      "'_mat4_set','_mat4_identity','_mat4_invert','_mat4_multiply','_mat4_rotateQuat','_mat4_transform','_mat4_transformDirection',"
-      "'_quat_fromMat4','_quat_getAngleAxis'"
-    "]\" "
+    "-s \"EXPORTED_FUNCTIONS=['_main','_lovrDestroy','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetCamera']\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
-    "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/webvr.js\" "
     "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/webxr.js\" "
     "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.html\""
   )
@@ -69,7 +60,6 @@ if(EMSCRIPTEN)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_EXECUTABLE_SUFFIX ".html")
-  set(LOVR_USE_WEBVR ON)
   set(LOVR_USE_WEBXR ON)
   set(LOVR_USE_OPENVR OFF)
 elseif(ANDROID)
@@ -342,7 +332,6 @@ set(LOVR_SRC
   src/main.c
   src/core/arr.c
   src/core/fs.c
-  src/core/maf.c
   src/core/map.c
   src/core/png.c
   src/core/ref.c
@@ -489,10 +478,6 @@ if(LOVR_ENABLE_HEADSET)
   if(LOVR_USE_PICO)
     add_definitions(-DLOVR_USE_PICO)
     target_sources(lovr PRIVATE src/modules/headset/headset_pico.c)
-  endif()
-  if(LOVR_USE_WEBVR)
-    add_definitions(-DLOVR_USE_WEBVR)
-    target_sources(lovr PRIVATE src/modules/headset/headset_webvr.c)
   endif()
   if(LOVR_USE_WEBXR)
     add_definitions(-DLOVR_USE_WEBXR)

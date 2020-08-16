@@ -99,7 +99,7 @@ function lovr.boot()
       debug = false
     },
     headset = {
-      drivers = { 'leap', 'openxr', 'oculus', 'vrapi', 'pico', 'openvr', 'webxr', 'webvr', 'desktop' },
+      drivers = { 'leap', 'openxr', 'oculus', 'vrapi', 'pico', 'openvr', 'webxr', 'desktop' },
       offset = 1.7,
       msaa = 4
     },

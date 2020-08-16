@@ -265,12 +265,7 @@ ifeq ($(PLATFORM),web)
   LDFLAGS += -s FULL_ES3
   LDFLAGS += -s GL_PREINITIALIZED_CONTEXT
   LDFLAGS += -s FORCE_FILESYSTEM
-  LDFLAGS += -s EXPORTED_FUNCTIONS="[
-    LDFLAGS += '_main',
-    LDFLAGS += '_lovrCanvasCreateFromHandle','_lovrGraphicsSetCamera',
-    LDFLAGS += '_mat4_set','_mat4_identity','_mat4_invert','_mat4_multiply','_mat4_rotateQuat',
-    LDFLAGS += '_mat4_transform','_mat4_transformDirection'
-  LDFLAGS += ]"
+  LDFLAGS += -s EXPORTED_FUNCTIONS="['_main','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetCamera']"
   LDFLAGS_@(WEBXR) += --js-library $(ROOT)/src/resources/webxr.js
   LDFLAGS += --shell-file $(ROOT)/src/resources/lovr.html
   CFLAGS_@(THREAD) += -s USE_PTHREADS=1

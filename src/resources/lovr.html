@@ -56,8 +56,8 @@
       });
 
       var Module = window.Module = {
-        arguments: ['./'],
-        preRun: [findDisplay],
+        arguments: [],
+        preRun: [],
         postRun: [],
         print: console.log.bind(console),
         printErr: console.error.bind(console),
@@ -66,29 +66,51 @@
         preinitializedWebGLContext: context
       };
 
-      function findDisplay() {
-        if (navigator.getVRDisplays) {
-          Module.addRunDependency('lovrDisplay');
-          navigator.getVRDisplays().
-            then(function(displays) {
-              Module.lovrDisplay = displays[0];
-              container.appendChild(button);
-            }).finally(function() {
-              Module.removeRunDependency('lovrDisplay');
-            });
-        }
+      // To run a LÖVR project on this page, create a .lovr (zip) file of its folder and serve it
+      // alongside the HTML file.  Then set the 'project' variable below to the project's filename.
+      // This downloads the .lovr file into the virtual filesystem and adds it as a virtual command
+      // line argument before booting up LÖVR.
+      // Example: var project = 'app.lovr';
+      var project = null;
+      if (project) {
+        Module.arguments.push(project);
+        Module.preRun.push(function() {
+          Module.FS_createPreloadedFile('/', project, project, true, false);
+        });
       }
 
-      button.addEventListener('click', function() {
-        if (Module.lovrDisplay && Module.lovrDisplay.capabilities.canPresent) {
-          var eventName = Module.lovrDisplay.isPresenting ? 'lovr.exitvr' : 'lovr.entervr';
-          window.dispatchEvent(new CustomEvent(eventName));
-        }
-      });
+      // If WebXR is supported and immersive sessions are supported, add a button to the DOM that
+      // controls starting/stopping the immersive session.
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then(function(supported) {
+          if (!supported) return;
 
-      window.addEventListener('vrdisplaypresentchange', function() {
-        button.textContent = Module.lovrDisplay.isPresenting ? 'Exit VR' : 'Enter VR';
-      });
+          container.appendChild(button);
+
+          var active = false;
+
+          function onEnter() {
+            active = true;
+            button.textContent = 'Exit VR';
+          }
+
+          function onExit() {
+            active = false;
+            button.textContent = 'Enter VR';
+          }
+
+          button.addEventListener('click', function() {
+            if (!active) {
+              Module.lovr.enterVR().then(function(session) {
+                session.addEventListener('end', onExit);
+                onEnter();
+              });
+            } else {
+              Module.lovr.exitVR().then(onExit);
+            }
+          }
+        });
+      }
     </script>
 
     {{{ SCRIPT }}}

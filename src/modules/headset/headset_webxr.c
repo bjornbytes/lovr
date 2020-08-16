@@ -27,7 +27,7 @@ extern void webxr_renderTo(void (*callback)(void*), void* userdata);
 extern void webxr_update(float dt);
 
 HeadsetInterface lovrHeadsetWebXRDriver = {
-  .driverType = DRIVER_WEBVR,
+  .driverType = DRIVER_WEBXR,
   .init = webxr_init,
   .destroy = webxr_destroy,
   .getName = webxr_getName,

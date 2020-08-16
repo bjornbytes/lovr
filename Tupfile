@@ -6,7 +6,6 @@ SRC += src/main.c
 endif
 SRC += src/core/arr.c
 SRC += src/core/fs.c
-SRC += src/core/maf.c
 SRC += src/core/map.c
 ifneq (@(PICO),y)
 SRC += src/core/os_$(PLATFORM).c
@@ -30,7 +29,6 @@ SRC_@(HEADSET)@(OPENXR) += src/modules/headset/headset_openxr.c
 SRC_@(HEADSET)@(OCULUS) += src/modules/headset/headset_oculus.c
 SRC_@(HEADSET)@(VRAPI) += src/modules/headset/headset_vrapi.c
 SRC_@(HEADSET)@(PICO) += src/modules/headset/headset_pico.c
-SRC_@(HEADSET)@(WEBVR) += src/modules/headset/headset_webvr.c
 SRC_@(HEADSET)@(WEBXR) += src/modules/headset/headset_webxr.c
 SRC_@(HEADSET)@(LEAP) += src/modules/headset/headset_leap.c
 SRC_@(MATH) += src/modules/math/*.c
