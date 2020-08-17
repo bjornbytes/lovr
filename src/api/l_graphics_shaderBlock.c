@@ -33,14 +33,14 @@ static int l_lovrShaderBlockSend(lua_State* L) {
     const Uniform* uniform = lovrShaderBlockGetUniform(block, name);
     lovrAssert(uniform, "Unknown uniform for ShaderBlock '%s'", name);
     Buffer* buffer = lovrShaderBlockGetBuffer(block);
-    uint8_t* data = lovrBufferMap(buffer, uniform->offset);
+    uint8_t* data = lovrBufferMap(buffer, uniform->offset, false);
     luax_checkuniform(L, 3, uniform, data, name);
     lovrBufferFlush(buffer, uniform->offset, uniform->size);
     return 0;
   } else {
     Blob* blob = luax_checktype(L, 2, Blob);
     Buffer* buffer = lovrShaderBlockGetBuffer(block);
-    void* data = lovrBufferMap(buffer, 0);
+    void* data = lovrBufferMap(buffer, 0, false);
     size_t bufferSize = lovrBufferGetSize(buffer);
     size_t copySize = MIN(bufferSize, blob->size);
     memcpy(data, blob->data, copySize);
@@ -57,7 +57,7 @@ static int l_lovrShaderBlockRead(lua_State* L) {
   lovrAssert(uniform, "Unknown uniform for ShaderBlock '%s'", name);
   Buffer* buffer = lovrShaderBlockGetBuffer(block);
   lovrAssert(lovrBufferIsReadable(buffer), "ShaderBlock:read requires the ShaderBlock to be created with the readable flag");
-  union { float* floats; int* ints; } data = { .floats = lovrBufferMap(buffer, uniform->offset) };
+  union { float* floats; int* ints; } data = { .floats = lovrBufferMap(buffer, uniform->offset, false) };
   int components = uniform->components;
 
   if (uniform->type == UNIFORM_MATRIX) {

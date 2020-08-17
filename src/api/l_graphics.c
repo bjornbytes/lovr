@@ -1294,7 +1294,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   });
 
   if (dataIndex) {
-    AttributeData data = { .raw = lovrBufferMap(vertexBuffer, 0) };
+    AttributeData data = { .raw = lovrBufferMap(vertexBuffer, 0, false) };
 
     if (blob) {
       memcpy(data.raw, blob->data, count * stride);

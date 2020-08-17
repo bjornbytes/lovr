@@ -139,7 +139,7 @@ static int l_lovrMeshGetVertex(lua_State* L) {
   }
 
   lovrAssert(lovrBufferIsReadable(buffer), "Mesh:getVertex can only be used if the Mesh was created with the readable flag");
-  AttributeData data = { .raw = lovrBufferMap(buffer, index * firstAttribute->stride) };
+  AttributeData data = { .raw = lovrBufferMap(buffer, index * firstAttribute->stride, false) };
 
   int components = 0;
   for (uint32_t i = 0; i < attributeCount; i++) {
@@ -176,7 +176,7 @@ static int l_lovrMeshSetVertex(lua_State* L) {
   }
 
   size_t stride = firstAttribute->stride;
-  AttributeData data = { .raw = lovrBufferMap(buffer, index * stride) };
+  AttributeData data = { .raw = lovrBufferMap(buffer, index * stride, false) };
   int component = 0;
   for (uint32_t i = 0; i < attributeCount; i++) {
     const MeshAttribute* attribute = lovrMeshGetAttribute(mesh, i);
@@ -219,7 +219,7 @@ static int l_lovrMeshGetVertexAttribute(lua_State* L) {
   lovrAssert(vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
   const MeshAttribute* attribute = lovrMeshGetAttribute(mesh, attributeIndex);
   lovrAssert(attribute && attribute->buffer == buffer, "Invalid mesh attribute: %d", attributeIndex + 1);
-  AttributeData data = { .raw = lovrBufferMap(buffer, vertexIndex * attribute->stride + attribute->offset) };
+  AttributeData data = { .raw = lovrBufferMap(buffer, vertexIndex * attribute->stride + attribute->offset, false) };
   for (unsigned i = 0; i < attribute->components; i++) {
     switch (attribute->type) {
       case I8: lua_pushinteger(L, *data.i8++); break;
@@ -243,7 +243,7 @@ static int l_lovrMeshSetVertexAttribute(lua_State* L) {
   lovrAssert(vertexIndex < lovrMeshGetVertexCount(mesh), "Invalid mesh vertex: %d", vertexIndex + 1);
   const MeshAttribute* attribute = lovrMeshGetAttribute(mesh, attributeIndex);
   lovrAssert(attribute && attribute->buffer == buffer, "Invalid mesh attribute: %d", attributeIndex + 1);
-  AttributeData data = { .raw = lovrBufferMap(buffer, vertexIndex * attribute->stride + attribute->offset) };
+  AttributeData data = { .raw = lovrBufferMap(buffer, vertexIndex * attribute->stride + attribute->offset, false) };
   for (unsigned i = 0; i < attribute->components; i++) {
     int index = 4 + i;
     if (table) {
@@ -298,7 +298,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
   if (blob) {
     count = MIN(count, blob->size / stride);
     lovrAssert(start + count <= capacity, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", capacity);
-    void* data = lovrBufferMap(buffer, start * stride);
+    void* data = lovrBufferMap(buffer, start * stride, false);
     memcpy(data, blob->data, count * stride);
     lovrBufferFlush(buffer, start * stride, count * stride);
     return 0;
@@ -308,7 +308,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
   count = MIN(count, lua_objlen(L, 2));
   lovrAssert(start + count <= capacity, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", capacity);
 
-  AttributeData data = { .raw = lovrBufferMap(buffer, start * stride) };
+  AttributeData data = { .raw = lovrBufferMap(buffer, start * stride, false) };
 
   for (uint32_t i = 0; i < count; i++) {
     lua_rawgeti(L, 2, i + 1);
@@ -355,7 +355,7 @@ static int l_lovrMeshGetVertexMap(lua_State* L) {
   }
 
   lovrAssert(lovrBufferIsReadable(buffer), "Mesh:getVertexMap can only be used if the Mesh was created with the readable flag");
-  union { void* raw; uint16_t* shorts; uint32_t* ints; } indices = { .raw = lovrBufferMap(buffer, 0) };
+  union { void* raw; uint16_t* shorts; uint32_t* ints; } indices = { .raw = lovrBufferMap(buffer, 0, false) };
 
   if (lua_istable(L, 2)) {
     lua_settop(L, 2);
@@ -400,7 +400,7 @@ static int l_lovrMeshSetVertexMap(lua_State* L) {
       indexBuffer = lovrBufferCreate(blob->size, blob->data, BUFFER_INDEX, usage, readable);
       lovrMeshSetIndexBuffer(mesh, indexBuffer, count, size, 0);
     } else {
-      void* indices = lovrBufferMap(indexBuffer, 0);
+      void* indices = lovrBufferMap(indexBuffer, 0, false);
       memcpy(indices, blob->data, blob->size);
       lovrBufferFlush(indexBuffer, 0, blob->size);
     }
@@ -418,7 +418,7 @@ static int l_lovrMeshSetVertexMap(lua_State* L) {
       indexBuffer = lovrBufferCreate(count * size, NULL, BUFFER_INDEX, usage, readable);
     }
 
-    union { void* raw; uint16_t* shorts; uint32_t* ints; } indices = { .raw = lovrBufferMap(indexBuffer, 0) };
+    union { void* raw; uint16_t* shorts; uint32_t* ints; } indices = { .raw = lovrBufferMap(indexBuffer, 0, false) };
 
     for (uint32_t i = 0; i < count; i++) {
       lua_rawgeti(L, 2, i + 1);

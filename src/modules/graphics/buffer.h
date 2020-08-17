@@ -24,7 +24,7 @@ void lovrBufferDestroy(void* ref);
 size_t lovrBufferGetSize(Buffer* buffer);
 bool lovrBufferIsReadable(Buffer* buffer);
 BufferUsage lovrBufferGetUsage(Buffer* buffer);
-void* lovrBufferMap(Buffer* buffer, size_t offset);
+void* lovrBufferMap(Buffer* buffer, size_t offset, bool unsynchronized);
 void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size);
 void lovrBufferUnmap(Buffer* buffer);
 void lovrBufferDiscard(Buffer* buffer);

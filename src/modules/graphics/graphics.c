@@ -184,7 +184,7 @@ static void* lovrGraphicsMapBuffer(StreamType type, uint32_t count) {
     state.head[type] = 0;
   }
 
-  return lovrBufferMap(state.buffers[type], state.head[type] * bufferStride[type]);
+  return lovrBufferMap(state.buffers[type], state.head[type] * bufferStride[type], true);
 }
 
 // Base
@@ -240,7 +240,7 @@ void lovrGraphicsCreateWindow(WindowFlags* flags) {
   // The identity buffer is used for autoinstanced meshes and instanced primitives and maps the
   // instance ID to a vertex attribute.  Its contents never change, so they are initialized here.
   state.identityBuffer = lovrBufferCreate(MAX_DRAWS * sizeof(uint8_t), NULL, BUFFER_VERTEX, USAGE_STATIC, false);
-  uint8_t* id = lovrBufferMap(state.identityBuffer, 0);
+  uint8_t* id = lovrBufferMap(state.identityBuffer, 0, true);
   for (int i = 0; i < MAX_DRAWS; i++) id[i] = i;
   lovrBufferFlush(state.identityBuffer, 0, MAX_DRAWS);
   lovrBufferUnmap(state.identityBuffer);

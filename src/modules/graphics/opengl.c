@@ -2199,13 +2199,7 @@ Buffer* lovrBufferCreate(size_t size, void* data, BufferType type, BufferUsage u
     memcpy(buffer->data, data, size);
   }
 #else
-  if (GLAD_GL_ARB_buffer_storage) {
-    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | (readable ? GL_MAP_READ_BIT : 0);
-    glBufferStorage(glType, size, data, flags);
-    buffer->data = glMapBufferRange(glType, 0, size, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
-  } else {
-    glBufferData(glType, size, data, convertBufferUsage(usage));
-  }
+  glBufferData(glType, size, data, convertBufferUsage(usage));
 #endif
 
   return buffer;
@@ -2234,13 +2228,15 @@ BufferUsage lovrBufferGetUsage(Buffer* buffer) {
   return buffer->usage;
 }
 
-void* lovrBufferMap(Buffer* buffer, size_t offset) {
+void* lovrBufferMap(Buffer* buffer, size_t offset, bool unsynchronized) {
 #ifndef LOVR_WEBGL
-  if (!GLAD_GL_ARB_buffer_storage && !buffer->mapped) {
+  if (!buffer->mapped) {
     buffer->mapped = true;
     lovrGpuBindBuffer(buffer->type, buffer->id);
+    lovrAssert(!buffer->readable || !unsynchronized, "Readable Buffers must be mapped with synchronization");
     GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT;
-    flags |= buffer->readable ? GL_MAP_READ_BIT : GL_MAP_UNSYNCHRONIZED_BIT;
+    flags |= buffer->readable ? GL_MAP_READ_BIT : 0;
+    flags |= unsynchronized ? GL_MAP_UNSYNCHRONIZED_BIT : 0;
     buffer->data = glMapBufferRange(convertBufferType(buffer->type), 0, buffer->size, flags);
   }
 #endif
@@ -2260,17 +2256,15 @@ void lovrBufferUnmap(Buffer* buffer) {
     glBufferSubData(convertBufferType(buffer->type), buffer->flushFrom, buffer->flushTo - buffer->flushFrom, data);
   }
 #else
-  if (buffer->mapped || GLAD_GL_ARB_buffer_storage) {
+  if (buffer->mapped) {
     lovrGpuBindBuffer(buffer->type, buffer->id);
 
     if (buffer->flushTo > buffer->flushFrom) {
       glFlushMappedBufferRange(convertBufferType(buffer->type), buffer->flushFrom, buffer->flushTo - buffer->flushFrom);
     }
 
-    if (buffer->mapped) {
-      glUnmapBuffer(convertBufferType(buffer->type));
-      buffer->mapped = false;
-    }
+    glUnmapBuffer(convertBufferType(buffer->type));
+    buffer->mapped = false;
   }
 #endif
   buffer->flushFrom = SIZE_MAX;
@@ -2278,25 +2272,20 @@ void lovrBufferUnmap(Buffer* buffer) {
 }
 
 void lovrBufferDiscard(Buffer* buffer) {
+  lovrAssert(!buffer->readable, "Readable Buffers can not be discarded");
   lovrGpuBindBuffer(buffer->type, buffer->id);
   GLenum glType = convertBufferType(buffer->type);
 #ifdef LOVR_WEBGL
   glBufferData(glType, buffer->size, NULL, convertBufferUsage(buffer->usage));
 #else
-  // We unmap even if persistent mapping is supported
-  if (buffer->mapped || GLAD_GL_ARB_buffer_storage) {
+  if (buffer->mapped) {
     glUnmapBuffer(glType);
     buffer->mapped = false;
   }
 
-  GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT;
-  flags |= buffer->readable ? GL_MAP_READ_BIT : (GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-  flags |= GLAD_GL_ARB_buffer_storage ? GL_MAP_PERSISTENT_BIT : 0;
+  GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
   buffer->data = glMapBufferRange(glType, 0, buffer->size, flags);
-
-  if (!GLAD_GL_ARB_buffer_storage) {
-    buffer->mapped = true;
-  }
+  buffer->mapped = true;
 #endif
 }
 
