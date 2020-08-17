@@ -169,6 +169,10 @@ void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
   //
 }
 
+void lovrPlatformOnTextEvent(textCallback callback) {
+  // todo
+}
+
 void lovrPlatformGetMousePosition(double* x, double* y) {
   *x = *y = 0.;
 }
