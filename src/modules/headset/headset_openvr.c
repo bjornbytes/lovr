@@ -445,7 +445,7 @@ static bool openvr_getAxis(Device device, DeviceAxis axis, vec3 value) {
   return false;
 }
 
-static bool openvr_getSkeleton(Device device, float* poses, uint32_t* poseCount) {
+static bool openvr_getSkeleton(Device device, float* poses) {
   return false;
 }
 
