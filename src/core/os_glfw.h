@@ -190,7 +190,7 @@ void lovrPlatformPollEvents() {
   }
 }
 
-bool lovrPlatformCreateWindow(WindowFlags* flags) {
+bool lovrPlatformCreateWindow(const WindowFlags* flags) {
   if (glfwState.window) {
     return true;
   }

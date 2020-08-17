@@ -123,7 +123,7 @@ size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
   return length;
 }
 
-bool lovrPlatformCreateWindow(WindowFlags* flags) {
+bool lovrPlatformCreateWindow(const WindowFlags* flags) {
   return true;
 }
 
