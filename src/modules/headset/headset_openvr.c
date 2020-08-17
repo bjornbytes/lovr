@@ -355,60 +355,17 @@ static bool openvr_getPose(Device device, vec3 position, quat orientation) {
     return pose->bPoseIsValid;
   }
 
-  Device hand;
   if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
-    hand = device;
-  } else if (device >= DEVICE_HAND_LEFT_FINGER_THUMB && device <= DEVICE_HAND_LEFT_FINGER_PINKY) {
-    hand = DEVICE_HAND_LEFT;
-  } else if (device >= DEVICE_HAND_RIGHT_FINGER_THUMB && device <= DEVICE_HAND_RIGHT_FINGER_PINKY) {
-    hand = DEVICE_HAND_RIGHT;
-  } else {
-    return false;
-  }
-
-  InputPoseActionData_t actionData;
-  state.input->GetPoseActionData(state.poseActions[hand], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
-  mat4_fromMat34(transform, actionData.pose.mDeviceToAbsoluteTracking.m);
-  transform[13] += state.offset;
-
-  // Early exit for hand pose
-  if (device == hand) {
+    InputPoseActionData_t actionData;
+    state.input->GetPoseActionData(state.poseActions[hand], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
+    mat4_fromMat34(transform, actionData.pose.mDeviceToAbsoluteTracking.m);
+    transform[13] += state.offset;
     mat4_getPosition(transform, position);
     mat4_getOrientation(transform, orientation);
     return actionData.pose.bPoseIsValid;
   }
 
-  InputSkeletalActionData_t info;
-  EVRInputError error = state.input->GetSkeletalActionData(state.skeletonActions[hand - DEVICE_HAND_LEFT], &info, sizeof(info));
-  if (error || !info.bActive) {
-    return false;
-  }
-
-  VRBoneTransform_t bones[31];
-  EVRSkeletalTransformSpace space = EVRSkeletalTransformSpace_VRSkeletalTransformSpace_Model;
-  EVRSkeletalMotionRange motionRange = EVRSkeletalMotionRange_VRSkeletalMotionRange_WithController;
-  error = state.input->GetSkeletalBoneData(state.skeletonActions[hand - DEVICE_HAND_LEFT], space, motionRange, bones, sizeof(bones) / sizeof(bones[0]));
-  if (error) {
-    return false;
-  }
-
-  uint32_t finger = (hand == DEVICE_HAND_LEFT) ? (device - DEVICE_HAND_LEFT_FINGER_THUMB) : (device - DEVICE_HAND_RIGHT_FINGER_THUMB);
-  uint32_t boneIndex;
-  switch (finger) {
-    case 0: boneIndex = eBone_Thumb3; break;
-    case 1: boneIndex = eBone_IndexFinger4; break;
-    case 2: boneIndex = eBone_MiddleFinger4; break;
-    case 3: boneIndex = eBone_RingFinger4; break;
-    case 4: boneIndex = eBone_PinkyFinger4; break;
-    default: return false;
-  }
-
-  VRBoneTransform_t* bone = &bones[boneIndex];
-  mat4_translate(transform, bone->position.v[0], bone->position.v[1], bone->position.v[2]);
-  mat4_rotateQuat(transform, (float[4]) { bone->orientation.w, bone->orientation.x, bone->orientation.y, bone->orientation.z });
-  mat4_getPosition(transform, position);
-  mat4_getOrientation(transform, orientation);
-  return true;
+  return false;
 }
 
 static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
@@ -489,43 +446,7 @@ static bool openvr_getAxis(Device device, DeviceAxis axis, vec3 value) {
 }
 
 static bool openvr_getSkeleton(Device device, float* poses, uint32_t* poseCount) {
-  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
-    return false;
-  }
-
-  InputSkeletalActionData_t info;
-  VRActionHandle_t action = state.skeletonActions[device - DEVICE_HAND_LEFT];
-  EVRInputError error = state.input->GetSkeletalActionData(action, &info, sizeof(info));
-  if (error || !info.bActive) {
-    return false;
-  }
-
-  uint32_t boneCount;
-  error = state.input->GetBoneCount(action, &boneCount);
-  if (error || boneCount > MAX_HEADSET_BONES || boneCount > *poseCount) {
-    return false;
-  }
-
-  VRBoneTransform_t bones[MAX_HEADSET_BONES];
-  EVRSkeletalTransformSpace space = EVRSkeletalTransformSpace_VRSkeletalTransformSpace_Parent;
-  EVRSkeletalMotionRange motionRange = EVRSkeletalMotionRange_VRSkeletalMotionRange_WithController;
-  error = state.input->GetSkeletalBoneData(action, space, motionRange, bones, boneCount);
-  if (error) {
-    return false;
-  }
-
-  float* p = poses;
-  for (uint32_t i = 0; i < boneCount; i++) {
-    memcpy(p, bones[i].position.v, 4 * sizeof(float));
-    p[4] = bones[i].orientation.x;
-    p[5] = bones[i].orientation.y;
-    p[6] = bones[i].orientation.z;
-    p[7] = bones[i].orientation.w;
-    p += 8;
-  }
-
-  *poseCount = boneCount;
-  return true;
+  return false;
 }
 
 static bool openvr_vibrate(Device device, float strength, float duration, float frequency) {
