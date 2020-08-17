@@ -243,7 +243,9 @@ static uint32_t luax_getvertexcount(lua_State* L, int index) {
     return tableType == LUA_TNUMBER ? count / 3 : count;
   } else if (type == LUA_TNUMBER) {
     return (lua_gettop(L) - index + 1) / 3;
-  } else {
+  } else if (type == LUA_TNONE || type == LUA_TNIL) {
+    return 0;
+  } else { // vec3
     return lua_gettop(L) - index + 1;
   }
 }
