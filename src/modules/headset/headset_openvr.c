@@ -357,7 +357,7 @@ static bool openvr_getPose(Device device, vec3 position, quat orientation) {
 
   if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
     InputPoseActionData_t actionData;
-    state.input->GetPoseActionData(state.poseActions[hand], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
+    state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &actionData, sizeof(actionData), 0);
     mat4_fromMat34(transform, actionData.pose.mDeviceToAbsoluteTracking.m);
     transform[13] += state.offset;
     mat4_getPosition(transform, position);
