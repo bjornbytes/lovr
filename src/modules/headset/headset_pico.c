@@ -169,6 +169,10 @@ void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
   //
 }
 
+void lovrPlatformOnTextEvent(textCallback callback) {
+  // todo
+}
+
 void lovrPlatformGetMousePosition(double* x, double* y) {
   *x = *y = 0.;
 }
@@ -306,6 +310,7 @@ static bool pico_getPose(Device device, float* position, float* orientation) {
     uint32_t index = device - DEVICE_HAND_LEFT;
     vec3_init(position, state.controllers[index].position);
     quat_init(orientation, state.controllers[index].orientation);
+    position[1] += state.offset;
     return state.controllers[index].active;
   }
 
