@@ -10,18 +10,21 @@
 #include <math.h>
 
 #if defined(_WIN32)
+#include <windows.h>
+HANDLE lovrPlatformGetWindow(void);
+HGLRC lovrPlatformGetContext(void);
 #define XR_USE_GRAPHICS_API_OPENGL
 #define XR_USE_PLATFORM_WIN32
 #define SWAPCHAIN_TYPE XrSwapchainImageOpenGLKHR
 #elif defined(__ANDROID__)
 #include <EGL/egl.h>
 #include <jni.h>
-#define XR_USE_GRAPHICS_API_OPENGL_ES
-#define XR_USE_PLATFORM_ANDROID
-#define SWAPCHAIN_TYPE XrSwapchainImageOpenGLESKHR
 EGLDisplay lovrPlatformGetEGLDisplay();
 EGLContext lovrPlatformGetEGLContext();
 EGLConfig lovrPlatformGetEGLConfig();
+#define XR_USE_GRAPHICS_API_OPENGL_ES
+#define XR_USE_PLATFORM_ANDROID
+#define SWAPCHAIN_TYPE XrSwapchainImageOpenGLESKHR
 #endif
 
 #include <openxr/openxr.h>

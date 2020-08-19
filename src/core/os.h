@@ -163,8 +163,3 @@ void lovrPlatformGetMousePosition(double* x, double* y);
 void lovrPlatformSetMouseMode(MouseMode mode);
 bool lovrPlatformIsMouseDown(MouseButton button);
 bool lovrPlatformIsKeyDown(KeyCode key);
-#ifdef _WIN32
-#include <windows.h>
-HANDLE lovrPlatformGetWindow(void);
-HGLRC lovrPlatformGetContext(void);
-#endif
