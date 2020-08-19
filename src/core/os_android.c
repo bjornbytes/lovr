@@ -17,6 +17,7 @@ static struct {
   JNIEnv* jni;
   EGLDisplay display;
   EGLContext context;
+  EGLConfig config;
   EGLSurface surface;
   quitCallback onQuit;
   keyboardCallback onKeyboardEvent;
@@ -341,8 +342,8 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
     EGL_NONE
   };
 
-  EGLConfig config = 0;
-  for (EGLint i = 0; i < configCount && !config; i++) {
+  state.config = 0;
+  for (EGLint i = 0; i < configCount && state.config == 0; i++) {
     EGLint value, mask;
 
     mask = EGL_OPENGL_ES3_BIT_KHR;
@@ -357,7 +358,7 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
 
     for (size_t a = 0; a < sizeof(attributes) / sizeof(attributes[0]); a += 2) {
       if (attributes[a] == EGL_NONE) {
-        config = configs[i];
+        state.config = configs[i];
         break;
       }
 
@@ -372,7 +373,7 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
     EGL_NONE
   };
 
-  if ((state.context = eglCreateContext(state.display, config, EGL_NO_CONTEXT, contextAttributes)) == EGL_NO_CONTEXT) {
+  if ((state.context = eglCreateContext(state.display, state.config, EGL_NO_CONTEXT, contextAttributes)) == EGL_NO_CONTEXT) {
     return false;
   }
 
@@ -382,7 +383,7 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
     EGL_NONE
   };
 
-  if ((state.surface = eglCreatePbufferSurface(state.display, config, surfaceAttributes)) == EGL_NO_SURFACE) {
+  if ((state.surface = eglCreatePbufferSurface(state.display, state.config, surfaceAttributes)) == EGL_NO_SURFACE) {
     eglDestroyContext(state.display, state.context);
     return false;
   }
@@ -481,6 +482,10 @@ EGLDisplay lovrPlatformGetEGLDisplay() {
 
 EGLContext lovrPlatformGetEGLContext() {
   return state.context;
+}
+
+EGLContext lovrPlatformGetEGLConfig() {
+  return state.config;
 }
 
 EGLSurface lovrPlatformGetEGLSurface() {

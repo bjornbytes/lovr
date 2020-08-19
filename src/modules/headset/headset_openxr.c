@@ -6,14 +6,24 @@
 #include "graphics/texture.h"
 #include "core/ref.h"
 #include "core/util.h"
+#include <stdlib.h>
 #include <math.h>
 
-#ifdef _WIN32
+#if defined(_WIN32)
+#define XR_USE_GRAPHICS_API_OPENGL
 #define XR_USE_PLATFORM_WIN32
+#define SWAPCHAIN_TYPE XrSwapchainImageOpenGLKHR
+#elif defined(__ANDROID__)
+#include <EGL/egl.h>
+#include <jni.h>
+#define XR_USE_GRAPHICS_API_OPENGL_ES
+#define XR_USE_PLATFORM_ANDROID
+#define SWAPCHAIN_TYPE XrSwapchainImageOpenGLESKHR
+EGLDisplay lovrPlatformGetEGLDisplay();
+EGLContext lovrPlatformGetEGLContext();
+EGLConfig lovrPlatformGetEGLConfig();
 #endif
 
-#define XR_USE_GRAPHICS_API_OPENGL
-#define GL_SRGB8_ALPHA8 0x8C43
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
@@ -31,6 +41,7 @@ static XrResult handleResult(XrResult result, const char* file, int line) {
 #define XR_INIT(f) if (XR_FAILED(f)) return openxr_destroy(), false;
 #define SESSION_VISIBLE(s) (s == XR_SESSION_STATE_VISIBLE || s == XR_SESSION_STATE_FOCUSED)
 #define SESSION_SYNCHRONIZED(s) (s == XR_SESSION_STATE_SYNCHRONIZED || SESSION_VISIBLE(s))
+#define GL_SRGB8_ALPHA8 0x8C43
 #define MAX_IMAGES 4
 
 enum {
@@ -311,11 +322,18 @@ static bool openxr_init(float offset, uint32_t msaa) {
   { // Session
     XrSessionCreateInfo info = {
       .type = XR_TYPE_SESSION_CREATE_INFO,
-#ifdef _WIN32
+#if defined(_WIN32)
       .next = &(XrGraphicsBindingOpenGLWin32KHR) {
         .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
         .hDC = lovrPlatformGetWindow(),
         .hGLRC = lovrPlatformGetContext()
+      },
+#elif defined(__ANDROID__)
+      .next = &(XrGraphicsBindingOpenGLESAndroidKHR) {
+        .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
+        .display = lovrPlatformGetEGLDisplay(),
+        .config = lovrPlatformGetEGLConfig(),
+        .context = lovrPlatformGetEGLContext()
       },
 #else
 #error "OpenXR is not supported on this platform!"
@@ -389,7 +407,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
       .mipCount = 1
     };
 
-    XrSwapchainImageOpenGLKHR images[MAX_IMAGES];
+    SWAPCHAIN_TYPE images[MAX_IMAGES];
     XR_INIT(xrCreateSwapchain(state.session, &info, &state.swapchain));
     XR_INIT(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
 
@@ -483,7 +501,7 @@ static void getViews(XrView views[2], uint32_t* count) {
   };
 
   XrViewState viewState;
-  XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, sizeof(views) / sizeof(views[0]), count, views));
+  XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2 * sizeof(XrView), count, views));
 }
 
 static uint32_t openxr_getViewCount(void) {
@@ -498,8 +516,8 @@ static bool openxr_getViewPose(uint32_t view, float* position, float* orientatio
   XrView views[2];
   getViews(views, &count);
   if (view < count) {
-    memcpy(position, views[view].pose.position, 3 * sizeof(float));
-    memcpy(orientation, views[view].pose.orientation, 4 * sizeof(float));
+    memcpy(position, &views[view].pose.position.x, 3 * sizeof(float));
+    memcpy(orientation, &views[view].pose.orientation.x, 4 * sizeof(float));
     return true;
   } else {
     return false;
@@ -580,7 +598,7 @@ static XrPath getActionFilter(Device device) {
   }
 }
 
-static bool getButtonState(Device device, DeviceButton button, bool* value, bool touch) {
+static bool getButtonState(Device device, DeviceButton button, bool* value, bool* changed, bool touch) {
   XrActionStateGetInfo info = {
     .type = XR_TYPE_ACTION_STATE_GET_INFO,
     .subactionPath = getActionFilter(device)
@@ -785,7 +803,7 @@ static void openxr_update(float dt) {
 
           case XR_SESSION_STATE_EXITING:
           case XR_SESSION_STATE_LOSS_PENDING:
-            lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { false, 0 } });
+            lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit.exitCode = 0 });
             break;
 
           default: break;
@@ -821,6 +839,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getAxis = openxr_getAxis,
   .vibrate = openxr_vibrate,
   .newModelData = openxr_newModelData,
+  .animate = openxr_animate,
   .renderTo = openxr_renderTo,
   .update = openxr_update
 };
