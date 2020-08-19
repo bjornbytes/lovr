@@ -767,7 +767,7 @@ static void lovrGpuBindImage(Image* image, int slot, const char* name) {
   if (memcmp(state.images + slot, image, sizeof(Image))) {
     Texture* texture = image->texture;
     lovrAssert(texture, "No Texture bound to image uniform '%s'", name);
-    lovrAssert(!texture->srgb, "Attempt to bind sRGB texture to image uniform '%s'", name);
+    lovrAssert(texture->format != FORMAT_RGBA || !texture->srgb, "Attempt to bind sRGB texture to image uniform '%s'", name);
     lovrAssert(!isTextureFormatCompressed(texture->format), "Attempt to bind compressed texture to image uniform '%s'", name);
     lovrAssert(texture->format != FORMAT_RGB && texture->format != FORMAT_RGBA4 && texture->format != FORMAT_RGB5A1, "Unsupported texture format for image uniform '%s'", name);
     lovrAssert(image->mipmap < (int) texture->mipmapCount, "Invalid mipmap level '%d' for image uniform '%s'", image->mipmap, name);
