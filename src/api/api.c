@@ -68,7 +68,7 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
 
   // Register class functions
   if (functions) {
-    luaL_register(L, NULL, functions);
+    luax_register(L, functions);
   }
 
   // :release function
@@ -93,10 +93,23 @@ void* _luax_checktype(lua_State* L, int index, uint64_t hash, const char* debug)
   void* object = _luax_totype(L, index, hash);
 
   if (!object) {
-    luaL_typerror(L, index, debug);
+    luax_typeerror(L, index, debug);
   }
 
   return object;
+}
+
+int luax_typeerror(lua_State* L, int index, const char* expected) {
+  const char* name;
+  if (luaL_getmetafield(L, index, "__name") == LUA_TSTRING) {
+    name = lua_tostring(L, -1);
+  } else if (lua_type(L, index) == LUA_TLIGHTUSERDATA) {
+    name = "light userdata";
+  } else {
+    name = luaL_typename(L, index);
+  }
+  const char* message = lua_pushfstring(L, "%s expected, got %s", name, expected);
+  return luaL_argerror(L, index, message);
 }
 
 // Registers the userdata on the top of the stack in the registry.
@@ -175,14 +188,31 @@ void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
   lua_getglobal(L, "table");
   lua_getfield(L, -1, "insert");
   lua_getglobal(L, "package");
+#if LUA_VERSION_NUM == 501
   lua_getfield(L, -1, "loaders");
+#else
+  lua_getfield(L, -1, "searchers");
+#endif
   lua_remove(L, -2);
   if (lua_istable(L, -1)) {
     lua_pushinteger(L, index);
     lua_pushcfunction(L, loader);
     lua_call(L, 3, 0);
+  } else {
+    lua_pop(L, 2);
   }
   lua_pop(L, 1);
+}
+
+int luax_resume(lua_State* T, int n) {
+#if LUA_VERSION_NUM >= 504
+  int results;
+  return lua_resume(T, NULL, n, &results);
+#elif LUA_VERSION_NUM >= 502
+  return lua_resume(T, NULL, n);
+#else
+  return lua_resume(T, n);
+#endif
 }
 
 void luax_vthrow(void* context, const char* format, va_list args) {

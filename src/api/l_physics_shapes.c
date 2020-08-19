@@ -29,7 +29,7 @@ Shape* luax_checkshape(lua_State* L, int index) {
     }
   }
 
-  luaL_typerror(L, index, "Shape");
+  luax_typeerror(L, index, "Shape");
   return NULL;
 }
 

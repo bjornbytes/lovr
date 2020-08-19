@@ -107,11 +107,15 @@ typedef struct {
   void* object;
 } Proxy;
 
-#ifndef LUA_RIDX_MAINTHERAD
+#if LUA_VERSION_NUM > 501
+#define luax_len(L, i) (int) lua_rawlen(L, i)
+#define luax_register(L, f) luaL_setfuncs(L, f, 0)
+#else
+#define luax_len(L, i) (int) lua_objlen(L, i)
+#define luax_register(L, f) luaL_register(L, NULL, f)
 #define LUA_RIDX_MAINTHREAD 1
 #endif
 
-#define luax_len(L, i) (int) lua_objlen(L, i)
 #define luax_registertype(L, T) _luax_registertype(L, #T, lovr ## T, lovr ## T ## Destroy)
 #define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash64(#T, strlen(#T)))
 #define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash64(#T, strlen(#T)), #T)
@@ -126,9 +130,11 @@ typedef struct {
 void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, void (*destructor)(void*));
 void* _luax_totype(lua_State* L, int index, uint64_t hash);
 void* _luax_checktype(lua_State* L, int index, uint64_t hash, const char* debug);
+int luax_typeerror(lua_State* L, int index, const char* expected);
 void _luax_pushtype(lua_State* L, const char* name, uint64_t hash, void* object);
 int luax_checkenum(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label);
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
+int luax_resume(lua_State* T, int n);
 void luax_vthrow(void* L, const char* format, va_list args);
 void luax_vlog(void* context, int level, const char* tag, const char* format, va_list args);
 void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);

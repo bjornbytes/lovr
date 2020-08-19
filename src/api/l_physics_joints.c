@@ -29,7 +29,7 @@ Joint* luax_checkjoint(lua_State* L, int index) {
     }
   }
 
-  luaL_typerror(L, index, "Joint");
+  luax_typeerror(L, index, "Joint");
   return NULL;
 }
 

@@ -495,7 +495,7 @@ int l_lovrVec3Set(lua_State* L) {
     } else if (p && t == V_MAT4) {
       vec3_set(v, p[12], p[13], p[14]);
     } else{
-      luaL_typerror(L, 2, "vec3, mat4, or number");
+      luax_typeerror(L, 2, "vec3, mat4, or number");
     }
   }
   lua_settop(L, 1);
@@ -1257,7 +1257,7 @@ int l_lovrQuatSet(lua_State* L) {
   } else {
     VectorType type;
     float* p = luax_tovector(L, 2, &type);
-    if (!p) return luaL_typerror(L, 2, "vec3, quat, or number");
+    if (!p) return luax_typeerror(L, 2, "vec3, quat, or number");
 
     if (type == V_VEC3) {
       if (lua_gettop(L) > 2) {
@@ -1271,7 +1271,7 @@ int l_lovrQuatSet(lua_State* L) {
     } else if (type == V_MAT4) {
       quat_fromMat4(q, p);
     } else {
-      return luaL_typerror(L, 2, "vec3, quat, mat4, or number");
+      return luax_typeerror(L, 2, "vec3, quat, mat4, or number");
     }
   }
   lua_settop(L, 1);
@@ -1282,7 +1282,7 @@ static int l_lovrQuatMul(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
   VectorType type;
   float* r = luax_tovector(L, 2, &type);
-  if (!r || (type != V_VEC3 && type != V_QUAT)) return luaL_typerror(L, 2, "quat or vec3");
+  if (!r || (type != V_VEC3 && type != V_QUAT)) return luax_typeerror(L, 2, "quat or vec3");
   if (type == V_VEC3) {
     quat_rotate(q, r);
     lua_settop(L, 2);
@@ -1333,7 +1333,7 @@ static int l_lovrQuat__mul(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
   VectorType type;
   float* r = luax_tovector(L, 2, &type);
-  if (!r) return luaL_typerror(L, 2, "quat or vec3");
+  if (!r) return luax_typeerror(L, 2, "quat or vec3");
   if (type == V_VEC3) {
     vec3 out = luax_newtempvector(L, V_VEC3);
     quat_rotate(q, vec3_init(out, r));
@@ -1546,7 +1546,7 @@ static int l_lovrMat4Mul(lua_State* L) {
     lua_pushnumber(L, v[2]);
     return 3;
   } else {
-    return luaL_typerror(L, 2, "mat4, vec3, or number");
+    return luax_typeerror(L, 2, "mat4, vec3, or number");
   }
 }
 
@@ -1659,7 +1659,7 @@ static int l_lovrMat4__mul(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
   VectorType type;
   float* n = luax_tovector(L, 2, &type);
-  if (!n || (type == V_VEC2 || type == V_QUAT)) return luaL_typerror(L, 2, "mat4, vec3, or vec4");
+  if (!n || (type == V_VEC2 || type == V_QUAT)) return luax_typeerror(L, 2, "mat4, vec3, or vec4");
   if (type == V_MAT4) {
     mat4 out = luax_newtempvector(L, V_MAT4);
     mat4_multiply(mat4_init(out, m), n);

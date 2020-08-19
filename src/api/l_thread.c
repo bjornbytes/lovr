@@ -20,7 +20,7 @@ static int threadRunner(void* data) {
 
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "preload");
-  luaL_register(L, NULL, lovrModules);
+  luax_register(L, lovrModules);
   lua_pop(L, 2);
 
   if (!luaL_loadbuffer(L, thread->body->data, thread->body->size, "thread")) {
@@ -98,7 +98,7 @@ static const luaL_Reg lovrThreadModule[] = {
 
 int luaopen_lovr_thread(lua_State* L) {
   lua_newtable(L);
-  luaL_register(L, NULL, lovrThreadModule);
+  luax_register(L, lovrThreadModule);
   luax_registertype(L, Thread);
   luax_registertype(L, Channel);
   if (lovrThreadModuleInit()) {

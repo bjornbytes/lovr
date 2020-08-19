@@ -710,7 +710,7 @@ static const luaL_Reg lovrHeadset[] = {
 
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
-  luaL_register(L, NULL, lovrHeadset);
+  luax_register(L, lovrHeadset);
 
   luax_pushconf(L);
   lua_getfield(L, -1, "headset");

@@ -15,7 +15,7 @@ static uint32_t luax_checkanimation(lua_State* L, int index, Model* model) {
       return (uint32_t) animationIndex;
     }
     case LUA_TNUMBER: return lua_tointeger(L, index) - 1;
-    default: return luaL_typerror(L, index, "number or string");
+    default: return luax_typeerror(L, index, "number or string");
   }
 }
 
@@ -59,7 +59,7 @@ static int l_lovrModelPose(lua_State* L) {
       break;
     }
     default:
-      return luaL_typerror(L, 2, "nil, number, or string");
+      return luax_typeerror(L, 2, "nil, number, or string");
   }
 
   int index = 3;
@@ -89,7 +89,7 @@ static int l_lovrModelGetMaterial(lua_State* L) {
       break;
     }
     default:
-      return luaL_typerror(L, 2, "nil, number, or string");
+      return luax_typeerror(L, 2, "nil, number, or string");
   }
 
   luax_pushtype(L, Material, lovrModelGetMaterial(model, material));
@@ -123,7 +123,7 @@ static int l_lovrModelGetNodePose(lua_State* L) {
       break;
     }
     default:
-      return luaL_typerror(L, 2, "number or string");
+      return luax_typeerror(L, 2, "number or string");
   }
 
   float position[4], rotation[4], angle, ax, ay, az;

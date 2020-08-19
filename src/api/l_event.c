@@ -272,7 +272,7 @@ static int l_lovrEventPush(lua_State* L) {
 static int l_lovrEventQuit(lua_State* L) {
   EventData data;
 
-  data.quit.exitCode = luaL_optint(L, 1, 0);
+  data.quit.exitCode = luaL_optinteger(L, 1, 0);
 
   EventType type = EVENT_QUIT;
   Event event = { .type = type, .data = data };
@@ -299,7 +299,7 @@ static const luaL_Reg lovrEvent[] = {
 
 int luaopen_lovr_event(lua_State* L) {
   lua_newtable(L);
-  luaL_register(L, NULL, lovrEvent);
+  luax_register(L, lovrEvent);
 
   // Store nextEvent in the registry to avoid creating a closure every time we poll for events.
   lua_pushcfunction(L, nextEvent);

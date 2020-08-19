@@ -150,7 +150,7 @@ static const luaL_Reg lovrData[] = {
 
 int luaopen_lovr_data(lua_State* L) {
   lua_newtable(L);
-  luaL_register(L, NULL, lovrData);
+  luax_register(L, lovrData);
   luax_registertype(L, Blob);
   luax_registertype(L, AudioStream);
   luax_registertype(L, ModelData);

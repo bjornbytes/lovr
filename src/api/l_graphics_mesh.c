@@ -305,7 +305,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
   }
 
   luaL_checktype(L, 2, LUA_TTABLE);
-  count = MIN(count, lua_objlen(L, 2));
+  count = MIN(count, (uint32_t) luax_len(L, 2));
   lovrAssert(start + count <= capacity, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", capacity);
 
   AttributeData data = { .raw = lovrBufferMap(buffer, start * stride, false) };

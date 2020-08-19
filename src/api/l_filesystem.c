@@ -490,7 +490,7 @@ int luaopen_lovr_filesystem(lua_State* L) {
   }
 
   lua_newtable(L);
-  luaL_register(L, NULL, lovrFilesystem);
+  luax_register(L, lovrFilesystem);
   luax_registerloader(L, luaLoader, 2);
   luax_registerloader(L, libLoader, 3);
   return 1;

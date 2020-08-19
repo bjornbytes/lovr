@@ -142,7 +142,7 @@ static const luaL_Reg lovrPhysics[] = {
 
 int luaopen_lovr_physics(lua_State* L) {
   lua_newtable(L);
-  luaL_register(L, NULL, lovrPhysics);
+  luax_register(L, lovrPhysics);
   luax_registertype(L, World);
   luax_registertype(L, Collider);
   luax_registertype(L, BallJoint);
