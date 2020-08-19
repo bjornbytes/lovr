@@ -127,8 +127,8 @@ static int32_t onInputEvent(struct android_app* app, AInputEvent* event) {
     case AKEYCODE_CTRL_RIGHT: key = KEY_RIGHT_CONTROL; break;
     case AKEYCODE_ALT_LEFT: key = KEY_LEFT_ALT; break;
     case AKEYCODE_ALT_RIGHT: key = KEY_RIGHT_ALT; break;
-    case AKEYCODE_META_LEFT: key = KEY_LEFT_SUPER; break;
-    case AKEYCODE_META_RIGHT: key = KEY_RIGHT_SUPER; break;
+    case AKEYCODE_META_LEFT: key = KEY_LEFT_OS; break;
+    case AKEYCODE_META_RIGHT: key = KEY_RIGHT_OS; break;
     case AKEYCODE_CAPS_LOCK: key = KEY_CAPS_LOCK; break;
     case AKEYCODE_SCROLL_LOCK: key = KEY_SCROLL_LOCK; break;
     case AKEYCODE_NUM_LOCK: key = KEY_NUM_LOCK; break;
