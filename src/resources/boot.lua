@@ -226,7 +226,7 @@ function lovr.errhand(message, traceback)
   local width, lines = font:getWidth(message, wrap)
   local height = 2.6 + lines
   local y = math.min(height / 2, 10)
-  local function render(window)
+  local function render()
     lovr.graphics.print('Error', -width / 2, y, -20, 1.6, 0, 0, 0, 0, nil, 'left', 'top')
     lovr.graphics.print(message, -width / 2, y - 2.6, -20, 1.0, 0, 0, 0, 0, wrap, 'left', 'top')
   end
@@ -244,7 +244,7 @@ function lovr.errhand(message, traceback)
     end
     if lovr.graphics.hasWindow() then
       lovr.graphics.clear()
-      render(true)
+      render()
     end
     lovr.graphics.present()
   end
