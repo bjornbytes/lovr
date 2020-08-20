@@ -164,6 +164,10 @@ static bool desktop_getAxis(Device device, DeviceAxis axis, vec3 value) {
   return false;
 }
 
+static bool desktop_getSkeleton(Device device, float* poses) {
+  return false;
+}
+
 static bool desktop_vibrate(Device device, float strength, float duration, float frequency) {
   return false;
 }
@@ -299,6 +303,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .isDown = desktop_isDown,
   .isTouched = desktop_isTouched,
   .getAxis = desktop_getAxis,
+  .getSkeleton = desktop_getSkeleton,
   .vibrate = desktop_vibrate,
   .newModelData = desktop_newModelData,
   .animate = desktop_animate,

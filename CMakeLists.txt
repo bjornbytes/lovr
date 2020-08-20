@@ -43,13 +43,9 @@ option(LOVR_USE_THREADLOCAL "Allow use of thread local storage; disable to run o
 if(EMSCRIPTEN)
   string(CONCAT LOVR_EMSCRIPTEN_FLAGS
     "-Os "
-    "-s USE_GLFW=3 "
     "-s USE_WEBGL2=1 "
-    "-s GL_PREINITIALIZED_CONTEXT=1 "
-    "-s FULL_ES2=1 "
-    "-s FULL_ES3=1 "
     "-s FORCE_FILESYSTEM=1 "
-    "-s \"EXPORTED_FUNCTIONS=['_main','_lovrDestroy','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetCamera']\" "
+    "-s \"EXPORTED_FUNCTIONS=['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetCamera']\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
     "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/webxr.js\" "
     "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.html\""

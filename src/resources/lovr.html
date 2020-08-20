@@ -7,7 +7,6 @@
         height: 100%;
         margin: 0;
         padding: 0;
-        overflow: hidden;
         font-family: 'sans-serif';
       }
 
@@ -15,11 +14,12 @@
         display: block;
         border-radius: 8px;
         background: #fff;
-        max-width: 80%;
-        width: 1080px;
+        max-width: 800px;
+        width: 80%;
         height: auto;
         box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
         margin: 40px auto;
+        outline: none;
       }
 
       button {
@@ -37,7 +37,7 @@
 
   <body>
     <div class="container">
-      <canvas id="canvas" width="1080" height="600"></canvas>
+      <canvas id="canvas" width="800" height="600" tabIndex="1"></canvas>
     </div>
 
     <script type="text/javascript">
@@ -46,15 +46,6 @@
       var button = document.createElement('button');
       button.textContent = 'Enter VR';
 
-      var context = canvas.getContext('webgl2', {
-        alpha: false,
-        antialias: true,
-        depth: true,
-        stencil: true,
-        preserveDrawingBuffer: true,
-        xrCompatible: true
-      });
-
       var Module = window.Module = {
         arguments: [],
         preRun: [],
@@ -62,8 +53,7 @@
         print: console.log.bind(console),
         printErr: console.error.bind(console),
         thisProgram: './lovr',
-        canvas: canvas,
-        preinitializedWebGLContext: context
+        canvas: canvas
       };
 
       // To run a LÖVR project on this page, create a .lovr (zip) file of its folder and serve it
@@ -108,7 +98,7 @@
             } else {
               Module.lovr.exitVR().then(onExit);
             }
-          }
+          });
         });
       }
     </script>

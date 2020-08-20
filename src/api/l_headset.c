@@ -86,7 +86,7 @@ static HeadsetRenderData headsetRenderData;
 static void renderHelper(void* userdata) {
   HeadsetRenderData* renderData = userdata;
   lua_State* L = renderData->L;
-#if defined(EMSCRIPTEN) || defined(LOVR_USE_PICO)
+#ifdef LOVR_USE_PICO
   luax_geterror(L);
   if (lua_isnil(L, -1)) {
     lua_pushcfunction(L, luax_getstack);
@@ -598,7 +598,7 @@ static int l_lovrHeadsetRenderTo(lua_State* L) {
   lua_settop(L, 1);
   luaL_checktype(L, 1, LUA_TFUNCTION);
 
-#if defined(EMSCRIPTEN) || defined(LOVR_USE_PICO)
+#ifdef LOVR_USE_PICO
   if (headsetRenderData.ref != LUA_NOREF) {
     luaL_unref(L, LUA_REGISTRYINDEX, headsetRenderData.ref);
   }

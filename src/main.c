@@ -33,9 +33,7 @@ static void emscriptenLoop(void* arg) {
   lovrEmscriptenContext* context = arg;
   lua_State* T = context->T;
 
-  luax_geterror(T);
-  luax_clearerror(T);
-  if (luax_resume(T, 1) != LUA_YIELD) {
+  if (luax_resume(T, 0) != LUA_YIELD) {
     bool restart = lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart");
     int status = lua_tonumber(T, -1);
 

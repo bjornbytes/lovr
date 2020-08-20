@@ -118,7 +118,9 @@ typedef enum {
   KEY_RIGHT_OS,
   KEY_CAPS_LOCK,
   KEY_SCROLL_LOCK,
-  KEY_NUM_LOCK
+  KEY_NUM_LOCK,
+
+  KEY_COUNT
 } KeyCode;
 
 typedef enum {
