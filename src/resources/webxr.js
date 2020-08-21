@@ -1,33 +1,57 @@
 var webxr = {
   $state: {},
 
+  // Derived from github:immersive-web/webxr-input-profiles#5052b76
+  $buttons: {
+    'oculus-touch': {
+      left: [0, 3, null, 1, null, null, null, 4, 5],
+      right: [0, 3, null, 1, null, 4, 5, null, null],
+    },
+    'valve-index': [0, 3, 2, 1, null, 4, null, 4, null],
+    'microsoft-mixed-reality': [0, 3, 2, 1],
+    'htc-vive': [0, null, 2, 1],
+    'generic-trigger': [0],
+    'generic-trigger-touchpad': [0, null, 2],
+    'generic-trigger-thumbstick': [0, 3],
+    'generic-trigger-touchpad-thumbstick': [0, 3, 2],
+    'generic-trigger-squeeze': [0, null, null, 1],
+    'generic-trigger-squeeze-touchpad': [0, null, 2, 1],
+    'generic-trigger-squeeze-touchpad-thumbstick': [0, 3, 2, 1],
+    'generic-trigger-squeeze-thumbstick': [0, 3, null, 1],
+    'generic-hand-select': [0]
+  },
+  $axes: {
+    'oculus-touch': { touchpad: false, thumbstick: true },
+    'valve-index': { touchpad: true, thumbstick: true },
+    'microsoft-mixed-reality': { touchpad: true, thumbstick: true },
+    'htc-vive': { touchpad: true, thumbstick: false },
+    'generic-trigger': { touchpad: false, thumbstick: false },
+    'generic-trigger-touchpad': { touchpad: true, thumbstick: false },
+    'generic-trigger-thumbstick': { touchpad: false, thumbstick: true },
+    'generic-trigger-touchpad-thumbstick': { touchpad: true, thumbstick: true },
+    'generic-trigger-squeeze': { touchpad: false, thumbstick: false },
+    'generic-trigger-squeeze-touchpad': { touchpad: true, thumbstick: false },
+    'generic-trigger-squeeze-touchpad-thumbstick': { touchpad: true, thumbstick: true },
+    'generic-trigger-squeeze-thumbstick': { touchpad: false, thumbstick: true },
+    'generic-hand-select': { touchpad: false, thumbstick: false },
+  },
+
+  $writePose: function(transform, position, orientation) {
+    HEAPF32[(position >> 2) + 0] = transform.position.x;
+    HEAPF32[(position >> 2) + 1] = transform.position.y;
+    HEAPF32[(position >> 2) + 2] = transform.position.z;
+    HEAPF32[(position >> 2) + 3] = transform.position.w;
+    HEAPF32[(orientation >> 2) + 0] = transform.orientation.x;
+    HEAPF32[(orientation >> 2) + 1] = transform.orientation.y;
+    HEAPF32[(orientation >> 2) + 2] = transform.orientation.z;
+    HEAPF32[(orientation >> 2) + 3] = transform.orientation.w;
+  },
+
+  webxr_init__deps: ['$buttons', '$axes'],
   webxr_init: function(offset, msaa) {
     if (!navigator.xr) {
       return false;
     }
-
-    state.session = null;
-    state.clipNear = .1;
-    state.clipFar = 1000.0;
-    state.boundsGeometry = 0; /* NULL */
-    state.boundsGeometryCount = 0;
-
-    var mappings = {
-      'oculus-touch-left': [0, 3, null, 1, null, null, null, 4, 5],
-      'oculus-touch-right': [0, 3, null, 1, null, 4, 5, null, null],
-      'valve-index': [0, 3, 2, 1, null, 4, null, 4, null],
-      'microsoft-mixed-reality': [0, 3, 2, 1],
-      'htc-vive': [0, null, 2, 1],
-      'generic-trigger': [0],
-      'generic-trigger-touchpad': [0, null, 2],
-      'generic-trigger-thumbstick': [0, 3],
-      'generic-trigger-touchpad-thumbstick': [0, 3, 2],
-      'generic-trigger-squeeze': [0, null, null, 1],
-      'generic-trigger-squeeze-touchpad': [0, null, 2, 1],
-      'generic-trigger-squeeze-touchpad-thumbstick': [0, 3, 2, 1],
-      'generic-trigger-squeeze-thumbstick': [0, 3, null, 1],
-      'generic-hand-select': [0]
-    };
 
     Module.lovr = Module.lovr || {};
     Module.lovr.enterVR = function() {
@@ -43,59 +67,67 @@ var webxr = {
 
         return Promise.all([space, Module.ctx.makeXRCompatible()]).then(function(data) {
           state.session = session;
-
-          session.space = data[0];
-          session.layer = new XRWebGLLayer(session, Module.ctx);
-          session.updateRenderState({ baseLayer: session.layer });
-          session.framebufferId = GL.getNewId(GL.framebuffers);
-          GL.framebuffers[session.framebufferId] = session.layer.framebuffer;
+          state.space = data[0];
+          state.clipNear = .1;
+          state.clipFar = 1000.0;
+          state.boundsGeometry = 0; /* NULL */
+          state.boundsGeometryCount = 0;
+          state.layer = new XRWebGLLayer(session, Module.ctx);
+          state.updateRenderState({ baseLayer: state.layer });
+          state.fbo = GL.getNewId(GL.framebuffers);
+          GL.framebuffers[state.fbo] = state.layer.framebuffer;
 
           // Canvas
-          var sizeof_Camera = 264;
           var sizeof_CanvasFlags = 16;
-          var width = session.layer.framebufferWidth;
-          var height = session.layer.framebufferHeight;
+          var width = state.layer.framebufferWidth;
+          var height = state.layer.framebufferHeight;
           var flags = Module.stackAlloc(sizeof_CanvasFlags);
           HEAPU8.fill(0, flags, flags + sizeof_CanvasFlags); // memset(&flags, 0, sizeof(CanvasFlags));
           HEAPU8[flags + 12] = 1; // flags.stereo
-          session.canvas = Module['_lovrCanvasCreateFromHandle'](width, height, flags, session.framebufferId, 0, 0, 1, true);
-          session.camera = Module._malloc(sizeof_Camera);
+          state.canvas = Module['_lovrCanvasCreateFromHandle'](width, height, flags, state.fbo, 0, 0, 1, true);
           Module.stackRestore(flags);
 
-          session.deviceMap = [];
+          // Camera
+          var sizeof_Camera = 264;
+          state.camera = Module._malloc(sizeof_Camera);
+          HEAPU8[state.camera + 0] = 1; // state.camera.stereo = true
+          HEAPU32[(state.camera + 4) >> 2] = state.canvas; // state.camera.canvas = state.canvas
+
+          state.hands = [];
+          state.lastButtonState = [];
           session.addEventListener('inputsourceschange', function(event) {
-            session.deviceMap.splice(0, session.deviceMap.length);
-            for (var i = 0; i < session.inputSources.length; i++) {
-              var hands = { left: 1, right: 2 };
-              session.deviceMap[hands[inputSource.handedness]] = inputSource;
+            state.hands.splice(0, state.hands.length);
+            session.inputSources.forEach(function(inputSource) {
+              state.hands[({ left: 1, right: 2 })[inputSource.handedness]] = inputSource;
 
-              for (var i = 0; i < inputSource.profiles.length; i++) {
-                var profile = inputSource.profiles[i];
+              var profile = inputSource.profiles.find(function(profile) { return mappings[profile]; });
 
-                // So far Oculus touch controllers are the only "meaningfully handed" controllers
-                // If more appear, a more general approach should be used
-                if (profile === 'oculus-touch') {
-                   profile = profile + '-' + inputSource.handedness;
-                }
-
-                if (mappings[profile]) {
-                  inputSource.mapping = mappings[profile];
-                  break;
-                }
+              if (!inputSource.gamepad || !profile) {
+                inputSource.buttons = [];
+                inputSource.axes = {};
+                return;
               }
-            }
+
+              inputSource.axes = axes[profile];
+              var mapping = buttons[profile][inputSource.handedness] || buttons[profile] || [];
+              inputSource.buttons = mapping.map(function(buttonIndex) {
+                return inputSource.gamepad.buttons[buttonIndex];
+              });
+            });
           });
 
           session.addEventListener('end', function() {
-            if (session.canvas) {
-              Module['_lovrCanvasDestroy'](session.canvas);
-              Module._free(session.canvas - 4);
-              Module._free(session.camera|0);
+            Module._free(state.boundsGeometry|0);
+            Module._free(state.camera|0);
+
+            if (state.canvas) {
+              Module['_lovrCanvasDestroy'](state.canvas);
+              Module._free(state.canvas - 4);
             }
 
-            if (session.framebufferId) {
-              GL.framebuffers[session.framebufferId].name = 0;
-              GL.framebuffers[session.framebufferId] = null;
+            if (state.fbo) {
+              GL.framebuffers[state.fbo].name = 0;
+              GL.framebuffers[state.fbo] = null;
             }
 
             Browser.mainLoop.pause();
@@ -105,15 +137,22 @@ var webxr = {
             state.session = null;
           });
 
-          // Trick emscripten into using the session's requestAnimationFrame
+          // Trick emscripten into using the session's requestAnimationFrame, also make ourselves
+          // the headset driver using webxr_attach.  These are both undone when the session ends
+          // so that the mouse/keyboard driver can be used when the session is inactive.
           Browser.mainLoop.pause();
           Module['_webxr_attach']();
           Browser.requestAnimationFrame = function(fn) {
             return session.requestAnimationFrame(function(t, frame) {
-              session.displayTime = t;
-              session.frame = frame;
-              session.viewer = session.frame.getViewerPose(session.space);
+              state.displayTime = t;
+              state.frame = frame;
+              state.viewer = state.frame.getViewerPose(state.space);
               fn();
+              state.hands.forEach(function(inputSource, i) {
+                state.lastButtonState[i] = inputSource && inputSource.buttons.map(function(button) {
+                  return button.pressed;
+                });
+              });
             });
           };
           Browser.mainLoop.resume();
@@ -123,12 +162,11 @@ var webxr = {
     };
 
     Module.lovr.exitVR = function() {
-      return state.session ? state.session.end() : Promise.resolve();
+      return session ? session.end() : Promise.resolve();
     };
 
-    // WebXR is not set as the display driver at initialization time, so that the VR simulator can
-    // be used on the DOM's canvas before the session starts.  When the session starts, it uses the
-    // webxr_attach function to make itself the display driver for the duration of the session.
+    // WebXR is not set as the display driver immediately, it uses webxr_attach to make itself the
+    // headset driver when a session starts.
     return false;
   },
 
@@ -136,8 +174,6 @@ var webxr = {
     if (state.session) {
       state.session.end();
     }
-
-    Module._free(state.boundsGeometry|0);
   },
 
   webxr_getName: function(name, size) {
@@ -149,12 +185,12 @@ var webxr = {
   },
 
   webxr_getDisplayTime: function() {
-    return state.session.displayTime / 1000.0;
+    return state.displayTime / 1000.0;
   },
 
   webxr_getDisplayDimensions: function(width, height) {
-    HEAPU32[width >> 2] = state.session.layer.framebufferWidth;
-    HEAPU32[height >> 2] = state.session.layer.framebufferHeight;
+    HEAPU32[width >> 2] = state.layer.framebufferWidth;
+    HEAPU32[height >> 2] = state.layer.framebufferHeight;
   },
 
   webxr_getDisplayFrequency: function() {
@@ -166,25 +202,14 @@ var webxr = {
   },
 
   webxr_getViewCount: function() {
-    return state.session.viewer.views.length;
+    return state.viewer.views.length;
   },
 
+  webxr_getViewPose__deps: ['$writePose'],
   webxr_getViewPose: function(index, position, orientation) {
-    var view = state.session.viewer.views[index];
-    if (view) {
-      var transform = view.transform;
-      HEAPF32[(position >> 2) + 0] = transform.position.x;
-      HEAPF32[(position >> 2) + 1] = transform.position.y;
-      HEAPF32[(position >> 2) + 2] = transform.position.z;
-      HEAPF32[(position >> 2) + 3] = transform.position.w;
-      HEAPF32[(orientation >> 2) + 0] = transform.orientation.x;
-      HEAPF32[(orientation >> 2) + 1] = transform.orientation.y;
-      HEAPF32[(orientation >> 2) + 2] = transform.orientation.z;
-      HEAPF32[(orientation >> 2) + 3] = transform.orientation.w;
-      return true;
-    }
-
-    return false;
+    var view = state.viewer && state.viewer.views[index];
+    view && writePose(view.transform, position, orientation);
+    return !!view;
   },
 
   webxr_getViewAngles: function(index, left, right, up, down) {
@@ -199,7 +224,7 @@ var webxr = {
   webxr_setClipDistance: function(clipNear, clipFar) {
     state.clipNear = clipNear;
     state.clipFar = clipFar;
-    state.session.updateRenderState({
+    state.updateRenderState({
       clipNear: clipNear,
       clipFar: clipFar
     });
@@ -211,18 +236,18 @@ var webxr = {
   },
 
   webxr_getBoundsGeometry: function(count) {
-    if (!(state.session.space instanceof XRBoundedReferenceSpace)) {
+    if (!(state.space instanceof XRBoundedReferenceSpace)) {
       return 0; /* NULL */
     }
 
-    var points = state.session.space.boundsGeometry;
+    var points = state.space.boundsGeometry;
 
     if (state.boundsGeometryCount < points.length) {
       Module._free(state.boundsGeometry|0);
       state.boundsGeometryCount = points.length;
       state.boundsGeometry = Module._malloc(4 * 4 * state.boundsGeometryCount);
       if (state.boundsGeometry === 0) {
-        return state.boundsGeometry;
+        return 0; /* NULL */
       }
     }
 
@@ -237,35 +262,18 @@ var webxr = {
     return state.boundsGeometry;
   },
 
+  webxr_getPose__deps: ['$writePose'],
   webxr_getPose: function(device, position, orientation) {
     if (device === 0 /* DEVICE_HEAD */) {
-      var transform = state.session.viewer.transform;
-      HEAPF32[(position >> 2) + 0] = transform.position.x;
-      HEAPF32[(position >> 2) + 1] = transform.position.y;
-      HEAPF32[(position >> 2) + 2] = transform.position.z;
-      HEAPF32[(position >> 2) + 3] = transform.position.w;
-      HEAPF32[(orientation >> 2) + 0] = transform.orientation.x;
-      HEAPF32[(orientation >> 2) + 1] = transform.orientation.y;
-      HEAPF32[(orientation >> 2) + 2] = transform.orientation.z;
-      HEAPF32[(orientation >> 2) + 3] = transform.orientation.w;
+      writePose(state.viewer.transform, position, orientation);
       return true;
     }
 
-    if (state.session.deviceMap[device]) {
-      var inputSource = state.session.deviceMap[device];
-      var space = inputSource.gripSpace || inputSource.targetRaySpace;
-      var pose = state.session.frame.getPose(space, state.session.space);
-      if (pose) {
-        HEAPF32[(position >> 2) + 0] = pose.transform.position.x;
-        HEAPF32[(position >> 2) + 1] = pose.transform.position.y;
-        HEAPF32[(position >> 2) + 2] = pose.transform.position.z;
-        HEAPF32[(position >> 2) + 3] = pose.transform.position.w;
-        HEAPF32[(orientation >> 2) + 0] = pose.transform.orientation.x;
-        HEAPF32[(orientation >> 2) + 1] = pose.transform.orientation.y;
-        HEAPF32[(orientation >> 2) + 2] = pose.transform.orientation.z;
-        HEAPF32[(orientation >> 2) + 3] = pose.transform.orientation.w;
-        return true;
-      }
+    if (state.hands[device]) {
+      var space = state.hands[device].gripSpace || state.hands[device].targetRaySpace;
+      var pose = state.frame.getPose(space, state.space);
+      pose && writePose(pose.transform, position, orientation);
+      return !!pose;
     }
 
     return false;
@@ -276,77 +284,63 @@ var webxr = {
   },
 
   webxr_isDown: function(device, button, down, changed) {
-    var inputSource = state.session.deviceMap[device];
-    if (!inputSource || !inputSource.gamepad || !inputSource.mapping) {
-      return false;
-    }
-
-    HEAPU32[down >> 2] = inputSource.gamepad.buttons[inputSource.mapping[button]].pressed ? 1 : 0;
-    HEAPU32[changed >> 2] = 0; // TODO
-    return true;
+    var button = state.hands[device] && state.hands[device].button;
+    HEAPU32[down >> 2] = button && button.pressed;
+    HEAPU32[changed >> 2] = button && (state.lastButtonState[device][button] ^ button.pressed);
+    return !!button;
   },
 
   webxr_isTouched: function(device, button, touched) {
-    var inputSource = state.session.deviceMap[device];
-    if (!inputSource || !inputSource.gamepad || !inputSource.mapping) {
-      return false;
-    }
-
-    HEAPU32[touched >> 2] = inputSource.gamepad.buttons[inputSource.mapping[button]].touched ? 1 : 0;
-    return true;
+    var button = state.hands[device] && state.hands[device].button;
+    HEAPU32[touched >> 2] = button && button.touched;
+    return !!button;
   },
 
   webxr_getAxis: function(device, axis, value) {
-    var inputSource = state.session.deviceMap[device];
-    if (!inputSource || !inputSource.gamepad || !inputSource.mapping) {
+    var hand = state.hands[device];
+
+    if (!hand || !hand.gamepad) {
       return false;
     }
 
     switch (axis) {
-      // These 1D axes are queried as buttons in the Gamepad API
-      // The DeviceAxis enumerants match the DeviceButton ones, so they're interchangeable
       case 0: /* AXIS_TRIGGER */
       case 3: /* AXIS_GRIP */
-        HEAPF32[value >> 2] = inputSource.gamepad.buttons[inputSource.mapping[axis]].value;
-        return true;
+        HEAPF32[value >> 2] = hand.buttons[axis] && hand.buttons[axis].value;
+        return !!hand.buttons[axis];
 
       case 1: /* AXIS_THUMBSTICK */
-        HEAPF32[value >> 2 + 0] = inputSource.gamepad.axes[2];
-        HEAPF32[value >> 2 + 1] = inputSource.gamepad.axes[3];
-        return true;
+        HEAPF32[value >> 2 + 0] = hand.gamepad.axes[2];
+        HEAPF32[value >> 2 + 1] = hand.gamepad.axes[3];
+        return hand.axes.thumbstick;
 
       case 2: /* AXIS_TOUCHPAD */
-        HEAPF32[value >> 2 + 0] = inputSource.gamepad.axes[0];
-        HEAPF32[value >> 2 + 1] = inputSource.gamepad.axes[1];
-        return true;
+        HEAPF32[value >> 2 + 0] = hand.gamepad.axes[0];
+        HEAPF32[value >> 2 + 1] = hand.gamepad.axes[1];
+        return hand.axes.touchpad;
 
-      default:
-        return false;
+      default: return false;
     }
   },
 
+  webxr_getSkeleton__deps: ['$writePose'],
   webxr_getSkeleton: function(device, poses) {
-    var inputSource = state.session.deviceMap[device];
+    var inputSource = state.hands[device];
+
     if (!inputSource || !inputSource.hand) {
       return false;
     }
 
-    // There are 26 total hand joints, each with an 8-float pose
-    HEAPF32.fill(0, poses >> 2, (poses >> 2) + 26 * 8);
+    // WebXR does not have a palm joint but the skeleton otherwise matches up
+    HEAPF32.fill(0, poses >> 2, (poses >> 2) + 8 * 26 /* HAND_JOINT_COUNT */);
+    poses += 32;
 
-    // WebXR has 25 joints, it's missing JOINT_PALM but otherwise it matches up perfectly
     for (var i = 0; i < 25; i++) {
       if (inputSource.hand[i]) {
-        var jointPose = state.session.frame.getJointPose(inputSource.hand[i], state.session.space);
-        if (jointPose) {
-          HEAPF32[(poses >> 2) + (i + 1) * 8 + 0] = jointPose.transform.position.x;
-          HEAPF32[(poses >> 2) + (i + 1) * 8 + 1] = jointPose.transform.position.y;
-          HEAPF32[(poses >> 2) + (i + 1) * 8 + 2] = jointPose.transform.position.z;
-          HEAPF32[(poses >> 2) + (i + 1) * 8 + 3] = jointPose.transform.position.w;
-          HEAPF32[(poses >> 2) + (i + 1) * 8 + 4] = jointPose.transform.orientation.x;
-          HEAPF32[(poses >> 2) + (i + 1) * 8 + 5] = jointPose.transform.orientation.y;
-          HEAPF32[(poses >> 2) + (i + 1) * 8 + 6] = jointPose.transform.orientation.z;
-          HEAPF32[(poses >> 2) + (i + 1) * 8 + 7] = jointPose.transform.orientation.w;
+        var pose = state.frame.getJointPose(inputSource.hand[i], state.space);
+        if (pose) {
+          var position = poses + i * 32;
+          writePose(pose.transform, position, position + 16);
         }
       }
     }
@@ -354,15 +348,12 @@ var webxr = {
     return true;
   },
 
+  // Not an official WebXR feature, but widely supported
   webxr_vibrate: function(device, strength, duration, frequency) {
-    var inputSource = state.session.deviceMap[device];
-    if (!inputSource || !inputSource.gamepad || !inputSource.gamepad.hapticActuators || !inputSource.gamepad.hapticActuators[0]) {
-      return false;
-    }
-
-    // Not technically an official WebXR feature, but widely supported
-    inputSource.gamepad.hapticActuators[0].pulse(strength, duration * 1000);
-    return true;
+    var hand = state.deviceMap[device];
+    var actuator = hand && hand.gamepad && hand.gamepad.hapticActuators && hand.gamepad.hapticActuators[0];
+    actuator && actuator.pulse(strength, duration * 1000);
+    return !!actuator;
   },
 
   webxr_newModelData: function(device, animated) {
@@ -374,20 +365,14 @@ var webxr = {
   },
 
   webxr_renderTo: function(callback, userdata) {
-    var views = state.session.viewer.views;
-    var camera = state.session.camera;
-    var stereo = views.length > 1;
-    var matrices = (camera + 8) >> 2;
-    HEAPU8[camera + 0] = stereo; // camera.stereo = stereo
-    HEAPU32[(camera + 4) >> 2] = state.session.canvas; // camera.canvas = session.canvas
+    var views = state.viewer.views;
+    var matrices = (state.camera + 8) >> 2;
     HEAPF32.set(views[0].transform.inverse.matrix, matrices + 0);
+    HEAPF32.set(views[1].transform.inverse.matrix, matrices + 16);
     HEAPF32.set(views[0].projectionMatrix, matrices + 32);
-    if (stereo) {
-      HEAPF32.set(views[1].transform.inverse.matrix, matrices + 16);
-      HEAPF32.set(views[1].projectionMatrix, matrices + 48);
-    }
+    HEAPF32.set(views[1].projectionMatrix, matrices + 48);
 
-    Module['_lovrGraphicsSetCamera'](camera, true);
+    Module['_lovrGraphicsSetCamera'](state.camera, true);
     Module['dynCall_vi'](callback, userdata);
     Module['_lovrGraphicsSetCamera'](0, false);
   },

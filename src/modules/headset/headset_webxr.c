@@ -26,27 +26,24 @@ extern bool webxr_animate(Device device, struct Model* model);
 extern void webxr_renderTo(void (*callback)(void*), void* userdata);
 extern void webxr_update(float dt);
 
-static HeadsetInterface* oldHeadsetDriver;
-bool webxrAttached = false;
+static bool webxrAttached = false;
+static HeadsetInterface* previousHeadsetDriver;
 
-static void setDriver(HeadsetInterface* newDriver) {
-  HeadsetInterface* prev = lovrHeadsetDriver;
-  lovrHeadsetDriver = newDriver;
-
-  HeadsetInterface* driver = lovrHeadsetTrackingDrivers;
-  HeadsetInterface* lastDriver = NULL;
-  while (driver) {
-    if (driver == prev) {
-      if (lastDriver) {
-        lastDriver->next = lovrHeadsetDriver;
+static void setDriver(HeadsetInterface* new) {
+  if (lovrHeadsetTrackingDrivers == lovrHeadsetDriver) {
+    lovrHeadsetTrackingDrivers = new;
+  } else {
+    FOREACH_TRACKING_DRIVER(driver) {
+      if (driver->next == lovrHeadsetDriver) {
+        driver->next = new;
+        break;
       }
-      lovrHeadsetDriver->next = driver->next;
-      driver->next = NULL;
-      driver = lovrHeadsetDriver;
     }
-    lastDriver = driver;
-    driver = driver->next;
   }
+
+  new->next = lovrHeadsetDriver->next;
+  lovrHeadsetDriver->next = NULL;
+  lovrHeadsetDriver = new;
 }
 
 void webxr_attach() {
@@ -54,7 +51,7 @@ void webxr_attach() {
     return;
   }
 
-  oldHeadsetDriver = lovrHeadsetDriver;
+  previousHeadsetDriver = lovrHeadsetDriver;
   setDriver(&lovrHeadsetWebXRDriver);
   webxrAttached = true;
 }
@@ -64,8 +61,8 @@ void webxr_detach() {
     return;
   }
 
-  setDriver(oldHeadsetDriver);
-  oldHeadsetDriver = NULL;
+  setDriver(previousHeadsetDriver);
+  previousHeadsetDriver = NULL;
   webxrAttached = false;
 }
 

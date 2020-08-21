@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define EVENT_TARGET "#canvas"
+#define CANVAS "#canvas"
 
 static struct {
   EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context;
@@ -17,6 +17,7 @@ static struct {
   keyboardCallback onKeyboardEvent;
   bool keyMap[KEY_COUNT];
   bool mouseMap[2];
+  MouseMode mouseMode;
   long mouseX;
   long mouseY;
   int width;
@@ -45,7 +46,7 @@ static EM_BOOL onResize(int type, const EmscriptenUiEvent* data, void* userdata)
   emscripten_webgl_get_drawing_buffer_size(state.context, &state.framebufferWidth, &state.framebufferHeight);
 
   int newWidth, newHeight;
-  emscripten_get_canvas_element_size(EVENT_TARGET, &newWidth, &newHeight);
+  emscripten_get_canvas_element_size(CANVAS, &newWidth, &newHeight);
   if (state.width != newWidth || state.height != newHeight) {
     state.width = newWidth;
     state.height = newHeight;
@@ -77,8 +78,13 @@ static EM_BOOL onMouseButton(int type, const EmscriptenMouseEvent* data, void* u
 }
 
 static EM_BOOL onMouseMove(int type, const EmscriptenMouseEvent* data, void* userdata) {
-  state.mouseX = data->clientX;
-  state.mouseY = data->clientY;
+  if (state.mouseMode == MOUSE_MODE_GRABBED) {
+    state.mouseX += data->movementX;
+    state.mouseY += data->movementY;
+  } else {
+    state.mouseX = data->clientX;
+    state.mouseY = data->clientY;
+  }
   return false;
 }
 
@@ -168,8 +174,8 @@ static EM_BOOL onKeyEvent(int type, const EmscriptenKeyboardEvent* data, void* u
     case DOM_PK_PAGE_DOWN: key = KEY_PAGE_DOWN; break;
     case DOM_PK_INSERT: key = KEY_INSERT; break;
     case DOM_PK_DELETE: key = KEY_DELETE; break;
-    case DOM_PK_OS_LEFT: key = KEY_LEFT_SUPER; break;
-    case DOM_PK_OS_RIGHT: key = KEY_RIGHT_SUPER; break;
+    case DOM_PK_OS_LEFT: key = KEY_LEFT_OS; break;
+    case DOM_PK_OS_RIGHT: key = KEY_RIGHT_OS; break;
     default: return false;
   }
 
@@ -185,14 +191,14 @@ static EM_BOOL onKeyEvent(int type, const EmscriptenKeyboardEvent* data, void* u
 
 bool lovrPlatformInit() {
   emscripten_set_beforeunload_callback(NULL, onBeforeUnload);
-  emscripten_set_focus_callback(EVENT_TARGET, NULL, true, onFocusChanged);
-  emscripten_set_blur_callback(EVENT_TARGET, NULL, true, onFocusChanged);
+  emscripten_set_focus_callback(CANVAS, NULL, true, onFocusChanged);
+  emscripten_set_blur_callback(CANVAS, NULL, true, onFocusChanged);
   emscripten_set_resize_callback(0, NULL, true, onResize);
-  emscripten_set_mousedown_callback(EVENT_TARGET, NULL, true, onMouseButton);
-  emscripten_set_mouseup_callback(EVENT_TARGET, NULL, true, onMouseButton);
-  emscripten_set_mousemove_callback(EVENT_TARGET, NULL, true, onMouseMove);
-  emscripten_set_keydown_callback(EVENT_TARGET, NULL, true, onKeyEvent);
-  emscripten_set_keyup_callback(EVENT_TARGET, NULL, true, onKeyEvent);
+  emscripten_set_mousedown_callback(CANVAS, NULL, true, onMouseButton);
+  emscripten_set_mouseup_callback(CANVAS, NULL, true, onMouseButton);
+  emscripten_set_mousemove_callback(CANVAS, NULL, true, onMouseMove);
+  emscripten_set_keydown_callback(CANVAS, NULL, true, onKeyEvent);
+  emscripten_set_keyup_callback(CANVAS, NULL, true, onKeyEvent);
   state.epoch = emscripten_get_now();
   return true;
 }
@@ -270,7 +276,7 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
   attributes.preserveDrawingBuffer = false;
   attributes.majorVersion = 2;
   attributes.minorVersion = 0;
-  state.context = emscripten_webgl_create_context(EVENT_TARGET, &attributes);
+  state.context = emscripten_webgl_create_context(CANVAS, &attributes);
   if (state.context < 0) {
     state.context = 0;
     return false;
@@ -278,7 +284,7 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
 
   emscripten_webgl_make_context_current(state.context);
   emscripten_webgl_get_drawing_buffer_size(state.context, &state.framebufferWidth, &state.framebufferHeight);
-  emscripten_get_canvas_element_size(EVENT_TARGET, &state.width, &state.height);
+  emscripten_get_canvas_element_size(CANVAS, &state.width, &state.height);
   return true;
 }
 
@@ -339,7 +345,14 @@ void lovrPlatformGetMousePosition(double* x, double* y) {
 }
 
 void lovrPlatformSetMouseMode(MouseMode mode) {
-  //
+  if (state.mouseMode != mode) {
+    state.mouseMode = mode;
+    if (mode == MOUSE_MODE_GRABBED) {
+      EM_ASM(Module['canvas'].requestPointerLock());
+    } else {
+      EM_ASM(document.exitPointerLock());
+    }
+  }
 }
 
 bool lovrPlatformIsMouseDown(MouseButton button) {
