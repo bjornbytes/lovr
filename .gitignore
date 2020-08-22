@@ -35,3 +35,4 @@ bin
 /test
 deps/VrApi
 deps/pico
+deps/openxr

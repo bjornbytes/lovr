@@ -8,37 +8,19 @@
 #include "core/util.h"
 #include <stdlib.h>
 #include <math.h>
-
 #if defined(_WIN32)
 #include <windows.h>
-HANDLE lovrPlatformGetWindow(void);
-HGLRC lovrPlatformGetContext(void);
-#define XR_USE_GRAPHICS_API_OPENGL
 #define XR_USE_PLATFORM_WIN32
-#define SWAPCHAIN_TYPE XrSwapchainImageOpenGLKHR
+#define XR_USE_GRAPHICS_API_OPENGL
 #elif defined(__ANDROID__)
 #include <EGL/egl.h>
 #include <jni.h>
-EGLDisplay lovrPlatformGetEGLDisplay();
-EGLContext lovrPlatformGetEGLContext();
-EGLConfig lovrPlatformGetEGLConfig();
-#define XR_USE_GRAPHICS_API_OPENGL_ES
 #define XR_USE_PLATFORM_ANDROID
-#define SWAPCHAIN_TYPE XrSwapchainImageOpenGLESKHR
+#define XR_USE_GRAPHICS_API_OPENGL_ES
 #endif
-
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
-
-static XrResult handleResult(XrResult result, const char* file, int line) {
-  if (XR_FAILED(result)) {
-    char message[XR_MAX_RESULT_STRING_SIZE];
-    xrResultToString(XR_NULL_HANDLE, result, message);
-    lovrThrow("OpenXR Error: %s at %s:%d", message, file, line);
-  }
-
-  return result;
-}
+#include "resources/openxr_actions.h"
 
 #define XR(f) handleResult(f, __FILE__, __LINE__)
 #define XR_INIT(f) if (XR_FAILED(f)) return openxr_destroy(), false;
@@ -47,162 +29,14 @@ static XrResult handleResult(XrResult result, const char* file, int line) {
 #define GL_SRGB8_ALPHA8 0x8C43
 #define MAX_IMAGES 4
 
-enum {
-  PROFILE_SIMPLE,
-  PROFILE_VIVE,
-  PROFILE_TOUCH,
-  PROFILE_GO,
-  PROFILE_INDEX,
-  MAX_PROFILES
-} Profile;
-
-const char* profilePaths[MAX_PROFILES] = {
-  [PROFILE_SIMPLE] = "/interaction_profiles/khr/simple_controller",
-  [PROFILE_VIVE] = "/interaction_profiles/htc/vive_controller",
-  [PROFILE_TOUCH] = "/interaction_profiles/oculus/touch_controller",
-  [PROFILE_GO] = "/interaction_profiles/oculus/go_controller",
-  [PROFILE_INDEX] = "/interaction_profiles/valve/index_controller"
-};
-
-typedef enum {
-  ACTION_HAND_POSE,
-  ACTION_TRIGGER_DOWN,
-  ACTION_TRIGGER_TOUCH,
-  ACTION_TRIGGER_AXIS,
-  ACTION_TRACKPAD_DOWN,
-  ACTION_TRACKPAD_TOUCH,
-  ACTION_TRACKPAD_AXIS,
-  ACTION_THUMBSTICK_DOWN,
-  ACTION_THUMBSTICK_TOUCH,
-  ACTION_THUMBSTICK_AXIS,
-  ACTION_MENU_DOWN,
-  ACTION_MENU_TOUCH,
-  ACTION_GRIP_DOWN,
-  ACTION_GRIP_TOUCH,
-  ACTION_GRIP_AXIS,
-  ACTION_VIBRATE,
-  MAX_ACTIONS
-} Action;
-
-#define action(id, name, type, subactions) { XR_TYPE_ACTION_CREATE_INFO, NULL, id, type, subactions, NULL, name }
-static XrActionCreateInfo defaultActions[MAX_ACTIONS] = {
-  [ACTION_HAND_POSE] = action("handPose", "Hand Pose", XR_ACTION_TYPE_POSE_INPUT, 2),
-  [ACTION_TRIGGER_DOWN] = action("triggerDown", "Trigger Down", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
-  [ACTION_TRIGGER_TOUCH] = action("triggerTouch", "Trigger Touch", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
-  [ACTION_TRIGGER_AXIS] = action("triggerAxis", "Trigger Axis", XR_ACTION_TYPE_FLOAT_INPUT, 2),
-  [ACTION_TRACKPAD_DOWN] = action("trackpadDown", "Trackpad Down", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
-  [ACTION_TRACKPAD_TOUCH] = action("trackpadTouch", "Trackpad Touch", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
-  [ACTION_TRACKPAD_AXIS] = action("trackpadAxis", "Trackpad Axis", XR_ACTION_TYPE_VECTOR2F_INPUT, 2),
-  [ACTION_THUMBSTICK_DOWN] = action("thumbstickDown", "Thumbstick Down", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
-  [ACTION_THUMBSTICK_TOUCH] = action("thumbstickTouch", "Thumbstick Touch", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
-  [ACTION_THUMBSTICK_AXIS] = action("thumbstickAxis", "Thumbstick Axis", XR_ACTION_TYPE_VECTOR2F_INPUT, 2),
-  [ACTION_MENU_DOWN] = action("menuDown", "Menu Down", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
-  [ACTION_MENU_TOUCH] = action("menuTouch", "Menu Touch", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
-  [ACTION_GRIP_DOWN] = action("gripDown", "Grip Down", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
-  [ACTION_GRIP_TOUCH] = action("gripTouch", "Grip Touch", XR_ACTION_TYPE_BOOLEAN_INPUT, 2),
-  [ACTION_GRIP_AXIS] = action("gripAxis", "Grip Axis", XR_ACTION_TYPE_FLOAT_INPUT, 2),
-  [ACTION_VIBRATE] = action("vibrate", "Vibrate", XR_ACTION_TYPE_VIBRATION_OUTPUT, 2),
-};
-#undef action
-
-static const char* defaultBindings[MAX_PROFILES][MAX_ACTIONS][2] = {
-  [PROFILE_SIMPLE] = {
-    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
-    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
-    [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/select/click",
-    [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/select/click",
-    [ACTION_MENU_DOWN][0] = "/user/hand/left/input/menu/click",
-    [ACTION_MENU_DOWN][1] = "/user/hand/right/input/menu/click",
-    [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
-    [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
-  },
-  [PROFILE_VIVE] = {
-    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
-    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
-    [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
-    [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
-    [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
-    [ACTION_TRIGGER_AXIS][1] = "/user/hand/right/input/trigger/value",
-    [ACTION_TRACKPAD_DOWN][0] = "/user/hand/left/input/trackpad/click",
-    [ACTION_TRACKPAD_DOWN][1] = "/user/hand/right/input/trackpad/click",
-    [ACTION_TRACKPAD_TOUCH][0] = "/user/hand/left/input/trackpad/touch",
-    [ACTION_TRACKPAD_TOUCH][1] = "/user/hand/right/input/trackpad/touch",
-    [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
-    [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad",
-    [ACTION_MENU_DOWN][0] = "/user/hand/left/input/menu/click",
-    [ACTION_MENU_DOWN][1] = "/user/hand/right/input/menu/click",
-    [ACTION_GRIP_DOWN][0] = "/user/hand/left/input/squeeze/click",
-    [ACTION_GRIP_DOWN][1] = "/user/hand/right/input/squeeze/click",
-    [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
-    [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
-  },
-  [PROFILE_TOUCH] = {
-    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
-    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
-    [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
-    [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
-    [ACTION_TRIGGER_TOUCH][0] = "/user/hand/left/input/trigger/touch",
-    [ACTION_TRIGGER_TOUCH][1] = "/user/hand/right/input/trigger/touch",
-    [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
-    [ACTION_TRIGGER_AXIS][1] = "/user/hand/right/input/trigger/value",
-    [ACTION_THUMBSTICK_DOWN][0] = "/user/hand/left/input/thumbstick/click",
-    [ACTION_THUMBSTICK_DOWN][1] = "/user/hand/right/input/thumbstick/click",
-    [ACTION_THUMBSTICK_TOUCH][0] = "/user/hand/left/input/thumbstick/touch",
-    [ACTION_THUMBSTICK_TOUCH][1] = "/user/hand/right/input/thumbstick/touch",
-    [ACTION_THUMBSTICK_AXIS][0] = "/user/hand/left/input/thumbstick",
-    [ACTION_THUMBSTICK_AXIS][1] = "/user/hand/right/input/thumbstick",
-    [ACTION_MENU_DOWN][0] = "/user/hand/left/input/menu/click",
-    [ACTION_MENU_DOWN][1] = "/user/hand/right/input/menu/click",
-    [ACTION_MENU_TOUCH][0] = "/user/hand/left/input/menu/touch",
-    [ACTION_MENU_TOUCH][1] = "/user/hand/right/input/menu/touch",
-    [ACTION_GRIP_DOWN][0] = "/user/hand/left/input/squeeze/click",
-    [ACTION_GRIP_DOWN][1] = "/user/hand/right/input/squeeze/click",
-    [ACTION_GRIP_TOUCH][0] = "/user/hand/left/input/squeeze/touch",
-    [ACTION_GRIP_TOUCH][1] = "/user/hand/right/input/squeeze/touch",
-    [ACTION_GRIP_AXIS][0] = "/user/hand/left/input/squeeze/value",
-    [ACTION_GRIP_AXIS][1] = "/user/hand/right/input/squeeze/value",
-    [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
-    [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
-  },
-  [PROFILE_GO] = {
-    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
-    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
-    [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
-    [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
-    [ACTION_TRACKPAD_DOWN][0] = "/user/hand/left/input/trackpad/click",
-    [ACTION_TRACKPAD_DOWN][1] = "/user/hand/right/input/trackpad/click",
-    [ACTION_TRACKPAD_TOUCH][0] = "/user/hand/left/input/trackpad/touch",
-    [ACTION_TRACKPAD_TOUCH][1] = "/user/hand/right/input/trackpad/touch",
-    [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
-    [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad"
-  },
-  [PROFILE_INDEX] = {
-    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
-    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
-    [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
-    [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
-    [ACTION_TRIGGER_TOUCH][0] = "/user/hand/left/input/trigger/touch",
-    [ACTION_TRIGGER_TOUCH][1] = "/user/hand/right/input/trigger/touch",
-    [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
-    [ACTION_TRIGGER_AXIS][1] = "/user/hand/right/input/trigger/value",
-    [ACTION_TRACKPAD_DOWN][0] = "/user/hand/left/input/trackpad/click",
-    [ACTION_TRACKPAD_DOWN][1] = "/user/hand/right/input/trackpad/click",
-    [ACTION_TRACKPAD_TOUCH][0] = "/user/hand/left/input/trackpad/touch",
-    [ACTION_TRACKPAD_TOUCH][1] = "/user/hand/right/input/trackpad/touch",
-    [ACTION_TRACKPAD_AXIS][0] = "/user/hand/left/input/trackpad",
-    [ACTION_TRACKPAD_AXIS][1] = "/user/hand/right/input/trackpad",
-    [ACTION_THUMBSTICK_DOWN][0] = "/user/hand/left/input/thumbstick/click",
-    [ACTION_THUMBSTICK_DOWN][1] = "/user/hand/right/input/thumbstick/click",
-    [ACTION_THUMBSTICK_TOUCH][0] = "/user/hand/left/input/thumbstick/touch",
-    [ACTION_THUMBSTICK_TOUCH][1] = "/user/hand/right/input/thumbstick/touch",
-    [ACTION_THUMBSTICK_AXIS][0] = "/user/hand/left/input/thumbstick",
-    [ACTION_THUMBSTICK_AXIS][1] = "/user/hand/right/input/thumbstick",
-    [ACTION_GRIP_AXIS][0] = "/user/hand/left/input/squeeze/value",
-    [ACTION_GRIP_AXIS][1] = "/user/hand/right/input/squeeze/value",
-    [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
-    [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
-  }
-};
+#if defined(_WIN32)
+HANDLE lovrPlatformGetWindow(void);
+HGLRC lovrPlatformGetContext(void);
+#elif defined(__ANDROID__)
+EGLDisplay lovrPlatformGetEGLDisplay();
+EGLContext lovrPlatformGetEGLContext();
+EGLConfig lovrPlatformGetEGLConfig();
+#endif
 
 static struct {
   XrInstance instance;
@@ -228,6 +62,15 @@ static struct {
   XrAction actions[MAX_ACTIONS];
   XrPath actionFilters[2];
 } state;
+
+static XrResult handleResult(XrResult result, const char* file, int line) {
+  if (XR_FAILED(result)) {
+    char message[XR_MAX_RESULT_STRING_SIZE];
+    xrResultToString(XR_NULL_HANDLE, result, message);
+    lovrThrow("OpenXR Error: %s at %s:%d", message, file, line);
+  }
+  return result;
+}
 
 static void openxr_destroy();
 
@@ -280,7 +123,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
     state.height = views[0].recommendedImageRectHeight;
   }
 
-  { // Actions...
+  { // Actions
     XrActionSetCreateInfo info = {
       .type = XR_TYPE_ACTION_SET_CREATE_INFO,
       .actionSetName = "default",
@@ -292,32 +135,30 @@ static bool openxr_init(float offset, uint32_t msaa) {
     XR_INIT(xrStringToPath(state.instance, "/user/hand/left", &state.actionFilters[0]));
     XR_INIT(xrStringToPath(state.instance, "/user/hand/right", &state.actionFilters[1]));
 
-    for (size_t action = 0; action < MAX_ACTIONS; action++) {
-      defaultActions[action].subactionPaths = defaultActions[action].countSubactionPaths == 2 ? state.actionFilters : NULL;
-      XR_INIT(xrCreateAction(state.actionSet, &defaultActions[action], &state.actions[action]));
+    for (uint32_t i = 0; i < MAX_ACTIONS; i++) {
+      actionCreateInfo[i].subactionPaths = state.actionFilters;
+      XR_INIT(xrCreateAction(state.actionSet, &actionCreateInfo[i], &state.actions[i]));
     }
 
-    XrActionSuggestedBinding bindings[2 * MAX_ACTIONS];
-    for (size_t profile = 0; profile < MAX_PROFILES; profile++) {
-      int bindingCount = 0;
-
-      for (size_t action = 0; action < MAX_ACTIONS; action++) {
-        for (size_t i = 0; i < 2; i++) {
-          if (defaultBindings[profile][action][i]) {
-            bindings[bindingCount].action = state.actions[action];
-            XR_INIT(xrStringToPath(state.instance, defaultBindings[profile][action][i], &bindings[bindingCount].binding));
-            bindingCount++;
+    XrActionSuggestedBinding suggestedBindings[2 * MAX_ACTIONS];
+    for (uint32_t profile = 0, count = 0; profile < MAX_PROFILES; profile++, count = 0) {
+      for (uint32_t action = 0; action < MAX_ACTIONS; action++) {
+        for (uint32_t hand = 0; hand < 2; hand++) {
+          if (bindings[profile][action][hand]) {
+            suggestedBindings[count].action = state.actions[action];
+            XR_INIT(xrStringToPath(state.instance, bindings[profile][action][hand], &suggestedBindings[count].binding));
+            count++;
           }
         }
       }
 
       XrPath profilePath;
-      XR_INIT(xrStringToPath(state.instance, profilePaths[profile], &profilePath));
+      XR_INIT(xrStringToPath(state.instance, interactionProfiles[profile], &profilePath));
       XR_INIT(xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
         .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
         .interactionProfile = profilePath,
-        .countSuggestedBindings = bindingCount,
-        .suggestedBindings = bindings
+        .countSuggestedBindings = count,
+        .suggestedBindings = suggestedBindings
       }));
     }
   }
@@ -339,7 +180,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
         .context = lovrPlatformGetEGLContext()
       },
 #else
-#error "OpenXR is not supported on this platform!"
+#error "OpenXR is not supported on this platform"
 #endif
       .systemId = state.system
     };
@@ -410,7 +251,11 @@ static bool openxr_init(float offset, uint32_t msaa) {
       .mipCount = 1
     };
 
-    SWAPCHAIN_TYPE images[MAX_IMAGES];
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
+    XrSwapchainImageOpenGL images[MAX_IMAGES];
+#elif defined(XR_USE_GRAPHICS_API_OPENGLES)
+    XrSwapchainImageOpenGLESKHR images[MAX_IMAGES];
+#endif
     XR_INIT(xrCreateSwapchain(state.session, &info, &state.swapchain));
     XR_INIT(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
 
