@@ -10,7 +10,6 @@
 
 StringEntry HeadsetDrivers[] = {
   [DRIVER_DESKTOP] = ENTRY("desktop"),
-  [DRIVER_LEAP_MOTION] = ENTRY("leap"),
   [DRIVER_OCULUS] = ENTRY("oculus"),
   [DRIVER_OPENVR] = ENTRY("openvr"),
   [DRIVER_OPENXR] = ENTRY("openxr"),
@@ -34,16 +33,6 @@ StringEntry Devices[] = {
   [DEVICE_HAND_RIGHT_POINT] = ENTRY("hand/right/point"),
   [DEVICE_EYE_LEFT] = ENTRY("eye/left"),
   [DEVICE_EYE_RIGHT] = ENTRY("eye/right"),
-  [DEVICE_HAND_LEFT_FINGER_THUMB] = ENTRY("hand/left/finger/thumb"),
-  [DEVICE_HAND_LEFT_FINGER_INDEX] = ENTRY("hand/left/finger/index"),
-  [DEVICE_HAND_LEFT_FINGER_MIDDLE] = ENTRY("hand/left/finger/middle"),
-  [DEVICE_HAND_LEFT_FINGER_RING] = ENTRY("hand/left/finger/ring"),
-  [DEVICE_HAND_LEFT_FINGER_PINKY] = ENTRY("hand/left/finger/pinky"),
-  [DEVICE_HAND_RIGHT_FINGER_THUMB] = ENTRY("hand/right/finger/thumb"),
-  [DEVICE_HAND_RIGHT_FINGER_INDEX] = ENTRY("hand/right/finger/index"),
-  [DEVICE_HAND_RIGHT_FINGER_MIDDLE] = ENTRY("hand/right/finger/middle"),
-  [DEVICE_HAND_RIGHT_FINGER_RING] = ENTRY("hand/right/finger/ring"),
-  [DEVICE_HAND_RIGHT_FINGER_PINKY] = ENTRY("hand/right/finger/pinky"),
   [DEVICE_BEACON_1] = ENTRY("beacon/1"),
   [DEVICE_BEACON_2] = ENTRY("beacon/2"),
   [DEVICE_BEACON_3] = ENTRY("beacon/3"),
@@ -70,9 +59,6 @@ StringEntry DeviceAxes[] = {
   [AXIS_THUMBSTICK] = ENTRY("thumbstick"),
   [AXIS_TOUCHPAD] = ENTRY("touchpad"),
   [AXIS_GRIP] = ENTRY("grip"),
-  [AXIS_CURL] = ENTRY("curl"),
-  [AXIS_SPLAY] = ENTRY("splay"),
-  [AXIS_PINCH] = ENTRY("pinch"),
   { 0 }
 };
 
@@ -471,10 +457,7 @@ static const int axisCounts[MAX_AXES] = {
   [AXIS_TRIGGER] = 1,
   [AXIS_THUMBSTICK] = 2,
   [AXIS_TOUCHPAD] = 2,
-  [AXIS_GRIP] = 1,
-  [AXIS_CURL] = 1,
-  [AXIS_SPLAY] = 1,
-  [AXIS_PINCH] = 1
+  [AXIS_GRIP] = 1
 };
 
 static int l_lovrHeadsetGetAxis(lua_State* L) {

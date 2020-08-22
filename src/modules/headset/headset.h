@@ -12,7 +12,6 @@ struct Texture;
 
 typedef enum {
   DRIVER_DESKTOP,
-  DRIVER_LEAP_MOTION,
   DRIVER_OCULUS,
   DRIVER_OPENVR,
   DRIVER_OPENXR,
@@ -34,16 +33,6 @@ typedef enum {
   DEVICE_HAND_RIGHT_POINT,
   DEVICE_EYE_LEFT,
   DEVICE_EYE_RIGHT,
-  DEVICE_HAND_LEFT_FINGER_THUMB,
-  DEVICE_HAND_LEFT_FINGER_INDEX,
-  DEVICE_HAND_LEFT_FINGER_MIDDLE,
-  DEVICE_HAND_LEFT_FINGER_RING,
-  DEVICE_HAND_LEFT_FINGER_PINKY,
-  DEVICE_HAND_RIGHT_FINGER_THUMB,
-  DEVICE_HAND_RIGHT_FINGER_INDEX,
-  DEVICE_HAND_RIGHT_FINGER_MIDDLE,
-  DEVICE_HAND_RIGHT_FINGER_RING,
-  DEVICE_HAND_RIGHT_FINGER_PINKY,
   DEVICE_BEACON_1,
   DEVICE_BEACON_2,
   DEVICE_BEACON_3,
@@ -70,9 +59,6 @@ typedef enum {
   AXIS_THUMBSTICK,
   AXIS_TOUCHPAD,
   AXIS_GRIP,
-  AXIS_CURL,
-  AXIS_SPLAY,
-  AXIS_PINCH,
   MAX_AXES
 } DeviceAxis;
 
@@ -151,7 +137,6 @@ extern HeadsetInterface lovrHeadsetVrApiDriver;
 extern HeadsetInterface lovrHeadsetPicoDriver;
 extern HeadsetInterface lovrHeadsetWebXRDriver;
 extern HeadsetInterface lovrHeadsetDesktopDriver;
-extern HeadsetInterface lovrHeadsetLeapMotionDriver;
 
 // Active drivers
 extern HeadsetInterface* lovrHeadsetDriver;

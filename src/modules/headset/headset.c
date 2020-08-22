@@ -18,9 +18,6 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float offset, uint32_
 #ifdef LOVR_USE_DESKTOP_HEADSET
       case DRIVER_DESKTOP: interface = &lovrHeadsetDesktopDriver; break;
 #endif
-#ifdef LOVR_USE_LEAP
-      case DRIVER_LEAP_MOTION: interface = &lovrHeadsetLeapMotionDriver; break;
-#endif
 #ifdef LOVR_USE_OCULUS
       case DRIVER_OCULUS: interface = &lovrHeadsetOculusDriver; break;
 #endif

@@ -25,7 +25,6 @@ option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sur
 option(LOVR_USE_VRAPI "Enable the VrApi backend for the headset module" OFF)
 option(LOVR_USE_PICO "Enable the Pico backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
-option(LOVR_USE_LEAP "Enable the Leap Motion backend for the headset module" OFF)
 
 option(LOVR_SYSTEM_ENET "Use the system-provided enet" OFF)
 option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
@@ -241,23 +240,6 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
   set(LOVR_OPENXR openxr_loader)
 endif()
 
-# Leap Motion
-if(LOVR_ENABLE_HEADSET AND LOVR_USE_LEAP)
-  if(NOT LOVR_LEAP_PATH)
-    message(FATAL_ERROR "LOVR_USE_LEAP requires the LOVR_LEAP_PATH to be set to the location of the Leap Motion SDK (LeapSDK) folder")
-  endif()
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(LEAP_ARCH "x64")
-  else()
-    set(LEAP_ARCH "x86")
-  endif()
-  add_library(LeapC SHARED IMPORTED)
-  include_directories("${LOVR_LEAP_PATH}/include")
-  set_target_properties(LeapC PROPERTIES IMPORTED_IMPLIB "${LOVR_LEAP_PATH}/lib/${LEAP_ARCH}/LeapC.lib")
-  set_target_properties(LeapC PROPERTIES IMPORTED_LOCATION "${LOVR_LEAP_PATH}/lib/${LEAP_ARCH}/LeapC.dll")
-  set(LOVR_LEAP LeapC)
-endif()
-
 # Oculus SDK -- expects Oculus SDK 1.26.0 or later
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
   if(NOT LOVR_OCULUS_PATH)
@@ -366,7 +348,6 @@ target_link_libraries(lovr
   ${LOVR_OCULUS}
   ${LOVR_VRAPI}
   ${LOVR_PICO}
-  ${LOVR_LEAP}
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
@@ -483,10 +464,6 @@ if(LOVR_ENABLE_HEADSET)
     add_definitions(-DLOVR_USE_DESKTOP_HEADSET)
     target_sources(lovr PRIVATE src/modules/headset/headset_desktop.c)
   endif()
-  if(LOVR_USE_LEAP)
-    add_definitions(-DLOVR_USE_LEAP)
-    target_sources(lovr PRIVATE src/modules/headset/headset_leap.c)
-  endif()
 endif()
 
 if(LOVR_ENABLE_MATH)
@@ -575,7 +552,6 @@ if(WIN32)
   move_dll(${LOVR_ODE})
   move_dll(${LOVR_OPENAL})
   move_dll(${LOVR_OPENVR})
-  move_dll(${LOVR_LEAP})
   move_dll(${LOVR_MSDF})
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 elseif(APPLE)
