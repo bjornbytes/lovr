@@ -351,7 +351,7 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
     memcpy(translation, &skeleton->BonePoses[i].Position.x, 3 * sizeof(float));
     quat_rotate(pose + 4, translation);
     vec3_add(pose + 0, translation);
-    quat_mul(pose + 4, &handPose->BoneRotations[i].x);
+    quat_mul(pose + 4, pose + 4, &handPose->BoneRotations[i].x);
   }
 
   // We try our best, okay?

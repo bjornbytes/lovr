@@ -410,43 +410,64 @@ static bool openvr_isTouched(Device device, DeviceButton button, bool* touched) 
 }
 
 static bool openvr_getAxis(Device device, DeviceAxis axis, vec3 value) {
-  if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
-    InputAnalogActionData_t actionData;
-    state.input->GetAnalogActionData(state.axisActions[device - DEVICE_HAND_LEFT][axis], &actionData, sizeof(actionData), 0);
-    vec3_set(value, actionData.x, actionData.y, actionData.z);
-    return actionData.bActive;
-  }
-
-  uint32_t finger;
-  VRActionHandle_t skeletonAction;
-  if (device >= DEVICE_HAND_LEFT_FINGER_THUMB && device <= DEVICE_HAND_LEFT_FINGER_PINKY) {
-    finger = device - DEVICE_HAND_LEFT_FINGER_THUMB;
-    skeletonAction = state.skeletonActions[0];
-  } else if (device >= DEVICE_HAND_RIGHT_FINGER_THUMB && device <= DEVICE_HAND_RIGHT_FINGER_PINKY) {
-    finger = device - DEVICE_HAND_RIGHT_FINGER_THUMB;
-    skeletonAction = state.skeletonActions[1];
-  } else {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;
   }
 
-  VRSkeletalSummaryData_t summary;
-  if (state.input->GetSkeletalSummaryData(skeletonAction, &summary)) {
-    return false;
-  }
-
-  if (axis == AXIS_CURL) {
-    value[0] = summary.flFingerCurl[finger];
-    return true;
-  } else if (axis == AXIS_SPLAY && finger < 4) {
-    value[0] = summary.flFingerSplay[finger];
-    return true;
-  }
-
-  return false;
+  InputAnalogActionData_t actionData;
+  state.input->GetAnalogActionData(state.axisActions[device - DEVICE_HAND_LEFT][axis], &actionData, sizeof(actionData), 0);
+  vec3_set(value, actionData.x, actionData.y, actionData.z);
+  return actionData.bActive;
 }
 
 static bool openvr_getSkeleton(Device device, float* poses) {
-  return false;
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  // Bone transforms are relative to the hand instead of the origin, so get the hand pose first
+  InputPoseActionData_t handPose;
+  state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &handPose, sizeof(handPose), 0);
+  if (!handPose.pose.bPoseIsValid) {
+    return false;
+  }
+  float transform[16], position[4], orientation[4];
+  mat4_fromMat34(transform, handPose.pose.mDeviceToAbsoluteTracking.m);
+  transform[13] += state.offset;
+  mat4_getPosition(transform, position);
+  mat4_getOrientation(transform, orientation);
+
+  InputSkeletalActionData_t info;
+  VRActionHandle_t skeleton = state.skeletonActions[device - DEVICE_HAND_LEFT];
+  EVRInputError error = state.input->GetSkeletalActionData(skeleton, &info, sizeof(info));
+  if (error || !info.bActive) {
+    return false;
+  }
+
+  VRBoneTransform_t bones[32];
+  EVRSkeletalTransformSpace space = EVRSkeletalTransformSpace_VRSkeletalTransformSpace_Model;
+  EVRSkeletalMotionRange motionRange = EVRSkeletalMotionRange_VRSkeletalMotionRange_WithController;
+  error = state.input->GetSkeletalBoneData(skeleton, space, motionRange, bones, 32);
+  if (error) {
+    return false;
+  }
+
+  // Copy SteamVR bone transform to output (indices match up)
+  // Swap x/w (HmdQuaternionf_t has w first)
+  // Premultiply by hand pose
+  float* pose = poses;
+  for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
+    memcpy(pose, &bones[i].position, 8 * sizeof(float));
+    float w = pose[4];
+    pose[4] = pose[7];
+    pose[7] = w;
+    quat_rotate(orientation, pose);
+    vec3_add(pose, position);
+    quat_mul(pose + 4, orientation, pose + 4);
+    pose += 8;
+  }
+
+  return true;
 }
 
 static bool openvr_vibrate(Device device, float strength, float duration, float frequency) {

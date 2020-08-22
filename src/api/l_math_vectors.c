@@ -1287,7 +1287,7 @@ static int l_lovrQuatMul(lua_State* L) {
     quat_rotate(q, r);
     lua_settop(L, 2);
   } else {
-    quat_mul(q, r);
+    quat_mul(q, q, r);
     lua_settop(L, 1);
   }
   return 1;
@@ -1339,7 +1339,7 @@ static int l_lovrQuat__mul(lua_State* L) {
     quat_rotate(q, vec3_init(out, r));
   } else {
     quat out = luax_newtempvector(L, V_QUAT);
-    quat_mul(quat_init(out, q), r);
+    quat_mul(out, q, r);
   }
   return 1;
 }
