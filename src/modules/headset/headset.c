@@ -9,7 +9,7 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float offset, uint32_
   if (initialized) return false;
   initialized = true;
 
-  HeadsetInterface* lastTrackingDriver = NULL;
+  HeadsetInterface** trackingDrivers = &lovrHeadsetTrackingDrivers;
 
   for (size_t i = 0; i < count; i++) {
     HeadsetInterface* interface = NULL;
@@ -50,13 +50,8 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float offset, uint32_
         lovrHeadsetDriver = interface;
       }
 
-      if (lastTrackingDriver) {
-        lastTrackingDriver->next = interface;
-      } else {
-        lovrHeadsetTrackingDrivers = interface;
-      }
-
-      lastTrackingDriver = interface;
+      *trackingDrivers = interface;
+      trackingDrivers = &interface->next;
     }
   }
 
