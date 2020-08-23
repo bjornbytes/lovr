@@ -480,41 +480,31 @@ static bool openxr_isTouched(Device device, DeviceButton button, bool* touched) 
   return getButtonState(device, button, touched, &unused, true);
 }
 
-static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
+static bool getAxis(uint32_t action, XrPath filter, float* value) {
   XrActionStateGetInfo info = {
     .type = XR_TYPE_ACTION_STATE_GET_INFO,
-    .subactionPath = getActionFilter(device)
+    .action = state.actions[action],
+    .subactionPath = filter
   };
 
-  if (info.subactionPath == XR_NULL_PATH) {
+  XrActionStateFloat actionState;
+  XR(xrGetActionStateFloat(state.session, &info, &actionState));
+  *value = actionState.currentState;
+  return actionState.isActive;
+}
+
+static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
+  XrPath filter = getActionFilter(device);
+
+  if (filter == XR_NULL_PATH) {
     return false;
   }
 
   switch (axis) {
-    case AXIS_TRIGGER: info.action = state.actions[ACTION_TRIGGER_AXIS]; break;
-    case AXIS_TOUCHPAD: info.action = state.actions[ACTION_TRACKPAD_AXIS]; break;
-    case AXIS_GRIP: info.action = state.actions[ACTION_GRIP_AXIS]; break;
-    default: return false;
-  }
-
-  switch (axis) {
-    case AXIS_TRIGGER:
-    case AXIS_GRIP: {
-      XrActionStateFloat actionState;
-      XR(xrGetActionStateFloat(state.session, &info, &actionState));
-      *value = actionState.currentState;
-      return actionState.isActive;
-    }
-
-    case AXIS_THUMBSTICK:
-    case AXIS_TOUCHPAD: {
-      XrActionStateVector2f actionState;
-      XR(xrGetActionStateVector2f(state.session, &info, &actionState));
-      value[0] = actionState.currentState.x;
-      value[1] = actionState.currentState.y;
-      return actionState.isActive;
-    }
-
+    case AXIS_TRIGGER: return getAxis(ACTION_TRIGGER_AXIS, filter, &value[0]);
+    case AXIS_THUMBSTICK: return getAxis(ACTION_THUMBSTICK_X, filter, &value[0]) && getAxis(ACTION_THUMBSTICK_Y, filter, &value[1]);
+    case AXIS_TOUCHPAD: return getAxis(ACTION_TRACKPAD_X, filter, &value[0]) && getAxis(ACTION_TRACKPAD_Y, filter, &value[1]);
+    case AXIS_GRIP: return getAxis(ACTION_GRIP_AXIS, filter, &value[0]);
     default: return false;
   }
 }
