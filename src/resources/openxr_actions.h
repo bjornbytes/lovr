@@ -38,22 +38,22 @@ static const char* interactionProfiles[] = {
 };
 
 #define action(id, name, type) { XR_TYPE_ACTION_CREATE_INFO, NULL, id, type, 2, NULL, name }
-static const XrActionCreateInfo actionCreateInfo[] = {
-  [ACTION_HAND_POSE] = action("handPose", "Hand Pose", XR_ACTION_TYPE_POSE_INPUT),
-  [ACTION_TRIGGER_DOWN] = action("triggerDown", "Trigger Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
-  [ACTION_TRIGGER_TOUCH] = action("triggerTouch", "Trigger Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
-  [ACTION_TRIGGER_AXIS] = action("triggerAxis", "Trigger Axis", XR_ACTION_TYPE_FLOAT_INPUT),
-  [ACTION_TRACKPAD_DOWN] = action("trackpadDown", "Trackpad Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
-  [ACTION_TRACKPAD_TOUCH] = action("trackpadTouch", "Trackpad Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
-  [ACTION_TRACKPAD_AXIS] = action("trackpadAxis", "Trackpad Axis", XR_ACTION_TYPE_VECTOR2F_INPUT),
-  [ACTION_THUMBSTICK_DOWN] = action("thumbstickDown", "Thumbstick Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
-  [ACTION_THUMBSTICK_TOUCH] = action("thumbstickTouch", "Thumbstick Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
-  [ACTION_THUMBSTICK_AXIS] = action("thumbstickAxis", "Thumbstick Axis", XR_ACTION_TYPE_VECTOR2F_INPUT),
-  [ACTION_MENU_DOWN] = action("menuDown", "Menu Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
-  [ACTION_MENU_TOUCH] = action("menuTouch", "Menu Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
-  [ACTION_GRIP_DOWN] = action("gripDown", "Grip Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
-  [ACTION_GRIP_TOUCH] = action("gripTouch", "Grip Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
-  [ACTION_GRIP_AXIS] = action("gripAxis", "Grip Axis", XR_ACTION_TYPE_FLOAT_INPUT),
+static XrActionCreateInfo actionCreateInfo[] = {
+  [ACTION_HAND_POSE] = action("hand_pose", "Hand Pose", XR_ACTION_TYPE_POSE_INPUT),
+  [ACTION_TRIGGER_DOWN] = action("trigger_down", "Trigger Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
+  [ACTION_TRIGGER_TOUCH] = action("trigger_touch", "Trigger Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
+  [ACTION_TRIGGER_AXIS] = action("trigger_axis", "Trigger Axis", XR_ACTION_TYPE_FLOAT_INPUT),
+  [ACTION_TRACKPAD_DOWN] = action("trackpad_down", "Trackpad Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
+  [ACTION_TRACKPAD_TOUCH] = action("trackpad_touch", "Trackpad Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
+  [ACTION_TRACKPAD_AXIS] = action("trackpad_axis", "Trackpad Axis", XR_ACTION_TYPE_VECTOR2F_INPUT),
+  [ACTION_THUMBSTICK_DOWN] = action("thumbstick_down", "Thumbstick Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
+  [ACTION_THUMBSTICK_TOUCH] = action("thumbstick_touch", "Thumbstick Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
+  [ACTION_THUMBSTICK_AXIS] = action("thumbstick_axis", "Thumbstick Axis", XR_ACTION_TYPE_VECTOR2F_INPUT),
+  [ACTION_MENU_DOWN] = action("menu_down", "Menu Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
+  [ACTION_MENU_TOUCH] = action("menu_touch", "Menu Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
+  [ACTION_GRIP_DOWN] = action("grip_down", "Grip Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
+  [ACTION_GRIP_TOUCH] = action("grip_touch", "Grip Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
+  [ACTION_GRIP_AXIS] = action("grip_axis", "Grip Axis", XR_ACTION_TYPE_FLOAT_INPUT),
   [ACTION_VIBRATE] = action("vibrate", "Vibrate", XR_ACTION_TYPE_VIBRATION_OUTPUT),
 };
 #undef action
