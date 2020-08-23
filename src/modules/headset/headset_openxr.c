@@ -252,7 +252,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
     };
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
-    XrSwapchainImageOpenGL images[MAX_IMAGES];
+    XrSwapchainImageOpenGLKHR images[MAX_IMAGES];
 #elif defined(XR_USE_GRAPHICS_API_OPENGLES)
     XrSwapchainImageOpenGLESKHR images[MAX_IMAGES];
 #endif
