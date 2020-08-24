@@ -171,13 +171,13 @@ static bool openxr_init(float offset, uint32_t msaa) {
   { // Session
     XrSessionCreateInfo info = {
       .type = XR_TYPE_SESSION_CREATE_INFO,
-#if defined(_WIN32)
+#if defined(_WIN32) && defined(LOVR_GL)
       .next = &(XrGraphicsBindingOpenGLWin32KHR) {
         .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
         .hDC = lovrPlatformGetWindow(),
         .hGLRC = lovrPlatformGetContext()
       },
-#elif defined(__ANDROID__)
+#elif defined(__ANDROID__) && defined(LOVR_GLES)
       .next = &(XrGraphicsBindingOpenGLESAndroidKHR) {
         .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
         .display = lovrPlatformGetEGLDisplay(),
@@ -185,7 +185,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
         .context = lovrPlatformGetEGLContext()
       },
 #else
-#error "OpenXR is not supported on this platform"
+#error "Unsupported OpenXR platform/graphics combination"
 #endif
       .systemId = state.system
     };
