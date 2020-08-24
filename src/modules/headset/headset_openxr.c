@@ -9,14 +9,19 @@
 #include <stdlib.h>
 #include <math.h>
 #if defined(_WIN32)
-#include <windows.h>
-#define XR_USE_PLATFORM_WIN32
-#define XR_USE_GRAPHICS_API_OPENGL
+  #define XR_USE_PLATFORM_WIN32
+  #include <windows.h>
 #elif defined(__ANDROID__)
-#include <EGL/egl.h>
-#include <jni.h>
-#define XR_USE_PLATFORM_ANDROID
-#define XR_USE_GRAPHICS_API_OPENGL_ES
+  #define XR_USE_PLATFORM_ANDROID
+  #include <EGL/egl.h>
+  #include <jni.h>
+#endif
+#if defined(LOVR_GL)
+  #define XR_USE_GRAPHICS_API_OPENGL
+  #define GRAPHICS_EXTENSION "XR_KHR_opengl_enable"
+#elif defined(LOVR_GLES)
+  #define XR_USE_GRAPHICS_API_OPENGLES
+  #define GRAPHICS_EXTENSION "XR_KHR_opengl_es_enable"
 #endif
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
@@ -85,7 +90,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
       .applicationInfo.applicationVersion = 0,
       .applicationInfo.apiVersion = XR_CURRENT_API_VERSION,
       .enabledExtensionCount = 1,
-      .enabledExtensionNames = (const char*[1]) { "XR_KHR_opengl_enable" }
+      .enabledExtensionNames = (const char*[1]) { GRAPHICS_EXTENSION }
     };
 
     XR_INIT(xrCreateInstance(&info, &state.instance));
