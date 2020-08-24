@@ -630,7 +630,6 @@ static void openxr_update(float dt) {
     switch (e.type) {
       case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
         XrEventDataSessionStateChanged* event = (XrEventDataSessionStateChanged*) &e;
-        state.sessionState = event->state;
 
         switch (event->state) {
           case XR_SESSION_STATE_READY:
@@ -651,6 +650,14 @@ static void openxr_update(float dt) {
 
           default: break;
         }
+
+        bool wasFocused = state.sessionState == XR_SESSION_STATE_FOCUSED;
+        bool isFocused = event->state == XR_SESSION_STATE_FOCUSED;
+        if (wasFocused != isFocused) {
+          lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = isFocused });
+        }
+
+        state.sessionState = event->state;
         break;
       }
 
