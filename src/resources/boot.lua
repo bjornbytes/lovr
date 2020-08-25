@@ -140,6 +140,10 @@ function lovr.boot()
     end
   end
 
+  if lovr.headset and lovr.graphics and conf.window then
+    lovr.headset.init()
+  end
+
   lovr.handlers = setmetatable({}, { __index = lovr })
   if not confOk then error(confError) end
   if hasMain then require 'main' end

@@ -98,6 +98,47 @@ static Device luax_optdevice(lua_State* L, int index) {
   return luax_checkenum(L, 1, Devices, "head", "Device");
 }
 
+static int l_lovrHeadsetInit(lua_State* L) {
+  luax_pushconf(L);
+  lua_getfield(L, -1, "headset");
+
+  size_t driverCount = 0;
+  HeadsetDriver drivers[8];
+  float offset = 1.7f;
+  int msaa = 4;
+
+  if (lua_istable(L, -1)) {
+
+    // Drivers
+    lua_getfield(L, -1, "drivers");
+    int n = luax_len(L, -1);
+    for (int i = 0; i < n; i++) {
+      lua_rawgeti(L, -1, i + 1);
+      drivers[driverCount++] = luax_checkenum(L, -1, HeadsetDrivers, NULL, "HeadsetDriver");
+      lovrAssert(driverCount < sizeof(drivers) / sizeof(drivers[0]), "Too many headset drivers specified in conf.lua");
+      lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    // Offset
+    lua_getfield(L, -1, "offset");
+    offset = luax_optfloat(L, -1, 1.7f);
+    lua_pop(L, 1);
+
+    // MSAA
+    lua_getfield(L, -1, "msaa");
+    msaa = luaL_optinteger(L, -1, 4);
+    lua_pop(L, 1);
+  }
+
+  if (lovrHeadsetInit(drivers, driverCount, offset, msaa)) {
+    luax_atexit(L, lovrHeadsetDestroy);
+  }
+
+  lua_pop(L, 2);
+  return 0;
+}
+
 static int l_lovrHeadsetGetDriver(lua_State* L) {
   if (lua_gettop(L) == 0) {
     luax_pushenum(L, HeadsetDrivers, lovrHeadsetDriver->driverType);
@@ -651,6 +692,7 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
 }
 
 static const luaL_Reg lovrHeadset[] = {
+  { "init", l_lovrHeadsetInit },
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getName", l_lovrHeadsetGetName },
   { "getOriginType", l_lovrHeadsetGetOriginType },
@@ -694,44 +736,6 @@ static const luaL_Reg lovrHeadset[] = {
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrHeadset);
-
-  luax_pushconf(L);
-  lua_getfield(L, -1, "headset");
-
-  size_t driverCount = 0;
-  HeadsetDriver drivers[16];
-  float offset = 1.7f;
-  int msaa = 4;
-
-  if (lua_istable(L, -1)) {
-
-    // Drivers
-    lua_getfield(L, -1, "drivers");
-    int n = luax_len(L, -1);
-    for (int i = 0; i < n; i++) {
-      lua_rawgeti(L, -1, i + 1);
-      drivers[driverCount++] = luax_checkenum(L, -1, HeadsetDrivers, NULL, "HeadsetDriver");
-      lovrAssert(driverCount < sizeof(drivers) / sizeof(drivers[0]), "Too many headset drivers specified in conf.lua");
-      lua_pop(L, 1);
-    }
-    lua_pop(L, 1);
-
-    // Offset
-    lua_getfield(L, -1, "offset");
-    offset = luax_optfloat(L, -1, 1.7f);
-    lua_pop(L, 1);
-
-    // MSAA
-    lua_getfield(L, -1, "msaa");
-    msaa = luaL_optinteger(L, -1, 4);
-    lua_pop(L, 1);
-  }
-
-  if (lovrHeadsetInit(drivers, driverCount, offset, msaa)) {
-    luax_atexit(L, lovrHeadsetDestroy);
-  }
-
-  lua_pop(L, 2);
   headsetRenderData.ref = LUA_NOREF;
   return 1;
 }
