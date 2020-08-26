@@ -302,7 +302,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
   }
 
   state.clipNear = .1f;
-  state.clipNear = 100.f;
+  state.clipFar = 100.f;
 
   return true;
 }
