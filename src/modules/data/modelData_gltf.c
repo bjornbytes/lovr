@@ -149,7 +149,7 @@ static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMateri
 ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io) {
   uint8_t* data = source->data;
   gltfHeader* header = (gltfHeader*) data;
-  bool glb = header->magic == MAGIC_glTF;
+  bool glb = source->size >= sizeof(gltfHeader) && header->magic == MAGIC_glTF;
   const char *json, *binData;
   size_t jsonLength;
   ptrdiff_t binOffset;

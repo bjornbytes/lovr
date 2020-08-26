@@ -237,7 +237,8 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   }
 
   if (vertexBlob.length == 0 || indexBlob.length == 0) {
-    return NULL;
+    model = NULL;
+    goto finish;
   }
 
   model->blobCount = 2;
@@ -347,6 +348,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
     .matrix = true
   };
 
+finish:
   arr_free(&groups);
   arr_free(&textures);
   arr_free(&materials);
