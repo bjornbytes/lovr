@@ -169,24 +169,36 @@ static bool openxr_init(float offset, uint32_t msaa) {
   }
 
   { // Session
-    XrSessionCreateInfo info = {
-      .type = XR_TYPE_SESSION_CREATE_INFO,
+#if defined(LOVR_GL)
+    XrGraphicsRequirementsOpenGLKHR requirements;
+    XR_INIT(xrGetOpenGLGraphicsRequirementsKHR(state.instance, state.system, &requirements));
+    // TODO validate OpenGL versions
+#elif defined(LOVR_GLES)
+    XrGraphicsRequirementsOpenGLESKHR requirements;
+    XR_INIT(xrGetOpenGLESGraphicsRequirementsKHR(state.instance, state.system, &requirements));
+    // TODO validate OpenGLES versions
+#endif
+
 #if defined(_WIN32) && defined(LOVR_GL)
-      .next = &(XrGraphicsBindingOpenGLWin32KHR) {
-        .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
-        .hDC = lovrPlatformGetWindow(),
-        .hGLRC = lovrPlatformGetContext()
-      },
+    XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {
+      .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
+      .hDC = lovrPlatformGetWindow(),
+      .hGLRC = lovrPlatformGetContext()
+    };
 #elif defined(__ANDROID__) && defined(LOVR_GLES)
-      .next = &(XrGraphicsBindingOpenGLESAndroidKHR) {
-        .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
-        .display = lovrPlatformGetEGLDisplay(),
-        .config = lovrPlatformGetEGLConfig(),
-        .context = lovrPlatformGetEGLContext()
-      },
+    XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding = {
+      .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
+      .display = lovrPlatformGetEGLDisplay(),
+      .config = lovrPlatformGetEGLConfig(),
+      .context = lovrPlatformGetEGLContext()
+    };
 #else
 #error "Unsupported OpenXR platform/graphics combination"
 #endif
+
+    XrSessionCreateInfo info = {
+      .type = XR_TYPE_SESSION_CREATE_INFO,
+      .next = &graphicsBinding,
       .systemId = state.system
     };
 
