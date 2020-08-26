@@ -217,7 +217,8 @@ static bool openxr_init(float offset, uint32_t msaa) {
     // Main reference space (can be stage or local)
     XrReferenceSpaceCreateInfo info = {
       .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
-      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE
+      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE,
+      .poseInReferenceSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
     };
 
     if (XR_FAILED(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace))) {
@@ -231,7 +232,8 @@ static bool openxr_init(float offset, uint32_t msaa) {
     // Head space (for head pose)
     XrReferenceSpaceCreateInfo headSpaceInfo = {
       .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
-      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW
+      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW,
+      .poseInReferenceSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
     };
 
     XR_INIT(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]));
