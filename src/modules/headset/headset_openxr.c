@@ -29,8 +29,7 @@
 
 #define XR(f) handleResult(f, __FILE__, __LINE__)
 #define XR_INIT(f) if (XR_FAILED(f)) return openxr_destroy(), false;
-#define SESSION_VISIBLE(s) (s == XR_SESSION_STATE_VISIBLE || s == XR_SESSION_STATE_FOCUSED)
-#define SESSION_SYNCHRONIZED(s) (s == XR_SESSION_STATE_SYNCHRONIZED || SESSION_VISIBLE(s))
+#define SESSION_ACTIVE(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
 #define GL_SRGB8_ALPHA8 0x8C43
 #define MAX_IMAGES 4
 
@@ -559,10 +558,17 @@ static bool openxr_animate(Device device, struct Model* model) {
 }
 
 static void openxr_renderTo(void (*callback)(void*), void* userdata) {
-  if (!SESSION_SYNCHRONIZED(state.sessionState)) { return; }
+  if (!SESSION_ACTIVE(state.sessionState)) { return; }
 
-  XrFrameBeginInfo beginInfo = { XR_TYPE_FRAME_BEGIN_INFO, NULL };
-  XrFrameEndInfo endInfo = { XR_TYPE_FRAME_END_INFO, NULL, state.frameState.predictedDisplayTime, XR_ENVIRONMENT_BLEND_MODE_OPAQUE, 0, NULL };
+  XrFrameBeginInfo beginInfo = {
+    .type = XR_TYPE_FRAME_BEGIN_INFO
+  };
+
+  XrFrameEndInfo endInfo = {
+    .type = XR_TYPE_FRAME_END_INFO,
+    .displayTime = state.frameState.predictedDisplayTime,
+    .environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE
+  };
 
   XR(xrBeginFrame(state.session, &beginInfo));
 
@@ -610,37 +616,26 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
       state.layerViews[1].pose = views[1].pose;
       state.layerViews[1].fov = views[1].fov;
       endInfo.layerCount = 1;
-      endInfo.layers = (const XrCompositionLayerBaseHeader**) &state.layers;
+      endInfo.layers = (const XrCompositionLayerBaseHeader*[1]) { &state.layers[0] };
     }
 
     XR(xrReleaseSwapchainImage(state.swapchain, NULL));
   }
 
   XR(xrEndFrame(state.session, &endInfo));
+  lovrGpuDirtyTexture();
+}
+
+static Texture* openxr_getMirrorTexture(void) {
+  return state.canvas ? lovrCanvasGetAttachments(state.canvas, NULL)[0].texture : NULL;
 }
 
 static void openxr_update(float dt) {
-  if (SESSION_SYNCHRONIZED(state.sessionState)) {
-    XR(xrWaitFrame(state.session, NULL, &state.frameState));
-
-    XrActionsSyncInfo syncInfo = {
-      .type = XR_TYPE_ACTIONS_SYNC_INFO,
-      .countActiveActionSets = 1,
-      .activeActionSets = (XrActiveActionSet[]) {
-        { state.actionSet, state.actionFilters[0] },
-        { state.actionSet, state.actionFilters[1] }
-      }
-    };
-
-    XR(xrSyncActions(state.session, &syncInfo));
-  }
-
-  // Not using designated initializers here to avoid an implicit 4k zero
-  XrEventDataBuffer e;
+  XrEventDataBuffer e; // Not using designated initializers here to avoid an implicit 4k zero
   e.type = XR_TYPE_EVENT_DATA_BUFFER;
   e.next = NULL;
 
-  while (XR_SUCCEEDED(xrPollEvent(state.instance, &e))) {
+  while (xrPollEvent(state.instance, &e) == XR_SUCCESS) {
     switch (e.type) {
       case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
         XrEventDataSessionStateChanged* event = (XrEventDataSessionStateChanged*) &e;
@@ -678,6 +673,21 @@ static void openxr_update(float dt) {
       default: break;
     }
   }
+
+  if (SESSION_ACTIVE(state.sessionState)) {
+    XR(xrWaitFrame(state.session, NULL, &state.frameState));
+
+    XrActionsSyncInfo syncInfo = {
+      .type = XR_TYPE_ACTIONS_SYNC_INFO,
+      .countActiveActionSets = 1,
+      .activeActionSets = (XrActiveActionSet[]) {
+        { state.actionSet, state.actionFilters[0] },
+        { state.actionSet, state.actionFilters[1] }
+      }
+    };
+
+    XR(xrSyncActions(state.session, &syncInfo));
+  }
 }
 
 HeadsetInterface lovrHeadsetOpenXRDriver = {
@@ -705,5 +715,6 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .newModelData = openxr_newModelData,
   .animate = openxr_animate,
   .renderTo = openxr_renderTo,
+  .getMirrorTexture = openxr_getMirrorTexture,
   .update = openxr_update
 };
