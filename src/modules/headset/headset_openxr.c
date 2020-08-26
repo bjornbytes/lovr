@@ -306,7 +306,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
   return true;
 }
 
-static void openxr_destroy() {
+static void openxr_destroy(void) {
   lovrRelease(Canvas, state.canvas);
   for (uint32_t i = 0; i < state.imageCount; i++) {
     lovrRelease(Texture, state.textures[i]);
@@ -340,7 +340,7 @@ static bool openxr_getName(char* name, size_t length) {
   return true;
 }
 
-static HeadsetOrigin openxr_getOriginType() {
+static HeadsetOrigin openxr_getOriginType(void) {
   return state.referenceSpaceType == XR_REFERENCE_SPACE_TYPE_STAGE ? ORIGIN_FLOOR : ORIGIN_HEAD;
 }
 
@@ -436,8 +436,8 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
     return false;
   }
 
-  XrSpaceLocation location;
-  XR(xrLocateSpace(state.spaces[device], state.referenceSpace, state.frameState.predictedDisplayTime, &location));
+  XrSpaceLocation location = { .next = NULL };
+  xrLocateSpace(state.spaces[device], state.referenceSpace, state.frameState.predictedDisplayTime, &location);
   memcpy(orientation, &location.pose.orientation, 4 * sizeof(float));
   memcpy(position, &location.pose.position, 3 * sizeof(float));
   return location.locationFlags & (XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
@@ -450,7 +450,7 @@ static bool openxr_getVelocity(Device device, vec3 linearVelocity, vec3 angularV
 
   XrSpaceVelocity velocity = { .type = XR_TYPE_SPACE_VELOCITY };
   XrSpaceLocation location = { .next = &velocity };
-  XR(xrLocateSpace(state.spaces[device], state.referenceSpace, state.frameState.predictedDisplayTime, &location));
+  xrLocateSpace(state.spaces[device], state.referenceSpace, state.frameState.predictedDisplayTime, &location);
   memcpy(linearVelocity, &velocity.linearVelocity, 3 * sizeof(float));
   memcpy(angularVelocity, &velocity.angularVelocity, 3 * sizeof(float));
   return velocity.velocityFlags & (XR_SPACE_VELOCITY_LINEAR_VALID_BIT | XR_SPACE_VELOCITY_ANGULAR_VALID_BIT);
@@ -611,12 +611,13 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
       callback(userdata);
       lovrGraphicsSetCamera(NULL, false);
 
+      const XrCompositionLayerBaseHeader* layers[1] = { (XrCompositionLayerBaseHeader*) &state.layers[0] };
+      endInfo.layers = layers;
+      endInfo.layerCount = 1;
       state.layerViews[0].pose = views[0].pose;
       state.layerViews[0].fov = views[0].fov;
       state.layerViews[1].pose = views[1].pose;
       state.layerViews[1].fov = views[1].fov;
-      endInfo.layerCount = 1;
-      endInfo.layers = (const XrCompositionLayerBaseHeader*[1]) { &state.layers[0] };
     }
 
     XR(xrReleaseSwapchainImage(state.swapchain, NULL));
