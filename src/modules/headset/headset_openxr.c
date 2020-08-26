@@ -71,7 +71,7 @@ static struct {
 static XrResult handleResult(XrResult result, const char* file, int line) {
   if (XR_FAILED(result)) {
     char message[XR_MAX_RESULT_STRING_SIZE];
-    xrResultToString(XR_NULL_HANDLE, result, message);
+    xrResultToString(state.instance, result, message);
     lovrThrow("OpenXR Error: %s at %s:%d", message, file, line);
   }
   return result;
