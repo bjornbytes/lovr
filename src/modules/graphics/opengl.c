@@ -1681,7 +1681,7 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, uint32_t slic
   return texture;
 }
 
-Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type, uint32_t depth) {
+Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type, uint32_t depth, uint32_t msaa) {
   Texture* texture = lovrAlloc(Texture);
   state.stats.textureCount++;
   texture->type = type;
@@ -1698,6 +1698,15 @@ Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type, uint32_t
   texture->height = (uint32_t) height;
   texture->depth = depth; // There isn't an easy way to get depth/layer count, so it's passed in...
   texture->mipmapCount = 1;
+
+  if (msaa > 1) {
+    texture->msaa = msaa;
+    GLint internalFormat;
+    glGetTexLevelParameteriv(texture->target, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
+    glGenRenderbuffers(1, &texture->msaaId);
+    glBindRenderbuffer(GL_RENDERBUFFER, texture->msaaId);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, texture->msaa, internalFormat, width, height);
+  }
 
   return texture;
 }

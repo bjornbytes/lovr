@@ -628,7 +628,7 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
     for (uint32_t i = 0; i < state.swapchainLength; i++) {
       state.canvases[i] = lovrCanvasCreate(width, height, flags);
       uint32_t handle = vrapi_GetTextureSwapChainHandle(state.swapchain, i);
-      Texture* texture = lovrTextureCreateFromHandle(handle, TEXTURE_ARRAY, 2);
+      Texture* texture = lovrTextureCreateFromHandle(handle, TEXTURE_ARRAY, 2, 1);
       lovrCanvasSetAttachments(state.canvases[i], &(Attachment) { .texture = texture }, 1);
       lovrRelease(Texture, texture);
     }

@@ -41,7 +41,7 @@ static Texture* lookupTexture(uint32_t handle) {
   if (index == MAP_NIL) {
     index = state.textures.length;
     map_set(&state.textureLookup, hash, index);
-    arr_push(&state.textures, lovrTextureCreateFromHandle(handle, TEXTURE_2D, 1));
+    arr_push(&state.textures, lovrTextureCreateFromHandle(handle, TEXTURE_2D, 1, 1));
   }
 
   return state.textures.data[index];

@@ -79,6 +79,7 @@ static XrResult handleResult(XrResult result, const char* file, int line) {
 static void openxr_destroy();
 
 static bool openxr_init(float offset, uint32_t msaa) {
+  state.msaa = msaa;
 
   { // Instance
     XrInstanceCreateInfo info = {
@@ -122,7 +123,6 @@ static bool openxr_init(float offset, uint32_t msaa) {
       return false;
     }
 
-    state.msaa = views[0].recommendedSwapchainSampleCount;
     state.width = views[0].recommendedImageRectWidth;
     state.height = views[0].recommendedImageRectHeight;
   }
@@ -261,9 +261,9 @@ static bool openxr_init(float offset, uint32_t msaa) {
       .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
       .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
       .format = GL_SRGB8_ALPHA8,
-      .sampleCount = state.msaa,
       .width = state.width * 2,
       .height = state.height,
+      .sampleCount = 1,
       .faceCount = 1,
       .arraySize = 1,
       .mipCount = 1
@@ -278,7 +278,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
     XR_INIT(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
 
     for (uint32_t i = 0; i < state.imageCount; i++) {
-      state.textures[i] = lovrTextureCreateFromHandle(images[i].image, TEXTURE_2D, 1);
+      state.textures[i] = lovrTextureCreateFromHandle(images[i].image, TEXTURE_2D, 1, state.msaa);
     }
 
     // Pre-init composition layer
@@ -579,7 +579,7 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
 
     if (XR(xrWaitSwapchainImage(state.swapchain, &waitInfo)) != XR_TIMEOUT_EXPIRED) {
       if (!state.canvas) {
-        CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = true, .msaa = state.msaa };
+        CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = false, .msaa = state.msaa };
         state.canvas = lovrCanvasCreate(state.width, state.height, flags);
         lovrPlatformSetSwapInterval(0);
       }
