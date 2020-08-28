@@ -42,6 +42,18 @@ EGLContext lovrPlatformGetEGLContext();
 EGLConfig lovrPlatformGetEGLConfig();
 #endif
 
+#define XR_DECLARE(fn) static PFN_##fn fn;
+#define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn)
+XR_DECLARE(xrGetVisibilityMaskKHR)
+XR_DECLARE(xrCreateHandTrackerEXT)
+XR_DECLARE(xrDestroyHandTrackerEXT)
+XR_DECLARE(xrLocateHandJointsEXT)
+#if defined(LOVR_GL)
+XR_DECLARE(xrGetOpenGLGraphicsRequirementsKHR)
+#elif defined(LOVR_GLES)
+XR_DECLARE(xrGetOpenGLESGraphicsRequirementsKHR)
+#endif
+
 static struct {
   XrInstance instance;
   XrSystemId system;
@@ -65,6 +77,10 @@ static struct {
   XrActionSet actionSet;
   XrAction actions[MAX_ACTIONS];
   XrPath actionFilters[2];
+  struct {
+    bool handTracking;
+    bool visibilityMask;
+  } features;
 } state;
 
 static XrResult handleResult(XrResult result, const char* file, int line) {
@@ -76,24 +92,73 @@ static XrResult handleResult(XrResult result, const char* file, int line) {
   return result;
 }
 
+static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, const char* extension) {
+  for (uint32_t i = 0; i < count; i++) {
+    if (!strcmp(extensions[i].extensionName, extension)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static void openxr_destroy();
 
 static bool openxr_init(float offset, uint32_t msaa) {
   state.msaa = msaa;
 
   { // Instance
+    uint32_t extensionCount;
+    xrEnumerateInstanceExtensionProperties(NULL, 0, &extensionCount, NULL);
+    XrExtensionProperties* extensions = calloc(extensionCount, sizeof(*extensions));
+    lovrAssert(extensions, "Out of memory");
+    for (uint32_t i = 0; i < extensionCount; i++) extensions[i].type = XR_TYPE_EXTENSION_PROPERTIES;
+    xrEnumerateInstanceExtensionProperties(NULL, 32, &extensionCount, extensions);
+
+    const char* enabledExtensionNames[4];
+    uint32_t enabledExtensionCount = 0;
+
+    enabledExtensionNames[enabledExtensionCount++] = GRAPHICS_EXTENSION;
+
+    if (hasExtension(extensions, extensionCount, XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
+      enabledExtensionNames[enabledExtensionCount++] = XR_EXT_HAND_TRACKING_EXTENSION_NAME;
+      state.features.handTracking = true;
+    }
+
+    if (hasExtension(extensions, extensionCount, XR_KHR_VISIBILITY_MASK_EXTENSION_NAME)) {
+      enabledExtensionNames[enabledExtensionCount++] = XR_KHR_VISIBILITY_MASK_EXTENSION_NAME;
+      state.features.visibilityMask = true;
+    }
+
+    free(extensions);
+
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
       .applicationInfo.engineName = "LÖVR",
-      .applicationInfo.engineVersion = ((LOVR_VERSION_MAJOR & 0xff) << 24) + ((LOVR_VERSION_MINOR & 0xff) << 16) + (LOVR_VERSION_PATCH & 0xffff),
+      .applicationInfo.engineVersion = (LOVR_VERSION_MAJOR << 24) + (LOVR_VERSION_MINOR << 16) + LOVR_VERSION_PATCH,
       .applicationInfo.applicationName = "LÖVR",
       .applicationInfo.applicationVersion = 0,
       .applicationInfo.apiVersion = XR_CURRENT_API_VERSION,
-      .enabledExtensionCount = 1,
-      .enabledExtensionNames = (const char*[1]) { GRAPHICS_EXTENSION }
+      .enabledExtensionCount = enabledExtensionCount,
+      .enabledExtensionNames = enabledExtensionNames
     };
 
     XR_INIT(xrCreateInstance(&info, &state.instance));
+
+#if defined(LOVR_GL)
+    XR_LOAD(xrGetOpenGLGraphicsRequirementsKHR);
+#elif defined(LOVR_GLES)
+    XR_LOAD(xrGetOpenGLESGraphicsRequirementsKHR);
+#endif
+
+    if (state.features.handTracking) {
+      XR_LOAD(xrCreateHandTrackerEXT);
+      XR_LOAD(xrDestroyHandTrackerEXT);
+      XR_LOAD(xrLocateHandJointsEXT);
+    }
+
+    if (state.features.visibilityMask) {
+      XR_LOAD(xrGetVisibilityMaskKHR);
+    }
   }
 
   { // System
