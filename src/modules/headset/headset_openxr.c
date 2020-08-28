@@ -23,6 +23,7 @@
   #define XR_USE_GRAPHICS_API_OPENGLES
   #define GRAPHICS_EXTENSION "XR_KHR_opengl_es_enable"
 #endif
+#define XR_NO_PROTOTYPES
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 #include "resources/openxr_actions.h"
@@ -42,17 +43,55 @@ EGLContext lovrPlatformGetEGLContext();
 EGLConfig lovrPlatformGetEGLConfig();
 #endif
 
+#define XR_FOREACH(X)\
+  X(xrDestroyInstance)\
+  X(xrPollEvent)\
+  X(xrResultToString)\
+  X(xrGetSystem)\
+  X(xrGetSystemProperties)\
+  X(xrCreateSession)\
+  X(xrDestroySession)\
+  X(xrCreateReferenceSpace)\
+  X(xrGetReferenceSpaceBoundsRect)\
+  X(xrCreateActionSpace)\
+  X(xrLocateSpace)\
+  X(xrDestroySpace)\
+  X(xrEnumerateViewConfigurations)\
+  X(xrEnumerateViewConfigurationViews)\
+  X(xrCreateSwapchain)\
+  X(xrDestroySwapchain)\
+  X(xrEnumerateSwapchainImages)\
+  X(xrAcquireSwapchainImage)\
+  X(xrWaitSwapchainImage)\
+  X(xrReleaseSwapchainImage)\
+  X(xrBeginSession)\
+  X(xrEndSession)\
+  X(xrWaitFrame)\
+  X(xrBeginFrame)\
+  X(xrEndFrame)\
+  X(xrLocateViews)\
+  X(xrStringToPath)\
+  X(xrCreateActionSet)\
+  X(xrDestroyActionSet)\
+  X(xrCreateAction)\
+  X(xrDestroyAction)\
+  X(xrSuggestInteractionProfileBindings)\
+  X(xrAttachSessionActionSets)\
+  X(xrGetActionStateBoolean)\
+  X(xrGetActionStateFloat)\
+  X(xrSyncActions)\
+  X(xrApplyHapticFeedback)\
+  X(xrGetVisibilityMaskKHR)\
+  X(xrCreateHandTrackerEXT)\
+  X(xrDestroyHandTrackerEXT)\
+  X(xrLocateHandJointsEXT)
+
 #define XR_DECLARE(fn) static PFN_##fn fn;
-#define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn)
-XR_DECLARE(xrGetVisibilityMaskKHR)
-XR_DECLARE(xrCreateHandTrackerEXT)
-XR_DECLARE(xrDestroyHandTrackerEXT)
-XR_DECLARE(xrLocateHandJointsEXT)
-#if defined(LOVR_GL)
-XR_DECLARE(xrGetOpenGLGraphicsRequirementsKHR)
-#elif defined(LOVR_GLES)
-XR_DECLARE(xrGetOpenGLESGraphicsRequirementsKHR)
-#endif
+#define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
+XRAPI_ATTR XrResult XRAPI_CALL xrGetInstanceProcAddr(XrInstance instance, const char* name, PFN_xrVoidFunction* function);
+XRAPI_ATTR XrResult XRAPI_CALL xrEnumerateInstanceExtensionProperties(const char* layerName, uint32_t propertyCapacityInput, uint32_t* propertyCountOutput, XrExtensionProperties* properties);
+XRAPI_ATTR XrResult XRAPI_CALL xrCreateInstance(const XrInstanceCreateInfo* createInfo, XrInstance* instance);
+XR_FOREACH(XR_DECLARE)
 
 static struct {
   XrInstance instance;
@@ -77,6 +116,7 @@ static struct {
   XrActionSet actionSet;
   XrAction actions[MAX_ACTIONS];
   XrPath actionFilters[2];
+  XrHandTrackerEXT handTrackers[2];
   struct {
     bool handTracking;
     bool visibilityMask;
@@ -143,22 +183,7 @@ static bool openxr_init(float offset, uint32_t msaa) {
     };
 
     XR_INIT(xrCreateInstance(&info, &state.instance));
-
-#if defined(LOVR_GL)
-    XR_LOAD(xrGetOpenGLGraphicsRequirementsKHR);
-#elif defined(LOVR_GLES)
-    XR_LOAD(xrGetOpenGLESGraphicsRequirementsKHR);
-#endif
-
-    if (state.features.handTracking) {
-      XR_LOAD(xrCreateHandTrackerEXT);
-      XR_LOAD(xrDestroyHandTrackerEXT);
-      XR_LOAD(xrLocateHandJointsEXT);
-    }
-
-    if (state.features.visibilityMask) {
-      XR_LOAD(xrGetVisibilityMaskKHR);
-    }
+    XR_FOREACH(XR_LOAD)
   }
 
   { // System
@@ -168,6 +193,19 @@ static bool openxr_init(float offset, uint32_t msaa) {
     };
 
     XR_INIT(xrGetSystem(state.instance, &info, &state.system));
+
+    XrSystemHandTrackingPropertiesEXT handTrackingProperties = {
+      .type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT,
+      .supportsHandTracking = false
+    };
+
+    XrSystemProperties properties = {
+      .type = XR_TYPE_SYSTEM_PROPERTIES,
+      .next = state.features.handTracking ? &handTrackingProperties : NULL
+    };
+
+    XR_INIT(xrGetSystemProperties(state.instance, state.system, &properties));
+    state.features.handTracking = handTrackingProperties.supportsHandTracking;
 
     uint32_t viewConfigurationCount;
     XrViewConfigurationType viewConfigurations[2];
@@ -235,10 +273,14 @@ static bool openxr_init(float offset, uint32_t msaa) {
   { // Session
 #if defined(LOVR_GL)
     XrGraphicsRequirementsOpenGLKHR requirements;
+    PFN_xrGetOpenGLGraphicsRequirementsKHR xrGetOpenGLGraphicsRequirementsKHR;
+    XR_LOAD(xrGetOpenGLGraphicsRequirementsKHR);
     XR_INIT(xrGetOpenGLGraphicsRequirementsKHR(state.instance, state.system, &requirements));
     // TODO validate OpenGL versions
 #elif defined(LOVR_GLES)
     XrGraphicsRequirementsOpenGLESKHR requirements;
+    PFN_xrGetOpenGLESGraphicsRequirementsKHR xrGetOpenGLESGraphicsRequirementsKHR;
+    XR_LOAD(xrGetOpenGLESGraphicsRequirementsKHR);
     XR_INIT(xrGetOpenGLESGraphicsRequirementsKHR(state.instance, state.system, &requirements));
     // TODO validate OpenGLES versions
 #endif
@@ -274,6 +316,18 @@ static bool openxr_init(float offset, uint32_t msaa) {
 
     XR_INIT(xrCreateSession(state.instance, &info, &state.session));
     XR_INIT(xrAttachSessionActionSets(state.session, &attachInfo));
+
+    if (state.features.handTracking) {
+      XrHandTrackerCreateInfoEXT handTrackerInfo = {
+        .type = XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT,
+        .handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT
+      };
+
+      handTrackerInfo.hand = XR_HAND_LEFT_EXT;
+      XR_INIT(xrCreateHandTrackerEXT(state.session, &handTrackerInfo, &state.handTrackers[0]));
+      handTrackerInfo.hand = XR_HAND_RIGHT_EXT;
+      XR_INIT(xrCreateHandTrackerEXT(state.session, &handTrackerInfo, &state.handTrackers[1]));
+    }
   }
 
   { // Spaaaaace
@@ -389,6 +443,8 @@ static void openxr_destroy(void) {
     }
   }
 
+  if (state.handTrackers[0]) xrDestroyHandTrackerEXT(state.handTrackers[0]);
+  if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
   if (state.actionSet) xrDestroyActionSet(state.actionSet);
   if (state.swapchain) xrDestroySwapchain(state.swapchain);
   if (state.referenceSpace) xrDestroySpace(state.referenceSpace);
@@ -563,7 +619,7 @@ static bool openxr_isTouched(Device device, DeviceButton button, bool* touched) 
   return getButtonState(device, button, touched, &unused, true);
 }
 
-static bool getAxis(uint32_t action, XrPath filter, float* value) {
+static bool getFloatAction(uint32_t action, XrPath filter, float* value) {
   XrActionStateGetInfo info = {
     .type = XR_TYPE_ACTION_STATE_GET_INFO,
     .action = state.actions[action],
@@ -584,12 +640,50 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
   }
 
   switch (axis) {
-    case AXIS_TRIGGER: return getAxis(ACTION_TRIGGER_AXIS, filter, &value[0]);
-    case AXIS_THUMBSTICK: return getAxis(ACTION_THUMBSTICK_X, filter, &value[0]) && getAxis(ACTION_THUMBSTICK_Y, filter, &value[1]);
-    case AXIS_TOUCHPAD: return getAxis(ACTION_TRACKPAD_X, filter, &value[0]) && getAxis(ACTION_TRACKPAD_Y, filter, &value[1]);
-    case AXIS_GRIP: return getAxis(ACTION_GRIP_AXIS, filter, &value[0]);
+    case AXIS_TRIGGER: return getFloatAction(ACTION_TRIGGER_AXIS, filter, &value[0]);
+    case AXIS_THUMBSTICK: return getFloatAction(ACTION_THUMBSTICK_X, filter, &value[0]) && getFloatAction(ACTION_THUMBSTICK_Y, filter, &value[1]);
+    case AXIS_TOUCHPAD: return getFloatAction(ACTION_TRACKPAD_X, filter, &value[0]) && getFloatAction(ACTION_TRACKPAD_Y, filter, &value[1]);
+    case AXIS_GRIP: return getFloatAction(ACTION_GRIP_AXIS, filter, &value[0]);
     default: return false;
   }
+}
+
+static bool openxr_getSkeleton(Device device, float* poses) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  XrHandTrackerEXT handTracker = state.handTrackers[device - DEVICE_HAND_LEFT];
+  if (!handTracker) {
+    return false;
+  }
+
+  XrHandJointsLocateInfoEXT info = {
+    .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
+    .baseSpace = state.referenceSpace,
+    .time = state.frameState.predictedDisplayTime
+  };
+
+  XrHandJointLocationEXT joints[26];
+  XrHandJointLocationsEXT hand = {
+    .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
+    .jointCount = sizeof(joints) / sizeof(joints[0]),
+    .jointLocations = joints
+  };
+
+  if (XR_FAILED(xrLocateHandJointsEXT(handTracker, &info, &hand)) || !hand.isActive) {
+    return false;
+  }
+
+  float* pose = poses;
+  for (uint32_t i = 0; i < sizeof(joints) / sizeof(joints[0]); i++) {
+    memcpy(pose, &joints[i].pose.position.x, 3 * sizeof(float));
+    pose[3] = joints[i].radius;
+    memcpy(pose + 4, &joints[i].pose.orientation.x, 4 * sizeof(float));
+    pose += 8;
+  }
+
+  return true;
 }
 
 static bool openxr_vibrate(Device device, float power, float duration, float frequency) {
@@ -777,6 +871,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .isDown = openxr_isDown,
   .isTouched = openxr_isTouched,
   .getAxis = openxr_getAxis,
+  .getSkeleton = openxr_getSkeleton,
   .vibrate = openxr_vibrate,
   .newModelData = openxr_newModelData,
   .animate = openxr_animate,
