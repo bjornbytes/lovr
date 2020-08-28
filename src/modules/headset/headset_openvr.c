@@ -438,17 +438,25 @@ static bool openvr_getSkeleton(Device device, float* poses) {
   mat4_getOrientation(transform, orientation);
 
   InputSkeletalActionData_t info;
-  VRActionHandle_t skeleton = state.skeletonActions[device - DEVICE_HAND_LEFT];
-  EVRInputError error = state.input->GetSkeletalActionData(skeleton, &info, sizeof(info));
+  VRActionHandle_t action = state.skeletonActions[device - DEVICE_HAND_LEFT];
+  EVRInputError error = state.input->GetSkeletalActionData(action, &info, sizeof(info));
   if (error || !info.bActive) {
     return false;
   }
 
   VRBoneTransform_t bones[32];
+
+  uint32_t boneCount;
+  error = state.input->GetBoneCount(action, &boneCount);
+  if (error || boneCount > sizeof(bones) / sizeof(bones[0])) {
+    return false;
+  }
+
   EVRSkeletalTransformSpace space = EVRSkeletalTransformSpace_VRSkeletalTransformSpace_Model;
   EVRSkeletalMotionRange motionRange = EVRSkeletalMotionRange_VRSkeletalMotionRange_WithController;
-  error = state.input->GetSkeletalBoneData(skeleton, space, motionRange, bones, 32);
+  error = state.input->GetSkeletalBoneData(action, space, motionRange, bones, boneCount);
   if (error) {
+    printf("No bone data %d\n", error);
     return false;
   }
 
@@ -456,7 +464,13 @@ static bool openvr_getSkeleton(Device device, float* poses) {
   // Swap x/w (HmdQuaternionf_t has w first)
   // Premultiply by hand pose
   float* pose = poses;
-  for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
+
+  // SteamVR has a root joint instead of a palm joint, we zero out the root joint so it is the same
+  // as the regular hand pose
+  memset(&bones[0], 0, sizeof(bones[0]));
+  bones[0].orientation.w = 1.f;
+
+  for (uint32_t i = 1; i < HAND_JOINT_COUNT; i++) {
     memcpy(pose, &bones[i].position, 8 * sizeof(float));
     float w = pose[4];
     pose[4] = pose[7];
