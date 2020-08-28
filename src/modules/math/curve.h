@@ -6,7 +6,6 @@ Curve* lovrCurveCreate(void);
 void lovrCurveDestroy(void* ref);
 void lovrCurveEvaluate(Curve* curve, float t, float point[4]);
 void lovrCurveGetTangent(Curve* curve, float t, float point[4]);
-void lovrCurveRender(Curve* curve, float t1, float t2, float* points, uint32_t n);
 Curve* lovrCurveSlice(Curve* curve, float t1, float t2);
 size_t lovrCurveGetPointCount(Curve* curve);
 void lovrCurveGetPoint(Curve* curve, size_t index, float point[4]);

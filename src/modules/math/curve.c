@@ -77,15 +77,6 @@ void lovrCurveGetTangent(Curve* curve, float t, vec3 p) {
   vec3_normalize(p);
 }
 
-void lovrCurveRender(Curve* curve, float t1, float t2, vec3 points, uint32_t n) {
-  lovrAssert(curve->points.length >= 8, "Need at least 2 points to render a Curve");
-  lovrAssert(t1 >= 0.f && t2 <= 1.f, "Curve render interval must be within [0, 1]");
-  float step = 1.f / (n - 1);
-  for (uint32_t i = 0; i < n; i++) {
-    evaluate(curve->points.data, curve->points.length / 4, t1 + (t2 - t1) * i * step, points + 4 * i);
-  }
-}
-
 Curve* lovrCurveSlice(Curve* curve, float t1, float t2) {
   lovrAssert(curve->points.length >= 8, "Need at least 2 points to slice a Curve");
   lovrAssert(t1 >= 0.f && t2 <= 1.f, "Curve slice interval must be within [0, 1]");

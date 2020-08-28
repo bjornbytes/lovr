@@ -33,20 +33,18 @@ static int l_lovrCurveRender(lua_State* L) {
   if (lovrCurveGetPointCount(curve) == 2) {
     n = 2;
   }
-  float* points = malloc(4 * n * sizeof(float));
-  lovrAssert(points, "Out of memory");
-  lovrCurveRender(curve, t1, t2, points, n);
-  lua_createtable(L, n, 0);
-  int j = 1;
-  for (int i = 0; i < 4 * n; i += 4) {
-    lua_pushnumber(L, points[i + 0]);
-    lua_rawseti(L, -2, j++);
-    lua_pushnumber(L, points[i + 1]);
-    lua_rawseti(L, -2, j++);
-    lua_pushnumber(L, points[i + 2]);
-    lua_rawseti(L, -2, j++);
+  lua_createtable(L, n * 3, 0);
+  float step = 1.f / (n - 1);
+  for (int i = 0; i < n; i++) {
+    float point[4];
+    lovrCurveEvaluate(curve, t1 + (t2 - t1) * i * step, point);
+    lua_pushnumber(L, point[0]);
+    lua_rawseti(L, -2, 3 * i + 1);
+    lua_pushnumber(L, point[1]);
+    lua_rawseti(L, -2, 3 * i + 2);
+    lua_pushnumber(L, point[2]);
+    lua_rawseti(L, -2, 3 * i + 3);
   }
-  free(points);
   return 1;
 }
 
