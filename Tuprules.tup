@@ -259,13 +259,11 @@ ifeq ($(PLATFORM),web)
   SUFFIX = .html
   EXTRAS = lovr.js lovr.wasm
   EXTRAS_@(THREAD) += lovr.worker.js
-  LDFLAGS += -s USE_GLFW=3
+  CFLAGS_@(OPTIMIZE) += -Os
+  LDFLAGS_@(OPTIMIZE) += -Os
   LDFLAGS += -s USE_WEBGL2
-  LDFLAGS += -s FULL_ES2
-  LDFLAGS += -s FULL_ES3
-  LDFLAGS += -s GL_PREINITIALIZED_CONTEXT
   LDFLAGS += -s FORCE_FILESYSTEM
-  LDFLAGS += -s EXPORTED_FUNCTIONS="['_main','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetCamera']"
+  LDFLAGS += -s EXPORTED_FUNCTIONS="['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetCamera']"
   LDFLAGS_@(WEBXR) += --js-library $(ROOT)/src/resources/webxr.js
   LDFLAGS += --shell-file $(ROOT)/src/resources/lovr.html
   CFLAGS_@(THREAD) += -s USE_PTHREADS=1
