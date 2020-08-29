@@ -411,6 +411,10 @@ void lovrPlatformGetFramebufferSize(int* width, int* height) {
   *height = 0;
 }
 
+void lovrPlatformSetSwapInterval(int interval) {
+  //
+}
+
 void lovrPlatformSwapBuffers() {
   //
 }
