@@ -132,14 +132,15 @@ static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int 
       case GLFW_KEY_PERIOD: key = KEY_PERIOD; break;
       case GLFW_KEY_SLASH: key = KEY_SLASH; break;
 
-      case GLFW_KEY_LEFT_SHIFT: key = KEY_LEFT_SHIFT; break;
-      case GLFW_KEY_RIGHT_SHIFT: key = KEY_RIGHT_SHIFT; break;
       case GLFW_KEY_LEFT_CONTROL: key = KEY_LEFT_CONTROL; break;
-      case GLFW_KEY_RIGHT_CONTROL: key = KEY_RIGHT_CONTROL; break;
+      case GLFW_KEY_LEFT_SHIFT: key = KEY_LEFT_SHIFT; break;
       case GLFW_KEY_LEFT_ALT: key = KEY_LEFT_ALT; break;
-      case GLFW_KEY_RIGHT_ALT: key = KEY_RIGHT_ALT; break;
       case GLFW_KEY_LEFT_SUPER: key = KEY_LEFT_OS; break;
+      case GLFW_KEY_RIGHT_CONTROL: key = KEY_RIGHT_CONTROL; break;
+      case GLFW_KEY_RIGHT_SHIFT: key = KEY_RIGHT_SHIFT; break;
+      case GLFW_KEY_RIGHT_ALT: key = KEY_RIGHT_ALT; break;
       case GLFW_KEY_RIGHT_SUPER: key = KEY_RIGHT_OS; break;
+
       case GLFW_KEY_CAPS_LOCK: key = KEY_CAPS_LOCK; break;
       case GLFW_KEY_SCROLL_LOCK: key = KEY_SCROLL_LOCK; break;
       case GLFW_KEY_NUM_LOCK: key = KEY_NUM_LOCK; break;
