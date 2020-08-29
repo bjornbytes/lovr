@@ -316,18 +316,6 @@ static bool openxr_init(float offset, uint32_t msaa) {
 
     XR_INIT(xrCreateSession(state.instance, &info, &state.session));
     XR_INIT(xrAttachSessionActionSets(state.session, &attachInfo));
-
-    if (state.features.handTracking) {
-      XrHandTrackerCreateInfoEXT handTrackerInfo = {
-        .type = XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT,
-        .handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT
-      };
-
-      handTrackerInfo.hand = XR_HAND_LEFT_EXT;
-      XR_INIT(xrCreateHandTrackerEXT(state.session, &handTrackerInfo, &state.handTrackers[0]));
-      handTrackerInfo.hand = XR_HAND_RIGHT_EXT;
-      XR_INIT(xrCreateHandTrackerEXT(state.session, &handTrackerInfo, &state.handTrackers[1]));
-    }
   }
 
   { // Spaaaaace
@@ -653,9 +641,20 @@ static bool openxr_getSkeleton(Device device, float* poses) {
     return false;
   }
 
-  XrHandTrackerEXT handTracker = state.handTrackers[device - DEVICE_HAND_LEFT];
-  if (!handTracker) {
-    return false;
+  XrHandTrackerEXT* handTracker = &state.handTrackers[device - DEVICE_HAND_LEFT];
+
+  // Hand trackers are created lazily because on some implementations xrCreateHandTrackerEXT will
+  // return XR_ERROR_FEATURE_UNSUPPORTED if called too early.
+  if (!*handTracker) {
+    XrHandTrackerCreateInfoEXT info = {
+      .type = XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT,
+      .handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT,
+      .hand = device == DEVICE_HAND_LEFT ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT
+    };
+
+    if (XR_FAILED(xrCreateHandTrackerEXT(state.session, &info, handTracker))) {
+      return false;
+    }
   }
 
   XrHandJointsLocateInfoEXT info = {
@@ -671,7 +670,7 @@ static bool openxr_getSkeleton(Device device, float* poses) {
     .jointLocations = joints
   };
 
-  if (XR_FAILED(xrLocateHandJointsEXT(handTracker, &info, &hand)) || !hand.isActive) {
+  if (XR_FAILED(xrLocateHandJointsEXT(*handTracker, &info, &hand)) || !hand.isActive) {
     return false;
   }
 
