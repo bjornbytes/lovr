@@ -234,10 +234,19 @@ endif()
 # OpenXR
 # Currently, to use OpenXR, add the OpenXR SDK to the deps folder:
 #   git submodule add https://github.com/khronosgroup/openxr-sdk deps/openxr
+# On Android, download the Oculus OpenXR loader and place the "OpenXR" folder at "deps/OpenXR-Oculus"
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
   include_directories(deps/openxr/include)
-  add_subdirectory(deps/openxr openxr)
-  set(LOVR_OPENXR openxr_loader)
+  if(ANDROID)
+    set(LOVR_OPENXR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/OpenXR-Oculus" CACHE STRING "The path to the Oculus OpenXR loader")
+    add_library(openxr_loader SHARED IMPORTED)
+    include_directories("${LOVR_OPENXR_OCULUS_PATH}/Include")
+    set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION "${LOVR_OPENXR_OCULUS_PATH}/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
+    set(LOVR_OPENXR openxr_loader)
+  else()
+    add_subdirectory(deps/openxr openxr)
+    set(LOVR_OPENXR openxr_loader)
+  endif()
 endif()
 
 # Oculus SDK -- expects Oculus SDK 1.26.0 or later
@@ -614,15 +623,24 @@ elseif(ANDROID)
     # - Figure out which Java class (Activity) and AndroidManifest.xml to use
     # - Oculus uses the regular android os layer, pico implements its own in the headset backend
     # - Some of the Pico SDK is in a jar that has to be added to the classpath and dx invocation
-    # TODO error (probably way earlier) if both USE_VRAPI and USE_PICO aren't defined
-    if(LOVR_USE_VRAPI)
-      set(ANDROID_FLAVOR "vrapi")
+    # TODO error (probably way earlier) if no headset API is defined, since everything will break
+    if(LOVR_USE_OPENXR)
+      set(MANIFEST "oculus")
+      set(ACTIVITY "openxr")
+      target_sources(lovr PRIVATE src/core/os_android.c)
+      get_target_property(OPENXR_LIB ${LOVR_OPENXR} IMPORTED_LOCATION)
+      file(COPY ${OPENXR_LIB} DESTINATION lib/${ANDROID_ABI})
+      set(ANDROID_CLASSPATH "${ANDROID_JAR}")
+    elseif(LOVR_USE_VRAPI)
+      set(MANIFEST "oculus")
+      set(ACTIVITY "vrapi")
       target_sources(lovr PRIVATE src/core/os_android.c)
       get_target_property(VRAPI_LIB ${LOVR_VRAPI} IMPORTED_LOCATION)
       file(COPY ${VRAPI_LIB} DESTINATION lib/${ANDROID_ABI})
       set(ANDROID_CLASSPATH "${ANDROID_JAR}")
     elseif(LOVR_USE_PICO)
-      set(ANDROID_FLAVOR "pico")
+      set(MANIFEST "pico")
+      set(ACTIVITY "pico")
       get_target_property(PICO_LIB ${LOVR_PICO} IMPORTED_LOCATION)
       file(COPY ${PICO_LIB} DESTINATION lib/${ANDROID_ABI})
       set(EXTRA_JAR "${LOVR_PICO_PATH}/classes.jar")
@@ -633,7 +651,7 @@ elseif(ANDROID)
       endif()
     endif()
 
-    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${ANDROID_FLAVOR}.xml" CACHE STRING "The AndroidManifest.xml file to use")
+    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${MANIFEST}.xml" CACHE STRING "The AndroidManifest.xml file to use")
 
     # Make an apk
     add_custom_command(
@@ -642,7 +660,7 @@ elseif(ANDROID)
       BYPRODUCTS lovr.apk
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
-      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ANDROID_FLAVOR}.java Activity.java
+      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ACTIVITY}.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_CLASSPATH}" -d . Activity.java
       COMMAND ${ANDROID_TOOLS}/dx --dex --output classes.dex ${EXTRA_JAR} org/lovr/app/Activity.class
       COMMAND

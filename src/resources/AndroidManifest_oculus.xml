@@ -12,6 +12,7 @@
       <meta-data android:name="com.oculus.vr.focusaware" android:value="true"/>
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
+        <category android:name="com.oculus.intent.category.VR"/>
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>

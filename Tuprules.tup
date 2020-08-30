@@ -182,6 +182,7 @@ ifeq ($(PLATFORM),android)
   TOOLS = @(ANDROID_SDK)/sdk/build-tools/@(ANDROID_BUILD_TOOLS_VERSION)
   ANDROID_JAR = @(ANDROID_SDK)/sdk/platforms/android-@(ANDROID_VERSION)/android.jar
   GLUE = @(ANDROID_SDK)/sdk/ndk-bundle/sources/android/native_app_glue
+  OPENXR_LIB_PATH = $(DEPS)/OpenXR-Oculus/Libs/Android/arm64-v8a/Release
   VRAPI_LIB_PATH = $(DEPS)/VrApi/Libs/Android/arm64-v8a/Release
   PICO_LIB_PATH = $(DEPS)/pico/jni/arm64-v8a
   CFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
@@ -195,11 +196,13 @@ ifeq ($(PLATFORM),android)
   PREFIX = $(LIB)/lib
   SUFFIX = .so
   CFLAGS_@(GRAPHICS) += -DLOVR_GLES
+  ACTIVITY_@(OPENXR) = Activity_openxr
   ACTIVITY_@(VRAPI) = Activity_vrapi
   ACTIVITY_@(PICO) = Activity_pico
 
   ifeq (@(ANDROID_MANIFEST),)
-    ANDROID_MANIFEST_@(VRAPI) = src/resources/AndroidManifest_vrapi.xml
+    ANDROID_MANIFEST_@(OPENXR) = src/resources/AndroidManifest_oculus.xml
+    ANDROID_MANIFEST_@(VRAPI) = src/resources/AndroidManifest_oculus.xml
     ANDROID_MANIFEST_@(PICO) = src/resources/AndroidManifest_pico.xml
   else
     ANDROID_MANIFEST_y = @(ANDROID_MANIFEST)
@@ -238,17 +241,20 @@ ifeq ($(PLATFORM),android)
     CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
     CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
     CFLAGS_@(ENET) += -I$(DEPS)/enet/include
+    CFLAGS_@(OPENXR) += -I$(DEPS)/OpenXR-Oculus/Include
     CFLAGS_@(VRAPI) += -I$(DEPS)/VrApi/Include
 
     LDFLAGS_@(AUDIO) += -L$(BUILD)/$(LIB) -lopenal
     LDFLAGS_@(DATA) += -L$(BUILD)/lib_msdfgen -lmsdfgen
     LDFLAGS_@(PHYSICS) += -L$(BUILD)/$(LIB) -lode
     LDFLAGS_@(ENET) += -L$(BUILD)/enet -lenet
+    LDFLAGS_@(OPENXR) += -L$(OPENXR_LIB_PATH) -lopenxr_loader
     LDFLAGS_@(VRAPI) += -L$(VRAPI_LIB_PATH) -lvrapi
     LDFLAGS_@(PICO) += -L$(PICO_LIB_PATH) -lPvr_NativeSDK
 
     LIBS_@(AUDIO) += $(BUILD)/$(LIB)/libopenal.*so*
     LIBS_@(PHYSICS) += $(BUILD)/$(LIB)/libode.so
+    LIBS_@(OPENXR) += $(OPENXR_LIB_PATH)/libopenxr_loader.so
     LIBS_@(VRAPI) += $(VRAPI_LIB_PATH)/libvrapi.so
     LIBS_@(PICO) += $(PICO_LIB_PATH)/libPvr_NativeSDK.so
   endif

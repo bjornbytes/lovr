@@ -13,6 +13,7 @@
   #include <windows.h>
 #elif defined(__ANDROID__)
   #define XR_USE_PLATFORM_ANDROID
+  #include <android_native_app_glue.h>
   #include <EGL/egl.h>
   #include <jni.h>
 #endif
@@ -20,12 +21,15 @@
   #define XR_USE_GRAPHICS_API_OPENGL
   #define GRAPHICS_EXTENSION "XR_KHR_opengl_enable"
 #elif defined(LOVR_GLES)
-  #define XR_USE_GRAPHICS_API_OPENGLES
+  #define XR_USE_GRAPHICS_API_OPENGL_ES
   #define GRAPHICS_EXTENSION "XR_KHR_opengl_es_enable"
 #endif
 #define XR_NO_PROTOTYPES
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
+#ifdef __ANDROID__
+#include <openxr/openxr_oculus.h>
+#endif
 #include "resources/openxr_actions.h"
 
 #define XR(f) handleResult(f, __FILE__, __LINE__)
@@ -38,9 +42,10 @@
 HANDLE lovrPlatformGetWindow(void);
 HGLRC lovrPlatformGetContext(void);
 #elif defined(__ANDROID__)
-EGLDisplay lovrPlatformGetEGLDisplay();
-EGLContext lovrPlatformGetEGLContext();
-EGLConfig lovrPlatformGetEGLConfig();
+struct ANativeActivity* lovrPlatformGetActivity(void);
+EGLDisplay lovrPlatformGetEGLDisplay(void);
+EGLContext lovrPlatformGetEGLContext(void);
+EGLConfig lovrPlatformGetEGLConfig(void);
 #endif
 
 #define XR_FOREACH(X)\
@@ -146,6 +151,25 @@ static void openxr_destroy();
 static bool openxr_init(float offset, uint32_t msaa) {
   state.msaa = msaa;
 
+#ifdef __ANDROID__
+  static PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
+  XR_LOAD(xrInitializeLoaderKHR);
+  if (!xrInitializeLoaderKHR) {
+    return false;
+  }
+
+  ANativeActivity* activity = lovrPlatformGetActivity();
+  XrLoaderInitInfoAndroidKHR loaderInfo = {
+    .type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR,
+    .applicationVM = activity->vm,
+    .applicationContext = activity->clazz
+  };
+
+  if (XR_FAILED(xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*) &loaderInfo))) {
+    return false;
+  }
+#endif
+
   { // Instance
     uint32_t extensionCount;
     xrEnumerateInstanceExtensionProperties(NULL, 0, &extensionCount, NULL);
@@ -156,6 +180,10 @@ static bool openxr_init(float offset, uint32_t msaa) {
 
     const char* enabledExtensionNames[4];
     uint32_t enabledExtensionCount = 0;
+
+#ifdef __ANDROID__
+    enabledExtensionNames[enabledExtensionCount++] = XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME;
+#endif
 
     enabledExtensionNames[enabledExtensionCount++] = GRAPHICS_EXTENSION;
 
@@ -173,6 +201,13 @@ static bool openxr_init(float offset, uint32_t msaa) {
 
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
+#ifdef __ANDROID__
+      .next = &(XrInstanceCreateInfoAndroidKHR) {
+        .type = XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR,
+        .applicationVM = activity->vm,
+        .applicationActivity = activity->clazz
+      },
+#endif
       .applicationInfo.engineName = "LÖVR",
       .applicationInfo.engineVersion = (LOVR_VERSION_MAJOR << 24) + (LOVR_VERSION_MINOR << 16) + LOVR_VERSION_PATCH,
       .applicationInfo.applicationName = "LÖVR",
@@ -272,13 +307,13 @@ static bool openxr_init(float offset, uint32_t msaa) {
 
   { // Session
 #if defined(LOVR_GL)
-    XrGraphicsRequirementsOpenGLKHR requirements;
+    XrGraphicsRequirementsOpenGLKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR, NULL };
     PFN_xrGetOpenGLGraphicsRequirementsKHR xrGetOpenGLGraphicsRequirementsKHR;
     XR_LOAD(xrGetOpenGLGraphicsRequirementsKHR);
     XR_INIT(xrGetOpenGLGraphicsRequirementsKHR(state.instance, state.system, &requirements));
     // TODO validate OpenGL versions
 #elif defined(LOVR_GLES)
-    XrGraphicsRequirementsOpenGLESKHR requirements;
+    XrGraphicsRequirementsOpenGLESKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR, NULL };
     PFN_xrGetOpenGLESGraphicsRequirementsKHR xrGetOpenGLESGraphicsRequirementsKHR;
     XR_LOAD(xrGetOpenGLESGraphicsRequirementsKHR);
     XR_INIT(xrGetOpenGLESGraphicsRequirementsKHR(state.instance, state.system, &requirements));
@@ -364,28 +399,43 @@ static bool openxr_init(float offset, uint32_t msaa) {
   }
 
   { // Swapchain
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
+    TextureType textureType = TEXTURE_2D;
+    uint32_t width = state.width * 2;
+    uint32_t arraySize = 1;
+    XrSwapchainImageOpenGLKHR images[MAX_IMAGES];
+    for (uint32_t i = 0; i < MAX_IMAGES; i++) {
+      images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR;
+      images[i].next = NULL;
+    }
+#elif defined(XR_USE_GRAPHICS_API_OPENGL_ES)
+    TextureType textureType = TEXTURE_ARRAY;
+    uint32_t width = state.width;
+    uint32_t arraySize = 2;
+    XrSwapchainImageOpenGLESKHR images[MAX_IMAGES];
+    for (uint32_t i = 0; i < MAX_IMAGES; i++) {
+      images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
+      images[i].next = NULL;
+    }
+#endif
+
     XrSwapchainCreateInfo info = {
       .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
       .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
       .format = GL_SRGB8_ALPHA8,
-      .width = state.width * 2,
+      .width = width,
       .height = state.height,
       .sampleCount = 1,
       .faceCount = 1,
-      .arraySize = 1,
+      .arraySize = arraySize,
       .mipCount = 1
     };
 
-#if defined(XR_USE_GRAPHICS_API_OPENGL)
-    XrSwapchainImageOpenGLKHR images[MAX_IMAGES];
-#elif defined(XR_USE_GRAPHICS_API_OPENGLES)
-    XrSwapchainImageOpenGLESKHR images[MAX_IMAGES];
-#endif
     XR_INIT(xrCreateSwapchain(state.session, &info, &state.swapchain));
     XR_INIT(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
 
     for (uint32_t i = 0; i < state.imageCount; i++) {
-      state.textures[i] = lovrTextureCreateFromHandle(images[i].image, TEXTURE_2D, 1, state.msaa);
+      state.textures[i] = lovrTextureCreateFromHandle(images[i].image, textureType, arraySize, state.msaa);
     }
 
     // Pre-init composition layer
@@ -402,13 +452,19 @@ static bool openxr_init(float offset, uint32_t msaa) {
       .subImage = { state.swapchain, { { 0, 0 }, { state.width, state.height } }, 0 }
     };
 
-    // Copy the left view to the right view and offset for side-by-side submission
+    // Copy the left view to the right view and offset either the viewport or array index
     state.layerViews[1] = state.layerViews[0];
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
     state.layerViews[1].subImage.imageRect.offset.x += state.width;
+#elif defined(XR_USE_GRAPHICS_API_OPENGL_ES)
+    state.layerViews[1].subImage.imageArrayIndex = 1;
+#endif
   }
 
   state.clipNear = .1f;
   state.clipFar = 100.f;
+
+  state.frameState.type = XR_TYPE_FRAME_STATE;
 
   return true;
 }
@@ -475,7 +531,7 @@ static void getViews(XrView views[2], uint32_t* count) {
     .space = state.referenceSpace
   };
 
-  XrViewState viewState;
+  XrViewState viewState = { .type = XR_TYPE_VIEW_STATE };
   XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2 * sizeof(XrView), count, views));
 }
 
@@ -725,7 +781,8 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
   XrFrameEndInfo endInfo = {
     .type = XR_TYPE_FRAME_END_INFO,
     .displayTime = state.frameState.predictedDisplayTime,
-    .environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE
+    .environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE,
+    .layers = (const XrCompositionLayerBaseHeader*[1]) { (XrCompositionLayerBaseHeader*) &state.layers[0] }
   };
 
   XR(xrBeginFrame(state.session, &beginInfo));
@@ -769,8 +826,6 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
       callback(userdata);
       lovrGraphicsSetCamera(NULL, false);
 
-      const XrCompositionLayerBaseHeader* layers[1] = { (XrCompositionLayerBaseHeader*) &state.layers[0] };
-      endInfo.layers = layers;
       endInfo.layerCount = 1;
       state.layerViews[0].pose = views[0].pose;
       state.layerViews[0].fov = views[0].fov;
@@ -822,7 +877,7 @@ static void openxr_update(float dt) {
         bool wasFocused = state.sessionState == XR_SESSION_STATE_FOCUSED;
         bool isFocused = event->state == XR_SESSION_STATE_FOCUSED;
         if (wasFocused != isFocused) {
-          lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = isFocused });
+          lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean.value = isFocused });
         }
 
         state.sessionState = event->state;
