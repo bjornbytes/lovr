@@ -54,7 +54,8 @@ CONFIG_OCULUS_PATH=
 CONFIG_LUAJIT=y
 
 ## Android settings
-# ANDROID_SDK: The path to the Android SDK (should have folder named 'sdk' in it)
+# ANDROID_SDK: The path to the Android SDK
+# ANDROID_NDK: The path to the Android NDK
 # ANDROID_VERSION: The Android version to build against (usually 21 or 26)
 # ANDROID_BUILD_TOOLS_VERSION: The version of the Android build tools to use (in build-tools folder)
 # ANDROID_HOST_TAG: The host machine tag (e.g. windows-x86_64, darwin-x86_64)
@@ -63,6 +64,7 @@ CONFIG_LUAJIT=y
 # ANDROID_MANIFEST: Optional path to a custom Android manifest file (xml)
 # ANDROID_ASSETS: Optional path to a folder to embed as the assets folder of the apk
 CONFIG_ANDROID_SDK=
+CONFIG_ANDROID_NDK=
 CONFIG_ANDROID_VERSION=
 CONFIG_ANDROID_BUILD_TOOLS_VERSION=
 CONFIG_ANDROID_HOST_TAG=

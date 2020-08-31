@@ -12,9 +12,49 @@ CFLAGS += -Wno-unused-parameter
 CFLAGS_@(OPENVR) += -Wno-typedef-redefinition
 CFLAGS_@(STRICT) += -Werror
 CFLAGS_@(DEBUG) += -g
-CFLAGS_@(OPTIMIZE) += -Os
-CFLAGS_@(SANITIZE) += -fsanitize=address,undefined
-LDFLAGS_@(SANITIZE) += -fsanitize=address,undefined
+FLAGS_@(OPTIMIZE) += -Os -flto
+FLAGS_@(SANITIZE) += -fsanitize=address,undefined
+
+## Windows
+CFLAGS_win32 += -DLOVR_GL
+CFLAGS_win32 += -D_CRT_SECURE_NO_WARNINGS
+CFLAGS_win32 += -Wno-language-extension-token
+LDFLAGS_win32 += -lShell32 -lOle32
+EXTRAS_win32 += lovr.lib lovr.exp
+SUFFIX_win32 = .exe
+
+## Linux
+CFLAGS_linux += -DLOVR_GL
+LDFLAGS_linux += -lm -lpthread
+LDFLAGS_linux += -Wl,-rpath,\$ORIGIN/libs
+
+## macOS
+CFLAGS_macos += -DLOVR_GL
+LDFLAGS_macos += -Wl,-rpath,@executable_path/libs
+LDFLAGS_macos += -lobjc
+
+## Android
+CFLAGS_android += -DLOVR_GLES
+CFLAGS_android += -I@(ANDROID_NDK)/sources/android/native_app_glue
+CFLAGS_android += --target=aarch64-linux-android@(ANDROID_VERSION)
+LDFLAGS_android += --target=aarch64-linux-android@(ANDROID_VERSION)
+LDFLAGS_android += -landroid -lEGL -lGLESv3
+LDFLAGS_android += -shared
+PREFIX_android = lib/arm64-v8a/lib
+SUFFIX_android = .so
+
+## emscripten
+CFLAGS_web += -DLOVR_WEBGL
+LDFLAGS_web += -s USE_WEBGL2
+LDFLAGS_web += -s FORCE_FILESYSTEM
+LDFLAGS_web += -s EXPORTED_FUNCTIONS="['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetCamera']"
+LDFLAGS_@(WEBXR)_web += --js-library $(ROOT)/src/resources/webxr.js
+LDFLAGS_web += --shell-file $(ROOT)/src/resources/lovr.html
+CFLAGS_@(THREAD)_web += -s USE_PTHREADS=1
+LDFLAGS_@(THREAD)_web += -s USE_PTHREADS=1
+EXTRAS_web = lovr.js lovr.wasm
+EXTRAS_@(THREAD)_web += lovr.worker.js
+SUFFIX_web = .html
 
 ## Modules
 CFLAGS_@(AUDIO) += -DLOVR_ENABLE_AUDIO
@@ -41,175 +81,120 @@ CFLAGS_@(VRAPI) += -DLOVR_USE_VRAPI
 CFLAGS_@(PICO) += -DLOVR_USE_PICO
 CFLAGS_@(WEBXR) += -DLOVR_USE_WEBXR
 
-## Platform
-ifeq (@(PLATFORM),)
-  PLATFORM = @(TUP_PLATFORM)
-else
-  PLATFORM = @(PLATFORM)
-endif
-
-LIB = libs
-BUILD = @(CMAKE_DEPS)
-DEPS = $(ROOT)/deps
-
-## Windows
-ifeq ($(PLATFORM),win32)
-  CFLAGS += -D_CRT_SECURE_NO_WARNINGS
-  CFLAGS += -Wno-language-extension-token
-  LDFLAGS += -lShell32 -lOle32
-  CFLAGS_@(GRAPHICS) += -DLOVR_GL
-  EXTRAS += lovr.lib lovr.exp
-  SUFFIX = .exe
+## Libraries
+ifneq (@(CMAKE_DEPS),)
+  BUILD = @(CMAKE_DEPS)
+  DEPS = $(ROOT)/deps
 
   ifeq (@(OPTIMIZE),y)
-    CONFIG = Release
+  CONFIG = Release
   else
-    CONFIG = Debug
+  CONFIG = Debug
   endif
 
-  ifneq ($(BUILD),)
-    ifeq (@(LUAJIT),y)
-      CFLAGS += -I$(DEPS)/luajit/src
-      LDFLAGS += -L$(BUILD)/luajit/src/$(CONFIG) -lluajit
-      LIBS += $(BUILD)/luajit/src/$(CONFIG)/luajit.dll
-    else
-      CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
-      LDFLAGS += -L$(BUILD)/lua/$(CONFIG) -llua
-    endif
-
-    CFLAGS += -I$(DEPS)/glfw/include
-    CFLAGS_@(AUDIO) += -I$(DEPS)/openal-soft/include
-    CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
-    CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers
-    CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
-    CFLAGS_@(ENET) += -I$(DEPS)/enet/include
-
-    LDFLAGS += -L$(BUILD)/glfw/src/$(CONFIG) -lglfw3dll
-    LDFLAGS_@(AUDIO) += -L$(BUILD)/openal/$(CONFIG) -lOpenAL32
-    LDFLAGS_@(DATA) += -L$(BUILD)/lib_msdfgen/$(CONFIG) -lmsdfgen
-    LDFLAGS_@(OPENVR) += -L$(DEPS)/openvr/bin/win64/$(CONFIG) -lopenvr_api64
-    LDFLAGS_@(PHYSICS) += -L$(BUILD)/ode/$(CONFIG) -lode
-    LDFLAGS_@(ENET) += -L$(BUILD)/enet/$(CONFIG) -lenet
-
-    LIBS += $(BUILD)/glfw/src/$(CONFIG)/glfw3.dll
-    LIBS_@(AUDIO) += $(BUILD)/glfw/src/$(CONFIG)/glfw3.dll
-    LIBS_@(DATA) += $(BUILD)/lib_msdfgen/$(CONFIG)/msdfgen.dll
-    LIBS_@(OPENVR) += $(DEPS)/openvr/bin/win64/openvr_api.dll
-    LIBS_@(PHYSICS) += $(BUILD)/ode/$(CONFIG)/ode.dll
+  # Lua
+  ifeq (@(LUAJIT),y)
+    CFLAGS += -I$(DEPS)/luajit/src
+    LDFLAGS_win32 += -L$(BUILD)/luajit/src/$(CONFIG) -lluajit
+    LDFLAGS_macos += -L$(BUILD)/luajit/src -lluajit -pagezero_size 10000 -image_base 100000000
+    LDFLAGS_linux += -L$(BUILD)/luajit/src -lluajit
+    LDFLAGS_android += -L$(BUILD)/luajit/src -lluajit
+    LIBS_win32 += $(BUILD)/luajit/src/$(CONFIG)/luajit.dll
+    LIBS_macos += $(BUILD)/luajit/src/libluajit.dylib
+    LIBS_linux += $(BUILD)/luajit/src/libluajit.so
+  else
+    CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
+    LDFLAGS_win32 += -L$(BUILD)/lua/$(CONFIG) -llua
+    LDFLAGS_macos += -L$(BUILD)/lua -llua
+    LDFLAGS_linux += -L$(BUILD)/lua -llua
+    LDFLAGS_android += -L$(BUILD)/lua -llua
+    LDFLAGS_web += $(BUILD)/lua/liblua.a
   endif
-endif
 
-## macOS
-ifeq ($(PLATFORM),macosx)
-  PLATFORM = macos
-  LDFLAGS += -lobjc
-  LDFLAGS += -Wl,-rpath,@executable_path/$(LIB)
-  CFLAGS_@(GRAPHICS) += -DLOVR_GL
+  # GLFW
+  CFLAGS_win32 += -I$(DEPS)/glfw/include
+  CFLAGS_macos += -I$(DEPS)/glfw/include
+  CFLAGS_linux += -I$(DEPS)/glfw/include
+  LDFLAGS_win32 += -L$(BUILD)/glfw/src/$(CONFIG) -lglfw3dll
+  LDFLAGS_macos += -L$(BUILD)/glfw/src -lglfw
+  LDFLAGS_linux += -L$(BUILD)/glfw/src -lglfw
+  LIBS_win32 += $(BUILD)/glfw/src/$(CONFIG)/glfw3.dll
+  LIBS_macos += $(BUILD)/glfw/src/libglfw.*dylib
+  LIBS_linux += $(BUILD)/glfw/src/libglfw.*so*
 
-  ifneq ($(BUILD),)
-    ifeq (@(LUAJIT),y)
-      CFLAGS += -I$(DEPS)/luajit/src
-      LDFLAGS += -L$(BUILD)/luajit/src -lluajit -pagezero_size 10000 -image_base 100000000
-      LIBS += $(BUILD)/luajit/src/libluajit.dylib
-    else
-      CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
-      LDFLAGS += -L$(BUILD)/lua -llua
-    endif
+  # OpenAL
+  CFLAGS_@(AUDIO)_win32 += -I$(DEPS)/openal-soft/include
+  CFLAGS_@(AUDIO)_macos += -I$(DEPS)/openal-soft/include
+  CFLAGS_@(AUDIO)_linux += -I$(DEPS)/openal-soft/include
+  CFLAGS_@(AUDIO)_android += -I$(DEPS)/openal-soft/include
+  LDFLAGS_@(AUDIO)_win32 += -L$(BUILD)/openal/$(CONFIG) -lOpenAL32
+  LDFLAGS_@(AUDIO)_macos += -L$(BUILD)/openal -lopenal
+  LDFLAGS_@(AUDIO)_linux += -L$(BUILD)/openal -lopenal
+  LDFLAGS_@(AUDIO)_android += -L$(BUILD)/lib/arm64-v8a -lopenal
+  LIBS_@(AUDIO)_win32 += $(BUILD)/openal/src/$(CONFIG)/OpenAL32.dll
+  LIBS_@(AUDIO)_macos += $(BUILD)/openal/libopenal.*dylib
+  LIBS_@(AUDIO)_linux += $(BUILD)/openal/libopenal.*so*
+  LIBS_@(AUDIO)_android += $(BUILD)/lib/arm64-v8a/libopenal.*so*
 
-    CFLAGS += -I$(DEPS)/glfw/include
-    CFLAGS_@(AUDIO) += -I$(DEPS)/openal-soft/include
-    CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
-    CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers
-    CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
-    CFLAGS_@(ENET) += -I$(DEPS)/enet/include
+  # msdfgen
+  CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
+  LDFLAGS_@(DATA)_win32 += -L$(BUILD)/lib_msdfgen/$(CONFIG) -lmsdfgen
+  LDFLAGS_@(DATA)_macos += -L$(BUILD)/lib_msdfgen -lmsdfgen
+  LDFLAGS_@(DATA)_linux += -L$(BUILD)/lib_msdfgen -lmsdfgen
+  LDFLAGS_@(DATA)_android += -L$(BUILD)/lib_msdfgen -lmsdfgen
+  LDFLAGS_@(DATA)_web += $(BUILD)/lib_msdfgen/libmsdfgen.a
+  LIBS_@(DATA)_win32 += $(BUILD)/lib_msdfgen/$(CONFIG)/msdfgen.dll
+  LIBS_@(DATA)_macos += $(BUILD)/lib_msdfgen/libmsdfgen.dylib
+  LIBS_@(DATA)_linux += $(BUILD)/lib_msdfgen/libmsdfgen.so
 
-    LDFLAGS += -L$(BUILD)/glfw/src -lglfw
-    LDFLAGS_@(AUDIO) += -L$(BUILD)/openal -lopenal
-    LDFLAGS_@(DATA) += -L$(BUILD)/lib_msdfgen -lmsdfgen
-    LDFLAGS_@(OPENVR) += -L$(BUILD)/openvr_api -lopenvr_api
-    LDFLAGS_@(PHYSICS) += -L$(BUILD)/ode -lode
-    LDFLAGS_@(ENET) += -L$(BUILD)/enet -lenet
+  # OpenVR
+  CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers
+  LDFLAGS_@(OPENVR)_win32 += -L$(DEPS)/openvr/bin/win64/$(CONFIG) -lopenvr_api64
+  LDFLAGS_@(OPENVR)_macos += -L$(BUILD)/openvr_api -lopenvr_api
+  LDFLAGS_@(OPENVR)_linux += -L$(BUILD)/openvr_api -lopenvr_api
+  LIBS_@(OPENVR)_win32 += $(DEPS)/openvr/bin/win64/openvr_api.dll
+  LIBS_@(OPENVR)_macos += $(BUILD)/openvr_api/libopenvr_api.dylib
+  LIBS_@(OPENVR)_linux += $(BUILD)/openvr_api/libopenvr_api.so
 
-    LIBS += $(BUILD)/glfw/src/libglfw.*dylib
-    LIBS_@(AUDIO) += $(BUILD)/openal/libopenal.*dylib
-    LIBS_@(DATA) += $(BUILD)/lib_msdfgen/libmsdfgen.dylib
-    LIBS_@(OPENVR) += $(BUILD)/openvr_api/libopenvr_api.dylib
-    LIBS_@(PHYSICS) += $(BUILD)/ode/libode.dylib
-  endif
-endif
+  # ODE
+  CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
+  LDFLAGS_@(PHYSICS)_win32 += -L$(BUILD)/ode/$(CONFIG) -lode
+  LDFLAGS_@(PHYSICS)_macos += -L$(BUILD)/ode -lode
+  LDFLAGS_@(PHYSICS)_linux += -L$(BUILD)/ode -lode
+  LDFLAGS_@(PHYSICS)_android += -L$(BUILD)/lib/arm64-v8a -lode
+  LDFLAGS_@(PHYSICS)_web += $(BUILD)/ode/libode.a
+  LIBS_@(PHYSICS)_win32 += $(BUILD)/ode/$(CONFIG)/ode.dll
+  LIBS_@(PHYSICS)_macos += $(BUILD)/ode/libode.dylib
+  LIBS_@(PHYSICS)_linux += $(BUILD)/ode/libode.so
+  LIBS_@(PHYSICS)_android += $(BUILD)/lib/arm64-v8a/libode.so
 
-## Linux
-ifeq ($(PLATFORM),linux)
-  LDFLAGS += -lm -lpthread
-  LDFLAGS += -Wl,-rpath,\$ORIGIN/$(LIB)
-  CFLAGS_@(GRAPHICS) += -DLOVR_GL
-
-  ifneq ($(BUILD),)
-    ifeq (@(LUAJIT),y)
-      CFLAGS += -I$(DEPS)/luajit/src
-      LDFLAGS += -L$(BUILD)/luajit/src -lluajit
-      LIBS += $(BUILD)/luajit/src/libluajit.so
-    else
-      CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
-      LDFLAGS += -L$(BUILD)/lua -llua
-    endif
-
-    CFLAGS += -I$(DEPS)/glfw/include
-    CFLAGS_@(AUDIO) += -I$(DEPS)/openal-soft/include
-    CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
-    CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers
-    CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
-    CFLAGS_@(ENET) += -I$(DEPS)/enet/include
-
-    LDFLAGS += -L$(BUILD)/glfw/src -lglfw
-    LDFLAGS_@(AUDIO) += -L$(BUILD)/openal -lopenal
-    LDFLAGS_@(DATA) += -L$(BUILD)/lib_msdfgen -lmsdfgen
-    LDFLAGS_@(OPENVR) += -L$(BUILD)/openvr_api -lopenvr_api
-    LDFLAGS_@(PHYSICS) += -L$(BUILD)/ode -lode
-    LDFLAGS_@(ENET) += -L$(BUILD)/enet -lenet
-
-    LIBS += $(BUILD)/glfw/src/libglfw.*so*
-    LIBS_@(AUDIO) += $(BUILD)/openal/libopenal.*so*
-    LIBS_@(DATA) += $(BUILD)/lib_msdfgen/libmsdfgen.so
-    LIBS_@(OPENVR) += $(BUILD)/openvr_api/libopenvr_api.so
-    LIBS_@(PHYSICS) += $(BUILD)/ode/libode.so
-  endif
+  # enet
+  CFLAGS_@(ENET) += -I$(DEPS)/enet/include
+  LDFLAGS_@(ENET)_win32 += -L$(BUILD)/enet/$(CONFIG) -lenet
+  LDFLAGS_@(ENET)_macos += -L$(BUILD)/enet -lenet
+  LDFLAGS_@(ENET)_linux += -L$(BUILD)/enet -lenet
+  LDFLAGS_@(ENET)_android += -L$(BUILD)/enet -lenet
 endif
 
 ## Android
-ifeq ($(PLATFORM),android)
-  CC = @(ANDROID_SDK)/sdk/ndk-bundle/toolchains/llvm/prebuilt/@(ANDROID_HOST_TAG)/bin/clang
-  TOOLS = @(ANDROID_SDK)/sdk/build-tools/@(ANDROID_BUILD_TOOLS_VERSION)
-  ANDROID_JAR = @(ANDROID_SDK)/sdk/platforms/android-@(ANDROID_VERSION)/android.jar
-  GLUE = @(ANDROID_SDK)/sdk/ndk-bundle/sources/android/native_app_glue
-  OPENXR_LIB_PATH = $(DEPS)/OpenXR-Oculus/Libs/Android/arm64-v8a/Release
-  VRAPI_LIB_PATH = $(DEPS)/VrApi/Libs/Android/arm64-v8a/Release
-  PICO_LIB_PATH = $(DEPS)/pico/jni/arm64-v8a
-  CFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
-  CFLAGS += -I$(GLUE)
-  LDFLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
-  LDFLAGS += -shared
-  LDFLAGS += -landroid
-  LDFLAGS += -lEGL
-  LDFLAGS += -lGLESv3
-  LIB = lib/arm64-v8a
-  PREFIX = $(LIB)/lib
-  SUFFIX = .so
-  CFLAGS_@(GRAPHICS) += -DLOVR_GLES
+ifeq (@(PLATFORM),android)
+  CC = @(ANDROID_NDK)/toolchains/llvm/prebuilt/@(ANDROID_HOST_TAG)/bin/clang
+  TOOLS = @(ANDROID_SDK)/build-tools/@(ANDROID_BUILD_TOOLS_VERSION)
+  ANDROID_JAR = @(ANDROID_SDK)/platforms/android-@(ANDROID_VERSION)/android.jar
+
   ACTIVITY_@(OPENXR) = Activity_openxr
   ACTIVITY_@(VRAPI) = Activity_vrapi
   ACTIVITY_@(PICO) = Activity_pico
+  ANDROID_MANIFEST_@(OPENXR) = src/resources/AndroidManifest_oculus.xml
+  ANDROID_MANIFEST_@(VRAPI) = src/resources/AndroidManifest_oculus.xml
+  ANDROID_MANIFEST_@(PICO) = src/resources/AndroidManifest_pico.xml
 
-  ifeq (@(ANDROID_MANIFEST),)
-    ANDROID_MANIFEST_@(OPENXR) = src/resources/AndroidManifest_oculus.xml
-    ANDROID_MANIFEST_@(VRAPI) = src/resources/AndroidManifest_oculus.xml
-    ANDROID_MANIFEST_@(PICO) = src/resources/AndroidManifest_pico.xml
-  else
-    ANDROID_MANIFEST_y = @(ANDROID_MANIFEST)
+  ifneq (@(ANDROID_MANIFEST),)
+  ANDROID_MANIFEST_y = @(ANDROID_MANIFEST)
   endif
 
   ifneq (@(ANDROID_ASSETS),)
-    ANDROID_ASSETS = -A @(ANDROID_ASSETS)
+  ANDROID_ASSETS = -A @(ANDROID_ASSETS)
   endif
 
   CLASSPATH = $(ANDROID_JAR)
@@ -222,70 +207,74 @@ ifeq ($(PLATFORM),android)
     endif
   endif
 
-  # Macros
   !dx = |> ^ DX %b^ dx --dex --output=%o %f |>
   !zipalign = |> ^ ZIPALIGN %f^ $(TOOLS)/zipalign -f 4 %f %o |>
   !apksigner = |> ^ APKSIGNER %o^ $(TOOLS)/apksigner sign --ks @(ANDROID_KEYSTORE) --ks-pass @(ANDROID_KEYSTORE_PASS) --out %o %f |>
 
   ifneq ($(BUILD),)
-    ifeq (@(LUAJIT),y)
-      CFLAGS += -I$(DEPS)/luajit/src
-      LDFLAGS += -L$(BUILD)/luajit/src -lluajit
-      STATIC_LIBS += $(BUILD)/luajit/src/libluajit.a
-    else
-      CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
-      LDFLAGS += -L$(BUILD)/lua -llua
-    endif
+    OPENXR_LIB_PATH = $(DEPS)/OpenXR-Oculus/Libs/Android/arm64-v8a/Release
+    VRAPI_LIB_PATH = $(DEPS)/VrApi/Libs/Android/arm64-v8a/Release
+    PICO_LIB_PATH = $(DEPS)/pico/jni/arm64-v8a
 
-    CFLAGS_@(AUDIO) += -I$(DEPS)/openal-soft/include
-    CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
-    CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
-    CFLAGS_@(ENET) += -I$(DEPS)/enet/include
     CFLAGS_@(OPENXR) += -I$(DEPS)/OpenXR-Oculus/Include
     CFLAGS_@(VRAPI) += -I$(DEPS)/VrApi/Include
 
-    LDFLAGS_@(AUDIO) += -L$(BUILD)/$(LIB) -lopenal
-    LDFLAGS_@(DATA) += -L$(BUILD)/lib_msdfgen -lmsdfgen
-    LDFLAGS_@(PHYSICS) += -L$(BUILD)/$(LIB) -lode
-    LDFLAGS_@(ENET) += -L$(BUILD)/enet -lenet
     LDFLAGS_@(OPENXR) += -L$(OPENXR_LIB_PATH) -lopenxr_loader
     LDFLAGS_@(VRAPI) += -L$(VRAPI_LIB_PATH) -lvrapi
     LDFLAGS_@(PICO) += -L$(PICO_LIB_PATH) -lPvr_NativeSDK
 
-    LIBS_@(AUDIO) += $(BUILD)/$(LIB)/libopenal.*so*
-    LIBS_@(PHYSICS) += $(BUILD)/$(LIB)/libode.so
     LIBS_@(OPENXR) += $(OPENXR_LIB_PATH)/libopenxr_loader.so
     LIBS_@(VRAPI) += $(VRAPI_LIB_PATH)/libvrapi.so
     LIBS_@(PICO) += $(PICO_LIB_PATH)/libPvr_NativeSDK.so
   endif
 endif
 
-## emscripten
-ifeq ($(PLATFORM),web)
-  SUFFIX = .html
-  EXTRAS = lovr.js lovr.wasm
-  EXTRAS_@(THREAD) += lovr.worker.js
-  CFLAGS_@(OPTIMIZE) += -Os
-  LDFLAGS_@(OPTIMIZE) += -Os
-  LDFLAGS += -s USE_WEBGL2
-  LDFLAGS += -s FORCE_FILESYSTEM
-  LDFLAGS += -s EXPORTED_FUNCTIONS="['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetCamera']"
-  LDFLAGS_@(WEBXR) += --js-library $(ROOT)/src/resources/webxr.js
-  LDFLAGS += --shell-file $(ROOT)/src/resources/lovr.html
-  CFLAGS_@(THREAD) += -s USE_PTHREADS=1
-  LDFLAGS_@(THREAD) += -s USE_PTHREADS=1
-  CFLAGS_@(GRAPHICS) += -DLOVR_WEBGL
-
-  CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
-  CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
-  CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
-
-  STATIC_LIBS += $(BUILD)/lua/liblua.a
-  STATIC_LIBS_@(DATA) += $(BUILD)/lib_msdfgen/libmsdfgen.a
-  STATIC_LIBS_@(PHYSICS) += $(BUILD)/ode/libode.a
+## Platform (I don't think tup has a better way to do this stuff aside from using Lua...)
+ifeq (@(PLATFORM),)
+PLATFORM = @(TUP_PLATFORM)
+else
+PLATFORM = @(PLATFORM)
 endif
 
-LIBS += $(LIBS_y)
+ifeq ($(PLATFORM),android)
+LIB = lib/arm64-v8a
+else
+LIB = libs
+endif
+
+ifeq ($(PLATFORM),win32)
+CFLAGS += $(CFLAGS_win32) $(CFLAGS_y_win32)
+LDFLAGS += $(LDFLAGS_win32) $(LDFLAGS_y_win32)
+LIBS += $(LIBS_y_win32)
+endif
+
+ifeq ($(PLATFORM),macosx)
+PLATFORM = macos
+CFLAGS += $(CFLAGS_macos) $(CFLAGS_y_macos)
+LDFLAGS += $(LDFLAGS_macos) $(LDFLAGS_y_macos)
+LIBS += $(LIBS_y_macos)
+endif
+
+ifeq ($(PLATFORM),linux)
+CFLAGS += $(CFLAGS_linux) $(CFLAGS_y_linux)
+LDFLAGS += $(LDFLAGS_linux) $(LDFLAGS_y_linux)
+LIBS += $(LIBS_y_linux)
+endif
+
+ifeq ($(PLATFORM),android)
+CFLAGS += $(CFLAGS_android) $(CFLAGS_y_android)
+LDFLAGS += $(LDFLAGS_android) $(LDFLAGS_y_android)
+LIBS += $(LIBS_y_android)
+endif
+
+ifeq ($(PLATFORM),web)
+CFLAGS += $(CFLAGS_web) $(CFLAGS_y_web)
+LDFLAGS += $(LDFLAGS_web) $(LDFLAGS_y_web)
+LIBS += $(LIBS_y_web)
+endif
+
+CFLAGS += $(FLAGS) $(FLAGS_y)
+LDFLAGS += $(FLAGS) $(FLAGS_y)
 CFLAGS += @(EXTRA_CFLAGS)
 LDFLAGS += @(EXTRA_LDFLAGS)
 
