@@ -50,8 +50,14 @@ local function nogame()
 
     if lovr.headset then
       for i, hand in ipairs(lovr.headset.getHands()) do
-        models[hand] = models[hand] or lovr.headset.newModel(hand)
+        models[hand] = models[hand] or lovr.headset.newModel(hand, { animated = true })
         if models[hand] then
+          if lovr.headset.animate(hand, models[hand]) and models[hand]:hasJoints() then
+            animatedShader = animatedShader or lovr.graphics.newShader('unlit', {
+              flags = { animated = true }
+            })
+            lovr.graphics.setShader(animatedShader)
+          end
           local x, y, z, angle, ax, ay, az = lovr.headset.getPose(hand)
           models[hand]:draw(x, y, z, 1.0, angle, ax, ay, az)
         end
