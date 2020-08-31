@@ -86,7 +86,6 @@ EGLConfig lovrPlatformGetEGLConfig(void);
   X(xrGetActionStateFloat)\
   X(xrSyncActions)\
   X(xrApplyHapticFeedback)\
-  X(xrGetVisibilityMaskKHR)\
   X(xrCreateHandTrackerEXT)\
   X(xrDestroyHandTrackerEXT)\
   X(xrLocateHandJointsEXT)
@@ -124,7 +123,6 @@ static struct {
   XrHandTrackerEXT handTrackers[2];
   struct {
     bool handTracking;
-    bool visibilityMask;
   } features;
 } state;
 
@@ -190,11 +188,6 @@ static bool openxr_init(float offset, uint32_t msaa) {
     if (hasExtension(extensions, extensionCount, XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
       enabledExtensionNames[enabledExtensionCount++] = XR_EXT_HAND_TRACKING_EXTENSION_NAME;
       state.features.handTracking = true;
-    }
-
-    if (hasExtension(extensions, extensionCount, XR_KHR_VISIBILITY_MASK_EXTENSION_NAME)) {
-      enabledExtensionNames[enabledExtensionCount++] = XR_KHR_VISIBILITY_MASK_EXTENSION_NAME;
-      state.features.visibilityMask = true;
     }
 
     free(extensions);
