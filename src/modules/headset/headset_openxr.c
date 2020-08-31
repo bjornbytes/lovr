@@ -110,8 +110,8 @@ static struct {
   XrCompositionLayerProjection layers[1];
   XrCompositionLayerProjectionView layerViews[2];
   XrFrameState frameState;
-  Canvas* canvas;
-  Texture* textures[MAX_IMAGES];
+  Canvas* canvases[MAX_IMAGES];
+  uint32_t imageIndex;
   uint32_t imageCount;
   uint32_t msaa;
   uint32_t width;
@@ -434,8 +434,12 @@ static bool openxr_init(float offset, uint32_t msaa) {
     XR_INIT(xrCreateSwapchain(state.session, &info, &state.swapchain));
     XR_INIT(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
 
+    CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = false, .msaa = state.msaa };
     for (uint32_t i = 0; i < state.imageCount; i++) {
-      state.textures[i] = lovrTextureCreateFromHandle(images[i].image, textureType, arraySize, state.msaa);
+      Texture* texture = lovrTextureCreateFromHandle(images[i].image, textureType, arraySize, state.msaa);
+      state.canvases[i] = lovrCanvasCreate(state.width, state.height, flags);
+      lovrCanvasSetAttachments(state.canvases[i], &(Attachment) { texture, 0, 0 }, 1);
+      lovrRelease(Texture, texture);
     }
 
     // Pre-init composition layer
@@ -465,14 +469,14 @@ static bool openxr_init(float offset, uint32_t msaa) {
   state.clipFar = 100.f;
 
   state.frameState.type = XR_TYPE_FRAME_STATE;
+  lovrPlatformSetSwapInterval(0);
 
   return true;
 }
 
 static void openxr_destroy(void) {
-  lovrRelease(Canvas, state.canvas);
   for (uint32_t i = 0; i < state.imageCount; i++) {
-    lovrRelease(Texture, state.textures[i]);
+    lovrRelease(Canvas, state.canvases[i]);
   }
 
   for (size_t i = 0; i < MAX_ACTIONS; i++) {
@@ -788,18 +792,11 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
   XR(xrBeginFrame(state.session, &beginInfo));
 
   if (state.frameState.shouldRender) {
-    uint32_t imageIndex;
-    XR(xrAcquireSwapchainImage(state.swapchain, NULL, &imageIndex));
+    XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.imageIndex));
     XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = 1e9 };
 
     if (XR(xrWaitSwapchainImage(state.swapchain, &waitInfo)) != XR_TIMEOUT_EXPIRED) {
-      if (!state.canvas) {
-        CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = false, .msaa = state.msaa };
-        state.canvas = lovrCanvasCreate(state.width, state.height, flags);
-        lovrPlatformSetSwapInterval(0);
-      }
-
-      Camera camera = { .canvas = state.canvas, .stereo = true };
+      Camera camera = { .canvas = state.canvases[state.imageIndex], .stereo = true };
 
       uint32_t count;
       XrView views[2];
@@ -821,7 +818,6 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
         mat4_invert(camera.viewMatrix[eye]);
       }
 
-      lovrCanvasSetAttachments(state.canvas, &(Attachment) { state.textures[imageIndex], 0, 0 }, 1);
       lovrGraphicsSetCamera(&camera, true);
       callback(userdata);
       lovrGraphicsSetCamera(NULL, false);
@@ -841,7 +837,8 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
 }
 
 static Texture* openxr_getMirrorTexture(void) {
-  return state.canvas ? lovrCanvasGetAttachments(state.canvas, NULL)[0].texture : NULL;
+  Canvas* canvas = state.canvases[state.imageIndex];
+  return canvas ? lovrCanvasGetAttachments(canvas, NULL)[0].texture : NULL;
 }
 
 static void openxr_update(float dt) {
