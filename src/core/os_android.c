@@ -90,7 +90,7 @@ static int32_t onInputEvent(struct android_app* app, AInputEvent* event) {
     case AKEYCODE_DPAD_DOWN: key = KEY_DOWN; break;
     case AKEYCODE_DPAD_LEFT: key = KEY_LEFT; break;
     case AKEYCODE_DPAD_RIGHT: key = KEY_RIGHT; break;
-    case AKEYCODE_HOME: key = KEY_HOME; break;
+    case AKEYCODE_MOVE_HOME: key = KEY_HOME; break;
     case AKEYCODE_MOVE_END: key = KEY_END; break;
     case AKEYCODE_PAGE_UP: key = KEY_PAGE_UP; break;
     case AKEYCODE_PAGE_DOWN: key = KEY_PAGE_DOWN; break;
