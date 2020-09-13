@@ -687,6 +687,10 @@ void lovrShapeDestroy(void* ref) {
 
 void lovrShapeDestroyData(Shape* shape) {
   if (shape->id) {
+    if (shape->type == SHAPE_MESH) {
+      dTriMeshDataID dataID = dGeomTriMeshGetData(shape->id);
+      dGeomTriMeshDataDestroy(dataID);
+    }
     dGeomDestroy(shape->id);
     shape->id = NULL;
   }
@@ -777,6 +781,13 @@ void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* 
       dReal radius, length;
       dGeomCylinderGetParams(shape->id, &radius, &length);
       dMassSetCylinder(&m, density, 3, radius, length);
+      break;
+    }
+
+    case SHAPE_MESH: {
+      dMassSetTrimesh(&m, density, shape->id);
+      dGeomSetPosition(shape->id, -m.c[0], -m.c[1], -m.c[2]);
+      dMassTranslate(&m, -m.c[0], -m.c[1], -m.c[2]);
       break;
     }
   }
@@ -892,6 +903,17 @@ float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
 
 void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
   dGeomCylinderSetParams(cylinder->id, lovrCylinderShapeGetRadius(cylinder), length);
+}
+
+MeshShape* lovrMeshShapeInit(MeshShape* mesh, int vertexCount, float vertices[], int indexCount, dTriIndex indices[]) {
+  dTriMeshDataID dataID = dGeomTriMeshDataCreate();
+  dGeomTriMeshDataBuildSingle(dataID, vertices, 3 * sizeof(float), vertexCount, 
+                              indices, indexCount, 3 * sizeof(dTriIndex));
+  dGeomTriMeshDataPreprocess2(dataID, (1U << dTRIDATAPREPROCESS_BUILD_FACE_ANGLES), NULL);
+  mesh->id = dCreateTriMesh(0, dataID, 0, 0, 0);
+  mesh->type = SHAPE_MESH;
+  dGeomSetData(mesh->id, mesh);
+  return mesh;
 }
 
 void lovrJointDestroy(void* ref) {
