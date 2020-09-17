@@ -152,6 +152,8 @@ static int32_t onInputEvent(struct android_app* app, AInputEvent* event) {
     if (codepoint > 0) {
       state.onTextEvent(codepoint);
     }
+    (*state.jni)->DeleteLocalRef(state.jni, jevent);
+    (*state.jni)->DeleteLocalRef(state.jni, jKeyEvent);
   }
 
   return 1;
