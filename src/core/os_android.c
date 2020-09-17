@@ -377,6 +377,7 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
 
   EGLint contextAttributes[] = {
     EGL_CONTEXT_CLIENT_VERSION, 3,
+    EGL_CONTEXT_OPENGL_DEBUG, flags->debug,
     EGL_NONE
   };
 

@@ -1245,7 +1245,7 @@ void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
 #endif
 
 #ifndef LOVR_WEBGL
-  if (debug && GLAD_GL_KHR_debug) {
+  if (debug && (GLAD_GL_KHR_debug || GLAD_GL_ES_VERSION_3_2)) {
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(onMessage, NULL);
   }
