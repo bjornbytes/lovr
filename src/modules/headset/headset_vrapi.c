@@ -125,6 +125,7 @@ static bool vrapi_getViewPose(uint32_t view, float* position, float* orientation
   ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, state.displayTime);
   float transform[16];
   mat4_init(transform, (float*) &tracking.Eye[view].ViewMatrix);
+  mat4_transpose(transform);
   mat4_invert(transform);
   mat4_getPosition(transform, position);
   mat4_getOrientation(transform, orientation);
