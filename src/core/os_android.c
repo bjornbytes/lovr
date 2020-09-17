@@ -297,20 +297,24 @@ size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
   jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
   jmethodID getPackageCodePath = (*state.jni)->GetMethodID(state.jni, class, "getPackageCodePath", "()Ljava/lang/String;");
   if (!getPackageCodePath) {
+    (*state.jni)->DeleteLocalRef(state.jni, class);
     return 0;
   }
 
   jstring jpath = (*state.jni)->CallObjectMethod(state.jni, activity, getPackageCodePath);
+  (*state.jni)->DeleteLocalRef(state.jni, class);
   if ((*state.jni)->ExceptionOccurred(state.jni)) {
     (*state.jni)->ExceptionClear(state.jni);
     return 0;
   }
 
-  const char* path = (*state.jni)->GetStringUTFChars(state.jni, jpath, NULL);
-  size_t length = strlen(path);
+  size_t length = (*state.jni)->GetStringUTFLength(state.jni, jpath);
   if (length >= size) return 0;
+
+  const char* path = (*state.jni)->GetStringUTFChars(state.jni, jpath, NULL);
   memcpy(buffer, path, length);
   buffer[length] = '\0';
+  (*state.jni)->ReleaseStringUTFChars(state.jni, jpath, path);
   *root = "/assets";
   return length;
 }
