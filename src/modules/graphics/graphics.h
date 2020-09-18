@@ -189,13 +189,13 @@ typedef struct {
 } GpuFeatures;
 
 typedef struct {
-  bool initialized;
   float pointSizes[2];
   int textureSize;
   int textureMSAA;
   float textureAnisotropy;
   int blockSize;
   int blockAlign;
+  int compute[3];
 } GpuLimits;
 
 typedef struct {

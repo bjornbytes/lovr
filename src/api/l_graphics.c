@@ -451,6 +451,14 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_setfield(L, -2, "anisotropy");
   lua_pushinteger(L, limits->blockSize);
   lua_setfield(L, -2, "blocksize");
+  lua_createtable(L, 3, 0);
+  lua_pushinteger(L, limits->compute[0]);
+  lua_rawseti(L, -2, 1);
+  lua_pushinteger(L, limits->compute[1]);
+  lua_rawseti(L, -2, 2);
+  lua_pushinteger(L, limits->compute[2]);
+  lua_rawseti(L, -2, 3);
+  lua_setfield(L, -2, "compute");
   return 1;
 }
 

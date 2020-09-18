@@ -1263,6 +1263,12 @@ void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
 #endif
   glGetFloatv(GL_POINT_SIZE_RANGE, state.limits.pointSizes);
 
+  if (state.features.compute) {
+    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &state.limits.compute[0]);
+    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &state.limits.compute[1]);
+    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &state.limits.compute[2]);
+  }
+
   if (state.features.multiview) {
     state.singlepass = MULTIVIEW;
   } else if (state.features.instancedStereo) {
@@ -1395,6 +1401,9 @@ void lovrGpuCompute(Shader* shader, int x, int y, int z) {
 #else
   lovrAssert(state.features.compute, "Compute shaders are not supported on this system");
   lovrAssert(shader->type == SHADER_COMPUTE, "Attempt to use a non-compute shader for a compute operation");
+  lovrAssert(x <= state.limits.compute[0], "Compute x size %d exceeds the maximum of %d", state.limits.compute[0]);
+  lovrAssert(y <= state.limits.compute[1], "Compute y size %d exceeds the maximum of %d", state.limits.compute[1]);
+  lovrAssert(z <= state.limits.compute[2], "Compute z size %d exceeds the maximum of %d", state.limits.compute[2]);
   lovrGraphicsFlush();
   lovrGpuBindShader(shader);
   glDispatchCompute(x, y, z);
