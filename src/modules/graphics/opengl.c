@@ -2291,16 +2291,12 @@ void lovrBufferUnmap(Buffer* buffer) {
 
 void lovrBufferDiscard(Buffer* buffer) {
   lovrAssert(!buffer->readable, "Readable Buffers can not be discarded");
+  lovrAssert(!buffer->mapped, "Mapped Buffers can not be discarded");
   lovrGpuBindBuffer(buffer->type, buffer->id);
   GLenum glType = convertBufferType(buffer->type);
 #ifdef LOVR_WEBGL
   glBufferData(glType, buffer->size, NULL, convertBufferUsage(buffer->usage));
 #else
-  if (buffer->mapped) {
-    glUnmapBuffer(glType);
-    buffer->mapped = false;
-  }
-
   GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
   buffer->data = glMapBufferRange(glType, 0, buffer->size, flags);
   buffer->mapped = true;
