@@ -2301,7 +2301,7 @@ void lovrBufferDiscard(Buffer* buffer) {
     buffer->mapped = false;
   }
 
-  GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
+  GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
   buffer->data = glMapBufferRange(glType, 0, buffer->size, flags);
   buffer->mapped = true;
 #endif
