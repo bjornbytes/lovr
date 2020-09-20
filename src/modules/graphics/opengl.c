@@ -1546,7 +1546,7 @@ void lovrGpuResetState() {
 }
 
 void lovrGpuTick(const char* label) {
-#ifndef LOVR_WEBGL
+#ifdef LOVR_GL
   lovrAssert(state.activeTimer == ~0u, "Attempt to start a new GPU timer while one is already active!");
   QueryPool* pool = &state.queryPool;
   uint64_t hash = hash64(label, strlen(label));
@@ -1599,7 +1599,7 @@ void lovrGpuTick(const char* label) {
 }
 
 double lovrGpuTock(const char* label) {
-#ifndef LOVR_WEBGL
+#ifdef LOVR_GL
   QueryPool* pool = &state.queryPool;
   uint64_t hash = hash64(label, strlen(label));
   uint64_t index = map_get(&state.timerMap, hash);
