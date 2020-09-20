@@ -682,7 +682,6 @@ int thrd_join(thrd_t thr, int *res)
       return thrd_error;
     }
   }
-  CloseHandle(thr);
 #elif defined(_TTHREAD_POSIX_)
   void *pres;
   if (pthread_join(thr, &pres) != 0)
