@@ -206,7 +206,7 @@ static bool openvr_init(float offset, uint32_t msaa) {
   state.input->GetInputSourceHandle("/user/hand/right", &state.inputSources[DEVICE_HAND_RIGHT]);
 
   state.clipNear = 0.1f;
-  state.clipFar = 30.f;
+  state.clipFar = 100.f;
   state.offset = state.compositor->GetTrackingSpace() == ETrackingUniverseOrigin_TrackingUniverseStanding ? 0. : offset;
   state.msaa = msaa;
 
