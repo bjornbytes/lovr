@@ -108,7 +108,7 @@ int luax_typeerror(lua_State* L, int index, const char* expected) {
   } else {
     name = luaL_typename(L, index);
   }
-  const char* message = lua_pushfstring(L, "%s expected, got %s", name, expected);
+  const char* message = lua_pushfstring(L, "%s expected, got %s", expected, name);
   return luaL_argerror(L, index, message);
 }
 
