@@ -797,17 +797,10 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
 
       for (int eye = 0; eye < 2; eye++) {
         XrView* view = &views[eye];
-        XrVector3f* v = &view->pose.position;
-        XrQuaternionf* q = &view->pose.orientation;
         XrFovf* fov = &view->fov;
-        float left = tanf(fov->angleLeft);
-        float right = tanf(fov->angleRight);
-        float up = tanf(fov->angleUp);
-        float down = tanf(fov->angleDown);
-        mat4_fov(camera.projection[eye], left, right, up, down, state.clipNear, state.clipFar);
-        mat4_identity(camera.viewMatrix[eye]);
-        mat4_translate(camera.viewMatrix[eye], v->x, v->y, v->z);
-        mat4_rotateQuat(camera.viewMatrix[eye], (float[4]) { q->x, q->y, q->z, q->w });
+        mat4_fov(camera.projection[eye], -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
+        mat4_fromQuat(camera.viewMatrix[eye], &view->pose.orientation.x);
+        memcpy(camera.viewMatrix[eye] + 12, &view->pose.position.x, 3 * sizeof(float));
         mat4_invert(camera.viewMatrix[eye]);
       }
 

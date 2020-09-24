@@ -383,8 +383,7 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
       EyeRenderPose[eye].Position.z
     };
     mat4 transform = camera.viewMatrix[eye];
-    mat4_identity(transform);
-    mat4_rotateQuat(transform, orient);
+    mat4_fromQuat(transform, orient);
     transform[12] = -(transform[0] * pos[0] + transform[4] * pos[1] + transform[8] * pos[2]);
     transform[13] = -(transform[1] * pos[0] + transform[5] * pos[1] + transform[9] * pos[2]);
     transform[14] = -(transform[2] * pos[0] + transform[6] * pos[1] + transform[10] * pos[2]);

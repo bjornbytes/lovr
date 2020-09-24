@@ -135,8 +135,11 @@ static bool vrapi_getViewPose(uint32_t view, float* position, float* orientation
 
 static bool vrapi_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
   if (view >= 2) return false;
+  float projection[16];
   ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, state.displayTime);
-  ovrMatrix4f_ExtractFov(&tracking.Eye[view].ProjectionMatrix, left, right, up, down);
+  mat4_init(projection, (float*) &tracking.Eye[view].ProjectionMatrix);
+  mat4_transpose(projection);
+  mat4_getFov(projection, left, right, up, down);
   uint32_t mask = VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID;
   return (tracking.Status & mask) == mask;
 }
@@ -645,7 +648,7 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
     mat4_init(camera.projection[i], &tracking.Eye[i].ProjectionMatrix.M[0][0]);
     mat4_transpose(camera.projection[i]);
     mat4_transpose(camera.viewMatrix[i]);
-    mat4_translate(camera.viewMatrix[i], 0.f, -state.offset, 0.f);
+    camera.viewMatrix[i][13] -= state.offset;
   }
 
   // Render

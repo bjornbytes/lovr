@@ -285,6 +285,7 @@ static bool openvr_getViewPose(uint32_t view, float* position, float* orientatio
   mat4_multiply(transform, mat4_fromMat34(offset, state.system->GetEyeToHeadTransform(eye).m));
   mat4_getPosition(transform, position);
   mat4_getOrientation(transform, orientation);
+  position[1] += state.offset;
 
   return view < 2;
 }

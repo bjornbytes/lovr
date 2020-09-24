@@ -271,8 +271,9 @@ static uint32_t pico_getViewCount(void) {
 }
 
 static bool pico_getViewPose(uint32_t view, float* position, float* orientation) {
-  // TODO use HmdState pose info, offset view by half ipd
+  vec3_init(position, state.headPosition);
   quat_init(orientation, state.headOrientation);
+  position[1] += state.offset;
   return view < 2;
 }
 
@@ -578,8 +579,7 @@ JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPicoDrawEye(JNIEnv* jni, j
   camera.stereo = false;
   camera.canvas = canvas;
   for (uint32_t i = 0; i < 2; i++) {
-    float fov = tanf(state.fov);
-    mat4_fov(camera.projection[i], -fov, fov, fov, -fov, state.clipNear, state.clipFar);
+    mat4_fov(camera.projection[i], state.fov, state.fov, state.fov, state.fov, state.clipNear, state.clipFar);
     mat4_identity(camera.viewMatrix[i]);
     mat4_translate(camera.viewMatrix[i], state.headPosition[0], state.headPosition[1] + state.offset, state.headPosition[2]);
     mat4_rotateQuat(camera.viewMatrix[i], state.headOrientation);

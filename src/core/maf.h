@@ -332,6 +332,27 @@ MAF mat4 mat4_fromMat44(mat4 m, float (*n)[4]) {
   return m;
 }
 
+MAF mat4 mat4_fromQuat(mat4 m, quat q) {
+  float x = q[0], y = q[1], z = q[2], w = q[3];
+  m[0] = 1.f - 2.f * y * y - 2.f * z * z;
+  m[1] = 2.f * x * y + 2 * w * z;
+  m[2] = 2.f * x * z - 2.f * w * y;
+  m[3] = 0.f;
+  m[4] = 2.f * x * y - 2.f * w * z;
+  m[5] = 1.f - 2.f * x * x - 2.f * z * z;
+  m[6] = 2.f * y * z + 2.f * w * x;
+  m[7] = 0.f;
+  m[8] = 2.f * x * z + 2.f * w * y;
+  m[9] = 2.f * y * z - 2.f * w * x;
+  m[10] = 1.f - 2.f * x * x - 2.f * y * y;
+  m[11] = 0.f;
+  m[12] = 0.f;
+  m[13] = 0.f;
+  m[14] = 0.f;
+  m[15] = 1.f;
+  return m;
+}
+
 MAF mat4 mat4_identity(mat4 m) {
   m[0] = 1.f;
   m[1] = 0.f;
@@ -469,14 +490,8 @@ MAF mat4 mat4_translate(mat4 m, float x, float y, float z) {
 }
 
 MAF mat4 mat4_rotateQuat(mat4 m, quat q) {
-  float x = q[0], y = q[1], z = q[2], w = q[3];
-  float m2[16] = {
-    1 - 2 * y * y - 2 * z * z, 2 * x * y + 2 * w * z, 2 * x * z - 2 * w * y, 0,
-    2 * x * y - 2 * w * z, 1 - 2 * x * x - 2 * z * z, 2 * y * z + 2 * w * x, 0,
-    2 * x * z + 2 * w * y, 2 * y * z - 2 * w * x, 1 - 2 * x * x - 2 * y * y, 0,
-    0, 0, 0, 1
-  };
-  return mat4_multiply(m, m2);
+  float n[16];
+  return mat4_multiply(m, mat4_fromQuat(n, q));
 }
 
 MAF mat4 mat4_rotate(mat4 m, float angle, float x, float y, float z) {
@@ -562,6 +577,10 @@ MAF mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, flo
 
 // This is currently specific to OpenGL
 MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float clipNear, float clipFar) {
+  left = -tanf(left);
+  right = tanf(right);
+  up = tanf(up);
+  down = -tanf(down);
   float idx = 1.f / (right - left);
   float idy = 1.f / (up - down);
   float idz = 1.f / (clipFar - clipNear);
@@ -576,6 +595,27 @@ MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float c
   m[11] = -1.f;
   m[14] = -(clipFar * 2.f * clipNear) * idz;
   return m;
+}
+
+MAF void mat4_getFov(mat4 m, float* left, float* right, float* up, float* down) {
+  float v[4][4] = {
+    {  1.f,  0.f, 0.f, 1.f },
+    { -1.f,  0.f, 0.f, 1.f },
+    {  0.f, -1.f, 0.f, 1.f },
+    {  0.f,  1.f, 0.f, 1.f }
+  };
+
+  float transpose[16];
+  mat4_init(transpose, m);
+  mat4_transpose(transpose);
+  mat4_multiplyVec4(transpose, v[0]);
+  mat4_multiplyVec4(transpose, v[1]);
+  mat4_multiplyVec4(transpose, v[2]);
+  mat4_multiplyVec4(transpose, v[3]);
+  *left = -atanf(v[0][2] / v[0][0]);
+  *right = atanf(v[1][2] / v[1][0]);
+  *up = atanf(v[2][2] / v[2][1]);
+  *down = -atanf(v[3][2] / v[3][1]);
 }
 
 MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
