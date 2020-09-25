@@ -21,6 +21,7 @@
 #pragma clang diagnostic pop
 
 #define GL_SRGB8_ALPHA8 0x8C43
+#define VRAPI_DEVICE_TYPE_OCULUSGO 64
 
 // Private platform functions
 JNIEnv* lovrPlatformGetJNI(void);
@@ -57,9 +58,10 @@ static struct {
 
 static bool vrapi_init(float offset, uint32_t msaa) {
   ANativeActivity* activity = lovrPlatformGetActivity();
+  JNIEnv* jni = lovrPlatformGetJNI();
   state.java.Vm = activity->vm;
   state.java.ActivityObject = activity->clazz;
-  state.java.Env = lovrPlatformGetJNI();
+  state.java.Env = jni;
   state.offset = offset;
   state.msaa = msaa;
   const ovrInitParms config = vrapi_DefaultInitParms(&state.java);
@@ -85,7 +87,7 @@ static void vrapi_destroy() {
 }
 
 static bool vrapi_getName(char* buffer, size_t length) {
-  switch (state.deviceType) {
+  switch ((int) state.deviceType) {
     case VRAPI_DEVICE_TYPE_OCULUSGO: strncpy(buffer, "Oculus Go", length - 1); break;
     case VRAPI_DEVICE_TYPE_OCULUSQUEST: strncpy(buffer, "Oculus Quest", length - 1); break;
     default: return false;
