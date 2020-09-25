@@ -396,6 +396,20 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
   memcpy(poses + 0, &handPose->RootPose.Position.x, 3 * sizeof(float));
   memcpy(poses + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
 
+  float rotation[4];
+  if (index == 0) {
+    float q[4];
+    quat_fromAngleAxis(rotation, (float) M_PI, 0.f, 0.f, 1.f);
+    quat_mul(rotation, rotation, quat_fromAngleAxis(q, (float) M_PI / 2.f, 0.f, 1.f, 0.f));
+  } else {
+    quat_fromAngleAxis(rotation, (float) M_PI / 2.f, 0.f, 1.f, 0.f);
+  }
+
+  for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
+    float* pose = &poses[i * 8];
+    quat_mul(pose + 4, pose + 4, rotation);
+  }
+
   return true;
 }
 
