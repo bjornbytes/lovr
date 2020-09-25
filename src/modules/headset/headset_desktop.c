@@ -181,17 +181,20 @@ static bool desktop_animate(Device device, struct Model* model) {
 }
 
 static void desktop_renderTo(void (*callback)(void*), void* userdata) {
-  float left, right, up, down;
+  float projection[16], left, right, up, down;
   desktop_getViewAngles(0, &left, &right, &up, &down);
-  Camera camera = { .canvas = NULL, .viewMatrix = { MAT4_IDENTITY }, .stereo = true };
-  mat4_fov(camera.projection[0], left, right, up, down, state.clipNear, state.clipFar);
-  mat4_multiply(camera.viewMatrix[0], state.headTransform);
-  mat4_invert(camera.viewMatrix[0]);
-  mat4_set(camera.projection[1], camera.projection[0]);
-  mat4_set(camera.viewMatrix[1], camera.viewMatrix[0]);
-  lovrGraphicsSetCamera(&camera, true);
+  mat4_fov(projection, left, right, up, down, state.clipNear, state.clipFar);
+
+  float viewMatrix[16];
+  mat4_invert(mat4_init(viewMatrix, state.headTransform));
+
+  lovrGraphicsSetProjection(0, projection);
+  lovrGraphicsSetProjection(1, projection);
+  lovrGraphicsSetViewMatrix(0, viewMatrix);
+  lovrGraphicsSetViewMatrix(1, viewMatrix);
+  lovrGraphicsSetBackbuffer(NULL, true, true);
   callback(userdata);
-  lovrGraphicsSetCamera(NULL, false);
+  lovrGraphicsSetBackbuffer(NULL, false, false);
 }
 
 static void desktop_update(float dt) {

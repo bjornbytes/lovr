@@ -47,7 +47,7 @@ SUFFIX_android = .so
 CFLAGS_web += -DLOVR_WEBGL
 LDFLAGS_web += -s USE_WEBGL2
 LDFLAGS_web += -s FORCE_FILESYSTEM
-LDFLAGS_web += -s EXPORTED_FUNCTIONS="['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetCamera']"
+LDFLAGS_web += -s EXPORTED_FUNCTIONS="['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetBackbuffer','_lovrGraphicsSetViewMatrix','_lovrGraphicsSetProjection']"
 LDFLAGS_@(WEBXR)_web += --js-library $(ROOT)/src/resources/webxr.js
 LDFLAGS_web += --shell-file $(ROOT)/src/resources/lovr.html
 CFLAGS_@(THREAD)_web += -s USE_PTHREADS=1

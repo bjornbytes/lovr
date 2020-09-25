@@ -44,7 +44,7 @@ if(EMSCRIPTEN)
     "-Os "
     "-s USE_WEBGL2=1 "
     "-s FORCE_FILESYSTEM=1 "
-    "-s \"EXPORTED_FUNCTIONS=['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetCamera']\" "
+    "-s \"EXPORTED_FUNCTIONS=['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetBackbuffer','_lovrGraphicsSetViewMatrix','_lovrGraphicsSetProjection']\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
     "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/webxr.js\" "
     "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.html\""

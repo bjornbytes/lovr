@@ -575,20 +575,22 @@ JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPicoDrawEye(JNIEnv* jni, j
     arr_push(&state.canvases, ((NativeCanvas) { .id = framebuffer, .instance = canvas }));
   }
 
-  Camera camera;
-  camera.stereo = false;
-  camera.canvas = canvas;
   for (uint32_t i = 0; i < 2; i++) {
-    mat4_fov(camera.projection[i], state.fov, state.fov, state.fov, state.fov, state.clipNear, state.clipFar);
-    mat4_identity(camera.viewMatrix[i]);
-    mat4_translate(camera.viewMatrix[i], state.headPosition[0], state.headPosition[1] + state.offset, state.headPosition[2]);
-    mat4_rotateQuat(camera.viewMatrix[i], state.headOrientation);
-    mat4_translate(camera.viewMatrix[i], state.ipd * (eye == 0 ? -.5f : .5f), 0.f, 0.f);
-    mat4_invert(camera.viewMatrix[i]);
+    float view[16];
+    mat4_identity(view);
+    mat4_translate(view, state.headPosition[0], state.headPosition[1] + state.offset, state.headPosition[2]);
+    mat4_rotateQuat(view, state.headOrientation);
+    mat4_translate(view, state.ipd * (eye == 0 ? -.5f : .5f), 0.f, 0.f);
+    mat4_invert(view);
+    lovrGraphicsSetViewMatrix(i, view);
+
+    float projection[16];
+    mat4_fov(projection, state.fov, state.fov, state.fov, state.fov, state.clipNear, state.clipFar);
+    lovrGraphicsSetProjection(i, projection);
   }
 
   lovrGpuResetState();
-  lovrGraphicsSetCamera(&camera, true);
+  lovrGraphicsSetBackbuffer(canvas, false, true);
   state.renderCallback(state.renderUserdata);
-  lovrGraphicsSetCamera(NULL, false);
+  lovrGraphicsSetBackbuffer(NULL, false, false);
 }

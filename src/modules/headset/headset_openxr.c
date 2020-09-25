@@ -796,17 +796,22 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
       getViews(views, &count);
 
       for (int eye = 0; eye < 2; eye++) {
+        float viewMatrix[16];
         XrView* view = &views[eye];
+        mat4_fromQuat(viewMatrix, &view->pose.orientation.x);
+        memcpy(viewMatrix, &view->pose.position.x, 3 * sizeof(float));
+        mat4_invert(viewMatrix);
+        lovrGraphicsSetViewMatrix(eye, viewMatrix);
+
+        float projection[16];
         XrFovf* fov = &view->fov;
-        mat4_fov(camera.projection[eye], -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
-        mat4_fromQuat(camera.viewMatrix[eye], &view->pose.orientation.x);
-        memcpy(camera.viewMatrix[eye] + 12, &view->pose.position.x, 3 * sizeof(float));
-        mat4_invert(camera.viewMatrix[eye]);
+        mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
+        lovrGraphicsSetProjection(eye, projection);
       }
 
-      lovrGraphicsSetCamera(&camera, true);
+      lovrGraphicsSetBackbuffer(state.canvases[state.imageIndex], true, true);
       callback(userdata);
-      lovrGraphicsSetCamera(NULL, false);
+      lovrGraphicsSetBackbuffer(NULL, false, false);
 
       endInfo.layerCount = 1;
       state.layerViews[0].pose = views[0].pose;

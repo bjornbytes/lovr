@@ -87,12 +87,6 @@ var webxr = {
           state.canvas = Module['_lovrCanvasCreateFromHandle'](width, height, flags, state.fbo, 0, 0, 1, true);
           Module.stackRestore(flags);
 
-          // Camera
-          var sizeof_Camera = 264;
-          state.camera = Module._malloc(sizeof_Camera);
-          HEAPU8[state.camera + 0] = 1; // state.camera.stereo = true
-          HEAPU32[(state.camera + 4) >> 2] = state.canvas; // state.camera.canvas = state.canvas
-
           state.hands = [];
           state.lastButtonState = [];
           session.addEventListener('inputsourceschange', function(event) {
@@ -118,7 +112,6 @@ var webxr = {
 
           session.addEventListener('end', function() {
             Module._free(state.boundsGeometry|0);
-            Module._free(state.camera|0);
 
             if (state.canvas) {
               Module['_lovrCanvasDestroy'](state.canvas);
@@ -366,15 +359,19 @@ var webxr = {
 
   webxr_renderTo: function(callback, userdata) {
     var views = state.viewer.views;
-    var matrices = (state.camera + 8) >> 2;
-    HEAPF32.set(views[0].transform.inverse.matrix, matrices + 0);
-    HEAPF32.set(views[1].transform.inverse.matrix, matrices + 16);
-    HEAPF32.set(views[0].projectionMatrix, matrices + 32);
-    HEAPF32.set(views[1].projectionMatrix, matrices + 48);
-
-    Module['_lovrGraphicsSetCamera'](state.camera, true);
+    var matrix = Module.stackAlloc(16 * 4);
+    HEAPF32.set(views[0].transform.inverse.matrix, matrix >> 2);
+    Module['lovrGraphicsSetViewMatrix'](0, matrix);
+    HEAPF32.set(views[1].transform.inverse.matrix, matrix >> 2);
+    Module['lovrGraphicsSetViewMatrix'](1, matrix);
+    HEAPF32.set(views[0].projectionMatrix, matrix >> 2);
+    Module['_lovrGraphicsSetProjection'](0, matrix);
+    HEAPF32.set(views[1].projectionMatrix, matrix >> 2);
+    Module['_lovrGraphicsSetProjection'](1, matrix);
+    Module.stackRestore();
+    Module['_lovrGraphicsSetBackbuffer'](state.canvas, true, true);
     Module['dynCall_vi'](callback, userdata);
-    Module['_lovrGraphicsSetCamera'](0, false);
+    Module['_lovrGraphicsSetBackbuffer'](0, false, false);
   },
 
   webxr_update: function(dt) {

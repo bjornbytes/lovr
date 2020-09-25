@@ -772,23 +772,23 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
     lovrPlatformSetSwapInterval(0);
   }
 
-  Camera camera = { .canvas = state.canvas };
-
   float head[16];
   mat4_fromMat34(head, state.renderPoses[k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking.m);
 
   for (int i = 0; i < 2; i++) {
-    float eye[16];
+    float matrix[16], eye[16];
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
-    mat4_fromMat44(camera.projection[i], state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
-    mat4_init(camera.viewMatrix[i], head);
-    mat4_multiply(camera.viewMatrix[i], mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
-    mat4_invert(camera.viewMatrix[i]);
+    mat4_init(matrix, head);
+    mat4_multiply(matrix, mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
+    mat4_invert(matrix);
+    lovrGraphicsSetViewMatrix(i, matrix);
+    mat4_fromMat44(matrix, state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
+    lovrGraphicsSetProjection(i, matrix);
   }
 
-  lovrGraphicsSetCamera(&camera, true);
+  lovrGraphicsSetBackbuffer(state.canvas, true, true);
   callback(userdata);
-  lovrGraphicsSetCamera(NULL, false);
+  lovrGraphicsSetBackbuffer(NULL, false, false);
 
   // Submit
   const Attachment* attachments = lovrCanvasGetAttachments(state.canvas, NULL);

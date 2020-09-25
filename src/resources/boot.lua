@@ -253,6 +253,10 @@ function lovr.errhand(message, traceback)
       lovr.headset.renderTo(render)
     end
     if lovr.graphics.hasWindow() then
+      lovr.graphics.setViewPose(1)
+      local width, height = lovr.graphics.getDimensions()
+      local projection = mat4():perspective(.1, 100, math.rad(67), width / height)
+      lovr.graphics.setProjection(1, projection)
       lovr.graphics.clear()
       render()
     end

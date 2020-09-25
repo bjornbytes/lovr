@@ -70,13 +70,6 @@ typedef enum {
 } Winding;
 
 typedef struct {
-  bool stereo;
-  struct Canvas* canvas;
-  float viewMatrix[2][16];
-  float projection[2][16];
-} Camera;
-
-typedef struct {
   float lineWidth;
   unsigned alphaSampling : 1;
   unsigned blendMode : 3; // BlendMode
@@ -99,8 +92,11 @@ void lovrGraphicsCreateWindow(WindowFlags* flags);
 int lovrGraphicsGetWidth(void);
 int lovrGraphicsGetHeight(void);
 float lovrGraphicsGetPixelDensity(void);
-const Camera* lovrGraphicsGetCamera(void);
-void lovrGraphicsSetCamera(Camera* camera, bool clear);
+void lovrGraphicsSetBackbuffer(struct Canvas* canvas, bool stereo, bool clear);
+void lovrGraphicsGetViewMatrix(uint32_t index, float* viewMatrix);
+void lovrGraphicsSetViewMatrix(uint32_t index, float* viewMatrix);
+void lovrGraphicsGetProjection(uint32_t index, float* projection);
+void lovrGraphicsSetProjection(uint32_t index, float* projection);
 struct Buffer* lovrGraphicsGetIdentityBuffer(void);
 #define lovrGraphicsTick lovrGpuTick
 #define lovrGraphicsTock lovrGpuTock
@@ -151,7 +147,6 @@ void lovrGraphicsTranslate(vec3 translation);
 void lovrGraphicsRotate(quat rotation);
 void lovrGraphicsScale(vec3 scale);
 void lovrGraphicsMatrixTransform(mat4 transform);
-void lovrGraphicsSetProjection(mat4 projection);
 
 // Rendering
 void lovrGraphicsFlush(void);

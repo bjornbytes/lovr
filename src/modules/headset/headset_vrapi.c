@@ -640,22 +640,25 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
 
   ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, state.displayTime);
 
-  // Set up camera
-  Camera camera;
-  camera.canvas = state.canvases[state.swapchainIndex];
+  // Camera
   for (uint32_t i = 0; i < 2; i++) {
-    mat4_init(camera.viewMatrix[i], &tracking.Eye[i].ViewMatrix.M[0][0]);
-    mat4_init(camera.projection[i], &tracking.Eye[i].ProjectionMatrix.M[0][0]);
-    mat4_transpose(camera.projection[i]);
-    mat4_transpose(camera.viewMatrix[i]);
-    camera.viewMatrix[i][13] -= state.offset;
+    float view[16];
+    mat4_init(view, &tracking.Eye[i].ViewMatrix.M[0][0]);
+    mat4_transpose(view);
+    view[13] -= state.offset;
+    lovrGraphicsSetViewMatrix(i, view);
+
+    float projection[16];
+    mat4_init(projection, &tracking.Eye[i].ProjectionMatrix.M[0][0]);
+    mat4_transpose(projection);
+    lovrGraphicsSetProjection(i, projection);
   }
 
   // Render
-  lovrGraphicsSetCamera(&camera, true);
+  lovrGraphicsSetBackbuffer(state.canvases[state.swapchainIndex], true, true);
   callback(userdata);
   lovrGraphicsDiscard(false, true, true);
-  lovrGraphicsSetCamera(NULL, false);
+  lovrGraphicsSetBackbuffer(NULL, false, false);
 
   // Submit a layer to VrApi
   ovrLayerProjection2 layer = vrapi_DefaultLayerProjection2();
