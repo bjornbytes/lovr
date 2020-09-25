@@ -146,7 +146,7 @@ static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, cons
 
 static void openxr_destroy();
 
-static bool openxr_init(float offset, uint32_t msaa) {
+static bool openxr_init(float supersample, float offset, uint32_t msaa) {
   state.msaa = msaa;
 
 #ifdef __ANDROID__
@@ -254,8 +254,8 @@ static bool openxr_init(float offset, uint32_t msaa) {
       return false;
     }
 
-    state.width = views[0].recommendedImageRectWidth;
-    state.height = views[0].recommendedImageRectHeight;
+    state.width = MIN(views[0].recommendedImageRectWidth * supersample, views[0].maxImageRectWidth);
+    state.height = MIN(views[0].recommendedImageRectHeight * supersample, views[0].maxImageRectHeight);
   }
 
   { // Actions

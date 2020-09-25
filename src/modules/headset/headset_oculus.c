@@ -24,6 +24,7 @@ static struct {
   float clipFar;
   ovrSizei size;
   Canvas* canvas;
+  float supersample;
   ovrTextureSwapChain chain;
   ovrMirrorTexture mirror;
   float hapticFrequency[2];
@@ -83,7 +84,7 @@ static ovrInputState *refreshButtons(void) {
   return &is;
 }
 
-static bool oculus_init(float offset, uint32_t msaa) {
+static bool oculus_init(float supersample, float offset, uint32_t msaa) {
   ovrResult result = ovr_Initialize(NULL);
   if (OVR_FAILURE(result)) {
     return false;
@@ -101,6 +102,7 @@ static bool oculus_init(float offset, uint32_t msaa) {
   state.needRefreshButtons = true;
   state.clipNear = .1f;
   state.clipFar = 100.f;
+  state.supersample = supersample;
 
   map_init(&state.textureLookup, 4);
 
@@ -325,6 +327,8 @@ static ModelData* oculus_newModelData(Device device, bool animated) {
 static void oculus_renderTo(void (*callback)(void*), void* userdata) {
   if (!state.canvas) {
     state.size = ovr_GetFovTextureSize(state.session, ovrEye_Left, state.desc.DefaultEyeFov[ovrEye_Left], 1.0f);
+    state.size.w *= state.supersample;
+    state.size.h *= state.supersample;
 
     ovrTextureSwapChainDesc swdesc = {
       .Type = ovrTexture_2D,

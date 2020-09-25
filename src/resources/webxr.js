@@ -48,7 +48,7 @@ var webxr = {
   },
 
   webxr_init__deps: ['$buttons', '$axes'],
-  webxr_init: function(offset, msaa) {
+  webxr_init: function(supersample, offset, msaa) {
     if (!navigator.xr) {
       return false;
     }

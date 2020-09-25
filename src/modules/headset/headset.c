@@ -5,7 +5,7 @@ HeadsetInterface* lovrHeadsetDriver = NULL;
 HeadsetInterface* lovrHeadsetTrackingDrivers = NULL;
 static bool initialized = false;
 
-bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float offset, uint32_t msaa) {
+bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, float offset, uint32_t msaa) {
   if (initialized) return false;
   initialized = true;
 
@@ -42,7 +42,7 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float offset, uint32_
     bool hasDisplay = interface->renderTo != NULL;
     bool shouldInitialize = !hasDisplay || !lovrHeadsetDriver;
 
-    if (shouldInitialize && interface->init(offset, msaa)) {
+    if (shouldInitialize && interface->init(supersample, offset, msaa)) {
       if (hasDisplay) {
         lovrHeadsetDriver = interface;
       }

@@ -2,6 +2,7 @@ lovr = require 'lovr'
 
 local function nogame()
   function lovr.conf(t)
+    t.headset.supersample = true
     t.modules.audio = false
     t.modules.math = false
     t.modules.physics = false
@@ -106,6 +107,7 @@ function lovr.boot()
     },
     headset = {
       drivers = { 'openxr', 'oculus', 'vrapi', 'pico', 'openvr', 'webxr', 'desktop' },
+      supersample = false,
       offset = 1.7,
       msaa = 4
     },

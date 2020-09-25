@@ -37,6 +37,7 @@ static struct {
   ovrDeviceType deviceType;
   uint64_t frameIndex;
   double displayTime;
+  float supersample;
   float offset;
   uint32_t msaa;
   ovrVector3f* rawBoundaryPoints;
@@ -56,12 +57,13 @@ static struct {
   float hapticDuration[2];
 } state;
 
-static bool vrapi_init(float offset, uint32_t msaa) {
+static bool vrapi_init(float supersample, float offset, uint32_t msaa) {
   ANativeActivity* activity = lovrPlatformGetActivity();
   JNIEnv* jni = lovrPlatformGetJNI();
   state.java.Vm = activity->vm;
   state.java.ActivityObject = activity->clazz;
   state.java.Env = jni;
+  state.supersample = supersample;
   state.offset = offset;
   state.msaa = msaa;
   const ovrInitParms config = vrapi_DefaultInitParms(&state.java);
@@ -641,6 +643,8 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
 
     uint32_t width, height;
     vrapi_getDisplayDimensions(&width, &height);
+    width *= state.supersample;
+    height *= state.supersample;
     state.swapchain = vrapi_CreateTextureSwapChain3(VRAPI_TEXTURE_TYPE_2D_ARRAY, GL_SRGB8_ALPHA8, width, height, 1, 3);
     state.swapchainLength = vrapi_GetTextureSwapChainLength(state.swapchain);
     lovrAssert(state.swapchainLength <= sizeof(state.canvases) / sizeof(state.canvases[0]), "VrApi: The swapchain is too long");
