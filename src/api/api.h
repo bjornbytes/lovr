@@ -50,6 +50,7 @@ extern const luaL_Reg lovrSliderJoint[];
 extern const luaL_Reg lovrSoundData[];
 extern const luaL_Reg lovrSource[];
 extern const luaL_Reg lovrSphereShape[];
+extern const luaL_Reg lovrMeshShape[];
 extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrTextureData[];
 extern const luaL_Reg lovrThread[];

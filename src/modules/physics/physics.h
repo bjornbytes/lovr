@@ -14,7 +14,8 @@ typedef enum {
   SHAPE_SPHERE,
   SHAPE_BOX,
   SHAPE_CAPSULE,
-  SHAPE_CYLINDER
+  SHAPE_CYLINDER,
+  SHAPE_MESH,
 } ShapeType;
 
 typedef enum {
@@ -63,6 +64,7 @@ typedef Shape SphereShape;
 typedef Shape BoxShape;
 typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
+typedef Shape MeshShape;
 
 struct Joint {
   JointType type;
@@ -211,6 +213,10 @@ float lovrCylinderShapeGetRadius(CylinderShape* cylinder);
 void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius);
 float lovrCylinderShapeGetLength(CylinderShape* cylinder);
 void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length);
+
+MeshShape* lovrMeshShapeInit(MeshShape* mesh, int vertexCount, float vertices[], int indexCount, dTriIndex indices[]);
+#define lovrMeshShapeCreate(...) lovrMeshShapeInit(lovrAlloc(MeshShape), __VA_ARGS__)
+#define lovrMeshShapeDestroy lovrShapeDestroy
 
 void lovrJointDestroy(void* ref);
 void lovrJointDestroyData(Joint* joint);

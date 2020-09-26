@@ -7,6 +7,7 @@ StringEntry ShapeTypes[] = {
   [SHAPE_BOX] = ENTRY("box"),
   [SHAPE_CAPSULE] = ENTRY("capsule"),
   [SHAPE_CYLINDER] = ENTRY("cylinder"),
+  [SHAPE_MESH] = ENTRY("mesh"),
   { 0 }
 };
 
@@ -153,6 +154,7 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_registertype(L, BoxShape);
   luax_registertype(L, CapsuleShape);
   luax_registertype(L, CylinderShape);
+  luax_registertype(L, MeshShape);
   if (lovrPhysicsInit()) {
     luax_atexit(L, lovrPhysicsDestroy);
   }
