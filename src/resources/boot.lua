@@ -4,7 +4,6 @@ local function nogame()
   function lovr.conf(t)
     t.headset.supersample = true
     t.modules.audio = false
-    t.modules.math = false
     t.modules.physics = false
     t.modules.thread = false
   end
@@ -19,9 +18,10 @@ local function nogame()
       return
     end
 
-    lovr.graphics.setBackgroundColor(.894, .933, .949)
+    lovr.graphics.setBackgroundColor(0x20232c)
+    lovr.graphics.setCullingEnabled(true)
 
-    shader = lovr.graphics.newShader([[
+    logo = lovr.graphics.newShader([[
       vec4 position(mat4 projection, mat4 transform, vec4 vertex) {
         return projection * transform * vertex;
       }
@@ -40,30 +40,16 @@ local function nogame()
         float w = fwidth(sdf);
         float alpha = smoothstep(.22 + w, .22 - w, sdf);
         vec3 color = mix(vec3(.094, .662, .890), vec3(.913, .275, .6), clamp(y * 1.5 - .25, 0., 1.));
-        color = mix(color, vec3(1.), smoothstep(-.12 + w, -.12 - w, sdf));
+        color = mix(color, vec3(.2, .2, .24), smoothstep(-.12 + w, -.12 - w, sdf));
         return vec4(pow(color, vec3(2.2)), alpha);
       }
-    ]])
+    ]], { flags = { highp = true } })
+
+    text = lovr.graphics.newShader('font', { flags = { highp = true } })
   end
 
   function lovr.draw()
     lovr.graphics.setColor(0xffffff)
-
-    if lovr.headset then
-      for i, hand in ipairs(lovr.headset.getHands()) do
-        models[hand] = models[hand] or lovr.headset.newModel(hand, { animated = true })
-        if models[hand] then
-          if lovr.headset.animate(hand, models[hand]) and models[hand]:hasJoints() then
-            animatedShader = animatedShader or lovr.graphics.newShader('unlit', {
-              flags = { animated = true }
-            })
-            lovr.graphics.setShader(animatedShader)
-          end
-          local x, y, z, angle, ax, ay, az = lovr.headset.getPose(hand)
-          models[hand]:draw(x, y, z, 1.0, angle, ax, ay, az)
-        end
-      end
-    end
 
     local padding = .1
     local font = lovr.graphics.getFont()
@@ -71,15 +57,39 @@ local function nogame()
     local titlePosition = 1.4 - padding
     local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
 
-    lovr.graphics.setShader(shader)
+    lovr.graphics.setShader(logo)
     lovr.graphics.plane('fill', 0, 1.9, -3, 1, 1, 0, 0, 1)
-    lovr.graphics.setShader()
 
-    lovr.graphics.setColor(.059, .059, .059)
+    lovr.graphics.setShader(text)
+    lovr.graphics.setColor(0xffffff)
     lovr.graphics.print('LÖVR', -.012, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
 
-    lovr.graphics.setColor(.059, .059, .059, fade)
+    lovr.graphics.setColor(.9, .9, .9, fade)
     lovr.graphics.print('No game :(', -.005, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
+    lovr.graphics.setShader()
+
+    if lovr.headset then
+      for i, hand in ipairs(lovr.headset.getHands()) do
+        models[hand] = models[hand] or lovr.headset.newModel(hand, { animated = true })
+        if models[hand] then
+          lovr.headset.animate(hand, models[hand])
+
+          local pose = mat4(lovr.headset.getPose(hand))
+          if lovr.headset.getDriver() == 'vrapi' then
+            animated = animated or lovr.graphics.newShader('unlit', { flags = { animated = true } })
+            lovr.graphics.setShader(animated)
+            lovr.graphics.setColorMask()
+            models[hand]:draw(pose)
+            lovr.graphics.setColorMask(true, true, true, true)
+            lovr.graphics.setColor(0, 0, 0, .5)
+            models[hand]:draw(pose)
+            lovr.graphics.setShader()
+          else
+            models[hand]:draw(pose)
+          end
+        end
+      end
+    end
 
     lovr.graphics.setColor(0xffffff)
   end
