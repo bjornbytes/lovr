@@ -193,7 +193,7 @@ bool lovrPlatformInit() {
   emscripten_set_beforeunload_callback(NULL, onBeforeUnload);
   emscripten_set_focus_callback(CANVAS, NULL, true, onFocusChanged);
   emscripten_set_blur_callback(CANVAS, NULL, true, onFocusChanged);
-  emscripten_set_resize_callback(0, NULL, true, onResize);
+  emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, true, onResize);
   emscripten_set_mousedown_callback(CANVAS, NULL, true, onMouseButton);
   emscripten_set_mouseup_callback(CANVAS, NULL, true, onMouseButton);
   emscripten_set_mousemove_callback(CANVAS, NULL, true, onMouseMove);
