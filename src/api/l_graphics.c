@@ -16,14 +16,14 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-StringEntry ArcModes[] = {
+StringEntry lovrArcMode[] = {
   [ARC_MODE_PIE] = ENTRY("pie"),
   [ARC_MODE_OPEN] = ENTRY("open"),
   [ARC_MODE_CLOSED] = ENTRY("closed"),
   { 0 }
 };
 
-StringEntry AttributeTypes[] = {
+StringEntry lovrAttributeType[] = {
   [I8] = ENTRY("byte"),
   [U8] = ENTRY("ubyte"),
   [I16] = ENTRY("short"),
@@ -34,13 +34,13 @@ StringEntry AttributeTypes[] = {
   { 0 }
 };
 
-StringEntry BlendAlphaModes[] = {
+StringEntry lovrBlendAlphaMode[] = {
   [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
   [BLEND_PREMULTIPLIED] = ENTRY("premultiplied"),
   { 0 }
 };
 
-StringEntry BlendModes[] = {
+StringEntry lovrBlendMode[] = {
   [BLEND_ALPHA] = ENTRY("alpha"),
   [BLEND_ADD] = ENTRY("add"),
   [BLEND_SUBTRACT] = ENTRY("subtract"),
@@ -51,20 +51,20 @@ StringEntry BlendModes[] = {
   { 0 }
 };
 
-StringEntry BlockTypes[] = {
+StringEntry lovrBlockType[] = {
   [BLOCK_UNIFORM] = ENTRY("uniform"),
   [BLOCK_COMPUTE] = ENTRY("compute"),
   { 0 }
 };
 
-StringEntry BufferUsages[] = {
+StringEntry lovrBufferUsage[] = {
   [USAGE_STATIC] = ENTRY("static"),
   [USAGE_DYNAMIC] = ENTRY("dynamic"),
   [USAGE_STREAM] = ENTRY("stream"),
   { 0 }
 };
 
-StringEntry CompareModes[] = {
+StringEntry lovrCompareMode[] = {
   [COMPARE_EQUAL] = ENTRY("equal"),
   [COMPARE_NEQUAL] = ENTRY("notequal"),
   [COMPARE_LESS] = ENTRY("less"),
@@ -74,13 +74,13 @@ StringEntry CompareModes[] = {
   { 0 }
 };
 
-StringEntry CoordinateSpaces[] = {
+StringEntry lovrCoordinateSpace[] = {
   [SPACE_LOCAL] = ENTRY("local"),
   [SPACE_GLOBAL] = ENTRY("global"),
   { 0 }
 };
 
-StringEntry DefaultShaders[] = {
+StringEntry lovrDefaultShader[] = {
   [SHADER_UNLIT] = ENTRY("unlit"),
   [SHADER_STANDARD] = ENTRY("standard"),
   [SHADER_CUBE] = ENTRY("cube"),
@@ -90,7 +90,7 @@ StringEntry DefaultShaders[] = {
   { 0 }
 };
 
-StringEntry DrawModes[] = {
+StringEntry lovrDrawMode[] = {
   [DRAW_POINTS] = ENTRY("points"),
   [DRAW_LINES] = ENTRY("lines"),
   [DRAW_LINE_STRIP] = ENTRY("linestrip"),
@@ -101,39 +101,39 @@ StringEntry DrawModes[] = {
   { 0 }
 };
 
-StringEntry DrawStyles[] = {
+StringEntry lovrDrawStyle[] = {
   [STYLE_FILL] = ENTRY("fill"),
   [STYLE_LINE] = ENTRY("line"),
   { 0 }
 };
 
-StringEntry FilterModes[] = {
+StringEntry lovrFilterMode[] = {
   [FILTER_NEAREST] = ENTRY("nearest"),
   [FILTER_BILINEAR] = ENTRY("bilinear"),
   [FILTER_TRILINEAR] = ENTRY("trilinear"),
   { 0 }
 };
 
-StringEntry HorizontalAligns[] = {
+StringEntry lovrHorizontalAlign[] = {
   [ALIGN_LEFT] = ENTRY("left"),
   [ALIGN_CENTER] = ENTRY("center"),
   [ALIGN_RIGHT] = ENTRY("right"),
   { 0 }
 };
 
-StringEntry MaterialColors[] = {
+StringEntry lovrMaterialColor[] = {
   [COLOR_DIFFUSE] = ENTRY("diffuse"),
   [COLOR_EMISSIVE] = ENTRY("emissive"),
   { 0 }
 };
 
-StringEntry MaterialScalars[] = {
+StringEntry lovrMaterialScalar[] = {
   [SCALAR_METALNESS] = ENTRY("metalness"),
   [SCALAR_ROUGHNESS] = ENTRY("roughness"),
   { 0 }
 };
 
-StringEntry MaterialTextures[] = {
+StringEntry lovrMaterialTexture[] = {
   [TEXTURE_DIFFUSE] = ENTRY("diffuse"),
   [TEXTURE_EMISSIVE] = ENTRY("emissive"),
   [TEXTURE_METALNESS] = ENTRY("metalness"),
@@ -143,13 +143,13 @@ StringEntry MaterialTextures[] = {
   { 0 }
 };
 
-StringEntry ShaderTypes[] = {
+StringEntry lovrShaderType[] = {
   [SHADER_GRAPHICS] = ENTRY("graphics"),
   [SHADER_COMPUTE] = ENTRY("compute"),
   { 0 }
 };
 
-StringEntry StencilActions[] = {
+StringEntry lovrStencilAction[] = {
   [STENCIL_REPLACE] = ENTRY("replace"),
   [STENCIL_INCREMENT] = ENTRY("increment"),
   [STENCIL_DECREMENT] = ENTRY("decrement"),
@@ -159,7 +159,7 @@ StringEntry StencilActions[] = {
   { 0 }
 };
 
-StringEntry TextureFormats[] = {
+StringEntry lovrTextureFormat[] = {
   [FORMAT_RGB] = ENTRY("rgb"),
   [FORMAT_RGBA] = ENTRY("rgba"),
   [FORMAT_RGBA4] = ENTRY("rgba4"),
@@ -198,7 +198,7 @@ StringEntry TextureFormats[] = {
   { 0 }
 };
 
-StringEntry TextureTypes[] = {
+StringEntry lovrTextureType[] = {
   [TEXTURE_2D] = ENTRY("2d"),
   [TEXTURE_ARRAY] = ENTRY("array"),
   [TEXTURE_CUBE] = ENTRY("cube"),
@@ -206,27 +206,27 @@ StringEntry TextureTypes[] = {
   { 0 }
 };
 
-StringEntry UniformAccesses[] = {
+StringEntry lovrUniformAccess[] = {
   [ACCESS_READ] = ENTRY("read"),
   [ACCESS_WRITE] = ENTRY("write"),
   [ACCESS_READ_WRITE] = ENTRY("readwrite"),
   { 0 }
 };
 
-StringEntry VerticalAligns[] = {
+StringEntry lovrVerticalAlign[] = {
   [ALIGN_TOP] = ENTRY("top"),
   [ALIGN_MIDDLE] = ENTRY("middle"),
   [ALIGN_BOTTOM] = ENTRY("bottom"),
   { 0 }
 };
 
-StringEntry Windings[] = {
+StringEntry lovrWinding[] = {
   [WINDING_CLOCKWISE] = ENTRY("clockwise"),
   [WINDING_COUNTERCLOCKWISE] = ENTRY("counterclockwise"),
   { 0 }
 };
 
-StringEntry WrapModes[] = {
+StringEntry lovrWrapMode[] = {
   [WRAP_CLAMP] = ENTRY("clamp"),
   [WRAP_REPEAT] = ENTRY("repeat"),
   [WRAP_MIRRORED_REPEAT] = ENTRY("mirroredrepeat"),
@@ -616,14 +616,14 @@ static int l_lovrGraphicsGetBlendMode(lua_State* L) {
   BlendMode mode;
   BlendAlphaMode alphaMode;
   lovrGraphicsGetBlendMode(&mode, &alphaMode);
-  luax_pushenum(L, BlendModes, mode);
-  luax_pushenum(L, BlendAlphaModes, alphaMode);
+  luax_pushenum(L, BlendMode, mode);
+  luax_pushenum(L, BlendAlphaMode, alphaMode);
   return 2;
 }
 
 static int l_lovrGraphicsSetBlendMode(lua_State* L) {
-  BlendMode mode = lua_isnoneornil(L, 1) ? BLEND_NONE : luax_checkenum(L, 1, BlendModes, NULL, "BlendMode");
-  BlendAlphaMode alphaMode = luax_checkenum(L, 2, BlendAlphaModes, "alphamultiply", "BlendAlphaMode");
+  BlendMode mode = lua_isnoneornil(L, 1) ? BLEND_NONE : luax_checkenum(L, 1, BlendMode, NULL);
+  BlendAlphaMode alphaMode = luax_checkenum(L, 2, BlendAlphaMode, "alphamultiply");
   lovrGraphicsSetBlendMode(mode, alphaMode);
   return 0;
 }
@@ -687,13 +687,13 @@ static int l_lovrGraphicsSetCullingEnabled(lua_State* L) {
 
 static int l_lovrGraphicsGetDefaultFilter(lua_State* L) {
   TextureFilter filter = lovrGraphicsGetDefaultFilter();
-  luax_pushenum(L, FilterModes, filter.mode);
+  luax_pushenum(L, FilterMode, filter.mode);
   lua_pushnumber(L, filter.anisotropy);
   return 2;
 }
 
 static int l_lovrGraphicsSetDefaultFilter(lua_State* L) {
-  FilterMode mode = luax_checkenum(L, 1, FilterModes, NULL, "FilterMode");
+  FilterMode mode = luax_checkenum(L, 1, FilterMode, NULL);
   float anisotropy = luax_optfloat(L, 2, 1.f);
   lovrGraphicsSetDefaultFilter((TextureFilter) { .mode = mode, .anisotropy = anisotropy });
   return 0;
@@ -703,13 +703,13 @@ static int l_lovrGraphicsGetDepthTest(lua_State* L) {
   CompareMode mode;
   bool write;
   lovrGraphicsGetDepthTest(&mode, &write);
-  luax_pushenum(L, CompareModes, mode);
+  luax_pushenum(L, CompareMode, mode);
   lua_pushboolean(L, write);
   return 2;
 }
 
 static int l_lovrGraphicsSetDepthTest(lua_State* L) {
-  CompareMode mode = lua_isnoneornil(L, 1) ? COMPARE_NONE : luax_checkenum(L, 1, CompareModes, NULL, "CompareMode");
+  CompareMode mode = lua_isnoneornil(L, 1) ? COMPARE_NONE : luax_checkenum(L, 1, CompareMode, NULL);
   bool write = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
   lovrGraphicsSetDepthTest(mode, write);
   return 0;
@@ -765,7 +765,7 @@ static int l_lovrGraphicsGetStencilTest(lua_State* L) {
   CompareMode mode;
   int value;
   lovrGraphicsGetStencilTest(&mode, &value);
-  luax_pushenum(L, CompareModes, mode);
+  luax_pushenum(L, CompareMode, mode);
   lua_pushinteger(L, value);
   return 2;
 }
@@ -774,7 +774,7 @@ static int l_lovrGraphicsSetStencilTest(lua_State* L) {
   if (lua_isnoneornil(L, 1)) {
     lovrGraphicsSetStencilTest(COMPARE_NONE, 0);
   } else {
-    CompareMode mode = luax_checkenum(L, 1, CompareModes, NULL, "CompareMode");
+    CompareMode mode = luax_checkenum(L, 1, CompareMode, NULL);
     int value = luaL_checkinteger(L, 2);
     lovrGraphicsSetStencilTest(mode, value);
   }
@@ -782,12 +782,12 @@ static int l_lovrGraphicsSetStencilTest(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetWinding(lua_State* L) {
-  luax_pushenum(L, Windings, lovrGraphicsGetWinding());
+  luax_pushenum(L, Winding, lovrGraphicsGetWinding());
   return 1;
 }
 
 static int l_lovrGraphicsSetWinding(lua_State* L) {
-  Winding winding = luax_checkenum(L, 1, Windings, NULL, "Winding");
+  Winding winding = luax_checkenum(L, 1, Winding, NULL);
   lovrGraphicsSetWinding(winding);
   return 0;
 }
@@ -933,7 +933,7 @@ static int l_lovrGraphicsTriangle(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    style = luax_checkenum(L, 1, DrawStyles, NULL, "DrawStyle");
+    style = luax_checkenum(L, 1, DrawStyle, NULL);
   }
 
   float* vertices;
@@ -950,7 +950,7 @@ static int l_lovrGraphicsPlane(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    style = luax_checkenum(L, 1, DrawStyles, NULL, "DrawStyle");
+    style = luax_checkenum(L, 1, DrawStyle, NULL);
   }
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 2);
@@ -968,7 +968,7 @@ static int luax_rectangularprism(lua_State* L, int scaleComponents) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    style = luax_checkenum(L, 1, DrawStyles, NULL, "DrawStyle");
+    style = luax_checkenum(L, 1, DrawStyle, NULL);
   }
   float transform[16];
   luax_readmat4(L, 2, transform, scaleComponents);
@@ -990,12 +990,12 @@ static int l_lovrGraphicsArc(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    style = luax_checkenum(L, 1, DrawStyles, NULL, "DrawStyle");
+    style = luax_checkenum(L, 1, DrawStyle, NULL);
   }
   ArcMode mode = ARC_MODE_PIE;
   int index = 2;
   if (lua_type(L, index) == LUA_TSTRING) {
-    mode = luax_checkenum(L, index++, ArcModes, NULL, "ArcMode");
+    mode = luax_checkenum(L, index++, ArcMode, NULL);
   }
   float transform[16];
   index = luax_readmat4(L, index, transform, 1);
@@ -1012,7 +1012,7 @@ static int l_lovrGraphicsCircle(lua_State* L) {
   if (lua_isuserdata(L, 1)) {
     material = luax_checktype(L, 1, Material);
   } else {
-    style = luax_checkenum(L, 1, DrawStyles, NULL, "DrawStyle");
+    style = luax_checkenum(L, 1, DrawStyle, NULL);
   }
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1);
@@ -1056,15 +1056,15 @@ static int l_lovrGraphicsPrint(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1);
   float wrap = luax_optfloat(L, index++, 0.f);
-  HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAligns, "center", "HorizontalAlign");
-  VerticalAlign valign = luax_checkenum(L, index++, VerticalAligns, "middle", "VerticalAlign");
+  HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
+  VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
   lovrGraphicsPrint(str, length, transform, wrap, halign, valign);
   return 0;
 }
 
 static int l_lovrGraphicsStencil(lua_State* L) {
   luaL_checktype(L, 1, LUA_TFUNCTION);
-  StencilAction action = luax_checkenum(L, 2, StencilActions, "replace", "StencilAction");
+  StencilAction action = luax_checkenum(L, 2, StencilAction, "replace");
   int replaceValue = luaL_optinteger(L, 3, 1);
   bool keepValues = lua_toboolean(L, 4);
   if (!keepValues) {
@@ -1167,14 +1167,14 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
     switch (lua_type(L, -1)) {
       case LUA_TNIL: break;
       case LUA_TBOOLEAN: flags.depth.enabled = lua_toboolean(L, -1); break;
-      case LUA_TSTRING: flags.depth.format = luax_checkenum(L, -1, TextureFormats, NULL, "TextureFormat"); break;
+      case LUA_TSTRING: flags.depth.format = luax_checkenum(L, -1, TextureFormat, NULL); break;
       case LUA_TTABLE:
         lua_getfield(L, -1, "readable");
         flags.depth.readable = lua_toboolean(L, -1);
         lua_pop(L, 1);
 
         lua_getfield(L, -1, "format");
-        flags.depth.format = luax_checkenum(L, -1, TextureFormats, NULL, "TextureFormat");
+        flags.depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
         lua_pop(L, 1);
         break;
       default: lovrThrow("Expected boolean, string, or table for Canvas depth flag");
@@ -1195,7 +1195,7 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
 
     if (attachmentCount == 0) {
       lua_getfield(L, index, "format");
-      format = luax_checkenum(L, -1, TextureFormats, "rgba", "TextureFormat");
+      format = luax_checkenum(L, -1, TextureFormat, "rgba");
       anonymous = lua_isnil(L, -1) || lua_toboolean(L, -1);
       lua_pop(L, 1);
     }
@@ -1345,7 +1345,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
 
       attributeNames[i] = lua_tostring(L, -1);
       attributes[i].offset = (uint32_t) stride;
-      attributes[i].type = luax_checkenum(L, -2, AttributeTypes, "float", "AttributeType");
+      attributes[i].type = luax_checkenum(L, -2, AttributeType, "float");
       attributes[i].components = luaL_optinteger(L, -3, 1);
 
       switch (attributes[i].type) {
@@ -1362,8 +1362,8 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     count = (uint32_t) (blob->size / stride);
   }
 
-  DrawMode mode = luax_checkenum(L, drawModeIndex, DrawModes, "fan", "DrawMode");
-  BufferUsage usage = luax_checkenum(L, drawModeIndex + 1, BufferUsages, "dynamic", "BufferUsage");
+  DrawMode mode = luax_checkenum(L, drawModeIndex, DrawMode, "fan");
+  BufferUsage usage = luax_checkenum(L, drawModeIndex + 1, BufferUsage, "dynamic");
   bool readable = lua_toboolean(L, drawModeIndex + 2);
   Buffer* vertexBuffer = lovrBufferCreate(count * stride, NULL, BUFFER_VERTEX, usage, readable);
   Mesh* mesh = lovrMeshCreate(mode, vertexBuffer, count);
@@ -1516,7 +1516,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   Shader* shader;
 
   if (lua_isstring(L, 1) && (lua_istable(L, 2) || lua_gettop(L) == 1)) {
-    DefaultShader shaderType = luax_checkenum(L, 1, DefaultShaders, NULL, "DefaultShader");
+    DefaultShader shaderType = luax_checkenum(L, 1, DefaultShader, NULL);
 
     if (lua_istable(L, 2)) {
       lua_getfield(L, 2, "flags");
@@ -1585,7 +1585,7 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   arr_uniform_t uniforms;
   arr_init(&uniforms);
 
-  BlockType type = luax_checkenum(L, 1, BlockTypes, NULL, "Blocktype");
+  BlockType type = luax_checkenum(L, 1, BlockType, NULL);
 
   luaL_checktype(L, 2, LUA_TTABLE);
   lua_pushnil(L);
@@ -1622,7 +1622,7 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
 
   if (lua_istable(L, 3)) {
     lua_getfield(L, 3, "usage");
-    usage = luax_checkenum(L, -1, BufferUsages, "dynamic", "BufferUsage");
+    usage = luax_checkenum(L, -1, BufferUsage, "dynamic");
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "readable");
@@ -1681,11 +1681,11 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, index, "type");
-    type = lua_isnil(L, -1) ? type : (TextureType) luax_checkenum(L, -1, TextureTypes, NULL, "TextureType");
+    type = lua_isnil(L, -1) ? type : (TextureType) luax_checkenum(L, -1, TextureType, NULL);
     lua_pop(L, 1);
 
     lua_getfield(L, index, "format");
-    format = lua_isnil(L, -1) ? format : (TextureFormat) luax_checkenum(L, -1, TextureFormats, NULL, "TextureFormat");
+    format = lua_isnil(L, -1) ? format : (TextureFormat) luax_checkenum(L, -1, TextureFormat, NULL);
     lua_pop(L, 1);
 
     lua_getfield(L, index, "msaa");

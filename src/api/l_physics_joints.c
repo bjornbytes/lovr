@@ -41,7 +41,7 @@ static int l_lovrJointDestroy(lua_State* L) {
 
 static int l_lovrJointGetType(lua_State* L) {
   Joint* joint = luax_checkjoint(L, 1);
-  luax_pushenum(L, JointTypes, lovrJointGetType(joint));
+  luax_pushenum(L, JointType, lovrJointGetType(joint));
   return 1;
 }
 

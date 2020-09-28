@@ -139,7 +139,7 @@ extern HeadsetInterface lovrHeadsetWebXRDriver;
 extern HeadsetInterface lovrHeadsetDesktopDriver;
 
 // Active drivers
-extern HeadsetInterface* lovrHeadsetDriver;
+extern HeadsetInterface* lovrHeadsetDisplayDriver;
 extern HeadsetInterface* lovrHeadsetTrackingDrivers;
 
 #define FOREACH_TRACKING_DRIVER(i)\

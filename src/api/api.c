@@ -167,7 +167,7 @@ void _luax_pushtype(lua_State* L, const char* type, uint64_t hash, void* object)
   lua_remove(L, -2);
 }
 
-int luax_checkenum(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label) {
+int _luax_checkenum(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label) {
   size_t length;
   const char* string = fallback ? luaL_optlstring(L, index, fallback, &length) : luaL_checklstring(L, index, &length);
 

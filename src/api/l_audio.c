@@ -7,13 +7,13 @@
 #include "core/ref.h"
 #include <stdlib.h>
 
-StringEntry SourceTypes[] = {
+StringEntry lovrSourceType[] = {
   [SOURCE_STATIC] = ENTRY("static"),
   [SOURCE_STREAM] = ENTRY("stream"),
   { 0 }
 };
 
-StringEntry TimeUnits[] = {
+StringEntry lovrTimeUnit[] = {
   [UNIT_SECONDS] = ENTRY("seconds"),
   [UNIT_SAMPLES] = ENTRY("samples"),
   { 0 }
@@ -122,7 +122,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
   Source* source = NULL;
   SoundData* soundData = luax_totype(L, 1, SoundData);
   AudioStream* stream = luax_totype(L, 1, AudioStream);
-  bool isStatic = soundData || luax_checkenum(L, 2, SourceTypes, NULL, "SourceType") == SOURCE_STATIC;
+  bool isStatic = soundData || luax_checkenum(L, 2, SourceType, NULL) == SOURCE_STATIC;
 
   if (isStatic) {
     if (soundData) {

@@ -67,39 +67,39 @@ typedef struct {
 
 #define ENTRY(s) { sizeof(s) - 1, s }
 
-extern StringEntry ArcModes[];
-extern StringEntry AttributeTypes[];
-extern StringEntry BlendAlphaModes[];
-extern StringEntry BlendModes[];
-extern StringEntry BlockTypes[];
-extern StringEntry BufferUsages[];
-extern StringEntry CompareModes[];
-extern StringEntry CoordinateSpaces[];
-extern StringEntry Devices[];
-extern StringEntry DeviceAxes[];
-extern StringEntry DeviceButtons[];
-extern StringEntry DrawModes[];
-extern StringEntry DrawStyles[];
-extern StringEntry EventTypes[];
-extern StringEntry FilterModes[];
-extern StringEntry HeadsetDrivers[];
-extern StringEntry HeadsetOrigins[];
-extern StringEntry HorizontalAligns[];
-extern StringEntry JointTypes[];
-extern StringEntry MaterialColors[];
-extern StringEntry MaterialScalars[];
-extern StringEntry MaterialTextures[];
-extern StringEntry ShaderTypes[];
-extern StringEntry ShapeTypes[];
-extern StringEntry SourceTypes[];
-extern StringEntry StencilActions[];
-extern StringEntry TextureFormats[];
-extern StringEntry TextureTypes[];
-extern StringEntry TimeUnits[];
-extern StringEntry UniformAccesses[];
-extern StringEntry VerticalAligns[];
-extern StringEntry Windings[];
-extern StringEntry WrapModes[];
+extern StringEntry lovrArcMode[];
+extern StringEntry lovrAttributeType[];
+extern StringEntry lovrBlendAlphaMode[];
+extern StringEntry lovrBlendMode[];
+extern StringEntry lovrBlockType[];
+extern StringEntry lovrBufferUsage[];
+extern StringEntry lovrCompareMode[];
+extern StringEntry lovrCoordinateSpace[];
+extern StringEntry lovrDevice[];
+extern StringEntry lovrDeviceAxe[];
+extern StringEntry lovrDeviceButton[];
+extern StringEntry lovrDrawMode[];
+extern StringEntry lovrDrawStyle[];
+extern StringEntry lovrEventType[];
+extern StringEntry lovrFilterMode[];
+extern StringEntry lovrHeadsetDriver[];
+extern StringEntry lovrHeadsetOrigin[];
+extern StringEntry lovrHorizontalAlign[];
+extern StringEntry lovrJointType[];
+extern StringEntry lovrMaterialColor[];
+extern StringEntry lovrMaterialScalar[];
+extern StringEntry lovrMaterialTexture[];
+extern StringEntry lovrShaderType[];
+extern StringEntry lovrShapeType[];
+extern StringEntry lovrSourceType[];
+extern StringEntry lovrStencilAction[];
+extern StringEntry lovrTextureFormat[];
+extern StringEntry lovrTextureType[];
+extern StringEntry lovrTimeUnit[];
+extern StringEntry lovrUniformAccess[];
+extern StringEntry lovrVerticalAlign[];
+extern StringEntry lovrWinding[];
+extern StringEntry lovrWrapMode[];
 
 // General helpers
 
@@ -121,7 +121,8 @@ typedef struct {
 #define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash64(#T, strlen(#T)))
 #define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash64(#T, strlen(#T)), #T)
 #define luax_pushtype(L, T, o) _luax_pushtype(L, #T, hash64(#T, strlen(#T)), o)
-#define luax_pushenum(L, m, x) lua_pushlstring(L, m[x].string, m[x].length)
+#define luax_checkenum(L, i, T, x) _luax_checkenum(L, i, lovr ## T, x, #T)
+#define luax_pushenum(L, T, x) lua_pushlstring(L, (lovr ## T)[x].string, (lovr ## T)[x].length)
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
 #define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")
@@ -133,7 +134,7 @@ void* _luax_totype(lua_State* L, int index, uint64_t hash);
 void* _luax_checktype(lua_State* L, int index, uint64_t hash, const char* debug);
 int luax_typeerror(lua_State* L, int index, const char* expected);
 void _luax_pushtype(lua_State* L, const char* name, uint64_t hash, void* object);
-int luax_checkenum(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label);
+int _luax_checkenum(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label);
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
 int luax_resume(lua_State* T, int n);
 void luax_vthrow(void* L, const char* format, va_list args);

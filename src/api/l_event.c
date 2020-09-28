@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-StringEntry EventTypes[] = {
+StringEntry lovrEventType[] = {
   [EVENT_QUIT] = ENTRY("quit"),
   [EVENT_RESTART] = ENTRY("restart"),
   [EVENT_FOCUS] = ENTRY("focus"),
@@ -21,7 +21,7 @@ StringEntry EventTypes[] = {
   { 0 }
 };
 
-StringEntry KeyCodes[] = {
+StringEntry lovrKeyCode[] = {
   [KEY_A] = ENTRY("a"),
   [KEY_B] = ENTRY("b"),
   [KEY_C] = ENTRY("c"),
@@ -187,7 +187,7 @@ static int nextEvent(lua_State* L) {
   if (event.type == EVENT_CUSTOM) {
     lua_pushstring(L, event.data.custom.name);
   } else {
-    luax_pushenum(L, EventTypes, event.type);
+    luax_pushenum(L, EventType, event.type);
   }
 
   switch (event.type) {
@@ -205,13 +205,13 @@ static int nextEvent(lua_State* L) {
       return 3;
 
     case EVENT_KEYPRESSED:
-      luax_pushenum(L, KeyCodes, event.data.key.code);
+      luax_pushenum(L, KeyCode, event.data.key.code);
       lua_pushinteger(L, event.data.key.scancode);
       lua_pushboolean(L, event.data.key.repeat);
       return 4;
 
     case EVENT_KEYRELEASED:
-      luax_pushenum(L, KeyCodes, event.data.key.code);
+      luax_pushenum(L, KeyCode, event.data.key.code);
       lua_pushinteger(L, event.data.key.scancode);
       return 3;
 

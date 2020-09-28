@@ -2,7 +2,7 @@
 #include "physics/physics.h"
 #include "core/ref.h"
 
-StringEntry ShapeTypes[] = {
+StringEntry lovrShapeType[] = {
   [SHAPE_SPHERE] = ENTRY("sphere"),
   [SHAPE_BOX] = ENTRY("box"),
   [SHAPE_CAPSULE] = ENTRY("capsule"),
@@ -11,7 +11,7 @@ StringEntry ShapeTypes[] = {
   { 0 }
 };
 
-StringEntry JointTypes[] = {
+StringEntry lovrJointType[] = {
   [JOINT_BALL] = ENTRY("ball"),
   [JOINT_DISTANCE] = ENTRY("distance"),
   [JOINT_HINGE] = ENTRY("hinge"),
