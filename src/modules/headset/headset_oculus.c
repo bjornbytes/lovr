@@ -392,8 +392,7 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
     lovrGraphicsSetViewMatrix(eye, view);
 
     float projection[16];
-    ovrMatrix4f projection = ovrMatrix4f_Projection(state.desc.DefaultEyeFov[eye], state.clipNear, state.clipFar, ovrProjection_ClipRangeOpenGL);
-    mat4_fromMat44(projection, projection.M);
+    mat4_fromMat44(projection, ovrMatrix4f_Projection(state.desc.DefaultEyeFov[eye], state.clipNear, state.clipFar, ovrProjection_ClipRangeOpenGL).M);
     lovrGraphicsSetProjection(eye, projection);
   }
 
