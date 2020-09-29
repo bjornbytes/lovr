@@ -789,8 +789,6 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
     XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = 1e9 };
 
     if (XR(xrWaitSwapchainImage(state.swapchain, &waitInfo)) != XR_TIMEOUT_EXPIRED) {
-      Camera camera = { .canvas = state.canvases[state.imageIndex], .stereo = true };
-
       uint32_t count;
       XrView views[2];
       getViews(views, &count);
