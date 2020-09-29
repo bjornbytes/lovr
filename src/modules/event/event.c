@@ -50,7 +50,7 @@ bool lovrEventInit() {
 
 void lovrEventDestroy() {
   if (!state.initialized) return;
-  for (size_t i = 0; i < state.events.length; i++) {
+  for (size_t i = state.head; i < state.events.length; i++) {
     Event* event = &state.events.data[i];
     switch (event->type) {
 #if LOVR_ENABLE_THREAD
