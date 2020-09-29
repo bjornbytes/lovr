@@ -360,7 +360,7 @@ static bool openvr_getPose(Device device, vec3 position, quat orientation) {
 
   if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
     InputPoseActionData_t action;
-    state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &action, sizeof(action), 0);
+    state.input->GetPoseActionDataForNextFrame(state.poseActions[device], state.compositor->GetTrackingSpace(), &action, sizeof(action), 0);
     mat4_fromMat34(transform, action.pose.mDeviceToAbsoluteTracking.m);
     transform[13] += state.offset;
     mat4_getPosition(transform, position);
@@ -378,7 +378,7 @@ static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
   if (device == DEVICE_HEAD) {
     pose = &state.renderPoses[k_unTrackedDeviceIndex_Hmd];
   } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
-    state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &action, sizeof(action), 0);
+    state.input->GetPoseActionDataForNextFrame(state.poseActions[device], state.compositor->GetTrackingSpace(), &action, sizeof(action), 0);
     pose = &action.pose;
   } else {
     return false;
@@ -430,7 +430,7 @@ static bool openvr_getSkeleton(Device device, float* poses) {
 
   // Bone transforms are relative to the hand instead of the origin, so get the hand pose first
   InputPoseActionData_t handPose;
-  state.input->GetPoseActionData(state.poseActions[device], state.compositor->GetTrackingSpace(), 0.f, &handPose, sizeof(handPose), 0);
+  state.input->GetPoseActionDataForNextFrame(state.poseActions[device], state.compositor->GetTrackingSpace(), &handPose, sizeof(handPose), 0);
   if (!handPose.pose.bPoseIsValid) {
     return false;
   }
