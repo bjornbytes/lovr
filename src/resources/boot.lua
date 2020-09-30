@@ -8,7 +8,6 @@ local function nogame()
     t.modules.thread = false
   end
 
-  local shader
   local models = {}
 
   function lovr.load()
@@ -66,6 +65,7 @@ local function nogame()
 
     lovr.graphics.setColor(.9, .9, .9, fade)
     lovr.graphics.print('No game :(', -.005, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
+    lovr.graphics.setColor(0xffffff)
     lovr.graphics.setShader()
 
     if lovr.headset then
