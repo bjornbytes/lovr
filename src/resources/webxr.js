@@ -73,7 +73,7 @@ var webxr = {
           state.boundsGeometry = 0; /* NULL */
           state.boundsGeometryCount = 0;
           state.layer = new XRWebGLLayer(session, Module.ctx);
-          state.updateRenderState({ baseLayer: state.layer });
+          state.session.updateRenderState({ baseLayer: state.layer });
           state.fbo = GL.getNewId(GL.framebuffers);
           GL.framebuffers[state.fbo] = state.layer.framebuffer;
 
@@ -155,7 +155,7 @@ var webxr = {
     };
 
     Module.lovr.exitVR = function() {
-      return session ? session.end() : Promise.resolve();
+      return state.session ? state.session.end() : Promise.resolve();
     };
 
     // WebXR is not set as the display driver immediately, it uses webxr_attach to make itself the
@@ -195,7 +195,7 @@ var webxr = {
   },
 
   webxr_getViewCount: function() {
-    return state.viewer.views.length;
+    return state.viewer ? state.viewer.views.length : 0;
   },
 
   webxr_getViewPose__deps: ['$writePose'],
@@ -217,7 +217,7 @@ var webxr = {
   webxr_setClipDistance: function(clipNear, clipFar) {
     state.clipNear = clipNear;
     state.clipFar = clipFar;
-    state.updateRenderState({
+    state.session.updateRenderState({
       clipNear: clipNear,
       clipFar: clipFar
     });
@@ -258,8 +258,8 @@ var webxr = {
   webxr_getPose__deps: ['$writePose'],
   webxr_getPose: function(device, position, orientation) {
     if (device === 0 /* DEVICE_HEAD */) {
-      writePose(state.viewer.transform, position, orientation);
-      return true;
+      state.viewer && writePose(state.viewer.transform, position, orientation);
+      return !!state.viewer;
     }
 
     if (state.hands[device]) {
@@ -358,17 +358,24 @@ var webxr = {
   },
 
   webxr_renderTo: function(callback, userdata) {
-    var views = state.viewer.views;
     var matrix = Module.stackAlloc(16 * 4);
-    HEAPF32.set(views[0].transform.inverse.matrix, matrix >> 2);
-    Module['lovrGraphicsSetViewMatrix'](0, matrix);
-    HEAPF32.set(views[1].transform.inverse.matrix, matrix >> 2);
-    Module['lovrGraphicsSetViewMatrix'](1, matrix);
-    HEAPF32.set(views[0].projectionMatrix, matrix >> 2);
-    Module['_lovrGraphicsSetProjection'](0, matrix);
-    HEAPF32.set(views[1].projectionMatrix, matrix >> 2);
-    Module['_lovrGraphicsSetProjection'](1, matrix);
-    Module.stackRestore();
+    if (state.viewer) {
+      var views = state.viewer.views;
+      HEAPF32.set(views[0].transform.inverse.matrix, matrix >> 2);
+      Module['_lovrGraphicsSetViewMatrix'](0, matrix);
+      HEAPF32.set(views[1].transform.inverse.matrix, matrix >> 2);
+      Module['_lovrGraphicsSetViewMatrix'](1, matrix);
+      HEAPF32.set(views[0].projectionMatrix, matrix >> 2);
+      Module['_lovrGraphicsSetProjection'](0, matrix);
+      HEAPF32.set(views[1].projectionMatrix, matrix >> 2);
+      Module['_lovrGraphicsSetProjection'](1, matrix);
+    } else {
+      HEAPF32.set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], matrix >> 2);
+      Module['_lovrGraphicsSetViewMatrix'](0, matrix);
+      Module['_lovrGraphicsSetViewMatrix'](1, matrix);
+      // TODO projection?
+    }
+    Module.stackRestore(matrix);
     Module['_lovrGraphicsSetBackbuffer'](state.canvas, true, true);
     Module['dynCall_vi'](callback, userdata);
     Module['_lovrGraphicsSetBackbuffer'](0, false, false);
