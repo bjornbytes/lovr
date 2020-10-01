@@ -159,7 +159,11 @@ function lovr.boot()
   end
 
   if lovr.headset and lovr.graphics and conf.window then
-    lovr.headset.init()
+    local ok, result = pcall(lovr.headset.init)
+    if not ok then
+      print(string.format('Warning: Could not load module %q: %s', 'headset', result))
+      lovr.headset = nil
+    end
   end
 
   lovr.handlers = setmetatable({}, { __index = lovr })
