@@ -1,6 +1,7 @@
 #include "api.h"
 #include "headset/headset.h"
 #include "data/modelData.h"
+#include "graphics/graphics.h"
 #include "graphics/model.h"
 #include "graphics/texture.h"
 #include "core/arr.h"
@@ -645,6 +646,10 @@ static int l_lovrHeadsetRenderTo(lua_State* L) {
   headsetRenderData.L = L;
 #endif
   lovrHeadsetDisplayDriver->renderTo(renderHelper, &headsetRenderData);
+  lovrGraphicsSetViewMatrix(0, NULL);
+  lovrGraphicsSetViewMatrix(1, NULL);
+  lovrGraphicsSetProjection(0, NULL);
+  lovrGraphicsSetProjection(1, NULL);
   return 0;
 }
 

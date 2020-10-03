@@ -316,7 +316,11 @@ void lovrGraphicsGetViewMatrix(uint32_t index, float* viewMatrix) {
 void lovrGraphicsSetViewMatrix(uint32_t index, float* viewMatrix) {
   lovrAssert(index < 2, "Invalid view index %d", index);
   lovrGraphicsFlush();
-  mat4_init(state.frameData.viewMatrix[index], viewMatrix);
+  if (viewMatrix) {
+    mat4_init(state.frameData.viewMatrix[index], viewMatrix);
+  } else {
+    mat4_identity(state.frameData.viewMatrix[index]);
+  }
   state.frameDataDirty = true;
 }
 
@@ -328,7 +332,13 @@ void lovrGraphicsGetProjection(uint32_t index, float* projection) {
 void lovrGraphicsSetProjection(uint32_t index, float* projection) {
   lovrAssert(index < 2, "Invalid view index %d", index);
   lovrGraphicsFlush();
-  mat4_init(state.frameData.projection[index], projection);
+  if (projection) {
+    mat4_init(state.frameData.projection[index], projection);
+  } else {
+    float fov = 67.f * (float) M_PI / 180.f;
+    float aspect = (float) state.width / state.height;
+    mat4_perspective(state.frameData.projection[index], .01f, 100.f, fov, aspect);
+  }
   state.frameDataDirty = true;
 }
 
@@ -340,13 +350,10 @@ Buffer* lovrGraphicsGetIdentityBuffer() {
 
 void lovrGraphicsReset() {
   state.transform = 0;
-  float viewMatrix[16], projection[16];
-  mat4_identity(viewMatrix);
-  mat4_perspective(projection, .01f, 100.f, 67.f * (float) M_PI / 180.f, (float) state.width / state.height);
-  lovrGraphicsSetViewMatrix(0, viewMatrix);
-  lovrGraphicsSetViewMatrix(1, viewMatrix);
-  lovrGraphicsSetProjection(0, projection);
-  lovrGraphicsSetProjection(1, projection);
+  lovrGraphicsSetViewMatrix(0, NULL);
+  lovrGraphicsSetViewMatrix(1, NULL);
+  lovrGraphicsSetProjection(0, NULL);
+  lovrGraphicsSetProjection(1, NULL);
   lovrGraphicsSetAlphaSampling(false);
   lovrGraphicsSetBackgroundColor((Color) { 0, 0, 0, 1 });
   lovrGraphicsSetBlendMode(BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
