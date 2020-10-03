@@ -11,7 +11,7 @@ CFLAGS += -Wall -Wextra
 CFLAGS += -Wno-unused-parameter
 CFLAGS_@(OPENVR) += -Wno-typedef-redefinition
 CFLAGS_@(STRICT) += -Werror
-CFLAGS_@(DEBUG) += -g
+FLAGS_@(DEBUG) += -g
 FLAGS_@(OPTIMIZE) += -Os -flto
 FLAGS_@(SANITIZE) += -fsanitize=address,undefined
 
@@ -21,7 +21,9 @@ CFLAGS_win32 += -D_CRT_SECURE_NO_WARNINGS
 CFLAGS_win32 += -Wno-language-extension-token
 LDFLAGS_win32 += -lShell32 -lOle32
 EXTRAS_win32 += lovr.lib lovr.exp
-SUFFIX_win32 = .exe
+ifeq (@(DEBUG),y)
+EXTRAS_win32 += lovr.pdb lovr.ilk
+endif
 
 ## Linux
 CFLAGS_linux += -DLOVR_GL
@@ -41,7 +43,6 @@ LDFLAGS_android += --target=aarch64-linux-android@(ANDROID_VERSION)
 LDFLAGS_android += -landroid -lEGL -lGLESv3
 LDFLAGS_android += -shared
 PREFIX_android = lib/arm64-v8a/lib
-SUFFIX_android = .so
 
 ## emscripten
 CFLAGS_web += -DLOVR_WEBGL
@@ -54,7 +55,6 @@ CFLAGS_@(THREAD)_web += -s USE_PTHREADS=1
 LDFLAGS_@(THREAD)_web += -s USE_PTHREADS=1
 EXTRAS_web = lovr.js lovr.wasm
 EXTRAS_@(THREAD)_web += lovr.worker.js
-SUFFIX_web = .html
 
 ## Modules
 CFLAGS_@(AUDIO) += -DLOVR_ENABLE_AUDIO
@@ -245,7 +245,9 @@ endif
 ifeq ($(PLATFORM),win32)
 CFLAGS += $(CFLAGS_win32) $(CFLAGS_y_win32)
 LDFLAGS += $(LDFLAGS_win32) $(LDFLAGS_y_win32)
+EXTRAS += $(EXTRAS_win32) $(EXTRAS_y_win32)
 LIBS += $(LIBS_y_win32)
+SUFFIX = .exe
 endif
 
 ifeq ($(PLATFORM),macosx)
@@ -265,12 +267,14 @@ ifeq ($(PLATFORM),android)
 CFLAGS += $(CFLAGS_android) $(CFLAGS_y_android)
 LDFLAGS += $(LDFLAGS_android) $(LDFLAGS_y_android)
 LIBS += $(LIBS_y_android)
+SUFFIX = .so
 endif
 
 ifeq ($(PLATFORM),web)
 CFLAGS += $(CFLAGS_web) $(CFLAGS_y_web)
 LDFLAGS += $(LDFLAGS_web) $(LDFLAGS_y_web)
 LIBS += $(LIBS_y_web)
+SUFFIX = .html
 endif
 
 CFLAGS += $(FLAGS) $(FLAGS_y)

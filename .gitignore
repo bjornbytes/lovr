@@ -16,6 +16,8 @@ AndroidManifest*.xml
 /lovr.exe
 /lovr.exp
 /lovr.lib
+/lovr.pdb
+/lovr.ilk
 /lovr.js
 /lovr.worker.js
 /lovr.html
