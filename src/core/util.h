@@ -5,9 +5,9 @@
 #pragma once
 
 #define LOVR_VERSION_MAJOR 0
-#define LOVR_VERSION_MINOR 13
+#define LOVR_VERSION_MINOR 14
 #define LOVR_VERSION_PATCH 0
-#define LOVR_VERSION_ALIAS "Very Velociraptor"
+#define LOVR_VERSION_ALIAS "Maximum Moss"
 
 #ifdef _WIN32
 #define LOVR_EXPORT __declspec(dllexport)
