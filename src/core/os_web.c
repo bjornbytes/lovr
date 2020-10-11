@@ -204,7 +204,15 @@ bool lovrPlatformInit() {
 }
 
 void lovrPlatformDestroy() {
-  //
+  emscripten_set_beforeunload_callback(NULL, NULL);
+  emscripten_set_focus_callback(CANVAS, NULL, true, NULL);
+  emscripten_set_blur_callback(CANVAS, NULL, true, NULL);
+  emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, true, NULL);
+  emscripten_set_mousedown_callback(CANVAS, NULL, true, NULL);
+  emscripten_set_mouseup_callback(CANVAS, NULL, true, NULL);
+  emscripten_set_mousemove_callback(CANVAS, NULL, true, NULL);
+  emscripten_set_keydown_callback(CANVAS, NULL, true, NULL);
+  emscripten_set_keyup_callback(CANVAS, NULL, true, NULL);
 }
 
 const char* lovrPlatformGetName() {
