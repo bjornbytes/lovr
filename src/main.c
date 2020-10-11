@@ -26,6 +26,7 @@ void lovrDestroy(void* arg) {
     lua_State* L = context->L;
     emscripten_cancel_main_loop();
     lua_close(L);
+    lovrPlatformDestroy();
   }
 }
 
