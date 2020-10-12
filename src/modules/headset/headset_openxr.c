@@ -797,7 +797,7 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
         float viewMatrix[16];
         XrView* view = &views[eye];
         mat4_fromQuat(viewMatrix, &view->pose.orientation.x);
-        memcpy(viewMatrix, &view->pose.position.x, 3 * sizeof(float));
+        memcpy(viewMatrix + 12, &view->pose.position.x, 3 * sizeof(float));
         mat4_invert(viewMatrix);
         lovrGraphicsSetViewMatrix(eye, viewMatrix);
 
