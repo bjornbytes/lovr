@@ -16,6 +16,61 @@ StringEntry lovrAnimationProperty[] = {
   { 0 }
 };
 
+StringEntry lovrAttributeType[] = {
+  [I8] = ENTRY("byte"),
+  [U8] = ENTRY("ubyte"),
+  [I16] = ENTRY("short"),
+  [U16] = ENTRY("ushort"),
+  [I32] = ENTRY("int"),
+  [U32] = ENTRY("uint"),
+  [F32] = ENTRY("float"),
+  { 0 }
+};
+
+StringEntry lovrDefaultAttribute[] = {
+  [ATTR_POSITION] = ENTRY("position"),
+  [ATTR_NORMAL] = ENTRY("normal"),
+  [ATTR_TEXCOORD] = ENTRY("texcoord"),
+  [ATTR_COLOR] = ENTRY("color"),
+  [ATTR_TANGENT] = ENTRY("tangent"),
+  [ATTR_BONES] = ENTRY("bones"),
+  [ATTR_WEIGHTS] = ENTRY("weights"),
+  { 0 }
+};
+
+StringEntry lovrDrawMode[] = {
+  [DRAW_POINTS] = ENTRY("points"),
+  [DRAW_LINES] = ENTRY("lines"),
+  [DRAW_LINE_LOOP] = ENTRY("lineloop"),
+  [DRAW_LINE_STRIP] = ENTRY("linestrip"),
+  [DRAW_TRIANGLES] = ENTRY("triangles"),
+  [DRAW_TRIANGLE_STRIP] = ENTRY("strip"),
+  [DRAW_TRIANGLE_FAN] = ENTRY("fan"),
+  { 0 }
+};
+
+StringEntry lovrMaterialColor[] = {
+  [COLOR_DIFFUSE] = ENTRY("diffuse"),
+  [COLOR_EMISSIVE] = ENTRY("emissive"),
+  { 0 }
+};
+
+StringEntry lovrMaterialScalar[] = {
+  [SCALAR_METALNESS] = ENTRY("metalness"),
+  [SCALAR_ROUGHNESS] = ENTRY("roughness"),
+  { 0 }
+};
+
+StringEntry lovrMaterialTexture[] = {
+  [TEXTURE_DIFFUSE] = ENTRY("diffuse"),
+  [TEXTURE_EMISSIVE] = ENTRY("emissive"),
+  [TEXTURE_METALNESS] = ENTRY("metalness"),
+  [TEXTURE_ROUGHNESS] = ENTRY("roughness"),
+  [TEXTURE_OCCLUSION] = ENTRY("occlusion"),
+  [TEXTURE_NORMAL] = ENTRY("normal"),
+  { 0 }
+};
+
 StringEntry lovrSmoothMode[] = {
   [SMOOTH_STEP] = ENTRY("step"),
   [SMOOTH_LINEAR] = ENTRY("linear"),

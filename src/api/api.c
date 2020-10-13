@@ -5,9 +5,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#ifndef LOVR_DISABLE_GRAPHICS
-#include "graphics/model.h"
-#endif
 
 typedef void voidFn(void);
 typedef void destructorFn(void*);
@@ -464,15 +461,6 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
 
     return index + 2;
   }
-
-#ifndef LOVR_DISABLE_GRAPHICS
-  Model* model = luax_totype(L, index, Model);
-  if (model) {
-    lovrModelGetTriangles(model, vertices, vertexCount, indices, indexCount);
-    *shouldFree = false;
-    return index + 1;
-  }
-#endif
 
   return luaL_argerror(L, index, "table or Model");
 }

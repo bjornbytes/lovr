@@ -14,7 +14,7 @@ config = {
     event = true,
     filesystem = true,
     graphics = true,
-    headset = true,
+    headset = false,
     math = true,
     physics = true,
     system = true,
@@ -29,6 +29,10 @@ config = {
     vrapi = false,
     pico = false,
     webxr = false
+  },
+  renderers = {
+    vulkan = false,
+    webgpu = false
   },
   spatializers = {
     simple = true,
@@ -100,11 +104,10 @@ base_flags = {
   config.debug and '-g' or '',
   config.optimize and '-Os' or '',
   config.supercharge and '-flto -march=native -DLOVR_UNCHECKED' or '',
-  config.sanitize and '-fsanitize=address,undefined' or '',
+  config.sanitize and '-fsanitize=address,undefined' or ''
 }
 
 if target == 'win32' then
-  cflags += '-DLOVR_GL'
   cflags += '-D_CRT_SECURE_NO_WARNINGS'
   cflags += '-DWINVER=0x0600' -- Vista
   cflags += '-D_WIN32_WINNT=0x0600'
@@ -119,13 +122,12 @@ if target == 'win32' then
 end
 
 if target == 'macos' then
-  cflags += '-DLOVR_GL'
   lflags += '-Wl,-rpath,@executable_path'
   lflags += '-lobjc'
 end
 
 if target == 'linux' then
-  cflags += '-DLOVR_GL'
+  cflags += '-DLOVR_LINUX_X11'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   cflags += '-D_DEFAULT_SOURCE'
   lflags += '-lm -lpthread -ldl'
@@ -135,9 +137,7 @@ end
 if target == 'wasm' then
   cc = 'emcc'
   cxx = 'em++'
-  cflags += '-DLOVR_WEBGL'
   cflags += '-D_POSIX_C_SOURCE=200809L'
-  lflags += '-s USE_WEBGL2'
   lflags += '-s FORCE_FILESYSTEM'
   lflags += ([[-s EXPORTED_FUNCTIONS="[
     '_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle',
@@ -164,14 +164,12 @@ if target == 'android' then
   cxx = cc .. '++'
   base_flags += '--target=aarch64-linux-android' .. config.android.version
   base_flags += config.debug and '-funwind-tables' or ''
-  cflags += '-DLOVR_GLES'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   cflags += '-I' .. config.android.ndk .. '/sources/android/native_app_glue'
-  lflags += '-shared -landroid -lEGL -lGLESv3'
+  lflags += '-shared -landroid'
 end
 
 overrides = {
-  glad = '-Wno-pedantic',
   os_android = '-Wno-format-pedantic',
   openvr = '-Wno-unused-variable -Wno-typedef-redefinition -Wno-pedantic',
   vrapi = '-Wno-c11-extensions -Wno-gnu-empty-initializer -Wno-pedantic',
@@ -415,10 +413,21 @@ for module, enabled in pairs(config.modules) do
   end
 end
 
-for headset, enabled in pairs(config.headsets) do
+if config.modules.headset then
+  for headset, enabled in pairs(config.headsets) do
+    if enabled then
+      cflags += '-DLOVR_USE_' .. headset:upper()
+      src += 'src/modules/headset/headset_' .. headset .. '.c'
+    end
+  end
+end
+
+for renderer, enabled in pairs(config.renderers) do
   if enabled then
-    cflags += '-DLOVR_USE_' .. headset:upper()
-    src += 'src/modules/headset/headset_' .. headset .. '.c'
+    local codes = { vulkan = 'vk', webgpu = 'webgpu' }
+    local code = codes[renderer]
+    cflags += '-DLOVR_' .. code:upper()
+    src += 'src/core/gpu_' .. code .. '.c'
   end
 end
 
@@ -433,8 +442,6 @@ src += 'src/lib/stb/*.c'
 src += (config.modules.audio or config.modules.data) and 'src/lib/miniaudio/*.c' or nil
 src += config.modules.data and 'src/lib/jsmn/*.c' or nil
 src += config.modules.data and 'src/lib/minimp3/*.c' or nil
-src += config.modules.graphics and 'src/lib/glad/*.c' or nil
-src += config.modules.graphics and 'src/resources/shaders.c' or nil
 src += config.modules.math and 'src/lib/noise1234/*.c' or nil
 src += config.modules.thread and 'src/lib/tinycthread/*.c' or nil
 
@@ -450,6 +457,15 @@ src.extra_inputs += extra_inputs
 
 obj += '.obj/*.o'
 obj.extra_inputs = lib('*')
+
+---> shaders
+
+vert = 'src/resources/*.vert'
+frag = 'src/resources/*.frag'
+
+tup.foreach_rule(vert, 'glslangValidator -V --vn lovr_shader_%B_vert -o %o %f', '%f.h')
+tup.foreach_rule(frag, 'glslangValidator -V --vn lovr_shader_%B_frag -o %o %f', '%f.h')
+tup.rule({ vert .. '.h', frag .. '.h' }, "cat %f | sed '/\\/\\//d' | sed '/#/d' > %o", 'src/resources/shaders.h')
 
 ---> build
 
