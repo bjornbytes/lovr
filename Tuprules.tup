@@ -131,7 +131,7 @@ ifneq (@(CMAKE_DEPS),)
   LDFLAGS_@(AUDIO)_macos += -L$(BUILD)/openal -lopenal
   LDFLAGS_@(AUDIO)_linux += -L$(BUILD)/openal -lopenal
   LDFLAGS_@(AUDIO)_android += -L$(BUILD)/lib/arm64-v8a -lopenal
-  LIBS_@(AUDIO)_win32 += $(BUILD)/openal/src/$(CONFIG)/OpenAL32.dll
+  LIBS_@(AUDIO)_win32 += $(BUILD)/openal/$(CONFIG)/OpenAL32.dll
   LIBS_@(AUDIO)_macos += $(BUILD)/openal/libopenal.*dylib
   LIBS_@(AUDIO)_linux += $(BUILD)/openal/libopenal.*so*
   LIBS_@(AUDIO)_android += $(BUILD)/lib/arm64-v8a/libopenal.*so*
