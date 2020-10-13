@@ -30,6 +30,7 @@ extern StringEntry lovrBufferUsage[];
 extern StringEntry lovrChannelLayout[];
 extern StringEntry lovrCompareMode[];
 extern StringEntry lovrCoordinateSpace[];
+extern StringEntry lovrDefaultAttribute[];
 extern StringEntry lovrDevice[];
 extern StringEntry lovrDeviceAxis[];
 extern StringEntry lovrDeviceButton[];
