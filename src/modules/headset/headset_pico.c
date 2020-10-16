@@ -575,6 +575,9 @@ JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPicoDrawEye(JNIEnv* jni, j
     arr_push(&state.canvases, ((NativeCanvas) { .id = framebuffer, .instance = canvas }));
   }
 
+  // start each eye from origin
+  lovrGraphicsOrigin();
+
   for (uint32_t i = 0; i < 2; i++) {
     float view[16];
     mat4_identity(view);
