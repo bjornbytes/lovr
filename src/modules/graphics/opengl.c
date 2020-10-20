@@ -1523,10 +1523,13 @@ void lovrGpuDirtyTexture() {
 void lovrGpuResetState() {
   if (state.vertexArray) {
     glBindVertexArray(state.vertexArray->vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state.vertexArray->ibo);
   }
 
   for (size_t i = 0; i < MAX_BUFFER_TYPES; i++) {
-    glBindBuffer(convertBufferType(i), state.buffers[i]);
+    if (!state.vertexArray || i != BUFFER_INDEX) {
+      glBindBuffer(convertBufferType(i), state.buffers[i]);
+    }
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, state.framebuffer);
