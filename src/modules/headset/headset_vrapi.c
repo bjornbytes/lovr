@@ -347,26 +347,29 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
   }
 
   float LOVR_ALIGN(16) globalPoses[ovrHandBone_Max * 8];
-  float identity[8] = {0,0,0,1, 0,0,0,1};
-  for (uint32_t i = 0; i < ovrHandBone_Max; i++) {
-    float* pose = &globalPoses[i * 8];
+  if(space == SPACE_GLOBAL) {
+    for (uint32_t i = 0; i < ovrHandBone_Max; i++) {
+      float* pose = &globalPoses[i * 8];
 
-    if(space == SPACE_GLOBAL) {
       if (skeleton->BoneParentIndices[i] >= 0) {
         memcpy(pose, &globalPoses[skeleton->BoneParentIndices[i] * 8], 8 * sizeof(float));
       } else {
         memcpy(pose + 0, &handPose->RootPose.Position.x, 3 * sizeof(float));
         memcpy(pose + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
       }
-    } else {
-      memcpy(pose, identity, 8*sizeof(float));
-    }
 
-    float LOVR_ALIGN(16) translation[4];
-    memcpy(translation, &skeleton->BonePoses[i].Position.x, 3 * sizeof(float));
-    quat_rotate(pose + 4, translation);
-    vec3_add(pose + 0, translation);
-    quat_mul(pose + 4, pose + 4, &handPose->BoneRotations[i].x);
+      float LOVR_ALIGN(16) translation[4];
+      memcpy(translation, &skeleton->BonePoses[i].Position.x, 3 * sizeof(float));
+      quat_rotate(pose + 4, translation);
+      vec3_add(pose + 0, translation);
+      quat_mul(pose + 4, pose + 4, &handPose->BoneRotations[i].x);
+    }
+  } else {
+    for (uint32_t i = 0; i < ovrHandBone_Max; i++) {
+      float* pose = &globalPoses[i * 8];
+      memcpy(pose + 0, &skeleton->BonePoses[i].Position.x, 3 * sizeof(float));
+      memcpy(pose + 4, &handPose->BoneRotations[i].x, 4 * sizeof(float));
+    }
   }
 
   // We try our best, okay?
