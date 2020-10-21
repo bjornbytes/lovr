@@ -333,6 +333,8 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
 }
 
 static bool vrapi_getSkeleton(Device device, float* poses) {
+  CoordinateSpace space = SPACE_LOCAL;
+
   if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;
   }
@@ -345,14 +347,19 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
   }
 
   float LOVR_ALIGN(16) globalPoses[ovrHandBone_Max * 8];
+  float identity[8] = {0,0,0,1, 0,0,0,1};
   for (uint32_t i = 0; i < ovrHandBone_Max; i++) {
     float* pose = &globalPoses[i * 8];
 
-    if (skeleton->BoneParentIndices[i] >= 0) {
-      memcpy(pose, &globalPoses[skeleton->BoneParentIndices[i] * 8], 8 * sizeof(float));
+    if(space == SPACE_GLOBAL) {
+      if (skeleton->BoneParentIndices[i] >= 0) {
+        memcpy(pose, &globalPoses[skeleton->BoneParentIndices[i] * 8], 8 * sizeof(float));
+      } else {
+        memcpy(pose + 0, &handPose->RootPose.Position.x, 3 * sizeof(float));
+        memcpy(pose + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
+      }
     } else {
-      memcpy(pose + 0, &handPose->RootPose.Position.x, 3 * sizeof(float));
-      memcpy(pose + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
+      memcpy(pose, identity, 8*sizeof(float));
     }
 
     float LOVR_ALIGN(16) translation[4];
