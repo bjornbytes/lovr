@@ -346,13 +346,13 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
     return false;
   }
 
-  float LOVR_ALIGN(16) globalPoses[ovrHandBone_Max * 8];
+  float LOVR_ALIGN(16) oculusPoses[ovrHandBone_Max * 8];
   if(space == SPACE_GLOBAL) {
     for (uint32_t i = 0; i < ovrHandBone_Max; i++) {
-      float* pose = &globalPoses[i * 8];
+      float* pose = &oculusPoses[i * 8];
 
       if (skeleton->BoneParentIndices[i] >= 0) {
-        memcpy(pose, &globalPoses[skeleton->BoneParentIndices[i] * 8], 8 * sizeof(float));
+        memcpy(pose, &oculusPoses[skeleton->BoneParentIndices[i] * 8], 8 * sizeof(float));
       } else {
         memcpy(pose + 0, &handPose->RootPose.Position.x, 3 * sizeof(float));
         memcpy(pose + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
@@ -366,14 +366,17 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
     }
   } else {
     for (uint32_t i = 0; i < ovrHandBone_Max; i++) {
-      float* pose = &globalPoses[i * 8];
+      float* pose = &oculusPoses[i * 8];
       memcpy(pose + 0, &skeleton->BonePoses[i].Position.x, 3 * sizeof(float));
       memcpy(pose + 4, &handPose->BoneRotations[i].x, 4 * sizeof(float));
     }
+    memcpy(poses + 0, &handPose->RootPose.Position.x, 3 * sizeof(float));
+    memcpy(poses + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
   }
 
   // We try our best, okay?
   static const uint32_t boneMap[HAND_JOINT_COUNT] = {
+    [JOINT_PALM] = ovrHandBone_WristRoot,
     [JOINT_WRIST] = ovrHandBone_WristRoot,
     [JOINT_THUMB_METACARPAL] = ovrHandBone_Thumb0,
     [JOINT_THUMB_PROXIMAL] = ovrHandBone_Thumb2,
@@ -402,24 +405,25 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
   };
 
   for (uint32_t i = 1; i < HAND_JOINT_COUNT; i++) {
-    memcpy(&poses[i * 8], &globalPoses[boneMap[i] * 8], 8 * sizeof(float));
+    memcpy(&poses[i * 8], &oculusPoses[boneMap[i] * 8], 8 * sizeof(float));
   }
+  
+  if(space == SPACE_GLOBAL) {
+    float rotation[4];
+    if (index == 0) {
+      float q[4];
+      quat_fromAngleAxis(rotation, (float) M_PI, 0.f, 0.f, 1.f);
+      quat_mul(rotation, rotation, quat_fromAngleAxis(q, (float) M_PI / 2.f, 0.f, 1.f, 0.f));
+    } else {
+      quat_fromAngleAxis(rotation, (float) M_PI / 2.f, 0.f, 1.f, 0.f);
+    }
 
-  memcpy(poses + 0, &handPose->RootPose.Position.x, 3 * sizeof(float));
-  memcpy(poses + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
-
-  float rotation[4];
-  if (index == 0) {
-    float q[4];
-    quat_fromAngleAxis(rotation, (float) M_PI, 0.f, 0.f, 1.f);
-    quat_mul(rotation, rotation, quat_fromAngleAxis(q, (float) M_PI / 2.f, 0.f, 1.f, 0.f));
+    for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
+      float* pose = &poses[i * 8];
+      quat_mul(pose + 4, pose + 4, rotation);
+    }
   } else {
-    quat_fromAngleAxis(rotation, (float) M_PI / 2.f, 0.f, 1.f, 0.f);
-  }
-
-  for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
-    float* pose = &poses[i * 8];
-    quat_mul(pose + 4, pose + 4, rotation);
+    // ????????????????
   }
 
   return true;
