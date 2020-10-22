@@ -1,18 +1,19 @@
 #include "gpu.h"
 #include <string.h>
-#include <stdlib.h>
+
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <dlfcn.h>
 #endif
+
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
 #define SCRATCHPAD_SIZE (16 * 1024 * 1024)
 #define VOIDP_TO_U64(x) (((union { uint64_t u; void* p; }) { .p = x }).u)
-#define GPU_THROW(s) if (state.config.callback) { state.config.callback(state.config.context, s, true); }
+#define GPU_THROW(s) if (state.config.callback) { state.config.callback(state.config.userdata, s, true); }
 #define GPU_CHECK(c, s) if (!(c)) { GPU_THROW(s); }
 #define GPU_VK(f) do { VkResult r = (f); GPU_CHECK(r >= 0, getErrorString(r)); } while (0)
 
@@ -42,6 +43,7 @@
   X(vkDeviceWaitIdle)\
   X(vkCreateCommandPool)\
   X(vkDestroyCommandPool)\
+  X(vkResetCommandPool)\
   X(vkAllocateCommandBuffers)\
   X(vkFreeCommandBuffers)\
   X(vkBeginCommandBuffer)\
@@ -86,7 +88,8 @@
   X(vkCmdDrawIndexed)\
   X(vkCmdDrawIndirect)\
   X(vkCmdDrawIndexedIndirect)\
-  X(vkCmdDispatch)
+  X(vkCmdDispatch)\
+  X(vkCmdExecuteCommands)
 
 // Used to load/declare Vulkan functions without lots of clutter
 #define GPU_LOAD_ANONYMOUS(fn) fn = (PFN_##fn) vkGetInstanceProcAddr(NULL, #fn);
@@ -99,18 +102,11 @@ GPU_FOREACH_ANONYMOUS(GPU_DECLARE)
 GPU_FOREACH_INSTANCE(GPU_DECLARE)
 GPU_FOREACH_DEVICE(GPU_DECLARE)
 
-typedef struct {
-  uint16_t frame;
-  uint16_t scratchpad;
-  uint32_t offset;
-} gpu_mapping;
+// Objects
 
 struct gpu_buffer {
   VkBuffer handle;
   VkDeviceMemory memory;
-  gpu_mapping mapping;
-  uint64_t targetOffset;
-  uint64_t targetSize;
 };
 
 struct gpu_texture {
@@ -155,135 +151,61 @@ struct gpu_pipeline {
   VkIndexType indexType;
 };
 
+struct gpu_batch {
+  VkCommandBuffer commands;
+  VkCommandPool pool;
+  gpu_pipeline* pipeline;
+};
+
+// Stream
+
+enum { CPU, GPU };
+
 typedef struct {
-  VkObjectType type;
+  VkCommandBuffer commands;
+  VkCommandPool pool;
+  VkFence fence;
+} gpu_tick;
+
+typedef struct {
   void* handle;
+  VkObjectType type;
+  uint32_t tick;
 } gpu_ref;
 
 typedef struct {
-  gpu_ref* data;
-  size_t capacity;
-  size_t length;
-} gpu_freelist;
+  gpu_ref data[256];
+  uint32_t head;
+  uint32_t tail;
+} gpu_morgue;
 
-typedef struct {
-  VkBuffer buffer;
-  VkDeviceMemory memory;
-  void* data;
-} gpu_scratchpad;
-
-typedef struct {
-  gpu_scratchpad* list;
-  uint16_t count;
-  uint16_t current;
-  uint32_t cursor;
-} gpu_pool;
-
-typedef struct {
-  uint32_t index;
-  VkFence fence;
-  VkCommandBuffer commandBuffer;
-  gpu_freelist freelist;
-  gpu_pool pool;
-} gpu_frame;
+// State
 
 static struct {
-  gpu_config config;
-  gpu_features features;
-  void* library;
   VkInstance instance;
-  VkDebugUtilsMessengerEXT messenger;
-  VkPhysicalDeviceMemoryProperties memoryProperties;
-  VkMemoryRequirements scratchpadMemoryRequirements;
-  uint32_t scratchpadMemoryType;
-  uint32_t queueFamilyIndex;
   VkDevice device;
   VkQueue queue;
-  VkCommandPool commandPool;
-  gpu_frame frames[2];
-  gpu_frame* frame;
-  gpu_pipeline* pipeline;
+  VkCommandBuffer commands;
+  VkDebugUtilsMessengerEXT messenger;
+  VkPhysicalDeviceMemoryProperties memoryProperties;
+  uint32_t tick[2];
+  gpu_tick ticks[16];
+  gpu_morgue morgue;
+  gpu_config config;
+  void* library;
 } state;
 
+// Helpers
+
+static void expunge(void);
 static void condemn(void* handle, VkObjectType type);
-static void purge(gpu_frame* frame);
 static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo);
 static void setLayout(gpu_texture* texture, VkImageLayout layout, VkPipelineStageFlags nextStages, VkAccessFlags nextActions);
 static void nickname(void* object, VkObjectType type, const char* name);
 static VkBool32 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* context);
 static const char* getErrorString(VkResult result);
 
-static uint8_t* gpu_map(uint64_t size, gpu_mapping* mapping) {
-  gpu_pool* pool = &state.frame->pool;
-  gpu_scratchpad* scratchpad = &pool->list[pool->current];
-
-  if (pool->count == 0 || pool->cursor + size > SCRATCHPAD_SIZE) {
-    GPU_CHECK(size <= SCRATCHPAD_SIZE, "Tried to map too much memory");
-
-    pool->cursor = 0;
-    pool->current = pool->count++;
-    pool->list = realloc(pool->list, pool->count * sizeof(gpu_scratchpad));
-    GPU_CHECK(pool->list, "Out of memory");
-    scratchpad = &pool->list[pool->current];
-
-    // Create buffer
-    VkBufferCreateInfo bufferInfo = {
-      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-      .size = SCRATCHPAD_SIZE,
-      .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT
-    };
-
-    GPU_VK(vkCreateBuffer(state.device, &bufferInfo, NULL, &scratchpad->buffer));
-
-    // Get memory requirements, once
-    if (state.scratchpadMemoryRequirements.size == 0) {
-      state.scratchpadMemoryType = ~0u;
-      vkGetBufferMemoryRequirements(state.device, scratchpad->buffer, &state.scratchpadMemoryRequirements);
-      for (uint32_t i = 0; i < state.memoryProperties.memoryTypeCount; i++) {
-        uint32_t flags = state.memoryProperties.memoryTypes[i].propertyFlags;
-        uint32_t mask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-        if ((flags & mask) == mask && (state.scratchpadMemoryRequirements.memoryTypeBits & (1 << i))) {
-          state.scratchpadMemoryType = i;
-          break;
-        }
-      }
-
-      if (state.scratchpadMemoryType == ~0u) {
-        vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
-        return NULL; // PANIC
-      }
-    }
-
-    // Allocate, bind
-    VkMemoryAllocateInfo memoryInfo = {
-      .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-      .allocationSize = state.scratchpadMemoryRequirements.size,
-      .memoryTypeIndex = state.scratchpadMemoryType
-    };
-
-    if (vkAllocateMemory(state.device, &memoryInfo, NULL, &scratchpad->memory)) {
-      vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
-      GPU_THROW("Out of memory");
-    }
-
-    if (vkBindBufferMemory(state.device, scratchpad->buffer, scratchpad->memory, 0)) {
-      vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
-      vkFreeMemory(state.device, scratchpad->memory, NULL);
-      GPU_THROW("Out of memory");
-    }
-
-    if (vkMapMemory(state.device, scratchpad->memory, 0, VK_WHOLE_SIZE, 0, &scratchpad->data)) {
-      vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
-      vkFreeMemory(state.device, scratchpad->memory, NULL);
-      GPU_THROW("Out of memory");
-    }
-  }
-
-  mapping->frame = state.frame->index;
-  mapping->offset = pool->cursor;
-  mapping->scratchpad = pool->current;
-  return (uint8_t*) scratchpad->data + pool->cursor;
-}
+// Entry
 
 bool gpu_init(gpu_config* config) {
   state.config = *config;
@@ -300,9 +222,7 @@ bool gpu_init(gpu_config* config) {
 
   { // Instance
     const char* layers[] = {
-      "VK_LAYER_LUNARG_object_tracker",
-      "VK_LAYER_LUNARG_core_validation",
-      "VK_LAYER_LUNARG_parameter_validation"
+      "VK_LAYER_KHRONOS_validation"
     };
 
     const char* extensions[] = {
@@ -339,8 +259,7 @@ bool gpu_init(gpu_config* config) {
           VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-        .pfnUserCallback = debugCallback,
-        .pUserData = state.config.context
+        .pfnUserCallback = debugCallback
       };
 
       if (vkCreateDebugUtilsMessengerEXT(state.instance, &messengerInfo, NULL, &state.messenger)) {
@@ -361,35 +280,29 @@ bool gpu_init(gpu_config* config) {
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
 
-    state.queueFamilyIndex = ~0u;
     VkQueueFamilyProperties queueFamilies[4];
     uint32_t queueFamilyCount = COUNTOF(queueFamilies);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies);
 
+    uint32_t queueFamilyIndex = ~0u;
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
       uint32_t flags = queueFamilies[i].queueFlags;
       if ((flags & VK_QUEUE_GRAPHICS_BIT) && (flags & VK_QUEUE_COMPUTE_BIT)) {
-        state.queueFamilyIndex = i;
+        queueFamilyIndex = i;
         break;
       }
     }
 
-    if (state.queueFamilyIndex == ~0u) {
+    if (queueFamilyIndex == ~0u) {
       gpu_destroy();
       return false;
     }
-
-    VkPhysicalDeviceFeatures features;
-    vkGetPhysicalDeviceFeatures(physicalDevice, &features);
-    state.features.anisotropy = features.samplerAnisotropy;
-    state.features.astc = features.textureCompressionASTC_LDR;
-    state.features.dxt = features.textureCompressionBC;
 
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &state.memoryProperties);
 
     VkDeviceQueueCreateInfo queueInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-      .queueFamilyIndex = state.queueFamilyIndex,
+      .queueFamilyIndex = queueFamilyIndex,
       .queueCount = 1,
       .pQueuePriorities = &(float) { 1.f }
     };
@@ -417,36 +330,31 @@ bool gpu_init(gpu_config* config) {
       return false;
     }
 
-    vkGetDeviceQueue(state.device, state.queueFamilyIndex, 0, &state.queue);
+    vkGetDeviceQueue(state.device, queueFamilyIndex, 0, &state.queue);
 
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
 
-    VkCommandPoolCreateInfo commandPoolInfo = {
-      .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-      .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-      .queueFamilyIndex = state.queueFamilyIndex
-    };
+    // Frames
+    for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
+      VkCommandPoolCreateInfo poolInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .queueFamilyIndex = queueFamilyIndex
+      };
 
-    if (vkCreateCommandPool(state.device, &commandPoolInfo, NULL, &state.commandPool)) {
-      gpu_destroy();
-      return false;
-    }
-  }
-
-  { // Frame state
-    state.frame = &state.frames[0];
-
-    for (uint32_t i = 0; i < COUNTOF(state.frames); i++) {
-      state.frames[i].index = i;
+      if (vkCreateCommandPool(state.device, &poolInfo, NULL, &state.ticks[i].pool)) {
+        gpu_destroy();
+        return false;
+      }
 
       VkCommandBufferAllocateInfo commandBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = state.commandPool,
+        .commandPool = state.ticks[i].pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1
       };
 
-      if (vkAllocateCommandBuffers(state.device, &commandBufferInfo, &state.frames[i].commandBuffer)) {
+      if (vkAllocateCommandBuffers(state.device, &commandBufferInfo, &state.ticks[i].commands)) {
         gpu_destroy();
         return false;
       }
@@ -456,37 +364,28 @@ bool gpu_init(gpu_config* config) {
         .flags = VK_FENCE_CREATE_SIGNALED_BIT
       };
 
-      if (vkCreateFence(state.device, &fenceInfo, NULL, &state.frames[i].fence)) {
+      if (vkCreateFence(state.device, &fenceInfo, NULL, &state.ticks[i].fence)) {
         gpu_destroy();
         return false;
       }
     }
   }
 
+  state.tick[CPU] = COUNTOF(state.ticks);
+  state.tick[GPU] = ~0u;
   return true;
 }
 
 void gpu_destroy(void) {
   if (state.device) vkDeviceWaitIdle(state.device);
-  for (uint32_t i = 0; i < COUNTOF(state.frames); i++) {
-    gpu_frame* frame = &state.frames[i];
-
-    purge(frame);
-    free(frame->freelist.data);
-
-    if (frame->fence) vkDestroyFence(state.device, frame->fence, NULL);
-    if (frame->commandBuffer) vkFreeCommandBuffers(state.device, state.commandPool, 1, &frame->commandBuffer);
-
-    for (uint32_t j = 0; j < frame->pool.count; j++) {
-      gpu_scratchpad* scratchpad = &frame->pool.list[j];
-      vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
-      vkUnmapMemory(state.device, scratchpad->memory);
-      vkFreeMemory(state.device, scratchpad->memory, NULL);
-    }
-
-    free(frame->pool.list);
+  state.tick[GPU] = state.tick[CPU];
+  expunge();
+  for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
+    gpu_tick* tick = &state.ticks[i];
+    if (tick->fence) vkDestroyFence(state.device, tick->fence, NULL);
+    if (tick->commands) vkFreeCommandBuffers(state.device, tick->pool, 1, &tick->commands);
+    if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
   }
-  if (state.commandPool) vkDestroyCommandPool(state.device, state.commandPool, NULL);
   if (state.device) vkDestroyDevice(state.device, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
   if (state.instance) vkDestroyInstance(state.instance, NULL);
@@ -498,36 +397,34 @@ void gpu_destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-void gpu_frame_wait(void) {
-  GPU_VK(vkWaitForFences(state.device, 1, &state.frame->fence, VK_FALSE, ~0ull));
-  GPU_VK(vkResetFences(state.device, 1, &state.frame->fence));
-  state.frame->pool.current = 0;
-  state.frame->pool.cursor = 0;
-  purge(state.frame);
+void gpu_prepare() {
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
+  GPU_VK(vkWaitForFences(state.device, 1, &tick->fence, VK_FALSE, ~0ull));
+  GPU_VK(vkResetFences(state.device, 1, &tick->fence));
+  GPU_VK(vkResetCommandPool(state.device, tick->pool, 0));
+  state.tick[GPU]++;
+  expunge();
 
-  VkCommandBufferBeginInfo beginfo = {
+  state.commands = tick->commands;
+  GPU_VK(vkBeginCommandBuffer(state.commands, &(VkCommandBufferBeginInfo) {
     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-  };
-
-  GPU_VK(vkBeginCommandBuffer(state.frame->commandBuffer, &beginfo));
+  }));
 }
 
-void gpu_frame_finish(void) {
-  GPU_VK(vkEndCommandBuffer(state.frame->commandBuffer));
-
-  VkSubmitInfo submitInfo = {
+void gpu_submit() {
+  VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .pCommandBuffers = &state.frame->commandBuffer,
+    .pCommandBuffers = &state.commands,
     .commandBufferCount = 1
   };
 
-  GPU_VK(vkQueueSubmit(state.queue, 1, &submitInfo, state.frame->fence));
-
-  state.frame = &state.frames[(state.frame->index + 1) % COUNTOF(state.frames)];
+  GPU_VK(vkEndCommandBuffer(state.commands));
+  GPU_VK(vkQueueSubmit(state.queue, 1, &submit, state.ticks[state.tick[CPU]++ & 0xf].fence));
+  state.commands = VK_NULL_HANDLE;
 }
 
-void gpu_render_begin(gpu_canvas* canvas) {
+void gpu_pass_begin(gpu_canvas* canvas) {
   for (uint32_t i = 0; i < COUNTOF(canvas->sync) && canvas->sync[i].texture; i++) {
     setLayout(canvas->sync[i].texture, canvas->sync[i].layout, canvas->sync[i].stage, canvas->sync[i].access);
   }
@@ -541,59 +438,22 @@ void gpu_render_begin(gpu_canvas* canvas) {
     .pClearValues = canvas->clears
   };
 
-  vkCmdBeginRenderPass(state.frame->commandBuffer, &beginfo, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBeginRenderPass(state.commands, &beginfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
-void gpu_render_finish(void) {
-  vkCmdEndRenderPass(state.frame->commandBuffer);
+void gpu_pass_end() {
+  vkCmdEndRenderPass(state.commands);
 }
 
-void gpu_set_pipeline(gpu_pipeline* pipeline) {
-  if (state.pipeline != pipeline) {
-    vkCmdBindPipeline(state.frame->commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle);
-    state.pipeline = pipeline;
+void gpu_execute(gpu_batch** batches, uint32_t count) {
+  VkCommandBuffer commands[8];
+  uint32_t chunk = COUNTOF(commands);
+  for (uint32_t i = 0; i < count; i += chunk) {
+    for (uint32_t j = 0; j < chunk && i + j < count; j++) {
+      commands[j] = batches[i + j]->commands;
+    }
+    vkCmdExecuteCommands(state.commands, count, commands);
   }
-}
-
-void gpu_set_vertex_buffers(gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
-  VkBuffer handles[16];
-  for (uint32_t i = 0; i < count; i++) {
-    handles[i] = buffers[i]->handle;
-  }
-  vkCmdBindVertexBuffers(state.frame->commandBuffer, 0, count, handles, offsets);
-}
-
-void gpu_set_index_buffer(gpu_buffer* buffer, uint64_t offset) {
-  vkCmdBindIndexBuffer(state.frame->commandBuffer, buffer->handle, offset, state.pipeline->indexType);
-}
-
-void gpu_draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex) {
-  vkCmdDraw(state.frame->commandBuffer, vertexCount, instanceCount, firstVertex, 0);
-}
-
-void gpu_draw_indexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex) {
-  vkCmdDrawIndexed(state.frame->commandBuffer, indexCount, instanceCount, firstIndex, baseVertex, 0);
-}
-
-void gpu_draw_indirect(gpu_buffer* buffer, uint64_t offset, uint32_t drawCount) {
-  vkCmdDrawIndirect(state.frame->commandBuffer, buffer->handle, offset, drawCount, 0);
-}
-
-void gpu_draw_indirect_indexed(gpu_buffer* buffer, uint64_t offset, uint32_t drawCount) {
-  vkCmdDrawIndexedIndirect(state.frame->commandBuffer, buffer->handle, offset, drawCount, 0);
-}
-
-void gpu_compute(gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z) {
-  // TODO bind compute pipeline
-  vkCmdDispatch(state.frame->commandBuffer, x, y, z);
-}
-
-void gpu_get_features(gpu_features* features) {
-  *features = state.features;
-}
-
-void gpu_get_limits(gpu_limits* limits) {
-  //
 }
 
 // Buffer
@@ -670,26 +530,11 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
 }
 
 uint8_t* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
-  buffer->targetOffset = offset;
-  buffer->targetSize = size;
-  return gpu_map(size, &buffer->mapping);
+  return NULL;
 }
 
 void gpu_buffer_unmap(gpu_buffer* buffer) {
-  if (buffer->mapping.frame != state.frame->index) {
-    return;
-  }
-
-  VkBuffer source = state.frame->pool.list[buffer->mapping.scratchpad].buffer;
-  VkBuffer destination = buffer->handle;
-
-  VkBufferCopy copy = {
-    .srcOffset = buffer->mapping.offset,
-    .dstOffset = buffer->targetOffset,
-    .size = buffer->targetSize
-  };
-
-  vkCmdCopyBuffer(state.frame->commandBuffer, source, destination, 1, &copy);
+  //
 }
 
 // Texture
@@ -852,65 +697,8 @@ void gpu_texture_destroy(gpu_texture* texture) {
 }
 
 void gpu_texture_paste(gpu_texture* texture, uint8_t* data, uint64_t size, uint16_t offset[4], uint16_t extent[4], uint16_t mip) {
-  if (size > SCRATCHPAD_SIZE) {
-    // TODO loop or big boi staging buffer
-    return;
-  }
-
-  gpu_mapping mapping;
-  uint8_t* scratch = gpu_map(size, &mapping);
-  memcpy(data, scratch, size);
-
-  VkBuffer source = state.frames[mapping.frame].pool.list[mapping.scratchpad].buffer;
-  VkImage destination = texture->handle;
-
-  VkBufferImageCopy copy = {
-    .bufferOffset = mapping.offset,
-    .imageSubresource.aspectMask = texture->aspect,
-    .imageSubresource.mipLevel = mip,
-    .imageSubresource.baseArrayLayer = offset[3],
-    .imageSubresource.layerCount = extent[3],
-    .imageOffset = { offset[0], offset[1], offset[2] },
-    .imageExtent = { extent[0], extent[1], extent[2] }
-  };
-
-  setLayout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
-
-  vkCmdCopyBufferToImage(state.frame->commandBuffer, source, destination, texture->layout, 1, &copy);
+  //
 }
-
-// Sampler
-
-/*
-size_t gpu_sizeof_sampler() {
-  return sizeof(gpu_sampler);
-}
-
-bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
-  VkSamplerCreateInfo createInfo = {
-    .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-    .magFilter = info->mag == GPU_FILTER_NEAREST ? VK_FILTER_NEAREST : VK_FILTER_LINEAR,
-    .minFilter = info->min == GPU_FILTER_NEAREST ? VK_FILTER_NEAREST : VK_FILTER_LINEAR,
-    .mipmapMode = info->mip == GPU_FILTER_NEAREST ? VK_SAMPLER_MIPMAP_MODE_NEAREST : VK_SAMPLER_MIPMAP_MODE_LINEAR,
-    .addressModeU = convertWrap(info->wrapu),
-    .addressModeV = convertWrap(info->wrapv),
-    .addressModeW = convertWrap(info->wrapw),
-    .anisotropyEnable = info->anisotropy > 0.f,
-    .maxAnisotropy = info->anisotropy
-  };
-
-  GPU_VK(vkCreateSampler(state.device, &createInfo, NULL, &sampler->handle));
-
-  nickname(sampler, VK_OBJECT_TYPE_SAMPLER, info->label);
-
-  return true;
-}
-
-void gpu_sampler_destroy(gpu_sampler* sampler) {
-  if (sampler->handle) condemn(sampler->handle, VK_OBJECT_TYPE_SAMPLER);
-  memset(sampler, 0, sizeof(*sampler));
-}
-*/
 
 // Canvas
 
@@ -1224,49 +1012,95 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
   if (pipeline->handle) condemn(pipeline->handle, VK_OBJECT_TYPE_PIPELINE);
 }
 
-// Helpers
+// Batch
 
-// Condemns an object, marking it for deletion (objects can't be destroyed while the GPU is still
-// using them).  Condemned objects are purged in gpu_begin_frame after waiting on a fence.  We have
-// to manage the freelist memory ourselves because the user could immediately free memory after
-// destroying a resource.
-// TODO currently there is a bug where condemning a resource outside of begin/end frame will
-// immediately purge it on the next call to begin_frame (it should somehow get added to the previous
-// frame's freelist, ugh, maybe advance frame index in begin_frame instead of end_frame)
-// TODO even though this is fairly lightweight it might be worth doing some object tracking to see
-// if you actually need to delay the destruction, and try to destroy it immediately when possible.
-// Because Lua objects are GC'd we probably already have our own delay and could get away with
-// skipping the freelist a lot of the time.  Also you might need to track object access anyway for
-// barriers, so this could wombo combo with the condemnation.  It might be complicated though if you
-// have to track access across multiple frames.
-static void condemn(void* handle, VkObjectType type) {
-  gpu_freelist* freelist = &state.frame->freelist;
-
-  if (freelist->length >= freelist->capacity) {
-    freelist->capacity = freelist->capacity ? (freelist->capacity * 2) : 1;
-    freelist->data = realloc(freelist->data, freelist->capacity * sizeof(*freelist->data));
-    GPU_CHECK(freelist->data, "Out of memory");
-  }
-
-  freelist->data[freelist->length++] = (gpu_ref) { type, handle };
+size_t gpu_sizeof_batch() {
+  return sizeof(gpu_batch);
 }
 
-static void purge(gpu_frame* frame) {
-  for (size_t i = 0; i < frame->freelist.length; i++) {
-    gpu_ref* ref = &frame->freelist.data[i];
-    switch (ref->type) {
-      case VK_OBJECT_TYPE_BUFFER: vkDestroyBuffer(state.device, ref->handle, NULL); break;
-      case VK_OBJECT_TYPE_IMAGE: vkDestroyImage(state.device, ref->handle, NULL); break;
-      case VK_OBJECT_TYPE_DEVICE_MEMORY: vkFreeMemory(state.device, ref->handle, NULL); break;
-      case VK_OBJECT_TYPE_IMAGE_VIEW: vkDestroyImageView(state.device, ref->handle, NULL); break;
-      case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, ref->handle, NULL); break;
-      case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, ref->handle, NULL); break;
-      case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, ref->handle, NULL); break;
-      case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, ref->handle, NULL); break;
+bool gpu_batch_init(gpu_batch* batch) {
+  return true;
+}
+
+void gpu_batch_destroy(gpu_batch* batch) {
+  //
+}
+
+void gpu_batch_begin(gpu_batch* batch) {
+  batch->pipeline = NULL;
+}
+
+void gpu_batch_end(gpu_batch* batch) {
+  //
+}
+
+void gpu_batch_bind(gpu_batch* batch) {
+  //
+}
+
+void gpu_batch_set_pipeline(gpu_batch* batch, gpu_pipeline* pipeline) {
+  if (batch->pipeline != pipeline) {
+    vkCmdBindPipeline(batch->commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle);
+    batch->pipeline = pipeline;
+  }
+}
+
+void gpu_batch_set_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
+  VkBuffer handles[16];
+  for (uint32_t i = 0; i < count; i++) {
+    handles[i] = buffers[i]->handle;
+  }
+  vkCmdBindVertexBuffers(batch->commands, 0, count, handles, offsets);
+}
+
+void gpu_batch_set_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset) {
+  vkCmdBindIndexBuffer(batch->commands, buffer->handle, offset, batch->pipeline->indexType);
+}
+
+void gpu_batch_draw(gpu_batch* batch, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex) {
+  vkCmdDraw(batch->commands, vertexCount, instanceCount, firstVertex, 0);
+}
+
+void gpu_batch_draw_indexed(gpu_batch* batch, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex) {
+  vkCmdDrawIndexed(batch->commands, indexCount, instanceCount, firstIndex, baseVertex, 0);
+}
+
+void gpu_batch_draw_indirect(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount) {
+  vkCmdDrawIndirect(batch->commands, buffer->handle, offset, drawCount, 0);
+}
+
+void gpu_batch_draw_indirect_indexed(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount) {
+  vkCmdDrawIndexedIndirect(batch->commands, buffer->handle, offset, drawCount, 0);
+}
+
+void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z) {
+  vkCmdDispatch(batch->commands, x, y, z);
+}
+
+// Helpers
+
+static void expunge() {
+  gpu_morgue* morgue = &state.morgue;
+  while (morgue->tail != morgue->head && state.tick[GPU] >= morgue->data[morgue->tail & 0xff].tick) {
+    gpu_ref* victim = &morgue->data[morgue->tail++ & 0xff];
+    switch (victim->type) {
+      case VK_OBJECT_TYPE_BUFFER: vkDestroyBuffer(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_IMAGE: vkDestroyImage(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_DEVICE_MEMORY: vkFreeMemory(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_IMAGE_VIEW: vkDestroyImageView(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, victim->handle, NULL); break;
       default: GPU_THROW("Unreachable"); break;
     }
   }
-  frame->freelist.length = 0;
+}
+
+static void condemn(void* handle, VkObjectType type) {
+  gpu_morgue* morgue = &state.morgue;
+  GPU_CHECK(morgue->head - morgue->tail != COUNTOF(morgue->data), "GPU morgue overflow"); // TODO emergency morgue flush instead of throw
+  morgue->data[morgue->head++ & 0xff] = (gpu_ref) { handle, type, state.tick[CPU] };
 }
 
 static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo) {
@@ -1310,7 +1144,7 @@ static void setLayout(gpu_texture* texture, VkImageLayout layout, VkPipelineStag
 
   // TODO Wait for nothing, but could we opportunistically sync with other pending writes?  Or is that weird
   VkPipelineStageFlags waitFor = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-  vkCmdPipelineBarrier(state.frame->commandBuffer, waitFor, nextStages, 0, 0, NULL, 0, NULL, 1, &barrier);
+  vkCmdPipelineBarrier(state.commands, waitFor, nextStages, 0, 0, NULL, 0, NULL, 1, &barrier);
   texture->layout = layout;
 }
 
@@ -1327,10 +1161,10 @@ static void nickname(void* handle, VkObjectType type, const char* name) {
   }
 }
 
-static VkBool32 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* context) {
+static VkBool32 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userdata) {
   if (state.config.callback) {
     bool severe = severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    state.config.callback(state.config.context, data->pMessage, severe);
+    state.config.callback(state.config.userdata, data->pMessage, severe);
   }
 
   return VK_FALSE;

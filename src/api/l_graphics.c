@@ -73,6 +73,9 @@ int luaopen_lovr_graphics(lua_State* L) {
   }
   lua_pop(L, 2);
 
-  lovrGraphicsInit(debug);
+  if (lovrGraphicsInit(debug)) {
+    luax_atexit(L, lovrGraphicsDestroy);
+  }
+
   return 1;
 }

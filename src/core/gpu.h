@@ -9,7 +9,7 @@ typedef struct gpu_texture gpu_texture;
 typedef struct gpu_canvas gpu_canvas;
 typedef struct gpu_shader gpu_shader;
 typedef struct gpu_pipeline gpu_pipeline;
-typedef struct gpu_stream gpu_stream;
+typedef struct gpu_batch gpu_batch;
 
 // Buffer
 
@@ -299,40 +299,35 @@ size_t gpu_sizeof_pipeline(void);
 bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info);
 void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
+// Batch
+
+size_t gpu_sizeof_batch(void);
+bool gpu_batch_init(gpu_batch* batch);
+void gpu_batch_destroy(gpu_batch* batch);
+void gpu_batch_begin(gpu_batch* batch);
+void gpu_batch_end(gpu_batch* batch);
+void gpu_batch_bind(gpu_batch* batch/**/);
+void gpu_batch_set_pipeline(gpu_batch* batch, gpu_pipeline* pipeline);
+void gpu_batch_set_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
+void gpu_batch_set_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset);
+void gpu_batch_draw(gpu_batch* batch, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex);
+void gpu_batch_draw_indexed(gpu_batch* batch, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex);
+void gpu_batch_draw_indirect(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
+void gpu_batch_draw_indirect_indexed(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
+void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z);
+
 // Entry
 
 typedef struct {
   bool debug;
-  void* (*getProcAddress)(const char*);
-  void (*callback)(void* context, const char* message, int level);
-  void* context;
+  void* userdata;
+  void (*callback)(void* userdata, const char* message, int level);
 } gpu_config;
-
-typedef struct {
-  bool anisotropy;
-  bool astc;
-  bool dxt;
-} gpu_features;
-
-typedef struct {
-  uint32_t textureSize;
-  uint32_t framebufferSize[2];
-  uint32_t framebufferSamples;
-} gpu_limits;
 
 bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
-void gpu_frame_wait(void);
-void gpu_frame_finish(void);
-void gpu_render_begin(gpu_canvas* canvas);
-void gpu_render_finish(void);
-void gpu_set_pipeline(gpu_pipeline* pipeline);
-void gpu_set_vertex_buffers(gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
-void gpu_set_index_buffer(gpu_buffer* buffer, uint64_t offset);
-void gpu_draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex);
-void gpu_draw_indexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex);
-void gpu_draw_indirect(gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
-void gpu_draw_indirect_indexed(gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
-void gpu_compute(gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z);
-void gpu_get_features(gpu_features* features);
-void gpu_get_limits(gpu_limits* limits);
+void gpu_prepare(void);
+void gpu_submit(void);
+void gpu_pass_begin(gpu_canvas* canvas);
+void gpu_pass_end(void);
+void gpu_execute(gpu_batch** batches, uint32_t count);
