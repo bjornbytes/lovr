@@ -12,7 +12,7 @@ CFLAGS += -Wno-unused-parameter
 CFLAGS_@(OPENVR) += -Wno-typedef-redefinition
 CFLAGS_@(STRICT) += -Werror
 FLAGS_@(DEBUG) += -g
-FLAGS_@(OPTIMIZE) += -Os -flto
+FLAGS_@(OPTIMIZE) += -Oz
 FLAGS_@(SANITIZE) += -fsanitize=address,undefined
 
 ## Windows
@@ -27,7 +27,7 @@ endif
 
 ## Linux
 CFLAGS_linux += -DLOVR_GL
-LDFLAGS_linux += -lm -lpthread
+LDFLAGS_linux += -lm -lpthread -ldl
 LDFLAGS_linux += -Wl,-rpath,\$ORIGIN/libs
 
 ## macOS
@@ -260,7 +260,7 @@ endif
 ifeq ($(PLATFORM),linux)
 CFLAGS += $(CFLAGS_linux) $(CFLAGS_y_linux)
 LDFLAGS += $(LDFLAGS_linux) $(LDFLAGS_y_linux)
-LIBS += $(LIBS_y_linux)
+LIBS += $(LIBS_linux) $(LIBS_y_linux)
 endif
 
 ifeq ($(PLATFORM),android)
