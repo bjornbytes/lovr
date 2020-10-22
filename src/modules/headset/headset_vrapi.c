@@ -370,8 +370,6 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
       memcpy(pose + 0, &skeleton->BonePoses[i].Position.x, 3 * sizeof(float));
       memcpy(pose + 4, &handPose->BoneRotations[i].x, 4 * sizeof(float));
     }
-    memcpy(poses + 0, &handPose->RootPose.Position.x, 3 * sizeof(float));
-    memcpy(poses + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
   }
 
   // We try our best, okay?
@@ -404,26 +402,29 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
     [JOINT_PINKY_TIP] = ovrHandBone_PinkyTip
   };
 
-  for (uint32_t i = 1; i < HAND_JOINT_COUNT; i++) {
+  for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
     memcpy(&poses[i * 8], &oculusPoses[boneMap[i] * 8], 8 * sizeof(float));
   }
-  
-  if(space == SPACE_GLOBAL) {
-    float rotation[4];
-    if (index == 0) {
-      float q[4];
-      quat_fromAngleAxis(rotation, (float) M_PI, 0.f, 0.f, 1.f);
-      quat_mul(rotation, rotation, quat_fromAngleAxis(q, (float) M_PI / 2.f, 0.f, 1.f, 0.f));
-    } else {
-      quat_fromAngleAxis(rotation, (float) M_PI / 2.f, 0.f, 1.f, 0.f);
-    }
 
+  float rotateFromOculusToOpenXR[4];
+  if (index == 0) {
+    float q[4];
+    quat_fromAngleAxis(rotateFromOculusToOpenXR, (float) M_PI, 0.f, 0.f, 1.f);
+    quat_mul(rotateFromOculusToOpenXR, rotateFromOculusToOpenXR, quat_fromAngleAxis(q, (float) M_PI / 2.f, 0.f, 1.f, 0.f));
+  } else {
+    quat_fromAngleAxis(rotateFromOculusToOpenXR, (float) M_PI / 2.f, 0.f, 1.f, 0.f);
+  }
+
+  if(space == SPACE_GLOBAL) {
     for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
       float* pose = &poses[i * 8];
-      quat_mul(pose + 4, pose + 4, rotation);
+      quat_mul(pose + 4, pose + 4, rotateFromOculusToOpenXR);
     }
   } else {
-    // ????????????????
+    for (uint32_t i = 0; i < 2; i++) {
+      float* pose = &poses[i * 8];
+      quat_mul(pose + 4, pose + 4, rotateFromOculusToOpenXR);
+    }
   }
 
   return true;
