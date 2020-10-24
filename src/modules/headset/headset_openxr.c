@@ -24,6 +24,19 @@
   #define XR_USE_GRAPHICS_API_OPENGL_ES
   #define GRAPHICS_EXTENSION "XR_KHR_opengl_es_enable"
 #endif
+#if defined(LOVR_LINUX_X11)
+  #define XR_USE_PLATFORM_XLIB
+  typedef unsigned long XID;
+  typedef struct Display Display;
+  typedef XID GLXFBConfig;
+  typedef XID GLXDrawable;
+  typedef XID GLXContext;
+#endif
+#if defined(LOVR_LINUX_EGL)
+  #define XR_USE_PLATFORM_EGL
+  #define EGL_NO_X11
+  #include <EGL/egl.h>
+#endif
 #define XR_NO_PROTOTYPES
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
@@ -43,6 +56,15 @@ HANDLE lovrPlatformGetWindow(void);
 HGLRC lovrPlatformGetContext(void);
 #elif defined(__ANDROID__)
 struct ANativeActivity* lovrPlatformGetActivity(void);
+EGLDisplay lovrPlatformGetEGLDisplay(void);
+EGLContext lovrPlatformGetEGLContext(void);
+EGLConfig lovrPlatformGetEGLConfig(void);
+#elif defined(LOVR_LINUX_X11)
+Display* lovrPlatformGetX11Display(void);
+GLXDrawable lovrPlatformGetGLXDrawable(void);
+GLXContext lovrPlatformGetGLXContext(void);
+#elif defined(LOVR_LINUX_EGL)
+PFNEGLGETPROCADDRESSPROC lovrPlatformGetEGLProcAddr(void);
 EGLDisplay lovrPlatformGetEGLDisplay(void);
 EGLContext lovrPlatformGetEGLContext(void);
 EGLConfig lovrPlatformGetEGLConfig(void);
@@ -181,6 +203,10 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
 
 #ifdef __ANDROID__
     enabledExtensionNames[enabledExtensionCount++] = XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME;
+#endif
+
+#ifdef LOVR_LINUX_EGL
+    enabledExtensionNames[enabledExtensionCount++] = "XR_MNDX_egl_enable";
 #endif
 
     enabledExtensionNames[enabledExtensionCount++] = GRAPHICS_EXTENSION;
@@ -325,6 +351,25 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
       .display = lovrPlatformGetEGLDisplay(),
       .config = lovrPlatformGetEGLConfig(),
       .context = lovrPlatformGetEGLContext()
+    };
+#elif defined(LOVR_LINUX_X11)
+    XrGraphicsBindingOpenGLXlibKHR graphicsBinding = {
+      .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR,
+      .next = NULL,
+      .xDisplay = lovrPlatformGetX11Display(),
+      .visualid = 0,
+      .glxFBConfig = 0,
+      .glxDrawable = lovrPlatformGetGLXDrawable(),
+      .glxContext = lovrPlatformGetGLXContext(),
+    };
+#elif defined(LOVR_LINUX_EGL)
+    XrGraphicsBindingEGLMNDX graphicsBinding = {
+      .type = XR_TYPE_GRAPHICS_BINDING_EGL_MNDX,
+      .next = NULL,
+      .getProcAddress = lovrPlatformGetEGLProcAddr(),
+      .display = lovrPlatformGetEGLDisplay(),
+      .config = lovrPlatformGetEGLConfig(),
+      .context = lovrPlatformGetEGLContext(),
     };
 #else
 #error "Unsupported OpenXR platform/graphics combination"
