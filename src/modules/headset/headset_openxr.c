@@ -881,7 +881,7 @@ static void openxr_update(float dt) {
 
     XrActionsSyncInfo syncInfo = {
       .type = XR_TYPE_ACTIONS_SYNC_INFO,
-      .countActiveActionSets = 1,
+      .countActiveActionSets = 2,
       .activeActionSets = (XrActiveActionSet[]) {
         { state.actionSet, state.actionFilters[0] },
         { state.actionSet, state.actionFilters[1] }
