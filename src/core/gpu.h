@@ -302,8 +302,6 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 // Batch
 
 size_t gpu_sizeof_batch(void);
-bool gpu_batch_init(gpu_batch* batch);
-void gpu_batch_destroy(gpu_batch* batch);
 void gpu_batch_begin(gpu_batch* batch);
 void gpu_batch_end(gpu_batch* batch);
 void gpu_batch_bind(gpu_batch* batch/**/);

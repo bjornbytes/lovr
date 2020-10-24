@@ -3,8 +3,19 @@
 
 #ifdef _WIN32
 #include <windows.h>
+typedef CRITICAL_SECTION gpu_mutex;
+static void gpu_mutex_init(gpu_mutex* mutex) { InitializeCriticalSection(mutex); }
+static void gpu_mutex_destroy(gpu_mutex* mutex) { DeleteCriticalSection(mutex); }
+static void gpu_mutex_lock(gpu_mutex* mutex) { EnterCriticalSection(mutex); }
+static void gpu_mutex_unlock(gpu_mutex* mutex) { LeaveCriticalSection(mutex); }
 #else
 #include <dlfcn.h>
+#include <pthread.h>
+typedef pthread_mutex_t gpu_mutex;
+static void gpu_mutex_init(gpu_mutex* mutex) { pthread_mutex_init(mutex, NULL); }
+static void gpu_mutex_destroy(gpu_mutex* mutex) { pthread_mutex_destroy(mutex); }
+static void gpu_mutex_lock(gpu_mutex* mutex) { pthread_mutex_lock(mutex); }
+static void gpu_mutex_unlock(gpu_mutex* mutex) { pthread_mutex_unlock(mutex); }
 #endif
 
 #define VK_NO_PROTOTYPES
@@ -16,6 +27,110 @@
 #define GPU_THROW(s) if (state.config.callback) { state.config.callback(state.config.userdata, s, true); }
 #define GPU_CHECK(c, s) if (!(c)) { GPU_THROW(s); }
 #define GPU_VK(f) do { VkResult r = (f); GPU_CHECK(r >= 0, getErrorString(r)); } while (0)
+
+// Objects
+
+struct gpu_buffer {
+  VkBuffer handle;
+  VkDeviceMemory memory;
+};
+
+struct gpu_texture {
+  VkImage handle;
+  VkImageView view;
+  VkImageLayout layout;
+  VkDeviceMemory memory;
+  VkImageAspectFlagBits aspect;
+  gpu_texture* source;
+  gpu_texture_type type;
+  VkFormat format;
+};
+
+struct gpu_sampler {
+  VkSampler handle;
+};
+
+struct gpu_canvas {
+  VkRenderPass handle;
+  VkFramebuffer framebuffer;
+  VkRect2D renderArea;
+  VkViewport viewport;
+  uint32_t colorAttachmentCount;
+  struct {
+    gpu_texture* texture;
+    VkImageLayout layout;
+    VkPipelineStageFlags stage;
+    VkAccessFlags access;
+  } sync[5];
+  VkClearValue clears[5];
+};
+
+struct gpu_shader {
+  VkShaderModule handles[2];
+  VkPipelineShaderStageCreateInfo pipelineInfo[2];
+  VkDescriptorSetLayout layouts[4];
+  VkPipelineLayout pipelineLayout;
+};
+
+struct gpu_pipeline {
+  VkPipeline handle;
+  VkIndexType indexType;
+};
+
+struct gpu_batch {
+  VkCommandBuffer commands;
+  VkCommandPool pool;
+  gpu_pipeline* pipeline;
+};
+
+// Stream
+
+enum { CPU, GPU };
+
+typedef struct {
+  VkCommandBuffer commands;
+  VkCommandPool pool;
+  VkFence fence;
+} gpu_tick;
+
+typedef struct {
+  void* handle;
+  VkObjectType type;
+  uint32_t tick;
+} gpu_ref;
+
+typedef struct {
+  gpu_ref data[256];
+  gpu_mutex lock;
+  uint32_t head;
+  uint32_t tail;
+} gpu_morgue;
+
+// State
+
+static struct {
+  VkInstance instance;
+  VkDevice device;
+  VkQueue queue;
+  VkCommandBuffer commands;
+  VkDebugUtilsMessengerEXT messenger;
+  VkPhysicalDeviceMemoryProperties memoryProperties;
+  uint32_t tick[2];
+  gpu_tick ticks[16];
+  gpu_morgue morgue;
+  gpu_config config;
+  void* library;
+} state;
+
+// Helpers
+
+static void condemn(void* handle, VkObjectType type);
+static void expunge(void);
+static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo);
+static void setLayout(gpu_texture* texture, VkImageLayout layout, VkPipelineStageFlags nextStages, VkAccessFlags nextActions);
+static void nickname(void* object, VkObjectType type, const char* name);
+static VkBool32 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* context);
+static const char* getErrorString(VkResult result);
 
 // Functions that don't require an instance
 #define GPU_FOREACH_ANONYMOUS(X)\
@@ -101,109 +216,6 @@
 GPU_FOREACH_ANONYMOUS(GPU_DECLARE)
 GPU_FOREACH_INSTANCE(GPU_DECLARE)
 GPU_FOREACH_DEVICE(GPU_DECLARE)
-
-// Objects
-
-struct gpu_buffer {
-  VkBuffer handle;
-  VkDeviceMemory memory;
-};
-
-struct gpu_texture {
-  VkImage handle;
-  VkImageView view;
-  VkImageLayout layout;
-  VkDeviceMemory memory;
-  VkImageAspectFlagBits aspect;
-  gpu_texture* source;
-  gpu_texture_type type;
-  VkFormat format;
-};
-
-struct gpu_sampler {
-  VkSampler handle;
-};
-
-struct gpu_canvas {
-  VkRenderPass handle;
-  VkFramebuffer framebuffer;
-  VkRect2D renderArea;
-  VkViewport viewport;
-  uint32_t colorAttachmentCount;
-  struct {
-    gpu_texture* texture;
-    VkImageLayout layout;
-    VkPipelineStageFlags stage;
-    VkAccessFlags access;
-  } sync[5];
-  VkClearValue clears[5];
-};
-
-struct gpu_shader {
-  VkShaderModule handles[2];
-  VkPipelineShaderStageCreateInfo pipelineInfo[2];
-  VkDescriptorSetLayout layouts[4];
-  VkPipelineLayout pipelineLayout;
-};
-
-struct gpu_pipeline {
-  VkPipeline handle;
-  VkIndexType indexType;
-};
-
-struct gpu_batch {
-  VkCommandBuffer commands;
-  VkCommandPool pool;
-  gpu_pipeline* pipeline;
-};
-
-// Stream
-
-enum { CPU, GPU };
-
-typedef struct {
-  VkCommandBuffer commands;
-  VkCommandPool pool;
-  VkFence fence;
-} gpu_tick;
-
-typedef struct {
-  void* handle;
-  VkObjectType type;
-  uint32_t tick;
-} gpu_ref;
-
-typedef struct {
-  gpu_ref data[256];
-  uint32_t head;
-  uint32_t tail;
-} gpu_morgue;
-
-// State
-
-static struct {
-  VkInstance instance;
-  VkDevice device;
-  VkQueue queue;
-  VkCommandBuffer commands;
-  VkDebugUtilsMessengerEXT messenger;
-  VkPhysicalDeviceMemoryProperties memoryProperties;
-  uint32_t tick[2];
-  gpu_tick ticks[16];
-  gpu_morgue morgue;
-  gpu_config config;
-  void* library;
-} state;
-
-// Helpers
-
-static void expunge(void);
-static void condemn(void* handle, VkObjectType type);
-static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo);
-static void setLayout(gpu_texture* texture, VkImageLayout layout, VkPipelineStageFlags nextStages, VkAccessFlags nextActions);
-static void nickname(void* object, VkObjectType type, const char* name);
-static VkBool32 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* context);
-static const char* getErrorString(VkResult result);
 
 // Entry
 
@@ -371,6 +383,7 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
+  gpu_mutex_init(&state.morgue.lock);
   state.tick[CPU] = COUNTOF(state.ticks);
   state.tick[GPU] = ~0u;
   return true;
@@ -394,6 +407,7 @@ void gpu_destroy(void) {
 #else
   dlclose(state.library);
 #endif
+  gpu_mutex_destroy(&state.morgue.lock);
   memset(&state, 0, sizeof(state));
 }
 
@@ -1079,8 +1093,17 @@ void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_
 
 // Helpers
 
+static void condemn(void* handle, VkObjectType type) {
+  gpu_morgue* morgue = &state.morgue;
+  gpu_mutex_lock(&morgue->lock);
+  GPU_CHECK(morgue->head - morgue->tail != COUNTOF(morgue->data), "GPU morgue overflow"); // TODO emergency morgue flush instead of throw
+  morgue->data[morgue->head++ & 0xff] = (gpu_ref) { handle, type, state.tick[CPU] };
+  gpu_mutex_unlock(&morgue->lock);
+}
+
 static void expunge() {
   gpu_morgue* morgue = &state.morgue;
+  gpu_mutex_lock(&morgue->lock);
   while (morgue->tail != morgue->head && state.tick[GPU] >= morgue->data[morgue->tail & 0xff].tick) {
     gpu_ref* victim = &morgue->data[morgue->tail++ & 0xff];
     switch (victim->type) {
@@ -1095,12 +1118,7 @@ static void expunge() {
       default: GPU_THROW("Unreachable"); break;
     }
   }
-}
-
-static void condemn(void* handle, VkObjectType type) {
-  gpu_morgue* morgue = &state.morgue;
-  GPU_CHECK(morgue->head - morgue->tail != COUNTOF(morgue->data), "GPU morgue overflow"); // TODO emergency morgue flush instead of throw
-  morgue->data[morgue->head++ & 0xff] = (gpu_ref) { handle, type, state.tick[CPU] };
+  gpu_mutex_unlock(&morgue->lock);
 }
 
 static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo) {
