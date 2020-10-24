@@ -2,12 +2,26 @@
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+
 #ifndef EMSCRIPTEN
-#ifdef _WIN32
-#define GLFW_EXPOSE_NATIVE_WIN32
-#define GLFW_EXPOSE_NATIVE_WGL
-#endif
-#include <GLFW/glfw3native.h>
+#  ifdef _WIN32
+#    define GLFW_EXPOSE_NATIVE_WIN32
+#    define GLFW_EXPOSE_NATIVE_WGL
+#  endif
+#  ifdef _WIN32
+#    define GLFW_EXPOSE_NATIVE_WIN32
+#    define GLFW_EXPOSE_NATIVE_WGL
+#  endif
+#  ifdef LOVR_LINUX_EGL
+#    define EGL_NO_X11
+#    include <EGL/egl.h>
+#    define GLFW_EXPOSE_NATIVE_EGL
+#  endif
+#  ifdef LOVR_LINUX_X11
+#    define GLFW_EXPOSE_NATIVE_X11
+#    define GLFW_EXPOSE_NATIVE_GLX
+#  endif
+#  include <GLFW/glfw3native.h>
 #endif
 
 static struct {
@@ -204,12 +218,18 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
     return false;
   }
 
+
+#ifdef LOVR_LINUX_EGL
+  glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+#endif
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
   glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, flags->debug);
+#ifndef LOVR_LINUX_EGL
   glfwWindowHint(GLFW_CONTEXT_NO_ERROR, !flags->debug);
+#endif
   glfwWindowHint(GLFW_SAMPLES, flags->msaa);
   glfwWindowHint(GLFW_RESIZABLE, flags->resizable);
   glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
@@ -343,5 +363,58 @@ HANDLE lovrPlatformGetWindow() {
 
 HGLRC lovrPlatformGetContext() {
   return glfwGetWGLContext(glfwState.window);
+}
+#endif
+
+#ifdef LOVR_LINUX_EGL
+PFNEGLGETPROCADDRESSPROC lovrPlatformGetEGLProcAddr(void)
+{
+  return (PFNEGLGETPROCADDRESSPROC)glfwGetProcAddress;
+}
+
+EGLDisplay lovrPlatformGetEGLDisplay(void)
+{
+  return glfwGetEGLDisplay();
+}
+
+EGLContext lovrPlatformGetEGLContext(void)
+{
+  return glfwGetEGLContext(glfwState.window);
+}
+
+EGLConfig lovrPlatformGetEGLConfig(void)
+{
+  EGLDisplay dpy = lovrPlatformGetEGLDisplay();
+  EGLContext ctx = lovrPlatformGetEGLContext();
+  EGLint cfg_id = -1;
+  EGLint num_cfgs = -1;
+  EGLConfig cfg = NULL;
+  PFNEGLQUERYCONTEXTPROC eglQueryContext = (PFNEGLQUERYCONTEXTPROC)glfwGetProcAddress("eglQueryContext");
+  PFNEGLCHOOSECONFIGPROC eglChooseConfig = (PFNEGLCHOOSECONFIGPROC)glfwGetProcAddress("eglChooseConfig");
+
+  eglQueryContext(dpy, ctx, EGL_CONFIG_ID, &cfg_id);
+  EGLint attrs [4] = {
+    EGL_CONFIG_ID, cfg_id,
+    EGL_NONE, EGL_NONE,
+  };
+  eglChooseConfig(dpy, attrs, &cfg, 1, &num_cfgs);
+  return cfg;
+}
+#endif
+
+#ifdef LOVR_LINUX_X11
+Display* lovrPlatformGetX11Display(void)
+{
+  return glfwGetX11Display();
+}
+
+GLXDrawable lovrPlatformGetGLXDrawable(void)
+{
+  return glfwGetGLXWindow(glfwState.window);
+}
+
+GLXContext lovrPlatformGetGLXContext(void)
+{
+  return glfwGetGLXContext(glfwState.window);
 }
 #endif
