@@ -89,7 +89,7 @@ static EM_BOOL onMouseMove(int type, const EmscriptenMouseEvent* data, void* use
 }
 
 static EM_BOOL onKeyEvent(int type, const EmscriptenKeyboardEvent* data, void* userdata) {
-  KeyCode key;
+  KeyboardKey key;
   DOM_PK_CODE_TYPE scancode = emscripten_compute_dom_pk_code(data->code);
   switch (scancode) {
     case DOM_PK_ESCAPE: key = KEY_ESCAPE; break;
@@ -359,6 +359,6 @@ bool lovrPlatformIsMouseDown(MouseButton button) {
   return state.mouseMap[button];
 }
 
-bool lovrPlatformIsKeyDown(KeyCode key) {
+bool lovrPlatformIsKeyDown(KeyboardKey key) {
   return state.keyMap[key];
 }
