@@ -21,7 +21,7 @@ StringEntry lovrEventType[] = {
   { 0 }
 };
 
-StringEntry lovrKeyCode[] = {
+StringEntry lovrKeyboardKey[] = {
   [KEY_A] = ENTRY("a"),
   [KEY_B] = ENTRY("b"),
   [KEY_C] = ENTRY("c"),
@@ -205,13 +205,13 @@ static int nextEvent(lua_State* L) {
       return 3;
 
     case EVENT_KEYPRESSED:
-      luax_pushenum(L, KeyCode, event.data.key.code);
+      luax_pushenum(L, KeyboardKey, event.data.key.code);
       lua_pushinteger(L, event.data.key.scancode);
       lua_pushboolean(L, event.data.key.repeat);
       return 4;
 
     case EVENT_KEYRELEASED:
-      luax_pushenum(L, KeyCode, event.data.key.code);
+      luax_pushenum(L, KeyboardKey, event.data.key.code);
       lua_pushinteger(L, event.data.key.scancode);
       return 3;
 

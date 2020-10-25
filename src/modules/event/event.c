@@ -14,7 +14,7 @@ static struct {
   size_t head;
 } state;
 
-static void onKeyboardEvent(ButtonAction action, KeyCode key, uint32_t scancode, bool repeat) {
+static void onKeyboardEvent(ButtonAction action, KeyboardKey key, uint32_t scancode, bool repeat) {
   lovrEventPush((Event) {
     .type = action == BUTTON_PRESSED ? EVENT_KEYPRESSED : EVENT_KEYRELEASED,
     .data.key.code = key,

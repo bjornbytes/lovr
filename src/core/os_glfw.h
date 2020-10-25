@@ -53,7 +53,7 @@ static void onMouseButton(GLFWwindow* window, int b, int a, int mods) {
 
 static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int mods) {
   if (glfwState.onKeyboardEvent) {
-    KeyCode key;
+    KeyboardKey key;
     switch (k) {
       case GLFW_KEY_A: key = KEY_A; break;
       case GLFW_KEY_B: key = KEY_B; break;
@@ -167,7 +167,7 @@ static int convertMouseButton(MouseButton button) {
   }
 }
 
-static int convertKeyCode(KeyCode key) {
+static int convertKey(KeyboardKey key) {
   switch (key) {
     case KEY_W: return GLFW_KEY_W;
     case KEY_A: return GLFW_KEY_A;
@@ -332,8 +332,8 @@ bool lovrPlatformIsMouseDown(MouseButton button) {
   return glfwState.window ? glfwGetMouseButton(glfwState.window, convertMouseButton(button)) == GLFW_PRESS : false;
 }
 
-bool lovrPlatformIsKeyDown(KeyCode key) {
-  return glfwState.window ? glfwGetKey(glfwState.window, convertKeyCode(key)) == GLFW_PRESS : false;
+bool lovrPlatformIsKeyDown(KeyboardKey key) {
+  return glfwState.window ? glfwGetKey(glfwState.window, convertKey(key)) == GLFW_PRESS : false;
 }
 
 #ifdef _WIN32
