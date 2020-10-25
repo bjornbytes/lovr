@@ -42,7 +42,7 @@ static int32_t onInputEvent(struct android_app* app, AInputEvent* event) {
     default: return 0;
   }
 
-  KeyCode key;
+  KeyboardKey key;
   switch (AKeyEvent_getKeyCode(event)) {
     case AKEYCODE_A: key = KEY_A; break;
     case AKEYCODE_B: key = KEY_B; break;
@@ -466,7 +466,7 @@ bool lovrPlatformIsMouseDown(MouseButton button) {
   return false;
 }
 
-bool lovrPlatformIsKeyDown(KeyCode key) {
+bool lovrPlatformIsKeyDown(KeyboardKey key) {
   return false;
 }
 

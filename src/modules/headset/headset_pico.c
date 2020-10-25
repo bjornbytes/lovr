@@ -189,7 +189,7 @@ bool lovrPlatformIsMouseDown(MouseButton button) {
   return false;
 }
 
-bool lovrPlatformIsKeyDown(KeyCode key) {
+bool lovrPlatformIsKeyDown(KeyboardKey key) {
   return false;
 }
 

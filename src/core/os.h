@@ -122,7 +122,7 @@ typedef enum {
   KEY_NUM_LOCK,
 
   KEY_COUNT
-} KeyCode;
+} KeyboardKey;
 
 typedef enum {
   BUTTON_PRESSED,
@@ -133,7 +133,7 @@ typedef void (*quitCallback)(void);
 typedef void (*windowFocusCallback)(bool focused);
 typedef void (*windowResizeCallback)(int width, int height);
 typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action);
-typedef void (*keyboardCallback)(ButtonAction action, KeyCode key, uint32_t scancode, bool repeat);
+typedef void (*keyboardCallback)(ButtonAction action, KeyboardKey key, uint32_t scancode, bool repeat);
 typedef void (*textCallback)(uint32_t codepoint);
 
 bool lovrPlatformInit(void);
@@ -165,4 +165,4 @@ void lovrPlatformOnTextEvent(textCallback callback);
 void lovrPlatformGetMousePosition(double* x, double* y);
 void lovrPlatformSetMouseMode(MouseMode mode);
 bool lovrPlatformIsMouseDown(MouseButton button);
-bool lovrPlatformIsKeyDown(KeyCode key);
+bool lovrPlatformIsKeyDown(KeyboardKey key);
