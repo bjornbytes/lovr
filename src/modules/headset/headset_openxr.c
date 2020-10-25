@@ -646,7 +646,9 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
     default: return false;
   }
 
-  XrActionStateBoolean actionState;
+  XrActionStateBoolean actionState = {
+      .type = XR_TYPE_ACTION_STATE_BOOLEAN,
+  };
   XR(xrGetActionStateBoolean(state.session, &info, &actionState));
   *value = actionState.currentState;
   *changed = actionState.changedSinceLastSync;
@@ -669,7 +671,9 @@ static bool getFloatAction(uint32_t action, XrPath filter, float* value) {
     .subactionPath = filter
   };
 
-  XrActionStateFloat actionState;
+  XrActionStateFloat actionState = {
+      .type = XR_TYPE_ACTION_STATE_FLOAT,
+  };
   XR(xrGetActionStateFloat(state.session, &info, &actionState));
   *value = actionState.currentState;
   return actionState.isActive;
