@@ -270,19 +270,14 @@ static int l_lovrEventPush(lua_State* L) {
 }
 
 static int l_lovrEventQuit(lua_State* L) {
-  EventData data;
-
-  data.quit.exitCode = luaL_optinteger(L, 1, 0);
-
-  EventType type = EVENT_QUIT;
-  Event event = { .type = type, .data = data };
+  int exitCode = luaL_optinteger(L, 1, 0);
+  Event event = { .type = EVENT_QUIT, .data.quit.exitCode = status };
   lovrEventPush(event);
   return 0;
 }
 
 static int l_lovrEventRestart(lua_State* L) {
-  EventType type = EVENT_RESTART;
-  Event event = { .type = type };
+  Event event = { .type = EVENT_RESTART };
   lovrEventPush(event);
   return 0;
 }
