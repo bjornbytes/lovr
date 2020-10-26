@@ -10,7 +10,6 @@ SRC += src/core/map.c
 ifneq (@(PICO),y)
 SRC += src/core/os_$(PLATFORM).c
 endif
-SRC += src/core/png.c
 SRC += src/core/ref.c
 SRC += src/core/utf.c
 SRC += src/core/util.c
