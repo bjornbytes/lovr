@@ -966,7 +966,7 @@ bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
   VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
     .topology = topologies[info->drawMode],
-    .primitiveRestartEnable = true
+    .primitiveRestartEnable = info->drawMode == GPU_DRAW_LINE_STRIP || info->drawMode == GPU_DRAW_TRIANGLE_STRIP
   };
 
   VkPipelineViewportStateCreateInfo viewport = {
