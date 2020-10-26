@@ -3,6 +3,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#define __thread __declspec(thread)
 typedef CRITICAL_SECTION gpu_mutex;
 static void gpu_mutex_init(gpu_mutex* mutex) { InitializeCriticalSection(mutex); }
 static void gpu_mutex_destroy(gpu_mutex* mutex) { DeleteCriticalSection(mutex); }
@@ -78,9 +79,9 @@ struct gpu_pipeline {
 };
 
 struct gpu_batch {
-  VkCommandBuffer commands;
-  VkCommandPool pool;
-  gpu_pipeline* pipeline;
+  VkCommandBuffer cmd;
+  uint32_t next;
+  uint32_t tick;
 };
 
 // Stream
@@ -106,7 +107,17 @@ typedef struct {
   uint32_t tail;
 } gpu_morgue;
 
+typedef struct {
+  VkCommandPool commandPool;
+  gpu_batch data[256];
+  uint32_t count;
+  uint32_t head;
+  uint32_t tail;
+} gpu_batch_pool;
+
 // State
+
+static __thread gpu_batch_pool batches;
 
 static struct {
   VkInstance instance;
@@ -115,6 +126,7 @@ static struct {
   VkCommandBuffer commands;
   VkDebugUtilsMessengerEXT messenger;
   VkPhysicalDeviceMemoryProperties memoryProperties;
+  uint32_t queueFamilyIndex;
   uint32_t tick[2];
   gpu_tick ticks[16];
   gpu_morgue morgue;
@@ -296,16 +308,16 @@ bool gpu_init(gpu_config* config) {
     uint32_t queueFamilyCount = COUNTOF(queueFamilies);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies);
 
-    uint32_t queueFamilyIndex = ~0u;
+    state.queueFamilyIndex = ~0u;
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
       uint32_t flags = queueFamilies[i].queueFlags;
       if ((flags & VK_QUEUE_GRAPHICS_BIT) && (flags & VK_QUEUE_COMPUTE_BIT)) {
-        queueFamilyIndex = i;
+        state.queueFamilyIndex = i;
         break;
       }
     }
 
-    if (queueFamilyIndex == ~0u) {
+    if (state.queueFamilyIndex == ~0u) {
       gpu_destroy();
       return false;
     }
@@ -314,7 +326,7 @@ bool gpu_init(gpu_config* config) {
 
     VkDeviceQueueCreateInfo queueInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-      .queueFamilyIndex = queueFamilyIndex,
+      .queueFamilyIndex = state.queueFamilyIndex,
       .queueCount = 1,
       .pQueuePriorities = &(float) { 1.f }
     };
@@ -342,7 +354,7 @@ bool gpu_init(gpu_config* config) {
       return false;
     }
 
-    vkGetDeviceQueue(state.device, queueFamilyIndex, 0, &state.queue);
+    vkGetDeviceQueue(state.device, state.queueFamilyIndex, 0, &state.queue);
 
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
 
@@ -351,7 +363,7 @@ bool gpu_init(gpu_config* config) {
       VkCommandPoolCreateInfo poolInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = queueFamilyIndex
+        .queueFamilyIndex = state.queueFamilyIndex
       };
 
       if (vkCreateCommandPool(state.device, &poolInfo, NULL, &state.ticks[i].pool)) {
@@ -396,7 +408,6 @@ void gpu_destroy(void) {
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     gpu_tick* tick = &state.ticks[i];
     if (tick->fence) vkDestroyFence(state.device, tick->fence, NULL);
-    if (tick->commands) vkFreeCommandBuffers(state.device, tick->pool, 1, &tick->commands);
     if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
   }
   if (state.device) vkDestroyDevice(state.device, NULL);
@@ -409,6 +420,31 @@ void gpu_destroy(void) {
 #endif
   gpu_mutex_destroy(&state.morgue.lock);
   memset(&state, 0, sizeof(state));
+}
+
+void gpu_thread_init() {
+  gpu_batch_pool* pool = &batches;
+
+  if (pool->commandPool) {
+    return;
+  }
+
+  VkCommandPoolCreateInfo info = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+    .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+    .queueFamilyIndex = state.queueFamilyIndex
+  };
+
+  GPU_VK(vkCreateCommandPool(state.device, &info, NULL, &pool->commandPool));
+  pool->head = ~0u;
+  pool->tail = ~0u;
+}
+
+void gpu_thread_destroy() {
+  vkDeviceWaitIdle(state.device);
+  gpu_batch_pool* pool = &batches;
+  vkDestroyCommandPool(state.device, pool->commandPool, NULL);
+  memset(pool, 0, sizeof(*pool));
 }
 
 void gpu_prepare() {
@@ -464,7 +500,7 @@ void gpu_execute(gpu_batch** batches, uint32_t count) {
   uint32_t chunk = COUNTOF(commands);
   for (uint32_t i = 0; i < count; i += chunk) {
     for (uint32_t j = 0; j < chunk && i + j < count; j++) {
-      commands[j] = batches[i + j]->commands;
+      commands[j] = batches[i + j]->cmd;
     }
     vkCmdExecuteCommands(state.commands, count, commands);
   }
@@ -915,11 +951,6 @@ bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
     [GPU_BLEND_MAX] = VK_BLEND_OP_MAX
   };
 
-  static const VkIndexType types[] = {
-    [GPU_INDEX_U16] = VK_INDEX_TYPE_UINT16,
-    [GPU_INDEX_U32] = VK_INDEX_TYPE_UINT32
-  };
-
   VkPipelineVertexInputStateCreateInfo vertexInput = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
     .vertexBindingDescriptionCount = 0,
@@ -1018,7 +1049,6 @@ bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
   }
 
   nickname(pipeline, VK_OBJECT_TYPE_PIPELINE, info->label);
-  pipeline->indexType = types[info->indexStride];
   return true;
 }
 
@@ -1028,24 +1058,58 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
 
 // Batch
 
-size_t gpu_sizeof_batch() {
-  return sizeof(gpu_batch);
-}
+gpu_batch* gpu_batch_begin(gpu_canvas* canvas) {
+  gpu_batch_pool* pool = &batches;
+  gpu_batch* batch;
+  uint32_t index;
 
-bool gpu_batch_init(gpu_batch* batch) {
-  return true;
-}
+  if (pool->tail != ~0u && state.tick[GPU] >= pool->data[pool->tail].tick) {
+    index = pool->tail;
+    batch = &pool->data[pool->tail];
+    pool->tail = batch->next; // TODO what if tail is ~0u now?
+  } else {
+    GPU_CHECK(pool->count < COUNTOF(pool->data), "GPU batch pool overflow");
+    index = pool->count++;
+    batch = &pool->data[index];
 
-void gpu_batch_destroy(gpu_batch* batch) {
-  //
-}
+    VkCommandBufferAllocateInfo info = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+      .commandPool = pool->commandPool,
+      .level = VK_COMMAND_BUFFER_LEVEL_SECONDARY,
+      .commandBufferCount = 1
+    };
 
-void gpu_batch_begin(gpu_batch* batch) {
-  batch->pipeline = NULL;
+    GPU_VK(vkAllocateCommandBuffers(state.device, &info, &batch->cmd));
+
+    if (pool->tail == ~0u) {
+      pool->tail = index;
+    }
+  }
+
+  VkCommandBufferBeginInfo beginfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT | (canvas ? VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT : 0),
+    .pInheritanceInfo = &(VkCommandBufferInheritanceInfo) {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
+      .renderPass = canvas ? canvas->handle : NULL,
+      .subpass = 0
+    }
+  };
+
+  GPU_VK(vkBeginCommandBuffer(batch->cmd, &beginfo));
+
+  if (pool->head != ~0u) {
+    pool->data[pool->head].next = index;
+  }
+
+  pool->head = index;
+  batch->tick = state.tick[CPU];
+  batch->next = ~0u;
+  return batch;
 }
 
 void gpu_batch_end(gpu_batch* batch) {
-  //
+  GPU_VK(vkEndCommandBuffer(batch->cmd));
 }
 
 void gpu_batch_bind(gpu_batch* batch) {
@@ -1053,10 +1117,7 @@ void gpu_batch_bind(gpu_batch* batch) {
 }
 
 void gpu_batch_set_pipeline(gpu_batch* batch, gpu_pipeline* pipeline) {
-  if (batch->pipeline != pipeline) {
-    vkCmdBindPipeline(batch->commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle);
-    batch->pipeline = pipeline;
-  }
+  vkCmdBindPipeline(batch->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle);
 }
 
 void gpu_batch_set_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
@@ -1064,31 +1125,36 @@ void gpu_batch_set_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64
   for (uint32_t i = 0; i < count; i++) {
     handles[i] = buffers[i]->handle;
   }
-  vkCmdBindVertexBuffers(batch->commands, 0, count, handles, offsets);
+  vkCmdBindVertexBuffers(batch->cmd, 0, count, handles, offsets);
 }
 
-void gpu_batch_set_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset) {
-  vkCmdBindIndexBuffer(batch->commands, buffer->handle, offset, batch->pipeline->indexType);
+void gpu_batch_set_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type) {
+  static const VkIndexType types[] = {
+    [GPU_INDEX_U16] = VK_INDEX_TYPE_UINT16,
+    [GPU_INDEX_U32] = VK_INDEX_TYPE_UINT32
+  };
+
+  vkCmdBindIndexBuffer(batch->cmd, buffer->handle, offset, types[type]);
 }
 
 void gpu_batch_draw(gpu_batch* batch, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex) {
-  vkCmdDraw(batch->commands, vertexCount, instanceCount, firstVertex, 0);
+  vkCmdDraw(batch->cmd, vertexCount, instanceCount, firstVertex, 0);
 }
 
 void gpu_batch_draw_indexed(gpu_batch* batch, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex) {
-  vkCmdDrawIndexed(batch->commands, indexCount, instanceCount, firstIndex, baseVertex, 0);
+  vkCmdDrawIndexed(batch->cmd, indexCount, instanceCount, firstIndex, baseVertex, 0);
 }
 
 void gpu_batch_draw_indirect(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount) {
-  vkCmdDrawIndirect(batch->commands, buffer->handle, offset, drawCount, 0);
+  vkCmdDrawIndirect(batch->cmd, buffer->handle, offset, drawCount, 0);
 }
 
 void gpu_batch_draw_indirect_indexed(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount) {
-  vkCmdDrawIndexedIndirect(batch->commands, buffer->handle, offset, drawCount, 0);
+  vkCmdDrawIndexedIndirect(batch->cmd, buffer->handle, offset, drawCount, 0);
 }
 
 void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z) {
-  vkCmdDispatch(batch->commands, x, y, z);
+  vkCmdDispatch(batch->cmd, x, y, z);
 }
 
 // Helpers
