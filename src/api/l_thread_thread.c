@@ -4,8 +4,8 @@
 static int l_lovrThreadStart(lua_State* L) {
   Thread* thread = luax_checktype(L, 1, Thread);
   Variant arguments[MAX_THREAD_ARGUMENTS];
-  size_t argumentCount = MIN(MAX_THREAD_ARGUMENTS, lua_gettop(L) - 1);
-  for (size_t i = 0; i < argumentCount; i++) {
+  uint32_t argumentCount = MIN(MAX_THREAD_ARGUMENTS, lua_gettop(L) - 1);
+  for (uint32_t i = 0; i < argumentCount; i++) {
     luax_checkvariant(L, 2 + i, &arguments[i]);
   }
   lovrThreadStart(thread, arguments, argumentCount);

@@ -202,7 +202,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
         }
 
         float empty[3] = { 0.f };
-        arr_push(&indexBlob, vertexBlob.length / 8);
+        arr_push(&indexBlob, (int) vertexBlob.length / 8);
         map_set(&vertexMap, hash, vertexBlob.length / 8);
         arr_append(&vertexBlob, positions.data + 3 * (v - 1), 3);
         arr_append(&vertexBlob, vn > 0 ? (normals.data + 3 * (vn - 1)) : empty, 3);

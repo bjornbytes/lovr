@@ -296,7 +296,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
 
   Blob* blob = luax_totype(L, 2, Blob);
   if (blob) {
-    count = MIN(count, blob->size / stride);
+    count = MIN(count, (uint32_t) (blob->size / stride));
     lovrAssert(start + count <= capacity, "Overflow in Mesh:setVertices: Mesh can only hold %d vertices", capacity);
     void* data = lovrBufferMap(buffer, start * stride, false);
     memcpy(data, blob->data, count * stride);

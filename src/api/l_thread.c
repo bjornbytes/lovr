@@ -24,7 +24,7 @@ static int threadRunner(void* data) {
   lua_pop(L, 2);
 
   if (!luaL_loadbuffer(L, thread->body->data, thread->body->size, "thread")) {
-    for (size_t i = 0; i < thread->argumentCount; i++) {
+    for (uint32_t i = 0; i < thread->argumentCount; i++) {
       luax_pushvariant(L, &thread->arguments[i]);
     }
 

@@ -69,7 +69,7 @@ void lovrThreadDestroy(void* ref) {
   free(thread->error);
 }
 
-void lovrThreadStart(Thread* thread, Variant* arguments, size_t argumentCount) {
+void lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount) {
   bool running = lovrThreadIsRunning(thread);
 
   if (running) {
