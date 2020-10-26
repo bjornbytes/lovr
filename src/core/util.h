@@ -32,7 +32,7 @@
 #define MAX(a, b) (a > b ? a : b)
 #define MIN(a, b) (a < b ? a : b)
 #define CLAMP(x, min, max) MAX(min, MIN(max, x))
-#define ALIGN(p, n) (((uintptr_t) (p) + (n - 1)) & -n)
+#define ALIGN(p, n) (((uintptr_t) (p) + (n - 1)) & ~(n - 1))
 #define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
 
 typedef struct Color { float r, g, b, a; } Color;

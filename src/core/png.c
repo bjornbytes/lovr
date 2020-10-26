@@ -73,7 +73,7 @@ void* png_encode(uint8_t* pixels, uint32_t w, uint32_t h, int32_t stride, size_t
   data += 8 + sizeof(header) + 4;
 
   // IDAT
-  memcpy(data, (uint8_t[4]) { idatSize >> 24, idatSize >> 16, idatSize >> 8, idatSize >> 0 }, 4);
+  memcpy(data, (uint8_t[4]) { idatSize >> 24 & 0xff, idatSize >> 16 & 0xff, idatSize >> 8 & 0xff, idatSize >> 0 & 0xff }, 4);
   memcpy(data + 4, "IDAT", 4);
 
   {
@@ -93,8 +93,8 @@ void* png_encode(uint8_t* pixels, uint32_t w, uint32_t h, int32_t stride, size_t
       *p++ = (length == rowSize);
 
       // Write length and negated length
-      memcpy(p + 0, &(uint16_t) {blockSize}, 2);
-      memcpy(p + 2, &(uint16_t) {~blockSize}, 2);
+      memcpy(p + 0, &(uint16_t) { blockSize & 0xffff }, 2);
+      memcpy(p + 2, &(uint16_t) { ~blockSize & 0xffff }, 2);
       p += 4;
 
       // Write the filter method (0) and the row data

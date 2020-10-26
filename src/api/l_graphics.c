@@ -1452,19 +1452,19 @@ static const char* luax_readshadersource(lua_State* L, int index, int *outLength
 
   Blob* blob = luax_totype(L, index, Blob);
   if (blob) {
-    *outLength = blob->size;
+    *outLength = (int) blob->size;
     return blob->data;
   }
 
   size_t length;
   const char* source = luaL_checklstring(L, index, &length);
   if (memchr(source, '\n', MIN(1024, length))) {
-    *outLength = length;
+    *outLength = (int) length;
     return source;
   } else {
     void* contents = luax_readfile(source, &length);
     lovrAssert(contents, "Could not read shader from file '%s'", source);
-    *outLength = length;
+    *outLength = (int) length;
     return contents;
   }
 }
@@ -1551,9 +1551,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       lua_pop(L, 1);
     }
 
-    shader = lovrShaderCreateGraphics(
-      vertexSource, vertexSourceLength, fragmentSource, fragmentSourceLength,
-      flags, flagCount, multiview);
+    shader = lovrShaderCreateGraphics(vertexSource, vertexSourceLength, fragmentSource, fragmentSourceLength, flags, flagCount, multiview);
   }
 
   luax_pushtype(L, Shader, shader);
