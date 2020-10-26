@@ -3,9 +3,8 @@
 
 static int l_lovrTextureDataEncode(lua_State* L) {
   TextureData* textureData = luax_checktype(L, 1, TextureData);
-  const char* filename = luaL_checkstring(L, 2);
-  bool success = lovrTextureDataEncode(textureData, filename);
-  lua_pushboolean(L, success);
+  Blob* blob = lovrTextureDataEncode(textureData);
+  luax_pushtype(L, Blob, blob);
   return 1;
 }
 

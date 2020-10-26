@@ -66,6 +66,6 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
 #define lovrTextureDataCreateFromBlob(...) lovrTextureDataInitFromBlob(lovrAlloc(TextureData), __VA_ARGS__)
 Color lovrTextureDataGetPixel(TextureData* textureData, uint32_t x, uint32_t y);
 void lovrTextureDataSetPixel(TextureData* textureData, uint32_t x, uint32_t y, Color color);
-bool lovrTextureDataEncode(TextureData* textureData, const char* filename);
+Blob* lovrTextureDataEncode(TextureData* textureData);
 void lovrTextureDataPaste(TextureData* textureData, TextureData* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h);
 void lovrTextureDataDestroy(void* ref);
