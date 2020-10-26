@@ -889,6 +889,10 @@ void gpu_shader_destroy(gpu_shader* shader) {
 
 // Pipeline
 
+size_t gpu_sizeof_pipeline() {
+  return sizeof(gpu_pipeline);
+}
+
 bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
   static const VkPrimitiveTopology topologies[] = {
     [GPU_DRAW_POINTS] = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
