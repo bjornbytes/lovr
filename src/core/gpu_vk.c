@@ -972,7 +972,9 @@ bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
   VkPipelineViewportStateCreateInfo viewport = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
     .viewportCount = 1,
-    .pViewports = &info->canvas->viewport
+    .pViewports = &info->canvas->viewport,
+    .scissorCount = 1,
+    .pScissors = &info->canvas->renderArea
   };
 
   VkPipelineRasterizationStateCreateInfo rasterization = {
