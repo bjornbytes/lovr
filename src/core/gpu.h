@@ -198,11 +198,6 @@ typedef enum {
 } gpu_draw_mode;
 
 typedef enum {
-  GPU_INDEX_U16,
-  GPU_INDEX_U32
-} gpu_index_stride;
-
-typedef enum {
   GPU_CULL_NONE,
   GPU_CULL_FRONT,
   GPU_CULL_BACK
@@ -279,7 +274,6 @@ typedef struct {
   gpu_canvas* canvas;
   gpu_buffer_layout buffers[16];
   gpu_attribute attributes[16];
-  gpu_index_stride indexStride;
   gpu_draw_mode drawMode;
   gpu_cull_mode cullMode;
   gpu_winding winding;
@@ -301,13 +295,17 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
 // Batch
 
-size_t gpu_sizeof_batch(void);
-void gpu_batch_begin(gpu_batch* batch);
+typedef enum {
+  GPU_INDEX_U16,
+  GPU_INDEX_U32
+} gpu_index_type;
+
+gpu_batch* gpu_batch_begin(gpu_canvas* canvas);
 void gpu_batch_end(gpu_batch* batch);
 void gpu_batch_bind(gpu_batch* batch/**/);
 void gpu_batch_set_pipeline(gpu_batch* batch, gpu_pipeline* pipeline);
 void gpu_batch_set_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
-void gpu_batch_set_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset);
+void gpu_batch_set_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type);
 void gpu_batch_draw(gpu_batch* batch, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex);
 void gpu_batch_draw_indexed(gpu_batch* batch, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex);
 void gpu_batch_draw_indirect(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
@@ -324,6 +322,8 @@ typedef struct {
 
 bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
+void gpu_thread_init(void);
+void gpu_thread_destroy(void);
 void gpu_prepare(void);
 void gpu_submit(void);
 void gpu_pass_begin(gpu_canvas* canvas);
