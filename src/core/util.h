@@ -11,8 +11,8 @@
 
 #ifdef _WIN32
 #define LOVR_EXPORT __declspec(dllexport)
-#define LOVR_NORETURN  __declspec(noreturn)
-#define LOVR_THREAD_LOCAL  __declspec(thread)
+#define LOVR_NORETURN __declspec(noreturn)
+#define LOVR_THREAD_LOCAL __declspec(thread)
 #define LOVR_ALIGN(n) __declspec(align(n))
 #define LOVR_INLINE __inline
 #define LOVR_RESTRICT __restrict
