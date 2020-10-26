@@ -376,7 +376,8 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
     XrActionSpaceCreateInfo leftHandSpaceInfo = {
       .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
       .action = state.actions[ACTION_HAND_POSE],
-      .subactionPath = state.actionFilters[0]
+      .subactionPath = state.actionFilters[0],
+      .poseInActionSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
     };
 
     XR_INIT(xrCreateActionSpace(state.session, &leftHandSpaceInfo, &state.spaces[DEVICE_HAND_LEFT]));
@@ -385,7 +386,8 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
     XrActionSpaceCreateInfo rightHandSpaceInfo = {
       .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
       .action = state.actions[ACTION_HAND_POSE],
-      .subactionPath = state.actionFilters[1]
+      .subactionPath = state.actionFilters[1],
+      .poseInActionSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
     };
 
     XR_INIT(xrCreateActionSpace(state.session, &rightHandSpaceInfo, &state.spaces[DEVICE_HAND_RIGHT]));
@@ -598,7 +600,7 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
     return false;
   }
 
-  XrSpaceLocation location = { .next = NULL };
+  XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION, .next = NULL };
   xrLocateSpace(state.spaces[device], state.referenceSpace, state.frameState.predictedDisplayTime, &location);
   memcpy(orientation, &location.pose.orientation, 4 * sizeof(float));
   memcpy(position, &location.pose.position, 3 * sizeof(float));
@@ -611,7 +613,7 @@ static bool openxr_getVelocity(Device device, vec3 linearVelocity, vec3 angularV
   }
 
   XrSpaceVelocity velocity = { .type = XR_TYPE_SPACE_VELOCITY };
-  XrSpaceLocation location = { .next = &velocity };
+  XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION, .next = &velocity };
   xrLocateSpace(state.spaces[device], state.referenceSpace, state.frameState.predictedDisplayTime, &location);
   memcpy(linearVelocity, &velocity.linearVelocity, 3 * sizeof(float));
   memcpy(angularVelocity, &velocity.angularVelocity, 3 * sizeof(float));
@@ -644,7 +646,9 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
     default: return false;
   }
 
-  XrActionStateBoolean actionState;
+  XrActionStateBoolean actionState = {
+      .type = XR_TYPE_ACTION_STATE_BOOLEAN,
+  };
   XR(xrGetActionStateBoolean(state.session, &info, &actionState));
   *value = actionState.currentState;
   *changed = actionState.changedSinceLastSync;
@@ -667,7 +671,9 @@ static bool getFloatAction(uint32_t action, XrPath filter, float* value) {
     .subactionPath = filter
   };
 
-  XrActionStateFloat actionState;
+  XrActionStateFloat actionState = {
+      .type = XR_TYPE_ACTION_STATE_FLOAT,
+  };
   XR(xrGetActionStateFloat(state.session, &info, &actionState));
   *value = actionState.currentState;
   return actionState.isActive;
@@ -879,7 +885,7 @@ static void openxr_update(float dt) {
 
     XrActionsSyncInfo syncInfo = {
       .type = XR_TYPE_ACTIONS_SYNC_INFO,
-      .countActiveActionSets = 1,
+      .countActiveActionSets = 2,
       .activeActionSets = (XrActiveActionSet[]) {
         { state.actionSet, state.actionFilters[0] },
         { state.actionSet, state.actionFilters[1] }
