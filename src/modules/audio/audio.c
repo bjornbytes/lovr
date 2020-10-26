@@ -535,7 +535,7 @@ SoundData* lovrMicrophoneGetData(Microphone* microphone, size_t samples, SoundDa
   if (!microphone->isRecording || availableSamples == 0) {
     return NULL;
   }
-  
+
   if (samples == 0 || samples > availableSamples) {
     samples = availableSamples;
   }
