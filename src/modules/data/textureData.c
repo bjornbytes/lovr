@@ -1,6 +1,5 @@
 #include "data/textureData.h"
 #include "filesystem/filesystem.h"
-#include "core/png.h"
 #include "core/ref.h"
 #include "lib/stb/stb_image.h"
 #include <stdlib.h>
