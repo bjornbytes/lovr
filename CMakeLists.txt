@@ -653,6 +653,10 @@ elseif(ANDROID)
 
     set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${MANIFEST}.xml" CACHE STRING "The AndroidManifest.xml file to use")
 
+    if (ANDROID_KEYSTORE_PASS) # Trick so that --ks-pass is not passed if no password is given.
+      set(ANDROID_APKSIGNER_KEYSTORE_PASS --ks-pass)
+    endif()
+
     # Make an apk
     add_custom_command(
       TARGET lovr
@@ -678,7 +682,7 @@ elseif(ANDROID)
       COMMAND ${ANDROID_TOOLS}/apksigner
         sign
         --ks ${ANDROID_KEYSTORE}
-        --ks-pass ${ANDROID_KEYSTORE_PASS}
+        ${ANDROID_APKSIGNER_KEYSTORE_PASS} ${ANDROID_KEYSTORE_PASS}
         --in lovr.unsigned.apk
         --out lovr.apk
       COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk AndroidManifest.xml Activity.java classes.dex
