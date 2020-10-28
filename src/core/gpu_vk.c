@@ -206,6 +206,8 @@ static const char* getErrorString(VkResult result);
   X(vkDestroyFramebuffer)\
   X(vkCreateShaderModule)\
   X(vkDestroyShaderModule)\
+  X(vkCreatePipelineLayout)\
+  X(vkDestroyPipelineLayout)\
   X(vkCreateGraphicsPipelines)\
   X(vkDestroyPipeline)\
   X(vkCmdBindPipeline)\
@@ -878,12 +880,20 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     loadShader(&info->fragment, VK_SHADER_STAGE_FRAGMENT_BIT, &shader->handles[1], &shader->pipelineInfo[1]);
   }
 
+  VkPipelineLayoutCreateInfo layoutInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
+  };
+
+  GPU_VK(vkCreatePipelineLayout(state.device, &layoutInfo, NULL, &shader->pipelineLayout));
+
   return true;
 }
 
 void gpu_shader_destroy(gpu_shader* shader) {
-  if (shader->handles[0]) condemn(shader->handles[0], VK_OBJECT_TYPE_SHADER_MODULE);
-  if (shader->handles[1]) condemn(shader->handles[1], VK_OBJECT_TYPE_SHADER_MODULE);
+  // The spec says it's safe to destroy shaders while still in use
+  if (shader->handles[0]) vkDestroyShaderModule(state.device, shader->handles[0], NULL);
+  if (shader->handles[1]) vkDestroyShaderModule(state.device, shader->handles[1], NULL);
+  vkDestroyPipelineLayout(state.device, shader->pipelineLayout, NULL);
   memset(shader, 0, sizeof(*shader));
 }
 
@@ -1047,6 +1057,7 @@ bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
     .pMultisampleState = &multisample,
     .pDepthStencilState = &depthStencil,
     .pColorBlendState = &colorBlend,
+    .layout = info->shader->pipelineLayout,
     .renderPass = info->canvas->handle
   };
 
@@ -1208,8 +1219,7 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
     .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
     .stage = stage,
     .module = *handle,
-    .pName = "main",
-    .pSpecializationInfo = NULL
+    .pName = source->entry ? source->entry : "main"
   };
 
   return true;
