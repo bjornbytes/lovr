@@ -491,7 +491,7 @@ void gpu_pass_begin(gpu_canvas* canvas) {
     .pClearValues = canvas->clears
   };
 
-  vkCmdBeginRenderPass(state.commands, &beginfo, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBeginRenderPass(state.commands, &beginfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 }
 
 void gpu_pass_end() {
