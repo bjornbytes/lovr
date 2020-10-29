@@ -184,12 +184,14 @@ static const char* getErrorString(VkResult result);
   X(vkDestroyBuffer)\
   X(vkGetBufferMemoryRequirements)\
   X(vkBindBufferMemory)\
-  X(vkCmdCopyBuffer)\
   X(vkCreateImage)\
   X(vkDestroyImage)\
   X(vkGetImageMemoryRequirements)\
   X(vkBindImageMemory)\
+  X(vkCmdCopyBuffer)\
+  X(vkCmdCopyImage)\
   X(vkCmdCopyBufferToImage)\
+  X(vkCmdCopyImageToBuffer)\
   X(vkAllocateMemory)\
   X(vkFreeMemory)\
   X(vkMapMemory)\
@@ -582,12 +584,22 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
   memset(buffer, 0, sizeof(*buffer));
 }
 
-uint8_t* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
+void* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
   return NULL;
 }
 
-void gpu_buffer_unmap(gpu_buffer* buffer) {
+void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_read_fn* fn, void* userdata) {
   //
+}
+
+void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint64_t dstOffset, uint64_t size) {
+  VkBufferCopy region = {
+    .srcOffset = srcOffset,
+    .dstOffset = dstOffset,
+    .size = size
+  };
+
+  vkCmdCopyBuffer(state.commands, src->handle, dst->handle, 1, &region);
 }
 
 // Texture
@@ -749,8 +761,42 @@ void gpu_texture_destroy(gpu_texture* texture) {
   memset(texture, 0, sizeof(*texture));
 }
 
-void gpu_texture_paste(gpu_texture* texture, uint8_t* data, uint64_t size, uint16_t offset[4], uint16_t extent[4], uint16_t mip) {
+void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t size[3]) {
+  return NULL;
+}
+
+void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t size[3], gpu_read_fn* fn, void* userdata) {
   //
+}
+
+void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]) {
+  // TODO is it better to transition to transfer-optimal layouts?
+  // TODO could have a more fine-grained image barrier on only the slices/levels being touched
+  setLayout(src, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+  setLayout(dst, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+
+  bool srcArray = src->type == GPU_TEXTURE_TYPE_ARRAY;
+  bool dstArray = dst->type == GPU_TEXTURE_TYPE_ARRAY;
+
+  VkImageCopy region = {
+    .srcSubresource = {
+      .aspectMask = src->aspect,
+      .mipLevel = srcOffset[3],
+      .baseArrayLayer = srcArray ? srcOffset[2] : 0,
+      .layerCount = srcArray ? size[2] : 1
+    },
+    .srcOffset = { srcOffset[0], srcOffset[1], srcArray ? 0 : srcOffset[2] },
+    .dstSubresource = {
+      .aspectMask = dst->aspect,
+      .mipLevel = dstOffset[3],
+      .baseArrayLayer = dstArray ? dstOffset[2] : 0,
+      .layerCount = dstArray ? size[2] : 1
+    },
+    .dstOffset = { dstOffset[0], dstOffset[1], dstArray ? 0 : dstOffset[2] },
+    .extent = { size[0], size[1], size[2] }
+  };
+
+  vkCmdCopyImage(state.commands, src->handle, src->layout, dst->handle, dst->layout, 1, &region);
 }
 
 // Canvas
