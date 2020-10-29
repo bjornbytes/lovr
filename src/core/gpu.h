@@ -11,6 +11,8 @@ typedef struct gpu_shader gpu_shader;
 typedef struct gpu_pipeline gpu_pipeline;
 typedef struct gpu_batch gpu_batch;
 
+typedef void gpu_read_fn(void* data, uint64_t size, void* userdata);
+
 // Buffer
 
 typedef enum {
@@ -32,8 +34,9 @@ typedef struct {
 size_t gpu_sizeof_buffer(void);
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info);
 void gpu_buffer_destroy(gpu_buffer* buffer);
-uint8_t* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size);
-void gpu_buffer_discard(gpu_buffer* buffer);
+void* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size);
+void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_read_fn* fn, void* userdata);
+void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint64_t dstOffset, uint64_t size);
 
 // Texture
 
@@ -92,7 +95,9 @@ size_t gpu_sizeof_texture(void);
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info);
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info);
 void gpu_texture_destroy(gpu_texture* texture);
-void gpu_texture_write(gpu_texture* texture, uint8_t* data, uint16_t offset[4], uint16_t extent[4], uint16_t mip);
+void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t size[3]);
+void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t size[3], gpu_read_fn* fn, void* userdata);
+void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]);
 
 // Canvas
 
