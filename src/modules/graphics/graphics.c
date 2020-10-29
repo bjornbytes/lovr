@@ -178,7 +178,7 @@ static void* lovrGraphicsMapBuffer(StreamType type, uint32_t count) {
   lovrAssert(count <= bufferCount[type], "Whoa there!  Tried to get %d elements from a buffer that only has %d elements.", count, bufferCount[type]);
 
   if (state.head[type] + count > bufferCount[type]) {
-    lovrGraphicsFlush();
+    lovrAssert(state.batchCount == 0, "Internal error: Batches still exist during Buffer reset");
     lovrBufferDiscard(state.buffers[type]);
     state.tail[type] = 0;
     state.head[type] = 0;
@@ -626,6 +626,23 @@ next:
   // write the ids much later.
   uint8_t* ids = NULL;
 
+  // Figure out if a flush is necessary before mapping buffers for vertex data or UBOs.
+  // - A flush is necessary if vertices are about to be written (during the first element of an
+  //   instanced batch or any element of a stream batch) and any of the ranges go past the end.
+  // - If a new batch is required but there isn't space for it, flush to make space.
+  // - If a new batch is required, make sure there is space for the matrix/color UBO streams.
+  // It's important to flush before mapping any streams, because flushing unmaps all streams.
+  bool needFlush = false;
+  bool hasVertices = req->vertexCount > 0 && (!req->instanced || !batch);
+  bool hasIndices = hasVertices && req->indexCount > 0;
+  needFlush = needFlush || (hasVertices && state.head[STREAM_VERTEX] + req->vertexCount > bufferCount[STREAM_VERTEX]);
+  needFlush = needFlush || (hasVertices && state.head[STREAM_DRAWID] + req->vertexCount > bufferCount[STREAM_DRAWID]);
+  needFlush = needFlush || (hasIndices && state.head[STREAM_INDEX] + req->indexCount > bufferCount[STREAM_INDEX]);
+  needFlush = needFlush || (!batch && state.batchCount >= MAX_BATCHES);
+  needFlush = needFlush || (!batch && state.head[STREAM_MODEL] + MAX_DRAWS > bufferCount[STREAM_MODEL]);
+  needFlush = needFlush || (!batch && state.head[STREAM_COLOR] + MAX_DRAWS > bufferCount[STREAM_COLOR]);
+  if (needFlush) lovrGraphicsFlush();
+
   if (req->vertexCount > 0 && (!req->instanced || !batch)) {
     *(req->vertices) = lovrGraphicsMapBuffer(STREAM_VERTEX, req->vertexCount);
     ids = lovrGraphicsMapBuffer(STREAM_DRAWID, req->vertexCount);
@@ -638,10 +655,6 @@ next:
 
   // Start a new batch
   if (!batch || state.batchCount == 0) {
-    if (state.batchCount >= MAX_BATCHES) {
-      lovrGraphicsFlush();
-    }
-
     float* transforms = lovrGraphicsMapBuffer(STREAM_MODEL, MAX_DRAWS);
     Color* colors = lovrGraphicsMapBuffer(STREAM_COLOR, MAX_DRAWS);
 

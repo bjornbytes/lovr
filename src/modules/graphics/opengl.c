@@ -2265,6 +2265,7 @@ void* lovrBufferMap(Buffer* buffer, size_t offset, bool unsynchronized) {
 }
 
 void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size) {
+  lovrAssert(size == 0 || buffer->mapped, "Attempt to flush unmapped Buffer");
   buffer->flushFrom = MIN(buffer->flushFrom, offset);
   buffer->flushTo = MAX(buffer->flushTo, offset + size);
 }
