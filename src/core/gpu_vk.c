@@ -115,6 +115,22 @@ typedef struct {
   uint32_t tail;
 } gpu_batch_pool;
 
+typedef struct {
+  VkBuffer buffer;
+  VkDeviceMemory memory;
+  uint8_t* data;
+  uint32_t tick;
+  uint32_t next;
+} gpu_scratchpad;
+
+typedef struct {
+  gpu_scratchpad data[128];
+  uint32_t cursor;
+  uint32_t count;
+  uint32_t head;
+  uint32_t tail;
+} gpu_scratchpad_pool;
+
 // State
 
 static __thread gpu_batch_pool batches;
@@ -130,12 +146,20 @@ static struct {
   uint32_t tick[2];
   gpu_tick ticks[16];
   gpu_morgue morgue;
+  gpu_scratchpad_pool scratchpads;
   gpu_config config;
   void* library;
 } state;
 
 // Helpers
 
+typedef struct {
+  VkBuffer buffer;
+  uint32_t offset;
+  void* data;
+} gpu_mapping;
+
+static gpu_mapping scratch(uint32_t size);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
 static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo);
@@ -403,6 +427,8 @@ bool gpu_init(gpu_config* config) {
   gpu_mutex_init(&state.morgue.lock);
   state.tick[CPU] = COUNTOF(state.ticks);
   state.tick[GPU] = ~0u;
+  state.scratchpads.head = ~0u;
+  state.scratchpads.tail = ~0u;
   return true;
 }
 
@@ -1222,6 +1248,39 @@ void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_
 }
 
 // Helpers
+
+static gpu_mapping scratch(uint32_t size) {
+  gpu_scratchpad_pool* pool = &state.scratchpads;
+  gpu_scratchpad* scratchpad;
+  uint32_t index;
+
+  if (pool->tail != ~0u && state.tick[GPU] >= pool->data[pool->tail].tick) {
+    index = pool->tail;
+    scratchpad = &pool->data[pool->tail];
+    pool->tail = scratchpad->next; // TODO what if tail is ~0u now?
+  } else {
+    GPU_CHECK(pool->count < COUNTOF(pool->data), "GPU scratchpad pool overflow");
+    index = pool->count++;
+    scratchpad = &pool->data[index];
+
+    // Allocate buffer
+
+    if (pool->tail == ~0u) {
+      pool->tail = index;
+    }
+  }
+
+  if (pool->head != ~0u) {
+    pool->data[pool->head].next = index;
+  }
+
+  uint8_t* data = scratchpad->data + pool->cursor;
+  scratchpad->tick = state.tick[CPU];
+  scratchpad->next = ~0u;
+  pool->cursor += size;
+  pool->head = index;
+  return (gpu_mapping) { .buffer = scratchpad->buffer, .offset = pool->cursor, .data = data };
+}
 
 static void condemn(void* handle, VkObjectType type) {
   gpu_morgue* morgue = &state.morgue;
