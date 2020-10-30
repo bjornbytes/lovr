@@ -142,9 +142,8 @@ static int l_lovrHeadsetInit(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  if (lovrHeadsetInit(drivers, driverCount, supersample, offset, msaa)) {
-    luax_atexit(L, lovrHeadsetDestroy);
-  }
+  luax_atexit(L, lovrHeadsetDestroy); // Always make sure the headset module gets cleaned up
+  lovrHeadsetInit(drivers, driverCount, supersample, offset, msaa);
 
   lua_pop(L, 2);
   return 0;
