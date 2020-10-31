@@ -142,6 +142,8 @@ static struct {
   VkCommandBuffer commands;
   VkDebugUtilsMessengerEXT messenger;
   VkPhysicalDeviceMemoryProperties memoryProperties;
+  VkMemoryRequirements scratchMemoryRequirements;
+  uint32_t scratchMemoryType;
   uint32_t queueFamilyIndex;
   uint32_t tick[2];
   gpu_tick ticks[16];
@@ -611,7 +613,16 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
 }
 
 void* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
-  return NULL;
+  gpu_mapping mapped = scratch(size);
+
+  VkBufferCopy region = {
+    .srcOffset = mapped.offset,
+    .dstOffset = offset,
+    .size = size
+  };
+
+  vkCmdCopyBuffer(state.commands, mapped.buffer, buffer->handle, &region);
+  return mapped.data;
 }
 
 void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_read_fn* fn, void* userdata) {
@@ -1254,31 +1265,90 @@ static gpu_mapping scratch(uint32_t size) {
   gpu_scratchpad* scratchpad;
   uint32_t index;
 
-  if (pool->tail != ~0u && state.tick[GPU] >= pool->data[pool->tail].tick) {
-    index = pool->tail;
-    scratchpad = &pool->data[pool->tail];
-    pool->tail = scratchpad->next; // TODO what if tail is ~0u now?
-  } else {
-    GPU_CHECK(pool->count < COUNTOF(pool->data), "GPU scratchpad pool overflow");
-    index = pool->count++;
+  // If there's an active scratchpad and it has enough space, just use that
+  if (pool->head != ~0u && pool->cursor + size <= SCRATCHPAD_SIZE) {
+    index = pool->head;
     scratchpad = &pool->data[index];
+  } else {
+    // Otherwise, see if it's possible to reuse the oldest existing scratch buffer
+    GPU_CHECK(size <= SCRATCHPAD_SIZE, "Tried to map too much scratch memory");
+    if (pool->tail != ~0u && state.tick[GPU] >= pool->data[pool->tail].tick) {
+      index = pool->tail;
+      scratchpad = &pool->data[index];
+      pool->tail = scratchpad->next;
+    } else {
+      // As a last resort, allocate a new scratchpad
+      GPU_CHECK(pool->count < COUNTOF(pool->data), "GPU scratchpad pool overflow");
+      index = pool->count++;
+      scratchpad = &pool->data[index];
 
-    // Allocate buffer
+      VkBufferCreateInfo bufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = SCRATCHPAD_SIZE,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+      };
+
+      GPU_VK(vkCreateBuffer(state.device, &bufferInfo, NULL, &scratchpad->buffer));
+
+      // Cache memory requirements if needed
+      if (state.scratchMemoryRequirements.size == 0) {
+        state.scratchMemoryType = ~0u;
+        vkGetBufferMemoryRequirements(state.device, scratchpad->buffer, &state.scratchMemoryRequirements);
+        for (uint32_t i = 0; i < state.memoryProperties.memoryTypeCount; i++) {
+          uint32_t flags = state.memoryProperties.memoryTypes[i].propertyFlags;
+          uint32_t mask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+          if ((flags & mask) == mask && (state.scratchMemoryRequirements.memoryTypeBits & (1 << i))) {
+            state.scratchpadMemoryType = i;
+            break;
+          }
+        }
+
+        if (state.scratchpadMemoryType == ~0u) {
+          vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
+          return NULL;
+        }
+      }
+
+      VkMemoryAllocateInfo memoryInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = state.scratchMemoryRequirements.size,
+        .memoryTypeIndex = state.scratchpadMemoryType
+      };
+
+      if (vkAllocateMemory(state.device, &memoryInfo, NULL, &scratchpad->memory)) {
+        vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
+        return NULL;
+      }
+
+      if (vkBindBufferMemory(state.device, scratchpad->buffer, scratchpad->memory, 0)) {
+        vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
+        vkFreeMemory(state.device, scratchpad->memory, NULL);
+        return NULL;
+      }
+
+      if (vkMapMemory(state.device, scratchpad->memory, 0, VK_WHOLE_SIZE, &scratchpad->data)) {
+        vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
+        vkFreeMemory(state.device, scratchpad->memory, NULL);
+        return NULL;
+      }
+    }
 
     if (pool->tail == ~0u) {
       pool->tail = index;
     }
+
+    if (pool->head != ~0u) {
+      pool->data[pool->head].next = index;
+    }
+
+    pool->cursor = 0;
+    pool->head = index;
+    scratchpad->next = ~0u;
   }
 
-  if (pool->head != ~0u) {
-    pool->data[pool->head].next = index;
-  }
-
-  uint8_t* data = scratchpad->data + pool->cursor;
   scratchpad->tick = state.tick[CPU];
-  scratchpad->next = ~0u;
+  uint8_t* data = scratchpad->data + pool->cursor;
   pool->cursor += size;
-  pool->head = index;
   return (gpu_mapping) { .buffer = scratchpad->buffer, .offset = pool->cursor, .data = data };
 }
 
