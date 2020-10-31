@@ -131,6 +131,20 @@ typedef struct {
   uint32_t tail;
 } gpu_scratchpad_pool;
 
+typedef struct {
+  gpu_read_fn* fn;
+  void* userdata;
+  uint8_t* data;
+  uint32_t size;
+  uint32_t tick;
+} gpu_readback;
+
+typedef struct {
+  gpu_readback data[128];
+  uint32_t head;
+  uint32_t tail;
+} gpu_readback_pool;
+
 // State
 
 static __thread gpu_batch_pool batches;
@@ -149,6 +163,7 @@ static struct {
   gpu_tick ticks[16];
   gpu_morgue morgue;
   gpu_scratchpad_pool scratchpads;
+  gpu_readback_pool readbacks;
   gpu_config config;
   void* library;
 } state;
@@ -158,10 +173,11 @@ static struct {
 typedef struct {
   VkBuffer buffer;
   uint32_t offset;
-  void* data;
+  uint8_t* data;
 } gpu_mapping;
 
 static gpu_mapping scratch(uint32_t size);
+static void readquack(void);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
 static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo);
@@ -437,6 +453,7 @@ bool gpu_init(gpu_config* config) {
 void gpu_destroy(void) {
   if (state.device) vkDeviceWaitIdle(state.device);
   state.tick[GPU] = state.tick[CPU];
+  readquack();
   expunge();
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     gpu_tick* tick = &state.ticks[i];
@@ -486,6 +503,7 @@ void gpu_prepare() {
   GPU_VK(vkResetFences(state.device, 1, &tick->fence));
   GPU_VK(vkResetCommandPool(state.device, tick->pool, 0));
   state.tick[GPU]++;
+  readquack();
   expunge();
 
   state.commands = tick->commands;
@@ -622,11 +640,30 @@ void* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
   };
 
   vkCmdCopyBuffer(state.commands, mapped.buffer, buffer->handle, &region);
+
   return mapped.data;
 }
 
 void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_read_fn* fn, void* userdata) {
-  //
+  gpu_mapping mapped = scratch(size);
+
+  VkBufferCopy region = {
+    .srcOffset = offset,
+    .dstOffset = mapped.offset,
+    .size = size
+  };
+
+  vkCmdCopyBuffer(state.commands, buffer->handle, mapped.buffer, &region);
+
+  gpu_readback_pool* pool = &state.readbacks;
+  GPU_CHECK(pool->head - pool->tail != COUNTOF(pool->data), "Too many GPU readbacks"); // TODO emergency flush instead of throw
+  pool->data[pool->head++ & 0x7f] = (gpu_readback) {
+    .fn = fn,
+    .userdata = userdata,
+    .data = mapped.data,
+    .size = size,
+    .tick = state.tick[CPU]
+  };
 }
 
 void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint64_t dstOffset, uint64_t size) {
@@ -1350,6 +1387,14 @@ static gpu_mapping scratch(uint32_t size) {
   uint8_t* data = scratchpad->data + pool->cursor;
   pool->cursor += size;
   return (gpu_mapping) { .buffer = scratchpad->buffer, .offset = pool->cursor, .data = data };
+}
+
+static void readquack() {
+  gpu_readback_pool* pool = &state.readbacks;
+  while (pool->tail != pool->head && state.tick[GPU] >= pool->data[pool->tail & 0x7f].tick) {
+    gpu_readback* readback = &pool->data[pool->tail++ & 0x7f];
+    readback->fn(readback->data, readback->size, readback->userdata);
+  }
 }
 
 static void condemn(void* handle, VkObjectType type) {
