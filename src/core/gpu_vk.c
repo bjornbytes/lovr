@@ -73,6 +73,11 @@ struct gpu_shader {
   VkPipelineLayout pipelineLayout;
 };
 
+struct gpu_bundle {
+  VkDescriptorSet handle;
+  bool transient;
+};
+
 struct gpu_pipeline {
   VkPipeline handle;
   VkIndexType indexType;
@@ -154,6 +159,7 @@ static struct {
   VkDevice device;
   VkQueue queue;
   VkCommandBuffer commands;
+  VkDescriptorPool descriptorPool;
   VkDebugUtilsMessengerEXT messenger;
   VkPhysicalDeviceMemoryProperties memoryProperties;
   VkMemoryRequirements scratchMemoryRequirements;
@@ -1018,6 +1024,68 @@ void gpu_shader_destroy(gpu_shader* shader) {
   memset(shader, 0, sizeof(*shader));
 }
 
+// Bundle
+
+size_t gpu_sizeof_bundle() {
+  return sizeof(gpu_bundle);
+}
+
+bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
+  if (transient) {
+    return false; // TODO
+  }
+
+  VkDescriptorSetAllocateInfo info = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+    .descriptorPool = state.descriptorPool,
+    .descriptorSetCount = 1,
+    .pSetLayouts = info->shader->layouts[info->group]
+  };
+
+  if (vkAllocateDescriptorSets(state.device, &info, &bundle->handle)) {
+    return false;
+  }
+
+  uint32_t count = 0;
+  VkWriteDescriptorSet writes[COUNTOF(info->bindings)];
+  for (uint32_t i = 0; i < COUNTOF(info->bindings); i++) {
+    if (!info->bindings[i].object) {
+      break;
+    }
+
+    writes[count++] = {
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .dstSet = bundle->handle,
+      .dstBinding = info->bindings[i].slot,
+      .dstArrayElement = 0,
+      .descriptorCount = 1,
+      /*
+      .descriptorType = ???,
+      .pBufferInfo = &(VkDescriptorBufferInfo) {
+        .buffer = ((gpu_buffer*) info->bindings[i].resource)->handle,
+        .offset = ???,
+        .range = ???
+      },
+      .pImageInfo = &(VkDescriptorImageInfo) {
+        .sampler = ???,
+        .imageView = ((gpu_texture*) info->bindings[i].resource)->view,
+        .imageLayout = ???
+      }
+      */
+    };
+  }
+
+  vkUpdateDescriptorSets(state.device, count, writes, 0, NULL);
+  bundle->transient = info->transient;
+  return true;
+}
+
+void gpu_bundle_destroy(gpu_bundle* bundle) {
+  if (bundle->transient) return;
+  if (bundle->handle) condemn(bundle->handle, VK_OBJECT_TYPE_DESCRIPTOR_SET);
+  memset(bundle, 0, sizeof(*bundle));
+}
+
 // Pipeline
 
 size_t gpu_sizeof_pipeline() {
@@ -1250,8 +1318,10 @@ void gpu_batch_end(gpu_batch* batch) {
   GPU_VK(vkEndCommandBuffer(batch->cmd));
 }
 
-void gpu_batch_bind(gpu_batch* batch) {
-  //
+void gpu_batch_bind(gpu_batch* batch, gpu_bundle* bundle, uint32_t group) {
+  VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  VkPipelineLayout layout = VK_NULL_HANDLE; // TODO batch needs to know its pipeline/shader
+  vkCmdBindDescriptorSets(batch->cmd, bindPoint, layout, group, 1, &bundle->handle, 0, NULL);
 }
 
 void gpu_batch_set_pipeline(gpu_batch* batch, gpu_pipeline* pipeline) {
@@ -1418,6 +1488,7 @@ static void expunge() {
       case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: vkFreeDescriptorSets(state.device, state.descriptorPool, 1, &victim->handle); break;
       case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, victim->handle, NULL); break;
       default: GPU_THROW("Unreachable"); break;
     }
