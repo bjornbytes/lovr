@@ -6,6 +6,7 @@
 
 typedef struct gpu_buffer gpu_buffer;
 typedef struct gpu_texture gpu_texture;
+typedef struct gpu_sampler gpu_sampler;
 typedef struct gpu_canvas gpu_canvas;
 typedef struct gpu_shader gpu_shader;
 typedef struct gpu_bundle gpu_bundle;
@@ -99,6 +100,32 @@ void gpu_texture_destroy(gpu_texture* texture);
 void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t size[3]);
 void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t size[3], gpu_read_fn* fn, void* userdata);
 void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]);
+
+// Sampler
+
+typedef enum {
+  GPU_FILTER_NEAREST,
+  GPU_FILTER_LINEAR
+} gpu_filter;
+
+typedef enum {
+  GPU_WRAP_CLAMP,
+  GPU_WRAP_REPEAT,
+  GPU_WRAP_MIRROR
+} gpu_wrap;
+
+typedef struct {
+  gpu_filter min;
+  gpu_filter mag;
+  gpu_filter mip;
+  gpu_wrap wrap[3];
+  float anisotropy;
+  float lodClamp[2];
+} gpu_sampler_info;
+
+size_t gpu_sizeof_sampler(void);
+bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info);
+void gpu_sampler_destroy(gpu_sampler* sampler);
 
 // Canvas
 
