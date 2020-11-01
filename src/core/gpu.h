@@ -8,6 +8,7 @@ typedef struct gpu_buffer gpu_buffer;
 typedef struct gpu_texture gpu_texture;
 typedef struct gpu_canvas gpu_canvas;
 typedef struct gpu_shader gpu_shader;
+typedef struct gpu_bundle gpu_bundle;
 typedef struct gpu_pipeline gpu_pipeline;
 typedef struct gpu_batch gpu_batch;
 
@@ -156,6 +157,42 @@ typedef struct {
 size_t gpu_sizeof_shader(void);
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info);
 void gpu_shader_destroy(gpu_shader* shader);
+
+// Bundle
+
+typedef enum {
+  GPU_SLOT_BUFFER,
+  GPU_SLOT_TEXTURE
+} gpu_slot_type;
+
+typedef enum {
+  GPU_SLOT_VERTEX   = (1 << 0),
+  GPU_SLOT_FRAGMENT = (1 << 1),
+  GPU_SLOT_COMPUTE  = (1 << 2),
+  GPU_SLOT_DYNAMIC  = (1 << 3)
+} gpu_slot_flag;
+
+typedef struct {
+  gpu_slot_type type;
+  uint16_t index;
+  uint16_t flags;
+} gpu_slot;
+
+typedef struct {
+  uint32_t slot;
+  void* object;
+} gpu_binding;
+
+typedef struct {
+  gpu_binding bindings[16];
+  gpu_shader* shader;
+  uint32_t group;
+  bool transient;
+} gpu_bundle_info;
+
+size_t gpu_sizeof_bundle(void);
+bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info);
+void gpu_bundle_destroy(gpu_bundle* bundle);
 
 // Pipeline
 
@@ -307,7 +344,7 @@ typedef enum {
 
 gpu_batch* gpu_batch_begin(gpu_canvas* canvas);
 void gpu_batch_end(gpu_batch* batch);
-void gpu_batch_bind(gpu_batch* batch/**/);
+void gpu_batch_bind(gpu_batch* batch, gpu_bundle* bundle, uint32_t group);
 void gpu_batch_set_pipeline(gpu_batch* batch, gpu_pipeline* pipeline);
 void gpu_batch_set_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
 void gpu_batch_set_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type);
