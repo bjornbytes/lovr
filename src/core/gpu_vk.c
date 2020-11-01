@@ -3,20 +3,28 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#define VULKAN_LIBRARY "vulkan-1.dll"
 #define __thread __declspec(thread)
 typedef CRITICAL_SECTION gpu_mutex;
 static void gpu_mutex_init(gpu_mutex* mutex) { InitializeCriticalSection(mutex); }
 static void gpu_mutex_destroy(gpu_mutex* mutex) { DeleteCriticalSection(mutex); }
 static void gpu_mutex_lock(gpu_mutex* mutex) { EnterCriticalSection(mutex); }
 static void gpu_mutex_unlock(gpu_mutex* mutex) { LeaveCriticalSection(mutex); }
+static void* gpu_dlopen(const char* library) { return LoadLibraryA(library); }
+static void* gpu_dlsym(void* library, const char* symbol) { return GetProcAddress(library, symbol); }
+static void gpu_dlclose(void* library) { FreeLibrary(library); }
 #else
 #include <dlfcn.h>
 #include <pthread.h>
+#define VULKAN_LIBRARY "libvulkan.so"
 typedef pthread_mutex_t gpu_mutex;
 static void gpu_mutex_init(gpu_mutex* mutex) { pthread_mutex_init(mutex, NULL); }
 static void gpu_mutex_destroy(gpu_mutex* mutex) { pthread_mutex_destroy(mutex); }
 static void gpu_mutex_lock(gpu_mutex* mutex) { pthread_mutex_lock(mutex); }
 static void gpu_mutex_unlock(gpu_mutex* mutex) { pthread_mutex_unlock(mutex); }
+static void* gpu_dlopen(const char* library) { return dlopen(library, RTLD_NOW | RTLD_LOCAL); }
+static void* gpu_dlsym(void* library, const char* symbol) { return dlsym(library, symbol); }
+static void gpu_dlclose(void* library) { return dlclose(library); }
 #endif
 
 #define VK_NO_PROTOTYPES
@@ -287,13 +295,8 @@ bool gpu_init(gpu_config* config) {
   state.config = *config;
 
   // Load
-#ifdef _WIN32
-  state.library = LoadLibraryA("vulkan-1.dll");
-  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(state.library, "vkGetInstanceProcAddr");
-#else
-  state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
-  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
-#endif
+  state.library = gpu_dlopen(VULKAN_LIBRARY);
+  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) gpu_dlsym(state.library, "vkGetInstanceProcAddr");
   GPU_FOREACH_ANONYMOUS(GPU_LOAD_ANONYMOUS);
 
   { // Instance
@@ -469,11 +472,7 @@ void gpu_destroy(void) {
   if (state.device) vkDestroyDevice(state.device, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
   if (state.instance) vkDestroyInstance(state.instance, NULL);
-#ifdef _WIN32
-  FreeLibrary(state.library);
-#else
-  dlclose(state.library);
-#endif
+  gpu_dlclose(state.library);
   gpu_mutex_destroy(&state.morgue.lock);
   memset(&state, 0, sizeof(state));
 }
