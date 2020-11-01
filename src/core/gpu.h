@@ -89,6 +89,7 @@ typedef struct {
   uint32_t size[3];
   uint32_t layers;
   uint32_t mipmaps;
+  uint32_t samples;
   uint32_t usage;
   const char* label;
 } gpu_texture_info;
@@ -137,8 +138,7 @@ typedef enum {
 
 typedef struct {
   gpu_texture* texture;
-  uint32_t layer;
-  uint32_t level;
+  gpu_texture* resolve;
   gpu_load_op load;
   float clear[4];
 } gpu_color_attachment;
@@ -158,7 +158,6 @@ typedef struct {
   gpu_depth_attachment depth;
   uint32_t size[2];
   uint32_t views;
-  uint32_t msaa;
   const char* label;
 } gpu_canvas_info;
 
