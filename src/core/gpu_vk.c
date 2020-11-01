@@ -52,6 +52,7 @@ struct gpu_texture {
   VkImageAspectFlagBits aspect;
   gpu_texture* source;
   gpu_texture_type type;
+  VkSampleCountFlagBits samples;
   VkFormat format;
 };
 
@@ -738,7 +739,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .extent.depth = info->size[2],
     .mipLevels = info->mipmaps,
     .arrayLayers = info->layers,
-    .samples = VK_SAMPLE_COUNT_1_BIT,
+    .samples = info->samples,
     .tiling = VK_IMAGE_TILING_OPTIMAL,
     .usage = usage
   };
@@ -949,7 +950,7 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
   for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].texture; i++, canvas->colorAttachmentCount++, totalCount++) {
     attachments[i] = (VkAttachmentDescription) {
       .format = info->color[i].texture->format,
-      .samples = VK_SAMPLE_COUNT_1_BIT,
+      .samples = info->color[i].texture->samples,
       .loadOp = loadOps[info->color[i].load],
       .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
       .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
