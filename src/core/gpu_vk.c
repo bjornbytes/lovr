@@ -879,6 +879,55 @@ void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4],
   vkCmdCopyImage(state.commands, src->handle, src->layout, dst->handle, dst->layout, 1, &region);
 }
 
+// Sampler
+
+size_t gpu_sizeof_sampler() {
+  return sizeof(gpu_sampler);
+}
+
+bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
+  static const VkFilter filters[] = {
+    [GPU_FILTER_NEAREST] = VK_FILTER_NEAREST,
+    [GPU_FILTER_LINEAR] = VK_FILTER_LINEAR
+  };
+
+  static const VkSamplerMipmapMode mipFilters[] = {
+    [GPU_FILTER_NEAREST] = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+    [GPU_FILTER_LINEAR] = VK_SAMPLER_MIPMAP_MODE_LINEAR
+  };
+
+  static const VkSamplerAddressMode wraps[] = {
+    [GPU_WRAP_CLAMP] = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+    [GPU_WRAP_REPEAT] = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    [GPU_WRAP_MIRROR] = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
+  };
+
+  VkSamplerCreateInfo info = {
+    .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+    .magFilter = filters[info->mag],
+    .minFilter = filters[info->min],
+    .mipmapMode = mipmapFilters[info->mip],
+    .addressModeU = wraps[info->wrap[0]],
+    .addressModeV = wraps[info->wrap[1]],
+    .addressModeW = wraps[info->wrap[2]],
+    .anisotropyEnable = info->anisotropy >= 1.f,
+    .maxAnisotropy = info->anisotropy,
+    .minLod = info->lodClamp[0],
+    .maxLod = info->lodClamp[1]
+  };
+
+  if (vkCreateSampler(state.device, &info, NULL, &sampler->handle)) {
+    return false;
+  }
+
+  return true;
+}
+
+void gpu_sampler_destroy(gpu_sampler* sampler) {
+  if (sampler->handle) condemn(sampler->handle, VK_OBJECT_TYPE_SAMPLER);
+  memset(sampler, 0, sizeof(*sampler));
+}
+
 // Canvas
 
 size_t gpu_sizeof_canvas() {
