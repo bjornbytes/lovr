@@ -658,10 +658,8 @@ elseif(ANDROID)
     endif()
 
     # Make an apk
-    add_custom_command(
-      TARGET lovr
-      POST_BUILD
-      BYPRODUCTS lovr.apk
+    add_custom_target(
+      buildAPK ALL
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ACTIVITY}.java Activity.java
