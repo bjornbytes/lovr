@@ -226,6 +226,7 @@ void lovrGraphicsCreateWindow(WindowFlags* flags) {
   flags->debug = state.debug;
   lovrAssert(!state.initialized, "Window is already created");
   lovrAssert(lovrPlatformCreateWindow(flags), "Could not create window");
+  lovrPlatformSetSwapInterval(flags->vsync); // Force vsync in case lovr.headset changed it in a previous restart
   lovrPlatformOnQuitRequest(onQuitRequest);
   lovrPlatformOnWindowResize(onResizeWindow);
   lovrPlatformGetFramebufferSize(&state.width, &state.height);
