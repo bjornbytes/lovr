@@ -24,7 +24,7 @@ static void gpu_mutex_lock(gpu_mutex* mutex) { pthread_mutex_lock(mutex); }
 static void gpu_mutex_unlock(gpu_mutex* mutex) { pthread_mutex_unlock(mutex); }
 static void* gpu_dlopen(const char* library) { return dlopen(library, RTLD_NOW | RTLD_LOCAL); }
 static void* gpu_dlsym(void* library, const char* symbol) { return dlsym(library, symbol); }
-static void gpu_dlclose(void* library) { return dlclose(library); }
+static void gpu_dlclose(void* library) { dlclose(library); }
 #endif
 
 #define VK_NO_PROTOTYPES
@@ -54,6 +54,7 @@ struct gpu_texture {
   gpu_texture_type type;
   VkSampleCountFlagBits samples;
   VkFormat format;
+  size_t stride;
 };
 
 struct gpu_sampler {
@@ -132,7 +133,7 @@ typedef struct {
 typedef struct {
   VkBuffer buffer;
   VkDeviceMemory memory;
-  uint8_t* data;
+  void* data;
   uint32_t tick;
   uint32_t next;
 } gpu_scratchpad;
@@ -265,11 +266,19 @@ static const char* getErrorString(VkResult result);
   X(vkDestroyFramebuffer)\
   X(vkCreateShaderModule)\
   X(vkDestroyShaderModule)\
+  X(vkCreateDescriptorSetLayout)\
+  X(vkDestroyDescriptorSetLayout)\
   X(vkCreatePipelineLayout)\
   X(vkDestroyPipelineLayout)\
+  X(vkCreateDescriptorPool)\
+  X(vkDestroyDescriptorPool)\
+  X(vkAllocateDescriptorSets)\
+  X(vkFreeDescriptorSets)\
+  X(vkUpdateDescriptorSets)\
   X(vkCreateGraphicsPipelines)\
   X(vkDestroyPipeline)\
   X(vkCmdBindPipeline)\
+  X(vkCmdBindDescriptorSets)\
   X(vkCmdBindVertexBuffers)\
   X(vkCmdBindIndexBuffer)\
   X(vkCmdDraw)\
@@ -332,8 +341,6 @@ bool gpu_init(gpu_config* config) {
       VkDebugUtilsMessengerCreateInfoEXT messengerInfo = {
         .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
         .messageSeverity =
-          VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-          VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
           VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
           VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
         .messageType =
@@ -465,6 +472,10 @@ void gpu_destroy(void) {
   state.tick[GPU] = state.tick[CPU];
   readquack();
   expunge();
+  for (uint32_t i = 0; i < state.scratchpads.count; i++) {
+    vkDestroyBuffer(state.device, state.scratchpads.data[i].buffer, NULL);
+    vkFreeMemory(state.device, state.scratchpads.data[i].memory, NULL);
+  }
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     gpu_tick* tick = &state.ticks[i];
     if (tick->fence) vkDestroyFence(state.device, tick->fence, NULL);
@@ -645,7 +656,7 @@ void* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
     .size = size
   };
 
-  vkCmdCopyBuffer(state.commands, mapped.buffer, buffer->handle, &region);
+  vkCmdCopyBuffer(state.commands, mapped.buffer, buffer->handle, 1, &region);
 
   return mapped.data;
 }
@@ -659,7 +670,7 @@ void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_rea
     .size = size
   };
 
-  vkCmdCopyBuffer(state.commands, buffer->handle, mapped.buffer, &region);
+  vkCmdCopyBuffer(state.commands, buffer->handle, mapped.buffer, 1, &region);
 
   gpu_readback_pool* pool = &state.readbacks;
   GPU_CHECK(pool->head - pool->tail != COUNTOF(pool->data), "Too many GPU readbacks"); // TODO emergency flush instead of throw
@@ -684,20 +695,20 @@ void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint6
 
 // Texture
 
-static const struct { VkFormat format; VkImageAspectFlagBits aspect; } textureInfo[] = {
-  [GPU_TEXTURE_FORMAT_RGBA8] = { VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT },
-  [GPU_TEXTURE_FORMAT_RGBA4] = { VK_FORMAT_R4G4B4A4_UNORM_PACK16, VK_IMAGE_ASPECT_COLOR_BIT },
-  [GPU_TEXTURE_FORMAT_R16F] = { VK_FORMAT_R16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT },
-  [GPU_TEXTURE_FORMAT_RG16F] = { VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT },
-  [GPU_TEXTURE_FORMAT_RGBA16F] = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT },
-  [GPU_TEXTURE_FORMAT_R32F] = { VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT },
-  [GPU_TEXTURE_FORMAT_RG32F] = { VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT },
-  [GPU_TEXTURE_FORMAT_RGBA32F] = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT },
-  [GPU_TEXTURE_FORMAT_RGB10A2] = { VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_IMAGE_ASPECT_COLOR_BIT },
-  [GPU_TEXTURE_FORMAT_RG11B10F] = { VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT },
-  [GPU_TEXTURE_FORMAT_D16] = { VK_FORMAT_D16_UNORM, VK_IMAGE_ASPECT_DEPTH_BIT },
-  [GPU_TEXTURE_FORMAT_D32F] = { VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT },
-  [GPU_TEXTURE_FORMAT_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT }
+static const struct { VkFormat format; VkImageAspectFlagBits aspect; size_t stride; } textureInfo[] = {
+  [GPU_TEXTURE_FORMAT_RGBA8] = { VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 4 },
+  [GPU_TEXTURE_FORMAT_RGBA4] = { VK_FORMAT_R4G4B4A4_UNORM_PACK16, VK_IMAGE_ASPECT_COLOR_BIT, 2 },
+  [GPU_TEXTURE_FORMAT_R16F] = { VK_FORMAT_R16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 2 },
+  [GPU_TEXTURE_FORMAT_RG16F] = { VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 4 },
+  [GPU_TEXTURE_FORMAT_RGBA16F] = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8 },
+  [GPU_TEXTURE_FORMAT_R32F] = { VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 4 },
+  [GPU_TEXTURE_FORMAT_RG32F] = { VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8 },
+  [GPU_TEXTURE_FORMAT_RGBA32F] = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 16 },
+  [GPU_TEXTURE_FORMAT_RGB10A2] = { VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_IMAGE_ASPECT_COLOR_BIT, 4 },
+  [GPU_TEXTURE_FORMAT_RG11B10F] = { VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT, 4 },
+  [GPU_TEXTURE_FORMAT_D16] = { VK_FORMAT_D16_UNORM, VK_IMAGE_ASPECT_DEPTH_BIT, 2 },
+  [GPU_TEXTURE_FORMAT_D32F] = { VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT, 4 },
+  [GPU_TEXTURE_FORMAT_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 4 }
 };
 
 size_t gpu_sizeof_texture() {
@@ -719,6 +730,8 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   texture->format = textureInfo[info->format].format;
   texture->aspect = textureInfo[info->format].aspect;
+  texture->stride = textureInfo[info->format].stride;
+  texture->samples = info->samples;
 
   bool depth = texture->aspect & VK_IMAGE_ASPECT_DEPTH_BIT;
   VkImageUsageFlags usage =
@@ -729,6 +742,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     ((info->usage & GPU_TEXTURE_USAGE_COPY) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_PASTE) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
 
+  bool array = info->type = GPU_TEXTURE_TYPE_ARRAY;
   VkImageCreateInfo imageInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
     .flags = flags,
@@ -736,9 +750,9 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .format = texture->format,
     .extent.width = info->size[0],
     .extent.height = info->size[1],
-    .extent.depth = info->size[2],
+    .extent.depth = array ? 1 : info->size[2],
     .mipLevels = info->mipmaps,
-    .arrayLayers = info->layers,
+    .arrayLayers = array ? info->size[2] : 1,
     .samples = info->samples,
     .tiling = VK_IMAGE_TILING_OPTIMAL,
     .usage = usage
@@ -804,6 +818,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     texture->type = info ? info->type : info->source->type;
     texture->format = textureInfo[info->format].format;
     texture->aspect = info->source->aspect;
+    texture->samples = info->source->samples;
   }
 
   VkImageViewType type;
@@ -841,20 +856,62 @@ void gpu_texture_destroy(gpu_texture* texture) {
   memset(texture, 0, sizeof(*texture));
 }
 
-void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t size[3]) {
-  return NULL;
+void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t extent[3]) {
+  uint64_t bytes = extent[0] * extent[1] * extent[2] * texture->stride;
+  GPU_CHECK(bytes <= SCRATCHPAD_SIZE, "Tried to map too much texture data"); // TODO big temp staging buffer
+
+  bool array = texture->type == GPU_TEXTURE_TYPE_ARRAY;
+  gpu_mapping mapped = scratch(bytes);
+
+  VkBufferImageCopy region = {
+    .bufferOffset = mapped.offset,
+    .imageSubresource.aspectMask = texture->aspect,
+    .imageSubresource.mipLevel = offset[3],
+    .imageSubresource.baseArrayLayer = array ? offset[2] : 0,
+    .imageSubresource.layerCount = array ? extent[2] : 1,
+    .imageOffset = { offset[0], offset[1], array ? 0 : offset[2] },
+    .imageExtent = { extent[0], extent[1], array ? 1 : extent[2] }
+  };
+
+  setLayout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT); // TODO
+  vkCmdCopyBufferToImage(state.commands, mapped.buffer, texture->handle, texture->layout, 1, &region);
+
+  return mapped.data;
 }
 
-void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t size[3], gpu_read_fn* fn, void* userdata) {
-  //
+void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t extent[3], gpu_read_fn* fn, void* userdata) {
+  uint64_t bytes = extent[0] * extent[1] * extent[2] * texture->stride;
+  GPU_CHECK(bytes <= SCRATCHPAD_SIZE, "Tried to read too much texture data"); // TODO big temp staging buffer
+
+  bool array = texture->type == GPU_TEXTURE_TYPE_ARRAY;
+
+  gpu_mapping mapped = scratch(bytes);
+
+  VkBufferImageCopy region = {
+    .bufferOffset = mapped.offset,
+    .imageSubresource.aspectMask = texture->aspect,
+    .imageSubresource.mipLevel = offset[3],
+    .imageSubresource.baseArrayLayer = array ? offset[2] : 0,
+    .imageSubresource.layerCount = array ? extent[2] : 1,
+    .imageOffset = { offset[0], offset[1], array ? 0 : offset[2] },
+    .imageExtent = { extent[0], extent[1], array ? 1 : extent[2] }
+  };
+
+  setLayout(texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT); // TODO
+  vkCmdCopyImageToBuffer(state.commands, texture->handle, texture->layout, mapped.buffer, 1, &region);
+
+  gpu_readback_pool* pool = &state.readbacks;
+  GPU_CHECK(pool->head - pool->tail != COUNTOF(pool->data), "Too many GPU readbacks"); // TODO emergency flush instead of throw
+  pool->data[pool->head++ & 0x7f] = (gpu_readback) {
+    .fn = fn,
+    .userdata = userdata,
+    .data = mapped.data,
+    .size = bytes,
+    .tick = state.tick[CPU]
+  };
 }
 
 void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]) {
-  // TODO is it better to transition to transfer-optimal layouts?
-  // TODO could have a more fine-grained image barrier on only the slices/levels being touched
-  setLayout(src, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT);
-  setLayout(dst, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
-
   bool srcArray = src->type == GPU_TEXTURE_TYPE_ARRAY;
   bool dstArray = dst->type == GPU_TEXTURE_TYPE_ARRAY;
 
@@ -876,6 +933,9 @@ void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4],
     .extent = { size[0], size[1], size[2] }
   };
 
+  // TODO could have a more fine-grained image barrier on only the slices/levels being touched
+  setLayout(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+  setLayout(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
   vkCmdCopyImage(state.commands, src->handle, src->layout, dst->handle, dst->layout, 1, &region);
 }
 
@@ -902,11 +962,11 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
     [GPU_WRAP_MIRROR] = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
   };
 
-  VkSamplerCreateInfo info = {
+  VkSamplerCreateInfo samplerInfo = {
     .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
     .magFilter = filters[info->mag],
     .minFilter = filters[info->min],
-    .mipmapMode = mipmapFilters[info->mip],
+    .mipmapMode = mipFilters[info->mip],
     .addressModeU = wraps[info->wrap[0]],
     .addressModeV = wraps[info->wrap[1]],
     .addressModeW = wraps[info->wrap[2]],
@@ -916,7 +976,7 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
     .maxLod = info->lodClamp[1]
   };
 
-  if (vkCreateSampler(state.device, &info, NULL, &sampler->handle)) {
+  if (vkCreateSampler(state.device, &samplerInfo, NULL, &sampler->handle)) {
     return false;
   }
 
@@ -1080,18 +1140,18 @@ size_t gpu_sizeof_bundle() {
 }
 
 bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
-  if (transient) {
+  if (info->transient) {
     return false; // TODO
   }
 
-  VkDescriptorSetAllocateInfo info = {
+  VkDescriptorSetAllocateInfo descriptorSetInfo = {
     .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
     .descriptorPool = state.descriptorPool,
     .descriptorSetCount = 1,
-    .pSetLayouts = info->shader->layouts[info->group]
+    .pSetLayouts = &info->shader->layouts[info->group]
   };
 
-  if (vkAllocateDescriptorSets(state.device, &info, &bundle->handle)) {
+  if (vkAllocateDescriptorSets(state.device, &descriptorSetInfo, &bundle->handle)) {
     return false;
   }
 
@@ -1102,7 +1162,7 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
       break;
     }
 
-    writes[count++] = {
+    writes[count++] = (VkWriteDescriptorSet) {
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .dstSet = bundle->handle,
       .dstBinding = info->bindings[i].slot,
@@ -1441,7 +1501,7 @@ static gpu_mapping scratch(uint32_t size) {
       VkBufferCreateInfo bufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = SCRATCHPAD_SIZE,
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
       };
 
       GPU_VK(vkCreateBuffer(state.device, &bufferInfo, NULL, &scratchpad->buffer));
@@ -1454,38 +1514,38 @@ static gpu_mapping scratch(uint32_t size) {
           uint32_t flags = state.memoryProperties.memoryTypes[i].propertyFlags;
           uint32_t mask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
           if ((flags & mask) == mask && (state.scratchMemoryRequirements.memoryTypeBits & (1 << i))) {
-            state.scratchpadMemoryType = i;
+            state.scratchMemoryType = i;
             break;
           }
         }
 
-        if (state.scratchpadMemoryType == ~0u) {
+        if (state.scratchMemoryType == ~0u) {
           vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
-          return NULL;
+          return (gpu_mapping) { .data = NULL };
         }
       }
 
       VkMemoryAllocateInfo memoryInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = state.scratchMemoryRequirements.size,
-        .memoryTypeIndex = state.scratchpadMemoryType
+        .memoryTypeIndex = state.scratchMemoryType
       };
 
       if (vkAllocateMemory(state.device, &memoryInfo, NULL, &scratchpad->memory)) {
         vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
-        return NULL;
+        return (gpu_mapping) { .data = NULL };
       }
 
       if (vkBindBufferMemory(state.device, scratchpad->buffer, scratchpad->memory, 0)) {
         vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
         vkFreeMemory(state.device, scratchpad->memory, NULL);
-        return NULL;
+        return (gpu_mapping) { .data = NULL };
       }
 
-      if (vkMapMemory(state.device, scratchpad->memory, 0, VK_WHOLE_SIZE, &scratchpad->data)) {
+      if (vkMapMemory(state.device, scratchpad->memory, 0, VK_WHOLE_SIZE, 0, &scratchpad->data)) {
         vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
         vkFreeMemory(state.device, scratchpad->memory, NULL);
-        return NULL;
+        return (gpu_mapping) { .data = NULL };
       }
     }
 
@@ -1502,10 +1562,16 @@ static gpu_mapping scratch(uint32_t size) {
     scratchpad->next = ~0u;
   }
 
+  gpu_mapping mapping = {
+    .buffer = scratchpad->buffer,
+    .data = (uint8_t*) scratchpad->data + pool->cursor,
+    .offset = pool->cursor
+  };
+
   scratchpad->tick = state.tick[CPU];
-  uint8_t* data = scratchpad->data + pool->cursor;
   pool->cursor += size;
-  return (gpu_mapping) { .buffer = scratchpad->buffer, .offset = pool->cursor, .data = data };
+
+  return mapping;
 }
 
 static void readquack() {
@@ -1537,7 +1603,7 @@ static void expunge() {
       case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: vkFreeDescriptorSets(state.device, state.descriptorPool, 1, &victim->handle); break;
+      case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: vkFreeDescriptorSets(state.device, state.descriptorPool, 1, victim->handle); break;
       case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, victim->handle, NULL); break;
       default: GPU_THROW("Unreachable"); break;
     }

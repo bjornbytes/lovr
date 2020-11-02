@@ -87,7 +87,6 @@ typedef struct {
   gpu_texture_type type;
   gpu_texture_format format;
   uint32_t size[3];
-  uint32_t layers;
   uint32_t mipmaps;
   uint32_t samples;
   uint32_t usage;
@@ -98,8 +97,8 @@ size_t gpu_sizeof_texture(void);
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info);
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info);
 void gpu_texture_destroy(gpu_texture* texture);
-void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t size[3]);
-void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t size[3], gpu_read_fn* fn, void* userdata);
+void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t extent[3]);
+void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t extent[3], gpu_read_fn* fn, void* userdata);
 void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]);
 
 // Sampler
