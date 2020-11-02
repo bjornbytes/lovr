@@ -2265,7 +2265,9 @@ void* lovrBufferMap(Buffer* buffer, size_t offset, bool unsynchronized) {
 }
 
 void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size) {
+#ifndef LOVR_WEBGL
   lovrAssert(size == 0 || buffer->mapped, "Attempt to flush unmapped Buffer");
+#endif
   buffer->flushFrom = MIN(buffer->flushFrom, offset);
   buffer->flushTo = MAX(buffer->flushTo, offset + size);
 }
