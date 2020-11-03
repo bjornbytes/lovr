@@ -459,6 +459,27 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
+  { // Descriptor Pool
+    VkDescriptorPoolSize poolSizes[] = {
+      { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1024 },
+      { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024 },
+      { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024 },
+    };
+
+    VkDescriptorPoolCreateInfo info = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+      .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+      .maxSets = 1024,
+      .poolSizeCount = COUNTOF(poolSizes),
+      .pPoolSizes = poolSizes
+    };
+
+    if (vkCreateDescriptorPool(state.device, &info, NULL, &state.descriptorPool)) {
+      gpu_destroy();
+      return false;
+    }
+  }
+
   gpu_mutex_init(&state.morgue.lock);
   state.tick[CPU] = COUNTOF(state.ticks);
   state.tick[GPU] = ~0u;
@@ -481,6 +502,7 @@ void gpu_destroy(void) {
     if (tick->fence) vkDestroyFence(state.device, tick->fence, NULL);
     if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
   }
+  if (state.descriptorPool) vkDestroyDescriptorPool(state.device, state.descriptorPool, NULL);
   if (state.device) vkDestroyDevice(state.device, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
   if (state.instance) vkDestroyInstance(state.instance, NULL);
