@@ -1110,12 +1110,13 @@ void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2
 
     // Ring
     for (int i = 0; i <= segments; i++) {
-      float theta = i * (2 * M_PI) / segments;
+      float t = (float) i / segments;
+      float theta = t * (2 * M_PI);
       float X = cosf(theta);
       float Y = sinf(theta);
       memcpy(vertices, (float[16]) {
-        r1 * X, r1 * Y, -.5f, X, Y, 0.f, 0.f, 0.f,
-        r2 * X, r2 * Y,  .5f, X, Y, 0.f, 0.f, 0.f
+        r1 * X, r1 * Y, -.5f, X, Y, 0.f, 1.f - t, 1.f,
+        r2 * X, r2 * Y,  .5f, X, Y, 0.f, 1.f - t, 0.f
       }, 16 * sizeof(float));
       vertices += 16;
     }
@@ -1123,11 +1124,16 @@ void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2
     // Top
     int top = (segments + 1) * 2 + baseVertex;
     if (capped && r1 != 0) {
-      memcpy(vertices, (float[8]) { 0.f, 0.f, -.5f, 0.f, 0.f, -1.f, 0.f, 0.f }, 8 * sizeof(float));
+      memcpy(vertices, (float[8]) { 0.f, 0.f, -.5f, 0.f, 0.f, -1.f, .5f, .5f }, 8 * sizeof(float));
       vertices += 8;
       for (int i = 0; i <= segments; i++) {
         int j = i * 2 * 8;
-        memcpy(vertices, (float[8]) { v[j + 0], v[j + 1], v[j + 2], 0.f, 0.f, -1.f, 0.f, 0.f }, 8 * sizeof(float));
+        float x = v[j + 0];
+        float y = v[j + 1];
+        float z = v[j + 2];
+        float u = 1.f - (x / r1 * .5 + .5);
+        float v = y / r1 * .5 + .5;
+        memcpy(vertices, (float[8]) { x, y, z, 0.f, 0.f, -1.f, u, v }, 8 * sizeof(float));
         vertices += 8;
       }
     }
@@ -1135,11 +1141,16 @@ void lovrGraphicsCylinder(Material* material, mat4 transform, float r1, float r2
     // Bottom
     int bot = (segments + 1) * 2 + (1 + segments + 1) * (capped && r1 != 0) + baseVertex;
     if (capped && r2 != 0) {
-      memcpy(vertices, (float[8]) { 0.f, 0.f, .5f, 0.f, 0.f, 1.f, 0.f, 0.f }, 8 * sizeof(float));
+      memcpy(vertices, (float[8]) { 0.f, 0.f, .5f, 0.f, 0.f, 1.f, .5f, .5f }, 8 * sizeof(float));
       vertices += 8;
       for (int i = 0; i <= segments; i++) {
         int j = i * 2 * 8 + 8;
-        memcpy(vertices, (float[8]) { v[j + 0], v[j + 1], v[j + 2], 0.f, 0.f, 1.f, 0.f, 0.f }, 8 * sizeof(float));
+        float x = v[j + 0];
+        float y = v[j + 1];
+        float z = v[j + 2];
+        float u = x / r1 * .5 + .5;
+        float v = y / r1 * .5 + .5;
+        memcpy(vertices, (float[8]) { x, y, z, 0.f, 0.f, 1.f, u, v }, 8 * sizeof(float));
         vertices += 8;
       }
     }
