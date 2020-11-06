@@ -362,11 +362,10 @@ static int l_lovrGraphicsCreateWindow(lua_State* L) {
   lua_getfield(L, 1, "icon");
   TextureData* textureData = NULL;
   if (!lua_isnil(L, -1)) {
-    textureData = luax_checktexturedata(L, -1, true);
+    textureData = luax_checktexturedata(L, -1, false);
     flags.icon.data = textureData->blob->data;
     flags.icon.width = textureData->width;
     flags.icon.height = textureData->height;
-    lovrRelease(TextureData, textureData);
   }
   lua_pop(L, 1);
 
