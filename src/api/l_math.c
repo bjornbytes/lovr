@@ -28,7 +28,7 @@ static const luaL_Reg* lovrVectorMetatables[] = {
   [V_MAT4] = lovrMat4
 };
 
-static int lovrVectorMetatableRefs[] = {
+static LOVR_THREAD_LOCAL int lovrVectorMetatableRefs[] = {
   [V_VEC2] = LUA_REFNIL,
   [V_VEC3] = LUA_REFNIL,
   [V_VEC4] = LUA_REFNIL,
