@@ -23,12 +23,15 @@ static int threadRunner(void* data) {
   luax_register(L, lovrModules);
   lua_pop(L, 2);
 
+  lua_pushcfunction(L, luax_getstack);
+  int errhandler = lua_gettop(L);
+
   if (!luaL_loadbuffer(L, thread->body->data, thread->body->size, "thread")) {
     for (uint32_t i = 0; i < thread->argumentCount; i++) {
       luax_pushvariant(L, &thread->arguments[i]);
     }
 
-    if (!lua_pcall(L, thread->argumentCount, 0, 0)) {
+    if (!lua_pcall(L, thread->argumentCount, 0, errhandler)) {
       mtx_lock(&thread->lock);
       thread->running = false;
       mtx_unlock(&thread->lock);
