@@ -155,19 +155,27 @@ typedef enum {
   GPU_LOAD_OP_DISCARD
 } gpu_load_op;
 
+typedef enum {
+  GPU_STORE_OP_STORE,
+  GPU_STORE_OP_DISCARD
+} gpu_store_op;
+
 typedef struct {
   gpu_texture* texture;
   gpu_texture* resolve;
   gpu_load_op load;
+  gpu_store_op store;
   float clear[4];
 } gpu_color_attachment;
 
 typedef struct {
   gpu_texture* texture;
   gpu_load_op load;
+  gpu_store_op store;
   float clear;
   struct {
     gpu_load_op load;
+    gpu_store_op store;
     uint8_t clear;
   } stencil;
 } gpu_depth_attachment;
