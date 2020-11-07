@@ -1045,6 +1045,11 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
     [GPU_LOAD_OP_DISCARD] = VK_ATTACHMENT_LOAD_OP_DONT_CARE
   };
 
+  static const VkAttachmentStoreOp storeOps[] = {
+    [GPU_STORE_OP_STORE] = VK_ATTACHMENT_STORE_OP_STORE,
+    [GPU_STORE_OP_DISCARD] = VK_ATTACHMENT_STORE_OP_DONT_CARE
+  };
+
   VkAttachmentDescription attachments[5];
   VkAttachmentReference references[5];
   VkImageView imageViews[5];
@@ -1056,7 +1061,7 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
       .format = info->color[i].texture->format,
       .samples = info->color[i].texture->samples,
       .loadOp = loadOps[info->color[i].load],
-      .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+      .storeOp = storeOps[info->color[i].store],
       .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
@@ -1079,9 +1084,9 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
       .format = info->depth.texture->format,
       .samples = VK_SAMPLE_COUNT_1_BIT,
       .loadOp = loadOps[info->depth.load],
-      .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+      .storeOp = storeOps[info->depth.store],
       .stencilLoadOp = loadOps[info->depth.stencil.load],
-      .stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE,
+      .stencilStoreOp = storeOps[info->depth.stencil.store],
       .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
       .finalLayout = VK_IMAGE_LAYOUT_GENERAL
     };
