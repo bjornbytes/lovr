@@ -11,7 +11,7 @@ static void gpu_mutex_destroy(gpu_mutex* mutex) { DeleteCriticalSection(mutex); 
 static void gpu_mutex_lock(gpu_mutex* mutex) { EnterCriticalSection(mutex); }
 static void gpu_mutex_unlock(gpu_mutex* mutex) { LeaveCriticalSection(mutex); }
 static void* gpu_dlopen(const char* library) { return LoadLibraryA(library); }
-static void* gpu_dlsym(void* library, const char* symbol) { return GetProcAddress(library, symbol); }
+static FARPROC gpu_dlsym(void* library, const char* symbol) { return GetProcAddress(library, symbol); }
 static void gpu_dlclose(void* library) { FreeLibrary(library); }
 #else
 #include <dlfcn.h>
