@@ -186,8 +186,10 @@ void gpu_shader_destroy(gpu_shader* shader);
 // Bundle
 
 typedef enum {
-  GPU_SLOT_BUFFER,
-  GPU_SLOT_TEXTURE
+  GPU_SLOT_UNIFORM_BUFFER,
+  GPU_SLOT_COMPUTE_BUFFER,
+  GPU_SLOT_SAMPLED_TEXTURE,
+  GPU_SLOT_COMPUTE_TEXTURE
 } gpu_slot_type;
 
 typedef enum {
@@ -195,17 +197,30 @@ typedef enum {
   GPU_SLOT_FRAGMENT = (1 << 1),
   GPU_SLOT_COMPUTE  = (1 << 2),
   GPU_SLOT_DYNAMIC  = (1 << 3)
-} gpu_slot_flag;
+} gpu_slot_usage;
 
 typedef struct {
-  gpu_slot_type type;
   uint16_t index;
-  uint16_t flags;
+  uint16_t usage;
+  gpu_slot_type type;
+  uint32_t count;
 } gpu_slot;
 
 typedef struct {
+  gpu_buffer* buffer;
+  uint64_t offset;
+  uint64_t size;
+} gpu_binding_buffer;
+
+typedef struct {
+  gpu_texture* texture;
+  gpu_sampler* sampler;
+} gpu_binding_texture;
+
+typedef struct {
   uint32_t slot;
-  void* object;
+  uint32_t count;
+  void* bindings;
 } gpu_binding;
 
 typedef struct {

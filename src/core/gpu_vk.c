@@ -463,7 +463,10 @@ bool gpu_init(gpu_config* config) {
     VkDescriptorPoolSize poolSizes[] = {
       { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1024 },
       { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024 },
+      { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 256 },
+      { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 256 },
       { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024 },
+      { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1024 }
     };
 
     VkDescriptorPoolCreateInfo info = {
@@ -1180,7 +1183,7 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
   uint32_t count = 0;
   VkWriteDescriptorSet writes[COUNTOF(info->bindings)];
   for (uint32_t i = 0; i < COUNTOF(info->bindings); i++) {
-    if (!info->bindings[i].object) {
+    if (!info->bindings[i].resource.buffer.object && !info->bindings[i].resource.texture.object) {
       break;
     }
 
