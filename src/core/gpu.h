@@ -425,9 +425,25 @@ void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_
 // Entry
 
 typedef struct {
+  bool astc;
+  bool bptc;
+  struct {
+    bool sample  : 1;
+    bool canvas  : 1;
+    bool compute : 1;
+    bool linear  : 1;
+    bool blend   : 1;
+    bool depth   : 1;
+    bool blitSrc : 1;
+    bool blitDst : 1;
+  } textureFormats[32];
+} gpu_features;
+
+typedef struct {
   bool debug;
   void* userdata;
   void (*callback)(void* userdata, const char* message, int level);
+  gpu_features features;
 } gpu_config;
 
 bool gpu_init(gpu_config* config);
