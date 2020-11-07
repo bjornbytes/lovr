@@ -772,7 +772,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     default: return false;
   }
 
-  texture->format = formatInfo[info->format].format;
+  texture->format = info->srgb ? formatInfo[info->format].srgbFormat : formatInfo[info->format].format;
   texture->aspect = formatInfo[info->format].aspect;
   texture->stride = formatInfo[info->format].stride;
   texture->samples = info->samples;
