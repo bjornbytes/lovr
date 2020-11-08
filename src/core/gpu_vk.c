@@ -84,8 +84,9 @@ struct gpu_shader {
 };
 
 struct gpu_bundle {
+  VkDescriptorSetLayout layout;
   VkDescriptorSet handle;
-  bool transient;
+  bool immutable;
 };
 
 struct gpu_pipeline {
@@ -668,7 +669,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
     ((info->usage & GPU_BUFFER_USAGE_VERTEX) ? VK_BUFFER_USAGE_VERTEX_BUFFER_BIT : 0) |
     ((info->usage & GPU_BUFFER_USAGE_INDEX) ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : 0) |
     ((info->usage & GPU_BUFFER_USAGE_UNIFORM) ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_COMPUTE) ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0) |
+    ((info->usage & GPU_BUFFER_USAGE_STORAGE) ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0) |
     ((info->usage & GPU_BUFFER_USAGE_COPY) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0) |
     ((info->usage & GPU_BUFFER_USAGE_PASTE) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0);
 
@@ -803,7 +804,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     (((info->usage & GPU_TEXTURE_USAGE_CANVAS) && !depth) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
     (((info->usage & GPU_TEXTURE_USAGE_CANVAS) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
-    ((info->usage & GPU_TEXTURE_USAGE_COMPUTE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
+    ((info->usage & GPU_TEXTURE_USAGE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_COPY) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_PASTE) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
 
@@ -1170,6 +1171,98 @@ void gpu_canvas_destroy(gpu_canvas* canvas) {
   memset(canvas, 0, sizeof(*canvas));
 }
 
+// Bundle
+
+size_t gpu_sizeof_bundle() {
+  return sizeof(gpu_bundle);
+}
+
+bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
+  static VkDescriptorType descriptorTypes[][2] = {
+    [GPU_BINDING_UNIFORM_BUFFER] = { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC },
+    [GPU_BINDING_STORAGE_BUFFER] = { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC },
+    [GPU_BINDING_SAMPLED_TEXTURE] = { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, ~0u },
+    [GPU_BINDING_STORAGE_TEXTURE] = { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, ~0u }
+  };
+
+  VkDescriptorSetLayout layout = (VkDescriptorSetLayout) info->layout.secret;
+
+  if (!layout) {
+    VkDescriptorSetLayoutBinding bindings[COUNTOF(info->layout.slots)];
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+      .bindingCount = info->layout.count,
+      .pBindings = bindings
+    };
+
+    for (uint32_t i = 0; i < info->layout.count; i++) {
+      gpu_slot* slot = &info->layout.slots[i];
+      bindings[i] = (VkDescriptorSetLayoutBinding) {
+        .binding = slot->index,
+        .descriptorType = descriptorTypes[slot->type][slot->usage & GPU_BINDING_DYNAMIC],
+        .descriptorCount = slot->count,
+        .stageFlags =
+          ((slot->usage & GPU_BINDING_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
+          ((slot->usage & GPU_BINDING_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
+          ((slot->usage & GPU_BINDING_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0)
+      };
+    }
+
+    if (vkCreateDescriptorSetLayout(state.device, &layoutInfo, NULL, &bundle->layout)) {
+      return false;
+    }
+
+    layout = bundle->layout;
+  }
+
+  if (info->immutable) {
+    VkDescriptorSetAllocateInfo descriptorSetInfo = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+      .descriptorPool = state.descriptorPool,
+      .descriptorSetCount = 1,
+      .pSetLayouts = &layout
+    };
+
+    if (vkAllocateDescriptorSets(state.device, &descriptorSetInfo, &bundle->handle)) {
+      return false;
+    }
+
+    VkWriteDescriptorSet writes[COUNTOF(info->bindings)];
+    for (uint32_t i = 0; i < info->count; i++) {
+      gpu_slot* slot = &info->layout.slots[info->bindings[i].slot];
+      writes[i] = (VkWriteDescriptorSet) {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = bundle->handle,
+        .dstBinding = info->bindings[i].slot,
+        .descriptorCount = 1, // FIXME info->bindings[i].count,
+        .descriptorType = descriptorTypes[slot->type][slot->usage & GPU_BINDING_DYNAMIC],
+        .pBufferInfo = &(VkDescriptorBufferInfo) { // FIXME multiple fixed-size chunked writes for arrays
+          .buffer = info->bindings[i].buffers[0].buffer ? info->bindings[i].buffers[0].buffer->handle : VK_NULL_HANDLE,
+          .offset = info->bindings[i].buffers[0].offset,
+          .range = info->bindings[i].buffers[0].size ? info->bindings[i].buffers[0].size : VK_WHOLE_SIZE
+        },
+        .pImageInfo = &(VkDescriptorImageInfo) { // FIXME multiple fixed-size chunked writes for arrays
+          .sampler = info->bindings[i].textures[0].sampler ? info->bindings[i].textures[0].sampler->handle : VK_NULL_HANDLE,
+          .imageView = info->bindings[i].textures[0].texture ? info->bindings[i].textures[0].texture->view : VK_NULL_HANDLE,
+          .imageLayout = slot->type == GPU_BINDING_SAMPLED_TEXTURE ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL
+        }
+      };
+    }
+
+    vkUpdateDescriptorSets(state.device, info->count, writes, 0, NULL);
+  }
+
+  bundle->immutable = info->immutable;
+  return true;
+}
+
+void gpu_bundle_destroy(gpu_bundle* bundle) {
+  if (bundle->layout) vkDestroyDescriptorSetLayout(state.device, bundle->layout, NULL);
+  if (bundle->handle) condemn(bundle->handle, VK_OBJECT_TYPE_DESCRIPTOR_SET);
+  memset(bundle, 0, sizeof(*bundle));
+}
+
 // Shader
 
 size_t gpu_sizeof_shader() {
@@ -1201,68 +1294,6 @@ void gpu_shader_destroy(gpu_shader* shader) {
   if (shader->handles[1]) vkDestroyShaderModule(state.device, shader->handles[1], NULL);
   vkDestroyPipelineLayout(state.device, shader->pipelineLayout, NULL);
   memset(shader, 0, sizeof(*shader));
-}
-
-// Bundle
-
-size_t gpu_sizeof_bundle() {
-  return sizeof(gpu_bundle);
-}
-
-bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
-  if (info->transient) {
-    return false; // TODO
-  }
-
-  VkDescriptorSetAllocateInfo descriptorSetInfo = {
-    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-    .descriptorPool = state.descriptorPool,
-    .descriptorSetCount = 1,
-    .pSetLayouts = &info->shader->layouts[info->group]
-  };
-
-  if (vkAllocateDescriptorSets(state.device, &descriptorSetInfo, &bundle->handle)) {
-    return false;
-  }
-
-  uint32_t count = 0;
-  VkWriteDescriptorSet writes[COUNTOF(info->bindings)];
-  for (uint32_t i = 0; i < COUNTOF(info->bindings); i++) {
-    /*if (!info->bindings[i].resource.buffer.object && !info->bindings[i].resource.texture.object) {
-      break;
-    }*/
-
-    writes[count++] = (VkWriteDescriptorSet) {
-      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-      .dstSet = bundle->handle,
-      .dstBinding = info->bindings[i].slot,
-      .dstArrayElement = 0,
-      .descriptorCount = 1,
-      /*
-      .descriptorType = ???,
-      .pBufferInfo = &(VkDescriptorBufferInfo) {
-        .buffer = ((gpu_buffer*) info->bindings[i].resource)->handle,
-        .offset = ???,
-        .range = ???
-      },
-      .pImageInfo = &(VkDescriptorImageInfo) {
-        .sampler = ???,
-        .imageView = ((gpu_texture*) info->bindings[i].resource)->view,
-        .imageLayout = ???
-      }
-      */
-    };
-  }
-
-  vkUpdateDescriptorSets(state.device, count, writes, 0, NULL);
-  bundle->transient = info->transient;
-  return true;
-}
-
-void gpu_bundle_destroy(gpu_bundle* bundle) {
-  if (bundle->transient) return;
-  if (bundle->handle) condemn(bundle->handle, VK_OBJECT_TYPE_DESCRIPTOR_SET);
-  memset(bundle, 0, sizeof(*bundle));
 }
 
 // Pipeline
@@ -1497,17 +1528,17 @@ void gpu_batch_end(gpu_batch* batch) {
   GPU_VK(vkEndCommandBuffer(batch->cmd));
 }
 
-void gpu_batch_bind(gpu_batch* batch, gpu_bundle* bundle, uint32_t group) {
+void gpu_batch_bind_bundle(gpu_batch* batch, gpu_bundle* bundle, uint32_t group) {
   VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
   VkPipelineLayout layout = VK_NULL_HANDLE; // TODO batch needs to know its pipeline/shader
   vkCmdBindDescriptorSets(batch->cmd, bindPoint, layout, group, 1, &bundle->handle, 0, NULL);
 }
 
-void gpu_batch_set_pipeline(gpu_batch* batch, gpu_pipeline* pipeline) {
+void gpu_batch_bind_pipeline(gpu_batch* batch, gpu_pipeline* pipeline) {
   vkCmdBindPipeline(batch->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle);
 }
 
-void gpu_batch_set_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
+void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
   VkBuffer handles[16];
   for (uint32_t i = 0; i < count; i++) {
     handles[i] = buffers[i]->handle;
@@ -1515,7 +1546,7 @@ void gpu_batch_set_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64
   vkCmdBindVertexBuffers(batch->cmd, 0, count, handles, offsets);
 }
 
-void gpu_batch_set_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type) {
+void gpu_batch_bind_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type) {
   static const VkIndexType types[] = {
     [GPU_INDEX_U16] = VK_INDEX_TYPE_UINT16,
     [GPU_INDEX_U32] = VK_INDEX_TYPE_UINT32
