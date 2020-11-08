@@ -21,7 +21,7 @@ typedef enum {
   GPU_BUFFER_USAGE_VERTEX  = (1 << 0),
   GPU_BUFFER_USAGE_INDEX   = (1 << 1),
   GPU_BUFFER_USAGE_UNIFORM = (1 << 2),
-  GPU_BUFFER_USAGE_COMPUTE = (1 << 3),
+  GPU_BUFFER_USAGE_STORAGE = (1 << 3),
   GPU_BUFFER_USAGE_COPY    = (1 << 4),
   GPU_BUFFER_USAGE_PASTE   = (1 << 5)
 } gpu_buffer_usage;
@@ -45,7 +45,7 @@ void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint6
 typedef enum {
   GPU_TEXTURE_USAGE_SAMPLE  = (1 << 0),
   GPU_TEXTURE_USAGE_CANVAS  = (1 << 1),
-  GPU_TEXTURE_USAGE_COMPUTE = (1 << 2),
+  GPU_TEXTURE_USAGE_STORAGE = (1 << 2),
   GPU_TEXTURE_USAGE_COPY    = (1 << 3),
   GPU_TEXTURE_USAGE_PASTE   = (1 << 4)
 } gpu_texture_usage;
@@ -192,6 +192,65 @@ size_t gpu_sizeof_canvas(void);
 bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info);
 void gpu_canvas_destroy(gpu_canvas* canvas);
 
+// Bundle
+
+typedef enum {
+  GPU_BINDING_UNIFORM_BUFFER,
+  GPU_BINDING_STORAGE_BUFFER,
+  GPU_BINDING_SAMPLED_TEXTURE,
+  GPU_BINDING_STORAGE_TEXTURE
+} gpu_binding_type;
+
+typedef enum {
+  GPU_BINDING_VERTEX   = (1 << 0),
+  GPU_BINDING_FRAGMENT = (1 << 1),
+  GPU_BINDING_COMPUTE  = (1 << 2),
+  GPU_BINDING_DYNAMIC  = (1 << 3)
+} gpu_binding_usage;
+
+typedef struct {
+  gpu_buffer* buffer;
+  uint64_t offset;
+  uint64_t size;
+} gpu_buffer_binding;
+
+typedef struct {
+  gpu_texture* texture;
+  gpu_sampler* sampler;
+} gpu_texture_binding;
+
+typedef struct {
+  uint16_t slot;
+  uint16_t count;
+  gpu_buffer_binding* buffers;
+  gpu_texture_binding* textures;
+} gpu_binding;
+
+typedef struct {
+  uint16_t type;
+  uint16_t index;
+  uint16_t count;
+  uint16_t usage;
+} gpu_slot;
+
+typedef struct {
+  gpu_slot slots[32];
+  uint32_t count;
+  uintptr_t secret;
+} gpu_bundle_layout;
+
+typedef struct {
+  gpu_bundle_layout layout;
+  gpu_binding bindings[32];
+  uint32_t count;
+  bool immutable;
+} gpu_bundle_info;
+
+size_t gpu_sizeof_bundle(void);
+bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info);
+void gpu_bundle_destroy(gpu_bundle* bundle);
+void gpu_bundle_update(gpu_bundle* bundle, gpu_binding bindings[32], uint32_t count);
+
 // Shader
 
 typedef struct {
@@ -201,66 +260,23 @@ typedef struct {
 } gpu_shader_source;
 
 typedef struct {
+  uint16_t group;
+  uint16_t slot;
+} gpu_shader_var;
+
+typedef struct {
   gpu_shader_source vertex;
   gpu_shader_source fragment;
   gpu_shader_source compute;
+  gpu_shader_var* dynamicBuffers;
+  uint32_t dynamicBufferCount;
   const char* label;
 } gpu_shader_info;
 
 size_t gpu_sizeof_shader(void);
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info);
 void gpu_shader_destroy(gpu_shader* shader);
-
-// Bundle
-
-typedef enum {
-  GPU_SLOT_UNIFORM_BUFFER,
-  GPU_SLOT_COMPUTE_BUFFER,
-  GPU_SLOT_SAMPLED_TEXTURE,
-  GPU_SLOT_COMPUTE_TEXTURE
-} gpu_slot_type;
-
-typedef enum {
-  GPU_SLOT_VERTEX   = (1 << 0),
-  GPU_SLOT_FRAGMENT = (1 << 1),
-  GPU_SLOT_COMPUTE  = (1 << 2),
-  GPU_SLOT_DYNAMIC  = (1 << 3)
-} gpu_slot_usage;
-
-typedef struct {
-  uint16_t index;
-  uint16_t usage;
-  gpu_slot_type type;
-  uint32_t count;
-} gpu_slot;
-
-typedef struct {
-  gpu_buffer* buffer;
-  uint64_t offset;
-  uint64_t size;
-} gpu_binding_buffer;
-
-typedef struct {
-  gpu_texture* texture;
-  gpu_sampler* sampler;
-} gpu_binding_texture;
-
-typedef struct {
-  uint32_t slot;
-  uint32_t count;
-  void* bindings;
-} gpu_binding;
-
-typedef struct {
-  gpu_binding bindings[16];
-  gpu_shader* shader;
-  uint32_t group;
-  bool transient;
-} gpu_bundle_info;
-
-size_t gpu_sizeof_bundle(void);
-bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info);
-void gpu_bundle_destroy(gpu_bundle* bundle);
+bool gpu_shader_get_layout(gpu_shader* shader, uint32_t group, gpu_bundle_layout* layout);
 
 // Pipeline
 
@@ -412,10 +428,10 @@ typedef enum {
 
 gpu_batch* gpu_batch_begin(gpu_canvas* canvas);
 void gpu_batch_end(gpu_batch* batch);
-void gpu_batch_bind(gpu_batch* batch, gpu_bundle* bundle, uint32_t group);
-void gpu_batch_set_pipeline(gpu_batch* batch, gpu_pipeline* pipeline);
-void gpu_batch_set_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
-void gpu_batch_set_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type);
+void gpu_batch_bind_bundle(gpu_batch* batch, gpu_bundle* bundle, uint32_t group);
+void gpu_batch_bind_pipeline(gpu_batch* batch, gpu_pipeline* pipeline);
+void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
+void gpu_batch_bind_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type);
 void gpu_batch_draw(gpu_batch* batch, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex);
 void gpu_batch_draw_indexed(gpu_batch* batch, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex);
 void gpu_batch_draw_indirect(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
