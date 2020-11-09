@@ -73,6 +73,7 @@ struct gpu_canvas {
     VkAccessFlags access;
   } sync[9];
   VkClearValue clears[9];
+  VkSampleCountFlagBits samples;
 };
 
 struct gpu_shader {
@@ -1193,7 +1194,9 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
     vkDestroyRenderPass(state.device, canvas->handle, NULL);
   }
 
+
   nickname(canvas, VK_OBJECT_TYPE_RENDER_PASS, info->label);
+  canvas->samples = info->color[0].texture ? info->color[0].texture->samples : VK_SAMPLE_COUNT_1_BIT;
   return true;
 }
 
@@ -1427,7 +1430,7 @@ bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
 
   VkPipelineMultisampleStateCreateInfo multisample = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-    .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+    .rasterizationSamples = info->canvas->samples,
     .alphaToCoverageEnable = info->alphaToCoverage
   };
 
