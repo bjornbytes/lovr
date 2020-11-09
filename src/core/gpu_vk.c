@@ -71,8 +71,8 @@ struct gpu_canvas {
     VkImageLayout layout;
     VkPipelineStageFlags stage;
     VkAccessFlags access;
-  } sync[5];
-  VkClearValue clears[5];
+  } sync[9];
+  VkClearValue clears[9];
 };
 
 struct gpu_shader {
@@ -1071,14 +1071,20 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
     [GPU_STORE_OP_DISCARD] = VK_ATTACHMENT_STORE_OP_DONT_CARE
   };
 
-  VkAttachmentDescription attachments[5];
-  VkAttachmentReference references[5];
-  VkImageView imageViews[5];
-  canvas->colorAttachmentCount = 0;
-  uint32_t totalCount = 0;
+  VkAttachmentDescription attachments[9];
+  VkImageView images[9];
+  uint32_t count = 0;
 
-  for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].texture; i++, canvas->colorAttachmentCount++, totalCount++) {
-    attachments[i] = (VkAttachmentDescription) {
+  struct {
+    VkAttachmentReference color[4];
+    VkAttachmentReference resolve[4];
+    VkAttachmentReference depth;
+  } refs;
+
+  for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].texture; i++) {
+    uint32_t attachment = count++;
+    images[attachment] = info->color[i].texture->view;
+    attachments[attachment] = (VkAttachmentDescription) {
       .format = info->color[i].texture->format,
       .samples = info->color[i].texture->samples,
       .loadOp = loadOps[info->color[i].load],
@@ -1087,21 +1093,40 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
       .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
 
-    references[i] = (VkAttachmentReference) { i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-    imageViews[i] = info->color[i].texture->view;
+    refs.color[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+    memcpy(canvas->clears[attachment].color.float32, info->color[i].clear, 4 * sizeof(float));
+    canvas->sync[attachment].texture = info->color[i].texture;
+    canvas->sync[attachment].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    canvas->sync[attachment].stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    canvas->sync[attachment].access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    canvas->sync[attachment].access |= info->color[i].load ? VK_ACCESS_COLOR_ATTACHMENT_READ_BIT : 0;
 
-    memcpy(canvas->clears[i].color.float32, info->color[i].clear, 4 * sizeof(float));
-    canvas->sync[i].texture = info->color[i].texture;;
-    canvas->sync[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    canvas->sync[i].stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    canvas->sync[i].access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    canvas->sync[i].access |= info->color[i].load ? VK_ACCESS_COLOR_ATTACHMENT_READ_BIT : VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    if (info->color[i].resolve) {
+      attachment = count++;
+      images[attachment] = info->color[i].resolve->view;
+      attachments[attachment] = (VkAttachmentDescription) {
+        .format = info->color[i].resolve->format,
+        .samples = info->color[i].resolve->samples,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+      };
+
+      refs.resolve[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+      canvas->sync[attachment].texture = info->color[i].resolve;
+      canvas->sync[attachment].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      canvas->sync[attachment].stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+      canvas->sync[attachment].access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    } else {
+      refs.resolve[i] = (VkAttachmentReference) { VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+    }
   }
 
   if (info->depth.texture) {
-    uint32_t i = totalCount++;
-
-    attachments[i] = (VkAttachmentDescription) {
+    uint32_t attachment = count++;
+    images[attachment] = info->depth.texture->view;
+    attachments[attachment] = (VkAttachmentDescription) {
       .format = info->depth.texture->format,
       .samples = VK_SAMPLE_COUNT_1_BIT,
       .loadOp = loadOps[info->depth.load],
@@ -1112,27 +1137,26 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
       .finalLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    references[i] = (VkAttachmentReference) { i, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
-    imageViews[i] = info->depth.texture->view;
-
-    canvas->clears[i].depthStencil.depth = info->depth.clear;
-    canvas->clears[i].depthStencil.stencil = info->depth.stencil.clear;
-    canvas->sync[i].texture = info->depth.texture;
-    canvas->sync[i].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    canvas->sync[i].stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    canvas->sync[i].access = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    canvas->sync[i].access |= (info->depth.load || info->depth.stencil.load) ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT : 0;
+    refs.depth = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+    canvas->clears[attachment].depthStencil.depth = info->depth.clear;
+    canvas->clears[attachment].depthStencil.stencil = info->depth.stencil.clear;
+    canvas->sync[attachment].texture = info->depth.texture;
+    canvas->sync[attachment].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    canvas->sync[attachment].stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    canvas->sync[attachment].access = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    canvas->sync[attachment].access |= (info->depth.load || info->depth.stencil.load) ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT : 0;
   }
 
   VkSubpassDescription subpass = {
     .colorAttachmentCount = canvas->colorAttachmentCount,
-    .pColorAttachments = references,
-    .pDepthStencilAttachment = info->depth.texture ? &references[canvas->colorAttachmentCount] : NULL
+    .pColorAttachments = refs.color,
+    .pResolveAttachments = refs.resolve,
+    .pDepthStencilAttachment = info->depth.texture ? &refs.depth : NULL
   };
 
   VkRenderPassCreateInfo renderPassInfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-    .attachmentCount = totalCount,
+    .attachmentCount = count,
     .pAttachments = attachments,
     .subpassCount = 1,
     .pSubpasses = &subpass
@@ -1148,8 +1172,8 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
   VkFramebufferCreateInfo framebufferInfo = {
     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
     .renderPass = canvas->handle,
-    .attachmentCount = totalCount,
-    .pAttachments = imageViews,
+    .attachmentCount = count,
+    .pAttachments = images,
     .width = canvas->renderArea.extent.width,
     .height = canvas->renderArea.extent.height,
     .layers = 1
@@ -1160,8 +1184,7 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
   }
 
   nickname(canvas, VK_OBJECT_TYPE_RENDER_PASS, info->label);
-
-  return false;
+  return true;
 }
 
 void gpu_canvas_destroy(gpu_canvas* canvas) {
@@ -1728,6 +1751,61 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
     .module = *handle,
     .pName = source->entry ? source->entry : "main"
   };
+
+  struct binding {
+    uint32_t id;
+    uint16_t group;
+    uint16_t index;
+  } bindings[128];
+
+  struct binding* active = bindings;
+  uint32_t bindingCount = 0;
+
+  const uint32_t* words = source->code;
+  if (words[0] == 0x07230203) {
+    uint32_t wordCount = source->size / sizeof(uint32_t);
+    const uint32_t* instruction = words + 5;
+    while (instruction < words + wordCount) {
+      uint16_t opcode = instruction[0] & 0xffff;
+      uint16_t length = instruction[0] >> 16;
+      switch (opcode) {
+        case 71: { // OpDecorate
+          uint32_t target = instruction[1];
+          uint32_t decoration = instruction[2];
+          if (decoration == 33 || decoration == 34) {
+            if (active->id != target) {
+              active = NULL;
+
+              for (uint32_t i = 0; i < bindingCount; i++) {
+                if (bindings[i].id == target) {
+                  active = &bindings[i];
+                  break;
+                }
+              }
+
+              if (!active) {
+                if (bindingCount >= COUNTOF(bindings)) {
+                  // error
+                }
+
+                active = &bindings[bindingCount++];
+              }
+
+              active->id = target;
+            }
+
+            if (decoration == 33) {
+              active->index = instruction[3];
+            } else if (decoration == 34) {
+              active->group = instruction[3];
+            }
+          }
+        }
+        default: break;
+      }
+      instruction += length;
+    }
+  }
 
   return true;
 }
