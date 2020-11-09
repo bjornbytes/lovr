@@ -1081,7 +1081,7 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
     VkAttachmentReference depth;
   } refs;
 
-  for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].texture; i++) {
+  for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].texture; i++, canvas->colorAttachmentCount++) {
     uint32_t attachment = count++;
     images[attachment] = info->color[i].texture->view;
     attachments[attachment] = (VkAttachmentDescription) {
@@ -1735,6 +1735,120 @@ static void expunge() {
 }
 
 static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo) {
+  struct { uint16_t group; uint16_t index; gpu_binding_type type; } resources[128];
+  uint32_t resourceCount = 0;
+
+  // For variable ids, stores the index of its resource
+  // For type ids, stores the index of its declaration instruction
+  uint32_t cache[8192];
+  memset(cache, 0xff, sizeof(cache));
+
+  const uint32_t* words = source->code;
+  if (words[0] == 0x07230203) {
+    uint32_t wordCount = source->size / sizeof(uint32_t);
+    const uint32_t* instruction = words + 5;
+    while (instruction < words + wordCount) {
+      uint16_t opcode = instruction[0] & 0xffff;
+      uint16_t length = instruction[0] >> 16;
+      switch (opcode) {
+        case 71: { // OpDecorate
+          uint32_t target = instruction[1];
+          uint32_t decoration = instruction[2];
+
+          // Skip irrelevant decorations, skip out of bounds ids, skip resources that won't fit
+          if ((decoration != 33 && decoration != 34) || target >= COUNTOF(cache) || resourceCount > COUNTOF(resources)) {
+            break;
+          }
+
+          uint32_t resource = cache[target] == ~0u ? (cache[target] = resourceCount++) : cache[target];
+
+          // Decorate the resource
+          if (decoration == 33) {
+            resources[resource].index = instruction[3];
+          } else if (decoration == 34) {
+            resources[resource].group = instruction[3];
+          }
+
+          break;
+        }
+        case 19: // OpTypeVoid
+        case 20: // OpTypeBool
+        case 21: // OpTypeInt
+        case 22: // OpTypeFloat
+        case 23: // OpTypeVector
+        case 24: // OpTypeMatrix
+        case 25: // OpTypeImage
+        case 26: // OpTypeSampler
+        case 27: // OpTypeSampledImage
+        case 28: // OpTypeArray
+        case 29: // OpTypeRuntimeArray
+        case 30: // OpTypeStruct
+        case 31: // OpTypeOpaque
+        case 32: // OpTypePointer
+          cache[instruction[1]] = instruction - words;
+          break;
+        case 59: { // OpVariable
+          uint32_t type = instruction[1];
+          uint32_t id = instruction[2];
+          uint32_t storageClass = instruction[3];
+
+          // Skip if it wasn't decorated with a group/binding
+          if (cache[id] == ~0u) {
+            break;
+          }
+
+          uint32_t pointerId = type;
+          const uint32_t* pointer = words + cache[pointerId];
+          uint32_t pointerTypeId = pointer[3];
+          const uint32_t* pointerType = words + cache[pointerTypeId];
+
+          // If it's a pointer to an array, set the resource array size and keep going
+          if ((pointerType[0] & 0xffff) == 28 /* OpTypeArray */) {
+            // TODO find array size and set count
+            pointerTypeId = pointerType[2];
+            pointerType = words + cache[pointerTypeId];
+          }
+
+          // Use StorageClass to detect uniform/storage buffers
+          if (storageClass == 12 /* StorageBuffer */) {
+            resources[cache[id]].type = GPU_BINDING_STORAGE_BUFFER;
+            break;
+          } else if (storageClass == 2 /* Uniform */) {
+            resources[cache[id]].type = GPU_BINDING_UNIFORM_BUFFER;
+            break;
+          }
+
+          // If it's a sampled image, unwrap to get to the image type
+          // If it's not an image or a sampled image, then it's weird, fail
+          if ((pointerType[0] & 0xffff) == 27 /* OpTypeSampledImage */) {
+            pointerTypeId = pointerType[2];
+            pointerType = words + cache[pointerTypeId];
+          } else if ((pointerType[0] & 0xffff) != 25 /* OpTypeImage */) {
+            return false; // XXX
+          }
+
+          // If it's a buffer (uniform/storage texel buffer) or an input attachment, fail
+          if (pointerType[3] == 5 /* DimBuffer */ || pointerType[3] == 6 /* DimSubpassData */) {
+            return false; // XXX
+          }
+
+          // Read the Sampled key to determine if it's a sampled image (1) or a storage image (2)
+          if (pointerType[7] == 1) {
+            resources[cache[id]].type = GPU_BINDING_SAMPLED_TEXTURE;
+          } else if (pointerType[7] == 2) {
+            resources[cache[id]].type = GPU_BINDING_STORAGE_TEXTURE;
+          } else {
+            return false; // XXX
+          }
+
+          break;
+        }
+        default: break;
+      }
+      instruction += length;
+    }
+  }
+
   VkShaderModuleCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
     .codeSize = source->size,
@@ -1751,61 +1865,6 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
     .module = *handle,
     .pName = source->entry ? source->entry : "main"
   };
-
-  struct binding {
-    uint32_t id;
-    uint16_t group;
-    uint16_t index;
-  } bindings[128];
-
-  struct binding* active = bindings;
-  uint32_t bindingCount = 0;
-
-  const uint32_t* words = source->code;
-  if (words[0] == 0x07230203) {
-    uint32_t wordCount = source->size / sizeof(uint32_t);
-    const uint32_t* instruction = words + 5;
-    while (instruction < words + wordCount) {
-      uint16_t opcode = instruction[0] & 0xffff;
-      uint16_t length = instruction[0] >> 16;
-      switch (opcode) {
-        case 71: { // OpDecorate
-          uint32_t target = instruction[1];
-          uint32_t decoration = instruction[2];
-          if (decoration == 33 || decoration == 34) {
-            if (active->id != target) {
-              active = NULL;
-
-              for (uint32_t i = 0; i < bindingCount; i++) {
-                if (bindings[i].id == target) {
-                  active = &bindings[i];
-                  break;
-                }
-              }
-
-              if (!active) {
-                if (bindingCount >= COUNTOF(bindings)) {
-                  // error
-                }
-
-                active = &bindings[bindingCount++];
-              }
-
-              active->id = target;
-            }
-
-            if (decoration == 33) {
-              active->index = instruction[3];
-            } else if (decoration == 34) {
-              active->group = instruction[3];
-            }
-          }
-        }
-        default: break;
-      }
-      instruction += length;
-    }
-  }
 
   return true;
 }
