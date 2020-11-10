@@ -1291,7 +1291,16 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     loadShader(&info->fragment, VK_SHADER_STAGE_FRAGMENT_BIT, &shader->handles[1], &shader->pipelineInfo[1], shader->layoutInfo);
   }
 
-  // TODO merge dynamic buffer info
+  for (uint32_t i = 0; i < info->dynamicBufferCount; i++) {
+    gpu_shader_var* var = &info->dynamicBuffers[i];
+    gpu_bundle_layout* layout = &shader->layoutInfo[var->group];
+    for (uint32_t j = 0; j < layout->count; j++) {
+      if (layout->slots[j].index == var->slot) {
+        layout->slots[j].usage |= GPU_BINDING_DYNAMIC;
+        break;
+      }
+    }
+  }
 
   uint32_t layoutCount = 0;
   for (uint32_t i = 0; i < COUNTOF(shader->layouts); i++) {
