@@ -1854,9 +1854,18 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
 
           // If it's a pointer to an array, set the resource array size and keep going
           if ((pointerType[0] & 0xffff) == 28 /* OpTypeArray */) {
-            // TODO find array size and set count
+            uint32_t sizeId = pointerType[3];
+            const uint32_t* size = words + cache[sizeId];
+            if ((size[0] & 0xffff) == 43 /* OpConstant */ || (size[0] & 0xffff) == 50 /* OpSpecConstant */) {
+              resources[cache[id]].count = size[3];
+            } else {
+              return false; // XXX
+            }
+
             pointerTypeId = pointerType[2];
             pointerType = words + cache[pointerTypeId];
+          } else {
+            resources[cache[id]].count = 1;
           }
 
           // Use StorageClass to detect uniform/storage buffers
