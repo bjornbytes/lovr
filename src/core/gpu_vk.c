@@ -1910,6 +1910,10 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
 
           break;
         }
+        // If we find a function, we can exit early because the shader's actual code is irrelevant
+        case 54: /* OpFunction */
+          instruction = words + wordCount;
+          break;
         default: break;
       }
       instruction += length;
