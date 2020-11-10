@@ -1574,10 +1574,10 @@ void gpu_batch_end(gpu_batch* batch) {
   GPU_VK(vkEndCommandBuffer(batch->cmd));
 }
 
-void gpu_batch_bind_bundle(gpu_batch* batch, gpu_bundle* bundle, uint32_t group) {
+void gpu_batch_bind_bundle(gpu_batch* batch, gpu_bundle* bundle, uint32_t group, uint32_t* offsets, uint32_t offsetCount) {
   VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
   VkPipelineLayout layout = VK_NULL_HANDLE; // TODO batch needs to know its pipeline/shader
-  vkCmdBindDescriptorSets(batch->cmd, bindPoint, layout, group, 1, &bundle->handle, 0, NULL);
+  vkCmdBindDescriptorSets(batch->cmd, bindPoint, layout, group, 1, &bundle->handle, offsetCount, offsets);
 }
 
 void gpu_batch_bind_pipeline(gpu_batch* batch, gpu_pipeline* pipeline) {
