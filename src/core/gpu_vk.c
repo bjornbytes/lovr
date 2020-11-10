@@ -801,7 +801,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     case GPU_TEXTURE_TYPE_2D: type = VK_IMAGE_TYPE_2D; break;
     case GPU_TEXTURE_TYPE_3D: type = VK_IMAGE_TYPE_3D; break;
     case GPU_TEXTURE_TYPE_CUBE: type = VK_IMAGE_TYPE_2D; flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; break;
-    case GPU_TEXTURE_TYPE_ARRAY: type = VK_IMAGE_TYPE_3D; flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT; break;
+    case GPU_TEXTURE_TYPE_ARRAY: type = VK_IMAGE_TYPE_2D; break;
     default: return false;
   }
 
@@ -1167,6 +1167,11 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
 
   VkRenderPassCreateInfo renderPassInfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+    .pNext = &(VkRenderPassMultiviewCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO,
+      .subpassCount = 1,
+      .pViewMasks = (uint32_t[1]) { (1 << info->views) - 1 }
+    },
     .attachmentCount = count,
     .pAttachments = attachments,
     .subpassCount = 1,
