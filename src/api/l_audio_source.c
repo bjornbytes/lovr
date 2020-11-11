@@ -172,9 +172,9 @@ static int l_lovrSourceSeek(lua_State* L) {
 
 static int l_lovrSourceSetCone(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float innerAngle = luax_checkfloat(L, 1);
-  float outerAngle = luax_checkfloat(L, 2);
-  float outerGain = luax_checkfloat(L, 3);
+  float innerAngle = luax_checkfloat(L, 2);
+  float outerAngle = luax_checkfloat(L, 3);
+  float outerGain = luax_checkfloat(L, 4);
   lovrSourceSetCone(source, innerAngle, outerAngle, outerGain);
   return 0;
 }
