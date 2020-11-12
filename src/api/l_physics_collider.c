@@ -301,7 +301,7 @@ static int l_lovrColliderGetLinearDamping(lua_State* L) {
 static int l_lovrColliderSetLinearDamping(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   float damping = luax_checkfloat(L, 2);
-  float threshold = luax_optfloat(L, 3, .01f);
+  float threshold = luax_optfloat(L, 3, 0.0f);
   lovrColliderSetLinearDamping(collider, damping, threshold);
   return 0;
 }
@@ -318,7 +318,7 @@ static int l_lovrColliderGetAngularDamping(lua_State* L) {
 static int l_lovrColliderSetAngularDamping(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   float damping = luax_checkfloat(L, 2);
-  float threshold = luax_optfloat(L, 3, .01f);
+  float threshold = luax_optfloat(L, 3, 0.0f);
   lovrColliderSetAngularDamping(collider, damping, threshold);
   return 0;
 }
