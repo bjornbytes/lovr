@@ -110,6 +110,13 @@ static int l_lovrMathNewCurve(lua_State* L) {
       i += 3 + components;
       lua_pop(L, 3);
     }
+  } else if (top == 1 && lua_type(L, 1) == LUA_TNUMBER) {
+    float point[4] = { 0 };
+    int count = lua_tonumber(L, 1);
+    lovrAssert(count > 0, "Number of curve points must be positive");
+    for (int i = 0; i < count; i++) {
+      lovrCurveAddPoint(curve, point, i);
+    }
   } else {
     int pointIndex = 0;
     for (int i = 1; i <= top;) {
