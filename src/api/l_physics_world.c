@@ -267,7 +267,7 @@ static int l_lovrWorldGetLinearDamping(lua_State* L) {
 static int l_lovrWorldSetLinearDamping(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float damping = luax_checkfloat(L, 2);
-  float threshold = luax_optfloat(L, 3, .01f);
+  float threshold = luax_optfloat(L, 3, 0.0f);
   lovrWorldSetLinearDamping(world, damping, threshold);
   return 0;
 }
@@ -284,7 +284,7 @@ static int l_lovrWorldGetAngularDamping(lua_State* L) {
 static int l_lovrWorldSetAngularDamping(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float damping = luax_checkfloat(L, 2);
-  float threshold = luax_optfloat(L, 3, .01f);
+  float threshold = luax_optfloat(L, 3, 0.0f);
   lovrWorldSetAngularDamping(world, damping, threshold);
   return 0;
 }
