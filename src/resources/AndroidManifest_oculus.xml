@@ -9,6 +9,7 @@
   <uses-permission android:name="android.permission.INTERNET" />
   <application android:allowBackup="false" android:label="LÖVR">
     <meta-data android:name="com.samsung.android.vr.application.mode" android:value="vr_only"/>
+    <meta-data android:name="com.oculus.supportedDevices" android:value="quest|delmar" />
     <activity android:name="Activity">
       <meta-data android:name="android.app.lib_name" android:value="lovr"/>
       <meta-data android:name="com.oculus.vr.focusaware" android:value="true"/>
