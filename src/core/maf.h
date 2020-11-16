@@ -1,5 +1,6 @@
 #include <string.h>
 #include <math.h>
+#include <float.h>
 #include "util.h"
 
 #pragma once
@@ -534,7 +535,12 @@ MAF void mat4_getAngleAxis(mat4 m, float* angle, float* ax, float* ay, float* az
   diagonal[1] /= sy;
   diagonal[2] /= sz;
   vec3_normalize(axis);
-  *angle = acosf((diagonal[0] + diagonal[1] + diagonal[2] - 1.f) / 2.f);
+  float cosangle = (diagonal[0] + diagonal[1] + diagonal[2] - 1.f) / 2.f;
+  if (fabsf(cosangle) < 1.f - FLT_EPSILON) {
+    *angle = acosf(cosangle);
+  } else {
+    *angle = (float) M_PI;
+  }
   *ax = axis[0];
   *ay = axis[1];
   *az = axis[2];
