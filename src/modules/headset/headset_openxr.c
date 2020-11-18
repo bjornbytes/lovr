@@ -745,6 +745,10 @@ static bool openxr_getSkeleton(Device device, float* poses) {
     return false;
   }
 
+  if (!state.features.handTracking) {
+    return false;
+  }
+
   XrHandTrackerEXT* handTracker = &state.handTrackers[device - DEVICE_HAND_LEFT];
 
   // Hand trackers are created lazily because on some implementations xrCreateHandTrackerEXT will
