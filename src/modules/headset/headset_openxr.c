@@ -168,7 +168,7 @@ static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, cons
 
 static void openxr_destroy();
 
-static bool openxr_init(float supersample, float offset, uint32_t msaa) {
+static bool openxr_init(float supersample, float offset, uint32_t msaa, bool overlay) {
   state.msaa = msaa;
 
 #ifdef __ANDROID__

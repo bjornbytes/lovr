@@ -124,7 +124,8 @@ function lovr.boot()
       drivers = { 'openxr', 'oculus', 'vrapi', 'pico', 'openvr', 'webxr', 'desktop' },
       supersample = false,
       offset = 1.7,
-      msaa = 4
+      msaa = 4,
+      overlay = false
     },
     math = {
       globals = true

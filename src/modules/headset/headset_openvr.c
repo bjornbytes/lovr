@@ -112,7 +112,7 @@ static TrackedDeviceIndex_t getDeviceIndex(Device device) {
 }
 
 static bool openvr_getName(char* name, size_t length);
-static bool openvr_init(float supersample, float offset, uint32_t msaa) {
+static bool openvr_init(float supersample, float offset, uint32_t msaa, bool overlay) {
   if (!VR_IsHmdPresent() || !VR_IsRuntimeInstalled()) {
     return false;
   }
