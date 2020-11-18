@@ -277,6 +277,9 @@ function lovr.errhand(message, traceback)
       render()
     end
     lovr.graphics.present()
+    if lovr.math then
+      lovr.math.drain()
+    end
   end
 end
 
