@@ -1,0 +1,16 @@
+{
+   "action_manifest_version" : 0,
+   "alias_info" : {},
+   "bindings" : {
+      "/actions/lovr" : {
+         "poses" : [
+            { "output": "/actions/lovr/in/leftKneePose", "path": "/user/knee/left/pose/raw" }
+         ]
+      }
+   },
+   "controller_type" : "vive_tracker_left_knee",
+   "description" : "",
+   "name" : "Left Knee Vive Tracker Bindings",
+   "options" : {},
+   "simulated_actions" : []
+}

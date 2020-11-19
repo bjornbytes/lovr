@@ -3,6 +3,18 @@
 #include "resources/bindings_vive.json.h"
 #include "resources/bindings_knuckles.json.h"
 #include "resources/bindings_touch.json.h"
+#include "resources/bindings_vive_tracker_left_elbow.json.h"
+#include "resources/bindings_vive_tracker_right_elbow.json.h"
+#include "resources/bindings_vive_tracker_left_shoulder.json.h"
+#include "resources/bindings_vive_tracker_right_shoulder.json.h"
+#include "resources/bindings_vive_tracker_chest.json.h"
+#include "resources/bindings_vive_tracker_waist.json.h"
+#include "resources/bindings_vive_tracker_left_knee.json.h"
+#include "resources/bindings_vive_tracker_right_knee.json.h"
+#include "resources/bindings_vive_tracker_left_foot.json.h"
+#include "resources/bindings_vive_tracker_right_foot.json.h"
+#include "resources/bindings_vive_tracker_camera.json.h"
+#include "resources/bindings_vive_tracker_keyboard.json.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
@@ -70,7 +82,7 @@ static struct {
   struct VR_IVRRenderModels_FnTable* renderModels;
   struct VR_IVRInput_FnTable* input;
   VRActionSetHandle_t actionSet;
-  VRActionHandle_t poseActions[5];
+  VRActionHandle_t poseActions[MAX_DEVICES];
   VRActionHandle_t buttonActions[2][MAX_BUTTONS];
   VRActionHandle_t touchActions[2][MAX_BUTTONS];
   VRActionHandle_t axisActions[2][MAX_AXES];
@@ -128,7 +140,19 @@ static bool openvr_init(float supersample, float offset, uint32_t msaa) {
       lovrFilesystemWrite("actions.json", (const char*) src_resources_actions_json, src_resources_actions_json_len, false) != src_resources_actions_json_len ||
       lovrFilesystemWrite("bindings_vive.json", (const char*) src_resources_bindings_vive_json, src_resources_bindings_vive_json_len, false) != src_resources_bindings_vive_json_len ||
       lovrFilesystemWrite("bindings_knuckles.json", (const char*) src_resources_bindings_knuckles_json, src_resources_bindings_knuckles_json_len, false) != src_resources_bindings_knuckles_json_len ||
-      lovrFilesystemWrite("bindings_touch.json", (const char*) src_resources_bindings_touch_json, src_resources_bindings_touch_json_len, false) != src_resources_bindings_touch_json_len
+      lovrFilesystemWrite("bindings_touch.json", (const char*) src_resources_bindings_touch_json, src_resources_bindings_touch_json_len, false) != src_resources_bindings_touch_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_left_elbow.json", (const char*) src_resources_bindings_vive_tracker_left_elbow_json, src_resources_bindings_vive_tracker_left_elbow_json_len, false) != src_resources_bindings_vive_tracker_left_elbow_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_right_elbow.json", (const char*) src_resources_bindings_vive_tracker_right_elbow_json, src_resources_bindings_vive_tracker_right_elbow_json_len, false) != src_resources_bindings_vive_tracker_right_elbow_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_left_shoulder.json", (const char*) src_resources_bindings_vive_tracker_left_shoulder_json, src_resources_bindings_vive_tracker_left_shoulder_json_len, false) != src_resources_bindings_vive_tracker_left_shoulder_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_right_shoulder.json", (const char*) src_resources_bindings_vive_tracker_right_shoulder_json, src_resources_bindings_vive_tracker_right_shoulder_json_len, false) != src_resources_bindings_vive_tracker_right_shoulder_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_chest.json", (const char*) src_resources_bindings_vive_tracker_chest_json, src_resources_bindings_vive_tracker_chest_json_len, false) != src_resources_bindings_vive_tracker_chest_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_waist.json", (const char*) src_resources_bindings_vive_tracker_waist_json, src_resources_bindings_vive_tracker_waist_json_len, false) != src_resources_bindings_vive_tracker_waist_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_left_knee.json", (const char*) src_resources_bindings_vive_tracker_left_knee_json, src_resources_bindings_vive_tracker_left_knee_json_len, false) != src_resources_bindings_vive_tracker_left_knee_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_right_knee.json", (const char*) src_resources_bindings_vive_tracker_right_knee_json, src_resources_bindings_vive_tracker_right_knee_json_len, false) != src_resources_bindings_vive_tracker_right_knee_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_left_foot.json", (const char*) src_resources_bindings_vive_tracker_left_foot_json, src_resources_bindings_vive_tracker_left_foot_json_len, false) != src_resources_bindings_vive_tracker_left_foot_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_right_foot.json", (const char*) src_resources_bindings_vive_tracker_right_foot_json, src_resources_bindings_vive_tracker_right_foot_json_len, false) != src_resources_bindings_vive_tracker_right_foot_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_camera.json", (const char*) src_resources_bindings_vive_tracker_camera_json, src_resources_bindings_vive_tracker_camera_json_len, false) != src_resources_bindings_vive_tracker_camera_json_len ||
+      lovrFilesystemWrite("bindings_vive_tracker_keyboard.json", (const char*) src_resources_bindings_vive_tracker_keyboard_json, src_resources_bindings_vive_tracker_keyboard_json_len, false) != src_resources_bindings_vive_tracker_keyboard_json_len
     ) {
       VR_ShutdownInternal();
       return false;
@@ -145,6 +169,18 @@ static bool openvr_init(float supersample, float offset, uint32_t msaa) {
   state.input->GetActionHandle("/actions/lovr/in/rightHandPose", &state.poseActions[DEVICE_HAND_RIGHT]);
   state.input->GetActionHandle("/actions/lovr/in/leftHandPoint", &state.poseActions[DEVICE_HAND_LEFT_POINT]);
   state.input->GetActionHandle("/actions/lovr/in/rightHandPoint", &state.poseActions[DEVICE_HAND_RIGHT_POINT]);
+  state.input->GetActionHandle("/actions/lovr/in/leftElbowPose", &state.poseActions[DEVICE_ELBOW_LEFT]);
+  state.input->GetActionHandle("/actions/lovr/in/rightElbowPose", &state.poseActions[DEVICE_ELBOW_RIGHT]);
+  state.input->GetActionHandle("/actions/lovr/in/leftShoulderPose", &state.poseActions[DEVICE_SHOULDER_LEFT]);
+  state.input->GetActionHandle("/actions/lovr/in/rightShoulderPose", &state.poseActions[DEVICE_SHOULDER_RIGHT]);
+  state.input->GetActionHandle("/actions/lovr/in/chestPose", &state.poseActions[DEVICE_CHEST]);
+  state.input->GetActionHandle("/actions/lovr/in/waistPose", &state.poseActions[DEVICE_WAIST]);
+  state.input->GetActionHandle("/actions/lovr/in/leftKneePose", &state.poseActions[DEVICE_KNEE_LEFT]);
+  state.input->GetActionHandle("/actions/lovr/in/rightKneePose", &state.poseActions[DEVICE_KNEE_RIGHT]);
+  state.input->GetActionHandle("/actions/lovr/in/leftFootPose", &state.poseActions[DEVICE_FOOT_LEFT]);
+  state.input->GetActionHandle("/actions/lovr/in/rightFootPose", &state.poseActions[DEVICE_FOOT_RIGHT]);
+  state.input->GetActionHandle("/actions/lovr/in/cameraPose", &state.poseActions[DEVICE_CAMERA]);
+  state.input->GetActionHandle("/actions/lovr/in/keyboardPose", &state.poseActions[DEVICE_KEYBOARD]);
 
   state.input->GetActionHandle("/actions/lovr/in/leftTriggerDown", &state.buttonActions[0][BUTTON_TRIGGER]);
   state.input->GetActionHandle("/actions/lovr/in/leftThumbstickDown", &state.buttonActions[0][BUTTON_THUMBSTICK]);
@@ -344,6 +380,7 @@ static bool openvr_getPose(Device device, vec3 position, quat orientation) {
     return state.renderPoses[k_unTrackedDeviceIndex_Hmd].bPoseIsValid;
   }
 
+  // Lighthouse devices use the old tracked device index API
   if (device >= DEVICE_BEACON_1 && device <= DEVICE_BEACON_4) {
     TrackedDeviceIndex_t devices[4];
     ETrackedDeviceClass class = ETrackedDeviceClass_TrackedDeviceClass_TrackingReference;
@@ -358,7 +395,8 @@ static bool openvr_getPose(Device device, vec3 position, quat orientation) {
     return pose->bPoseIsValid;
   }
 
-  if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
+  // Generic device
+  if (state.poseActions[device]) {
     InputPoseActionData_t action;
     state.input->GetPoseActionDataForNextFrame(state.poseActions[device], state.compositor->GetTrackingSpace(), &action, sizeof(action), 0);
     mat4_fromMat34(transform, action.pose.mDeviceToAbsoluteTracking.m);
@@ -377,7 +415,7 @@ static bool openvr_getVelocity(Device device, vec3 velocity, vec3 angularVelocit
 
   if (device == DEVICE_HEAD) {
     pose = &state.renderPoses[k_unTrackedDeviceIndex_Hmd];
-  } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) {
+  } else if (state.poseActions[device]) {
     state.input->GetPoseActionDataForNextFrame(state.poseActions[device], state.compositor->GetTrackingSpace(), &action, sizeof(action), 0);
     pose = &action.pose;
   } else {

@@ -1,0 +1,16 @@
+{
+   "action_manifest_version" : 0,
+   "alias_info" : {},
+   "bindings" : {
+      "/actions/lovr" : {
+         "poses" : [
+            { "output": "/actions/lovr/in/rightFootPose", "path": "/user/foot/right/pose/raw" }
+         ]
+      }
+   },
+   "controller_type" : "vive_tracker_right_foot",
+   "description" : "",
+   "name" : "Right Foot Vive Tracker Bindings",
+   "options" : {},
+   "simulated_actions" : []
+}
