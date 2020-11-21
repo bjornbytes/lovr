@@ -287,7 +287,7 @@ static bool openvr_getViewPose(uint32_t view, float* position, float* orientatio
 
   float transform[16], offset[16];
   mat4_fromMat34(transform, state.renderPoses[k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking.m);
-  mat4_multiply(transform, mat4_fromMat34(offset, state.system->GetEyeToHeadTransform(eye).m));
+  mat4_mul(transform, mat4_fromMat34(offset, state.system->GetEyeToHeadTransform(eye).m));
   mat4_getPosition(transform, position);
   mat4_getOrientation(transform, orientation);
   position[1] += state.offset;
@@ -786,7 +786,7 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
     float matrix[16], eye[16];
     EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
     mat4_init(matrix, head);
-    mat4_multiply(matrix, mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
+    mat4_mul(matrix, mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
     mat4_invert(matrix);
     lovrGraphicsSetViewMatrix(i, matrix);
     mat4_fromMat44(matrix, state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);

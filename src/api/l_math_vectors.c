@@ -1524,7 +1524,7 @@ static int l_lovrMat4Mul(lua_State* L) {
   VectorType type;
   float* n = luax_tovector(L, 2, &type);
   if (n && type == V_MAT4) {
-    mat4_multiply(m, n);
+    mat4_mul(m, n);
     lua_settop(L, 1);
     return 1;
   } else if (n && type == V_VEC3) {
@@ -1532,7 +1532,7 @@ static int l_lovrMat4Mul(lua_State* L) {
     lua_settop(L, 2);
     return 1;
   } else if (n && type == V_VEC4) {
-    mat4_multiplyVec4(m, n);
+    mat4_mulVec4(m, n);
     lua_settop(L, 2);
     return 1;
   } else if (lua_type(L, 2) == LUA_TNUMBER) {
@@ -1662,7 +1662,7 @@ static int l_lovrMat4__mul(lua_State* L) {
   if (!n || (type == V_VEC2 || type == V_QUAT)) return luax_typeerror(L, 2, "mat4, vec3, or vec4");
   if (type == V_MAT4) {
     mat4 out = luax_newtempvector(L, V_MAT4);
-    mat4_multiply(mat4_init(out, m), n);
+    mat4_mul(mat4_init(out, m), n);
   } else if (type == V_VEC3) {
     vec3 out = luax_newtempvector(L, V_VEC3);
     vec3_init(out, n);
@@ -1670,7 +1670,7 @@ static int l_lovrMat4__mul(lua_State* L) {
   } else if (type == V_VEC4) {
     float* out = luax_newtempvector(L, V_VEC4);
     memcpy(out, n, 4 * sizeof(float));
-    mat4_multiplyVec4(m, out);
+    mat4_mulVec4(m, out);
   } else {
     lovrThrow("Unreachable");
   }

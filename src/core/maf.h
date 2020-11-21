@@ -439,7 +439,7 @@ MAF mat4 mat4_invert(mat4 m) {
 }
 
 // Calculate matrix equivalent to "apply n, then m"
-MAF mat4 mat4_multiply(mat4 m, mat4 n) {
+MAF mat4 mat4_mul(mat4 m, mat4 n) {
   float m00 = m[0], m01 = m[1], m02 = m[2], m03 = m[3],
         m10 = m[4], m11 = m[5], m12 = m[6], m13 = m[7],
         m20 = m[8], m21 = m[9], m22 = m[10], m23 = m[11],
@@ -469,7 +469,7 @@ MAF mat4 mat4_multiply(mat4 m, mat4 n) {
   return m;
 }
 
-MAF float* mat4_multiplyVec4(mat4 m, float* v) {
+MAF float* mat4_mulVec4(mat4 m, float* v) {
   float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + v[3] * m[12];
   float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + v[3] * m[13];
   float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + v[3] * m[14];
@@ -491,7 +491,7 @@ MAF mat4 mat4_translate(mat4 m, float x, float y, float z) {
 
 MAF mat4 mat4_rotateQuat(mat4 m, quat q) {
   float n[16];
-  return mat4_multiply(m, mat4_fromQuat(n, q));
+  return mat4_mul(m, mat4_fromQuat(n, q));
 }
 
 MAF mat4 mat4_rotate(mat4 m, float angle, float x, float y, float z) {
@@ -608,10 +608,10 @@ MAF void mat4_getFov(mat4 m, float* left, float* right, float* up, float* down) 
   float transpose[16];
   mat4_init(transpose, m);
   mat4_transpose(transpose);
-  mat4_multiplyVec4(transpose, v[0]);
-  mat4_multiplyVec4(transpose, v[1]);
-  mat4_multiplyVec4(transpose, v[2]);
-  mat4_multiplyVec4(transpose, v[3]);
+  mat4_mulVec4(transpose, v[0]);
+  mat4_mulVec4(transpose, v[1]);
+  mat4_mulVec4(transpose, v[2]);
+  mat4_mulVec4(transpose, v[3]);
   *left = -atanf(v[0][2] / v[0][0]);
   *right = atanf(v[1][2] / v[1][0]);
   *up = atanf(v[2][2] / v[2][1]);
@@ -645,7 +645,7 @@ MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
 }
 
 // Apply matrix to a vec3
-// Difference from mat4_multiplyVec4: w normalize is performed, w in vec3 is ignored
+// Difference from mat4_mulVec4: w normalize is performed, w in vec3 is ignored
 MAF void mat4_transform(mat4 m, vec3 v) {
   float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
   float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];

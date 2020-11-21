@@ -61,8 +61,8 @@ static void renderNode(Model* model, uint32_t nodeIndex, uint32_t instances) {
 
       mat4_set(jointPose, globalTransform);
       mat4_invert(jointPose);
-      mat4_multiply(jointPose, globalJointTransform);
-      mat4_multiply(jointPose, inverseBindMatrix);
+      mat4_mul(jointPose, globalJointTransform);
+      mat4_mul(jointPose, inverseBindMatrix);
     }
   }
 

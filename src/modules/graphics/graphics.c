@@ -566,7 +566,7 @@ void lovrGraphicsScale(vec3 scale) {
 }
 
 void lovrGraphicsMatrixTransform(mat4 transform) {
-  mat4_multiply(state.transforms[state.transform], transform);
+  mat4_mul(state.transforms[state.transform], transform);
 }
 
 // Rendering
@@ -698,7 +698,7 @@ next:
   // Transform
   if (req->transform) {
     float transform[16];
-    mat4_multiply(mat4_init(transform, state.transforms[state.transform]), req->transform);
+    mat4_mul(mat4_init(transform, state.transforms[state.transform]), req->transform);
     memcpy(&batch->transforms[16 * batch->drawCount], transform, 16 * sizeof(float));
   } else {
     memcpy(&batch->transforms[16 * batch->drawCount], state.transforms[state.transform], 16 * sizeof(float));
