@@ -16,7 +16,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #undef EXTERN_C
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtypedef-redefinition"
 #include <openvr_capi.h>
+#pragma clang diagnostic pop
 
 // From openvr_capi.h
 extern intptr_t VR_InitInternal(EVRInitError *peError, EVRApplicationType eType);

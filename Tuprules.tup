@@ -9,7 +9,6 @@ CFLAGS += -I$(ROOT)/src/modules
 CFLAGS += -fvisibility=hidden
 CFLAGS += -Wall -Wextra
 CFLAGS += -Wno-unused-parameter
-CFLAGS_@(OPENVR) += -Wno-typedef-redefinition
 CFLAGS_@(STRICT) += -Werror
 FLAGS_@(DEBUG) += -g
 FLAGS_@(OPTIMIZE) += -Oz
