@@ -24,13 +24,13 @@ static int l_lovrAudioReset(lua_State* L) {
 }
 
 static int l_lovrAudioStart(lua_State* L) {
-  AudioType type = luax_checkenum(L, 1, AudioTypes, "playback", "AudioType");
+  AudioType type = luax_checkenum(L, 1, AudioType, "playback");
   lovrAudioStart(type);
   return 0;
 }
 
 static int l_lovrAudioStop(lua_State* L) {
-  AudioType type = luax_checkenum(L, 1, AudioTypes, "playback", "AudioType");
+  AudioType type = luax_checkenum(L, 1, AudioType, "playback");
   lovrAudioStop(type);
   return 0;
 }
