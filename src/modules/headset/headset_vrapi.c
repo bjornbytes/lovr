@@ -195,6 +195,10 @@ static const float* vrapi_getBoundsGeometry(uint32_t* count) {
 }
 
 static bool vrapi_getPose(Device device, float* position, float* orientation) {
+  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT && device != DEVICE_HEAD) {
+    return false;
+  }
+
   ovrPosef* pose;
   bool valid;
 
@@ -211,19 +215,18 @@ static bool vrapi_getPose(Device device, float* position, float* orientation) {
   vec3_set(position, pose->Position.x, pose->Position.y + state.offset, pose->Position.z);
   quat_init(orientation, &pose->Orientation.x);
 
-  // make tracked hands face -Z
-  if(index < 2 && state.hands[index].Type == ovrControllerType_Hand) {
-    float rotation[4] = {0,0,0,1};
+  // Make tracked hands face -Z
+  if (index < 2 && state.hands[index].Type == ovrControllerType_Hand) {
+    float rotation[4];
     if (device == DEVICE_HAND_LEFT) {
       float q[4];
       quat_fromAngleAxis(rotation, (float) M_PI, 0.f, 0.f, 1.f);
       quat_mul(rotation, rotation, quat_fromAngleAxis(q, (float) M_PI / 2.f, 0.f, 1.f, 0.f));
-    } else if(device == DEVICE_HAND_RIGHT) {
+    } else if (device == DEVICE_HAND_RIGHT) {
       quat_fromAngleAxis(rotation, (float) M_PI / 2.f, 0.f, 1.f, 0.f);
     }
     quat_mul(orientation, orientation, rotation);
   }
-  
 
   return valid;
 }
