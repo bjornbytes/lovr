@@ -455,10 +455,15 @@ typedef struct {
   } textureFormats[32];
 } gpu_features;
 
+typedef union {
+  struct { uintptr_t display, window; } x11;
+} gpu_surface_config;
+
 typedef struct {
   bool debug;
   void* userdata;
   void (*callback)(void* userdata, const char* message, int level);
+  gpu_surface_config surface;
   gpu_features features;
 } gpu_config;
 

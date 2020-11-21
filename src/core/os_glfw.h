@@ -210,6 +210,9 @@ bool os_window_open(const os_window_config* config) {
   }
 
 
+#ifdef LOVR_VK
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+#endif
 #ifdef LOVR_LINUX_EGL
   glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
 #endif
@@ -251,7 +254,9 @@ bool os_window_open(const os_window_config* config) {
     });
   }
 
+#ifndef LOVR_VK
   glfwMakeContextCurrent(glfwState.window);
+#endif
   glfwSetWindowCloseCallback(glfwState.window, onWindowClose);
   glfwSetWindowFocusCallback(glfwState.window, onWindowFocus);
   glfwSetWindowSizeCallback(glfwState.window, onWindowResize);
@@ -284,6 +289,9 @@ void os_window_get_fbsize(int* width, int* height) {
 }
 
 void os_window_set_vsync(int interval) {
+#ifdef LOVR_VK
+  return;
+#endif
 #if EMSCRIPTEN
   glfwSwapInterval(1);
 #else

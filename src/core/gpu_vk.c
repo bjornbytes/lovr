@@ -1,6 +1,13 @@
 #include "gpu.h"
 #include <string.h>
 
+#if defined __linux__
+#define VK_USE_PLATFORM_XLIB_KHR
+#endif
+
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
+
 #ifdef _WIN32
 #include <windows.h>
 #define VULKAN_LIBRARY "vulkan-1.dll"
@@ -26,9 +33,6 @@ static void* gpu_dlopen(const char* library) { return dlopen(library, RTLD_NOW |
 static void* gpu_dlsym(void* library, const char* symbol) { return dlsym(library, symbol); }
 static void gpu_dlclose(void* library) { dlclose(library); }
 #endif
-
-#define VK_NO_PROTOTYPES
-#include <vulkan/vulkan.h>
 
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
 #define SCRATCHPAD_SIZE (16 * 1024 * 1024)
@@ -170,6 +174,8 @@ static struct {
   VkInstance instance;
   VkDevice device;
   VkQueue queue;
+  VkSurfaceKHR surface;
+  VkSwapchainKHR swapchain;
   VkCommandBuffer commands;
   VkDescriptorPool descriptorPool;
   VkDebugUtilsMessengerEXT messenger;
@@ -259,12 +265,16 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkDestroyInstance)\
   X(vkCreateDebugUtilsMessengerEXT)\
   X(vkDestroyDebugUtilsMessengerEXT)\
+  X(vkDestroySurfaceKHR)\
   X(vkEnumeratePhysicalDevices)\
   X(vkGetPhysicalDeviceProperties)\
   X(vkGetPhysicalDeviceFeatures)\
   X(vkGetPhysicalDeviceMemoryProperties)\
   X(vkGetPhysicalDeviceFormatProperties)\
   X(vkGetPhysicalDeviceQueueFamilyProperties)\
+  X(vkGetPhysicalDeviceSurfaceSupportKHR)\
+  X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)\
+  X(vkGetPhysicalDeviceSurfaceFormatsKHR)\
   X(vkCreateDevice)\
   X(vkDestroyDevice)\
   X(vkGetDeviceQueue)\
@@ -275,6 +285,8 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkSetDebugUtilsObjectNameEXT)\
   X(vkQueueSubmit)\
   X(vkDeviceWaitIdle)\
+  X(vkCreateSwapchainKHR)\
+  X(vkDestroySwapchainKHR)\
   X(vkCreateCommandPool)\
   X(vkDestroyCommandPool)\
   X(vkResetCommandPool)\
@@ -363,9 +375,19 @@ bool gpu_init(gpu_config* config) {
       "VK_LAYER_KHRONOS_validation"
     };
 
-    const char* extensions[] = {
-      "VK_EXT_debug_utils"
-    };
+    const char* extensions[3];
+    uint32_t extensionCount = 0;
+
+    if (state.config.debug) {
+      extensions[extensionCount++] = "VK_EXT_debug_utils";
+    }
+
+#if defined __linux__
+    if (state.config.surface.x11.display && state.config.surface.x11.window) {
+      extensions[extensionCount++] = "VK_KHR_surface";
+      extensions[extensionCount++] = "VK_KHR_xlib_surface";
+    }
+#endif
 
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -375,7 +397,7 @@ bool gpu_init(gpu_config* config) {
       },
       .enabledLayerCount = state.config.debug ? COUNTOF(layers) : 0,
       .ppEnabledLayerNames = layers,
-      .enabledExtensionCount = state.config.debug ? COUNTOF(extensions) : 0,
+      .enabledExtensionCount = extensionCount,
       .ppEnabledExtensionNames = extensions
     };
 
@@ -406,6 +428,26 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
+  { // Surface
+#if defined __linux__
+    if (state.config.surface.x11.display && state.config.surface.x11.window) {
+      PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
+      GPU_LOAD_INSTANCE(vkCreateXlibSurfaceKHR);
+
+      VkXlibSurfaceCreateInfoKHR surfaceInfo = {
+        .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+        .dpy = (Display*) state.config.surface.x11.display,
+        .window = (Window) state.config.surface.x11.window
+      };
+
+      if (vkCreateXlibSurfaceKHR(state.instance, &surfaceInfo, NULL, &state.surface)) {
+        gpu_destroy();
+        return false;
+      }
+    }
+#endif
+  }
+
   { // Device
     uint32_t deviceCount = 1;
     VkPhysicalDevice physicalDevice;
@@ -423,8 +465,14 @@ bool gpu_init(gpu_config* config) {
 
     state.queueFamilyIndex = ~0u;
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
+      VkBool32 presentable = VK_TRUE;
+
+      if (state.surface) {
+        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, state.surface, &presentable);
+      }
+
       uint32_t flags = queueFamilies[i].queueFlags;
-      if ((flags & VK_QUEUE_GRAPHICS_BIT) && (flags & VK_QUEUE_COMPUTE_BIT)) {
+      if ((flags & VK_QUEUE_GRAPHICS_BIT) && (flags & VK_QUEUE_COMPUTE_BIT) && presentable) {
         state.queueFamilyIndex = i;
         break;
       }
@@ -463,6 +511,8 @@ bool gpu_init(gpu_config* config) {
       .pQueuePriorities = &(float) { 1.f }
     };
 
+    const char* extension = "VK_KHR_swapchain";
+
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
       .pNext = &(VkPhysicalDeviceFeatures2) {
@@ -478,7 +528,9 @@ bool gpu_init(gpu_config* config) {
         }
       },
       .queueCreateInfoCount = 1,
-      .pQueueCreateInfos = &queueInfo
+      .pQueueCreateInfos = &queueInfo,
+      .enabledExtensionCount = state.surface ? 1 : 0,
+      .ppEnabledExtensionNames = &extension
     };
 
     if (vkCreateDevice(physicalDevice, &deviceInfo, NULL, &state.device)) {
@@ -489,6 +541,49 @@ bool gpu_init(gpu_config* config) {
     vkGetDeviceQueue(state.device, state.queueFamilyIndex, 0, &state.queue);
 
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
+
+    // Swapchain
+    if (state.surface) {
+      VkSurfaceCapabilitiesKHR surfaceCapabilities;
+      vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, state.surface, &surfaceCapabilities);
+
+      VkSurfaceFormatKHR formats[16];
+      uint32_t formatCount = COUNTOF(formats);
+      VkSurfaceFormatKHR surfaceFormat = { .format = VK_FORMAT_UNDEFINED };
+      vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, state.surface, &formatCount, formats);
+
+      for (uint32_t i = 0; i < formatCount; i++) {
+        if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
+          surfaceFormat = formats[i];
+          break;
+        }
+      }
+
+      if (surfaceFormat.format == VK_FORMAT_UNDEFINED) {
+        gpu_destroy();
+        return false;
+      }
+
+      VkSwapchainCreateInfoKHR swapchainInfo = {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = state.surface,
+        .minImageCount = surfaceCapabilities.minImageCount,
+        .imageFormat = surfaceFormat.format,
+        .imageColorSpace = surfaceFormat.colorSpace,
+        .imageExtent = surfaceCapabilities.currentExtent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR, // Disables vsync, may not be supported (TODO)
+        .clipped = VK_TRUE
+      };
+
+      if (vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &state.swapchain)) {
+        gpu_destroy();
+        return false;
+      }
+    }
 
     // Frames
     for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
@@ -574,7 +669,9 @@ void gpu_destroy(void) {
     if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
   }
   if (state.descriptorPool) vkDestroyDescriptorPool(state.device, state.descriptorPool, NULL);
+  if (state.swapchain) vkDestroySwapchainKHR(state.device, state.swapchain, NULL);
   if (state.device) vkDestroyDevice(state.device, NULL);
+  if (state.surface) vkDestroySurfaceKHR(state.instance, state.surface, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
   if (state.instance) vkDestroyInstance(state.instance, NULL);
   gpu_dlclose(state.library);
