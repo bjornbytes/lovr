@@ -907,8 +907,7 @@ void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
 
 MeshShape* lovrMeshShapeInit(MeshShape* mesh, int vertexCount, float vertices[], int indexCount, dTriIndex indices[]) {
   dTriMeshDataID dataID = dGeomTriMeshDataCreate();
-  dGeomTriMeshDataBuildSingle(dataID, vertices, 3 * sizeof(float), vertexCount, 
-                              indices, indexCount, 3 * sizeof(dTriIndex));
+  dGeomTriMeshDataBuildSingle(dataID, vertices, 3 * sizeof(float), vertexCount, indices, indexCount, 3 * sizeof(dTriIndex));
   dGeomTriMeshDataPreprocess2(dataID, (1U << dTRIDATAPREPROCESS_BUILD_FACE_ANGLES), NULL);
   mesh->id = dCreateTriMesh(0, dataID, 0, 0, 0);
   mesh->type = SHAPE_MESH;

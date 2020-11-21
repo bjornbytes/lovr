@@ -116,7 +116,7 @@ static int l_lovrShapeGetPosition(lua_State* L) {
 static int l_lovrShapeSetPosition(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
   lovrAssert(lovrShapeGetCollider(shape) != NULL, "Shape must be attached to collider");
-  float position[4]; 
+  float position[4];
   luax_readvec3(L, 2, position, NULL);
   lovrShapeSetPosition(shape, position[0], position[1], position[2]);
   return 0;
