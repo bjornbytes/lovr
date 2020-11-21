@@ -1,7 +1,11 @@
 ROOT = $(TUP_CWD)
 
 ## Base
+ifeq (@(CC),)
+CC = clang
+else
 CC = @(CC)
+endif
 CFLAGS += -std=c99 -pedantic
 CFLAGS += -D_POSIX_C_SOURCE=200809L
 CFLAGS += -I$(ROOT)/src
