@@ -326,6 +326,6 @@ void lovrSourceSetTime(Source* source, uint32_t time) {
   ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
 }
 
-uint32_t lovrSourceGetDuration(Source* source) {
-  return source->sound->frames;
+SoundData* lovrSourceGetSoundData(Source* source) {
+  return source->sound;
 }
