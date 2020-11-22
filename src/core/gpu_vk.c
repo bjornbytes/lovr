@@ -704,7 +704,7 @@ void gpu_thread_destroy() {
   memset(pool, 0, sizeof(*pool));
 }
 
-void gpu_prepare() {
+void gpu_begin() {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
   GPU_VK(vkWaitForFences(state.device, 1, &tick->fence, VK_FALSE, ~0ull));
   GPU_VK(vkResetFences(state.device, 1, &tick->fence));
@@ -720,7 +720,7 @@ void gpu_prepare() {
   }));
 }
 
-void gpu_submit() {
+void gpu_end() {
   VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     .pCommandBuffers = &state.commands,
