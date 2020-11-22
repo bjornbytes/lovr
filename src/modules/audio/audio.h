@@ -47,4 +47,4 @@ float lovrSourceGetVolume(Source* source);
 void lovrSourceSetVolume(Source* source, float volume);
 uint32_t lovrSourceGetTime(Source* source);
 void lovrSourceSetTime(Source* source, uint32_t sample);
-uint32_t lovrSourceGetDuration(Source* source);
+struct SoundData* lovrSourceGetSoundData(Source* source);
