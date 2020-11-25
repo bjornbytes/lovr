@@ -45,6 +45,8 @@ bool lovrSourceIsLooping(Source* source);
 void lovrSourceSetLooping(Source* source, bool isLooping);
 float lovrSourceGetVolume(Source* source);
 void lovrSourceSetVolume(Source* source, float volume);
+bool lovrSourceGetSpatial(Source *source);
+void lovrSourceSetSpatial(Source *source, bool spatial);
 uint32_t lovrSourceGetTime(Source* source);
 void lovrSourceSetTime(Source* source, uint32_t sample);
 struct SoundData* lovrSourceGetSoundData(Source* source);
