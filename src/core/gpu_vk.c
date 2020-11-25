@@ -108,9 +108,10 @@ struct gpu_batch {
 // Stream
 
 enum { CPU, GPU };
+enum { UPLOAD, WORK, DOWNLOAD };
 
 typedef struct {
-  VkCommandBuffer commands;
+  VkCommandBuffer commands[3];
   VkCommandPool pool;
   VkFence fence;
 } gpu_tick;
@@ -176,7 +177,7 @@ static struct {
   VkQueue queue;
   VkSurfaceKHR surface;
   VkSwapchainKHR swapchain;
-  VkCommandBuffer commands;
+  VkCommandBuffer* commands;
   VkDescriptorPool descriptorPool;
   VkDebugUtilsMessengerEXT messenger;
   VkPhysicalDeviceMemoryProperties memoryProperties;
@@ -602,10 +603,10 @@ bool gpu_init(gpu_config* config) {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = state.ticks[i].pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1
+        .commandBufferCount = COUNTOF(state.ticks[i].commands)
       };
 
-      if (vkAllocateCommandBuffers(state.device, &commandBufferInfo, &state.ticks[i].commands)) {
+      if (vkAllocateCommandBuffers(state.device, &commandBufferInfo, state.ticks[i].commands)) {
         gpu_destroy();
         return false;
       }
@@ -714,20 +715,25 @@ void gpu_begin() {
   expunge();
 
   state.commands = tick->commands;
-  GPU_VK(vkBeginCommandBuffer(state.commands, &(VkCommandBufferBeginInfo) {
-    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-  }));
+  for (uint32_t i = 0; i < COUNTOF(tick->commands); i++) {
+    GPU_VK(vkBeginCommandBuffer(state.commands[i], &(VkCommandBufferBeginInfo) {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+      .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+    }));
+  }
 }
 
 void gpu_end() {
   VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .pCommandBuffers = &state.commands,
-    .commandBufferCount = 1
+    .pCommandBuffers = state.commands,
+    .commandBufferCount = 3
   };
 
-  GPU_VK(vkEndCommandBuffer(state.commands));
+  for (uint32_t i = 0; i < 3; i++) {
+    GPU_VK(vkEndCommandBuffer(state.commands[i]));
+  }
+
   GPU_VK(vkQueueSubmit(state.queue, 1, &submit, state.ticks[state.tick[CPU]++ & 0xf].fence));
   state.commands = VK_NULL_HANDLE;
 }
@@ -746,11 +752,11 @@ void gpu_pass_begin(gpu_canvas* canvas) {
     .pClearValues = canvas->clears
   };
 
-  vkCmdBeginRenderPass(state.commands, &beginfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+  vkCmdBeginRenderPass(state.commands[WORK], &beginfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 }
 
 void gpu_pass_end() {
-  vkCmdEndRenderPass(state.commands);
+  vkCmdEndRenderPass(state.commands[WORK]);
 }
 
 void gpu_execute(gpu_batch** batches, uint32_t count) {
@@ -760,7 +766,7 @@ void gpu_execute(gpu_batch** batches, uint32_t count) {
     for (uint32_t j = 0; j < chunk && i + j < count; j++) {
       commands[j] = batches[i + j]->cmd;
     }
-    vkCmdExecuteCommands(state.commands, count, commands);
+    vkCmdExecuteCommands(state.commands[WORK], count, commands);
   }
 }
 
@@ -846,7 +852,7 @@ void* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
     .size = size
   };
 
-  vkCmdCopyBuffer(state.commands, mapped.buffer, buffer->handle, 1, &region);
+  vkCmdCopyBuffer(state.commands[UPLOAD], mapped.buffer, buffer->handle, 1, &region);
 
   return mapped.data;
 }
@@ -860,7 +866,7 @@ void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_rea
     .size = size
   };
 
-  vkCmdCopyBuffer(state.commands, buffer->handle, mapped.buffer, 1, &region);
+  vkCmdCopyBuffer(state.commands[DOWNLOAD], buffer->handle, mapped.buffer, 1, &region);
 
   gpu_readback_pool* pool = &state.readbacks;
   GPU_CHECK(pool->head - pool->tail != COUNTOF(pool->data), "Too many GPU readbacks"); // TODO emergency flush instead of throw
@@ -880,7 +886,7 @@ void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint6
     .size = size
   };
 
-  vkCmdCopyBuffer(state.commands, src->handle, dst->handle, 1, &region);
+  vkCmdCopyBuffer(state.commands[UPLOAD], src->handle, dst->handle, 1, &region);
 }
 
 // Texture
@@ -1050,7 +1056,7 @@ void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t extent[
   };
 
   setLayout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT); // TODO
-  vkCmdCopyBufferToImage(state.commands, mapped.buffer, texture->handle, texture->layout, 1, &region);
+  vkCmdCopyBufferToImage(state.commands[UPLOAD], mapped.buffer, texture->handle, texture->layout, 1, &region);
 
   return mapped.data;
 }
@@ -1070,8 +1076,8 @@ void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t extent[
     .imageExtent = { extent[0], extent[1], array ? 1 : extent[2] }
   };
 
-  setLayout(texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT); // TODO
-  vkCmdCopyImageToBuffer(state.commands, texture->handle, texture->layout, mapped.buffer, 1, &region);
+  setLayout(texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT); // TODO
+  vkCmdCopyImageToBuffer(state.commands[DOWNLOAD], texture->handle, texture->layout, mapped.buffer, 1, &region);
 
   gpu_readback_pool* pool = &state.readbacks;
   GPU_CHECK(pool->head - pool->tail != COUNTOF(pool->data), "Too many GPU readbacks"); // TODO emergency flush instead of throw
@@ -1109,7 +1115,7 @@ void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4],
   // TODO could have a more fine-grained image barrier on only the slices/levels being touched
   setLayout(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT);
   setLayout(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
-  vkCmdCopyImage(state.commands, src->handle, src->layout, dst->handle, dst->layout, 1, &region);
+  vkCmdCopyImage(state.commands[UPLOAD], src->handle, src->layout, dst->handle, dst->layout, 1, &region);
 }
 
 // Sampler
@@ -2131,7 +2137,7 @@ static void setLayout(gpu_texture* texture, VkImageLayout layout, VkPipelineStag
 
   // TODO Wait for nothing, but could we opportunistically sync with other pending writes?  Or is that weird
   VkPipelineStageFlags waitFor = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-  vkCmdPipelineBarrier(state.commands, waitFor, nextStages, 0, 0, NULL, 0, NULL, 1, &barrier);
+  vkCmdPipelineBarrier(state.commands[WORK], waitFor, nextStages, 0, 0, NULL, 0, NULL, 1, &barrier);
   texture->layout = layout;
 }
 
