@@ -338,6 +338,7 @@ if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
     src/modules/audio/audio.c
+    src/modules/audio/spatializers/dummy_spatializer.c
     src/api/l_audio.c
     src/api/l_audio_source.c
     src/lib/miniaudio/miniaudio.c

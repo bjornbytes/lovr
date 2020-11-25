@@ -34,6 +34,7 @@ bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
 float lovrAudioGetVolume(void);
 void lovrAudioSetVolume(float volume);
+void lovrAudioSetListenerPose(float position[4], float orientation[4]);
 
 Source* lovrSourceCreate(struct SoundData* soundData);
 void lovrSourceDestroy(void* ref);
@@ -47,6 +48,7 @@ float lovrSourceGetVolume(Source* source);
 void lovrSourceSetVolume(Source* source, float volume);
 bool lovrSourceGetSpatial(Source *source);
 void lovrSourceSetSpatial(Source *source, bool spatial);
+void lovrSourceSetPose(Source *source, float position[4], float orientation[4]);
 uint32_t lovrSourceGetTime(Source* source);
 void lovrSourceSetTime(Source* source, uint32_t sample);
 struct SoundData* lovrSourceGetSoundData(Source* source);

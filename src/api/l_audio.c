@@ -65,6 +65,15 @@ static int l_lovrAudioNewSource(lua_State* L) {
   return 1;
 }
 
+static int l_lovrAudioSetListenerPose(lua_State *L) {
+  float position[4], orientation[4];
+  int index = 1;
+  index = luax_readvec3(L, index, position, NULL);
+  index = luax_readquat(L, index, orientation, NULL);
+  lovrAudioSetListenerPose(position, orientation);
+  return 0;
+}
+
 static const luaL_Reg lovrAudio[] = {
   { "reset", l_lovrAudioReset },
   { "start", l_lovrAudioStart },
@@ -72,6 +81,7 @@ static const luaL_Reg lovrAudio[] = {
   { "getVolume", l_lovrAudioGetVolume },
   { "setVolume", l_lovrAudioSetVolume },
   { "newSource", l_lovrAudioNewSource },
+  { "setListenerPose", l_lovrAudioSetListenerPose },
   { NULL, NULL }
 };
 

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "lib/miniaudio/miniaudio.h"
+#include "audio/spatializer.h"
 
 #define SAMPLE_RATE 44100
 
@@ -30,14 +31,9 @@ struct Source {
   bool playing;
   bool looping;
   bool spatial;
+  float pose[16];
   int output_channel_count;
 };
-
-typedef struct {
-  bool (*init)(void);
-  void (*destroy)(void);
-  void (*apply)(Source* source, const float* input /*mono*/, float* output/*stereo*/, uint32_t frames);
-} Spatializer;
 
 static struct {
   bool initialized;
@@ -74,7 +70,7 @@ static bool mix(Source* source, float* output, uint32_t count) {
 
     if(source->spatial) {
       if(state.spatializer) {
-        state.spatializer->apply(source, aux, mix, framesOut);
+        state.spatializer->apply(source, source->pose, aux, mix, framesOut);
       }
     } else {
       memcpy(mix, aux, framesOut * 2 * sizeof(float));
@@ -125,25 +121,8 @@ static void onCapture(ma_device* device, void* output, const void* input, uint32
 
 static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };
 
-// Spatializers
-
-static bool phonon_init(void) {
-  return true;
-}
-
-static void phonon_destroy(void) {
-  //
-}
-
-static void phonon_apply(Source* source, const float* input, float* output, uint32_t frames) {
-  for(int i = 0; i < frames; i++) {
-    output[i*2] = output[i*2+1] = input[i];
-  }
-  //
-}
-
-static Spatializer spatializers[] = {
-  { phonon_init, phonon_destroy, phonon_apply }
+static Spatializer *spatializers[] = {
+  &dummy_spatializer,
 };
 
 // Entry
@@ -176,8 +155,8 @@ bool lovrAudioInit(AudioConfig config[2]) {
   }
 
   for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
-    if (spatializers[i].init()) {
-      state.spatializer = &spatializers[i];
+    if (spatializers[i]->init()) {
+      state.spatializer = spatializers[i];
       break;
     }
   }
@@ -238,6 +217,11 @@ float lovrAudioGetVolume() {
 
 void lovrAudioSetVolume(float volume) {
   ma_device_set_master_volume(&state.devices[0], volume);
+}
+
+void lovrAudioSetListenerPose(float position[4], float orientation[4])
+{
+  state.spatializer->setListenerPose(position, orientation);
 }
 
 // Source
@@ -330,15 +314,20 @@ void lovrSourceSetVolume(Source* source, float volume) {
   ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
 }
 
-bool lovrSourceGetSpatial(Source *source)
-{
+bool lovrSourceGetSpatial(Source *source) {
   return source->spatial;
 }
-void lovrSourceSetSpatial(Source *source, bool spatial)
-{
+
+void lovrSourceSetSpatial(Source *source, bool spatial) {
   source->spatial = spatial;
   source->output_channel_count = source->spatial ? 1 : 2;
   _lovrSourceAssignConverter(source);
+}
+
+void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) {
+  mat4_identity(source->pose);
+  mat4_translate(source->pose, position[0], position[1], position[2]);
+  mat4_rotate(source->pose, orientation[0], orientation[1], orientation[2], orientation[3]);
 }
 
 uint32_t lovrSourceGetTime(Source* source) {
