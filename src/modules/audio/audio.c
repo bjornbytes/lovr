@@ -36,7 +36,7 @@ struct Source {
 typedef struct {
   bool (*init)(void);
   void (*destroy)(void);
-  void (*apply)(Source* source, const void* input, float* output, uint32_t frames);
+  void (*apply)(Source* source, const float* input /*mono*/, float* output/*stereo*/, uint32_t frames);
 } Spatializer;
 
 static struct {
@@ -72,7 +72,13 @@ static bool mix(Source* source, float* output, uint32_t count) {
 
     ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, aux, &framesOut);
 
-    memcpy(mix, aux, framesOut * 2 * sizeof(float));
+    if(source->spatial) {
+      if(state.spatializer) {
+        state.spatializer->apply(source, aux, mix, framesOut);
+      }
+    } else {
+      memcpy(mix, aux, framesOut * 2 * sizeof(float));
+    }
 
     for (uint32_t i = 0; i < framesOut * 2; i++) {
       output[i] += mix[i] * source->volume;
@@ -122,14 +128,17 @@ static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };
 // Spatializers
 
 static bool phonon_init(void) {
-  return false;
+  return true;
 }
 
 static void phonon_destroy(void) {
   //
 }
 
-static void phonon_apply(Source* source, const void* input, float* output, uint32_t frames) {
+static void phonon_apply(Source* source, const float* input, float* output, uint32_t frames) {
+  for(int i = 0; i < frames; i++) {
+    output[i*2] = output[i*2+1] = input[i];
+  }
   //
 }
 
@@ -238,7 +247,7 @@ Source* lovrSourceCreate(SoundData* sound) {
   source->sound = sound;
   lovrRetain(source->sound);
   source->volume = 1.f;
-  lovrSourceSetSpatial(source, false);
+  lovrSourceSetSpatial(source, true);
 
   return source;
 }
