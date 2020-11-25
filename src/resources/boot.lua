@@ -190,6 +190,11 @@ function lovr.run()
     if lovr.headset then
       lovr.headset.update(dt)
     end
+    if lovr.audio then
+      if lovr.headset then
+        lovr.audio.setListenerPose(lovr.headset.getPose())
+      end
+    end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics then
       lovr.graphics.origin()
