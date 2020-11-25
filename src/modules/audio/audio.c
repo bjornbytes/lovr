@@ -30,6 +30,7 @@ struct Source {
   bool playing;
   bool looping;
   bool spatial;
+  int output_channel_count;
 };
 
 typedef struct {
@@ -67,7 +68,7 @@ static bool mix(Source* source, float* output, uint32_t count) {
         // could skip min-ing with one of the buffers if you can guarantee that one is bigger/equal to the other (you can because their formats are known)
 
     uint64_t framesIn = source->sound->read(source->sound, source->offset, chunk, raw);
-    uint64_t framesOut = sizeof(aux) / (sizeof(float) * (2 >> source->spatial));
+    uint64_t framesOut = sizeof(aux) / (sizeof(float) * source->output_channel_count);
 
     ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, aux, &framesOut);
 
@@ -237,13 +238,19 @@ Source* lovrSourceCreate(SoundData* sound) {
   source->sound = sound;
   lovrRetain(source->sound);
   source->volume = 1.f;
+  lovrSourceSetSpatial(source, false);
 
+  return source;
+}
+
+void _lovrSourceAssignConverter(Source *source) {
+  source->converter = NULL;
   for (size_t i = 0; i < state.converters.length; i++) {
     ma_data_converter* converter = &state.converters.data[i];
     if (converter->config.formatIn != formats[source->sound->format]) continue;
     if (converter->config.sampleRateIn != source->sound->sampleRate) continue;
     if (converter->config.channelsIn != source->sound->channels) continue;
-    if (converter->config.channelsOut != (2 >> source->spatial)) continue;
+    if (converter->config.channelsOut != source->output_channel_count) continue;
     source->converter = converter;
     break;
   }
@@ -253,7 +260,7 @@ Source* lovrSourceCreate(SoundData* sound) {
     config.formatIn = formats[source->sound->format];
     config.formatOut = ma_format_f32;
     config.channelsIn = source->sound->channels;
-    config.channelsOut = 2 >> source->spatial;
+    config.channelsOut = source->output_channel_count;
     config.sampleRateIn = source->sound->sampleRate;
     config.sampleRateOut = SAMPLE_RATE;
     arr_expand(&state.converters, 1);
@@ -261,8 +268,6 @@ Source* lovrSourceCreate(SoundData* sound) {
     lovrAssert(!ma_data_converter_init(&config, converter), "Problem creating Source data converter");
     source->converter = converter;
   }
-
-  return source;
 }
 
 void lovrSourceDestroy(void* ref) {
@@ -314,6 +319,17 @@ void lovrSourceSetVolume(Source* source, float volume) {
   ma_mutex_lock(&state.locks[AUDIO_PLAYBACK]);
   source->volume = volume;
   ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
+}
+
+bool lovrSourceGetSpatial(Source *source)
+{
+  return source->spatial;
+}
+void lovrSourceSetSpatial(Source *source, bool spatial)
+{
+  source->spatial = spatial;
+  source->output_channel_count = source->spatial ? 1 : 2;
+  _lovrSourceAssignConverter(source);
 }
 
 uint32_t lovrSourceGetTime(Source* source) {
