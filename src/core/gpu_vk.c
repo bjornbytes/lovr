@@ -340,6 +340,7 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkCmdDrawIndirect)\
   X(vkCmdDrawIndexedIndirect)\
   X(vkCmdDispatch)\
+  X(vkCmdDispatchIndirect)\
   X(vkCmdExecuteCommands)
 
 // Used to load/declare Vulkan functions without lots of clutter
@@ -1720,6 +1721,10 @@ void gpu_batch_draw_indirect_indexed(gpu_batch* batch, gpu_buffer* buffer, uint6
 
 void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z) {
   vkCmdDispatch(batch->cmd, x, y, z);
+}
+
+void gpu_batch_compute_indirect(gpu_batch* batch, gpu_shader* shader, gpu_buffer* buffer, uint64_t offset) {
+  vkCmdDispatchIndirect(batch->cmd, buffer->handle, offset);
 }
 
 // Helpers
