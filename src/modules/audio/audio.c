@@ -113,8 +113,7 @@ static void onPlayback(ma_device* device, void* output, const void* _, uint32_t 
 }
 
 static void onCapture(ma_device* device, void* output, const void* input, uint32_t frames) {
-  ma_mutex_lock(&state.locks[1]);
-  ma_mutex_unlock(&state.locks[1]);
+  
 }
 
 static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };
@@ -339,4 +338,16 @@ void lovrSourceSetTime(Source* source, uint32_t time) {
 
 SoundData* lovrSourceGetSoundData(Source* source) {
   return source->sound;
+}
+
+// Capture
+
+uint32_t lovrAudioGetCaptureSampleCount()
+{
+
+}
+
+struct SoundData* lovrAudioCapture(uint32_t sampleCount, SoundData *soundData, uint32_t offset)
+{
+
 }
