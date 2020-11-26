@@ -70,12 +70,6 @@ struct gpu_canvas {
   VkRect2D renderArea;
   VkViewport viewport;
   uint32_t colorAttachmentCount;
-  struct {
-    gpu_texture* texture;
-    VkImageLayout layout;
-    VkPipelineStageFlags stage;
-    VkAccessFlags access;
-  } sync[9];
   VkClearValue clears[9];
   VkSampleCountFlagBits samples;
 };
@@ -208,7 +202,6 @@ static void expunge(void);
 static bool createDescriptorSetLayout(gpu_bundle_layout* layout, VkDescriptorSetLayout* handle);
 static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo, gpu_bundle_layout* layouts);
 static uint64_t getTextureRegionSize(VkFormat format, uint16_t extent[3]);
-static void setLayout(gpu_texture* texture, VkImageLayout layout, VkPipelineStageFlags nextStages, VkAccessFlags nextActions);
 static void nickname(void* object, VkObjectType type, const char* name);
 static VkBool32 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* context);
 static const char* getErrorString(VkResult result);
@@ -417,8 +410,7 @@ bool gpu_init(gpu_config* config) {
           VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
         .messageType =
           VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-          VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-          VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+          VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
         .pfnUserCallback = debugCallback
       };
 
@@ -689,7 +681,7 @@ void gpu_thread_init() {
 
   VkCommandPoolCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-    .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+    .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
     .queueFamilyIndex = state.queueFamilyIndex
   };
 
@@ -735,14 +727,10 @@ void gpu_end() {
   }
 
   GPU_VK(vkQueueSubmit(state.queue, 1, &submit, state.ticks[state.tick[CPU]++ & 0xf].fence));
-  state.commands = VK_NULL_HANDLE;
+  state.commands = NULL;
 }
 
 void gpu_pass_begin(gpu_canvas* canvas) {
-  for (uint32_t i = 0; i < COUNTOF(canvas->sync) && canvas->sync[i].texture; i++) {
-    setLayout(canvas->sync[i].texture, canvas->sync[i].layout, canvas->sync[i].stage, canvas->sync[i].access);
-  }
-
   VkRenderPassBeginInfo beginfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
     .renderPass = canvas->handle,
@@ -984,7 +972,28 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
-  texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+  texture->layout = VK_IMAGE_LAYOUT_GENERAL;
+  VkPipelineStageFlags src = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+  VkPipelineStageFlags dst = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+  VkImageMemoryBarrier barrier = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+    .srcAccessMask = 0,
+    .dstAccessMask = 0,
+    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .newLayout = texture->layout,
+    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .image = texture->handle,
+    .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
+  };
+
+  if (state.commands) {
+    vkCmdPipelineBarrier(state.commands[UPLOAD], src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
+  } else {
+    gpu_begin();
+    vkCmdPipelineBarrier(state.commands[UPLOAD], src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
+    gpu_end();
+  }
 
   if (!gpu_texture_init_view(texture, &(gpu_texture_view_info) { .source = texture, .type = info->type })) {
     vkDestroyImage(state.device, texture->handle, NULL);
@@ -1055,7 +1064,6 @@ void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t extent[
     .imageExtent = { extent[0], extent[1], array ? 1 : extent[2] }
   };
 
-  setLayout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT); // TODO
   vkCmdCopyBufferToImage(state.commands[UPLOAD], mapped.buffer, texture->handle, texture->layout, 1, &region);
 
   return mapped.data;
@@ -1076,7 +1084,6 @@ void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t extent[
     .imageExtent = { extent[0], extent[1], array ? 1 : extent[2] }
   };
 
-  setLayout(texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT); // TODO
   vkCmdCopyImageToBuffer(state.commands[DOWNLOAD], texture->handle, texture->layout, mapped.buffer, 1, &region);
 
   gpu_readback_pool* pool = &state.readbacks;
@@ -1112,9 +1119,6 @@ void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4],
     .extent = { size[0], size[1], size[2] }
   };
 
-  // TODO could have a more fine-grained image barrier on only the slices/levels being touched
-  setLayout(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT);
-  setLayout(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
   vkCmdCopyImage(state.commands[UPLOAD], src->handle, src->layout, dst->handle, dst->layout, 1, &region);
 }
 
@@ -1203,17 +1207,12 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
       .samples = info->color[i].texture->samples,
       .loadOp = loadOps[info->color[i].load],
       .storeOp = storeOps[info->color[i].store],
-      .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-      .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+      .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+      .finalLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    refs.color[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+    refs.color[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_GENERAL };
     memcpy(canvas->clears[attachment].color.float32, info->color[i].clear, 4 * sizeof(float));
-    canvas->sync[attachment].texture = info->color[i].texture;
-    canvas->sync[attachment].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    canvas->sync[attachment].stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    canvas->sync[attachment].access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    canvas->sync[attachment].access |= info->color[i].load ? VK_ACCESS_COLOR_ATTACHMENT_READ_BIT : 0;
 
     if (info->color[i].resolve) {
       attachment = count++;
@@ -1223,17 +1222,13 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
         .samples = info->color[i].resolve->samples,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .finalLayout = VK_IMAGE_LAYOUT_GENERAL
       };
 
-      refs.resolve[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-      canvas->sync[attachment].texture = info->color[i].resolve;
-      canvas->sync[attachment].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-      canvas->sync[attachment].stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-      canvas->sync[attachment].access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+      refs.resolve[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_GENERAL };
     } else {
-      refs.resolve[i] = (VkAttachmentReference) { VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+      refs.resolve[i] = (VkAttachmentReference) { VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_GENERAL };
     }
   }
 
@@ -1251,14 +1246,9 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
       .finalLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    refs.depth = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+    refs.depth = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_GENERAL };
     canvas->clears[attachment].depthStencil.depth = info->depth.clear;
     canvas->clears[attachment].depthStencil.stencil = info->depth.stencil.clear;
-    canvas->sync[attachment].texture = info->depth.texture;
-    canvas->sync[attachment].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    canvas->sync[attachment].stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    canvas->sync[attachment].access = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    canvas->sync[attachment].access |= (info->depth.load || info->depth.stencil.load) ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT : 0;
   }
 
   VkSubpassDescription subpass = {
@@ -1360,7 +1350,7 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
         .pImageInfo = &(VkDescriptorImageInfo) { // FIXME multiple fixed-size chunked writes for arrays
           .sampler = info->bindings[i].textures[0].sampler ? info->bindings[i].textures[0].sampler->handle : VK_NULL_HANDLE,
           .imageView = info->bindings[i].textures[0].texture ? info->bindings[i].textures[0].texture->view : VK_NULL_HANDLE,
-          .imageLayout = slot->type == GPU_BINDING_SAMPLED_TEXTURE ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL
+          .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         }
       };
     }
@@ -2116,29 +2106,6 @@ static uint64_t getTextureRegionSize(VkFormat format, uint16_t extent[3]) {
     case VK_FORMAT_ASTC_12x12_UNORM_BLOCK: case VK_FORMAT_ASTC_12x12_SRGB_BLOCK: return ((extent[0] + 11) / 12) * ((extent[1] + 11) / 12) * extent[2] * 16;
     default: return 0;
   }
-}
-
-static void setLayout(gpu_texture* texture, VkImageLayout layout, VkPipelineStageFlags nextStages, VkAccessFlags nextActions) {
-  if (texture->layout == layout) {
-    return;
-  }
-
-  VkImageMemoryBarrier barrier = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-    .srcAccessMask = 0,
-    .dstAccessMask = nextActions,
-    .oldLayout = texture->layout,
-    .newLayout = layout,
-    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .image = texture->handle,
-    .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
-  };
-
-  // TODO Wait for nothing, but could we opportunistically sync with other pending writes?  Or is that weird
-  VkPipelineStageFlags waitFor = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-  vkCmdPipelineBarrier(state.commands[WORK], waitFor, nextStages, 0, 0, NULL, 0, NULL, 1, &barrier);
-  texture->layout = layout;
 }
 
 static void nickname(void* handle, VkObjectType type, const char* name) {
