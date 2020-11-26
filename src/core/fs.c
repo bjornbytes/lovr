@@ -179,7 +179,7 @@ bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
   switch (mode) {
     case OPEN_READ: flags = O_RDONLY; break;
     case OPEN_WRITE: flags = O_WRONLY | O_CREAT | O_TRUNC; break;
-    case OPEN_APPEND: flags = O_WRONLY | O_CREAT; break;
+    case OPEN_APPEND: flags = O_APPEND | O_WRONLY | O_CREAT; break;
     default: return false;
   }
   file->fd = open(path, flags, S_IRUSR | S_IWUSR);
