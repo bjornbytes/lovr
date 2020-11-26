@@ -441,19 +441,21 @@ void gpu_batch_compute_indirect(gpu_batch* batch, gpu_shader* shader, gpu_buffer
 
 // Entry
 
+typedef enum {
+  GPU_TEXTURE_FEATURE_SAMPLE       = (1 << 0),
+  GPU_TEXTURE_FEATURE_CANVAS_COLOR = (1 << 1),
+  GPU_TEXTURE_FEATURE_CANVAS_DEPTH = (1 << 2),
+  GPU_TEXTURE_FEATURE_BLEND        = (1 << 3),
+  GPU_TEXTURE_FEATURE_FILTER       = (1 << 4),
+  GPU_TEXTURE_FEATURE_STORAGE      = (1 << 5),
+  GPU_TEXTURE_FEATURE_ATOMIC       = (1 << 6),
+  GPU_TEXTURE_FEATURE_BLIT         = (1 << 7)
+} gpu_texture_feature;
+
 typedef struct {
   bool astc;
   bool bptc;
-  struct {
-    bool sample  : 1;
-    bool canvas  : 1;
-    bool compute : 1;
-    bool linear  : 1;
-    bool blend   : 1;
-    bool depth   : 1;
-    bool blitSrc : 1;
-    bool blitDst : 1;
-  } textureFormats[32];
+  uint8_t formats[32];
 } gpu_features;
 
 typedef union {

@@ -486,15 +486,18 @@ bool gpu_init(gpu_config* config) {
     for (uint32_t i = 0; i < COUNTOF(textureFormats); i++) {
       VkFormatProperties formatProperties;
       vkGetPhysicalDeviceFormatProperties(physicalDevice, textureFormats[i][0], &formatProperties);
-      uint32_t flags = formatProperties.optimalTilingFeatures;
-      config->features.textureFormats[i].sample = flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
-      config->features.textureFormats[i].canvas = flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT;
-      config->features.textureFormats[i].compute = flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
-      config->features.textureFormats[i].linear = flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
-      config->features.textureFormats[i].blend = flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
-      config->features.textureFormats[i].depth = flags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
-      config->features.textureFormats[i].blitSrc = flags & VK_FORMAT_FEATURE_BLIT_SRC_BIT;
-      config->features.textureFormats[i].blitDst = flags & VK_FORMAT_FEATURE_BLIT_DST_BIT;
+      uint32_t blitMask = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
+      uint32_t vkFeatures = formatProperties.optimalTilingFeatures;
+      uint32_t gpuFeatures = 0;
+      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_TEXTURE_FEATURE_SAMPLE : 0;
+      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) ? GPU_TEXTURE_FEATURE_CANVAS_COLOR : 0;
+      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? GPU_TEXTURE_FEATURE_CANVAS_DEPTH : 0;
+      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_TEXTURE_FEATURE_BLEND : 0;
+      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_TEXTURE_FEATURE_FILTER : 0;
+      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_TEXTURE_FEATURE_STORAGE : 0;
+      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_TEXTURE_FEATURE_ATOMIC : 0;
+      gpuFeatures |= (vkFeatures & blitMask) == blitMask ? GPU_TEXTURE_FEATURE_BLIT : 0;
+      config->features.formats[i] = gpuFeatures;
     }
 
     VkDeviceQueueCreateInfo queueInfo = {
