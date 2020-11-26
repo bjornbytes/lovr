@@ -1157,6 +1157,16 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
     [GPU_WRAP_MIRROR] = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
   };
 
+  static const VkCompareOp compareOps[] = {
+    [GPU_COMPARE_NONE] = VK_COMPARE_OP_ALWAYS,
+    [GPU_COMPARE_EQUAL] = VK_COMPARE_OP_EQUAL,
+    [GPU_COMPARE_NEQUAL] = VK_COMPARE_OP_NOT_EQUAL,
+    [GPU_COMPARE_LESS] = VK_COMPARE_OP_LESS,
+    [GPU_COMPARE_LEQUAL] = VK_COMPARE_OP_LESS_OR_EQUAL,
+    [GPU_COMPARE_GREATER] = VK_COMPARE_OP_GREATER,
+    [GPU_COMPARE_GEQUAL] = VK_COMPARE_OP_GREATER_OR_EQUAL
+  };
+
   VkSamplerCreateInfo samplerInfo = {
     .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
     .magFilter = filters[info->mag],
@@ -1167,6 +1177,8 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
     .addressModeW = wraps[info->wrap[2]],
     .anisotropyEnable = info->anisotropy >= 1.f,
     .maxAnisotropy = info->anisotropy,
+    .compareEnable = info->compare != GPU_COMPARE_NONE,
+    .compareOp = compareOps[info->compare],
     .minLod = info->lodClamp[0],
     .maxLod = info->lodClamp[1]
   };
