@@ -57,3 +57,6 @@ void lovrSourceSetPose(Source *source, float position[4], float orientation[4]);
 uint32_t lovrSourceGetTime(Source* source);
 void lovrSourceSetTime(Source* source, uint32_t sample);
 struct SoundData* lovrSourceGetSoundData(Source* source);
+
+uint32_t lovrAudioGetCaptureSampleCount();
+struct SoundData* lovrAudioCapture(uint32_t sampleCount, struct SoundData *soundData, uint32_t offset);
