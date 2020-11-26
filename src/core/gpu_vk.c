@@ -285,7 +285,6 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkDestroyCommandPool)\
   X(vkResetCommandPool)\
   X(vkAllocateCommandBuffers)\
-  X(vkFreeCommandBuffers)\
   X(vkBeginCommandBuffer)\
   X(vkEndCommandBuffer)\
   X(vkCreateFence)\
@@ -308,7 +307,6 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkAllocateMemory)\
   X(vkFreeMemory)\
   X(vkMapMemory)\
-  X(vkUnmapMemory)\
   X(vkCreateSampler)\
   X(vkDestroySampler)\
   X(vkCreateRenderPass)\
