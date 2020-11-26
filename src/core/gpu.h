@@ -134,11 +134,22 @@ typedef enum {
   GPU_WRAP_MIRROR
 } gpu_wrap;
 
+typedef enum {
+  GPU_COMPARE_NONE,
+  GPU_COMPARE_EQUAL,
+  GPU_COMPARE_NEQUAL,
+  GPU_COMPARE_LESS,
+  GPU_COMPARE_LEQUAL,
+  GPU_COMPARE_GREATER,
+  GPU_COMPARE_GEQUAL
+} gpu_compare_mode;
+
 typedef struct {
   gpu_filter min;
   gpu_filter mag;
   gpu_filter mip;
   gpu_wrap wrap[3];
+  gpu_compare_mode compare;
   float anisotropy;
   float lodClamp[2];
 } gpu_sampler_info;
@@ -333,16 +344,6 @@ typedef enum {
   GPU_WINDING_CCW,
   GPU_WINDING_CW
 } gpu_winding;
-
-typedef enum {
-  GPU_COMPARE_NONE,
-  GPU_COMPARE_EQUAL,
-  GPU_COMPARE_NEQUAL,
-  GPU_COMPARE_LESS,
-  GPU_COMPARE_LEQUAL,
-  GPU_COMPARE_GREATER,
-  GPU_COMPARE_GEQUAL
-} gpu_compare_mode;
 
 typedef enum {
   GPU_STENCIL_KEEP,
