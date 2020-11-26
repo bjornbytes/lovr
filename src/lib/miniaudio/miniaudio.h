@@ -19747,7 +19747,7 @@ static ma_result ma_device_init__pulse(ma_context* pContext, const ma_device_con
             goto on_error3;
         }
 
-        streamFlags = MA_PA_STREAM_START_CORKED | MA_PA_STREAM_FIX_FORMAT | MA_PA_STREAM_FIX_RATE | MA_PA_STREAM_FIX_CHANNELS;
+        streamFlags = MA_PA_STREAM_START_CORKED | MA_PA_STREAM_ADJUST_LATENCY | MA_PA_STREAM_FIX_FORMAT | MA_PA_STREAM_FIX_RATE | MA_PA_STREAM_FIX_CHANNELS;
         if (devCapture != NULL) {
             streamFlags |= MA_PA_STREAM_DONT_MOVE;
         }
@@ -19845,7 +19845,7 @@ static ma_result ma_device_init__pulse(ma_context* pContext, const ma_device_con
             goto on_error3;
         }
 
-        streamFlags = MA_PA_STREAM_START_CORKED | MA_PA_STREAM_FIX_FORMAT | MA_PA_STREAM_FIX_RATE | MA_PA_STREAM_FIX_CHANNELS;
+        streamFlags = MA_PA_STREAM_START_CORKED | MA_PA_STREAM_ADJUST_LATENCY | MA_PA_STREAM_FIX_FORMAT | MA_PA_STREAM_FIX_RATE | MA_PA_STREAM_FIX_CHANNELS;
         if (devPlayback != NULL) {
             streamFlags |= MA_PA_STREAM_DONT_MOVE;
         }
