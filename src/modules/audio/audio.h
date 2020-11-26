@@ -9,7 +9,9 @@ typedef struct Source Source;
 
 typedef enum {
   AUDIO_PLAYBACK,
-  AUDIO_CAPTURE
+  AUDIO_CAPTURE,
+
+  AUDIO_TYPE_COUNT
 } AudioType;
 
 typedef enum {
@@ -26,6 +28,10 @@ typedef struct {
   bool enable;
   bool start;
 } AudioConfig;
+
+#ifndef LOVR_AUDIO_SAMPLE_RATE
+#  define LOVR_AUDIO_SAMPLE_RATE 44100
+#endif
 
 bool lovrAudioInit(AudioConfig config[2]);
 void lovrAudioDestroy(void);
