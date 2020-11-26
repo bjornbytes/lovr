@@ -48,15 +48,16 @@ static int l_lovrAudioSetVolume(lua_State* L) {
 static int l_lovrAudioNewSource(lua_State* L) {
   Source* source = NULL;
   SoundData* soundData = luax_totype(L, 1, SoundData);
+  bool spatial = lua_isboolean(L, 2) ? lua_toboolean(L, 2) : true;
 
   if (soundData) {
-    source = lovrSourceCreate(soundData);
+    source = lovrSourceCreate(soundData, spatial);
   } else {
     Blob* blob = luax_readblob(L, 1, "Source");
     soundData = lovrSoundDataCreateFromFile(blob, false);
     lovrRelease(Blob, blob);
 
-    source = lovrSourceCreate(soundData);
+    source = lovrSourceCreate(soundData, spatial);
     lovrRelease(SoundData, soundData);
   }
 

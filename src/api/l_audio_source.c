@@ -57,13 +57,6 @@ static int l_lovrSourceGetSpatial(lua_State* L) {
   return 1;
 }
 
-static int l_lovrSourceSetSpatial(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool spatial = lua_toboolean(L, 2);
-  lovrSourceSetSpatial(source, spatial);
-  return 0;
-}
-
 static int l_lovrSourceSetPose(lua_State *L) {
   Source* source = luax_checktype(L, 1, Source);
   float position[4], orientation[4];
@@ -128,7 +121,6 @@ const luaL_Reg lovrSource[] = {
   { "getVolume", l_lovrSourceGetVolume },
   { "setVolume", l_lovrSourceSetVolume },
   { "getSpatial", l_lovrSourceGetSpatial },
-  { "setSpatial", l_lovrSourceSetSpatial },
   { "setPose", l_lovrSourceSetPose },
   { "getDuration", l_lovrSourceGetDuration },
   { "getTime", l_lovrSourceGetTime },
