@@ -226,17 +226,7 @@ void lovrAudioSetListenerPose(float position[4], float orientation[4])
 
 // Source
 
-Source* lovrSourceCreate(SoundData* sound) {
-  Source* source = lovrAlloc(Source);
-  source->sound = sound;
-  lovrRetain(source->sound);
-  source->volume = 1.f;
-  lovrSourceSetSpatial(source, true);
-
-  return source;
-}
-
-void _lovrSourceAssignConverter(Source *source) {
+static void _lovrSourceAssignConverter(Source *source) {
   source->converter = NULL;
   for (size_t i = 0; i < state.converters.length; i++) {
     ma_data_converter* converter = &state.converters.data[i];
@@ -261,6 +251,19 @@ void _lovrSourceAssignConverter(Source *source) {
     lovrAssert(!ma_data_converter_init(&config, converter), "Problem creating Source data converter");
     source->converter = converter;
   }
+}
+
+Source* lovrSourceCreate(SoundData* sound, bool spatial) {
+  Source* source = lovrAlloc(Source);
+  source->sound = sound;
+  lovrRetain(source->sound);
+  source->volume = 1.f;
+  
+  source->spatial = spatial;
+  source->output_channel_count = source->spatial ? 1 : 2;
+  _lovrSourceAssignConverter(source);
+
+  return source;
 }
 
 void lovrSourceDestroy(void* ref) {
@@ -316,12 +319,6 @@ void lovrSourceSetVolume(Source* source, float volume) {
 
 bool lovrSourceGetSpatial(Source *source) {
   return source->spatial;
-}
-
-void lovrSourceSetSpatial(Source *source, bool spatial) {
-  source->spatial = spatial;
-  source->output_channel_count = source->spatial ? 1 : 2;
-  _lovrSourceAssignConverter(source);
 }
 
 void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) {
