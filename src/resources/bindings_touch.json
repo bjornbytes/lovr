@@ -11,8 +11,6 @@
          "poses" : [
             { "output" : "/actions/lovr/in/leftHandPose", "path" : "/user/hand/left/pose/raw" },
             { "output" : "/actions/lovr/in/rightHandPose", "path" : "/user/hand/right/pose/raw" },
-            { "output" : "/actions/lovr/in/leftHandPose", "path" : "/user/hand/left/pose/base" },
-            { "output" : "/actions/lovr/in/rightHandPose", "path" : "/user/hand/right/pose/base" },
             { "output" : "/actions/lovr/in/leftHandPoint", "path" : "/user/hand/left/pose/tip" },
             { "output" : "/actions/lovr/in/rightHandPoint", "path" : "/user/hand/right/pose/tip" }
          ],
