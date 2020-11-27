@@ -173,6 +173,7 @@ static struct {
   VkCommandBuffer uploads;
   VkCommandBuffer work;
   VkCommandBuffer downloads;
+  gpu_texture backbuffers[4];
   VkDescriptorPool descriptorPool;
   VkDebugUtilsMessengerEXT messenger;
   VkPhysicalDeviceMemoryProperties memoryProperties;
@@ -282,6 +283,7 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkDeviceWaitIdle)\
   X(vkCreateSwapchainKHR)\
   X(vkDestroySwapchainKHR)\
+  X(vkGetSwapchainImagesKHR)\
   X(vkCreateCommandPool)\
   X(vkDestroyCommandPool)\
   X(vkResetCommandPool)\
@@ -579,6 +581,43 @@ bool gpu_init(gpu_config* config) {
         gpu_destroy();
         return false;
       }
+
+      uint32_t imageCount;
+      if (vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL)) {
+        gpu_destroy();
+        return false;
+      }
+
+      if (imageCount > COUNTOF(state.backbuffers)) {
+        gpu_destroy();
+        return false;
+      }
+
+      VkImage images[COUNTOF(state.backbuffers)];
+      if (vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, images)) {
+        gpu_destroy();
+        return false;
+      }
+
+      for (uint32_t i = 0; i < imageCount; i++) {
+        gpu_texture* texture = &state.backbuffers[i];
+
+        texture->handle = images[i];
+        texture->format = surfaceFormat.format;
+        texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+        texture->samples = VK_SAMPLE_COUNT_1_BIT;
+
+        // TODO swizzle?
+        gpu_texture_view_info view = {
+          .source = texture,
+          .type = GPU_TEXTURE_TYPE_2D
+        };
+
+        if (!gpu_texture_init_view(texture, &view)) {
+          gpu_destroy();
+          return false;
+        }
+      }
     }
 
     // Frames
@@ -663,6 +702,9 @@ void gpu_destroy(void) {
     gpu_tick* tick = &state.ticks[i];
     if (tick->fence) vkDestroyFence(state.device, tick->fence, NULL);
     if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
+  }
+  for (uint32_t i = 0; i < COUNTOF(state.backbuffers); i++) {
+    if (state.backbuffers[i].view) vkDestroyImageView(state.device, state.backbuffers[i].view, NULL);
   }
   if (state.descriptorPool) vkDestroyDescriptorPool(state.device, state.descriptorPool, NULL);
   if (state.swapchain) vkDestroySwapchainKHR(state.device, state.swapchain, NULL);
@@ -2102,6 +2144,8 @@ static uint64_t getTextureRegionSize(VkFormat format, uint16_t extent[3]) {
       return extent[0] * extent[1] * extent[2] * 2;
     case VK_FORMAT_R8G8B8A8_UNORM:
     case VK_FORMAT_R8G8B8A8_SRGB:
+    case VK_FORMAT_B8G8R8A8_UNORM:
+    case VK_FORMAT_B8G8R8A8_SRGB:
     case VK_FORMAT_R16G16_UNORM:
     case VK_FORMAT_R16G16_SFLOAT:
     case VK_FORMAT_R32_SFLOAT:
