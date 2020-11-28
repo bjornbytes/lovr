@@ -473,10 +473,9 @@ typedef struct {
 
 bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
-void gpu_thread_init(void);
-void gpu_thread_destroy(void);
+void gpu_thread_attach(void);
+void gpu_thread_detach(void);
 void gpu_begin(void);
 void gpu_end(void);
-void gpu_pass_begin(gpu_canvas* canvas);
-void gpu_pass_end(void);
-void gpu_execute(gpu_batch** batches, uint32_t count);
+void gpu_render(gpu_canvas* canvas, gpu_batch** batches, uint32_t count);
+void gpu_compute(gpu_batch** batches, uint32_t count);
