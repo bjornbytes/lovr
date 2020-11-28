@@ -459,16 +459,16 @@ typedef struct {
   uint8_t formats[32];
 } gpu_features;
 
-typedef union {
-  struct { uintptr_t display, window; } x11;
-} gpu_surface_config;
-
 typedef struct {
   bool debug;
-  void* userdata;
-  void (*callback)(void* userdata, const char* message, int level);
-  gpu_surface_config surface;
+  bool surface;
   gpu_features features;
+  void (*callback)(void* userdata, const char* message, int level);
+  void* userdata;
+  struct {
+    const char** (*getExtraInstanceExtensions)(uint32_t* count);
+    uint32_t (*createSurface)(void* instance, void** surface);
+  } vk;
 } gpu_config;
 
 bool gpu_init(gpu_config* config);
