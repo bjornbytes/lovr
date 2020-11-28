@@ -1264,7 +1264,7 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
       .finalLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    refs.color[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_GENERAL };
+    refs.color[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
     memcpy(canvas->clears[attachment].color.float32, info->color[i].clear, 4 * sizeof(float));
 
     if (info->color[i].resolve) {
@@ -1279,7 +1279,7 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
         .finalLayout = VK_IMAGE_LAYOUT_GENERAL
       };
 
-      refs.resolve[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_GENERAL };
+      refs.resolve[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
     } else {
       refs.resolve[i] = (VkAttachmentReference) { VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_GENERAL };
     }
@@ -1299,7 +1299,7 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
       .finalLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    refs.depth = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_GENERAL };
+    refs.depth = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
     canvas->clears[attachment].depthStencil.depth = info->depth.clear;
     canvas->clears[attachment].depthStencil.stencil = info->depth.stencil.clear;
   }
