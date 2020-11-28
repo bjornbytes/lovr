@@ -442,16 +442,16 @@ void gpu_batch_compute_indirect(gpu_batch* batch, gpu_shader* shader, gpu_buffer
 
 // Entry
 
-typedef enum {
-  GPU_TEXTURE_FEATURE_SAMPLE       = (1 << 0),
-  GPU_TEXTURE_FEATURE_CANVAS_COLOR = (1 << 1),
-  GPU_TEXTURE_FEATURE_CANVAS_DEPTH = (1 << 2),
-  GPU_TEXTURE_FEATURE_BLEND        = (1 << 3),
-  GPU_TEXTURE_FEATURE_FILTER       = (1 << 4),
-  GPU_TEXTURE_FEATURE_STORAGE      = (1 << 5),
-  GPU_TEXTURE_FEATURE_ATOMIC       = (1 << 6),
-  GPU_TEXTURE_FEATURE_BLIT         = (1 << 7)
-} gpu_texture_feature;
+enum {
+  GPU_FORMAT_FEATURE_SAMPLE       = (1 << 0),
+  GPU_FORMAT_FEATURE_CANVAS_COLOR = (1 << 1),
+  GPU_FORMAT_FEATURE_CANVAS_DEPTH = (1 << 2),
+  GPU_FORMAT_FEATURE_BLEND        = (1 << 3),
+  GPU_FORMAT_FEATURE_FILTER       = (1 << 4),
+  GPU_FORMAT_FEATURE_STORAGE      = (1 << 5),
+  GPU_FORMAT_FEATURE_ATOMIC       = (1 << 6),
+  GPU_FORMAT_FEATURE_BLIT         = (1 << 7)
+};
 
 typedef struct {
   bool astc;
