@@ -378,12 +378,19 @@ bool gpu_init(gpu_config* config) {
       extensions[extensionCount++] = "VK_EXT_debug_utils";
     }
 
-#if defined __linux__
-    if (state.config.surface.x11.display && state.config.surface.x11.window) {
-      extensions[extensionCount++] = "VK_KHR_surface";
-      extensions[extensionCount++] = "VK_KHR_xlib_surface";
+    if (state.config.vk.getExtraInstanceExtensions) {
+      uint32_t extraExtensionCount;
+      const char** extraExtensions = state.config.vk.getExtraInstanceExtensions(&extraExtensionCount);
+
+      if (extraExtensionCount + extensionCount > COUNTOF(extensions)) {
+        gpu_destroy();
+        return false;
+      }
+
+      for (uint32_t i = 0; i < extraExtensionCount; i++) {
+        extensions[extensionCount++] = extraExtensions[i];
+      }
     }
-#endif
 
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -423,24 +430,12 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
-  { // Surface
-#if defined __linux__
-    if (state.config.surface.x11.display && state.config.surface.x11.window) {
-      PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
-      GPU_LOAD_INSTANCE(vkCreateXlibSurfaceKHR);
-
-      VkXlibSurfaceCreateInfoKHR surfaceInfo = {
-        .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-        .dpy = (Display*) state.config.surface.x11.display,
-        .window = (Window) state.config.surface.x11.window
-      };
-
-      if (vkCreateXlibSurfaceKHR(state.instance, &surfaceInfo, NULL, &state.surface)) {
-        gpu_destroy();
-        return false;
-      }
+  // Surface
+  if (state.config.vk.createSurface) {
+    if (state.config.vk.createSurface(state.instance, (void**) &state.surface)) {
+      gpu_destroy();
+      return false;
     }
-#endif
   }
 
   { // Device
