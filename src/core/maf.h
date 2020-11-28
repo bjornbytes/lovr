@@ -643,9 +643,9 @@ MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   m[9] = z[1];
   m[10] = z[2];
   m[11] = 0.f;
-  m[12] = from[0];
-  m[13] = from[1];
-  m[14] = from[2];
+  m[12] = -vec3_dot(x, from);
+  m[13] = -vec3_dot(y, from);
+  m[14] = -vec3_dot(z, from);
   m[15] = 1.f;
   return m;
 }
