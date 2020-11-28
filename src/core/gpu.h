@@ -479,3 +479,5 @@ void gpu_begin(void);
 void gpu_end(void);
 void gpu_render(gpu_canvas* canvas, gpu_batch** batches, uint32_t count);
 void gpu_compute(gpu_batch** batches, uint32_t count);
+gpu_texture* gpu_surface_acquire(void);
+void gpu_surface_present(void);
