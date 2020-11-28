@@ -170,9 +170,6 @@ static struct {
   VkQueue queue;
   VkSurfaceKHR surface;
   VkSwapchainKHR swapchain;
-  VkCommandBuffer uploads;
-  VkCommandBuffer work;
-  VkCommandBuffer downloads;
   gpu_texture backbuffers[4];
   VkDescriptorPool descriptorPool;
   VkDebugUtilsMessengerEXT messenger;
@@ -185,6 +182,9 @@ static struct {
   gpu_morgue morgue;
   gpu_scratchpad_pool scratchpads;
   gpu_readback_pool readbacks;
+  VkCommandBuffer uploads;
+  VkCommandBuffer work;
+  VkCommandBuffer downloads;
   gpu_config config;
   void* library;
 } state;
@@ -197,6 +197,7 @@ typedef struct {
   uint8_t* data;
 } gpu_mapping;
 
+static void execute(gpu_batch** batches, uint32_t count);
 static gpu_mapping scratch(uint32_t size);
 static void readquack(void);
 static void condemn(void* handle, VkObjectType type);
@@ -712,7 +713,7 @@ void gpu_destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-void gpu_thread_init() {
+void gpu_thread_attach() {
   gpu_batch_pool* pool = &batches;
 
   if (pool->commandPool) {
@@ -730,7 +731,7 @@ void gpu_thread_init() {
   pool->tail = ~0u;
 }
 
-void gpu_thread_destroy() {
+void gpu_thread_detach() {
   vkDeviceWaitIdle(state.device);
   gpu_batch_pool* pool = &batches;
   vkDestroyCommandPool(state.device, pool->commandPool, NULL);
@@ -777,7 +778,7 @@ void gpu_end() {
   state.tick[CPU]++;
 }
 
-void gpu_pass_begin(gpu_canvas* canvas) {
+void gpu_render(gpu_canvas* canvas, gpu_batch** batches, uint32_t count) {
   VkRenderPassBeginInfo beginfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
     .renderPass = canvas->handle,
@@ -788,21 +789,12 @@ void gpu_pass_begin(gpu_canvas* canvas) {
   };
 
   vkCmdBeginRenderPass(state.work, &beginfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
-}
-
-void gpu_pass_end() {
+  execute(batches, count);
   vkCmdEndRenderPass(state.work);
 }
 
-void gpu_execute(gpu_batch** batches, uint32_t count) {
-  VkCommandBuffer commands[8];
-  uint32_t chunk = COUNTOF(commands);
-  for (uint32_t i = 0; i < count; i += chunk) {
-    for (uint32_t j = 0; j < chunk && i + j < count; j++) {
-      commands[j] = batches[i + j]->cmd;
-    }
-    vkCmdExecuteCommands(state.work, count, commands);
-  }
+void gpu_compute(gpu_batch** batches, uint32_t count) {
+  execute(batches, count);
 }
 
 // Buffer
@@ -1780,6 +1772,18 @@ void gpu_batch_compute_indirect(gpu_batch* batch, gpu_shader* shader, gpu_buffer
 }
 
 // Helpers
+
+static void execute(gpu_batch** batches, uint32_t count) {
+  VkCommandBuffer commands[8];
+  uint32_t chunk = COUNTOF(commands);
+  while (count > 0) {
+    chunk = count < chunk ? count : chunk;
+    for (uint32_t i = 0; i < chunk; i++) commands[i] = batches[i]->cmd;
+    vkCmdExecuteCommands(state.work, chunk, commands);
+    batches += chunk;
+    count -= chunk;
+  }
+}
 
 static gpu_mapping scratch(uint32_t size) {
   gpu_scratchpad_pool* pool = &state.scratchpads;
