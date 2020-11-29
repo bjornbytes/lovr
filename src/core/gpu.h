@@ -440,6 +440,11 @@ void gpu_batch_draw_indirect_indexed(gpu_batch* batch, gpu_buffer* buffer, uint6
 void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z);
 void gpu_batch_compute_indirect(gpu_batch* batch, gpu_shader* shader, gpu_buffer* buffer, uint64_t offset);
 
+// Surface
+
+gpu_texture* gpu_surface_acquire(void);
+void gpu_surface_present(void);
+
 // Entry
 
 enum {
@@ -505,8 +510,10 @@ void gpu_thread_detach(void);
 void gpu_get_features(gpu_features* features);
 void gpu_get_limits(gpu_limits* limits);
 void gpu_begin(void);
-void gpu_end(void);
+void gpu_flush(void);
 void gpu_render(gpu_canvas* canvas, gpu_batch** batches, uint32_t count);
 void gpu_compute(gpu_batch** batches, uint32_t count);
-gpu_texture* gpu_surface_acquire(void);
-void gpu_surface_present(void);
+void gpu_debug_push(const char* label);
+void gpu_debug_pop(void);
+void gpu_time_write(void);
+void gpu_time_query(gpu_read_fn* fn, void* userdata);

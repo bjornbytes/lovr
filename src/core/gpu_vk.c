@@ -37,6 +37,7 @@ static void gpu_dlclose(void* library) { dlclose(library); }
 #define MIN(a, b) (a < b ? a : b)
 #define MAX(a, b) (a > b ? a : b)
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
+#define QUERY_CHUNK 64
 #define SCRATCHPAD_SIZE (16 * 1024 * 1024)
 #define VOIDP_TO_U64(x) (((union { uint64_t u; void* p; }) { .p = x }).u)
 #define GPU_THROW(s) if (state.config.callback) { state.config.callback(state.config.userdata, s, true); }
@@ -189,6 +190,8 @@ static struct {
   uint32_t tick[2];
   gpu_tick ticks[16];
   gpu_morgue morgue;
+  VkQueryPool queries;
+  uint32_t queryCount;
   gpu_scratchpad_pool scratchpads;
   gpu_readback_pool readbacks;
   VkCommandBuffer uploads;
@@ -291,6 +294,8 @@ static const VkDescriptorType descriptorTypes[][2] = {
 // Functions that require a device
 #define GPU_FOREACH_DEVICE(X)\
   X(vkSetDebugUtilsObjectNameEXT)\
+  X(vkBeginDebugUtilsLabelEXT)\
+  X(vkEndDebugUtilsLabelEXT)\
   X(vkDeviceWaitIdle)\
   X(vkQueueSubmit)\
   X(vkQueuePresentKHR)\
@@ -311,6 +316,11 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkCreateSemaphore)\
   X(vkDestroySemaphore)\
   X(vkCmdPipelineBarrier)\
+  X(vkCreateQueryPool)\
+  X(vkDestroyQueryPool)\
+  X(vkResetQueryPool)\
+  X(vkCmdWriteTimestamp)\
+  X(vkCmdCopyQueryPoolResults)\
   X(vkCreateBuffer)\
   X(vkDestroyBuffer)\
   X(vkGetBufferMemoryRequirements)\
@@ -675,6 +685,20 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
+  // Query Pool
+  if (state.debug) {
+    VkQueryPoolCreateInfo info = {
+      .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+      .queryType = VK_QUERY_TYPE_TIMESTAMP,
+      .queryCount = COUNTOF(state.ticks) * QUERY_CHUNK
+    };
+
+    if (vkCreateQueryPool(state.device, &info, NULL, &state.queryPool)) {
+      gpu_destroy();
+      return false;
+    }
+  }
+
   gpu_mutex_init(&state.morgue.lock);
   state.tick[CPU] = COUNTOF(state.ticks);
   state.tick[GPU] = ~0u;
@@ -703,6 +727,7 @@ void gpu_destroy(void) {
   for (uint32_t i = 0; i < COUNTOF(state.backbuffers); i++) {
     if (state.backbuffers[i].view) vkDestroyImageView(state.device, state.backbuffers[i].view, NULL);
   }
+  if (state.queryPool) vkDestroyQueryPool(state.device, state.queryPool, NULL);
   if (state.descriptorPool) vkDestroyDescriptorPool(state.device, state.descriptorPool, NULL);
   if (state.swapchain) vkDestroySwapchainKHR(state.device, state.swapchain, NULL);
   if (state.device) vkDestroyDevice(state.device, NULL);
@@ -820,9 +845,15 @@ void gpu_begin() {
       .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
     }));
   }
+
+  if (state.config.debug) {
+    uint32_t queryIndex = (state.tick[CPU] & 0xf) * QUERY_CHUNK;
+    vkCmdResetQueryPool(state.uploads, state.queryPool, queryIndex, QUERY_CHUNK);
+    state.queryCount = 0;
+  }
 }
 
-void gpu_end() {
+void gpu_flush() {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
 
   VkSubmitInfo submit = {
@@ -864,81 +895,48 @@ void gpu_compute(gpu_batch** batches, uint32_t count) {
   execute(batches, count);
 }
 
-gpu_texture* gpu_surface_acquire() {
-  if (!state.swapchain || state.currentBackbuffer != ~0u) {
-    return NULL;
+void gpu_debug_push(const char* label) {
+  if (state.config.debug) {
+    vkCmdBeginDebugUtilsLabelEXT(state.work, &(VkDebugUtilsLabelEXT) {
+      .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+      .pLabelName = label
+    });
   }
-
-  gpu_begin();
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
-  VkSemaphore semaphore = tick->semaphores.wait;
-  GPU_VK(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &state.currentBackbuffer));
-  tick->wait = true;
-
-  // Transition backbuffer to general layout (TODO autosync instead)
-  gpu_texture* texture = &state.backbuffers[state.currentBackbuffer];
-  VkPipelineStageFlags src = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  VkPipelineStageFlags dst = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  VkImageMemoryBarrier barrier = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-    .srcAccessMask = 0,
-    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .image = texture->handle,
-    .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
-  };
-
-  vkCmdPipelineBarrier(state.work, src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
-  texture->layout = VK_IMAGE_LAYOUT_GENERAL;
-  gpu_end();
-
-  return texture;
 }
 
-void gpu_surface_present() {
-  if (!state.swapchain || state.currentBackbuffer == ~0u) {
+void gpu_debug_pop() {
+  if (state.config.debug) {
+    vkCmdEndDebugUtilsLabelEXT(state.work);
+  }
+}
+
+void gpu_time_write() {
+  if (state.config.debug) {
+    vkCmdWriteTimestamp(state.work, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, state.queryPool, state.queryCount++);
+  }
+}
+
+void gpu_time_query(gpu_read_fn* fn, void* userdata) {
+  if (!state.config.debug || state.queryCount == 0) {
     return;
   }
 
-  gpu_begin();
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
-  VkSemaphore semaphore = tick->semaphores.tell;
-  tick->tell = true;
+  uint32_t size = sizeof(uint64_t) * state.queryCount;
+  gpu_mapping mapped = scratch(size);
 
-  // Transition backbuffer to general layout (TODO autosync instead)
-  gpu_texture* texture = &state.backbuffers[state.currentBackbuffer];
-  VkPipelineStageFlags src = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  VkPipelineStageFlags dst = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  VkImageMemoryBarrier barrier = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-    .srcAccessMask = 0,
-    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-    .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-    .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .image = texture->handle,
-    .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
+  uint32_t queryIndex = (state.tick[CPU] & 0xf) * QUERY_CHUNK;
+  VkQueryResultFlags flags = VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT;
+  vkCmdCopyQueryPoolResults(state.downloads, state.queryPool, queryIndex, state.queryCount, mapped.buffer, mapped.offset, sizeof(uint64_t), flags);
+
+  gpu_readback_pool* readbacks = &state.readbacks;
+  GPU_CHECK(readbacks->head - readbacks->tail != COUNTOF(readbacks->data), "Too many GPU readbacks"); // TODO emergency flush instead of throw
+  readbacks->data[readbacks->head++ & 0x7f] = (gpu_readback) {
+    .fn = fn,
+    .userdata = userdata,
+    .data = mapped.data,
+    .size = size,
+    .tick = state.tick[CPU]
   };
-
-  vkCmdPipelineBarrier(state.work, src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
-  texture->layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-  gpu_end();
-
-  VkPresentInfoKHR info = {
-    .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-    .waitSemaphoreCount = 1,
-    .pWaitSemaphores = &semaphore,
-    .swapchainCount = 1,
-    .pSwapchains = &state.swapchain,
-    .pImageIndices = &state.currentBackbuffer
-  };
-
-  GPU_VK(vkQueuePresentKHR(state.queue, &info));
-  state.currentBackbuffer = ~0u;
 }
 
 // Buffer
@@ -1177,7 +1175,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   } else {
     gpu_begin();
     vkCmdPipelineBarrier(state.uploads, src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
-    gpu_end();
+    gpu_flush();
   }
 
   if (!gpu_texture_init_view(texture, &(gpu_texture_view_info) { .source = texture, .type = info->type })) {
@@ -1913,6 +1911,85 @@ void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_
 
 void gpu_batch_compute_indirect(gpu_batch* batch, gpu_shader* shader, gpu_buffer* buffer, uint64_t offset) {
   vkCmdDispatchIndirect(batch->cmd, buffer->handle, offset);
+}
+
+// Surface
+
+gpu_texture* gpu_surface_acquire() {
+  if (!state.swapchain || state.currentBackbuffer != ~0u) {
+    return NULL;
+  }
+
+  gpu_begin();
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
+  VkSemaphore semaphore = tick->semaphores.wait;
+  GPU_VK(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &state.currentBackbuffer));
+  tick->wait = true;
+
+  // Transition backbuffer to general layout (TODO autosync instead)
+  gpu_texture* texture = &state.backbuffers[state.currentBackbuffer];
+  VkPipelineStageFlags src = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  VkPipelineStageFlags dst = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  VkImageMemoryBarrier barrier = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+    .srcAccessMask = 0,
+    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .image = texture->handle,
+    .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
+  };
+
+  vkCmdPipelineBarrier(state.work, src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
+  texture->layout = VK_IMAGE_LAYOUT_GENERAL;
+  gpu_flush();
+
+  return texture;
+}
+
+void gpu_surface_present() {
+  if (!state.swapchain || state.currentBackbuffer == ~0u) {
+    return;
+  }
+
+  gpu_begin();
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
+  VkSemaphore semaphore = tick->semaphores.tell;
+  tick->tell = true;
+
+  // Transition backbuffer to general layout (TODO autosync instead)
+  gpu_texture* texture = &state.backbuffers[state.currentBackbuffer];
+  VkPipelineStageFlags src = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  VkPipelineStageFlags dst = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  VkImageMemoryBarrier barrier = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+    .srcAccessMask = 0,
+    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+    .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .image = texture->handle,
+    .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
+  };
+
+  vkCmdPipelineBarrier(state.work, src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
+  texture->layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  gpu_flush();
+
+  VkPresentInfoKHR info = {
+    .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+    .waitSemaphoreCount = 1,
+    .pWaitSemaphores = &semaphore,
+    .swapchainCount = 1,
+    .pSwapchains = &state.swapchain,
+    .pImageIndices = &state.currentBackbuffer
+  };
+
+  GPU_VK(vkQueuePresentKHR(state.queue, &info));
+  state.currentBackbuffer = ~0u;
 }
 
 // Helpers
