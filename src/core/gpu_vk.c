@@ -83,6 +83,7 @@ struct gpu_shader {
   VkDescriptorSetLayout layouts[4];
   gpu_bundle_layout layoutInfo[4];
   VkPipelineLayout pipelineLayout;
+  VkPipelineBindPoint type;
 };
 
 struct gpu_bundle {
@@ -93,6 +94,7 @@ struct gpu_bundle {
 
 struct gpu_pipeline {
   VkPipeline handle;
+  VkPipelineBindPoint type;
   VkIndexType indexType;
 };
 
@@ -211,7 +213,6 @@ typedef struct {
   uint8_t* data;
 } gpu_mapping;
 
-static void execute(gpu_batch** batches, uint32_t count);
 static gpu_mapping scratch(uint32_t size);
 static void readquack(void);
 static void condemn(void* handle, VkObjectType type);
@@ -358,6 +359,7 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkFreeDescriptorSets)\
   X(vkUpdateDescriptorSets)\
   X(vkCreateGraphicsPipelines)\
+  X(vkCreateComputePipelines)\
   X(vkDestroyPipeline)\
   X(vkCmdBindPipeline)\
   X(vkCmdBindDescriptorSets)\
@@ -874,6 +876,18 @@ void gpu_flush() {
   GPU_VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence));
   state.uploads = state.work = state.downloads = VK_NULL_HANDLE;
   state.tick[CPU]++;
+}
+
+static void execute(gpu_batch** batches, uint32_t count) {
+  VkCommandBuffer commands[8];
+  uint32_t chunk = COUNTOF(commands);
+  while (count > 0) {
+    chunk = count < chunk ? count : chunk;
+    for (uint32_t i = 0; i < chunk; i++) commands[i] = batches[i]->cmd;
+    vkCmdExecuteCommands(state.work, chunk, commands);
+    batches += chunk;
+    count -= chunk;
+  }
 }
 
 void gpu_render(gpu_canvas* canvas, gpu_batch** batches, uint32_t count) {
@@ -1573,8 +1587,10 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
   memset(shader, 0, sizeof(*shader));
 
   if (info->compute.code) {
+    shader->type = VK_PIPELINE_BIND_POINT_COMPUTE;
     loadShader(&info->compute, VK_SHADER_STAGE_COMPUTE_BIT, &shader->handles[0], &shader->pipelineInfo[0], shader->layoutInfo);
   } else {
+    shader->type = VK_PIPELINE_BIND_POINT_GRAPHICS;
     loadShader(&info->vertex, VK_SHADER_STAGE_VERTEX_BIT, &shader->handles[0], &shader->pipelineInfo[0], shader->layoutInfo);
     loadShader(&info->fragment, VK_SHADER_STAGE_FRAGMENT_BIT, &shader->handles[1], &shader->pipelineInfo[1], shader->layoutInfo);
   }
@@ -1636,7 +1652,7 @@ size_t gpu_sizeof_pipeline() {
   return sizeof(gpu_pipeline);
 }
 
-bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
+bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
   static const VkPrimitiveTopology topologies[] = {
     [GPU_DRAW_POINTS] = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
     [GPU_DRAW_LINES] = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
@@ -1799,6 +1815,24 @@ bool gpu_pipeline_init(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
   }
 
   nickname(pipeline, VK_OBJECT_TYPE_PIPELINE, info->label);
+  pipeline->type = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  return true;
+}
+
+bool gpu_pipeline_init_compute(gpu_pipeline_info* info) {
+  VkComputePipelineCreateInfo pipelineInfo = {
+    .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+    .stageCount = 1,
+    .stage = info->shader->pipelineInfo[0],
+    .layout = info->shader->pipelineLayout
+  };
+
+  if (vkCreateComputePipelines(state.device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pipeline->handle)) {
+    return false;
+  }
+
+  nickname(pipeline, VK_OBJECT_TYPE_PIPELINE, info->label);
+  pipeline->type = VK_PIPELINE_BIND_POINT_COMPUTE;
   return true;
 }
 
@@ -1862,14 +1896,12 @@ void gpu_batch_end(gpu_batch* batch) {
   GPU_VK(vkEndCommandBuffer(batch->cmd));
 }
 
-void gpu_batch_bind_bundle(gpu_batch* batch, gpu_bundle* bundle, uint32_t group, uint32_t* offsets, uint32_t offsetCount) {
-  VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  VkPipelineLayout layout = VK_NULL_HANDLE; // TODO batch needs to know its pipeline/shader
-  vkCmdBindDescriptorSets(batch->cmd, bindPoint, layout, group, 1, &bundle->handle, offsetCount, offsets);
+void gpu_batch_bind_pipeline(gpu_batch* batch, gpu_pipeline* pipeline) {
+  vkCmdBindPipeline(batch->cmd, pipeline->type, pipeline->handle);
 }
 
-void gpu_batch_bind_pipeline(gpu_batch* batch, gpu_pipeline* pipeline) {
-  vkCmdBindPipeline(batch->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle);
+void gpu_batch_bind_bundle(gpu_batch* batch, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount) {
+  vkCmdBindDescriptorSets(batch->cmd, shader->type, shader->pipelineLayout, group, 1, bundle->handle, offsetCount, offsets);
 }
 
 void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
@@ -1993,18 +2025,6 @@ void gpu_surface_present() {
 }
 
 // Helpers
-
-static void execute(gpu_batch** batches, uint32_t count) {
-  VkCommandBuffer commands[8];
-  uint32_t chunk = COUNTOF(commands);
-  while (count > 0) {
-    chunk = count < chunk ? count : chunk;
-    for (uint32_t i = 0; i < chunk; i++) commands[i] = batches[i]->cmd;
-    vkCmdExecuteCommands(state.work, chunk, commands);
-    batches += chunk;
-    count -= chunk;
-  }
-}
 
 static gpu_mapping scratch(uint32_t size) {
   gpu_scratchpad_pool* pool = &state.scratchpads;
