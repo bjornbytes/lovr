@@ -34,6 +34,8 @@ static void* gpu_dlsym(void* library, const char* symbol) { return dlsym(library
 static void gpu_dlclose(void* library) { dlclose(library); }
 #endif
 
+#define MIN(a, b) (a < b ? a : b)
+#define MAX(a, b) (a > b ? a : b)
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
 #define SCRATCHPAD_SIZE (16 * 1024 * 1024)
 #define VOIDP_TO_U64(x) (((union { uint64_t u; void* p; }) { .p = x }).u)
@@ -171,6 +173,7 @@ static __thread gpu_batch_pool batches;
 
 static struct {
   VkInstance instance;
+  VkPhysicalDevice physicalDevice;
   VkDevice device;
   VkQueue queue;
   VkSurfaceKHR surface;
@@ -191,6 +194,8 @@ static struct {
   VkCommandBuffer uploads;
   VkCommandBuffer work;
   VkCommandBuffer downloads;
+  gpu_features features;
+  gpu_limits limits;
   gpu_config config;
   void* library;
 } state;
@@ -215,7 +220,7 @@ static void nickname(void* object, VkObjectType type, const char* name);
 static VkBool32 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* context);
 static const char* getErrorString(VkResult result);
 
-// Maps gpu_texture_format to linear/srgb VkFormat
+enum { LINEAR, SRGB };
 static const VkFormat textureFormats[][2] = {
   [GPU_TEXTURE_FORMAT_R8] = { VK_FORMAT_R8_UNORM, VK_FORMAT_UNDEFINED },
   [GPU_TEXTURE_FORMAT_RG8] = { VK_FORMAT_R8G8_UNORM, VK_FORMAT_UNDEFINED },
@@ -270,7 +275,7 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkDestroyDebugUtilsMessengerEXT)\
   X(vkDestroySurfaceKHR)\
   X(vkEnumeratePhysicalDevices)\
-  X(vkGetPhysicalDeviceProperties)\
+  X(vkGetPhysicalDeviceProperties2)\
   X(vkGetPhysicalDeviceFeatures)\
   X(vkGetPhysicalDeviceMemoryProperties)\
   X(vkGetPhysicalDeviceFormatProperties)\
@@ -451,25 +456,21 @@ bool gpu_init(gpu_config* config) {
 
   { // Device
     uint32_t deviceCount = 1;
-    VkPhysicalDevice physicalDevice;
-    if (vkEnumeratePhysicalDevices(state.instance, &deviceCount, &physicalDevice) < 0) {
+    if (vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.physicalDevice) < 0) {
       gpu_destroy();
       return false;
     }
 
-    VkPhysicalDeviceProperties deviceProperties;
-    vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-
     VkQueueFamilyProperties queueFamilies[4];
     uint32_t queueFamilyCount = COUNTOF(queueFamilies);
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies);
+    vkGetPhysicalDeviceQueueFamilyProperties(state.physicalDevice, &queueFamilyCount, queueFamilies);
 
     state.queueFamilyIndex = ~0u;
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
       VkBool32 presentable = VK_TRUE;
 
       if (state.surface) {
-        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, state.surface, &presentable);
+        vkGetPhysicalDeviceSurfaceSupportKHR(state.physicalDevice, i, state.surface, &presentable);
       }
 
       uint32_t flags = queueFamilies[i].queueFlags;
@@ -484,29 +485,7 @@ bool gpu_init(gpu_config* config) {
       return false;
     }
 
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &state.memoryProperties);
-
-    VkPhysicalDeviceFeatures features;
-    vkGetPhysicalDeviceFeatures(physicalDevice, &features);
-    config->features.astc = features.textureCompressionASTC_LDR;
-    config->features.bptc = features.textureCompressionBC;
-
-    for (uint32_t i = 0; i < COUNTOF(textureFormats); i++) {
-      VkFormatProperties formatProperties;
-      vkGetPhysicalDeviceFormatProperties(physicalDevice, textureFormats[i][0], &formatProperties);
-      uint32_t blitMask = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
-      uint32_t vkFeatures = formatProperties.optimalTilingFeatures;
-      uint32_t gpuFeatures = 0;
-      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FORMAT_FEATURE_SAMPLE : 0;
-      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_CANVAS_COLOR : 0;
-      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_CANVAS_DEPTH : 0;
-      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FORMAT_FEATURE_BLEND : 0;
-      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FORMAT_FEATURE_FILTER : 0;
-      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FORMAT_FEATURE_STORAGE : 0;
-      gpuFeatures |= (vkFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FORMAT_FEATURE_ATOMIC : 0;
-      gpuFeatures |= (vkFeatures & blitMask) == blitMask ? GPU_FORMAT_FEATURE_BLIT : 0;
-      config->features.formats[i] = gpuFeatures;
-    }
+    vkGetPhysicalDeviceMemoryProperties(state.physicalDevice, &state.memoryProperties);
 
     VkDeviceQueueCreateInfo queueInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -524,11 +503,6 @@ bool gpu_init(gpu_config* config) {
         .pNext = &(VkPhysicalDeviceMultiviewFeatures) {
           .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
           .multiview = VK_TRUE
-        },
-        .features = {
-          .fullDrawIndexUint32 = VK_TRUE,
-          .multiDrawIndirect = VK_TRUE,
-          .shaderSampledImageArrayDynamicIndexing = VK_TRUE
         }
       },
       .queueCreateInfoCount = 1,
@@ -537,7 +511,7 @@ bool gpu_init(gpu_config* config) {
       .ppEnabledExtensionNames = &extension
     };
 
-    if (vkCreateDevice(physicalDevice, &deviceInfo, NULL, &state.device)) {
+    if (vkCreateDevice(state.physicalDevice, &deviceInfo, NULL, &state.device)) {
       gpu_destroy();
       return false;
     }
@@ -545,135 +519,135 @@ bool gpu_init(gpu_config* config) {
     vkGetDeviceQueue(state.device, state.queueFamilyIndex, 0, &state.queue);
 
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
+  }
 
-    // Swapchain
-    if (state.surface) {
-      VkSurfaceCapabilitiesKHR surfaceCapabilities;
-      vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, state.surface, &surfaceCapabilities);
+  // Swapchain
+  if (state.surface) {
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.physicalDevice, state.surface, &surfaceCapabilities);
 
-      VkSurfaceFormatKHR formats[16];
-      uint32_t formatCount = COUNTOF(formats);
-      VkSurfaceFormatKHR surfaceFormat = { .format = VK_FORMAT_UNDEFINED };
-      vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, state.surface, &formatCount, formats);
+    VkSurfaceFormatKHR formats[16];
+    uint32_t formatCount = COUNTOF(formats);
+    VkSurfaceFormatKHR surfaceFormat = { .format = VK_FORMAT_UNDEFINED };
+    vkGetPhysicalDeviceSurfaceFormatsKHR(state.physicalDevice, state.surface, &formatCount, formats);
 
-      for (uint32_t i = 0; i < formatCount; i++) {
-        if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
-          surfaceFormat = formats[i];
-          break;
-        }
-      }
-
-      if (surfaceFormat.format == VK_FORMAT_UNDEFINED) {
-        gpu_destroy();
-        return false;
-      }
-
-      VkSwapchainCreateInfoKHR swapchainInfo = {
-        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-        .surface = state.surface,
-        .minImageCount = surfaceCapabilities.minImageCount,
-        .imageFormat = surfaceFormat.format,
-        .imageColorSpace = surfaceFormat.colorSpace,
-        .imageExtent = surfaceCapabilities.currentExtent,
-        .imageArrayLayers = 1,
-        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR, // Disables vsync, may not be supported (TODO)
-        .clipped = VK_TRUE
-      };
-
-      if (vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &state.swapchain)) {
-        gpu_destroy();
-        return false;
-      }
-
-      uint32_t imageCount;
-      if (vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL)) {
-        gpu_destroy();
-        return false;
-      }
-
-      if (imageCount > COUNTOF(state.backbuffers)) {
-        gpu_destroy();
-        return false;
-      }
-
-      VkImage images[COUNTOF(state.backbuffers)];
-      if (vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, images)) {
-        gpu_destroy();
-        return false;
-      }
-
-      for (uint32_t i = 0; i < imageCount; i++) {
-        gpu_texture* texture = &state.backbuffers[i];
-
-        texture->handle = images[i];
-        texture->format = surfaceFormat.format;
-        texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-        texture->samples = VK_SAMPLE_COUNT_1_BIT;
-
-        // TODO swizzle?
-        gpu_texture_view_info view = {
-          .source = texture,
-          .type = GPU_TEXTURE_TYPE_2D
-        };
-
-        if (!gpu_texture_init_view(texture, &view)) {
-          gpu_destroy();
-          return false;
-        }
+    for (uint32_t i = 0; i < formatCount; i++) {
+      if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
+        surfaceFormat = formats[i];
+        break;
       }
     }
 
-    // Frames
-    for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
-      VkCommandPoolCreateInfo poolInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = state.queueFamilyIndex
+    if (surfaceFormat.format == VK_FORMAT_UNDEFINED) {
+      gpu_destroy();
+      return false;
+    }
+
+    VkSwapchainCreateInfoKHR swapchainInfo = {
+      .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+      .surface = state.surface,
+      .minImageCount = surfaceCapabilities.minImageCount,
+      .imageFormat = surfaceFormat.format,
+      .imageColorSpace = surfaceFormat.colorSpace,
+      .imageExtent = surfaceCapabilities.currentExtent,
+      .imageArrayLayers = 1,
+      .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+      .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+      .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+      .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR, // Disables vsync, may not be supported (TODO)
+      .clipped = VK_TRUE
+    };
+
+    if (vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &state.swapchain)) {
+      gpu_destroy();
+      return false;
+    }
+
+    uint32_t imageCount;
+    if (vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL)) {
+      gpu_destroy();
+      return false;
+    }
+
+    if (imageCount > COUNTOF(state.backbuffers)) {
+      gpu_destroy();
+      return false;
+    }
+
+    VkImage images[COUNTOF(state.backbuffers)];
+    if (vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, images)) {
+      gpu_destroy();
+      return false;
+    }
+
+    for (uint32_t i = 0; i < imageCount; i++) {
+      gpu_texture* texture = &state.backbuffers[i];
+
+      texture->handle = images[i];
+      texture->format = surfaceFormat.format;
+      texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+      texture->samples = VK_SAMPLE_COUNT_1_BIT;
+
+      // TODO swizzle?
+      gpu_texture_view_info view = {
+        .source = texture,
+        .type = GPU_TEXTURE_TYPE_2D
       };
 
-      if (vkCreateCommandPool(state.device, &poolInfo, NULL, &state.ticks[i].pool)) {
+      if (!gpu_texture_init_view(texture, &view)) {
         gpu_destroy();
         return false;
       }
+    }
+  }
 
-      VkCommandBufferAllocateInfo commandBufferInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = state.ticks[i].pool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = COUNTOF(state.ticks[i].commandBuffers)
-      };
+  // Frame resources
+  for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
+    VkCommandPoolCreateInfo poolInfo = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+      .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+      .queueFamilyIndex = state.queueFamilyIndex
+    };
 
-      if (vkAllocateCommandBuffers(state.device, &commandBufferInfo, state.ticks[i].commandBuffers)) {
-        gpu_destroy();
-        return false;
-      }
+    if (vkCreateCommandPool(state.device, &poolInfo, NULL, &state.ticks[i].pool)) {
+      gpu_destroy();
+      return false;
+    }
 
-      VkSemaphoreCreateInfo semaphoreInfo = {
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-      };
+    VkCommandBufferAllocateInfo commandBufferInfo = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+      .commandPool = state.ticks[i].pool,
+      .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+      .commandBufferCount = COUNTOF(state.ticks[i].commandBuffers)
+    };
 
-      if (vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores.wait)) {
-        gpu_destroy();
-        return false;
-      }
+    if (vkAllocateCommandBuffers(state.device, &commandBufferInfo, state.ticks[i].commandBuffers)) {
+      gpu_destroy();
+      return false;
+    }
 
-      if (vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores.tell)) {
-        gpu_destroy();
-        return false;
-      }
+    VkSemaphoreCreateInfo semaphoreInfo = {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+    };
 
-      VkFenceCreateInfo fenceInfo = {
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT
-      };
+    if (vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores.wait)) {
+      gpu_destroy();
+      return false;
+    }
 
-      if (vkCreateFence(state.device, &fenceInfo, NULL, &state.ticks[i].fence)) {
-        gpu_destroy();
-        return false;
-      }
+    if (vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores.tell)) {
+      gpu_destroy();
+      return false;
+    }
+
+    VkFenceCreateInfo fenceInfo = {
+      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+      .flags = VK_FENCE_CREATE_SIGNALED_BIT
+    };
+
+    if (vkCreateFence(state.device, &fenceInfo, NULL, &state.ticks[i].fence)) {
+      gpu_destroy();
+      return false;
     }
   }
 
@@ -763,6 +737,68 @@ void gpu_thread_detach() {
   gpu_batch_pool* pool = &batches;
   vkDestroyCommandPool(state.device, pool->commandPool, NULL);
   memset(pool, 0, sizeof(*pool));
+}
+
+void gpu_get_features(gpu_features* features) {
+  VkPhysicalDeviceFeatures deviceFeatures;
+  vkGetPhysicalDeviceFeatures(state.physicalDevice, &deviceFeatures);
+  features->astc = deviceFeatures.textureCompressionASTC_LDR;
+  features->bptc = deviceFeatures.textureCompressionBC;
+
+  VkFormatProperties formatProperties;
+  for (uint32_t i = 0; i < COUNTOF(textureFormats); i++) {
+    vkGetPhysicalDeviceFormatProperties(state.physicalDevice, textureFormats[i][LINEAR], &formatProperties);
+    uint32_t blitMask = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
+    uint32_t flags = formatProperties.optimalTilingFeatures;
+    state.features.formats[i] =
+      ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FORMAT_FEATURE_SAMPLE : 0) |
+      ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_CANVAS_COLOR : 0) |
+      ((flags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_CANVAS_DEPTH : 0) |
+      ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FORMAT_FEATURE_BLEND : 0) |
+      ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FORMAT_FEATURE_FILTER : 0) |
+      ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FORMAT_FEATURE_STORAGE : 0) |
+      ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FORMAT_FEATURE_ATOMIC : 0) |
+      ((flags & blitMask) == blitMask ? GPU_FORMAT_FEATURE_BLIT : 0);
+  }
+}
+
+void gpu_get_limits(gpu_limits* limits) {
+  VkPhysicalDeviceMaintenance3Properties maintenance3Limits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES };
+  VkPhysicalDeviceMultiviewProperties multiviewLimits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES, .pNext = &maintenance3Limits };
+  VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &multiviewLimits };
+  VkPhysicalDeviceLimits* deviceLimits = &properties2.properties.limits;
+  vkGetPhysicalDeviceProperties2(state.physicalDevice, &properties2);
+  limits->textureSize2D = MIN(deviceLimits->maxImageDimension2D, UINT16_MAX);
+  limits->textureSize3D = MIN(deviceLimits->maxImageDimension3D, UINT16_MAX);
+  limits->textureSizeCube = MIN(deviceLimits->maxImageDimensionCube, UINT16_MAX);
+  limits->textureLayers = MIN(deviceLimits->maxImageArrayLayers, UINT16_MAX);
+  limits->canvasSize[0] = deviceLimits->maxFramebufferWidth;
+  limits->canvasSize[1] = deviceLimits->maxFramebufferHeight;
+  limits->canvasViews = multiviewLimits.maxMultiviewViewCount;
+  limits->bundleCount = MIN(deviceLimits->maxBoundDescriptorSets, COUNTOF(((gpu_shader*) NULL)->layouts));
+  limits->bundleSlots = MIN(maintenance3Limits.maxPerSetDescriptors, COUNTOF(((gpu_bundle_info*) NULL)->bindings));
+  limits->uniformBufferRange = deviceLimits->maxUniformBufferRange;
+  limits->storageBufferRange = deviceLimits->maxStorageBufferRange;
+  limits->uniformBufferAlign = deviceLimits->minUniformBufferOffsetAlignment;
+  limits->storageBufferAlign = deviceLimits->minStorageBufferOffsetAlignment;
+  limits->vertexAttributes = MIN(deviceLimits->maxVertexInputAttributes, COUNTOF(((gpu_pipeline_info*) NULL)->attributes));
+  limits->vertexAttributeOffset = MIN(deviceLimits->maxVertexInputAttributeOffset, UINT8_MAX);
+  limits->vertexBuffers = MIN(deviceLimits->maxVertexInputBindings, COUNTOF(((gpu_pipeline_info*) NULL)->buffers));
+  limits->vertexBufferStride = MIN(deviceLimits->maxVertexInputBindingStride, UINT16_MAX);
+  limits->vertexShaderOutputs = deviceLimits->maxVertexOutputComponents;
+  limits->computeCount[0] = deviceLimits->maxComputeWorkGroupCount[0];
+  limits->computeCount[1] = deviceLimits->maxComputeWorkGroupCount[1];
+  limits->computeCount[2] = deviceLimits->maxComputeWorkGroupCount[2];
+  limits->computeGroupSize[0] = deviceLimits->maxComputeWorkGroupSize[0];
+  limits->computeGroupSize[1] = deviceLimits->maxComputeWorkGroupSize[1];
+  limits->computeGroupSize[2] = deviceLimits->maxComputeWorkGroupSize[2];
+  limits->computeGroupVolume = deviceLimits->maxComputeWorkGroupInvocations;
+  limits->computeSharedMemory = deviceLimits->maxComputeSharedMemorySize;
+  limits->indirectDrawCount = deviceLimits->maxDrawIndirectCount;
+  limits->allocationSize = maintenance3Limits.maxMemoryAllocationSize;
+  limits->pointSize[0] = deviceLimits->pointSizeRange[0];
+  limits->pointSize[1] = deviceLimits->pointSizeRange[1];
+  limits->anisotropy = deviceLimits->maxSamplerAnisotropy;
 }
 
 void gpu_begin() {
@@ -1156,7 +1192,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
   if (texture != info->source) {
     texture->handle = VK_NULL_HANDLE;
-    texture->format = textureFormats[info->format][0];
+    texture->format = textureFormats[info->format][LINEAR];
     texture->memory = VK_NULL_HANDLE;
     texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
     texture->aspect = info->source->aspect;

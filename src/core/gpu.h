@@ -460,9 +460,36 @@ typedef struct {
 } gpu_features;
 
 typedef struct {
+  uint32_t textureSize2D;
+  uint32_t textureSize3D;
+  uint32_t textureSizeCube;
+  uint32_t textureLayers;
+  uint32_t canvasSize[2];
+  uint32_t canvasViews;
+  uint32_t bundleCount;
+  uint32_t bundleSlots;
+  uint32_t uniformBufferRange;
+  uint32_t storageBufferRange;
+  uint32_t uniformBufferAlign;
+  uint32_t storageBufferAlign;
+  uint32_t vertexAttributes;
+  uint32_t vertexAttributeOffset;
+  uint32_t vertexBuffers;
+  uint32_t vertexBufferStride;
+  uint32_t vertexShaderOutputs;
+  uint32_t computeCount[3];
+  uint32_t computeGroupSize[3];
+  uint32_t computeGroupVolume;
+  uint32_t computeSharedMemory;
+  uint32_t indirectDrawCount;
+  uint64_t allocationSize;
+  uint32_t pointSize[2];
+  float anisotropy;
+} gpu_limits;
+
+typedef struct {
   bool debug;
   bool surface;
-  gpu_features features;
   void (*callback)(void* userdata, const char* message, int level);
   void* userdata;
   struct {
@@ -475,6 +502,8 @@ bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
 void gpu_thread_attach(void);
 void gpu_thread_detach(void);
+void gpu_get_features(gpu_features* features);
+void gpu_get_limits(gpu_limits* limits);
 void gpu_begin(void);
 void gpu_end(void);
 void gpu_render(gpu_canvas* canvas, gpu_batch** batches, uint32_t count);
