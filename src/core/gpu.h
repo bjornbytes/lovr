@@ -222,7 +222,7 @@ typedef enum {
 typedef struct {
   gpu_buffer* buffer;
   uint64_t offset;
-  uint64_t size;
+  uint32_t size;
 } gpu_buffer_binding;
 
 typedef struct {
