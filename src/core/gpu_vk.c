@@ -1,10 +1,5 @@
 #include "gpu.h"
 #include <string.h>
-
-#if defined __linux__
-#define VK_USE_PLATFORM_XLIB_KHR
-#endif
-
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 
