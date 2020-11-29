@@ -209,7 +209,7 @@ typedef struct {
 } gpu_mapping;
 
 static gpu_mapping scratch(uint32_t size);
-static void readquack(void);
+static void readback(void);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
 static bool createDescriptorSetLayout(gpu_bundle_layout* layout, VkDescriptorSetLayout* handle);
@@ -708,7 +708,7 @@ bool gpu_init(gpu_config* config) {
 void gpu_destroy(void) {
   if (state.device) vkDeviceWaitIdle(state.device);
   state.tick[GPU] = state.tick[CPU];
-  readquack();
+  readback();
   expunge();
   for (uint32_t i = 0; i < state.scratchpads.count; i++) {
     vkDestroyBuffer(state.device, state.scratchpads.data[i].buffer, NULL);
@@ -829,7 +829,7 @@ void gpu_begin() {
   GPU_VK(vkResetFences(state.device, 1, &tick->fence));
   GPU_VK(vkResetCommandPool(state.device, tick->pool, 0));
   state.tick[GPU]++;
-  readquack();
+  readback();
   expunge();
 
   tick->wait = tick->tell = false;
@@ -2119,7 +2119,7 @@ static gpu_mapping scratch(uint32_t size) {
   return mapping;
 }
 
-static void readquack() {
+static void readback() {
   gpu_readback_pool* pool = &state.readbacks;
   while (pool->tail != pool->head && state.tick[GPU] >= pool->data[pool->tail & 0x7f].tick) {
     gpu_readback* readback = &pool->data[pool->tail++ & 0x7f];
