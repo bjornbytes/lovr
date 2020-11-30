@@ -24,8 +24,9 @@ static int l_lovrAudioReset(lua_State* L) {
 
 static int l_lovrAudioStart(lua_State* L) {
   AudioType type = luax_checkenum(L, 1, AudioType, "playback");
-  lovrAudioStart(type);
-  return 0;
+  bool ret = lovrAudioStart(type);
+  lua_pushboolean(L, ret);
+  return 1;
 }
 
 static int l_lovrAudioStop(lua_State* L) {
@@ -147,7 +148,7 @@ int luaopen_lovr_audio(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrAudio);
   luax_registertype(L, Source);
-  AudioConfig config[2] = { { .enable = true, .start = true }, { .enable = true, .start = true } };
+  AudioConfig config[2] = { { .enable = true, .start = true }, { .enable = false, .start = false } };
   if (lovrAudioInit(config)) {
     luax_atexit(L, lovrAudioDestroy);
   }
