@@ -220,7 +220,7 @@ bool lovrAudioReset() {
       config.playback.format = formats[OUTPUT_FORMAT];
       config.capture.format = formats[OUTPUT_FORMAT];
       config.playback.channels = OUTPUT_CHANNELS;
-      config.capture.channels = 1;
+      config.capture.channels = CAPTURE_CHANNELS;
       config.dataCallback = callbacks[i];
       config.performanceProfile = ma_performance_profile_low_latency;
 
@@ -419,7 +419,7 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
       return NULL;
     }
     frameCount -= available_frames;
-    offset =+ available_frames;
+    offset += available_frames;
   }
 
   return soundData;
