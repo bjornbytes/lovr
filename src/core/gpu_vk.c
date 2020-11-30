@@ -76,30 +76,27 @@ struct gpu_shader {
   VkShaderModule handles[2];
   VkPipelineShaderStageCreateInfo pipelineInfo[2];
   VkDescriptorSetLayout layouts[4];
-  gpu_bundle_layout layoutInfo[4];
+  VkDescriptorType descriptorTypes[4][32];
   VkPipelineLayout pipelineLayout;
   VkPipelineBindPoint type;
 };
 
 struct gpu_bundle {
-  VkDescriptorSetLayout layout;
   VkDescriptorSet handle;
-  bool immutable;
 };
 
 struct gpu_pipeline {
   VkPipeline handle;
   VkPipelineBindPoint type;
-  VkIndexType indexType;
 };
 
 struct gpu_batch {
   VkCommandBuffer cmd;
-  uint32_t next;
   uint32_t tick;
+  uint32_t next;
 };
 
-// Stream
+// Pools
 
 enum { CPU, GPU };
 
@@ -115,6 +112,27 @@ typedef struct {
 } gpu_tick;
 
 typedef struct {
+  VkCommandPool commandPool;
+  gpu_batch data[256];
+  uint32_t count;
+  uint32_t head;
+  uint32_t tail;
+} gpu_batch_pool;
+
+typedef struct {
+  VkDescriptorPool handle;
+  uint32_t tick;
+  uint32_t next;
+} gpu_binding_pool;
+
+typedef struct {
+  gpu_binding_pool data[8];
+  uint32_t count;
+  uint32_t head;
+  uint32_t tail;
+} gpu_binding_lagoon;
+
+typedef struct {
   void* handle;
   VkObjectType type;
   uint32_t tick;
@@ -126,14 +144,6 @@ typedef struct {
   uint32_t head;
   uint32_t tail;
 } gpu_morgue;
-
-typedef struct {
-  VkCommandPool commandPool;
-  gpu_batch data[256];
-  uint32_t count;
-  uint32_t head;
-  uint32_t tail;
-} gpu_batch_pool;
 
 typedef struct {
   VkBuffer buffer;
@@ -168,6 +178,7 @@ typedef struct {
 // State
 
 static __thread gpu_batch_pool batches;
+static __thread gpu_binding_lagoon lagoon;
 
 static struct {
   VkInstance instance;
@@ -178,7 +189,6 @@ static struct {
   VkSwapchainKHR swapchain;
   gpu_texture backbuffers[4];
   uint32_t currentBackbuffer;
-  VkDescriptorPool descriptorPool;
   VkDebugUtilsMessengerEXT messenger;
   VkPhysicalDeviceMemoryProperties memoryProperties;
   VkMemoryRequirements scratchMemoryRequirements;
@@ -187,13 +197,11 @@ static struct {
   uint32_t tick[2];
   gpu_tick ticks[16];
   gpu_morgue morgue;
-  VkQueryPool queries;
+  VkQueryPool queryPool;
   uint32_t queryCount;
   gpu_scratchpad_pool scratchpads;
   gpu_readback_pool readbacks;
-  VkCommandBuffer uploads;
-  VkCommandBuffer work;
-  VkCommandBuffer downloads;
+  VkCommandBuffer uploads, work, downloads;
   gpu_features features;
   gpu_limits limits;
   gpu_config config;
@@ -212,8 +220,7 @@ static gpu_mapping scratch(uint32_t size);
 static void readback(void);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
-static bool createDescriptorSetLayout(gpu_bundle_layout* layout, VkDescriptorSetLayout* handle);
-static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo, gpu_bundle_layout* layouts);
+static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo, VkDescriptorSetLayoutCreateInfo* layouts, VkDescriptorSetLayoutBinding bindings[4][32]);
 static uint64_t getTextureRegionSize(VkFormat format, uint16_t extent[3]);
 static void nickname(void* object, VkObjectType type, const char* name);
 static VkBool32 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* context);
@@ -255,14 +262,6 @@ static const VkFormat textureFormats[][2] = {
   [GPU_TEXTURE_FORMAT_ASTC_12x12] = { VK_FORMAT_ASTC_12x12_UNORM_BLOCK, VK_FORMAT_ASTC_12x12_SRGB_BLOCK }
 };
 
-// Maps gpu_binding_type + dynamic flag to VkDescriptorType
-static const VkDescriptorType descriptorTypes[][2] = {
-  [GPU_BINDING_UNIFORM_BUFFER] = { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC },
-  [GPU_BINDING_STORAGE_BUFFER] = { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC },
-  [GPU_BINDING_SAMPLED_TEXTURE] = { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, ~0u },
-  [GPU_BINDING_STORAGE_TEXTURE] = { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, ~0u }
-};
-
 // Functions that don't require an instance
 #define GPU_FOREACH_ANONYMOUS(X)\
   X(vkCreateInstance)
@@ -290,8 +289,8 @@ static const VkDescriptorType descriptorTypes[][2] = {
 // Functions that require a device
 #define GPU_FOREACH_DEVICE(X)\
   X(vkSetDebugUtilsObjectNameEXT)\
-  X(vkBeginDebugUtilsLabelEXT)\
-  X(vkEndDebugUtilsLabelEXT)\
+  X(vkCmdBeginDebugUtilsLabelEXT)\
+  X(vkCmdEndDebugUtilsLabelEXT)\
   X(vkDeviceWaitIdle)\
   X(vkQueueSubmit)\
   X(vkQueuePresentKHR)\
@@ -314,7 +313,7 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkCmdPipelineBarrier)\
   X(vkCreateQueryPool)\
   X(vkDestroyQueryPool)\
-  X(vkResetQueryPool)\
+  X(vkCmdResetQueryPool)\
   X(vkCmdWriteTimestamp)\
   X(vkCmdCopyQueryPoolResults)\
   X(vkCreateBuffer)\
@@ -351,7 +350,7 @@ static const VkDescriptorType descriptorTypes[][2] = {
   X(vkCreateDescriptorPool)\
   X(vkDestroyDescriptorPool)\
   X(vkAllocateDescriptorSets)\
-  X(vkFreeDescriptorSets)\
+  X(vkResetDescriptorPool)\
   X(vkUpdateDescriptorSets)\
   X(vkCreateGraphicsPipelines)\
   X(vkCreateComputePipelines)\
@@ -658,32 +657,8 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
-  { // Descriptor Pool
-    VkDescriptorPoolSize poolSizes[] = {
-      { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1024 },
-      { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024 },
-      { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 256 },
-      { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 256 },
-      { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024 },
-      { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1024 }
-    };
-
-    VkDescriptorPoolCreateInfo info = {
-      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-      .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-      .maxSets = 1024,
-      .poolSizeCount = COUNTOF(poolSizes),
-      .pPoolSizes = poolSizes
-    };
-
-    if (vkCreateDescriptorPool(state.device, &info, NULL, &state.descriptorPool)) {
-      gpu_destroy();
-      return false;
-    }
-  }
-
   // Query Pool
-  if (state.debug) {
+  if (state.config.debug) {
     VkQueryPoolCreateInfo info = {
       .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
       .queryType = VK_QUERY_TYPE_TIMESTAMP,
@@ -725,7 +700,6 @@ void gpu_destroy(void) {
     if (state.backbuffers[i].view) vkDestroyImageView(state.device, state.backbuffers[i].view, NULL);
   }
   if (state.queryPool) vkDestroyQueryPool(state.device, state.queryPool, NULL);
-  if (state.descriptorPool) vkDestroyDescriptorPool(state.device, state.descriptorPool, NULL);
   if (state.swapchain) vkDestroySwapchainKHR(state.device, state.swapchain, NULL);
   if (state.device) vkDestroyDevice(state.device, NULL);
   if (state.surface) vkDestroySurfaceKHR(state.instance, state.surface, NULL);
@@ -1508,70 +1482,6 @@ void gpu_canvas_destroy(gpu_canvas* canvas) {
   memset(canvas, 0, sizeof(*canvas));
 }
 
-// Bundle
-
-size_t gpu_sizeof_bundle() {
-  return sizeof(gpu_bundle);
-}
-
-bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
-  VkDescriptorSetLayout layout = (VkDescriptorSetLayout) info->layout.secret;
-
-  if (!layout) {
-    if (!createDescriptorSetLayout(&info->layout, &bundle->layout)) {
-      return false;
-    }
-
-    layout = bundle->layout;
-  }
-
-  if (info->immutable) {
-    VkDescriptorSetAllocateInfo descriptorSetInfo = {
-      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-      .descriptorPool = state.descriptorPool,
-      .descriptorSetCount = 1,
-      .pSetLayouts = &layout
-    };
-
-    if (vkAllocateDescriptorSets(state.device, &descriptorSetInfo, &bundle->handle)) {
-      return false;
-    }
-
-    VkWriteDescriptorSet writes[COUNTOF(info->bindings)];
-    for (uint32_t i = 0; i < info->count; i++) {
-      gpu_slot* slot = &info->layout.slots[info->bindings[i].slot];
-      writes[i] = (VkWriteDescriptorSet) {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = bundle->handle,
-        .dstBinding = info->bindings[i].slot,
-        .descriptorCount = 1, // FIXME info->bindings[i].count,
-        .descriptorType = descriptorTypes[slot->type][slot->usage & GPU_BINDING_DYNAMIC],
-        .pBufferInfo = &(VkDescriptorBufferInfo) { // FIXME multiple fixed-size chunked writes for arrays
-          .buffer = info->bindings[i].buffers[0].buffer ? info->bindings[i].buffers[0].buffer->handle : VK_NULL_HANDLE,
-          .offset = info->bindings[i].buffers[0].offset,
-          .range = info->bindings[i].buffers[0].size ? info->bindings[i].buffers[0].size : VK_WHOLE_SIZE
-        },
-        .pImageInfo = &(VkDescriptorImageInfo) { // FIXME multiple fixed-size chunked writes for arrays
-          .sampler = info->bindings[i].textures[0].sampler ? info->bindings[i].textures[0].sampler->handle : VK_NULL_HANDLE,
-          .imageView = info->bindings[i].textures[0].texture ? info->bindings[i].textures[0].texture->view : VK_NULL_HANDLE,
-          .imageLayout = VK_IMAGE_LAYOUT_GENERAL
-        }
-      };
-    }
-
-    vkUpdateDescriptorSets(state.device, info->count, writes, 0, NULL);
-  }
-
-  bundle->immutable = info->immutable;
-  return true;
-}
-
-void gpu_bundle_destroy(gpu_bundle* bundle) {
-  if (bundle->layout) vkDestroyDescriptorSetLayout(state.device, bundle->layout, NULL);
-  if (bundle->handle) condemn(bundle->handle, VK_OBJECT_TYPE_DESCRIPTOR_SET);
-  memset(bundle, 0, sizeof(*bundle));
-}
-
 // Shader
 
 size_t gpu_sizeof_shader() {
@@ -1581,44 +1491,60 @@ size_t gpu_sizeof_shader() {
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
   memset(shader, 0, sizeof(*shader));
 
+  VkDescriptorSetLayoutCreateInfo layoutInfo[COUNTOF(shader->layouts)];
+  VkDescriptorSetLayoutBinding bindings[COUNTOF(shader->layouts)][32];
+
   if (info->compute.code) {
     shader->type = VK_PIPELINE_BIND_POINT_COMPUTE;
-    loadShader(&info->compute, VK_SHADER_STAGE_COMPUTE_BIT, &shader->handles[0], &shader->pipelineInfo[0], shader->layoutInfo);
+    loadShader(&info->compute, VK_SHADER_STAGE_COMPUTE_BIT, &shader->handles[0], &shader->pipelineInfo[0], layoutInfo, bindings);
   } else {
     shader->type = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    loadShader(&info->vertex, VK_SHADER_STAGE_VERTEX_BIT, &shader->handles[0], &shader->pipelineInfo[0], shader->layoutInfo);
-    loadShader(&info->fragment, VK_SHADER_STAGE_FRAGMENT_BIT, &shader->handles[1], &shader->pipelineInfo[1], shader->layoutInfo);
+    loadShader(&info->vertex, VK_SHADER_STAGE_VERTEX_BIT, &shader->handles[0], &shader->pipelineInfo[0], layoutInfo, bindings);
+    loadShader(&info->fragment, VK_SHADER_STAGE_FRAGMENT_BIT, &shader->handles[1], &shader->pipelineInfo[1], layoutInfo, bindings);
   }
 
   for (uint32_t i = 0; i < info->dynamicBufferCount; i++) {
     gpu_shader_var* var = &info->dynamicBuffers[i];
-    gpu_bundle_layout* layout = &shader->layoutInfo[var->group];
-    for (uint32_t j = 0; j < layout->count; j++) {
-      if (layout->slots[j].index == var->slot) {
-        layout->slots[j].usage |= GPU_BINDING_DYNAMIC;
+    uint32_t bindingCount = layoutInfo[var->group].bindingCount;
+    for (uint32_t j = 0; j < bindingCount; j++) {
+      VkDescriptorSetLayoutBinding* binding = &bindings[var->group][j];
+      if (binding->binding == var->slot) {
+        switch (binding->descriptorType) {
+          case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: binding->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC; break;
+          case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: binding->descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC; break;
+          default: return gpu_shader_destroy(shader), false;
+        }
         break;
       }
     }
   }
 
   uint32_t layoutCount = 0;
+
   for (uint32_t i = 0; i < COUNTOF(shader->layouts); i++) {
-    if (!createDescriptorSetLayout(&shader->layoutInfo[i], &shader->layouts[i])) {
+    layoutInfo[i].pBindings = bindings[i];
+
+    if (vkCreateDescriptorSetLayout(state.device, &layoutInfo[i], NULL, &shader->layouts[i])) {
       gpu_shader_destroy(shader);
       return false;
     }
 
-    shader->layoutInfo[i].secret = (uintptr_t) shader->layouts[i];
-    layoutCount = shader->layoutInfo[i].count > 0 ? (i + 1) : layoutCount;
+    layoutCount = layoutInfo[i].bindingCount > 0 ? (i + 1) : layoutCount;
   }
 
-  VkPipelineLayoutCreateInfo layoutInfo = {
+  for (uint32_t i = 0; i < layoutCount; i++) {
+    for (uint32_t j = 0; j < layoutInfo[i].bindingCount; j++) {
+      shader->descriptorTypes[i][j] = bindings[i][j].descriptorType;
+    }
+  }
+
+  VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .setLayoutCount = layoutCount,
     .pSetLayouts = shader->layouts
   };
 
-  GPU_VK(vkCreatePipelineLayout(state.device, &layoutInfo, NULL, &shader->pipelineLayout));
+  GPU_VK(vkCreatePipelineLayout(state.device, &pipelineLayoutInfo, NULL, &shader->pipelineLayout));
 
   return true;
 }
@@ -1635,10 +1561,157 @@ void gpu_shader_destroy(gpu_shader* shader) {
   memset(shader, 0, sizeof(*shader));
 }
 
-bool gpu_shader_get_layout_info(gpu_shader* shader, uint32_t group, gpu_bundle_layout* layout) {
-  if (group >= COUNTOF(shader->layouts)) return false;
-  *layout = shader->layoutInfo[group];
+// Bundle
+
+size_t gpu_sizeof_bundle() {
+  return sizeof(gpu_bundle);
+}
+
+bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
+  VkDescriptorSetAllocateInfo allocateInfo = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+    .descriptorPool = VK_NULL_HANDLE,
+    .descriptorSetCount = 1,
+    .pSetLayouts = &info->shader->layouts[info->group]
+  };
+
+  // Try to allocate bindings from the current pool
+  if (lagoon.head != ~0u) {
+    allocateInfo.descriptorPool = lagoon.data[lagoon.head].handle;
+
+    VkResult result = vkAllocateDescriptorSets(state.device, &allocateInfo, &bundle->handle);
+
+    if (result != VK_SUCCESS && result != VK_ERROR_OUT_OF_POOL_MEMORY) {
+      return false; // XXX
+    }
+  }
+
+  // If that didn't work, there either wasn't a pool or the current pool overflowed.
+  if (!bundle->handle) {
+    gpu_binding_pool* pool = NULL;
+    uint32_t index = ~0u;
+
+    // If there's a crusty old pool laying around that isn't even being used by anyone, it's hired.
+    if (lagoon.tail != ~0u && state.tick[GPU] >= lagoon.data[lagoon.tail].tick) {
+      index = lagoon.tail;
+      pool = &lagoon.data[index];
+      lagoon.tail = pool->next;
+      vkResetDescriptorPool(state.device, pool->handle, 0);
+    } else {
+      // Otherwise, the lagoon is totally out of space, it needs a new pool.
+      GPU_CHECK(lagoon.count < COUNTOF(lagoon.data), "GPU lagoon overflow");
+      index = lagoon.count++;
+      pool = &lagoon.data[index];
+
+      VkDescriptorPoolSize poolSizes[] = {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1024 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1024 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1024 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1024 },
+      };
+
+      VkDescriptorPoolCreateInfo poolInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = 1024,
+        .poolSizeCount = COUNTOF(poolSizes),
+        .pPoolSizes = poolSizes
+      };
+
+      if (vkCreateDescriptorPool(state.device, &poolInfo, NULL, &pool->handle)) {
+        return false; // XXX
+      }
+    }
+
+    // If there's no tail, I guess this pool is the tail now
+    if (lagoon.tail == ~0u) {
+      lagoon.tail = index;
+    }
+
+    // If there's a head, it's fired
+    if (lagoon.head != ~0u) {
+      lagoon.data[lagoon.head].next = index;
+    }
+
+    // Because this pool is the new head of the lagoon
+    lagoon.head = index;
+    pool->next = ~0u;
+ 
+    // Oh also allocate some bindings from the pool
+    allocateInfo.descriptorPool = pool->handle;
+    if (vkAllocateDescriptorSets(state.device, &allocateInfo, &bundle->handle)) {
+      return false;
+    }
+  }
+
+  uint32_t bufferCount = 0;
+  uint32_t textureCount = 0;
+  uint32_t writeCount = 0;
+  VkDescriptorBufferInfo buffers[128];
+  VkDescriptorImageInfo textures[128];
+  VkWriteDescriptorSet writes[COUNTOF(info->bindings)];
+
+  for (uint32_t i = 0; i < info->bindingCount; i++) {
+    gpu_binding* binding = &info->bindings[i];
+    VkDescriptorType type = info->shader->descriptorTypes[info->group][i];
+    bool texture = type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    uint32_t cursor = 0;
+
+    while (cursor < binding->count) {
+      if (texture ? textureCount >= COUNTOF(textures) : bufferCount >= COUNTOF(buffers)) {
+        vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
+        bufferCount = 0;
+        textureCount = 0;
+        writeCount = 0;
+      }
+
+      uint32_t available = texture ? COUNTOF(textures) - textureCount : COUNTOF(buffers) - bufferCount;
+      uint32_t remaining = binding->count - cursor;
+      uint32_t chunk = MIN(available, remaining);
+
+      writes[writeCount++] = (VkWriteDescriptorSet) {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = bundle->handle,
+        .dstBinding = binding->slot,
+        .dstArrayElement = cursor,
+        .descriptorCount = chunk,
+        .descriptorType = type,
+        .pBufferInfo = &buffers[bufferCount],
+        .pImageInfo = &textures[textureCount]
+      };
+
+      if (texture) {
+        for (uint32_t j = 0; j < chunk; j++) {
+          textures[textureCount++] = (VkDescriptorImageInfo) {
+            .sampler = binding->textures[cursor].sampler->handle,
+            .imageView = binding->textures[cursor].texture->view,
+            .imageLayout = binding->textures[cursor].texture->layout
+          };
+        }
+      } else {
+        for (uint32_t j = 0; j < chunk; j++) {
+          buffers[bufferCount++] = (VkDescriptorBufferInfo) {
+            .buffer = binding->buffers[cursor].buffer->handle,
+            .offset = binding->buffers[cursor].offset,
+            .range = binding->buffers[cursor].size
+          };
+        }
+      }
+
+      cursor += chunk;
+    }
+  }
+
+  if (writeCount > 0) {
+    vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
+  }
+
   return true;
+}
+
+void gpu_bundle_destroy(gpu_bundle* bundle) {
+  memset(bundle, 0, sizeof(*bundle));
 }
 
 // Pipeline
@@ -1814,10 +1887,9 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   return true;
 }
 
-bool gpu_pipeline_init_compute(gpu_pipeline_info* info) {
+bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
   VkComputePipelineCreateInfo pipelineInfo = {
     .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-    .stageCount = 1,
     .stage = info->shader->pipelineInfo[0],
     .layout = info->shader->pipelineLayout
   };
@@ -1896,7 +1968,7 @@ void gpu_batch_bind_pipeline(gpu_batch* batch, gpu_pipeline* pipeline) {
 }
 
 void gpu_batch_bind_bundle(gpu_batch* batch, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount) {
-  vkCmdBindDescriptorSets(batch->cmd, shader->type, shader->pipelineLayout, group, 1, bundle->handle, offsetCount, offsets);
+  vkCmdBindDescriptorSets(batch->cmd, shader->type, shader->pipelineLayout, group, 1, &bundle->handle, offsetCount, offsets);
 }
 
 void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
@@ -2148,7 +2220,6 @@ static void expunge() {
       case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_DESCRIPTOR_SET: vkFreeDescriptorSets(state.device, state.descriptorPool, 1, victim->handle); break;
       case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, victim->handle, NULL); break;
       default: GPU_THROW("Unreachable"); break;
     }
@@ -2156,32 +2227,7 @@ static void expunge() {
   gpu_mutex_unlock(&morgue->lock);
 }
 
-static bool createDescriptorSetLayout(gpu_bundle_layout* layout, VkDescriptorSetLayout* handle) {
-  VkDescriptorSetLayoutBinding bindings[COUNTOF(layout->slots)];
-
-  VkDescriptorSetLayoutCreateInfo info = {
-    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-    .bindingCount = layout->count,
-    .pBindings = bindings
-  };
-
-  for (uint32_t i = 0; i < layout->count; i++) {
-    gpu_slot* slot = &layout->slots[i];
-    bindings[i] = (VkDescriptorSetLayoutBinding) {
-      .binding = slot->index,
-      .descriptorType = descriptorTypes[slot->type][slot->usage & GPU_BINDING_DYNAMIC],
-      .descriptorCount = slot->count,
-      .stageFlags =
-        ((slot->usage & GPU_BINDING_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
-        ((slot->usage & GPU_BINDING_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
-        ((slot->usage & GPU_BINDING_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0)
-    };
-  }
-
-  return !vkCreateDescriptorSetLayout(state.device, &info, NULL, handle);
-}
-
-static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo, gpu_bundle_layout* layouts) {
+static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo, VkDescriptorSetLayoutCreateInfo* layouts, VkDescriptorSetLayoutBinding bindings[4][32]) {
   VkShaderModuleCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
     .codeSize = source->size,
@@ -2196,7 +2242,7 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
     uint16_t group;
     uint16_t index;
     uint16_t count;
-    gpu_binding_type type;
+    VkDescriptorType type;
   } resources[128];
   uint32_t resourceCount = 0;
 
@@ -2282,10 +2328,10 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
 
           // Use StorageClass to detect uniform/storage buffers
           if (storageClass == 12 /* StorageBuffer */) {
-            resources[cache[id]].type = GPU_BINDING_STORAGE_BUFFER;
+            resources[cache[id]].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             break;
           } else if (storageClass == 2 /* Uniform */) {
-            resources[cache[id]].type = GPU_BINDING_UNIFORM_BUFFER;
+            resources[cache[id]].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             break;
           }
 
@@ -2307,9 +2353,9 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
 
           // Read the Sampled key to determine if it's a sampled image (1) or a storage image (2)
           if (pointerType[7] == 1) {
-            resources[cache[id]].type = GPU_BINDING_SAMPLED_TEXTURE;
+            resources[cache[id]].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
           } else if (pointerType[7] == 2) {
-            resources[cache[id]].type = GPU_BINDING_STORAGE_TEXTURE;
+            resources[cache[id]].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
           } else {
             vkDestroyShaderModule(state.device, *handle, NULL);
             return false; // XXX
@@ -2327,33 +2373,25 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
     }
   }
 
-  uint32_t stageMask = 0;
-  switch (stage) {
-    case VK_SHADER_STAGE_VERTEX_BIT: stageMask = GPU_BINDING_VERTEX; break;
-    case VK_SHADER_STAGE_FRAGMENT_BIT: stageMask = GPU_BINDING_FRAGMENT; break;
-    case VK_SHADER_STAGE_COMPUTE_BIT: stageMask = GPU_BINDING_COMPUTE; break;
-    default: break;
-  }
-
   // Merge resources into layout info
   for (uint32_t i = 0; i < resourceCount; i++) {
-    gpu_bundle_layout* layout = &layouts[resources[i].group];
+    uint32_t group = resources[i].group;
 
     bool found = false;
-    for (uint32_t j = 0; j < layout->count; j++) {
-      if (layout->slots[j].index == resources[i].index) {
-        layout->slots[j].usage |= stageMask;
+    for (uint32_t j = 0; j < layouts[group].bindingCount; j++) {
+      if (bindings[group][j].binding == resources[i].index) {
+        bindings[group][j].stageFlags |= stage;
         found = true;
         break;
       }
     }
 
     if (!found) {
-      layout->slots[layout->count++] = (gpu_slot) {
-        .type = resources[i].type,
-        .index = resources[i].index,
-        .count = resources[i].count,
-        .usage = stageMask
+      bindings[group][layouts[group].bindingCount++] = (VkDescriptorSetLayoutBinding) {
+        .binding = resources[i].index,
+        .descriptorType = resources[i].type,
+        .descriptorCount = resources[i].count,
+        .stageFlags = stage
       };
     }
   }
