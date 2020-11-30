@@ -558,7 +558,7 @@ elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_web.c)
   target_compile_definitions(lovr PRIVATE LOVR_WEBGL)
 elseif(ANDROID)
-  target_link_libraries(lovr log EGL GLESv3 android dl)
+  target_link_libraries(lovr log EGL GLESv3 OpenSLES android dl)
   target_compile_definitions(lovr PRIVATE LOVR_GLES)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
 
