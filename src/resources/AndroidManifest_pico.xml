@@ -3,6 +3,7 @@
   <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="27"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
   <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
   <application android:allowBackup="false" android:label="LÖVR" android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
     <meta-data android:name="pvr.app.type" android:value="vr"/>
     <activity android:name="Activity">
