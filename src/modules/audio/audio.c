@@ -164,18 +164,16 @@ bool lovrAudioInit(AudioConfig config[2]) {
   lovrAudioReset();
 
   for (int i = 0; i < AUDIO_TYPE_COUNT; i++) {
-    if (config[i].enable) {
-      if (ma_mutex_init(&state.context, &state.locks[i])) {
+    if (ma_mutex_init(&state.context, &state.locks[i])) {
+      lovrAudioDestroy();
+      return false;
+    }
+
+    if (config[i].enable && config[i].start) {
+      if (ma_device_start(&state.devices[i])) {
+        fprintf(stderr, "Failed to start audio device %d\n", i);
         lovrAudioDestroy();
         return false;
-      }
-
-      if (config[i].start) {
-        if (ma_device_start(&state.devices[i])) {
-          fprintf(stderr, "Failed to start audio device %d\n", i);
-          lovrAudioDestroy();
-          return false;
-        }
       }
     }
   }
@@ -183,7 +181,7 @@ bool lovrAudioInit(AudioConfig config[2]) {
   ma_result rbstatus = ma_pcm_rb_init(formats[OUTPUT_FORMAT], CAPTURE_CHANNELS, LOVR_AUDIO_SAMPLE_RATE * 1.0, NULL, NULL, &state.capture_ringbuffer);
   if (rbstatus != MA_SUCCESS) {
     lovrAudioDestroy();
-          return false;
+    return false;
   }
 
   for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
@@ -210,24 +208,36 @@ void lovrAudioDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
+bool lovrAudioInitDevice(AudioType type) {
+  ma_device_type deviceType = (type == AUDIO_PLAYBACK) ? ma_device_type_playback : ma_device_type_capture;
+
+  ma_device_config config = ma_device_config_init(deviceType);
+  config.sampleRate = LOVR_AUDIO_SAMPLE_RATE;
+  config.playback.format = formats[OUTPUT_FORMAT];
+  config.capture.format = formats[OUTPUT_FORMAT];
+  config.playback.channels = OUTPUT_CHANNELS;
+  config.capture.channels = CAPTURE_CHANNELS;
+  config.dataCallback = callbacks[type];
+  config.performanceProfile = ma_performance_profile_low_latency;
+
+  int err = ma_device_init(&state.context, &config, &state.devices[type]); 
+  if (err != MA_SUCCESS) {
+    fprintf(stderr, "Failed to enable audio device %d: %d\n", type, err);
+    return false;
+  }
+  return true;
+}
+
 bool lovrAudioReset() {
   for (int i = 0; i < AUDIO_TYPE_COUNT; i++) {
+    // clean up previous state ...
+    if (state.devices[i].state != 0) {
+      ma_device_uninit(&state.devices[i]);
+    }
+
+    // .. and create new one
     if (state.config[i].enable) {
-      ma_device_type deviceType = (i == 0) ? ma_device_type_playback : ma_device_type_capture;
-
-      ma_device_config config = ma_device_config_init(deviceType);
-      config.sampleRate = LOVR_AUDIO_SAMPLE_RATE;
-      config.playback.format = formats[OUTPUT_FORMAT];
-      config.capture.format = formats[OUTPUT_FORMAT];
-      config.playback.channels = OUTPUT_CHANNELS;
-      config.capture.channels = CAPTURE_CHANNELS;
-      config.dataCallback = callbacks[i];
-      config.performanceProfile = ma_performance_profile_low_latency;
-
-      if (ma_device_init(&state.context, &config, &state.devices[i])) {\
-        fprintf(stderr, "Failed to enable audio device %d\n", i);
-        return false;
-      }
+      lovrAudioInitDevice(i);
     }
   }
 
@@ -235,11 +245,17 @@ bool lovrAudioReset() {
 }
 
 bool lovrAudioStart(AudioType type) {
-  return !ma_device_start(&state.devices[type]);
+  if(state.config[type].enable == false) {
+    if(lovrAudioInitDevice(type) == false) {
+      return false;
+    }
+    state.config[type].enable = state.config[type].start = true;
+  }
+  return ma_device_start(&state.devices[type]) == MA_SUCCESS;
 }
 
 bool lovrAudioStop(AudioType type) {
-  return !ma_device_stop(&state.devices[type]);
+  return ma_device_stop(&state.devices[type]) == MA_SUCCESS;
 }
 
 float lovrAudioGetVolume() {
