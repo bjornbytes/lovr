@@ -203,65 +203,6 @@ size_t gpu_sizeof_canvas(void);
 bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info);
 void gpu_canvas_destroy(gpu_canvas* canvas);
 
-// Bundle
-
-typedef enum {
-  GPU_BINDING_UNIFORM_BUFFER,
-  GPU_BINDING_STORAGE_BUFFER,
-  GPU_BINDING_SAMPLED_TEXTURE,
-  GPU_BINDING_STORAGE_TEXTURE
-} gpu_binding_type;
-
-typedef enum {
-  GPU_BINDING_VERTEX   = (1 << 0),
-  GPU_BINDING_FRAGMENT = (1 << 1),
-  GPU_BINDING_COMPUTE  = (1 << 2),
-  GPU_BINDING_DYNAMIC  = (1 << 3)
-} gpu_binding_usage;
-
-typedef struct {
-  gpu_buffer* buffer;
-  uint64_t offset;
-  uint32_t size;
-} gpu_buffer_binding;
-
-typedef struct {
-  gpu_texture* texture;
-  gpu_sampler* sampler;
-} gpu_texture_binding;
-
-typedef struct {
-  uint16_t slot;
-  uint16_t count;
-  gpu_buffer_binding* buffers;
-  gpu_texture_binding* textures;
-} gpu_binding;
-
-typedef struct {
-  uint16_t type;
-  uint16_t index;
-  uint16_t count;
-  uint16_t usage;
-} gpu_slot;
-
-typedef struct {
-  gpu_slot slots[32];
-  uint32_t count;
-  uintptr_t secret;
-} gpu_bundle_layout;
-
-typedef struct {
-  gpu_bundle_layout layout;
-  gpu_binding bindings[32];
-  uint32_t count;
-  bool immutable;
-} gpu_bundle_info;
-
-size_t gpu_sizeof_bundle(void);
-bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info);
-void gpu_bundle_destroy(gpu_bundle* bundle);
-void gpu_bundle_update(gpu_bundle* bundle, gpu_binding bindings[32], uint32_t count);
-
 // Shader
 
 typedef struct {
@@ -287,7 +228,37 @@ typedef struct {
 size_t gpu_sizeof_shader(void);
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info);
 void gpu_shader_destroy(gpu_shader* shader);
-bool gpu_shader_get_layout(gpu_shader* shader, uint32_t group, gpu_bundle_layout* layout);
+
+// Bundle
+
+typedef struct {
+  gpu_buffer* buffer;
+  uint64_t offset;
+  uint32_t size;
+} gpu_buffer_binding;
+
+typedef struct {
+  gpu_texture* texture;
+  gpu_sampler* sampler;
+} gpu_texture_binding;
+
+typedef struct {
+  uint32_t slot;
+  uint32_t count;
+  gpu_buffer_binding* buffers;
+  gpu_texture_binding* textures;
+} gpu_binding;
+
+typedef struct {
+  gpu_shader* shader;
+  uint32_t group;
+  uint32_t bindingCount;
+  gpu_binding bindings[32];
+} gpu_bundle_info;
+
+size_t gpu_sizeof_bundle(void);
+bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info);
+void gpu_bundle_destroy(gpu_bundle* bundle);
 
 // Pipeline
 
