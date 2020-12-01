@@ -172,6 +172,12 @@ function lovr.boot()
   return lovr.run()
 end
 
+function lovr.permission(permission, granted)
+  if permission == "audio_capture" and granted then
+    lovr.audio.start("capture")
+  end
+end
+
 function lovr.run()
   lovr.timer.step()
   if lovr.load then lovr.load(arg) end

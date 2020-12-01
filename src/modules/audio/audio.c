@@ -3,7 +3,7 @@
 #include "data/blob.h"
 #include "core/arr.h"
 #include "core/ref.h"
-#include "core/ref.h"
+#include "core/os.h"
 #include "core/util.h"
 #include <string.h>
 #include <stdlib.h>
@@ -247,11 +247,16 @@ bool lovrAudioReset() {
 bool lovrAudioStart(AudioType type) {
   if(state.config[type].enable == false) {
     if(lovrAudioInitDevice(type) == false) {
+      if (type == AUDIO_CAPTURE) {
+        lovrPlatformRequestAudioCapture();
+        // lovrAudioStart will be retried from boot.lua upon permission granted event
+      }
       return false;
     }
     state.config[type].enable = state.config[type].start = true;
   }
-  return ma_device_start(&state.devices[type]) == MA_SUCCESS;
+  int status = ma_device_start(&state.devices[type]);
+  return status == MA_SUCCESS;
 }
 
 bool lovrAudioStop(AudioType type) {

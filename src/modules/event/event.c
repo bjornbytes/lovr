@@ -32,6 +32,14 @@ static void onTextEvent(uint32_t codepoint) {
   lovrEventPush(event);
 }
 
+static void onPermissionEvent(Permission permission, bool granted) {
+  Event event;
+  event.type = EVENT_PERMISSION;
+  event.data.permission.permission = permission;
+  event.data.permission.granted = granted;
+  lovrEventPush(event);
+}
+
 void lovrVariantDestroy(Variant* variant) {
   switch (variant->type) {
     case TYPE_STRING: free(variant->value.string); return;
@@ -45,6 +53,7 @@ bool lovrEventInit() {
   arr_init(&state.events);
   lovrPlatformOnKeyboardEvent(onKeyboardEvent);
   lovrPlatformOnTextEvent(onTextEvent);
+  lovrPlatformOnPermissionEvent(onPermissionEvent);
   return state.initialized = true;
 }
 
