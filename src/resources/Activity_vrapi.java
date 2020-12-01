@@ -17,23 +17,24 @@ public class Activity extends NativeActivity implements ActivityCompat.OnRequest
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     Log.i("LOVR", "MainActivity.onCreate()");
-    RequestPermissionsIfNeeded();
   }
+
+  protected native void lovrPermissionEvent(int permission, boolean granted);
 
   @Override
   public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults)
   {
     if(grantResults[0] == PackageManager.PERMISSION_GRANTED)
     {
-      Log.i("LOVR", "RECORD_AUDIO permissions have now been granted.");
+      lovrPermissionEvent(0, true);
     }
     else
     {
-      Log.i("LOVR", "RECORD_AUDIO permissions were denied.");
+      lovrPermissionEvent(0, false);
     }
   }
 
-  private void RequestPermissionsIfNeeded()
+  private void requestAudioCapturePermission()
   {
     int existingPermission = ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO);
     if(existingPermission != PackageManager.PERMISSION_GRANTED)
@@ -43,7 +44,7 @@ public class Activity extends NativeActivity implements ActivityCompat.OnRequest
     }
     else
     {
-      Log.i("LOVR", "RECORD_AUDIO permissions already granted.");
+      lovrPermissionEvent(0, true);
     }
   }
 }
