@@ -411,11 +411,11 @@ GLXContext os_get_glx_context() {
 #endif
 
 #ifdef LOVR_VK
-const char** lovrPlatformGetVulkanInstanceExtensions(uint32_t* count) {
+const char** os_vk_get_instance_extensions(uint32_t* count) {
   return glfwGetRequiredInstanceExtensions(count);
 }
 
-uint32_t lovrPlatformCreateVulkanSurface(void* instance, void** surface) {
+uint32_t os_vk_create_surface(void* instance, void** surface) {
   return glfwCreateWindowSurface(instance, glfwState.window, NULL, (VkSurfaceKHR*) surface);
 }
 #endif
