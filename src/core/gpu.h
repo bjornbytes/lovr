@@ -482,6 +482,7 @@ typedef struct {
   void* userdata;
   struct {
     bool surface;
+    int vsync;
     const char** (*getExtraInstanceExtensions)(uint32_t* count);
     uint32_t (*createSurface)(void* instance, void** surface);
   } vk;

@@ -17,47 +17,28 @@ typedef struct {
 
 #define ENTRY(s) { sizeof(s) - 1, s }
 
-extern StringEntry lovrArcMode[];
-extern StringEntry lovrAttributeType[];
 extern StringEntry lovrAudioMaterial[];
 extern StringEntry lovrAudioShareMode[];
 extern StringEntry lovrAudioType[];
-extern StringEntry lovrBlendAlphaMode[];
-extern StringEntry lovrBlendMode[];
-extern StringEntry lovrBlockType[];
-extern StringEntry lovrBufferUsage[];
 extern StringEntry lovrChannelLayout[];
-extern StringEntry lovrCompareMode[];
-extern StringEntry lovrCoordinateSpace[];
 extern StringEntry lovrDevice[];
 extern StringEntry lovrDeviceAxis[];
 extern StringEntry lovrDeviceButton[];
-extern StringEntry lovrDrawMode[];
-extern StringEntry lovrDrawStyle[];
 extern StringEntry lovrEffect[];
 extern StringEntry lovrEventType[];
-extern StringEntry lovrFilterMode[];
 extern StringEntry lovrHeadsetDriver[];
 extern StringEntry lovrHeadsetOrigin[];
-extern StringEntry lovrHorizontalAlign[];
 extern StringEntry lovrJointType[];
 extern StringEntry lovrKeyboardKey[];
-extern StringEntry lovrMaterialColor[];
-extern StringEntry lovrMaterialScalar[];
-extern StringEntry lovrMaterialTexture[];
 extern StringEntry lovrPermission[];
 extern StringEntry lovrSampleFormat[];
 extern StringEntry lovrShaderType[];
 extern StringEntry lovrShapeType[];
+extern StringEntry lovrSourceInterpolation[];
 extern StringEntry lovrStencilAction[];
 extern StringEntry lovrTextureFormat[];
-extern StringEntry lovrTextureType[];
 extern StringEntry lovrTimeUnit[];
-extern StringEntry lovrUniformAccess[];
-extern StringEntry lovrVerticalAlign[];
 extern StringEntry lovrVolumeUnit[];
-extern StringEntry lovrWinding[];
-extern StringEntry lovrWrapMode[];
 
 // General helpers
 
