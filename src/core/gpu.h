@@ -431,8 +431,18 @@ enum {
 };
 
 typedef struct {
-  bool astc;
   bool bptc;
+  bool astc;
+  bool pointSize;
+  bool wireframe;
+  bool anisotropy;
+  bool clipDistance;
+  bool cullDistance;
+  bool fullIndexBufferRange;
+  bool indirectDrawCount;
+  bool indirectDrawFirstInstance;
+  bool extraShaderInputs;
+  bool multiview;
   uint8_t formats[32];
 } gpu_features;
 
@@ -466,10 +476,12 @@ typedef struct {
 
 typedef struct {
   bool debug;
-  bool surface;
+  gpu_features* features;
+  gpu_limits* limits;
   void (*callback)(void* userdata, const char* message, int level);
   void* userdata;
   struct {
+    bool surface;
     const char** (*getExtraInstanceExtensions)(uint32_t* count);
     uint32_t (*createSurface)(void* instance, void** surface);
   } vk;
@@ -479,8 +491,6 @@ bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
 void gpu_thread_attach(void);
 void gpu_thread_detach(void);
-void gpu_get_features(gpu_features* features);
-void gpu_get_limits(gpu_limits* limits);
 void gpu_begin(void);
 void gpu_flush(void);
 void gpu_render(gpu_canvas* canvas, gpu_batch** batches, uint32_t count);

@@ -202,8 +202,6 @@ static struct {
   gpu_scratchpad_pool scratchpads;
   gpu_readback_pool readbacks;
   VkCommandBuffer uploads, work, downloads;
-  gpu_features features;
-  gpu_limits limits;
   gpu_config config;
   void* library;
 } state;
@@ -274,7 +272,7 @@ static const VkFormat textureFormats[][2] = {
   X(vkDestroySurfaceKHR)\
   X(vkEnumeratePhysicalDevices)\
   X(vkGetPhysicalDeviceProperties2)\
-  X(vkGetPhysicalDeviceFeatures)\
+  X(vkGetPhysicalDeviceFeatures2)\
   X(vkGetPhysicalDeviceMemoryProperties)\
   X(vkGetPhysicalDeviceFormatProperties)\
   X(vkGetPhysicalDeviceQueueFamilyProperties)\
@@ -491,8 +489,6 @@ bool gpu_init(gpu_config* config) {
       return false;
     }
 
-    vkGetPhysicalDeviceMemoryProperties(state.physicalDevice, &state.memoryProperties);
-
     VkDeviceQueueCreateInfo queueInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
       .queueFamilyIndex = state.queueFamilyIndex,
@@ -500,17 +496,107 @@ bool gpu_init(gpu_config* config) {
       .pQueuePriorities = &(float) { 1.f }
     };
 
+    vkGetPhysicalDeviceMemoryProperties(state.physicalDevice, &state.memoryProperties);
+
+    if (config->limits) {
+      VkPhysicalDeviceMaintenance3Properties maintenance3Limits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES };
+      VkPhysicalDeviceMultiviewProperties multiviewLimits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES, .pNext = &maintenance3Limits };
+      VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &multiviewLimits };
+      VkPhysicalDeviceLimits* deviceLimits = &properties2.properties.limits;
+      vkGetPhysicalDeviceProperties2(state.physicalDevice, &properties2);
+      config->limits->textureSize2D = MIN(deviceLimits->maxImageDimension2D, UINT16_MAX);
+      config->limits->textureSize3D = MIN(deviceLimits->maxImageDimension3D, UINT16_MAX);
+      config->limits->textureSizeCube = MIN(deviceLimits->maxImageDimensionCube, UINT16_MAX);
+      config->limits->textureLayers = MIN(deviceLimits->maxImageArrayLayers, UINT16_MAX);
+      config->limits->canvasSize[0] = deviceLimits->maxFramebufferWidth;
+      config->limits->canvasSize[1] = deviceLimits->maxFramebufferHeight;
+      config->limits->canvasViews = multiviewLimits.maxMultiviewViewCount;
+      config->limits->bundleCount = MIN(deviceLimits->maxBoundDescriptorSets, COUNTOF(((gpu_shader*) NULL)->layouts));
+      config->limits->bundleSlots = MIN(maintenance3Limits.maxPerSetDescriptors, COUNTOF(((gpu_bundle_info*) NULL)->bindings));
+      config->limits->uniformBufferRange = deviceLimits->maxUniformBufferRange;
+      config->limits->storageBufferRange = deviceLimits->maxStorageBufferRange;
+      config->limits->uniformBufferAlign = deviceLimits->minUniformBufferOffsetAlignment;
+      config->limits->storageBufferAlign = deviceLimits->minStorageBufferOffsetAlignment;
+      config->limits->vertexAttributes = MIN(deviceLimits->maxVertexInputAttributes, COUNTOF(((gpu_pipeline_info*) NULL)->attributes));
+      config->limits->vertexAttributeOffset = MIN(deviceLimits->maxVertexInputAttributeOffset, UINT8_MAX);
+      config->limits->vertexBuffers = MIN(deviceLimits->maxVertexInputBindings, COUNTOF(((gpu_pipeline_info*) NULL)->buffers));
+      config->limits->vertexBufferStride = MIN(deviceLimits->maxVertexInputBindingStride, UINT16_MAX);
+      config->limits->vertexShaderOutputs = deviceLimits->maxVertexOutputComponents;
+      config->limits->computeCount[0] = deviceLimits->maxComputeWorkGroupCount[0];
+      config->limits->computeCount[1] = deviceLimits->maxComputeWorkGroupCount[1];
+      config->limits->computeCount[2] = deviceLimits->maxComputeWorkGroupCount[2];
+      config->limits->computeGroupSize[0] = deviceLimits->maxComputeWorkGroupSize[0];
+      config->limits->computeGroupSize[1] = deviceLimits->maxComputeWorkGroupSize[1];
+      config->limits->computeGroupSize[2] = deviceLimits->maxComputeWorkGroupSize[2];
+      config->limits->computeGroupVolume = deviceLimits->maxComputeWorkGroupInvocations;
+      config->limits->computeSharedMemory = deviceLimits->maxComputeSharedMemorySize;
+      config->limits->indirectDrawCount = deviceLimits->maxDrawIndirectCount;
+      config->limits->allocationSize = maintenance3Limits.maxMemoryAllocationSize;
+      config->limits->pointSize[0] = deviceLimits->pointSizeRange[0];
+      config->limits->pointSize[1] = deviceLimits->pointSizeRange[1];
+      config->limits->anisotropy = deviceLimits->maxSamplerAnisotropy;
+    }
+
+    VkPhysicalDeviceMultiviewFeatures enableMultiview = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES
+    };
+
+    VkPhysicalDeviceShaderDrawParameterFeatures enableShaderDrawParameter = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES,
+      .pNext = &enableMultiview
+    };
+
+    VkPhysicalDeviceFeatures2 enabledFeatures = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+      .pNext = &enableShaderDrawParameter
+    };
+
+    if (config->features) {
+      gpu_features* features = config->features;
+      VkPhysicalDeviceShaderDrawParameterFeatures supportsShaderDrawParameter = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES };
+      VkPhysicalDeviceFeatures2 root = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &supportsShaderDrawParameter };
+      vkGetPhysicalDeviceFeatures2(state.physicalDevice, &root);
+
+      VkPhysicalDeviceFeatures* enable = &enabledFeatures.features;
+      VkPhysicalDeviceFeatures* supports = &root.features;
+
+      // For each feature, enable it only if it was requested and it's supported.
+      // Report any unsupported features by writing back to the input feature struct.
+      features->astc = enable->textureCompressionASTC_LDR = (features->astc && supports->textureCompressionASTC_LDR);
+      features->bptc = enable->textureCompressionBC = (features->bptc && supports->textureCompressionBC);
+      features->pointSize = enable->largePoints = (features->pointSize && supports->largePoints);
+      features->wireframe = enable->fillModeNonSolid = (features->wireframe && supports->fillModeNonSolid);
+      features->anisotropy = enable->samplerAnisotropy = (features->anisotropy && supports->samplerAnisotropy);
+      features->clipDistance = enable->shaderClipDistance = (features->clipDistance && supports->shaderClipDistance);
+      features->cullDistance = enable->shaderCullDistance = (features->cullDistance && supports->shaderCullDistance);
+      features->fullIndexBufferRange = enable->fullDrawIndexUint32 = (features->fullIndexBufferRange && supports->fullDrawIndexUint32);
+      features->indirectDrawCount = enable->multiDrawIndirect = (features->indirectDrawCount && supports->multiDrawIndirect);
+      features->indirectDrawFirstInstance = enable->drawIndirectFirstInstance = (features->indirectDrawFirstInstance && supports->drawIndirectFirstInstance);
+      features->extraShaderInputs = enableShaderDrawParameter.shaderDrawParameters = (features->extraShaderInputs && supportsShaderDrawParameter.shaderDrawParameters);
+      enableMultiview.multiview = features->multiview; // Always supported in 1.1
+
+      VkFormatProperties formatProperties;
+      for (uint32_t i = 0; i < COUNTOF(textureFormats); i++) {
+        vkGetPhysicalDeviceFormatProperties(state.physicalDevice, textureFormats[i][LINEAR], &formatProperties);
+        uint32_t blitMask = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
+        uint32_t flags = formatProperties.optimalTilingFeatures;
+        features->formats[i] =
+          ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FORMAT_FEATURE_SAMPLE : 0) |
+          ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_CANVAS_COLOR : 0) |
+          ((flags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_CANVAS_DEPTH : 0) |
+          ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FORMAT_FEATURE_BLEND : 0) |
+          ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FORMAT_FEATURE_FILTER : 0) |
+          ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FORMAT_FEATURE_STORAGE : 0) |
+          ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FORMAT_FEATURE_ATOMIC : 0) |
+          ((flags & blitMask) == blitMask ? GPU_FORMAT_FEATURE_BLIT : 0);
+      }
+    }
+
     const char* extension = "VK_KHR_swapchain";
 
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-      .pNext = &(VkPhysicalDeviceFeatures2) {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = &(VkPhysicalDeviceMultiviewFeatures) {
-          .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
-          .multiview = VK_TRUE
-        }
-      },
+      .pNext = config->features ? &enabledFeatures : NULL,
       .queueCreateInfoCount = 1,
       .pQueueCreateInfos = &queueInfo,
       .enabledExtensionCount = state.surface ? 1 : 0,
@@ -733,68 +819,6 @@ void gpu_thread_detach() {
   gpu_batch_pool* pool = &batches;
   vkDestroyCommandPool(state.device, pool->commandPool, NULL);
   memset(pool, 0, sizeof(*pool));
-}
-
-void gpu_get_features(gpu_features* features) {
-  VkPhysicalDeviceFeatures deviceFeatures;
-  vkGetPhysicalDeviceFeatures(state.physicalDevice, &deviceFeatures);
-  features->astc = deviceFeatures.textureCompressionASTC_LDR;
-  features->bptc = deviceFeatures.textureCompressionBC;
-
-  VkFormatProperties formatProperties;
-  for (uint32_t i = 0; i < COUNTOF(textureFormats); i++) {
-    vkGetPhysicalDeviceFormatProperties(state.physicalDevice, textureFormats[i][LINEAR], &formatProperties);
-    uint32_t blitMask = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
-    uint32_t flags = formatProperties.optimalTilingFeatures;
-    state.features.formats[i] =
-      ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FORMAT_FEATURE_SAMPLE : 0) |
-      ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_CANVAS_COLOR : 0) |
-      ((flags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_CANVAS_DEPTH : 0) |
-      ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FORMAT_FEATURE_BLEND : 0) |
-      ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FORMAT_FEATURE_FILTER : 0) |
-      ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FORMAT_FEATURE_STORAGE : 0) |
-      ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FORMAT_FEATURE_ATOMIC : 0) |
-      ((flags & blitMask) == blitMask ? GPU_FORMAT_FEATURE_BLIT : 0);
-  }
-}
-
-void gpu_get_limits(gpu_limits* limits) {
-  VkPhysicalDeviceMaintenance3Properties maintenance3Limits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES };
-  VkPhysicalDeviceMultiviewProperties multiviewLimits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES, .pNext = &maintenance3Limits };
-  VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &multiviewLimits };
-  VkPhysicalDeviceLimits* deviceLimits = &properties2.properties.limits;
-  vkGetPhysicalDeviceProperties2(state.physicalDevice, &properties2);
-  limits->textureSize2D = MIN(deviceLimits->maxImageDimension2D, UINT16_MAX);
-  limits->textureSize3D = MIN(deviceLimits->maxImageDimension3D, UINT16_MAX);
-  limits->textureSizeCube = MIN(deviceLimits->maxImageDimensionCube, UINT16_MAX);
-  limits->textureLayers = MIN(deviceLimits->maxImageArrayLayers, UINT16_MAX);
-  limits->canvasSize[0] = deviceLimits->maxFramebufferWidth;
-  limits->canvasSize[1] = deviceLimits->maxFramebufferHeight;
-  limits->canvasViews = multiviewLimits.maxMultiviewViewCount;
-  limits->bundleCount = MIN(deviceLimits->maxBoundDescriptorSets, COUNTOF(((gpu_shader*) NULL)->layouts));
-  limits->bundleSlots = MIN(maintenance3Limits.maxPerSetDescriptors, COUNTOF(((gpu_bundle_info*) NULL)->bindings));
-  limits->uniformBufferRange = deviceLimits->maxUniformBufferRange;
-  limits->storageBufferRange = deviceLimits->maxStorageBufferRange;
-  limits->uniformBufferAlign = deviceLimits->minUniformBufferOffsetAlignment;
-  limits->storageBufferAlign = deviceLimits->minStorageBufferOffsetAlignment;
-  limits->vertexAttributes = MIN(deviceLimits->maxVertexInputAttributes, COUNTOF(((gpu_pipeline_info*) NULL)->attributes));
-  limits->vertexAttributeOffset = MIN(deviceLimits->maxVertexInputAttributeOffset, UINT8_MAX);
-  limits->vertexBuffers = MIN(deviceLimits->maxVertexInputBindings, COUNTOF(((gpu_pipeline_info*) NULL)->buffers));
-  limits->vertexBufferStride = MIN(deviceLimits->maxVertexInputBindingStride, UINT16_MAX);
-  limits->vertexShaderOutputs = deviceLimits->maxVertexOutputComponents;
-  limits->computeCount[0] = deviceLimits->maxComputeWorkGroupCount[0];
-  limits->computeCount[1] = deviceLimits->maxComputeWorkGroupCount[1];
-  limits->computeCount[2] = deviceLimits->maxComputeWorkGroupCount[2];
-  limits->computeGroupSize[0] = deviceLimits->maxComputeWorkGroupSize[0];
-  limits->computeGroupSize[1] = deviceLimits->maxComputeWorkGroupSize[1];
-  limits->computeGroupSize[2] = deviceLimits->maxComputeWorkGroupSize[2];
-  limits->computeGroupVolume = deviceLimits->maxComputeWorkGroupInvocations;
-  limits->computeSharedMemory = deviceLimits->maxComputeSharedMemorySize;
-  limits->indirectDrawCount = deviceLimits->maxDrawIndirectCount;
-  limits->allocationSize = maintenance3Limits.maxMemoryAllocationSize;
-  limits->pointSize[0] = deviceLimits->pointSizeRange[0];
-  limits->pointSize[1] = deviceLimits->pointSizeRange[1];
-  limits->anisotropy = deviceLimits->maxSamplerAnisotropy;
 }
 
 void gpu_begin() {
