@@ -46,7 +46,7 @@ static struct {
   ma_context context;
   AudioConfig config[AUDIO_TYPE_COUNT];
   ma_device devices[AUDIO_TYPE_COUNT];
-  ma_mutex locks[AUDIO_TYPE_COUNT];
+  ma_mutex playbackLock;
   Source* sources;
   ma_pcm_rb captureRingbuffer;
   arr_t(ma_data_converter) converters;
@@ -103,7 +103,7 @@ static bool mix(Source* source, float* output, uint32_t count) {
 }
 
 static void onPlayback(ma_device* device, void* output, const void* _, uint32_t count) {
-  ma_mutex_lock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_lock(&state.playbackLock);
 
   // For each Source, remove it if it isn't playing or process it and remove it if it stops
   for (Source** list = &state.sources, *source = *list; source != NULL; source = *list) {
@@ -116,7 +116,7 @@ static void onPlayback(ma_device* device, void* output, const void* _, uint32_t 
     }
   }
 
-  ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_unlock(&state.playbackLock);
 }
 
 static void onCapture(ma_device* device, void* output, const void* input, uint32_t frames) {
@@ -158,14 +158,12 @@ bool lovrAudioInit(AudioConfig config[2]) {
     return false;
   }
 
+  int mutexStatus = ma_mutex_init(&state.context, &state.playbackLock);
+  lovrAssert(mutexStatus == MA_SUCCESS, "Failed to create audio mutex");
+
   lovrAudioReset();
 
   for (int i = 0; i < AUDIO_TYPE_COUNT; i++) {
-    if (ma_mutex_init(&state.context, &state.locks[i])) {
-      lovrAudioDestroy();
-      return false;
-    }
-
     if (config[i].enable && config[i].start) {
       int startStatus = ma_device_start(&state.devices[i]);
       if(startStatus != MA_SUCCESS) {
@@ -199,8 +197,7 @@ void lovrAudioDestroy() {
   if (!state.initialized) return;
   ma_device_uninit(&state.devices[AUDIO_PLAYBACK]);
   ma_device_uninit(&state.devices[AUDIO_CAPTURE]);
-  ma_mutex_uninit(&state.locks[AUDIO_PLAYBACK]);
-  ma_mutex_uninit(&state.locks[AUDIO_CAPTURE]);
+  ma_mutex_uninit(&state.playbackLock);
   ma_context_uninit(&state.context);
   if (state.spatializer) state.spatializer->destroy();
   arr_free(&state.converters);
@@ -324,7 +321,7 @@ void lovrSourceDestroy(void* ref) {
 }
 
 void lovrSourcePlay(Source* source) {
-  ma_mutex_lock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_lock(&state.playbackLock);
 
   source->playing = true;
 
@@ -335,7 +332,7 @@ void lovrSourcePlay(Source* source) {
     state.sources = source;
   }
 
-  ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_unlock(&state.playbackLock);
 }
 
 void lovrSourcePause(Source* source) {
@@ -364,9 +361,9 @@ float lovrSourceGetVolume(Source* source) {
 }
 
 void lovrSourceSetVolume(Source* source, float volume) {
-  ma_mutex_lock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_lock(&state.playbackLock);
   source->volume = volume;
-  ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_unlock(&state.playbackLock);
 }
 
 bool lovrSourceGetSpatial(Source *source) {
@@ -374,11 +371,11 @@ bool lovrSourceGetSpatial(Source *source) {
 }
 
 void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) {
-  ma_mutex_lock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_lock(&state.playbackLock);
   mat4_identity(source->transform);
   mat4_translate(source->transform, position[0], position[1], position[2]);
   mat4_rotate(source->transform, orientation[0], orientation[1], orientation[2], orientation[3]);
-  ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_unlock(&state.playbackLock);
 }
 
 uint32_t lovrSourceGetTime(Source* source) {
@@ -386,9 +383,9 @@ uint32_t lovrSourceGetTime(Source* source) {
 }
 
 void lovrSourceSetTime(Source* source, uint32_t time) {
-  ma_mutex_lock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_lock(&state.playbackLock);
   source->offset = time;
-  ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_unlock(&state.playbackLock);
 }
 
 SoundData* lovrSourceGetSoundData(Source* source) {
