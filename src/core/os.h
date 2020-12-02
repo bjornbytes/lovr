@@ -171,5 +171,5 @@ void lovrPlatformGetMousePosition(double* x, double* y);
 void lovrPlatformSetMouseMode(MouseMode mode);
 bool lovrPlatformIsMouseDown(MouseButton button);
 bool lovrPlatformIsKeyDown(KeyboardKey key);
-void lovrPlatformRequestAudioCapture();
+void lovrPlatformRequestPermission(Permission permission);
 void lovrPlatformOnPermissionEvent(permissionsCallback callback);

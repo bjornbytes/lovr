@@ -248,7 +248,7 @@ bool lovrAudioStart(AudioType type) {
   if(state.config[type].enable == false) {
     if(lovrAudioInitDevice(type) == false) {
       if (type == AUDIO_CAPTURE) {
-        lovrPlatformRequestAudioCapture();
+        lovrPlatformRequestPermission(AUDIO_CAPTURE_PERMISSION);
         // lovrAudioStart will be retried from boot.lua upon permission granted event
       }
       return false;
