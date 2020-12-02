@@ -473,17 +473,19 @@ bool lovrPlatformIsKeyDown(KeyboardKey key) {
 
 // permissions
 
-void lovrPlatformRequestAudioCapture() {
-  jobject activity = state.app->activity->clazz;
-  jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
-  jmethodID requestAudioCapturePermission = (*state.jni)->GetMethodID(state.jni, class, "requestAudioCapturePermission", "()V");
-  if (!requestAudioCapturePermission) {
-    (*state.jni)->DeleteLocalRef(state.jni, class);
-    if(state.onPermissionEvent) state.onPermissionEvent(AUDIO_CAPTURE_PERMISSION, false);
-    return;
-  }
+void lovrPlatformRequestPermission(Permission permission) {
+  if (permission == AUDIO_CAPTURE_PERMISSION) {
+    jobject activity = state.app->activity->clazz;
+    jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
+    jmethodID requestAudioCapturePermission = (*state.jni)->GetMethodID(state.jni, class, "requestAudioCapturePermission", "()V");
+    if (!requestAudioCapturePermission) {
+      (*state.jni)->DeleteLocalRef(state.jni, class);
+      if(state.onPermissionEvent) state.onPermissionEvent(AUDIO_CAPTURE_PERMISSION, false);
+      return;
+    }
 
-  (*state.jni)->CallVoidMethod(state.jni, activity, requestAudioCapturePermission);
+    (*state.jni)->CallVoidMethod(state.jni, activity, requestAudioCapturePermission);
+  }
 }
 
 void lovrPlatformOnPermissionEvent(permissionsCallback callback) {

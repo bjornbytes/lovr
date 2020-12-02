@@ -370,3 +370,13 @@ bool lovrPlatformIsMouseDown(MouseButton button) {
 bool lovrPlatformIsKeyDown(KeyboardKey key) {
   return state.keyMap[key];
 }
+
+void lovrPlatformRequestPermission(Permission permission)
+{
+
+}
+
+void lovrPlatformOnPermissionEvent(permissionsCallback callback)
+{
+
+}
