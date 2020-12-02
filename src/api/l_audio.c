@@ -49,7 +49,16 @@ static int l_lovrAudioSetVolume(lua_State* L) {
 static int l_lovrAudioNewSource(lua_State* L) {
   Source* source = NULL;
   SoundData* soundData = luax_totype(L, 1, SoundData);
-  bool spatial = lua_isboolean(L, 2) ? lua_toboolean(L, 2) : true;
+  
+  bool spatial = true;
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "spatial");
+    if (lua_isboolean(L, -1)) {
+      spatial = lua_toboolean(L, -1);
+    }
+    lua_pop(L, 1);
+  }
+  
 
   if (soundData) {
     source = lovrSourceCreate(soundData, spatial);
