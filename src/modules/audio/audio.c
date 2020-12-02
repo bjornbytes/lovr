@@ -76,9 +76,7 @@ static bool mix(Source* source, float* output, uint32_t count) {
     ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, aux, &framesOut);
 
     if (source->spatial) {
-      if (state.spatializer) {
-        state.spatializer->apply(source, source->transform, aux, mix, framesOut);
-      }
+      state.spatializer->apply(source, source->transform, aux, mix, framesOut);
     } else {
       memcpy(mix, aux, framesOut * OUTPUT_CHANNELS * sizeof(float));
     }
@@ -191,6 +189,7 @@ bool lovrAudioInit(AudioConfig config[2]) {
       break;
     }
   }
+  lovrAssert(state.spatializer != NULL, "Must have at least one spatializer");
 
   arr_init(&state.converters);
 
