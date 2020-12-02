@@ -126,7 +126,6 @@ static void onCapture(ma_device* device, void* output, const void* input, uint32
     uint32_t availableFrames = frames;
     ma_result acquire_status = ma_pcm_rb_acquire_write(&state.captureRingbuffer, &availableFrames, &store);
     if (acquire_status != MA_SUCCESS) {
-      fprintf(stderr, "Dropping mic audio, failed to acquire ring buffer: %d\n", acquire_status);
       return;
     }
     if (availableFrames == 0) {
@@ -135,7 +134,6 @@ static void onCapture(ma_device* device, void* output, const void* input, uint32
     memcpy(store, input, availableFrames * sizeof(float) * CAPTURE_CHANNELS);
     ma_result commit_status = ma_pcm_rb_commit_write(&state.captureRingbuffer, availableFrames, store);
     if (commit_status != MA_SUCCESS) {
-      fprintf(stderr, "Dropping mic audio, failed to commit ring buffer: %d\n", acquire_status);
       return;
     }
     frames -= availableFrames;
@@ -169,9 +167,10 @@ bool lovrAudioInit(AudioConfig config[2]) {
     }
 
     if (config[i].enable && config[i].start) {
-      if (ma_device_start(&state.devices[i])) {
-        fprintf(stderr, "Failed to start audio device %d\n", i);
+      int startStatus = ma_device_start(&state.devices[i]);
+      if(startStatus != MA_SUCCESS) {
         lovrAudioDestroy();
+        lovrAssert(false, "Failed to start audio device %d\n", i);
         return false;
       }
     }
@@ -222,7 +221,7 @@ bool lovrAudioInitDevice(AudioType type) {
 
   int err = ma_device_init(&state.context, &config, &state.devices[type]); 
   if (err != MA_SUCCESS) {
-    fprintf(stderr, "Failed to enable audio device %d: %d\n", type, err);
+    lovrAssert(false, "Failed to enable audio device %d: %d\n", type, err);
     return false;
   }
   return true;
@@ -429,13 +428,13 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
     void *store;
     ma_result acquire_status = ma_pcm_rb_acquire_read(&state.captureRingbuffer, &availableFrames, &store);
     if (acquire_status != MA_SUCCESS) {
-      fprintf(stderr, "Failed to acquire ring buffer for read: %d\n", acquire_status);
+      lovrAssert(false, "Failed to acquire ring buffer for read: %d\n", acquire_status);
       return NULL;
     }
     memcpy(soundData->blob->data + offset, store, availableFrames * sizeof(float) * CAPTURE_CHANNELS);
     ma_result commit_status = ma_pcm_rb_commit_read(&state.captureRingbuffer, availableFrames, store);
     if (commit_status != MA_SUCCESS) {
-      fprintf(stderr, "Failed to commit ring buffer for read: %d\n", acquire_status);
+      lovrAssert(false, "Failed to commit ring buffer for read: %d\n", acquire_status);
       return NULL;
     }
     frameCount -= availableFrames;
