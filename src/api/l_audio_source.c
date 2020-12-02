@@ -51,7 +51,7 @@ static int l_lovrSourceSetVolume(lua_State* L) {
   return 0;
 }
 
-static int l_lovrSourceGetSpatial(lua_State* L) {
+static int l_lovrSourceIsSpatial(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   lua_pushboolean(L, lovrSourceGetSpatial(source));
   return 1;
@@ -120,7 +120,7 @@ const luaL_Reg lovrSource[] = {
   { "setLooping", l_lovrSourceSetLooping },
   { "getVolume", l_lovrSourceGetVolume },
   { "setVolume", l_lovrSourceSetVolume },
-  { "getSpatial", l_lovrSourceGetSpatial },
+  { "isSpatial", l_lovrSourceIsSpatial },
   { "setPose", l_lovrSourceSetPose },
   { "getDuration", l_lovrSourceGetDuration },
   { "getTime", l_lovrSourceGetTime },
