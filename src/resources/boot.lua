@@ -173,7 +173,7 @@ function lovr.boot()
 end
 
 function lovr.permission(permission, granted)
-  if permission == "audio_capture" and granted then
+  if permission == "audiocapture" and granted then
     lovr.audio.start("capture")
   end
 end
