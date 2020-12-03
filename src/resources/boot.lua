@@ -195,7 +195,9 @@ function lovr.run()
     if lovr.headset then lovr.headset.update(dt) end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics and lovr.draw then
+      lovr.graphics.begin()
       lovr.draw()
+      lovr.graphics.flush()
     end
     if lovr.math then lovr.math.drain() end
   end

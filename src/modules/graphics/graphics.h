@@ -57,3 +57,5 @@ uint32_t lovrGraphicsGetHeight(void);
 float lovrGraphicsGetPixelDensity(void);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
+void lovrGraphicsBegin(void);
+void lovrGraphicsFlush(void);
