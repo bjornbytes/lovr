@@ -139,3 +139,11 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->pointSize[1] = state.limits.pointSize[1];
   limits->anisotropy = state.limits.anisotropy;
 }
+
+void lovrGraphicsBegin() {
+  gpu_begin();
+}
+
+void lovrGraphicsFlush() {
+  gpu_flush();
+}
