@@ -112,7 +112,7 @@ StringEntry lovrKeyboardKey[] = {
 };
 
 StringEntry lovrPermission[] = {
-  [AUDIO_CAPTURE_PERMISSION] = ENTRY("audio_capture"),
+  [AUDIO_CAPTURE_PERMISSION] = ENTRY("audiocapture"),
   { 0 }
 };
 
