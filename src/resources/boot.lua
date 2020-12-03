@@ -202,24 +202,7 @@ function lovr.run()
 end
 
 function lovr.mirror()
-  if lovr.headset then -- On some systems, headset module will be disabled
-    local blend, alpha = lovr.graphics.getBlendMode()
-    lovr.graphics.setBlendMode()
-    local texture = lovr.headset.getMirrorTexture()
-    if texture then    -- On some drivers, texture is printed directly to the window
-      if lovr.headset.getDriver() == 'oculus' then
-        lovr.graphics.fill(texture, 0, 1, 1, -1)
-      else
-        lovr.graphics.fill(texture)
-      end
-    end
-    lovr.graphics.setBlendMode(blend, alpha)
-  else
-    lovr.graphics.clear()
-    if lovr.draw then
-      lovr.draw()
-    end
-  end
+  --
 end
 
 local function formatTraceback(s)
