@@ -11,5 +11,6 @@ static int l_lovrSoundDataGetBlob(lua_State* L) {
 
 
 const luaL_Reg lovrSoundData[] = {
-  { "getBlob", l_lovrSoundDataGetBlob }
+  { "getBlob", l_lovrSoundDataGetBlob },
+  { NULL, NULL }
 };
