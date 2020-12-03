@@ -402,9 +402,9 @@ uint32_t lovrAudioGetCaptureSampleCount() {
 
 struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, uint32_t offset) {
 
-  uint32_t availableFrames = lovrAudioGetCaptureSampleCount();
-  if (frameCount == 0 || frameCount > availableFrames) {
-    frameCount = availableFrames;
+  uint32_t bufferedFrames = lovrAudioGetCaptureSampleCount();
+  if (frameCount == 0 || frameCount > bufferedFrames) {
+    frameCount = bufferedFrames;
   }
 
   if (frameCount == 0) {
@@ -414,28 +414,29 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
   if (soundData == NULL) {
     soundData = lovrSoundDataCreate(frameCount, CAPTURE_CHANNELS, LOVR_AUDIO_SAMPLE_RATE, OUTPUT_FORMAT, NULL, 0);
   } else {
-    lovrAssert(soundData->channels == OUTPUT_CHANNELS, "Capture and SoundData channel counts must match");
+    lovrAssert(soundData->channels == CAPTURE_CHANNELS, "Capture and SoundData channel counts must match");
     lovrAssert(soundData->sampleRate == LOVR_AUDIO_SAMPLE_RATE, "Capture and SoundData sample rates must match");
     lovrAssert(soundData->format == OUTPUT_FORMAT, "Capture and SoundData formats must match");
     lovrAssert(offset + frameCount <= soundData->frames, "Tried to write samples past the end of a SoundData buffer");
   }
 
+  uint32_t bytesPerFrame = sizeof(float) * CAPTURE_CHANNELS;
   while(frameCount > 0) {
-    uint32_t availableFrames = frameCount;
+    uint32_t availableFramesInRB = frameCount;
     void *store;
-    ma_result acquire_status = ma_pcm_rb_acquire_read(&state.captureRingbuffer, &availableFrames, &store);
+    ma_result acquire_status = ma_pcm_rb_acquire_read(&state.captureRingbuffer, &availableFramesInRB, &store);
     if (acquire_status != MA_SUCCESS) {
       lovrAssert(false, "Failed to acquire ring buffer for read: %d\n", acquire_status);
       return NULL;
     }
-    memcpy(soundData->blob->data + offset, store, availableFrames * sizeof(float) * CAPTURE_CHANNELS);
-    ma_result commit_status = ma_pcm_rb_commit_read(&state.captureRingbuffer, availableFrames, store);
+    memcpy(soundData->blob->data + offset * bytesPerFrame, store, availableFramesInRB * bytesPerFrame);
+    ma_result commit_status = ma_pcm_rb_commit_read(&state.captureRingbuffer, availableFramesInRB, store);
     if (commit_status != MA_SUCCESS) {
       lovrAssert(false, "Failed to commit ring buffer for read: %d\n", acquire_status);
       return NULL;
     }
-    frameCount -= availableFrames;
-    offset += availableFrames;
+    frameCount -= availableFramesInRB;
+    offset += availableFramesInRB;
   }
 
   return soundData;
