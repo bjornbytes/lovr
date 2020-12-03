@@ -218,7 +218,7 @@ bool lovrAudioInitDevice(AudioType type) {
 
   int err = ma_device_init(&state.context, &config, &state.devices[type]); 
   if (err != MA_SUCCESS) {
-    lovrAssert(false, "Failed to enable audio device %d: %d\n", type, err);
+    lovrLog(LOG_WARN, "audio", "Failed to enable audio device %d: %d\n", type, err);
     return false;
   }
   return true;
