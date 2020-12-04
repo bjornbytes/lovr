@@ -4,6 +4,12 @@
 #include "core/os.h"
 #include "core/util.h"
 #include <string.h>
+#include <stdlib.h>
+
+struct Buffer {
+  gpu_buffer* gpu;
+  BufferInfo info;
+};
 
 #ifdef LOVR_VK
 const char** os_vk_get_instance_extensions(uint32_t* count);
@@ -146,4 +152,48 @@ void lovrGraphicsBegin() {
 
 void lovrGraphicsFlush() {
   gpu_flush();
+}
+
+Buffer* lovrBufferCreate(BufferInfo* info) {
+  Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
+  buffer->gpu = (gpu_buffer*) (buffer + 1);
+  buffer->info = *info;
+
+  gpu_buffer_usage gpuBufferUsage[] = {
+    [BUFFER_VERTEX] = GPU_BUFFER_USAGE_VERTEX,
+    [BUFFER_INDEX] = GPU_BUFFER_USAGE_INDEX,
+    [BUFFER_UNIFORM] = GPU_BUFFER_USAGE_UNIFORM,
+    [BUFFER_STORAGE] = GPU_BUFFER_USAGE_STORAGE,
+    [BUFFER_COPY] = GPU_BUFFER_USAGE_COPY,
+    [BUFFER_PASTE] = GPU_BUFFER_USAGE_PASTE
+  };
+
+  uint32_t usage = 0;
+  for (uint32_t i = 0; i < sizeof(gpuBufferUsage) / sizeof(gpuBufferUsage[0]); i++) {
+    if (info->usage & (1 << i)) {
+      usage |= gpuBufferUsage[i];
+    }
+  }
+
+  gpu_buffer_info gpuInfo = {
+    .size = info->size,
+    .usage = usage,
+    .label = info->label
+  };
+
+  if (!gpu_buffer_init(buffer->gpu, &gpuInfo)) {
+    lovrRelease(buffer, lovrBufferDestroy);
+    return NULL;
+  }
+
+  return buffer;
+}
+
+void lovrBufferDestroy(void* ref) {
+  Buffer* buffer = ref;
+  gpu_buffer_destroy(buffer->gpu);
+}
+
+const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
+  return &buffer->info;
 }

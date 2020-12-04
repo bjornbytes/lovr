@@ -29,7 +29,6 @@ typedef enum {
 typedef struct {
   uint64_t size;
   uint32_t usage;
-  void* data;
   const char* label;
 } gpu_buffer_info;
 
