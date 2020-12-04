@@ -579,8 +579,8 @@ bool gpu_init(gpu_config* config) {
         uint32_t flags = formatProperties.optimalTilingFeatures;
         config->features->formats[i] =
           ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FORMAT_FEATURE_SAMPLE : 0) |
-          ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_CANVAS_COLOR : 0) |
-          ((flags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_CANVAS_DEPTH : 0) |
+          ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_RENDER_COLOR : 0) |
+          ((flags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_RENDER_DEPTH : 0) |
           ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FORMAT_FEATURE_BLEND : 0) |
           ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FORMAT_FEATURE_FILTER : 0) |
           ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FORMAT_FEATURE_STORAGE : 0) |
@@ -863,14 +863,16 @@ void gpu_flush() {
 }
 
 static void execute(gpu_batch** batches, uint32_t count) {
-  VkCommandBuffer commands[8];
-  uint32_t chunk = COUNTOF(commands);
-  while (count > 0) {
-    chunk = count < chunk ? count : chunk;
-    for (uint32_t i = 0; i < chunk; i++) commands[i] = batches[i]->cmd;
-    vkCmdExecuteCommands(state.commands, chunk, commands);
-    batches += chunk;
-    count -= chunk;
+  if (count > 0) {
+    VkCommandBuffer commands[8];
+    uint32_t chunk = COUNTOF(commands);
+    while (count > 0) {
+      chunk = count < chunk ? count : chunk;
+      for (uint32_t i = 0; i < chunk; i++) commands[i] = batches[i]->cmd;
+      vkCmdExecuteCommands(state.commands, chunk, commands);
+      batches += chunk;
+      count -= chunk;
+    }
   }
 }
 
@@ -951,8 +953,9 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
     ((info->usage & GPU_BUFFER_USAGE_INDEX) ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : 0) |
     ((info->usage & GPU_BUFFER_USAGE_UNIFORM) ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : 0) |
     ((info->usage & GPU_BUFFER_USAGE_STORAGE) ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_COPY) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_PASTE) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0);
+    ((info->usage & GPU_BUFFER_USAGE_INDIRECT) ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0) |
+    ((info->usage & GPU_BUFFER_USAGE_UPLOAD) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0) |
+    ((info->usage & GPU_BUFFER_USAGE_DOWNLOAD) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0);
 
   VkBufferCreateInfo bufferInfo = {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -1088,8 +1091,8 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   bool depth = texture->aspect & VK_IMAGE_ASPECT_DEPTH_BIT;
   VkImageUsageFlags usage =
-    (((info->usage & GPU_TEXTURE_USAGE_CANVAS) && !depth) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
-    (((info->usage & GPU_TEXTURE_USAGE_CANVAS) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
+    (((info->usage & GPU_TEXTURE_USAGE_RENDER) && !depth) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
+    (((info->usage & GPU_TEXTURE_USAGE_RENDER) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_COPY) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
