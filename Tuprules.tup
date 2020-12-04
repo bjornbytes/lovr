@@ -22,7 +22,7 @@ CFLAGS_headset_vrapi.c += -Wno-c11-extensions -Wno-gnu-empty-initializer -Wno-pe
 CFLAGS_miniaudio.c += -Wno-unused-function
 CFLAGS_@(STRICT) += -Werror
 FLAGS_@(DEBUG) += -g
-FLAGS_@(OPTIMIZE) += -Oz
+FLAGS_@(OPTIMIZE) += -O2 -flto
 FLAGS_@(SANITIZE) += -fsanitize=address,undefined
 CFLAGS_@(OPTIMIZE) += -fdata-sections -ffunction-sections
 ifneq (@(DEBUG),y)

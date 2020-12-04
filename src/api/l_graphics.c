@@ -13,9 +13,18 @@ StringEntry lovrBufferUsage[] = {
   [BUFFER_VERTEX] = ENTRY("vertex"),
   [BUFFER_INDEX] = ENTRY("index"),
   [BUFFER_UNIFORM] = ENTRY("uniform"),
-  [BUFFER_STORAGE] = ENTRY("storage"),
-  [BUFFER_COPY] = ENTRY("copy"),
-  [BUFFER_PASTE] = ENTRY("paste"),
+  [BUFFER_COMPUTE] = ENTRY("compute"),
+  [BUFFER_ARGUMENT] = ENTRY("argument"),
+  [BUFFER_UPLOAD] = ENTRY("upload"),
+  [BUFFER_DOWNLOAD] = ENTRY("download"),
+  { 0 }
+};
+
+StringEntry lovrTextureType[] = {
+  [TEXTURE_2D] = ENTRY("2d"),
+  [TEXTURE_CUBE] = ENTRY("cube"),
+  [TEXTURE_VOLUME] = ENTRY("volume"),
+  [TEXTURE_ARRAY] = ENTRY("array"),
   { 0 }
 };
 
@@ -309,6 +318,101 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewTexture(lua_State* L) {
+  TextureInfo info;
+  int index = 1;
+  int argType = lua_type(L, index);
+  bool blank = argType == LUA_TNUMBER;
+  TextureType type = TEXTURE_2D;
+
+  if (blank) {
+    info.size[0] = lua_tointeger(L, index++);
+    info.size[1] = luaL_checkinteger(L, index++);
+    info.size[2] = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) : 0;
+  } else if (argType != LUA_TTABLE) {
+    lua_createtable(L, 1, 0);
+    lua_pushvalue(L, 1);
+    lua_rawseti(L, -2, 1);
+    lua_replace(L, 1);
+    info.size[2] = 1;
+    index++;
+  } else {
+    info.size[2] = luax_len(L, index++);
+    info.type = info.size[2] > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE;
+  }
+
+  bool hasFlags = lua_istable(L, index);
+
+  info.format = FORMAT_RGBA8;
+  info.mipmaps = ~0u;
+  info.samples = 1;
+  info.srgb = !blank;
+
+  if (hasFlags) {
+    lua_getfield(L, index, "linear");
+    info.srgb = lua_isnil(L, -1) ? info.srgb : !lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "mipmaps");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+      info.mipmaps = lua_tonumber(L, -1);
+    } else {
+      info.mipmaps = (lua_isnil(L, -1) || lua_toboolean(L, -1)) ? ~0u : 1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "type");
+    info.type = lua_isnil(L, -1) ? info.type : (TextureType) luax_checkenum(L, -1, TextureType, NULL);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "format");
+    info.format = lua_isnil(L, -1) ? info.format : (TextureFormat) luax_checkenum(L, -1, TextureFormat, NULL);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "samples");
+    info.samples = lua_isnil(L, -1) ? info.samples : luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+  }
+
+  Texture* texture;
+
+  if (blank) {
+    info.size[2] = info.size[2] > 0 ? info.size[2] : (info.type == TEXTURE_CUBE ? 6 : 1);
+    texture = lovrTextureCreate(&info);
+  } else {
+    if (type == TEXTURE_CUBE && info.size[2] == 0) {
+      info.size[2] = 6;
+      const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
+      for (int i = 0; i < 6; i++) {
+        lua_pushstring(L, faces[i]);
+        lua_rawget(L, 1);
+        lovrAssert(!lua_isnil(L, -1), "Could not load cubemap texture: missing '%s' face", faces[i]);
+        lua_rawseti(L, 1, i + 1);
+      }
+    }
+
+    lovrAssert(info.size[2] > 0, "No texture images specified");
+
+    for (uint32_t i = 0; i < info.size[2]; i++) {
+      lua_rawgeti(L, 1, i + 1);
+      Image* image = luax_checkimage(L, -1, type != TEXTURE_CUBE);
+      if (i == 0) {
+        info.size[0] = image->width;
+        info.size[1] = image->height;
+        info.format = image->format;
+        texture = lovrTextureCreate(&info);
+      }
+      //lovrTextureReplacePixels(texture, image, 0, 0, i, 0);
+      lovrRelease(image, lovrImageDestroy);
+      lua_pop(L, 1);
+    }
+  }
+
+  luax_pushtype(L, Texture, texture);
+  lovrRelease(texture, lovrTextureDestroy);
+  return 1;
+}
+
 static const luaL_Reg lovrGraphics[] = {
   { "createWindow", l_lovrGraphicsCreateWindow },
   { "hasWindow", l_lovrGraphicsHasWindow },
@@ -321,6 +425,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "begin", l_lovrGraphicsBegin },
   { "flush", l_lovrGraphicsFlush },
   { "newBuffer", l_lovrGraphicsNewBuffer },
+  { "newTexture", l_lovrGraphicsNewTexture },
   { NULL, NULL }
 };
 

@@ -9,28 +9,27 @@
 
 static size_t getPixelSize(TextureFormat format) {
   switch (format) {
-    case FORMAT_RGB: return 3;
-    case FORMAT_RGBA: return 4;
-    case FORMAT_RGBA4: return 2;
+    case FORMAT_R8: return 1;
+    case FORMAT_RG8: return 2;
+    case FORMAT_RGBA8: return 4;
     case FORMAT_R16: return 2;
     case FORMAT_RG16: return 4;
     case FORMAT_RGBA16: return 8;
-    case FORMAT_RGBA16F: return 8;
-    case FORMAT_RGBA32F: return 16;
     case FORMAT_R16F: return 2;
-    case FORMAT_R32F: return 4;
     case FORMAT_RG16F: return 4;
+    case FORMAT_RGBA16F: return 8;
+    case FORMAT_R32F: return 4;
     case FORMAT_RG32F: return 8;
-    case FORMAT_RGB5A1: return 2;
-    case FORMAT_RGB10A2: return 4;
+    case FORMAT_RGBA32F: return 16;
     case FORMAT_RG11B10F: return 4;
     case FORMAT_D16: return 2;
-    case FORMAT_D32F: return 4;
     case FORMAT_D24S8: return 4;
+    case FORMAT_D32F: return 4;
     default: return 0;
   }
 }
 
+/*
 // Modified from ddsparse (https://bitbucket.org/slime73/ddsparse)
 static bool parseDDS(uint8_t* data, size_t size, Image* image) {
   enum {
@@ -319,6 +318,7 @@ static bool parseDDS(uint8_t* data, size_t size, Image* image) {
 
   return true;
 }
+*/
 
 static bool parseKTX(uint8_t* bytes, size_t size, Image* image) {
   typedef struct {
@@ -354,11 +354,7 @@ static bool parseKTX(uint8_t* bytes, size_t size, Image* image) {
     return false;
   }
 
-  // TODO MOAR FORMATS, GIMME COOOBMAPS
   switch (data.ktx->glInternalFormat) {
-    case 0x83F0: image->format = FORMAT_DXT1; break;
-    case 0x83F2: image->format = FORMAT_DXT3; break;
-    case 0x83F3: image->format = FORMAT_DXT5; break;
     case 0x93B0: case 0x93D0: image->format = FORMAT_ASTC_4x4; break;
     case 0x93B1: case 0x93D1: image->format = FORMAT_ASTC_5x4; break;
     case 0x93B2: case 0x93D2: image->format = FORMAT_ASTC_5x5; break;
@@ -460,7 +456,7 @@ Image* lovrImageCreate(uint32_t width, uint32_t height, Blob* contents, uint8_t 
   size_t pixelSize = getPixelSize(format);
   size_t size = width * height * pixelSize;
   lovrAssert(width > 0 && height > 0, "Image dimensions must be positive");
-  lovrAssert(format < FORMAT_DXT1, "Blank images cannot be compressed");
+  lovrAssert(format < FORMAT_BC6, "Blank images cannot be compressed");
   lovrAssert(!contents || contents->size >= size, "Image Blob is too small (%d bytes needed, got %d)", size, contents->size);
   image->width = width;
   image->height = height;
@@ -481,11 +477,11 @@ Image* lovrImageCreateFromBlob(Blob* blob, bool flip) {
   lovrAssert(image, "Out of memory");
   image->ref = 1;
   image->blob = lovrBlobCreate(NULL, 0, NULL);
-  if (parseDDS(blob->data, blob->size, image)) {
+  /*if (parseDDS(blob->data, blob->size, image)) {
     image->source = blob;
     lovrRetain(blob);
     return image;
-  } else if (parseKTX(blob->data, blob->size, image)) {
+  } else */if (parseKTX(blob->data, blob->size, image)) {
     image->source = blob;
     lovrRetain(blob);
     return image;
@@ -522,7 +518,7 @@ Image* lovrImageCreateFromBlob(Blob* blob, bool flip) {
     image->blob->data = stbi_loadf_from_memory(blob->data, length, &width, &height, NULL, 4);
     image->blob->size = 16 * width * height;
   } else {
-    image->format = FORMAT_RGBA;
+    image->format = FORMAT_RGBA8;
     image->blob->data = stbi_load_from_memory(blob->data, length, &width, &height, NULL, 4);
     image->blob->size = 4 * width * height;
   }
@@ -556,11 +552,10 @@ Color lovrImageGetPixel(Image* image, uint32_t x, uint32_t y) {
   uint8_t* u8 = (uint8_t*) image->blob->data + pixelSize * index;
   float* f32 = (float*) u8;
   switch (image->format) {
-    case FORMAT_RGB: return (Color) { u8[0] / 255.f, u8[1] / 255.f, u8[2] / 255.f, 1.f };
-    case FORMAT_RGBA: return (Color) { u8[0] / 255.f, u8[1] / 255.f, u8[2] / 255.f, u8[3] / 255.f };
-    case FORMAT_RGBA32F: return (Color) { f32[0], f32[1], f32[2], f32[3] };
+    case FORMAT_RGBA8: return (Color) { u8[0] / 255.f, u8[1] / 255.f, u8[2] / 255.f, u8[3] / 255.f };
     case FORMAT_R32F: return (Color) { f32[0], 1.f, 1.f, 1.f };
     case FORMAT_RG32F: return (Color) { f32[0], f32[1], 1.f, 1.f };
+    case FORMAT_RGBA32F: return (Color) { f32[0], f32[1], f32[2], f32[3] };
     default: lovrThrow("Unsupported format for Image:getPixel");
   }
 }
@@ -573,24 +568,11 @@ void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, Color color) {
   uint8_t* u8 = (uint8_t*) image->blob->data + pixelSize * index;
   float* f32 = (float*) u8;
   switch (image->format) {
-    case FORMAT_RGB:
-      u8[0] = (uint8_t) (color.r * 255.f + .5f);
-      u8[1] = (uint8_t) (color.g * 255.f + .5f);
-      u8[2] = (uint8_t) (color.b * 255.f + .5f);
-      break;
-
-    case FORMAT_RGBA:
+    case FORMAT_RGBA8:
       u8[0] = (uint8_t) (color.r * 255.f + .5f);
       u8[1] = (uint8_t) (color.g * 255.f + .5f);
       u8[2] = (uint8_t) (color.b * 255.f + .5f);
       u8[3] = (uint8_t) (color.a * 255.f + .5f);
-      break;
-
-    case FORMAT_RGBA32F:
-      f32[0] = color.r;
-      f32[1] = color.g;
-      f32[2] = color.b;
-      f32[3] = color.a;
       break;
 
     case FORMAT_R32F:
@@ -600,6 +582,13 @@ void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, Color color) {
     case FORMAT_RG32F:
       f32[0] = color.r;
       f32[1] = color.g;
+      break;
+
+    case FORMAT_RGBA32F:
+      f32[0] = color.r;
+      f32[1] = color.g;
+      f32[2] = color.b;
+      f32[3] = color.a;
       break;
 
     default: lovrThrow("Unsupported format for Image:setPixel");
@@ -632,7 +621,7 @@ static uint32_t crc32(uint8_t* data, size_t length) {
 }
 
 Blob* lovrImageEncode(Image* image) {
-  lovrAssert(image->format == FORMAT_RGBA, "Only RGBA Image can be encoded");
+  lovrAssert(image->format == FORMAT_RGBA8, "Only RGBA images can be encoded");
   uint32_t w = image->width;
   uint32_t h = image->height;
   uint8_t* pixels = (uint8_t*) image->blob->data + (h - 1) * w * 4;
@@ -745,7 +734,7 @@ Blob* lovrImageEncode(Image* image) {
 
 void lovrImagePaste(Image* image, Image* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h) {
   lovrAssert(image->format == source->format, "Currently Image must have the same format to paste");
-  lovrAssert(image->format < FORMAT_DXT1, "Compressed Image cannot be pasted");
+  lovrAssert(image->format < FORMAT_BC6, "Compressed Image cannot be pasted");
   size_t pixelSize = getPixelSize(image->format);
   lovrAssert(dx + w <= image->width && dy + h <= image->height, "Attempt to paste outside of destination Image bounds");
   lovrAssert(sx + w <= source->width && sy + h <= source->height, "Attempt to paste from outside of source Image bounds");

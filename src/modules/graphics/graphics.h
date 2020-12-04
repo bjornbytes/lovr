@@ -6,21 +6,7 @@
 struct WindowFlags;
 
 typedef struct Buffer Buffer;
-
-typedef enum {
-  BUFFER_VERTEX,
-  BUFFER_INDEX,
-  BUFFER_UNIFORM,
-  BUFFER_STORAGE,
-  BUFFER_COPY,
-  BUFFER_PASTE
-} BufferUsage;
-
-typedef struct {
-  uint32_t size;
-  uint32_t usage;
-  const char* label;
-} BufferInfo;
+typedef struct Texture Texture;
 
 typedef struct {
   bool bptc;
@@ -77,6 +63,56 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
 void lovrGraphicsFlush(void);
 
+// Buffer
+
+typedef enum {
+  BUFFER_VERTEX,
+  BUFFER_INDEX,
+  BUFFER_UNIFORM,
+  BUFFER_COMPUTE,
+  BUFFER_ARGUMENT,
+  BUFFER_UPLOAD,
+  BUFFER_DOWNLOAD
+} BufferUsage;
+
+typedef struct {
+  uint32_t size;
+  uint32_t usage;
+  const char* label;
+} BufferInfo;
+
 Buffer* lovrBufferCreate(BufferInfo* info);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
+
+// Texture
+
+typedef enum {
+  TEXTURE_2D,
+  TEXTURE_CUBE,
+  TEXTURE_VOLUME,
+  TEXTURE_ARRAY
+} TextureType;
+
+typedef enum {
+  TEXTURE_SAMPLE,
+  TEXTURE_RENDER,
+  TEXTURE_COMPUTE,
+  TEXTURE_UPLOAD,
+  TEXTURE_DOWNLOAD
+} TextureUsage;
+
+typedef struct {
+  TextureType type;
+  uint32_t format; // See TextureData
+  uint32_t size[3];
+  uint32_t mipmaps;
+  uint32_t samples;
+  uint32_t usage;
+  bool srgb;
+  const char* label;
+} TextureInfo;
+
+Texture* lovrTextureCreate(TextureInfo* info);
+void lovrTextureDestroy(void* ref);
+const TextureInfo* lovrTextureGetInfo(Texture* texture);

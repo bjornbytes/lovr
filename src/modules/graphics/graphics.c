@@ -1,4 +1,5 @@
 #include "graphics/graphics.h"
+#include "data/image.h"
 #include "event/event.h"
 #include "core/gpu.h"
 #include "core/os.h"
@@ -11,10 +12,10 @@ struct Buffer {
   BufferInfo info;
 };
 
-#ifdef LOVR_VK
-const char** os_vk_get_instance_extensions(uint32_t* count);
-uint32_t os_vk_create_surface(void* instance, void** surface);
-#endif
+struct Texture {
+  gpu_texture* gpu;
+  TextureInfo info;
+};
 
 static struct {
   bool initialized;
@@ -154,6 +155,8 @@ void lovrGraphicsFlush() {
   gpu_flush();
 }
 
+// Buffer
+
 Buffer* lovrBufferCreate(BufferInfo* info) {
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
   buffer->gpu = (gpu_buffer*) (buffer + 1);
@@ -163,9 +166,10 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
     [BUFFER_VERTEX] = GPU_BUFFER_USAGE_VERTEX,
     [BUFFER_INDEX] = GPU_BUFFER_USAGE_INDEX,
     [BUFFER_UNIFORM] = GPU_BUFFER_USAGE_UNIFORM,
-    [BUFFER_STORAGE] = GPU_BUFFER_USAGE_STORAGE,
-    [BUFFER_COPY] = GPU_BUFFER_USAGE_COPY,
-    [BUFFER_PASTE] = GPU_BUFFER_USAGE_PASTE
+    [BUFFER_COMPUTE] = GPU_BUFFER_USAGE_STORAGE,
+    [BUFFER_ARGUMENT] = GPU_BUFFER_USAGE_INDIRECT,
+    [BUFFER_UPLOAD] = GPU_BUFFER_USAGE_UPLOAD,
+    [BUFFER_DOWNLOAD] = GPU_BUFFER_USAGE_DOWNLOAD
   };
 
   uint32_t usage = 0;
@@ -196,4 +200,94 @@ void lovrBufferDestroy(void* ref) {
 
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
   return &buffer->info;
+}
+
+// Texture
+
+Texture* lovrTextureCreate(TextureInfo* info) {
+  Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
+  texture->gpu = (gpu_texture*) (texture + 1);
+  texture->info = *info;
+
+  static const gpu_texture_type gpuTextureTypes[] = {
+    [TEXTURE_2D] = GPU_TEXTURE_TYPE_2D,
+    [TEXTURE_CUBE] = GPU_TEXTURE_TYPE_CUBE,
+    [TEXTURE_VOLUME] = GPU_TEXTURE_TYPE_3D,
+    [TEXTURE_ARRAY] = GPU_TEXTURE_TYPE_ARRAY
+  };
+
+  static const gpu_texture_format gpuTextureFormats[] = {
+    [FORMAT_R8] = GPU_TEXTURE_FORMAT_R8,
+    [FORMAT_RG8] = GPU_TEXTURE_FORMAT_RG8,
+    [FORMAT_RGBA8] = GPU_TEXTURE_FORMAT_RGBA8,
+    [FORMAT_R16] = GPU_TEXTURE_FORMAT_R16,
+    [FORMAT_RG16] = GPU_TEXTURE_FORMAT_RG16,
+    [FORMAT_RGBA16] = GPU_TEXTURE_FORMAT_RGBA16,
+    [FORMAT_R16F] = GPU_TEXTURE_FORMAT_R16F,
+    [FORMAT_RG16F] = GPU_TEXTURE_FORMAT_RG16F,
+    [FORMAT_RGBA16F] = GPU_TEXTURE_FORMAT_RGBA16F,
+    [FORMAT_R32F] = GPU_TEXTURE_FORMAT_R32F,
+    [FORMAT_RG32F] = GPU_TEXTURE_FORMAT_RG32F,
+    [FORMAT_RGBA32F] = GPU_TEXTURE_FORMAT_RGBA32F,
+    [FORMAT_RG11B10F] = GPU_TEXTURE_FORMAT_RG11B10F,
+    [FORMAT_D16] = GPU_TEXTURE_FORMAT_D16,
+    [FORMAT_D24S8] = GPU_TEXTURE_FORMAT_D24S8,
+    [FORMAT_D32F] = GPU_TEXTURE_FORMAT_D32F,
+    [FORMAT_BC6] = GPU_TEXTURE_FORMAT_BC6,
+    [FORMAT_BC7] = GPU_TEXTURE_FORMAT_BC7,
+    [FORMAT_ASTC_4x4] = GPU_TEXTURE_FORMAT_ASTC_4x4,
+    [FORMAT_ASTC_5x4] = GPU_TEXTURE_FORMAT_ASTC_5x4,
+    [FORMAT_ASTC_5x5] = GPU_TEXTURE_FORMAT_ASTC_5x5,
+    [FORMAT_ASTC_6x5] = GPU_TEXTURE_FORMAT_ASTC_6x5,
+    [FORMAT_ASTC_6x6] = GPU_TEXTURE_FORMAT_ASTC_6x6,
+    [FORMAT_ASTC_8x5] = GPU_TEXTURE_FORMAT_ASTC_8x5,
+    [FORMAT_ASTC_8x6] = GPU_TEXTURE_FORMAT_ASTC_8x6,
+    [FORMAT_ASTC_8x8] = GPU_TEXTURE_FORMAT_ASTC_8x8,
+    [FORMAT_ASTC_10x5] = GPU_TEXTURE_FORMAT_ASTC_10x5,
+    [FORMAT_ASTC_10x6] = GPU_TEXTURE_FORMAT_ASTC_10x6,
+    [FORMAT_ASTC_10x8] = GPU_TEXTURE_FORMAT_ASTC_10x8,
+    [FORMAT_ASTC_10x10] = GPU_TEXTURE_FORMAT_ASTC_10x10,
+    [FORMAT_ASTC_12x10] = GPU_TEXTURE_FORMAT_ASTC_12x10,
+    [FORMAT_ASTC_12x12] = GPU_TEXTURE_FORMAT_ASTC_12x12
+  };
+
+  static const gpu_texture_usage gpuTextureUsages[] = {
+    [TEXTURE_SAMPLE] = GPU_TEXTURE_USAGE_SAMPLE,
+    [TEXTURE_RENDER] = GPU_TEXTURE_USAGE_RENDER,
+    [TEXTURE_COMPUTE] = GPU_TEXTURE_USAGE_STORAGE,
+    [TEXTURE_UPLOAD] = GPU_TEXTURE_USAGE_PASTE,
+    [TEXTURE_DOWNLOAD] = GPU_TEXTURE_USAGE_COPY
+  };
+
+  uint32_t usage = 0;
+  for (uint32_t i = 0; i < sizeof(gpuTextureUsages) / sizeof(gpuTextureUsages[0]); i++) {
+    if (info->usage & (1 << i)) {
+      usage |= gpuTextureUsages[i];
+    }
+  }
+
+  gpu_texture_info gpuInfo = {
+    .type = gpuTextureTypes[info->type],
+    .format = gpuTextureFormats[info->format],
+    .size[0] = info->size[0],
+    .size[1] = info->size[1],
+    .size[2] = info->size[2],
+    .mipmaps = info->mipmaps,
+    .samples = info->samples,
+    .usage = usage,
+    .srgb = info->srgb,
+    .label = info->label
+  };
+
+  if (!gpu_texture_init(texture->gpu, &gpuInfo)) {
+    lovrRelease(texture, lovrTextureDestroy);
+    return NULL;
+  }
+
+  return texture;
+}
+
+void lovrTextureDestroy(void* ref) {
+  Texture* texture = ref;
+  gpu_texture_destroy(texture->gpu);
 }
