@@ -43,11 +43,11 @@ void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint6
 // Texture
 
 typedef enum {
-  GPU_TEXTURE_USAGE_SAMPLE  = (1 << 0),
-  GPU_TEXTURE_USAGE_RENDER  = (1 << 1),
-  GPU_TEXTURE_USAGE_STORAGE = (1 << 2),
-  GPU_TEXTURE_USAGE_COPY    = (1 << 3),
-  GPU_TEXTURE_USAGE_PASTE   = (1 << 4)
+  GPU_TEXTURE_USAGE_SAMPLE   = (1 << 0),
+  GPU_TEXTURE_USAGE_RENDER   = (1 << 1),
+  GPU_TEXTURE_USAGE_STORAGE  = (1 << 2),
+  GPU_TEXTURE_USAGE_UPLOAD   = (1 << 3),
+  GPU_TEXTURE_USAGE_DOWNLOAD = (1 << 4)
 } gpu_texture_usage;
 
 typedef enum {

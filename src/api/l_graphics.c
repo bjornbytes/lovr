@@ -28,6 +28,15 @@ StringEntry lovrTextureType[] = {
   { 0 }
 };
 
+StringEntry lovrTextureUsage[] = {
+  [TEXTURE_SAMPLE] = ENTRY("sample"),
+  [TEXTURE_RENDER] = ENTRY("render"),
+  [TEXTURE_COMPUTE] = ENTRY("compute"),
+  [TEXTURE_UPLOAD] = ENTRY("upload"),
+  [TEXTURE_DOWNLOAD] = ENTRY("download"),
+  { 0 }
+};
+
 // Must be released when done
 static Image* luax_checkimage(lua_State* L, int index, bool flip) {
   Image* image = luax_totype(L, index, Image);
@@ -319,11 +328,18 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewTexture(lua_State* L) {
-  TextureInfo info;
   int index = 1;
   int argType = lua_type(L, index);
   bool blank = argType == LUA_TNUMBER;
-  TextureType type = TEXTURE_2D;
+
+  TextureInfo info = {
+    .type = TEXTURE_2D,
+    .format = FORMAT_RGBA8,
+    .mipmaps = ~0u,
+    .samples = 1,
+    .usage = ~0u,
+    .srgb = !blank
+  };
 
   if (blank) {
     info.size[0] = lua_tointeger(L, index++);
@@ -341,14 +357,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.type = info.size[2] > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE;
   }
 
-  bool hasFlags = lua_istable(L, index);
-
-  info.format = FORMAT_RGBA8;
-  info.mipmaps = ~0u;
-  info.samples = 1;
-  info.srgb = !blank;
-
-  if (hasFlags) {
+  if (lua_istable(L, index)) {
     lua_getfield(L, index, "linear");
     info.srgb = lua_isnil(L, -1) ? info.srgb : !lua_toboolean(L, -1);
     lua_pop(L, 1);
@@ -362,15 +371,34 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, index, "type");
-    info.type = lua_isnil(L, -1) ? info.type : (TextureType) luax_checkenum(L, -1, TextureType, NULL);
+    info.type = lua_isnil(L, -1) ? info.type : luax_checkenum(L, -1, TextureType, NULL);
     lua_pop(L, 1);
 
     lua_getfield(L, index, "format");
-    info.format = lua_isnil(L, -1) ? info.format : (TextureFormat) luax_checkenum(L, -1, TextureFormat, NULL);
+    info.format = lua_isnil(L, -1) ? info.format : luax_checkenum(L, -1, TextureFormat, NULL);
     lua_pop(L, 1);
 
     lua_getfield(L, index, "samples");
     info.samples = lua_isnil(L, -1) ? info.samples : luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "usage");
+    switch (lua_type(L, -1)) {
+      case LUA_TSTRING:
+        info.usage = 1 << luax_checkenum(L, -1, TextureUsage, NULL);
+        break;
+      case LUA_TTABLE:
+        info.usage = 0;
+        int length = luax_len(L, -1);
+        for (int i = 0; i < length; i++) {
+          lua_rawgeti(L, -1, i + 1);
+          info.usage |= 1 << luax_checkenum(L, -1, TextureUsage, NULL);
+          lua_pop(L, 1);
+        }
+        break;
+      default:
+        return luaL_error(L, "Texture usage flags must be a string or a table of strings");
+    }
     lua_pop(L, 1);
 
     lua_getfield(L, index, "label");
@@ -384,7 +412,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.size[2] = info.size[2] > 0 ? info.size[2] : (info.type == TEXTURE_CUBE ? 6 : 1);
     texture = lovrTextureCreate(&info);
   } else {
-    if (type == TEXTURE_CUBE && info.size[2] == 0) {
+    if (info.type == TEXTURE_CUBE && info.size[2] == 0) {
       info.size[2] = 6;
       const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
       for (int i = 0; i < 6; i++) {
@@ -399,7 +427,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
 
     for (uint32_t i = 0; i < info.size[2]; i++) {
       lua_rawgeti(L, 1, i + 1);
-      Image* image = luax_checkimage(L, -1, type != TEXTURE_CUBE);
+      Image* image = luax_checkimage(L, -1, info.type != TEXTURE_CUBE);
       if (i == 0) {
         info.size[0] = image->width;
         info.size[1] = image->height;
@@ -434,10 +462,13 @@ static const luaL_Reg lovrGraphics[] = {
 };
 
 extern const luaL_Reg lovrBuffer[];
+extern const luaL_Reg lovrTexture[];
 
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrGraphics);
+  luax_registertype(L, Buffer);
+  luax_registertype(L, Texture);
 
   bool debug = false;
   luax_pushconf(L);
