@@ -1095,8 +1095,8 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     (((info->usage & GPU_TEXTURE_USAGE_RENDER) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
-    ((info->usage & GPU_TEXTURE_USAGE_COPY) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
-    ((info->usage & GPU_TEXTURE_USAGE_PASTE) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
+    ((info->usage & GPU_TEXTURE_USAGE_UPLOAD) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
+    ((info->usage & GPU_TEXTURE_USAGE_DOWNLOAD) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0);
 
   bool array = info->type = GPU_TEXTURE_TYPE_ARRAY;
   VkImageCreateInfo imageInfo = {

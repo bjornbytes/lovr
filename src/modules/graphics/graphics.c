@@ -6,6 +6,7 @@
 #include "core/util.h"
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 struct Buffer {
   gpu_buffer* gpu;
@@ -258,8 +259,8 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     [TEXTURE_SAMPLE] = GPU_TEXTURE_USAGE_SAMPLE,
     [TEXTURE_RENDER] = GPU_TEXTURE_USAGE_RENDER,
     [TEXTURE_COMPUTE] = GPU_TEXTURE_USAGE_STORAGE,
-    [TEXTURE_UPLOAD] = GPU_TEXTURE_USAGE_PASTE,
-    [TEXTURE_DOWNLOAD] = GPU_TEXTURE_USAGE_COPY
+    [TEXTURE_UPLOAD] = GPU_TEXTURE_USAGE_UPLOAD,
+    [TEXTURE_DOWNLOAD] = GPU_TEXTURE_USAGE_DOWNLOAD
   };
 
   uint32_t usage = 0;
@@ -267,6 +268,10 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     if (info->usage & (1 << i)) {
       usage |= gpuTextureUsages[i];
     }
+  }
+
+  if (info->mipmaps == ~0u) {
+    info->mipmaps = log2(MAX(MAX(info->size[0], info->size[1]), info->size[2])) + 1;
   }
 
   gpu_texture_info gpuInfo = {
