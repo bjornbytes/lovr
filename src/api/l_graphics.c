@@ -372,6 +372,10 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_getfield(L, index, "samples");
     info.samples = lua_isnil(L, -1) ? info.samples : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
+
+    lua_getfield(L, index, "label");
+    info.label = lua_tostring(L, -1);
+    lua_pop(L, 1);
   }
 
   Texture* texture;
