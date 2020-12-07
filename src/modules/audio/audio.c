@@ -70,8 +70,8 @@ static bool mix(Source* source, float* output, uint32_t count) {
         // ^^^ Note need to min `count` with 'capacity of aux buffer' and 'capacity of mix buffer'
         // could skip min-ing with one of the buffers if you can guarantee that one is bigger/equal to the other (you can because their formats are known)
 
-    uint64_t framesIn = source->sound->read(source->sound, source->offset, chunk, raw);
-    uint64_t framesOut = sizeof(aux) / (sizeof(float) * outputChannelCountForSource(source));
+    ma_uint64 framesIn = source->sound->read(source->sound, source->offset, chunk, raw);
+    ma_uint64 framesOut = sizeof(aux) / (sizeof(float) * outputChannelCountForSource(source));
 
     ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, aux, &framesOut);
 
@@ -158,7 +158,7 @@ bool lovrAudioInit(AudioConfig config[2]) {
     return false;
   }
 
-  int mutexStatus = ma_mutex_init(&state.context, &state.playbackLock);
+  int mutexStatus = ma_mutex_init(&state.playbackLock);
   lovrAssert(mutexStatus == MA_SUCCESS, "Failed to create audio mutex");
 
   lovrAudioReset();
