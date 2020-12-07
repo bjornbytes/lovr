@@ -610,17 +610,14 @@ elseif(ANDROID)
       endif()
     endif()
 
-    # Shared dependencies between platforms
-    set(ANDROID_SUPPORT_V4 "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/android-libs/support-compat-v4-26.0.0.jar")
-    set(ANDROID_APPCOMPAT_V7 "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/android-libs/appcompat-v7-26.0.0.jar")
-    set(ANDROID_CLASSPATH "${ANDROID_CLASSPATH}:${ANDROID_SUPPORT_V4}:${ANDROID_APPCOMPAT_V7}")
-    set(EXTRA_JAR ${EXTRA_JAR} ${ANDROID_SUPPORT_V4} ${ANDROID_APPCOMPAT_V7})
-    set(ANDROID_EXTRAPACKAGES "android.support.v7.appcompat")
-
     set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${MANIFEST}.xml" CACHE STRING "The AndroidManifest.xml file to use")
 
     if (ANDROID_KEYSTORE_PASS) # Trick so that --ks-pass is not passed if no password is given.
       set(ANDROID_APKSIGNER_KEYSTORE_PASS --ks-pass)
+    endif()
+
+    if (ANDROID_EXTRAPACKAGES) # Only pass --extra-packages if var is set
+      set(ANDROID_EXTRAPACKAGES --extra-packages ${ANDROID_EXTRAPACKAGES})
     endif()
 
     # Make an apk
@@ -639,7 +636,7 @@ elseif(ANDROID)
         -M AndroidManifest.xml
         -I ${ANDROID_JAR}
         -F lovr.unaligned.apk
-        --extra-packages ${ANDROID_EXTRAPACKAGES}
+        ${ANDROID_EXTRAPACKAGES}
         ${ANDROID_ASSETS}
         raw
       COMMAND ${ANDROID_TOOLS}/zipalign -f -p 4 lovr.unaligned.apk lovr.unsigned.apk
