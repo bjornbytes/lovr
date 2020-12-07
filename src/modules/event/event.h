@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include "core/os.h"
 
 #pragma once
 
@@ -19,6 +20,7 @@ typedef enum {
 #ifdef LOVR_ENABLE_THREAD
   EVENT_THREAD_ERROR,
 #endif
+  EVENT_PERMISSION,
 } EventType;
 
 typedef enum {
@@ -80,6 +82,11 @@ typedef struct {
   uint32_t count;
 } CustomEvent;
 
+typedef struct {
+  Permission permission;
+  bool granted;
+} PermissionEvent;
+
 typedef union {
   QuitEvent quit;
   BoolEvent boolean;
@@ -88,6 +95,7 @@ typedef union {
   TextEvent text;
   ThreadEvent thread;
   CustomEvent custom;
+  PermissionEvent permission;
 } EventData;
 
 typedef struct {

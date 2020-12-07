@@ -338,6 +338,7 @@ if(LOVR_ENABLE_AUDIO)
   add_definitions(-DLOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
     src/modules/audio/audio.c
+    src/modules/audio/spatializers/dummy_spatializer.c
     src/api/l_audio.c
     src/api/l_audio_source.c
     src/lib/miniaudio/miniaudio.c
@@ -568,7 +569,7 @@ elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_web.c)
   target_compile_definitions(lovr PRIVATE -DLOVR_WEBGL)
 elseif(ANDROID)
-  target_link_libraries(lovr log EGL GLESv3 android)
+  target_link_libraries(lovr log EGL GLESv3 OpenSLES android)
   target_compile_definitions(lovr PRIVATE -DLOVR_GLES)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
 
@@ -626,6 +627,10 @@ elseif(ANDROID)
       set(ANDROID_APKSIGNER_KEYSTORE_PASS --ks-pass)
     endif()
 
+    if (ANDROID_EXTRAPACKAGES) # Only pass --extra-packages if var is set
+      set(ANDROID_EXTRAPACKAGES --extra-packages ${ANDROID_EXTRAPACKAGES})
+    endif()
+
     # Make an apk
     add_custom_target(
       buildAPK ALL
@@ -640,6 +645,7 @@ elseif(ANDROID)
         -M AndroidManifest.xml
         -I ${ANDROID_JAR}
         -F lovr.unaligned.apk
+        ${ANDROID_EXTRAPACKAGES}
         ${ANDROID_ASSETS}
       COMMAND
         ${ANDROID_TOOLS}/aapt

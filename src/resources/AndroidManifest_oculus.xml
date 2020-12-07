@@ -6,6 +6,7 @@
   <uses-feature android:name="oculus.software.handtracking" android:required="false"/>
   <uses-permission android:name="oculus.permission.HAND_TRACKING"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
   <uses-permission android:name="android.permission.INTERNET" />
   <application android:allowBackup="false" android:label="LÖVR">
     <meta-data android:name="com.samsung.android.vr.application.mode" android:value="vr_only"/>

@@ -129,12 +129,17 @@ typedef enum {
   BUTTON_RELEASED
 } ButtonAction;
 
+typedef enum {
+  AUDIO_CAPTURE_PERMISSION,
+} Permission;
+
 typedef void (*quitCallback)(void);
 typedef void (*windowFocusCallback)(bool focused);
 typedef void (*windowResizeCallback)(int width, int height);
 typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action);
 typedef void (*keyboardCallback)(ButtonAction action, KeyboardKey key, uint32_t scancode, bool repeat);
 typedef void (*textCallback)(uint32_t codepoint);
+typedef void (*permissionsCallback)(Permission permission, bool granted);
 
 bool lovrPlatformInit(void);
 void lovrPlatformDestroy(void);
@@ -166,3 +171,5 @@ void lovrPlatformGetMousePosition(double* x, double* y);
 void lovrPlatformSetMouseMode(MouseMode mode);
 bool lovrPlatformIsMouseDown(MouseButton button);
 bool lovrPlatformIsKeyDown(KeyboardKey key);
+void lovrPlatformRequestPermission(Permission permission);
+void lovrPlatformOnPermissionEvent(permissionsCallback callback);

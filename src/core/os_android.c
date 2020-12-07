@@ -22,6 +22,7 @@ static struct {
   quitCallback onQuit;
   keyboardCallback onKeyboardEvent;
   textCallback onTextEvent;
+  permissionsCallback onPermissionEvent;
 } state;
 
 static void onAppCmd(struct android_app* app, int32_t cmd) {
@@ -469,6 +470,34 @@ bool lovrPlatformIsMouseDown(MouseButton button) {
 bool lovrPlatformIsKeyDown(KeyboardKey key) {
   return false;
 }
+
+// permissions
+
+void lovrPlatformRequestPermission(Permission permission) {
+  if (permission == AUDIO_CAPTURE_PERMISSION) {
+    jobject activity = state.app->activity->clazz;
+    jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
+    jmethodID requestAudioCapturePermission = (*state.jni)->GetMethodID(state.jni, class, "requestAudioCapturePermission", "()V");
+    if (!requestAudioCapturePermission) {
+      (*state.jni)->DeleteLocalRef(state.jni, class);
+      if(state.onPermissionEvent) state.onPermissionEvent(AUDIO_CAPTURE_PERMISSION, false);
+      return;
+    }
+
+    (*state.jni)->CallVoidMethod(state.jni, activity, requestAudioCapturePermission);
+  }
+}
+
+void lovrPlatformOnPermissionEvent(permissionsCallback callback) {
+  state.onPermissionEvent = callback;
+}
+
+JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPermissionEvent(JNIEnv* jni, jobject activity, jint permission, jboolean granted) {
+  if (state.onPermissionEvent) {
+    state.onPermissionEvent(permission, granted);
+  }
+}
+
 
 // Private, must be declared manually to use
 

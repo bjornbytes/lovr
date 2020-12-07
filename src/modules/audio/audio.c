@@ -1,19 +1,25 @@
 #include "audio/audio.h"
 #include "data/soundData.h"
+#include "data/blob.h"
 #include "core/arr.h"
 #include "core/ref.h"
-#include "core/ref.h"
+#include "core/os.h"
 #include "core/util.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "lib/miniaudio/miniaudio.h"
-
-#define SAMPLE_RATE 44100
+#include "audio/spatializer.h"
 
 static const ma_format formats[] = {
   [SAMPLE_I16] = ma_format_s16,
   [SAMPLE_F32] = ma_format_f32
 };
+
+#define OUTPUT_FORMAT SAMPLE_F32
+#define OUTPUT_CHANNELS 2
+#define CAPTURE_CHANNELS 1
+#define CAPTURE_BUFFER_SIZE ((int)(LOVR_AUDIO_SAMPLE_RATE * 1.0))
 
 static const ma_format sampleSizes[] = {
   [SAMPLE_I16] = 2,
@@ -30,21 +36,19 @@ struct Source {
   bool playing;
   bool looping;
   bool spatial;
+  float transform[16];
 };
 
-typedef struct {
-  bool (*init)(void);
-  void (*destroy)(void);
-  void (*apply)(Source* source, const void* input, float* output, uint32_t frames);
-} Spatializer;
+static inline int outputChannelCountForSource(Source *source) { return source->spatial ? 1 : OUTPUT_CHANNELS; }
 
 static struct {
   bool initialized;
   ma_context context;
-  AudioConfig config[2];
-  ma_device devices[2];
-  ma_mutex locks[2];
+  AudioConfig config[AUDIO_TYPE_COUNT];
+  ma_device devices[AUDIO_TYPE_COUNT];
+  ma_mutex playbackLock;
   Source* sources;
+  ma_pcm_rb captureRingbuffer;
   arr_t(ma_data_converter) converters;
   Spatializer* spatializer;
 } state;
@@ -66,14 +70,18 @@ static bool mix(Source* source, float* output, uint32_t count) {
         // ^^^ Note need to min `count` with 'capacity of aux buffer' and 'capacity of mix buffer'
         // could skip min-ing with one of the buffers if you can guarantee that one is bigger/equal to the other (you can because their formats are known)
 
-    uint64_t framesIn = source->sound->read(source->sound, source->offset, chunk, raw);
-    uint64_t framesOut = sizeof(aux) / (sizeof(float) * (2 >> source->spatial));
+    ma_uint64 framesIn = source->sound->read(source->sound, source->offset, chunk, raw);
+    ma_uint64 framesOut = sizeof(aux) / (sizeof(float) * outputChannelCountForSource(source));
 
     ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, aux, &framesOut);
 
-    memcpy(mix, aux, framesOut * 2 * sizeof(float));
+    if (source->spatial) {
+      state.spatializer->apply(source, source->transform, aux, mix, framesOut);
+    } else {
+      memcpy(mix, aux, framesOut * OUTPUT_CHANNELS * sizeof(float));
+    }
 
-    for (uint32_t i = 0; i < framesOut * 2; i++) {
+    for (uint32_t i = 0; i < framesOut * OUTPUT_CHANNELS; i++) {
       output[i] += mix[i] * source->volume;
     }
 
@@ -88,14 +96,14 @@ static bool mix(Source* source, float* output, uint32_t count) {
     }
 
     count -= framesOut;
-    output += framesOut * 2;
+    output += framesOut * OUTPUT_CHANNELS;
   }
 
   return true;
 }
 
 static void onPlayback(ma_device* device, void* output, const void* _, uint32_t count) {
-  ma_mutex_lock(&state.locks[0]);
+  ma_mutex_lock(&state.playbackLock);
 
   // For each Source, remove it if it isn't playing or process it and remove it if it stops
   for (Source** list = &state.sources, *source = *list; source != NULL; source = *list) {
@@ -108,32 +116,35 @@ static void onPlayback(ma_device* device, void* output, const void* _, uint32_t 
     }
   }
 
-  ma_mutex_unlock(&state.locks[0]);
+  ma_mutex_unlock(&state.playbackLock);
 }
 
 static void onCapture(ma_device* device, void* output, const void* input, uint32_t frames) {
-  ma_mutex_lock(&state.locks[1]);
-  ma_mutex_unlock(&state.locks[1]);
+  // note: ma_pcm_rb is lockless
+  void *store;
+  while(frames > 0) {
+    uint32_t availableFrames = frames;
+    ma_result acquire_status = ma_pcm_rb_acquire_write(&state.captureRingbuffer, &availableFrames, &store);
+    if (acquire_status != MA_SUCCESS) {
+      return;
+    }
+    if (availableFrames == 0) {
+      return;
+    }
+    memcpy(store, input, availableFrames * sizeof(float) * CAPTURE_CHANNELS);
+    ma_result commit_status = ma_pcm_rb_commit_write(&state.captureRingbuffer, availableFrames, store);
+    if (commit_status != MA_SUCCESS) {
+      return;
+    }
+    frames -= availableFrames;
+    input += availableFrames * sizeof(float) * CAPTURE_CHANNELS;
+  }
 }
 
 static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };
 
-// Spatializers
-
-static bool phonon_init(void) {
-  return false;
-}
-
-static void phonon_destroy(void) {
-  //
-}
-
-static void phonon_apply(Source* source, const void* input, float* output, uint32_t frames) {
-  //
-}
-
-static Spatializer spatializers[] = {
-  { phonon_init, phonon_destroy, phonon_apply }
+static Spatializer *spatializers[] = {
+  &dummySpatializer,
 };
 
 // Entry
@@ -147,30 +158,35 @@ bool lovrAudioInit(AudioConfig config[2]) {
     return false;
   }
 
+  int mutexStatus = ma_mutex_init(&state.playbackLock);
+  lovrAssert(mutexStatus == MA_SUCCESS, "Failed to create audio mutex");
+
   lovrAudioReset();
 
-  for (size_t i = 0; i < 2; i++) {
-    if (config[i].enable) {
-      if (ma_mutex_init(&state.context, &state.locks[i])) {
+  for (int i = 0; i < AUDIO_TYPE_COUNT; i++) {
+    if (config[i].enable && config[i].start) {
+      int startStatus = ma_device_start(&state.devices[i]);
+      if(startStatus != MA_SUCCESS) {
         lovrAudioDestroy();
+        lovrAssert(false, "Failed to start audio device %d\n", i);
         return false;
       }
-
-      if (config[i].start) {
-        if (ma_device_start(&state.devices[i])) {
-          lovrAudioDestroy();
-          return false;
-        }
-      }
     }
+  }
+
+  ma_result rbstatus = ma_pcm_rb_init(formats[OUTPUT_FORMAT], CAPTURE_CHANNELS, LOVR_AUDIO_SAMPLE_RATE * 1.0, NULL, NULL, &state.captureRingbuffer);
+  if (rbstatus != MA_SUCCESS) {
+    lovrAudioDestroy();
+    return false;
   }
 
   for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
-    if (spatializers[i].init()) {
-      state.spatializer = &spatializers[i];
+    if (spatializers[i]->init()) {
+      state.spatializer = spatializers[i];
       break;
     }
   }
+  lovrAssert(state.spatializer != NULL, "Must have at least one spatializer");
 
   arr_init(&state.converters);
 
@@ -179,33 +195,45 @@ bool lovrAudioInit(AudioConfig config[2]) {
 
 void lovrAudioDestroy() {
   if (!state.initialized) return;
-  ma_device_uninit(&state.devices[0]);
-  ma_device_uninit(&state.devices[1]);
-  ma_mutex_uninit(&state.locks[0]);
-  ma_mutex_uninit(&state.locks[1]);
+  ma_device_uninit(&state.devices[AUDIO_PLAYBACK]);
+  ma_device_uninit(&state.devices[AUDIO_CAPTURE]);
+  ma_mutex_uninit(&state.playbackLock);
   ma_context_uninit(&state.context);
   if (state.spatializer) state.spatializer->destroy();
   arr_free(&state.converters);
   memset(&state, 0, sizeof(state));
 }
 
+bool lovrAudioInitDevice(AudioType type) {
+  ma_device_type deviceType = (type == AUDIO_PLAYBACK) ? ma_device_type_playback : ma_device_type_capture;
+
+  ma_device_config config = ma_device_config_init(deviceType);
+  config.sampleRate = LOVR_AUDIO_SAMPLE_RATE;
+  config.playback.format = formats[OUTPUT_FORMAT];
+  config.capture.format = formats[OUTPUT_FORMAT];
+  config.playback.channels = OUTPUT_CHANNELS;
+  config.capture.channels = CAPTURE_CHANNELS;
+  config.dataCallback = callbacks[type];
+  config.performanceProfile = ma_performance_profile_low_latency;
+
+  int err = ma_device_init(&state.context, &config, &state.devices[type]); 
+  if (err != MA_SUCCESS) {
+    lovrLog(LOG_WARN, "audio", "Failed to enable audio device %d: %d\n", type, err);
+    return false;
+  }
+  return true;
+}
+
 bool lovrAudioReset() {
-  for (size_t i = 0; i < 2; i++) {
+  for (int i = 0; i < AUDIO_TYPE_COUNT; i++) {
+    // clean up previous state ...
+    if (state.devices[i].state != 0) {
+      ma_device_uninit(&state.devices[i]);
+    }
+
+    // .. and create new one
     if (state.config[i].enable) {
-      ma_device_type deviceType = (i == 0) ? ma_device_type_playback : ma_device_type_capture;
-
-      ma_device_config config = ma_device_config_init(deviceType);
-      config.sampleRate = SAMPLE_RATE;
-      config.playback.format = ma_format_f32;
-      config.capture.format = ma_format_f32;
-      config.playback.channels = 2;
-      config.capture.channels = 1;
-      config.dataCallback = callbacks[i];
-      config.performanceProfile = ma_performance_profile_low_latency;
-
-      if (ma_device_init(&state.context, &config, &state.devices[i])) {
-        return false;
-      }
+      lovrAudioInitDevice(i);
     }
   }
 
@@ -213,37 +241,49 @@ bool lovrAudioReset() {
 }
 
 bool lovrAudioStart(AudioType type) {
-  return !ma_device_start(&state.devices[type]);
+  if (state.config[type].enable == false) {
+    if (lovrAudioInitDevice(type) == false) {
+      if (type == AUDIO_CAPTURE) {
+        lovrPlatformRequestPermission(AUDIO_CAPTURE_PERMISSION);
+        // lovrAudioStart will be retried from boot.lua upon permission granted event
+      }
+      return false;
+    }
+    state.config[type].enable = state.config[type].start = true;
+  }
+  int status = ma_device_start(&state.devices[type]);
+  return status == MA_SUCCESS;
 }
 
 bool lovrAudioStop(AudioType type) {
-  return !ma_device_stop(&state.devices[type]);
+  return ma_device_stop(&state.devices[type]) == MA_SUCCESS;
 }
 
 float lovrAudioGetVolume() {
   float volume = 0.f;
-  ma_device_get_master_volume(&state.devices[0], &volume);
+  ma_device_get_master_volume(&state.devices[AUDIO_PLAYBACK], &volume);
   return volume;
 }
 
 void lovrAudioSetVolume(float volume) {
-  ma_device_set_master_volume(&state.devices[0], volume);
+  ma_device_set_master_volume(&state.devices[AUDIO_PLAYBACK], volume);
+}
+
+void lovrAudioSetListenerPose(float position[4], float orientation[4])
+{
+  state.spatializer->setListenerPose(position, orientation);
 }
 
 // Source
 
-Source* lovrSourceCreate(SoundData* sound) {
-  Source* source = lovrAlloc(Source);
-  source->sound = sound;
-  lovrRetain(source->sound);
-  source->volume = 1.f;
-
+static void _lovrSourceAssignConverter(Source *source) {
+  source->converter = NULL;
   for (size_t i = 0; i < state.converters.length; i++) {
     ma_data_converter* converter = &state.converters.data[i];
     if (converter->config.formatIn != formats[source->sound->format]) continue;
     if (converter->config.sampleRateIn != source->sound->sampleRate) continue;
     if (converter->config.channelsIn != source->sound->channels) continue;
-    if (converter->config.channelsOut != (2 >> source->spatial)) continue;
+    if (converter->config.channelsOut != outputChannelCountForSource(source)) continue;
     source->converter = converter;
     break;
   }
@@ -251,16 +291,26 @@ Source* lovrSourceCreate(SoundData* sound) {
   if (!source->converter) {
     ma_data_converter_config config = ma_data_converter_config_init_default();
     config.formatIn = formats[source->sound->format];
-    config.formatOut = ma_format_f32;
+    config.formatOut = formats[OUTPUT_FORMAT];
     config.channelsIn = source->sound->channels;
-    config.channelsOut = 2 >> source->spatial;
+    config.channelsOut = outputChannelCountForSource(source);
     config.sampleRateIn = source->sound->sampleRate;
-    config.sampleRateOut = SAMPLE_RATE;
+    config.sampleRateOut = LOVR_AUDIO_SAMPLE_RATE;
     arr_expand(&state.converters, 1);
     ma_data_converter* converter = &state.converters.data[state.converters.length++];
     lovrAssert(!ma_data_converter_init(&config, converter), "Problem creating Source data converter");
     source->converter = converter;
   }
+}
+
+Source* lovrSourceCreate(SoundData* sound, bool spatial) {
+  Source* source = lovrAlloc(Source);
+  source->sound = sound;
+  lovrRetain(source->sound);
+  source->volume = 1.f;
+  
+  source->spatial = spatial;
+  _lovrSourceAssignConverter(source);
 
   return source;
 }
@@ -271,7 +321,7 @@ void lovrSourceDestroy(void* ref) {
 }
 
 void lovrSourcePlay(Source* source) {
-  ma_mutex_lock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_lock(&state.playbackLock);
 
   source->playing = true;
 
@@ -282,7 +332,7 @@ void lovrSourcePlay(Source* source) {
     state.sources = source;
   }
 
-  ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_unlock(&state.playbackLock);
 }
 
 void lovrSourcePause(Source* source) {
@@ -311,9 +361,21 @@ float lovrSourceGetVolume(Source* source) {
 }
 
 void lovrSourceSetVolume(Source* source, float volume) {
-  ma_mutex_lock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_lock(&state.playbackLock);
   source->volume = volume;
-  ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_unlock(&state.playbackLock);
+}
+
+bool lovrSourceGetSpatial(Source *source) {
+  return source->spatial;
+}
+
+void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) {
+  ma_mutex_lock(&state.playbackLock);
+  mat4_identity(source->transform);
+  mat4_translate(source->transform, position[0], position[1], position[2]);
+  mat4_rotate(source->transform, orientation[0], orientation[1], orientation[2], orientation[3]);
+  ma_mutex_unlock(&state.playbackLock);
 }
 
 uint32_t lovrSourceGetTime(Source* source) {
@@ -321,11 +383,61 @@ uint32_t lovrSourceGetTime(Source* source) {
 }
 
 void lovrSourceSetTime(Source* source, uint32_t time) {
-  ma_mutex_lock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_lock(&state.playbackLock);
   source->offset = time;
-  ma_mutex_unlock(&state.locks[AUDIO_PLAYBACK]);
+  ma_mutex_unlock(&state.playbackLock);
 }
 
 SoundData* lovrSourceGetSoundData(Source* source) {
   return source->sound;
+}
+
+// Capture
+
+uint32_t lovrAudioGetCaptureSampleCount() {
+  // note: must only be called from ONE thread!! ma_pcm_rb only promises
+  // thread safety with ONE reader and ONE writer thread.
+  return ma_pcm_rb_available_read(&state.captureRingbuffer);
+}
+
+struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, uint32_t offset) {
+
+  uint32_t bufferedFrames = lovrAudioGetCaptureSampleCount();
+  if (frameCount == 0 || frameCount > bufferedFrames) {
+    frameCount = bufferedFrames;
+  }
+
+  if (frameCount == 0) {
+    return NULL;
+  }
+
+  if (soundData == NULL) {
+    soundData = lovrSoundDataCreate(frameCount, CAPTURE_CHANNELS, LOVR_AUDIO_SAMPLE_RATE, OUTPUT_FORMAT, NULL, 0);
+  } else {
+    lovrAssert(soundData->channels == CAPTURE_CHANNELS, "Capture and SoundData channel counts must match");
+    lovrAssert(soundData->sampleRate == LOVR_AUDIO_SAMPLE_RATE, "Capture and SoundData sample rates must match");
+    lovrAssert(soundData->format == OUTPUT_FORMAT, "Capture and SoundData formats must match");
+    lovrAssert(offset + frameCount <= soundData->frames, "Tried to write samples past the end of a SoundData buffer");
+  }
+
+  uint32_t bytesPerFrame = sizeof(float) * CAPTURE_CHANNELS;
+  while(frameCount > 0) {
+    uint32_t availableFramesInRB = frameCount;
+    void *store;
+    ma_result acquire_status = ma_pcm_rb_acquire_read(&state.captureRingbuffer, &availableFramesInRB, &store);
+    if (acquire_status != MA_SUCCESS) {
+      lovrAssert(false, "Failed to acquire ring buffer for read: %d\n", acquire_status);
+      return NULL;
+    }
+    memcpy(soundData->blob->data + offset * bytesPerFrame, store, availableFramesInRB * bytesPerFrame);
+    ma_result commit_status = ma_pcm_rb_commit_read(&state.captureRingbuffer, availableFramesInRB, store);
+    if (commit_status != MA_SUCCESS) {
+      lovrAssert(false, "Failed to commit ring buffer for read: %d\n", acquire_status);
+      return NULL;
+    }
+    frameCount -= availableFramesInRB;
+    offset += availableFramesInRB;
+  }
+
+  return soundData;
 }

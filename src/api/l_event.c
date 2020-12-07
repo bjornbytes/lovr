@@ -18,6 +18,7 @@ StringEntry lovrEventType[] = {
 #ifdef LOVR_ENABLE_THREAD
   [EVENT_THREAD_ERROR] = ENTRY("threaderror"),
 #endif
+  [EVENT_PERMISSION] = ENTRY("permission"),
   { 0 }
 };
 
@@ -109,6 +110,12 @@ StringEntry lovrKeyboardKey[] = {
   [KEY_NUM_LOCK] = ENTRY("numlock"),
   { 0 }
 };
+
+StringEntry lovrPermission[] = {
+  [AUDIO_CAPTURE_PERMISSION] = ENTRY("audiocapture"),
+  { 0 }
+};
+
 
 static LOVR_THREAD_LOCAL int pollRef;
 
@@ -227,6 +234,11 @@ static int nextEvent(lua_State* L) {
       lovrRelease(Thread, event.data.thread.thread);
       return 3;
 #endif
+
+    case EVENT_PERMISSION:
+      luax_pushenum(L, Permission, event.data.permission.permission);
+      lua_pushboolean(L, event.data.permission.granted);
+      return 3;
 
     case EVENT_CUSTOM:
       for (uint32_t i = 0; i < event.data.custom.count; i++) {
