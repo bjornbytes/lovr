@@ -126,9 +126,9 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->textureSize3D = state.limits.textureSize3D;
   limits->textureSizeCube = state.limits.textureSizeCube;
   limits->textureLayers = state.limits.textureLayers;
-  limits->canvasSize[0] = state.limits.canvasSize[0];
-  limits->canvasSize[1] = state.limits.canvasSize[1];
-  limits->canvasViews = state.limits.canvasViews;
+  limits->renderSize[0] = state.limits.renderSize[0];
+  limits->renderSize[1] = state.limits.renderSize[1];
+  limits->renderViews = state.limits.renderViews;
   limits->bundleCount = state.limits.bundleCount;
   limits->bundleSlots = state.limits.bundleSlots;
   limits->uniformBufferRange = state.limits.uniformBufferRange;
