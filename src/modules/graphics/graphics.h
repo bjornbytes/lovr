@@ -28,8 +28,8 @@ typedef struct {
   uint32_t textureSize3D;
   uint32_t textureSizeCube;
   uint32_t textureLayers;
-  uint32_t canvasSize[2];
-  uint32_t canvasViews;
+  uint32_t renderSize[2];
+  uint32_t renderViews;
   uint32_t bundleCount;
   uint32_t bundleSlots;
   uint32_t uniformBufferRange;
