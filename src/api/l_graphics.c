@@ -193,14 +193,14 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_setfield(L, -2, "textureLayers");
 
   lua_createtable(L, 2, 0);
-  lua_pushinteger(L, limits.canvasSize[0]);
+  lua_pushinteger(L, limits.renderSize[0]);
   lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.canvasSize[1]);
+  lua_pushinteger(L, limits.renderSize[1]);
   lua_rawseti(L, -2, 2);
-  lua_setfield(L, -2, "canvasSize");
+  lua_setfield(L, -2, "renderSize");
 
-  lua_pushinteger(L, limits.canvasViews);
-  lua_setfield(L, -2, "canvasViews");
+  lua_pushinteger(L, limits.renderViews);
+  lua_setfield(L, -2, "renderViews");
 
   lua_pushinteger(L, limits.bundleCount);
   lua_setfield(L, -2, "bundleCount");

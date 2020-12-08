@@ -48,10 +48,10 @@ struct gpu_buffer {
 
 struct gpu_texture {
   VkImage handle;
-  VkFormat format;
   VkImageView view;
-  VkImageViewType type;
   VkDeviceMemory memory;
+  VkImageViewType type;
+  VkFormat format;
   VkImageLayout layout;
   VkImageAspectFlagBits aspect;
   VkSampleCountFlagBits samples;
@@ -62,14 +62,11 @@ struct gpu_sampler {
   VkSampler handle;
 };
 
-struct gpu_canvas {
+struct gpu_pass {
   VkRenderPass handle;
-  VkFramebuffer framebuffer;
-  VkRect2D renderArea;
-  VkViewport viewport;
-  uint32_t colorAttachmentCount;
-  VkClearValue clears[9];
   VkSampleCountFlagBits samples;
+  uint16_t colorCount;
+  uint16_t views;
 };
 
 struct gpu_shader {
@@ -175,6 +172,15 @@ typedef struct {
   uint32_t tail;
 } gpu_readback_pool;
 
+typedef struct {
+  uint64_t hash;
+  VkFramebuffer handle;
+} gpu_cache_entry;
+
+typedef struct {
+  gpu_cache_entry entries[16][2];
+} gpu_framebuffer_cache;
+
 // State
 
 static __thread gpu_batch_pool batches;
@@ -198,6 +204,7 @@ static struct {
   gpu_tick ticks[16];
   VkCommandBuffer commands;
   gpu_morgue morgue;
+  gpu_framebuffer_cache framebuffers;
   gpu_scratchpad_pool scratchpads;
   gpu_readback_pool readbacks;
   VkQueryPool queryPool;
@@ -215,6 +222,7 @@ typedef struct {
 } gpu_mapping;
 
 static gpu_mapping scratch(uint32_t size);
+static VkFramebuffer getFramebuffer(const VkFramebufferCreateInfo* info);
 static void readback(void);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
@@ -226,6 +234,7 @@ static const char* getErrorString(VkResult result);
 
 enum { LINEAR, SRGB };
 static const VkFormat textureFormats[][2] = {
+  [GPU_TEXTURE_FORMAT_NONE] = { VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED },
   [GPU_TEXTURE_FORMAT_R8] = { VK_FORMAT_R8_UNORM, VK_FORMAT_UNDEFINED },
   [GPU_TEXTURE_FORMAT_RG8] = { VK_FORMAT_R8G8_UNORM, VK_FORMAT_UNDEFINED },
   [GPU_TEXTURE_FORMAT_RGBA8] = { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_SRGB },
@@ -238,6 +247,9 @@ static const VkFormat textureFormats[][2] = {
   [GPU_TEXTURE_FORMAT_R32F] = { VK_FORMAT_R32_SFLOAT, VK_FORMAT_UNDEFINED },
   [GPU_TEXTURE_FORMAT_RG32F] = { VK_FORMAT_R32G32_SFLOAT, VK_FORMAT_UNDEFINED },
   [GPU_TEXTURE_FORMAT_RGBA32F] = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_UNDEFINED },
+  [GPU_TEXTURE_FORMAT_RGB565] = { VK_FORMAT_R5G6B5_UNORM_PACK16, VK_FORMAT_UNDEFINED },
+  [GPU_TEXTURE_FORMAT_RGB5A1] = { VK_FORMAT_R5G5B5A1_UNORM_PACK16, VK_FORMAT_UNDEFINED },
+  [GPU_TEXTURE_FORMAT_RGB10A2] = { VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_FORMAT_UNDEFINED },
   [GPU_TEXTURE_FORMAT_RG11B10F] = { VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_FORMAT_UNDEFINED },
   [GPU_TEXTURE_FORMAT_D16] = { VK_FORMAT_D16_UNORM, VK_FORMAT_UNDEFINED },
   [GPU_TEXTURE_FORMAT_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_UNDEFINED },
@@ -363,7 +375,9 @@ static const VkFormat textureFormats[][2] = {
   X(vkCmdDrawIndexedIndirect)\
   X(vkCmdDispatch)\
   X(vkCmdDispatchIndirect)\
-  X(vkCmdExecuteCommands)
+  X(vkCmdExecuteCommands)\
+  X(vkCmdSetViewport)\
+  X(vkCmdSetScissor)
 
 // Used to load/declare Vulkan functions without lots of clutter
 #define GPU_LOAD_ANONYMOUS(fn) fn = (PFN_##fn) vkGetInstanceProcAddr(NULL, #fn);
@@ -508,9 +522,9 @@ bool gpu_init(gpu_config* config) {
       config->limits->textureSize3D = MIN(deviceLimits->maxImageDimension3D, UINT16_MAX);
       config->limits->textureSizeCube = MIN(deviceLimits->maxImageDimensionCube, UINT16_MAX);
       config->limits->textureLayers = MIN(deviceLimits->maxImageArrayLayers, UINT16_MAX);
-      config->limits->canvasSize[0] = deviceLimits->maxFramebufferWidth;
-      config->limits->canvasSize[1] = deviceLimits->maxFramebufferHeight;
-      config->limits->canvasViews = multiviewLimits.maxMultiviewViewCount;
+      config->limits->renderSize[0] = deviceLimits->maxFramebufferWidth;
+      config->limits->renderSize[1] = deviceLimits->maxFramebufferHeight;
+      config->limits->renderViews = multiviewLimits.maxMultiviewViewCount;
       config->limits->bundleCount = MIN(deviceLimits->maxBoundDescriptorSets, COUNTOF(((gpu_shader*) NULL)->layouts));
       config->limits->bundleSlots = MIN(maintenance3Limits.maxPerSetDescriptors, COUNTOF(((gpu_bundle_info*) NULL)->bindings));
       config->limits->uniformBufferRange = deviceLimits->maxUniformBufferRange;
@@ -548,7 +562,8 @@ bool gpu_init(gpu_config* config) {
 
     VkPhysicalDeviceFeatures2 enabledFeatures = {
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-      .pNext = &enableShaderDrawParameter
+      .pNext = &enableShaderDrawParameter,
+      .features.independentBlend = VK_TRUE
     };
 
     if (config->features) {
@@ -876,14 +891,42 @@ static void execute(gpu_batch** batches, uint32_t count) {
   }
 }
 
-void gpu_render(gpu_canvas* canvas, gpu_batch** batches, uint32_t count) {
+void gpu_render(gpu_render_info* info, gpu_batch** batches, uint32_t count) {
+  VkClearValue clears[9];
+  VkImageView attachments[9];
+  uint32_t attachmentCount = 0;
+
+  for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].texture; i++) {
+    memcpy(&clears[attachmentCount].color.float32, info->color[i].clear, 4 * sizeof(float));
+    attachments[attachmentCount++] = info->color[i].texture->view;
+    if (info->color[i].resolve) {
+      attachments[attachmentCount++] = info->color[i].resolve->view;
+    }
+  }
+
+  if (info->depth.texture) {
+    clears[attachmentCount].depthStencil.depth = info->depth.clear;
+    clears[attachmentCount].depthStencil.stencil = info->depth.stencilClear;
+    attachments[attachmentCount++] = info->depth.texture->view;
+  }
+
+  VkFramebufferCreateInfo framebufferInfo = {
+    .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+    .renderPass = info->pass->handle,
+    .attachmentCount = attachmentCount,
+    .pAttachments = attachments,
+    .width = info->size[0],
+    .height = info->size[1],
+    .layers = 1
+  };
+
   VkRenderPassBeginInfo beginfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-    .renderPass = canvas->handle,
-    .framebuffer = canvas->framebuffer,
-    .renderArea = canvas->renderArea,
-    .clearValueCount = COUNTOF(canvas->clears),
-    .pClearValues = canvas->clears
+    .renderPass = info->pass->handle,
+    .framebuffer = getFramebuffer(&framebufferInfo),
+    .renderArea = { { 0, 0 }, { info->size[0], info->size[1] } },
+    .clearValueCount = COUNTOF(clears),
+    .pClearValues = clears
   };
 
   vkCmdBeginRenderPass(state.commands, &beginfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
@@ -1367,13 +1410,13 @@ void gpu_sampler_destroy(gpu_sampler* sampler) {
   memset(sampler, 0, sizeof(*sampler));
 }
 
-// Canvas
+// Pass
 
-size_t gpu_sizeof_canvas() {
-  return sizeof(gpu_canvas);
+size_t gpu_sizeof_pass() {
+  return sizeof(gpu_pass);
 }
 
-bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
+bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
   static const VkAttachmentLoadOp loadOps[] = {
     [GPU_LOAD_OP_LOAD] = VK_ATTACHMENT_LOAD_OP_LOAD,
     [GPU_LOAD_OP_CLEAR] = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -1381,12 +1424,11 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
   };
 
   static const VkAttachmentStoreOp storeOps[] = {
-    [GPU_STORE_OP_STORE] = VK_ATTACHMENT_STORE_OP_STORE,
-    [GPU_STORE_OP_DISCARD] = VK_ATTACHMENT_STORE_OP_DONT_CARE
+    [GPU_SAVE_OP_SAVE] = VK_ATTACHMENT_STORE_OP_STORE,
+    [GPU_SAVE_OP_DISCARD] = VK_ATTACHMENT_STORE_OP_DONT_CARE
   };
 
   VkAttachmentDescription attachments[9];
-  VkImageView images[9];
   uint32_t count = 0;
 
   struct {
@@ -1395,66 +1437,72 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
     VkAttachmentReference depth;
   } refs;
 
-  for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].texture; i++, canvas->colorAttachmentCount++) {
+  for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].format; i++, pass->colorCount++) {
     uint32_t attachment = count++;
-    images[attachment] = info->color[i].texture->view;
     attachments[attachment] = (VkAttachmentDescription) {
-      .format = info->color[i].texture->format,
-      .samples = info->color[i].texture->samples,
+      .format = textureFormats[info->color[i].format][info->color[i].srgb],
+      .samples = info->samples,
       .loadOp = loadOps[info->color[i].load],
-      .storeOp = storeOps[info->color[i].store],
+      .storeOp = storeOps[info->color[i].save],
       .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
       .finalLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    refs.color[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-    memcpy(canvas->clears[attachment].color.float32, info->color[i].clear, 4 * sizeof(float));
+    refs.color[i] = (VkAttachmentReference) {
+      attachment,
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    };
 
-    if (info->color[i].resolve) {
+    if (info->samples > 1) {
       attachment = count++;
-      images[attachment] = info->color[i].resolve->view;
       attachments[attachment] = (VkAttachmentDescription) {
-        .format = info->color[i].resolve->format,
-        .samples = info->color[i].resolve->samples,
+        .format = textureFormats[info->color[i].format][LINEAR],
+        .samples = info->samples,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
         .finalLayout = VK_IMAGE_LAYOUT_GENERAL
       };
 
-      refs.resolve[i] = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+      refs.resolve[i] = (VkAttachmentReference) {
+        attachment,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+      };
     } else {
-      refs.resolve[i] = (VkAttachmentReference) { VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_GENERAL };
+      refs.resolve[i] = (VkAttachmentReference) {
+        VK_ATTACHMENT_UNUSED,
+        VK_IMAGE_LAYOUT_GENERAL
+      };
     }
   }
 
-  if (info->depth.texture) {
+  if (info->depth.format) {
     uint32_t attachment = count++;
-    images[attachment] = info->depth.texture->view;
     attachments[attachment] = (VkAttachmentDescription) {
-      .format = info->depth.texture->format,
+      .format = textureFormats[info->depth.format][LINEAR],
       .samples = VK_SAMPLE_COUNT_1_BIT,
       .loadOp = loadOps[info->depth.load],
-      .storeOp = storeOps[info->depth.store],
-      .stencilLoadOp = loadOps[info->depth.stencil.load],
-      .stencilStoreOp = storeOps[info->depth.stencil.store],
+      .storeOp = storeOps[info->depth.save],
+      .stencilLoadOp = loadOps[info->depth.stencilLoad],
+      .stencilStoreOp = storeOps[info->depth.stencilSave],
       .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
       .finalLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    refs.depth = (VkAttachmentReference) { attachment, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
-    canvas->clears[attachment].depthStencil.depth = info->depth.clear;
-    canvas->clears[attachment].depthStencil.stencil = info->depth.stencil.clear;
+    refs.depth = (VkAttachmentReference) {
+      attachment,
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    };
   }
 
   VkSubpassDescription subpass = {
-    .colorAttachmentCount = canvas->colorAttachmentCount,
+    .colorAttachmentCount = pass->colorCount,
     .pColorAttachments = refs.color,
     .pResolveAttachments = refs.resolve,
-    .pDepthStencilAttachment = info->depth.texture ? &refs.depth : NULL
+    .pDepthStencilAttachment = info->depth.format ? &refs.depth : NULL
   };
 
-  VkRenderPassCreateInfo renderPassInfo = {
+  VkRenderPassCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
     .pNext = &(VkRenderPassMultiviewCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO,
@@ -1467,37 +1515,19 @@ bool gpu_canvas_init(gpu_canvas* canvas, gpu_canvas_info* info) {
     .pSubpasses = &subpass
   };
 
-  if (vkCreateRenderPass(state.device, &renderPassInfo, NULL, &canvas->handle)) {
+  if (vkCreateRenderPass(state.device, &createInfo, NULL, &pass->handle)) {
     return false;
   }
 
-  canvas->renderArea = (VkRect2D) { { 0, 0 }, { info->size[0], info->size[1] } };
-  canvas->viewport = (VkViewport) { 0.f, 0.f, info->size[0], info->size[1], 0.f, 1.f };
-
-  VkFramebufferCreateInfo framebufferInfo = {
-    .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-    .renderPass = canvas->handle,
-    .attachmentCount = count,
-    .pAttachments = images,
-    .width = canvas->renderArea.extent.width,
-    .height = canvas->renderArea.extent.height,
-    .layers = 1
-  };
-
-  if (vkCreateFramebuffer(state.device, &framebufferInfo, NULL, &canvas->framebuffer)) {
-    vkDestroyRenderPass(state.device, canvas->handle, NULL);
-  }
-
-
-  nickname(canvas, VK_OBJECT_TYPE_RENDER_PASS, info->label);
-  canvas->samples = info->color[0].texture ? info->color[0].texture->samples : VK_SAMPLE_COUNT_1_BIT;
+  nickname(pass, VK_OBJECT_TYPE_RENDER_PASS, info->label);
+  pass->samples = info->samples;
+  pass->views = info->views;
   return true;
 }
 
-void gpu_canvas_destroy(gpu_canvas* canvas) {
-  if (canvas->handle) condemn(canvas->handle, VK_OBJECT_TYPE_RENDER_PASS);
-  if (canvas->framebuffer) condemn(canvas->framebuffer, VK_OBJECT_TYPE_FRAMEBUFFER);
-  memset(canvas, 0, sizeof(*canvas));
+void gpu_pass_destroy(gpu_pass* pass) {
+  if (pass->handle) condemn(pass->handle, VK_OBJECT_TYPE_RENDER_PASS);
+  memset(pass, 0, sizeof(*pass));
 }
 
 // Shader
@@ -1818,9 +1848,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   VkPipelineViewportStateCreateInfo viewport = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
     .viewportCount = 1,
-    .pViewports = &info->canvas->viewport,
-    .scissorCount = 1,
-    .pScissors = &info->canvas->renderArea
+    .scissorCount = 1
   };
 
   VkPipelineRasterizationStateCreateInfo rasterization = {
@@ -1835,7 +1863,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 
   VkPipelineMultisampleStateCreateInfo multisample = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-    .rasterizationSamples = info->canvas->samples,
+    .rasterizationSamples = info->pass->samples,
     .alphaToCoverageEnable = info->alphaToCoverage
   };
 
@@ -1865,21 +1893,43 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     }
   };
 
-  VkPipelineColorBlendAttachmentState blendState = {
-    .blendEnable = info->blend.enabled,
-    .srcColorBlendFactor = blendFactors[info->blend.color.src],
-    .dstColorBlendFactor = blendFactors[info->blend.color.dst],
-    .colorBlendOp = blendOps[info->blend.color.op],
-    .srcAlphaBlendFactor = blendFactors[info->blend.alpha.src],
-    .dstAlphaBlendFactor = blendFactors[info->blend.alpha.dst],
-    .alphaBlendOp = blendOps[info->blend.alpha.op],
-    .colorWriteMask = info->colorMask
-  };
+  VkPipelineColorBlendAttachmentState blendState[4];
+  for (uint32_t i = 0; i < info->pass->colorCount; i++) {
+    VkColorComponentFlagBits colorMask = info->colorMask[i];
+
+    if (info->colorMask[i] == GPU_COLOR_MASK_RGBA) {
+      colorMask = 0xf;
+    } else if (info->colorMask[i] == GPU_COLOR_MASK_NONE) {
+      colorMask = 0x0;
+    }
+
+    blendState[i] = (VkPipelineColorBlendAttachmentState) {
+      .blendEnable = info->blend[i].enabled,
+      .srcColorBlendFactor = blendFactors[info->blend[i].color.src],
+      .dstColorBlendFactor = blendFactors[info->blend[i].color.dst],
+      .colorBlendOp = blendOps[info->blend[i].color.op],
+      .srcAlphaBlendFactor = blendFactors[info->blend[i].alpha.src],
+      .dstAlphaBlendFactor = blendFactors[info->blend[i].alpha.dst],
+      .alphaBlendOp = blendOps[info->blend[i].alpha.op],
+      .colorWriteMask = colorMask
+    };
+  }
 
   VkPipelineColorBlendStateCreateInfo colorBlend = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-    .attachmentCount = info->canvas->colorAttachmentCount,
-    .pAttachments = (VkPipelineColorBlendAttachmentState[4]) { blendState, blendState, blendState, blendState }
+    .attachmentCount = info->pass->colorCount,
+    .pAttachments = blendState
+  };
+
+  VkDynamicState dynamicStates[] = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR
+  };
+
+  VkPipelineDynamicStateCreateInfo dynamicState = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+    .dynamicStateCount = COUNTOF(dynamicStates),
+    .pDynamicStates = dynamicStates
   };
 
   VkGraphicsPipelineCreateInfo pipelineInfo = {
@@ -1893,8 +1943,9 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .pMultisampleState = &multisample,
     .pDepthStencilState = &depthStencil,
     .pColorBlendState = &colorBlend,
+    .pDynamicState = &dynamicState,
     .layout = info->shader->pipelineLayout,
-    .renderPass = info->canvas->handle
+    .renderPass = info->pass->handle
   };
 
   if (vkCreateGraphicsPipelines(state.device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pipeline->handle)) {
@@ -1928,7 +1979,7 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
 
 // Batch
 
-gpu_batch* gpu_batch_begin(gpu_canvas* canvas) {
+gpu_batch* gpu_batch_begin(gpu_pass* pass, uint32_t renderSize[2]) {
   gpu_batch_pool* pool = &batches;
   gpu_batch* batch;
   uint32_t index;
@@ -1958,15 +2009,22 @@ gpu_batch* gpu_batch_begin(gpu_canvas* canvas) {
 
   VkCommandBufferBeginInfo beginfo = {
     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT | (canvas ? VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT : 0),
+    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT | (pass ? VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT : 0),
     .pInheritanceInfo = &(VkCommandBufferInheritanceInfo) {
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
-      .renderPass = canvas ? canvas->handle : NULL,
+      .renderPass = pass ? pass->handle : NULL,
       .subpass = 0
     }
   };
 
   GPU_VK(vkBeginCommandBuffer(batch->cmd, &beginfo));
+
+  if (pass) {
+    VkViewport viewport = { 0.f, 0.f, (float) renderSize[0], (float) renderSize[1], 0.f, 1.f };
+    VkRect2D scissor = { { 0, 0 }, { renderSize[0], renderSize[1] } };
+    vkCmdSetViewport(batch->cmd, 0, 1, &viewport);
+    vkCmdSetScissor(batch->cmd, 0, 1, &scissor);
+  }
 
   if (pool->head != ~0u) {
     pool->data[pool->head].next = index;
@@ -2111,6 +2169,43 @@ void gpu_surface_present() {
 }
 
 // Helpers
+
+static VkFramebuffer getFramebuffer(const VkFramebufferCreateInfo* info) {
+  uint64_t key[11] = { 0 };
+  for (uint32_t i = 0; i < info->attachmentCount; i++) {
+    key[i] = VOIDP_TO_U64(info->pAttachments[i]); // TODO generational collision if image view is destroyed + recreated with same pointer (either flush cache on destroy or track which buckets each image view is in with uint16_t mask)
+  }
+  key[9] = VOIDP_TO_U64(info->renderPass); // TODO generational collision if pass is destroyed + recreated with same pointer (either flush cache on destroy or track which buckets each pass is in with uint16_t mask)
+  key[10] = ((uint64_t) info->width << 32) | info->height;
+
+  uint64_t hash = 0xcbf29ce484222325;
+  for (size_t i = 0; i < sizeof(key); i++) {
+    hash = (hash ^ ((const uint8_t*) key)[i]) * 0x100000001b3;
+  }
+
+  gpu_framebuffer_cache* cache = &state.framebuffers;
+  gpu_cache_entry* entries = &cache->entries[hash & (COUNTOF(cache->entries) - 1)][0];
+
+  for (size_t i = 0; i < 2; i++) {
+    if (entries[i].hash == hash) {
+      return entries[i].handle;
+    }
+  }
+
+  // Evict least-recently-used framebuffer
+  if (entries[1].handle != VK_NULL_HANDLE) {
+    condemn((void*) entries[1].handle, VK_OBJECT_TYPE_FRAMEBUFFER);
+  }
+
+  // Shift bucket entries over to make room for new framebuffer
+  memcpy(&entries[1], &entries[0], sizeof(gpu_cache_entry));
+
+  // Insert new framebuffer
+  GPU_VK(vkCreateFramebuffer(state.device, info, NULL, &entries[0].handle));
+  entries[0].hash = hash;
+
+  return entries[0].handle;
+}
 
 static gpu_mapping scratch(uint32_t size) {
   gpu_scratchpad_pool* pool = &state.scratchpads;
@@ -2432,6 +2527,8 @@ static uint64_t getTextureRegionSize(VkFormat format, uint16_t extent[3]) {
     case VK_FORMAT_R8G8_UNORM:
     case VK_FORMAT_R16_UNORM:
     case VK_FORMAT_R16_SFLOAT:
+    case VK_FORMAT_R5G6B5_UNORM_PACK16:
+    case VK_FORMAT_R5G5B5A1_UNORM_PACK16:
     case VK_FORMAT_D16_UNORM:
       return extent[0] * extent[1] * extent[2] * 2;
     case VK_FORMAT_R8G8B8A8_UNORM:
@@ -2442,6 +2539,7 @@ static uint64_t getTextureRegionSize(VkFormat format, uint16_t extent[3]) {
     case VK_FORMAT_R16G16_SFLOAT:
     case VK_FORMAT_R32_SFLOAT:
     case VK_FORMAT_B10G11R11_UFLOAT_PACK32:
+    case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
     case VK_FORMAT_D24_UNORM_S8_UINT:
     case VK_FORMAT_D32_SFLOAT:
       return extent[0] * extent[1] * extent[2] * 4;
