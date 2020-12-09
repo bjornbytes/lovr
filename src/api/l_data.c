@@ -8,6 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+StringEntry lovrSampleFormat[] = {
+  [SAMPLE_F32] = ENTRY("f32"),
+  [SAMPLE_I16] = ENTRY("i16"),
+  { 0 }
+};
+
 static int l_lovrDataNewBlob(lua_State* L) {
   size_t size;
   uint8_t* data = NULL;
@@ -70,7 +76,7 @@ static int l_lovrDataNewSoundData(lua_State* L) {
     uint64_t frames = luaL_checkinteger(L, 1);
     uint32_t channels = luaL_optinteger(L, 2, 2);
     uint32_t sampleRate = luaL_optinteger(L, 3, 44100);
-    uint32_t format = luaL_optinteger(L, 4, 16);
+    SampleFormat format = luax_checkenum(L, 4, SampleFormat, "i16");
     Blob* blob = luax_totype(L, 5, Blob);
     SoundData* soundData = lovrSoundDataCreateRaw(frames, channels, sampleRate, format, blob);
     luax_pushtype(L, SoundData, soundData);
