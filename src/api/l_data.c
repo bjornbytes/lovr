@@ -78,7 +78,12 @@ static int l_lovrDataNewSoundData(lua_State* L) {
     uint32_t sampleRate = luaL_optinteger(L, 3, 44100);
     SampleFormat format = luax_checkenum(L, 4, SampleFormat, "i16");
     Blob* blob = luax_totype(L, 5, Blob);
-    SoundData* soundData = lovrSoundDataCreateRaw(frames, channels, sampleRate, format, blob);
+    SoundData* soundData;
+    if(blob) {
+      soundData = lovrSoundDataCreateRaw(frames, channels, sampleRate, format, blob);
+    } else {
+      soundData = lovrSoundDataCreateStream(frames, channels, sampleRate, format);
+    }
     luax_pushtype(L, SoundData, soundData);
     lovrRelease(SoundData, soundData);
     return 1;
