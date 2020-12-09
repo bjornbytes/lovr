@@ -84,6 +84,7 @@ typedef struct {
 Buffer* lovrBufferCreate(BufferInfo* info);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
+void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size);
 
 // Texture
 

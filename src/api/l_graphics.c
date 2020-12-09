@@ -291,10 +291,11 @@ static int l_lovrGraphicsFlush(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
-  BufferInfo info;
+  BufferInfo info = {
+    .usage = ~0u
+  };
 
   info.size = luaL_checkinteger(L, 1);
-  info.usage = ~0u;
 
   if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "usage");
