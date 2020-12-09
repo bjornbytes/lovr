@@ -938,6 +938,55 @@ void gpu_compute(gpu_batch** batches, uint32_t count) {
   execute(batches, count);
 }
 
+void gpu_sync(uint32_t before, uint32_t after) {
+  static const struct { VkPipelineStageFlags stage; VkAccessFlags access; } map[] = {
+    [GPU_READ_INDIRECT] = { VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT },
+    [GPU_READ_VERTEX_BUFFER] = { 0 },
+    [GPU_READ_INDEX_BUFFER] = { 0 },
+    [GPU_READ_VERTEX_SHADER_UNIFORM] = { 0 },
+    [GPU_READ_VERTEX_SHADER_STORAGE] = { 0 },
+    [GPU_READ_VERTEX_SHADER_SAMPLE] = { 0 },
+    [GPU_READ_FRAGMENT_SHADER_UNIFORM] = { 0 },
+    [GPU_READ_FRAGMENT_SHADER_STORAGE] = { 0 },
+    [GPU_READ_FRAGMENT_SHADER_SAMPLE] = { 0 },
+    [GPU_READ_COLOR_TARGET] = { 0 },
+    [GPU_READ_DEPTH_TARGET] = { 0 },
+    [GPU_READ_COMPUTE_SHADER_UNIFORM] = { 0 },
+    [GPU_READ_COMPUTE_SHADER_STORAGE] = { 0 },
+    [GPU_READ_COMPUTE_SHADER_SAMPLE] = { 0 },
+    [GPU_READ_DOWNLOAD] = { VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT },
+    [GPU_WRITE_COLOR_TARGET] = { 0 },
+    [GPU_WRITE_DEPTH_TARGET] = { 0 },
+    [GPU_WRITE_COMPUTE_SHADER_STORAGE] = { 0 },
+    [GPU_WRITE_UPLOAD] = { VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT },
+    [GPU_PRESENT] = { 0 }
+  };
+
+  VkPipelineStageFlags srcStage = 0;
+  VkPipelineStageFlags dstStage = 0;
+  VkMemoryBarrier barrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+
+  for (uint32_t i = 0; i < COUNTOF(map); i++) {
+    if (before & (1 << i)) {
+      srcStage |= map[i].stage;
+      if (i >= GPU_WRITE_COLOR_TARGET && i <= GPU_WRITE_UPLOAD) {
+        barrier.srcAccessMask |= map[i].access;
+      }
+    }
+  }
+
+  for (uint32_t i = 0; i < COUNTOF(map); i++) {
+    if (after & (1 << i)) {
+      dstStage |= map[i].stage;
+      if (barrier.srcAccessMask != 0) {
+        barrier.dstAccessMask |= map[i].access;
+      }
+    }
+  }
+
+  vkCmdPipelineBarrier(state.commands, srcStage, dstStage, 0, 1, &barrier, 0, NULL, 0, NULL);
+}
+
 void gpu_debug_push(const char* label) {
   if (state.config.debug) {
     vkCmdBeginDebugUtilsLabelEXT(state.commands, &(VkDebugUtilsLabelEXT) {
