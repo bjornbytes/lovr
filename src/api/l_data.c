@@ -72,8 +72,7 @@ static int l_lovrDataNewSoundData(lua_State* L) {
     uint32_t sampleRate = luaL_optinteger(L, 3, 44100);
     uint32_t format = luaL_optinteger(L, 4, 16);
     Blob* blob = luax_totype(L, 5, Blob);
-    uint32_t buffers = luaL_optinteger(L, 6, 8);
-    SoundData* soundData = lovrSoundDataCreate(frames, channels, sampleRate, format, blob, buffers);
+    SoundData* soundData = lovrSoundDataCreateRaw(frames, channels, sampleRate, format, blob);
     luax_pushtype(L, SoundData, soundData);
     lovrRelease(SoundData, soundData);
     return 1;

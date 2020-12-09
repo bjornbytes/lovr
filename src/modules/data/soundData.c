@@ -50,35 +50,62 @@ static uint32_t lovrSoundDataReadMp3(SoundData* soundData, uint32_t offset, uint
 }
 */
 
-static uint32_t lovrSoundDataReadQueue(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
-  return 0;
+static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
+  size_t bytesPerFrame = bytesPerAudioFrame(soundData->channels, soundData->format);
+  size_t totalRead = 0;
+  while(count > 0) {
+    uint32_t availableFramesInRing = count;
+    void *store;
+    ma_result acquire_status = ma_pcm_rb_acquire_read(soundData->ring, &availableFramesInRing, &store);
+    lovrAssert(acquire_status == MA_SUCCESS, "Failed to acquire ring buffer for read: %d\n", acquire_status);
+    memcpy(data, store, availableFramesInRing * bytesPerFrame);
+    ma_result commit_status = ma_pcm_rb_commit_read(soundData->ring, availableFramesInRing, store);
+    lovrAssert(commit_status != MA_SUCCESS, "Failed to commit ring buffer for read: %d\n", acquire_status);
+
+    if (availableFramesInRing == 0 && count > 0) {
+      memset(data, 0, count * bytesPerFrame);
+      return totalRead;
+    }
+
+    count -= availableFramesInRing;
+    data += availableFramesInRing * bytesPerFrame;
+    totalRead += availableFramesInRing;
+  }
+  return totalRead;
 }
 
-SoundData* lovrSoundDataCreate(uint32_t frameCount, uint32_t channelCount, uint32_t sampleRate, SampleFormat format, struct Blob* blob, uint32_t bufferLimit) {
+SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, uint32_t sampleRate, SampleFormat format, struct Blob* blob) {
   SoundData* soundData = lovrAlloc(SoundData);
-
   soundData->format = format;
   soundData->sampleRate = sampleRate;
   soundData->channels = channelCount;
   soundData->frames = frameCount;
-
-  if (frameCount > 0) {
-    soundData->read = lovrSoundDataReadRaw;
-    if (blob) {
-      soundData->blob = blob;
-      lovrRetain(blob);
-    } else {
-    size_t size = frameCount * bytesPerAudioFrame(channelCount, format);
-      void* data = calloc(1, size);
-      lovrAssert(data, "Out of memory");
-      soundData->blob = lovrBlobCreate(data, size, "SoundData");
-    }
+  soundData->read = lovrSoundDataReadRaw;
+  
+  if (blob) {
+    soundData->blob = blob;
+    lovrRetain(blob);
   } else {
-    soundData->read = lovrSoundDataReadQueue;
-    soundData->buffers = bufferLimit ? bufferLimit : 8;
-    soundData->queue = calloc(1, bufferLimit * sizeof(Blob*));
+    size_t size = frameCount * bytesPerAudioFrame(channelCount, format);
+    void* data = calloc(1, size);
+    lovrAssert(data, "Out of memory");
+    soundData->blob = lovrBlobCreate(data, size, "SoundData");
   }
 
+  return soundData;
+}
+
+SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t channels, uint32_t sampleRate, SampleFormat format)
+{
+  SoundData* soundData = lovrAlloc(SoundData);
+  soundData->format = format;
+  soundData->sampleRate = sampleRate;
+  soundData->channels = channels;
+  soundData->frames = bufferSizeInFrames;
+  soundData->read = lovrSoundDataReadRing;
+  soundData->ring = calloc(1, sizeof(ma_pcm_rb));
+  ma_result rbStatus = ma_pcm_rb_init(miniAudioFormatFromLovr[format], channels, bufferSizeInFrames, NULL, NULL, soundData->ring);
+  lovrAssert(rbStatus == MA_SUCCESS, "Failed to create ring buffer for streamed SoundData");
   return soundData;
 }
 
@@ -116,9 +143,41 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
   return soundData;
 }
 
+size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob) {
+  lovrAssert(dest->ring, "Data can only be appended to a SoundData stream");
+
+  void *store;
+  size_t blobOffset = 0;
+  size_t bytesPerFrame = bytesPerAudioFrame(dest->channels, dest->format);
+  size_t frameCount = blob->size / bytesPerFrame;
+  size_t framesAppended = 0;
+  while(frameCount > 0) {
+    uint32_t availableFrames = frameCount;
+    ma_result acquire_status = ma_pcm_rb_acquire_write(dest->ring, &availableFrames, &store);
+    lovrAssert(acquire_status == MA_SUCCESS, "Failed to acquire ring buffer");
+    memcpy(store, blob->data + blobOffset, availableFrames * bytesPerFrame);
+    ma_result commit_status = ma_pcm_rb_commit_write(dest->ring, availableFrames, store);
+    lovrAssert(commit_status == MA_SUCCESS, "Failed to commit to ring buffer");
+    if (availableFrames == 0) {
+      lovrLog(LOG_WARN, "audio", "SoundData's stream ring buffer is overrun; appended %d and dropping %d frames of data", framesAppended, frameCount);
+      return framesAppended;
+    }
+    
+    frameCount -= availableFrames;
+    blobOffset += availableFrames * bytesPerFrame;
+    framesAppended += availableFrames;
+  }
+  return framesAppended;
+}
+
+size_t lovrSoundDataStreamAppendSound(SoundData *dest, SoundData *src) {
+  lovrAssert(dest->channels == src->channels && dest->sampleRate == src->sampleRate && dest->format == src->format, "Source and destination SoundData formats must match");
+  lovrAssert(src->blob && src->read == lovrSoundDataReadRaw, "Source SoundData must have static PCM data and not be a stream");
+  return lovrSoundDataStreamAppendBlob(dest, src->blob);
+}
+
 void lovrSoundDataDestroy(void* ref) {
   SoundData* soundData = (SoundData*) ref;
   stb_vorbis_close(soundData->decoder);
   lovrRelease(Blob, soundData->blob);
-  free(soundData->queue);
 }
