@@ -3,18 +3,15 @@
 #include "core/util.h"
 #include "core/ref.h"
 #include "lib/stb/stb_vorbis.h"
+#include "lib/miniaudio/miniaudio.h"
+#include "audio/audio_internal.h"
 #include <stdlib.h>
 #include <string.h>
-
-static const size_t sampleSizes[] = {
-  [SAMPLE_F32] = 4,
-  [SAMPLE_I16] = 2
-};
 
 static uint32_t lovrSoundDataReadRaw(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
   uint8_t* p = soundData->blob->data;
   uint32_t n = MIN(count, soundData->frames - offset);
-  size_t stride = soundData->channels * sampleSizes[soundData->format];
+  size_t stride = bytesPerAudioFrame(soundData->channels, soundData->format);
   memcpy(data, p + offset * stride, n * stride);
   return n;
 }
@@ -71,7 +68,7 @@ SoundData* lovrSoundDataCreate(uint32_t frameCount, uint32_t channelCount, uint3
       soundData->blob = blob;
       lovrRetain(blob);
     } else {
-      size_t size = frameCount * channelCount * sampleSizes[format];
+    size_t size = frameCount * bytesPerAudioFrame(channelCount, format);
       void* data = calloc(1, size);
       lovrAssert(data, "Out of memory");
       soundData->blob = lovrBlobCreate(data, size, "SoundData");
@@ -100,7 +97,7 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
 
     if (decode) {
       soundData->read = lovrSoundDataReadRaw;
-      size_t size = soundData->frames * soundData->channels * sampleSizes[soundData->format];
+      size_t size = soundData->frames * bytesPerAudioFrame(soundData->channels, soundData->format);
       void* data = calloc(1, size);
       lovrAssert(data, "Out of memory");
       soundData->blob = lovrBlobCreate(data, size, "SoundData");
