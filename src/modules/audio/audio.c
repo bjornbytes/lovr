@@ -403,7 +403,7 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
   }
 
   if (soundData == NULL) {
-    soundData = lovrSoundDataCreate(frameCount, CAPTURE_CHANNELS, LOVR_AUDIO_SAMPLE_RATE, OUTPUT_FORMAT, NULL, 0);
+    soundData = lovrSoundDataCreateRaw(frameCount, CAPTURE_CHANNELS, LOVR_AUDIO_SAMPLE_RATE, OUTPUT_FORMAT, NULL);
   } else {
     lovrAssert(soundData->channels == CAPTURE_CHANNELS, "Capture and SoundData channel counts must match");
     lovrAssert(soundData->sampleRate == LOVR_AUDIO_SAMPLE_RATE, "Capture and SoundData sample rates must match");
