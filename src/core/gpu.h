@@ -515,6 +515,30 @@ typedef struct {
   uint32_t size[2];
 } gpu_render_info;
 
+typedef enum {
+  GPU_READ_INDIRECT,
+  GPU_READ_VERTEX_BUFFER,
+  GPU_READ_INDEX_BUFFER,
+  GPU_READ_VERTEX_SHADER_UNIFORM,
+  GPU_READ_VERTEX_SHADER_STORAGE,
+  GPU_READ_VERTEX_SHADER_SAMPLE,
+  GPU_READ_FRAGMENT_SHADER_UNIFORM,
+  GPU_READ_FRAGMENT_SHADER_STORAGE,
+  GPU_READ_FRAGMENT_SHADER_SAMPLE,
+  GPU_READ_COLOR_TARGET,
+  GPU_READ_DEPTH_TARGET,
+  GPU_READ_COMPUTE_SHADER_UNIFORM,
+  GPU_READ_COMPUTE_SHADER_STORAGE,
+  GPU_READ_COMPUTE_SHADER_SAMPLE,
+  GPU_READ_DOWNLOAD,
+  GPU_WRITE_COLOR_TARGET,
+  GPU_WRITE_DEPTH_TARGET,
+  GPU_WRITE_COMPUTE_SHADER_STORAGE,
+  GPU_WRITE_UPLOAD,
+  GPU_PRESENT,
+  GPU_ACCESS_COUNT
+} gpu_access;
+
 bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
 void gpu_thread_attach(void);
@@ -523,6 +547,7 @@ void gpu_begin(void);
 void gpu_flush(void);
 void gpu_render(gpu_render_info* info, gpu_batch** batches, uint32_t count);
 void gpu_compute(gpu_batch** batches, uint32_t count);
+void gpu_sync(uint32_t before, uint32_t after);
 void gpu_debug_push(const char* label);
 void gpu_debug_pop(void);
 void gpu_time_write(void);
