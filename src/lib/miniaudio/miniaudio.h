@@ -2748,7 +2748,7 @@ MA_API size_t ma_rb_get_subbuffer_offset(ma_rb* pRB, size_t subbufferIndex);
 MA_API void* ma_rb_get_subbuffer_ptr(ma_rb* pRB, size_t subbufferIndex, void* pBuffer);
 
 
-typedef struct
+typedef struct ma_pcm_rb
 {
     ma_rb rb;
     ma_format format;
