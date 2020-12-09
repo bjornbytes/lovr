@@ -1,6 +1,7 @@
 #include "graphics/graphics.h"
 #include "data/image.h"
 #include "event/event.h"
+#include "core/arr.h"
 #include "core/gpu.h"
 #include "core/os.h"
 #include "core/util.h"
@@ -11,6 +12,7 @@
 struct Buffer {
   gpu_buffer* gpu;
   BufferInfo info;
+  uint32_t access;
 };
 
 struct Texture {
@@ -25,17 +27,18 @@ static struct {
   gpu_limits limits;
   int width;
   int height;
+  arr_t(uint32_t*) sync[GPU_ACCESS_COUNT];
 } state;
 
-void onDebugMessage(void* context, const char* message, int severe) {
+static void onDebugMessage(void* context, const char* message, int severe) {
   lovrLog(severe ? LOG_ERROR : LOG_DEBUG, "GPU", message);
 }
 
-void onQuitRequest() {
+static void onQuitRequest() {
   lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit = { .exitCode = 0 } });
 }
 
-void onResizeWindow(int width, int height) {
+static void onResizeWindow(int width, int height) {
   state.width = width;
   state.height = height;
   lovrEventPush((Event) { .type = EVENT_RESIZE, .data.resize = { width, height } });
@@ -50,6 +53,9 @@ void lovrGraphicsDestroy() {
   if (!state.initialized) return;
   gpu_thread_detach();
   gpu_destroy();
+  for (uint32_t i = 0; i < GPU_ACCESS_COUNT; i++) {
+    arr_free(&state.sync[i]);
+  }
   memset(&state, 0, sizeof(state));
 }
 
@@ -80,6 +86,11 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
 
   lovrAssert(gpu_init(&config), "Could not initialize GPU");
   gpu_thread_attach();
+
+  for (uint32_t i = 0; i < GPU_ACCESS_COUNT; i++) {
+    arr_init(&state.sync[i]);
+  }
+
   state.initialized = true;
 }
 
@@ -204,6 +215,35 @@ void lovrBufferDestroy(void* ref) {
 
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
   return &buffer->info;
+}
+
+#define WRITE_MASK (1 << GPU_WRITE_COLOR_TARGET) | (1 << GPU_WRITE_DEPTH_TARGET) | (1 << GPU_WRITE_COMPUTE_SHADER_STORAGE) | (1 << GPU_WRITE_UPLOAD)
+
+void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
+  uint32_t before = buffer->access;
+  uint32_t after = 1 << GPU_WRITE_UPLOAD;
+
+  // If there is a pending write or we are about to perform a write, a barrier is necessary
+  if (before != 0 && ((before & WRITE_MASK) || (after & WRITE_MASK))) {
+
+    // Executing the barrier will also protect against similar hazards for other resources, so we
+    // clear bits for all resources with the same pending access to prevent over-barriering.
+    for (uint32_t i = 0; i < GPU_ACCESS_COUNT; i++) {
+      if (before & (1 << i)) {
+        for (uint32_t j = 0; j < state.sync[i].length; j++) {
+          *state.sync[i].data[j] &= ~(1 << i);
+        }
+        arr_clear(&state.sync[i]);
+      }
+    }
+
+    gpu_sync(before, after);
+  }
+
+  buffer->access |= after;
+  arr_push(&state.sync[GPU_WRITE_UPLOAD], &buffer->access);
+
+  return gpu_buffer_map(buffer->gpu, offset, size);
 }
 
 // Texture
