@@ -150,9 +150,8 @@ static int l_lovrAudioGetDevices(lua_State *L) {
 }
 
 static int l_lovrUseDevice(lua_State *L) {
-
-  //lovrAudioUseDevice()
-
+  AudioDeviceIdentifier ident = lua_touserdata(L, 1);
+  lovrAudioUseDevice(ident);
   return 0;
 }
 

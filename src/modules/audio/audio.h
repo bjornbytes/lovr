@@ -25,16 +25,19 @@ typedef enum {
   UNIT_SAMPLES
 } TimeUnit;
 
+typedef void* AudioDeviceIdentifier;
+
 typedef struct {
   bool enable;
   bool start;
+  AudioDeviceIdentifier device;
 } AudioConfig;
 
 typedef struct {
   AudioType type;
   const char *name;
   bool isDefault;
-  void *identifier;
+  AudioDeviceIdentifier identifier;
   int minChannels, maxChannels;
 } AudioDevice;
 
@@ -71,4 +74,4 @@ uint32_t lovrAudioGetCaptureSampleCount();
 struct SoundData* lovrAudioCapture(uint32_t sampleCount, struct SoundData *soundData, uint32_t offset);
 
 void lovrAudioGetDevices(AudioDevice **outDevices, size_t *outCount);
-void lovrAudioUseDevice(void *identifier);
+void lovrAudioUseDevice(AudioDeviceIdentifier identifier);

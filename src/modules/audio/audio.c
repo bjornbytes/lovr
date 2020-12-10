@@ -203,7 +203,9 @@ bool lovrAudioInitDevice(AudioType type) {
   ma_device_config config = ma_device_config_init(deviceType);
   config.sampleRate = LOVR_AUDIO_SAMPLE_RATE;
   config.playback.format = miniAudioFormatFromLovr[OUTPUT_FORMAT];
+  config.playback.pDeviceID = state.config[AUDIO_PLAYBACK].device;
   config.capture.format = miniAudioFormatFromLovr[OUTPUT_FORMAT];
+  config.playback.pDeviceID = state.config[AUDIO_CAPTURE].device;
   config.playback.channels = OUTPUT_CHANNELS;
   config.capture.channels = CAPTURE_CHANNELS;
   config.dataCallback = callbacks[type];
@@ -459,4 +461,23 @@ void lovrAudioGetDevices(AudioDevice **outDevices, size_t *outCount) {
     lovrInfo->minChannels = mainfo->minChannels;
     lovrInfo->maxChannels = mainfo->maxChannels;
   }
+}
+
+void lovrAudioUseDevice(AudioDeviceIdentifier identifier) {
+  int deviceCount = state.context.playbackDeviceInfoCount + state.context.captureDeviceInfoCount;
+  for(int i = 0; i < deviceCount; i++) {
+    if (identifier == &state.context.pDeviceInfos[i].id) {
+      AudioType type = i < state.context.playbackDeviceInfoCount ? AUDIO_PLAYBACK : AUDIO_CAPTURE;
+      state.config[type].device = identifier;
+      lovrLog(LOG_INFO, "audio", "Switching to %s device %s (%p)", type?"capture":"playback", state.context.pDeviceInfos[i].name, identifier);
+      ma_device_uninit(&state.devices[type]);
+      if(state.config[type].enable)
+        lovrAudioInitDevice(type);
+      if(state.config[type].start)
+        ma_device_start(&state.devices[type]);
+
+      return;
+    }
+  }
+  lovrAssert(false, "Couldn't find the given identifier");
 }
