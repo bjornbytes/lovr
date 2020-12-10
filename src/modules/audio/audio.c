@@ -203,9 +203,9 @@ bool lovrAudioInitDevice(AudioType type) {
   ma_device_config config = ma_device_config_init(deviceType);
   config.sampleRate = LOVR_AUDIO_SAMPLE_RATE;
   config.playback.format = miniAudioFormatFromLovr[OUTPUT_FORMAT];
-  config.playback.pDeviceID = state.config[AUDIO_PLAYBACK].device;
   config.capture.format = miniAudioFormatFromLovr[OUTPUT_FORMAT];
-  config.playback.pDeviceID = state.config[AUDIO_CAPTURE].device;
+  config.playback.pDeviceID = state.config[AUDIO_PLAYBACK].device;
+  config.capture.pDeviceID = state.config[AUDIO_CAPTURE].device;
   config.playback.channels = OUTPUT_CHANNELS;
   config.capture.channels = CAPTURE_CHANNELS;
   config.dataCallback = callbacks[type];
