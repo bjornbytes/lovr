@@ -35,6 +35,7 @@ typedef struct {
   const char *name;
   bool isDefault;
   void *identifier;
+  int minChannels, maxChannels;
 } AudioDevice;
 
 #ifndef LOVR_AUDIO_SAMPLE_RATE
