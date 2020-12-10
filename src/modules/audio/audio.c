@@ -302,6 +302,7 @@ Source* lovrSourceCreate(SoundData* sound, bool spatial) {
   source->volume = 1.f;
   
   source->spatial = spatial;
+  mat4_identity(source->transform);
   _lovrSourceAssignConverter(source);
 
   return source;
