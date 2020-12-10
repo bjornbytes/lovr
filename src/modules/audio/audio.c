@@ -372,7 +372,11 @@ void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) 
 }
 
 uint32_t lovrSourceGetTime(Source* source) {
-  return source->offset;
+  if (lovrSoundDataIsStream(source->sound)) {
+    return 0;
+  } else {
+    return source->offset;
+  }
 }
 
 void lovrSourceSetTime(Source* source, uint32_t time) {
