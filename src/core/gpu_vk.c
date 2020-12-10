@@ -32,12 +32,11 @@ static void gpu_dlclose(void* library) { dlclose(library); }
 #define MIN(a, b) (a < b ? a : b)
 #define MAX(a, b) (a > b ? a : b)
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
-#define QUERY_CHUNK 64
-#define SCRATCHPAD_SIZE (16 * 1024 * 1024)
 #define VOIDP_TO_U64(x) (((union { uint64_t u; void* p; }) { .p = x }).u)
 #define GPU_THROW(s) if (state.config.callback) { state.config.callback(state.config.userdata, s, true); }
 #define GPU_CHECK(c, s) if (!(c)) { GPU_THROW(s); }
 #define GPU_VK(f) do { VkResult r = (f); GPU_CHECK(r >= 0, getErrorString(r)); } while (0)
+#define QUERY_CHUNK 64
 
 // Objects
 
@@ -215,6 +214,8 @@ static struct {
 
 // Helpers
 
+enum { LINEAR, SRGB };
+
 typedef struct {
   VkBuffer buffer;
   uint32_t offset;
@@ -227,50 +228,11 @@ static void readback(void);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
 static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo, VkDescriptorSetLayoutCreateInfo* layouts, VkDescriptorSetLayoutBinding bindings[4][32]);
+static VkFormat convertFormat(gpu_texture_format format, int colorspace);
 static uint64_t getTextureRegionSize(VkFormat format, uint16_t extent[3]);
 static void nickname(void* object, VkObjectType type, const char* name);
 static VkBool32 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* context);
 static const char* getErrorString(VkResult result);
-
-enum { LINEAR, SRGB };
-static const VkFormat textureFormats[][2] = {
-  [GPU_TEXTURE_FORMAT_NONE] = { VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_R8] = { VK_FORMAT_R8_UNORM, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RG8] = { VK_FORMAT_R8G8_UNORM, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RGBA8] = { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_SRGB },
-  [GPU_TEXTURE_FORMAT_R16] = { VK_FORMAT_R16_UNORM, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RG16] = { VK_FORMAT_R16G16_UNORM, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RGBA16] = { VK_FORMAT_R16G16B16A16_UNORM, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_R16F] = { VK_FORMAT_R16_SFLOAT, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RG16F] = { VK_FORMAT_R16G16_SFLOAT, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RGBA16F] = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_R32F] = { VK_FORMAT_R32_SFLOAT, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RG32F] = { VK_FORMAT_R32G32_SFLOAT, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RGBA32F] = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RGB565] = { VK_FORMAT_R5G6B5_UNORM_PACK16, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RGB5A1] = { VK_FORMAT_R5G5B5A1_UNORM_PACK16, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RGB10A2] = { VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_RG11B10F] = { VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_D16] = { VK_FORMAT_D16_UNORM, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_D32F] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_BC6] = { VK_FORMAT_BC6H_SFLOAT_BLOCK, VK_FORMAT_UNDEFINED },
-  [GPU_TEXTURE_FORMAT_BC7] = { VK_FORMAT_BC7_UNORM_BLOCK, VK_FORMAT_BC7_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_4x4] = { VK_FORMAT_ASTC_4x4_UNORM_BLOCK, VK_FORMAT_ASTC_4x4_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_5x4] = { VK_FORMAT_ASTC_5x4_UNORM_BLOCK, VK_FORMAT_ASTC_5x4_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_5x5] = { VK_FORMAT_ASTC_5x5_UNORM_BLOCK, VK_FORMAT_ASTC_5x5_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_6x5] = { VK_FORMAT_ASTC_6x5_UNORM_BLOCK, VK_FORMAT_ASTC_6x5_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_6x6] = { VK_FORMAT_ASTC_6x6_UNORM_BLOCK, VK_FORMAT_ASTC_6x6_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_8x5] = { VK_FORMAT_ASTC_8x5_UNORM_BLOCK, VK_FORMAT_ASTC_8x5_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_8x6] = { VK_FORMAT_ASTC_8x6_UNORM_BLOCK, VK_FORMAT_ASTC_8x6_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_8x8] = { VK_FORMAT_ASTC_8x8_UNORM_BLOCK, VK_FORMAT_ASTC_8x8_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_10x5] = { VK_FORMAT_ASTC_10x5_UNORM_BLOCK, VK_FORMAT_ASTC_10x5_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_10x6] = { VK_FORMAT_ASTC_10x6_UNORM_BLOCK, VK_FORMAT_ASTC_10x6_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_10x8] = { VK_FORMAT_ASTC_10x8_UNORM_BLOCK, VK_FORMAT_ASTC_10x8_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_10x10] = { VK_FORMAT_ASTC_10x10_UNORM_BLOCK, VK_FORMAT_ASTC_10x10_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_12x10] = { VK_FORMAT_ASTC_12x10_UNORM_BLOCK, VK_FORMAT_ASTC_12x10_SRGB_BLOCK },
-  [GPU_TEXTURE_FORMAT_ASTC_12x12] = { VK_FORMAT_ASTC_12x12_UNORM_BLOCK, VK_FORMAT_ASTC_12x12_SRGB_BLOCK }
-};
 
 // Functions that don't require an instance
 #define GPU_FOREACH_ANONYMOUS(X)\
@@ -588,8 +550,8 @@ bool gpu_init(gpu_config* config) {
       config->features->multiview = enableMultiview.multiview = true; // Always supported in 1.1
 
       VkFormatProperties formatProperties;
-      for (uint32_t i = 0; i < COUNTOF(textureFormats); i++) {
-        vkGetPhysicalDeviceFormatProperties(state.physicalDevice, textureFormats[i][LINEAR], &formatProperties);
+      for (uint32_t i = 0; i < GPU_TEXTURE_FORMAT_COUNT; i++) {
+        vkGetPhysicalDeviceFormatProperties(state.physicalDevice, convertFormat(i, LINEAR), &formatProperties);
         uint32_t blitMask = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
         uint32_t flags = formatProperties.optimalTilingFeatures;
         config->features->formats[i] =
@@ -1170,7 +1132,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     default: return false;
   }
 
-  texture->format = textureFormats[info->format][info->srgb];
+  texture->format = convertFormat(info->format, info->srgb);
   texture->samples = info->samples;
 
   if (info->format == GPU_TEXTURE_FORMAT_D24S8) {
@@ -1283,7 +1245,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
   if (texture != info->source) {
     texture->handle = VK_NULL_HANDLE;
-    texture->format = textureFormats[info->format][LINEAR];
+    texture->format = convertFormat(info->format, LINEAR);
     texture->memory = VK_NULL_HANDLE;
     texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
     texture->aspect = info->source->aspect;
@@ -1489,7 +1451,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
   for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].format; i++, pass->colorCount++) {
     uint32_t attachment = count++;
     attachments[attachment] = (VkAttachmentDescription) {
-      .format = textureFormats[info->color[i].format][info->color[i].srgb],
+      .format = convertFormat(info->color[i].format, info->color[i].srgb),
       .samples = info->samples,
       .loadOp = loadOps[info->color[i].load],
       .storeOp = storeOps[info->color[i].save],
@@ -1505,7 +1467,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
     if (info->samples > 1) {
       attachment = count++;
       attachments[attachment] = (VkAttachmentDescription) {
-        .format = textureFormats[info->color[i].format][LINEAR],
+        .format = convertFormat(info->color[i].format, LINEAR),
         .samples = info->samples,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1528,7 +1490,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
   if (info->depth.format) {
     uint32_t attachment = count++;
     attachments[attachment] = (VkAttachmentDescription) {
-      .format = textureFormats[info->depth.format][LINEAR],
+      .format = convertFormat(info->depth.format, LINEAR),
       .samples = VK_SAMPLE_COUNT_1_BIT,
       .loadOp = loadOps[info->depth.load],
       .storeOp = storeOps[info->depth.save],
@@ -2256,6 +2218,7 @@ static VkFramebuffer getFramebuffer(const VkFramebufferCreateInfo* info) {
   return entries[0].handle;
 }
 
+#define SCRATCHPAD_SIZE (16 * 1024 * 1024)
 static gpu_mapping scratch(uint32_t size) {
   gpu_scratchpad_pool* pool = &state.scratchpads;
   gpu_scratchpad* scratchpad;
@@ -2567,6 +2530,49 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
   };
 
   return true;
+}
+
+static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
+  static const VkFormat formats[][2] = {
+    [GPU_TEXTURE_FORMAT_NONE] = { VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_R8] = { VK_FORMAT_R8_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RG8] = { VK_FORMAT_R8G8_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RGBA8] = { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_SRGB },
+    [GPU_TEXTURE_FORMAT_R16] = { VK_FORMAT_R16_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RG16] = { VK_FORMAT_R16G16_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RGBA16] = { VK_FORMAT_R16G16B16A16_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_R16F] = { VK_FORMAT_R16_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RG16F] = { VK_FORMAT_R16G16_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RGBA16F] = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_R32F] = { VK_FORMAT_R32_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RG32F] = { VK_FORMAT_R32G32_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RGBA32F] = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RGB565] = { VK_FORMAT_R5G6B5_UNORM_PACK16, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RGB5A1] = { VK_FORMAT_R5G5B5A1_UNORM_PACK16, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RGB10A2] = { VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_RG11B10F] = { VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_D16] = { VK_FORMAT_D16_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_D32F] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_BC6] = { VK_FORMAT_BC6H_SFLOAT_BLOCK, VK_FORMAT_UNDEFINED },
+    [GPU_TEXTURE_FORMAT_BC7] = { VK_FORMAT_BC7_UNORM_BLOCK, VK_FORMAT_BC7_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_4x4] = { VK_FORMAT_ASTC_4x4_UNORM_BLOCK, VK_FORMAT_ASTC_4x4_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_5x4] = { VK_FORMAT_ASTC_5x4_UNORM_BLOCK, VK_FORMAT_ASTC_5x4_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_5x5] = { VK_FORMAT_ASTC_5x5_UNORM_BLOCK, VK_FORMAT_ASTC_5x5_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_6x5] = { VK_FORMAT_ASTC_6x5_UNORM_BLOCK, VK_FORMAT_ASTC_6x5_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_6x6] = { VK_FORMAT_ASTC_6x6_UNORM_BLOCK, VK_FORMAT_ASTC_6x6_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_8x5] = { VK_FORMAT_ASTC_8x5_UNORM_BLOCK, VK_FORMAT_ASTC_8x5_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_8x6] = { VK_FORMAT_ASTC_8x6_UNORM_BLOCK, VK_FORMAT_ASTC_8x6_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_8x8] = { VK_FORMAT_ASTC_8x8_UNORM_BLOCK, VK_FORMAT_ASTC_8x8_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_10x5] = { VK_FORMAT_ASTC_10x5_UNORM_BLOCK, VK_FORMAT_ASTC_10x5_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_10x6] = { VK_FORMAT_ASTC_10x6_UNORM_BLOCK, VK_FORMAT_ASTC_10x6_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_10x8] = { VK_FORMAT_ASTC_10x8_UNORM_BLOCK, VK_FORMAT_ASTC_10x8_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_10x10] = { VK_FORMAT_ASTC_10x10_UNORM_BLOCK, VK_FORMAT_ASTC_10x10_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_12x10] = { VK_FORMAT_ASTC_12x10_UNORM_BLOCK, VK_FORMAT_ASTC_12x10_SRGB_BLOCK },
+    [GPU_TEXTURE_FORMAT_ASTC_12x12] = { VK_FORMAT_ASTC_12x12_UNORM_BLOCK, VK_FORMAT_ASTC_12x12_SRGB_BLOCK }
+  };
+
+  return formats[format][colorspace];
 }
 
 static uint64_t getTextureRegionSize(VkFormat format, uint16_t extent[3]) {
