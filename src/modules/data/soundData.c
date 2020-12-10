@@ -58,10 +58,10 @@ static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uin
     uint32_t availableFramesInRing = count;
     void *store;
     ma_result acquire_status = ma_pcm_rb_acquire_read(soundData->ring, &availableFramesInRing, &store);
-    lovrAssert(acquire_status == MA_SUCCESS, "Failed to acquire ring buffer for read: %d\n", acquire_status);
+    if (acquire_status != MA_SUCCESS) return 0;
     memcpy(data, store, availableFramesInRing * bytesPerFrame);
     ma_result commit_status = ma_pcm_rb_commit_read(soundData->ring, availableFramesInRing, store);
-    lovrAssert(commit_status == MA_SUCCESS, "Failed to commit ring buffer for read: %d\n", acquire_status);
+    if (commit_status != MA_SUCCESS) return 0;
 
     if (availableFramesInRing == 0) {
       return totalRead;
