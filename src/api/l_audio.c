@@ -124,10 +124,29 @@ static int l_lovrAudioGetDevices(lua_State *L) {
   AudioDevice *devices;
   size_t count;
   lovrAudioGetDevices(&devices, &count);
+  lua_newtable(L);
+  int listOfDevicesIdx = lua_gettop(L);
   for(int i = 0; i < count; i++) {
-    lua_pushstring(L, devices[i].name);
+    AudioDevice *device = &devices[i];
+    lua_pushinteger(L, i+1); // key in listOfDevicesIdx, for the bottom settable
+    lua_newtable(L);
+    luax_pushenum(L, AudioType, device->type);
+    lua_setfield(L, -2, "type");
+    lua_pushstring(L, device->name);
+    lua_setfield(L, -2, "name");
+    lua_pushboolean(L, device->isDefault);
+    lua_setfield(L, -2, "isDefault");
+    lua_pushlightuserdata(L, device->identifier);
+    lua_setfield(L, -2, "identifier");
+    lua_pushinteger(L, device->minChannels);
+    lua_setfield(L, -2, "minChannels");
+    lua_pushinteger(L, device->maxChannels);
+    lua_setfield(L, -2, "maxChannels");
+
+    lua_settable(L, listOfDevicesIdx);
   }
-  return count;
+
+  return 1;
 }
 
 static int l_lovrUseDevice(lua_State *L) {
