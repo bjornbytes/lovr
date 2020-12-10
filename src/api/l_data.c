@@ -78,12 +78,7 @@ static int l_lovrDataNewSoundData(lua_State* L) {
     uint32_t sampleRate = luaL_optinteger(L, 3, 44100);
     SampleFormat format = luax_checkenum(L, 4, SampleFormat, "i16");
     Blob* blob = luax_totype(L, 5, Blob);
-    SoundData* soundData;
-    if(blob) {
-      soundData = lovrSoundDataCreateRaw(frames, channels, sampleRate, format, blob);
-    } else {
-      soundData = lovrSoundDataCreateStream(frames, channels, sampleRate, format);
-    }
+    SoundData* soundData = lovrSoundDataCreateRaw(frames, channels, sampleRate, format, blob);
     luax_pushtype(L, SoundData, soundData);
     lovrRelease(SoundData, soundData);
     return 1;
@@ -94,6 +89,17 @@ static int l_lovrDataNewSoundData(lua_State* L) {
   SoundData* soundData = lovrSoundDataCreateFromFile(blob, decode);
   luax_pushtype(L, SoundData, soundData);
   lovrRelease(Blob, blob);
+  lovrRelease(SoundData, soundData);
+  return 1;
+}
+
+static int l_lovrDataNewSoundDataStream(lua_State* L) {
+  uint64_t frames = luaL_checkinteger(L, 1);
+  uint32_t channels = luaL_optinteger(L, 2, 2);
+  uint32_t sampleRate = luaL_optinteger(L, 3, 44100);
+  SampleFormat format = luax_checkenum(L, 4, SampleFormat, "i16");
+  SoundData* soundData = lovrSoundDataCreateStream(frames, channels, sampleRate, format);
+  luax_pushtype(L, SoundData, soundData);
   lovrRelease(SoundData, soundData);
   return 1;
 }
@@ -128,6 +134,7 @@ static const luaL_Reg lovrData[] = {
   { "newModelData", l_lovrDataNewModelData },
   { "newRasterizer", l_lovrDataNewRasterizer },
   { "newSoundData", l_lovrDataNewSoundData },
+  { "newSoundDataStream", l_lovrDataNewSoundDataStream },
   { "newTextureData", l_lovrDataNewTextureData },
   { NULL, NULL }
 };
