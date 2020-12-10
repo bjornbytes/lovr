@@ -24,8 +24,17 @@ static int l_lovrSoundDataAppend(lua_State* L) {
   return 1;
 }
 
+static int l_lovrSoundDataSetSample(lua_State* L) {
+  SoundData* soundData = luax_checktype(L, 1, SoundData);
+  int index = luaL_checkinteger(L, 2);
+  float value = luax_checkfloat(L, 3);
+  lovrSoundDataSetSample(soundData, index, value);
+  return 0;
+}
+
 const luaL_Reg lovrSoundData[] = {
   { "getBlob", l_lovrSoundDataGetBlob },
   { "append", l_lovrSoundDataAppend },
+  { "setSample", l_lovrSoundDataSetSample },
   { NULL, NULL }
 };
