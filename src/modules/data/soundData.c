@@ -7,6 +7,7 @@
 #include "audio/audio_internal.h"
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 static uint32_t lovrSoundDataReadRaw(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
   uint8_t* p = soundData->blob->data;
@@ -173,6 +174,16 @@ size_t lovrSoundDataStreamAppendSound(SoundData *dest, SoundData *src) {
   lovrAssert(dest->channels == src->channels && dest->sampleRate == src->sampleRate && dest->format == src->format, "Source and destination SoundData formats must match");
   lovrAssert(src->blob && src->read == lovrSoundDataReadRaw, "Source SoundData must have static PCM data and not be a stream");
   return lovrSoundDataStreamAppendBlob(dest, src->blob);
+}
+
+void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value) {
+  size_t byteIndex = index * bytesPerAudioFrame(soundData->channels, soundData->format);
+  lovrAssert(byteIndex < soundData->blob->size, "Sample index out of range");
+  switch (soundData->format) {
+    case SAMPLE_I16: ((int16_t*) soundData->blob->data)[index] = value * SHRT_MAX; break;
+    case SAMPLE_F32: ((float*) soundData->blob->data)[index] = value; break;
+    default: lovrThrow("Unsupported SoundData format %d\n", soundData->format); break;
+  }
 }
 
 bool lovrSoundDataIsStream(SoundData *soundData) {

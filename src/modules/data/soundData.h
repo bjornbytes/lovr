@@ -34,6 +34,7 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode);
 // returns the number of frames successfully appended (if it's less than the size of blob, the internal ring buffer is full)
 size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob);
 size_t lovrSoundDataStreamAppendSound(SoundData *dest, SoundData *src);
+void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value);
 
 uint32_t lovrSoundDataGetDuration(SoundData *soundData);
 
