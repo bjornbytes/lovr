@@ -1,7 +1,6 @@
 #include "graphics/graphics.h"
 #include "data/image.h"
 #include "event/event.h"
-#include "core/arr.h"
 #include "core/gpu.h"
 #include "core/os.h"
 #include "core/util.h"
@@ -88,7 +87,7 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
   gpu_thread_attach();
 
   for (uint32_t i = 0; i < GPU_ACCESS_COUNT; i++) {
-    arr_init(&state.sync[i]);
+    arr_init(&state.sync[i], realloc);
   }
 
   state.initialized = true;
@@ -338,4 +337,14 @@ Texture* lovrTextureCreate(TextureInfo* info) {
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   gpu_texture_destroy(texture->gpu);
+}
+
+const TextureInfo* lovrTextureGetInfo(Texture* texture) {
+  return &texture->info;
+}
+
+void lovrTextureGetPixels(Texture* texture, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t layer, uint32_t level, void (*callback)(void* data, uint64_t size, void* context), void* context) {
+  uint16_t offset[4] = { x, y, layer, level };
+  uint16_t extent[3] = { w, h, 1 };
+  gpu_texture_read(texture->gpu, offset, extent, callback, context);
 }
