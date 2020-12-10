@@ -44,6 +44,8 @@ static struct {
   ma_pcm_rb captureRingbuffer;
   arr_t(ma_data_converter) converters;
   Spatializer* spatializer;
+
+  AudioDevice *deviceInfos;
 } state;
 
 // Device callbacks
@@ -437,4 +439,22 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
   }
 
   return soundData;
+}
+
+void lovrAudioGetDevices(AudioDevice **outDevices, size_t *outCount) {
+  if(state.deviceInfos) 
+    free(state.deviceInfos);
+  
+  ma_result gettingStatus = ma_context_get_devices(&state.context, NULL, NULL, NULL, NULL);
+  lovrAssert(gettingStatus == MA_SUCCESS, "Failed to enumerate audio devices: %d", gettingStatus);
+  *outCount = state.context.playbackDeviceInfoCount + state.context.captureDeviceInfoCount;
+  state.deviceInfos = calloc(*outCount, sizeof(AudioDevice));
+  for(int i = 0; i < *outCount; i++) {
+    ma_device_info *mainfo = &state.context.pDeviceInfos[i];
+    AudioDevice *lovrInfo = &state.deviceInfos[i];
+    lovrInfo->name = mainfo->name;
+    lovrInfo->type = i < state.context.playbackDeviceInfoCount ? AUDIO_PLAYBACK : AUDIO_CAPTURE;
+    lovrInfo->isDefault = mainfo->isDefault;
+    lovrInfo->identifier = &mainfo->id;
+  }
 }
