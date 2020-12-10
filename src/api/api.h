@@ -37,6 +37,7 @@ extern StringEntry lovrShapeType[];
 extern StringEntry lovrSourceInterpolation[];
 extern StringEntry lovrStencilAction[];
 extern StringEntry lovrTextureFormat[];
+extern StringEntry lovrTextureType[];
 extern StringEntry lovrTimeUnit[];
 extern StringEntry lovrVolumeUnit[];
 
@@ -108,15 +109,6 @@ int luax_pushvariant(struct lua_State* L, struct Variant* variant);
 
 #ifndef LOVR_DISABLE_FILESYSTEM
 void* luax_readfile(const char* filename, size_t* bytesRead);
-#endif
-
-#ifndef LOVR_DISABLE_GRAPHICS
-struct Attachment;
-struct Texture;
-struct Uniform;
-int luax_checkuniform(struct lua_State* L, int index, const struct Uniform* uniform, void* dest, const char* debug);
-int luax_optmipmap(struct lua_State* L, int index, struct Texture* texture);
-void luax_readattachments(struct lua_State* L, int index, struct Attachment* attachments, int* count);
 #endif
 
 #ifndef LOVR_DISABLE_MATH
