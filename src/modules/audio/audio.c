@@ -62,7 +62,6 @@ static bool mix(Source* source, float* output, uint32_t count) {
         ma_data_converter_get_required_input_frame_count(source->converter, count));
         // ^^^ Note need to min `count` with 'capacity of aux buffer' and 'capacity of mix buffer'
         // could skip min-ing with one of the buffers if you can guarantee that one is bigger/equal to the other (you can because their formats are known)
-
     ma_uint64 framesIn = source->sound->read(source->sound, source->offset, chunk, raw);
     ma_uint64 framesOut = sizeof(aux) / (sizeof(float) * outputChannelCountForSource(source));
 
@@ -71,7 +70,7 @@ static bool mix(Source* source, float* output, uint32_t count) {
     if (source->spatial) {
       state.spatializer->apply(source, source->transform, aux, mix, framesOut);
     } else {
-      memcpy(mix, aux, framesOut * OUTPUT_CHANNELS * sizeof(float));
+      memcpy(mix, aux, framesOut * bytesPerAudioFrame(OUTPUT_CHANNELS, SAMPLE_F32));
     }
 
     for (uint32_t i = 0; i < framesOut * OUTPUT_CHANNELS; i++) {
@@ -180,6 +179,7 @@ bool lovrAudioInit(AudioConfig config[2]) {
   lovrAssert(state.spatializer != NULL, "Must have at least one spatializer");
 
   arr_init(&state.converters);
+  arr_reserve(&state.converters, 16);
 
   return state.initialized = true;
 }
@@ -287,7 +287,8 @@ static void _lovrSourceAssignConverter(Source *source) {
     config.channelsOut = outputChannelCountForSource(source);
     config.sampleRateIn = source->sound->sampleRate;
     config.sampleRateOut = LOVR_AUDIO_SAMPLE_RATE;
-    arr_expand(&state.converters, 1);
+    // can't use arr_expand because that will destroy the internal pointers inside the converter
+    lovrAssert(state.converters.length+1 < state.converters.capacity, "Out of space for converters");
     ma_data_converter* converter = &state.converters.data[state.converters.length++];
     lovrAssert(!ma_data_converter_init(&config, converter), "Problem creating Source data converter");
     source->converter = converter;
@@ -344,6 +345,7 @@ bool lovrSourceIsLooping(Source* source) {
 }
 
 void lovrSourceSetLooping(Source* source, bool loop) {
+  lovrAssert(loop == false || lovrSoundDataIsStream(source->sound) == false, "Can't loop streams");
   source->looping = loop;
 }
 

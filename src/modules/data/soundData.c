@@ -60,10 +60,9 @@ static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uin
     lovrAssert(acquire_status == MA_SUCCESS, "Failed to acquire ring buffer for read: %d\n", acquire_status);
     memcpy(data, store, availableFramesInRing * bytesPerFrame);
     ma_result commit_status = ma_pcm_rb_commit_read(soundData->ring, availableFramesInRing, store);
-    lovrAssert(commit_status != MA_SUCCESS, "Failed to commit ring buffer for read: %d\n", acquire_status);
+    lovrAssert(commit_status == MA_SUCCESS, "Failed to commit ring buffer for read: %d\n", acquire_status);
 
-    if (availableFramesInRing == 0 && count > 0) {
-      memset(data, 0, count * bytesPerFrame);
+    if (availableFramesInRing == 0) {
       return totalRead;
     }
 
@@ -73,6 +72,7 @@ static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uin
   }
   return totalRead;
 }
+
 
 SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, uint32_t sampleRate, SampleFormat format, struct Blob* blob) {
   SoundData* soundData = lovrAlloc(SoundData);
@@ -95,8 +95,7 @@ SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, ui
   return soundData;
 }
 
-SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t channels, uint32_t sampleRate, SampleFormat format)
-{
+SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t channels, uint32_t sampleRate, SampleFormat format) {
   SoundData* soundData = lovrAlloc(SoundData);
   soundData->format = format;
   soundData->sampleRate = sampleRate;
@@ -176,12 +175,14 @@ size_t lovrSoundDataStreamAppendSound(SoundData *dest, SoundData *src) {
   return lovrSoundDataStreamAppendBlob(dest, src->blob);
 }
 
+bool lovrSoundDataIsStream(SoundData *soundData) {
+  return soundData->read == lovrSoundDataReadRing;
+}
+
 void lovrSoundDataDestroy(void* ref) {
   SoundData* soundData = (SoundData*) ref;
   stb_vorbis_close(soundData->decoder);
   lovrRelease(Blob, soundData->blob);
-  if (soundData->ring) {
-    ma_pcm_rb_uninit(soundData->ring);
-    free(soundData->ring);
-  }
+  ma_pcm_rb_uninit(soundData->ring);
+  free(soundData->ring);
 }
