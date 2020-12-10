@@ -180,4 +180,8 @@ void lovrSoundDataDestroy(void* ref) {
   SoundData* soundData = (SoundData*) ref;
   stb_vorbis_close(soundData->decoder);
   lovrRelease(Blob, soundData->blob);
+  if (soundData->ring) {
+    ma_pcm_rb_uninit(soundData->ring);
+    free(soundData->ring);
+  }
 }
