@@ -3,6 +3,7 @@
 
 #pragma once
 
+struct TextureData;
 struct WindowFlags;
 
 typedef struct Buffer Buffer;
@@ -117,3 +118,4 @@ typedef struct {
 Texture* lovrTextureCreate(TextureInfo* info);
 void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
+void lovrTextureGetPixels(Texture* texture, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t layer, uint32_t level, void (*callback)(void* data, uint64_t size, void* context), void* context);
