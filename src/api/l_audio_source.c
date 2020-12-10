@@ -71,11 +71,11 @@ static int l_lovrSourceGetDuration(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   TimeUnit units = luax_checkenum(L, 2, TimeUnit, "seconds");
   SoundData* sound = lovrSourceGetSoundData(source);
-
+  uint32_t frames = lovrSoundDataGetDuration(sound);
   if (units == UNIT_SECONDS) {
-    lua_pushnumber(L, (double) sound->frames / sound->sampleRate);
+    lua_pushnumber(L, (double) frames / sound->sampleRate);
   } else {
-    lua_pushinteger(L, sound->frames);
+    lua_pushinteger(L, frames);
   }
 
   return 1;

@@ -35,5 +35,7 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode);
 size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob);
 size_t lovrSoundDataStreamAppendSound(SoundData *dest, SoundData *src);
 
+uint32_t lovrSoundDataGetDuration(SoundData *soundData);
+
 bool lovrSoundDataIsStream(SoundData *soundData);
 void lovrSoundDataDestroy(void* ref);

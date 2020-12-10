@@ -179,6 +179,15 @@ bool lovrSoundDataIsStream(SoundData *soundData) {
   return soundData->read == lovrSoundDataReadRing;
 }
 
+uint32_t lovrSoundDataGetDuration(SoundData *soundData)
+{
+  if (lovrSoundDataIsStream(soundData)) {
+    return ma_pcm_rb_available_read(soundData->ring);
+  } else {
+    return soundData->frames;
+  }
+}
+
 void lovrSoundDataDestroy(void* ref) {
   SoundData* soundData = (SoundData*) ref;
   stb_vorbis_close(soundData->decoder);
