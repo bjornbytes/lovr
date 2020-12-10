@@ -119,21 +119,20 @@ static int l_lovrAudioCapture(lua_State* L) {
   return 1;
 }
 
-static int l_lovrAudioSetCaptureDevice(lua_State *L) {
-  //
-
-  return 0;
+static int l_lovrAudioGetDevices(lua_State *L) {
+  AudioDevice *devices;
+  size_t count;
+  lovrAudioGetDevices(&devices, &count);
+  for(int i = 0; i < count; i++) {
+    lua_pushstring(L, devices[i].name);
+  }
+  return count;
 }
 
-static int l_lovrAudioGetCaptureDevice(lua_State *L) {
-  //
+static int l_lovrUseDevice(lua_State *L) {
 
-  return 0;
-}
+  //lovrAudioUseDevice()
 
-static int l_lovrAudioListCaptureDevices(lua_State *L) {
-  //
-  
   return 0;
 }
 
@@ -147,9 +146,8 @@ static const luaL_Reg lovrAudio[] = {
   { "setListenerPose", l_lovrAudioSetListenerPose },
   { "capture", l_lovrAudioCapture },
   { "getCaptureDuration", l_lovrAudioGetCaptureDuration },
-  { "setCaptureDevice", l_lovrAudioSetCaptureDevice },
-  { "getCaptureDevice", l_lovrAudioGetCaptureDevice },
-  { "listCaptureDevices", l_lovrAudioListCaptureDevices },
+  { "getDevices", l_lovrAudioGetDevices },
+  { "useDevice", l_lovrUseDevice },
   { NULL, NULL }
 };
 
