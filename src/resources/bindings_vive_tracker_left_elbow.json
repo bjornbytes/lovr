@@ -1,0 +1,16 @@
+{
+   "action_manifest_version" : 0,
+   "alias_info" : {},
+   "bindings" : {
+      "/actions/lovr" : {
+         "poses" : [
+            { "output": "/actions/lovr/in/leftElbowPose", "path": "/user/elbow/left/pose/raw" }
+         ]
+      }
+   },
+   "controller_type" : "vive_tracker_left_elbow",
+   "description" : "",
+   "name" : "Left Elbow Vive Tracker Bindings",
+   "options" : {},
+   "simulated_actions" : []
+}
