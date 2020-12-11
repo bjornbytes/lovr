@@ -38,18 +38,22 @@ static int threadRunner(void* data) {
     }
   }
 
+  mtx_lock(&thread->lock);
+
   // Error handling
   size_t length;
   const char* error = lua_tolstring(L, -1, &length);
-  mtx_lock(&thread->lock);
-  thread->error = malloc(length + 1);
-  if (thread->error) {
-    memcpy(thread->error, error, length + 1);
-    lovrEventPush((Event) {
-      .type = EVENT_THREAD_ERROR,
-      .data.thread = { thread, thread->error }
-    });
+  if (error) {
+    thread->error = malloc(length + 1);
+    if (thread->error) {
+      memcpy(thread->error, error, length + 1);
+      lovrEventPush((Event) {
+        .type = EVENT_THREAD_ERROR,
+        .data.thread = { thread, thread->error }
+      });
+    }
   }
+
   thread->running = false;
   mtx_unlock(&thread->lock);
   lovrRelease(Thread, thread);
