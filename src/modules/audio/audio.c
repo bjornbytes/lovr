@@ -457,7 +457,7 @@ void lovrAudioGetDevices(AudioDevice **outDevices, size_t *outCount) {
     AudioDevice *lovrInfo = &state.deviceInfos[i];
     lovrInfo->name = mainfo->name;
     lovrInfo->type = i < state.context.playbackDeviceInfoCount ? AUDIO_PLAYBACK : AUDIO_CAPTURE;
-    lovrInfo->isDefault = mainfo->isDefault;
+    lovrInfo->isDefault = mainfo->_private.isDefault; // remove _private after bumping miniaudio
     lovrInfo->identifier = &mainfo->id;
     lovrInfo->minChannels = mainfo->minChannels;
     lovrInfo->maxChannels = mainfo->maxChannels;
