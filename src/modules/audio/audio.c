@@ -19,7 +19,6 @@ static const ma_format miniAudioFormatFromLovr[] = {
 #define OUTPUT_FORMAT SAMPLE_F32
 #define OUTPUT_CHANNELS 2
 #define CAPTURE_CHANNELS 1
-#define CAPTURE_BUFFER_SIZE ((int)(LOVR_AUDIO_SAMPLE_RATE * 1.0))
 
 struct Source {
   Source* next;
@@ -168,7 +167,7 @@ bool lovrAudioInit(AudioConfig config[2]) {
     }
   }
 
-  ma_result rbstatus = ma_pcm_rb_init(miniAudioFormatFromLovr[OUTPUT_FORMAT], CAPTURE_CHANNELS, LOVR_AUDIO_SAMPLE_RATE * 1.0, NULL, NULL, &state.captureRingbuffer);
+  ma_result rbstatus = ma_pcm_rb_init(miniAudioFormatFromLovr[OUTPUT_FORMAT], CAPTURE_CHANNELS, state.config[AUDIO_CAPTURE].sampleRate * 1.0, NULL, NULL, &state.captureRingbuffer);
   if (rbstatus != MA_SUCCESS) {
     lovrAudioDestroy();
     return false;
@@ -206,9 +205,10 @@ bool lovrAudioInitDevice(AudioType type) {
   ma_device_type deviceType = (type == AUDIO_PLAYBACK) ? ma_device_type_playback : ma_device_type_capture;
 
   ma_device_config config = ma_device_config_init(deviceType);
-  config.sampleRate = LOVR_AUDIO_SAMPLE_RATE;
-  config.playback.format = miniAudioFormatFromLovr[OUTPUT_FORMAT];
-  config.capture.format = miniAudioFormatFromLovr[OUTPUT_FORMAT];
+  config.sampleRate = state.config[type].sampleRate;
+  lovrAssert(state.config[AUDIO_PLAYBACK].format == OUTPUT_FORMAT, "Only f32 playback format currently supported");
+  config.playback.format = miniAudioFormatFromLovr[state.config[AUDIO_PLAYBACK].format];
+  config.capture.format = miniAudioFormatFromLovr[state.config[AUDIO_CAPTURE].format];
   config.playback.pDeviceID = state.config[AUDIO_PLAYBACK].device;
   config.capture.pDeviceID = state.config[AUDIO_CAPTURE].device;
   config.playback.channels = OUTPUT_CHANNELS;
@@ -269,9 +269,12 @@ void lovrAudioSetVolume(float volume) {
   ma_device_set_master_volume(&state.devices[AUDIO_PLAYBACK], volume);
 }
 
-void lovrAudioSetListenerPose(float position[4], float orientation[4])
-{
+void lovrAudioSetListenerPose(float position[4], float orientation[4]) {
   state.spatializer->setListenerPose(position, orientation);
+}
+
+double lovrAudioConvertToSeconds(uint32_t sampleCount, AudioType context) {
+  return sampleCount / (double)state.config[context].sampleRate;
 }
 
 // Source
@@ -295,8 +298,8 @@ static void _lovrSourceAssignConverter(Source *source) {
     config.channelsIn = source->sound->channels;
     config.channelsOut = outputChannelCountForSource(source);
     config.sampleRateIn = source->sound->sampleRate;
-    config.sampleRateOut = LOVR_AUDIO_SAMPLE_RATE;
-    
+    config.sampleRateOut = state.config[AUDIO_PLAYBACK].sampleRate;
+
     ma_data_converter *converter = malloc(sizeof(ma_data_converter));
     ma_result converterStatus = ma_data_converter_init(&config, converter);
     lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %d", state.converters.length, converterStatus);
@@ -423,15 +426,15 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
   }
 
   if (soundData == NULL) {
-    soundData = lovrSoundDataCreateRaw(frameCount, CAPTURE_CHANNELS, LOVR_AUDIO_SAMPLE_RATE, OUTPUT_FORMAT, NULL);
+    soundData = lovrSoundDataCreateRaw(frameCount, CAPTURE_CHANNELS, state.config[AUDIO_CAPTURE].sampleRate, state.config[AUDIO_CAPTURE].format, NULL);
   } else {
     lovrAssert(soundData->channels == CAPTURE_CHANNELS, "Capture (%d) and SoundData (%d) channel counts must match", CAPTURE_CHANNELS, soundData->channels);
-    lovrAssert(soundData->sampleRate == LOVR_AUDIO_SAMPLE_RATE, "Capture (%d) and SoundData (%d) sample rates must match", LOVR_AUDIO_SAMPLE_RATE, soundData->sampleRate);
-    lovrAssert(soundData->format == OUTPUT_FORMAT, "Capture (%s) and SoundData (%s) formats must match", format2string(OUTPUT_FORMAT), format2string(soundData->format));
+    lovrAssert(soundData->sampleRate == state.config[AUDIO_CAPTURE].sampleRate, "Capture (%d) and SoundData (%d) sample rates must match", state.config[AUDIO_CAPTURE].sampleRate, soundData->sampleRate);
+    lovrAssert(soundData->format == state.config[AUDIO_CAPTURE].format, "Capture (%s) and SoundData (%s) formats must match", format2string(state.config[AUDIO_CAPTURE].format), format2string(soundData->format));
     lovrAssert(offset + frameCount <= soundData->frames, "Tried to write samples past the end of a SoundData buffer");
   }
 
-  uint32_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, OUTPUT_FORMAT);
+  uint32_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, state.config[AUDIO_CAPTURE].format);
   while(frameCount > 0) {
     uint32_t availableFramesInRB = frameCount;
     void *store;
@@ -473,12 +476,14 @@ void lovrAudioGetDevices(AudioDevice **outDevices, size_t *outCount) {
   }
 }
 
-void lovrAudioUseDevice(AudioDeviceIdentifier identifier) {
+void lovrAudioUseDevice(AudioDeviceIdentifier identifier, int sampleRate, SampleFormat format) {
   int deviceCount = state.context.playbackDeviceInfoCount + state.context.captureDeviceInfoCount;
   for(int i = 0; i < deviceCount; i++) {
     if (identifier == &state.context.pDeviceInfos[i].id) {
       AudioType type = i < state.context.playbackDeviceInfoCount ? AUDIO_PLAYBACK : AUDIO_CAPTURE;
       state.config[type].device = identifier;
+      if (sampleRate) state.config[type].sampleRate = sampleRate;
+      if (format != SAMPLE_INVALID) state.config[type].format = format;
       lovrLog(LOG_INFO, "audio", "Switching to %s device %s (%p)", type?"capture":"playback", state.context.pDeviceInfos[i].name, identifier);
       ma_device_uninit(&state.devices[type]);
       if(state.config[type].enable)
