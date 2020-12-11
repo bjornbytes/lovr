@@ -90,7 +90,7 @@ static int l_lovrAudioGetCaptureDuration(lua_State *L) {
   size_t sampleCount = lovrAudioGetCaptureSampleCount();
   
   if (units == UNIT_SECONDS) {
-    lua_pushnumber(L, (double) sampleCount / LOVR_AUDIO_SAMPLE_RATE);
+    lua_pushnumber(L, lovrAudioConvertToSeconds(sampleCount, AUDIO_CAPTURE));
   } else {
     lua_pushinteger(L, sampleCount);
   }
@@ -150,7 +150,9 @@ static int l_lovrAudioGetDevices(lua_State *L) {
 
 static int l_lovrUseDevice(lua_State *L) {
   AudioDeviceIdentifier ident = lua_touserdata(L, 1);
-  lovrAudioUseDevice(ident);
+  int sampleRate = lua_tointeger(L, 2);
+  SampleFormat format = luax_checkenum(L, 3, SampleFormat, "invalid");
+  lovrAudioUseDevice(ident, sampleRate, format);
   return 0;
 }
 
@@ -173,7 +175,10 @@ int luaopen_lovr_audio(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrAudio);
   luax_registertype(L, Source);
-  AudioConfig config[2] = { { .enable = true, .start = true }, { .enable = false, .start = false } };
+  AudioConfig config[2] = { 
+    { .enable = true, .start = true, .format = SAMPLE_F32, .sampleRate = 44100 }, 
+    { .enable = false, .start = false, .format = SAMPLE_F32, .sampleRate = 44100 } 
+  };
   if (lovrAudioInit(config)) {
     luax_atexit(L, lovrAudioDestroy);
   }
