@@ -405,6 +405,8 @@ uint32_t lovrAudioGetCaptureSampleCount() {
   return ma_pcm_rb_available_read(&state.captureRingbuffer);
 }
 
+static const char *format2string(SampleFormat f) { return f == SAMPLE_I16 ? "i16" : "f32"; }
+
 struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, uint32_t offset) {
 
   uint32_t bufferedFrames = lovrAudioGetCaptureSampleCount();
@@ -419,9 +421,9 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
   if (soundData == NULL) {
     soundData = lovrSoundDataCreateRaw(frameCount, CAPTURE_CHANNELS, LOVR_AUDIO_SAMPLE_RATE, OUTPUT_FORMAT, NULL);
   } else {
-    lovrAssert(soundData->channels == CAPTURE_CHANNELS, "Capture and SoundData channel counts must match");
-    lovrAssert(soundData->sampleRate == LOVR_AUDIO_SAMPLE_RATE, "Capture and SoundData sample rates must match");
-    lovrAssert(soundData->format == OUTPUT_FORMAT, "Capture and SoundData formats must match");
+    lovrAssert(soundData->channels == CAPTURE_CHANNELS, "Capture (%d) and SoundData (%d) channel counts must match", CAPTURE_CHANNELS, soundData->channels);
+    lovrAssert(soundData->sampleRate == LOVR_AUDIO_SAMPLE_RATE, "Capture (%d) and SoundData (%d) sample rates must match", LOVR_AUDIO_SAMPLE_RATE, soundData->sampleRate);
+    lovrAssert(soundData->format == OUTPUT_FORMAT, "Capture (%s) and SoundData (%s) formats must match", format2string(OUTPUT_FORMAT), format2string(soundData->format));
     lovrAssert(offset + frameCount <= soundData->frames, "Tried to write samples past the end of a SoundData buffer");
   }
 
