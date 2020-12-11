@@ -173,7 +173,6 @@ size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob) {
     ma_result commit_status = ma_pcm_rb_commit_write(dest->ring, availableFrames, store);
     lovrAssert(commit_status == MA_SUCCESS, "Failed to commit to ring buffer");
     if (availableFrames == 0) {
-      lovrLog(LOG_WARN, "audio", "SoundData's stream ring buffer is overrun; appended %d and dropping %d frames of data", framesAppended, frameCount);
       return framesAppended;
     }
     
