@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "modules/data/soundData.h"
 
 #pragma once
 
@@ -31,6 +32,8 @@ typedef struct {
   bool enable;
   bool start;
   AudioDeviceIdentifier device;
+  int sampleRate;
+  SampleFormat format;
 } AudioConfig;
 
 typedef struct {
@@ -41,10 +44,6 @@ typedef struct {
   int minChannels, maxChannels;
 } AudioDevice;
 
-#ifndef LOVR_AUDIO_SAMPLE_RATE
-#  define LOVR_AUDIO_SAMPLE_RATE 44100
-#endif
-
 bool lovrAudioInit(AudioConfig config[2]);
 void lovrAudioDestroy(void);
 bool lovrAudioReset(void);
@@ -53,6 +52,7 @@ bool lovrAudioStop(AudioType type);
 float lovrAudioGetVolume(void);
 void lovrAudioSetVolume(float volume);
 void lovrAudioSetListenerPose(float position[4], float orientation[4]);
+double lovrAudioConvertToSeconds(uint32_t sampleCount, AudioType context);
 
 Source* lovrSourceCreate(struct SoundData* soundData, bool spatial);
 void lovrSourceDestroy(void* ref);
@@ -74,4 +74,4 @@ uint32_t lovrAudioGetCaptureSampleCount();
 struct SoundData* lovrAudioCapture(uint32_t sampleCount, struct SoundData *soundData, uint32_t offset);
 
 void lovrAudioGetDevices(AudioDevice **outDevices, size_t *outCount);
-void lovrAudioUseDevice(AudioDeviceIdentifier identifier);
+void lovrAudioUseDevice(AudioDeviceIdentifier identifier, int sampleRate, SampleFormat format);
