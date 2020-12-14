@@ -100,9 +100,9 @@ typedef enum {
 typedef struct {
   gpu_texture* source;
   gpu_texture_type type;
-  uint32_t baseMipmap;
+  uint32_t mipmapIndex;
   uint32_t mipmapCount;
-  uint32_t baseLayer;
+  uint32_t layerIndex;
   uint32_t layerCount;
 } gpu_texture_view_info;
 
