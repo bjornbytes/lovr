@@ -657,7 +657,6 @@ bool gpu_init(gpu_config* config) {
       texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
       texture->samples = VK_SAMPLE_COUNT_1_BIT;
 
-      // TODO swizzle?
       gpu_texture_view_info view = {
         .source = texture,
         .type = GPU_TEXTURE_TYPE_2D
@@ -1247,7 +1246,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
   if (texture != info->source) {
     texture->handle = VK_NULL_HANDLE;
-    texture->format = convertFormat(info->format, LINEAR);
+    texture->format = info->source->format;
     texture->memory = VK_NULL_HANDLE;
     texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
     texture->aspect = info->source->aspect;
