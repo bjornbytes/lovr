@@ -105,8 +105,18 @@ typedef enum {
 } TextureUsage;
 
 typedef struct {
+  Texture* source;
   TextureType type;
-  uint32_t format; // See TextureData
+  uint32_t layerIndex;
+  uint32_t layerCount;
+  uint32_t mipmapIndex;
+  uint32_t mipmapCount;
+} TextureView;
+
+typedef struct {
+  TextureView view;
+  TextureType type;
+  uint32_t format;
   uint32_t size[3];
   uint32_t mipmaps;
   uint32_t samples;
@@ -116,6 +126,7 @@ typedef struct {
 } TextureInfo;
 
 Texture* lovrTextureCreate(TextureInfo* info);
+Texture* lovrTextureCreateView(TextureView* view);
 void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
 void lovrTextureGetPixels(Texture* texture, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t layer, uint32_t level, void (*callback)(void* data, uint64_t size, void* context), void* context);

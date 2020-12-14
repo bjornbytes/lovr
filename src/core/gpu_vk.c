@@ -1269,9 +1269,9 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     .format = texture->format,
     .subresourceRange = {
       .aspectMask = texture->aspect,
-      .baseMipLevel = info ? info->baseMipmap : 0,
+      .baseMipLevel = info ? info->mipmapIndex : 0,
       .levelCount = (info && info->mipmapCount) ? info->mipmapCount : VK_REMAINING_MIP_LEVELS,
-      .baseArrayLayer = info ? info->baseLayer : 0,
+      .baseArrayLayer = info ? info->layerIndex : 0,
       .layerCount = (info && info->layerCount) ? info->layerCount : VK_REMAINING_ARRAY_LAYERS
     }
   };

@@ -329,6 +329,21 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewTexture(lua_State* L) {
+  Texture* source = luax_totype(L, 1, Texture);
+
+  if (source) {
+    TextureView view = { .source = source };
+    view.type = luax_checkenum(L, 2, TextureType, NULL);
+    view.layerIndex = luaL_optinteger(L, 3, 1) - 1;
+    view.layerCount = luaL_optinteger(L, 4, 1);
+    view.mipmapIndex = luaL_optinteger(L, 5, 1) - 1;
+    view.mipmapCount = luaL_optinteger(L, 6, 0);
+    Texture* texture = lovrTextureCreateView(&view);
+    luax_pushtype(L, Texture, texture);
+    lovrRelease(texture, lovrTextureDestroy);
+    return 1;
+  }
+
   int index = 1;
   int argType = lua_type(L, index);
   bool blank = argType == LUA_TNUMBER;
