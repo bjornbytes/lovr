@@ -191,8 +191,8 @@ size_t lovrSoundDataStreamAppendSound(SoundData *dest, SoundData *src) {
 }
 
 void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value) {
-  size_t byteIndex = index * SampleFormatBytesPerFrame(soundData->channels, soundData->format);
-  lovrAssert(byteIndex < soundData->blob->size, "Sample index out of range");
+  lovrAssert(soundData->blob && soundData->read == lovrSoundDataReadRaw, "Source SoundData must have static PCM data and not be a stream");
+  lovrAssert(index < soundData->frames, "Sample index out of range");
   switch (soundData->format) {
     case SAMPLE_I16: ((int16_t*) soundData->blob->data)[index] = value * SHRT_MAX; break;
     case SAMPLE_F32: ((float*) soundData->blob->data)[index] = value; break;
