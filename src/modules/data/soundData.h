@@ -15,6 +15,8 @@ typedef enum {
   SAMPLE_I16
 } SampleFormat;
 
+size_t SampleFormatBytesPerFrame(int channelCount, SampleFormat fmt);
+
 typedef struct SoundData {
   SoundDataReader* read;
   void* decoder;
