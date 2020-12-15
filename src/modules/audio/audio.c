@@ -44,7 +44,7 @@ static struct {
   ma_mutex playbackLock;
   Source* sources;
   ma_pcm_rb captureRingbuffer;
-  arr_t(ma_data_converter) converters;
+  arr_t(ma_data_converter*) converters;
   Spatializer* spatializer;
 
   AudioDevice *deviceInfos;
@@ -183,7 +183,6 @@ bool lovrAudioInit(AudioConfig config[2]) {
   lovrAssert(state.spatializer != NULL, "Must have at least one spatializer");
 
   arr_init(&state.converters);
-  arr_reserve(&state.converters, 16);
 
   return state.initialized = true;
 }
@@ -195,6 +194,10 @@ void lovrAudioDestroy() {
   ma_mutex_uninit(&state.playbackLock);
   ma_context_uninit(&state.context);
   if (state.spatializer) state.spatializer->destroy();
+  for(int i = 0; i < state.converters.length; i++) {
+    ma_data_converter_uninit(state.converters.data[i]);
+    free(state.converters.data[i]);
+  }
   arr_free(&state.converters);
   memset(&state, 0, sizeof(state));
 }
@@ -276,7 +279,7 @@ void lovrAudioSetListenerPose(float position[4], float orientation[4])
 static void _lovrSourceAssignConverter(Source *source) {
   source->converter = NULL;
   for (size_t i = 0; i < state.converters.length; i++) {
-    ma_data_converter* converter = &state.converters.data[i];
+    ma_data_converter* converter = state.converters.data[i];
     if (converter->config.formatIn != miniAudioFormatFromLovr[source->sound->format]) continue;
     if (converter->config.sampleRateIn != source->sound->sampleRate) continue;
     if (converter->config.channelsIn != source->sound->channels) continue;
@@ -293,11 +296,13 @@ static void _lovrSourceAssignConverter(Source *source) {
     config.channelsOut = outputChannelCountForSource(source);
     config.sampleRateIn = source->sound->sampleRate;
     config.sampleRateOut = LOVR_AUDIO_SAMPLE_RATE;
-    // can't use arr_expand because that will destroy the internal pointers inside the converter
-    lovrAssert(state.converters.length+1 < state.converters.capacity, "Out of space for converters");
-    ma_data_converter* converter = &state.converters.data[state.converters.length++];
-    lovrAssert(!ma_data_converter_init(&config, converter), "Problem creating Source data converter");
-    source->converter = converter;
+    
+    ma_data_converter *converter = malloc(sizeof(ma_data_converter));
+    ma_result converterStatus = ma_data_converter_init(&config, converter);
+    lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %d", state.converters.length, converterStatus);
+    
+    arr_expand(&state.converters, 1);
+    state.converters.data[state.converters.length++] = source->converter = converter;
   }
 }
 
