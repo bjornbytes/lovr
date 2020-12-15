@@ -10,9 +10,11 @@
 #include <stdio.h>
 #include "lib/miniaudio/miniaudio.h"
 #include "audio/spatializer.h"
-#include "audio/audio_internal.h"
 
-
+static const ma_format miniAudioFormatFromLovr[] = {
+  [SAMPLE_I16] = ma_format_s16,
+  [SAMPLE_F32] = ma_format_f32
+};
 
 #define OUTPUT_FORMAT SAMPLE_F32
 #define OUTPUT_CHANNELS 2
@@ -58,7 +60,7 @@ static bool mix(Source* source, float* output, uint32_t count) {
   // frameLimitOut =
 
   while (count > 0) {
-    uint32_t chunk = MIN(sizeof(raw) / bytesPerAudioFrame(source->sound->channels, source->sound->format),
+    uint32_t chunk = MIN(sizeof(raw) / SampleFormatBytesPerFrame(source->sound->channels, source->sound->format),
         ma_data_converter_get_required_input_frame_count(source->converter, count));
         // ^^^ Note need to min `count` with 'capacity of aux buffer' and 'capacity of mix buffer'
         // could skip min-ing with one of the buffers if you can guarantee that one is bigger/equal to the other (you can because their formats are known)
@@ -70,7 +72,7 @@ static bool mix(Source* source, float* output, uint32_t count) {
     if (source->spatial) {
       state.spatializer->apply(source, source->transform, aux, mix, framesOut);
     } else {
-      memcpy(mix, aux, framesOut * bytesPerAudioFrame(OUTPUT_CHANNELS, SAMPLE_F32));
+      memcpy(mix, aux, framesOut * SampleFormatBytesPerFrame(OUTPUT_CHANNELS, SAMPLE_F32));
     }
 
     for (uint32_t i = 0; i < framesOut * OUTPUT_CHANNELS; i++) {
@@ -114,7 +116,7 @@ static void onPlayback(ma_device* device, void* output, const void* _, uint32_t 
 static void onCapture(ma_device* device, void* output, const void* input, uint32_t frames) {
   // note: ma_pcm_rb is lockless
   void *store;
-  size_t bytesPerFrame = bytesPerAudioFrame(CAPTURE_CHANNELS, OUTPUT_FORMAT);
+  size_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, OUTPUT_FORMAT);
   while(frames > 0) {
     uint32_t availableFrames = frames;
     ma_result acquire_status = ma_pcm_rb_acquire_write(&state.captureRingbuffer, &availableFrames, &store);
@@ -418,7 +420,7 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
     lovrAssert(offset + frameCount <= soundData->frames, "Tried to write samples past the end of a SoundData buffer");
   }
 
-  uint32_t bytesPerFrame = bytesPerAudioFrame(CAPTURE_CHANNELS, OUTPUT_FORMAT);
+  uint32_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, OUTPUT_FORMAT);
   while(frameCount > 0) {
     uint32_t availableFramesInRB = frameCount;
     void *store;
