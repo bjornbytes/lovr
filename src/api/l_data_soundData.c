@@ -13,12 +13,13 @@ static int l_lovrSoundDataAppend(lua_State* L) {
   SoundData* soundData = luax_checktype(L, 1, SoundData);
   Blob* blob = luax_totype(L, 2, Blob);
   SoundData* sound = luax_totype(L, 2, SoundData);
-  lovrAssert(blob || sound, "Invalid blob appended");
-  size_t appendedSamples = false;
+  size_t appendedSamples = 0;
   if (sound) {
     appendedSamples = lovrSoundDataStreamAppendSound(soundData, sound);
   } else if (blob) {
     appendedSamples = lovrSoundDataStreamAppendBlob(soundData, blob);
+  } else {
+    luaL_argerror(L, 2, "Invalid blob appended");
   }
   lua_pushinteger(L, appendedSamples);
   return 1;

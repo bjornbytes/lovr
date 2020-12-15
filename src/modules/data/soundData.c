@@ -4,15 +4,29 @@
 #include "core/ref.h"
 #include "lib/stb/stb_vorbis.h"
 #include "lib/miniaudio/miniaudio.h"
-#include "audio/audio_internal.h"
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 
+static const ma_format miniAudioFormatFromLovr[] = {
+  [SAMPLE_I16] = ma_format_s16,
+  [SAMPLE_F32] = ma_format_f32
+};
+
+static const ma_format sampleSizes[] = {
+  [SAMPLE_I16] = 2,
+  [SAMPLE_F32] = 4
+};
+
+size_t SampleFormatBytesPerFrame(int channelCount, SampleFormat fmt)
+{
+  return channelCount * sampleSizes[fmt];
+}
+
 static uint32_t lovrSoundDataReadRaw(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
   uint8_t* p = soundData->blob->data;
   uint32_t n = MIN(count, soundData->frames - offset);
-  size_t stride = bytesPerAudioFrame(soundData->channels, soundData->format);
+  size_t stride = SampleFormatBytesPerFrame(soundData->channels, soundData->format);
   memcpy(data, p + offset * stride, n * stride);
   return n;
 }
@@ -52,7 +66,7 @@ static uint32_t lovrSoundDataReadMp3(SoundData* soundData, uint32_t offset, uint
 */
 
 static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
-  size_t bytesPerFrame = bytesPerAudioFrame(soundData->channels, soundData->format);
+  size_t bytesPerFrame = SampleFormatBytesPerFrame(soundData->channels, soundData->format);
   size_t totalRead = 0;
   while(count > 0) {
     uint32_t availableFramesInRing = count;
@@ -87,7 +101,7 @@ SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, ui
     soundData->blob = blob;
     lovrRetain(blob);
   } else {
-    size_t size = frameCount * bytesPerAudioFrame(channelCount, format);
+    size_t size = frameCount * SampleFormatBytesPerFrame(channelCount, format);
     void* data = calloc(1, size);
     lovrAssert(data, "Out of memory");
     soundData->blob = lovrBlobCreate(data, size, "SoundData");
@@ -124,7 +138,7 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
 
     if (decode) {
       soundData->read = lovrSoundDataReadRaw;
-      size_t size = soundData->frames * bytesPerAudioFrame(soundData->channels, soundData->format);
+      size_t size = soundData->frames * SampleFormatBytesPerFrame(soundData->channels, soundData->format);
       void* data = calloc(1, size);
       lovrAssert(data, "Out of memory");
       soundData->blob = lovrBlobCreate(data, size, "SoundData");
@@ -148,7 +162,7 @@ size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob) {
 
   void *store;
   size_t blobOffset = 0;
-  size_t bytesPerFrame = bytesPerAudioFrame(dest->channels, dest->format);
+  size_t bytesPerFrame = SampleFormatBytesPerFrame(dest->channels, dest->format);
   size_t frameCount = blob->size / bytesPerFrame;
   size_t framesAppended = 0;
   while(frameCount > 0) {
@@ -159,7 +173,6 @@ size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob) {
     ma_result commit_status = ma_pcm_rb_commit_write(dest->ring, availableFrames, store);
     lovrAssert(commit_status == MA_SUCCESS, "Failed to commit to ring buffer");
     if (availableFrames == 0) {
-      lovrLog(LOG_WARN, "audio", "SoundData's stream ring buffer is overrun; appended %d and dropping %d frames of data", framesAppended, frameCount);
       return framesAppended;
     }
     
@@ -177,8 +190,8 @@ size_t lovrSoundDataStreamAppendSound(SoundData *dest, SoundData *src) {
 }
 
 void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value) {
-  size_t byteIndex = index * bytesPerAudioFrame(soundData->channels, soundData->format);
-  lovrAssert(byteIndex < soundData->blob->size, "Sample index out of range");
+  lovrAssert(soundData->blob && soundData->read == lovrSoundDataReadRaw, "Source SoundData must have static PCM data and not be a stream");
+  lovrAssert(index < soundData->frames, "Sample index out of range");
   switch (soundData->format) {
     case SAMPLE_I16: ((int16_t*) soundData->blob->data)[index] = value * SHRT_MAX; break;
     case SAMPLE_F32: ((float*) soundData->blob->data)[index] = value; break;

@@ -6,7 +6,6 @@
 
 struct Blob;
 struct SoundData;
-typedef struct ma_pcm_rb ma_pcm_rb;
 
 typedef uint32_t SoundDataReader(struct SoundData* soundData, uint32_t offset, uint32_t count, void* data);
 
@@ -15,11 +14,13 @@ typedef enum {
   SAMPLE_I16
 } SampleFormat;
 
+size_t SampleFormatBytesPerFrame(int channelCount, SampleFormat fmt);
+
 typedef struct SoundData {
   SoundDataReader* read;
   void* decoder;
   struct Blob* blob;
-  ma_pcm_rb *ring;
+  void *ring;  /* ma_pcm_rb */
   SampleFormat format;
   uint32_t sampleRate;
   uint32_t channels;
