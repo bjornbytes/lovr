@@ -158,7 +158,7 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
 }
 
 size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob) {
-  lovrSoundDataStreamAppendBuffer(dest, blob->data, blob->size);
+  return lovrSoundDataStreamAppendBuffer(dest, blob->data, blob->size);
 }
 
 size_t lovrSoundDataStreamAppendBuffer(SoundData *dest, const void *buf, size_t byteSize) {
