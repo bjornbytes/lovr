@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -13,14 +14,13 @@ typedef enum {
   SAMPLE_I16
 } SampleFormat;
 
+size_t SampleFormatBytesPerFrame(int channelCount, SampleFormat fmt);
+
 typedef struct SoundData {
   SoundDataReader* read;
   void* decoder;
   struct Blob* blob;
-  struct Blob** queue;
-  uint32_t buffers;
-  uint32_t head;
-  uint32_t tail;
+  void *ring;  /* ma_pcm_rb */
   SampleFormat format;
   uint32_t sampleRate;
   uint32_t channels;
@@ -28,6 +28,16 @@ typedef struct SoundData {
   uint32_t cursor;
 } SoundData;
 
-SoundData* lovrSoundDataCreate(uint32_t frames, uint32_t channels, uint32_t sampleRate, SampleFormat format, struct Blob* data, uint32_t buffers);
+SoundData* lovrSoundDataCreateRaw(uint32_t frames, uint32_t channels, uint32_t sampleRate, SampleFormat format, struct Blob* data);
+SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t channels, uint32_t sampleRate, SampleFormat format);
 SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode);
+
+// returns the number of frames successfully appended (if it's less than the size of blob, the internal ring buffer is full)
+size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob);
+size_t lovrSoundDataStreamAppendSound(SoundData *dest, SoundData *src);
+void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value);
+
+uint32_t lovrSoundDataGetDuration(SoundData *soundData);
+
+bool lovrSoundDataIsStream(SoundData *soundData);
 void lovrSoundDataDestroy(void* ref);
