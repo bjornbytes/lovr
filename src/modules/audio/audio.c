@@ -116,7 +116,7 @@ static void onPlayback(ma_device* device, void* output, const void* _, uint32_t 
 
 static void onCapture(ma_device* device, void* output, const void* input, uint32_t frames) {
   // note: uses ma_pcm_rb which is lockless
-  size_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, OUTPUT_FORMAT);
+  size_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, state.config[AUDIO_CAPTURE].format);
   lovrSoundDataStreamAppendBuffer(state.captureStream, input, frames*bytesPerFrame);
 }
 
