@@ -16,6 +16,11 @@ typedef enum {
   SAMPLE_INVALID
 } SampleFormat;
 
+typedef enum {
+  UNIT_SECONDS,
+  UNIT_SAMPLES
+} TimeUnit;
+
 size_t SampleFormatBytesPerFrame(int channelCount, SampleFormat fmt);
 
 typedef struct SoundData {
@@ -35,6 +40,7 @@ SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t chann
 SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode);
 
 // returns the number of frames successfully appended (if it's less than the size of blob, the internal ring buffer is full)
+size_t lovrSoundDataStreamAppendBuffer(SoundData *dest, const void *buf, size_t byteSize);
 size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob);
 size_t lovrSoundDataStreamAppendSound(SoundData *dest, SoundData *src);
 void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value);
