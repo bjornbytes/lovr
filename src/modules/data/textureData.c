@@ -524,7 +524,7 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
   }
 
   if (!textureData->blob->data) {
-    lovrThrow("Could not load texture data from '%s'", blob->name);
+    lovrThrow("Could not load TextureData from '%s': %s", blob->name, stbi_failure_reason());
     lovrRelease(Blob, textureData->blob);
     free(textureData);
     return NULL;
