@@ -11,12 +11,6 @@ StringEntry lovrAudioType[] = {
   { 0 }
 };
 
-StringEntry lovrTimeUnit[] = {
-  [UNIT_SECONDS] = ENTRY("seconds"),
-  [UNIT_SAMPLES] = ENTRY("samples"),
-  { 0 }
-};
-
 static int l_lovrAudioReset(lua_State* L) {
   lovrAudioReset();
   return 0;
@@ -85,37 +79,9 @@ static int l_lovrAudioSetListenerPose(lua_State *L) {
   return 0;
 }
 
-static int l_lovrAudioGetCaptureDuration(lua_State *L) {
-  TimeUnit units = luax_checkenum(L, 1, TimeUnit, "seconds");
-  size_t sampleCount = lovrAudioGetCaptureSampleCount();
-  
-  if (units == UNIT_SECONDS) {
-    lua_pushnumber(L, lovrAudioConvertToSeconds(sampleCount, AUDIO_CAPTURE));
-  } else {
-    lua_pushinteger(L, sampleCount);
-  }
-  return 1;
-}
-
-static int l_lovrAudioCapture(lua_State* L) {
-  int index = 1;
-  
-  size_t samples = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) : lovrAudioGetCaptureSampleCount();
-
-  if (samples == 0) {
-    return 0;
-  }
-
-  SoundData* soundData = luax_totype(L, index++, SoundData);
-  size_t offset = soundData ? luaL_optinteger(L, index, 0) : 0;
-
-  if (soundData) {
-    lovrRetain(soundData);
-  }
-
-  soundData = lovrAudioCapture(samples, soundData, offset);
+static int l_lovrAudioGetCaptureStream(lua_State* L) {
+  SoundData* soundData = lovrAudioGetCaptureStream();
   luax_pushtype(L, SoundData, soundData);
-  lovrRelease(SoundData, soundData);
   return 1;
 }
 
@@ -164,8 +130,7 @@ static const luaL_Reg lovrAudio[] = {
   { "setVolume", l_lovrAudioSetVolume },
   { "newSource", l_lovrAudioNewSource },
   { "setListenerPose", l_lovrAudioSetListenerPose },
-  { "capture", l_lovrAudioCapture },
-  { "getCaptureDuration", l_lovrAudioGetCaptureDuration },
+  { "getCaptureStream", l_lovrAudioGetCaptureStream },
   { "getDevices", l_lovrAudioGetDevices },
   { "useDevice", l_lovrUseDevice },
   { NULL, NULL }

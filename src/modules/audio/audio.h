@@ -21,11 +21,6 @@ typedef enum {
   SOURCE_STREAM
 } SourceType;
 
-typedef enum {
-  UNIT_SECONDS,
-  UNIT_SAMPLES
-} TimeUnit;
-
 typedef void* AudioDeviceIdentifier;
 
 typedef struct {
@@ -70,8 +65,7 @@ uint32_t lovrSourceGetTime(Source* source);
 void lovrSourceSetTime(Source* source, uint32_t sample);
 struct SoundData* lovrSourceGetSoundData(Source* source);
 
-uint32_t lovrAudioGetCaptureSampleCount();
-struct SoundData* lovrAudioCapture(uint32_t sampleCount, struct SoundData *soundData, uint32_t offset);
+struct SoundData* lovrAudioGetCaptureStream();
 
 void lovrAudioGetDevices(AudioDevice **outDevices, size_t *outCount);
 void lovrAudioUseDevice(AudioDeviceIdentifier identifier, int sampleRate, SampleFormat format);

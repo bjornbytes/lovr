@@ -158,18 +158,23 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
 }
 
 size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob) {
+  lovrSoundDataStreamAppendBuffer(dest, blob->data, blob->size);
+}
+
+size_t lovrSoundDataStreamAppendBuffer(SoundData *dest, const void *buf, size_t byteSize) {
   lovrAssert(dest->ring, "Data can only be appended to a SoundData stream");
 
+  const uint8_t *charBuf = (const uint8_t*)buf;
   void *store;
   size_t blobOffset = 0;
   size_t bytesPerFrame = SampleFormatBytesPerFrame(dest->channels, dest->format);
-  size_t frameCount = blob->size / bytesPerFrame;
+  size_t frameCount = byteSize / bytesPerFrame;
   size_t framesAppended = 0;
   while(frameCount > 0) {
     uint32_t availableFrames = frameCount;
     ma_result acquire_status = ma_pcm_rb_acquire_write(dest->ring, &availableFrames, &store);
     lovrAssert(acquire_status == MA_SUCCESS, "Failed to acquire ring buffer");
-    memcpy(store, blob->data + blobOffset, availableFrames * bytesPerFrame);
+    memcpy(store, charBuf + blobOffset, availableFrames * bytesPerFrame);
     ma_result commit_status = ma_pcm_rb_commit_write(dest->ring, availableFrames, store);
     lovrAssert(commit_status == MA_SUCCESS, "Failed to commit to ring buffer");
     if (availableFrames == 0) {
