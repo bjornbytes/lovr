@@ -39,6 +39,7 @@ static int l_lovrSoundDataRead(lua_State* L) {
   SoundData* source = luax_checktype(L, 1, SoundData);
   int index = 2;
   SoundData* dest = luax_totype(L, index, SoundData);
+  if (dest) index++;
   size_t frameCount = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) : lovrSoundDataGetDuration(source);
   size_t offset = dest ? luaL_optinteger(L, index, 0) : 0;
   bool shouldRelease = false;

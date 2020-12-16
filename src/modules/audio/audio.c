@@ -205,7 +205,7 @@ bool lovrAudioInitDevice(AudioType type) {
 
   if (type == AUDIO_CAPTURE) {
     lovrRelease(SoundData, state.captureStream);
-    state.captureStream = lovrSoundDataCreateStream(state.config[type].sampleRate * 1.0, CAPTURE_CHANNELS, state.config[type].sampleRate, OUTPUT_FORMAT);
+    state.captureStream = lovrSoundDataCreateStream(state.config[type].sampleRate * 1.0, CAPTURE_CHANNELS, state.config[type].sampleRate, state.config[type].format);
     if (!state.captureStream) {
       lovrLog(LOG_WARN, "audio", "Failed to init audio device %d\n", type);
       lovrAudioDestroy();
