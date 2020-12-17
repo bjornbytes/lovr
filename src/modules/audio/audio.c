@@ -266,6 +266,11 @@ bool lovrAudioStop(AudioType type) {
   return stoppingResult == MA_SUCCESS;
 }
 
+bool lovrAudioIsRunning(AudioType type)
+{
+  return ma_device_get_state(&state.devices[type]) == MA_STATE_STARTED;
+}
+
 float lovrAudioGetVolume() {
   float volume = 0.f;
   ma_device_get_master_volume(&state.devices[AUDIO_PLAYBACK], &volume);
