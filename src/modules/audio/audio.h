@@ -33,6 +33,7 @@ bool lovrAudioInit();
 void lovrAudioDestroy(void);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
+bool lovrAudioIsRunning(AudioType type);
 float lovrAudioGetVolume(void);
 void lovrAudioSetVolume(float volume);
 void lovrAudioSetListenerPose(float position[4], float orientation[4]);

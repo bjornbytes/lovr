@@ -24,6 +24,13 @@ static int l_lovrAudioStop(lua_State* L) {
   return 0;
 }
 
+static int l_lovrAudioIsRunning(lua_State* L) {
+  AudioType type = luax_checkenum(L, 1, AudioType, "playback");
+  bool isRunning = lovrAudioIsRunning(type);
+  lua_pushboolean(L, isRunning);
+  return 1;
+}
+
 static int l_lovrAudioGetVolume(lua_State* L) {
   lua_pushnumber(L, lovrAudioGetVolume());
   return 1;
@@ -119,6 +126,7 @@ static int l_lovrAudioSetCaptureFormat(lua_State *L) {
 static const luaL_Reg lovrAudio[] = {
   { "start", l_lovrAudioStart },
   { "stop", l_lovrAudioStop },
+  { "isRunning", l_lovrAudioIsRunning },
   { "getVolume", l_lovrAudioGetVolume },
   { "setVolume", l_lovrAudioSetVolume },
   { "newSource", l_lovrAudioNewSource },
