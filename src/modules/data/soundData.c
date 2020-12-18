@@ -66,6 +66,7 @@ static uint32_t lovrSoundDataReadMp3(SoundData* soundData, uint32_t offset, uint
 */
 
 static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
+  uint8_t *charData = (uint8_t*)data;
   size_t bytesPerFrame = SampleFormatBytesPerFrame(soundData->channels, soundData->format);
   size_t totalRead = 0;
   while(count > 0) {
@@ -73,7 +74,7 @@ static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uin
     void *store;
     ma_result acquire_status = ma_pcm_rb_acquire_read(soundData->ring, &availableFramesInRing, &store);
     if (acquire_status != MA_SUCCESS) return 0;
-    memcpy(data, store, availableFramesInRing * bytesPerFrame);
+    memcpy(charData, store, availableFramesInRing * bytesPerFrame);
     ma_result commit_status = ma_pcm_rb_commit_read(soundData->ring, availableFramesInRing, store);
     if (commit_status != MA_SUCCESS) return 0;
 
@@ -82,7 +83,7 @@ static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uin
     }
 
     count -= availableFramesInRing;
-    data += availableFramesInRing * bytesPerFrame;
+    charData += availableFramesInRing * bytesPerFrame;
     totalRead += availableFramesInRing;
   }
   return totalRead;
