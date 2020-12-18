@@ -459,7 +459,15 @@ void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate)
 
 void lovrAudioUseDevice(AudioType type, const char *deviceName) {
   free(state.config[type].deviceName);
-  state.config[type].deviceName = strdup(deviceName);
+
+#ifdef ANDROID
+  // XX<nevyn> miniaudio doesn't seem to be happy to set a specific device an android (fails with
+  // error -2 on device init). Since there is only one playback and one capture device in OpenSL,
+  // we can just set this to NULL and make this call a no-op.
+  deviceName = NULL;
+#endif
+
+  state.config[type].deviceName = deviceName ? strdup(deviceName) : NULL;
 
   // restart device if needed
   ma_uint32 previousState = state.devices[type].state;
