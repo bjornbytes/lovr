@@ -312,6 +312,8 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
           lua_pop(L, 1);
         }
         break;
+      case LUA_TNIL:
+        break;
       default:
         return luaL_error(L, "Buffer usage flags must be a string or a table of strings");
     }
@@ -398,7 +400,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.samples = lua_isnil(L, -1) ? info.samples : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, 2, "usage");
+    lua_getfield(L, index, "usage");
     switch (lua_type(L, -1)) {
       case LUA_TSTRING:
         info.usage = 1 << luax_checkenum(L, -1, TextureUsage, NULL);
@@ -411,6 +413,8 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
           info.usage |= 1 << luax_checkenum(L, -1, TextureUsage, NULL);
           lua_pop(L, 1);
         }
+        break;
+      case LUA_TNIL:
         break;
       default:
         return luaL_error(L, "Texture usage flags must be a string or a table of strings");
