@@ -3,7 +3,6 @@
 
 #pragma once
 
-struct TextureData;
 struct WindowFlags;
 
 typedef struct Buffer Buffer;
@@ -52,6 +51,47 @@ typedef struct {
   float anisotropy;
 } GraphicsLimits;
 
+// Targets are either a Texture or a format (for a temporary target)
+
+typedef enum {
+  LOAD_KEEP,
+  LOAD_CLEAR,
+  LOAD_DISCARD
+} LoadOp;
+
+typedef enum {
+  SAVE_KEEP,
+  SAVE_DISCARD
+} SaveOp;
+
+typedef struct {
+  Texture* texture;
+  Texture* resolve;
+  LoadOp load;
+  SaveOp save;
+  float clear[4];
+} ColorTarget;
+
+typedef struct {
+  bool enabled;
+  Texture* texture;
+  uint32_t format;
+  LoadOp load;
+  SaveOp save;
+  float clear;
+  struct {
+    LoadOp load;
+    SaveOp save;
+    uint8_t clear;
+  } stencil;
+} DepthTarget;
+
+typedef struct {
+  ColorTarget color[4];
+  DepthTarget depth;
+  uint32_t samples;
+} Canvas;
+
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsCreateWindow(struct WindowFlags* window);
@@ -63,6 +103,9 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
 void lovrGraphicsFlush(void);
+void lovrGraphicsRender(Canvas* canvas);
+void lovrGraphicsCompute(void);
+void lovrGraphicsEndPass(void);
 
 // Buffer
 

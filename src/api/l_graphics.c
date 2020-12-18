@@ -52,6 +52,31 @@ static Image* luax_checkimage(lua_State* L, int index, bool flip) {
   return image;
 }
 
+static void luax_readcanvas(lua_State* L, int index, Canvas* canvas) {
+  switch (lua_type(L, index)) {
+    case LUA_TUSERDATA:
+      canvas->color[0].texture = luax_checktype(L, index, Texture);
+      canvas->depth.enabled = true;
+      canvas->depth.format = FORMAT_D16;
+      canvas->depth.load = LOAD_CLEAR;
+      canvas->depth.save = SAVE_DISCARD;
+      canvas->depth.clear = 1.f;
+      break;
+    case LUA_TTABLE: {
+      int count = luax_len(L, index);
+      for (int i = 0; i < count; i++) {
+        lua_rawgeti(L, index, i + 1);
+        canvas->color[i].texture = luax_totype(L, -1, Texture);
+        lovrAssert(canvas->color[i].texture, "The numeric keys of a render target table must be Textures");
+
+      }
+      break;
+    }
+    default:
+      luaL_argerror(L, index, "Expected a Texture or table");
+  }
+}
+
 static int l_lovrGraphicsCreateWindow(lua_State* L) {
   os_window_config window;
   memset(&window, 0, sizeof(window));
@@ -290,6 +315,26 @@ static int l_lovrGraphicsFlush(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsRender(lua_State* L) {
+  Canvas canvas;
+  memset(&canvas, 0, sizeof(canvas));
+  luax_readcanvas(L, 1, &canvas);
+  lovrGraphicsRender(&canvas);
+  luaL_checktype(L, 2, LUA_TFUNCTION);
+  lua_settop(L, 2);
+  lua_call(L, 0, 0);
+  lovrGraphicsEndPass();
+  return 0;
+}
+
+static int l_lovrGraphicsCompute(lua_State* L) {
+  lovrGraphicsCompute();
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  lua_settop(L, 1);
+  lua_call(L, 0, 0);
+  return 0;
+}
+
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
   BufferInfo info = {
     .usage = ~0u
@@ -476,6 +521,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "getLimits", l_lovrGraphicsGetLimits },
   { "begin", l_lovrGraphicsBegin },
   { "flush", l_lovrGraphicsFlush },
+  { "render", l_lovrGraphicsRender },
+  { "compute", l_lovrGraphicsCompute },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
   { NULL, NULL }

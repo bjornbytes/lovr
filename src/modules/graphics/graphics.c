@@ -1,12 +1,18 @@
 #include "graphics/graphics.h"
 #include "data/image.h"
 #include "event/event.h"
+#include "core/map.h"
 #include "core/gpu.h"
 #include "core/os.h"
 #include "core/util.h"
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+
+typedef union {
+  uint64_t u64;
+  gpu_pass* pass;
+} PassEntry;
 
 struct Buffer {
   gpu_buffer* gpu;
@@ -26,6 +32,8 @@ static struct {
   gpu_limits limits;
   int width;
   int height;
+  gpu_batch* batch;
+  map_t passes;
 } state;
 
 static void onDebugMessage(void* context, const char* message, int severe) {
@@ -44,11 +52,20 @@ static void onResizeWindow(int width, int height) {
 
 bool lovrGraphicsInit(bool debug) {
   state.debug = debug;
+  map_init(&state.passes, 0);
   return false;
 }
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
+  for (uint32_t i = 0; i < state.passes.size; i++) {
+    if (state.passes.values[i] != MAP_NIL) {
+      PassEntry entry = { state.passes.values[i] };
+      gpu_pass_destroy(entry.pass);
+      free(entry.pass);
+    }
+  }
+  map_free(&state.passes);
   gpu_thread_detach();
   gpu_destroy();
   memset(&state, 0, sizeof(state));
@@ -159,6 +176,75 @@ void lovrGraphicsBegin() {
 
 void lovrGraphicsFlush() {
   gpu_flush();
+}
+
+void lovrGraphicsRender(Canvas* canvas) {
+  gpu_pass_info passInfo;
+  gpu_render_info renderInfo;
+  memset(&passInfo, 0, sizeof(passInfo));
+
+  gpu_load_op loads[] = {
+    [LOAD_KEEP] = GPU_LOAD_OP_LOAD,
+    [LOAD_CLEAR] = GPU_LOAD_OP_CLEAR,
+    [LOAD_DISCARD] = GPU_LOAD_OP_DISCARD
+  };
+
+  gpu_save_op saves[] = {
+    [SAVE_KEEP] = GPU_SAVE_OP_SAVE,
+    [SAVE_DISCARD] = GPU_SAVE_OP_DISCARD
+  };
+
+  for (uint32_t i = 0; i < 4; i++) {
+    if (!canvas->color[i].texture) {
+      renderInfo.color[i].texture = NULL;
+      break;
+    }
+
+    passInfo.color[i].format = canvas->color[i].texture->info.format;
+    passInfo.color[i].load = loads[canvas->color[i].load];
+    passInfo.color[i].save = saves[canvas->color[i].save];
+    passInfo.color[i].srgb = canvas->color[i].texture->info.srgb;
+
+    renderInfo.color[i].texture = canvas->color[i].texture->gpu;
+    renderInfo.color[i].resolve = canvas->color[i].resolve->gpu;
+    memcpy(renderInfo.color[i].clear, canvas->color[i].clear, 4 * sizeof(float));
+  }
+
+  if (canvas->depth.enabled) {
+    passInfo.depth.format = canvas->depth.texture->info.format;
+    passInfo.depth.load = loads[canvas->depth.load];
+    passInfo.depth.save = saves[canvas->depth.save];
+    passInfo.depth.stencilLoad = loads[canvas->depth.stencil.load];
+    passInfo.depth.stencilSave = saves[canvas->depth.stencil.save];
+
+    renderInfo.depth.texture = canvas->depth.texture->gpu;
+    renderInfo.depth.clear = canvas->depth.clear;
+    renderInfo.depth.stencilClear = canvas->depth.stencil.clear;
+  }
+
+  TextureInfo* textureInfo = canvas->color[0].texture ? &canvas->color[0].texture->info : &canvas->depth.texture->info;
+  passInfo.views = textureInfo->type == TEXTURE_ARRAY ? textureInfo->size[2] : 0;
+  passInfo.samples = canvas->samples;
+
+  uint64_t hash = hash64(&renderInfo, sizeof(renderInfo));
+  PassEntry entry = { map_get(&state.passes, hash) };
+
+  if (entry.u64 == MAP_NIL) {
+    entry.pass = calloc(1, gpu_sizeof_pass());
+    gpu_pass_init(entry.pass, &passInfo);
+    map_set(&state.passes, hash, entry.u64);
+  }
+
+  renderInfo.pass = entry.pass;
+  state.batch = gpu_render(&renderInfo, NULL, 0);
+}
+
+void lovrGraphicsCompute() {
+  state.batch = gpu_compute();
+}
+
+void lovrGraphicsEndPass() {
+  gpu_batch_end(state.batch);
 }
 
 // Buffer
