@@ -224,6 +224,7 @@ static struct {
   arr_t(NativeCanvas) canvases;
   void (*renderCallback)(void*);
   void* renderUserdata;
+  permissionsCallback onPermissionEvent;
 } state;
 
 static bool pico_init(float supersample, float offset, uint32_t msaa) {
@@ -412,6 +413,20 @@ static void pico_renderTo(void (*callback)(void*), void* userdata) {
 
 static void pico_update(float dt) {
   //
+}
+
+void lovrPlatformRequestPermission(Permission permission) {
+  // todo
+}
+
+void lovrPlatformOnPermissionEvent(permissionsCallback callback) {
+  state.onPermissionEvent = callback;
+}
+
+JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPermissionEvent(JNIEnv* jni, jobject activity, jint permission, jboolean granted) {
+  if (state.onPermissionEvent) {
+    state.onPermissionEvent(permission, granted);
+  }
 }
 
 HeadsetInterface lovrHeadsetPicoDriver = {
