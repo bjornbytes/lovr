@@ -20,6 +20,14 @@ static const ma_format miniAudioFormatFromLovr[] = {
 #define OUTPUT_CHANNELS 2
 #define CAPTURE_CHANNELS 1
 
+//#define LOVR_DEBUG_AUDIOTAP
+#ifdef LOVR_DEBUG_AUDIOTAP
+// To get a record of what the audio callback is playing, define LOVR_DEBUG_AUDIOTAP,
+// after running look in the lovr save directory for lovrDebugAudio.raw,
+// and open as raw 32-bit stereo floats (Audacity can do this, or Amadeus on Mac)
+#include "filesystem/filesystem.h"
+#endif
+
 struct Source {
   Source* next;
   SoundData* sound;
@@ -51,6 +59,10 @@ static struct {
   SoundData *captureStream;
   arr_t(ma_data_converter*) converters;
   Spatializer* spatializer;
+
+#ifdef LOVR_DEBUG_AUDIOTAP
+  bool audiotapWriting;
+#endif
 } state;
 
 // Device callbacks
@@ -102,7 +114,11 @@ static bool mix(Source* source, float* output, uint32_t count) {
 }
 
 static void onPlayback(ma_device* device, void* output, const void* _, uint32_t count) {
-  ma_mutex_lock(&state.playbackLock);
+#ifdef LOVR_DEBUG_AUDIOTAP
+  int originalCount = count;
+#endif
+
+    ma_mutex_lock(&state.playbackLock);
 
   // For each Source, remove it if it isn't playing or process it and remove it if it stops
   for (Source** list = &state.sources, *source = *list; source != NULL; source = *list) {
@@ -116,6 +132,11 @@ static void onPlayback(ma_device* device, void* output, const void* _, uint32_t 
   }
 
   ma_mutex_unlock(&state.playbackLock);
+
+#ifdef LOVR_DEBUG_AUDIOTAP
+  if (state.audiotapWriting)
+    lovrFilesystemWrite("lovrDebugAudio.raw", outputUntyped, originalCount*OUTPUT_CHANNELS*sizeof(float), true);
+#endif
 }
 
 static void onCapture(ma_device* device, void* output, const void* inputUntyped, uint32_t frames) {
@@ -156,6 +177,11 @@ bool lovrAudioInit() {
 
   arr_init(&state.converters);
 
+#ifdef LOVR_DEBUG_AUDIOTAP
+  lovrFilesystemWrite("lovrDebugAudio.raw", NULL, 0, false); // Erase file
+  state.audiotapWriting = true;
+#endif
+
   return state.initialized = true;
 }
 
@@ -179,6 +205,10 @@ void lovrAudioDestroy() {
   free(state.config[0].deviceName);
   free(state.config[1].deviceName);
   memset(&state, 0, sizeof(state));
+
+#ifdef LOVR_DEBUG_AUDIOTAP
+  state.audiotapWriting = false;
+#endif
 }
 
 bool lovrAudioInitDevice(AudioType type) {
