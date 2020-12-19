@@ -65,8 +65,13 @@ static uint32_t lovrSoundDataReadMp3(SoundData* soundData, uint32_t offset, uint
 }
 */
 
+<<<<<<< HEAD
 static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
   uint8_t *charData = (uint8_t*)data;
+=======
+static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uint32_t count, void* _data) {
+  char *data = _data;
+>>>>>>> 8953ec23... Fix build on MSVC2019 (ptr arithmetic on void * is nonstandard)
   size_t bytesPerFrame = SampleFormatBytesPerFrame(soundData->channels, soundData->format);
   size_t totalRead = 0;
   while(count > 0) {
