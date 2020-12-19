@@ -13,9 +13,6 @@
 [submodule "deps/ode"]
 	path = deps/ode
 	url = https://github.com/bjornbytes/ode
-[submodule "deps/openal-soft"]
-	path = deps/openal-soft
-	url = https://github.com/kcat/openal-soft
 [submodule "deps/openvr"]
 	path = deps/openvr
 	url = https://github.com/ValveSoftware/openvr
