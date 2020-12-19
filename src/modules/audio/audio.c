@@ -113,8 +113,9 @@ static void onPlayback(ma_device* device, void* output, const void* _, uint32_t 
   ma_mutex_unlock(&state.playbackLock);
 }
 
-static void onCapture(ma_device* device, void* output, const void* input, uint32_t frames) {
+static void onCapture(ma_device* device, void* outputUntyped, const void* inputUntyped, uint32_t frames) {
   // note: ma_pcm_rb is lockless
+  const float *input = inputUntyped;
   void *store;
   size_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, OUTPUT_FORMAT);
   while(frames > 0) {
@@ -436,7 +437,7 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
       lovrAssert(false, "Failed to acquire ring buffer for read: %d\n", acquire_status);
       return NULL;
     }
-    memcpy(soundData->blob->data + offset * bytesPerFrame, store, availableFramesInRB * bytesPerFrame);
+    memcpy(((unsigned char *)soundData->blob->data) + offset * bytesPerFrame, store, availableFramesInRB * bytesPerFrame);
     ma_result commit_status = ma_pcm_rb_commit_read(&state.captureRingbuffer, availableFramesInRB, store);
     if (commit_status != MA_SUCCESS) {
       lovrAssert(false, "Failed to commit ring buffer for read: %d\n", acquire_status);
