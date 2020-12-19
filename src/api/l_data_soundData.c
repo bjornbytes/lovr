@@ -2,6 +2,7 @@
 #include "data/soundData.h"
 #include "data/blob.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include <stdlib.h>
 
 StringEntry lovrTimeUnit[] = {
