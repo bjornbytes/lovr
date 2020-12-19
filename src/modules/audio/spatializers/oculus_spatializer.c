@@ -103,6 +103,8 @@ static uint32_t oculus_spatializer_source_apply(Source* source, const float* inp
   }
 
   // This source doesn't have a record. If it's playing, try to assign it one.
+  // If there are no free source records, we will simply not play the sound,
+  // but if there's a record which is only playing a tail, in *that* case we will override the tail.
   if (idx < 0 && lovrSourceIsPlaying(source)) {
     if (state.occupiedCount < state.sourceMax) { // There's an empty slot
       for (idx = 0; idx < state.sourceMax; idx++)
@@ -208,7 +210,8 @@ static void oculus_spatializer_source_create(Source *source) {
 }
 static void oculus_spatializer_source_destroy(Source *source) {
   intptr_t *spatializerMemo = lovrSourceGetSpatializerMemoField(source);
-  state.sources[*spatializerMemo].source = NULL;
+  if (*spatializerMemo >= 0)
+    state.sources[*spatializerMemo].source = NULL;
 }
 Spatializer oculusSpatializer = {
   oculus_spatializer_init,
