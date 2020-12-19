@@ -25,12 +25,9 @@ typedef enum {
 typedef void* AudioDeviceIdentifier;
 
 typedef struct {
-  bool enable;
-  bool start;
-  char *deviceName;
-  int sampleRate;
-  SampleFormat format;
-} AudioConfig;
+  char *spatializer; // Owned by caller
+  int spatializerMaxSourcesHint;
+} SpatializerConfig;
 
 typedef struct {
   AudioType type;
@@ -39,7 +36,7 @@ typedef struct {
 } AudioDevice;
 typedef arr_t(AudioDevice) AudioDeviceArr;
 
-bool lovrAudioInit();
+bool lovrAudioInit(SpatializerConfig config);
 void lovrAudioDestroy(void);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
@@ -61,9 +58,12 @@ float lovrSourceGetVolume(Source* source);
 void lovrSourceSetVolume(Source* source, float volume);
 bool lovrSourceGetSpatial(Source *source);
 void lovrSourceSetPose(Source *source, float position[4], float orientation[4]);
+void lovrSourceGetPose(Source *source, float position[4], float orientation[4]);
 uint32_t lovrSourceGetTime(Source* source);
 void lovrSourceSetTime(Source* source, uint32_t sample);
 struct SoundData* lovrSourceGetSoundData(Source* source);
+const char *lovrSourceGetSpatializerName();
+intptr_t *lovrSourceGetSpatializerMemoField(Source *source);
 
 struct SoundData* lovrAudioGetCaptureStream();
 

@@ -1,6 +1,7 @@
 #include "api.h"
 #include "audio/audio.h"
 #include "data/soundData.h"
+#include "core/util.h"
 
 static int l_lovrSourcePlay(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
