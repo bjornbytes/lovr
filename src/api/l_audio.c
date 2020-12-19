@@ -17,6 +17,8 @@ StringEntry lovrTimeUnit[] = {
   { 0 }
 };
 
+#define AUDIO_SPATIALIZER_MAX_SOURCES_HINT 16
+
 static int l_lovrAudioReset(lua_State* L) {
   lovrAudioReset();
   return 0;
@@ -137,6 +139,11 @@ static int l_lovrAudioListCaptureDevices(lua_State *L) {
   return 0;
 }
 
+static int l_lovrAudioGetSpatializerName(lua_State *L) {
+  lua_pushstring(L, lovrSourceGetSpatializerName());
+  return 1;
+}
+
 static const luaL_Reg lovrAudio[] = {
   { "reset", l_lovrAudioReset },
   { "start", l_lovrAudioStart },
@@ -150,6 +157,7 @@ static const luaL_Reg lovrAudio[] = {
   { "setCaptureDevice", l_lovrAudioSetCaptureDevice },
   { "getCaptureDevice", l_lovrAudioGetCaptureDevice },
   { "listCaptureDevices", l_lovrAudioListCaptureDevices },
+  { "getSpatializerName", l_lovrAudioGetSpatializerName },
   { NULL, NULL }
 };
 
@@ -157,8 +165,35 @@ int luaopen_lovr_audio(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrAudio);
   luax_registertype(L, Source);
-  AudioConfig config[2] = { { .enable = true, .start = true }, { .enable = false, .start = false } };
-  if (lovrAudioInit(config)) {
+
+  char *spatializer = NULL;
+  int spatializerMaxSourcesHint = AUDIO_SPATIALIZER_MAX_SOURCES_HINT;
+  luax_pushconf(L);
+  lua_getfield(L, -1, "audio");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "spatializerMaxSourcesHint");
+    if (lua_type(L, -1) == LUA_TNUMBER)
+      spatializerMaxSourcesHint = lua_tointeger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "spatializer");
+    if (lua_type(L, -1) == LUA_TSTRING)
+      spatializer = lua_tostring(L, -1);
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 2);
+
+  AudioConfig config = {
+    .spatializer = spatializer,
+    .spatializerMaxSourcesHint=spatializerMaxSourcesHint
+  };
+
+  // First config is for output device, second is for input device
+  AudioDeviceConfig deviceConfig[2] = {
+    { .enable = true, .start = true },
+    { .enable = false, .start = false }
+  };
+  if (lovrAudioInit(config, deviceConfig)) {
     luax_atexit(L, lovrAudioDestroy);
   }
   return 1;

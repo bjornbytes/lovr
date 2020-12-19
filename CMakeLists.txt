@@ -25,6 +25,7 @@ option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sur
 option(LOVR_USE_VRAPI "Enable the VrApi backend for the headset module" OFF)
 option(LOVR_USE_PICO "Enable the Pico backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
+option(LOVR_USE_OCULUS_AUDIO "Enable the Oculus Audio spatializer (be sure to also set LOVR_OCULUS_AUDIO_PATH)" OFF)
 option(LOVR_USE_LINUX_EGL "Use the EGL graphics extension on Linux" OFF)
 
 option(LOVR_SYSTEM_ENET "Use the system-provided enet" OFF)
@@ -343,6 +344,36 @@ if(LOVR_ENABLE_AUDIO)
     src/api/l_audio_source.c
     src/lib/miniaudio/miniaudio.c
   )
+
+  if(LOVR_USE_OCULUS_AUDIO)
+    if(NOT LOVR_OCULUS_AUDIO_PATH)
+      message(FATAL_ERROR "LOVR_USE_OCULUS_AUDIO requires the LOVR_OCULUS_AUDIO_PATH to be set to the location of the Oculus Spatializer Native (AudioSDK) folder")
+    endif()
+
+    include_directories("${LOVR_OCULUS_AUDIO_PATH}/Include")
+
+    add_library(OculusAudio SHARED IMPORTED)
+    if (ANDROID)
+      set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${LOVR_OCULUS_AUDIO_PATH}/Lib/Android/arm64-v8a/libovraudio64.so")
+    elseif(WIN32) # Note: This has *not* been tested.
+      if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+        set_target_properties(OculusAudio PROPERTIES IMPORTED_IMPLIB "${LOVR_OCULUS_AUDIO_PATH}/Lib/x64/ovraudio64.lib")
+        set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${LOVR_OCULUS_AUDIO_PATH}/Lib/x64/ovraudio64.dll")
+      else () # ARM and ARM64 are also valid values for CMAKE_GENERATOR_PLATFORM but we will ignore this
+        set_target_properties(OculusAudio PROPERTIES IMPORTED_IMPLIB "${LOVR_OCULUS_AUDIO_PATH}/Lib/Win32/ovraudio32.lib")
+        set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${LOVR_OCULUS_AUDIO_PATH}/Lib/Win32/ovraudio32.dll")
+      endif()
+    elseif (APPLE) # This *might* be possible-- there is a .framework in "macub/" ("universal binary"?)
+      message(FATAL_ERROR "LOVR_USE_OCULUS_AUDIO is not currently supported on Apple platforms")
+    else() # Assume Linux. Note: This has *not* been tested. FIXME: When is the .so copied?
+      set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${LOVR_OCULUS_AUDIO_PATH}/Lib/Linux64/libovraudio64.so")
+    endif()
+
+    set(LOVR_OCULUS_AUDIO OculusAudio)
+    add_definitions(-DLOVR_ENABLE_OCULUS_AUDIO)
+    target_sources(lovr PRIVATE src/modules/audio/spatializers/oculus_spatializer.c)
+    target_link_libraries(lovr ${LOVR_OCULUS_AUDIO}) # TODO: Reorder?
+  endif()
 endif()
 
 if(LOVR_ENABLE_DATA)
@@ -533,6 +564,7 @@ if(WIN32)
   move_dll(${LOVR_ODE})
   move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_MSDF})
+  move_dll(${LOVR_OCULUS_AUDIO})
   target_compile_definitions(lovr PRIVATE -DLOVR_GL)
 elseif(APPLE)
   target_link_libraries(lovr objc)
