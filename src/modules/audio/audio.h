@@ -25,7 +25,7 @@ typedef enum {
 typedef void* AudioDeviceIdentifier;
 
 typedef struct {
-  char *spatializer; // Owned by caller
+  const char *spatializer; // Owned by caller
   int spatializerMaxSourcesHint;
 } SpatializerConfig;
 

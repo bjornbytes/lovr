@@ -152,7 +152,7 @@ int luaopen_lovr_audio(lua_State* L) {
   luax_register(L, lovrAudio);
   luax_registertype(L, Source);
 
-  char *spatializer = NULL;
+  const char *spatializer = NULL;
   int spatializerMaxSourcesHint = AUDIO_SPATIALIZER_MAX_SOURCES_HINT;
   luax_pushconf(L);
   lua_getfield(L, -1, "audio");
