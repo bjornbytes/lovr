@@ -166,7 +166,7 @@ int luaopen_lovr_audio(lua_State* L) {
   luax_register(L, lovrAudio);
   luax_registertype(L, Source);
 
-  char *spatializer = NULL;
+  const char *spatializer = NULL;
   int spatializerMaxSourcesHint = AUDIO_SPATIALIZER_MAX_SOURCES_HINT;
   luax_pushconf(L);
   lua_getfield(L, -1, "audio");
@@ -190,8 +190,8 @@ int luaopen_lovr_audio(lua_State* L) {
 
   // First config is for output device, second is for input device
   AudioDeviceConfig deviceConfig[2] = {
-    { .enable = true, .start = true },
-    { .enable = false, .start = false }
+    [AUDIO_PLAYBACK] = { .enable = true, .start = true },
+    [AUDIO_CAPTURE] = { .enable = false, .start = false }
   };
   if (lovrAudioInit(config, deviceConfig)) {
     luax_atexit(L, lovrAudioDestroy);

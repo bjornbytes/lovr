@@ -90,7 +90,7 @@ static int generateSource(Source* source, float* output, uint32_t count) {
   ma_uint64 framesIn = 0;
   while (framesIn < count) { // Read from source until raw buffer filled
     ma_uint64 framesRequested = count - framesIn;
-    // FIXME: Buffer size math will break (crash) if channels > 1
+    // FIXME: Buffer size math will break (crash) if channels > 2
     ma_uint64 framesRead = source->sound->read(source->sound, source->offset, framesRequested,
       raw + framesIn * SampleFormatBytesPerFrame(source->sound->channels, source->sound->format));
     framesIn += framesRead;

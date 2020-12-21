@@ -25,7 +25,7 @@ typedef enum {
 } TimeUnit;
 
 typedef struct {
-  char *spatializer; // Owned by caller
+  const char *spatializer; // Owned by caller
   int spatializerMaxSourcesHint;
 } AudioConfig;
 
