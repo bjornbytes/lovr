@@ -53,14 +53,16 @@ static Image* luax_checkimage(lua_State* L, int index, bool flip) {
 }
 
 static void luax_readcanvas(lua_State* L, int index, Canvas* canvas) {
+  canvas->depth.enabled = true;
+  canvas->depth.texture = NULL;
+  canvas->depth.format = FORMAT_D16;
+  canvas->depth.load = LOAD_CLEAR;
+  canvas->depth.save = SAVE_DISCARD;
+  canvas->depth.clear = 1.f;
+
   switch (lua_type(L, index)) {
     case LUA_TUSERDATA:
       canvas->color[0].texture = luax_checktype(L, index, Texture);
-      canvas->depth.enabled = true;
-      canvas->depth.format = FORMAT_D16;
-      canvas->depth.load = LOAD_CLEAR;
-      canvas->depth.save = SAVE_DISCARD;
-      canvas->depth.clear = 1.f;
       break;
     case LUA_TTABLE: {
       int count = luax_len(L, index);
@@ -68,8 +70,48 @@ static void luax_readcanvas(lua_State* L, int index, Canvas* canvas) {
         lua_rawgeti(L, index, i + 1);
         canvas->color[i].texture = luax_totype(L, -1, Texture);
         lovrAssert(canvas->color[i].texture, "The numeric keys of a render target table must be Textures");
-
+        lua_pop(L, 1);
       }
+
+      lua_getfield(L, index, "depth");
+      switch (lua_type(L, -1)) {
+        case LUA_TBOOLEAN:
+          canvas->depth.enabled = lua_toboolean(L, -1);
+          break;
+        case LUA_TSTRING:
+          canvas->depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
+          break;
+        case LUA_TUSERDATA:
+          canvas->depth.texture = luax_checktype(L, -1, Texture);
+          break;
+        case LUA_TTABLE:
+          lua_rawgeti(L, -1, 1);
+          canvas->depth.texture = luax_totype(L, -1, Texture);
+          lua_pop(L, 1);
+
+          lua_getfield(L, -1, "format");
+          canvas->depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
+          lua_pop(L, 1);
+
+          lua_getfield(L, -1, "load");
+          switch (lua_type(L, -1)) {
+            case LUA_TNIL:
+              canvas->depth.load = LOAD_KEEP;
+              break;
+            case LUA_TBOOLEAN:
+              canvas->depth.load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
+              break;
+            case LUA_TNUMBER:
+              canvas->depth.load = LOAD_CLEAR;
+              canvas->depth.clear = lua_tonumber(L, -1);
+              break;
+            case LUA_TTABLE:
+              //
+              break;
+          }
+          lua_pop(L, 1);
+      }
+      lua_pop(L, 1);
       break;
     }
     default:
