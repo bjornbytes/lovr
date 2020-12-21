@@ -154,6 +154,7 @@ static uint32_t oculus_spatializer_source_apply(Source* source, const float* inp
 static uint32_t oculus_spatializer_tail(float *scratch, float* output, uint32_t frames) {
   bool didAnything = false;
   for (int idx = 0; idx < state.sourceMax; idx++) {
+    // If a sound is finished, feed in NULL input on its index until reverb tail completes.
     if (state.sources[idx].occupied && !state.sources[idx].usedSourceThisPlayback) {
       uint32_t outStatus = 0;
       if (!didAnything) {
@@ -164,7 +165,7 @@ static uint32_t oculus_spatializer_tail(float *scratch, float* output, uint32_t 
       if (outStatus & ovrAudioSpatializationStatus_Finished) {
         state.sources[idx].occupied = false;
       }
-      for(int i = 0; i < frames*2; i++) {
+      for(unsigned int i = 0; i < frames*2; i++) {
         output[i] += scratch[i];
       }
     }
