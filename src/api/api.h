@@ -3,9 +3,16 @@
 #include <lualib.h>
 #include <stdint.h>
 #include <string.h>
-#include "core/util.h"
 
 #pragma once
+
+struct Color;
+
+#ifdef _WIN32
+#define LOVR_EXPORT __declspec(dllexport)
+#else
+#define LOVR_EXPORT __attribute__((visibility("default")))
+#endif
 
 // Modules
 LOVR_EXPORT int luaopen_lovr(lua_State* L);

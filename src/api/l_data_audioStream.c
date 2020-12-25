@@ -2,6 +2,7 @@
 #include "data/audioStream.h"
 #include "data/soundData.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include <string.h>
 #include <stdlib.h>
 

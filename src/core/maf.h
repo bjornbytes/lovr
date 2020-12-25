@@ -94,10 +94,10 @@ MAF vec3 vec3_lerp(vec3 v, const vec3 u, float t) {
 }
 
 MAF vec3 vec3_min(vec3 v, const vec3 u) {
-  float x = MIN(v[0], u[0]);
-  float y = MIN(v[1], u[1]);
-  float z = MIN(v[2], u[2]);
-  float w = MIN(v[3], u[3]);
+  float x = v[0] < u[0] ? v[0] : u[0];
+  float y = v[1] < u[1] ? v[1] : u[1];
+  float z = v[2] < u[2] ? v[2] : u[2];
+  float w = v[3] < u[3] ? v[3] : u[3];
   v[0] = x;
   v[1] = y;
   v[2] = z;
@@ -106,10 +106,10 @@ MAF vec3 vec3_min(vec3 v, const vec3 u) {
 }
 
 MAF vec3 vec3_max(vec3 v, const vec3 u) {
-  float x = MAX(v[0], u[0]);
-  float y = MAX(v[1], u[1]);
-  float z = MAX(v[2], u[2]);
-  float w = MAX(v[3], u[3]);
+  float x = v[0] > u[0] ? v[0] : u[0];
+  float y = v[1] > u[1] ? v[1] : u[1];
+  float z = v[2] > u[2] ? v[2] : u[2];
+  float w = v[3] > u[3] ? v[3] : u[3];
   v[0] = x;
   v[1] = y;
   v[2] = z;
@@ -142,10 +142,14 @@ MAF quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az) {
 }
 
 MAF quat quat_fromMat4(quat q, mat4 m) {
-  float x = sqrtf(MAX(0.f, 1.f + m[0] - m[5] - m[10])) / 2.f;
-  float y = sqrtf(MAX(0.f, 1.f - m[0] + m[5] - m[10])) / 2.f;
-  float z = sqrtf(MAX(0.f, 1.f - m[0] - m[5] + m[10])) / 2.f;
-  float w = sqrtf(MAX(0.f, 1.f + m[0] + m[5] + m[10])) / 2.f;
+  float a = 1.f + m[0] - m[5] - m[10];
+  float b = 1.f - m[0] + m[5] - m[10];
+  float c = 1.f - m[0] - m[5] + m[10];
+  float d = 1.f + m[0] + m[5] + m[10];
+  float x = sqrtf(a > 0.f ? a : 0.f) / 2.f;
+  float y = sqrtf(b > 0.f ? b : 0.f) / 2.f;
+  float z = sqrtf(c > 0.f ? c : 0.f) / 2.f;
+  float w = sqrtf(d > 0.f ? d : 0.f) / 2.f;
   x = (m[9] - m[6]) > 0.f ? -x : x;
   y = (m[2] - m[8]) > 0.f ? -y : y;
   z = (m[4] - m[1]) > 0.f ? -z : z;

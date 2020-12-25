@@ -4,7 +4,6 @@
 #include "core/util.h"
 #include <stdlib.h>
 #include <stdarg.h>
-#include <stdbool.h>
 
 typedef void voidFn(void);
 typedef void destructorFn(void*);

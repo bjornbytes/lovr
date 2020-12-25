@@ -1,6 +1,7 @@
 #include "api.h"
 #include "physics/physics.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include <stdbool.h>
 
 static void collisionResolver(World* world, void* userdata) {

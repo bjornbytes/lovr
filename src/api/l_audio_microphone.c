@@ -2,6 +2,7 @@
 #include "audio/audio.h"
 #include "data/soundData.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include <stdlib.h>
 
 static int l_lovrMicrophoneGetBitDepth(lua_State* L) {

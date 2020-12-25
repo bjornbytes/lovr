@@ -3,6 +3,7 @@
 #include "thread/thread.h"
 #include "thread/channel.h"
 #include "core/ref.h"
+#include "core/util.h"
 #include <stdlib.h>
 #include <string.h>
 
