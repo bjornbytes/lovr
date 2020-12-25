@@ -3,6 +3,7 @@
 #pragma once
 
 struct RandomGenerator;
+
 bool lovrMathInit(void);
 void lovrMathDestroy(void);
 struct RandomGenerator* lovrMathGetRandomGenerator(void);
