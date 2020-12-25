@@ -1,10 +1,9 @@
 #include <string.h>
 #include <math.h>
-#include "util.h"
 
 #pragma once
 
-#define MAF static LOVR_INLINE
+#define MAF static inline
 
 typedef float* vec3;
 typedef float* quat;

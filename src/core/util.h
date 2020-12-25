@@ -14,14 +14,12 @@
 #define LOVR_NORETURN __declspec(noreturn)
 #define LOVR_THREAD_LOCAL __declspec(thread)
 #define LOVR_ALIGN(n) __declspec(align(n))
-#define LOVR_INLINE __inline
 #define LOVR_RESTRICT __restrict
 #else
 #define LOVR_EXPORT __attribute__((visibility("default")))
 #define LOVR_NORETURN __attribute__((noreturn))
 #define LOVR_THREAD_LOCAL __thread
 #define LOVR_ALIGN(n) __attribute__((aligned(n)))
-#define LOVR_INLINE inline
 #define LOVR_RESTRICT restrict
 #endif
 
@@ -52,7 +50,7 @@ void lovrSetLogCallback(logFn* callback, void* userdata);
 void lovrLog(int level, const char* tag, const char* format, ...);
 
 // Hash function (FNV1a)
-static LOVR_INLINE uint64_t hash64(const void* data, size_t length) {
+static inline uint64_t hash64(const void* data, size_t length) {
   const uint8_t* bytes = (const uint8_t*) data;
   uint64_t hash = 0xcbf29ce484222325;
   for (size_t i = 0; i < length; i++) {

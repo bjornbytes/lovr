@@ -36,7 +36,7 @@ static void map_rehash(map_t* map) {
   }
 }
 
-static LOVR_INLINE uint64_t map_find(map_t* map, uint64_t hash) {
+static inline uint64_t map_find(map_t* map, uint64_t hash) {
   uint64_t mask = map->size - 1;
   uint64_t h = hash & mask;
 
