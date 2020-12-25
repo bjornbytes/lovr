@@ -115,8 +115,8 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   arr_init(&state.archives);
   arr_reserve(&state.archives, 2);
 
-  lovrFilesystemSetRequirePath("?.lua;?/init.lua;lua_modules/?.lua;lua_modules/?/init.lua;deps/?.lua;deps/?/init.lua");
-  lovrFilesystemSetCRequirePath("??;lua_modules/??;deps/??");
+  lovrFilesystemSetRequirePath("?.lua;?/init.lua");
+  lovrFilesystemSetCRequirePath("??");
 
   // First, try to mount a bundled archive
   const char* root = NULL;
