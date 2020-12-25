@@ -366,7 +366,7 @@ target_link_libraries(lovr
 )
 
 if(LOVR_ENABLE_AUDIO)
-  add_definitions(-DLOVR_ENABLE_AUDIO)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
     src/modules/audio/audio.c
     src/api/l_audio.c
@@ -376,7 +376,7 @@ if(LOVR_ENABLE_AUDIO)
 endif()
 
 if(LOVR_ENABLE_DATA)
-  add_definitions(-DLOVR_ENABLE_DATA)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_DATA)
   target_sources(lovr PRIVATE
     src/modules/data/audioStream.c
     src/modules/data/blob.c
@@ -401,7 +401,7 @@ if(LOVR_ENABLE_DATA)
 endif()
 
 if(LOVR_ENABLE_EVENT)
-  add_definitions(-DLOVR_ENABLE_EVENT)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_EVENT)
   target_sources(lovr PRIVATE
     src/modules/event/event.c
     src/api/l_event.c
@@ -409,7 +409,7 @@ if(LOVR_ENABLE_EVENT)
 endif()
 
 if(LOVR_ENABLE_FILESYSTEM)
-  add_definitions(-DLOVR_ENABLE_FILESYSTEM)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
     src/modules/filesystem/filesystem.c
     src/modules/filesystem/file.c
@@ -418,7 +418,7 @@ if(LOVR_ENABLE_FILESYSTEM)
 endif()
 
 if(LOVR_ENABLE_GRAPHICS)
-  add_definitions(-DLOVR_ENABLE_GRAPHICS)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
     src/modules/graphics/font.c
     src/modules/graphics/graphics.c
@@ -440,44 +440,44 @@ if(LOVR_ENABLE_GRAPHICS)
 endif()
 
 if(LOVR_ENABLE_HEADSET)
-  add_definitions(-DLOVR_ENABLE_HEADSET)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_HEADSET)
   target_sources(lovr PRIVATE
     src/api/l_headset.c
     src/modules/headset/headset.c
   )
 
   if(LOVR_USE_OPENVR)
-    add_definitions(-DLOVR_USE_OPENVR)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_OPENVR)
     target_sources(lovr PRIVATE src/modules/headset/headset_openvr.c)
   endif()
   if(LOVR_USE_OPENXR)
-    add_definitions(-DLOVR_USE_OPENXR)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_OPENXR)
     target_sources(lovr PRIVATE src/modules/headset/headset_openxr.c)
   endif()
   if(LOVR_USE_OCULUS)
-    add_definitions(-DLOVR_USE_OCULUS)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_OCULUS)
     target_sources(lovr PRIVATE src/modules/headset/headset_oculus.c)
   endif()
   if(LOVR_USE_VRAPI)
-    add_definitions(-DLOVR_USE_VRAPI)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_VRAPI)
     target_sources(lovr PRIVATE src/modules/headset/headset_vrapi.c)
   endif()
   if(LOVR_USE_PICO)
-    add_definitions(-DLOVR_USE_PICO)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_PICO)
     target_sources(lovr PRIVATE src/modules/headset/headset_pico.c)
   endif()
   if(LOVR_USE_WEBXR)
-    add_definitions(-DLOVR_USE_WEBXR)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_WEBXR)
     target_sources(lovr PRIVATE src/modules/headset/headset_webxr.c)
   endif()
   if(LOVR_USE_DESKTOP_HEADSET)
-    add_definitions(-DLOVR_USE_DESKTOP_HEADSET)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_DESKTOP_HEADSET)
     target_sources(lovr PRIVATE src/modules/headset/headset_desktop.c)
   endif()
 endif()
 
 if(LOVR_ENABLE_MATH)
-  add_definitions(-DLOVR_ENABLE_MATH)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_MATH)
   target_sources(lovr PRIVATE
     src/modules/math/math.c
     src/modules/math/curve.c
@@ -492,7 +492,7 @@ if(LOVR_ENABLE_MATH)
 endif()
 
 if(LOVR_ENABLE_PHYSICS)
-  add_definitions(-DLOVR_ENABLE_PHYSICS)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_PHYSICS)
   target_sources(lovr PRIVATE
     src/modules/physics/physics.c
     src/api/l_physics.c
@@ -504,7 +504,7 @@ if(LOVR_ENABLE_PHYSICS)
 endif()
 
 if(LOVR_ENABLE_THREAD)
-  add_definitions(-DLOVR_ENABLE_THREAD)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_THREAD)
   target_sources(lovr PRIVATE
     src/modules/thread/channel.c
     src/modules/thread/thread.c
@@ -516,17 +516,17 @@ if(LOVR_ENABLE_THREAD)
 endif()
 
 if(LOVR_ENABLE_TIMER)
-  add_definitions(-DLOVR_ENABLE_TIMER)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_TIMER)
   target_sources(lovr PRIVATE src/modules/timer/timer.c src/api/l_timer.c)
 endif()
 
 if(LOVR_ENABLE_ENET)
-  add_definitions(-DLOVR_ENABLE_ENET)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_ENET)
   target_sources(lovr PRIVATE src/lib/lua-enet/enet.c)
 endif()
 
 if(LOVR_ENABLE_JSON)
-  add_definitions(-DLOVR_ENABLE_JSON)
+  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_JSON)
   target_sources(lovr PRIVATE
     src/lib/lua-cjson/fpconv.c
     src/lib/lua-cjson/lua_cjson.c
@@ -540,11 +540,11 @@ if(WIN32)
   set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244 /MP")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
   set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
-  target_compile_definitions(lovr PUBLIC -D_CRT_SECURE_NO_WARNINGS)
-  target_compile_definitions(lovr PUBLIC -D_CRT_NONSTDC_NO_WARNINGS)
+  target_compile_definitions(lovr PRIVATE _CRT_SECURE_NO_WARNINGS)
+  target_compile_definitions(lovr PRIVATE _CRT_NONSTDC_NO_WARNINGS)
 
   if(MSVC_VERSION VERSION_LESS 1900)
-    target_compile_definitions(lovr PUBLIC -Dinline=__inline -Dsnprintf=_snprintf)
+    target_compile_definitions(lovr PRIVATE inline=__inline snprintf=_snprintf)
   endif()
 
   function(move_dll)
@@ -563,11 +563,11 @@ if(WIN32)
   move_dll(${LOVR_OPENAL})
   move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_MSDF})
-  target_compile_definitions(lovr PRIVATE -DLOVR_GL)
+  target_compile_definitions(lovr PRIVATE LOVR_GL)
 elseif(APPLE)
   target_link_libraries(lovr objc)
   target_sources(lovr PRIVATE src/core/os_macos.c)
-  target_compile_definitions(lovr PRIVATE -DLOVR_GL)
+  target_compile_definitions(lovr PRIVATE LOVR_GL)
   if(LOVR_BUILD_BUNDLE)
     function(move_lib)
       if(TARGET ${ARGV0})
@@ -598,10 +598,10 @@ elseif(APPLE)
   endif()
 elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_web.c)
-  target_compile_definitions(lovr PRIVATE -DLOVR_WEBGL)
+  target_compile_definitions(lovr PRIVATE LOVR_WEBGL)
 elseif(ANDROID)
   target_link_libraries(lovr log EGL GLESv3 android)
-  target_compile_definitions(lovr PRIVATE -DLOVR_GLES)
+  target_compile_definitions(lovr PRIVATE LOVR_GLES)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
 
   # Dynamically linked targets output libraries in lib/<ABI> for easy including in apk with aapt
@@ -691,10 +691,10 @@ elseif(ANDROID)
 elseif(UNIX)
   if(LOVR_USE_LINUX_EGL)
     target_sources(lovr PRIVATE src/core/os_linux.c)
-    target_compile_definitions(lovr PRIVATE -DLOVR_LINUX_EGL)
+    target_compile_definitions(lovr PRIVATE LOVR_LINUX_EGL)
   else()
     target_sources(lovr PRIVATE src/core/os_linux.c)
-    target_compile_definitions(lovr PRIVATE -DLOVR_LINUX_X11)
+    target_compile_definitions(lovr PRIVATE LOVR_LINUX_X11)
   endif()
-  target_compile_definitions(lovr PRIVATE -DLOVR_GL)
+  target_compile_definitions(lovr PRIVATE LOVR_GL)
 endif()
