@@ -491,7 +491,7 @@ TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, b
 
   int width, height;
   int length = (int) blob->size;
-  stbi_set_flip_vertically_on_load(flip);
+  stbi_set_flip_vertically_on_load_thread(flip);
   if (stbi_is_16_bit_from_memory(blob->data, length)) {
     int channels;
     textureData->blob->data = stbi_load_16_from_memory(blob->data, length, &width, &height, &channels, 0);
