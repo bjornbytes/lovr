@@ -14,9 +14,6 @@ option(LOVR_ENABLE_PHYSICS "Enable the physics module" ON)
 option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
-option(LOVR_ENABLE_ENET "Bundle with lua-enet" ON)
-option(LOVR_ENABLE_JSON "Bundle with lua-cjson" ON)
-
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" OFF)
@@ -27,7 +24,6 @@ option(LOVR_USE_PICO "Enable the Pico backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_LINUX_EGL "Use the EGL graphics extension on Linux" OFF)
 
-option(LOVR_SYSTEM_ENET "Use the system-provided enet" OFF)
 option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
 option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
 option(LOVR_SYSTEM_ODE "Use the system-provided ODE" OFF)
@@ -68,22 +64,6 @@ elseif(UNIX)
   find_package(PkgConfig)
   if(NOT APPLE)
     set(CMAKE_SKIP_RPATH OFF)
-  endif()
-endif()
-
-# enet
-if(LOVR_ENABLE_ENET AND NOT EMSCRIPTEN)
-  if(LOVR_SYSTEM_ENET)
-    pkg_search_module(ENET REQUIRED enet)
-    include_directories(${ENET_INCLUDE_DIRS})
-    set(LOVR_ENET ${ENET_LIBRARIES})
-  else()
-    add_subdirectory(deps/enet enet)
-    include_directories(deps/enet/include)
-    set(LOVR_ENET enet)
-    if(WIN32)
-      set(LOVR_ENET ${LOVR_ENET} ws2_32 winmm)
-    endif()
   endif()
 endif()
 
@@ -296,23 +276,19 @@ endif()
 
 # LÖVR
 
-# Resources
-file(GLOB LOVR_RESOURCES "src/resources/*.ttf" "src/resources/*.json" "src/resources/*.lua")
-foreach(path ${LOVR_RESOURCES})
-
-  # Turn the absolute path into a C variable like src_resources_boot_lua
-  file(RELATIVE_PATH identifier ${CMAKE_CURRENT_SOURCE_DIR} ${path})
-  string(MAKE_C_IDENTIFIER ${identifier} identifier)
-
-  # Read the file and turn the bytes into comma-separated hex literals
-  file(READ ${path} data HEX)
-  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," data ${data})
-
-  # Generate the output filename by adding .h to the input filename
-  string(CONCAT output ${path} ".h")
-
-  # Write some xxd-compatible C code!
-  file(WRITE ${output} "const unsigned char ${identifier}[] = {${data}};\nconst unsigned int ${identifier}_len = sizeof(${identifier});\n")
+# Plugins
+set(LOVR 1)
+file(GLOB LOVR_PLUGINS plugins/*)
+foreach(plugin ${LOVR_PLUGINS})
+  if(IS_DIRECTORY ${plugin} AND EXISTS ${plugin}/CMakeLists.txt)
+    add_subdirectory(${plugin})
+    get_directory_property(PLUGIN_TARGETS DIRECTORY ${plugin} DEFINITION LOVR_PLUGIN_TARGETS)
+    if(NOT PLUGIN_TARGETS)
+      get_directory_property(PLUGIN_TARGETS DIRECTORY ${plugin} BUILDSYSTEM_TARGETS)
+    endif()
+    set_target_properties(${PLUGIN_TARGETS} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/plugins/lib")
+    list(APPEND ALL_PLUGIN_TARGETS ${PLUGIN_TARGETS})
+  endif()
 endforeach()
 
 set(LOVR_SRC
@@ -344,7 +320,6 @@ set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
 target_include_directories(lovr PRIVATE src src/modules)
 target_link_libraries(lovr
-  ${LOVR_ENET}
   ${LOVR_GLFW}
   ${LOVR_LUA}
   ${LOVR_MSDF}
@@ -515,19 +490,24 @@ if(LOVR_ENABLE_TIMER)
   target_sources(lovr PRIVATE src/modules/timer/timer.c src/api/l_timer.c)
 endif()
 
-if(LOVR_ENABLE_ENET)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_ENET)
-  target_sources(lovr PRIVATE src/lib/lua-enet/enet.c)
-endif()
+# Resources
+file(GLOB LOVR_RESOURCES "src/resources/*.ttf" "src/resources/*.json" "src/resources/*.lua")
+foreach(path ${LOVR_RESOURCES})
 
-if(LOVR_ENABLE_JSON)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_JSON)
-  target_sources(lovr PRIVATE
-    src/lib/lua-cjson/fpconv.c
-    src/lib/lua-cjson/lua_cjson.c
-    src/lib/lua-cjson/strbuf.c
-  )
-endif()
+  # Turn the absolute path into a C variable like src_resources_boot_lua
+  file(RELATIVE_PATH identifier ${CMAKE_CURRENT_SOURCE_DIR} ${path})
+  string(MAKE_C_IDENTIFIER ${identifier} identifier)
+
+  # Read the file and turn the bytes into comma-separated hex literals
+  file(READ ${path} data HEX)
+  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," data ${data})
+
+  # Generate the output filename by adding .h to the input filename
+  string(CONCAT output ${path} ".h")
+
+  # Write some xxd-compatible C code!
+  file(WRITE ${output} "const unsigned char ${identifier}[] = {${data}};\nconst unsigned int ${identifier}_len = sizeof(${identifier});\n")
+endforeach()
 
 # Platforms
 if(WIN32)
@@ -558,6 +538,9 @@ if(WIN32)
   move_dll(${LOVR_OPENAL})
   move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_MSDF})
+  foreach(target ${ALL_PLUGIN_TARGETS})
+    move_dll(${target})
+  endforeach()
   target_compile_definitions(lovr PRIVATE LOVR_GL)
 elseif(APPLE)
   target_link_libraries(lovr objc)
@@ -580,6 +563,9 @@ elseif(APPLE)
     move_lib(${LOVR_OPENAL})
     move_lib(${LOVR_OPENVR})
     move_lib(${LOVR_MSDF})
+    foreach(target ${ALL_PLUGIN_TARGETS})
+      move_lib(${target})
+    endforeach()
 
     target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns")
     set_target_properties(lovr PROPERTIES
@@ -671,7 +657,8 @@ elseif(ANDROID)
       COMMAND
         ${ANDROID_TOOLS}/aapt
         add -f lovr.unaligned.apk
-        classes.dex lib/${ANDROID_ABI}/*.so
+        classes.dex
+        lib/${ANDROID_ABI}/*.so
       COMMAND ${ANDROID_TOOLS}/zipalign -f 4 lovr.unaligned.apk lovr.unsigned.apk
       COMMAND ${ANDROID_TOOLS}/apksigner
         sign
@@ -682,6 +669,15 @@ elseif(ANDROID)
       COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk AndroidManifest.xml Activity.java classes.dex
       COMMAND ${CMAKE_COMMAND} -E remove_directory org
     )
+
+    # Copy plugin libraries to lib folder before packaging APK
+    foreach(target ${ALL_PLUGIN_TARGETS})
+      add_custom_command(TARGET buildAPK PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_SONAME_FILE:${target}>
+          lib/${ANDROID_ABI}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
+      )
+    endforeach()
   endif()
 elseif(UNIX)
   if(LOVR_USE_LINUX_EGL)

@@ -59,7 +59,7 @@ static struct {
   size_t savePathLength;
   char savePath[1024];
   char source[1024];
-  char requirePath[2][1024];
+  char requirePath[1024];
   char identity[64];
   bool fused;
 } state;
@@ -116,7 +116,6 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   arr_reserve(&state.archives, 2);
 
   lovrFilesystemSetRequirePath("?.lua;?/init.lua");
-  lovrFilesystemSetCRequirePath("??");
 
   // First, try to mount a bundled archive
   const char* root = NULL;
@@ -407,19 +406,11 @@ size_t lovrFilesystemGetWorkingDirectory(char* buffer, size_t size) {
 }
 
 const char* lovrFilesystemGetRequirePath() {
-  return state.requirePath[0];
-}
-
-const char* lovrFilesystemGetCRequirePath() {
-  return state.requirePath[1];
+  return state.requirePath;
 }
 
 void lovrFilesystemSetRequirePath(const char* requirePath) {
-  strncpy(state.requirePath[0], requirePath, sizeof(state.requirePath[0]) - 1);
-}
-
-void lovrFilesystemSetCRequirePath(const char* requirePath) {
-  strncpy(state.requirePath[1], requirePath, sizeof(state.requirePath[1]) - 1);
+  strncpy(state.requirePath, requirePath, sizeof(state.requirePath) - 1);
 }
 
 // Archive: dir

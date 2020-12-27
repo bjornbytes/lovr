@@ -36,6 +36,4 @@ size_t lovrFilesystemGetExecutablePath(char* buffer, size_t size);
 size_t lovrFilesystemGetUserDirectory(char* buffer, size_t size);
 size_t lovrFilesystemGetWorkingDirectory(char* buffer, size_t size);
 const char* lovrFilesystemGetRequirePath(void);
-const char* lovrFilesystemGetCRequirePath(void);
 void lovrFilesystemSetRequirePath(const char* requirePath);
-void lovrFilesystemSetCRequirePath(const char* requirePath);

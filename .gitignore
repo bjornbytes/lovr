@@ -39,3 +39,4 @@ deps/VrApi
 deps/pico
 deps/openxr
 deps/OpenXR-Oculus
+/plugins/*
