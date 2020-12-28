@@ -5,6 +5,10 @@
 
 #define MAF static inline
 
+#ifndef M_PI
+#define M_PI 3.14159265358979
+#endif
+
 typedef float* vec3;
 typedef float* quat;
 typedef float* mat4;
