@@ -582,14 +582,14 @@ elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_web.c)
   target_compile_definitions(lovr PRIVATE LOVR_WEBGL)
 elseif(ANDROID)
-  target_link_libraries(lovr log EGL GLESv3 android)
+  target_link_libraries(lovr log EGL GLESv3 android dl)
   target_compile_definitions(lovr PRIVATE LOVR_GLES)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
 
-  # Dynamically linked targets output libraries in lib/<ABI> for easy including in apk with aapt
+  # Dynamically linked targets output libraries in raw/lib/<ABI> for easy including in apk with aapt
   set_target_properties(
     lovr ${LOVR_ODE} ${LOVR_OPENAL}
-    PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib/${ANDROID_ABI}"
+    PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/raw/lib/${ANDROID_ABI}"
   )
 
   if(LOVR_BUILD_EXE)
@@ -602,7 +602,7 @@ elseif(ANDROID)
     endif()
 
     # Flavor-specific config:
-    # - Imported targets need to have their libraries manually copied to lib/<ABI>
+    # - Imported targets need to have their libraries manually copied to raw/lib/<ABI>
     # - Figure out which Java class (Activity) and AndroidManifest.xml to use
     # - Oculus uses the regular android os layer, pico implements its own in the headset backend
     # - Some of the Pico SDK is in a jar that has to be added to the classpath and dx invocation
@@ -612,20 +612,20 @@ elseif(ANDROID)
       set(ACTIVITY "openxr")
       target_sources(lovr PRIVATE src/core/os_android.c)
       get_target_property(OPENXR_LIB ${LOVR_OPENXR} IMPORTED_LOCATION)
-      file(COPY ${OPENXR_LIB} DESTINATION lib/${ANDROID_ABI})
+      file(COPY ${OPENXR_LIB} DESTINATION raw/lib/${ANDROID_ABI})
       set(ANDROID_CLASSPATH "${ANDROID_JAR}")
     elseif(LOVR_USE_VRAPI)
       set(MANIFEST "oculus")
       set(ACTIVITY "vrapi")
       target_sources(lovr PRIVATE src/core/os_android.c)
       get_target_property(VRAPI_LIB ${LOVR_VRAPI} IMPORTED_LOCATION)
-      file(COPY ${VRAPI_LIB} DESTINATION lib/${ANDROID_ABI})
+      file(COPY ${VRAPI_LIB} DESTINATION raw/lib/${ANDROID_ABI})
       set(ANDROID_CLASSPATH "${ANDROID_JAR}")
     elseif(LOVR_USE_PICO)
       set(MANIFEST "pico")
       set(ACTIVITY "pico")
       get_target_property(PICO_LIB ${LOVR_PICO} IMPORTED_LOCATION)
-      file(COPY ${PICO_LIB} DESTINATION lib/${ANDROID_ABI})
+      file(COPY ${PICO_LIB} DESTINATION raw/lib/${ANDROID_ABI})
       set(EXTRA_JAR "${LOVR_PICO_PATH}/classes.jar")
       if(WIN32)
         set(ANDROID_CLASSPATH "${ANDROID_JAR};${EXTRA_JAR}")
@@ -647,36 +647,33 @@ elseif(ANDROID)
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ACTIVITY}.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_CLASSPATH}" -d . Activity.java
-      COMMAND ${ANDROID_TOOLS}/dx --dex --output classes.dex ${EXTRA_JAR} org/lovr/app/Activity.class
+      COMMAND ${ANDROID_TOOLS}/dx --dex --output raw/classes.dex ${EXTRA_JAR} org/lovr/app/Activity.class
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
+        -0 so
         -M AndroidManifest.xml
         -I ${ANDROID_JAR}
         -F lovr.unaligned.apk
         ${ANDROID_ASSETS}
-      COMMAND
-        ${ANDROID_TOOLS}/aapt
-        add -f lovr.unaligned.apk
-        classes.dex
-        lib/${ANDROID_ABI}/*.so
-      COMMAND ${ANDROID_TOOLS}/zipalign -f 4 lovr.unaligned.apk lovr.unsigned.apk
+        raw
+      COMMAND ${ANDROID_TOOLS}/zipalign -f -p 4 lovr.unaligned.apk lovr.unsigned.apk
       COMMAND ${ANDROID_TOOLS}/apksigner
         sign
         --ks ${ANDROID_KEYSTORE}
         ${ANDROID_APKSIGNER_KEYSTORE_PASS} ${ANDROID_KEYSTORE_PASS}
         --in lovr.unsigned.apk
         --out lovr.apk
-      COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk AndroidManifest.xml Activity.java classes.dex
+      COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk AndroidManifest.xml Activity.java
       COMMAND ${CMAKE_COMMAND} -E remove_directory org
     )
 
     # Copy plugin libraries to lib folder before packaging APK
     foreach(target ${ALL_PLUGIN_TARGETS})
-      add_custom_command(TARGET buildAPK PRE_BUILD
+      add_custom_command(TARGET lovr POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-          $<TARGET_SONAME_FILE:${target}>
-          lib/${ANDROID_ABI}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
+          $<TARGET_FILE:${target}>
+          raw/lib/${ANDROID_ABI}/$<TARGET_FILE_NAME:${target}>
       )
     endforeach()
   endif()

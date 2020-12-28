@@ -404,12 +404,15 @@ static int libLoader(lua_State* L) {
   const char* symbol = hyphen ? hyphen + 1 : module;
 
   char path[1024];
-  size_t length = lovrFilesystemGetExecutablePath(path, sizeof(path));
-  if (length == 0) {
-    return 0;
-  }
 
+  // On Android, load libraries directly from the apk by passing a path like this to the linker:
+  //   /path/to/app.apk!/lib/arm64-v8a/lib.so
+  // On desktop systems, look for libraries next to the executable
 #ifdef __ANDROID__
+  const char* source = lovrFilesystemGetSource();
+  size_t length = strlen(source);
+  memcpy(path, source, length);
+
   const char* subpath = "!/lib/arm64-v8a/";
   size_t subpathLength = strlen(subpath);
   char* p = path + length;
@@ -421,6 +424,11 @@ static int libLoader(lua_State* L) {
   length += subpathLength;
   p += subpathLength;
 #else
+  size_t length = lovrFilesystemGetExecutablePath(path, sizeof(path));
+  if (length == 0) {
+    return 0;
+  }
+
   char* slash = strrchr(path, LOVR_PATH_SEP);
   char* p = slash ? slash + 1 : path;
   length = p - path;
