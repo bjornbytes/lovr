@@ -278,6 +278,7 @@ endif()
 
 # Plugins
 set(LOVR 1)
+link_libraries(${LOVR_LUA})
 file(GLOB LOVR_PLUGINS plugins/*)
 foreach(plugin ${LOVR_PLUGINS})
   if(IS_DIRECTORY ${plugin} AND EXISTS ${plugin}/CMakeLists.txt)
