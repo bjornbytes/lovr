@@ -421,7 +421,7 @@ static int libLoader(lua_State* L) {
   length += subpathLength;
   p += subpathLength;
 #else
-  char* slash = strrchr(path, '/');
+  char* slash = strrchr(path, LOVR_PATH_SEP);
   char* p = slash ? slash + 1 : path;
   length = p - path;
 #endif
