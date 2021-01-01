@@ -1,8 +1,6 @@
 #include "api.h"
 #include "core/os.h"
 #include "core/util.h"
-#include "lib/lua-cjson/lua_cjson.h"
-#include "lib/lua-enet/enet.h"
 
 const luaL_Reg lovrModules[] = {
   { "lovr", luaopen_lovr },
@@ -35,12 +33,6 @@ const luaL_Reg lovrModules[] = {
 #endif
 #ifdef LOVR_ENABLE_TIMER
   { "lovr.timer", luaopen_lovr_timer },
-#endif
-#ifdef LOVR_ENABLE_JSON
-  { "cjson", luaopen_cjson },
-#endif
-#ifdef LOVR_ENABLE_ENET
-  { "enet", luaopen_enet },
 #endif
   { NULL, NULL }
 };
