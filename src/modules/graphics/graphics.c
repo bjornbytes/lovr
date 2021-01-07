@@ -226,7 +226,7 @@ void lovrGraphicsRender(Canvas* canvas) {
   passInfo.views = textureInfo->type == TEXTURE_ARRAY ? textureInfo->size[2] : 0;
   passInfo.samples = canvas->samples;
 
-  uint64_t hash = hash64(&renderInfo, sizeof(renderInfo));
+  uint64_t hash = hash64(&passInfo, sizeof(passInfo));
   PassEntry entry = { map_get(&state.passes, hash) };
 
   if (entry.u64 == MAP_NIL) {
