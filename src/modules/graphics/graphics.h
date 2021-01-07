@@ -51,8 +51,6 @@ typedef struct {
   float anisotropy;
 } GraphicsLimits;
 
-// Targets are either a Texture or a format (for a temporary target)
-
 typedef enum {
   LOAD_KEEP,
   LOAD_CLEAR,
