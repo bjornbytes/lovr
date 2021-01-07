@@ -70,8 +70,6 @@ CFLAGS_@(MATH) += -DLOVR_ENABLE_MATH
 CFLAGS_@(PHYSICS) += -DLOVR_ENABLE_PHYSICS
 CFLAGS_@(THREAD) += -DLOVR_ENABLE_THREAD
 CFLAGS_@(TIMER) += -DLOVR_ENABLE_TIMER
-CFLAGS_@(JSON) += -DLOVR_ENABLE_JSON
-CFLAGS_@(ENET) += -DLOVR_ENABLE_ENET
 
 ## Headset backends
 CFLAGS_@(SIMULATOR) += -DLOVR_USE_DESKTOP_HEADSET
@@ -170,13 +168,6 @@ ifneq (@(CMAKE_DEPS),)
   LIBS_@(PHYSICS)_macos += $(BUILD)/ode/libode.dylib
   LIBS_@(PHYSICS)_linux += $(BUILD)/ode/libode.so
   LIBS_@(PHYSICS)_android += $(BUILD)/lib/arm64-v8a/libode.so
-
-  # enet
-  CFLAGS_@(ENET) += -I$(DEPS)/enet/include
-  LDFLAGS_@(ENET)_win32 += -L$(BUILD)/enet/$(CONFIG) -lenet
-  LDFLAGS_@(ENET)_macos += -L$(BUILD)/enet -lenet
-  LDFLAGS_@(ENET)_linux += -L$(BUILD)/enet -lenet
-  LDFLAGS_@(ENET)_android += -L$(BUILD)/enet -lenet
 endif
 
 ## Android

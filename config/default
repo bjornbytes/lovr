@@ -35,8 +35,6 @@ CONFIG_MATH=y
 CONFIG_PHYSICS=y
 CONFIG_THREAD=y
 CONFIG_TIMER=y
-CONFIG_JSON=y
-CONFIG_ENET=y
 
 ## Headset backends
 # Enabling headset backends adds support for more types of VR SDKs and hardware.

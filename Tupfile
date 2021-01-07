@@ -54,8 +54,6 @@ SRC_@(MATH) += src/api/l_math*.c
 SRC_@(PHYSICS) += src/api/l_physics*.c
 SRC_@(THREAD) += src/api/l_thread*.c
 SRC_@(TIMER) += src/api/l_timer*.c
-SRC_@(JSON) += src/lib/lua-cjson/*.c
-SRC_@(ENET) += src/lib/lua-enet/*.c
 
 # resources
 RES += src/resources/boot.lua
