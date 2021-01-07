@@ -30,7 +30,6 @@ Features
 - **Vector Library** - Efficient first-class support for 3D vectors, quaternions, and matrices.
 - **3D Rigid Body Physics** - Including 4 collider shapes and 4 joint types.
 - **Compute Shaders** - For high performance GPU tasks, like particles.
-- **Multiplayer** - Includes enet for multi-user VR experiences.
 
 Getting Started
 ---
