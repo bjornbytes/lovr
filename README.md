@@ -76,7 +76,7 @@ function lovr.draw()
 end
 ```
 
-You can try more examples in your browser on the [docs page](https://lovr.org/docs/Hello_World).
+You can try more examples in your browser on the [docs page](https://lovr.org/docs/Intro/Hello_World).
 
 Building
 ---
