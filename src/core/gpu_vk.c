@@ -173,11 +173,7 @@ typedef struct {
 typedef struct {
   uint64_t hash;
   VkFramebuffer handle;
-} gpu_cache_entry;
-
-typedef struct {
-  gpu_cache_entry entries[16][2];
-} gpu_framebuffer_cache;
+} gpu_framebuffer_entry;
 
 // State
 
@@ -202,7 +198,7 @@ static struct {
   gpu_tick ticks[16];
   gpu_batch batch;
   gpu_morgue morgue;
-  gpu_framebuffer_cache framebuffers;
+  gpu_framebuffer_entry framebuffers[16][2];
   gpu_scratchpad_pool scratchpads;
   gpu_readback_pool readbacks;
   VkQueryPool queryPool;
@@ -740,6 +736,11 @@ void gpu_destroy(void) {
   for (uint32_t i = 0; i < state.scratchpads.count; i++) {
     vkDestroyBuffer(state.device, state.scratchpads.data[i].buffer, NULL);
     vkFreeMemory(state.device, state.scratchpads.data[i].memory, NULL);
+  }
+  for (uint32_t i = 0; i < COUNTOF(state.framebuffers); i++) {
+    for (uint32_t j = 0; j < COUNTOF(state.framebuffers[0]); j++) {
+      if (state.framebuffers[i][j].handle) vkDestroyFramebuffer(state.device, state.framebuffers[i][j].handle, NULL);
+    }
   }
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     gpu_tick* tick = &state.ticks[i];
@@ -2138,8 +2139,7 @@ static VkFramebuffer getFramebuffer(const VkFramebufferCreateInfo* info) {
     hash = (hash ^ ((const uint8_t*) key)[i]) * 0x100000001b3;
   }
 
-  gpu_framebuffer_cache* cache = &state.framebuffers;
-  gpu_cache_entry* entries = &cache->entries[hash & (COUNTOF(cache->entries) - 1)][0];
+  gpu_framebuffer_entry* entries = &state.framebuffers[hash & (COUNTOF(state.framebuffers) - 1)][0];
 
   for (size_t i = 0; i < 2; i++) {
     if (entries[i].hash == hash) {
@@ -2153,7 +2153,7 @@ static VkFramebuffer getFramebuffer(const VkFramebufferCreateInfo* info) {
   }
 
   // Shift bucket entries over to make room for new framebuffer
-  memcpy(&entries[1], &entries[0], sizeof(gpu_cache_entry));
+  memcpy(&entries[1], &entries[0], sizeof(gpu_framebuffer_entry));
 
   // Insert new framebuffer
   GPU_VK(vkCreateFramebuffer(state.device, info, NULL, &entries[0].handle));
