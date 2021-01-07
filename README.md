@@ -21,14 +21,14 @@ You can use LÖVR to easily create VR experiences without much setup or programm
 Features
 ---
 
-- **Cross-Platform** - Runs on Windows, Mac, Linux, Android, and on the web using WebAssembly and WebXR.
-- **Cross-Device** - Supports Vive/Index, Oculus Rift/Go/Quest, Pico, Windows MR, and has a VR simulator.
+- **Cross-Platform** - Runs on Windows, Mac, Linux, Android, WebXR.
+- **Cross-Device** - Supports Vive/Index, Oculus Rift/Quest, Pico, Windows MR, and has a VR simulator.
 - **Beginner-friendly** - Simple VR scenes can be created in just a few lines of Lua.
 - **Fast** - Writen in C99 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
 - **Asset Import** - Supports 3D models (glTF, OBJ), skeletal animation, HDR textures, cubemaps, fonts, etc.
 - **Spatialized Audio** - Audio is automatically spatialized using HRTFs.
 - **Vector Library** - Efficient first-class support for 3D vectors, quaternions, and matrices.
-- **3D Rigid Body Physics** - Including 4 collider shapes and 4 joint types.
+- **3D Rigid Body Physics** - Including 4 collider shapes, triangle mesh colliders, and 4 joint types.
 - **Compute Shaders** - For high performance GPU tasks, like particles.
 
 Getting Started
