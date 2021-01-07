@@ -79,66 +79,63 @@ static void luax_readcanvas(lua_State* L, int index, Canvas* canvas) {
   }
 
   lua_getfield(L, index, "load");
-  switch (lua_type(L, -1)) {
-    case LUA_TNIL:
-      for (int i = 0; i < count; i++) {
-        canvas->color[i].load = LOAD_KEEP;
+  if (lua_istable(L, -1)) {
+    lua_rawgeti(L, -1, 1);
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+      lua_rawgeti(L, -2, 2);
+      lua_rawgeti(L, -3, 3);
+      lua_rawgeti(L, -4, 4);
+      canvas->color[0].load = LOAD_CLEAR;
+      canvas->color[0].clear[0] = luax_checkfloat(L, -4);
+      canvas->color[0].clear[1] = luax_checkfloat(L, -3);
+      canvas->color[0].clear[2] = luax_checkfloat(L, -2);
+      canvas->color[0].clear[3] = luax_optfloat(L, -1, 1.f);
+      lua_pop(L, 4);
+      for (int i = 1; i < count; i++) {
+        canvas->color[i].load = LOAD_CLEAR;
+        memcpy(canvas->color[i].clear, canvas->color[0].clear, 4 * sizeof(float));
       }
-      break;
-    case LUA_TBOOLEAN: {
-      LoadOp load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
-      for (int i = 0; i < count; i++) {
-        canvas->color[i].load = load;
-      }
-      break;
-    }
-    case LUA_TTABLE:
-      lua_rawgeti(L, -1, 1);
-      if (lua_type(L, -1) == LUA_TNUMBER) {
-        lua_rawgeti(L, -2, 2);
-        lua_rawgeti(L, -3, 3);
-        lua_rawgeti(L, -4, 4);
-        canvas->color[0].load = LOAD_CLEAR;
-        canvas->color[0].clear[0] = luax_checkfloat(L, -4);
-        canvas->color[0].clear[1] = luax_checkfloat(L, -3);
-        canvas->color[0].clear[2] = luax_checkfloat(L, -2);
-        canvas->color[0].clear[3] = luax_optfloat(L, -1, 1.f);
-        lua_pop(L, 4);
-        for (int i = 1; i < count; i++) {
-          canvas->color[i].load = LOAD_CLEAR;
-          memcpy(canvas->color[i].clear, canvas->color[0].clear, 4 * sizeof(float));
-        }
-      } else {
-        lua_pop(L, 1);
-        for (int i = 0; i < count; i++) {
-          lua_rawgeti(L, -1, i + 1);
-          switch (lua_type(L, -1)) {
-            case LUA_TNIL:
-              canvas->color[i].load = LOAD_KEEP;
-              break;
-            case LUA_TBOOLEAN:
-              canvas->color[i].load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
-              break;
-            case LUA_TTABLE:
-              lua_rawgeti(L, -1, 1);
-              lua_rawgeti(L, -2, 2);
-              lua_rawgeti(L, -3, 3);
-              lua_rawgeti(L, -4, 4);
-              canvas->color[i].load = LOAD_CLEAR;
-              canvas->color[i].clear[0] = luax_checkfloat(L, -4);
-              canvas->color[i].clear[1] = luax_checkfloat(L, -3);
-              canvas->color[i].clear[2] = luax_checkfloat(L, -2);
-              canvas->color[i].clear[3] = luax_optfloat(L, -1, 1.f);
-              lua_pop(L, 4);
-              break;
-            default:
-              luaL_argerror(L, index, "Expected render target load values to be nils, booleans, or tables");
-          }
-          lua_pop(L, 1);
-        }
-      }
+    } else {
       lua_pop(L, 1);
-      break;
+      for (int i = 0; i < count; i++) {
+        lua_rawgeti(L, -1, i + 1);
+        if (lua_istable(L, -1)) {
+          lua_rawgeti(L, -1, 1);
+          lua_rawgeti(L, -2, 2);
+          lua_rawgeti(L, -3, 3);
+          lua_rawgeti(L, -4, 4);
+          canvas->color[i].load = LOAD_CLEAR;
+          canvas->color[i].clear[0] = luax_checkfloat(L, -4);
+          canvas->color[i].clear[1] = luax_checkfloat(L, -3);
+          canvas->color[i].clear[2] = luax_checkfloat(L, -2);
+          canvas->color[i].clear[3] = luax_optfloat(L, -1, 1.f);
+          lua_pop(L, 4);
+        } else {
+          canvas->color[i].load = lua_isnil(L, -1) || lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
+        }
+        lua_pop(L, 1);
+      }
+    }
+  } else {
+    LoadOp load = lua_isnil(L, -1) || lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
+    for (int i = 0; i < count; i++) {
+      canvas->color[i].load = load;
+    }
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, index, "save");
+  if (lua_istable(L, -1)) {
+    for (int i = 0; i < count; i++) {
+      lua_rawgeti(L, -1, i + 1);
+      canvas->color[i].save = lua_isnil(L, -1) || lua_toboolean(L, -1) ? SAVE_KEEP : SAVE_DISCARD;
+      lua_pop(L, 1);
+    }
+  } else {
+    SaveOp save = lua_isnil(L, -1) || lua_toboolean(L, -1) ? SAVE_KEEP : SAVE_DISCARD;
+    for (int i = 0; i < count; i++) {
+      canvas->color[i].save = save;
+    }
   }
   lua_pop(L, 1);
 
