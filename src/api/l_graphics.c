@@ -59,17 +59,21 @@ static void luax_readcanvas(lua_State* L, int index, Canvas* canvas) {
   canvas->depth.load = LOAD_CLEAR;
   canvas->depth.save = SAVE_DISCARD;
   canvas->depth.clear = 1.f;
+  canvas->samples = 1;
 
+  // Texture instead of table
   int type = lua_type(L, index);
   if (type == LUA_TUSERDATA) {
     canvas->color[0].texture = luax_checktype(L, index, Texture);
     canvas->color[0].load = LOAD_KEEP;
+    canvas->color[0].save = SAVE_KEEP;
     return;
   } else if (type != LUA_TTABLE) {
     luaL_argerror(L, index, "Expected a Texture or table for a render target");
     return;
   }
 
+  // Color targets
   int count = luax_len(L, index);
   for (int i = 0; i < count; i++) {
     lua_rawgeti(L, index, i + 1);
@@ -135,6 +139,33 @@ static void luax_readcanvas(lua_State* L, int index, Canvas* canvas) {
     SaveOp save = lua_isnil(L, -1) || lua_toboolean(L, -1) ? SAVE_KEEP : SAVE_DISCARD;
     for (int i = 0; i < count; i++) {
       canvas->color[i].save = save;
+    }
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, index, "multisamples");
+  if (lua_toboolean(L, -1)) {
+    for (int i = 0; i < count; i++) {
+      canvas->color[i].resolve = canvas->color[i].texture;
+      canvas->color[i].texture = NULL;
+    }
+    switch (lua_type(L, -1)) {
+      case LUA_TBOOLEAN:
+        canvas->samples = 4;
+        break;
+      case LUA_TNUMBER:
+        canvas->samples = lua_tointeger(L, -1); // TODO PO2, zero, negative
+        break;
+      case LUA_TTABLE:
+        for (int i = 0; i < count; i++) {
+          lua_rawgeti(L, -1, i + 1);
+          canvas->color[i].texture = luax_totype(L, -1, Texture);
+          lua_pop(L, 1);
+        }
+        break;
+      case LUA_TUSERDATA:
+        canvas->color[0].texture = luax_checktype(L, -1, Texture);
+        break;
     }
   }
   lua_pop(L, 1);

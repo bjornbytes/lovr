@@ -195,10 +195,12 @@ void lovrGraphicsRender(Canvas* canvas) {
   };
 
   for (uint32_t i = 0; i < 4; i++) {
-    if (!canvas->color[i].texture) {
+    if (!canvas->color[i].texture && !canvas->color[i].resolve) {
       renderInfo.color[i].texture = NULL;
       break;
     }
+
+    lovrAssert(canvas->color[i].texture, "TODO: Anonymous MSAA targets");
 
     passInfo.color[i].format = canvas->color[i].texture->info.format;
     passInfo.color[i].load = loads[canvas->color[i].load];
@@ -206,11 +208,13 @@ void lovrGraphicsRender(Canvas* canvas) {
     passInfo.color[i].srgb = canvas->color[i].texture->info.srgb;
 
     renderInfo.color[i].texture = canvas->color[i].texture->gpu;
-    renderInfo.color[i].resolve = canvas->color[i].resolve->gpu;
+    renderInfo.color[i].resolve = canvas->color[i].resolve ? canvas->color[i].resolve->gpu : NULL;
     memcpy(renderInfo.color[i].clear, canvas->color[i].clear, 4 * sizeof(float));
   }
 
   if (canvas->depth.enabled) {
+    lovrAssert(canvas->depth.texture, "TODO: Anonymous depth targets");
+
     passInfo.depth.format = canvas->depth.texture->info.format;
     passInfo.depth.load = loads[canvas->depth.load];
     passInfo.depth.save = saves[canvas->depth.save];
