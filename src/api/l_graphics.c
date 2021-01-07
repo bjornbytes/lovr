@@ -60,63 +60,127 @@ static void luax_readcanvas(lua_State* L, int index, Canvas* canvas) {
   canvas->depth.save = SAVE_DISCARD;
   canvas->depth.clear = 1.f;
 
-  switch (lua_type(L, index)) {
-    case LUA_TUSERDATA:
-      canvas->color[0].texture = luax_checktype(L, index, Texture);
-      break;
-    case LUA_TTABLE: {
-      int count = luax_len(L, index);
+  int type = lua_type(L, index);
+  if (type == LUA_TUSERDATA) {
+    canvas->color[0].texture = luax_checktype(L, index, Texture);
+    canvas->color[0].load = LOAD_KEEP;
+    return;
+  } else if (type != LUA_TTABLE) {
+    luaL_argerror(L, index, "Expected a Texture or table for a render target");
+    return;
+  }
+
+  int count = luax_len(L, index);
+  for (int i = 0; i < count; i++) {
+    lua_rawgeti(L, index, i + 1);
+    canvas->color[i].texture = luax_totype(L, -1, Texture);
+    lovrAssert(canvas->color[i].texture, "The numeric keys of a render target table must be Textures");
+    lua_pop(L, 1);
+  }
+
+  lua_getfield(L, index, "load");
+  switch (lua_type(L, -1)) {
+    case LUA_TNIL:
       for (int i = 0; i < count; i++) {
-        lua_rawgeti(L, index, i + 1);
-        canvas->color[i].texture = luax_totype(L, -1, Texture);
-        lovrAssert(canvas->color[i].texture, "The numeric keys of a render target table must be Textures");
-        lua_pop(L, 1);
+        canvas->color[i].load = LOAD_KEEP;
       }
-
-      lua_getfield(L, index, "depth");
-      switch (lua_type(L, -1)) {
-        case LUA_TBOOLEAN:
-          canvas->depth.enabled = lua_toboolean(L, -1);
-          break;
-        case LUA_TSTRING:
-          canvas->depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
-          break;
-        case LUA_TUSERDATA:
-          canvas->depth.texture = luax_checktype(L, -1, Texture);
-          break;
-        case LUA_TTABLE:
-          lua_rawgeti(L, -1, 1);
-          canvas->depth.texture = luax_totype(L, -1, Texture);
-          lua_pop(L, 1);
-
-          lua_getfield(L, -1, "format");
-          canvas->depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
-          lua_pop(L, 1);
-
-          lua_getfield(L, -1, "load");
+      break;
+    case LUA_TBOOLEAN: {
+      LoadOp load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
+      for (int i = 0; i < count; i++) {
+        canvas->color[i].load = load;
+      }
+      break;
+    }
+    case LUA_TTABLE:
+      lua_rawgeti(L, -1, 1);
+      if (lua_type(L, -1) == LUA_TNUMBER) {
+        lua_rawgeti(L, -2, 2);
+        lua_rawgeti(L, -3, 3);
+        lua_rawgeti(L, -4, 4);
+        canvas->color[0].load = LOAD_CLEAR;
+        canvas->color[0].clear[0] = luax_checkfloat(L, -4);
+        canvas->color[0].clear[1] = luax_checkfloat(L, -3);
+        canvas->color[0].clear[2] = luax_checkfloat(L, -2);
+        canvas->color[0].clear[3] = luax_optfloat(L, -1, 1.f);
+        lua_pop(L, 4);
+        for (int i = 1; i < count; i++) {
+          canvas->color[i].load = LOAD_CLEAR;
+          memcpy(canvas->color[i].clear, canvas->color[0].clear, 4 * sizeof(float));
+        }
+      } else {
+        lua_pop(L, 1);
+        for (int i = 0; i < count; i++) {
+          lua_rawgeti(L, -1, i + 1);
           switch (lua_type(L, -1)) {
             case LUA_TNIL:
-              canvas->depth.load = LOAD_KEEP;
+              canvas->color[i].load = LOAD_KEEP;
               break;
             case LUA_TBOOLEAN:
-              canvas->depth.load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
-              break;
-            case LUA_TNUMBER:
-              canvas->depth.load = LOAD_CLEAR;
-              canvas->depth.clear = lua_tonumber(L, -1);
+              canvas->color[i].load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
               break;
             case LUA_TTABLE:
-              //
+              lua_rawgeti(L, -1, 1);
+              lua_rawgeti(L, -2, 2);
+              lua_rawgeti(L, -3, 3);
+              lua_rawgeti(L, -4, 4);
+              canvas->color[i].load = LOAD_CLEAR;
+              canvas->color[i].clear[0] = luax_checkfloat(L, -4);
+              canvas->color[i].clear[1] = luax_checkfloat(L, -3);
+              canvas->color[i].clear[2] = luax_checkfloat(L, -2);
+              canvas->color[i].clear[3] = luax_optfloat(L, -1, 1.f);
+              lua_pop(L, 4);
               break;
+            default:
+              luaL_argerror(L, index, "Expected render target load values to be nils, booleans, or tables");
           }
           lua_pop(L, 1);
+        }
       }
       lua_pop(L, 1);
       break;
-    }
-    default:
-      luaL_argerror(L, index, "Expected a Texture or table");
   }
+  lua_pop(L, 1);
+
+  lua_getfield(L, index, "depth");
+  switch (lua_type(L, -1)) {
+    case LUA_TBOOLEAN:
+      canvas->depth.enabled = lua_toboolean(L, -1);
+      break;
+    case LUA_TSTRING:
+      canvas->depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
+      break;
+    case LUA_TUSERDATA:
+      canvas->depth.texture = luax_checktype(L, -1, Texture);
+      break;
+    case LUA_TTABLE:
+      lua_rawgeti(L, -1, 1);
+      canvas->depth.texture = luax_totype(L, -1, Texture);
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "format");
+      canvas->depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "load");
+      switch (lua_type(L, -1)) {
+        case LUA_TNIL:
+          canvas->depth.load = LOAD_KEEP;
+          break;
+        case LUA_TBOOLEAN:
+          canvas->depth.load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
+          break;
+        case LUA_TNUMBER:
+          canvas->depth.load = LOAD_CLEAR;
+          canvas->depth.clear = lua_tonumber(L, -1);
+          break;
+        case LUA_TTABLE:
+          //
+          break;
+      }
+      lua_pop(L, 1);
+  }
+  lua_pop(L, 1);
 }
 
 static int l_lovrGraphicsCreateWindow(lua_State* L) {
