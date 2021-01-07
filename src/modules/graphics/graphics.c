@@ -36,6 +36,44 @@ static struct {
   map_t passes;
 } state;
 
+static const gpu_texture_format gpuTextureFormats[] = {
+  [FORMAT_R8] = GPU_TEXTURE_FORMAT_R8,
+  [FORMAT_RG8] = GPU_TEXTURE_FORMAT_RG8,
+  [FORMAT_RGBA8] = GPU_TEXTURE_FORMAT_RGBA8,
+  [FORMAT_R16] = GPU_TEXTURE_FORMAT_R16,
+  [FORMAT_RG16] = GPU_TEXTURE_FORMAT_RG16,
+  [FORMAT_RGBA16] = GPU_TEXTURE_FORMAT_RGBA16,
+  [FORMAT_R16F] = GPU_TEXTURE_FORMAT_R16F,
+  [FORMAT_RG16F] = GPU_TEXTURE_FORMAT_RG16F,
+  [FORMAT_RGBA16F] = GPU_TEXTURE_FORMAT_RGBA16F,
+  [FORMAT_R32F] = GPU_TEXTURE_FORMAT_R32F,
+  [FORMAT_RG32F] = GPU_TEXTURE_FORMAT_RG32F,
+  [FORMAT_RGBA32F] = GPU_TEXTURE_FORMAT_RGBA32F,
+  [FORMAT_RGB565] = GPU_TEXTURE_FORMAT_RGB565,
+  [FORMAT_RGB5A1] = GPU_TEXTURE_FORMAT_RGB5A1,
+  [FORMAT_RGB10A2] = GPU_TEXTURE_FORMAT_RGB10A2,
+  [FORMAT_RG11B10F] = GPU_TEXTURE_FORMAT_RG11B10F,
+  [FORMAT_D16] = GPU_TEXTURE_FORMAT_D16,
+  [FORMAT_D24S8] = GPU_TEXTURE_FORMAT_D24S8,
+  [FORMAT_D32F] = GPU_TEXTURE_FORMAT_D32F,
+  [FORMAT_BC6] = GPU_TEXTURE_FORMAT_BC6,
+  [FORMAT_BC7] = GPU_TEXTURE_FORMAT_BC7,
+  [FORMAT_ASTC_4x4] = GPU_TEXTURE_FORMAT_ASTC_4x4,
+  [FORMAT_ASTC_5x4] = GPU_TEXTURE_FORMAT_ASTC_5x4,
+  [FORMAT_ASTC_5x5] = GPU_TEXTURE_FORMAT_ASTC_5x5,
+  [FORMAT_ASTC_6x5] = GPU_TEXTURE_FORMAT_ASTC_6x5,
+  [FORMAT_ASTC_6x6] = GPU_TEXTURE_FORMAT_ASTC_6x6,
+  [FORMAT_ASTC_8x5] = GPU_TEXTURE_FORMAT_ASTC_8x5,
+  [FORMAT_ASTC_8x6] = GPU_TEXTURE_FORMAT_ASTC_8x6,
+  [FORMAT_ASTC_8x8] = GPU_TEXTURE_FORMAT_ASTC_8x8,
+  [FORMAT_ASTC_10x5] = GPU_TEXTURE_FORMAT_ASTC_10x5,
+  [FORMAT_ASTC_10x6] = GPU_TEXTURE_FORMAT_ASTC_10x6,
+  [FORMAT_ASTC_10x8] = GPU_TEXTURE_FORMAT_ASTC_10x8,
+  [FORMAT_ASTC_10x10] = GPU_TEXTURE_FORMAT_ASTC_10x10,
+  [FORMAT_ASTC_12x10] = GPU_TEXTURE_FORMAT_ASTC_12x10,
+  [FORMAT_ASTC_12x12] = GPU_TEXTURE_FORMAT_ASTC_12x12
+};
+
 static void onDebugMessage(void* context, const char* message, int severe) {
   lovrLog(severe ? LOG_ERROR : LOG_DEBUG, "GPU", message);
 }
@@ -202,7 +240,7 @@ void lovrGraphicsRender(Canvas* canvas) {
 
     lovrAssert(canvas->color[i].texture, "TODO: Anonymous MSAA targets");
 
-    passInfo.color[i].format = canvas->color[i].texture->info.format;
+    passInfo.color[i].format = gpuTextureFormats[canvas->color[i].texture->info.format];
     passInfo.color[i].load = loads[canvas->color[i].load];
     passInfo.color[i].save = saves[canvas->color[i].save];
     passInfo.color[i].srgb = canvas->color[i].texture->info.srgb;
@@ -210,12 +248,14 @@ void lovrGraphicsRender(Canvas* canvas) {
     renderInfo.color[i].texture = canvas->color[i].texture->gpu;
     renderInfo.color[i].resolve = canvas->color[i].resolve ? canvas->color[i].resolve->gpu : NULL;
     memcpy(renderInfo.color[i].clear, canvas->color[i].clear, 4 * sizeof(float));
+
+    // TODO view must have a single mipmap
   }
 
   if (canvas->depth.enabled) {
     lovrAssert(canvas->depth.texture, "TODO: Anonymous depth targets");
 
-    passInfo.depth.format = canvas->depth.texture->info.format;
+    passInfo.depth.format = gpuTextureFormats[canvas->depth.texture->info.format];
     passInfo.depth.load = loads[canvas->depth.load];
     passInfo.depth.save = saves[canvas->depth.save];
     passInfo.depth.stencilLoad = loads[canvas->depth.stencil.load];
@@ -240,6 +280,8 @@ void lovrGraphicsRender(Canvas* canvas) {
   }
 
   renderInfo.pass = entry.pass;
+  renderInfo.size[0] = canvas->color[0].texture->info.size[0];
+  renderInfo.size[1] = canvas->color[0].texture->info.size[1];
   state.batch = gpu_render(&renderInfo, NULL, 0);
 }
 
@@ -313,41 +355,6 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *info;
-
-  static const gpu_texture_format gpuTextureFormats[] = {
-    [FORMAT_R8] = GPU_TEXTURE_FORMAT_R8,
-    [FORMAT_RG8] = GPU_TEXTURE_FORMAT_RG8,
-    [FORMAT_RGBA8] = GPU_TEXTURE_FORMAT_RGBA8,
-    [FORMAT_R16] = GPU_TEXTURE_FORMAT_R16,
-    [FORMAT_RG16] = GPU_TEXTURE_FORMAT_RG16,
-    [FORMAT_RGBA16] = GPU_TEXTURE_FORMAT_RGBA16,
-    [FORMAT_R16F] = GPU_TEXTURE_FORMAT_R16F,
-    [FORMAT_RG16F] = GPU_TEXTURE_FORMAT_RG16F,
-    [FORMAT_RGBA16F] = GPU_TEXTURE_FORMAT_RGBA16F,
-    [FORMAT_R32F] = GPU_TEXTURE_FORMAT_R32F,
-    [FORMAT_RG32F] = GPU_TEXTURE_FORMAT_RG32F,
-    [FORMAT_RGBA32F] = GPU_TEXTURE_FORMAT_RGBA32F,
-    [FORMAT_RG11B10F] = GPU_TEXTURE_FORMAT_RG11B10F,
-    [FORMAT_D16] = GPU_TEXTURE_FORMAT_D16,
-    [FORMAT_D24S8] = GPU_TEXTURE_FORMAT_D24S8,
-    [FORMAT_D32F] = GPU_TEXTURE_FORMAT_D32F,
-    [FORMAT_BC6] = GPU_TEXTURE_FORMAT_BC6,
-    [FORMAT_BC7] = GPU_TEXTURE_FORMAT_BC7,
-    [FORMAT_ASTC_4x4] = GPU_TEXTURE_FORMAT_ASTC_4x4,
-    [FORMAT_ASTC_5x4] = GPU_TEXTURE_FORMAT_ASTC_5x4,
-    [FORMAT_ASTC_5x5] = GPU_TEXTURE_FORMAT_ASTC_5x5,
-    [FORMAT_ASTC_6x5] = GPU_TEXTURE_FORMAT_ASTC_6x5,
-    [FORMAT_ASTC_6x6] = GPU_TEXTURE_FORMAT_ASTC_6x6,
-    [FORMAT_ASTC_8x5] = GPU_TEXTURE_FORMAT_ASTC_8x5,
-    [FORMAT_ASTC_8x6] = GPU_TEXTURE_FORMAT_ASTC_8x6,
-    [FORMAT_ASTC_8x8] = GPU_TEXTURE_FORMAT_ASTC_8x8,
-    [FORMAT_ASTC_10x5] = GPU_TEXTURE_FORMAT_ASTC_10x5,
-    [FORMAT_ASTC_10x6] = GPU_TEXTURE_FORMAT_ASTC_10x6,
-    [FORMAT_ASTC_10x8] = GPU_TEXTURE_FORMAT_ASTC_10x8,
-    [FORMAT_ASTC_10x10] = GPU_TEXTURE_FORMAT_ASTC_10x10,
-    [FORMAT_ASTC_12x10] = GPU_TEXTURE_FORMAT_ASTC_12x10,
-    [FORMAT_ASTC_12x12] = GPU_TEXTURE_FORMAT_ASTC_12x12
-  };
 
   static const gpu_texture_usage gpuTextureUsages[] = {
     [TEXTURE_SAMPLE] = GPU_TEXTURE_USAGE_SAMPLE,
