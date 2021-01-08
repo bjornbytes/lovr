@@ -1,6 +1,7 @@
 #include "graphics/graphics.h"
 #include "data/image.h"
 #include "event/event.h"
+#include "core/maf.h"
 #include "core/map.h"
 #include "core/gpu.h"
 #include "core/os.h"
@@ -24,6 +25,11 @@ struct Texture {
   gpu_texture* gpu;
   TextureInfo info;
 };
+
+static LOVR_THREAD_LOCAL struct {
+  uint32_t transform;
+  float transforms[64][16];
+} thread;
 
 static struct {
   bool initialized;
@@ -291,6 +297,35 @@ void lovrGraphicsCompute() {
 
 void lovrGraphicsEndPass() {
   gpu_batch_end(state.batch);
+}
+
+void lovrGraphicsPush() {
+  lovrAssert(++thread.transform < COUNTOF(thread.transforms), "Unbalanced matrix stack (more pushes than pops?)");
+  mat4_init(thread.transforms[thread.transform], thread.transforms[thread.transform - 1]);
+}
+
+void lovrGraphicsPop() {
+  lovrAssert(--thread.transform < COUNTOF(thread.transforms), "Unbalanced matrix stack (more pops than pushes?)");
+}
+
+void lovrGraphicsOrigin() {
+  mat4_identity(thread.transforms[thread.transform]);
+}
+
+void lovrGraphicsTranslate(vec3 translation) {
+  mat4_translate(thread.transforms[thread.transform], translation[0], translation[1], translation[2]);
+}
+
+void lovrGraphicsRotate(quat rotation) {
+  mat4_rotateQuat(thread.transforms[thread.transform], rotation);
+}
+
+void lovrGraphicsScale(vec3 scale) {
+  mat4_scale(thread.transforms[thread.transform], scale[0], scale[1], scale[2]);
+}
+
+void lovrGraphicsMatrixTransform(mat4 transform) {
+  mat4_mul(thread.transforms[thread.transform], transform);
 }
 
 // Buffer
