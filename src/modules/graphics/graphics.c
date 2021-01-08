@@ -10,11 +10,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-typedef union {
-  uint64_t u64;
-  gpu_pass* pass;
-} PassEntry;
-
 struct Buffer {
   gpu_buffer* gpu;
   BufferInfo info;
@@ -104,9 +99,9 @@ void lovrGraphicsDestroy() {
   if (!state.initialized) return;
   for (uint32_t i = 0; i < state.passes.size; i++) {
     if (state.passes.values[i] != MAP_NIL) {
-      PassEntry entry = { state.passes.values[i] };
-      gpu_pass_destroy(entry.pass);
-      free(entry.pass);
+      gpu_pass* pass = (gpu_pass*) (uintptr_t) state.passes.values[i];
+      gpu_pass_destroy(pass);
+      free(pass);
     }
   }
   map_free(&state.passes);
@@ -277,15 +272,16 @@ void lovrGraphicsRender(Canvas* canvas) {
   passInfo.samples = canvas->samples;
 
   uint64_t hash = hash64(&passInfo, sizeof(passInfo));
-  PassEntry entry = { map_get(&state.passes, hash) };
+  uint64_t value = map_get(&state.passes, hash);
 
-  if (entry.u64 == MAP_NIL) {
-    entry.pass = calloc(1, gpu_sizeof_pass());
-    gpu_pass_init(entry.pass, &passInfo);
-    map_set(&state.passes, hash, entry.u64);
+  if (value == MAP_NIL) {
+    gpu_pass* pass = calloc(1, gpu_sizeof_pass());
+    gpu_pass_init(pass, &passInfo);
+    value = (uintptr_t) pass;
+    map_set(&state.passes, hash, value);
   }
 
-  renderInfo.pass = entry.pass;
+  renderInfo.pass = (gpu_pass*) (uintptr_t) value;
   renderInfo.size[0] = canvas->color[0].texture->info.size[0];
   renderInfo.size[1] = canvas->color[0].texture->info.size[1];
   state.batch = gpu_render(&renderInfo, NULL, 0);
