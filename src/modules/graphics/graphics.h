@@ -63,30 +63,26 @@ typedef enum {
 } SaveOp;
 
 typedef struct {
-  Texture* texture;
-  Texture* resolve;
-  LoadOp load;
-  SaveOp save;
-  float clear[4];
-} ColorTarget;
-
-typedef struct {
-  bool enabled;
-  Texture* texture;
-  uint32_t format;
-  LoadOp load;
-  SaveOp save;
-  float clear;
   struct {
+    Texture* texture;
+    Texture* resolve;
     LoadOp load;
     SaveOp save;
-    uint8_t clear;
-  } stencil;
-} DepthTarget;
-
-typedef struct {
-  ColorTarget color[4];
-  DepthTarget depth;
+    float clear[4];
+  } color[4];
+  struct {
+    bool enabled;
+    Texture* texture;
+    uint32_t format;
+    LoadOp load;
+    SaveOp save;
+    float clear;
+    struct {
+      LoadOp load;
+      SaveOp save;
+      uint8_t clear;
+    } stencil;
+  } depth;
   uint32_t samples;
 } Canvas;
 
