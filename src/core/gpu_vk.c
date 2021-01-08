@@ -813,9 +813,7 @@ void gpu_begin() {
 void gpu_flush() {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
 
-  if (tick->commandBufferCount > 0) {
-    GPU_VK(vkEndCommandBuffer(tick->commandBuffers[tick->commandBufferCount - 1]));
-  }
+  GPU_VK(vkEndCommandBuffer(tick->commandBuffers[tick->commandBufferCount - 1]));
 
   VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
