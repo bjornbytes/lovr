@@ -3,6 +3,7 @@
 #include "resources/bindings_vive.json.h"
 #include "resources/bindings_knuckles.json.h"
 #include "resources/bindings_touch.json.h"
+#include "resources/bindings_holographic_controller.json.h"
 #include "resources/bindings_vive_tracker_left_elbow.json.h"
 #include "resources/bindings_vive_tracker_right_elbow.json.h"
 #include "resources/bindings_vive_tracker_left_shoulder.json.h"
@@ -144,6 +145,7 @@ static bool openvr_init(float supersample, float offset, uint32_t msaa) {
       lovrFilesystemWrite("bindings_vive.json", (const char*) src_resources_bindings_vive_json, src_resources_bindings_vive_json_len, false) != src_resources_bindings_vive_json_len ||
       lovrFilesystemWrite("bindings_knuckles.json", (const char*) src_resources_bindings_knuckles_json, src_resources_bindings_knuckles_json_len, false) != src_resources_bindings_knuckles_json_len ||
       lovrFilesystemWrite("bindings_touch.json", (const char*) src_resources_bindings_touch_json, src_resources_bindings_touch_json_len, false) != src_resources_bindings_touch_json_len ||
+      lovrFilesystemWrite("bindings_holographic_controller.json", (const char*) src_resources_bindings_holographic_controller_json, src_resources_bindings_holographic_controller_json_len, false) != src_resources_bindings_holographic_controller_json_len ||
       lovrFilesystemWrite("bindings_vive_tracker_left_elbow.json", (const char*) src_resources_bindings_vive_tracker_left_elbow_json, src_resources_bindings_vive_tracker_left_elbow_json_len, false) != src_resources_bindings_vive_tracker_left_elbow_json_len ||
       lovrFilesystemWrite("bindings_vive_tracker_right_elbow.json", (const char*) src_resources_bindings_vive_tracker_right_elbow_json, src_resources_bindings_vive_tracker_right_elbow_json_len, false) != src_resources_bindings_vive_tracker_right_elbow_json_len ||
       lovrFilesystemWrite("bindings_vive_tracker_left_shoulder.json", (const char*) src_resources_bindings_vive_tracker_left_shoulder_json, src_resources_bindings_vive_tracker_left_shoulder_json_len, false) != src_resources_bindings_vive_tracker_left_shoulder_json_len ||

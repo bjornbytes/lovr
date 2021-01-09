@@ -1,0 +1,105 @@
+{
+   "action_manifest_version" : 0,
+   "alias_info" : {},
+   "bindings" : {
+      "/actions/lovr" : {
+         "haptics" : [
+            { "output" : "/actions/lovr/out/leftHandBZZ", "path" : "/user/hand/left/output/haptic" },
+            { "output" : "/actions/lovr/out/rightHandBZZ", "path" : "/user/hand/right/output/haptic" }
+         ],
+         "poses" : [
+            { "output" : "/actions/lovr/in/leftHandPose", "path" : "/user/hand/left/pose/raw" },
+            { "output" : "/actions/lovr/in/rightHandPose", "path" : "/user/hand/right/pose/raw" }
+         ],
+         "skeleton" : [
+            { "output" : "/actions/lovr/in/leftHandSkeleton", "path" : "/user/hand/left/input/skeleton/left" },
+            { "output" : "/actions/lovr/in/rightHandSkeleton", "path" : "/user/hand/right/input/skeleton/right" }
+         ],
+         "sources" : [
+            {
+               "inputs" : {
+                  "click" : { "output" : "/actions/lovr/in/rightTriggerDown" },
+                  "pull" : { "output" : "/actions/lovr/in/rightTriggerAxis" }
+               },
+               "mode" : "trigger",
+               "path" : "/user/hand/right/input/trigger"
+            },
+            {
+               "inputs" : {
+                  "click" : { "output" : "/actions/lovr/in/rightGripDown" }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/grip"
+            },
+            {
+               "inputs" : {
+                  "position" : { "output" : "/actions/lovr/in/rightThumbstickAxis" },
+                  "click" : { "output" : "/actions/lovr/in/rightThumbstickDown" }
+               },
+               "mode" : "joystick",
+               "path" : "/user/hand/right/input/joystick"
+            },
+            {
+               "inputs" : {
+                  "click" : { "output" : "/actions/lovr/in/rightTouchpadDown" },
+                  "position" : { "output" : "/actions/lovr/in/rightTouchpadAxis" },
+                  "touch" : { "output" : "/actions/lovr/in/rightTouchpadTouch" }
+               },
+               "mode" : "trackpad",
+               "path" : "/user/hand/right/input/trackpad"
+            },
+            {
+               "inputs" : {
+                  "click" : { "output" : "/actions/lovr/in/rightMenuDown" }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/application_menu"
+            },
+            {
+               "inputs" : {
+                  "click" : { "output" : "/actions/lovr/in/leftTriggerDown" },
+                  "pull" : { "output" : "/actions/lovr/in/leftTriggerAxis" }
+               },
+               "mode" : "trigger",
+               "path" : "/user/hand/left/input/trigger"
+            },
+            {
+               "inputs" : {
+                  "click" : { "output" : "/actions/lovr/in/leftGripDown" }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/grip"
+            },
+            {
+               "inputs" : {
+                 "position" : { "output" : "/actions/lovr/in/leftThumbstickAxis" },
+                 "click" : { "output" : "/actions/lovr/in/leftThumbstickDown" }
+               },
+               "mode" : "joystick",
+               "path" : "/user/hand/left/input/joystick"
+            },
+            {
+               "inputs" : {
+                  "click" : { "output" : "/actions/lovr/in/leftTouchpadDown" },
+                  "position" : { "output" : "/actions/lovr/in/leftTouchpadAxis" },
+                  "touch" : { "output" : "/actions/lovr/in/leftTouchpadTouch" }
+               },
+               "mode" : "trackpad",
+               "path" : "/user/hand/left/input/trackpad"
+            },
+            {
+               "inputs" : {
+                  "click" : { "output" : "/actions/lovr/in/leftMenuDown" }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/application_menu"
+            }
+         ]
+      }
+   },
+   "controller_type" : "holographic_controller",
+   "description" : "",
+   "name" : "Windows Mixed Reality Controller Bindings",
+   "options" : {},
+   "simulated_actions" : []
+}
