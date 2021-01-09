@@ -52,6 +52,8 @@ struct gpu_texture {
   VkImageViewType type;
   VkFormat format;
   VkImageLayout layout;
+  VkPipelineStageFlagBits users;
+  VkAccessFlagBits writer;
   VkImageAspectFlagBits aspect;
   VkSampleCountFlagBits samples;
   gpu_texture* source;
@@ -802,7 +804,7 @@ void gpu_begin() {
   tick->commandBufferCount = 0;
   beginCommandBuffer();
 
-  // TODO go somewhere else
+  // TODO go somewhere else, read the room
   if (state.config.debug) {
     uint32_t queryIndex = (state.tick[CPU] & 0xf) * QUERY_CHUNK;
     vkCmdResetQueryPool(state.batch.commands, state.queryPool, queryIndex, QUERY_CHUNK);
@@ -834,20 +836,110 @@ void gpu_flush() {
 gpu_batch* gpu_render(gpu_render_info* info, gpu_batch** batches, uint32_t count) {
   VkClearValue clears[9];
   VkImageView attachments[9];
+  VkImageMemoryBarrier imageBarriers[9];
+  VkMemoryBarrier globalBarrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+  VkPipelineStageFlagBits srcStage = 0;
+  VkPipelineStageFlagBits dstStage = 0;
+  uint32_t imageBarrierCount = 0;
   uint32_t attachmentCount = 0;
 
   for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].texture; i++) {
     memcpy(&clears[attachmentCount].color.float32, info->color[i].clear, 4 * sizeof(float));
-    attachments[attachmentCount++] = info->color[i].texture->view;
+
+    gpu_texture* texture = info->color[i].texture;
+    attachments[attachmentCount++] = texture->view;
+
+    uint32_t* srcAccess = &globalBarrier.srcAccessMask;
+    uint32_t* dstAccess = &globalBarrier.dstAccessMask;
+
+    if (texture->layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+      srcAccess = &imageBarriers[imageBarrierCount].srcAccessMask;
+      dstAccess = &imageBarriers[imageBarrierCount].dstAccessMask;
+
+      VkImageLayout oldLayout = texture->layout;
+      VkImageLayout newLayout = texture->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+      imageBarriers[imageBarrierCount++] = (VkImageMemoryBarrier) {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .oldLayout = oldLayout,
+        .newLayout = newLayout,
+        .image = texture->handle,
+        .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS } // TODO tighten up the graphics
+      };
+    }
+
+    srcStage |= texture->users;
+    dstStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    *srcAccess |= texture->writer;
+    *dstAccess |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT; // TODO only | with READ if the pass says this attachment uses a LOAD load op
+    texture->users = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    texture->writer = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
     if (info->color[i].resolve) {
-      attachments[attachmentCount++] = info->color[i].resolve->view;
+      gpu_texture* texture = info->color[i].resolve;
+      attachments[attachmentCount++] = texture->view;
+
+      // TODO dedupe with above via helper function
+      uint32_t* srcAccess = &globalBarrier.srcAccessMask;
+      uint32_t* dstAccess = &globalBarrier.dstAccessMask;
+
+      if (texture->layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+        srcAccess = &imageBarriers[imageBarrierCount].srcAccessMask;
+        dstAccess = &imageBarriers[imageBarrierCount].dstAccessMask;
+
+        VkImageLayout oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Previous contents can be discarded
+        VkImageLayout newLayout = texture->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        imageBarriers[imageBarrierCount++] = (VkImageMemoryBarrier) {
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+          .oldLayout = oldLayout,
+          .newLayout = newLayout,
+          .image = texture->handle,
+          .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS } // TODO tighten up the graphics
+        };
+      }
+
+      srcStage |= texture->users;
+      dstStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+      *srcAccess |= texture->writer;
+      *dstAccess |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+      texture->users = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+      texture->writer = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     }
   }
 
   if (info->depth.texture) {
+    gpu_texture* texture = info->depth.texture;
     clears[attachmentCount].depthStencil.depth = info->depth.clear;
     clears[attachmentCount].depthStencil.stencil = info->depth.stencilClear;
-    attachments[attachmentCount++] = info->depth.texture->view;
+    attachments[attachmentCount++] = texture->view;
+
+    // TODO dedupe with above via helper function
+    uint32_t* srcAccess = &globalBarrier.srcAccessMask;
+    uint32_t* dstAccess = &globalBarrier.dstAccessMask;
+
+    if (texture->layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+      srcAccess = &imageBarriers[imageBarrierCount].srcAccessMask;
+      dstAccess = &imageBarriers[imageBarrierCount].dstAccessMask;
+
+      VkImageLayout oldLayout = texture->layout;
+      VkImageLayout newLayout = texture->layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+      imageBarriers[imageBarrierCount++] = (VkImageMemoryBarrier) {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .oldLayout = oldLayout,
+        .newLayout = newLayout,
+        .image = texture->handle,
+        .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS } // TODO tighten up the graphics
+      };
+    }
+
+    srcStage |= texture->users;
+    dstStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // TODO based on load/store ops from pass
+    *srcAccess |= texture->writer;
+    *dstAccess |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT; // TODO could tighten up a wee bit
+    texture->users = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    texture->writer = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
   }
 
   VkFramebufferCreateInfo framebufferInfo = {
@@ -871,9 +963,12 @@ gpu_batch* gpu_render(gpu_render_info* info, gpu_batch** batches, uint32_t count
     .pClearValues = clears
   };
 
-  if (count > 0) {
-    // sync, we already know what the batches do and don't need a new command buffer
+  if (!srcStage) srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+  if (!dstStage) dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+  vkCmdPipelineBarrier(state.batch.commands, srcStage, dstStage, 0, 1, &globalBarrier, 0, NULL, imageBarrierCount, imageBarriers);
 
+  if (count > 0) {
+    // sync batches
     vkCmdBeginRenderPass(state.batch.commands, &beginfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 
     VkCommandBuffer commands[8];
@@ -1385,8 +1480,8 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       .samples = info->samples,
       .loadOp = loadOps[info->color[i].load],
       .storeOp = storeOps[info->color[i].save],
-      .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
-      .finalLayout = VK_IMAGE_LAYOUT_GENERAL
+      .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
 
     refs.color[i] = (VkAttachmentReference) {
@@ -1401,8 +1496,8 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
         .samples = info->samples,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
-        .finalLayout = VK_IMAGE_LAYOUT_GENERAL
+        .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
       };
 
       refs.resolve[i] = (VkAttachmentReference) {
@@ -1426,8 +1521,8 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       .storeOp = storeOps[info->depth.save],
       .stencilLoadOp = loadOps[info->depth.stencilLoad],
       .stencilStoreOp = storeOps[info->depth.stencilSave],
-      .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
-      .finalLayout = VK_IMAGE_LAYOUT_GENERAL
+      .initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+      .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
     };
 
     refs.depth = (VkAttachmentReference) {
