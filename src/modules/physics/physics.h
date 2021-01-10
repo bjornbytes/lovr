@@ -22,7 +22,8 @@ typedef enum {
   JOINT_BALL,
   JOINT_DISTANCE,
   JOINT_HINGE,
-  JOINT_SLIDER
+  JOINT_SLIDER,
+  JOINT_FIXED
 } JointType;
 
 typedef struct Collider Collider;
@@ -76,6 +77,7 @@ typedef Joint BallJoint;
 typedef Joint DistanceJoint;
 typedef Joint HingeJoint;
 typedef Joint SliderJoint;
+typedef Joint FixedJoint;
 
 typedef void (*CollisionResolver)(World* world, void* userdata);
 typedef void (*RaycastCallback)(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata);
@@ -276,3 +278,12 @@ float lovrSliderJointGetLowerLimit(SliderJoint* joint);
 void lovrSliderJointSetLowerLimit(SliderJoint* joint, float limit);
 float lovrSliderJointGetUpperLimit(SliderJoint* joint);
 void lovrSliderJointSetUpperLimit(SliderJoint* joint, float limit);
+
+FixedJoint* lovrFixedJointInit(FixedJoint* joint, Collider* a, Collider* b);
+#define lovrFixedJointCreate(...) lovrFixedJointInit(lovrAlloc(FixedJoint), __VA_ARGS__)
+#define lovrFixedJointDestroy lovrJointDestroy
+void lovrFixedJointReset(FixedJoint* joint);
+float lovrFixedJointGetResponseTime(Joint* joint);
+void lovrFixedJointSetResponseTime(Joint* joint, float responseTime);
+float lovrFixedJointGetTightness(Joint* joint);
+void lovrFixedJointSetTightness(Joint* joint, float tightness);

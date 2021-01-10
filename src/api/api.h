@@ -33,6 +33,7 @@ extern const luaL_Reg lovrCollider[];
 extern const luaL_Reg lovrCurve[];
 extern const luaL_Reg lovrCylinderShape[];
 extern const luaL_Reg lovrDistanceJoint[];
+extern const luaL_Reg lovrFixedJoint[];
 extern const luaL_Reg lovrFont[];
 extern const luaL_Reg lovrHingeJoint[];
 extern const luaL_Reg lovrMat4[];

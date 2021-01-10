@@ -7,6 +7,7 @@ void luax_pushjoint(lua_State* L, Joint* joint) {
     case JOINT_DISTANCE: luax_pushtype(L, DistanceJoint, joint); break;
     case JOINT_HINGE: luax_pushtype(L, HingeJoint, joint); break;
     case JOINT_SLIDER: luax_pushtype(L, SliderJoint, joint); break;
+    case JOINT_FIXED: luax_pushtype(L, FixedJoint, joint); break;
     default: lovrThrow("Unreachable");
   }
 }
@@ -19,7 +20,8 @@ Joint* luax_checkjoint(lua_State* L, int index) {
       hash64("BallJoint", strlen("BallJoint")),
       hash64("DistanceJoint", strlen("DistanceJoint")),
       hash64("HingeJoint", strlen("HingeJoint")),
-      hash64("SliderJoint", strlen("SliderJoint"))
+      hash64("SliderJoint", strlen("SliderJoint")),
+      hash64("FixedJoint", strlen("FixedJoint"))
     };
 
     for (size_t i = 0; i < sizeof(hashes) / sizeof(hashes[0]); i++) {
@@ -421,5 +423,51 @@ const luaL_Reg lovrSliderJoint[] = {
   { "setUpperLimit", l_lovrSliderJointSetUpperLimit },
   { "getLimits", l_lovrSliderJointGetLimits },
   { "setLimits", l_lovrSliderJointSetLimits },
+  { NULL, NULL }
+};
+
+static int l_lovrFixedJointReset(lua_State* L) {
+  FixedJoint* joint = luax_checktype(L, 1, FixedJoint);
+  lovrFixedJointReset(joint);
+  return 0;
+}
+
+static int l_lovrFixedJointGetResponseTime(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float responseTime = lovrFixedJointGetResponseTime(joint);
+  lua_pushnumber(L, responseTime);
+  return 1;
+}
+
+static int l_lovrFixedJointSetResponseTime(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float responseTime = luax_checkfloat(L, 2);
+  lovrAssert(responseTime >= 0, "Negative response time causes simulation instability");
+  lovrFixedJointSetResponseTime(joint, responseTime);
+  return 0;
+}
+
+static int l_lovrFixedJointGetTightness(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float tightness = lovrFixedJointGetTightness(joint);
+  lua_pushnumber(L, tightness);
+  return 1;
+}
+
+static int l_lovrFixedJointSetTightness(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float tightness = luax_checkfloat(L, 2);
+  lovrAssert(tightness >= 0, "Negative tightness factor causes simulation instability");
+  lovrFixedJointSetTightness(joint, tightness);
+  return 0;
+}
+
+const luaL_Reg lovrFixedJoint[] = {
+  lovrJoint,
+  { "reset", l_lovrFixedJointReset},
+  { "getResponseTime", l_lovrFixedJointGetResponseTime},
+  { "setResponseTime", l_lovrFixedJointSetResponseTime},
+  { "getTightness", l_lovrFixedJointGetTightness},
+  { "setTightness", l_lovrFixedJointSetTightness},
   { NULL, NULL }
 };

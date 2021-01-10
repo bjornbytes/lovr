@@ -907,7 +907,7 @@ void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
 
 MeshShape* lovrMeshShapeInit(MeshShape* mesh, int vertexCount, float vertices[], int indexCount, dTriIndex indices[]) {
   dTriMeshDataID dataID = dGeomTriMeshDataCreate();
-  dGeomTriMeshDataBuildSingle(dataID, vertices, 3 * sizeof(float), vertexCount, 
+  dGeomTriMeshDataBuildSingle(dataID, vertices, 3 * sizeof(float), vertexCount,
                               indices, indexCount, 3 * sizeof(dTriIndex));
   dGeomTriMeshDataPreprocess2(dataID, (1U << dTRIDATAPREPROCESS_BUILD_FACE_ANGLES), NULL);
   mesh->id = dCreateTriMesh(0, dataID, 0, 0, 0);
@@ -1161,4 +1161,34 @@ float lovrSliderJointGetUpperLimit(SliderJoint* joint) {
 
 void lovrSliderJointSetUpperLimit(SliderJoint* joint, float limit) {
   dJointSetSliderParam(joint->id, dParamHiStop, limit);
+}
+
+FixedJoint* lovrFixedJointInit(FixedJoint* joint, Collider* a, Collider* b) {
+  lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
+  joint->type = JOINT_FIXED;
+  joint->id = dJointCreateFixed(a->world->id, 0);
+  dJointSetData(joint->id, joint);
+  dJointAttach(joint->id, a->body, b->body);
+  lovrRetain(joint);
+  return joint;
+}
+
+void lovrFixedJointReset(FixedJoint* joint) {
+  dJointSetFixed(joint->id);
+}
+
+float lovrFixedJointGetResponseTime(Joint* joint) {
+  return dJointGetFixedParam(joint->id, dParamCFM);
+}
+
+void lovrFixedJointSetResponseTime(Joint* joint, float responseTime) {
+  dJointSetFixedParam(joint->id, dParamCFM, responseTime);
+}
+
+float lovrFixedJointGetTightness(Joint* joint) {
+  return dJointGetFixedParam(joint->id, dParamERP);
+}
+
+void lovrFixedJointSetTightness(Joint* joint, float tightness) {
+  dJointSetFixedParam(joint->id, dParamERP, tightness);
 }

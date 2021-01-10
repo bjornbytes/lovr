@@ -120,6 +120,16 @@ static int l_lovrPhysicsNewSliderJoint(lua_State* L) {
   return 1;
 }
 
+static int l_lovrPhysicsNewFixedJoint(lua_State* L) {
+  Collider* a = luax_checktype(L, 1, Collider);
+  Collider* b = luax_checktype(L, 2, Collider);
+  FixedJoint* joint = lovrFixedJointCreate(a, b);
+  lovrFixedJointReset(joint);
+  luax_pushtype(L, FixedJoint, joint);
+  lovrRelease(Joint, joint);
+  return 1;
+}
+
 static int l_lovrPhysicsNewSphereShape(lua_State* L) {
   float radius = luax_optfloat(L, 1, 1.f);
   SphereShape* sphere = lovrSphereShapeCreate(radius);
@@ -136,6 +146,7 @@ static const luaL_Reg lovrPhysics[] = {
   { "newCylinderShape", l_lovrPhysicsNewCylinderShape },
   { "newDistanceJoint", l_lovrPhysicsNewDistanceJoint },
   { "newHingeJoint", l_lovrPhysicsNewHingeJoint },
+  { "newFixedJoint", l_lovrPhysicsNewFixedJoint },
   { "newSliderJoint", l_lovrPhysicsNewSliderJoint },
   { "newSphereShape", l_lovrPhysicsNewSphereShape },
   { NULL, NULL }
@@ -150,6 +161,7 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_registertype(L, DistanceJoint);
   luax_registertype(L, HingeJoint);
   luax_registertype(L, SliderJoint);
+  luax_registertype(L, FixedJoint);
   luax_registertype(L, SphereShape);
   luax_registertype(L, BoxShape);
   luax_registertype(L, CapsuleShape);
