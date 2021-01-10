@@ -86,6 +86,16 @@ typedef struct {
   uint32_t samples;
 } Canvas;
 
+typedef enum {
+  COMPARE_EQUAL,
+  COMPARE_NEQUAL,
+  COMPARE_LESS,
+  COMPARE_LEQUAL,
+  COMPARE_GREATER,
+  COMPARE_GEQUAL,
+  COMPARE_NONE
+} CompareMode;
+
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsCreateWindow(struct WindowFlags* window);
@@ -100,6 +110,12 @@ void lovrGraphicsFlush(void);
 void lovrGraphicsRender(Canvas* canvas);
 void lovrGraphicsCompute(void);
 void lovrGraphicsEndPass(void);
+void lovrGraphicsGetDepthTest(CompareMode* test, bool* write);
+void lovrGraphicsSetDepthTest(CompareMode test, bool write);
+void lovrGraphicsGetDepthNudge(float* nudge, float* sloped, float* clamp);
+void lovrGraphicsSetDepthNudge(float nudge, float sloped, float clamp);
+bool lovrGraphicsGetDepthClamp(void);
+void lovrGraphicsSetDepthClamp(bool clamp);
 void lovrGraphicsPush(void);
 void lovrGraphicsPop(void);
 void lovrGraphicsOrigin(void);

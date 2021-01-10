@@ -37,6 +37,16 @@ StringEntry lovrTextureUsage[] = {
   { 0 }
 };
 
+StringEntry lovrCompareMode[] = {
+  [COMPARE_EQUAL] = ENTRY("equal"),
+  [COMPARE_NEQUAL] = ENTRY("notequal"),
+  [COMPARE_LESS] = ENTRY("less"),
+  [COMPARE_LEQUAL] = ENTRY("lequal"),
+  [COMPARE_GREATER] = ENTRY("greater"),
+  [COMPARE_GEQUAL] = ENTRY("gequal"),
+  { 0 }
+};
+
 // Must be released when done
 static Image* luax_checkimage(lua_State* L, int index, bool flip) {
   Image* image = luax_totype(L, index, Image);
@@ -469,6 +479,55 @@ static int l_lovrGraphicsCompute(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsGetDepthTest(lua_State* L) {
+  CompareMode test;
+  bool write;
+  lovrGraphicsGetDepthTest(&test, &write);
+  if (test == COMPARE_NONE) {
+    lua_pushnil(L);
+  } else {
+    luax_pushenum(L, CompareMode, test);
+  }
+  lua_pushboolean(L, write);
+  return 2;
+}
+
+static int l_lovrGraphicsSetDepthTest(lua_State* L) {
+  CompareMode test = lua_isnoneornil(L, 1) ? COMPARE_NONE : luax_checkenum(L, 1, CompareMode, NULL);
+  bool write = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
+  lovrGraphicsSetDepthTest(test, write);
+  return 0;
+}
+
+static int l_lovrGraphicsGetDepthNudge(lua_State* L) {
+  float nudge, sloped, clamp;
+  lovrGraphicsGetDepthNudge(&nudge, &sloped, &clamp);
+  lua_pushnumber(L, nudge);
+  lua_pushnumber(L, sloped);
+  lua_pushnumber(L, clamp);
+  return 3;
+}
+
+static int l_lovrGraphicsSetDepthNudge(lua_State* L) {
+  float nudge = luax_optfloat(L, 1, 0.f);
+  float sloped = luax_optfloat(L, 2, 0.f);
+  float clamp = luax_optfloat(L, 3, 0.f);
+  lovrGraphicsSetDepthNudge(nudge, sloped, clamp);
+  return 0;
+}
+
+static int l_lovrGraphicsGetDepthClamp(lua_State* L) {
+  bool clamp = lovrGraphicsGetDepthClamp();
+  lua_pushboolean(L, clamp);
+  return 1;
+}
+
+static int l_lovrGraphicsSetDepthClamp(lua_State* L) {
+  bool clamp = lua_toboolean(L, 1);
+  lovrGraphicsSetDepthClamp(clamp);
+  return 0;
+}
+
 static int l_lovrGraphicsPush(lua_State* L) {
   lovrGraphicsPush();
   return 0;
@@ -700,6 +759,12 @@ static const luaL_Reg lovrGraphics[] = {
   { "flush", l_lovrGraphicsFlush },
   { "render", l_lovrGraphicsRender },
   { "compute", l_lovrGraphicsCompute },
+  { "getDepthTest", l_lovrGraphicsGetDepthTest },
+  { "setDepthTest", l_lovrGraphicsSetDepthTest },
+  { "getDepthNudge", l_lovrGraphicsGetDepthNudge },
+  { "setDepthNudge", l_lovrGraphicsSetDepthNudge },
+  { "getDepthClamp", l_lovrGraphicsGetDepthClamp },
+  { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },
