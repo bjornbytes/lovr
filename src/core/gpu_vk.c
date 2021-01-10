@@ -1409,13 +1409,13 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
   };
 
   static const VkCompareOp compareOps[] = {
-    [GPU_COMPARE_NONE] = VK_COMPARE_OP_ALWAYS,
     [GPU_COMPARE_EQUAL] = VK_COMPARE_OP_EQUAL,
     [GPU_COMPARE_NEQUAL] = VK_COMPARE_OP_NOT_EQUAL,
     [GPU_COMPARE_LESS] = VK_COMPARE_OP_LESS,
     [GPU_COMPARE_LEQUAL] = VK_COMPARE_OP_LESS_OR_EQUAL,
     [GPU_COMPARE_GREATER] = VK_COMPARE_OP_GREATER,
-    [GPU_COMPARE_GEQUAL] = VK_COMPARE_OP_GREATER_OR_EQUAL
+    [GPU_COMPARE_GEQUAL] = VK_COMPARE_OP_GREATER_OR_EQUAL,
+    [GPU_COMPARE_NONE] = VK_COMPARE_OP_ALWAYS
   };
 
   VkSamplerCreateInfo samplerInfo = {
@@ -1828,13 +1828,13 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   };
 
   static const VkCompareOp compareOps[] = {
-    [GPU_COMPARE_NONE] = VK_COMPARE_OP_ALWAYS,
     [GPU_COMPARE_EQUAL] = VK_COMPARE_OP_EQUAL,
     [GPU_COMPARE_NEQUAL] = VK_COMPARE_OP_NOT_EQUAL,
     [GPU_COMPARE_LESS] = VK_COMPARE_OP_LESS,
     [GPU_COMPARE_LEQUAL] = VK_COMPARE_OP_LESS_OR_EQUAL,
     [GPU_COMPARE_GREATER] = VK_COMPARE_OP_GREATER,
-    [GPU_COMPARE_GEQUAL] = VK_COMPARE_OP_GREATER_OR_EQUAL
+    [GPU_COMPARE_GEQUAL] = VK_COMPARE_OP_GREATER_OR_EQUAL,
+    [GPU_COMPARE_NONE] = VK_COMPARE_OP_ALWAYS
   };
 
   static const VkStencilOp stencilOps[] = {
@@ -1893,9 +1893,10 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
     .cullMode = cullModes[info->cullMode],
     .frontFace = frontFaces[info->winding],
-    .depthBiasEnable = info->depthOffset != 0.f,
+    .depthBiasEnable = info->depthOffset != 0.f || info->depthOffsetSloped != 0.f,
     .depthBiasConstantFactor = info->depthOffset,
     .depthBiasSlopeFactor = info->depthOffsetSloped,
+    .depthBiasClamp = info->depthOffsetClamp,
     .lineWidth = 1.f
   };
 

@@ -24,6 +24,10 @@ struct Texture {
 static LOVR_THREAD_LOCAL struct {
   uint32_t transform;
   float transforms[64][16];
+  struct {
+    gpu_pipeline_info info;
+    bool dirty;
+  } pipeline;
 } thread;
 
 static struct {
@@ -293,6 +297,55 @@ void lovrGraphicsCompute() {
 
 void lovrGraphicsEndPass() {
   gpu_batch_end(state.batch);
+}
+
+void lovrGraphicsGetDepthTest(CompareMode* test, bool* write) {
+  *write = thread.pipeline.info.depthWrite;
+  switch (thread.pipeline.info.depthTest) {
+    case GPU_COMPARE_EQUAL: *test = COMPARE_EQUAL; break;
+    case GPU_COMPARE_NEQUAL: *test = COMPARE_NEQUAL; break;
+    case GPU_COMPARE_LESS: *test = COMPARE_LESS; break;
+    case GPU_COMPARE_LEQUAL: *test = COMPARE_LEQUAL; break;
+    case GPU_COMPARE_GREATER: *test = COMPARE_GREATER; break;
+    case GPU_COMPARE_GEQUAL: *test = COMPARE_GEQUAL; break;
+    case GPU_COMPARE_NONE: default: *test = COMPARE_NONE; break;
+  }
+}
+
+void lovrGraphicsSetDepthTest(CompareMode test, bool write) {
+  switch (test) {
+    case COMPARE_EQUAL: thread.pipeline.info.depthTest = GPU_COMPARE_EQUAL; break;
+    case COMPARE_NEQUAL: thread.pipeline.info.depthTest = GPU_COMPARE_NEQUAL; break;
+    case COMPARE_LESS: thread.pipeline.info.depthTest = GPU_COMPARE_LESS; break;
+    case COMPARE_LEQUAL: thread.pipeline.info.depthTest = GPU_COMPARE_LEQUAL; break;
+    case COMPARE_GREATER: thread.pipeline.info.depthTest = GPU_COMPARE_GREATER; break;
+    case COMPARE_GEQUAL: thread.pipeline.info.depthTest = GPU_COMPARE_GEQUAL; break;
+    case COMPARE_NONE: default: thread.pipeline.info.depthTest = GPU_COMPARE_NONE; break;
+  }
+  thread.pipeline.info.depthWrite = write;
+  thread.pipeline.dirty = true;
+}
+
+void lovrGraphicsGetDepthNudge(float* nudge, float* sloped, float* clamp) {
+  *nudge = thread.pipeline.info.depthOffset;
+  *sloped = thread.pipeline.info.depthOffsetSloped;
+  *clamp = thread.pipeline.info.depthOffsetClamp;
+}
+
+void lovrGraphicsSetDepthNudge(float nudge, float sloped, float clamp) {
+  thread.pipeline.info.depthOffset = nudge;
+  thread.pipeline.info.depthOffsetSloped = sloped;
+  thread.pipeline.info.depthOffsetClamp = clamp;
+  thread.pipeline.dirty = true;
+}
+
+bool lovrGraphicsGetDepthClamp() {
+  return thread.pipeline.info.depthClamp;
+}
+
+void lovrGraphicsSetDepthClamp(bool clamp) {
+  thread.pipeline.info.depthClamp = clamp;
+  thread.pipeline.dirty = true;
 }
 
 void lovrGraphicsPush() {
