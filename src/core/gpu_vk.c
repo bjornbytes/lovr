@@ -1893,6 +1893,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 
   VkPipelineRasterizationStateCreateInfo rasterization = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+    .polygonMode = info->wireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL,
     .cullMode = cullModes[info->cullMode],
     .frontFace = frontFaces[info->winding],
     .depthBiasEnable = info->depthOffset != 0.f || info->depthOffsetSloped != 0.f,

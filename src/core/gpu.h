@@ -392,6 +392,7 @@ typedef struct {
   uint8_t colorMask[4];
   gpu_blend_state blend[4];
   bool alphaToCoverage;
+  bool wireframe;
   const char* label;
 } gpu_pipeline_info;
 
