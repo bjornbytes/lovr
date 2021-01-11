@@ -37,6 +37,23 @@ StringEntry lovrTextureUsage[] = {
   { 0 }
 };
 
+StringEntry lovrBlendAlphaMode[] = {
+  [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
+  [BLEND_PREMULTIPLIED] = ENTRY("premultiplied"),
+  { 0 }
+};
+
+StringEntry lovrBlendMode[] = {
+  [BLEND_ALPHA] = ENTRY("alpha"),
+  [BLEND_ADD] = ENTRY("add"),
+  [BLEND_SUBTRACT] = ENTRY("subtract"),
+  [BLEND_MULTIPLY] = ENTRY("multiply"),
+  [BLEND_LIGHTEN] = ENTRY("lighten"),
+  [BLEND_DARKEN] = ENTRY("darken"),
+  [BLEND_SCREEN] = ENTRY("screen"),
+  { 0 }
+};
+
 StringEntry lovrCompareMode[] = {
   [COMPARE_EQUAL] = ENTRY("equal"),
   [COMPARE_NEQUAL] = ENTRY("notequal"),
@@ -506,6 +523,40 @@ static int l_lovrGraphicsSetAlphaToCoverage(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsGetBlendMode(lua_State* L) {
+  uint32_t target = luaL_optinteger(L, 1, 1) - 1;
+  lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
+  BlendMode mode;
+  BlendAlphaMode alphaMode;
+  lovrGraphicsGetBlendMode(target, &mode, &alphaMode);
+  if (mode == BLEND_NONE) {
+    lua_pushnil(L);
+    return 1;
+  } else {
+    luax_pushenum(L, BlendMode, mode);
+    luax_pushenum(L, BlendAlphaMode, alphaMode);
+    return 2;
+  }
+}
+
+static int l_lovrGraphicsSetBlendMode(lua_State* L) {
+  if (lua_type(L, 1) == LUA_TNUMBER) {
+    uint32_t target = lua_tonumber(L, 1) - 1;
+    lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
+    BlendMode mode = lua_isnoneornil(L, 2) ? BLEND_NONE : luax_checkenum(L, 2, BlendMode, NULL);
+    BlendAlphaMode alphaMode = luax_checkenum(L, 3, BlendAlphaMode, "alphamultiply");
+    lovrGraphicsSetBlendMode(target, mode, alphaMode);
+    return 0;
+  }
+
+  BlendMode mode = lua_isnoneornil(L, 1) ? BLEND_NONE : luax_checkenum(L, 1, BlendMode, NULL);
+  BlendAlphaMode alphaMode = luax_checkenum(L, 2, BlendAlphaMode, "alphamultiply");
+  for (uint32_t i = 0; i < 4; i++) {
+    lovrGraphicsSetBlendMode(i, mode, alphaMode);
+  }
+  return 0;
+}
+
 static int l_lovrGraphicsGetColorMask(lua_State* L) {
   uint32_t target = luaL_optinteger(L, 1, 1) - 1;
   lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
@@ -857,6 +908,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "compute", l_lovrGraphicsCompute },
   { "getAlphaToCoverage", l_lovrGraphicsGetAlphaToCoverage },
   { "setAlphaToCoverage", l_lovrGraphicsSetAlphaToCoverage },
+  { "getBlendMode", l_lovrGraphicsGetBlendMode },
+  { "setBlendMode", l_lovrGraphicsSetBlendMode },
   { "getColorMask", l_lovrGraphicsGetColorMask },
   { "setColorMask", l_lovrGraphicsSetColorMask },
   { "getCullMode", l_lovrGraphicsGetCullMode },

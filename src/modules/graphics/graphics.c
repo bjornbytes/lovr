@@ -310,6 +310,99 @@ void lovrGraphicsSetAlphaToCoverage(bool enabled) {
   thread.pipeline.dirty = true;
 }
 
+static const gpu_blend_state blendModes[] = {
+  [BLEND_ALPHA] = {
+    .color.src = GPU_BLEND_SRC_ALPHA,
+    .color.dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA,
+    .alpha.src = GPU_BLEND_ONE,
+    .alpha.dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA,
+    .color.op = GPU_BLEND_ADD,
+    .alpha.op = GPU_BLEND_ADD
+  },
+  [BLEND_ADD] = {
+    .color.src = GPU_BLEND_SRC_ALPHA,
+    .color.dst = GPU_BLEND_ONE,
+    .alpha.src = GPU_BLEND_ZERO,
+    .alpha.dst = GPU_BLEND_ONE,
+    .color.op = GPU_BLEND_ADD,
+    .alpha.op = GPU_BLEND_ADD
+  },
+  [BLEND_SUBTRACT] = {
+    .color.src = GPU_BLEND_SRC_ALPHA,
+    .color.dst = GPU_BLEND_ONE,
+    .alpha.src = GPU_BLEND_ZERO,
+    .alpha.dst = GPU_BLEND_ONE,
+    .color.op = GPU_BLEND_RSUB,
+    .alpha.op = GPU_BLEND_RSUB
+  },
+  [BLEND_MULTIPLY] = {
+    .color.src = GPU_BLEND_DST_COLOR,
+    .color.dst = GPU_BLEND_ZERO,
+    .alpha.src = GPU_BLEND_DST_COLOR,
+    .alpha.dst = GPU_BLEND_ZERO,
+    .color.op = GPU_BLEND_ADD,
+    .alpha.op = GPU_BLEND_ADD
+  },
+  [BLEND_LIGHTEN] = {
+    .color.src = GPU_BLEND_SRC_ALPHA,
+    .color.dst = GPU_BLEND_ZERO,
+    .alpha.src = GPU_BLEND_ONE,
+    .alpha.dst = GPU_BLEND_ZERO,
+    .color.op = GPU_BLEND_MAX,
+    .alpha.op = GPU_BLEND_MAX
+  },
+  [BLEND_DARKEN] = {
+    .color.src = GPU_BLEND_SRC_ALPHA,
+    .color.dst = GPU_BLEND_ZERO,
+    .alpha.src = GPU_BLEND_ONE,
+    .alpha.dst = GPU_BLEND_ZERO,
+    .color.op = GPU_BLEND_MIN,
+    .alpha.op = GPU_BLEND_MIN
+  },
+  [BLEND_SCREEN] = {
+    .color.src = GPU_BLEND_SRC_ALPHA,
+    .color.dst = GPU_BLEND_ONE_MINUS_SRC_COLOR,
+    .alpha.src = GPU_BLEND_ONE,
+    .alpha.dst = GPU_BLEND_ONE_MINUS_SRC_COLOR,
+    .color.op = GPU_BLEND_ADD,
+    .alpha.op = GPU_BLEND_ADD
+  }
+};
+
+void lovrGraphicsGetBlendMode(uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode) {
+  gpu_blend_state* blend = &thread.pipeline.info.blend[target];
+
+  if (!blend->enabled) {
+    *mode = BLEND_NONE;
+    *alphaMode = BLEND_ALPHA_MULTIPLY;
+    return;
+  }
+
+  for (uint32_t i = 0; i < COUNTOF(blendModes); i++) {
+    const gpu_blend_state* a = blend;
+    const gpu_blend_state* b = &blendModes[i];
+    if (a->color.dst == b->color.dst && a->alpha.src == b->alpha.src && a->alpha.dst == b->alpha.dst && a->color.op == b->color.op && a->alpha.op == b->alpha.op) {
+      *mode = i;
+      *alphaMode = a->color.src == GPU_BLEND_ONE ? BLEND_PREMULTIPLIED : BLEND_ALPHA_MULTIPLY;
+    }
+  }
+
+  lovrThrow("Unreachable");
+}
+
+void lovrGraphicsSetBlendMode(uint32_t target, BlendMode mode, BlendAlphaMode alphaMode) {
+  if (mode == BLEND_NONE) {
+    memset(&thread.pipeline.info.blend[target], 0, sizeof(gpu_blend_state));
+    return;
+  }
+
+  thread.pipeline.info.blend[target] = blendModes[mode];
+  if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
+    thread.pipeline.info.blend[target].color.src = GPU_BLEND_ONE;
+  }
+  thread.pipeline.dirty = true;
+}
+
 void lovrGraphicsGetColorMask(uint32_t target, bool* r, bool* g, bool* b, bool* a) {
   uint8_t mask = thread.pipeline.info.colorMask[target];
   *r = mask & 0x1;
@@ -324,7 +417,7 @@ void lovrGraphicsSetColorMask(uint32_t target, bool r, bool g, bool b, bool a) {
 }
 
 CullMode lovrGraphicsGetCullMode() {
-  switch (thread.pipeline.info.cullMode) {
+  switch (thread.pipeline.info.rasterizer.cullMode) {
     case GPU_CULL_NONE: default: return CULL_NONE;
     case GPU_CULL_FRONT: return CULL_FRONT;
     case GPU_CULL_BACK: return CULL_BACK;
@@ -333,16 +426,16 @@ CullMode lovrGraphicsGetCullMode() {
 
 void lovrGraphicsSetCullMode(CullMode mode) {
   switch (mode) {
-    case CULL_NONE: default: thread.pipeline.info.cullMode = GPU_CULL_NONE; break;
-    case CULL_FRONT: thread.pipeline.info.cullMode = GPU_CULL_FRONT; break;
-    case CULL_BACK: thread.pipeline.info.cullMode = GPU_CULL_BACK; break;
+    case CULL_NONE: default: thread.pipeline.info.rasterizer.cullMode = GPU_CULL_NONE; break;
+    case CULL_FRONT: thread.pipeline.info.rasterizer.cullMode = GPU_CULL_FRONT; break;
+    case CULL_BACK: thread.pipeline.info.rasterizer.cullMode = GPU_CULL_BACK; break;
   }
   thread.pipeline.dirty = true;
 }
 
 void lovrGraphicsGetDepthTest(CompareMode* test, bool* write) {
-  *write = thread.pipeline.info.depthWrite;
-  switch (thread.pipeline.info.depthTest) {
+  *write = thread.pipeline.info.depth.write;
+  switch (thread.pipeline.info.depth.test) {
     case GPU_COMPARE_EQUAL: *test = COMPARE_EQUAL; break;
     case GPU_COMPARE_NEQUAL: *test = COMPARE_NEQUAL; break;
     case GPU_COMPARE_LESS: *test = COMPARE_LESS; break;
@@ -355,55 +448,55 @@ void lovrGraphicsGetDepthTest(CompareMode* test, bool* write) {
 
 void lovrGraphicsSetDepthTest(CompareMode test, bool write) {
   switch (test) {
-    case COMPARE_EQUAL: thread.pipeline.info.depthTest = GPU_COMPARE_EQUAL; break;
-    case COMPARE_NEQUAL: thread.pipeline.info.depthTest = GPU_COMPARE_NEQUAL; break;
-    case COMPARE_LESS: thread.pipeline.info.depthTest = GPU_COMPARE_LESS; break;
-    case COMPARE_LEQUAL: thread.pipeline.info.depthTest = GPU_COMPARE_LEQUAL; break;
-    case COMPARE_GREATER: thread.pipeline.info.depthTest = GPU_COMPARE_GREATER; break;
-    case COMPARE_GEQUAL: thread.pipeline.info.depthTest = GPU_COMPARE_GEQUAL; break;
-    case COMPARE_NONE: default: thread.pipeline.info.depthTest = GPU_COMPARE_NONE; break;
+    case COMPARE_EQUAL: thread.pipeline.info.depth.test = GPU_COMPARE_EQUAL; break;
+    case COMPARE_NEQUAL: thread.pipeline.info.depth.test = GPU_COMPARE_NEQUAL; break;
+    case COMPARE_LESS: thread.pipeline.info.depth.test = GPU_COMPARE_LESS; break;
+    case COMPARE_LEQUAL: thread.pipeline.info.depth.test = GPU_COMPARE_LEQUAL; break;
+    case COMPARE_GREATER: thread.pipeline.info.depth.test = GPU_COMPARE_GREATER; break;
+    case COMPARE_GEQUAL: thread.pipeline.info.depth.test = GPU_COMPARE_GEQUAL; break;
+    case COMPARE_NONE: default: thread.pipeline.info.depth.test = GPU_COMPARE_NONE; break;
   }
-  thread.pipeline.info.depthWrite = write;
+  thread.pipeline.info.depth.write = write;
   thread.pipeline.dirty = true;
 }
 
 void lovrGraphicsGetDepthNudge(float* nudge, float* sloped, float* clamp) {
-  *nudge = thread.pipeline.info.depthOffset;
-  *sloped = thread.pipeline.info.depthOffsetSloped;
-  *clamp = thread.pipeline.info.depthOffsetClamp;
+  *nudge = thread.pipeline.info.rasterizer.depthOffset;
+  *sloped = thread.pipeline.info.rasterizer.depthOffsetSloped;
+  *clamp = thread.pipeline.info.rasterizer.depthOffsetClamp;
 }
 
 void lovrGraphicsSetDepthNudge(float nudge, float sloped, float clamp) {
-  thread.pipeline.info.depthOffset = nudge;
-  thread.pipeline.info.depthOffsetSloped = sloped;
-  thread.pipeline.info.depthOffsetClamp = clamp;
+  thread.pipeline.info.rasterizer.depthOffset = nudge;
+  thread.pipeline.info.rasterizer.depthOffsetSloped = sloped;
+  thread.pipeline.info.rasterizer.depthOffsetClamp = clamp;
   thread.pipeline.dirty = true;
 }
 
 bool lovrGraphicsGetDepthClamp() {
-  return thread.pipeline.info.depthClamp;
+  return thread.pipeline.info.rasterizer.depthClamp;
 }
 
 void lovrGraphicsSetDepthClamp(bool clamp) {
-  thread.pipeline.info.depthClamp = clamp;
+  thread.pipeline.info.rasterizer.depthClamp = clamp;
   thread.pipeline.dirty = true;
 }
 
 Winding lovrGraphicsGetWinding() {
-  return thread.pipeline.info.winding == GPU_WINDING_CCW ? WINDING_COUNTERCLOCKWISE : WINDING_CLOCKWISE;
+  return thread.pipeline.info.rasterizer.winding == GPU_WINDING_CCW ? WINDING_COUNTERCLOCKWISE : WINDING_CLOCKWISE;
 }
 
 void lovrGraphicsSetWinding(Winding winding) {
-  thread.pipeline.info.winding = winding == WINDING_COUNTERCLOCKWISE ? GPU_WINDING_CCW : GPU_WINDING_CW;
+  thread.pipeline.info.rasterizer.winding = winding == WINDING_COUNTERCLOCKWISE ? GPU_WINDING_CCW : GPU_WINDING_CW;
   thread.pipeline.dirty = true;
 }
 
 bool lovrGraphicsIsWireframe() {
-  return thread.pipeline.info.wireframe;
+  return thread.pipeline.info.rasterizer.wireframe;
 }
 
 void lovrGraphicsSetWireframe(bool wireframe) {
-  thread.pipeline.info.wireframe = wireframe;
+  thread.pipeline.info.rasterizer.wireframe = wireframe;
   thread.pipeline.dirty = true;
 }
 

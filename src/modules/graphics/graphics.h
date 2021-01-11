@@ -89,6 +89,22 @@ typedef struct {
 } Canvas;
 
 typedef enum {
+  BLEND_ALPHA_MULTIPLY,
+  BLEND_PREMULTIPLIED
+} BlendAlphaMode;
+
+typedef enum {
+  BLEND_ALPHA,
+  BLEND_ADD,
+  BLEND_SUBTRACT,
+  BLEND_MULTIPLY,
+  BLEND_LIGHTEN,
+  BLEND_DARKEN,
+  BLEND_SCREEN,
+  BLEND_NONE
+} BlendMode;
+
+typedef enum {
   COMPARE_EQUAL,
   COMPARE_NEQUAL,
   COMPARE_LESS,
@@ -125,6 +141,8 @@ void lovrGraphicsCompute(void);
 void lovrGraphicsEndPass(void);
 bool lovrGraphicsGetAlphaToCoverage(void);
 void lovrGraphicsSetAlphaToCoverage(bool enabled);
+void lovrGraphicsGetBlendMode(uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode);
+void lovrGraphicsSetBlendMode(uint32_t target, BlendMode mode, BlendAlphaMode alphaMode);
 void lovrGraphicsGetColorMask(uint32_t target, bool* r, bool* g, bool* b, bool* a);
 void lovrGraphicsSetColorMask(uint32_t target, bool r, bool g, bool b, bool a);
 CullMode lovrGraphicsGetCullMode(void);
