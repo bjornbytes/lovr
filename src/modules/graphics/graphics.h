@@ -104,6 +104,11 @@ typedef enum {
   CULL_BACK
 } CullMode;
 
+typedef enum {
+  WINDING_COUNTERCLOCKWISE,
+  WINDING_CLOCKWISE
+} Winding;
+
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsCreateWindow(struct WindowFlags* window);
@@ -130,6 +135,8 @@ void lovrGraphicsGetDepthNudge(float* nudge, float* sloped, float* clamp);
 void lovrGraphicsSetDepthNudge(float nudge, float sloped, float clamp);
 bool lovrGraphicsGetDepthClamp(void);
 void lovrGraphicsSetDepthClamp(bool clamp);
+Winding lovrGraphicsGetWinding(void);
+void lovrGraphicsSetWinding(Winding winding);
 void lovrGraphicsPush(void);
 void lovrGraphicsPop(void);
 void lovrGraphicsOrigin(void);

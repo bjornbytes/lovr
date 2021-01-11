@@ -50,6 +50,7 @@ extern StringEntry lovrTextureFormat[];
 extern StringEntry lovrTextureType[];
 extern StringEntry lovrTimeUnit[];
 extern StringEntry lovrVolumeUnit[];
+extern StringEntry lovrWinding[];
 
 // General helpers
 

@@ -323,6 +323,23 @@ void lovrGraphicsSetColorMask(uint32_t target, bool r, bool g, bool b, bool a) {
   thread.pipeline.dirty = true;
 }
 
+CullMode lovrGraphicsGetCullMode() {
+  switch (thread.pipeline.info.cullMode) {
+    case GPU_CULL_NONE: default: return CULL_NONE;
+    case GPU_CULL_FRONT: return CULL_FRONT;
+    case GPU_CULL_BACK: return CULL_BACK;
+  }
+}
+
+void lovrGraphicsSetCullMode(CullMode mode) {
+  switch (mode) {
+    case CULL_NONE: default: thread.pipeline.info.cullMode = GPU_CULL_NONE; break;
+    case CULL_FRONT: thread.pipeline.info.cullMode = GPU_CULL_FRONT; break;
+    case CULL_BACK: thread.pipeline.info.cullMode = GPU_CULL_BACK; break;
+  }
+  thread.pipeline.dirty = true;
+}
+
 void lovrGraphicsGetDepthTest(CompareMode* test, bool* write) {
   *write = thread.pipeline.info.depthWrite;
   switch (thread.pipeline.info.depthTest) {
@@ -372,20 +389,12 @@ void lovrGraphicsSetDepthClamp(bool clamp) {
   thread.pipeline.dirty = true;
 }
 
-CullMode lovrGraphicsGetCullMode() {
-  switch (thread.pipeline.info.cullMode) {
-    case GPU_CULL_NONE: default: return CULL_NONE;
-    case GPU_CULL_FRONT: return CULL_FRONT;
-    case GPU_CULL_BACK: return CULL_BACK;
-  }
+Winding lovrGraphicsGetWinding() {
+  return thread.pipeline.info.winding == GPU_WINDING_CCW ? WINDING_COUNTERCLOCKWISE : WINDING_CLOCKWISE;
 }
 
-void lovrGraphicsSetCullMode(CullMode mode) {
-  switch (mode) {
-    case CULL_NONE: default: thread.pipeline.info.cullMode = GPU_CULL_NONE; break;
-    case CULL_FRONT: thread.pipeline.info.cullMode = GPU_CULL_FRONT; break;
-    case CULL_BACK: thread.pipeline.info.cullMode = GPU_CULL_BACK; break;
-  }
+void lovrGraphicsSetWinding(Winding winding) {
+  thread.pipeline.info.winding = winding == WINDING_COUNTERCLOCKWISE ? GPU_WINDING_CCW : GPU_WINDING_CW;
   thread.pipeline.dirty = true;
 }
 

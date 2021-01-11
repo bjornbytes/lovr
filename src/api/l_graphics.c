@@ -54,6 +54,12 @@ StringEntry lovrCullMode[] = {
   { 0 }
 };
 
+StringEntry lovrWinding[] = {
+  [WINDING_COUNTERCLOCKWISE] = ENTRY("counterclockwise"),
+  [WINDING_CLOCKWISE] = ENTRY("clockwise"),
+  { 0 }
+};
+
 // Must be released when done
 static Image* luax_checkimage(lua_State* L, int index, bool flip) {
   Image* image = luax_totype(L, index, Image);
@@ -594,6 +600,18 @@ static int l_lovrGraphicsSetDepthClamp(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsGetWinding(lua_State* L) {
+  Winding winding = lovrGraphicsGetWinding();
+  luax_pushenum(L, Winding, winding);
+  return 1;
+}
+
+static int l_lovrGraphicsSetWinding(lua_State* L) {
+  Winding winding = luax_checkenum(L, 1, Winding, NULL);
+  lovrGraphicsSetWinding(winding);
+  return 0;
+}
+
 static int l_lovrGraphicsPush(lua_State* L) {
   lovrGraphicsPush();
   return 0;
@@ -837,6 +855,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "setDepthNudge", l_lovrGraphicsSetDepthNudge },
   { "getDepthClamp", l_lovrGraphicsGetDepthClamp },
   { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
+  { "getWinding", l_lovrGraphicsGetWinding },
+  { "setWinding", l_lovrGraphicsSetWinding },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },
