@@ -500,6 +500,40 @@ static int l_lovrGraphicsSetAlphaToCoverage(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsGetColorMask(lua_State* L) {
+  uint32_t target = luaL_optinteger(L, 1, 1) - 1;
+  lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
+  bool r, g, b, a;
+  lovrGraphicsGetColorMask(target, &r, &g, &b, &a);
+  lua_pushboolean(L, r);
+  lua_pushboolean(L, g);
+  lua_pushboolean(L, b);
+  lua_pushboolean(L, a);
+  return 4;
+}
+
+static int l_lovrGraphicsSetColorMask(lua_State* L) {
+  if (lua_type(L, 1) == LUA_TNUMBER) {
+    uint32_t target = lua_tonumber(L, 1) - 1;
+    lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
+    bool r = lua_toboolean(L, 2);
+    bool g = lua_toboolean(L, 3);
+    bool b = lua_toboolean(L, 4);
+    bool a = lua_toboolean(L, 5);
+    lovrGraphicsSetColorMask(target, r, g, b, a);
+    return 0;
+  }
+
+  bool r = lua_toboolean(L, 1);
+  bool g = lua_toboolean(L, 2);
+  bool b = lua_toboolean(L, 3);
+  bool a = lua_toboolean(L, 4);
+  for (uint32_t i = 0; i < 4; i++) {
+    lovrGraphicsSetColorMask(i, r, g, b, a);
+  }
+  return 0;
+}
+
 static int l_lovrGraphicsGetCullMode(lua_State* L) {
   luax_pushenum(L, CullMode, lovrGraphicsGetCullMode());
   return 1;
@@ -793,6 +827,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "compute", l_lovrGraphicsCompute },
   { "getAlphaToCoverage", l_lovrGraphicsGetAlphaToCoverage },
   { "setAlphaToCoverage", l_lovrGraphicsSetAlphaToCoverage },
+  { "getColorMask", l_lovrGraphicsGetColorMask },
+  { "setColorMask", l_lovrGraphicsSetColorMask },
   { "getCullMode", l_lovrGraphicsGetCullMode },
   { "setCullMode", l_lovrGraphicsSetCullMode },
   { "getDepthTest", l_lovrGraphicsGetDepthTest },

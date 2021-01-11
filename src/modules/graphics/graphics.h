@@ -120,6 +120,8 @@ void lovrGraphicsCompute(void);
 void lovrGraphicsEndPass(void);
 bool lovrGraphicsGetAlphaToCoverage(void);
 void lovrGraphicsSetAlphaToCoverage(bool enabled);
+void lovrGraphicsGetColorMask(uint32_t target, bool* r, bool* g, bool* b, bool* a);
+void lovrGraphicsSetColorMask(uint32_t target, bool r, bool g, bool b, bool a);
 CullMode lovrGraphicsGetCullMode(void);
 void lovrGraphicsSetCullMode(CullMode mode);
 void lovrGraphicsGetDepthTest(CompareMode* test, bool* write);
