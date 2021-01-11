@@ -348,6 +348,23 @@ void lovrGraphicsSetDepthClamp(bool clamp) {
   thread.pipeline.dirty = true;
 }
 
+CullMode lovrGraphicsGetCullMode() {
+  switch (thread.pipeline.info.cullMode) {
+    case GPU_CULL_NONE: default: return CULL_NONE;
+    case GPU_CULL_FRONT: return CULL_FRONT;
+    case GPU_CULL_BACK: return CULL_BACK;
+  }
+}
+
+void lovrGraphicsSetCullMode(CullMode mode) {
+  switch (mode) {
+    case CULL_NONE: default: thread.pipeline.info.cullMode = GPU_CULL_NONE; break;
+    case CULL_FRONT: thread.pipeline.info.cullMode = GPU_CULL_FRONT; break;
+    case CULL_BACK: thread.pipeline.info.cullMode = GPU_CULL_BACK; break;
+  }
+  thread.pipeline.dirty = true;
+}
+
 void lovrGraphicsPush() {
   lovrAssert(++thread.transform < COUNTOF(thread.transforms), "Unbalanced matrix stack (more pushes than pops?)");
   mat4_init(thread.transforms[thread.transform], thread.transforms[thread.transform - 1]);

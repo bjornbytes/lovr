@@ -23,6 +23,8 @@ extern StringEntry lovrAudioMaterial[];
 extern StringEntry lovrAudioShareMode[];
 extern StringEntry lovrAudioType[];
 extern StringEntry lovrChannelLayout[];
+extern StringEntry lovrCompareMode[];
+extern StringEntry lovrCullMode[];
 extern StringEntry lovrDefaultAttribute[];
 extern StringEntry lovrDevice[];
 extern StringEntry lovrDeviceAxis[];

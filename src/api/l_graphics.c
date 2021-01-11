@@ -47,6 +47,13 @@ StringEntry lovrCompareMode[] = {
   { 0 }
 };
 
+StringEntry lovrCullMode[] = {
+  [CULL_NONE] = ENTRY("none"),
+  [CULL_FRONT] = ENTRY("front"),
+  [CULL_BACK] = ENTRY("back"),
+  { 0 }
+};
+
 // Must be released when done
 static Image* luax_checkimage(lua_State* L, int index, bool flip) {
   Image* image = luax_totype(L, index, Image);
@@ -479,6 +486,17 @@ static int l_lovrGraphicsCompute(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsGetCullMode(lua_State* L) {
+  luax_pushenum(L, CullMode, lovrGraphicsGetCullMode());
+  return 1;
+}
+
+static int l_lovrGraphicsSetCullMode(lua_State* L) {
+  CullMode mode = luax_checkenum(L, 1, CullMode, "none");
+  lovrGraphicsSetCullMode(mode);
+  return 0;
+}
+
 static int l_lovrGraphicsGetDepthTest(lua_State* L) {
   CompareMode test;
   bool write;
@@ -759,6 +777,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "flush", l_lovrGraphicsFlush },
   { "render", l_lovrGraphicsRender },
   { "compute", l_lovrGraphicsCompute },
+  { "getCullMode", l_lovrGraphicsGetCullMode },
+  { "setCullMode", l_lovrGraphicsSetCullMode },
   { "getDepthTest", l_lovrGraphicsGetDepthTest },
   { "setDepthTest", l_lovrGraphicsSetDepthTest },
   { "getDepthNudge", l_lovrGraphicsGetDepthNudge },

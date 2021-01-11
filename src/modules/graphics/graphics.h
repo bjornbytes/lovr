@@ -96,6 +96,12 @@ typedef enum {
   COMPARE_NONE
 } CompareMode;
 
+typedef enum {
+  CULL_NONE,
+  CULL_FRONT,
+  CULL_BACK
+} CullMode;
+
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsCreateWindow(struct WindowFlags* window);
@@ -110,6 +116,8 @@ void lovrGraphicsFlush(void);
 void lovrGraphicsRender(Canvas* canvas);
 void lovrGraphicsCompute(void);
 void lovrGraphicsEndPass(void);
+CullMode lovrGraphicsGetCullMode(void);
+void lovrGraphicsSetCullMode(CullMode mode);
 void lovrGraphicsGetDepthTest(CompareMode* test, bool* write);
 void lovrGraphicsSetDepthTest(CompareMode test, bool write);
 void lovrGraphicsGetDepthNudge(float* nudge, float* sloped, float* clamp);
