@@ -116,6 +116,8 @@ void lovrGraphicsFlush(void);
 void lovrGraphicsRender(Canvas* canvas);
 void lovrGraphicsCompute(void);
 void lovrGraphicsEndPass(void);
+bool lovrGraphicsGetAlphaToCoverage(void);
+void lovrGraphicsSetAlphaToCoverage(bool enabled);
 CullMode lovrGraphicsGetCullMode(void);
 void lovrGraphicsSetCullMode(CullMode mode);
 void lovrGraphicsGetDepthTest(CompareMode* test, bool* write);

@@ -486,6 +486,16 @@ static int l_lovrGraphicsCompute(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsGetAlphaToCoverage(lua_State* L) {
+  lua_pushboolean(L, lovrGraphicsGetAlphaToCoverage());
+  return 1;
+}
+
+static int l_lovrGraphicsSetAlphaToCoverage(lua_State* L) {
+  lovrGraphicsSetAlphaToCoverage(lua_toboolean(L, 1));
+  return 1;
+}
+
 static int l_lovrGraphicsGetCullMode(lua_State* L) {
   luax_pushenum(L, CullMode, lovrGraphicsGetCullMode());
   return 1;
@@ -777,6 +787,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "flush", l_lovrGraphicsFlush },
   { "render", l_lovrGraphicsRender },
   { "compute", l_lovrGraphicsCompute },
+  { "getAlphaToCoverage", l_lovrGraphicsGetAlphaToCoverage },
+  { "setAlphaToCoverage", l_lovrGraphicsSetAlphaToCoverage },
   { "getCullMode", l_lovrGraphicsGetCullMode },
   { "setCullMode", l_lovrGraphicsSetCullMode },
   { "getDepthTest", l_lovrGraphicsGetDepthTest },
