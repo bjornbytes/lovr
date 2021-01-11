@@ -260,6 +260,14 @@ void gpu_bundle_destroy(gpu_bundle* bundle);
 // Pipeline
 
 typedef enum {
+  GPU_DRAW_POINTS,
+  GPU_DRAW_LINES,
+  GPU_DRAW_LINE_STRIP,
+  GPU_DRAW_TRIANGLES,
+  GPU_DRAW_TRIANGLE_STRIP
+} gpu_draw_mode;
+
+typedef enum {
   GPU_FLOAT_F32,
   GPU_VEC2_F32,
   GPU_VEC2_F16,
@@ -295,14 +303,6 @@ typedef struct {
 } gpu_buffer_layout;
 
 typedef enum {
-  GPU_DRAW_POINTS,
-  GPU_DRAW_LINES,
-  GPU_DRAW_LINE_STRIP,
-  GPU_DRAW_TRIANGLES,
-  GPU_DRAW_TRIANGLE_STRIP
-} gpu_draw_mode;
-
-typedef enum {
   GPU_CULL_NONE,
   GPU_CULL_FRONT,
   GPU_CULL_BACK
@@ -313,6 +313,21 @@ typedef enum {
   GPU_WINDING_CW
 } gpu_winding;
 
+typedef struct {
+  gpu_cull_mode cullMode;
+  gpu_winding winding;
+  float depthOffset;
+  float depthOffsetSloped;
+  float depthOffsetClamp;
+  bool depthClamp;
+  bool wireframe;
+} gpu_rasterizer_state;
+
+typedef struct {
+  gpu_compare_mode test;
+  bool write;
+} gpu_depth_state;
+
 typedef enum {
   GPU_STENCIL_KEEP,
   GPU_STENCIL_ZERO,
@@ -322,26 +337,17 @@ typedef enum {
   GPU_STENCIL_INCREMENT_WRAP,
   GPU_STENCIL_DECREMENT_WRAP,
   GPU_STENCIL_INVERT
-} gpu_stencil_action;
+} gpu_stencil_op;
 
 typedef struct {
-  gpu_stencil_action fail;
-  gpu_stencil_action depthFail;
-  gpu_stencil_action pass;
+  gpu_stencil_op failOp;
+  gpu_stencil_op depthFailOp;
+  gpu_stencil_op passOp;
   gpu_compare_mode test;
+  uint8_t value;
   uint8_t readMask;
   uint8_t writeMask;
-  uint8_t reference;
 } gpu_stencil_state;
-
-typedef enum {
-  GPU_COLOR_MASK_RGBA = 0,
-  GPU_COLOR_MASK_NONE = 0xff,
-  GPU_COLOR_MASK_R = (1 << 0),
-  GPU_COLOR_MASK_G = (1 << 1),
-  GPU_COLOR_MASK_B = (1 << 2),
-  GPU_COLOR_MASK_A = (1 << 3)
-} gpu_color_mask;
 
 typedef enum {
   GPU_BLEND_ZERO,
@@ -373,26 +379,27 @@ typedef struct {
   bool enabled;
 } gpu_blend_state;
 
+typedef enum {
+  GPU_COLOR_MASK_RGBA = 0,
+  GPU_COLOR_MASK_NONE = 0xff,
+  GPU_COLOR_MASK_R = (1 << 0),
+  GPU_COLOR_MASK_G = (1 << 1),
+  GPU_COLOR_MASK_B = (1 << 2),
+  GPU_COLOR_MASK_A = (1 << 3)
+} gpu_color_mask;
+
 typedef struct {
   gpu_pass* pass;
   gpu_shader* shader;
-  gpu_buffer_layout buffers[16];
-  gpu_attribute attributes[16];
   gpu_draw_mode drawMode;
-  gpu_cull_mode cullMode;
-  gpu_winding winding;
-  gpu_compare_mode depthTest;
-  bool depthWrite;
-  bool depthClamp;
-  float depthOffset;
-  float depthOffsetSloped;
-  float depthOffsetClamp;
-  gpu_stencil_state stencilFront;
-  gpu_stencil_state stencilBack;
-  uint8_t colorMask[4];
+  gpu_buffer_layout buffers[8];
+  gpu_attribute attributes[8];
+  gpu_rasterizer_state rasterizer;
+  gpu_depth_state depth;
+  gpu_stencil_state stencil;
   gpu_blend_state blend[4];
+  uint8_t colorMask[4];
   bool alphaToCoverage;
-  bool wireframe;
   const char* label;
 } gpu_pipeline_info;
 
