@@ -444,6 +444,8 @@ typedef struct {
   bool pointSize;
   bool wireframe;
   bool anisotropy;
+  bool depthClamp;
+  bool depthOffsetClamp;
   bool clipDistance;
   bool cullDistance;
   bool fullIndexBufferRange;

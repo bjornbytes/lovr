@@ -329,6 +329,10 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
   lua_setfield(L, -2, "wireframe");
   lua_pushboolean(L, features.anisotropy);
   lua_setfield(L, -2, "anisotropy");
+  lua_pushboolean(L, features.depthClamp);
+  lua_setfield(L, -2, "depthClamp");
+  lua_pushboolean(L, features.depthNudgeClamp);
+  lua_setfield(L, -2, "depthNudgeClamp");
   lua_pushboolean(L, features.clipDistance);
   lua_setfield(L, -2, "clipDistance");
   lua_pushboolean(L, features.cullDistance);
