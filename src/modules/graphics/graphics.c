@@ -310,6 +310,19 @@ void lovrGraphicsSetAlphaToCoverage(bool enabled) {
   thread.pipeline.dirty = true;
 }
 
+void lovrGraphicsGetColorMask(uint32_t target, bool* r, bool* g, bool* b, bool* a) {
+  uint8_t mask = thread.pipeline.info.colorMask[target];
+  *r = mask & 0x1;
+  *g = mask & 0x2;
+  *b = mask & 0x4;
+  *a = mask & 0x8;
+}
+
+void lovrGraphicsSetColorMask(uint32_t target, bool r, bool g, bool b, bool a) {
+  thread.pipeline.info.colorMask[target] = (r << 0) | (g << 1) | (b << 2) | (a << 3);
+  thread.pipeline.dirty = true;
+}
+
 void lovrGraphicsGetDepthTest(CompareMode* test, bool* write) {
   *write = thread.pipeline.info.depthWrite;
   switch (thread.pipeline.info.depthTest) {
