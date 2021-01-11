@@ -1893,13 +1893,13 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 
   VkPipelineRasterizationStateCreateInfo rasterization = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-    .polygonMode = info->wireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL,
-    .cullMode = cullModes[info->cullMode],
-    .frontFace = frontFaces[info->winding],
-    .depthBiasEnable = info->depthOffset != 0.f || info->depthOffsetSloped != 0.f,
-    .depthBiasConstantFactor = info->depthOffset,
-    .depthBiasSlopeFactor = info->depthOffsetSloped,
-    .depthBiasClamp = info->depthOffsetClamp,
+    .polygonMode = info->rasterizer.wireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL,
+    .cullMode = cullModes[info->rasterizer.cullMode],
+    .frontFace = frontFaces[info->rasterizer.winding],
+    .depthBiasEnable = info->rasterizer.depthOffset != 0.f || info->rasterizer.depthOffsetSloped != 0.f,
+    .depthBiasConstantFactor = info->rasterizer.depthOffset,
+    .depthBiasSlopeFactor = info->rasterizer.depthOffsetSloped,
+    .depthBiasClamp = info->rasterizer.depthOffsetClamp,
     .lineWidth = 1.f
   };
 
@@ -1909,30 +1909,24 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .alphaToCoverageEnable = info->alphaToCoverage
   };
 
+  VkStencilOpState stencil = {
+    .failOp = stencilOps[info->stencil.failOp],
+    .passOp = stencilOps[info->stencil.passOp],
+    .depthFailOp = stencilOps[info->stencil.depthFailOp],
+    .compareOp = compareOps[info->stencil.test],
+    .compareMask = info->stencil.readMask,
+    .writeMask = info->stencil.writeMask,
+    .reference = info->stencil.value
+  };
+
   VkPipelineDepthStencilStateCreateInfo depthStencil = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-    .depthTestEnable = info->depthTest != GPU_COMPARE_NONE,
-    .depthWriteEnable = info->depthWrite,
-    .depthCompareOp = compareOps[info->depthTest],
-    .stencilTestEnable = info->stencilFront.test != GPU_COMPARE_NONE || info->stencilBack.test != GPU_COMPARE_NONE,
-    .front = {
-      .failOp = stencilOps[info->stencilFront.fail],
-      .passOp = stencilOps[info->stencilFront.pass],
-      .depthFailOp = stencilOps[info->stencilFront.depthFail],
-      .compareOp = compareOps[info->stencilFront.test],
-      .compareMask = info->stencilFront.readMask,
-      .writeMask = info->stencilFront.writeMask,
-      .reference = info->stencilFront.reference
-    },
-    .back = {
-      .failOp = stencilOps[info->stencilBack.fail],
-      .passOp = stencilOps[info->stencilBack.pass],
-      .depthFailOp = stencilOps[info->stencilBack.depthFail],
-      .compareOp = compareOps[info->stencilBack.test],
-      .compareMask = info->stencilBack.readMask,
-      .writeMask = info->stencilBack.writeMask,
-      .reference = info->stencilBack.reference
-    }
+    .depthTestEnable = info->depth.test != GPU_COMPARE_NONE,
+    .depthWriteEnable = info->depth.write,
+    .depthCompareOp = compareOps[info->depth.test],
+    .stencilTestEnable = info->stencil.test != GPU_COMPARE_NONE,
+    .front = stencil,
+    .back = stencil
   };
 
   VkPipelineColorBlendAttachmentState blendState[4];
@@ -2102,7 +2096,7 @@ void gpu_batch_bind_bundle(gpu_batch* batch, gpu_shader* shader, uint32_t group,
 }
 
 void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
-  VkBuffer handles[16];
+  VkBuffer handles[8];
   for (uint32_t i = 0; i < count; i++) {
     handles[i] = buffers[i]->handle;
   }
