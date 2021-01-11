@@ -299,6 +299,15 @@ void lovrGraphicsEndPass() {
   gpu_batch_end(state.batch);
 }
 
+bool lovrGraphicsGetAlphaToCoverage() {
+  return thread.pipeline.info.alphaToCoverage;
+}
+
+void lovrGraphicsSetAlphaToCoverage(bool enabled) {
+  thread.pipeline.info.alphaToCoverage = enabled;
+  thread.pipeline.dirty = true;
+}
+
 void lovrGraphicsGetDepthTest(CompareMode* test, bool* write) {
   *write = thread.pipeline.info.depthWrite;
   switch (thread.pipeline.info.depthTest) {
