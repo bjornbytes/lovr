@@ -543,6 +543,8 @@ bool gpu_init(gpu_config* config) {
       config->features->pointSize = enable->largePoints = supports->largePoints;
       config->features->wireframe = enable->fillModeNonSolid = supports->fillModeNonSolid;
       config->features->anisotropy = enable->samplerAnisotropy = supports->samplerAnisotropy;
+      config->features->depthClamp = enable->depthClamp = supports->depthClamp;
+      config->features->depthOffsetClamp = enable->depthBiasClamp = supports->depthBiasClamp;
       config->features->clipDistance = enable->shaderClipDistance = supports->shaderClipDistance;
       config->features->cullDistance = enable->shaderCullDistance = supports->shaderCullDistance;
       config->features->fullIndexBufferRange = enable->fullDrawIndexUint32 = supports->fullDrawIndexUint32;

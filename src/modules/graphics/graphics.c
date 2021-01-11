@@ -173,6 +173,8 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
   features->astc = state.features.astc;
   features->pointSize = state.features.pointSize;
   features->wireframe = state.features.wireframe;
+  features->depthClamp = state.features.depthClamp;
+  features->depthNudgeClamp = state.features.depthOffsetClamp;
   features->anisotropy = state.features.anisotropy;
   features->clipDistance = state.features.clipDistance;
   features->cullDistance = state.features.cullDistance;
