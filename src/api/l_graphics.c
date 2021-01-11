@@ -612,6 +612,18 @@ static int l_lovrGraphicsSetWinding(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsIsWireframe(lua_State* L) {
+  bool wireframe = lovrGraphicsIsWireframe();
+  lua_pushboolean(L, wireframe);
+  return 1;
+}
+
+static int l_lovrGraphicsSetWireframe(lua_State* L) {
+  bool wireframe = lua_toboolean(L, 1);
+  lovrGraphicsSetWireframe(wireframe);
+  return 0;
+}
+
 static int l_lovrGraphicsPush(lua_State* L) {
   lovrGraphicsPush();
   return 0;
@@ -857,6 +869,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
   { "getWinding", l_lovrGraphicsGetWinding },
   { "setWinding", l_lovrGraphicsSetWinding },
+  { "isWireframe", l_lovrGraphicsIsWireframe },
+  { "setWireframe", l_lovrGraphicsSetWireframe },
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
   { "origin", l_lovrGraphicsOrigin },

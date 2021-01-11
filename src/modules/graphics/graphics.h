@@ -137,6 +137,8 @@ bool lovrGraphicsGetDepthClamp(void);
 void lovrGraphicsSetDepthClamp(bool clamp);
 Winding lovrGraphicsGetWinding(void);
 void lovrGraphicsSetWinding(Winding winding);
+bool lovrGraphicsIsWireframe(void);
+void lovrGraphicsSetWireframe(bool wireframe);
 void lovrGraphicsPush(void);
 void lovrGraphicsPop(void);
 void lovrGraphicsOrigin(void);

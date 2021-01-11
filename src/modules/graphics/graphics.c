@@ -398,6 +398,15 @@ void lovrGraphicsSetWinding(Winding winding) {
   thread.pipeline.dirty = true;
 }
 
+bool lovrGraphicsIsWireframe() {
+  return thread.pipeline.info.wireframe;
+}
+
+void lovrGraphicsSetWireframe(bool wireframe) {
+  thread.pipeline.info.wireframe = wireframe;
+  thread.pipeline.dirty = true;
+}
+
 void lovrGraphicsPush() {
   lovrAssert(++thread.transform < COUNTOF(thread.transforms), "Unbalanced matrix stack (more pushes than pops?)");
   mat4_init(thread.transforms[thread.transform], thread.transforms[thread.transform - 1]);
