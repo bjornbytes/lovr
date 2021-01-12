@@ -652,6 +652,30 @@ static int l_lovrGraphicsSetDepthClamp(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsGetStencilTest(lua_State* L) {
+  CompareMode test;
+  uint8_t value;
+  lovrGraphicsGetStencilTest(&test, &value);
+  if (test == COMPARE_NONE) {
+    lua_pushnil(L);
+    return 1;
+  }
+  luax_pushenum(L, CompareMode, test);
+  lua_pushinteger(L, value);
+  return 2;
+}
+
+static int l_lovrGraphicsSetStencilTest(lua_State* L) {
+  if (lua_isnoneornil(L, 1)) {
+    lovrGraphicsSetStencilTest(COMPARE_NONE, 0);
+  } else {
+    CompareMode test = luax_checkenum(L, 1, CompareMode, NULL);
+    uint8_t value = luaL_checkinteger(L, 2);
+    lovrGraphicsSetStencilTest(test, value);
+  }
+  return 0;
+}
+
 static int l_lovrGraphicsGetWinding(lua_State* L) {
   Winding winding = lovrGraphicsGetWinding();
   luax_pushenum(L, Winding, winding);
@@ -921,6 +945,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "setDepthNudge", l_lovrGraphicsSetDepthNudge },
   { "getDepthClamp", l_lovrGraphicsGetDepthClamp },
   { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
+  { "getStencilTest", l_lovrGraphicsGetStencilTest },
+  { "setStencilTest", l_lovrGraphicsSetStencilTest },
   { "getWinding", l_lovrGraphicsGetWinding },
   { "setWinding", l_lovrGraphicsSetWinding },
   { "isWireframe", l_lovrGraphicsIsWireframe },

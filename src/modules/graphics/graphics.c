@@ -273,60 +273,32 @@ void lovrGraphicsSetAlphaToCoverage(bool enabled) {
 
 static const gpu_blend_state blendModes[] = {
   [BLEND_ALPHA] = {
-    .color.src = GPU_BLEND_SRC_ALPHA,
-    .color.dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA,
-    .alpha.src = GPU_BLEND_ONE,
-    .alpha.dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA,
-    .color.op = GPU_BLEND_ADD,
-    .alpha.op = GPU_BLEND_ADD
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA, .op = GPU_BLEND_ADD },
+    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA, .op = GPU_BLEND_ADD }
   },
   [BLEND_ADD] = {
-    .color.src = GPU_BLEND_SRC_ALPHA,
-    .color.dst = GPU_BLEND_ONE,
-    .alpha.src = GPU_BLEND_ZERO,
-    .alpha.dst = GPU_BLEND_ONE,
-    .color.op = GPU_BLEND_ADD,
-    .alpha.op = GPU_BLEND_ADD
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_ADD },
+    .alpha = { .src = GPU_BLEND_ZERO, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_ADD }
   },
   [BLEND_SUBTRACT] = {
-    .color.src = GPU_BLEND_SRC_ALPHA,
-    .color.dst = GPU_BLEND_ONE,
-    .alpha.src = GPU_BLEND_ZERO,
-    .alpha.dst = GPU_BLEND_ONE,
-    .color.op = GPU_BLEND_RSUB,
-    .alpha.op = GPU_BLEND_RSUB
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_RSUB },
+    .alpha = { .src = GPU_BLEND_ZERO, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_RSUB }
   },
   [BLEND_MULTIPLY] = {
-    .color.src = GPU_BLEND_DST_COLOR,
-    .color.dst = GPU_BLEND_ZERO,
-    .alpha.src = GPU_BLEND_DST_COLOR,
-    .alpha.dst = GPU_BLEND_ZERO,
-    .color.op = GPU_BLEND_ADD,
-    .alpha.op = GPU_BLEND_ADD
+    .color = { .src = GPU_BLEND_DST_COLOR, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_ADD },
+    .alpha = { .src = GPU_BLEND_DST_COLOR, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_ADD },
   },
   [BLEND_LIGHTEN] = {
-    .color.src = GPU_BLEND_SRC_ALPHA,
-    .color.dst = GPU_BLEND_ZERO,
-    .alpha.src = GPU_BLEND_ONE,
-    .alpha.dst = GPU_BLEND_ZERO,
-    .color.op = GPU_BLEND_MAX,
-    .alpha.op = GPU_BLEND_MAX
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MAX },
+    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MAX }
   },
   [BLEND_DARKEN] = {
-    .color.src = GPU_BLEND_SRC_ALPHA,
-    .color.dst = GPU_BLEND_ZERO,
-    .alpha.src = GPU_BLEND_ONE,
-    .alpha.dst = GPU_BLEND_ZERO,
-    .color.op = GPU_BLEND_MIN,
-    .alpha.op = GPU_BLEND_MIN
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MIN },
+    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MIN }
   },
   [BLEND_SCREEN] = {
-    .color.src = GPU_BLEND_SRC_ALPHA,
-    .color.dst = GPU_BLEND_ONE_MINUS_SRC_COLOR,
-    .alpha.src = GPU_BLEND_ONE,
-    .alpha.dst = GPU_BLEND_ONE_MINUS_SRC_COLOR,
-    .color.op = GPU_BLEND_ADD,
-    .alpha.op = GPU_BLEND_ADD
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE_MINUS_SRC_COLOR, .op = GPU_BLEND_ADD },
+    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ONE_MINUS_SRC_COLOR, .op = GPU_BLEND_ADD }
   }
 };
 
@@ -417,6 +389,33 @@ bool lovrGraphicsGetDepthClamp() {
 
 void lovrGraphicsSetDepthClamp(bool clamp) {
   thread.pipeline.info.rasterizer.depthClamp = clamp;
+  thread.pipeline.dirty = true;
+}
+
+void lovrGraphicsGetStencilTest(CompareMode* test, uint8_t* value) {
+  switch (thread.pipeline.info.stencil.test) {
+    case GPU_COMPARE_NONE: default: *test = COMPARE_NONE; break;
+    case GPU_COMPARE_EQUAL: *test = COMPARE_EQUAL; break;
+    case GPU_COMPARE_NEQUAL: *test = COMPARE_NEQUAL; break;
+    case GPU_COMPARE_LESS: *test = COMPARE_GREATER; break;
+    case GPU_COMPARE_LEQUAL: *test = COMPARE_GEQUAL; break;
+    case GPU_COMPARE_GREATER: *test = COMPARE_LESS; break;
+    case GPU_COMPARE_GEQUAL: *test = COMPARE_LEQUAL; break;
+  }
+  *value = thread.pipeline.info.stencil.value;
+}
+
+void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value) {
+  switch (test) {
+    case COMPARE_NONE: default: thread.pipeline.info.stencil.test = GPU_COMPARE_NONE; break;
+    case COMPARE_EQUAL: thread.pipeline.info.stencil.test = GPU_COMPARE_EQUAL; break;
+    case COMPARE_NEQUAL: thread.pipeline.info.stencil.test = GPU_COMPARE_NEQUAL; break;
+    case COMPARE_LESS: thread.pipeline.info.stencil.test = GPU_COMPARE_GREATER; break;
+    case COMPARE_LEQUAL: thread.pipeline.info.stencil.test = GPU_COMPARE_GEQUAL; break;
+    case COMPARE_GREATER: thread.pipeline.info.stencil.test = GPU_COMPARE_LESS; break;
+    case COMPARE_GEQUAL: thread.pipeline.info.stencil.test = GPU_COMPARE_LEQUAL; break;
+  }
+  thread.pipeline.info.stencil.value = value;
   thread.pipeline.dirty = true;
 }
 
