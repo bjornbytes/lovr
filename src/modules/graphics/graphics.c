@@ -1,5 +1,4 @@
 #include "graphics/graphics.h"
-#include "data/image.h"
 #include "event/event.h"
 #include "core/maf.h"
 #include "core/map.h"
@@ -40,44 +39,6 @@ static struct {
   gpu_batch* batch;
   map_t passes;
 } state;
-
-static const gpu_texture_format gpuTextureFormats[] = {
-  [FORMAT_R8] = GPU_TEXTURE_FORMAT_R8,
-  [FORMAT_RG8] = GPU_TEXTURE_FORMAT_RG8,
-  [FORMAT_RGBA8] = GPU_TEXTURE_FORMAT_RGBA8,
-  [FORMAT_R16] = GPU_TEXTURE_FORMAT_R16,
-  [FORMAT_RG16] = GPU_TEXTURE_FORMAT_RG16,
-  [FORMAT_RGBA16] = GPU_TEXTURE_FORMAT_RGBA16,
-  [FORMAT_R16F] = GPU_TEXTURE_FORMAT_R16F,
-  [FORMAT_RG16F] = GPU_TEXTURE_FORMAT_RG16F,
-  [FORMAT_RGBA16F] = GPU_TEXTURE_FORMAT_RGBA16F,
-  [FORMAT_R32F] = GPU_TEXTURE_FORMAT_R32F,
-  [FORMAT_RG32F] = GPU_TEXTURE_FORMAT_RG32F,
-  [FORMAT_RGBA32F] = GPU_TEXTURE_FORMAT_RGBA32F,
-  [FORMAT_RGB565] = GPU_TEXTURE_FORMAT_RGB565,
-  [FORMAT_RGB5A1] = GPU_TEXTURE_FORMAT_RGB5A1,
-  [FORMAT_RGB10A2] = GPU_TEXTURE_FORMAT_RGB10A2,
-  [FORMAT_RG11B10F] = GPU_TEXTURE_FORMAT_RG11B10F,
-  [FORMAT_D16] = GPU_TEXTURE_FORMAT_D16,
-  [FORMAT_D24S8] = GPU_TEXTURE_FORMAT_D24S8,
-  [FORMAT_D32F] = GPU_TEXTURE_FORMAT_D32F,
-  [FORMAT_BC6] = GPU_TEXTURE_FORMAT_BC6,
-  [FORMAT_BC7] = GPU_TEXTURE_FORMAT_BC7,
-  [FORMAT_ASTC_4x4] = GPU_TEXTURE_FORMAT_ASTC_4x4,
-  [FORMAT_ASTC_5x4] = GPU_TEXTURE_FORMAT_ASTC_5x4,
-  [FORMAT_ASTC_5x5] = GPU_TEXTURE_FORMAT_ASTC_5x5,
-  [FORMAT_ASTC_6x5] = GPU_TEXTURE_FORMAT_ASTC_6x5,
-  [FORMAT_ASTC_6x6] = GPU_TEXTURE_FORMAT_ASTC_6x6,
-  [FORMAT_ASTC_8x5] = GPU_TEXTURE_FORMAT_ASTC_8x5,
-  [FORMAT_ASTC_8x6] = GPU_TEXTURE_FORMAT_ASTC_8x6,
-  [FORMAT_ASTC_8x8] = GPU_TEXTURE_FORMAT_ASTC_8x8,
-  [FORMAT_ASTC_10x5] = GPU_TEXTURE_FORMAT_ASTC_10x5,
-  [FORMAT_ASTC_10x6] = GPU_TEXTURE_FORMAT_ASTC_10x6,
-  [FORMAT_ASTC_10x8] = GPU_TEXTURE_FORMAT_ASTC_10x8,
-  [FORMAT_ASTC_10x10] = GPU_TEXTURE_FORMAT_ASTC_10x10,
-  [FORMAT_ASTC_12x10] = GPU_TEXTURE_FORMAT_ASTC_12x10,
-  [FORMAT_ASTC_12x12] = GPU_TEXTURE_FORMAT_ASTC_12x12
-};
 
 static void onDebugMessage(void* context, const char* message, int severe) {
   lovrLog(severe ? LOG_ERROR : LOG_DEBUG, "GPU", message);
@@ -131,9 +92,9 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
     .features = &state.features,
     .limits = &state.limits,
     .callback = onDebugMessage,
+#ifdef LOVR_VK
     .vk.surface = true,
     .vk.vsync = window->vsync,
-#ifdef LOVR_VK
     .vk.getExtraInstanceExtensions = os_vk_get_instance_extensions,
     .vk.createSurface = os_vk_create_surface
 #endif
@@ -247,7 +208,7 @@ void lovrGraphicsRender(Canvas* canvas) {
 
     lovrAssert(canvas->color[i].texture, "TODO: Anonymous MSAA targets");
 
-    passInfo.color[i].format = gpuTextureFormats[canvas->color[i].texture->info.format];
+    passInfo.color[i].format = (gpu_texture_format) canvas->color[i].texture->info.format;
     passInfo.color[i].load = loads[canvas->color[i].load];
     passInfo.color[i].save = saves[canvas->color[i].save];
     passInfo.color[i].srgb = canvas->color[i].texture->info.srgb;
@@ -262,7 +223,7 @@ void lovrGraphicsRender(Canvas* canvas) {
   if (canvas->depth.enabled) {
     lovrAssert(canvas->depth.texture, "TODO: Anonymous depth targets");
 
-    passInfo.depth.format = gpuTextureFormats[canvas->depth.texture->info.format];
+    passInfo.depth.format = (gpu_texture_format) canvas->depth.texture->info.format;
     passInfo.depth.load = loads[canvas->depth.load];
     passInfo.depth.save = saves[canvas->depth.save];
     passInfo.depth.stencilLoad = loads[canvas->depth.stencil.load];
@@ -400,6 +361,7 @@ void lovrGraphicsSetBlendMode(uint32_t target, BlendMode mode, BlendAlphaMode al
   if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
     thread.pipeline.info.blend[target].color.src = GPU_BLEND_ONE;
   }
+  thread.pipeline.info.blend[target].enabled = true;
   thread.pipeline.dirty = true;
 }
 
@@ -417,45 +379,21 @@ void lovrGraphicsSetColorMask(uint32_t target, bool r, bool g, bool b, bool a) {
 }
 
 CullMode lovrGraphicsGetCullMode() {
-  switch (thread.pipeline.info.rasterizer.cullMode) {
-    case GPU_CULL_NONE: default: return CULL_NONE;
-    case GPU_CULL_FRONT: return CULL_FRONT;
-    case GPU_CULL_BACK: return CULL_BACK;
-  }
+  return (CullMode) thread.pipeline.info.rasterizer.cullMode;
 }
 
 void lovrGraphicsSetCullMode(CullMode mode) {
-  switch (mode) {
-    case CULL_NONE: default: thread.pipeline.info.rasterizer.cullMode = GPU_CULL_NONE; break;
-    case CULL_FRONT: thread.pipeline.info.rasterizer.cullMode = GPU_CULL_FRONT; break;
-    case CULL_BACK: thread.pipeline.info.rasterizer.cullMode = GPU_CULL_BACK; break;
-  }
+  thread.pipeline.info.rasterizer.cullMode = (gpu_cull_mode) mode;
   thread.pipeline.dirty = true;
 }
 
 void lovrGraphicsGetDepthTest(CompareMode* test, bool* write) {
+  *test = (CompareMode) thread.pipeline.info.depth.test;
   *write = thread.pipeline.info.depth.write;
-  switch (thread.pipeline.info.depth.test) {
-    case GPU_COMPARE_EQUAL: *test = COMPARE_EQUAL; break;
-    case GPU_COMPARE_NEQUAL: *test = COMPARE_NEQUAL; break;
-    case GPU_COMPARE_LESS: *test = COMPARE_LESS; break;
-    case GPU_COMPARE_LEQUAL: *test = COMPARE_LEQUAL; break;
-    case GPU_COMPARE_GREATER: *test = COMPARE_GREATER; break;
-    case GPU_COMPARE_GEQUAL: *test = COMPARE_GEQUAL; break;
-    case GPU_COMPARE_NONE: default: *test = COMPARE_NONE; break;
-  }
 }
 
 void lovrGraphicsSetDepthTest(CompareMode test, bool write) {
-  switch (test) {
-    case COMPARE_EQUAL: thread.pipeline.info.depth.test = GPU_COMPARE_EQUAL; break;
-    case COMPARE_NEQUAL: thread.pipeline.info.depth.test = GPU_COMPARE_NEQUAL; break;
-    case COMPARE_LESS: thread.pipeline.info.depth.test = GPU_COMPARE_LESS; break;
-    case COMPARE_LEQUAL: thread.pipeline.info.depth.test = GPU_COMPARE_LEQUAL; break;
-    case COMPARE_GREATER: thread.pipeline.info.depth.test = GPU_COMPARE_GREATER; break;
-    case COMPARE_GEQUAL: thread.pipeline.info.depth.test = GPU_COMPARE_GEQUAL; break;
-    case COMPARE_NONE: default: thread.pipeline.info.depth.test = GPU_COMPARE_NONE; break;
-  }
+  thread.pipeline.info.depth.test = (gpu_compare_mode) test;
   thread.pipeline.info.depth.write = write;
   thread.pipeline.dirty = true;
 }
@@ -483,11 +421,11 @@ void lovrGraphicsSetDepthClamp(bool clamp) {
 }
 
 Winding lovrGraphicsGetWinding() {
-  return thread.pipeline.info.rasterizer.winding == GPU_WINDING_CCW ? WINDING_COUNTERCLOCKWISE : WINDING_CLOCKWISE;
+  return (Winding) thread.pipeline.info.rasterizer.winding;
 }
 
 void lovrGraphicsSetWinding(Winding winding) {
-  thread.pipeline.info.rasterizer.winding = winding == WINDING_COUNTERCLOCKWISE ? GPU_WINDING_CCW : GPU_WINDING_CW;
+  thread.pipeline.info.rasterizer.winding = (gpu_winding) winding;
   thread.pipeline.dirty = true;
 }
 
@@ -536,26 +474,9 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   buffer->gpu = (gpu_buffer*) (buffer + 1);
   buffer->info = *info;
 
-  gpu_buffer_usage gpuBufferUsage[] = {
-    [BUFFER_VERTEX] = GPU_BUFFER_USAGE_VERTEX,
-    [BUFFER_INDEX] = GPU_BUFFER_USAGE_INDEX,
-    [BUFFER_UNIFORM] = GPU_BUFFER_USAGE_UNIFORM,
-    [BUFFER_COMPUTE] = GPU_BUFFER_USAGE_STORAGE,
-    [BUFFER_ARGUMENT] = GPU_BUFFER_USAGE_INDIRECT,
-    [BUFFER_UPLOAD] = GPU_BUFFER_USAGE_UPLOAD,
-    [BUFFER_DOWNLOAD] = GPU_BUFFER_USAGE_DOWNLOAD
-  };
-
-  uint32_t usage = 0;
-  for (uint32_t i = 0; i < sizeof(gpuBufferUsage) / sizeof(gpuBufferUsage[0]); i++) {
-    if (info->usage & (1 << i)) {
-      usage |= gpuBufferUsage[i];
-    }
-  }
-
   gpu_buffer_info gpuInfo = {
     .size = info->size,
-    .usage = usage,
+    .usage = info->usage,
     .label = info->label
   };
 
@@ -572,54 +493,30 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
   return &buffer->info;
 }
 
-#define WRITE_MASK (1 << GPU_WRITE_COLOR_TARGET) | (1 << GPU_WRITE_DEPTH_TARGET) | (1 << GPU_WRITE_COMPUTE_SHADER_STORAGE) | (1 << GPU_WRITE_UPLOAD)
-
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
   return gpu_buffer_map(buffer->gpu, offset, size);
 }
 
 // Texture
 
-static const gpu_texture_type gpuTextureTypes[] = {
-  [TEXTURE_2D] = GPU_TEXTURE_TYPE_2D,
-  [TEXTURE_CUBE] = GPU_TEXTURE_TYPE_CUBE,
-  [TEXTURE_VOLUME] = GPU_TEXTURE_TYPE_3D,
-  [TEXTURE_ARRAY] = GPU_TEXTURE_TYPE_ARRAY
-};
-
 Texture* lovrTextureCreate(TextureInfo* info) {
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *info;
-
-  static const gpu_texture_usage gpuTextureUsages[] = {
-    [TEXTURE_SAMPLE] = GPU_TEXTURE_USAGE_SAMPLE,
-    [TEXTURE_RENDER] = GPU_TEXTURE_USAGE_RENDER,
-    [TEXTURE_COMPUTE] = GPU_TEXTURE_USAGE_STORAGE,
-    [TEXTURE_UPLOAD] = GPU_TEXTURE_USAGE_UPLOAD,
-    [TEXTURE_DOWNLOAD] = GPU_TEXTURE_USAGE_DOWNLOAD
-  };
-
-  uint32_t usage = 0;
-  for (uint32_t i = 0; i < sizeof(gpuTextureUsages) / sizeof(gpuTextureUsages[0]); i++) {
-    if (info->usage & (1 << i)) {
-      usage |= gpuTextureUsages[i];
-    }
-  }
 
   if (info->mipmaps == ~0u) {
     info->mipmaps = log2(MAX(MAX(info->size[0], info->size[1]), info->size[2])) + 1;
   }
 
   gpu_texture_info gpuInfo = {
-    .type = gpuTextureTypes[info->type],
-    .format = gpuTextureFormats[info->format],
+    .type = (gpu_texture_type) info->type,
+    .format = (gpu_texture_format) info->format,
     .size[0] = info->size[0],
     .size[1] = info->size[1],
     .size[2] = info->size[2],
     .mipmaps = info->mipmaps,
     .samples = info->samples,
-    .usage = usage,
+    .usage = info->usage,
     .srgb = info->srgb,
     .label = info->label
   };
@@ -636,7 +533,7 @@ Texture* lovrTextureCreateView(TextureView* view) {
 
   gpu_texture_view_info gpuInfo = {
     .source = view->source->gpu,
-    .type = gpuTextureTypes[view->type],
+    .type = (gpu_texture_type) view->type,
     .layerIndex = view->layerIndex,
     .layerCount = view->layerCount,
     .mipmapIndex = view->mipmapIndex,
