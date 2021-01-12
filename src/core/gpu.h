@@ -139,13 +139,13 @@ typedef enum {
 } gpu_wrap;
 
 typedef enum {
+  GPU_COMPARE_NONE,
   GPU_COMPARE_EQUAL,
   GPU_COMPARE_NEQUAL,
   GPU_COMPARE_LESS,
   GPU_COMPARE_LEQUAL,
   GPU_COMPARE_GREATER,
-  GPU_COMPARE_GEQUAL,
-  GPU_COMPARE_NONE
+  GPU_COMPARE_GEQUAL
 } gpu_compare_mode;
 
 typedef struct {
