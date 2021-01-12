@@ -115,9 +115,10 @@ endif()
 
 # Lua
 if(LOVR_USE_LUAJIT AND NOT EMSCRIPTEN)
-  if (APPLE)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pagezero_size 10000 -image_base 100000000")
-  endif()
+  # Required to make luajit compile without breaking linker cache on macOS Big Sur. Also, is a better,
+  # newer GC so enable it on all builds.
+  set(LUAJIT_ENABLE_GC64 ON)
+  
   if(LOVR_SYSTEM_LUA)
     pkg_search_module(LUAJIT REQUIRED luajit)
     include_directories(${LUAJIT_INCLUDE_DIRS})
