@@ -55,6 +55,7 @@ StringEntry lovrBlendMode[] = {
 };
 
 StringEntry lovrCompareMode[] = {
+  [COMPARE_NONE] = ENTRY("\0"),
   [COMPARE_EQUAL] = ENTRY("equal"),
   [COMPARE_NEQUAL] = ENTRY("notequal"),
   [COMPARE_LESS] = ENTRY("less"),
