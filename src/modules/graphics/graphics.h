@@ -153,6 +153,8 @@ void lovrGraphicsGetDepthNudge(float* nudge, float* sloped, float* clamp);
 void lovrGraphicsSetDepthNudge(float nudge, float sloped, float clamp);
 bool lovrGraphicsGetDepthClamp(void);
 void lovrGraphicsSetDepthClamp(bool clamp);
+void lovrGraphicsGetStencilTest(CompareMode* test, uint8_t* value);
+void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value);
 Winding lovrGraphicsGetWinding(void);
 void lovrGraphicsSetWinding(Winding winding);
 bool lovrGraphicsIsWireframe(void);
