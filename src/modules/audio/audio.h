@@ -26,15 +26,6 @@ typedef enum {
   UNIT_SECONDS,
   UNIT_SAMPLES
 } TimeUnit;
-
-typedef struct {
-  bool enable;
-  bool start;
-  char *deviceName;
-  int sampleRate;
-  SampleFormat format;
-} AudioConfig;
-
 typedef struct {
   AudioType type;
   const char *name;
@@ -42,9 +33,8 @@ typedef struct {
 } AudioDevice;
 typedef arr_t(AudioDevice) AudioDeviceArr;
 
-bool lovrAudioInit(AudioConfig config[2]);
+bool lovrAudioInit();
 void lovrAudioDestroy(void);
-bool lovrAudioReset(void);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
 float lovrAudioGetVolume(void);
