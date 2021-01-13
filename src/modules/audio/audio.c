@@ -420,7 +420,11 @@ uint32_t lovrAudioGetCaptureSampleCount() {
   return ma_pcm_rb_available_read(&state.captureRingbuffer);
 }
 
-static const char *format2string(SampleFormat f) { return f == SAMPLE_I16 ? "i16" : "f32"; }
+static const char *format2string(SampleFormat f) { switch(f) {
+  case SAMPLE_F32: return "f32";
+  case SAMPLE_I16: return "i16";
+  case SAMPLE_INVALID: return "invalid";
+}}
 
 struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, uint32_t offset) {
 

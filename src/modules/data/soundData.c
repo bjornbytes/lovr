@@ -90,13 +90,14 @@ static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uin
 
 
 SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, uint32_t sampleRate, SampleFormat format, struct Blob* blob) {
+  lovrAssert(format != SAMPLE_INVALID, "Invalid format");
   SoundData* soundData = lovrAlloc(SoundData);
   soundData->format = format;
   soundData->sampleRate = sampleRate;
   soundData->channels = channelCount;
   soundData->frames = frameCount;
   soundData->read = lovrSoundDataReadRaw;
-  
+
   if (blob) {
     soundData->blob = blob;
     lovrRetain(blob);
@@ -111,6 +112,7 @@ SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, ui
 }
 
 SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t channels, uint32_t sampleRate, SampleFormat format) {
+  lovrAssert(format != SAMPLE_INVALID, "Invalid format");
   SoundData* soundData = lovrAlloc(SoundData);
   soundData->format = format;
   soundData->sampleRate = sampleRate;
@@ -175,7 +177,7 @@ size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob) {
     if (availableFrames == 0) {
       return framesAppended;
     }
-    
+
     frameCount -= availableFrames;
     blobOffset += availableFrames * bytesPerFrame;
     framesAppended += availableFrames;
