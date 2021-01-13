@@ -302,7 +302,7 @@ static void _lovrSourceAssignConverter(Source *source) {
 
     ma_data_converter *converter = malloc(sizeof(ma_data_converter));
     ma_result converterStatus = ma_data_converter_init(&config, converter);
-    lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %d", state.converters.length, converterStatus);
+    lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %s (%d)", state.converters.length, ma_result_description(converterStatus), converterStatus);
 
     arr_expand(&state.converters, 1);
     state.converters.data[state.converters.length++] = source->converter = converter;
