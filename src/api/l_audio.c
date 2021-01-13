@@ -44,7 +44,7 @@ static int l_lovrAudioSetVolume(lua_State* L) {
 static int l_lovrAudioNewSource(lua_State* L) {
   Source* source = NULL;
   SoundData* soundData = luax_totype(L, 1, SoundData);
-  
+
   bool spatial = true;
   if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "spatial");
@@ -53,7 +53,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
     }
     lua_pop(L, 1);
   }
-  
+
 
   if (soundData) {
     source = lovrSourceCreate(soundData, spatial);
@@ -87,13 +87,13 @@ static int l_lovrAudioGetCaptureStream(lua_State* L) {
 }
 
 static int l_lovrAudioGetDevices(lua_State *L) {
-  AudioDevice *devices;
-  size_t count;
-  lovrAudioGetDevices(&devices, &count);
+  AudioType type = luax_checkenum(L, 1, AudioType, "playback");
+
+  AudioDeviceArr *devices = lovrAudioGetDevices(type);
   lua_newtable(L);
   int listOfDevicesIdx = lua_gettop(L);
-  for(int i = 0; i < count; i++) {
-    AudioDevice *device = &devices[i];
+  for(int i = 0; i < devices->length; i++) {
+    AudioDevice *device = &devices->data[i];
     lua_pushinteger(L, i+1); // key in listOfDevicesIdx, for the bottom settable
     lua_newtable(L);
     luax_pushenum(L, AudioType, device->type);
@@ -102,24 +102,19 @@ static int l_lovrAudioGetDevices(lua_State *L) {
     lua_setfield(L, -2, "name");
     lua_pushboolean(L, device->isDefault);
     lua_setfield(L, -2, "isDefault");
-    lua_pushlightuserdata(L, device->identifier);
-    lua_setfield(L, -2, "identifier");
-    lua_pushinteger(L, device->minChannels);
-    lua_setfield(L, -2, "minChannels");
-    lua_pushinteger(L, device->maxChannels);
-    lua_setfield(L, -2, "maxChannels");
 
     lua_settable(L, listOfDevicesIdx);
   }
-
+  lovrAudioFreeDevices(devices);
   return 1;
 }
 
 static int l_lovrUseDevice(lua_State *L) {
-  AudioDeviceIdentifier ident = lua_touserdata(L, 1);
-  int sampleRate = lua_tointeger(L, 2);
-  SampleFormat format = luax_checkenum(L, 3, SampleFormat, "invalid");
-  lovrAudioUseDevice(ident, sampleRate, format);
+  AudioType type = luax_checkenum(L, 1, AudioType, "playback");
+  const char *name = lua_tostring(L, 2);
+  int sampleRate = lua_tointeger(L, 3);
+  SampleFormat format = luax_checkenum(L, 4, SampleFormat, "invalid");
+  lovrAudioUseDevice(type, name, sampleRate, format);
   return 0;
 }
 
@@ -141,9 +136,9 @@ int luaopen_lovr_audio(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrAudio);
   luax_registertype(L, Source);
-  AudioConfig config[2] = { 
-    { .enable = true, .start = true, .format = SAMPLE_F32, .sampleRate = 44100 }, 
-    { .enable = false, .start = false, .format = SAMPLE_F32, .sampleRate = 44100 } 
+  AudioConfig config[2] = {
+    { .enable = true, .start = true, .format = SAMPLE_F32, .sampleRate = 44100 },
+    { .enable = false, .start = false, .format = SAMPLE_F32, .sampleRate = 44100 }
   };
   if (lovrAudioInit(config)) {
     luax_atexit(L, lovrAudioDestroy);
