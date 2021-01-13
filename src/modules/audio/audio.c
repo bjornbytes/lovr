@@ -310,7 +310,7 @@ static void _lovrSourceAssignConverter(Source *source) {
 
     ma_data_converter *converter = malloc(sizeof(ma_data_converter));
     ma_result converterStatus = ma_data_converter_init(&config, converter);
-    lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %d", state.converters.length, converterStatus);
+    lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %s (%d)", state.converters.length, ma_result_description(converterStatus), converterStatus);
 
     arr_expand(&state.converters, 1);
     state.converters.data[state.converters.length++] = source->converter = converter;
@@ -452,13 +452,13 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
     void *store;
     ma_result acquire_status = ma_pcm_rb_acquire_read(&state.captureRingbuffer, &availableFramesInRB, &store);
     if (acquire_status != MA_SUCCESS) {
-      lovrAssert(false, "Failed to acquire ring buffer for read: %d\n", acquire_status);
+      lovrAssert(false, "Failed to acquire ring buffer for read: %s (%d)\n", ma_result_description(acquire_status), acquire_status);
       return NULL;
     }
     memcpy(soundData->blob->data + offset * bytesPerFrame, store, availableFramesInRB * bytesPerFrame);
     ma_result commit_status = ma_pcm_rb_commit_read(&state.captureRingbuffer, availableFramesInRB, store);
     if (commit_status != MA_SUCCESS) {
-      lovrAssert(false, "Failed to commit ring buffer for read: %d\n", acquire_status);
+      lovrAssert(false, "Failed to commit ring buffer for read: %s (%d)\n", ma_result_description(commit_status), commit_status);
       return NULL;
     }
     frameCount -= availableFramesInRB;
