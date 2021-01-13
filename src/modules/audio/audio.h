@@ -71,4 +71,5 @@ AudioDeviceArr* lovrAudioGetDevices(AudioType type);
 // free a list of devices returned from above call
 void lovrAudioFreeDevices(AudioDeviceArr *devices);
 
-void lovrAudioUseDevice(AudioType type, const char *deviceName, int sampleRate, SampleFormat format);
+void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate);
+void lovrAudioUseDevice(AudioType type, const char *deviceName);
