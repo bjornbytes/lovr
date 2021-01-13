@@ -121,7 +121,7 @@ static void onPlayback(ma_device* device, void* output, const void* _, uint32_t 
 static void onCapture(ma_device* device, void* output, const void* input, uint32_t frames) {
   // note: ma_pcm_rb is lockless
   void *store;
-  size_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, OUTPUT_FORMAT);
+  size_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, state.config[AUDIO_CAPTURE].format);
   while(frames > 0) {
     uint32_t availableFrames = frames;
     ma_result acquire_status = ma_pcm_rb_acquire_write(&state.captureRingbuffer, &availableFrames, &store);
