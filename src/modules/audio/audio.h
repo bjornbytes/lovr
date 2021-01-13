@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "modules/data/soundData.h"
+#include "core/arr.h"
 
 #pragma once
 
@@ -26,7 +27,7 @@ typedef void* AudioDeviceIdentifier;
 typedef struct {
   bool enable;
   bool start;
-  AudioDeviceIdentifier device;
+  char *deviceName;
   int sampleRate;
   SampleFormat format;
 } AudioConfig;
@@ -35,9 +36,8 @@ typedef struct {
   AudioType type;
   const char *name;
   bool isDefault;
-  AudioDeviceIdentifier identifier;
-  int minChannels, maxChannels;
 } AudioDevice;
+typedef arr_t(AudioDevice) AudioDeviceArr;
 
 bool lovrAudioInit(AudioConfig config[2]);
 void lovrAudioDestroy(void);
@@ -67,5 +67,9 @@ struct SoundData* lovrSourceGetSoundData(Source* source);
 
 struct SoundData* lovrAudioGetCaptureStream();
 
-void lovrAudioGetDevices(AudioDevice **outDevices, size_t *outCount);
-void lovrAudioUseDevice(AudioDeviceIdentifier identifier, int sampleRate, SampleFormat format);
+// Return a list of devices for the given type. Must be freed with lovrAudioFreeDevices.
+AudioDeviceArr* lovrAudioGetDevices(AudioType type);
+// free a list of devices returned from above call
+void lovrAudioFreeDevices(AudioDeviceArr *devices);
+
+void lovrAudioUseDevice(AudioType type, const char *deviceName, int sampleRate, SampleFormat format);
