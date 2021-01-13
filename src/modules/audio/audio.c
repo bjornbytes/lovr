@@ -221,7 +221,7 @@ bool lovrAudioInitDevice(AudioType type) {
       lovrLog(LOG_WARN, "audio", "No audio playback device called '%s'; falling back to default.", state.config[AUDIO_PLAYBACK].deviceName);
     }
     config.playback.channels = OUTPUT_CHANNELS;
-  } else {
+  } else { // if AUDIO_CAPTURE
     ma_device_type deviceType = ma_device_type_capture;
     config = ma_device_config_init(deviceType);
 
@@ -499,13 +499,24 @@ void lovrAudioFreeDevices(AudioDeviceArr *devices) {
   arr_free(devices);
 }
 
-void lovrAudioUseDevice(AudioType type, const char *deviceName, int sampleRate, SampleFormat format) {
+void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate)
+{
+  if (sampleRate) state.config[AUDIO_CAPTURE].sampleRate = sampleRate;
+  if (format != SAMPLE_INVALID) state.config[AUDIO_CAPTURE].format = format;
+
+  // restart device if needed
+  ma_uint32 previousState = state.devices[AUDIO_CAPTURE].state;
+  if (previousState != MA_STATE_UNINITIALIZED && previousState != MA_STATE_STOPPED) {
+    lovrAudioStop(AUDIO_CAPTURE);
+    lovrAudioStart(AUDIO_CAPTURE);
+  }
+}
+
+void lovrAudioUseDevice(AudioType type, const char *deviceName) {
   free(state.config[type].deviceName);
   state.config[type].deviceName = strdup(deviceName);
-  if (sampleRate) state.config[type].sampleRate = sampleRate;
-  if (format != SAMPLE_INVALID) state.config[type].format = format;
 
-
+  // restart device if needed
   ma_uint32 previousState = state.devices[type].state;
   if (previousState != MA_STATE_UNINITIALIZED && previousState != MA_STATE_STOPPED) {
     lovrAudioStop(type);

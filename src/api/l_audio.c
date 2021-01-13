@@ -137,12 +137,17 @@ static int l_lovrAudioGetDevices(lua_State *L) {
   return 1;
 }
 
-static int l_lovrUseDevice(lua_State *L) {
+static int l_lovrAudioUseDevice(lua_State *L) {
   AudioType type = luax_checkenum(L, 1, AudioType, "playback");
   const char *name = lua_tostring(L, 2);
-  int sampleRate = lua_tointeger(L, 3);
-  SampleFormat format = luax_checkenum(L, 4, SampleFormat, "invalid");
-  lovrAudioUseDevice(type, name, sampleRate, format);
+  lovrAudioUseDevice(type, name);
+  return 0;
+}
+
+static int l_lovrAudioSetCaptureFormat(lua_State *L) {
+  SampleFormat format = luax_checkenum(L, 1, SampleFormat, "invalid");
+  int sampleRate = lua_tointeger(L, 2);
+  lovrAudioSetCaptureFormat(format, sampleRate);
   return 0;
 }
 
@@ -156,7 +161,8 @@ static const luaL_Reg lovrAudio[] = {
   { "capture", l_lovrAudioCapture },
   { "getCaptureDuration", l_lovrAudioGetCaptureDuration },
   { "getDevices", l_lovrAudioGetDevices },
-  { "useDevice", l_lovrUseDevice },
+  { "useDevice", l_lovrAudioUseDevice },
+  { "setCaptureFormat", l_lovrAudioSetCaptureFormat },
   { NULL, NULL }
 };
 
