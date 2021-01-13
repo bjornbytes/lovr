@@ -30,7 +30,11 @@ static int l_lovrSoundDataGetDuration(lua_State* L) {
   return 1;
 }
 
-static const char *format2string(SampleFormat f) { return f == SAMPLE_I16 ? "i16" : "f32"; }
+static const char *format2string(SampleFormat f) { switch(f) {
+  case SAMPLE_F32: return "f32";
+  case SAMPLE_I16: return "i16";
+  case SAMPLE_INVALID: return "invalid";
+}}
 
 // soundData:read(dest, {size}, {offset}) -> framesRead
 // soundData:read({size}) -> framesRead

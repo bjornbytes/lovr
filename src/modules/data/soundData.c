@@ -91,13 +91,14 @@ static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uin
 
 
 SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, uint32_t sampleRate, SampleFormat format, struct Blob* blob) {
+  lovrAssert(format != SAMPLE_INVALID, "Invalid format");
   SoundData* soundData = lovrAlloc(SoundData);
   soundData->format = format;
   soundData->sampleRate = sampleRate;
   soundData->channels = channelCount;
   soundData->frames = frameCount;
   soundData->read = lovrSoundDataReadRaw;
-  
+
   if (blob) {
     soundData->blob = blob;
     lovrRetain(blob);
@@ -112,6 +113,7 @@ SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, ui
 }
 
 SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t channels, uint32_t sampleRate, SampleFormat format) {
+  lovrAssert(format != SAMPLE_INVALID, "Invalid format");
   SoundData* soundData = lovrAlloc(SoundData);
   soundData->format = format;
   soundData->sampleRate = sampleRate;
@@ -120,7 +122,7 @@ SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t chann
   soundData->read = lovrSoundDataReadRing;
   soundData->ring = calloc(1, sizeof(ma_pcm_rb));
   ma_result rbStatus = ma_pcm_rb_init(miniAudioFormatFromLovr[format], channels, bufferSizeInFrames, NULL, NULL, soundData->ring);
-  lovrAssert(rbStatus == MA_SUCCESS, "Failed to create ring buffer for streamed SoundData");
+  lovrAssert(rbStatus == MA_SUCCESS, "Failed to create ring buffer for streamed SoundData: %s (%d)", ma_result_description(rbStatus), rbStatus);
   return soundData;
 }
 
@@ -174,14 +176,14 @@ size_t lovrSoundDataStreamAppendBuffer(SoundData *dest, const void *buf, size_t 
   while(frameCount > 0) {
     uint32_t availableFrames = frameCount;
     ma_result acquire_status = ma_pcm_rb_acquire_write(dest->ring, &availableFrames, &store);
-    lovrAssert(acquire_status == MA_SUCCESS, "Failed to acquire ring buffer");
+    lovrAssert(acquire_status == MA_SUCCESS, "Failed to acquire ring buffer: %s (%d)", ma_result_description(acquire_status), acquire_status);
     memcpy(store, charBuf + blobOffset, availableFrames * bytesPerFrame);
     ma_result commit_status = ma_pcm_rb_commit_write(dest->ring, availableFrames, store);
-    lovrAssert(commit_status == MA_SUCCESS, "Failed to commit to ring buffer");
+    lovrAssert(commit_status == MA_SUCCESS, "Failed to commit to ring buffer: %s (%d)", ma_result_description(commit_status), commit_status);
     if (availableFrames == 0) {
       return framesAppended;
     }
-    
+
     frameCount -= availableFrames;
     blobOffset += availableFrames * bytesPerFrame;
     framesAppended += availableFrames;

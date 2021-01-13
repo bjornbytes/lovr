@@ -33,6 +33,12 @@ struct Source {
   float transform[16];
 };
 
+typedef struct {
+  char *deviceName;
+  int sampleRate;
+  SampleFormat format;
+} AudioConfig;
+
 static inline int outputChannelCountForSource(Source *source) { return source->spatial ? 1 : OUTPUT_CHANNELS; }
 
 static struct {
@@ -45,8 +51,6 @@ static struct {
   SoundData *captureStream;
   arr_t(ma_data_converter*) converters;
   Spatializer* spatializer;
-
-  AudioDevice *deviceInfos;
 } state;
 
 // Device callbacks
@@ -128,10 +132,11 @@ static Spatializer *spatializers[] = {
 
 // Entry
 
-bool lovrAudioInit(AudioConfig config[2]) {
+bool lovrAudioInit() {
   if (state.initialized) return false;
 
-  memcpy(state.config, config, sizeof(state.config));
+  state.config[AUDIO_PLAYBACK] = (AudioConfig){ .format = SAMPLE_F32, .sampleRate = 44100 };
+  state.config[AUDIO_CAPTURE] = (AudioConfig){ .format = SAMPLE_F32, .sampleRate = 44100 };
 
   if (ma_context_init(NULL, 0, NULL, &state.context)) {
     return false;
@@ -139,19 +144,6 @@ bool lovrAudioInit(AudioConfig config[2]) {
 
   int mutexStatus = ma_mutex_init(&state.playbackLock);
   lovrAssert(mutexStatus == MA_SUCCESS, "Failed to create audio mutex");
-
-  lovrAudioReset();
-
-  for (int i = 0; i < AUDIO_TYPE_COUNT; i++) {
-    if (config[i].enable && config[i].start) {
-      int startStatus = ma_device_start(&state.devices[i]);
-      if(startStatus != MA_SUCCESS) {
-        lovrAudioDestroy();
-        lovrAssert(false, "Failed to start audio device %d\n", i);
-        return false;
-      }
-    }
-  }
 
   for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
     if (spatializers[i]->init()) {
@@ -168,8 +160,9 @@ bool lovrAudioInit(AudioConfig config[2]) {
 
 void lovrAudioDestroy() {
   if (!state.initialized) return;
-  ma_device_uninit(&state.devices[AUDIO_PLAYBACK]);
-  ma_device_uninit(&state.devices[AUDIO_CAPTURE]);
+  lovrAudioStop(AUDIO_PLAYBACK);
+  lovrAudioStop(AUDIO_CAPTURE);
+
   ma_mutex_uninit(&state.playbackLock);
   ma_context_uninit(&state.context);
   lovrRelease(SoundData, state.captureStream);
@@ -179,27 +172,59 @@ void lovrAudioDestroy() {
     free(state.converters.data[i]);
   }
   arr_free(&state.converters);
+  free(state.config[0].deviceName);
+  free(state.config[1].deviceName);
   memset(&state, 0, sizeof(state));
 }
 
 bool lovrAudioInitDevice(AudioType type) {
-  ma_device_type deviceType = (type == AUDIO_PLAYBACK) ? ma_device_type_playback : ma_device_type_capture;
 
-  ma_device_config config = ma_device_config_init(deviceType);
-  config.sampleRate = state.config[type].sampleRate;
-  lovrAssert(state.config[AUDIO_PLAYBACK].format == OUTPUT_FORMAT, "Only f32 playback format currently supported");
-  config.playback.format = miniAudioFormatFromLovr[state.config[AUDIO_PLAYBACK].format];
-  config.capture.format = miniAudioFormatFromLovr[state.config[AUDIO_CAPTURE].format];
-  config.playback.pDeviceID = state.config[AUDIO_PLAYBACK].device;
-  config.capture.pDeviceID = state.config[AUDIO_CAPTURE].device;
-  config.playback.channels = OUTPUT_CHANNELS;
-  config.capture.channels = CAPTURE_CHANNELS;
-  config.dataCallback = callbacks[type];
+  ma_device_info *playbackDevices;
+  ma_uint32 playbackDeviceCount;
+  ma_device_info *captureDevices;
+  ma_uint32 captureDeviceCount;
+  ma_result gettingStatus = ma_context_get_devices(&state.context, &playbackDevices, &playbackDeviceCount, &captureDevices, &captureDeviceCount);
+  lovrAssert(gettingStatus == MA_SUCCESS, "Failed to enumerate audio devices during initialization: %s (%d)", ma_result_description(gettingStatus), gettingStatus);
+
+  ma_device_config config;
+  if (type == AUDIO_PLAYBACK) {
+    ma_device_type deviceType = ma_device_type_playback;
+    config = ma_device_config_init(deviceType);
+
+    lovrAssert(state.config[AUDIO_PLAYBACK].format == OUTPUT_FORMAT, "Only f32 playback format currently supported");
+    config.playback.format = miniAudioFormatFromLovr[state.config[AUDIO_PLAYBACK].format];
+    for(int i = 0; i < playbackDeviceCount && state.config[AUDIO_PLAYBACK].deviceName; i++) {
+      if (strcmp(playbackDevices[i].name, state.config[AUDIO_PLAYBACK].deviceName) == 0) {
+        config.playback.pDeviceID = &playbackDevices[i].id;
+      }
+    }
+    if (state.config[AUDIO_PLAYBACK].deviceName && config.playback.pDeviceID == NULL) {
+      lovrLog(LOG_WARN, "audio", "No audio playback device called '%s'; falling back to default.", state.config[AUDIO_PLAYBACK].deviceName);
+    }
+    config.playback.channels = OUTPUT_CHANNELS;
+  } else { // if AUDIO_CAPTURE
+    ma_device_type deviceType = ma_device_type_capture;
+    config = ma_device_config_init(deviceType);
+
+    config.capture.format = miniAudioFormatFromLovr[state.config[AUDIO_CAPTURE].format];
+    for(int i = 0; i < captureDeviceCount && state.config[AUDIO_CAPTURE].deviceName; i++) {
+      if (strcmp(captureDevices[i].name, state.config[AUDIO_CAPTURE].deviceName) == 0) {
+        config.capture.pDeviceID = &playbackDevices[i].id;
+      }
+    }
+    if (state.config[AUDIO_CAPTURE].deviceName && config.capture.pDeviceID == NULL) {
+      lovrLog(LOG_WARN, "audio", "No audio capture device called '%s'; falling back to default.", state.config[AUDIO_CAPTURE].deviceName);
+    }
+    config.capture.channels = CAPTURE_CHANNELS;
+  }
   config.performanceProfile = ma_performance_profile_low_latency;
+  config.dataCallback = callbacks[type];
+  config.sampleRate = state.config[type].sampleRate;
 
-  int err = ma_device_init(&state.context, &config, &state.devices[type]); 
+
+  ma_result err = ma_device_init(&state.context, &config, &state.devices[type]);
   if (err != MA_SUCCESS) {
-    lovrLog(LOG_WARN, "audio", "Failed to enable audio device %d: %d\n", type, err);
+    lovrLog(LOG_WARN, "audio", "Failed to enable %s audio device: %s (%d)\n", type == AUDIO_PLAYBACK ? "playback" : "capture", ma_result_description(err), err);
     return false;
   }
 
@@ -216,39 +241,22 @@ bool lovrAudioInitDevice(AudioType type) {
   return true;
 }
 
-bool lovrAudioReset() {
-  for (int i = 0; i < AUDIO_TYPE_COUNT; i++) {
-    // clean up previous state ...
-    if (state.devices[i].state != 0) {
-      ma_device_uninit(&state.devices[i]);
-    }
-
-    // .. and create new one
-    if (state.config[i].enable) {
-      lovrAudioInitDevice(i);
-    }
-  }
-
-  return true;
-}
-
 bool lovrAudioStart(AudioType type) {
-  if (state.config[type].enable == false) {
-    if (lovrAudioInitDevice(type) == false) {
-      if (type == AUDIO_CAPTURE) {
-        lovrPlatformRequestPermission(AUDIO_CAPTURE_PERMISSION);
-        // lovrAudioStart will be retried from boot.lua upon permission granted event
-      }
-      return false;
-    }
-    state.config[type].enable = state.config[type].start = true;
+  bool initResult = lovrAudioInitDevice(type);
+  if (initResult == false && type == AUDIO_CAPTURE) {
+    lovrPlatformRequestPermission(AUDIO_CAPTURE_PERMISSION);
+    // lovrAudioStart will be retried from boot.lua upon permission granted event
+    return false;
   }
-  int status = ma_device_start(&state.devices[type]);
+  ma_result status = ma_device_start(&state.devices[type]);
   return status == MA_SUCCESS;
 }
 
 bool lovrAudioStop(AudioType type) {
-  return ma_device_stop(&state.devices[type]) == MA_SUCCESS;
+  ma_result stoppingResult = ma_device_stop(&state.devices[type]);
+  ma_device_uninit(&state.devices[type]);
+
+  return stoppingResult == MA_SUCCESS;
 }
 
 float lovrAudioGetVolume() {
@@ -294,8 +302,8 @@ static void _lovrSourceAssignConverter(Source *source) {
 
     ma_data_converter *converter = malloc(sizeof(ma_data_converter));
     ma_result converterStatus = ma_data_converter_init(&config, converter);
-    lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %d", state.converters.length, converterStatus);
-    
+    lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %s (%d)", state.converters.length, ma_result_description(converterStatus), converterStatus);
+
     arr_expand(&state.converters, 1);
     state.converters.data[state.converters.length++] = source->converter = converter;
   }
@@ -306,7 +314,7 @@ Source* lovrSourceCreate(SoundData* sound, bool spatial) {
   source->sound = sound;
   lovrRetain(source->sound);
   source->volume = 1.f;
-  
+
   source->spatial = spatial;
   mat4_identity(source->transform);
   _lovrSourceAssignConverter(source);
@@ -403,45 +411,58 @@ struct SoundData* lovrAudioGetCaptureStream()
   return state.captureStream;
 }
 
-// Devices
+AudioDeviceArr* lovrAudioGetDevices(AudioType type) {
+  ma_device_info *playbackDevices;
+  ma_uint32 playbackDeviceCount;
+  ma_device_info *captureDevices;
+  ma_uint32 captureDeviceCount;
+  ma_result gettingStatus = ma_context_get_devices(&state.context, &playbackDevices, &playbackDeviceCount, &captureDevices, &captureDeviceCount);
+  lovrAssert(gettingStatus == MA_SUCCESS, "Failed to enumerate audio devices: %s (%d)", ma_result_description(gettingStatus), gettingStatus);
 
-void lovrAudioGetDevices(AudioDevice **outDevices, size_t *outCount) {
-  if(state.deviceInfos) 
-    free(state.deviceInfos);
-  
-  ma_result gettingStatus = ma_context_get_devices(&state.context, NULL, NULL, NULL, NULL);
-  lovrAssert(gettingStatus == MA_SUCCESS, "Failed to enumerate audio devices: %d", gettingStatus);
-  *outCount = state.context.playbackDeviceInfoCount + state.context.captureDeviceInfoCount;
-  *outDevices = state.deviceInfos = calloc(*outCount, sizeof(AudioDevice));
-  for(int i = 0; i < *outCount; i++) {
-    ma_device_info *mainfo = &state.context.pDeviceInfos[i];
-    AudioDevice *lovrInfo = &state.deviceInfos[i];
-    lovrInfo->name = mainfo->name;
-    lovrInfo->type = i < state.context.playbackDeviceInfoCount ? AUDIO_PLAYBACK : AUDIO_CAPTURE;
-    lovrInfo->isDefault = mainfo->isDefault; // remove _private after bumping miniaudio
-    lovrInfo->identifier = &mainfo->id;
-    lovrInfo->minChannels = mainfo->minChannels;
-    lovrInfo->maxChannels = mainfo->maxChannels;
+  ma_uint32 count = type == AUDIO_PLAYBACK ? playbackDeviceCount : captureDeviceCount;
+  ma_device_info *madevices = type == AUDIO_PLAYBACK ? playbackDevices : captureDevices;
+  AudioDeviceArr *devices = calloc(1, sizeof(AudioDeviceArr));
+  devices->capacity = devices->length = count;
+  devices->data = calloc(count, sizeof(AudioDevice));
+
+  for(int i = 0; i < count; i++) {
+    ma_device_info *mainfo = &madevices[i];
+    AudioDevice *lovrInfo = &devices->data[i];
+    lovrInfo->name = strdup(mainfo->name);
+    lovrInfo->type = type;
+    lovrInfo->isDefault = mainfo->isDefault;
+  }
+  return devices;
+}
+
+void lovrAudioFreeDevices(AudioDeviceArr *devices) {
+  for(int i = 0; i < devices->length; i++) {
+    free((void*)devices->data[i].name);
+  }
+  arr_free(devices);
+}
+
+void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate)
+{
+  if (sampleRate) state.config[AUDIO_CAPTURE].sampleRate = sampleRate;
+  if (format != SAMPLE_INVALID) state.config[AUDIO_CAPTURE].format = format;
+
+  // restart device if needed
+  ma_uint32 previousState = state.devices[AUDIO_CAPTURE].state;
+  if (previousState != MA_STATE_UNINITIALIZED && previousState != MA_STATE_STOPPED) {
+    lovrAudioStop(AUDIO_CAPTURE);
+    lovrAudioStart(AUDIO_CAPTURE);
   }
 }
 
-void lovrAudioUseDevice(AudioDeviceIdentifier identifier, int sampleRate, SampleFormat format) {
-  int deviceCount = state.context.playbackDeviceInfoCount + state.context.captureDeviceInfoCount;
-  for(int i = 0; i < deviceCount; i++) {
-    if (identifier == &state.context.pDeviceInfos[i].id) {
-      AudioType type = i < state.context.playbackDeviceInfoCount ? AUDIO_PLAYBACK : AUDIO_CAPTURE;
-      state.config[type].device = identifier;
-      if (sampleRate) state.config[type].sampleRate = sampleRate;
-      if (format != SAMPLE_INVALID) state.config[type].format = format;
-      lovrLog(LOG_INFO, "audio", "Switching to %s device %s (%p)", type?"capture":"playback", state.context.pDeviceInfos[i].name, identifier);
-      ma_device_uninit(&state.devices[type]);
-      if(state.config[type].enable)
-        lovrAudioInitDevice(type);
-      if(state.config[type].start)
-        ma_device_start(&state.devices[type]);
+void lovrAudioUseDevice(AudioType type, const char *deviceName) {
+  free(state.config[type].deviceName);
+  state.config[type].deviceName = strdup(deviceName);
 
-      return;
-    }
+  // restart device if needed
+  ma_uint32 previousState = state.devices[type].state;
+  if (previousState != MA_STATE_UNINITIALIZED && previousState != MA_STATE_STOPPED) {
+    lovrAudioStop(type);
+    lovrAudioStart(type);
   }
-  lovrAssert(false, "Couldn't find the given identifier");
 }
