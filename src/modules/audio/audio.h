@@ -39,9 +39,8 @@ typedef struct {
 } AudioDevice;
 typedef arr_t(AudioDevice) AudioDeviceArr;
 
-bool lovrAudioInit(AudioConfig config[2]);
+bool lovrAudioInit();
 void lovrAudioDestroy(void);
-bool lovrAudioReset(void);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
 float lovrAudioGetVolume(void);
