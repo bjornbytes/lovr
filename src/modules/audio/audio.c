@@ -452,13 +452,13 @@ struct SoundData* lovrAudioCapture(uint32_t frameCount, SoundData *soundData, ui
     void *store;
     ma_result acquire_status = ma_pcm_rb_acquire_read(&state.captureRingbuffer, &availableFramesInRB, &store);
     if (acquire_status != MA_SUCCESS) {
-      lovrAssert(false, "Failed to acquire ring buffer for read: %s (%d)\n", ma_result_description(acquire_status), acquire_status);
+      lovrThrow("Failed to acquire ring buffer for read: %s (%d)\n", ma_result_description(acquire_status), acquire_status);
       return NULL;
     }
     memcpy(soundData->blob->data + offset * bytesPerFrame, store, availableFramesInRB * bytesPerFrame);
     ma_result commit_status = ma_pcm_rb_commit_read(&state.captureRingbuffer, availableFramesInRB, store);
     if (commit_status != MA_SUCCESS) {
-      lovrAssert(false, "Failed to commit ring buffer for read: %s (%d)\n", ma_result_description(commit_status), commit_status);
+      lovrThrow("Failed to commit ring buffer for read: %s (%d)\n", ma_result_description(commit_status), commit_status);
       return NULL;
     }
     frameCount -= availableFramesInRB;
