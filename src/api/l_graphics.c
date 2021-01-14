@@ -2,6 +2,7 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "core/maf.h"
 #include "core/os.h"
 #include "core/util.h"
 #include <lua.h>
@@ -739,7 +740,97 @@ static int l_lovrGraphicsScale(lua_State* L) {
 static int l_lovrGraphicsTransform(lua_State* L) {
   float transform[16];
   luax_readmat4(L, 1, transform, 3);
-  lovrGraphicsMatrixTransform(transform);
+  lovrGraphicsTransform(transform);
+  return 0;
+}
+
+static int l_lovrGraphicsGetViewPose(lua_State* L) {
+  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  lovrAssert(view < 2, "Invalid view index %d", view + 1);
+  if (lua_gettop(L) > 1) {
+    float* matrix = luax_checkvector(L, 2, V_MAT4, NULL);
+    bool invert = lua_toboolean(L, 3);
+    lovrGraphicsGetViewMatrix(view, matrix);
+    if (!invert) mat4_invert(matrix);
+    lua_settop(L, 2);
+    return 1;
+  } else {
+    float matrix[16], angle, ax, ay, az;
+    lovrGraphicsGetViewMatrix(view, matrix);
+    mat4_invert(matrix);
+    mat4_getAngleAxis(matrix, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, matrix[12]);
+    lua_pushnumber(L, matrix[13]);
+    lua_pushnumber(L, matrix[14]);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+    return 7;
+  }
+}
+
+static int l_lovrGraphicsSetViewPose(lua_State* L) {
+  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  lovrAssert(view < 2, "Invalid view index %d", view + 1);
+  VectorType type;
+  float* p = luax_tovector(L, 2, &type);
+  if (p && type == V_MAT4) {
+    float matrix[16];
+    mat4_init(matrix, p);
+    bool inverted = lua_toboolean(L, 3);
+    if (!inverted) mat4_invert(matrix);
+    lovrGraphicsSetViewMatrix(view, matrix);
+  } else {
+    int index = 2;
+    float position[4], orientation[4], matrix[16];
+    index = luax_readvec3(L, index, position, "vec3, number, or mat4");
+    index = luax_readquat(L, index, orientation, NULL);
+    mat4_fromQuat(matrix, orientation);
+    memcpy(matrix + 12, position, 3 * sizeof(float));
+    mat4_invert(matrix);
+    lovrGraphicsSetViewMatrix(view, matrix);
+  }
+  return 0;
+}
+
+static int l_lovrGraphicsGetProjection(lua_State* L) {
+  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  lovrAssert(view < 2, "Invalid view index %d", view + 1);
+  if (lua_gettop(L) > 1) {
+    float* matrix = luax_checkvector(L, 2, V_MAT4, NULL);
+    lovrGraphicsGetProjection(view, matrix);
+    lua_settop(L, 2);
+    return 1;
+  } else {
+    float matrix[16], left, right, up, down;
+    lovrGraphicsGetProjection(view, matrix);
+    mat4_getFov(matrix, &left, &right, &up, &down);
+    lua_pushnumber(L, left);
+    lua_pushnumber(L, right);
+    lua_pushnumber(L, up);
+    lua_pushnumber(L, down);
+    return 4;
+  }
+}
+
+static int l_lovrGraphicsSetProjection(lua_State* L) {
+  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  lovrAssert(view < 2, "Invalid view index %d", view + 1);
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    float left = luax_checkfloat(L, 2);
+    float right = luax_checkfloat(L, 3);
+    float up = luax_checkfloat(L, 4);
+    float down = luax_checkfloat(L, 5);
+    float clipNear = luax_optfloat(L, 6, .1f);
+    float clipFar = luax_optfloat(L, 7, 100.f);
+    float matrix[16];
+    mat4_fov(matrix, left, right, up, down, clipNear, clipFar);
+    lovrGraphicsSetProjection(view, matrix);
+  } else {
+    float* matrix = luax_checkvector(L, 2, V_MAT4, "mat4 or number");
+    lovrGraphicsSetProjection(view, matrix);
+  }
   return 0;
 }
 
@@ -958,6 +1049,10 @@ static const luaL_Reg lovrGraphics[] = {
   { "rotate", l_lovrGraphicsRotate },
   { "scale", l_lovrGraphicsScale },
   { "transform", l_lovrGraphicsTransform },
+  { "getViewPose", l_lovrGraphicsGetViewPose },
+  { "setViewPose", l_lovrGraphicsSetViewPose },
+  { "getProjection", l_lovrGraphicsGetProjection },
+  { "setProjection", l_lovrGraphicsSetProjection },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
   { NULL, NULL }
