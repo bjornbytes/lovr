@@ -1705,6 +1705,7 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
       index = lagoon.count++;
       pool = &lagoon.data[index];
 
+      // TODO
       VkDescriptorPoolSize poolSizes[] = {
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024 },
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1024 },
@@ -2439,6 +2440,11 @@ static void beginCommandBuffer() {
 }
 
 static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo, VkDescriptorSetLayoutCreateInfo* layouts, VkDescriptorSetLayoutBinding bindings[4][32]) {
+  const uint32_t* words = source->code;
+  if (words[0] != 0x07230203) {
+    return false;
+  }
+
   VkShaderModuleCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
     .codeSize = source->size,
@@ -2462,126 +2468,123 @@ static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, V
   uint32_t cache[8192];
   memset(cache, 0xff, sizeof(cache));
 
-  const uint32_t* words = source->code;
-  if (words[0] == 0x07230203) {
-    uint32_t wordCount = source->size / sizeof(uint32_t);
-    const uint32_t* instruction = words + 5;
-    while (instruction < words + wordCount) {
-      uint16_t opcode = instruction[0] & 0xffff;
-      uint16_t length = instruction[0] >> 16;
-      switch (opcode) {
-        case 71: { // OpDecorate
-          uint32_t target = instruction[1];
-          uint32_t decoration = instruction[2];
+  uint32_t wordCount = source->size / sizeof(uint32_t);
+  const uint32_t* instruction = words + 5;
+  while (instruction < words + wordCount) {
+    uint16_t opcode = instruction[0] & 0xffff;
+    uint16_t length = instruction[0] >> 16;
+    switch (opcode) {
+      case 71: { // OpDecorate
+        uint32_t target = instruction[1];
+        uint32_t decoration = instruction[2];
 
-          // Skip irrelevant decorations, skip out of bounds ids, skip resources that won't fit
-          if ((decoration != 33 && decoration != 34) || target >= COUNTOF(cache) || resourceCount > COUNTOF(resources)) {
-            break;
-          }
-
-          uint32_t resource = cache[target] == ~0u ? (cache[target] = resourceCount++) : cache[target];
-
-          // Decorate the resource
-          if (decoration == 33) {
-            resources[resource].index = instruction[3];
-          } else if (decoration == 34) {
-            resources[resource].group = instruction[3];
-          }
-
+        // Skip irrelevant decorations, skip out of bounds ids, skip resources that won't fit
+        if ((decoration != 33 && decoration != 34) || target >= COUNTOF(cache) || resourceCount > COUNTOF(resources)) {
           break;
         }
-        case 19: // OpTypeVoid
-        case 20: // OpTypeBool
-        case 21: // OpTypeInt
-        case 22: // OpTypeFloat
-        case 23: // OpTypeVector
-        case 24: // OpTypeMatrix
-        case 25: // OpTypeImage
-        case 26: // OpTypeSampler
-        case 27: // OpTypeSampledImage
-        case 28: // OpTypeArray
-        case 29: // OpTypeRuntimeArray
-        case 30: // OpTypeStruct
-        case 31: // OpTypeOpaque
-        case 32: // OpTypePointer
-          cache[instruction[1]] = instruction - words;
-          break;
-        case 59: { // OpVariable
-          uint32_t type = instruction[1];
-          uint32_t id = instruction[2];
-          uint32_t storageClass = instruction[3];
 
-          // Skip if it wasn't decorated with a group/binding
-          if (cache[id] == ~0u) {
-            break;
-          }
+        uint32_t resource = cache[target] == ~0u ? (cache[target] = resourceCount++) : cache[target];
 
-          uint32_t pointerId = type;
-          const uint32_t* pointer = words + cache[pointerId];
-          uint32_t pointerTypeId = pointer[3];
-          const uint32_t* pointerType = words + cache[pointerTypeId];
-
-          // If it's a pointer to an array, set the resource array size and keep going
-          if ((pointerType[0] & 0xffff) == 28 /* OpTypeArray */) {
-            uint32_t sizeId = pointerType[3];
-            const uint32_t* size = words + cache[sizeId];
-            if ((size[0] & 0xffff) == 43 /* OpConstant */ || (size[0] & 0xffff) == 50 /* OpSpecConstant */) {
-              resources[cache[id]].count = size[3];
-            } else {
-              return false; // XXX
-            }
-
-            pointerTypeId = pointerType[2];
-            pointerType = words + cache[pointerTypeId];
-          } else {
-            resources[cache[id]].count = 1;
-          }
-
-          // Use StorageClass to detect uniform/storage buffers
-          if (storageClass == 12 /* StorageBuffer */) {
-            resources[cache[id]].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            break;
-          } else if (storageClass == 2 /* Uniform */) {
-            resources[cache[id]].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            break;
-          }
-
-          // If it's a sampled image, unwrap to get to the image type
-          // If it's not an image or a sampled image, then it's weird, fail
-          if ((pointerType[0] & 0xffff) == 27 /* OpTypeSampledImage */) {
-            pointerTypeId = pointerType[2];
-            pointerType = words + cache[pointerTypeId];
-          } else if ((pointerType[0] & 0xffff) != 25 /* OpTypeImage */) {
-            vkDestroyShaderModule(state.device, *handle, NULL);
-            return false; // XXX
-          }
-
-          // If it's a buffer (uniform/storage texel buffer) or an input attachment, fail
-          if (pointerType[3] == 5 /* DimBuffer */ || pointerType[3] == 6 /* DimSubpassData */) {
-            vkDestroyShaderModule(state.device, *handle, NULL);
-            return false; // XXX
-          }
-
-          // Read the Sampled key to determine if it's a sampled image (1) or a storage image (2)
-          if (pointerType[7] == 1) {
-            resources[cache[id]].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-          } else if (pointerType[7] == 2) {
-            resources[cache[id]].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-          } else {
-            vkDestroyShaderModule(state.device, *handle, NULL);
-            return false; // XXX
-          }
-
-          break;
+        // Decorate the resource
+        if (decoration == 33) {
+          resources[resource].index = instruction[3];
+        } else if (decoration == 34) {
+          resources[resource].group = instruction[3];
         }
-        // If we find a function, we can exit early because the shader's actual code is irrelevant
-        case 54: /* OpFunction */
-          instruction = words + wordCount;
-          break;
-        default: break;
+
+        break;
       }
-      instruction += length;
+      case 19: // OpTypeVoid
+      case 20: // OpTypeBool
+      case 21: // OpTypeInt
+      case 22: // OpTypeFloat
+      case 23: // OpTypeVector
+      case 24: // OpTypeMatrix
+      case 25: // OpTypeImage
+      case 26: // OpTypeSampler
+      case 27: // OpTypeSampledImage
+      case 28: // OpTypeArray
+      case 29: // OpTypeRuntimeArray
+      case 30: // OpTypeStruct
+      case 31: // OpTypeOpaque
+      case 32: // OpTypePointer
+        cache[instruction[1]] = instruction - words;
+        break;
+      case 59: { // OpVariable
+        uint32_t type = instruction[1];
+        uint32_t id = instruction[2];
+        uint32_t storageClass = instruction[3];
+
+        // Skip if it wasn't decorated with a group/binding
+        if (cache[id] == ~0u) {
+          break;
+        }
+
+        uint32_t pointerId = type;
+        const uint32_t* pointer = words + cache[pointerId];
+        uint32_t pointerTypeId = pointer[3];
+        const uint32_t* pointerType = words + cache[pointerTypeId];
+
+        // If it's a pointer to an array, set the resource array size and keep going
+        if ((pointerType[0] & 0xffff) == 28 /* OpTypeArray */) {
+          uint32_t sizeId = pointerType[3];
+          const uint32_t* size = words + cache[sizeId];
+          if ((size[0] & 0xffff) == 43 /* OpConstant */ || (size[0] & 0xffff) == 50 /* OpSpecConstant */) {
+            resources[cache[id]].count = size[3];
+          } else {
+            return false; // XXX
+          }
+
+          pointerTypeId = pointerType[2];
+          pointerType = words + cache[pointerTypeId];
+        } else {
+          resources[cache[id]].count = 1;
+        }
+
+        // Use StorageClass to detect uniform/storage buffers
+        if (storageClass == 12 /* StorageBuffer */) {
+          resources[cache[id]].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+          break;
+        } else if (storageClass == 2 /* Uniform */) {
+          resources[cache[id]].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+          break;
+        }
+
+        // If it's a sampled image, unwrap to get to the image type
+        // If it's not an image or a sampled image, then it's weird, fail
+        if ((pointerType[0] & 0xffff) == 27 /* OpTypeSampledImage */) {
+          pointerTypeId = pointerType[2];
+          pointerType = words + cache[pointerTypeId];
+        } else if ((pointerType[0] & 0xffff) != 25 /* OpTypeImage */) {
+          vkDestroyShaderModule(state.device, *handle, NULL);
+          return false; // XXX
+        }
+
+        // If it's a buffer (uniform/storage texel buffer) or an input attachment, fail
+        if (pointerType[3] == 5 /* DimBuffer */ || pointerType[3] == 6 /* DimSubpassData */) {
+          vkDestroyShaderModule(state.device, *handle, NULL);
+          return false; // XXX
+        }
+
+        // Read the Sampled key to determine if it's a sampled image (1) or a storage image (2)
+        if (pointerType[7] == 1) {
+          resources[cache[id]].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        } else if (pointerType[7] == 2) {
+          resources[cache[id]].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        } else {
+          vkDestroyShaderModule(state.device, *handle, NULL);
+          return false; // XXX
+        }
+
+        break;
+      }
+      // If we find a function, we can exit early because the shader's actual code is irrelevant
+      case 54: /* OpFunction */
+        instruction = words + wordCount;
+        break;
+      default: break;
     }
+    instruction += length;
   }
 
   // Merge resources into layout info
@@ -2753,6 +2756,7 @@ static const char* getErrorString(VkResult result) {
 // - There is very little use of dynamic memory allocation.  Most of the state is in fixed-size
 //   blocks of static memory.  This might end up being too restrictive and can be relaxed later.
 // - Writing to storage resources from vertex/fragment shaders is currently not allowed.
+// - Texel buffers are not supported.
 // - ~0u aka -1 is commonly used as a "nil" value.
 // ### Threads
 // - Any thread that wants to call gpu_batch_begin or gpu_bundle_init should call gpu_thread_attach
