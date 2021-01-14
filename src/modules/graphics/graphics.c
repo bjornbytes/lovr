@@ -1,4 +1,5 @@
 #include "graphics/graphics.h"
+#include "data/blob.h"
 #include "event/event.h"
 #include "core/maf.h"
 #include "core/map.h"
@@ -13,12 +14,16 @@
 struct Buffer {
   gpu_buffer* gpu;
   BufferInfo info;
-  uint32_t access;
 };
 
 struct Texture {
   gpu_texture* gpu;
   TextureInfo info;
+};
+
+struct Shader {
+  gpu_shader* gpu;
+  ShaderInfo info;
 };
 
 static LOVR_THREAD_LOCAL struct {
@@ -30,6 +35,8 @@ static LOVR_THREAD_LOCAL struct {
   } pipeline;
   uint32_t transform;
   float transforms[64][16];
+  float viewMatrix[2][16];
+  float projection[2][16];
 } thread;
 
 static struct {
@@ -521,8 +528,28 @@ void lovrGraphicsScale(vec3 scale) {
   mat4_scale(thread.transforms[thread.transform], scale[0], scale[1], scale[2]);
 }
 
-void lovrGraphicsMatrixTransform(mat4 transform) {
+void lovrGraphicsTransform(mat4 transform) {
   mat4_mul(thread.transforms[thread.transform], transform);
+}
+
+void lovrGraphicsGetViewMatrix(uint32_t index, float* viewMatrix) {
+  lovrAssert(index < 2, "Invalid view index %d", index);
+  mat4_init(viewMatrix, thread.viewMatrix[index]);
+}
+
+void lovrGraphicsSetViewMatrix(uint32_t index, float* viewMatrix) {
+  lovrAssert(index < 2, "Invalid view index %d", index);
+  mat4_init(thread.viewMatrix[index], viewMatrix);
+}
+
+void lovrGraphicsGetProjection(uint32_t index, float* projection) {
+  lovrAssert(index < 2, "Invalid view index %d", index);
+  mat4_init(projection, thread.projection[index]);
+}
+
+void lovrGraphicsSetProjection(uint32_t index, float* projection) {
+  lovrAssert(index < 2, "Invalid view index %d", index);
+  mat4_init(thread.projection[index], projection);
 }
 
 // Buffer
@@ -619,4 +646,26 @@ void lovrTextureGetPixels(Texture* texture, uint32_t x, uint32_t y, uint32_t w, 
   uint16_t offset[4] = { x, y, layer, level };
   uint16_t extent[3] = { w, h, 1 };
   gpu_texture_read(texture->gpu, offset, extent, callback, context);
+}
+
+// Shader
+
+Shader* lovrShaderCreate(ShaderInfo* info) {
+  Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
+  shader->gpu = (gpu_shader*) (shader + 1);
+  shader->info = *info;
+  lovrAssert(gpu_shader_init(shader->gpu, NULL), "Could not create Shader");
+  return shader;
+}
+
+void lovrShaderDestroy(void* ref) {
+  Shader* shader = ref;
+  gpu_shader_destroy(shader->gpu);
+  lovrRelease(shader->info.vertex, lovrBlobDestroy);
+  lovrRelease(shader->info.fragment, lovrBlobDestroy);
+  lovrRelease(shader->info.compute, lovrBlobDestroy);
+}
+
+const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
+  return &shader->info;
 }
